@@ -17,9 +17,6 @@ GNU General Public License for more details.
 #if !XASH_DEDICATED
 #include <pspkernel.h>
 #include <pspdisplay.h>
-#include <pspgu.h>
-#include <pspgum.h>
-#include "vram_psp.h"
 
 #include "common.h"
 #include "client.h"
@@ -27,31 +24,19 @@ GNU General Public License for more details.
 #include "input.h"
 #include "vid_common.h"
 
-// Set gu list
-#define PSP_GU_STATIC_LIST	1
-#define PSP_GU_LIST_SIZE	0x40000
-
 // Set frame buffer
 #define PSP_FB_WIDTH		480
 #define PSP_FB_HEIGHT		272
 #define PSP_FB_BWIDTH		512
-#define PSP_FB_FORMAT		5650 //4444,5551,5650,8888
+#define PSP_FB_FORMAT		PSP_DISPLAY_PIXEL_FORMAT_565 //4444,5551,565,8888
 
-#if   PSP_FB_FORMAT == 4444
-#define PSP_FB_HW_FORMAT	GU_PSM_4444
-#define PSP_FB_SW_FORMAT	PSP_DISPLAY_PIXEL_FORMAT_4444
+#if   PSP_FB_FORMAT == PSP_DISPLAY_PIXEL_FORMAT_4444
 #define PSP_FB_BPP			2
-#elif PSP_FB_FORMAT == 5551
-#define PSP_FB_HW_FORMAT	GU_PSM_5551
-#define PSP_FB_SW_FORMAT	PSP_DISPLAY_PIXEL_FORMAT_5551
+#elif PSP_FB_FORMAT == PSP_DISPLAY_PIXEL_FORMAT_5551
 #define PSP_FB_BPP			2
-#elif PSP_FB_FORMAT == 5650
-#define PSP_FB_HW_FORMAT	GU_PSM_5650
-#define PSP_FB_SW_FORMAT	PSP_DISPLAY_PIXEL_FORMAT_565
+#elif PSP_FB_FORMAT == PSP_DISPLAY_PIXEL_FORMAT_565
 #define PSP_FB_BPP			2
-#elif PSP_FB_FORMAT == 8888
-#define PSP_FB_HW_FORMAT	GU_PSM_8888
-#define PSP_FB_SW_FORMAT	PSP_DISPLAY_PIXEL_FORMAT_8888
+#elif PSP_FB_FORMAT == PSP_DISPLAY_PIXEL_FORMAT_8888
 #define PSP_FB_BPP			4
 #endif
 
@@ -84,12 +69,6 @@ static struct
 #endif
 	void	*draw_buffer;
 	void	*disp_buffer;
-	void	*depth_buffer;
-#if PSP_GU_STATIC_LIST
-	unsigned int gu_list[PSP_GU_LIST_SIZE] __attribute__( ( aligned( 64 ) ) );
-#else
-	unsigned int *gu_list;
-#endif
 }vid_psp;
 
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
@@ -100,16 +79,16 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	*b = 31 << 11;
 	*bpp = 2;
 
-	vid_psp.draw_buffer = (void*)valloc( PSP_FB_HEIGHT * PSP_FB_BWIDTH * PSP_FB_BPP );
+	vid_psp.draw_buffer = (void*)malloc( PSP_FB_HEIGHT * PSP_FB_BWIDTH * PSP_FB_BPP );
 	if( !vid_psp.draw_buffer )
 		Host_Error( "Memory allocation failled! (vid_psp.draw_buffer)\n");
 
-	vid_psp.disp_buffer = (void*)valloc( PSP_FB_HEIGHT * PSP_FB_BWIDTH * PSP_FB_BPP );
+	vid_psp.disp_buffer = (void*)malloc( PSP_FB_HEIGHT * PSP_FB_BWIDTH * PSP_FB_BPP );
 	if( !vid_psp.disp_buffer )
 		Host_Error( "Memory allocation failled! (vid_psp.disp_buffer)\n");
 
 	sceDisplaySetMode(0, PSP_FB_WIDTH, PSP_FB_HEIGHT);
-	sceDisplaySetFrameBuf(vid_psp.disp_buffer, PSP_FB_WIDTH, PSP_FB_SW_FORMAT, 1);
+	sceDisplaySetFrameBuf(vid_psp.disp_buffer, PSP_FB_WIDTH, PSP_FB_FORMAT, 1);
 
 	return true;
 }
@@ -126,152 +105,12 @@ void SW_UnlockBuffer( void )
 	vid_psp.draw_buffer = p_swap;
 
 	sceKernelDcacheWritebackInvalidateAll();
-	sceDisplaySetFrameBuf(vid_psp.disp_buffer, PSP_FB_BWIDTH, PSP_FB_SW_FORMAT, PSP_DISPLAY_SETBUF_NEXTFRAME);
+	sceDisplaySetFrameBuf(vid_psp.disp_buffer, PSP_FB_BWIDTH, PSP_FB_FORMAT, PSP_DISPLAY_SETBUF_NEXTFRAME);
 
 	if ( vsync )
 	{
 		sceDisplayWaitVblankStart();
 	}
-}
-
-_inline void GU_Init( void )
-{
-	vid_psp.draw_buffer = ( void* )valloc( PSP_FB_HEIGHT * PSP_FB_BWIDTH * PSP_FB_BPP );
-	if( !vid_psp.draw_buffer )
-		Host_Error( "Memory allocation failled! (vid_psp.draw_buffer)\n");
-
-	vid_psp.disp_buffer = ( void* )valloc( PSP_FB_HEIGHT * PSP_FB_BWIDTH * PSP_FB_BPP );
-	if( !vid_psp.disp_buffer )
-		Host_Error( "Memory allocation failled! (vid_psp.disp_buffer)\n");
-
-	vid_psp.depth_buffer = ( void* )valloc( PSP_FB_HEIGHT * PSP_FB_BWIDTH * PSP_FB_BPP );
-	if( !vid_psp.depth_buffer )
-		Host_Error( "Memory allocation failled! (vid_psp.depth_buffer)\n");
-
-#if !PSP_GU_STATIC_LIST
-	vid_psp.gu_list = ( unsigned int* )valloc( PSP_GU_LIST_SIZE * sizeof ( unsigned int )  );
-	if( !vid_psp.gu_list )
-		Host_Error( "Memory allocation failled! (vid_psp.gu_list)\n");
-#endif
-
-	// Initialise the GU.
-	sceGuInit();
-
-	// Set up the GU.
-	sceGuStart( GU_DIRECT, vid_psp.gu_list );
-
-	sceGuDrawBuffer( PSP_FB_HW_FORMAT, vrelptr( vid_psp.draw_buffer ), PSP_FB_BWIDTH);
-	sceGuDispBuffer( PSP_FB_WIDTH, PSP_FB_HEIGHT, vrelptr( vid_psp.disp_buffer ), PSP_FB_BWIDTH);
-	sceGuDepthBuffer( vrelptr( vid_psp.depth_buffer ), PSP_FB_BWIDTH);
-
-	// Set the rendering offset and viewport.
-	sceGuOffset( 2048 - ( PSP_FB_WIDTH / 2 ), 2048 - ( PSP_FB_HEIGHT / 2 ) );
-	sceGuViewport( 2048, 2048, PSP_FB_WIDTH, PSP_FB_HEIGHT );
-
-	// Set up scissoring.
-	sceGuEnable( GU_SCISSOR_TEST );
-	sceGuScissor( 0, 0, PSP_FB_WIDTH, PSP_FB_HEIGHT );
-
-	// Set up texturing.
-	sceGuEnable( GU_TEXTURE_2D );
-
-	// Set up clearing.
-	sceGuClearDepth( 65535 );
-	sceGuClearColor( GU_RGBA( 0x10, 0x20, 0x40, 0xff ) );
-
-	// Set up depth.
-	sceGuDepthOffset( 0 );
-	sceGuDepthRange( 0, 65535 );
-	sceGuDepthFunc( GU_LEQUAL );
-	sceGuEnable( GU_DEPTH_TEST );
-
-	// Set up fog
-//	sceGuFog( 100.0f, 500.0f, 0xffffffff );
-//	sceGuDisable( GU_FOG );
-
-	// Set the default matrices.
-	sceGumMatrixMode( GU_PROJECTION );
-	sceGumLoadIdentity();
-	sceGumMatrixMode( GU_VIEW );
-	sceGumLoadIdentity();
-	sceGumMatrixMode( GU_MODEL );
-	sceGumLoadIdentity();
-	sceGumMatrixMode( GU_TEXTURE );
-	sceGumLoadIdentity();
-
-	sceGumUpdateMatrix();
-
-	// Set up culling.
-	sceGuFrontFace( GU_CW );
-	sceGuEnable( GU_CULL_FACE );
-	sceGuEnable( GU_CLIP_PLANES );
-
-	// Set up blending.
-	sceGuBlendFunc( GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0 );
-
-	sceGuFinish();
-	sceGuSync( GU_SYNC_FINISH, GU_SYNC_WHAT_DONE );
-
-	// Turn on the display.
-	sceDisplayWaitVblankStart();
-	sceGuDisplay(GU_TRUE);
-
-	// Start a new render.
-	sceGuStart( GU_DIRECT, vid_psp.gu_list );
-
-	Con_Printf( "Vram available: %i\n", vmemavail() );
-}
-
-_inline void GU_Shutdown( void )
-{
-	// Finish rendering.
-	sceGuFinish();
-	sceGuSync( GU_SYNC_FINISH, GU_SYNC_WHAT_DONE );
-
-	// Shut down the display.
-	sceGuTerm();
-
-	// Free the buffers.
-	vfree( vid_psp.draw_buffer );
-	vid_psp.draw_buffer = NULL;
-	vfree( vid_psp.disp_buffer );
-	vid_psp.disp_buffer = NULL;
-	vfree( vid_psp.depth_buffer );
-	vid_psp.depth_buffer = NULL;
-#if !PSP_GU_STATIC_LIST
-	vfree( vid_psp.gu_list );
-	vid_psp.gu_list = NULL;
-#endif
-}
-
-_inline void GU_SwapBuffers( void )
-{
-/*
-	// Don't forget writeback the cache
-	sceKernelDcacheWritebackAll();
-*/
-	// Finish rendering.
-	size_t list_size = sceGuFinish();
-/*
-	if( list_size > sizeof( gu_list ) - 1000 )
-		printf( "Display list size (%i) %i!\n", list_size, sizeof( gu_list ) );
-*/
-	sceGuSync( GU_SYNC_FINISH, GU_SYNC_WHAT_DONE );
-
-	if ( vsync )
-	{
-		sceDisplayWaitVblankStart();
-	}
-
-	// Swap the buffers.
-	sceGuSwapBuffers();
-
-	void* p_swap = vid_psp.disp_buffer;
-	vid_psp.disp_buffer = vid_psp.draw_buffer;
-	vid_psp.draw_buffer = p_swap;
-
-	// Start a new render.
-	sceGuStart( GU_DIRECT, vid_psp.gu_list );
 }
 
 int R_MaxVideoModes( void )
@@ -384,7 +223,7 @@ static qboolean VID_SetScreenResolution( int width, int height )
 
 void GL_SwapBuffers( void )
 {
-	GU_SwapBuffers();
+	if ( vsync ) sceDisplayWaitVblankStart();
 }
 
 int GL_SetAttribute( int attr, int val )
@@ -435,7 +274,6 @@ qboolean R_Init_Video( const int type )
 	case REF_GL:
 		// refdll also can check extensions
 		ref.dllFuncs.GL_InitExtensions();
-		GU_Init();
 		break;
 	case REF_SOFTWARE:
 	default:
@@ -530,8 +368,16 @@ void R_Free_Video( void )
 	R_FreeVideoModes();
 #endif
 	ref.dllFuncs.GL_ClearExtensions();
-	if( !glw_state.software )
-		GU_Shutdown();
+	if( glw_state.software )
+	{
+		if( vid_psp.draw_buffer )
+			free( vid_psp.draw_buffer );
+		if( vid_psp.disp_buffer )
+			free( vid_psp.disp_buffer );
+		
+		vid_psp.draw_buffer = NULL;
+		vid_psp.disp_buffer = NULL;
+	}
 }
 
 #endif // XASH_DEDICATED

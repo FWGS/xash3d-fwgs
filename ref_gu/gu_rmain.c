@@ -1091,11 +1091,7 @@ void R_BeginFrame( qboolean clearScene )
 	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW )) &&
 		clearScene && ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_cinematic )
 	{
-#if 1
 		sceGuClear( GU_COLOR_BUFFER_BIT );
-#else
-		pglClear( GL_COLOR_BUFFER_BIT );
-#endif
 	}
 
 	R_CheckGamma();
@@ -1157,10 +1153,6 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 
 	// setup the initial render params
 	R_SetupRefParams( rvp );
-#if 0
-	if( gl_finish->value && RI.drawWorld )
-		pglFinish();
-#endif
 
 	// completely override rendering
 	if( gEngfuncs.drawFuncs->GL_RenderFrame != NULL )
@@ -1195,7 +1187,22 @@ void R_EndFrame( void )
 {
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
-	gEngfuncs.GL_SwapBuffers();
+
+	// finish rendering.
+	sceGuFinish();
+	sceGuSync( GU_SYNC_FINISH, GU_SYNC_WAIT );
+	
+	// swap the buffers.
+	sceGuSwapBuffers();
+
+	void* p_swap = guRender.disp_buffer;
+	guRender.disp_buffer = guRender.draw_buffer;
+	guRender.draw_buffer = p_swap;
+	
+	gEngfuncs.GL_SwapBuffers(); // vsync
+
+	// start a new render.
+	sceGuStart( GU_DIRECT, guRender.context_list );
 }
 
 /*

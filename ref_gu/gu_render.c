@@ -1,4 +1,18 @@
+/*
+gu_render.c - render initialization
+Copyright (C) 2010 Uncle Mike
+Copyright (C) 2022 Sergey Galushko
 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
 #include "gu_local.h"
 
 cvar_t	*gl_texture_lodfunc;
@@ -12,12 +26,10 @@ cvar_t	*gl_emboss_scale;
 cvar_t	*gl_detailscale;
 cvar_t	*gl_depthoffset;
 cvar_t	*gl_wireframe;
-cvar_t	*gl_finish;
 cvar_t	*gl_nosort;
 cvar_t	*gl_vsync;
 cvar_t	*gl_clear;
 cvar_t	*gl_test;
-cvar_t	*gl_stencilbits;
 cvar_t	*gl_subdivide_size;
 cvar_t	*r_speeds;
 cvar_t	*r_fullbright;
@@ -54,6 +66,155 @@ gl_globals_t	tr;
 glconfig_t	glConfig;
 glstate_t	glState;
 glwstate_t	glw_state;
+gurender_t	guRender;
+
+// Set frame buffer
+#define PSP_FB_WIDTH		480
+#define PSP_FB_HEIGHT		272
+#define PSP_FB_BWIDTH		512
+#define PSP_FB_FORMAT		GU_PSM_5650 //4444,5551,5650,8888
+
+#if   PSP_FB_FORMAT == GU_PSM_4444
+#define PSP_FB_BPP			2
+#elif PSP_FB_FORMAT == GU_PSM_5551
+#define PSP_FB_BPP			2
+#elif PSP_FB_FORMAT == GU_PSM_5650
+#define PSP_FB_BPP			2
+#elif PSP_FB_FORMAT == GU_PSM_8888
+#define PSP_FB_BPP			4
+#endif
+
+#define PSP_GU_LIST_SIZE	0x100000 // 1Mb
+
+static byte context_list[PSP_GU_LIST_SIZE] __attribute__( ( aligned( 64 ) ) );
+
+/*
+===============
+GU_Init
+===============
+*/
+static void GU_Init( void )
+{
+	memset( &guRender, 0, sizeof( guRender ));
+
+	guRender.screen_width = PSP_FB_WIDTH;
+	guRender.screen_height = PSP_FB_HEIGHT;
+	guRender.buffer_width = PSP_FB_BWIDTH;
+	guRender.buffer_format = PSP_FB_FORMAT; 
+	guRender.buffer_bpp = PSP_FB_BPP;
+	
+	guRender.draw_buffer = ( void* )valloc( guRender.buffer_width * guRender.screen_height * guRender.buffer_bpp );
+	if( !guRender.draw_buffer )
+		gEngfuncs.Host_Error( "Memory allocation failled! (guRender.draw_buffer)\n" );
+
+	guRender.disp_buffer = ( void* )valloc( guRender.buffer_width * guRender.screen_height * guRender.buffer_bpp );
+	if( !guRender.disp_buffer )
+		gEngfuncs.Host_Error( "Memory allocation failled! (guRender.disp_buffer)\n" );
+
+	guRender.depth_buffer = ( void* )valloc( guRender.buffer_width * guRender.screen_height * guRender.buffer_bpp );
+	if( !guRender.depth_buffer )
+		gEngfuncs.Host_Error( "Memory allocation failled! (guRender.depth_buffer)\n" );
+
+	guRender.context_list = context_list;
+	guRender.context_list_size = sizeof( context_list );
+
+	// Initialise the GU.
+	sceGuInit();
+
+	// Set up the GU.
+	sceGuStart( GU_DIRECT, guRender.context_list );
+
+	sceGuDrawBuffer( guRender.buffer_format, vrelptr( guRender.draw_buffer ), guRender.buffer_width );
+	sceGuDispBuffer( guRender.screen_width, guRender.screen_height, vrelptr( guRender.disp_buffer ), guRender.buffer_width );
+	sceGuDepthBuffer( vrelptr( guRender.depth_buffer ), guRender.buffer_width );
+
+	// Set the rendering offset and viewport.
+	sceGuOffset( 2048 - ( guRender.screen_width / 2 ), 2048 - ( guRender.screen_height / 2 ) );
+	sceGuViewport( 2048, 2048, guRender.screen_width, guRender.screen_height );
+
+	// Set up scissoring.
+	sceGuEnable( GU_SCISSOR_TEST );
+	sceGuScissor( 0, 0, guRender.screen_width, guRender.screen_height );
+
+	// Xash default
+	sceGuClearColor( GU_COLOR( 0.5f, 0.5f, 0.5f, 1.0f ) );
+
+	sceGuDisable( GU_DEPTH_TEST );
+	sceGuDisable( GU_CULL_FACE );
+	sceGuEnable( GU_CLIP_PLANES );
+	sceGuDepthFunc( GU_LEQUAL );
+	sceGuColor( 0xffffffff );
+
+	// Set up stencil
+	if( glState.stencilEnabled )
+	{
+		sceGuDisable( GU_STENCIL_TEST );
+		/*pglStencilMask( ( GLuint ) ~0 );*/ // alpha color sceGuPixelMask
+		sceGuStencilFunc( GU_EQUAL, 0, ~0 );
+		sceGuStencilOp( GU_KEEP, GU_INCR, GU_INCR );
+	}
+
+	sceGuDepthRange( 0, 65535 );
+	sceGuDepthOffset( 0 );
+
+	sceGuDisable( GU_BLEND );
+	sceGuDisable( GU_ALPHA_TEST );
+
+	sceGuBlendFunc( GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0 );
+	sceGuAlphaFunc( GU_GREATER, DEFAULT_ALPHATEST, 0xff );
+	sceGuEnable( GU_TEXTURE_2D );
+	sceGuShadeModel( GU_SMOOTH );
+	sceGuFrontFace( GU_CW ); // reversed
+	
+	// Set the default matrices.
+	sceGumMatrixMode( GU_PROJECTION );
+	sceGumLoadIdentity();
+	sceGumMatrixMode( GU_VIEW );
+	sceGumLoadIdentity();
+	sceGumMatrixMode( GU_MODEL );
+	sceGumLoadIdentity();
+	sceGumMatrixMode( GU_TEXTURE );
+	sceGumLoadIdentity();
+
+	sceGumUpdateMatrix();
+	
+	sceGuFinish();
+	sceGuSync( GU_SYNC_FINISH, GU_SYNC_WAIT );
+
+	// Turn on the display.
+	sceDisplayWaitVblankStart();
+	sceGuDisplay(GU_TRUE);
+
+	// Start a new render.
+	sceGuStart( GU_DIRECT, guRender.context_list );
+}
+
+/*
+===============
+GU_Shutdown
+===============
+*/
+static void GU_Shutdown( void )
+{
+	// Finish rendering.
+	sceGuFinish();
+	sceGuSync( GU_SYNC_FINISH, GU_SYNC_WAIT );
+
+	// Shut down the display.
+	sceGuTerm();
+
+	// Free the buffers.
+	if( guRender.draw_buffer )
+		vfree( guRender.draw_buffer );
+	if( guRender.disp_buffer )
+		vfree( guRender.disp_buffer );
+	if( guRender.depth_buffer )
+		vfree( guRender.depth_buffer );
+
+	guRender.draw_buffer = NULL;
+	guRender.disp_buffer = NULL;
+	guRender.depth_buffer = NULL;
+}
 
 /*
 ==============
@@ -88,46 +249,14 @@ static void GL_SetDefaultState( void )
 	glState.fogStart = 100.0f;
 	glState.fogEnd = 1000.0f;
 }
-
+#if 0
 /*
 ===============
 GL_SetDefaults
 ===============
 */
-static void GL_SetDefaults( void )
+static void GU_SetDefaults( void )
 {
-#if 1
-/*
-	sceGuFinish();
-	sceGuSync(0,0);
-*/
-	sceGuClearColor( GU_COLOR( 0.5f, 0.5f, 0.5f, 1.0f ) );
-
-	sceGuDisable( GU_DEPTH_TEST );
-	sceGuDisable( GU_CULL_FACE );
-	//sceGuDisable( GU_SCISSOR_TEST );
-	sceGuDepthFunc( GU_LEQUAL );
-	sceGuColor( 0xffffffff );
-
-	if( glState.stencilEnabled )
-	{
-		sceGuDisable( GU_STENCIL_TEST );
-		/*pglStencilMask( ( GLuint ) ~0 );*/
-		sceGuStencilFunc( GU_EQUAL, 0, ~0 );
-		sceGuStencilOp( GU_KEEP, GU_INCR, GU_INCR );
-	}
-	sceGuDepthOffset( 0 );
-	
-	GL_CleanupAllTextureUnits();
-
-	sceGuDisable( GU_BLEND );
-	sceGuDisable( GU_ALPHA_TEST );
-
-	sceGuAlphaFunc( GU_GREATER, DEFAULT_ALPHATEST, 0xff );
-	sceGuEnable( GU_TEXTURE_2D );
-	sceGuShadeModel( GU_SMOOTH );
-	sceGuFrontFace( GU_CCW );
-#else
 	pglFinish();
 
 	pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
@@ -161,10 +290,10 @@ static void GL_SetDefaults( void )
 
 	pglPointSize( 1.2f );
 	pglLineWidth( 1.2f );
-#endif
+
 	GL_Cull( GL_NONE );
 }
-
+#endif
 
 /*
 =================
@@ -178,17 +307,11 @@ void R_RenderInfo_f( void )
 	gEngfuncs.Con_Printf( "MAX_TEXTURE_SIZE: %i\n", glConfig.max_texture_size );
 	gEngfuncs.Con_Printf( "MODE: %ix%i\n", gpGlobals->width, gpGlobals->height );
 	gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
-	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
-		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
+	gEngfuncs.Con_Printf( "VRAM AVAILABLE: %i\n", vmemavail() );
 }
 
 void GL_InitExtensions( void )
 {
-//	int colorBits[3];
-
-	glConfig.color_bits = 5 + 5 + 5;
-	glConfig.alpha_bits = 1;
-	glConfig.stencil_bits = ( int )gl_stencilbits->value;
 	glState.stencilEnabled = true;
 	glConfig.max_texture_size = 256;
 	
@@ -248,14 +371,12 @@ void GL_InitCommands( void )
 	gl_keeptjunctions = gEngfuncs.Cvar_Get( "gl_keeptjunctions", "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_GLCONFIG|FCVAR_LATCH, "fake bumpmapping scale" );
 	gl_showtextures = gEngfuncs.pfnGetCvarPointer( "r_showtextures", 0 );
-	gl_finish = gEngfuncs.Cvar_Get( "gl_finish", "0", FCVAR_GLCONFIG, "use glFinish instead of glFlush" );
 	gl_nosort = gEngfuncs.Cvar_Get( "gl_nosort", "1", FCVAR_GLCONFIG, "disable sorting of translucent surfaces" );
 	gl_clear = gEngfuncs.pfnGetCvarPointer( "gl_clear", 0 );
 	gl_test = gEngfuncs.Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_GLCONFIG|FCVAR_SPONLY, "show wireframe overlay" );
-	gl_stencilbits = gEngfuncs.Cvar_Get( "gl_stencilbits", "8", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "pixelformat stencil bits (0 - auto)" );
 	gl_subdivide_size = gEngfuncs.Cvar_Get( "gl_subdivide_size", "256.0", FCVAR_GLCONFIG, "the division value for the sky brushes" );
-	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "2", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "round texture sizes to nearest POT value" );
+	gl_round_down = gEngfuncs.Cvar_Get( "gl_round_down", "1", FCVAR_GLCONFIG, "round texture sizes to nearest POT value" );
 	// these cvar not used by engine but some mods requires this
 	gl_depthoffset = gEngfuncs.Cvar_Get( "gl_depthoffset", "256.0", FCVAR_GLCONFIG, "depth offset for decals" );
 
@@ -313,7 +434,7 @@ qboolean R_Init( void )
 
 	r_temppool = Mem_AllocPool( "Render Zone" );
 
-	GL_SetDefaults();
+	GU_Init();
 	R_InitImages();
 	R_SpriteInit();
 	R_StudioInit();
@@ -336,6 +457,7 @@ void R_Shutdown( void )
 
 	GL_RemoveCommands();
 	R_ShutdownImages();
+	GU_Shutdown();
 
 	Mem_FreePool( &r_temppool );
 

@@ -16,11 +16,12 @@ GNU General Public License for more details.
 
 #ifndef GL_LOCAL_H
 #define GL_LOCAL_H
-#if 1
+
 #include <pspkernel.h>
+#include <pspdisplay.h>
 #include <pspgu.h>
 #include <pspgum.h>
-#endif
+
 #include "port.h"
 #include "xash3d_types.h"
 #include "cvardef.h"
@@ -40,6 +41,7 @@ GNU General Public License for more details.
 //#include "cvar.h"
 #include "gu_helper.h"
 #include "gu_extension.h"
+#include "gu_vram.h"
 #include "wadfile.h"
 
 #ifndef offsetof
@@ -686,18 +688,7 @@ void GU_Clip( gu_vert_t *uv, size_t uvc, gu_vert_t **cv, size_t* cvc );
 typedef struct
 {
 	int			max_texture_size;
-	int			color_bits;
-	int			alpha_bits;
-	int			depth_bits;
-	int			stencil_bits;
-
-	gl_context_type_t	context;
-	gles_wrapper_t		wrapper;
-
 	qboolean	softwareGammaUpdate;
-	qboolean	fCustomRenderer;
-	int			prev_width;
-	int			prev_height;
 } glconfig_t;
 
 typedef struct
@@ -727,8 +718,23 @@ typedef struct
 	qboolean		extended;		// extended context allows to GL_Debug
 } glwstate_t;
 
+typedef struct
+{
+	int		screen_width;
+	int		screen_height;
+	int		buffer_width;
+	int		buffer_format;
+	int		buffer_bpp;
+	void	*draw_buffer;
+	void	*disp_buffer;
+	void	*depth_buffer;
+	void	*context_list;
+	size_t	context_list_size;
+}gurender_t;
+
 extern glconfig_t		glConfig;
 extern glstate_t		glState;
+extern gurender_t		guRender;
 // move to engine
 extern glwstate_t		glw_state;
 extern ref_api_t		gEngfuncs;
@@ -751,11 +757,9 @@ extern cvar_t	*gl_round_down;
 extern cvar_t	*gl_detailscale;
 extern cvar_t	*gl_wireframe;
 extern cvar_t	*gl_depthoffset;
-extern cvar_t	*gl_finish;
 extern cvar_t	*gl_nosort;
 extern cvar_t	*gl_clear;
 extern cvar_t	*gl_test;		// cvar to testify new effects
-extern cvar_t	*gl_stencilbits;
 extern cvar_t	*gl_subdivide_size;
 
 extern cvar_t	*r_speeds;

@@ -8,7 +8,7 @@
  * Copyright (c) 2007 Alexander Berl 'Raphael' <raphael@fx-world.org>
  * http://wordpress.fx-world.org
  */
-#include "vram.h"
+#include "gu_vram.h"
 #include <stdio.h>
 
 // Configure the memory to be managed

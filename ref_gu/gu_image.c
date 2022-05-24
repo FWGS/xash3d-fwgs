@@ -15,7 +15,6 @@ GNU General Public License for more details.
 */
 #include <malloc.h>
 #include <pspsuspend.h>
-#include "vram_psp.h"
 #include "gu_local.h"
 #include "crclib.h"
 
@@ -251,26 +250,28 @@ GL_SetTextureDimensions
 */
 static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height )
 {
-	int	maxTextureSize;
-	int stepWidth, stepHeight;
+	int	maxTextureSize = glConfig.max_texture_size;
+	int	step = (int)gl_round_down->value;
+	int	scaled_width, scaled_height;
 
 	Assert( tex != NULL );
-
-	maxTextureSize = glConfig.max_texture_size;
 
 	// store original sizes
 	tex->srcWidth = width;
 	tex->srcHeight = height;
 
-#if 0 // scale up
-	stepWidth = ( int )ceilf( logf( width  ) * 1.0f / logf( 2.0f ) );
-	stepHeight = ( int )ceilf( logf( height ) * 1.0f / logf( 2.0f ) );
-#else // scale down
-	stepWidth = ( int )floorf( logf( width  ) * 1.0f / logf( 2.0f ) );
-	stepHeight = ( int )floorf( logf( height ) * 1.0f / logf( 2.0f ) );
-#endif
-	width  = ( 1 << stepWidth );
-	height = ( 1 << stepHeight );
+	for( scaled_width = 1; scaled_width < width; scaled_width <<= 1 );
+
+	if( step > 0 && width < scaled_width && ( step == 1 || ( scaled_width - width ) > ( scaled_width >> step ) ) )
+		scaled_width >>= 1;
+
+	for( scaled_height = 1; scaled_height < height; scaled_height <<= 1 );
+
+	if( step > 0 && height < scaled_height && ( step == 1 || ( scaled_height - height ) > ( scaled_height >> step ) ) )
+		scaled_height >>= 1;
+
+	width = scaled_width;
+	height = scaled_height;
 
 	if( width > maxTextureSize || height > maxTextureSize )
 	{
