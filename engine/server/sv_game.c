@@ -108,7 +108,7 @@ entavrs table for FindEntityByString
 */
 TYPEDESCRIPTION *SV_GetEntvarsDescirption( int number )
 {
-	if( number < 0 && number >= ENTVARS_COUNT )
+	if( number < 0 || number >= ENTVARS_COUNT )
 		return NULL;
 	return &gEntvarsDescription[number];
 }
@@ -3984,7 +3984,7 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 		return;	// someone stupid joke
 
 	// first check event for out of bounds
-	if( eventindex < 1 || eventindex > MAX_EVENTS )
+	if( eventindex < 1 || eventindex >= MAX_EVENTS )
 	{
 		Con_Printf( S_ERROR "EV_Playback: invalid eventindex %i\n", eventindex );
 		return;
@@ -4914,7 +4914,7 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			Mem_Free( pkvd[i].szValue );
 	}
 
-	if( classname && Mem_IsAllocatedExt( host.mempool, classname ))
+	if( Mem_IsAllocatedExt( host.mempool, classname ))
 		Mem_Free( classname );
 
 	return true;
