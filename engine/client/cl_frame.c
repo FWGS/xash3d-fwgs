@@ -222,7 +222,7 @@ void CL_UpdateLatchedVars( cl_entity_t *ent )
 
 	if( ent->curstate.sequence != ent->prevstate.sequence )
 	{
-		memcpy( ent->latched.prevseqblending, ent->prevstate.blending, sizeof( ent->prevstate.blending ));
+		memcpy( ent->latched.prevseqblending, ent->prevstate.blending, sizeof( ent->latched.prevseqblending ));
 		ent->latched.prevsequence = ent->prevstate.sequence;
 		ent->latched.sequencetime = ent->curstate.animtime;
 	}
