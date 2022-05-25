@@ -533,7 +533,7 @@ void SV_BatchUploadRequest( sv_client_t *cl )
 
 void SV_SendResource( resource_t *pResource, sizebuf_t *msg )
 {
-	static byte	nullrguc[36];
+	static byte	nullrguc[sizeof( pResource->rguc_reserved )];
 
 	MSG_WriteUBitLong( msg, pResource->type, 4 );
 	MSG_WriteString( msg, pResource->szFileName );
