@@ -1482,7 +1482,6 @@ void GAME_EXPORT R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
 			pTemp->entity.baseline.angles[2] = COM_RandomFloat( -100.0f, 100.0f );
 			pTemp->entity.curstate.framerate = COM_RandomFloat( 0.1f, 0.4f );
 			pTemp->flags = FTENT_ROTATE|FTENT_FADEOUT;
-			pTemp->entity.curstate.framerate = 10;
 
 			vel = dest[2] / 8.0f;
 			if( vel < 64.0f ) vel = 64.0f;
@@ -2920,7 +2919,7 @@ void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, float *pos
 	{
 		if( FBitSet( pCust->resource.ucFlags, RES_CUSTOM ) && pCust->resource.type == t_decal && pCust->bTranslated )
 		{
-			if( !pCust->nUserData1 && pCust->pInfo != NULL )
+			if( !pCust->nUserData1 )
 			{
 				const char *decalname = va( "player%dlogo%d", playernum, customIndex );
 				pCust->nUserData1 = GL_LoadTextureInternal( decalname, pCust->pInfo, TF_DECAL );

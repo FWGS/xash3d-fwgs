@@ -786,7 +786,6 @@ static touch_button_t *Touch_AddButton( touchbuttonlist_t *list,
 	button->flags = privileged ? 0 : TOUCH_FL_UNPRIVILEGED | TOUCH_FL_CLIENT;
 	MakeRGBA( button->color, color[0], color[1], color[2], color[3] );
 	button->command[0] = 0;
-	button->flags = 0;
 	button->fade = 1;
 
 	Touch_SetCommand( button, command );

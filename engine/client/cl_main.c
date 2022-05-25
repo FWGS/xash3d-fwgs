@@ -2345,11 +2345,10 @@ Replace the displayed name for some resources
 */
 const char *CL_CleanFileName( const char *filename )
 {
-	const char	*pfilename = filename;
-
 	if( COM_CheckString( filename ) && filename[0] == '!' )
-		pfilename = "customization";
-	return pfilename;
+		return "customization";
+
+	return filename;
 }
 
 

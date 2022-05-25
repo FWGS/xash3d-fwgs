@@ -1044,7 +1044,7 @@ static qboolean OSK_KeyEvent( int key, int down )
 			else
 				osk.curlayout++;
 
-			osk.shift = osk.curbutton.val == OSK_SHIFT;
+			osk.shift = true;
 			osk.curbutton.val = osk_keylayout[osk.curlayout][osk.curbutton.y][osk.curbutton.x];
 			break;
 		case OSK_BACKSPACE:

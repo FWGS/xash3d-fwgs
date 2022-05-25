@@ -2299,9 +2299,9 @@ static void GAME_EXPORT pfnKillEvents( int entnum, const char *eventname )
 	int		i;
 	event_state_t	*es;
 	event_info_t	*ei;
-	int		eventIndex = CL_EventIndex( eventname );
+	word		eventIndex = CL_EventIndex( eventname );
 
-	if( eventIndex < 0 || eventIndex >= MAX_EVENTS )
+	if( eventIndex >= MAX_EVENTS )
 		return;
 
 	if( entnum < 0 || entnum > clgame.maxEntities )
