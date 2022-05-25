@@ -428,6 +428,9 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int GL_LoadTextureArray( const char **names, int flags );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
+#define PC_SWF( X ) ( ( X ) | ( 1 << 15 ) )
+#define PC_HWF( X ) ( X )
+void GL_PixelConverter( byte *dst, const byte *src, int size, int inFormat, int outFormat );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );

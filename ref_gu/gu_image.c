@@ -617,91 +617,133 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 /*
 ===============
 GL_PixelConverter
+
+32 <-> 16 bit Image converter
+
+Macro for inFormat/outFormat:
+PC_HWF - PSP Hardware format mask
+PC_SWF - Xash3d Software format mask
 ===============
 */
-static void GL_PixelConverter( byte *dst, const byte *src, int size, qboolean alpha, int format )
+void GL_PixelConverter( byte *dst, const byte *src, int size, int inFormat, int outFormat )
 {
-#if 0 // undone
-	if(alpha)
-	{
-		__asm__ volatile (
-			".set		push\n"					// save assembler option
-			".set		noreorder\n"			// suppress reordering
-			"move		$8,   %0\n"				// $8 = &dst[0]
-			"move		$9,   %1\n"				// $9 = &src[0]
-			"move		$10,  %2\n"				// $10 = size
-		"0:\n"
-
-			"ulv.q		C000, 0($8)\n"			// Load 4 pixels from src
-
-			"vt4444.q	C010, C000\n"			// Convert 4 -> 2
-
-			"sv.s		S010, 0($9)\n"
-			"sv.s		S010, 8($9)\n"
-			"addiu		$8,  $8,  16\n"			// $8 = $8 + 16
-			"addiu		$9,  $9,  8\n"			// $9 = $9 + 8
-
- 			"bne		$10,  $8,   0b\n"		// if ( $11 != $8 ) jump to loop
-			"addiu		$10,  $10,  -4\n"		// $10 = $10 - 4						( delay slot )
-			".set		pop\n"					// Restore assembler option
-			:	"r"( dst ), "r"( src ), "r"( size ), "r"( format )
-			:	"$8", "$9", "$10"
-		);
-	}
-	else
-	{
-
-	}
-#else
 	int	i;
 	byte color[4];
 
+	color[0] = color[1] = color[2] = color[3] = 0xff;
+
 	for( i = 0; i < size; i++ )
 	{
-		switch( format )
+		// unpack
+		switch( inFormat )
 		{
-		case GU_PSM_4444:
+		case PC_HWF( GU_PSM_5650 ):
+			color[0]  = ( *src & 0x1f ) << 3;
+			color[1]  = ( *src & 0xe0 ) >> 3; src++;
+			color[1] |= ( *src & 0x07 ) << 5;
+			color[2]  = ( *src & 0xf8 );      src++;
+			color[3]  = 0xff;
+			break;
+		case PC_HWF( GU_PSM_5551 ):
+			color[0]  = ( *src & 0x1f ) << 3;
+			color[1]  = ( *src & 0xe0 ) >> 2; src++;
+			color[1] |= ( *src & 0x03 ) << 6;
+			color[2]  = ( *src & 0x7c ) << 1;
+			color[3]  = ( *src & 0x80 ) ? 0xff : 0x00; src++;
+			break;
+		case PC_HWF( GU_PSM_4444 ):
+			color[0]  = ( *src & 0x0f ) << 4;
+			color[1]  = ( *src & 0xf0 );      src++;
+			color[2]  = ( *src & 0x0f ) << 4;
+			color[3]  = ( *src & 0xf0 );      src++;
+			break;
+		case PC_SWF( PF_INDEXED_24 ): // palette !!!
+		case PC_SWF( PF_RGB_24 ):
 			color[0] = *src; src++;
 			color[1] = *src; src++;
 			color[2] = *src; src++;
-			color[3] = alpha ? *src : 0xff; if( alpha ) src++;
+			color[3] = 0xff;
+			break;
+		case PC_SWF( PF_BGR_24 ):
+			color[2] = *src; src++;
+			color[1] = *src; src++;
+			color[0] = *src; src++;
+			color[3] = 0xff;
+			src += 3;
+			break;
+		case PC_SWF( PF_INDEXED_32 ): // palette !!!
+		case PC_SWF( PF_RGBA_32 ):
+		case PC_HWF( GU_PSM_8888 ):
+			color[0] = *src; src++;
+			color[1] = *src; src++;
+			color[2] = *src; src++;
+			color[3] = *src; src++;
+			break;
+		case PC_SWF( PF_BGRA_32 ):
+			color[2] = *src; src++;
+			color[1] = *src; src++;
+			color[0] = *src; src++;
+			color[3] = *src; src++;
+			break;
+		default:
+			gEngfuncs.Host_Error( "GL_PixelConverter: unknown input format\n");
+			break;
+		}
+
+		// pack
+		switch( outFormat )
+		{
+		case PC_HWF( GU_PSM_5650 ):
+			*dst  = ( color[0] >> 3 ) & 0x1f;
+			*dst |= ( color[1] << 3 ) & 0xe0; dst++;
+			*dst  = ( color[1] >> 5 ) & 0x07;
+			*dst |= ( color[2]      ) & 0xf8; dst++;
+			break;
+		case PC_HWF( GU_PSM_5551 ):
+			*dst  = ( color[0] >> 3 );
+			*dst |= ( color[1] << 2 ) & 0xe0; dst++;
+			*dst  = ( color[1] >> 6 ) & 0x03;
+			*dst |= ( color[2] >> 1 ) & 0x7c;
+			*dst |= ( color[3]      ) & 0x80; dst++;
+			break;
+		case PC_HWF( GU_PSM_4444 ):
 			*dst  = ( color[0] >> 4 ) & 0x0f;
 			*dst |= ( color[1]      ) & 0xf0; dst++;
 			*dst  = ( color[2] >> 4 ) & 0x0f;
 			*dst |= ( color[3]      ) & 0xf0; dst++;
 			break;
-		case GU_PSM_5551:
-			color[0] = ( *src >> 3 ) & 0x1f; src++;
-			color[1] = ( *src >> 3 ) & 0x1f; src++;
-			color[2] = ( *src >> 3 ) & 0x1f; src++;
-			color[3] = alpha ? ( ( *src >> 7 ) & 0x01 ) : 0xff; if( alpha ) src++;
-			*dst  = color[0];
-			*dst |= ( color[1] << 5 ) & 0xe0;  dst++;
-			*dst  = ( color[1] >> 3 ) & 0x03;
-			*dst |= ( color[2] << 2 ) & 0x7c;
-			*dst |= ( color[3] << 7 ) & 0x80;  dst++;
+		case PC_SWF( PF_INDEXED_24 ): // palette !!!
+		case PC_SWF( PF_RGB_24 ):
+			*dst = color[0]; dst++;
+			*dst = color[1]; dst++;
+			*dst = color[2]; dst++;
 			break;
-		case GU_PSM_5650:
-			color[0] = ( *src >> 3 ) & 0x1f; src++;
-			color[1] = ( *src >> 2 ) & 0x3f; src++;
-			color[2] = ( *src >> 3 ) & 0x1f; src++; if( alpha ) src++;
-			*dst  = color[0];
-			*dst |= ( color[1] << 5 ) & 0xe0; dst++;
-			*dst  = ( color[1] >> 3 ) & 0x07;
-			*dst |= ( color[2] << 3 ) & 0xf8; dst++;
+		case PC_SWF( PF_BGR_24 ):
+			*dst = color[2]; dst++;
+			*dst = color[1]; dst++;
+			*dst = color[0]; dst++;
 			break;
-		case GU_PSM_8888:
-			*dst = *src; src++; dst++;
-			*dst = *src; src++; dst++;
-			*dst = *src; src++; dst++;
-			*dst = alpha ? *src : 0xff; if( alpha ) src++; dst++;
+		case PC_SWF( PF_INDEXED_32 ): // palette !!!
+		case PC_SWF( PF_RGBA_32 ):
+		case PC_HWF( GU_PSM_8888 ):
+			*dst = color[0]; dst++;
+			*dst = color[1]; dst++;
+			*dst = color[2]; dst++;
+			*dst = color[3]; dst++;
+			break;
+		case PC_SWF( PF_BGRA_32 ):
+			*dst = color[3]; dst++;
+			*dst = color[2]; dst++;
+			*dst = color[1]; dst++;
+			*dst = color[0]; dst++;
 			break;
 		default:
+			gEngfuncs.Host_Error( "GL_PixelConverter: unknown output format\n");
 			break;
 		}
 	}
-#endif
 }
+
 /*
 ===============
 GL_TextureSwizzle
@@ -841,7 +883,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		}
 
 		// Load palette
-		GL_PixelConverter( tex->dstPalette, pic->palette, 256, (pic->type == PF_INDEXED_32) ? true : false, PALETTE_FORMAT );
+		GL_PixelConverter( tex->dstPalette, pic->palette, 256, PC_SWF( pic->type ), PC_HWF( PALETTE_FORMAT ) );
 		sceKernelDcacheWritebackRange( tex->dstPalette, PALETTE_SIZE );
 
 		// Load base + mip texture
@@ -889,7 +931,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 			// disable swizzling for lightmaps
 			if ( IsLightMap( tex ) )
 			{
-				GL_PixelConverter( tex->dstTexture, volBuff, tex->width * tex->height, true, tex->format );
+				GL_PixelConverter( tex->dstTexture, volBuff, tex->width * tex->height, PC_SWF( pic->type ), PC_HWF( tex->format ) );
 			}
 			else
 			{
@@ -897,7 +939,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				if( !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
 						volBuff = GL_ApplyFilter( volBuff, tex->width, tex->height );
 */
-				GL_PixelConverter( volBuff + offset, volBuff, tex->width * tex->height, true, tex->format );
+				GL_PixelConverter( volBuff + offset, volBuff, tex->width * tex->height, PC_SWF( pic->type ), PC_HWF( tex->format ) );
 				GL_TextureSwizzle( tex->dstTexture, volBuff + offset, tex->width * 2, tex->height );
 				SetBits( tex->flags, TF_IMG_SWIZZLED );
 			}
@@ -989,7 +1031,7 @@ qboolean GL_UpdateDlightTexture( int texnum, int xoff, int yoff, int width, int 
 	dst += ( yoff * tex->width + xoff ) * 2;
 	while( height-- )
 	{
-		GL_PixelConverter( dst, src, width, true, tex->format );
+		GL_PixelConverter( dst, src, width, PC_SWF( PF_RGBA_32 ), PC_HWF( tex->format ) );
 		dst += tex->width * 2;
 		src += width * 4;
 	}

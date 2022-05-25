@@ -95,7 +95,7 @@ void GL_BackendEndFrame( void )
 	case 1:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i wpoly, %3i apoly\n%3i epoly, %3i spoly",
 		r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
-		break;		
+		break;
 	case 2:
 		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs );
 		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
@@ -127,7 +127,7 @@ void GL_LoadTexMatrix( const matrix4x4 m )
 	sceGumMatrixMode( GU_TEXTURE );
 	GL_LoadMatrix( m );
 	sceGumUpdateMatrix();
-	
+
 	glState.texIdentityMatrix = false;
 }
 
@@ -143,7 +143,7 @@ void GL_LoadTexMatrixExt( const float *glmatrix )
 	sceGumMatrixMode( GU_TEXTURE );
 	sceGumLoadMatrix( ( const ScePspFMatrix4 * ) glmatrix );
 	sceGumUpdateMatrix();
-	
+
 	glState.texIdentityMatrix = false;
 }
 
@@ -169,11 +169,11 @@ void GL_LoadIdentityTexMatrix( void )
 {
 	if( glState.texIdentityMatrix )
 		return;
-	
+
 	sceGumMatrixMode( GU_TEXTURE );
-	sceGumLoadIdentity();	
+	sceGumLoadIdentity();
 	sceGumUpdateMatrix();
-	
+
 	glState.texIdentityMatrix = true;
 }
 
@@ -282,7 +282,7 @@ void GL_Cull( GLenum cull )
 void GL_SetRenderMode( int mode )
 {
 	sceGuTexFunc( GU_TFX_MODULATE, GU_TCC_RGBA );
-	
+
 	switch( mode )
 	{
 	case kRenderNormal:
@@ -343,25 +343,38 @@ const envmap_t r_envMapInfo[6] =
 {{ 90,   0,  90}, 0 }
 };
 
+
+
 qboolean VID_ScreenShot( const char *filename, int shot_type )
 {
-#if 0
 	rgbdata_t *r_shot;
-	uint	flags = IMAGE_FLIP_Y;
+	uint	flags = 0;
 	int	width = 0, height = 0;
 	qboolean	result;
+	int bpp;
 
 	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 	r_shot->width = (gpGlobals->width + 3) & ~3;
 	r_shot->height = (gpGlobals->height + 3) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
 	r_shot->type = PF_RGB_24;
-	r_shot->size = r_shot->width * r_shot->height * gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;
+	bpp = gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;
+	r_shot->size = r_shot->width * r_shot->height * bpp;
 	r_shot->palette = NULL;
 	r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
 
 	// get screen frame
-	pglReadPixels( 0, 0, r_shot->width, r_shot->height, GL_RGB, GL_UNSIGNED_BYTE, r_shot->buffer );
+	byte *src = ( byte* )guRender.disp_buffer;
+	byte *dst = r_shot->buffer;
+	int cheight = r_shot->height;
+
+	// stride copy
+	while( cheight-- )
+	{
+		GL_PixelConverter( dst, src, r_shot->width, PC_HWF( guRender.buffer_format ), PC_SWF( r_shot->type ) );
+		dst += r_shot->width * bpp;
+		src += guRender.buffer_width * guRender.buffer_bpp;
+	}
 
 	switch( shot_type )
 	{
@@ -403,9 +416,6 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	gEngfuncs.FS_FreeImage( r_shot );
 
 	return result;
-#else
-	return 0;
-#endif
 }
 
 /*
@@ -507,7 +517,7 @@ was there.  This is used to test for texture thrashing.
 */
 void R_ShowTextures( void )
 {
-#if 0	
+#if 0
 	gl_texture_t	*image;
 	float		x, y, w, h;
 	int		total, start, end;
@@ -609,7 +619,7 @@ rebuild_page:
 
 	gEngfuncs.CL_DrawCenterPrint ();
 	pglFinish();
-#endif	
+#endif
 }
 
 /*
@@ -641,7 +651,7 @@ void SCR_TimeRefresh_f( void )
 			gpGlobals->viewangles[1] = i / 128.0f * 360.0f;
 			R_RenderScene();
 		}
-#if 0		
+#if 0
 		pglFinish();
 #endif
 		R_EndFrame();
