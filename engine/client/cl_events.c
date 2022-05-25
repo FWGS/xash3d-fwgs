@@ -158,7 +158,7 @@ CL_EventIndex
 */
 word CL_EventIndex( const char *name )
 {
-	int	i;
+	word	i;
 
 	if( !COM_CheckString( name ))
 		return 0;
@@ -484,7 +484,7 @@ void GAME_EXPORT CL_PlaybackEvent( int flags, const edict_t *pInvoker, word even
 		return;
 
 	// first check event for out of bounds
-	if( eventindex < 1 || eventindex > MAX_EVENTS )
+	if( eventindex < 1 || eventindex >= MAX_EVENTS )
 	{
 		Con_DPrintf( S_ERROR "CL_PlaybackEvent: invalid eventindex %i\n", eventindex );
 		return;
