@@ -33,7 +33,6 @@ GNU General Public License for more details.
 
 #define MAXDLY		(STEREODLY + 1)
 #define MAXLP		10
-#define MAXPRESETS		29
 
 typedef struct sx_preset_s
 {
@@ -79,7 +78,7 @@ typedef struct dly_s
 	int	*lpdelayline;
 } dly_t;
 
-const sx_preset_t rgsxpre[MAXPRESETS] =
+const sx_preset_t rgsxpre[] =
 {
 //          -------reverb--------  -------delay--------
 // lp  mod  size   refl   rvblp  delay  feedback  dlylp  left
@@ -116,7 +115,7 @@ const sx_preset_t rgsxpre[MAXPRESETS] =
 
 // 0x0045dca8 enginegl.exe
 // SHA256: 42383d32cd712e59ee2c1bd78b7ba48814e680e7026c4223e730111f34a60d66
-const sx_preset_t rgsxpre_hlalpha052[MAXPRESETS] =
+const sx_preset_t rgsxpre_hlalpha052[] =
 {
 //          -------reverb--------  -------delay--------
 // lp  mod  size   refl   rvblp  delay  feedback  dlylp  left
@@ -882,7 +881,7 @@ void CheckNewDspPresets( void )
 	else idsp_room = room_type->value;
 
 	// don't pass invalid presets
-	idsp_room = bound( 0, idsp_room, MAXPRESETS - 1 );
+	idsp_room = bound( 0, idsp_room, MAX_ROOM_TYPES );
 
 	if( FBitSet( hisound->flags, FCVAR_CHANGED ))
 	{
@@ -891,9 +890,6 @@ void CheckNewDspPresets( void )
 	}
 
 	if( idsp_room == room_typeprev && idsp_room == 0 )
-		return;
-
-	if( idsp_room > MAX_ROOM_TYPES )
 		return;
 
 	if( idsp_room != room_typeprev )

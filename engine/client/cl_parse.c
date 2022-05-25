@@ -484,16 +484,13 @@ void CL_BatchResourceRequest( qboolean initialize )
 		switch( p->type )
 		{
 		case t_sound:
+		case t_model:
+		case t_eventscript:
 			if( !CL_CheckFile( &msg, p ))
 				break;
 			CL_MoveToOnHandList( p );
 			break;
 		case t_skin:
-			CL_MoveToOnHandList( p );
-			break;
-		case t_model:
-			if( !CL_CheckFile( &msg, p ))
-				break;
 			CL_MoveToOnHandList( p );
 			break;
 		case t_decal:
@@ -516,11 +513,6 @@ void CL_BatchResourceRequest( qboolean initialize )
 				Mem_Free( p );
 				break;
 			}
-			if( !CL_CheckFile( &msg, p ))
-				break;
-			CL_MoveToOnHandList( p );
-			break;
-		case t_eventscript:
 			if( !CL_CheckFile( &msg, p ))
 				break;
 			CL_MoveToOnHandList( p );
@@ -2389,13 +2381,10 @@ CL_ParseBaseline
 void CL_LegacyParseBaseline( sizebuf_t *msg )
 {
 	int		i, newnum;
-	entity_state_t	nullstate;
 	qboolean		player;
 	cl_entity_t	*ent;
 
 	Delta_InitClient ();	// finalize client delta's
-
-	memset( &nullstate, 0, sizeof( nullstate ));
 
 	newnum = MSG_ReadWord( msg );
 	player = CL_IsPlayerIndex( newnum );

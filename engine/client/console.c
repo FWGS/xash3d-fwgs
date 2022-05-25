@@ -1069,7 +1069,7 @@ int Con_DrawGenericString( int x, int y, const char *string, rgba_t setColor, qb
 	Con_UtfProcessChar( 0 );
 
 	// draw the colored text
-	*(uint *)color = *(uint *)setColor;
+	memcpy( color, setColor, sizeof( color ));
 	s = string;
 
 	while( *s )
@@ -2174,6 +2174,9 @@ void Con_DrawSolidConsole( int lines )
 	int	i, x, y;
 	float	fraction;
 	int	start;
+	int	stringLen, width = 0, charH;
+	string	curbuild;
+	byte	color[4];
 
 	if( lines <= 0 ) return;
 
@@ -2187,28 +2190,20 @@ void Con_DrawSolidConsole( int lines )
 	if( !con.curFont || !host.allow_console )
 		return; // nothing to draw
 
-	if( host.allow_console )
-	{
-		// draw current version
-		int	stringLen, width = 0, charH;
-		string	curbuild;
-		byte	color[4];
+	// draw current version
+	memcpy( color, g_color_table[7], sizeof( color ));
 
-		memcpy( color, g_color_table[7], sizeof( color ));
+	Q_snprintf( curbuild, MAX_STRING, "%s %i/%s (%s-%s build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 
+	Con_DrawStringLen( curbuild, &stringLen, &charH );
+	start = refState.width - stringLen;
+	stringLen = Con_StringLength( curbuild );
 
-		Q_snprintf( curbuild, MAX_STRING, "%s %i/%s (%s-%s build %i)", XASH_ENGINE_NAME, PROTOCOL_VERSION, XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
+	fraction = lines / (float)refState.height;
+	color[3] = Q_min( fraction * 2.0f, 1.0f ) * 255; // fadeout version number
 
-		Con_DrawStringLen( curbuild, &stringLen, &charH );
-		start = refState.width - stringLen;
-		stringLen = Con_StringLength( curbuild );
-
-		fraction = lines / (float)refState.height;
-		color[3] = Q_min( fraction * 2.0f, 1.0f ) * 255; // fadeout version number
-
-		for( i = 0; i < stringLen; i++ )
-			width += Con_DrawCharacter( start + width, 0, curbuild[i], color );
-	}
+	for( i = 0; i < stringLen; i++ )
+		width += Con_DrawCharacter( start + width, 0, curbuild[i], color );
 
 	// draw the text
 	if( CON_LINES_COUNT > 0 )
