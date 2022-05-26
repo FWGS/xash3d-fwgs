@@ -66,6 +66,10 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 	sceGuTexFunc( GU_TFX_MODULATE, GU_TCC_RGBA );
 	sceGuDepthMask( GU_TRUE );
 
+	gu_vert_ftcv_t* const out = ( gu_vert_ftcv_t* )extGuBeginPacket( NULL );
+	unsigned int vert_size = 0;
+	unsigned int vert_color = 0;
+
 	for( p = cl_active_particles; p; p = p->next )
 	{
 		if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
@@ -90,43 +94,37 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
-
-			sceGuColor( GUCOLOR4UB( gEngfuncs.LightToTexGamma( pColor->r ),
+			vert_color = GUCOLOR4UB( gEngfuncs.LightToTexGamma( pColor->r ),
 				gEngfuncs.LightToTexGamma( pColor->g ),
-				gEngfuncs.LightToTexGamma( pColor->b ), alpha ) );
+				gEngfuncs.LightToTexGamma( pColor->b ), alpha );
 
-			gu_vert_ftv_t* const out = ( gu_vert_ftv_t* )sceGuGetMemory( sizeof( gu_vert_ftv_t ) * 4 );
-			
-			out[0].u = 0.0f;
-			out[0].v = 1.0f;
-			out[0].x = p->org[0] - right[0] + up[0]; 
-			out[0].y = p->org[1] - right[1] + up[1];
-			out[0].z = p->org[2] - right[2] + up[2];
-			out[1].u = 0.0f;
-			out[1].v = 0.0f;
-			out[1].x = p->org[0] + right[0] + up[0]; 
-			out[1].y = p->org[1] + right[1] + up[1];
-			out[1].z = p->org[2] + right[2] + up[2];	
-			out[2].u = 1.0f;
-			out[2].v = 0.0f;
-			out[2].x = p->org[0] + right[0] - up[0]; 
-			out[2].y = p->org[1] + right[1] - up[1];
-			out[2].z = p->org[2] + right[2] - up[2];
-			out[3].u = 1.0f;
-			out[3].v = 1.0f;
-			out[3].x = p->org[0] - right[0] - up[0]; 
-			out[3].y = p->org[1] - right[1] - up[1];
-			out[3].z = p->org[2] - right[2] - up[2];		
-			
-			sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, 4, 0, out );
+			out[vert_size].u = 0.0f;
+			out[vert_size].v = 0.0f;
+			out[vert_size].c = vert_color;
+			out[vert_size].x = p->org[0] + right[0] + up[0];
+			out[vert_size].y = p->org[1] + right[1] + up[1];
+			out[vert_size].z = p->org[2] + right[2] + up[2];
+			vert_size++;
+			out[vert_size].u = 1.0f;
+			out[vert_size].v = 1.0f;
+			out[vert_size].c = vert_color;
+			out[vert_size].x = p->org[0] - right[0] - up[0];
+			out[vert_size].y = p->org[1] - right[1] - up[1];
+			out[vert_size].z = p->org[2] - right[2] - up[2];
+			vert_size++;
 
 			r_stats.c_particle_count++;
 		}
 
 		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
-	
-	sceGuDepthMask( GU_FALSE );	
+
+	if( vert_size )
+	{
+		extGuEndPacket( ( void * )( out + vert_size ) );
+		sceGuDrawArray( GU_SPRITES, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_size, 0, out );
+	}
+	sceGuDepthMask( GU_FALSE );
 #else
 	pglEnable( GL_BLEND );
 	pglDisable( GL_ALPHA_TEST );
@@ -211,7 +209,7 @@ static qboolean CL_CullTracer( particle_t *p, const vec3_t start, const vec3_t e
 			mins[i] = end[i];
 			maxs[i] = start[i];
 		}
-		
+
 		// don't let it be zero sized
 		if( mins[i] == maxs[i] )
 		{
@@ -302,10 +300,10 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			VectorSubtract( normal, tmp2, normal );
 
 			// compute four vertexes
-			VectorSubtract( start, normal, verts[0] ); 
-			VectorAdd( start, normal, verts[1] ); 
-			VectorAdd( verts[0], delta, verts[2] ); 
-			VectorAdd( verts[1], delta, verts[3] ); 
+			VectorSubtract( start, normal, verts[0] );
+			VectorAdd( start, normal, verts[1] );
+			VectorAdd( verts[0], delta, verts[2] );
+			VectorAdd( verts[1], delta, verts[3] );
 
 			if( p->color > sizeof( gTracerColors ) / sizeof( color24 ) )
 			{
@@ -321,12 +319,12 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 
 			out[0].u = 0.0f;
 			out[0].v = 0.8f;
-			out[0].x = verts[2][0]; 
+			out[0].x = verts[2][0];
 			out[0].y = verts[2][1];
-			out[0].z = verts[2][2];	
+			out[0].z = verts[2][2];
 			out[1].u = 1.0f;
 			out[1].v = 0.8f;
-			out[1].x = verts[3][0]; 
+			out[1].x = verts[3][0];
 			out[1].y = verts[3][1];
 			out[1].z = verts[3][2];
 			out[2].u = 1.0f;
