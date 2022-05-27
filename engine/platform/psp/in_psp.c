@@ -31,7 +31,7 @@ static struct psp_keymap_s
 	int				dstkey;
 }psp_keymap[] =
 {
-#if 1
+#if 0
 	{ PSP_CTRL_SELECT,   '~'          },
 	{ PSP_CTRL_START,    K_ESCAPE     },
 	{ PSP_CTRL_UP,       K_UPARROW    },

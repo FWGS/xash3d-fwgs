@@ -1508,7 +1508,11 @@ void Field_KeyDownEvent( field_t *edit, int key )
 		return;
 	}
 
+#if XASH_PSP
+	if( key == K_BACKSPACE || key == K_X_BUTTON )
+#else
 	if( key == K_BACKSPACE )
+#endif
 	{
 		if( edit->cursor > 0 )
 		{
@@ -1718,7 +1722,11 @@ void Key_Console( int key )
 	}
 
 	// enter finishes the line
+#if XASH_PSP
+	if( key == K_ENTER || key == K_KP_ENTER || key == K_A_BUTTON )
+#else
 	if( key == K_ENTER || key == K_KP_ENTER )
+#endif
 	{
 		// if not in the game explicitly prepent a slash if needed
 		if( cls.state != ca_active && con.input.buffer[0] != '\\' && con.input.buffer[0] != '/' )
@@ -1789,7 +1797,7 @@ void Key_Console( int key )
 
 	// console scrolling
 #if XASH_PSP
-	if( key == K_JOY2 )
+	if( key == K_PGUP || key == K_R1_BUTTON )
 #else
 	if( key == K_PGUP )
 #endif
@@ -1798,7 +1806,7 @@ void Key_Console( int key )
 		return;
 	}
 #if XASH_PSP
-	if( key == K_JOY1 )
+	if( key == K_PGDN || key == K_L1_BUTTON )
 #else
 	if( key == K_PGDN )
 #endif
@@ -1852,14 +1860,22 @@ void Key_Message( int key )
 {
 	char	buffer[MAX_SYSPATH];
 
+#if XASH_PSP
+	if( key == K_ESCAPE || key == K_START_BUTTON )
+#else
 	if( key == K_ESCAPE )
+#endif
 	{
 		Key_SetKeyDest( key_game );
 		Con_ClearField( &con.chat );
 		return;
 	}
 
+#if XASH_PSP
+	if( key == K_ENTER || key == K_KP_ENTER || key == K_A_BUTTON )
+#else
 	if( key == K_ENTER || key == K_KP_ENTER )
+#endif
 	{
 		if( con.chat.buffer[0] && cls.state == ca_active )
 		{
