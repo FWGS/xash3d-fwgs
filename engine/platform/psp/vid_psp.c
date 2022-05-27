@@ -88,7 +88,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 		Host_Error( "Memory allocation failled! (vid_psp.disp_buffer)\n");
 
 	sceDisplaySetMode(0, PSP_FB_WIDTH, PSP_FB_HEIGHT);
-	sceDisplaySetFrameBuf(vid_psp.disp_buffer, PSP_FB_WIDTH, PSP_FB_FORMAT, 1);
+	sceDisplaySetFrameBuf(vid_psp.disp_buffer, PSP_FB_BWIDTH, PSP_FB_FORMAT, 1);
 
 	return true;
 }
