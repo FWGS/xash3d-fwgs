@@ -416,6 +416,13 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			kusok->uv_speed[0] = kusok->uv_speed[1] = 0.f;
 		}
 	}
+
+	for (int i = 0; i < render_model->polylights_count; ++i) {
+		rt_light_add_polygon_t *const polylight = render_model->polylights + i;
+		polylight->transform_row = (const matrix3x4*)model;
+		polylight->dynamic = true;
+		RT_LightAddPolygon(polylight);
+	}
 }
 
 void XVK_RayModel_ClearForNextFrame( void )

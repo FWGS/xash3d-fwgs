@@ -120,6 +120,7 @@ struct vk_ray_model_s;
 
 #define MAX_MODEL_NAME_LENGTH 64
 
+struct rt_light_add_polygon_s;
 typedef struct vk_render_model_s {
 	char debug_name[MAX_MODEL_NAME_LENGTH];
 	int render_mode;
@@ -134,6 +135,8 @@ typedef struct vk_render_model_s {
 
 	// Non-NULL only for ray tracing
 	struct vk_ray_model_s *ray_model;
+	struct rt_light_add_polygon_s *polylights;
+	int polylights_count;
 } vk_render_model_t;
 
 qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t* model );

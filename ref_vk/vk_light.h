@@ -111,7 +111,7 @@ struct cl_entity_s;
 void R_LightAddFlashlight( const struct cl_entity_s *ent, qboolean local_player );
 
 struct msurface_s;
-typedef struct {
+typedef struct rt_light_add_polygon_s {
 	int num_vertices;
 	vec3_t vertices[7];
 

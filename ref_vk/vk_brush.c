@@ -22,9 +22,6 @@
 typedef struct vk_brush_model_s {
 	vk_render_model_t render_model;
 	int num_water_surfaces;
-
-	rt_light_add_polygon_t *polylights;
-	int polylights_count;
 } vk_brush_model_t;
 
 static struct {
@@ -345,13 +342,6 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4
 	if (bmodel->render_model.num_geometries == 0)
 		return;
 
-	for (int i = 0; i < bmodel->polylights_count; ++i) {
-		rt_light_add_polygon_t *polylight = bmodel->polylights + i;
-		polylight->transform_row = (const matrix3x4*)model;
-		polylight->dynamic = true;
-		RT_LightAddPolygon(polylight);
-	}
-
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 		vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
 		const int surface_index = geom->surf - mod->surfaces;
@@ -531,9 +521,9 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 				}
 
 				if (is_emissive) {
-					if (bmodel->polylights) {
-						ASSERT(bmodel->polylights_count < sizes.emissive_surfaces);
-						bmodel->polylights[bmodel->polylights_count++] = loadPolyLight(mod, surface_index, surf, emissive);
+					if (bmodel->render_model.polylights) {
+						ASSERT(bmodel->render_model.polylights_count < sizes.emissive_surfaces);
+						bmodel->render_model.polylights[bmodel->render_model.polylights_count++] = loadPolyLight(mod, surface_index, surf, emissive);
 					} else {
 						polylight = loadPolyLight(mod, surface_index, surf, emissive);
 						RT_LightAddPolygon(&polylight);
@@ -635,10 +625,11 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 	R_GeometryBufferUnlock( &buffer );
 
-	if (bmodel->polylights) {
-		gEngine.Con_Reportf("WHAT %d %d \n", sizes.emissive_surfaces, bmodel->polylights_count);
-		ASSERT(sizes.emissive_surfaces == bmodel->polylights_count);
+	if (bmodel->render_model.polylights) {
+		gEngine.Con_Reportf("Dynamic polylights %d %d \n", sizes.emissive_surfaces, bmodel->render_model.polylights_count);
+		ASSERT(sizes.emissive_surfaces == bmodel->render_model.polylights_count);
 	}
+
 	ASSERT(sizes.num_surfaces == num_geometries);
 	bmodel->render_model.num_geometries = num_geometries;
 
@@ -673,7 +664,7 @@ qboolean VK_BrushModelLoad( VkCommandBuffer cmdbuf, model_t *mod, qboolean map )
 			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));
 
 			if (!map && sizes.emissive_surfaces)
-				bmodel->polylights = Mem_Malloc(vk_core.pool, sizeof(bmodel->polylights[0]) * sizes.emissive_surfaces);
+				bmodel->render_model.polylights = Mem_Malloc(vk_core.pool, sizeof(bmodel->render_model.polylights[0]) * sizes.emissive_surfaces);
 
 			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(cmdbuf, &bmodel->render_model)) {
 				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
@@ -698,8 +689,8 @@ void VK_BrushModelDestroy( model_t *mod ) {
 		return;
 
 	VK_RenderModelDestroy(&bmodel->render_model);
-	if (bmodel->polylights)
-		Mem_Free(bmodel->polylights);
+	if (bmodel->render_model.polylights)
+		Mem_Free(bmodel->render_model.polylights);
 	Mem_Free(bmodel);
 	mod->cache.data = NULL;
 }
