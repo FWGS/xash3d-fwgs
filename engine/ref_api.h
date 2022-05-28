@@ -277,13 +277,13 @@ typedef struct ref_api_s
 	void (*Cbuf_Execute)( void );
 
 	// logging
-	void	(*Con_Printf)( const char *fmt, ... ); // typical console allowed messages
-	void	(*Con_DPrintf)( const char *fmt, ... ); // -dev 1
-	void	(*Con_Reportf)( const char *fmt, ... ); // -dev 2
+	void	(*Con_Printf)( const char *fmt, ... ) _format( 1 ); // typical console allowed messages
+	void	(*Con_DPrintf)( const char *fmt, ... ) _format( 1 ); // -dev 1
+	void	(*Con_Reportf)( const char *fmt, ... ) _format( 1 ); // -dev 2
 
 	// debug print
-	void	(*Con_NPrintf)( int pos, const char *fmt, ... );
-	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... );
+	void	(*Con_NPrintf)( int pos, const char *fmt, ... ) _format( 2 );
+	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... ) _format( 2 );
 	void	(*CL_CenterPrint)( const char *s, float y );
 	void (*Con_DrawStringLen)( const char *pText, int *length, int *height );
 	int (*Con_DrawString)( int x, int y, const char *string, rgba_t setColor );
@@ -335,7 +335,7 @@ typedef struct ref_api_s
 
 	// utils
 	void  (*CL_ExtraUpdate)( void );
-	void  (*Host_Error)( const char *fmt, ... );
+	void  (*Host_Error)( const char *fmt, ... ) _format( 1 ) NORETURN;
 	void  (*COM_SetRandomSeed)( int lSeed );
 	float (*COM_RandomFloat)( float rmin, float rmax );
 	int   (*COM_RandomLong)( int rmin, int rmax );
