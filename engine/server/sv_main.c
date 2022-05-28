@@ -179,7 +179,7 @@ int SV_GetConnectedClientsCount(int *bots)
 				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
 				{
 					if( bots )
-						*bots++;
+						(*bots)++;
 				}
 				else
 					clients++;
