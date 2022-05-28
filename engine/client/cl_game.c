@@ -3923,8 +3923,6 @@ void CL_UnloadProgs( void )
 	Cmd_Unlink( CMD_CLIENTDLL );
 }
 
-void GetSecuredClientAPI( CL_EXPORT_FUNCS F );
-
 qboolean CL_LoadProgs( const char *name )
 {
 	static playermove_t		gpMove;
@@ -3983,7 +3981,7 @@ qboolean CL_LoadProgs( const char *name )
 		Con_Reportf( "CL_LoadProgs: found single callback export (secured client dlls)\n" );
 
 		// trying to fill interface now
-		GetSecuredClientAPI( GetClientAPI );
+		CL_GetSecuredClientAPI( GetClientAPI );
 	}
 
 	if ( GetClientAPI != NULL )

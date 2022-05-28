@@ -1110,6 +1110,11 @@ qboolean Mobile_Init( void );
 void Mobile_Shutdown( void );
 
 //
+// cl_securedstub.c
+//
+void CL_GetSecuredClientAPI( CL_EXPORT_FUNCS F );
+
+//
 // cl_video.c
 //
 void SCR_InitCinematic( void );
