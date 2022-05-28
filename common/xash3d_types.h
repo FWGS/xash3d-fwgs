@@ -66,19 +66,25 @@ typedef uint64_t longtime_t;
 #define ColorIndex( c )	((( c ) - '0' ) & 7 )
 
 #if defined(__GNUC__)
-#ifdef __i386__
-#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
-#define GAME_EXPORT __attribute((force_align_arg_pointer))
-#else
-#define EXPORT __attribute__ ((visibility ("default")))
-#define GAME_EXPORT
-#endif
+	#ifdef __i386__
+		#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
+		#define GAME_EXPORT __attribute((force_align_arg_pointer))
+	#else
+		#define EXPORT __attribute__ ((visibility ("default")))
+		#define GAME_EXPORT
+	#endif
+	#define _format(x) __attribute__((format(printf, x, x+1)))
+	#define NORETURN __attribute__((noreturn))
 #elif defined(_MSC_VER)
-#define EXPORT          __declspec( dllexport )
-#define GAME_EXPORT
+	#define EXPORT          __declspec( dllexport )
+	#define GAME_EXPORT
+	#define _format(x)
+	#define NORETURN
 #else
-#define EXPORT
-#define GAME_EXPORT
+	#define EXPORT
+	#define GAME_EXPORT
+	#define _format(x)
+	#define NORETURN
 #endif
 
 
