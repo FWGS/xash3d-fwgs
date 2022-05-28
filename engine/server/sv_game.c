@@ -2729,7 +2729,7 @@ void GAME_EXPORT pfnMessageEnd( void )
 
 	SV_Multicast( svgame.msg_dest, org, svgame.msg_ent, true, false );
 
-	if( svgame.msg_trace ) Con_Printf( "^3%s()\n", __FUNCTION__, svgame.msg_dest, svgame.msg_name );
+	if( svgame.msg_trace ) Con_Printf( "^3%s()\n", __FUNCTION__ );
 }
 
 /*
