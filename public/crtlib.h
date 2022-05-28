@@ -20,14 +20,6 @@ GNU General Public License for more details.
 #include <string.h>
 #include "build.h"
 
-#ifdef __GNUC__
-#define _format(x) __attribute__((format(printf, x, x+1)))
-#define NORETURN __attribute__((noreturn))
-#else
-#define _format(x)
-#define NORETURN
-#endif
-
 // timestamp modes
 enum
 {
