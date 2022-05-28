@@ -721,7 +721,6 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	else if( host.framecount == host.errorframe )
 	{
 		Sys_Error( "Host_MultiError: %s", hosterror2 );
-		return;
 	}
 	else
 	{
@@ -741,7 +740,6 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	{
 		Con_Printf( "Host_RecursiveError: %s", hosterror2 );
 		Sys_Error( "%s", hosterror1 );
-		return; // don't multiple executes
 	}
 
 	recursive = true;

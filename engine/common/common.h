@@ -691,7 +691,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 int Host_CompareFileTime( int ft1, int ft2 );
 void Host_NewInstance( const char *name, const char *finalmsg );
 void Host_EndGame( qboolean abort, const char *message, ... ) _format( 2 );
-void Host_AbortCurrentFrame( void );
+void Host_AbortCurrentFrame( void ) NORETURN;
 void Host_WriteServerConfig( const char *name );
 void Host_WriteOpenGLConfig( void );
 void Host_WriteVideoConfig( void );
