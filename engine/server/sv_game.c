@@ -3842,7 +3842,7 @@ char *pfnGetInfoKeyBuffer( edict_t *e )
 	if(( cl = SV_ClientFromEdict( e, false )) != NULL )
 		return cl->userinfo;
 
-	return ""; // assume error
+	return (char*)""; // assume error
 }
 
 /*
@@ -4807,7 +4807,7 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		if( !token[0] ) continue;
 
 		// create keyvalue strings
-		pkvd[numpairs].szClassName = ""; // unknown at this moment
+		pkvd[numpairs].szClassName = (char*)""; // unknown at this moment
 		pkvd[numpairs].szKeyName = copystring( keyname );
 		pkvd[numpairs].szValue = copystring( token );
 		pkvd[numpairs].fHandled = false;
@@ -4845,8 +4845,8 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 	{
 		if( numpairs < 256 )
 		{
-			pkvd[numpairs].szClassName = "custom";
-			pkvd[numpairs].szKeyName = "customclass";
+			pkvd[numpairs].szClassName = (char*)"custom";
+			pkvd[numpairs].szKeyName = (char*)"customclass";
 			pkvd[numpairs].szValue = classname;
 			pkvd[numpairs].fHandled = false;
 			numpairs++;

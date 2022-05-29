@@ -136,7 +136,7 @@ void Log_Printf( const char *fmt, ... )
 	}
 }
 
-static void Log_PrintServerCvar( const char *var_name, const char *var_value, void *unused2, void *unused3 )
+static void Log_PrintServerCvar( const char *var_name, const char *var_value, const void *unused2, void *unused3 )
 {
 	Log_Printf( "Server cvar \"%s\" = \"%s\"\n", var_name, var_value );
 }

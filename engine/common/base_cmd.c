@@ -229,7 +229,7 @@ void BaseCmd_Stats_f( void )
 	Con_Printf( "Empty buckets: %d\n", empty );
 }
 
-static void BaseCmd_CheckCvars( const char *key, const char *value, void *buffer, void *ptr )
+static void BaseCmd_CheckCvars( const char *key, const char *value, const void *unused, void *ptr )
 {
 	base_command_t *v = BaseCmd_Find( HM_CVAR, key );
 	qboolean *invalid = ptr;
