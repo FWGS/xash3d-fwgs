@@ -353,7 +353,7 @@ static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint 
 		1, 1,
 		0, 1,
 	};
-	int vbo, pbo, fbo, to;
+	GLuint vbo, pbo, fbo, to;
 
 	// shitty fbo does not work without texture objects :(
 	pglGenTextures( 1, &to );
