@@ -92,3 +92,5 @@ void XVK_RayModel_ClearForNextFrame( void );
 void XVK_RayModel_Validate(void);
 
 VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer);
+
+void RT_RayModel_Clear(void);
