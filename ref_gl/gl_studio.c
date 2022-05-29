@@ -34,7 +34,8 @@ typedef struct
 	model_t		*model;
 } player_model_t;
 
-cvar_t r_shadows = { "r_shadows", "0", 0 };
+// never gonna change, just shut up const warning
+cvar_t r_shadows = { (char *)"r_shadows", (char *)"0", 0 };
 
 static vec3_t hullcolor[8] =
 {
