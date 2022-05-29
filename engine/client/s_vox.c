@@ -21,7 +21,7 @@ GNU General Public License for more details.
 
 static int cszrawsentences = 0;
 static char *rgpszrawsentence[CVOXFILESENTENCEMAX];
-static char *voxperiod = "_period", *voxcomma = "_comma";
+static const char *voxperiod = "_period", *voxcomma = "_comma";
 
 // return number of samples mixed
 int VOX_MixDataToDevice( channel_t *pchan, int sampleCount, int outputRate, int outputOffset )
@@ -248,8 +248,8 @@ static int VOX_ParseString( char *psz, char *rgpparseword[CVOXWORDMAX] )
 			psz[1] != '\n' && psz[1] != '\r' && psz[1] != '\0' )
 		{
 			if( *psz == '.' )
-				rgpparseword[i++] = voxperiod;
-			else rgpparseword[i++] = voxcomma;
+				rgpparseword[i++] = (char *)voxperiod;
+			else rgpparseword[i++] = (char *)voxcomma;
 
 			if( i >= CVOXWORDMAX )
 				return i;
@@ -457,7 +457,7 @@ static void VOX_ReadSentenceFile_( byte *buf, fs_offset_t size )
 	}
 }
 
-static void VOX_ReadSentenceFile( char *path )
+static void VOX_ReadSentenceFile( const char *path )
 {
 	byte *buf;
 	fs_offset_t size;
@@ -529,11 +529,11 @@ static void Test_VOX_LookupString( void )
 
 	VOX_Shutdown();
 
-	rgpszrawsentence[cszrawsentences++] = "exactmatch\000123";
-	rgpszrawsentence[cszrawsentences++] = "CaseInsensitive\000456";
-	rgpszrawsentence[cszrawsentences++] = "SentenceWithTabs\0\t\t\t789";
-	rgpszrawsentence[cszrawsentences++] = "SentenceWithSpaces\0  SPAAACE";
-	rgpszrawsentence[cszrawsentences++] = "SentenceWithTabsAndSpaces\0\t \t\t MEOW";
+	rgpszrawsentence[cszrawsentences++] = (char*)"exactmatch\000123";
+	rgpszrawsentence[cszrawsentences++] = (char*)"CaseInsensitive\000456";
+	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithTabs\0\t\t\t789";
+	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithSpaces\0  SPAAACE";
+	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithTabsAndSpaces\0\t \t\t MEOW";
 
 	for( i = 0; i < sizeof( data ) / sizeof( data[0] ); i += 2 )
 	{
