@@ -58,8 +58,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
-		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
-		break;
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
 		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
@@ -67,8 +65,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		gEngfuncs.Con_Reportf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );
-		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
 	default:
 		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );

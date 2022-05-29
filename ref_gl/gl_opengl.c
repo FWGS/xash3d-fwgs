@@ -273,8 +273,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
-		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
-		break;
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
 		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
@@ -282,8 +280,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		gEngfuncs.Con_Reportf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );
-		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
 	default:
 		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );
@@ -498,10 +494,10 @@ void R_RenderInfo_f( void )
 
 	if( glConfig.wrapper == GLES_WRAPPER_GL4ES )
 	{
-		const char *vendor = pglGetString( GL_VENDOR | 0x10000 );
-		const char *renderer = pglGetString( GL_RENDERER | 0x10000 );
-		const char *version = pglGetString( GL_VERSION | 0x10000 );
-		const char *extensions = pglGetString( GL_EXTENSIONS | 0x10000 );
+		const char *vendor = (const char *)pglGetString( GL_VENDOR | 0x10000 );
+		const char *renderer = (const char *)pglGetString( GL_RENDERER | 0x10000 );
+		const char *version = (const char *)pglGetString( GL_VERSION | 0x10000 );
+		const char *extensions = (const char *)pglGetString( GL_EXTENSIONS | 0x10000 );
 
 		if( vendor )
 			gEngfuncs.Con_Printf( "GL4ES_VENDOR: %s\n", vendor );
@@ -644,10 +640,10 @@ void GL_InitExtensionsBigGL( void )
 	// gl4es may be used system-wide
 	if( Q_stristr( glConfig.renderer_string, "gl4es" ))
 	{
-		const char *vendor = pglGetString( GL_VENDOR | 0x10000 );
-		const char *renderer = pglGetString( GL_RENDERER | 0x10000 );
-		const char *version = pglGetString( GL_VERSION | 0x10000 );
-		const char *extensions = pglGetString( GL_EXTENSIONS | 0x10000 );
+		const char *vendor = (const char *)pglGetString( GL_VENDOR | 0x10000 );
+		const char *renderer = (const char *)pglGetString( GL_RENDERER | 0x10000 );
+		const char *version = (const char *)pglGetString( GL_VERSION | 0x10000 );
+		const char *extensions = (const char *)pglGetString( GL_EXTENSIONS | 0x10000 );
 		glConfig.wrapper = GLES_WRAPPER_GL4ES;
 	}
 
