@@ -143,6 +143,8 @@ static struct {
 	// TODO: unify them
 	// Needs: SHADER_DEVICE_ADDRESS, STORAGE_BUFFER, AS_BUILD_INPUT_READ_ONLY
 	vk_buffer_t tlas_geom_buffer;
+	VkDeviceAddress tlas_geom_buffer_addr;
+	r_debuffer_t tlas_geom_buffer_alloc;
 
 	// Planned to contain seveal types of data:
 	// - grid structure itself
@@ -290,7 +292,7 @@ qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_bu
 	return true;
 }
 
-static void createTlas( VkCommandBuffer cmdbuf ) {
+static void createTlas( VkCommandBuffer cmdbuf, VkDeviceAddress instances_addr ) {
 	const VkAccelerationStructureGeometryKHR tl_geom[] = {
 		{
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -299,7 +301,7 @@ static void createTlas( VkCommandBuffer cmdbuf ) {
 			.geometry.instances =
 				(VkAccelerationStructureGeometryInstancesDataKHR){
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-					.data.deviceAddress = getBufferDeviceAddress(g_rtx.tlas_geom_buffer.buffer),
+					.data.deviceAddress = instances_addr,
 					.arrayOfPointers = VK_FALSE,
 				},
 		},
@@ -345,7 +347,7 @@ void VK_RayNewMap( void ) {
 			g_rtx.tlas = VK_NULL_HANDLE;
 		}
 
-		createTlas(VK_NULL_HANDLE);
+		createTlas(VK_NULL_HANDLE, g_rtx.tlas_geom_buffer_addr);
 	}
 
 	RT_RayModel_Clear();
@@ -579,12 +581,16 @@ static void createPipeline( void )
 
 static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	ASSERT(g_ray_model_state.frame.num_models > 0);
-
 	DEBUG_BEGIN(cmdbuf, "prepare tlas");
+
+	R_DEBuffer_Flip( &g_rtx.tlas_geom_buffer_alloc );
+
+	const uint32_t instance_offset = R_DEBuffer_Alloc(&g_rtx.tlas_geom_buffer_alloc, LifetimeDynamic, g_ray_model_state.frame.num_models, 1);
+	ASSERT(instance_offset != ALO_ALLOC_FAILED);
 
 	// Upload all blas instances references to GPU mem
 	{
-		VkAccelerationStructureInstanceKHR* inst = g_rtx.tlas_geom_buffer.mapped;
+		VkAccelerationStructureInstanceKHR* inst = ((VkAccelerationStructureInstanceKHR*)g_rtx.tlas_geom_buffer.mapped) + instance_offset;
 		for (int i = 0; i < g_ray_model_state.frame.num_models; ++i) {
 			const vk_ray_draw_model_t* const model = g_ray_model_state.frame.models + i;
 			ASSERT(model->model);
@@ -628,8 +634,8 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR, // | VK_ACCESS_TRANSFER_WRITE_BIT,
 			.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
 			.buffer = g_rtx.accels_buffer.buffer,
-			.offset = 0,
-			.size = VK_WHOLE_SIZE,
+			.offset = instance_offset * sizeof(VkAccelerationStructureInstanceKHR),
+			.size = g_ray_model_state.frame.num_models * sizeof(VkAccelerationStructureInstanceKHR),
 		} };
 		vkCmdPipelineBarrier(cmdbuf,
 			VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
@@ -638,7 +644,7 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	}
 
 	// 2. Build TLAS
-	createTlas(cmdbuf);
+	createTlas(cmdbuf, g_rtx.tlas_geom_buffer_addr + instance_offset * sizeof(VkAccelerationStructureInstanceKHR));
 	DEBUG_END(cmdbuf);
 }
 
@@ -1352,13 +1358,15 @@ qboolean VK_RayInit( void )
 	}
 	g_rtx.scratch_buffer_addr = getBufferDeviceAddress(g_rtx.scratch_buffer.buffer);
 
-	if (!VK_BufferCreate("ray tlas_geom_buffer", &g_rtx.tlas_geom_buffer, sizeof(VkAccelerationStructureInstanceKHR) * MAX_ACCELS,
+	if (!VK_BufferCreate("ray tlas_geom_buffer", &g_rtx.tlas_geom_buffer, sizeof(VkAccelerationStructureInstanceKHR) * MAX_ACCELS * 2,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
+	g_rtx.tlas_geom_buffer_addr = getBufferDeviceAddress(g_rtx.tlas_geom_buffer.buffer);
+	R_DEBuffer_Init(&g_rtx.tlas_geom_buffer_alloc, 0, MAX_ACCELS * 2);
 
 	if (!VK_BufferCreate("ray kusochki_buffer", &g_ray_model_state.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
