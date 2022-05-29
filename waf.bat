@@ -8,17 +8,13 @@ rem from issue #964
 Setlocal EnableDelayedExpansion
 
 rem Check Windows Version
-set TOKEN=tokens=3*
+set TOKEN=tokens=2*
 ver | findstr /i "5\.0\." > nul
 if %ERRORLEVEL% EQU 0 SET TOKEN=tokens=3*
 ver | findstr /i "5\.1\." > nul
 if %ERRORLEVEL% EQU 0 SET TOKEN=tokens=3*
 ver | findstr /i "5\.2\." > nul
 if %ERRORLEVEL% EQU 0 SET TOKEN=tokens=3*
-ver | findstr /i "6\.0\." > nul
-if %ERRORLEVEL% EQU 0 SET TOKEN=tokens=2*
-ver | findstr /i "6\.1\." > nul
-if %ERRORLEVEL% EQU 0 SET TOKEN=tokens=2*
 
 rem Start calculating PYTHON and PYTHON_DIR
 set PYTHON=
@@ -88,7 +84,7 @@ rem @echo %PYTHON_DIR%
 
 if "%PYTHON%" == "" (
 rem @echo No Python
-set PYTHON=python
+set PYTHON=py
 goto running
 )
 
