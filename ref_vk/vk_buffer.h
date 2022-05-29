@@ -2,6 +2,7 @@
 
 #include "vk_core.h"
 #include "vk_devmem.h"
+#include "alolcator.h"
 
 typedef struct vk_buffer_s {
 	vk_devmem_t devmem;
@@ -43,3 +44,20 @@ void VK_RingBuffer_Fix(vk_ring_buffer_t* buf);
 
 // Clears non-permantent part of the buffer
 void VK_RingBuffer_ClearFrame(vk_ring_buffer_t* buf);
+
+
+typedef struct {
+	alo_ring_t static_ring;
+	alo_ring_t dynamic_ring;
+
+	uint32_t static_size;
+	uint32_t frame_dynamic_offset[2];
+} r_debuffer_t;
+
+typedef enum {
+	LifetimeStatic, LifetimeDynamic,
+} r_lifetime_t;
+
+void R_DEBuffer_Init(r_debuffer_t *debuf, uint32_t static_size, uint32_t dynamic_size);
+uint32_t R_DEBuffer_Alloc(r_debuffer_t* debuf, r_lifetime_t lifetime, uint32_t size, uint32_t align);
+void R_DEBuffer_Flip(r_debuffer_t* debuf);

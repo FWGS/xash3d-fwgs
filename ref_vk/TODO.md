@@ -2,7 +2,42 @@
 - [ ] allocate for N frames:
 	- [x] geometries
 	- [ ] rt models
+		- [ ] kusochki
+		  - [ ] same ring buffer alloc as for geometries
+		    - [ ] extract as a unit
+		- [ ] tlas geom --//--
 	- [ ] lights
+
+- scratch buffer:
+  - should be fine (assuming intra-cmdbuf sync), contents lifetime is single frame only
+- accels_buffer:
+  - lifetime: multiple frames; dynamic: some b/tlases get rebuilt every frame
+  - opt 1: double buffering
+  - opt 2: intra-cmdbuf sync (can't write unless previous frame is done)
+- uniform_buffer:
+  - lifetime: single frame
+- tlas_geom_buffer:
+  - similar to scratch_buffer
+  - BUT: filled on CPU, so it's not properly synchronsized
+  - fix: upload using staging? double/ring buffering?
+- light_grid_buffer (+ small lights_buffer):
+  - lifetime: single frame
+  - BUT: populated by CPU, needs sync; can't just ring-buffer it
+  - fixes: double-buffering?
+    - staging + sync upload? staging needs to be huge or done in chunks. also, cpu needs to wait on staging upload
+	- 2x size + wait: won't fit into device-local-host-visible mem
+	- decrease size first?
+- kusochki_buffer:
+  - lifetime: multiple frames
+  - ? who uploads?
+  - fix: ring-buffer?
+- models_cache
+  - lifetimes:
+    - static; entire map
+	- static; single to multiple frames
+	- dynamic; multiple frames
+  - : intra-cmdbuf
+
 
 // O. 1 buffer i bardak v nyom
 // - [SSSSAAS.SBAS....]

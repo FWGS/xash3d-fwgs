@@ -89,3 +89,39 @@ VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer) {
 	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
 	return vkGetBufferDeviceAddress(vk_core.device, &bdai);
 }
+
+void R_DEBuffer_Init(r_debuffer_t *debuf, uint32_t static_size, uint32_t dynamic_size) {
+	aloRingInit(&debuf->static_ring, static_size);
+	aloRingInit(&debuf->dynamic_ring, dynamic_size);
+	debuf->static_size = static_size;
+	debuf->frame_dynamic_offset[0] = debuf->frame_dynamic_offset[1] = ALO_ALLOC_FAILED;
+}
+
+uint32_t R_DEBuffer_Alloc(r_debuffer_t* debuf, r_lifetime_t lifetime, uint32_t size, uint32_t align) {
+	alo_ring_t * const ring = (lifetime == LifetimeStatic) ? &debuf->static_ring : &debuf->dynamic_ring;
+	const uint32_t alloc_offset = aloRingAlloc(ring, size, align);
+	const uint32_t offset = alloc_offset + ((lifetime == LifetimeDynamic) ? debuf->static_size : 0);
+
+	if (alloc_offset == ALO_ALLOC_FAILED) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate %d %s bytes\n",
+			size,
+			lifetime == LifetimeDynamic ? "dynamic" : "static");
+		return ALO_ALLOC_FAILED;
+	}
+
+	// Store first dynamic allocation this frame
+	if (lifetime == LifetimeDynamic && debuf->frame_dynamic_offset[1] == ALO_ALLOC_FAILED) {
+		debuf->frame_dynamic_offset[1] = alloc_offset;
+	}
+
+	return offset;
+}
+
+void R_DEBuffer_Flip(r_debuffer_t* debuf) {
+	if (debuf->frame_dynamic_offset[0] != ALO_ALLOC_FAILED)
+		aloRingFree(&debuf->dynamic_ring, debuf->frame_dynamic_offset[0]);
+
+	debuf->frame_dynamic_offset[0] = debuf->frame_dynamic_offset[1];
+	debuf->frame_dynamic_offset[1] = ALO_ALLOC_FAILED;
+}
+

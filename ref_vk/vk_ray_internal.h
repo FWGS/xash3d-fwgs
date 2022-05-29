@@ -5,7 +5,7 @@
 #include "vk_const.h"
 
 #define MAX_ACCELS 1024
-#define MAX_KUSOCHKI 8192
+#define MAX_KUSOCHKI 16384
 #define MAX_EMISSIVE_KUSOCHKI 256
 #define MODEL_CACHE_SIZE 1024
 
@@ -59,7 +59,7 @@ typedef struct {
 	// TODO unify with render buffer
 	// Needs: STORAGE_BUFFER
 	vk_buffer_t kusochki_buffer;
-	vk_ring_buffer_t kusochki_alloc;
+	r_debuffer_t kusochki_alloc;
 
 	// TODO this should really be a single uniform buffer for matrices and light data
 

@@ -157,7 +157,7 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
 	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
 	vk_kusok_data_t *kusochki;
-	const uint32_t kusochki_count_offset = VK_RingBuffer_Alloc(&g_ray_model_state.kusochki_alloc, args.model->num_geometries, 1);
+	const uint32_t kusochki_count_offset = R_DEBuffer_Alloc(&g_ray_model_state.kusochki_alloc, args.model->dynamic ? LifetimeDynamic : LifetimeStatic, args.model->num_geometries, 1);
 	vk_ray_model_t *ray_model;
 	int max_prims = 0;
 
@@ -166,7 +166,7 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 	if (g_ray_model_state.freeze_models)
 		return args.model->ray_model;
 
-	if (kusochki_count_offset == AllocFailed) {
+	if (kusochki_count_offset == ALO_ALLOC_FAILED) {
 		gEngine.Con_Printf(S_ERROR "Maximum number of kusochki exceeded on model %s\n", args.model->debug_name);
 		return NULL;
 	}
@@ -425,6 +425,10 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 	}
 }
 
+void RT_RayModel_Clear(void) {
+	R_DEBuffer_Init(&g_ray_model_state.kusochki_alloc, MAX_KUSOCHKI / 2, MAX_KUSOCHKI / 2);
+}
+
 void XVK_RayModel_ClearForNextFrame( void )
 {
 	// FIXME we depend on the fact that only a single frame can be in flight
@@ -447,5 +451,6 @@ void XVK_RayModel_ClearForNextFrame( void )
 	// HACK: blas caching requires persistent memory
 	// proper fix would need some other memory allocation strategy
 	// VK_RingBuffer_ClearFrame(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_ClearFrame(&g_ray_model_state.kusochki_alloc);
+	//VK_RingBuffer_ClearFrame(&g_ray_model_state.kusochki_alloc);
+	R_DEBuffer_Flip(&g_ray_model_state.kusochki_alloc);
 }

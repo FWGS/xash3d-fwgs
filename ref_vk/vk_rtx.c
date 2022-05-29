@@ -164,6 +164,7 @@ static struct {
 		uint32_t scratch_offset; // for building dynamic blases
 	} frame;
 
+	// TODO with proper intra-cmdbuf sync we don't really need 2x images
 	unsigned frame_number;
 	xvk_ray_frame_images_t frames[MAX_FRAMES_IN_FLIGHT];
 
@@ -328,7 +329,7 @@ void VK_RayNewMap( void ) {
 	ASSERT(vk_core.rtx);
 
 	VK_RingBuffer_Clear(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_Clear(&g_ray_model_state.kusochki_alloc);
+//	VK_RingBuffer_Clear(&g_ray_model_state.kusochki_alloc);
 
 	// Clear model cache
 	for (int i = 0; i < ARRAYSIZE(g_ray_model_state.models_cache); ++i) {
@@ -346,11 +347,13 @@ void VK_RayNewMap( void ) {
 
 		createTlas(VK_NULL_HANDLE);
 	}
+
+	RT_RayModel_Clear();
 }
 
 void VK_RayMapLoadEnd( void ) {
 	VK_RingBuffer_Fix(&g_rtx.accels_buffer_alloc);
-	VK_RingBuffer_Fix(&g_ray_model_state.kusochki_alloc);
+	//VK_RingBuffer_Fix(&g_ray_model_state.kusochki_alloc);
 }
 
 void VK_RayFrameBegin( void )
@@ -1293,7 +1296,6 @@ static void reloadLighting( void ) {
 	g_rtx.reload_lighting = true;
 }
 
-
 static void freezeModels( void ) {
 	g_ray_model_state.freeze_models = !g_ray_model_state.freeze_models;
 }
@@ -1364,7 +1366,8 @@ qboolean VK_RayInit( void )
 		// FIXME complain, handle
 		return false;
 	}
-	g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
+	RT_RayModel_Clear();
+	//g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
 
 	if (!VK_BufferCreate("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(struct Lights),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
