@@ -16,6 +16,7 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
 }
+
 void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
 	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
@@ -29,55 +30,66 @@ typedef struct vertex_2d_s {
 
 // TODO should these be dynamic?
 #define MAX_PICS 16384
+#define MAX_VERTICES (MAX_PICS * 6)
 #define MAX_BATCHES 256
+
+typedef struct {
+	uint32_t vertex_offset, vertex_count;
+	int texture;
+	int blending_mode;
+} batch_t;
 
 static struct {
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
 
-	uint32_t max_pics, num_pics;
 	vk_buffer_t pics_buffer;
+	r_debuffer_t pics_buffer_alloc;
+	qboolean exhausted_this_frame;
 
-	struct {
-		uint32_t vertex_offset, vertex_count;
-		int texture;
-		int blending_mode;
-	} batch[MAX_BATCHES];
-	uint32_t current_batch;
+	batch_t batch[MAX_BATCHES];
+	int batch_count;
 
 	// TODO texture bindings?
 } g2d;
 
-static vertex_2d_t* allocQuadVerts(int blending_mode, int texnum)
-{
-	vertex_2d_t* const ptr = ((vertex_2d_t*)(g2d.pics_buffer.mapped)) + g2d.num_pics;
-	if (g2d.batch[g2d.current_batch].texture != texnum || g2d.batch[g2d.current_batch].blending_mode != blending_mode)
-	{
-		if (g2d.batch[g2d.current_batch].vertex_count != 0)
-		{
-			if (g2d.current_batch == MAX_BATCHES - 1)
-			{
-				gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BATCHES");
-				return NULL;
-			}
+static vertex_2d_t* allocQuadVerts(int blending_mode, int texnum) {
+	const uint32_t pics_offset = R_DEBuffer_Alloc(&g2d.pics_buffer_alloc, LifetimeDynamic, 6, 1);
+	vertex_2d_t* const ptr = ((vertex_2d_t*)(g2d.pics_buffer.mapped)) + pics_offset;
+	batch_t *batch = g2d.batch + (g2d.batch_count-1);
 
-			++g2d.current_batch;
+	if (pics_offset == ALO_ALLOC_FAILED) {
+		if (!g2d.exhausted_this_frame) {
+			gEngine.Con_Printf(S_ERROR "2d: ran out of vertex memory\n");
+			g2d.exhausted_this_frame = true;
 		}
-
-		g2d.batch[g2d.current_batch].texture = texnum;
-		g2d.batch[g2d.current_batch].blending_mode = vk_renderstate.blending_mode;
-		g2d.batch[g2d.current_batch].vertex_offset = g2d.num_pics;
-		g2d.batch[g2d.current_batch].vertex_count = 0;
-	}
-
-	if (g2d.num_pics + 6 > g2d.max_pics)
-	{
-		gEngine.Con_Printf(S_ERROR "VK FIXME RAN OUT OF BUFFER");
 		return NULL;
 	}
 
-	g2d.num_pics += 6;
-	g2d.batch[g2d.current_batch].vertex_count += 6;
+	if (batch->texture != texnum
+		|| batch->blending_mode != blending_mode
+		|| batch->vertex_offset > pics_offset) {
+		if (batch->vertex_count != 0) {
+			if (g2d.batch_count == MAX_BATCHES) {
+				if (!g2d.exhausted_this_frame) {
+					gEngine.Con_Printf(S_ERROR "2d: ran out of batch memory\n");
+					g2d.exhausted_this_frame = true;
+				}
+				return NULL;
+			}
+
+			++g2d.batch_count;
+			batch++;
+		}
+
+		batch->vertex_offset = pics_offset;
+		batch->vertex_count = 0;
+		batch->texture = texnum;
+		batch->blending_mode = blending_mode;
+	}
+
+	batch->vertex_count += 6;
+	ASSERT(batch->vertex_count + batch->vertex_offset <= MAX_VERTICES);
 	return ptr;
 }
 
@@ -86,9 +98,8 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 	vertex_2d_t *p = allocQuadVerts(vk_renderstate.blending_mode, texnum);
 
 	if (!p) {
-		gEngine.Con_Printf(S_ERROR "VK FIXME %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__,
-			x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name);
-
+		/* gEngine.Con_Printf(S_ERROR "VK FIXME %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__, */
+		/* 	x, y, w, h, s1, t1, s2, t2, texnum, findTexture(texnum)->name); */
 		return;
 	}
 
@@ -132,32 +143,27 @@ void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, 
 	drawFill(x, y, w, h, r, g, b, a, kRenderTransColor);
 }
 
-static void XVK_2dClear( void )
+static void clear( void )
 {
-	g2d.num_pics = 0;
-	g2d.current_batch = 0;
+	R_DEBuffer_Flip(&g2d.pics_buffer_alloc);
+
+	g2d.batch_count = 1;
+	g2d.batch[0].texture = -1;
+	g2d.batch[0].vertex_offset = 0;
 	g2d.batch[0].vertex_count = 0;
+	g2d.exhausted_this_frame = false;
 }
 
 void vk2dEnd( VkCommandBuffer cmdbuf )
 {
-	const VkDeviceSize offset = 0;
+	DEBUG_BEGIN(cmdbuf, "2d overlay");
 
-	if (!g2d.num_pics)
-		return;
-
-	vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g2d.pics_buffer.buffer, &offset);
-
-	if (vk_core.debug)
 	{
-		VkDebugUtilsLabelEXT label = {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
-			.pLabelName = "2d overlay",
-		};
-		vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label);
+		const VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g2d.pics_buffer.buffer, &offset);
 	}
 
-	for (int i = 0; i <= g2d.current_batch; ++i)
+	for (int i = 0; i < g2d.batch_count && g2d.batch[i].vertex_count > 0; ++i)
 	{
 		vk_texture_t *texture = findTexture(g2d.batch[i].texture);
 		const VkPipeline pipeline = g2d.pipelines[g2d.batch[i].blending_mode];
@@ -169,10 +175,9 @@ void vk2dEnd( VkCommandBuffer cmdbuf )
 		} // FIXME else what?
 	}
 
-	if (vk_core.debug)
-		vkCmdEndDebugUtilsLabelEXT(cmdbuf);
+	DEBUG_END(cmdbuf);
 
-	XVK_2dClear();
+	clear();
 }
 
 static qboolean createPipelines( void )
@@ -276,12 +281,12 @@ qboolean initVk2d( void )
 	if (!createPipelines())
 		return false;
 
-	if (!VK_BufferCreate("2d pics_buffer", &g2d.pics_buffer, sizeof(vertex_2d_t) * (MAX_PICS * 6),
+	if (!VK_BufferCreate("2d pics_buffer", &g2d.pics_buffer, sizeof(vertex_2d_t) * MAX_VERTICES,
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ))
 		// FIXME cleanup
 		return false;
 
-	g2d.max_pics = MAX_PICS * 6;
+	R_DEBuffer_Init(&g2d.pics_buffer_alloc, 0, MAX_VERTICES);
 
 	return true;
 }

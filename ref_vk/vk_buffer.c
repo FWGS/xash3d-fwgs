@@ -103,9 +103,9 @@ uint32_t R_DEBuffer_Alloc(r_debuffer_t* debuf, r_lifetime_t lifetime, uint32_t s
 	const uint32_t offset = alloc_offset + ((lifetime == LifetimeDynamic) ? debuf->static_size : 0);
 
 	if (alloc_offset == ALO_ALLOC_FAILED) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate %d %s bytes\n",
-			size,
-			lifetime == LifetimeDynamic ? "dynamic" : "static");
+		/* gEngine.Con_Printf(S_ERROR "Cannot allocate %d %s bytes\n", */
+		/* 	size, */
+		/* 	lifetime == LifetimeDynamic ? "dynamic" : "static"); */
 		return ALO_ALLOC_FAILED;
 	}
 
