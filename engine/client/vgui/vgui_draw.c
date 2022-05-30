@@ -163,6 +163,10 @@ void VGui_Startup( const char *clientlib, int width, int height )
 				vgui.initialized = true;
 				Con_Reportf( "vgui_support: found internal client support\n" );
 			}
+			else
+			{
+				COM_FreeLibrary( s_pVGuiSupport );
+			}
 		}
 
 		if( !vgui.initialized )
