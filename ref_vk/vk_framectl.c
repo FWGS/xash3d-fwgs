@@ -1,6 +1,6 @@
 #include "vk_framectl.h"
 
-#include "vk_2d.h"
+#include "vk_overlay.h"
 #include "vk_scene.h"
 #include "vk_render.h"
 #include "vk_rtx.h"
@@ -148,7 +148,7 @@ static void waitForFrameFence( void ) {
 				loop = false;
 				break;
 			case VK_TIMEOUT:
-				gEngine.Con_Printf(S_ERROR "Waitinf for frame fence to be signaled timed out after 10 seconds. Wat\n");
+				gEngine.Con_Printf(S_ERROR "Waiting for frame fence to be signaled timed out after 10 seconds. Wat\n");
 				break;
 			default:
 				XVK_CHECK(fence_result);
@@ -285,7 +285,7 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 	if (!g_frame.rtx_enabled)
 		VK_RenderEnd( cmdbuf );
 
-	vk2dEnd( cmdbuf );
+	R_VkOverlay_DrawAndFlip( cmdbuf );
 
 	vkCmdEndRenderPass(cmdbuf);
 

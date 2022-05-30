@@ -1,4 +1,4 @@
-#include "vk_2d.h"
+#include "vk_overlay.h"
 
 #include "vk_buffer.h"
 #include "vk_core.h"
@@ -12,15 +12,6 @@
 #include "com_strings.h"
 #include "eiface.h"
 
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
-
-void R_DrawTileClear( int texnum, int x, int y, int w, int h )
-{
-	gEngine.Con_Printf(S_WARN "VK FIXME: %s\n", __FUNCTION__);
-}
 
 typedef struct vertex_2d_s {
 	float x, y;
@@ -95,7 +86,7 @@ static vertex_2d_t* allocQuadVerts(int blending_mode, int texnum) {
 
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
-	vertex_2d_t *p = allocQuadVerts(vk_renderstate.blending_mode, texnum);
+	vertex_2d_t *const p = allocQuadVerts(vk_renderstate.blending_mode, texnum);
 
 	if (!p) {
 		/* gEngine.Con_Printf(S_ERROR "VK FIXME %s(%f, %f, %f, %f, %f, %f, %f, %f, %d(%s))\n", __FUNCTION__, */
@@ -133,18 +124,7 @@ static void drawFill( float x, float y, float w, float h, int r, int g, int b, i
 	vk_renderstate.blending_mode = prev_blending;
 }
 
-void CL_FillRGBA( float x, float y, float w, float h, int r, int g, int b, int a )
-{
-	drawFill(x, y, w, h, r, g, b, a, kRenderTransAdd);
-}
-
-void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, int a )
-{
-	drawFill(x, y, w, h, r, g, b, a, kRenderTransColor);
-}
-
-static void clear( void )
-{
+static void clearAccumulated( void ) {
 	R_DEBuffer_Flip(&g2d.pics_buffer_alloc);
 
 	g2d.batch_count = 1;
@@ -152,32 +132,6 @@ static void clear( void )
 	g2d.batch[0].vertex_offset = 0;
 	g2d.batch[0].vertex_count = 0;
 	g2d.exhausted_this_frame = false;
-}
-
-void vk2dEnd( VkCommandBuffer cmdbuf )
-{
-	DEBUG_BEGIN(cmdbuf, "2d overlay");
-
-	{
-		const VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g2d.pics_buffer.buffer, &offset);
-	}
-
-	for (int i = 0; i < g2d.batch_count && g2d.batch[i].vertex_count > 0; ++i)
-	{
-		vk_texture_t *texture = findTexture(g2d.batch[i].texture);
-		const VkPipeline pipeline = g2d.pipelines[g2d.batch[i].blending_mode];
-		if (texture->vk.descriptor)
-		{
-			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
-			vkCmdDraw(cmdbuf, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
-		} // FIXME else what?
-	}
-
-	DEBUG_END(cmdbuf);
-
-	clear();
 }
 
 static qboolean createPipelines( void )
@@ -276,8 +230,7 @@ static qboolean createPipelines( void )
 	return true;
 }
 
-qboolean initVk2d( void )
-{
+qboolean R_VkOverlay_Init( void ) {
 	if (!createPipelines())
 		return false;
 
@@ -291,11 +244,55 @@ qboolean initVk2d( void )
 	return true;
 }
 
-void deinitVk2d( void )
-{
+void R_VkOverlay_Shutdown( void ) {
 	VK_BufferDestroy(&g2d.pics_buffer);
 	for (int i = 0; i < ARRAYSIZE(g2d.pipelines); ++i)
 		vkDestroyPipeline(vk_core.device, g2d.pipelines[i], NULL);
 
 	vkDestroyPipelineLayout(vk_core.device, g2d.pipeline_layout, NULL);
+}
+
+void R_VkOverlay_DrawAndFlip( VkCommandBuffer cmdbuf ) {
+	DEBUG_BEGIN(cmdbuf, "2d overlay");
+
+	{
+		const VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g2d.pics_buffer.buffer, &offset);
+	}
+
+	for (int i = 0; i < g2d.batch_count && g2d.batch[i].vertex_count > 0; ++i)
+	{
+		vk_texture_t *texture = findTexture(g2d.batch[i].texture);
+		const VkPipeline pipeline = g2d.pipelines[g2d.batch[i].blending_mode];
+		if (texture->vk.descriptor)
+		{
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g2d.pipeline_layout, 0, 1, &texture->vk.descriptor, 0, NULL);
+			vkCmdDraw(cmdbuf, g2d.batch[i].vertex_count, 1, g2d.batch[i].vertex_offset, 0);
+		} // FIXME else what?
+	}
+
+	DEBUG_END(cmdbuf);
+
+	clearAccumulated();
+}
+
+void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
+{
+	PRINT_NOT_IMPLEMENTED();
+}
+
+void R_DrawTileClear( int texnum, int x, int y, int w, int h )
+{
+	PRINT_NOT_IMPLEMENTED_ARGS("%s", findTexture(texnum)->name );
+}
+
+void CL_FillRGBA( float x, float y, float w, float h, int r, int g, int b, int a )
+{
+	drawFill(x, y, w, h, r, g, b, a, kRenderTransAdd);
+}
+
+void CL_FillRGBABlend( float x, float y, float w, float h, int r, int g, int b, int a )
+{
+	drawFill(x, y, w, h, r, g, b, a, kRenderTransColor);
 }

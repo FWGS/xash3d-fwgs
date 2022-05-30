@@ -2,7 +2,7 @@
 
 #include "vk_common.h"
 #include "vk_textures.h"
-#include "vk_2d.h"
+#include "vk_overlay.h"
 #include "vk_renderstate.h"
 #include "vk_staging.h"
 #include "vk_framectl.h"
@@ -110,6 +110,10 @@ VkBool32 VKAPI_PTR debugCallback(
 
 	if (Q_strcmp(pCallbackData->pMessageIdName, "VUID-vkMapMemory-memory-00683") == 0)
 		return VK_FALSE;
+
+	/* if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) { */
+	/* 	gEngine.Con_Printf(S_WARN "Validation: %s\n", pCallbackData->pMessage); */
+	/* } */
 
 	// TODO better messages, not only errors, what are other arguments for, ...
 	if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
@@ -747,7 +751,7 @@ qboolean R_VkInit( void )
 
 	// All below need render_pass
 
-	if (!initVk2d())
+	if (!R_VkOverlay_Init())
 		return false;
 
 	if (!VK_BrushInit())
@@ -776,7 +780,7 @@ void R_VkShutdown( void ) {
 
 	VK_BrushShutdown();
 	VK_StudioShutdown();
-	deinitVk2d();
+	R_VkOverlay_Shutdown();
 
 	VK_RenderShutdown();
 
