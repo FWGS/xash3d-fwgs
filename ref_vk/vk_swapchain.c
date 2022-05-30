@@ -46,6 +46,8 @@ static void createDepthImage(int w, int h, VkFormat depth_format) {
 }
 
 static void destroySwapchainAndFramebuffers( VkSwapchainKHR swapchain ) {
+	XVK_CHECK(vkDeviceWaitIdle( vk_core.device ));
+
 	for (uint32_t i = 0; i < g_swapchain.num_images; ++i) {
 		vkDestroyImageView(vk_core.device, g_swapchain.image_views[i], NULL);
 		vkDestroyFramebuffer(vk_core.device, g_swapchain.framebuffers[i], NULL);
