@@ -33,5 +33,11 @@ void VID_SaveWindowSize( int width, int height );
 // joystick events
 extern SDL_Joystick *g_joy;
 
+//
+// in_sdl.c
+//
+void SDLash_InitCursors( void );
+void SDLash_FreeCursors( void );
+
 #endif // XASH_SDL
 #endif // KEYWRAPPER_H

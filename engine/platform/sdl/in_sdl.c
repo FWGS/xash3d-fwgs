@@ -28,7 +28,11 @@ SDL_Joystick *g_joy = NULL;
 #if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
 #else
-static SDL_Cursor *g_pDefaultCursor[dc_last];
+static struct
+{
+	qboolean initialized;
+	SDL_Cursor *cursors[dc_last];
+} cursors;
 #endif
 
 /*
@@ -254,29 +258,50 @@ SDLash_InitCursors
 
 ========================
 */
-static void SDLash_InitCursors( void )
+void SDLash_InitCursors( void )
 {
-	static qboolean initialized = false;
-	if( !initialized )
-	{
-		// load up all default cursors
+	if( cursors.initialized )
+		SDLash_FreeCursors();
+
+	// load up all default cursors
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-		g_pDefaultCursor[dc_none] = NULL;
-		g_pDefaultCursor[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
-		g_pDefaultCursor[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
-		g_pDefaultCursor[dc_hourglass] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
-		g_pDefaultCursor[dc_crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
-		g_pDefaultCursor[dc_up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
-		g_pDefaultCursor[dc_sizenwse] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
-		g_pDefaultCursor[dc_sizenesw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
-		g_pDefaultCursor[dc_sizewe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
-		g_pDefaultCursor[dc_sizens] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
-		g_pDefaultCursor[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
-		g_pDefaultCursor[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
-		g_pDefaultCursor[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+	cursors.cursors[dc_none] = NULL;
+	cursors.cursors[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+	cursors.cursors[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+	cursors.cursors[dc_hourglass] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+	cursors.cursors[dc_crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+	cursors.cursors[dc_up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+	cursors.cursors[dc_sizenwse] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+	cursors.cursors[dc_sizenesw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+	cursors.cursors[dc_sizewe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+	cursors.cursors[dc_sizens] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+	cursors.cursors[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
+	cursors.cursors[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
+	cursors.cursors[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
 #endif
-		initialized = true;
+	cursors.initialized = true;
+}
+
+/*
+========================
+SDLash_FreeCursors
+
+========================
+*/
+void SDLash_FreeCursors( void )
+{
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	int i = 0;
+
+	for( ; i < ARRAYSIZE( cursors.cursors ); i++ )
+	{
+		if( cursors.cursors[i] )
+			SDL_FreeCursor( cursors.cursors[i] );
+		cursors.cursors[i] = NULL;
 	}
+
+	cursors.initialized = false;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -289,10 +314,11 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 {
 	qboolean visible;
 
-	if (cls.key_dest != key_game || cl.paused)
+	if( !cursors.initialized )
 		return;
 
-	SDLash_InitCursors();
+	if( cls.key_dest != key_game || cl.paused )
+		return;
 
 	switch( type )
 	{
@@ -309,13 +335,13 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 	if( CVAR_TO_BOOL( touch_emulate ))
 		return;
 
-	if (visible && !host.mouse_visible)
+	if( visible && !host.mouse_visible )
 	{
-		SDL_SetCursor( g_pDefaultCursor[type] );
+		SDL_SetCursor( cursors.cursors[type] );
 		SDL_ShowCursor( true );
 		Key_EnableTextInput( true, false );
 	}
-	else if (!visible && host.mouse_visible)
+	else if( !visible && host.mouse_visible )
 	{
 		SDL_ShowCursor( false );
 		Key_EnableTextInput( false, false );
