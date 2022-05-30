@@ -35,8 +35,7 @@ void main() {
 		payload.emissive.rgb = SRGBtoLINEAR(texture(skybox, gl_WorldRayDirectionEXT).rgb);
 		return;
 	} else {
-		const vec4 base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
-		payload.base_color_a = vec4(SRGBtoLINEAR(base_color_a.rgb), base_color_a.a);
+		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
 		payload.material_rmxx.r = (kusok.tex_roughness > 0) ? sampleTexture(kusok.tex_roughness, geom.uv, geom.uv_lods).r : kusok.roughness;
 		payload.material_rmxx.g = (kusok.tex_metalness > 0) ? sampleTexture(kusok.tex_metalness, geom.uv, geom.uv_lods).r : kusok.metalness;
 
@@ -57,7 +56,7 @@ void main() {
 #if 1
 	// Real correct emissive color
 	//payload.emissive.rgb = kusok.emissive;
-	payload.emissive.rgb = clamp(kusok.emissive / (1.0/3.0) / 25, 0, 1.5) * payload.base_color_a.rgb;
+	payload.emissive.rgb = clamp(kusok.emissive / (1.0/3.0) / 25, 0, 1.5) * SRGBtoLINEAR(payload.base_color_a.rgb);
 #else
 	// Fake texture color
 	if (any(greaterThan(kusok.emissive, vec3(0.))))

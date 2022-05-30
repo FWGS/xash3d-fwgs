@@ -173,7 +173,7 @@ void main() {
 #endif
 
 	const vec4 base_color = imageLoad(src_base_color, pix);
-	colour *= base_color.rgb;
+	colour *= SRGBtoLINEAR(base_color.rgb);
 	colour += imageLoad(src_emissive, pix).rgb;
 	//colour += imageLoad(src_additive, pix).rgb;
 
