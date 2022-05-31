@@ -74,6 +74,8 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 			//const float pdf = TWO_PI / asin(radius / dist);
 			const float pdf = 1. / ((1. - sqrt(d2 - r2) / dist) * spot_attenuation);
 			color /= pdf;
+		} else {
+			color *= 2;
 		}
 
 		// if (dot(color,color) < color_culling_threshold)
