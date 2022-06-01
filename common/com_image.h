@@ -21,6 +21,12 @@ typedef enum
 	PF_BGRA_32,	// big endian RGBA (MacOS)
 	PF_RGB_24,	// uncompressed dds or another 24-bit image
 	PF_BGR_24,	// big-endian RGB (MacOS)
+#if XASH_PSP
+	PF_RGB_332,		// 8-bit  R3 G3 B2
+	PF_RGB_5650,	// 16-bit R5 G6 B5
+	PF_RGBA_5551,	// 16-bit R5 G5 B5 A1
+	PF_RGBA_4444,	// 16-bit R4 G4 B4 A4
+#endif
 	PF_LUMINANCE,
 	PF_DXT1,		// s3tc DXT1 format
 	PF_DXT3,		// s3tc DXT3 format

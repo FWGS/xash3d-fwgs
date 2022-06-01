@@ -24,7 +24,7 @@ typedef struct
 	int		current_lightmap_texture;
 	msurface_t	*dynamic_surfaces;
 	msurface_t	*lightmap_surfaces[MAX_LIGHTMAPS];
-	byte		lightmap_buffer[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*4];
+	byte		lightmap_buffer[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*LIGHTMAP_BPP];
 } gllightmapstate_t;
 
 static int		nColinElim; // stats
@@ -693,7 +693,7 @@ static void LM_UploadBlock( qboolean dynamic )
 				height = gl_lms.allocated[i];
 		}
 
-		GL_UpdateDlightTexture( tr.dlightTexture, 0, 0, BLOCK_SIZE, height, gl_lms.lightmap_buffer );
+		GL_UpdateTexture( tr.dlightTexture, 0, 0, BLOCK_SIZE, height, gl_lms.lightmap_buffer );
 		GL_Bind( XASH_TEXTURE0, tr.dlightTexture );
 	}
 	else
@@ -709,8 +709,8 @@ static void LM_UploadBlock( qboolean dynamic )
 
 		r_lightmap.width = BLOCK_SIZE;
 		r_lightmap.height = BLOCK_SIZE;
-		r_lightmap.type = PF_RGBA_32;
-		r_lightmap.size = r_lightmap.width * r_lightmap.height * 4;
+		r_lightmap.type = LIGHTMAP_FORMAT;
+		r_lightmap.size = r_lightmap.width * r_lightmap.height * LIGHTMAP_BPP;
 		r_lightmap.flags = IMAGE_HAS_COLOR;
 		r_lightmap.buffer = gl_lms.lightmap_buffer;
 		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_NOMIPMAP|TF_ATLAS_PAGE );
@@ -736,6 +736,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	int		sample_size;
 	mextrasurf_t	*info = surf->info;
 	color24		*lm;
+	byte		color[3];
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = ( info->lightextents[0] / sample_size ) + 1;
@@ -764,6 +765,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 		R_AddDynamicLights( surf );
 
 	// Put into texture format
+#if 0
 	stride -= (smax << 2);
 	bl = r_blocklights;
 
@@ -780,6 +782,42 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 			dest += 4;
 		}
 	}
+#else
+	stride -= smax * LIGHTMAP_BPP;
+	bl = r_blocklights;
+
+	for( t = 0; t < tmax; t++, dest += stride )
+	{
+		for( s = 0; s < smax; s++ )
+		{
+			color[0] = Q_min((bl[0] >> 7), 255 );
+			color[1] = Q_min((bl[1] >> 7), 255 );
+			color[2] = Q_min((bl[2] >> 7), 255 );
+			color[3] = 255;
+#if LIGHTMAP_BPP == 1
+			dest[0]  = ( color[0] >> 5 ) & 0x07;
+			dest[0] |= ( color[1] >> 2 ) & 0x38;
+			dest[0] |= ( color[2]      ) & 0xc0;
+#elif LIGHTMAP_BPP == 2
+			dest[0]  = ( color[0] >> 3 ) & 0x1f;
+			dest[0] |= ( color[1] << 3 ) & 0xe0;
+			dest[1]  = ( color[1] >> 5 ) & 0x07;
+			dest[1] |= ( color[2]      ) & 0xf8;
+#elif LIGHTMAP_BPP == 3
+			dest[0] = color[0];
+			dest[1] = color[1];
+			dest[2] = color[2];
+#else
+			dest[0] = color[0];
+			dest[1] = color[1];
+			dest[2] = color[2];
+			dest[3] = 255;
+#endif
+			bl += 3;
+			dest += LIGHTMAP_BPP;
+		}
+	}
+#endif
 }
 
 /*
@@ -998,9 +1036,9 @@ void R_BlendLightmaps( void )
 			if( LM_AllocBlock( smax, tmax, &surf->info->dlight_s, &surf->info->dlight_t ))
 			{
 				base = gl_lms.lightmap_buffer;
-				base += ( surf->info->dlight_t * BLOCK_SIZE + surf->info->dlight_s ) * 4;
+				base += ( surf->info->dlight_t * BLOCK_SIZE + surf->info->dlight_s ) * LIGHTMAP_BPP;
 
-				R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
+				R_BuildLightMap( surf, base, BLOCK_SIZE * LIGHTMAP_BPP, true );
 			}
 			else
 			{
@@ -1030,9 +1068,9 @@ void R_BlendLightmaps( void )
 					gEngfuncs.Host_Error( "AllocBlock: full\n" );
 
 				base = gl_lms.lightmap_buffer;
-				base += ( surf->info->dlight_t * BLOCK_SIZE + surf->info->dlight_s ) * 4;
+				base += ( surf->info->dlight_t * BLOCK_SIZE + surf->info->dlight_s ) * LIGHTMAP_BPP;
 
-				R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
+				R_BuildLightMap( surf, base, BLOCK_SIZE * LIGHTMAP_BPP, true );
 			}
 		}
 
@@ -1254,7 +1292,7 @@ dynamic:
 	{
 		if(( fa->styles[maps] >= 32 || fa->styles[maps] == 0 || fa->styles[maps] == 20 ) && ( fa->dlightframe != tr.framecount ))
 		{
-			byte		temp[132*132*4];
+			byte		temp[132*132*LIGHTMAP_BPP];
 			mextrasurf_t	*info = fa->info;
 			int		sample_size;
 			int		smax, tmax;
@@ -1263,11 +1301,11 @@ dynamic:
 			smax = ( info->lightextents[0] / sample_size ) + 1;
 			tmax = ( info->lightextents[1] / sample_size ) + 1;
 
-			R_BuildLightMap( fa, temp, smax * 4, true );
+			R_BuildLightMap( fa, temp, smax * LIGHTMAP_BPP, true );
 			R_SetCacheState( fa );
 
 #if 1
-			GL_UpdateDlightTexture( tr.lightmapTextures[fa->lightmaptexturenum], fa->light_s, fa->light_t, smax, tmax, temp );
+			GL_UpdateTexture( tr.lightmapTextures[fa->lightmaptexturenum], fa->light_s, fa->light_t, smax, tmax, temp );
 #else
 			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
 
@@ -2185,10 +2223,10 @@ void GL_CreateSurfaceLightmap( msurface_t *surf, model_t *loadmodel )
 	surf->lightmaptexturenum = gl_lms.current_lightmap_texture;
 
 	base = gl_lms.lightmap_buffer;
-	base += ( surf->light_t * BLOCK_SIZE + surf->light_s ) * 4;
+	base += ( surf->light_t * BLOCK_SIZE + surf->light_s ) * LIGHTMAP_BPP;
 
 	R_SetCacheState( surf );
-	R_BuildLightMap( surf, base, BLOCK_SIZE * 4, false );
+	R_BuildLightMap( surf, base, BLOCK_SIZE * LIGHTMAP_BPP, false );
 }
 
 /*

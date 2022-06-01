@@ -22,24 +22,25 @@ GNU General Public License for more details.
 
 static gl_texture_t		gl_textures[MAX_TEXTURES];
 static gl_texture_t*	gl_texturesHashTable[TEXTURES_HASH_SIZE];
-static uint		gl_numTextures;
+static uint				gl_numTextures;
+static byte				*palette_332 = NULL;
 
 /*
 	num_colors = PALETTE_BLOCKS x 16 (16-bit CLUT)
 	num_colors = PALETTE_BLOCKS x 8 (32-bit CLUT)
 */
-#define PALETTE_FORMAT GU_PSM_4444
+#define PALETTE_FORMAT	GU_PSM_4444
 #if (PALETTE_FORMAT == GU_PSM_4444) || (PALETTE_FORMAT == GU_PSM_5551) || (PALETTE_FORMAT == GU_PSM_5650)
-#define PALETTE_SIZE   2 * 256
-#define PALETTE_BLOCKS 16
+#define PALETTE_SIZE	2 * 256
+#define PALETTE_BLOCKS	16
 #elif PALETTE_FORMAT == GU_PSM_8888
-#define PALETTE_SIZE   4 * 256
-#define PALETTE_BLOCKS 32
+#define PALETTE_SIZE	4 * 256
+#define PALETTE_BLOCKS	32
 #else
 #error Current PALETTE_FORMAT not supported!
 #endif
 
-#define TEXTURE_SIZE_MIN 16 //8
+#define TEXTURE_SIZE_MIN	16
 
 #define IsLightMap( tex )	( FBitSet(( tex )->flags, TF_ATLAS_PAGE ))
 
@@ -80,10 +81,10 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	texture = &gl_textures[texnum];
 
 	// Set palette
-	if( texture->format == GU_PSM_T8 && texture->dstPalette )
+	if( texture->format == GU_PSM_T8 )
 	{
 		sceGuClutMode( PALETTE_FORMAT, 0, 0xff, 0 );
-		sceGuClutLoad( PALETTE_BLOCKS, texture->dstPalette );
+		sceGuClutLoad( PALETTE_BLOCKS, texture->dstPalette ? texture->dstPalette : palette_332 );
 	}
 
 	// Set texture parameters
@@ -118,13 +119,13 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	// Set mip textures
 	if( texture->numMips > 1 )
 	{
-		offset = texture->width * texture->height;
+		offset = texture->width * texture->height * texture->bpp;
 		for ( i = 1; i < texture->numMips; i++ )
 		{
 			width = Q_max( TEXTURE_SIZE_MIN, ( texture->width >> i ) );
 			height = Q_max( TEXTURE_SIZE_MIN, ( texture->height >> i ) );
 			sceGuTexImage( i, width, height, width,  &texture->dstTexture[offset] );
-			offset += width * height;
+			offset += width * height * texture->bpp;
 		}
 	}
 	glState.currentTexture = texnum;
@@ -147,7 +148,13 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 	case PF_INDEXED_24:
 	case PF_INDEXED_32:
 	case PF_LUMINANCE:
+	case PF_RGB_332:
 		size = width * height * depth;
+		break;
+	case PF_RGB_5650:
+	case PF_RGBA_5551:
+	case PF_RGBA_4444:
+		size = width * height * depth * 2;
 		break;
 	case PF_RGB_24:
 	case PF_BGR_24:
@@ -175,9 +182,10 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 GL_CalcTextureSize
 ==================
 */
-static size_t GL_CalcTextureSize( int format, int width, int height )
+static size_t GL_CalcTextureSize( int format, int width, int height, byte *outBpp )
 {
 	size_t	size = 0;
+	byte	bpp = 0;
 
 	switch( format )
 	{
@@ -188,29 +196,35 @@ static size_t GL_CalcTextureSize( int format, int width, int height )
 	case GU_PSM_T8:
 	case GU_PSM_DXT3:
 	case GU_PSM_DXT5:
+		bpp = 1;
 		size = width * height;
 		break;
 	case GU_PSM_T16:
 	case GU_PSM_4444:
 	case GU_PSM_5551:
 	case GU_PSM_5650:
+		bpp = 2;
 		size = width * height * 2;
 		break;
 	case GU_PSM_T32:
 	case GU_PSM_8888:
+		bpp = 4;
 		size = width * height * 4;
 		break;
 	default:
 		gEngfuncs.Host_Error( "GL_CalcTextureSize: bad texture internal format (%u)\n", format );
 		break;
 	}
+
+	if(outBpp != NULL) *outBpp = bpp;
+
 	return size;
 }
 
-static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer, size_t *mipsize )
+static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer, size_t *mipSize )
 {
 	int	width, height;
-	int	mipcount;
+	int	mipCount;
 
 	Assert( tex != NULL );
 
@@ -228,19 +242,19 @@ static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer, size_t *m
 		return 1;
 
 	// 8 levels - 7 + 1 base
-	for( mipcount = 1; mipcount < 8; mipcount++ )
+	for( mipCount = 1; mipCount < 8; mipCount++ )
 	{
-		width = Q_max( TEXTURE_SIZE_MIN, ( tex->width >> mipcount ) );
-		height = Q_max( TEXTURE_SIZE_MIN, ( tex->height >> mipcount ) );
+		width = Q_max( TEXTURE_SIZE_MIN, ( tex->width >> mipCount ) );
+		height = Q_max( TEXTURE_SIZE_MIN, ( tex->height >> mipCount ) );
 
 		if( width == TEXTURE_SIZE_MIN && height == TEXTURE_SIZE_MIN )
 			break;
 
 		// calc without base size
-		if( mipsize != NULL )
-			*mipsize += GL_CalcTextureSize( tex->format, width, height );
+		if( mipSize != NULL )
+			*mipSize += GL_CalcTextureSize( tex->format, width, height, NULL );
 	}
-	return mipcount;
+	return mipCount;
 }
 
 /*
@@ -299,17 +313,47 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 
 	Assert( tex != NULL );
 
-	if( ImageDXT( format ) )
+	switch( format )
 	{
-		switch( format )
-		{
-		case PF_DXT1: tex->format = GU_PSM_DXT1; break;	// never use DXT1 with 1-bit alpha
-		case PF_DXT3: tex->format = GU_PSM_DXT3; break;
-		case PF_DXT5: tex->format = GU_PSM_DXT5; break;
-		}
+		case PF_DXT1:	// never use DXT1 with 1-bit alpha
+			tex->format = GU_PSM_DXT1;
+			break;
+		case PF_DXT3:
+			tex->format = GU_PSM_DXT3;
+			break;
+		case PF_DXT5:
+			tex->format = GU_PSM_DXT5;
+			break;
+		case PF_INDEXED_24:
+		case PF_INDEXED_32:
+		case PF_RGB_332:
+			tex->format = GU_PSM_T8;
+			break;
+		case PF_RGB_5650:
+			tex->format = GU_PSM_5650;
+			break;
+		case PF_RGBA_5551:
+			tex->format = GU_PSM_5551;
+			break;
+		case PF_RGBA_4444:
+			tex->format = GU_PSM_4444;
+			break;
+		case PF_RGBA_32:
+		case PF_BGRA_32:
+		case PF_RGB_24:
+		case PF_BGR_24:
+			if ( IsLightMap( tex ) )
+				tex->format = GU_PSM_8888;
+			else if( haveAlpha )
+				tex->format = GU_PSM_4444;
+			else
+				tex->format = GU_PSM_T8; // rgb332
+			break;
+		default:
+			gEngfuncs.Host_Error( "GL_SetTextureFormat: unknown format %i\n", format );
+			break;
 	}
-	/*
-	else if( FBitSet( tex->flags, TF_DEPTHMAP ))
+	/*if( FBitSet( tex->flags, TF_DEPTHMAP ))
 	{
 		if( FBitSet( tex->flags, TF_ARB_16BIT ))
 			tex->format = GL_DEPTH_COMPONENT16;
@@ -317,19 +361,6 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 			tex->format = GL_DEPTH_COMPONENT32F;
 		else tex->format = GL_DEPTH_COMPONENT24;
 	}*/
-	else if( ImageIND( format ) )
-	{
-		tex->format = GU_PSM_T8;
-	}
-	else
-	{
-		if ( IsLightMap( tex ) )
-			tex->format = GU_PSM_5650;
-		else if( haveAlpha )
-			tex->format = GU_PSM_4444;
-		else
-			tex->format = GU_PSM_5650;
-	}
 }
 
 /*
@@ -693,6 +724,11 @@ void GL_PixelConverter( byte *dst, const byte *src, int size, int inFormat, int 
 		// pack
 		switch( outFormat )
 		{
+		case PC_HWF( GU_PSM_T8 ): // 332, indexing
+			*dst  = ( color[0] >> 5 ) & 0x07;
+			*dst |= ( color[1] >> 2 ) & 0x38;
+			*dst |= ( color[2]      ) & 0xc0; dst++;
+			break;
 		case PC_HWF( GU_PSM_5650 ):
 			*dst  = ( color[0] >> 3 ) & 0x1f;
 			*dst |= ( color[1] << 3 ) & 0xe0; dst++;
@@ -794,8 +830,9 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	size_t			texSize;
 	uint			width, height;
 	uint			i;
-	uint			offset;
+	uint			offset, mipOffset;
 	qboolean		normalMap;
+	qboolean		swizzle;
 	void			*volBuff;
 	unsigned int	volSize;
 	int 			volUid;
@@ -826,14 +863,16 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 	// Prepare sizes
 	offset = GL_CalcImageSize( pic->type, pic->width, pic->height, /* pic->depth */ 1 );
-	texSize = GL_CalcTextureSize( tex->format, tex->width, tex->height );
+	texSize = GL_CalcTextureSize( tex->format, tex->width, tex->height, &tex->bpp );
 	normalMap = FBitSet( tex->flags, TF_NORMALMAP ) ? true : false;
-	tex->numMips = ImageIND( pic->type ) ? GL_CalcMipmapCount( tex, ( pic->buffer != NULL ), &texSize) : 1;
+	tex->numMips = ImageIND( pic->type ) ? GL_CalcMipmapCount( tex, ( pic->buffer != NULL ), &texSize ) : 1;
+	swizzle = IsLightMap( tex ) ? false : true;
+	mipOffset = 0;
 
 	// Volatile memory for temporary buffer
 	volUid = sceKernelVolatileMemLock( 0, &volBuff, &volSize );
 	if( volUid != 0)
-		gEngfuncs.Host_Error( "GL_AllocTexture: volatile memory lock error 0x%08x ! \n", volUid);
+		gEngfuncs.Host_Error( "GL_UploadTexture: volatile memory lock error ( 0x%08x )\n", volUid );
 
 	// Check allocation size
 	if( tex->dstTexture && ( tex->size != texSize ) )
@@ -857,94 +896,100 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 			if ( !tex->dstTexture )
 			{
 				sceKernelVolatileMemUnlock( 0 );
-				gEngfuncs.Host_Error( "GL_AllocTexture: out of memory! ( texture: %lu %s )\n", texSize, tex->name);
+				gEngfuncs.Host_Error( "GL_UploadTexture: %s out of memory for texture ( %lu )\n", tex->name, texSize );
 			}
 		}
-		else
-		{
-			SetBits( tex->flags, TF_IMG_INVRAM );
-		}
+		else SetBits( tex->flags, TF_IMG_INVRAM );
 	}
 
 	if( ImageDXT( pic->type ) )
 	{
 		memcpy( tex->dstTexture, pic->buffer, texSize );
 	}
-	else if( ImageIND( pic->type ) )
+	else if( ImageIND( pic->type ) || pic->type == PF_RGB_332 )
 	{
-		if( !tex->dstPalette )
+		if( pic->type != PF_RGB_332 )
 		{
-			tex->dstPalette = ( byte* )memalign( 16, PALETTE_SIZE );
-			if ( !tex->dstPalette )
+			if( !tex->dstPalette )
 			{
-				sceKernelVolatileMemUnlock( 0 );
-				gEngfuncs.Host_Error( "GL_AllocTexture: out of memory! ( palette: %s )\n", tex->name);
+				tex->dstPalette = ( byte* )memalign( 16, PALETTE_SIZE );
+				if ( !tex->dstPalette )
+				{
+					sceKernelVolatileMemUnlock( 0 );
+					gEngfuncs.Host_Error( "GL_UploadTexture: %s out of memory for palette ( %lu )\n", tex->name, PALETTE_SIZE );
+				}
 			}
+
+			// Load palette
+			GL_PixelConverter( tex->dstPalette, pic->palette, 256, PC_SWF( pic->type ), PC_HWF( PALETTE_FORMAT ) );
+			sceKernelDcacheWritebackRange( tex->dstPalette, PALETTE_SIZE );
 		}
 
-		// Load palette
-		GL_PixelConverter( tex->dstPalette, pic->palette, 256, PC_SWF( pic->type ), PC_HWF( PALETTE_FORMAT ) );
-		sceKernelDcacheWritebackRange( tex->dstPalette, PALETTE_SIZE );
-
 		// Load base + mip texture
-		int mip_offset = 0;
 		for( i = 0; i < tex->numMips; i++ )
 		{
 			width = Q_max( TEXTURE_SIZE_MIN, ( tex->width >> i ) );
 			height = Q_max( TEXTURE_SIZE_MIN, ( tex->height >> i ) );
 
 			if( ( pic->width != width ) || ( pic->height != height ) )
-				GL_ResampleTexture8( pic->buffer, pic->width, pic->height, volBuff, width, height );
-			else memcpy(volBuff, pic->buffer, offset);
+				GL_ResampleTexture8( pic->buffer, pic->width, pic->height, swizzle ? volBuff : ( tex->dstTexture + mipOffset ), width, height );
+			else memcpy( swizzle ? volBuff : ( tex->dstTexture + mipOffset ), pic->buffer, offset );
 
-			GL_TextureSwizzle( tex->dstTexture + mip_offset, volBuff, width, height );
-			mip_offset += GL_CalcTextureSize( tex->format, width, height );
+			if(swizzle) GL_TextureSwizzle( tex->dstTexture + mipOffset, volBuff, width, height );
+			mipOffset += GL_CalcTextureSize( tex->format, width, height, NULL );
 		}
-		SetBits( tex->flags, TF_IMG_SWIZZLED );
+		if(swizzle) SetBits( tex->flags, TF_IMG_SWIZZLED );
+	}
+	else if( pic->type == PF_RGB_5650 || pic->type == PF_RGBA_5551 || pic->type == PF_RGBA_4444 )
+	{
+		if( ( pic->width != tex->width ) || ( pic->height != tex->height ) )
+		{
+			for( i = 0; i < tex->height; i++ )
+			{
+				memcpy( swizzle ? ( volBuff + tex->width * tex->bpp * i ) : ( tex->dstTexture + tex->width * tex->bpp * i ), 
+					( pic->buffer + pic->width * tex->bpp * i ), pic->width * tex->bpp );
+			}
+		}
+		else memcpy( swizzle ? volBuff : tex->dstTexture, pic->buffer, offset );
+
+		if( swizzle )
+		{
+			GL_TextureSwizzle( tex->dstTexture, volBuff, tex->width * tex->bpp, tex->height );
+			SetBits( tex->flags, TF_IMG_SWIZZLED );
+		}
 	}
 	else // RGBA32
 	{
 		if( ( pic->width != tex->width ) || ( pic->height != tex->height ) )
 		{
 			GL_ResampleTexture32( pic->buffer, pic->width, pic->height, volBuff, tex->width, tex->height, normalMap );
-			offset = tex->width * tex->height * 4;
+			offset = tex->width * tex->height * 4; // 4 src bpp
 		}
-		else
-		{
-			memcpy( volBuff, pic->buffer, offset );
-		}
-
+		else memcpy( volBuff, pic->buffer, offset );
+/*
+		if( !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+			volBuff = GL_ApplyFilter( volBuff, tex->width, tex->height );
+*/
 		if( tex->format == GU_PSM_8888 )
 		{
-			if ( IsLightMap( tex ) )
+			if ( swizzle )
 			{
-				memcpy( tex->dstTexture, volBuff, texSize );
-			}
-			else
-			{
-				GL_TextureSwizzle( tex->dstTexture, volBuff, tex->width * 4, tex->height );
+				GL_TextureSwizzle( tex->dstTexture, volBuff, tex->width * tex->bpp, tex->height );
 				SetBits( tex->flags, TF_IMG_SWIZZLED );
 			}
+			else memcpy( tex->dstTexture, volBuff, texSize );
 		}
 		else
 		{
-			// disable swizzling for lightmaps
-			if ( IsLightMap( tex ) )
+			GL_PixelConverter( swizzle ? (volBuff + offset) : tex->dstTexture, volBuff, tex->width * tex->height, PC_SWF( pic->type ), PC_HWF( tex->format ) );
+			if( swizzle )
 			{
-				GL_PixelConverter( tex->dstTexture, volBuff, tex->width * tex->height, PC_SWF( pic->type ), PC_HWF( tex->format ) );
-			}
-			else
-			{
-/*
-				if( !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
-						volBuff = GL_ApplyFilter( volBuff, tex->width, tex->height );
-*/
-				GL_PixelConverter( volBuff + offset, volBuff, tex->width * tex->height, PC_SWF( pic->type ), PC_HWF( tex->format ) );
-				GL_TextureSwizzle( tex->dstTexture, volBuff + offset, tex->width * 2, tex->height );
+				GL_TextureSwizzle( tex->dstTexture, volBuff + offset, tex->width * tex->bpp, tex->height );
 				SetBits( tex->flags, TF_IMG_SWIZZLED );
 			}
 		}
 	}
+
 	sceKernelVolatileMemUnlock( 0 );
 	sceKernelDcacheWritebackRange( tex->dstTexture, texSize );
 	tex->size = texSize;
@@ -956,86 +1001,62 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 /*
 ===============
-GL_UpdateDlightTexture
+GL_UpdateTexture
 
 ===============
 */
-qboolean GL_UpdateDlightTexture( int texnum, int xoff, int yoff, int width, int height, const void *buffer )
+qboolean GL_UpdateTexture( int texnum, int xoff, int yoff, int width, int height, const void *buffer )
 {
 	gl_texture_t	*tex;
 	size_t			texsize;
+	byte			*dst, *src;
 
 	// missed or invalid texture?
-	if( texnum <= 0 || texnum >= MAX_TEXTURES )
+	if(( texnum <= 0 ) || ( texnum >= MAX_TEXTURES ))
 	{
 		if( texnum != 0 )
 		{
-			gEngfuncs.Con_DPrintf( S_ERROR "GL_UpdateDlightTexture: invalid texture num %d\n", texnum );
+			gEngfuncs.Con_DPrintf( S_ERROR "GL_UpdateTexture: invalid texture num %d\n", texnum );
 			return false;
 		}
 	}
 	tex = &gl_textures[texnum];
 
-	if(tex->width < width || tex->height < height )
+	if(( tex->width < width + xoff ) || ( tex->height < height + yoff ))
 	{
-
-		gEngfuncs.Con_DPrintf( S_ERROR "GL_UpdateDlightTexture: invalid update area size %s\n", tex->name );
+		gEngfuncs.Con_DPrintf( S_ERROR "GL_UpdateTexture: %s invalid update area size XY[%d x %d] WH[%d x %d]\n", tex->name, width, height, xoff, yoff );
 		return false;
 	}
 
-	if(tex->width < xoff || tex->height < yoff )
+	if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) )
 	{
-		gEngfuncs.Con_DPrintf( S_ERROR "GL_UpdateDlightTexture: invalid offset position %s\n", tex->name );
-		return false;
-	}
-	tex->numMips	= 1;
-	tex->dstPalette = NULL;
-	tex->format		= GU_PSM_5650;
+		tex->size		= GL_CalcTextureSize( tex->format, tex->width, tex->height, &tex->bpp );
+		tex->numMips	= 1;
+		tex->dstPalette	= NULL;
 
-	texsize = tex->width * tex->height * 2;
-	if( tex->size != texsize )
-	{
-		if( tex->dstTexture )
-		{
-			if( FBitSet( tex->flags, TF_IMG_INVRAM ) )
-				vfree( tex->dstTexture );
-			else
-				free( tex->dstTexture );
-
-			tex->dstTexture = NULL;
-			ClearBits( tex->flags, TF_IMG_INVRAM );
-		}
-	}
-
-	if( !tex->dstTexture )
-	{
-		tex->dstTexture = ( byte* )valloc( texsize );
+		tex->dstTexture = ( byte* )valloc( tex->size );
 		if( !tex->dstTexture )
 		{
-			tex->dstTexture = ( byte* )memalign( 16, texsize );
+			tex->dstTexture = ( byte* )memalign( 16, tex->size );
 			if ( !tex->dstTexture )
-				gEngfuncs.Host_Error( "GL_UpdateDlightTexture: out of memory! ( texture: %i %s )\n", texsize, tex->name);
+				gEngfuncs.Host_Error( "GL_UpdateTexture: out of memory! ( texture: %i %s )\n", tex->size, tex->name );
 		}
-		else
-		{
-			SetBits( tex->flags, TF_IMG_INVRAM );
-		}
-		memset( tex->dstTexture, 0x00, texsize );
+		else SetBits( tex->flags, TF_IMG_INVRAM );
+
+		memset( tex->dstTexture, 0x00, tex->size );
 		SetBits( tex->flags, TF_IMG_UPLOADED ); // done
 	}
 
-	tex->size = texsize;
-	byte *src = ( byte* )buffer;
-	byte *dst = tex->dstTexture;
-
-	dst += ( yoff * tex->width + xoff ) * 2;
+	src = ( byte* )buffer;
+	dst = tex->dstTexture + ( yoff * tex->width + xoff ) * tex->bpp;
 	while( height-- )
 	{
-		GL_PixelConverter( dst, src, width, PC_SWF( PF_RGBA_32 ), PC_HWF( tex->format ) );
-		dst += tex->width * 2;
-		src += width * 4;
+		memcpy( dst, src, width * tex->bpp );
+		dst += tex->width * tex->bpp;
+		src += width * tex->bpp;
 	}
-	sceKernelDcacheWritebackRange( tex->dstTexture, texsize );
+	
+	sceKernelDcacheWritebackRange( tex->dstTexture, tex->size );
 	return true;
 }
 
@@ -1763,8 +1784,8 @@ void R_InitDlightTexture( void )
 	r_image.width = BLOCK_SIZE;
 	r_image.height = BLOCK_SIZE;
 	r_image.flags = IMAGE_HAS_COLOR;
-	r_image.type = PF_RGBA_32;
-	r_image.size = r_image.width * r_image.height * 4;
+	r_image.type = LIGHTMAP_FORMAT;
+	r_image.size = r_image.width * r_image.height * LIGHTMAP_BPP;
 
 	tr.dlightTexture = GL_LoadTextureInternal( "*dlight", &r_image, TF_NOMIPMAP|TF_CLAMP|TF_ATLAS_PAGE );
 }
@@ -1837,6 +1858,45 @@ static void GL_CreateInternalTextures( void )
 }
 
 /*
+==================
+GL_Create332Palette
+==================
+*/
+static void GL_Create332Palette( void )
+{
+	palette_332 = ( byte* )memalign( 16, PALETTE_SIZE );
+	if ( !palette_332 )
+		gEngfuncs.Host_Error( "GL_Create332Palette: out of memory!\n" );
+
+	for(int i = 0; i < 256; i++)
+	{
+#if PALETTE_FORMAT == GU_PSM_5650
+		palette_332[i * 2 + 0]  = ( i & 0x07 ) << 2;
+		palette_332[i * 2 + 1]  = ( i & 0x38 ) >> 3;
+		palette_332[i * 2 + 1] |= ( i & 0xc0 );
+#elif PALETTE_FORMAT == GU_PSM_5551
+		palette_332[i * 2 + 0]  = ( i & 0x07 ) << 2;
+		palette_332[i * 2 + 0] |= ( i & 0x08 ) << 4;
+		palette_332[i * 2 + 1]  = ( i & 0x30 ) >> 4;
+		palette_332[i * 2 + 1] |= ( i & 0xc0 ) >> 1;
+		palette_332[i * 2 + 1] |= 0x80;
+#elif PALETTE_FORMAT == GU_PSM_4444
+		palette_332[i * 2 + 0]  = ( i & 0x07 ) << 1;
+		palette_332[i * 2 + 0] |= ( i & 0x38 ) << 2;
+		palette_332[i * 2 + 1]  = ( i & 0xc0 ) >> 4;
+		palette_332[i * 2 + 1] |= 0xf0;
+#elif PALETTE_FORMAT == GU_PSM_8888
+		palette_332[i * 4 + 0] = ( i & 0x07 ) << 5;
+		palette_332[i * 4 + 1] = ( i & 0x38 ) << 2;
+		palette_332[i * 4 + 2] = ( i & 0xc0 );
+		palette_332[i * 4 + 3] = 0xff;
+#endif
+	}
+	sceKernelDcacheWritebackRange( palette_332, PALETTE_SIZE );
+}
+
+
+/*
 ===============
 R_TextureList_f
 ===============
@@ -1847,7 +1907,7 @@ void R_TextureList_f( void )
 	int		i, texCount, ram_bytes = 0, vram_bytes = 0;
 
 	gEngfuncs.Con_Printf( "\n" );
-	gEngfuncs.Con_Printf( " -id- -w- -h- -size- -fmt- -type- -wrap- -name--------\n" );
+	gEngfuncs.Con_Printf( " -id- -w- -h- -size- -fmt- -s- -wrap- -name--------\n" );
 
 	for( i = texCount = 0, image = gl_textures; i < gl_numTextures; i++, image++ )
 	{
@@ -1903,6 +1963,8 @@ void R_TextureList_f( void )
 			break;
 		}
 
+		gEngfuncs.Con_Printf( "%s ", FBitSet( image->flags, TF_IMG_SWIZZLED ) ? "Y" : "N" );
+
 		if( image->flags & TF_CLAMP )
 			gEngfuncs.Con_Printf( "clamp  " );
 		else if( image->flags & TF_BORDER )
@@ -1938,6 +2000,9 @@ void R_InitImages( void )
 	gl_texturesHashTable[gl_textures->hashValue] = gl_textures;
 	gl_numTextures = 1;
 
+	// create 332 palette
+	GL_Create332Palette();
+
 	// validate cvars
 	GL_CreateInternalTextures();
 
@@ -1959,6 +2024,9 @@ void R_ShutdownImages( void )
 
 	for( i = 0, tex = gl_textures; i < gl_numTextures; i++, tex++ )
 		GL_DeleteTexture( tex );
+
+	if( palette_332 )
+		free( palette_332 );
 
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
 	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));

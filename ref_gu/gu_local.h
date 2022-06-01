@@ -66,6 +66,21 @@ GNU General Public License for more details.
 
 
 extern byte	*r_temppool;
+
+#define LIGHTMAP_BPP	2 //1 2 3 4
+
+#if LIGHTMAP_BPP == 1
+#define LIGHTMAP_FORMAT	PF_RGB_332
+#elif LIGHTMAP_BPP == 2
+#define LIGHTMAP_FORMAT	PF_RGB_5650
+#elif LIGHTMAP_BPP == 3
+#define LIGHTMAP_FORMAT	PF_RGB_24
+#elif LIGHTMAP_BPP == 4
+#define LIGHTMAP_FORMAT	PF_RGBA_32
+#else
+#error (1 > LIGHTMAP_BPP > 4)
+#endif
+
 #if 1
 
 #define BLOCK_SIZE		tr.block_size	// lightmap blocksize
@@ -135,6 +150,7 @@ typedef struct gltexture_s
 	byte		numMips;		// mipmap count
 	byte		*dstTexture;	// texture pointer
 	byte		*dstPalette;
+	byte		bpp;
 	int			format;		// uploaded format
 	//GLint		encode;		// using GLSL decoder
 	texFlags_t	flags;
@@ -434,7 +450,7 @@ void GL_PixelConverter( byte *dst, const byte *src, int size, int inFormat, int 
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
-qboolean GL_UpdateDlightTexture( int texnum, int xoff, int yoff, int width, int height, const void *buffer );
+qboolean GL_UpdateTexture( int texnum, int xoff, int yoff, int width, int height, const void *buffer );
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );
