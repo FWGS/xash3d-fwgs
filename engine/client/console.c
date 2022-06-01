@@ -2394,7 +2394,7 @@ void Con_VidInit( void )
 {
 	Con_LoadConchars();
 	Con_CheckResize();
-#if XASH_LOW_MEMORY
+#if XASH_LOW_MEMORY && !XASH_PSP
 	con.background = R_GetBuiltinTexture( REF_BLACK_TEXTURE );
 #else
 	// loading console image
