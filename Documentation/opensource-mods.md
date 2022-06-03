@@ -24,6 +24,10 @@ Official github repository - https://github.com/CKFDevPowered/CKF3Alpha
 
 ## Cold Ice
 Version 1.9 is available on ModDB - https://www.moddb.com/mods/cold-ice/downloads/cold-ice-sdk
+Version 1.9 mirrored on github - https://github.com/solidi/hl-mods/tree/master/ci
+
+## Cold Ice Ressurection
+Mirrored on github - https://github.com/solidi/hl-mods/tree/master/cir
 
 ## Cthulhu
 Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Cthulhu-HLmod-SDK
@@ -46,8 +50,14 @@ Versions 2.0 and 3.0, available in mod archives on ModDB - https://www.moddb.com
 ## GT mod
 Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/GT_mod_(Polnie_ishodniki)
 
+## Half-Life: Advanced Deathmatch
+Mirrored on github - https://github.com/solidi/hl-mods/tree/master/hla
+
+## Half-Life: Decay
+Mirrored on github(PC Port) - https://github.com/hoaxer/Half-Life-Decay
+
 ## Half-Life: Echoes
-Download link on dropbox - https://www.dropbox.com/s/s6j8gtegn10wgvj/dlls.zip?dl=1
+Available on ModDB - https://www.moddb.com/mods/half-life-echoes
 
 ## Half-Life: Expanded Arsenal
 Available on ModDB - https://www.moddb.com/mods/half-life-expanded-arsenal
@@ -57,6 +67,9 @@ Branch **gravgun** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/g
 
 ## Half-Life: Invasion
 official github repository - https://github.com/jlecorre/hlinvasion
+
+## Half-Life: Pong
+Mirrored on github - https://github.com/solidi/hl-mods/tree/master/pong
 
 ## Half-Life: Quest Mode
 Available on cs-mapping.com.ua - https://old.cs-mapping.com.ua/forum/showthread.php?t=38030
