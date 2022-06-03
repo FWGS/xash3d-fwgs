@@ -4,7 +4,7 @@ task:
     image_family: freebsd-12-3
   setup_script:
     - pkg update
-    - pkg install -y git sdl2 python
+    - pkg install -y git sdl2 python fontconfig
     - git submodule update --init --recursive
   test_script:
     - ./scripts/cirrus/build_freebsd.sh dedicated
@@ -13,10 +13,10 @@ task:
 task:
   name: freebsd-13-amd64
   freebsd_instance:
-    image_family: freebsd-13-0
+    image_family: freebsd-13-1
   setup_script:
     - pkg update
-    - pkg install -y git sdl2 python
+    - pkg install -y git sdl2 python fontconfig
     - git submodule update --init --recursive
   test_script:
     - ./scripts/cirrus/build_freebsd.sh dedicated
@@ -28,7 +28,7 @@ task:
     image_family: freebsd-14-0-snap
   setup_script:
     - pkg update
-    - pkg install -y git sdl2 python
+    - pkg install -y git sdl2 python fontconfig
     - git submodule update --init --recursive
   test_script:
     - ./scripts/cirrus/build_freebsd.sh dedicated
