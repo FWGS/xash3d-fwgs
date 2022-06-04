@@ -411,7 +411,7 @@ qboolean VK_FrameCtlInit( void )
 			.signalSemaphoreCount = 1,
 			.pSignalSemaphores = g_frame.sem_done2 + 0,
 		};
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, NULL));
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 		//gEngine.Con_Printf("SYNC: signal semaphore %d\n", 0);
 	}
 
