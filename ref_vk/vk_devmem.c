@@ -48,8 +48,10 @@ static VkDeviceSize optimalSize(VkDeviceSize size) {
 }
 
 static int allocateDeviceMemory(VkMemoryRequirements req, int type_index, VkMemoryAllocateFlags allocate_flags) {
-	if (g_vk_devmem.num_allocs == MAX_DEVMEM_ALLOCS)
+	if (g_vk_devmem.num_allocs == MAX_DEVMEM_ALLOCS) {
+		gEngine.Host_Error("Ran out of device memory allocation slots\n");
 		return -1;
+	}
 
 	{
 		const VkMemoryAllocateFlagsInfo mafi = {
