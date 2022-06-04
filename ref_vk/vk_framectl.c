@@ -31,6 +31,7 @@ static struct {
 	vk_command_pool_t command;
 	VkSemaphore sem_framebuffer_ready[MAX_CONCURRENT_FRAMES];
 	VkSemaphore sem_done[MAX_CONCURRENT_FRAMES];
+	VkSemaphore sem_done2[MAX_CONCURRENT_FRAMES];
 	VkFence fence_done[MAX_CONCURRENT_FRAMES];
 
 	qboolean rtx_enabled;
@@ -298,18 +299,30 @@ static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
 	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 
 	{
-		const VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		const VkPipelineStageFlags stageflags[] = {
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		};
+		const VkSemaphore waitophores[] = {
+			g_frame.sem_framebuffer_ready[g_frame.current.index],
+			g_frame.sem_done2[(g_frame.current.index + 1) % MAX_CONCURRENT_FRAMES],
+		};
+		const VkSemaphore signalphores[] = {
+			g_frame.sem_done[g_frame.current.index],
+			g_frame.sem_done2[g_frame.current.index],
+		};
 		const VkSubmitInfo subinfo = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.pNext = NULL,
 			.commandBufferCount = 1,
 			.pCommandBuffers = &cmdbuf,
-			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = g_frame.sem_framebuffer_ready + g_frame.current.index,
-			.signalSemaphoreCount = 1,
-			.pSignalSemaphores = g_frame.sem_done + g_frame.current.index,
-			.pWaitDstStageMask = &stageflags,
+			.waitSemaphoreCount = COUNTOF(waitophores),
+			.pWaitSemaphores = waitophores,
+			.pWaitDstStageMask = stageflags,
+			.signalSemaphoreCount = COUNTOF(signalphores),
+			.pSignalSemaphores = signalphores,
 		};
+		//gEngine.Con_Printf("SYNC: wait for semaphore %d, signal semaphore %d\n", (g_frame.current.index + 1) % MAX_CONCURRENT_FRAMES, g_frame.current.index);
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence_done[g_frame.current.index]));
 		g_frame.current.phase = Phase_Submitted;
 	}
@@ -375,8 +388,31 @@ qboolean VK_FrameCtlInit( void )
 
 	for (int i = 0; i < MAX_CONCURRENT_FRAMES; ++i) {
 		g_frame.sem_framebuffer_ready[i] = R_VkSemaphoreCreate();
+		SET_DEBUG_NAMEF(g_frame.sem_framebuffer_ready[i], VK_OBJECT_TYPE_SEMAPHORE, "framebuffer_ready[%d]", i);
 		g_frame.sem_done[i] = R_VkSemaphoreCreate();
+		SET_DEBUG_NAMEF(g_frame.sem_done[i], VK_OBJECT_TYPE_SEMAPHORE, "done[%d]", i);
+		g_frame.sem_done2[i] = R_VkSemaphoreCreate();
+		SET_DEBUG_NAMEF(g_frame.sem_done2[i], VK_OBJECT_TYPE_SEMAPHORE, "done2[%d]", i);
 		g_frame.fence_done[i] = R_VkFenceCreate(true);
+		SET_DEBUG_NAMEF(g_frame.fence_done[i], VK_OBJECT_TYPE_FENCE, "done[%d]", i);
+	}
+
+	// Signal first frame semaphore as done
+	{
+		const VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		const VkSubmitInfo subinfo = {
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.pNext = NULL,
+			.commandBufferCount = 0,
+			.pCommandBuffers = NULL,
+			.waitSemaphoreCount = 0,
+			.pWaitSemaphores = NULL,
+			.pWaitDstStageMask = &stageflags,
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = g_frame.sem_done2 + 0,
+		};
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, NULL));
+		//gEngine.Con_Printf("SYNC: signal semaphore %d\n", 0);
 	}
 
 	g_frame.rtx_enabled = vk_core.rtx;
@@ -392,6 +428,7 @@ void VK_FrameCtlShutdown( void ) {
 	for (int i = 0; i < MAX_CONCURRENT_FRAMES; ++i) {
 		R_VkSemaphoreDestroy(g_frame.sem_framebuffer_ready[i]);
 		R_VkSemaphoreDestroy(g_frame.sem_done[i]);
+		R_VkSemaphoreDestroy(g_frame.sem_done2[i]);
 		R_VkFenceDestroy(g_frame.fence_done[i]);
 	}
 
