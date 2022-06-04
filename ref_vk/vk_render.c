@@ -323,7 +323,7 @@ qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int verte
 
 	// Store first dynamic allocation this frame
 	if (lifetime == LifetimeSingleFrame && g_geom.dynamic_offsets[g_geom.frame_index] == ALO_ALLOC_FAILED) {
-		gEngine.Con_Reportf("FRAME=%d FIRST_OFFSET=%d\n", g_geom.frame_index, alloc_offset);
+		//gEngine.Con_Reportf("FRAME=%d FIRST_OFFSET=%d\n", g_geom.frame_index, alloc_offset);
 		g_geom.dynamic_offsets[g_geom.frame_index] = alloc_offset;
 	}
 
@@ -446,7 +446,7 @@ void VK_RenderBegin( qboolean ray_tracing ) {
 	{
 		const int new_frame = (g_geom.frame_index + 1) % COUNTOF(g_geom.dynamic_offsets);
 		if (g_geom.dynamic_offsets[new_frame] != ALO_ALLOC_FAILED) {
-			gEngine.Con_Reportf("FRAME=%d FREE_OFFSET=%d\n", g_geom.frame_index, g_geom.dynamic_offsets[new_frame]);
+			//gEngine.Con_Reportf("FRAME=%d FREE_OFFSET=%d\n", g_geom.frame_index, g_geom.dynamic_offsets[new_frame]);
 			aloRingFree(&g_geom.dynamic_ring, g_geom.dynamic_offsets[new_frame]);
 			g_geom.dynamic_offsets[new_frame] = ALO_ALLOC_FAILED;
 		}
