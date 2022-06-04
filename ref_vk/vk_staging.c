@@ -93,6 +93,7 @@ vk_staging_region_t R_VkStagingLockForImage(vk_staging_image_args_t args) {
 	dest->image = args.image;
 	dest->layout = args.layout;
 	g_staging.images.copy[index] = args.region;
+	g_staging.images.copy[index].bufferOffset += offset;
 
 	g_staging.images.count++;
 
