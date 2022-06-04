@@ -583,26 +583,31 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				const int width = Q_max( 1, ( pic->width >> mip ));
 				const int height = Q_max( 1, ( pic->height >> mip ));
 				const size_t mip_size = CalcImageSize( pic->type, width, height, 1 );
-
-				VkBufferImageCopy region = {0};
-				region.bufferOffset = 0;
-				region.bufferRowLength = 0;
-				region.bufferImageHeight = 0;
-				region.imageSubresource = (VkImageSubresourceLayers){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.mipLevel = mip,
-					.baseArrayLayer = layer,
-					.layerCount = 1,
-				};
-				region.imageExtent = (VkExtent3D){
-					.width = width,
-					.height = height,
-					.depth = 1,
-				};
-
 				const uint32_t texel_block_size = 4; // TODO compressed might be different
+				const vk_staging_image_args_t staging_args = {
+					.image = tex->vk.image.image,
+					.region = (VkBufferImageCopy) {
+						.bufferOffset = 0,
+						.bufferRowLength = 0,
+						.bufferImageHeight = 0,
+						.imageSubresource = (VkImageSubresourceLayers){
+							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							.mipLevel = mip,
+							.baseArrayLayer = layer,
+							.layerCount = 1,
+						},
+						.imageExtent = (VkExtent3D){
+							.width = width,
+							.height = height,
+							.depth = 1,
+						},
+					},
+					.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					.size = mip_size,
+					.alignment = texel_block_size,
+				};
 
-				vk_staging_region_t staging = R_VkStagingLock(mip_size, texel_block_size);
+				const vk_staging_region_t staging = R_VkStagingLockForImage(staging_args);
 				ASSERT(staging.ptr);
 				memcpy(staging.ptr, buf, mip_size);
 
@@ -612,7 +617,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 					BuildMipMap( buf, width, height, 1, tex->flags );
 				}
 
-				R_VkStagingUnlockToImage(staging.handle, &region, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, tex->vk.image.image);
+				R_VkStagingUnlock(staging.handle);
 			}
 		}
 

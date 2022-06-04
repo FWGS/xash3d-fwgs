@@ -41,7 +41,6 @@ typedef struct {
 
 	struct {
 		int staging_handle;
-		uint32_t offset;
 	} impl_;
 } r_geometry_buffer_lock_t;
 

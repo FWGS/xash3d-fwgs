@@ -330,8 +330,14 @@ qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int verte
 	{
 		const uint32_t vertices_offset = offset / sizeof(vk_vertex_t);
 		const uint32_t indices_offset = (offset + vertices_size) / sizeof(uint16_t);
+		const vk_staging_buffer_args_t staging_args = {
+			.buffer = g_geom.buffer.buffer,
+			.offset = offset,
+			.size = total_size,
+			.alignment = 4,
+		};
 
-		const vk_staging_region_t staging = R_VkStagingLock(total_size, 4);
+		const vk_staging_region_t staging = R_VkStagingLockForBuffer(staging_args);
 		ASSERT(staging.ptr);
 
 		ASSERT( offset % sizeof(vk_vertex_t) == 0 );
@@ -350,7 +356,6 @@ qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int verte
 			},
 			.impl_ = {
 				.staging_handle = staging.handle,
-				.offset = offset,
 			},
 		};
 	}
@@ -359,7 +364,7 @@ qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int verte
 }
 
 void R_GeometryBufferUnlock( const r_geometry_buffer_lock_t *lock ) {
-	R_VkStagingUnlockToBuffer(lock->impl_.staging_handle, g_geom.buffer.buffer, lock->impl_.offset);
+	R_VkStagingUnlock(lock->impl_.staging_handle);
 }
 
 void XVK_RenderBufferMapClear( void ) {
