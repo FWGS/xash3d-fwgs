@@ -24,8 +24,8 @@ vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args);
 // Allocate region for uploading to image
 typedef struct {
 	VkImage image;
-	VkBufferImageCopy region;
 	VkImageLayout layout;
+	VkBufferImageCopy region;
 	uint32_t size;
 	uint32_t alignment;
 } vk_staging_image_args_t;

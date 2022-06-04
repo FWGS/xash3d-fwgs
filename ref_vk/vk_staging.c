@@ -111,10 +111,30 @@ void R_VkStagingUnlock(staging_handle_t handle) {
 }
 
 static void commitBuffers(VkCommandBuffer cmdbuf) {
+	// TODO better coalescing:
+	// - upload once per buffer
+	// - join adjacent regions
+
+	VkBuffer prev_buffer = VK_NULL_HANDLE;
+	int first_copy = 0;
 	for (int i = g_staging.buffers.committed; i < g_staging.buffers.count; i++) {
+		if (prev_buffer == g_staging.buffers.dest[i])
+			continue;
+
+		if (prev_buffer != VK_NULL_HANDLE) {
+			vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer,
+				prev_buffer,
+				i - first_copy, g_staging.buffers.copy + first_copy);
+		}
+
+		prev_buffer = g_staging.buffers.dest[i];
+		first_copy = i;
+	}
+
+	if (prev_buffer != VK_NULL_HANDLE) {
 		vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer,
-			g_staging.buffers.dest[i],
-			1, g_staging.buffers.copy + i);
+			prev_buffer,
+			g_staging.buffers.count - first_copy, g_staging.buffers.copy + first_copy);
 	}
 
 	g_staging.buffers.committed = g_staging.buffers.count;
