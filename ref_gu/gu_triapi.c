@@ -24,6 +24,17 @@ static struct
 	vec4_t		triRGBA;
 } ds;
 
+static struct
+{
+	byte	*start;
+	byte	*end;
+	int		count;
+	int		prim;
+	uint	flags;
+	float	lastTexCord[2];
+	uint	lastColor;
+}triContext = { 0 };
+
 /*
 ===============================================================
 
@@ -31,25 +42,6 @@ static struct
 
 ===============================================================
 */
-#if 1
-static struct
-{
-	void			*start;
-	gu_vert_ftcv_t	*list;
-	qboolean		begin;
-	int				count;
-	int 			prim;
-	unsigned int	flags;
-}tri_gucontext = 
-{ 
-	.start	= NULL,
-	.list	= NULL,
-	.begin	= false, 
-	.count	= 0, 
-	.prim	= 0, 
-	.flags	= 0 
-};
-#endif
 
 /*
 =============
@@ -60,7 +52,6 @@ set rendermode
 */
 void TriRenderMode( int mode )
 {
-#if 1
 	ds.renderMode = mode;
 	switch( mode )
 	{
@@ -87,34 +78,6 @@ void TriRenderMode( int mode )
 		sceGuDepthMask( GU_TRUE );
 		break;
 	}
-#else
-	ds.renderMode = mode;
-	switch( mode )
-	{
-	case kRenderNormal:
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglDisable( GL_BLEND );
-		pglDepthMask( GL_TRUE );
-		break;
-	case kRenderTransAlpha:
-		pglEnable( GL_BLEND );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglDepthMask( GL_FALSE );
-		break;
-	case kRenderTransColor:
-	case kRenderTransTexture:
-		pglEnable( GL_BLEND );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		break;
-	case kRenderGlow:
-	case kRenderTransAdd:
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-		pglEnable( GL_BLEND );
-		pglDepthMask( GL_FALSE );
-		break;
-	}
-#endif
 }
 
 /*
@@ -126,72 +89,39 @@ begin triangle sequence
 */
 void TriBegin( int mode )
 {
-#if 1
 	switch( mode )
 	{
 	case TRI_POINTS:
-		tri_gucontext.prim = GU_POINTS;
+		triContext.prim = GU_POINTS;
 		break;
 	case TRI_TRIANGLES:
-		tri_gucontext.prim = GU_TRIANGLES;
+		triContext.prim = GU_TRIANGLES;
 		break;
 	case TRI_TRIANGLE_FAN:
-		tri_gucontext.prim = GU_TRIANGLE_FAN;
+		triContext.prim = GU_TRIANGLE_FAN;
 		break;
 	case TRI_QUADS:
-		tri_gucontext.prim = GU_TRIANGLE_FAN;
+		triContext.prim = GU_TRIANGLE_FAN;
 		break;
 	case TRI_LINES:
-		tri_gucontext.prim = GU_LINES;
+		triContext.prim = GU_LINES;
 		break;
 	case TRI_TRIANGLE_STRIP:
-		tri_gucontext.prim = GU_TRIANGLE_STRIP;
+		triContext.prim = GU_TRIANGLE_STRIP;
 		break;
 	case TRI_QUAD_STRIP:
-		tri_gucontext.prim = GU_TRIANGLE_STRIP;
+		triContext.prim = GU_TRIANGLE_STRIP;
 		break;
 	case TRI_POLYGON:
 	default:
-		tri_gucontext.prim = GU_TRIANGLE_FAN;
-		break;
-	}	
-	tri_gucontext.start = extGuBeginPacket( NULL );
-	tri_gucontext.list  = ( gu_vert_ftcv_t* )tri_gucontext.start;	
-	tri_gucontext.begin	= true;
-	tri_gucontext.count	= 0;
-	tri_gucontext.flags	= 0;
-#else
-	switch( mode )
-	{
-	case TRI_POINTS:
-		mode = GL_POINTS;
-		break;
-	case TRI_TRIANGLES:
-		mode = GL_TRIANGLES;
-		break;
-	case TRI_TRIANGLE_FAN:
-		mode = GL_TRIANGLE_FAN;
-		break;
-	case TRI_QUADS:
-		mode = GL_QUADS;
-		break;
-	case TRI_LINES:
-		mode = GL_LINES;
-		break;
-	case TRI_TRIANGLE_STRIP:
-		mode = GL_TRIANGLE_STRIP;
-		break;
-	case TRI_QUAD_STRIP:
-		mode = GL_QUAD_STRIP;
-		break;
-	case TRI_POLYGON:
-	default:
-		mode = GL_POLYGON;
+		triContext.prim = GU_TRIANGLE_FAN;
 		break;
 	}
 
-	pglBegin( mode );
-#endif
+	triContext.start = extGuBeginPacket( NULL );
+	triContext.end   = triContext.start;
+	triContext.count = 0;
+	triContext.flags = 0;
 }
 
 /*
@@ -203,19 +133,15 @@ draw triangle sequence
 */
 void TriEnd( void )
 {
-#if 1
-	unsigned int vert_size;
-	
-	if( !tri_gucontext.begin )
+	if( !triContext.start || triContext.count == 0 )
 		return;
 
-	extGuEndPacket( ( void* )tri_gucontext.list );
-	sceGuDrawArray( tri_gucontext.prim, tri_gucontext.flags, tri_gucontext.count, 0, tri_gucontext.start );
-	
-	tri_gucontext.begin = false;
-#else	
-	pglEnd( );
-#endif
+	extGuEndPacket(( void* )triContext.end );
+	sceGuDrawArray( triContext.prim, triContext.flags, triContext.count, 0, triContext.start );
+
+	triContext.start = NULL;
+	triContext.end   = NULL;
+	triContext.count = 0;
 }
 
 /*
@@ -226,19 +152,15 @@ _TriColor4f
 */
 void _TriColor4f( float r, float g, float b, float a )
 {
-#if 1
-	if( tri_gucontext.begin )
+	if( triContext.start )
 	{
-		tri_gucontext.flags |= GU_COLOR_8888; 
-		tri_gucontext.list->c = GUCOLOR4F( r, g, b, a );
+		if( triContext.count > 0 && !( triContext.flags & GU_COLOR_8888 ))
+			return;
+
+		triContext.flags |= GU_COLOR_8888;
+		triContext.lastColor = GUCOLOR4F( r, g, b, a );
 	}
-	else	
-	{		
-		sceGuColor( GUCOLOR4F( r, g, b, a ) );
-	}
-#else
-	pglColor4f( r, g, b, a );
-#endif
+	else sceGuColor( GUCOLOR4F( r, g, b, a ));
 }
 
 /*
@@ -249,19 +171,15 @@ _TriColor4ub
 */
 void _TriColor4ub( byte r, byte g, byte b, byte a )
 {
-#if 1
-	if( tri_gucontext.begin )
+	if( triContext.start )
 	{
-		tri_gucontext.flags |= GU_COLOR_8888; 	
-		tri_gucontext.list->c = GUCOLOR4UB( r, g, b, a );
+		if( triContext.count > 0 && !( triContext.flags & GU_COLOR_8888 ))
+			return;
+
+		triContext.flags |= GU_COLOR_8888;
+		triContext.lastColor = GUCOLOR4UB( r, g, b, a );
 	}
-	else	
-	{	
-		sceGuColor( GUCOLOR4UB( r, g, b, a ) );
-	}
-#else
-	pglColor4ub( r, g, b, a );
-#endif
+	else sceGuColor( GUCOLOR4UB( r, g, b, a ));
 }
 
 
@@ -306,16 +224,15 @@ TriTexCoord2f
 */
 void TriTexCoord2f( float u, float v )
 {
-#if 1
-	if( !tri_gucontext.begin ) 
+	if( !triContext.start )
 		return;
 
-	tri_gucontext.flags |= GU_TEXTURE_32BITF;	
-	tri_gucontext.list->u = u;
-	tri_gucontext.list->v = v;
-#else
-	pglTexCoord2f( u, v );
-#endif
+	if( triContext.count > 0 && !( triContext.flags & GU_TEXTURE_32BITF ))
+		return;
+
+	triContext.flags |= GU_TEXTURE_32BITF;
+	triContext.lastTexCord[0] = u;
+	triContext.lastTexCord[1] = v;
 }
 
 /*
@@ -326,31 +243,32 @@ TriVertex3fv
 */
 void TriVertex3fv( const float *v )
 {
-#if 1
-	if( !tri_gucontext.begin ) 
+	if( !triContext.start )
 		return;
 
-	if( !(tri_gucontext.flags & GU_TEXTURE_32BITF) )
+	if( triContext.flags & GU_TEXTURE_32BITF )
 	{
-		tri_gucontext.list->u = 0;
-		tri_gucontext.list->v = 0;
-	}
-	
-	if( !(tri_gucontext.flags & GU_COLOR_8888) )
-	{
-		tri_gucontext.list->c = 0xffffffff;
+		*( float* )triContext.end = triContext.lastTexCord[0];
+		triContext.end += sizeof( float );
+		*( float* )triContext.end = triContext.lastTexCord[1];
+		triContext.end += sizeof( float );
 	}
 
-	tri_gucontext.flags |= GU_VERTEX_32BITF; 
-	tri_gucontext.list->x = v[0];
-	tri_gucontext.list->y = v[1];
-	tri_gucontext.list->z = v[2];
-	tri_gucontext.list++;
-	
-	tri_gucontext.count++;
-#else
-	pglVertex3fv( v );
-#endif
+	if( triContext.flags & GU_COLOR_8888 )
+	{
+		*( uint* )triContext.end = triContext.lastColor;
+		triContext.end += sizeof( uint );
+	}
+
+	triContext.flags |= GU_VERTEX_32BITF;
+	*( float* )triContext.end = v[0];
+	triContext.end += sizeof( float );
+	*( float* )triContext.end = v[1];
+	triContext.end += sizeof( float );
+	*( float* )triContext.end = v[2];
+	triContext.end += sizeof( float );
+
+	triContext.count++;
 }
 
 /*
@@ -361,31 +279,32 @@ TriVertex3f
 */
 void TriVertex3f( float x, float y, float z )
 {
-#if 1
-	if( !tri_gucontext.begin ) 
+	if( !triContext.start )
 		return;
-	
-	if( !(tri_gucontext.flags & GU_TEXTURE_32BITF) )
+
+	if( triContext.flags & GU_TEXTURE_32BITF )
 	{
-		tri_gucontext.list->u = 0;
-		tri_gucontext.list->v = 0;
-	}
-	
-	if( !(tri_gucontext.flags & GU_COLOR_8888) )
-	{
-		tri_gucontext.list->c = 0xffffffff;
+		*( float* )triContext.end = triContext.lastTexCord[0];
+		triContext.end += sizeof( float );
+		*( float* )triContext.end = triContext.lastTexCord[1];
+		triContext.end += sizeof( float );
 	}
 
-	tri_gucontext.flags |= GU_VERTEX_32BITF; 
-	tri_gucontext.list->x = x;
-	tri_gucontext.list->y = y;
-	tri_gucontext.list->z = z;
-	tri_gucontext.list++;
+	if( triContext.flags & GU_COLOR_8888 )
+	{
+		*( uint* )triContext.end = triContext.lastColor;
+		triContext.end += sizeof( uint );
+	}
 
-	tri_gucontext.count++;
-#else
-	pglVertex3f( x, y, z );
-#endif
+	triContext.flags |= GU_VERTEX_32BITF;
+	*( float* )triContext.end = x;
+	triContext.end += sizeof( float );
+	*( float* )triContext.end = y;
+	triContext.end += sizeof( float );
+	*( float* )triContext.end = z;
+	triContext.end += sizeof( float );
+
+	triContext.count++;
 }
 
 /*
@@ -449,7 +368,7 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	{
 		glState.isFogEnabled = RI.fogCustom = false;
 #if 1
-		sceGuDisable( GU_FOG );	
+		sceGuDisable( GU_FOG );
 #else
 		pglDisable( GL_FOG );
 #endif
@@ -473,11 +392,11 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	RI.fogDensity = 0.0f;
 	RI.fogSkybox = true;
 	RI.fogEnd = flEnd;
-	
+
 #if 1
-	printf("TRI FOG:  s %f  e %f c %f %f %f %f \n", RI.fogStart, RI.fogEnd, 
+	printf("TRI FOG:  s %f  e %f c %f %f %f %f \n", RI.fogStart, RI.fogEnd,
 			RI.fogColor[0], RI.fogColor[1], RI.fogColor[2], RI.fogColor[3] );
-			
+
 	//glState.fogDensity = RI.fogDensity
 	glState.fogColor = GUCOLOR4F( RI.fogColor[0], RI.fogColor[1], RI.fogColor[2], glState.fogDensity );
 	glState.fogStart = RI.fogStart;
@@ -572,6 +491,5 @@ unsigned int getTriBrightness( float brightness )
 
 	VectorNormalizeFast( color );
 
-	return GUCOLOR3FV( color );		
+	return GUCOLOR3FV( color );
 }
-
