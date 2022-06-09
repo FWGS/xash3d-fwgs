@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include <unistd.h> // execve
 #elif XASH_WIN32
 #define XASHLIB "xash.dll"
+#define SDL2LIB "SDL2.dll"
 #define dlerror() GetStringLastError()
 #include <shellapi.h> // CommandLineToArgvW
 #include <process.h> // _execve
@@ -98,6 +99,15 @@ static const char *GetStringLastError()
 
 static void Sys_LoadEngine( void )
 {
+#if XASH_WIN32
+	HMODULE hSdl;
+
+	if ( ( hSdl = LoadLibraryEx( SDL2LIB, NULL, LOAD_LIBRARY_AS_DATAFILE ) ) == NULL )
+		Xash_Error("Unable to load the " SDL2LIB ": %s", dlerror() );
+	else
+		FreeLibrary( hSdl );
+#endif
+
 	if(( hEngine = LoadLibrary( XASHLIB )) == NULL )
 	{
 		Xash_Error("Unable to load the " XASHLIB ": %s", dlerror() );
