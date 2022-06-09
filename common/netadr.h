@@ -50,8 +50,12 @@ typedef struct netadr_s
 		struct
 		{
 			uint32_t type;
-			uint8_t  ip[4];   // or last 4 IPv6 octets
-			uint8_t  ipx[10]; // or first 10 IPv6 octets
+			union
+			{
+				uint8_t   ip[4];
+				uint32_t  ip4;
+			};
+			uint8_t  ipx[10];
 		};
 		struct
 		{

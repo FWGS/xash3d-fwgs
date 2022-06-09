@@ -583,6 +583,118 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 
 /*
 ====================
+NET_StringToFilterAdr
+
+====================
+*/
+qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
+{
+	char copy[128], *temp;
+	qboolean hasCIDR = false;
+	byte ip6[16];
+	uint len;
+
+	if( !COM_CheckStringEmpty( s ))
+		return false;
+
+	memset( adr, 0, sizeof( *adr ));
+
+	// copy the string and remove CIDR prefix
+	Q_strncpy( copy, s, sizeof( copy ));
+	temp = Q_strrchr( copy, '/' );
+
+	if( temp )
+	{
+		*temp = 0;
+		if( Q_isdigit( temp + 1 ))
+		{
+			len = Q_atoi( temp + 1 );
+			hasCIDR = len != 0;
+		}
+	}
+
+	// try to parse as IPv6 first
+	if( ParseIPv6Addr( copy, ip6, NULL, NULL ))
+	{
+		NET_IP6BytesToNetadr( adr, ip6 );
+		adr->type6 = NA_IP6;
+
+		if( !hasCIDR )
+			*prefixlen = 128;
+		else
+			*prefixlen = len;
+	}
+	else
+	{
+		int num = 0;
+		int octet = 0;
+
+		// parse as ipv4 but we don't need to allow all forms here
+		for( temp = copy; *temp; temp++ )
+		{
+			char c = *temp;
+
+			if( c >= '0' && c <= '9' )
+			{
+				num *= 10;
+				num += c - '0';
+			}
+			else if( c == '.' )
+			{
+				if( num > 255 )
+					return false;
+
+				adr->ip[octet++] = num;
+				num = 0;
+
+				if( octet > 3 )
+					return false;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		if( num > 255 )
+			return false;
+
+		adr->ip[octet++] = num;
+
+		if( !hasCIDR )
+		{
+			int i;
+
+			*prefixlen = 32;
+
+			for( i = 3; i >= 0; i-- )
+			{
+				if( !adr->ip[i] )
+					*prefixlen -= 8;
+				else
+					break;
+			}
+		}
+		else
+		{
+			uint32_t mask;
+
+			len = bound( 0, len, 32 );
+			*prefixlen = len;
+
+			// drop unneeded bits
+			mask = htonl( adr->ip4 ) & ( 0xFFFFFFFF << ( 32 - len ));
+			adr->ip4 = ntohl( mask );
+		}
+
+		adr->type = NA_IP;
+	}
+
+	return true;
+}
+
+/*
+====================
 NET_AdrToString
 ====================
 */
@@ -635,17 +747,14 @@ Compares without the port
 */
 qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b )
 {
-	if( a.type != b.type )
+	if( a.type6 != b.type6 )
 		return false;
 
 	if( a.type == NA_LOOPBACK )
 		return true;
 
 	if( a.type == NA_IP )
-	{
-		if( !memcmp( a.ip, b.ip, 4 ))
-			return true;
-	}
+		return a.ip4 == b.ip4;
 
 	if( a.type6 == NA_IP6 )
 	{
@@ -663,9 +772,9 @@ NET_CompareClassBAdr
 Compare local masks
 ====================
 */
-qboolean NET_CompareClassBAdr( netadr_t a, netadr_t b )
+qboolean NET_CompareClassBAdr( const netadr_t a, const netadr_t b )
 {
-	if( a.type != b.type )
+	if( a.type6 != b.type6 )
 		return false;
 
 	if( a.type == NA_LOOPBACK )
@@ -680,6 +789,60 @@ qboolean NET_CompareClassBAdr( netadr_t a, netadr_t b )
 	// NOTE: we don't check for IPv6 here
 	// this check is very dumb and only used for LAN restriction
 	// Actual check is in IsReservedAdr
+
+	// for real mask compare use NET_CompareAdrByMask
+
+	return false;
+}
+
+/*
+====================
+NET_CompareAdrByMask
+
+Checks if adr is a part of subnet
+====================
+*/
+qboolean NET_CompareAdrByMask( const netadr_t a, const netadr_t b, uint prefixlen )
+{
+	if( a.type6 != b.type6 || a.type == NA_LOOPBACK )
+		return false;
+
+	if( a.type == NA_IP )
+	{
+		uint32_t ipa = htonl( a.ip4 );
+		uint32_t ipb = htonl( b.ip4 );
+
+		if(( ipa & (( 0xFFFFFFFFU ) << ( 32 - prefixlen ))) == ipb )
+			return true;
+	}
+	else if( a.type6 == NA_IP6 )
+	{
+		uint16_t a_[8], b_[8];
+		size_t check     = prefixlen / 16;
+		size_t remaining = prefixlen % 16;
+
+		// convert to 16-bit pieces first
+		NET_NetadrToIP6Bytes( (uint8_t*)a_, &a );
+		NET_NetadrToIP6Bytes( (uint8_t*)b_, &b );
+
+		// check complete hextets first, if not equal, then it's different subnets
+		if( check && memcmp( a_, b_, check * sizeof( uint16_t )))
+			return false;
+
+		// check by bits now, similar to v4 check but with 16-bit type
+		if( remaining )
+		{
+			uint16_t hexa, hexb, mask = 0xFFFFU << ( 16 - remaining );
+
+			hexa = htons( a_[check] );
+			hexb = htons( b_[check] );
+
+			if(( hexa & mask ) == ( hexb & mask ))
+				return true;
+		}
+		else
+			return true;
+	}
 
 	return false;
 }
@@ -739,7 +902,7 @@ Compare full address
 */
 qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 {
-	if( a.type != b.type )
+	if( a.type6 != b.type6 )
 		return false;
 
 	if( a.type == NA_LOOPBACK )
@@ -747,7 +910,7 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 
 	if( a.type == NA_IP )
 	{
-		if( !memcmp( a.ip, b.ip, 4 ) && a.port == b.port )
+		if( a.ip4 == b.ip4 && a.port == b.port )
 			return true;
 		return false;
 	}
@@ -1513,7 +1676,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	if( family == AF_INET6 )
 		pfamily = PF_INET6;
 	else if( family == AF_INET )
-		pfamily == PF_INET;
+		pfamily = PF_INET;
 
 	if( NET_IsSocketError(( net_socket = socket( pfamily, SOCK_DGRAM, IPPROTO_UDP )) ) )
 	{

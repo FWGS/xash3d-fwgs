@@ -818,18 +818,15 @@ static void Host_RunTests( int stage )
 	{
 	case 0: // early engine load
 		memset( &tests_stats, 0, sizeof( tests_stats ));
-		Test_RunLibCommon();
-		Test_RunCommon();
-		Test_RunCmd();
-		Test_RunCvar();
+		TEST_LIST_0;
 #if !XASH_DEDICATED
-		Test_RunCon();
+		TEST_LIST_0_CLIENT;
 #endif /* XASH_DEDICATED */
 		break;
 	case 1: // after FS load
-		Test_RunImagelib();
+		TEST_LIST_1;
 #if !XASH_DEDICATED
-		Test_RunVOX();
+		TEST_LIST_1_CLIENT;
 #endif
 		Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
 		Sys_Quit();

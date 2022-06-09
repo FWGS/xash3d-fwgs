@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #define S_WARN			"^3Warning:^7 "
 #define S_ERROR			"^1Error:^7 "
 #define S_USAGE			"Usage: "
+#define S_USAGE_INDENT  "       "
 
 #define S_OPENGL_NOTE		"^2OpenGL Note:^7 "
 #define S_OPENGL_WARN		"^3OpenGL Warning:^7 "
