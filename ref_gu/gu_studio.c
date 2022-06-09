@@ -28,6 +28,8 @@ GNU General Public License for more details.
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
 
+#define STUDIOEXTRADATA( mod )	((( mod ) && ( mod )->type == mod_studio ) ? ( mod )->cache.data : NULL )
+
 typedef struct
 {
 	char		name[MAX_OSPATH];
@@ -697,7 +699,7 @@ float CL_GetSequenceDuration( cl_entity_t *ent, int sequence )
 
 	if( ent->model != NULL && ent->model->type == mod_studio )
 	{
-		pstudiohdr = (studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, ent->model );
+		pstudiohdr = (studiohdr_t *)STUDIOEXTRADATA( ent->model );
 
 		if( pstudiohdr )
 		{
@@ -1868,7 +1870,7 @@ mstudiotexture_t *R_StudioGetTexture( cl_entity_t *e )
 	mstudiotexture_t	*ptexture;
 	studiohdr_t	*phdr, *thdr;
 
-	if(( phdr = gEngfuncs.Mod_Extradata( mod_studio, e->model )) == NULL )
+	if(( phdr = STUDIOEXTRADATA( e->model )) == NULL )
 		return NULL;
 
 	thdr = m_pStudioHeader;
@@ -2878,7 +2880,7 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 
 	RI.currententity = oldent;
 
-	if(( phdr = gEngfuncs.Mod_Extradata( mod_studio, model )) == NULL )
+	if(( phdr = STUDIOEXTRADATA( model )) == NULL )
 	{
 		if( R_ModelOpaque( ent->curstate.rendermode ))
 		{
@@ -3489,7 +3491,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 	if( RI.currentmodel == NULL )
 		return 0;
 
-	R_StudioSetHeader((studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, RI.currentmodel ));
+	R_StudioSetHeader((studiohdr_t *)STUDIOEXTRADATA( RI.currentmodel ));
 
 	if( pplayer->gaitsequence )
 	{
@@ -3596,7 +3598,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 			cl_entity_t	saveent = *RI.currententity;
 			model_t		*pweaponmodel = gEngfuncs.pfnGetModelByIndex( pplayer->weaponmodel );
 
-			m_pStudioHeader = (studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, pweaponmodel );
+			m_pStudioHeader = (studiohdr_t *)STUDIOEXTRADATA( pweaponmodel );
 
 			R_StudioMergeBones( RI.currententity, pweaponmodel );
 			R_StudioSetupLighting( &lighting );
@@ -3651,7 +3653,7 @@ static int R_StudioDrawModel( int flags )
 		return result;
 	}
 
-	R_StudioSetHeader((studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, RI.currentmodel ));
+	R_StudioSetHeader((studiohdr_t *)STUDIOEXTRADATA( RI.currentmodel ));
 
 	R_StudioSetUpTransform( RI.currententity );
 
@@ -4039,7 +4041,7 @@ static void *pfnMod_CacheCheck( struct cache_user_s *c )
 
 static void *pfnMod_StudioExtradata( model_t *mod )
 {
-	return gEngfuncs.Mod_Extradata( mod_studio, mod );
+	return STUDIOEXTRADATA( mod );
 }
 
 static void pfnMod_LoadCacheFile( const char *path, struct cache_user_s *cu )

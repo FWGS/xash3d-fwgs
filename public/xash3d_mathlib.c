@@ -665,62 +665,37 @@ AngleQuaternion
 */
 void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
 {
-#if 0//XASH_PSP /* performance not tested */
+#if XASH_PSP
+	vec4_t dst_angles; 
+
+	dst_angles[0] = studio ? angles[PITCH] : DEG2RAD( angles[ROLL] );
+	dst_angles[1] = studio ? angles[YAW]   : DEG2RAD( angles[PITCH] );
+	dst_angles[2] = studio ? angles[ROLL]  : DEG2RAD( angles[YAW] );
+
 	__asm__ (
 		".set		push\n"					// save assembler option
 		".set		noreorder\n"			// suppress reordering
-
-
-
-		/**/
-		"lv.s		S000,  8 + %1\n"		// S000 = angles[ROLL]
-		"lv.s		S001,  0 + %1\n"		// S000 = angles[PITCH]
-		"lv.s		S002,  4 + %1\n"		// S000 = angles[YAW]
-		/**/
+		"lv.q		C000, %1\n"				// C000 = [PITCH, YAW, ROLL]
 		"vcst.s		S010, VFPU_1_PI\n"		// S010 = VFPU_1_PI = 1 / PI
 		"vscl.t		C000, C000, S010\n"		// C000 = C000 * S010 = C000 * 0.5f * ( 2 / PI )
-
-		/**/
-		"vcos.t		C010, C000\n"			// C010 = cos( *angles * 0.5f )
-		"vsin.t		C000, C000\n"			// C000 = sin( *angles * 0.5f )
+		"vcos.t		C010, C000\n"			// C010 = cos( C000 * 0.5f )
+		"vsin.t		C000, C000\n"			// C000 = sin( C000 * 0.5f )
 		"vcrs.t		C020, C010, C010\n"		// C020 = ( cp*cy, cy*cr, cr*cp )
 		"vcrs.t		C030, C000, C000\n"		// C030 = ( sp*sy, sy*sr, sr*sp )
 		"vmul.s		S003, S020, S010\n"		// S003 = S020 * S010 = cp*cy*cr
 		"vmul.s		S013, S030, S000\n"		// S013 = S030 * S000 = sp*sy*sr
 		"vmul.t		C020, C020, C000\n"		// C020 = C020 * C000 = ( cp*cy*sr, cy*cr*sp, cr*cp*sy )
 		"vmul.t		C030, C030, C010\n"		// C030 = C030 * C010 = ( sp*sy*cr, sy*sr*cp, sr*sp*cy )
-		"vadd.s		S003, S003, S013\n"		// S003 = S003 + S013 = cr*cp*cy + sr*sp*sy
+		"vadd.s		S003, S003, S013\n"		// S003 = S003 + S013 = cp*cy*cr + cp*cy*cr
 		"vadd.t		C000, C020, C030[-X, Y, -Z]\n"
 											// S000 = S020 - C030 = cp*cy*sr - sp*sy*cr
 											// S001 = S021 + C031 = cy*cr*sp + sy*sr*cp
 											// S002 = S022 - C032 = cr*cp*sy - sr*sp*cy
-		"usv.q		C000, %0\n"				// *q   = C000
+		"sv.q		C000, %0\n"				// *q   = C000
 		".set		pop\n"					// restore assembler option
 		: "=m"( *q )
-		: "m"( *angles ), "r"( studio )
+		: "m"( dst_angles )
 	);
-
-	printf("ASM [%f %f %f %f]\n", q[0], q[1], q[2], q[3] );
-	float	sr, sp, sy, cr, cp, cy;
-
-	if( studio )
-	{
-		SinCos( angles[ROLL] * 0.5f, &sy, &cy );
-		SinCos( angles[YAW] * 0.5f, &sp, &cp );
-		SinCos( angles[PITCH] * 0.5f, &sr, &cr );
-	}
-	else
-	{
-		SinCos( DEG2RAD( angles[YAW] ) * 0.5f, &sy, &cy );
-		SinCos( DEG2RAD( angles[PITCH] ) * 0.5f, &sp, &cp );
-		SinCos( DEG2RAD( angles[ROLL] ) * 0.5f, &sr, &cr );
-	}
-
-	q[0] = sr * cp * cy - cr * sp * sy; // X
-	q[1] = cr * sp * cy + sr * cp * sy; // Y
-	q[2] = cr * cp * sy - sr * sp * cy; // Z
-	q[3] = cr * cp * cy + sr * sp * sy; // W
-	printf("C   [%f %f %f %f]\n", q[0], q[1], q[2], q[3] );
 #else
 	float	sr, sp, sy, cr, cp, cy;
 
