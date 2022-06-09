@@ -25,63 +25,82 @@ GNU General Public License for more details.
 #include <emscripten.h>
 #endif
 
-#if XASH_WIN32
-#define XASH_NOCONHOST 1
-#endif
-
 static char szGameDir[128]; // safe place to keep gamedir
 static int g_iArgc;
 static char **g_pszArgv;
 
+#if XASH_WIN32 || XASH_POSIX
+#define USE_EXECVE_FOR_CHANGE_GAME 1
+#else
+#define USE_EXECVE_FOR_CHANGE_GAME 0
+#endif
+
+#define E_GAME	"XASH3D_GAME" // default env dir to start from
+#define GAME_PATH	"valve"	// default dir to start from
+
 void Launcher_ChangeGame( const char *progname )
 {
+#if USE_EXECVE_FOR_CHANGE_GAME
+	Host_Shutdown();
+
+#if XASH_WIN32
+	_putenv_s( E_GAME, progname );
+	_execve( szArgv[0], szArgv, environ );
+#else
+	char envstr[256];
+	snprintf( envstr, sizeof( envstr ), E_GAME "=%s", progname );
+	putenv( envstr );
+	execve( szArgv[0], szArgv, environ );
+#endif
+
+#else
 	Q_strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
 	Host_Shutdown( );
 	exit( Host_Main( g_iArgc, g_pszArgv, szGameDir, 1, &Launcher_ChangeGame ) );
+#endif
 }
 
-#if XASH_NOCONHOST
+#if XASH_WIN32
 #include <windows.h>
 #include <shellapi.h> // CommandLineToArgvW
 int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int nShow)
 {
-	int szArgc;
-	char **szArgv;
-	LPWSTR* lpArgv = CommandLineToArgvW(GetCommandLineW(), &szArgc);
-	int i = 0;
+	LPWSTR* lpArgv;
+	int ret, i;
 
-	szArgv = (char**)malloc(szArgc*sizeof(char*));
-	for (; i < szArgc; ++i)
+	lpArgv = CommandLineToArgvW( GetCommandLineW(), &szArgc );
+	szArgv = ( char** )malloc( (szArgc + 1) * sizeof( char* ));
+
+	for( i = 0; i < szArgc; ++i )
 	{
 		size_t size = wcslen(lpArgv[i]) + 1;
-		szArgv[i] = (char*)malloc(size);
-		wcstombs(szArgv[i], lpArgv[i], size);
+
+		// just in case, allocate some more memory
+		szArgv[i] = ( char * )malloc( size * sizeof( wchar_t ));
+		wcstombs( szArgv[i], lpArgv[i], size );
 	}
-	szArgv[i] = NULL;
+	szArgv[szArgc] = 0;
 
-	LocalFree(lpArgv);
+	LocalFree( lpArgv );
 
-	main( szArgc, szArgv );
+	ret = main( szArgc, szArgv );
 
 	for( i = 0; i < szArgc; ++i )
 		free( szArgv[i] );
 	free( szArgv );
+
+	return ret;
 }
-#endif
+#endif // XASH_WIN32
+
 int main( int argc, char** argv )
 {
-	char gamedir_buf[32] = "";
-	const char *gamedir = getenv( "XASH3D_GAMEDIR" );
+	const char *game = getenv( E_GAME );
 
-	if( !COM_CheckString( gamedir ) )
-	{
-		gamedir = "valve";
-	}
-	else
-	{
-		Q_strncpy( gamedir_buf, gamedir, 32 );
-		gamedir = gamedir_buf;
-	}
+	if( !game )
+		game = GAME_PATH;
+
+	Q_strncpy( szGameDir, gamedir, sizeof( szGameDir ));
 
 #if XASH_EMSCRIPTEN
 #ifdef EMSCRIPTEN_LIB_FS
@@ -108,7 +127,7 @@ int main( int argc, char** argv )
 		IOS_LaunchDialog();
 	}
 #endif
-	return Host_Main( g_iArgc, g_pszArgv, gamedir, 0, &Launcher_ChangeGame );
+	return Host_Main( g_iArgc, g_pszArgv, szGameDir, 0, &Launcher_ChangeGame );
 }
 
 #endif
