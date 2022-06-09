@@ -25,7 +25,11 @@ GNU General Public License for more details.
 #include <emscripten.h>
 #endif
 
-#include <unistd.h>
+#if XASH_WIN32
+#include <process.h> // _execve
+#else
+#include <unistd.h> // execve
+#endif
 
 extern char **environ;
 static char szGameDir[128]; // safe place to keep gamedir
