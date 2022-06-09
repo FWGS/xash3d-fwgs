@@ -14,24 +14,25 @@ GNU General Public License for more details.
 */
 
 #include "port.h"
+#include "build.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <unistd.h>
 
-#if defined(__APPLE__) || defined(__unix__) || defined(__HAIKU__)
-	#define XASHLIB    "libxash." OS_LIB_EXT
-#elif _WIN32
-	#if !__MINGW32__ && _MSC_VER >= 1200
-		#define USE_WINMAIN
-	#endif
-	#define XASHLIB "xash.dll"
-	#define dlerror() GetStringLastError()
-	#include <shellapi.h> // CommandLineToArgvW
+#if XASH_POSIX
+#define XASHLIB "libxash." OS_LIB_EXT
+#elif XASH_WIN32
+#define XASHLIB "xash.dll"
+#define dlerror() GetStringLastError()
+#include <shellapi.h> // CommandLineToArgvW
+#else
+#error // port me!
 #endif
 
-#ifdef WIN32
+#ifdef XASH_WIN32
 extern "C"
 {
 // Enable NVIDIA High Performance Graphics while using Integrated Graphics.
@@ -40,6 +41,12 @@ __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 // Enable AMD High Performance Graphics while using Integrated Graphics.
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
+#endif
+
+#if XASH_WIN32 || XASH_POSIX
+#define USE_EXECVE_FOR_CHANGE_GAME 1
+#else
+#define USE_EXECVE_FOR_CHANGE_GAME 0
 #endif
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
@@ -54,7 +61,7 @@ static pfnShutdown Xash_Shutdown = NULL;
 static char        szGameDir[128]; // safe place to keep gamedir
 static int         szArgc;
 static char        **szArgv;
-static HINSTANCE	hEngine;
+static HINSTANCE   hEngine;
 
 static void Xash_Error( const char *szFmt, ... )
 {
@@ -70,6 +77,7 @@ static void Xash_Error( const char *szFmt, ... )
 #else
 	fprintf( stderr, "Xash Error: %s\n", buffer );
 #endif
+
 	exit( 1 );
 }
 
@@ -116,32 +124,44 @@ static void Sys_ChangeGame( const char *progname )
 	if( !progname || !progname[0] )
 		Xash_Error( "Sys_ChangeGame: NULL gamedir" );
 
+#if USE_EXECVE_FOR_CHANGE_GAME
+#if XASH_WIN32
+	_putenv_s( E_GAME, progname );
+
+	Sys_UnloadEngine();
+	_execve( szArgv[0], szArgv, environ );
+#else
+	char envstr[256];
+	snprintf( envstr, sizeof( envstr ), E_GAME "=%s", progname );
+	putenv( envstr );
+
+	Sys_UnloadEngine();
+	execve( szArgv[0], szArgv, environ );
+#endif
+#else
 	if( Xash_Shutdown == NULL )
 		Xash_Error( "Sys_ChangeGame: missed 'Host_Shutdown' export\n" );
 
+	Sys_UnloadEngine();
 	strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
-
-	Sys_UnloadEngine ();
 	Sys_LoadEngine ();
-
 	Xash_Main( szArgc, szArgv, szGameDir, 1, Sys_ChangeGame );
+#endif
 }
 
 _inline int Sys_Start( void )
 {
 	int ret;
 	pfnChangeGame changeGame = NULL;
+	const char *game = getenv( E_GAME );
+
+	if( !game )
+		game = GAME_PATH;
 
 	Sys_LoadEngine();
 
-#ifndef XASH_DISABLE_MENU_CHANGEGAME
 	if( Xash_Shutdown )
 		changeGame = Sys_ChangeGame;
-#endif
-
-	const char *game = getenv( E_GAME  );
-	if( !game  )
-		game = GAME_PATH;
 
 	ret = Xash_Main( szArgc, szArgv, game, 0, changeGame );
 
@@ -150,7 +170,7 @@ _inline int Sys_Start( void )
 	return ret;
 }
 
-#ifndef USE_WINMAIN
+#if !XASH_WIN32
 int main( int argc, char **argv )
 {
 	szArgc = argc;
@@ -159,7 +179,6 @@ int main( int argc, char **argv )
 	return Sys_Start();
 }
 #else
-//#pragma comment(lib, "shell32.lib")
 int __stdcall WinMain( HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int nShow )
 {
 	LPWSTR* lpArgv;
@@ -170,8 +189,10 @@ int __stdcall WinMain( HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int 
 
 	for( i = 0; i < szArgc; ++i )
 	{
-		int size = wcslen(lpArgv[i]) + 1;
-		szArgv[i] = ( char* )malloc( size );
+		size_t size = wcslen(lpArgv[i]) + 1;
+
+		// just in case, allocate some more memory
+		szArgv[i] = ( char * )malloc( size * sizeof( wchar_t ));
 		wcstombs( szArgv[i], lpArgv[i], size );
 	}
 	szArgv[szArgc] = 0;
