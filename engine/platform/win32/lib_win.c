@@ -351,27 +351,18 @@ static PIMAGE_IMPORT_DESCRIPTOR GetImportDescriptor( const char *name, byte *dat
 
 static void ListMissingModules( dll_user_t *hInst )
 {
-	DWORD cbNeeded;
 	PIMAGE_NT_HEADERS peHeader;
 	PIMAGE_IMPORT_DESCRIPTOR importDesc;
-	HANDLE hProcess;
 	byte *data;
 
 	if ( !hInst ) return;
-
-	hProcess = GetCurrentProcess();
 	
 	data = FS_LoadFile( hInst->dllName, NULL, false );
-	if ( !data )
-	{
-		CloseHandle( hProcess );
-		return;
-	}
+	if ( !data ) return;
 
 	importDesc = GetImportDescriptor( hInst->dllName, data, &peHeader );
 	if ( !importDesc )
 	{
-		CloseHandle( hProcess );
 		Mem_Free( data );
 		return;
 	}
@@ -388,7 +379,6 @@ static void ListMissingModules( dll_user_t *hInst )
 			FreeLibrary( hMod );
 	}
 
-	CloseHandle( hProcess );
 	Mem_Free( data );
 	return;
 }
