@@ -25,6 +25,9 @@ GNU General Public License for more details.
 #include <emscripten.h>
 #endif
 
+#include <unistd.h>
+
+extern char **environ;
 static char szGameDir[128]; // safe place to keep gamedir
 static int g_iArgc;
 static char **g_pszArgv;
@@ -40,17 +43,18 @@ static char **g_pszArgv;
 
 void Launcher_ChangeGame( const char *progname )
 {
+	char envstr[256];
+
 #if USE_EXECVE_FOR_CHANGE_GAME
 	Host_Shutdown();
 
 #if XASH_WIN32
 	_putenv_s( E_GAME, progname );
-	_execve( szArgv[0], szArgv, environ );
+	_execve( g_pszArgv[0], g_pszArgv, _environ );
 #else
-	char envstr[256];
 	snprintf( envstr, sizeof( envstr ), E_GAME "=%s", progname );
 	putenv( envstr );
-	execve( szArgv[0], szArgv, environ );
+	execve( g_pszArgv[0], g_pszArgv, environ );
 #endif
 
 #else
@@ -100,7 +104,7 @@ int main( int argc, char** argv )
 	if( !game )
 		game = GAME_PATH;
 
-	Q_strncpy( szGameDir, gamedir, sizeof( szGameDir ));
+	Q_strncpy( szGameDir, game, sizeof( szGameDir ));
 
 #if XASH_EMSCRIPTEN
 #ifdef EMSCRIPTEN_LIB_FS

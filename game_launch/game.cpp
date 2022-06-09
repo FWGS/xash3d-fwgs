@@ -56,6 +56,7 @@ typedef void (*pfnChangeGame)( const char *progname );
 typedef int  (*pfnInit)( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 typedef void (*pfnShutdown)( void );
 
+extern char        **environ;
 static pfnInit     Xash_Main;
 static pfnShutdown Xash_Shutdown = NULL;
 static char        szGameDir[128]; // safe place to keep gamedir
@@ -129,7 +130,7 @@ static void Sys_ChangeGame( const char *progname )
 	_putenv_s( E_GAME, progname );
 
 	Sys_UnloadEngine();
-	_execve( szArgv[0], szArgv, environ );
+	_execve( szArgv[0], szArgv, _environ );
 #else
 	char envstr[256];
 	snprintf( envstr, sizeof( envstr ), E_GAME "=%s", progname );
