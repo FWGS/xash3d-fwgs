@@ -20,14 +20,15 @@ GNU General Public License for more details.
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <unistd.h>
 
 #if XASH_POSIX
 #define XASHLIB "libxash." OS_LIB_EXT
+#include <unistd.h> // execve
 #elif XASH_WIN32
 #define XASHLIB "xash.dll"
 #define dlerror() GetStringLastError()
 #include <shellapi.h> // CommandLineToArgvW
+#include <process.h> // _execve
 #else
 #error // port me!
 #endif
