@@ -1,5 +1,5 @@
 /*
-lin_win.c - win32 dynamic library loading
+lib_win.c - win32 dynamic library loading
 Copyright (C) 2008 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
