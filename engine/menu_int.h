@@ -53,6 +53,11 @@ typedef struct ui_globalvars_s
 
 struct ref_viewpass_s;
 
+#if __GNUC__ == 3
+#undef NORETURN
+#define NORETURN
+#endif // GCC 3.x have problems with noreturn attribute on function pointer
+
 typedef struct ui_enginefuncs_s
 {
 	// image handlers
