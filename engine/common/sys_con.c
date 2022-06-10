@@ -230,6 +230,9 @@ void Sys_PrintLog( const char *pMsg )
 	time( &crt_time );
 	crt_tm = localtime( &crt_time );
 
+	// strip color codes
+	Q_cleanstr( pMsg, pMsg );
+
 	// platform-specific output
 #if XASH_ANDROID && !XASH_DEDICATED
 	__android_log_print( ANDROID_LOG_DEBUG, "Xash", "%s", pMsg );
@@ -248,21 +251,21 @@ void Sys_PrintLog( const char *pMsg )
 #ifdef XASH_COLORIZE_CONSOLE
 	Sys_PrintColorized( logtime, pMsg );
 #else
-	printf( "%s %s", logtime, pMsg );
+	printf( "%s%s", logtime, pMsg );
 #endif
 	Sys_FlushStdout();
 #endif
-
-	// save last char to detect when line was not ended
-	lastchar = pMsg[strlen(pMsg)-1];
 
 	if( !s_ld.logfile )
 		return;
 
 	if( !lastchar || lastchar == '\n')
-		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S]", crt_tm ); //full time
+		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S] ", crt_tm ); //full time
+	
+	// save last char to detect when line was not ended
+	lastchar = pMsg[strlen(pMsg)-1];
 
-	fprintf( s_ld.logfile, "%s %s", logtime, pMsg );
+	fprintf( s_ld.logfile, "%s%s", logtime, pMsg );
 	Sys_FlushLogfile();
 }
 
