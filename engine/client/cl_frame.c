@@ -33,10 +33,12 @@ CL_IsPlayerIndex
 detect player entity
 ==================
 */
+#if XASH_EXT_OPT != 2
 qboolean CL_IsPlayerIndex( int idx )
 {
 	return ( idx >= 1 && idx <= cl.maxclients );
 }
+#endif
 
 /*
 =========================================================================

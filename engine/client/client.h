@@ -954,7 +954,11 @@ void CL_ProcessPlayerState( int playerindex, entity_state_t *state );
 void CL_ComputePlayerOrigin( cl_entity_t *clent );
 void CL_ProcessPacket( frame_t *frame );
 void CL_MoveThirdpersonCamera( void );
+#if XASH_EXT_OPT == 2
+#define CL_IsPlayerIndex( idx ) (( idx ) >= 1 && ( idx ) <= cl.maxclients )
+#else
 qboolean CL_IsPlayerIndex( int idx );
+#endif
 void CL_SetIdealPitch( void );
 void CL_EmitEntities( void );
 
