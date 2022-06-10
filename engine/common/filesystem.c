@@ -1210,7 +1210,7 @@ static qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loade
 
 	if( already_loaded ) *already_loaded = false;
 
-	if( !Q_stricmp( ext, "pk3" ) || !Q_stricmp( ext, "zip" ))
+	if( !Q_stricmp( ext, "pk3" ) )
 		zip = FS_LoadZip( zipfile, &errorcode );
 
 	if( zip )
@@ -1254,7 +1254,7 @@ static qboolean FS_AddArchive_Fullpath( const char *file, qboolean *already_load
 {
 	const char *ext = COM_FileExtension( file );
 
-	if( !Q_stricmp( ext, "zip" ) || !Q_stricmp( ext, "pk3" ))
+	if( !Q_stricmp( ext, "pk3" ) )
 		return FS_AddZip_Fullpath( file, already_loaded, flags );
 	else if ( !Q_stricmp( ext, "pak" ))
 		return FS_AddPak_Fullpath( file, already_loaded, flags );
@@ -1297,7 +1297,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	// add any Zip package in the directory
 	for( i = 0; i < list.numstrings; i++ )
 	{
-		if( !Q_stricmp( COM_FileExtension( list.strings[i] ), "zip" ) || !Q_stricmp( COM_FileExtension( list.strings[i] ), "pk3" ))
+		if( !Q_stricmp( COM_FileExtension( list.strings[i] ), "pk3" ) )
 		{
 			Q_sprintf( fullpath, "%s%s", dir, list.strings[i] );
 			FS_AddZip_Fullpath( fullpath, NULL, flags );
