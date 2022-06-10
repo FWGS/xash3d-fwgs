@@ -23,6 +23,9 @@ GNU General Public License for more details.
 
 #if XASH_POSIX
 #define XASHLIB "libxash." OS_LIB_EXT
+#define LoadLibrary( x ) dlopen( x, RTLD_NOW )
+#define GetProcAddress( x, y ) dlsym( x, y )
+#define FreeLibrary( x ) dlclose( x )
 #include <unistd.h> // execve
 #elif XASH_WIN32
 #define XASHLIB "xash.dll"
@@ -46,7 +49,7 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #endif
 
 #if XASH_WIN32 || XASH_POSIX
-#define USE_EXECVE_FOR_CHANGE_GAME 1
+#define USE_EXECVE_FOR_CHANGE_GAME 0
 #else
 #define USE_EXECVE_FOR_CHANGE_GAME 0
 #endif

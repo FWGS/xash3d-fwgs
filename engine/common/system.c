@@ -34,6 +34,8 @@ GNU General Public License for more details.
 
 #include "menu_int.h" // _UPDATE_PAGE macro
 
+#include "library.h"
+
 qboolean	error_on_exit = false;	// arg for exit();
 #define DEBUG_BREAK
 
@@ -272,7 +274,8 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 			*func->func = NULL;
 	}
 
-	if( !dll->link ) dll->link = LoadLibrary ( dll->name ); // environment pathes
+	if( !dll->link )
+		dll->link = COM_LoadLibrary( dll->name, false, true ); // environment pathes
 
 	// no DLL found
 	if( !dll->link )
@@ -307,7 +310,7 @@ void* Sys_GetProcAddress( dll_info_t *dll, const char* name )
 	if( !dll || !dll->link ) // invalid desc
 		return NULL;
 
-	return (void *)GetProcAddress( dll->link, name );
+	return (void *)COM_GetProcAddress( dll->link, name );
 }
 
 qboolean Sys_FreeLibrary( dll_info_t *dll )
@@ -324,7 +327,7 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 	}
 	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", dll->name );
 
-	FreeLibrary( dll->link );
+	COM_FreeLibrary( dll->link );
 	dll->link = NULL;
 
 	return true;
