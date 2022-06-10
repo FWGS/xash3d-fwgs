@@ -709,11 +709,7 @@ dlight_t *CL_GetEntityLight( int number );
 //
 // cl_cmds.c
 //
-#if XASH_PSP
-void CL_Quit_f( void );
-#else
 void CL_Quit_f( void ) NORETURN;
-#endif
 void CL_ScreenShot_f( void );
 void CL_SnapShot_f( void );
 void CL_PlayCDTrack_f( void );

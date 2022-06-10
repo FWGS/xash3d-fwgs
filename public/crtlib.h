@@ -21,7 +21,11 @@ GNU General Public License for more details.
 
 #ifdef __GNUC__
 #define _format(x) __attribute__((format(printf, x, x+1)))
+#if XASH_PSP
+#define NORETURN
+#else
 #define NORETURN __attribute__((noreturn))
+#endif
 #else
 #define _format(x)
 #define NORETURN
