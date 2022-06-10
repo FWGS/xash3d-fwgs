@@ -615,7 +615,7 @@ char *Q_strpbrk(const char *s, const char *accept)
 	return NULL;
 }
 
-void Q_cleanstr( const char *in, char *out )
+void COM_StripColors( const char *in, char *out )
 {
 	while ( *in )
 	{
