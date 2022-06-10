@@ -558,12 +558,10 @@ void R_AddDynamicLights( msurface_t *surf )
 		else sample_frac = LM_SAMPLE_SIZE;
 	}
 
-	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
+	for( lnum = 0, dl = gEngfuncs.GetDynamicLight( 0 ); lnum < MAX_DLIGHTS; lnum++, dl++ )
 	{
 		if( !FBitSet( surf->dlightbits, BIT( lnum )))
 			continue;	// not lit by this light
-
-		dl = gEngfuncs.GetDynamicLight( lnum );
 
 		// transform light origin to local bmodel space
 		if( !tr.modelviewIdentity )
@@ -1642,10 +1640,8 @@ void R_DrawBrushModel( cl_entity_t *e )
 	else VectorSubtract( RI.cullorigin, e->origin, tr.modelorg );
 
 	// calculate dynamic lighting for bmodel
-	for( k = 0; k < MAX_DLIGHTS; k++ )
+	for( k = 0, l = gEngfuncs.GetDynamicLight( 0 ); k < MAX_DLIGHTS; k++, l++ )
 	{
-		l = gEngfuncs.GetDynamicLight( k );
-
 		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 

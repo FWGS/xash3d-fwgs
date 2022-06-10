@@ -155,10 +155,8 @@ void R_PushDlights( void )
 	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
-	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
+	for( i = 0, l = gEngfuncs.GetDynamicLight( 0 ); i < MAX_DLIGHTS; i++, l++ )
 	{
-		l = gEngfuncs.GetDynamicLight( i );
-
 		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 
@@ -179,10 +177,8 @@ int R_CountDlights( void )
 	dlight_t	*l;
 	int	i, numDlights = 0;
 
-	for( i = 0; i < MAX_DLIGHTS; i++ )
+	for( i = 0, l = gEngfuncs.GetDynamicLight( 0 ); i < MAX_DLIGHTS; i++, l++ )
 	{
-		l = gEngfuncs.GetDynamicLight( i );
-
 		if( l->die < gpGlobals->time || !l->radius )
 			continue;
 

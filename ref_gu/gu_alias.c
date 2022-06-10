@@ -887,10 +887,8 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 	// scale lightdir by light intentsity
 	VectorScale( lightDir, total, lightDir );
 
-	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
+	for( lnum = 0, dl = gEngfuncs.GetDynamicLight( 0 ); lnum < MAX_DLIGHTS; lnum++, dl++ )
 	{
-		dl = gEngfuncs.GetDynamicLight( lnum );
-
 		if( dl->die < g_alias.time || !r_dynamic->value )
 			continue;
 
