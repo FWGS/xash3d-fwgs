@@ -231,7 +231,7 @@ void Sys_PrintLog( const char *pMsg )
 	crt_tm = localtime( &crt_time );
 
 	// strip color codes
-	COM_StripColors( pMsg, pMsg );
+	COM_StripColors( pMsg, (char *)pMsg );
 
 	// platform-specific output
 #if XASH_ANDROID && !XASH_DEDICATED
