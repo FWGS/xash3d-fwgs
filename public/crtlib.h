@@ -73,6 +73,7 @@ int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list ar
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
 int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
 char *Q_strpbrk(const char *s, const char *accept);
+void Q_cleanstr( char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
 char *va( const char *format, ... ) _format( 1 );

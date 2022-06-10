@@ -615,6 +615,17 @@ char *Q_strpbrk(const char *s, const char *accept)
 	return NULL;
 }
 
+void Q_cleanstr( const char *in, char *out )
+{
+	while ( *in )
+	{
+		if ( IsColorString( in ) )
+			in += 2;
+		else *out++ = *in++;
+	}
+	*out = '\0';
+}
+
 uint Q_hashkey( const char *string, uint hashSize, qboolean caseinsensitive )
 {
 	uint	i, hashKey = 0;
