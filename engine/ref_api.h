@@ -363,7 +363,7 @@ typedef struct ref_api_s
 	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
 
 	// library management
-	void *(*COM_LoadLibrary)( const char *name, int build_ordinals_table, qboolean directpath );
+	void *(*COM_LoadLibrary)( const char *name, int build_ordinals_table, qboolean directpath, const char *file, int line );
 	void  (*COM_FreeLibrary)( void *handle );
 	void *(*COM_GetProcAddress)( void *handle, const char *name );
 

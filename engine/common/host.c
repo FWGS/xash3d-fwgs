@@ -1197,6 +1197,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	return 0;
 }
 
+void DLL_PrintLeaks( void );
+
 /*
 =================
 Host_Shutdown
@@ -1224,6 +1226,8 @@ void EXPORT Host_Shutdown( void )
 	HTTP_Shutdown();
 	Host_FreeCommon();
 	Platform_Shutdown();
+
+	DLL_PrintLeaks();
 
 	// must be last, console uses this
 	Mem_FreePool( &host.mempool );

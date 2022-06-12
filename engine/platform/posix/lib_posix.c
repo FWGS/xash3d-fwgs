@@ -24,6 +24,127 @@ GNU General Public License for more details.
 #include "platform/emscripten/lib_em.h"
 #include "platform/apple/lib_ios.h"
 
+#define ENABLE_REFCOUNT_CHECK
+
+#ifdef ENABLE_REFCOUNT_CHECK
+struct dll_t
+{
+	void *hInstance;
+	char name[256];
+	char file[256];
+	int line;
+
+	int refcount;
+	struct dll_t *next;
+};
+
+struct dll_t *dlls = NULL;
+
+void *DLL_FindInListAndIncrement( const char *name )
+{
+	struct dll_t *dll;
+
+	for( dll = dlls; dll; dll = dll->next )
+	{
+		if( !Q_strcmp( name, dll->name ))
+		{
+			dll->refcount++;
+			return dll;
+		}
+	}
+
+	return NULL;
+}
+
+void *DLL_AddToList( const char *name, void *hInstance, const char *file, int line )
+{
+	struct dll_t *newdll;
+
+	if( !hInstance ) return NULL;
+
+	newdll = DLL_FindInListAndIncrement( name );
+	if( newdll )
+		return newdll;
+
+	newdll = Mem_Malloc( host.mempool, sizeof( *newdll ));
+
+	newdll->hInstance = hInstance;
+	Q_strncpy( newdll->name, name, sizeof( newdll->name ));
+	Q_strncpy( newdll->file, file, sizeof( newdll->file ));
+	newdll->line = line;
+	newdll->refcount = 1;
+	newdll->next = dlls;
+
+	dlls = newdll;
+
+	return newdll;
+}
+
+void *DLL_Free( void *_dll )
+{
+	struct dll_t *dll = _dll;
+	void *hinst = dll->hInstance;
+
+	dll->refcount--;
+
+	if( dll->refcount == 0 )
+	{
+		struct dll_t **back, *find;
+
+		back = &dlls;
+		while( 1 )
+		{
+			find = *back;
+			if( !find ) break;
+
+			if( find == dll )
+			{
+				*back = dll->next;
+
+				Mem_Free( dll );
+				break;
+			}
+
+			back = &find->next;
+		}
+	}
+
+	return hinst;
+}
+
+void *DLL_GetInstance( void *_dll )
+{
+	struct dll_t *dll = _dll;
+
+	return dll->hInstance;
+}
+
+void DLL_PrintLeaks( void )
+{
+	struct dll_t *dll;
+
+	for( dll = dlls; dll; dll = dll->next )
+	{
+		Con_Printf( S_ERROR "UNLOADED LIBRARY DETECTED: %s loaded at %s:%i!\n", dll->name, dll->file, dll->line );
+	}
+}
+#else
+void *DLL_AddToList( const char *name, void *hInstance, const char *file, int line )
+{
+	return hInstance;
+}
+
+void DLL_Free( void *_dll )
+{
+	;
+}
+
+void *DLL_GetInstance( void *_dll )
+{
+	return _dll;
+}
+#endif
+
 #ifdef XASH_DLL_LOADER // wine-based dll loader
 void * Loader_LoadLibrary (const char *name);
 void * Loader_GetProcAddress (void *hndl, const char *name);
@@ -33,25 +154,24 @@ const char * Loader_GetFuncName( void *hndl, void *func);
 const char * Loader_GetFuncName_int( void *wm , void *func);
 #endif
 
-
 #ifdef XASH_NO_LIBDL
 #ifndef XASH_DLL_LOADER
 #error Enable at least one dll backend!!!
 #endif // XASH_DLL_LOADER
 
-void *dlsym(void *handle, const char *symbol )
+void *dlsym( void *handle, const char *symbol )
 {
 	Con_DPrintf( "dlsym( %p, \"%s\" ): stub\n", handle, symbol );
 	return NULL;
 }
 
-void *dlopen(const char *name, int flag )
+void *dlopen( const char *name, int flag )
 {
 	Con_DPrintf( "dlopen( \"%s\", %d ): stub\n", name, flag );
 	return NULL;
 }
 
-int dlclose(void *handle)
+int dlclose( void *handle)
 {
 	Con_DPrintf( "dlsym( %p ): stub\n", handle );
 	return 0;
@@ -74,7 +194,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	return true;
 }
 
-void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
+void *_COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath, const char *file, int line )
 {
 	dll_user_t *hInst = NULL;
 	void *pHandle = NULL;
@@ -95,7 +215,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 #ifdef XASH_DLL_LOADER
 		if( host.enabledll && ( pHandle = Loader_LoadLibrary(dllname)) )
 		{
-			return pHandle;
+			return DLL_AddToList( dllname, pHandle, file, line );
 		}
 #endif
 
@@ -104,7 +224,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 		{
 			pHandle = dlopen( dllname, RTLD_LAZY );
 			if( pHandle )
-				return pHandle;
+				return DLL_AddToList( dllname, pHandle, file, line );
 
 			COM_PushLibraryError( va( "Failed to find library %s", dllname ));
 			COM_PushLibraryError( dlerror() );
@@ -151,38 +271,42 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 	Mem_Free( hInst );
 
-	return pHandle;
+	return DLL_AddToList( dllname, pHandle, file, line );
 }
 
 void COM_FreeLibrary( void *hInstance )
 {
+	void *hinst = DLL_Free( hInstance );
+
 #ifdef XASH_DLL_LOADER
 	void *wm;
-	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
-		return Loader_FreeLibrary( hInstance );
+	if( host.enabledll && (wm = Loader_GetDllHandle( hinst )) )
+		return Loader_FreeLibrary( hinst );
 	else
 #endif
 	{
 #ifdef Platform_POSIX_FreeLibrary
-		Platform_POSIX_FreeLibrary( hInstance );
+		Platform_POSIX_FreeLibrary( hinst );
 #else
-		dlclose( hInstance );
+		dlclose( hinst );
 #endif
 	}
 }
 
 void *COM_GetProcAddress( void *hInstance, const char *name )
 {
+	void *hinst = DLL_GetInstance( hInstance );
+
 #ifdef XASH_DLL_LOADER
 	void *wm;
-	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
-		return Loader_GetProcAddress(hInstance, name);
+	if( host.enabledll && ( wm = Loader_GetDllHandle( hinst )))
+		return Loader_GetProcAddress( hinst, name );
 	else
 #endif
 #if Platform_POSIX_GetProcAddress
-	return Platform_POSIX_GetProcAddress( hInstance, name );
+	return Platform_POSIX_GetProcAddress( hinst, name );
 #else
-	return dlsym( hInstance, name );
+	return dlsym( hinst, name );
 #endif
 }
 
@@ -216,11 +340,13 @@ static int d_dladdr( void *sym, Dl_info *info )
 
 const char *COM_NameForFunction( void *hInstance, void *function )
 {
+	void *hinst = DLL_GetInstance( hInstance );
+
 #ifdef XASH_DLL_LOADER
 	void *wm;
-	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
+	if( host.enabledll && ( wm = Loader_GetDllHandle( hinst )))
 #error ConvertMangledName
-		return Loader_GetFuncName_int(wm, function);
+		return Loader_GetFuncName_int( wm, function );
 	else
 #endif
 	// NOTE: dladdr() is a glibc extension

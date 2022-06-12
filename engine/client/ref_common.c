@@ -330,7 +330,7 @@ static ref_api_t gEngfuncs =
 	_Mem_Realloc,
 	_Mem_Free,
 
-	COM_LoadLibrary,
+	_COM_LoadLibrary,
 	COM_FreeLibrary,
 	COM_GetProcAddress,
 

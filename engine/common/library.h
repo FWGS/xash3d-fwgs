@@ -35,7 +35,11 @@ typedef struct dll_user_s
 } dll_user_t;
 
 dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath );
-void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath );
+
+#define COM_LoadLibrary( dllname, build_ordinals_table, directpath ) \
+	_COM_LoadLibrary( dllname, build_ordinals_table, directpath, __FILE__, __LINE__ )
+
+void *_COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath, const char *name, int line );
 void *COM_GetProcAddress( void *hInstance, const char *name );
 const char *COM_NameForFunction( void *hInstance, void *function );
 void *COM_FunctionFromName_SR( void *hInstance, const char *pName ); // Save/Restore version
