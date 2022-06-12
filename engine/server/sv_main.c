@@ -1091,6 +1091,8 @@ void SV_Shutdown( const char *finalmsg )
 		// drop the client if want to load a new map
 		if( CL_IsPlaybackDemo( ))
 			CL_Drop();
+
+		SV_UnloadProgs ();
 		return;
 	}
 
