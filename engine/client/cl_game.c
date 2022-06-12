@@ -3914,7 +3914,6 @@ void CL_UnloadProgs( void )
 	Cvar_FullSet( "host_clientloaded", "0", FCVAR_READ_ONLY );
 
 	COM_FreeLibrary( clgame.hInstance );
-	VGui_Shutdown();
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
 	memset( &clgame, 0, sizeof( clgame ));

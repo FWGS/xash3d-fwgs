@@ -3089,10 +3089,6 @@ CL_Shutdown
 */
 void CL_Shutdown( void )
 {
-	// already freed
-	if( !cls.initialized ) return;
-	cls.initialized = false;
-
 	Con_Printf( "CL_Shutdown()\n" );
 
 	if( !host.crashed )
@@ -3109,6 +3105,9 @@ void CL_Shutdown( void )
 	Mobile_Shutdown ();
 	SCR_Shutdown ();
 	CL_UnloadProgs ();
+	cls.initialized = false;
+
+	VGui_Shutdown();
 
 	FS_Delete( "demoheader.tmp" ); // remove tmp file
 	SCR_FreeCinematic (); // release AVI's *after* client.dll because custom renderer may use them
@@ -3116,4 +3115,5 @@ void CL_Shutdown( void )
 	R_Shutdown ();
 
 	Con_Shutdown ();
+
 }
