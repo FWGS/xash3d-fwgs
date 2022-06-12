@@ -138,7 +138,6 @@ static void Sys_ChangeGame( const char *progname )
 {
 	if( !progname || !progname[0] )
 		Xash_Error( "Sys_ChangeGame: NULL gamedir" );
-
 #if USE_EXECVE_FOR_CHANGE_GAME
 #if XASH_WIN32
 	_putenv_s( E_GAME, progname );
@@ -157,8 +156,9 @@ static void Sys_ChangeGame( const char *progname )
 	if( Xash_Shutdown == NULL )
 		Xash_Error( "Sys_ChangeGame: missed 'Host_Shutdown' export\n" );
 
-	Sys_UnloadEngine();
 	strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
+
+	Sys_UnloadEngine();
 	Sys_LoadEngine ();
 	Xash_Main( szArgc, szArgv, szGameDir, 1, Sys_ChangeGame );
 #endif
