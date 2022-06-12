@@ -10,3 +10,6 @@
 [submodule "ref_gl/gl4es"]
 	path = ref_gl/gl4es
 	url = https://github.com/ptitSeb/gl4es
+[submodule "vgui_support"]
+	path = vgui_support
+	url = https://github.com/FWGS/vgui_support
