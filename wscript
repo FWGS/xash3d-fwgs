@@ -154,6 +154,7 @@ def configure(conf):
 		conf.options.NO_VGUI= True # skip vgui
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
+		conf.options.GL4ES  = True
 		conf.options.GL     = False
 	elif conf.env.MAGX:
 		conf.options.USE_SELECT       = True
