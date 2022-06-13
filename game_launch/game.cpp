@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #define GetProcAddress( x, y ) dlsym( x, y )
 #define FreeLibrary( x ) dlclose( x )
 #elif XASH_WIN32
+#include <shellapi.h> // CommandLineToArgvW
 #define XASHLIB "xash.dll"
 #define SDL2LIB "SDL2.dll"
 #define dlerror() GetStringLastError()
