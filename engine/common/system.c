@@ -32,9 +32,14 @@ GNU General Public License for more details.
 #endif
 #endif
 
+#if XASH_WIN32
+#include <process.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
 
 #include "library.h"
+#include "whereami.h"
 
 qboolean	error_on_exit = false;	// arg for exit();
 #define DEBUG_BREAK
@@ -538,4 +543,68 @@ void Sys_Print( const char *pMsg )
 	Sys_PrintLog( pMsg );
 
 	Rcon_Print( pMsg );
+}
+
+/*
+==================
+Sys_ChangeGame
+
+This is a special function
+
+Here we restart engine with new -game parameter
+but since engine will be unloaded during this call
+it explicitly doesn't use internal allocation or string copy utils
+==================
+*/
+qboolean Sys_ChangeGame( const char *gamedir )
+{
+	int i = 0;
+	qboolean replacedArg = false;
+	size_t exelen;
+	char *exe, **newargs;
+
+	// don't use engine allocation utils here
+	// they will be freed after Host_Shutdown
+	newargs = calloc( host.argc + 4, sizeof( *newargs ));
+	while( i < host.argc )
+	{
+		newargs[i] = strdup( host.argv[i] );
+
+		// replace existing -game argument
+		if( !Q_stricmp( newargs[i], "-game" ))
+		{
+			newargs[i + 1] = strdup( gamedir );
+			replacedArg = true;
+			i += 2;
+		}
+		else i++;
+	}
+
+	if( !replacedArg )
+	{
+		newargs[i++] = strdup( "-game" );
+		newargs[i++] = strdup( gamedir );
+	}
+
+	newargs[i++] = strdup( "-changegame" );
+	newargs[i] = NULL;
+
+	exelen = wai_getExecutablePath( NULL, 0, NULL );
+	exe = malloc( exelen + 1 );
+	wai_getExecutablePath( exe, exelen, NULL );
+	exe[exelen] = 0;
+
+	Host_Shutdown();
+
+	execv( exe, newargs );
+
+	// if execv returned, it's probably an error
+	printf( "execv failed: %s", strerror( errno ));
+
+	for( ; i >= 0; i-- )
+		free( newargs[i] );
+	free( newargs );
+	free( exe );
+
+	return false;
 }
