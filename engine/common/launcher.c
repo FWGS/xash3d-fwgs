@@ -23,54 +23,78 @@ GNU General Public License for more details.
 
 #if XASH_EMSCRIPTEN
 #include <emscripten.h>
-#endif
+#elif XASH_WIN32
+extern "C"
+{
+// Enable NVIDIA High Performance Graphics while using Integrated Graphics.
+__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 
-#if XASH_WIN32
-#include <process.h> // _execve
-#else
-#include <unistd.h> // execve
-#endif
-
-extern char **environ;
-static char szGameDir[128]; // safe place to keep gamedir
-static int g_iArgc;
-static char **g_pszArgv;
-
-#if XASH_WIN32 || XASH_POSIX
-#define USE_EXECVE_FOR_CHANGE_GAME 1
-#else
-#define USE_EXECVE_FOR_CHANGE_GAME 0
+// Enable AMD High Performance Graphics while using Integrated Graphics.
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
 #endif
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
 #define GAME_PATH	"valve"	// default dir to start from
 
-void Launcher_ChangeGame( const char *progname )
+static char        szGameDir[128]; // safe place to keep gamedir
+static int         szArgc;
+static char        **szArgv;
+
+static void Sys_ChangeGame( const char *progname )
 {
-	char envstr[256];
-
-#if USE_EXECVE_FOR_CHANGE_GAME
-	Host_Shutdown();
-
-#if XASH_WIN32
-	_putenv_s( E_GAME, progname );
-	_execve( g_pszArgv[0], g_pszArgv, _environ );
-#else
-	snprintf( envstr, sizeof( envstr ), E_GAME "=%s", progname );
-	putenv( envstr );
-	execve( g_pszArgv[0], g_pszArgv, environ );
-#endif
-
-#else
+	// a1ba: may never be called within engine
+	// if platform supports execv() function
 	Q_strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
 	Host_Shutdown( );
-	exit( Host_Main( g_iArgc, g_pszArgv, szGameDir, 1, &Launcher_ChangeGame ) );
-#endif
+	exit( Host_Main( szArgc, szArgv, szGameDir, 1, &Launcher_ChangeGame ) );
 }
 
-#if XASH_WIN32
-#include <windows.h>
-#include <shellapi.h> // CommandLineToArgvW
+_inline int Sys_Start( void )
+{
+	int ret;
+	const char *game = getenv( E_GAME );
+
+	if( !game )
+		game = GAME_PATH;
+
+	Q_strncpy( szGameDir, game, sizeof( szGameDir ));
+#if XASH_EMSCRIPTEN
+#ifdef EMSCRIPTEN_LIB_FS
+	// For some unknown reason emscripten refusing to load libraries later
+	COM_LoadLibrary("menu", 0 );
+	COM_LoadLibrary("server", 0 );
+	COM_LoadLibrary("client", 0 );
+#endif
+#if XASH_DEDICATED
+	// NodeJS support for debug
+	EM_ASM(try{
+		FS.mkdir('/xash');
+		FS.mount(NODEFS, { root: '.'}, '/xash' );
+		FS.chdir('/xash');
+	}catch(e){};);
+#endif
+#elif XASH_IOS
+	{
+		void IOS_LaunchDialog( void );
+		IOS_LaunchDialog();
+	}
+#endif
+
+	ret = Host_Main( szArgc, szArgv, game, 0, Launcher_ChangeGame );
+
+	return ret;
+}
+
+#if !XASH_WIN32
+int main( int argc, char **argv )
+{
+	szArgc = argc;
+	szArgv = argv;
+
+	return Sys_Start();
+}
+#else
 int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int nShow)
 {
 	LPWSTR* lpArgv;
@@ -91,9 +115,9 @@ int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int n
 
 	LocalFree( lpArgv );
 
-	ret = main( szArgc, szArgv );
+	ret = Sys_Start();
 
-	for( i = 0; i < szArgc; ++i )
+	for( ; i < szArgc; ++i )
 		free( szArgv[i] );
 	free( szArgv );
 
@@ -101,41 +125,5 @@ int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int n
 }
 #endif // XASH_WIN32
 
-int main( int argc, char** argv )
-{
-	const char *game = getenv( E_GAME );
-
-	if( !game )
-		game = GAME_PATH;
-
-	Q_strncpy( szGameDir, game, sizeof( szGameDir ));
-
-#if XASH_EMSCRIPTEN
-#ifdef EMSCRIPTEN_LIB_FS
-	// For some unknown reason emscripten refusing to load libraries later
-	COM_LoadLibrary("menu", 0 );
-	COM_LoadLibrary("server", 0 );
-	COM_LoadLibrary("client", 0 );
-#endif
-#if XASH_DEDICATED
-	// NodeJS support for debug
-	EM_ASM(try{
-		FS.mkdir('/xash');
-		FS.mount(NODEFS, { root: '.'}, '/xash' );
-		FS.chdir('/xash');
-	}catch(e){};);
-#endif
-#endif
-
-	g_iArgc = argc;
-	g_pszArgv = argv;
-#if XASH_IOS
-	{
-		void IOS_LaunchDialog( void );
-		IOS_LaunchDialog();
-	}
-#endif
-	return Host_Main( g_iArgc, g_pszArgv, szGameDir, 0, &Launcher_ChangeGame );
-}
 
 #endif
