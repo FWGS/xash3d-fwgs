@@ -26,18 +26,11 @@ GNU General Public License for more details.
 #define LoadLibrary( x ) dlopen( x, RTLD_NOW )
 #define GetProcAddress( x, y ) dlsym( x, y )
 #define FreeLibrary( x ) dlclose( x )
-#include <unistd.h> // execve
 #elif XASH_WIN32
 #define XASHLIB "xash.dll"
 #define SDL2LIB "SDL2.dll"
 #define dlerror() GetStringLastError()
-#include <shellapi.h> // CommandLineToArgvW
-#include <process.h> // _execve
-#else
-#error // port me!
-#endif
 
-#ifdef XASH_WIN32
 extern "C"
 {
 // Enable NVIDIA High Performance Graphics while using Integrated Graphics.
@@ -46,12 +39,8 @@ __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 // Enable AMD High Performance Graphics while using Integrated Graphics.
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
-#endif
-
-#if XASH_WIN32 || XASH_POSIX
-#define USE_EXECVE_FOR_CHANGE_GAME 0
 #else
-#define USE_EXECVE_FOR_CHANGE_GAME 0
+#error // port me!
 #endif
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
@@ -61,7 +50,6 @@ typedef void (*pfnChangeGame)( const char *progname );
 typedef int  (*pfnInit)( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 typedef void (*pfnShutdown)( void );
 
-extern char        **environ;
 static pfnInit     Xash_Main;
 static pfnShutdown Xash_Shutdown = NULL;
 static char        szGameDir[128]; // safe place to keep gamedir
@@ -105,10 +93,14 @@ static void Sys_LoadEngine( void )
 #if XASH_WIN32
 	HMODULE hSdl;
 
-	if ( ( hSdl = LoadLibraryEx( SDL2LIB, NULL, LOAD_LIBRARY_AS_DATAFILE ) ) == NULL )
+	if (( hSdl = LoadLibraryEx( SDL2LIB, NULL, LOAD_LIBRARY_AS_DATAFILE )) == NULL )
+	{
 		Xash_Error("Unable to load the " SDL2LIB ": %s", dlerror() );
+	}
 	else
+	{
 		FreeLibrary( hSdl );
+	}
 #endif
 
 	if(( hEngine = LoadLibrary( XASHLIB )) == NULL )
@@ -130,29 +122,18 @@ static void Sys_UnloadEngine( void )
 	if( Xash_Shutdown ) Xash_Shutdown( );
 	if( hEngine ) FreeLibrary( hEngine );
 
+	hEngine = NULL;
 	Xash_Main = NULL;
 	Xash_Shutdown = NULL;
 }
 
 static void Sys_ChangeGame( const char *progname )
 {
+	// a1ba: may never be called within engine
+	// if platform supports execv() function
 	if( !progname || !progname[0] )
 		Xash_Error( "Sys_ChangeGame: NULL gamedir" );
-#if USE_EXECVE_FOR_CHANGE_GAME
-#if XASH_WIN32
-	_putenv_s( E_GAME, progname );
 
-	Sys_UnloadEngine();
-	_execve( szArgv[0], szArgv, _environ );
-#else
-	char envstr[256];
-	snprintf( envstr, sizeof( envstr ), E_GAME "=%s", progname );
-	putenv( envstr );
-
-	Sys_UnloadEngine();
-	execve( szArgv[0], szArgv, environ );
-#endif
-#else
 	if( Xash_Shutdown == NULL )
 		Xash_Error( "Sys_ChangeGame: missed 'Host_Shutdown' export\n" );
 
@@ -161,7 +142,6 @@ static void Sys_ChangeGame( const char *progname )
 	Sys_UnloadEngine();
 	Sys_LoadEngine ();
 	Xash_Main( szArgc, szArgv, szGameDir, 1, Sys_ChangeGame );
-#endif
 }
 
 _inline int Sys_Start( void )
@@ -173,12 +153,14 @@ _inline int Sys_Start( void )
 	if( !game )
 		game = GAME_PATH;
 
+	strncpy( szGameDir, game, sizeof( szGameDir ) - 1 );
+
 	Sys_LoadEngine();
 
 	if( Xash_Shutdown )
 		changeGame = Sys_ChangeGame;
 
-	ret = Xash_Main( szArgc, szArgv, game, 0, changeGame );
+	ret = Xash_Main( szArgc, szArgv, szGameDir, 0, changeGame );
 
 	Sys_UnloadEngine();
 
