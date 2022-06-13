@@ -306,7 +306,7 @@ void Host_NewInstance( const char *name, const char *finalmsg )
 	host.change_game = true;
 	Q_strncpy( host.finalmsg, finalmsg, sizeof( host.finalmsg ));
 
-	if( !Platform_ChangeGame( name ))
+	if( !Sys_NewInstance( name ))
 		pChangeGame( name ); // call from hl.exe
 }
 
