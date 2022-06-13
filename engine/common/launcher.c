@@ -47,7 +47,7 @@ static void Sys_ChangeGame( const char *progname )
 	// if platform supports execv() function
 	Q_strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
 	Host_Shutdown( );
-	exit( Host_Main( szArgc, szArgv, szGameDir, 1, &Launcher_ChangeGame ) );
+	exit( Host_Main( szArgc, szArgv, szGameDir, 1, &Sys_ChangeGame ) );
 }
 
 _inline int Sys_Start( void )
@@ -81,7 +81,7 @@ _inline int Sys_Start( void )
 	}
 #endif
 
-	ret = Host_Main( szArgc, szArgv, game, 0, Launcher_ChangeGame );
+	ret = Host_Main( szArgc, szArgv, game, 0, Sys_ChangeGame );
 
 	return ret;
 }

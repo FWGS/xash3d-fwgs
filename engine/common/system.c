@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "platform/platform.h"
 #include <stdlib.h>
+#include <errno.h>
 
 #ifdef XASH_SDL
 #include <SDL.h>
@@ -556,7 +557,7 @@ but since engine will be unloaded during this call
 it explicitly doesn't use internal allocation or string copy utils
 ==================
 */
-qboolean Sys_ChangeGame( const char *gamedir )
+qboolean Sys_NewInstance( const char *gamedir )
 {
 	int i = 0;
 	qboolean replacedArg = false;
