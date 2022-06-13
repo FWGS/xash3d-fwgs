@@ -260,11 +260,11 @@ SDLash_InitCursors
 */
 void SDLash_InitCursors( void )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( cursors.initialized )
 		SDLash_FreeCursors();
 
 	// load up all default cursors
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	cursors.cursors[dc_none] = NULL;
 	cursors.cursors[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
 	cursors.cursors[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
@@ -278,8 +278,8 @@ void SDLash_InitCursors( void )
 	cursors.cursors[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
 	cursors.cursors[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
 	cursors.cursors[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
-#endif
 	cursors.initialized = true;
+#endif
 }
 
 /*
@@ -314,8 +314,10 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 {
 	qboolean visible;
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !cursors.initialized )
 		return;
+#endif
 
 	if( cls.key_dest != key_game || cl.paused )
 		return;
@@ -331,10 +333,10 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 			break;
 	}
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( CVAR_TO_BOOL( touch_emulate ))
 		return;
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( visible && !host.mouse_visible )
 	{
 		SDL_SetCursor( cursors.cursors[type] );
@@ -346,8 +348,17 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 		SDL_ShowCursor( false );
 		Key_EnableTextInput( false, false );
 	}
-	host.mouse_visible = visible;
+#else
+	if( visible && !host.mouse_visible )
+	{
+		SDL_ShowCursor( true );
+	}
+	else if( !visible && host.mouse_visible )
+	{
+		SDL_ShowCursor( false );
+	}
 #endif
+	host.mouse_visible = visible;
 }
 
 /*
