@@ -305,7 +305,9 @@ void Host_NewInstance( const char *name, const char *finalmsg )
 
 	host.change_game = true;
 	Q_strncpy( host.finalmsg, finalmsg, sizeof( host.finalmsg ));
-	pChangeGame( name ); // call from hl.exe
+
+	if( !Platform_ChangeGame( name ))
+		pChangeGame( name ); // call from hl.exe
 }
 
 /*
@@ -868,7 +870,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	host.enabledll = !Sys_CheckParm( "-nodll" );
 
-	host.change_game = bChangeGame;
+	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
 
