@@ -261,8 +261,9 @@ static void Sys_PrintStdout( const char *logtime, const char *msg )
 	void IOS_Log( const char * );
 	IOS_Log( buf );
 #endif // TARGET_OS_IOS
-#else // XASH_MOBILE_PLATFORM
+#elif !XASH_WIN32 // Wcon does the job
 	Sys_PrintLogfile( STDOUT_FILENO, logtime, msg, XASH_COLORIZE_CONSOLE );
+	Sys_FlushStdout();
 #endif
 }
 
@@ -281,7 +282,6 @@ void Sys_PrintLog( const char *pMsg )
 
 	// spew to stdout
 	Sys_PrintStdout( logtime, pMsg );
-	Sys_FlushStdout();
 
 	if( !s_ld.logfile )
 	{
