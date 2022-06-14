@@ -24,7 +24,7 @@ GNU General Public License for more details.
 #include <errno.h>
 
 #if !XASH_WIN32 && !XASH_MOBILE_PLATFORM
-#define XASH_COLORIZE_CONSOLE
+// #define XASH_COLORIZE_CONSOLE
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I was never encountered this bug anywhere else, so still enable by default
 // #define XASH_USE_SELECT 1
@@ -227,17 +227,32 @@ static void Sys_PrintColorized( const char *logtime, const char *msg )
 
 static void Sys_PrintFile( int fd, const char *logtime, const char *msg )
 {
+	const char *p = msg;
+
 	write( fd, logtime, Q_strlen( logtime ) );
 
-	while ( *msg )
+	while( p && *p )
 	{
-		const char *p = strchr( msg, '^' );
+		p = Q_strchr( msg, '^' );
 
-		if ( p && IsColorString( p ) )
+		if( p == NULL )
 		{
-			msg += write( fd, msg, p - msg );
-			msg += 2;
-		} else msg += write( fd, msg, Q_strlen( msg ) );
+			write( fd, msg, Q_strlen( msg ));
+			break;
+		}
+		else if( IsColorString( p ))
+		{
+			if( p != msg )
+			{
+				write( fd, msg, p - msg );
+			}
+			msg = p + 2;
+		}
+		else
+		{
+			write( fd, msg, p - msg + 1 );
+			msg = p + 1;
+		}
 	}
 }
 
@@ -279,7 +294,7 @@ void Sys_PrintLog( const char *pMsg )
 	// spew to stdout
 #ifdef XASH_COLORIZE_CONSOLE
 	Sys_PrintColorized( logtime, pMsg );
-#else
+#elif !XASH_WIN32 // Wcon already does the job
 	Sys_PrintStdout( logtime, pMsg );
 #endif
 	Sys_FlushStdout();
