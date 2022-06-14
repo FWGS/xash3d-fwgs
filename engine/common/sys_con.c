@@ -23,11 +23,14 @@ GNU General Public License for more details.
 #include <string.h>
 #include <errno.h>
 
-#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM
-// #define XASH_COLORIZE_CONSOLE
+// do not waste precious CPU cycles on mobiles or low memory devices
+#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+#define XASH_COLORIZE_CONSOLE true
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I was never encountered this bug anywhere else, so still enable by default
 // #define XASH_USE_SELECT 1
+#else
+#define XASH_COLORIZE_CONSOLE false
 #endif
 
 #if XASH_USE_SELECT
@@ -181,51 +184,31 @@ void Sys_CloseLog( void )
 	}
 }
 
-static void Sys_PrintColorized( const char *logtime, const char *msg )
+#if XASH_COLORIZE_CONSOLE == true
+static void Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 {
-	char colored[4096];
-	int len = 0;
-
-	while( *msg && ( len < 4090 ) )
+	static const char *q3ToAnsi[ 8 ] =
 	{
-		static char q3ToAnsi[ 8 ] =
-		{
-			'0', // COLOR_BLACK
-			'1', // COLOR_RED
-			'2', // COLOR_GREEN
-			'3', // COLOR_YELLOW
-			'4', // COLOR_BLUE
-			'6', // COLOR_CYAN
-			'5', // COLOR_MAGENTA
-			0 // COLOR_WHITE
-		};
+		"\033[30m", // COLOR_BLACK
+		"\033[31m", // COLOR_RED
+		"\033[32m", // COLOR_GREEN
+		"\033[33m", // COLOR_YELLOW
+		"\033[34m", // COLOR_BLUE
+		"\033[36m", // COLOR_CYAN
+		"\033[35m", // COLOR_MAGENTA
+		"\033[0m", // COLOR_WHITE
+	};
+	const char *esc = q3ToAnsi[c];
 
-		if( IsColorString( msg ) )
-		{
-			int color;
-
-			msg++;
-			color = q3ToAnsi[ *msg++ % 8 ];
-			colored[len++] = '\033';
-			colored[len++] = '[';
-			if( color )
-			{
-				colored[len++] = '3';
-				colored[len++] = color;
-			}
-			else
-				colored[len++] = '0';
-			colored[len++] = 'm';
-		}
-		else
-			colored[len++] = *msg++;
-	}
-	colored[len] = 0;
-
-	printf( "\033[34m%s\033[0m%s\033[0m", logtime, colored );
+	if( c == 7 )
+		write( fd, esc, 4 );
+	else write( fd, esc, 5 );
 }
+#else
+static void Sys_WriteEscapeSequenceForColorcode( int fd, int c ) {}
+#endif
 
-static void Sys_PrintFile( int fd, const char *logtime, const char *msg )
+static void Sys_PrintLogfile( const int fd, const char *logtime, const char *msg, const qboolean colorize )
 {
 	const char *p = msg;
 
@@ -243,10 +226,11 @@ static void Sys_PrintFile( int fd, const char *logtime, const char *msg )
 		else if( IsColorString( p ))
 		{
 			if( p != msg )
-			{
 				write( fd, msg, p - msg );
-			}
 			msg = p + 2;
+
+			if( colorize )
+				Sys_WriteEscapeSequenceForColorcode( fd, ColorIndex( p[1] ));
 		}
 		else
 		{
@@ -254,6 +238,10 @@ static void Sys_PrintFile( int fd, const char *logtime, const char *msg )
 			msg = p + 1;
 		}
 	}
+
+	// flush the color
+	if( colorize )
+		Sys_WriteEscapeSequenceForColorcode( fd, 7 );
 }
 
 static void Sys_PrintStdout( const char *logtime, const char *msg )
@@ -266,7 +254,7 @@ static void Sys_PrintStdout( const char *logtime, const char *msg )
 
 	// platform-specific output
 #if XASH_ANDROID && !XASH_DEDICATED
-	__android_log_print( ANDROID_LOG_DEBUG, "Xash", "%s", buf );
+	__android_log_write( ANDROID_LOG_DEBUG, "Xash", buf );
 #endif // XASH_ANDROID && !XASH_DEDICATED
 
 #if TARGET_OS_IOS
@@ -274,7 +262,7 @@ static void Sys_PrintStdout( const char *logtime, const char *msg )
 	IOS_Log( buf );
 #endif // TARGET_OS_IOS
 #else // XASH_MOBILE_PLATFORM
-	Sys_PrintFile( STDOUT_FILENO, logtime, msg );
+	Sys_PrintLogfile( STDOUT_FILENO, logtime, msg, XASH_COLORIZE_CONSOLE );
 #endif
 }
 
@@ -292,15 +280,15 @@ void Sys_PrintLog( const char *pMsg )
 		strftime( logtime, sizeof( logtime ), "[%H:%M:%S] ", crt_tm ); //short time
 
 	// spew to stdout
-#ifdef XASH_COLORIZE_CONSOLE
-	Sys_PrintColorized( logtime, pMsg );
-#elif !XASH_WIN32 // Wcon already does the job
 	Sys_PrintStdout( logtime, pMsg );
-#endif
 	Sys_FlushStdout();
 
 	if( !s_ld.logfile )
+	{
+		// save last char to detect when line was not ended
+		lastchar = pMsg[Q_strlen( pMsg ) - 1];
 		return;
+	}
 
 	if( !lastchar || lastchar == '\n')
 		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S] ", crt_tm ); //full time
@@ -308,7 +296,7 @@ void Sys_PrintLog( const char *pMsg )
 	// save last char to detect when line was not ended
 	lastchar = pMsg[Q_strlen( pMsg ) - 1];
 
-	Sys_PrintFile( s_ld.logfileno, logtime, pMsg );
+	Sys_PrintLogfile( s_ld.logfileno, logtime, pMsg, false );
 	Sys_FlushLogfile();
 }
 
