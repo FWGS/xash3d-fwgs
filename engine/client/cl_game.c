@@ -3865,7 +3865,7 @@ static cl_enginefunc_t gEngfuncs =
 	(void*)Cmd_GetName,
 	pfnGetClientOldTime,
 	pfnGetGravity,
-	Mod_Handle,
+	CL_ModelHandle,
 	pfnEnableTexSort,
 	pfnSetLightmapColor,
 	pfnSetLightmapScale,
