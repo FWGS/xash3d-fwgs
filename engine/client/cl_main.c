@@ -2872,7 +2872,6 @@ void CL_InitLocal( void )
 	Cmd_AddRestrictedCommand ("kill", NULL, "die instantly" );
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
-	Cmd_AddCommand ("log", NULL, "logging server events" );
 
 	// register our commands
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
@@ -3091,7 +3090,7 @@ void CL_Shutdown( void )
 {
 	Con_Printf( "CL_Shutdown()\n" );
 
-	if( !host.crashed )
+	if( !host.crashed && cls.initialized )
 	{
 		Host_WriteOpenGLConfig ();
 		Host_WriteVideoConfig ();
