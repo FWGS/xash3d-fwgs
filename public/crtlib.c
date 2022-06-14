@@ -317,32 +317,6 @@ void Q_atov( float *vec, const char *str, size_t siz )
 	}
 }
 
-char *Q_strchr( const char *s, char c )
-{
-	size_t	len = Q_strlen( s );
-
-	while( len-- )
-	{
-		if( *++s == c )
-			return (char *)s;
-	}
-	return 0;
-}
-
-char *Q_strrchr( const char *s, char c )
-{
-	size_t	len = Q_strlen( s );
-
-	s += len;
-
-	while( len-- )
-	{
-		if( *--s == c )
-			return (char *)s;
-	}
-	return 0;
-}
-
 int Q_strnicmp( const char *s1, const char *s2, int n )
 {
 	int	c1, c2;
