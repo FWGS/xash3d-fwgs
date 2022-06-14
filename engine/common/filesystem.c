@@ -2536,7 +2536,8 @@ qboolean FS_SysFolderExists( const char *path )
 
 	if( stat( path, &buf ) < 0 )
 	{
-		Con_Reportf( S_ERROR "FS_SysFolderExists: problem while opening dir: %s\n", strerror( errno ));
+		if( errno != ENOTDIR )
+			Con_Reportf( S_ERROR "FS_SysFolderExists: problem while opening dir: %s\n", strerror( errno ));
 		return false;
 	}
 
