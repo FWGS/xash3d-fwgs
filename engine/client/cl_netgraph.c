@@ -260,7 +260,7 @@ static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 	for( a = 0; a < w; a++ )
 	{
 		i = ( cls.netchan.outgoing_sequence - a ) & NET_TIMINGS_MASK;
-		h = ( netstat_cmdinfo[i].cmd_lerp / 3.0f ) * NETGRAPH_LERP_HEIGHT;
+		h = Q_min(( netstat_cmdinfo[i].cmd_lerp / 3.0f ) * NETGRAPH_LERP_HEIGHT, net_graphheight->value * 0.7f);
 
 		fill.left = x + w - a - 1;
 		fill.right = fill.bottom = 1;
