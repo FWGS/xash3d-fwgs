@@ -158,6 +158,7 @@ static void NetGraph_InitColors( void )
 			f = (float)(i - hfrac) / (float)(NETGRAPH_LERP_HEIGHT - hfrac );
 			VectorMA( mincolor[1], f, dc[1], netcolors[NETGRAPH_NET_COLORS + i] );
 		}
+		netcolors[NETGRAPH_NET_COLORS + i][3] = 255;
 	}
 }
 
