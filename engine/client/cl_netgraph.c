@@ -616,7 +616,7 @@ static void NetGraph_GetScreenPos( wrect_t *rect, int *w, int *x, int *y )
 		*x = rect->left + rect->right - 5 - *w;
 		break;
 	case 2: // center
-		*x = rect->left + ( rect->right - 10 - *w ) / 2;
+		*x = ( rect->left + ( rect->right - 10 - *w )) / 2;
 		break;
 	default: // left sided
 		*x = rect->left + 5;
