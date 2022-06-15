@@ -1060,10 +1060,7 @@ pfnChangeInstance
 */
 static void GAME_EXPORT pfnChangeInstance( const char *newInstance, const char *szFinalMessage )
 {
-	if( !szFinalMessage ) szFinalMessage = "";
-	if( !newInstance || !*newInstance ) return;
-
-	Host_NewInstance( newInstance, szFinalMessage );
+	Con_Reportf( S_ERROR "ChangeInstance menu call is deprecated!\n" );
 }
 
 /*
