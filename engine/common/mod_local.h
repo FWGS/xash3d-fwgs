@@ -143,7 +143,6 @@ model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC );
 qboolean Mod_ValidateCRC( const char *name, CRC32_t crc );
 void Mod_NeedCRC( const char *name, qboolean needCRC );
 void Mod_FreeUnused( void );
-model_t *Mod_Handle( int handle );
 
 //
 // mod_bmodel.c
