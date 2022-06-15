@@ -396,10 +396,10 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 		if( !out ) out = lastout;
 		else lastout = out;
 
-		Con_DrawString( x, y, va( "in :  %i %.2f k/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors );
+		Con_DrawString( x, y, va( "in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors );
 		y += 15;
 
-		Con_DrawString( x, y, va( "out:  %i %.2f k/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors );
+		Con_DrawString( x, y, va( "out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors );
 		y += 15;
 
 		if( graphtype > 2 )
