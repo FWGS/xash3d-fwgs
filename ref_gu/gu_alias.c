@@ -22,6 +22,14 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "pmtrace.h"
 
+// Quake 1
+#undef MAXALIASVERTS
+#undef MAXALIASFRAMES
+#undef MAXALIASTRIS
+#define	MAXALIASVERTS	1024
+#define	MAXALIASFRAMES	256
+#define	MAXALIASTRIS	2048
+
 extern cvar_t r_shadows;
 
 typedef struct
@@ -56,7 +64,7 @@ static aliashdr_t	*m_pAliasHeader;
 static trivertex_t	*g_poseverts[MAXALIASFRAMES];
 static dtriangle_t	g_triangles[MAXALIASTRIS];
 static stvert_t	g_stverts[MAXALIASVERTS];
-static int	g_used[8192];
+static byte	g_used[8192];
 
 // a pose is a single set of vertexes. a frame may be
 // an animating sequence of poses

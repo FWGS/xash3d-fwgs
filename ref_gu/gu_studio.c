@@ -25,6 +25,11 @@ GNU General Public License for more details.
 //#include "client.h"
 #include "pmtrace.h"
 
+//#define STUDIO_DRAWELEMENTS
+
+#undef MAXSTUDIOVERTS
+#define MAXSTUDIOVERTS 1024
+
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
 
@@ -58,11 +63,6 @@ typedef struct sortedmesh_s
 	mstudiomesh_t	*mesh;
 	int		flags;			// face flags
 } sortedmesh_t;
-
-#if XASH_LOW_MEMORY
-	#undef MAXSTUDIOVERTS
-	#define MAXSTUDIOVERTS 1024
-#endif
 
 typedef struct
 {
@@ -122,11 +122,14 @@ typedef struct
 	// playermodels
 	player_model_t  player_models[MAX_CLIENTS];
 
+#ifdef STUDIO_DRAWELEMENTS
 	// drawelements renderer
 	gu_vert_ftcv_t	arrayverts[MAXSTUDIOVERTS];
 	unsigned short	arrayelems[MAXSTUDIOVERTS * 6];
 	uint			numverts;
 	uint			numelems;
+#endif // STUDIO_DRAWELEMENTS
+
 } studio_draw_state_t;
 
 // studio-related cvars
@@ -1914,7 +1917,7 @@ void R_StudioRenderShadow( int iSprite, float *p1, float *p2, float *p3, float *
 	{
 		TriRenderMode( kRenderTransAlpha );
 		TriColor4f( 0.0f, 0.0f, 0.0f, 1.0f );
-#if 1
+
 		gu_vert_t* const out = ( gu_vert_t* )sceGuGetMemory( sizeof( gu_vert_t ) * 4 );
 		out[0].uv[0] = 0.0f;
 		out[0].uv[1] = 0.0f;
@@ -1929,18 +1932,7 @@ void R_StudioRenderShadow( int iSprite, float *p1, float *p2, float *p3, float *
 		out[3].uv[1] = 0.0f;
 		VectorCopy( p4, out[3].xyz );	
 		sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, 4, 0, out );
-#else
-		pglBegin( GL_QUADS );
-			pglTexCoord2f( 0.0f, 0.0f );
-			pglVertex3fv( p1 );
-			pglTexCoord2f( 0.0f, 1.0f );
-			pglVertex3fv( p2 );
-			pglTexCoord2f( 1.0f, 1.0f );
-			pglVertex3fv( p3 );
-			pglTexCoord2f( 1.0f, 0.0f );
-			pglVertex3fv( p4 );
-		pglEnd();
-#endif
+
 		TriRenderMode( kRenderNormal );
 	}
 }
@@ -2108,7 +2100,7 @@ _inline void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, floa
 	}
 }
 
-
+#ifdef STUDIO_DRAWELEMENTS
 _inline int R_StudioBuildIndices( qboolean tri_strip, int vertexState )
 {
 	// build in indices
@@ -2390,6 +2382,7 @@ _inline void R_StudioDrawArrays( uint startverts, uint startelems )
 					GU_VERTEX_32BITF | GU_INDEX_16BIT, g_studio.numelems - startelems,
 					&g_studio.arrayelems[startelems], g_studio.arrayverts );
 }
+#endif // STUDIO_DRAWELEMENTS
 
 /*
 ===============
@@ -2413,8 +2406,9 @@ static void R_StudioDrawPoints( void )
 
 	if( !m_pStudioHeader ) return;
 
-
+#ifdef STUDIO_DRAWELEMENTS
 	g_studio.numverts = g_studio.numelems = 0;
+#endif // STUDIO_DRAWELEMENTS
 
 	// safety bounding the skinnum
 	m_skinnum = bound( 0, RI.currententity->curstate.skin, ( m_pStudioHeader->numskinfamilies - 1 ));
@@ -2513,8 +2507,10 @@ static void R_StudioDrawPoints( void )
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
 	{
 		float	oldblend = tr.blend;
+#ifdef STUDIO_DRAWELEMENTS
 		uint startArrayVerts = g_studio.numverts;
 		uint startArrayElems = g_studio.numelems;
+#endif // STUDIO_DRAWELEMENTS
 		short	*ptricmds;
 		float	s, t;
 
@@ -2549,7 +2545,7 @@ static void R_StudioDrawPoints( void )
 		}
 
 		R_StudioSetupSkin( m_pStudioHeader, pskinref[pmesh->skinref] );
-
+#ifdef STUDIO_DRAWELEMENTS
 		if( CVAR_TO_BOOL(r_studio_drawelements) )
 		{
 			if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
@@ -2561,6 +2557,7 @@ static void R_StudioDrawPoints( void )
 			R_StudioDrawArrays( startArrayVerts, startArrayElems );
 		}
 		else
+#endif // STUDIO_DRAWELEMENTS
 		{
 			if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
 				R_StudioDrawChromeMesh( ptricmds, pstudionorms, s, t, shellscale );
