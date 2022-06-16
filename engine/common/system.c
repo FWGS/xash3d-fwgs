@@ -138,9 +138,9 @@ char *Sys_GetCurrentUser( void )
 	if( pw )
 		return pw->pw_name;
 #elif XASH_PSP
-	static char sys_nickname[128];
-	if (sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, sys_nickname, sizeof(sys_nickname)) == 0)
-		return sys_nickname;
+	static string	s_userName;
+	if( sceUtilityGetSystemParamString( PSP_SYSTEMPARAM_ID_STRING_NICKNAME, s_userName, sizeof( s_userName )) == 0 )
+		return s_userName;
 #endif
 	return "Player";
 }
@@ -438,6 +438,7 @@ void Sys_Error( const char *error, ... )
 #endif
 	}
 
+#if !XASH_PSP
 	if( host_developer.value )
 	{
 #if XASH_WIN32
@@ -448,6 +449,7 @@ void Sys_Error( const char *error, ... )
 		Sys_WaitForQuit();
 	}
 	else
+#endif // XASH_PSP
 	{
 #if XASH_WIN32
 		Wcon_ShowConsole( false );
