@@ -36,6 +36,7 @@ void COM_PushLibraryError( const char *error )
 	Q_strncat( s_szLastError, "\n", sizeof( s_szLastError ) );
 }
 
+#if !XASH_PSP
 void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 {
 #ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
@@ -52,6 +53,7 @@ const char *COM_OffsetNameForFunction( void *function )
 	Con_Reportf( "COM_OffsetNameForFunction %s\n", sname );
 	return sname;
 }
+#endif
 
 /*
 =============================================================================
