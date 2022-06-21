@@ -16,8 +16,8 @@ GNU General Public License for more details.
 #ifndef	UTILS_H
 #define UTILS_H
 
-qboolean	 IsFileExists( const char *filename );
-off_t		 GetFileSize( FILE *fp );
+qboolean	 MakeDirectory( const char *path );
+off_t		 GetSizeOfFile( FILE *fp );
 byte		*LoadFile( const char *filename );
 
 #endif // UTILS_H

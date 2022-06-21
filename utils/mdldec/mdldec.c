@@ -164,9 +164,9 @@ static qboolean LoadMDL( const char *modelname )
 
 	if( destdir[0] != '\0' )
 	{
-		if( !IsFileExists( destdir ) )
+		if( !MakeDirectory( destdir ) )
 		{
-			fprintf( stderr, "ERROR: Couldn't find directory %s\n", destdir );
+			fprintf( stderr, "ERROR: Couldn't create directory %s\n", destdir );
 			return false;
 		}
 
@@ -175,7 +175,7 @@ static qboolean LoadMDL( const char *modelname )
 	else
 		COM_ExtractFilePath( modelname, destdir );
 
-	len -= 4; // path length without extension
+	len -= ( sizeof( ".mdl" ) - 1 ); // path length without extension
 
 	if( !model_hdr->numtextures )
 	{
