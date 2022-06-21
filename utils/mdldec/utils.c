@@ -18,22 +18,22 @@ GNU General Public License for more details.
 #include <string.h>
 #include <sys/stat.h>
 #include "xash3d_types.h"
+#include "port.h"
 #include "crtlib.h"
 #include "utils.h"
 
 /*
 ============
-IsFileExists
+MakeDirectory
 ============
 */
-qboolean IsFileExists( const char *filename )
+qboolean MakeDirectory( const char *path )
 {
 	struct stat	st;
-	int		ret;
 
-	ret = stat( filename, &st );
-
-	if( ret == -1 )
+	if( -1 == _mkdir( path )
+	    && ( -1 == stat( path, &st )
+	    || !S_ISDIR(st.st_mode ) ) )
 		return false;
 
 	return true;
@@ -44,7 +44,7 @@ qboolean IsFileExists( const char *filename )
 GetFileSize
 ============
 */
-off_t GetFileSize( FILE *fp )
+off_t GetSizeOfFile( FILE *fp )
 {
 	struct stat	st;
 	int		fd;
@@ -71,7 +71,7 @@ byte *LoadFile( const char *filename )
 	if( !fp )
 		return NULL;
 
-	size = GetFileSize( fp );
+	size = GetSizeOfFile( fp );
 
 	buf = malloc( size );
 
