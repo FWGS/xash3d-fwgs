@@ -24,6 +24,7 @@ Official github repository - https://github.com/CKFDevPowered/CKF3Alpha
 
 ## Cold Ice
 Version 1.9 is available on ModDB - https://www.moddb.com/mods/cold-ice/downloads/cold-ice-sdk
+
 Version 1.9 mirrored on github - https://github.com/solidi/hl-mods/tree/master/ci
 
 ## Cold Ice Ressurection
@@ -241,6 +242,9 @@ Spirit of Half Life: Opposing-Force Edition - https://github.com/Hammermaps-DEV/
 ## Half-Life: Rebellion
 Reverse-engineered code, branch **rebellion** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/rebellion
 
+## Half-Life: Urbicide
+Branch **hl_urbicide** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/hl_urbicide
+
 ## Half-Life: Visitors
 malortie's recreation - https://github.com/malortie/hl-visitors
 
@@ -269,6 +273,9 @@ Reverse-engineered code, branch **residual_point** in hlsdk-xash3d - https://git
 
 ## Residual Point
 Reverse-engineered code, branch **residual_point** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/residual_point
+
+## Sewer Beta
+Branch **sewer_beta** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/sewer_beta
 
 ## Team Fortress Classic
 Reverse-engineered code by Velaron - https://github.com/Velaron/tf15-client
