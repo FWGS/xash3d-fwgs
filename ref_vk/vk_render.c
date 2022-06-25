@@ -25,7 +25,7 @@
 #define MAX_BUFFER_INDICES_STATIC (MAX_BUFFER_VERTICES_STATIC * 3)
 #define GEOMETRY_BUFFER_STATIC_SIZE ALIGN_UP(MAX_BUFFER_VERTICES_STATIC * sizeof(vk_vertex_t) + MAX_BUFFER_INDICES_STATIC * sizeof(uint16_t), sizeof(vk_vertex_t))
 
-#define MAX_BUFFER_VERTICES_DYNAMIC (128 * 1024)
+#define MAX_BUFFER_VERTICES_DYNAMIC (128 * 1024 * 2)
 #define MAX_BUFFER_INDICES_DYNAMIC (MAX_BUFFER_VERTICES_DYNAMIC * 3)
 #define GEOMETRY_BUFFER_DYNAMIC_SIZE ALIGN_UP(MAX_BUFFER_VERTICES_DYNAMIC * sizeof(vk_vertex_t) + MAX_BUFFER_INDICES_DYNAMIC * sizeof(uint16_t), sizeof(vk_vertex_t))
 
@@ -239,11 +239,57 @@ typedef struct {
 	} light[MAX_DLIGHTS];
 } vk_ubo_lights_t;
 
-qboolean VK_RenderInit( void ) {
-	uint32_t uniform_unit_size;
+#define MAX_DRAW_COMMANDS 8192 // TODO estimate
+#define MAX_DEBUG_NAME_LENGTH 32
 
+typedef struct render_draw_s {
+	int lightmap, texture;
+	int render_mode;
+	uint32_t element_count;
+	uint32_t index_offset, vertex_offset;
+	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
+} render_draw_t;
+
+enum draw_command_type_e {
+	DrawLabelBegin,
+	DrawLabelEnd,
+	DrawDraw
+};
+
+typedef struct {
+	enum draw_command_type_e type;
+	union {
+		char debug_label[MAX_DEBUG_NAME_LENGTH];
+		struct {
+			render_draw_t draw;
+			uint32_t ubo_offset;
+			matrix3x4 transform;
+		} draw;
+	};
+} draw_command_t;
+
+static struct {
+	int uniform_data_set_mask;
+	uniform_data_t current_uniform_data;
+	uniform_data_t dirty_uniform_data;
+
+	r_flipping_buffer_t uniform_alloc;
+	uint32_t current_ubo_offset_FIXME;
+
+	draw_command_t draw_commands[MAX_DRAW_COMMANDS];
+	int num_draw_commands;
+
+	matrix4x4 model, view, projection;
+
+	qboolean current_frame_is_ray_traced;
+} g_render_state;
+
+qboolean VK_RenderInit( void ) {
 	g_render.ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
-	uniform_unit_size = ((sizeof(uniform_data_t) + g_render.ubo_align - 1) / g_render.ubo_align) * g_render.ubo_align;
+
+	const uint32_t uniform_unit_size = ((sizeof(uniform_data_t) + g_render.ubo_align - 1) / g_render.ubo_align) * g_render.ubo_align;
+	const uint32_t uniform_buffer_size = uniform_unit_size * MAX_UNIFORM_SLOTS;
+	R_FlippingBuffer_Init(&g_render_state.uniform_alloc, uniform_buffer_size);
 
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
@@ -252,7 +298,7 @@ qboolean VK_RenderInit( void ) {
 		(vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
 
-	if (!VK_BufferCreate("render uniform_buffer", &g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS,
+	if (!VK_BufferCreate("render uniform_buffer", &g_render.uniform_buffer, uniform_buffer_size,
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
 		return false;
@@ -315,9 +361,9 @@ qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int verte
 	const uint32_t alloc_offset = aloRingAlloc(ring, total_size, sizeof(vk_vertex_t));
 	const uint32_t offset = alloc_offset + ((lifetime == LifetimeSingleFrame) ? GEOMETRY_BUFFER_STATIC_SIZE : 0);
 	if (alloc_offset == ALO_ALLOC_FAILED) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate %s geometry buffer for %d vertices (%d bytes) and %d indices (%d bytes)\n",
-			lifetime == LifetimeSingleFrame ? "dynamic" : "static",
-			vertex_count, vertices_size, index_count, indices_size);
+		/* gEngine.Con_Printf(S_ERROR "Cannot allocate %s geometry buffer for %d vertices (%d bytes) and %d indices (%d bytes)\n", */
+		/* 	lifetime == LifetimeSingleFrame ? "dynamic" : "static", */
+		/* 	vertex_count, vertices_size, index_count, indices_size); */
 		return false;
 	}
 
@@ -382,51 +428,6 @@ void XVK_RenderBufferPrintStats( void ) {
 		g_geom.static_ring.head / 1024, g_geom.static_ring.size / 1024);
 }
 
-#define MAX_DRAW_COMMANDS 8192 // TODO estimate
-#define MAX_DEBUG_NAME_LENGTH 32
-
-typedef struct render_draw_s {
-	int lightmap, texture;
-	int render_mode;
-	uint32_t element_count;
-	uint32_t index_offset, vertex_offset;
-	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
-} render_draw_t;
-
-enum draw_command_type_e {
-	DrawLabelBegin,
-	DrawLabelEnd,
-	DrawDraw
-};
-
-typedef struct {
-	enum draw_command_type_e type;
-	union {
-		char debug_label[MAX_DEBUG_NAME_LENGTH];
-		struct {
-			render_draw_t draw;
-			uint32_t ubo_offset;
-			matrix3x4 transform;
-		} draw;
-	};
-} draw_command_t;
-
-static struct {
-	int uniform_data_set_mask;
-	uniform_data_t current_uniform_data;
-	uniform_data_t dirty_uniform_data;
-
-	uint32_t current_ubo_offset;
-	uint32_t uniform_free_offset;
-
-	draw_command_t draw_commands[MAX_DRAW_COMMANDS];
-	int num_draw_commands;
-
-	matrix4x4 model, view, projection;
-
-	qboolean current_frame_is_ray_traced;
-} g_render_state;
-
 enum {
 	UNIFORM_UNSET = 0,
 	UNIFORM_SET_COLOR = 1,
@@ -438,12 +439,11 @@ enum {
 };
 
 void VK_RenderBegin( qboolean ray_tracing ) {
-	g_render_state.uniform_free_offset = 0; // FIXME multiple frames in flight
 	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
-	g_render_state.current_ubo_offset = UINT32_MAX;
-
+	g_render_state.current_ubo_offset_FIXME = UINT32_MAX;
 	memset(&g_render_state.current_uniform_data, 0, sizeof(g_render_state.current_uniform_data));
 	memset(&g_render_state.dirty_uniform_data, 0, sizeof(g_render_state.dirty_uniform_data));
+	R_FlippingBuffer_Flip(&g_render_state.uniform_alloc);
 
 	g_render_state.num_draw_commands = 0;
 	g_render_state.current_frame_is_ray_traced = ray_tracing;
@@ -514,11 +514,7 @@ void VK_RenderStateSetMatrixModel( const matrix4x4 model )
 static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
 	// FIXME Q_max is not correct, we need NAIMENSCHEEE OBSCHEEE KRATNOE
 	const uint32_t align = Q_max(alignment, g_render.ubo_align);
-	const uint32_t offset = (((g_render_state.uniform_free_offset + align - 1) / align) * align);
-	if (offset + size > g_render.uniform_buffer.size)
-		return UINT32_MAX;
-
-	g_render_state.uniform_free_offset = offset + size;
+	const uint32_t offset = R_FlippingBuffer_Alloc(&g_render_state.uniform_alloc, size, align);
 	return offset;
 }
 
@@ -542,6 +538,27 @@ static void drawCmdPushDebugLabelEnd( void ) {
 	}
 }
 
+// FIXME get rid of this garbage
+static uint32_t getUboOffset_FIXME( void ) {
+	// Figure out whether we need to update UBO data, and upload new data if we do
+	// TODO generally it's not safe to do memcmp for structures comparison
+	if (g_render_state.current_ubo_offset_FIXME == UINT32_MAX
+		|| ((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0)
+		|| memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
+		g_render_state.current_ubo_offset_FIXME = allocUniform(sizeof(uniform_data_t), 16 /* why 16? vec4? */);
+
+		if (g_render_state.current_ubo_offset_FIXME == ALO_ALLOC_FAILED)
+			return UINT32_MAX;
+
+		uniform_data_t *const ubo = (uniform_data_t*)((byte*)g_render.uniform_buffer.mapped + g_render_state.current_ubo_offset_FIXME);
+		memcpy(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.dirty_uniform_data));
+		memcpy(ubo, &g_render_state.current_uniform_data, sizeof(*ubo));
+		g_render_state.uniform_data_set_mask |= UNIFORM_UPLOADED;
+	}
+
+	return g_render_state.current_ubo_offset_FIXME;
+}
+
 static void drawCmdPushDraw( const render_draw_t *draw )
 {
 	draw_command_t *draw_command;
@@ -561,26 +578,16 @@ static void drawCmdPushDraw( const render_draw_t *draw )
 		return;
 	}
 
-	// Figure out whether we need to update UBO data, and upload new data if we do
-	// TODO generally it's not safe to do memcmp for structures comparison
-	if (g_render_state.current_ubo_offset == UINT32_MAX || ((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0)
-		|| memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
-		uniform_data_t *ubo;
-		g_render_state.current_ubo_offset = allocUniform( sizeof(uniform_data_t), 16 );
-		if (g_render_state.current_ubo_offset == UINT32_MAX) {
-			gEngine.Con_Printf( S_ERROR "Ran out of uniform slots\n" );
-			return;
-		}
-
-		ubo = (uniform_data_t*)((byte*)g_render.uniform_buffer.mapped + g_render_state.current_ubo_offset);
-		memcpy(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.dirty_uniform_data));
-		memcpy(ubo, &g_render_state.current_uniform_data, sizeof(*ubo));
-		g_render_state.uniform_data_set_mask |= UNIFORM_UPLOADED;
+	const uint32_t ubo_offset = getUboOffset_FIXME();
+	if (ubo_offset == ALO_ALLOC_FAILED) {
+		// TODO stagger this
+		gEngine.Con_Printf( S_ERROR "Ran out of uniform slots\n" );
+		return;
 	}
 
 	draw_command = drawCmdAlloc();
 	draw_command->draw.draw = *draw;
-	draw_command->draw.ubo_offset = g_render_state.current_ubo_offset;
+	draw_command->draw.ubo_offset = ubo_offset;
 	draw_command->type = DrawDraw;
 	Matrix3x4_Copy(draw_command->draw.transform, g_render_state.model);
 }
@@ -657,6 +664,7 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		return;
 
 	ASSERT(!g_render_state.current_frame_is_ray_traced);
+
 
 	{
 		const VkDeviceSize offset = 0;
