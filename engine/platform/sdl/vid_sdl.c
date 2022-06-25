@@ -598,7 +598,7 @@ void VID_RestoreScreenResolution( void )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
-#if XASH_WIN32 // ICO support only for Win32
+#if XASH_WIN32 && !XASH_64BIT // ICO support only for Win32
 #include "SDL_syswm.h"
 static void WIN_SetWindowIcon( HICON ico )
 {
@@ -686,7 +686,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		VID_RestoreScreenResolution();
 	}
 
-#if XASH_WIN32 // ICO support only for Win32
+#if XASH_WIN32 && !XASH_64BIT // ICO support only for Win32
 	if( FS_FileExists( GI->iconpath, true ) )
 	{
 		HICON ico;
@@ -701,7 +701,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 			WIN_SetWindowIcon( ico );
 		}
 	}
-#endif // _WIN32
+#endif // _WIN32 && !XASH_64BIT
 
 	if( !iconLoaded )
 	{
@@ -709,15 +709,13 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		COM_StripExtension( iconpath );
 		COM_DefaultExtension( iconpath, ".tga" );
 
-		Image_SetForceFlags( IL_DONTFLIP_TGA );
 		icon = FS_LoadImage( iconpath, NULL, 0 );
-		Image_ClearForceFlags();
 
 		if( icon )
 		{
 			SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
 				icon->width, icon->height, 32, 4 * icon->width,
-				0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 );
+				0x000000ff, 0x0000ff00, 0x00ff0000,	0xff000000 );
 
 			if( surface )
 			{
