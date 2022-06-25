@@ -622,7 +622,6 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 		}
 
 		R_VkStagingCommit(cmdbuf);
-		R_VKStagingMarkEmpty_FIXME();
 
 		// 	5.2 image:layout:DST -> image:layout:SAMPLED
 		// 		5.2.1 transitionToLayout(DST -> SHADER_READ_ONLY)
@@ -652,6 +651,8 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 	}
+
+	R_VKStagingMarkEmpty_FIXME();
 
 	// TODO how should we approach this:
 	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts

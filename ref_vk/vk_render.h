@@ -152,3 +152,5 @@ void VK_RenderDebugLabelEnd( void );
 void VK_RenderBegin( qboolean ray_tracing );
 void VK_RenderEnd( VkCommandBuffer cmdbuf );
 void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );
+
+void VK_Render_FIXME_Barrier( VkCommandBuffer cmdbuf );

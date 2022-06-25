@@ -217,6 +217,7 @@ void R_BeginFrame( qboolean clearScene ) {
 	ASSERT(!g_frame.current.framebuffer.framebuffer);
 
 	waitForFrameFence();
+	R_VkStagingFrameFlip();
 
 	g_frame.current.framebuffer = R_VkSwapchainAcquire( g_frame.sem_framebuffer_ready[g_frame.current.index] );
 	vk_frame.width = g_frame.current.framebuffer.width;
@@ -251,8 +252,10 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 
 	ASSERT(g_frame.current.phase == Phase_FrameBegan);
 
+	//R_VkStagingFlushSync();
+
 	R_VkStagingCommit(cmdbuf); // FIXME where and when
-	R_VKStagingMarkEmpty_FIXME();
+	VK_Render_FIXME_Barrier(cmdbuf);
 
 	if (g_frame.rtx_enabled)
 		VK_RenderEndRTX( cmdbuf, g_frame.current.framebuffer.view, g_frame.current.framebuffer.image, g_frame.current.framebuffer.width, g_frame.current.framebuffer.height );

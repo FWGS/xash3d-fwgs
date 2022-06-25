@@ -622,6 +622,26 @@ static uint32_t writeDlightsToUBO( void )
 	return ubo_lights_offset;
 }
 
+void VK_Render_FIXME_Barrier( VkCommandBuffer cmdbuf )
+	// FIXME
+	{
+		const VkBufferMemoryBarrier bmb[] = { {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			//.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, // FIXME
+			.dstAccessMask = VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT , // FIXME
+			.buffer = g_geom.buffer.buffer,
+			.offset = 0, // FIXME
+			.size = VK_WHOLE_SIZE, // FIXME
+		} };
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			//VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			//VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+	}
+
 void VK_RenderEnd( VkCommandBuffer cmdbuf )
 {
 	// TODO we can sort collected draw commands for more efficient and correct rendering

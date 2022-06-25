@@ -167,7 +167,6 @@ void R_NewMap( void ) {
 	if (vk_core.rtx)
 		VK_RayNewMap();
 
-
 	// Load light entities and patch data prior to loading map brush model
 	XVK_ParseMapEntities();
 
