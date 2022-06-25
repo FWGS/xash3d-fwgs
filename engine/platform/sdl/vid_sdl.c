@@ -628,6 +628,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	qboolean iconLoaded = false;
 	char iconpath[MAX_STRING];
 	int xpos, ypos;
+	const char *localIcoPath;
 
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
@@ -687,13 +688,11 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	}
 
 #if XASH_WIN32 // ICO support only for Win32
-	if( FS_FileExists( GI->iconpath, true ) )
+	if(( localIcoPath = FS_GetDiskPath( GI->iconpath, true )))
 	{
 		HICON ico;
-		char	localPath[MAX_PATH];
 
-		Q_snprintf( localPath, sizeof( localPath ), "%s/%s", GI->gamefolder, GI->iconpath );
-		ico = (HICON)LoadImage( NULL, localPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
+		ico = (HICON)LoadImage( NULL, localIcoPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
 
 		if( ico )
 		{
