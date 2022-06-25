@@ -598,7 +598,7 @@ void VID_RestoreScreenResolution( void )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
-#if XASH_WIN32 && !XASH_64BIT // ICO support only for Win32
+#if XASH_WIN32 // ICO support only for Win32
 #include "SDL_syswm.h"
 static void WIN_SetWindowIcon( HICON ico )
 {
@@ -686,7 +686,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		VID_RestoreScreenResolution();
 	}
 
-#if XASH_WIN32 && !XASH_64BIT // ICO support only for Win32
+#if XASH_WIN32 // ICO support only for Win32
 	if( FS_FileExists( GI->iconpath, true ) )
 	{
 		HICON ico;
@@ -728,7 +728,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		}
 	}
 
-#if XASH_WIN32 && !XASH_64BIT // ICO support only for Win32
+#if XASH_WIN32 // ICO support only for Win32
 	if( !iconLoaded )
 	{
 		WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 ) ) );
