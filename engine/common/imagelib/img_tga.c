@@ -127,7 +127,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	targa_rgba = image.rgba = Mem_Malloc( host.imagepool, image.size );
 
 	// if bit 5 of attributes isn't set, the image has been stored from bottom to top
-	if( Image_CheckFlag( IL_DONTFLIP_TGA ) && targa_header.attributes & 0x20 )
+	if( Image_CheckFlag( IL_DONTFLIP_TGA ) || targa_header.attributes & 0x20 )
 	{
 		pixbuf = targa_rgba;
 		row_inc = 0;
