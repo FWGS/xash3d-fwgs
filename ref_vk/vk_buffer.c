@@ -90,41 +90,6 @@ VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer) {
 	return vkGetBufferDeviceAddress(vk_core.device, &bdai);
 }
 
-void R_DEBuffer_Init(r_debuffer_t *debuf, uint32_t static_size, uint32_t dynamic_size) {
-	aloRingInit(&debuf->static_ring, static_size);
-	aloRingInit(&debuf->dynamic_ring, dynamic_size);
-	debuf->static_size = static_size;
-	debuf->frame_dynamic_offset[0] = debuf->frame_dynamic_offset[1] = ALO_ALLOC_FAILED;
-}
-
-uint32_t R_DEBuffer_Alloc(r_debuffer_t* debuf, r_lifetime_t lifetime, uint32_t size, uint32_t align) {
-	alo_ring_t * const ring = (lifetime == LifetimeStatic) ? &debuf->static_ring : &debuf->dynamic_ring;
-	const uint32_t alloc_offset = aloRingAlloc(ring, size, align);
-	const uint32_t offset = alloc_offset + ((lifetime == LifetimeDynamic) ? debuf->static_size : 0);
-
-	if (alloc_offset == ALO_ALLOC_FAILED) {
-		/* gEngine.Con_Printf(S_ERROR "Cannot allocate %d %s bytes\n", */
-		/* 	size, */
-		/* 	lifetime == LifetimeDynamic ? "dynamic" : "static"); */
-		return ALO_ALLOC_FAILED;
-	}
-
-	// Store first dynamic allocation this frame
-	if (lifetime == LifetimeDynamic && debuf->frame_dynamic_offset[1] == ALO_ALLOC_FAILED) {
-		debuf->frame_dynamic_offset[1] = alloc_offset;
-	}
-
-	return offset;
-}
-
-void R_DEBuffer_Flip(r_debuffer_t* debuf) {
-	if (debuf->frame_dynamic_offset[0] != ALO_ALLOC_FAILED)
-		aloRingFree(&debuf->dynamic_ring, debuf->frame_dynamic_offset[0]);
-
-	debuf->frame_dynamic_offset[0] = debuf->frame_dynamic_offset[1];
-	debuf->frame_dynamic_offset[1] = ALO_ALLOC_FAILED;
-}
-
 void R_FlippingBuffer_Init(r_flipping_buffer_t *flibuf, uint32_t size) {
 	aloRingInit(&flibuf->ring, size);
 	R_FlippingBuffer_Clear(flibuf);
@@ -154,3 +119,36 @@ void R_FlippingBuffer_Flip(r_flipping_buffer_t* flibuf) {
 	flibuf->frame_offsets[1] = ALO_ALLOC_FAILED;
 }
 
+void R_DEBuffer_Init(r_debuffer_t *debuf, uint32_t static_size, uint32_t dynamic_size) {
+	R_FlippingBuffer_Init(&debuf->dynamic, dynamic_size);
+	debuf->static_size = static_size;
+	debuf->static_offset = 0;
+}
+
+uint32_t R_DEBuffer_Alloc(r_debuffer_t* debuf, r_lifetime_t lifetime, uint32_t size, uint32_t align) {
+	switch (lifetime) {
+		case LifetimeDynamic:
+		{
+			const uint32_t offset = R_FlippingBuffer_Alloc(&debuf->dynamic, size, align);
+			if (offset == ALO_ALLOC_FAILED)
+				return ALO_ALLOC_FAILED;
+			return offset + debuf->static_offset;
+		}
+		case LifetimeStatic:
+		{
+			const uint32_t offset = ALIGN_UP(debuf->static_offset, align);
+			const uint32_t end = offset + size;
+			if (end > debuf->static_size)
+				return ALO_ALLOC_FAILED;
+
+			debuf->static_offset = end;
+			return offset;
+		}
+	}
+
+	return ALO_ALLOC_FAILED;
+}
+
+void R_DEBuffer_Flip(r_debuffer_t* debuf) {
+	R_FlippingBuffer_Flip(&debuf->dynamic);
+}

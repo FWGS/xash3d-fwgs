@@ -47,11 +47,20 @@ void VK_RingBuffer_ClearFrame(vk_ring_buffer_t* buf);
 
 
 typedef struct {
-	alo_ring_t static_ring;
-	alo_ring_t dynamic_ring;
+	alo_ring_t ring;
+	uint32_t frame_offsets[2];
+} r_flipping_buffer_t;
 
+void R_FlippingBuffer_Init(r_flipping_buffer_t *flibuf, uint32_t size);
+void R_FlippingBuffer_Clear(r_flipping_buffer_t *flibuf);
+uint32_t R_FlippingBuffer_Alloc(r_flipping_buffer_t* flibuf, uint32_t size, uint32_t align);
+void R_FlippingBuffer_Flip(r_flipping_buffer_t* flibuf);
+
+
+typedef struct {
+	r_flipping_buffer_t dynamic;
 	uint32_t static_size;
-	uint32_t frame_dynamic_offset[2];
+	uint32_t static_offset;
 } r_debuffer_t;
 
 typedef enum {
@@ -61,14 +70,3 @@ typedef enum {
 void R_DEBuffer_Init(r_debuffer_t *debuf, uint32_t static_size, uint32_t dynamic_size);
 uint32_t R_DEBuffer_Alloc(r_debuffer_t* debuf, r_lifetime_t lifetime, uint32_t size, uint32_t align);
 void R_DEBuffer_Flip(r_debuffer_t* debuf);
-
-
-typedef struct {
-	alo_ring_t ring;
-	uint32_t frame_offsets[2];
-} r_flipping_buffer_t;
-
-void R_FlippingBuffer_Init(r_flipping_buffer_t *flibuf, uint32_t size);
-void R_FlippingBuffer_Clear(r_flipping_buffer_t *flibuf);
-uint32_t R_FlippingBuffer_Alloc(r_flipping_buffer_t* flibuf, uint32_t size, uint32_t align);
-void R_FlippingBuffer_Flip(r_flipping_buffer_t* flibuf);
