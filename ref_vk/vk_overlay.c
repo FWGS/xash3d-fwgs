@@ -35,7 +35,7 @@ static struct {
 	VkPipeline pipelines[kRenderTransAdd + 1];
 
 	vk_buffer_t pics_buffer;
-	r_debuffer_t pics_buffer_alloc;
+	r_flipping_buffer_t pics_buffer_alloc;
 	qboolean exhausted_this_frame;
 
 	batch_t batch[MAX_BATCHES];
@@ -45,7 +45,7 @@ static struct {
 } g2d;
 
 static vertex_2d_t* allocQuadVerts(int blending_mode, int texnum) {
-	const uint32_t pics_offset = R_DEBuffer_Alloc(&g2d.pics_buffer_alloc, LifetimeDynamic, 6, 1);
+	const uint32_t pics_offset = R_FlippingBuffer_Alloc(&g2d.pics_buffer_alloc, 6, 1);
 	vertex_2d_t* const ptr = ((vertex_2d_t*)(g2d.pics_buffer.mapped)) + pics_offset;
 	batch_t *batch = g2d.batch + (g2d.batch_count-1);
 
@@ -125,7 +125,7 @@ static void drawFill( float x, float y, float w, float h, int r, int g, int b, i
 }
 
 static void clearAccumulated( void ) {
-	R_DEBuffer_Flip(&g2d.pics_buffer_alloc);
+	R_FlippingBuffer_Flip(&g2d.pics_buffer_alloc);
 
 	g2d.batch_count = 1;
 	g2d.batch[0].texture = -1;
@@ -239,7 +239,7 @@ qboolean R_VkOverlay_Init( void ) {
 		// FIXME cleanup
 		return false;
 
-	R_DEBuffer_Init(&g2d.pics_buffer_alloc, 0, MAX_VERTICES);
+	R_FlippingBuffer_Init(&g2d.pics_buffer_alloc, MAX_VERTICES);
 
 	return true;
 }

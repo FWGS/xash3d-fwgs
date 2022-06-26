@@ -144,7 +144,7 @@ static struct {
 	// Needs: SHADER_DEVICE_ADDRESS, STORAGE_BUFFER, AS_BUILD_INPUT_READ_ONLY
 	vk_buffer_t tlas_geom_buffer;
 	VkDeviceAddress tlas_geom_buffer_addr;
-	r_debuffer_t tlas_geom_buffer_alloc;
+	r_flipping_buffer_t tlas_geom_buffer_alloc;
 
 	// Planned to contain seveal types of data:
 	// - grid structure itself
@@ -583,9 +583,9 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	ASSERT(g_ray_model_state.frame.num_models > 0);
 	DEBUG_BEGIN(cmdbuf, "prepare tlas");
 
-	R_DEBuffer_Flip( &g_rtx.tlas_geom_buffer_alloc );
+	R_FlippingBuffer_Flip( &g_rtx.tlas_geom_buffer_alloc );
 
-	const uint32_t instance_offset = R_DEBuffer_Alloc(&g_rtx.tlas_geom_buffer_alloc, LifetimeDynamic, g_ray_model_state.frame.num_models, 1);
+	const uint32_t instance_offset = R_FlippingBuffer_Alloc(&g_rtx.tlas_geom_buffer_alloc, g_ray_model_state.frame.num_models, 1);
 	ASSERT(instance_offset != ALO_ALLOC_FAILED);
 
 	// Upload all blas instances references to GPU mem
@@ -1360,7 +1360,7 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 	g_rtx.tlas_geom_buffer_addr = getBufferDeviceAddress(g_rtx.tlas_geom_buffer.buffer);
-	R_DEBuffer_Init(&g_rtx.tlas_geom_buffer_alloc, 0, MAX_ACCELS * 2);
+	R_FlippingBuffer_Init(&g_rtx.tlas_geom_buffer_alloc, MAX_ACCELS * 2);
 
 	if (!VK_BufferCreate("ray kusochki_buffer", &g_ray_model_state.kusochki_buffer, sizeof(vk_kusok_data_t) * MAX_KUSOCHKI,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
