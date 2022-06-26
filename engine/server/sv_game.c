@@ -2673,7 +2673,7 @@ void GAME_EXPORT pfnMessageEnd( void )
 				return;
 			}
 
-			sv.multicast.pData[svgame.msg_size_index] = svgame.msg_realsize;
+			*(word *)&sv.multicast.pData[svgame.msg_size_index] = svgame.msg_realsize;
 		}
 	}
 	else if( svgame.msg[svgame.msg_index].size != -1 )
