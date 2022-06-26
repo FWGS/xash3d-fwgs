@@ -794,6 +794,8 @@ static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end,
 	matrix4x4	matrix;
 	hull_t	*hull;
 
+	PM_InitTrace( trace, end );
+
 	old_usehull = clgame.pmove->usehull;
 	clgame.pmove->usehull = 2;
 
