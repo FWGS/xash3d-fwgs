@@ -317,68 +317,6 @@ void Q_atov( float *vec, const char *str, size_t siz )
 	}
 }
 
-int Q_strnicmp( const char *s1, const char *s2, int n )
-{
-	int	c1, c2;
-
-	if( s1 == NULL )
-	{
-		if( s2 == NULL )
-			return 0;
-		else return -1;
-	}
-	else if( s2 == NULL )
-	{
-		return 1;
-	}
-
-	do {
-		c1 = *s1++;
-		c2 = *s2++;
-
-		if( !n-- ) return 0; // strings are equal until end point
-
-		if( c1 != c2 )
-		{
-			if( c1 >= 'a' && c1 <= 'z' ) c1 -= ('a' - 'A');
-			if( c2 >= 'a' && c2 <= 'z' ) c2 -= ('a' - 'A');
-			if( c1 != c2 ) return c1 < c2 ? -1 : 1;
-		}
-	} while( c1 );
-
-	// strings are equal
-	return 0;
-}
-
-int Q_strncmp( const char *s1, const char *s2, int n )
-{
-	int	c1, c2;
-
-	if( s1 == NULL )
-	{
-		if( s2 == NULL )
-			return 0;
-		else return -1;
-	}
-	else if( s2 == NULL )
-	{
-		return 1;
-	}
-
-	do {
-		c1 = *s1++;
-		c2 = *s2++;
-
-		// strings are equal until end point
-		if( !n-- ) return 0;
-		if( c1 != c2 ) return c1 < c2 ? -1 : 1;
-
-	} while( c1 );
-
-	// strings are equal
-	return 0;
-}
-
 static qboolean Q_starcmp( const char *pattern, const char *text )
 {
 	char		c, c1;
@@ -470,32 +408,8 @@ const char* Q_timestamp( int format )
 	return timestamp;
 }
 
-char *Q_strstr( const char *string, const char *string2 )
-{
-	int	c;
-	size_t	len;
-
-	if( !string || !string2 ) return NULL;
-
-	c = *string2;
-	len = Q_strlen( string2 );
-
-	while( string )
-	{
-		for( ; *string && *string != c; string++ );
-
-		if( *string )
-		{
-			if( !Q_strncmp( string, string2, len ))
-				break;
-			string++;
-		}
-		else return NULL;
-	}
-	return (char *)string;
-}
-
-char *Q_stristr( const char *string, const char *string2 )
+#if !defined( HAVE_STRCASESTR )
+const char *Q_stristr( const char *string, const char *string2 )
 {
 	int	c;
 	size_t	len;
@@ -517,8 +431,9 @@ char *Q_stristr( const char *string, const char *string2 )
 		}
 		else return NULL;
 	}
-	return (char *)string;
+	return string;
 }
+#endif // !defined( HAVE_STRCASESTR )
 
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args )
 {

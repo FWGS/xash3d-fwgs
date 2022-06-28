@@ -16,9 +16,10 @@ GNU General Public License for more details.
 #ifndef STDLIB_H
 #define STDLIB_H
 
-#include <stdarg.h>
 #include <string.h>
+#include <stdarg.h>
 #include "build.h"
+#include "xash3d_types.h"
 
 // timestamp modes
 enum
@@ -60,14 +61,8 @@ float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
 #define Q_strchr  strchr
 #define Q_strrchr strrchr
-#define Q_stricmp( s1, s2 ) Q_strnicmp( s1, s2, 99999 )
-int Q_strnicmp( const char *s1, const char *s2, int n );
-#define Q_strcmp( s1, s2 ) Q_strncmp( s1, s2, 99999 )
-int Q_strncmp( const char *s1, const char *s2, int n );
 qboolean Q_stricmpext( const char *s1, const char *s2 );
 const char *Q_timestamp( int format );
-char *Q_stristr( const char *string, const char *string2 );
-char *Q_strstr( const char *string, const char *string2 );
 #define Q_vsprintf( buffer, format, args ) Q_vsnprintf( buffer, 99999, format, args )
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
@@ -94,5 +89,59 @@ char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int 
 #define COM_ParseFile( data, token, size ) _COM_ParseFileSafe( data, token, size, 0, NULL )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
+
+// libc implementations
+static inline int Q_strcmp( const char *s1, const char *s2 )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strcmp( s1, s2 ));
+}
+
+static inline int Q_strncmp( const char *s1, const char *s2, size_t n )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strncmp( s1, s2, n ));
+}
+
+static inline const char *Q_strstr( const char *s1, const char *s2 )
+{
+	return unlikely( !s1 || !s2 ) ? NULL : strstr( s1, s2 );
+}
+
+// libc extensions, be careful
+
+#if XASH_WIN32
+#define strcasecmp stricmp
+#define strncasecmp strnicmp
+#endif // XASH_WIN32
+
+static inline int Q_stricmp( const char *s1, const char *s2 )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strcasecmp( s1, s2 ));
+}
+
+static inline int Q_strnicmp( const char *s1, const char *s2, size_t n )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strncasecmp( s1, s2, n ));
+}
+
+#if defined( HAVE_STRCASESTR )
+#if XASH_WIN32
+#define strcasestr stristr
+#endif
+static inline const char *Q_stristr( const char *s1, const char *s2 )
+{
+	return unlikely( !s1 || !s2 ) ? NULL : strcasestr( s1, s2 );
+}
+#else // defined( HAVE_STRCASESTR )
+const char *Q_stristr( const char *s1, const char *s2 );
+#endif // defined( HAVE_STRCASESTR )
+
 
 #endif//STDLIB_H
