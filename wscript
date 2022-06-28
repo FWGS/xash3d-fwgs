@@ -317,6 +317,19 @@ int main(void) { return 0; }''',
 			conf.define('_FILE_OFFSET_BITS', 64)
 		else: conf.undefine('_FILE_OFFSET_BITS')
 
+	if conf.env.DEST_OS == 'win32':
+		# msvcrt always has stristr
+		conf.define('HAVE_STRCASESTR', 1)
+	else:
+		strcasestr_frag = '''#include <string.h>
+int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
+
+		if conf.check_cc(msg='Checking for strcasestr', mandatory=False, fragment=strcasestr_frag):
+			conf.define('HAVE_STRCASESTR', 1)
+		elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=strcasestr_frag, defines='_GNU_SOURCE=1'):
+			conf.define('_GNU_SOURCE', 1)
+			conf.define('HAVE_STRCASESTR', 1)
+
 	# check if we can use alloca.h or malloc.h
 	if conf.check_cc(header_name='alloca.h', mandatory=False):
 		conf.define('ALLOCA_H', 'alloca.h')
