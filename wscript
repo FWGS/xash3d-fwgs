@@ -317,10 +317,7 @@ int main(void) { return 0; }''',
 			conf.define('_FILE_OFFSET_BITS', 64)
 		else: conf.undefine('_FILE_OFFSET_BITS')
 
-	if conf.env.DEST_OS == 'win32':
-		# msvcrt always has stristr
-		conf.define('HAVE_STRCASESTR', 1)
-	else:
+	if conf.env.DEST_OS != 'win32':
 		strcasestr_frag = '''#include <string.h>
 int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
 
