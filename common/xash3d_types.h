@@ -87,15 +87,21 @@ typedef uint64_t longtime_t;
 	#define NORETURN
 #endif
 
-#if defined(__has_builtin)
-#if __has_builtin(__builtin_expect)
-#define unlikely(x) __builtin_expect(x, 0)
-#define likely(x)   __builtin_expect(x, 1)
-#else // __has_builtin(__builtin_expect)
-#define unlikely(x) (x)
-#define likely(x)   (x)
-#endif // __has_builtin(__builtin_expect)
-#endif // defined(__has_builtin)
+#if ( __GNUC__ >= 3 )
+	#define unlikely(x) __builtin_expect(x, 0)
+	#define likely(x)   __builtin_expect(x, 1)
+#elif defined( __has_builtin )
+	#if __has_builtin( __builtin_expect )
+		#define unlikely(x) __builtin_expect(x, 0)
+		#define likely(x)   __builtin_expect(x, 1)
+	#else
+		#define unlikely(x) (x)
+		#define likely(x)   (x)
+	#endif
+#else
+	#define unlikely(x) (x)
+	#define likely(x)   (x)
+#endif
 
 
 #ifdef XASH_BIG_ENDIAN
