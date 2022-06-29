@@ -409,7 +409,7 @@ const char* Q_timestamp( int format )
 }
 
 #if !defined( HAVE_STRCASESTR )
-const char *Q_stristr( const char *string, const char *string2 )
+char *Q_stristr( const char *string, const char *string2 )
 {
 	int	c;
 	size_t	len;
@@ -431,7 +431,7 @@ const char *Q_stristr( const char *string, const char *string2 )
 		}
 		else return NULL;
 	}
-	return string;
+	return (char *)string;
 }
 #endif // !defined( HAVE_STRCASESTR )
 
