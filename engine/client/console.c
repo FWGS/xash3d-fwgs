@@ -283,6 +283,8 @@ void Con_ToggleConsole_f( void )
 	if( !host.allow_console || UI_CreditsActive( ))
 		return; // disabled
 
+	SCR_EndLoadingPlaque();
+
 	// show console only in game or by special call from menu
 	if( cls.state != ca_active || cls.key_dest == key_menu )
 		return;
