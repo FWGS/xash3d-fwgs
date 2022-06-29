@@ -195,8 +195,6 @@ void CL_CheckClientState( void )
 		Netchan_ReportFlow( &cls.netchan );
 
 		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart );
-		if(( cls.demoplayback || cls.disable_servercount != cl.servercount ) && cl.video_prepped )
-			SCR_EndLoadingPlaque(); // get rid of loading plaque
 	}
 }
 
@@ -234,6 +232,7 @@ void CL_SignonReply( void )
 			Mem_PrintStats();
 		break;
 	case 2:
+		SCR_EndLoadingPlaque();
 		if( cl.proxy_redirect && !cls.spectator )
 			CL_Disconnect();
 		cl.proxy_redirect = false;
