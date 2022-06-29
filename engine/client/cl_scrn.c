@@ -418,7 +418,6 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 	cls.draw_changelevel = !is_background;
 	SCR_UpdateScreen();
 	cls.disable_screen = host.realtime;
-	cls.disable_servercount = cl.servercount;
 	cl.background = is_background;		// set right state before svc_serverdata is came
 
 	if( !Host_IsDedicated() )
