@@ -1186,6 +1186,11 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 
 	// all the operations makes over the image copy not an original
 	pic = gEngfuncs.FS_CopyImage( image->original );
+
+	// we need to expand image into RGBA buffer
+	if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
+		flags |= IMAGE_FORCE_RGBA;
+
 	gEngfuncs.Image_Process( &pic, topColor, bottomColor, flags, 0.0f );
 
 	GL_UploadTexture( image, pic );
