@@ -379,7 +379,7 @@ Mods:
 5. [Half-Life Baby v1.4](http://www.moddb.com/games/half-life/addons/half-life-baby) (it's an unfinished but playable mod; after installing of the mod open **liblist.gam** or **gameinfo.txt** file in the mod's folder and correct the line **gamedll "..\hlbaby\dlls\hl.dll"** for **gamedll "dlls\hl.dll"**, otherwise you'll not be able to start a game)
 6. [Half-Secret](http://www.moddb.com/mods/half-secret) (this mod has custom **weapon_snark** code)
 7. [Induction](http://www.moddb.com/mods/half-life-induction) (this mod has new item - **item_flashlight**)
-8. [Lost in Black Mesa(first version without HLFX)](http://half-life.ru/forum/showthread.php?threadid=13959)
+8. [Lost in Black Mesa(first version without HLFX)](https://drive.google.com/file/d/1bEnm_AxJs-ly8hTEZIQBw_v2BsXdSiGa/view?usp=sharing)
 9. [Soldier](http://www.moddb.com/mods/half-life-soldier)
 10. [Solo Operations](http://www.moddb.com/mods/solo-operations)
 11. [The Blood v1.1](http://hl.loess.ru/?mods=&search=The+Blood) (there are some inner bugs in the mod, but they don't interfere with a game progress)
