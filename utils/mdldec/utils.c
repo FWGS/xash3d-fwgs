@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include "xash3d_types.h"
 #include "port.h"
 #include "crtlib.h"
@@ -29,12 +30,26 @@ MakeDirectory
 */
 qboolean MakeDirectory( const char *path )
 {
-	struct stat	st;
+	if( -1 == _mkdir( path ))
+	{
+		if( errno == EEXIST )
+		{
+			// TODO: when filesystem library will be ready
+			// use FS_SysFolderExists here or replace this whole function
+			// with FS_CreatePath
+#if XASH_WIN32
+		        DWORD   dwFlags = GetFileAttributes( path );
 
-	if( -1 == _mkdir( path )
-	    && ( -1 == stat( path, &st )
-	    || !S_ISDIR(st.st_mode ) ) )
+		        return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );
+#else
+		        struct stat buf;
+
+		        if( !stat( path, &buf ))
+				return S_ISDIR( buf.st_mode );
+#endif
+		}
 		return false;
+	}
 
 	return true;
 }
