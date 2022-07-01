@@ -1235,6 +1235,10 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	model_t	*mod;
 	int	i;
 
+	// use high indices for client sprites
+	// for GoldSrc bug-compatibility
+	const int start = type != SPR_HUDSPRITE ? MAX_CLIENT_SPRITES / 2 : 0;
+
 	if( !COM_CheckString( filename ))
 	{
 		Con_Reportf( S_ERROR "CL_LoadSpriteModel: bad name!\n" );
@@ -1244,8 +1248,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	Q_strncpy( name, filename, sizeof( name ));
 	COM_FixSlashes( name );
 
-	// slot 0 isn't used
-	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
+	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
 	{
 		if( !Q_stricmp( mod->name, name ))
 		{
@@ -1262,12 +1265,12 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	}
 
 	// find a free model slot spot
-	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
+	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
 		if( !mod->name[0] ) break; // this is a valid spot
 
-	if( i == MAX_CLIENT_SPRITES )
+	if( i == MAX_CLIENT_SPRITES / 2 )
 	{
-		Con_Printf( S_ERROR "MAX_CLIENT_SPRITES limit exceeded (%d)\n", MAX_CLIENT_SPRITES );
+		Con_Printf( S_ERROR "MAX_CLIENT_SPRITES limit exceeded (%d)\n", MAX_CLIENT_SPRITES / 2 );
 		return NULL;
 	}
 
@@ -1308,7 +1311,7 @@ HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags )
 	if(( spr = CL_LoadSpriteModel( szPicName, SPR_CLIENT, texFlags )) == NULL )
 		return 0;
 
-	return (spr - clgame.sprites); // return index
+	return (spr - clgame.sprites) + 1; // return index
 }
 
 /*
@@ -1324,7 +1327,7 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 	if(( spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 )) == NULL )
 		return 0;
 
-	return (spr - clgame.sprites); // return index
+	return (spr - clgame.sprites) + 1; // return index
 }
 
 /*
@@ -1336,10 +1339,11 @@ CL_GetSpritePointer
 const model_t *CL_GetSpritePointer( HSPRITE hSprite )
 {
 	model_t	*mod;
+	int index = hSprite - 1;
 
-	if( hSprite <= 0 || hSprite >= MAX_CLIENT_SPRITES )
+	if( index < 0 || index >= MAX_CLIENT_SPRITES )
 		return NULL; // bad image
-	mod = &clgame.sprites[hSprite];
+	mod = &clgame.sprites[index];
 
 	if( mod->needload == NL_NEEDS_LOADED )
 	{
@@ -2666,7 +2670,14 @@ pfnLoadMapSprite
 */
 model_t *pfnLoadMapSprite( const char *filename )
 {
-	return CL_LoadSpriteModel( filename, SPR_MAPSPRITE, 0 );
+	model_t *mod;
+
+	mod = Mod_FindName( filename, false );
+
+	if( CL_LoadHudSprite( filename, mod, SPR_MAPSPRITE, 0 ))
+		return mod;
+
+	return NULL;
 }
 
 /*
