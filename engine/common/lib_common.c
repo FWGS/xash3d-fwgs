@@ -86,6 +86,31 @@ const char *COM_OffsetNameForFunction( void *function )
 	return sname;
 }
 
+dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
+{
+	dll_user_t *p;
+	fs_dllinfo_t dllInfo;
+
+	// no fs loaded, can't search
+	if( !g_fsapi.FindLibrary )
+		return NULL;
+
+	// fs can't find library
+	if( !g_fsapi.FindLibrary( dllname, directpath, &dllInfo ))
+		return NULL;
+
+	// NOTE: for libraries we not fail even if search is NULL
+	// let the OS find library himself
+	p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
+	Q_strncpy( p->shortPath, dllInfo.shortPath, sizeof( p->shortPath ));
+	Q_strncpy( p->fullPath, dllInfo.fullPath, sizeof( p->fullPath ));
+	Q_strncpy( p->dllName, dllname, sizeof( p->dllName ));
+	p->custom_loader = dllInfo.custom_loader;
+	p->encrypted = dllInfo.encrypted;
+
+	return p;
+}
+
 /*
 =============================================================================
 

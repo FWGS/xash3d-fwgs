@@ -328,13 +328,13 @@ void Host_ChangeGame_f( void )
 	}
 
 	// validate gamedir
-	for( i = 0; i < SI.numgames; i++ )
+	for( i = 0; i < FI->numgames; i++ )
 	{
-		if( !Q_stricmp( SI.games[i]->gamefolder, Cmd_Argv( 1 )))
+		if( !Q_stricmp( FI->games[i]->gamefolder, Cmd_Argv( 1 )))
 			break;
 	}
 
-	if( i == SI.numgames )
+	if( i == FI->numgames )
 	{
 		Con_Printf( "%s not exist\n", Cmd_Argv( 1 ));
 	}
@@ -345,7 +345,7 @@ void Host_ChangeGame_f( void )
 	else
 	{
 		const char *arg1 = va( "%s%s", (host.type == HOST_NORMAL) ? "" : "#", Cmd_Argv( 1 ));
-		const char *arg2 = va( "change game to '%s'", SI.games[i]->title );
+		const char *arg2 = va( "change game to '%s'", FI->games[i]->title );
 
 		Host_NewInstance( arg1, arg2 );
 	}
@@ -1027,10 +1027,20 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	if( len && host.rodir[len - 1] == '/' )
 		host.rodir[len - 1] = 0;
 
-	if( !COM_CheckStringEmpty( host.rootdir ) || FS_SetCurrentDirectory( host.rootdir ) != 0 )
+	if( !COM_CheckStringEmpty( host.rootdir ))
+	{
+		Sys_Error( "Changing working directory failed (empty working directory)\n" );
+		return;
+	}
+
+	FS_LoadProgs( FILESYSTEM_STDIO_DLL );
+
+	if( FS_SetCurrentDirectory( host.rootdir ) != 0 )
 		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
+
+	FS_Init();
 
 	Sys_InitLog();
 
@@ -1038,7 +1048,6 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
 
-	FS_Init();
 	Image_Init();
 	Sound_Init();
 
@@ -1048,7 +1057,15 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif
 
 	FS_LoadGameInfo( NULL );
+
+	if( FS_FileExists( va( "%s.rc", SI.basedirName ), false ))
+		Q_strncpy( SI.rcName, SI.basedirName, sizeof( SI.rcName ));	// e.g. valve.rc
+	else Q_strncpy( SI.rcName, SI.exeName, sizeof( SI.rcName ));	// e.g. quake.rc
+
 	Q_strncpy( host.gamefolder, GI->gamefolder, sizeof( host.gamefolder ));
+
+	Image_CheckPaletteQ1 ();
+	Host_InitDecals ();	// reload decals
 
 	// DEPRECATED: by FWGS fork
 #if 0
