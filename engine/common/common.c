@@ -586,23 +586,6 @@ void COM_TrimSpace( const char *source, char *dest )
 }
 
 /*
-============
-COM_FixSlashes
-
-Changes all '/' characters into '\' characters, in place.
-============
-*/
-void COM_FixSlashes( char *pname )
-{
-	while( *pname )
-	{
-		if( *pname == '\\' )
-			*pname = '/';
-		pname++;
-	}
-}
-
-/*
 ==================
 COM_Nibble
 

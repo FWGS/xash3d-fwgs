@@ -13,7 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#define MINIZ_HEADER_FILE_ONLY
 #include "miniz.h"
 #include "imagelib.h"
 #include "xash3d_mathlib.h"

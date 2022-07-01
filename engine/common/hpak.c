@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include "filesystem.h"
+#include "hpak.h"
 
 #define HPAK_MAX_ENTRIES	0x8000
 #define HPAK_MIN_SIZE	(1 * 1024)
@@ -402,7 +402,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	FS_Seek( f, hdr.infotableofs, SEEK_SET );
 	FS_Read( f, &num_lumps, sizeof( num_lumps ));
 
-	if( num_lumps < 1 || num_lumps > MAX_FILES_IN_WAD )
+	if( num_lumps < 1 || num_lumps > HPAK_MAX_ENTRIES )
 	{
 		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s has too many lumps %u.\n", pakname, num_lumps );
 		FS_Close( f );

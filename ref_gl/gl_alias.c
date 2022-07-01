@@ -486,7 +486,7 @@ void *Mod_LoadSingleSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	Q_snprintf( name, sizeof( name ), "%s:frame%i", loadmodel->name, skinnum );
 	Q_snprintf( lumaname, sizeof( lumaname ), "%s:luma%i", loadmodel->name, skinnum );
 	Q_snprintf( checkname, sizeof( checkname ), "%s_%i.tga", loadmodel->name, skinnum );
-	if( !gEngfuncs.FS_FileExists( checkname, false ) || ( pic = gEngfuncs.FS_LoadImage( checkname, NULL, 0 )) == NULL )
+	if( !gEngfuncs.fsapi->FileExists( checkname, false ) || ( pic = gEngfuncs.FS_LoadImage( checkname, NULL, 0 )) == NULL )
 		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype + 1), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 
 	m_pAliasHeader->gl_texturenum[skinnum][0] =

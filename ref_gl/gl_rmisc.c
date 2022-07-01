@@ -29,7 +29,7 @@ static void R_ParseDetailTextures( const char *filename )
 	texture_t	*tex;
 	int	i;
 
-	afile = gEngfuncs.COM_LoadFile( filename, NULL, false );
+	afile = gEngfuncs.fsapi->LoadFile( filename, NULL, false );
 	if( !afile ) return;
 
 	pfile = (char *)afile;

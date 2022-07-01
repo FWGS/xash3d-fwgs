@@ -59,6 +59,7 @@ def build(bld):
 	source = bld.path.ant_glob(['*.c'])
 
 	includes = ['.',
+		'../filesystem',
 		'../engine',
 		'../engine/common',
 		'../engine/server',

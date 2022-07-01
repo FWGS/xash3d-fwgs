@@ -980,7 +980,7 @@ pfnGetGamesList
 */
 static GAMEINFO ** GAME_EXPORT pfnGetGamesList( int *numGames )
 {
-	if( numGames ) *numGames = SI.numgames;
+	if( numGames ) *numGames = FI->numgames;
 	return gameui.modsInfo;
 }
 
@@ -1117,6 +1117,30 @@ static char *pfnParseFile( char *buf, char *token )
 	return COM_ParseFile( buf, token, INT_MAX );
 }
 
+/*
+=============
+pfnFileExists
+
+legacy wrapper
+=============
+*/
+static int pfnFileExists( const char *path, int gamedironly )
+{
+	return FS_FileExists( path, gamedironly );
+}
+
+/*
+=============
+pfnDelete
+
+legacy wrapper
+=============
+*/
+static int pfnDelete( const char *path )
+{
+	return FS_Delete( path );
+}
+
 // engine callbacks
 static ui_enginefuncs_t gEngfuncs =
 {
@@ -1163,7 +1187,7 @@ static ui_enginefuncs_t gEngfuncs =
 	pfnRenderScene,
 	pfnAddEntity,
 	Host_Error,
-	FS_FileExists,
+	pfnFileExists,
 	pfnGetGameDir,
 	Cmd_CheckMapsList,
 	CL_Active,
@@ -1202,7 +1226,7 @@ static ui_enginefuncs_t gEngfuncs =
 	COM_CompareFileTime,
 	VID_GetModeString,
 	(void*)COM_SaveFile,
-	(void*)FS_Delete
+	pfnDelete
 };
 
 static void pfnEnableTextInput( int enable )
@@ -1358,13 +1382,13 @@ qboolean UI_LoadProgs( void )
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );
 
 	// setup gameinfo
-	for( i = 0; i < SI.numgames; i++ )
+	for( i = 0; i < FI->numgames; i++ )
 	{
 		gameui.modsInfo[i] = Mem_Calloc( gameui.mempool, sizeof( GAMEINFO ));
-		UI_ConvertGameInfo( gameui.modsInfo[i], SI.games[i] );
+		UI_ConvertGameInfo( gameui.modsInfo[i], FI->games[i] );
 	}
 
-	UI_ConvertGameInfo( &gameui.gameInfo, SI.GameInfo ); // current gameinfo
+	UI_ConvertGameInfo( &gameui.gameInfo, FI->GameInfo ); // current gameinfo
 
 	// setup globals
 	gameui.globals->developer = host.allow_console;
