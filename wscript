@@ -55,6 +55,7 @@ class Subproject:
 
 SUBDIRS = [
 	Subproject('public',      dedicated=False, mandatory = True),
+	Subproject('filesystem',  dedicated=False, mandatory = True),
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl',),
 	Subproject('ref_soft'),

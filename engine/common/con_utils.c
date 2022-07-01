@@ -761,10 +761,10 @@ qboolean Cmd_GetGamesList( const char *s, char *completedname, int length )
 	// compare gamelist with current keyword
 	len = Q_strlen( s );
 
-	for( i = 0, numgamedirs = 0; i < SI.numgames; i++ )
+	for( i = 0, numgamedirs = 0; i < FI->numgames; i++ )
 	{
-		if(( *s == '*' ) || !Q_strnicmp( SI.games[i]->gamefolder, s, len))
-			Q_strcpy( gamedirs[numgamedirs++], SI.games[i]->gamefolder );
+		if(( *s == '*' ) || !Q_strnicmp( FI->games[i]->gamefolder, s, len))
+			Q_strcpy( gamedirs[numgamedirs++], FI->games[i]->gamefolder );
 	}
 
 	if( !numgamedirs ) return false;

@@ -27,8 +27,12 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "r_efx.h"
 #include "com_image.h"
+#include "filesystem.h"
 
-#define REF_API_VERSION 1
+// RefAPI changelog:
+// 1. Initial release
+// 2. FS functions are removed, instead we have full fs_api_t
+#define REF_API_VERSION 2
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -367,13 +371,6 @@ typedef struct ref_api_s
 	void  (*COM_FreeLibrary)( void *handle );
 	void *(*COM_GetProcAddress)( void *handle, const char *name );
 
-	// filesystem
-	byte*	(*COM_LoadFile)( const char *path, fs_offset_t *pLength, qboolean gamedironly );
-	// use Mem_Free instead
-	// void	(*COM_FreeFile)( void *buffer );
-	int (*FS_FileExists)( const char *filename, int gamedironly );
-	void (*FS_AllowDirectPaths)( qboolean enable );
-
 	// video init
 	// try to create window
 	// will call GL_SetupAttributes in case of REF_GL
@@ -430,6 +427,9 @@ typedef struct ref_api_s
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
 	render_interface_t	*drawFuncs;
+
+	// filesystem exports
+	fs_api_t	*fsapi;
 } ref_api_t;
 
 struct mip_s;
