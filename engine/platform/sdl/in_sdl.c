@@ -333,32 +333,33 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 			break;
 	}
 
+	host.mouse_visible = visible;
+
 	if( CVAR_TO_BOOL( touch_emulate ))
 		return;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( visible && !host.mouse_visible )
+	if( host.mouse_visible )
 	{
 		SDL_SetCursor( cursors.cursors[type] );
 		SDL_ShowCursor( true );
 		Key_EnableTextInput( true, false );
 	}
-	else if( !visible && host.mouse_visible )
+	else
 	{
 		SDL_ShowCursor( false );
 		Key_EnableTextInput( false, false );
 	}
 #else
-	if( visible && !host.mouse_visible )
+	if( host.mouse_visible )
 	{
 		SDL_ShowCursor( true );
 	}
-	else if( !visible && host.mouse_visible )
+	else
 	{
 		SDL_ShowCursor( false );
 	}
 #endif
-	host.mouse_visible = visible;
 }
 
 /*
