@@ -18,11 +18,12 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "platform/platform.h"
 
-#define HEARTBEAT_SECONDS	300.0f 		// 300 seconds
+#define HEARTBEAT_SECONDS	((sv_nat.value > 0.0f) ? 60.0f : 300.0f)  	// 1 or 5 minutes
 
 // server cvars
 CVAR_DEFINE_AUTO( sv_lan, "0", 0, "server is a lan server ( no heartbeat, no authentication, no non-class C addresses, 9999.0 rate, etc." );
 CVAR_DEFINE_AUTO( sv_lan_rate, "20000.0", 0, "rate for lan server" );
+CVAR_DEFINE_AUTO( sv_nat, "0", 0, "enable NAT bypass for this server" );
 CVAR_DEFINE_AUTO( sv_aim, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "auto aiming option" );
 CVAR_DEFINE_AUTO( sv_unlag, "1", 0, "allow lag compensation on server-side" );
 CVAR_DEFINE_AUTO( sv_maxunlag, "0.5", 0, "max latency value which can be interpolated (by default ping should not exceed 500 units)" );
@@ -798,6 +799,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "version", va( "%s", XASH_VERSION ), len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "region", "255", len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "product", GI->gamefolder, len ); // product? Where is the difference with gamedir?
+	Info_SetValueForKey( s, "nat", sv_nat.string, sizeof(s) ); // Server running under NAT, use reverse connection
 
 	NET_SendPacket( NS_SERVER, Q_strlen( s ), s, from );
 }
@@ -956,6 +958,7 @@ void SV_Init( void )
 	sv_hostmap = Cvar_Get( "hostmap", GI->startmap, 0, "keep name of last entered map" );
 	Cvar_RegisterVariable( &sv_password );
 	Cvar_RegisterVariable( &sv_lan );
+	Cvar_RegisterVariable( &sv_nat );
 	Cvar_RegisterVariable( &violence_ablood );
 	Cvar_RegisterVariable( &violence_hblood );
 	Cvar_RegisterVariable( &violence_agibs );
