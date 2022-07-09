@@ -1472,35 +1472,71 @@ static int NET_IPSocket( const char *net_interface, int port, qboolean multicast
 NET_OpenIP
 ====================
 */
-static void NET_OpenIP( void )
+static void NET_OpenIP( qboolean change_port )
 {
-	int	port, sv_port = 0, cl_port = 0;
+	int	port;
+	qboolean sv_nat = Cvar_VariableInteger("sv_nat");
+	qboolean cl_nat = Cvar_VariableInteger("cl_nat");
+
+	if( change_port && ( FBitSet( net_hostport->flags, FCVAR_CHANGED ) || sv_nat ))
+	{
+		// reopen socket to set random port
+		if( NET_IsSocketValid( net.ip_sockets[NS_SERVER] ))
+			closesocket( net.ip_sockets[NS_SERVER] );
+		
+		net.ip_sockets[NS_SERVER] = 0;
+		ClearBits( net_hostport->flags, FCVAR_CHANGED );
+	}
 
 	if( !NET_IsSocketValid( net.ip_sockets[NS_SERVER] ) )
 	{
 		port = net_iphostport->value;
-		if( !port ) port = net_hostport->value;
-		if( !port ) port = PORT_SERVER; // forcing to default
+		if( !port )
+		{
+			if( sv_nat )
+				port = PORT_ANY;
+			else
+				port = net_hostport->value;
+
+			if( !port )
+				port = PORT_SERVER; // forcing to default
+		}
 		net.ip_sockets[NS_SERVER] = NET_IPSocket( net_ipname->string, port, false );
 
 		if( !NET_IsSocketValid( net.ip_sockets[NS_SERVER] ) && Host_IsDedicated() )
 			Host_Error( "Couldn't allocate dedicated server IP port %d.\n", port );
-		sv_port = port;
 	}
 
 	// dedicated servers don't need client ports
 	if( Host_IsDedicated() ) return;
 
+	if (change_port && ( FBitSet( net_clientport->flags, FCVAR_CHANGED ) || cl_nat ))
+	{
+		// reopen socket to set random port
+		if( NET_IsSocketValid(net.ip_sockets[NS_CLIENT] ))
+			closesocket( net.ip_sockets[NS_CLIENT] );
+
+		net.ip_sockets[NS_CLIENT] = 0;
+		ClearBits( net_clientport->flags, FCVAR_CHANGED );
+	}
+
 	if( !NET_IsSocketValid( net.ip_sockets[NS_CLIENT] ) )
 	{
 		port = net_ipclientport->value;
-		if( !port ) port = net_clientport->value;
-		if( !port ) port = PORT_ANY; // forcing to default
+		if( !port )
+		{
+			if( cl_nat )
+				port = PORT_ANY;
+			else
+				port = net_clientport->value;
+
+			if( !port )
+				port = PORT_ANY; // forcing to default
+		}
 		net.ip_sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, port, false );
 
 		if( !NET_IsSocketValid( net.ip_sockets[NS_CLIENT] ) )
 			net.ip_sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, PORT_ANY, false );
-		cl_port = port;
 	}
 }
 
@@ -1586,7 +1622,7 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 	if( multiplayer )
 	{
 		// open sockets
-		if( net.allow_ip ) NET_OpenIP();
+		if( net.allow_ip ) NET_OpenIP( changeport );
 
 		// get our local address, if possible
 		if( bFirst )
