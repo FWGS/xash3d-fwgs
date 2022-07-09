@@ -132,7 +132,7 @@ uint32_t R_DEBuffer_Alloc(r_debuffer_t* debuf, r_lifetime_t lifetime, uint32_t s
 			const uint32_t offset = R_FlippingBuffer_Alloc(&debuf->dynamic, size, align);
 			if (offset == ALO_ALLOC_FAILED)
 				return ALO_ALLOC_FAILED;
-			return offset + debuf->static_offset;
+			return offset + debuf->static_size;
 		}
 		case LifetimeStatic:
 		{

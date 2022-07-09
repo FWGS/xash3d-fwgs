@@ -5,6 +5,7 @@
 #include "vk_lightmap.h"
 #include "vk_const.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "vk_math.h"
 #include "vk_common.h"
 #include "vk_core.h"
@@ -155,7 +156,7 @@ void R_NewMap( void ) {
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushStatsClear();
 
-	XVK_RenderBufferMapClear();
+	R_GeometryBuffer_MapClear();
 
 	VK_ClearLightmap();
 

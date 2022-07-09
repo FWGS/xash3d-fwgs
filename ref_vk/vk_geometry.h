@@ -51,7 +51,7 @@ qboolean R_GeometryBufferAllocAndLock( r_geometry_buffer_lock_t *lock, int verte
 void R_GeometryBufferUnlock( const r_geometry_buffer_lock_t *lock );
 //void R_VkGeometryBufferFree( int handle );
 
-void R_GeometryBufferMapClear( void ); // Free the entire buffer for a new map
+void R_GeometryBuffer_MapClear( void ); // Free the entire buffer for a new map
 
 void R_GeometryBufferPrintStats( void );
 
