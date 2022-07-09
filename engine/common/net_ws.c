@@ -1484,7 +1484,7 @@ static void NET_OpenIP( qboolean change_port )
 		if( NET_IsSocketValid( net.ip_sockets[NS_SERVER] ))
 			closesocket( net.ip_sockets[NS_SERVER] );
 		
-		net.ip_sockets[NS_SERVER] = 0;
+		net.ip_sockets[NS_SERVER] = INVALID_SOCKET;
 		ClearBits( net_hostport->flags, FCVAR_CHANGED );
 	}
 
@@ -1516,7 +1516,7 @@ static void NET_OpenIP( qboolean change_port )
 		if( NET_IsSocketValid(net.ip_sockets[NS_CLIENT] ))
 			closesocket( net.ip_sockets[NS_CLIENT] );
 
-		net.ip_sockets[NS_CLIENT] = 0;
+		net.ip_sockets[NS_CLIENT] = INVALID_SOCKET;
 		ClearBits( net_clientport->flags, FCVAR_CHANGED );
 	}
 
