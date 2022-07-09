@@ -70,6 +70,7 @@ convar_t	*cl_upmax;
 convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
+convar_t	*cl_nat;
 convar_t	*hud_utf8;
 convar_t	*ui_renderworld;
 
@@ -1252,7 +1253,7 @@ void CL_Connect_f( void )
 
 	// if running a local server, kill it and reissue
 	if( SV_Active( )) Host_ShutdownServer();
-	NET_Config( true ); // allow remote
+	NET_Config( true, !CVAR_TO_BOOL( cl_nat )); // allow remote
 
 	Con_Printf( "server %s\n", server );
 	CL_Disconnect();
@@ -1588,7 +1589,7 @@ void CL_InternetServers_f( void )
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
-	// Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
+	Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
 
 	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, sizeof( MS_SCAN_REQUEST ) + Q_strlen( info ), fullquery );
 	cls.internetservers_pending = true;
@@ -2829,6 +2830,7 @@ void CL_InitLocal( void )
 	cl_updaterate = Cvar_Get( "cl_updaterate", "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
 	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
 	cl_upmax = Cvar_Get( "cl_upmax", "1200", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
+	cl_nat = Cvar_Get( "cl_nat", "0", 0, "show servers running under NAT" );
 	rate = Cvar_Get( "rate", "3500", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 	topcolor = Cvar_Get( "topcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player top color" );
 	bottomcolor = Cvar_Get( "bottomcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player bottom color" );
