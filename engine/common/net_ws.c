@@ -1731,7 +1731,7 @@ void NET_Init( void )
 
 	net_clockwindow = Cvar_Get( "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
 	net_address = Cvar_Get( "net_address", "0", FCVAR_READ_ONLY, "contain local address of current client" );
-	net_ipname = Cvar_Get( "ip", "localhost", FCVAR_READ_ONLY, "network ip address" );
+	net_ipname = Cvar_Get( "ip", "localhost", 0, "network ip address" );
 	net_iphostport = Cvar_Get( "ip_hostport", "0", FCVAR_READ_ONLY, "network ip host port" );
 	net_hostport = Cvar_Get( "hostport", va( "%i", PORT_SERVER ), FCVAR_READ_ONLY, "network default host port" );
 	net_ipclientport = Cvar_Get( "ip_clientport", "0", FCVAR_READ_ONLY, "network ip client port" );
