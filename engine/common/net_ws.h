@@ -51,7 +51,7 @@ void NET_Shutdown( void );
 void NET_Sleep( int msec );
 qboolean NET_IsActive( void );
 qboolean NET_IsConfigured( void );
-void NET_Config( qboolean net_enable );
+void NET_Config( qboolean net_enable, qboolean changeport );
 qboolean NET_IsLocalAddress( netadr_t adr );
 const char *NET_AdrToString( const netadr_t a );
 const char *NET_BaseAdrToString( const netadr_t a );

@@ -1298,7 +1298,7 @@ void CL_Rcon_f( void )
 	message[3] = (char)255;
 	message[4] = 0;
 
-	NET_Config( true );	// allow remote
+	NET_Config( true, false );	// allow remote
 
 	Q_strcat( message, "rcon " );
 	Q_strcat( message, rcon_client_password->string );
@@ -1561,7 +1561,7 @@ void CL_LocalServers_f( void )
 	netadr_t	adr;
 
 	Con_Printf( "Scanning for servers on the local network area...\n" );
-	NET_Config( true ); // allow remote
+	NET_Config( true, true ); // allow remote
 
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
@@ -1583,7 +1583,7 @@ void CL_InternetServers_f( void )
 	char *info = fullquery + sizeof( MS_SCAN_REQUEST ) - 1;
 	const size_t remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 
-	NET_Config( true ); // allow remote
+	NET_Config( true, true ); // allow remote
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
@@ -2152,7 +2152,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			}
 			else if( clgame.request_type == NET_REQUEST_GAMEUI )
 			{
-				NET_Config( true ); // allow remote
+				NET_Config( true, false ); // allow remote
 				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
 			}
 		}
