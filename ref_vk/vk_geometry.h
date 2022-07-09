@@ -53,8 +53,6 @@ void R_GeometryBufferUnlock( const r_geometry_buffer_lock_t *lock );
 
 void R_GeometryBuffer_MapClear( void ); // Free the entire buffer for a new map
 
-void R_GeometryBufferPrintStats( void );
-
 qboolean R_GeometryBuffer_Init(void);
 void R_GeometryBuffer_Shutdown(void);
 

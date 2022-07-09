@@ -234,7 +234,6 @@ void R_NewMap( void ) {
 
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();
-	XVK_RenderBufferPrintStats();
 	if (vk_core.rtx)
 		VK_RayMapLoadEnd();
 }

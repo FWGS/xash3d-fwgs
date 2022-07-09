@@ -75,11 +75,6 @@ void R_GeometryBuffer_MapClear( void ) {
 	R_DEBuffer_Init(&g_geom.alloc, GEOMETRY_BUFFER_STATIC_SIZE, GEOMETRY_BUFFER_DYNAMIC_SIZE);
 }
 
-void XVK_RenderBufferPrintStats( void ) {
-	// TODO get alignment holes size
-	// gEngine.Con_Reportf("Buffer usage: %uKiB of (%uKiB)\n", g_geom.alloc..head / 1024, g_geom.static_ring.size / 1024);
-}
-
 qboolean R_GeometryBuffer_Init(void) {
 	// TODO device memory and friends (e.g. handle mobile memory ...)
 
