@@ -3323,7 +3323,7 @@ NetAPI_InitNetworking
 */
 void GAME_EXPORT NetAPI_InitNetworking( void )
 {
-	NET_Config( true ); // allow remote
+	NET_Config( true, false ); // allow remote
 }
 
 /*

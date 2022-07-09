@@ -1570,7 +1570,7 @@ NET_Config
 A single player game will only use the loopback code
 ====================
 */
-void NET_Config( qboolean multiplayer )
+void NET_Config( qboolean multiplayer, qboolean changeport )
 {
 	static qboolean	bFirst = true;
 	static qboolean	old_config;
@@ -1756,7 +1756,7 @@ void NET_Shutdown( void )
 
 	NET_ClearLagData( true, true );
 
-	NET_Config( false );
+	NET_Config( false, false );
 #if XASH_WIN32
 	WSACleanup();
 #endif

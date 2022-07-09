@@ -715,7 +715,7 @@ void Master_Add( void )
 {
 	netadr_t	adr;
 
-	NET_Config( true ); // allow remote
+	NET_Config( true, false ); // allow remote
 
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
 		Con_Printf( "can't resolve adr: %s\n", MASTERSERVER_ADR );
@@ -758,7 +758,7 @@ void Master_Shutdown( void )
 {
 	netadr_t	adr;
 
-	NET_Config( true ); // allow remote
+	NET_Config( true, false ); // allow remote
 
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
 		Con_Printf( "can't resolve addr: %s\n", MASTERSERVER_ADR );
@@ -1108,7 +1108,7 @@ void SV_Shutdown( const char *finalmsg )
 	if( public_server->value && svs.maxclients != 1 )
 		Master_Shutdown();
 
-	NET_Config( false );
+	NET_Config( false, false );
 	SV_UnloadProgs ();
 	CL_Drop();
 
