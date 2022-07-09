@@ -11,6 +11,7 @@
 #include "vk_cvar.h"
 #include "vk_pipeline.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "vk_studio.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
@@ -740,6 +741,9 @@ qboolean R_VkInit( void )
 	if (!VK_FrameCtlInit())
 		return false;
 
+	if (!R_GeometryBuffer_Init())
+		return false;
+
 	if (!VK_RenderInit())
 		return false;
 
@@ -783,6 +787,7 @@ void R_VkShutdown( void ) {
 	R_VkOverlay_Shutdown();
 
 	VK_RenderShutdown();
+	R_GeometryBuffer_Shutdown();
 
 	VK_FrameCtlShutdown();
 

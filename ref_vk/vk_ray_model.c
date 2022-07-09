@@ -3,6 +3,7 @@
 #include "vk_rtx.h"
 #include "vk_textures.h"
 #include "vk_materials.h"
+#include "vk_geometry.h"
 #include "vk_render.h"
 #include "vk_light.h"
 

@@ -2,6 +2,7 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"

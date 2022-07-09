@@ -10,6 +10,7 @@
 #include "vk_lightmap.h"
 #include "vk_scene.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "vk_light.h"
 #include "vk_mapents.h"
 
