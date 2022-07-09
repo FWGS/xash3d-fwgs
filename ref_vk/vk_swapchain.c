@@ -202,6 +202,7 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_availa
 		switch (acquire_result) {
 			case VK_ERROR_OUT_OF_DATE_KHR:
 			case VK_ERROR_SURFACE_LOST_KHR:
+			case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
 				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, recreating swapchain\n", R_VkResultName(acquire_result));
 				if (i == 0) {
 					force_recreate = true;
