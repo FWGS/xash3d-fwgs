@@ -27,30 +27,16 @@
 #define MAX_SCRATCH_BUFFER (32*1024*1024)
 #define MAX_ACCELS_BUFFER (64*1024*1024)
 
-// TODO actually use it
 #define MAX_FRAMES_IN_FLIGHT 2
 
-enum {
-	ShaderBindingTable_RayGen,
-
-	ShaderBindingTable_Miss,
-	ShaderBindingTable_Miss_Shadow,
-	ShaderBindingTable_Miss_Empty,
-
-	ShaderBindingTable_Hit_Base,
-	ShaderBindingTable_Hit_WithAlphaTest,
-	ShaderBindingTable_Hit_Additive,
-
-	ShaderBindingTable_Hit_Shadow_Base,
-	ShaderBindingTable_Hit_Shadow_AlphaTest,
-	ShaderBindingTable_Hit__END = ShaderBindingTable_Hit_Shadow_AlphaTest,
-
-	ShaderBindingTable_COUNT
-};
-
 // TODO settings/realtime modifiable/adaptive
+#if 1
 #define FRAME_WIDTH 1280
 #define FRAME_HEIGHT 720
+#else
+#define FRAME_WIDTH 2560
+#define FRAME_HEIGHT 1440
+#endif
 
 // TODO sync with shaders
 // TODO optimal values
@@ -71,29 +57,6 @@ typedef struct {
 	struct LightCluster cells[MAX_LIGHT_CLUSTERS];
 } vk_ray_shader_light_grid;
 
-enum {
-	RayDescBinding_Dest_ImageBaseColor = 0,
-	RayDescBinding_TLAS = 1,
-	RayDescBinding_UBOMatrices = 2,
-
-	RayDescBinding_Kusochki = 3,
-	RayDescBinding_Indices = 4,
-	RayDescBinding_Vertices = 5,
-	RayDescBinding_Textures = 6,
-
-	RayDescBinding_Lights = 7,
-	RayDescBinding_LightClusters = 8,
-
-	RayDescBinding_Dest_ImageDiffuseGI = 9,
-	RayDescBinding_Dest_ImageSpecular = 10,
-	RayDescBinding_Dest_ImageAdditive = 11,
-	RayDescBinding_Dest_ImageNormals = 12,
-
-	RayDescBinding_SkyboxCube = 13,
-
-	RayDescBinding_COUNT
-};
-
 typedef struct {
 	xvk_image_t denoised;
 
@@ -109,20 +72,9 @@ RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 } xvk_ray_frame_images_t;
 
 static struct {
-	vk_descriptors_t descriptors;
-	VkDescriptorSetLayoutBinding desc_bindings[RayDescBinding_COUNT];
-	vk_descriptor_value_t desc_values[RayDescBinding_COUNT];
-	VkDescriptorSet desc_sets[1];
-
-	VkPipeline pipeline;
-
 	// Holds UniformBuffer data
 	vk_buffer_t uniform_buffer;
 	uint32_t uniform_unit_size;
-
-	// Shader binding table buffer
-	vk_buffer_t sbt_buffer;
-	uint32_t sbt_record_size;
 
 	// Stores AS built data. Lifetime similar to render buffer:
 	// - some portion lives for entire map lifetime
@@ -331,7 +283,6 @@ void VK_RayNewMap( void ) {
 	ASSERT(vk_core.rtx);
 
 	VK_RingBuffer_Clear(&g_rtx.accels_buffer_alloc);
-//	VK_RingBuffer_Clear(&g_ray_model_state.kusochki_alloc);
 
 	// Clear model cache
 	for (int i = 0; i < ARRAYSIZE(g_ray_model_state.models_cache); ++i) {
@@ -355,7 +306,6 @@ void VK_RayNewMap( void ) {
 
 void VK_RayMapLoadEnd( void ) {
 	VK_RingBuffer_Fix(&g_rtx.accels_buffer_alloc);
-	//VK_RingBuffer_Fix(&g_ray_model_state.kusochki_alloc);
 }
 
 void VK_RayFrameBegin( void )
@@ -377,206 +327,6 @@ void VK_RayFrameBegin( void )
 
 	// TODO shouldn't we do this in freeze models mode anyway?
 	RT_LightsFrameInit();
-}
-
-static void createPipeline( void )
-{
-	return; // ... FIXME
-	struct RayShaderSpec {
-		int max_point_lights;
-		int max_emissive_kusochki;
-		uint32_t max_visible_point_lights;
-		uint32_t max_visible_surface_lights;
-		float light_grid_cell_size;
-		int max_light_clusters;
-		uint32_t max_textures;
-		uint32_t sbt_record_size;
-	} spec_data = {
-		.max_point_lights = MAX_POINT_LIGHTS,
-		.max_emissive_kusochki = MAX_EMISSIVE_KUSOCHKI,
-		.max_visible_point_lights = MAX_VISIBLE_POINT_LIGHTS,
-		.max_visible_surface_lights = MAX_VISIBLE_SURFACE_LIGHTS,
-		.light_grid_cell_size = LIGHT_GRID_CELL_SIZE,
-		.max_light_clusters = MAX_LIGHT_CLUSTERS,
-		.max_textures = MAX_TEXTURES,
-		.sbt_record_size = g_rtx.sbt_record_size,
-	};
-	const VkSpecializationMapEntry spec_map[] = {
-		{.constantID = 0, .offset = offsetof(struct RayShaderSpec, max_point_lights), .size = sizeof(int) },
-		{.constantID = 1, .offset = offsetof(struct RayShaderSpec, max_emissive_kusochki), .size = sizeof(int) },
-		{.constantID = 2, .offset = offsetof(struct RayShaderSpec, max_visible_point_lights), .size = sizeof(uint32_t) },
-		{.constantID = 3, .offset = offsetof(struct RayShaderSpec, max_visible_surface_lights), .size = sizeof(uint32_t) },
-		{.constantID = 4, .offset = offsetof(struct RayShaderSpec, light_grid_cell_size), .size = sizeof(float) },
-		{.constantID = 5, .offset = offsetof(struct RayShaderSpec, max_light_clusters), .size = sizeof(int) },
-		{.constantID = 6, .offset = offsetof(struct RayShaderSpec, max_textures), .size = sizeof(uint32_t) },
-		{.constantID = 7, .offset = offsetof(struct RayShaderSpec, sbt_record_size), .size = sizeof(uint32_t) },
-	};
-
-	VkSpecializationInfo spec = {
-		.mapEntryCount = ARRAYSIZE(spec_map),
-		.pMapEntries = spec_map,
-		.dataSize = sizeof(spec_data),
-		.pData = &spec_data,
-	};
-
-	enum {
-		ShaderStageIndex_RayGen,
-		ShaderStageIndex_Miss,
-		ShaderStageIndex_Miss_Shadow,
-		ShaderStageIndex_Miss_Empty,
-		ShaderStageIndex_ClosestHit,
-		ShaderStageIndex_ClosestHit_Shadow,
-		ShaderStageIndex_AnyHit_AlphaTest,
-		ShaderStageIndex_AnyHit_Additive,
-		ShaderStageIndex_COUNT,
-	};
-
-#define DEFINE_SHADER(filename, bit, sbt_index) \
-	shaders[sbt_index] = (VkPipelineShaderStageCreateInfo){ \
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, \
-		.stage = VK_SHADER_STAGE_##bit##_BIT_KHR, \
-		.module = loadShader(filename), \
-		.pName = "main", \
-		.pSpecializationInfo = &spec, \
-	}
-
-	VkPipelineShaderStageCreateInfo shaders[ShaderStageIndex_COUNT];
-	VkRayTracingShaderGroupCreateInfoKHR shader_groups[ShaderBindingTable_COUNT];
-
-	const VkRayTracingPipelineCreateInfoKHR rtpci = {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-		//TODO .flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR  ....
-		.stageCount = ARRAYSIZE(shaders),
-		.pStages = shaders,
-		.groupCount = ARRAYSIZE(shader_groups),
-		.pGroups = shader_groups,
-		.maxPipelineRayRecursionDepth = 1,
-		.layout = g_rtx.descriptors.pipeline_layout,
-	};
-
-	DEFINE_SHADER("ray.rgen.spv", RAYGEN, ShaderStageIndex_RayGen);
-	DEFINE_SHADER("ray.rmiss.spv", MISS, ShaderStageIndex_Miss);
-	DEFINE_SHADER("shadow.rmiss.spv", MISS, ShaderStageIndex_Miss_Shadow);
-	DEFINE_SHADER("empty.rmiss.spv", MISS, ShaderStageIndex_Miss_Empty);
-	DEFINE_SHADER("ray.rchit.spv", CLOSEST_HIT, ShaderStageIndex_ClosestHit);
-	DEFINE_SHADER("shadow.rchit.spv", CLOSEST_HIT, ShaderStageIndex_ClosestHit_Shadow);
-	DEFINE_SHADER("alphamask.rahit.spv", ANY_HIT, ShaderStageIndex_AnyHit_AlphaTest);
-	DEFINE_SHADER("additive.rahit.spv", ANY_HIT, ShaderStageIndex_AnyHit_Additive);
-
-	// TODO static assert
-#define ASSERT_SHADER_OFFSET(sbt_kind, sbt_index, offset) \
-	ASSERT((offset) == (sbt_index - sbt_kind))
-
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_RayGen, ShaderBindingTable_RayGen, 0);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss, SHADER_OFFSET_MISS_REGULAR);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Shadow, SHADER_OFFSET_MISS_SHADOW);
-
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Base, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_REGULAR);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_WithAlphaTest, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_ALPHA_TEST);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Additive, SHADER_OFFSET_HIT_REGULAR_BASE + SHADER_OFFSET_HIT_ADDITIVE);
-
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Shadow_Base, SHADER_OFFSET_HIT_SHADOW_BASE + 0);
-	ASSERT_SHADER_OFFSET(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit_Shadow_AlphaTest, SHADER_OFFSET_HIT_SHADOW_BASE + SHADER_OFFSET_HIT_ALPHA_TEST);
-
-	shader_groups[ShaderBindingTable_RayGen] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.generalShader = ShaderStageIndex_RayGen,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Miss] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.generalShader = ShaderStageIndex_Miss,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Miss_Shadow] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.generalShader = ShaderStageIndex_Miss_Shadow,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Miss_Empty] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.generalShader = ShaderBindingTable_Miss_Empty,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Hit_Base] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = ShaderStageIndex_ClosestHit,
-		.generalShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Hit_WithAlphaTest] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-		.anyHitShader = ShaderStageIndex_AnyHit_AlphaTest,
-		.closestHitShader = ShaderStageIndex_ClosestHit,
-		.generalShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Hit_Additive] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-		.anyHitShader = ShaderStageIndex_AnyHit_Additive,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.generalShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Hit_Shadow_Base] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = ShaderStageIndex_ClosestHit_Shadow,
-		.generalShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	shader_groups[ShaderBindingTable_Hit_Shadow_AlphaTest] = (VkRayTracingShaderGroupCreateInfoKHR) {
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-		.anyHitShader = ShaderStageIndex_AnyHit_AlphaTest,
-		.closestHitShader = ShaderStageIndex_ClosestHit_Shadow,
-		.generalShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	};
-
-	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &g_rtx.pipeline));
-	ASSERT(g_rtx.pipeline != VK_NULL_HANDLE);
-
-	{
-		const uint32_t sbt_handle_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
-		const uint32_t sbt_handles_buffer_size = ARRAYSIZE(shader_groups) * sbt_handle_size;
-		uint8_t *sbt_handles = Mem_Malloc(vk_core.pool, sbt_handles_buffer_size);
-		XVK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(vk_core.device, g_rtx.pipeline, 0, ARRAYSIZE(shader_groups), sbt_handles_buffer_size, sbt_handles));
-		for (int i = 0; i < ARRAYSIZE(shader_groups); ++i)
-		{
-			uint8_t *sbt_dst = g_rtx.sbt_buffer.mapped;
-			memcpy(sbt_dst + g_rtx.sbt_record_size * i, sbt_handles + sbt_handle_size * i, sbt_handle_size);
-		}
-		Mem_Free(sbt_handles);
-	}
-
-	for (int i = 0; i < ARRAYSIZE(shaders); ++i)
-		vkDestroyShaderModule(vk_core.device, shaders[i].module, NULL);
 }
 
 static void prepareTlas( VkCommandBuffer cmdbuf ) {
@@ -646,140 +396,6 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	// 2. Build TLAS
 	createTlas(cmdbuf, g_rtx.tlas_geom_buffer_addr + instance_offset * sizeof(VkAccelerationStructureInstanceKHR));
 	DEBUG_END(cmdbuf);
-}
-
-static void updateDescriptors( const vk_ray_frame_render_args_t *args, int frame_index, const xvk_ray_frame_images_t *frame_dst ) {
-	// 3. Update descriptor sets (bind dest image, tlas, projection matrix)
-	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
-
-	/* g_rtx.desc_values[RayDescBinding_Dest_ImageBaseColor].image = (VkDescriptorImageInfo){ */
-	/* 	.sampler = VK_NULL_HANDLE, */
-	/* 	.imageView = frame_dst->base_color.view, */
-	/* 	.imageLayout = VK_IMAGE_LAYOUT_GENERAL, */
-	/* }; */
-
-	g_rtx.desc_values[RayDescBinding_TLAS].accel = (VkWriteDescriptorSetAccelerationStructureKHR){
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-		.accelerationStructureCount = 1,
-		.pAccelerationStructures = &g_rtx.tlas,
-	};
-
-	g_rtx.desc_values[RayDescBinding_UBOMatrices].buffer = (VkDescriptorBufferInfo){
-		.buffer = g_rtx.uniform_buffer.buffer,
-		.offset = frame_index * g_rtx.uniform_unit_size,
-		.range = sizeof(struct UniformBuffer),
-	};
-
-	g_rtx.desc_values[RayDescBinding_Kusochki].buffer = (VkDescriptorBufferInfo){
-		.buffer = g_ray_model_state.kusochki_buffer.buffer,
-		.offset = 0,
-		.range = VK_WHOLE_SIZE, // TODO fails validation when empty g_rtx_scene.num_models * sizeof(vk_kusok_data_t),
-	};
-
-	g_rtx.desc_values[RayDescBinding_Indices].buffer = (VkDescriptorBufferInfo){
-		.buffer = args->geometry_data.buffer,
-		.offset = 0,
-		.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-	};
-
-	g_rtx.desc_values[RayDescBinding_Vertices].buffer = (VkDescriptorBufferInfo){
-		.buffer = args->geometry_data.buffer,
-		.offset = 0,
-		.range = VK_WHOLE_SIZE, // TODO fails validation when empty args->geometry_data.size,
-	};
-
-	g_rtx.desc_values[RayDescBinding_Textures].image_array = dii_all_textures;
-
-	g_rtx.desc_values[RayDescBinding_SkyboxCube].image = (VkDescriptorImageInfo){
-    .sampler = vk_core.default_sampler,
-    .imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
-    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-	};
-
-	// TODO: move this to vk_texture.c
-	for (int i = 0; i < MAX_TEXTURES; ++i) {
-		const vk_texture_t *texture = findTexture(i);
-		const qboolean exists = texture->vk.image.view != VK_NULL_HANDLE;
-		dii_all_textures[i].sampler = vk_core.default_sampler; // FIXME on AMD using pImmutableSamplers leads to NEAREST filtering ??. VK_NULL_HANDLE;
-		dii_all_textures[i].imageView = exists ? texture->vk.image.view : findTexture(tglob.defaultTexture)->vk.image.view;
-		ASSERT(dii_all_textures[i].imageView != VK_NULL_HANDLE);
-		dii_all_textures[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	}
-
-	g_rtx.desc_values[RayDescBinding_Lights].buffer = (VkDescriptorBufferInfo){
-		.buffer = g_ray_model_state.lights_buffer.buffer,
-		.offset = 0,
-		.range = VK_WHOLE_SIZE,
-	};
-
-	g_rtx.desc_values[RayDescBinding_LightClusters].buffer = (VkDescriptorBufferInfo){
-		.buffer = g_rtx.light_grid_buffer.buffer,
-		.offset = 0,
-		.range = VK_WHOLE_SIZE,
-	};
-
-	g_rtx.desc_values[RayDescBinding_Dest_ImageDiffuseGI].image = (VkDescriptorImageInfo){
-		.sampler = VK_NULL_HANDLE,
-		.imageView = frame_dst->diffuse_gi.view,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-	};
-
-	g_rtx.desc_values[RayDescBinding_Dest_ImageSpecular].image = (VkDescriptorImageInfo){
-		.sampler = VK_NULL_HANDLE,
-		.imageView = frame_dst->specular.view,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-	};
-
-	g_rtx.desc_values[RayDescBinding_Dest_ImageAdditive].image = (VkDescriptorImageInfo){
-		.sampler = VK_NULL_HANDLE,
-		.imageView = frame_dst->additive.view,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-	};
-
-	g_rtx.desc_values[RayDescBinding_Dest_ImageNormals].image = (VkDescriptorImageInfo){
-		.sampler = VK_NULL_HANDLE,
-		//.imageView = frame_dst->normals.view,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-	};
-
-	VK_DescriptorsWrite(&g_rtx.descriptors, 0);
-}
-
-static qboolean rayTrace( VkCommandBuffer cmdbuf, const xvk_ray_frame_images_t *current_frame, float fov_angle_y ) {
-
-	// 4. dispatch ray tracing
-	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.pipeline);
-	{
-		vk_rtx_push_constants_t push_constants = {
-			.time = gpGlobals->time,
-			.random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX),
-			.bounces = vk_rtx_bounces->value,
-			.pixel_cone_spread_angle = atanf((2.0f*tanf(DEG2RAD(fov_angle_y) * 0.5f)) / (float)FRAME_HEIGHT),
-			.debug_light_index_begin = (uint32_t)(vk_rtx_light_begin->value),
-			.debug_light_index_end = (uint32_t)(vk_rtx_light_end->value),
-			.flags = r_lightmap->value ? PUSH_FLAG_LIGHTMAP_ONLY : 0,
-		};
-		vkCmdPushConstants(cmdbuf, g_rtx.descriptors.pipeline_layout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(push_constants), &push_constants);
-	}
-	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, g_rtx.descriptors.pipeline_layout, 0, 1, g_rtx.descriptors.desc_sets + 0, 0, NULL);
-
-	{
-		const uint32_t sbt_record_size = g_rtx.sbt_record_size;
-		//const uint32_t sbt_record_size = vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize;
-#define SBT_INDEX(index, count) { \
-.deviceAddress = getBufferDeviceAddress(g_rtx.sbt_buffer.buffer) + g_rtx.sbt_record_size * index, \
-.size = sbt_record_size * (count), \
-.stride = sbt_record_size, \
-}
-		const VkStridedDeviceAddressRegionKHR sbt_raygen = SBT_INDEX(ShaderBindingTable_RayGen, 1);
-		const VkStridedDeviceAddressRegionKHR sbt_miss = SBT_INDEX(ShaderBindingTable_Miss, ShaderBindingTable_Miss_Empty - ShaderBindingTable_Miss);
-		const VkStridedDeviceAddressRegionKHR sbt_hit = SBT_INDEX(ShaderBindingTable_Hit_Base, ShaderBindingTable_Hit__END - ShaderBindingTable_Hit_Base);
-		const VkStridedDeviceAddressRegionKHR sbt_callable = { 0 };
-
-		vkCmdTraceRaysKHR(cmdbuf, &sbt_raygen, &sbt_miss, &sbt_hit, &sbt_callable, FRAME_WIDTH, FRAME_HEIGHT, 1 );
-	}
-
-	return true;
 }
 
 // Finalize and update dynamic lights
@@ -1057,7 +673,6 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	uploadLights();
 	prepareTlas(cmdbuf);
 	prepareUniformBuffer(args, frame_index, fov_angle_y);
-	//updateDescriptors(args, frame_index, current_frame);
 
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -1129,9 +744,6 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
-		// TODO gracefully handle reload errors: need to change createPipeline, loadShader, VK_PipelineCreate...
-		//vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
-		createPipeline();
 
 		reloadPass( &g_rtx.pass.primary_ray, R_VkRayPrimaryPassCreate());
 		reloadPass( &g_rtx.pass.light_direct_poly, R_VkRayLightDirectPolyPassCreate());
@@ -1168,126 +780,6 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	}
 }
 
-static void createLayouts( void ) {
-	//VkSampler samplers[MAX_TEXTURES];
-
-	g_rtx.descriptors.bindings = g_rtx.desc_bindings;
-	g_rtx.descriptors.num_bindings = ARRAYSIZE(g_rtx.desc_bindings);
-	g_rtx.descriptors.values = g_rtx.desc_values;
-	g_rtx.descriptors.num_sets = 1;
-	g_rtx.descriptors.desc_sets = g_rtx.desc_sets;
-	g_rtx.descriptors.push_constants = (VkPushConstantRange){
-		.offset = 0,
-		.size = sizeof(vk_rtx_push_constants_t),
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_Dest_ImageDiffuseGI] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Dest_ImageDiffuseGI,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-	g_rtx.desc_bindings[RayDescBinding_Dest_ImageAdditive] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Dest_ImageAdditive,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-	g_rtx.desc_bindings[RayDescBinding_Dest_ImageSpecular] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Dest_ImageSpecular,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-	g_rtx.desc_bindings[RayDescBinding_Dest_ImageNormals] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Dest_ImageNormals,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_Dest_ImageBaseColor] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Dest_ImageBaseColor,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_TLAS] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_TLAS,
-		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_UBOMatrices] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_UBOMatrices,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_Kusochki] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Kusochki,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_Indices] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Indices,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_Vertices] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Vertices,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_Textures] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Textures,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = MAX_TEXTURES,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
-		.pImmutableSamplers = NULL, //samplers,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_SkyboxCube] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_SkyboxCube,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
-		// FIXME on AMD using immutable samplers leads to nearest filtering ???!
-		.pImmutableSamplers = NULL, //samplers,
-	};
-
-
-	// for (int i = 0; i < ARRAYSIZE(samplers); ++i)
-	// 	samplers[i] = vk_core.default_sampler;
-
-	g_rtx.desc_bindings[RayDescBinding_Lights] = (VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_Lights,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
-	};
-
-	g_rtx.desc_bindings[RayDescBinding_LightClusters] =	(VkDescriptorSetLayoutBinding){
-		.binding = RayDescBinding_LightClusters,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	VK_DescriptorsCreate(&g_rtx.descriptors);
-}
-
 static void reloadPipeline( void ) {
 	g_rtx.reload_pipeline = true;
 }
@@ -1317,19 +809,11 @@ qboolean VK_RayInit( void )
 	g_rtx.pass.denoiser = R_VkRayDenoiserCreate();
 	ASSERT(g_rtx.pass.denoiser);
 
-	g_rtx.sbt_record_size = vk_core.physical_device.sbt_record_size;
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
 	if (!VK_BufferCreate("ray uniform_buffer", &g_rtx.uniform_buffer, g_rtx.uniform_unit_size * MAX_FRAMES_IN_FLIGHT,
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
-	{
-		return false;
-	}
-
-	if (!VK_BufferCreate("ray sbt_buffer", &g_rtx.sbt_buffer, ShaderBindingTable_COUNT * g_rtx.sbt_record_size,
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 	{
 		return false;
 	}
@@ -1369,7 +853,6 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 	RT_RayModel_Clear();
-	//g_ray_model_state.kusochki_alloc.size = MAX_KUSOCHKI;
 
 	if (!VK_BufferCreate("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(struct Lights),
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
@@ -1384,9 +867,6 @@ qboolean VK_RayInit( void )
 		// FIXME complain, handle
 		return false;
 	}
-
-	createLayouts();
-	createPipeline();
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 #define CREATE_GBUFFER_IMAGE(name, format_, add_usage_bits) \
@@ -1456,9 +936,6 @@ void VK_RayShutdown( void ) {
 		XVK_ImageDestroy(&g_rtx.frames[i].additive);
 	}
 
-	//vkDestroyPipeline(vk_core.device, g_rtx.pipeline, NULL);
-	VK_DescriptorsDestroy(&g_rtx.descriptors);
-
 	if (g_rtx.tlas != VK_NULL_HANDLE)
 		vkDestroyAccelerationStructureKHR(vk_core.device, g_rtx.tlas, NULL);
 
@@ -1475,6 +952,5 @@ void VK_RayShutdown( void ) {
 	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);
 	VK_BufferDestroy(&g_ray_model_state.lights_buffer);
 	VK_BufferDestroy(&g_rtx.light_grid_buffer);
-	VK_BufferDestroy(&g_rtx.sbt_buffer);
 	VK_BufferDestroy(&g_rtx.uniform_buffer);
 }
