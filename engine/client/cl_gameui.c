@@ -1224,6 +1224,11 @@ static int pfnGetRenderers( unsigned int num, char *shortName, size_t size1, cha
 	return 1;
 }
 
+static char *pfnParseFileSafe( char *data, char *buf, const int size, unsigned int flags, int *len )
+{
+	return COM_ParseFileSafe( data, buf, size, flags, len, NULL );
+}
+
 static ui_extendedfuncs_t gExtendedfuncs =
 {
 	pfnEnableTextInput,
@@ -1232,7 +1237,7 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	Con_UtfMoveRight,
 	pfnGetRenderers,
 	Sys_DoubleTime,
-	_COM_ParseFileSafe,
+	pfnParseFileSafe,
 	NET_AdrToString
 };
 
