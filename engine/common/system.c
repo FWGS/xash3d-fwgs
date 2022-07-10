@@ -421,9 +421,12 @@ void Sys_Error( const char *error, ... )
 #if XASH_SDL == 2
 		if( host.hWnd ) SDL_HideWindow( host.hWnd );
 #endif
+#if XASH_WIN32
+		Wcon_ShowConsole( false );
+#endif
+		MSGBOX( text );
 	}
-
-	if( host_developer.value )
+	else
 	{
 #if XASH_WIN32
 		Wcon_ShowConsole( true );
@@ -432,14 +435,7 @@ void Sys_Error( const char *error, ... )
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
 	}
-	else
-	{
-#if XASH_WIN32
-		Wcon_ShowConsole( false );
-#endif
-		MSGBOX( text );
-	}
-
+	
 	Sys_Quit();
 }
 
