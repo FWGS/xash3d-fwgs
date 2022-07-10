@@ -864,7 +864,7 @@ void CL_QuakeExecStuff( void )
 
 		if( !*text ) break;
 
-		text = _COM_ParseFileSafe( text, token, sizeof( token ), PFILE_IGNOREBRACKET, NULL );
+		text = COM_ParseFileSafe( text, token, sizeof( token ), PFILE_IGNOREBRACKET, NULL, NULL );
 
 		if( !text ) break;
 

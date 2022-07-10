@@ -3098,11 +3098,7 @@ handle colon separately
 */
 char *pfnParseFile( char *data, char *token )
 {
-	char	*out;
-
-	out = _COM_ParseFileSafe( data, token, PFILE_TOKEN_MAX_LENGTH, PFILE_HANDLECOLON, NULL );
-
-	return out;
+	return COM_ParseFileSafe( data, token, PFILE_TOKEN_MAX_LENGTH, PFILE_HANDLECOLON, NULL, NULL );
 }
 
 /*

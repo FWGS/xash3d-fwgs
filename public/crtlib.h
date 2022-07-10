@@ -37,6 +37,7 @@ enum
 #define PFILE_IGNOREBRACKET (1<<0)
 #define PFILE_HANDLECOLON   (1<<1)
 #define PFILE_TOKEN_MAX_LENGTH 1024
+#define PFILE_FS_TOKEN_MAX_LENGTH 512
 
 //
 // crtlib.c
@@ -83,10 +84,11 @@ void COM_RemoveLineFeed( char *str );
 void COM_PathSlashFix( char *path );
 char COM_Hex2Char( uint8_t hex );
 void COM_Hex2String( uint8_t hex, char *str );
+// return 0 on empty or null string, 1 otherwise
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 #define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )
-char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *len );
-#define COM_ParseFile( data, token, size ) _COM_ParseFileSafe( data, token, size, 0, NULL )
+char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *len, qboolean *quoted );
+#define COM_ParseFile( data, token, size ) COM_ParseFileSafe( data, token, size, 0, NULL, NULL )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
 

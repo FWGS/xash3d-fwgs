@@ -889,10 +889,13 @@ COM_ParseFile
 text parser
 ==============
 */
-char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *plen )
+char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *plen, qboolean *quoted )
 {
 	int	c, len = 0;
 	qboolean overflow = false;
+
+	if( quoted )
+		*quoted = false;
 
 	if( !token || !size )
 	{
@@ -927,6 +930,9 @@ skipwhite:
 	// handle quoted strings specially
 	if( c == '\"' )
 	{
+		if( quoted )
+			*quoted = true;
+
 		data++;
 		while( 1 )
 		{
