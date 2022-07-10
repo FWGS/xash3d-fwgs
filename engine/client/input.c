@@ -276,7 +276,8 @@ void IN_ActivateMouse( void )
 		return;
 
 	IN_CheckMouseState( true );
-	clgame.dllFuncs.IN_ActivateMouse();
+	if( clgame.dllFuncs.IN_ActivateMouse )
+		clgame.dllFuncs.IN_ActivateMouse();
 	in_mouseactive = true;
 }
 
@@ -293,7 +294,8 @@ void IN_DeactivateMouse( void )
 		return;
 
 	IN_CheckMouseState( false );
-	clgame.dllFuncs.IN_DeactivateMouse();
+	if( clgame.dllFuncs.IN_DeactivateMouse )
+		clgame.dllFuncs.IN_DeactivateMouse();
 	in_mouseactive = false;
 }
 
