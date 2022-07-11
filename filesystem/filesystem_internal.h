@@ -79,12 +79,16 @@ typedef struct searchpath_s
 	struct searchpath_s *next;
 } searchpath_t;
 
+extern fs_globals_t  FI;
 extern searchpath_t *fs_searchpaths;
 extern poolhandle_t  fs_mempool;
 extern fs_interface_t g_engfuncs;
 extern qboolean      fs_ext_path;
 extern char          fs_rodir[MAX_SYSPATH];
 extern char          fs_rootdir[MAX_SYSPATH];
+extern char          fs_writedir[MAX_SYSPATH];
+
+#define GI FI.GameInfo
 
 #define Mem_Malloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
