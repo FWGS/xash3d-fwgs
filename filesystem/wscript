@@ -9,8 +9,8 @@ def configure(conf):
 
 def build(bld):
 	bld.shlib(target = 'filesystem_stdio',
-		features = 'c',
-		source = bld.path.ant_glob(['*.c']),
+		features = 'cxx c',
+		source = bld.path.ant_glob(['*.c', '*.cpp']),
 		includes = ['.', '../common', '../public', '../engine'],
 		use = ['public'],
 		install_path = bld.env.LIBDIR,
