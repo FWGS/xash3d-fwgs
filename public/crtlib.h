@@ -21,6 +21,11 @@ GNU General Public License for more details.
 #include "build.h"
 #include "xash3d_types.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 // timestamp modes
 enum
 {
@@ -145,5 +150,8 @@ static inline char *Q_stristr( const char *s1, const char *s2 )
 char *Q_stristr( const char *s1, const char *s2 );
 #endif // defined( HAVE_STRCASESTR )
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif//STDLIB_H
