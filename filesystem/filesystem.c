@@ -40,22 +40,21 @@ GNU General Public License for more details.
 #include "common/protocol.h"
 
 #define FILE_COPY_SIZE		(1024 * 1024)
+
+fs_globals_t FI;
 qboolean      fs_ext_path = false;	// attempt to read\write from ./ or ../ pathes
 poolhandle_t  fs_mempool;
 searchpath_t *fs_searchpaths = NULL;	// chain
 char          fs_rodir[MAX_SYSPATH];
 char          fs_rootdir[MAX_SYSPATH];
+char          fs_writedir[MAX_SYSPATH];	// path that game allows to overwrite, delete and rename files (and create new of course)
 
 static searchpath_t		fs_directpath;		// static direct path
 static char			fs_basedir[MAX_SYSPATH];	// base game directory
 static char			fs_gamedir[MAX_SYSPATH];	// game current directory
-static char			fs_writedir[MAX_SYSPATH];	// path that game allows to overwrite, delete and rename files (and create new of course)
 #if !XASH_WIN32
 static qboolean		fs_caseinsensitive = true; // try to search missing files
 #endif
-
-static fs_globals_t FI;
-#define GI FI.GameInfo
 
 #ifdef XASH_REDUCE_FD
 static file_t *fs_last_readfile;
