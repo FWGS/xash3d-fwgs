@@ -244,9 +244,9 @@ void RM_FreeTexture( unsigned int texnum )
 
 const char*	RM_TextureName( unsigned int texnum )
 {
-	Con_Printf( S_ERROR "Unimplemented RM_TextureName\n" );
+	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 
-	return NULL;
+	return &Textures.array[texnum].name;
 }
 
 const byte*	RM_TextureData( unsigned int texnum )
