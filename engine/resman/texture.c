@@ -123,13 +123,13 @@ void RM_ReuploadTextures()
 	}
 }
 
-int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
+int RM_LoadTexture( const char* name, const byte* buf, size_t size, int flags )
 {
 	rgbdata_t* picture;
 	rm_texture_t* texture;
 	uint       picFlags;
 
-	//Con_Reportf( "RM_LoadTexture. Name %s\n", name );
+	Con_Reportf( "RM_LoadTexture. Name %s\n", name );
 
 	// Check name
 	if( !IsValidTextureName( name ))
@@ -175,14 +175,14 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	return texture->number;
 }
 
-int RM_LoadTextureArray( const char **names, int flags )
+int RM_LoadTextureArray( const char** names, int flags )
 {
 	Con_Printf( S_ERROR "Unimplemented RM_LoadTextureArray\n" );
 
 	return 0;
 }
 
-int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, qboolean update )
+int RM_LoadTextureFromBuffer( const char* name, rgbdata_t* picture, int flags, qboolean update )
 {
 	rm_texture_t *texture;
 
@@ -225,6 +225,8 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 void RM_FreeTexture( unsigned int texnum )
 {
 	rm_texture_t *texture;
+
+	//Con_Reportf( "RM_FreeTexture. Number %d\n", texnum );
 
 	if (texnum == 0)
 	{
@@ -286,7 +288,7 @@ int	RM_CreateTexture( const char *name, int width, int height, const void *buffe
 	return 0;
 }
 
-int RM_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
+int RM_CreateTextureArray( const char* name, int width, int height, int depth, const void* buffer, texFlags_t flags )
 {
 	Con_Printf( S_ERROR "Unimplemented RM_CreateTextureArray\n" );
 
@@ -374,7 +376,7 @@ rm_texture_t* AppendTexture( const char* name, int flags )
 	else
 	{
 		// Rare, but hash collisions do happen
-		// Insert at the end of a singly linked list
+		// Insert at the end of a single linked list
 		for (
 			ft = Textures.hash_table[hash];
 			;
@@ -391,7 +393,6 @@ rm_texture_t* AppendTexture( const char* name, int flags )
 
 	Textures.count++;
 
-	// Return element
 	return texture;
 }
 
