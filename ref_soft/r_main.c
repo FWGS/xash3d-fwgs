@@ -253,8 +253,6 @@ int R_WorldToScreen( const vec3_t point, vec3_t screen )
 
 	if( w < 0.001f )
 	{
-		screen[0] *= 100000;
-		screen[1] *= 100000;
 		behind = true;
 	}
 	else
@@ -1260,13 +1258,12 @@ void R_DrawBrushModel(cl_entity_t *pent)
 	else
 	{
 		r_edges =  (edge_t *)
-				(((long)&ledges[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
+				(((unsigned long long)&ledges[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 	}
 
 	if (r_surfsonstack)
 	{
-		surfaces =  (surf_t *)
-				(((long)&lsurfs[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
+		surfaces = (surf_t *)(((unsigned long long)&lsurfs[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 		surf_max = &surfaces[r_cnumsurfs];
 	// surface 0 doesn't really exist; it's just a dummy because index 0
 	// is used to indicate no edge attached to surface
@@ -1414,17 +1411,18 @@ void R_EdgeDrawing (void)
 	else
 	{
 		r_edges =  (edge_t *)
-				(((long)&ledges[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
+				(((unsigned long long)&ledges[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 	}
 
 	if (r_surfsonstack)
 	{
-		surfaces =  (surf_t *)
-				(((long)&lsurfs[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
+		surfaces =  (surf_t *)(((unsigned long long)&lsurfs + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 		surf_max = &surfaces[r_cnumsurfs];
-	// surface 0 doesn't really exist; it's just a dummy because index 0
-	// is used to indicate no edge attached to surface
-		memset(&surfaces[0], 0, sizeof(surf_t));
+		
+		// surface 0 doesn't really exist; it's just a dummy because index 0
+		// is used to indicate no edge attached to surface
+
+		memset(surfaces, 0, sizeof(surf_t));
 		surfaces--;
 		R_SurfacePatch ();
 	}

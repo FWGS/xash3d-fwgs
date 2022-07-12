@@ -783,6 +783,7 @@ SCR_VidInit
 */
 void SCR_VidInit( void )
 {
+	string libpath;
 	if( !ref.initialized ) // don't call VidInit too soon
 		return;
 
@@ -797,7 +798,8 @@ void SCR_VidInit( void )
 		gameui.globals->scrHeight = refState.height;
 	}
 
-	VGui_Startup( NULL, refState.width, refState.height ); // initialized already, so pass NULL
+	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
+	VGui_Startup( libpath, refState.width, refState.height );
 
 	CL_ClearSpriteTextures(); // now all hud sprites are invalid
 

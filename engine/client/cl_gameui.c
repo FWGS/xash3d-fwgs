@@ -418,6 +418,8 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 		out->flags |= GFL_NOMODELS;
 	if( in->noskills )
 		out->flags |= GFL_NOSKILLS;
+	if( in->render_picbutton_text )
+		out->flags |= GFL_RENDER_PICBUTTON_TEXT;
 }
 
 static qboolean PIC_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
@@ -1234,7 +1236,8 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	Con_UtfMoveRight,
 	pfnGetRenderers,
 	Sys_DoubleTime,
-	_COM_ParseFileSafe
+	_COM_ParseFileSafe,
+	NET_AdrToString
 };
 
 void UI_UnloadProgs( void )

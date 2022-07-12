@@ -81,18 +81,6 @@ char *Sys_GetClipboardData( void )
 
 	return data;
 }
-
-/*
-================
-Sys_SetClipboardData
-
-write screenshot into clipboard
-================
-*/
-void Sys_SetClipboardData( const char *buffer, size_t size )
-{
-	Platform_SetClipboardText( buffer, size );
-}
 #endif // XASH_DEDICATED
 
 /*
@@ -353,9 +341,6 @@ void Sys_WaitForQuit( void )
 {
 #if XASH_WIN32
 	MSG	msg;
-
-	Wcon_RegisterHotkeys();
-
 	msg.message = 0;
 
 	// wait for the user to quit
@@ -530,10 +515,6 @@ void Sys_Print( const char *pMsg )
 			else if( msg[i] == '\35' || msg[i] == '\36' || msg[i] == '\37' )
 			{
 				i++; // skip console pseudo graph
-			}
-			else if( IsColorString( &msg[i] ))
-			{
-				i++; // skip color prefix
 			}
 			else
 			{

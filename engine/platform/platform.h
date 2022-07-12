@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include "common.h"
 #include "system.h"
 #include "defaults.h"
+#include "cursor_type.h"
+#include "key_modifiers.h"
 
 /*
 ==============================================================================
@@ -45,6 +47,12 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 #endif
 
+#if XASH_WIN32
+void Platform_UpdateStatusLine( void );
+#else 
+static inline void Platform_UpdateStatusLine( void ) { }
+#endif  
+
 /*
 ==============================================================================
 
@@ -66,6 +74,7 @@ void*Platform_GetNativeObject( const char *name );
 int Platform_JoyInit( int numjoy ); // returns number of connected gamepads, negative if error
 // Text input
 void Platform_EnableTextInput( qboolean enable );
+key_modifier_t Platform_GetKeyModifiers( void );
 // System events
 void Platform_RunEvents( void );
 // Mouse
@@ -73,9 +82,10 @@ void Platform_GetMousePos( int *x, int *y );
 void Platform_SetMousePos( int x, int y );
 void Platform_PreCreateMove( void );
 void Platform_MouseMove( float *x, float *y );
+void Platform_SetCursorType( VGUI_DefaultCursor type );
 // Clipboard
-void Platform_GetClipboardText( char *buffer, size_t size );
-void Platform_SetClipboardText( const char *buffer, size_t size );
+int Platform_GetClipboardText( char *buffer, size_t size );
+void Platform_SetClipboardText( const char *buffer );
 
 #if XASH_SDL == 12
 #define SDL_SetWindowGrab( wnd, state ) SDL_WM_GrabInput( (state) )

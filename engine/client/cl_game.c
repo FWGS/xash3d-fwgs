@@ -2930,15 +2930,16 @@ pfnDrawString
 */
 static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
 {
+	int iWidth = 0;
 	Con_UtfProcessChar(0);
 
 	// draw the string until we hit the null character or a newline character
 	for ( ; *str != 0 && *str != '\n'; str++ )
 	{
-		x += pfnVGUI2DrawCharacterAdditive( x, y, (unsigned char)*str, r, g, b, 0 );
+		iWidth += pfnVGUI2DrawCharacterAdditive( x + iWidth, y, (unsigned char)*str, r, g, b, 0 );
 	}
 
-	return x;
+	return iWidth;
 }
 
 /*
@@ -2953,8 +2954,7 @@ static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int 
 	char *szIt;
 	for( szIt = (char*)str; *szIt != 0; szIt++ )
 		x -= clgame.scrInfo.charWidths[ (unsigned char) *szIt ];
-	pfnDrawString( x, y, str, r, g, b );
-	return x;
+	return pfnDrawString( x, y, str, r, g, b );
 }
 
 /*
@@ -3090,7 +3090,7 @@ char *pfnParseFile( char *data, char *token )
 {
 	char	*out;
 
-	out = _COM_ParseFileSafe( data, token, INT_MAX, PFILE_HANDLECOLON, NULL );
+	out = _COM_ParseFileSafe( data, token, PFILE_TOKEN_MAX_LENGTH, PFILE_HANDLECOLON, NULL );
 
 	return out;
 }
@@ -3179,16 +3179,7 @@ convert world coordinates (x,y,z) into screen (x, y)
 */
 int TriWorldToScreen( const float *world, float *screen )
 {
-	int	retval;
-
-	retval = ref.dllFuncs.WorldToScreen( world, screen );
-
-	screen[0] =  0.5f * screen[0] * (float)clgame.viewport[2];
-	screen[1] = -0.5f * screen[1] * (float)clgame.viewport[3];
-	screen[0] += 0.5f * (float)clgame.viewport[2];
-	screen[1] += 0.5f * (float)clgame.viewport[3];
-
-	return retval;
+	return ref.dllFuncs.WorldToScreen( world, screen );
 }
 
 /*
@@ -3933,6 +3924,8 @@ void CL_UnloadProgs( void )
 	Cmd_Unlink( CMD_CLIENTDLL );
 }
 
+void GetSecuredClientAPI( CL_EXPORT_FUNCS F );
+
 qboolean CL_LoadProgs( const char *name )
 {
 	static playermove_t		gpMove;
@@ -3985,7 +3978,17 @@ qboolean CL_LoadProgs( const char *name )
 
 		// trying to fill interface now
 		GetClientAPI( &clgame.dllFuncs );
+	}
+	else if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "F" )) != NULL )
+	{
+		Con_Reportf( "CL_LoadProgs: found single callback export (secured client dlls)\n" );
 
+		// trying to fill interface now
+		GetSecuredClientAPI( GetClientAPI );
+	}
+
+	if ( GetClientAPI != NULL )
+	{
 		// check critical functions again
 		for( func = cdll_exports; func && func->name; func++ )
 		{

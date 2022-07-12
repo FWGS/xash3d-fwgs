@@ -27,6 +27,8 @@ GNU General Public License for more details.
 SDL_Joystick *g_joy = NULL;
 #if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
+#else
+static SDL_Cursor *g_pDefaultCursor[dc_last];
 #endif
 
 /*
@@ -71,19 +73,28 @@ Platform_GetClipobardText
 
 =============
 */
-void Platform_GetClipboardText( char *buffer, size_t size )
+int Platform_GetClipboardText( char *buffer, size_t size )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	int textLength;
 	char *sdlbuffer = SDL_GetClipboardText();
 
 	if( !sdlbuffer )
-		return;
+		return 0;
 
-	Q_strncpy( buffer, sdlbuffer, size );
+	if (buffer && size > 0)
+	{
+		textLength = Q_strncpy( buffer, sdlbuffer, size );
+	}
+	else {
+		textLength = Q_strlen( sdlbuffer );
+	}
 	SDL_free( sdlbuffer );
+	return textLength;
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	buffer[0] = 0;
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return 0;
 }
 
 /*
@@ -92,7 +103,7 @@ Platform_SetClipobardText
 
 =============
 */
-void Platform_SetClipboardText( const char *buffer, size_t size )
+void Platform_SetClipboardText( const char *buffer )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_SetClipboardText( buffer );
@@ -235,6 +246,123 @@ int Platform_JoyInit( int numjoy )
 		return SDLash_JoyInit_New(numjoy);
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return SDLash_JoyInit_Old(numjoy);
+}
+
+/*
+========================
+SDLash_InitCursors
+
+========================
+*/
+static void SDLash_InitCursors( void )
+{
+	static qboolean initialized = false;
+	if( !initialized )
+	{
+		// load up all default cursors
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+		g_pDefaultCursor[dc_none] = NULL;
+		g_pDefaultCursor[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+		g_pDefaultCursor[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+		g_pDefaultCursor[dc_hourglass] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+		g_pDefaultCursor[dc_crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+		g_pDefaultCursor[dc_up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+		g_pDefaultCursor[dc_sizenwse] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+		g_pDefaultCursor[dc_sizenesw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+		g_pDefaultCursor[dc_sizewe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+		g_pDefaultCursor[dc_sizens] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+		g_pDefaultCursor[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
+		g_pDefaultCursor[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
+		g_pDefaultCursor[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+#endif
+		initialized = true;
+	}
+}
+
+/*
+========================
+Platform_SetCursorType
+
+========================
+*/
+void Platform_SetCursorType( VGUI_DefaultCursor type )
+{
+	qboolean visible;
+
+	if (cls.key_dest != key_game || cl.paused)
+		return;
+
+	SDLash_InitCursors();
+
+	switch( type )
+	{
+		case dc_user:
+		case dc_none:
+			visible = false;
+			break;
+		default:
+			visible = true;
+			break;
+	}
+
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	if( CVAR_TO_BOOL( touch_emulate ))
+		return;
+
+	if (visible && !host.mouse_visible)
+	{
+		SDL_SetCursor( g_pDefaultCursor[type] );
+		SDL_ShowCursor( true );
+		Key_EnableTextInput( true, false );
+	}
+	else if (!visible && host.mouse_visible)
+	{
+		SDL_ShowCursor( false );
+		Key_EnableTextInput( false, false );
+	}
+	host.mouse_visible = visible;
+#endif
+}
+
+/*
+========================
+Platform_GetKeyModifiers
+
+========================
+*/
+key_modifier_t Platform_GetKeyModifiers( void )
+{
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	SDL_Keymod modFlags;
+	key_modifier_t resultFlags;
+
+	resultFlags = KeyModifier_None;
+	modFlags = SDL_GetModState();
+	if( FBitSet( modFlags, KMOD_LCTRL ))
+		SetBits( resultFlags, KeyModifier_LeftCtrl );
+	if( FBitSet( modFlags, KMOD_RCTRL ))
+		SetBits( resultFlags, KeyModifier_RightCtrl );
+	if( FBitSet( modFlags, KMOD_RSHIFT ))
+		SetBits( resultFlags, KeyModifier_RightShift );
+	if( FBitSet( modFlags, KMOD_LSHIFT ))
+		SetBits( resultFlags, KeyModifier_LeftShift );
+	if( FBitSet( modFlags, KMOD_LALT ))
+		SetBits( resultFlags, KeyModifier_LeftAlt );
+	if( FBitSet( modFlags, KMOD_RALT ))
+		SetBits( resultFlags, KeyModifier_RightAlt );
+	if( FBitSet( modFlags, KMOD_NUM ))
+		SetBits( resultFlags, KeyModifier_NumLock );
+	if( FBitSet( modFlags, KMOD_CAPS ))
+		SetBits( resultFlags, KeyModifier_CapsLock );
+	if( FBitSet( modFlags, KMOD_RGUI ))
+		SetBits( resultFlags, KeyModifier_RightSuper );
+	if( FBitSet( modFlags, KMOD_LGUI ))
+		SetBits( resultFlags, KeyModifier_LeftSuper );
+
+	return resultFlags;
+#else
+	return KeyModifier_None;
+#endif
 }
 
 #endif // XASH_DEDICATED

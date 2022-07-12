@@ -1020,6 +1020,8 @@ Fills in surf->texturemins[] and surf->extents[]
 */
 static void Mod_CalcSurfaceExtents( msurface_t *surf )
 {
+	// this place is VERY critical to precision
+	// keep it as float, don't use double, because it causes issues with lightmap
 	float		mins[2], maxs[2], val;
 	float		lmmins[2], lmmaxs[2];
 	int		bmins[2], bmaxs[2];
@@ -1049,14 +1051,14 @@ static void Mod_CalcSurfaceExtents( msurface_t *surf )
 
 		for( j = 0; j < 2; j++ )
 		{
-			val = DotProduct( v->position, surf->texinfo->vecs[j] ) + surf->texinfo->vecs[j][3];
+			val = DotProductPrecise( v->position, surf->texinfo->vecs[j] ) + surf->texinfo->vecs[j][3];
 			mins[j] = Q_min( val, mins[j] );
 			maxs[j] = Q_max( val, maxs[j] );
 		}
 
 		for( j = 0; j < 2; j++ )
 		{
-			val = DotProduct( v->position, info->lmvecs[j] ) + info->lmvecs[j][3];
+			val = DotProductPrecise( v->position, info->lmvecs[j] ) + info->lmvecs[j][3];
 			lmmins[j] = Q_min( val, lmmins[j] );
 			lmmaxs[j] = Q_max( val, lmmaxs[j] );
 		}

@@ -1515,17 +1515,18 @@ R_RicochetSound
 Make a random ricochet sound
 ==============
 */
-void GAME_EXPORT R_RicochetSound( const vec3_t pos )
+static void R_RicochetSound_( const vec3_t pos, int sound )
 {
-	int	iPitch = COM_RandomLong( 90, 105 );
-	float	fvol = COM_RandomFloat( 0.7f, 0.9f );
-	char	soundpath[32];
 	sound_t	handle;
 
-	Q_strncpy( soundpath, cl_ricochet_sounds[COM_RandomLong( 0, 4 )], sizeof( soundpath ) );
-	handle = S_RegisterSound( soundpath );
+	handle = S_RegisterSound( cl_ricochet_sounds[sound] );
 
-	S_StartSound( pos, 0, CHAN_AUTO, handle, fvol, ATTN_NORM, iPitch, 0 );
+	S_StartSound( pos, 0, CHAN_AUTO, handle, VOL_NORM, 1.0, 100, 0 );
+}
+
+void GAME_EXPORT R_RicochetSound( const vec3_t pos )
+{
+	R_RicochetSound_( pos, COM_RandomLong( 0, 4 ));
 }
 
 /*
@@ -1656,7 +1657,7 @@ void GAME_EXPORT R_Explosion( vec3_t pos, int model, float scale, float framerat
 			dl->color.g = 250;
 			dl->color.b = 150;
 			dl->die = cl.time + 0.01f;
-			dl->decay = 80;
+			dl->decay = 800;
 
 			// red glow
 			dl = CL_AllocDlight( 0 );
@@ -1915,6 +1916,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 	TEMPENTITY	*pTemp;
 	cl_entity_t	*pEnt;
 	dlight_t		*dl;
+	sound_t	hSound;
 
 	if( cls.legacymode )
 		iSize = MSG_ReadByte( msg );
@@ -2014,15 +2016,46 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		color = MSG_ReadByte( &buf );
 		count = MSG_ReadByte( &buf );
 		R_ParticleExplosion2( pos, color, count );
+
+		dl = CL_AllocDlight( 0 );
+		VectorCopy( pos, dl->origin );
+		dl->radius = 350;
+		dl->die = cl.time + 0.5;
+		dl->decay = 300;
+
+		hSound = S_RegisterSound( cl_explode_sounds[0] );
+		S_StartSound( pos, 0, CHAN_STATIC, hSound, VOL_NORM, 0.6f, PITCH_NORM, 0 );
 		break;
 	case TE_BSPDECAL:
+	case TE_DECAL:
+	case TE_WORLDDECAL:
+	case TE_WORLDDECALHIGH:
+	case TE_DECALHIGH:
 		pos[0] = MSG_ReadCoord( &buf );
 		pos[1] = MSG_ReadCoord( &buf );
 		pos[2] = MSG_ReadCoord( &buf );
-		decalIndex = MSG_ReadShort( &buf );
-		entityIndex = MSG_ReadShort( &buf );
-		if( entityIndex ) modelIndex = MSG_ReadShort( &buf );
-		CL_DecalShoot( CL_DecalIndex( decalIndex ), entityIndex, modelIndex, pos, FDECAL_PERMANENT );
+		if( type == TE_BSPDECAL )
+		{
+			decalIndex = MSG_ReadShort( &buf );
+			entityIndex = MSG_ReadShort( &buf );
+			if( entityIndex )
+				modelIndex = MSG_ReadShort( &buf );
+			else modelIndex = 0;
+		}
+		else
+		{
+			decalIndex = MSG_ReadByte( &buf );
+			if( type == TE_DECALHIGH || type == TE_WORLDDECALHIGH )
+				decalIndex += 256;
+
+			if( type == TE_DECALHIGH || type == TE_DECAL )
+				entityIndex = MSG_ReadShort( &buf );
+			else entityIndex = 0;
+
+			pEnt = CL_GetEntityByIndex( entityIndex );
+			modelIndex = pEnt->curstate.modelindex;
+		}
+		CL_DecalShoot( CL_DecalIndex( decalIndex ), entityIndex, modelIndex, pos, type == TE_BSPDECAL ? FDECAL_PERMANENT : 0 );
 		break;
 	case TE_IMPLOSION:
 		pos[0] = MSG_ReadCoord( &buf );
@@ -2042,10 +2075,12 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		pos2[2] = MSG_ReadCoord( &buf );
 		modelIndex = MSG_ReadShort( &buf );
 		count = MSG_ReadByte( &buf );
-		life = (float)(MSG_ReadByte( &buf ) * 0.1f);
-		scale = (float)(MSG_ReadByte( &buf ) * 0.1f);
-		vel = (float)MSG_ReadByte( &buf );
-		random = (float)MSG_ReadByte( &buf );
+		life = (float)MSG_ReadByte( &buf ) * 0.1f;
+		scale = (float)MSG_ReadByte( &buf );
+		if( !scale ) scale = 1.0f;
+		else scale *= 0.1f;
+		vel = (float)MSG_ReadByte( &buf ) * 10;
+		random = (float)MSG_ReadByte( &buf ) * 10;
 		R_Sprite_Trail( type, pos, pos2, modelIndex, count, life, scale, random, 255, vel );
 		break;
 	case TE_SPRITE:
@@ -2053,36 +2088,23 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		pos[1] = MSG_ReadCoord( &buf );
 		pos[2] = MSG_ReadCoord( &buf );
 		modelIndex = MSG_ReadShort( &buf );
-		scale = (float)(MSG_ReadByte( &buf ) * 0.1f);
-		brightness = (float)MSG_ReadByte( &buf );
+		scale = (float)MSG_ReadByte( &buf ) * 0.1f;
+		brightness = (float)MSG_ReadByte( &buf ) / 255.0f;
 
-		if(( pTemp = R_DefaultSprite( pos, modelIndex, 0 )) != NULL )
-		{
-			pTemp->entity.curstate.scale = scale;
-			pTemp->entity.baseline.renderamt = brightness;
-			pTemp->entity.curstate.renderamt = brightness;
-			pTemp->entity.curstate.rendermode = kRenderTransAdd;
-		}
+		R_TempSprite( pos, vec3_origin, scale, modelIndex,
+			kRenderTransAdd, kRenderFxNone, brightness, 0.0, FTENT_SPRANIMATE );
 		break;
 	case TE_GLOWSPRITE:
 		pos[0] = MSG_ReadCoord( &buf );
 		pos[1] = MSG_ReadCoord( &buf );
 		pos[2] = MSG_ReadCoord( &buf );
 		modelIndex = MSG_ReadShort( &buf );
-		life = (float)(MSG_ReadByte( &buf ) * 0.1f);
-		scale = (float)(MSG_ReadByte( &buf ) * 0.1f);
-		brightness = (float)MSG_ReadByte( &buf );
+		life = (float)MSG_ReadByte( &buf ) * 0.1f;
+		scale = (float)MSG_ReadByte( &buf ) * 0.1f;
+		brightness = (float)MSG_ReadByte( &buf ) / 255.0f;
 
-		if(( pTemp = R_DefaultSprite( pos, modelIndex, 0 )) != NULL )
-		{
-			pTemp->entity.curstate.scale = scale;
-			pTemp->entity.curstate.rendermode = kRenderGlow;
-			pTemp->entity.curstate.renderfx = kRenderFxNoDissipation;
-			pTemp->entity.baseline.renderamt = brightness;
-			pTemp->entity.curstate.renderamt = brightness;
-			pTemp->flags = FTENT_FADEOUT;
-			pTemp->die = cl.time + life;
-		}
+		R_TempSprite( pos, vec3_origin, scale, modelIndex,
+			kRenderGlow, kRenderFxNoDissipation, brightness, life, FTENT_FADEOUT );
 		break;
 	case TE_STREAK_SPLASH:
 		pos[0] = MSG_ReadCoord( &buf );
@@ -2172,23 +2194,6 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		pos2[2] = MSG_ReadCoord( &buf );
 		R_ShowLine( pos, pos2 );
 		break;
-	case TE_DECAL:
-	case TE_DECALHIGH:
-	case TE_WORLDDECAL:
-	case TE_WORLDDECALHIGH:
-		pos[0] = MSG_ReadCoord( &buf );
-		pos[1] = MSG_ReadCoord( &buf );
-		pos[2] = MSG_ReadCoord( &buf );
-		decalIndex = MSG_ReadByte( &buf );
-		if( type == TE_DECAL || type == TE_DECALHIGH )
-			entityIndex = MSG_ReadShort( &buf );
-		else entityIndex = 0;
-		if( type == TE_DECALHIGH || type == TE_WORLDDECALHIGH )
-			decalIndex += 256;
-		pEnt = CL_GetEntityByIndex( entityIndex );
-		if( pEnt ) modelIndex = pEnt->curstate.modelindex;
-		CL_DecalShoot( CL_DecalIndex( decalIndex ), entityIndex, modelIndex, pos, 0 );
-		break;
 	case TE_FIZZ:
 		entityIndex = MSG_ReadShort( &buf );
 		modelIndex = MSG_ReadShort( &buf );
@@ -2244,10 +2249,11 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		pos[2] = MSG_ReadCoord( &buf );
 		entityIndex = MSG_ReadShort( &buf );
 		decalIndex = MSG_ReadByte( &buf );
-		pEnt = CL_GetEntityByIndex( entityIndex );
 		CL_DecalShoot( CL_DecalIndex( decalIndex ), entityIndex, 0, pos, 0 );
 		R_BulletImpactParticles( pos );
-		R_RicochetSound( pos );
+		flags = COM_RandomLong( 0, 0x7fff );
+		if( flags < 0x3fff )
+			R_RicochetSound_( pos, flags % 5 );
 		break;
 	case TE_SPRAY:
 	case TE_SPRITE_SPRAY:
@@ -2393,7 +2399,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 
 	// throw warning
 	if( MSG_CheckOverflow( &buf ))
-		Con_DPrintf( S_WARN "ParseTempEntity: overflow TE message\n" );
+		Con_DPrintf( S_WARN "ParseTempEntity: overflow TE message %i\n", type );
 }
 
 
@@ -2693,7 +2699,7 @@ apply various effects to entity origin or attachment
 void CL_AddEntityEffects( cl_entity_t *ent )
 {
 	// yellow flies effect 'monster stuck in the wall'
-	if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ))
+	if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ) && !RP_LOCALCLIENT( ent ))
 		R_EntityParticles( ent );
 
 	if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))

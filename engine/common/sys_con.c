@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #if XASH_ANDROID
 #include <android/log.h>
 #endif
+#include <string.h>
+#include <errno.h>
 
 #if !XASH_WIN32 && !XASH_MOBILE_PLATFORM
 #define XASH_COLORIZE_CONSOLE
@@ -95,6 +97,20 @@ int Sys_LogFileNo( void )
 	return s_ld.logfileno;
 }
 
+static void Sys_FlushStdout( void )
+{
+	// never printing anything to stdout on mobiles
+#if !XASH_MOBILE_PLATFORM
+	fflush( stdout );
+#endif
+}
+
+static void Sys_FlushLogfile( void )
+{
+	if( s_ld.logfile )
+		fflush( s_ld.logfile );
+}
+
 void Sys_InitLog( void )
 {
 	const char	*mode;
@@ -113,11 +129,16 @@ void Sys_InitLog( void )
 	if( s_ld.log_active )
 	{
 		s_ld.logfile = fopen( s_ld.log_path, mode );
-		if( !s_ld.logfile ) Con_Reportf( S_ERROR  "Sys_InitLog: can't create log file %s\n", s_ld.log_path );
-
-		fprintf( s_ld.logfile, "=================================================================================\n" );
-		fprintf( s_ld.logfile, "\t%s (build %i) started at %s\n", s_ld.title, Q_buildnum(), Q_timestamp( TIME_FULL ));
-		fprintf( s_ld.logfile, "=================================================================================\n" );
+		if( !s_ld.logfile )
+		{
+			Con_Reportf( S_ERROR  "Sys_InitLog: can't create log file %s: %s\n", s_ld.log_path, strerror( errno ) );
+		}
+		else
+		{
+			fprintf( s_ld.logfile, "=================================================================================\n" );
+			fprintf( s_ld.logfile, "\t%s (build %i) started at %s\n", s_ld.title, Q_buildnum(), Q_timestamp( TIME_FULL ));
+			fprintf( s_ld.logfile, "=================================================================================\n" );
+		}
 	}
 }
 
@@ -140,6 +161,8 @@ void Sys_CloseLog( void )
 		break;
 	}
 
+	Sys_FlushStdout(); // flush to stdout to ensure all data was written
+
 	if( s_ld.logfile )
 	{
 		fprintf( s_ld.logfile, "\n");
@@ -153,6 +176,50 @@ void Sys_CloseLog( void )
 	}
 }
 
+static void Sys_PrintColorized( const char *logtime, const char *msg )
+{
+	char colored[4096];
+	int len = 0;
+
+	while( *msg && ( len < 4090 ) )
+	{
+		static char q3ToAnsi[ 8 ] =
+		{
+			'0', // COLOR_BLACK
+			'1', // COLOR_RED
+			'2', // COLOR_GREEN
+			'3', // COLOR_YELLOW
+			'4', // COLOR_BLUE
+			'6', // COLOR_CYAN
+			'5', // COLOR_MAGENTA
+			0 // COLOR_WHITE
+		};
+
+		if( IsColorString( msg ) )
+		{
+			int color;
+
+			msg++;
+			color = q3ToAnsi[ *msg++ % 8 ];
+			colored[len++] = '\033';
+			colored[len++] = '[';
+			if( color )
+			{
+				colored[len++] = '3';
+				colored[len++] = color;
+			}
+			else
+				colored[len++] = '0';
+			colored[len++] = 'm';
+		}
+		else
+			colored[len++] = *msg++;
+	}
+	colored[len] = 0;
+
+	printf( "\033[34m%s\033[0m%s\033[0m", logtime, colored );
+}
+
 void Sys_PrintLog( const char *pMsg )
 {
 	time_t		crt_time;
@@ -162,6 +229,8 @@ void Sys_PrintLog( const char *pMsg )
 
 	time( &crt_time );
 	crt_tm = localtime( &crt_time );
+
+	// platform-specific output
 #if XASH_ANDROID && !XASH_DEDICATED
 	__android_log_print( ANDROID_LOG_DEBUG, "Xash", "%s", pMsg );
 #endif
@@ -171,58 +240,17 @@ void Sys_PrintLog( const char *pMsg )
 	IOS_Log(pMsg);
 #endif
 
-
 	if( !lastchar || lastchar == '\n')
 		strftime( logtime, sizeof( logtime ), "[%H:%M:%S] ", crt_tm ); //short time
 
+	// spew to stdout, except mobiles
+#if !XASH_MOBILE_PLATFORM
 #ifdef XASH_COLORIZE_CONSOLE
-	{
-		char colored[4096];
-		const char *msg = pMsg;
-		int len = 0;
-		while( *msg && ( len < 4090 ) )
-		{
-			static char q3ToAnsi[ 8 ] =
-			{
-				'0', // COLOR_BLACK
-				'1', // COLOR_RED
-				'2', // COLOR_GREEN
-				'3', // COLOR_YELLOW
-				'4', // COLOR_BLUE
-				'6', // COLOR_CYAN
-				'5', // COLOR_MAGENTA
-				0 // COLOR_WHITE
-			};
-
-			if( IsColorString( msg ) )
-			{
-				int color;
-
-				msg++;
-				color = q3ToAnsi[ *msg++ % 8 ];
-				colored[len++] = '\033';
-				colored[len++] = '[';
-				if( color )
-				{
-					colored[len++] = '3';
-					colored[len++] = color;
-				}
-				else
-					colored[len++] = '0';
-				colored[len++] = 'm';
-			}
-			else
-				colored[len++] = *msg++;
-		}
-		colored[len] = 0;
-		printf( "\033[34m%s\033[0m%s\033[0m", logtime, colored );
-
-	}
+	Sys_PrintColorized( logtime, pMsg );
 #else
-#if !XASH_ANDROID || XASH_DEDICATED
 	printf( "%s %s", logtime, pMsg );
-	fflush( stdout );
 #endif
+	Sys_FlushStdout();
 #endif
 
 	// save last char to detect when line was not ended
@@ -235,7 +263,7 @@ void Sys_PrintLog( const char *pMsg )
 		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S]", crt_tm ); //full time
 
 	fprintf( s_ld.logfile, "%s %s", logtime, pMsg );
-	fflush( s_ld.logfile );
+	Sys_FlushLogfile();
 }
 
 /*

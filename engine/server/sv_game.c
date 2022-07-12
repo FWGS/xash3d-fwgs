@@ -2608,6 +2608,13 @@ void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float *pOrigi
 	svgame.msg_realsize = 0;
 	svgame.msg_dest = msg_dest;
 	svgame.msg_ent = ed;
+
+	// enable message tracing
+	svgame.msg_trace = sv_trace_messages.value != 0 &&
+		msg_num > svc_lastmsg &&
+		Q_strcmp( svgame.msg_name, "ReqState" );
+
+	if( svgame.msg_trace ) Con_Printf( "^3%s( %i, %s )\n", __FUNCTION__, msg_dest, svgame.msg_name );
 }
 
 /*
@@ -2706,6 +2713,8 @@ void GAME_EXPORT pfnMessageEnd( void )
 	svgame.msg_dest = bound( MSG_BROADCAST, svgame.msg_dest, MSG_SPEC );
 
 	SV_Multicast( svgame.msg_dest, org, svgame.msg_ent, true, false );
+
+	if( svgame.msg_trace ) Con_Printf( "^3%s()\n", __FUNCTION__, svgame.msg_dest, svgame.msg_name );
 }
 
 /*
@@ -2718,6 +2727,7 @@ void GAME_EXPORT pfnWriteByte( int iValue )
 {
 	if( iValue == -1 ) iValue = 0xFF; // convert char to byte
 	MSG_WriteByte( &sv.multicast, (byte)iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
 	svgame.msg_realsize++;
 }
 
@@ -2730,6 +2740,7 @@ pfnWriteChar
 void GAME_EXPORT pfnWriteChar( int iValue )
 {
 	MSG_WriteChar( &sv.multicast, (signed char)iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
 	svgame.msg_realsize++;
 }
 
@@ -2742,6 +2753,7 @@ pfnWriteShort
 void GAME_EXPORT pfnWriteShort( int iValue )
 {
 	MSG_WriteShort( &sv.multicast, (short)iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
 	svgame.msg_realsize += 2;
 }
 
@@ -2754,6 +2766,7 @@ pfnWriteLong
 void GAME_EXPORT pfnWriteLong( int iValue )
 {
 	MSG_WriteLong( &sv.multicast, iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
 	svgame.msg_realsize += 4;
 }
 
@@ -2769,6 +2782,7 @@ void GAME_EXPORT pfnWriteAngle( float flValue )
 	int	iAngle = ((int)(( flValue ) * 256 / 360) & 255);
 
 	MSG_WriteChar( &sv.multicast, iAngle );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %f )\n", __FUNCTION__, flValue );
 	svgame.msg_realsize += 1;
 }
 
@@ -2781,6 +2795,7 @@ pfnWriteCoord
 void GAME_EXPORT pfnWriteCoord( float flValue )
 {
 	MSG_WriteCoord( &sv.multicast, flValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %f )\n", __FUNCTION__, flValue );
 	svgame.msg_realsize += 2;
 }
 
@@ -2793,6 +2808,7 @@ pfnWriteBytes
 void pfnWriteBytes( const byte *bytes, int count )
 {
 	MSG_WriteBytes( &sv.multicast, bytes, count );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, count );
 	svgame.msg_realsize += count;
 }
 
@@ -2854,6 +2870,7 @@ void GAME_EXPORT pfnWriteString( const char *src )
 
 	*dst = '\0'; // string end (not included in count)
 	MSG_WriteString( &sv.multicast, string );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %s )\n", __FUNCTION__, string );
 
 	// NOTE: some messages with constant string length can be marked as known sized
 	svgame.msg_realsize += len;
@@ -2870,6 +2887,7 @@ void GAME_EXPORT pfnWriteEntity( int iValue )
 	if( iValue < 0 || iValue >= svgame.numEntities )
 		Host_Error( "MSG_WriteEntity: invalid entnumber %i\n", iValue );
 	MSG_WriteShort( &sv.multicast, (short)iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
 	svgame.msg_realsize += 2;
 }
 

@@ -717,7 +717,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	int		  numpackfiles = 0, i;
 	zip_cdf_header_t  header_cdf;
 	zip_header_eocd_t header_eocd;
-	uint		  signature;
+	uint32_t          signature;
 	fs_offset_t	  filepos = 0, length;
 	zipfile_t	  *info = NULL;
 	char		  filename_buffer[MAX_SYSPATH];
@@ -794,7 +794,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		lseek( zip->handle, filepos, SEEK_SET );
 		c = read( zip->handle, &signature, sizeof( signature ) );
 
-		if( c != sizeof( signature ) || signature == ZIP_HEADER_EOCD )
+		if( c == sizeof( signature ) && signature == ZIP_HEADER_EOCD )
 			break;
 
 		filepos -= sizeof( char ); // step back one byte
@@ -928,7 +928,8 @@ void Zip_Close( zip_t *zip )
 	if( !zip )
 		return;
 
-	Mem_Free( zip->files );
+	if( zip->files )
+		Mem_Free( zip->files );
 
 	FS_EnsureOpenZip( NULL );
 
@@ -1191,7 +1192,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 	}
 }
 
-qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
+static qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
 {
 	searchpath_t	*search;
 	zip_t		*zip = NULL;
@@ -1209,7 +1210,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 
 	if( already_loaded ) *already_loaded = false;
 
-	if( !Q_stricmp( ext, "pk3" ) )
+	if( !Q_stricmp( ext, "pk3" ) || !Q_stricmp( ext, "zip" ))
 		zip = FS_LoadZip( zipfile, &errorcode );
 
 	if( zip )
@@ -1242,6 +1243,24 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
 		return false;
 	}
+}
+
+/*
+================
+FS_AddArchive_Fullpath
+================
+*/
+static qboolean FS_AddArchive_Fullpath( const char *file, qboolean *already_loaded, int flags )
+{
+	const char *ext = COM_FileExtension( file );
+
+	if( !Q_stricmp( ext, "zip" ) || !Q_stricmp( ext, "pk3" ))
+		return FS_AddZip_Fullpath( file, already_loaded, flags );
+	else if ( !Q_stricmp( ext, "pak" ))
+		return FS_AddPak_Fullpath( file, already_loaded, flags );
+
+	// skip wads, this function only meant to be used for extras
+	return false;
 }
 
 /*
@@ -1469,11 +1488,12 @@ void FS_Rescan( void )
 	}
 #else
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
-	if( COM_CheckString( str ) )
-		FS_AddPak_Fullpath( str, NULL, extrasFlags );
+	if( COM_CheckString( str ))
+		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
+
 	str = getenv( "XASH3D_EXTRAS_PAK2" );
-	if( COM_CheckString( str ) )
-		FS_AddPak_Fullpath( str, NULL, extrasFlags );
+	if( COM_CheckString( str ))
+		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
 #endif
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
@@ -1843,6 +1863,11 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->noskills = Q_atoi( token );
 			}
+			else if( !Q_stricmp( token, "render_picbutton_text" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->render_picbutton_text = Q_atoi( token );
+			}
 		}
 	}
 
@@ -2166,8 +2191,8 @@ void FS_Init( void )
 
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
-			char *roPath = va( "%s" PATH_SPLITTER "%s", host.rodir, dirs.strings[i] );
-			char *rwPath = va( "%s" PATH_SPLITTER "%s", host.rootdir, dirs.strings[i] );
+			char *roPath = va( "%s" PATH_SPLITTER "%s" PATH_SPLITTER, host.rodir, dirs.strings[i] );
+			char *rwPath = va( "%s" PATH_SPLITTER "%s" PATH_SPLITTER, host.rootdir, dirs.strings[i] );
 
 			// check if it's a directory
 			if( !FS_SysFolderExists( roPath ))
@@ -3633,6 +3658,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	searchpath_t	*searchpath;
 	pack_t		*pak;
 	wfile_t		*wad;
+	zip_t		*zip;
 	int		i, basepathlength, numfiles, numchars;
 	int		resultlistindex, dirlistindex;
 	const char	*slash, *backslash, *colon, *separator;
@@ -3670,6 +3696,42 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 			for( i = 0; i < pak->numfiles; i++ )
 			{
 				Q_strncpy( temp, pak->files[i].name, sizeof( temp ));
+				while( temp[0] )
+				{
+					if( matchpattern( temp, (char *)pattern, true ))
+					{
+						for( resultlistindex = 0; resultlistindex < resultlist.numstrings; resultlistindex++ )
+						{
+							if( !Q_strcmp( resultlist.strings[resultlistindex], temp ))
+								break;
+						}
+
+						if( resultlistindex == resultlist.numstrings )
+							stringlistappend( &resultlist, temp );
+					}
+
+					// strip off one path element at a time until empty
+					// this way directories are added to the listing if they match the pattern
+					slash = Q_strrchr( temp, '/' );
+					backslash = Q_strrchr( temp, '\\' );
+					colon = Q_strrchr( temp, ':' );
+					separator = temp;
+					if( separator < slash )
+						separator = slash;
+					if( separator < backslash )
+						separator = backslash;
+					if( separator < colon )
+						separator = colon;
+					*((char *)separator) = 0;
+				}
+			}
+		}
+		else if( searchpath->zip )
+		{
+			zip = searchpath->zip;
+			for( i = 0; i < zip->numfiles; i++ )
+			{
+				Q_strncpy( temp, zip->files[i].name, sizeof(temp) );
 				while( temp[0] )
 				{
 					if( matchpattern( temp, (char *)pattern, true ))

@@ -20,12 +20,13 @@ class Subproject:
 	ignore    = False # if true will be ignored, set by user request
 	mandatory  = False
 
-	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, utility = False):
+	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, utility = False, fuzzer = False):
 		self.name = name
 		self.dedicated = dedicated
 		self.singlebin = singlebin
 		self.mandatory = mandatory
 		self.utility = utility
+		self.fuzzer = fuzzer
 
 	def is_enabled(self, ctx):
 		if not self.mandatory:
@@ -47,6 +48,9 @@ class Subproject:
 		if self.utility and not ctx.env.ENABLE_UTILS:
 			return False
 
+		if self.fuzzer and not ctx.env.ENABLE_FUZZER:
+			return False
+
 		return True
 
 SUBDIRS = [
@@ -60,7 +64,8 @@ SUBDIRS = [
 	Subproject('stub/client'),
 	Subproject('dllemu'),
 	Subproject('engine', dedicated=False),
-	Subproject('utils/mdldec', utility=True)
+	Subproject('utils/mdldec', utility=True),
+	Subproject('utils/run-fuzzer', fuzzer=True)
 ]
 
 def subdirs():
@@ -97,6 +102,9 @@ def options(opt):
 
 	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
 		help = 'enable building various development utilities [default: %default]')
+
+	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
+		help = 'enable building libFuzzer runner [default: %default]' )
 
 	opt.load('compiler_optimizations subproject')
 
@@ -245,6 +253,7 @@ def configure(conf):
 		conf.define('STDINT_H', 'pstdint.h')
 
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
+	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 
@@ -288,6 +297,19 @@ def configure(conf):
 		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
 	else:
 		conf.undefine('HAVE_TGMATH_H')
+
+	# set _FILE_OFFSET_BITS=64 for filesystems with 64-bit inodes
+	if conf.env.DEST_OS != 'win32' and conf.env.DEST_SIZEOF_VOID_P == 4:
+		file_offset_bits_usable = conf.check_cc(fragment='''#define _FILE_OFFSET_BITS 64
+		#include <features.h>
+		#ifndef __USE_FILE_OFFSET64
+		#error
+		#endif
+		int main(void){ return 0; }''',
+		msg='Checking if _FILE_OFFSET_BITS can be defined to 64', mandatory=False)
+		if file_offset_bits_usable:
+			conf.define('_FILE_OFFSET_BITS', 64)
+		else: conf.undefine('_FILE_OFFSET_BITS')
 
 	# check if we can use alloca.h or malloc.h
 	if conf.check_cc(header_name='alloca.h', mandatory=False):

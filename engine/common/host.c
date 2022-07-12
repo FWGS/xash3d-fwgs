@@ -51,6 +51,7 @@ struct tests_stats_s tests_stats;
 #endif
 
 CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in development-mode" );
+CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_CHEAT|FCVAR_FILTERABLE, "scale frame time" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
 
 convar_t	*host_serverstate;
@@ -85,9 +86,11 @@ void Sys_PrintUsage( void )
 	O("-dev [level]     ","set log verbosity 0-2")
 	O("-log             ","write log to \"engine.log\"")
 	O("-nowriteconfig   ","disable config save")
+
 #if !XASH_WIN32
 	O("-casesensitive   ","disable case-insensitive FS emulation")
 #endif // !XASH_WIN32
+
 #if !XASH_MOBILE_PLATFORM
 	O("-daemonize       ","run engine in background, dedicated only")
 #endif // !XASH_MOBILE_PLATFORM
@@ -98,53 +101,53 @@ void Sys_PrintUsage( void )
 	O("-height <n>      ","set window height")
 	O("-oldfont         ","enable unused Quake font in Half-Life")
 
-	#if !XASH_MOBILE_PLATFORM
+#if !XASH_MOBILE_PLATFORM
 	O("-fullscreen      ","run engine in fullscreen mode")
 	O("-windowed        ","run engine in windowed mode")
 	O("-dedicated       ","run engine in dedicated server mode")
-	#endif // XASH_MOBILE_PLATFORM
+#endif // XASH_MOBILE_PLATFORM
 
-	#if XASH_ANDROID
-        O("-nativeegl       ","use native egl implementation. Use if screen does not update or black")
-	#endif // XASH_ANDROID
+#if XASH_ANDROID
+	O("-nativeegl       ","use native egl implementation. Use if screen does not update or black")
+#endif // XASH_ANDROID
 
-	#if XASH_WIN32
-        O("-noavi           ","disable AVI support")
-        O("-nointro         ","disable intro video")
-	#endif // XASH_WIN32
+#if XASH_WIN32
+	O("-noavi           ","disable AVI support")
+	O("-nointro         ","disable intro video")
+#endif // XASH_WIN32
 
-	#if XASH_DOS
+#if XASH_DOS
 	O("-novesa          ","disable vesa")
-	#endif // XASH_DOS
+#endif // XASH_DOS
 
-	#if XASH_VIDEO == VIDEO_FBDEV
+#if XASH_VIDEO == VIDEO_FBDEV
 	O("-fbdev <path>    ","open selected framebuffer")
 	O("-ttygfx          ","set graphics mode in tty")
 	O("-doublebuffer    ","enable doublebuffering")
-	#endif // XASH_VIDEO == VIDEO_FBDEV
+#endif // XASH_VIDEO == VIDEO_FBDEV
 
-	#if XASH_SOUND == SOUND_ALSA
+#if XASH_SOUND == SOUND_ALSA
 	O("-alsadev <dev>   ","open selected ALSA device")
-	#endif // XASH_SOUND == SOUND_ALSA
+#endif // XASH_SOUND == SOUND_ALSA
 
 	O("-nojoy           ","disable joystick support")
-	#ifdef XASH_SDL
+
+#ifdef XASH_SDL
 	O("-sdl_joy_old_api ","use SDL legacy joystick API")
 	O("-sdl_renderer <n>","use alternative SDL_Renderer for software")
-	#endif // XASH_SDL
+#endif // XASH_SDL
 	O("-nosound         ","disable sound")
 	O("-noenginemouse   ","disable mouse completely")
 
 	O("-ref <name>      ","use selected renderer dll")
-        O("-gldebug         ","enable OpenGL debug log")
-
+	O("-gldebug         ","enable OpenGL debug log")
 #endif // XASH_DEDICATED
 
 	O("-noip            ","disable TCP/IP")
 	O("-noch            ","disable crashhandler")
 	O("-disablehelp     ","disable this message")
 	O("-dll <path>      ","override server DLL path")
-#ifndef XASH_DEDICATED
+#if !XASH_DEDICATED
 	O("-clientlib <path>","override client DLL path")
 #endif
 	O("-rodir <path>    ","set read-only base directory, experimental")
@@ -626,8 +629,9 @@ qboolean Host_FilterTime( float time )
 {
 	static double	oldtime;
 	double		fps;
+	double		scale = sys_timescale.value;
 
-	host.realtime += time;
+	host.realtime += time * scale;
 	fps = Host_CalcFPS( );
 
 	// clamp the fps in multiplayer games
@@ -638,12 +642,12 @@ qboolean Host_FilterTime( float time )
 
 		if( Host_IsDedicated() )
 		{
-			if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )))
+			if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )) * scale)
 				return false;
 		}
 		else
 		{
-			if(( host.realtime - oldtime ) < ( 1.0 / fps ))
+			if(( host.realtime - oldtime ) < ( 1.0 / fps ) * scale )
 				return false;
 		}
 	}
@@ -654,7 +658,7 @@ qboolean Host_FilterTime( float time )
 
 	// NOTE: allow only in singleplayer while demos are not active
 	if( host_framerate->value > 0.0f && Host_IsLocalGame() && !CL_IsPlaybackDemo() && !CL_IsRecordDemo( ))
-		host.frametime = bound( MIN_FRAMETIME, host_framerate->value, MAX_FRAMETIME );
+		host.frametime = bound( MIN_FRAMETIME, host_framerate->value * scale, MAX_FRAMETIME );
 	else host.frametime = bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME );
 
 	return true;
@@ -826,6 +830,9 @@ static void Host_RunTests( int stage )
 		break;
 	case 1: // after FS load
 		Test_RunImagelib();
+#if !XASH_DEDICATED
+		Test_RunVOX();
+#endif
 		Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
 		Sys_Quit();
 	}
@@ -1098,10 +1105,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
 	con_gamemaps = Cvar_Get( "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
+	Cvar_RegisterVariable( &sys_timescale );
 
 	build = Cvar_Get( "buildnum", va( "%i", Q_buildnum_compat()), FCVAR_READ_ONLY, "returns a current build number" );
 	ver = Cvar_Get( "ver", va( "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat()), FCVAR_READ_ONLY, "shows an engine version" );
 	Cvar_Get( "host_ver", va( "%i %s %s %s %s", Q_buildnum(), XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildcommit() ), FCVAR_READ_ONLY, "detailed info about this build" );
+	Cvar_Get( "host_lowmemorymode", va( "%i", XASH_LOW_MEMORY ), FCVAR_READ_ONLY, "indicates if engine compiled for low RAM consumption (0 - normal, 1 - low engine limits, 2 - low protocol limits)" );
 
 	Mod_Init();
 	NET_Init();

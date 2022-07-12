@@ -27,16 +27,13 @@ Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 * Vulkan renderer
 
 ## Installation & Running
-0) Get Xash3D binaries: you can use [testing](https://github.com/FWGS/xash3d-fwgs/releases/tag/continuous) build or you can compile engine from source code.
-Choose proper build package depending on which platform you're using.
+0) Get Xash3D FWGS binaries: you can use [testing](https://github.com/FWGS/xash3d-fwgs/releases/tag/continuous) build or you can compile engine from source code.
 1) Copy engine binaries to some directory.
 2) Copy `valve` directory from [Half-Life](https://store.steampowered.com/app/70/HalfLife/) to directory with engine binaries.
-Also if you're using Windows: you should copy `vgui.dll` library from Half-Life directory to Xash3D directory.
-As alternative, you can compile [hlsdk-xash3d](https://github.com/FWGS/hlsdk-xash3d) instead of using official Valve game binaries, but you still needed to copy `valve` directory as all game resources located in there.
-3) Download [extras.pak](https://github.com/FWGS/xash-extras/releases/tag/v0.19.2) and place it to `valve` directory.
-4) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
-
-Note: on Linux, you may need to create an sh file with the command `LD_LIBRARY_PATH=. ./xash3d`.
+If your CPU is NOT x86 compatible or you're running 64-bit version of the engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-xash3d).
+This repository contains our fork of HLSDK and restored source code for some of the mods. Not all of them, of course.
+You still needed to copy `valve` directory as all game resources located there.
+3) Run the main executable (`xash3d.exe` or AppImage).
 
 For additional info, run Xash3D with `-help` command line key.
 
@@ -51,6 +48,13 @@ We are using Waf build system. If you have some Waf-related questions, I recomme
 NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependencies we're using!
 
 ### Prerequisites
+
+If your CPU is x86 compatible, we are building 32-bit code by default. This was dont for keeping compatibility with Steam releases of Half-Life and based on it's engine games.
+Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
+
+If your CPU is NOT x86 compatible or you decided build 64-bit version of engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-xash3d).
+This repository contains our fork of HLSDK and restored source code for some of the mods. Not all of them, of course.
+
 #### Windows (Visual Studio)
 * Install Visual Studio.
 * Install latest [Python](https://python.org) **OR** run `cinst python.install` if you have Chocolatey.
@@ -60,10 +64,6 @@ NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependenc
 * Make sure you have at least 12GB of free space to store all build-time dependencies: ~10GB for Visual Studio, 300 MB for Git, 100 MB for Python and other.
 
 #### GNU/Linux
-NOTE FOR USERS WITH X86 COMPATIBLE CPUs:
-We have forced Waf to throw an error, if you're trying to build 64-bit engine. This was done for keeping compatibility with Steam releases of Half-Life and based on it's engine games.
-Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
-
 ##### Debian/Ubuntu
 * Enable i386 on your system, if you're compiling 32-bit engine on amd64. If not, skip this
 
@@ -86,11 +86,10 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 5) Install: `waf install --destdir=c:/path/to/any/output/directory`
 
 #### Linux
+If compiling 32-bit on amd64, you may need to supply `export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig` prior to running configure.
+
 0) Examine which build options are available: `./waf --help`
 1) Configure build: `./waf configure -T release`
 (You need to pass `-8` to compile 64-bit engine on 64-bit x86 processor)
 2) Compile: `./waf build`
 3) Install(optional): `./waf install --destdir=/path/to/any/output/directory`
-
-Note: if compiling 32-bit on amd64, you may need to supply `export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig` prior to running configure.   
-

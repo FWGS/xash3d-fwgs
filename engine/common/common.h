@@ -184,7 +184,8 @@ extern convar_t	host_developer;
 extern convar_t	*host_limitlocal;
 extern convar_t	*host_framerate;
 extern convar_t	*host_maxfps;
-extern convar_t cl_filterstuffcmd;
+extern convar_t	sys_timescale;
+extern convar_t	cl_filterstuffcmd;
 
 /*
 ==============================================================
@@ -230,6 +231,7 @@ typedef struct gameinfo_s
 	qboolean		secure;		// prevent to console acess
 	qboolean		nomodels;		// don't let player to choose model (use player.mdl always)
 	qboolean		noskills;		// disable skill menu selection
+	qboolean		render_picbutton_text; // use font renderer to render WON buttons
 
 	char		sp_entity[32];	// e.g. info_player_start
 	char		mp_entity[32];	// e.g. info_player_deathmatch

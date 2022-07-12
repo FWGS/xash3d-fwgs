@@ -35,30 +35,39 @@ void V_CalcViewRect( void )
 	int	sb_lines;
 	float	size;
 
-	// intermission is always full screen
-	if( cl.intermission ) size = 120.0f;
-	else size = scr_viewsize->value;
+	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+	{
+		// intermission is always full screen
+		if( cl.intermission ) size = 120.0f;
+		else size = scr_viewsize->value;
 
-	if( size >= 120.0f )
-		sb_lines = 0;		// no status bar at all
-	else if( size >= 110.0f )
-		sb_lines = 24;		// no inventory
-	else sb_lines = 48;
+		if( size >= 120.0f )
+			sb_lines = 0;		// no status bar at all
+		else if( size >= 110.0f )
+			sb_lines = 24;		// no inventory
+		else sb_lines = 48;
 
-	if( scr_viewsize->value >= 100.0f )
+		if( scr_viewsize->value >= 100.0f )
+		{
+			full = true;
+			size = 100.0f;
+		}
+		else size = scr_viewsize->value;
+
+		if( cl.intermission )
+		{
+			size = 100.0f;
+			sb_lines = 0;
+			full = true;
+		}
+		size /= 100.0f;
+	}
+	else
 	{
 		full = true;
-		size = 100.0f;
-	}
-	else size = scr_viewsize->value;
-
-	if( cl.intermission )
-	{
-		size = 100.0f;
 		sb_lines = 0;
-		full = true;
+		size = 1.0f;
 	}
-	size /= 100.0f;
 
 	clgame.viewport[2] = refState.width * size;
 	clgame.viewport[3] = refState.height * size;

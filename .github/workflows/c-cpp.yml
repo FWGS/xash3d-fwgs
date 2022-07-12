@@ -1,11 +1,11 @@
 name: Build & Deploy Engine
 on: [push, pull_request]
 jobs:
-  cleanup:
-    runs-on: self-hosted
-    steps:
-    - name: Cleanup
-      run: rm -rf .* || true
+#  cleanup:
+#    runs-on: self-hosted
+#    steps:
+#    - name: Cleanup
+#      run: rm -rf .* || true
   build:
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -19,9 +19,9 @@ jobs:
           - os: ubuntu-18.04
             targetos: linux
             targetarch: i386
-          - os: ubuntu-aarch64-20.04
-            targetos: linux
-            targetarch: aarch64
+#          - os: ubuntu-aarch64-20.04
+#            targetos: linux
+#            targetarch: aarch64
 
           - os: ubuntu-18.04
             targetos: android

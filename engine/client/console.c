@@ -1160,7 +1160,7 @@ void Con_Init( void )
 	con.chat.widthInChars = con.linewidth;
 
 	Cmd_AddCommand( "toggleconsole", Con_ToggleConsole_f, "opens or closes the console" );
-	Cmd_AddCommand( "clear", Con_Clear_f, "clear console history" );
+	Cmd_AddRestrictedCommand( "clear", Con_Clear_f, "clear console history" );
 	Cmd_AddCommand( "messagemode", Con_MessageMode_f, "enable message mode \"say\"" );
 	Cmd_AddCommand( "messagemode2", Con_MessageMode2_f, "enable message mode \"say_team\"" );
 	Cmd_AddCommand( "contimes", Con_SetTimes_f, "change number of console overlay lines (4-64)" );

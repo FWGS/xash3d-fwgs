@@ -712,6 +712,7 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_EXT_gpu_shader4", NULL, NULL, GL_EXT_GPU_SHADER4 ); // don't confuse users
 	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT );
 	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE );
+	GL_CheckExtension( "GL_ARB_texture_compression_bptc", NULL, "gl_texture_bptc_compression", GL_ARB_TEXTURE_COMPRESSION_BPTC );
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT ))
 	{
 		pglGetIntegerv( GL_MAX_TEXTURE_COORDS_ARB, &glConfig.max_texture_coords );
@@ -874,7 +875,7 @@ register VBO cvars and get default value
 */
 static void R_CheckVBO( void )
 {
-	const char *def = "1";
+	const char *def = "0";
 	const char *dlightmode = "1";
 	int flags = FCVAR_ARCHIVE;
 	qboolean disable = false;
@@ -901,12 +902,8 @@ static void R_CheckVBO( void )
 		def = "0";
 	}
 
-	r_vbo = gEngfuncs.Cvar_Get( "r_vbo", def, flags, "draw world using VBO" );
-	r_vbo_dlightmode = gEngfuncs.Cvar_Get( "r_vbo_dlightmode", dlightmode, FCVAR_ARCHIVE, "vbo dlight rendering mode(0-1)" );
-
-	// check if enabled manually
-	if( CVAR_TO_BOOL(r_vbo) )
-		r_vbo->flags |= FCVAR_ARCHIVE;
+	r_vbo = gEngfuncs.Cvar_Get( "gl_vbo", def, flags, "draw world using VBO (known to be glitchy)" );
+	r_vbo_dlightmode = gEngfuncs.Cvar_Get( "gl_vbo_dlightmode", dlightmode, FCVAR_ARCHIVE, "vbo dlight rendering mode(0-1)" );
 }
 
 /*

@@ -122,7 +122,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 #endif
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
-	if( SDL_IsTextInputActive() && down )
+	if( SDL_IsTextInputActive() && down && cls.key_dest != key_game )
 	{
 		if( SDL_GetModState() & KMOD_CTRL )
 		{
@@ -281,19 +281,19 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 	switch( button.button )
 	{
 	case SDL_BUTTON_LEFT:
-		if( down ) SetBits( mstate, BIT( 0 ));
-		break;
-	case SDL_BUTTON_MIDDLE:
-		if( down ) SetBits( mstate, BIT( 1 ));
+		IN_MouseEvent( 0, down );
 		break;
 	case SDL_BUTTON_RIGHT:
-		if( down ) SetBits( mstate, BIT( 2 ));
+		IN_MouseEvent( 1, down );
+		break;
+	case SDL_BUTTON_MIDDLE:
+		IN_MouseEvent( 2, down );
 		break;
 	case SDL_BUTTON_X1:
-		if( down ) SetBits( mstate, BIT( 3 ));
+		IN_MouseEvent( 3, down );
 		break;
 	case SDL_BUTTON_X2:
-		if( down ) SetBits( mstate, BIT( 4 ));
+		IN_MouseEvent( 4, down );
 		break;
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_BUTTON_WHEELUP:
@@ -306,8 +306,6 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 	default:
 		Con_Printf( "Unknown mouse button ID: %d\n", button.button );
 	}
-
-	IN_MouseEvent( mstate );
 }
 
 /*
@@ -320,6 +318,7 @@ SDLash_InputEvent
 static void SDLash_InputEvent( SDL_TextInputEvent input )
 {
 	char *text;
+	VGui_ReportTextInput( input.text );
 	for( text = input.text; *text; text++ )
 	{
 		int ch;
@@ -342,7 +341,11 @@ static void SDLash_ActiveEvent( int gain )
 	if( gain )
 	{
 		host.status = HOST_FRAME;
-		IN_ActivateMouse( );
+		if( cls.key_dest == key_game )
+		{
+			IN_ActivateMouse( );
+		}
+
 		if( dma.initialized && snd_mute_losefocus.value )
 		{
 			SNDDMA_Activate( true );
@@ -362,7 +365,11 @@ static void SDLash_ActiveEvent( int gain )
 		}
 #endif
 		host.status = HOST_NOFOCUS;
-		IN_DeactivateMouse();
+		if( cls.key_dest == key_game )
+		{
+			IN_DeactivateMouse();
+		}
+
 		if( dma.initialized && snd_mute_losefocus.value )
 		{
 			SNDDMA_Activate( false );

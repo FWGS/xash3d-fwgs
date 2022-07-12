@@ -531,7 +531,7 @@ static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *nam
 
 	IN_TouchEditClear();
 
-	while(( button = Touch_FindFirst( &touch.list_user, name, !privileged )))
+	while(( button = Touch_FindFirst( &touch.list_user, name, privileged )))
 	{
 		if( button->prev )
 			button->prev->next = button->next;
