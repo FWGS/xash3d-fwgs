@@ -287,18 +287,81 @@ void RM_GetTextureParams( int* w, int* h, int texnum )
 	if (h) *h = Textures.array[texnum].height; 
 }
 
-int	RM_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
+int	RM_CreateTexture( const char* name, int width, int height, const void* buffer, texFlags_t flags )
 {
-	Con_Printf( S_ERROR "Unimplemented RM_CreateTexture\n" );
+	rgbdata_t picture;
+	size_t    datasize;
+	qboolean  update;
 
-	return 0;
+	update = FBitSet( flags, TF_UPDATE ) ? true : false;
+	ClearBits( flags, TF_UPDATE );
+
+	if( FBitSet( flags, TF_ARB_FLOAT ))
+		datasize = 4;
+	else if( FBitSet( flags, TF_ARB_16BIT ))
+		datasize = 2;
+	else
+		datasize = 1;
+
+	// Fill picture
+	memset( &picture, 0, sizeof( rgbdata_t ));
+	picture.width  = Q_max( width, 1 );
+	picture.height = Q_max( height, 1 );
+	picture.depth  = 1;
+	picture.type   = PF_RGBA_32;
+	picture.size   = picture.width * picture.height * picture.depth * 4 * datasize;
+	picture.buffer = (byte*) buffer;
+
+	// Clear invalid combinations
+	ClearBits( flags, TF_TEXTURE_3D );
+
+	// If image not luminance and not alphacontrast it will have color
+	if( !FBitSet( flags, TF_LUMINANCE ) && !FBitSet( flags, TF_ALPHACONTRAST ))
+	{
+		SetBits( picture.flags, IMAGE_HAS_COLOR );
+	}
+
+	if( FBitSet( flags, TF_HAS_ALPHA ))
+	{
+		SetBits( picture.flags, IMAGE_HAS_ALPHA );
+	}
+
+	if( FBitSet( flags, TF_CUBEMAP ))
+	{
+		SetBits( picture.flags, IMAGE_CUBEMAP );
+		picture.size *= 6;
+	}
+
+	return RM_LoadTextureFromBuffer( name, &picture, flags, update );
 }
 
 int RM_CreateTextureArray( const char* name, int width, int height, int depth, const void* buffer, texFlags_t flags )
 {
-	Con_Printf( S_ERROR "Unimplemented RM_CreateTextureArray\n" );
+	rgbdata_t picture;
 
-	return 0;
+	// Fill picture
+	memset( &picture, 0, sizeof( rgbdata_t ));
+	picture.width  = Q_max( width,  1 );
+	picture.height = Q_max( height, 1 );
+	picture.depth  = Q_max( depth,  1 );
+	picture.type   = PF_RGBA_32;
+	picture.size   = picture.width * picture.height * picture.depth * 4;
+	picture.buffer = (byte*) buffer;
+
+	// Clear invalid combinations
+	ClearBits( flags, TF_CUBEMAP|TF_SKYSIDE|TF_HAS_LUMA|TF_MAKELUMA|TF_ALPHACONTRAST );
+
+	// If image not luminance it will have color
+	if( !FBitSet( flags, TF_LUMINANCE ))
+		SetBits( picture.flags, IMAGE_HAS_COLOR );
+
+	if( FBitSet( flags, TF_HAS_ALPHA ))
+		SetBits( picture.flags, IMAGE_HAS_ALPHA );
+
+	if( !FBitSet( flags, TF_TEXTURE_3D ))
+		SetBits( picture.flags, IMAGE_MULTILAYER );
+
+	return RM_LoadTextureFromBuffer( name, &picture, flags, false );
 }
 
 
