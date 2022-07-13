@@ -253,9 +253,15 @@ const char*	RM_TextureName( unsigned int texnum )
 
 const byte*	RM_TextureData( unsigned int texnum )
 {
-	Con_Printf( S_ERROR "Unimplemented RM_TextureData\n" );
+	rgbdata_t* pic;
 
-	return NULL;
+	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
+
+	pic = Textures.array[texnum].picture;
+	if (pic != NULL)
+		return pic->buffer;
+	else
+		return NULL;
 }
 
 int RM_FindTexture( const char *name )
