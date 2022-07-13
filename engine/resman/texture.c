@@ -62,6 +62,7 @@ static byte dot_texture[8][8] =
 	{0,0,0,0,0,0,0,0},
 };
 
+static size_t CalcImageSize( pixformat_t format, int width, int height, int depth );
 static qboolean IsValidTextureName( const char* name );
 static rm_texture_t* GetTextureByName( const char* name );
 static rm_texture_t* AppendTexture( const char* name, int flags );
@@ -79,6 +80,7 @@ static int CreateParticleTexture( void );
 static int CreateStaticColoredTexture( const char* name, uint32_t color );
 static int CreateCinematicDummyTexture( void );
 static int CreateDlightTexture( void );
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public methods
@@ -170,7 +172,7 @@ int RM_LoadTexture( const char* name, const byte* buf, size_t size, int flags )
 	texture->height  = picture->height;
 
 	ProcessFlags(texture, picture);
-	
+
 	// And upload texture
 	// FIXME: Handle error
 	UploadTexture( texture, false );
@@ -180,9 +182,151 @@ int RM_LoadTexture( const char* name, const byte* buf, size_t size, int flags )
 
 int RM_LoadTextureArray( const char** names, int flags )
 {
-	Con_Printf( S_ERROR "Unimplemented RM_LoadTextureArray\n" );
+	uint layers_count;
+	char name[MAX_NAME_LEN];
+	char basename[MAX_NAME_LEN];
+	rm_texture_t* texture;
+	rgbdata_t* picture;
+	int texnum;
 
-	return 0;
+	// Validate arguments
+	if( !names || !names[0] )
+	{
+		Con_Reportf( "Empty textures names array\n" );
+		return 0;
+	}
+
+	// Count layers
+	for( size_t i = 0; i < *names[i] != '\0'; i++ )
+		layers_count++;
+
+	if( layers_count == 0 )
+		return 0;
+
+	// Сreate complexname from layer names
+	for( size_t i = 0; i < layers_count; i++ )
+	{
+		COM_FileBase( names[i], &basename );
+		Q_strncat( &name, &basename, MAX_NAME_LEN );
+		if( i != ( layers_count - 1 )) Q_strncat( &name, "|", MAX_NAME_LEN);
+	}
+
+	Q_strncat( &name, va( "[%i]", layers_count ), MAX_NAME_LEN );
+
+	// Validate texture name
+	if( !IsValidTextureName( name ))
+	{
+		//Con_Reportf( "Invalid texture name %s\n", name );
+		return 0;
+	}
+
+	// Check cache
+	if(( texture = GetTextureByName( name )))
+	{
+		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
+		return texture->number;
+	}
+
+	// Load all the images and pack it into single image
+	for( size_t i = 0; i < layers_count; i++ )
+	{
+		rgbdata_t* src;
+		size_t src_size, dst_size, mip_size;
+
+		src = FS_LoadImage( names[i], NULL, 0 );
+		if( !src )
+		{
+			//Con_Reportf( "Failed to load texture layer %s\n", names[i] );
+			break;
+		}
+
+		// Create new image for all layers
+		if( !picture )
+		{
+			picture = malloc( sizeof( rgbdata_t ));
+			memcpy( picture, src, sizeof( rgbdata_t ));
+
+			picture->buffer = malloc( picture->size * layers_count );
+			picture->depth = 0;
+		}
+		else
+		{
+			if( picture->type != src->type )
+			{
+				Con_Printf( S_ERROR "Mismatch image format for %s and %s\n", names[0], names[i] );
+				break;
+			}
+
+			if( picture->numMips != src->numMips )
+			{
+				Con_Printf( S_ERROR "Mismatch mip count for %s and %s\n", names[0], names[i] );
+				break;
+			}
+
+			if( picture->encode != src->encode )
+			{
+				Con_Printf( S_ERROR "Mismatch custom encoding for %s and %s\n", names[0], names[i] );
+				break;
+			}
+
+			// Allow to rescale raw images
+			if(
+				ImageRAW( picture->type ) && ImageRAW( src->type ) &&
+				( picture->width != src->width || picture->height != src->height )
+			)
+			{
+				Image_Process( &src, picture->width, picture->height, IMAGE_RESAMPLE, 0.0f );
+			}
+
+			if( picture->size != src->size )
+			{
+				Con_Printf( S_ERROR "Mismatch image size for %s and %s\n", names[0], names[i] );
+				break;
+			}
+		}
+
+		mip_size = src_size = dst_size = 0;
+
+		for( size_t j = 0; j < Q_max( 1, picture->numMips ); j++ )
+		{
+			int width  = Q_max( 1, ( picture->width >> j ));
+			int height = Q_max( 1, ( picture->height >> j ));
+
+			mip_size = CalcImageSize( picture->type, width, height, 1 );
+
+			memcpy( picture->buffer + dst_size + mip_size * i, src->buffer + src_size, mip_size );
+			dst_size += mip_size * layers_count;
+			src_size += mip_size;
+		}
+
+		FS_FreeImage( src );
+
+		// Increase layers
+		picture->depth++;
+	}
+
+	// There were errors
+	if( !picture || ( picture->depth != layers_count ))
+	{
+		Con_Printf( S_ERROR "Not all layers were loaded. Texture array is not created\n" );
+		if( picture ) FS_FreeImage( picture );
+		return 0;
+	}
+
+	// It's multilayer image
+	SetBits( picture->flags, IMAGE_MULTILAYER );
+
+	// Recalculate size considere layers_count
+	picture->size *= layers_count;
+
+	// Load texture
+	texnum = RM_LoadTextureFromBuffer( name, picture, flags, false );
+
+	// Release source texture
+	FS_FreeImage( picture );
+
+	// NOTE: always return texnum as index in array or engine will stop work !!!
+	return texnum;
 }
 
 int RM_LoadTextureFromBuffer( const char* name, rgbdata_t* picture, int flags, qboolean update )
@@ -218,7 +362,7 @@ int RM_LoadTextureFromBuffer( const char* name, rgbdata_t* picture, int flags, q
 	texture->width   = picture->width;
 	texture->height  = picture->height;
 
-	ProcessFlags(texture, picture);
+	ProcessFlags( texture, picture );
 
 	// And upload
 	// FIXME: Handle error
@@ -372,6 +516,42 @@ int RM_CreateTextureArray( const char* name, int width, int height, int depth, c
 
 ////////////////////////////////////////////////////////////////////////////////
 // Local implementation
+
+size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
+{
+	size_t	size = 0;
+
+	// check the depth error
+	depth = Q_max( 1, depth );
+
+	switch( format )
+	{
+	case PF_LUMINANCE:
+		size = width * height * depth;
+		break;
+	case PF_RGB_24:
+	case PF_BGR_24:
+		size = width * height * depth * 3;
+		break;
+	case PF_BGRA_32:
+	case PF_RGBA_32:
+		size = width * height * depth * 4;
+		break;
+	case PF_DXT1:
+		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 8) * depth;
+		break;
+	case PF_DXT3:
+	case PF_DXT5:
+	case PF_BC6H_SIGNED:
+	case PF_BC6H_UNSIGNED:
+	case PF_BC7:
+	case PF_ATI2:
+		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
+		break;
+	}
+
+	return size;
+}
 
 qboolean IsValidTextureName( const char *name )
 {
