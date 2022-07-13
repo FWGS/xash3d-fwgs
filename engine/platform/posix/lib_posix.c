@@ -102,7 +102,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 		// try to find by linker(LD_LIBRARY_PATH, DYLD_LIBRARY_PATH, LD_32_LIBRARY_PATH and so on...)
 		if( !pHandle )
 		{
-			pHandle = dlopen( dllname, RTLD_LAZY );
+			pHandle = dlopen( dllname, RTLD_NOW );
 			if( pHandle )
 				return pHandle;
 
@@ -139,7 +139,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	else
 #endif
 	{
-		if( !( hInst->hInstance = dlopen( hInst->fullPath, RTLD_LAZY ) ) )
+		if( !( hInst->hInstance = dlopen( hInst->fullPath, RTLD_NOW ) ) )
 		{
 			COM_PushLibraryError( dlerror() );
 			Mem_Free( hInst );
@@ -188,12 +188,7 @@ void *COM_GetProcAddress( void *hInstance, const char *name )
 
 void *COM_FunctionFromName( void *hInstance, const char *pName )
 {
-	void *function;
-	if( !( function = COM_GetProcAddress( hInstance, pName ) ) )
-	{
-		Con_Reportf( S_ERROR "FunctionFromName: Can't get symbol %s: %s\n", pName, dlerror());
-	}
-	return function;
+	return COM_GetProcAddress( hInstance, pName );
 }
 
 #ifdef XASH_DYNAMIC_DLADDR
