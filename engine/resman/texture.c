@@ -65,6 +65,7 @@ static byte dot_texture[8][8] =
 static qboolean IsValidTextureName( const char* name );
 static rm_texture_t* GetTextureByName( const char* name );
 static rm_texture_t* AppendTexture( const char* name, int flags );
+static void ProcessFlags( rm_texture_t* tex, rgbdata_t* pic );
 static qboolean UploadTexture( rm_texture_t* texture, qboolean update );
 static void RemoveTexture( const char* name );
 
@@ -168,6 +169,8 @@ int RM_LoadTexture( const char* name, const byte* buf, size_t size, int flags )
 	texture->width   = picture->width;
 	texture->height  = picture->height;
 
+	ProcessFlags(texture, picture);
+	
 	// And upload texture
 	// FIXME: Handle error
 	UploadTexture( texture, false );
@@ -214,6 +217,8 @@ int RM_LoadTextureFromBuffer( const char* name, rgbdata_t* picture, int flags, q
 	texture->picture = picture;
 	texture->width   = picture->width;
 	texture->height  = picture->height;
+
+	ProcessFlags(texture, picture);
 
 	// And upload
 	// FIXME: Handle error
@@ -463,6 +468,56 @@ rm_texture_t* AppendTexture( const char* name, int flags )
 	Textures.count++;
 
 	return texture;
+}
+
+void ProcessFlags( rm_texture_t* tex, rgbdata_t* pic )
+{
+	uint img_flags = 0;
+
+	// Force upload texture as RGB or RGBA (detail textures requires this)
+	if( tex->flags & TF_FORCE_COLOR ) pic->flags |= IMAGE_HAS_COLOR;
+	if( pic->flags & IMAGE_HAS_ALPHA ) tex->flags |= TF_HAS_ALPHA;
+
+	if( ImageDXT( pic->type ))
+	{
+		if( !pic->numMips )
+		{
+			tex->flags |= TF_NOMIPMAP; // Disable mipmapping by user request
+		}
+
+		// Clear all the unsupported flags
+		tex->flags &= ~TF_KEEP_SOURCE;
+	}
+	else
+	{
+		// Copy flag about luma pixels
+		if( pic->flags & IMAGE_HAS_LUMA )
+			tex->flags |= TF_HAS_LUMA;
+
+		if( pic->flags & IMAGE_QUAKEPAL )
+			tex->flags |= TF_QUAKEPAL;
+
+		// Create luma texture from quake texture
+		if( tex->flags & TF_MAKELUMA )
+		{
+			img_flags |= IMAGE_MAKE_LUMA;
+			tex->flags &= ~TF_MAKELUMA;
+		}
+
+		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
+			tex->picture = FS_CopyImage( pic );  // Because current pic will be expanded to rgba
+
+		// We need to expand image into RGBA buffer
+		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
+			img_flags |= IMAGE_FORCE_RGBA;
+
+		// Processing image before uploading (force to rgba, make luma etc)
+		if( pic->buffer )
+			Image_Process( &pic, 0, 0, img_flags, 0 );
+
+		if( FBitSet( tex->flags, TF_LUMINANCE ))
+			ClearBits( pic->flags, IMAGE_HAS_COLOR );
+	}
 }
 
 qboolean UploadTexture( rm_texture_t* texture, qboolean update )
