@@ -18,6 +18,8 @@
 #include "vk_denoiser.h"
 #include "vk_math.h"
 
+#include "alolcator.h"
+
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -82,7 +84,7 @@ static struct {
 	// TODO: unify this with render buffer
 	// Needs: AS_STORAGE_BIT, SHADER_DEVICE_ADDRESS_BIT
 	vk_buffer_t accels_buffer;
-	vk_ring_buffer_t accels_buffer_alloc;
+	struct alo_pool_s *accels_buffer_alloc;
 
 	// Temp: lives only during a single frame (may have many in flight)
 	// Used for building ASes;
@@ -199,7 +201,8 @@ qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_bu
 
 	if (should_create) {
 		const uint32_t as_size = build_size.accelerationStructureSize;
-		const uint32_t buffer_offset = VK_RingBuffer_Alloc(&g_rtx.accels_buffer_alloc, as_size, 256);
+		const alo_block_t block = aloPoolAllocate(g_rtx.accels_buffer_alloc, as_size, /*TODO why? align=*/256);
+		const uint32_t buffer_offset = block.offset;
 		const VkAccelerationStructureCreateInfoKHR asci = {
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 			.buffer = g_rtx.accels_buffer.buffer,
@@ -208,7 +211,7 @@ qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_bu
 			.size = as_size,
 		};
 
-		if (buffer_offset == AllocFailed) {
+		if (buffer_offset == ALO_ALLOC_FAILED) {
 			gEngine.Con_Printf(S_ERROR "Failed to allocated %u bytes for accel buffer\n", asci.size);
 			return false;
 		}
@@ -280,9 +283,13 @@ static void createTlas( VkCommandBuffer cmdbuf, VkDeviceAddress instances_addr )
 }
 
 void VK_RayNewMap( void ) {
+	const int expected_accels = 512; // TODO actually get this from playing the game
+	const int accels_alignment = 256; // TODO where does this come from?
 	ASSERT(vk_core.rtx);
 
-	VK_RingBuffer_Clear(&g_rtx.accels_buffer_alloc);
+	if (g_rtx.accels_buffer_alloc)
+		aloPoolDestroy(g_rtx.accels_buffer_alloc);
+	g_rtx.accels_buffer_alloc = aloPoolCreate(MAX_ACCELS_BUFFER, expected_accels, accels_alignment);
 
 	// Clear model cache
 	for (int i = 0; i < ARRAYSIZE(g_ray_model_state.models_cache); ++i) {
@@ -305,7 +312,6 @@ void VK_RayNewMap( void ) {
 }
 
 void VK_RayMapLoadEnd( void ) {
-	VK_RingBuffer_Fix(&g_rtx.accels_buffer_alloc);
 }
 
 void VK_RayFrameBegin( void )
@@ -826,7 +832,6 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 	g_rtx.accels_buffer_addr = getBufferDeviceAddress(g_rtx.accels_buffer.buffer);
-	g_rtx.accels_buffer_alloc.size = g_rtx.accels_buffer.size;
 
 	if (!VK_BufferCreate("ray scratch_buffer", &g_rtx.scratch_buffer, MAX_SCRATCH_BUFFER,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -953,4 +958,7 @@ void VK_RayShutdown( void ) {
 	VK_BufferDestroy(&g_ray_model_state.lights_buffer);
 	VK_BufferDestroy(&g_rtx.light_grid_buffer);
 	VK_BufferDestroy(&g_rtx.uniform_buffer);
+
+	if (g_rtx.accels_buffer_alloc)
+		aloPoolDestroy(g_rtx.accels_buffer_alloc);
 }

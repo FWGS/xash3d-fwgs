@@ -42,49 +42,6 @@ void VK_BufferDestroy(vk_buffer_t *buf) {
 	}
 }
 
-void VK_RingBuffer_Clear(vk_ring_buffer_t* buf) {
-	buf->offset_free = 0;
-	buf->permanent_size = 0;
-	buf->free = buf->size;
-}
-
-//     <                 v->
-// |MAP|.........|FRAME|...|
-//               ^      XXXXX
-
-uint32_t VK_RingBuffer_Alloc(vk_ring_buffer_t* buf, uint32_t size, uint32_t align) {
-	uint32_t offset = ALIGN_UP(buf->offset_free, align);
-	const uint32_t align_diff = offset - buf->offset_free;
-	uint32_t available = buf->free - align_diff;
-	const uint32_t tail = buf->size - offset;
-
-	if (available < size)
-		return AllocFailed;
-
-	if (size > tail) {
-		offset = ALIGN_UP(buf->permanent_size, align);
-		available -= (offset - buf->permanent_size) - tail;
-	}
-
-	if (available < size)
-		return AllocFailed;
-
-	buf->offset_free = offset + size;
-	buf->free = available - size;
-
-	return offset;
-}
-
-void VK_RingBuffer_Fix(vk_ring_buffer_t* buf) {
-	ASSERT(buf->permanent_size == 0);
-	buf->permanent_size = buf->offset_free;
-}
-
-void VK_RingBuffer_ClearFrame(vk_ring_buffer_t* buf) {
-	buf->offset_free = buf->permanent_size;
-	buf->free = buf->size - buf->permanent_size;
-}
-
 VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer) {
 	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
 	return vkGetBufferDeviceAddress(vk_core.device, &bdai);
