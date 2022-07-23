@@ -235,6 +235,7 @@ static void leafAccumFinalize( void ) {
 static int leafAccumAddPotentiallyVisibleFromLeaf(const model_t *const map, const mleaf_t *leaf, qboolean print_debug) {
 	int pvs_leaf_index = 0;
 	int leafs_added = 0;
+	ASSERT(leaf->compressed_vis);
 	const byte *pvs = leaf->compressed_vis;
 	for (;pvs_leaf_index < map->numleafs; ++pvs) {
 		uint8_t bits = pvs[0];
@@ -772,9 +773,25 @@ static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
 	}
 }
 
-static void addPointLightToClusters( int index ) {
-	vk_point_light_t *const light = g_lights.point_lights + index;
+static void addPointLightToAllClusters( int index ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	clusterBitMapClear();
+	for (int i = 1; i <= world->numleafs; ++i) {
+		const mleaf_t *const leaf = world->leafs + i;
+		addLightIndexToleaf( leaf, index );
+	}
+}
+
+static void addPointLightToClusters( int index ) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	if (!world->visdata) {
+		addPointLightToAllClusters( index );
+		return;
+	}
+
+	vk_point_light_t *const light = g_lights.point_lights + index;
 	const mleaf_t* leaf = gEngine.Mod_PointInLeaf(light->origin, world->nodes);
 	const vk_light_leaf_set_t *const leafs = (vk_light_leaf_set_t*)&g_lights_bsp.accum.count;
 
@@ -785,16 +802,6 @@ static void addPointLightToClusters( int index ) {
 	clusterBitMapClear();
 	for (int i = 0; i < leafs->num; ++i) {
 		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
-		addLightIndexToleaf( leaf, index );
-	}
-}
-
-static void addPointLightToAllClusters( int index ) {
-	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-
-	clusterBitMapClear();
-	for (int i = 1; i <= world->numleafs; ++i) {
-		const mleaf_t *const leaf = world->leafs + i;
 		addLightIndexToleaf( leaf, index );
 	}
 }
