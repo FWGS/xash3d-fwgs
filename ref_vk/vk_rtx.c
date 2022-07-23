@@ -311,9 +311,6 @@ void VK_RayNewMap( void ) {
 	RT_RayModel_Clear();
 }
 
-void VK_RayMapLoadEnd( void ) {
-}
-
 void VK_RayFrameBegin( void )
 {
 	ASSERT(vk_core.rtx);

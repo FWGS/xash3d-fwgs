@@ -216,7 +216,13 @@ void R_NewMap( void ) {
 	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
 	RT_LightsNewMapEnd(map);
 
-	R_VKStagingMarkEmpty_FIXME();
+	if (!vk_core.rtx) {
+		// FIXME this is a workaround for uploading staging for non-rtx mode. In rtx mode things get naturally uploaded deep in VK_BrushModelLoad.
+		// FIXME there shouldn't be this difference. Ideally, rtx would only continue with also building BLASes, but uploading part should be the same.
+		R_VkStagingFlushSync();
+	} else {
+		R_VKStagingMarkEmpty_FIXME();
+	}
 
 	if (vk_core.rtx)
 	{
@@ -234,8 +240,6 @@ void R_NewMap( void ) {
 
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();
-	if (vk_core.rtx)
-		VK_RayMapLoadEnd();
 }
 
 qboolean R_AddEntity( struct cl_entity_s *clent, int type )
