@@ -420,7 +420,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	for (int i = 0; i < render_model->polylights_count; ++i) {
 		rt_light_add_polygon_t *const polylight = render_model->polylights + i;
-		polylight->transform_row = (const matrix3x4*)model;
+		polylight->transform_row = (const matrix3x4*)transform_row;
 		polylight->dynamic = true;
 		RT_LightAddPolygon(polylight);
 	}
