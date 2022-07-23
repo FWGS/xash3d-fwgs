@@ -733,7 +733,7 @@ fin:
 }
 #endif
 
-static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
+static void addLightIndexToLeaf( const mleaf_t *leaf, int index ) {
 	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
 	const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
 	const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
@@ -776,10 +776,13 @@ static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
 static void addPointLightToAllClusters( int index ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
+	// TODO there's certainly a better way to do this: just enumerate
+	// all clusters, not all leafs
+
 	clusterBitMapClear();
 	for (int i = 1; i <= world->numleafs; ++i) {
 		const mleaf_t *const leaf = world->leafs + i;
-		addLightIndexToleaf( leaf, index );
+		addLightIndexToLeaf( leaf, index );
 	}
 }
 
@@ -802,7 +805,7 @@ static void addPointLightToClusters( int index ) {
 	clusterBitMapClear();
 	for (int i = 0; i < leafs->num; ++i) {
 		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
-		addLightIndexToleaf( leaf, index );
+		addLightIndexToLeaf( leaf, index );
 	}
 }
 
@@ -1175,6 +1178,76 @@ void VK_LightsFrameFinalize( void ) {
 	APROF_SCOPE_END(finalize);
 }
 
+static void addPolygonLightIndexToLeaf(const mleaf_t* leaf, int poly_index) {
+	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
+	const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
+	const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
+
+	const int max_x = floorf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE) + 1;
+	const int max_y = floorf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE) + 1;
+	const int max_z = floorf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE) + 1;
+
+	const qboolean not_visible = false; //TODO static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, leaf->minmaxs);
+
+	if (debug_dump_lights.enabled) {
+		gEngine.Con_Reportf("  adding leaf %d min=(%d, %d, %d), max=(%d, %d, %d) total=%d\n",
+			leaf->cluster,
+			min_x, min_y, min_z,
+			max_x, max_y, max_z,
+			(max_x - min_x) * (max_y - min_y) * (max_z - min_z)
+		);
+	}
+
+	if (not_visible)
+		return;
+
+	for (int x = min_x; x < max_x; ++x)
+	for (int y = min_y; y < max_y; ++y)
+	for (int z = min_z; z < max_z; ++z) {
+		const int cell[3] = {
+			x - g_lights.map.grid_min_cell[0],
+			y - g_lights.map.grid_min_cell[1],
+			z - g_lights.map.grid_min_cell[2]
+		};
+
+		const int cell_index = R_LightCellIndex( cell );
+		if (cell_index < 0)
+			continue;
+
+		if (clusterBitMapCheckOrSet( cell_index )) {
+			const float minmaxs[6] = {
+				x * LIGHT_GRID_CELL_SIZE,
+				y * LIGHT_GRID_CELL_SIZE,
+				z * LIGHT_GRID_CELL_SIZE,
+				(x+1) * LIGHT_GRID_CELL_SIZE,
+				(y+1) * LIGHT_GRID_CELL_SIZE,
+				(z+1) * LIGHT_GRID_CELL_SIZE,
+			};
+
+			/* TODO if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs)) */
+			/* 	continue; */
+
+			if (!addSurfaceLightToCell(cell_index, poly_index)) {
+				ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of polygon light slots",
+					cell[0], cell[1],  cell[2], cell_index);
+			}
+		}
+	}
+}
+
+static void addPolygonLightToAllClusters( int poly_index ) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	// TODO there's certainly a better way to do this: just enumerate
+	// all clusters, not all leafs
+
+	clusterBitMapClear();
+	for (int i = 1; i <= world->numleafs; ++i) {
+		const mleaf_t *const leaf = world->leafs + i;
+		addPolygonLightIndexToLeaf( leaf, poly_index );
+	}
+}
+
 static void addPolygonLeafSetToClusters(const vk_light_leaf_set_t *leafs, int poly_index) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
@@ -1187,61 +1260,7 @@ static void addPolygonLeafSetToClusters(const vk_light_leaf_set_t *leafs, int po
 	// Iterate through each visible/potentially affected leaf to get a range of grid cells
 	for (int i = 0; i < leafs->num; ++i) {
 		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
-
-		const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
-		const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
-		const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
-
-		const int max_x = floorf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE) + 1;
-		const int max_y = floorf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE) + 1;
-		const int max_z = floorf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE) + 1;
-
-		const qboolean not_visible = false; //TODO static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, leaf->minmaxs);
-
-		if (debug_dump_lights.enabled) {
-			gEngine.Con_Reportf("  adding leaf %d (%d of %d) min=(%d, %d, %d), max=(%d, %d, %d) total=%d\n",
-				leaf->cluster, i, leafs->num,
-				min_x, min_y, min_z,
-				max_x, max_y, max_z,
-				(max_x - min_x) * (max_y - min_y) * (max_z - min_z)
-			);
-		}
-
-		if (not_visible)
-			continue;
-
-		for (int x = min_x; x < max_x; ++x)
-		for (int y = min_y; y < max_y; ++y)
-		for (int z = min_z; z < max_z; ++z) {
-			const int cell[3] = {
-				x - g_lights.map.grid_min_cell[0],
-				y - g_lights.map.grid_min_cell[1],
-				z - g_lights.map.grid_min_cell[2]
-			};
-
-			const int cell_index = R_LightCellIndex( cell );
-			if (cell_index < 0)
-				continue;
-
-			if (clusterBitMapCheckOrSet( cell_index )) {
-				const float minmaxs[6] = {
-					x * LIGHT_GRID_CELL_SIZE,
-					y * LIGHT_GRID_CELL_SIZE,
-					z * LIGHT_GRID_CELL_SIZE,
-					(x+1) * LIGHT_GRID_CELL_SIZE,
-					(y+1) * LIGHT_GRID_CELL_SIZE,
-					(z+1) * LIGHT_GRID_CELL_SIZE,
-				};
-
-				/* TODO if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs)) */
-				/* 	continue; */
-
-				if (!addSurfaceLightToCell(cell_index, poly_index)) {
-					ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of polygon light slots",
-						cell[0], cell[1],  cell[2], cell_index);
-				}
-			}
-		}
+		addPolygonLightIndexToLeaf(leaf, poly_index);
 	}
 }
 
@@ -1307,11 +1326,14 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 			);
 		}
 
-		{
+		const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+		if (world->visdata) {
 			const vk_light_leaf_set_t *const leafs = addpoly->dynamic
 				? getMapLeafsAffectedByMovingSurface( addpoly->surface, addpoly->transform_row )
 				: getMapLeafsAffectedByMapSurface( addpoly->surface );
 			addPolygonLeafSetToClusters(leafs, g_lights.num_polygons);
+		} else {
+			addPolygonLightToAllClusters( g_lights.num_polygons );
 		}
 
 		g_lights.num_polygon_vertices += addpoly->num_vertices;
