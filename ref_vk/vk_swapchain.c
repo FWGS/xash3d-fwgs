@@ -200,19 +200,24 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_availa
 
 		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_swapchain.swapchain, UINT64_MAX, sem_image_available, VK_NULL_HANDLE, &ret.index);
 		switch (acquire_result) {
-			case VK_ERROR_OUT_OF_DATE_KHR:
-			case VK_ERROR_SURFACE_LOST_KHR:
-			case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
-				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, recreating swapchain\n", R_VkResultName(acquire_result));
+			case VK_SUCCESS:
+				break;
+
+			case VK_ERROR_OUT_OF_HOST_MEMORY:
+			case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+			case VK_ERROR_DEVICE_LOST:
+				gEngine.Host_Error("vkAcquireNextImageKHR returned %s, this is unrecoverable, crashing.\n", R_VkResultName(acquire_result));
+				XVK_CHECK(acquire_result);
+				return ret;
+
+			default:
+				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s (%0#x), recreating swapchain\n", R_VkResultName(acquire_result), acquire_result);
 				if (i == 0) {
 					force_recreate = true;
 					continue;
 				}
 				gEngine.Con_Printf(S_WARN "second vkAcquireNextImageKHR failed, frame will be lost\n", R_VkResultName(acquire_result));
 				return ret;
-
-			default:
-				XVK_CHECK(acquire_result);
 		}
 
 		break;
