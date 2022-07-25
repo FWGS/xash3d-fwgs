@@ -184,5 +184,6 @@ def build(bld):
 		includes = includes,
 		use      = libs,
 		install_path = install_path,
-		subsystem = bld.env.MSVC_SUBSYSTEM
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		rpath = '$ORIGIN'
 	)
