@@ -45,6 +45,15 @@ enum
 #define PFILE_FS_TOKEN_MAX_LENGTH 512
 
 //
+// build.c
+//
+int Q_buildnum( void );
+int Q_buildnum_compat( void );
+const char *Q_buildos( void );
+const char *Q_buildarch( void );
+const char *Q_buildcommit( void );
+
+//
 // crtlib.c
 //
 #define Q_strupr( in, out ) Q_strnupr( in, out, 99999 )
