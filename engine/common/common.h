@@ -119,9 +119,6 @@ typedef enum
 #include "con_nprint.h"
 #include "crclib.h"
 
-#define XASH_VERSION        "0.20" // engine current version
-#define XASH_COMPAT_VERSION "0.99" // version we are based on
-
 // PERFORMANCE INFO
 #define MIN_FPS         20.0f		// host minimum fps value for maxfps.
 #define MAX_FPS         200.0f		// upper limit for maxfps.
