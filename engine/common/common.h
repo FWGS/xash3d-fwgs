@@ -668,16 +668,6 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags );
 uint Sound_GetApproxWavePlayLen( const char *filepath );
 
 //
-// build.c
-//
-int Q_buildnum( void );
-int Q_buildnum_compat( void );
-const char *Q_buildos( void );
-const char *Q_buildarch( void );
-const char *Q_buildcommit( void );
-
-
-//
 // host.c
 //
 typedef void( *pfnChangeGame )( const char *progname );
