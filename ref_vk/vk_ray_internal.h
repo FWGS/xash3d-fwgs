@@ -6,7 +6,6 @@
 
 #define MAX_ACCELS 1024
 #define MAX_KUSOCHKI 16384
-#define MAX_EMISSIVE_KUSOCHKI 256
 #define MODEL_CACHE_SIZE 1024
 
 #include "shaders/ray_interop.h"
@@ -60,18 +59,6 @@ typedef struct {
 	// Needs: STORAGE_BUFFER
 	vk_buffer_t kusochki_buffer;
 	r_debuffer_t kusochki_alloc;
-
-	// TODO this should really be a single uniform buffer for matrices and light data
-
-	// Expected to be small (qualifies for uniform buffer)
-	// Two distinct modes: (TODO which?)
-	// - static map-only lighting: constant for the entire map lifetime.
-	//   Could be joined with render buffer, if not for possible uniform buffer binding optimization.
-	//   This is how it operates now.
-	// - fully dynamic lights: re-built each frame, so becomes similar to scratch_buffer and could be unified (same about uniform binding opt)
-	//   This allows studio and other non-brush model to be emissive.
-	// Needs: STORAGE/UNIFORM_BUFFER
-	vk_buffer_t lights_buffer;
 
 	// Per-frame data that is accumulated between RayFrameBegin and End calls
 	struct {

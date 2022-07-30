@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_const.h"
+#include "vk_core.h"
 
 #include "xash3d_types.h"
 
@@ -76,7 +77,7 @@ typedef struct {
 
 extern vk_lights_t g_lights;
 
-void VK_LightsInit( void );
+qboolean VK_LightsInit( void );
 void VK_LightsShutdown( void );
 
 struct model_s;
@@ -85,6 +86,9 @@ void RT_LightsNewMapEnd( const struct model_s *map );
 
 void RT_LightsFrameBegin( void );
 void RT_LightsFrameEnd( void );
+
+struct vk_buffer_s;
+const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer );
 
 qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id );
 

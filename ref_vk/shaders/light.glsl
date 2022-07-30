@@ -1,4 +1,4 @@
-layout (set = 0, binding = BINDING_LIGHTS) uniform UBOLights { Lights lights; }; // TODO this is pretty much static and should be a buffer, not UBO
+layout (set = 0, binding = BINDING_LIGHTS) readonly buffer UBOLights { Lights lights; }; // TODO this is pretty much static and should be a buffer, not UBO
 layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
 	ivec3 grid_min, grid_size;
 	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];

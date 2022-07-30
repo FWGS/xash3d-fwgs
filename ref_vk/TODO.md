@@ -1,12 +1,16 @@
 # Parallel frames
 - [ ] allocate for N frames:
 	- [x] geometries
-	- [ ] rt models
-		- [ ] kusochki
-		  - [ ] same ring buffer alloc as for geometries
-		    - [ ] extract as a unit
+	- [-] rt models
+		- [-] kusochki
+		  - [x] same ring buffer alloc as for geometries
+		    - [x] extract as a unit
 		- [ ] tlas geom --//--
 	- [ ] lights
+		- [x] make metadata buffer in lights
+		- [ ] join lights grid+meta into a single buffer
+		- [ ] put lights data into a cpu-side vk buffer
+		- [ ] sync+barrier upload
 
 - scratch buffer:
   - should be fine (assuming intra-cmdbuf sync), contents lifetime is single frame only

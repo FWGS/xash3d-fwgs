@@ -1,10 +1,11 @@
 #include "vk_light.h"
+#include "vk_buffer.h"
 #include "vk_mapents.h"
 #include "vk_textures.h"
-#include "vk_brush.h"
 #include "vk_lightmap.h"
 #include "vk_cvar.h"
 #include "vk_common.h"
+#include "shaders/ray_interop.h"
 #include "profiler.h"
 
 #include "mod_local.h"
@@ -40,8 +41,8 @@ static struct {
 		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
 	} map;
 
-	// vk_buffer_t staging;
-	// vk_buffer_t device;
+	// TODO vk_buffer_t staging;
+	vk_buffer_t buffer;
 } g_lights_;
 
 static struct {
@@ -60,15 +61,26 @@ static void debugDumpLights( void ) {
 
 vk_lights_t g_lights = {0};
 
-void VK_LightsInit( void ) {
+qboolean VK_LightsInit( void ) {
 	PROFILER_SCOPES(APROF_SCOPE_INIT);
 
 	gEngine.Cmd_AddCommand("vk_lights_dump", debugDumpLights, "Dump all light sources for next frame");
+
+	if (!VK_BufferCreate("rt lights buffer", &g_lights_.buffer, sizeof(struct Lights),
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		// FIXME complain, handle
+		return false;
+	}
+
+	return true;
 }
 
 static void clusterBitMapShutdown( void );
 
 void VK_LightsShutdown( void ) {
+	VK_BufferDestroy(&g_lights_.buffer);
+
 	gEngine.Cmd_RemoveCommand("vk_lights_dump");
 	clusterBitMapShutdown();
 }
@@ -956,90 +968,6 @@ qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 	}
 }
 
-void RT_LightsFrameEnd( void ) {
-	APROF_SCOPE_BEGIN_EARLY(finalize);
-	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-
-	if (g_lights.num_polygons > UINT8_MAX) {
-		ERROR_THROTTLED(10, "Too many emissive surfaces found: %d; some areas will be dark", g_lights.num_polygons);
-		g_lights.num_polygons = UINT8_MAX;
-	}
-
-	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
-	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
-	/* 	if (!addDlight(dlight)) { */
-	/* 		ERROR_THROTTLED(10,"Too many elights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS); */
-	/* 		break; */
-	/* 	} */
-	/* } */
-
-	for (int i = 0; i < g_lights.num_point_lights; ++i) {
-		vk_point_light_t *const light = g_lights.point_lights + i;
-		if (light->lightstyle < 0 || light->lightstyle >= MAX_LIGHTSTYLES)
-			continue;
-
-		{
-			const float scale = g_lightmap.lightstylevalue[light->lightstyle] / 255.f;
-			VectorScale(light->base_color, scale, light->color);
-		}
-	}
-
-	APROF_SCOPE_BEGIN(dlights);
-	for (int i = 0; i < MAX_DLIGHTS; ++i) {
-		const dlight_t *dlight = gEngine.GetDynamicLight(i);
-		if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
-			continue;
-		addDlight(dlight);
-	}
-	APROF_SCOPE_END(dlights);
-
-	if (debug_dump_lights.enabled) {
-#if 0
-		// Print light grid stats
-		gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_polygons);
-
-		{
-			#define GROUPSIZE 4
-			int histogram[1 + (MAX_VISIBLE_SURFACE_LIGHTS + GROUPSIZE - 1) / GROUPSIZE] = {0};
-			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-				const vk_lights_cell_t *cluster = g_lights.cells + i;
-				const int hist_index = cluster->num_polygons ? 1 + cluster->num_polygons / GROUPSIZE : 0;
-				histogram[hist_index]++;
-			}
-
-			gEngine.Con_Reportf("Built %d light clusters. Stats:\n", g_lights.map.grid_cells);
-			gEngine.Con_Reportf("  0: %d\n", histogram[0]);
-			for (int i = 1; i < ARRAYSIZE(histogram); ++i)
-				gEngine.Con_Reportf("  %d-%d: %d\n",
-					(i - 1) * GROUPSIZE,
-					i * GROUPSIZE - 1,
-					histogram[i]);
-		}
-
-		{
-			int num_clusters_with_lights_in_range = 0;
-			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-				const vk_lights_cell_t *cluster = g_lights.cells + i;
-				if (cluster->num_polygons > 0) {
-					gEngine.Con_Reportf(" cluster %d: polygons=%d\n", i, cluster->num_polygons);
-				}
-
-				for (int j = 0; j < cluster->num_polygons; ++j) {
-					const int index = cluster->polygons[j];
-					if (index >= vk_rtx_light_begin->value && index < vk_rtx_light_end->value) {
-						++num_clusters_with_lights_in_range;
-					}
-				}
-			}
-
-			gEngine.Con_Reportf("Clusters with filtered lights: %d\n", num_clusters_with_lights_in_range);
-		}
-#endif
-	}
-
-	debug_dump_lights.enabled = false;
-	APROF_SCOPE_END(finalize);
-}
 
 static void addPolygonLightIndexToLeaf(const mleaf_t* leaf, int poly_index) {
 	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
@@ -1202,4 +1130,139 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 		g_lights.num_polygon_vertices += addpoly->num_vertices;
 		return g_lights.num_polygons++;
 	}
+}
+
+const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer cmdbuf ) {
+	// Upload polygon lights
+	struct Lights *lights = g_lights_.buffer.mapped;
+	ASSERT(g_lights.num_polygons <= MAX_EMISSIVE_KUSOCHKI);
+	lights->num_polygons = g_lights.num_polygons;
+	for (int i = 0; i < g_lights.num_polygons; ++i) {
+		const rt_light_polygon_t *const src_poly = g_lights.polygons + i;
+		struct PolygonLight *const dst_poly = lights->polygons + i;
+
+		Vector4Copy(src_poly->plane, dst_poly->plane);
+		VectorCopy(src_poly->center, dst_poly->center);
+		dst_poly->area = src_poly->area;
+		VectorCopy(src_poly->emissive, dst_poly->emissive);
+
+		// TODO DEBUG_ASSERT
+		ASSERT(src_poly->vertices.count > 2);
+		ASSERT(src_poly->vertices.offset < 0xffffu);
+		ASSERT(src_poly->vertices.count < 0xffffu);
+
+		ASSERT(src_poly->vertices.offset + src_poly->vertices.count < COUNTOF(lights->polygon_vertices));
+
+		dst_poly->vertices_count_offset = (src_poly->vertices.count << 16) | (src_poly->vertices.offset);
+	}
+
+	lights->num_point_lights = g_lights.num_point_lights;
+	for (int i = 0; i < g_lights.num_point_lights; ++i) {
+		vk_point_light_t *const src = g_lights.point_lights + i;
+		struct PointLight *const dst = lights->point_lights + i;
+
+		VectorCopy(src->origin, dst->origin_r);
+		dst->origin_r[3] = src->radius;
+
+		VectorCopy(src->color, dst->color_stopdot);
+		dst->color_stopdot[3] = src->stopdot;
+
+		VectorCopy(src->dir, dst->dir_stopdot2);
+		dst->dir_stopdot2[3] = src->stopdot2;
+
+		dst->environment = !!(src->flags & LightFlag_Environment);
+	}
+
+	// TODO static assert
+	ASSERT(sizeof(lights->polygon_vertices) >= sizeof(g_lights.polygon_vertices));
+	for (int i = 0; i < g_lights.num_polygon_vertices; ++i) {
+		VectorCopy(g_lights.polygon_vertices[i], lights->polygon_vertices[i]);
+	}
+
+	return &g_lights_.buffer;
+}
+
+void RT_LightsFrameEnd( void ) {
+	APROF_SCOPE_BEGIN_EARLY(finalize);
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	if (g_lights.num_polygons > UINT8_MAX) {
+		ERROR_THROTTLED(10, "Too many emissive surfaces found: %d; some areas will be dark", g_lights.num_polygons);
+		g_lights.num_polygons = UINT8_MAX;
+	}
+
+	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
+	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
+	/* 	if (!addDlight(dlight)) { */
+	/* 		ERROR_THROTTLED(10,"Too many elights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS); */
+	/* 		break; */
+	/* 	} */
+	/* } */
+
+	for (int i = 0; i < g_lights.num_point_lights; ++i) {
+		vk_point_light_t *const light = g_lights.point_lights + i;
+		if (light->lightstyle < 0 || light->lightstyle >= MAX_LIGHTSTYLES)
+			continue;
+
+		{
+			const float scale = g_lightmap.lightstylevalue[light->lightstyle] / 255.f;
+			VectorScale(light->base_color, scale, light->color);
+		}
+	}
+
+	APROF_SCOPE_BEGIN(dlights);
+	for (int i = 0; i < MAX_DLIGHTS; ++i) {
+		const dlight_t *dlight = gEngine.GetDynamicLight(i);
+		if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
+			continue;
+		addDlight(dlight);
+	}
+	APROF_SCOPE_END(dlights);
+
+	if (debug_dump_lights.enabled) {
+#if 0
+		// Print light grid stats
+		gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_polygons);
+
+		{
+			#define GROUPSIZE 4
+			int histogram[1 + (MAX_VISIBLE_SURFACE_LIGHTS + GROUPSIZE - 1) / GROUPSIZE] = {0};
+			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+				const vk_lights_cell_t *cluster = g_lights.cells + i;
+				const int hist_index = cluster->num_polygons ? 1 + cluster->num_polygons / GROUPSIZE : 0;
+				histogram[hist_index]++;
+			}
+
+			gEngine.Con_Reportf("Built %d light clusters. Stats:\n", g_lights.map.grid_cells);
+			gEngine.Con_Reportf("  0: %d\n", histogram[0]);
+			for (int i = 1; i < ARRAYSIZE(histogram); ++i)
+				gEngine.Con_Reportf("  %d-%d: %d\n",
+					(i - 1) * GROUPSIZE,
+					i * GROUPSIZE - 1,
+					histogram[i]);
+		}
+
+		{
+			int num_clusters_with_lights_in_range = 0;
+			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+				const vk_lights_cell_t *cluster = g_lights.cells + i;
+				if (cluster->num_polygons > 0) {
+					gEngine.Con_Reportf(" cluster %d: polygons=%d\n", i, cluster->num_polygons);
+				}
+
+				for (int j = 0; j < cluster->num_polygons; ++j) {
+					const int index = cluster->polygons[j];
+					if (index >= vk_rtx_light_begin->value && index < vk_rtx_light_end->value) {
+						++num_clusters_with_lights_in_range;
+					}
+				}
+			}
+
+			gEngine.Con_Reportf("Clusters with filtered lights: %d\n", num_clusters_with_lights_in_range);
+		}
+#endif
+	}
+
+	debug_dump_lights.enabled = false;
+	APROF_SCOPE_END(finalize);
 }

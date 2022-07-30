@@ -420,54 +420,6 @@ static void uploadLights( void ) {
 			memcpy(dst->polygons, src->polygons, sizeof(uint8_t) * src->num_polygons);
 		}
 	}
-
-	// Upload polygon lights
-	{
-		struct Lights *lights = g_ray_model_state.lights_buffer.mapped;
-		ASSERT(g_lights.num_polygons <= MAX_EMISSIVE_KUSOCHKI);
-		lights->num_polygons = g_lights.num_polygons;
-		for (int i = 0; i < g_lights.num_polygons; ++i) {
-			const rt_light_polygon_t *const src_poly = g_lights.polygons + i;
-			struct PolygonLight *const dst_poly = lights->polygons + i;
-
-			Vector4Copy(src_poly->plane, dst_poly->plane);
-			VectorCopy(src_poly->center, dst_poly->center);
-			dst_poly->area = src_poly->area;
-			VectorCopy(src_poly->emissive, dst_poly->emissive);
-
-			// TODO DEBUG_ASSERT
-			ASSERT(src_poly->vertices.count > 2);
-			ASSERT(src_poly->vertices.offset < 0xffffu);
-			ASSERT(src_poly->vertices.count < 0xffffu);
-
-			ASSERT(src_poly->vertices.offset + src_poly->vertices.count < COUNTOF(lights->polygon_vertices));
-
-			dst_poly->vertices_count_offset = (src_poly->vertices.count << 16) | (src_poly->vertices.offset);
-		}
-
-		lights->num_point_lights = g_lights.num_point_lights;
-		for (int i = 0; i < g_lights.num_point_lights; ++i) {
-			vk_point_light_t *const src = g_lights.point_lights + i;
-			struct PointLight *const dst = lights->point_lights + i;
-
-			VectorCopy(src->origin, dst->origin_r);
-			dst->origin_r[3] = src->radius;
-
-			VectorCopy(src->color, dst->color_stopdot);
-			dst->color_stopdot[3] = src->stopdot;
-
-			VectorCopy(src->dir, dst->dir_stopdot2);
-			dst->dir_stopdot2[3] = src->stopdot2;
-
-			dst->environment = !!(src->flags & LightFlag_Environment);
-		}
-
-		// TODO static assert
-		ASSERT(sizeof(lights->polygon_vertices) >= sizeof(g_lights.polygon_vertices));
-		for (int i = 0; i < g_lights.num_polygon_vertices; ++i) {
-			VectorCopy(g_lights.polygon_vertices[i], lights->polygon_vertices[i]);
-		}
-	}
 }
 
 static void clearVkImage( VkCommandBuffer cmdbuf, VkImage image ) {
@@ -604,7 +556,7 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 	ubo->random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX);
 }
 
-static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y) {
+static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y, const vk_buffer_t* fixme_lights_buffer) {
 	vk_ray_resources_t res = {
 		.width = FRAME_WIDTH,
 		.height = FRAME_HEIGHT,
@@ -634,7 +586,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer),
 			RES_SET_SBUFFER_FULL(indices, args->geometry_data),
 			RES_SET_SBUFFER_FULL(vertices, args->geometry_data),
-			RES_SET_SBUFFER_FULL(lights, g_ray_model_state.lights_buffer),
+			RES_SET_SBUFFER_FULL(lights, (*fixme_lights_buffer)),
 			RES_SET_SBUFFER_FULL(light_clusters, g_rtx.light_grid_buffer),
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
@@ -670,7 +622,6 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 
 
 	DEBUG_BEGIN(cmdbuf, "yay tracing");
-	uploadLights();
 	prepareTlas(cmdbuf);
 	prepareUniformBuffer(args, frame_index, fov_angle_y);
 
@@ -738,6 +689,8 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
 
 	RT_LightsFrameEnd();
+	const vk_buffer_t* const fixme_lights_buffer = VK_LightsUpload(cmdbuf);
+	uploadLights();
 
 	g_rtx.frame_number++;
 
@@ -778,7 +731,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		clearVkImage( cmdbuf, current_frame->denoised.image );
 		blitImage( &blit_args );
 	} else {
-		performTracing( cmdbuf, args, (g_rtx.frame_number % 2), current_frame, args->fov_angle_y );
+		performTracing( cmdbuf, args, (g_rtx.frame_number % 2), current_frame, args->fov_angle_y, fixme_lights_buffer);
 	}
 }
 
@@ -854,13 +807,6 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 	RT_RayModel_Clear();
-
-	if (!VK_BufferCreate("ray lights_buffer", &g_ray_model_state.lights_buffer, sizeof(struct Lights),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
-		// FIXME complain, handle
-		return false;
-	}
 
 	if (!VK_BufferCreate("ray light_grid_buffer", &g_rtx.light_grid_buffer, sizeof(vk_ray_shader_light_grid),
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
@@ -951,7 +897,6 @@ void VK_RayShutdown( void ) {
 	VK_BufferDestroy(&g_rtx.accels_buffer);
 	VK_BufferDestroy(&g_rtx.tlas_geom_buffer);
 	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);
-	VK_BufferDestroy(&g_ray_model_state.lights_buffer);
 	VK_BufferDestroy(&g_rtx.light_grid_buffer);
 	VK_BufferDestroy(&g_rtx.uniform_buffer);
 
