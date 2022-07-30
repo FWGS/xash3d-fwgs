@@ -30,6 +30,20 @@
 PROFILER_SCOPES(SCOPE_DECLARE)
 #undef SCOPE_DECLARE
 
+typedef struct {
+	vec3_t emissive;
+	qboolean set;
+} vk_emissive_texture_t;
+
+static struct {
+	struct {
+		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
+	} map;
+
+	// vk_buffer_t staging;
+	// vk_buffer_t device;
+} g_lights_;
+
 static struct {
 	qboolean enabled;
 	char name_filter[256];
@@ -184,7 +198,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 				}
 
 				if (tex_id) {
-					vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + tex_id;
+					vk_emissive_texture_t *const etex = g_lights_.map.emissive_textures + tex_id;
 					ASSERT(tex_id < MAX_TEXTURES);
 
 					etex->emissive[0] = r;
@@ -495,7 +509,7 @@ void RT_LightsNewMapBegin( const struct model_s *map ) {
 	prepareSurfacesLeafVisibilityCache( map );
 
 	// Load RAD data based on map name
-	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
+	memset(g_lights_.map.emissive_textures, 0, sizeof(g_lights_.map.emissive_textures));
 	loadRadData( map, "maps/lights.rad" );
 
 	{
@@ -932,7 +946,7 @@ qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 	ASSERT(texture_id < MAX_TEXTURES);
 
 	{
-		vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + texture_id;
+		vk_emissive_texture_t *const etex = g_lights_.map.emissive_textures + texture_id;
 		if (etex->set) {
 			VectorCopy(etex->emissive, out);
 			return true;

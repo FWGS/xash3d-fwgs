@@ -3,14 +3,6 @@
 #include "vk_const.h"
 
 #include "xash3d_types.h"
-//#include "protocol.h"
-//#include "const.h"
-//#include "bspfile.h"
-
-typedef struct {
-	vec3_t emissive;
-	qboolean set;
-} vk_emissive_texture_t;
 
 typedef struct {
 	uint8_t num_point_lights;
@@ -62,8 +54,6 @@ typedef struct {
 		int grid_min_cell[3];
 		int grid_size[3];
 		int grid_cells;
-
-		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
 	} map;
 
 	int num_polygons;
