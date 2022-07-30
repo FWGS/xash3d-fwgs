@@ -113,14 +113,6 @@ struct PointLight {
 	PAD(3)
 };
 
-struct EmissiveKusok {
-	uint kusok_index;
-	PAD(3)
-	vec3 emissive;
-	PAD(1)
-	vec4 tx_row_x, tx_row_y, tx_row_z;
-};
-
 struct PolygonLight {
 	vec4 plane;
 
@@ -131,11 +123,10 @@ struct PolygonLight {
 	uint vertices_count_offset;
 };
 
-struct Lights {
+struct LightsMetadata {
 	uint num_polygons;
 	uint num_point_lights;
 	PAD(2)
-	//STRUCT EmissiveKusok kusochki[MAX_EMISSIVE_KUSOCHKI];
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
 	STRUCT PolygonLight polygons[MAX_EMISSIVE_KUSOCHKI];
 	vec4 polygon_vertices[MAX_EMISSIVE_KUSOCHKI * 7]; // vec3 but aligned

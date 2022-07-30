@@ -849,6 +849,8 @@ VkShaderModule loadShader(const char *filename) {
 	smci.pCode = pcode;
 
 	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
+	SET_DEBUG_NAME(shader, VK_OBJECT_TYPE_SHADER_MODULE, filename);
+
 	Mem_Free(buf);
 	return shader;
 }

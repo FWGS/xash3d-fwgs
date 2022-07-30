@@ -1,9 +1,8 @@
-layout (set = 0, binding = BINDING_LIGHTS) readonly buffer UBOLights { Lights lights; }; // TODO this is pretty much static and should be a buffer, not UBO
-layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
+layout (set = 0, binding = BINDING_LIGHTS, align = 1) readonly buffer LightBuffer {
+	LightsMetadata metadata;
 	ivec3 grid_min, grid_size;
-	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
 	LightCluster clusters[MAX_LIGHT_CLUSTERS];
-} light_grid;
+} lights;
 
 const float color_culling_threshold = 0;//600./color_factor;
 const float shadow_offset_fudge = .1;
@@ -18,19 +17,19 @@ const float shadow_offset_fudge = .1;
 #if LIGHT_POINT
 void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
-	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
+	const uint num_point_lights = uint(lights.clusters[cluster_index].num_point_lights);
 	for (uint j = 0; j < num_point_lights; ++j) {
-		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
+		const uint i = uint(lights.clusters[cluster_index].point_lights[j]);
 
-		vec3 color = lights.point_lights[i].color_stopdot.rgb * throughput;
+		vec3 color = lights.metadata.point_lights[i].color_stopdot.rgb * throughput;
 		if (dot(color,color) < color_culling_threshold)
 			continue;
 
-		const vec4 origin_r = lights.point_lights[i].origin_r;
-		const float stopdot = lights.point_lights[i].color_stopdot.a;
-		const vec3 dir = lights.point_lights[i].dir_stopdot2.xyz;
-		const float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
-		const bool not_environment = (lights.point_lights[i].environment == 0);
+		const vec4 origin_r = lights.metadata.point_lights[i].origin_r;
+		const float stopdot = lights.metadata.point_lights[i].color_stopdot.a;
+		const vec3 dir = lights.metadata.point_lights[i].dir_stopdot2.xyz;
+		const float stopdot2 = lights.metadata.point_lights[i].dir_stopdot2.a;
+		const bool not_environment = (lights.metadata.point_lights[i].environment == 0);
 
 		const vec3 light_dir = not_environment ? (origin_r.xyz - P) : -dir; // TODO need to randomize sampling direction for environment soft shadow
 		const float radius = origin_r.w;
@@ -109,19 +108,19 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 
 void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
-	const ivec3 light_cell = ivec3(floor(P / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
-	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
+	const ivec3 light_cell = ivec3(floor(P / LIGHT_GRID_CELL_SIZE)) - lights.grid_min;
+	const uint cluster_index = uint(dot(light_cell, ivec3(1, lights.grid_size.x, lights.grid_size.x * lights.grid_size.y)));
 
-	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
+	if (any(greaterThanEqual(light_cell, lights.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
 		return; // throughput * vec3(1., 0., 0.);
 
 	// const uint cluster_offset = cluster_index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
-	// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
-	// const int num_emissive_surfaces = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
+	// const int num_dlights = int(lights.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
+	// const int num_emissive_surfaces = int(lights.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
 	// const uint emissive_surfaces_offset = cluster_offset + LIGHT_CLUSTER_EMISSIVE_SURFACES_DATA_OFFSET;
 	//C = vec3(float(num_emissive_surfaces));
 
-	//C = vec3(float(int(light_grid.clusters[cluster_index].num_emissive_surfaces)));
+	//C = vec3(float(int(lights.clusters[cluster_index].num_emissive_surfaces)));
 	//C += .3 * fract(vec3(light_cell) / 4.);
 
 #if LIGHT_POLYGON

@@ -55,11 +55,6 @@ typedef struct {
 typedef struct PushConstants vk_rtx_push_constants_t;
 
 typedef struct {
-	int min_cell[4], size[3]; // 4th element is padding
-	struct LightCluster cells[MAX_LIGHT_CLUSTERS];
-} vk_ray_shader_light_grid;
-
-typedef struct {
 	xvk_image_t denoised;
 
 #define X(index, name, ...) xvk_image_t name;
@@ -99,18 +94,6 @@ static struct {
 	vk_buffer_t tlas_geom_buffer;
 	VkDeviceAddress tlas_geom_buffer_addr;
 	r_flipping_buffer_t tlas_geom_buffer_alloc;
-
-	// Planned to contain seveal types of data:
-	// - grid structure itself
-	// - lights data:
-	//   - dlights (fully dynamic)
-	//   - entity lights (can be dynamic with light styles)
-	//   - surface lights (map geometry is static, however brush models can have them too and move around (e.g. wagonchik and elevators))
-	// Therefore, this is also dynamic and lifetime is per-frame
-	// TODO: unify with scratch buffer
-	// Needs: STORAGE_BUFFER
-	// Can be potentially crated using compute shader (would need shader write bit)
-	vk_buffer_t light_grid_buffer;
 
 	// TODO need several TLASes for N frames in flight
 	VkAccelerationStructureKHR tlas;
@@ -401,27 +384,6 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	DEBUG_END(cmdbuf);
 }
 
-// Finalize and update dynamic lights
-static void uploadLights( void ) {
-	// Upload light grid
-	{
-		vk_ray_shader_light_grid *grid = g_rtx.light_grid_buffer.mapped;
-		ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
-		VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
-		VectorCopy(g_lights.map.grid_size, grid->size);
-
-		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-			const vk_lights_cell_t *const src = g_lights.cells + i;
-			struct LightCluster *const dst = grid->cells + i;
-
-			dst->num_point_lights = src->num_point_lights;
-			dst->num_polygons = src->num_polygons;
-			memcpy(dst->point_lights, src->point_lights, sizeof(uint8_t) * src->num_point_lights);
-			memcpy(dst->polygons, src->polygons, sizeof(uint8_t) * src->num_polygons);
-		}
-	}
-}
-
 static void clearVkImage( VkCommandBuffer cmdbuf, VkImage image ) {
 	const VkImageMemoryBarrier image_barriers[] = { {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -587,7 +549,6 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			RES_SET_SBUFFER_FULL(indices, args->geometry_data),
 			RES_SET_SBUFFER_FULL(vertices, args->geometry_data),
 			RES_SET_SBUFFER_FULL(lights, (*fixme_lights_buffer)),
-			RES_SET_SBUFFER_FULL(light_clusters, g_rtx.light_grid_buffer),
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
 
@@ -690,7 +651,6 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 
 	RT_LightsFrameEnd();
 	const vk_buffer_t* const fixme_lights_buffer = VK_LightsUpload(cmdbuf);
-	uploadLights();
 
 	g_rtx.frame_number++;
 
@@ -808,13 +768,6 @@ qboolean VK_RayInit( void )
 	}
 	RT_RayModel_Clear();
 
-	if (!VK_BufferCreate("ray light_grid_buffer", &g_rtx.light_grid_buffer, sizeof(vk_ray_shader_light_grid),
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
-		// FIXME complain, handle
-		return false;
-	}
-
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 #define CREATE_GBUFFER_IMAGE(name, format_, add_usage_bits) \
 		do { \
@@ -897,7 +850,6 @@ void VK_RayShutdown( void ) {
 	VK_BufferDestroy(&g_rtx.accels_buffer);
 	VK_BufferDestroy(&g_rtx.tlas_geom_buffer);
 	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);
-	VK_BufferDestroy(&g_rtx.light_grid_buffer);
 	VK_BufferDestroy(&g_rtx.uniform_buffer);
 
 	if (g_rtx.accels_buffer_alloc)

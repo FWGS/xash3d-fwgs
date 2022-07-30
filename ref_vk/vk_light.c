@@ -36,6 +36,16 @@ typedef struct {
 	qboolean set;
 } vk_emissive_texture_t;
 
+typedef struct {
+	int min_cell[4], size[3]; // 4th element is padding
+	struct LightCluster cells[MAX_LIGHT_CLUSTERS];
+} vk_ray_shader_light_grid;
+
+struct Lights {
+	struct LightsMetadata metadata;
+	vk_ray_shader_light_grid grid;
+};
+
 static struct {
 	struct {
 		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
@@ -1132,14 +1142,38 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 	}
 }
 
+static void uploadGrid( void ) {
+	struct Lights *lights = g_lights_.buffer.mapped;
+	vk_ray_shader_light_grid *grid = &lights->grid;
+
+	ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
+
+	VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
+	VectorCopy(g_lights.map.grid_size, grid->size);
+
+	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+		const vk_lights_cell_t *const src = g_lights.cells + i;
+		struct LightCluster *const dst = grid->cells + i;
+
+		dst->num_point_lights = src->num_point_lights;
+		dst->num_polygons = src->num_polygons;
+		memcpy(dst->point_lights, src->point_lights, sizeof(uint8_t) * src->num_point_lights);
+		memcpy(dst->polygons, src->polygons, sizeof(uint8_t) * src->num_polygons);
+	}
+}
+
 const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer cmdbuf ) {
+	uploadGrid();
+
 	// Upload polygon lights
 	struct Lights *lights = g_lights_.buffer.mapped;
+	struct LightsMetadata *metadata = &lights->metadata;
+
 	ASSERT(g_lights.num_polygons <= MAX_EMISSIVE_KUSOCHKI);
-	lights->num_polygons = g_lights.num_polygons;
+	metadata->num_polygons = g_lights.num_polygons;
 	for (int i = 0; i < g_lights.num_polygons; ++i) {
 		const rt_light_polygon_t *const src_poly = g_lights.polygons + i;
-		struct PolygonLight *const dst_poly = lights->polygons + i;
+		struct PolygonLight *const dst_poly = metadata->polygons + i;
 
 		Vector4Copy(src_poly->plane, dst_poly->plane);
 		VectorCopy(src_poly->center, dst_poly->center);
@@ -1151,15 +1185,15 @@ const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 		ASSERT(src_poly->vertices.offset < 0xffffu);
 		ASSERT(src_poly->vertices.count < 0xffffu);
 
-		ASSERT(src_poly->vertices.offset + src_poly->vertices.count < COUNTOF(lights->polygon_vertices));
+		ASSERT(src_poly->vertices.offset + src_poly->vertices.count < COUNTOF(metadata->polygon_vertices));
 
 		dst_poly->vertices_count_offset = (src_poly->vertices.count << 16) | (src_poly->vertices.offset);
 	}
 
-	lights->num_point_lights = g_lights.num_point_lights;
+	metadata->num_point_lights = g_lights.num_point_lights;
 	for (int i = 0; i < g_lights.num_point_lights; ++i) {
 		vk_point_light_t *const src = g_lights.point_lights + i;
-		struct PointLight *const dst = lights->point_lights + i;
+		struct PointLight *const dst = metadata->point_lights + i;
 
 		VectorCopy(src->origin, dst->origin_r);
 		dst->origin_r[3] = src->radius;
@@ -1174,9 +1208,9 @@ const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 	}
 
 	// TODO static assert
-	ASSERT(sizeof(lights->polygon_vertices) >= sizeof(g_lights.polygon_vertices));
+	ASSERT(sizeof(metadata->polygon_vertices) >= sizeof(g_lights.polygon_vertices));
 	for (int i = 0; i < g_lights.num_polygon_vertices; ++i) {
-		VectorCopy(g_lights.polygon_vertices[i], lights->polygon_vertices[i]);
+		VectorCopy(g_lights.polygon_vertices[i], metadata->polygon_vertices[i]);
 	}
 
 	return &g_lights_.buffer;
