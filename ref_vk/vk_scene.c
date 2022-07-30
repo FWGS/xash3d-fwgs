@@ -665,7 +665,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 	{
 		// Draw flashlight for local player
 		if( FBitSet( local_player->curstate.effects, EF_DIMLIGHT )) {
-			R_LightAddFlashlight(local_player, true);
+			RT_LightAddFlashlight(local_player, true);
 		}
 	}
 
@@ -678,7 +678,7 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 
 		// Draw flashlight for other players
 		if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ) && ent != local_player) {
-			R_LightAddFlashlight(ent, false);
+			RT_LightAddFlashlight(ent, false);
 		}
 	}
 	APROF_SCOPE_END(draw_opaques);
@@ -712,9 +712,6 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 	APROF_SCOPE_END(draw_transparent_beams);
 
 	VK_RenderDebugLabelEnd();
-
-	if (vk_core.rtx)
-		VK_LightsFrameFinalize();
 
 	if (ui_infotool->value > 0)
 		XVK_CameraDebugPrintCenterEntity();

@@ -20,7 +20,7 @@
 #include "pmtrace.h"
 
 #define PROFILER_SCOPES(X) \
-	X(finalize , "VK_LightsFrameFinalize"); \
+	X(finalize , "RT_LightsFrameEnd"); \
 	X(emissive_surface, "VK_LightsAddEmissiveSurface"); \
 	X(static_lights, "add static lights"); \
 	X(dlights, "add dlights"); \
@@ -365,7 +365,7 @@ static void clusterBitMapShutdown( void ) {
 	g_lights_tmp.clusters_bit_map = NULL;
 }
 
-int R_LightCellIndex( const int light_cell[3] ) {
+int RT_LightCellIndex( const int light_cell[3] ) {
 	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
 		|| (light_cell[0] >= g_lights.map.grid_size[0])
 		|| (light_cell[1] >= g_lights.map.grid_size[1])
@@ -522,7 +522,7 @@ void RT_LightsNewMapBegin( const struct model_s *map ) {
 	}
 }
 
-void RT_LightsFrameInit( void ) {
+void RT_LightsFrameBegin( void ) {
 	g_lights.num_polygons = g_lights.num_static.polygons;
 	g_lights.num_point_lights = g_lights.num_static.point_lights;
 	g_lights.num_polygon_vertices = g_lights.num_static.polygon_vertices;
@@ -598,141 +598,6 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 	return retval;
 }
 
-#if 0
-void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
-	APROF_SCOPE_BEGIN_EARLY(emissive_surface);
-	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-	const int texture_num = geom->texture; // Animated texture
-	vk_emissive_surface_t *retval = NULL;
-	vec3_t emissive_color = {0};
-
-	ASSERT(texture_num >= 0);
-	ASSERT(texture_num < MAX_TEXTURES);
-
-	// Only brush model surfaces are supported to be emissive. This is not _strictly_ necessary, but is a bit simpler.
-	if (!geom->surf)
-		goto fin; // TODO break? no surface means that model is not brush
-
-	// Find out whether this surface is emissive
-	{
-		const int surface_index = geom->surf - world->surfaces;
-		const xvk_patch_surface_t *psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
-
-		ASSERT(surface_index >= 0);
-		ASSERT(surface_index < world->numsurfaces);
-
-		if (psurf && psurf->flags & Patch_Surface_Emissive) {
-			VectorCopy(psurf->emissive, emissive_color);
-		} else if (geom->material == kXVkMaterialEmissive) {
-			VectorCopy(geom->emissive, emissive_color);
-		} else if (g_lights.map.emissive_textures[texture_num].set) {
-			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, emissive_color);
-		} else {
-			goto fin;
-		}
-
-		if (emissive_color[0] == 0 && emissive_color[1] == 0 && emissive_color[2] == 0) {
-			if (static_map) {
-				gEngine.Con_Reportf("Surface %d got zero emissive color, not adding as a light source\n", surface_index);
-			}
-			goto fin;
-		}
-	}
-
-	if (g_lights.num_polygons >= 256)
-		goto fin;
-
-	if (debug_dump_lights.enabled) {
-		const vk_texture_t *tex = findTexture(texture_num);
-		ASSERT(tex);
-		gEngine.Con_Reportf("surface light %d: %s (%f %f %f)\n", g_lights.num_polygons, tex->name,
-			emissive_color[0],
-			emissive_color[1],
-			emissive_color[2]);
-	}
-
-	{
-		const vk_light_leaf_set_t *const leafs = static_map
-			? getMapLeafsAffectedByMapSurface( geom->surf )
-			: getMapLeafsAffectedByMovingSurface( geom->surf, transform_row );
-		vk_emissive_surface_t *esurf = g_lights.polygons + g_lights.num_polygons;
-
-		// Insert into emissive surfaces
-		esurf->kusok_index = geom->kusok_index;
-		VectorCopy(emissive_color, esurf->emissive);
-		Matrix3x4_Copy(esurf->transform, *transform_row);
-
-		clusterBitMapClear();
-
-		// Iterate through each visible/potentially affected leaf to get a range of grid cells
-		for (int i = 0; i < leafs->num; ++i) {
-			const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
-
-			const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
-			const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
-			const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
-
-			const int max_x = floorf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE) + 1;
-			const int max_y = floorf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE) + 1;
-			const int max_z = floorf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE) + 1;
-
-			const qboolean not_visible = static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, leaf->minmaxs);
-
-			if (debug_dump_lights.enabled) {
-				gEngine.Con_Reportf("  adding leaf %d (%d of %d) min=(%d, %d, %d), max=(%d, %d, %d) total=%d\n",
-					leaf->cluster, i, leafs->num,
-					min_x, min_y, min_z,
-					max_x, max_y, max_z,
-					(max_x - min_x) * (max_y - min_y) * (max_z - min_z)
-				);
-			}
-
-			if (not_visible)
-				continue;
-
-			for (int x = min_x; x < max_x; ++x)
-			for (int y = min_y; y < max_y; ++y)
-			for (int z = min_z; z < max_z; ++z) {
-				const int cell[3] = {
-					x - g_lights.map.grid_min_cell[0],
-					y - g_lights.map.grid_min_cell[1],
-					z - g_lights.map.grid_min_cell[2]
-				};
-
-				const int cell_index = R_LightCellIndex( cell );
-				if (cell_index < 0)
-					continue;
-
-				if (clusterBitMapCheckOrSet( cell_index )) {
-					const float minmaxs[6] = {
-						x * LIGHT_GRID_CELL_SIZE,
-						y * LIGHT_GRID_CELL_SIZE,
-						z * LIGHT_GRID_CELL_SIZE,
-						(x+1) * LIGHT_GRID_CELL_SIZE,
-						(y+1) * LIGHT_GRID_CELL_SIZE,
-						(z+1) * LIGHT_GRID_CELL_SIZE,
-					};
-
-					if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs))
-						continue;
-
-					if (!addSurfaceLightToCell(cell_index, g_lights.num_polygons)) {
-						ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots",
-							cell[0], cell[1],  cell[2], cell_index);
-					}
-				}
-			}
-		}
-
-		++g_lights.num_polygons;
-		retval = esurf;
-	}
-
-fin:
-	APROF_SCOPE_END(emissive_surface);
-}
-#endif
-
 static void addLightIndexToLeaf( const mleaf_t *leaf, int index ) {
 	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
 	const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
@@ -760,7 +625,7 @@ static void addLightIndexToLeaf( const mleaf_t *leaf, int index ) {
 			z - g_lights.map.grid_min_cell[2]
 		};
 
-		const int cell_index = R_LightCellIndex( cell );
+		const int cell_index = RT_LightCellIndex( cell );
 		if (cell_index < 0)
 			continue;
 
@@ -883,7 +748,7 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	return index;
 }
 
-void R_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player ) {
+void RT_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player ) {
 	// parameters
 	const float hack_attenuation = 0.1;
 	float radius = 1.0;
@@ -1048,22 +913,6 @@ void RT_LightsNewMapEnd( const struct model_s *map ) {
 
 	processStaticPointLights();
 
-#if 0
-	// Load static map model
-	{
-		matrix3x4 xform;
-		const vk_brush_model_t *const bmodel = map->cache.data;
-		ASSERT(bmodel);
-		Matrix3x4_LoadIdentity(xform);
-
-		for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
-			const vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
-			VK_LightsAddEmissiveSurface( geom, &xform, true );
-				// TODO how to differentiate between this and non-emissive gEngine.Con_Printf(S_ERROR "Ran out of surface light slots, geom %d of %d\n", i, bmodel->render_model.num_geometries);
-		}
-	}
-#endif
-
 	// Fix static counts
 	{
 		g_lights.num_static.polygons = g_lights.num_polygons;
@@ -1093,7 +942,7 @@ qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 	}
 }
 
-void VK_LightsFrameFinalize( void ) {
+void RT_LightsFrameEnd( void ) {
 	APROF_SCOPE_BEGIN_EARLY(finalize);
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
@@ -1210,7 +1059,7 @@ static void addPolygonLightIndexToLeaf(const mleaf_t* leaf, int poly_index) {
 			z - g_lights.map.grid_min_cell[2]
 		};
 
-		const int cell_index = R_LightCellIndex( cell );
+		const int cell_index = RT_LightCellIndex( cell );
 		if (cell_index < 0)
 			continue;
 

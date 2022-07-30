@@ -329,7 +329,7 @@ void VK_RayFrameBegin( void )
 	}
 
 	// TODO shouldn't we do this in freeze models mode anyway?
-	RT_LightsFrameInit();
+	RT_LightsFrameBegin();
 }
 
 static void prepareTlas( VkCommandBuffer cmdbuf ) {
@@ -421,7 +421,7 @@ static void uploadLights( void ) {
 		}
 	}
 
-	// Upload dynamic emissive kusochki
+	// Upload polygon lights
 	{
 		struct Lights *lights = g_ray_model_state.lights_buffer.mapped;
 		ASSERT(g_lights.num_polygons <= MAX_EMISSIVE_KUSOCHKI);
@@ -429,9 +429,6 @@ static void uploadLights( void ) {
 		for (int i = 0; i < g_lights.num_polygons; ++i) {
 			const rt_light_polygon_t *const src_poly = g_lights.polygons + i;
 			struct PolygonLight *const dst_poly = lights->polygons + i;
-
-			//dst_ekusok->kusok_index = src_esurf->kusok_index;
-			//Matrix3x4_Copy(dst_ekusok->tx_row_x, src_esurf->transform);
 
 			Vector4Copy(src_poly->plane, dst_poly->plane);
 			VectorCopy(src_poly->center, dst_poly->center);
@@ -739,6 +736,8 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	ASSERT(vk_core.rtx);
 	// ubo should contain two matrices
 	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
+
+	RT_LightsFrameEnd();
 
 	g_rtx.frame_number++;
 
