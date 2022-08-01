@@ -391,7 +391,7 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	dll_user_t *hInst;
 	qboolean ret = FALSE;
 
-	hInst = COM_FindLibrary( name, directpath );
+	hInst = FS_FindLibrary( name, directpath );
 	if ( !hInst ) return FALSE;
 
 	data = FS_LoadFile( name, NULL, false );
@@ -439,7 +439,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 	COM_ResetLibraryError();
 
-	hInst = COM_FindLibrary( dllname, directpath );
+	hInst = FS_FindLibrary( dllname, directpath );
 	if( !hInst )
 	{
 		COM_PushLibraryError( va( "Failed to find library %s", dllname ) );
