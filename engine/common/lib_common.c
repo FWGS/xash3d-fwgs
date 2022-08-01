@@ -91,9 +91,16 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 	dll_user_t *p;
 	fs_dllinfo_t dllInfo;
 
-	// no fs loaded, can't search
+	// no fs loaded yet, but let engine find fs
 	if( !g_fsapi.FindLibrary )
-		return NULL;
+	{
+		p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
+		Q_strncpy( p->shortPath, dllname, sizeof( p->shortPath ));
+		Q_strncpy( p->fullPath, dllname, sizeof( p->fullPath ));
+		Q_strncpy( p->dllName, dllname, sizeof( p->dllName ));
+
+		return p;
+	}
 
 	// fs can't find library
 	if( !g_fsapi.FindLibrary( dllname, directpath, &dllInfo ))
