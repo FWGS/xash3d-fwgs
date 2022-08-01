@@ -1313,7 +1313,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 #if XASH_WIN32 && XASH_X86 // a1ba: custom loader is non-portable (I just don't want to touch it)
 			Con_Printf( S_WARN "%s: loading libraries from packs is deprecated "
 				"and will be removed in the future\n", __FUNCTION__ );
-			*custom_loader = true;
+			dllInfo->custom_loader = true;
 #else
 			Con_Printf( S_WARN "%s: loading libraries from packs is unsupported on "
 				"this platform\n", __FUNCTION__ );
@@ -1390,8 +1390,9 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 	int		i;
 
 	FS_InitMemory();
-
+#if !XASH_WIN32
 	fs_caseinsensitive = caseinsensitive;
+#endif
 
 	Q_strncpy( fs_rootdir, rootdir, sizeof( fs_rootdir ));
 	Q_strncpy( fs_gamedir, gamedir, sizeof( fs_gamedir ));
@@ -1979,8 +1980,13 @@ int FS_Flush( file_t *file )
 	FS_Purge( file );
 
 	// sync
+#if XASH_POSIX
 	if( fsync( file->handle ) < 0 )
 		return EOF;
+#else
+	if( fflush( file->handle ) < 0 )
+		return EOF;
+#endif
 
 	return 0;
 }
