@@ -219,8 +219,8 @@ public:
 
 	void FileTimeToString( char *p, int size, long int time ) override
 	{
-		char *buf = ctime( &time );
-
+		time_t curtime = time;
+		char *buf = ctime( &curtime );
 		Q_strncpy( p, buf, size );
 	}
 
