@@ -17,7 +17,9 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#if XASH_POSIX
 #include <unistd.h>
+#endif
 #include <errno.h>
 #include <stddef.h>
 #include "port.h"
