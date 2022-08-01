@@ -295,6 +295,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
               &&buffer[length - 3] == 'a'
               &&buffer[length - 4] == '.')
           {
+            char *begin, *p;
             int fd = open(path, O_RDONLY);
             if (fd == -1)
             {
@@ -302,7 +303,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
               break;
             }
 
-            char* begin = (char*)mmap(0, offset, PROT_READ, MAP_SHARED, fd, 0);
+            begin = (char*)mmap(0, offset, PROT_READ, MAP_SHARED, fd, 0);
             if (begin == MAP_FAILED)
             {
               close(fd);
@@ -310,7 +311,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
               break;
             }
 
-            char* p = begin + offset - 30; // minimum size of local file header
+            p = begin + offset - 30; // minimum size of local file header
             while (p >= begin) // scan backwards
             {
               if (*((uint32_t*)p) == 0x04034b50UL) // local file header signature found
