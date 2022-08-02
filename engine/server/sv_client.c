@@ -2268,10 +2268,14 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, "i" )) NET_SendPacket( NS_SERVER, 5, "\xFF\xFF\xFF\xFFj", from ); // A2A_PING
 	else if (!Q_strcmp( pcmd, "c" ))
 	{
-		netadr_t to;
+		qboolean sv_nat = Cvar_VariableInteger( "sv_nat" );
+		if( sv_nat )
+		{
+			netadr_t to;
 
-		if( NET_StringToAdr( Cmd_Argv( 1 ), &to ))
-			SV_Info( to );
+			if( NET_StringToAdr( Cmd_Argv( 1 ), &to ) && !NET_IsReservedAdr( to ))
+				SV_Info( to );
+		}
 	}
 	else if( svgame.dllFuncs.pfnConnectionlessPacket( &from, args, buf, &len ))
 	{
