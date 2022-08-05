@@ -54,11 +54,6 @@ typedef struct ui_globalvars_s
 
 struct ref_viewpass_s;
 
-#if __GNUC__ == 3
-#undef NORETURN
-#define NORETURN
-#endif // GCC 3.x have problems with noreturn attribute on function pointer
-
 typedef struct ui_enginefuncs_s
 {
 	// image handlers
@@ -122,7 +117,7 @@ typedef struct ui_enginefuncs_s
 	int	(*CL_CreateVisibleEntity)( int type, struct cl_entity_s *ent );
 
 	// misc handlers
-	void	(*pfnHostError)( const char *szFmt, ... ) _format( 1 ) NORETURN;
+	void	(*pfnHostError)( const char *szFmt, ... ) _format( 1 );
 	int	(*pfnFileExists)( const char *filename, int gamedironly );
 	void	(*pfnGetGameDir)( char *szGetGameDir );
 
