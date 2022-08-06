@@ -209,6 +209,7 @@ def configure(conf):
 #		'-Werror=format=2',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
+		'-Wmisleading-indentation',
 	]
 
 	c_compiler_optional_flags = [
