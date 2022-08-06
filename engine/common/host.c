@@ -1033,7 +1033,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		return;
 	}
 
-	FS_LoadProgs( FILESYSTEM_STDIO_DLL );
+	FS_LoadProgs();
 
 	if( FS_SetCurrentDirectory( host.rootdir ) != 0 )
 		Con_Reportf( "%s is working directory now\n", host.rootdir );

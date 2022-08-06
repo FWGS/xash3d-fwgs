@@ -56,8 +56,15 @@ static void FS_UnloadProgs( void )
 	fs_hInstance = 0;
 }
 
-qboolean FS_LoadProgs( const char *name )
+#ifdef XASH_INTERNAL_GAMELIBS
+#define FILESYSTEM_STDIO_DLL "filesystem_stdio"
+#else
+#define FILESYSTEM_STDIO_DLL "filesystem_stdio." OS_LIB_EXT
+#endif
+
+qboolean FS_LoadProgs( void )
 {
+	const char *name = FILESYSTEM_STDIO_DLL;
 	FSAPI GetFSAPI;
 
 	fs_hInstance = COM_LoadLibrary( name, false, true );

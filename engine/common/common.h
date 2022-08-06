@@ -398,8 +398,7 @@ typedef void (*xcommand_t)( void );
 //
 // filesystem_engine.c
 //
-#define FILESYSTEM_STDIO_DLL "filesystem_stdio." OS_LIB_EXT
-qboolean FS_LoadProgs( const char *name );
+qboolean FS_LoadProgs( void );
 void FS_Init( void );
 void FS_Shutdown( void );
 
