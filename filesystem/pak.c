@@ -63,14 +63,14 @@ typedef struct
 #define PAK_LOAD_NO_FILES		5
 #define PAK_LOAD_CORRUPTED		6
 
-typedef struct pack_s
+struct pack_s
 {
 	string		filename;
 	int		handle;
 	int		numfiles;
 	time_t		filetime;			// common for all packed files
 	dpackfile_t	*files;
-} pack_t;
+};
 
 /*
 ====================

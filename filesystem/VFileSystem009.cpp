@@ -476,10 +476,10 @@ public:
 	int ResumeResourcePreloading() override { return 0; }
 	bool IsAppReadyForOfflinePlay(int) override { return true; }
 	bool IsFileImmediatelyAvailable(const char *) override { return true; }
-	bool GetWaitForResourcesProgress(WaitForResourcesHandle_t, float *progress, bool *override) override
+	bool GetWaitForResourcesProgress(WaitForResourcesHandle_t, float *pProgress, bool *pOverride) override
 	{
-		if( progress ) *progress = 0;
-		if( override ) *override = true;
+		if( pProgress ) *pProgress = 0;
+		if( pOverride ) *pOverride = true;
 		return false;
 	}
 } g_VFileSystem009;
