@@ -1984,7 +1984,7 @@ int FS_Flush( file_t *file )
 	if( fsync( file->handle ) < 0 )
 		return EOF;
 #else
-	if( fflush( file->handle ) < 0 )
+	if( _commit( file->handle ) < 0 )
 		return EOF;
 #endif
 
