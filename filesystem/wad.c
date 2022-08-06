@@ -69,7 +69,7 @@ typedef struct
 	char		name[WAD3_NAMELEN];	// must be null terminated
 } dlumpinfo_t;
 
-typedef struct wfile_s
+struct wfile_s
 {
 	string		filename;
 	int		infotableofs;
@@ -78,7 +78,7 @@ typedef struct wfile_s
 	file_t		*handle;
 	dlumpinfo_t	*lumps;
 	time_t		filetime;
-} wfile_t;
+};
 
 // WAD errors
 #define WAD_LOAD_OK			0

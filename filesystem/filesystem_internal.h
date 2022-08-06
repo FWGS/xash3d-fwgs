@@ -28,7 +28,6 @@ typedef struct zip_s zip_t;
 typedef struct pack_s pack_t;
 typedef struct wfile_s wfile_t;
 
-
 #define FILE_BUFF_SIZE		(2048)
 
 struct file_s

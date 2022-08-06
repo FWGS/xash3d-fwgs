@@ -118,14 +118,14 @@ typedef struct zipfile_s
 	unsigned short flags;
 } zipfile_t;
 
-typedef struct zip_s
+struct zip_s
 {
 	string		filename;
 	int		handle;
 	int		numfiles;
 	time_t		filetime;
 	zipfile_t	*files;
-} zip_t;
+};
 
 #ifdef XASH_REDUCE_FD
 static void FS_EnsureOpenZip( zip_t *zip )
