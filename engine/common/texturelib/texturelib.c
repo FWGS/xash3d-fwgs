@@ -15,6 +15,8 @@ GNU General Public License for more details.
 
 #include "texturelib.h"
 
+#include "xash3d_mathlib.h"
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Defines, macros
@@ -28,12 +30,13 @@ GNU General Public License for more details.
 ////////////////////////////////////////////////////////////////////////////////
 // Structs
 
-typedef struct rm_texture_s {
+typedef struct rm_texture_s
+{
 	qboolean used;
 	
 	char name[MAX_NAME_LEN];
 
-	rgbdata_t* picture;
+	rgbdata_t *picture;
 	int width;
 	int height;
 	
@@ -48,13 +51,14 @@ typedef struct rm_texture_s {
 ////////////////////////////////////////////////////////////////////////////////
 // Global state
 
-static struct {
+static struct
+{
 	rm_texture_t  array[MAX_TEXTURES];
-	rm_texture_t* hash_table[TEXTURES_HASH_SIZE];
+	rm_texture_t *hash_table[TEXTURES_HASH_SIZE];
 	uint       count;
 
-	ref_interface_t* ref;
-} Textures;
+	ref_interface_t *ref;
+} g_textures;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,21 +77,21 @@ static byte dot_texture[8][8] =
 };
 
 static size_t CalcImageSize( pixformat_t format, int width, int height, int depth );
-static qboolean IsValidTextureName( const char* name );
-static rm_texture_t* GetTextureByName( const char* name );
-static rm_texture_t* AppendTexture( const char* name, int flags );
-static void ProcessFlags( rm_texture_t* tex, rgbdata_t* pic );
-static qboolean UploadTexture( rm_texture_t* texture, qboolean update );
-static void RemoveTexture( const char* name );
+static qboolean IsValidTextureName( const char *name );
+static rm_texture_t *GetTextureByName( const char *name );
+static rm_texture_t *AppendTexture( const char *name, int flags );
+static void ProcessImage( rm_texture_t *tex, rgbdata_t *pic );
+static qboolean UploadTexture( rm_texture_t *tex, qboolean update );
+static void RemoveTexture( const char *name );
 
 static void CreateUnusedEntry( void );
 
 static void CreateInternalTextures( void );
 
-static rgbdata_t* FakeImage( int width, int height, int depth, int flags );
+static rgbdata_t *FakeImage( int width, int height, int depth, int flags );
 static int CreateEmoTexture( void );
 static int CreateParticleTexture( void );
-static int CreateStaticColoredTexture( const char* name, uint32_t color );
+static int CreateStaticColoredTexture( const char *name, uint32_t color );
 static int CreateCinematicDummyTexture( void );
 static int CreateDlightTexture( void );
 
@@ -97,49 +101,49 @@ static int CreateDlightTexture( void );
 
 void RM_Init()
 {
-	memset( &Textures, 0, sizeof( Textures ));
+	memset( &g_textures, 0, sizeof( g_textures ));
 	
 	CreateUnusedEntry();
 
 	CreateInternalTextures();
 }
 
-void RM_SetRender( ref_interface_t* ref )
+void RM_SetRender( ref_interface_t *ref )
 {
-	Textures.ref = ref;
+	g_textures.ref = ref;
 
 	RM_ReuploadTextures();
 }
 
 void RM_ReuploadTextures()
 {
-	rm_texture_t* texture;
+	rm_texture_t *tex;
 
-	if( !Textures.ref )
+	if( !g_textures.ref )
 	{
 		Con_Reportf( S_ERROR "Render not found\n" );
 		return;
 	}
 
 	// For all textures
-	for( int i = 1; i < Textures.count; i++ )
+	for( int i = 1; i < g_textures.count; i++ )
 	{
-		texture = &(Textures.array[i]); 
+		tex = &g_textures.array[i]; 
 
-		if( !texture->used )
+		if( !tex->used )
 			continue;
 		
-		if( texture->picture != NULL )
-			UploadTexture( texture, false );
+		if( tex->picture != NULL )
+			UploadTexture( tex, false );
 		else
 			Con_Reportf( S_ERROR "Reupload without early saved picture is not supported now\n" );
 	}
 }
 
-int RM_LoadTexture( const char* name, const byte* buf, size_t size, int flags )
+int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 {
-	rgbdata_t* picture;
-	rm_texture_t* texture;
+	rgbdata_t *picture;
+	rm_texture_t *tex;
 	uint       picFlags;
 
 	Con_Reportf( "RM_LoadTexture. Name %s\n", name );
@@ -152,10 +156,10 @@ int RM_LoadTexture( const char* name, const byte* buf, size_t size, int flags )
 	}
 
 	// Check cache
-	if(( texture = GetTextureByName( name )))
+	if(( tex = GetTextureByName( name )))
 	{
 		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
-		return texture->number;
+		return tex->number;
 	}
 
 	// Bit manipulation
@@ -176,45 +180,46 @@ int RM_LoadTexture( const char* name, const byte* buf, size_t size, int flags )
 	}
 
 	// Allocate texture
-	texture = AppendTexture( name, flags );
-	texture->picture = picture;
-	texture->width   = picture->width;
-	texture->height  = picture->height;
+	tex = AppendTexture( name, flags );
+	tex->picture = picture;
+	tex->width   = picture->width;
+	tex->height  = picture->height;
 
-	ProcessFlags(texture, picture);
+	ProcessImage( tex, picture );
 
 	// And upload texture
 	// FIXME: Handle error
-	UploadTexture( texture, false );
+	UploadTexture( tex, false );
 
-	return texture->number;
+	return tex->number;
 }
 
-int RM_LoadTextureArray( const char** names, int flags )
+int RM_LoadTextureArray( const char **names, int flags )
 {
 	uint layers_count;
 	char name[MAX_NAME_LEN];
 	char basename[MAX_NAME_LEN];
-	rm_texture_t* texture;
-	rgbdata_t* picture;
+	rm_texture_t *tex;
+	rgbdata_t *picture;
 	int texnum;
+	size_t i;
 
 	// Validate arguments
-	if( !names || !names[0] )
+	if( names || !COM_CheckString( names[0] ))
 	{
 		Con_Reportf( "Empty textures names array\n" );
 		return 0;
 	}
 
 	// Count layers
-	for( size_t i = 0; i < *names[i] != '\0'; i++ )
+	for( i = 0; i < *names[i] != '\0'; i++ )
 		layers_count++;
 
 	if( layers_count == 0 )
 		return 0;
 
 	// Сreate complexname from layer names
-	for( size_t i = 0; i < layers_count; i++ )
+	for( i = 0; i < layers_count; i++ )
 	{
 		COM_FileBase( names[i], &basename );
 		Q_strncat( &name, &basename, MAX_NAME_LEN );
@@ -231,17 +236,17 @@ int RM_LoadTextureArray( const char** names, int flags )
 	}
 
 	// Check cache
-	if(( texture = GetTextureByName( name )))
+	if(( tex = GetTextureByName( name )))
 	{
 		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
-		return texture->number;
+		return tex->number;
 	}
 
 	// Load all the images and pack it into single image
-	for( size_t i = 0; i < layers_count; i++ )
+	for( i = 0; i < layers_count; i++ )
 	{
-		rgbdata_t* src;
-		size_t src_size, dst_size, mip_size;
+		rgbdata_t *src;
+		size_t j, src_size, dst_size, mip_size;
 
 		src = FS_LoadImage( names[i], NULL, 0 );
 		if( !src )
@@ -280,10 +285,8 @@ int RM_LoadTextureArray( const char** names, int flags )
 			}
 
 			// Allow to rescale raw images
-			if(
-				ImageRAW( picture->type ) && ImageRAW( src->type ) &&
-				( picture->width != src->width || picture->height != src->height )
-			)
+			if( ImageRAW( picture->type ) && ImageRAW( src->type ) &&
+			   ( picture->width != src->width || picture->height != src->height ))
 			{
 				Image_Process( &src, picture->width, picture->height, IMAGE_RESAMPLE, 0.0f );
 			}
@@ -297,7 +300,7 @@ int RM_LoadTextureArray( const char** names, int flags )
 
 		mip_size = src_size = dst_size = 0;
 
-		for( size_t j = 0; j < Q_max( 1, picture->numMips ); j++ )
+		for( j = 0; j < Q_max( 1, picture->numMips ); j++ )
 		{
 			int width  = Q_max( 1, ( picture->width >> j ));
 			int height = Q_max( 1, ( picture->height >> j ));
@@ -339,9 +342,9 @@ int RM_LoadTextureArray( const char** names, int flags )
 	return texnum;
 }
 
-int RM_LoadTextureFromBuffer( const char* name, rgbdata_t* picture, int flags, qboolean update )
+int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, qboolean update )
 {
-	rm_texture_t *texture;
+	rm_texture_t *tex;
 
 	Con_Reportf( "RM_LoadTextureFromBuffer. Name %s\n", name );
 
@@ -353,10 +356,10 @@ int RM_LoadTextureFromBuffer( const char* name, rgbdata_t* picture, int flags, q
 	}
 
 	// Check cache
-	if(( texture = GetTextureByName( name )))
+	if(( tex = GetTextureByName( name )))
 	{
-		Con_Reportf( "Texture is already loaded with number %d\n", texture->number );
-		return texture->number;
+		Con_Reportf( "Texture is already loaded with number %d\n", tex->number );
+		return tex->number;
 	}
 
 	// Check picture pointer
@@ -367,57 +370,57 @@ int RM_LoadTextureFromBuffer( const char* name, rgbdata_t* picture, int flags, q
 	}
 
 	// Create texture
-	texture = AppendTexture( name, flags );
-	texture->picture = picture;
-	texture->width   = picture->width;
-	texture->height  = picture->height;
+	tex = AppendTexture( name, flags );
+	tex->picture = picture;
+	tex->width   = picture->width;
+	tex->height  = picture->height;
 
-	ProcessFlags( texture, picture );
+	ProcessImage( tex, picture );
 
 	// And upload
 	// FIXME: Handle error
-	UploadTexture( texture, update );
+	UploadTexture( tex, update );
 
-	return texture->number;
+	return tex->number;
 }
 
 void RM_FreeTexture( unsigned int texnum )
 {
-	rm_texture_t *texture;
+	rm_texture_t *tex;
 
 	//Con_Reportf( "RM_FreeTexture. Number %d\n", texnum );
 
-	if (texnum == 0)
+	if( texnum == 0 )
 	{
 		return;
 	}
 
-	texture = &( Textures.array[texnum] );
-	if ( texture->used == false )
+	tex = &g_textures.array[texnum];
+	if( !tex->used )
 	{
 		return;
 	}
 
-	RemoveTexture( texture->name );
+	RemoveTexture( tex->name );
 
-	Textures.ref->R_FreeTexture( texnum );
+	g_textures.ref->R_FreeTexture( texnum );
 }
 
-const char*	RM_TextureName( unsigned int texnum )
+const char *RM_TextureName( unsigned int texnum )
 {
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 
-	return &Textures.array[texnum].name;
+	return &g_textures.array[texnum].name;
 }
 
-const byte*	RM_TextureData( unsigned int texnum )
+const byte *RM_TextureData( unsigned int texnum )
 {
-	rgbdata_t* pic;
+	rgbdata_t *pic;
 
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 
-	pic = Textures.array[texnum].picture;
-	if (pic != NULL)
+	pic = g_textures.array[texnum].picture;
+	if( pic != NULL )
 		return pic->buffer;
 	else
 		return NULL;
@@ -425,28 +428,22 @@ const byte*	RM_TextureData( unsigned int texnum )
 
 int RM_FindTexture( const char *name )
 {
-	rm_texture_t* texture;
+	rm_texture_t *tex;
 
-	texture = GetTextureByName( name );
-	if( texture == NULL)
-	{
-		return 0;
-	}
-	else
-	{
-		return texture->number;
-	}
+	tex = GetTextureByName( name );
+	if( !tex ) return NULL;
+	return tex->number;
 }
 
-void RM_GetTextureParams( int* w, int* h, int texnum )
+void RM_GetTextureParams( int *w, int *h, int texnum )
 {
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 
-	if (w) *w = Textures.array[texnum].width;
-	if (h) *h = Textures.array[texnum].height; 
+	if( w ) *w = g_textures.array[texnum].width;
+	if( h ) *h = g_textures.array[texnum].height; 
 }
 
-int	RM_CreateTexture( const char* name, int width, int height, const void* buffer, texFlags_t flags )
+int	RM_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags )
 {
 	rgbdata_t picture;
 	size_t    datasize;
@@ -463,7 +460,7 @@ int	RM_CreateTexture( const char* name, int width, int height, const void* buffe
 		datasize = 1;
 
 	// Fill picture
-	memset( &picture, 0, sizeof( rgbdata_t ));
+	memset( &picture, 0, sizeof( picture ));
 	picture.width  = Q_max( width, 1 );
 	picture.height = Q_max( height, 1 );
 	picture.depth  = 1;
@@ -494,7 +491,7 @@ int	RM_CreateTexture( const char* name, int width, int height, const void* buffe
 	return RM_LoadTextureFromBuffer( name, &picture, flags, update );
 }
 
-int RM_CreateTextureArray( const char* name, int width, int height, int depth, const void* buffer, texFlags_t flags )
+int RM_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
 {
 	rgbdata_t picture;
 
@@ -529,7 +526,7 @@ int RM_CreateTextureArray( const char* name, int width, int height, int depth, c
 
 size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
 {
-	size_t	size = 0;
+	size_t size = 0;
 
 	// check the depth error
 	depth = Q_max( 1, depth );
@@ -565,102 +562,91 @@ size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
 
 qboolean IsValidTextureName( const char *name )
 {
-	if (name == NULL)
-		return false;
-	
 	if( !COM_CheckString( name ) )
 		return false;
 	else
 		return Q_strlen( name ) < MAX_NAME_LEN;
 }
 
-rm_texture_t* GetTextureByName( const char *name )
+rm_texture_t *GetTextureByName( const char *name )
 {
 	size_t hash;
-	rm_texture_t* texture;
+	rm_texture_t *tex;
 
 	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
-	for (
-		texture = Textures.hash_table[hash];
-		texture != NULL;
-		texture = texture->next_same_hash
-	)
+	for(tex = g_textures.hash_table[hash]; tex != NULL; tex = tex->next_same_hash)
 	{
-		if ( strcmp( texture->name, name ) == 0 )
+		if( !Q_strcmp( tex->name, name ))
 		{
-			return texture;
+			return tex;
 		}
 	}
 
 	return NULL;
 }
 
-rm_texture_t* AppendTexture( const char* name, int flags )
+rm_texture_t *AppendTexture( const char *name, int flags )
 {
 	size_t     i;
 	size_t     hash;
-	rm_texture_t* texture;
-	rm_texture_t* ft;
+	rm_texture_t *tex;
+	rm_texture_t *ft;
 
 	// Check free places
-	if ( Textures.count == TEXTURES_HASH_SIZE )
+	if( g_textures.count == MAX_TEXTURES )
 	{
 		Con_Reportf( S_ERROR "Memory is full, no more textures can be loaded" );
 		return NULL;
 	}
 
 	// Found hole
-	for ( i = 0; i < Textures.count; i++ )
+	for( i = 0; i < g_textures.count; i++ )
 	{
-		if ( Textures.array[i].used == false )
+		if( !g_textures.array[i].used )
 		{
 			break;
 		}
 	}
 
 	// Initialize
-	texture = &(Textures.array[i]);
-	memset( texture, 0, sizeof(rm_texture_t) );
+	tex = &g_textures.array[i];
+	memset( tex, 0, sizeof(rm_texture_t) );
 
-	texture->used = true;
+	tex->used = true;
 
 	// Fill some fields
-	Q_strncpy( texture->name, name, sizeof( texture->name ) );
+	Q_strncpy( tex->name, name, sizeof( tex->name ) );
 	
 	// Pointer to picture, width and height will be set later
-	texture->number = i; 
-	texture->flags  = flags;
+	tex->number = i; 
+	tex->flags  = flags;
 
 	// Insert into hash table
 	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
-	if ( Textures.hash_table[hash] == NULL )
+	if( g_textures.hash_table[hash] == NULL )
 	{
-		Textures.hash_table[hash] = texture;
+		g_textures.hash_table[hash] = tex;
 	}
 	else
 	{
 		// Rare, but hash collisions do happen
 		// Insert at the end of a single linked list
-		for (
-			ft = Textures.hash_table[hash];
-			;
-			ft = ft->next_same_hash
-		)
+		for( ft = g_textures.hash_table[hash]; ; ft = ft->next_same_hash )
 		{
-			if (ft->next_same_hash == NULL)
+			if( ft->next_same_hash == NULL )
 			{
-				ft->next_same_hash = texture;
+				ft->next_same_hash = tex;
 				break;
 			}
 		}
 	}
 
-	Textures.count++;
+	g_textures.count++;
 
-	return texture;
+	return tex;
 }
 
-void ProcessFlags( rm_texture_t* tex, rgbdata_t* pic )
+void ProcessImage( rm_texture_t *tex, rgbdata_t *pic )
 {
 	uint img_flags = 0;
 
@@ -710,25 +696,19 @@ void ProcessFlags( rm_texture_t* tex, rgbdata_t* pic )
 	}
 }
 
-qboolean UploadTexture( rm_texture_t* texture, qboolean update )
+qboolean UploadTexture( rm_texture_t *tex, qboolean update )
 {
 	qboolean status;
 
 	//Con_Reportf( "Upload texture %s at %d\n", texture->name, texture->number );
 
-	if( Textures.ref == NULL )
+	if( g_textures.ref == NULL )
 	{
 		//Con_Reportf( S_ERROR "Ref is not loaded!\n" );
 		return false;
 	}
 
-	status = Textures.ref->R_LoadTextureFromBuffer
-	(
-		texture->number,
-		texture->picture,
-		texture->flags, 
-		update
-	);
+	status = g_textures.ref->R_LoadTextureFromBuffer(tex->number, tex->picture, tex->flags, update);
 
 	if( status )
 	{
@@ -742,42 +722,38 @@ qboolean UploadTexture( rm_texture_t* texture, qboolean update )
 	return status;
 }
 
-void RemoveTexture( const char* name )
+void RemoveTexture( const char *name )
 {
 	size_t hash;
-	rm_texture_t* tex;
-	rm_texture_t* prev;
+	rm_texture_t *tex;
+	rm_texture_t *prev;
 
 	hash = COM_HashKey( name, TEXTURES_HASH_SIZE );
 	
 	// If remove head, just change hash table pointer
-	if ( strcmp( Textures.hash_table[hash]->name, name ) == 0 ) {
+	if( !Q_strcmp( g_textures.hash_table[hash]->name, name )) {
 		
-		tex = Textures.hash_table[hash]->next_same_hash;
+		tex = g_textures.hash_table[hash]->next_same_hash;
 
-		memset( Textures.hash_table[hash], 0, sizeof(rm_texture_t) );
-		Textures.hash_table[hash] = tex;
+		memset( g_textures.hash_table[hash], 0, sizeof( g_textures.hash_table[hash] ));
+		g_textures.hash_table[hash] = tex;
 	}
 	else
 	{
 		// Or we are looking for our texture in a single linked list
-		prev = Textures.hash_table[hash];
-		for (
-			tex = Textures.hash_table[hash]->next_same_hash;
-			tex != NULL;
-			tex = tex->next_same_hash
-		)
+		prev = g_textures.hash_table[hash];
+		for( tex = g_textures.hash_table[hash]->next_same_hash; tex != NULL; tex = tex->next_same_hash )
 		{
-			if ( Q_strcmp( tex->name, name ) == 0 )
+			if( !Q_strcmp( tex->name, name ))
 			{
 				prev->next_same_hash = tex->next_same_hash;
-				memset( tex, 0, sizeof(rm_texture_t) );
+				memset( tex, 0, sizeof( g_textures.hash_table[hash] ));
 			}
 			prev = tex;
 		}
 	}
 
-	Textures.count--;
+	g_textures.count--;
 }
 
 
@@ -786,14 +762,14 @@ void RemoveTexture( const char* name )
 
 void CreateUnusedEntry( void )
 {
-	const char* name = "*unused";
+	const char *name = "*unused*";
 
-	Q_strncpy( Textures.array[0].name, name, strlen(name) );
-	Textures.array[0].used = true;
+	Q_strncpy( g_textures.array[0].name, name, strlen(name) );
+	g_textures.array[0].used = true;
 	
 	uint hash_value = COM_HashKey( name, TEXTURES_HASH_SIZE );
-	Textures.hash_table[hash_value] = &(Textures.array[0]);
-	Textures.count++;
+	g_textures.hash_table[hash_value] = &g_textures.array[0];
+	g_textures.count++;
 }
 
 void CreateInternalTextures( void )
@@ -810,9 +786,9 @@ void CreateInternalTextures( void )
 	CreateDlightTexture();
 }
 
-rgbdata_t* FakeImage( int width, int height, int depth, int flags )
+rgbdata_t *FakeImage( int width, int height, int depth, int flags )
 {
-	rgbdata_t* r_image;
+	rgbdata_t *r_image;
 
 	r_image = malloc(sizeof(rgbdata_t));
 
@@ -841,18 +817,18 @@ int CreateEmoTexture( void )
 {
 	int w, h;
 	int	x, y;
-	rgbdata_t* pic;
+	rgbdata_t *pic;
 
 	w = 16;
 	h = 16;
 
 	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
 
-	for ( y = 0; y < h; y++ )
+	for( y = 0; y < h; y++ )
 	{
-		for ( x = 0; x < w; x++ )
+		for( x = 0; x < w; x++ )
 		{
-			if (( y < 8 ) ^ ( x < 8 ))
+			if( ( y < 8 ) ^ ( x < 8 ) )
 			{
 				((uint *)pic->buffer)[y * 16 + x] = 0xFFFF00FF;  // Magenta
 			}
@@ -870,18 +846,18 @@ int CreateParticleTexture( void )
 {
 	int w, h;
 	int	x, y;
-	rgbdata_t* pic;
+	rgbdata_t *pic;
 
 	w = 8;
 	h = 8;
 
 	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA );
 
-	for ( y = 0; y < 8; y++ )
+	for( y = 0; y < h; y++ )
 	{
-		for ( x = 0; x < 8; x++ )
+		for( x = 0; x < w; x++ )
 		{
-			if ( dot_texture[x][y] )
+			if( dot_texture[x][y] )
 			{
 				pic->buffer[( y * 8 + x ) * 4 + 3] = 255;
 			}
@@ -895,18 +871,18 @@ int CreateParticleTexture( void )
 	return RM_LoadTextureFromBuffer( REF_PARTICLE_TEXTURE, pic, TF_CLAMP, false );
 }
 
-int CreateStaticColoredTexture( const char* name, uint32_t color )
+int CreateStaticColoredTexture( const char *name, uint32_t color )
 {
 	int	w, h;
 	int	x, y;
-	rgbdata_t* pic;
+	rgbdata_t *pic;
 
 	w = 4;
 	h = 4;
 
 	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
 
-	for ( x = 0; x < (w * h); x++ )
+	for( x = 0; x < (w * h); x++ )
 	{
 		((uint *)pic->buffer)[x] = color;
 	}
@@ -917,7 +893,7 @@ int CreateStaticColoredTexture( const char* name, uint32_t color )
 int CreateCinematicDummyTexture( void )
 {
 	int	w, h;
-	rgbdata_t* pic;
+	rgbdata_t *pic;
 
 	w = 640;
 	h = 100;
@@ -930,7 +906,7 @@ int CreateCinematicDummyTexture( void )
 int CreateDlightTexture( void )
 {
 	int	w, h;
-	rgbdata_t* pic;
+	rgbdata_t *pic;
 
 	w = 128;
 	h = 128;
