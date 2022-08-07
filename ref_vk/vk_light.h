@@ -87,8 +87,13 @@ void RT_LightsNewMapEnd( const struct model_s *map );
 void RT_LightsFrameBegin( void );
 void RT_LightsFrameEnd( void );
 
-struct vk_buffer_s;
-const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer );
+typedef struct {
+	VkBuffer buffer;
+	struct {
+		uint32_t offset, size;
+	} metadata, grid;
+} vk_lights_bindings_t;
+vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer );
 
 qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id );
 

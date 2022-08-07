@@ -30,6 +30,7 @@ layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
 #define PAYLOAD_LOCATION_SHADOW 0
 
 #define BINDING_LIGHTS 7
+#define BINDING_LIGHT_CLUSTERS 8
 #include "light.glsl"
 
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {

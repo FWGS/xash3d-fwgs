@@ -518,7 +518,15 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 	ubo->random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX);
 }
 
-static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_args_t* args, int frame_index, const xvk_ray_frame_images_t *current_frame, float fov_angle_y, const vk_buffer_t* fixme_lights_buffer) {
+typedef struct {
+	const vk_ray_frame_render_args_t* render_args;
+	int frame_index;
+	const xvk_ray_frame_images_t *current_frame;
+	float fov_angle_y;
+	const vk_lights_bindings_t *light_bindings;
+} perform_tracing_args_t;
+
+static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t* args) {
 	vk_ray_resources_t res = {
 		.width = FRAME_WIDTH,
 		.height = FRAME_HEIGHT,
@@ -536,19 +544,20 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 	[RayResource_##name] = { \
 		.type = type_, \
 		.value.buffer = (VkDescriptorBufferInfo) { \
-			.buffer = source_.buffer, \
+			.buffer = (source_), \
 			.offset = (offset_), \
 			.range = (size_), \
 		} \
 	}
-			RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer, frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer)),
+			RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer.buffer, args->frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer)),
 
 #define RES_SET_SBUFFER_FULL(name, source_) \
-	RES_SET_BUFFER(name, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, source_, 0, source_.size)
+	RES_SET_BUFFER(name, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, source_.buffer, 0, source_.size)
 			RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer),
-			RES_SET_SBUFFER_FULL(indices, args->geometry_data),
-			RES_SET_SBUFFER_FULL(vertices, args->geometry_data),
-			RES_SET_SBUFFER_FULL(lights, (*fixme_lights_buffer)),
+			RES_SET_SBUFFER_FULL(indices, args->render_args->geometry_data),
+			RES_SET_SBUFFER_FULL(vertices, args->render_args->geometry_data),
+			RES_SET_BUFFER(lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->metadata.offset, args->light_bindings->metadata.size),
+			RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size),
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
 
@@ -571,7 +580,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
 		.write = {0}, \
 		.read = {0}, \
-		.image = &current_frame->name, \
+		.image = &args->current_frame->name, \
 	},
 			RAY_PRIMARY_OUTPUTS(RES_SET_IMAGE)
 			RAY_LIGHT_DIRECT_POLY_OUTPUTS(RES_SET_IMAGE)
@@ -584,7 +593,7 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 
 	DEBUG_BEGIN(cmdbuf, "yay tracing");
 	prepareTlas(cmdbuf);
-	prepareUniformBuffer(args, frame_index, fov_angle_y);
+	prepareUniformBuffer(args->render_args, args->frame_index, args->fov_angle_y);
 
 	// 4. Barrier for TLAS build and dest image layout transfer
 	{
@@ -602,26 +611,26 @@ static void performTracing( VkCommandBuffer cmdbuf, const vk_ray_frame_render_ar
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
-	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.primary_ray, &res );
-	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.light_direct_poly, &res );
-	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.light_direct_point, &res );
-	RayPassPerform( cmdbuf, frame_index, g_rtx.pass.denoiser, &res );
+	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.primary_ray, &res );
+	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.light_direct_poly, &res );
+	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.light_direct_point, &res );
+	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.denoiser, &res );
 
 	{
 		const xvk_blit_args blit_args = {
-			.cmdbuf = args->cmdbuf,
+			.cmdbuf = cmdbuf,
 			.in_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.src = {
-				.image = current_frame->denoised.image,
+				.image = args->current_frame->denoised.image,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
 				.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
 			},
 			.dst = {
-				.image = args->dst.image,
-				.width = args->dst.width,
-				.height = args->dst.height,
+				.image = args->render_args->dst.image,
+				.width = args->render_args->dst.width,
+				.height = args->render_args->dst.height,
 				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.srcAccessMask = 0,
 			},
@@ -650,7 +659,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
 
 	RT_LightsFrameEnd();
-	const vk_buffer_t* const fixme_lights_buffer = VK_LightsUpload(cmdbuf);
+	const vk_lights_bindings_t light_bindings = VK_LightsUpload(cmdbuf);
 
 	g_rtx.frame_number++;
 
@@ -691,7 +700,14 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		clearVkImage( cmdbuf, current_frame->denoised.image );
 		blitImage( &blit_args );
 	} else {
-		performTracing( cmdbuf, args, (g_rtx.frame_number % 2), current_frame, args->fov_angle_y, fixme_lights_buffer);
+		const perform_tracing_args_t trace_args = {
+			.render_args = args,
+			.frame_index = (g_rtx.frame_number % 2),
+			.current_frame = current_frame,
+			.fov_angle_y = args->fov_angle_y,
+			.light_bindings = &light_bindings,
+		};
+		performTracing( cmdbuf, &trace_args );
 	}
 }
 

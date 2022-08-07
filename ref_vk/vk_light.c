@@ -39,11 +39,11 @@ typedef struct {
 typedef struct {
 	int min_cell[4], size[3]; // 4th element is padding
 	struct LightCluster cells[MAX_LIGHT_CLUSTERS];
-} vk_ray_shader_light_grid;
+} vk_ray_shader_light_grid_t;
 
 struct Lights {
 	struct LightsMetadata metadata;
-	vk_ray_shader_light_grid grid;
+	vk_ray_shader_light_grid_t grid;
 };
 
 static struct {
@@ -1144,7 +1144,7 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 
 static void uploadGrid( void ) {
 	struct Lights *lights = g_lights_.buffer.mapped;
-	vk_ray_shader_light_grid *grid = &lights->grid;
+	vk_ray_shader_light_grid_t *grid = &lights->grid;
 
 	ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
 
@@ -1162,7 +1162,7 @@ static void uploadGrid( void ) {
 	}
 }
 
-const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer cmdbuf ) {
+vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 	uploadGrid();
 
 	// Upload polygon lights
@@ -1213,7 +1213,17 @@ const struct vk_buffer_s* VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 		VectorCopy(g_lights.polygon_vertices[i], metadata->polygon_vertices[i]);
 	}
 
-	return &g_lights_.buffer;
+	return (vk_lights_bindings_t){
+		.buffer = g_lights_.buffer.buffer,
+		.metadata = {
+			.offset = 0,
+			.size = sizeof(struct LightsMetadata),
+		},
+		.grid = {
+			.offset = sizeof(struct LightsMetadata),
+			.size = sizeof(vk_ray_shader_light_grid_t),
+		},
+	};
 }
 
 void RT_LightsFrameEnd( void ) {

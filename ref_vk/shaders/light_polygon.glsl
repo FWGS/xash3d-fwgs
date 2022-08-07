@@ -28,7 +28,7 @@ vec4 getPolygonLightSampleSimple(vec3 P, vec3 view_dir, const PolygonLight poly)
 	vertices_count = 3; // FIXME
 
 	for (uint i = 0; i < vertices_count; ++i) {
-		v[i] = lights.metadata.polygon_vertices[vertices_offset + i].xyz;
+		v[i] = lights.polygon_vertices[vertices_offset + i].xyz;
 	}
 
 	vec2 rnd = vec2(sqrt(rand01()), rand01());
@@ -49,12 +49,12 @@ vec4 getPolygonLightSampleSimpleSolid(vec3 P, vec3 view_dir, const PolygonLight 
 	float total_contrib = 0.;
 	float eps1 = rand01();
 	vec3 v[3];
-	v[0] = normalize(lights.metadata.polygon_vertices[vertices_offset + 0].xyz - P);
-	v[1] = normalize(lights.metadata.polygon_vertices[vertices_offset + 1].xyz - P);
+	v[0] = normalize(lights.polygon_vertices[vertices_offset + 0].xyz - P);
+	v[1] = normalize(lights.polygon_vertices[vertices_offset + 1].xyz - P);
 	const float householder_sign = (v[0].x > 0.0f) ? -1.0f : 1.0f;
 	const vec2 householder_yz = v[0].yz * (1.0f / (abs(v[0].x) + 1.0f));
 	for (uint i = 2; i < vertices_count; ++i) {
-		v[2] = normalize(lights.metadata.polygon_vertices[vertices_offset + i].xyz - P);
+		v[2] = normalize(lights.polygon_vertices[vertices_offset + i].xyz - P);
 
 		// effectively mindlessly copypasted from polygon_sampling.glsl, Peters 2021
 		// https://github.com/MomentsInGraphics/vulkan_renderer/blob/main/src/shaders/polygon_sampling.glsl
@@ -98,9 +98,9 @@ vec4 getPolygonLightSampleSimpleSolid(vec3 P, vec3 view_dir, const PolygonLight 
 	rnd.x = 1.f - rnd.x;
 
 	const vec3 light_dir = baryMix(
-		lights.metadata.polygon_vertices[vertices_offset + 0].xyz,
-		lights.metadata.polygon_vertices[vertices_offset + selected - 1].xyz,
-		lights.metadata.polygon_vertices[vertices_offset + selected].xyz,
+		lights.polygon_vertices[vertices_offset + 0].xyz,
+		lights.polygon_vertices[vertices_offset + selected - 1].xyz,
+		lights.polygon_vertices[vertices_offset + selected].xyz,
 		rnd) - P;
 	const vec3 light_dir_n = normalize(light_dir);
 	return vec4(light_dir_n, total_contrib);
@@ -113,7 +113,7 @@ vec4 getPolygonLightSampleProjected(vec3 view_dir, SampleContext ctx, const Poly
 	uint vertices_count = poly.vertices_count_offset >> 16;
 
 	for (uint i = 0; i < vertices_count; ++i) {
-		clipped[i] = ctx.world_to_shading * vec4(lights.metadata.polygon_vertices[vertices_offset + i].xyz, 1.);
+		clipped[i] = ctx.world_to_shading * vec4(lights.polygon_vertices[vertices_offset + i].xyz, 1.);
 	}
 
 	vertices_count = clip_polygon(vertices_count, clipped);
@@ -138,7 +138,7 @@ vec4 getPolygonLightSampleSolid(vec3 P, vec3 view_dir, SampleContext ctx, const 
 	uint vertices_count = poly.vertices_count_offset >> 16;
 
 	for (uint i = 0; i < vertices_count; ++i) {
-		clipped[i] = lights.metadata.polygon_vertices[vertices_offset + i].xyz;
+		clipped[i] = lights.polygon_vertices[vertices_offset + i].xyz;
 	}
 
 #define DONT_CLIP
@@ -191,14 +191,14 @@ void sampleSinglePolygonLight(in vec3 P, in vec3 N, in vec3 view_dir, in SampleC
 #if 0
 // Sample random one
 void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
-	const uint num_polygons = uint(lights.clusters[cluster_index].num_polygons);
+	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
 
 	if (num_polygons == 0)
 		return;
 
-	const uint selected = uint(lights.clusters[cluster_index].polygons[rand_range(num_polygons)]);
+	const uint selected = uint(light_grid.clusters[cluster_index].polygons[rand_range(num_polygons)]);
 
-	const PolygonLight poly = lights.metadata.polygons[selected];
+	const PolygonLight poly = lights.polygons[selected];
 	const SampleContext ctx = buildSampleContext(P, N, view_dir);
 	sampleSinglePolygonLight(P, N, view_dir, ctx, material, poly, diffuse, specular);
 
@@ -211,10 +211,10 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
 #if DO_ALL_IN_CLUSTER
 	const SampleContext ctx = buildSampleContext(P, N, view_dir);
-	const uint num_polygons = uint(lights.clusters[cluster_index].num_polygons);
+	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
 	for (uint i = 0; i < num_polygons; ++i) {
-		const uint index = uint(lights.clusters[cluster_index].polygons[i]);
-		const PolygonLight poly = lights.metadata.polygons[index];
+		const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
+		const PolygonLight poly = lights.polygons[index];
 
 		const float plane_dist = dot(poly.plane, vec4(P, 1.f));
 
@@ -251,9 +251,9 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 #define USE_CLUSTERS
 #ifdef USE_CLUSTERS
 	// TODO move this to pickPolygonLight function
-	const uint num_polygons = uint(lights.clusters[cluster_index].num_polygons);
+	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
 #else
-	const uint num_polygons = lights.metadata.num_polygons;
+	const uint num_polygons = lights.num_polygons;
 #endif
 
 	uint selected = 0;
@@ -261,12 +261,12 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 	float eps1 = rand01();
 	for (uint i = 0; i < num_polygons; ++i) {
 #ifdef USE_CLUSTERS
-		const uint index = uint(lights.clusters[cluster_index].polygons[i]);
+		const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
 #else
 		const uint index = i;
 #endif
 
-		const PolygonLight poly = lights.metadata.polygons[index];
+		const PolygonLight poly = lights.polygons[index];
 
 		const vec3 dir = poly.center - P;
 		const vec3 light_dir = normalize(dir);
@@ -293,7 +293,7 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 	}
 
 #if 0
-	const PolygonLight poly = lights.metadata.polygons[selected - 1];
+	const PolygonLight poly = lights.polygons[selected - 1];
 	const vec3 emissive = poly.emissive;
 	vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
 	evalSplitBRDF(N, normalize(poly.center-P), view_dir, material, poly_diffuse, poly_specular);
@@ -301,7 +301,7 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 	specular += throughput * emissive * total_contrib;
 #else
 	const SampleContext ctx = buildSampleContext(P, N, view_dir);
-	const PolygonLight poly = lights.metadata.polygons[selected - 1];
+	const PolygonLight poly = lights.polygons[selected - 1];
 #ifdef PROJECTED
 		const vec4 light_sample_dir = getPolygonLightSampleProjected(view_dir, ctx, poly);
 #else
