@@ -51,7 +51,7 @@ static struct {
 		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
 	} map;
 
-	// TODO vk_buffer_t staging;
+	vk_buffer_t staging;
 	vk_buffer_t buffer;
 } g_lights_;
 
@@ -77,8 +77,14 @@ qboolean VK_LightsInit( void ) {
 	gEngine.Cmd_AddCommand("vk_lights_dump", debugDumpLights, "Dump all light sources for next frame");
 
 	if (!VK_BufferCreate("rt lights buffer", &g_lights_.buffer, sizeof(struct Lights),
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT /* | VK_BUFFER_USAGE_TRANSFER_DST_BIT */,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+		// FIXME complain, handle
+		return false;
+	}
+
+	if (!VK_BufferCreate("rt lights staging buffer", &g_lights_.staging, sizeof(struct Lights),
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
 		// FIXME complain, handle
 		return false;
 	}
@@ -89,6 +95,7 @@ qboolean VK_LightsInit( void ) {
 static void clusterBitMapShutdown( void );
 
 void VK_LightsShutdown( void ) {
+	VK_BufferDestroy(&g_lights_.staging);
 	VK_BufferDestroy(&g_lights_.buffer);
 
 	gEngine.Cmd_RemoveCommand("vk_lights_dump");
@@ -1142,10 +1149,7 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 	}
 }
 
-static void uploadGrid( void ) {
-	struct Lights *lights = g_lights_.buffer.mapped;
-	vk_ray_shader_light_grid_t *grid = &lights->grid;
-
+static void uploadGrid( vk_ray_shader_light_grid_t *grid ) {
 	ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
 
 	VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
@@ -1163,10 +1167,8 @@ static void uploadGrid( void ) {
 }
 
 vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
-	uploadGrid();
-
 	// Upload polygon lights
-	struct Lights *lights = g_lights_.buffer.mapped;
+	struct Lights *lights = g_lights_.staging.mapped;
 	struct LightsMetadata *metadata = &lights->metadata;
 
 	ASSERT(g_lights.num_polygons <= MAX_EMISSIVE_KUSOCHKI);
@@ -1207,10 +1209,36 @@ vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 		dst->environment = !!(src->flags & LightFlag_Environment);
 	}
 
+	uploadGrid( &lights->grid );
+
 	// TODO static assert
 	ASSERT(sizeof(metadata->polygon_vertices) >= sizeof(g_lights.polygon_vertices));
 	for (int i = 0; i < g_lights.num_polygon_vertices; ++i) {
 		VectorCopy(g_lights.polygon_vertices[i], metadata->polygon_vertices[i]);
+	}
+
+	{
+		const VkBufferCopy regions[] = {
+			{
+				.srcOffset = 0,
+				.dstOffset = 0,
+				.size = sizeof(struct Lights),
+			},
+		};
+		vkCmdCopyBuffer(cmdbuf, g_lights_.staging.buffer, g_lights_.buffer.buffer, COUNTOF(regions), regions);
+
+		const VkBufferMemoryBarrier bmb[] = {{
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.buffer = g_lights_.buffer.buffer,
+			.offset = 0,
+			.size = VK_WHOLE_SIZE,
+		}};
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
 	return (vk_lights_bindings_t){
