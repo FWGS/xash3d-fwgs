@@ -21,7 +21,12 @@ GNU General Public License for more details.
 ////////////////////////////////////////////////////////////////////////////////
 // Defines, macros
 
-#define MAX_TEXTURES	    8192
+#if XASH_LOW_MEMORY
+#define MAX_TEXTURES 1024
+#else // XASH_LOW_MEMORY
+#define MAX_TEXTURES 8192
+#endif // !XASH_LOW_MEMORY
+
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
 #define MAX_NAME_LEN        256
