@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "client.h"
 #include "library.h"
 #include "platform/platform.h"
-#include "resman/resman.h"
+#include "texturelib/texturelib.h"
 
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {

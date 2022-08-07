@@ -1,18 +1,28 @@
-#include <common/system.h>
-#include <common/common.h>
+/*
+texturelib.c - engine texture manager
+Copyright (C) 2022 Valery Klachkov
 
-#include "xash3d_mathlib.h"
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-#include "texture.h"
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#include "texturelib.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // Defines, macros
 
-#define MAX_TEXTURES	    (8192)
+#define MAX_TEXTURES	    8192
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
-#define MAX_NAME_LEN        (256)
+#define MAX_NAME_LEN        256
 
 
 ////////////////////////////////////////////////////////////////////////////////

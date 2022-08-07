@@ -4,7 +4,7 @@
 #include "cl_tent.h"
 #include "platform/platform.h"
 #include "vid_common.h"
-#include "resman/resman.h"
+#include "texturelib/texturelib.h"
 
 struct ref_state_s ref;
 ref_globals_t refState;

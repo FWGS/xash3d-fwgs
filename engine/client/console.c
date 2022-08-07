@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include "qfont.h"
 #include "wadfile.h"
 #include "input.h"
-#include "resman/resman.h"
+#include "texturelib/texturelib.h"
 
 convar_t	*con_notifytime;
 convar_t	*scr_conspeed;

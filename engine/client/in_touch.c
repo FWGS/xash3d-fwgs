@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "math.h"
 #include "vgui_draw.h"
 #include "mobility_int.h"
-#include "resman/resman.h"
+#include "texturelib/texturelib.h"
 
 typedef enum
 {

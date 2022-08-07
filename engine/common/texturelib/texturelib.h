@@ -1,5 +1,22 @@
-#ifndef RM_TEXTURE_H
-#define RM_TEXTURE_H
+/*
+texturelib.h - engine texture manager
+Copyright (C) 2022 Valery Klachkov
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#ifndef TEXTURELIB_H
+#define TEXTURELIB_H
+
+#include "common.h"
 
 #include <ref_api.h>
 
@@ -23,4 +40,4 @@ void RM_GetTextureParams( int *w, int *h, int texnum );
 int	RM_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int RM_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 
-#endif  // RM_TEXTURE_H
+#endif// TEXTURELIB_H
