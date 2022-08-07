@@ -53,6 +53,8 @@ typedef struct rm_texture_s
 
 static struct
 {
+	poolhandle_t mempool;
+
 	rm_texture_t  array[MAX_TEXTURES];
 	rm_texture_t *hash_table[TEXTURES_HASH_SIZE];
 	uint       count;
@@ -103,6 +105,8 @@ void RM_Init()
 {
 	memset( &g_textures, 0, sizeof( g_textures ));
 	
+	g_textures.mempool = Mem_AllocPool( "Textures" );
+
 	CreateUnusedEntry();
 
 	CreateInternalTextures();
@@ -258,10 +262,10 @@ int RM_LoadTextureArray( const char **names, int flags )
 		// Create new image for all layers
 		if( !picture )
 		{
-			picture = malloc( sizeof( rgbdata_t ));
+			picture = Mem_Malloc( g_textures.mempool, sizeof( rgbdata_t ));
 			memcpy( picture, src, sizeof( rgbdata_t ));
 
-			picture->buffer = malloc( picture->size * layers_count );
+			picture->buffer = Mem_Malloc( g_textures.mempool, picture->size * layers_count );
 			picture->depth = 0;
 		}
 		else
@@ -790,7 +794,7 @@ rgbdata_t *FakeImage( int width, int height, int depth, int flags )
 {
 	rgbdata_t *r_image;
 
-	r_image = malloc(sizeof(rgbdata_t));
+	r_image = Mem_Malloc( g_textures.mempool, sizeof( rgbdata_t ));
 
 	r_image->width   = Q_max( 1, width );
 	r_image->height  = Q_max( 1, height );
@@ -798,7 +802,7 @@ rgbdata_t *FakeImage( int width, int height, int depth, int flags )
 	r_image->flags   = flags;
 	r_image->type    = PF_RGBA_32;
 	r_image->size    = r_image->width * r_image->height * r_image->depth * 4;
-	r_image->buffer  = malloc(r_image->size);
+	r_image->buffer  = Mem_Malloc( g_textures.mempool, r_image->size);
 	r_image->palette = NULL;
 	r_image->numMips = 1;
 	r_image->encode  = 0;
