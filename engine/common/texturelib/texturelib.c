@@ -83,24 +83,24 @@ static byte dot_texture[8][8] =
 	{0,0,0,0,0,0,0,0},
 };
 
-static size_t CalcImageSize( pixformat_t format, int width, int height, int depth );
-static qboolean IsValidTextureName( const char *name );
-static rm_texture_t *GetTextureByName( const char *name );
-static rm_texture_t *AppendTexture( const char *name, int flags );
-static void ProcessImage( rm_texture_t *tex, rgbdata_t *pic );
-static qboolean UploadTexture( rm_texture_t *tex, qboolean update );
-static void RemoveTexture( const char *name );
+static size_t RM_CalcImageSize( pixformat_t format, int width, int height, int depth );
+static qboolean RM_IsValidTextureName( const char *name );
+static rm_texture_t *RM_GetTextureByName( const char *name );
+static rm_texture_t *RM_AppendTexture( const char *name, int flags );
+static void RM_ProcessImage( rm_texture_t *tex, rgbdata_t *pic );
+static qboolean RM_UploadTexture( rm_texture_t *tex, qboolean update );
+static void RM_RemoveTexture( const char *name );
 
-static void CreateUnusedEntry( void );
+static void RM_CreateUnusedEntry( void );
 
-static void CreateInternalTextures( void );
+static void RM_CreateInternalTextures( void );
 
-static rgbdata_t *FakeImage( int width, int height, int depth, int flags );
-static int CreateEmoTexture( void );
-static int CreateParticleTexture( void );
-static int CreateStaticColoredTexture( const char *name, uint32_t color );
-static int CreateCinematicDummyTexture( void );
-static int CreateDlightTexture( void );
+static rgbdata_t *RM_FakeImage( int width, int height, int depth, int flags );
+static int RM_CreateEmoTexture( void );
+static int RM_CreateParticleTexture( void );
+static int RM_CreateStaticColoredTexture( const char *name, uint32_t color );
+static int RM_CreateCinematicDummyTexture( void );
+static int RM_CreateDlightTexture( void );
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -112,12 +112,12 @@ void RM_Init()
 	
 	g_textures.mempool = Mem_AllocPool( "Textures" );
 
-	CreateUnusedEntry();
+	RM_CreateUnusedEntry();
 
-	CreateInternalTextures();
+	RM_CreateInternalTextures();
 }
 
-void RM_SetRender( ref_interface_t *ref )
+void RM_SetRenderer( ref_interface_t *ref )
 {
 	g_textures.ref = ref;
 
@@ -143,7 +143,7 @@ void RM_ReuploadTextures()
 			continue;
 		
 		if( tex->picture != NULL )
-			UploadTexture( tex, false );
+			RM_UploadTexture( tex, false );
 		else
 			Con_Reportf( S_ERROR "Reupload without early saved picture is not supported now\n" );
 	}
@@ -158,14 +158,14 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	Con_Reportf( "RM_LoadTexture. Name %s\n", name );
 
 	// Check name
-	if( !IsValidTextureName( name ))
+	if( !RM_IsValidTextureName( name ))
 	{
 		Con_Reportf( "Invalid texture name %s\n", name );
 		return 0;
 	}
 
 	// Check cache
-	if(( tex = GetTextureByName( name )))
+	if(( tex = RM_GetTextureByName( name )))
 	{
 		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
 		return tex->number;
@@ -189,16 +189,16 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	}
 
 	// Allocate texture
-	tex = AppendTexture( name, flags );
+	tex = RM_AppendTexture( name, flags );
 	tex->picture = picture;
 	tex->width   = picture->width;
 	tex->height  = picture->height;
 
-	ProcessImage( tex, picture );
+	RM_ProcessImage( tex, picture );
 
 	// And upload texture
 	// FIXME: Handle error
-	UploadTexture( tex, false );
+	RM_UploadTexture( tex, false );
 
 	return tex->number;
 }
@@ -238,14 +238,14 @@ int RM_LoadTextureArray( const char **names, int flags )
 	Q_strncat( &name, va( "[%i]", layers_count ), MAX_NAME_LEN );
 
 	// Validate texture name
-	if( !IsValidTextureName( name ))
+	if( !RM_IsValidTextureName( name ))
 	{
 		//Con_Reportf( "Invalid texture name %s\n", name );
 		return 0;
 	}
 
 	// Check cache
-	if(( tex = GetTextureByName( name )))
+	if(( tex = RM_GetTextureByName( name )))
 	{
 		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
 		return tex->number;
@@ -314,7 +314,7 @@ int RM_LoadTextureArray( const char **names, int flags )
 			int width  = Q_max( 1, ( picture->width >> j ));
 			int height = Q_max( 1, ( picture->height >> j ));
 
-			mip_size = CalcImageSize( picture->type, width, height, 1 );
+			mip_size = RM_CalcImageSize( picture->type, width, height, 1 );
 
 			memcpy( picture->buffer + dst_size + mip_size * i, src->buffer + src_size, mip_size );
 			dst_size += mip_size * layers_count;
@@ -358,14 +358,14 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 	Con_Reportf( "RM_LoadTextureFromBuffer. Name %s\n", name );
 
 	// Check name
-	if( !IsValidTextureName( name ))
+	if( !RM_IsValidTextureName( name ))
 	{
 		Con_Reportf( "Invalid texture name\n" );
 		return 0;
 	}
 
 	// Check cache
-	if(( tex = GetTextureByName( name )))
+	if(( tex = RM_GetTextureByName( name )))
 	{
 		Con_Reportf( "Texture is already loaded with number %d\n", tex->number );
 		return tex->number;
@@ -379,16 +379,16 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 	}
 
 	// Create texture
-	tex = AppendTexture( name, flags );
+	tex = RM_AppendTexture( name, flags );
 	tex->picture = picture;
 	tex->width   = picture->width;
 	tex->height  = picture->height;
 
-	ProcessImage( tex, picture );
+	RM_ProcessImage( tex, picture );
 
 	// And upload
 	// FIXME: Handle error
-	UploadTexture( tex, update );
+	RM_UploadTexture( tex, update );
 
 	return tex->number;
 }
@@ -410,7 +410,7 @@ void RM_FreeTexture( unsigned int texnum )
 		return;
 	}
 
-	RemoveTexture( tex->name );
+	RM_RemoveTexture( tex->name );
 
 	g_textures.ref->R_FreeTexture( texnum );
 }
@@ -439,7 +439,7 @@ int RM_FindTexture( const char *name )
 {
 	rm_texture_t *tex;
 
-	tex = GetTextureByName( name );
+	tex = RM_GetTextureByName( name );
 	if( !tex ) return NULL;
 	return tex->number;
 }
@@ -533,7 +533,7 @@ int RM_CreateTextureArray( const char *name, int width, int height, int depth, c
 ////////////////////////////////////////////////////////////////////////////////
 // Local implementation
 
-size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
+size_t RM_CalcImageSize( pixformat_t format, int width, int height, int depth )
 {
 	size_t size = 0;
 
@@ -569,7 +569,7 @@ size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
 	return size;
 }
 
-qboolean IsValidTextureName( const char *name )
+qboolean RM_IsValidTextureName( const char *name )
 {
 	if( !COM_CheckString( name ) )
 		return false;
@@ -577,7 +577,7 @@ qboolean IsValidTextureName( const char *name )
 		return Q_strlen( name ) < MAX_NAME_LEN;
 }
 
-rm_texture_t *GetTextureByName( const char *name )
+rm_texture_t *RM_GetTextureByName( const char *name )
 {
 	size_t hash;
 	rm_texture_t *tex;
@@ -594,7 +594,7 @@ rm_texture_t *GetTextureByName( const char *name )
 	return NULL;
 }
 
-rm_texture_t *AppendTexture( const char *name, int flags )
+rm_texture_t *RM_AppendTexture( const char *name, int flags )
 {
 	size_t     i;
 	size_t     hash;
@@ -655,7 +655,7 @@ rm_texture_t *AppendTexture( const char *name, int flags )
 	return tex;
 }
 
-void ProcessImage( rm_texture_t *tex, rgbdata_t *pic )
+void RM_ProcessImage( rm_texture_t *tex, rgbdata_t *pic )
 {
 	uint img_flags = 0;
 
@@ -705,7 +705,7 @@ void ProcessImage( rm_texture_t *tex, rgbdata_t *pic )
 	}
 }
 
-qboolean UploadTexture( rm_texture_t *tex, qboolean update )
+qboolean RM_UploadTexture( rm_texture_t *tex, qboolean update )
 {
 	qboolean status;
 
@@ -731,7 +731,7 @@ qboolean UploadTexture( rm_texture_t *tex, qboolean update )
 	return status;
 }
 
-void RemoveTexture( const char *name )
+void RM_RemoveTexture( const char *name )
 {
 	size_t hash;
 	rm_texture_t *tex;
@@ -769,7 +769,7 @@ void RemoveTexture( const char *name )
 ////////////////////////////////////////////////////////////////////////////////
 // Internal textures
 
-void CreateUnusedEntry( void )
+void RM_CreateUnusedEntry( void )
 {
 	const char *name = "*unused*";
 
@@ -781,21 +781,21 @@ void CreateUnusedEntry( void )
 	g_textures.count++;
 }
 
-void CreateInternalTextures( void )
+void RM_CreateInternalTextures( void )
 {
-	CreateEmoTexture();
-	CreateParticleTexture();
+	RM_CreateEmoTexture();
+	RM_CreateParticleTexture();
 
-	CreateStaticColoredTexture( REF_WHITE_TEXTURE, 0xFFFFFFFF );
-	CreateStaticColoredTexture( REF_GRAY_TEXTURE,  0xFF7F7F7F );
-	CreateStaticColoredTexture( REF_BLACK_TEXTURE, 0xFF000000 );
+	RM_CreateStaticColoredTexture( REF_WHITE_TEXTURE, 0xFFFFFFFF );
+	RM_CreateStaticColoredTexture( REF_GRAY_TEXTURE,  0xFF7F7F7F );
+	RM_CreateStaticColoredTexture( REF_BLACK_TEXTURE, 0xFF000000 );
 
-	CreateCinematicDummyTexture();
+	RM_CreateCinematicDummyTexture();
 
-	CreateDlightTexture();
+	RM_CreateDlightTexture();
 }
 
-rgbdata_t *FakeImage( int width, int height, int depth, int flags )
+rgbdata_t *RM_FakeImage( int width, int height, int depth, int flags )
 {
 	rgbdata_t *r_image;
 
@@ -822,7 +822,7 @@ rgbdata_t *FakeImage( int width, int height, int depth, int flags )
 	return r_image;
 }
 
-int CreateEmoTexture( void )
+int RM_CreateEmoTexture( void )
 {
 	int w, h;
 	int	x, y;
@@ -831,7 +831,7 @@ int CreateEmoTexture( void )
 	w = 16;
 	h = 16;
 
-	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+	pic = RM_FakeImage( w, h, 1, IMAGE_HAS_COLOR );
 
 	for( y = 0; y < h; y++ )
 	{
@@ -851,7 +851,7 @@ int CreateEmoTexture( void )
 	return RM_LoadTextureFromBuffer( REF_DEFAULT_TEXTURE, pic, TF_COLORMAP, false );
 }
 
-int CreateParticleTexture( void )
+int RM_CreateParticleTexture( void )
 {
 	int w, h;
 	int	x, y;
@@ -860,7 +860,7 @@ int CreateParticleTexture( void )
 	w = 8;
 	h = 8;
 
-	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA );
+	pic = RM_FakeImage( w, h, 1, IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA );
 
 	for( y = 0; y < h; y++ )
 	{
@@ -880,7 +880,7 @@ int CreateParticleTexture( void )
 	return RM_LoadTextureFromBuffer( REF_PARTICLE_TEXTURE, pic, TF_CLAMP, false );
 }
 
-int CreateStaticColoredTexture( const char *name, uint32_t color )
+int RM_CreateStaticColoredTexture( const char *name, uint32_t color )
 {
 	int	w, h;
 	int	x, y;
@@ -889,7 +889,7 @@ int CreateStaticColoredTexture( const char *name, uint32_t color )
 	w = 4;
 	h = 4;
 
-	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+	pic = RM_FakeImage( w, h, 1, IMAGE_HAS_COLOR );
 
 	for( x = 0; x < (w * h); x++ )
 	{
@@ -899,7 +899,7 @@ int CreateStaticColoredTexture( const char *name, uint32_t color )
 	return RM_LoadTextureFromBuffer( name, pic, TF_COLORMAP, false );
 }
 
-int CreateCinematicDummyTexture( void )
+int RM_CreateCinematicDummyTexture( void )
 {
 	int	w, h;
 	rgbdata_t *pic;
@@ -907,12 +907,12 @@ int CreateCinematicDummyTexture( void )
 	w = 640;
 	h = 100;
 
-	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+	pic = RM_FakeImage( w, h, 1, IMAGE_HAS_COLOR );
 
 	return RM_LoadTextureFromBuffer( REF_CINEMA_TEXTURE, pic, TF_NOMIPMAP | TF_CLAMP, false );
 }
 
-int CreateDlightTexture( void )
+int RM_CreateDlightTexture( void )
 {
 	int	w, h;
 	rgbdata_t *pic;
@@ -920,7 +920,7 @@ int CreateDlightTexture( void )
 	w = 128;
 	h = 128;
 
-	pic = FakeImage( w, h, 1, IMAGE_HAS_COLOR );
+	pic = RM_FakeImage( w, h, 1, IMAGE_HAS_COLOR );
 
 	return RM_LoadTextureFromBuffer( REF_DLIGHT_TEXTURE, pic, TF_NOMIPMAP | TF_CLAMP | TF_ATLAS_PAGE, false );
 }

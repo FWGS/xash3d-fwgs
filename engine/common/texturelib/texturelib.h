@@ -22,7 +22,7 @@ GNU General Public License for more details.
 
 void RM_Init();
 
-void RM_SetRender( ref_interface_t *ref );
+void RM_SetRenderer( ref_interface_t *ref );
 
 void RM_ReuploadTextures();
 

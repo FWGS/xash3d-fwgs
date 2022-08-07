@@ -711,7 +711,7 @@ qboolean R_Init( void )
 		}
 	}
 	
-	RM_SetRender(&ref.dllFuncs);
+	RM_SetRenderer(&ref.dllFuncs);
 
 	if( !success )
 	{
