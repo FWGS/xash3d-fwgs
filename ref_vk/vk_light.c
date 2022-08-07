@@ -1218,6 +1218,7 @@ vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 	}
 
 	{
+		DEBUG_BEGIN(cmdbuf, "upload lights");
 		const VkBufferCopy regions[] = {
 			{
 				.srcOffset = 0,
@@ -1239,6 +1240,7 @@ vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+		DEBUG_END(cmdbuf);
 	}
 
 	return (vk_lights_bindings_t){
