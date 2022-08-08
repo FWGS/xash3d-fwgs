@@ -393,9 +393,9 @@ void RM_FreeTexture( unsigned int texnum )
 		return;
 	}
 
-	RM_RemoveTexture( tex->name );
-
 	g_textures.ref->R_FreeTexture( texnum );
+
+	RM_RemoveTexture( tex->name );
 }
 
 const char *RM_TextureName( unsigned int texnum )
