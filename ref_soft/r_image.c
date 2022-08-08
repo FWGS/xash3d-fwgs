@@ -997,6 +997,20 @@ void R_InitImages( void )
 	memset( r_images, 0, sizeof( r_images ));
 
 	R_SetTextureParameters();
+
+	// We found this textures in engine,
+	//   but they are not presented in render for this moment.
+	// That's ok! Textures will be uploaded later from RM with index stable safety
+	tr.defaultTexture  = gEngfuncs.RM_FindTexture( REF_DEFAULT_TEXTURE );
+	tr.particleTexture = gEngfuncs.RM_FindTexture( REF_PARTICLE_TEXTURE );
+	tr.whiteTexture    = gEngfuncs.RM_FindTexture( REF_WHITE_TEXTURE );
+	tr.grayTexture     = gEngfuncs.RM_FindTexture( REF_GRAY_TEXTURE );
+	tr.blackTexture    = gEngfuncs.RM_FindTexture( REF_BLACK_TEXTURE );
+	tr.cinTexture      = gEngfuncs.RM_FindTexture( REF_CINEMA_TEXTURE );
+	tr.solidskyTexture = gEngfuncs.RM_FindTexture( REF_SOLIDSKY_TEXTURE );
+	tr.alphaskyTexture = gEngfuncs.RM_FindTexture( REF_ALPHASKY_TEXTURE );
+	tr.dlightTexture   = gEngfuncs.RM_FindTexture( REF_DLIGHT_TEXTURE );
+	
 	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 }
 
