@@ -19,12 +19,24 @@ GNU General Public License for more details.
 
 static image_t r_images[MAX_TEXTURES];
 
+/*
+=================
+R_GetTexture
+
+Get texture by index
+=================
+*/
 image_t *R_GetTexture( unsigned int texnum )
 {
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 	return &r_images[texnum];
 }
 
+/*
+=================
+GL_Bind
+=================
+*/
 void GAME_EXPORT GL_Bind( int tmu, unsigned int texnum )
 {
 	image_t	*image;
@@ -70,11 +82,21 @@ void GAME_EXPORT GL_Bind( int tmu, unsigned int texnum )
 	r_affinetridesc.skinheight = image->height;
 }
 
+/*
+=================
+GL_ApplyTextureParams
+=================
+*/
 void GL_ApplyTextureParams( int texnum )
 {
 	// Do nothing
 }
 
+/*
+=================
+GL_UpdateTextureParams
+=================
+*/
 static void GL_UpdateTextureParams( int iTexture )
 {
 	image_t	*tex = &r_images[iTexture];
@@ -86,11 +108,16 @@ static void GL_UpdateTextureParams( int iTexture )
 	GL_Bind( XASH_TEXTURE0, iTexture );
 }
 
+/*
+=================
+R_SetTextureParameters
+=================
+*/
 void R_SetTextureParameters( void )
 {
 	int	i;
 
-	for( i = 1; i < (sizeof(r_images) / sizeof(image_t)); i++)
+	for( i = 0; i < MAX_TEXTURES; i++)
 	{
 		if( r_images[i].used )
 		{
@@ -99,6 +126,11 @@ void R_SetTextureParameters( void )
 	}
 }
 
+/*
+==================
+GL_CalcImageSize
+==================
+*/
 static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int depth )
 {
 	size_t	size = 0;
@@ -129,11 +161,21 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 	return size;
 }
 
+/*
+==================
+GL_CalcTextureSize
+==================
+*/
 static size_t GL_CalcTextureSize( int width, int height, int depth )
 {
 	return width * height * 2;
 }
 
+/*
+==================
+GL_CalcMipmapCount
+==================
+*/
 static int GL_CalcMipmapCount( image_t *tex, qboolean haveBuffer )
 {
 	int	width, height;
@@ -160,6 +202,11 @@ static int GL_CalcMipmapCount( image_t *tex, qboolean haveBuffer )
 	return mipcount + 1;
 }
 
+/*
+================
+GL_SetTextureDimensions
+================
+*/
 static void GL_SetTextureDimensions( image_t *tex, int width, int height, int depth )
 {
 	int	maxTextureSize = 1024;
@@ -186,6 +233,11 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 	tex->depth = Q_max( 1, depth );
 }
 
+/*
+================
+GL_SetTextureTarget
+================
+*/
 static void GL_SetTextureTarget( image_t *tex, rgbdata_t *pic )
 {
 	Assert( pic != NULL );
@@ -199,6 +251,11 @@ static void GL_SetTextureTarget( image_t *tex, rgbdata_t *pic )
 	pic->numMips = Q_max( 1, pic->numMips );
 }
 
+/*
+================
+GL_SetTextureFormat
+================
+*/
 static void GL_SetTextureFormat( image_t *tex, pixformat_t format, int channelMask )
 {
 	qboolean	haveColor = ( channelMask & IMAGE_HAS_COLOR );
@@ -208,6 +265,11 @@ static void GL_SetTextureFormat( image_t *tex, pixformat_t format, int channelMa
 	//tex->transparent = !!( channelMask & IMAGE_HAS_ALPHA );
 }
 
+/*
+================
+GL_ResampleTexture
+================
+*/
 byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int outWidth, int outHeight, qboolean isNormalMap )
 {
 	uint		frac, fracStep;
@@ -292,6 +354,11 @@ byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int out
 	return scaledImage;
 }
 
+/*
+================
+GL_BoxFilter3x3
+================
+*/
 void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 {
 	int		r = 0, g = 0, b = 0, a = 0;
@@ -729,7 +796,7 @@ static void GL_ProcessImage( int texnum, rgbdata_t *pic )
 ================
 GL_UpdateTexSize
 
-recalc image room
+Recalc image room
 ================
 */
 void GAME_EXPORT GL_UpdateTexSize( int texnum, int width, int height, int depth )
@@ -870,6 +937,11 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 	gEngfuncs.FS_FreeImage( pic );
 }
 
+/*
+============
+R_InitImages
+============
+*/
 void R_InitImages( void )
 {
 	memset( r_images, 0, sizeof( r_images ));
@@ -877,17 +949,17 @@ void R_InitImages( void )
 	R_SetTextureParameters();
 }
 
+/*
+================
+R_ShutdownImages
+================
+*/
 void R_ShutdownImages( void )
 {
-	int	i;
+	int i;
 
-	for( i = 1; i < (sizeof(r_images) / sizeof(image_t)); i++)
-	{
-		if( r_images[i].used )
-		{
-			GL_DeleteTexture( i );
-		}
-	}
+	for( i = 0; i < MAX_TEXTURES; i++ )
+		GL_DeleteTexture( i );
 
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
 	memset( r_images, 0, sizeof( r_images ));
