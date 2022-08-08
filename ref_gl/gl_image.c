@@ -1440,5 +1440,16 @@ void R_InitImages( void )
 
 void R_ShutdownImages( void )
 {
-	// FIXME
+	int i;
+
+	gEngfuncs.Cmd_RemoveCommand( "texturelist" );
+
+	GL_CleanupAllTextureUnits();
+	for( i = 0; i < MAX_TEXTURES; i++ )
+		GL_DeleteTexture( i );
+
+	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
+	
+	memset( gl_textures, 0, sizeof( gl_textures ));
+	gl_numTextures = 0;
 }
