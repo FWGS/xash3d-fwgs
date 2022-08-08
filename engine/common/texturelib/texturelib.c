@@ -29,8 +29,6 @@ GNU General Public License for more details.
 
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
-#define MAX_NAME_LEN        256
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Structs
@@ -39,7 +37,7 @@ typedef struct rm_texture_s
 {
 	qboolean used;
 	
-	char name[MAX_NAME_LEN];
+	string name;
 
 	rgbdata_t *picture;
 	int width;
@@ -205,11 +203,11 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 
 int RM_LoadTextureArray( const char **names, int flags )
 {
-	uint layers_count;
-	char name[MAX_NAME_LEN];
-	char basename[MAX_NAME_LEN];
-	rm_texture_t *tex;
-	rgbdata_t *picture;
+	uint layers_count = 0;
+	string name;
+	string basename;
+	rm_texture_t *tex = NULL;
+	rgbdata_t *picture = NULL;
 	int texnum;
 	size_t i;
 
@@ -231,11 +229,11 @@ int RM_LoadTextureArray( const char **names, int flags )
 	for( i = 0; i < layers_count; i++ )
 	{
 		COM_FileBase( names[i], &basename );
-		Q_strncat( &name, &basename, MAX_NAME_LEN );
-		if( i != ( layers_count - 1 )) Q_strncat( &name, "|", MAX_NAME_LEN);
+		Q_strncat( &name, &basename, MAX_STRING );
+		if( i != ( layers_count - 1 )) Q_strncat( &name, "|", MAX_STRING );
 	}
 
-	Q_strncat( &name, va( "[%i]", layers_count ), MAX_NAME_LEN );
+	Q_strncat( &name, va( "[%i]", layers_count ), MAX_STRING );
 
 	// Validate texture name
 	if( !RM_IsValidTextureName( name ))
@@ -574,7 +572,7 @@ qboolean RM_IsValidTextureName( const char *name )
 	if( !COM_CheckString( name ) )
 		return false;
 	else
-		return Q_strlen( name ) < MAX_NAME_LEN;
+		return Q_strlen( name ) < MAX_STRING;
 }
 
 rm_texture_t *RM_GetTextureByName( const char *name )
