@@ -938,6 +938,56 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 }
 
 /*
+===============
+R_TextureList_f
+===============
+*/
+void R_TextureList_f( void )
+{
+	size_t i = 0;
+	size_t bytes = 0;
+	size_t count = 0;
+	image_t *tex = NULL;
+
+	gEngfuncs.Con_Printf( "\n" );
+	gEngfuncs.Con_Printf( " -id-   -w-  -h-     -size- -fmt- -type- -data-  -encode- -wrap- -depth- -name--------\n" );
+
+	for( i = 0; i < MAX_TEXTURES; i++ )
+	{
+		tex = &r_images[i];
+
+		if( !tex->used ) continue;
+
+		bytes += tex->size;
+		count++;
+
+		gEngfuncs.Con_Printf( "%4i: ", i );
+		gEngfuncs.Con_Printf( "%4i %4i ", tex->width, tex->height );
+		gEngfuncs.Con_Printf( "%12s ", Q_memprint( tex->size ));
+
+		if( tex->flags & TF_NORMALMAP )
+			gEngfuncs.Con_Printf( "normal  " );
+		else
+			gEngfuncs.Con_Printf( "diffuse " );
+
+		if( tex->flags & TF_CLAMP )
+			gEngfuncs.Con_Printf( "clamp  " );
+		else if( tex->flags & TF_BORDER )
+			gEngfuncs.Con_Printf( "border " );
+		else
+			gEngfuncs.Con_Printf( "repeat " );
+
+		gEngfuncs.Con_Printf( "   %d  ", tex->depth );
+		gEngfuncs.Con_Printf( "  %s\n", &tex->name );
+	}
+
+	gEngfuncs.Con_Printf( "---------------------------------------------------------\n" );
+	gEngfuncs.Con_Printf( "%i total textures\n", count );
+	gEngfuncs.Con_Printf( "%s total memory used\n", Q_memprint( bytes ));
+	gEngfuncs.Con_Printf( "\n" );
+}
+
+/*
 ============
 R_InitImages
 ============
@@ -947,6 +997,7 @@ void R_InitImages( void )
 	memset( r_images, 0, sizeof( r_images ));
 
 	R_SetTextureParameters();
+	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 }
 
 /*
@@ -957,6 +1008,8 @@ R_ShutdownImages
 void R_ShutdownImages( void )
 {
 	int i;
+
+	gEngfuncs.Cmd_RemoveCommand( "texturelist" );
 
 	for( i = 0; i < MAX_TEXTURES; i++ )
 		GL_DeleteTexture( i );
