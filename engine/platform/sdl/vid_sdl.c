@@ -553,7 +553,9 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	Uint32 wndFlags = 0;
 	static string wndname;
 
+#if !XASH_APPLE
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
 
 	want.w = width;
