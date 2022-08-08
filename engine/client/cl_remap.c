@@ -186,7 +186,7 @@ void CL_UpdateStudioTexture( cl_entity_t *entity, mstudiotexture_t *ptexture, in
 		return;
 	}
 
-	index = GL_UpdateTextureInternal( origtexname, pic, 0 );
+	index = RM_LoadTextureFromBuffer( origtexname, pic, 0, true );
 	FS_FreeImage( pic );
 
 	// restore original palette
@@ -227,7 +227,7 @@ void CL_UpdateAliasTexture( cl_entity_t *entity, unsigned short *texture, int sk
 		skin.buffer = (byte *)(tx + 1);
 		skin.palette = skin.buffer + skin.size;
 		pic = FS_CopyImage( &skin ); // because GL_LoadTextureInternal will freed a rgbdata_t at end
-		*texture = GL_LoadTextureInternal( texname, pic, TF_KEEP_SOURCE );
+		*texture = RM_LoadTextureFromBuffer( texname, pic, TF_KEEP_SOURCE, false );
 	}
 
 	// and now we can remap with internal routines
