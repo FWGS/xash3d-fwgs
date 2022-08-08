@@ -830,7 +830,7 @@ VkShaderModule loadShader(const char *filename) {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 	};
 	VkShaderModule shader;
-	byte* buf = gEngine.COM_LoadFile( filename, &size, false);
+	byte* buf = gEngine.fsapi->LoadFile( filename, &size, false);
 	uint32_t *pcode;
 
 	if (!buf)

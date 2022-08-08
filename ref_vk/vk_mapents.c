@@ -513,7 +513,7 @@ static void parsePatches( const model_t *const map ) {
 
 	Q_snprintf(filename, sizeof(filename), "luchiki/%s.patch", map->name);
 	gEngine.Con_Reportf("Loading patches from file \"%s\"\n", filename);
-	data = gEngine.COM_LoadFile( filename, 0, false );
+	data = gEngine.fsapi->LoadFile( filename, 0, false );
 	if (!data) {
 		gEngine.Con_Reportf("No patch file \"%s\"\n", filename);
 		return;

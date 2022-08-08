@@ -1263,7 +1263,7 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	pfnGetRenderers,
 	Sys_DoubleTime,
 	pfnParseFileSafe,
-	NET_AdrToString
+	NET_AdrToString,
 	R_GetRenderDevice
 };
 

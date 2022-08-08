@@ -89,6 +89,7 @@ def build(bld):
 	rtx_glsl_source = bld.path.ant_glob(['shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss', 'shaders/*.rahit'])
 
 	includes = ['.',
+		'../filesystem',
 		'../engine',
 		'../engine/common',
 		'../engine/server',
