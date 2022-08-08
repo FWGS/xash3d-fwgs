@@ -153,19 +153,15 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	rm_texture_t *tex;
 	uint       picFlags;
 
-	Con_Reportf( "RM_LoadTexture. Name %s\n", name );
-
 	// Check name
 	if( !RM_IsValidTextureName( name ))
 	{
-		Con_Reportf( "Invalid texture name %s\n", name );
 		return 0;
 	}
 
 	// Check cache
 	if(( tex = RM_GetTextureByName( name )))
 	{
-		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
 		return tex->number;
 	}
 
@@ -182,7 +178,7 @@ int RM_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	picture = FS_LoadImage( name, buf, size );
 	if( !picture ) 
 	{
-		Con_Reportf( "Failed to load texture. FS_LoadImage returns NULL\n" );
+		Con_Reportf( S_ERROR "Failed to load texture. FS_LoadImage returns NULL\n" );
 		return 0;
 	}
 
@@ -214,7 +210,6 @@ int RM_LoadTextureArray( const char **names, int flags )
 	// Validate arguments
 	if( names || !COM_CheckString( names[0] ))
 	{
-		Con_Reportf( "Empty textures names array\n" );
 		return 0;
 	}
 
@@ -238,14 +233,12 @@ int RM_LoadTextureArray( const char **names, int flags )
 	// Validate texture name
 	if( !RM_IsValidTextureName( name ))
 	{
-		//Con_Reportf( "Invalid texture name %s\n", name );
 		return 0;
 	}
 
 	// Check cache
 	if(( tex = RM_GetTextureByName( name )))
 	{
-		//Con_Reportf( "Texture %s is already loaded with number %d\n", name, texture->number );
 		return tex->number;
 	}
 
@@ -258,7 +251,6 @@ int RM_LoadTextureArray( const char **names, int flags )
 		src = FS_LoadImage( names[i], NULL, 0 );
 		if( !src )
 		{
-			//Con_Reportf( "Failed to load texture layer %s\n", names[i] );
 			break;
 		}
 
@@ -353,26 +345,21 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 {
 	rm_texture_t *tex;
 
-	Con_Reportf( "RM_LoadTextureFromBuffer. Name %s\n", name );
-
 	// Check name
 	if( !RM_IsValidTextureName( name ))
 	{
-		Con_Reportf( "Invalid texture name\n" );
 		return 0;
 	}
 
 	// Check cache
 	if(( tex = RM_GetTextureByName( name )))
 	{
-		Con_Reportf( "Texture is already loaded with number %d\n", tex->number );
 		return tex->number;
 	}
 
 	// Check picture pointer
 	if( !picture )
 	{
-		Con_Reportf( "Picture is NULL\n" );
 		return 0;
 	}
 
@@ -394,8 +381,6 @@ int RM_LoadTextureFromBuffer( const char *name, rgbdata_t *picture, int flags, q
 void RM_FreeTexture( unsigned int texnum )
 {
 	rm_texture_t *tex;
-
-	//Con_Reportf( "RM_FreeTexture. Number %d\n", texnum );
 
 	if( texnum == 0 )
 	{
@@ -438,8 +423,10 @@ int RM_FindTexture( const char *name )
 	rm_texture_t *tex;
 
 	tex = RM_GetTextureByName( name );
-	if( !tex ) return NULL;
-	return tex->number;
+	if( !tex )
+		return 0;
+	return
+		tex->number;
 }
 
 void RM_GetTextureParams( int *w, int *h, int texnum )
@@ -707,23 +694,16 @@ qboolean RM_UploadTexture( rm_texture_t *tex, qboolean update )
 {
 	qboolean status;
 
-	//Con_Reportf( "Upload texture %s at %d\n", texture->name, texture->number );
-
 	if( g_textures.ref == NULL )
 	{
-		//Con_Reportf( S_ERROR "Ref is not loaded!\n" );
+		Con_Reportf( S_ERROR "Ref is not loaded!\n" );
 		return false;
 	}
 
 	status = g_textures.ref->R_LoadTextureFromBuffer(tex->number, tex->picture, tex->flags, update);
-
-	if( status )
+	if( !status )
 	{
-		//Con_Reportf( "Texture successfully loaded\n" );
-	}
-	else
-	{
-		//Con_Reportf( S_ERROR "Ref return error on upload\n" );
+		Con_Reportf( S_ERROR "Ref return error on upload\n" );
 	}
 
 	return status;

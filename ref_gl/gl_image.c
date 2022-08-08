@@ -1436,17 +1436,6 @@ void R_InitImages( void )
 	tr.solidskyTexture = gEngfuncs.RM_FindTexture( REF_SOLIDSKY_TEXTURE );
 	tr.alphaskyTexture = gEngfuncs.RM_FindTexture( REF_ALPHASKY_TEXTURE );
 	tr.dlightTexture   = gEngfuncs.RM_FindTexture( REF_DLIGHT_TEXTURE );
-
-	gEngfuncs.Con_Printf( "Found standart textures.\n" );
-	gEngfuncs.Con_Printf( "\tDefault %d\n",   tr.defaultTexture );
-	gEngfuncs.Con_Printf( "\tParticle %d\n",  tr.particleTexture );
-	gEngfuncs.Con_Printf( "\tWhite %d\n",     tr.whiteTexture );
-	gEngfuncs.Con_Printf( "\tGray %d\n",      tr.grayTexture );
-	gEngfuncs.Con_Printf( "\tBlack %d\n",     tr.blackTexture );
-	gEngfuncs.Con_Printf( "\tCinematic %d\n", tr.cinTexture );
-	gEngfuncs.Con_Printf( "\tSolidSky %d\n",  tr.solidskyTexture );
-	gEngfuncs.Con_Printf( "\tAlphaSky %d\n",  tr.alphaskyTexture );
-	gEngfuncs.Con_Printf( "\tDlight %d\n",    tr.dlightTexture );
 }
 
 void R_ShutdownImages( void )
