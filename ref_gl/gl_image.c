@@ -1586,6 +1586,224 @@ int GL_TexMemory( void )
 	return total;
 }
 
+/*
+================
+R_TextureList_f
+================
+*/
+void R_TextureList_f( void )
+{
+	size_t i = 0;
+	size_t bytes = 0;
+	size_t count = 0;
+	gl_texture_t *tex = NULL;
+
+	gEngfuncs.Con_Printf( "\n" );
+	gEngfuncs.Con_Printf( " -id-   -w-  -h-     -size- -fmt- -type- -data-  -encode- -wrap- -depth- -name--------\n" );
+
+	for( i = 0; i < MAX_TEXTURES; i++ )
+	{
+		tex = &gl_textures[i];
+
+		if( !tex->used ) continue;
+
+		bytes += tex->size;
+		count++;
+
+		gEngfuncs.Con_Printf( "%4i: ", i );
+		gEngfuncs.Con_Printf( "%4i %4i ", tex->width, tex->height );
+		gEngfuncs.Con_Printf( "%12s ", Q_memprint( tex->size ));
+
+		switch( tex->format )
+		{
+		case GL_COMPRESSED_RGBA_ARB:
+			gEngfuncs.Con_Printf( "CRGBA " );
+			break;
+		case GL_COMPRESSED_RGB_ARB:
+			gEngfuncs.Con_Printf( "CRGB  " );
+			break;
+		case GL_COMPRESSED_LUMINANCE_ALPHA_ARB:
+			gEngfuncs.Con_Printf( "CLA   " );
+			break;
+		case GL_COMPRESSED_LUMINANCE_ARB:
+			gEngfuncs.Con_Printf( "CL    " );
+			break;
+		case GL_COMPRESSED_ALPHA_ARB:
+			gEngfuncs.Con_Printf( "CA    " );
+			break;
+		case GL_COMPRESSED_INTENSITY_ARB:
+			gEngfuncs.Con_Printf( "CI    " );
+			break;
+		case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+			gEngfuncs.Con_Printf( "DXT1c " );
+			break;
+		case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+			gEngfuncs.Con_Printf( "DXT1a " );
+			break;
+		case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+			gEngfuncs.Con_Printf( "DXT3  " );
+			break;
+		case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+			gEngfuncs.Con_Printf( "DXT5  " );
+			break;
+		case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+		case GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI:
+			gEngfuncs.Con_Printf( "ATI2  " );
+			break;
+		case GL_RGBA:
+			gEngfuncs.Con_Printf( "RGBA  " );
+			break;
+		case GL_RGBA8:
+			gEngfuncs.Con_Printf( "RGBA8 " );
+			break;
+		case GL_RGBA4:
+			gEngfuncs.Con_Printf( "RGBA4 " );
+			break;
+		case GL_RGB:
+			gEngfuncs.Con_Printf( "RGB   " );
+			break;
+		case GL_RGB8:
+			gEngfuncs.Con_Printf( "RGB8  " );
+			break;
+		case GL_RGB5:
+			gEngfuncs.Con_Printf( "RGB5  " );
+			break;
+		case GL_LUMINANCE4_ALPHA4:
+			gEngfuncs.Con_Printf( "L4A4  " );
+			break;
+		case GL_LUMINANCE_ALPHA:
+		case GL_LUMINANCE8_ALPHA8:
+			gEngfuncs.Con_Printf( "L8A8  " );
+			break;
+		case GL_LUMINANCE4:
+			gEngfuncs.Con_Printf( "L4    " );
+			break;
+		case GL_LUMINANCE:
+		case GL_LUMINANCE8:
+			gEngfuncs.Con_Printf( "L8    " );
+			break;
+		case GL_ALPHA8:
+			gEngfuncs.Con_Printf( "A8    " );
+			break;
+		case GL_INTENSITY8:
+			gEngfuncs.Con_Printf( "I8    " );
+			break;
+		case GL_DEPTH_COMPONENT:
+		case GL_DEPTH_COMPONENT24:
+			gEngfuncs.Con_Printf( "DPTH24" );
+			break;
+		case GL_DEPTH_COMPONENT32F:
+			gEngfuncs.Con_Printf( "DPTH32" );
+			break;
+		case GL_LUMINANCE16F_ARB:
+			gEngfuncs.Con_Printf( "L16F  " );
+			break;
+		case GL_LUMINANCE32F_ARB:
+			gEngfuncs.Con_Printf( "L32F  " );
+			break;
+		case GL_LUMINANCE_ALPHA16F_ARB:
+			gEngfuncs.Con_Printf( "LA16F " );
+			break;
+		case GL_LUMINANCE_ALPHA32F_ARB:
+			gEngfuncs.Con_Printf( "LA32F " );
+			break;
+		case GL_RG16F:
+			gEngfuncs.Con_Printf( "RG16F " );
+			break;
+		case GL_RG32F:
+			gEngfuncs.Con_Printf( "RG32F " );
+			break;
+		case GL_RGB16F_ARB:
+			gEngfuncs.Con_Printf( "RGB16F" );
+			break;
+		case GL_RGB32F_ARB:
+			gEngfuncs.Con_Printf( "RGB32F" );
+			break;
+		case GL_RGBA16F_ARB:
+			gEngfuncs.Con_Printf( "RGBA16F" );
+			break;
+		case GL_RGBA32F_ARB:
+			gEngfuncs.Con_Printf( "RGBA32F" );
+			break;
+		default:
+			gEngfuncs.Con_Printf( " ^1ERROR^7 " );
+			break;
+		}
+
+		switch( tex->target )
+		{
+		case GL_TEXTURE_1D:
+			gEngfuncs.Con_Printf( " 1D   " );
+			break;
+		case GL_TEXTURE_2D:
+			gEngfuncs.Con_Printf( " 2D   " );
+			break;
+		case GL_TEXTURE_3D:
+			gEngfuncs.Con_Printf( " 3D   " );
+			break;
+		case GL_TEXTURE_CUBE_MAP_ARB:
+			gEngfuncs.Con_Printf( "CUBE  " );
+			break;
+		case GL_TEXTURE_RECTANGLE_EXT:
+			gEngfuncs.Con_Printf( "RECT  " );
+			break;
+		case GL_TEXTURE_2D_ARRAY_EXT:
+			gEngfuncs.Con_Printf( "ARRAY " );
+			break;
+		case GL_TEXTURE_2D_MULTISAMPLE:
+			gEngfuncs.Con_Printf( "MSAA  ");
+			break;
+		default:
+			gEngfuncs.Con_Printf( "????  " );
+			break;
+		}
+
+		if( tex->flags & TF_NORMALMAP )
+			gEngfuncs.Con_Printf( "normal  " );
+		else
+			gEngfuncs.Con_Printf( "diffuse " );
+
+		switch( tex->encode )
+		{
+		case DXT_ENCODE_COLOR_YCoCg:
+			gEngfuncs.Con_Printf( "YCoCg     " );
+			break;
+		case DXT_ENCODE_NORMAL_AG_ORTHO:
+			gEngfuncs.Con_Printf( "ortho     " );
+			break;
+		case DXT_ENCODE_NORMAL_AG_STEREO:
+			gEngfuncs.Con_Printf( "stereo    " );
+			break;
+		case DXT_ENCODE_NORMAL_AG_PARABOLOID:
+			gEngfuncs.Con_Printf( "parabolic " );
+			break;
+		case DXT_ENCODE_NORMAL_AG_QUARTIC:
+			gEngfuncs.Con_Printf( "quartic   " );
+			break;
+		case DXT_ENCODE_NORMAL_AG_AZIMUTHAL:
+			gEngfuncs.Con_Printf( "azimuthal " );
+			break;
+		default:
+			gEngfuncs.Con_Printf( "default   " );
+			break;
+		}
+
+		if( tex->flags & TF_CLAMP )
+			gEngfuncs.Con_Printf( "clamp  " );
+		else if( tex->flags & TF_BORDER )
+			gEngfuncs.Con_Printf( "border " );
+		else
+			gEngfuncs.Con_Printf( "repeat " );
+
+		gEngfuncs.Con_Printf( "   %d  ", tex->depth );
+		gEngfuncs.Con_Printf( "  %s\n", &tex->name );
+	}
+
+	gEngfuncs.Con_Printf( "---------------------------------------------------------\n" );
+	gEngfuncs.Con_Printf( "%i total textures\n", count );
+	gEngfuncs.Con_Printf( "%s total memory used\n", Q_memprint( bytes ));
+	gEngfuncs.Con_Printf( "\n" );
+}
 
 /*
 ===============
@@ -1610,6 +1828,8 @@ void R_InitImages( void )
 	tr.solidskyTexture = gEngfuncs.RM_FindTexture( REF_SOLIDSKY_TEXTURE );
 	tr.alphaskyTexture = gEngfuncs.RM_FindTexture( REF_ALPHASKY_TEXTURE );
 	tr.dlightTexture   = gEngfuncs.RM_FindTexture( REF_DLIGHT_TEXTURE );
+
+	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 }
 
 /*
