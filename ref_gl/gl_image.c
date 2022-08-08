@@ -16,17 +16,31 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "crclib.h"
 
-static gl_texture_t		gl_textures[MAX_TEXTURES];
-static uint		gl_numTextures;
+static gl_texture_t gl_textures[MAX_TEXTURES];
+static uint gl_numTextures;
 
 #define IsLightMap( tex )	( FBitSet(( tex )->flags, TF_ATLAS_PAGE ))
 
+/*
+=================
+R_GetTexture
+
+Get texture by index
+=================
+*/
 gl_texture_t *R_GetTexture( GLenum texnum )
 {
 	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
 	return &gl_textures[texnum];
 }
 
+/*
+=================
+GL_TargetToString
+
+Get human readable string representation of target
+=================
+*/
 static const char *GL_TargetToString( GLenum target )
 {
 	switch( target )
@@ -49,6 +63,11 @@ static const char *GL_TargetToString( GLenum target )
 	return "??";
 }
 
+/*
+=================
+GL_Bind
+=================
+*/
 void GL_Bind( GLint tmu, GLenum texnum )
 {
 	gl_texture_t	*texture;
@@ -88,11 +107,16 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	glState.currentTextures[tmu] = texture->texnum;
 }
 
+/*
+=================
+GL_ApplyTextureParams
+=================
+*/
 void GL_ApplyTextureParams( int texnum )
 {
-	vec4_t	border = { 0.0f, 0.0f, 0.0f, 1.0f };
+	vec4_t border = { 0.0f, 0.0f, 0.0f, 1.0f };
 
-	gl_texture_t *tex = &(gl_textures[texnum]);
+	gl_texture_t *tex = &gl_textures[texnum];
 
 	if( !glw_state.initialized )
 		return;
@@ -225,6 +249,11 @@ void GL_ApplyTextureParams( int texnum )
 	}
 }
 
+/*
+=================
+GL_UpdateTextureParams
+=================
+*/
 static void GL_UpdateTextureParams( int texnum )
 {
 	gl_texture_t	*tex = &gl_textures[texnum];
@@ -271,6 +300,11 @@ static void GL_UpdateTextureParams( int texnum )
 	}
 }
 
+/*
+=================
+R_SetTextureParameters
+=================
+*/
 void R_SetTextureParameters( void )
 {
 	int	i;
@@ -301,6 +335,11 @@ void R_SetTextureParameters( void )
 		GL_UpdateTextureParams( i );
 }
 
+/*
+================
+GL_CalcTextureSamples
+================
+*/
 static int GL_CalcTextureSamples( int flags )
 {
 	if( FBitSet( flags, IMAGE_HAS_COLOR ))
@@ -308,6 +347,11 @@ static int GL_CalcTextureSamples( int flags )
 	return FBitSet( flags, IMAGE_HAS_ALPHA ) ? 2 : 1;
 }
 
+/*
+================
+GL_CalcImageSize
+================
+*/
 static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int depth )
 {
 	size_t	size = 0;
@@ -341,6 +385,11 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 	return size;
 }
 
+/*
+==================
+GL_CalcTextureSize
+==================
+*/
 static size_t GL_CalcTextureSize( GLenum format, int width, int height, int depth )
 {
 	size_t	size = 0;
@@ -442,6 +491,11 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 	return size;
 }
 
+/*
+==================
+GL_CalcMipmapCount
+==================
+*/
 static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer )
 {
 	int	width, height;
@@ -468,6 +522,11 @@ static int GL_CalcMipmapCount( gl_texture_t *tex, qboolean haveBuffer )
 	return mipcount + 1;
 }
 
+/*
+==================
+GL_SetTextureDimensions
+==================
+*/
 static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, int depth )
 {
 	int	maxTextureSize = 0;
@@ -555,6 +614,11 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 	tex->depth = Q_max( 1, depth );
 }
 
+/*
+===============
+GL_SetTextureTarget
+===============
+*/
 static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 {
 	Assert( pic != NULL );
@@ -607,6 +671,11 @@ static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 		tex->target = GL_NONE;
 }
 
+/*
+===============
+GL_SetTextureFormat
+===============
+*/
 static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int channelMask )
 {
 	qboolean	haveColor = ( channelMask & IMAGE_HAS_COLOR );
@@ -698,6 +767,13 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 	}
 }
 
+/*
+===============
+GL_ResampleTexture
+
+Assume input buffer is RGBA
+===============
+*/
 byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int outWidth, int outHeight, qboolean isNormalMap )
 {
 	uint		frac, fracStep;
@@ -782,6 +858,11 @@ byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int out
 	return scaledImage;
 }
 
+/*
+=================
+GL_BoxFilter3x3
+=================
+*/
 void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 {
 	int		r = 0, g = 0, b = 0, a = 0;
@@ -821,6 +902,13 @@ void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 	out[2] = b / acount;
 }
 
+/*
+=================
+GL_ApplyFilter
+
+Apply box-filter to 1-bit alpha
+=================
+*/
 byte *GL_ApplyFilter( const byte *source, int width, int height )
 {
 	byte	*in = (byte *)source;
@@ -839,6 +927,13 @@ byte *GL_ApplyFilter( const byte *source, int width, int height )
 	return out;
 }
 
+/*
+=================
+GL_BuildMipMap
+
+Operates in place, quartering the size of the texture
+=================
+*/
 static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, int flags )
 {
 	byte	*out = in;
@@ -923,6 +1018,11 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 	}
 }
 
+/*
+=================
+GL_TextureImageRAW
+=================
+*/
 static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, GLint type, const void *data )
 {
 	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
@@ -982,6 +1082,11 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	}
 }
 
+/*
+=================
+GL_TextureImageDXT
+=================
+*/
 static void GL_TextureImageDXT( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, size_t size, const void *data )
 {
 	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
@@ -1013,6 +1118,13 @@ static void GL_TextureImageDXT( gl_texture_t *tex, GLint side, GLint level, GLin
 #endif
 }
 
+/*
+===============
+GL_CheckTexImageError
+
+show GL-errors on load images
+===============
+*/
 static void GL_CheckTexImageError( gl_texture_t *tex )
 {
 	int	err;
@@ -1024,6 +1136,13 @@ static void GL_CheckTexImageError( gl_texture_t *tex )
 		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s while uploading %s [%s]\n", GL_ErrorString( err ), tex->name, GL_TargetToString( tex->target ));
 }
 
+/*
+===============
+GL_UploadTexture
+
+Upload texture into video memory
+===============
+*/
 static qboolean GL_UploadTexture( int texnum, rgbdata_t *pic )
 {
 	byte		*buf, *data;
@@ -1157,6 +1276,13 @@ static qboolean GL_UploadTexture( int texnum, rgbdata_t *pic )
 	return true;
 }
 
+/*
+===============
+GL_ProcessImage
+
+Do specified actions on pixels
+===============
+*/
 static void GL_ProcessImage( int texnum, rgbdata_t *pic )
 {
 	uint img_flags = 0;
@@ -1208,16 +1334,28 @@ static void GL_ProcessImage( int texnum, rgbdata_t *pic )
 	}
 }
 
+/*
+================
+GL_DeleteTexture
+================
+*/
 void GL_DeleteTexture( int texnum )
 {
 	if ( gl_textures[texnum].used )
 	{
-		memset( &(gl_textures[texnum]), 0, sizeof(gl_texture_t) );
+		memset( &gl_textures[texnum], 0, sizeof(gl_texture_t) );
 
 		pglDeleteTextures( 1, &texnum );
 	}
 }
 
+/*
+================
+GL_UpdateTexSize
+
+Recalc image room
+================
+*/
 void GL_UpdateTexSize( int texnum, int width, int height, int depth )
 {
 	int		i, j, texsize;
@@ -1244,6 +1382,11 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth )
 	}
 }
 
+/*
+================
+GL_LoadTextureFromBuffer
+================
+*/
 qboolean GL_LoadTextureFromBuffer( int texnum, rgbdata_t *pic, texFlags_t flags, qboolean update )
 {
 	gl_texture_t *tex;
@@ -1282,6 +1425,13 @@ qboolean GL_LoadTextureFromBuffer( int texnum, rgbdata_t *pic, texFlags_t flags,
 	return true;
 }
 
+/*
+================
+GL_CreateTexture
+
+Creates texture from buffer
+================
+*/
 int GL_CreateTexture( int texnum, int width, int height, const void *buffer, texFlags_t flags )
 {
 	qboolean	update = FBitSet( flags, TF_UPDATE ) ? true : false;
@@ -1322,6 +1472,13 @@ int GL_CreateTexture( int texnum, int width, int height, const void *buffer, tex
 	return GL_LoadTextureFromBuffer( texnum, &r_empty, flags, update );
 }
 
+/*
+================
+GL_CreateTextureArray
+
+Creates texture array from buffer
+================
+*/
 int GL_CreateTextureArray( int texnum, int width, int height, int depth, const void *buffer, texFlags_t flags )
 {
 	rgbdata_t	r_empty;
@@ -1359,6 +1516,11 @@ int GL_CreateTextureArray( int texnum, int width, int height, int depth, const v
 	return GL_LoadTextureInternal( &(gl_textures[texnum].name), &r_empty, flags );
 }
 
+/*
+================
+GL_ProcessTexture
+================
+*/
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 {
 	gl_texture_t	*image;
@@ -1407,6 +1569,13 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	gEngfuncs.FS_FreeImage( pic );
 }
 
+/*
+================
+GL_TexMemory
+
+Return size of all uploaded textures
+================
+*/
 int GL_TexMemory( void )
 {
 	int	i, total = 0;
@@ -1417,6 +1586,12 @@ int GL_TexMemory( void )
 	return total;
 }
 
+
+/*
+===============
+R_InitImages
+===============
+*/
 void R_InitImages( void )
 {
 	memset( gl_textures, 0, sizeof( gl_textures ));
@@ -1438,6 +1613,11 @@ void R_InitImages( void )
 	tr.dlightTexture   = gEngfuncs.RM_FindTexture( REF_DLIGHT_TEXTURE );
 }
 
+/*
+===============
+R_ShutdownImages
+===============
+*/
 void R_ShutdownImages( void )
 {
 	int i;
