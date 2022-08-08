@@ -27,6 +27,12 @@ GNU General Public License for more details.
 SDL_Joystick *g_joy = NULL;
 #if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
+#else
+static struct
+{
+	qboolean initialized;
+	SDL_Cursor *cursors[dc_last];
+} cursors;
 #endif
 
 /*
@@ -71,19 +77,28 @@ Platform_GetClipobardText
 
 =============
 */
-void Platform_GetClipboardText( char *buffer, size_t size )
+int Platform_GetClipboardText( char *buffer, size_t size )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	int textLength;
 	char *sdlbuffer = SDL_GetClipboardText();
 
 	if( !sdlbuffer )
-		return;
+		return 0;
 
-	Q_strncpy( buffer, sdlbuffer, size );
+	if (buffer && size > 0)
+	{
+		textLength = Q_strncpy( buffer, sdlbuffer, size );
+	}
+	else {
+		textLength = Q_strlen( sdlbuffer );
+	}
 	SDL_free( sdlbuffer );
+	return textLength;
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	buffer[0] = 0;
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return 0;
 }
 
 /*
@@ -92,7 +107,7 @@ Platform_SetClipobardText
 
 =============
 */
-void Platform_SetClipboardText( const char *buffer, size_t size )
+void Platform_SetClipboardText( const char *buffer )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_SetClipboardText( buffer );
@@ -235,6 +250,157 @@ int Platform_JoyInit( int numjoy )
 		return SDLash_JoyInit_New(numjoy);
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return SDLash_JoyInit_Old(numjoy);
+}
+
+/*
+========================
+SDLash_InitCursors
+
+========================
+*/
+void SDLash_InitCursors( void )
+{
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	if( cursors.initialized )
+		SDLash_FreeCursors();
+
+	// load up all default cursors
+	cursors.cursors[dc_none] = NULL;
+	cursors.cursors[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+	cursors.cursors[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+	cursors.cursors[dc_hourglass] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+	cursors.cursors[dc_crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+	cursors.cursors[dc_up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+	cursors.cursors[dc_sizenwse] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+	cursors.cursors[dc_sizenesw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+	cursors.cursors[dc_sizewe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+	cursors.cursors[dc_sizens] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+	cursors.cursors[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
+	cursors.cursors[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
+	cursors.cursors[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+	cursors.initialized = true;
+#endif
+}
+
+/*
+========================
+SDLash_FreeCursors
+
+========================
+*/
+void SDLash_FreeCursors( void )
+{
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	int i = 0;
+
+	for( ; i < ARRAYSIZE( cursors.cursors ); i++ )
+	{
+		if( cursors.cursors[i] )
+			SDL_FreeCursor( cursors.cursors[i] );
+		cursors.cursors[i] = NULL;
+	}
+
+	cursors.initialized = false;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+}
+
+/*
+========================
+Platform_SetCursorType
+
+========================
+*/
+void Platform_SetCursorType( VGUI_DefaultCursor type )
+{
+	qboolean visible;
+
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	if( !cursors.initialized )
+		return;
+#endif
+
+	if( cls.key_dest != key_game || cl.paused )
+		return;
+
+	switch( type )
+	{
+		case dc_user:
+		case dc_none:
+			visible = false;
+			break;
+		default:
+			visible = true;
+			break;
+	}
+
+	host.mouse_visible = visible;
+
+	if( CVAR_TO_BOOL( touch_emulate ))
+		return;
+
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	if( host.mouse_visible )
+	{
+		SDL_SetCursor( cursors.cursors[type] );
+		SDL_ShowCursor( true );
+		Key_EnableTextInput( true, false );
+	}
+	else
+	{
+		SDL_ShowCursor( false );
+		Key_EnableTextInput( false, false );
+	}
+#else
+	if( host.mouse_visible )
+	{
+		SDL_ShowCursor( true );
+	}
+	else
+	{
+		SDL_ShowCursor( false );
+	}
+#endif
+}
+
+/*
+========================
+Platform_GetKeyModifiers
+
+========================
+*/
+key_modifier_t Platform_GetKeyModifiers( void )
+{
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	SDL_Keymod modFlags;
+	key_modifier_t resultFlags;
+
+	resultFlags = KeyModifier_None;
+	modFlags = SDL_GetModState();
+	if( FBitSet( modFlags, KMOD_LCTRL ))
+		SetBits( resultFlags, KeyModifier_LeftCtrl );
+	if( FBitSet( modFlags, KMOD_RCTRL ))
+		SetBits( resultFlags, KeyModifier_RightCtrl );
+	if( FBitSet( modFlags, KMOD_RSHIFT ))
+		SetBits( resultFlags, KeyModifier_RightShift );
+	if( FBitSet( modFlags, KMOD_LSHIFT ))
+		SetBits( resultFlags, KeyModifier_LeftShift );
+	if( FBitSet( modFlags, KMOD_LALT ))
+		SetBits( resultFlags, KeyModifier_LeftAlt );
+	if( FBitSet( modFlags, KMOD_RALT ))
+		SetBits( resultFlags, KeyModifier_RightAlt );
+	if( FBitSet( modFlags, KMOD_NUM ))
+		SetBits( resultFlags, KeyModifier_NumLock );
+	if( FBitSet( modFlags, KMOD_CAPS ))
+		SetBits( resultFlags, KeyModifier_CapsLock );
+	if( FBitSet( modFlags, KMOD_RGUI ))
+		SetBits( resultFlags, KeyModifier_RightSuper );
+	if( FBitSet( modFlags, KMOD_LGUI ))
+		SetBits( resultFlags, KeyModifier_LeftSuper );
+
+	return resultFlags;
+#else
+	return KeyModifier_None;
+#endif
 }
 
 #endif // XASH_DEDICATED

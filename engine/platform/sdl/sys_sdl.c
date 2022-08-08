@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include <SDL.h>
 #include "platform/platform.h"
+#include "events.h"
 
 #if XASH_TIMER == TIMER_SDL
 double Platform_DoubleTime( void )
@@ -67,10 +68,14 @@ void Platform_Init( void )
 #ifdef XASH_WIN32
 	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
 #endif
+
+	SDLash_InitCursors();
 }
 
 void Platform_Shutdown( void )
 {
+	SDLash_FreeCursors();
+
 #ifdef XASH_WIN32
 	Wcon_DestroyConsole();
 #endif

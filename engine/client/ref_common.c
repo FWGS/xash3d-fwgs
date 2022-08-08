@@ -335,10 +335,6 @@ static ref_api_t gEngfuncs =
 	COM_FreeLibrary,
 	COM_GetProcAddress,
 
-	FS_LoadFile,
-	FS_FileExists,
-	FS_AllowDirectPaths,
-
 	R_Init_Video_,
 	R_Free_Video,
 
@@ -385,6 +381,8 @@ static ref_api_t gEngfuncs =
 	pfnDrawNormalTriangles,
 	pfnDrawTransparentTriangles,
 	&clgame.drawFuncs,
+
+	&g_fsapi,
 
 	XVK_GetInstanceExtensions,
 	XVK_GetVkGetInstanceProcAddr,

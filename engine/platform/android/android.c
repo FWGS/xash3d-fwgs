@@ -776,15 +776,27 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	// no need to free jstr
 }
 
-void Platform_GetClipboardText( char *buffer, size_t size )
+int Platform_GetClipboardText( char *buffer, size_t size )
 {
 	// stub
 	if( size ) buffer[0] = 0;
+	return 0;
 }
 
-void Platform_SetClipboardText( const char *buffer, size_t size )
+void Platform_SetClipboardText( const char *buffer )
 {
 	// stub
+}
+
+void Platform_SetCursorType( VGUI_DefaultCursor cursor )
+{
+	// stub
+}
+
+key_modifier_t Platform_GetKeyModifiers( void )
+{
+	// stub
+	return KeyModifier_None;
 }
 
 void Platform_PreCreateMove( void )

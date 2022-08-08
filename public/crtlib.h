@@ -16,16 +16,14 @@ GNU General Public License for more details.
 #ifndef STDLIB_H
 #define STDLIB_H
 
-#include <stdarg.h>
 #include <string.h>
+#include <stdarg.h>
 #include "build.h"
+#include "xash3d_types.h"
 
-#ifdef __GNUC__
-#define _format(x) __attribute__((format(printf, x, x+1)))
-#define NORETURN __attribute__((noreturn))
-#else
-#define _format(x)
-#define NORETURN
+#ifdef __cplusplus
+extern "C"
+{
 #endif
 
 // timestamp modes
@@ -43,6 +41,17 @@ enum
 // exported APIs headers and will get nice warning in case of changing values
 #define PFILE_IGNOREBRACKET (1<<0)
 #define PFILE_HANDLECOLON   (1<<1)
+#define PFILE_TOKEN_MAX_LENGTH 1024
+#define PFILE_FS_TOKEN_MAX_LENGTH 512
+
+//
+// build.c
+//
+int Q_buildnum( void );
+int Q_buildnum_compat( void );
+const char *Q_buildos( void );
+const char *Q_buildarch( void );
+const char *Q_buildcommit( void );
 
 //
 // crtlib.c
@@ -61,24 +70,20 @@ size_t Q_strncat( char *dst, const char *src, size_t siz );
 size_t Q_strncpy( char *dst, const char *src, size_t siz );
 uint Q_hashkey( const char *string, uint hashSize, qboolean caseinsensitive );
 qboolean Q_isdigit( const char *str );
+qboolean Q_isspace( const char *str );
 int Q_atoi( const char *str );
 float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
-char *Q_strchr( const char *s, char c );
-char *Q_strrchr( const char *s, char c );
-#define Q_stricmp( s1, s2 ) Q_strnicmp( s1, s2, 99999 )
-int Q_strnicmp( const char *s1, const char *s2, int n );
-#define Q_strcmp( s1, s2 ) Q_strncmp( s1, s2, 99999 )
-int Q_strncmp( const char *s1, const char *s2, int n );
+#define Q_strchr  strchr
+#define Q_strrchr strrchr
 qboolean Q_stricmpext( const char *s1, const char *s2 );
 const char *Q_timestamp( int format );
-char *Q_stristr( const char *string, const char *string2 );
-char *Q_strstr( const char *string, const char *string2 );
 #define Q_vsprintf( buffer, format, args ) Q_vsnprintf( buffer, 99999, format, args )
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
 int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
 char *Q_strpbrk(const char *s, const char *accept);
+void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
 char *va( const char *format, ... ) _format( 1 );
@@ -90,15 +95,73 @@ void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str );
+void COM_FixSlashes( char *pname );
 void COM_PathSlashFix( char *path );
 char COM_Hex2Char( uint8_t hex );
 void COM_Hex2String( uint8_t hex, char *str );
+// return 0 on empty or null string, 1 otherwise
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 #define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )
-char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *len );
-#define COM_ParseFile( data, token, size ) _COM_ParseFileSafe( data, token, size, 0, NULL )
-#define COM_ParseFileLegacy( data, token ) COM_ParseFileSafe( data, token, INT_MAX )
+char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *len, qboolean *quoted );
+#define COM_ParseFile( data, token, size ) COM_ParseFileSafe( data, token, size, 0, NULL, NULL )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
+
+// libc implementations
+static inline int Q_strcmp( const char *s1, const char *s2 )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strcmp( s1, s2 ));
+}
+
+static inline int Q_strncmp( const char *s1, const char *s2, size_t n )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strncmp( s1, s2, n ));
+}
+
+static inline char *Q_strstr( const char *s1, const char *s2 )
+{
+	return unlikely( !s1 || !s2 ) ? NULL : (char*)strstr( s1, s2 );
+}
+
+// libc extensions, be careful
+
+#if XASH_WIN32
+#define strcasecmp stricmp
+#define strncasecmp strnicmp
+#endif // XASH_WIN32
+
+static inline int Q_stricmp( const char *s1, const char *s2 )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strcasecmp( s1, s2 ));
+}
+
+static inline int Q_strnicmp( const char *s1, const char *s2, size_t n )
+{
+	return unlikely(!s1) ?
+		( !s2 ? 0 : -1 ) :
+		( unlikely(!s2) ? 1 : strncasecmp( s1, s2, n ));
+}
+
+#if defined( HAVE_STRCASESTR )
+#if XASH_WIN32
+#define strcasestr stristr
+#endif
+static inline char *Q_stristr( const char *s1, const char *s2 )
+{
+	return unlikely( !s1 || !s2 ) ? NULL : (char *)strcasestr( s1, s2 );
+}
+#else // defined( HAVE_STRCASESTR )
+char *Q_stristr( const char *s1, const char *s2 );
+#endif // defined( HAVE_STRCASESTR )
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif//STDLIB_H

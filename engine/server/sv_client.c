@@ -733,7 +733,8 @@ sv_client_t *SV_ClientByName( const char *name )
 	sv_client_t *cl;
 	int i;
 
-	ASSERT( name && *name );
+	if( !COM_CheckString( name ))
+		return NULL;
 
 	for( i = 0, cl = svs.clients; i < svgame.globals->maxClients; i++, cl++ )
 	{
@@ -843,6 +844,8 @@ void SV_Info( netadr_t from )
 			if( svs.clients[i].state >= cs_connected )
 				count++;
 
+		// a1ba: send protocol version to distinguish old engine and new
+		Info_SetValueForKey( string, "p", va( "%i", PROTOCOL_VERSION ), MAX_INFO_STRING );
 		Info_SetValueForKey( string, "host", hostname.string, MAX_INFO_STRING );
 		Info_SetValueForKey( string, "map", sv.name, MAX_INFO_STRING );
 		Info_SetValueForKey( string, "dm", va( "%i", (int)svgame.globals->deathmatch ), MAX_INFO_STRING );
@@ -2263,6 +2266,17 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, "s" )) SV_AddToMaster( from, msg );
 	else if( !Q_strcmp( pcmd, "T" "Source" )) SV_TSourceEngineQuery( from );
 	else if( !Q_strcmp( pcmd, "i" )) NET_SendPacket( NS_SERVER, 5, "\xFF\xFF\xFF\xFFj", from ); // A2A_PING
+	else if (!Q_strcmp( pcmd, "c" ))
+	{
+		qboolean sv_nat = Cvar_VariableInteger( "sv_nat" );
+		if( sv_nat )
+		{
+			netadr_t to;
+
+			if( NET_StringToAdr( Cmd_Argv( 1 ), &to ) && !NET_IsReservedAdr( to ))
+				SV_Info( to );
+		}
+	}
 	else if( svgame.dllFuncs.pfnConnectionlessPacket( &from, args, buf, &len ))
 	{
 		// user out of band message (must be handled in CL_ConnectionlessPacket)

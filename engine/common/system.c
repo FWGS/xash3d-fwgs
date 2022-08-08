@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "platform/platform.h"
 #include <stdlib.h>
+#include <errno.h>
 
 #ifdef XASH_SDL
 #include <SDL.h>
@@ -32,7 +33,14 @@ GNU General Public License for more details.
 #endif
 #endif
 
+#if XASH_WIN32
+#include <process.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
+
+#include "library.h"
+#include "whereami.h"
 
 qboolean	error_on_exit = false;	// arg for exit();
 #define DEBUG_BREAK
@@ -81,18 +89,6 @@ char *Sys_GetClipboardData( void )
 
 	return data;
 }
-
-/*
-================
-Sys_SetClipboardData
-
-write screenshot into clipboard
-================
-*/
-void Sys_SetClipboardData( const char *buffer, size_t size )
-{
-	Platform_SetClipboardText( buffer, size );
-}
 #endif // XASH_DEDICATED
 
 /*
@@ -107,7 +103,7 @@ void Sys_Sleep( int msec )
 	if( !msec )
 		return;
 
-	msec = min( msec, 1000 );
+	msec = Q_min( msec, 1000 );
 	Platform_Sleep( msec );
 }
 
@@ -284,7 +280,8 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 			*func->func = NULL;
 	}
 
-	if( !dll->link ) dll->link = LoadLibrary ( dll->name ); // environment pathes
+	if( !dll->link )
+		dll->link = COM_LoadLibrary( dll->name, false, true ); // environment pathes
 
 	// no DLL found
 	if( !dll->link )
@@ -319,7 +316,7 @@ void* Sys_GetProcAddress( dll_info_t *dll, const char* name )
 	if( !dll || !dll->link ) // invalid desc
 		return NULL;
 
-	return (void *)GetProcAddress( dll->link, name );
+	return (void *)COM_GetProcAddress( dll->link, name );
 }
 
 qboolean Sys_FreeLibrary( dll_info_t *dll )
@@ -336,7 +333,7 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 	}
 	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", dll->name );
 
-	FreeLibrary( dll->link );
+	COM_FreeLibrary( dll->link );
 	dll->link = NULL;
 
 	return true;
@@ -353,9 +350,6 @@ void Sys_WaitForQuit( void )
 {
 #if XASH_WIN32
 	MSG	msg;
-
-	Wcon_RegisterHotkeys();
-
 	msg.message = 0;
 
 	// wait for the user to quit
@@ -427,9 +421,12 @@ void Sys_Error( const char *error, ... )
 #if XASH_SDL == 2
 		if( host.hWnd ) SDL_HideWindow( host.hWnd );
 #endif
+#if XASH_WIN32
+		Wcon_ShowConsole( false );
+#endif
+		MSGBOX( text );
 	}
-
-	if( host_developer.value )
+	else
 	{
 #if XASH_WIN32
 		Wcon_ShowConsole( true );
@@ -438,14 +435,7 @@ void Sys_Error( const char *error, ... )
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
 	}
-	else
-	{
-#if XASH_WIN32
-		Wcon_ShowConsole( false );
-#endif
-		MSGBOX( text );
-	}
-
+	
 	Sys_Quit();
 }
 
@@ -531,10 +521,6 @@ void Sys_Print( const char *pMsg )
 			{
 				i++; // skip console pseudo graph
 			}
-			else if( IsColorString( &msg[i] ))
-			{
-				i++; // skip color prefix
-			}
 			else
 			{
 				if( msg[i] == '\1' || msg[i] == '\2' || msg[i] == '\3' )
@@ -554,4 +540,68 @@ void Sys_Print( const char *pMsg )
 	Sys_PrintLog( pMsg );
 
 	Rcon_Print( pMsg );
+}
+
+/*
+==================
+Sys_ChangeGame
+
+This is a special function
+
+Here we restart engine with new -game parameter
+but since engine will be unloaded during this call
+it explicitly doesn't use internal allocation or string copy utils
+==================
+*/
+qboolean Sys_NewInstance( const char *gamedir )
+{
+	int i = 0;
+	qboolean replacedArg = false;
+	size_t exelen;
+	char *exe, **newargs;
+
+	// don't use engine allocation utils here
+	// they will be freed after Host_Shutdown
+	newargs = calloc( host.argc + 4, sizeof( *newargs ));
+	while( i < host.argc )
+	{
+		newargs[i] = strdup( host.argv[i] );
+
+		// replace existing -game argument
+		if( !Q_stricmp( newargs[i], "-game" ))
+		{
+			newargs[i + 1] = strdup( gamedir );
+			replacedArg = true;
+			i += 2;
+		}
+		else i++;
+	}
+
+	if( !replacedArg )
+	{
+		newargs[i++] = strdup( "-game" );
+		newargs[i++] = strdup( gamedir );
+	}
+
+	newargs[i++] = strdup( "-changegame" );
+	newargs[i] = NULL;
+
+	exelen = wai_getExecutablePath( NULL, 0, NULL );
+	exe = malloc( exelen + 1 );
+	wai_getExecutablePath( exe, exelen, NULL );
+	exe[exelen] = 0;
+
+	Host_Shutdown();
+
+	execv( exe, newargs );
+
+	// if execv returned, it's probably an error
+	printf( "execv failed: %s", strerror( errno ));
+
+	for( ; i >= 0; i-- )
+		free( newargs[i] );
+	free( newargs );
+	free( exe );
+
+	return false;
 }

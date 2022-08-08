@@ -58,10 +58,13 @@ void CL_UpdatePositions( cl_entity_t *ent )
 
 	ent->current_position = (ent->current_position + 1) & HISTORY_MASK;
 	ph = &ent->ph[ent->current_position];
-
 	VectorCopy( ent->curstate.origin, ph->origin );
 	VectorCopy( ent->curstate.angles, ph->angles );
-	ph->animtime = ent->curstate.animtime;	// !!!
+
+	if( ent->model && ent->model->type == mod_brush )
+		ph->animtime = ent->curstate.animtime;
+	else
+		ph->animtime = cl.time;
 }
 
 /*
@@ -219,7 +222,7 @@ void CL_UpdateLatchedVars( cl_entity_t *ent )
 
 	if( ent->curstate.sequence != ent->prevstate.sequence )
 	{
-		memcpy( ent->prevstate.blending, ent->latched.prevseqblending, sizeof( ent->prevstate.blending ));
+		memcpy( ent->latched.prevseqblending, ent->prevstate.blending, sizeof( ent->latched.prevseqblending ));
 		ent->latched.prevsequence = ent->prevstate.sequence;
 		ent->latched.sequencetime = ent->curstate.animtime;
 	}
@@ -310,7 +313,7 @@ void CL_ProcessEntityUpdate( cl_entity_t *ent )
 	if( FBitSet( ent->curstate.entityType, ENTITY_NORMAL ))
 		COM_NormalizeAngles( ent->curstate.angles );
 
-	parametric = CL_ParametricMove( ent );
+	parametric = ent->curstate.starttime != 0.0f && ent->curstate.impacttime != 0.0f;
 
 	// allow interpolation on bmodels too
 	if( ent->model && ent->model->type == mod_brush )
@@ -349,7 +352,7 @@ find two timestamps
 qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, float targettime, position_history_t **ph0, position_history_t **ph1 )
 {
 	qboolean	extrapolate = true;
-	int	i, i0, i1, imod;
+	uint		i, i0, i1, imod;
 	float	at;
 
 	imod = ent->current_position;
@@ -406,7 +409,7 @@ void CL_PureOrigin( cl_entity_t *ent, float t, vec3_t outorigin, vec3_t outangle
 
 		VectorSubtract( ph0->origin, ph1->origin, delta );
 
-		if( t0 != t1 )
+		if( !Q_equal( t0, t1 ))
 			frac = ( t - t1 ) / ( t0 - t1 );
 		else frac = 1.0f;
 
@@ -486,7 +489,9 @@ int CL_InterpolateModel( cl_entity_t *e )
 		return 0;
 	}
 
-	if( t2 == t1 )
+	// HACKHACK: workaround buggy position history animtime
+	// going backward sometimes
+	if( Q_equal( t2, t1 ) || t2 < t1 )
 	{
 		VectorCopy( ph0->origin, e->origin );
 		VectorCopy( ph0->angles, e->angles );
@@ -978,8 +983,13 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 	}
 
 	// don't add the player in firstperson mode
-	if( RP_LOCALCLIENT( ent ) && !CL_IsThirdPerson( ) && ( ent->index == cl.viewentity ))
-		return false;
+	if( RP_LOCALCLIENT( ent ))
+	{
+		cl.local.apply_effects = true;
+
+		if( !CL_IsThirdPerson( ) && ( ent->index == cl.viewentity ))
+			return false;
+	}
 
 	if( entityType == ET_BEAM )
 	{
@@ -993,12 +1003,8 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 
 	// because pTemp->entity.curstate.effects
 	// is already occupied by FTENT_FLICKER
-	if( entityType != ET_TEMPENTITY )
+	if( entityType != ET_TEMPENTITY && !RP_LOCALCLIENT( ent ) )
 	{
-		// no reason to do it twice
-		if( RP_LOCALCLIENT( ent ))
-			cl.local.apply_effects = false;
-
 		// apply client-side effects
 		CL_AddEntityEffects( ent );
 
@@ -1050,7 +1056,6 @@ void CL_LinkPlayers( frame_t *frame )
 	// apply muzzleflash to weaponmodel
 	if( ent && FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ))
 		SetBits( clgame.viewent.curstate.effects, EF_MUZZLEFLASH );
-	cl.local.apply_effects = true;
 
 	// check all the clients but add only visible
 	for( i = 0, state = frame->playerstate; i < MAX_CLIENTS; i++, state++ )

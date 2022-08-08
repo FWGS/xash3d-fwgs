@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "common.h"
+#include "crtlib.h"
 
 static const char *date = __DATE__ ;
 static const char *mon[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
@@ -95,6 +95,8 @@ const char *Q_buildos( void )
 	osname = "DOS4GW";
 #elif XASH_HAIKU
 	osname = "haiku";
+#elif XASH_SERENITY
+	osname = "serenityos";
 #else
 #error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
