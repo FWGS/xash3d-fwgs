@@ -819,19 +819,17 @@ Responds with short info for broadcast scans
 The second parameter should be the current protocol version number.
 ================
 */
-void SV_Info( netadr_t from )
+void SV_Info( netadr_t from, int protocolVersion )
 {
 	char	string[MAX_INFO_STRING];
-	int	version;
 
 	// ignore in single player
 	if( svs.maxclients == 1 || !svs.initialized )
 		return;
 
-	version = Q_atoi( Cmd_Argv( 1 ));
 	string[0] = '\0';
 
-	if( version != PROTOCOL_VERSION )
+	if( protocolVersion != PROTOCOL_VERSION )
 	{
 		Q_snprintf( string, sizeof( string ), "%s: wrong version\n", hostname.string );
 	}
@@ -2257,7 +2255,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 
 	if( !Q_strcmp( pcmd, "ping" )) SV_Ping( from );
 	else if( !Q_strcmp( pcmd, "ack" )) SV_Ack( from );
-	else if( !Q_strcmp( pcmd, "info" )) SV_Info( from );
+	else if( !Q_strcmp( pcmd, "info" )) SV_Info( from, Q_atoi( Cmd_Argv( 1 )));
 	else if( !Q_strcmp( pcmd, "bandwidth" )) SV_TestBandWidth( from );
 	else if( !Q_strcmp( pcmd, "getchallenge" )) SV_GetChallenge( from );
 	else if( !Q_strcmp( pcmd, "connect" )) SV_ConnectClient( from );
@@ -2274,7 +2272,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			netadr_t to;
 
 			if( NET_StringToAdr( Cmd_Argv( 1 ), &to ) && !NET_IsReservedAdr( to ))
-				SV_Info( to );
+				SV_Info( to, PROTOCOL_VERSION );
 		}
 	}
 	else if( svgame.dllFuncs.pfnConnectionlessPacket( &from, args, buf, &len ))
