@@ -151,6 +151,8 @@ void Sys_PrintUsage( void )
 	O("-clientlib <path>","override client DLL path")
 #endif
 	O("-rodir <path>    ","set read-only base directory, experimental")
+	O("-bugcomp         ","enable precise bug compatibility. Will break games that don't require it")
+	O("                 ","Refer to engine documentation for more info")
 
 	O("-ip <ip>         ","set custom ip")
 	O("-port <port>     ","set custom host port")
@@ -859,10 +861,10 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	if( !Sys_CheckParm( "-disablehelp" ) )
 	{
-	    if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ) )
-	    {
+		 if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ) )
+		 {
 			Sys_PrintUsage();
-	    }
+		 }
 	}
 
 	if( !Sys_CheckParm( "-noch" ) )
@@ -940,6 +942,13 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	// member console allowing
 	host.allow_console_init = host.allow_console;
+
+	if( Sys_CheckParm( "-bugcomp" ))
+	{
+		// add argument check here when we add other levels
+		// of bugcompatibility
+		host.bugcomp = BUGCOMP_GOLDSRC;
+	}
 
 	// timeBeginPeriod( 1 ); // a1ba: Do we need this?
 

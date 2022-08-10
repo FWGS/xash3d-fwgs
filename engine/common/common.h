@@ -307,6 +307,16 @@ typedef struct
 	float		scale;		// curstate.scale
 } tentlist_t;
 
+typedef enum bugcomp_e
+{
+	// default mode, we assume that user dlls are not relying on engine bugs
+	BUGCOMP_OFF,
+
+	// GoldSrc mode, user dlls are relying on GoldSrc specific bugs
+	// but fixing them may break regular Xash games
+	BUGCOMP_GOLDSRC,
+} bugcomp_t;
+
 typedef struct host_parm_s
 {
 	HINSTANCE			hInst;
@@ -380,6 +390,9 @@ typedef struct host_parm_s
 
 	struct decallist_s	*decalList;	// used for keep decals, when renderer is restarted or changed
 	int		numdecals;
+
+	// bug compatibility level, for very "special" games
+	bugcomp_t bugcomp;
 
 } host_parm_t;
 
