@@ -3375,7 +3375,9 @@ pfnPEntityOfEntIndex
 static edict_t *pfnPEntityOfEntIndex( int iEntIndex )
 {
 	// have to be bug-compatible with GoldSrc in this function
-	return SV_PEntityOfEntIndex( iEntIndex, false );
+	if( host.bugcomp == BUGCOMP_GOLDSRC )
+		return SV_PEntityOfEntIndex( iEntIndex, false );
+	return SV_PEntityOfEntIndex( iEntIndex, true );
 }
 
 /*
