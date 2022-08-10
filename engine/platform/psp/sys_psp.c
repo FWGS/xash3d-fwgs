@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "platform/platform.h"
+#include "platform/psp/ka/ka.h"
 #include <pspsdk.h>
 #include <pspkernel.h>
 #include <psppower.h>
@@ -256,11 +257,14 @@ int Platform_UnloadModule( SceUID modid, int *sce_code )
 		return -1;
 
 	*sce_code = sceKernelUnloadModule( modid );
-	return ( ( ( *sce_code ) < 0 ) ? -2 : 0 ); 
+	return ( ( ( *sce_code ) < 0 ) ? -2 : 0 );
 }
 
 void Platform_Init( void )
 {
+	SceUID kamID;
+	int result;
+
 	// disable fpu exceptions (division by zero and etc...)
 	pspSdkDisableFPUExceptions();
 
@@ -269,6 +273,16 @@ void Platform_Init( void )
 
 	// set max cpu/gpu frequency
 	scePowerSetClockFrequency( 333, 333, 166 );
+
+	// set max VRAM
+	kamID = Platform_LoadModule( "ka.prx", 1, 0, NULL );
+	if( kamID >= 0 )
+	{
+		result = kaGeEdramGetHwSize();
+		if( result > 0 )
+			result = kaGeEdramSetSize( result );
+		Platform_UnloadModule( kamID, &result );
+	}
 }
 
 void Platform_Shutdown( void )

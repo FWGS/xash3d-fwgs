@@ -417,6 +417,12 @@ qboolean R_Init( void )
 	if( glw_state.initialized )
 		return true;
 
+	if( vinit() < 0 )
+	{
+		gEngfuncs.Host_Error( "Can't initialize video subsystem\nVRam unavailable" );
+		return false;
+	}
+
 	GL_InitCommands();
 	GL_InitRandomTable();
 

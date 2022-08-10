@@ -463,6 +463,7 @@ def configure(conf):
 		conf.env.PACK_PBP = conf.find_program('pack-pbp', path_list = psp.binutils_path)
 		conf.env.FIXUP =  conf.find_program('psp-fixup-imports', path_list = psp.binutils_path)
 
+		conf.env.ASFLAGS += psp.cflags()
 		conf.env.CFLAGS += psp.cflags()
 		conf.env.CXXFLAGS += psp.cflags()
 		conf.env.LINKFLAGS += psp.linkflags()

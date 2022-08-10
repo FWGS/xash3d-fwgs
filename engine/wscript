@@ -137,6 +137,7 @@ def build(bld):
 
 	if bld.env.DEST_OS == 'psp':
 		source += bld.path.ant_glob(['platform/psp/*.c'])
+		source += bld.path.ant_glob(['platform/psp/*/*.S'])
 
 	# add client files
 	if not bld.env.DEDICATED:
