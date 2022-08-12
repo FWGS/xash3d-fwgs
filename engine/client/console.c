@@ -914,7 +914,7 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 	if( !con.curFont || !con.curFont->valid )
 		return 0;
 
-	number = Con_UtfProcessChar(number);
+	number = Con_UtfProcessChar( number );
 	if( !number )
 		return 0;
 
@@ -2403,11 +2403,21 @@ void Con_RunConsole( void )
 		FBitSet( cl_charset->flags,    FCVAR_CHANGED ) )
 	{
 		// update codepage parameters
-		g_codepage = 0;
-		if( !Q_stricmp( con_charset->string, "cp1251" ) )
+		if( !Q_stricmp( con_charset->string, "cp1251" ))
+		{
 			g_codepage = 1251;
-		else if( !Q_stricmp( con_charset->string, "cp1252" ) )
+		}
+		else if( !Q_stricmp( con_charset->string, "cp1252" ))
+		{
 			g_codepage = 1252;
+		}
+		else
+		{
+			Con_Printf( S_WARN "Unknown charset %s, defaulting to cp1252", con_charset->string );
+
+			Cvar_DirectSet( con_charset, "cp1252" );
+			g_codepage = 1252;
+		}
 
 		g_utf8 = !Q_stricmp( cl_charset->string, "utf-8" );
 		Con_InvalidateFonts();
