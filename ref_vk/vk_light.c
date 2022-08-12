@@ -6,6 +6,7 @@
 #include "vk_cvar.h"
 #include "vk_common.h"
 #include "shaders/ray_interop.h"
+#include "bitarray.h"
 #include "profiler.h"
 
 #include "mod_local.h"
@@ -69,6 +70,8 @@ static struct {
 		int polygon_vertices;
 	} num_static;
 
+	bit_array_t visited_cells;
+
 } g_lights_;
 
 static struct {
@@ -108,14 +111,12 @@ qboolean VK_LightsInit( void ) {
 	return true;
 }
 
-static void clusterBitMapShutdown( void );
-
 void VK_LightsShutdown( void ) {
 	VK_BufferDestroy(&g_lights_.staging);
 	VK_BufferDestroy(&g_lights_.buffer);
 
 	gEngine.Cmd_RemoveCommand("vk_lights_dump");
-	clusterBitMapShutdown();
+	bitArrayDestroy(&g_lights_.visited_cells);
 }
 
 typedef struct {
@@ -389,41 +390,6 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 	return smeta->potentially_visible_leafs;
 }
 
-
-static struct {
-#define CLUSTERS_BIT_MAP_SIZE_UINT ((g_lights.map.grid_cells + 31) / 32)
-	uint32_t *clusters_bit_map;
-} g_lights_tmp;
-
-static void clusterBitMapClear( void ) {
-	memset(g_lights_tmp.clusters_bit_map, 0, CLUSTERS_BIT_MAP_SIZE_UINT * sizeof(uint32_t));
-}
-
-// Returns true if wasn't set
-static qboolean clusterBitMapCheckOrSet( int cell_index ) {
-	uint32_t *const bits = g_lights_tmp.clusters_bit_map + (cell_index / 32);
-	const uint32_t bit = 1u << (cell_index % 32);
-
-	if ((*bits) & bit)
-		return false;
-
-	(*bits) |= bit;
-	return true;
-}
-
-static void clusterBitMapInit( void ) {
-	ASSERT(!g_lights_tmp.clusters_bit_map);
-
-	g_lights_tmp.clusters_bit_map = Mem_Malloc(vk_core.pool, CLUSTERS_BIT_MAP_SIZE_UINT * sizeof(uint32_t));
-	clusterBitMapClear();
-}
-
-static void clusterBitMapShutdown( void ) {
-	if (g_lights_tmp.clusters_bit_map)
-		Mem_Free(g_lights_tmp.clusters_bit_map);
-	g_lights_tmp.clusters_bit_map = NULL;
-}
-
 int RT_LightCellIndex( const int light_cell[3] ) {
 	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
 		|| (light_cell[0] >= g_lights.map.grid_size[0])
@@ -548,8 +514,8 @@ void RT_LightsNewMapBegin( const struct model_s *map ) {
 		g_lights.map.grid_cells
 	);
 
-	clusterBitMapShutdown();
-	clusterBitMapInit();
+	bitArrayDestroy(&g_lights_.visited_cells);
+	g_lights_.visited_cells = bitArrayCreate(g_lights.map.grid_cells);
 
 	prepareSurfacesLeafVisibilityCache( map );
 
@@ -688,7 +654,7 @@ static void addLightIndexToLeaf( const mleaf_t *leaf, int index ) {
 		if (cell_index < 0)
 			continue;
 
-		if (clusterBitMapCheckOrSet( cell_index )) {
+		if (bitArrayCheckOrSet(&g_lights_.visited_cells, cell_index)) {
 			if (!addLightToCell(cell_index, index)) {
 				ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of light slots",
 					cell[0], cell[1],  cell[2], cell_index);
@@ -700,10 +666,10 @@ static void addLightIndexToLeaf( const mleaf_t *leaf, int index ) {
 static void addPointLightToAllClusters( int index ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
-	// TODO there's certainly a better way to do this: just enumerate
+	// FIXME there's certainly a better way to do this: just enumerate
 	// all clusters, not all leafs
 
-	clusterBitMapClear();
+	bitArrayClear(&g_lights_.visited_cells);
 	for (int i = 1; i <= world->numleafs; ++i) {
 		const mleaf_t *const leaf = world->leafs + i;
 		addLightIndexToLeaf( leaf, index );
@@ -726,7 +692,7 @@ static void addPointLightToClusters( int index ) {
 	leafAccumAddPotentiallyVisibleFromLeaf( world, leaf, false);
 	leafAccumFinalize();
 
-	clusterBitMapClear();
+	bitArrayClear(&g_lights_.visited_cells);
 	for (int i = 0; i < leafs->num; ++i) {
 		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
 		addLightIndexToLeaf( leaf, index );
@@ -1001,7 +967,6 @@ qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 	}
 }
 
-
 static void addPolygonLightIndexToLeaf(const mleaf_t* leaf, int poly_index) {
 	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
 	const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
@@ -1038,7 +1003,7 @@ static void addPolygonLightIndexToLeaf(const mleaf_t* leaf, int poly_index) {
 		if (cell_index < 0)
 			continue;
 
-		if (clusterBitMapCheckOrSet( cell_index )) {
+		if (bitArrayCheckOrSet(&g_lights_.visited_cells, cell_index)) {
 			const float minmaxs[6] = {
 				x * LIGHT_GRID_CELL_SIZE,
 				y * LIGHT_GRID_CELL_SIZE,
@@ -1062,10 +1027,10 @@ static void addPolygonLightIndexToLeaf(const mleaf_t* leaf, int poly_index) {
 static void addPolygonLightToAllClusters( int poly_index ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
-	// TODO there's certainly a better way to do this: just enumerate
+	// FIXME there's certainly a better way to do this: just enumerate
 	// all clusters, not all leafs
 
-	clusterBitMapClear();
+	bitArrayClear(&g_lights_.visited_cells);
 	for (int i = 1; i <= world->numleafs; ++i) {
 		const mleaf_t *const leaf = world->leafs + i;
 		addPolygonLightIndexToLeaf( leaf, poly_index );
@@ -1079,7 +1044,7 @@ static void addPolygonLeafSetToClusters(const vk_light_leaf_set_t *leafs, int po
 	if (!leafs)
 		return;
 
-	clusterBitMapClear();
+	bitArrayClear(&g_lights_.visited_cells);
 
 	// Iterate through each visible/potentially affected leaf to get a range of grid cells
 	for (int i = 0; i < leafs->num; ++i) {
