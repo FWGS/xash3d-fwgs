@@ -151,7 +151,7 @@ static player_info_t *pfnPlayerInfo( int index )
 	if( index == -1 ) // special index for menu
 		return &gameui.playerinfo;
 
-	if( index < 0 || index > cl.maxclients )
+	if( index < 0 || index >= cl.maxclients )
 		return NULL;
 
 	return &cl.players[index];
