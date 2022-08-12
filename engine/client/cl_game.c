@@ -149,21 +149,6 @@ qboolean CL_IsThirdPerson( void )
 
 /*
 ====================
-CL_GetPlayerInfo
-
-get player info by render request
-====================
-*/
-player_info_t *CL_GetPlayerInfo( int playerIndex )
-{
-	if( playerIndex < 0 || playerIndex >= cl.maxclients )
-		return NULL;
-
-	return &cl.players[playerIndex];
-}
-
-/*
-====================
 CL_CreatePlaylist
 
 Create a default valve playlist
