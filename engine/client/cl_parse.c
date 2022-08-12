@@ -1348,7 +1348,12 @@ void CL_UpdateUserinfo( sizebuf_t *msg )
 
 		if( slot == cl.playernum ) memcpy( &gameui.playerinfo, player, sizeof( player_info_t ));
 	}
-	else memset( player, 0, sizeof( *player ));
+	else
+	{
+		COM_ClearCustomizationList( &player->customdata, true );
+
+		memset( player, 0, sizeof( *player ));
+	}
 }
 
 /*
