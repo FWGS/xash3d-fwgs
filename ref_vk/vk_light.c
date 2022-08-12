@@ -1200,11 +1200,13 @@ vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 
 	{
 		DEBUG_BEGIN(cmdbuf, "upload lights");
+		const uint32_t size = sizeof(struct LightsMetadata) + 8 * sizeof(uint32_t); // ....
+		//const uint32_t size = sizeof(struct Lights);
 		const VkBufferCopy regions[] = {
 			{
 				.srcOffset = 0,
 				.dstOffset = 0,
-				.size = sizeof(struct Lights),
+				.size = size,
 			},
 		};
 		vkCmdCopyBuffer(cmdbuf, g_lights_.staging.buffer, g_lights_.buffer.buffer, COUNTOF(regions), regions);
@@ -1215,7 +1217,7 @@ vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
 			.buffer = g_lights_.buffer.buffer,
 			.offset = 0,
-			.size = VK_WHOLE_SIZE,
+			.size = size,
 		}};
 		vkCmdPipelineBarrier(cmdbuf,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,

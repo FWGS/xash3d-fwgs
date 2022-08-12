@@ -2,7 +2,7 @@ layout (set = 0, binding = BINDING_LIGHTS) readonly buffer UBOLights { LightsMet
 layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
 	ivec3 grid_min, grid_size;
 	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
-	LightCluster clusters[MAX_LIGHT_CLUSTERS];
+	LightCluster clusters_[MAX_LIGHT_CLUSTERS];
 } light_grid;
 
 const float color_culling_threshold = 0;//600./color_factor;
@@ -18,9 +18,16 @@ const float shadow_offset_fudge = .1;
 #if LIGHT_POINT
 void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
+
+	//diffuse = vec3(1.);//float(lights.num_point_lights) / 64.);
+//#define USE_CLUSTERS
+#ifdef USE_CLUSTERS
 	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
 	for (uint j = 0; j < num_point_lights; ++j) {
 		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
+#else
+	for (uint i = 0; i < lights.num_point_lights; ++i) {
+#endif
 
 		vec3 color = lights.point_lights[i].color_stopdot.rgb * throughput;
 		if (dot(color,color) < color_culling_threshold)
@@ -115,6 +122,9 @@ void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialPro
 	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
 		return; // throughput * vec3(1., 0., 0.);
 
+	//diffuse = specular = vec3(1.);
+	//return;
+
 	// const uint cluster_offset = cluster_index * LIGHT_CLUSTER_SIZE + HACK_OFFSET;
 	// const int num_dlights = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_DLIGHTS_OFFSET]);
 	// const int num_emissive_surfaces = int(light_grid.clusters_data[cluster_offset + LIGHT_CLUSTER_NUM_EMISSIVE_SURFACES_OFFSET]);
@@ -128,10 +138,26 @@ void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialPro
 	sampleEmissiveSurfaces(P, N, throughput, view_dir, material, cluster_index, diffuse, specular);
 #endif
 
+
 #if LIGHT_POINT
 	vec3 ldiffuse = vec3(0.), lspecular = vec3(0.);
 	computePointLights(P, N, cluster_index, throughput, view_dir, material, ldiffuse, lspecular);
 	diffuse += ldiffuse;
 	specular += lspecular;
 #endif
+
+	if (any(isnan(diffuse)))
+		diffuse = vec3(1.,0.,0.);
+
+	if (any(isnan(specular)))
+		specular = vec3(0.,1.,0.);
+
+	if (any(lessThan(diffuse,vec3(0.))))
+			diffuse = vec3(1., 0., 1.);
+
+	if (any(lessThan(specular,vec3(0.))))
+			specular = vec3(0., 1., 1.);
+
+	//specular = vec3(0.,1.,0.);
+	//diffuse = vec3(0.);
 }

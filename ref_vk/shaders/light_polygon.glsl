@@ -211,9 +211,16 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, uint cluster_index, inout vec3 diffuse, inout vec3 specular) {
 #if DO_ALL_IN_CLUSTER
 	const SampleContext ctx = buildSampleContext(P, N, view_dir);
+
+//#define USE_CLUSTERS
+#ifdef USE_CLUSTERS
 	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
 	for (uint i = 0; i < num_polygons; ++i) {
 		const uint index = uint(light_grid.clusters[cluster_index].polygons[i]);
+#else
+	for (uint index = 0; index < lights.num_polygons; ++index) {
+#endif
+
 		const PolygonLight poly = lights.polygons[index];
 
 		const float plane_dist = dot(poly.plane, vec4(P, 1.f));
@@ -246,9 +253,8 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 			specular += throughput * emissive * estimate * poly_specular;
 		}
 	}
-#else
+#else // DO_ALL_IN_CLUSTERS
 
-#define USE_CLUSTERS
 #ifdef USE_CLUSTERS
 	// TODO move this to pickPolygonLight function
 	const uint num_polygons = uint(light_grid.clusters[cluster_index].num_polygons);
