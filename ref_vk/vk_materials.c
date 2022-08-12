@@ -183,21 +183,21 @@ void XVK_ReloadMaterials( void ) {
 	}
 
 	loadMaterialsFromFile( "pbr/materials.mat", MAX_INCLUDE_DEPTH );
-	loadMaterialsFromFile( "pbr/models/materials.mat", MAX_INCLUDE_DEPTH );
-	loadMaterialsFromFile( "pbr/sprites/materials.mat", MAX_INCLUDE_DEPTH );
+	loadMaterialsFromFile( "pbr/models/models.mat", MAX_INCLUDE_DEPTH );
+	loadMaterialsFromFile( "pbr/sprites/sprites.mat", MAX_INCLUDE_DEPTH );
 
 	{
 		const char *wad = g_map_entities.wadlist;
 		for (; *wad;) {
 			const char *const wad_end = Q_strchr(wad, ';');
-			loadMaterialsFromFileF("pbr/%.*s/materials.mat", wad_end - wad, wad);
+			loadMaterialsFromFileF("pbr/%.*s/%.*s.mat", wad_end - wad, wad, wad_end - wad, wad);
 			wad = wad_end + 1;
 		}
 	}
 
 	{
 		const model_t *map = gEngine.pfnGetModelByIndex( 1 );
-		loadMaterialsFromFileF("pbr/%s/materials.mat", map->name);
+		loadMaterialsFromFileF("pbr/%s/%s.mat", map->name, COM_FileWithoutPath(map->name));
 	}
 }
 
