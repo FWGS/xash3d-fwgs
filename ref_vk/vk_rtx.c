@@ -668,6 +668,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
+		XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
 
 		reloadPass( &g_rtx.pass.primary_ray, R_VkRayPrimaryPassCreate());
 		reloadPass( &g_rtx.pass.light_direct_poly, R_VkRayLightDirectPolyPassCreate());
