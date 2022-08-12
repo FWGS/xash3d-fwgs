@@ -48,29 +48,13 @@ typedef struct {
 	vec3_t base_color;
 } vk_point_light_t;
 
-// TODO spotlight
-
+// Used by infotool
 typedef struct {
 	struct {
 		int grid_min_cell[3];
 		int grid_size[3];
 		int grid_cells;
 	} map;
-
-	int num_polygons;
-	rt_light_polygon_t polygons[MAX_SURFACE_LIGHTS];
-
-	int num_point_lights;
-	vk_point_light_t point_lights[MAX_POINT_LIGHTS];
-
-	int num_polygon_vertices;
-	vec3_t polygon_vertices[MAX_SURFACE_LIGHTS * 7];
-
-	struct {
-		int point_lights;
-		int polygons;
-		int polygon_vertices;
-	} num_static;
 
 	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
 } vk_lights_t;
