@@ -689,8 +689,8 @@ static void R_GetRenderDevices_f( void )
 		if( !device )
 			break;
 
-		Con_Printf( "%-3i %-4x:%-4x %-10s %s\n",
-			i, device->deviceID, device->vendorID,
+		Con_Printf( "%-3i %04x:%04x %-10s %s\n",
+			i, device->vendorID, device->deviceID,
 			R_DeviceTypeToString( device->deviceType ), device->deviceName );
 	}
 
