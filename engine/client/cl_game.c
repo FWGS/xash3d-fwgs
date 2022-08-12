@@ -1235,6 +1235,10 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	model_t	*mod;
 	int	i;
 
+	// use high indices for client sprites
+	// for GoldSrc bug-compatibility
+	const int start = type != SPR_HUDSPRITE ? MAX_CLIENT_SPRITES / 2 : 0;
+
 	if( !COM_CheckString( filename ))
 	{
 		Con_Reportf( S_ERROR "CL_LoadSpriteModel: bad name!\n" );
@@ -1244,8 +1248,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	Q_strncpy( name, filename, sizeof( name ));
 	COM_FixSlashes( name );
 
-	// slot 0 isn't used
-	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
+	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
 	{
 		if( !Q_stricmp( mod->name, name ))
 		{
@@ -1262,12 +1265,12 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	}
 
 	// find a free model slot spot
-	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
+	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
 		if( !mod->name[0] ) break; // this is a valid spot
 
-	if( i == MAX_CLIENT_SPRITES )
+	if( i == MAX_CLIENT_SPRITES / 2 )
 	{
-		Con_Printf( S_ERROR "MAX_CLIENT_SPRITES limit exceeded (%d)\n", MAX_CLIENT_SPRITES );
+		Con_Printf( S_ERROR "MAX_CLIENT_SPRITES limit exceeded (%d)\n", MAX_CLIENT_SPRITES / 2 );
 		return NULL;
 	}
 
@@ -1308,7 +1311,7 @@ HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags )
 	if(( spr = CL_LoadSpriteModel( szPicName, SPR_CLIENT, texFlags )) == NULL )
 		return 0;
 
-	return (spr - clgame.sprites); // return index
+	return (spr - clgame.sprites) + 1; // return index
 }
 
 /*
@@ -1324,7 +1327,7 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 	if(( spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 )) == NULL )
 		return 0;
 
-	return (spr - clgame.sprites); // return index
+	return (spr - clgame.sprites) + 1; // return index
 }
 
 /*
@@ -1336,10 +1339,11 @@ CL_GetSpritePointer
 const model_t *CL_GetSpritePointer( HSPRITE hSprite )
 {
 	model_t	*mod;
+	int index = hSprite - 1;
 
-	if( hSprite <= 0 || hSprite >= MAX_CLIENT_SPRITES )
+	if( index < 0 || index >= MAX_CLIENT_SPRITES )
 		return NULL; // bad image
-	mod = &clgame.sprites[hSprite];
+	mod = &clgame.sprites[index];
 
 	if( mod->needload == NL_NEEDS_LOADED )
 	{
@@ -2299,9 +2303,9 @@ static void GAME_EXPORT pfnKillEvents( int entnum, const char *eventname )
 	int		i;
 	event_state_t	*es;
 	event_info_t	*ei;
-	int		eventIndex = CL_EventIndex( eventname );
+	word		eventIndex = CL_EventIndex( eventname );
 
-	if( eventIndex < 0 || eventIndex >= MAX_EVENTS )
+	if( eventIndex >= MAX_EVENTS )
 		return;
 
 	if( entnum < 0 || entnum > clgame.maxEntities )
@@ -2666,7 +2670,14 @@ pfnLoadMapSprite
 */
 model_t *pfnLoadMapSprite( const char *filename )
 {
-	return CL_LoadSpriteModel( filename, SPR_MAPSPRITE, 0 );
+	model_t *mod;
+
+	mod = Mod_FindName( filename, false );
+
+	if( CL_LoadHudSprite( filename, mod, SPR_MAPSPRITE, 0 ))
+		return mod;
+
+	return NULL;
 }
 
 /*
@@ -2929,15 +2940,16 @@ pfnDrawString
 */
 static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
 {
+	int iWidth = 0;
 	Con_UtfProcessChar(0);
 
 	// draw the string until we hit the null character or a newline character
 	for ( ; *str != 0 && *str != '\n'; str++ )
 	{
-		x += pfnVGUI2DrawCharacterAdditive( x, y, (unsigned char)*str, r, g, b, 0 );
+		iWidth += pfnVGUI2DrawCharacterAdditive( x + iWidth, y, (unsigned char)*str, r, g, b, 0 );
 	}
 
-	return x;
+	return iWidth;
 }
 
 /*
@@ -2952,8 +2964,7 @@ static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int 
 	char *szIt;
 	for( szIt = (char*)str; *szIt != 0; szIt++ )
 		x -= clgame.scrInfo.charWidths[ (unsigned char) *szIt ];
-	pfnDrawString( x, y, str, r, g, b );
-	return x;
+	return pfnDrawString( x, y, str, r, g, b );
 }
 
 /*
@@ -3087,11 +3098,7 @@ handle colon separately
 */
 char *pfnParseFile( char *data, char *token )
 {
-	char	*out;
-
-	out = _COM_ParseFileSafe( data, token, INT_MAX, PFILE_HANDLECOLON, NULL );
-
-	return out;
+	return COM_ParseFileSafe( data, token, PFILE_TOKEN_MAX_LENGTH, PFILE_HANDLECOLON, NULL, NULL );
 }
 
 /*
@@ -3178,16 +3185,7 @@ convert world coordinates (x,y,z) into screen (x, y)
 */
 int TriWorldToScreen( const float *world, float *screen )
 {
-	int	retval;
-
-	retval = ref.dllFuncs.WorldToScreen( world, screen );
-
-	screen[0] =  0.5f * screen[0] * (float)clgame.viewport[2];
-	screen[1] = -0.5f * screen[1] * (float)clgame.viewport[3];
-	screen[0] += 0.5f * (float)clgame.viewport[2];
-	screen[1] += 0.5f * (float)clgame.viewport[3];
-
-	return retval;
+	return ref.dllFuncs.WorldToScreen( world, screen );
 }
 
 /*
@@ -3321,7 +3319,7 @@ NetAPI_InitNetworking
 */
 void GAME_EXPORT NetAPI_InitNetworking( void )
 {
-	NET_Config( true ); // allow remote
+	NET_Config( true, false ); // allow remote
 }
 
 /*
@@ -3874,7 +3872,7 @@ static cl_enginefunc_t gEngfuncs =
 	(void*)Cmd_GetName,
 	pfnGetClientOldTime,
 	pfnGetGravity,
-	Mod_Handle,
+	CL_ModelHandle,
 	pfnEnableTexSort,
 	pfnSetLightmapColor,
 	pfnSetLightmapScale,
@@ -3923,7 +3921,6 @@ void CL_UnloadProgs( void )
 	Cvar_FullSet( "host_clientloaded", "0", FCVAR_READ_ONLY );
 
 	COM_FreeLibrary( clgame.hInstance );
-	VGui_Shutdown();
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
 	memset( &clgame, 0, sizeof( clgame ));
@@ -3967,7 +3964,7 @@ qboolean CL_LoadProgs( const char *name )
 #else
 	// this doesn't mean other platforms uses SDL2 in any case
 	// it just helps input code to stay platform-independent
-	clgame.client_dll_uses_sdl = false;
+	clgame.client_dll_uses_sdl = true;
 #endif
 
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
@@ -3984,7 +3981,17 @@ qboolean CL_LoadProgs( const char *name )
 
 		// trying to fill interface now
 		GetClientAPI( &clgame.dllFuncs );
+	}
+	else if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "F" )) != NULL )
+	{
+		Con_Reportf( "CL_LoadProgs: found single callback export (secured client dlls)\n" );
 
+		// trying to fill interface now
+		CL_GetSecuredClientAPI( GetClientAPI );
+	}
+
+	if ( GetClientAPI != NULL )
+	{
 		// check critical functions again
 		for( func = cdll_exports; func && func->name; func++ )
 		{

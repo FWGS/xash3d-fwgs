@@ -2,7 +2,9 @@
 #ifndef XASH_TYPES_H
 #define XASH_TYPES_H
 
-#ifdef _WIN32
+#include "build.h"
+
+#if XASH_WIN32
 #include <wchar.h> // off_t
 #endif // _WIN32
 
@@ -64,19 +66,41 @@ typedef uint64_t longtime_t;
 #define ColorIndex( c )	((( c ) - '0' ) & 7 )
 
 #if defined(__GNUC__)
-#ifdef __i386__
-#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
-#define GAME_EXPORT __attribute((force_align_arg_pointer))
-#else
-#define EXPORT __attribute__ ((visibility ("default")))
-#define GAME_EXPORT
-#endif
+	#ifdef __i386__
+		#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
+		#define GAME_EXPORT __attribute((force_align_arg_pointer))
+	#else
+		#define EXPORT __attribute__ ((visibility ("default")))
+		#define GAME_EXPORT
+	#endif
+	#define _format(x) __attribute__((format(printf, x, x+1)))
+	#define NORETURN __attribute__((noreturn))
 #elif defined(_MSC_VER)
-#define EXPORT          __declspec( dllexport )
-#define GAME_EXPORT
+	#define EXPORT          __declspec( dllexport )
+	#define GAME_EXPORT
+	#define _format(x)
+	#define NORETURN
 #else
-#define EXPORT
-#define GAME_EXPORT
+	#define EXPORT
+	#define GAME_EXPORT
+	#define _format(x)
+	#define NORETURN
+#endif
+
+#if ( __GNUC__ >= 3 )
+	#define unlikely(x) __builtin_expect(x, 0)
+	#define likely(x)   __builtin_expect(x, 1)
+#elif defined( __has_builtin )
+	#if __has_builtin( __builtin_expect )
+		#define unlikely(x) __builtin_expect(x, 0)
+		#define likely(x)   __builtin_expect(x, 1)
+	#else
+		#define unlikely(x) (x)
+		#define likely(x)   (x)
+	#endif
+#else
+	#define unlikely(x) (x)
+	#define likely(x)   (x)
 #endif
 
 
@@ -114,9 +138,13 @@ typedef unsigned int	dword;
 typedef unsigned int	uint;
 typedef char		string[MAX_STRING];
 typedef struct file_s	file_t;		// normal file
-typedef struct wfile_s	wfile_t;		// wad file
 typedef struct stream_s	stream_t;		// sound stream for background music playing
 typedef off_t fs_offset_t;
+#if XASH_WIN32
+typedef int fs_size_t; // return type of _read, _write funcs
+#else /* !XASH_WIN32 */
+typedef ssize_t fs_size_t;
+#endif /* !XASH_WIN32 */
 
 typedef struct dllfunc_s
 {
@@ -132,7 +160,7 @@ typedef struct dll_info_s
 	void		*link;	// hinstance of loading library
 } dll_info_t;
 
-typedef void (*setpair_t)( const char *key, const void *value, void *buffer, void *numpairs );
+typedef void (*setpair_t)( const char *key, const void *value, const void *buffer, void *numpairs );
 
 // config strings are a general means of communication from
 // the server to all connected clients.

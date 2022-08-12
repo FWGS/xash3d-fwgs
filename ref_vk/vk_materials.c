@@ -47,7 +47,7 @@ static void loadMaterialsFromFile( const char *filename, int depth ) {
 	fs_offset_t size;
 	const char *const path_begin = filename;
 	const char *path_end = Q_strrchr(filename, '/');
-	byte *data = gEngine.COM_LoadFile( filename, 0, false );
+	byte *data = gEngine.fsapi->LoadFile( filename, 0, false );
 	char *pos = (char*)data;
 	xvk_material_t current_material = {
 		.base_color = -1,

@@ -672,7 +672,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	case VID_SCREENSHOT:
 		break;
 	case VID_SNAPSHOT:
-		gEngine.FS_AllowDirectPaths( true );
+		gEngine.fsapi->AllowDirectPaths( true );
 		break;
 	case VID_LEVELSHOT:
 		flags |= IMAGE_RESAMPLE;
@@ -703,7 +703,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 
 	// write image
 	result = gEngine.FS_SaveImage( filename, r_shot );
-	gEngine.FS_AllowDirectPaths( false );			// always reset after store screenshot
+	gEngine.fsapi->AllowDirectPaths( false );			// always reset after store screenshot
 	gEngine.FS_FreeImage( r_shot );
 
 	gEngine.Con_Printf("Wrote screenshot %s\n", filename);

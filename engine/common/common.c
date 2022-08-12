@@ -586,23 +586,6 @@ void COM_TrimSpace( const char *source, char *dest )
 }
 
 /*
-============
-COM_FixSlashes
-
-Changes all '/' characters into '\' characters, in place.
-============
-*/
-void COM_FixSlashes( char *pname )
-{
-	while( *pname )
-	{
-		if( *pname == '\\' )
-			*pname = '/';
-		pname++;
-	}
-}
-
-/*
 ==================
 COM_Nibble
 
@@ -1182,22 +1165,22 @@ void Test_RunCommon( void )
 
 	Msg( "Checking COM_ParseFile...\n" );
 
-	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
 	TASSERT( !Q_strcmp( buf, "q" ) && len == 1);
 
-	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
 	TASSERT( !Q_strcmp( buf, "asdf" ) && len == 4);
 
-	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
 	TASSERT( !Q_strcmp( buf, "qwer" ) && len == -1);
 
-	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
 	TASSERT( !Q_strcmp( buf, "f \"f" ) && len == 4);
 
-	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
 	TASSERT( !Q_strcmp( buf, "meow" ) && len == -1);
 
-	file = _COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len );
+	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
 	TASSERT( !Q_strcmp( buf, "bark" ) && len == 4);
 }
 #endif

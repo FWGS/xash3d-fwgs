@@ -1,6 +1,11 @@
 name: Build & Deploy Engine
 on: [push, pull_request]
 jobs:
+#  cleanup:
+#    runs-on: self-hosted
+#    steps:
+#    - name: Cleanup
+#      run: rm -rf .* || true
   build:
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -14,6 +19,9 @@ jobs:
           - os: ubuntu-18.04
             targetos: linux
             targetarch: i386
+#          - os: ubuntu-aarch64-20.04
+#            targetos: linux
+#            targetarch: aarch64
 
           # - os: ubuntu-18.04
           #   targetos: android
@@ -38,7 +46,6 @@ jobs:
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       ANDROID_SDK_TOOLS_VER: 4333796
-      ANDROID_NDK_VER: r10e
       UPLOADTOOL_ISPRERELEASE: true
     steps:
     - name: Checkout
@@ -57,15 +64,10 @@ jobs:
     - name: Build engine
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
 
-    - name: Upload engine (android)
-      if: matrix.targetos == 'android'
-      run: bash scripts/continious_upload.sh xashdroid-${{ matrix.targetarch }}.apk
-    - name: Upload engine (motomagx)
-      if: matrix.targetos == 'motomagx'
-      run: bash scripts/continious_upload.sh xash3d-fwgs-magx.7z
-    - name: Upload engine (linux)
-      if: matrix.targetos == 'linux'
-      run: bash scripts/continious_upload.sh xash3d-fwgs-${{ matrix.targetarch }}.AppImage xashds-linux-${{ matrix.targetarch }}
-    - name: Upload engine (windows)
-      if: matrix.targetos == 'win32'
-      run: bash scripts/continious_upload.sh xash3d-fwgs-win32-${{ matrix.targetarch }}.7z
+    - name: Upload engine (prereleases)
+      run: bash scripts/continious_upload.sh artifacts/*
+    - name: Upload engine (artifacts)
+      uses: actions/upload-artifact@v2
+      with:
+        name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
+        path: artifacts/*

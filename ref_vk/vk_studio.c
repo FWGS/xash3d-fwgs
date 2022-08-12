@@ -2314,7 +2314,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 
 			Q_snprintf( state->modelname, sizeof( state->modelname ), "models/player/%s/%s.mdl", info->model, info->model );
 
-			if( gEngine.FS_FileExists( state->modelname, false ))
+			if( gEngine.fsapi->FileExists( state->modelname, false ))
 				state->model = gEngine.Mod_ForName( state->modelname, false, true );
 			else state->model = NULL;
 

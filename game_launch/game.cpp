@@ -14,24 +14,24 @@ GNU General Public License for more details.
 */
 
 #include "port.h"
+#include "build.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 
-#if defined(__APPLE__) || defined(__unix__) || defined(__HAIKU__)
-	#define XASHLIB    "libxash." OS_LIB_EXT
-#elif _WIN32
-	#if !__MINGW32__ && _MSC_VER >= 1200
-		#define USE_WINMAIN
-	#endif
-	#define XASHLIB "xash.dll"
-	#define dlerror() GetStringLastError()
-	#include <shellapi.h> // CommandLineToArgvW
-#endif
+#if XASH_POSIX
+#define XASHLIB "libxash." OS_LIB_EXT
+#define LoadLibrary( x ) dlopen( x, RTLD_NOW )
+#define GetProcAddress( x, y ) dlsym( x, y )
+#define FreeLibrary( x ) dlclose( x )
+#elif XASH_WIN32
+#include <shellapi.h> // CommandLineToArgvW
+#define XASHLIB "xash.dll"
+#define SDL2LIB "SDL2.dll"
+#define dlerror() GetStringLastError()
 
-#ifdef WIN32
 extern "C"
 {
 // Enable NVIDIA High Performance Graphics while using Integrated Graphics.
@@ -40,6 +40,8 @@ __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 // Enable AMD High Performance Graphics while using Integrated Graphics.
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
+#else
+#error // port me!
 #endif
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
@@ -54,7 +56,7 @@ static pfnShutdown Xash_Shutdown = NULL;
 static char        szGameDir[128]; // safe place to keep gamedir
 static int         szArgc;
 static char        **szArgv;
-static HINSTANCE	hEngine;
+static HINSTANCE   hEngine;
 
 static void Xash_Error( const char *szFmt, ... )
 {
@@ -70,6 +72,7 @@ static void Xash_Error( const char *szFmt, ... )
 #else
 	fprintf( stderr, "Xash Error: %s\n", buffer );
 #endif
+
 	exit( 1 );
 }
 
@@ -88,6 +91,19 @@ static const char *GetStringLastError()
 
 static void Sys_LoadEngine( void )
 {
+#if XASH_WIN32
+	HMODULE hSdl;
+
+	if (( hSdl = LoadLibraryEx( SDL2LIB, NULL, LOAD_LIBRARY_AS_DATAFILE )) == NULL )
+	{
+		Xash_Error("Unable to load the " SDL2LIB ": %s", dlerror() );
+	}
+	else
+	{
+		FreeLibrary( hSdl );
+	}
+#endif
+
 	if(( hEngine = LoadLibrary( XASHLIB )) == NULL )
 	{
 		Xash_Error("Unable to load the " XASHLIB ": %s", dlerror() );
@@ -107,12 +123,15 @@ static void Sys_UnloadEngine( void )
 	if( Xash_Shutdown ) Xash_Shutdown( );
 	if( hEngine ) FreeLibrary( hEngine );
 
+	hEngine = NULL;
 	Xash_Main = NULL;
 	Xash_Shutdown = NULL;
 }
 
 static void Sys_ChangeGame( const char *progname )
 {
+	// a1ba: may never be called within engine
+	// if platform supports execv() function
 	if( !progname || !progname[0] )
 		Xash_Error( "Sys_ChangeGame: NULL gamedir" );
 
@@ -121,9 +140,8 @@ static void Sys_ChangeGame( const char *progname )
 
 	strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
 
-	Sys_UnloadEngine ();
+	Sys_UnloadEngine();
 	Sys_LoadEngine ();
-
 	Xash_Main( szArgc, szArgv, szGameDir, 1, Sys_ChangeGame );
 }
 
@@ -131,26 +149,26 @@ _inline int Sys_Start( void )
 {
 	int ret;
 	pfnChangeGame changeGame = NULL;
+	const char *game = getenv( E_GAME );
+
+	if( !game )
+		game = GAME_PATH;
+
+	strncpy( szGameDir, game, sizeof( szGameDir ) - 1 );
 
 	Sys_LoadEngine();
 
-#ifndef XASH_DISABLE_MENU_CHANGEGAME
 	if( Xash_Shutdown )
 		changeGame = Sys_ChangeGame;
-#endif
 
-	const char *game = getenv( E_GAME  );
-	if( !game  )
-		game = GAME_PATH;
-
-	ret = Xash_Main( szArgc, szArgv, game, 0, changeGame );
+	ret = Xash_Main( szArgc, szArgv, szGameDir, 0, changeGame );
 
 	Sys_UnloadEngine();
 
 	return ret;
 }
 
-#ifndef USE_WINMAIN
+#if !XASH_WIN32
 int main( int argc, char **argv )
 {
 	szArgc = argc;
@@ -159,7 +177,6 @@ int main( int argc, char **argv )
 	return Sys_Start();
 }
 #else
-//#pragma comment(lib, "shell32.lib")
 int __stdcall WinMain( HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int nShow )
 {
 	LPWSTR* lpArgv;
@@ -170,8 +187,10 @@ int __stdcall WinMain( HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int 
 
 	for( i = 0; i < szArgc; ++i )
 	{
-		int size = wcslen(lpArgv[i]) + 1;
-		szArgv[i] = ( char* )malloc( size );
+		size_t size = wcslen(lpArgv[i]) + 1;
+
+		// just in case, allocate some more memory
+		szArgv[i] = ( char * )malloc( size * sizeof( wchar_t ));
 		wcstombs( szArgv[i], lpArgv[i], size );
 	}
 	szArgv[szArgc] = 0;

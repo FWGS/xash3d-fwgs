@@ -78,7 +78,7 @@ static int CheckSkybox( const char *name )
 		{
 			// build side name
 			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( gEngfuncs.FS_FileExists( sidename, false ))
+			if( gEngfuncs.fsapi->FileExists( sidename, false ))
 				num_checked_sides++;
 
 		}
@@ -90,7 +90,7 @@ static int CheckSkybox( const char *name )
 		{
 			// build side name
 			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( gEngfuncs.FS_FileExists( sidename, false ))
+			if( gEngfuncs.fsapi->FileExists( sidename, false ))
 				num_checked_sides++;
 		}
 

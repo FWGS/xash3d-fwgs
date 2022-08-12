@@ -20,12 +20,13 @@ class Subproject:
 	ignore    = False # if true will be ignored, set by user request
 	mandatory  = False
 
-	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, utility = False):
+	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, utility = False, fuzzer = False):
 		self.name = name
 		self.dedicated = dedicated
 		self.singlebin = singlebin
 		self.mandatory = mandatory
 		self.utility = utility
+		self.fuzzer = fuzzer
 
 	def is_enabled(self, ctx):
 		if not self.mandatory:
@@ -47,10 +48,14 @@ class Subproject:
 		if self.utility and not ctx.env.ENABLE_UTILS:
 			return False
 
+		if self.fuzzer and not ctx.env.ENABLE_FUZZER:
+			return False
+
 		return True
 
 SUBDIRS = [
 	Subproject('public',      dedicated=False, mandatory = True),
+	Subproject('filesystem',  dedicated=False, mandatory = True),
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl',),
 	Subproject('ref_vk',),
@@ -61,7 +66,8 @@ SUBDIRS = [
 	Subproject('stub/client'),
 	Subproject('dllemu'),
 	Subproject('engine', dedicated=False),
-	Subproject('utils/mdldec', utility=True)
+	Subproject('utils/mdldec', utility=True),
+	Subproject('utils/run-fuzzer', fuzzer=True)
 ]
 
 def subdirs():
@@ -98,6 +104,9 @@ def options(opt):
 
 	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
 		help = 'enable building various development utilities [default: %default]')
+
+	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
+		help = 'enable building libFuzzer runner [default: %default]' )
 
 	opt.load('compiler_optimizations subproject')
 
@@ -147,6 +156,7 @@ def configure(conf):
 		conf.options.NO_VGUI= True # skip vgui
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
+		conf.options.GL4ES  = True
 		conf.options.GL     = False
 	elif conf.env.MAGX:
 		conf.options.USE_SELECT       = True
@@ -186,7 +196,6 @@ def configure(conf):
 		'-Werror=vla',
 		'-Werror=tautological-compare',
 		'-Werror=duplicated-cond',
-		'-Werror=duplicated-branches', # BEWARE: buggy
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
 		'-Wcast-align',
@@ -202,6 +211,7 @@ def configure(conf):
 #		'-Werror=format=2',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
+		'-Wmisleading-indentation',
 	]
 
 	c_compiler_optional_flags = [
@@ -248,6 +258,7 @@ def configure(conf):
 		conf.define('STDINT_H', 'pstdint.h')
 
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
+	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 
@@ -292,6 +303,34 @@ def configure(conf):
 	else:
 		conf.undefine('HAVE_TGMATH_H')
 
+	# set _FILE_OFFSET_BITS=64 for filesystems with 64-bit inodes
+	if conf.env.DEST_OS != 'win32' and conf.env.DEST_SIZEOF_VOID_P == 4:
+		# check was borrowed from libarchive source code
+		file_offset_bits_usable = conf.check_cc(fragment='''
+#define _FILE_OFFSET_BITS 64
+#include <sys/types.h>
+#define KB ((off_t)1024)
+#define MB ((off_t)1024 * KB)
+#define GB ((off_t)1024 * MB)
+#define TB ((off_t)1024 * GB)
+int t2[(((64 * GB -1) % 671088649) == 268434537)
+       && (((TB - (64 * GB -1) + 255) % 1792151290) == 305159546)? 1: -1];
+int main(void) { return 0; }''',
+		msg='Checking if _FILE_OFFSET_BITS can be defined to 64', mandatory=False)
+		if file_offset_bits_usable:
+			conf.define('_FILE_OFFSET_BITS', 64)
+		else: conf.undefine('_FILE_OFFSET_BITS')
+
+	if conf.env.DEST_OS != 'win32':
+		strcasestr_frag = '''#include <string.h>
+int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
+
+		if conf.check_cc(msg='Checking for strcasestr', mandatory=False, fragment=strcasestr_frag):
+			conf.define('HAVE_STRCASESTR', 1)
+		elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=strcasestr_frag, defines='_GNU_SOURCE=1'):
+			conf.define('_GNU_SOURCE', 1)
+			conf.define('HAVE_STRCASESTR', 1)
+
 	# check if we can use alloca.h or malloc.h
 	if conf.check_cc(header_name='alloca.h', mandatory=False):
 		conf.define('ALLOCA_H', 'alloca.h')
@@ -303,7 +342,7 @@ def configure(conf):
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if sys.platform != 'win32':
+		if sys.platform != 'win32' and not conf.env.DEST_OS == 'android':
 			conf.env.PREFIX = '/'
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX

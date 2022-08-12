@@ -98,7 +98,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	vsnprintf( filename, sizeof filename, fmt, argptr );
 	va_end( argptr );
 
-	buffer = gEngine.COM_LoadFile( filename, &size, false);
+	buffer = gEngine.fsapi->LoadFile( filename, &size, false);
 
 	if (!buffer) {
 		gEngine.Con_Printf(S_ERROR "Couldn't load RAD data from file %s, the map will be completely black\n", filename);

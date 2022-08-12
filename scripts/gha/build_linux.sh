@@ -67,7 +67,7 @@ build_appimage()
 
 	cp SDL2_linux/lib/libSDL2-2.0.so.0 "$APPDIR/"
 	if [ "$ARCH" = "i386" ]; then
-		cp vgui-dev/lib/vgui.so "$APPDIR/"
+		cp vgui_support/vgui-dev/lib/vgui.so "$APPDIR/"
 	fi
 
 	cat > "$APPDIR"/AppRun << 'EOF'
@@ -80,7 +80,6 @@ echo "Xash3D FWGS installed as AppImage."
 echo "Base directory is $XASH3D_BASEDIR. Set XASH3D_BASEDIR environment variable to override this"
 
 export XASH3D_EXTRAS_PAK1="${APPDIR}"/extras.pak
-export LD_LIBRARY_PATH="${APPDIR}":$LD_LIBRARY_PATH
 ${DEBUGGER} "${APPDIR}"/xash3d "$@"
 exit $?
 EOF
@@ -104,11 +103,14 @@ EOF
 	./appimagetool.AppImage "$APPDIR" "$APPIMAGE"
 }
 
+mkdir -p artifacts/
+
 rm -rf build # clean-up build directory
 build_engine dedicated
-mv build/engine/xash xashds-linux-$ARCH
+mv build/engine/xash artifacts/xashds-linux-$ARCH
 
 rm -rf build
 build_sdl2
 build_engine full
 build_appimage
+mv $APPIMAGE artifacts/

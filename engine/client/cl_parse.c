@@ -484,16 +484,13 @@ void CL_BatchResourceRequest( qboolean initialize )
 		switch( p->type )
 		{
 		case t_sound:
+		case t_model:
+		case t_eventscript:
 			if( !CL_CheckFile( &msg, p ))
 				break;
 			CL_MoveToOnHandList( p );
 			break;
 		case t_skin:
-			CL_MoveToOnHandList( p );
-			break;
-		case t_model:
-			if( !CL_CheckFile( &msg, p ))
-				break;
 			CL_MoveToOnHandList( p );
 			break;
 		case t_decal:
@@ -516,11 +513,6 @@ void CL_BatchResourceRequest( qboolean initialize )
 				Mem_Free( p );
 				break;
 			}
-			if( !CL_CheckFile( &msg, p ))
-				break;
-			CL_MoveToOnHandList( p );
-			break;
-		case t_eventscript:
 			if( !CL_CheckFile( &msg, p ))
 				break;
 			CL_MoveToOnHandList( p );
@@ -1324,30 +1316,6 @@ void CL_RegisterUserMessage( sizebuf_t *msg )
 
 /*
 ================
-CL_RegisterUserMessage
-
-register new user message or update existing
-================
-*/
-/*
-void CL_LegacyRegisterUserMessage( sizebuf_t *msg )
-{
-	char	*pszName;
-	int	svc_num, size;
-
-	svc_num = MSG_ReadByte( msg );
-	size = MSG_ReadByte( msg );
-	pszName = MSG_ReadString( msg );
-
-	// important stuff
-	if( size == 0xFF ) size = -1;
-	svc_num = bound( 0, svc_num, 255 );
-
-	CL_LinkUserMessage( pszName, svc_num, size );
-}
-*/
-/*
-================
 CL_UpdateUserinfo
 
 collect userinfo from all players
@@ -1819,7 +1787,7 @@ void CL_ParseScreenShake( sizebuf_t *msg )
 	clgame.shake.amplitude = (float)(word)MSG_ReadShort( msg ) * (1.0f / (float)(1<<12));
 	clgame.shake.duration = (float)(word)MSG_ReadShort( msg ) * (1.0f / (float)(1<<12));
 	clgame.shake.frequency = (float)(word)MSG_ReadShort( msg ) * (1.0f / (float)(1<<8));
-	clgame.shake.time = cl.time + max( clgame.shake.duration, 0.01f );
+	clgame.shake.time = cl.time + Q_max( clgame.shake.duration, 0.01f );
 	clgame.shake.next_shake = 0.0f; // apply immediately
 }
 
@@ -2413,13 +2381,10 @@ CL_ParseBaseline
 void CL_LegacyParseBaseline( sizebuf_t *msg )
 {
 	int		i, newnum;
-	entity_state_t	nullstate;
 	qboolean		player;
 	cl_entity_t	*ent;
 
 	Delta_InitClient ();	// finalize client delta's
-
-	memset( &nullstate, 0, sizeof( nullstate ));
 
 	newnum = MSG_ReadWord( msg );
 	player = CL_IsPlayerIndex( newnum );

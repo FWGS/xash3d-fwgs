@@ -465,7 +465,7 @@ typedef struct
 
 	string		cdtracks[MAX_CDTRACKS];	// 32 cd-tracks read from cdaudio.txt
 
-	model_t		sprites[MAX_CLIENT_SPRITES];	// client spritetextures
+	model_t		sprites[MAX_CLIENT_SPRITES];	// hud&client spritetexturesz
 	int		viewport[4];		// viewport sizes
 
 	client_draw_t	ds;			// draw2d stuff (hud, weaponmenu etc)
@@ -527,9 +527,6 @@ typedef struct
 	float		disable_screen;		// showing loading plaque between levels
 						// or changing rendering dlls
 						// if time gets > 30 seconds ahead, break it
-	int		disable_servercount;	// when we receive a frame and cl.servercount
-						// > cls.disable_servercount, clear disable_screen
-
 	qboolean		draw_changelevel;		// draw changelevel image 'Loading...'
 
 	keydest_t		key_dest;
@@ -625,8 +622,6 @@ typedef struct
 	// legacy mode support
 	qboolean legacymode;				// one-way 48 protocol compatibility
 	netadr_t legacyserver;
-	netadr_t legacyservers[MAX_LEGACY_SERVERS];
-	int	legacyservercount;
 	int extensions;
 
 	netadr_t serveradr;
@@ -707,7 +702,7 @@ dlight_t *CL_GetEntityLight( int number );
 //
 // cl_cmds.c
 //
-void CL_Quit_f( void ) NORETURN;
+void CL_Quit_f( void );
 void CL_ScreenShot_f( void );
 void CL_SnapShot_f( void );
 void CL_PlayCDTrack_f( void );
@@ -1048,7 +1043,6 @@ void Con_Bottom( void );
 void Con_Top( void );
 void Con_PageDown( int lines );
 void Con_PageUp( int lines );
-void Con_LoadHistory( void );
 
 //
 // s_main.c
@@ -1111,6 +1105,11 @@ void pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *pr
 //
 qboolean Mobile_Init( void );
 void Mobile_Shutdown( void );
+
+//
+// cl_securedstub.c
+//
+void CL_GetSecuredClientAPI( CL_EXPORT_FUNCS F );
 
 //
 // cl_video.c
