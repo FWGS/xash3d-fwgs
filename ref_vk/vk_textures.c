@@ -917,7 +917,7 @@ int XVK_TextureLookupF( const char *fmt, ...) {
 	va_end( argptr );
 
 	tex_id = VK_FindTexture(buffer);
-	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
+	//gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
 	return tex_id;
 }
 
