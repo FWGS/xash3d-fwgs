@@ -44,6 +44,35 @@ static int	g_userid = 1;
 
 /*
 =================
+SV_GetPlayerCount
+
+=================
+*/
+static void SV_GetPlayerCount( int *players, int *bots )
+{
+	int i;
+
+	*players = 0;
+	*bots = 0;
+
+	if( !svs.clients )
+		return;
+
+	for( i = 0; i < svs.maxclients; i++ )
+	{
+		if( svs.clients[i].state >= cs_connected )
+		{
+			if( FBitSet( svs.clients[i].flags, FCL_FAKECLIENT ))
+				(*bots)++;
+			else
+				(*players)++;
+		}
+
+	}
+}
+
+/*
+=================
 SV_GetChallenge
 
 Returns a challenge number that can be used
@@ -835,12 +864,10 @@ void SV_Info( netadr_t from, int protocolVersion )
 	}
 	else
 	{
-		int i, count = 0;
+		int i, count, bots;
 		qboolean havePassword = COM_CheckStringEmpty( sv_password.string );
 
-		for( i = 0; i < svs.maxclients; i++ )
-			if( svs.clients[i].state >= cs_connected )
-				count++;
+		SV_GetPlayerCount( &count, &bots );
 
 		// a1ba: send protocol version to distinguish old engine and new
 		Info_SetValueForKey( string, "p", va( "%i", PROTOCOL_VERSION ), MAX_INFO_STRING );
@@ -2163,22 +2190,11 @@ void SV_TSourceEngineQuery( netadr_t from )
 {
 	// A2S_INFO
 	char	answer[1024] = "";
-	int	count = 0, bots = 0;
+	int	count, bots;
 	int	index;
 	sizebuf_t	buf;
 
-	if( svs.clients )
-	{
-		for( index = 0; index < svs.maxclients; index++ )
-		{
-			if( svs.clients[index].state >= cs_connected )
-			{
-				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
-					bots++;
-				else count++;
-			}
-		}
-	}
+	SV_GetPlayerCount( &count, &bots );
 
 	MSG_Init( &buf, "TSourceEngineQuery", answer, sizeof( answer ));
 
