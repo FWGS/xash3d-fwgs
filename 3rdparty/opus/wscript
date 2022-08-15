@@ -37,6 +37,11 @@ def build(bld):
 		'opus/celt/*.c',
 		'opus/silk/*.c',
 		'opus/silk/float/*.c'
+	], excl = [
+		'opus/src/repacketizer_demo.c',
+		'opus/src/opus_demo.c',
+		'opus/src/opus_compare.c',
+		'opus/celt/opus_custom_demo.c'
 	])
 	includes = ['opus/include/', 'opus/celt/', 'opus/silk/', 'opus/silk/float/']
 	defines = ['USE_ALLOCA', 'OPUS_BUILD', 'FLOAT_APPROX', 'PACKAGE_VERSION="1.3.1"']
