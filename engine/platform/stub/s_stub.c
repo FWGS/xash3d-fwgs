@@ -106,7 +106,7 @@ qboolean VoiceCapture_RecordStart( void )
 
 void VoiceCapture_RecordStop( void )
 {
-	return 0;
+
 }
 
 #endif
