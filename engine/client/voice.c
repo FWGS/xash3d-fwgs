@@ -10,12 +10,44 @@ CVAR_DEFINE_AUTO( voice_loopback, "0", 0, "loopback voice back to the speaker" )
 CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_ARCHIVE, "incoming voice volume scale" );
 CVAR_DEFINE_AUTO( voice_inputfromfile, "0", 0, "input voice from voice_input.wav" );
 
+static const char* Voice_GetBandwidthTypeName( int bandwidthType )
+{
+	switch( bandwidthType )
+	{
+	case OPUS_BANDWIDTH_FULLBAND: return "Full Band (20 kHz)";
+	case OPUS_BANDWIDTH_SUPERWIDEBAND: return "Super Wide Band (12 kHz)";
+	case OPUS_BANDWIDTH_WIDEBAND: return "Wide Band (8 kHz)";
+	case OPUS_BANDWIDTH_MEDIUMBAND: return "Medium Band (6 kHz)";
+	case OPUS_BANDWIDTH_NARROWBAND: return "Narrow Band (4 kHz)";
+	default: return "Unknown";
+	}
+}
+
+static void Voice_CodecInfo_f( void )
+{
+	int encoderComplexity;
+	opus_int32 encoderBitrate;
+	opus_int32 encoderBandwidthType;
+
+	opus_encoder_ctl( voice.encoder, OPUS_GET_BITRATE( &encoderBitrate ));
+	opus_encoder_ctl( voice.encoder, OPUS_GET_COMPLEXITY( &encoderComplexity ));
+	opus_encoder_ctl( voice.encoder, OPUS_GET_BANDWIDTH( &encoderBandwidthType ));
+
+	Con_Printf( "Encoder:\n" );
+	Con_Printf( "  Bitrate: %.3f kB/second\n", encoderBitrate / 8.0f / 1024.0f );
+	Con_Printf( "  Complexity: %d\n", encoderComplexity );
+	Con_Printf( "  Bandwidth: " );
+	Con_Printf( Voice_GetBandwidthTypeName( encoderBandwidthType ));
+	Con_Printf( "\n" );
+}
+
 void Voice_RegisterCvars( void )
 {
 	Cvar_RegisterVariable( &voice_enable );
 	Cvar_RegisterVariable( &voice_loopback );
 	Cvar_RegisterVariable( &voice_scale );
 	Cvar_RegisterVariable( &voice_inputfromfile );
+	Cmd_AddClientCommand( "voice_codecinfo", Voice_CodecInfo_f );
 }
 
 static void Voice_Status( int entindex, qboolean bTalking )
