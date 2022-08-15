@@ -79,9 +79,37 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 	}
 
 	voice.encoder = opus_encoder_create( voice.samplerate, voice.channels, OPUS_APPLICATION_VOIP, &err );
+
+	if( err != OPUS_OK )
+		return false;
+
 	voice.decoder = opus_decoder_create( voice.samplerate, voice.channels, &err );
 
-	return true;
+	switch( quality )
+	{
+	case 1: // 4800 bits per second, <4 kHz bandwidth
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 4800 ));
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_NARROWBAND ));
+		break;
+	case 2: // 12000 bits per second, <6 kHz bandwidth
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 12000 ));
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_MEDIUMBAND ));
+		break;
+	case 4: // automatic bitrate, full band (20 kHz)
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( OPUS_AUTO ));
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_FULLBAND ));
+		break;
+	case 5: // maximum bitrate, full band (20 kHz)
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( OPUS_BITRATE_MAX ));
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_FULLBAND ));
+		break;
+	default: // 36000 bits per second, <12 kHz bandwidth
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 36000 ));
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_SUPERWIDEBAND ));
+		break;
+	}
+
+	return err == OPUS_OK;
 }
 
 void Voice_DeInit( void )
