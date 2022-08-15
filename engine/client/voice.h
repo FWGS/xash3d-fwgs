@@ -39,6 +39,14 @@ typedef struct voice_state_s
 	byte output_buffer[MAX_RAW_SAMPLES];
 	byte decompress_buffer[MAX_RAW_SAMPLES];
 	fs_offset_t input_buffer_pos;
+
+	// automatic gain control
+	struct {
+		int block_size;
+		float current_gain;
+		float next_gain;
+		float gain_multiplier;
+	} autogain;
 } voice_state_t;
 
 extern voice_state_t voice;
