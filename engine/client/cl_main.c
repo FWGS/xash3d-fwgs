@@ -22,7 +22,6 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "library.h"
 #include "vid_common.h"
-#include "voice.h"
 
 #define MAX_TOTAL_CMDS		32
 #define MAX_CMD_BUFFER		8000
