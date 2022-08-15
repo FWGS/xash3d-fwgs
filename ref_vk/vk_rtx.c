@@ -612,6 +612,24 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	}
 
 	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.primary_ray, &res );
+
+	{
+		//const uint32_t size = sizeof(struct Lights);
+		//const uint32_t size = sizeof(struct LightsMetadata); // + 8 * sizeof(uint32_t);
+		const VkBufferMemoryBarrier bmb[] = {{
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.buffer = args->light_bindings->buffer,
+			.offset = 0,
+			.size = VK_WHOLE_SIZE,
+		}};
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+	}
+
 	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.light_direct_poly, &res );
 	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.light_direct_point, &res );
 	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.denoiser, &res );

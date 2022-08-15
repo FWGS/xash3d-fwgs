@@ -55,7 +55,7 @@ vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args) {
 
 	const int index = g_staging.buffers.count;
 
-	const uint32_t offset = aloRingAlloc(&g_staging.ring, args.size, args.alignment);
+	const uint32_t offset = aloRingAlloc(&g_staging.ring, args.size, args.alignment < 1 ? 1 : args.alignment );
 	if (offset == ALO_ALLOC_FAILED)
 		return (vk_staging_region_t){0};
 	if (g_staging.frames[1].offset == ALO_ALLOC_FAILED)

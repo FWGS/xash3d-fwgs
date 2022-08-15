@@ -116,11 +116,14 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 
 void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
+
 	const ivec3 light_cell = ivec3(floor(P / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
 	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
 
+#ifdef USE_CLUSTERS
 	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
 		return; // throughput * vec3(1., 0., 0.);
+#endif
 
 	//diffuse = specular = vec3(1.);
 	//return;
