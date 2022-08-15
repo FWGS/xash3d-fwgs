@@ -533,8 +533,6 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 	// spatialize
 	memset( target_chan, 0, sizeof( *target_chan ));
 
-	pitch *= (sys_timescale.value + 1) / 2;
-
 	VectorCopy( pos, target_chan->origin );
 	target_chan->staticsound = ( ent == 0 ) ? true : false;
 	target_chan->use_loop = (flags & SND_STOP_LOOPING) ? false : true;

@@ -619,6 +619,8 @@ void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate )
 			ch->pitch = VOX_ModifyPitch( ch, ch->basePitch * 0.01f );
 		else ch->pitch = ch->basePitch * 0.01f;
 
+		ch->pitch *= ( sys_timescale.value + 1 ) / 2;
+
 		if( CL_GetEntityByIndex( ch->entnum ) && ( ch->entchannel == CHAN_VOICE ))
 		{
 			if( pSource->width == 1 )
