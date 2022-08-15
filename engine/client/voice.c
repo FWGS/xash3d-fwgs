@@ -171,6 +171,8 @@ uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 
 void Voice_Idle( float frametime )
 {
+	int i;
+
 	if ( !voice_enable.value )
 	{
 		Voice_DeInit();
@@ -180,11 +182,24 @@ void Voice_Idle( float frametime )
 	if ( voice.talking_ack )
 	{
 		voice.talking_timeout += frametime;
-
-		if ( voice.talking_timeout > 0.2f )
+		if( voice.talking_timeout > 0.2f )
 		{
 			voice.talking_ack = false;
 			Voice_Status( -2, false );
+		}
+	}
+
+	for ( i = 0; i < 32; i++ )
+	{
+		if ( voice.players_status[i].talking_ack )
+		{
+			voice.players_status[i].talking_timeout += frametime;
+			if ( voice.players_status[i].talking_timeout > 0.2f )
+			{
+				voice.players_status[i].talking_ack = false;
+				if ( i < cl.maxclients )
+					Voice_Status( i, false );
+			}
 		}
 	}
 }
@@ -284,6 +299,17 @@ void Voice_LocalPlayerTalkingAck( void )
 
 	voice.talking_ack = true;
 	voice.talking_timeout = 0.0f;
+}
+
+void Voice_PlayerTalkingAck(int playerIndex)
+{
+	if( !voice.players_status[playerIndex].talking_ack )
+	{
+		Voice_Status( playerIndex, true );
+	}
+
+	voice.players_status[playerIndex].talking_ack = true;
+	voice.players_status[playerIndex].talking_timeout = 0.0f;
 }
 
 void Voice_StartChannel( uint samples, byte *data, int entnum )
