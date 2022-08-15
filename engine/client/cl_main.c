@@ -3070,7 +3070,7 @@ void CL_Init( void )
 
 	VID_Init();	// init video
 	S_Init();	// init sound
-	Voice_Init( "opus", 0 ); // init voice
+	Voice_Init( "opus", 3 ); // init voice
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
