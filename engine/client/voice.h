@@ -19,6 +19,11 @@ typedef struct voice_state_s
 	qboolean talking_ack;
 	float talking_timeout;
 
+	struct {
+		qboolean talking_ack;
+		float talking_timeout;
+	} players_status[32];
+
 	// opus stuff
 	OpusEncoder *encoder;
 	OpusDecoder *decoder;
@@ -51,6 +56,7 @@ void Voice_RecordStart( void );
 void Voice_AddIncomingData( int ent, byte *data, uint size, uint frames );
 qboolean Voice_GetLoopback( void );
 void Voice_LocalPlayerTalkingAck( void );
+void Voice_PlayerTalkingAck( int playerIndex );
 void Voice_StartChannel( uint samples, byte *data, int entnum );
 
 #endif // VOICE_H

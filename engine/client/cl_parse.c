@@ -1714,9 +1714,11 @@ void CL_ParseVoiceData( sizebuf_t *msg )
 	if ( idx <= 0 || idx > cl.maxclients )
 		return;
 
-	if ( idx == cl.playernum + 1 )
+	if( idx == cl.playernum + 1 )
 		Voice_LocalPlayerTalkingAck();
-	
+	else
+		Voice_PlayerTalkingAck( idx );
+
 	if ( !size )
 		return;
 
