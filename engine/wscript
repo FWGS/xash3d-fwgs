@@ -168,7 +168,7 @@ def build(bld):
 	
 		libs.append('opus')
 
-	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../filesystem', '../pm_shared' ]
+	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../filesystem', '../pm_shared', '../3rdparty/opus/opus/include' ]
 
 	if bld.env.SINGLE_BINARY:
 		install_path = bld.env.BINDIR
