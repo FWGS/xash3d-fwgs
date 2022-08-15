@@ -13,7 +13,7 @@ extern convar_t voice_scale;
 
 typedef struct voice_state_s
 {
-	qboolean was_init;
+	qboolean initialized;
 	qboolean is_recording;
 	float start_time;
 	qboolean talking_ack;
@@ -29,9 +29,11 @@ typedef struct voice_state_s
 	uint samplerate;
 	uint frame_size;
 
-	// input buffer
-	byte buffer[MAX_RAW_SAMPLES];
-	fs_offset_t buffer_pos;
+	// buffers
+	byte input_buffer[MAX_RAW_SAMPLES];
+	byte output_buffer[MAX_RAW_SAMPLES];
+	byte decompress_buffer[MAX_RAW_SAMPLES];
+	fs_offset_t input_buffer_pos;
 } voice_state_t;
 
 extern voice_state_t voice;
