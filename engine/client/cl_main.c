@@ -1514,6 +1514,7 @@ void CL_Disconnect( void )
 
 	// clear the network channel, too.
 	Netchan_Clear( &cls.netchan );
+	Voice_RecordStop();
 
 	IN_LockInputDevices( false ); // unlock input devices
 
