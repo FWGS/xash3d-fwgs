@@ -8,6 +8,8 @@ voice_state_t voice;
 CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_ARCHIVE, "enable voice chat" );
 CVAR_DEFINE_AUTO( voice_loopback, "0", 0, "loopback voice back to the speaker" );
 CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_ARCHIVE, "incoming voice volume scale" );
+CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_ARCHIVE, "automatic voice gain control (average)" );
+CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
 CVAR_DEFINE_AUTO( voice_inputfromfile, "0", 0, "input voice from voice_input.wav" );
 
 static const char* Voice_GetBandwidthTypeName( int bandwidthType )
@@ -46,6 +48,8 @@ void Voice_RegisterCvars( void )
 	Cvar_RegisterVariable( &voice_enable );
 	Cvar_RegisterVariable( &voice_loopback );
 	Cvar_RegisterVariable( &voice_scale );
+	Cvar_RegisterVariable( &voice_avggain );
+	Cvar_RegisterVariable( &voice_maxgain );
 	Cvar_RegisterVariable( &voice_inputfromfile );
 	Cmd_AddClientCommand( "voice_codecinfo", Voice_CodecInfo_f );
 }
@@ -58,6 +62,47 @@ static void Voice_Status( int entindex, qboolean bTalking )
 static uint Voice_GetFrameSize( float durationMsec )
 {
 	return voice.channels * voice.width * (( float )voice.samplerate / ( 1000.0f / durationMsec ));
+}
+
+static void Voice_ApplyGainAdjust( opus_int16 *samples, int count )
+{
+	float gain, modifiedMax;
+	int average, adjustedSample;
+	int blockOffset = 0;
+
+	for (;;)
+	{
+		int i;
+		int localMax = 0;
+		int localSum = 0;
+		int blockSize = Q_min( count - ( blockOffset + voice.autogain.block_size ), voice.autogain.block_size );
+		
+		if( blockSize < 1 )
+			break;
+
+		for( i = 0; i < blockSize; ++i )
+		{
+			int sample = samples[blockOffset + i];
+			if( abs( sample ) > localMax ) {
+				localMax = abs( sample );
+			}
+			localSum += sample;
+
+			gain = voice.autogain.current_gain + i * voice.autogain.gain_multiplier;
+			adjustedSample = Q_min( 32767, Q_max(( int )( sample * gain ), -32768 ));
+			samples[blockOffset + i] = adjustedSample;
+		}
+
+		if( blockOffset % voice.autogain.block_size == 0 )
+		{
+			average = localSum / blockSize;
+			modifiedMax = average + ( localMax - average ) * voice_avggain.value;
+			voice.autogain.current_gain = voice.autogain.next_gain * voice_scale.value;
+			voice.autogain.next_gain = Q_min( 32767.0f / modifiedMax, voice_maxgain.value ) * voice_scale.value;
+			voice.autogain.gain_multiplier = ( voice.autogain.next_gain - voice.autogain.current_gain ) / ( voice.autogain.block_size - 1 );
+		}
+		blockOffset += blockSize;
+	}
 }
 
 // parameters currently unused
@@ -75,6 +120,7 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 	voice.width = 2;
 	voice.samplerate = SOUND_48k;
 	voice.frame_size = Voice_GetFrameSize( 20.0f ); 
+	voice.autogain.block_size = 128;
 
 	if ( !VoiceCapture_Init() )
 	{
@@ -155,6 +201,8 @@ uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 	{
 		int bytes;
 
+		// adjust gain before encoding
+		Voice_ApplyGainAdjust((opus_int16*)voice.input_buffer + ofs, voice.frame_size);
 		bytes = opus_encode( voice.encoder, (const opus_int16*)(voice.input_buffer + ofs), voice.frame_size / voice.width, out + size, maxsize );
 		memmove( voice.input_buffer, voice.input_buffer + voice.frame_size, sizeof( voice.input_buffer ) - voice.frame_size );
 		voice.input_buffer_pos -= voice.frame_size;
@@ -316,5 +364,5 @@ void Voice_StartChannel( uint samples, byte *data, int entnum )
 {
 	SND_ForceInitMouth( entnum );
 	Voice_Status( entnum, true );
-	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, voice.channels, data, 128.0f * voice_scale.value );
+	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, voice.channels, data, 255 );
 }
