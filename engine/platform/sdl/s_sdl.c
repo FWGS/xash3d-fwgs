@@ -235,10 +235,10 @@ void SDL_SoundInputCallback( void *userdata, Uint8 *stream, int len )
 {
 	int size;
 
-	size = Q_min( len, sizeof( voice.buffer ) - voice.buffer_pos );
-	SDL_memset( voice.buffer + voice.buffer_pos, 0, size );
-	SDL_MixAudioFormat( voice.buffer + voice.buffer_pos, stream, sdl_format, size, SDL_MIX_MAXVOLUME );
-	voice.buffer_pos += size;
+	size = Q_min( len, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
+	SDL_memset( voice.input_buffer + voice.input_buffer_pos, 0, size );
+	SDL_MixAudioFormat( voice.input_buffer + voice.input_buffer_pos, stream, sdl_format, size, SDL_MIX_MAXVOLUME );
+	voice.input_buffer_pos += size;
 }
 
 /*

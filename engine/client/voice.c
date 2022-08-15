@@ -55,6 +55,11 @@ static void Voice_Status( int entindex, qboolean bTalking )
 	clgame.dllFuncs.pfnVoiceStatus( entindex, bTalking );
 }
 
+static uint Voice_GetFrameSize( float durationMsec )
+{
+	return voice.channels * voice.width * (( float )voice.samplerate / ( 1000.0f / durationMsec ));
+}
+
 // parameters currently unused
 qboolean Voice_Init( const char *pszCodecName, int quality )
 {
@@ -65,12 +70,11 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 
 	Voice_DeInit();
 	
-	voice.was_init = true;
-
+	voice.initialized = true;
 	voice.channels = 1;
 	voice.width = 2;
 	voice.samplerate = SOUND_48k;
-	voice.frame_size = voice.channels * ( (float)voice.samplerate / ( 1000.0f / 20.0f ) ) * voice.width;
+	voice.frame_size = Voice_GetFrameSize( 20.0f ); 
 
 	if ( !VoiceCapture_Init() )
 	{
@@ -114,7 +118,7 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 
 void Voice_DeInit( void )
 {
-	if ( !voice.was_init )
+	if ( !voice.initialized )
 		return;
 
 	Voice_RecordStop();
@@ -122,7 +126,7 @@ void Voice_DeInit( void )
 	opus_encoder_destroy( voice.encoder );
 	opus_decoder_destroy( voice.decoder );
 
-	voice.was_init = false;
+	voice.initialized = false;
 }
 
 uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
@@ -138,22 +142,22 @@ uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 
 		numbytes = ( time - voice.start_time ) * voice.samplerate;
 		numbytes = Q_min( numbytes, input_file->size - input_pos );
-		numbytes = Q_min( numbytes, sizeof( voice.buffer ) - voice.buffer_pos );
+		numbytes = Q_min( numbytes, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
 
-		memcpy( voice.buffer + voice.buffer_pos, input_file->buffer + input_pos, numbytes );
-		voice.buffer_pos += numbytes;
+		memcpy( voice.input_buffer + voice.input_buffer_pos, input_file->buffer + input_pos, numbytes );
+		voice.input_buffer_pos += numbytes;
 		input_pos += numbytes;
 
 		voice.start_time = time;
 	}
 
-	for ( ofs = 0; voice.buffer_pos - ofs >= voice.frame_size && ofs <= voice.buffer_pos; ofs += voice.frame_size )
+	for ( ofs = 0; voice.input_buffer_pos - ofs >= voice.frame_size && ofs <= voice.input_buffer_pos; ofs += voice.frame_size )
 	{
 		int bytes;
 
-		bytes = opus_encode( voice.encoder, (const opus_int16*)(voice.buffer + ofs), voice.frame_size / voice.width, out + size, maxsize );
-		memmove( voice.buffer, voice.buffer + voice.frame_size, sizeof( voice.buffer ) - voice.frame_size );
-		voice.buffer_pos -= voice.frame_size;
+		bytes = opus_encode( voice.encoder, (const opus_int16*)(voice.input_buffer + ofs), voice.frame_size / voice.width, out + size, maxsize );
+		memmove( voice.input_buffer, voice.input_buffer + voice.frame_size, sizeof( voice.input_buffer ) - voice.frame_size );
+		voice.input_buffer_pos -= voice.frame_size;
 
 		if ( bytes > 0 )
 		{
@@ -198,8 +202,8 @@ void Voice_RecordStop( void )
 		input_file = NULL;
 	}
 
-	voice.buffer_pos = 0;
-	memset( voice.buffer, 0, sizeof( voice.buffer ) );
+	voice.input_buffer_pos = 0;
+	memset( voice.input_buffer, 0, sizeof( voice.input_buffer ) );
 
 	if ( Voice_IsRecording() )
 		Voice_Status( -1, false );
@@ -241,24 +245,20 @@ void Voice_RecordStart( void )
 
 void Voice_AddIncomingData( int ent, byte *data, uint size, uint frames )
 {
-	byte decompressed[MAX_RAW_SAMPLES];
-	int samples;
-	
-	samples = opus_decode( voice.decoder, (const byte*)data, size, (short *)decompressed, voice.frame_size / voice.width * frames, false );
+	int samples = opus_decode( voice.decoder, (const byte*)data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
 
-	if ( samples > 0 )
-		Voice_StartChannel( samples, decompressed, ent );
+	if ( samples > 0 ) 
+		Voice_StartChannel( samples, voice.decompress_buffer, ent );
 }
 
 void CL_AddVoiceToDatagram( void )
 {
 	uint size, frames = 0;
-	byte data[MAX_RAW_SAMPLES];
 
 	if ( cls.state != ca_active || !Voice_IsRecording() )
 		return;
 	
-	size = Voice_GetCompressedData( data, sizeof( data ), &frames );
+	size = Voice_GetCompressedData( voice.output_buffer, sizeof( voice.output_buffer ), &frames );
 
 	if ( size > 0 && MSG_GetNumBytesLeft( &cls.datagram ) >= size + 32 )
 	{
@@ -266,7 +266,7 @@ void CL_AddVoiceToDatagram( void )
 		MSG_WriteByte( &cls.datagram, Voice_GetLoopback() );
 		MSG_WriteByte( &cls.datagram, frames );
 		MSG_WriteShort( &cls.datagram, size );
-		MSG_WriteBytes( &cls.datagram, data, size );
+		MSG_WriteBytes( &cls.datagram, voice.output_buffer, size );
 	}
 }
 
