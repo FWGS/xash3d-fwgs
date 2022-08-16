@@ -1700,14 +1700,14 @@ CL_ParseVoiceData
 void CL_ParseVoiceData( sizebuf_t *msg )
 {
 	int size, idx, frames;
-	unsigned char received[8192];
+	static byte received[8192];
 
 	idx = MSG_ReadByte( msg ) + 1;
 
 	frames = MSG_ReadByte( msg );
 
 	size = MSG_ReadShort( msg );
-	size = Q_min( size, 8192 );
+	size = Q_min( size, sizeof( received ));
 
 	MSG_ReadBytes( msg, received, size );
 
@@ -3148,13 +3148,6 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_director:
 			CL_ParseDirector( msg );
-			break;
-		case svc_voiceinit:
-			CL_ParseVoiceInit( msg );
-			break;
-		case svc_voicedata:
-			CL_ParseVoiceData( msg );
-			cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_resourcelocation:
 			CL_ParseResLocation( msg );

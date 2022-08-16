@@ -418,6 +418,8 @@ extern convar_t		sv_stopspeed;
 extern convar_t		sv_maxspeed;
 extern convar_t		sv_wateralpha;
 extern convar_t		sv_wateramp;
+extern convar_t		sv_voiceenable;
+extern convar_t		sv_voicequality;
 extern convar_t		sv_stepsize;
 extern convar_t		sv_maxvelocity;
 extern convar_t		sv_rollangle;

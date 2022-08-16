@@ -341,4 +341,19 @@ void SNDDMA_Activate( qboolean active )
 	}
 }
 
+qboolean VoiceCapture_Init( void )
+{
+	return false;
+}
+
+qboolean VoiceCapture_RecordStart( void )
+{
+	return false;
+}
+
+void VoiceCapture_RecordStop( void )
+{
+
+}
+
 #endif
