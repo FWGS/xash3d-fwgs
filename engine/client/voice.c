@@ -52,7 +52,7 @@ static void Voice_CodecInfo_f( void )
 	opus_encoder_ctl( voice.encoder, OPUS_GET_BANDWIDTH( &encoderBandwidthType ));
 
 	Con_Printf( "Encoder:\n" );
-	Con_Printf( "  Bitrate: %.3f kB/second\n", encoderBitrate / 8.0f / 1024.0f );
+	Con_Printf( "  Bitrate: %.3f kbps\n", encoderBitrate / 1000.0f );
 	Con_Printf( "  Complexity: %d\n", encoderComplexity );
 	Con_Printf( "  Bandwidth: " );
 	Con_Printf( Voice_GetBandwidthTypeName( encoderBandwidthType ));
