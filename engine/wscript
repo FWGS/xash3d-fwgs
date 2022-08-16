@@ -107,7 +107,7 @@ def configure(conf):
 
 def build(bld):
 	is_cxx_link = False
-	libs = [ 'public', 'dllemu' ]
+	libs = [ 'public', 'dllemu', 'opus' ]
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob([
@@ -166,9 +166,7 @@ def build(bld):
 			'client/vgui/*.c',
 			'client/avi/*.c'])
 	
-		libs.append('opus')
-
-	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../filesystem', '../pm_shared', '../3rdparty/opus/opus/include' ]
+	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../filesystem', '../pm_shared' ]
 
 	if bld.env.SINGLE_BINARY:
 		install_path = bld.env.BINDIR

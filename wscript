@@ -54,7 +54,7 @@ class Subproject:
 		return True
 
 SUBDIRS = [
-	Subproject('3rdparty/opus', mandatory=True),
+	Subproject('3rdparty/opus', dedicated=False, mandatory=True),
 	Subproject('public',      dedicated=False, mandatory = True),
 	Subproject('filesystem',  dedicated=False, mandatory = True),
 	Subproject('game_launch', singlebin=True),
