@@ -21,12 +21,12 @@ fs_offset_t input_pos;
 
 voice_state_t voice;
 
-CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_ARCHIVE, "enable voice chat" );
-CVAR_DEFINE_AUTO( voice_loopback, "0", 0, "loopback voice back to the speaker" );
-CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_ARCHIVE, "incoming voice volume scale" );
-CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_ARCHIVE, "automatic voice gain control (average)" );
-CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
-CVAR_DEFINE_AUTO( voice_inputfromfile, "0", 0, "input voice from voice_input.wav" );
+CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "enable voice chat" );
+CVAR_DEFINE_AUTO( voice_loopback, "0", FCVAR_PRIVILEGED, "loopback voice back to the speaker" );
+CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "incoming voice volume scale" );
+CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "automatic voice gain control (average)" );
+CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
+CVAR_DEFINE_AUTO( voice_inputfromfile, "0", FCVAR_PRIVILEGED, "input voice from voice_input.wav" );
 
 static const char* Voice_GetBandwidthTypeName( int bandwidthType )
 {
