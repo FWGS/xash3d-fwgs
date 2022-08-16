@@ -1700,7 +1700,7 @@ CL_ParseVoiceData
 void CL_ParseVoiceData( sizebuf_t *msg )
 {
 	int size, idx, frames;
-	static byte received[8192];
+	byte received[8192];
 
 	idx = MSG_ReadByte( msg ) + 1;
 
