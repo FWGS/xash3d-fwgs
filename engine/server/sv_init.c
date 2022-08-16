@@ -395,7 +395,7 @@ void SV_WriteVoiceCodec( sizebuf_t *msg )
 {
 	MSG_BeginServerCmd( msg, svc_voiceinit );
 	MSG_WriteString( msg, "opus" );
-	MSG_WriteByte( msg, Cvar_VariableInteger( "sv_voicequality" ));
+	MSG_WriteByte( msg, (int)sv_voicequality.value );
 }
 
 /*

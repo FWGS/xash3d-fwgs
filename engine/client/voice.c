@@ -306,9 +306,9 @@ void Voice_RecordStart( void )
 		Voice_Status( -1, true );
 }
 
-void Voice_AddIncomingData( int ent, byte *data, uint size, uint frames )
+void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
-	int samples = opus_decode( voice.decoder, (const byte*)data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
+	int samples = opus_decode( voice.decoder, data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
 
 	if ( samples > 0 ) 
 		Voice_StartChannel( samples, voice.decompress_buffer, ent );

@@ -2587,7 +2587,7 @@ void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 		return;
 	}
 
-	if ( !Cvar_VariableInteger( "sv_voiceenable" ) )
+	if ( (int)sv_voiceenable.value == 0 )
 		return;
 
 	MSG_ReadBytes( msg, received, size );
@@ -2599,6 +2599,7 @@ void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 		
 		length = size;
 
+		// 6 is a number of bytes for other parts of message
 		if ( MSG_GetNumBytesLeft( &cur->datagram ) < length + 6 )
 			continue;
 
