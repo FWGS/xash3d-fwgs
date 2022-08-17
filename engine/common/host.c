@@ -1053,6 +1053,12 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	Sys_InitLog();
 
+	// print bugcompatibility level here, after log was initialized
+	if( host.bugcomp == BUGCOMP_GOLDSRC )
+	{
+		Con_Printf( "^3BUGCOMP^7: GoldSrc bug-compatibility enabled\n" );
+	}
+
 	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
