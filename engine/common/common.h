@@ -868,6 +868,7 @@ void GAME_EXPORT ID_SetCustomClientID( const char *id );
 void NET_InitMasters( void );
 void NET_SaveMasters( void );
 qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
+qboolean NET_IsMasterAdr( netadr_t adr );
 
 #ifdef REF_DLL
 #error "common.h in ref_dll"
