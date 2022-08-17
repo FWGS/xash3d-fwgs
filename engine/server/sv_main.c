@@ -772,6 +772,12 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	int	clients = 0, bots = 0;
 	int	len = sizeof( s );
 
+	if( !NET_IsMasterAdr( from ))
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet from %s\n", NET_AdrToString( from ));
+		return;
+	}
+
 	clients = SV_GetConnectedClientsCount( &bots );
 	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
 
