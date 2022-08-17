@@ -302,7 +302,7 @@ static float CL_LerpPoint( void )
 	else if( server_frametime > 0.001f )
 	{
 		// automatic lerp (classic mode)
-		frac = ( cl.time - cl.mtime[1] ) / server_frametime;  
+		frac = ( cl.time - cl.mtime[1] ) / server_frametime;
 	}
 #endif
 	return frac;
@@ -367,7 +367,7 @@ void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 
 	min_interp = 1.0f / cl_updaterate->value;
 	interpolation_time = CL_LerpInterval( );
-	
+
 	if( (cl_interp->value + epsilon) < min_interp )
 	{
 		Con_Printf( "ex_interp forced up to %.1f msec\n", min_interp * 1000.f );
@@ -1713,15 +1713,22 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	static char	infostring[MAX_INFO_STRING+8];
 	char		*s = MSG_ReadString( msg );
 	int i;
+	const char *magic = ": wrong version\n";
+	size_t len = Q_strlen( s ), magiclen = Q_strlen( magic );
 
-	CL_FixupColorStringsForInfoString( s, infostring );
-
-	if( Q_strstr( infostring, "wrong version" ) )
+	if( len >= magiclen && !Q_strcmp( s + len - magiclen, magic ))
 	{
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "info %i", PROTOCOL_LEGACY_VERSION );
-		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
 		return;
 	}
+
+	if( !Info_IsValid( s ))
+	{
+		Con_Printf( "^1Server^7: %s, invalid infostring\n", NET_AdrToString( from ));
+		return;
+	}
+
+	CL_FixupColorStringsForInfoString( s, infostring );
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
 	{
@@ -1732,11 +1739,13 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	if( !COM_CheckString( Info_ValueForKey( infostring, "p" )))
 	{
 		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ) );
-		Con_Print("Legacy: ");
+		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 	}
-
-	// more info about servers
-	Con_Printf( "^2Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
+	else
+	{
+		// more info about servers
+		Con_Printf( "^2Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
+	}
 
 	UI_AddServerToList( from, infostring );
 }
