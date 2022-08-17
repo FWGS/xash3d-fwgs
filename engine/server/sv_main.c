@@ -714,13 +714,9 @@ Master_Add
 */
 void Master_Add( void )
 {
-	netadr_t	adr;
-
 	NET_Config( true, false ); // allow remote
-
-	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		Con_Printf( "can't resolve adr: %s\n", MASTERSERVER_ADR );
-	else NET_SendPacket( NS_SERVER, 2, "q\xFF", adr );
+	if( NET_SendToMasters( NS_SERVER, 2, "q\xFF" ))
+		svs.last_heartbeat = MAX_HEARTBEAT;
 }
 
 /*
@@ -757,13 +753,8 @@ Informs all masters that this server is going down
 */
 void Master_Shutdown( void )
 {
-	netadr_t	adr;
-
 	NET_Config( true, false ); // allow remote
-
-	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		Con_Printf( "can't resolve addr: %s\n", MASTERSERVER_ADR );
-	else NET_SendPacket( NS_SERVER, 2, "\x62\x0A", adr );
+	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A" ));
 }
 
 /*
