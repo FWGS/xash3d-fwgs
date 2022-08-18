@@ -77,6 +77,7 @@ void Voice_Idle( float frametime );
 qboolean Voice_IsRecording( void );
 void Voice_RecordStop( void );
 void Voice_RecordStart( void );
+void Voice_Disconnect( void );
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames );
 qboolean Voice_GetLoopback( void );
 void Voice_LocalPlayerTalkingAck( void );

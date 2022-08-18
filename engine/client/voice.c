@@ -323,6 +323,16 @@ void Voice_RecordStart( void )
 		Voice_Status( -1, true );
 }
 
+void Voice_Disconnect( void )
+{
+	int i;
+
+	Voice_RecordStop();
+	for( i = 0; i <= 32; i++ ) {
+		Voice_Status( i, false );
+	}
+}
+
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
 	int samples = opus_decode( voice.decoder, data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
@@ -380,6 +390,5 @@ void Voice_PlayerTalkingAck(int playerIndex)
 void Voice_StartChannel( uint samples, byte *data, int entnum )
 {
 	SND_ForceInitMouth( entnum );
-	Voice_Status( entnum, true );
 	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, voice.channels, data, 255 );
 }
