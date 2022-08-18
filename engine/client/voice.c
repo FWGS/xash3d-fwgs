@@ -198,27 +198,28 @@ uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 	if ( input_file )
 	{
 		uint numbytes;
-		double time;
-		
-		time = Sys_DoubleTime();
+		double updateInterval;
 
-		numbytes = ( time - voice.start_time ) * voice.samplerate;
+		updateInterval = cl.mtime[0] - cl.mtime[1];
+		numbytes = updateInterval * voice.samplerate * voice.width * voice.channels;
 		numbytes = Q_min( numbytes, input_file->size - input_pos );
 		numbytes = Q_min( numbytes, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
 
 		memcpy( voice.input_buffer + voice.input_buffer_pos, input_file->buffer + input_pos, numbytes );
 		voice.input_buffer_pos += numbytes;
 		input_pos += numbytes;
-
-		voice.start_time = time;
 	}
 
 	for ( ofs = 0; voice.input_buffer_pos - ofs >= voice.frame_size && ofs <= voice.input_buffer_pos; ofs += voice.frame_size )
 	{
 		int bytes;
 
-		// adjust gain before encoding
-		Voice_ApplyGainAdjust((opus_int16*)voice.input_buffer + ofs, voice.frame_size);
+		if (!input_file)
+		{
+			// adjust gain before encoding, but only for input from voice
+			Voice_ApplyGainAdjust((opus_int16*)voice.input_buffer + ofs, voice.frame_size);
+		}
+
 		bytes = opus_encode( voice.encoder, (const opus_int16*)(voice.input_buffer + ofs), voice.frame_size / voice.width, out + size, maxsize );
 		memmove( voice.input_buffer, voice.input_buffer + voice.frame_size, sizeof( voice.input_buffer ) - voice.frame_size );
 		voice.input_buffer_pos -= voice.frame_size;
