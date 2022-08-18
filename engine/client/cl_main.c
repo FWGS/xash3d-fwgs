@@ -1503,6 +1503,7 @@ void CL_Disconnect( void )
 	cls.connect_time = 0;
 	cls.changedemo = false;
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // reset fragment size
+	Voice_Disconnect();
 	CL_Stop_f();
 
 	// send a disconnect message to the server
@@ -1514,7 +1515,6 @@ void CL_Disconnect( void )
 
 	// clear the network channel, too.
 	Netchan_Clear( &cls.netchan );
-	Voice_RecordStop();
 
 	IN_LockInputDevices( false ); // unlock input devices
 
