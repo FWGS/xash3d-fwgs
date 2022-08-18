@@ -135,7 +135,7 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 	voice.channels = 1;
 	voice.width = 2;
 	voice.samplerate = SOUND_48k;
-	voice.frame_size = Voice_GetFrameSize( 20.0f ); 
+	voice.frame_size = Voice_GetFrameSize( 40.0f ); 
 	voice.autogain.block_size = 128;
 
 	if ( !VoiceCapture_Init() )
