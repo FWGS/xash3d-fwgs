@@ -14,12 +14,15 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <opus.h>
+#include "common.h"
+#include "client.h"
 #include "voice.h"
 
-wavdata_t *input_file;
-fs_offset_t input_pos;
+static wavdata_t *input_file;
+static fs_offset_t input_pos;
 
-voice_state_t voice;
+voice_state_t voice = { 0 };
 
 CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "enable voice chat" );
 CVAR_DEFINE_AUTO( voice_loopback, "0", FCVAR_PRIVILEGED, "loopback voice back to the speaker" );
@@ -47,6 +50,12 @@ static void Voice_CodecInfo_f( void )
 	opus_int32 encoderBitrate;
 	opus_int32 encoderBandwidthType;
 
+	if( !voice.initialized )
+	{
+		Con_Printf( "Voice codec is not initialized!\n" );
+		return;
+	}
+
 	opus_encoder_ctl( voice.encoder, OPUS_GET_BITRATE( &encoderBitrate ));
 	opus_encoder_ctl( voice.encoder, OPUS_GET_COMPLEXITY( &encoderComplexity ));
 	opus_encoder_ctl( voice.encoder, OPUS_GET_BANDWIDTH( &encoderBandwidthType ));
@@ -54,8 +63,7 @@ static void Voice_CodecInfo_f( void )
 	Con_Printf( "Encoder:\n" );
 	Con_Printf( "  Bitrate: %.3f kbps\n", encoderBitrate / 1000.0f );
 	Con_Printf( "  Complexity: %d\n", encoderComplexity );
-	Con_Printf( "  Bandwidth: " );
-	Con_Printf( Voice_GetBandwidthTypeName( encoderBandwidthType ));
+	Con_Printf( "  Bandwidth: %s", Voice_GetBandwidthTypeName( encoderBandwidthType ));
 	Con_Printf( "\n" );
 }
 
@@ -86,7 +94,7 @@ static void Voice_ApplyGainAdjust( opus_int16 *samples, int count )
 	int average, adjustedSample;
 	int blockOffset = 0;
 
-	for (;;)
+	for( ;;)
 	{
 		int i;
 		int localMax = 0;
@@ -126,7 +134,7 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 {
 	int err;
 
-	if ( !voice_enable.value )
+	if( !voice_enable.value )
 		return false;
 
 	Voice_DeInit();
@@ -138,7 +146,7 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 	voice.frame_size = Voice_GetFrameSize( 40.0f ); 
 	voice.autogain.block_size = 128;
 
-	if ( !VoiceCapture_Init() )
+	if( !VoiceCapture_Init() )
 	{
 		Voice_DeInit();
 		return false;
@@ -180,7 +188,7 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 
 void Voice_DeInit( void )
 {
-	if ( !voice.initialized )
+	if( !voice.initialized )
 		return;
 
 	Voice_RecordStop();
@@ -191,11 +199,11 @@ void Voice_DeInit( void )
 	voice.initialized = false;
 }
 
-uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
+static uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 {
 	uint ofs, size = 0;
 
-	if ( input_file )
+	if( input_file )
 	{
 		uint numbytes;
 		double updateInterval;
@@ -210,11 +218,11 @@ uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 		input_pos += numbytes;
 	}
 
-	for ( ofs = 0; voice.input_buffer_pos - ofs >= voice.frame_size && ofs <= voice.input_buffer_pos; ofs += voice.frame_size )
+	for( ofs = 0; voice.input_buffer_pos - ofs >= voice.frame_size && ofs <= voice.input_buffer_pos; ofs += voice.frame_size )
 	{
 		int bytes;
 
-		if (!input_file)
+		if( !input_file )
 		{
 			// adjust gain before encoding, but only for input from voice
 			Voice_ApplyGainAdjust((opus_int16*)voice.input_buffer + ofs, voice.frame_size);
@@ -224,7 +232,7 @@ uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 		memmove( voice.input_buffer, voice.input_buffer + voice.frame_size, sizeof( voice.input_buffer ) - voice.frame_size );
 		voice.input_buffer_pos -= voice.frame_size;
 
-		if ( bytes > 0 )
+		if( bytes > 0 )
 		{
 			size += bytes;
 			(*frames)++;
@@ -234,39 +242,43 @@ uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 	return size;
 }
 
-void Voice_Idle( float frametime )
+static void Voice_StatusTimeout( voice_status_t *status, int entindex, double frametime )
+{
+	if( status->talking_ack )
+	{
+		status->talking_timeout += frametime;
+		if( status->talking_timeout > 0.2 )
+		{
+			status->talking_ack = false;
+			Voice_Status( entindex, false );
+		}
+	}
+}
+
+void Voice_StatusAck( voice_status_t *status, int playerIndex )
+{
+	if( !status->talking_ack )
+		Voice_Status( playerIndex, true );
+
+	status->talking_ack = true;
+	status->talking_timeout = 0.0;
+}
+
+void Voice_Idle( double frametime )
 {
 	int i;
 
-	if ( !voice_enable.value )
+	if( !voice_enable.value )
 	{
 		Voice_DeInit();
 		return;
 	}
 
-	if ( voice.talking_ack )
-	{
-		voice.talking_timeout += frametime;
-		if( voice.talking_timeout > 0.2f )
-		{
-			voice.talking_ack = false;
-			Voice_Status( -2, false );
-		}
-	}
+	// update local player status first
+	Voice_StatusTimeout( &voice.local, VOICE_LOCALPLAYER_INDEX, frametime );
 
-	for ( i = 0; i < 32; i++ )
-	{
-		if ( voice.players_status[i].talking_ack )
-		{
-			voice.players_status[i].talking_timeout += frametime;
-			if ( voice.players_status[i].talking_timeout > 0.2f )
-			{
-				voice.players_status[i].talking_ack = false;
-				if ( i < cl.maxclients )
-					Voice_Status( i, false );
-			}
-		}
-	}
+	for( i = 0; i < 32; i++ )
+		Voice_StatusTimeout( &voice.players_status[i], i, frametime );
 }
 
 qboolean Voice_IsRecording( void )
@@ -276,7 +288,7 @@ qboolean Voice_IsRecording( void )
 
 void Voice_RecordStop( void )
 {
-	if ( input_file )
+	if( input_file )
 	{
 		FS_FreeSound( input_file );
 		input_file = NULL;
@@ -285,7 +297,7 @@ void Voice_RecordStop( void )
 	voice.input_buffer_pos = 0;
 	memset( voice.input_buffer, 0, sizeof( voice.input_buffer ) );
 
-	if ( Voice_IsRecording() )
+	if( Voice_IsRecording() )
 		Voice_Status( -1, false );
 	
 	VoiceCapture_RecordStop();
@@ -297,11 +309,11 @@ void Voice_RecordStart( void )
 {
 	Voice_RecordStop();
 
-	if ( voice_inputfromfile.value )
+	if( voice_inputfromfile.value )
 	{
 		input_file = FS_LoadSound( "voice_input.wav", NULL, 0 );
 
-		if ( input_file )
+		if( input_file )
 		{
 			Sound_Process( &input_file, voice.samplerate, voice.width, SOUND_RESAMPLE );
 			input_pos = 0;
@@ -316,10 +328,10 @@ void Voice_RecordStart( void )
 		}
 	}
 
-	if ( !Voice_IsRecording() )
+	if( !Voice_IsRecording() )
 		voice.is_recording = VoiceCapture_RecordStart();
 
-	if ( Voice_IsRecording() )
+	if( Voice_IsRecording() )
 		Voice_Status( -1, true );
 }
 
@@ -333,11 +345,17 @@ void Voice_Disconnect( void )
 	}
 }
 
+static void Voice_StartChannel( uint samples, byte *data, int entnum )
+{
+	SND_ForceInitMouth( entnum );
+	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, voice.channels, data, 255 );
+}
+
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
 	int samples = opus_decode( voice.decoder, data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
 
-	if ( samples > 0 ) 
+	if( samples > 0 )
 		Voice_StartChannel( samples, voice.decompress_buffer, ent );
 }
 
@@ -345,50 +363,17 @@ void CL_AddVoiceToDatagram( void )
 {
 	uint size, frames = 0;
 
-	if ( cls.state != ca_active || !Voice_IsRecording() )
+	if( cls.state != ca_active || !Voice_IsRecording() )
 		return;
 	
 	size = Voice_GetCompressedData( voice.output_buffer, sizeof( voice.output_buffer ), &frames );
 
-	if ( size > 0 && MSG_GetNumBytesLeft( &cls.datagram ) >= size + 32 )
+	if( size > 0 && MSG_GetNumBytesLeft( &cls.datagram ) >= size + 32 )
 	{
 		MSG_BeginClientCmd( &cls.datagram, clc_voicedata );
-		MSG_WriteByte( &cls.datagram, Voice_GetLoopback() );
+		MSG_WriteByte( &cls.datagram, voice_loopback.value != 0 );
 		MSG_WriteByte( &cls.datagram, frames );
 		MSG_WriteShort( &cls.datagram, size );
 		MSG_WriteBytes( &cls.datagram, voice.output_buffer, size );
 	}
-}
-
-qboolean Voice_GetLoopback( void )
-{
-	return voice_loopback.value;
-}
-
-void Voice_LocalPlayerTalkingAck( void )
-{
-	if ( !voice.talking_ack )
-	{
-		Voice_Status( -2, true );
-	}
-
-	voice.talking_ack = true;
-	voice.talking_timeout = 0.0f;
-}
-
-void Voice_PlayerTalkingAck(int playerIndex)
-{
-	if( !voice.players_status[playerIndex].talking_ack )
-	{
-		Voice_Status( playerIndex, true );
-	}
-
-	voice.players_status[playerIndex].talking_ack = true;
-	voice.players_status[playerIndex].talking_timeout = 0.0f;
-}
-
-void Voice_StartChannel( uint samples, byte *data, int entnum )
-{
-	SND_ForceInitMouth( entnum );
-	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, voice.channels, data, 255 );
 }
