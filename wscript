@@ -44,7 +44,7 @@ SUBDIRS = [
 	Subproject('mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('vgui_support', lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',  lambda x: not x.env.DEDICATED),
-	Subproject('game_launch',  lambda x: not x.env.SINGLE_BINARY and not x.env.DEST_OS != 'android'),
+	Subproject('game_launch',  lambda x: not x.env.SINGLE_BINARY and x.env.DEST_OS != 'android'),
 
 	# disable only by external dependency presense
 	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS),
