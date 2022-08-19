@@ -1046,7 +1046,7 @@ int SV_CalcPing( sv_client_t *cl )
 
 	// bots don't have a real ping
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ) || !cl->frames )
-		return 5;
+		return 0;
 
 	if( SV_UPDATE_BACKUP <= 31 )
 	{
