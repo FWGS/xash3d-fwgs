@@ -72,6 +72,9 @@ def options(opt):
 	grp.add_option('-P', '--enable-packaging', action = 'store_true', dest = 'PACKAGING', default = False,
 		help = 'respect prefix option, useful for packaging for various operating systems [default: %default]')
 
+	grp.add_option('--enabled-bundled-deps', action = 'store_true', dest = 'BUILD_BUNDLED_DEPS', default = False,
+		help = 'prefer to build bundled dependencies (like opus) instead of relying on system provided')
+
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
 
@@ -322,6 +325,12 @@ int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
 			conf.env.PREFIX = '/'
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
+
+	if not conf.options.BUILD_BUNDLED_DEPS:
+		# check if we can use system opus
+		if conf.check_pkg('opus', 'opus', '''#include <opus.h>
+int main(void){ return (opus_encoder_create(48000, 2, OPUS_APPLICATION_VOIP, 0) != 0) && (opus_decoder_create(48000, 2, 0) != 0);}''', fatal = False):
+			conf.env.HAVE_SYSTEM_OPUS = True
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
