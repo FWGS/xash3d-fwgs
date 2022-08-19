@@ -3,24 +3,10 @@
 
 import os
 
-OPUS_CHECK='''#include <opus.h>
-#include <stddef.h>
-int main()
-{
-	OpusEncoder *oe = opus_encoder_create(48000, 2, OPUS_APPLICATION_VOIP, NULL);
-	OpusDecoder *od = opus_decoder_create(48000, 2, NULL);
-	return !oe || !od;
-}
-'''
-
 def options(opt):
 	pass
 
 def configure(conf):
-	if conf.check_pkg('opus', 'OPUS', OPUS_CHECK, fatal = False):
-		conf.env.HAVE_OPUS = True
-		return
-
 	if not conf.path.find_dir('opus') or not conf.path.find_dir('opus/src'):
 		conf.fatal('Can\'t find opus submodule. Run `git submodule update --init --recursive`.')
 		return
@@ -29,9 +15,6 @@ def configure(conf):
 	# TODO: maybe call autotools/cmake/meson instead?
 
 def build(bld):
-	if bld.env.HAVE_OPUS:
-		return
-
 	sources = bld.path.ant_glob([
 		'opus/src/*.c',
 		'opus/celt/*.c',
