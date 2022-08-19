@@ -161,26 +161,33 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 
 	switch( quality )
 	{
-	case 1: // 4800 bits per second, <4 kHz bandwidth
-		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 4800 ));
-		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_NARROWBAND ));
-		break;
-	case 2: // 12000 bits per second, <6 kHz bandwidth
-		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 12000 ));
+	case 1: // 6 kbps, <6 kHz bandwidth
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 6000 ));
 		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_MEDIUMBAND ));
 		break;
-	case 4: // automatic bitrate, full band (20 kHz)
-		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( OPUS_AUTO ));
+	case 2: // 12 kbps, <12 kHz bandwidth
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 12000 ));
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_SUPERWIDEBAND ));
+		break;
+	case 4: // 64 kbps, full band (20 kHz)
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 64000 ));
 		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_FULLBAND ));
 		break;
-	case 5: // maximum bitrate, full band (20 kHz)
-		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( OPUS_BITRATE_MAX ));
+	case 5: // 96 kbps, full band (20 kHz)
+		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 96000 ));
 		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_FULLBAND ));
 		break;
-	default: // 36000 bits per second, <12 kHz bandwidth
+	default: // 36 kbps, <12 kHz bandwidth
 		opus_encoder_ctl( voice.encoder, OPUS_SET_BITRATE( 36000 ));
 		opus_encoder_ctl( voice.encoder, OPUS_SET_BANDWIDTH( OPUS_BANDWIDTH_SUPERWIDEBAND ));
 		break;
+	}
+
+	if (quality == 5) {
+		opus_encoder_ctl( voice.encoder, OPUS_SET_APPLICATION( OPUS_APPLICATION_AUDIO ));
+	}
+	else {
+		opus_encoder_ctl( voice.encoder, OPUS_SET_APPLICATION( OPUS_APPLICATION_VOIP ));
 	}
 
 	voice.initialized = (err == OPUS_OK);
@@ -354,10 +361,12 @@ static void Voice_StartChannel( uint samples, byte *data, int entnum )
 
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
+	int samples;
+
 	if( !voice.initialized )
 		return;
 
-	int samples = opus_decode( voice.decoder, data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
+	samples = opus_decode( voice.decoder, data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
 
 	if( samples > 0 )
 		Voice_StartChannel( samples, voice.decompress_buffer, ent );
