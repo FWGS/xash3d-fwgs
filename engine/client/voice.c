@@ -138,8 +138,8 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 		return false;
 
 	Voice_DeInit();
-	
-	voice.initialized = true;
+
+	voice.initialized = false;
 	voice.channels = 1;
 	voice.width = 2;
 	voice.samplerate = SOUND_48k;
@@ -149,13 +149,13 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 	if( !VoiceCapture_Init() )
 	{
 		Voice_DeInit();
-		return false;
+		return voice.initialized;
 	}
 
 	voice.encoder = opus_encoder_create( voice.samplerate, voice.channels, OPUS_APPLICATION_VOIP, &err );
 
 	if( err != OPUS_OK )
-		return false;
+		return voice.initialized;
 
 	voice.decoder = opus_decoder_create( voice.samplerate, voice.channels, &err );
 
@@ -183,7 +183,8 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 		break;
 	}
 
-	return err == OPUS_OK;
+	voice.initialized = (err == OPUS_OK);
+	return voice.initialized;
 }
 
 void Voice_DeInit( void )
@@ -353,6 +354,9 @@ static void Voice_StartChannel( uint samples, byte *data, int entnum )
 
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
+	if( !voice.initialized )
+		return;
+
 	int samples = opus_decode( voice.decoder, data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
 
 	if( samples > 0 )
