@@ -17,28 +17,30 @@ GNU General Public License for more details.
 #ifndef VOICE_H
 #define VOICE_H
 
-#include <opus.h>
-
-#include "common.h"
-#include "client.h"
+#include "protocol.h" // MAX_CLIENTS
 #include "sound.h"
-#include "soundlib/soundlib.h"
-#include "library.h"
 
 extern convar_t voice_scale;
+
+typedef struct OpusDecoder OpusDecoder;
+typedef struct OpusEncoder OpusEncoder;
+
+#define VOICE_LOCALPLAYER_INDEX (-2)
+
+typedef struct voice_status_s
+{
+	qboolean talking_ack;
+	double talking_timeout;
+} voice_status_t;
 
 typedef struct voice_state_s
 {
 	qboolean initialized;
 	qboolean is_recording;
-	float start_time;
-	qboolean talking_ack;
-	float talking_timeout;
+	double start_time;
 
-	struct {
-		qboolean talking_ack;
-		float talking_timeout;
-	} players_status[32];
+	voice_status_t local;
+	voice_status_t players_status[MAX_CLIENTS];
 
 	// opus stuff
 	OpusEncoder *encoder;
@@ -72,16 +74,12 @@ void CL_AddVoiceToDatagram( void );
 void Voice_RegisterCvars( void );
 qboolean Voice_Init( const char *pszCodecName, int quality );
 void Voice_DeInit( void );
-uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames );
-void Voice_Idle( float frametime );
+void Voice_Idle( double frametime );
 qboolean Voice_IsRecording( void );
 void Voice_RecordStop( void );
 void Voice_RecordStart( void );
 void Voice_Disconnect( void );
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames );
-qboolean Voice_GetLoopback( void );
-void Voice_LocalPlayerTalkingAck( void );
-void Voice_PlayerTalkingAck( int playerIndex );
-void Voice_StartChannel( uint samples, byte *data, int entnum );
+void Voice_StatusAck( voice_status_t *status, int playerIndex );
 
 #endif // VOICE_H

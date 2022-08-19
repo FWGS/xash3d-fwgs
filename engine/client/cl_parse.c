@@ -1715,9 +1715,9 @@ void CL_ParseVoiceData( sizebuf_t *msg )
 		return;
 
 	if( idx == cl.playernum + 1 )
-		Voice_LocalPlayerTalkingAck();
+		Voice_StatusAck( &voice.local, VOICE_LOCALPLAYER_INDEX );
 	else
-		Voice_PlayerTalkingAck( idx );
+		Voice_StatusAck( &voice.players_status[idx], idx );
 
 	if ( !size )
 		return;
