@@ -332,3 +332,4 @@ __pycache__
 *.code-workspace
 .history/*
 .cache/*
+enc_temp_folder/
