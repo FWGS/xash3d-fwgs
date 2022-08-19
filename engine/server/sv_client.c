@@ -2580,17 +2580,17 @@ void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 	size = MSG_ReadShort( msg );
 	client = cl - svs.clients;
 
-	if ( size > sizeof( received ) )
+	if( size > sizeof( received ))
 	{
 		Con_DPrintf( "SV_ParseVoiceData: invalid incoming packet.\n" );
 		SV_DropClient( cl, false );
 		return;
 	}
 
-	if ( (int)sv_voiceenable.value == 0 )
-		return;
-
 	MSG_ReadBytes( msg, received, size );
+
+	if( !sv_voiceenable.value )
+		return;
 
 	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
 	{
@@ -2600,10 +2600,10 @@ void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 		length = size;
 
 		// 6 is a number of bytes for other parts of message
-		if ( MSG_GetNumBytesLeft( &cur->datagram ) < length + 6 )
+		if( MSG_GetNumBytesLeft( &cur->datagram ) < length + 6 )
 			continue;
 
-		if ( cl == cur && !cur->m_bLoopback )
+		if( cl == cur && !cur->m_bLoopback )
 			length = 0;
 
 		MSG_BeginServerCmd( &cur->datagram, svc_voicedata );
