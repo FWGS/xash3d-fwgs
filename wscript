@@ -14,60 +14,44 @@ top = '.'
 Context.Context.line_just = 55 # should fit for everything on 80x26
 
 class Subproject:
-	name      = ''
-	dedicated = True  # if true will be ignored when building dedicated server
-	singlebin = False # if true will be ignored when singlebinary is set
-	ignore    = False # if true will be ignored, set by user request
-	mandatory  = False
-
-	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, utility = False, fuzzer = False):
+	def __init__(self, name, fnFilter = None):
 		self.name = name
-		self.dedicated = dedicated
-		self.singlebin = singlebin
-		self.mandatory = mandatory
-		self.utility = utility
-		self.fuzzer = fuzzer
+		self.fnFilter = fnFilter
+
+	def is_exists(self, ctx):
+		return ctx.path.find_node(self.name + '/wscript')
 
 	def is_enabled(self, ctx):
-		if not self.mandatory:
-			if self.name in ctx.env.IGNORE_PROJECTS:
-				self.ignore = True
-
-		if self.ignore:
+		if not self.is_exists(ctx):
 			return False
 
-		if ctx.env.SINGLE_BINARY and self.singlebin:
-			return False
-
-		if ctx.env.DEST_OS == 'android' and self.singlebin:
-			return False
-
-		if ctx.env.DEDICATED and self.dedicated:
-			return False
-
-		if self.utility and not ctx.env.ENABLE_UTILS:
-			return False
-
-		if self.fuzzer and not ctx.env.ENABLE_FUZZER:
-			return False
+		if self.fnFilter:
+			return self.fnFilter(ctx)
 
 		return True
 
 SUBDIRS = [
-	Subproject('3rdparty/opus', dedicated=False, mandatory=True),
-	Subproject('public',      dedicated=False, mandatory = True),
-	Subproject('filesystem',  dedicated=False, mandatory = True),
-	Subproject('game_launch', singlebin=True),
-	Subproject('ref_gl',),
-	Subproject('ref_soft'),
-	Subproject('mainui'),
-	Subproject('vgui_support'),
-	Subproject('stub/server', dedicated=False),
-	Subproject('stub/client'),
+	# always configured and built
+	Subproject('public'),
+	Subproject('filesystem'),
+	Subproject('engine'),
+	Subproject('stub/server'),
 	Subproject('dllemu'),
-	Subproject('engine', dedicated=False),
-	Subproject('utils/mdldec', utility=True),
-	Subproject('utils/run-fuzzer', fuzzer=True)
+
+	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
+	Subproject('ref_gl',       lambda x: not x.env.DEDICATED),
+	Subproject('ref_soft',     lambda x: not x.env.DEDICATED),
+	Subproject('mainui',       lambda x: not x.env.DEDICATED),
+	Subproject('vgui_support', lambda x: not x.env.DEDICATED),
+	Subproject('stub/client',  lambda x: not x.env.DEDICATED),
+	Subproject('game_launch',  lambda x: not x.env.SINGLE_BINARY and not x.env.DEST_OS != 'android'),
+
+	# disable only by external dependency presense
+	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS),
+
+	# enabled optionally
+	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
+	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
 ]
 
 def subdirs():
@@ -94,9 +78,6 @@ def options(opt):
 	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = 'int',
 		help = 'enable low memory mode (only for devices have <128 ram)')
 
-	grp.add_option('--ignore-projects', action = 'store', dest = 'IGNORE_PROJECTS', default = None,
-		help = 'disable selected projects from build [default: %default]')
-
 	grp.add_option('--disable-werror', action = 'store_true', dest = 'DISABLE_WERROR', default = False,
 		help = 'disable compilation abort on warning')
 
@@ -111,8 +92,7 @@ def options(opt):
 	opt.load('compiler_optimizations subproject')
 
 	for i in SUBDIRS:
-		if not i.mandatory and not opt.path.find_node(i.name+'/wscript'):
-			i.ignore = True
+		if not i.is_exists(opt):
 			continue
 
 		opt.add_subproject(i.name)
@@ -124,9 +104,6 @@ def options(opt):
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
-	if conf.options.IGNORE_PROJECTS:
-		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
-
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 
 	# Load compilers early
