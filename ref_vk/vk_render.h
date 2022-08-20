@@ -57,9 +57,6 @@ typedef struct  vk_render_geometry_s {
 	// - updating dynamic lights (TODO: can decouple from surface/brush models by providing texture_id and aabb directly here)
 	const struct msurface_s *surf;
 
-	// Index into kusochki buffer for current frame
-	uint32_t kusok_index;
-
 	// for kXVkMaterialEmissive
 	vec3_t emissive;
 } vk_render_geometry_t;

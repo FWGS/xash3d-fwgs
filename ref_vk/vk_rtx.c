@@ -10,6 +10,7 @@
 #include "vk_common.h"
 #include "vk_buffer.h"
 #include "vk_pipeline.h"
+#include "vk_staging.h"
 #include "vk_cvar.h"
 #include "vk_textures.h"
 #include "vk_light.h"
@@ -35,9 +36,12 @@
 #if 1
 #define FRAME_WIDTH 1280
 #define FRAME_HEIGHT 720
-#else
+#elif 0
 #define FRAME_WIDTH 2560
 #define FRAME_HEIGHT 1440
+#else
+#define FRAME_WIDTH 1920
+#define FRAME_HEIGHT 1080
 #endif
 
 // TODO sync with shaders
@@ -590,14 +594,31 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 		},
 	};
 
+	// Upload kusochki updates
+	{
+		R_VkStagingCommit(cmdbuf);
+		const VkBufferMemoryBarrier bmb[] = { {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+			.buffer = g_ray_model_state.kusochki_buffer.buffer,
+			.offset = 0,
+			.size = VK_WHOLE_SIZE,
+		} };
+
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+	}
 
 	DEBUG_BEGIN(cmdbuf, "yay tracing");
 	prepareTlas(cmdbuf);
 	prepareUniformBuffer(args->render_args, args->frame_index, args->fov_angle_y);
 
-	// 4. Barrier for TLAS build and dest image layout transfer
+	// 4. Barrier for TLAS build
 	{
-		VkBufferMemoryBarrier bmb[] = { {
+		const VkBufferMemoryBarrier bmb[] = { {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
 			.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
 			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,

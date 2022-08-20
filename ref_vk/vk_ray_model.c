@@ -153,7 +153,7 @@ void XVK_RayModel_Validate( void ) {
 	}
 }
 
-static void applyMaterialToKusok( vk_kusok_data_t* kusok, const vk_render_geometry_t *geom, const vec3_t color) {
+static void applyMaterialToKusok( vk_kusok_data_t* kusok, const vk_render_geometry_t *geom, const vec3_t color, qboolean HACK_reflective) {
 	const xvk_material_t *const mat = XVK_GetMaterialForTextureIndex( geom->texture );
 	ASSERT(mat);
 
@@ -168,7 +168,6 @@ static void applyMaterialToKusok( vk_kusok_data_t* kusok, const vk_render_geomet
 	kusok->roughness = mat->roughness;
 	kusok->metalness = mat->metalness;
 
-/* FIXME
 	// HACK until there is a proper mechanism for patching materials, see https://github.com/w23/xash3d-fwgs/issues/213
 	// FIXME also this erases previous roughness unconditionally
 	if (HACK_reflective) {
@@ -176,7 +175,6 @@ static void applyMaterialToKusok( vk_kusok_data_t* kusok, const vk_render_geomet
 	} else if (!mat->set && geom->material == kXVkMaterialChrome) {
 		kusok->tex_roughness = tglob.grayTexture;
 	}
-*/
 
 	if (geom->material == kXVkMaterialSky)
 		kusok->tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
@@ -196,7 +194,7 @@ static void applyMaterialToKusok( vk_kusok_data_t* kusok, const vk_render_geomet
 		RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
 	}
 
-/* FIXME
+/* FIXME these should be done in a different way
 	if (geom->material == kXVkMaterialConveyor) {
 		computeConveyorSpeed( entcolor, geom->texture, kusok->uv_speed );
 	} else */ {
@@ -294,9 +292,7 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 		VectorSet(kusochki[i].emissive, 0, 0, 0 );
 
 		vec3_t color = {1, 1, 1};
-		applyMaterialToKusok(kusochki + i, mg, color);
-
-		mg->kusok_index = i + kusochki_count_offset;
+		applyMaterialToKusok(kusochki + i, mg, color, false);
 	}
 
 	R_VkStagingUnlock(kusok_staging.handle);
@@ -421,6 +417,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 	ASSERT(vk_core.rtx);
 	ASSERT(g_ray_model_state.frame.num_models <= ARRAYSIZE(g_ray_model_state.frame.models));
+	ASSERT(model->num_geoms == render_model->num_geometries);
 
 	if (g_ray_model_state.freeze_models)
 		return;
@@ -434,7 +431,6 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		ASSERT(model->as != VK_NULL_HANDLE);
 		draw_model->model = model;
 		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
-		g_ray_model_state.frame.num_models++;
 	}
 
 	switch (render_model->render_mode) {
@@ -464,61 +460,42 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			gEngine.Host_Error("Unexpected render mode %d\n", render_model->render_mode);
 	}
 
-#if 0 // FIXME implement staging:
+// TODO optimize:
 // - collect list of geoms for which we could update anything (animated textues, uvs, etc)
 // - update only those through staging
 // - also consider tracking whether the main model color has changed (that'd need to update everything yay)
-	for (int i = 0; i < render_model->num_geometries; ++i) {
-		const vk_render_geometry_t *geom = render_model->geometries + i;
-		vk_kusok_data_t *kusok = (vk_kusok_data_t*)(g_ray_model_state.kusochki_buffer.mapped) + geom->kusok_index;
-		const xvk_material_t *const mat = XVK_GetMaterialForTextureIndex( geom->texture );
-		ASSERT(mat);
+	if (0)
+	{
+		const vk_staging_buffer_args_t staging_args = {
+			.buffer = g_ray_model_state.kusochki_buffer.buffer,
+			.offset = model->kusochki_offset * sizeof(vk_kusok_data_t),
+			.size = render_model->num_geometries * sizeof(vk_kusok_data_t),
+			.alignment = 16,
+		};
+		const vk_staging_region_t kusok_staging = R_VkStagingLockForBuffer(staging_args);
 
-		/* if (!render_model->static_map) */
-		/* 	VK_LightsAddEmissiveSurface( geom, transform_row, false ); */
-
-		kusok->tex_base_color = mat->tex_base_color;
-		kusok->tex_roughness = mat->tex_roughness;
-		kusok->tex_metalness = mat->tex_metalness;
-		kusok->tex_normalmap = mat->tex_normalmap;
-
-		kusok->roughness = mat->roughness;
-		kusok->metalness = mat->metalness;
-
-		// HACK until there is a proper mechanism for patching materials, see https://github.com/w23/xash3d-fwgs/issues/213
-		// FIXME also this erases previous roughness unconditionally
-		if (HACK_reflective) {
-			kusok->tex_roughness = tglob.blackTexture;
-		} else if (!mat->set && geom->material == kXVkMaterialChrome) {
-			kusok->tex_roughness = tglob.grayTexture;
+		if (!kusok_staging.ptr) {
+			gEngine.Con_Printf(S_ERROR "Couldn't allocate staging for %d kusochkov for model %s\n", model->num_geoms, render_model->debug_name);
+			return;
 		}
 
-		if (geom->material == kXVkMaterialSky) {
-			kusok->tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
+		vk_kusok_data_t *const kusochki = kusok_staging.ptr;
+
+		for (int i = 0; i < render_model->num_geometries; ++i) {
+			const vk_render_geometry_t *geom = render_model->geometries + i;
+			applyMaterialToKusok( kusochki + i, geom, color, HACK_reflective );
 		}
 
-		{
-			vec4_t gcolor;
-			gcolor[0] = color[0] * mat->base_color[0];
-			gcolor[1] = color[1] * mat->base_color[1];
-			gcolor[2] = color[2] * mat->base_color[2];
-			gcolor[3] = color[3];
-			Vector4Copy(gcolor, kusok->color);
-		}
+		gEngine.Con_Reportf("model %s: geom=%d kind=%d ko=%d ks=%d handle=%d\n",
+				render_model->debug_name,
+				render_model->num_geometries,
+				model->kusochki_offset,
+				staging_args.offset, staging_args.size,
+				kusok_staging.handle
+				);
 
-		if (geom->material == kXVkMaterialEmissive) {
-			VectorCopy( geom->emissive, kusok->emissive );
-		} else {
-			RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
-		}
-
-		if (geom->material == kXVkMaterialConveyor) {
-			computeConveyorSpeed( entcolor, geom->texture, kusok->uv_speed );
-		} else {
-			kusok->uv_speed[0] = kusok->uv_speed[1] = 0.f;
-		}
+		R_VkStagingUnlock(kusok_staging.handle);
 	}
-#endif
 
 	for (int i = 0; i < render_model->polylights_count; ++i) {
 		rt_light_add_polygon_t *const polylight = render_model->polylights + i;
@@ -526,6 +503,8 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		polylight->dynamic = true;
 		RT_LightAddPolygon(polylight);
 	}
+
+	g_ray_model_state.frame.num_models++;
 }
 
 void RT_RayModel_Clear(void) {
