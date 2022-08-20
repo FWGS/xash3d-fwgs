@@ -31,6 +31,20 @@ CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "automat
 CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
 CVAR_DEFINE_AUTO( voice_inputfromfile, "0", FCVAR_PRIVILEGED, "input voice from voice_input.wav" );
 
+/*
+===============================================================================
+
+	OPUS INTEGRATION
+
+===============================================================================
+*/
+
+/*
+=========================
+Voice_GetBandwithTypeName
+
+=========================
+*/
 static const char* Voice_GetBandwidthTypeName( int bandwidthType )
 {
 	switch( bandwidthType )
@@ -44,6 +58,12 @@ static const char* Voice_GetBandwidthTypeName( int bandwidthType )
 	}
 }
 
+/*
+=========================
+Voice_CodecInfo_f
+
+=========================
+*/
 static void Voice_CodecInfo_f( void )
 {
 	int encoderComplexity;
@@ -63,31 +83,26 @@ static void Voice_CodecInfo_f( void )
 	Con_Printf( "Encoder:\n" );
 	Con_Printf( "  Bitrate: %.3f kbps\n", encoderBitrate / 1000.0f );
 	Con_Printf( "  Complexity: %d\n", encoderComplexity );
-	Con_Printf( "  Bandwidth: %s", Voice_GetBandwidthTypeName( encoderBandwidthType ));
-	Con_Printf( "\n" );
+	Con_Printf( "  Bandwidth: %s\n", Voice_GetBandwidthTypeName( encoderBandwidthType ));
 }
 
-void Voice_RegisterCvars( void )
-{
-	Cvar_RegisterVariable( &voice_enable );
-	Cvar_RegisterVariable( &voice_loopback );
-	Cvar_RegisterVariable( &voice_scale );
-	Cvar_RegisterVariable( &voice_avggain );
-	Cvar_RegisterVariable( &voice_maxgain );
-	Cvar_RegisterVariable( &voice_inputfromfile );
-	Cmd_AddClientCommand( "voice_codecinfo", Voice_CodecInfo_f );
-}
+/*
+=========================
+Voice_GetFrameSize
 
-static void Voice_Status( int entindex, qboolean bTalking )
-{
-	clgame.dllFuncs.pfnVoiceStatus( entindex, bTalking );
-}
-
+=========================
+*/
 static uint Voice_GetFrameSize( float durationMsec )
 {
 	return voice.channels * voice.width * (( float )voice.samplerate / ( 1000.0f / durationMsec ));
 }
 
+/*
+=========================
+Voice_ApplyGainAdjust
+
+=========================
+*/
 static void Voice_ApplyGainAdjust( opus_int16 *samples, int count )
 {
 	float gain, modifiedMax;
@@ -129,35 +144,44 @@ static void Voice_ApplyGainAdjust( opus_int16 *samples, int count )
 	}
 }
 
-// parameters currently unused
-qboolean Voice_Init( const char *pszCodecName, int quality )
+/*
+=========================
+Voice_InitOpusDecoder
+
+=========================
+*/
+static qboolean Voice_InitOpusDecoder( void )
 {
 	int err;
+	voice.decoder = opus_decoder_create( voice.samplerate, voice.channels, &err );
 
-	if( !voice_enable.value )
-		return false;
-
-	Voice_DeInit();
-
-	voice.initialized = false;
-	voice.channels = 1;
-	voice.width = 2;
-	voice.samplerate = SOUND_48k;
-	voice.frame_size = Voice_GetFrameSize( 40.0f ); 
-	voice.autogain.block_size = 128;
-
-	if( !VoiceCapture_Init() )
+	if( !voice.decoder )
 	{
-		Voice_DeInit();
-		return voice.initialized;
+		Con_Printf( S_ERROR "Can't create Opus encoder: %s", opus_strerror( err ));
+		return false;
 	}
 
-	voice.encoder = opus_encoder_create( voice.samplerate, voice.channels, OPUS_APPLICATION_VOIP, &err );
+	return true;
+}
 
-	if( err != OPUS_OK )
-		return voice.initialized;
+/*
+=========================
+Voice_InitOpusEncoder
 
-	voice.decoder = opus_decoder_create( voice.samplerate, voice.channels, &err );
+=========================
+*/
+static qboolean Voice_InitOpusEncoder( int quality )
+{
+	int err;
+	int app = quality == 5 ? OPUS_APPLICATION_AUDIO : OPUS_APPLICATION_VOIP;
+
+	voice.encoder = opus_encoder_create( voice.samplerate, voice.channels, app, &err );
+
+	if( !voice.encoder )
+	{
+		Con_Printf( S_ERROR "Can't create Opus encoder: %s", opus_strerror( err ));
+		return false;
+	}
 
 	switch( quality )
 	{
@@ -183,31 +207,46 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 		break;
 	}
 
-	if (quality == 5) {
-		opus_encoder_ctl( voice.encoder, OPUS_SET_APPLICATION( OPUS_APPLICATION_AUDIO ));
-	}
-	else {
-		opus_encoder_ctl( voice.encoder, OPUS_SET_APPLICATION( OPUS_APPLICATION_VOIP ));
-	}
-
-	voice.initialized = (err == OPUS_OK);
-	return voice.initialized;
+	return true;
 }
 
-void Voice_DeInit( void )
+/*
+=========================
+Voice_ShutdownOpusDecoder
+
+=========================
+*/
+static void Voice_ShutdownOpusDecoder( void )
 {
-	if( !voice.initialized )
-		return;
-
-	Voice_RecordStop();
-
-	opus_encoder_destroy( voice.encoder );
-	opus_decoder_destroy( voice.decoder );
-
-	voice.initialized = false;
+	if( voice.decoder )
+	{
+		opus_decoder_destroy( voice.decoder );
+		voice.decoder = NULL;
+	}
 }
 
-static uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
+/*
+=========================
+Voice_ShutdownOpusEncoder
+
+=========================
+*/
+static void Voice_ShutdownOpusEncoder( void )
+{
+	if( voice.encoder )
+	{
+		opus_encoder_destroy( voice.encoder );
+		voice.encoder = NULL;
+	}
+}
+
+/*
+=========================
+Voice_GetOpusCompressedData
+
+=========================
+*/
+static uint Voice_GetOpusCompressedData( byte *out, uint maxsize, uint *frames )
 {
 	uint ofs, size = 0;
 
@@ -250,6 +289,35 @@ static uint Voice_GetCompressedData( byte *out, uint maxsize, uint *frames )
 	return size;
 }
 
+/*
+===============================================================================
+
+	VOICE CHAT INTEGRATION
+
+===============================================================================
+*/
+
+/*
+=========================
+Voice_Status
+
+Notify user dll aboit voice transmission
+=========================
+*/
+static void Voice_Status( int entindex, qboolean bTalking )
+{
+	if( cls.state == ca_active && clgame.dllFuncs.pfnVoiceStatus )
+		clgame.dllFuncs.pfnVoiceStatus( entindex, bTalking );
+}
+
+/*
+=========================
+Voice_StatusTimeout
+
+Waits few milliseconds and if there was no
+voice transmission, sends notification
+=========================
+*/
 static void Voice_StatusTimeout( voice_status_t *status, int entindex, double frametime )
 {
 	if( status->talking_ack )
@@ -263,6 +331,14 @@ static void Voice_StatusTimeout( voice_status_t *status, int entindex, double fr
 	}
 }
 
+/*
+=========================
+Voice_StatusAck
+
+Sends notification to user dll and
+zeroes timeouts for this client
+=========================
+*/
 void Voice_StatusAck( voice_status_t *status, int playerIndex )
 {
 	if( !status->talking_ack )
@@ -272,28 +348,23 @@ void Voice_StatusAck( voice_status_t *status, int playerIndex )
 	status->talking_timeout = 0.0;
 }
 
-void Voice_Idle( double frametime )
-{
-	int i;
+/*
+=========================
+Voice_IsRecording
 
-	if( !voice_enable.value )
-	{
-		Voice_DeInit();
-		return;
-	}
-
-	// update local player status first
-	Voice_StatusTimeout( &voice.local, VOICE_LOCALPLAYER_INDEX, frametime );
-
-	for( i = 0; i < 32; i++ )
-		Voice_StatusTimeout( &voice.players_status[i], i, frametime );
-}
-
+=========================
+*/
 qboolean Voice_IsRecording( void )
 {
 	return voice.is_recording;
 }
 
+/*
+=========================
+Voice_RecordStop
+
+=========================
+*/
 void Voice_RecordStop( void )
 {
 	if( input_file )
@@ -303,16 +374,22 @@ void Voice_RecordStop( void )
 	}
 
 	voice.input_buffer_pos = 0;
-	memset( voice.input_buffer, 0, sizeof( voice.input_buffer ) );
+	memset( voice.input_buffer, 0, sizeof( voice.input_buffer ));
 
-	if( Voice_IsRecording() )
-		Voice_Status( -1, false );
+	if( Voice_IsRecording( ))
+		Voice_Status( VOICE_LOCALCLIENT_INDEX, false );
 	
 	VoiceCapture_RecordStop();
 	
 	voice.is_recording = false;
 }
 
+/*
+=========================
+Voice_RecordStart
+
+=========================
+*/
 void Voice_RecordStart( void )
 {
 	Voice_RecordStop();
@@ -340,30 +417,64 @@ void Voice_RecordStart( void )
 		voice.is_recording = VoiceCapture_RecordStart();
 
 	if( Voice_IsRecording() )
-		Voice_Status( -1, true );
+		Voice_Status( VOICE_LOCALCLIENT_INDEX, true );
 }
 
+/*
+=========================
+Voice_Disconnect
+
+We're disconnected from server
+stop recording and notify user dlls
+=========================
+*/
 void Voice_Disconnect( void )
 {
 	int i;
 
 	Voice_RecordStop();
-	for( i = 0; i <= 32; i++ ) {
-		Voice_Status( i, false );
+
+	if( voice.local.talking_ack )
+	{
+		Voice_Status( VOICE_LOOPBACK_INDEX, false );
+		voice.local.talking_ack = false;
+	}
+
+	for( i = 0; i < MAX_CLIENTS; i++ )
+	{
+		if( voice.players_status[i].talking_ack )
+		{
+			Voice_Status( i, false );
+			voice.players_status[i].talking_ack = false;
+		}
 	}
 }
 
+/*
+=========================
+Voice_StartChannel
+
+Feed the decoded data to engine sound subsystem
+=========================
+*/
 static void Voice_StartChannel( uint samples, byte *data, int entnum )
 {
 	SND_ForceInitMouth( entnum );
 	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, voice.channels, data, 255 );
 }
 
+/*
+=========================
+Voice_AddIncomingData
+
+Received encoded voice data, decode it
+=========================
+*/
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
 	int samples;
 
-	if( !voice.initialized )
+	if( !voice.decoder )
 		return;
 
 	samples = opus_decode( voice.decoder, data, size, (short *)voice.decompress_buffer, voice.frame_size / voice.width * frames, false );
@@ -372,14 +483,21 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 		Voice_StartChannel( samples, voice.decompress_buffer, ent );
 }
 
+/*
+=========================
+CL_AddVoiceToDatagram
+
+Encode our voice data and send it to server
+=========================
+*/
 void CL_AddVoiceToDatagram( void )
 {
 	uint size, frames = 0;
 
-	if( cls.state != ca_active || !Voice_IsRecording() )
+	if( cls.state != ca_active || !Voice_IsRecording() || !voice.encoder )
 		return;
 	
-	size = Voice_GetCompressedData( voice.output_buffer, sizeof( voice.output_buffer ), &frames );
+	size = Voice_GetOpusCompressedData( voice.output_buffer, sizeof( voice.output_buffer ), &frames );
 
 	if( size > 0 && MSG_GetNumBytesLeft( &cls.datagram ) >= size + 32 )
 	{
@@ -389,4 +507,123 @@ void CL_AddVoiceToDatagram( void )
 		MSG_WriteShort( &cls.datagram, size );
 		MSG_WriteBytes( &cls.datagram, voice.output_buffer, size );
 	}
+}
+
+/*
+=========================
+Voice_RegisterCvars
+
+Register voice related cvars and commands
+=========================
+*/
+void Voice_RegisterCvars( void )
+{
+	Cvar_RegisterVariable( &voice_enable );
+	Cvar_RegisterVariable( &voice_loopback );
+	Cvar_RegisterVariable( &voice_scale );
+	Cvar_RegisterVariable( &voice_avggain );
+	Cvar_RegisterVariable( &voice_maxgain );
+	Cvar_RegisterVariable( &voice_inputfromfile );
+	Cmd_AddClientCommand( "voice_codecinfo", Voice_CodecInfo_f );
+}
+
+/*
+=========================
+Voice_Shutdown
+
+Completely shutdown the voice subsystem
+=========================
+*/
+static void Voice_Shutdown( void )
+{
+	int i;
+
+	Voice_RecordStop();
+	Voice_ShutdownOpusEncoder();
+	Voice_ShutdownOpusDecoder();
+	VoiceCapture_Shutdown();
+
+	if( voice.local.talking_ack )
+		Voice_Status( VOICE_LOOPBACK_INDEX, false );
+
+	for( i = 0; i < MAX_CLIENTS; i++ )
+	{
+		if( voice.players_status[i].talking_ack )
+			Voice_Status( i, false );
+	}
+
+	memset( &voice, 0, sizeof( voice ));
+}
+
+/*
+=========================
+Voice_Idle
+
+Run timeout for all clients
+=========================
+*/
+void Voice_Idle( double frametime )
+{
+	int i;
+
+	if( !voice_enable.value )
+	{
+		Voice_Shutdown();
+		return;
+	}
+
+	// update local player status first
+	Voice_StatusTimeout( &voice.local, VOICE_LOOPBACK_INDEX, frametime );
+
+	for( i = 0; i < MAX_CLIENTS; i++ )
+		Voice_StatusTimeout( &voice.players_status[i], i, frametime );
+}
+
+/*
+=========================
+Voice_Init
+
+Initialize the voice subsystem
+=========================
+*/
+qboolean Voice_Init( const char *pszCodecName, int quality )
+{
+	if( !voice_enable.value )
+		return false;
+
+	Voice_Shutdown();
+
+	if( Q_strcmp( pszCodecName, "opus" ))
+	{
+		Con_Printf( S_ERROR "Server requested unsupported codec: %s", pszCodecName );
+		return false;
+	}
+
+	voice.initialized = false;
+	voice.channels = 1;
+	voice.width = 2;
+	voice.samplerate = SOUND_48k;
+	voice.frame_size = Voice_GetFrameSize( 40.0f );
+	voice.autogain.block_size = 128;
+
+	if( !Voice_InitOpusDecoder( ))
+	{
+		// no reason to init encoder and open audio device
+		// if we can't hear other players
+		Con_Printf( S_ERROR "Voice chat disabled.\n" );
+		Voice_Shutdown();
+		return false;
+	}
+
+	// we can hear others players, so it's fine to fail now
+	voice.initialized = true;
+
+	if( !Voice_InitOpusEncoder( quality ) || !VoiceCapture_Init() )
+	{
+		Voice_ShutdownOpusEncoder();
+		Con_Printf( S_WARN "Other players will not be able to hear you.\n" );
+		return true;
+	}
+
+	return true;
 }

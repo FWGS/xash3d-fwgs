@@ -20,12 +20,11 @@ GNU General Public License for more details.
 #include "protocol.h" // MAX_CLIENTS
 #include "sound.h"
 
-extern convar_t voice_scale;
-
 typedef struct OpusDecoder OpusDecoder;
 typedef struct OpusEncoder OpusEncoder;
 
-#define VOICE_LOCALPLAYER_INDEX (-2)
+#define VOICE_LOOPBACK_INDEX (-2)
+#define VOICE_LOCALCLIENT_INDEX (-1)
 
 typedef struct voice_status_s
 {
@@ -73,7 +72,6 @@ void CL_AddVoiceToDatagram( void );
 
 void Voice_RegisterCvars( void );
 qboolean Voice_Init( const char *pszCodecName, int quality );
-void Voice_DeInit( void );
 void Voice_Idle( double frametime );
 qboolean Voice_IsRecording( void );
 void Voice_RecordStop( void );
