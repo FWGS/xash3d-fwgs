@@ -44,7 +44,7 @@ so it can unlock and free the data block after it has been played.
 =======================================================================
 */
 static int sdl_dev;
-static SDL_AudioDeviceID in_dev;
+static SDL_AudioDeviceID in_dev = 0;
 static SDL_AudioFormat sdl_format;
 
 //static qboolean	snd_firsttime = true;
@@ -259,7 +259,7 @@ qboolean VoiceCapture_Init( void )
 
 	in_dev = SDL_OpenAudioDevice( NULL, SDL_TRUE, &wanted, &spec, 0 );
 
-	if( SDLash_IsAudioError( in_dev ) )
+	if( SDLash_IsAudioError( in_dev ))
 	{
 		Con_Printf( "VoiceCapture_Init: error creating capture device (%s)\n", SDL_GetError() );
 		return false;
@@ -288,7 +288,21 @@ VoiceCapture_RecordStop
 */
 void VoiceCapture_RecordStop( void )
 {
-	SDL_PauseAudioDevice( in_dev, SDL_TRUE );
+	if( in_dev )
+		SDL_PauseAudioDevice( in_dev, SDL_TRUE );
+}
+
+/*
+==========
+VoiceCapture_Shutdown
+==========
+*/
+void VoiceCapture_Shutdown( void )
+{
+	if( !in_dev )
+		return;
+
+	SDL_CloseAudioDevice( in_dev );
 }
 
 #endif // XASH_SOUND == SOUND_SDL
