@@ -1851,7 +1851,7 @@ S_SoundInfo_f
 */
 void S_SoundInfo_f( void )
 {
-	Con_Printf( "Audio: DirectSound\n" );
+	Con_Printf( "Audio backend: %s\n", dma.backendName );
 	Con_Printf( "%5d channel(s)\n", 2 );
 	Con_Printf( "%5d samples\n", dma.samples );
 	Con_Printf( "%5d bits/sample\n", 16 );
@@ -1927,6 +1927,7 @@ qboolean S_Init( void )
 	Cmd_AddCommand( "spk", S_SayReliable_f, "reliable play a specified sententce" );
 	Cmd_AddCommand( "speak", S_Say_f, "playing a specified sententce" );
 
+	dma.backendName = "None";
 	if( !SNDDMA_Init( ) )
 	{
 		Con_Printf( "Audio: sound system can't be initialized\n" );

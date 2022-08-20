@@ -114,10 +114,11 @@ typedef struct snd_format_s
 typedef struct
 {
 	snd_format_t	format;
-	int		samples;		// mono samples in buffer
-	int		samplepos;	// in mono samples
-	byte		*buffer;
+	int				samples;		// mono samples in buffer
+	int				samplepos;	// in mono samples
+	byte			*buffer;
 	qboolean		initialized;	// sound engine is active
+	const char		*backendName;
 } dma_t;
 
 #include "vox.h"
