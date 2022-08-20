@@ -46,6 +46,7 @@ so it can unlock and free the data block after it has been played.
 static int sdl_dev;
 static SDL_AudioDeviceID in_dev = 0;
 static SDL_AudioFormat sdl_format;
+static char sdl_backend_name[32];
 
 //static qboolean	snd_firsttime = true;
 //static qboolean	primary_format_set;
@@ -139,8 +140,9 @@ qboolean SNDDMA_Init( void )
 	sdl_format = obtained.format;
 
 	Con_Printf( "Using SDL audio driver: %s @ %d Hz\n", SDL_GetCurrentAudioDriver( ), obtained.freq );
-
+	Q_snprintf( sdl_backend_name, sizeof( sdl_backend_name ), "SDL (%s)", SDL_GetCurrentAudioDriver( ));
 	dma.initialized = true;
+	dma.backendName = sdl_backend_name;
 
 	SNDDMA_Activate( true );
 

@@ -185,12 +185,12 @@ qboolean SNDDMA_Init( void )
 	}
 
 	dma.buffer = Z_Malloc( samples * 2 );  //allocate pcm frame buffer
-
 	dma.samplepos = 0;
-
 	dma.samples = samples;
 	dma.format.width = 2;
 	dma.initialized = 1;
+	dma.backendName = "ALSA";
+
 	snd_pcm_prepare( s_alsa.pcm_handle );
 	snd_pcm_writei( s_alsa.pcm_handle, dma.buffer, 2 * s_alsa.period_size );
 	snd_pcm_start( s_alsa.pcm_handle );
