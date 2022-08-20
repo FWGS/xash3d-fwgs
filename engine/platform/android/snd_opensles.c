@@ -209,7 +209,7 @@ qboolean SNDDMA_Init( void )
 	}
 
 	Msg( "OpenSL ES audio initialized.\n" );
-
+	dma.backendName = "OpenSL ES";
 	return true;
 }
 
