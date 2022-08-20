@@ -660,23 +660,6 @@ qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) 
 			.buffer = geom_buffer,
 			.model = model,
 		};
-		R_VkStagingCommit(cmdbuf); // FIXME this is definitely not the right place
-		{
-			const VkBufferMemoryBarrier bmb[] = { {
-				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-				.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-				//.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, // FIXME
-				.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT, // FIXME
-				.buffer = geom_buffer,
-				.offset = 0, // FIXME
-				.size = VK_WHOLE_SIZE, // FIXME
-			} };
-			vkCmdPipelineBarrier(cmdbuf,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				//VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-				0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
-		}
 		model->ray_model = VK_RayModelCreate(cmdbuf, args);
 		return !!model->ray_model;
 	}
