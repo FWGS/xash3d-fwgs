@@ -269,4 +269,9 @@ void VoiceCapture_RecordStop( void )
 {
 
 }
+
+void VoiceCapture_Shutdown( void )
+{
+
+}
 #endif

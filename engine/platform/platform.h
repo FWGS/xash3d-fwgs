@@ -162,6 +162,7 @@ void SNDDMA_Activate( qboolean active ); // pause audio
 // void SNDDMA_LockSound( void ); // unused
 // void SNDDMA_UnlockSound( void ); // unused
 qboolean VoiceCapture_Init( void );
+void VoiceCapture_Shutdown( void );
 qboolean VoiceCapture_RecordStart( void );
 void VoiceCapture_RecordStop( void );
 
