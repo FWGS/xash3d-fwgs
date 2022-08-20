@@ -618,12 +618,14 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 	// we can hear others players, so it's fine to fail now
 	voice.initialized = true;
 
-	if( !Voice_InitOpusEncoder( quality ) || !VoiceCapture_Init() )
+	if( !Voice_InitOpusEncoder( quality ))
 	{
-		Voice_ShutdownOpusEncoder();
 		Con_Printf( S_WARN "Other players will not be able to hear you.\n" );
-		return true;
+		return false;
 	}
+
+	if( !VoiceCapture_Init( ))
+		Con_Printf( S_WARN "No microphone is available.\n" );
 
 	return true;
 }
