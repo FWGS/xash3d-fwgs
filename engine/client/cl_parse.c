@@ -1714,10 +1714,11 @@ void CL_ParseVoiceData( sizebuf_t *msg )
 	if ( idx <= 0 || idx > cl.maxclients )
 		return;
 
+	// must notify through as both local player and normal client
 	if( idx == cl.playernum + 1 )
 		Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
-	else
-		Voice_StatusAck( &voice.players_status[idx], idx );
+
+	Voice_StatusAck( &voice.players_status[idx], idx );
 
 	if ( !size )
 		return;
