@@ -616,7 +616,7 @@ qboolean NET_IsReservedAdr( netadr_t a )
 
 	if( a.type == NA_IP )
 	{
-		if( a.ip[0] == 10 )
+		if( a.ip[0] == 10 || a.ip[0] == 127 )
 			return true;
 
 		if( a.ip[0] == 172 && a.ip[1] >= 16 )
