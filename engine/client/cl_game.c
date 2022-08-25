@@ -1936,7 +1936,14 @@ prints directly into console (can skip notify)
 */
 static void GAME_EXPORT pfnConsolePrint( const char *string )
 {
-	Con_Printf( "%s", string );
+	if( !COM_CheckString( string ))
+		return;
+
+	// WON GoldSrc behavior
+	if( string[0] != '1' )
+		Con_Printf( "%s", string );
+	else
+		Con_NPrintf( 0, "%s", string + 1 );
 }
 
 /*
