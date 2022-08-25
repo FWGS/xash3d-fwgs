@@ -934,16 +934,20 @@ void Cvar_List_f( void )
 	const char	*match = NULL;
 	char	*value;
 	int	count = 0;
+	size_t	matchlen = 0;
 
 	if( Cmd_Argc() > 1 )
+	{
 		match = Cmd_Argv( 1 );
+		matchlen = Q_strlen( match );
+	}
 
 	for( var = cvar_vars; var; var = var->next )
 	{
 		if( var->name[0] == '@' )
 			continue;	// never shows system cvars
 
-		if( match && !Q_stricmpext( match, var->name ))
+		if( match && !Q_strnicmpext( match, var->name, matchlen ))
 			continue;
 
 		if( Q_colorstr( var->string ))

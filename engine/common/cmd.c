@@ -1171,17 +1171,21 @@ void Cmd_List_f( void )
 {
 	cmd_t	*cmd;
 	int	i = 0;
-	const char	*match;
+	size_t	matchlen = 0;
+	const char *match = NULL;
 
-	if( Cmd_Argc() > 1 ) match = Cmd_Argv( 1 );
-	else match = NULL;
+	if( Cmd_Argc() > 1 )
+	{
+		match = Cmd_Argv( 1 );
+		matchlen = Q_strlen( match );
+	}
 
 	for( cmd = cmd_functions; cmd; cmd = cmd->next )
 	{
 		if( cmd->name[0] == '@' )
 			continue;	// never show system cmds
 
-		if( match && !Q_stricmpext( match, cmd->name ))
+		if( match && !Q_strnicmpext( match, cmd->name, matchlen ))
 			continue;
 
 		Con_Printf( " %-*s ^3%s^7\n", 32, cmd->name, cmd->desc );
