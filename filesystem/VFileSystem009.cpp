@@ -492,6 +492,18 @@ extern "C" void EXPORT *CreateInterface( const char *interface, int *retval )
 		return &g_VFileSystem009;
 	}
 
+	if( !Q_strcmp( interface, FS_API_CREATEINTERFACE_TAG ))
+	{
+		// return a copy, to disallow overriding
+		static fs_api_t copy = { 0 };
+
+		if( !copy.InitStdio )
+			memcpy( &copy, &g_api, sizeof( copy ));
+
+		if( retval ) *retval = 0;
+		return &copy;
+	}
+
 	if( retval ) *retval = 1;
 	return NULL;
 }

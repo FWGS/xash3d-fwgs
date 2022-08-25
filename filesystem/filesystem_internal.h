@@ -86,6 +86,7 @@ extern qboolean      fs_ext_path;
 extern char          fs_rodir[MAX_SYSPATH];
 extern char          fs_rootdir[MAX_SYSPATH];
 extern char          fs_writedir[MAX_SYSPATH];
+extern fs_api_t      g_api;
 
 #define GI FI.GameInfo
 

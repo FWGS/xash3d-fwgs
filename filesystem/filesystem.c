@@ -2868,7 +2868,7 @@ static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
 	return true;
 }
 
-static fs_api_t g_api =
+fs_api_t g_api =
 {
 	FS_InitStdio,
 	FS_ShutdownStdio,
