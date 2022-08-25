@@ -1940,7 +1940,7 @@ static void GAME_EXPORT pfnConsolePrint( const char *string )
 		return;
 
 	// WON GoldSrc behavior
-	if( string[0] != '1' )
+	if( string[0] != 1 )
 		Con_Printf( "%s", string );
 	else
 		Con_NPrintf( 0, "%s", string + 1 );
