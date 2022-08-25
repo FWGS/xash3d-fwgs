@@ -338,12 +338,15 @@ static qboolean Q_starcmp( const char *pattern, const char *text )
 	}
 }
 
-qboolean Q_stricmpext( const char *pattern, const char *text )
+qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlength )
 {
+	size_t  i = 0;
 	char	c;
 
 	while(( c = *pattern++ ) != '\0' )
 	{
+		i++;
+
 		switch( c )
 		{
 		case '?':
@@ -361,7 +364,12 @@ qboolean Q_stricmpext( const char *pattern, const char *text )
 				return false;
 		}
 	}
-	return ( *text == '\0' );
+	return ( *text == '\0' ) || i == minimumlength;
+}
+
+qboolean Q_stricmpext( const char *pattern, const char *text )
+{
+	return Q_strnicmpext( pattern, text, ~((size_t)0) );
 }
 
 const char* Q_timestamp( int format )
