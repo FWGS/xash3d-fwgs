@@ -29,6 +29,7 @@ extern "C"
 #endif // __cplusplus
 
 #define FS_API_VERSION 1 // not stable yet!
+#define FS_API_CREATEINTERFACE_TAG "XashFileSystem001" // follow FS_API_VERSION!!!
 
 // search path flags
 enum
