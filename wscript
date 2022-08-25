@@ -47,7 +47,7 @@ SUBDIRS = [
 	Subproject('game_launch',  lambda x: not x.env.SINGLE_BINARY and x.env.DEST_OS != 'android'),
 
 	# disable only by external dependency presense
-	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS),
+	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS and not x.env.DEDICATED),
 
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
