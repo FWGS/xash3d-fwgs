@@ -388,124 +388,6 @@ static void prepareTlas( VkCommandBuffer cmdbuf ) {
 	DEBUG_END(cmdbuf);
 }
 
-static void clearVkImage( VkCommandBuffer cmdbuf, VkImage image ) {
-	const VkImageMemoryBarrier image_barriers[] = { {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-		.image = image,
-		.srcAccessMask = 0,
-		.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-		.subresourceRange = (VkImageSubresourceRange) {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1,
-	}} };
-
-	const VkClearColorValue clear_value = {0};
-
-	vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-		0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-
-	vkCmdClearColorImage(cmdbuf, image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
-}
-
-typedef struct {
-	VkCommandBuffer cmdbuf;
-
-	VkPipelineStageFlags in_stage;
-	struct {
-		VkImage image;
-		int width, height;
-		VkImageLayout oldLayout;
-		VkAccessFlags srcAccessMask;
-	} src, dst;
-} xvk_blit_args;
-
-static void blitImage( const xvk_blit_args *blit_args ) {
-	{
-		const VkImageMemoryBarrier image_barriers[] = { {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = blit_args->src.image,
-			.srcAccessMask = blit_args->src.srcAccessMask,
-			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-			.oldLayout = blit_args->src.oldLayout,
-			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-		}, {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = blit_args->dst.image,
-			.srcAccessMask = blit_args->dst.srcAccessMask,
-			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-			.oldLayout = blit_args->dst.oldLayout,
-			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-		} };
-
-		vkCmdPipelineBarrier(blit_args->cmdbuf,
-			blit_args->in_stage,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-	}
-
-	{
-		VkImageBlit region = {0};
-		region.srcOffsets[1].x = blit_args->src.width;
-		region.srcOffsets[1].y = blit_args->src.height;
-		region.srcOffsets[1].z = 1;
-		region.dstOffsets[1].x = blit_args->dst.width;
-		region.dstOffsets[1].y = blit_args->dst.height;
-		region.dstOffsets[1].z = 1;
-		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
-		vkCmdBlitImage(blit_args->cmdbuf,
-			blit_args->src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			blit_args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1, &region,
-			VK_FILTER_NEAREST);
-	}
-
-	{
-		VkImageMemoryBarrier image_barriers[] = {
-		{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.image = blit_args->dst.image,
-			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			.subresourceRange =
-				(VkImageSubresourceRange){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = 1,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-		}};
-		vkCmdPipelineBarrier(blit_args->cmdbuf,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			0, 0, NULL, 0, NULL, ARRAYSIZE(image_barriers), image_barriers);
-	}
-}
-
 static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int frame_index, float fov_angle_y ) {
 	struct UniformBuffer *ubo = (struct UniformBuffer*)((char*)g_rtx.uniform_buffer.mapped + frame_index * g_rtx.uniform_unit_size);
 
@@ -656,8 +538,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.denoiser, &res );
 
 	{
-		const xvk_blit_args blit_args = {
-			.cmdbuf = cmdbuf,
+		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.src = {
 				.image = args->current_frame->denoised.image,
@@ -675,7 +556,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			},
 		};
 
-		blitImage( &blit_args );
+		R_VkImageBlit( cmdbuf, &blit_args );
 	}
 	DEBUG_END(cmdbuf);
 }
@@ -718,8 +599,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	}
 
 	if (g_ray_model_state.frame.num_models == 0) {
-		const xvk_blit_args blit_args = {
-			.cmdbuf = args->cmdbuf,
+		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
 			.src = {
 				.image = current_frame->denoised.image,
@@ -737,8 +617,8 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			},
 		};
 
-		clearVkImage( cmdbuf, current_frame->denoised.image );
-		blitImage( &blit_args );
+		R_VkImageClear( cmdbuf, current_frame->denoised.image );
+		R_VkImageBlit( cmdbuf, &blit_args );
 	} else {
 		const perform_tracing_args_t trace_args = {
 			.render_args = args,
