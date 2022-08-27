@@ -153,9 +153,15 @@ void XVK_RayModel_Validate( void ) {
 	}
 }
 
-static void applyMaterialToKusok( vk_kusok_data_t* kusok, const vk_render_geometry_t *geom, const vec3_t color, qboolean HACK_reflective) {
+static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometry_t *geom, const vec3_t color, qboolean HACK_reflective) {
 	const xvk_material_t *const mat = XVK_GetMaterialForTextureIndex( geom->texture );
 	ASSERT(mat);
+
+	// TODO split kusochki into static geometry data and potentially dynamic material data
+	// This data is static, should never change
+	kusok->vertex_offset = geom->vertex_offset;
+	kusok->index_offset = geom->index_offset;
+	kusok->triangles = geom->element_count / 3;
 
 	/* if (!render_model->static_map) */
 	/* 	VK_LightsAddEmissiveSurface( geom, transform_row, false ); */
@@ -277,21 +283,13 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 			.firstVertex = mg->vertex_offset,
 		};
 
-		kusochki[i].vertex_offset = mg->vertex_offset;
-		kusochki[i].index_offset = mg->index_offset;
-		kusochki[i].triangles = prim_count;
-
 		if (mg->material == kXVkMaterialSky) {
 			kusochki[i].tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
 		} else {
 			kusochki[i].tex_base_color &= (~KUSOK_MATERIAL_FLAG_SKYBOX);
 		}
 
-		//kusochki[i].texture = mg->texture;
-		//kusochki[i].roughness = mg->material == kXVkMaterialWater ? 0. : 1.; // FIXME
-		VectorSet(kusochki[i].emissive, 0, 0, 0 );
-
-		vec3_t color = {1, 1, 1};
+		const vec3_t color = {1, 1, 1};
 		applyMaterialToKusok(kusochki + i, mg, color, false);
 	}
 
@@ -464,7 +462,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 // - collect list of geoms for which we could update anything (animated textues, uvs, etc)
 // - update only those through staging
 // - also consider tracking whether the main model color has changed (that'd need to update everything yay)
-	if (0)
+	if (0) // FIXME enabling this makes dynamic models crash the gpu (?!)
 	{
 		const vk_staging_buffer_args_t staging_args = {
 			.buffer = g_ray_model_state.kusochki_buffer.buffer,
@@ -483,10 +481,10 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 		for (int i = 0; i < render_model->num_geometries; ++i) {
 			const vk_render_geometry_t *geom = render_model->geometries + i;
-			applyMaterialToKusok( kusochki + i, geom, color, HACK_reflective );
+			applyMaterialToKusok(kusochki + i, geom, color, HACK_reflective);
 		}
 
-		gEngine.Con_Reportf("model %s: geom=%d kind=%d ko=%d ks=%d handle=%d\n",
+		gEngine.Con_Reportf("model %s: geom=%d kuoffs=%d kustoff=%d kustsz=%d sthndl=%d\n",
 				render_model->debug_name,
 				render_model->num_geometries,
 				model->kusochki_offset,
