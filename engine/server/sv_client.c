@@ -1316,7 +1316,7 @@ a deathmatch.
 */
 void SV_PutClientInServer( sv_client_t *cl )
 {
-	static byte    	msg_buf[0x20200];	// MAX_INIT_MSG + some space
+	static byte    	msg_buf[MAX_INIT_MSG + 0x200];	// MAX_INIT_MSG + some space
 	edict_t		*ent = cl->edict;
 	sizebuf_t		msg;
 
