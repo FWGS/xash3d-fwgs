@@ -212,7 +212,7 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 	VkAccelerationStructureGeometryKHR *geoms;
 	uint32_t *geom_max_prim_counts;
 	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
-	const VkDeviceAddress buffer_addr = getBufferDeviceAddress(args.buffer);
+	const VkDeviceAddress buffer_addr = R_VkBufferGetDeviceAddress(args.buffer); // TODO pass in args/have in buffer itself
 	const uint32_t kusochki_count_offset = R_DEBuffer_Alloc(&g_ray_model_state.kusochki_alloc, args.model->dynamic ? LifetimeDynamic : LifetimeStatic, args.model->num_geometries, 1);
 	vk_ray_model_t *ray_model;
 	int max_prims = 0;

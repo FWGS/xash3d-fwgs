@@ -78,6 +78,4 @@ extern xvk_ray_model_state_t g_ray_model_state;
 void XVK_RayModel_ClearForNextFrame( void );
 void XVK_RayModel_Validate(void);
 
-VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer);
-
 void RT_RayModel_Clear(void);

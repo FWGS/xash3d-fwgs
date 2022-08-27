@@ -293,7 +293,7 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 	}
 
 	{
-		const VkDeviceAddress sbt_addr = XVK_BufferGetDeviceAddress(ret.sbt_buffer.buffer);
+		const VkDeviceAddress sbt_addr = R_VkBufferGetDeviceAddress(ret.sbt_buffer.buffer);
 		const uint32_t sbt_record_size = vk_core.physical_device.sbt_record_size;
 		uint32_t index = 0;
 

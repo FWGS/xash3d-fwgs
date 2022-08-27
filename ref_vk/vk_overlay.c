@@ -234,6 +234,7 @@ qboolean R_VkOverlay_Init( void ) {
 	if (!createPipelines())
 		return false;
 
+	// TODO this doesn't need to be host visible, could use staging too
 	if (!VK_BufferCreate("2d pics_buffer", &g2d.pics_buffer, sizeof(vertex_2d_t) * MAX_VERTICES,
 				VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ))
 		// FIXME cleanup
