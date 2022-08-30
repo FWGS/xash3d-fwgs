@@ -2051,7 +2051,7 @@ void Con_DrawDebug( void )
 		timeStart = Sys_DoubleTime();
 	}
 
-	if( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
+	if( !host.allow_console || Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
 		return;
 
 	if( con.draw_notify && !Con_Visible( ))
@@ -2077,7 +2077,7 @@ void Con_DrawNotify( void )
 
 	x = con.curFont->charWidths[' ']; // offset one space at left screen side
 
-	if( !Cvar_VariableInteger( "cl_background" ) && !Cvar_VariableInteger( "sv_background" ))
+	if( host.allow_console && ( !Cvar_VariableInteger( "cl_background" ) && !Cvar_VariableInteger( "sv_background" )))
 	{
 		for( i = CON_LINES_COUNT - con.num_times; i < CON_LINES_COUNT; i++ )
 		{
