@@ -60,11 +60,7 @@ float r_turbsin[] =
 	#include "warpsin.h"
 };
 
-#define SKYBOX_MISSED	0
-#define SKYBOX_HLSTYLE	1
-#define SKYBOX_Q1STYLE	2
-
-static int CheckSkybox( const char *name )
+static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
 {
 	const char	*skybox_ext[3] = { "dds", "tga", "bmp" };
 	int		i, j, num_checked_sides;
@@ -73,32 +69,40 @@ static int CheckSkybox( const char *name )
 	// search for skybox images
 	for( i = 0; i < 3; i++ )
 	{
+		// check HL-style skyboxes
 		num_checked_sides = 0;
 		for( j = 0; j < 6; j++ )
 		{
 			// build side name
 			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
 			if( gEngfuncs.fsapi->FileExists( sidename, false ))
+			{
+				Q_strncpy( out[j], sidename, sizeof( out[j] ));
 				num_checked_sides++;
-
+			}
 		}
 
 		if( num_checked_sides == 6 )
-			return SKYBOX_HLSTYLE; // image exists
+			return true; // image exists
 
+		// check Q1-style skyboxes
+		num_checked_sides = 0;
 		for( j = 0; j < 6; j++ )
 		{
 			// build side name
 			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
 			if( gEngfuncs.fsapi->FileExists( sidename, false ))
+			{
+				Q_strncpy( out[j], sidename, sizeof( out[j] ));
 				num_checked_sides++;
+			}
 		}
 
 		if( num_checked_sides == 6 )
-			return SKYBOX_Q1STYLE; // images exists
+			return true; // images exists
 	}
 
-	return SKYBOX_MISSED;
+	return false;
 }
 
 void DrawSkyPolygon( int nump, vec3_t vecs )
@@ -411,8 +415,9 @@ R_SetupSky
 void R_SetupSky( const char *skyboxname )
 {
 	char	loadname[MAX_STRING];
-	char	sidename[MAX_STRING];
-	int	i, result, len;
+	char	sidenames[6][MAX_STRING];
+	int	i, len;
+	qboolean result;
 
 	if( !COM_CheckString( skyboxname ))
 	{
@@ -428,10 +433,10 @@ void R_SetupSky( const char *skyboxname )
 
 	if( loadname[len - 1] == '_' )
 		loadname[len - 1] = '\0';
-	result = CheckSkybox( loadname );
+	result = CheckSkybox( loadname, sidenames );
 
 	// to prevent infinite recursion if default skybox was missed
-	if( result == SKYBOX_MISSED && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
+	if( !result && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
 	{
 		gEngfuncs.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
 		R_SetupSky( "desert" ); // force to default
@@ -444,12 +449,11 @@ void R_SetupSky( const char *skyboxname )
 
 	for( i = 0; i < 6; i++ )
 	{
-		if( result == SKYBOX_HLSTYLE )
-			Q_snprintf( sidename, sizeof( sidename ), "%s%s", loadname, r_skyBoxSuffix[i] );
-		else Q_snprintf( sidename, sizeof( sidename ), "%s_%s", loadname, r_skyBoxSuffix[i] );
+		tr.skyboxTextures[i] = GL_LoadTexture( sidenames[i], NULL, 0, TF_CLAMP|TF_SKY );
 
-		tr.skyboxTextures[i] = GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY );
-		if( !tr.skyboxTextures[i] ) break;
+		if( !tr.skyboxTextures[i] )
+			break;
+
 		gEngfuncs.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
 	}
 
