@@ -67,7 +67,7 @@ GNU General Public License for more details.
 
 extern byte	*r_temppool;
 
-#define LIGHTMAP_BPP	2 //1 2 3 4
+#define LIGHTMAP_BPP	1 //1 2 3 4
 
 #if LIGHTMAP_BPP == 1
 #define LIGHTMAP_FORMAT	PF_RGB_332
