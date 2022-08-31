@@ -41,31 +41,6 @@ static void Voice_ApplyGainAdjust( int16_t *samples, int count );
 
 /*
 =========================
-Voice_CodecInfo_f
-
-=========================
-*/
-static void Voice_CodecInfo_f( void )
-{
-	int encoderComplexity = 0;
-	opus_int32 encoderBitrate = 0;
-
-	if( !voice.initialized )
-	{
-		Con_Printf( "Voice codec is not initialized!\n" );
-		return;
-	}
-
-	opus_custom_encoder_ctl( voice.encoder, OPUS_GET_BITRATE( &encoderBitrate ));
-	opus_custom_encoder_ctl( voice.encoder, OPUS_GET_COMPLEXITY( &encoderComplexity ));
-
-	Con_Printf( "Encoder:\n" );
-	Con_Printf( "  Bitrate: %.3f kbps\n", encoderBitrate / 1000.0f );
-	Con_Printf( "  Complexity: %d\n", encoderComplexity );
-}
-
-/*
-=========================
 Voice_InitOpusDecoder
 
 =========================
@@ -550,7 +525,6 @@ void Voice_RegisterCvars( void )
 	Cvar_RegisterVariable( &voice_avggain );
 	Cvar_RegisterVariable( &voice_maxgain );
 	Cvar_RegisterVariable( &voice_inputfromfile );
-	Cmd_AddClientCommand( "voice_codecinfo", Voice_CodecInfo_f );
 }
 
 /*
