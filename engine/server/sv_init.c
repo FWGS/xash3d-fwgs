@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #include "server.h"
 #include "net_encode.h"
 #include "library.h"
+#include "voice.h"
+
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
@@ -394,7 +396,7 @@ SV_WriteVoiceCodec
 void SV_WriteVoiceCodec( sizebuf_t *msg )
 {
 	MSG_BeginServerCmd( msg, svc_voiceinit );
-	MSG_WriteString( msg, "opus" );
+	MSG_WriteString( msg, VOICE_DEFAULT_CODEC );
 	MSG_WriteByte( msg, (int)sv_voicequality.value );
 }
 
