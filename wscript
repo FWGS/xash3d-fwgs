@@ -328,8 +328,8 @@ int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
 		# check if we can use system opus
-		if conf.check_pkg('opus', 'opus', '''#include <opus.h>
-int main(void){ return (opus_encoder_create(48000, 2, OPUS_APPLICATION_VOIP, 0) != 0) && (opus_decoder_create(48000, 2, 0) != 0);}''', fatal = False):
+		if conf.check_pkg('opus', 'opus', '''#include <opus_custom.h>
+int main(void){ return opus_custom_mode_create(44100, 1024, 0) != 0; }''', fatal = False):
 			conf.env.HAVE_SYSTEM_OPUS = True
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
