@@ -260,14 +260,14 @@ qboolean VoiceCapture_Init( void )
 	return false;
 }
 
-qboolean VoiceCapture_RecordStart( void )
+qboolean VoiceCapture_Activate( qboolean activate )
 {
 	return false;
 }
 
-void VoiceCapture_RecordStop( void )
+qboolean VoiceCapture_Lock( qboolean lock )
 {
-
+	return false;
 }
 
 void VoiceCapture_Shutdown( void )

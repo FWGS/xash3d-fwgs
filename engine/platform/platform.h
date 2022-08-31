@@ -161,9 +161,10 @@ void SNDDMA_Activate( qboolean active ); // pause audio
 // void SNDDMA_PrintDeviceName( void ); // unused
 // void SNDDMA_LockSound( void ); // unused
 // void SNDDMA_UnlockSound( void ); // unused
+
 qboolean VoiceCapture_Init( void );
 void VoiceCapture_Shutdown( void );
-qboolean VoiceCapture_RecordStart( void );
-void VoiceCapture_RecordStop( void );
+qboolean VoiceCapture_Activate( qboolean activate );
+qboolean VoiceCapture_Lock( qboolean lock );
 
 #endif // PLATFORM_H
