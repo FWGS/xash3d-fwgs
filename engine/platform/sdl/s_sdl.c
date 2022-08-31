@@ -34,9 +34,9 @@ GNU General Public License for more details.
 #define SDL_PauseAudioDevice( a, b ) SDL_PauseAudio( ( b ) )
 #define SDL_LockAudioDevice( x ) SDL_LockAudio()
 #define SDL_UnlockAudioDevice( x ) SDL_UnlockAudio()
-#define SDLash_IsAudioError( x ) ( x ) != 0
+#define SDLash_IsAudioError( x ) (( x ) != 0)
 #else
-#define SDLash_IsAudioError( x ) ( x ) == 0
+#define SDLash_IsAudioError( x ) (( x ) == 0)
 #endif
 
 /*
