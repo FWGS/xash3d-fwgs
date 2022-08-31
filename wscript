@@ -328,9 +328,14 @@ int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
 		# check if we can use system opus
+		conf.define('CUSTOM_MODES', 1)
+
+		# try to link with export that only exists with CUSTOM_MODES defined
 		if conf.check_pkg('opus', 'opus', '''#include <opus_custom.h>
-int main(void){ return opus_custom_mode_create(44100, 1024, 0) != 0; }''', fatal = False):
+int main(void){ return !opus_custom_encoder_init(0, 0, 0); }''', fatal = False):
 			conf.env.HAVE_SYSTEM_OPUS = True
+		else:
+			conf.undefine('CUSTOM_MODES')
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
