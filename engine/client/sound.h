@@ -27,7 +27,6 @@ extern poolhandle_t sndpool;
 #define SOUND_22k			22050	// 22khz sample rate
 #define SOUND_32k			32000	// 32khz sample rate
 #define SOUND_44k			44100	// 44khz sample rate
-#define SOUND_48k			48000	// 48khz sample rate
 #define DMA_MSEC_PER_SAMPLE		((float)(1000.0 / SOUND_DMA_SPEED))
 
 // fixed point stuff for real-time resampling
