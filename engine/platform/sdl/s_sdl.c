@@ -32,6 +32,8 @@ GNU General Public License for more details.
 #define SDL_OpenAudioDevice( a, b, c, d, e ) SDL_OpenAudio( ( c ), ( d ) )
 #define SDL_CloseAudioDevice( a ) SDL_CloseAudio()
 #define SDL_PauseAudioDevice( a, b ) SDL_PauseAudio( ( b ) )
+#define SDL_LockAudioDevice( x ) SDL_LockAudio()
+#define SDL_UnlockAudioDevice( x ) SDL_UnlockAudio()
 #define SDLash_IsAudioError( x ) ( x ) != 0
 #else
 #define SDLash_IsAudioError( x ) ( x ) == 0
@@ -163,7 +165,7 @@ Makes sure dma.buffer is valid
 */
 void SNDDMA_BeginPainting( void )
 {
-	SDL_LockAudio( );
+	SDL_LockAudioDevice( sdl_dev );
 }
 
 /*
@@ -176,7 +178,7 @@ Also unlocks the dsound buffer
 */
 void SNDDMA_Submit( void )
 {
-	SDL_UnlockAudio( );
+	SDL_UnlockAudioDevice( sdl_dev );
 }
 
 /*
@@ -235,11 +237,13 @@ SDL_SoundInputCallback
 */
 void SDL_SoundInputCallback( void *userdata, Uint8 *stream, int len )
 {
-	int size;
+	int size = Q_min( len, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
 
-	size = Q_min( len, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
-	SDL_memset( voice.input_buffer + voice.input_buffer_pos, 0, size );
-	SDL_MixAudioFormat( voice.input_buffer + voice.input_buffer_pos, stream, sdl_format, size, SDL_MIX_MAXVOLUME );
+	// engine can't keep up, skip audio
+	if( !size )
+		return;
+
+	memcpy( voice.input_buffer + voice.input_buffer_pos, stream, size );
 	voice.input_buffer_pos += size;
 }
 
@@ -252,11 +256,16 @@ qboolean VoiceCapture_Init( void )
 {
 	SDL_AudioSpec wanted, spec;
 
+	if( !SDLash_IsAudioError( in_dev ))
+	{
+		VoiceCapture_Shutdown();
+	}
+
 	SDL_zero( wanted );
 	wanted.freq = voice.samplerate;
 	wanted.format = AUDIO_S16LSB;
-	wanted.channels = voice.channels;
-	wanted.samples = voice.frame_size / voice.width;
+	wanted.channels = VOICE_PCM_CHANNELS;
+	wanted.samples = voice.frame_size;
 	wanted.callback = SDL_SoundInputCallback;
 
 	in_dev = SDL_OpenAudioDevice( NULL, SDL_TRUE, &wanted, &spec, 0 );
@@ -273,25 +282,32 @@ qboolean VoiceCapture_Init( void )
 
 /*
 ===========
-VoiceCapture_RecordStart
+VoiceCapture_Activate
 ===========
 */
-qboolean VoiceCapture_RecordStart( void )
+qboolean VoiceCapture_Activate( qboolean activate )
 {
-	SDL_PauseAudioDevice( in_dev, SDL_FALSE );
+	if( SDLash_IsAudioError( in_dev ))
+		return false;
 
+	SDL_PauseAudioDevice( in_dev, activate ? SDL_FALSE : SDL_TRUE );
 	return true;
 }
 
 /*
 ===========
-VoiceCapture_RecordStop
+VoiceCapture_Lock
 ===========
 */
-void VoiceCapture_RecordStop( void )
+qboolean VoiceCapture_Lock( qboolean lock )
 {
-	if( in_dev )
-		SDL_PauseAudioDevice( in_dev, SDL_TRUE );
+	if( SDLash_IsAudioError( in_dev ))
+		return false;
+
+	if( lock ) SDL_LockAudioDevice( in_dev );
+	else SDL_UnlockAudioDevice( in_dev );
+
+	return true;
 }
 
 /*
@@ -301,7 +317,7 @@ VoiceCapture_Shutdown
 */
 void VoiceCapture_Shutdown( void )
 {
-	if( !in_dev )
+	if( SDLash_IsAudioError( in_dev ))
 		return;
 
 	SDL_CloseAudioDevice( in_dev );
