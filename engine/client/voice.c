@@ -14,7 +14,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include <opus.h>
+#define CUSTOM_MODES 1 // required to correctly link with Opus Custom
 #include <opus_custom.h>
 #include "common.h"
 #include "client.h"
@@ -47,8 +47,8 @@ Voice_CodecInfo_f
 */
 static void Voice_CodecInfo_f( void )
 {
-	int encoderComplexity;
-	opus_int32 encoderBitrate;
+	int encoderComplexity = 0;
+	opus_int32 encoderBitrate = 0;
 
 	if( !voice.initialized )
 	{
