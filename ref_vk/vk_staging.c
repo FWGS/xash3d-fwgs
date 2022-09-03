@@ -121,6 +121,7 @@ static void commitBuffers(VkCommandBuffer cmdbuf) {
 			continue;
 
 		if (prev_buffer != VK_NULL_HANDLE) {
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "staging dst_buffer=%p count=%d", prev_buffer, i-first_copy);
 			vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer,
 				prev_buffer,
 				i - first_copy, g_staging.buffers.copy + first_copy);
