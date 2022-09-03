@@ -158,7 +158,7 @@ static qboolean createInstance( void )
 {
 	const char ** instance_extensions = NULL;
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
-	VkApplicationInfo app_info = {
+	const VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		// TODO support versions 1.0 and 1.1 for simple traditional rendering
 		// This would require using older physical device features and props query structures
@@ -169,9 +169,19 @@ static qboolean createInstance( void )
 		.pApplicationName = "",
 		.pEngineName = "xash3d-fwgs",
 	};
+	const VkValidationFeatureEnableEXT validation_features[] = {
+		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+	};
+	const VkValidationFeaturesEXT validation_ext = {
+		.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+		.pEnabledValidationFeatures = validation_features,
+		.enabledValidationFeatureCount = COUNTOF(validation_features),
+	};
 	VkInstanceCreateInfo create_info = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &app_info,
+		.pNext = vk_core.validate ? &validation_ext : NULL,
 	};
 
 	int vid_extensions = gEngine.XVK_GetInstanceExtensions(0, NULL);
