@@ -117,7 +117,7 @@ void R_Vk_NV_Checkpoint_Dump(void);
 		} \
 	} while(0)
 #else
-#define DEBUG_CHECKPOINTF(...)
+#define DEBUG_NV_CHECKPOINTF(...)
 #define R_Vk_NV_Checkpoint_Dump()
 #endif
 
