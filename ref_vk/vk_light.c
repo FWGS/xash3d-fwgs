@@ -955,6 +955,7 @@ qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 			VectorCopy(etex->emissive, out);
 			return true;
 		} else {
+			VectorClear(out);
 			return false;
 		}
 	}
