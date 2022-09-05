@@ -104,6 +104,10 @@ def build(bld):
 	if bld.env.HAVE_AFTERMATH:
 		defines.append('USE_AFTERMATH')
 		libs.append('AFTERMATH')
+		for file in ['GFSDK_Aftermath_Lib.x64.dll', 'llvm_7_0_1.dll']:
+			bld.install_files(
+				bld.env.LIBDIR,
+				bld.root.find_dir(bld.env.LIBPATH_AFTERMATH[0]).find_node(file))
 
 	if bld.env.COMPILER_CC == 'msvc':
 		bld.env.CFLAGS += ['/WX']

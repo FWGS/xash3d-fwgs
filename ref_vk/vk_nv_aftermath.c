@@ -67,18 +67,17 @@ static qboolean writeFile(const char *filename, const void *data, size_t size) {
 static void callbackGpuCrashDump(const void* pGpuCrashDump, const uint32_t gpuCrashDumpSize, void* pUserData) {
 	gEngine.Con_Printf(S_ERROR "AFTERMATH GPU CRASH DUMP: %p, size=%d\n", pGpuCrashDump, gpuCrashDumpSize);
 	writeFile("ref_vk.nv-gpudmp", pGpuCrashDump, gpuCrashDumpSize);
-	R_Vk_NV_Checkpoint_Dump();
 }
 
 static void callbackShaderDebugInfo(const void* pShaderDebugInfo, const uint32_t shaderDebugInfoSize, void* pUserData) {
-    GFSDK_Aftermath_ShaderDebugInfoIdentifier identifier = {0};
+		GFSDK_Aftermath_ShaderDebugInfoIdentifier identifier = {0};
 	gEngine.Con_Printf(S_ERROR "AFTERMATH Shader Debug Info: %p, size=%d\n", pShaderDebugInfo, shaderDebugInfoSize);
 
-    AM_CHECK(GFSDK_Aftermath_GetShaderDebugInfoIdentifier(
-        GFSDK_Aftermath_Version_API,
-        pShaderDebugInfo,
-        shaderDebugInfoSize,
-        &identifier));
+		AM_CHECK(GFSDK_Aftermath_GetShaderDebugInfoIdentifier(
+				GFSDK_Aftermath_Version_API,
+				pShaderDebugInfo,
+				shaderDebugInfoSize,
+				&identifier));
 
 	char filename[64];
 	Q_snprintf(filename, sizeof(filename), "shader-%016llX-%016llX.nvdbg", identifier.id[0], identifier.id[1]);
@@ -89,27 +88,6 @@ static void callbackGpuCrashDumpDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpD
 	gEngine.Con_Printf(S_ERROR "AFTERMATH asks for crash dump description\n");
 	addValue(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_ApplicationName, "xash3d-fwgs-ref-vk");
 	addValue(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_ApplicationVersion, "v0.0.1");
-}
-
-static qboolean initialized = false;
-qboolean VK_AftermathInit() {
-    AM_CHECK(GFSDK_Aftermath_EnableGpuCrashDumps(
-        GFSDK_Aftermath_Version_API,
-        GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_Vulkan,
-        GFSDK_Aftermath_GpuCrashDumpFeatureFlags_DeferDebugInfoCallbacks,
-        callbackGpuCrashDump,
-        callbackShaderDebugInfo,
-        callbackGpuCrashDumpDescription,
-        NULL));
-
-	initialized = true;
-	return true;
-}
-
-void VK_AftermathShutdown() {
-	if (initialized) {
-		GFSDK_Aftermath_DisableGpuCrashDumps();
-	}
 }
 
 #define MAX_NV_CHECKPOINTS 2048
@@ -123,6 +101,41 @@ static struct {
 	unsigned sequence;
 	vk_nv_checkpoint_entry_t entries[MAX_NV_CHECKPOINTS];
 } g_nv_checkpoint = {0};
+
+static const char obsolete[] = "[OBSOLETE]";
+
+static void callbackResolveMarkers(const void* pMarker, void* pUserData, void** resolvedMarkerData, uint32_t* markerSize) {
+	const unsigned sequence = (uintptr_t)pMarker;
+	const vk_nv_checkpoint_entry_t *const entry = g_nv_checkpoint.entries + (sequence % MAX_NV_CHECKPOINTS);
+
+	const char *msg = entry->sequence == sequence ? entry->message : obsolete;
+	gEngine.Con_Reportf(S_ERROR "resolved marker %u: msg: %s\n", sequence, msg);
+
+	*resolvedMarkerData = (void*)msg;
+	*markerSize = strlen(msg);
+}
+
+static qboolean initialized = false;
+qboolean VK_AftermathInit() {
+	AM_CHECK(GFSDK_Aftermath_EnableGpuCrashDumps(
+		GFSDK_Aftermath_Version_API,
+		GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_Vulkan,
+		GFSDK_Aftermath_GpuCrashDumpFeatureFlags_DeferDebugInfoCallbacks,
+		callbackGpuCrashDump,
+		callbackShaderDebugInfo,
+		callbackGpuCrashDumpDescription,
+		callbackResolveMarkers,
+		NULL));
+
+	initialized = true;
+	return true;
+}
+
+void VK_AftermathShutdown() {
+	if (initialized) {
+		GFSDK_Aftermath_DisableGpuCrashDumps();
+	}
+}
 
 void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...) {
 	va_list argptr;
