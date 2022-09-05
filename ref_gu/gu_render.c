@@ -49,6 +49,7 @@ cvar_t	*r_traceglow;
 cvar_t	*r_dynamic;
 cvar_t	*r_lightmap;
 cvar_t	*r_showhull;
+cvar_t	*r_fast_particles;
 cvar_t	*gl_round_down;
 cvar_t	*gl_showtextures;
 cvar_t	*cl_lightstyle_lerping;
@@ -360,6 +361,7 @@ void GL_InitCommands( void )
 	r_drawentities = gEngfuncs.Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
 	r_decals = gEngfuncs.pfnGetCvarPointer( "r_decals", 0 );
 	r_showhull = gEngfuncs.pfnGetCvarPointer( "r_showhull", 0 );
+	r_fast_particles = gEngfuncs.Cvar_Get( "r_fast_particles", "1", FCVAR_ARCHIVE, "use GU_POINTS for particles" );
 
 	gl_texture_nearest = gEngfuncs.Cvar_Get( "gl_texture_nearest", "0", FCVAR_GLCONFIG, "disable texture filter" );
 	gl_lightmap_nearest = gEngfuncs.Cvar_Get( "gl_lightmap_nearest", "0", FCVAR_GLCONFIG, "disable lightmap filter" );

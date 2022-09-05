@@ -47,7 +47,7 @@ static float	rgNoise[NOISE_DIVISIONS+1];	// global noise array
 static void FracNoise( float *noise, int divs )
 {
 	int	div2;
-	
+
 	div2 = divs >> 1;
 	if( divs < 2 ) return;
 
@@ -198,7 +198,9 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	float	flMaxWidth, vLast, vStep, brightness;
 	vec3_t	perp1, vLastNormal;
 	beamseg_t	curSeg;
-	
+	uint	vert_count;
+	uint	vert_color;
+
 	if( segments < 2 ) return;
 
 	length = VectorLength( delta );
@@ -250,17 +252,18 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 	total_segs = segments;
 	segs_drawn = 0;
-#if 1		
-	gu_vert_ftcnv_t* const out = ( gu_vert_ftcnv_t* )extGuBeginPacket( NULL );	
-	unsigned int vert_size = 0;
-	unsigned int vert_color = 0;
-#endif
+
+	gu_vert_ftcnv_t* const out = ( gu_vert_ftcnv_t* )extGuBeginPacket( NULL );
+
+	vert_count = 0;
+	vert_color = 0;
+
 	// specify all the segments.
 	for( i = 0; i < segments; i++ )
 	{
 		beamseg_t	nextSeg;
 		vec3_t	vPoint1, vPoint2;
-	
+
 		Assert( noiseIndex < ( NOISE_DIVISIONS << 16 ));
 
 		fraction = i * div;
@@ -317,39 +320,28 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			// draw regular segment
 			VectorMA( curSeg.pos, ( curSeg.width * 0.5f ), vAveNormal, vPoint1 );
 			VectorMA( curSeg.pos, (-curSeg.width * 0.5f ), vAveNormal, vPoint2 );
-#if 1
-			vert_color = getTriBrightness( brightness );
-			out[vert_size].u = 0.0f;
-			out[vert_size].v = curSeg.texcoord;			
-			out[vert_size].c = vert_color;
-			out[vert_size].nx = vAveNormal[0];
-			out[vert_size].ny = vAveNormal[1];
-			out[vert_size].nz = vAveNormal[2];
-			out[vert_size].x = vPoint1[0];
-			out[vert_size].y = vPoint1[1];
-			out[vert_size].z = vPoint1[2];
-			vert_size++;
-			out[vert_size].u = 1.0f;
-			out[vert_size].v = curSeg.texcoord;			
-			out[vert_size].c = vert_color;
-			out[vert_size].nx = vAveNormal[0];
-			out[vert_size].ny = vAveNormal[1];
-			out[vert_size].nz = vAveNormal[2];
-			out[vert_size].x = vPoint2[0];
-			out[vert_size].y = vPoint2[1];
-			out[vert_size].z = vPoint2[2];
-			vert_size++;			
-#else
-			pglTexCoord2f( 0.0f, curSeg.texcoord );
-			TriBrightness( brightness );
-			pglNormal3fv( vAveNormal );
-			pglVertex3fv( vPoint1 );
 
-			pglTexCoord2f( 1.0f, curSeg.texcoord );
-			TriBrightness( brightness );
-			pglNormal3fv( vAveNormal );
-			pglVertex3fv( vPoint2 );
-#endif
+			vert_color = getTriBrightness( brightness );
+			out[vert_count].u = 0.0f;
+			out[vert_count].v = curSeg.texcoord;
+			out[vert_count].c = vert_color;
+			out[vert_count].nx = vAveNormal[0];
+			out[vert_count].ny = vAveNormal[1];
+			out[vert_count].nz = vAveNormal[2];
+			out[vert_count].x = vPoint1[0];
+			out[vert_count].y = vPoint1[1];
+			out[vert_count].z = vPoint1[2];
+			vert_count++;
+			out[vert_count].u = 1.0f;
+			out[vert_count].v = curSeg.texcoord;
+			out[vert_count].c = vert_color;
+			out[vert_count].nx = vAveNormal[0];
+			out[vert_count].ny = vAveNormal[1];
+			out[vert_count].nz = vAveNormal[2];
+			out[vert_count].x = vPoint2[0];
+			out[vert_count].y = vPoint2[1];
+			out[vert_count].z = vPoint2[2];
+			vert_count++;
 		}
 
 		curSeg = nextSeg;
@@ -376,48 +368,35 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			VectorMA( curSeg.pos, (-curSeg.width * 0.5f ), vLastNormal, vPoint2 );
 
 			// specify the points.
-#if 1
 			vert_color = getTriBrightness( brightness );
-			out[vert_size].u = 0.0f;
-			out[vert_size].v = curSeg.texcoord;			
-			out[vert_size].c = vert_color;
-			out[vert_size].nx = vLastNormal[0];
-			out[vert_size].ny = vLastNormal[1];
-			out[vert_size].nz = vLastNormal[2];
-			out[vert_size].x = vPoint1[0];
-			out[vert_size].y = vPoint1[1];
-			out[vert_size].z = vPoint1[2];
-			vert_size++;
-			out[vert_size].u = 1.0f;
-			out[vert_size].v = curSeg.texcoord;			
-			out[vert_size].c = vert_color;
-			out[vert_size].nx = vLastNormal[0];
-			out[vert_size].ny = vLastNormal[1];
-			out[vert_size].nz = vLastNormal[2];
-			out[vert_size].x = vPoint2[0];
-			out[vert_size].y = vPoint2[1];
-			out[vert_size].z = vPoint2[2];
-			vert_size++;			
-#else			
-			pglTexCoord2f( 0.0f, curSeg.texcoord );
-			TriBrightness( brightness );
-			pglNormal3fv( vLastNormal );
-			pglVertex3fv( vPoint1 );
-
-			pglTexCoord2f( 1.0f, curSeg.texcoord );
-			TriBrightness( brightness );
-			pglNormal3fv( vLastNormal );
-			pglVertex3fv( vPoint2 );
-#endif
+			out[vert_count].u = 0.0f;
+			out[vert_count].v = curSeg.texcoord;
+			out[vert_count].c = vert_color;
+			out[vert_count].nx = vLastNormal[0];
+			out[vert_count].ny = vLastNormal[1];
+			out[vert_count].nz = vLastNormal[2];
+			out[vert_count].x = vPoint1[0];
+			out[vert_count].y = vPoint1[1];
+			out[vert_count].z = vPoint1[2];
+			vert_count++;
+			out[vert_count].u = 1.0f;
+			out[vert_count].v = curSeg.texcoord;
+			out[vert_count].c = vert_color;
+			out[vert_count].nx = vLastNormal[0];
+			out[vert_count].ny = vLastNormal[1];
+			out[vert_count].nz = vLastNormal[2];
+			out[vert_count].x = vPoint2[0];
+			out[vert_count].y = vPoint2[1];
+			out[vert_count].z = vPoint2[2];
+			vert_count++;
 		}
 
 		vLast += vStep; // Advance texture scroll (v axis only)
 		noiseIndex += noiseStep;
 	}
-#if 1
-	extGuEndPacket( ( void * )( out + vert_size ) );
-	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_NORMAL_32BITF | GU_VERTEX_32BITF, vert_size, 0, out );
-#endif	
+
+	extGuEndPacket(( void * )( out + vert_count ));
+	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_NORMAL_32BITF | GU_VERTEX_32BITF, vert_count, 0, out );
 }
 
 /*
@@ -432,6 +411,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 	int	i, noiseIndex, noiseStep;
 	float	div, length, fraction, factor, vLast, vStep;
 	vec3_t	last1, last2, point, screen, screenLast, tmp, normal;
+	uint	vert_count = 0;
 
 	if( segments < 2 )
 		return;
@@ -453,10 +433,11 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 	// Iterator to resample noise waveform (it needs to be generated in powers of 2)
 	noiseStep = (int)((float)( NOISE_DIVISIONS - 1 ) * div * 65536.0f );
 	noiseIndex = 0;
-#if 1
-	gu_vert_ftv_t* const out = ( gu_vert_ftv_t* )extGuBeginPacket( NULL );	
-	unsigned int vert_size = 0;
-#endif
+
+	gu_vert_ftv_t* const out = ( gu_vert_ftv_t* )extGuBeginPacket( NULL );
+
+	vert_count = 0;
+
 	for( i = 0; i < segments; i++ )
 	{
 		float	s, c;
@@ -481,7 +462,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 				VectorMA( point, factor, RI.vright, point );
 			}
 		}
-		
+
 		// Transform point into screen space
 		TriWorldToScreen( point, screen );
 
@@ -495,40 +476,33 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 			VectorNormalize( tmp );
 			VectorScale( RI.vup, -tmp[0], normal );	// Build point along noraml line (normal is -y, x)
 			VectorMA( normal, tmp[1], RI.vright, normal );
-			
+
 			// Make a wide line
 			VectorMA( point, width, normal, last1 );
 			VectorMA( point, -width, normal, last2 );
 
 			vLast += vStep; // advance texture scroll (v axis only)
-#if 1
-			out[vert_size].u = 1.0f;
-			out[vert_size].v = vLast;			
-			out[vert_size].x = last2[0];
-			out[vert_size].y = last2[1];
-			out[vert_size].z = last2[2];
-			vert_size++;
-			out[vert_size].u = 0.0f;
-			out[vert_size].v = vLast;			
-			out[vert_size].x = last1[0];
-			out[vert_size].y = last1[1];
-			out[vert_size].z = last1[2];
-			vert_size++;			
-#else			
-			TriTexCoord2f( 1, vLast );
-			TriVertex3fv( last2 );
-			TriTexCoord2f( 0, vLast );
-			TriVertex3fv( last1 );
-#endif
+
+			out[vert_count].u = 1.0f;
+			out[vert_count].v = vLast;
+			out[vert_count].x = last2[0];
+			out[vert_count].y = last2[1];
+			out[vert_count].z = last2[2];
+			vert_count++;
+			out[vert_count].u = 0.0f;
+			out[vert_count].v = vLast;
+			out[vert_count].x = last1[0];
+			out[vert_count].y = last1[1];
+			out[vert_count].z = last1[2];
+			vert_count++;
 		}
 
 		VectorCopy( screen, screenLast );
 		noiseIndex += noiseStep;
 	}
-#if 1
-	extGuEndPacket( ( void * )( out + vert_size ) );
-	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, vert_size, 0, out );
-#endif		
+
+	extGuEndPacket(( void * )( out + vert_count ));
+	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, vert_count, 0, out );
 }
 
 /*
@@ -542,8 +516,9 @@ void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float fr
 {
 	float	div, length, fraction;
 	float	w, vLast, vStep;
-	vec3_t	point;
 	int	i;
+	uint	vert_count;
+	uint	vert_color;
 
 	if( segments < 2 )
 		return;
@@ -553,69 +528,52 @@ void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float fr
 
 	length = VectorLength( delta ) * 0.01f;
 	if( length < 0.5f ) length = 0.5f;	// don't lose all of the noise/texture on short beams
-	
+
 	div = 1.0f / (segments - 1);
 	vStep = length * div;		// Texture length texels per space pixel
-	
+
 	// scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
 	scale = scale * length;
 
 	// clamp the beam width
 	w = fmod( freq, width * 0.1f ) * delta[2];
-#if 1
-	gu_vert_ftcv_t* const out = ( gu_vert_ftcv_t* )extGuBeginPacket( NULL );	
-	unsigned int vert_size = 0;
-	unsigned int vert_color = getTriBrightness( 1.0f );
-#endif
+
+	gu_vert_ftcv_t* const out = ( gu_vert_ftcv_t* )extGuBeginPacket( NULL );
+
+	vert_count = 0;
+	vert_color = getTriBrightness( 1.0f );
+
 	// NOTE: we must force the degenerate triangles to be on the edge
 	for( i = 0; i < segments; i++ )
 	{
 		float	s, c;
 
 		fraction = i * div;
-		VectorCopy( source, point );
-#if 1
-		out[vert_size].u = 1.0f;
-		out[vert_size].v = vLast;
-		out[vert_size].c = vert_color;
-		out[vert_size].x = point[0];
-		out[vert_size].y = point[1];
-		out[vert_size].z = point[2];
-		vert_size++;
+
+		out[vert_count].u = 1.0f;
+		out[vert_count].v = vLast;
+		out[vert_count].c = vert_color;
+		out[vert_count].x = source[0];
+		out[vert_count].y = source[1];
+		out[vert_count].z = source[2];
+		vert_count++;
 
 		SinCos( fraction * M_PI2_F, &s, &c );
-		point[0] = s * w + source[0];
-		point[1] = c * w + source[1];
-		point[2] = source[2];
 
-		out[vert_size].u = 0.0f;
-		out[vert_size].v = vLast;
-		out[vert_size].c = vert_color;
-		out[vert_size].x = point[0];
-		out[vert_size].y = point[1];
-		out[vert_size].z = point[2];
-		vert_size++;
-#else
-		TriBrightness( 1.0f );
-		TriTexCoord2f( 1.0f, vLast );
-		TriVertex3fv( point );
+		out[vert_count].u = 0.0f;
+		out[vert_count].v = vLast;
+		out[vert_count].c = vert_color;
+		out[vert_count].x = s * w + source[0];
+		out[vert_count].y = c * w + source[1];
+		out[vert_count].z = source[2];
+		vert_count++;
 
-		SinCos( fraction * M_PI2_F, &s, &c );
-		point[0] = s * w + source[0];
-		point[1] = c * w + source[1];
-		point[2] = source[2];
-
-		TriBrightness( 1.0f );
-		TriTexCoord2f( 0.0f, vLast );
-		TriVertex3fv( point );
-#endif
 		vLast += vStep;	// advance texture scroll (v axis only)
 	}
-#if 1
-	extGuEndPacket( ( void * )( out + vert_size ) );
-	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_size, 0, out );
-#endif	
+
+	extGuEndPacket(( void * )( out + vert_count ));
+	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_count, 0, out );
 }
 
 /*
@@ -629,8 +587,10 @@ void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, floa
 {
 	float	div, length, fraction;
 	float	vLast, vStep;
-	vec3_t	point;
 	int	i;
+	uint	vert_count;
+	uint	vert_color0;
+	uint	vert_color1;
 
 	if( segments < 2 )
 		return;
@@ -640,19 +600,20 @@ void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, floa
 
 	length = VectorLength( delta ) * 0.01f;
 	if( length < 0.5f ) length = 0.5f;	// don't lose all of the noise/texture on short beams
-		
+
 	div = 1.0f / (segments - 1);
 	vStep = length * div;		// texture length texels per space pixel
-	
+
 	// Scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
 	scale = scale * length;
-#if 1
+
 	gu_vert_ftcv_t* const out = ( gu_vert_ftcv_t* )extGuBeginPacket( NULL );
-	unsigned int vert_size = 0;
-	unsigned int vert_color0 = getTriBrightness( 0.0f );
-	unsigned int vert_color1 = getTriBrightness( 1.0f );
-#endif	
+
+	vert_count = 0;
+	vert_color0 = getTriBrightness( 0.0f );
+	vert_color1 = getTriBrightness( 1.0f );
+
 	for ( i = 0; i < segments; i++ )
 	{
 		float	s, c;
@@ -660,48 +621,26 @@ void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, floa
 		fraction = i * div;
 		SinCos( fraction * M_PI2_F, &s, &c );
 
-		point[0] = s * freq * delta[2] + source[0];
-		point[1] = c * freq * delta[2] + source[1];
-		point[2] = source[2] + width;
-#if 1
-		out[vert_size].u = 1.0f;
-		out[vert_size].v = vLast;
-		out[vert_size].c = vert_color0;
-		out[vert_size].x = point[0];
-		out[vert_size].y = point[1];
-		out[vert_size].z = point[2];
-		vert_size++;
-		
-		point[0] = s * freq * ( delta[2] + width ) + source[0];
-		point[1] = c * freq * ( delta[2] + width ) + source[1];
-		point[2] = source[2] - width;
+		out[vert_count].u = 1.0f;
+		out[vert_count].v = vLast;
+		out[vert_count].c = vert_color0;
+		out[vert_count].x = s * freq * delta[2] + source[0];
+		out[vert_count].y = c * freq * delta[2] + source[1];
+		out[vert_count].z = source[2] + width;
+		vert_count++;
+		out[vert_count].u = 0.0f;
+		out[vert_count].v = vLast;
+		out[vert_count].c = vert_color1;
+		out[vert_count].x = s * freq * ( delta[2] + width ) + source[0];
+		out[vert_count].y = c * freq * ( delta[2] + width ) + source[1];
+		out[vert_count].z = source[2] - width;
+		vert_count++;
 
-		out[vert_size].u = 0.0f;
-		out[vert_size].v = vLast;
-		out[vert_size].c = vert_color1;
-		out[vert_size].x = point[0];
-		out[vert_size].y = point[1];
-		out[vert_size].z = point[2];
-		vert_size++;
-#else
-		TriBrightness( 0 );
-		TriTexCoord2f( 1, vLast );
-		TriVertex3fv( point );
-
-		point[0] = s * freq * ( delta[2] + width ) + source[0];
-		point[1] = c * freq * ( delta[2] + width ) + source[1];
-		point[2] = source[2] - width;
-
-		TriBrightness( 1 );
-		TriTexCoord2f( 0, vLast );
-		TriVertex3fv( point );
-#endif
 		vLast += vStep;	// Advance texture scroll (v axis only)
 	}
-#if 1
-	extGuEndPacket( ( void * )( out + vert_size ) );
-	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_size, 0, out );
-#endif	
+
+	extGuEndPacket(( void * )( out + vert_count ));
+	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_count, 0, out );
 }
 
 /*
@@ -717,6 +656,8 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	float		fraction, div, vLast, vStep;
 	vec3_t		last1, last2, tmp, screen;
 	vec3_t		delta, screenLast, normal;
+	uint		vert_count;
+	uint		vert_color;
 
 	gEngfuncs.R_FreeDeadParticles( &pbeam->particles );
 
@@ -786,7 +727,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	// Build point along noraml line (normal is -y, x)
 	VectorScale( RI.vup, tmp[0], normal );	// Build point along normal line (normal is -y, x)
 	VectorMA( normal, tmp[1], RI.vright, normal );
-	
+
 	// Make a wide line
 	VectorMA( delta, pbeam->width, normal, last1 );
 	VectorMA( delta, -pbeam->width, normal, last2 );
@@ -796,41 +737,30 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 
 	vLast = 0.0f;
 	vStep = 1.0f;
-	
-#if 1	
+
 	gu_vert_ftcv_t* const out = ( gu_vert_ftcv_t* )extGuBeginPacket( NULL );
-	unsigned int vert_size = 0;
-	unsigned int vert_color = 0;
-	gu_vert_ftcv_t* saved_ptr;
-#endif		
+
+	vert_count = 0;
+	vert_color = 0;
+
+	vert_color = getTriBrightness( fraction );
+	out[vert_count].u = 1.0f;
+	out[vert_count].v = vLast;
+	out[vert_count].c = vert_color;
+	out[vert_count].x = last2[0];
+	out[vert_count].y = last2[1];
+	out[vert_count].z = last2[2];
+	vert_count++;
+	out[vert_count].u = 0.0f;
+	out[vert_count].v = vLast;
+	out[vert_count].c = vert_color;
+	out[vert_count].x = last1[0];
+	out[vert_count].y = last1[1];
+	out[vert_count].z = last1[2];
+	vert_count++;
 
 	while( particles )
 	{
-#if 1
-		vert_color = getTriBrightness( fraction );
-		out[vert_size].u = 1.0f;
-		out[vert_size].v = 1.0f;
-		out[vert_size].c = vert_color;
-		out[vert_size].x = last2[0];
-		out[vert_size].y = last2[1];
-		out[vert_size].z = last2[2];
-		saved_ptr = &out[vert_size];
-		vert_size++;		
-		out[vert_size].u = 0.0f;
-		out[vert_size].v = 1.0f;
-		out[vert_size].c = vert_color;
-		out[vert_size].x = last1[0];
-		out[vert_size].y = last1[1];
-		out[vert_size].z = last1[2];
-		vert_size++;
-#else
-		TriBrightness( fraction );
-		TriTexCoord2f( 1, 1 );
-		TriVertex3fv( last2 );
-		TriBrightness( fraction );
-		TriTexCoord2f( 0, 1 );
-		TriVertex3fv( last1 );
-#endif
 		// Transform point into screen space
 		TriWorldToScreen( particles->org, screen );
 		// Build world-space normal to screen-space direction vector
@@ -845,7 +775,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 		// Make a wide line
 		VectorMA( particles->org, pbeam->width, normal, last1 );
 		VectorMA( particles->org, -pbeam->width, normal, last2 );
-		
+
 		vLast += vStep;	// Advance texture scroll (v axis only)
 
 		if( particles->next != NULL )
@@ -856,55 +786,31 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 		{
 			fraction = 0.0;
 		}
-#if 1
-		vert_color = getTriBrightness( fraction );
-		out[vert_size].u = 0.0f;
-		out[vert_size].v = 0.0f;
-		out[vert_size].c = vert_color;
-		out[vert_size].x = last1[0];
-		out[vert_size].y = last1[1];
-		out[vert_size].z = last1[2];
-		vert_size++;
-		
-		out[vert_size].u = saved_ptr->u;
-		out[vert_size].v = saved_ptr->v;
-		out[vert_size].c = saved_ptr->c;
-		out[vert_size].x = saved_ptr->x;
-		out[vert_size].y = saved_ptr->y;
-		out[vert_size].z = saved_ptr->z;		
-		vert_size++;
 
-		out[vert_size].u = 0.0f;
-		out[vert_size].v = 0.0f;
-		out[vert_size].c = vert_color;
-		out[vert_size].x = last1[0];
-		out[vert_size].y = last1[1];
-		out[vert_size].z = last1[2];
-		vert_size++;
-		
-		out[vert_size].u = 1.0f;
-		out[vert_size].v = 0.0f;
-		out[vert_size].c = vert_color;
-		out[vert_size].x = last2[0];
-		out[vert_size].y = last2[1];
-		out[vert_size].z = last2[2];
-		vert_size++;
-#else
-		TriBrightness( fraction );
-		TriTexCoord2f( 0, 0 );
-		TriVertex3fv( last1 );
-		TriBrightness( fraction );
-		TriTexCoord2f( 1, 0 );
-		TriVertex3fv( last2 );
-#endif
+		vert_color = getTriBrightness( fraction );
+		out[vert_count].u = 1.0f;
+		out[vert_count].v = vLast;
+		out[vert_count].c = vert_color;
+		out[vert_count].x = last2[0];
+		out[vert_count].y = last2[1];
+		out[vert_count].z = last2[2];
+		vert_count++;
+		out[vert_count].u = 0.0f;
+		out[vert_count].v = vLast;
+		out[vert_count].c = vert_color;
+		out[vert_count].x = last1[0];
+		out[vert_count].y = last1[1];
+		out[vert_count].z = last1[2];
+		vert_count++;
+
 		VectorCopy( screen, screenLast );
 
 		particles = particles->next;
 	}
-#if 1
-	extGuEndPacket( ( void * )( out + vert_size ) );
-	sceGuDrawArray( GU_TRIANGLES, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_size, 0, out );
-#endif
+
+	extGuEndPacket(( void * )( out + vert_count ));
+	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_count, 0, out );
+
 	// drift popcorn trail if there is a velocity
 	particles = pbeam->particles;
 
@@ -929,19 +835,20 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 	vec3_t	last1, last2, point, screen, screenLast;
 	vec3_t	tmp, normal, center, xaxis, yaxis;
 	float	radius, x, y, scale;
+	uint	vert_count;
 
 	if( segments < 2 )
 		return;
 
 	VectorClear( screenLast );
 	segments = segments * M_PI_F;
-	
+
 	if( segments > NOISE_DIVISIONS * 8 )
 		segments = NOISE_DIVISIONS * 8;
 
 	length = VectorLength( delta ) * 0.01f * M_PI_F;
 	if( length < 0.5f ) length = 0.5f;		// Don't lose all of the noise/texture on short beams
-		
+
 	div = 1.0f / ( segments - 1 );
 
 	vStep = length * div / 8.0f;			// texture length texels per space pixel
@@ -959,7 +866,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 
 	VectorCopy( delta, xaxis );
 	radius = VectorLength( xaxis );
-	
+
 	// cull beamring
 	// --------------------------------
 	// Compute box center +/- radius
@@ -976,21 +883,22 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		return;
 	}
 
-	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f ); 
+	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f );
 	VectorNormalize( yaxis );
 	VectorScale( yaxis, radius, yaxis );
 
 	j = segments / 8;
-#if 1	
+
 	gu_vert_ftv_t* const out = ( gu_vert_ftv_t* )extGuBeginPacket( NULL );
-	unsigned int vert_size = 0;
-#endif	
+
+	vert_count = 0;
+
 	for( i = 0; i < segments + 1; i++ )
 	{
 		fraction = i * div;
 		SinCos( fraction * M_PI2_F, &x, &y );
 
-		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point ); 
+		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point );
 
 		// distort using noise
 		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
@@ -1000,7 +908,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
 		factor *= cos( fraction * M_PI_F * 24 + freq );
 		VectorMA( point, factor, RI.vright, point );
-		
+
 		// Transform point into screen space
 		TriWorldToScreen( point, screen );
 
@@ -1016,31 +924,25 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 			// Build point along normal line (normal is -y, x)
 			VectorScale( RI.vup, tmp[0], normal );
 			VectorMA( normal, tmp[1], RI.vright, normal );
-			
+
 			// Make a wide line
 			VectorMA( point, width, normal, last1 );
 			VectorMA( point, -width, normal, last2 );
 
 			vLast += vStep;	// Advance texture scroll (v axis only)
-#if 1
-			out[vert_size].u = 1.0f;
-			out[vert_size].v = vLast;
-			out[vert_size].x = last2[0];
-			out[vert_size].y = last2[1];
-			out[vert_size].z = last2[2];
-			vert_size++;		
-			out[vert_size].u = 0.0f;
-			out[vert_size].v = vLast;
-			out[vert_size].x = last1[0];
-			out[vert_size].y = last1[1];
-			out[vert_size].z = last1[2];
-			vert_size++;
-#else
-			TriTexCoord2f( 1.0f, vLast );
-			TriVertex3fv( last2 );
-			TriTexCoord2f( 0.0f, vLast );
-			TriVertex3fv( last1 );
-#endif
+
+			out[vert_count].u = 1.0f;
+			out[vert_count].v = vLast;
+			out[vert_count].x = last2[0];
+			out[vert_count].y = last2[1];
+			out[vert_count].z = last2[2];
+			vert_count++;
+			out[vert_count].u = 0.0f;
+			out[vert_count].v = vLast;
+			out[vert_count].x = last1[0];
+			out[vert_count].y = last1[1];
+			out[vert_count].z = last1[2];
+			vert_count++;
 		}
 
 		VectorCopy( screen, screenLast );
@@ -1053,10 +955,10 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 			FracNoise( rgNoise, NOISE_DIVISIONS );
 		}
 	}
-#if 1
-	extGuEndPacket( ( void * )( out + vert_size ) );
-	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, vert_size, 0, out );
-#endif	
+
+	extGuEndPacket(( void * )( out + vert_count ));
+	sceGuDrawArray( GU_TRIANGLE_STRIP, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, vert_count, 0, out );
+
 }
 
 /*
@@ -1301,62 +1203,26 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	{
 	case TE_BEAMTORUS:
 		GL_Cull( GL_NONE );
-#if 0
-		TriBegin( TRI_TRIANGLE_STRIP );
-#endif
 		R_DrawTorus( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-#if 0
-		TriEnd();
-#endif
 		break;
 	case TE_BEAMDISK:
 		GL_Cull( GL_NONE );
-#if 0
-		TriBegin( TRI_TRIANGLE_STRIP );
-#endif
 		R_DrawDisk( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-#if 0
-		TriEnd();
-#endif
 		break;
 	case TE_BEAMCYLINDER:
 		GL_Cull( GL_NONE );
-#if 0
-		TriBegin( TRI_TRIANGLE_STRIP );
-#endif
 		R_DrawCylinder( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-#if 0
-		TriEnd();
-#endif
 		break;
 	case TE_BEAMPOINTS:
 	case TE_BEAMHOSE:
-#if 0
-		TriBegin( TRI_TRIANGLE_STRIP );
-#endif
 		R_DrawSegs( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, pbeam->flags );
-#if 0
-		TriEnd();
-#endif
 		break;
 	case TE_BEAMFOLLOW:
-#if 0
-		TriBegin( TRI_QUADS );
-#endif
 		R_DrawBeamFollow( pbeam, frametime );
-#if 0
-		TriEnd();
-#endif
 		break;
 	case TE_BEAMRING:
 		GL_Cull( GL_NONE );
-#if 0
-		TriBegin( TRI_TRIANGLE_STRIP );
-#endif
 		R_DrawRing( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-#if 0
-		TriEnd();
-#endif
 		break;
 	}
 

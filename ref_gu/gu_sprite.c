@@ -729,46 +729,26 @@ R_DrawSpriteQuad
 */
 static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale )
 {
-	vec3_t	point;
-
 	r_stats.c_sprite_polys++;
-#if 0
+
 	gu_vert_t* const out = ( gu_vert_t* )sceGuGetMemory( sizeof( gu_vert_t ) * 4 );
-	VectorMA( org, frame->down * scale, v_up, point );
-	VectorMA( point, frame->left * scale, v_right, point );
 	out[0].uv[0] = 0.0f;
 	out[0].uv[1] = 1.0f;
-	VectorCopy( point, out[0].xyz );
-	VectorMA( org, frame->up * scale, v_up, point );
-	VectorMA( point, frame->left * scale, v_right, point );
+	VectorMA( org, frame->down * scale, v_up, out[0].xyz );
+	VectorMA( out[0].xyz, frame->left * scale, v_right, out[0].xyz );
 	out[1].uv[0] = 0.0f;
 	out[1].uv[1] = 0.0f;
-	VectorCopy( point, out[1].xyz );
-	VectorMA( org, frame->up * scale, v_up, point );
-	VectorMA( point, frame->right * scale, v_right, point );
+	VectorMA( org, frame->up * scale, v_up, out[1].xyz );
+	VectorMA( out[1].xyz, frame->left * scale, v_right, out[1].xyz );
 	out[2].uv[0] = 1.0f;
 	out[2].uv[1] = 0.0f;
-	VectorCopy( point, out[2].xyz );
-	VectorMA( org, frame->down * scale, v_up, point );
-	VectorMA( point, frame->right * scale, v_right, point );	
+	VectorMA( org, frame->up * scale, v_up, out[2].xyz );
+	VectorMA( out[2].xyz, frame->right * scale, v_right, out[2].xyz );
 	out[3].uv[0] = 1.0f;
 	out[3].uv[1] = 1.0f;
-	VectorCopy( point, out[3].xyz );
+	VectorMA( org, frame->down * scale, v_up, out[3].xyz );
+	VectorMA( out[3].xyz, frame->right * scale, v_right, out[3].xyz );
 	sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, 4, 0, out );
-#else
-	gu_vert_t* const out = ( gu_vert_t* )sceGuGetMemory( sizeof( gu_vert_t ) * 2 );
-	VectorMA( org, frame->up * scale, v_up, point );
-	VectorMA( point, frame->left * scale, v_right, point );
-	out[0].uv[0] = 0.0f;
-	out[0].uv[1] = 0.0f;
-	VectorCopy( point, out[0].xyz );
-	VectorMA( org, frame->down * scale, v_up, point );
-	VectorMA( point, frame->right * scale, v_right, point );	
-	out[1].uv[0] = 1.0f;
-	out[1].uv[1] = 1.0f;
-	VectorCopy( point, out[1].xyz );
-	sceGuDrawArray( GU_SPRITES, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, 2, 0, out );
-#endif
 }
 
 static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
@@ -1014,7 +994,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		sceGuDisable( GU_ALPHA_TEST );
 		sceGuBlendFunc( GU_ADD, GU_FIX, GU_SRC_COLOR, GUBLEND0, 0 );
 		sceGuTexFunc( GU_TFX_MODULATE , GU_TCC_RGBA );
-		
+
 		sceGuColor( GUCOLOR4F( color2[0], color2[1], color2[2], tr.blend ) );
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
 		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );

@@ -812,6 +812,7 @@ extern cvar_t	*tracerblue;
 extern cvar_t	*traceralpha;
 extern cvar_t	*cl_lightstyle_lerping;
 extern cvar_t	*r_showhull;
+extern cvar_t	*r_fast_particles;
 
 //
 // engine callbacks

@@ -54,134 +54,124 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 	color24		*pColor;
 	int		alpha;
 	float		size;
+	uint		vert_count;
+	uint		vert_color;
 
 	if( !cl_active_particles )
 		return;	// nothing to draw?
-#if 1
+
+	vert_count = 0;
+	vert_color = 0;
+
 	sceGuEnable( GU_BLEND );
 	sceGuDisable( GU_ALPHA_TEST );
 	sceGuBlendFunc( GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0 );
 
-	GL_Bind( XASH_TEXTURE0, tr.particleTexture );
-	sceGuTexFunc( GU_TFX_MODULATE, GU_TCC_RGBA );
 	sceGuDepthMask( GU_TRUE );
 
-	gu_vert_ftcv_t* const out = ( gu_vert_ftcv_t* )extGuBeginPacket( NULL );
-	unsigned int vert_size = 0;
-	unsigned int vert_color = 0;
-
-	for( p = cl_active_particles; p; p = p->next )
+	if( r_fast_particles->value )
 	{
-		if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
+		gu_vert_fcv_t* const out = ( gu_vert_fcv_t* )extGuBeginPacket( NULL );
+
+		sceGuDisable( GU_TEXTURE_2D );
+
+		for( p = cl_active_particles; p; p = p->next )
 		{
-			size = partsize; // get initial size of particle
+			if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
+			{
+				p->color = bound( 0, p->color, 255 );
+				pColor = gEngfuncs.CL_GetPaletteColor( p->color );
 
-			// scale up to keep particles from disappearing
-			size += (p->org[0] - RI.vieworg[0]) * RI.cull_vforward[0];
-			size += (p->org[1] - RI.vieworg[1]) * RI.cull_vforward[1];
-			size += (p->org[2] - RI.vieworg[2]) * RI.cull_vforward[2];
+				alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
+				if( alpha > 255 || p->type == pt_static )
+					alpha = 255;
 
-			if( size < 20.0f ) size = partsize;
-			else size = partsize + size * 0.002f;
+				out[vert_count].c = GUCOLOR4UB( gEngfuncs.LightToTexGamma( pColor->r ),
+					gEngfuncs.LightToTexGamma( pColor->g ),
+					gEngfuncs.LightToTexGamma( pColor->b ), alpha );
+				out[vert_count].x = p->org[0];
+				out[vert_count].y = p->org[1];
+				out[vert_count].z = p->org[2];
+				vert_count++;
 
-			// scale the axes by radius
-			VectorScale( RI.cull_vright, size, right );
-			VectorScale( RI.cull_vup, size, up );
+				r_stats.c_particle_count++;
+			}
 
-			p->color = bound( 0, p->color, 255 );
-			pColor = gEngfuncs.CL_GetPaletteColor( p->color );
-
-			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
-			if( alpha > 255 || p->type == pt_static )
-				alpha = 255;
-			vert_color = GUCOLOR4UB( gEngfuncs.LightToTexGamma( pColor->r ),
-				gEngfuncs.LightToTexGamma( pColor->g ),
-				gEngfuncs.LightToTexGamma( pColor->b ), alpha );
-
-			out[vert_size].u = 0.0f;
-			out[vert_size].v = 0.0f;
-			out[vert_size].c = vert_color;
-			out[vert_size].x = p->org[0] + right[0] + up[0];
-			out[vert_size].y = p->org[1] + right[1] + up[1];
-			out[vert_size].z = p->org[2] + right[2] + up[2];
-			vert_size++;
-			out[vert_size].u = 1.0f;
-			out[vert_size].v = 1.0f;
-			out[vert_size].c = vert_color;
-			out[vert_size].x = p->org[0] - right[0] - up[0];
-			out[vert_size].y = p->org[1] - right[1] - up[1];
-			out[vert_size].z = p->org[2] - right[2] - up[2];
-			vert_size++;
-
-			r_stats.c_particle_count++;
+			gEngfuncs.CL_ThinkParticle( frametime, p );
 		}
 
-		gEngfuncs.CL_ThinkParticle( frametime, p );
+		if( vert_count )
+		{
+			extGuEndPacket( ( void * )( out + vert_count ) );
+			sceGuDrawArray( GU_POINTS, GU_COLOR_8888 | GU_VERTEX_32BITF, vert_count, 0, out );
+		}
+
+		sceGuEnable( GU_TEXTURE_2D );
+	}
+	else
+	{
+		GL_Bind( XASH_TEXTURE0, tr.particleTexture );
+		sceGuTexFunc( GU_TFX_MODULATE, GU_TCC_RGBA );
+
+		gu_vert_ftcv_t* const out = ( gu_vert_ftcv_t* )extGuBeginPacket( NULL );
+
+		for( p = cl_active_particles; p; p = p->next )
+		{
+			if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
+			{
+				size = partsize; // get initial size of particle
+
+				// scale up to keep particles from disappearing
+				size += (p->org[0] - RI.vieworg[0]) * RI.cull_vforward[0];
+				size += (p->org[1] - RI.vieworg[1]) * RI.cull_vforward[1];
+				size += (p->org[2] - RI.vieworg[2]) * RI.cull_vforward[2];
+
+				if( size < 20.0f ) size = partsize;
+				else size = partsize + size * 0.002f;
+
+				// scale the axes by radius
+				VectorScale( RI.cull_vright, size, right );
+				VectorScale( RI.cull_vup, size, up );
+
+				p->color = bound( 0, p->color, 255 );
+				pColor = gEngfuncs.CL_GetPaletteColor( p->color );
+
+				alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
+				if( alpha > 255 || p->type == pt_static )
+					alpha = 255;
+				vert_color = GUCOLOR4UB( gEngfuncs.LightToTexGamma( pColor->r ),
+					gEngfuncs.LightToTexGamma( pColor->g ),
+					gEngfuncs.LightToTexGamma( pColor->b ), alpha );
+
+				out[vert_count].u = 0.0f;
+				out[vert_count].v = 0.0f;
+				out[vert_count].c = vert_color;
+				out[vert_count].x = p->org[0] + right[0] + up[0];
+				out[vert_count].y = p->org[1] + right[1] + up[1];
+				out[vert_count].z = p->org[2] + right[2] + up[2];
+				vert_count++;
+				out[vert_count].u = 1.0f;
+				out[vert_count].v = 1.0f;
+				out[vert_count].c = vert_color;
+				out[vert_count].x = p->org[0] - right[0] - up[0];
+				out[vert_count].y = p->org[1] - right[1] - up[1];
+				out[vert_count].z = p->org[2] - right[2] - up[2];
+				vert_count++;
+
+				r_stats.c_particle_count++;
+			}
+
+			gEngfuncs.CL_ThinkParticle( frametime, p );
+		}
+
+		if( vert_count )
+		{
+			extGuEndPacket(( void * )( out + vert_count ));
+			sceGuDrawArray( GU_SPRITES, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_count, 0, out );
+		}
 	}
 
-	if( vert_size )
-	{
-		extGuEndPacket( ( void * )( out + vert_size ) );
-		sceGuDrawArray( GU_SPRITES, GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF, vert_size, 0, out );
-	}
 	sceGuDepthMask( GU_FALSE );
-#else
-	pglEnable( GL_BLEND );
-	pglDisable( GL_ALPHA_TEST );
-	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-	GL_Bind( XASH_TEXTURE0, tr.particleTexture );
-	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglDepthMask( GL_FALSE );
-
-	pglBegin( GL_QUADS );
-
-	for( p = cl_active_particles; p; p = p->next )
-	{
-		if(( p->type != pt_blob ) || ( p->packedColor == 255 ))
-		{
-			size = partsize; // get initial size of particle
-
-			// scale up to keep particles from disappearing
-			size += (p->org[0] - RI.vieworg[0]) * RI.cull_vforward[0];
-			size += (p->org[1] - RI.vieworg[1]) * RI.cull_vforward[1];
-			size += (p->org[2] - RI.vieworg[2]) * RI.cull_vforward[2];
-
-			if( size < 20.0f ) size = partsize;
-			else size = partsize + size * 0.002f;
-
-			// scale the axes by radius
-			VectorScale( RI.cull_vright, size, right );
-			VectorScale( RI.cull_vup, size, up );
-
-			p->color = bound( 0, p->color, 255 );
-			pColor = gEngfuncs.CL_GetPaletteColor( p->color );
-
-			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
-			if( alpha > 255 || p->type == pt_static )
-				alpha = 255;
-
-			pglColor4ub( gEngfuncs.LightToTexGamma( pColor->r ),
-				gEngfuncs.LightToTexGamma( pColor->g ),
-				gEngfuncs.LightToTexGamma( pColor->b ), alpha );
-
-			pglTexCoord2f( 0.0f, 1.0f );
-			pglVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
-			pglTexCoord2f( 0.0f, 0.0f );
-			pglVertex3f( p->org[0] + right[0] + up[0], p->org[1] + right[1] + up[1], p->org[2] + right[2] + up[2] );
-			pglTexCoord2f( 1.0f, 0.0f );
-			pglVertex3f( p->org[0] + right[0] - up[0], p->org[1] + right[1] - up[1], p->org[2] + right[2] - up[2] );
-			pglTexCoord2f( 1.0f, 1.0f );
-			pglVertex3f( p->org[0] - right[0] - up[0], p->org[1] - right[1] - up[1], p->org[2] - right[2] - up[2] );
-			r_stats.c_particle_count++;
-		}
-
-		gEngfuncs.CL_ThinkParticle( frametime, p );
-	}
-
-	pglEnd();
-	pglDepthMask( GL_TRUE );
-#endif
 }
 
 /*
@@ -251,19 +241,12 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	if( !cl_active_tracers )
 		return;	// nothing to draw?
 
-	if( !TriSpriteTexture( gEngfuncs.GetDefaultSprite( REF_DOT_SPRITE ), 0 ))
-		return;
-#if 1
 	sceGuEnable( GU_BLEND );
 	sceGuBlendFunc( GU_ADD, GU_SRC_ALPHA, GU_FIX, 0, GUBLEND1 );
 	sceGuDisable( GU_ALPHA_TEST );
 	sceGuDepthMask( GU_TRUE );
-#else
-	pglEnable( GL_BLEND );
-	pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-	pglDisable( GL_ALPHA_TEST );
-	pglDepthMask( GL_FALSE );
-#endif
+	sceGuDisable( GU_TEXTURE_2D );
+
 	gravity = frametime * MOVEVARS->gravity;
 	scale = 1.0 - (frametime * 0.9);
 	if( scale < 0.0f ) scale = 0.0f;
@@ -312,47 +295,22 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			}
 
 			pColor = &gTracerColors[p->color];
-#if 1
-			sceGuColor( GUCOLOR4UB( pColor->r, pColor->g, pColor->b, p->packedColor ) );
+			sceGuColor( GUCOLOR4UB( pColor->r, pColor->g, pColor->b, p->packedColor ));
 
-			gu_vert_ftv_t* const out = ( gu_vert_ftv_t* )sceGuGetMemory( sizeof( gu_vert_ftv_t ) * 4 );
-
-			out[0].u = 0.0f;
-			out[0].v = 0.8f;
+			gu_vert_fv_t* const out = ( gu_vert_fv_t* )sceGuGetMemory( sizeof( gu_vert_fv_t ) * 4 );
 			out[0].x = verts[2][0];
 			out[0].y = verts[2][1];
 			out[0].z = verts[2][2];
-			out[1].u = 1.0f;
-			out[1].v = 0.8f;
 			out[1].x = verts[3][0];
 			out[1].y = verts[3][1];
 			out[1].z = verts[3][2];
-			out[2].u = 1.0f;
-			out[2].v = 0.0f;
 			out[2].x = verts[1][0];
 			out[2].y = verts[1][1];
 			out[2].z = verts[1][2];
-			out[3].u = 0.0f;
-			out[3].v = 0.0f;
 			out[3].x = verts[0][0];
 			out[3].y = verts[0][1];
 			out[3].z = verts[0][2];
-
-			sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, 4, 0, out );
-#else
-			pglColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
-
-			pglBegin( GL_QUADS );
-				pglTexCoord2f( 0.0f, 0.8f );
-				pglVertex3fv( verts[2] );
-				pglTexCoord2f( 1.0f, 0.8f );
-				pglVertex3fv( verts[3] );
-				pglTexCoord2f( 1.0f, 0.0f );
-				pglVertex3fv( verts[1] );
-				pglTexCoord2f( 0.0f, 0.0f );
-				pglVertex3fv( verts[0] );
-			pglEnd();
-#endif
+			sceGuDrawArray( GU_TRIANGLE_FAN, GU_VERTEX_32BITF, 4, 0, out );
 		}
 
 		// evaluate position
@@ -372,11 +330,9 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			p->vel[2] = gravity * 0.05f;
 		}
 	}
-#if 1
+
+	sceGuEnable( GU_TEXTURE_2D );
 	sceGuDepthMask( GU_FALSE );
-#else
-	pglDepthMask( GL_TRUE );
-#endif
 }
 
 /*
