@@ -53,6 +53,7 @@ struct tests_stats_s tests_stats;
 CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in development-mode" );
 CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_CHEAT|FCVAR_FILTERABLE, "scale frame time" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
+CVAR_DEFINE_AUTO( sys_usespinlock, "0", FCVAR_FILTERABLE, "using spinlock instead of high-precision timer to count time between frames" );
 
 convar_t	*host_serverstate;
 convar_t	*host_gameloaded;
@@ -268,35 +269,137 @@ void Host_AbortCurrentFrame( void )
 }
 
 /*
+=================
+Host_IsLocalGame
+
+singleplayer game detect
+=================
+*/
+qboolean Host_IsLocalGame( void )
+{
+	if( SV_Active() )
+	{
+		return ( SV_GetMaxClients() == 1 ) ? true : false;
+	}
+	else
+	{
+		return ( CL_GetMaxClients() == 1 ) ? true : false;
+	}
+}
+
+qboolean Host_IsLocalClient( void )
+{
+	// only the local client have the active server
+	if( CL_Initialized() && SV_Initialized() )
+		return true;
+	return false;
+}
+
+/*
+===================
+Host_CalcFPS
+
+compute actual FPS for various modes
+===================
+*/
+double Host_CalcFPS( void )
+{
+	double	fps = 0.0;
+
+	if( Host_IsDedicated() )
+	{
+		fps = sys_ticrate.value;
+	}
+#if !XASH_DEDICATED
+	else if( CL_IsPlaybackDemo() || CL_IsRecordDemo() ) // NOTE: we should play demos with same fps as it was recorded
+	{
+		fps = CL_GetDemoFramerate();
+	}
+	else if( Host_IsLocalGame() )
+	{
+		fps = host_maxfps->value;
+	}
+	else
+	{
+		fps = host_maxfps->value;
+		if( fps == 0.0 ) fps = MAX_FPS;
+		fps = bound(MIN_FPS, fps, MAX_FPS);
+	}
+
+	// probably left part of this condition is redundant :-)
+	if( host.type != HOST_DEDICATED && Host_IsLocalGame() && !CL_IsTimeDemo() )
+	{
+		// ajdust fps for vertical synchronization
+		if( CVAR_TO_BOOL( gl_vsync ))
+		{
+			if( vid_displayfrequency->value != 0.0f )
+				fps = vid_displayfrequency->value;
+			else fps = 60.0; // default
+		}
+	}
+#endif
+
+	return fps;
+}
+
+/*
 ==================
 Host_CheckSleep
 ==================
 */
 void Host_CheckSleep( void )
 {
-	int sleeptime = host_sleeptime->value;
+	double fps;
+	int sleeptime;
+	qboolean use_spinlock;
 
+	fps = Host_CalcFPS();
+	sleeptime = host_sleeptime->value;
+	use_spinlock = sys_usespinlock.value > 0.0f;
+	
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
-		Sys_Sleep( sleeptime );
+		if( use_spinlock )
+			Sys_Sleep( sleeptime );
+		else
+			Platform_Delay( 1.0 / fps );
 	}
 	else
 	{
 		if( host.status == HOST_NOFOCUS )
 		{
-			if( SV_Active() && CL_IsInGame( ))
-				Sys_Sleep( sleeptime ); // listenserver
-			else Sys_Sleep( 20 ); // sleep 20 ms otherwise
+			if( SV_Active() && CL_IsInGame() )
+			{
+				// listenserver
+				if( use_spinlock )
+					Sys_Sleep( sleeptime ); 
+				else
+					Platform_Delay( 1.0 / fps );
+			}
+			else
+			{
+				// sleep 20 ms otherwise
+				if( use_spinlock )
+					Sys_Sleep( 20 ); 
+				else
+					Platform_Delay( 1.0 / 50.0 );
+			}
 		}
 		else if( host.status == HOST_SLEEP )
 		{
 			// completely sleep in minimized state
-			Sys_Sleep( 20 );
+			if( use_spinlock )
+				Sys_Sleep( 20 );
+			else
+				Platform_Delay( 1.0 / 50.0 );
 		}
 		else
 		{
-			Sys_Sleep( sleeptime );
+			if( use_spinlock )
+				Sys_Sleep( sleeptime );
+			else
+				Platform_Delay( 1.0 / fps );
 		}
 	}
 }
@@ -469,33 +572,6 @@ void Host_Minimize_f( void )
 
 /*
 =================
-Host_IsLocalGame
-
-singleplayer game detect
-=================
-*/
-qboolean Host_IsLocalGame( void )
-{
-	if( SV_Active( ))
-	{
-		return ( SV_GetMaxClients() == 1 ) ? true : false;
-	}
-	else
-	{
-		return ( CL_GetMaxClients() == 1 ) ? true : false;
-	}
-}
-
-qboolean Host_IsLocalClient( void )
-{
-	// only the local client have the active server
-	if( CL_Initialized( ) && SV_Initialized( ))
-		return true;
-	return false;
-}
-
-/*
-=================
 Host_RegisterDecal
 =================
 */
@@ -577,53 +653,6 @@ void Host_GetCommands( void )
 
 /*
 ===================
-Host_CalcFPS
-
-compute actual FPS for various modes
-===================
-*/
-double Host_CalcFPS( void )
-{
-	double	fps = 0.0;
-
-	if( Host_IsDedicated() )
-	{
-		fps = sys_ticrate.value;
-	}
-#if !XASH_DEDICATED
-	else if( CL_IsPlaybackDemo() || CL_IsRecordDemo( )) // NOTE: we should play demos with same fps as it was recorded
-	{
-		fps = CL_GetDemoFramerate();
-	}
-	else if( Host_IsLocalGame( ))
-	{
-		fps = host_maxfps->value;
-	}
-	else
-	{
-		fps = host_maxfps->value;
-		if( fps == 0.0 ) fps = MAX_FPS;
-		fps = bound( MIN_FPS, fps, MAX_FPS );
-	}
-
-	// probably left part of this condition is redundant :-)
-	if( host.type != HOST_DEDICATED && Host_IsLocalGame( ) && !CL_IsTimeDemo( ))
-	{
-		// ajdust fps for vertical synchronization
-		if( CVAR_TO_BOOL( gl_vsync ))
-		{
-			if( vid_displayfrequency->value != 0.0f )
-				fps = vid_displayfrequency->value;
-			else fps = 60.0; // default
-		}
-	}
-#endif
-
-	return fps;
-}
-
-/*
-===================
 Host_FilterTime
 
 Returns false if the time is too short to run a frame
@@ -643,16 +672,18 @@ qboolean Host_FilterTime( float time )
 	{
 		// limit fps to withing tolerable range
 		fps = bound( MIN_FPS, fps, MAX_FPS );
-
-		if( Host_IsDedicated() )
+		if( sys_usespinlock.value > 0.0f )
 		{
-			if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )) * scale)
-				return false;
-		}
-		else
-		{
-			if(( host.realtime - oldtime ) < ( 1.0 / fps ) * scale )
-				return false;
+			if( Host_IsDedicated() )
+			{
+				if(( host.realtime - oldtime ) < ( 1.0 / ( fps + 1.0 )) * scale )
+					return false;
+			}
+			else
+			{
+				if(( host.realtime - oldtime ) < ( 1.0 / fps ) * scale )
+					return false;
+			}
 		}
 	}
 
@@ -972,6 +1003,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	Q_snprintf( dev_level, sizeof( dev_level ), "%i", developer );
 	Cvar_DirectSet( &host_developer, dev_level );
 	Cvar_RegisterVariable( &sys_ticrate );
+	Cvar_RegisterVariable( &sys_usespinlock );
 
 	if( Sys_GetParmFromCmdLine( "-sys_ticrate", ticrate ))
 	{
@@ -1219,6 +1251,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cbuf_Execute();
 	}
 
+	Platform_TimerInit();
+
 	// main window message loop
 	while( !host.crashed )
 	{
@@ -1258,6 +1292,7 @@ void EXPORT Host_Shutdown( void )
 	HTTP_Shutdown();
 	Host_FreeCommon();
 	Platform_Shutdown();
+	Platform_TimerShutdown();
 
 	// must be last, console uses this
 	Mem_FreePool( &host.mempool );

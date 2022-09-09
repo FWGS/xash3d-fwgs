@@ -37,6 +37,10 @@ double Platform_DoubleTime( void );
 void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
+void Platform_TimerInit( void );
+void Platform_TimerShutdown( void );
+void Platform_Delay( double time );
+
 // commented out, as this is an optional feature or maybe implemented in system API directly
 // see system.c
 // qboolean Sys_DebuggerPresent( void );
