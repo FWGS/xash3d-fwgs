@@ -706,20 +706,20 @@ void GU_Clip( gu_vert_t *uv, size_t uvc, gu_vert_t **cv, size_t* cvc );
 */
 typedef struct
 {
-	int			max_texture_size;
+	int		max_texture_size;
 	qboolean	softwareGammaUpdate;
 } glconfig_t;
 
 typedef struct
 {
 
-	int			width, height;
-	int			activeTMU;
+	int		width, height;
+	int		activeTMU;
 	GLint		currentTexture;
 	GLboolean	texIdentityMatrix;
 	GLint		isFogEnabled;
 
-	int			faceCull;
+	int		faceCull;
 
 	qboolean	stencilEnabled;
 	qboolean	in2DMode;
@@ -733,8 +733,8 @@ typedef struct
 
 typedef struct
 {
-	qboolean		initialized;	// OpenGL subsystem started
-	qboolean		extended;		// extended context allows to GL_Debug
+	qboolean	initialized;	// OpenGL subsystem started
+	qboolean	extended;	// extended context allows to GL_Debug
 } glwstate_t;
 
 typedef struct
@@ -744,19 +744,19 @@ typedef struct
 	int		buffer_width;
 	int		buffer_format;
 	int		buffer_bpp;
-	void	*draw_buffer;
-	void	*disp_buffer;
-	void	*depth_buffer;
-	void	*context_list;
-	size_t	context_list_size;
+	void		*draw_buffer;
+	void		*disp_buffer;
+	void		*depth_buffer;
+	void		*context_list;
+	size_t		context_list_size;
 }gurender_t;
 
-extern glconfig_t		glConfig;
-extern glstate_t		glState;
-extern gurender_t		guRender;
+extern glconfig_t	glConfig;
+extern glstate_t	glState;
+extern gurender_t	guRender;
 // move to engine
-extern glwstate_t		glw_state;
-extern ref_api_t		gEngfuncs;
+extern glwstate_t	glw_state;
+extern ref_api_t	gEngfuncs;
 extern ref_globals_t	*gpGlobals;
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)

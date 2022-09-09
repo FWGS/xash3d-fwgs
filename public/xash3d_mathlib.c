@@ -307,21 +307,26 @@ rsqrt
 float rsqrt( float number )
 {
 #if XASH_PSP
+#if 0 /* experimental */
+	if( number == 0.0f ) return 0.0f;
+	return ( 1.0 / __builtin_allegrex_sqrt_s( number ));
+#else
 	float result;
 	__asm__ (
-		".set		push\n"					// save assembler option
+		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
-		"lv.s		S000, %1\n"				// S000 = number
-		"vzero.s	S001\n"					// S100 = 0
+		"lv.s		S000, %1\n"			// S000 = number
+		"vzero.s	S001\n"				// S100 = 0
 		"vcmp.s		EZ,   S000\n"			// CC[0] = ( S000 == 0.0f )
 		"vrsq.s		S000, S000\n"			// S000 = 1.0 / sqrt( S000 )
 		"vcmovt.s	S000, S001, 0\n"		// if ( CC[0] ) S000 = S001
-		"sv.s		S000, %0\n"				// result = S000
-		".set		pop\n"					// restore assembler option
+		"sv.s		S000, %0\n"			// result = S000
+		".set		pop\n"				// restore assembler option
 		:	"=m"( result )
 		:	"m"( number )
 	);
 	return result;
+#endif
 #else
 	int	i;
 	float	x, y;
@@ -348,15 +353,15 @@ void SinCos( float radians, float *sine, float *cosine )
 {
 #if XASH_PSP
 	__asm__ (
-		".set		push\n"					// save assembler option
+		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
-		"lv.s		S000, %2\n"				// S000 = radians
+		"lv.s		S000, %2\n"			// S000 = radians
 		"vcst.s		S001, VFPU_2_PI\n"		// S001 = VFPU_2_PI = 2 / PI
 		"vmul.s		S000, S000, S001\n"		// S000 = S000 * S001
-		"vrot.p		C002, S000, [s, c]\n"	// S002 = sin( radians ), S003 = cos( radians )
-		"sv.s		S002, %0\n"				// sine = S002
-		"sv.s		S003, %1\n"				// cosine = S003
-		".set		pop\n"					// restore assembler option
+		"vrot.p		C002, S000, [s, c]\n"		// S002 = sin( radians ), S003 = cos( radians )
+		"sv.s		S002, %0\n"			// sine = S002
+		"sv.s		S003, %1\n"			// cosine = S003
+		".set		pop\n"				// restore assembler option
 		:	"=m"( *sine), "=m"( *cosine )
 		:	"m"( radians )
 	);
@@ -666,16 +671,24 @@ AngleQuaternion
 void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
 {
 #if XASH_PSP
-	vec4_t dst_angles; 
-
-	dst_angles[0] = studio ? angles[PITCH] : DEG2RAD( angles[ROLL] );
-	dst_angles[1] = studio ? angles[YAW]   : DEG2RAD( angles[PITCH] );
-	dst_angles[2] = studio ? angles[ROLL]  : DEG2RAD( angles[YAW] );
+	vec4_t dst_angles;
+	if( studio )
+	{
+		dst_angles[0] = angles[PITCH];
+		dst_angles[1] = angles[YAW];
+		dst_angles[2] = angles[ROLL];
+	}
+	else
+	{
+		dst_angles[0] = DEG2RAD( angles[ROLL] );
+		dst_angles[1] = DEG2RAD( angles[PITCH] );
+		dst_angles[2] = DEG2RAD( angles[YAW] );
+	}
 
 	__asm__ (
-		".set		push\n"					// save assembler option
+		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
-		"lv.q		C000, %1\n"				// C000 = [PITCH, YAW, ROLL]
+		"lv.q		C000, %1\n"			// C000 = [PITCH, YAW, ROLL]
 		"vcst.s		S010, VFPU_1_PI\n"		// S010 = VFPU_1_PI = 1 / PI
 		"vscl.t		C000, C000, S010\n"		// C000 = C000 * S010 = C000 * 0.5f * ( 2 / PI )
 		"vcos.t		C010, C000\n"			// C010 = cos( C000 * 0.5f )
@@ -688,11 +701,11 @@ void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
 		"vmul.t		C030, C030, C010\n"		// C030 = C030 * C010 = ( sp*sy*cr, sy*sr*cp, sr*sp*cy )
 		"vadd.s		S003, S003, S013\n"		// S003 = S003 + S013 = cp*cy*cr + cp*cy*cr
 		"vadd.t		C000, C020, C030[-X, Y, -Z]\n"
-											// S000 = S020 - C030 = cp*cy*sr - sp*sy*cr
-											// S001 = S021 + C031 = cy*cr*sp + sy*sr*cp
-											// S002 = S022 - C032 = cr*cp*sy - sr*sp*cy
-		"sv.q		C000, %0\n"				// *q   = C000
-		".set		pop\n"					// restore assembler option
+								// S000 = S020 - C030 = cp*cy*sr - sp*sy*cr
+								// S001 = S021 + C031 = cy*cr*sp + sy*sr*cp
+								// S002 = S022 - C032 = cr*cp*sy - sr*sp*cy
+		"sv.q		C000, %0\n"			// *q   = C000
+		".set		pop\n"				// restore assembler option
 		: "=m"( *q )
 		: "m"( dst_angles )
 	);
@@ -891,118 +904,118 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 #if XASH_PSP
 	int	sides;
 	__asm__ (
-		".set		push\n"					// save assembler option
+		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
-		"lv.s		S000,  0 + %[normal]\n"	// S000 = p->normal[0]
-		"lv.s		S001,  4 + %[normal]\n"	// S001 = p->normal[1]
-		"lv.s		S002,  8 + %[normal]\n"	// S002 = p->normal[2]
-		"vzero.p	C030\n"					// C030 = [0.0f, 0.0f]
+		"lv.s		S000,  0 + %[normal]\n"		// S000 = p->normal[0]
+		"lv.s		S001,  4 + %[normal]\n"		// S001 = p->normal[1]
+		"lv.s		S002,  8 + %[normal]\n"		// S002 = p->normal[2]
+		"vzero.p	C030\n"				// C030 = [0.0f, 0.0f]
 		"lv.s		S032, %[dist]\n"		// S032 = p->dist
-		"move		$8,   $0\n"				// $8 = 0
-		"beq		%[signbits], $8, 0f\n"	// jump to 0
+		"move		$8,   $0\n"			// $8 = 0
+		"beq		%[signbits], $8, 0f\n"		// jump to 0
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
-		"beq		%[signbits], $8, 1f\n"	// jump to 1
+		"beq		%[signbits], $8, 1f\n"		// jump to 1
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
-		"beq		%[signbits], $8, 2f\n"	// jump to 2
+		"beq		%[signbits], $8, 2f\n"		// jump to 2
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
-		"beq		%[signbits], $8, 3f\n"	// jump to 3
+		"beq		%[signbits], $8, 3f\n"		// jump to 3
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
-		"beq		%[signbits], $8, 4f\n"	// jump to 4
+		"beq		%[signbits], $8, 4f\n"		// jump to 4
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
-		"beq		%[signbits], $8, 5f\n"	// jump to 5
+		"beq		%[signbits], $8, 5f\n"		// jump to 5
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
-		"beq		%[signbits], $8, 6f\n"	// jump to 6
+		"beq		%[signbits], $8, 6f\n"		// jump to 6
 		"addiu		$8,   $8,   1\n"		// $8 = $8 + 1							( delay slot )
-		"beq		%[signbits], $8, 7f\n"	// jump to 7
-		"nop\n"								// 										( delay slot )
-		"j			9f\n"					// jump to SetSides
-		"nop\n"								// 										( delay slot )
+		"beq		%[signbits], $8, 7f\n"		// jump to 7
+		"nop\n"						// 										( delay slot )
+		"j		9f\n"				// jump to SetSides
+		"nop\n"						// 										( delay slot )
 	"0:\n"
-		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
-		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
-		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
-		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
-		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
-		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"j			8f\n"					// jump to DotProduct
-		"nop\n"								// 										( delay slot )
+		"lv.s		S010,  0 + %[emaxs]\n"		// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emaxs]\n"		// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emaxs]\n"		// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emins]\n"		// S020 = emins[0]
+		"lv.s		S021,  4 + %[emins]\n"		// S021 = emins[1]
+		"lv.s		S022,  8 + %[emins]\n"		// S022 = emins[2]
+		"j		8f\n"				// jump to DotProduct
+		"nop\n"						// 										( delay slot )
 	"1:\n"
-		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
-		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
-		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
-		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
-		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
-		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"j			8f\n"					// jump to DotProduct
-		"nop\n"								// 										( delay slot )
+		"lv.s		S010,  0 + %[emins]\n"		// S010 = emins[0]
+		"lv.s		S011,  4 + %[emaxs]\n"		// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emaxs]\n"		// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emaxs]\n"		// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emins]\n"		// S021 = emins[1]
+		"lv.s		S022,  8 + %[emins]\n"		// S022 = emins[2]
+		"j		8f\n"				// jump to DotProduct
+		"nop\n"						// 										( delay slot )
 	"2:\n"
-		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
-		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
-		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
-		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
-		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
-		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"j			8f\n"					// jump to DotProduct
-		"nop\n"								// 										( delay slot )
+		"lv.s		S010,  0 + %[emaxs]\n"		// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emins]\n"		// S011 = emins[1]
+		"lv.s		S012,  8 + %[emaxs]\n"		// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emins]\n"		// S020 = emins[0]
+		"lv.s		S021,  4 + %[emaxs]\n"		// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emins]\n"		// S022 = emins[2]
+		"j		8f\n"				// jump to DotProduct
+		"nop\n"						// 										( delay slot )
 	"3:\n"
-		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
-		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
-		"lv.s		S012,  8 + %[emaxs]\n"	// S012 = emaxs[2]
-		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
-		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
-		"lv.s		S022,  8 + %[emins]\n"	// S022 = emins[2]
-		"j			8f\n"					// jump to DotProduct
-		"nop\n"								// 										( delay slot )
+		"lv.s		S010,  0 + %[emins]\n"		// S010 = emins[0]
+		"lv.s		S011,  4 + %[emins]\n"		// S011 = emins[1]
+		"lv.s		S012,  8 + %[emaxs]\n"		// S012 = emaxs[2]
+		"lv.s		S020,  0 + %[emaxs]\n"		// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emaxs]\n"		// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emins]\n"		// S022 = emins[2]
+		"j		8f\n"				// jump to DotProduct
+		"nop\n"						// 										( delay slot )
 	"4:\n"
-		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
-		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
-		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
-		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
-		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
-		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
-		"j			8f\n"					// jump to DotProduct
-		"nop\n"								// 										( delay slot )
+		"lv.s		S010,  0 + %[emaxs]\n"		// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emaxs]\n"		// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emins]\n"		// S012 = emins[2]
+		"lv.s		S020,  0 + %[emins]\n"		// S020 = emins[0]
+		"lv.s		S021,  4 + %[emins]\n"		// S021 = emins[1]
+		"lv.s		S022,  8 + %[emaxs]\n"		// S022 = emaxs[2]
+		"j		8f\n"				// jump to DotProduct
+		"nop\n"						// 										( delay slot )
 	"5:\n"
-		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
-		"lv.s		S011,  4 + %[emaxs]\n"	// S011 = emaxs[1]
-		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
-		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
-		"lv.s		S021,  4 + %[emins]\n"	// S021 = emins[1]
-		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
-		"j			8f\n"					// jump to DotProduct
-		"nop\n"								// 										( delay slot )
+		"lv.s		S010,  0 + %[emins]\n"		// S010 = emins[0]
+		"lv.s		S011,  4 + %[emaxs]\n"		// S011 = emaxs[1]
+		"lv.s		S012,  8 + %[emins]\n"		// S012 = emins[2]
+		"lv.s		S020,  0 + %[emaxs]\n"		// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emins]\n"		// S021 = emins[1]
+		"lv.s		S022,  8 + %[emaxs]\n"		// S022 = emaxs[2]
+		"j		8f\n"				// jump to DotProduct
+		"nop\n"						// 										( delay slot )
 	"6:\n"
-		"lv.s		S010,  0 + %[emaxs]\n"	// S010 = emaxs[0]
-		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
-		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
-		"lv.s		S020,  0 + %[emins]\n"	// S020 = emins[0]
-		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
-		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
-		"j			8f\n"					// jump to DotProduct
-		"nop\n"								// 										( delay slot )
+		"lv.s		S010,  0 + %[emaxs]\n"		// S010 = emaxs[0]
+		"lv.s		S011,  4 + %[emins]\n"		// S011 = emins[1]
+		"lv.s		S012,  8 + %[emins]\n"		// S012 = emins[2]
+		"lv.s		S020,  0 + %[emins]\n"		// S020 = emins[0]
+		"lv.s		S021,  4 + %[emaxs]\n"		// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emaxs]\n"		// S022 = emaxs[2]
+		"j		8f\n"				// jump to DotProduct
+		"nop\n"						// 										( delay slot )
 	"7:\n"
-		"lv.s		S010,  0 + %[emins]\n"	// S010 = emins[0]
-		"lv.s		S011,  4 + %[emins]\n"	// S011 = emins[1]
-		"lv.s		S012,  8 + %[emins]\n"	// S012 = emins[2]
-		"lv.s		S020,  0 + %[emaxs]\n"	// S020 = emaxs[0]
-		"lv.s		S021,  4 + %[emaxs]\n"	// S021 = emaxs[1]
-		"lv.s		S022,  8 + %[emaxs]\n"	// S022 = emaxs[2]
-	"8:\n"									// DotProduct
+		"lv.s		S010,  0 + %[emins]\n"		// S010 = emins[0]
+		"lv.s		S011,  4 + %[emins]\n"		// S011 = emins[1]
+		"lv.s		S012,  8 + %[emins]\n"		// S012 = emins[2]
+		"lv.s		S020,  0 + %[emaxs]\n"		// S020 = emaxs[0]
+		"lv.s		S021,  4 + %[emaxs]\n"		// S021 = emaxs[1]
+		"lv.s		S022,  8 + %[emaxs]\n"		// S022 = emaxs[2]
+	"8:\n"							// DotProduct
 		"vdot.t		S030, C000, C010\n"		// S030 = C000 * C010
 		"vdot.t		S031, C000, C020\n"		// S031 = C000 * C020
-	"9:\n"									// SetSides
+	"9:\n"							// SetSides
 		"addiu		%[sides], $0, 0\n"		// sides = 0
 		"vcmp.s		LT,   S030, S032\n"		// S030 < S032
 		"bvt		0,    10f\n"			// if ( CC[0] == 1 ) jump to 10
-		"nop\n"								// 										( delay slot )
-		"addiu		%[sides], %[sides], 1\n"// sides = 1
+		"nop\n"						// 										( delay slot )
+		"addiu		%[sides], %[sides], 1\n"	// sides = 1
 	"10:\n"
 		"vcmp.s		GE,   S031, S032\n"		// S031 >= S032
 		"bvt		0,    11f\n"			// if ( CC[0] == 1 ) jump to 11
-		"nop\n"								// 										( delay slot )
-		"addiu		%[sides], %[sides], 2\n"// sides = sides + 2
+		"nop\n"						// 										( delay slot )
+		"addiu		%[sides], %[sides], 2\n"	// sides = sides + 2
 	"11:\n"
-		".set		pop\n"					// restore assembler option
+		".set		pop\n"				// restore assembler option
 		:	[sides]    "=r" ( sides )
 		:	[normal]   "m"  ( p->normal ),
 			[emaxs]    "m"  ( *emaxs ),

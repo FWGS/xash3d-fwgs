@@ -578,7 +578,6 @@ void R_SetupGL( qboolean set_gl_state )
 		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
 		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
 #endif
-#if 1
 		w = x2 - x;
 		h = y - y2;
 
@@ -586,24 +585,15 @@ void R_SetupGL( qboolean set_gl_state )
 						2048 + ( gpGlobals->height >> 1 ) - y2 - ( h >> 1 ),
 						w, h );
 		sceGuScissor( x, gpGlobals->height - y2 - h, x + w, gpGlobals->height - y2 );
-#else
-		pglViewport( x, y2, w, h );
-#endif
 	}
 	else
 	{
 		// envpass, mirrorpass
-#if 1 
-		// FIXME: 
-		sceGuViewport( 2048 - ( gpGlobals->width >> 1 ) + RI.viewport[0] + ( RI.viewport[2] >> 1 ),
-						2048 + ( gpGlobals->height >> 1 ) - RI.viewport[1] - ( RI.viewport[3] >> 1 ),
-						RI.viewport[2], RI.viewport[3] );
-		sceGuViewport( 2048, 2048, RI.viewport[2], RI.viewport[3] );
+		sceGuViewport(2048 - ( gpGlobals->width >> 1 ) + RI.viewport[0] + ( RI.viewport[2] >> 1 ),
+				2048 + ( gpGlobals->height >> 1 ) - RI.viewport[1] - ( RI.viewport[3] >> 1 ),
+				RI.viewport[2], RI.viewport[3] );
 		sceGuScissor( RI.viewport[0], gpGlobals->height - RI.viewport[1] - RI.viewport[3],
 						RI.viewport[0] + RI.viewport[2], gpGlobals->height - RI.viewport[1] );
-#else
-		pglViewport( RI.viewport[0], RI.viewport[1], RI.viewport[2], RI.viewport[3] );
-#endif
 	}
 
 	sceGumMatrixMode( GU_PROJECTION );

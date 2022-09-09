@@ -46,9 +46,8 @@ void CL_RunLightStyles( void )
 
 	// light animations
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
-	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
+	for( i = 0, ls = gEngfuncs.GetLightStyle( 0 ); i < MAX_LIGHTSTYLES; i++, ls++ )
 	{
-		ls = gEngfuncs.GetLightStyle( i );
 		if( !WORLDMODEL->lightdata )
 		{
 			tr.lightstylevalue[i] = 256 * 256;

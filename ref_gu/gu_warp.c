@@ -18,9 +18,9 @@ GNU General Public License for more details.
 #include "gu_local.h"
 #include "wadfile.h"
 #define SKYCLOUDS_QUALITY	12
-#define MAX_CLIP_VERTS	128 // skybox clip vertices
+#define MAX_CLIP_VERTS		128 // skybox clip vertices
 #define TURBSCALE		( 256.0f / ( M_PI2 ))
-const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
+const char*			r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
 static const int		r_skyTexOrder[6] = { 0, 2, 1, 3, 4, 5 };
 
 static const vec3_t skyclip[6] =
@@ -154,7 +154,7 @@ void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 {
 	const float	*norm;
 	float		*v, d, e;
-	qboolean		front, back;
+	qboolean	front, back;
 	float		dists[MAX_CLIP_VERTS + 1];
 	int		sides[MAX_CLIP_VERTS + 1];
 	vec3_t		newv[2][MAX_CLIP_VERTS + 1];
@@ -248,7 +248,7 @@ loc1:
 _inline void MakeSkyVec( float s, float t, int axis, gu_vert_t *out )
 {
 	int	j, k, farclip;
-	vec3_t	v, b;
+	vec3_t	b;
 
 	farclip = RI.farClip;
 
@@ -259,8 +259,8 @@ _inline void MakeSkyVec( float s, float t, int axis, gu_vert_t *out )
 	for( j = 0; j < 3; j++ )
 	{
 		k = st_to_vec[axis][j];
-		v[j] = (k < 0) ? -b[-k-1] : b[k-1];
-		v[j] += RI.cullorigin[j];
+		out->xyz[j] = (k < 0) ? -b[-k-1] : b[k-1];
+		out->xyz[j] += RI.cullorigin[j];
 	}
 
 	// avoid bilerp seam
@@ -280,7 +280,6 @@ _inline void MakeSkyVec( float s, float t, int axis, gu_vert_t *out )
 
 	out->uv[0] = s;
 	out->uv[1] = t;
-	VectorCopy( v, out->xyz );
 }
 #else
 void MakeSkyVec( float s, float t, int axis )
@@ -343,10 +342,10 @@ R_AddSkyBoxSurface
 */
 void R_AddSkyBoxSurface( msurface_t *fa )
 {
-	vec3_t	verts[MAX_CLIP_VERTS];
+	vec3_t		verts[MAX_CLIP_VERTS];
 	glpoly_t	*p;
-	float	*v;
-	int	i;
+	float		*v;
+	int		i;
 
 	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) && fa->polys && !tr.fCustomSkybox )
 	{
@@ -419,7 +418,6 @@ void R_DrawSkyBox( void )
 			GL_Bind( XASH_TEXTURE0, tr.skyboxTextures[r_skyTexOrder[i]] );
 		else GL_Bind( XASH_TEXTURE0, tr.grayTexture ); // stub
 
-		//gu_vert_t uv[4] __attribute__( ( aligned( 16 ) ) ); // dcache writeback required!
 		gu_vert_t* const uv = ( gu_vert_t* )sceGuGetMemory( sizeof( gu_vert_t ) * 4 );
 		MakeSkyVec( RI.skyMins[0][i], RI.skyMins[1][i], i, &uv[0] );
 		MakeSkyVec( RI.skyMins[0][i], RI.skyMaxs[1][i], i, &uv[1] );
@@ -802,11 +800,10 @@ Does a water warp on the pre-fragmented glpoly_t chain
 */
 void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 {
-	gu_vert_t *verts;
-	float	*v, nv, waveHeight;
-	float	s, t, os, ot;
+	gu_vert_t	*verts;
+	float		waveHeight;
 	glpoly_t	*p;
-	int	i;
+	int		i;
 
 	if( !warp->polys ) return;
 
@@ -820,52 +817,41 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 
 	for( p = warp->polys; p; p = p->next )
 	{
-		if( reverse )
-			verts = &p->verts[p->numverts - 1];
+		if( reverse ) verts = &p->verts[p->numverts - 1];
 		else verts = &p->verts[0];
 
 		gu_vert_t* const out = ( gu_vert_t* )sceGuGetMemory( sizeof( gu_vert_t ) * p->numverts );
 		for( i = 0; i < p->numverts; i++ )
 		{
-			if( waveHeight )
-			{
-				nv = r_turbsin[( int )( gpGlobals->time * 160.0f + verts->xyz[1] + verts->xyz[0]) & 255] + 8.0f;
-				nv = (r_turbsin[( int )( verts->xyz[0] * 5.0f + gpGlobals->time * 171.0f - verts->xyz[1]) & 255] + 8.0f ) * 0.8f + nv;
-				nv = nv * waveHeight + verts->xyz[2];
-			}
-			else nv = verts->xyz[2];
+			out[i].uv[0] = verts->uv[0] + r_turbsin[( int )(( verts->uv[1] * 0.125f + gpGlobals->time ) * TURBSCALE ) & 255];
+			out[i].uv[0] *= ( 1.0f / SUBDIVIDE_SIZE );
+			out[i].uv[1] = verts->uv[1] + r_turbsin[( int )(( verts->uv[0] * 0.125f + gpGlobals->time ) * TURBSCALE ) & 255];
+			out[i].uv[1] *= ( 1.0f / SUBDIVIDE_SIZE );
 
-			os = verts->uv[0];
-			ot = verts->uv[1];
-
-			s = os + r_turbsin[(int)((ot * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
-			s *= ( 1.0f / SUBDIVIDE_SIZE );
-
-			t = ot + r_turbsin[(int)((os * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
-			t *= ( 1.0f / SUBDIVIDE_SIZE );
-
-			out[i].uv[0] = s;
-			out[i].uv[1] = t;
 			out[i].xyz[0] = verts->xyz[0];
 			out[i].xyz[1] = verts->xyz[1];
-			out[i].xyz[2] = nv;
 
-			if( reverse )
-				verts -= 1;
+			if( waveHeight )
+			{
+				out[i].xyz[2] = r_turbsin[( int )( gpGlobals->time * 160.0f + verts->xyz[1] + verts->xyz[0] ) & 255] + 8.0f;
+				out[i].xyz[2] = ( r_turbsin[( int )( verts->xyz[0] * 5.0f + gpGlobals->time * 171.0f - verts->xyz[1] ) & 255] + 8.0f ) * 0.8f + out[i].xyz[2];
+				out[i].xyz[2] = out[i].xyz[2] * waveHeight + verts->xyz[2];
+			}
+			else out[i].xyz[2] = verts->xyz[2];
+
+			if( reverse ) verts -= 1;
 			else verts += 1;
 		}
-		if ( GU_ClipIsRequired( out, p->numverts ) )
+		if ( GU_ClipIsRequired( out, p->numverts ))
 		{
 			// Clip the polygon.
 			gu_vert_t*	cv;
 			size_t		cvc;
 
 			GU_Clip( out, p->numverts, &cv, &cvc );
-			if( cvc )
-				sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, cvc, 0, cv );
+			if( cvc ) sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, cvc, 0, cv );
 		}
-		else
-			sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, p->numverts, 0, out );
+		else sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, p->numverts, 0, out );
 	}
 	GL_SetupFogColorForSurfaces();
 }
