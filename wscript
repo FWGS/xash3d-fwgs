@@ -258,7 +258,8 @@ def configure(conf):
 			'advapi32',
 			'dbghelp',
 			'psapi',
-			'ws2_32'
+			'ws2_32',
+			'winmm'
 		]
 
 		if conf.env.COMPILER_CC == 'msvc':
