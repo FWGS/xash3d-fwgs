@@ -17,6 +17,22 @@ GNU General Public License for more details.
 #include "menu_int.h"
 #include "server.h"
 #include <shellapi.h>
+#include <timeapi.h>
+#include <bcrypt.h>
+
+typedef NTSTATUS (NTAPI *pfnNtSetTimerResolution_t)(ULONG DesiredResolution, BOOLEAN SetResolution, PULONG CurrentResolution);
+typedef NTSTATUS (NTAPI *pfnNtQueryTimerResolution_t)(PULONG MinimumResolution, PULONG MaximumResolution, PULONG CurrentResolution);
+
+typedef struct {
+	HANDLE hEvent;
+	HANDLE hTimer;
+	HANDLE hThread;
+	HANDLE hMutex;
+	DWORD iThreadID;
+	double flInterval;
+} timer_win32_t;
+
+static timer_win32_t g_timer;
 
 #if XASH_TIMER == TIMER_WIN32
 double Platform_DoubleTime( void )
@@ -44,6 +60,92 @@ void Platform_Sleep( int msec )
 qboolean Sys_DebuggerPresent( void )
 {
 	return IsDebuggerPresent();
+}
+
+static void Sys_SetTimerHighResolution( void )
+{	
+	HMODULE hndl;
+	pfnNtSetTimerResolution_t pNtSetTimerResolution;
+	pfnNtQueryTimerResolution_t pNtQueryTimerResolution;
+	
+	hndl = GetModuleHandle( "ntdll.dll" );
+	pNtSetTimerResolution = (pfnNtSetTimerResolution_t)GetProcAddress( hndl, "NtSetTimerResolution" );
+	pNtQueryTimerResolution = (pfnNtQueryTimerResolution_t)GetProcAddress( hndl, "NtQueryTimerResolution" );
+
+	if( pNtSetTimerResolution && pNtQueryTimerResolution )
+	{
+		// undocumented NT API functions, for some mystery reason works better than timeBeginPeriod
+		ULONG min, max, cur;
+		pNtQueryTimerResolution(&min, &max, &cur);
+		pNtSetTimerResolution(max, 1, &cur);
+	}
+	else
+	{
+		// more conventional method to set timer resolution, using as fallback
+		TIMECAPS tc;
+		timeGetDevCaps( &tc, sizeof( TIMECAPS ));
+		timeBeginPeriod( tc.wPeriodMin );
+	}
+}
+
+static DWORD WINAPI Sys_TimerThread( LPVOID a )
+{
+	double oldtime = 0;
+	LARGE_INTEGER delay;
+	while (true)
+	{
+		WaitForSingleObject( g_timer.hMutex, INFINITE ); // lock mutex
+		double realtime = Platform_DoubleTime();
+		double delta = g_timer.flInterval - ( realtime - oldtime );
+		oldtime = realtime;
+
+		if (delta > 0)
+			delta = 0;
+
+		delay.QuadPart = -1 * 1e7 * ( g_timer.flInterval + delta );
+		ReleaseMutex( g_timer.hMutex ); // unlock mutex
+
+		SetWaitableTimer( g_timer.hTimer, &delay, 0, NULL, NULL, 0 );
+		WaitForSingleObject( g_timer.hTimer, INFINITE );
+		SetEvent( g_timer.hEvent );
+	}
+}
+
+void Platform_Delay( double time )
+{
+	WaitForSingleObject( g_timer.hMutex, INFINITE ); // lock mutex
+	g_timer.flInterval = time;
+	ReleaseMutex( g_timer.hMutex ); // unlock mutex
+	WaitForSingleObject( g_timer.hEvent, INFINITE ); // wait when event will be triggered
+}
+
+void Platform_TimerInit( void )
+{
+	Sys_SetTimerHighResolution();
+	g_timer.hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
+	g_timer.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	g_timer.flInterval = 1.0 / 60.0;
+
+	g_timer.hMutex = CreateMutex(
+		NULL,              // default security attributes
+		FALSE,             // initially not owned
+		NULL);             // unnamed mutex
+
+	g_timer.hThread = CreateThread(
+		NULL,                   // default security attributes
+		0,                      // use default stack size
+		Sys_TimerThread,		// thread function name
+		0,						// argument to thread function
+		0,                      // use default creation flags
+		&g_timer.iThreadID);
+}
+
+void Platform_TimerShutdown( void )
+{
+	CloseHandle( g_timer.hThread );
+	CloseHandle( g_timer.hTimer );
+	CloseHandle( g_timer.hMutex );
+	CloseHandle( g_timer.hEvent );
 }
 
 void Platform_ShellExecute( const char *path, const char *parms )
