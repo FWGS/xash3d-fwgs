@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "entity_types.h"
 #include "triangleapi.h"
 #include "customentity.h"
-#include "cl_tent.h"
 #include "pm_local.h"
 #include "studio.h"
 
