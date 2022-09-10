@@ -16,16 +16,11 @@ def build(bld):
 	if bld.env.DISABLE_UTILS_MDLDEC:
 		return
 
-	source = bld.path.ant_glob('*.c')
-	includes = '. ../../common ../../engine ../../engine/common ../../engine/common/imagelib ../../public'
-	libs = [ 'public', 'M' ]
-
-	bld(
-		source   = source,
+	bld(source   = bld.path.ant_glob('*.c'),
 		target   = 'mdldec',
 		features = 'c cprogram',
 		includes = includes,
-		use      = libs,
+		use      = 'engine_includes public M',
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.CONSOLE_SUBSYSTEM
 	)
