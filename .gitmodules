@@ -2,13 +2,13 @@
 	path = 3rdparty/mainui
 	url = https://github.com/FWGS/mainui_cpp
 [submodule "ref_gl/nanogl"]
-	path = ref_gl/nanogl
+	path = ref/gl/nanogl
 	url = https://github.com/FWGS/nanogl
 [submodule "ref_gl/gl-wes-v2"]
-	path = ref_gl/gl-wes-v2
+	path = ref/gl/gl-wes-v2
 	url = https://github.com/FWGS/gl-wes-v2
 [submodule "ref_gl/gl4es"]
-	path = ref_gl/gl4es
+	path = ref/gl/gl4es
 	url = https://github.com/ptitSeb/gl4es
 [submodule "vgui_support"]
 	path = 3rdparty/vgui_support
