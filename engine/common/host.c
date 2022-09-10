@@ -325,18 +325,6 @@ double Host_CalcFPS( void )
 		if( fps == 0.0 ) fps = MAX_FPS;
 		fps = bound(MIN_FPS, fps, MAX_FPS);
 	}
-
-	// probably left part of this condition is redundant :-)
-	if( host.type != HOST_DEDICATED && Host_IsLocalGame() && !CL_IsTimeDemo() )
-	{
-		// ajdust fps for vertical synchronization
-		if( CVAR_TO_BOOL( gl_vsync ))
-		{
-			if( vid_displayfrequency->value != 0.0f )
-				fps = vid_displayfrequency->value;
-			else fps = 60.0; // default
-		}
-	}
 #endif
 
 	return fps;
