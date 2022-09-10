@@ -66,9 +66,6 @@ build_appimage()
 
 	./waf install --destdir="$APPDIR" || die
 
-	# Generate extras.pak
-	python3 scripts/makepak.py xash-extras/ "$APPDIR/extras.pak"
-
 	cp SDL2_linux/lib/libSDL2-2.0.so.0 "$APPDIR/"
 	if [ "$ARCH" = "i386" ]; then
 		cp vgui_support/vgui-dev/lib/vgui.so "$APPDIR/"
@@ -83,7 +80,7 @@ fi
 echo "Xash3D FWGS installed as AppImage."
 echo "Base directory is $XASH3D_BASEDIR. Set XASH3D_BASEDIR environment variable to override this"
 
-export XASH3D_EXTRAS_PAK1="${APPDIR}"/extras.pak
+export XASH3D_EXTRAS_PAK1="${APPDIR}"/valve/extras.pk3
 ${DEBUGGER} "${APPDIR}"/xash3d "$@"
 exit $?
 EOF
