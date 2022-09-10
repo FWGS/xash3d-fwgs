@@ -39,8 +39,11 @@ SUBDIRS = [
 	Subproject('dllemu'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
-	Subproject('ref/gl',                lambda x: not x.env.DEDICATED),
-	Subproject('ref/soft',              lambda x: not x.env.DEDICATED),
+	Subproject('3rdparty/nanogl',       lambda x: not x.env.DEDICATED and x.env.NANOGL),
+	Subproject('3rdparty/gl-wes-v2',    lambda x: not x.env.DEDICATED and x.env.GLWES),
+	Subproject('3rdparty/gl4es',        lambda x: not x.env.DEDICATED and x.env.GL4ES),
+	Subproject('ref/gl',                lambda x: not x.env.DEDICATED and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
+	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and x.env.SOFT),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
@@ -53,9 +56,6 @@ SUBDIRS = [
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
 ]
-
-def subdirs():
-	return map(lambda x: x.name, SUBDIRS)
 
 def options(opt):
 	grp = opt.add_option_group('Common options')
@@ -83,6 +83,26 @@ def options(opt):
 
 	grp.add_option('--disable-werror', action = 'store_true', dest = 'DISABLE_WERROR', default = False,
 		help = 'disable compilation abort on warning')
+
+	grp = opt.add_option_group('Renderers options')
+
+	grp.add_option('--enable-all-renderers', action='store_true', dest='ALL_RENDERERS', default=False,
+		help = 'enable all renderers supported by Xash3D FWGS [default: %default]')
+
+	grp.add_option('--enable-gles1', action='store_true', dest='NANOGL', default=False,
+		help = 'enable gles1 renderer [default: %default]')
+
+	grp.add_option('--enable-gles2', action='store_true', dest='GLWES', default=False,
+		help = 'enable gles2 renderer [default: %default]')
+
+	grp.add_option('--enable-gl4es', action='store_true', dest='GL4ES', default=False,
+		help = 'enable gles2 renderer [default: %default]')
+
+	grp.add_option('--disable-gl', action='store_false', dest='GL', default=True,
+		help = 'disable opengl renderer [default: %default]')
+
+	grp.add_option('--disable-soft', action='store_false', dest='SOFT', default=True,
+		help = 'disable opengl renderer [default: %default]')
 
 	grp = opt.add_option_group('Utilities options')
 
@@ -240,6 +260,12 @@ def configure(conf):
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
+
+	conf.env.NANOGL = conf.options.NANOGL or conf.options.ALL_RENDERERS
+	conf.env.GLWES  = conf.options.GLWES or conf.options.ALL_RENDERERS
+	conf.env.GL4ES  = conf.options.GL4ES or conf.options.ALL_RENDERERS
+	conf.env.GL     = conf.options.GL or conf.options.ALL_RENDERERS
+	conf.env.SOFT   = conf.options.SOFT or conf.options.ALL_RENDERERS
 
 	if conf.env.DEST_OS != 'win32':
 		conf.check_cc(lib='dl', mandatory=False)
