@@ -35,7 +35,9 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #endif
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
-#define GAME_PATH	"valve"	// default dir to start from
+#ifndef XASH_GAMEDIR
+#define XASH_GAMEDIR	"valve"
+#endif
 
 static char        szGameDir[128]; // safe place to keep gamedir
 static int         szArgc;
@@ -56,7 +58,7 @@ _inline int Sys_Start( void )
 	const char *game = getenv( E_GAME );
 
 	if( !game )
-		game = GAME_PATH;
+		game = XASH_GAMEDIR;
 
 	Q_strncpy( szGameDir, game, sizeof( szGameDir ));
 #if XASH_EMSCRIPTEN

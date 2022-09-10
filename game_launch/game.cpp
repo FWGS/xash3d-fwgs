@@ -45,7 +45,9 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #endif
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
-#define GAME_PATH	"valve"	// default dir to start from
+#ifndef XASH_GAMEDIR
+#define XASH_GAMEDIR	"valve"
+#endif
 
 typedef void (*pfnChangeGame)( const char *progname );
 typedef int  (*pfnInit)( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
@@ -152,7 +154,7 @@ _inline int Sys_Start( void )
 	const char *game = getenv( E_GAME );
 
 	if( !game )
-		game = GAME_PATH;
+		game = XASH_GAMEDIR;
 
 	strncpy( szGameDir, game, sizeof( szGameDir ) - 1 );
 

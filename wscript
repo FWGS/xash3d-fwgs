@@ -64,6 +64,9 @@ def options(opt):
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
 		help = 'build Xash Dedicated Server [default: %default]')
 
+	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
+		help = 'engine default game directory [default: %default]')
+
 	grp.add_option('--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
 		help = 'build single "xash" binary (always enabled for dedicated) [default: %default]')
 
@@ -267,6 +270,9 @@ def configure(conf):
 	conf.env.GL4ES  = conf.options.GL4ES or conf.options.ALL_RENDERERS
 	conf.env.GL     = conf.options.GL or conf.options.ALL_RENDERERS
 	conf.env.SOFT   = conf.options.SOFT or conf.options.ALL_RENDERERS
+
+	conf.env.GAMEDIR = conf.options.GAMEDIR
+	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
 
 	if conf.env.DEST_OS != 'win32':
 		conf.check_cc(lib='dl', mandatory=False)
