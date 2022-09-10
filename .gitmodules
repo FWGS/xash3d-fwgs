@@ -1,5 +1,5 @@
 [submodule "mainui"]
-	path = mainui
+	path = 3rdparty/mainui
 	url = https://github.com/FWGS/mainui_cpp
 [submodule "ref_gl/nanogl"]
 	path = ref_gl/nanogl
@@ -11,7 +11,7 @@
 	path = ref_gl/gl4es
 	url = https://github.com/ptitSeb/gl4es
 [submodule "vgui_support"]
-	path = vgui_support
+	path = 3rdparty/vgui_support
 	url = https://github.com/FWGS/vgui_support
 [submodule "opus"]
 	path = 3rdparty/opus/opus
