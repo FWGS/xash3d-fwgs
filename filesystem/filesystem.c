@@ -29,6 +29,9 @@ GNU General Public License for more details.
 #endif
 #include <stdio.h>
 #include <stdarg.h>
+#if XASH_LINUX
+#include <sys/inotify.h>
+#endif
 #include "port.h"
 #include "const.h"
 #include "crtlib.h"

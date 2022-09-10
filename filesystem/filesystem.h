@@ -120,6 +120,9 @@ typedef struct fs_globals_t
 	int		numgames;
 } fs_globals_t;
 
+typedef void (*fs_event_callback_t)( const char *path );
+
+
 typedef struct fs_api_t
 {
 	qboolean (*InitStdio)( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
@@ -174,6 +177,10 @@ typedef struct fs_api_t
 	qboolean (*Delete)( const char *path );
 	qboolean (*SysFileExists)( const char *path, qboolean casesensitive );
 	const char *(*GetDiskPath)( const char *name, qboolean gamedironly );
+
+	// file watcher
+	void (*WatchFrame)( void ); // engine will read all events and call appropriate callbacks
+	qboolean (*AddWatch)( const char *path, fs_event_callback_t callback );
 } fs_api_t;
 
 typedef struct fs_interface_t
