@@ -106,8 +106,11 @@ def configure(conf):
 	conf.define_cond('PSAPI_VERSION', conf.env.DEST_OS == 'win32') # will be defined as 1
 
 def build(bld):
+	# public includes for renderers and utils use
+	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
+
 	is_cxx_link = False
-	libs = [ 'public', 'dllemu' ]
+	libs = [ 'engine_includes', 'public', 'dllemu' ]
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob([
@@ -167,7 +170,7 @@ def build(bld):
 			'client/avi/*.c'])
 		libs += ['opus']
 
-	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../filesystem', '../pm_shared' ]
+	includes = ['server', 'client', 'client/vgui' ]
 
 	if bld.env.SINGLE_BINARY:
 		install_path = bld.env.BINDIR
