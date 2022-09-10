@@ -16,15 +16,9 @@ def configure(conf):
 	return
 
 def build(bld):
-	source = bld.path.ant_glob(['*.c'])
-	libs = []
-	includes = [ '.', '../common', '../engine' ]
-
-	bld.stlib(
-		source   = source,
+	bld(name = 'sdk_includes', export_includes = '. ../common ../pm_shared ../engine')
+	bld.stlib(source   = bld.path.ant_glob('*.c'),
 		target   = 'public',
 		features = 'c',
-		includes = includes,
-		use      = libs,
-		subsystem = bld.env.MSVC_SUBSYSTEM
-	)
+		use      = 'sdk_includes',
+		subsystem = bld.env.MSVC_SUBSYSTEM)
