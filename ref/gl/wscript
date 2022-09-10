@@ -54,19 +54,10 @@ def configure(conf):
 		conf.check_cc(lib='log')
 
 def build(bld):
-	libs = [ 'public', 'M' ]
+	libs = [ 'engine_includes', 'public', 'M' ]
 
 	source = bld.path.ant_glob(['*.c'])
-
-	includes = ['.',
-		'../filesystem',
-		'../engine',
-		'../engine/common',
-		'../engine/server',
-		'../engine/client',
-		'../public',
-		'../common',
-		'../pm_shared' ]
+	includes = '.'
 
 	if bld.env.GL:
 		bld.shlib(
