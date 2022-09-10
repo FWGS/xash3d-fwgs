@@ -190,6 +190,13 @@ byte    *FS_LoadWADFile( const char *path, fs_offset_t *sizeptr, qboolean gamedi
 qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags );
 
 //
+// watch.c
+//
+qboolean FS_WatchInitialize( void );
+int FS_AddWatch( const char *path, fs_event_callback_t callback );
+void FS_WatchFrame( void );
+
+//
 // zip.c
 //
 int      FS_FileTimeZIP( zip_t *zip );
