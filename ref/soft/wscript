@@ -25,26 +25,11 @@ def build(bld):
 	if bld.env.DEDICATED:
 		return
 
-	libs = [ 'public', 'M' ]
-
-	source = bld.path.ant_glob(['*.c'])
-
-	includes = ['.',
-		'../filesystem',
-		'../engine',
-		'../engine/common',
-		'../engine/server',
-		'../engine/client',
-		'../public',
-		'../common',
-		'../pm_shared' ]
-
-	bld.shlib(
-		source   = source,
+	bld.shlib(source   = bld.path.ant_glob(['*.c']),
 		target   = 'ref_soft',
 		features = 'c',
-		includes = includes,
-		use      = libs,
+		includes = '.',
+		use      = 'engine_includes public M',
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)
