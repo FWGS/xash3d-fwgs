@@ -19,9 +19,8 @@ GNU General Public License for more details.
 #include "entity_types.h"
 #include "triangleapi.h"
 #include "customentity.h"
-#include "cl_tent.h"
 #include "pm_local.h"
-
+#include "triangleapi.h"
 #include "studio.h"
 
 #define NOISE_DIVISIONS	64	// don't touch - many tripmines cause the crash when it equal 128

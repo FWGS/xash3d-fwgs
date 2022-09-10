@@ -1,6 +1,6 @@
 #include "r_local.h"
 #define APIENTRY_LINKAGE static
-#include "../ref_gl/gl_export.h"
+#include "../gl/gl_export.h"
 
 struct swblit_s
 {
