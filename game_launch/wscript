@@ -22,13 +22,15 @@ def configure(conf):
 
 def build(bld):
 	libs = ['sdk_includes']
+	source = ['game.cpp']
+
 	if bld.env.DEST_OS != 'win32':
 		libs += [ 'DL' ]
 	else:
 		libs += ['USER32', 'SHELL32']
 		source += ['game.rc']
 
-	bld(source = 'game.cpp',
+	bld(source = source,
 		target   = 'xash3d', # hl.exe
 		features = 'c cxx cxxprogram',
 		use      = libs,
