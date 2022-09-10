@@ -19,10 +19,7 @@ class ziparchive(Task.Task):
 		outfile = self.outputs[0].path_from(self.outputs[0].ctx.launch_node())
 		comp = zipfile.ZIP_STORED if self.compresslevel == 0 else zipfile.ZIP_DEFLATED
 
-		with zipfile.ZipFile(outfile, mode='w',
-			compression=comp, compresslevel=self.compresslevel,
-			strict_timestamps=False) as zf:
-
+		with zipfile.ZipFile(outfile, mode='w', compression=comp) as zf:
 			for src in self.inputs:
 				infile  = src.path_from(src.ctx.launch_node())
 				arcfile = src.path_from(self.relative_to)
