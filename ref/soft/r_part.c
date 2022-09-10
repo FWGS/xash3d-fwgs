@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "entity_types.h"
 #include "triangleapi.h"
 #include "pm_local.h"
-#include "cl_tent.h"
 #include "studio.h"
 
 static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
