@@ -39,12 +39,12 @@ SUBDIRS = [
 	Subproject('dllemu'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
-	Subproject('ref_gl',       lambda x: not x.env.DEDICATED),
-	Subproject('ref_soft',     lambda x: not x.env.DEDICATED),
-	Subproject('mainui',       lambda x: not x.env.DEDICATED),
-	Subproject('vgui_support', lambda x: not x.env.DEDICATED),
-	Subproject('stub/client',  lambda x: not x.env.DEDICATED),
-	Subproject('game_launch',  lambda x: not x.env.SINGLE_BINARY and x.env.DEST_OS != 'android'),
+	Subproject('ref/gl',                lambda x: not x.env.DEDICATED),
+	Subproject('ref/soft',              lambda x: not x.env.DEDICATED),
+	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
+	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
+	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
+	Subproject('game_launch',           lambda x: not x.env.SINGLE_BINARY and x.env.DEST_OS != 'android'),
 
 	# disable only by external dependency presense
 	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS and not x.env.DEDICATED),
