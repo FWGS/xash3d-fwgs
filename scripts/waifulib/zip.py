@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-from waflib import TaskGen, Task, Logs
+from waflib import TaskGen, Task, Logs, Utils
 import zipfile
 
 class ziparchive(Task.Task):
@@ -51,3 +51,12 @@ def create_zip_archive(self):
 
 	setattr(tsk, 'compresslevel', compresslevel)
 	setattr(tsk, 'relative_to', relative_to)
+
+	try:
+		inst_to = self.install_path
+		self.install_task = self.add_install_files(
+			install_to=inst_to, install_from=target,
+			chmod=Utils.O644, task=tsk)
+
+	except AttributeError:
+		pass
