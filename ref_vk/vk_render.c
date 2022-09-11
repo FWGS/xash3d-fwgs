@@ -652,7 +652,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 	}
 }
 
-qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) {
+qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
 		const VkBuffer geom_buffer = R_GeometryBuffer_Get();
 		// TODO runtime rtx switch: ???
@@ -660,7 +660,7 @@ qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) 
 			.buffer = geom_buffer,
 			.model = model,
 		};
-		model->ray_model = VK_RayModelCreate(cmdbuf, args);
+		model->ray_model = VK_RayModelCreate(args);
 		return !!model->ray_model;
 	}
 
@@ -772,7 +772,7 @@ void VK_RenderModelDynamicCommit( void ) {
 
 	if (g_dynamic_model.model.num_geometries > 0) {
 		g_dynamic_model.model.dynamic = true;
-		VK_RenderModelInit( vk_frame.cmdbuf, &g_dynamic_model.model );
+		VK_RenderModelInit( &g_dynamic_model.model );
 		VK_RenderModelDraw( NULL, &g_dynamic_model.model );
 	}
 

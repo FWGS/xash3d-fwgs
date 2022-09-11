@@ -25,6 +25,38 @@ void VK_PipelineShutdown( void )
 	vkDestroyPipelineCache(vk_core.device, g_pipeline_cache, NULL);
 }
 
+// TODO load from embedded static structs
+static VkShaderModule loadShader(const char *filename) {
+	fs_offset_t size = 0;
+	VkShaderModuleCreateInfo smci = {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+	};
+	VkShaderModule shader;
+	byte* buf = gEngine.fsapi->LoadFile( filename, &size, false);
+	uint32_t *pcode;
+
+	if (!buf)
+	{
+		gEngine.Host_Error( S_ERROR "Cannot open shader file \"%s\"\n", filename);
+	}
+
+	if ((size % 4 != 0) || (((uintptr_t)buf & 3) != 0)) {
+		gEngine.Host_Error( S_ERROR "size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec", size, buf);
+	}
+
+	smci.codeSize = size;
+	//smci.pCode = (const uint32_t*)buf;
+	//memcpy(&smci.pCode, &buf, sizeof(void*));
+	memcpy(&pcode, &buf, sizeof(pcode));
+	smci.pCode = pcode;
+
+	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
+	SET_DEBUG_NAME(shader, VK_OBJECT_TYPE_SHADER_MODULE, filename);
+
+	Mem_Free(buf);
+	return shader;
+}
+
 VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *ci)
 {
 	VkPipeline pipeline;

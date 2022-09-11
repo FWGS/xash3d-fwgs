@@ -1209,9 +1209,6 @@ vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 
 	R_VkStagingUnlock( locked.handle );
 
-	// TODO probably should do this somewhere else
-	R_VkStagingCommit( cmdbuf );
-
 	return (vk_lights_bindings_t){
 		.buffer = g_lights_.buffer.buffer,
 		.metadata = {

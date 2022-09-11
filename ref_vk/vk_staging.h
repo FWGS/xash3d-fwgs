@@ -34,13 +34,16 @@ vk_staging_region_t R_VkStagingLockForImage(vk_staging_image_args_t args);
 // Mark allocated region as ready for upload
 void R_VkStagingUnlock(staging_handle_t handle);
 
-// Append copy commands to command buffer and mark staging as empty
-// FIXME: it's not empty yet, as it depends on cmdbuf being actually submitted and completed
-void R_VkStagingCommit(VkCommandBuffer cmdbuf);
-void R_VkStagingFrameFlip(void);
+// Append copy commands to command buffer.
+VkCommandBuffer R_VkStagingCommit(void);
 
-// FIXME Remove this with proper staging
-void R_VKStagingMarkEmpty_FIXME(void);
+// Mark previous frame data as uploaded and safe to use.
+void R_VkStagingFrameBegin(void);
 
-// Force commit synchronously
-void R_VkStagingFlushSync(void);
+// Uploads staging contents and returns the command buffer ready to be submitted.
+// Can return NULL if there's nothing to upload.
+VkCommandBuffer R_VkStagingFrameEnd(void);
+
+// Gets the current command buffer.
+// WARNING: Can be invalidated by any of the Lock calls
+VkCommandBuffer R_VkStagingGetCommandBuffer(void);

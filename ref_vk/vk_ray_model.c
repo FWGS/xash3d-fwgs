@@ -208,7 +208,7 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 	}
 }
 
-vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t args ) {
+vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 	VkAccelerationStructureGeometryKHR *geoms;
 	uint32_t *geom_max_prim_counts;
 	VkAccelerationStructureBuildRangeInfoKHR *geom_build_ranges;
@@ -247,6 +247,7 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 	geom_max_prim_counts = Mem_Malloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_max_prim_counts));
 	geom_build_ranges = Mem_Calloc(vk_core.pool, args.model->num_geometries * sizeof(*geom_build_ranges));
 
+	/* gEngine.Con_Reportf("Loading model %s, geoms: %d\n", args.model->debug_name, args.model->num_geometries); */
 
 	for (int i = 0; i < args.model->num_geometries; ++i) {
 		vk_render_geometry_t *mg = args.model->geometries + i;
@@ -283,6 +284,15 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 			.firstVertex = mg->vertex_offset,
 		};
 
+		/* { */
+		/* 	const uint32_t index_offset = mg->index_offset * sizeof(uint16_t); */
+		/* 	gEngine.Con_Reportf("  g%d: vertices:[%08x, %08x) indices:[%08x, %08x)\n", */
+		/* 		i, */
+		/* 		mg->vertex_offset * sizeof(vk_vertex_t), (mg->vertex_offset + mg->max_vertex) * sizeof(vk_vertex_t), */
+		/* 		index_offset, index_offset + mg->element_count * sizeof(uint16_t) */
+		/* 	); */
+		/* } */
+
 		if (mg->material == kXVkMaterialSky) {
 			kusochki[i].tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
 		} else {
@@ -296,7 +306,7 @@ vk_ray_model_t* VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t a
 	R_VkStagingUnlock(kusok_staging.handle);
 
 	 // FIXME this is definitely not the right place. We should upload everything in bulk, and only then build blases in bulk too
-	R_VkStagingCommit(cmdbuf);
+	const VkCommandBuffer cmdbuf = R_VkStagingCommit();
 	{
 		const VkBufferMemoryBarrier bmb[] = { {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,

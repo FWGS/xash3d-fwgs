@@ -482,7 +482,6 @@ static void BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, in
 static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers, int num_layers, qboolean cubemap) {
 	const VkFormat format = VK_GetFormat(layers[0]->type);
 	int mipCount = 0;
-	const VkCommandBuffer cmdbuf = vk_core.upload_pool.buffers[0];
 
 	// TODO non-rbga textures
 
@@ -546,12 +545,6 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 	}
 
 	{
-		// 5. Create/get cmdbuf for transitions
-		VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
 		// 	5.1 upload buf -> image:layout:DST
 		// 		5.1.1 transitionToLayout(UNDEFINED -> DST)
 		VkImageMemoryBarrier image_barrier = {
@@ -569,11 +562,14 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				.layerCount = num_layers,
 			}};
 
-		XVK_CHECK(vkBeginCommandBuffer(cmdbuf, &beginfo));
-		vkCmdPipelineBarrier(cmdbuf,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				0, 0, NULL, 0, NULL, 1, &image_barrier);
+		{
+			// cmdbuf may become invalidated in locks in the loops below
+			const VkCommandBuffer cmdbuf = R_VkStagingGetCommandBuffer();
+			vkCmdPipelineBarrier(cmdbuf,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					0, 0, NULL, 0, NULL, 1, &image_barrier);
+		}
 
 		// 		5.1.2 copyBufferToImage for all mip levels
 		for (int layer = 0; layer < num_layers; ++layer) {
@@ -621,7 +617,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 			}
 		}
 
-		R_VkStagingCommit(cmdbuf);
+		const VkCommandBuffer cmdbuf = R_VkStagingCommit();
 
 		// 	5.2 image:layout:DST -> image:layout:SAMPLED
 		// 		5.2.1 transitionToLayout(DST -> SHADER_READ_ONLY)
@@ -641,18 +637,7 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
 
-		XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 	}
-
-	{
-		VkSubmitInfo subinfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-		subinfo.commandBufferCount = 1;
-		subinfo.pCommandBuffers = &cmdbuf;
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
-	}
-
-	R_VKStagingMarkEmpty_FIXME();
 
 	// TODO how should we approach this:
 	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts

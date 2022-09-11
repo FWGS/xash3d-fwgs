@@ -10,18 +10,6 @@
 qboolean R_VkInit( void );
 void R_VkShutdown( void );
 
-typedef struct {
-	VkCommandPool pool;
-	VkCommandBuffer *buffers;
-	int buffers_count;
-} vk_command_pool_t;
-
-vk_command_pool_t R_VkCommandPoolCreate( int count );
-void R_VkCommandPoolDestroy( vk_command_pool_t *pool );
-
-// TODO load from embedded static structs
-VkShaderModule loadShader(const char *filename);
-
 VkSemaphore R_VkSemaphoreCreate( void );
 void R_VkSemaphoreDestroy(VkSemaphore sema);
 
@@ -63,8 +51,6 @@ typedef struct vulkan_core_s {
 	physical_device_t physical_device;
 	VkDevice device;
 	VkQueue queue;
-
-	vk_command_pool_t upload_pool;
 
 	VkSampler default_sampler;
 
@@ -108,12 +94,13 @@ do { \
 } while (0)
 
 #if USE_AFTERMATH
-void R_VK_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...);
+void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...);
 void R_Vk_NV_Checkpoint_Dump(void);
 #define DEBUG_NV_CHECKPOINTF(cmdbuf, fmt, ...) \
 	do { \
 		if (vk_core.debug) { \
 			R_Vk_NV_CheckpointF(cmdbuf, fmt, ##__VA_ARGS__); \
+			if (0) gEngine.Con_Reportf(fmt "\n", ##__VA_ARGS__); \
 		} \
 	} while(0)
 #else

@@ -207,7 +207,6 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 
 	// Upload kusochki updates
 	{
-		R_VkStagingCommit(cmdbuf);
 		const VkBufferMemoryBarrier bmb[] = { {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
 			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,

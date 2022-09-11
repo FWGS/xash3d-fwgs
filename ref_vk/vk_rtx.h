@@ -11,7 +11,7 @@ typedef struct {
 	VkBuffer buffer; // TODO must be uniform for all models. Shall we read it directly from vk_render?
 } vk_ray_model_init_t;
 
-struct vk_ray_model_s *VK_RayModelCreate( VkCommandBuffer cmdbuf, vk_ray_model_init_t model_init );
+struct vk_ray_model_s *VK_RayModelCreate( vk_ray_model_init_t model_init );
 void VK_RayModelDestroy( struct vk_ray_model_s *model );
 
 void VK_RayFrameBegin( void );

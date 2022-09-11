@@ -17,6 +17,7 @@
 #include "vk_descriptor.h"
 #include "vk_nv_aftermath.h"
 #include "vk_devmem.h"
+#include "vk_commandpool.h"
 
 // FIXME move this rt-specific stuff out
 #include "vk_light.h"
@@ -621,37 +622,6 @@ static qboolean initSurface( void )
 	return true;
 }
 
-vk_command_pool_t R_VkCommandPoolCreate( int count ) {
-	vk_command_pool_t ret = {0};
-
-	const VkCommandPoolCreateInfo cpci = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.queueFamilyIndex = 0,
-		.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-	};
-
-	VkCommandBufferAllocateInfo cbai = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandBufferCount = count,
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-	};
-
-	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &ret.pool));
-
-	cbai.commandPool = ret.pool;
-	ret.buffers = Mem_Malloc(vk_core.pool, sizeof(VkCommandBuffer) * count);
-	ret.buffers_count = count;
-	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, ret.buffers));
-
-	return ret;
-}
-
-void R_VkCommandPoolDestroy( vk_command_pool_t *pool ) {
-	ASSERT(pool->buffers);
-	vkDestroyCommandPool(vk_core.device, pool->pool, NULL);
-	Mem_Free(pool->buffers);
-}
-
 qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
@@ -712,8 +682,6 @@ qboolean R_VkInit( void )
 
 	if (!initSurface())
 		return false;
-
-	vk_core.upload_pool = R_VkCommandPoolCreate( 1 );
 
 	if (!VK_DevMemInit())
 		return false;
@@ -812,8 +780,6 @@ void R_VkShutdown( void ) {
 
 	VK_DevMemDestroy();
 
-	R_VkCommandPoolDestroy( &vk_core.upload_pool );
-
 	vkDestroyDevice(vk_core.device, NULL);
 
 #if USE_AFTERMATH
@@ -832,37 +798,6 @@ void R_VkShutdown( void ) {
 	Mem_FreePool(&vk_core.pool);
 
 	gEngine.R_Free_Video();
-}
-
-VkShaderModule loadShader(const char *filename) {
-	fs_offset_t size = 0;
-	VkShaderModuleCreateInfo smci = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-	};
-	VkShaderModule shader;
-	byte* buf = gEngine.fsapi->LoadFile( filename, &size, false);
-	uint32_t *pcode;
-
-	if (!buf)
-	{
-		gEngine.Host_Error( S_ERROR "Cannot open shader file \"%s\"\n", filename);
-	}
-
-	if ((size % 4 != 0) || (((uintptr_t)buf & 3) != 0)) {
-		gEngine.Host_Error( S_ERROR "size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec", size, buf);
-	}
-
-	smci.codeSize = size;
-	//smci.pCode = (const uint32_t*)buf;
-	//memcpy(&smci.pCode, &buf, sizeof(void*));
-	memcpy(&pcode, &buf, sizeof(pcode));
-	smci.pCode = pcode;
-
-	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
-	SET_DEBUG_NAME(shader, VK_OBJECT_TYPE_SHADER_MODULE, filename);
-
-	Mem_Free(buf);
-	return shader;
 }
 
 VkSemaphore R_VkSemaphoreCreate( void ) {

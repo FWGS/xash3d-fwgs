@@ -9,6 +9,7 @@
 #include "vk_swapchain.h"
 #include "vk_image.h"
 #include "vk_staging.h"
+#include "vk_commandpool.h"
 
 #include "profiler.h"
 
@@ -217,7 +218,7 @@ void R_BeginFrame( qboolean clearScene ) {
 	ASSERT(!g_frame.current.framebuffer.framebuffer);
 
 	waitForFrameFence();
-	R_VkStagingFrameFlip();
+	R_VkStagingFrameBegin();
 
 	g_frame.current.framebuffer = R_VkSwapchainAcquire( g_frame.sem_framebuffer_ready[g_frame.current.index] );
 	vk_frame.width = g_frame.current.framebuffer.width;
@@ -252,9 +253,6 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 
 	ASSERT(g_frame.current.phase == Phase_FrameBegan);
 
-	//R_VkStagingFlushSync();
-
-	R_VkStagingCommit(cmdbuf); // FIXME where and when
 	VK_Render_FIXME_Barrier(cmdbuf);
 
 	if (g_frame.rtx_enabled)
@@ -301,6 +299,11 @@ static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
 
 	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 
+	const VkCommandBuffer cmdbufs[] = {
+		R_VkStagingFrameEnd(),
+		cmdbuf,
+	};
+
 	{
 		const VkPipelineStageFlags stageflags[] = {
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -317,8 +320,8 @@ static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
 		const VkSubmitInfo subinfo = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.pNext = NULL,
-			.commandBufferCount = 1,
-			.pCommandBuffers = &cmdbuf,
+			.commandBufferCount = cmdbufs[0] ? 2 : 1,
+			.pCommandBuffers = cmdbufs[0] ? cmdbufs : cmdbufs + 1,
 			.waitSemaphoreCount = COUNTOF(waitophores),
 			.pWaitSemaphores = waitophores,
 			.pWaitDstStageMask = stageflags,
@@ -357,7 +360,8 @@ void R_EndFrame( void )
 	if (g_frame.current.phase == Phase_FrameBegan) {
 		const VkCommandBuffer cmdbuf = currentCommandBuffer();
 		enqueueRendering( cmdbuf );
-		submit( cmdbuf, false );
+		//submit( cmdbuf, false );
+		submit( cmdbuf, true );
 
 		vk_frame.cmdbuf = VK_NULL_HANDLE;
 	}

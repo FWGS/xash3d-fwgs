@@ -84,7 +84,7 @@ typedef struct vk_render_model_s {
 	int polylights_count;
 } vk_render_model_t;
 
-qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t* model );
+qboolean VK_RenderModelInit( vk_render_model_t* model );
 void VK_RenderModelDestroy( vk_render_model_t* model );
 void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model );
 
