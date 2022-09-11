@@ -16,7 +16,7 @@ typedef struct {
 
 static struct {
 	vk_buffer_t buffer;
-	alo_ring_t ring;
+	r_flipping_buffer_t buffer_alloc;
 
 	struct {
 		VkBuffer dest[MAX_STAGING_ALLOCS];
@@ -33,10 +33,6 @@ static struct {
 		int committed;
 	} images;
 
-	struct {
-		uint32_t offset;
-	} frames[MAX_CONCURRENT_FRAMES];
-
 	vk_command_pool_t upload_pool;
 	VkCommandBuffer cmdbuf;
 } g_staging = {0};
@@ -47,7 +43,7 @@ qboolean R_VkStagingInit(void) {
 
 	g_staging.upload_pool = R_VkCommandPoolCreate( MAX_CONCURRENT_FRAMES );
 
-	aloRingInit(&g_staging.ring, DEFAULT_STAGING_SIZE);
+	R_FlippingBuffer_Init(&g_staging.buffer_alloc, DEFAULT_STAGING_SIZE);
 
 	return true;
 }
@@ -73,25 +69,26 @@ static void flushStagingBufferSync(void) {
 		.pCommandBuffers = &cmdbuf,
 	};
 
+	// TODO wait for previous command buffer completion. Why: we might end up writing into the same dst
+
 	XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 	XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 
 	g_staging.buffers.committed = g_staging.buffers.count = 0;
 	g_staging.images.committed = g_staging.images.count = 0;
-	g_staging.frames[0].offset = g_staging.frames[1].offset = ALO_ALLOC_FAILED;
-	aloRingInit(&g_staging.ring, DEFAULT_STAGING_SIZE);
+	R_FlippingBuffer_Clear(&g_staging.buffer_alloc);
 };
 
 static uint32_t allocateInRing(uint32_t size, uint32_t alignment) {
 	alignment = alignment < 1 ? 1 : alignment;
 
-	const uint32_t offset = aloRingAlloc(&g_staging.ring, size, alignment );
+	const uint32_t offset = R_FlippingBuffer_Alloc(&g_staging.buffer_alloc, size, alignment );
 	if (offset != ALO_ALLOC_FAILED)
 		return offset;
 
 	flushStagingBufferSync();
 
-	return aloRingAlloc(&g_staging.ring, size, alignment );
+	return R_FlippingBuffer_Alloc(&g_staging.buffer_alloc, size, alignment );
 }
 
 vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args) {
@@ -101,8 +98,6 @@ vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args) {
 	const uint32_t offset = allocateInRing(args.size, args.alignment);
 	if (offset == ALO_ALLOC_FAILED)
 		return (vk_staging_region_t){0};
-	if (g_staging.frames[1].offset == ALO_ALLOC_FAILED)
-		g_staging.frames[1].offset = offset;
 
 	const int index = g_staging.buffers.count;
 
@@ -128,8 +123,6 @@ vk_staging_region_t R_VkStagingLockForImage(vk_staging_image_args_t args) {
 	const uint32_t offset = allocateInRing(args.size, args.alignment);
 	if (offset == ALO_ALLOC_FAILED)
 		return (vk_staging_region_t){0};
-	if (g_staging.frames[1].offset == ALO_ALLOC_FAILED)
-		g_staging.frames[1].offset = offset;
 
 	const int index = g_staging.images.count;
 	staging_image_t *const dest = g_staging.images.dest + index;
@@ -233,11 +226,7 @@ VkCommandBuffer R_VkStagingCommit(void) {
 }
 
 void R_VkStagingFrameBegin(void) {
-	if (g_staging.frames[0].offset != ALO_ALLOC_FAILED)
-		aloRingFree(&g_staging.ring, g_staging.frames[0].offset);
-
-	g_staging.frames[0] = g_staging.frames[1];
-	g_staging.frames[1].offset = ALO_ALLOC_FAILED;
+	R_FlippingBuffer_Flip(&g_staging.buffer_alloc);
 
 	g_staging.buffers.committed = g_staging.buffers.count = 0;
 	g_staging.images.committed = g_staging.images.count = 0;
