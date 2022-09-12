@@ -76,7 +76,7 @@ def options(opt):
 	grp.add_option('-P', '--enable-packaging', action = 'store_true', dest = 'PACKAGING', default = False,
 		help = 'respect prefix option, useful for packaging for various operating systems [default: %default]')
 
-	grp.add_option('--enabled-bundled-deps', action = 'store_true', dest = 'BUILD_BUNDLED_DEPS', default = False,
+	grp.add_option('--enable-bundled-deps', action = 'store_true', dest = 'BUILD_BUNDLED_DEPS', default = False,
 		help = 'prefer to build bundled dependencies (like opus) instead of relying on system provided')
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
