@@ -361,6 +361,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 			} else {
 				ray_model->kusochki_offset = kusochki_count_offset;
 				ray_model->dynamic = args.model->dynamic;
+				ray_model->kusochki_updated_this_frame = true;
 
 				if (vk_core.debug)
 					validateModel(ray_model);
@@ -472,7 +473,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 // - collect list of geoms for which we could update anything (animated textues, uvs, etc)
 // - update only those through staging
 // - also consider tracking whether the main model color has changed (that'd need to update everything yay)
-	if (0) // FIXME enabling this makes dynamic models crash the gpu (?!)
+	if (!model->kusochki_updated_this_frame) // FIXME enabling this makes dynamic models crash the gpu (?!)
 	{
 		const vk_staging_buffer_args_t staging_args = {
 			.buffer = g_ray_model_state.kusochki_buffer.buffer,
@@ -494,15 +495,16 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			applyMaterialToKusok(kusochki + i, geom, color, HACK_reflective);
 		}
 
-		gEngine.Con_Reportf("model %s: geom=%d kuoffs=%d kustoff=%d kustsz=%d sthndl=%d\n",
-				render_model->debug_name,
-				render_model->num_geometries,
-				model->kusochki_offset,
-				staging_args.offset, staging_args.size,
-				kusok_staging.handle
-				);
+		/* gEngine.Con_Reportf("model %s: geom=%d kuoffs=%d kustoff=%d kustsz=%d sthndl=%d\n", */
+		/* 		render_model->debug_name, */
+		/* 		render_model->num_geometries, */
+		/* 		model->kusochki_offset, */
+		/* 		staging_args.offset, staging_args.size, */
+		/* 		kusok_staging.handle */
+		/* 		); */
 
 		R_VkStagingUnlock(kusok_staging.handle);
+		model->kusochki_updated_this_frame = true;
 	}
 
 	for (int i = 0; i < render_model->polylights_count; ++i) {
@@ -528,6 +530,8 @@ void XVK_RayModel_ClearForNextFrame( void )
 	for (int i = 0; i < g_ray_model_state.frame.num_models; ++i) {
 		vk_ray_draw_model_t *model = g_ray_model_state.frame.models + i;
 		ASSERT(model->model);
+		model->model->kusochki_updated_this_frame = false;
+
 		if (!model->model->dynamic)
 			continue;
 

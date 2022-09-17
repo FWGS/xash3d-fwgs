@@ -19,6 +19,7 @@ typedef struct vk_ray_model_s {
 	uint32_t kusochki_offset;
 	qboolean dynamic;
 	qboolean taken;
+	qboolean kusochki_updated_this_frame;
 
 	struct {
 		uint32_t as_offset;
