@@ -17,7 +17,7 @@ fi
 
 if [ "$ARCH" = "i386" ]; then
 	cp SDL2_VC/lib/x86/SDL2.dll . # Install SDL2
-	cp vgui_support/vgui-dev/lib/win32_vc6/vgui.dll .
+	cp 3rdparty/vgui_support/vgui-dev/lib/win32_vc6/vgui.dll .
 elif [ "$ARCH" = "amd64" ]; then
 	cp SDL2_VC/lib/x64/SDL2.dll .
 else
