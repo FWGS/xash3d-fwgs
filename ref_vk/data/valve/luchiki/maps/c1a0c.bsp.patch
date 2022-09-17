@@ -1,0 +1,56 @@
+// section 1
+{
+"_xvk_ent_id" "17 152 20" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "24 21 18 23" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "53 303 348 364" // +0~GENERIC86R    128 0   0    60000
+"_light" "255 0 0 50000"
+}
+// workaround
+{
+"_xvk_surface_id" "93" // +0~DRKMTLS2      80  60  30   1000
+"_light" "255 0 0 200000"
+}
+
+// section 2
+{
+"_xvk_ent_id" "16 15 22 19" // remove hack lights entity
+}
+{
+{
+"_xvk_ent_id" "113"
+"_light" "100 120 160 100"
+"_xvk_radius" "10"
+}
+{
+"_xvk_surface_id" "3287" // +ALAB1_W6B       215 180 95   0
+"_light" "215 180 95 6000"
+}
+
+// lift/elevator
+{
+"_xvk_ent_id" "335 354" // remove hack lights entity
+}
+
+
+// section 3
+
+{
+"_xvk_ent_id" "167 163 164 165 166 186" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "2390 2326 2327 2328 1704" // +0~GENERIC86B    60  220 170  10000
+"_light" "60  220 170 20000"
+}
+{
+"_xvk_surface_id" "1628" // +0~LIGHT4A       200 190 130  11000
+"_light" "200 190 130 21000"
+}
+
+// section 4
+{
+"_xvk_ent_id" "162" // remove hack lights entity
+}

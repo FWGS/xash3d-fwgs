@@ -7,6 +7,5 @@
 |Counter Strike: Condition Zero				|The latest steam release	|Uses vgui2 library which xash3d does not support		|Some work on vgui2 support was made here: https://github.com/FWGS/xash3d/tree/vinterface
 |Counter Strike: Condition Zero - Deleted scenes	|The latest steam release	|Uses vgui2 library which xash3d does not support		|Some work on vgui2 support was made here: https://github.com/FWGS/xash3d/tree/vinterface
 |Day of Defeat						|The latest steam release	|Uses vgui2 library which xash3d does not support		|Some work on vgui2 support was made here: https://github.com/FWGS/xash3d/tree/vinterface
-|Sven-Coop						|5.0+				|Uses filesystem_stdio library which xash3d does not support	|filesystem_stdio replacement already was made: https://github.com/FWGS/filesystem_stdio_xash
-|XDM							|3.0.4.0			|								|
+|Sven-Coop						|5.0+				|Uses custom GoldSrc engine					|
 

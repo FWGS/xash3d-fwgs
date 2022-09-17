@@ -1,6 +1,5 @@
 #include "vk_renderstate.h"
 
-#include "vk_2d.h"
 #include "vk_core.h"
 
 #include "cvardef.h"

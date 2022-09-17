@@ -1,0 +1,10 @@
++0~FIFTS_LGHT01  160 170 220  3000
++0~LIGHT6A       150 5   5    25000
+
+
+// FIXME: need emissive mask or emissive texture
++0MEDKIT         255 192 128  100 // reused
+MEDKITEDGE1      255 192 128  100
+
++0RECHARGE       255 192 0    30
+RECHARGEEDGE1    255 192 0    30

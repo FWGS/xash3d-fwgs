@@ -3,7 +3,7 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_renderstate.h"
-#include "vk_2d.h"
+#include "vk_overlay.h"
 #include "vk_scene.h"
 #include "vk_framectl.h"
 #include "vk_lightmap.h"

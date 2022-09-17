@@ -2,6 +2,7 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"
@@ -1902,11 +1903,11 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	float	*lv;
 	int	i;
 	int num_vertices = 0, num_indices = 0;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 	uint32_t vertex_offset = 0, index_offset = 0;
 	short* const ptricmds_initial = ptricmds;
+	r_geometry_buffer_lock_t buffer;
 
 	// Compute counts of vertices and indices
 	while(( i = *( ptricmds++ )))
@@ -1923,17 +1924,13 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(num_indices > 0);
 
 	// Get buffer region for vertices and indices
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), num_vertices );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), num_indices );
-	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL)
-	{
-		// TODO should we free one of the above if it still succeeded?
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	if (!R_GeometryBufferAllocAndLock( &buffer, num_vertices, num_indices, LifetimeSingleFrame )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for studio model\n");
 		return;
 	}
 
-	dst_vtx = vertex_buffer.ptr;
-	dst_idx = index_buffer.ptr;
+	dst_vtx = buffer.vertices.ptr;
+	dst_idx = buffer.indices.ptr;
 
 	// Restore ptricmds and upload vertices
 	ptricmds = ptricmds_initial;
@@ -1945,7 +1942,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 
 		for(int j = 0; j < vertices ; ++j, ++dst_vtx, ptricmds += 4 )
 		{
-			ASSERT((((vk_vertex_t*)vertex_buffer.ptr) + num_vertices) > dst_vtx);
+			ASSERT((((vk_vertex_t*)buffer.vertices.ptr) + num_vertices) > dst_vtx);
 			*dst_vtx = (vk_vertex_t){0};
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
@@ -2004,9 +2001,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(index_offset == num_indices);
 	ASSERT(vertex_offset == num_vertices);
 
-	XVK_RenderBufferUnlock( index_buffer.buffer );
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
-
+	R_GeometryBufferUnlock( &buffer );
 
 	// Render
 	{
@@ -2015,10 +2010,10 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			.texture = texture,
 			.material = FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ) ? kXVkMaterialChrome : kXVkMaterialRegular,
 
-			.vertex_offset = vertex_buffer.buffer.unit.offset,
+			.vertex_offset = buffer.vertices.unit_offset,
 			.max_vertex = num_vertices,
 
-			.index_offset = index_buffer.buffer.unit.offset,
+			.index_offset = buffer.indices.unit_offset,
 			.element_count = num_indices,
 		};
 
@@ -2319,7 +2314,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 
 			Q_snprintf( state->modelname, sizeof( state->modelname ), "models/player/%s/%s.mdl", info->model, info->model );
 
-			if( gEngine.FS_FileExists( state->modelname, false ))
+			if( gEngine.fsapi->FileExists( state->modelname, false ))
 				state->model = gEngine.Mod_ForName( state->modelname, false, true );
 			else state->model = NULL;
 

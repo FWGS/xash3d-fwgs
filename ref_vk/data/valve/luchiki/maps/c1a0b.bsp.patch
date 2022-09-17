@@ -1,0 +1,59 @@
+{
+"_xvk_ent_id" "239" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "37 38 39 40" // remove hack lights entity
+}
+
+
+{
+"_xvk_ent_id" "135 74 73 72 77 76" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "146 147" // remove hack lights entity
+}
+
+{
+"_xvk_surface_id" "1774 1773" // +0~LIGHT4A       200 190 130  11000
+"_light" "200 190 130 50000"
+}
+
+{
+"_xvk_surface_id" "1837 2331 2329 2330 2393" // +0~GENERIC86B    60  220 170  10000
+"_light" "60  220 170 20000"
+}
+
+{
+"_xvk_surface_id" "888" // +0~GENERIC86B    60  220 170  10000
+"_light" "60  220 170 50000"
+}
+
+
+{
+"_xvk_ent_id" "18" // remove hack lights entity
+"origin" "2160 656 -210"
+}
+
+{
+"_xvk_ent_id" "22 19 20 21" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "134 133" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "199 198 201 200" // remove hack lights entity
+}
+
+{
+"_xvk_ent_id" "191 190 192 189" // remove hack unused lights entity
+}
+
+
+{
+"_xvk_surface_id" "2817 2832 2827 2822" // +ALAB1_W6        255 255 255  100
+"_light" "255 255 255  3000"
+}
+{
+"_xvk_surface_id" "3558 3540 3546 3552" // +0~DRKMTLS2      80  60  30   1000
+"_light" "80 60 30 80000"
+}

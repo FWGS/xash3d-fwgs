@@ -265,7 +265,7 @@ void SV_Maps_f( void )
 
 	Mem_Free( mapList );
 
-	Msg( "%s\nDirectory: \"%s/maps\" - Maps listed: %d\n", separator, GI->basedir, nummaps );
+	Msg( "%s\nDirectory: \"%s/maps\" - Maps listed: %d\n", separator, GI->gamefolder, nummaps );
 }
 
 /*
@@ -763,7 +763,7 @@ void SV_ServerInfo_f( void )
 	{
 		Con_Printf( "Server info settings:\n" );
 		Info_Print( svs.serverinfo );
-		Con_Printf( "Total %i symbols\n", Q_strlen( svs.serverinfo ));
+		Con_Printf( "Total %lu symbols\n", Q_strlen( svs.serverinfo ));
 		return;
 	}
 
@@ -805,7 +805,7 @@ void SV_LocalInfo_f( void )
 	{
 		Con_Printf( "Local info settings:\n" );
 		Info_Print( svs.localinfo );
-		Con_Printf( "Total %i symbols\n", Q_strlen( svs.localinfo ));
+		Con_Printf( "Total %lu symbols\n", Q_strlen( svs.localinfo ));
 		return;
 	}
 

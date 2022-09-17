@@ -174,6 +174,7 @@ static TYPEDESCRIPTION gStaticEntry[] =
 	DEFINE_FIELD( entity_state_t, framerate, FIELD_FLOAT ),
 	DEFINE_FIELD( entity_state_t, mins, FIELD_VECTOR ),
 	DEFINE_FIELD( entity_state_t, maxs, FIELD_VECTOR ),
+	DEFINE_FIELD( entity_state_t, startpos, FIELD_VECTOR ),
 	DEFINE_FIELD( entity_state_t, rendermode, FIELD_INTEGER ),
 	DEFINE_FIELD( entity_state_t, renderamt, FIELD_FLOAT ),
 	DEFINE_ARRAY( entity_state_t, rendercolor, FIELD_CHARACTER, sizeof( color24 )),

@@ -29,6 +29,7 @@ typedef int aprof_scope_id_t;
 aprof_scope_id_t aprof_scope_init(const char *scope_name);
 void aprof_scope_event(aprof_scope_id_t, int begin);
 void aprof_scope_frame( void );
+uint64_t aprof_time_now_ns( void );
 
 typedef struct {
 	const char *name;
@@ -64,7 +65,7 @@ extern aprof_state_t g_aprof;
 
 #ifdef __linux__
 #include <time.h>
-static uint64_t _aprof_time_now( void ) {
+uint64_t aprof_time_now_ns( void ) {
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC, &tp);
 	return tp.tv_nsec + tp.tv_sec * 1000000000ull;
@@ -74,7 +75,7 @@ static uint64_t _aprof_time_now( void ) {
 #define WIN32_EXTRA_LEAN
 #include <windows.h>
 static LARGE_INTEGER _aprof_frequency;
-static uint64_t _aprof_time_now( void ) {
+uint64_t aprof_time_now_ns( void ) {
 	LARGE_INTEGER pc;
 	QueryPerformanceCounter(&pc);
 	return pc.QuadPart * 1000000000ull / _aprof_frequency.QuadPart;
@@ -99,7 +100,7 @@ aprof_scope_id_t aprof_scope_init(const char *scope_name) {
 }
 
 void aprof_scope_event(aprof_scope_id_t scope_id, int begin) {
-	const uint64_t now = _aprof_time_now();
+	const uint64_t now = aprof_time_now_ns();
 	if (scope_id < 0 || scope_id >= g_aprof.num_scopes)
 		return;
 

@@ -1,0 +1,100 @@
+// wagonchik
+{
+"_xvk_ent_id" "354 346 353 343 348 344 350 355 347 351 345 349 342 352" // remove hack light entity
+}
+{
+"_xvk_ent_id" "340 341" // remove hack light entity "EXIT"
+}
+
+// section 0
+{
+"_xvk_ent_id" "257 252 245 254 248 253 246 247 255 256" // remove hack light
+}
+
+// section 1
+{
+"_xvk_ent_id" "296 297 298 299 300 379 1 326" // remove hack light
+}
+{
+"_xvk_ent_id" "261 262 265 264 267 268 270 269 272 273 274 275 278 277 279 280 283 282 284 285 288 287 289 290 293 292 382 381 378 380 377 374 376 375" // correct
+"_light" "170 90 40 250" // original: 170 90 40 150
+}
+
+// section 2
+{
+"_xvk_ent_id" "71" // remove hack light
+}
+{
+"_xvk_ent_id" "72" // remove hack (forgotten) light
+}
+{
+"_xvk_surface_id" "1866" // +0~LIGHT4A       200 190 130  11000
+"_light" "200 190 130 31000"
+}
+{
+"_xvk_surface_id" "3428" // +0~TNNL_LGT4     170 90  40   10000
+"_light" "170 90 40 50000"
+}
+
+// section 3
+{
+"_xvk_ent_id" "104 121" // remove hack light
+}
+// correct position and color
+{
+"_xvk_ent_id" "127"
+"origin" "2152 1048 1255"
+"_light" "255 0 0 100" // green->red
+}
+{
+"_xvk_ent_id" "125"
+"origin" "2152 1048 1231"
+"_light" "0 255 0 100" // red->green
+}
+{
+"_xvk_ent_id" "126"
+"origin" "2112 1048 1255"
+"_light" "255 0 0 100" // green->red
+}
+{
+"_xvk_ent_id" "124"
+"origin" "2112 1048 1231"
+"_light" "0 255 0 100" // red->green
+}
+{
+"_xvk_ent_id" "137"
+"origin" "1743 760 1255"
+"_light" "255 0 0 100" // green->red
+}
+{
+"_xvk_ent_id" "135"
+"origin" "1743 760 1231"
+"_light" "0 255 0 100" // red->green
+}
+{
+"_xvk_ent_id" "136"
+"origin" "1703 760 1255"
+"_light" "255 0 0 100" // green->red
+}
+{
+"_xvk_ent_id" "134"
+"origin" "1703 760 1231"
+"_light" "0 255 0 100" // red->green
+}
+{
+"_xvk_surface_id" "3728 3740 3771 3783" // ~SPOTRED
+"_xvk_texture" "+A~GENERIC86B" // red->green
+}
+{
+"_xvk_surface_id" "3722 3734 3765 3777" // +A~GENERIC86B
+"_xvk_texture" "~SPOTRED" // green->red
+}
+
+
+
+
+
+// section 4
+{
+"_xvk_ent_id" "147" // remove hack light
+}

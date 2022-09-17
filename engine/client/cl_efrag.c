@@ -188,8 +188,6 @@ void R_StoreEfrags( efrag_t **ppefrag, int framecount )
 		case mod_brush:
 		case mod_studio:
 		case mod_sprite:
-			pent = pefrag->entity;
-
 			if( pent->visframe != framecount )
 			{
 				if( CL_AddVisibleEntity( pent, ET_FRAGMENTED ))

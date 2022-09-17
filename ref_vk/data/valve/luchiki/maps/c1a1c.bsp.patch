@@ -1,0 +1,137 @@
+// section 0
+{
+"_xvk_ent_id" "211 210" // remove hack lights entity
+}
+{ // FIXME: color should take from translucent texture 
+"_xvk_surface_id" "3506" // +0LAB1_W6B       150 160 210  4000
+"_light" "70 200 110 4000" // color from hack light
+}
+
+// section 1
+{
+"_xvk_ent_id" "112 111 115 114 121 116 109 110 113 95" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "36 38 41 37 39"
+"origin" "0 0 -7"
+}
+
+// section 2 (elevator)
+{
+"_xvk_ent_id" "93 102 92 101 99" // remove hack lights entity
+}
+
+// section 3
+{
+"_xvk_ent_id" "100 166 108 94" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "96 149 150 152 151 147 144" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "531" // +0~LIGHT4A       200 190 130  11000
+"_light" "200 190 130 35000"
+}
+{
+"_xvk_surface_id" "421 736" // ~TRN_LT1         160 170 220  10000
+"_light" "160 170 220 30000"
+}
+
+{
+"_xvk_ent_id" "104"
+"origin" "216 -1128 -2409"
+}
+{
+"_xvk_ent_id" "119"
+"origin" "-8 -1128 -2409"
+}
+{
+"_xvk_ent_id" "120"
+"origin" "-8 -904 -2409"
+}
+{
+"_xvk_ent_id" "118"
+"origin" "216 -904 -2409"
+}
+
+// section 4
+{ // TODO: tune origin
+"_xvk_ent_id" "390 389 445 444" // remove hack lights entity
+}
+// section 5
+{
+"_xvk_ent_id" "445 404 397 396" // remove hack lights entity
+}
+// section 6
+{
+"_xvk_ent_id" "288 289" // remove hack lights entity
+}
+// section 7
+{
+"_xvk_ent_id" "172 169" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "105"
+"origin" "-408 446 -2911"
+}
+{
+"_xvk_ent_id" "117"
+"origin" "-1845 449 -2911"
+}
+{
+"_xvk_ent_id" "103"
+"origin" "-2188 444 -2911"
+}
+{
+"_xvk_ent_id" "98 97" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "107"
+"origin" "-2797 376 -2959"
+}
+{
+"_xvk_ent_id" "106"
+"origin" "-2797 688 -2959"
+}
+{
+"_xvk_ent_id" "293 292 297" // remove hack lights entity
+}
+
+// section 8
+{
+"_xvk_ent_id" "174" // remove hack lights entity
+}
+
+// section 9
+{
+"_xvk_ent_id" "451 450 457 456" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "449"
+"origin" "-1231 1040 -2597"
+}
+{
+"_xvk_ent_id" "448"
+"origin" "-1231 1304 -2597"
+}
+{
+"_xvk_ent_id" "455"
+"origin" "-1322 1558 -2595"
+}
+{
+"_xvk_ent_id" "454"
+"origin" "-1586 1558 -2595"
+}
+
+// section 10
+{
+"_xvk_ent_id" "330 331 328 329" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "339 324 326 325" // remove hack lights entity
+}
+
+{
+"_xvk_surface_id" "1973 1972 1971 1974" // ELEV2_CIEL       255 200 100  2000
+"_light" "255 200 100 7000"
+}

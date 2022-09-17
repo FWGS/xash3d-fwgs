@@ -1,16 +1,9 @@
 #pragma once
 
 #include "vk_const.h"
+#include "vk_core.h"
 
 #include "xash3d_types.h"
-//#include "protocol.h"
-//#include "const.h"
-//#include "bspfile.h"
-
-typedef struct {
-	vec3_t emissive;
-	qboolean set;
-} vk_emissive_texture_t;
 
 typedef struct {
 	uint8_t num_point_lights;
@@ -55,63 +48,46 @@ typedef struct {
 	vec3_t base_color;
 } vk_point_light_t;
 
-// TODO spotlight
-
+// Used by infotool
 typedef struct {
 	struct {
 		int grid_min_cell[3];
 		int grid_size[3];
 		int grid_cells;
-
-		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
 	} map;
-
-	int num_polygons;
-	rt_light_polygon_t polygons[MAX_SURFACE_LIGHTS];
-
-	int num_point_lights;
-	vk_point_light_t point_lights[MAX_POINT_LIGHTS];
-
-	int num_polygon_vertices;
-	vec3_t polygon_vertices[MAX_SURFACE_LIGHTS * 7];
-
-	struct {
-		int point_lights;
-		int polygons;
-		int polygon_vertices;
-	} num_static;
 
 	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
 } vk_lights_t;
 
 extern vk_lights_t g_lights;
 
-void VK_LightsInit( void );
+qboolean VK_LightsInit( void );
 void VK_LightsShutdown( void );
 
 struct model_s;
 void RT_LightsNewMapBegin( const struct model_s *map );
 void RT_LightsNewMapEnd( const struct model_s *map );
 
-void RT_LightsFrameInit( void ); // TODO begin
+void RT_LightsFrameBegin( void );
+void RT_LightsFrameEnd( void );
 
-// TODO there is an arguably better way to organize this.
-// a. this only belongs to ray tracing mode
-// b. kusochki now have emissive color, so it probably makes more sense to not store emissive
-//    separately in emissive surfaces.
-struct vk_render_geometry_s;
-void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map );
+typedef struct {
+	VkBuffer buffer;
+	struct {
+		uint32_t offset, size;
+	} metadata, grid;
+} vk_lights_bindings_t;
+vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer );
+
 qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id );
 
-void VK_LightsFrameFinalize( void ); // TODO end
-
-int R_LightCellIndex( const int light_cell[3] );
+int RT_LightCellIndex( const int light_cell[3] );
 
 struct cl_entity_s;
-void R_LightAddFlashlight( const struct cl_entity_s *ent, qboolean local_player );
+void RT_LightAddFlashlight( const struct cl_entity_s *ent, qboolean local_player );
 
 struct msurface_s;
-typedef struct {
+typedef struct rt_light_add_polygon_s {
 	int num_vertices;
 	vec3_t vertices[7];
 

@@ -1,9 +1,11 @@
 #include "vk_scene.h"
 #include "vk_brush.h"
+#include "vk_staging.h"
 #include "vk_studio.h"
 #include "vk_lightmap.h"
 #include "vk_const.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "vk_math.h"
 #include "vk_common.h"
 #include "vk_core.h"
@@ -16,6 +18,7 @@
 #include "vk_materials.h"
 #include "camera.h"
 #include "vk_mapents.h"
+#include "profiler.h"
 
 #include "com_strings.h"
 #include "ref_params.h"
@@ -24,6 +27,19 @@
 
 #include <stdlib.h> // qsort
 #include <memory.h>
+
+#define PROFILER_SCOPES(X) \
+	X(scene_render, "VK_SceneRender"); \
+	X(draw_viewmodel, "draw viewmodel"); \
+	X(draw_worldbrush, "draw worldbrush"); \
+	X(draw_opaques, "draw opaque entities"); \
+	X(draw_opaque_beams, "draw opaque beams"); \
+	X(draw_translucent, "draw translucent entities"); \
+	X(draw_transparent_beams, "draw transparent beams"); \
+
+#define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
+PROFILER_SCOPES(SCOPE_DECLARE)
+#undef SCOPE_DECLARE
 
 typedef struct vk_trans_entity_s {
 	struct cl_entity_s *entity;
@@ -75,6 +91,8 @@ static void reloadMaterials( void ) {
 
 void VK_SceneInit( void )
 {
+	PROFILER_SCOPES(APROF_SCOPE_INIT);
+
 	g_lists.draw_list = g_lists.draw_stack;
 	g_lists.draw_stack_pos = 0;
 	if (vk_core.rtx) {
@@ -138,7 +156,7 @@ void R_NewMap( void ) {
 	// TODO should we do something like VK_BrushBeginLoad?
 	VK_BrushStatsClear();
 
-	XVK_RenderBufferMapClear();
+	R_GeometryBuffer_MapClear();
 
 	VK_ClearLightmap();
 
@@ -149,17 +167,6 @@ void R_NewMap( void ) {
 
 	if (vk_core.rtx)
 		VK_RayNewMap();
-
-	// RTX map loading requires command buffer for building blases
-	if (vk_core.rtx)
-	{
-		const VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb, &beginfo));
-	}
 
 	// Load light entities and patch data prior to loading map brush model
 	XVK_ParseMapEntities();
@@ -187,7 +194,7 @@ void R_NewMap( void ) {
 		if( m->type != mod_brush )
 			continue;
 
-		if (!VK_BrushModelLoad( m, i == 0 ))
+		if (!VK_BrushModelLoad(m, i == 0))
 		{
 			gEngine.Con_Printf( S_ERROR "Couldn't load model %s\n", m->name );
 		}
@@ -197,25 +204,8 @@ void R_NewMap( void ) {
 	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
 	RT_LightsNewMapEnd(map);
 
-	if (vk_core.rtx)
-	{
-		const VkSubmitInfo subinfo = {
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = &vk_core.cb,
-		};
-
-		XVK_CHECK(vkEndCommandBuffer(vk_core.cb));
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
-	}
-
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();
-	XVK_RenderBufferMapFreeze();
-	XVK_RenderBufferPrintStats();
-	if (vk_core.rtx)
-		VK_RayMapLoadEnd();
 }
 
 qboolean R_AddEntity( struct cl_entity_s *clent, int type )
@@ -600,6 +590,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 static float g_frametime = 0;
 
 void VK_SceneRender( const ref_viewpass_t *rvp ) {
+	APROF_SCOPE_BEGIN_EARLY(scene_render);
 	const cl_entity_t* const local_player = gEngine.GetLocalPlayer();
 
 	g_frametime = /*FIXME VK RP_NORMALPASS( )) ? */
@@ -616,13 +607,16 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 
 	// Draw view model
 	{
+		APROF_SCOPE_BEGIN(draw_viewmodel);
 		VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f );
 		R_RunViewmodelEvents();
 		R_DrawViewModel();
+		APROF_SCOPE_END(draw_viewmodel);
 	}
 
 	// Draw world brush
 	{
+		APROF_SCOPE_BEGIN(draw_worldbrush);
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
 		{
@@ -631,15 +625,17 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
 			VK_BrushModelDraw( world, kRenderNormal, NULL );
 		}
+		APROF_SCOPE_END(draw_worldbrush);
 	}
 
 	{
 		// Draw flashlight for local player
 		if( FBitSet( local_player->curstate.effects, EF_DIMLIGHT )) {
-			R_LightAddFlashlight(local_player, true);
+			RT_LightAddFlashlight(local_player, true);
 		}
 	}
 
+	APROF_SCOPE_BEGIN(draw_opaques);
 	// Draw opaque entities
 	for (int i = 0; i < g_lists.draw_list->num_solid_entities; ++i)
 	{
@@ -648,18 +644,22 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 
 		// Draw flashlight for other players
 		if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ) && ent != local_player) {
-			R_LightAddFlashlight(ent, false);
+			RT_LightAddFlashlight(ent, false);
 		}
 	}
+	APROF_SCOPE_END(draw_opaques);
 
 	// Draw opaque beams
+	APROF_SCOPE_BEGIN(draw_opaque_beams);
 	gEngine.CL_DrawEFX( g_frametime, false );
+	APROF_SCOPE_END(draw_opaque_beams);
 
 	VK_RenderDebugLabelEnd();
 
 	VK_RenderDebugLabelBegin( "tranparent" );
 
 	{
+		APROF_SCOPE_BEGIN(draw_translucent);
 		// sort translucents entities by rendermode and distance
 		qsort( g_lists.draw_list->trans_entities, g_lists.draw_list->num_trans_entities, sizeof( vk_trans_entity_t ), R_TransEntityCompare );
 
@@ -669,19 +669,20 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 			const vk_trans_entity_t *ent = g_lists.draw_list->trans_entities + i;
 			drawEntity(ent->entity, ent->render_mode);
 		}
-
+		APROF_SCOPE_END(draw_translucent);
 	}
 
 	// Draw transparent beams
+	APROF_SCOPE_BEGIN(draw_transparent_beams);
 	gEngine.CL_DrawEFX( g_frametime, true );
+	APROF_SCOPE_END(draw_transparent_beams);
 
 	VK_RenderDebugLabelEnd();
 
-	if (vk_core.rtx)
-		VK_LightsFrameFinalize();
-
 	if (ui_infotool->value > 0)
 		XVK_CameraDebugPrintCenterEntity();
+
+	APROF_SCOPE_END(scene_render);
 }
 
 /*

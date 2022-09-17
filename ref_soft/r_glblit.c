@@ -58,8 +58,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
-		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
-		break;
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
 		gEngfuncs.Con_Printf( S_OPENGL_WARN "%s\n", message );
 		break;
@@ -67,8 +65,6 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		gEngfuncs.Con_Reportf( S_OPENGL_WARN "%s\n", message );
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
-		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );
-		break;
 	case GL_DEBUG_TYPE_OTHER_ARB:
 	default:
 		gEngfuncs.Con_Printf( S_OPENGL_NOTE "%s\n", message );
@@ -357,7 +353,7 @@ static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint 
 		1, 1,
 		0, 1,
 	};
-	int vbo, pbo, fbo, to;
+	GLuint vbo, pbo, fbo, to;
 
 	// shitty fbo does not work without texture objects :(
 	pglGenTextures( 1, &to );

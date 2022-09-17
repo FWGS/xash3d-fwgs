@@ -2,20 +2,22 @@
 
 #include "vk_common.h"
 #include "vk_textures.h"
-#include "vk_2d.h"
+#include "vk_overlay.h"
 #include "vk_renderstate.h"
-#include "vk_buffer.h"
+#include "vk_staging.h"
 #include "vk_framectl.h"
 #include "vk_brush.h"
 #include "vk_scene.h"
 #include "vk_cvar.h"
 #include "vk_pipeline.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "vk_studio.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
 #include "vk_nv_aftermath.h"
 #include "vk_devmem.h"
+#include "vk_commandpool.h"
 
 // FIXME move this rt-specific stuff out
 #include "vk_light.h"
@@ -80,51 +82,6 @@ static dllfunc_t device_funcs_rtx[] = {
 #undef X
 };
 
-const char *resultName(VkResult result) {
-	switch (result) {
-	case VK_SUCCESS: return "VK_SUCCESS";
-	case VK_NOT_READY: return "VK_NOT_READY";
-	case VK_TIMEOUT: return "VK_TIMEOUT";
-	case VK_EVENT_SET: return "VK_EVENT_SET";
-	case VK_EVENT_RESET: return "VK_EVENT_RESET";
-	case VK_INCOMPLETE: return "VK_INCOMPLETE";
-	case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
-	case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-	case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
-	case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
-	case VK_ERROR_MEMORY_MAP_FAILED: return "VK_ERROR_MEMORY_MAP_FAILED";
-	case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
-	case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
-	case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT";
-	case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
-	case VK_ERROR_TOO_MANY_OBJECTS: return "VK_ERROR_TOO_MANY_OBJECTS";
-	case VK_ERROR_FORMAT_NOT_SUPPORTED: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-	case VK_ERROR_FRAGMENTED_POOL: return "VK_ERROR_FRAGMENTED_POOL";
-	case VK_ERROR_UNKNOWN: return "VK_ERROR_UNKNOWN";
-	case VK_ERROR_OUT_OF_POOL_MEMORY: return "VK_ERROR_OUT_OF_POOL_MEMORY";
-	case VK_ERROR_INVALID_EXTERNAL_HANDLE: return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
-	case VK_ERROR_FRAGMENTATION: return "VK_ERROR_FRAGMENTATION";
-	case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS: return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
-	case VK_ERROR_SURFACE_LOST_KHR: return "VK_ERROR_SURFACE_LOST_KHR";
-	case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
-	case VK_SUBOPTIMAL_KHR: return "VK_SUBOPTIMAL_KHR";
-	case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
-	case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
-	case VK_ERROR_VALIDATION_FAILED_EXT: return "VK_ERROR_VALIDATION_FAILED_EXT";
-	case VK_ERROR_INVALID_SHADER_NV: return "VK_ERROR_INVALID_SHADER_NV";
-	case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
-		return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
-	case VK_ERROR_NOT_PERMITTED_EXT: return "VK_ERROR_NOT_PERMITTED_EXT";
-	case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT: return "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT";
-	case VK_THREAD_IDLE_KHR: return "VK_THREAD_IDLE_KHR";
-	case VK_THREAD_DONE_KHR: return "VK_THREAD_DONE_KHR";
-	case VK_OPERATION_DEFERRED_KHR: return "VK_OPERATION_DEFERRED_KHR";
-	case VK_OPERATION_NOT_DEFERRED_KHR: return "VK_OPERATION_NOT_DEFERRED_KHR";
-	case VK_PIPELINE_COMPILE_REQUIRED_EXT: return "VK_PIPELINE_COMPILE_REQUIRED_EXT";
-	default: return "UNKNOWN";
-	}
-}
-
 static const char *validation_layers[] = {
 	"VK_LAYER_KHRONOS_validation",
 };
@@ -155,6 +112,10 @@ VkBool32 VKAPI_PTR debugCallback(
 
 	if (Q_strcmp(pCallbackData->pMessageIdName, "VUID-vkMapMemory-memory-00683") == 0)
 		return VK_FALSE;
+
+	/* if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) { */
+	/* 	gEngine.Con_Printf(S_WARN "Validation: %s\n", pCallbackData->pMessage); */
+	/* } */
 
 	// TODO better messages, not only errors, what are other arguments for, ...
 	if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
@@ -198,7 +159,7 @@ static qboolean createInstance( void )
 {
 	const char ** instance_extensions = NULL;
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
-	VkApplicationInfo app_info = {
+	const VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		// TODO support versions 1.0 and 1.1 for simple traditional rendering
 		// This would require using older physical device features and props query structures
@@ -209,9 +170,19 @@ static qboolean createInstance( void )
 		.pApplicationName = "",
 		.pEngineName = "xash3d-fwgs",
 	};
+	const VkValidationFeatureEnableEXT validation_features[] = {
+		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+	};
+	const VkValidationFeaturesEXT validation_ext = {
+		.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+		.pEnabledValidationFeatures = validation_features,
+		.enabledValidationFeatureCount = COUNTOF(validation_features),
+	};
 	VkInstanceCreateInfo create_info = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &app_info,
+		.pNext = vk_core.validate ? &validation_ext : NULL,
 	};
 
 	int vid_extensions = gEngine.XVK_GetInstanceExtensions(0, NULL);
@@ -246,7 +217,7 @@ static qboolean createInstance( void )
 	create_info.enabledExtensionCount = num_instance_extensions;
 	create_info.ppEnabledExtensionNames = instance_extensions;
 
-	if (vk_core.debug)
+	if (vk_core.validate)
 	{
 		create_info.enabledLayerCount = ARRAYSIZE(validation_layers);
 		create_info.ppEnabledLayerNames = validation_layers;
@@ -259,22 +230,22 @@ static qboolean createInstance( void )
 
 	loadInstanceFunctions(instance_funcs, ARRAYSIZE(instance_funcs));
 
-	if (vk_core.debug)
+	if (vk_core.debug || vk_core.validate)
 	{
 		loadInstanceFunctions(instance_debug_funcs, ARRAYSIZE(instance_debug_funcs));
 
-		if (vkCreateDebugUtilsMessengerEXT)
-		{
-			VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
-				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-				.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
-				.messageType = 0x07,
-				.pfnUserCallback = debugCallback,
-			};
-			XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
-		} else
-		{
-			gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
+ 		if (vk_core.validate) {
+			if (vkCreateDebugUtilsMessengerEXT) {
+				VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
+					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+					.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+					.messageType = 0x07,
+					.pfnUserCallback = debugCallback,
+				};
+				XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
+			} else {
+				gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
+			}
 		}
 	}
 
@@ -540,7 +511,7 @@ static qboolean createDevice( void ) {
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
 			.pNext = head,
-			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV,
+			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV
 		};
 		head = &diag_config_nv;
 #endif
@@ -586,7 +557,7 @@ static qboolean createDevice( void ) {
 			const VkResult result = vkCreateDevice(candidate_device->device, &create_info, NULL, &vk_core.device);
 			if (result != VK_SUCCESS) {
 				gEngine.Con_Printf( S_ERROR "%s:%d vkCreateDevice failed (%d): %s\n",
-					__FILE__, __LINE__, result, resultName(result));
+					__FILE__, __LINE__, result, R_VkResultName(result));
 				continue;
 			}
 		}
@@ -623,21 +594,6 @@ static qboolean createDevice( void ) {
 	gEngine.Con_Printf( S_ERROR "No compatibe Vulkan devices found. Vulkan render will not be available\n" );
 	return false;
 }
-
-static const char *presentModeName(VkPresentModeKHR present_mode)
-{
-	switch (present_mode)
-	{
-		case VK_PRESENT_MODE_IMMEDIATE_KHR: return "VK_PRESENT_MODE_IMMEDIATE_KHR";
-		case VK_PRESENT_MODE_MAILBOX_KHR: return "VK_PRESENT_MODE_MAILBOX_KHR";
-		case VK_PRESENT_MODE_FIFO_KHR: return "VK_PRESENT_MODE_FIFO_KHR";
-		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "VK_PRESENT_MODE_FIFO_RELAXED_KHR";
-		case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR: return "VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR";
-		case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR: return "VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR";
-		default: return "UNKNOWN";
-	}
-}
-
 static qboolean initSurface( void )
 {
 	XVK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_present_modes, vk_core.surface.present_modes));
@@ -647,7 +603,7 @@ static qboolean initSurface( void )
 	gEngine.Con_Printf("Supported surface present modes: %u\n", vk_core.surface.num_present_modes);
 	for (uint32_t i = 0; i < vk_core.surface.num_present_modes; ++i)
 	{
-		gEngine.Con_Reportf("\t%u: %s (%u)\n", i, presentModeName(vk_core.surface.present_modes[i]), vk_core.surface.present_modes[i]);
+		gEngine.Con_Reportf("\t%u: %s (%u)\n", i, R_VkPresentModeName(vk_core.surface.present_modes[i]), vk_core.surface.present_modes[i]);
 	}
 
 	XVK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_core.physical_device.device, vk_core.surface.surface, &vk_core.surface.num_surface_formats, vk_core.surface.surface_formats));
@@ -658,34 +614,10 @@ static qboolean initSurface( void )
 	for (uint32_t i = 0; i < vk_core.surface.num_surface_formats; ++i)
 	{
 		// TODO symbolicate
-		gEngine.Con_Reportf("\t%u: %u %u\n", i, vk_core.surface.surface_formats[i].format, vk_core.surface.surface_formats[i].colorSpace);
+		gEngine.Con_Reportf("\t%u: %s(%u) %s(%u)\n", i,
+			R_VkFormatName(vk_core.surface.surface_formats[i].format), vk_core.surface.surface_formats[i].format,
+			R_VkColorSpaceName(vk_core.surface.surface_formats[i].colorSpace), vk_core.surface.surface_formats[i].colorSpace);
 	}
-
-	return true;
-}
-
-static qboolean createCommandPool( void ) {
-	VkCommandPoolCreateInfo cpci = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.queueFamilyIndex = 0,
-		.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-	};
-
-	VkCommandBuffer bufs[2];
-
-	VkCommandBufferAllocateInfo cbai = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandBufferCount = ARRAYSIZE(bufs),
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-	};
-
-
-	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &vk_core.command_pool));
-	cbai.commandPool = vk_core.command_pool;
-	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, bufs));
-
-	vk_core.cb = bufs[0];
-	vk_core.cb_tex = bufs[1];
 
 	return true;
 }
@@ -694,7 +626,8 @@ qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
 
-	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
+	vk_core.validate = !!gEngine.Sys_CheckParm("-vkvalidate");
+	vk_core.debug = vk_core.validate || !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
 	vk_core.rtx = false;
 	VK_LoadCvars();
 
@@ -750,13 +683,10 @@ qboolean R_VkInit( void )
 	if (!initSurface())
 		return false;
 
-	if (!createCommandPool())
-		return false;
-
 	if (!VK_DevMemInit())
 		return false;
 
-	if (!VK_BuffersInit())
+	if (!R_VkStagingInit())
 		return false;
 
 	// TODO move this to vk_texture module
@@ -789,6 +719,9 @@ qboolean R_VkInit( void )
 	if (!VK_FrameCtlInit())
 		return false;
 
+	if (!R_GeometryBuffer_Init())
+		return false;
+
 	if (!VK_RenderInit())
 		return false;
 
@@ -800,7 +733,7 @@ qboolean R_VkInit( void )
 
 	// All below need render_pass
 
-	if (!initVk2d())
+	if (!R_VkOverlay_Init())
 		return false;
 
 	if (!VK_BrushInit())
@@ -818,8 +751,9 @@ qboolean R_VkInit( void )
 	return true;
 }
 
-void R_VkShutdown( void )
-{
+void R_VkShutdown( void ) {
+	XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
+
 	if (vk_core.rtx)
 	{
 		VK_LightsShutdown();
@@ -828,9 +762,10 @@ void R_VkShutdown( void )
 
 	VK_BrushShutdown();
 	VK_StudioShutdown();
-	deinitVk2d();
+	R_VkOverlay_Shutdown();
 
 	VK_RenderShutdown();
+	R_GeometryBuffer_Shutdown();
 
 	VK_FrameCtlShutdown();
 
@@ -841,11 +776,9 @@ void R_VkShutdown( void )
 	VK_DescriptorShutdown();
 
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
-	VK_BuffersDestroy();
+	R_VkStagingShutdown();
 
 	VK_DevMemDestroy();
-
-	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 
 	vkDestroyDevice(vk_core.device, NULL);
 
@@ -867,36 +800,7 @@ void R_VkShutdown( void )
 	gEngine.R_Free_Video();
 }
 
-VkShaderModule loadShader(const char *filename) {
-	fs_offset_t size = 0;
-	VkShaderModuleCreateInfo smci = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-	};
-	VkShaderModule shader;
-	byte* buf = gEngine.COM_LoadFile( filename, &size, false);
-	uint32_t *pcode;
-
-	if (!buf)
-	{
-		gEngine.Host_Error( S_ERROR "Cannot open shader file \"%s\"\n", filename);
-	}
-
-	if ((size % 4 != 0) || (((uintptr_t)buf & 3) != 0)) {
-		gEngine.Host_Error( S_ERROR "size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec", size, buf);
-	}
-
-	smci.codeSize = size;
-	//smci.pCode = (const uint32_t*)buf;
-	//memcpy(&smci.pCode, &buf, sizeof(void*));
-	memcpy(&pcode, &buf, sizeof(pcode));
-	smci.pCode = pcode;
-
-	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
-	Mem_Free(buf);
-	return shader;
-}
-
-VkSemaphore createSemaphore( void ) {
+VkSemaphore R_VkSemaphoreCreate( void ) {
 	VkSemaphore sema;
 	VkSemaphoreCreateInfo sci = {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -906,20 +810,20 @@ VkSemaphore createSemaphore( void ) {
 	return sema;
 }
 
-void destroySemaphore(VkSemaphore sema) {
+void R_VkSemaphoreDestroy(VkSemaphore sema) {
 	vkDestroySemaphore(vk_core.device, sema, NULL);
 }
 
-VkFence createFence( void ) {
+VkFence R_VkFenceCreate( qboolean signaled ) {
 	VkFence fence;
-	VkFenceCreateInfo fci = {
+	const VkFenceCreateInfo fci = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		.flags = 0,
+		.flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0,
 	};
 	XVK_CHECK(vkCreateFence(vk_core.device, &fci, NULL, &fence));
 	return fence;
 }
 
-void destroyFence(VkFence fence) {
+void R_VkFenceDestroy(VkFence fence) {
 	vkDestroyFence(vk_core.device, fence, NULL);
 }

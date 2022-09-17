@@ -700,7 +700,7 @@ static void LM_UploadBlock( qboolean dynamic )
 		r_lightmap.size = r_lightmap.width * r_lightmap.height * 4;
 		r_lightmap.flags = IMAGE_HAS_COLOR;
 		r_lightmap.buffer = gl_lms.lightmap_buffer;
-		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_FONT|TF_ATLAS_PAGE );
+		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_NOMIPMAP|TF_ATLAS_PAGE );
 
 		if( ++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS )
 			gEngfuncs.Host_Error( "AllocBlock: full\n" );
@@ -1794,7 +1794,7 @@ void R_GenerateVBO( void )
 	// we do not want to write vbo code that does not use multitexture
 	if( !GL_Support( GL_ARB_VERTEX_BUFFER_OBJECT_EXT ) || !GL_Support( GL_ARB_MULTITEXTURE ) || glConfig.max_texture_units < 2 )
 	{
-		gEngfuncs.Cvar_FullSet( "r_vbo", "0", FCVAR_READ_ONLY );
+		gEngfuncs.Cvar_FullSet( "gl_vbo", "0", FCVAR_READ_ONLY );
 		return;
 	}
 
@@ -2934,8 +2934,8 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 		}
 		else
 		{
-			smax = min( smax, 132 );
-			tmax = min( tmax, 132 );
+			smax = Q_min( smax, 132 );
+			tmax = Q_min( tmax, 132 );
 			//Host_MapDesignError( "R_RenderBrushPoly: bad surface extents: %d %d", fa->extents[0], fa->extents[1] );
 			memset( temp, 255, sizeof( temp ) );
 		}
@@ -3629,9 +3629,6 @@ void GL_BuildLightmaps( void )
 void GL_InitRandomTable( void )
 {
 	int	tu, tv;
-
-	// make random predictable
-	gEngfuncs.COM_SetRandomSeed( 255 );
 
 	for( tu = 0; tu < MOD_FRAMES; tu++ )
 	{

@@ -1,0 +1,64 @@
+// section 0
+{ // TODO: animate texture
+"_xvk_ent_id" "140" // remove hack lights entity
+}
+
+// section 1
+// TODO: correct brightness
+{
+"_xvk_ent_id" "19" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "2298" // +A~FIFTIES_LGT2  160 170 220  5000
+"_light" "160 170 220 0"
+}
+
+
+// section ...
+{
+"_xvk_ent_id" "17 18" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "25" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "20" // remove hack lights entity
+"_light" "80 80 160 500"
+"origin" "1392 -10 35"
+}
+{
+"_xvk_ent_id" "27" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "26" // remove hack lights entity
+"_light" "80 80 160 500"
+"origin" "1761 -1034 57"
+}
+
+{
+"_xvk_ent_id" "110 109 108 23" // remove hack lights entity
+}
+
+{
+"_xvk_ent_id" "22 21 24" // remove hack lights entity
+}
+
+
+// canalization
+{
+"_xvk_ent_id" "366 365 364 363 362 367 368 369 370 371" // remove hack lights entity
+}
+{ // focus
+"_xvk_ent_id" "361"
+"origin" "2348 -1186 -288"
+"_light" "247 249 157 150"
+}
+
+// section ...
+{
+"_xvk_ent_id" "267 266" // remove hack lights entity
+}
+{ // FIXME: color should take from translucent texture 
+"_xvk_surface_id" "9" // +0LAB1_W6B       150 160 210  4000
+"_light" "70 200 110 4000" // color from hack light
+}

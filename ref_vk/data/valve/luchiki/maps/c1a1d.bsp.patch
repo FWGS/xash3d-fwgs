@@ -1,0 +1,29 @@
+// section 0
+{
+"_xvk_ent_id" "48" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "34" // remove hack lights entity
+}
+// section 1
+{
+"_xvk_ent_id" "30 29 26 27 31 32 28 25" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "896 907 775 761 753 754 147 100" // +A~FIFTIES_LGT2  160 170 220  5000
+"_light" "160 170 220 25000"
+}
+
+// section 2
+{
+"_xvk_ent_id" "49" // remove hack lights entity
+}
+// section 3
+{
+"_xvk_ent_id" "39" // ?
+"origin" "1144 914 -123"
+}
+// section 4
+{
+"_xvk_ent_id" "43 44" // remove hack lights entity
+}

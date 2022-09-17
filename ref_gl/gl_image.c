@@ -22,6 +22,19 @@ static gl_texture_t		gl_textures[MAX_TEXTURES];
 static gl_texture_t*	gl_texturesHashTable[TEXTURES_HASH_SIZE];
 static uint		gl_numTextures;
 
+static byte    dottexture[8][8] =
+{
+	  {0,1,1,0,0,0,0,0},
+	  {1,1,1,1,0,0,0,0},
+	  {1,1,1,1,0,0,0,0},
+	  {0,1,1,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+	  {0,0,0,0,0,0,0,0},
+};
+
+
 #define IsLightMap( tex )	( FBitSet(( tex )->flags, TF_ATLAS_PAGE ))
 /*
 =================
@@ -373,6 +386,9 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 		break;
 	case PF_DXT3:
 	case PF_DXT5:
+	case PF_BC6H_SIGNED:
+	case PF_BC6H_UNSIGNED:
+	case PF_BC7:
 	case PF_ATI2:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
@@ -404,6 +420,10 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 	case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
 	case GL_COMPRESSED_LUMINANCE_ALPHA_ARB:
 	case GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI:
+	case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_ARB:
+	case GL_COMPRESSED_RGBA_BPTC_UNORM_ARB:
+	case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB:
+	case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
 	case GL_RGBA8:
@@ -681,6 +701,9 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		case PF_DXT1: tex->format = GL_COMPRESSED_RGB_S3TC_DXT1_EXT; break;	// never use DXT1 with 1-bit alpha
 		case PF_DXT3: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT; break;
 		case PF_DXT5: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; break;
+		case PF_BC6H_SIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB; break;
+		case PF_BC6H_UNSIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB; break;
+		case PF_BC7: tex->format = GL_COMPRESSED_RGBA_BPTC_UNORM_ARB; break;
 		case PF_ATI2:
 			if( glConfig.hardware_type == GLHW_RADEON )
 				tex->format = GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI;
@@ -1153,6 +1176,15 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		return false;
 	}
 
+	if( pic->type == PF_BC6H_SIGNED || pic->type == PF_BC6H_UNSIGNED || pic->type == PF_BC7 )
+	{
+		if( !GL_Support( GL_ARB_TEXTURE_COMPRESSION_BPTC ))
+		{
+			gEngfuncs.Con_DPrintf( S_ERROR "GL_UploadTexture: BC6H/BC7 compression formats is not supported by your hardware\n" );
+			return false;
+		}
+	}
+
 	GL_SetTextureDimensions( tex, pic->width, pic->height, pic->depth );
 	GL_SetTextureFormat( tex, pic->type, pic->flags );
 
@@ -1620,7 +1652,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 
 		mipsize = srcsize = dstsize = 0;
 
-		for( j = 0; j < max( 1, pic->numMips ); j++ )
+		for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 		{
 			int width = Q_max( 1, ( pic->width >> j ));
 			int height = Q_max( 1, ( pic->height >> j ));
@@ -1876,6 +1908,11 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 
 	// all the operations makes over the image copy not an original
 	pic = gEngfuncs.FS_CopyImage( image->original );
+
+	// we need to expand image into RGBA buffer
+	if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
+		flags |= IMAGE_FORCE_RGBA;
+
 	gEngfuncs.Image_Process( &pic, topColor, bottomColor, flags, 0.0f );
 
 	GL_UploadTexture( image, pic );
@@ -1986,18 +2023,15 @@ static void GL_CreateInternalTextures( void )
 	tr.defaultTexture = GL_LoadTextureInternal( REF_DEFAULT_TEXTURE, pic, TF_COLORMAP );
 
 	// particle texture from quake1
-	pic = GL_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA );
+	pic = GL_FakeImage( 8, 8, 1, IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA );
 
-	for( x = 0; x < 16; x++ )
+	for( x = 0; x < 8; x++ )
 	{
-		dx2 = x - 8;
-		dx2 = dx2 * dx2;
-
-		for( y = 0; y < 16; y++ )
+		for( y = 0; y < 8; y++ )
 		{
-			dy = y - 8;
-			d = 255 - 35 * sqrt( dx2 + dy * dy );
-			pic->buffer[( y * 16 + x ) * 4 + 3] = bound( 0, d, 255 );
+			if( dottexture[x][y] )
+				pic->buffer[( y * 8 + x ) * 4 + 3] = 255;
+			else pic->buffer[( y * 8 + x ) * 4 + 3] = 0;
 		}
 	}
 

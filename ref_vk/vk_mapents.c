@@ -357,7 +357,7 @@ static void addPatchSurface( const entity_props_t *props, uint32_t have_fields )
 		}
 
 		if (have_fields & Field__light) {
-			VectorCopy(props->_light, psurf->emissive);
+			VectorScale(props->_light, 0.1f, psurf->emissive);
 			psurf->flags |= Patch_Surface_Emissive;
 			gEngine.Con_Reportf("Patch for surface %d: assign emissive %f %f %f\n", index,
 				psurf->emissive[0],
@@ -513,7 +513,7 @@ static void parsePatches( const model_t *const map ) {
 
 	Q_snprintf(filename, sizeof(filename), "luchiki/%s.patch", map->name);
 	gEngine.Con_Reportf("Loading patches from file \"%s\"\n", filename);
-	data = gEngine.COM_LoadFile( filename, 0, false );
+	data = gEngine.fsapi->LoadFile( filename, 0, false );
 	if (!data) {
 		gEngine.Con_Reportf("No patch file \"%s\"\n", filename);
 		return;

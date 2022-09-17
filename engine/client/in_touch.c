@@ -503,20 +503,14 @@ void Touch_SetClientOnly( byte state )
 	touch.move_finger = touch.look_finger = -1;
 	touch.forward = touch.side = 0;
 
-	/// TODO: touch sdl platform
-#if 0
 	if( state )
 	{
-		SDL_SetRelativeMouseMode( SDL_FALSE );
-		SDL_ShowCursor( true );
 		IN_DeactivateMouse();
 	}
 	else
 	{
-		SDL_ShowCursor( false );
-		SDL_GetRelativeMouseState( 0, 0 );
+		IN_ActivateMouse();
 	}
-#endif
 }
 
 static void Touch_SetClientOnly_f( void )
@@ -536,7 +530,7 @@ static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *nam
 
 	IN_TouchEditClear();
 
-	while(( button = Touch_FindFirst( &touch.list_user, name, !privileged )))
+	while(( button = Touch_FindFirst( &touch.list_user, name, privileged )))
 	{
 		if( button->prev )
 			button->prev->next = button->next;
@@ -792,7 +786,6 @@ static touch_button_t *Touch_AddButton( touchbuttonlist_t *list,
 	button->flags = privileged ? 0 : TOUCH_FL_UNPRIVILEGED | TOUCH_FL_CLIENT;
 	MakeRGBA( button->color, color[0], color[1], color[2], color[3] );
 	button->command[0] = 0;
-	button->flags = 0;
 	button->fade = 1;
 
 	Touch_SetCommand( button, command );

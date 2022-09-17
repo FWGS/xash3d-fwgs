@@ -2,6 +2,8 @@
 
 #include "vk_core.h"
 #include "vk_buffer.h"
+#include "vk_geometry.h"
+#include "vk_staging.h"
 #include "vk_const.h"
 #include "vk_common.h"
 #include "vk_pipeline.h"
@@ -9,6 +11,8 @@
 #include "vk_math.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
+#include "vk_framectl.h" // FIXME needed for dynamic models cmdbuf
+#include "alolcator.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -23,15 +27,9 @@ typedef struct {
 	vec4_t color;
 } uniform_data_t;
 
-// TODO estimate
-#define MAX_ALLOCS 1024
-
 static struct {
 	VkPipelineLayout pipeline_layout;
 	VkPipeline pipelines[kRenderTransAdd + 1];
-
-	vk_buffer_t buffer;
-	vk_ring_buffer_t buffer_alloc_ring;
 
 	vk_buffer_t uniform_buffer;
 	uint32_t ubo_align;
@@ -223,25 +221,61 @@ typedef struct {
 	} light[MAX_DLIGHTS];
 } vk_ubo_lights_t;
 
-qboolean VK_RenderInit( void )
-{
-	const uint32_t vertex_buffer_size = MAX_BUFFER_VERTICES * sizeof(vk_vertex_t);
-	const uint32_t index_buffer_size = MAX_BUFFER_INDICES * sizeof(uint16_t);
-	uint32_t uniform_unit_size;
+#define MAX_DRAW_COMMANDS 8192 // TODO estimate
+#define MAX_DEBUG_NAME_LENGTH 32
 
+typedef struct render_draw_s {
+	int lightmap, texture;
+	int render_mode;
+	uint32_t element_count;
+	uint32_t index_offset, vertex_offset;
+	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
+} render_draw_t;
+
+enum draw_command_type_e {
+	DrawLabelBegin,
+	DrawLabelEnd,
+	DrawDraw
+};
+
+typedef struct {
+	enum draw_command_type_e type;
+	union {
+		char debug_label[MAX_DEBUG_NAME_LENGTH];
+		struct {
+			render_draw_t draw;
+			uint32_t ubo_offset;
+			matrix3x4 transform;
+		} draw;
+	};
+} draw_command_t;
+
+static struct {
+	int uniform_data_set_mask;
+	uniform_data_t current_uniform_data;
+	uniform_data_t dirty_uniform_data;
+
+	r_flipping_buffer_t uniform_alloc;
+	uint32_t current_ubo_offset_FIXME;
+
+	draw_command_t draw_commands[MAX_DRAW_COMMANDS];
+	int num_draw_commands;
+
+	matrix4x4 model, view, projection;
+
+	qboolean current_frame_is_ray_traced;
+} g_render_state;
+
+qboolean VK_RenderInit( void ) {
 	g_render.ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
-	uniform_unit_size = ((sizeof(uniform_data_t) + g_render.ubo_align - 1) / g_render.ubo_align) * g_render.ubo_align;
 
-	// TODO device memory and friends (e.g. handle mobile memory ...)
+	const uint32_t uniform_unit_size = ((sizeof(uniform_data_t) + g_render.ubo_align - 1) / g_render.ubo_align) * g_render.ubo_align;
+	const uint32_t uniform_buffer_size = uniform_unit_size * MAX_UNIFORM_SLOTS;
+	R_FlippingBuffer_Init(&g_render_state.uniform_alloc, uniform_buffer_size);
 
-	if (!VK_BufferCreate("render buffer", &g_render.buffer, vertex_buffer_size + index_buffer_size,
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | (vk_core.rtx ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0),
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
-		return false;
-
-	if (!VK_BufferCreate("render uniform_buffer", &g_render.uniform_buffer, uniform_unit_size * MAX_UNIFORM_SLOTS,
+	if (!VK_BufferCreate("render uniform_buffer", &g_render.uniform_buffer, uniform_buffer_size,
 		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0))) // TODO staging buffer?
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | (vk_core.rtx ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0)))
 		return false;
 
 	{
@@ -278,8 +312,6 @@ qboolean VK_RenderInit( void )
 	if (!createPipelines())
 		return false;
 
-	g_render.buffer_alloc_ring.size = g_render.buffer.size;
-
 	return true;
 }
 
@@ -289,101 +321,8 @@ void VK_RenderShutdown( void )
 		vkDestroyPipeline(vk_core.device, g_render.pipelines[i], NULL);
 	vkDestroyPipelineLayout( vk_core.device, g_render.pipeline_layout, NULL );
 
-	VK_BufferDestroy( &g_render.buffer );
 	VK_BufferDestroy( &g_render.uniform_buffer );
 }
-
-xvk_render_buffer_allocation_t XVK_RenderBufferAllocAndLock( uint32_t unit_size, uint32_t count ) {
-	const uint32_t alloc_size = unit_size * count;
-	uint32_t offset;
-	xvk_render_buffer_allocation_t retval = {0};
-
-	ASSERT(unit_size > 0);
-
-	offset = VK_RingBuffer_Alloc(&g_render.buffer_alloc_ring, alloc_size, unit_size);
-
-	if (offset == AllocFailed) {
-		gEngine.Con_Printf(S_ERROR "Cannot allocate %u bytes aligned at %u from buffer; only %u are left",
-				alloc_size, unit_size, g_render.buffer_alloc_ring.free);
-		return retval;
-	}
-
-	// TODO bake sequence number into handle (to detect buffer lifetime misuse)
-	retval.buffer.unit.size = unit_size;
-	retval.buffer.unit.count = count;
-	retval.buffer.unit.offset = offset / unit_size;
-	retval.ptr = ((byte*)g_render.buffer.mapped) + offset;
-
-	return retval;
-}
-
-void XVK_RenderBufferUnlock( xvk_render_buffer_t handle ) {
-	// TODO check whether we need to upload something from staging, etc
-}
-
-void XVK_RenderBufferMapFreeze( void ) {
-	VK_RingBuffer_Fix(&g_render.buffer_alloc_ring);
-}
-
-void XVK_RenderBufferMapClear( void ) {
-	VK_RingBuffer_Clear(&g_render.buffer_alloc_ring);
-}
-
-void XVK_RenderBufferFrameClear( /*int frame_id*/void ) {
-	VK_RingBuffer_ClearFrame(&g_render.buffer_alloc_ring);
-}
-
-void XVK_RenderBufferPrintStats( void ) {
-	// TODO get alignment holes size
-	gEngine.Con_Reportf("Buffer usage: %uKiB of (%uKiB)\n",
-		g_render.buffer_alloc_ring.permanent_size / 1024,
-		g_render.buffer.size / 1024);
-}
-
-#define MAX_DRAW_COMMANDS 8192 // TODO estimate
-#define MAX_DEBUG_NAME_LENGTH 32
-
-typedef struct render_draw_s {
-	int lightmap, texture;
-	int render_mode;
-	uint32_t element_count;
-	uint32_t index_offset, vertex_offset;
-	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
-} render_draw_t;
-
-enum draw_command_type_e {
-	DrawLabelBegin,
-	DrawLabelEnd,
-	DrawDraw
-};
-
-typedef struct {
-	enum draw_command_type_e type;
-	union {
-		char debug_label[MAX_DEBUG_NAME_LENGTH];
-		struct {
-			render_draw_t draw;
-			uint32_t ubo_offset;
-			matrix3x4 transform;
-		} draw;
-	};
-} draw_command_t;
-
-static struct {
-	int uniform_data_set_mask;
-	uniform_data_t current_uniform_data;
-	uniform_data_t dirty_uniform_data;
-
-	uint32_t current_ubo_offset;
-	uint32_t uniform_free_offset;
-
-	draw_command_t draw_commands[MAX_DRAW_COMMANDS];
-	int num_draw_commands;
-
-	matrix4x4 model, view, projection;
-
-	qboolean current_frame_is_ray_traced;
-} g_render_state;
 
 enum {
 	UNIFORM_UNSET = 0,
@@ -396,15 +335,16 @@ enum {
 };
 
 void VK_RenderBegin( qboolean ray_tracing ) {
-	g_render_state.uniform_free_offset = 0;
 	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
-	g_render_state.current_ubo_offset = UINT32_MAX;
-
+	g_render_state.current_ubo_offset_FIXME = UINT32_MAX;
 	memset(&g_render_state.current_uniform_data, 0, sizeof(g_render_state.current_uniform_data));
 	memset(&g_render_state.dirty_uniform_data, 0, sizeof(g_render_state.dirty_uniform_data));
+	R_FlippingBuffer_Flip(&g_render_state.uniform_alloc);
 
 	g_render_state.num_draw_commands = 0;
 	g_render_state.current_frame_is_ray_traced = ray_tracing;
+
+	R_GeometryBuffer_Flip();
 
 	if (ray_tracing)
 		VK_RayFrameBegin();
@@ -462,11 +402,7 @@ void VK_RenderStateSetMatrixModel( const matrix4x4 model )
 static uint32_t allocUniform( uint32_t size, uint32_t alignment ) {
 	// FIXME Q_max is not correct, we need NAIMENSCHEEE OBSCHEEE KRATNOE
 	const uint32_t align = Q_max(alignment, g_render.ubo_align);
-	const uint32_t offset = (((g_render_state.uniform_free_offset + align - 1) / align) * align);
-	if (offset + size > g_render.uniform_buffer.size)
-		return UINT32_MAX;
-
-	g_render_state.uniform_free_offset = offset + size;
+	const uint32_t offset = R_FlippingBuffer_Alloc(&g_render_state.uniform_alloc, size, align);
 	return offset;
 }
 
@@ -490,6 +426,27 @@ static void drawCmdPushDebugLabelEnd( void ) {
 	}
 }
 
+// FIXME get rid of this garbage
+static uint32_t getUboOffset_FIXME( void ) {
+	// Figure out whether we need to update UBO data, and upload new data if we do
+	// TODO generally it's not safe to do memcmp for structures comparison
+	if (g_render_state.current_ubo_offset_FIXME == UINT32_MAX
+		|| ((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0)
+		|| memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
+		g_render_state.current_ubo_offset_FIXME = allocUniform(sizeof(uniform_data_t), 16 /* why 16? vec4? */);
+
+		if (g_render_state.current_ubo_offset_FIXME == ALO_ALLOC_FAILED)
+			return UINT32_MAX;
+
+		uniform_data_t *const ubo = (uniform_data_t*)((byte*)g_render.uniform_buffer.mapped + g_render_state.current_ubo_offset_FIXME);
+		memcpy(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.dirty_uniform_data));
+		memcpy(ubo, &g_render_state.current_uniform_data, sizeof(*ubo));
+		g_render_state.uniform_data_set_mask |= UNIFORM_UPLOADED;
+	}
+
+	return g_render_state.current_ubo_offset_FIXME;
+}
+
 static void drawCmdPushDraw( const render_draw_t *draw )
 {
 	draw_command_t *draw_command;
@@ -509,26 +466,16 @@ static void drawCmdPushDraw( const render_draw_t *draw )
 		return;
 	}
 
-	// Figure out whether we need to update UBO data, and upload new data if we do
-	// TODO generally it's not safe to do memcmp for structures comparison
-	if (g_render_state.current_ubo_offset == UINT32_MAX || ((g_render_state.uniform_data_set_mask & UNIFORM_UPLOADED) == 0)
-		|| memcmp(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.current_uniform_data)) != 0) {
-		uniform_data_t *ubo;
-		g_render_state.current_ubo_offset = allocUniform( sizeof(uniform_data_t), 16 );
-		if (g_render_state.current_ubo_offset == UINT32_MAX) {
-			gEngine.Con_Printf( S_ERROR "Ran out of uniform slots\n" );
-			return;
-		}
-
-		ubo = (uniform_data_t*)((byte*)g_render.uniform_buffer.mapped + g_render_state.current_ubo_offset);
-		memcpy(&g_render_state.current_uniform_data, &g_render_state.dirty_uniform_data, sizeof(g_render_state.dirty_uniform_data));
-		memcpy(ubo, &g_render_state.current_uniform_data, sizeof(*ubo));
-		g_render_state.uniform_data_set_mask |= UNIFORM_UPLOADED;
+	const uint32_t ubo_offset = getUboOffset_FIXME();
+	if (ubo_offset == ALO_ALLOC_FAILED) {
+		// TODO stagger this
+		gEngine.Con_Printf( S_ERROR "Ran out of uniform slots\n" );
+		return;
 	}
 
 	draw_command = drawCmdAlloc();
 	draw_command->draw.draw = *draw;
-	draw_command->draw.ubo_offset = g_render_state.current_ubo_offset;
+	draw_command->draw.ubo_offset = ubo_offset;
 	draw_command->type = DrawDraw;
 	Matrix3x4_Copy(draw_command->draw.transform, g_render_state.model);
 }
@@ -570,6 +517,28 @@ static uint32_t writeDlightsToUBO( void )
 	return ubo_lights_offset;
 }
 
+void VK_Render_FIXME_Barrier( VkCommandBuffer cmdbuf ) {
+	const VkBuffer geom_buffer = R_GeometryBuffer_Get();
+	// FIXME
+	{
+		const VkBufferMemoryBarrier bmb[] = { {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			//.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, // FIXME
+			.dstAccessMask = VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT , // FIXME
+			.buffer = geom_buffer,
+			.offset = 0, // FIXME
+			.size = VK_WHOLE_SIZE, // FIXME
+		} };
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			//VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			//VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+	}
+}
+
 void VK_RenderEnd( VkCommandBuffer cmdbuf )
 {
 	// TODO we can sort collected draw commands for more efficient and correct rendering
@@ -586,13 +555,15 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 
 	ASSERT(!g_render_state.current_frame_is_ray_traced);
 
+
 	{
+		const VkBuffer geom_buffer = R_GeometryBuffer_Get();
 		const VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmdbuf, 0, 1, &g_render.buffer.buffer, &offset);
-		vkCmdBindIndexBuffer(cmdbuf, g_render.buffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindVertexBuffers(cmdbuf, 0, 1, &geom_buffer, &offset);
+		vkCmdBindIndexBuffer(cmdbuf, geom_buffer, 0, VK_INDEX_TYPE_UINT16);
 	}
 
-	vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
+	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 3, 1, vk_desc.ubo_sets + 1, 1, &dlights_ubo_offset);
 
 	for (int i = 0; i < g_render_state.num_draw_commands; ++i) {
 		const draw_command_t *const draw = g_render_state.draw_commands + i;
@@ -615,29 +586,29 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 		if (ubo_offset != draw->draw.ubo_offset)
 		{
 			ubo_offset = draw->draw.ubo_offset;
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
 		}
 
 		if (pipeline != draw->draw.draw.render_mode) {
 			pipeline = draw->draw.draw.render_mode;
-			vkCmdBindPipeline(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
+			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
 		}
 
 		if (lightmap != draw->draw.draw.lightmap) {
 			lightmap = draw->draw.draw.lightmap;
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 2, 1, &findTexture(lightmap)->vk.descriptor, 0, NULL);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 2, 1, &findTexture(lightmap)->vk.descriptor, 0, NULL);
 		}
 
 		if (texture != draw->draw.draw.texture)
 		{
 			texture = draw->draw.draw.texture;
 			// TODO names/enums for binding points
-			vkCmdBindDescriptorSets(vk_core.cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
+			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 1, 1, &findTexture(texture)->vk.descriptor, 0, NULL);
 		}
 
 		// Only indexed mode is supported
 		ASSERT(draw->draw.draw.index_offset >= 0);
-		vkCmdDrawIndexed(vk_core.cb, draw->draw.draw.element_count, 1, draw->draw.draw.index_offset, draw->draw.draw.vertex_offset, 0);
+		vkCmdDrawIndexed(cmdbuf, draw->draw.draw.element_count, 1, draw->draw.draw.index_offset, draw->draw.draw.vertex_offset, 0);
 	}
 }
 
@@ -653,6 +624,7 @@ void VK_RenderDebugLabelEnd( void )
 
 void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
 {
+	const VkBuffer geom_buffer = R_GeometryBuffer_Get();
 	ASSERT(vk_core.rtx);
 
 	{
@@ -669,7 +641,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 			.view = &g_render_state.view,
 
 			.geometry_data = {
-				.buffer = g_render.buffer.buffer,
+				.buffer = geom_buffer,
 				.size = VK_WHOLE_SIZE,
 			},
 
@@ -682,9 +654,10 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 
 qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
+		const VkBuffer geom_buffer = R_GeometryBuffer_Get();
 		// TODO runtime rtx switch: ???
 		const vk_ray_model_init_t args = {
-			.buffer = g_render.buffer.buffer,
+			.buffer = geom_buffer,
 			.model = model,
 		};
 		model->ray_model = VK_RayModelCreate(args);

@@ -65,6 +65,17 @@ def configure(conf):
 	if '-Werror=declaration-after-statement' in conf.env.CFLAGS:
 		conf.env.CFLAGS.remove('-Werror=declaration-after-statement')
 
+def printTestSummary(bld):
+	results = getattr(bld, 'utest_results', [])
+	for (f, code, out, err) in results:
+		if code == 0:
+			Logs.pprint('GREEN', '%s: ok' % f)
+			continue
+
+		Logs.pprint('RED', '%s: test failed' % f)
+		Logs.pprint('CYAN', out.decode('utf-8'))
+		Logs.pprint('CYAN', err.decode('utf-8'))
+
 def build(bld):
 	if not bld.env.VK:
 		return
@@ -78,6 +89,7 @@ def build(bld):
 	rtx_glsl_source = bld.path.ant_glob(['shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss', 'shaders/*.rahit'])
 
 	includes = ['.',
+		'../filesystem',
 		'../engine',
 		'../engine/common',
 		'../engine/server',
@@ -92,6 +104,10 @@ def build(bld):
 	if bld.env.HAVE_AFTERMATH:
 		defines.append('USE_AFTERMATH')
 		libs.append('AFTERMATH')
+		for file in ['GFSDK_Aftermath_Lib.x64.dll', 'llvm_7_0_1.dll']:
+			bld.install_files(
+				bld.env.LIBDIR,
+				bld.root.find_dir(bld.env.LIBPATH_AFTERMATH[0]).find_node(file))
 
 	if bld.env.COMPILER_CC == 'msvc':
 		bld.env.CFLAGS += ['/WX']
@@ -123,4 +139,13 @@ def build(bld):
 		glslcflags = '--target-env=vulkan1.2'
 	)
 
-	bld.install_files(bld.env.LIBDIR + '/valve/maps', bld.path.ant_glob('rad/*.rad'))
+	bld.install_files(bld.env.LIBDIR,
+					  bld.path.ant_glob('data/**'),
+					  cwd=bld.path.find_dir('data/'),
+					  relative_trick=True)
+
+	bld.program(features='test', defines=['ALOLCATOR_TEST'],source='alolcator.c', target='alolcator')
+	bld.add_post_fun(printTestSummary)
+
+	#from waflib.Tools import waf_unit_test
+	#bld.add_post_fun(waf_unit_test.summary)

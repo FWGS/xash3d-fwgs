@@ -16,407 +16,12 @@ GNU General Public License for more details.
 #include "common.h"
 #include "sound.h"
 #include "const.h"
+#include "sequence.h"
 #include <ctype.h>
 
-sentence_t	g_Sentences[MAX_SENTENCES];
-static uint	g_numSentences;
-static char	*rgpparseword[CVOXWORDMAX];	// array of pointers to parsed words
-static char	voxperiod[] = "_period";	// vocal pause
-static char	voxcomma[] = "_comma";	// vocal pause
-
-static int IsNextWord( const char c )
-{
-	if( c == '.' || c == ',' || c == ' ' || c == '(' )
-		return 1;
-	return 0;
-}
-
-static int IsSkipSpace( const char c )
-{
-	if( c == ',' || c == '.' || c == ' ' )
-		return 1;
-	return 0;
-}
-
-static int IsWhiteSpace( const char space )
-{
-	if( space == ' ' || space == '\t' || space == '\r' || space == '\n' )
-		return 1;
-	return 0;
-}
-
-static int IsCommandChar( const char c )
-{
-	if( c == 'v' || c == 'p' || c == 's' || c == 'e' || c == 't' )
-		return 1;
-	return 0;
-}
-
-static int IsDelimitChar( const char c )
-{
-	if( c == '(' || c == ')' )
-		return 1;
-	return 0;
-}
-
-static char *ScanForwardUntil( char *string, const char scan )
-{
-	while( string[0] )
-	{
-		if( string[0] == scan )
-			return string;
-		string++;
-	}
-	return string;
-}
-
-// backwards scan psz for last '/'
-// return substring in szpath null terminated
-// if '/' not found, return 'vox/'
-static char *VOX_GetDirectory( char *szpath, char *psz )
-{
-	char	c;
-	int	cb = 0, len;
-	char	*p;
-
-	len = Q_strlen( psz );
-	p = psz + len - 1;
-
-	// scan backwards until first '/' or start of string
-	c = *p;
-	while( p > psz && c != '/' )
-	{
-		c = *( --p );
-		cb++;
-	}
-
-	if( c != '/' )
-	{
-		// didn't find '/', return default directory
-		Q_strcpy( szpath, "vox/" );
-		return psz;
-	}
-
-	cb = len - cb;
-	memcpy( szpath, psz, cb );
-	szpath[cb] = 0;
-
-	return p + 1;
-}
-
-// scan g_Sentences, looking for pszin sentence name
-// return pointer to sentence data if found, null if not
-// CONSIDER: if we have a large number of sentences, should
-// CONSIDER: sort strings in g_Sentences and do binary search.
-char *VOX_LookupString( const char *pSentenceName, int *psentencenum )
-{
-	int	i;
-
-	if( Q_isdigit( pSentenceName ) && (i = Q_atoi( pSentenceName )) < g_numSentences )
-	{
-		if( psentencenum ) *psentencenum = i;
-		return (g_Sentences[i].pName + Q_strlen( g_Sentences[i].pName ) + 1 );
-	}
-
-	for( i = 0; i < g_numSentences; i++ )
-	{
-		if( !Q_stricmp( pSentenceName, g_Sentences[i].pName ))
-		{
-			if( psentencenum ) *psentencenum = i;
-			return (g_Sentences[i].pName + Q_strlen( g_Sentences[i].pName ) + 1 );
-		}
-	}
-
-	return NULL;
-}
-
-// parse a null terminated string of text into component words, with
-// pointers to each word stored in rgpparseword
-// note: this code actually alters the passed in string!
-char **VOX_ParseString( char *psz )
-{
-	int	i, fdone = 0;
-	char	c, *p = psz;
-
-	memset( rgpparseword, 0, sizeof( char* ) * CVOXWORDMAX );
-
-	if( !psz ) return NULL;
-
-	i = 0;
-	rgpparseword[i++] = psz;
-
-	while( !fdone && i < CVOXWORDMAX )
-	{
-		// scan up to next word
-		c = *p;
-		while( c && !IsNextWord( c ))
-			c = *(++p);
-
-		// if '(' then scan for matching ')'
-		if( c == '(' )
-		{
-			p = ScanForwardUntil( p, ')' );
-			c = *(++p);
-			if( !c ) fdone = 1;
-		}
-
-		if( fdone || !c )
-		{
-			fdone = 1;
-		}
-		else
-		{
-			// if . or , insert pause into rgpparseword,
-			// unless this is the last character
-			if(( c == '.' || c == ',' ) && *(p+1) != '\n' && *(p+1) != '\r' && *(p+1) != 0 )
-			{
-				if( c == '.' ) rgpparseword[i++] = voxperiod;
-				else rgpparseword[i++] = voxcomma;
-
-				if( i >= CVOXWORDMAX )
-					break;
-			}
-
-			// null terminate substring
-			*p++ = 0;
-
-			// skip whitespace
-			c = *p;
-			while( c && IsSkipSpace( c ))
-				c = *(++p);
-
-			if( !c ) fdone = 1;
-			else rgpparseword[i++] = p;
-		}
-	}
-
-	return rgpparseword;
-}
-
-float VOX_GetVolumeScale( channel_t *pchan )
-{
-	if( pchan->currentWord )
-	{
-		if ( pchan->words[pchan->wordIndex].volume )
-		{
-			float	volume = pchan->words[pchan->wordIndex].volume * 0.01f;
-			if( volume < 1.0f ) return volume;
-		}
-	}
-
-	return 1.0f;
-}
-
-void VOX_SetChanVol( channel_t *ch )
-{
-	float	scale;
-
-	if( !ch->currentWord )
-		return;
-
-	scale = VOX_GetVolumeScale( ch );
-	if( scale == 1.0f ) return;
-
-	ch->rightvol = (int)(ch->rightvol * scale);
-	ch->leftvol = (int)(ch->leftvol * scale);
-}
-
-float VOX_ModifyPitch( channel_t *ch, float pitch )
-{
-	if( ch->currentWord )
-	{
-		if( ch->words[ch->wordIndex].pitch > 0 )
-		{
-			pitch += ( ch->words[ch->wordIndex].pitch - PITCH_NORM ) * 0.01f;
-		}
-	}
-
-	return pitch;
-}
-
-//===============================================================================
-//  Get any pitch, volume, start, end params into voxword
-//  and null out trailing format characters
-//  Format:
-//		someword(v100 p110 s10 e20)
-//
-//		v is volume, 0% to n%
-//		p is pitch shift up 0% to n%
-//		s is start wave offset %
-//		e is end wave offset %
-//		t is timecompression %
-//
-//  pass fFirst == 1 if this is the first string in sentence
-//  returns 1 if valid string, 0 if parameter block only.
-//
-//  If a ( xxx ) parameter block does not directly follow a word,
-//  then that 'default' parameter block will be used as the default value
-//  for all following words.  Default parameter values are reset
-//  by another 'default' parameter block.  Default parameter values
-//  for a single word are overridden for that word if it has a parameter block.
-//
-//===============================================================================
-int VOX_ParseWordParams( char *psz, voxword_t *pvoxword, int fFirst )
-{
-	char		*pszsave = psz;
-	char		c, ct, sznum[8];
-	static voxword_t	voxwordDefault;
-	int		i;
-
-	// init to defaults if this is the first word in string.
-	if( fFirst )
-	{
-		voxwordDefault.pitch = -1;
-		voxwordDefault.volume = 100;
-		voxwordDefault.start = 0;
-		voxwordDefault.end = 100;
-		voxwordDefault.fKeepCached = 0;
-		voxwordDefault.timecompress = 0;
-	}
-
-	*pvoxword = voxwordDefault;
-
-	// look at next to last char to see if we have a
-	// valid format:
-	c = *( psz + Q_strlen( psz ) - 1 );
-
-	// no formatting, return
-	if( c != ')' ) return 1;
-
-	// scan forward to first '('
-	c = *psz;
-	while( !IsDelimitChar( c ))
-		c = *(++psz);
-
-	// bogus formatting
-	if( c == ')' ) return 0;
-
-	// null terminate
-	*psz = 0;
-	ct = *(++psz);
-
-	while( 1 )
-	{
-		// scan until we hit a character in the commandSet
-		while( ct && !IsCommandChar( ct ))
-			ct = *(++psz);
-
-		if( ct == ')' )
-			break;
-
-		memset( sznum, 0, sizeof( sznum ));
-		i = 0;
-
-		c = *(++psz);
-
-		if( !isdigit( c ))
-			break;
-
-		// read number
-		while( isdigit( c ) && i < sizeof( sznum ) - 1 )
-		{
-			sznum[i++] = c;
-			c = *(++psz);
-		}
-
-		// get value of number
-		i = Q_atoi( sznum );
-
-		switch( ct )
-		{
-		case 'v': pvoxword->volume = i; break;
-		case 'p': pvoxword->pitch = i; break;
-		case 's': pvoxword->start = i; break;
-		case 'e': pvoxword->end = i; break;
-		case 't': pvoxword->timecompress = i; break;
-		}
-
-		ct = c;
-	}
-
-	// if the string has zero length, this was an isolated
-	// parameter block.  Set default voxword to these
-	// values
-	if( Q_strlen( pszsave ) == 0 )
-	{
-		voxwordDefault = *pvoxword;
-		return 0;
-	}
-
-	return 1;
-}
-
-void VOX_LoadWord( channel_t *pchan )
-{
-	if( pchan->words[pchan->wordIndex].sfx )
-	{
-		wavdata_t	*pSource = S_LoadSound( pchan->words[pchan->wordIndex].sfx );
-
-		if( pSource )
-		{
-			int start = pchan->words[pchan->wordIndex].start;
-			int end = pchan->words[pchan->wordIndex].end;
-
-			// apply mixer
-			pchan->currentWord = &pchan->pMixer;
-			pchan->currentWord->pData = pSource;
-
-			// don't allow overlapped ranges
-			if( end <= start ) end = 0;
-
-			if( start || end )
-			{
-				int	sampleCount = pSource->samples;
-
-				if( start )
-				{
-					S_SetSampleStart( pchan, pSource, (int)(sampleCount * 0.01f * start));
-				}
-
-				if( end )
-				{
-					S_SetSampleEnd( pchan, pSource, (int)(sampleCount * 0.01f * end));
-				}
-			}
-		}
-	}
-}
-
-void VOX_FreeWord( channel_t *pchan )
-{
-	pchan->currentWord = NULL; // sentence is finished
-	memset( &pchan->pMixer, 0, sizeof( pchan->pMixer ));
-
-	// release unused sounds
-	if( pchan->words[pchan->wordIndex].sfx )
-	{
-		// If this wave wasn't precached by the game code
-		if( !pchan->words[pchan->wordIndex].fKeepCached )
-		{
-			FS_FreeSound( pchan->words[pchan->wordIndex].sfx->cache );
-			pchan->words[pchan->wordIndex].sfx->cache = NULL;
-			pchan->words[pchan->wordIndex].sfx = NULL;
-		}
-	}
-}
-
-void VOX_LoadFirstWord( channel_t *pchan, voxword_t *pwords )
-{
-	int	i = 0;
-
-	// copy each pointer in the sfx temp array into the
-	// sentence array, and set the channel to point to the
-	// sentence array
-	while( pwords[i].sfx != NULL )
-	{
-		pchan->words[i] = pwords[i];
-		i++;
-	}
-	pchan->words[i].sfx = NULL;
-
-	pchan->wordIndex = 0;
-	VOX_LoadWord( pchan );
-}
+static int cszrawsentences = 0;
+static char *rgpszrawsentence[CVOXFILESENTENCEMAX];
+static const char *voxperiod = "_period", *voxcomma = "_comma";
 
 // return number of samples mixed
 int VOX_MixDataToDevice( channel_t *pchan, int sampleCount, int outputRate, int outputOffset )
@@ -451,244 +56,561 @@ int VOX_MixDataToDevice( channel_t *pchan, int sampleCount, int outputRate, int 
 	return outputOffset - startingOffset;
 }
 
-// link all sounds in sentence, start playing first word.
-void VOX_LoadSound( channel_t *pchan, const char *pszin )
+void VOX_LoadWord( channel_t *ch )
 {
-	char	buffer[512];
-	int	i, cword;
-	char	pathbuffer[64];
-	char	szpath[32];
-	voxword_t	rgvoxword[CVOXWORDMAX];
-	char	*psz;
+	const voxword_t *word = &ch->words[ch->wordIndex];
+	wavdata_t *data;
+	int start, end, samples;
 
-	if( !pszin || !*pszin )
+	if( !word->sfx )
 		return;
 
-	memset( rgvoxword, 0, sizeof( voxword_t ) * CVOXWORDMAX );
-	memset( buffer, 0, sizeof( buffer ));
+	data = S_LoadSound( word->sfx );
 
-	// lookup actual string in g_Sentences,
-	// set pointer to string data
-	if( pszin[0] == '#' )
-		psz = (char *)pszin + 1;
-	else
-		psz = VOX_LookupString( pszin, NULL );
+	if( !data )
+		return;
+
+	ch->currentWord = &ch->pMixer;
+	ch->currentWord->pData = data;
+
+	samples = data->samples;
+	start   = word->start;
+	end     = word->end;
+
+	if( end <= start ) end = 0;
+
+	if( start )
+		S_SetSampleStart( ch, data, start * 0.01f * samples );
+
+	if( end )
+		S_SetSampleEnd( ch, data, end * 0.01f * samples );
+}
+
+void VOX_FreeWord( channel_t *ch )
+{
+	voxword_t *word = &ch->words[ch->wordIndex];
+
+	ch->currentWord = NULL;
+	memset( &ch->pMixer, 0, sizeof( ch->pMixer ));
+
+	if( !word->sfx && !word->fKeepCached )
+		return;
+
+	FS_FreeSound( word->sfx->cache );
+	word->sfx->cache = NULL;
+	word->sfx = NULL;
+}
+
+void VOX_SetChanVol( channel_t *ch )
+{
+	voxword_t *word;
+	if( !ch->currentWord )
+		return;
+
+	word = &ch->words[ch->wordIndex];
+
+	if( word->volume == 100 )
+		return;
+
+	ch->leftvol = ch->leftvol * word->volume * 0.01f;
+	ch->rightvol = ch->rightvol * word->volume * 0.01f;
+}
+
+float VOX_ModifyPitch( channel_t *ch, float pitch )
+{
+	voxword_t *word;
+	if( !ch->currentWord )
+		return pitch;
+
+	word = &ch->words[ch->wordIndex];
+
+	if( word->pitch < 0 )
+		return pitch;
+
+	pitch += ( word->pitch - PITCH_NORM ) * 0.01f;
+
+	return pitch;
+}
+
+static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
+{
+	const char *p;
+	int len;
+
+	// search / backwards
+	p = Q_strrchr( psz, '/' );
+
+	if( !p )
+	{
+		Q_strcpy( szpath, "vox/" );
+		return psz;
+	}
+
+	len = p - psz + 1;
+
+	if( len > nsize )
+	{
+		Con_Printf( "VOX_GetDirectory: invalid directory in: %s\n", psz );
+		return NULL;
+	}
+
+	memcpy( szpath, psz, len );
+	szpath[len] = 0;
+
+	return p + 1;
+}
+
+static const char *VOX_LookupString( const char *pszin )
+{
+	int i = -1, len;
+	const char *c;
+
+	// check if we are a CSCZ or immediate sentence
+	if( *pszin == '#' )
+	{
+		// Q_atoi is too smart and allows negative values
+		// so check with Q_isdigit beforehand
+		if( Q_isdigit( pszin + 1 ))
+		{
+			sentenceEntry_s *sentenceEntry;
+			i = Q_atoi( pszin + 1 );
+			if(( sentenceEntry = Sequence_GetSentenceByIndex( i )))
+				return sentenceEntry->data;
+		}
+		else
+		{
+			// immediate sentence, probably coming from "speak" command
+			return pszin + 1;
+		}
+	}
+
+	// check if we received an index
+	if( Q_isdigit( pszin ))
+	{
+		i = Q_atoi( pszin );
+
+		if( i >= cszrawsentences )
+			i = -1;
+	}
+
+	// last hope: find it in sentences array
+	if( i == -1 )
+	{
+		for( i = 0; i < cszrawsentences; i++ )
+		{
+			if( !Q_stricmp( pszin, rgpszrawsentence[i] ))
+				break;
+		}
+	}
+
+	// not found, exit
+	if( i == cszrawsentences )
+		return NULL;
+
+	len = Q_strlen( rgpszrawsentence[i] );
+
+	c = &rgpszrawsentence[i][len + 1];
+	for( ; *c == ' ' || *c == '\t'; c++ );
+
+	return c;
+}
+
+static int VOX_ParseString( char *psz, char *rgpparseword[CVOXWORDMAX] )
+{
+	int i = 0;
+
+	if( !psz )
+		return i;
+
+	rgpparseword[i++] = psz;
+
+	while( i < CVOXWORDMAX )
+	{
+		// skip to next word
+		for( ; *psz &&
+			*psz != ' ' &&
+			*psz != '.' &&
+			*psz != ',' &&
+			*psz != '('; psz++ );
+
+		// skip anything in between ( and )
+		if( *psz == '(' )
+		{
+			for( ; *psz && *psz != ')'; psz++ );
+			psz++;
+		}
+
+		if( !*psz )
+			return i;
+
+		// . and , are special but if not end of string
+		if(( *psz == '.' || *psz == ',' ) &&
+			psz[1] != '\n' && psz[1] != '\r' && psz[1] != '\0' )
+		{
+			if( *psz == '.' )
+				rgpparseword[i++] = (char *)voxperiod;
+			else rgpparseword[i++] = (char *)voxcomma;
+
+			if( i >= CVOXWORDMAX )
+				return i;
+		}
+
+		*psz++ = 0;
+
+		for( ; *psz && ( *psz == '.' || *psz == ' ' || *psz == ',' );
+		     psz++ );
+
+		if( !*psz )
+			return i;
+
+		rgpparseword[i++] = psz;
+	}
+
+	return i;
+}
+
+static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword, qboolean fFirst )
+{
+	int len, i;
+	char sznum[8], *pszsave = psz;
+	static voxword_t voxwordDefault;
+
+	if( fFirst )
+	{
+		voxwordDefault.fKeepCached = 0;
+		voxwordDefault.pitch = -1;
+		voxwordDefault.volume = 100;
+		voxwordDefault.start = 0;
+		voxwordDefault.end = 100;
+		voxwordDefault.timecompress = 0;
+	}
+
+	*pvoxword = voxwordDefault;
+
+	len = Q_strlen( psz );
+
+	if( len == 0 )
+		return false;
+
+	// no special params
+	if( psz[len-1] != ')' )
+		return true;
+
+	for( ; *psz != '(' && *psz != ')'; psz++ );
+
+	// invalid syntax
+	if( *psz == ')' )
+		return false;
+
+	// split filename and params
+	*psz++ = '\0';
+
+	for( ;; )
+	{
+		char command;
+
+		// find command
+		for( ; *psz &&
+			*psz != 'v' &&
+			*psz != 'p' &&
+			*psz != 's' &&
+			*psz != 'e' &&
+			*psz != 't'; psz++ )
+		{
+			if( *psz == ')' )
+				break;
+		}
+
+		command = *psz++;
+
+		if( !isdigit( *psz ))
+			break;
+
+		memset( sznum, 0, sizeof( sznum ));
+		for( i = 0; i < sizeof( sznum ) - 1 && isdigit( *psz ); i++, psz++ )
+			sznum[i] = *psz;
+
+		i = Q_atoi( sznum );
+		switch( command )
+		{
+		case 'e': pvoxword->end = i; break;
+		case 'p': pvoxword->pitch = i; break;
+		case 's': pvoxword->start = i; break;
+		case 't': pvoxword->timecompress = i; break;
+		case 'v': pvoxword->volume = i; break;
+		}
+	}
+
+	// no actual word but new defaults
+	if( Q_strlen( pszsave ) == 0 )
+	{
+		voxwordDefault = *pvoxword;
+		return false;
+	}
+
+	return true;
+}
+
+void VOX_LoadSound( channel_t *ch, const char *pszin )
+{
+	char buffer[512], szpath[32], pathbuffer[64];
+	char *rgpparseword[CVOXWORDMAX];
+	const char *psz;
+	int i, j;
+
+	if( !pszin )
+		return;
+
+	memset( buffer, 0, sizeof( buffer ));
+	memset( rgpparseword, 0, sizeof( rgpparseword ));
+
+	psz = VOX_LookupString( pszin );
 
 	if( !psz )
 	{
-		Con_DPrintf( S_ERROR "VOX_LoadSound: no such sentence %s\n", pszin );
+		Con_Printf( "VOX_LoadSound: no sentence named %s\n", pszin );
 		return;
 	}
 
-	// get directory from string, advance psz
-	psz = VOX_GetDirectory( szpath, psz );
+	psz = VOX_GetDirectory( szpath, psz, sizeof( szpath ));
 
-	if( Q_strlen( psz ) > sizeof( buffer ) - 1 )
+	if( !psz )
 	{
-		Con_Printf( S_ERROR "VOX_LoadSound: sentence is too long %s\n", psz );
+		Con_Printf( "VOX_LoadSound: failed getting directory for %s\n", pszin );
 		return;
 	}
 
-	// copy into buffer
-	Q_strcpy( buffer, psz );
-	psz = buffer;
-
-	// parse sentence (also inserts null terminators between words)
-	VOX_ParseString( psz );
-
-	// for each word in the sentence, construct the filename,
-	// lookup the sfx and save each pointer in a temp array
-
-	i = 0;
-	cword = 0;
-	while( rgpparseword[i] )
+	if( Q_strlen( psz ) >= sizeof( buffer ) )
 	{
-		// Get any pitch, volume, start, end params into voxword
-		if( VOX_ParseWordParams( rgpparseword[i], &rgvoxword[cword], i == 0 ))
-		{
-			// this is a valid word (as opposed to a parameter block)
-			Q_strcpy( pathbuffer, szpath );
-			Q_strncat( pathbuffer, rgpparseword[i], sizeof( pathbuffer ));
-			Q_strncat( pathbuffer, ".wav", sizeof( pathbuffer ));
-
-			// find name, if already in cache, mark voxword
-			// so we don't discard when word is done playing
-			rgvoxword[cword].sfx = S_FindName( pathbuffer, &( rgvoxword[cword].fKeepCached ));
-			cword++;
-		}
-		i++;
+		Con_Printf( "VOX_LoadSound: sentence is too long %s", psz );
+		return;
 	}
 
-	VOX_LoadFirstWord( pchan, rgvoxword );
+	Q_strncpy( buffer, psz, sizeof( buffer ));
+	VOX_ParseString( buffer, rgpparseword );
 
-	pchan->isSentence = true;
-	pchan->sfx = rgvoxword[0].sfx;
+	j = 0;
+	for( i = 0; rgpparseword[i]; i++ )
+	{
+		if( !VOX_ParseWordParams( rgpparseword[i], &ch->words[j], i == 0 ))
+			continue;
+
+		Q_snprintf( pathbuffer, sizeof( pathbuffer ), "%s%s.wav", szpath, rgpparseword[i] );
+
+		ch->words[j].sfx = S_FindName( pathbuffer, &ch->words[j].fKeepCached );
+
+		j++;
+	}
+
+	ch->words[j].sfx = NULL;
+	ch->sfx = ch->words[0].sfx;
+	ch->wordIndex = 0;
+	ch->isSentence = true;
+
+	VOX_LoadWord( ch );
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Take a NULL terminated sentence, and parse any commands contained in
-//			{}.  The string is rewritten in place with those commands removed.
-//
-// Input  : *pSentenceData - sentence data to be modified in place
-//			sentenceIndex - global sentence table index for any data that is
-//							parsed out
-//-----------------------------------------------------------------------------
-void VOX_ParseLineCommands( char *pSentenceData, int sentenceIndex )
+static void VOX_ReadSentenceFile_( byte *buf, fs_offset_t size )
 {
-	char	tempBuffer[512];
-	char	*pNext, *pStart;
-	int	length, tempBufferPos = 0;
+	char *p, *last;
 
-	if( !pSentenceData )
-		return;
+	p = (char *)buf;
+	last = p + size;
 
-	pStart = pSentenceData;
-
-	while( *pSentenceData )
+	while( p < last )
 	{
-		pNext = ScanForwardUntil( pSentenceData, '{' );
+		char *name = NULL, *value = NULL;
 
-		// find length of "good" portion of the string (not a {} command)
-		length = pNext - pSentenceData;
-		if( tempBufferPos + length > sizeof( tempBuffer ))
+		if( cszrawsentences >= CVOXFILESENTENCEMAX )
+			break;
+
+		for( ; p < last && ( *p == '\n' || *p == '\r' || *p == '\t' || *p == ' ' );
+		     p++ );
+
+		if( *p != '/' )
 		{
-			Con_Printf( S_ERROR "Sentence too long (max length %lu characters)\n", sizeof(tempBuffer) - 1 );
-			return;
+			name = p;
+
+			for( ; p < last && *p != ' ' && *p != '\t' ; p++ );
+
+			if( p < last )
+				*p++ = 0;
+
+			value = p;
 		}
 
-		// Copy good string to temp buffer
-		memcpy( tempBuffer + tempBufferPos, pSentenceData, length );
+		for( ; p < last && *p != '\n' && *p != '\r'; p++ );
 
-		// move the copy position
-		tempBufferPos += length;
+		if( p < last )
+			*p++ = 0;
 
-		pSentenceData = pNext;
-
-		// skip ahead of the opening brace
-		if( *pSentenceData ) pSentenceData++;
-
-		// skip whitespace
-		while( *pSentenceData && *pSentenceData <= 32 )
-			pSentenceData++;
-
-		// simple comparison of string commands:
-		switch( Q_tolower( *pSentenceData ))
+		if( name )
 		{
-		case 'l':
-			// all commands starting with the letter 'l' here
-			if( !Q_strnicmp( pSentenceData, "len", 3 ))
-			{
-				g_Sentences[sentenceIndex].length = Q_atof( pSentenceData + 3 );
-			}
-			break;
-		case 0:
-		default:
-			break;
+			int index = cszrawsentences;
+			int size = strlen( name ) + strlen( value ) + 2;
+
+			rgpszrawsentence[index] = Mem_Malloc( host.mempool, size );
+			memcpy( rgpszrawsentence[index], name, size );
+			rgpszrawsentence[index][size - 1] = 0;
+			cszrawsentences++;
 		}
-
-		pSentenceData = ScanForwardUntil( pSentenceData, '}' );
-
-		// skip the closing brace
-		if( *pSentenceData ) pSentenceData++;
-
-		// skip trailing whitespace
-		while( *pSentenceData && *pSentenceData <= 32 )
-			pSentenceData++;
-	}
-
-	if( tempBufferPos < sizeof( tempBuffer ))
-	{
-		// terminate cleaned up copy
-		tempBuffer[tempBufferPos] = 0;
-
-		// copy it over the original data
-		Q_strcpy( pStart, tempBuffer );
 	}
 }
 
-// Load sentence file into memory, insert null terminators to
-// delimit sentence name/sentence pairs.  Keep pointer to each
-// sentence name so we can search later.
-void VOX_ReadSentenceFile( const char *psentenceFileName )
+static void VOX_ReadSentenceFile( const char *path )
 {
-	char	c, *pch, *pFileData;
-	char	*pchlast, *pSentenceData;
-	fs_offset_t	fileSize;
+	byte *buf;
+	fs_offset_t size;
 
-	// load file
-	pFileData = (char *)FS_LoadFile( psentenceFileName, &fileSize, false );
-	if( !pFileData ) return; // this game just doesn't used vox sound system
+	VOX_Shutdown();
 
-	pch = pFileData;
-	pchlast = pch + fileSize;
+	buf = FS_LoadFile( path, &size, false );
+	if( !buf ) return;
 
-	while( pch < pchlast )
-	{
-		if( g_numSentences >= MAX_SENTENCES )
-		{
-			Con_Printf( S_ERROR "VOX_Init: too many sentences specified, max is %d\n", MAX_SENTENCES );
-			break;
-		}
+	VOX_ReadSentenceFile_( buf, size );
 
-		// only process this pass on sentences
-		pSentenceData = NULL;
-
-		// skip newline, cr, tab, space
-
-		c = *pch;
-		while( pch < pchlast && IsWhiteSpace( c ))
-			c = *(++pch);
-
-		// skip entire line if first char is /
-		if( *pch != '/' )
-		{
-			sentence_t *pSentence = &g_Sentences[g_numSentences++];
-
-			pSentence->pName = pch;
-			pSentence->length = 0;
-
-			// scan forward to first space, insert null terminator
-			// after sentence name
-
-			c = *pch;
-			while( pch < pchlast && c != ' ' )
-				c = *(++pch);
-
-			if( pch < pchlast )
-				*pch++ = 0;
-
-			// a sentence may have some line commands, make an extra pass
-			pSentenceData = pch;
-		}
-
-		// scan forward to end of sentence or eof
-		while( pch < pchlast && pch[0] != '\n' && pch[0] != '\r' )
-			pch++;
-
-		// insert null terminator
-		if( pch < pchlast ) *pch++ = 0;
-
-		// If we have some sentence data, parse out any line commands
-		if( pSentenceData && pSentenceData < pchlast )
-		{
-			int	index = g_numSentences - 1;
-
-			// the current sentence has an index of count-1
-			VOX_ParseLineCommands( pSentenceData, index );
-		}
-	}
+	Mem_Free( buf );
 }
 
 void VOX_Init( void )
 {
-	memset( g_Sentences, 0, sizeof( g_Sentences ));
-	g_numSentences = 0;
-
 	VOX_ReadSentenceFile( DEFAULT_SOUNDPATH "sentences.txt" );
 }
 
-
 void VOX_Shutdown( void )
 {
-	g_numSentences = 0;
+	int i;
+
+	for( i = 0; i < cszrawsentences; i++ )
+		Mem_Free( rgpszrawsentence[i] );
+
+	cszrawsentences = 0;
 }
+
+#if XASH_ENGINE_TESTS
+#include "tests.h"
+
+static void Test_VOX_GetDirectory( void )
+{
+	const char *data[] =
+	{
+		"", "", "vox/",
+		"bark bark", "bark bark", "vox/",
+		"barney/meow", "meow", "barney/"
+
+	};
+	int i;
+
+	for( i = 0; i < sizeof( data ) / sizeof( data[0] ); i += 3 )
+	{
+		string szpath;
+		const char *p = VOX_GetDirectory( szpath, data[i+0], sizeof( szpath ));
+
+		TASSERT_STR( p, data[i+1] );
+		TASSERT_STR( szpath, data[i+2] );
+	}
+}
+
+static void Test_VOX_LookupString( void )
+{
+	int i;
+	const char *p, *data[] =
+	{
+		"0", "123",
+		"3", "SPAAACE",
+		"-2", NULL,
+		"404", NULL,
+		"not found", NULL,
+		"exactmatch", "123",
+		"caseinsensitive", "456",
+		"SentenceWithTabs", "789",
+		"SentenceWithSpaces", "SPAAACE",
+	};
+
+	VOX_Shutdown();
+
+	rgpszrawsentence[cszrawsentences++] = (char*)"exactmatch\000123";
+	rgpszrawsentence[cszrawsentences++] = (char*)"CaseInsensitive\000456";
+	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithTabs\0\t\t\t789";
+	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithSpaces\0  SPAAACE";
+	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithTabsAndSpaces\0\t \t\t MEOW";
+
+	for( i = 0; i < sizeof( data ) / sizeof( data[0] ); i += 2 )
+	{
+		p = VOX_LookupString( data[i] );
+
+		TASSERT_STR( p, data[i+1] );
+	}
+
+	cszrawsentences = 0;
+}
+
+static void Test_VOX_ParseString( void )
+{
+	char *rgpparseword[CVOXWORDMAX];
+	const char *data[] =
+	{
+		"(p100) my ass is, heavy!(p80 t20) clik.",
+		"(p100)", "my", "ass", "is", "_comma", "heavy!(p80 t20)", "clik", NULL,
+		"freeman...",
+		"freeman", "_period", NULL,
+	};
+	int i = 0;
+
+	while( i < sizeof( data ) / sizeof( data[0] ))
+	{
+		char buffer[4096];
+		int wordcount, j = 0;
+		Q_strncpy( buffer, data[i], sizeof( buffer ));
+		wordcount = VOX_ParseString( buffer, rgpparseword );
+
+		i++;
+
+		while( data[i] )
+		{
+			TASSERT_STR( data[i], rgpparseword[j] );
+			i++;
+			j++;
+		}
+
+		TASSERT( j == wordcount );
+
+		i++;
+	}
+}
+
+static void Test_VOX_ParseWordParams( void )
+{
+	string buffer;
+	qboolean ret;
+	voxword_t word;
+
+	Q_strncpy( buffer, "heavy!(p80)", sizeof( buffer ));
+	ret = VOX_ParseWordParams( buffer, &word, true );
+	TASSERT_STR( buffer, "heavy!" );
+	TASSERT( word.pitch == 80 );
+	TASSERT( ret );
+
+	Q_strncpy( buffer, "(p105)", sizeof( buffer ));
+	ret = VOX_ParseWordParams( buffer, &word, false );
+	TASSERT_STR( buffer, "" );
+	TASSERT( word.pitch == 105 );
+	TASSERT( !ret );
+
+	Q_strncpy( buffer, "quiet(v50)", sizeof( buffer ));
+	ret = VOX_ParseWordParams( buffer, &word, false );
+	TASSERT_STR( buffer, "quiet" );
+	TASSERT( word.pitch == 105 ); // defaulted
+	TASSERT( word.volume == 50 );
+	TASSERT( ret );
+}
+
+void Test_RunVOX( void )
+{
+	TRUN( Test_VOX_GetDirectory() );
+	TRUN( Test_VOX_LookupString() );
+	TRUN( Test_VOX_ParseString() );
+	TRUN( Test_VOX_ParseWordParams() );
+}
+
+#endif /* XASH_ENGINE_TESTS */

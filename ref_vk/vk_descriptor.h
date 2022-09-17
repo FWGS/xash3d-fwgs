@@ -51,7 +51,7 @@ typedef struct {
 } vk_descriptors_t;
 
 void VK_DescriptorsCreate(vk_descriptors_t *desc);
-void VK_DescriptorsWrite(const vk_descriptors_t *desc);
+void VK_DescriptorsWrite(const vk_descriptors_t *desc, int set_slot);
 void VK_DescriptorsDestroy(const vk_descriptors_t *desc);
 
 // typedef enum {

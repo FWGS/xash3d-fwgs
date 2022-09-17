@@ -1,0 +1,23 @@
+// section 0
+{
+"_xvk_ent_id" "70" // remove hack lights entity
+}
+
+// section 1
+{
+"_xvk_ent_id" "51 52" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "45" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "297" // +0~FIFTIES_LGT2  160 170 220  5000
+"_light" "160 170 220 10000" // focus
+}
+{
+"_xvk_ent_id" "32 31 11 12" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "949" // +0~FIFTS_LGHT01  160 170 220  4000
+"_light" "160 170 220 8000" // focus
+}

@@ -5,10 +5,6 @@
 
 #define MAX_TEXTURES	4096
 
-// TODO count these properly
-#define MAX_BUFFER_VERTICES (512 * 1024)
-#define MAX_BUFFER_INDICES (MAX_BUFFER_VERTICES * 3)
-
 // indexed by uint8_t
 #define MAX_SURFACE_LIGHTS 256
 // indexed by uint8_t

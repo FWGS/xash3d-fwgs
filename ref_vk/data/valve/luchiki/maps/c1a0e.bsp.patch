@@ -1,0 +1,105 @@
+{
+"_xvk_ent_id" "59 58 60 57" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "95" // remove hack lights entity
+}
+
+// don't uncomment, need for green state
+//{
+//"_xvk_ent_id" "199 200 201 198" // remove hack lights entity
+//}
+//{
+//"_xvk_surface_id" "2070 2055 2060 2065" // +ALAB1_W6        255 255 255  100
+//"_light" "255 255 255  3000"
+//}
+
+{
+"_xvk_surface_id" "2467 2473 2455 2461" // +0~DRKMTLS2      80  60  30   1000
+"_light" "80 60 30 80000"
+}
+
+{
+"_xvk_ent_id" "490 172 488 489 173 487 175 486 174" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "97"
+"origin" "1848 226 168"
+}
+{
+"_xvk_ent_id" "56"
+"origin" "2164 656 -213"
+}
+
+
+
+
+// red flashing lights (does not work now)
+//{
+//"classname" "light"
+//"targetname" "red"
+//"spawnflags" "1"
+//"style" "33"
+//"_light" "255 0 0 100"
+//"origin" "1323 562 -277"
+//"_xvk_radius" "2"
+//}
+//{
+//"classname" "light"
+//"targetname" "red"
+//"spawnflags" "1"
+//"style" "33"
+//"_light" "255 0 0 100"
+//"origin" "1323 678 -277"
+//"_xvk_radius" "2"
+//}
+//{
+//"classname" "light"
+//"targetname" "red"
+//"spawnflags" "1"
+//"style" "33"
+//"_light" "255 0 0 100"
+//"origin" "1146 582 -281"
+//"_xvk_radius" "2"
+//}
+//{
+//"classname" "light"
+//"targetname" "red"
+//"spawnflags" "1"
+//"style" "33"
+//"_light" "255 0 0 100"
+//"origin" "1146 658 -281"
+//"_xvk_radius" "2"
+//}
+
+{ // remove bad texture faces
+"_xvk_surface_id" "2105 2106 2104" // {ladder2
+}
+
+
+// missing xen lights
+{
+"classname" "light"
+"_light" "0 50 255 300"
+"origin" "-1419 -2640 3071"
+"_xvk_radius" "2"
+}
+{
+"classname" "light"
+"_light" "0 50 255 300"
+"origin" "-1150 -2445 3083"
+"_xvk_radius" "2"
+}
+{
+"classname" "light"
+"_light" "0 50 255 300"
+"origin" "-2918 -2295 3174"
+"_xvk_radius" "2"
+}
+
+
+
+
+
+
+

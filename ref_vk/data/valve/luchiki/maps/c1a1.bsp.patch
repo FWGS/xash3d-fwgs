@@ -1,0 +1,53 @@
+// section 1
+{
+"_xvk_ent_id" "117 116 115 113 142" // remove hack lights entity
+}
+{
+"_xvk_surface_id" "2681 2700 2703" // +0~GENERIC86B    60  220 170  10000
+"_light" "60 220 170 20000"
+}
+
+{
+"_xvk_surface_id" "2997 2994 2999 2993 2998" // +0~LIGHT6A       150 5   5    25000
+"_light" "150 5 5 125000"
+}
+
+// section 2
+{
+"_xvk_ent_id" "131 43 44 45 9 10" // remove hack lights entity
+}
+
+// section 3
+{
+"_xvk_ent_id" "85 77" // remove hack lights entity
+}
+
+// section 4 // lift/elevator
+{
+"_xvk_ent_id" "5 4 6" // remove hack lights entity
+}
+{ // TODO: animate texture
+"_xvk_ent_id" "354 355" // remove hack lights entity
+}
+//{
+//"_xvk_surface_id" "1183" // +0~DRKMTLS1      205 0   0    6000
+//"_light" "205 0 0 10000"
+//"_xvk_texture" "RED1_ANIMATE"
+//}
+{
+"_xvk_ent_id" "55 54 53 52 51" // remove hack lights entity
+}
+{ // disable light for broken elevator
+"_xvk_surface_id" "3484" // ++0~LIGHT5A       80  150 200  10000
+"_light" "80 150 200 0"
+}
+
+// section 5
+{
+"_xvk_ent_id" "2 3 7" // remove hack lights entity
+}
+{
+"_xvk_ent_id" "109" // remove hack lights entity
+}
+
+

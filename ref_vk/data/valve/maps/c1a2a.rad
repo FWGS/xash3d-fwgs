@@ -1,0 +1,10 @@
++0~LIGHT2A       255 250 130  2000 // 3000? TODO: compare by QRAD
++0DRKMTL_SCRN    100 200 170  200
++1DRKMTL_SCRN    100 200 170  200
++2DRKMTL_SCRN    100 200 170  200
+
+// from hack light (0   255 0    35)
+// TODO: need emissive texture
+//+0EXIT           0   255 0    0
+//+AEXIT           0   255 0    200
++AEXIT           255 255 255  30

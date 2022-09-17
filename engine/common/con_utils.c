@@ -761,10 +761,10 @@ qboolean Cmd_GetGamesList( const char *s, char *completedname, int length )
 	// compare gamelist with current keyword
 	len = Q_strlen( s );
 
-	for( i = 0, numgamedirs = 0; i < SI.numgames; i++ )
+	for( i = 0, numgamedirs = 0; i < FI->numgames; i++ )
 	{
-		if(( *s == '*' ) || !Q_strnicmp( SI.games[i]->gamefolder, s, len))
-			Q_strcpy( gamedirs[numgamedirs++], SI.games[i]->gamefolder );
+		if(( *s == '*' ) || !Q_strnicmp( FI->games[i]->gamefolder, s, len))
+			Q_strcpy( gamedirs[numgamedirs++], FI->games[i]->gamefolder );
 	}
 
 	if( !numgamedirs ) return false;
@@ -1216,7 +1216,7 @@ void Con_CompleteCommand( field_t *field )
 
 	if( con.matchCount == 1 )
 	{
-		Q_sprintf( con.completionField->buffer, "\\%s", con.cmds[0] );
+		Q_strncpy( con.completionField->buffer, con.cmds[0], sizeof( con.completionField->buffer ));
 		if( Cmd_Argc() == 1 ) Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ) );
 		else Con_ConcatRemaining( temp.buffer, con.completionString );
 		con.completionField->cursor = Q_strlen( con.completionField->buffer );
@@ -1244,7 +1244,7 @@ void Con_CompleteCommand( field_t *field )
 		con.shortestMatch[len] = 0;
 
 		// multiple matches, complete to shortest
-		Q_sprintf( con.completionField->buffer, "\\%s", con.shortestMatch );
+		Q_strncpy( con.completionField->buffer, con.shortestMatch, sizeof( con.completionField->buffer ));
 		con.completionField->cursor = Q_strlen( con.completionField->buffer );
 		Con_ConcatRemaining( temp.buffer, con.completionString );
 
