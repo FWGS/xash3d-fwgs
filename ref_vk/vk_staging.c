@@ -8,6 +8,7 @@
 #define DEFAULT_STAGING_SIZE (64*1024*1024)
 #define MAX_STAGING_ALLOCS (2048)
 #define MAX_CONCURRENT_FRAMES 2
+#define COMMAND_BUFFER_COUNT (MAX_CONCURRENT_FRAMES + 1) // to accommodate two frames in flight plus something trying to upload data before waiting for the next frame to complete
 
 typedef struct {
 	VkImage image;
@@ -21,16 +22,13 @@ static struct {
 	struct {
 		VkBuffer dest[MAX_STAGING_ALLOCS];
 		VkBufferCopy copy[MAX_STAGING_ALLOCS];
-
 		int count;
-		int committed;
 	} buffers;
 
 	struct {
 		staging_image_t dest[MAX_STAGING_ALLOCS];
 		VkBufferImageCopy copy[MAX_STAGING_ALLOCS];
 		int count;
-		int committed;
 	} images;
 
 	vk_command_pool_t upload_pool;
@@ -41,7 +39,7 @@ qboolean R_VkStagingInit(void) {
 	if (!VK_BufferCreate("staging", &g_staging.buffer, DEFAULT_STAGING_SIZE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
-	g_staging.upload_pool = R_VkCommandPoolCreate( MAX_CONCURRENT_FRAMES );
+	g_staging.upload_pool = R_VkCommandPoolCreate( COMMAND_BUFFER_COUNT );
 
 	R_FlippingBuffer_Init(&g_staging.buffer_alloc, DEFAULT_STAGING_SIZE);
 
@@ -61,7 +59,7 @@ static void flushStagingBufferSync(void) {
 	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 	g_staging.cmdbuf = VK_NULL_HANDLE;
 
-	gEngine.Con_Reportf(S_WARN "flushing staging buffer img committed=%d count=%d\n", g_staging.images.committed, g_staging.images.count);
+	gEngine.Con_Reportf(S_WARN "flushing staging buffer img count=%d\n", g_staging.images.count);
 
 	const VkSubmitInfo subinfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -74,8 +72,8 @@ static void flushStagingBufferSync(void) {
 	XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
 	XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 
-	g_staging.buffers.committed = g_staging.buffers.count = 0;
-	g_staging.images.committed = g_staging.images.count = 0;
+	g_staging.buffers.count = 0;
+	g_staging.images.count = 0;
 	R_FlippingBuffer_Clear(&g_staging.buffer_alloc);
 };
 
@@ -154,7 +152,7 @@ static void commitBuffers(VkCommandBuffer cmdbuf) {
 
 	VkBuffer prev_buffer = VK_NULL_HANDLE;
 	int first_copy = 0;
-	for (int i = g_staging.buffers.committed; i < g_staging.buffers.count; i++) {
+	for (int i = 0; i < g_staging.buffers.count; i++) {
 		/* { */
 		/* 	const VkBufferCopy *const copy = g_staging.buffers.copy + i; */
 		/* 	gEngine.Con_Reportf("  %d: [%08llx, %08llx) => [%08llx, %08llx)\n", i, copy->srcOffset, copy->srcOffset + copy->size, copy->dstOffset, copy->dstOffset + copy->size); */
@@ -181,11 +179,11 @@ static void commitBuffers(VkCommandBuffer cmdbuf) {
 			g_staging.buffers.count - first_copy, g_staging.buffers.copy + first_copy);
 	}
 
-	g_staging.buffers.committed = g_staging.buffers.count;
+	g_staging.buffers.count = 0;
 }
 
 static void commitImages(VkCommandBuffer cmdbuf) {
-	for (int i = g_staging.images.committed; i < g_staging.images.count; i++) {
+	for (int i = 0; i < g_staging.images.count; i++) {
 		/* { */
 		/* 	const VkBufferImageCopy *const copy = g_staging.images.copy + i; */
 		/* 	gEngine.Con_Reportf("  i%d: [%08llx, ?) => %p\n", i, copy->bufferOffset, g_staging.images.dest[i].image); */
@@ -197,7 +195,7 @@ static void commitImages(VkCommandBuffer cmdbuf) {
 			1, g_staging.images.copy + i);
 	}
 
-	g_staging.images.committed = g_staging.images.count;
+	g_staging.images.count = 0;
 }
 
 VkCommandBuffer R_VkStagingGetCommandBuffer(void) {
@@ -228,8 +226,8 @@ VkCommandBuffer R_VkStagingCommit(void) {
 void R_VkStagingFrameBegin(void) {
 	R_FlippingBuffer_Flip(&g_staging.buffer_alloc);
 
-	g_staging.buffers.committed = g_staging.buffers.count = 0;
-	g_staging.images.committed = g_staging.images.count = 0;
+	g_staging.buffers.count = 0;
+	g_staging.images.count = 0;
 }
 
 VkCommandBuffer R_VkStagingFrameEnd(void) {
@@ -241,7 +239,8 @@ VkCommandBuffer R_VkStagingFrameEnd(void) {
 
 	const VkCommandBuffer tmp = g_staging.upload_pool.buffers[0];
 	g_staging.upload_pool.buffers[0] = g_staging.upload_pool.buffers[1];
-	g_staging.upload_pool.buffers[1] = tmp;
+	g_staging.upload_pool.buffers[1] = g_staging.upload_pool.buffers[2];
+	g_staging.upload_pool.buffers[2] = tmp;
 
 	return cmdbuf;
 }
