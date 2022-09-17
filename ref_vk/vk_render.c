@@ -652,7 +652,7 @@ void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage 
 	}
 }
 
-qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) {
+qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
 		const VkBuffer geom_buffer = R_GeometryBuffer_Get();
 		// TODO runtime rtx switch: ???
@@ -660,24 +660,7 @@ qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t *model ) 
 			.buffer = geom_buffer,
 			.model = model,
 		};
-		R_VkStagingCommit(cmdbuf); // FIXME this is definitely not the right place
-		{
-			const VkBufferMemoryBarrier bmb[] = { {
-				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-				.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-				//.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR, // FIXME
-				.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT, // FIXME
-				.buffer = geom_buffer,
-				.offset = 0, // FIXME
-				.size = VK_WHOLE_SIZE, // FIXME
-			} };
-			vkCmdPipelineBarrier(cmdbuf,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				//VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-				VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-				0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
-		}
-		model->ray_model = VK_RayModelCreate(cmdbuf, args);
+		model->ray_model = VK_RayModelCreate(args);
 		return !!model->ray_model;
 	}
 
@@ -789,7 +772,7 @@ void VK_RenderModelDynamicCommit( void ) {
 
 	if (g_dynamic_model.model.num_geometries > 0) {
 		g_dynamic_model.model.dynamic = true;
-		VK_RenderModelInit( vk_frame.cmdbuf, &g_dynamic_model.model );
+		VK_RenderModelInit( &g_dynamic_model.model );
 		VK_RenderModelDraw( NULL, &g_dynamic_model.model );
 	}
 

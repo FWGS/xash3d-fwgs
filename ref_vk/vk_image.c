@@ -79,3 +79,109 @@ void XVK_ImageDestroy(xvk_image_t *img) {
 	VK_DevMemFree(&img->devmem);
 	*img = (xvk_image_t){0};
 }
+
+void R_VkImageClear(VkCommandBuffer cmdbuf, VkImage image) {
+	const VkImageMemoryBarrier image_barriers[] = { {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.image = image,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+		.subresourceRange = (VkImageSubresourceRange) {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+	}} };
+
+	const VkClearColorValue clear_value = {0};
+
+	vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+		0, NULL, 0, NULL, COUNTOF(image_barriers), image_barriers);
+
+	vkCmdClearColorImage(cmdbuf, image, VK_IMAGE_LAYOUT_GENERAL, &clear_value, 1, &image_barriers->subresourceRange);
+}
+
+void R_VkImageBlit(VkCommandBuffer cmdbuf, const r_vkimage_blit_args *blit_args) {
+	{
+		const VkImageMemoryBarrier image_barriers[] = { {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = blit_args->src.image,
+			.srcAccessMask = blit_args->src.srcAccessMask,
+			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+			.oldLayout = blit_args->src.oldLayout,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+		}, {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = blit_args->dst.image,
+			.srcAccessMask = blit_args->dst.srcAccessMask,
+			.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.oldLayout = blit_args->dst.oldLayout,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+		} };
+
+		vkCmdPipelineBarrier(cmdbuf,
+			blit_args->in_stage,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, 0, NULL, 0, NULL, COUNTOF(image_barriers), image_barriers);
+	}
+
+	{
+		VkImageBlit region = {0};
+		region.srcOffsets[1].x = blit_args->src.width;
+		region.srcOffsets[1].y = blit_args->src.height;
+		region.srcOffsets[1].z = 1;
+		region.dstOffsets[1].x = blit_args->dst.width;
+		region.dstOffsets[1].y = blit_args->dst.height;
+		region.dstOffsets[1].z = 1;
+		region.srcSubresource.aspectMask = region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.layerCount = region.dstSubresource.layerCount = 1;
+		vkCmdBlitImage(cmdbuf,
+			blit_args->src.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			blit_args->dst.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &region,
+			VK_FILTER_NEAREST);
+	}
+
+	{
+		VkImageMemoryBarrier image_barriers[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.image = blit_args->dst.image,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.subresourceRange =
+				(VkImageSubresourceRange){
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+		}};
+		vkCmdPipelineBarrier(cmdbuf,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			0, 0, NULL, 0, NULL, COUNTOF(image_barriers), image_barriers);
+	}
+}

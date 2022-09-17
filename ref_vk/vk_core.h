@@ -10,18 +10,6 @@
 qboolean R_VkInit( void );
 void R_VkShutdown( void );
 
-typedef struct {
-	VkCommandPool pool;
-	VkCommandBuffer *buffers;
-	int buffers_count;
-} vk_command_pool_t;
-
-vk_command_pool_t R_VkCommandPoolCreate( int count );
-void R_VkCommandPoolDestroy( vk_command_pool_t *pool );
-
-// TODO load from embedded static structs
-VkShaderModule loadShader(const char *filename);
-
 VkSemaphore R_VkSemaphoreCreate( void );
 void R_VkSemaphoreDestroy(VkSemaphore sema);
 
@@ -64,8 +52,6 @@ typedef struct vulkan_core_s {
 	VkDevice device;
 	VkQueue queue;
 
-	vk_command_pool_t upload_pool;
-
 	VkSampler default_sampler;
 
 	unsigned int num_devices;
@@ -107,6 +93,21 @@ do { \
 	} \
 } while (0)
 
+#if USE_AFTERMATH
+void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...);
+void R_Vk_NV_Checkpoint_Dump(void);
+#define DEBUG_NV_CHECKPOINTF(cmdbuf, fmt, ...) \
+	do { \
+		if (vk_core.debug) { \
+			R_Vk_NV_CheckpointF(cmdbuf, fmt, ##__VA_ARGS__); \
+			if (0) gEngine.Con_Reportf(fmt "\n", ##__VA_ARGS__); \
+		} \
+	} while(0)
+#else
+#define DEBUG_NV_CHECKPOINTF(...)
+#define R_Vk_NV_Checkpoint_Dump()
+#endif
+
 #define DEBUG_BEGIN(cmdbuf, msg) \
 	do { \
 		if (vk_core.debug) { \
@@ -115,6 +116,7 @@ do { \
 				.pLabelName = msg, \
 			}; \
 			vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label); \
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "begin %s", msg); \
 		} \
 	} while(0)
 
@@ -128,6 +130,7 @@ do { \
 				.pLabelName = buf, \
 			}; \
 			vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label); \
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "begin " fmt, ##__VA_ARGS__); \
 		} \
 	} while(0)
 
@@ -135,6 +138,7 @@ do { \
 	do { \
 		if (vk_core.debug) { \
 			vkCmdEndDebugUtilsLabelEXT(cmdbuf); \
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "end "); /* TODO: find corresponding begin */ \
 		} \
 	} while(0)
 
@@ -145,6 +149,8 @@ do { \
 		if (result != VK_SUCCESS) { \
 			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, R_VkResultName(result)); \
+			if (vk_core.debug) \
+				R_Vk_NV_Checkpoint_Dump(); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, R_VkResultName(result)); \
 		} \
@@ -254,6 +260,8 @@ do { \
 	X(vkCmdClearColorImage) \
 	X(vkCmdCopyImage) \
 	X(vkGetImageSubresourceLayout) \
+	X(vkCmdSetCheckpointNV) \
+	X(vkGetQueueCheckpointDataNV) \
 
 #define DEVICE_FUNCS_RTX(X) \
 	X(vkGetAccelerationStructureBuildSizesKHR) \

@@ -181,18 +181,6 @@ void R_NewMap( void ) {
 	// Need parsed map entities, and also should happen before brush model loading
 	RT_LightsNewMapBegin(map);
 
-	// RTX map loading requires command buffer for building blases
-	if (vk_core.rtx)
-	{
-		//ASSERT(!"Not implemented");
-		const VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.upload_pool.buffers[0], &beginfo));
-	}
-
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
 	for( int i = 0; i < num_models; i++ )
@@ -206,7 +194,7 @@ void R_NewMap( void ) {
 		if( m->type != mod_brush )
 			continue;
 
-		if (!VK_BrushModelLoad( vk_core.upload_pool.buffers[0], m, i == 0 ))
+		if (!VK_BrushModelLoad(m, i == 0))
 		{
 			gEngine.Con_Printf( S_ERROR "Couldn't load model %s\n", m->name );
 		}
@@ -215,28 +203,6 @@ void R_NewMap( void ) {
 	// Load static map lights
 	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
 	RT_LightsNewMapEnd(map);
-
-	if (!vk_core.rtx) {
-		// FIXME this is a workaround for uploading staging for non-rtx mode. In rtx mode things get naturally uploaded deep in VK_BrushModelLoad.
-		// FIXME there shouldn't be this difference. Ideally, rtx would only continue with also building BLASes, but uploading part should be the same.
-		R_VkStagingFlushSync();
-	} else {
-		R_VKStagingMarkEmpty_FIXME();
-	}
-
-	if (vk_core.rtx)
-	{
-		//ASSERT(!"Not implemented");
-		const VkSubmitInfo subinfo = {
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = &vk_core.upload_pool.buffers[0],
-		};
-
-		XVK_CHECK(vkEndCommandBuffer(vk_core.upload_pool.buffers[0]));
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
-	}
 
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();

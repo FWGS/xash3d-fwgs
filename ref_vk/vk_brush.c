@@ -511,7 +511,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			// FIXME move this to rt_light_bsp and static loading
 			{
 				qboolean is_emissive = false;
-				vec3_t emissive;
+				vec3_t emissive = {0};
 				rt_light_add_polygon_t polylight;
 
 				if (psurf && (psurf->flags & Patch_Surface_Emissive)) {
@@ -637,7 +637,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	return true;
 }
 
-qboolean VK_BrushModelLoad( VkCommandBuffer cmdbuf, model_t *mod, qboolean map )
+qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 {
 	if (mod->cache.data)
 	{
@@ -667,7 +667,7 @@ qboolean VK_BrushModelLoad( VkCommandBuffer cmdbuf, model_t *mod, qboolean map )
 			if (!map && sizes.emissive_surfaces)
 				bmodel->render_model.polylights = Mem_Malloc(vk_core.pool, sizeof(bmodel->render_model.polylights[0]) * sizes.emissive_surfaces);
 
-			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(cmdbuf, &bmodel->render_model)) {
+			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
 				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
 				Mem_Free(bmodel);
 				return false;

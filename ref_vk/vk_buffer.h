@@ -15,7 +15,7 @@ typedef struct vk_buffer_s {
 qboolean VK_BufferCreate(const char *debug_name, vk_buffer_t *buf, uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags flags);
 void VK_BufferDestroy(vk_buffer_t *buf);
 
-VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer);
+VkDeviceAddress R_VkBufferGetDeviceAddress(VkBuffer buffer);
 
 
 typedef struct {

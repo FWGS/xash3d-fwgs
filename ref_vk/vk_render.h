@@ -57,9 +57,6 @@ typedef struct  vk_render_geometry_s {
 	// - updating dynamic lights (TODO: can decouple from surface/brush models by providing texture_id and aabb directly here)
 	const struct msurface_s *surf;
 
-	// Index into kusochki buffer for current frame
-	uint32_t kusok_index;
-
 	// for kXVkMaterialEmissive
 	vec3_t emissive;
 } vk_render_geometry_t;
@@ -87,7 +84,7 @@ typedef struct vk_render_model_s {
 	int polylights_count;
 } vk_render_model_t;
 
-qboolean VK_RenderModelInit( VkCommandBuffer cmdbuf, vk_render_model_t* model );
+qboolean VK_RenderModelInit( vk_render_model_t* model );
 void VK_RenderModelDestroy( vk_render_model_t* model );
 void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model );
 

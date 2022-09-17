@@ -1,11 +1,14 @@
 #include "vk_staging.h"
 #include "vk_buffer.h"
 #include "alolcator.h"
+#include "vk_commandpool.h"
 
 #include <memory.h>
 
 #define DEFAULT_STAGING_SIZE (64*1024*1024)
 #define MAX_STAGING_ALLOCS (2048)
+#define MAX_CONCURRENT_FRAMES 2
+#define COMMAND_BUFFER_COUNT (MAX_CONCURRENT_FRAMES + 1) // to accommodate two frames in flight plus something trying to upload data before waiting for the next frame to complete
 
 typedef struct {
 	VkImage image;
@@ -14,52 +17,87 @@ typedef struct {
 
 static struct {
 	vk_buffer_t buffer;
-	alo_ring_t ring;
+	r_flipping_buffer_t buffer_alloc;
 
 	struct {
 		VkBuffer dest[MAX_STAGING_ALLOCS];
 		VkBufferCopy copy[MAX_STAGING_ALLOCS];
-
 		int count;
-		int committed;
 	} buffers;
 
 	struct {
 		staging_image_t dest[MAX_STAGING_ALLOCS];
 		VkBufferImageCopy copy[MAX_STAGING_ALLOCS];
 		int count;
-		int committed;
 	} images;
 
-	struct {
-		uint32_t offset;
-	} frames[2];
+	vk_command_pool_t upload_pool;
+	VkCommandBuffer cmdbuf;
 } g_staging = {0};
 
 qboolean R_VkStagingInit(void) {
 	if (!VK_BufferCreate("staging", &g_staging.buffer, DEFAULT_STAGING_SIZE, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
 		return false;
 
-	aloRingInit(&g_staging.ring, DEFAULT_STAGING_SIZE);
+	g_staging.upload_pool = R_VkCommandPoolCreate( COMMAND_BUFFER_COUNT );
+
+	R_FlippingBuffer_Init(&g_staging.buffer_alloc, DEFAULT_STAGING_SIZE);
 
 	return true;
 }
 
 void R_VkStagingShutdown(void) {
 	VK_BufferDestroy(&g_staging.buffer);
+	R_VkCommandPoolDestroy( &g_staging.upload_pool );
+}
+
+static void flushStagingBufferSync(void) {
+	const VkCommandBuffer cmdbuf = R_VkStagingCommit();
+	if (!cmdbuf)
+		return;
+
+	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
+	g_staging.cmdbuf = VK_NULL_HANDLE;
+
+	gEngine.Con_Reportf(S_WARN "flushing staging buffer img count=%d\n", g_staging.images.count);
+
+	const VkSubmitInfo subinfo = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &cmdbuf,
+	};
+
+	// TODO wait for previous command buffer completion. Why: we might end up writing into the same dst
+
+	XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+	XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+
+	g_staging.buffers.count = 0;
+	g_staging.images.count = 0;
+	R_FlippingBuffer_Clear(&g_staging.buffer_alloc);
+};
+
+static uint32_t allocateInRing(uint32_t size, uint32_t alignment) {
+	alignment = alignment < 1 ? 1 : alignment;
+
+	const uint32_t offset = R_FlippingBuffer_Alloc(&g_staging.buffer_alloc, size, alignment );
+	if (offset != ALO_ALLOC_FAILED)
+		return offset;
+
+	flushStagingBufferSync();
+
+	return R_FlippingBuffer_Alloc(&g_staging.buffer_alloc, size, alignment );
 }
 
 vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args) {
 	if ( g_staging.buffers.count >= MAX_STAGING_ALLOCS )
+		flushStagingBufferSync();
+
+	const uint32_t offset = allocateInRing(args.size, args.alignment);
+	if (offset == ALO_ALLOC_FAILED)
 		return (vk_staging_region_t){0};
 
 	const int index = g_staging.buffers.count;
-
-	const uint32_t offset = aloRingAlloc(&g_staging.ring, args.size, args.alignment < 1 ? 1 : args.alignment );
-	if (offset == ALO_ALLOC_FAILED)
-		return (vk_staging_region_t){0};
-	if (g_staging.frames[1].offset == ALO_ALLOC_FAILED)
-		g_staging.frames[1].offset = offset;
 
 	g_staging.buffers.dest[index] = args.buffer;
 	g_staging.buffers.copy[index] = (VkBufferCopy){
@@ -78,16 +116,14 @@ vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args) {
 
 vk_staging_region_t R_VkStagingLockForImage(vk_staging_image_args_t args) {
 	if ( g_staging.images.count >= MAX_STAGING_ALLOCS )
+		flushStagingBufferSync();
+
+	const uint32_t offset = allocateInRing(args.size, args.alignment);
+	if (offset == ALO_ALLOC_FAILED)
 		return (vk_staging_region_t){0};
 
 	const int index = g_staging.images.count;
 	staging_image_t *const dest = g_staging.images.dest + index;
-
-	const uint32_t offset = aloRingAlloc(&g_staging.ring, args.size, args.alignment);
-	if (offset == ALO_ALLOC_FAILED)
-		return (vk_staging_region_t){0};
-	if (g_staging.frames[1].offset == ALO_ALLOC_FAILED)
-		g_staging.frames[1].offset = offset;
 
 	dest->image = args.image;
 	dest->layout = args.layout;
@@ -116,11 +152,17 @@ static void commitBuffers(VkCommandBuffer cmdbuf) {
 
 	VkBuffer prev_buffer = VK_NULL_HANDLE;
 	int first_copy = 0;
-	for (int i = g_staging.buffers.committed; i < g_staging.buffers.count; i++) {
+	for (int i = 0; i < g_staging.buffers.count; i++) {
+		/* { */
+		/* 	const VkBufferCopy *const copy = g_staging.buffers.copy + i; */
+		/* 	gEngine.Con_Reportf("  %d: [%08llx, %08llx) => [%08llx, %08llx)\n", i, copy->srcOffset, copy->srcOffset + copy->size, copy->dstOffset, copy->dstOffset + copy->size); */
+		/* } */
+
 		if (prev_buffer == g_staging.buffers.dest[i])
 			continue;
 
 		if (prev_buffer != VK_NULL_HANDLE) {
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "staging dst_buffer=%p count=%d", prev_buffer, i-first_copy);
 			vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer,
 				prev_buffer,
 				i - first_copy, g_staging.buffers.copy + first_copy);
@@ -131,75 +173,74 @@ static void commitBuffers(VkCommandBuffer cmdbuf) {
 	}
 
 	if (prev_buffer != VK_NULL_HANDLE) {
+		DEBUG_NV_CHECKPOINTF(cmdbuf, "staging dst_buffer=%p count=%d", prev_buffer, g_staging.buffers.count-first_copy);
 		vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer,
 			prev_buffer,
 			g_staging.buffers.count - first_copy, g_staging.buffers.copy + first_copy);
 	}
 
-	g_staging.buffers.committed = g_staging.buffers.count;
+	g_staging.buffers.count = 0;
 }
 
 static void commitImages(VkCommandBuffer cmdbuf) {
-	for (int i = g_staging.images.committed; i < g_staging.images.count; i++) {
+	for (int i = 0; i < g_staging.images.count; i++) {
+		/* { */
+		/* 	const VkBufferImageCopy *const copy = g_staging.images.copy + i; */
+		/* 	gEngine.Con_Reportf("  i%d: [%08llx, ?) => %p\n", i, copy->bufferOffset, g_staging.images.dest[i].image); */
+		/* } */
+
 		vkCmdCopyBufferToImage(cmdbuf, g_staging.buffer.buffer,
 			g_staging.images.dest[i].image,
 			g_staging.images.dest[i].layout,
 			1, g_staging.images.copy + i);
 	}
 
-	g_staging.images.committed = g_staging.images.count;
+	g_staging.images.count = 0;
 }
 
+VkCommandBuffer R_VkStagingGetCommandBuffer(void) {
+	if (g_staging.cmdbuf)
+		return g_staging.cmdbuf;
 
-void R_VkStagingCommit(VkCommandBuffer cmdbuf) {
+	g_staging.cmdbuf = g_staging.upload_pool.buffers[0];
+
+	const VkCommandBufferBeginInfo beginfo = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+	};
+	XVK_CHECK(vkBeginCommandBuffer(g_staging.cmdbuf, &beginfo));
+
+	return g_staging.cmdbuf;
+}
+
+VkCommandBuffer R_VkStagingCommit(void) {
+	if (!g_staging.images.count && !g_staging.buffers.count && !g_staging.cmdbuf)
+		return VK_NULL_HANDLE;
+
+	const VkCommandBuffer cmdbuf = R_VkStagingGetCommandBuffer();
 	commitBuffers(cmdbuf);
 	commitImages(cmdbuf);
+	return cmdbuf;
 }
 
-void R_VkStagingFrameFlip(void) {
-	if (g_staging.frames[0].offset != ALO_ALLOC_FAILED)
-		aloRingFree(&g_staging.ring, g_staging.frames[0].offset);
+void R_VkStagingFrameBegin(void) {
+	R_FlippingBuffer_Flip(&g_staging.buffer_alloc);
 
-	g_staging.frames[0] = g_staging.frames[1];
-	g_staging.frames[1].offset = ALO_ALLOC_FAILED;
-
-	g_staging.buffers.committed = g_staging.buffers.count = 0;
-	g_staging.images.committed = g_staging.images.count = 0;
+	g_staging.buffers.count = 0;
+	g_staging.images.count = 0;
 }
 
-void R_VKStagingMarkEmpty_FIXME(void) {
-	g_staging.buffers.committed = g_staging.buffers.count = 0;
-	g_staging.images.committed = g_staging.images.count = 0;
-	g_staging.frames[0].offset = g_staging.frames[1].offset = ALO_ALLOC_FAILED;
-	aloRingInit(&g_staging.ring, DEFAULT_STAGING_SIZE);
-}
-
-void R_VkStagingFlushSync(void) {
-	if ( g_staging.buffers.count == g_staging.buffers.committed
-		&& g_staging.images.count == g_staging.images.committed)
-		return;
-
-	{
-		// FIXME get the right one
-		const VkCommandBuffer cmdbuf = vk_core.upload_pool.buffers[0];
-
-		const VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
-		const VkSubmitInfo subinfo = {
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = &cmdbuf,
-		};
-
-		XVK_CHECK(vkBeginCommandBuffer(cmdbuf, &beginfo));
-		R_VkStagingCommit(cmdbuf);
+VkCommandBuffer R_VkStagingFrameEnd(void) {
+	const VkCommandBuffer cmdbuf = R_VkStagingCommit();
+	if (cmdbuf)
 		XVK_CHECK(vkEndCommandBuffer(cmdbuf));
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 
-		R_VKStagingMarkEmpty_FIXME();
-	}
+	g_staging.cmdbuf = VK_NULL_HANDLE;
+
+	const VkCommandBuffer tmp = g_staging.upload_pool.buffers[0];
+	g_staging.upload_pool.buffers[0] = g_staging.upload_pool.buffers[1];
+	g_staging.upload_pool.buffers[1] = g_staging.upload_pool.buffers[2];
+	g_staging.upload_pool.buffers[2] = tmp;
+
+	return cmdbuf;
 }

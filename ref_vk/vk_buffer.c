@@ -42,7 +42,7 @@ void VK_BufferDestroy(vk_buffer_t *buf) {
 	}
 }
 
-VkDeviceAddress XVK_BufferGetDeviceAddress(VkBuffer buffer) {
+VkDeviceAddress R_VkBufferGetDeviceAddress(VkBuffer buffer) {
 	const VkBufferDeviceAddressInfo bdai = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
 	return vkGetBufferDeviceAddress(vk_core.device, &bdai);
 }
