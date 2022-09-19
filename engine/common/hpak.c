@@ -647,7 +647,7 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 
 	for( p = gp_hpak_queue; p != NULL; p = p->next )
 	{
-		if( !Q_stricmp(p->name, filename ) && !memcmp( p->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
+		if( !Q_stricmp( p->name, filename ) && !memcmp( p->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
 		{
 			if( buffer )
 			{
@@ -702,11 +702,13 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 	{
 		entry = &directory.entries[i];
 
-		if( !memcmp( entry->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
+		if( entry->filepos > 0 &&
+			entry->disksize > 0 &&
+			!memcmp( entry->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
 		{
 			FS_Seek( f, entry->filepos, SEEK_SET );
 
-			if( buffer && entry->disksize > 0 )
+			if( buffer )
 			{
 				tmpbuf = Z_Malloc( entry->disksize );
 				FS_Read( f, tmpbuf, entry->disksize );
