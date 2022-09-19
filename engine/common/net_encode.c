@@ -1168,6 +1168,8 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 	else if( pField->flags & DT_FLOAT )
 	{
 		flValue = *(float *)((byte *)to + pField->offset );
+		TNAN_S( flValue );
+
 		iValue = (int)((double)flValue * pField->multiplier);
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
@@ -1175,6 +1177,7 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 	else if( pField->flags & DT_ANGLE )
 	{
 		flAngle = *(float *)((byte *)to + pField->offset );
+		TNAN_S( flAngle );
 
 		// NOTE: never applies multipliers to angle because
 		// result may be wrong on client-side
@@ -1184,6 +1187,8 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 	{
 		bSigned = true; // timewindow is always signed
 		flValue = *(float *)((byte *)to + pField->offset );
+		TNAN_S( flValue );
+
 		iValue = (int)Q_rint( timebase * 100.0 ) - (int)Q_rint( flValue * 100.0 );
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
@@ -1192,6 +1197,8 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 	{
 		bSigned = true; // timewindow is always signed
 		flValue = *(float *)((byte *)to + pField->offset );
+		TNAN_S( flValue );
+
 		iValue = (int)Q_rint( timebase * pField->multiplier ) - (int)Q_rint( flValue * pField->multiplier );
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
@@ -1316,6 +1323,8 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 		else
 			flValue = iValue;
 
+		TNAN_S( flValue );
+
 		if( !Q_equal( pField->multiplier, 1.0 ) )
 			flValue = flValue / pField->multiplier;
 
@@ -1327,6 +1336,7 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 	else if( pField->flags & DT_ANGLE )
 	{
 		flAngle = MSG_ReadBitAngle( msg, pField->bits );
+		TNAN_S( flValue );
 		*(float *)((byte *)to + pField->offset ) = flAngle;
 	}
 	else if( pField->flags & DT_TIMEWINDOW_8 )
@@ -1334,7 +1344,7 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 		bSigned = true; // timewindow is always signed
 		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
 		flTime = (timebase * 100.0 - (int)iValue) / 100.0;
-
+		TNAN_S( flTime );
 		*(float *)((byte *)to + pField->offset ) = flTime;
 	}
 	else if( pField->flags & DT_TIMEWINDOW_BIG )
@@ -1346,6 +1356,7 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 			flTime = ( timebase * pField->multiplier - (int)iValue ) / pField->multiplier;
 		else
 			flTime = timebase - (int)iValue;
+		TNAN_S( flTime );
 
 		*(float *)((byte *)to + pField->offset ) = flTime;
 	}
