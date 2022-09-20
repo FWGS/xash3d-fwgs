@@ -60,7 +60,7 @@ void GL_RenderFrame( const ref_viewpass_t *rvp )
 	ref.dllFuncs.GL_RenderFrame( rvp );
 }
 
-static int pfnEngineGetParm( int parm, int arg )
+static intptr_t pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
 }
