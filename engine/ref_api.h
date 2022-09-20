@@ -256,7 +256,7 @@ typedef enum
 
 typedef struct ref_api_s
 {
-	int	(*EngineGetParm)( int parm, int arg );	// generic
+	intptr_t (*EngineGetParm)( int parm, int arg );	// generic
 
 	// cvar handlers
 	cvar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
