@@ -10,6 +10,7 @@
 
 #include <sys/types.h> // off_t
 #include STDINT_H
+#include <assert.h>
 
 typedef unsigned char byte;
 typedef int		sound_t;
@@ -103,6 +104,11 @@ typedef uint64_t longtime_t;
 	#define likely(x)   (x)
 #endif
 
+#if defined( static_assert ) // C11 static_assert
+#define STATIC_ASSERT static_assert
+#else
+#define STATIC_ASSERT( x, y ) extern int _static_assert_##__LINE__[( x ) ? 1 : -1]
+#endif
 
 #ifdef XASH_BIG_ENDIAN
 #define LittleLong(x) (((int)(((x)&255)<<24)) + ((int)((((x)>>8)&255)<<16)) + ((int)(((x)>>16)&255)<<8) + (((x) >> 24)&255))
