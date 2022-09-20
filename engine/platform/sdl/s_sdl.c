@@ -165,7 +165,7 @@ Makes sure dma.buffer is valid
 */
 void SNDDMA_BeginPainting( void )
 {
-	SDL_LockAudioDevice( sdl_dev );
+//	SDL_LockAudioDevice( sdl_dev );
 }
 
 /*
@@ -178,7 +178,7 @@ Also unlocks the dsound buffer
 */
 void SNDDMA_Submit( void )
 {
-	SDL_UnlockAudioDevice( sdl_dev );
+//	SDL_UnlockAudioDevice( sdl_dev );
 }
 
 /*
