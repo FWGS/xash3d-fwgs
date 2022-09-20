@@ -31,15 +31,15 @@ class ziparchive(Task.Task):
 def create_zip_archive(self):
 	compresslevel = getattr(self, 'compresslevel', 6) # 6 is zip default
 	if compresslevel < 0 or compresslevel > 9:
-		self.fatal('Invalid compress level')
+		self.bld.fatal('Invalid compress level')
 
 	files = getattr(self, 'files', None)
 	if not files:
-		self.fatal('No files to archive')
+		self.bld.fatal('No files to archive')
 
 	relative_to = getattr(self, 'relative_to', None)
 	if not relative_to:
-		self.fatal('No relative directory supplied')
+		self.bld.fatal('No relative directory supplied')
 
 	self.path.get_bld().mkdir()
 	target = self.path.get_bld().make_node(self.name)
