@@ -30,31 +30,39 @@ PSP_MAIN_THREAD_ATTR( PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU );
 PSP_MAIN_THREAD_STACK_SIZE_KB( 512 );
 PSP_HEAP_SIZE_KB( -3 * 1024 ); /* 3 MB for prx modules */
 
-/* Exit callback */
-static int exit_callback( int arg1, int arg2, void *common )
+static int Platform_ExitCallback( int count, int arg, void *common )
 {
 	host.crashed = true;
 	return 0;
 }
 
-/* Callback thread */
-static int CallbackThread( SceSize args, void *argp )
+static int Platform_PowerCallback( int count, int arg, void *common )
+{
+	P5Ram_PowerCallback( count, arg, common );
+	return 0;
+}
+
+static int Platform_CallbackThread( SceSize args, void *argp )
 {
 	int cbid;
 
-	cbid = sceKernelCreateCallback("Exit Callback", exit_callback, NULL);
-	sceKernelRegisterExitCallback(cbid);
+	cbid = sceKernelCreateCallback( "Exit Callback", Platform_ExitCallback, NULL );
+	sceKernelRegisterExitCallback( cbid );
+
+	cbid = sceKernelCreateCallback( "Power Callback", Platform_PowerCallback, NULL );
+	scePowerRegisterCallback( 0, cbid );
+
 	sceKernelSleepThreadCB();
 
 	return 0;
 }
 
 /* Sets up the callback thread and returns its thread id */
-static int SetupCallbacks( void )
+static int Platform_SetupCallbacks( void )
 {
 	int thid = 0;
 
-	thid = sceKernelCreateThread("update_thread", CallbackThread, 0x11, 0xFA0, 0, 0);
+	thid = sceKernelCreateThread("update_thread", Platform_CallbackThread, 0x11, 0xFA0, 0, 0);
 	if(thid >= 0)
 	{
 		sceKernelStartThread(thid, 0, 0);
@@ -259,7 +267,7 @@ int Platform_UnloadModule( SceUID modid, int *sce_code )
 	*sce_code = sceKernelUnloadModule( modid );
 	return ( ( ( *sce_code ) < 0 ) ? -2 : 0 );
 }
-
+#include "vfs_psp.h"
 void Platform_Init( void )
 {
 	SceUID kamID;
@@ -269,7 +277,7 @@ void Platform_Init( void )
 	pspSdkDisableFPUExceptions();
 
 	// exit callback thread
-	SetupCallbacks();
+	Platform_SetupCallbacks();
 
 	// set max cpu/gpu frequency
 	scePowerSetClockFrequency( 333, 333, 166 );
@@ -283,10 +291,14 @@ void Platform_Init( void )
 			result = kaGeEdramSetSize( result );
 		Platform_UnloadModule( kamID, &result );
 	}
+
+	// P5 Ram init
+	P5Ram_Init();	
 }
 
 void Platform_Shutdown( void )
 {
+	P5Ram_Shutdown();
 #if XASH_PROFILING
 	gprof_cleanup();
 #endif

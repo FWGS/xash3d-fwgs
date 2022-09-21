@@ -393,6 +393,10 @@ static ref_api_t gEngfuncs =
 	pfnDrawNormalTriangles,
 	pfnDrawTransparentTriangles,
 	&clgame.drawFuncs
+#if XASH_PSP
+	,P5Ram_Alloc,
+	P5Ram_Free
+#endif
 };
 
 static void R_UnloadProgs( void )

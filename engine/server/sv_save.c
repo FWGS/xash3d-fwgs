@@ -291,7 +291,11 @@ static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 	ENTITYTABLE	*pTable;
 	int		i;
 
+#if XASH_PSP
+	pSaveData->pTable = P5Ram_Alloc( sizeof( ENTITYTABLE ) * entityCount );
+#else
 	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
+#endif
 	pSaveData->tableCount = entityCount;
 
 	// setup entitytable
@@ -607,8 +611,13 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 {
 	SAVERESTOREDATA	*pSaveData;
 
+#if XASH_PSP
+	pSaveData = P5Ram_Alloc( sizeof( SAVERESTOREDATA ) + size );
+	pSaveData->pTokens = (char **)P5Ram_Alloc( tokenCount * sizeof( char* ));
+#else
 	pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
 	pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
+#endif
 	pSaveData->tokenCount = tokenCount;
 
 	pSaveData->pBaseData = (char *)(pSaveData + 1); // skip the save structure);
@@ -657,20 +666,32 @@ static void SaveFinish( SAVERESTOREDATA *pSaveData )
 
 	if( pSaveData->pTokens )
 	{
+#if XASH_PSP
+		P5Ram_Free( pSaveData->pTokens );
+#else
 		Mem_Free( pSaveData->pTokens );
+#endif
 		pSaveData->pTokens = NULL;
 		pSaveData->tokenCount = 0;
 	}
 
 	if( pSaveData->pTable )
 	{
+#if XASH_PSP
+		P5Ram_Free( pSaveData->pTable );
+#else
 		Mem_Free( pSaveData->pTable );
+#endif
 		pSaveData->pTable = NULL;
 		pSaveData->tableCount = 0;
 	}
 
 	svgame.globals->pSaveData = NULL;
+#if XASH_PSP
+	P5Ram_Free( pSaveData );
+#else
 	Mem_Free( pSaveData );
+#endif
 }
 
 /*
@@ -2246,7 +2267,11 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	// allocate a table for the strings, and parse the table
 	if( tokenSize > 0 )
 	{
+#if XASH_PSP
+		pTokenList = P5Ram_Alloc( tokenCount * sizeof( char* ));
+#else
 		pTokenList = Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
+#endif
 
 		// make sure the token strings pointed to by the pToken hashtable.
 		for( i = 0; i < tokenCount; i++ )
@@ -2274,8 +2299,13 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	if( Q_stricmp( pFieldName, "GameHeader" ))
 	{
 		Q_strncpy( comment, "<missing GameHeader>", MAX_STRING );
+#if XASH_PSP
+		if( pTokenList ) P5Ram_Free( pTokenList );
+		if( pSaveData ) P5Ram_Free( pSaveData );
+#else
 		if( pTokenList ) Mem_Free( pTokenList );
 		if( pSaveData ) Mem_Free( pSaveData );
+#endif
 		FS_Close( f );
 		return 0;
 	}
@@ -2325,8 +2355,13 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	}
 
 	// delete the string table we allocated
+#if XASH_PSP
+	if( pTokenList ) P5Ram_Free( pTokenList );
+	if( pSaveData ) P5Ram_Free( pSaveData );
+#else
 	if( pTokenList ) Mem_Free( pTokenList );
 	if( pSaveData ) Mem_Free( pSaveData );
+#endif
 	FS_Close( f );	
 
 	// at least mapname should be filled

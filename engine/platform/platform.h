@@ -42,6 +42,8 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 void Platform_ReadCmd( const char *fname, int *argc, char **argv );
 SceUID Platform_LoadModule( const char *filename, int mpid, SceSize argsize, void *argp );
 int Platform_UnloadModule( SceUID modid, int *sce_code );
+
+#include "psp/p5ram_psp.h"
 #endif
 #if XASH_ANDROID
 const char *Android_GetAndroidID( void );
