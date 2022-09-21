@@ -26,6 +26,7 @@ void* valloc( size_t size );
 void vfree( void* ptr );
 size_t vmemavail();
 size_t vlargestblock();
+int vchkptr( void *ptr );
 
 
 #ifdef _DEBUG

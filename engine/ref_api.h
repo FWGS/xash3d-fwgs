@@ -432,7 +432,7 @@ typedef struct ref_api_s
 	void	(*pfnDrawTransparentTriangles)( void );
 	render_interface_t	*drawFuncs;
 #if XASH_PSP
-	void	*(*P5Ram_Alloc)( size_t size );
+	void	*(*P5Ram_Alloc)( size_t size, int clear );
 	void	(*P5Ram_Free)( void *ptr );
 #endif
 } ref_api_t;

@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "p5ram_psp.h"
 
 #define P5RAM_ALIGN( x, a )	((( x ) + (( typeof( x ))( a ) - 1 )) & ~( typeof( x )( a ) - 1 ))
@@ -27,7 +28,7 @@ GNU General Public License for more details.
 #define P5RAM_FLAG_INIT		0x01
 #define P5RAM_FLAG_SUSPENDED	0x02
 
-typedef struct p5ram_info_s
+typedef struct __attribute__(( aligned( 64 ))) p5ram_info_s
 {
 	SceUID			uid;
 	size_t			size;
@@ -53,7 +54,7 @@ int P5Ram_Init( void )
 	return result;
 }
 
-void *P5Ram_Alloc( size_t size )
+void *P5Ram_Alloc( size_t size, int clear )
 {
 	SceUID		uid;
 	void		*ptr;
@@ -61,17 +62,18 @@ void *P5Ram_Alloc( size_t size )
 	if(!( p5ram_flags & P5RAM_FLAG_INIT ))
 		return NULL;
 
-	uid = sceKernelAllocPartitionMemory( 5, "USER P5", PSP_SMEM_Low, size + /*sizeof( p5ram_info_t )*/64, NULL );
+	uid = sceKernelAllocPartitionMemory( 5, "USER P5", PSP_SMEM_Low, size + sizeof( p5ram_info_t ), NULL );
 	if( uid < 0 ) return NULL;
 
 	ptr = sceKernelGetBlockHeadAddr( uid );
 	(( p5ram_info_t* )ptr )->uid  = uid;
 	(( p5ram_info_t* )ptr )->size = size;
 	(( p5ram_info_t* )ptr )->next = p5ram_poolchain;
+	if( clear ) memset(( unsigned char* )ptr + sizeof( p5ram_info_t ), 0, size );
 
 	p5ram_poolchain = ptr;
 
-	return ptr + /*sizeof( p5ram_info_t )*/64;
+	return ( void* )(( unsigned char* )ptr + sizeof( p5ram_info_t ));
 }
 
 void P5Ram_Free( void *ptr )
@@ -80,7 +82,7 @@ void P5Ram_Free( void *ptr )
 
 	if( !( p5ram_flags & P5RAM_FLAG_INIT ) || ptr == NULL ) return;
 
-	info = ( p5ram_info_t* )( ptr - /*sizeof( p5ram_info_t )*/64);
+	info = ( p5ram_info_t* )((unsigned char*)ptr - sizeof( p5ram_info_t ));
 
 	if( info == p5ram_poolchain )
 	{

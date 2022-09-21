@@ -902,9 +902,13 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		{
 			if( !tex->dstPalette )
 			{
-				tex->dstPalette = ( byte* )memalign( 16, PALETTE_SIZE );
-				if ( !tex->dstPalette )
-					gEngfuncs.Host_Error( "GL_UploadTexture: %s out of memory for palette ( %lu )\n", tex->name, PALETTE_SIZE );
+				tex->dstPalette = ( byte* )valloc( PALETTE_SIZE );
+				if( !tex->dstPalette )
+				{
+					tex->dstPalette = ( byte* )memalign( 16, PALETTE_SIZE );
+					if ( !tex->dstPalette )
+						gEngfuncs.Host_Error( "GL_UploadTexture: %s out of memory for palette ( %lu )\n", tex->name, PALETTE_SIZE );
+				}
 			}
 
 			// Load palette
@@ -916,7 +920,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		// Volatile memory for temporary buffer
 		if( swizzle )
 		{
-			tempBuff = gEngfuncs.P5Ram_Alloc( texSize );
+			tempBuff = gEngfuncs.P5Ram_Alloc( texSize, 0 );
 			if( !tempBuff ) gEngfuncs.Host_Error( "GL_UploadTexture: temporary memory error\n" );
 		}
 
@@ -944,7 +948,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	{
 		if( swizzle )
 		{
-			tempBuff = gEngfuncs.P5Ram_Alloc( texSize );
+			tempBuff = gEngfuncs.P5Ram_Alloc( texSize, 0 );
 			if( !tempBuff ) gEngfuncs.Host_Error( "GL_UploadTexture: temporary memory error\n" );
 		}
 
@@ -970,7 +974,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		if(( pic->width != tex->width ) || ( pic->height != tex->height ))
 			offset = tex->width * tex->height * 4; // src size
 
-		tempBuff = gEngfuncs.P5Ram_Alloc( swizzle ? ( texSize + offset ) : texSize );
+		tempBuff = gEngfuncs.P5Ram_Alloc( swizzle ? ( texSize + offset ) : texSize, 0 );
 		if( !tempBuff ) gEngfuncs.Host_Error( "GL_UploadTexture: temporary memory error\n" );
 
 		if(( pic->width != tex->width ) || ( pic->height != tex->height ))
@@ -1040,11 +1044,11 @@ qboolean GL_UpdateTexture( int texnum, int xoff, int yoff, int width, int height
 		return false;
 	}
 
-	if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) )
+	if( !FBitSet( tex->flags, TF_IMG_UPLOADED ))
 	{
 		tex->size	= GL_CalcTextureSize( tex->format, tex->width, tex->height, &tex->bpp );
 		tex->numMips	= 1;
-		tex->dstPalette	= NULL;
+		tex->dstPalette	= ( tex->format == GU_PSM_T8 ) ? gl_palette_332 : NULL; // default
 
 		tex->dstTexture = ( byte* )valloc( tex->size );
 		if( !tex->dstTexture )
@@ -1263,7 +1267,11 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 		gEngfuncs.FS_FreeImage( tex->original );
 
 	if( tex->dstPalette && tex->dstPalette != gl_palette_332 )
-		free( tex->dstPalette );
+	{
+		if( vchkptr( tex->dstPalette ))
+			vfree( tex->dstPalette );
+		else free( tex->dstPalette );
+	}
 
 	if( tex->dstTexture )
 	{
@@ -1876,9 +1884,13 @@ GL_Create332Palette
 */
 static void GL_Create332Palette( void )
 {
-	gl_palette_332 = ( byte* )memalign( 16, PALETTE_SIZE );
-	if ( !gl_palette_332 )
-		gEngfuncs.Host_Error( "GL_Create332Palette: out of memory!\n" );
+	gl_palette_332 = ( byte* )valloc( PALETTE_SIZE );
+	if( !gl_palette_332 )
+	{
+		gl_palette_332 = ( byte* )memalign( 16, PALETTE_SIZE );
+		if ( !gl_palette_332 )
+			gEngfuncs.Host_Error( "GL_Create332Palette: out of memory!\n" );
+	}
 
 	for(int i = 0; i < 256; i++)
 	{
@@ -2038,7 +2050,11 @@ void R_ShutdownImages( void )
 		GL_DeleteTexture( tex );
 
 	if( gl_palette_332 )
-		free( gl_palette_332 );
+	{
+		if( vchkptr( gl_palette_332 ))
+			vfree( gl_palette_332 );
+		else free( gl_palette_332 );
+	}
 
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
 	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));

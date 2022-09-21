@@ -292,3 +292,8 @@ size_t vlargestblock( void )
 	if( __largest_update ) __find_largest_block();
 	return __largest_block * __BLOCK_SIZE;
 }
+
+int vchkptr( void *ptr )
+{
+	return ((( unsigned int )ptr >= __mem_start ) && (( unsigned int )ptr < __mem_start + __mem_size ));
+}

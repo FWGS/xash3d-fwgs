@@ -267,7 +267,7 @@ int Platform_UnloadModule( SceUID modid, int *sce_code )
 	*sce_code = sceKernelUnloadModule( modid );
 	return ( ( ( *sce_code ) < 0 ) ? -2 : 0 );
 }
-#include "vfs_psp.h"
+
 void Platform_Init( void )
 {
 	SceUID kamID;

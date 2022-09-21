@@ -292,7 +292,7 @@ static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 	int		i;
 
 #if XASH_PSP
-	pSaveData->pTable = P5Ram_Alloc( sizeof( ENTITYTABLE ) * entityCount );
+	pSaveData->pTable = P5Ram_Alloc( sizeof( ENTITYTABLE ) * entityCount, 1 );
 #else
 	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
 #endif
@@ -612,8 +612,8 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 	SAVERESTOREDATA	*pSaveData;
 
 #if XASH_PSP
-	pSaveData = P5Ram_Alloc( sizeof( SAVERESTOREDATA ) + size );
-	pSaveData->pTokens = (char **)P5Ram_Alloc( tokenCount * sizeof( char* ));
+	pSaveData = P5Ram_Alloc( sizeof( SAVERESTOREDATA ) + size, 1 );
+	pSaveData->pTokens = (char **)P5Ram_Alloc( tokenCount * sizeof( char* ), 1 );
 #else
 	pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
 	pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
@@ -2268,7 +2268,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	if( tokenSize > 0 )
 	{
 #if XASH_PSP
-		pTokenList = P5Ram_Alloc( tokenCount * sizeof( char* ));
+		pTokenList = P5Ram_Alloc( tokenCount * sizeof( char* ), 1 );
 #else
 		pTokenList = Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
 #endif

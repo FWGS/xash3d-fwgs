@@ -22,7 +22,7 @@ extern "C" {
 #endif // __cplusplus
 
 int P5Ram_Init( void );
-void *P5Ram_Alloc( size_t size );
+void *P5Ram_Alloc( size_t size, int clear );
 void P5Ram_Free( void *ptr );
 void P5Ram_FreeAll( void );
 void P5Ram_Shutdown( void );
