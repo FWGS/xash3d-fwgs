@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <errno.h>
 #elif XASH_PSP
 #include <pspiofilemgr.h>
+#include <psprtc.h>
 #include <dirent.h>
 #include <errno.h>
 #else
@@ -2373,21 +2374,16 @@ Internal function used to determine filetime
 static int FS_SysFileTime( const char *filename )
 {
 #if XASH_PSP
-	SceIoStat buf;
-	struct tm libc_tm;
+	SceIoStat	buf;
+	time_t		fileTime;
 
-	if ( sceIoGetstat( filename, &buf ) < 0 )
+	if( sceIoGetstat( filename, &buf ) < 0 )
 		return -1;
 
-	libc_tm.tm_year = buf.st_mtime.year;
-	libc_tm.tm_mon = buf.st_mtime.month;
-	libc_tm.tm_mday = buf.st_mtime.day;
-	libc_tm.tm_hour = buf.st_mtime.hour;
-	libc_tm.tm_min = buf.st_mtime.minute;
-	libc_tm.tm_sec = buf.st_mtime.second;
-	libc_tm.tm_isdst = -1;
+	if( sceRtcGetTime_t(( pspTime* )&buf.st_mtime, &fileTime ) < 0 ) // typedef pspTime! wft? ( pspsdk bug )
+		return -1;
 
-	return mktime( &libc_tm );
+	return fileTime;
 #else
 	struct stat buf;
 	
