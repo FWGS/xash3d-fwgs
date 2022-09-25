@@ -330,6 +330,11 @@ double Host_CalcFPS( void )
 	return fps;
 }
 
+static qboolean Host_IgnoreTimers( void )
+{
+	return sys_usespinlock.value > 0.0f;
+}
+
 /*
 ==================
 Host_CheckSleep
@@ -339,55 +344,57 @@ void Host_CheckSleep( void )
 {
 	double fps;
 	int sleeptime;
-	qboolean use_spinlock;
 
 	fps = Host_CalcFPS();
 	sleeptime = host_sleeptime->value;
-	use_spinlock = sys_usespinlock.value > 0.0f;
-	
-	if( Host_IsDedicated() )
+
+	// fps == 0.0 means that fps limit turned off and we don't need sleep/delay
+	if( fps > 0.0 )
 	{
-		// let the dedicated server some sleep
-		if( use_spinlock )
-			Sys_Sleep( sleeptime );
-		else
-			Platform_Delay( 1.0 / fps );
-	}
-	else
-	{
-		if( host.status == HOST_NOFOCUS )
+		if( Host_IsDedicated() )
 		{
-			if( SV_Active() && CL_IsInGame() )
-			{
-				// listenserver
-				if( use_spinlock )
-					Sys_Sleep( sleeptime ); 
-				else
-					Platform_Delay( 1.0 / fps );
-			}
-			else
-			{
-				// sleep 20 ms otherwise
-				if( use_spinlock )
-					Sys_Sleep( 20 ); 
-				else
-					Platform_Delay( 1.0 / 50.0 );
-			}
-		}
-		else if( host.status == HOST_SLEEP )
-		{
-			// completely sleep in minimized state
-			if( use_spinlock )
-				Sys_Sleep( 20 );
-			else
-				Platform_Delay( 1.0 / 50.0 );
-		}
-		else
-		{
-			if( use_spinlock )
+			// let the dedicated server some sleep
+			if( Host_IgnoreTimers() )
 				Sys_Sleep( sleeptime );
 			else
 				Platform_Delay( 1.0 / fps );
+		}
+		else
+		{
+			if( host.status == HOST_NOFOCUS )
+			{
+				if( SV_Active() && CL_IsInGame() )
+				{
+					// listenserver
+					if( Host_IgnoreTimers() )
+						Sys_Sleep( sleeptime );
+					else
+						Platform_Delay( 1.0 / fps );
+				}
+				else
+				{
+					// sleep 20 ms otherwise
+					if( Host_IgnoreTimers() )
+						Sys_Sleep( 20 );
+					else
+						Platform_Delay( 1.0 / 50.0 );
+				}
+			}
+			else if( host.status == HOST_SLEEP )
+			{
+				// completely sleep in minimized state
+				if( Host_IgnoreTimers() )
+					Sys_Sleep( 20 );
+				else
+					Platform_Delay( 1.0 / 50.0 );
+			}
+			else
+			{
+				if( Host_IgnoreTimers() )
+					Sys_Sleep( sleeptime );
+				else
+					Platform_Delay( 1.0 / fps );
+			}
 		}
 	}
 }
@@ -660,7 +667,7 @@ qboolean Host_FilterTime( float time )
 	{
 		// limit fps to withing tolerable range
 		fps = bound( MIN_FPS, fps, MAX_FPS );
-		if( sys_usespinlock.value > 0.0f )
+		if( Host_IgnoreTimers() )
 		{
 			if( Host_IsDedicated() )
 			{

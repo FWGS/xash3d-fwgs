@@ -122,8 +122,8 @@ void Platform_Delay( double time )
 void Platform_TimerInit( void )
 {
 	Sys_SetTimerHighResolution();
-	g_timer.hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
-	g_timer.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	g_timer.hTimer = CreateWaitableTimer( NULL, TRUE, NULL );
+	g_timer.hEvent = CreateEvent( NULL, FALSE, FALSE, NULL );
 	g_timer.flInterval = 1.0 / 60.0;
 
 	g_timer.hMutex = CreateMutex(
@@ -142,10 +142,6 @@ void Platform_TimerInit( void )
 
 void Platform_TimerShutdown( void )
 {
-	CloseHandle( g_timer.hThread );
-	CloseHandle( g_timer.hTimer );
-	CloseHandle( g_timer.hMutex );
-	CloseHandle( g_timer.hEvent );
 }
 
 void Platform_ShellExecute( const char *path, const char *parms )

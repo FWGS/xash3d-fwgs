@@ -29,10 +29,7 @@ typedef struct {
 	pthread_t thread;
 	pthread_cond_t tsignal;
 } timer_posix_t;
-
 static timer_posix_t g_timer;
-g_timer.tmutex = PTHREAD_MUTEX_INITIALIZER;
-g_timer.tsignal = PTHREAD_COND_INITIALIZER;
 
 static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size )
 {
@@ -192,24 +189,25 @@ static void *Sys_TimerThread( void *v )
 	while (1)
 	{
 		long long tdiff;
-		nanosleep(&time, &time1);
-		//printf("%ld\n", time1.tv_nsec );
+		nanosleep( &time, &time1 );
 		time1.tv_sec = 0;
 		time1.tv_nsec = 0;
-		clock_gettime(CLOCK_MONOTONIC, &time2);
+		clock_gettime( CLOCK_MONOTONIC, &time2 );
 		tdiff = time2.tv_nsec - time3.tv_nsec - g_timer.frametime * 1e9;
-		if (tdiff < 0)
+
+		if( tdiff < 0 )
 			tdiff = 0;
-		if (tdiff > g_timer.frametime / 2.0 * 1e9)
+		if( tdiff > g_timer.frametime / 2.0 * 1e9 )
 			tdiff = 0;
 
-		pthread_mutex_lock(&g_timer.tmutex);
-
+		pthread_mutex_lock( &g_timer.tmutex );
 		time.tv_nsec = 1e9 * g_timer.frametime - tdiff;
-		if (g_timer.flag == 0)
-			pthread_cond_signal(&g_timer.tsignal);
+
+		if( g_timer.flag == 0 )
+			pthread_cond_signal( &g_timer.tsignal );
+
 		g_timer.flag = 1;
-		pthread_mutex_unlock(&g_timer.tmutex);
+		pthread_mutex_unlock( &g_timer.tmutex );
 		time3 = time2;
 	}
 	return 0;
@@ -217,28 +215,29 @@ static void *Sys_TimerThread( void *v )
 
 void Platform_Delay( double time )
 {
-	if (g_timer.flag)
+	if( g_timer.flag )
 	{
 		g_timer.flag = 0;
 		return;
 	}
 
-	pthread_mutex_lock(&g_timer.tmutex);
+	pthread_mutex_lock( &g_timer.tmutex );
 	g_timer.frametime = time;
-	while (!g_timer.flag)
-		pthread_cond_wait(&g_timer.tsignal, &g_timer.tmutex);
+	while( !g_timer.flag )
+		pthread_cond_wait( &g_timer.tsignal, &g_timer.tmutex );
 	g_timer.flag = 0;
-	pthread_mutex_unlock(&g_timer.tmutex);
+	pthread_mutex_unlock( &g_timer.tmutex );
 }
 
 void Platform_TimerInit( void )
 {
 	g_timer.flag = 1;
-	g_timer.frametime = 1.0 / host_maxfps->value;
-	pthread_create(&g_timer.thread, NULL, Sys_TimerThread, NULL);
+	g_timer.frametime = 1.0 / 60.0;
+	pthread_cond_init( &g_timer.tsignal, NULL );
+	pthread_mutex_init( &g_timer.tmutex, NULL );
+	pthread_create( &g_timer.thread, NULL, Sys_TimerThread, NULL );
 }
 
 void Platform_TimerShutdown( void )
 {
-	// ... what we should do here? i need help for this
 }
