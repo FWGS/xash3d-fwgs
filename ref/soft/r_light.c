@@ -52,7 +52,7 @@ void GAME_EXPORT CL_RunLightStyles( void )
 	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
 		ls = gEngfuncs.GetLightStyle( i );
-		if( !WORLDMODEL->lightdata )
+		if( r_fullbright->value || !WORLDMODEL->lightdata )
 		{
 			tr.lightstylevalue[i] = 256 * 256;
 			continue;
