@@ -216,6 +216,74 @@ static inline int Touch_ExportButtonToConfig( file_t *f, touch_button_t *button,
 
 /*
 =================
+Touch_DumpConfig
+
+Dump config to file
+=================
+*/
+qboolean Touch_DumpConfig( const char *name, const char *profilename )
+{
+	file_t *f;
+	touch_button_t *button;
+
+	f = FS_Open( name, "w", true );
+
+	if( !f )
+	{
+		Con_Printf( S_ERROR "Couldn't write %s.\n", name );
+		return false;
+	}
+
+	FS_Printf( f, "//=======================================================================\n");
+	FS_Printf( f, "//\tCopyright FWGS & XashXT group %s (c)\n", Q_timestamp( TIME_YEAR_ONLY ));
+	FS_Printf( f, "//\t\t\ttouchscreen config\n" );
+	FS_Printf( f, "//=======================================================================\n" );
+	FS_Printf( f, "\ntouch_config_file \"%s\"\n", profilename );
+	FS_Printf( f, "\n// touch cvars\n" );
+	FS_Printf( f, "\n// sensitivity settings\n" );
+	FS_Printf( f, "touch_pitch \"%f\"\n", touch_pitch->value );
+	FS_Printf( f, "touch_yaw \"%f\"\n", touch_yaw->value );
+	FS_Printf( f, "touch_forwardzone \"%f\"\n", touch_forwardzone->value );
+	FS_Printf( f, "touch_sidezone \"%f\"\n", touch_sidezone->value );
+	FS_Printf( f, "touch_nonlinear_look \"%d\"\n", CVAR_TO_BOOL(touch_nonlinear_look));
+	FS_Printf( f, "touch_pow_factor \"%f\"\n", touch_pow_factor->value );
+	FS_Printf( f, "touch_pow_mult \"%f\"\n", touch_pow_mult->value );
+	FS_Printf( f, "touch_exp_mult \"%f\"\n", touch_exp_mult->value );
+	FS_Printf( f, "\n// grid settings\n" );
+	FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count->value );
+	FS_Printf( f, "touch_grid_enable \"%d\"\n", CVAR_TO_BOOL(touch_grid_enable));
+	FS_Printf( f, "\n// global overstroke (width, r, g, b, a)\n" );
+	FS_Printf( f, "touch_set_stroke %d %d %d %d %d\n", touch.swidth, touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] );
+	FS_Printf( f, "\n// highlight when pressed\n" );
+	FS_Printf( f, "touch_highlight_r \"%f\"\n", touch_highlight_r->value );
+	FS_Printf( f, "touch_highlight_g \"%f\"\n", touch_highlight_g->value );
+	FS_Printf( f, "touch_highlight_b \"%f\"\n", touch_highlight_b->value );
+	FS_Printf( f, "touch_highlight_a \"%f\"\n", touch_highlight_a->value );
+	FS_Printf( f, "\n// _joy and _dpad options\n" );
+	FS_Printf( f, "touch_dpad_radius \"%f\"\n", touch_dpad_radius->value );
+	FS_Printf( f, "touch_joy_radius \"%f\"\n", touch_joy_radius->value );
+	FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
+	FS_Printf( f, "touch_precise_amount \"%f\"\n", touch_precise_amount->value );
+	FS_Printf( f, "\n// enable/disable move indicator\n" );
+	FS_Printf( f, "touch_move_indicator \"%f\"\n", touch_move_indicator->value );
+
+	FS_Printf( f, "\n// reset menu state when execing config\n" );
+	FS_Printf( f, "touch_setclientonly 0\n" );
+	FS_Printf( f, "\n// touch buttons\n" );
+	FS_Printf( f, "touch_removeall\n" );
+
+	for( button = touch.list_user.first; button; button = button->next )
+	{
+		Touch_ExportButtonToConfig( f, button, false );
+	}
+
+	FS_Close( f );
+
+	return true;
+}
+
+/*
+=================
 Touch_WriteConfig
 
 save current touch configuration
@@ -237,61 +305,14 @@ void Touch_WriteConfig( void )
 	Q_snprintf( newconfigfile, sizeof( newconfigfile ), "%s.new", touch_config_file->string );
 	Q_snprintf( oldconfigfile, sizeof( oldconfigfile ), "%s.bak", touch_config_file->string );
 
-	f = FS_Open( newconfigfile, "w", true );
-	if( f )
+	if( Touch_DumpConfig( newconfigfile, touch_config_file->string ))
 	{
-		touch_button_t *button;
-		FS_Printf( f, "//=======================================================================\n");
-		FS_Printf( f, "//\tCopyright FWGS & XashXT group %s (c)\n", Q_timestamp( TIME_YEAR_ONLY ));
-		FS_Printf( f, "//\t\t\ttouchscreen config\n" );
-		FS_Printf( f, "//=======================================================================\n" );
-		FS_Printf( f, "\ntouch_config_file \"%s\"\n", touch_config_file->string );
-		FS_Printf( f, "\n// touch cvars\n" );
-		FS_Printf( f, "\n// sensitivity settings\n" );
-		FS_Printf( f, "touch_pitch \"%f\"\n", touch_pitch->value );
-		FS_Printf( f, "touch_yaw \"%f\"\n", touch_yaw->value );
-		FS_Printf( f, "touch_forwardzone \"%f\"\n", touch_forwardzone->value );
-		FS_Printf( f, "touch_sidezone \"%f\"\n", touch_sidezone->value );
-		FS_Printf( f, "touch_nonlinear_look \"%d\"\n", CVAR_TO_BOOL(touch_nonlinear_look));
-		FS_Printf( f, "touch_pow_factor \"%f\"\n", touch_pow_factor->value );
-		FS_Printf( f, "touch_pow_mult \"%f\"\n", touch_pow_mult->value );
-		FS_Printf( f, "touch_exp_mult \"%f\"\n", touch_exp_mult->value );
-		FS_Printf( f, "\n// grid settings\n" );
-		FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count->value );
-		FS_Printf( f, "touch_grid_enable \"%d\"\n", CVAR_TO_BOOL(touch_grid_enable));
-		FS_Printf( f, "\n// global overstroke (width, r, g, b, a)\n" );
-		FS_Printf( f, "touch_set_stroke %d %d %d %d %d\n", touch.swidth, touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] );
-		FS_Printf( f, "\n// highlight when pressed\n" );
-		FS_Printf( f, "touch_highlight_r \"%f\"\n", touch_highlight_r->value );
-		FS_Printf( f, "touch_highlight_g \"%f\"\n", touch_highlight_g->value );
-		FS_Printf( f, "touch_highlight_b \"%f\"\n", touch_highlight_b->value );
-		FS_Printf( f, "touch_highlight_a \"%f\"\n", touch_highlight_a->value );
-		FS_Printf( f, "\n// _joy and _dpad options\n" );
-		FS_Printf( f, "touch_dpad_radius \"%f\"\n", touch_dpad_radius->value );
-		FS_Printf( f, "touch_joy_radius \"%f\"\n", touch_joy_radius->value );
-		FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
-		FS_Printf( f, "touch_precise_amount \"%f\"\n", touch_precise_amount->value );
-		FS_Printf( f, "\n// enable/disable move indicator\n" );
-		FS_Printf( f, "touch_move_indicator \"%f\"\n", touch_move_indicator->value );
-
-		FS_Printf( f, "\n// reset menu state when execing config\n" );
-		FS_Printf( f, "touch_setclientonly 0\n" );
-		FS_Printf( f, "\n// touch buttons\n" );
-		FS_Printf( f, "touch_removeall\n" );
-
-		for( button = touch.list_user.first; button; button = button->next )
-		{
-			Touch_ExportButtonToConfig( f, button, false );
-		}
-
-		FS_Close( f );
-
 		FS_Delete( oldconfigfile );
 		FS_Rename( touch_config_file->string, oldconfigfile );
+
 		FS_Delete( touch_config_file->string );
 		FS_Rename( newconfigfile, touch_config_file->string );
 	}
-	else Con_Printf( S_ERROR "Couldn't write %s.\n", touch_config_file->string );
 }
 
 /*
@@ -303,8 +324,8 @@ export current touch configuration into profile
 */
 static void Touch_ExportConfig_f( void )
 {
-	file_t	*f;
 	const char *name;
+	string profilename, profilebase;
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -316,65 +337,15 @@ static void Touch_ExportConfig_f( void )
 
 	name = Cmd_Argv( 1 );
 
-	Con_Reportf( "Exporting config to %s\n", name );
-	f = FS_Open( name, "w", true );
-	if( f )
+	if( Q_strstr( name, "touch_presets/" ))
 	{
-		string profilename, profilebase;
-		touch_button_t *button;
-
-		if( Q_strstr( name, "touch_presets/" ) )
-		{
-			COM_FileBase( name, profilebase );
-			Q_snprintf( profilename, sizeof( profilebase ), "touch_profiles/%s (copy).cfg", profilebase );
-		}
-		else Q_strncpy( profilename, name, sizeof( profilename ));
-		FS_Printf( f, "//=======================================================================\n");
-		FS_Printf( f, "//\tCopyright FWGS & XashXT group %s (c)\n", Q_timestamp( TIME_YEAR_ONLY ));
-		FS_Printf( f, "//\t\t\ttouchscreen preset\n" );
-		FS_Printf( f, "//=======================================================================\n" );
-		FS_Printf( f, "\ntouch_config_file \"%s\"\n", profilename );
-		FS_Printf( f, "\n// touch cvars\n" );
-		FS_Printf( f, "\n// sensitivity settings\n" );
-		FS_Printf( f, "touch_pitch \"%f\"\n", touch_pitch->value );
-		FS_Printf( f, "touch_yaw \"%f\"\n", touch_yaw->value );
-		FS_Printf( f, "touch_forwardzone \"%f\"\n", touch_forwardzone->value );
-		FS_Printf( f, "touch_sidezone \"%f\"\n", touch_sidezone->value );
-		FS_Printf( f, "touch_nonlinear_look \"%d\"\n", CVAR_TO_BOOL(touch_nonlinear_look) );
-		FS_Printf( f, "touch_pow_factor \"%f\"\n", touch_pow_factor->value );
-		FS_Printf( f, "touch_pow_mult \"%f\"\n", touch_pow_mult->value );
-		FS_Printf( f, "touch_exp_mult \"%f\"\n", touch_exp_mult->value );
-		FS_Printf( f, "\n// grid settings\n" );
-		FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count->value );
-		FS_Printf( f, "touch_grid_enable \"%d\"\n", CVAR_TO_BOOL(touch_grid_enable) );
-		FS_Printf( f, "\n// global overstroke (width, r, g, b, a)\n" );
-		FS_Printf( f, "touch_set_stroke %d %d %d %d %d\n", touch.swidth, touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] );
-		FS_Printf( f, "\n// highlight when pressed\n" );
-		FS_Printf( f, "touch_highlight_r \"%f\"\n", touch_highlight_r->value );
-		FS_Printf( f, "touch_highlight_g \"%f\"\n", touch_highlight_g->value );
-		FS_Printf( f, "touch_highlight_b \"%f\"\n", touch_highlight_b->value );
-		FS_Printf( f, "touch_highlight_a \"%f\"\n", touch_highlight_a->value );
-		FS_Printf( f, "\n// _joy and _dpad options\n" );
-		FS_Printf( f, "touch_dpad_radius \"%f\"\n", touch_dpad_radius->value );
-		FS_Printf( f, "touch_joy_radius \"%f\"\n", touch_joy_radius->value );
-		FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
-		FS_Printf( f, "touch_precise_amount \"%f\"\n", touch_precise_amount->value );
-		FS_Printf( f, "\n// enable/disable move indicator\n" );
-		FS_Printf( f, "touch_move_indicator \"%f\"\n", touch_move_indicator->value );
-
-		FS_Printf( f, "\n// reset menu state when execing config\n" );
-		FS_Printf( f, "touch_setclientonly 0\n" );
-		FS_Printf( f, "\n// touch buttons\n" );
-		FS_Printf( f, "touch_removeall\n" );
-		for( button = touch.list_user.first; button; button = button->next )
-		{
-			Touch_ExportButtonToConfig( f, button, true );
-		}
-		FS_Printf( f, "\n// round button coordinates to grid\n" );
-		FS_Printf( f, "touch_roundall\n" );
-		FS_Close( f );
+		COM_FileBase( name, profilebase );
+		Q_snprintf( profilename, sizeof( profilebase ), "touch_profiles/%s (copy).cfg", profilebase );
 	}
-	else Con_Printf( S_ERROR "Couldn't write %s.\n", name );
+	else Q_strncpy( profilename, name, sizeof( profilename ));
+
+	Con_Reportf( "Exporting config to \"%s\", profile name \"%s\"\n", name, profilename );
+	Touch_DumpConfig( name, profilename );
 }
 
 /*
