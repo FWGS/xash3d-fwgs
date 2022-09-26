@@ -127,6 +127,9 @@ Official github repository - https://github.com/unknownworlds/NS
 ## Overturn
 Available in mod archive on ModDB - https://www.moddb.com/mods/overturn
 
+## Oz Deathmatch
+Mirrored on github - https://github.com/nekonomicon/OZDM
+
 ## Spirit of Half-Life
 [Logic&Trick's](https://github.com/LogicAndTrick) mirror - https://files.logic-and-trick.com/#/Half-Life/Mods/Spirit%20of%20Half-Life
 
