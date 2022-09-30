@@ -17,6 +17,7 @@ def configure(conf):
 
 def build(bld):
 	source = bld.path.ant_glob(['*.c'])
+	source += bld.path.ant_glob(['*.S'])
 	libs = []
 	includes = [ '.', '../common', '../engine' ]
 

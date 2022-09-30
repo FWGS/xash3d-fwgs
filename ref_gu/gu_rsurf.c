@@ -885,7 +885,7 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 	{
 		// clip the polygon.
 		gu_vert_t*	cv;
-		size_t		cvc;
+		int		cvc;
 
 		GU_Clip( &p->verts[0], p->numverts, &cv, &cvc );
 		if( cvc )
@@ -935,7 +935,7 @@ void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
 		{
 			// clip the polygon.
 			gu_vert_t*	cv;
-			size_t		cvc;
+			int		cvc;
 
 			GU_Clip( &p->verts[p->numverts], p->numverts, &cv, &cvc );
 			if( cvc ) sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, cvc, 0, cv );

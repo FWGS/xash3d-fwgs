@@ -34,12 +34,12 @@ typedef ScePspFVector4	plane_type;
 typedef plane_type	frustum_t[MAX_CPLANES];
 
 // Transformed frustum.
-static ScePspFMatrix4	projection_view_matrix __attribute__( ( aligned( 16 ) ) );
-static frustum_t	projection_view_frustum __attribute__( ( aligned( 16 ) ) );
-static frustum_t	clipping_frustum __attribute__( ( aligned( 16 ) ) );
+static ScePspFMatrix4	projection_view_matrix __attribute__(( aligned( 16 )));
+static frustum_t	projection_view_frustum __attribute__(( aligned( 16 )));
+static frustum_t	clipping_frustum __attribute__(( aligned( 16 )));
 
 // The temporary working buffers.
-static gu_vert_t	work_buffer[2][MAX_CLIPPED_VERTICES] __attribute__( ( aligned( 16 ) ) );
+static gu_vert_t	work_buffer[2][MAX_CLIPPED_VERTICES] __attribute__(( aligned( 16 )));
 
 /*
 =================
@@ -51,18 +51,18 @@ _inline void GU_ClipGetFrustum(const ScePspFMatrix4 *matrix, frustum_t* frustum)
 	__asm__ (
 		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
+		"vzero.q	C210\n"				// set zero vector
 		"lv.q		C100,  0(%4)\n"			// C000 = matrix->x
 		"lv.q		C110, 16(%4)\n"			// C010 = matrix->y
 		"lv.q		C120, 32(%4)\n"			// C020 = matrix->z
 		"lv.q		C130, 48(%4)\n"			// C030 = matrix->w
-		"vzero.q	C210\n"				// C000 = 0
 		"vadd.q		C000, R103, R101\n"		// C000 = R103 + R101                                   ( BOTTOM )
-		"vdot.q		S200, C000, C000\n"		// S110 = S100*S100 + S101*S101 + S102*S102 + S103*S103 ( BOTTOM )
 		"vadd.q		C010, R103, R100\n"		// C010 = R103 + R100                                   ( LEFT )
-		"vdot.q		S201, C010, C010\n"		// S110 = S100*S100 + S101*S101 + S102*S102 + S103*S103 ( LEFT )
 		"vsub.q		C020, R103, R100\n"		// C020 = R103 - R100                                   ( RIGHT )
-		"vdot.q		S202, C020, C020\n"		// S110 = S100*S100 + S101*S101 + S102*S102 + S103*S103 ( RIGHT )
 		"vsub.q		C030, R103, R101\n"		// C030 = R103 - R101                                   ( TOP )
+		"vdot.q		S200, C000, C000\n"		// S110 = S100*S100 + S101*S101 + S102*S102 + S103*S103 ( BOTTOM )
+		"vdot.q		S201, C010, C010\n"		// S110 = S100*S100 + S101*S101 + S102*S102 + S103*S103 ( LEFT )
+		"vdot.q		S202, C020, C020\n"		// S110 = S100*S100 + S101*S101 + S102*S102 + S103*S103 ( RIGHT )
 		"vdot.q		S203, C030, C030\n"		// S110 = S100*S100 + S101*S101 + S102*S102 + S103*S103 ( TOP )
 		"vcmp.q		EZ,   C200\n"			// CC[0] = ( C200 == 0.0f )
 		"vrsq.q		C200, C200\n"			// C200 = 1.0 / sqrt( C200 )
@@ -245,37 +245,34 @@ GU_ClipIsRequired
 Is clipping required?
 =================
 */
-qboolean GU_ClipIsRequired( const gu_vert_t* v, size_t vc )
+int GU_ClipIsRequired( gu_vert_t* uv, int uvc )
 {
-	int res;
+	int		result = 1;
+	gu_vert_t	*uv_end = uv + ( uvc - 1 );
+
 	__asm__ (
 		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
-		"move		$8,   %1\n"			// $8 = &v[0]
-		"move		$9,   %2\n"			// $9 = vc
-		"li		$10,  20\n"			// $10 = 20( sizeof( gu_vert_t ) )
-		"mul		$10,  $10,  $9\n"		// $10 = $10 * $9
-		"addu		$10,  $10,  $8\n"		// $10 = $10 + $8
-		"addiu		%0,   $0,   1\n"		// res = 1
 		"vzero.q	C600\n"				// C600 = [0.0f, 0.0f, 0.0f. 0.0f]
 	"0:\n"							// loop
-		"lv.s		S610,  8($8)\n"			// S610 = v[i].xyz[0]
-		"lv.s		S611,  12($8)\n"		// S611 = v[i].xyz[1]
-		"lv.s		S612,  16($8)\n"		// S612 = v[i].xyz[2]
+		"lv.s		S610,  8(%1)\n"			// S610 = v[i].xyz[0]
+		"lv.s		S611,  12(%1)\n"		// S611 = v[i].xyz[1]
+		"lv.s		S612,  16(%1)\n"		// S612 = v[i].xyz[2]
 		"vhtfm4.q	C620, M700, C610\n"		// C620 = frustrum * v[i].xyz
 		"vcmp.q		LT,   C620, C600\n"		// S620 < 0.0f || S621 < 0.0f || S622 < 0.0f || S623 < 0.0f
 		"bvt		4,    1f\n"			// if ( CC[4] == 1 ) jump to exit
-		"addiu		$8,   $8,   20\n"		// $8 = $8 + 20( sizeof( gu_vert_t ) )	( delay slot )
-		"bne		$10,  $8,   0b\n"		// if ( $10 != $8 ) jump to loop
 		"nop\n"						// 								( delay slot )
+		"bne		%1,   %2,   0b\n"		// if ( $10 != $8 ) jump to loop
+		"addiu		%1,   %1,   %3\n"		// $8 = $8 + sizeof( gu_vert_t )				( delay slot )
 		"move		%0,   $0\n"			// res = 0
 	"1:\n"							// exit
 		".set		pop\n"				// Restore assembler option
-		:	"=r"( res )
-		:	"r"( v ), "r"( vc )
-		:	"$8", "$9", "$10"
+		:	"=r"( result ), "+r"( uv )
+		:	"r"( uv_end ),
+			"n"(sizeof( gu_vert_t ))
+		:	"$8"
 	);
-	return res;
+	return result;
 }
 
 /*
@@ -285,105 +282,78 @@ GU_Clip2Plane
 Clips a polygon against a plane.
 =================
 */
-_inline void GU_Clip2Plane( plane_type *plane, gu_vert_t *uv, size_t uvc, gu_vert_t *cv, size_t *cvc )
+_inline void GU_Clip2Plane( plane_type *plane, gu_vert_t *uv, int uvc, gu_vert_t *cv, int *cvc )
 {
+	gu_vert_t	*uv_end = uv + ( uvc - 1 );
+	gu_vert_t	*cv_start = cv;
+
 	__asm__ (
 		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
-		"move		$8,   %1\n"			// $8 = uv[0] is S
-		"addiu		$9,   $8,   20\n" 		// $9 = uv[1] is P
-		"move		$10,  %2\n"			// $10 = uvc
-		"li		$11,  20\n"			// $11 = 20( sizeof( gu_vert_t ) )
-		"mul		$11,  $11,  $10\n"		// $11 = $11 * $10
-		"addu		$11,  $11,  $8\n"		// $11 = $11 + $8
-		"move		$12,  %3\n"			// $12 = &cv[0]
-		"move		%0,   $0\n"			// cvc = 0
-		"ulv.q		C100, %4\n"			// Load plane into register
-		"vzero.s	S110\n"				// Set zero for cmp
-	"0:\n"							// loop
-		"lv.s		S000,  0($8)\n"			// Load vertex S TEX(4b) U into register
-		"lv.s		S001,  4($8)\n"			// Load vertex S TEX(4b) V into register
-		"lv.s		S010,  8($8)\n"			// Load vertex S XYZ(4b) X into register
-		"lv.s		S011,  12($8)\n"		// Load vertex S XYZ(4b) Y into register
-		"lv.s		S012,  16($8)\n"		// Load vertex S XYZ(4b) Z into register
-		"lv.s		S020,  0($9)\n"			// Load vertex P TEX(4b) U into register
-		"lv.s		S021,  4($9)\n"			// Load vertex P TEX(4b) V into register
-		"lv.s		S030,  8($9)\n"			// Load vertex P XYZ(4b) X into register
-		"lv.s		S031,  12($9)\n"		// Load vertex P XYZ(4b) Y into register
-		"lv.s		S032,  16($9)\n"		// Load vertex P XYZ(4b) Z into register
-		"vhdp.q		S111, C010, C100\n"		// S111 = plane * S (S DIST)
-		"vhdp.q		S112, C030, C100\n"		// S112 = plane * P (P DIST)
-		"vcmp.s		LE,   S111, S110\n"		// (S dist <= 0.0f)
-		"bvt		0,    2f\n"			// if ( CC[0] == 1 ) jump to 2f
-		"nop\n"						// 								( delay slot )
-		"vcmp.s		LE,   S112, S110\n"		// (P dist <= 0.0f)
-		"bvt		0,    1f\n"			// if ( CC[0] == 1 ) jump to 1f
-		"nop\n"						// 								( delay slot )
-		"sv.s		S020,  0($12)\n"		// cv->uv[0]  = C020 TEX U
-		"sv.s		S021,  4($12)\n"		// cv->uv[1]  = C021 TEX V
-		"sv.s		S030,  8($12)\n"		// cv->xyz[0] = C030 XYZ X
-		"sv.s		S031, 12($12)\n"		// cv->xyz[1] = C031 XYZ Y
-		"sv.s		S032, 16($12)\n"		// cv->xyz[2] = C032 XYZ Z
-		"addiu		$12,  $12,  20\n"		// $12 = $12 + 20( sizeof( gu_vert_t ) )
-		"j		3f\n"				// jump to next
-		"addiu		%0,   %0,	1\n"		// cvc += 1							( delay slot )
-	"1:\n"
-		"vsub.s		S112, S111, S112\n"		// S112 = ( S dist - P dist )
-		"vdiv.s		S112, S111, S112\n"		// S112 = S111 / S112
-		"vsub.p		C120, C020, C000\n"		// C120 = C020(P TEX) - C000(S TEX)
-		"vsub.t		C130, C030, C010\n"		// C130 = C030(P XYZ) - C010(S XYZ)
-		"vscl.p		C120, C120, S112\n"		// C120 = C020 * S112
-		"vscl.t		C130, C130, S112\n"		// C130 = C030 * S112
-		"vadd.p		C120, C120, C000\n"		// C120 = C120 + C000(S TEX)
-		"vadd.t		C130, C130, C010\n"		// C130 = C130 + C010(S XYZ)
-		"sv.s		S120,  0($12)\n"		// cv->uv[0]  = S120 TEX U
-		"sv.s		S121,  4($12)\n"		// cv->uv[1]  = S121 TEX V
-		"sv.s		S130,  8($12)\n"		// cv->xyz[0] = S130 XYZ X
-		"sv.s		S131, 12($12)\n"		// cv->xyz[1] = S131 XYZ Y
-		"sv.s		S132, 16($12)\n"		// cv->xyz[2] = S132 XYZ Z
-		"addiu		$12,  $12,  20\n"		// $12 = $12 + 20( sizeof( gu_vert_t ) )
-		"j		3f\n"				// jump to next
-		"addiu		%0,   %0,	1\n"		// cvc += 1							( delay slot )
-	"2:\n"
-		"vcmp.s		LE,   S112, S110\n"		// (P dist <= 0.0f)
-		"bvt		0,    3f\n"			// if ( CC[0] == 1 ) jump to next
-		"nop\n"						// 								( delay slot )
-		"vsub.s		S112, S111, S112\n"		// S112 = ( S dist - P dist )
-		"vdiv.s		S112, S111, S112\n"		// S112 = S111 / S112
-		"vsub.p		C120, C020, C000\n"		// C120 = C020(P TEX) - C000(S TEX)
-		"vsub.t		C130, C030, C010\n"		// C130 = C030(P XYZ) - C010(S XYZ)
-		"vscl.p		C120, C120, S112\n"		// C120 = C020 * S112
-		"vscl.t		C130, C130, S112\n"		// C130 = C030 * S112
-		"vadd.p		C120, C120, C000\n"		// C120 = C120 + C000(S TEX)
-		"vadd.t		C130, C130, C010\n"		// C130 = C130 + C010(S XYZ)
-		"sv.s		S120,  0($12)\n"		// cv->uv[0]  = S120 TEX U
-		"sv.s		S121,  4($12)\n"		// cv->uv[1]  = S121 TEX V
-		"sv.s		S130,  8($12)\n"		// cv->xyz[0] = S130 XYZ X
-		"sv.s		S131, 12($12)\n"		// cv->xyz[1] = S131 XYZ Y
-		"sv.s		S132, 16($12)\n"		// cv->xyz[2] = S132 XYZ Z
-		"addiu		$12,  $12,  20\n"		// $12 = $12 + 20( sizeof( gu_vert_t ) )
-		"addiu		%0,   %0,	1\n"		// cvc += 1
-		"sv.s		S020,  0($12)\n"		// cv->uv[0]  = S020 TEX U
-		"sv.s		S021,  4($12)\n"		// cv->uv[1]  = S021 TEX V
-		"sv.s		S030,  8($12)\n"		// cv->xyz[0] = S030 XYZ X
-		"sv.s		S031, 12($12)\n"		// cv->xyz[1] = S031 XYZ Y
-		"sv.s		S032, 16($12)\n"		// cv->xyz[2] = S032 XYZ Z
-		"addiu		$12,  $12,  20\n"		// $12 = $12 + 20( sizeof( gu_vert_t ) )
-		"addiu		%0,   %0,	1\n"		// cvc += 1
-	"3:\n"							// next
-		"addiu		$8,   $8,   20\n"		// $8 = $8 + 20( sizeof( gu_vert_t ) )
-		"addiu		$9,   $8,   20\n" 		// $9 = $8 + 20( sizeof( gu_vert_t ) )
-		"bne		$9,   $11,  4f\n"		// if ( $11 != $9 ) jump to next
+		"vzero.q	C000\n"				// set zero vector
+		"lv.q		C010,  0(%3)\n"			// plane
+		"lv.s		S200,  8(%2)\n"			// Load vertex P XYZ(4b) X into register
+		"lv.s		S201, 12(%2)\n"			// Load vertex P XYZ(4b) Y into register
+		"lv.s		S202, 16(%2)\n"			// Load vertex P XYZ(4b) Z into register
+		"lv.s		S210,  0(%2)\n"			// Load vertex P TEX(4b) U into register
+		"lv.s		S211,  4(%2)\n"			// Load vertex P TEX(4b) V into register
+		"vhdp.q		S212, C200, C010\n"		// distance P  -> dP
+	"0:\n"
+		"lv.s		S220,  8(%1)\n"			// Load vertex S XYZ(4b) X into register
+		"lv.s		S221, 12(%1)\n"			// Load vertex S XYZ(4b) Y into register
+		"lv.s		S222, 16(%1)\n"			// Load vertex S XYZ(4b) Z into register
+		"lv.s		S230,  0(%1)\n"			// Load vertex S TEX(4b) U into register
+		"lv.s		S231,  4(%1)\n"			// Load vertex S TEX(4b) V into register
+		"vhdp.q		S232, C220, C010\n"		// distance S -> dS
+		"vcmp.s		GT, S212, S000\n"		// if (dP <= 0)
+		"bvf		0, 1f\n"			// goto 1:
 		"nop\n"
-		"move		$9,   %1\n"			// $9 = &uv[0] set P
-	"4:\n"
-		"bne		$11,  $8,   0b\n"		// if ( $11 != $8 ) jump to loop
-		"nop\n"						// 								( delay slot )
-		".set		pop\n"				// Restore assembler option
-		:	"+r"( *cvc )
-		:	"r"( uv ), "r"( uvc ), "r"( cv ), "m"( *plane )
-		:	"$8", "$9", "$10", "$11", "$12"
-	);
+		"sv.s		S210,  0(%0)\n"			// cv->uv[0]  = C020 U
+		"sv.s		S211,  4(%0)\n"			// cv->uv[1]  = C021 V
+		"sv.s		S200,  8(%0)\n"			// cv->xyz[0] = C030 X
+		"sv.s		S201, 12(%0)\n"			// cv->xyz[1] = C031 Y
+		"sv.s		S202, 16(%0)\n"			// cv->xyz[2] = C032 Z
+		"addiu		%0, %0, 20\n"
+	"1:\n"
+		"vmul.s		S020, S232, S212\n"		// (dS * dP)
+		"vcmp.s		LT, S020, S000\n"		// if (dS * dP < 0)
+		"bvf		0, 2f\n"			// goto 2:
+		"vsub.s		S021, S232, S212\n"		// (dS - dP)
+		"vrcp.s		S021, S021\n"
+		"vmul.s		S021, S021, S232\n"		// R = dS / ( dS - dP )
+#if 0
+		"vsub.t		C200, C220, C200\n"		// (S - P) XYZ
+		"vsub.p		C210, C230, C210\n"		// (S - P) UV
+		"vscl.t		C200, C200, S021\n"		// ((S - P) * R) XYZ
+		"vscl.p		C210, C210, S021\n"		// ((S - P) * R) UV
+		"vsub.t		C200, C220, C200\n"		// (S - (S - P) * R) XYZ
+		"vsub.p		C210, C230, C210\n"		// (S - (S - P) * R) UV
+#else
+		"vsub.t		C200, C200, C220\n"		// (P - S) XYZ
+		"vsub.p		C210, C210, C230\n"		// (P - S) UV
+		"vscl.t		C200, C200, S021\n"		// ((P - S) * R) XYZ
+		"vscl.p		C210, C210, S021\n"		// ((P - S) * R) UV
+		"vadd.t		C200, C220, C200\n"		// (S + (P - S) * R) XYZ
+		"vadd.p		C210, C230, C210\n"		// (S + (P - S) * R) UV
+#endif
+		"sv.s		S210,  0(%0)\n"			// cv->uv[0]  = S210 U
+		"sv.s		S211,  4(%0)\n"			// cv->uv[1]  = S211 V
+		"sv.s		S200,  8(%0)\n"			// cv->xyz[0] = S200 X
+		"sv.s		S201, 12(%0)\n"			// cv->xyz[1] = S201 Y
+		"sv.s		S202, 16(%0)\n"			// cv->xyz[2] = S202 Z
+		"addiu		%0, %0, %4\n"			// cv + sizeof(gu_vert_t)
+	"2:\n"
+		"vmov.t		C200, C220\n"			// P = S XYZ
+		"vmov.t		C210, C230\n"			// P = S UV and dS
+		"bne		%1, %2, 0b\n"			// if (uv != uv_end) goto 0:
+		"addiu		%1, %1, %4\n"			// uv + sizeof(gu_vert_t)						( delay slot )
+		".set		pop\n"				// suppress reordering
+		:	"+r"( cv ), "+r"( uv )
+		:	"r"( uv_end ), "r"( plane ),
+			"n"( sizeof( gu_vert_t ))
+		:	"memory"
+	) ;
+	*cvc = ( cv - cv_start );
 }
 
 /*
@@ -393,9 +363,9 @@ GU_Clip
 Clips a polygon against the frustum
 =================
 */
-void GU_Clip( gu_vert_t *uv, size_t uvc, gu_vert_t **cv, size_t* cvc )
+void GU_Clip( gu_vert_t *uv, int uvc, gu_vert_t **cv, int* cvc )
 {
-	size_t	vc;
+	size_t		vc;
 
 	if ( !uvc )	// no vertices to clip?
 		gEngfuncs.Host_Error( "GU_Clip: calling clip with zero vertices!" );
@@ -411,6 +381,6 @@ void GU_Clip( gu_vert_t *uv, size_t uvc, gu_vert_t **cv, size_t* cvc )
 	if ( !vc ) return;
 	*cv = extGuBeginPacket( NULL ); // uncached
 	GU_Clip2Plane( &clipping_frustum[CPLANE_TOP],    work_buffer[0], vc, *cv, cvc );
-	if ( !cvc ) return;
+	if (!( *cvc )) return;
 	extGuEndPacket(( void * )( *cv + *cvc ));
 }

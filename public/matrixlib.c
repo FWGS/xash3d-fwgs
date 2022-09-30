@@ -529,16 +529,16 @@ void Matrix3x4_TransformPositivePlane( const matrix3x4 in, const vec3_t normal, 
 	__asm__ (
 		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
+		"mfc1		$8, %4\n"			// FPU->CPU 
+		"mtv		$8, S210\n"			// CPU->VFPU S210 = d
 		"lv.q		C100,  0 + %2\n"		// C100 = in[0]
 		"lv.q		C110, 16 + %2\n"		// C110 = in[1]
 		"lv.q		C120, 32 + %2\n"		// C120 = in[2]
 		"lv.s		S200,  0 + %3\n"		// S200 = normal[0]
 		"lv.s		S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s		S202,  8 + %3\n"		// S202 = normal[2]
-		"lv.s		S210, %4\n"				// S210 = d
 		"vdot.t		S211, C100, C100\n"		// S211 = C100 * C100
-		"vsqrt.s	S211, S211\n"			// S211 = sqrt( S211 )
-		"vrcp.s		S212, S211\n"			// S212 = 1 / S211
+		"vrsq.s		S211, S211\n"			// S211 = 1 / sqrt( S211 )
 		"vtfm3.t	C000, M100, C200\n"		// C000 = M100 * C200
 		"vscl.t		C000, C000, S212\n"		// C000 = C000 * S211
 		"vmul.s		S003, S210, S211\n"		// S003 = S210 * S211
@@ -550,7 +550,8 @@ void Matrix3x4_TransformPositivePlane( const matrix3x4 in, const vec3_t normal, 
 		"sv.s		S003, %1\n"			// dist = S003
 		".set		pop\n"				// restore assembler option
 		: "=m"( *out ), "=m"( *dist )
-		: "m"( *in ), "m"( *normal ), "m"( d )
+		: "m"( *in ), "m"( *normal ), "f"( d )
+		: "$8"
 	);
 #else
 	float	scale = sqrt( in[0][0] * in[0][0] + in[0][1] * in[0][1] + in[0][2] * in[0][2] );
@@ -1172,16 +1173,16 @@ void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, 
 	__asm__ (
 		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
+		"mfc1		$8, %4\n"			// FPU->CPU 
+		"mtv		$8, S210\n"			// CPU->VFPU S210 = d
 		"lv.q		C100,  0 + %2\n"		// C100 = in[0]
 		"lv.q		C110, 16 + %2\n"		// C110 = in[1]
 		"lv.q		C120, 32 + %2\n"		// C120 = in[2]
 		"lv.s		S200,  0 + %3\n"		// S200 = normal[0]
 		"lv.s		S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s		S202,  8 + %3\n"		// S202 = normal[2]
-		"lv.s		S210, %4\n"			// S210 = d
 		"vdot.t		S211, C100, C100\n"		// S211 = C100 * C100
-		"vsqrt.s	S211, S211\n"			// S211 = sqrt( S211 )
-		"vrcp.s		S212, S211\n"			// S212 = 1 / S211
+		"vrsq.s		S211, S211\n"			// S211 = 1 / sqrt( S211 )
 		"vtfm3.t	C000, M100, C200\n"		// C000 = M100 * C200
 		"vscl.t		C000, C000, S212\n"		// C000 = C000 * S211
 		"vmul.s		S003, S210, S211\n"		// S003 = S210 * S211
@@ -1193,7 +1194,8 @@ void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, 
 		"sv.s		S003, %1\n"			// dist = S003
 		".set		pop\n"				// restore assembler option
 		: "=m"( *out ), "=m"( *dist )
-		: "m"( *in ), "m"( *normal ), "m"( d )
+		: "m"( *in ), "m"( *normal ), "f"( d )
+		: "$8"
 	);
 #else
 	float	scale = sqrt( in[0][0] * in[0][0] + in[0][1] * in[0][1] + in[0][2] * in[0][2] );
@@ -1212,16 +1214,16 @@ void Matrix4x4_TransformStandardPlane( const matrix4x4 in, const vec3_t normal, 
 	__asm__ (
 		".set		push\n"				// save assembler option
 		".set		noreorder\n"			// suppress reordering
+		"mfc1		$8, %4\n"			// FPU->CPU 
+		"mtv		$8, S210\n"			// CPU->VFPU S210 = d
 		"lv.q		C100,  0 + %2\n"		// C100 = in[0]
 		"lv.q		C110, 16 + %2\n"		// C110 = in[1]
 		"lv.q		C120, 32 + %2\n"		// C120 = in[2]
 		"lv.s		S200,  0 + %3\n"		// S200 = normal[0]
 		"lv.s		S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s		S202,  8 + %3\n"		// S202 = normal[2]
-		"lv.s		S210, %4\n"			// S210 = d
 		"vdot.t		S211, C100, C100\n"		// S211 = C100 * C100
-		"vsqrt.s	S211, S211\n"			// S211 = sqrt( S211 )
-		"vrcp.s		S212, S211\n"			// S212 = 1 / S211
+		"vrsq.s		S211, S211\n"			// S211 = 1 / sqrt( S211 )
 		"vtfm3.t	C000, M100, C200\n"		// C000 = M100 * C200
 		"vscl.t		C000, C000, S212\n"		// C000 = C000 * S211
 		"vmul.s		S003, S210, S211\n"		// S003 = S210 * S211
@@ -1233,7 +1235,8 @@ void Matrix4x4_TransformStandardPlane( const matrix4x4 in, const vec3_t normal, 
 		"sv.s		S003, %1\n"			// dist = S003
 		".set		pop\n"				// restore assembler option
 		: "=m"( *out ), "=m"( *dist )
-		: "m"( *in ), "m"( *normal ), "m"( d )
+		: "m"( *in ), "m"( *normal ), "f"( d )
+		: "$8"
 	);
 #else
 	float scale = sqrt( in[0][0] * in[0][0] + in[0][1] * in[0][1] + in[0][2] * in[0][2] );

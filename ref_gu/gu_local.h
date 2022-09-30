@@ -694,8 +694,8 @@ void GU_ClipBeginFrame( void );
 void GU_ClipBeginBrush( void );
 void GU_ClipEndBrush( void );
 void GU_ClipLoadFrustum( const mplane_t *plane ); // Experimental
-qboolean GU_ClipIsRequired( const gu_vert_t* v, size_t vc );
-void GU_Clip( gu_vert_t *uv, size_t uvc, gu_vert_t **cv, size_t* cvc );
+int GU_ClipIsRequired( gu_vert_t* uv, int uvc );
+void GU_Clip( gu_vert_t *uv, int uvc, gu_vert_t **cv, int* cvc );
 
 /*
 =======================================================================

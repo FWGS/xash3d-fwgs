@@ -427,7 +427,7 @@ void R_DrawSkyBox( void )
 		if ( GU_ClipIsRequired( uv, 4 ) )
 		{
 			gu_vert_t*	cv;
-			size_t		cvc;
+			int		cvc;
 
 			GU_Clip( uv, 4, &cv, &cvc );
 			if( cvc ) sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, cvc, 0, cv );
@@ -846,7 +846,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 		{
 			// Clip the polygon.
 			gu_vert_t*	cv;
-			size_t		cvc;
+			int		cvc;
 
 			GU_Clip( out, p->numverts, &cv, &cvc );
 			if( cvc ) sceGuDrawArray( GU_TRIANGLE_FAN, GU_TEXTURE_32BITF | GU_VERTEX_32BITF, cvc, 0, cv );
