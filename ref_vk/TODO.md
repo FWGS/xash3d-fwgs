@@ -1,64 +1,34 @@
-# Parallel frames
-- [ ] allocate for N frames:
-	- [x] geometries
-	- [-] rt models
-		- [-] kusochki
-		  - [x] same ring buffer alloc as for geometries
-		    - [x] extract as a unit
-		- [ ] tlas geom --//--
-	- [ ] lights
-		- [x] make metadata buffer in lights
-		- [ ] join lights grid+meta into a single buffer
-		- [ ] put lights data into a cpu-side vk buffer
-		- [ ] sync+barrier upload
+# Programmable render
+- [ ] parse spirv -> get bindings with names
+  - [ ] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
+	- [ ] unnamed uniform blocks are uncomfortable to parse.
+- [ ] passes "export" their bindings as detailed resource descriptions:
+  - [ ] images: name, r/w, format, resolution (? not found in spv, needs to be externally supplied)
+	- [ ] buffers: name, r/w, size, type name (?)
+- [ ] name -> index resolver (hashmap kekw)
+- [ ] automatic creation of resources
+	- [ ] images
+	- [ ] buffers
+- [ ] implicit dependency tracking. pass defines:
+	- [ ] imports: list of things it needs
+	- [ ] exports: list of things it produces. those get created and registered with this pass as a producer
 
-- scratch buffer:
-  - should be fine (assuming intra-cmdbuf sync), contents lifetime is single frame only
-- accels_buffer:
-  - lifetime: multiple frames; dynamic: some b/tlases get rebuilt every frame
-  - opt 1: double buffering
-  - opt 2: intra-cmdbuf sync (can't write unless previous frame is done)
-- uniform_buffer:
-  - lifetime: single frame
-- tlas_geom_buffer:
-  - similar to scratch_buffer
-  - BUT: filled on CPU, so it's not properly synchronsized
-  - fix: upload using staging? double/ring buffering?
-- light_grid_buffer (+ small lights_buffer):
+# Parallel frames sync
+- [ ] light_grid_buffer (+ small lights_buffer):
   - lifetime: single frame
   - BUT: populated by CPU, needs sync; can't just ring-buffer it
   - fixes: double-buffering?
     - staging + sync upload? staging needs to be huge or done in chunks. also, cpu needs to wait on staging upload
 	- 2x size + wait: won't fit into device-local-host-visible mem
 	- decrease size first?
-- kusochki_buffer:
-  - lifetime: multiple frames
-  - ? who uploads?
-  - fix: ring-buffer?
-- models_cache
+- [ ] models_cache
   - lifetimes:
     - static; entire map
 	- static; single to multiple frames
 	- dynamic; multiple frames
   - : intra-cmdbuf
 
-
-// O. 1 buffer i bardak v nyom
-// - [SSSSAAS.SBAS....]
-// - can become extremely fragmented
-
-// I. 2 buffer + bit indirection
-// - lives longer than 2 frames [SSS.SSS..SS.....]
-// - dynamic [AAAAA->.....<-BBBBBB]
-// - high bits in shader point to buffer
-
-// II. 1 buffer bi-directional
-// - [SSS.SS..S...|AAAABBBB->...]
-//    ^ - long-living "static" stuff
-//                 ^ - dynamic ring buffer
-// - [SSS.SS..S.|.....<-AAAABBBB] (dynamic split)
-
-# Passes
+# Multipass + Sampling
 - [ ] better simple sampling
 	- [x] all triangles
 	- [x] area based on triangles
@@ -466,3 +436,30 @@
 - [x] rtx: cull light sources (dlights and light textures) using bsp
 - [-] crash in PM_RecursiveHullCheck. havent seen this in a while
 - [x] rtx: remove lbsp
+
+## 2022-09-17 E207 Parallel frames
+- [x] allocate for N frames:
+	- [x] geometries
+	- [x] rt models
+		- [x] kusochki
+		  - [x] same ring buffer alloc as for geometries
+		    - [x] extract as a unit
+		- [x] tlas geom --//--
+	- [-] lights
+		- [x] make metadata buffer in lights
+		- [-] join lights grid+meta into a single buffer => pipeline loading issues
+		- [x] put lights data into a cpu-side vk buffer
+		- [-] sync+barrier upload => TOO BIG AND TOO SLOW, need to e.g. track dirty regions, compactify stuff (many clusters are the same), etc
+- [x] scratch buffer:
+  - should be fine (assuming intra-cmdbuf sync), contents lifetime is single frame only
+- [x] accels_buffer:
+  - ~~[ ] lifetime: multiple frames; dynamic: some b/tlases get rebuilt every frame~~
+  - ~~[ ] opt 1: double buffering~~
+  - [x] opt 2: intra-cmdbuf sync (can't write unless previous frame is done)
+- [x] uniform_buffer:
+  - lifetime: single frame
+- [x] tlas_geom_buffer:
+  - similar to scratch_buffer
+  - BUT: filled on CPU, so it's not properly synchronsized
+  - fix: upload using staging?
+	- [x] double/ring buffering
