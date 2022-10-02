@@ -67,9 +67,6 @@ build_appimage()
 	./waf install --destdir="$APPDIR" || die
 
 	cp SDL2_linux/lib/libSDL2-2.0.so.0 "$APPDIR/"
-	if [ "$ARCH" = "i386" ]; then
-		cp 3rdparty/vgui_support/vgui-dev/lib/vgui.so "$APPDIR/"
-	fi
 
 	cat > "$APPDIR"/AppRun << 'EOF'
 #!/bin/sh
