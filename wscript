@@ -106,7 +106,7 @@ def options(opt):
 		help = 'disable opengl renderer [default: %default]')
 
 	grp.add_option('--disable-soft', action='store_false', dest='SOFT', default=True,
-		help = 'disable opengl renderer [default: %default]')
+		help = 'disable soft renderer [default: %default]')
 
 	grp = opt.add_option_group('Utilities options')
 
@@ -351,7 +351,7 @@ int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
 
 	# indicate if we are packaging for Linux/BSD
 	if conf.options.PACKAGING:
-		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
+		conf.env.LIBDIR = conf.env.BINDIR = conf.env.LIBDIR + '/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
 		if sys.platform != 'win32' and not conf.env.DEST_OS == 'android':
