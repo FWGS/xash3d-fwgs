@@ -47,6 +47,7 @@ SUBDIRS = [
 	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and x.env.SOFT),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
+	Subproject('3rdparty/openvgui',     lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
 	Subproject('game_launch',           lambda x: not x.env.SINGLE_BINARY and x.env.DEST_OS != 'android'),
 
