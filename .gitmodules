@@ -19,3 +19,6 @@
 [submodule "3rdparty/xash-extras"]
 	path = 3rdparty/extras/xash-extras
 	url = https://github.com/FWGS/xash-extras
+[submodule "3rdparty/openvgui"]
+	path = 3rdparty/openvgui
+	url = https://github.com/FWGS/openvgui
