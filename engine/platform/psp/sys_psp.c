@@ -73,24 +73,7 @@ static int Platform_SetupCallbacks( void )
 #if XASH_TIMER == TIMER_PSP
 double Platform_DoubleTime( void )
 {
-/*
-	static u64 start_ticks;
-	static qboolean timer_init = false;
-	u64 current_ticks;
-
-	if ( !timer_init )
-	{
-		sceRtcGetCurrentTick( &start_ticks );
-		timer_init = true;
-	}
-	sceRtcGetCurrentTick( &current_ticks );
-
-	return ( current_ticks - start_ticks ) * 0.000001;
-*/
-	u64 current_ticks;
-	sceRtcGetCurrentTick( &current_ticks );
-
-	return ( double )current_ticks * 0.000001;
+	return ( double )sceKernelGetSystemTimeWide() * 0.000001; // microseconds to seconds
 }
 
 void Platform_Sleep( int msec )
