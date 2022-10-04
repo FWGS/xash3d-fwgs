@@ -538,7 +538,8 @@ void Matrix3x4_TransformPositivePlane( const matrix3x4 in, const vec3_t normal, 
 		"lv.s		S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s		S202,  8 + %3\n"		// S202 = normal[2]
 		"vdot.t		S211, C100, C100\n"		// S211 = C100 * C100
-		"vrsq.s		S211, S211\n"			// S211 = 1 / sqrt( S211 )
+		"vsqrt.s	S211, S211\n"			// S211 = sqrt( S211 )
+		"vrcp.s		S212, S211\n"			// S212 = 1 / S211
 		"vtfm3.t	C000, M100, C200\n"		// C000 = M100 * C200
 		"vscl.t		C000, C000, S212\n"		// C000 = C000 * S211
 		"vmul.s		S003, S210, S211\n"		// S003 = S210 * S211
@@ -1182,7 +1183,8 @@ void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, 
 		"lv.s		S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s		S202,  8 + %3\n"		// S202 = normal[2]
 		"vdot.t		S211, C100, C100\n"		// S211 = C100 * C100
-		"vrsq.s		S211, S211\n"			// S211 = 1 / sqrt( S211 )
+		"vsqrt.s	S211, S211\n"			// S211 = sqrt( S211 )
+		"vrcp.s		S212, S211\n"			// S212 = 1 / S211
 		"vtfm3.t	C000, M100, C200\n"		// C000 = M100 * C200
 		"vscl.t		C000, C000, S212\n"		// C000 = C000 * S211
 		"vmul.s		S003, S210, S211\n"		// S003 = S210 * S211
@@ -1223,7 +1225,8 @@ void Matrix4x4_TransformStandardPlane( const matrix4x4 in, const vec3_t normal, 
 		"lv.s		S201,  4 + %3\n"		// S201 = normal[1]
 		"lv.s		S202,  8 + %3\n"		// S202 = normal[2]
 		"vdot.t		S211, C100, C100\n"		// S211 = C100 * C100
-		"vrsq.s		S211, S211\n"			// S211 = 1 / sqrt( S211 )
+		"vsqrt.s	S211, S211\n"			// S211 = sqrt( S211 )
+		"vrcp.s		S212, S211\n"			// S212 = 1 / S211
 		"vtfm3.t	C000, M100, C200\n"		// C000 = M100 * C200
 		"vscl.t		C000, C000, S212\n"		// C000 = C000 * S211
 		"vmul.s		S003, S210, S211\n"		// S003 = S210 * S211
