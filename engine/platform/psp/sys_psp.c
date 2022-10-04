@@ -46,8 +46,8 @@ static int Platform_CallbackThread( SceSize args, void *argp )
 {
 	int cbid;
 
-	cbid = sceKernelCreateCallback( "Exit Callback", Platform_ExitCallback, NULL );
-	sceKernelRegisterExitCallback( cbid );
+	//cbid = sceKernelCreateCallback( "Exit Callback", Platform_ExitCallback, NULL );
+	//sceKernelRegisterExitCallback( cbid );
 
 	cbid = sceKernelCreateCallback( "Power Callback", Platform_PowerCallback, NULL );
 	scePowerRegisterCallback( 0, cbid );

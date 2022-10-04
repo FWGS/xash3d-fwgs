@@ -20,45 +20,48 @@ GNU General Public License for more details.
 #if XASH_INPUT == INPUT_PSP
 #include <pspctrl.h>
 
-#define PSP_MAX_KEYS 12
+#define PSP_MAX_KEYS	sizeof(psp_keymap) / sizeof(struct psp_keymap_s)
+#define PSP_EXT_KEY	PSP_CTRL_HOME
 
 convar_t *psp_deadzone_min;
 convar_t *psp_deadzone_max;
 
 static struct psp_keymap_s
 {
-	unsigned int	srckey;
-	int				dstkey;
+	int		srckey;
+	int		dstkey;
+	qboolean	stdpressed;
+	qboolean	extpressed;
 }psp_keymap[] =
 {
 #if 0
-	{ PSP_CTRL_SELECT,   '~'          },
-	{ PSP_CTRL_START,    K_ESCAPE     },
-	{ PSP_CTRL_UP,       K_UPARROW    },
-	{ PSP_CTRL_RIGHT,    K_RIGHTARROW },
-	{ PSP_CTRL_DOWN,     K_DOWNARROW  },
-	{ PSP_CTRL_LEFT,     K_LEFTARROW  },
-	{ PSP_CTRL_LTRIGGER, K_JOY1       },
-	{ PSP_CTRL_RTRIGGER, K_JOY2       },
-	{ PSP_CTRL_TRIANGLE, K_SHIFT      },
-	{ PSP_CTRL_CIRCLE,   K_SPACE      },
-	{ PSP_CTRL_CROSS,    K_ENTER      },
-	{ PSP_CTRL_SQUARE,   K_BACKSPACE  },
+	{ PSP_CTRL_SELECT,   '~'         , false, false },
+	{ PSP_CTRL_START,    K_ESCAPE    , false, false },
+	{ PSP_CTRL_UP,       K_UPARROW   , false, false },
+	{ PSP_CTRL_RIGHT,    K_RIGHTARROW, false, false },
+	{ PSP_CTRL_DOWN,     K_DOWNARROW , false, false },
+	{ PSP_CTRL_LEFT,     K_LEFTARROW , false, false },
+	{ PSP_CTRL_LTRIGGER, K_JOY1      , false, false },
+	{ PSP_CTRL_RTRIGGER, K_JOY2      , false, false },
+	{ PSP_CTRL_TRIANGLE, K_SHIFT     , false, false },
+	{ PSP_CTRL_CIRCLE,   K_SPACE     , false, false },
+	{ PSP_CTRL_CROSS,    K_ENTER     , false, false },
+	{ PSP_CTRL_SQUARE,   K_BACKSPACE , false, false },
 #else
-	{ PSP_CTRL_SELECT,   K_MODE_BUTTON  },
-	{ PSP_CTRL_START,    K_START_BUTTON },
-	{ PSP_CTRL_UP,       K_UPARROW      },
-	{ PSP_CTRL_RIGHT,    K_RIGHTARROW   },
-	{ PSP_CTRL_DOWN,     K_DOWNARROW    },
-	{ PSP_CTRL_LEFT,     K_LEFTARROW    },
-	{ PSP_CTRL_LTRIGGER, K_L1_BUTTON    },
-	{ PSP_CTRL_RTRIGGER, K_R1_BUTTON    },
-	{ PSP_CTRL_TRIANGLE, K_Y_BUTTON     },
-	{ PSP_CTRL_CIRCLE,   K_B_BUTTON     },
-	{ PSP_CTRL_CROSS,    K_A_BUTTON     },
-	{ PSP_CTRL_SQUARE,   K_X_BUTTON     },
+	{ PSP_CTRL_SELECT  , K_MODE_BUTTON , false, false },
+	{ PSP_CTRL_START   , K_START_BUTTON, false, false },
+	{ PSP_CTRL_UP      , K_UPARROW     , false, false },
+	{ PSP_CTRL_RIGHT   , K_RIGHTARROW  , false, false },
+	{ PSP_CTRL_DOWN    , K_DOWNARROW   , false, false },
+	{ PSP_CTRL_LEFT    , K_LEFTARROW   , false, false },
+	{ PSP_CTRL_LTRIGGER, K_L1_BUTTON   , false, false },
+	{ PSP_CTRL_RTRIGGER, K_R1_BUTTON   , false, false },
+	{ PSP_CTRL_TRIANGLE, K_Y_BUTTON    , false, false },
+	{ PSP_CTRL_CIRCLE  , K_B_BUTTON    , false, false },
+	{ PSP_CTRL_CROSS   , K_A_BUTTON    , false, false },
+	{ PSP_CTRL_SQUARE  , K_X_BUTTON    , false, false },
 #endif
-#if 0	
+#if 0
 	PSP_CTRL_HOME,
 	PSP_CTRL_HOLD,
 	PSP_CTRL_NOTE,
@@ -77,10 +80,10 @@ static float Platform_JoyRescale( float axis, float deadzone_min, float deadzone
 {
 	float abs_axis, scale, r_deadzone_max;
 	int flip_axis = 0;
-	
+
 	// (-127) - (0) - (+127)
 	abs_axis = axis - 128.0f;
-	if( abs_axis < 0.0f ) 
+	if( abs_axis < 0.0f )
 	{
 		abs_axis = -abs_axis - 1.0f;
 		flip_axis = 1;
@@ -88,16 +91,16 @@ static float Platform_JoyRescale( float axis, float deadzone_min, float deadzone
 	if( abs_axis <= deadzone_min ) return 0.0f;
 	r_deadzone_max = 127.0f - deadzone_max;
 	if( abs_axis >= r_deadzone_max ) return ( flip_axis ? -127.0f :  127.0f );
-	
+
 	scale = 127.0f / ( r_deadzone_max - deadzone_min );
 	abs_axis -= deadzone_min;
 	abs_axis *= scale;
-	
+
 	return ( flip_axis ? -abs_axis :  abs_axis );
 }
 
 void Platform_RunEvents( void )
-{	
+{
 	int 				i;
 	SceCtrlData			buf;
 	signed short 		curr_X, curr_Y;
@@ -108,8 +111,37 @@ void Platform_RunEvents( void )
 
 	for( i = 0; i < PSP_MAX_KEYS; i++ )
 	{
-		if( ( last_buttons ^ buf.Buttons ) & psp_keymap[i].srckey )
-			Key_Event( psp_keymap[i].dstkey, buf.Buttons & psp_keymap[i].srckey );		
+		if( buf.Buttons & PSP_EXT_KEY )
+		{
+			if(( last_buttons ^ buf.Buttons ) & psp_keymap[i].srckey )
+			{
+				if( psp_keymap[i].stdpressed )
+				{
+					psp_keymap[i].stdpressed = false;
+					Key_Event( psp_keymap[i].dstkey, psp_keymap[i].stdpressed );
+				}
+				else
+				{
+					psp_keymap[i].extpressed = buf.Buttons & psp_keymap[i].srckey;
+					Key_Event( K_AUX16 + i, psp_keymap[i].extpressed);
+				}
+			}
+		}
+		else
+		{
+			// release
+			if( psp_keymap[i].extpressed )
+			{
+				psp_keymap[i].extpressed = false;
+				Key_Event( K_AUX16 + i, psp_keymap[i].extpressed);
+			}
+
+			if(( last_buttons ^ buf.Buttons ) & psp_keymap[i].srckey )
+			{
+				psp_keymap[i].stdpressed = buf.Buttons & psp_keymap[i].srckey;
+				Key_Event( psp_keymap[i].dstkey, psp_keymap[i].stdpressed );
+			}
+		}
 	}
 	last_buttons = buf.Buttons;
 
@@ -130,7 +162,7 @@ void Platform_RunEvents( void )
 
 	if( last_X != curr_X )
 		Joy_AxisMotionEvent( 2, -curr_X );
-		
+
 	if( last_Y != curr_Y )
 		Joy_AxisMotionEvent( 3, -curr_Y );
 
@@ -160,7 +192,7 @@ int Platform_JoyInit( int numjoy )
 	// set up cvars
 	psp_deadzone_min = Cvar_Get( "psp_deadzone_min", "20", FCVAR_ARCHIVE, "Joy deadzone min (0 - 127)" );
 	psp_deadzone_max = Cvar_Get( "psp_deadzone_max", "0",  FCVAR_ARCHIVE, "Joy deadzone max (0 - 127)" );
-	
+
 	// set up the controller.
 	sceCtrlSetSamplingCycle( 0 );
 	sceCtrlSetSamplingMode( PSP_CTRL_MODE_ANALOG );
