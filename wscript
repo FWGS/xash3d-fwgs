@@ -2,8 +2,7 @@
 # encoding: utf-8
 # a1batross, mittorn, 2018
 
-from __future__ import print_function
-from waflib import Logs, Context, Configure
+from waflib import Build, Context, Logs
 import sys
 import os
 
@@ -380,6 +379,11 @@ int main(void){ return !opus_custom_encoder_init(0, 0, 0); }''', fatal = False):
 		conf.add_subproject(i.name)
 
 def build(bld):
+	# don't clean QtCreator files and reconfigure saved options
+	bld.clean_files = bld.bldnode.ant_glob('**',
+		excl='*.user configuration.py .lock* *conf_check_*/** config.log %s/*' % Build.CACHE_DIR,
+		quiet=True, generator=True)
+
 	bld.load('xshlib')
 
 	for i in SUBDIRS:
