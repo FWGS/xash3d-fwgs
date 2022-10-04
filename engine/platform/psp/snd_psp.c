@@ -23,21 +23,21 @@ GNU General Public License for more details.
 
 #include "sound.h"
 
-#define	PSP_NUM_AUDIO_SAMPLES 1024 // must be multiple of 64
-#define PSP_OUTPUT_CHANNELS 2
-#define PSP_OUTPUT_BUFFER_SIZE ( ( PSP_NUM_AUDIO_SAMPLES ) * ( PSP_OUTPUT_CHANNELS ) )
+#define	PSP_NUM_AUDIO_SAMPLES	1024 // must be multiple of 64
+#define PSP_OUTPUT_CHANNELS	2
+#define PSP_OUTPUT_BUFFER_SIZE	(( PSP_NUM_AUDIO_SAMPLES ) * ( PSP_OUTPUT_CHANNELS ))
 
 static struct
 {
-	SceUID			threadUID;
-	SceUID			semaUID;
-	int				channel;
+	SceUID		threadUID;
+	SceUID		semaUID;
+	int		channel;
 	volatile int	volL;
 	volatile int	volR;
 	volatile int	running;
 } snd_psp = { -1, -1, -1, PSP_AUDIO_VOLUME_MAX, PSP_AUDIO_VOLUME_MAX, 1 };
 
-static short snd_psp_buff[2][PSP_OUTPUT_BUFFER_SIZE]  __attribute__( ( aligned( 64 ) ) );
+static short snd_psp_buff[2][PSP_OUTPUT_BUFFER_SIZE]  __attribute__(( aligned( 64 )));
 
 /*
 ==================
@@ -112,12 +112,11 @@ qboolean SNDDMA_Init( void )
 
 	// clearing buffers
 	memset( dma.buffer, 0, dma.samples * 2 );
-	memset( snd_psp_buff, 0, sizeof( snd_psp_buff ) );
+	memset( snd_psp_buff, 0, sizeof( snd_psp_buff ));
 
 	// allocate and initialize a hardware output channel
-	snd_psp.channel = sceAudioChReserve( PSP_AUDIO_NEXT_CHANNEL,
-										PSP_NUM_AUDIO_SAMPLES,
-										PSP_AUDIO_FORMAT_STEREO  );
+	snd_psp.channel = sceAudioChReserve( PSP_AUDIO_NEXT_CHANNEL, 
+		PSP_NUM_AUDIO_SAMPLES, PSP_AUDIO_FORMAT_STEREO );
 	if( snd_psp.channel < 0 )
 	{
 		SNDDMA_Shutdown();
@@ -133,7 +132,7 @@ qboolean SNDDMA_Init( void )
 	}
 
 	// create audio thread
-	snd_psp.threadUID = sceKernelCreateThread( "sound_thread", SNDDMA_MainThread, 0x11, 0x8000, 0, 0 );
+	snd_psp.threadUID = sceKernelCreateThread( "sound_thread", SNDDMA_MainThread, 0x12, 0x8000, 0, 0 );
 	if( snd_psp.threadUID < 0 )
 	{
 		SNDDMA_Shutdown();
@@ -202,7 +201,7 @@ int SNDDMA_GetSoundtime( void )
 
 	oldsamplepos = samplepos;
 
-	return (buffers * fullsamples + samplepos / 2);
+	return ( buffers * fullsamples + samplepos / 2 );
 }
 
 /*
