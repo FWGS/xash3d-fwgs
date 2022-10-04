@@ -49,7 +49,7 @@ NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependenc
 
 ### Prerequisites
 
-If your CPU is x86 compatible, we are building 32-bit code by default. This was dont for keeping compatibility with Steam releases of Half-Life and based on it's engine games.
+If your CPU is x86 compatible, we are building 32-bit code by default. This was done to maintain compatibility with Steam releases of Half-Life and based on it's engine games.
 Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
 If your CPU is NOT x86 compatible or you decided build 64-bit version of engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-xash3d).
