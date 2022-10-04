@@ -71,21 +71,18 @@ void MSG_Clear( sizebuf_t *sb );
 
 // Bit-write functions
 #if XASH_EXT_OPT == 2
-_inline qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
-{
-	if( sb->iCurBit + nBits > sb->nDataBits )
-		sb->bOverflow = true;
-	return sb->bOverflow;
-}
 _inline void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
 {
-	if( !MSG_Overflow( sb, 1 ))
+	if( sb->iCurBit + 1 > sb->nDataBits )
 	{
-		if( nValue ) sb->pData[sb->iCurBit>>3] |= BIT( sb->iCurBit & 7 );
-		else sb->pData[sb->iCurBit>>3] &= ~BIT( sb->iCurBit & 7 );
-
-		sb->iCurBit++;
+		sb->bOverflow = true;
+		return;
 	}
+
+	if( nValue ) sb->pData[sb->iCurBit>>3] |= BIT( sb->iCurBit & 7 );
+	else sb->pData[sb->iCurBit>>3] &= ~BIT( sb->iCurBit & 7 );
+
+	sb->iCurBit++;
 }
 #else
 void MSG_WriteOneBit( sizebuf_t *sb, int nValue );

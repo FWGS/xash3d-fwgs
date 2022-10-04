@@ -94,14 +94,13 @@ void MSG_Clear( sizebuf_t *sb )
 	sb->bOverflow = false;
 }
 
-#if XASH_EXT_OPT != 2
 static qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
 {
 	if( sb->iCurBit + nBits > sb->nDataBits )
 		sb->bOverflow = true;
 	return sb->bOverflow;
 }
-#endif
+
 qboolean MSG_CheckOverflow( sizebuf_t *sb )
 {
 	return MSG_Overflow( sb, 0 );

@@ -1134,11 +1134,7 @@ write fields by offsets
 assume from and to is valid
 =====================
 */
-#if XASH_EXT_OPT == 2
-_inline qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, float timebase )
-#else
 qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, float timebase )
-#endif
 {
 	qboolean		bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
 	float		flValue, flAngle, flTime;
