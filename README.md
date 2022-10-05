@@ -86,8 +86,12 @@ Even if Xash3D FWGS does support targetting 64-bit, you can't load games without
 #### PSP
 0) Navigate to `xash3d-fwgs` directory.
 1) Examine which build options are available: `./waf --help`
-2) Configure build: `./waf configure -T fast --psp=prx,660,HW --prefix=/path/to/any/output/directory`
+2) Configure build:
+   Normal: `./waf configure -T fast --psp=prx,660,HW --prefix=/path/to/any/output/directory`
+   Profiling: `./waf configure -T debug --psp=elf,660,HW --enable-profiling --prefix=/path/to/any/output/directory`
 3) Compile: `./waf build`
+4) Install(optional): `./waf install`
+
 
 ## Running
 0) Copy libraries and main executable somewhere, if you're skipped installation stage.
