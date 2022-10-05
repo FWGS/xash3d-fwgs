@@ -13,7 +13,7 @@
 
 try: from fwgslib import get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_compiler
-from waflib import Logs, TaskGen
+from waflib import Logs, TaskGen, Task
 from waflib.Tools import c_config
 from collections import OrderedDict
 import os
@@ -330,13 +330,13 @@ class PSP:
 	psptoolchain_path = None
 	pspsdk_path       = None
 	binutils_path     = None
-	module_type       = None
+	build_prx         = None
 	fw_version        = None
 	render_type       = None
 
 	def __init__(self, ctx, moduletype, fwversion, rendertype):
 		self.ctx = ctx
-		self.module_type = moduletype
+		self.build_prx = True if moduletype == 'prx' else False
 		self.fw_version = fwversion
 		self.render_type = rendertype
 
@@ -361,15 +361,11 @@ class PSP:
 	# they go before object list
 	def linkflags(self):
 		linkflags = []
-#		if self.module_type == 'prx':
-#			linkflags += ['-specs=%s' % os.path.join(self.pspsdk_path, 'lib/prxspecs')]
-#			linkflags += ['-Wl,-q,-T%s' % os.path.join(self.pspsdk_path, 'lib/linkfile.prx')]
-#		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined', '-no-canonical-prefixes']
 		return linkflags
 
 	def ldflags(self):
 		ldflags = []
-		if self.module_type == 'prx':
+		if self.build_prx:
 			ldflags += ['-specs=%s' % os.path.join(self.pspsdk_path, 'lib/prxspecs')]
 			ldflags += ['-Wl,-q,-T%s' % os.path.join(self.pspsdk_path, 'lib/linkfile.prx')]
 		ldflags += ['-L%s' % os.path.join(self.pspsdk_path, 'lib')]
@@ -391,7 +387,7 @@ def options(opt):
 		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,9')
 
 	psp = opt.add_option_group('Sony PSP options')
-	psp.add_option('--psp', action='store', dest='PSP_OPTS', default=None, 
+	psp.add_option('--psp', action='store', dest='PSP_OPTS', default=None,
 		help='enable building for Sony PSP, format: --psp=<module type>,<fw version>,<render type> example: --psp=prx,660,HW')
 
 def configure(conf):
@@ -453,11 +449,6 @@ def configure(conf):
 		conf.environ['RANLIB'] = os.path.join(psp.binutils_path, 'psp-ranlib')
 		conf.environ['OBJCOPY'] = os.path.join(psp.binutils_path, 'psp-objcopy')
 
-#		conf.environ['PRXGEN'] = os.path.join(psp.binutils_path, 'prxgen')
-#		conf.environ['MKSFO'] = os.path.join(psp.binutils_path, 'mksfoex')
-#		conf.environ['PACK_PBP'] = os.path.join(psp.binutils_path, 'pack-pbp')
-#		conf.environ['FIXUP'] = os.path.join(psp.binutils_path, 'psp-fixup-imports')
-
 		conf.env.PRXGEN = conf.find_program('psp-prxgen', path_list = psp.binutils_path)
 		conf.env.MKSFO =  conf.find_program('mksfoex', path_list = psp.binutils_path)
 		conf.env.PACK_PBP = conf.find_program('pack-pbp', path_list = psp.binutils_path)
@@ -469,13 +460,12 @@ def configure(conf):
 		conf.env.LINKFLAGS += psp.linkflags()
 		conf.env.LDFLAGS += psp.ldflags()
 
-		conf.env.PREFIX = '/lib'
-
 		conf.msg('Selected PSPSDK', '%s' % (psp.sdk_home))
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
 		conf.msg('... C/C++ flags', ' '.join(psp.cflags()).replace(psp.sdk_home, '$PSPSDK'))
 		conf.msg('... link flags', ' '.join(psp.linkflags()).replace(psp.sdk_home, '$PSPSDK'))
 		conf.msg('... ld flags', ' '.join(psp.ldflags()).replace(psp.sdk_home, '$PSPSDK'))
+		conf.msg('Bulid prx', '%s' % (psp.build_prx))
 
 		if conf.options.PROFILING:
 			conf.env.LDFLAGS += ['-lpspprof']
@@ -484,12 +474,7 @@ def configure(conf):
 
 		conf.env.DEST_OS2 = 'psp'
 		conf.env.PSP_RENDER_TYPE = psp.render_type
-		conf.env.PSP_PATTERN_program = '%s'
-		conf.env.PSP_PATTERN_stlib   = 'lib%s.a'
-		conf.env.PSP_PATTERN_shlib = '%s.elf'
-
-		if psp.module_type == 'prx':
-			conf.env.PSP_BUILD_PRX = True
+		conf.env.PSP_BUILD_PRX = psp.build_prx
 
 	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__psp__' : 'psp'})
 	for k in c_config.MACRO_TO_DESTOS:
@@ -498,30 +483,7 @@ def configure(conf):
 
 def build(bld):
 	if bld.env.DEST_OS == 'psp':
-		bld(rule='${FIXUP} -o ${TGT} ${SRC}', source='engine/xash', target='xash.elf')
-		if bld.env.PSP_BUILD_PRX:
-			bld(rule='${PRXGEN} ${SRC} ${TGT}', source='xash.elf', target='xash.prx')
-			bld(rule='${MKSFO} -d MEMSIZE=1 Xash3D ${TGT}', source='xash.prx', target='PARAM.SFO')
-			bld(rule='${PACK_PBP} ${TGT} ${SRC[1]} ${PSP_EBOOT_ICON} ${PSP_EBOOT_ICON1} ${PSP_EBOOT_UNKPNG} ${PSP_EBOOT_PIC1} ${PSP_EBOOT_SND0} ${SRC[0]} ${PSP_EBOOT_PSAR}', source='xash.prx PARAM.SFO', target='EBOOT.PBP')
-		else:
-			bld(rule='${STRIP} -o ${TGT} ${SRC}', source='xash.elf', target='xash_strip.elf')
-			bld(rule='${MKSFO} -d MEMSIZE=1 Xash3D ${TGT}', source='xash_strip.elf', target='PARAM.SFO')
-			bld(rule='${PACK_PBP} ${TGT} ${SRC[1]} ${PSP_EBOOT_ICON} ${PSP_EBOOT_ICON1} ${PSP_EBOOT_UNKPNG} ${PSP_EBOOT_PIC1} ${PSP_EBOOT_SND0} ${SRC[0]} ${PSP_EBOOT_PSAR}', source='xash_strip.elf PARAM.SFO', target='EBOOT.PBP')
-#		source_target = os.path.join('engine', bld.env.PSP_BUILD_TARGET)
-#		Logs.info(source_target)
-#		Logs.info(bld.env.PSP_BUILD_TARGET)
-#		bld(rule='${FIXUP} -o ${PSP_BUILD_TARGET}.elf ${SRC}', source=source_target, always=True)
-#		if bld.env.PSP_BUILD_PRX:
-#			bld(rule='${PRXGEN} ${PSP_BUILD_TARGET}.elf ${PSP_BUILD_TARGET}.prx', always=True)
-#			if bld.env.PSP_BUILD_EBOOT:
-#				bld(rule='${MKSFO} -d MEMSIZE=1 ${PSP_EBOOT_TITLE} ${PSP_EBOOT_SFO}', always=True)
-#				bld(rule='${PACK_PBP} ${PSP_EBOOT} ${PSP_EBOOT_SFO} ${PSP_EBOOT_ICON} ${PSP_EBOOT_ICON1} ${PSP_EBOOT_UNKPNG} ${PSP_EBOOT_PIC1} ${PSP_EBOOT_SND0} ${PSP_BUILD_TARGET}.prx ${PSP_EBOOT_PSAR}', always=True)
-#		else:
-#			if bld.env.PSP_BUILD_EBOOT:
-#				bld(rule='${STRIP} -o ${PSP_BUILD_TARGET}.elf ${PSP_BUILD_TARGET}_strip.elf', always=True)
-#				bld(rule='${MKSFO} -d MEMSIZE=1 ${PSP_EBOOT_TITLE} ${PSP_EBOOT_SFO}', always=True)
-#				bld(rule='${PACK_PBP} ${PSP_EBOOT} ${PSP_EBOOT_SFO} ${PSP_EBOOT_ICON} ${PSP_EBOOT_ICON1} ${PSP_EBOOT_UNKPNG} ${PSP_EBOOT_PIC1} ${PSP_EBOOT_SND0} ${PSP_BUILD_TARGET}_strip.elf ${PSP_EBOOT_PSAR}', always=True)
-#				bld(rule='rm -f ${PSP_BUILD_TARGET}_strip.elf', always=True)
+		apply_psptools()
 
 def post_compiler_cxx_configure(conf):
 	conf.msg('Target OS', conf.env.DEST_OS)
@@ -573,3 +535,75 @@ def apply_android_soname(self):
 	libname = node.name
 	v = self.env.SONAME_ST % libname
 	self.env.append_value('LINKFLAGS', v.split())
+
+##################################
+#            PSP Tools           #
+##################################
+class psp_fixup(Task.Task):
+	run_str = '${FIXUP} -o ${TGT} ${SRC}'
+	color   = 'BLUE'
+
+class psp_prxgen(Task.Task):
+	run_str = '${PRXGEN} ${SRC} ${TGT}'
+	color   = 'BLUE'
+
+class psp_strip(Task.Task):
+	run_str = '${STRIP} -o ${TGT} ${SRC}'
+	color   = 'BLUE'
+
+class psp_mksfo(Task.Task):
+	run_str = '${MKSFO} -d MEMSIZE=1 ${PSP_EBOOT_TITLE} ${TGT}'
+	color   = 'YELLOW'
+
+class psp_packpbp(Task.Task):
+	run_str = '${PACK_PBP} ${TGT} ${SRC[1].abspath()} ${PSP_EBOOT_ICON} ${PSP_EBOOT_ICON1} ${PSP_EBOOT_UNKPNG} ${PSP_EBOOT_PIC1} ${PSP_EBOOT_SND0} ${SRC[0].abspath()} ${PSP_EBOOT_PSAR}'
+	color   = 'GREEN'
+
+def apply_psptools():
+	"apply PSP tools"
+
+	@TaskGen.feature('cshlib', 'cxxshlib')
+	@TaskGen.after_method('apply_link')
+	def build_module(self):
+		link_output = self.link_task.outputs[0]
+		for d in self.env.STATIC_LINKING:
+			if link_output.name.startswith(d):
+				return
+		fixup_output = self.path.find_or_declare(link_output.name + '_fixup')
+		prxgen_output = self.path.find_or_declare(link_output.change_ext('.prx').name)
+
+		task = self.create_task('psp_fixup', src=link_output, tgt=fixup_output)
+		task = self.create_task('psp_prxgen', src=fixup_output, tgt=prxgen_output)
+
+		if getattr(self, 'install_path', None):
+			if self.bld.is_install:
+				for k in self.install_task.inputs:
+					if k == self.path.find_or_declare(link_output.name):
+						self.install_task.inputs.remove(k)
+			self.add_install_files(install_to=self.install_path, install_from=prxgen_output)
+
+	@TaskGen.feature('cprogram', 'cxxprogram', 'cprogram_static', 'cxxprogram_static')
+	@TaskGen.after_method('apply_link')
+	def build_eboot(self):
+		finalobj_ext = '.elf'
+		finalobj_tool = 'psp_strip'
+		if self.env.PSP_BUILD_PRX:
+			finalobj_ext = '.prx'
+			finalobj_tool = 'psp_prxgen'
+
+		link_output = self.link_task.outputs[0]
+		fixup_output = self.path.find_or_declare(link_output.name + '_fixup')
+		finalobj_output = self.path.find_or_declare(link_output.change_ext(finalobj_ext).name)
+
+		mksfo_output = self.path.find_or_declare('PARAM.SFO')
+		packpbp_output = self.path.find_or_declare('EBOOT.PBP')
+
+		task = self.create_task('psp_fixup', src=link_output, tgt=fixup_output)
+		task = self.create_task(finalobj_tool, src=fixup_output, tgt=finalobj_output)
+		task = self.create_task('psp_mksfo', tgt=mksfo_output)
+		task = self.create_task('psp_packpbp', src=[finalobj_output, mksfo_output], tgt=packpbp_output)
+
+		if getattr(self, 'install_path', None):
+			if getattr(self, 'install_task', None):
+				self.install_task.inputs = self.install_task.outputs = []
+			self.add_install_files(install_to=self.install_path, install_from=[packpbp_output, finalobj_output])

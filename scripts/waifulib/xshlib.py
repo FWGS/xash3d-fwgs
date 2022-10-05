@@ -96,6 +96,8 @@ def apply_static(main, *reloc):
 			for k in ('cshlib', 'cxxshlib'):
 				if k in self.features:
 					self.features.remove(k)
+			if getattr(self, 'install_path', None):
+				delattr(self, 'install_path')
 			self.features.append('xshlib')
 			in_node = self.path.get_src().make_node('exports.txt')
 			bldnode = self.path.get_bld()

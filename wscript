@@ -19,12 +19,14 @@ class Subproject:
 	singlebin = False # if true will be ignored when singlebinary is set
 	ignore    = False # if true will be ignored, set by user request
 	mandatory  = False
+	psp = False
 
-	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False):
+	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, onlypsp = False):
 		self.name = name
 		self.dedicated = dedicated
 		self.singlebin = singlebin
 		self.mandatory = mandatory
+		self.onlypsp = onlypsp
 
 	def is_enabled(self, ctx):
 		if not self.mandatory:
@@ -40,6 +42,9 @@ class Subproject:
 		if ctx.env.DEST_OS == 'android' and self.singlebin:
 			return False
 
+		if ctx.env.DEST_OS != 'psp' and self.onlypsp:
+			return False
+
 		if ctx.env.DEDICATED and self.dedicated:
 			return False
 
@@ -49,7 +54,7 @@ SUBDIRS = [
 	Subproject('public',      dedicated=False, mandatory = True),
 	Subproject('game_launch', singlebin=True),
 	Subproject('ref_gl',),
-    Subproject('ref_gu',),
+	Subproject('ref_gu', onlypsp=True),
 	Subproject('ref_soft'),
 	Subproject('mainui'),
 	Subproject('vgui_support'),
@@ -172,14 +177,6 @@ def configure(conf):
 		conf.options.STATIC = True
 		enforce_pic = False
 
-		# rewrite compile patterns
-		conf.env.cprogram_PATTERN = conf.env.PSP_PATTERN_program
-		conf.env.cxxprogram_PATTERN = conf.env.PSP_PATTERN_program
-		conf.env.cshlib_PATTERN = conf.env.PSP_PATTERN_shlib
-		conf.env.cxxshlib_PATTERN = conf.env.PSP_PATTERN_shlib
-		conf.env.cstlib_PATTERN = conf.env.PSP_PATTERN_stlib
-		conf.env.cxxstlib_PATTERN = conf.env.PSP_PATTERN_stlib
-
 		# set EBOOT.PBP generation parameters
 		conf.env.PSP_EBOOT_TITLE = 'Xash3D'
 		conf.env.PSP_EBOOT_SFO = 'PARAM.SFO'
@@ -189,30 +186,27 @@ def configure(conf):
 		conf.env.PSP_EBOOT_PIC1 = 'NULL'
 		conf.env.PSP_EBOOT_SND0 = 'NULL'
 		conf.env.PSP_EBOOT_PSAR = 'NULL'
-		conf.env.PSP_EBOOT = 'EBOOT.PBP'
-
-		# set target parameters
-		conf.env.PSP_BUILD_TARGET = 'xash'
-		conf.env.PSP_BUILD_EBOOT = True
 
 		if conf.options.SINGLE_BINARY:
-			conf.options.IGNORE_PROJECTS = 'ref_gl,stub/server,stub/client'
-			conf.options.STATIC_LINKING = 'menu'
+			static_list = ['menu']
+			ignore_list = ['ref_gl','stub/server','stub/client']
+
 			if conf.env.PSP_RENDER_TYPE == 'SW':
-				conf.options.STATIC_LINKING += ',ref_soft'
+				static_list.append('ref_soft')
 			else:
-				conf.options.IGNORE_PROJECTS += ',ref_soft'
+				ignore_list.append('ref_soft')
 				
 			if conf.env.PSP_RENDER_TYPE == 'HW':
-				conf.options.STATIC_LINKING += ',ref_gu'
+				static_list.append('ref_gu')
 			else:
-				conf.options.IGNORE_PROJECTS += ',ref_gu'
+				ignore_list.append('ref_gu')
 
 			if conf.env.PSP_RENDER_TYPE == 'ALL':
-				conf.options.STATIC_LINKING += 'ref_soft,ref_gu'
+				static_list.append(['ref_soft','ref_gu'])
 
-			conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
-			conf.load('xshlib') # for set linking
+			conf.options.STATIC_LINKING = ','.join(static_list)
+			conf.env.IGNORE_PROJECTS = ignore_list
+			conf.load('xshlib') # apply static link options
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break static linking
@@ -466,7 +460,7 @@ def configure(conf):
 		# conf.multicheck(*a, run_all_tests = True, mandatory = True)
 
 	# indicate if we are packaging for Linux/BSD
-	if not conf.options.WIN_INSTALL and conf.env.DEST_OS not in ['win32', 'darwin', 'android']:
+	if not conf.options.WIN_INSTALL and conf.env.DEST_OS not in ['win32', 'darwin', 'android', 'psp']:
 		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
 	else:
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
@@ -489,10 +483,9 @@ def configure(conf):
 		conf.add_subproject(i.name)
 
 def build(bld):
-	bld.load('xshlib')
+	bld.load('xshlib xcompile')
 	for i in SUBDIRS:
 		if not i.is_enabled(bld):
 			continue
 
 		bld.add_subproject(i.name)
-	bld.load('xcompile')
