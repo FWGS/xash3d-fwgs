@@ -19,7 +19,7 @@ class Subproject:
 	singlebin = False # if true will be ignored when singlebinary is set
 	ignore    = False # if true will be ignored, set by user request
 	mandatory  = False
-	psp = False
+	onlypsp = False
 
 	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, onlypsp = False):
 		self.name = name
