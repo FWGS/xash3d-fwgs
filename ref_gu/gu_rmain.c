@@ -1184,15 +1184,15 @@ void R_EndFrame( void )
 	// finish rendering.
 	sceGuFinish();
 	sceGuSync( GU_SYNC_FINISH, GU_SYNC_WAIT );
-	
+
+	gEngfuncs.GL_SwapBuffers(); // vsync
+
 	// swap the buffers.
 	sceGuSwapBuffers();
 
 	void* p_swap = guRender.disp_buffer;
 	guRender.disp_buffer = guRender.draw_buffer;
 	guRender.draw_buffer = p_swap;
-	
-	gEngfuncs.GL_SwapBuffers(); // vsync
 
 	// start a new render.
 	sceGuStart( GU_DIRECT, guRender.context_list );
