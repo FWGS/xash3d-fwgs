@@ -1937,53 +1937,53 @@ void R_TextureList_f( void )
 	{
 		if( !image->dstTexture ) continue;
 
-		if( image->dstPalette ) ram_bytes += PALETTE_SIZE;
+		if( image->dstPalette && image->dstPalette != gl_palette_332 ) ram_bytes += PALETTE_SIZE;
 
 		vram_bytes += ( FBitSet( image->flags, TF_IMG_INVRAM ) ) ? image->size : 0;
 		ram_bytes += ( FBitSet( image->flags, TF_IMG_INVRAM ) ) ? 0 : image->size;
 		texCount++;
 
 		gEngfuncs.Con_Printf( "%4i: ", i );
-		gEngfuncs.Con_Printf( "%4i %4i ", image->width, image->height );
+		gEngfuncs.Con_Printf( "%3i %3i ", image->width, image->height );
 		gEngfuncs.Con_Printf( "%12s ", Q_memprint( image->size ));
 
 		switch( image->format )
 		{
 		case GU_PSM_T4:
-			gEngfuncs.Con_Printf( "T4    " );
+			gEngfuncs.Con_Printf( "T4   " );
 			break;
 		case GU_PSM_T8:
-			gEngfuncs.Con_Printf( "T8    " );
+			gEngfuncs.Con_Printf( "T8   " );
 			break;
 		case GU_PSM_T16:
-			gEngfuncs.Con_Printf( "T16   " );
+			gEngfuncs.Con_Printf( "T16  " );
 			break;
 		case GU_PSM_T32:
-			gEngfuncs.Con_Printf( "T32   " );
+			gEngfuncs.Con_Printf( "T32  " );
 			break;
 		case GU_PSM_DXT1:
-			gEngfuncs.Con_Printf( "DXT1  " );
+			gEngfuncs.Con_Printf( "DXT1 " );
 			break;
 		case GU_PSM_DXT3:
-			gEngfuncs.Con_Printf( "DXT3  " );
+			gEngfuncs.Con_Printf( "DXT3 " );
 			break;
 		case GU_PSM_DXT5:
-			gEngfuncs.Con_Printf( "DXT5  " );
+			gEngfuncs.Con_Printf( "DXT5 " );
 			break;
 		case GU_PSM_4444:
-			gEngfuncs.Con_Printf( "4444  " );
+			gEngfuncs.Con_Printf( "4444 " );
 			break;
 		case GU_PSM_5551:
-			gEngfuncs.Con_Printf( "5551  " );
+			gEngfuncs.Con_Printf( "5551 " );
 			break;
 		case GU_PSM_5650:
-			gEngfuncs.Con_Printf( "5650  " );
+			gEngfuncs.Con_Printf( "5650 " );
 			break;
 		case GU_PSM_8888:
-			gEngfuncs.Con_Printf( "8888  " );
+			gEngfuncs.Con_Printf( "8888 " );
 			break;
 		default:
-			gEngfuncs.Con_Printf( " ^1ERROR^7 " );
+			gEngfuncs.Con_Printf( " ^1ERR^7  " );
 			break;
 		}
 
