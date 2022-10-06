@@ -1066,6 +1066,9 @@ void R_CheckGamma( void )
 		glConfig.softwareGammaUpdate = true;
 		GL_RebuildLightmaps();
 		glConfig.softwareGammaUpdate = false;
+
+		ClearBits( vid_brightness->flags, FCVAR_CHANGED );
+		ClearBits( vid_gamma->flags, FCVAR_CHANGED );
 	}
 }
 
