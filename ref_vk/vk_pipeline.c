@@ -59,6 +59,12 @@ static qboolean R_VkShaderLoad(r_vk_shader_t *shader, const char *filename) {
 
 	if (!R_VkSpirvParse(&shader->spirv, smci.pCode, size / 4)) {
 		gEngine.Con_Printf(S_ERROR "Error parsing SPIR-V for %s\n", filename);
+	} else {
+		gEngine.Con_Reportf("Got %d bindings for shader %s\n", shader->spirv.bindings_count, filename);
+		for (int j = 0; j < shader->spirv.bindings_count; ++j) {
+			const vk_binding_t *binding = shader->spirv.bindings + j;
+			gEngine.Con_Reportf("  %02d [%d:%d] name=%s\n", j, binding->descriptor_set, binding->binding, binding->name);
+		}
 	}
 
 	Mem_Free(buf);
@@ -113,12 +119,12 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 
 	VkPipelineColorBlendAttachmentState blend_attachment = {
 		.blendEnable = ci->blendEnable,
-    .srcColorBlendFactor = ci->srcColorBlendFactor,
-    .dstColorBlendFactor = ci->dstColorBlendFactor,
-    .colorBlendOp = ci->colorBlendOp,
-    .srcAlphaBlendFactor = ci->srcAlphaBlendFactor,
-    .dstAlphaBlendFactor = ci->dstAlphaBlendFactor,
-    .alphaBlendOp = ci->alphaBlendOp,
+		.srcColorBlendFactor = ci->srcColorBlendFactor,
+		.dstColorBlendFactor = ci->dstColorBlendFactor,
+		.colorBlendOp = ci->colorBlendOp,
+		.srcAlphaBlendFactor = ci->srcAlphaBlendFactor,
+		.dstAlphaBlendFactor = ci->dstAlphaBlendFactor,
+		.alphaBlendOp = ci->alphaBlendOp,
 		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 	};
 
@@ -174,13 +180,6 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 		if (!R_VkShaderLoad(shaders + i, ci->stages[i].filename))
 			goto finalize;
 
-		gEngine.Con_Reportf("Got %d bindings for shader %s\n", shaders[i].spirv.bindings_count, ci->stages[i].filename);
-
-		for (int j = 0; j < shaders[i].spirv.bindings_count; ++j) {
-			const vk_binding_t *binding = shaders[i].spirv.bindings + j;
-			gEngine.Con_Reportf("  %02d [%d:%d] name=%s\n", j, binding->descriptor_set, binding->binding, binding->name);
-		}
-
 		stage_create_infos[i] = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = ci->stages[i].stage,
@@ -200,13 +199,17 @@ finalize:
 }
 
 VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci) {
+	r_vk_shader_t shader = {0};
+	if (!R_VkShaderLoad(&shader, ci->shader_filename))
+		return VK_NULL_HANDLE;
+
 	const VkComputePipelineCreateInfo cpci = {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.layout = ci->layout,
 		.stage = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			// FIXME .module = loadShader(ci->shader_filename),
+			.module = shader.module,
 			.pName = "main",
 			.pSpecializationInfo = ci->specialization_info,
 		},
@@ -214,7 +217,7 @@ VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci)
 
 	VkPipeline pipeline;
 	XVK_CHECK(vkCreateComputePipelines(vk_core.device, VK_NULL_HANDLE, 1, &cpci, NULL, &pipeline));
-	vkDestroyShaderModule(vk_core.device, cpci.stage.module, NULL);
+	R_VkShaderDestroy(&shader);
 
 	return pipeline;
 }
@@ -240,11 +243,20 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 		.layout = create->layout,
 	};
 
-	ASSERT(create->stages_count <= MAX_SHADER_STAGES);
 	ASSERT(shader_groups_count <= MAX_SHADER_GROUPS);
+
+	if (create->stages_count > MAX_SHADER_STAGES) {
+		gEngine.Con_Printf(S_ERROR "Too many shader stages %d, max=%d\n", create->stages_count, MAX_SHADER_STAGES);
+		return ret;
+	}
+
+	r_vk_shader_t shaders[MAX_SHADER_STAGES] = {0};
 
 	for (int i = 0; i < create->stages_count; ++i) {
 		const vk_shader_stage_t *const stage = create->stages + i;
+
+		if (!R_VkShaderLoad(shaders + i, stage->filename))
+			goto destroy_shaders;
 
 		if (stage->stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR) {
 			ASSERT(raygen_index == -1);
@@ -254,7 +266,7 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 		stages[i] = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = stage->stage,
-			// FIXME .module = loadShader(stage->filename),
+			.module = shaders[i].module,
 			.pName = "main",
 			.pSpecializationInfo = stage->specialization_info,
 		};
@@ -315,8 +327,9 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &ret.pipeline));
 
+destroy_shaders:
 	for (int i = 0; i < create->stages_count; ++i)
-		vkDestroyShaderModule(vk_core.device, stages[i].module, NULL);
+		R_VkShaderDestroy(shaders + i);
 
 	if (ret.pipeline == VK_NULL_HANDLE)
 		return ret;
