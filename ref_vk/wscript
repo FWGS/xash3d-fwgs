@@ -100,6 +100,7 @@ def build(bld):
 
 	if bld.env.DEST_OS == 'win32':
 		includes.append(bld.env.VULKAN_SDK + '\\Include')
+		includes.append(bld.env.VULKAN_SDK + '\\Source\SPIRV-Reflect\include') # for spirv.h 
 
 	if bld.env.HAVE_AFTERMATH:
 		defines.append('USE_AFTERMATH')
