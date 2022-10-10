@@ -67,7 +67,7 @@ float r_turbsin[] =
 
 static int CheckSkybox( const char *name )
 {
-	const char	*skybox_ext[3] = { "dds", "tga", "bmp" };
+	const char	*skybox_ext[3] = { "bmp", "tga", "dds" };
 	int		i, j, num_checked_sides;
 	const char	*sidename;
 
