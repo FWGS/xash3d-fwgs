@@ -643,6 +643,7 @@ void Mod_SpriteUnloadTextures( void *data );
 void Mod_UnloadAliasModel( struct model_s *mod );
 void Mod_AliasUnloadTextures( void *data );
 void GL_SetRenderMode( int mode );
+void GL_SetColor4ub( byte r, byte g, byte b, byte a );
 void R_RunViewmodelEvents( void );
 void R_DrawViewModel( void );
 int R_GetSpriteTexture( const struct model_s *m_pSpriteModel, int frame );
@@ -670,8 +671,6 @@ void TriEnd( void );
 void TriTexCoord2f( float u, float v );
 void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
-void _TriColor4f( float r, float g, float b, float a );
-void _TriColor4ub( byte r, byte g, byte b, byte a );
 void TriColor4f( float r, float g, float b, float a );
 void TriColor4ub( byte r, byte g, byte b, byte a );
 void TriBrightness( float brightness );
@@ -681,10 +680,11 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
 void TriFogParams( float flDensity, int iFogSkybox );
 void TriCullFace( TRICULLSTYLE mode );
-#if 1
-/* Needs for psp */
-unsigned int getTriBrightness( float brightness );
-#endif
+uint getTriBrightness( float brightness );
+int TriBoxInPVS( float *mins, float *maxs );
+void TriLightAtPoint( float *pos, float *value );
+void TriColor4fRendermode( float r, float g, float b, float a, int rendermode );
+int getTriAPI( int version, triangleapi_t *api );
 
 //
 // gu_clipping.c

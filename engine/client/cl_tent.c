@@ -393,7 +393,7 @@ int CL_TempEntAddEntity( cl_entity_t *pEntity )
 	VectorAdd( pEntity->origin, pEntity->model->maxs, maxs );
 
 	// g-cont. just use PVS from previous frame
-	if( TriBoxInPVS( mins, maxs ))
+	if( Mod_BoxVisible( mins, maxs, ref.dllFuncs.Mod_GetCurrentVis( )))
 	{
 		VectorCopy( pEntity->angles, pEntity->curstate.angles );
 		VectorCopy( pEntity->origin, pEntity->curstate.origin );

@@ -465,6 +465,7 @@ typedef struct ref_interface_s
 	void (*R_ClearScreen)( void ); // clears color buffer on GL
 	void (*R_AllowFog)( qboolean allow );
 	void (*GL_SetRenderMode)( int renderMode );
+	void (*GL_SetColor4ub)( byte r, byte g, byte b, byte a );
 
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
@@ -592,20 +593,7 @@ typedef struct ref_interface_s
 
 	// TriAPI Interface
 	// NOTE: implementation isn't required to be compatible
-	void	(*TriRenderMode)( int mode );
-	void	(*Begin)( int primitiveCode );
-	void	(*End)( void );
-	void	(*Color4f)( float r, float g, float b, float a ); // real glColor4f
-	void	(*Color4ub)( unsigned char r, unsigned char g, unsigned char b, unsigned char a ); // real glColor4ub
-	void	(*TexCoord2f)( float u, float v );
-	void	(*Vertex3fv)( const float *worldPnt );
-	void	(*Vertex3f)( float x, float y, float z );
-	int	(*WorldToScreen)( const float *world, float *screen );  // Returns 1 if it's z clipped
-	void	(*Fog)( float flFogColor[3], float flStart, float flEnd, int bOn ); //Works just like GL_FOG, flFogColor is r/g/b.
-	void	(*ScreenToWorld)( const float *screen, float *world  );
-	void	(*GetMatrix)( const int pname, float *matrix );
-	void	(*FogParams)( float flDensity, int iFogSkybox );
-	void    (*CullFace)( TRICULLSTYLE mode );
+	int	(*getTriAPI)( int version, triangleapi_t *api );
 
 	// vgui drawing implementation
 	void	(*VGUI_DrawInit)( void );

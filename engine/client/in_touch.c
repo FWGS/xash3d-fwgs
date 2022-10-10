@@ -1071,7 +1071,7 @@ void Touch_DrawTexture ( float x1, float y1, float x2, float y2, int texture, by
 	if( y1 >= y2 )
 		return;
 
-	ref.dllFuncs.Color4ub( r, g, b, a );
+	ref.dllFuncs.GL_SetColor4ub( r, g, b, a );
 	ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X(x1),
 		TO_SCRN_Y(y1),
 		TO_SCRN_X(x2 - x1),
@@ -1154,7 +1154,7 @@ float Touch_DrawText( float x1, float y1, float x2, float y2, const char *s, byt
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 
 	// text is additive and alpha does not work
-	ref.dllFuncs.Color4ub( color[0] * ( (float)color[3] /255.0f ), color[1] * ( (float)color[3] /255.0f ),
+	ref.dllFuncs.GL_SetColor4ub( color[0] * ( (float)color[3] /255.0f ), color[1] * ( (float)color[3] /255.0f ),
 			color[2] * ( (float)color[3] /255.0f ), 255 );
 
 	while( *s )
@@ -1223,7 +1223,7 @@ void Touch_DrawButtons( touchbuttonlist_t *list )
 			}
 			if( B(flags) & TOUCH_FL_STROKE )
 			{
-				ref.dllFuncs.Color4ub( touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] * B( fade ) );
+				ref.dllFuncs.GL_SetColor4ub( touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] * B( fade ) );
 				ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X(B(x1)),
 					TO_SCRN_Y(B(y1)),
 					touch.swidth,
@@ -1244,7 +1244,7 @@ void Touch_DrawButtons( touchbuttonlist_t *list )
 					TO_SCRN_X(B(x2)-B(x1)) - touch.swidth,
 					touch.swidth,
 					0, 0, 1, 1, touch.whitetexture );
-				ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+				ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 			}
 		}
 		if( touch.state >= state_edit && !( button->flags & TOUCH_FL_NOEDIT )  )
@@ -1282,7 +1282,7 @@ void Touch_Draw( void )
 			Touch_DrawTexture( 0, 0, 1, 1, touch.whitetexture, 32, 32, 32, 255 );
 		else
 			Touch_DrawTexture( 0, 0, 1, 1, touch.whitetexture, 0, 0, 0, 112 );
-		ref.dllFuncs.Color4ub( 0, 224, 224, 112 );
+		ref.dllFuncs.GL_SetColor4ub( 0, 224, 224, 112 );
 		for ( x = 0; x < 1 ; x += GRID_X )
 			ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X(x),
 				0,
@@ -1337,7 +1337,7 @@ void Touch_Draw( void )
 		}
 	}
 
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 
 	if( ( touch.move_finger != -1 ) && touch.move_button && touch_move_indicator->value )
 	{
@@ -1358,11 +1358,11 @@ void Touch_Draw( void )
 			width = (touch.move_button->x2 - touch.move_button->x1)/2;
 			height = (touch.move_button->y2 - touch.move_button->y1)/2;
 		}
-		ref.dllFuncs.Color4ub( 255, 255, 255, 128 );
+		ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 128 );
 		ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( touch.move_start_x - GRID_X * touch_move_indicator->value ),
 						  TO_SCRN_Y( touch.move_start_y - GRID_Y * touch_move_indicator->value ),
 						  TO_SCRN_X( GRID_X * 2 * touch_move_indicator->value ), TO_SCRN_Y( GRID_Y * 2 * touch_move_indicator->value ), 0, 0, 1, 1, touch.joytexture );
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 		ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( touch.move_start_x + touch.side * width - GRID_X * touch_move_indicator->value ),
 						  TO_SCRN_Y( touch.move_start_y - touch.forward * height - GRID_Y * touch_move_indicator->value ),
 						  TO_SCRN_X( GRID_X * 2 * touch_move_indicator->value ), TO_SCRN_Y( GRID_Y * 2 * touch_move_indicator->value ), 0, 0, 1, 1, touch.joytexture );

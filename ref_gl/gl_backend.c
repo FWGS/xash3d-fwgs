@@ -421,6 +421,16 @@ void GL_SetRenderMode( int mode )
 }
 
 /*
+=================
+GL_SetColor4ub
+=================
+*/
+void GL_SetColor4ub( byte r, byte g, byte b, byte a )
+{
+	pglColor4ub( r, g, b, a );
+}
+
+/*
 ==============================================================================
 
 SCREEN SHOTS

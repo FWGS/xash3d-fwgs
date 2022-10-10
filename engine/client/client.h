@@ -344,13 +344,9 @@ typedef struct
 	qboolean		scissor_test;
 	qboolean		adjust_size;		// allow to adjust scale for fonts
 
-	int		renderMode;		// override kRenderMode from TriAPI
-	TRICULLSTYLE	cullMode;			// override CULL FACE from TriAPI
-
 	// holds text color
 	rgba_t		textColor;
 	rgba_t		spriteColor;
-	vec4_t		triRGBA;
 
 	// crosshair members
 	const model_t	*pCrosshair;
@@ -1149,5 +1145,6 @@ int Key_ToUpper( int key );
 void OSK_Draw( void );
 
 extern rgba_t g_color_table[8];
+extern triangleapi_t gTriApi;
 
 #endif//CLIENT_H

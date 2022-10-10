@@ -503,3 +503,85 @@ void TriBrightness( float brightness )
 	_TriColor4f( r, g, b, 1.0f );
 }
 
+/*
+=============
+TriBoxInPVS
+
+check box in pvs (absmin, absmax)
+=============
+*/
+int TriBoxInPVS( float *mins, float *maxs )
+{
+	return gEngfuncs.Mod_BoxVisible( mins, maxs, Mod_GetCurrentVis( ));
+}
+
+/*
+=============
+TriLightAtPoint
+NOTE: dlights are ignored
+=============
+*/
+void TriLightAtPoint( float *pos, float *value )
+{
+	colorVec	vLightColor;
+
+	if( !pos || !value ) return;
+
+	vLightColor = R_LightPoint( pos );
+
+	value[0] = vLightColor.r;
+	value[1] = vLightColor.g;
+	value[2] = vLightColor.b;
+}
+
+/*
+=============
+TriColor4fRendermode
+Heavy legacy of Quake...
+=============
+*/
+void TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
+{
+	if( ds.renderMode == kRenderTransAlpha )
+	{
+		ds.triRGBA[3] = a / 255.0f;
+		_TriColor4f( r, g, b, a );
+	}
+	else _TriColor4f( r * a, g * a, b * a, 1.0f );
+}
+
+/*
+=============
+getTriAPI
+export
+=============
+*/
+int getTriAPI( int version, triangleapi_t *api )
+{
+	api->version		= TRI_API_VERSION;
+
+	if( version != TRI_API_VERSION )
+		return 0;
+
+	api->RenderMode		= TriRenderMode;
+	api->Begin		= TriBegin;
+	api->End		= TriEnd;
+	api->Color4f		= TriColor4f;
+	api->Color4ub		= TriColor4ub;
+	api->TexCoord2f		= TriTexCoord2f;
+	api->Vertex3fv		= TriVertex3fv;
+	api->Vertex3f		= TriVertex3f;
+	api->Brightness		= TriBrightness;
+	api->CullFace		= TriCullFace;
+	api->SpriteTexture	= TriSpriteTexture;
+	api->WorldToScreen	= R_WorldToScreen;
+	api->Fog		= TriFog;
+	api->ScreenToWorld	= R_ScreenToWorld;
+	api->GetMatrix		= TriGetMatrix;
+	api->BoxInPVS		= TriBoxInPVS;
+	api->LightAtPoint	= TriLightAtPoint;
+	api->Color4fRendermode	= TriColor4fRendermode;
+	api->FogParams		= TriFogParams;
+
+	return 1;
+}
