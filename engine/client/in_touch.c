@@ -151,7 +151,6 @@ convar_t *touch_exp_mult;
 convar_t *touch_grid_enable;
 convar_t *touch_grid_count;
 convar_t *touch_config_file;
-convar_t *touch_enable;
 convar_t *touch_in_menu;
 convar_t *touch_joy_radius;
 convar_t *touch_dpad_radius;
@@ -162,7 +161,9 @@ convar_t *touch_highlight_b;
 convar_t *touch_highlight_a;
 convar_t *touch_precise_amount;
 convar_t *touch_joy_texture;
-convar_t *touch_emulate;
+
+CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
+CVAR_DEFINE_AUTO( touch_emulate, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate touch with mouse" );
 
 // code looks smaller with it
 #define B(x) (button->x)
@@ -1080,8 +1081,8 @@ void Touch_Init( void )
 	touch_joy_texture = Cvar_Get( "touch_joy_texture", "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
 
 	// input devices cvar
-	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
-	touch_emulate = Cvar_Get( "touch_emulate", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate touch with mouse" );
+	Cvar_RegisterVariable( &touch_enable );
+	Cvar_RegisterVariable( &touch_emulate );
 
 	/// TODO: touch sdl platform
 	// SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );
@@ -1343,7 +1344,7 @@ void Touch_Draw( void )
 {
 	touch_button_t *button;
 
-	if( !touch.initialized || (!CVAR_TO_BOOL(touch_enable) && !touch.clientonly) )
+	if( !touch.initialized || ( !touch_enable.value && !touch.clientonly ))
 		return;
 
 	Touch_InitConfig();
@@ -1937,9 +1938,8 @@ static int Touch_ControlsEvent( touchEventType type, int fingerID, float x, floa
 
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy )
 {
-
 	// simulate menu mouse click
-	if( cls.key_dest != key_game && !CVAR_TO_BOOL(touch_in_menu) )
+	if( cls.key_dest != key_game && !CVAR_TO_BOOL( touch_in_menu ))
 	{
 		touch.move_finger = touch.resize_finger = touch.look_finger = -1;
 		// Hack for keyboard, hope it help
@@ -1982,25 +1982,20 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	{
 		VGui_MouseMove( TO_SCRN_X(x), TO_SCRN_Y(y) );
 
-		if( type != event_motion )
-			VGui_KeyEvent( K_MOUSE1, type == event_down ? 1 : 0 );
-
-		// allow scoreboard scroll
-		if( host.mouse_visible && type == event_motion )
-			return 0;
+		switch( type )
+		{
+		case event_down:
+			VGui_MouseEvent( K_MOUSE1, 1 );
+			break;
+		case event_up:
+			VGui_MouseEvent( K_MOUSE1, 0 );
+			break;
+		default: break;
+		}
 	}
 
-	if( !touch.initialized || (!CVAR_TO_BOOL(touch_enable) && !touch.clientonly) )
-	{
-#if 0
-		if( type == event_down )
-			Key_Event( K_MOUSE1, true );
-		if( type == event_up )
-			Key_Event( K_MOUSE1, false );
-		Android_AddMove( dx * (float)refState.width, dy * (float)refState.height );
-#endif
+	if( !touch.initialized || ( !touch_enable.value && !touch.clientonly ))
 		return 0;
-	}
 
 	if( clgame.dllFuncs.pfnTouchEvent && clgame.dllFuncs.pfnTouchEvent( type, fingerID, x, y, dx, dy ) )
 		return true;
@@ -2019,35 +2014,60 @@ void Touch_GetMove( float *forward, float *side, float *yaw, float *pitch )
 
 void Touch_KeyEvent( int key, int down )
 {
-	int xi, yi;
-	float x, y;
 	static float lx, ly;
+	static int kidNamedFinger = -1;
+	touchEventType event;
+	float x, y;
+	int finger, xi, yi;
 
-	if( !CVAR_TO_BOOL(touch_emulate) )
+	if( !touch_emulate.value )
 	{
-		if( CVAR_TO_BOOL(touch_enable) )
+		if( touch_enable.value )
 			return;
 
 		if( !touch.clientonly )
 			return;
 	}
 
-	Platform_GetMousePos( &xi, &yi );
-
-	x = xi/SCR_W;
-	y = yi/SCR_H;
-
-	if( cls.key_dest == key_menu && down < 2 && key == K_MOUSE1 )
+	if( !key )
 	{
-		UI_MouseMove( xi, yi );
-		UI_KeyEvent( key, down );
+		if( kidNamedFinger < 0 )
+			return;
+
+		finger = kidNamedFinger;
+		event  = event_motion;
+	}
+	else
+	{
+		finger = key == K_MOUSE1 ? 0 : 1;
+		if( down )
+		{
+			event = event_down;
+			kidNamedFinger = finger;
+		}
+		else
+		{
+			event = event_up;
+			kidNamedFinger = -1;
+		}
 	}
 
-	if( down == 1 )
-		Touch_ControlsEvent( event_down, key == K_MOUSE1?0:1, x, y, 0, 0 );
-	else
-		Touch_ControlsEvent( down? event_motion: event_up, key == K_MOUSE1?0:1, x, y, x-lx, y-ly );
-	lx = x, ly = y;
+	// don't deactivate mouse in game
+	// checking a case when mouse and touchscreen
+	// can be used simultaneously
+	Platform_SetCursorType( dc_arrow );
+	Platform_GetMousePos( &xi, &yi );
+
+	x = xi / SCR_W;
+	y = yi / SCR_H;
+
+	Con_DPrintf( "event %d %.2f %.2f %.2f %.2f\n",
+		event, x, y, x - lx, y - ly );
+
+	IN_TouchEvent( event, finger, x, y, x - lx, y - ly );
+
+	lx = x;
+	ly = y;
 }
 
 void Touch_Shutdown( void )

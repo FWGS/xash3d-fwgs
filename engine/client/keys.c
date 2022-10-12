@@ -712,7 +712,6 @@ void GAME_EXPORT Key_Event( int key, int down )
 	}
 
 	VGui_KeyEvent( key, down );
-	Touch_KeyEvent( key, down );
 
 	// console key is hardcoded, so the user can never unbind it
 	if( key == '`' || key == '~' )

@@ -29,6 +29,8 @@ void VGui_Startup( const char *clientlib, int width, int height );
 void VGui_Shutdown( void );
 void VGui_Paint( void );
 void VGui_RunFrame( void );
+void VGui_MouseEvent( int key, int clicks );
+void VGui_MWheelEvent( int y );
 void VGui_KeyEvent( int key, int down );
 void VGui_MouseMove( int x, int y );
 qboolean VGui_IsActive( void );
