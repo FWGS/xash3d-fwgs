@@ -842,12 +842,7 @@ SV_CanPushed
 filter entities for push
 ============
 */
-#if XASH_EXT_OPT > 1
-qboolean pfnSV_CanPushed( edict_t *ent )
-{
-	return SV_CanPushed( ent );
-}
-#else
+#if XASH_EXT_OPT != 2
 qboolean SV_CanPushed( edict_t *ent )
 {
 	// filter movetypes to collide with
@@ -872,7 +867,7 @@ allow entity to block pusher?
 ============
 */
 #if XASH_PSP
-static inline qboolean SV_CanBlock( edict_t *ent )
+_inline qboolean SV_CanBlock( edict_t *ent )
 #else
 static qboolean SV_CanBlock( edict_t *ent )
 #endif

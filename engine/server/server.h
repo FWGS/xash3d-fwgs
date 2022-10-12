@@ -61,7 +61,7 @@ extern int SV_UPDATE_BACKUP;
 #endif
 #define NUM_FOR_EDICT(e)	((int)((edict_t *)(e) - svgame.edicts))
 #if XASH_EXT_OPT == 2
-#define EDICT_NUM( num )	( ( ( ( num ) >= 0 ) && ( ( num ) < GI->max_edicts) ) ? svgame.edicts + ( num ) : NULL )
+#define EDICT_NUM( num )	(((( num ) >= 0 ) && (( num ) < GI->max_edicts )) ? svgame.edicts + ( num ) : NULL )
 #else 
 #define EDICT_NUM( num )	SV_EdictNum( num )
 #endif
@@ -481,7 +481,7 @@ void Master_Packet( void );
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
 #if XASH_EXT_OPT == 2
-#define SV_ModelHandle( modelindex ) ( ( modelindex < 0 || modelindex >= MAX_MODELS ) ? NULL : sv.models[( modelindex )] )
+#define SV_ModelHandle( modelindex ) (( modelindex < 0 || modelindex >= MAX_MODELS ) ? NULL : sv.models[( modelindex )])
 model_t *pfnSV_ModelHandle( int modelindex );
 #else
 model_t *SV_ModelHandle( int modelindex );
@@ -501,12 +501,11 @@ qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker );
 void SV_Impact( edict_t *e1, edict_t *e2, trace_t *trace );
 #if XASH_EXT_OPT == 2
 // filter movetypes to collide with
-#define SV_CanPushed( ent ) ( ( ent )->v.movetype == MOVETYPE_NONE || \
-							( ent )->v.movetype == MOVETYPE_PUSH ||   \
-							( ent )->v.movetype == MOVETYPE_FOLLOW || \
-							( ent )->v.movetype == MOVETYPE_NOCLIP || \
-							( ent )->v.movetype == MOVETYPE_COMPOUND ) ? false : true
-qboolean pfnSV_CanPushed( edict_t *ent );
+#define SV_CanPushed( ent ) (( ent )->v.movetype == MOVETYPE_NONE   || \
+                             ( ent )->v.movetype == MOVETYPE_PUSH   || \
+                             ( ent )->v.movetype == MOVETYPE_FOLLOW || \
+                             ( ent )->v.movetype == MOVETYPE_NOCLIP || \
+                             ( ent )->v.movetype == MOVETYPE_COMPOUND ) ? false : true
 #else
 qboolean SV_CanPushed( edict_t *ent );
 #endif
