@@ -333,10 +333,11 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 			break;
 	}
 
-	host.mouse_visible = visible;
-
-	if( CVAR_TO_BOOL( touch_emulate ))
+	// never disable cursor in touch emulation mode
+	if( !visible && touch_emulate.value )
 		return;
+
+	host.mouse_visible = visible;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( host.mouse_visible )

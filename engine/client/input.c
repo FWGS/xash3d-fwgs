@@ -63,7 +63,7 @@ uint IN_CollectInputDevices( void )
 	if( !m_ignore->value ) // no way to check is mouse connected, so use cvar only
 		ret |= INPUT_DEVICE_MOUSE;
 
-	if( CVAR_TO_BOOL(touch_enable) )
+	if( touch_enable.value )
 		ret |= INPUT_DEVICE_TOUCH;
 
 	if( Joy_IsActive() ) // connected or enabled
@@ -94,13 +94,13 @@ void IN_LockInputDevices( qboolean lock )
 	{
 		SetBits( m_ignore->flags, FCVAR_READ_ONLY );
 		SetBits( joy_enable->flags, FCVAR_READ_ONLY );
-		SetBits( touch_enable->flags, FCVAR_READ_ONLY );
+		SetBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
 	else
 	{
 		ClearBits( m_ignore->flags, FCVAR_READ_ONLY );
 		ClearBits( joy_enable->flags, FCVAR_READ_ONLY );
-		ClearBits( touch_enable->flags, FCVAR_READ_ONLY );
+		ClearBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
 }
 
@@ -308,25 +308,39 @@ IN_MouseMove
 */
 void IN_MouseMove( void )
 {
-	POINT	current_pos;
+	int x, y;
 
 	if( !in_mouseinitialized )
 		return;
 
-	// find mouse movement
-	Platform_GetMousePos( &current_pos.x, &current_pos.y );
+	if( FBitSet( touch_emulate.flags, FCVAR_CHANGED ))
+	{
+		// FIXME: do not hide cursor if it was requested by GUI
+		if( !touch_emulate.value )
+			Platform_SetCursorType( dc_none );
 
-	VGui_MouseMove( current_pos.x, current_pos.y );
+		ClearBits( touch_emulate.flags, FCVAR_CHANGED );
+	}
+
+	if( touch_emulate.value )
+	{
+		// touch emulation overrides all input
+		Touch_KeyEvent( 0, 0 );
+		return;
+	}
+
+	// find mouse movement
+	Platform_GetMousePos( &x, &y );
+
+	VGui_MouseMove( x, y );
 
 	// HACKHACK: show cursor in UI, as mainui doesn't call
 	// platform-dependent SetCursor anymore
-#if XASH_SDL
-	if( UI_IsVisible() )
-		SDL_ShowCursor( SDL_TRUE );
-#endif
+	if( UI_IsVisible( ))
+		Platform_SetCursorType( dc_arrow );
 
 	// if the menu is visible, move the menu cursor
-	UI_MouseMove( current_pos.x, current_pos.y );
+	UI_MouseMove( x, y );
 }
 
 /*
@@ -336,8 +350,6 @@ IN_MouseEvent
 */
 void IN_MouseEvent( int key, int down )
 {
-	int	i;
-
 	if( !in_mouseinitialized )
 		return;
 
@@ -345,10 +357,15 @@ void IN_MouseEvent( int key, int down )
 		SetBits( in_mstate, BIT( key ));
 	else ClearBits( in_mstate, BIT( key ));
 
-	if( cls.key_dest == key_game )
+	// touch emulation overrides all input
+	if( touch_emulate.value )
+	{
+		Touch_KeyEvent( K_MOUSE1 + key, down );
+	}
+	else if( cls.key_dest == key_game )
 	{
 		// perform button actions
-		VGui_KeyEvent( K_MOUSE1 + key, down );
+		VGui_MouseEvent( K_MOUSE1 + key, down );
 
 		// don't do Key_Event here
 		// client may override IN_MouseEvent
@@ -361,6 +378,23 @@ void IN_MouseEvent( int key, int down )
 		// perform button actions
 		Key_Event( K_MOUSE1 + key, down );
 	}
+}
+
+/*
+==============
+IN_MWheelEvent
+
+direction is negative for wheel down, otherwise wheel up
+==============
+*/
+void IN_MWheelEvent( int y )
+{
+	int b = y > 0 ? K_MWHEELUP : K_MWHEELDOWN;
+
+	VGui_MWheelEvent( y );
+
+	Key_Event( b, true );
+	Key_Event( b, false );
 }
 
 /*

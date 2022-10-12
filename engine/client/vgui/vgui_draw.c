@@ -402,9 +402,8 @@ enum VGUI_KeyCode VGUI_MapKey( int keyCode )
 {
 	VGUI_InitKeyTranslationTable();
 
-	if( keyCode < 0 || keyCode >= (int)sizeof( s_pVirtualKeyTrans ) / (int)sizeof( s_pVirtualKeyTrans[0] ))
+	if( keyCode < 0 || keyCode >= ARRAYSIZE( s_pVirtualKeyTrans ))
 	{
-		//Assert( false );
 		return (enum VGUI_KeyCode)-1;
 	}
 	else
@@ -413,48 +412,66 @@ enum VGUI_KeyCode VGUI_MapKey( int keyCode )
 	}
 }
 
-void VGui_KeyEvent( int key, int down )
+void VGui_MouseEvent( int key, int clicks )
 {
+	enum VGUI_MouseAction mact;
+	enum VGUI_MouseCode   code;
+
 	if( !vgui.initialized )
 		return;
 
 	switch( key )
 	{
-	case K_MOUSE1:
-		if( down && host.mouse_visible ) {
-			Key_EnableTextInput(true, false);
-		}
-		vgui.Mouse( down ? MA_PRESSED : MA_RELEASED, MOUSE_LEFT );
-		return;
-	case K_MOUSE2:
-		vgui.Mouse( down ? MA_PRESSED : MA_RELEASED, MOUSE_RIGHT );
-		return;
-	case K_MOUSE3:
-		vgui.Mouse( down ? MA_PRESSED : MA_RELEASED, MOUSE_MIDDLE );
-		return;
-	case K_MWHEELDOWN:
-		vgui.Mouse( MA_WHEEL, 1 );
-		return;
-	case K_MWHEELUP:
-		vgui.Mouse( MA_WHEEL, -1 );
-		return;
-	default:
-		break;
+	case K_MOUSE1: code = MOUSE_LEFT; break;
+	case K_MOUSE2: code = MOUSE_RIGHT; break;
+	case K_MOUSE3: code = MOUSE_MIDDLE; break;
+	default: return;
 	}
 
-	if( down == 2 )
-		vgui.Key( KA_TYPED, VGUI_MapKey( key ) );
+	if( clicks >= 2 )
+		mact = MA_DOUBLE;
+	else if( clicks == 1 )
+		mact = MA_PRESSED;
 	else
-		vgui.Key( down?KA_PRESSED:KA_RELEASED, VGUI_MapKey( key ) );
-	//Msg("VGui_KeyEvent %d %d %d\n", key, VGUI_MapKey( key ), down );
+		mact = MA_RELEASED;
+
+	vgui.Mouse( mact, code );
+}
+
+void VGui_MWheelEvent( int y )
+{
+	if( !vgui.initialized )
+		return;
+
+	vgui.Mouse( MA_WHEEL, y );
+}
+
+void VGui_KeyEvent( int key, int down )
+{
+	enum VGUI_KeyCode code;
+
+	if( !vgui.initialized )
+		return;
+
+	if(( code = VGUI_MapKey( key )) < 0 )
+		return;
+
+	if( down )
+	{
+		vgui.Key( KA_PRESSED, code );
+		vgui.Key( KA_TYPED, code );
+	}
+	else vgui.Key( KA_RELEASED, code );
 }
 
 void VGui_MouseMove( int x, int y )
 {
-	float xscale = (float)refState.width / (float)clgame.scrInfo.iWidth;
-	float yscale = (float)refState.height / (float)clgame.scrInfo.iHeight;
 	if( vgui.initialized )
+	{
+		float xscale = (float)refState.width / (float)clgame.scrInfo.iWidth;
+		float yscale = (float)refState.height / (float)clgame.scrInfo.iHeight;
 		vgui.MouseMove( x / xscale, y / yscale );
+	}
 }
 
 void VGui_Paint( void )
