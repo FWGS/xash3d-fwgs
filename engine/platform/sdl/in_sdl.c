@@ -319,9 +319,6 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 		return;
 #endif
 
-	if( cls.key_dest != key_game || cl.paused )
-		return;
-
 	switch( type )
 	{
 		case dc_user:
