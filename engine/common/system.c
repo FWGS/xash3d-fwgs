@@ -400,12 +400,16 @@ void Sys_Error( const char *error, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
+	// enable cursor before debugger call
+	if( !Host_IsDedicated( ))
+		Platform_SetCursorType( dc_arrow );
+
 	DEBUG_BREAK;
 
 	if( host.status == HOST_ERR_FATAL )
 		return; // don't multiple executes
 
-	// make sure what console received last message
+	// make sure that console received last message
 	if( host.change_game ) Sys_Sleep( 200 );
 
 	error_on_exit = true;

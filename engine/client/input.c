@@ -47,8 +47,6 @@ convar_t *cl_backspeed;
 convar_t *look_filter;
 convar_t *m_rawinput;
 
-static qboolean s_bRawInput, s_bMouseGrab;
-
 /*
 ================
 IN_CollectInputDevices
@@ -173,19 +171,16 @@ Called when key_dest is changed
 */
 void IN_ToggleClientMouse( int newstate, int oldstate )
 {
-	if( newstate == oldstate ) return;
+	if( newstate == oldstate )
+		return;
 
-	if( oldstate == key_game )
+	// since SetCursorType controls cursor visibility
+	// execute it first, and then check mouse grab state
+	if(( newstate == key_menu || newstate == key_console || newstate == key_message ) &&
+		( !CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
 	{
-		IN_DeactivateMouse();
-	}
-	else if( newstate == key_game )
-	{
-		IN_ActivateMouse();
-	}
+		Platform_SetCursorType( dc_arrow );
 
-	if( ( newstate == key_menu  || newstate == key_console || newstate == key_message ) && ( !CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
-	{
 #if XASH_ANDROID
 		Android_ShowMouse( true );
 #endif
@@ -195,6 +190,8 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	}
 	else
 	{
+		Platform_SetCursorType( dc_none );
+
 #if XASH_ANDROID
 		Android_ShowMouse( false );
 #endif
@@ -202,10 +199,21 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 		Evdev_SetGrab( true );
 #endif
 	}
+
+	if( oldstate == key_game )
+	{
+		IN_DeactivateMouse();
+	}
+	else if( newstate == key_game )
+	{
+		IN_ActivateMouse();
+	}
 }
 
 void IN_CheckMouseState( qboolean active )
 {
+	static qboolean s_bRawInput, s_bMouseGrab;
+
 #if XASH_WIN32
 	qboolean useRawInput = CVAR_TO_BOOL( m_rawinput ) && clgame.client_dll_uses_sdl || clgame.dllFuncs.pfnLookEvent;
 #else
@@ -313,15 +321,6 @@ void IN_MouseMove( void )
 	if( !in_mouseinitialized )
 		return;
 
-	if( FBitSet( touch_emulate.flags, FCVAR_CHANGED ))
-	{
-		// FIXME: do not hide cursor if it was requested by GUI
-		if( !touch_emulate.value )
-			Platform_SetCursorType( dc_none );
-
-		ClearBits( touch_emulate.flags, FCVAR_CHANGED );
-	}
-
 	if( touch_emulate.value )
 	{
 		// touch emulation overrides all input
@@ -333,11 +332,6 @@ void IN_MouseMove( void )
 	Platform_GetMousePos( &x, &y );
 
 	VGui_MouseMove( x, y );
-
-	// HACKHACK: show cursor in UI, as mainui doesn't call
-	// platform-dependent SetCursor anymore
-	if( UI_IsVisible( ))
-		Platform_SetCursorType( dc_arrow );
 
 	// if the menu is visible, move the menu cursor
 	UI_MouseMove( x, y );

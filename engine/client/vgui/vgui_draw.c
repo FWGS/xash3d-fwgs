@@ -24,7 +24,7 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 
 static enum VGUI_KeyCode s_pVirtualKeyTrans[256];
-static VGUI_DefaultCursor s_currentCursor;
+static VGUI_DefaultCursor s_currentCursor = -1;
 static HINSTANCE s_pVGuiSupport; // vgui_support library
 static convar_t	*vgui_utf8 = NULL;
 
@@ -50,8 +50,12 @@ void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 
 void GAME_EXPORT VGUI_CursorSelect( VGUI_DefaultCursor cursor )
 {
-	Platform_SetCursorType( cursor );
-	s_currentCursor = cursor;
+	if( s_currentCursor != cursor )
+	{
+		Platform_SetCursorType( cursor );
+
+		s_currentCursor = cursor;
+	}
 }
 
 byte GAME_EXPORT VGUI_GetColor( int i, int j)
@@ -250,7 +254,6 @@ void VGui_Startup( const char *clientlib, int width, int height )
 
 	if( vgui.initialized )
 	{
-		//host.mouse_visible = true;
 		vgui.Startup( width, height );
 	}
 	else if ( COM_CheckString( clientlib ) )
