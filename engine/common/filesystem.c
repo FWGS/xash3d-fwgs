@@ -195,6 +195,10 @@ static zip_t *fs_last_zip;
 #endif // XASH_NO_ZIP
 static pack_t *fs_last_pak;
 
+#if XASH_PSP
+static fsh_handle_t	*fsh_gamedir = NULL;
+#endif
+
 static void FS_EnsureOpenFile( file_t *file )
 {
 	if( fs_last_readfile == file )
@@ -2337,6 +2341,11 @@ void FS_Init( void )
 	}
 
 	stringlistfreecontents( &dirs );
+#if XASH_PSP
+	fsh_gamedir = FSH_Init( fs_gamedir, 5000 );
+	if( !fsh_gamedir )
+		Con_Reportf( "FS_Init: FS Helper error\n" );
+#endif
 	Con_Reportf( "FS_Init: done\n" );
 }
 
@@ -2362,6 +2371,10 @@ void FS_Shutdown( void )
 
 	FS_ClearSearchPath(); // release all wad files too
 	Mem_FreePool( &fs_mempool );
+#if XASH_PSP
+	FSH_Shutdown( fsh_gamedir );
+	fsh_gamedir = NULL;
+#endif
 }
 
 /*
@@ -2492,7 +2505,7 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 #endif
 #if XASH_PSP
 	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ) + FILE_BUFF_SIZE + 64 );
-	file->buff = (byte *)( ( ( ( u32 )file + sizeof( file_t ) ) & ( ~( 64 - 1 ) ) ) + 64 );
+	file->buff = (byte *)(((( u32 )file + sizeof( file_t )) & ( ~( 64 - 1 ))) + 64 );
 #else
 	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
 #endif
@@ -2501,7 +2514,7 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 #endif
 	file->ungetc = EOF;
 #if XASH_PSP
-	file->handle = sceIoOpen( filepath, mod|opt, 0666 ); 
+	file->handle = sceIoOpen( filepath, mod|opt, 0666 );
 #else
 	file->handle = open( filepath, mod|opt, 0666 );
 #endif
@@ -2509,7 +2522,11 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 #if XASH_PSP
 	file->backup_hold = backup_hold;
 	if( file->handle >= 0 )
+	{
 		FS_BackupFileName( file, filepath, mod|opt );
+		if( mod == PSP_O_WRONLY || mod == PSP_O_RDWR )
+			FSH_AddFilePath( fsh_gamedir, filepath );
+	}
 #elif !XASH_WIN32
 	if( file->handle < 0 )
 	{
@@ -2668,8 +2685,17 @@ qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
 	close( desc );
 	return true;
 #elif XASH_PSP
-	SceIoStat buf;
-	if ( sceIoGetstat( path, &buf ) < 0 )
+	int		result;
+	SceIoStat	buf;
+
+	result = FSH_Find( fsh_gamedir, path );
+	if( result >= 0 )
+		return true;
+	if( result == -1 )
+		return false;
+
+	result = sceIoGetstat( path, &buf );
+	if ( result < 0 )
 		return false;
 	return FIO_S_ISREG( buf.st_mode );
 #else
@@ -3812,6 +3838,10 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 	Q_snprintf( real_path, sizeof( real_path ), "%s%s", fs_writedir, path );
 	COM_FixSlashes( real_path );
 	iRet = remove( real_path );
+
+#if XASH_PSP
+	FSH_RemoveFilePath( fsh_gamedir, real_path );
+#endif
 
 	return (iRet == 0);
 }
