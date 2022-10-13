@@ -914,11 +914,7 @@ void CL_ParseServerData( sizebuf_t *msg )
 
 	// set the background state
 	if( cls.demoplayback && ( cls.demonum != -1 ))
-	{
-		// re-init mouse
-		host.mouse_visible = false;
 		cl.background = true;
-	}
 	else cl.background = background;
 
 	if( cl.background )	// tell the game parts about background state
@@ -2502,11 +2498,7 @@ void CL_ParseLegacyServerData( sizebuf_t *msg )
 
 	// set the background state
 	if( cls.demoplayback && ( cls.demonum != -1 ))
-	{
-		// re-init mouse
-		host.mouse_visible = false;
 		cl.background = true;
-	}
 	else cl.background = background;
 
 	if( cl.background )	// tell the game parts about background state

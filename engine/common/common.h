@@ -358,7 +358,7 @@ typedef struct host_parm_s
 	qboolean		allow_cheats;	// this host will allow cheating
 	qboolean		con_showalways;	// show console always (developer and dedicated)
 	qboolean		change_game;	// initialize when game is changed
-	qboolean		mouse_visible;	// vgui override cursor control
+	qboolean		mouse_visible;	// vgui override cursor control (never change outside Platform_SetCursorType!)
 	qboolean		shutdown_issued;	// engine is shutting down
 	qboolean		force_draw_version;	// used when fraps is loaded
 	float			force_draw_version_time;

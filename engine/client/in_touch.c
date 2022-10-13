@@ -469,8 +469,8 @@ static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *nam
 
 void Touch_SetClientOnly( byte state )
 {
+	// TODO: fix clash with vgui cursors
 	touch.clientonly = state;
-	host.mouse_visible = state;
 
 	touch.move_finger = touch.look_finger = -1;
 	touch.forward = touch.side = 0;
@@ -2068,6 +2068,11 @@ void Touch_KeyEvent( int key, int down )
 
 	lx = x;
 	ly = y;
+}
+
+qboolean Touch_WantVisibleCursor( void )
+{
+	return ( touch_enable.value && touch_emulate.value ) || touch.clientonly;
 }
 
 void Touch_Shutdown( void )
