@@ -3811,7 +3811,11 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 
 	Q_snprintf( real_path, sizeof( real_path ), "%s%s", fs_writedir, path );
 	COM_FixSlashes( real_path );
+#if XASH_PSP
+	iRet = sceIoRemove( real_path );
+#else
 	iRet = remove( real_path );
+#endif
 
 	return (iRet == 0);
 }
