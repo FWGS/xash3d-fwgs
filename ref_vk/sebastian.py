@@ -84,31 +84,32 @@ def parseSpirv(raw_data):
 		#print(spvOpNames[op], args)
 		off += words
 
-	for index, node in enumerate(ctx.nodes):
-		if node.descriptor_set is not None:
-			print('[%d:%d] %s (id=%d)' % (node.descriptor_set, node.binding, node.name, index))
+	return ctx
 
 class Shader:
-	def __init__(self, name, filename):
+	def __init__(self, name, file):
 		self.name = name
-		self.__raw_data = open(filename, 'rb').read()
-		print(name, '=>', len(self.__raw_data))
+		self.raw_data = file
+		print(name, '=>', len(self.raw_data))
+		self.spirv = parseSpirv(self.raw_data)
 
-		try:
-			parseSpirv(self.__raw_data)
-		except:
-			traceback.print_exc()
+	def __str__(self):
+		ret = ''
+		for index, node in enumerate(self.spirv.nodes):
+			if node.descriptor_set is not None:
+				ret += ('[%d:%d] (id=%d) %s\n' % (node.descriptor_set, node.binding, index, node.name))
+		return ret
 
-def doLoadShader(name):
+def loadShaderFile(name):
 	try:
-		return Shader(name, name)
+		return open(name, 'rb').read()
 	except:
 		pass
 
 	if args.path:
 		for path in args.path:
 			try:
-				return Shader(name, path + '/' + name)
+				return open(path + '/' + name, 'rb').read()
 			except:
 				pass
 
@@ -119,7 +120,8 @@ def loadShader(name):
 	if name in shaders:
 		return shaders[name]
 
-	shader = doLoadShader(name)
+	file = loadShaderFile(name);
+	shader = Shader(name, file)
 	shaders[name] = shader
 	return shader
 
