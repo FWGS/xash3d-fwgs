@@ -33,7 +33,7 @@ const void* curReadPtr(cursor_t *cur, int size) {
 	}
 
 #define READ_PTR(size, errmsg, ...) \
-	curReadPtr(&cur, size); CUR_ERROR(errmsg, #__VA_ARGS__)
+	curReadPtr(&cur, size); CUR_ERROR(errmsg, ##__VA_ARGS__)
 
 uint32_t curReadU32(cursor_t *cur) {
 	const void *src = curReadPtr(cur, sizeof(uint32_t));
@@ -46,7 +46,7 @@ uint32_t curReadU32(cursor_t *cur) {
 }
 
 #define READ_U32(errmsg, ...) \
-	curReadU32(&cur); CUR_ERROR(errmsg, #__VA_ARGS__)
+	curReadU32(&cur); CUR_ERROR(errmsg, ##__VA_ARGS__)
 
 qboolean R_VkMeatpipeLoad(vk_meatpipe_t *out, const char *filename) {
 	qboolean ret = false;
@@ -79,6 +79,47 @@ qboolean R_VkMeatpipeLoad(vk_meatpipe_t *out, const char *filename) {
 		const void *src = READ_PTR(size, "Couldn't read shader %s data", name);
 		shaders[i] = R_VkShaderLoadFromMem(src, size, name);
 		gEngine.Con_Reportf("%d: loaded %s into %p\n", i, name, shaders[i]);
+	}
+
+	const int pipelines_count = READ_U32("Couldn't read pipelines count");
+	for (int i = 0; i < pipelines_count; ++i) {
+		const uint32_t head = READ_U32("Couldn't read pipeline %d head", i);
+		const int name_len = READ_U32("Coulnd't read pipeline %d name len", i);
+		const char *name_src = READ_PTR(name_len, "Couldn't read pipeline %d name", i);
+		char name[64];
+#define MIN(a,b) ((a)<(b)?(a):(b))
+		const int name_max = MIN(sizeof(name)-1, name_len);
+		memcpy(name, name_src, name_max);
+		name[name_max] = '\0';
+		gEngine.Con_Reportf("%d: loading pipeline %s\n", i, name);
+
+#define PIPELINE_COMPUTE 1
+#define PIPELINE_RAYTRACING 2
+#define NO_SHADER 0xffffffff
+
+		switch (head) {
+			case PIPELINE_COMPUTE:
+			{
+				const uint32_t shader_comp = READ_U32("Couldn't read comp shader for %d %s", i, name);
+				break;
+			}
+
+			case PIPELINE_RAYTRACING:
+			{
+				const uint32_t shader_rgen = READ_U32("Couldn't read rgen shader for %d %s", i, name);
+				const int miss_count = READ_U32("Couldn't read miss count for %d %s", i, name);
+				for (int j = 0; j < miss_count; ++j) {
+					const uint32_t shader_miss = READ_U32("Couldn't read miss shader %d for %d %s", j, i, name);
+				}
+
+				const int hit_count = READ_U32("Couldn't read hit count for %d %s", i, name);
+				for (int j = 0; j < hit_count; ++j) {
+					const uint32_t closest = READ_U32("Couldn't read closest shader %d for %d %s", j, i, name);
+					const uint32_t any = READ_U32("Couldn't read any shader %d for %d %s", j, i, name);
+				}
+				break;
+			}
+		}
 	}
 
 	ret = true;

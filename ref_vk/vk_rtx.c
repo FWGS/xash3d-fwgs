@@ -7,18 +7,19 @@
 #include "vk_ray_primary.h"
 #include "vk_ray_light_direct.h"
 
-#include "vk_core.h"
-#include "vk_common.h"
 #include "vk_buffer.h"
-#include "vk_pipeline.h"
-#include "vk_staging.h"
+#include "vk_common.h"
+#include "vk_core.h"
 #include "vk_cvar.h"
-#include "vk_textures.h"
-#include "vk_light.h"
-#include "vk_descriptor.h"
-#include "vk_ray_internal.h"
 #include "vk_denoiser.h"
+#include "vk_descriptor.h"
+#include "vk_light.h"
 #include "vk_math.h"
+#include "vk_meatpipe.h"
+#include "vk_pipeline.h"
+#include "vk_ray_internal.h"
+#include "vk_staging.h"
+#include "vk_textures.h"
 
 #include "alolcator.h"
 
@@ -85,6 +86,8 @@ static struct {
 		struct ray_pass_s *light_direct_point;
 		struct ray_pass_s *denoiser;
 	} pass;
+
+	vk_meatpipe_t mainpipe;
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
@@ -391,6 +394,8 @@ qboolean VK_RayInit( void )
 	g_rtx.pass.denoiser = R_VkRayDenoiserCreate();
 	ASSERT(g_rtx.pass.denoiser);
 
+	ASSERT(R_VkMeatpipeLoad(&g_rtx.mainpipe, "rt.meat"));
+
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
 	if (!VK_BufferCreate("ray uniform_buffer", &g_rtx.uniform_buffer, g_rtx.uniform_unit_size * MAX_FRAMES_IN_FLIGHT,
@@ -458,6 +463,8 @@ qboolean VK_RayInit( void )
 
 void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
+
+	R_VkMeatpipeDestroy(&g_rtx.mainpipe);
 
 	RayPassDestroy(g_rtx.pass.denoiser);
 	RayPassDestroy(g_rtx.pass.light_direct_poly);
