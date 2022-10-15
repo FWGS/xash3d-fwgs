@@ -28,7 +28,7 @@ const void* curReadPtr(cursor_t *cur, int size) {
 
 #define CUR_ERROR(errmsg, ...) \
 	if (cur.error) { \
-		gEngine.Con_Printf(S_ERROR "(off=%d left=%d) " errmsg "\n", #__VA_ARGS__); \
+		gEngine.Con_Printf(S_ERROR "(off=%d left=%d) " errmsg "\n", cur.off, (cur.size - cur.off), #__VA_ARGS__); \
 		goto finalize; \
 	}
 
