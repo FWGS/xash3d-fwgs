@@ -7,6 +7,7 @@ from spirv import spv
 
 parser = argparse.ArgumentParser(description='Build pipeline descriptor')
 parser.add_argument('--path', action='append', help='Directory to look for shaders')
+parser.add_argument('--output', '-o', type=argparse.FileType('wb'), help='Compiled pipeline')
 parser.add_argument('pipelines', type=argparse.FileType('r'))
 # TODO strip debug OpName OpLine etc
 args = parser.parse_args()
@@ -100,50 +101,100 @@ class Shader:
 				ret += ('[%d:%d] (id=%d) %s\n' % (node.descriptor_set, node.binding, index, node.name))
 		return ret
 
-def loadShaderFile(name):
-	try:
-		return open(name, 'rb').read()
-	except:
-		pass
+class Shaders:
+	def __init__(self):
+		self.__map = dict()
+		self.__shaders = []
 
-	if args.path:
-		for path in args.path:
-			try:
-				return open(path + '/' + name, 'rb').read()
-			except:
-				pass
+	def __loadShaderFile(name):
+		try:
+			return open(name, 'rb').read()
+		except:
+			pass
 
-	raise Exception('Cannot load shader ' + name)
+		if args.path:
+			for path in args.path:
+				try:
+					return open(path + '/' + name, 'rb').read()
+				except:
+					pass
 
-shaders = dict()
-def loadShader(name):
-	if name in shaders:
-		return shaders[name]
+		raise Exception('Cannot load shader ' + name)
 
-	file = loadShaderFile(name);
-	shader = Shader(name, file)
-	shaders[name] = shader
-	return shader
+	def load(self, name):
+		if name in self.__map:
+			return self.__shaders[self.__map[name]]
+
+		file = Shaders.__loadShaderFile(name);
+		shader = Shader(name, file)
+
+		index = len(self.__shaders)
+		self.__shaders.append(shader)
+		self.__map[name] = index
+
+		return shader
+
+	def getIndex(self, name):
+		return self.__map[name]
+
+	def serialize(self, file):
+		file.write(struct.pack('I', len(self.__shaders)))
+		for shader in self.__shaders:
+			file.write(struct.pack('I', len(shader.raw_data)))
+			file.write(shader.raw_data)
+
+	def serializeIndex(self, out, shader):
+		out.write(struct.pack('I', self.getIndex(shader.name)))
+
+shaders = Shaders()
+
+
+PIPELINE_COMPUTE = 1
+PIPELINE_RAYTRACING = 2
+NO_SHADER = 0xffffffff
 
 class PipelineRayTracing:
+	def __loadHit(hit):
+		ret = dict()
+		suffixes = {'closest': '.rchit.spv', 'any': '.rahit.spv'}
+		for k, v in hit.items():
+			ret[k] = shaders.load(v + suffixes[k])
+		return ret
+
 	def __init__(self, name, desc):
+		self.type = PIPELINE_RAYTRACING
 		self.name = name
-		self.rgen = loadShader(desc['rgen'] + '.rgen.spv')
-		self.miss = [] if not 'miss' in desc else [loadShader(s + '.rmiss.spv') for s in desc['miss']]
+		self.rgen = shaders.load(desc['rgen'] + '.rgen.spv')
+		self.miss = [] if not 'miss' in desc else [shaders.load(s + '.rmiss.spv') for s in desc['miss']]
+		self.hit = [] if not 'hit' in desc else [PipelineRayTracing.__loadHit(hit) for hit in desc['hit']]
 
-		def loadHit(hit):
-			ret = dict()
-			suffixes = {'closest': '.rchit.spv', 'any': '.rahit.spv'}
-			for k, v in hit.items():
-				ret[k] = loadShader(v + suffixes[k])
-			return ret
+	def serialize(self, out):
+		shaders.serializeIndex(out, self.rgen)
 
-		self.hit = [] if not 'hit' in desc else [loadHit(hit) for hit in desc['hit']]
+		out.write(struct.pack('I', len(self.miss)))
+		for shader in self.miss:
+			shaders.serializeIndex(out, shader)
+
+		out.write(struct.pack('I', len(self.hit)))
+		for hit in self.hit:
+			if 'closest' in hit:
+				shaders.serializeIndex(out, hit['closest'])
+			else:
+				out.write(struct.pack('I', NO_SHADER))
+
+			if 'any' in hit:
+				shaders.serializeIndex(out, hit['any'])
+			else:
+				out.write(struct.pack('I', NO_SHADER))
 
 class PipelineCompute:
 	def __init__(self, name, desc):
+		self.type = PIPELINE_COMPUTE
 		self.name = name
-		self.comp = loadShader(desc['comp'] + '.comp.spv')
+		self.comp = shaders.load(desc['comp'] + '.comp.spv')
+
+	def serialize(self, out):
+		shaders.serializeIndex(out, self.comp)
 
 def parsePipeline(pipelines, name, desc):
 	if 'inherit' in desc:
@@ -165,4 +216,21 @@ def loadPipelines():
 		pipelines[k] = parsePipeline(pipelines_desc, k, v)
 	return pipelines
 
+def writeOutput(out, pipelines):
+	MAGIC = bytearray([ord(c) for c in 'MEAT'])
+	out.write(MAGIC)
+
+	shaders.serialize(out)
+
+	out.write(struct.pack('I', len(pipelines)))
+	for name, pipeline in pipelines.items():
+		out.write(struct.pack('I', pipeline.type))
+		bs = pipeline.name.encode('utf-8')
+		out.write(struct.pack('I', len(bs)))
+		out.write(bs)
+		pipeline.serialize(out)
+
 pipelines = loadPipelines()
+
+if args.output:
+	writeOutput(args.output, pipelines)
