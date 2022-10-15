@@ -6,7 +6,7 @@ import traceback
 from spirv import spv
 
 parser = argparse.ArgumentParser(description='Build pipeline descriptor')
-parser.add_argument('--path', nargs='*', help='Directory to look for shaders')
+parser.add_argument('--path', action='append', help='Directory to look for shaders')
 parser.add_argument('pipelines', type=argparse.FileType('r'))
 # TODO strip debug OpName OpLine etc
 args = parser.parse_args()
