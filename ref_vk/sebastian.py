@@ -2,7 +2,6 @@
 import json
 import argparse
 import struct
-import traceback
 from spirv import spv
 
 parser = argparse.ArgumentParser(description='Build pipeline descriptor')
