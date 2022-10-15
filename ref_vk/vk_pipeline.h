@@ -3,6 +3,9 @@
 #include "vk_core.h"
 #include "vk_buffer.h"
 
+VkShaderModule R_VkShaderLoadFromMem(const void *ptr, uint32_t size, const char *name);
+void R_VkShaderDestroy(VkShaderModule module);
+
 typedef struct {
   const char *filename;
 	VkShaderStageFlagBits stage;

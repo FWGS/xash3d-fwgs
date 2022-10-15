@@ -1,5 +1,4 @@
 #include "vk_pipeline.h"
-#include "vk_spirv.h"
 
 #include "vk_framectl.h" // VkRenderPass
 
@@ -26,54 +25,47 @@ void VK_PipelineShutdown( void )
 	vkDestroyPipelineCache(vk_core.device, g_pipeline_cache, NULL);
 }
 
-typedef struct {
-	VkShaderModule module;
-
-	vk_spirv_t spirv;
-} r_vk_shader_t;
-
-static qboolean R_VkShaderLoad(r_vk_shader_t *shader, const char *filename) {
-	*shader = (r_vk_shader_t){0};
-
-	fs_offset_t size = 0;
-	byte* const buf = gEngine.fsapi->LoadFile(filename, &size, false);
-
-	if (!buf) {
-		gEngine.Con_Printf( S_ERROR "Cannot open shader file \"%s\"\n", filename);
-		return false;
-	}
-
-	if ((size % 4 != 0) || (((uintptr_t)buf & 3) != 0)) {
-		gEngine.Con_Printf(S_ERROR "size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec", size, buf);
-		return false;
+VkShaderModule R_VkShaderLoadFromMem(const void *ptr, uint32_t size, const char *name) {
+	if ((size % 4 != 0) || (((uintptr_t)ptr & 3) != 0)) {
+		gEngine.Con_Printf(S_ERROR "Couldn't load shader %s: size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec\n", name, size, ptr);
+		return VK_NULL_HANDLE;
 	}
 
 	const VkShaderModuleCreateInfo smci = {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		.codeSize = size,
-		.pCode = (const uint32_t*)(void*)buf,
+		.pCode = (const uint32_t*)(void*)ptr,
 	};
 
-	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader->module));
-	SET_DEBUG_NAME(shader->module, VK_OBJECT_TYPE_SHADER_MODULE, filename);
-
-	if (!R_VkSpirvParse(&shader->spirv, smci.pCode, size / 4)) {
-		gEngine.Con_Printf(S_ERROR "Error parsing SPIR-V for %s\n", filename);
-	} else {
-		gEngine.Con_Reportf("Got %d bindings for shader %s\n", shader->spirv.bindings_count, filename);
-		for (int j = 0; j < shader->spirv.bindings_count; ++j) {
-			const vk_binding_t *binding = shader->spirv.bindings + j;
-			gEngine.Con_Reportf("  %02d [%d:%d] name=%s\n", j, binding->descriptor_set, binding->binding, binding->name);
-		}
+	VkShaderModule module = VK_NULL_HANDLE;
+	const VkResult result = vkCreateShaderModule(vk_core.device, &smci, NULL, &module);
+	if (result != VK_SUCCESS) {
+		gEngine.Con_Printf(S_ERROR "Couldn't load shader %s: error (%d): %s\n", name, result, R_VkResultName(result));
+		return VK_NULL_HANDLE;
 	}
 
-	Mem_Free(buf);
-	return true;
+	SET_DEBUG_NAME(module, VK_OBJECT_TYPE_SHADER_MODULE, name);
+	return module;
 }
 
-static void R_VkShaderDestroy(r_vk_shader_t *shader) {
-	R_VkSpirvFree(&shader->spirv);
-	vkDestroyShaderModule(vk_core.device, shader->module, NULL);
+static VkShaderModule R_VkShaderLoadFromFile(const char *filename) {
+	fs_offset_t size = 0;
+	byte* const buf = gEngine.fsapi->LoadFile(filename, &size, false);
+
+	if (!buf) {
+		gEngine.Con_Printf( S_ERROR "Cannot open shader file \"%s\"\n", filename);
+		return VK_NULL_HANDLE;
+	}
+
+	const VkShaderModule module = R_VkShaderLoadFromMem(buf, size, filename);
+
+finalize:
+	Mem_Free(buf);
+	return module;
+}
+
+void R_VkShaderDestroy(VkShaderModule module) {
+	vkDestroyShaderModule(vk_core.device, module, NULL);
 }
 
 VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *ci)
@@ -174,16 +166,16 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 	if (ci->num_stages > MAX_STAGES)
 		return VK_NULL_HANDLE;
 
-	r_vk_shader_t shaders[MAX_STAGES] = {0};
+	VkShaderModule shaders[MAX_STAGES] = {VK_NULL_HANDLE};
 
 	for (int i = 0; i < ci->num_stages; ++i) {
-		if (!R_VkShaderLoad(shaders + i, ci->stages[i].filename))
+		if (VK_NULL_HANDLE == (shaders[i] = R_VkShaderLoadFromFile(ci->stages[i].filename)))
 			goto finalize;
 
 		stage_create_infos[i] = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = ci->stages[i].stage,
-			.module = shaders[i].module,
+			.module = shaders[i],
 			.pSpecializationInfo = ci->stages[i].specialization_info,
 			.pName = "main",
 		};
@@ -191,16 +183,15 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 
 	XVK_CHECK(vkCreateGraphicsPipelines(vk_core.device, g_pipeline_cache, 1, &gpci, NULL, &pipeline));
 finalize:
-	for (int i = 0; i < ci->num_stages; ++i) {
-		R_VkShaderDestroy(shaders + i);
-	}
+	for (int i = 0; i < ci->num_stages; ++i)
+		R_VkShaderDestroy(shaders[i]);
 
 	return pipeline;
 }
 
 VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci) {
-	r_vk_shader_t shader = {0};
-	if (!R_VkShaderLoad(&shader, ci->shader_filename))
+	const VkShaderModule shader = R_VkShaderLoadFromFile(ci->shader_filename);
+	if (shader == VK_NULL_HANDLE)
 		return VK_NULL_HANDLE;
 
 	const VkComputePipelineCreateInfo cpci = {
@@ -209,7 +200,7 @@ VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci)
 		.stage = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = shader.module,
+			.module = shader,
 			.pName = "main",
 			.pSpecializationInfo = ci->specialization_info,
 		},
@@ -217,7 +208,7 @@ VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci)
 
 	VkPipeline pipeline;
 	XVK_CHECK(vkCreateComputePipelines(vk_core.device, VK_NULL_HANDLE, 1, &cpci, NULL, &pipeline));
-	R_VkShaderDestroy(&shader);
+	R_VkShaderDestroy(shader);
 
 	return pipeline;
 }
@@ -250,12 +241,12 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 		return ret;
 	}
 
-	r_vk_shader_t shaders[MAX_SHADER_STAGES] = {0};
+	VkShaderModule shaders[MAX_SHADER_STAGES] = {0};
 
 	for (int i = 0; i < create->stages_count; ++i) {
 		const vk_shader_stage_t *const stage = create->stages + i;
 
-		if (!R_VkShaderLoad(shaders + i, stage->filename))
+		if (VK_NULL_HANDLE == (shaders[i] = R_VkShaderLoadFromFile(stage->filename)))
 			goto destroy_shaders;
 
 		if (stage->stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR) {
@@ -266,7 +257,7 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 		stages[i] = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = stage->stage,
-			.module = shaders[i].module,
+			.module = shaders[i],
 			.pName = "main",
 			.pSpecializationInfo = stage->specialization_info,
 		};
@@ -329,7 +320,7 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 
 destroy_shaders:
 	for (int i = 0; i < create->stages_count; ++i)
-		R_VkShaderDestroy(shaders + i);
+		R_VkShaderDestroy(shaders[i]);
 
 	if (ret.pipeline == VK_NULL_HANDLE)
 		return ret;
