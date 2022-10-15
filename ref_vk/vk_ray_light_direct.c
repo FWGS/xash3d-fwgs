@@ -58,22 +58,6 @@ static const int semantics_point[] = {
 };
 
 struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
-	// FIXME move this into vk_pipeline
-	const struct SpecializationData {
-		uint32_t sbt_record_size;
-	} spec_data = {
-		.sbt_record_size = vk_core.physical_device.sbt_record_size,
-	};
-	const VkSpecializationMapEntry spec_map[] = {
-		{.constantID = SPEC_SBT_RECORD_SIZE_INDEX, .offset = offsetof(struct SpecializationData, sbt_record_size), .size = sizeof(uint32_t) },
-	};
-	VkSpecializationInfo spec = {
-		.mapEntryCount = COUNTOF(spec_map),
-		.pMapEntries = spec_map,
-		.dataSize = sizeof(spec_data),
-		.pData = &spec_data,
-	};
-
 	const ray_pass_shader_t miss[] = {
 		"ray_shadow.rmiss.spv"
 	};
@@ -97,29 +81,13 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 		.miss_count = COUNTOF(miss),
 		.hit = hit,
 		.hit_count = COUNTOF(hit),
-		.specialization = &spec,
+		.specialization = NULL,
 	};
 
 	return RayPassCreateTracing( &rpc );
 }
 
 struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
-	// FIXME move this into vk_pipeline
-	const struct SpecializationData {
-		uint32_t sbt_record_size;
-	} spec_data = {
-		.sbt_record_size = vk_core.physical_device.sbt_record_size,
-	};
-	const VkSpecializationMapEntry spec_map[] = {
-		{.constantID = SPEC_SBT_RECORD_SIZE_INDEX, .offset = offsetof(struct SpecializationData, sbt_record_size), .size = sizeof(uint32_t) },
-	};
-	VkSpecializationInfo spec = {
-		.mapEntryCount = COUNTOF(spec_map),
-		.pMapEntries = spec_map,
-		.dataSize = sizeof(spec_data),
-		.pData = &spec_data,
-	};
-
 	const ray_pass_shader_t miss[] = {
 		"ray_shadow.rmiss.spv"
 	};
@@ -143,7 +111,7 @@ struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 		.miss_count = COUNTOF(miss),
 		.hit = hit,
 		.hit_count = COUNTOF(hit),
-		.specialization = &spec,
+		.specialization = NULL,
 	};
 
 	return RayPassCreateTracing( &rpc );

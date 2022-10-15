@@ -60,6 +60,24 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 	ray_pass_tracing_impl_t *const pass = Mem_Malloc(vk_core.pool, sizeof(*pass));
 	ray_pass_t *const header = &pass->header;
 
+	// TODO support external specialization
+	ASSERT(!create->specialization);
+
+	const struct SpecializationData {
+		uint32_t sbt_record_size;
+	} spec_data = {
+		.sbt_record_size = vk_core.physical_device.sbt_record_size,
+	};
+	const VkSpecializationMapEntry spec_map[] = {
+		{.constantID = SPEC_SBT_RECORD_SIZE_INDEX, .offset = offsetof(struct SpecializationData, sbt_record_size), .size = sizeof(uint32_t) },
+	};
+	const VkSpecializationInfo spec = {
+		.mapEntryCount = COUNTOF(spec_map),
+		.pMapEntries = spec_map,
+		.dataSize = sizeof(spec_data),
+		.pData = &spec_data,
+	};
+
 	initPassDescriptors(header, &create->layout);
 
 	{
@@ -83,7 +101,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 		stages[stage_index++] = (vk_shader_stage_t) {
 			.filename = create->raygen,
 			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-			.specialization_info = create->specialization,
+			.specialization_info = &spec,
 		};
 
 		for (int i = 0; i < create->miss_count; ++i) {
@@ -98,7 +116,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 			stages[stage_index++] = (vk_shader_stage_t) {
 				.filename = *shader,
 				.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-				.specialization_info = create->specialization,
+				.specialization_info = &spec,
 			};
 		}
 
@@ -114,7 +132,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 				stages[stage_index++] = (vk_shader_stage_t) {
 					.filename = group->any,
 					.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-					.specialization_info = create->specialization,
+					.specialization_info = &spec,
 				};
 			} else {
 				hits[hit_index].any = -1;
@@ -126,7 +144,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 				stages[stage_index++] = (vk_shader_stage_t) {
 					.filename = group->closest,
 					.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-					.specialization_info = create->specialization,
+					.specialization_info = &spec,
 				};
 			} else {
 				hits[hit_index].closest = -1;
