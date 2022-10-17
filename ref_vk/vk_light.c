@@ -779,7 +779,7 @@ void RT_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player 
 	vec3_t color;
 	vec3_t origin;
 	vec3_t angles;
-	vk_light_entity_t le;
+	vk_light_entity_t le = { .type = LightTypeSpot };
 
 	float thirdperson_offset = 25;
 	vec3_t forward, view_ofs;

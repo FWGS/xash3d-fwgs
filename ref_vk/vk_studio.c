@@ -39,7 +39,7 @@ typedef struct
 
 cvar_t *r_glowshellfreq;
 
-cvar_t r_shadows = { "r_shadows", "0", 0 };
+cvar_t r_shadows = { (char*)"r_shadows", (char*)"0", 0 };
 
 typedef struct sortedmesh_s
 {

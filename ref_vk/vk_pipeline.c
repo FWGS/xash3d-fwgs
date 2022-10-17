@@ -27,7 +27,7 @@ void VK_PipelineShutdown( void )
 
 VkShaderModule R_VkShaderLoadFromMem(const void *ptr, uint32_t size, const char *name) {
 	if ((size % 4 != 0) || (((uintptr_t)ptr & 3) != 0)) {
-		gEngine.Con_Printf(S_ERROR "Couldn't load shader %s: size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec\n", name, size, ptr);
+		gEngine.Con_Printf(S_ERROR "Couldn't load shader %s: size %u or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec\n", name, size, ptr);
 		return VK_NULL_HANDLE;
 	}
 
