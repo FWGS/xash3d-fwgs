@@ -85,7 +85,7 @@ qboolean R_VkMeatpipeLoad(vk_meatpipe_t *out, const char *filename) {
 		const int size = READ_U32("Couldn't read shader %s size", name);
 		const void *src = READ_PTR(size, "Couldn't read shader %s data", name);
 		shaders[i] = R_VkShaderLoadFromMem(src, size, name);
-		gEngine.Con_Reportf("%d: loaded %s into %p\n", i, name, shaders[i]);
+		gEngine.Con_Reportf("%d: loaded %s\n", i, name);
 	}
 
 	pipelines_count = READ_U32("Couldn't read pipelines count");
