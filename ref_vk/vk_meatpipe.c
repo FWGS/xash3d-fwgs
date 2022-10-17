@@ -60,28 +60,35 @@ qboolean R_VkMeatpipeLoad(vk_meatpipe_t *out, const char *filename) {
 
 	cursor_t cur = { .data = buf, .off = 0, .size = size };
 
-	const uint32_t magic = READ_U32("Couldn't read magic");
+	int shaders_count = 0;
+	VkShaderModule *shaders = NULL;
+	int pipelines_count = 0;
 
-	if (magic != k_meatpipe_magic) {
-		gEngine.Con_Printf(S_ERROR "Meatpipe magic invalid for \"%s\": got %08x expected %08x\n", filename, magic, k_meatpipe_magic);
-		goto finalize;
+	{
+		const uint32_t magic = READ_U32("Couldn't read magic");
+
+		if (magic != k_meatpipe_magic) {
+			gEngine.Con_Printf(S_ERROR "Meatpipe magic invalid for \"%s\": got %08x expected %08x\n", filename, magic, k_meatpipe_magic);
+			goto finalize;
+		}
 	}
 
-	const int shaders_count = READ_U32("Couldn't read shaders count");
-	VkShaderModule *shaders = Mem_Malloc(vk_core.pool, sizeof(VkShaderModule) * shaders_count);
+	shaders_count = READ_U32("Couldn't read shaders count");
+	shaders = Mem_Malloc(vk_core.pool, sizeof(VkShaderModule) * shaders_count);
 	for (int i = 0; i < shaders_count; ++i)
 		shaders[i] = VK_NULL_HANDLE;
 
 	for (int i = 0; i < shaders_count; ++i) {
 		char name[256];
 		Q_snprintf(name, sizeof(name), "%s@%d", filename, i); // TODO serialize origin name
+
 		const int size = READ_U32("Couldn't read shader %s size", name);
 		const void *src = READ_PTR(size, "Couldn't read shader %s data", name);
 		shaders[i] = R_VkShaderLoadFromMem(src, size, name);
 		gEngine.Con_Reportf("%d: loaded %s into %p\n", i, name, shaders[i]);
 	}
 
-	const int pipelines_count = READ_U32("Couldn't read pipelines count");
+	pipelines_count = READ_U32("Couldn't read pipelines count");
 	for (int i = 0; i < pipelines_count; ++i) {
 		const uint32_t head = READ_U32("Couldn't read pipeline %d head", i);
 		const int name_len = READ_U32("Coulnd't read pipeline %d name len", i);
@@ -129,6 +136,10 @@ finalize:
 			R_VkShaderDestroy(shaders[i]);
 		}
 	}
+
+	if (shaders)
+		Mem_Free(shaders);
+
 	Mem_Free(buf);
 	return ret;
 }
