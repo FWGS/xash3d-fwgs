@@ -160,7 +160,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	int	i, total_segs, segs_drawn;
 	float	div, length, fraction, factor;
 	float	flMaxWidth, vLast, vStep, brightness;
-	vec3_t	perp1, vLastNormal;
+	vec3_t	perp1, vLastNormal = {0};
 	beamseg_t	curSeg = {0};
 	int total_vertices = 0;
 	int total_indices = 0;
