@@ -159,9 +159,11 @@ static uint Voice_GetOpusCompressedData( byte *out, uint maxsize, uint *frames )
 	if( voice.input_file )
 	{
 		uint numbytes;
-		double updateInterval;
+		double updateInterval, curtime = Sys_DoubleTime();
 
-		updateInterval = cl.mtime[0] - cl.mtime[1];
+		updateInterval = curtime - voice.start_time;
+		voice.start_time = curtime;
+
 		numbytes = updateInterval * voice.samplerate * voice.width * VOICE_PCM_CHANNELS;
 		numbytes = Q_min( numbytes, voice.input_file->size - voice.input_file_pos );
 		numbytes = Q_min( numbytes, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
