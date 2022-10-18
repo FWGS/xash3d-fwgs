@@ -293,6 +293,8 @@ static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 
 #if XASH_PSP
 	pSaveData->pTable = P5Ram_Alloc( sizeof( ENTITYTABLE ) * entityCount, 1 );
+	if( !pSaveData->pTable )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData->pTable) failed!", __FUNCTION__ );
 #else
 	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
 #endif
@@ -613,7 +615,11 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 
 #if XASH_PSP
 	pSaveData = P5Ram_Alloc( sizeof( SAVERESTOREDATA ) + size, 1 );
+	if( !pSaveData )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData) failed!", __FUNCTION__ );
 	pSaveData->pTokens = (char **)P5Ram_Alloc( tokenCount * sizeof( char* ), 1 );
+	if( !pSaveData->pTokens )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData->pTokens) failed!", __FUNCTION__ );
 #else
 	pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
 	pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
@@ -2260,7 +2266,13 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		return 0;
 	}
 
+#if XASH_PSP
+	pSaveData = (char *)P5Ram_Alloc( size, 0 );
+	if( !pSaveData )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData) failed!", __FUNCTION__ );
+#else
 	pSaveData = (char *)Mem_Malloc( host.mempool, size );
+#endif
 	FS_Read( f, pSaveData, size );
 	pData = pSaveData;
 
@@ -2269,6 +2281,8 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	{
 #if XASH_PSP
 		pTokenList = P5Ram_Alloc( tokenCount * sizeof( char* ), 1 );
+		if( !pTokenList )
+			Host_Error( "%s: P5Ram_Alloc (pTokenList) failed!", __FUNCTION__ );
 #else
 		pTokenList = Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
 #endif
