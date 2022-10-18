@@ -80,12 +80,12 @@ NetGraph_FillRGBA shortcut
 */
 static void NetGraph_DrawRect( wrect_t *rect, byte colors[4] )
 {
-	ref.dllFuncs.Color4ub( colors[0], colors[1], colors[2], colors[3] );	// color for this quad
+	gTriApi.Color4ub( colors[0], colors[1], colors[2], colors[3] );	// color for this quad
 
-	ref.dllFuncs.Vertex3f( rect->left, rect->top, 0 );
-	ref.dllFuncs.Vertex3f( rect->left + rect->right, rect->top, 0 );
-	ref.dllFuncs.Vertex3f( rect->left + rect->right, rect->top + rect->bottom, 0 );
-	ref.dllFuncs.Vertex3f( rect->left, rect->top + rect->bottom, 0 );
+	gTriApi.Vertex3f( rect->left, rect->top, 0 );
+	gTriApi.Vertex3f( rect->left + rect->right, rect->top, 0 );
+	gTriApi.Vertex3f( rect->left + rect->right, rect->top + rect->bottom, 0 );
+	gTriApi.Vertex3f( rect->left, rect->top + rect->bottom, 0 );
 }
 
 /*
@@ -657,17 +657,17 @@ void SCR_DrawNetGraph( void )
 
 	if( net_graph->value < 3 )
 	{
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+		gTriApi.RenderMode( kRenderTransAdd );
 
-		ref.dllFuncs.Begin( TRI_QUADS ); // draw all the fills as a long solid sequence of quads for speedup reasons
+		gTriApi.Begin( TRI_QUADS ); // draw all the fills as a long solid sequence of quads for speedup reasons
 
 		// NOTE: fill colors without texture at this point
 		NetGraph_DrawDataUsage( x, y, w );
 		NetGraph_DrawTimes( rect, x, w );
 
-		ref.dllFuncs.End();
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-		ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+		gTriApi.End();
+		gTriApi.Color4ub( 255, 255, 255, 255 );
+		gTriApi.RenderMode( kRenderNormal );
 	}
 }
 

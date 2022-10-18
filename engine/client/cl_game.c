@@ -94,6 +94,9 @@ static dllfunc_t cdll_new_exports[] = 	// allowed only in SDK 2.3 and higher
 { NULL, NULL }
 };
 
+// shared between client and server
+triangleapi_t gTriApi;
+
 static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc );
 
 /*
@@ -542,7 +545,7 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 	// scale for screen sizes
 	SPR_AdjustSize( &x, &y, &width, &height );
 	texnum = ref.dllFuncs.R_GetSpriteTexture( clgame.ds.pSprite, frame );
-	ref.dllFuncs.Color4ub( clgame.ds.spriteColor[0], clgame.ds.spriteColor[1], clgame.ds.spriteColor[2], clgame.ds.spriteColor[3] );
+	ref.dllFuncs.GL_SetColor4ub( clgame.ds.spriteColor[0], clgame.ds.spriteColor[1], clgame.ds.spriteColor[2], clgame.ds.spriteColor[3] );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, texnum );
 }
 
@@ -649,14 +652,14 @@ void CL_DrawScreenFade( void )
 		iFadeAlpha = bound( 0, iFadeAlpha, sf->fadealpha );
 	}
 
-	ref.dllFuncs.Color4ub( sf->fader, sf->fadeg, sf->fadeb, iFadeAlpha );
+	ref.dllFuncs.GL_SetColor4ub( sf->fader, sf->fadeg, sf->fadeb, iFadeAlpha );
 
 	if( sf->fadeFlags & FFADE_MODULATE )
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 	else ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1,
 		R_GetBuiltinTexture( REF_WHITE_TEXTURE ));
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -938,7 +941,7 @@ void CL_DrawCrosshair( void )
 		VectorAdd( refState.viewangles, cl.crosshairangle, angles );
 		AngleVectors( angles, forward, NULL, NULL );
 		VectorAdd( refState.vieworg, forward, point );
-		ref.dllFuncs.WorldToScreen( point, screen );
+		gTriApi.WorldToScreen( point, screen );
 
 		x += ( clgame.viewport[2] >> 1 ) * screen[0] + 0.5f;
 		y += ( clgame.viewport[3] >> 1 ) * screen[1] + 0.5f;
@@ -982,7 +985,7 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 	{
 		float	step, s2;
 
-		ref.dllFuncs.Color4ub( 128, 128, 128, 255 );
+		ref.dllFuncs.GL_SetColor4ub( 128, 128, 128, 255 );
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
 
@@ -991,14 +994,14 @@ static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 		s2 = (float)right / width;
 		width = right;
 	
-		ref.dllFuncs.Color4ub( 208, 152, 0, 255 );
+		ref.dllFuncs.GL_SetColor4ub( 208, 152, 0, 255 );
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, s2, 1, cls.loadingBar );
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 	}
 	else
 	{
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
 	}
@@ -1107,7 +1110,6 @@ void CL_ClearWorld( void )
 
 	world.max_recursion = 0;
 
-	clgame.ds.cullMode = TRI_FRONT;
 	clgame.numStatics = 0;
 }
 
@@ -3096,169 +3098,6 @@ char *pfnParseFile( char *data, char *token )
 
 /*
 =================
-TriAPI implementation
-
-=================
-*/
-/*
-=================
-TriRenderMode
-=================
-*/
-void TriRenderMode( int mode )
-{
-	clgame.ds.renderMode = mode;
-	ref.dllFuncs.TriRenderMode( mode );
-}
-
-/*
-=================
-TriColor4f
-=================
-*/
-void TriColor4f( float r, float g, float b, float a )
-{
-	if( clgame.ds.renderMode == kRenderTransAlpha )
-		ref.dllFuncs.Color4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
-	else ref.dllFuncs.Color4f( r * a, g * a, b * a, 1.0 );
-
-	clgame.ds.triRGBA[0] = r;
-	clgame.ds.triRGBA[1] = g;
-	clgame.ds.triRGBA[2] = b;
-	clgame.ds.triRGBA[3] = a;
-}
-
-/*
-=============
-TriColor4ub
-=============
-*/
-void TriColor4ub( byte r, byte g, byte b, byte a )
-{
-	clgame.ds.triRGBA[0] = r * (1.0f / 255.0f);
-	clgame.ds.triRGBA[1] = g * (1.0f / 255.0f);
-	clgame.ds.triRGBA[2] = b * (1.0f / 255.0f);
-	clgame.ds.triRGBA[3] = a * (1.0f / 255.0f);
-
-	ref.dllFuncs.Color4f( clgame.ds.triRGBA[0], clgame.ds.triRGBA[1], clgame.ds.triRGBA[2], 1.0f );
-}
-
-/*
-=============
-TriBrightness
-=============
-*/
-void TriBrightness( float brightness )
-{
-	float	r, g, b;
-
-	r = clgame.ds.triRGBA[0] * clgame.ds.triRGBA[3] * brightness;
-	g = clgame.ds.triRGBA[1] * clgame.ds.triRGBA[3] * brightness;
-	b = clgame.ds.triRGBA[2] * clgame.ds.triRGBA[3] * brightness;
-
-	ref.dllFuncs.Color4f( r, g, b, 1.0f );
-}
-
-/*
-=============
-TriCullFace
-=============
-*/
-void TriCullFace( TRICULLSTYLE style )
-{
-	clgame.ds.cullMode = style;
-	ref.dllFuncs.CullFace( style );
-}
-
-/*
-=============
-TriWorldToScreen
-convert world coordinates (x,y,z) into screen (x, y)
-=============
-*/
-int TriWorldToScreen( const float *world, float *screen )
-{
-	int	retval;
-
-	retval = ref.dllFuncs.WorldToScreen( world, screen );
-
-	screen[0] =  0.5f * screen[0] * (float)clgame.viewport[2];
-	screen[1] = -0.5f * screen[1] * (float)clgame.viewport[3];
-	screen[0] += 0.5f * (float)clgame.viewport[2];
-	screen[1] += 0.5f * (float)clgame.viewport[3];
-
-	return retval;
-}
-
-/*
-=============
-TriBoxInPVS
-
-check box in pvs (absmin, absmax)
-=============
-*/
-int TriBoxInPVS( float *mins, float *maxs )
-{
-	return Mod_BoxVisible( mins, maxs, ref.dllFuncs.Mod_GetCurrentVis( ));
-}
-
-/*
-=============
-TriLightAtPoint
-NOTE: dlights are ignored
-=============
-*/
-void TriLightAtPoint( float *pos, float *value )
-{
-	colorVec	vLightColor;
-
-	if( !pos || !value ) return;
-
-	vLightColor = ref.dllFuncs.R_LightPoint( pos );
-
-	value[0] = vLightColor.r;
-	value[1] = vLightColor.g;
-	value[2] = vLightColor.b;
-}
-
-/*
-=============
-TriColor4fRendermode
-Heavy legacy of Quake...
-=============
-*/
-void TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
-{
-	if( clgame.ds.renderMode == kRenderTransAlpha )
-	{
-		clgame.ds.triRGBA[3] = a / 255.0f;
-		ref.dllFuncs.Color4f( r, g, b, a );
-	}
-	else ref.dllFuncs.Color4f( r * a, g * a, b * a, 1.0f );
-}
-
-
-/*
-=============
-TriSpriteTexture
-
-bind current texture
-=============
-*/
-int TriSpriteTexture( model_t *pSpriteModel, int frame )
-{
-	int	gl_texturenum;
-
-	if(( gl_texturenum = ref.dllFuncs.R_GetSpriteTexture( pSpriteModel, frame )) <= 0 )
-		return 0;
-
-	ref.dllFuncs.GL_Bind( XASH_TEXTURE0, gl_texturenum );
-
-	return 1;
-}
-
-/*
-=================
 DemoApi implementation
 
 =================
@@ -3615,9 +3454,6 @@ static void GAME_EXPORT VGui_ViewportPaintBackground( int extents[4] )
 {
 	// stub
 }
-
-// shared between client and server			
-triangleapi_t gTriApi;
 
 static efx_api_t gEfxApi =
 {

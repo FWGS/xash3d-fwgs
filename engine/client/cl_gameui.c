@@ -514,7 +514,7 @@ static void PIC_DrawGeneric( float x, float y, float width, float height, const 
 
 	PicAdjustSize( &x, &y, &width, &height );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, gameui.ds.gl_texturenum );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -592,7 +592,7 @@ void GAME_EXPORT pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a )
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
-	ref.dllFuncs.Color4ub( r, g, b, a );
+	ref.dllFuncs.GL_SetColor4ub( r, g, b, a );
 }
 
 /*
@@ -691,10 +691,10 @@ static void GAME_EXPORT pfnFillRGBA( int x, int y, int width, int height, int r,
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
-	ref.dllFuncs.Color4ub( r, g, b, a );
+	ref.dllFuncs.GL_SetColor4ub( r, g, b, a );
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, R_GetBuiltinTexture( REF_WHITE_TEXTURE ) );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -752,7 +752,7 @@ static void GAME_EXPORT pfnDrawCharacter( int ix, int iy, int iwidth, int iheigh
 	color[0] = (ulRGBA & 0xFF0000) >> 16;
 	color[1] = (ulRGBA & 0xFF00) >> 8;
 	color[2] = (ulRGBA & 0xFF) >> 0;
-	ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
+	ref.dllFuncs.GL_SetColor4ub( color[0], color[1], color[2], color[3] );
 
 	col = (ch & 15) * 0.0625f + (0.5f / 256.0f);
 	row = (ch >> 4) * 0.0625f + (0.5f / 256.0f);
@@ -769,7 +769,7 @@ static void GAME_EXPORT pfnDrawCharacter( int ix, int iy, int iwidth, int iheigh
 
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, hFont );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 }
 
 /*

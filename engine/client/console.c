@@ -908,8 +908,8 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 
 	// don't apply color to fixed fonts it's already colored
 	if( con.curFont->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, con.curFont->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
-		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
-	else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
+		ref.dllFuncs.GL_SetColor4ub( color[0], color[1], color[2], color[3] );
+	else ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, color[3] );
 
 	// calc rectangle
 	s1 = (float)rc->left / width;
@@ -922,7 +922,7 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 	if( clgame.ds.adjust_size )
 		Con_TextAdjustSize( &x, &y, &width, &height );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, con.curFont->hFontTexture );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // don't forget reset color
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 ); // don't forget reset color
 
 	return con.curFont->charWidths[number];
 }
@@ -1083,7 +1083,7 @@ int Con_DrawGenericString( int x, int y, const char *string, rgba_t setColor, qb
 		s++;
 	}
 
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 	return drawLen;
 }
 
@@ -2039,7 +2039,7 @@ void Con_DrawNotify( void )
 		Field_DrawInputLine( x + len, y, &con.chat );
 	}
 
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 }
 
 /*
@@ -2112,7 +2112,7 @@ void Con_DrawSolidConsole( int lines )
 
 	// draw the background
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
 	if( refState.width * 3 / 4 < refState.height && lines >= refState.height )
 		ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.height, refState.width, refState.height - refState.width * 3 / 4, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE) );
 	ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.width * 3 / 4, refState.width, refState.width * 3 / 4, 0, 0, 1, 1, con.background );
@@ -2180,7 +2180,7 @@ void Con_DrawSolidConsole( int lines )
 	y = lines - ( con.curFont->charHeight * 1.2f );
 	SCR_DrawFPS( max( y, 4 )); // to avoid to hide fps counter
 
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetColor4ub( 255, 255, 255, 255 );
 }
 
 /*

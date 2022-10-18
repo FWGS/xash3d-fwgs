@@ -329,6 +329,11 @@ void GAME_EXPORT GL_SetRenderMode(int mode)
 	/// maybe, setup block drawing function pointers here
 }
 
+void GAME_EXPORT GL_SetColor4ub( byte r, byte g, byte b, byte a )
+{
+	_TriColor4ub(r,g,b,a);
+}
+
 void GAME_EXPORT R_ShowTextures( void )
 {
 	// textures undone too
@@ -452,6 +457,7 @@ ref_interface_t gReffuncs =
 	R_ClearScreen,
 	R_AllowFog,
 	GL_SetRenderMode,
+	GL_SetColor4ub,
 
 	R_AddEntity,
 	CL_AddCustomBeam,
@@ -548,20 +554,7 @@ ref_interface_t gReffuncs =
 	R_ClearScene,
 	R_GetProcAddress,
 
-	TriRenderMode,
-	TriBegin,
-	TriEnd,
-	_TriColor4f,
-	_TriColor4ub,
-	TriTexCoord2f,
-	TriVertex3fv,
-	TriVertex3f,
-	TriWorldToScreen,
-	TriFog,
-	R_ScreenToWorld,
-	TriGetMatrix,
-	TriFogParams,
-	TriCullFace,
+	getTriAPI,
 
 	VGUI_DrawInit,
 	VGUI_DrawShutdown,

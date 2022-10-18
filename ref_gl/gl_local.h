@@ -291,6 +291,7 @@ void GL_CleanupAllTextureUnits( void );
 void GL_LoadIdentityTexMatrix( void );
 void GL_DisableAllTexGens( void );
 void GL_SetRenderMode( int mode );
+void GL_SetColor4ub( byte r, byte g, byte b, byte a );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
 void R_ShowTextures( void );
@@ -574,8 +575,6 @@ void TriEnd( void );
 void TriTexCoord2f( float u, float v );
 void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
-void _TriColor4f( float r, float g, float b, float a );
-void _TriColor4ub( byte r, byte g, byte b, byte a );
 void TriColor4f( float r, float g, float b, float a );
 void TriColor4ub( byte r, byte g, byte b, byte a );
 void TriBrightness( float brightness );
@@ -585,6 +584,10 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
 void TriFogParams( float flDensity, int iFogSkybox );
 void TriCullFace( TRICULLSTYLE mode );
+int TriBoxInPVS( float *mins, float *maxs );
+void TriLightAtPoint( float *pos, float *value );
+void TriColor4fRendermode( float r, float g, float b, float a, int rendermode );
+int getTriAPI( int version, triangleapi_t *api );
 
 /*
 =======================================================================
