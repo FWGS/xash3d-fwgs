@@ -43,7 +43,6 @@ GNU General Public License for more details.
 #include "whereami.h"
 
 qboolean	error_on_exit = false;	// arg for exit();
-#define DEBUG_BREAK
 
 /*
 ================
@@ -54,23 +53,28 @@ double GAME_EXPORT Sys_DoubleTime( void )
 {
 	return Platform_DoubleTime();
 }
+
+/*
+================
+Sys_DebugBreak
+================
+*/
+void Sys_DebugBreak( void )
+{
 #if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
-	#undef DEBUG_BREAK
-	qboolean Sys_DebuggerPresent( void ); // see sys_linux.c
-	#if XASH_MSVC
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				_asm{ int 3 }
-	#elif XASH_X86
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				asm volatile("int $3;")
-	#else
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				raise( SIGINT )
-	#endif
+#if XASH_MSVC
+	if( Sys_DebuggerPresent() )
+		_asm { int 3 }
+#elif XASH_X86
+	if( Sys_DebuggerPresent() )
+		asm volatile( "int $3;" );
+#else
+	if( Sys_DebuggerPresent() )
+		raise( SIGINT );
 #endif
+#endif
+}
+
 #if !XASH_DEDICATED
 /*
 ================
@@ -377,12 +381,14 @@ void Sys_Warn( const char *format, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
-	DEBUG_BREAK;
-
 	va_start( argptr, format );
 	Q_vsnprintf( text, MAX_PRINT_MSG, format, argptr );
 	va_end( argptr );
+
+	Sys_DebugBreak();
+
 	Msg( "Sys_Warn: %s\n", text );
+
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
 		MSGBOX(text);
 }
@@ -404,8 +410,6 @@ void Sys_Error( const char *error, ... )
 	if( !Host_IsDedicated( ))
 		Platform_SetCursorType( dc_arrow );
 
-	DEBUG_BREAK;
-
 	if( host.status == HOST_ERR_FATAL )
 		return; // don't multiple executes
 
@@ -417,6 +421,8 @@ void Sys_Error( const char *error, ... )
 	va_start( argptr, error );
 	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
 	va_end( argptr );
+
+	Sys_DebugBreak();
 
 	SV_SysError( text );
 
