@@ -44,6 +44,7 @@ SceUID Platform_LoadModule( const char *filename, int mpid, SceSize argsize, voi
 int Platform_UnloadModule( SceUID modid, int *sce_code );
 
 #include "psp/p5ram_psp.h"
+#include "psp/fsh_psp.h"
 #endif
 #if XASH_ANDROID
 const char *Android_GetAndroidID( void );
