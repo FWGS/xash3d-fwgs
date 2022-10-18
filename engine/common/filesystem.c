@@ -196,6 +196,7 @@ static zip_t *fs_last_zip;
 static pack_t *fs_last_pak;
 
 #if XASH_PSP
+static fsh_handle_t	*fsh_basedir = NULL;
 static fsh_handle_t	*fsh_gamedir = NULL;
 #endif
 
@@ -1246,7 +1247,7 @@ static qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loade
 	pack_t		*pak = NULL;
 	const char	*ext = COM_FileExtension( pakfile );
 	int		i, errorcode = PAK_LOAD_COULDNT_OPEN;
-	
+
 	for( search = fs_searchpaths; search; search = search->next )
 	{
 		if( search->pack && !Q_stricmp( search->pack->filename, pakfile ))
@@ -1301,7 +1302,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 	zip_t		*zip = NULL;
 	const char	*ext = COM_FileExtension( zipfile );
 	int		errorcode = ZIP_LOAD_COULDNT_OPEN;
-  
+
 	for( search = fs_searchpaths; search; search = search->next )
 	{
 		if( search->pack && !Q_stricmp( search->pack->filename, zipfile ))
@@ -1310,12 +1311,12 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 			return true; // already loaded
 		}
 	}
-  
+
 	if( already_loaded ) *already_loaded = false;
-  
+
 	if( !Q_stricmp( ext, "pk3" ) )
 		zip = FS_LoadZip( zipfile, &errorcode );
-  
+
 	if( zip )
 	{
 		string	fullpath;
@@ -1495,7 +1496,7 @@ void FS_ClearSearchPath( void )
 
 		if( search->pack )
 		{
-			if( search->pack->files ) 
+			if( search->pack->files )
 				Mem_Free( search->pack->files );
 #if XASH_PSP
 			if( search->pack->handle >= 0 )
@@ -1669,7 +1670,7 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 		FS_Printf( f, "date\t\t\"%s\"\n", GameInfo->date );
 
 	if( Q_strlen( GameInfo->dll_path ))
-		FS_Printf( f, "dllpath\t\t\"%s\"\n", GameInfo->dll_path );	
+		FS_Printf( f, "dllpath\t\t\"%s\"\n", GameInfo->dll_path );
 
 	if( Q_strlen( GameInfo->game_dll ))
 		FS_Printf( f, "gamedll\t\t\"%s\"\n", GameInfo->game_dll );
@@ -1751,7 +1752,7 @@ void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
 	Q_strncpy( GameInfo->game_dll_osx, "dlls/hl.dylib", sizeof( GameInfo->game_dll_osx ));
 #if XASH_PSP
 	Q_strncpy( GameInfo->game_dll_psp, "dlls/server.prx", sizeof( GameInfo->game_dll_psp ));
-#endif 
+#endif
 	// .ico path
 	Q_strncpy( GameInfo->iconpath, "game.ico", sizeof( GameInfo->iconpath ));
 
@@ -1976,7 +1977,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			}
 		}
 	}
-	
+
 #if XASH_PSP
 	if( !found_psp )
 		Q_snprintf( GameInfo->game_dll_psp, sizeof( GameInfo->game_dll_psp ), "dlls/server.prx" );
@@ -1994,7 +1995,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		if( !found_osx )
 			Q_snprintf( GameInfo->game_dll_osx, sizeof( GameInfo->game_dll_osx ), "%s.dylib", gamedll );
 	}
-#endif	
+#endif
 	// make sure what gamedir is really exist
 	if( !FS_SysFolderExists( va( "%s"PATH_SPLITTER"%s", host.rootdir, GameInfo->falldir )))
 		GameInfo->falldir[0] = '\0';
@@ -2024,7 +2025,7 @@ static qboolean FS_ParseLiblistGam( const char *filename, const char *gamedir, g
 {
 	char	*afile;
 
-	if( !GameInfo ) return false;	
+	if( !GameInfo ) return false;
 	afile = (char *)FS_LoadFile( filename, NULL, false );
 	if( !afile ) return false;
 
@@ -2223,7 +2224,7 @@ void FS_LoadGameInfo( const char *rootfolder )
 	{
 		SI.clientlib[0] = 0;
 	}
-	
+
 	FS_Rescan(); // create new filesystem
 
 	Image_CheckPaletteQ1 ();
@@ -2241,7 +2242,7 @@ void FS_Init( void )
 	qboolean		hasBaseDir = false;
 	qboolean		hasGameDir = false;
 	int		i;
-	
+
 	FS_InitMemory();
 
 	Cmd_AddCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
@@ -2272,7 +2273,7 @@ void FS_Init( void )
 	SI.numgames = 0;
 
 	Q_strncpy( fs_basedir, SI.basedirName, sizeof( fs_basedir )); // default dir
-	
+
 	if( !Sys_GetParmFromCmdLine( "-game", fs_gamedir ))
 		Q_strncpy( fs_gamedir, fs_basedir, sizeof( fs_gamedir )); // gamedir == basedir
 
@@ -2342,9 +2343,17 @@ void FS_Init( void )
 
 	stringlistfreecontents( &dirs );
 #if XASH_PSP
-	fsh_gamedir = FSH_Init( fs_gamedir, 5000 );
-	if( !fsh_gamedir )
-		Con_Reportf( "FS_Init: FS Helper error\n" );
+	fsh_basedir = FSH_Create( fs_basedir, 5000 );
+	if( !fsh_basedir )
+		Con_Reportf( "FS_Init: FS Helper error (fsh_basedir)\n" );
+
+	if( Q_stricmp( fs_basedir, fs_gamedir ))
+	{
+		fsh_gamedir = FSH_Create( fs_gamedir, 5000 );
+		if( !fsh_gamedir )
+			Con_Reportf( "FS_Init: FS Helper error (fsh_gamedir)\n" );
+	}
+	else fsh_gamedir = NULL;
 #endif
 	Con_Reportf( "FS_Init: done\n" );
 }
@@ -2372,7 +2381,12 @@ void FS_Shutdown( void )
 	FS_ClearSearchPath(); // release all wad files too
 	Mem_FreePool( &fs_mempool );
 #if XASH_PSP
-	FSH_Shutdown( fsh_gamedir );
+	if( fsh_basedir )
+		FSH_Free( fsh_basedir );
+	fsh_basedir = NULL;
+
+	if( fsh_gamedir )
+		FSH_Free( fsh_gamedir );
 	fsh_gamedir = NULL;
 #endif
 }
@@ -2399,7 +2413,7 @@ static int FS_SysFileTime( const char *filename )
 	return fileTime;
 #else
 	struct stat buf;
-	
+
 	if( stat( filename, &buf ) == -1 )
 		return -1;
 
@@ -2525,7 +2539,10 @@ static file_t *FS_SysOpen( const char *filepath, const char *mode )
 	{
 		FS_BackupFileName( file, filepath, mod|opt );
 		if( mod == PSP_O_WRONLY || mod == PSP_O_RDWR )
-			FSH_AddFilePath( fsh_gamedir, filepath );
+		{
+			if( FSH_AddFilePath( fsh_basedir, filepath ) == -2 )
+				FSH_AddFilePath( fsh_gamedir, filepath );
+		}
 	}
 #elif !XASH_WIN32
 	if( file->handle < 0 )
@@ -2688,7 +2705,10 @@ qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
 	int		result;
 	SceIoStat	buf;
 
-	result = FSH_Find( fsh_gamedir, path );
+	result = FSH_Find( fsh_basedir, path );
+	if( result == -2 )
+		result = FSH_Find( fsh_gamedir, path );
+
 	if( result >= 0 )
 		return true;
 	if( result == -1 )
@@ -2823,7 +2843,7 @@ static searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedir
 		}
 		else if( search->wad )
 		{
-			dlumpinfo_t	*lump;	
+			dlumpinfo_t	*lump;
 			signed char		type = W_TypeFromExt( name );
 			qboolean		anywadname = true;
 			string		wadname, wadfolder;
@@ -2956,7 +2976,7 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 
 	// not found?
 	if( search == NULL )
-		return NULL; 
+		return NULL;
 
 	if( search->pack )
 		return FS_OpenPackedFile( search->pack, pack_ind );
@@ -2973,7 +2993,7 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 		// found in the filesystem?
 		Q_sprintf( path, "%s%s", search->filename, filename );
 		return FS_SysOpen( path, mode );
-	} 
+	}
 
 	return NULL;
 }
@@ -3018,7 +3038,7 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 		FS_CreatePath( real_path );// Create directories up to the file
 		return FS_SysOpen( real_path, mode );
 	}
-	
+
 	// else, we look at the various search paths and open the file in read-only mode
 	return FS_OpenReadFile( filepath, mode, gamedironly );
 }
@@ -3161,7 +3181,7 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 #if XASH_PSP
 		if( count > FILE_BUFF_SIZE )
 			count = FILE_BUFF_SIZE;
-		
+
 		if( count == 0 )
 			return done;
 
@@ -3346,10 +3366,10 @@ int FS_Seek( file_t *file, fs_offset_t offset, int whence )
 	case SEEK_END:
 		offset += file->real_length;
 		break;
-	default: 
+	default:
 		return -1;
 	}
-	
+
 	if( offset < 0 || offset > file->real_length )
 		return -1;
 
@@ -3695,7 +3715,7 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 
 	// NOTE: for libraries we not fail even if search is NULL
 	// let the OS find library himself
-	hInst = Mem_Calloc( host.mempool, sizeof( dll_user_t ));	
+	hInst = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
 
 	// save dllname for debug purposes
 	Q_strncpy( hInst->dllName, dllname, sizeof( hInst->dllName ));
@@ -3717,7 +3737,7 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 		hInst->custom_loader = (search) ? true : false;
 	}
 	fs_ext_path = false; // always reset direct paths
-		
+
 	return hInst;
 }
 
@@ -3731,8 +3751,33 @@ return size of file in bytes
 fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly )
 {
 	int	length = -1; // in case file was missed
-	file_t	*fp;	
+	file_t	*fp;
 
+#if XASH_PSP
+	char	buffer[64];
+
+	Q_sprintf( buffer, "%s/%s", fs_basedir, filename );
+	length = FSH_FindSize( fsh_basedir, buffer );
+	if( length < 0 && length != -3 )
+	{
+		Q_sprintf( buffer, "%s/%s", fs_gamedir, filename );
+		length = FSH_FindSize( fsh_gamedir, buffer );
+	}
+
+	if( length < 0 )
+	{
+		fp = FS_Open( filename, "rb", gamedironly );
+
+		if( fp )
+		{
+			// it exists
+			FS_Seek( fp, 0, SEEK_END );
+			length = FS_Tell( fp );
+			FS_Close( fp );
+		}
+		else length = -1;
+	}
+#else
 	fp = FS_Open( filename, "rb", gamedironly );
 
 	if( fp )
@@ -3742,7 +3787,7 @@ fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly )
 		length = FS_Tell( fp );
 		FS_Close( fp );
 	}
-
+#endif
 	return length;
 }
 
@@ -3770,7 +3815,7 @@ int FS_FileTime( const char *filename, qboolean gamedironly )
 {
 	searchpath_t	*search;
 	int		pack_ind;
-	
+
 	search = FS_FindFile( filename, &pack_ind, gamedironly );
 	if( !search ) return -1; // doesn't exist
 
@@ -3815,7 +3860,16 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 	COM_FixSlashes( oldpath );
 	COM_FixSlashes( newpath );
 
+#if XASH_PSP
+	iRet = sceIoRename( oldpath, newpath );
+	if( !iRet )
+	{
+		if( FSH_RenameFilePath( fsh_basedir, oldpath, newpath ) == -2 )
+			FSH_RenameFilePath( fsh_gamedir, oldpath, newpath );
+	}
+#else
 	iRet = rename( oldpath, newpath );
+#endif
 
 	return (iRet == 0);
 }
@@ -3837,10 +3891,16 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 
 	Q_snprintf( real_path, sizeof( real_path ), "%s%s", fs_writedir, path );
 	COM_FixSlashes( real_path );
-	iRet = remove( real_path );
 
 #if XASH_PSP
-	FSH_RemoveFilePath( fsh_gamedir, real_path );
+	iRet = sceIoRemove( real_path );
+	if( !iRet )
+	{
+		if( FSH_RemoveFilePath( fsh_basedir, real_path ) == -2 )
+			FSH_RemoveFilePath( fsh_gamedir, real_path );
+	}
+#else
+	iRet = remove( real_path );
 #endif
 
 	return (iRet == 0);
@@ -4099,7 +4159,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 
 void FS_InitMemory( void )
 {
-	fs_mempool = Mem_AllocPool( "FileSystem Pool" );	
+	fs_mempool = Mem_AllocPool( "FileSystem Pool" );
 	fs_searchpaths = NULL;
 }
 
@@ -4137,7 +4197,7 @@ static signed char W_TypeFromExt( const char *lumpname )
 	// we not known about filetype, so match only by filename
 	if( !Q_strcmp( ext, "*" ) || !Q_strcmp( ext, "" ))
 		return TYP_ANY;
-	
+
 	for( type = wad_types; type->ext; type++ )
 	{
 		if( !Q_stricmp( ext, type->ext ))
@@ -4186,7 +4246,7 @@ static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed cha
 	// look for the file (binary search)
 	left = 0;
 	right = wad->numlumps - 1;
-	
+
 	while( left <= right )
 	{
 		int	middle = (left + right) / 2;
@@ -4336,7 +4396,7 @@ wfile_t *W_Open( const char *filename, int *error )
 		wad->handle = FS_SysOpen( filename, "rb" );
 
 	if( wad->handle == NULL )
-	{	
+	{
 		Con_Reportf( S_ERROR "W_Open: couldn't open %s\n", filename );
 		if( error ) *error = WAD_LOAD_COULDNT_OPEN;
 		W_Close( wad );
@@ -4423,7 +4483,7 @@ wfile_t *W_Open( const char *filename, int *error )
 
 		// check for Quake 'conchars' issues (only lmp loader really allows to read this lame pic)
 		if( srclumps[i].type == 68 && !Q_stricmp( srclumps[i].name, "conchars" ))
-			srclumps[i].type = TYP_GFXPIC; 
+			srclumps[i].type = TYP_GFXPIC;
 
 		W_AddFileToWad( name, wad, &srclumps[i] );
 	}
@@ -4448,7 +4508,7 @@ void W_Close( wfile_t *wad )
 
 	Mem_FreePool( &wad->mempool );
 	if( wad->handle != NULL )
-		FS_Close( wad->handle );	
+		FS_Close( wad->handle );
 	Mem_Free( wad ); // free himself
 }
 
@@ -4473,6 +4533,6 @@ static byte *W_LoadFile( const char *path, fs_offset_t *lumpsizeptr, qboolean ga
 
 	search = FS_FindFile( path, &index, gamedironly );
 	if( search && search->wad )
-		return W_ReadLump( search->wad, &search->wad->lumps[index], lumpsizeptr ); 
+		return W_ReadLump( search->wad, &search->wad->lumps[index], lumpsizeptr );
 	return NULL;
 }

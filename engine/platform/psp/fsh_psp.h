@@ -21,11 +21,14 @@ extern "C" {
 
 typedef struct fsh_handle_s	fsh_handle_t;
 
-int FSH_AddFilePath( fsh_handle_t *handle, char *path );
-int FSH_RemoveFilePath( fsh_handle_t *handle, char *path );
-int FSH_Find( fsh_handle_t *handle, char *path );
-fsh_handle_t *FSH_Init( char *path, int maxfiles );
-void FSH_Shutdown( fsh_handle_t *handle );
+int FSH_AddFilePathWs( fsh_handle_t *handle, const char *path, int size );
+#define FSH_AddFilePath( handle, path ) FSH_AddFilePathWs(handle, path, -2 )
+int FSH_RemoveFilePath( fsh_handle_t *handle, const char *path );
+int FSH_RenameFilePath( fsh_handle_t *handle, const char *oldname, const char *newname );
+int FSH_FindSize( fsh_handle_t *handle, const char *path );
+int FSH_Find( fsh_handle_t *handle, const char *path );
+fsh_handle_t *FSH_Create( const char *path, int maxfiles );
+void FSH_Free( fsh_handle_t *handle );
 
 #ifdef __cplusplus
 }
