@@ -470,6 +470,7 @@ def configure(conf):
 		if conf.options.PROFILING:
 			conf.env.LDFLAGS += ['-lpspprof']
 			conf.env.CFLAGS += ['-pg']
+			conf.env.CXXFLAGS += ['-pg']
 		conf.env.LDFLAGS += psp.stdlibs()
 
 		conf.env.DEST_OS2 = 'psp'
