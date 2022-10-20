@@ -61,7 +61,7 @@ typedef float		GLmatrix[16];
 #define GUCOLOR3UBV( v )			GU_RGBA( ( v )[0], ( v )[1], ( v )[2], 255 )
 
 // blend function wrapping
-#define GUBLEND1					0xffffff
-#define GUBLEND0					0x000000
+#define GUBLEND1					0xffffffff
+#define GUBLEND0					0x00000000
 
 #endif // GU_HELPER_H
