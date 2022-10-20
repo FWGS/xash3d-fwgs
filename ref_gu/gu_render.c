@@ -140,7 +140,7 @@ static void GU_Init( void )
 	// Xash default
 	sceGuClearColor( GU_COLOR( 0.5f, 0.5f, 0.5f, 1.0f ) );
 
-	sceGuDisable( GU_DEPTH_TEST );
+	sceGuEnable( GU_DEPTH_TEST );
 	sceGuDisable( GU_CULL_FACE );
 	sceGuEnable( GU_CLIP_PLANES );
 	sceGuDepthFunc( GU_LEQUAL );
@@ -165,7 +165,7 @@ static void GU_Init( void )
 	sceGuAlphaFunc( GU_GREATER, DEFAULT_ALPHATEST, 0xff );
 	sceGuEnable( GU_TEXTURE_2D );
 	sceGuShadeModel( GU_SMOOTH );
-	sceGuFrontFace( GU_CW ); // reversed
+	sceGuFrontFace( GU_CCW );
 	
 	// Set the default matrices.
 	sceGumMatrixMode( GU_PROJECTION );
