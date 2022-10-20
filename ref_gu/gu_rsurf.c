@@ -1578,7 +1578,7 @@ void R_SetRenderMode( cl_entity_t *e )
 		sceGuTexFunc( GU_TFX_MODULATE, GU_TCC_RGBA );
 		sceGuBlendFunc( GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0 );
 		sceGuColor( GUCOLOR4F( 1.0f, 1.0f, 1.0f, tr.blend ) );
-		sceGuDepthMask( GU_TRUE );
+		sceGuDepthMask( GU_FALSE ); // bug?
 		sceGuEnable( GU_BLEND );
 		break;
 	}
@@ -1662,8 +1662,10 @@ void R_DrawBrushModel( cl_entity_t *e )
 	}
 
 	psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
-#if 1 /* no sorting */
+
 	GU_ClipBeginBrush();
+
+	// sorting is not required, +Z_Realloc in Mod_LoadSubmodels (mod_bmodel.c)
 	for( i = 0; i < clmodel->nummodelsurfaces; i++, psurf++ )
 	{
 		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
@@ -1689,48 +1691,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	if( e->curstate.rendermode == kRenderTransColor )
 		sceGuEnable( GU_TEXTURE_2D );
-#else
-	num_sorted = 0;
-	for( i = 0; i < clmodel->nummodelsurfaces; i++, psurf++ )
-	{
-		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-		{
-			if( psurf->plane->type != PLANE_Z && !FBitSet( e->curstate.effects, EF_WATERSIDES ))
-				continue;
-			if( mins[2] + 1.0f >= psurf->plane->dist )
-				continue;
-		}
 
-		cull_type = R_CullSurface( psurf, &RI.frustum, RI.frustum.clipFlags );
-
-		if( cull_type >= CULL_FRUSTUM )
-			continue;
-
-		if( cull_type == CULL_BACKSIDE )
-		{
-			if( !FBitSet( psurf->flags, SURF_DRAWTURB ) && !( psurf->pdecals && e->curstate.rendermode == kRenderTransTexture ))
-				continue;
-		}
-
-		if( num_sorted < gpGlobals->max_surfaces )
-		{
-			gpGlobals->draw_surfaces[num_sorted].surf = psurf;
-			gpGlobals->draw_surfaces[num_sorted].cull = cull_type;
-			num_sorted++;
-		}
-	}
-
-	// sort faces if needs
-	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !CVAR_TO_BOOL( gl_nosort ))
-		qsort( gpGlobals->draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
-
-	// draw sorted translucent surfaces
-	GU_ClipBeginBrush();
-	for( i = 0; i < num_sorted; i++ )
-			R_RenderBrushPoly( gpGlobals->draw_surfaces[i].surf, gpGlobals->draw_surfaces[i].cull );
-	if( e->curstate.rendermode == kRenderTransColor )
-		sceGuEnable( GU_TEXTURE_2D );
-#endif
 	DrawDecalsBatch();
 	GL_ResetFogColor();
 	R_BlendLightmaps();
