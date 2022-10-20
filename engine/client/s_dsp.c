@@ -594,7 +594,11 @@ RVB_DoReverbForOneDly
 Do reverberation for one dly
 ===========
 */
+#if XASH_EXT_OPT
+_inline int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samplepair_t *samplepair )
+#else
 int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samplepair_t *samplepair )
+#endif
 {
 	int	delay;
 	int	samplexf;
@@ -668,6 +672,29 @@ RVB_DoReverb
 Do reverberation processing
 ===========
 */
+#if XASH_EXT_OPT
+void RVB_DoReverb( int count )
+{
+	portable_samplepair_t	*paint = paintto;
+	int			i, vlr, voutm;
+
+	if( !rgsxdly[REVERBPOS].lpdelayline )
+		return;
+
+	for( ; count; count--, paint++ )
+	{
+		vlr = ( paint->left + paint->right ) >> 1;
+		voutm = 0;
+		for( i = 0; i < 2; i++ )
+			voutm += RVB_DoReverbForOneDly( &rgsxdly[REVERBPOS + i], vlr, paint );
+
+		voutm = (11 * voutm) >> 6;
+
+		paint->left = CLIP( paint->left + voutm );
+		paint->right = CLIP( paint->right + voutm );
+	}
+}
+#else
 void RVB_DoReverb( int count )
 {
 	dly_t *const		dly1 = &rgsxdly[REVERBPOS];
@@ -691,6 +718,7 @@ void RVB_DoReverb( int count )
 		paint->right = CLIP( paint->right + voutm );
 	}
 }
+#endif
 
 /*
 ===========
