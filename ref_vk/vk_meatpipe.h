@@ -10,3 +10,6 @@ typedef struct {
 
 qboolean R_VkMeatpipeLoad(vk_meatpipe_t *out, const char *filename);
 void R_VkMeatpipeDestroy(vk_meatpipe_t *mp);
+
+struct vk_ray_resources_s;
+void R_VkMeatpipePerform(vk_meatpipe_t *mp, VkCommandBuffer cmdbuf, int frame_set_slot, struct vk_ray_resources_s *res);

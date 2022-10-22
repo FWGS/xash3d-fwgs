@@ -254,3 +254,9 @@ void R_VkMeatpipeDestroy(vk_meatpipe_t *mp) {
 
 	mp->passes_count = 0;
 }
+
+void R_VkMeatpipePerform(vk_meatpipe_t *mp, VkCommandBuffer cmdbuf, int frame_set_slot, struct vk_ray_resources_s *res) {
+	for (int i = 0; i < mp->passes_count; ++i) {
+		RayPassPerform(cmdbuf, frame_set_slot, mp->passes[i], res);
+	}
+}

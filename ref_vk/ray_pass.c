@@ -138,7 +138,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 					.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 					.specialization_info = &spec,
 				};
-			} if (group->any) {
+			} else if (group->any) {
 				ASSERT(stage_index < MAX_STAGES);
 				hits[hit_index].any = stage_index;
 				stages[stage_index++] = (vk_shader_stage_t) {
@@ -159,7 +159,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 					.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 					.specialization_info = &spec,
 				};
-			} if (group->closest) {
+			} else if (group->closest) {
 				ASSERT(stage_index < MAX_STAGES);
 				hits[hit_index].closest = stage_index;
 				stages[stage_index++] = (vk_shader_stage_t) {
