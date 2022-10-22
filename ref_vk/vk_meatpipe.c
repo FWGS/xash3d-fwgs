@@ -5,6 +5,8 @@
 #include "ray_pass.h"
 #include "vk_common.h"
 
+#define MIN(a,b) ((a)<(b)?(a):(b))
+
 #define CHAR4UINT(a,b,c,d) (((d)<<24)|((c)<<16)|((b)<<8)|(a))
 static const uint32_t k_meatpipe_magic = CHAR4UINT('M', 'E', 'A', 'T');
 
@@ -53,6 +55,24 @@ uint32_t curReadU32(cursor_t *cur) {
 
 #define READ_U32(errmsg, ...) \
 	curReadU32(&ctx->cur); CUR_ERROR(errmsg, ##__VA_ARGS__)
+
+int curReadStr(cursor_t *cur, char* out, int out_size) {
+	const int len = curReadU32(cur);
+	if (cur->error)
+		return -1;
+
+	const char *src = curReadPtr(cur, len);
+	if (cur->error)
+		return -1;
+
+	const int max = MIN(out_size, len); \
+	memcpy(out, src, max); \
+	out[max] = '\0';
+	return len;
+}
+
+#define READ_STR(out, errmsg, ...) \
+	curReadStr(&ctx->cur, out, sizeof(out)); CUR_ERROR(errmsg, ##__VA_ARGS__)
 
 #define NO_SHADER 0xffffffff
 
@@ -149,12 +169,7 @@ static struct ray_pass_s *pipelineLoad(load_context_t *ctx, int i) {
 	const uint32_t head = READ_U32("Couldn't read pipeline %d head", i);
 
 	char name[64];
-	const int name_len = READ_U32("Coulnd't read pipeline %d name len", i);
-	const char *name_src = READ_PTR(name_len, "Couldn't read pipeline %d name", i);
-#define MIN(a,b) ((a)<(b)?(a):(b))
-	const int name_max = MIN(sizeof(name)-1, name_len);
-	memcpy(name, name_src, name_max);
-	name[name_max] = '\0';
+	READ_STR(name, "Couldn't read pipeline %d name", i);
 
 	gEngine.Con_Reportf("%d: loading pipeline %s\n", i, name);
 
@@ -205,17 +220,21 @@ qboolean R_VkMeatpipeLoad(vk_meatpipe_t *out, const char *filename) {
 
 	ctx->shaders_count = READ_U32("Couldn't read shaders count");
 	ctx->shaders = Mem_Malloc(vk_core.pool, sizeof(VkShaderModule) * ctx->shaders_count);
-	for (int i = 0; i < ctx->shaders_count; ++i)
+	for (int i = 0; i < ctx->shaders_count; ++i) {
 		ctx->shaders[i] = VK_NULL_HANDLE;
 
-	for (int i = 0; i < ctx->shaders_count; ++i) {
-		char name[256];
-		Q_snprintf(name, sizeof(name), "%s@%d", filename, i); // TODO serialize origin name
+		char name[64];
+		READ_STR(name, "Couldn't read shader %d name", i);
 
 		const int size = READ_U32("Couldn't read shader %s size", name);
 		const void *src = READ_PTR(size, "Couldn't read shader %s data", name);
-		ctx->shaders[i] = R_VkShaderLoadFromMem(src, size, name);
-		gEngine.Con_Reportf("%d: loaded %s\n", i, name);
+
+		if (VK_NULL_HANDLE == (ctx->shaders[i] = R_VkShaderLoadFromMem(src, size, name))) {
+			gEngine.Con_Printf(S_ERROR "Failed to load shader %d:%s\n", i, name);
+			goto finalize;
+		}
+
+		gEngine.Con_Reportf("%d: Shader loaded %s\n", i, name);
 	}
 
 	out->passes_count = READ_U32("Couldn't read pipelines count");
@@ -232,9 +251,10 @@ finalize:
 	}
 
 	for (int i = 0; i < ctx->shaders_count; ++i) {
-		if (ctx->shaders[i] != VK_NULL_HANDLE) {
-			R_VkShaderDestroy(ctx->shaders[i]);
-		}
+		if (ctx->shaders[i] == VK_NULL_HANDLE)
+			break;
+
+		R_VkShaderDestroy(ctx->shaders[i]);
 	}
 
 	if (ctx->shaders)

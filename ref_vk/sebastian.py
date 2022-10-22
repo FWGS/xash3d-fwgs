@@ -16,6 +16,27 @@ spvOpNames = dict()
 for name, n in spvOp.items():
 	spvOpNames[n] = name
 
+class Serializer:
+	def __init__(self, file):
+		self.file = file
+
+	def write(self, v):
+		self.file.write(v)
+
+	def writeU32(self, v):
+		self.write(struct.pack('I', v))
+
+	def writeBytes(self, v):
+		self.writeU32(len(v))
+		self.write(v)
+
+	def writeString(self, v):
+		bs = v.encode('utf-8') + b'\x00'
+		rem = len(bs) % 4
+		if rem != 0:
+			bs += b'\x00' * (4 - rem)
+		self.writeBytes(bs)
+
 class SpirvNode:
 	def __init__(self):
 		self.descriptor_set = None
@@ -136,11 +157,11 @@ class Shaders:
 	def getIndex(self, name):
 		return self.__map[name]
 
-	def serialize(self, file):
-		file.write(struct.pack('I', len(self.__shaders)))
+	def serialize(self, out):
+		out.writeU32(len(self.__shaders))
 		for shader in self.__shaders:
-			file.write(struct.pack('I', len(shader.raw_data)))
-			file.write(shader.raw_data)
+			out.writeString(shader.name)
+			out.writeBytes(shader.raw_data)
 
 	def serializeIndex(self, out, shader):
 		out.write(struct.pack('I', self.getIndex(shader.name)))
@@ -215,18 +236,17 @@ def loadPipelines():
 		pipelines[k] = parsePipeline(pipelines_desc, k, v)
 	return pipelines
 
-def writeOutput(out, pipelines):
+def writeOutput(file, pipelines):
 	MAGIC = bytearray([ord(c) for c in 'MEAT'])
+	out = Serializer(file)
 	out.write(MAGIC)
 
 	shaders.serialize(out)
 
-	out.write(struct.pack('I', len(pipelines)))
+	out.writeU32(len(pipelines))
 	for name, pipeline in pipelines.items():
-		out.write(struct.pack('I', pipeline.type))
-		bs = pipeline.name.encode('utf-8')
-		out.write(struct.pack('I', len(bs)))
-		out.write(bs)
+		out.writeU32(pipeline.type)
+		out.writeString(pipeline.name)
 		pipeline.serialize(out)
 
 pipelines = loadPipelines()
