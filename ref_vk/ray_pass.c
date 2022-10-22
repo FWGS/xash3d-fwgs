@@ -100,13 +100,12 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 
 		stages[stage_index++] = (vk_shader_stage_t) {
 			.module = create->raygen_module,
-			.filename = create->raygen,
+			.filename = NULL,
 			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 			.specialization_info = &spec,
 		};
 
 		for (int i = 0; i < create->miss_count; ++i) {
-			const char* shader_filename = create->miss ? create->miss[i] : NULL;
 			const VkShaderModule shader_module = create->miss_module ? create->miss_module[i] : VK_NULL_HANDLE;
 
 			ASSERT(stage_index < MAX_STAGES);
@@ -117,7 +116,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 			misses[miss_index++] = stage_index;
 			stages[stage_index++] = (vk_shader_stage_t) {
 				.module = shader_module,
-				.filename = shader_filename,
+				.filename = NULL,
 				.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
 				.specialization_info = &spec,
 			};
@@ -138,14 +137,6 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 					.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
 					.specialization_info = &spec,
 				};
-			} else if (group->any) {
-				ASSERT(stage_index < MAX_STAGES);
-				hits[hit_index].any = stage_index;
-				stages[stage_index++] = (vk_shader_stage_t) {
-					.filename = group->any,
-					.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-					.specialization_info = &spec,
-				};
 			} else {
 				hits[hit_index].any = -1;
 			}
@@ -156,14 +147,6 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 				stages[stage_index++] = (vk_shader_stage_t) {
 					.module = group->closest_module,
 					.filename = NULL,
-					.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-					.specialization_info = &spec,
-				};
-			} else if (group->closest) {
-				ASSERT(stage_index < MAX_STAGES);
-				hits[hit_index].closest = stage_index;
-				stages[stage_index++] = (vk_shader_stage_t) {
-					.filename = group->closest,
 					.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 					.specialization_info = &spec,
 				};
@@ -204,7 +187,6 @@ struct ray_pass_s *RayPassCreateCompute( const ray_pass_create_compute_t *create
 	const vk_pipeline_compute_create_info_t pcci = {
 		.layout = header->desc.riptors.pipeline_layout,
 		.shader_module = create->shader_module,
-		.shader_filename = create->shader,
 		.specialization_info = create->specialization,
 	};
 

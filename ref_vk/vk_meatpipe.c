@@ -106,7 +106,6 @@ static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const 
 	const ray_pass_create_compute_t rpcc = {
 		.debug_name = name,
 		.layout = FIXME_getLayoutFor(name),
-		.shader = NULL,
 		.shader_module = ctx->shaders[shader_comp],
 	};
 
@@ -145,9 +144,7 @@ static struct ray_pass_s *pipelineLoadRT(load_context_t *ctx, int i, const char 
 			const uint32_t any = READ_U32("Couldn't read any shader %d for %d %s", j, i, name);
 
 			hit[j] = (ray_pass_hit_group_t){
-				.closest = NULL,
 				.closest_module = (closest == NO_SHADER) ? VK_NULL_HANDLE : ctx->shaders[closest],
-				.any = NULL,
 				.any_module = (any == NO_SHADER) ? VK_NULL_HANDLE : ctx->shaders[any],
 			};
 		}

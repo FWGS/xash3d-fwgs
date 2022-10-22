@@ -8,7 +8,7 @@ void R_VkShaderDestroy(VkShaderModule module);
 
 typedef struct {
 	VkShaderModule module;
-  const char *filename;
+	const char *filename;
 	VkShaderStageFlagBits stage;
 	const VkSpecializationInfo *specialization_info;
 } vk_shader_stage_t;
@@ -42,7 +42,6 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 
 typedef struct {
 	VkPipelineLayout layout;
-  const char *shader_filename;
 	VkShaderModule shader_module;
 	const VkSpecializationInfo *specialization_info;
 } vk_pipeline_compute_create_info_t;
@@ -58,6 +57,7 @@ typedef struct {
 	const char *debug_name;
 	VkPipelineLayout layout;
 
+	// FIXME make this pointer to shader modules, add int raygen_index
 	const vk_shader_stage_t *stages;
 	int stages_count;
 

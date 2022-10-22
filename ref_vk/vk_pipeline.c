@@ -190,17 +190,13 @@ finalize:
 }
 
 VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci) {
-	const VkShaderModule shader = ci->shader_module ? ci->shader_module : R_VkShaderLoadFromFile(ci->shader_filename);
-	if (shader == VK_NULL_HANDLE)
-		return VK_NULL_HANDLE;
-
 	const VkComputePipelineCreateInfo cpci = {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.layout = ci->layout,
 		.stage = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-			.module = shader,
+			.module = ci->shader_module,
 			.pName = "main",
 			.pSpecializationInfo = ci->specialization_info,
 		},
@@ -208,7 +204,6 @@ VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci)
 
 	VkPipeline pipeline;
 	XVK_CHECK(vkCreateComputePipelines(vk_core.device, VK_NULL_HANDLE, 1, &cpci, NULL, &pipeline));
-	// FIXME R_VkShaderDestroy(shader);
 
 	return pipeline;
 }
@@ -241,14 +236,11 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 		return ret;
 	}
 
-	VkShaderModule shaders[MAX_SHADER_STAGES] = {0};
-
 	for (int i = 0; i < create->stages_count; ++i) {
 		const vk_shader_stage_t *const stage = create->stages + i;
 
-		shaders[i] = (stage->module != VK_NULL_HANDLE) ? stage->module : R_VkShaderLoadFromFile(stage->filename);
-		if (VK_NULL_HANDLE == shaders[i])
-			goto destroy_shaders;
+		// FIXME going away from loading shaders directly
+		ASSERT(!stage->filename);
 
 		if (stage->stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR) {
 			ASSERT(raygen_index == -1);
@@ -258,7 +250,7 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 		stages[i] = (VkPipelineShaderStageCreateInfo){
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = stage->stage,
-			.module = shaders[i],
+			.module = stage->module,
 			.pName = "main",
 			.pSpecializationInfo = stage->specialization_info,
 		};
@@ -318,10 +310,6 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 	}
 
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &ret.pipeline));
-
-destroy_shaders:
-	//for (int i = 0; i < create->stages_count; ++i)
-		// FIXMER R_VkShaderDestroy(shaders[i]);
 
 	if (ret.pipeline == VK_NULL_HANDLE)
 		return ret;
