@@ -40,6 +40,12 @@ const void* curReadPtr(cursor_t *cur, int size) {
 		goto finalize; \
 	}
 
+#define CUR_ERROR_RETURN(retval, errmsg, ...) \
+	if (ctx->cur.error) { \
+		gEngine.Con_Printf(S_ERROR "(off=%d left=%d) " errmsg "\n", ctx->cur.off, (ctx->cur.size - ctx->cur.off), ##__VA_ARGS__); \
+		return retval; \
+	}
+
 #define READ_PTR(size, errmsg, ...) \
 	curReadPtr(&ctx->cur, size); CUR_ERROR(errmsg, ##__VA_ARGS__)
 
@@ -55,6 +61,9 @@ uint32_t curReadU32(cursor_t *cur) {
 
 #define READ_U32(errmsg, ...) \
 	curReadU32(&ctx->cur); CUR_ERROR(errmsg, ##__VA_ARGS__)
+
+#define READ_U32_RETURN(retval, errmsg, ...) \
+	curReadU32(&ctx->cur); CUR_ERROR_RETURN(retval, errmsg, ##__VA_ARGS__)
 
 int curReadStr(cursor_t *cur, char* out, int out_size) {
 	const int len = curReadU32(cur);
@@ -96,11 +105,11 @@ static ray_pass_layout_t FIXME_getLayoutFor(const char *name) {
 }
 
 static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const char *name) {
-	const uint32_t shader_comp = READ_U32("Couldn't read comp shader for %d %s", i, name);
+	const uint32_t shader_comp = READ_U32_RETURN(NULL, "Couldn't read comp shader for %d %s", i, name);
 
 	if (shader_comp >= ctx->shaders_count) {
 		gEngine.Con_Printf(S_ERROR "Pipeline %s shader index out of bounds %d (count %d)\n", name, shader_comp, ctx->shaders_count);
-		goto finalize;
+		return NULL;
 	}
 
 	const ray_pass_create_compute_t rpcc = {
@@ -110,12 +119,10 @@ static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const 
 	};
 
 	return RayPassCreateCompute(&rpcc);
-
-finalize:
-	return NULL;
 }
 
 static struct ray_pass_s *pipelineLoadRT(load_context_t *ctx, int i, const char *name) {
+	ray_pass_p ret = NULL;
 	ray_pass_create_tracing_t rpct = {
 		.debug_name = name,
 		.layout = FIXME_getLayoutFor(name),
@@ -150,7 +157,7 @@ static struct ray_pass_s *pipelineLoadRT(load_context_t *ctx, int i, const char 
 		}
 	}
 
-	struct ray_pass_s* const ret = RayPassCreateTracing(&rpct);
+	ret = RayPassCreateTracing(&rpct);
 
 finalize:
 	if (rpct.hit)
