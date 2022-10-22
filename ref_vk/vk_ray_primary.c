@@ -1,5 +1,3 @@
-#include "vk_ray_primary.h"
-
 #include "ray_resources.h"
 #include "ray_pass.h"
 
@@ -45,31 +43,3 @@ const ray_pass_layout_t ray_primary_layout_fixme = {
 	.bindings_count = COUNTOF(bindings),
 	.push_constants = {0},
 };
-
-struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
-	const ray_pass_shader_t miss[] = {
-		"ray_primary.rmiss.spv"
-	};
-
-	const ray_pass_hit_group_t hit[] = { {
-		 .closest = "ray_primary.rchit.spv",
-		 .any = NULL,
-		}, {
-		 .closest = "ray_primary.rchit.spv",
-		 .any = "ray_common_alphatest.rahit.spv",
-		},
-	};
-
-	const ray_pass_create_tracing_t rpc = {
-		.debug_name = "primary ray",
-		.layout = ray_primary_layout_fixme,
-		.raygen = "ray_primary.rgen.spv",
-		.miss = miss,
-		.miss_count = COUNTOF(miss),
-		.hit = hit,
-		.hit_count = COUNTOF(hit),
-		.specialization = NULL,
-	};
-
-	return RayPassCreateTracing( &rpc );
-}

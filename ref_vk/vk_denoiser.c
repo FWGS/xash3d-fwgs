@@ -1,5 +1,3 @@
-#include "vk_denoiser.h"
-
 #include "ray_resources.h"
 #include "ray_pass.h"
 
@@ -44,15 +42,3 @@ const ray_pass_layout_t denoiser_layout_fixme = {
 	.bindings_count = COUNTOF(bindings),
 	.push_constants = {0},
 };
-
-struct ray_pass_s *R_VkRayDenoiserCreate( void ) {
-	const ray_pass_create_compute_t rpcc = {
-		.debug_name = "denoiser",
-		.layout = denoiser_layout_fixme,
-		.shader = "denoiser.comp.spv",
-		.specialization = NULL,
-	};
-
-	return RayPassCreateCompute( &rpcc );
-}
-

@@ -4,14 +4,10 @@
 #include "ray_resources.h"
 #include "vk_ray_accel.h"
 
-#include "vk_ray_primary.h"
-#include "vk_ray_light_direct.h"
-
 #include "vk_buffer.h"
 #include "vk_common.h"
 #include "vk_core.h"
 #include "vk_cvar.h"
-#include "vk_denoiser.h"
 #include "vk_descriptor.h"
 #include "vk_light.h"
 #include "vk_math.h"
@@ -79,14 +75,6 @@ static struct {
 	// TODO with proper intra-cmdbuf sync we don't really need 2x images
 	unsigned frame_number;
 	xvk_ray_frame_images_t frames[MAX_FRAMES_IN_FLIGHT];
-
-	/* struct { */
-	/* 	struct ray_pass_s *primary_ray; */
-	/* 	struct ray_pass_s *light_direct_poly; */
-	/* 	struct ray_pass_s *light_direct_point; */
-	/* 	struct ray_pass_s *denoiser; */
-	/* } pass; */
-
 	vk_meatpipe_t mainpipe;
 
 	qboolean reload_pipeline;
@@ -245,8 +233,6 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
-	//RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.primary_ray, &res );
-
 	{ // FIXME this should be done automatically inside meatpipe, TODO
 		//const uint32_t size = sizeof(struct Lights);
 		//const uint32_t size = sizeof(struct LightsMetadata); // + 8 * sizeof(uint32_t);
@@ -263,10 +249,6 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
-
-	//RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.light_direct_poly, &res );
-	//RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.light_direct_point, &res );
-	//RayPassPerform( cmdbuf, args->frame_index, g_rtx.pass.denoiser, &res );
 
 	R_VkMeatpipePerform(&g_rtx.mainpipe, cmdbuf, args->frame_index, &res);
 
@@ -294,14 +276,6 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	DEBUG_END(cmdbuf);
 }
 
-static void reloadPass( struct ray_pass_s **slot, struct ray_pass_s *new_pass ) {
-	if (!new_pass)
-		return;
-
-	RayPassDestroy( *slot );
-	*slot = new_pass;
-}
-
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
@@ -322,11 +296,6 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	if (g_rtx.reload_pipeline) {
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
 		XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
-
-		/* reloadPass( &g_rtx.pass.primary_ray, R_VkRayPrimaryPassCreate()); */
-		/* reloadPass( &g_rtx.pass.light_direct_poly, R_VkRayLightDirectPolyPassCreate()); */
-		/* reloadPass( &g_rtx.pass.light_direct_point, R_VkRayLightDirectPointPassCreate()); */
-		/* reloadPass( &g_rtx.pass.denoiser, R_VkRayDenoiserCreate()); */
 
 		vk_meatpipe_t newpipe;
 		if (R_VkMeatpipeLoad(&newpipe, "rt.meat")) {
@@ -389,18 +358,6 @@ qboolean VK_RayInit( void )
 
 	if (!RT_VkAccelInit())
 		return false;
-
-	/* g_rtx.pass.primary_ray = R_VkRayPrimaryPassCreate(); */
-	/* ASSERT(g_rtx.pass.primary_ray); */
-  /*  */
-	/* g_rtx.pass.light_direct_poly = R_VkRayLightDirectPolyPassCreate(); */
-	/* ASSERT(g_rtx.pass.light_direct_poly); */
-  /*  */
-	/* g_rtx.pass.light_direct_point = R_VkRayLightDirectPointPassCreate(); */
-	/* ASSERT(g_rtx.pass.light_direct_point); */
-  /*  */
-	/* g_rtx.pass.denoiser = R_VkRayDenoiserCreate(); */
-	/* ASSERT(g_rtx.pass.denoiser); */
 
 	ASSERT(R_VkMeatpipeLoad(&g_rtx.mainpipe, "rt.meat"));
 
