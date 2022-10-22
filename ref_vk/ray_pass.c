@@ -99,13 +99,15 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 		};
 
 		stages[stage_index++] = (vk_shader_stage_t) {
+			.module = create->raygen_module,
 			.filename = create->raygen,
 			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 			.specialization_info = &spec,
 		};
 
 		for (int i = 0; i < create->miss_count; ++i) {
-			const ray_pass_shader_t *const shader = create->miss + i;
+			const char* shader_filename = create->miss ? create->miss[i] : NULL;
+			const VkShaderModule shader_module = create->miss_module ? create->miss_module[i] : VK_NULL_HANDLE;
 
 			ASSERT(stage_index < MAX_STAGES);
 			ASSERT(miss_index < MAX_MISS_GROUPS);
@@ -114,7 +116,8 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 			// TODO really, there should be a global table of shader modules as some of them are used across several passes (e.g. any hit alpha test)
 			misses[miss_index++] = stage_index;
 			stages[stage_index++] = (vk_shader_stage_t) {
-				.filename = *shader,
+				.module = shader_module,
+				.filename = shader_filename,
 				.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
 				.specialization_info = &spec,
 			};
@@ -126,7 +129,16 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 			ASSERT(hit_index < MAX_HIT_GROUPS);
 
 			// TODO handle duplicate filenames
-			if (group->any) {
+			if (group->any_module) {
+				ASSERT(stage_index < MAX_STAGES);
+				hits[hit_index].any = stage_index;
+				stages[stage_index++] = (vk_shader_stage_t) {
+					.module = group->any_module,
+					.filename = NULL,
+					.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+					.specialization_info = &spec,
+				};
+			} if (group->any) {
 				ASSERT(stage_index < MAX_STAGES);
 				hits[hit_index].any = stage_index;
 				stages[stage_index++] = (vk_shader_stage_t) {
@@ -138,7 +150,16 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 				hits[hit_index].any = -1;
 			}
 
-			if (group->closest) {
+			if (group->closest_module) {
+				ASSERT(stage_index < MAX_STAGES);
+				hits[hit_index].closest = stage_index;
+				stages[stage_index++] = (vk_shader_stage_t) {
+					.module = group->closest_module,
+					.filename = NULL,
+					.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+					.specialization_info = &spec,
+				};
+			} if (group->closest) {
 				ASSERT(stage_index < MAX_STAGES);
 				hits[hit_index].closest = stage_index;
 				stages[stage_index++] = (vk_shader_stage_t) {
@@ -182,6 +203,7 @@ struct ray_pass_s *RayPassCreateCompute( const ray_pass_create_compute_t *create
 
 	const vk_pipeline_compute_create_info_t pcci = {
 		.layout = header->desc.riptors.pipeline_layout,
+		.shader_module = create->shader_module,
 		.shader_filename = create->shader,
 		.specialization_info = create->specialization,
 	};

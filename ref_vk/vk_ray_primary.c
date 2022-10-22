@@ -39,6 +39,13 @@ static const int semantics[] = {
 #undef OUT
 };
 
+const ray_pass_layout_t ray_primary_layout_fixme = {
+	.bindings = bindings,
+	.bindings_semantics = semantics,
+	.bindings_count = COUNTOF(bindings),
+	.push_constants = {0},
+};
+
 struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
 	const ray_pass_shader_t miss[] = {
 		"ray_primary.rmiss.spv"
@@ -55,12 +62,7 @@ struct ray_pass_s *R_VkRayPrimaryPassCreate( void ) {
 
 	const ray_pass_create_tracing_t rpc = {
 		.debug_name = "primary ray",
-		.layout = {
-			.bindings = bindings,
-			.bindings_semantics = semantics,
-			.bindings_count = COUNTOF(bindings),
-			.push_constants = {0},
-		},
+		.layout = ray_primary_layout_fixme,
 		.raygen = "ray_primary.rgen.spv",
 		.miss = miss,
 		.miss_count = COUNTOF(miss),

@@ -38,15 +38,17 @@ static const int semantics[] = {
 #undef OUT
 };
 
+const ray_pass_layout_t denoiser_layout_fixme = {
+	.bindings = bindings,
+	.bindings_semantics = semantics,
+	.bindings_count = COUNTOF(bindings),
+	.push_constants = {0},
+};
+
 struct ray_pass_s *R_VkRayDenoiserCreate( void ) {
 	const ray_pass_create_compute_t rpcc = {
 		.debug_name = "denoiser",
-		.layout = {
-			.bindings = bindings,
-			.bindings_semantics = semantics,
-			.bindings_count = COUNTOF(bindings),
-			.push_constants = {0},
-		},
+		.layout = denoiser_layout_fixme,
 		.shader = "denoiser.comp.spv",
 		.specialization = NULL,
 	};

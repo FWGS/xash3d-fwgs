@@ -7,6 +7,7 @@ VkShaderModule R_VkShaderLoadFromMem(const void *ptr, uint32_t size, const char 
 void R_VkShaderDestroy(VkShaderModule module);
 
 typedef struct {
+	VkShaderModule module;
   const char *filename;
 	VkShaderStageFlagBits stage;
 	const VkSpecializationInfo *specialization_info;
@@ -42,6 +43,7 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 typedef struct {
 	VkPipelineLayout layout;
   const char *shader_filename;
+	VkShaderModule shader_module;
 	const VkSpecializationInfo *specialization_info;
 } vk_pipeline_compute_create_info_t;
 

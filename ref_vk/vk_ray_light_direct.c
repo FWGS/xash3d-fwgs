@@ -57,6 +57,13 @@ static const int semantics_point[] = {
 #undef OUT
 };
 
+const ray_pass_layout_t light_direct_poly_layout_fixme = {
+	.bindings = bindings,
+	.bindings_semantics = semantics_poly,
+	.bindings_count = COUNTOF(bindings),
+	.push_constants = {0},
+};
+
 struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 	const ray_pass_shader_t miss[] = {
 		"ray_shadow.rmiss.spv"
@@ -70,13 +77,8 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 
 	const ray_pass_create_tracing_t rpc = {
 		.debug_name = "light direct poly",
-		.layout = {
-			.bindings = bindings,
-			.bindings_semantics = semantics_poly,
-			.bindings_count = COUNTOF(bindings),
-			.push_constants = {0},
-		},
 		.raygen = "ray_light_poly_direct.rgen.spv",
+		.layout = light_direct_poly_layout_fixme,
 		.miss = miss,
 		.miss_count = COUNTOF(miss),
 		.hit = hit,
@@ -86,6 +88,13 @@ struct ray_pass_s *R_VkRayLightDirectPolyPassCreate( void ) {
 
 	return RayPassCreateTracing( &rpc );
 }
+
+ray_pass_layout_t light_direct_point_layout_fixme = {
+	.bindings = bindings,
+	.bindings_semantics = semantics_point,
+	.bindings_count = COUNTOF(bindings),
+	.push_constants = {0},
+};
 
 struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 	const ray_pass_shader_t miss[] = {
@@ -100,12 +109,7 @@ struct ray_pass_s *R_VkRayLightDirectPointPassCreate( void ) {
 
 	const ray_pass_create_tracing_t rpc = {
 		.debug_name = "light direct point",
-		.layout = {
-			.bindings = bindings,
-			.bindings_semantics = semantics_point,
-			.bindings_count = COUNTOF(bindings),
-			.push_constants = {0},
-		},
+		.layout = light_direct_point_layout_fixme,
 		.raygen = "ray_light_direct_point.rgen.spv",
 		.miss = miss,
 		.miss_count = COUNTOF(miss),

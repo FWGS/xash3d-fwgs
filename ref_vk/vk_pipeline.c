@@ -190,7 +190,7 @@ finalize:
 }
 
 VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci) {
-	const VkShaderModule shader = R_VkShaderLoadFromFile(ci->shader_filename);
+	const VkShaderModule shader = ci->shader_module ? ci->shader_module : R_VkShaderLoadFromFile(ci->shader_filename);
 	if (shader == VK_NULL_HANDLE)
 		return VK_NULL_HANDLE;
 
@@ -208,7 +208,7 @@ VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci)
 
 	VkPipeline pipeline;
 	XVK_CHECK(vkCreateComputePipelines(vk_core.device, VK_NULL_HANDLE, 1, &cpci, NULL, &pipeline));
-	R_VkShaderDestroy(shader);
+	// FIXME R_VkShaderDestroy(shader);
 
 	return pipeline;
 }
@@ -246,7 +246,8 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 	for (int i = 0; i < create->stages_count; ++i) {
 		const vk_shader_stage_t *const stage = create->stages + i;
 
-		if (VK_NULL_HANDLE == (shaders[i] = R_VkShaderLoadFromFile(stage->filename)))
+		shaders[i] = (stage->module != VK_NULL_HANDLE) ? stage->module : R_VkShaderLoadFromFile(stage->filename);
+		if (VK_NULL_HANDLE == shaders[i])
 			goto destroy_shaders;
 
 		if (stage->stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR) {
@@ -319,8 +320,8 @@ vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_
 	XVK_CHECK(vkCreateRayTracingPipelinesKHR(vk_core.device, VK_NULL_HANDLE, g_pipeline_cache, 1, &rtpci, NULL, &ret.pipeline));
 
 destroy_shaders:
-	for (int i = 0; i < create->stages_count; ++i)
-		R_VkShaderDestroy(shaders[i]);
+	//for (int i = 0; i < create->stages_count; ++i)
+		// FIXMER R_VkShaderDestroy(shaders[i]);
 
 	if (ret.pipeline == VK_NULL_HANDLE)
 		return ret;
