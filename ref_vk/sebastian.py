@@ -16,6 +16,42 @@ spvOpNames = dict()
 for name, n in spvOp.items():
 	spvOpNames[n] = name
 
+# remove comment lines and fix comma
+def prepareJSON(path):
+	raw_json = buffer = result = ""
+	onecomment = blockcomment = 0
+	for char in path.read():
+		if (len(buffer) > 1):
+			buffer = buffer[1:]
+		buffer += char
+		if buffer == "*/":
+			blockcomment = 0
+			raw_json = raw_json[:-1]
+		elif blockcomment:
+			continue
+		elif buffer == "/*":
+			blockcomment = 1
+		elif char == "\n" or char == "\r":
+			buffer = ""
+			onecomment = 0
+		elif char == "\t" or char == " " or onecomment:
+			continue
+		elif buffer == "//":
+			raw_json = raw_json[:-1]
+			onecomment = 1
+		elif buffer != "":
+			raw_json += char
+	raw_json = raw_json.replace(",]","]")
+	raw_json = raw_json.replace(",}","}")
+	try:
+		result = json.loads(raw_json)
+		print(json.dumps(result, sort_keys=False, indent=4))
+	except json.decoder.JSONDecodeError as exp:
+		print("Decoding JSON has failed")
+		print(raw_json)
+		raise
+	return result
+
 class Serializer:
 	def __init__(self, file):
 		self.file = file
@@ -228,7 +264,7 @@ def parsePipeline(pipelines, name, desc):
 		return PipelineCompute(name, desc)
 
 def loadPipelines():
-	pipelines_desc = json.load(args.pipelines)
+	pipelines_desc = prepareJSON(args.pipelines)
 	pipelines = dict()
 	for k, v in pipelines_desc.items():
 		if 'template' in v and v['template']:
