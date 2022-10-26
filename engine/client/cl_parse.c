@@ -2456,8 +2456,8 @@ void CL_ParseLegacyServerData( sizebuf_t *msg )
 	i = MSG_ReadLong( msg );
 	//cls.serverProtocol = i;
 
-	if( i != 48 )
-		Host_Error( "Server uses invalid protocol (%i should be %i)\n", i, PROTOCOL_VERSION );
+	if( i != PROTOCOL_LEGACY_VERSION )
+		Host_Error( "Server uses invalid protocol (%i should be %i)\n", i, PROTOCOL_LEGACY_VERSION );
 
 	cl.servercount = MSG_ReadLong( msg );
 	cl.checksum = MSG_ReadLong( msg );
