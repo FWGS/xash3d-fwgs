@@ -111,9 +111,17 @@ hull_t *PM_HullForBox( const vec3_t mins, const vec3_t maxs )
 
 void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent )
 {
-	memcpy( out, in, 48 ); // matched
+	out->allsolid = in->allsolid;
+	out->startsolid = in->startsolid;
+	out->inopen = in->inopen;
+	out->inwater = in->inwater;
+	out->fraction = in->fraction;
+	out->plane.dist = in->plane.dist;
 	out->hitgroup = in->hitgroup;
 	out->ent = ent;
+
+	VectorCopy( in->endpos, out->endpos );
+	VectorCopy( in->plane.normal, out->plane.normal );
 }
 
 /*
