@@ -1,4 +1,4 @@
-layout (set = 0, binding = BINDING_LIGHTS) readonly buffer UBOLights { LightsMetadata lights; }; // TODO this is pretty much static and should be a buffer, not UBO
+layout (set = 0, binding = BINDING_LIGHTS) readonly buffer UBOLights { LightsMetadata m; } lights; // TODO this is pretty much static and should be a buffer, not UBO
 layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
 	ivec3 grid_min, grid_size;
 	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
@@ -19,25 +19,25 @@ const float shadow_offset_fudge = .1;
 void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
 
-	//diffuse = vec3(1.);//float(lights.num_point_lights) / 64.);
+	//diffuse = vec3(1.);//float(lights.m.num_point_lights) / 64.);
 //#define USE_CLUSTERS
 #ifdef USE_CLUSTERS
 	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
 	for (uint j = 0; j < num_point_lights; ++j) {
 		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
 #else
-	for (uint i = 0; i < lights.num_point_lights; ++i) {
+	for (uint i = 0; i < lights.m.num_point_lights; ++i) {
 #endif
 
-		vec3 color = lights.point_lights[i].color_stopdot.rgb * throughput;
+		vec3 color = lights.m.point_lights[i].color_stopdot.rgb * throughput;
 		if (dot(color,color) < color_culling_threshold)
 			continue;
 
-		const vec4 origin_r = lights.point_lights[i].origin_r;
-		const float stopdot = lights.point_lights[i].color_stopdot.a;
-		const vec3 dir = lights.point_lights[i].dir_stopdot2.xyz;
-		const float stopdot2 = lights.point_lights[i].dir_stopdot2.a;
-		const bool not_environment = (lights.point_lights[i].environment == 0);
+		const vec4 origin_r = lights.m.point_lights[i].origin_r;
+		const float stopdot = lights.m.point_lights[i].color_stopdot.a;
+		const vec3 dir = lights.m.point_lights[i].dir_stopdot2.xyz;
+		const float stopdot2 = lights.m.point_lights[i].dir_stopdot2.a;
+		const bool not_environment = (lights.m.point_lights[i].environment == 0);
 
 		const vec3 light_dir = not_environment ? (origin_r.xyz - P) : -dir; // TODO need to randomize sampling direction for environment soft shadow
 		const float radius = origin_r.w;
@@ -56,7 +56,7 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 			spot_attenuation = (spot_dot - stopdot2) / (stopdot - stopdot2);
 
 		//float fdist = 1.f;
-		float light_dist = 1e5; // TODO this is supposedly not the right way to do shadows for environment lights. qrad checks for hitting SURF_SKY, and maybe we should too?
+		float light_dist = 1e5; // TODO this is supposedly not the right way to do shadows for environment lights.m. qrad checks for hitting SURF_SKY, and maybe we should too?
 		const float d2 = dot(light_dir, light_dir);
 		const float r2 = origin_r.w * origin_r.w;
 		if (not_environment) {
