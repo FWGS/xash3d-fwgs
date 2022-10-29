@@ -46,7 +46,7 @@ def prepareJSON(path):
 	raw_json = raw_json.replace(",}","}")
 	try:
 		result = json.loads(raw_json)
-		print(json.dumps(result, sort_keys=False, indent=4))
+		#print(json.dumps(result, sort_keys=False, indent=4))
 	except json.decoder.JSONDecodeError as exp:
 		print("Decoding JSON has failed")
 		print(raw_json)
@@ -281,7 +281,7 @@ class Pipeline:
 		return shader
 
 	def serialize(self, out):
-		print(self.__bindings)
+		#print(self.__bindings)
 		out.writeU32(self.type)
 		out.writeString(self.name)
 		out.writeArray(self.__bindings.values())
