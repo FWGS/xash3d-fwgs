@@ -236,6 +236,14 @@ static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindi
 }
 
 static struct ray_pass_s *pipelineLoad(load_context_t *ctx, int i) {
+	int semantics[MAX_BINDINGS];
+	VkDescriptorSetLayoutBinding bindings[MAX_BINDINGS];
+	ray_pass_layout_t layout = {
+		.bindings_semantics = semantics,
+		.bindings = bindings,
+		.push_constants = {0},
+	};
+
 	const uint32_t type = READ_U32("Couldn't read pipeline %d type", i);
 
 	char name[64];
@@ -243,16 +251,7 @@ static struct ray_pass_s *pipelineLoad(load_context_t *ctx, int i) {
 
 	gEngine.Con_Reportf("%d: loading pipeline %s\n", i, name);
 
-	int semantics[MAX_BINDINGS];
-	VkDescriptorSetLayoutBinding bindings[MAX_BINDINGS];
-
-	const ray_pass_layout_t layout = {
-		.bindings_semantics = semantics,
-		.bindings = bindings,
-		.bindings_count = readBindings(ctx, bindings, semantics),
-		.push_constants = {0},
-	};
-
+	layout.bindings_count = readBindings(ctx, bindings, semantics);
 	if (!layout.bindings_count) {
 		gEngine.Con_Printf(S_ERROR "Couldn't read bindings for pipeline %s\n", name);
 		return NULL;
