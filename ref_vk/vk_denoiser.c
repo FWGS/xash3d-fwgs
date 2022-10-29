@@ -11,8 +11,9 @@
 	X(4, light_point_diffuse) \
 	X(5, light_point_specular) \
 	X(6, emissive) \
-	X(7, position_t) \
-	X(8, normals_gs) \
+
+	//X(7, position_t) \
+	//X(8, normals_gs) \
 
 static const VkDescriptorSetLayoutBinding bindings[] = {
 #define BIND_IMAGE(index, name) \

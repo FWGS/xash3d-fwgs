@@ -1,6 +1,7 @@
 #include "vk_meatpipe.h"
 
 #include "vk_pipeline.h"
+#include "ray_resources.h"
 
 #include "ray_pass.h"
 #include "vk_common.h"
@@ -107,7 +108,31 @@ static ray_pass_layout_t FIXME_getLayoutFor(const char *name) {
 	return (ray_pass_layout_t){0};
 }
 
-static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const char *name) {
+static qboolean FIXME_compareLayouts(const ray_pass_layout_t *a, const ray_pass_layout_t *b) {
+	ASSERT(a->bindings_count == b->bindings_count);
+
+	for (int i = 0; i < a->bindings_count; ++i) {
+		qboolean found = false;
+		const VkDescriptorSetLayoutBinding *ab = a->bindings + i;
+		for (int j = 0; j < b->bindings_count; ++j) {
+			const VkDescriptorSetLayoutBinding *bb = b->bindings + j;
+			if (ab->binding == bb->binding) {
+				ASSERT(!found);
+				found = true;
+				ASSERT(ab->descriptorType == bb->descriptorType);
+				ASSERT(ab->descriptorCount == bb->descriptorCount);
+				ASSERT(ab->stageFlags == bb->stageFlags);
+				ASSERT(ab->pImmutableSamplers == bb->pImmutableSamplers);
+				ASSERT(a->bindings_semantics[i] == b->bindings_semantics[j]);
+			}
+		}
+		ASSERT(found);
+	}
+
+	return true;
+}
+
+static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const char *name, const ray_pass_layout_t *layout) {
 	const uint32_t shader_comp = READ_U32_RETURN(NULL, "Couldn't read comp shader for %d %s", i, name);
 
 	if (shader_comp >= ctx->shaders_count) {
@@ -115,20 +140,23 @@ static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const 
 		return NULL;
 	}
 
+	const ray_pass_layout_t known_layout = FIXME_getLayoutFor(name);
+	ASSERT(FIXME_compareLayouts(&known_layout, layout));
+
 	const ray_pass_create_compute_t rpcc = {
 		.debug_name = name,
-		.layout = FIXME_getLayoutFor(name),
+		.layout = *layout,
 		.shader_module = ctx->shaders[shader_comp],
 	};
 
 	return RayPassCreateCompute(&rpcc);
 }
 
-static struct ray_pass_s *pipelineLoadRT(load_context_t *ctx, int i, const char *name) {
+static struct ray_pass_s *pipelineLoadRT(load_context_t *ctx, int i, const char *name, const ray_pass_layout_t *layout) {
 	ray_pass_p ret = NULL;
 	ray_pass_create_tracing_t rpct = {
 		.debug_name = name,
-		.layout = FIXME_getLayoutFor(name),
+		.layout = *layout,
 	};
 
 	// FIXME bounds check shader indices
@@ -172,8 +200,14 @@ finalize:
 	return ret;
 }
 
-static qboolean readBindings(load_context_t *ctx) {
+#define MAX_BINDINGS 32
+static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindings, int* semantics) {
 	const int count = READ_U32_RETURN(false, "Coulnd't read bindings count");
+
+	if (count > MAX_BINDINGS) {
+		gEngine.Con_Printf(S_ERROR "Too many binding (%d), max: %d\n", count, MAX_BINDINGS);
+		return 0;
+	}
 
 	for (int i = 0; i < count; ++i) {
 		char name[64];
@@ -182,10 +216,23 @@ static qboolean readBindings(load_context_t *ctx) {
 		const uint32_t binding = READ_U32_RETURN(false, "Couldn't read binding for binding %s", name);
 		const uint32_t stages = READ_U32_RETURN(false, "Couldn't read stages for binding %s", name);
 
-		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x\n", i, name, descriptor_set, binding, stages);
+		const ray_resource_binding_desc_fixme_t *binding_fixme = RayResouceGetBindingForName_FIXME(name);
+		if (!binding_fixme)
+			return 0;
+
+		bindings[i] = (VkDescriptorSetLayoutBinding){
+			.binding = binding,
+			.descriptorType = binding_fixme->type,
+			.descriptorCount = binding_fixme->count,
+			.stageFlags = stages,
+			.pImmutableSamplers = NULL,
+		};
+		semantics[i] = binding_fixme->semantic;
+
+		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x type=%d semantic=%d\n", i, name, descriptor_set, binding, stages, binding_fixme->type, binding_fixme->semantic);
 	}
 
-	return true;
+	return count;
 }
 
 static struct ray_pass_s *pipelineLoad(load_context_t *ctx, int i) {
@@ -196,7 +243,17 @@ static struct ray_pass_s *pipelineLoad(load_context_t *ctx, int i) {
 
 	gEngine.Con_Reportf("%d: loading pipeline %s\n", i, name);
 
-	if (!readBindings(ctx)) {
+	int semantics[MAX_BINDINGS];
+	VkDescriptorSetLayoutBinding bindings[MAX_BINDINGS];
+
+	const ray_pass_layout_t layout = {
+		.bindings_semantics = semantics,
+		.bindings = bindings,
+		.bindings_count = readBindings(ctx, bindings, semantics),
+		.push_constants = {0},
+	};
+
+	if (!layout.bindings_count) {
 		gEngine.Con_Printf(S_ERROR "Couldn't read bindings for pipeline %s\n", name);
 		return NULL;
 	}
@@ -206,9 +263,9 @@ static struct ray_pass_s *pipelineLoad(load_context_t *ctx, int i) {
 
 	switch (type) {
 		case PIPELINE_COMPUTE:
-			return pipelineLoadCompute(ctx, i, name);
+			return pipelineLoadCompute(ctx, i, name, &layout);
 		case PIPELINE_RAYTRACING:
-			return pipelineLoadRT(ctx, i, name);
+			return pipelineLoadRT(ctx, i, name, &layout);
 		default:
 			gEngine.Con_Printf(S_ERROR "Unexpected pipeline type %d\n", type);
 			return NULL;

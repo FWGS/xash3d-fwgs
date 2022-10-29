@@ -59,3 +59,11 @@ typedef struct {
 } ray_resources_fill_t;
 
 void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill);
+
+typedef struct {
+	int semantic;
+	VkDescriptorType type;
+	int count;
+} ray_resource_binding_desc_fixme_t;
+
+const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name);

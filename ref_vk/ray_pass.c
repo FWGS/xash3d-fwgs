@@ -53,6 +53,11 @@ static void finalizePassDescriptors( ray_pass_t *header, const ray_pass_layout_t
 	header->desc.binding_semantics = Mem_Malloc(vk_core.pool, semantics_size);
 	memcpy(header->desc.binding_semantics, layout->bindings_semantics, semantics_size);
 
+	const size_t bindings_size = sizeof(layout->bindings[0]) * layout->bindings_count;
+	VkDescriptorSetLayoutBinding *bindings = Mem_Malloc(vk_core.pool, bindings_size);
+	memcpy(bindings, layout->bindings, bindings_size);
+	header->desc.riptors.bindings = bindings;
+
 	header->desc.riptors.values = Mem_Malloc(vk_core.pool, sizeof(header->desc.riptors.values[0]) * layout->bindings_count);
 }
 
@@ -224,6 +229,7 @@ void RayPassDestroy( struct ray_pass_s *pass ) {
 	VK_DescriptorsDestroy(&pass->desc.riptors);
 	Mem_Free(pass->desc.riptors.values);
 	Mem_Free(pass->desc.binding_semantics);
+	Mem_Free((void*)pass->desc.riptors.bindings);
 	Mem_Free(pass);
 }
 
