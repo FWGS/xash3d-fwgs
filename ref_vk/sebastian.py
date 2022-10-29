@@ -273,10 +273,10 @@ class Pipeline:
 		shader = shaders.load(shader_name, stage)
 		for binding in shader.getBindings():
 			addr = (binding.descriptor_set, binding.index)
-			if addr in self.__bindings:
-				self.__bindings[addr].stages |= stage
-			else:
+			if not addr in self.__bindings:
 				self.__bindings[addr] = copy.deepcopy(binding)
+
+			self.__bindings[addr].stages |= stage
 
 		return shader
 
@@ -284,7 +284,7 @@ class Pipeline:
 		print(self.__bindings)
 		out.writeU32(self.type)
 		out.writeString(self.name)
-		#out.writeArray(self.__bindings)
+		out.writeArray(self.__bindings.values())
 
 class PipelineRayTracing(Pipeline):
 	__hit2stage = {
@@ -346,12 +346,8 @@ def writeOutput(file, pipelines):
 	MAGIC = bytearray([ord(c) for c in 'MEAT'])
 	out = Serializer(file)
 	out.write(MAGIC)
-
 	shaders.serialize(out)
-
-	out.writeU32(len(pipelines))
-	for name, pipeline in pipelines.items():
-		pipeline.serialize(out)
+	out.writeArray(pipelines.values())
 
 pipelines = loadPipelines()
 

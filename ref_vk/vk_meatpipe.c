@@ -83,6 +83,9 @@ int curReadStr(cursor_t *cur, char* out, int out_size) {
 #define READ_STR(out, errmsg, ...) \
 	curReadStr(&ctx->cur, out, sizeof(out)); CUR_ERROR(errmsg, ##__VA_ARGS__)
 
+#define READ_STR_RETURN(retval, out, errmsg, ...) \
+	curReadStr(&ctx->cur, out, sizeof(out)); CUR_ERROR_RETURN(retval, errmsg, ##__VA_ARGS__)
+
 #define NO_SHADER 0xffffffff
 
 extern const ray_pass_layout_t ray_primary_layout_fixme;
@@ -169,24 +172,45 @@ finalize:
 	return ret;
 }
 
+static qboolean readBindings(load_context_t *ctx) {
+	const int count = READ_U32_RETURN(false, "Coulnd't read bindings count");
+
+	for (int i = 0; i < count; ++i) {
+		char name[64];
+		READ_STR_RETURN(false, name, "Couldn't read binding name");
+		const uint32_t descriptor_set = READ_U32_RETURN(false, "Couldn't read descriptor_set for binding %s", name);
+		const uint32_t binding = READ_U32_RETURN(false, "Couldn't read binding for binding %s", name);
+		const uint32_t stages = READ_U32_RETURN(false, "Couldn't read stages for binding %s", name);
+
+		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x\n", i, name, descriptor_set, binding, stages);
+	}
+
+	return true;
+}
+
 static struct ray_pass_s *pipelineLoad(load_context_t *ctx, int i) {
-	const uint32_t head = READ_U32("Couldn't read pipeline %d head", i);
+	const uint32_t type = READ_U32("Couldn't read pipeline %d type", i);
 
 	char name[64];
 	READ_STR(name, "Couldn't read pipeline %d name", i);
 
 	gEngine.Con_Reportf("%d: loading pipeline %s\n", i, name);
 
+	if (!readBindings(ctx)) {
+		gEngine.Con_Printf(S_ERROR "Couldn't read bindings for pipeline %s\n", name);
+		return NULL;
+	}
+
 #define PIPELINE_COMPUTE 1
 #define PIPELINE_RAYTRACING 2
 
-	switch (head) {
+	switch (type) {
 		case PIPELINE_COMPUTE:
 			return pipelineLoadCompute(ctx, i, name);
 		case PIPELINE_RAYTRACING:
 			return pipelineLoadRT(ctx, i, name);
 		default:
-			gEngine.Con_Printf(S_ERROR "Unexpected pipeline type %d\n", head);
+			gEngine.Con_Printf(S_ERROR "Unexpected pipeline type %d\n", type);
 			return NULL;
 	}
 
