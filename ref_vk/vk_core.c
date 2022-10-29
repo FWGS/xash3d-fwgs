@@ -504,6 +504,7 @@ static qboolean createDevice( void ) {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
 			.pNext = head,
 			.features.samplerAnisotropy = candidate_device->features.features.samplerAnisotropy,
+			.features.shaderInt16 = true,
 		};
 		head = &features;
 

@@ -8,7 +8,7 @@ RAY_PRIMARY_OUTPUTS(X)
 #undef X
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
-layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
+layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
 
 layout(location = PAYLOAD_LOCATION_PRIMARY) rayPayloadEXT RayPayloadPrimary payload;
 
@@ -16,10 +16,9 @@ void main() {
 	const vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
 
 	// FIXME start on a near plane
-	const vec3 origin    = (ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
-	const vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
-	//vec3 direction = (ubo.inv_view * vec4(normalize(target.xyz), 0)).xyz;
-	const vec3 direction = normalize((ubo.inv_view * vec4(target.xyz, 0)).xyz);
+	const vec3 origin    = (ubo.ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
+	const vec4 target    = ubo.ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 direction = normalize((ubo.ubo.inv_view * vec4(target.xyz, 0)).xyz);
 
 	payload.hit_t = vec4(0.);
 	payload.base_color_a = vec4(0.);

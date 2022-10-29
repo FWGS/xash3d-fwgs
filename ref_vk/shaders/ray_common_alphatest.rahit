@@ -10,7 +10,7 @@ layout(set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 // TODO not really needed here?
 // It's an artifact of readHitGeometry() computing uv_lods, which we don't really use in this shader
 // Split readHitGeometry into basic and advanced
-layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
+layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
 
 hitAttributeEXT vec2 bary;
 
@@ -20,7 +20,7 @@ const float alpha_mask_threshold = .1f;
 
 void main() {
 	const Geometry geom = readHitGeometry();
-	const uint tex_index = kusochki[geom.kusok_index].tex_base_color;
+	const uint tex_index = getKusok(geom.kusok_index).tex_base_color;
 	const vec4 texture_color = texture(textures[nonuniformEXT(tex_index)], geom.uv);
 
 	if (texture_color.a < alpha_mask_threshold) {

@@ -18,17 +18,17 @@ hitAttributeEXT vec2 bary;
 void main() {
     const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
     const int kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
-    const uint first_index_offset = kusochki[kusok_index].index_offset + gl_PrimitiveID * 3;
+    const uint first_index_offset = getKusok(kusok_index).index_offset + gl_PrimitiveID * 3;
 
-    const uint vi1 = uint(indices[first_index_offset+0]) + kusochki[kusok_index].vertex_offset;
-    const uint vi2 = uint(indices[first_index_offset+1]) + kusochki[kusok_index].vertex_offset;
-    const uint vi3 = uint(indices[first_index_offset+2]) + kusochki[kusok_index].vertex_offset;
+    const uint vi1 = uint(getIndex(first_index_offset+0)) + getKusok(kusok_index).vertex_offset;
+    const uint vi2 = uint(getIndex(first_index_offset+1)) + getKusok(kusok_index).vertex_offset;
+    const uint vi3 = uint(getIndex(first_index_offset+2)) + getKusok(kusok_index).vertex_offset;
 
-    const vec2 texture_uv = vertices[vi1].gl_tc * (1. - bary.x - bary.y) + vertices[vi2].gl_tc * bary.x + vertices[vi3].gl_tc * bary.y + push_constants.time * kusochki[kusok_index].uv_speed;
+    const vec2 texture_uv = getVertex(vi1).gl_tc * (1. - bary.x - bary.y) + getVertex(vi2).gl_tc * bary.x + getVertex(vi3).gl_tc * bary.y + push_constants.time * getKusok(kusok_index).uv_speed;
     // TODO mips
-    const uint tex_index = kusochki[kusok_index].tex_base_color;
+    const uint tex_index = getKusok(kusok_index).tex_base_color;
     const vec4 texture_color = texture(textures[nonuniformEXT(tex_index)], texture_uv);
-	const vec3 color = texture_color.rgb * kusochki[kusok_index].color.rgb * texture_color.a * kusochki[kusok_index].color.a;
+	const vec3 color = texture_color.rgb * getKusok(kusok_index).color.rgb * texture_color.a * getKusok(kusok_index).color.a;
 
 	const float overshoot = gl_HitTEXT - payload_additive.ray_distance;
 

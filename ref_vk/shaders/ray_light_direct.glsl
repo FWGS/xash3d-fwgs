@@ -16,7 +16,7 @@ OUTPUTS(X)
 #undef X
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
-layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
+layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
 
 #include "ray_kusochki.glsl"
 
@@ -43,11 +43,11 @@ void main() {
 	const vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
 	const ivec2 pix = ivec2(gl_LaunchIDEXT.xy);
 
-	rand01_state = ubo.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
+	rand01_state = ubo.ubo.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
 
 	// FIXME incorrect for reflection/refraction
-	const vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
-	const vec3 direction = normalize((ubo.inv_view * vec4(target.xyz, 0)).xyz);
+	const vec4 target    = ubo.ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 direction = normalize((ubo.ubo.inv_view * vec4(target.xyz, 0)).xyz);
 
 	const vec4 material_data = imageLoad(material_rmxx, pix);
 

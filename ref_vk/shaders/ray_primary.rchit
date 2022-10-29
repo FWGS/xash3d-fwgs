@@ -11,7 +11,7 @@
 #include "color_spaces.glsl"
 
 layout(set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
-layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
+layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
 layout(set = 0, binding = 7) uniform samplerCube skybox;
 
 layout(location = PAYLOAD_LOCATION_PRIMARY) rayPayloadInEXT RayPayloadPrimary payload;
@@ -28,7 +28,7 @@ void main() {
 
 	payload.hit_t = vec4(geom.pos, gl_HitTEXT);
 
-	const Kusok kusok = kusochki[geom.kusok_index];
+	const Kusok kusok = getKusok(geom.kusok_index);
 	const uint tex_base_color = kusok.tex_base_color;
 
 	if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) != 0) {
