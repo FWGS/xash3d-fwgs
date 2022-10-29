@@ -73,6 +73,14 @@ class Serializer:
 			bs += b'\x00' * (4 - rem)
 		self.writeBytes(bs)
 
+	def writeArray(self, v):
+		self.writeU32(len(v))
+		for i in v:
+			if isinstance(i, int):
+				self.writeU32(i)
+			else:
+				i.serialize(self)
+
 class SpirvNode:
 	def __init__(self):
 		self.descriptor_set = None
@@ -190,17 +198,14 @@ class Shaders:
 
 		return shader
 
-	def getIndex(self, name):
-		return self.__map[name]
+	def getIndex(self, shader):
+		return self.__map[shader.name]
 
 	def serialize(self, out):
 		out.writeU32(len(self.__shaders))
 		for shader in self.__shaders:
 			out.writeString(shader.name)
 			out.writeBytes(shader.raw_data)
-
-	def serializeIndex(self, out, shader):
-		out.write(struct.pack('I', self.getIndex(shader.name)))
 
 shaders = Shaders()
 
@@ -225,23 +230,13 @@ class PipelineRayTracing:
 		self.hit = [] if not 'hit' in desc else [PipelineRayTracing.__loadHit(hit) for hit in desc['hit']]
 
 	def serialize(self, out):
-		shaders.serializeIndex(out, self.rgen)
+		out.writeU32(shaders.getIndex(self.rgen))
+		out.writeArray([shaders.getIndex(s) for s in self.miss])
 
-		out.write(struct.pack('I', len(self.miss)))
-		for shader in self.miss:
-			shaders.serializeIndex(out, shader)
-
-		out.write(struct.pack('I', len(self.hit)))
+		out.writeU32(len(self.hit))
 		for hit in self.hit:
-			if 'closest' in hit:
-				shaders.serializeIndex(out, hit['closest'])
-			else:
-				out.write(struct.pack('I', NO_SHADER))
-
-			if 'any' in hit:
-				shaders.serializeIndex(out, hit['any'])
-			else:
-				out.write(struct.pack('I', NO_SHADER))
+			out.writeU32(shaders.getIndex(hit['closest']) if 'closest' in hit else NO_SHADER)
+			out.writeU32(shaders.getIndex(hit['any']) if 'any' in hit else NO_SHADER)
 
 class PipelineCompute:
 	def __init__(self, name, desc):
@@ -250,7 +245,7 @@ class PipelineCompute:
 		self.comp = shaders.load(desc['comp'] + '.comp.spv')
 
 	def serialize(self, out):
-		shaders.serializeIndex(out, self.comp)
+		out.writeU32(shaders.getIndex(self.comp))
 
 def parsePipeline(pipelines, name, desc):
 	if 'inherit' in desc:
