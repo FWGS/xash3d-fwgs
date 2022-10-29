@@ -130,6 +130,7 @@ static const struct {
 	FIXME_DESC_IN("skybox", skybox, COMBINED_IMAGE_SAMPLER, 1),
 	FIXME_DESC_IN("lights", lights, STORAGE_BUFFER, 1),
 	FIXME_DESC_IN("light_clusters", light_clusters, STORAGE_BUFFER, 1),
+	FIXME_DESC_IN("light_grid", light_clusters, STORAGE_BUFFER, 1),
 
 	FIXME_DESC_OUT("out_image_base_color_a", base_color_a, STORAGE_IMAGE, 1),
 	FIXME_DESC_IN("src_base_color", base_color_a, STORAGE_IMAGE, 1),

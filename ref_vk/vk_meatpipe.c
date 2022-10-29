@@ -217,8 +217,10 @@ static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindi
 		const uint32_t stages = READ_U32_RETURN(false, "Couldn't read stages for binding %s", name);
 
 		const ray_resource_binding_desc_fixme_t *binding_fixme = RayResouceGetBindingForName_FIXME(name);
-		if (!binding_fixme)
+		if (!binding_fixme) {
+			gEngine.Con_Printf(S_ERROR "Couldn't find fixme desc for binding %s\n", name);
 			return 0;
+		}
 
 		bindings[i] = (VkDescriptorSetLayoutBinding){
 			.binding = binding,
