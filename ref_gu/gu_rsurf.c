@@ -1578,7 +1578,7 @@ void R_SetRenderMode( cl_entity_t *e )
 		sceGuTexFunc( GU_TFX_MODULATE, GU_TCC_RGBA );
 		sceGuBlendFunc( GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0 );
 		sceGuColor( GUCOLOR4F( 1.0f, 1.0f, 1.0f, tr.blend ) );
-		sceGuDepthMask( GU_FALSE ); // bug?
+		sceGuDepthMask( GU_TRUE );
 		sceGuEnable( GU_BLEND );
 		break;
 	}
