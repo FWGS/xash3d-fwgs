@@ -26,7 +26,6 @@ cvar_t	*gl_emboss_scale;
 cvar_t	*gl_detailscale;
 cvar_t	*gl_depthoffset;
 cvar_t	*gl_wireframe;
-cvar_t	*gl_nosort;
 cvar_t	*gl_vsync;
 cvar_t	*gl_clear;
 cvar_t	*gl_test;
@@ -373,7 +372,6 @@ void GL_InitCommands( void )
 	gl_keeptjunctions = gEngfuncs.Cvar_Get( "gl_keeptjunctions", "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
 	gl_emboss_scale = gEngfuncs.Cvar_Get( "gl_emboss_scale", "0", FCVAR_GLCONFIG|FCVAR_LATCH, "fake bumpmapping scale" );
 	gl_showtextures = gEngfuncs.pfnGetCvarPointer( "r_showtextures", 0 );
-	gl_nosort = gEngfuncs.Cvar_Get( "gl_nosort", "1", FCVAR_GLCONFIG, "disable sorting of translucent surfaces" );
 	gl_clear = gEngfuncs.pfnGetCvarPointer( "gl_clear", 0 );
 	gl_test = gEngfuncs.Cvar_Get( "gl_test", "0", 0, "engine developer cvar for quick testing new features" );
 	gl_wireframe = gEngfuncs.Cvar_Get( "gl_wireframe", "0", FCVAR_GLCONFIG|FCVAR_SPONLY, "show wireframe overlay" );

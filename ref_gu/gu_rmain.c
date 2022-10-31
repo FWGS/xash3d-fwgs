@@ -535,11 +535,10 @@ static void R_SetupFrame( void )
 	glState.isFogEnabled = pglIsEnabled( GL_FOG );
 #endif
 
-	if( !gl_nosort->value )
-	{
-		// sort translucents entities by rendermode and distance
-		qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t* ), R_TransEntityCompare );
-	}
+#if 0
+	// sort translucents entities by rendermode and distance
+	qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t* ), R_TransEntityCompare );
+#endif
 
 	// current viewleaf
 	if( RI.drawWorld )

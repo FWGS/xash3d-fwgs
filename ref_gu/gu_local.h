@@ -776,7 +776,6 @@ extern cvar_t	*gl_round_down;
 extern cvar_t	*gl_detailscale;
 extern cvar_t	*gl_wireframe;
 extern cvar_t	*gl_depthoffset;
-extern cvar_t	*gl_nosort;
 extern cvar_t	*gl_clear;
 extern cvar_t	*gl_test;		// cvar to testify new effects
 extern cvar_t	*gl_subdivide_size;
