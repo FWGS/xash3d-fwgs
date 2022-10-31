@@ -19,8 +19,6 @@ GNU General Public License for more details.
 #define FSH_MAX_PATH		64
 #define FSH_EMPTY_STRING	"*empty*"
 
-#define FSH_STATE_USED		0x01
-
 typedef struct fsh_path_s
 {
 	char		path[FSH_MAX_PATH];
@@ -85,6 +83,7 @@ int FSH_AddFilePathWs( fsh_handle_t *handle, const char *path, int size )
 {
 	uint		hash;
 	fsh_path_t	*fptr;
+	const char	*strip_path;
 
 	if( !handle )
 		return -2;
@@ -92,14 +91,16 @@ int FSH_AddFilePathWs( fsh_handle_t *handle, const char *path, int size )
 	if( Q_strnicmp( path, handle->folderpath, handle->folderpath_size ))
 		return -2;
 
-	hash = COM_HashKey( path, handle->hashlist_size );
+	strip_path = path + handle->folderpath_size + 1; // + '/'
+
+	hash = COM_HashKey( strip_path, handle->hashlist_size );
 
 	if( handle->ready && handle->count > 0 )
 	{
 		// see if already added
 		for( fptr = handle->hashlist[hash]; fptr != NULL; fptr = fptr->nexthash )
 		{
-			if( !Q_stricmp( fptr->path, path ))
+			if( !Q_stricmp( fptr->path, strip_path ))
 				return fptr - handle->pathlist; // index
 		}
 
@@ -108,7 +109,7 @@ int FSH_AddFilePathWs( fsh_handle_t *handle, const char *path, int size )
 		{
 			if( !Q_stricmp( fptr->path, FSH_EMPTY_STRING ))
 			{
-				Q_strncpy( fptr->path, path, FSH_MAX_PATH - 1 );
+				Q_strncpy( fptr->path, strip_path, FSH_MAX_PATH - 1 );
 
 				// file size
 				fptr->fsize = size;
@@ -129,7 +130,7 @@ int FSH_AddFilePathWs( fsh_handle_t *handle, const char *path, int size )
 		return -1;
 
 	fptr = &handle->pathlist[handle->count];
-	Q_strncpy( fptr->path, path, FSH_MAX_PATH - 1 );
+	Q_strncpy( fptr->path, strip_path, FSH_MAX_PATH - 1 );
 
 	// file size
 	fptr->fsize = size;
@@ -151,6 +152,7 @@ int FSH_RemoveFilePath( fsh_handle_t *handle, const char *path )
 {
 	uint		hash;
 	fsh_path_t	*fptr, **fptr_prev;
+	const char	*strip_path;
 
 	if( !handle )
 		return -2;
@@ -158,11 +160,13 @@ int FSH_RemoveFilePath( fsh_handle_t *handle, const char *path )
 	if( Q_strnicmp( path, handle->folderpath, handle->folderpath_size ))
 		return -2;
 
-	hash = COM_HashKey( path, handle->hashlist_size );
+	strip_path = path + handle->folderpath_size + 1; // + '/'
+
+	hash = COM_HashKey( strip_path, handle->hashlist_size );
 
 	for( fptr = handle->hashlist[hash]; fptr != NULL; fptr = fptr->nexthash )
 	{
-		if( !Q_stricmp( fptr->path, path ))
+		if( !Q_stricmp( fptr->path, strip_path ))
 		{
 			memset( fptr->path, 0, FSH_MAX_PATH );
 			Q_strncpy( fptr->path, FSH_EMPTY_STRING, FSH_MAX_PATH - 1 );
@@ -190,6 +194,7 @@ int FSH_RenameFilePath( fsh_handle_t *handle, const char *oldname, const char *n
 {
 	uint		hash;
 	fsh_path_t	*fptr, **fptr_prev;
+	const char	*strip_path;
 
 	if( !handle )
 		return -2;
@@ -197,20 +202,24 @@ int FSH_RenameFilePath( fsh_handle_t *handle, const char *oldname, const char *n
 	if( Q_strnicmp( oldname, handle->folderpath, handle->folderpath_size ))
 		return -2;
 
-	hash = COM_HashKey( oldname, handle->hashlist_size );
+	strip_path = oldname + handle->folderpath_size + 1; // + '/'
+
+	hash = COM_HashKey( strip_path, handle->hashlist_size );
 
 	for( fptr = handle->hashlist[hash]; fptr != NULL; fptr = fptr->nexthash )
 	{
-		if( !Q_stricmp( fptr->path, oldname ))
+		if( !Q_stricmp( fptr->path, strip_path ))
 		{
+			strip_path = newname + handle->folderpath_size + 1; // + '/'
+
 			memset( fptr->path, 0, FSH_MAX_PATH );
-			Q_strncpy( fptr->path, newname, FSH_MAX_PATH - 1 );
+			Q_strncpy( fptr->path, strip_path, FSH_MAX_PATH - 1 );
 
 			// remove old from hash table
 			FSH_RemoveHash( handle->hashlist, hash, fptr );
 
 			// add new to hash table
-			hash = COM_HashKey( newname, handle->hashlist_size );
+			hash = COM_HashKey( strip_path, handle->hashlist_size );
 			FSH_AddHash( handle->hashlist, hash, fptr );
 
 			return fptr - handle->pathlist; // index;
@@ -229,6 +238,7 @@ int FSH_FindSize( fsh_handle_t *handle, const char *path )
 {
 	uint		hash;
 	fsh_path_t	*fptr;
+	const char	*strip_path;
 
 	if( !handle )
 		return -2;
@@ -236,11 +246,13 @@ int FSH_FindSize( fsh_handle_t *handle, const char *path )
 	if( !handle->ready || !handle->count || Q_strnicmp( path, handle->folderpath, handle->folderpath_size ))
 		return -2;
 
-	hash = COM_HashKey( path, handle->hashlist_size );
+	strip_path = path + handle->folderpath_size + 1; // + '/'
+
+	hash = COM_HashKey( strip_path, handle->hashlist_size );
 
 	for( fptr = handle->hashlist[hash]; fptr != NULL; fptr = fptr->nexthash )
 	{
-		if( !Q_stricmp( fptr->path, path ))
+		if( !Q_stricmp( fptr->path, strip_path ))
 			return fptr->fsize;
 	}
 
@@ -256,6 +268,7 @@ int FSH_Find( fsh_handle_t *handle, const char *path )
 {
 	uint		hash;
 	fsh_path_t	*fptr;
+	const char	*strip_path;
 
 	if( !handle )
 		return -2;
@@ -263,11 +276,13 @@ int FSH_Find( fsh_handle_t *handle, const char *path )
 	if( !handle->ready || !handle->count || Q_strnicmp( path, handle->folderpath, handle->folderpath_size ))
 		return -2;
 
-	hash = COM_HashKey( path, handle->hashlist_size );
+	strip_path = path + handle->folderpath_size + 1; // + '/'
+
+	hash = COM_HashKey( strip_path, handle->hashlist_size );
 
 	for( fptr = handle->hashlist[hash]; fptr != NULL; fptr = fptr->nexthash )
 	{
-		if( !Q_stricmp( fptr->path, path ))
+		if( !Q_stricmp( fptr->path, strip_path ))
 			return fptr - handle->pathlist; // index
 	}
 
