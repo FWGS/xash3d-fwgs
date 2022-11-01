@@ -41,10 +41,10 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 {
 	int		ret;
 	short		p, a, b, c, pa, pb, pc;
-	byte		*buf_p, *pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL, *rowend;
+	byte		*buf_p, *pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL;
 	byte		*pallete = NULL, *trns = NULL;
 	uint	 	chunk_len, trns_len, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
-	uint	 	uncompressed_size, pixel_size, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha;
+	uint		uncompressed_size, pixel_size, pixel_count, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha;
 	qboolean 	has_iend_chunk = false;
 	z_stream 	stream = {0};
 	png_t		png_hdr;
@@ -262,7 +262,8 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	image.type = PF_RGBA_32; // always exctracted to 32-bit buffer
 	image.width = png_hdr.ihdr_chunk.width;
 	image.height = png_hdr.ihdr_chunk.height;
-	image.size = image.height * image.width * 4;
+	pixel_count = image.height * image.width;
+	image.size = pixel_count * 4;
 
 	if( png_hdr.ihdr_chunk.colortype & PNG_CT_RGB )
 		image.flags |= IMAGE_HAS_COLOR;
@@ -424,72 +425,56 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 			b_alpha = trns[4] << 8 | trns[5];
 		}
 
-		for( y = 0; y < image.height; y++ )
+		for( y = 0; y < pixel_count; y++, raw += pixel_size )
 		{
-			rowend = raw + rowsize;
-			for( ; raw < rowend; raw += pixel_size )
-			{
-				*pixbuf++ = raw[0];
-				*pixbuf++ = raw[1];
-				*pixbuf++ = raw[2];
+			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[1];
+			*pixbuf++ = raw[2];
 
-				if( trns && r_alpha == raw[0]
-				    && g_alpha == raw[1]
-				    && b_alpha == raw[2] )
-					*pixbuf++ = 0;
-				else
-					*pixbuf++ = 0xFF;
-			}
+			if( trns && r_alpha == raw[0]
+			    && g_alpha == raw[1]
+			    && b_alpha == raw[2] )
+				*pixbuf++ = 0;
+			else
+				*pixbuf++ = 0xFF;
 		}
 		break;
 	case PNG_CT_GREY:
 		if( trns )
 			r_alpha = trns[0] << 8 | trns[1];
 
-		for( y = 0; y < image.height; y++ )
+		for( y = 0; y < pixel_count; y++, raw += pixel_size )
 		{
-			rowend = raw + rowsize;
-			for( ; raw < rowend; raw += pixel_size )
-			{
-				*pixbuf++ = raw[0];
-				*pixbuf++ = raw[0];
-				*pixbuf++ = raw[0];
+			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[0];
 
-				if( trns && r_alpha == raw[0] )
-					*pixbuf++ = 0;
-				else
-					*pixbuf++ = 0xFF;
-			}
+			if( trns && r_alpha == raw[0] )
+				*pixbuf++ = 0;
+			else
+				*pixbuf++ = 0xFF;
 		}
 		break;
 	case PNG_CT_ALPHA:
-		for( y = 0; y < image.height; y++ )
+		for( y = 0; y < pixel_count; y++, raw += pixel_size )
 		{
-			rowend = raw + rowsize;
-			for( ; raw < rowend; raw += pixel_size )
-			{
-				*pixbuf++ = raw[0];
-				*pixbuf++ = raw[0];
-				*pixbuf++ = raw[0];
-				*pixbuf++ = raw[1];
-			}
+			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[0];
+			*pixbuf++ = raw[1];
 		}
 		break;
 	case PNG_CT_PALLETE:
-		for( y = 0; y < image.height; y++ )
+		for( y = 0; y < pixel_count; y++, raw += pixel_size )
 		{
-			rowend = raw + rowsize;
-			for( ; raw < rowend; raw += pixel_size )
-			{
-				*pixbuf++ = pallete[raw[0] + 2];
-				*pixbuf++ = pallete[raw[0] + 1];
-				*pixbuf++ = pallete[raw[0] + 0];
+			*pixbuf++ = pallete[raw[0] + 2];
+			*pixbuf++ = pallete[raw[0] + 1];
+			*pixbuf++ = pallete[raw[0] + 0];
 
-				if( trns && raw[0] < trns_len )
-					*pixbuf++ = trns[raw[0]];
-				else
-					*pixbuf++ = 0xFF;
-			}
+			if( trns && raw[0] < trns_len )
+				*pixbuf++ = trns[raw[0]];
+			else
+				*pixbuf++ = 0xFF;
 		}
 		break;
 	default:
