@@ -31,7 +31,7 @@ typedef struct fsh_handle_s
 {
 	qboolean	ready;
 	int		count;
-	char		folderpath[FSH_MAX_PATH];
+	char		folderpath[PATH_MAX];
 	int		folderpath_size;
 	uint		empty_hash;
 	int		pathlist_size;

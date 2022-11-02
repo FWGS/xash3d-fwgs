@@ -80,15 +80,17 @@ GNU General Public License for more details.
 #if XASH_PSP
 	#include <unistd.h>
 	#include <pspiofilemgr.h>
-	#define PATH_MAX 1024
+
+	#define PATH_MAX 256 //PSP FATMS Maximum length of a full pathname 260 characters
 	#define PATH_SPLITTER "/"
 	#define O_BINARY 0
 	#define O_TEXT 0
-	#define _mkdir( x )					sceIoMkdir( x, FIO_S_IRWXU | FIO_S_IRWXG | FIO_S_IROTH | FIO_S_IXOTH )
-	#define SetCurrentDirectory( x ) 	( !sceIoChdir( x ) )
-	#define LoadLibrary( x ) 			( 0 )
-	#define GetProcAddress( x, y ) 		( 0 )
-	#define FreeLibrary( x ) 			( 0 )
+
+	#define _mkdir( x )			sceIoMkdir( x, FIO_S_IRWXU | FIO_S_IRWXG | FIO_S_IROTH | FIO_S_IXOTH )
+	#define SetCurrentDirectory( x )	( !sceIoChdir( x ) )
+	#define LoadLibrary( x )		( 0 )
+	#define GetProcAddress( x, y )		( 0 )
+	#define FreeLibrary( x )		( 0 )
 #endif
 
 	//#define MAKEWORD( a, b )			((short int)(((unsigned char)(a))|(((short int)((unsigned char)(b)))<<8)))

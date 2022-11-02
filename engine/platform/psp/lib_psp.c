@@ -141,7 +141,7 @@ mod_handle_t *Module_Load( const char *name )
 	SceUID		modUid;
 	uint		modSegAddr, modSegSize;
 	SceKernelModuleInfo	info;
-	char 		engine_cwd[256];
+	char 		engine_cwd[PATH_MAX];
 
 	if( !name )
 		return NULL;
