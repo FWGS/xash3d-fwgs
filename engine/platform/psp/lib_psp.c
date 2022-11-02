@@ -137,10 +137,11 @@ mod_handle_t *Module_Load( const char *name )
 	mod_func_t	*modFunc;
 	qboolean	skipPrefix;
 	char		modStaticName[32];
-	void		*modArg;
+	void		*modArg[2];
 	SceUID		modUid;
 	uint		modSegAddr, modSegSize;
 	SceKernelModuleInfo	info;
+	char 		engine_cwd[256];
 
 	if( !name )
 		return NULL;
@@ -152,8 +153,11 @@ mod_handle_t *Module_Load( const char *name )
 	skipPrefix = false;
 	modSegAddr = modSegSize = 0;
 
-	modArg = &modFunc;
-	modUid = Platform_LoadModule( name, 0, sizeof( modArg ), &modArg );
+	Q_sprintf( engine_cwd, "%s/", host.rootdir );
+
+	modArg[0] = &modFunc;
+	modArg[1] = engine_cwd;
+	modUid = Platform_LoadModule( name, 0, sizeof( modArg ), modArg );
 	if( modUid < 0 )
 	{
 		COM_FileBase( name, modStaticName );
