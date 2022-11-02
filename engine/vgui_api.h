@@ -187,7 +187,7 @@ typedef struct  vguiapi_s
 	void	(*SetClipboardText)( const char *text );
 	key_modifier_t (*GetKeyModifiers)( void );
 	// called from engine side
-	void	(*Startup)( int width, int height );
+	void	(*Startup)( const char *clientlib, int width, int height );
 	void	(*Shutdown)( void );
 	void	*(*GetPanel)( void );
 	void	(*Paint)( void );
