@@ -23,8 +23,10 @@ GNU General Public License for more details.
 #define PSP_MAX_KEYS	sizeof(psp_keymap) / sizeof(struct psp_keymap_s)
 #define PSP_EXT_KEY	PSP_CTRL_HOME
 
-convar_t *psp_deadzone_min;
-convar_t *psp_deadzone_max;
+convar_t *psp_joy_dz_min;
+convar_t *psp_joy_dz_max;
+convar_t *psp_joy_cv_power;
+convar_t *psp_joy_cv_expo;
 
 static struct psp_keymap_s
 {
@@ -76,10 +78,16 @@ static struct psp_keymap_s
 };
 static signed short psp_joymap[256]; /* -32768 <> 32767 */
 
-static float Platform_JoyRescale( float axis, float deadzone_min, float deadzone_max )
+static float Platform_JoyAxisCompute( float axis, float deadzone_min, float deadzone_max, float power, float expo )
 {
-	float abs_axis, scale, r_deadzone_max;
-	int flip_axis = 0;
+	float		abs_axis, fabs_axis, fcurve;
+	float		scale, r_deadzone_max;
+	qboolean	flip_axis = 0;
+
+	expo = bound( 0.0f, expo, 1.0f );
+	power = bound( 0.0f, power, 10.0f );
+	deadzone_min = bound( 0.0f, deadzone_min, 127.0f );
+	deadzone_max = bound( 0.0f, deadzone_max, 127.0f );
 
 	// (-127) - (0) - (+127)
 	abs_axis = axis - 128.0f;
@@ -96,13 +104,21 @@ static float Platform_JoyRescale( float axis, float deadzone_min, float deadzone
 	abs_axis -= deadzone_min;
 	abs_axis *= scale;
 
+	if( expo )
+	{
+		// x * ( x^power * expo + x * ( 1.0 - expo ))
+		fabs_axis = abs_axis / 127.0f; // 0.0f - 1.0f
+		fcurve = powf(fabs_axis, power) * expo + fabs_axis * (1.0f - expo);
+		abs_axis = fabs_axis * fcurve * 127.0f;
+	}
+
 	return ( flip_axis ? -abs_axis :  abs_axis );
 }
 
 void Platform_RunEvents( void )
 {
-	int 				i;
-	SceCtrlData			buf;
+	int			i;
+	SceCtrlData		buf;
 	signed short 		curr_X, curr_Y;
 	static unsigned int	last_buttons;
 	static signed short	last_X, last_Y;
@@ -145,16 +161,19 @@ void Platform_RunEvents( void )
 	}
 	last_buttons = buf.Buttons;
 
-	if( FBitSet( psp_deadzone_min->flags, FCVAR_CHANGED ) || FBitSet( psp_deadzone_max->flags, FCVAR_CHANGED ) )
+	if( FBitSet( psp_joy_dz_min->flags, FCVAR_CHANGED ) || FBitSet( psp_joy_dz_max->flags, FCVAR_CHANGED ) ||
+		FBitSet( psp_joy_cv_power->flags, FCVAR_CHANGED ) || FBitSet( psp_joy_cv_expo->flags, FCVAR_CHANGED ))
 	{
 		for ( i = 0; i < 256; i++ )
 		{
-			psp_joymap[i] = Platform_JoyRescale( i, psp_deadzone_min->value, psp_deadzone_max->value );
+			psp_joymap[i] = Platform_JoyAxisCompute( i, psp_joy_dz_min->value, psp_joy_dz_max->value, psp_joy_cv_power->value, psp_joy_cv_expo->value );
 			psp_joymap[i] *= 256;
 		}
 
-		ClearBits( psp_deadzone_min->flags, FCVAR_CHANGED );
-		ClearBits( psp_deadzone_max->flags, FCVAR_CHANGED );
+		ClearBits( psp_joy_dz_min->flags, FCVAR_CHANGED );
+		ClearBits( psp_joy_dz_max->flags, FCVAR_CHANGED );
+		ClearBits( psp_joy_cv_power->flags, FCVAR_CHANGED );
+		ClearBits( psp_joy_cv_expo->flags, FCVAR_CHANGED );
 	}
 
 	curr_X = psp_joymap[buf.Lx];
@@ -190,8 +209,10 @@ int Platform_JoyInit( int numjoy )
 	int i;
 
 	// set up cvars
-	psp_deadzone_min = Cvar_Get( "psp_deadzone_min", "20", FCVAR_ARCHIVE, "Joy deadzone min (0 - 127)" );
-	psp_deadzone_max = Cvar_Get( "psp_deadzone_max", "0",  FCVAR_ARCHIVE, "Joy deadzone max (0 - 127)" );
+	psp_joy_dz_min = Cvar_Get( "psp_joy_dz_min", "15", FCVAR_ARCHIVE, "joy deadzone min (0 - 127)" );
+	psp_joy_dz_max = Cvar_Get( "psp_joy_dz_max", "0",  FCVAR_ARCHIVE, "joy deadzone max (0 - 127)" );
+	psp_joy_cv_power = Cvar_Get( "psp_joy_cv_power", "2",  FCVAR_ARCHIVE, "joy curve power (0 - 10)" );
+	psp_joy_cv_expo = Cvar_Get( "psp_joy_cv_expo", "0.5",  FCVAR_ARCHIVE, "joy curve expo (0 - 1.0)" );
 
 	// set up the controller.
 	sceCtrlSetSamplingCycle( 0 );
@@ -200,7 +221,7 @@ int Platform_JoyInit( int numjoy )
 	// building a joystick map
 	for ( i = 0; i < 256; i++ )
 	{
-		psp_joymap[i] = Platform_JoyRescale( i, psp_deadzone_min->value, psp_deadzone_max->value );
+		psp_joymap[i] = Platform_JoyAxisCompute( i, psp_joy_dz_min->value, psp_joy_dz_max->value, psp_joy_cv_power->value, psp_joy_cv_expo->value );
 		psp_joymap[i] *= 256;
 	}
 	return 1;
