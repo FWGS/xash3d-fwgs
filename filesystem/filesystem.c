@@ -1452,7 +1452,7 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 	}
 
 	// build list of game directories here
-	FS_AddGameDirectory( "./", 0 );
+	FS_AddGameDirectory( "./", FS_STATIC_PATH );
 
 	for( i = 0; i < dirs.numstrings; i++ )
 	{
