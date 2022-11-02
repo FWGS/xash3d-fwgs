@@ -746,6 +746,24 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		else if( !Q_stricmp( token, "gamedll_linux" ))
 		{
 			pfile = COM_ParseFile( pfile, GameInfo->game_dll_linux, sizeof( GameInfo->game_dll_linux ));
+
+			// try to normalize filename only for liblist.gam
+			// from hl_i?86.so to hl.so
+			if( !isGameInfo )
+			{
+				char *p;
+				COM_StripExtension( GameInfo->game_dll_linux );
+
+				p = Q_strrchr( GameInfo->game_dll_linux, '_' );
+
+				if( p && Q_stricmpext( "_i?86", p ))
+				{
+					*p = 0;
+				}
+
+				COM_DefaultExtension( GameInfo->game_dll_linux, "."OS_LIB_EXT );
+			}
+
 			found_linux = true;
 		}
 		// valid for both
