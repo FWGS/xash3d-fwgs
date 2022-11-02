@@ -3854,8 +3854,13 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 	if( !oldname || !newname || !*oldname || !*newname )
 		return false;
 
+#if XASH_PSP // BUG: Adrenaline PSVITA: sceIoRename requires full path
+	Q_snprintf( oldpath, sizeof( oldpath ), "%s/%s%s", host.rootdir, fs_writedir, oldname );
+	Q_snprintf( newpath, sizeof( newpath ), "%s/%s%s", host.rootdir, fs_writedir, newname );
+#else
 	Q_snprintf( oldpath, sizeof( oldpath ), "%s%s", fs_writedir, oldname );
 	Q_snprintf( newpath, sizeof( newpath ), "%s%s", fs_writedir, newname );
+#endif
 
 	COM_FixSlashes( oldpath );
 	COM_FixSlashes( newpath );
