@@ -89,49 +89,6 @@ int curReadStr(cursor_t *cur, char* out, int out_size) {
 
 #define NO_SHADER 0xffffffff
 
-extern const ray_pass_layout_t ray_primary_layout_fixme;
-extern const ray_pass_layout_t light_direct_poly_layout_fixme;
-extern const ray_pass_layout_t light_direct_point_layout_fixme;
-extern const ray_pass_layout_t denoiser_layout_fixme;
-
-static ray_pass_layout_t FIXME_getLayoutFor(const char *name) {
-	if (strcmp(name, "primary_ray") == 0)
-		return ray_primary_layout_fixme;
-	if (strcmp(name, "light_direct_poly") == 0)
-		return light_direct_poly_layout_fixme;
-	if (strcmp(name, "light_direct_point") == 0)
-		return light_direct_point_layout_fixme;
-	if (strcmp(name, "denoiser") == 0)
-		return denoiser_layout_fixme;
-
-	gEngine.Host_Error("Unexpected pass name %s", name);
-	return (ray_pass_layout_t){0};
-}
-
-static qboolean FIXME_compareLayouts(const ray_pass_layout_t *a, const ray_pass_layout_t *b) {
-	ASSERT(a->bindings_count == b->bindings_count);
-
-	for (int i = 0; i < a->bindings_count; ++i) {
-		qboolean found = false;
-		const VkDescriptorSetLayoutBinding *ab = a->bindings + i;
-		for (int j = 0; j < b->bindings_count; ++j) {
-			const VkDescriptorSetLayoutBinding *bb = b->bindings + j;
-			if (ab->binding == bb->binding) {
-				ASSERT(!found);
-				found = true;
-				ASSERT(ab->descriptorType == bb->descriptorType);
-				ASSERT(ab->descriptorCount == bb->descriptorCount);
-				ASSERT(ab->stageFlags == bb->stageFlags);
-				ASSERT(ab->pImmutableSamplers == bb->pImmutableSamplers);
-				ASSERT(a->bindings_semantics[i] == b->bindings_semantics[j]);
-			}
-		}
-		ASSERT(found);
-	}
-
-	return true;
-}
-
 static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const char *name, const ray_pass_layout_t *layout) {
 	const uint32_t shader_comp = READ_U32_RETURN(NULL, "Couldn't read comp shader for %d %s", i, name);
 
@@ -139,9 +96,6 @@ static struct ray_pass_s *pipelineLoadCompute(load_context_t *ctx, int i, const 
 		gEngine.Con_Printf(S_ERROR "Pipeline %s shader index out of bounds %d (count %d)\n", name, shader_comp, ctx->shaders_count);
 		return NULL;
 	}
-
-	const ray_pass_layout_t known_layout = FIXME_getLayoutFor(name);
-	ASSERT(FIXME_compareLayouts(&known_layout, layout));
 
 	const ray_pass_create_compute_t rpcc = {
 		.debug_name = name,
