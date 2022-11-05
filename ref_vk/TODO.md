@@ -2,9 +2,11 @@
 - [x] E213:
 	- [x] parse binding types
 	- [x] remove types from resources FIXME
-- [ ] E214:
-	- [ ] extract binding image format
+- [ ] E214: ~tentative~
 	- [ ] integrate sebastian into waf
+	- [ ] serialize binding image format
+	- [ ] serialize all resources with in/out and formats for images
+	- [ ] create images on meatpipe load
 
 >=E215
 - [ ] automatic resource creation
