@@ -96,10 +96,9 @@ void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill) {
 	}
 }
 
-#define FIXME_DESC(name_, semantic_, type_, count_) \
+#define FIXME_DESC(name_, semantic_, count_) \
 	{ .name = name_, \
 	  .desc.semantic = (RayResource_##semantic_ + 1), \
-	  .desc.type = VK_DESCRIPTOR_TYPE_##type_, \
 	  .desc.count = count_, \
 	}
 
@@ -108,28 +107,28 @@ static const struct {
 	ray_resource_binding_desc_fixme_t desc;
 } fixme_descs[] = {
 	// External
-	FIXME_DESC("ubo", ubo, UNIFORM_BUFFER, 1),
-	FIXME_DESC("tlas", tlas, ACCELERATION_STRUCTURE_KHR, 1),
-	FIXME_DESC("kusochki", kusochki, STORAGE_BUFFER, 1),
-	FIXME_DESC("indices", indices, STORAGE_BUFFER, 1),
-	FIXME_DESC("vertices", vertices, STORAGE_BUFFER, 1),
-	FIXME_DESC("textures", all_textures, COMBINED_IMAGE_SAMPLER, MAX_TEXTURES),
-	FIXME_DESC("skybox", skybox, COMBINED_IMAGE_SAMPLER, 1),
-	FIXME_DESC("lights", lights, STORAGE_BUFFER, 1),
-	FIXME_DESC("light_clusters", light_clusters, STORAGE_BUFFER, 1),
-	FIXME_DESC("light_grid", light_clusters, STORAGE_BUFFER, 1),
-	FIXME_DESC("dest", denoised, STORAGE_IMAGE, 1),
+	FIXME_DESC("ubo", ubo, 1),
+	FIXME_DESC("tlas", tlas, 1),
+	FIXME_DESC("kusochki", kusochki, 1),
+	FIXME_DESC("indices", indices, 1),
+	FIXME_DESC("vertices", vertices, 1),
+	FIXME_DESC("textures", all_textures, MAX_TEXTURES),
+	FIXME_DESC("skybox", skybox, 1),
+	FIXME_DESC("lights", lights, 1),
+	FIXME_DESC("light_clusters", light_clusters, 1),
+	FIXME_DESC("light_grid", light_clusters, 1),
+	FIXME_DESC("dest", denoised, 1),
 
 	// Internal, temporary
-	FIXME_DESC("base_color_a", base_color_a, STORAGE_IMAGE, 1),
-	FIXME_DESC("position_t", position_t, STORAGE_IMAGE, 1),
-	FIXME_DESC("normals_gs", normals_gs, STORAGE_IMAGE, 1),
-	FIXME_DESC("material_rmxx", material_rmxx, STORAGE_IMAGE, 1),
-	FIXME_DESC("emissive", emissive, STORAGE_IMAGE, 1),
-	FIXME_DESC("light_poly_diffuse", light_poly_diffuse, STORAGE_IMAGE, 1),
-	FIXME_DESC("light_poly_specular", light_poly_specular, STORAGE_IMAGE, 1),
-	FIXME_DESC("light_point_diffuse", light_point_diffuse, STORAGE_IMAGE, 1),
-	FIXME_DESC("light_point_specular", light_point_specular, STORAGE_IMAGE, 1),
+	FIXME_DESC("base_color_a", base_color_a, 1),
+	FIXME_DESC("position_t", position_t, 1),
+	FIXME_DESC("normals_gs", normals_gs, 1),
+	FIXME_DESC("material_rmxx", material_rmxx, 1),
+	FIXME_DESC("emissive", emissive, 1),
+	FIXME_DESC("light_poly_diffuse", light_poly_diffuse, 1),
+	FIXME_DESC("light_poly_specular", light_poly_specular, 1),
+	FIXME_DESC("light_point_diffuse", light_point_diffuse, 1),
+	FIXME_DESC("light_point_specular", light_point_specular, 1),
 };
 
 const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name) {

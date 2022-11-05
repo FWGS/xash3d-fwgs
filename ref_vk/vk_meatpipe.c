@@ -181,8 +181,6 @@ static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindi
 			return 0;
 		}
 
-		ASSERT(type == binding_fixme->type);
-
 		bindings[i] = (VkDescriptorSetLayoutBinding){
 			.binding = binding,
 			.descriptorType = type,
@@ -192,7 +190,7 @@ static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindi
 		};
 		semantics[i] = write ? -binding_fixme->semantic : binding_fixme->semantic;
 
-		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x read_type=%d semantic=%d\n", i, name, descriptor_set, binding, stages, type, binding_fixme->semantic);
+		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x type=%d semantic=%d\n", i, name, descriptor_set, binding, stages, type, binding_fixme->semantic);
 	}
 
 	return count;

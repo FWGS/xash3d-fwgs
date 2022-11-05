@@ -1,6 +1,7 @@
 # Real next
-- [ ] E213:
-	- [ ] parse binding types
+- [x] E213:
+	- [x] parse binding types
+	- [x] remove types from resources FIXME
 - [ ] E214:
 	- [ ] extract binding image format
 	- [ ] integrate sebastian into waf
