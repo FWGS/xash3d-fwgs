@@ -83,11 +83,48 @@ class Serializer:
 				i.serialize(self)
 
 class SpirvNode:
+	# TODO move this to Binding
+	TYPE_SAMPLER = 0
+	TYPE_COMBINED_IMAGE_SAMPLER = 1
+	TYPE_SAMPLED_IMAGE = 2
+	TYPE_STORAGE_IMAGE = 3
+	TYPE_UNIFORM_TEXEL_BUFFER = 4
+	TYPE_STORAGE_TEXEL_BUFFER = 5
+	TYPE_UNIFORM_BUFFER = 6
+	TYPE_STORAGE_BUFFER = 7
+	TYPE_UNIFORM_BUFFER_DYNAMIC = 8
+	TYPE_STORAGE_BUFFER_DYNAMIC = 9
+	TYPE_INPUT_ATTACHMENT = 10
+	TYPE_INLINE_UNIFORM_BLOCK = 1000138000
+	TYPE_ACCELERATION_STRUCTURE_KHR = 1000150000
+	TYPE_MUTABLE_VALVE = 1000351000
+	TYPE_SAMPLE_WEIGHT_IMAGE_QCOM = 1000440000
+	TYPE_BLOCK_MATCH_IMAGE_QCOM = 1000440001
+
 	def __init__(self):
 		self.descriptor_set = None
 		self.binding = None
 		self.name = None
+		self.type_node = None
+		self.type = None
+		self.storage_class = None
 		pass
+
+	def getType(self):
+		node = self
+		while node:
+			#print(f"Checking node {node.name}, {node.storage_class}, {node.type}")
+			if node.storage_class == spv['StorageClass']['Uniform']:
+				return SpirvNode.TYPE_UNIFORM_BUFFER
+
+			if node.storage_class == spv['StorageClass']['StorageBuffer']:
+				return SpirvNode.TYPE_STORAGE_BUFFER
+
+			if node.type:
+				return node.type
+
+			node = node.type_node
+		raise Exception(f"Couldn't find type for node {self.name}")
 
 class SpirvContext:
 	def __init__(self, nodes_count):
@@ -98,18 +135,13 @@ class SpirvContext:
 	def getNode(self, index):
 		return self.nodes[index]
 
-	#def bindNode(self, index):
-		#if not index in bindings
-		#self.bindings[index]
-
-
-def spvOpHandleName(ctx, args):
+def spvOpName(ctx, args):
 	index = args[0]
 	name = struct.pack(str(len(args)-1)+'I', *args[1:]).split(b'\x00')[0].decode('utf8')
 	ctx.getNode(index).name = name
 	#print('Name for', args[0], name, len(name))
 
-def spvOpHandleDecorate(ctx, args):
+def spvOpDecorate(ctx, args):
 	node = ctx.getNode(args[0])
 	decor = args[1]
 	if decor == spv['Decoration']['DescriptorSet']:
@@ -119,9 +151,69 @@ def spvOpHandleDecorate(ctx, args):
 	#else:
 		#print('Decor ', id, decor)
 
+def spvOpVariable(ctx, args):
+	type_node = ctx.getNode(args[0])
+	node = ctx.getNode(args[1])
+	storage_class = args[2]
+
+	node.type_node = type_node
+	node.storage_class = storage_class
+	#node.op_type = 'OpVariable'
+	#print(node.name, "=(var)>", type_node.name, args[0])
+
+def spvOpTypePointer(ctx, args):
+	node = ctx.getNode(args[0])
+	storage_class = args[1]
+	type_node = ctx.getNode(args[2])
+
+	node.type_node = type_node
+	node.storage_class = storage_class
+	#node.op_type = 'OpTypePointer'
+	#print(node.name, "=(ptr)>", type_node.name, args[2])
+
+def spvOpTypeAccelerationStructureKHR(ctx, args):
+	node = ctx.getNode(args[0])
+	node.type = SpirvNode.TYPE_ACCELERATION_STRUCTURE_KHR
+
+def spvOpTypeImage(ctx, args):
+	node = ctx.getNode(args[0])
+	sampled_type = args[1]
+	dim = args[2]
+	depth = args[3]
+	arrayed = args[4]
+	ms = args[5]
+	sampled = args[6]
+	image_format = args[7]
+	node.type = SpirvNode.TYPE_STORAGE_IMAGE if sampled == 0 or sampled == 2 else SpirvNode.TYPE_COMBINED_IMAGE_SAMPLER # FIXME ?
+
+	node.image_format = image_format
+	qualifier = None if len(args) < 9 else args[8]
+
+	#print(f"{args[0]}: Image(type={sampled_type}, dim={dim}, depth={depth}, arrayed={arrayed}, ms={ms}, sampled={sampled}, image_format={image_format}, qualifier={qualifier})")
+
+def spvOpTypeSampledImage(ctx, args):
+	node = ctx.getNode(args[0])
+	image_type = ctx.getNode(args[1])
+	node.type_node = image_type
+	node.type = SpirvNode.TYPE_COMBINED_IMAGE_SAMPLER
+
+def spvOpTypeArray(ctx, args):
+	node = ctx.getNode(args[0])
+	element_type = ctx.getNode(args[1])
+	length = args[2]
+
+	node.type_node = element_type
+	#print(f"{args[0]}: Array(type={args[1]}, length={length})")
+
 spvOpHandlers = {
-	spvOp['OpName']: spvOpHandleName,
-	spvOp['OpDecorate']: spvOpHandleDecorate
+	spvOp['OpName']: spvOpName,
+	spvOp['OpDecorate']: spvOpDecorate,
+	spvOp['OpVariable']: spvOpVariable,
+	spvOp['OpTypePointer']: spvOpTypePointer,
+	spvOp['OpTypeAccelerationStructureKHR']: spvOpTypeAccelerationStructureKHR,
+	spvOp['OpTypeImage']: spvOpTypeImage,
+	spvOp['OpTypeSampledImage']: spvOpTypeSampledImage,
+	spvOp['OpTypeArray']: spvOpTypeArray,
 }
 
 def parseSpirv(raw_data):
@@ -173,12 +265,15 @@ class Binding:
 
 	WRITE_BIT = 0x80000000
 
-	def __init__(self, name, descriptor_set, index, stages):
-		self.write = name.startswith('out_')
-		self.name = name.removeprefix('out_')
-		self.index = index
-		self.descriptor_set = descriptor_set
-		self.stages = stages
+	def __init__(self, node):
+		self.write = node.name.startswith('out_')
+		self.name = node.name.removeprefix('out_')
+		self.index = node.binding
+		self.descriptor_set = node.descriptor_set
+		self.stages = 0
+		self.type = node.getType()
+
+		#print(f"  {self.name}: ds={self.descriptor_set}, b={self.index}, type={self.type}")
 
 		assert(self.descriptor_set >= 0)
 		assert(self.descriptor_set < 255)
@@ -192,13 +287,14 @@ class Binding:
 		out.writeString(self.name)
 		header = (Binding.WRITE_BIT if self.write else 0) | (self.descriptor_set << 8) | self.index
 		out.writeU32(header)
+		out.writeU32(self.type)
 		out.writeU32(self.stages)
 
 class Shader:
 	def __init__(self, name, file):
 		self.name = name
 		self.raw_data = file
-		print(name, '=>', len(self.raw_data))
+		#print(name, '=>', len(self.raw_data))
 		self.spirv = parseSpirv(self.raw_data)
 
 	def __str__(self):
@@ -213,7 +309,7 @@ class Shader:
 		for node in self.spirv.nodes:
 			if node.binding == None or node.descriptor_set == None:
 				continue
-			ret.append(Binding(node.name, node.descriptor_set, node.binding, 0))
+			ret.append(Binding(node))
 		return ret
 
 class Shaders:
@@ -291,7 +387,9 @@ class Pipeline:
 		return shader
 
 	def serialize(self, out):
-		#print(self.__bindings)
+		#print(self.name)
+		#for binding in self.__bindings.values():
+			#print(f"  {binding.name}: ds={binding.descriptor_set}, b={binding.index}, type={binding.type}, stages={binding.stages:#x}")
 		out.writeU32(self.type)
 		out.writeString(self.name)
 		out.writeArray(self.__bindings.values())

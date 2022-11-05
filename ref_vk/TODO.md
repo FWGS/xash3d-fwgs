@@ -1,7 +1,23 @@
+# Real next
+- [ ] E213:
+	- [ ] parse binding types
+- [ ] E214:
+	- [ ] extract binding image format
+	- [ ] integrate sebastian into waf
+
+>=E215
+- [ ] automatic resource creation
+	- [ ] resource management refactoring:
+		- [ ] resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
+		- [ ] resource automatic resolution: prducing, barriers, etc
+		- [ ] register existing resources (tlas, buffers, temp images, ...)
+		- [ ] resource destruction
+	- [ ] create resources on demand
+
 # Programmable render
-- [ ] parse spirv -> get bindings with names
-  - [ ] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
-	- [ ] unnamed uniform blocks are uncomfortable to parse.
+- [x] parse spirv -> get bindings with names
+  - [x] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
+	- [x] unnamed uniform blocks are uncomfortable to parse.
 - [ ] passes "export" their bindings as detailed resource descriptions:
   - [ ] images: name, r/w, format, resolution (? not found in spv, needs to be externally supplied)
 	- [ ] buffers: name, r/w, size, type name (?)
