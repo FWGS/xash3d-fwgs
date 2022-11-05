@@ -2895,6 +2895,12 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
 
+	Cmd_AddRestrictedCommand ("ent_list", NULL, "list entities on server" );
+	Cmd_AddRestrictedCommand ("ent_fire", NULL, "fire entity command (be careful)" );
+	Cmd_AddRestrictedCommand ("ent_info", NULL, "dump entity information" );
+	Cmd_AddRestrictedCommand ("ent_create", NULL, "create entity with specified values (be careful)" );
+	Cmd_AddRestrictedCommand ("ent_getvars", NULL, "put parameters of specified entities to client's' ent_last_* cvars" );
+
 	// register our commands
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
 	Cmd_AddCommand ("localservers", CL_LocalServers_f, "collect info about local servers" );
