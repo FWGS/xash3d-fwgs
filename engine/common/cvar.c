@@ -222,6 +222,24 @@ const char *Cvar_ValidateString( convar_t *var, const char *value )
 
 /*
 ============
+Cvar_ValidateVarName
+============
+*/
+static qboolean Cvar_ValidateVarName( const char *s, qboolean isvalue )
+{
+	if( !s )
+		return false;
+	if( Q_strchr( s, '\\' ) && !isvalue )
+		return false;
+	if( Q_strchr( s, '\"' ))
+		return false;
+	if( Q_strchr( s, ';' ) && !isvalue )
+		return false;
+	return true;
+}
+
+/*
+============
 Cvar_UnlinkVar
 
 unlink the variable
@@ -493,6 +511,113 @@ void Cvar_RegisterVariable( convar_t *var )
 	// add to map
 	BaseCmd_Insert( HM_CVAR, var, var->name );
 #endif
+}
+
+/*
+============
+Cvar_Set2
+============
+*/
+static convar_t *Cvar_Set2( const char *var_name, const char *value )
+{
+	convar_t	*var;
+	const char	*pszValue;
+	qboolean	dll_variable = false;
+	qboolean	force = false;
+
+	if( !Cvar_ValidateVarName( var_name, false ))
+	{
+		Con_DPrintf( S_ERROR "Invalid cvar name string: %s\n", var_name );
+		return NULL;
+	}
+
+	var = Cvar_FindVar( var_name );
+	if( !var )
+	{
+		// if cvar not found, create it
+		return Cvar_Get( var_name, value, FCVAR_USER_CREATED, NULL );
+	}
+	else
+	{	
+		if( !Cmd_CurrentCommandIsPrivileged( ))
+		{
+			if( FBitSet( var->flags, FCVAR_PRIVILEGED ))
+			{
+				Con_Printf( "%s is priveleged.\n", var->name );
+				return var;
+			}
+
+			if( cl_filterstuffcmd.value > 0.0f && FBitSet( var->flags, FCVAR_FILTERABLE ))
+			{
+				Con_Printf( "%s is filterable.\n", var->name );
+				return var;
+			}
+		}
+	}
+
+	// use this check to prevent acessing for unexisting fields
+	// for cvar_t: latched_string, description, etc
+	dll_variable = FBitSet( var->flags, FCVAR_EXTDLL );
+
+	// check value
+	if( !value )
+	{
+		if( !FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))
+		{
+			Con_Printf( "%s has no default value and can't be reset.\n", var->name );
+			return var;
+		}
+
+		if( dll_variable )
+			value = "0";
+		else
+			value = var->def_string; // reset to default value
+	}
+
+	if( !Q_strcmp( value, var->string ))
+		return var;
+
+	// any latched values not allowed for game cvars
+	if( dll_variable )
+		force = true;
+
+	if( !force )
+	{ 
+		if( FBitSet( var->flags, FCVAR_READ_ONLY ))
+		{
+			Con_Printf( "%s is read-only.\n", var->name );
+			return var;
+		}
+
+		if( FBitSet( var->flags, FCVAR_CHEAT ) && !host.allow_cheats )
+		{
+			Con_Printf( "%s is cheat protected.\n", var->name );
+			return var;
+		}
+
+		// just tell user about deferred changes
+		if( FBitSet( var->flags, FCVAR_LATCH ) && ( SV_Active() || CL_Active( )))
+			Con_Printf( "%s will be changed upon restarting.\n", var->name );
+	}
+
+	pszValue = Cvar_ValidateString( var, value );
+
+	// nothing to change
+	if( !Q_strcmp( pszValue, var->string ))
+		return var;
+
+	// fill it cls.userinfo, svs.serverinfo
+	if( !Cvar_UpdateInfo( var, pszValue, true ))
+		return var;
+
+	// and finally changed the cvar itself
+	freestring( var->string );
+	var->string = copystring( pszValue );
+	var->value = Q_atof( var->string );
+
+	// tell engine about changes
+	Cvar_Changed( var );
+	return var;
 }
 
 /*
@@ -889,6 +1014,40 @@ void Cvar_Toggle_f( void )
 
 /*
 ============
+Cvar_Set_f
+
+Allows setting and defining of arbitrary cvars from console, even if they
+weren't declared in C code.
+============
+*/
+void Cvar_Set_f( void )
+{
+	int	i, c, l = 0, len;
+	char	combined[MAX_CMD_TOKENS];
+
+	c = Cmd_Argc();
+	if( c < 3 )
+	{
+		Msg( S_USAGE "set <variable> <value>\n" );
+		return;
+	}
+	combined[0] = 0;
+
+	for( i = 2; i < c; i++ )
+	{
+		len = Q_strlen( Cmd_Argv(i) + 1 );
+		if( l + len >= MAX_CMD_TOKENS - 2 )
+			break;
+		Q_strcat( combined, Cmd_Argv( i ));
+		if( i != c-1 ) Q_strcat( combined, " " );
+		l += len;
+	}
+
+	Cvar_Set2( Cmd_Argv( 1 ), combined );
+}
+
+/*
+============
 Cvar_SetGL_f
 
 As Cvar_Set, but also flags it as glconfig
@@ -999,12 +1158,12 @@ void Cvar_Init( void )
 {
 	cvar_vars = NULL;
 	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "enable simple condition checking and variable operations" );
-	Cvar_RegisterVariable (&host_developer); // early registering for dev
+	Cvar_RegisterVariable( &host_developer ); // early registering for dev
 	Cvar_RegisterVariable( &cl_filterstuffcmd );
-
 	Cmd_AddRestrictedCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE
 	Cmd_AddRestrictedCommand( "toggle", Cvar_Toggle_f, "toggles a console variable's values (use for more info)" );
 	Cmd_AddRestrictedCommand( "reset", Cvar_Reset_f, "reset any type variable to initial value" );
+	Cmd_AddCommand( "set", Cvar_Set_f, "create or change the value of a console variable" );
 	Cmd_AddCommand( "cvarlist", Cvar_List_f, "display all console variables beginning with the specified prefix" );
 }
 
