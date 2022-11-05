@@ -3,7 +3,7 @@
 
 #include "ray_primary_common.glsl"
 
-#define X(index, name, format) layout(set=0,binding=index,format) uniform image2D out_image_##name;
+#define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_##name;
 RAY_PRIMARY_OUTPUTS(X)
 #undef X
 
@@ -35,9 +35,9 @@ void main() {
 		origin, 0., direction, L,
 		PAYLOAD_LOCATION_PRIMARY);
 
-	imageStore(out_image_position_t, ivec2(gl_LaunchIDEXT.xy), payload.hit_t);
-	imageStore(out_image_base_color_a, ivec2(gl_LaunchIDEXT.xy), payload.base_color_a);
-	imageStore(out_image_normals_gs, ivec2(gl_LaunchIDEXT.xy), payload.normals_gs);
-	imageStore(out_image_material_rmxx, ivec2(gl_LaunchIDEXT.xy), payload.material_rmxx);
-	imageStore(out_image_emissive, ivec2(gl_LaunchIDEXT.xy), payload.emissive);
+	imageStore(out_position_t, ivec2(gl_LaunchIDEXT.xy), payload.hit_t);
+	imageStore(out_base_color_a, ivec2(gl_LaunchIDEXT.xy), payload.base_color_a);
+	imageStore(out_normals_gs, ivec2(gl_LaunchIDEXT.xy), payload.normals_gs);
+	imageStore(out_material_rmxx, ivec2(gl_LaunchIDEXT.xy), payload.material_rmxx);
+	imageStore(out_emissive, ivec2(gl_LaunchIDEXT.xy), payload.emissive);
 }

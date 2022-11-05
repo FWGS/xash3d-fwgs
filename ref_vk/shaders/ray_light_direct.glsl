@@ -11,7 +11,7 @@
 #define X(index, name, format) layout(set=0,binding=index,format) uniform readonly image2D name;
 RAY_LIGHT_DIRECT_INPUTS(X)
 #undef X
-#define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_image_##name;
+#define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_##name;
 OUTPUTS(X)
 #undef X
 
@@ -67,10 +67,10 @@ void main() {
 	computeLighting(pos + geometry_normal * .001, shading_normal, throughput, -direction, material, diffuse, specular);
 
 #if LIGHT_POINT
-	imageStore(out_image_light_point_diffuse, pix, vec4(diffuse / 4.0, 0.f));
-	imageStore(out_image_light_point_specular, pix, vec4(specular / 4.0, 0.f));
+	imageStore(out_light_point_diffuse, pix, vec4(diffuse / 4.0, 0.f));
+	imageStore(out_light_point_specular, pix, vec4(specular / 4.0, 0.f));
 #else
-	imageStore(out_image_light_poly_diffuse, pix, vec4(diffuse / 25.0, 0.f));
-	imageStore(out_image_light_poly_specular, pix, vec4(specular/ 25.0, 0.f));
+	imageStore(out_light_poly_diffuse, pix, vec4(diffuse / 25.0, 0.f));
+	imageStore(out_light_poly_specular, pix, vec4(specular/ 25.0, 0.f));
 #endif
 }

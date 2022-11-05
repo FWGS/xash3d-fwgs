@@ -6,25 +6,25 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-layout(set = 0, binding = 0, rgba16f) uniform image2D dest;
+layout(set = 0, binding = 0, rgba16f) uniform image2D out_dest;
 
-layout(set = 0, binding = 1, rgba8) uniform readonly image2D src_base_color;
+layout(set = 0, binding = 1, rgba8) uniform readonly image2D base_color_a;
 
-layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_light_direct_poly_diffuse;
-layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_light_direct_poly_specular;
+layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
+layout(set = 0, binding = 3, rgba16f) uniform readonly image2D light_poly_specular;
 
-layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_light_direct_point_diffuse;
-layout(set = 0, binding = 5, rgba16f) uniform readonly image2D src_light_direct_point_specular;
-layout(set = 0, binding = 6, rgba16f) uniform readonly image2D src_emissive;
+layout(set = 0, binding = 4, rgba16f) uniform readonly image2D light_point_diffuse;
+layout(set = 0, binding = 5, rgba16f) uniform readonly image2D light_point_specular;
+layout(set = 0, binding = 6, rgba16f) uniform readonly image2D emissive;
 
-//layout(set = 0, binding = 7, rgba32f) uniform readonly image2D src_position_t;
-//layout(set = 0, binding = 8, rgba16f) uniform readonly image2D src_normals_gs;
+//layout(set = 0, binding = 7, rgba32f) uniform readonly image2D position_t;
+//layout(set = 0, binding = 8, rgba16f) uniform readonly image2D normals_gs;
 
-//layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_light_direct_poly_diffuse;
-/* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_specular; */
-/* layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_additive; */
-/* layout(set = 0, binding = 5, rgba16f) uniform readonly image2D src_normals; */
-/* layout(set = 0, binding = 6, rgba32f) uniform readonly image2D src_position_t; */
+//layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
+/* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D specular; */
+/* layout(set = 0, binding = 4, rgba16f) uniform readonly image2D additive; */
+/* layout(set = 0, binding = 5, rgba16f) uniform readonly image2D normals; */
+/* layout(set = 0, binding = 6, rgba32f) uniform readonly image2D position_t; */
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -58,14 +58,14 @@ float normpdf(in float x, in float sigma) { return normpdf2(x*x, sigma); }
 
 /*
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
-	const vec4 n = imageLoad(src_normals_gs, uv);
+	const vec4 n = imageLoad(normals_gs, uv);
 	geometry_normal = normalDecode(n.xy);
 	shading_normal = normalDecode(n.zw);
 }
 */
 
 void main() {
-	ivec2 res = ivec2(imageSize(src_base_color));
+	ivec2 res = ivec2(imageSize(base_color_a));
 	ivec2 pix = ivec2(gl_GlobalInvocationID);
 
 	if (any(greaterThanEqual(pix, res))) {
@@ -73,42 +73,42 @@ void main() {
 	}
 
 	/* if (pix.y < res.y / 3) { */
-	/* 	imageStore(dest, pix, vec4(pow(float(pix.x) / res.x, 2.2))); return; */
+	/* 	imageStore(out_dest, pix, vec4(pow(float(pix.x) / res.x, 2.2))); return; */
 	/* } else if (pix.y < res.y * 2 / 3) { */
-	/* 	imageStore(dest, pix, vec4(float(pix.x) / res.x)); return; */
+	/* 	imageStore(out_dest, pix, vec4(float(pix.x) / res.x)); return; */
 	/* } else { */
-	/* 	imageStore(dest, pix, vec4(sqrt(float(pix.x) / res.x))); return; */
+	/* 	imageStore(out_dest, pix, vec4(sqrt(float(pix.x) / res.x))); return; */
 	/* } */
 
-	//const float material_index = imageLoad(src_light_direct_poly, pix).a;
+	//const float material_index = imageLoad(light_poly, pix).a;
 
-	//imageStore(dest, pix, vec4(aces_tonemap(base_color.rgb), 0.)); return;
-	//imageStore(dest, pix, vec4((base_color.rgb), 0.)); return;
-	//imageStore(dest, pix, vec4(fract(imageLoad(src_position_t, pix).rgb / 10.), 0.)); return;
-	//imageStore(dest, pix, vec4((imageLoad(src_light_direct_poly, pix).rgb), 0.)); return;
-	//imageStore(dest, pix, vec4((imageLoad(src_light_direct_poly, pix).rgb * base_color.rgb), 0.)); return;
-	//imageStore(dest, pix, vec4(imageLoad(src_normals, pix)*.5 + .5f)); return;
-	//imageStore(dest, pix, vec4(imageLoad(src_specular, pix)*.5 + .5f)); return;
-	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_light_direct_poly, pix).rgb), 0.)); return;
-	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(base_color_a.rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4((base_color_a.rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(fract(imageLoad(position_t, pix).rgb / 10.), 0.)); return;
+	//imageStore(out_dest, pix, vec4((imageLoad(light_poly, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4((imageLoad(light_poly, pix).rgb * base_color_a.rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(imageLoad(normals, pix)*.5 + .5f)); return;
+	//imageStore(out_dest, pix, vec4(imageLoad(specular, pix)*.5 + .5f)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(light_poly, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(specular, pix).rgb), 0.)); return;
 
 	/*
 	vec3 geometry_normal, shading_normal;
 	readNormals(pix, geometry_normal, shading_normal);
 	*/
 
-	//imageStore(dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
+	//imageStore(out_dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
 
 	/* const uint mi = uint(material_index); */
-	/* imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.)); */
+	/* imageStore(out_dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.)); */
 	/* return; */
 
 #if 1
 	vec3 colour = vec3(0.);
-	colour += imageLoad(src_light_direct_poly_diffuse, pix).rgb;
-	colour += imageLoad(src_light_direct_poly_specular, pix).rgb;
-	colour += imageLoad(src_light_direct_point_diffuse, pix).rgb;
-	colour += imageLoad(src_light_direct_point_specular, pix).rgb;
+	colour += imageLoad(light_poly_diffuse, pix).rgb;
+	colour += imageLoad(light_poly_specular, pix).rgb;
+	colour += imageLoad(light_point_diffuse, pix).rgb;
+	colour += imageLoad(light_point_specular, pix).rgb;
 #else
 	float total_scale = 0.;
 	vec3 colour = vec3(0.);
@@ -116,7 +116,7 @@ void main() {
 	float specular_total_scale = 0.;
 	vec3 speculour = vec3(0.);
 
-	const vec4 center_pos = imageLoad(src_position_t, pix);
+	const vec4 center_pos = imageLoad(position_t, pix);
 	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
 		for (int y = -KERNEL_SIZE; y <= KERNEL_SIZE; ++y) {
 			const ivec2 p = pix + ivec2(x, y);
@@ -126,7 +126,7 @@ void main() {
 
 			float scale = 1.f;
 
-			// const vec4 c = imageLoad(src_light_direct_poly, p);
+			// const vec4 c = imageLoad(light_poly, p);
 			// if (c.a != material_index)
 			// 	continue;
 
@@ -136,19 +136,19 @@ void main() {
 			// FIXME also filter by depth, (kusok index?), etc
 			//scale *= smoothstep(.9, 1., dot(sample_geometry_normal, geometry_normal));
 
-			const vec4 sample_pos = imageLoad(src_position_t, p);
+			const vec4 sample_pos = imageLoad(position_t, p);
 			scale *= smoothstep(4. * center_pos.w / 100., 0., distance(center_pos.xyz, sample_pos.xyz));
 
 			if ( scale <= 0. )
 				continue;
 
 			vec3 diffuse = vec3(0.);
-			diffuse += imageLoad(src_light_direct_point_diffuse, p).rgb;
-			diffuse += imageLoad(src_light_direct_poly_diffuse, p).rgb;
+			diffuse += imageLoad(light_point_diffuse, p).rgb;
+			diffuse += imageLoad(light_poly_diffuse, p).rgb;
 
 			vec3 specular = vec3(0.);
-			specular += imageLoad(src_light_direct_poly_specular, p).rgb;
-			specular += imageLoad(src_light_direct_point_specular, p).rgb;
+			specular += imageLoad(light_poly_specular, p).rgb;
+			specular += imageLoad(light_point_specular, p).rgb;
 
 			{
 				const float sigma = KERNEL_SIZE / 2.;
@@ -176,10 +176,10 @@ void main() {
 	}
 #endif
 
-	const vec4 base_color = imageLoad(src_base_color, pix);
-	colour *= SRGBtoLINEAR(base_color.rgb);
-	colour += imageLoad(src_emissive, pix).rgb;
-	//colour += imageLoad(src_additive, pix).rgb;
+	const vec4 base_color_a = imageLoad(base_color_a, pix);
+	colour *= SRGBtoLINEAR(base_color_a.rgb);
+	colour += imageLoad(emissive, pix).rgb;
+	//colour += imageLoad(additive, pix).rgb;
 
 	// HACK: exposure
 	// TODO: should be dynamic based on previous frames brightness
@@ -204,6 +204,6 @@ void main() {
 	}
 #endif
 
-	imageStore(dest, pix, vec4(colour, 0.));
-	//imageStore(dest, pix, imageLoad(src_light_direct_poly, pix));
+	imageStore(out_dest, pix, vec4(colour, 0.));
+	//imageStore(out_dest, pix, imageLoad(light_poly, pix));
 }

@@ -171,17 +171,27 @@ class Binding:
 	STAGE_MESH_BIT_NV = 0x00000080
 	STAGE_SUBPASS_SHADING_BIT_HUAWEI = 0x00004000
 
+	WRITE_BIT = 0x80000000
+
 	def __init__(self, name, descriptor_set, index, stages):
-		self.name = name
+		self.write = name.startswith('out_')
+		self.name = name.removeprefix('out_')
 		self.index = index
 		self.descriptor_set = descriptor_set
 		self.stages = stages
+
+		assert(self.descriptor_set >= 0)
+		assert(self.descriptor_set < 255)
+
+		assert(self.index >= 0)
+		assert(self.index < 255)
+
 		#TODO: type, count, etc
 
 	def serialize(self, out):
 		out.writeString(self.name)
-		out.writeU32(self.descriptor_set)
-		out.writeU32(self.index)
+		header = (Binding.WRITE_BIT if self.write else 0) | (self.descriptor_set << 8) | self.index
+		out.writeU32(header)
 		out.writeU32(self.stages)
 
 class Shader:

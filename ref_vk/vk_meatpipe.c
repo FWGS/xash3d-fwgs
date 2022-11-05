@@ -166,9 +166,13 @@ static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindi
 	for (int i = 0; i < count; ++i) {
 		char name[64];
 		READ_STR_RETURN(false, name, "Couldn't read binding name");
-		const uint32_t descriptor_set = READ_U32_RETURN(false, "Couldn't read descriptor_set for binding %s", name);
-		const uint32_t binding = READ_U32_RETURN(false, "Couldn't read binding for binding %s", name);
+		const uint32_t header = READ_U32_RETURN(false, "Couldn't read header for binding %s", name);
 		const uint32_t stages = READ_U32_RETURN(false, "Couldn't read stages for binding %s", name);
+
+#define BINDING_WRITE_BIT 0x80000000u
+		const qboolean write = !!(header & BINDING_WRITE_BIT);
+		const uint32_t descriptor_set = (header >> 8) & 0xffu;
+		const uint32_t binding = header & 0xffu;
 
 		const ray_resource_binding_desc_fixme_t *binding_fixme = RayResouceGetBindingForName_FIXME(name);
 		if (!binding_fixme) {
@@ -183,7 +187,7 @@ static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindi
 			.stageFlags = stages,
 			.pImmutableSamplers = NULL,
 		};
-		semantics[i] = binding_fixme->semantic;
+		semantics[i] = write ? -binding_fixme->semantic : binding_fixme->semantic;
 
 		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x type=%d semantic=%d\n", i, name, descriptor_set, binding, stages, binding_fixme->type, binding_fixme->semantic);
 	}
