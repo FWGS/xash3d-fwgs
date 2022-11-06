@@ -1,4 +1,7 @@
-/* miniz.c 2.1.0 - public domain deflate/inflate, zlib-subset, ZIP reading/writing/appending, PNG writing
+#ifndef MINIZ_EXPORT
+#define MINIZ_EXPORT
+#endif
+/* miniz.c 3.0.0 - public domain deflate/inflate, zlib-subset, ZIP reading/writing/appending, PNG writing
    See "unlicense" statement at the end of this file.
    Rich Geldreich <richgel99@gmail.com>, last updated Oct. 13, 2013
    Implements RFC 1950: http://www.ietf.org/rfc/rfc1950.txt and RFC 1951: http://www.ietf.org/rfc/rfc1951.txt
@@ -95,7 +98,7 @@
      possibility that the archive's central directory could be lost with this method if anything goes wrong, though.
 
      - ZIP archive support limitations:
-     No zip64 or spanning support. Extraction functions can only handle unencrypted, stored or deflated files.
+     No spanning support. Extraction functions can only handle unencrypted, stored or deflated files.
      Requires streams capable of seeking.
 
    * This is a header file library, like stb_image.c. To get only a header file, either cut and paste the
@@ -114,10 +117,8 @@
 
 
 
-
-
-/* Defines to completely disable specific portions of miniz.c:
-   If all macros here are defined the only functionality remaining will be CRC-32, adler-32, tinfl, and tdefl. */
+/* Defines to completely disable specific portions of miniz.c: 
+   If all macros here are defined the only functionality remaining will be CRC-32 and adler-32. */
 
 /* Define MINIZ_NO_STDIO to disable all usage and any functions which rely on stdio for file I/O. */
 #define MINIZ_NO_STDIO
@@ -126,6 +127,12 @@
 /* get/set file times, and the C run-time funcs that get/set times won't be called. */
 /* The current downside is the times written to your archives will be from 1979. */
 #define MINIZ_NO_TIME
+
+/* Define MINIZ_NO_DEFLATE_APIS to disable all compression API's. */
+/*#define MINIZ_NO_DEFLATE_APIS */
+
+/* Define MINIZ_NO_INFLATE_APIS to disable all decompression API's. */
+/*#define MINIZ_NO_INFLATE_APIS */
 
 /* Define MINIZ_NO_ARCHIVE_APIS to disable all ZIP archive API's. */
 #define MINIZ_NO_ARCHIVE_APIS
@@ -139,11 +146,19 @@
 /* Define MINIZ_NO_ZLIB_COMPATIBLE_NAME to disable zlib names, to prevent conflicts against stock zlib. */
 /*#define MINIZ_NO_ZLIB_COMPATIBLE_NAMES */
 
-/* Define MINIZ_NO_MALLOC to disable all calls to malloc, free, and realloc.
+/* Define MINIZ_NO_MALLOC to disable all calls to malloc, free, and realloc. 
    Note if MINIZ_NO_MALLOC is defined then the user must always provide custom user alloc/free/realloc
    callbacks to the zlib and archive API's, and a few stand-alone helper API's which don't provide custom user
    functions (such as tdefl_compress_mem_to_heap() and tinfl_decompress_mem_to_heap()) won't work. */
 /*#define MINIZ_NO_MALLOC */
+
+#ifdef MINIZ_NO_INFLATE_APIS
+#define MINIZ_NO_ARCHIVE_APIS
+#endif
+
+#ifdef MINIZ_NO_DEFLATE_APIS
+#define MINIZ_NO_ARCHIVE_WRITING_APIS
+#endif
 
 #if defined(__TINYC__) && (defined(__linux) || defined(__linux__))
 /* TODO: Work around "error: include file 'sys\utime.h' when compiling with tcc on Linux */
@@ -163,11 +178,33 @@
 #define MINIZ_X86_OR_X64_CPU 0
 #endif
 
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || MINIZ_X86_OR_X64_CPU
+/* Set MINIZ_LITTLE_ENDIAN only if not set */
+#if !defined(MINIZ_LITTLE_ENDIAN)
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
+
+#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 /* Set MINIZ_LITTLE_ENDIAN to 1 if the processor is little endian. */
 #define MINIZ_LITTLE_ENDIAN 1
 #else
 #define MINIZ_LITTLE_ENDIAN 0
+#endif
+
+#else
+
+#if MINIZ_X86_OR_X64_CPU
+#define MINIZ_LITTLE_ENDIAN 1
+#else
+#define MINIZ_LITTLE_ENDIAN 0
+#endif
+
+#endif
+#endif
+
+/* Using unaligned loads and stores causes errors when using UBSan */
+#if defined(__has_feature)
+#if __has_feature(undefined_behavior_sanitizer)
+#define MINIZ_USE_UNALIGNED_LOADS_AND_STORES 0
+#endif
 #endif
 
 /* Set MINIZ_USE_UNALIGNED_LOADS_AND_STORES only if not set */
@@ -198,15 +235,15 @@ extern "C" {
 typedef unsigned long mz_ulong;
 
 /* mz_free() internally uses the MZ_FREE() macro (which by default calls free() unless you've modified the MZ_MALLOC macro) to release a block allocated from the heap. */
-void mz_free(void *p);
+MINIZ_EXPORT void mz_free(void *p);
 
 #define MZ_ADLER32_INIT (1)
 /* mz_adler32() returns the initial adler-32 value to use when called with ptr==NULL. */
-mz_ulong mz_adler32(mz_ulong adler, const unsigned char *ptr, size_t buf_len);
+MINIZ_EXPORT mz_ulong mz_adler32(mz_ulong adler, const unsigned char *ptr, size_t buf_len);
 
 #define MZ_CRC32_INIT (0)
 /* mz_crc32() returns the initial CRC-32 value to use when called with ptr==NULL. */
-mz_ulong mz_crc32(mz_ulong crc, const unsigned char *ptr, size_t buf_len);
+MINIZ_EXPORT mz_ulong mz_crc32(mz_ulong crc, const unsigned char *ptr, size_t buf_len);
 
 /* Compression strategies. */
 enum
@@ -222,7 +259,7 @@ enum
 #define MZ_DEFLATED 8
 
 /* Heap allocation callbacks.
-Note that mz_alloc_func parameter types purpsosely differ from zlib's: items/size is size_t, not unsigned long. */
+Note that mz_alloc_func parameter types purposely differ from zlib's: items/size is size_t, not unsigned long. */
 typedef void *(*mz_alloc_func)(void *opaque, size_t items, size_t size);
 typedef void (*mz_free_func)(void *opaque, void *address);
 typedef void *(*mz_realloc_func)(void *opaque, void *address, size_t items, size_t size);
@@ -238,10 +275,10 @@ enum
     MZ_DEFAULT_COMPRESSION = -1
 };
 
-#define MZ_VERSION "10.1.0"
-#define MZ_VERNUM 0xA100
-#define MZ_VER_MAJOR 10
-#define MZ_VER_MINOR 1
+#define MZ_VERSION "11.0.0"
+#define MZ_VERNUM 0xB000
+#define MZ_VER_MAJOR 11
+#define MZ_VER_MINOR 0
 #define MZ_VER_REVISION 0
 #define MZ_VER_SUBREVISION 0
 
@@ -304,7 +341,9 @@ typedef struct mz_stream_s
 typedef mz_stream *mz_streamp;
 
 /* Returns the version string of miniz.c. */
-const char *mz_version(void);
+MINIZ_EXPORT const char *mz_version(void);
+
+#ifndef MINIZ_NO_DEFLATE_APIS
 
 /* mz_deflateInit() initializes a compressor with default options: */
 /* Parameters: */
@@ -317,17 +356,17 @@ const char *mz_version(void);
 /*  MZ_STREAM_ERROR if the stream is bogus. */
 /*  MZ_PARAM_ERROR if the input parameters are bogus. */
 /*  MZ_MEM_ERROR on out of memory. */
-int mz_deflateInit(mz_streamp pStream, int level);
+MINIZ_EXPORT int mz_deflateInit(mz_streamp pStream, int level);
 
 /* mz_deflateInit2() is like mz_deflate(), except with more control: */
 /* Additional parameters: */
 /*   method must be MZ_DEFLATED */
 /*   window_bits must be MZ_DEFAULT_WINDOW_BITS (to wrap the deflate stream with zlib header/adler-32 footer) or -MZ_DEFAULT_WINDOW_BITS (raw deflate/no header or footer) */
 /*   mem_level must be between [1, 9] (it's checked but ignored by miniz.c) */
-int mz_deflateInit2(mz_streamp pStream, int level, int method, int window_bits, int mem_level, int strategy);
+MINIZ_EXPORT int mz_deflateInit2(mz_streamp pStream, int level, int method, int window_bits, int mem_level, int strategy);
 
 /* Quickly resets a compressor without having to reallocate anything. Same as calling mz_deflateEnd() followed by mz_deflateInit()/mz_deflateInit2(). */
-int mz_deflateReset(mz_streamp pStream);
+MINIZ_EXPORT int mz_deflateReset(mz_streamp pStream);
 
 /* mz_deflate() compresses the input to output, consuming as much of the input and producing as much output as possible. */
 /* Parameters: */
@@ -339,34 +378,38 @@ int mz_deflateReset(mz_streamp pStream);
 /*   MZ_STREAM_ERROR if the stream is bogus. */
 /*   MZ_PARAM_ERROR if one of the parameters is invalid. */
 /*   MZ_BUF_ERROR if no forward progress is possible because the input and/or output buffers are empty. (Fill up the input buffer or free up some output space and try again.) */
-int mz_deflate(mz_streamp pStream, int flush);
+MINIZ_EXPORT int mz_deflate(mz_streamp pStream, int flush);
 
 /* mz_deflateEnd() deinitializes a compressor: */
 /* Return values: */
 /*  MZ_OK on success. */
 /*  MZ_STREAM_ERROR if the stream is bogus. */
-int mz_deflateEnd(mz_streamp pStream);
+MINIZ_EXPORT int mz_deflateEnd(mz_streamp pStream);
 
 /* mz_deflateBound() returns a (very) conservative upper bound on the amount of data that could be generated by deflate(), assuming flush is set to only MZ_NO_FLUSH or MZ_FINISH. */
-mz_ulong mz_deflateBound(mz_streamp pStream, mz_ulong source_len);
+MINIZ_EXPORT mz_ulong mz_deflateBound(mz_streamp pStream, mz_ulong source_len);
 
 /* Single-call compression functions mz_compress() and mz_compress2(): */
 /* Returns MZ_OK on success, or one of the error codes from mz_deflate() on failure. */
-int mz_compress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len);
-int mz_compress2(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len, int level);
+MINIZ_EXPORT int mz_compress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len);
+MINIZ_EXPORT int mz_compress2(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len, int level);
 
 /* mz_compressBound() returns a (very) conservative upper bound on the amount of data that could be generated by calling mz_compress(). */
-mz_ulong mz_compressBound(mz_ulong source_len);
+MINIZ_EXPORT mz_ulong mz_compressBound(mz_ulong source_len);
+
+#endif /*#ifndef MINIZ_NO_DEFLATE_APIS*/
+
+#ifndef MINIZ_NO_INFLATE_APIS
 
 /* Initializes a decompressor. */
-int mz_inflateInit(mz_streamp pStream);
+MINIZ_EXPORT int mz_inflateInit(mz_streamp pStream);
 
 /* mz_inflateInit2() is like mz_inflateInit() with an additional option that controls the window size and whether or not the stream has been wrapped with a zlib header/footer: */
 /* window_bits must be MZ_DEFAULT_WINDOW_BITS (to parse zlib header/footer) or -MZ_DEFAULT_WINDOW_BITS (raw deflate). */
-int mz_inflateInit2(mz_streamp pStream, int window_bits);
+MINIZ_EXPORT int mz_inflateInit2(mz_streamp pStream, int window_bits);
 
 /* Quickly resets a compressor without having to reallocate anything. Same as calling mz_inflateEnd() followed by mz_inflateInit()/mz_inflateInit2(). */
-int mz_inflateReset(mz_streamp pStream);
+MINIZ_EXPORT int mz_inflateReset(mz_streamp pStream);
 
 /* Decompresses the input stream to the output, consuming only as much of the input as needed, and writing as much to the output as possible. */
 /* Parameters: */
@@ -382,17 +425,19 @@ int mz_inflateReset(mz_streamp pStream);
 /*   MZ_PARAM_ERROR if one of the parameters is invalid. */
 /*   MZ_BUF_ERROR if no forward progress is possible because the input buffer is empty but the inflater needs more input to continue, or if the output buffer is not large enough. Call mz_inflate() again */
 /*   with more input data, or with more room in the output buffer (except when using single call decompression, described above). */
-int mz_inflate(mz_streamp pStream, int flush);
+MINIZ_EXPORT int mz_inflate(mz_streamp pStream, int flush);
 
 /* Deinitializes a decompressor. */
-int mz_inflateEnd(mz_streamp pStream);
+MINIZ_EXPORT int mz_inflateEnd(mz_streamp pStream);
 
 /* Single-call decompression. */
 /* Returns MZ_OK on success, or one of the error codes from mz_inflate() on failure. */
-int mz_uncompress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len);
+MINIZ_EXPORT int mz_uncompress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len);
+MINIZ_EXPORT int mz_uncompress2(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong *pSource_len);
+#endif /*#ifndef MINIZ_NO_INFLATE_APIS*/
 
 /* Returns a string description of the specified error code, or NULL if the error code is invalid. */
-const char *mz_error(int err);
+MINIZ_EXPORT const char *mz_error(int err);
 
 /* Redefine zlib-compatible names to miniz equivalents, so miniz.c can be used as a drop-in replacement for the subset of zlib that miniz.c supports. */
 /* Define MINIZ_NO_ZLIB_COMPATIBLE_NAMES to disable zlib-compatibility if you use zlib in the same project. */
@@ -440,6 +485,8 @@ typedef void *const voidpc;
 #define free_func mz_free_func
 #define internal_state mz_internal_state
 #define z_stream mz_stream
+
+#ifndef MINIZ_NO_DEFLATE_APIS
 #define deflateInit mz_deflateInit
 #define deflateInit2 mz_deflateInit2
 #define deflateReset mz_deflateReset
@@ -449,12 +496,18 @@ typedef void *const voidpc;
 #define compress mz_compress
 #define compress2 mz_compress2
 #define compressBound mz_compressBound
+#endif /*#ifndef MINIZ_NO_DEFLATE_APIS*/
+
+#ifndef MINIZ_NO_INFLATE_APIS
 #define inflateInit mz_inflateInit
 #define inflateInit2 mz_inflateInit2
 #define inflateReset mz_inflateReset
 #define inflate mz_inflate
 #define inflateEnd mz_inflateEnd
 #define uncompress mz_uncompress
+#define uncompress2 mz_uncompress2
+#endif /*#ifndef MINIZ_NO_INFLATE_APIS*/
+
 #define crc32 mz_crc32
 #define adler32 mz_adler32
 #define MAX_WBITS 15
@@ -475,11 +528,18 @@ typedef void *const voidpc;
 #ifdef __cplusplus
 }
 #endif
+
+
+
+
+
 #pragma once
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+
 
 /* ------------------- Types and macros */
 typedef unsigned char mz_uint8;
@@ -511,7 +571,8 @@ typedef int mz_bool;
 #ifdef MINIZ_NO_TIME
 typedef struct mz_dummy_time_t_tag
 {
-    int m_dummy;
+    mz_uint32 m_dummy1;
+    mz_uint32 m_dummy2;
 } mz_dummy_time_t;
 #define MZ_TIME_T mz_dummy_time_t
 #else
@@ -533,6 +594,8 @@ typedef struct mz_dummy_time_t_tag
 #define MZ_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MZ_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MZ_CLEAR_OBJ(obj) memset(&(obj), 0, sizeof(obj))
+#define MZ_CLEAR_ARR(obj) memset((obj), 0, sizeof(obj))
+#define MZ_CLEAR_PTR(obj) memset((obj), 0, sizeof(*obj))
 
 #if MINIZ_USE_UNALIGNED_LOADS_AND_STORES && MINIZ_LITTLE_ENDIAN
 #define MZ_READ_LE16(p) *((const mz_uint16 *)(p))
@@ -556,9 +619,9 @@ typedef struct mz_dummy_time_t_tag
 extern "C" {
 #endif
 
-extern void *miniz_def_alloc_func(void *opaque, size_t items, size_t size);
-extern void miniz_def_free_func(void *opaque, void *address);
-extern void *miniz_def_realloc_func(void *opaque, void *address, size_t items, size_t size);
+extern MINIZ_EXPORT void *miniz_def_alloc_func(void *opaque, size_t items, size_t size);
+extern MINIZ_EXPORT void miniz_def_free_func(void *opaque, void *address);
+extern MINIZ_EXPORT void *miniz_def_realloc_func(void *opaque, void *address, size_t items, size_t size);
 
 #define MZ_UINT16_MAX (0xFFFFU)
 #define MZ_UINT32_MAX (0xFFFFFFFFU)
@@ -568,6 +631,8 @@ extern void *miniz_def_realloc_func(void *opaque, void *address, size_t items, s
 #endif
  #pragma once
 
+
+#ifndef MINIZ_NO_DEFLATE_APIS
 
 #ifdef __cplusplus
 extern "C" {
@@ -616,11 +681,11 @@ enum
 /*  Function returns a pointer to the compressed data, or NULL on failure. */
 /*  *pOut_len will be set to the compressed data's size, which could be larger than src_buf_len on uncompressible data. */
 /*  The caller must free() the returned block when it's no longer needed. */
-void *tdefl_compress_mem_to_heap(const void *pSrc_buf, size_t src_buf_len, size_t *pOut_len, int flags);
+MINIZ_EXPORT void *tdefl_compress_mem_to_heap(const void *pSrc_buf, size_t src_buf_len, size_t *pOut_len, int flags);
 
 /* tdefl_compress_mem_to_mem() compresses a block in memory to another block in memory. */
 /* Returns 0 on failure. */
-size_t tdefl_compress_mem_to_mem(void *pOut_buf, size_t out_buf_len, const void *pSrc_buf, size_t src_buf_len, int flags);
+MINIZ_EXPORT size_t tdefl_compress_mem_to_mem(void *pOut_buf, size_t out_buf_len, const void *pSrc_buf, size_t src_buf_len, int flags);
 
 /* Compresses an image to a compressed PNG file in memory. */
 /* On entry: */
@@ -632,14 +697,14 @@ size_t tdefl_compress_mem_to_mem(void *pOut_buf, size_t out_buf_len, const void 
 /*  Function returns a pointer to the compressed data, or NULL on failure. */
 /*  *pLen_out will be set to the size of the PNG image file. */
 /*  The caller must mz_free() the returned heap block (which will typically be larger than *pLen_out) when it's no longer needed. */
-void *tdefl_write_image_to_png_file_in_memory_ex(const void *pImage, int w, int h, int num_chans, size_t *pLen_out, mz_uint level, mz_bool flip);
-void *tdefl_write_image_to_png_file_in_memory(const void *pImage, int w, int h, int num_chans, size_t *pLen_out);
+MINIZ_EXPORT void *tdefl_write_image_to_png_file_in_memory_ex(const void *pImage, int w, int h, int num_chans, size_t *pLen_out, mz_uint level, mz_bool flip);
+MINIZ_EXPORT void *tdefl_write_image_to_png_file_in_memory(const void *pImage, int w, int h, int num_chans, size_t *pLen_out);
 
 /* Output stream interface. The compressor uses this interface to write compressed data. It'll typically be called TDEFL_OUT_BUF_SIZE at a time. */
 typedef mz_bool (*tdefl_put_buf_func_ptr)(const void *pBuf, int len, void *pUser);
 
 /* tdefl_compress_mem_to_output() compresses a block to an output stream. The above helpers use this function internally. */
-mz_bool tdefl_compress_mem_to_output(const void *pBuf, size_t buf_len, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
+MINIZ_EXPORT mz_bool tdefl_compress_mem_to_output(const void *pBuf, size_t buf_len, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
 
 enum
 {
@@ -727,38 +792,42 @@ typedef struct
 /* pBut_buf_func: If NULL, output data will be supplied to the specified callback. In this case, the user should call the tdefl_compress_buffer() API for compression. */
 /* If pBut_buf_func is NULL the user should always call the tdefl_compress() API. */
 /* flags: See the above enums (TDEFL_HUFFMAN_ONLY, TDEFL_WRITE_ZLIB_HEADER, etc.) */
-tdefl_status tdefl_init(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
+MINIZ_EXPORT tdefl_status tdefl_init(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
 
 /* Compresses a block of data, consuming as much of the specified input buffer as possible, and writing as much compressed data to the specified output buffer as possible. */
-tdefl_status tdefl_compress(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush);
+MINIZ_EXPORT tdefl_status tdefl_compress(tdefl_compressor *d, const void *pIn_buf, size_t *pIn_buf_size, void *pOut_buf, size_t *pOut_buf_size, tdefl_flush flush);
 
 /* tdefl_compress_buffer() is only usable when the tdefl_init() is called with a non-NULL tdefl_put_buf_func_ptr. */
 /* tdefl_compress_buffer() always consumes the entire input buffer. */
-tdefl_status tdefl_compress_buffer(tdefl_compressor *d, const void *pIn_buf, size_t in_buf_size, tdefl_flush flush);
+MINIZ_EXPORT tdefl_status tdefl_compress_buffer(tdefl_compressor *d, const void *pIn_buf, size_t in_buf_size, tdefl_flush flush);
 
-tdefl_status tdefl_get_prev_return_status(tdefl_compressor *d);
-mz_uint32 tdefl_get_adler32(tdefl_compressor *d);
+MINIZ_EXPORT tdefl_status tdefl_get_prev_return_status(tdefl_compressor *d);
+MINIZ_EXPORT mz_uint32 tdefl_get_adler32(tdefl_compressor *d);
 
 /* Create tdefl_compress() flags given zlib-style compression parameters. */
 /* level may range from [0,10] (where 10 is absolute max compression, but may be much slower on some files) */
 /* window_bits may be -15 (raw deflate) or 15 (zlib) */
 /* strategy may be either MZ_DEFAULT_STRATEGY, MZ_FILTERED, MZ_HUFFMAN_ONLY, MZ_RLE, or MZ_FIXED */
-mz_uint tdefl_create_comp_flags_from_zip_params(int level, int window_bits, int strategy);
+MINIZ_EXPORT mz_uint tdefl_create_comp_flags_from_zip_params(int level, int window_bits, int strategy);
 
 #ifndef MINIZ_NO_MALLOC
 /* Allocate the tdefl_compressor structure in C so that */
 /* non-C language bindings to tdefl_ API don't need to worry about */
 /* structure size and allocation mechanism. */
-tdefl_compressor *tdefl_compressor_alloc(void);
-void tdefl_compressor_free(tdefl_compressor *pComp);
+MINIZ_EXPORT tdefl_compressor *tdefl_compressor_alloc(void);
+MINIZ_EXPORT void tdefl_compressor_free(tdefl_compressor *pComp);
 #endif
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /*#ifndef MINIZ_NO_DEFLATE_APIS*/
  #pragma once
 
 /* ------------------- Low-level Decompression API Definitions */
+
+#ifndef MINIZ_NO_INFLATE_APIS
 
 #ifdef __cplusplus
 extern "C" {
@@ -784,17 +853,17 @@ enum
 /*  Function returns a pointer to the decompressed data, or NULL on failure. */
 /*  *pOut_len will be set to the decompressed data's size, which could be larger than src_buf_len on uncompressible data. */
 /*  The caller must call mz_free() on the returned block when it's no longer needed. */
-void *tinfl_decompress_mem_to_heap(const void *pSrc_buf, size_t src_buf_len, size_t *pOut_len, int flags);
+MINIZ_EXPORT void *tinfl_decompress_mem_to_heap(const void *pSrc_buf, size_t src_buf_len, size_t *pOut_len, int flags);
 
 /* tinfl_decompress_mem_to_mem() decompresses a block in memory to another block in memory. */
 /* Returns TINFL_DECOMPRESS_MEM_TO_MEM_FAILED on failure, or the number of bytes written on success. */
 #define TINFL_DECOMPRESS_MEM_TO_MEM_FAILED ((size_t)(-1))
-size_t tinfl_decompress_mem_to_mem(void *pOut_buf, size_t out_buf_len, const void *pSrc_buf, size_t src_buf_len, int flags);
+MINIZ_EXPORT size_t tinfl_decompress_mem_to_mem(void *pOut_buf, size_t out_buf_len, const void *pSrc_buf, size_t src_buf_len, int flags);
 
 /* tinfl_decompress_mem_to_callback() decompresses a block in memory to an internal 32KB buffer, and a user provided callback function will be called to flush the buffer. */
 /* Returns 1 on success or 0 on failure. */
 typedef int (*tinfl_put_buf_func_ptr)(const void *pBuf, int len, void *pUser);
-int tinfl_decompress_mem_to_callback(const void *pIn_buf, size_t *pIn_buf_size, tinfl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
+MINIZ_EXPORT int tinfl_decompress_mem_to_callback(const void *pIn_buf, size_t *pIn_buf_size, tinfl_put_buf_func_ptr pPut_buf_func, void *pPut_buf_user, int flags);
 
 struct tinfl_decompressor_tag;
 typedef struct tinfl_decompressor_tag tinfl_decompressor;
@@ -803,8 +872,8 @@ typedef struct tinfl_decompressor_tag tinfl_decompressor;
 /* Allocate the tinfl_decompressor structure in C so that */
 /* non-C language bindings to tinfl_ API don't need to worry about */
 /* structure size and allocation mechanism. */
-tinfl_decompressor *tinfl_decompressor_alloc(void);
-void tinfl_decompressor_free(tinfl_decompressor *pDecomp);
+MINIZ_EXPORT tinfl_decompressor *tinfl_decompressor_alloc(void);
+MINIZ_EXPORT void tinfl_decompressor_free(tinfl_decompressor *pDecomp);
 #endif
 
 /* Max size of LZ dictionary. */
@@ -855,7 +924,7 @@ typedef enum {
 
 /* Main low-level decompressor coroutine function. This is the only function actually needed for decompression. All the other functions are just high-level helpers for improved usability. */
 /* This is a universal API, i.e. it can be used as a building block to build any desired higher level decompression API. In the limit case, it can be called once per every byte input or output. */
-tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_next, size_t *pIn_buf_size, mz_uint8 *pOut_buf_start, mz_uint8 *pOut_buf_next, size_t *pOut_buf_size, const mz_uint32 decomp_flags);
+MINIZ_EXPORT tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_next, size_t *pIn_buf_size, mz_uint8 *pOut_buf_start, mz_uint8 *pOut_buf_next, size_t *pOut_buf_size, const mz_uint32 decomp_flags);
 
 /* Internal/private bits follow. */
 enum
@@ -867,12 +936,6 @@ enum
     TINFL_FAST_LOOKUP_BITS = 10,
     TINFL_FAST_LOOKUP_SIZE = 1 << TINFL_FAST_LOOKUP_BITS
 };
-
-typedef struct
-{
-    mz_uint8 m_code_size[TINFL_MAX_HUFF_SYMBOLS_0];
-    mz_int16 m_look_up[TINFL_FAST_LOOKUP_SIZE], m_tree[TINFL_MAX_HUFF_SYMBOLS_0 * 2];
-} tinfl_huff_table;
 
 #if MINIZ_HAS_64BIT_REGISTERS
 #define TINFL_USE_64BIT_BITBUF 1
@@ -893,13 +956,21 @@ struct tinfl_decompressor_tag
     mz_uint32 m_state, m_num_bits, m_zhdr0, m_zhdr1, m_z_adler32, m_final, m_type, m_check_adler32, m_dist, m_counter, m_num_extra, m_table_sizes[TINFL_MAX_HUFF_TABLES];
     tinfl_bit_buf_t m_bit_buf;
     size_t m_dist_from_out_buf_start;
-    tinfl_huff_table m_tables[TINFL_MAX_HUFF_TABLES];
+    mz_int16 m_look_up[TINFL_MAX_HUFF_TABLES][TINFL_FAST_LOOKUP_SIZE];
+    mz_int16 m_tree_0[TINFL_MAX_HUFF_SYMBOLS_0 * 2];
+    mz_int16 m_tree_1[TINFL_MAX_HUFF_SYMBOLS_1 * 2];
+    mz_int16 m_tree_2[TINFL_MAX_HUFF_SYMBOLS_2 * 2];
+    mz_uint8 m_code_size_0[TINFL_MAX_HUFF_SYMBOLS_0];
+    mz_uint8 m_code_size_1[TINFL_MAX_HUFF_SYMBOLS_1];
+    mz_uint8 m_code_size_2[TINFL_MAX_HUFF_SYMBOLS_2];
     mz_uint8 m_raw_header[4], m_len_codes[TINFL_MAX_HUFF_SYMBOLS_0 + TINFL_MAX_HUFF_SYMBOLS_1 + 137];
 };
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /*#ifndef MINIZ_NO_INFLATE_APIS*/
 
 #ifndef MINIZ_HEADER_FILE_ONLY
 /**************************************************************************
@@ -986,6 +1057,12 @@ mz_ulong mz_adler32(mz_ulong adler, const unsigned char *ptr, size_t buf_len)
         }
         return ~crcu32;
     }
+#elif defined(USE_EXTERNAL_MZCRC)
+/* If USE_EXTERNAL_CRC is defined, an external module will export the
+ * mz_crc32() symbol for us to use, e.g. an SSE-accelerated version.
+ * Depending on the impl, it may be necessary to ~ the input/output crc values.
+ */
+mz_ulong mz_crc32(mz_ulong crc, const mz_uint8 *ptr, size_t buf_len);
 #else
 /* Faster, but larger CPU cache footprint.
  */
@@ -1061,17 +1138,17 @@ void mz_free(void *p)
     MZ_FREE(p);
 }
 
-void *miniz_def_alloc_func(void *opaque, size_t items, size_t size)
+MINIZ_EXPORT void *miniz_def_alloc_func(void *opaque, size_t items, size_t size)
 {
     (void)opaque, (void)items, (void)size;
     return MZ_MALLOC(items * size);
 }
-void miniz_def_free_func(void *opaque, void *address)
+MINIZ_EXPORT void miniz_def_free_func(void *opaque, void *address)
 {
     (void)opaque, (void)address;
     MZ_FREE(address);
 }
-void *miniz_def_realloc_func(void *opaque, void *address, size_t items, size_t size)
+MINIZ_EXPORT void *miniz_def_realloc_func(void *opaque, void *address, size_t items, size_t size)
 {
     (void)opaque, (void)address, (void)items, (void)size;
     return MZ_REALLOC(address, items * size);
@@ -1083,6 +1160,8 @@ const char *mz_version(void)
 }
 
 #ifndef MINIZ_NO_ZLIB_APIS
+
+#ifndef MINIZ_NO_DEFLATE_APIS
 
 int mz_deflateInit(mz_streamp pStream, int level)
 {
@@ -1218,7 +1297,7 @@ int mz_compress2(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char 
     memset(&stream, 0, sizeof(stream));
 
     /* In case mz_ulong is 64-bits (argh I hate longs). */
-    if ((source_len | *pDest_len) > 0xFFFFFFFFU)
+    if ((mz_uint64)(source_len | *pDest_len) > 0xFFFFFFFFU)
         return MZ_PARAM_ERROR;
 
     stream.next_in = pSource;
@@ -1250,6 +1329,10 @@ mz_ulong mz_compressBound(mz_ulong source_len)
 {
     return mz_deflateBound(NULL, source_len);
 }
+
+#endif /*#ifndef MINIZ_NO_DEFLATE_APIS*/
+
+#ifndef MINIZ_NO_INFLATE_APIS
 
 typedef struct
 {
@@ -1450,19 +1533,18 @@ int mz_inflateEnd(mz_streamp pStream)
     }
     return MZ_OK;
 }
-
-int mz_uncompress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len)
+int mz_uncompress2(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong *pSource_len)
 {
     mz_stream stream;
     int status;
     memset(&stream, 0, sizeof(stream));
 
     /* In case mz_ulong is 64-bits (argh I hate longs). */
-    if ((source_len | *pDest_len) > 0xFFFFFFFFU)
+    if ((mz_uint64)(*pSource_len | *pDest_len) > 0xFFFFFFFFU)
         return MZ_PARAM_ERROR;
 
     stream.next_in = pSource;
-    stream.avail_in = (mz_uint32)source_len;
+    stream.avail_in = (mz_uint32)*pSource_len;
     stream.next_out = pDest;
     stream.avail_out = (mz_uint32)*pDest_len;
 
@@ -1471,6 +1553,7 @@ int mz_uncompress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char
         return status;
 
     status = mz_inflate(&stream, MZ_FINISH);
+    *pSource_len = *pSource_len - stream.avail_in;
     if (status != MZ_STREAM_END)
     {
         mz_inflateEnd(&stream);
@@ -1480,6 +1563,13 @@ int mz_uncompress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char
 
     return mz_inflateEnd(&stream);
 }
+
+int mz_uncompress(unsigned char *pDest, mz_ulong *pDest_len, const unsigned char *pSource, mz_ulong source_len)
+{
+    return mz_uncompress2(pDest, pDest_len, pSource, &source_len);
+}
+
+#endif /*#ifndef MINIZ_NO_INFLATE_APIS*/
 
 const char *mz_error(int err)
 {
@@ -1558,6 +1648,7 @@ const char *mz_error(int err)
 
 
 
+#ifndef MINIZ_NO_DEFLATE_APIS
 
 #ifdef __cplusplus
 extern "C" {
@@ -1637,7 +1728,7 @@ static tdefl_sym_freq *tdefl_radix_sort_syms(mz_uint num_syms, tdefl_sym_freq *p
 {
     mz_uint32 total_passes = 2, pass_shift, pass, i, hist[256 * 2];
     tdefl_sym_freq *pCur_syms = pSyms0, *pNew_syms = pSyms1;
-    MZ_CLEAR_OBJ(hist);
+    MZ_CLEAR_ARR(hist);
     for (i = 0; i < num_syms; i++)
     {
         mz_uint freq = pSyms0[i].m_key;
@@ -1755,7 +1846,7 @@ static void tdefl_optimize_huffman_table(tdefl_compressor *d, int table_num, int
 {
     int i, j, l, num_codes[1 + TDEFL_MAX_SUPPORTED_HUFF_CODESIZE];
     mz_uint next_code[TDEFL_MAX_SUPPORTED_HUFF_CODESIZE + 1];
-    MZ_CLEAR_OBJ(num_codes);
+    MZ_CLEAR_ARR(num_codes);
     if (static_table)
     {
         for (i = 0; i < table_len; i++)
@@ -1781,8 +1872,8 @@ static void tdefl_optimize_huffman_table(tdefl_compressor *d, int table_num, int
 
         tdefl_huffman_enforce_max_code_size(num_codes, num_used_syms, code_size_limit);
 
-        MZ_CLEAR_OBJ(d->m_huff_code_sizes[table_num]);
-        MZ_CLEAR_OBJ(d->m_huff_codes[table_num]);
+        MZ_CLEAR_ARR(d->m_huff_code_sizes[table_num]);
+        MZ_CLEAR_ARR(d->m_huff_codes[table_num]);
         for (i = 1, j = num_used_syms; i <= code_size_limit; i++)
             for (l = num_codes[i]; l > 0; l--)
                 d->m_huff_code_sizes[table_num][pSyms[--j].m_sym_index] = (mz_uint8)(i);
@@ -1868,7 +1959,7 @@ static void tdefl_optimize_huffman_table(tdefl_compressor *d, int table_num, int
         }                                                                                  \
     }
 
-static mz_uint8 s_tdefl_packed_code_size_syms_swizzle[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
+static const mz_uint8 s_tdefl_packed_code_size_syms_swizzle[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
 static void tdefl_start_dynamic_block(tdefl_compressor *d)
 {
@@ -2006,7 +2097,8 @@ static mz_bool tdefl_compress_lz_codes(tdefl_compressor *d)
         if (flags & 1)
         {
             mz_uint s0, s1, n0, n1, sym, num_extra_bits;
-            mz_uint match_len = pLZ_codes[0], match_dist = *(const mz_uint16 *)(pLZ_codes + 1);
+            mz_uint match_len = pLZ_codes[0];
+            mz_uint match_dist = (pLZ_codes[1] | (pLZ_codes[2] << 8));
             pLZ_codes += 3;
 
             MZ_ASSERT(d->m_huff_code_sizes[0][s_tdefl_len_sym[match_len]]);
@@ -2051,7 +2143,7 @@ static mz_bool tdefl_compress_lz_codes(tdefl_compressor *d)
         if (pOutput_buf >= d->m_pOutput_buf_end)
             return MZ_FALSE;
 
-        *(mz_uint64 *)pOutput_buf = bit_buffer;
+        memcpy(pOutput_buf, &bit_buffer, sizeof(mz_uint64));
         pOutput_buf += (bits_in >> 3);
         bit_buffer >>= (bits_in & ~7);
         bits_in &= 7;
@@ -2133,6 +2225,8 @@ static mz_bool tdefl_compress_block(tdefl_compressor *d, mz_bool static_block)
     return tdefl_compress_lz_codes(d);
 }
 
+static const mz_uint s_tdefl_num_probes[11];
+
 static int tdefl_flush_block(tdefl_compressor *d, int flush)
 {
     mz_uint saved_bit_buf, saved_bits_in;
@@ -2153,8 +2247,27 @@ static int tdefl_flush_block(tdefl_compressor *d, int flush)
 
     if ((d->m_flags & TDEFL_WRITE_ZLIB_HEADER) && (!d->m_block_index))
     {
-        TDEFL_PUT_BITS(0x78, 8);
-        TDEFL_PUT_BITS(0x01, 8);
+        const mz_uint8 cmf = 0x78;
+        mz_uint8 flg, flevel = 3;
+        mz_uint header, i, mz_un = sizeof(s_tdefl_num_probes) / sizeof(mz_uint);
+
+        /* Determine compression level by reversing the process in tdefl_create_comp_flags_from_zip_params() */
+        for (i = 0; i < mz_un; i++)
+            if (s_tdefl_num_probes[i] == (d->m_flags & 0xFFF)) break;
+
+        if (i < 2)
+            flevel = 0;
+        else if (i < 6)
+            flevel = 1;
+        else if (i == 6)
+            flevel = 2;
+
+        header = cmf << 8 | (flevel << 6);
+        header += 31 - (header % 31);
+        flg = header & 0xFF;
+
+        TDEFL_PUT_BITS(cmf, 8);
+        TDEFL_PUT_BITS(flg, 8);
     }
 
     TDEFL_PUT_BITS(flush == TDEFL_FINISH, 1);
@@ -2607,9 +2720,7 @@ static MZ_FORCEINLINE void tdefl_record_match(tdefl_compressor *d, mz_uint match
     s0 = s_tdefl_small_dist_sym[match_dist & 511];
     s1 = s_tdefl_large_dist_sym[(match_dist >> 8) & 127];
     d->m_huff_count[1][(match_dist < 512) ? s0 : s1]++;
-
-    if (match_len >= TDEFL_MIN_MATCH_LEN)
-        d->m_huff_count[0][s_tdefl_len_sym[match_len - TDEFL_MIN_MATCH_LEN]]++;
+    d->m_huff_count[0][s_tdefl_len_sym[match_len - TDEFL_MIN_MATCH_LEN]]++;
 }
 
 static mz_bool tdefl_compress_normal(tdefl_compressor *d)
@@ -2627,7 +2738,7 @@ static mz_bool tdefl_compress_normal(tdefl_compressor *d)
             mz_uint dst_pos = (d->m_lookahead_pos + d->m_lookahead_size) & TDEFL_LZ_DICT_SIZE_MASK, ins_pos = d->m_lookahead_pos + d->m_lookahead_size - 2;
             mz_uint hash = (d->m_dict[ins_pos & TDEFL_LZ_DICT_SIZE_MASK] << TDEFL_LZ_HASH_SHIFT) ^ d->m_dict[(ins_pos + 1) & TDEFL_LZ_DICT_SIZE_MASK];
             mz_uint num_bytes_to_process = (mz_uint)MZ_MIN(src_buf_left, TDEFL_MAX_MATCH_LEN - d->m_lookahead_size);
-            const mz_uint8 *pSrc_end = pSrc + num_bytes_to_process;
+            const mz_uint8 *pSrc_end = pSrc ? pSrc + num_bytes_to_process : NULL;
             src_buf_left -= num_bytes_to_process;
             d->m_lookahead_size += num_bytes_to_process;
             while (pSrc != pSrc_end)
@@ -2837,8 +2948,8 @@ tdefl_status tdefl_compress(tdefl_compressor *d, const void *pIn_buf, size_t *pI
         d->m_finished = (flush == TDEFL_FINISH);
         if (flush == TDEFL_FULL_FLUSH)
         {
-            MZ_CLEAR_OBJ(d->m_hash);
-            MZ_CLEAR_OBJ(d->m_next);
+            MZ_CLEAR_ARR(d->m_hash);
+            MZ_CLEAR_ARR(d->m_next);
             d->m_dict_size = 0;
         }
     }
@@ -2861,11 +2972,12 @@ tdefl_status tdefl_init(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_fun
     d->m_greedy_parsing = (flags & TDEFL_GREEDY_PARSING_FLAG) != 0;
     d->m_max_probes[1] = 1 + (((flags & 0xFFF) >> 2) + 2) / 3;
     if (!(flags & TDEFL_NONDETERMINISTIC_PARSING_FLAG))
-        MZ_CLEAR_OBJ(d->m_hash);
+        MZ_CLEAR_ARR(d->m_hash);
     d->m_lookahead_pos = d->m_lookahead_size = d->m_dict_size = d->m_total_lz_bytes = d->m_lz_code_buf_dict_pos = d->m_bits_in = 0;
     d->m_output_flush_ofs = d->m_output_flush_remaining = d->m_finished = d->m_block_index = d->m_bit_buffer = d->m_wants_to_finish = 0;
     d->m_pLZ_code_buf = d->m_lz_code_buf + 1;
     d->m_pLZ_flags = d->m_lz_code_buf;
+    *d->m_pLZ_flags = 0;
     d->m_num_flags_left = 8;
     d->m_pOutput_buf = d->m_output_buf;
     d->m_pOutput_buf_end = d->m_output_buf;
@@ -2881,7 +2993,7 @@ tdefl_status tdefl_init(tdefl_compressor *d, tdefl_put_buf_func_ptr pPut_buf_fun
     d->m_src_buf_left = 0;
     d->m_out_buf_ofs = 0;
     if (!(flags & TDEFL_NONDETERMINISTIC_PARSING_FLAG))
-        MZ_CLEAR_OBJ(d->m_dict);
+        MZ_CLEAR_ARR(d->m_dict);
     memset(&d->m_huff_count[0][0], 0, sizeof(d->m_huff_count[0][0]) * TDEFL_MAX_HUFF_SYMBOLS_0);
     memset(&d->m_huff_count[1][0], 0, sizeof(d->m_huff_count[1][0]) * TDEFL_MAX_HUFF_SYMBOLS_1);
     return TDEFL_STATUS_OKAY;
@@ -3091,7 +3203,7 @@ void *tdefl_write_image_to_png_file_in_memory(const void *pImage, int w, int h, 
 /* Allocate the tdefl_compressor and tinfl_decompressor structures in C so that */
 /* non-C language bindings to tdefL_ and tinfl_ API don't need to worry about */
 /* structure size and allocation mechanism. */
-tdefl_compressor *tdefl_compressor_alloc( void )
+tdefl_compressor *tdefl_compressor_alloc(void)
 {
     return (tdefl_compressor *)MZ_MALLOC(sizeof(tdefl_compressor));
 }
@@ -3109,6 +3221,8 @@ void tdefl_compressor_free(tdefl_compressor *pComp)
 #ifdef __cplusplus
 }
 #endif
+
+#endif /*#ifndef MINIZ_NO_DEFLATE_APIS*/
  /**************************************************************************
  *
  * Copyright 2013-2014 RAD Game Tools and Valve Software
@@ -3136,6 +3250,8 @@ void tdefl_compressor_free(tdefl_compressor *pComp)
  **************************************************************************/
 
 
+
+#ifndef MINIZ_NO_INFLATE_APIS
 
 #ifdef __cplusplus
 extern "C" {
@@ -3217,10 +3333,10 @@ extern "C" {
 /* It reads just enough bytes from the input stream that are needed to decode the next Huffman code (and absolutely no more). It works by trying to fully decode a */
 /* Huffman code by using whatever bits are currently present in the bit buffer. If this fails, it reads another byte, and tries again until it succeeds or until the */
 /* bit buffer contains >=15 bits (deflate's max. Huffman code size). */
-#define TINFL_HUFF_BITBUF_FILL(state_index, pHuff)                             \
+#define TINFL_HUFF_BITBUF_FILL(state_index, pLookUp, pTree)                    \
     do                                                                         \
     {                                                                          \
-        temp = (pHuff)->m_look_up[bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)];     \
+        temp = pLookUp[bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)];                \
         if (temp >= 0)                                                         \
         {                                                                      \
             code_len = temp >> 9;                                              \
@@ -3232,7 +3348,7 @@ extern "C" {
             code_len = TINFL_FAST_LOOKUP_BITS;                                 \
             do                                                                 \
             {                                                                  \
-                temp = (pHuff)->m_tree[~temp + ((bit_buf >> code_len++) & 1)]; \
+                temp = pTree[~temp + ((bit_buf >> code_len++) & 1)];           \
             } while ((temp < 0) && (num_bits >= (code_len + 1)));              \
             if (temp >= 0)                                                     \
                 break;                                                         \
@@ -3248,7 +3364,7 @@ extern "C" {
 /* The slow path is only executed at the very end of the input buffer. */
 /* v1.16: The original macro handled the case at the very end of the passed-in input buffer, but we also need to handle the case where the user passes in 1+zillion bytes */
 /* following the deflate data and our non-conservative read-ahead path won't kick in here on this code. This is much trickier. */
-#define TINFL_HUFF_DECODE(state_index, sym, pHuff)                                                                                  \
+#define TINFL_HUFF_DECODE(state_index, sym, pLookUp, pTree)                                                                         \
     do                                                                                                                              \
     {                                                                                                                               \
         int temp;                                                                                                                   \
@@ -3257,7 +3373,7 @@ extern "C" {
         {                                                                                                                           \
             if ((pIn_buf_end - pIn_buf_cur) < 2)                                                                                    \
             {                                                                                                                       \
-                TINFL_HUFF_BITBUF_FILL(state_index, pHuff);                                                                         \
+                TINFL_HUFF_BITBUF_FILL(state_index, pLookUp, pTree);                                                                \
             }                                                                                                                       \
             else                                                                                                                    \
             {                                                                                                                       \
@@ -3266,14 +3382,14 @@ extern "C" {
                 num_bits += 16;                                                                                                     \
             }                                                                                                                       \
         }                                                                                                                           \
-        if ((temp = (pHuff)->m_look_up[bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)]) >= 0)                                               \
+        if ((temp = pLookUp[bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)]) >= 0)                                                          \
             code_len = temp >> 9, temp &= 511;                                                                                      \
         else                                                                                                                        \
         {                                                                                                                           \
             code_len = TINFL_FAST_LOOKUP_BITS;                                                                                      \
             do                                                                                                                      \
             {                                                                                                                       \
-                temp = (pHuff)->m_tree[~temp + ((bit_buf >> code_len++) & 1)];                                                      \
+                temp = pTree[~temp + ((bit_buf >> code_len++) & 1)];                                                                \
             } while (temp < 0);                                                                                                     \
         }                                                                                                                           \
         sym = temp;                                                                                                                 \
@@ -3282,20 +3398,33 @@ extern "C" {
     }                                                                                                                               \
     MZ_MACRO_END
 
+static void tinfl_clear_tree(tinfl_decompressor *r)
+{
+    if (r->m_type == 0)
+        MZ_CLEAR_ARR(r->m_tree_0);
+    else if (r->m_type == 1)
+        MZ_CLEAR_ARR(r->m_tree_1);
+    else
+        MZ_CLEAR_ARR(r->m_tree_2);
+}
+
 tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_next, size_t *pIn_buf_size, mz_uint8 *pOut_buf_start, mz_uint8 *pOut_buf_next, size_t *pOut_buf_size, const mz_uint32 decomp_flags)
 {
-    static const int s_length_base[31] = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0 };
-    static const int s_length_extra[31] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 0, 0 };
-    static const int s_dist_base[32] = { 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0 };
-    static const int s_dist_extra[32] = { 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13 };
+    static const mz_uint16 s_length_base[31] = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0 };
+    static const mz_uint8 s_length_extra[31] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 0, 0 };
+    static const mz_uint16 s_dist_base[32] = { 1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0 };
+    static const mz_uint8 s_dist_extra[32] = { 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13 };
     static const mz_uint8 s_length_dezigzag[19] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
-    static const int s_min_table_sizes[3] = { 257, 1, 4 };
+    static const mz_uint16 s_min_table_sizes[3] = { 257, 1, 4 };
+
+    mz_int16 *pTrees[3];
+    mz_uint8 *pCode_sizes[3];
 
     tinfl_status status = TINFL_STATUS_FAILED;
     mz_uint32 num_bits, dist, counter, num_extra;
     tinfl_bit_buf_t bit_buf;
     const mz_uint8 *pIn_buf_cur = pIn_buf_next, *const pIn_buf_end = pIn_buf_next + *pIn_buf_size;
-    mz_uint8 *pOut_buf_cur = pOut_buf_next, *const pOut_buf_end = pOut_buf_next + *pOut_buf_size;
+    mz_uint8 *pOut_buf_cur = pOut_buf_next, *const pOut_buf_end = pOut_buf_next ? pOut_buf_next + *pOut_buf_size : NULL;
     size_t out_buf_size_mask = (decomp_flags & TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) ? (size_t)-1 : ((pOut_buf_next - pOut_buf_start) + *pOut_buf_size) - 1, dist_from_out_buf_start;
 
     /* Ensure the output buffer's size is a power of 2, unless the output buffer is large enough to hold the entire output file (in which case it doesn't matter). */
@@ -3304,6 +3433,13 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
         *pIn_buf_size = *pOut_buf_size = 0;
         return TINFL_STATUS_BAD_PARAM;
     }
+
+    pTrees[0] = r->m_tree_0;
+    pTrees[1] = r->m_tree_1;
+    pTrees[2] = r->m_tree_2;
+    pCode_sizes[0] = r->m_code_size_0;
+    pCode_sizes[1] = r->m_code_size_1;
+    pCode_sizes[2] = r->m_code_size_2;
 
     num_bits = r->m_num_bits;
     bit_buf = r->m_bit_buf;
@@ -3321,7 +3457,7 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
         TINFL_GET_BYTE(2, r->m_zhdr1);
         counter = (((r->m_zhdr0 * 256 + r->m_zhdr1) % 31 != 0) || (r->m_zhdr1 & 32) || ((r->m_zhdr0 & 15) != 8));
         if (!(decomp_flags & TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF))
-            counter |= (((1U << (8U + (r->m_zhdr0 >> 4))) > 32768U) || ((out_buf_size_mask + 1) < (size_t)(1U << (8U + (r->m_zhdr0 >> 4)))));
+            counter |= (((1U << (8U + (r->m_zhdr0 >> 4))) > 32768U) || ((out_buf_size_mask + 1) < (size_t)((size_t)1 << (8U + (r->m_zhdr0 >> 4)))));
         if (counter)
         {
             TINFL_CR_RETURN_FOREVER(36, TINFL_STATUS_FAILED);
@@ -3382,11 +3518,11 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
         {
             if (r->m_type == 1)
             {
-                mz_uint8 *p = r->m_tables[0].m_code_size;
+                mz_uint8 *p = r->m_code_size_0;
                 mz_uint i;
                 r->m_table_sizes[0] = 288;
                 r->m_table_sizes[1] = 32;
-                TINFL_MEMSET(r->m_tables[1].m_code_size, 5, 32);
+                TINFL_MEMSET(r->m_code_size_1, 5, 32);
                 for (i = 0; i <= 143; ++i)
                     *p++ = 8;
                 for (; i <= 255; ++i)
@@ -3403,26 +3539,30 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                     TINFL_GET_BITS(11, r->m_table_sizes[counter], "\05\05\04"[counter]);
                     r->m_table_sizes[counter] += s_min_table_sizes[counter];
                 }
-                MZ_CLEAR_OBJ(r->m_tables[2].m_code_size);
+                MZ_CLEAR_ARR(r->m_code_size_2);
                 for (counter = 0; counter < r->m_table_sizes[2]; counter++)
                 {
                     mz_uint s;
                     TINFL_GET_BITS(14, s, 3);
-                    r->m_tables[2].m_code_size[s_length_dezigzag[counter]] = (mz_uint8)s;
+                    r->m_code_size_2[s_length_dezigzag[counter]] = (mz_uint8)s;
                 }
                 r->m_table_sizes[2] = 19;
             }
             for (; (int)r->m_type >= 0; r->m_type--)
             {
                 int tree_next, tree_cur;
-                tinfl_huff_table *pTable;
+                mz_int16 *pLookUp;
+                mz_int16 *pTree;
+                mz_uint8 *pCode_size;
                 mz_uint i, j, used_syms, total, sym_index, next_code[17], total_syms[16];
-                pTable = &r->m_tables[r->m_type];
-                MZ_CLEAR_OBJ(total_syms);
-                MZ_CLEAR_OBJ(pTable->m_look_up);
-                MZ_CLEAR_OBJ(pTable->m_tree);
+                pLookUp = r->m_look_up[r->m_type];
+                pTree = pTrees[r->m_type];
+                pCode_size = pCode_sizes[r->m_type];
+                MZ_CLEAR_ARR(total_syms);
+                TINFL_MEMSET(pLookUp, 0, sizeof(r->m_look_up[0]));
+                tinfl_clear_tree(r);
                 for (i = 0; i < r->m_table_sizes[r->m_type]; ++i)
-                    total_syms[pTable->m_code_size[i]]++;
+                    total_syms[pCode_size[i]]++;
                 used_syms = 0, total = 0;
                 next_code[0] = next_code[1] = 0;
                 for (i = 1; i <= 15; ++i)
@@ -3436,7 +3576,7 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                 }
                 for (tree_next = -1, sym_index = 0; sym_index < r->m_table_sizes[r->m_type]; ++sym_index)
                 {
-                    mz_uint rev_code = 0, l, cur_code, code_size = pTable->m_code_size[sym_index];
+                    mz_uint rev_code = 0, l, cur_code, code_size = pCode_size[sym_index];
                     if (!code_size)
                         continue;
                     cur_code = next_code[code_size]++;
@@ -3447,14 +3587,14 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                         mz_int16 k = (mz_int16)((code_size << 9) | sym_index);
                         while (rev_code < TINFL_FAST_LOOKUP_SIZE)
                         {
-                            pTable->m_look_up[rev_code] = k;
+                            pLookUp[rev_code] = k;
                             rev_code += (1 << code_size);
                         }
                         continue;
                     }
-                    if (0 == (tree_cur = pTable->m_look_up[rev_code & (TINFL_FAST_LOOKUP_SIZE - 1)]))
+                    if (0 == (tree_cur = pLookUp[rev_code & (TINFL_FAST_LOOKUP_SIZE - 1)]))
                     {
-                        pTable->m_look_up[rev_code & (TINFL_FAST_LOOKUP_SIZE - 1)] = (mz_int16)tree_next;
+                        pLookUp[rev_code & (TINFL_FAST_LOOKUP_SIZE - 1)] = (mz_int16)tree_next;
                         tree_cur = tree_next;
                         tree_next -= 2;
                     }
@@ -3462,24 +3602,24 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                     for (j = code_size; j > (TINFL_FAST_LOOKUP_BITS + 1); j--)
                     {
                         tree_cur -= ((rev_code >>= 1) & 1);
-                        if (!pTable->m_tree[-tree_cur - 1])
+                        if (!pTree[-tree_cur - 1])
                         {
-                            pTable->m_tree[-tree_cur - 1] = (mz_int16)tree_next;
+                            pTree[-tree_cur - 1] = (mz_int16)tree_next;
                             tree_cur = tree_next;
                             tree_next -= 2;
                         }
                         else
-                            tree_cur = pTable->m_tree[-tree_cur - 1];
+                            tree_cur = pTree[-tree_cur - 1];
                     }
                     tree_cur -= ((rev_code >>= 1) & 1);
-                    pTable->m_tree[-tree_cur - 1] = (mz_int16)sym_index;
+                    pTree[-tree_cur - 1] = (mz_int16)sym_index;
                 }
                 if (r->m_type == 2)
                 {
                     for (counter = 0; counter < (r->m_table_sizes[0] + r->m_table_sizes[1]);)
                     {
                         mz_uint s;
-                        TINFL_HUFF_DECODE(16, dist, &r->m_tables[2]);
+                        TINFL_HUFF_DECODE(16, dist, r->m_look_up[2], r->m_tree_2);
                         if (dist < 16)
                         {
                             r->m_len_codes[counter++] = (mz_uint8)dist;
@@ -3499,8 +3639,8 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                     {
                         TINFL_CR_RETURN_FOREVER(21, TINFL_STATUS_FAILED);
                     }
-                    TINFL_MEMCPY(r->m_tables[0].m_code_size, r->m_len_codes, r->m_table_sizes[0]);
-                    TINFL_MEMCPY(r->m_tables[1].m_code_size, r->m_len_codes + r->m_table_sizes[0], r->m_table_sizes[1]);
+                    TINFL_MEMCPY(r->m_code_size_0, r->m_len_codes, r->m_table_sizes[0]);
+                    TINFL_MEMCPY(r->m_code_size_1, r->m_len_codes + r->m_table_sizes[0], r->m_table_sizes[1]);
                 }
             }
             for (;;)
@@ -3510,7 +3650,7 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                 {
                     if (((pIn_buf_end - pIn_buf_cur) < 4) || ((pOut_buf_end - pOut_buf_cur) < 2))
                     {
-                        TINFL_HUFF_DECODE(23, counter, &r->m_tables[0]);
+                        TINFL_HUFF_DECODE(23, counter, r->m_look_up[0], r->m_tree_0);
                         if (counter >= 256)
                             break;
                         while (pOut_buf_cur >= pOut_buf_end)
@@ -3538,14 +3678,14 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                             num_bits += 16;
                         }
 #endif
-                        if ((sym2 = r->m_tables[0].m_look_up[bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)]) >= 0)
+                        if ((sym2 = r->m_look_up[0][bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)]) >= 0)
                             code_len = sym2 >> 9;
                         else
                         {
                             code_len = TINFL_FAST_LOOKUP_BITS;
                             do
                             {
-                                sym2 = r->m_tables[0].m_tree[~sym2 + ((bit_buf >> code_len++) & 1)];
+                                sym2 = r->m_tree_0[~sym2 + ((bit_buf >> code_len++) & 1)];
                             } while (sym2 < 0);
                         }
                         counter = sym2;
@@ -3562,14 +3702,14 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                             num_bits += 16;
                         }
 #endif
-                        if ((sym2 = r->m_tables[0].m_look_up[bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)]) >= 0)
+                        if ((sym2 = r->m_look_up[0][bit_buf & (TINFL_FAST_LOOKUP_SIZE - 1)]) >= 0)
                             code_len = sym2 >> 9;
                         else
                         {
                             code_len = TINFL_FAST_LOOKUP_BITS;
                             do
                             {
-                                sym2 = r->m_tables[0].m_tree[~sym2 + ((bit_buf >> code_len++) & 1)];
+                                sym2 = r->m_tree_0[~sym2 + ((bit_buf >> code_len++) & 1)];
                             } while (sym2 < 0);
                         }
                         bit_buf >>= code_len;
@@ -3598,7 +3738,7 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                     counter += extra_bits;
                 }
 
-                TINFL_HUFF_DECODE(26, dist, &r->m_tables[1]);
+                TINFL_HUFF_DECODE(26, dist, r->m_look_up[1], r->m_tree_1);
                 num_extra = s_dist_extra[dist];
                 dist = s_dist_base[dist];
                 if (num_extra)
@@ -3609,7 +3749,7 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
                 }
 
                 dist_from_out_buf_start = pOut_buf_cur - pOut_buf_start;
-                if ((dist > dist_from_out_buf_start) && (decomp_flags & TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF))
+                if ((dist == 0 || dist > dist_from_out_buf_start || dist_from_out_buf_start == 0) && (decomp_flags & TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF))
                 {
                     TINFL_CR_RETURN_FOREVER(37, TINFL_STATUS_FAILED);
                 }
@@ -3683,7 +3823,7 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
         --pIn_buf_cur;
         num_bits -= 8;
     }
-    bit_buf &= (tinfl_bit_buf_t)((((mz_uint64)1) << num_bits) - (mz_uint64)1);
+    bit_buf &= ~(~(tinfl_bit_buf_t)0 << num_bits);
     MZ_ASSERT(!num_bits); /* if this assert fires then we've read beyond the end of non-deflate/zlib streams with following data (such as gzip streams). */
 
     if (decomp_flags & TINFL_FLAG_PARSE_ZLIB_HEADER)
@@ -3715,7 +3855,7 @@ common_exit:
         }
     }
     r->m_num_bits = num_bits;
-    r->m_bit_buf = bit_buf & (tinfl_bit_buf_t)((((mz_uint64)1) << num_bits) - (mz_uint64)1);
+    r->m_bit_buf = bit_buf & ~(~(tinfl_bit_buf_t)0 << num_bits);
     r->m_dist = dist;
     r->m_counter = counter;
     r->m_num_extra = num_extra;
@@ -3810,6 +3950,7 @@ int tinfl_decompress_mem_to_callback(const void *pIn_buf, size_t *pIn_buf_size, 
     size_t in_buf_ofs = 0, dict_ofs = 0;
     if (!pDict)
         return TINFL_STATUS_FAILED;
+    memset(pDict,0,TINFL_LZ_DICT_SIZE);
     tinfl_init(&decomp);
     for (;;)
     {
@@ -3832,7 +3973,7 @@ int tinfl_decompress_mem_to_callback(const void *pIn_buf, size_t *pIn_buf_size, 
 }
 
 #ifndef MINIZ_NO_MALLOC
-tinfl_decompressor *tinfl_decompressor_alloc( void )
+tinfl_decompressor *tinfl_decompressor_alloc(void)
 {
     tinfl_decompressor *pDecomp = (tinfl_decompressor *)MZ_MALLOC(sizeof(tinfl_decompressor));
     if (pDecomp)
@@ -3850,4 +3991,5 @@ void tinfl_decompressor_free(tinfl_decompressor *pDecomp)
 }
 #endif
 
-#endif // MINIZ_HEADER_FILE_ONLY
+#endif /*#ifndef MINIZ_NO_INFLATE_APIS*/
+#endif /*#ifndef MINIZ_HEADER_FILE_ONLY*/
