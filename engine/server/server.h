@@ -435,6 +435,8 @@ extern convar_t		sv_consistency;
 extern convar_t		sv_password;
 extern convar_t		sv_uploadmax;
 extern convar_t		sv_trace_messages;
+extern convar_t		sv_enttools_enable;
+extern convar_t		sv_enttools_maxfire;
 extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
@@ -642,8 +644,11 @@ void SV_RestartAmbientSounds( void );
 void SV_RestartDecals( void );
 void SV_RestartStaticEnts( void );
 int pfnGetCurrentPlayer( void );
+int pfnDropToFloor( edict_t* e );
 edict_t *SV_EdictNum( int n );
 char *SV_Localinfo( void );
+void SV_SetModel( edict_t *ent, const char *name );
+
 //
 // sv_log.c
 //
