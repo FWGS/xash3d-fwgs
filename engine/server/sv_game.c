@@ -258,6 +258,63 @@ void SV_CopyTraceToGlobal( trace_t *trace )
 }
 
 /*
+==============
+SV_SetModel
+==============
+*/
+void SV_SetModel( edict_t *ent, const char *modelname )
+{
+	char	name[MAX_QPATH];
+	qboolean	found = false;
+	model_t	*mod;
+	int	i = 1;
+
+	if( !SV_IsValidEdict( ent ))
+	{
+		Con_Printf( S_WARN "SV_SetModel: invalid entity %s\n", SV_ClassName( ent ));
+		return;
+	}
+
+	if( !modelname || modelname[0] <= ' ' )
+	{
+		Con_Printf( S_WARN "SV_SetModel: null name\n" );
+		return;
+	}
+
+	if( *modelname == '\\' || *modelname == '/' )
+		modelname++;
+
+	Q_strncpy( name, modelname, sizeof( name ));
+	COM_FixSlashes( name );
+
+	i = SV_ModelIndex( name );
+	if( i == 0 )
+	{
+		if( sv.state == ss_active )
+			Con_Printf( S_ERROR "SV_SetModel: failed to set model %s: world model cannot be changed\n", name );
+		return;
+	}
+
+	if( COM_CheckString( name ))
+	{
+		ent->v.model = MAKE_STRING( sv.model_precache[i] );
+		ent->v.modelindex = i;
+		mod = sv.models[i];
+	}
+	else
+	{
+		// model will be cleared
+		ent->v.model = ent->v.modelindex = 0;
+		mod = NULL;
+	}
+
+	// set the model size
+	if( mod && mod->type != mod_studio )
+		SV_SetMinMaxSize( ent, mod->mins, mod->maxs, true );
+	else SV_SetMinMaxSize( ent, vec3_origin, vec3_origin, true );
+}
+
+/*
 =============
 SV_ConvertTrace
 
@@ -1319,61 +1376,7 @@ pfnSetModel
 */
 void GAME_EXPORT pfnSetModel( edict_t *e, const char *m )
 {
-	char	name[MAX_QPATH];
-	qboolean	found = false;
-	model_t	*mod;
-	int	i = 1;
-
-	if( !SV_IsValidEdict( e ))
-		return;
-
-	if( *m == '\\' || *m == '/' ) m++;
-	Q_strncpy( name, m, sizeof( name ));
-	COM_FixSlashes( name );
-
-	if( COM_CheckString( name ))
-	{
-		// check to see if model was properly precached
-		for( ; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
-		{
-			if( !Q_stricmp( sv.model_precache[i], name ))
-			{
-				found = true;
-				break;
-			}
-		}
-
-		if( !found )
-		{
-			Con_Printf( S_ERROR "Failed to set model %s: was not precached\n", name );
-			return;
-		}
-	}
-
-	if( e == svgame.edicts )
-	{
-		if( sv.state == ss_active )
-			Con_Printf( S_ERROR "Failed to set model %s: world model cannot be changed\n", name );
-		return;
-	}
-
-	if( COM_CheckString( name ))
-	{
-		e->v.model = MAKE_STRING( sv.model_precache[i] );
-		e->v.modelindex = i;
-		mod = sv.models[i];
-	}
-	else
-	{
-		// model will be cleared
-		e->v.model = e->v.modelindex = 0;
-		mod = NULL;
-	}
-
-	// set the model size
-	if( mod && mod->type != mod_studio )
-		SV_SetMinMaxSize( e, mod->mins, mod->maxs, true );
-	else SV_SetMinMaxSize( e, vec3_origin, vec3_origin, true );
+	SV_SetModel( e, m );
 }
 
 /*

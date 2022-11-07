@@ -116,6 +116,10 @@ CVAR_DEFINE_AUTO( violence_agibs, "1", 0, "show alien gib entities" );
 CVAR_DEFINE_AUTO( sv_voiceenable, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "enable voice support" );
 CVAR_DEFINE_AUTO( sv_voicequality, "3", FCVAR_ARCHIVE|FCVAR_SERVER, "voice chat quality level, from 0 to 5, higher is better" );
 
+// enttools
+CVAR_DEFINE_AUTO( sv_enttools_enable, "0", FCVAR_ARCHIVE|FCVAR_PROTECTED, "enable powerful and dangerous entity tools" );
+CVAR_DEFINE_AUTO( sv_enttools_maxfire, "5", FCVAR_ARCHIVE|FCVAR_PROTECTED, "limit ent_fire actions count to prevent flooding" );
+
 convar_t	*sv_novis;			// disable server culling entities by vis
 convar_t	*sv_pausable;
 convar_t	*timeout;				// seconds without any message
@@ -981,6 +985,8 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_voiceenable );
 	Cvar_RegisterVariable( &sv_voicequality );
 	Cvar_RegisterVariable( &sv_trace_messages );
+	Cvar_RegisterVariable( &sv_enttools_enable );
+	Cvar_RegisterVariable( &sv_enttools_maxfire );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
