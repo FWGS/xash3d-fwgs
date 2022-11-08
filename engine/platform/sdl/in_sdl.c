@@ -335,6 +335,7 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 		return;
 
 	host.mouse_visible = visible;
+	VGui_UpdateInternalCursorState( type );
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( host.mouse_visible )
