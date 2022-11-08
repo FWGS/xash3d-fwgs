@@ -51,11 +51,7 @@ void GAME_EXPORT VGUI_GetMousePos( int *_x, int *_y )
 void GAME_EXPORT VGUI_CursorSelect( VGUI_DefaultCursor cursor )
 {
 	if( s_currentCursor != cursor )
-	{
 		Platform_SetCursorType( cursor );
-
-		s_currentCursor = cursor;
-	}
 }
 
 byte GAME_EXPORT VGUI_GetColor( int i, int j)
@@ -488,6 +484,10 @@ void VGui_RunFrame( void )
 	//stub
 }
 
+void VGui_UpdateInternalCursorState( VGUI_DefaultCursor cursorType )
+{
+	s_currentCursor = cursorType;
+}
 
 void *GAME_EXPORT VGui_GetPanel( void )
 {
