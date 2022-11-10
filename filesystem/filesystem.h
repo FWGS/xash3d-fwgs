@@ -76,10 +76,11 @@ typedef struct gameinfo_s
 	size_t		size;
 
 	int		gamemode;
-	qboolean		secure;		// prevent to console acess
-	qboolean		nomodels;		// don't let player to choose model (use player.mdl always)
-	qboolean		noskills;		// disable skill menu selection
-	qboolean		render_picbutton_text; // use font renderer to render WON buttons
+	qboolean	secure;		// prevent to console acess
+	qboolean	nomodels;		// don't let player to choose model (use player.mdl always)
+	qboolean	noskills;		// disable skill menu selection
+	qboolean	render_picbutton_text; // use font renderer to render WON buttons
+	qboolean	internal_vgui_support; // skip loading VGUI, pass ingame UI support API to client
 
 	char		sp_entity[32];	// e.g. info_player_start
 	char		mp_entity[32];	// e.g. info_player_deathmatch
