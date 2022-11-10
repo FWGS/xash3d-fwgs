@@ -675,11 +675,19 @@ Host_Frame
 */
 void Host_Frame( float time )
 {
-	Host_CheckSleep();
+	static qboolean slept = false;
 
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
+	{
+		if( !slept )
+		{
+			Host_CheckSleep();
+			slept = true;
+		}
 		return;
+	}
+	slept = false;
 
 	Host_InputFrame ();  // input frame
 	Host_ClientBegin (); // begin client
