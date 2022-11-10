@@ -3063,9 +3063,6 @@ void Host_ClientFrame( void )
 	// catch changes video settings
 	VID_CheckChanges();
 
-	// process VGUI
-	VGui_RunFrame ();
-
 	// update the screen
 	SCR_UpdateScreen ();
 
