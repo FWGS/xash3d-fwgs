@@ -918,6 +918,11 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->render_picbutton_text = Q_atoi( token );
 			}
+			else if( !Q_stricmp( token, "internal_vgui_support" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->internal_vgui_support = Q_atoi( token );
+			}
 		}
 	}
 
