@@ -74,7 +74,7 @@ void Sys_PrintUsage( void )
 #if XASH_MESSAGEBOX == MSGBOX_STDERR
 	"\n" // dirty hack to not have Xash Error: Usage: on same line
 #endif // XASH_MESSAGEBOX == MSGBOX_STDERR
-	"Usage:\n"
+	S_USAGE "\n"
 #if !XASH_MOBILE_PLATFORM
 	#if XASH_WIN32
 	O("<xash>.exe [options] [+command1] [+command2 arg]","")

@@ -214,7 +214,7 @@ void SV_ServerLog_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
-		Con_Printf("usage: log < on|off >\n" );
+		Con_Printf( S_USAGE "log < on|off >\n" );
 
 		if( svs.log.active )
 			Con_Printf( "currently logging\n" );
