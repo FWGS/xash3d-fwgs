@@ -276,6 +276,13 @@ void Host_CheckSleep( void )
 {
 	int sleeptime = host_sleeptime->value;
 
+#ifndef XASH_DEDICATED
+	// never sleep in timedemo for benchmarking purposes
+	// also don't sleep with vsync for less lag
+	if( CL_IsTimeDemo( ) || CVAR_TO_BOOL( gl_vsync ))
+		return;
+#endif
+
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
@@ -597,24 +604,16 @@ double Host_CalcFPS( void )
 	}
 	else if( Host_IsLocalGame( ))
 	{
-		fps = host_maxfps->value;
+		if( !CVAR_TO_BOOL( gl_vsync ))
+			fps = host_maxfps->value;
 	}
 	else
 	{
-		fps = host_maxfps->value;
-		if( fps == 0.0 ) fps = MAX_FPS;
-		fps = bound( MIN_FPS, fps, MAX_FPS );
-	}
-
-	// probably left part of this condition is redundant :-)
-	if( host.type != HOST_DEDICATED && Host_IsLocalGame( ) && !CL_IsTimeDemo( ))
-	{
-		// ajdust fps for vertical synchronization
-		if( CVAR_TO_BOOL( gl_vsync ))
+		if( !CVAR_TO_BOOL( gl_vsync ))
 		{
-			if( vid_displayfrequency->value != 0.0f )
-				fps = vid_displayfrequency->value;
-			else fps = 60.0; // default
+			fps = host_maxfps->value;
+			if( fps == 0.0 ) fps = MAX_FPS;
+			fps = bound( MIN_FPS, fps, MAX_FPS );
 		}
 	}
 #endif
