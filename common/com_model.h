@@ -105,7 +105,7 @@ typedef struct
 
 	vec3_t		mins, maxs;	// terrain bounds (fill by user)
 
-	int		reserved[32];	// just for future expansions or mod-makers
+	intptr_t	reserved[32];	// just for future expansions or mod-makers
 } mfaceinfo_t;
 
 typedef struct
@@ -173,8 +173,8 @@ struct decal_s
 	short		entityIndex;	// Entity this is attached to
 // Xash3D specific
 	vec3_t		position;		// location of the decal center in world space.
-	glpoly_t		*polys;		// precomputed decal vertices
-	int		reserved[4];	// just for future expansions or mod-makers
+	glpoly_t	*polys;		// precomputed decal vertices
+	intptr_t	reserved[4];	// just for future expansions or mod-makers
 };
 
 typedef struct mleaf_s
@@ -228,7 +228,7 @@ typedef struct mextrasurf_s
 	unsigned short	numverts;		// world->vertexes[]
 	int		firstvertex;	// fisrt look up in tr.tbn_vectors[], then acess to world->vertexes[]
 
-	int		reserved[32];	// just for future expansions or mod-makers
+	intptr_t	reserved[32];	// just for future expansions or mod-makers
 } mextrasurf_t;
 
 struct msurface_s
