@@ -162,7 +162,7 @@ static void SV_BanID_f( void )
 
 	if( !id[0] )
 	{
-		Con_Reportf( "Usage: banid <minutes> <#userid or unique id>\n0 minutes for permanent ban\n" );
+		Con_Reportf( S_USAGE "banid <minutes> <#userid or unique id>\n0 minutes for permanent ban\n" );
 		return;
 	}
 
@@ -259,7 +259,7 @@ static void SV_RemoveID_f( void )
 
 	if( !id[0] )
 	{
-		Con_Reportf("Usage: removeid <#slotnumber or uniqueid>\n");
+		Con_Reportf( S_USAGE "removeid <#slotnumber or uniqueid>\n");
 		return;
 	}
 
@@ -354,7 +354,7 @@ static void SV_AddIP_f( void )
 
 	if( !StringToIP( ipstr, maskstr, &ip, &mask ) )
 	{
-		Con_Reportf( "Usage: addip <minutes> <ip> [mask]\n0 minutes for permanent ban\n");
+		Con_Reportf( S_USAGE "addip <minutes> <ip> [mask]\n0 minutes for permanent ban\n");
 		return;
 	}
 
@@ -394,7 +394,7 @@ static void SV_RemoveIP_f( void )
 
 	if( !StringToIP( Cmd_Argv(1), Cmd_Argv(2), &ip, &mask ) )
 	{
-		Con_Reportf( "Usage: removeip <ip> [mask]\n" );
+		Con_Reportf( S_USAGE "removeip <ip> [mask]\n" );
 		return;
 	}
 

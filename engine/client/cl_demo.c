@@ -1408,7 +1408,7 @@ void CL_PlayDemo_f( void )
 
 	if( Cmd_Argc() < 2 )
 	{
-		Con_Printf( S_USAGE "playdemo <demoname>\n" );
+		Con_Printf( S_USAGE "%s <demoname>\n", Cmd_Argv( 0 ));
 		return;
 	}
 
@@ -1535,12 +1535,6 @@ timedemo <demoname>
 */
 void CL_TimeDemo_f( void )
 {
-	if( Cmd_Argc() != 2 )
-	{
-		Con_Printf( S_USAGE "timedemo <demoname>\n" );
-		return;
-	}
-
 	CL_PlayDemo_f ();
 
 	// cls.td_starttime will be grabbed at the second frame of the demo, so
