@@ -3937,11 +3937,6 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	clgame.entities = NULL;
 
-	// NOTE: important stuff!
-	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
-	// during LoadLibrary
-	VGui_Startup( name, gameui.globals->scrWidth, gameui.globals->scrHeight );
-
 	// a1ba: we need to check if client.dll has direct dependency on SDL2
 	// and if so, disable relative mouse mode
 #if XASH_WIN32 && !XASH_64BIT
@@ -4041,6 +4036,8 @@ qboolean CL_LoadProgs( const char *name )
 		clgame.hInstance = NULL;
 		return false;
 	}
+
+	VGui_Startup( name, gameui.globals->scrWidth, gameui.globals->scrHeight );
 
 	Cvar_FullSet( "host_clientloaded", "1", FCVAR_READ_ONLY );
 

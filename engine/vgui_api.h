@@ -186,8 +186,11 @@ typedef struct  vguiapi_s
 	int		(*GetClipboardText)( char *buffer, size_t bufferSize );
 	void	(*SetClipboardText)( const char *text );
 	key_modifier_t (*GetKeyModifiers)( void );
+	void	*(*COM_LoadLibrary)( const char *dllname, int build_ordinals_table, qboolean directpath );
+	void 	(*COM_FreeLibrary)( void *hInstance );
+	void 	*(*COM_GetProcAddress)( void *hInstance, const char *name );
 	// called from engine side
-	void	(*Startup)( int width, int height );
+	void	(*Startup)( const char *clientlib, int width, int height );
 	void	(*Shutdown)( void );
 	void	*(*GetPanel)( void );
 	void	(*Paint)( void );

@@ -94,6 +94,9 @@ vguiapi_t vgui =
 	Platform_GetClipboardText,
 	Platform_SetClipboardText,
 	Platform_GetKeyModifiers,
+	COM_LoadLibrary,
+	COM_FreeLibrary,
+	COM_GetProcAddress,
 	NULL,
 	NULL,
 	NULL,
@@ -250,7 +253,7 @@ void VGui_Startup( const char *clientlib, int width, int height )
 
 	if( vgui.initialized )
 	{
-		vgui.Startup( width, height );
+		vgui.Startup( clientlib, width, height );
 	}
 	else if ( COM_CheckString( clientlib ) )
 	{
