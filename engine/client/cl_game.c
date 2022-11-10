@@ -3937,10 +3937,6 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	clgame.entities = NULL;
 
-	// NOTE: important stuff!
-	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
-	// during LoadLibrary
-	VGui_Startup( name, gameui.globals->scrWidth, gameui.globals->scrHeight );
 
 	// a1ba: we need to check if client.dll has direct dependency on SDL2
 	// and if so, disable relative mouse mode
@@ -3959,8 +3955,29 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.client_dll_uses_sdl = true;
 #endif
 
+	// NOTE: important stuff!
+	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
+	// during LoadLibrary
+	if( !GI->internal_vgui_support && VGui_LoadProgs( NULL ))
+	{
+		VGui_Startup( refState.width, refState.height );
+	}
+	else
+	{
+		// we failed to load vgui_support, but let's probe client.dll for support anyway
+		GI->internal_vgui_support = true;
+	}
+
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
-	if( !clgame.hInstance ) return false;
+
+	if( !clgame.hInstance )
+		return false;
+
+	// delayed vgui initialization for internal support
+	if( GI->internal_vgui_support && VGui_LoadProgs( NULL ))
+	{
+		VGui_Startup( refState.width, refState.height );
+	}
 
 	// clear exports
 	for( func = cdll_exports; func && func->name; func++ )

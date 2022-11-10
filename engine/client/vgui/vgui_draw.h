@@ -16,16 +16,12 @@ GNU General Public License for more details.
 #ifndef VGUI_DRAW_H
 #define VGUI_DRAW_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include "port.h"
-
 //
 // vgui_draw.c
 //
-void VGui_Startup( const char *clientlib, int width, int height );
+void VGui_RegisterCvars( void );
+qboolean VGui_LoadProgs( HINSTANCE hInstance );
+void VGui_Startup( int width, int height );
 void VGui_Shutdown( void );
 void VGui_Paint( void );
 void VGui_RunFrame( void );
@@ -37,7 +33,5 @@ qboolean VGui_IsActive( void );
 void *VGui_GetPanel( void );
 void VGui_ReportTextInput( const char *text );
 void VGui_UpdateInternalCursorState( VGUI_DefaultCursor cursorType );
-#ifdef __cplusplus
-}
-#endif
-#endif//VGUI_DRAW_H
+
+#endif // VGUI_DRAW_H
