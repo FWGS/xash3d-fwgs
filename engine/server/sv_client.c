@@ -2740,7 +2740,7 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 
 	classname = ALLOC_STRING( Cmd_Argv( 1 ) );
 
-	ent = SV_AllocPrivateData( 0, classname );
+	ent = SV_CreateNamedEntity( 0, classname );
 
 	// Xash3D extension
 	if( !ent && svgame.physFuncs.SV_CreateEntity )
