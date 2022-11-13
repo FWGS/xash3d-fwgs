@@ -1,4 +1,5 @@
 from waflib import TaskGen
+import json
 
 def configure(conf):
 	conf.find_program('sebastian.py', var='SEBASTIAN', path_list=[conf.path.abspath()])
@@ -35,13 +36,39 @@ from waflib.Tools import c_preproc, ccroot
 
 class sebastian(Task.Task):
 	color = 'BLUE'
-	run_str = '${SEBASTIAN} -o ${TGT} ${SRC} --path ${TGT[0].parent.abspath()}/shaders',
+	#run_str = '${SEBASTIAN} -o ${TGT} ${SRC}' # --path ${TGT[0].parent.abspath()}/shaders'
+	run_str = '${SEBASTIAN} -o ${TGT} ${SRC} --path ${TGT[0].parent.abspath()}'
 	ext_in  = ['.json']
-
-	#scan = c_preproc.scan
 
 	def keyword(self):
 		return 'Compiling meatpipe'
+
+	def scan(self):
+		env = self.env
+		bld = self.generator.bld
+
+		node = self.inputs[0]
+		out = self.outputs[0]
+
+		print("############################################### Scanning", node)
+
+		#bld = self.generator.bld
+		cmd = env.SEBASTIAN + [node.abspath(), '--path', out.parent.abspath(), '--depend', '-']
+		#cmd = env.SEBASTIAN + ['--path', out.parent.abspath() + '/shaders', node.abspath(), '--depend', '-']
+
+		output = bld.cmd_and_log(cmd, cwd = self.get_cwd(), env = env.env or None)
+
+		print("LOOOO99000000000000000OOL", output)
+		deps = json.loads(output)
+
+		ndeps = [bld.path.find_resource(dep) for dep in deps]
+		print("FOOOOOOOOOOOOOOUND", ndeps)
+
+		return (ndeps, [])
+		# dep = node.parent.find_resource(node.name.replace('.dep'))
+		# if not dep:
+		# 	raise ValueError("Could not find the .dep file for %r" % node)
+		# return ([dep], [])
 
 @TaskGen.extension('.json')
 def process_meatpipe(self, src):

@@ -4,10 +4,16 @@ import argparse
 import struct
 import copy
 from spirv import spv
+import sys
+import os
+
+import sys
+print(sys.argv, file=sys.stderr)
 
 parser = argparse.ArgumentParser(description='Build pipeline descriptor')
-parser.add_argument('--path', action='append', help='Directory to look for shaders')
+parser.add_argument('--path', '-p', help='Directory where to look for .spv shader files')
 parser.add_argument('--output', '-o', type=argparse.FileType('wb'), help='Compiled pipeline')
+parser.add_argument('--depend', '-d', type=argparse.FileType('w'), help='Generate dependency file (json)')
 parser.add_argument('pipelines', type=argparse.FileType('r'))
 # TODO strip debug OpName OpLine etc
 args = parser.parse_args()
@@ -16,6 +22,17 @@ spvOp = spv['Op']
 spvOpNames = dict()
 for name, n in spvOp.items():
 	spvOpNames[n] = name
+
+print("cwd", os.path.abspath('.'), file=sys.stderr)
+
+src_dir = os.path.abspath(os.path.dirname(args.pipelines.name))
+print("src", src_dir, file=sys.stderr)
+
+#dst_dir = os.path.abspath(os.path.dirname(args.output.name))
+#print("dst", dst_dir, file=sys.stderr)
+
+shaders_path = os.path.abspath(args.path if args.path else '.')
+print("shaders_path", shaders_path, file=sys.stderr)
 
 # remove comment lines and fix comma
 def prepareJSON(path):
@@ -291,26 +308,44 @@ class Binding:
 		out.writeU32(self.stages)
 
 class Shader:
-	def __init__(self, name, file):
+	def __init__(self, name, fullpath):
 		self.name = name
-		self.raw_data = file
+		self.__fullpath = fullpath
+		self.__raw_data = None
+		self.__bindings = None
 		#print(name, '=>', len(self.raw_data))
-		self.spirv = parseSpirv(self.raw_data)
 
 	def __str__(self):
-		ret = ''
-		for index, node in enumerate(self.spirv.nodes):
-			if node.descriptor_set is not None:
-				ret += ('[%d:%d] (id=%d) %s\n' % (node.descriptor_set, node.binding, index, node.name))
-		return ret
+		return self.name
+		# ret = ''
+		# for index, node in enumerate(self.__spirv.nodes):
+		# 	if node.descriptor_set is not None:
+		# 		ret += ('[%d:%d] (id=%d) %s\n' % (node.descriptor_set, node.binding, index, node.name))
+		# return ret
+
+	def getRawData(self):
+		if not self.__raw_data:
+			self.__raw_data = open(self.__fullpath, 'rb').read()
+
+		return self.__raw_data
 
 	def getBindings(self):
-		ret = []
-		for node in self.spirv.nodes:
+		if self.__bindings:
+			return self.__bindings
+
+		spirv = parseSpirv(self.__raw_data)
+
+		bindings = []
+		for node in spirv.nodes:
 			if node.binding == None or node.descriptor_set == None:
 				continue
-			ret.append(Binding(node))
-		return ret
+			bindings.append(Binding(node))
+
+		self.__bindings = bindings
+		return self.__bindings
+
+	def getFilePath(self):
+		return self.__fullpath
 
 class Shaders:
 	__suffixes = {
@@ -325,28 +360,13 @@ class Shaders:
 		self.__map = dict()
 		self.__shaders = []
 
-	def __loadShaderFile(name):
-		try:
-			return open(name, 'rb').read()
-		except:
-			pass
-
-		if args.path:
-			for path in args.path:
-				try:
-					return open(path + '/' + name, 'rb').read()
-				except:
-					pass
-
-		raise Exception('Cannot load shader ' + name)
-
 	def load(self, name, stage):
 		name = name + self.__suffixes[stage]
+		fullpath = os.path.join(shaders_path, name)
 		if name in self.__map:
 			return self.__shaders[self.__map[name]]
 
-		file = Shaders.__loadShaderFile(name);
-		shader = Shader(name, file)
+		shader = Shader(name, fullpath)
 
 		index = len(self.__shaders)
 		self.__shaders.append(shader)
@@ -361,7 +381,10 @@ class Shaders:
 		out.writeU32(len(self.__shaders))
 		for shader in self.__shaders:
 			out.writeString(shader.name)
-			out.writeBytes(shader.raw_data)
+			out.writeBytes(shader.getRawData())
+
+	def getAllFiles(self):
+		return [shader.getFilePath() for shader in self.__shaders]
 
 shaders = Shaders()
 
@@ -373,26 +396,32 @@ class Pipeline:
 	def __init__(self, name, type_id):
 		self.name = name
 		self.type = type_id
-		self.__bindings = {}
+		self.__shaders = []
 
 	def addShader(self, shader_name, stage):
 		shader = shaders.load(shader_name, stage)
-		for binding in shader.getBindings():
-			addr = (binding.descriptor_set, binding.index)
-			if not addr in self.__bindings:
-				self.__bindings[addr] = copy.deepcopy(binding)
-
-			self.__bindings[addr].stages |= stage
-
+		self.__shaders.append((shader, stage))
 		return shader
 
+	def __mergeBindings(self):
+		bindings = {}
+		for shader, stage in self.__shaders:
+			for binding in shader.getBindings():
+				addr = (binding.descriptor_set, binding.index)
+				if not addr in bindings:
+					bindings[addr] = copy.deepcopy(binding)
+
+				bindings[addr].stages |= stage
+		return bindings
+
 	def serialize(self, out):
+		bindings = self.__mergeBindings()
 		#print(self.name)
-		#for binding in self.__bindings.values():
+		#for binding in bindings.values():
 			#print(f"  {binding.name}: ds={binding.descriptor_set}, b={binding.index}, type={binding.type}, stages={binding.stages:#x}")
 		out.writeU32(self.type)
 		out.writeString(self.name)
-		out.writeArray(self.__bindings.values())
+		out.writeArray(bindings.values())
 
 class PipelineRayTracing(Pipeline):
 	__hit2stage = {
@@ -458,6 +487,9 @@ def writeOutput(file, pipelines):
 	out.writeArray(pipelines.values())
 
 pipelines = loadPipelines()
+
+if args.depend:
+	json.dump([os.path.relpath(file) for file in shaders.getAllFiles()], args.depend)
 
 if args.output:
 	writeOutput(args.output, pipelines)
