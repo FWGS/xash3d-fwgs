@@ -3,6 +3,9 @@ import json
 
 def configure(conf):
 	conf.find_program('sebastian.py', var='SEBASTIAN', path_list=[conf.path.abspath()])
+	#print(conf)
+	#print(conf.env)
+	#conf.env.SEBASTIAN = conf.find_file('sebastian.py')
 
 class sebastian(Task.Task):
 	color = 'CYAN'
@@ -20,10 +23,14 @@ class sebastian(Task.Task):
 		out = self.outputs[0]
 
 		cmd = env.SEBASTIAN + [node.abspath(), '--path', out.parent.abspath(), '--depend', '-']
+		print(cmd)
 		output = bld.cmd_and_log(cmd, cwd = self.get_cwd(), env = env.env or None, quiet = True)
 
 		deps = json.loads(output)
+		print(deps)
+
 		ndeps = [bld.path.find_resource(dep) for dep in deps]
+		print(ndeps)
 
 		return (ndeps, [])
 
