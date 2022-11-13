@@ -141,7 +141,7 @@ class SpirvNode:
 				return node.type
 
 			node = node.type_node
-		raise Exception(f"Couldn't find type for node {self.name}")
+		raise Exception('Couldn\'t find type for node %s' % self.name)
 
 class SpirvContext:
 	def __init__(self, nodes_count):
