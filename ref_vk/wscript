@@ -157,7 +157,7 @@ def build(bld):
 					  cwd=bld.path.find_dir('data/'),
 					  relative_trick=True)
 
-	bld.program(features='test', defines=['ALOLCATOR_TEST'],source='alolcator.c', target='alolcator')
+	#bld.program(features='test', defines=['ALOLCATOR_TEST'],source='alolcator.c', target='alolcator')
 	bld.add_post_fun(printTestSummary)
 
 	#from waflib.Tools import waf_unit_test
