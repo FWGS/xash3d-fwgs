@@ -3898,6 +3898,9 @@ void CL_UnloadProgs( void )
 {
 	if( !clgame.hInstance ) return;
 
+	if( GI->internal_vgui_support )
+		VGui_Shutdown();
+
 	CL_FreeEdicts();
 	CL_FreeTempEnts();
 	CL_FreeViewBeams();

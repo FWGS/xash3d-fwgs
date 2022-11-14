@@ -3138,7 +3138,9 @@ void CL_Shutdown( void )
 	CL_UnloadProgs ();
 	cls.initialized = false;
 
-	VGui_Shutdown();
+	// for client-side VGUI support we use other order
+	if( !GI->internal_vgui_support )
+		VGui_Shutdown();
 
 	FS_Delete( "demoheader.tmp" ); // remove tmp file
 	SCR_FreeCinematic (); // release AVI's *after* client.dll because custom renderer may use them
