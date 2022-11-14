@@ -24,16 +24,16 @@ spvOpNames = dict()
 for name, n in spvOp.items():
 	spvOpNames[n] = name
 
-print("cwd", os.path.abspath('.'), file=sys.stderr)
+#print("cwd", os.path.abspath('.'), file=sys.stderr)
 
 src_dir = os.path.abspath(os.path.dirname(args.pipelines.name))
-print("src", src_dir, file=sys.stderr)
+#print("src", src_dir, file=sys.stderr)
 
 # #dst_dir = os.path.abspath(os.path.dirname(args.output.name))
 # #print("dst", dst_dir, file=sys.stderr)
 
 shaders_path = os.path.abspath(args.path if args.path else '.')
-print("shaders_path", shaders_path, file=sys.stderr)
+#print("shaders_path", shaders_path, file=sys.stderr)
 
 def removeprefix(s, pre):
 	return s[len(pre):] if s.startswith(pre) else s

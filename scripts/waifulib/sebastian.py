@@ -23,15 +23,10 @@ class sebastian(Task.Task):
 		out = self.outputs[0]
 
 		cmd = env.SEBASTIAN + [node.abspath(), '--path', out.parent.abspath(), '--depend', '-']
-
-		print(cmd)
 		output = bld.cmd_and_log(cmd, cwd = self.get_cwd(), env = env.env or None, quiet = True)
 
 		deps = json.loads(output)
-		print(deps)
-
 		ndeps = [bld.path.find_resource(str(dep)) for dep in deps]
-		print(ndeps)
 
 		return (ndeps, [])
 
