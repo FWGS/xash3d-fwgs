@@ -3898,9 +3898,6 @@ void CL_UnloadProgs( void )
 {
 	if( !clgame.hInstance ) return;
 
-	if( GI->internal_vgui_support )
-		VGui_Shutdown();
-
 	CL_FreeEdicts();
 	CL_FreeTempEnts();
 	CL_FreeViewBeams();
@@ -3911,6 +3908,9 @@ void CL_UnloadProgs( void )
 	// NOTE: HLFX 0.5 has strange bug: hanging on exit if no map was loaded
 	if( Q_stricmp( GI->gamefolder, "hlfx" ) || GI->version != 0.5f )
 		clgame.dllFuncs.pfnShutdown();
+
+	if( GI->internal_vgui_support )
+		VGui_Shutdown();
 
 	Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
 	Cvar_FullSet( "host_clientloaded", "0", FCVAR_READ_ONLY );
