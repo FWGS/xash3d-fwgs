@@ -3974,7 +3974,7 @@ qboolean CL_LoadProgs( const char *name )
 		return false;
 
 	// delayed vgui initialization for internal support
-	if( GI->internal_vgui_support && VGui_LoadProgs( NULL ))
+	if( GI->internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
 	{
 		VGui_Startup( refState.width, refState.height );
 	}
