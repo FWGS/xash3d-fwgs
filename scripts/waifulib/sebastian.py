@@ -2,10 +2,9 @@ from waflib import TaskGen, Task, Utils
 import json
 
 def configure(conf):
-	conf.find_program('sebastian.py', var='SEBASTIAN', path_list=[conf.path.abspath()])
-	#print(conf)
-	#print(conf.env)
-	#conf.env.SEBASTIAN = conf.find_file('sebastian.py')
+	conf.find_program('sebastian', var='SEBASTIAN', exts='.py', path_list=[conf.path.abspath()])
+	if conf.env.DEST_OS == 'win32':
+		conf.env.SEBASTIAN = ['python'] + conf.env.SEBASTIAN
 
 class sebastian(Task.Task):
 	color = 'CYAN'
@@ -23,13 +22,14 @@ class sebastian(Task.Task):
 		out = self.outputs[0]
 
 		cmd = env.SEBASTIAN + [node.abspath(), '--path', out.parent.abspath(), '--depend', '-']
+
 		print(cmd)
 		output = bld.cmd_and_log(cmd, cwd = self.get_cwd(), env = env.env or None, quiet = True)
 
 		deps = json.loads(output)
 		print(deps)
 
-		ndeps = [bld.path.find_resource(dep) for dep in deps]
+		ndeps = [bld.path.find_resource(str(dep)) for dep in deps]
 		print(ndeps)
 
 		return (ndeps, [])
