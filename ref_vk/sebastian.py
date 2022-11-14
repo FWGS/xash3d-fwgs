@@ -35,6 +35,9 @@ print("src", src_dir, file=sys.stderr)
 shaders_path = os.path.abspath(args.path if args.path else '.')
 print("shaders_path", shaders_path, file=sys.stderr)
 
+def removeprefix(s, pre):
+	return s[len(pre):] if s.startswith(pre) else s
+
 # remove comment lines and fix comma
 def prepareJSON(path):
 	raw_json = buffer = result = ""
@@ -285,7 +288,7 @@ class Binding:
 
 	def __init__(self, node):
 		self.write = node.name.startswith('out_')
-		self.name = node.name.removeprefix('out_')
+		self.name = removeprefix(node.name, 'out_')
 		self.index = node.binding
 		self.descriptor_set = node.descriptor_set
 		self.stages = 0
