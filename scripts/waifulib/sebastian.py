@@ -4,7 +4,8 @@ import json
 def configure(conf):
 	conf.find_program('sebastian', var='SEBASTIAN', exts='.py', path_list=[conf.path.abspath()])
 	if conf.env.DEST_OS == 'win32':
-		conf.env.SEBASTIAN = ['python'] + conf.env.SEBASTIAN
+		conf.find_program('python')
+		conf.env.SEBASTIAN = conf.env.PYTHON + conf.env.SEBASTIAN
 
 class sebastian(Task.Task):
 	color = 'CYAN'
