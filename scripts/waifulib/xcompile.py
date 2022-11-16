@@ -349,13 +349,13 @@ class Android:
 		return ldflags
 
 def options(opt):
-	android = opt.add_option_group('Android options')
-	android.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
+	xc = opt.add_option_group('Cross compile options')
+	xc.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
 		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,9')
-
-	magx = opt.add_option_group('MotoMAGX options')
-	magx.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
-		help = 'enable targetting for MotoMAGX phones [default: %default]')
+	xc.add_option('--enable-magx', action='store_true', dest='MAGX', default=False,
+		help='enable building for Motorola MAGX [default: %default]')
+	xc.add_option('--enable-msvc-wine', action='store_true', dest='MSVC_WINE', default=False,
+		help='enable building with MSVC using Wine [default: %default]')
 
 def configure(conf):
 	if conf.options.ANDROID_OPTS:
@@ -389,17 +389,28 @@ def configure(conf):
 		conf.msg('... C/C++ flags', ' '.join(android.cflags()).replace(android.ndk_home, '$NDK/'))
 		conf.msg('... link flags', ' '.join(android.linkflags()).replace(android.ndk_home, '$NDK/'))
 		conf.msg('... ld flags', ' '.join(android.ldflags()).replace(android.ndk_home, '$NDK/'))
-
-		# conf.env.ANDROID_OPTS = android
-		conf.env.DEST_OS2 = 'android'
 	elif conf.options.MAGX:
 		# useless to change toolchain path, as toolchain meant to be placed in this path
 		toolchain_path = '/opt/toolchains/motomagx/arm-eabi2/lib/'
 		conf.env.INCLUDES_MAGX = [toolchain_path + i for i in ['ezx-z6/include', 'qt-2.3.8/include']]
 		conf.env.LIBPATH_MAGX  = [toolchain_path + i for i in ['ezx-z6/lib', 'qt-2.3.8/lib']]
 		conf.env.LINKFLAGS_MAGX = ['-Wl,-rpath-link=' + i for i in conf.env.LIBPATH_MAGX]
+	elif conf.options.MSVC_WINE:
+		try:
+			toolchain_path = conf.environ['MSVC_WINE_PATH']
+		except KeyError:
+			conf.fatal('Set MSVC_WINE_PATH environment variable to the MSVC toolchain root!')
+
+		conf.environ['CC'] = conf.environ['CXX'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'cl')
+		conf.environ['LINK_CXX'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'link')
+		conf.environ['AR'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'lib')
+		conf.environ['WINRC'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'rc')
+		conf.env.DEST_OS = 'win32'
+		conf.env.DEST_CPU = conf.env.MSVC_TARGETS[0]
+		conf.env.COMPILER_CXX = conf.env.COMPILER_CC = 'msvc'
 
 	conf.env.MAGX = conf.options.MAGX
+	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
@@ -433,11 +444,17 @@ compiler_cxx_configure = getattr(compiler_cxx, 'configure')
 compiler_c_configure = getattr(compiler_c, 'configure')
 
 def patch_compiler_cxx_configure(conf):
-	compiler_cxx_configure(conf)
+	if not conf.env.MSVC_WINE:
+		compiler_cxx_configure(conf)
+	else:
+		conf.load('msvc', funs='no_autodetect')
 	post_compiler_cxx_configure(conf)
 
 def patch_compiler_c_configure(conf):
-	compiler_c_configure(conf)
+	if not conf.env.MSVC_WINE:
+		compiler_c_configure(conf)
+	else:
+		conf.load('msvc', funs='no_autodetect')
 	post_compiler_c_configure(conf)
 
 setattr(compiler_cxx, 'configure', patch_compiler_cxx_configure)
