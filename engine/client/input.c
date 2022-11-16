@@ -176,8 +176,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 
 	// since SetCursorType controls cursor visibility
 	// execute it first, and then check mouse grab state
-	if(( newstate == key_menu || newstate == key_console || newstate == key_message ) &&
-		( CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
+	if( newstate == key_menu || newstate == key_console || newstate == key_message )
 	{
 		Platform_SetCursorType( dc_arrow );
 
