@@ -45,12 +45,12 @@ def build(bld):
 		},
 		'ref_gles1': {
 			'enable':  bld.env.NANOGL,
-			'libs':    ['DL', 'nanogl'],
+			'libs':    ['DL', 'nanogl', 'LOG'],
 			'defines': ['XASH_NANOGL'],
 		},
 		'ref_gles2': {
 			'enable':  bld.env.GLWES,
-			'libs':    ['DL', 'gl-wes-v2'],
+			'libs':    ['DL', 'gl-wes-v2', 'LOG'],
 			'defines': ['XASH_WES'],
 		},
 		'ref_gl4es': {
