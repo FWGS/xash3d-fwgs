@@ -3396,9 +3396,15 @@ void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 
 	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
 	{
-		if ( cur->state < cs_connected && cl != cur )
-			continue;
-		
+		if( cl != cur )
+		{
+			if( cur->state < cs_connected )
+				continue;
+
+			if( !FBitSet( cur->listeners, BIT( client )))
+				continue;
+		}
+
 		length = size;
 
 		// 6 is a number of bytes for other parts of message
