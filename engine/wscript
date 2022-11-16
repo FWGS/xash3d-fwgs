@@ -48,9 +48,6 @@ def configure(conf):
 		conf.options.NO_ASYNC_RESOLVE = True
 		if not conf.check_cc( fragment='int main(){ int i = socket();}', lib = 'wattcpwl', mandatory=False ):
 			conf.define('XASH_NO_NETWORK',1)
-	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
-		for i in ['log']:
-			conf.check_cc(lib = i)
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)

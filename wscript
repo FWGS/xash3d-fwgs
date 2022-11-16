@@ -275,6 +275,9 @@ def configure(conf):
 
 		if not conf.env.LIB_M: # HACK: already added in xcompile!
 			conf.check_cc(lib='m')
+
+		if conf.env.DEST_OS == 'android':
+			conf.check_cc(lib='log')
 	else:
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
