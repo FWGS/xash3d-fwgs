@@ -474,7 +474,6 @@ void SV_SendResource( resource_t *pResource, sizebuf_t *msg );
 void SV_SendResourceList( sv_client_t *cl );
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
-int SV_GetConnectedClientsCount( int *bots );
 void Host_SetServerState( int state );
 qboolean SV_IsSimulating( void );
 void SV_FreeClients( void );
@@ -551,6 +550,7 @@ void SV_InitClientMove( void );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( void );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) _format( 2 );
+void SV_GetPlayerCount( int *clients, int *bots );
 
 //
 // sv_cmds.c

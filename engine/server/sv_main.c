@@ -164,41 +164,6 @@ qboolean SV_HasActivePlayers( void )
 }
 
 /*
-================
-SV_GetConnectedClientsCount
-
-returns connected clients count (and optionally bots count)
-================
-*/
-int SV_GetConnectedClientsCount(int *bots)
-{
-	int index;
-	int	clients;
-
-	clients = 0;
-	if( svs.clients )
-	{
-		if( bots )
-			*bots = 0;
-
-		for( index = 0; index < svs.maxclients; index++ )
-		{
-			if( svs.clients[index].state >= cs_connected )
-			{
-				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
-				{
-					if( bots )
-						(*bots)++;
-				}
-				else
-					clients++;
-			}
-		}
-	}
-	return clients;
-}
-
-/*
 ===================
 SV_UpdateMovevars
 
@@ -777,7 +742,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
 	uint	challenge;
 	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
-	int	clients = 0, bots = 0;
+	int	clients, bots;
 	int	len = sizeof( s );
 
 	if( !NET_IsMasterAdr( from ))
@@ -786,7 +751,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	clients = SV_GetConnectedClientsCount( &bots );
+	SV_GetPlayerCount( &clients, &bots );
 	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
 
 	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version

@@ -48,7 +48,7 @@ SV_GetPlayerCount
 
 =================
 */
-static void SV_GetPlayerCount( int *players, int *bots )
+void SV_GetPlayerCount( int *players, int *bots )
 {
 	int i;
 
