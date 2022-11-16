@@ -203,7 +203,7 @@ void VGui_Startup( int width, int height )
 	if( !vgui.initialized )
 		return;
 
-	height = Q_min( 480, height );
+	height = Q_max( 480, height );
 
 	if( width <= 640 ) width = 640;
 	else if( width <= 800 ) width = 800;
