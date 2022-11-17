@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "platform/platform.h"
 #include <stdlib.h>
+#include <errno.h>
 
 #ifdef XASH_SDL
 #include <SDL.h>
@@ -32,10 +33,16 @@ GNU General Public License for more details.
 #endif
 #endif
 
+#if XASH_WIN32
+#include <process.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
 
+#include "library.h"
+#include "whereami.h"
+
 qboolean	error_on_exit = false;	// arg for exit();
-#define DEBUG_BREAK
 
 /*
 ================
@@ -46,23 +53,28 @@ double GAME_EXPORT Sys_DoubleTime( void )
 {
 	return Platform_DoubleTime();
 }
+
+/*
+================
+Sys_DebugBreak
+================
+*/
+void Sys_DebugBreak( void )
+{
 #if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
-	#undef DEBUG_BREAK
-	qboolean Sys_DebuggerPresent( void ); // see sys_linux.c
-	#if XASH_MSVC
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				_asm{ int 3 }
-	#elif XASH_X86
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				asm volatile("int $3;")
-	#else
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				raise( SIGINT )
-	#endif
+#if XASH_MSVC
+	if( Sys_DebuggerPresent() )
+		_asm { int 3 }
+#elif XASH_X86
+	if( Sys_DebuggerPresent() )
+		asm volatile( "int $3;" );
+#else
+	if( Sys_DebuggerPresent() )
+		raise( SIGINT );
 #endif
+#endif
+}
+
 #if !XASH_DEDICATED
 /*
 ================
@@ -272,7 +284,8 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 			*func->func = NULL;
 	}
 
-	if( !dll->link ) dll->link = LoadLibrary ( dll->name ); // environment pathes
+	if( !dll->link )
+		dll->link = COM_LoadLibrary( dll->name, false, true ); // environment pathes
 
 	// no DLL found
 	if( !dll->link )
@@ -307,7 +320,7 @@ void* Sys_GetProcAddress( dll_info_t *dll, const char* name )
 	if( !dll || !dll->link ) // invalid desc
 		return NULL;
 
-	return (void *)GetProcAddress( dll->link, name );
+	return (void *)COM_GetProcAddress( dll->link, name );
 }
 
 qboolean Sys_FreeLibrary( dll_info_t *dll )
@@ -324,7 +337,7 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 	}
 	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", dll->name );
 
-	FreeLibrary( dll->link );
+	COM_FreeLibrary( dll->link );
 	dll->link = NULL;
 
 	return true;
@@ -368,12 +381,14 @@ void Sys_Warn( const char *format, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
-	DEBUG_BREAK;
-
 	va_start( argptr, format );
 	Q_vsnprintf( text, MAX_PRINT_MSG, format, argptr );
 	va_end( argptr );
+
+	Sys_DebugBreak();
+
 	Msg( "Sys_Warn: %s\n", text );
+
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
 		MSGBOX(text);
 }
@@ -391,12 +406,14 @@ void Sys_Error( const char *error, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
-	DEBUG_BREAK;
+	// enable cursor before debugger call
+	if( !Host_IsDedicated( ))
+		Platform_SetCursorType( dc_arrow );
 
 	if( host.status == HOST_ERR_FATAL )
 		return; // don't multiple executes
 
-	// make sure what console received last message
+	// make sure that console received last message
 	if( host.change_game ) Sys_Sleep( 200 );
 
 	error_on_exit = true;
@@ -405,6 +422,8 @@ void Sys_Error( const char *error, ... )
 	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
 	va_end( argptr );
 
+	Sys_DebugBreak();
+
 	SV_SysError( text );
 
 	if( !Host_IsDedicated() )
@@ -412,9 +431,12 @@ void Sys_Error( const char *error, ... )
 #if XASH_SDL == 2
 		if( host.hWnd ) SDL_HideWindow( host.hWnd );
 #endif
+#if XASH_WIN32
+		Wcon_ShowConsole( false );
+#endif
+		MSGBOX( text );
 	}
-
-	if( host_developer.value )
+	else
 	{
 #if XASH_WIN32
 		Wcon_ShowConsole( true );
@@ -423,14 +445,7 @@ void Sys_Error( const char *error, ... )
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
 	}
-	else
-	{
-#if XASH_WIN32
-		Wcon_ShowConsole( false );
-#endif
-		MSGBOX( text );
-	}
-
+	
 	Sys_Quit();
 }
 
@@ -535,4 +550,68 @@ void Sys_Print( const char *pMsg )
 	Sys_PrintLog( pMsg );
 
 	Rcon_Print( pMsg );
+}
+
+/*
+==================
+Sys_ChangeGame
+
+This is a special function
+
+Here we restart engine with new -game parameter
+but since engine will be unloaded during this call
+it explicitly doesn't use internal allocation or string copy utils
+==================
+*/
+qboolean Sys_NewInstance( const char *gamedir )
+{
+	int i = 0;
+	qboolean replacedArg = false;
+	size_t exelen;
+	char *exe, **newargs;
+
+	// don't use engine allocation utils here
+	// they will be freed after Host_Shutdown
+	newargs = calloc( host.argc + 4, sizeof( *newargs ));
+	while( i < host.argc )
+	{
+		newargs[i] = strdup( host.argv[i] );
+
+		// replace existing -game argument
+		if( !Q_stricmp( newargs[i], "-game" ))
+		{
+			newargs[i + 1] = strdup( gamedir );
+			replacedArg = true;
+			i += 2;
+		}
+		else i++;
+	}
+
+	if( !replacedArg )
+	{
+		newargs[i++] = strdup( "-game" );
+		newargs[i++] = strdup( gamedir );
+	}
+
+	newargs[i++] = strdup( "-changegame" );
+	newargs[i] = NULL;
+
+	exelen = wai_getExecutablePath( NULL, 0, NULL );
+	exe = malloc( exelen + 1 );
+	wai_getExecutablePath( exe, exelen, NULL );
+	exe[exelen] = 0;
+
+	Host_Shutdown();
+
+	execv( exe, newargs );
+
+	// if execv returned, it's probably an error
+	printf( "execv failed: %s", strerror( errno ));
+
+	for( ; i >= 0; i-- )
+		free( newargs[i] );
+	free( newargs );
+	free( exe );
+
+	return false;
 }

@@ -249,7 +249,7 @@ void SV_Maps_f( void )
 
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: maps <substring>\nmaps * for full listing\n" );
+		Msg( S_USAGE "maps <substring>\nmaps * for full listing\n" );
 		return;
 	}
 

@@ -237,10 +237,6 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	}
 	else Cvar_Reset( "r_decals" );
 
-	// re-init mouse
-	if( cl.background )
-		host.mouse_visible = false;
-
 	if( cl.background )	// tell the game parts about background state
 		Cvar_FullSet( "cl_background", "1", FCVAR_READ_ONLY );
 	else Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
@@ -864,7 +860,7 @@ void CL_QuakeExecStuff( void )
 
 		if( !*text ) break;
 
-		text = _COM_ParseFileSafe( text, token, sizeof( token ), PFILE_IGNOREBRACKET, NULL );
+		text = COM_ParseFileSafe( text, token, sizeof( token ), PFILE_IGNOREBRACKET, NULL, NULL );
 
 		if( !text ) break;
 

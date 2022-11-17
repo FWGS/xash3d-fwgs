@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #include "server.h"
 #include "net_encode.h"
 #include "library.h"
+#include "voice.h"
+
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
@@ -388,6 +390,18 @@ void SV_CreateResourceList( void )
 
 /*
 ================
+SV_WriteVoiceCodec
+================
+*/
+void SV_WriteVoiceCodec( sizebuf_t *msg )
+{
+	MSG_BeginServerCmd( msg, svc_voiceinit );
+	MSG_WriteString( msg, VOICE_DEFAULT_CODEC );
+	MSG_WriteByte( msg, (int)sv_voicequality.value );
+}
+
+/*
+================
 SV_CreateBaseline
 
 Entity baselines are used to compress the update messages
@@ -403,6 +417,8 @@ void SV_CreateBaseline( void )
 	int		playermodel;
 	int		delta_type;
 	int		entnum;
+
+	SV_WriteVoiceCodec( &sv.signon );
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		playermodel = SV_ModelIndex( DEFAULT_PLAYER_PATH_QUAKE );
@@ -761,7 +777,7 @@ void SV_SetupClients( void )
 	Con_Reportf( "%s alloced by server packet entities\n", Q_memprint( sizeof( entity_state_t ) * svs.num_client_entities ));
 
 	// init network stuff
-	NET_Config(( svs.maxclients > 1 ));
+	NET_Config(( svs.maxclients > 1 ), true );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 	ClearBits( sv_maxclients->flags, FCVAR_CHANGED );
 }

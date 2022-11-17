@@ -533,8 +533,6 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 	// spatialize
 	memset( target_chan, 0, sizeof( *target_chan ));
 
-	pitch *= (sys_timescale.value + 1) / 2;
-
 	VectorCopy( pos, target_chan->origin );
 	target_chan->staticsound = ( ent == 0 ) ? true : false;
 	target_chan->use_loop = (flags & SND_STOP_LOOPING) ? false : true;
@@ -1129,7 +1127,7 @@ static uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, 
 S_RawEntSamples
 ===================
 */
-static void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol )
+void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol )
 {
 	rawchan_t	*ch;
 
@@ -1288,6 +1286,9 @@ static void S_FreeIdleRawChannels( void )
 
 		if( ch->s_rawend >= paintedtime )
 			continue;
+		
+		if ( ch->entnum > 0 )
+			SND_ForceCloseMouth( ch->entnum );
 
 		if(( paintedtime - ch->s_rawend ) / SOUND_DMA_SPEED >= S_RAW_SOUND_IDLE_SEC )
 		{
@@ -1850,7 +1851,7 @@ S_SoundInfo_f
 */
 void S_SoundInfo_f( void )
 {
-	Con_Printf( "Audio: DirectSound\n" );
+	Con_Printf( "Audio backend: %s\n", dma.backendName );
 	Con_Printf( "%5d channel(s)\n", 2 );
 	Con_Printf( "%5d samples\n", dma.samples );
 	Con_Printf( "%5d bits/sample\n", 16 );
@@ -1858,6 +1859,33 @@ void S_SoundInfo_f( void )
 	Con_Printf( "%5d total_channels\n", total_channels );
 
 	S_PrintBackgroundTrackState ();
+}
+
+/*
+=================
+S_VoiceRecordStart_f
+=================
+*/
+void S_VoiceRecordStart_f( void )
+{
+	if( cls.state != ca_active || cls.legacymode )
+		return;
+	
+	Voice_RecordStart();
+}
+
+/*
+=================
+S_VoiceRecordStop_f
+=================
+*/
+void S_VoiceRecordStop_f( void )
+{
+	if( cls.state != ca_active || !Voice_IsRecording() )
+		return;
+	
+	CL_AddVoiceToDatagram();
+	Voice_RecordStop();
 }
 
 /*
@@ -1894,11 +1922,12 @@ qboolean S_Init( void )
 	Cmd_AddCommand( "soundlist", S_SoundList_f, "display loaded sounds" );
 	Cmd_AddCommand( "s_info", S_SoundInfo_f, "print sound system information" );
 	Cmd_AddCommand( "s_fade", S_SoundFade_f, "fade all sounds then stop all" );
-	Cmd_AddCommand( "+voicerecord", Cmd_Null_f, "start voice recording (non-implemented)" );
-	Cmd_AddCommand( "-voicerecord", Cmd_Null_f, "stop voice recording (non-implemented)" );
+	Cmd_AddCommand( "+voicerecord", S_VoiceRecordStart_f, "start voice recording" );
+	Cmd_AddCommand( "-voicerecord", S_VoiceRecordStop_f, "stop voice recording" );
 	Cmd_AddCommand( "spk", S_SayReliable_f, "reliable play a specified sententce" );
 	Cmd_AddCommand( "speak", S_Say_f, "playing a specified sententce" );
 
+	dma.backendName = "None";
 	if( !SNDDMA_Init( ) )
 	{
 		Con_Printf( "Audio: sound system can't be initialized\n" );

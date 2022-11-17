@@ -283,6 +283,8 @@ void Con_ToggleConsole_f( void )
 	if( !host.allow_console || UI_CreditsActive( ))
 		return; // disabled
 
+	SCR_EndLoadingPlaque();
+
 	// show console only in game or by special call from menu
 	if( cls.state != ca_active || cls.key_dest == key_menu )
 		return;
@@ -912,7 +914,7 @@ static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
 	if( !con.curFont || !con.curFont->valid )
 		return 0;
 
-	number = Con_UtfProcessChar(number);
+	number = Con_UtfProcessChar( number );
 	if( !number )
 		return 0;
 
@@ -2039,7 +2041,7 @@ void Con_DrawDebug( void )
 	if( scr_download->value != -1.0f )
 	{
 		Q_snprintf( dlstring, sizeof( dlstring ), "Downloading [%d remaining]: ^2%s^7 %5.1f%% time %.f secs",
-		host.downloadcount, host.downloadfile, scr_download->value, Sys_DoubleTime() - timeStart );
+			host.downloadcount, host.downloadfile, scr_download->value, Sys_DoubleTime() - timeStart );
 		x = refState.width - 500;
 		y = con.curFont->charHeight * 1.05f;
 		Con_DrawString( x, y, dlstring, g_color_table[7] );
@@ -2049,7 +2051,7 @@ void Con_DrawDebug( void )
 		timeStart = Sys_DoubleTime();
 	}
 
-	if( !host_developer.value || Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
+	if( !host.allow_console || Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
 		return;
 
 	if( con.draw_notify && !Con_Visible( ))
@@ -2075,7 +2077,7 @@ void Con_DrawNotify( void )
 
 	x = con.curFont->charWidths[' ']; // offset one space at left screen side
 
-	if( host_developer.value && ( !Cvar_VariableInteger( "cl_background" ) && !Cvar_VariableInteger( "sv_background" )))
+	if( host.allow_console && ( !Cvar_VariableInteger( "cl_background" ) && !Cvar_VariableInteger( "sv_background" )))
 	{
 		for( i = CON_LINES_COUNT - con.num_times; i < CON_LINES_COUNT; i++ )
 		{
@@ -2401,11 +2403,21 @@ void Con_RunConsole( void )
 		FBitSet( cl_charset->flags,    FCVAR_CHANGED ) )
 	{
 		// update codepage parameters
-		g_codepage = 0;
-		if( !Q_stricmp( con_charset->string, "cp1251" ) )
+		if( !Q_stricmp( con_charset->string, "cp1251" ))
+		{
 			g_codepage = 1251;
-		else if( !Q_stricmp( con_charset->string, "cp1252" ) )
+		}
+		else if( !Q_stricmp( con_charset->string, "cp1252" ))
+		{
 			g_codepage = 1252;
+		}
+		else
+		{
+			Con_Printf( S_WARN "Unknown charset %s, defaulting to cp1252", con_charset->string );
+
+			Cvar_DirectSet( con_charset, "cp1252" );
+			g_codepage = 1252;
+		}
 
 		g_utf8 = !Q_stricmp( cl_charset->string, "utf-8" );
 		Con_InvalidateFonts();

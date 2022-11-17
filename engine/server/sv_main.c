@@ -18,11 +18,12 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "platform/platform.h"
 
-#define HEARTBEAT_SECONDS	300.0f 		// 300 seconds
+#define HEARTBEAT_SECONDS	((sv_nat.value > 0.0f) ? 60.0f : 300.0f)  	// 1 or 5 minutes
 
 // server cvars
 CVAR_DEFINE_AUTO( sv_lan, "0", 0, "server is a lan server ( no heartbeat, no authentication, no non-class C addresses, 9999.0 rate, etc." );
 CVAR_DEFINE_AUTO( sv_lan_rate, "20000.0", 0, "rate for lan server" );
+CVAR_DEFINE_AUTO( sv_nat, "0", 0, "enable NAT bypass for this server" );
 CVAR_DEFINE_AUTO( sv_aim, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "auto aiming option" );
 CVAR_DEFINE_AUTO( sv_unlag, "1", 0, "allow lag compensation on server-side" );
 CVAR_DEFINE_AUTO( sv_maxunlag, "0.5", 0, "max latency value which can be interpolated (by default ping should not exceed 500 units)" );
@@ -111,6 +112,14 @@ CVAR_DEFINE_AUTO( violence_ablood, "1", 0, "draw alien blood" );
 CVAR_DEFINE_AUTO( violence_hgibs, "1", 0, "show human gib entities" );
 CVAR_DEFINE_AUTO( violence_agibs, "1", 0, "show alien gib entities" );
 
+// voice chat
+CVAR_DEFINE_AUTO( sv_voiceenable, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "enable voice support" );
+CVAR_DEFINE_AUTO( sv_voicequality, "3", FCVAR_ARCHIVE|FCVAR_SERVER, "voice chat quality level, from 0 to 5, higher is better" );
+
+// enttools
+CVAR_DEFINE_AUTO( sv_enttools_enable, "0", FCVAR_ARCHIVE|FCVAR_PROTECTED, "enable powerful and dangerous entity tools" );
+CVAR_DEFINE_AUTO( sv_enttools_maxfire, "5", FCVAR_ARCHIVE|FCVAR_PROTECTED, "limit ent_fire actions count to prevent flooding" );
+
 convar_t	*sv_novis;			// disable server culling entities by vis
 convar_t	*sv_pausable;
 convar_t	*timeout;				// seconds without any message
@@ -152,41 +161,6 @@ qboolean SV_HasActivePlayers( void )
 			return true;
 	}
 	return false;
-}
-
-/*
-================
-SV_GetConnectedClientsCount
-
-returns connected clients count (and optionally bots count)
-================
-*/
-int SV_GetConnectedClientsCount(int *bots)
-{
-	int index;
-	int	clients;
-
-	clients = 0;
-	if( svs.clients )
-	{
-		if( bots )
-			*bots = 0;
-
-		for( index = 0; index < svs.maxclients; index++ )
-		{
-			if( svs.clients[index].state >= cs_connected )
-			{
-				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
-				{
-					if( bots )
-						(*bots)++;
-				}
-				else
-					clients++;
-			}
-		}
-	}
-	return clients;
 }
 
 /*
@@ -713,13 +687,9 @@ Master_Add
 */
 void Master_Add( void )
 {
-	netadr_t	adr;
-
-	NET_Config( true ); // allow remote
-
-	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		Con_Printf( "can't resolve adr: %s\n", MASTERSERVER_ADR );
-	else NET_SendPacket( NS_SERVER, 2, "q\xFF", adr );
+	NET_Config( true, false ); // allow remote
+	if( NET_SendToMasters( NS_SERVER, 2, "q\xFF" ))
+		svs.last_heartbeat = MAX_HEARTBEAT;
 }
 
 /*
@@ -756,13 +726,8 @@ Informs all masters that this server is going down
 */
 void Master_Shutdown( void )
 {
-	netadr_t	adr;
-
-	NET_Config( true ); // allow remote
-
-	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		Con_Printf( "can't resolve addr: %s\n", MASTERSERVER_ADR );
-	else NET_SendPacket( NS_SERVER, 2, "\x62\x0A", adr );
+	NET_Config( true, false ); // allow remote
+	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A" ));
 }
 
 /*
@@ -777,10 +742,16 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
 	uint	challenge;
 	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
-	int	clients = 0, bots = 0;
+	int	clients, bots;
 	int	len = sizeof( s );
 
-	clients = SV_GetConnectedClientsCount( &bots );
+	if( !NET_IsMasterAdr( from ))
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet from %s\n", NET_AdrToString( from ));
+		return;
+	}
+
+	SV_GetPlayerCount( &clients, &bots );
 	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
 
 	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
@@ -798,6 +769,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "version", va( "%s", XASH_VERSION ), len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "region", "255", len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "product", GI->gamefolder, len ); // product? Where is the difference with gamedir?
+	Info_SetValueForKey( s, "nat", sv_nat.string, sizeof(s) ); // Server running under NAT, use reverse connection
 
 	NET_SendPacket( NS_SERVER, Q_strlen( s ), s, from );
 }
@@ -956,6 +928,7 @@ void SV_Init( void )
 	sv_hostmap = Cvar_Get( "hostmap", GI->startmap, 0, "keep name of last entered map" );
 	Cvar_RegisterVariable( &sv_password );
 	Cvar_RegisterVariable( &sv_lan );
+	Cvar_RegisterVariable( &sv_nat );
 	Cvar_RegisterVariable( &violence_ablood );
 	Cvar_RegisterVariable( &violence_hblood );
 	Cvar_RegisterVariable( &violence_agibs );
@@ -974,7 +947,11 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &listipcfgfile );
 	Cvar_RegisterVariable( &mapchangecfgfile );
 
+	Cvar_RegisterVariable( &sv_voiceenable );
+	Cvar_RegisterVariable( &sv_voicequality );
 	Cvar_RegisterVariable( &sv_trace_messages );
+	Cvar_RegisterVariable( &sv_enttools_enable );
+	Cvar_RegisterVariable( &sv_enttools_maxfire );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
@@ -1091,6 +1068,8 @@ void SV_Shutdown( const char *finalmsg )
 		// drop the client if want to load a new map
 		if( CL_IsPlaybackDemo( ))
 			CL_Drop();
+
+		SV_UnloadProgs ();
 		return;
 	}
 
@@ -1106,7 +1085,7 @@ void SV_Shutdown( const char *finalmsg )
 	if( public_server->value && svs.maxclients != 1 )
 		Master_Shutdown();
 
-	NET_Config( false );
+	NET_Config( false, false );
 	SV_UnloadProgs ();
 	CL_Drop();
 

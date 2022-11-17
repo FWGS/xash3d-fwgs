@@ -15,9 +15,9 @@ popd
 echo "Download all needed tools and NDK"
 yes | sdk/tools/bin/sdkmanager --licenses > /dev/null 2>/dev/null # who even reads licenses? :)
 sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-29 > /dev/null 2>/dev/null
-wget https://dl.google.com/android/repository/android-ndk-r23b-linux.zip -qO ndk.zip > /dev/null || exit 1
+wget https://dl.google.com/android/repository/android-ndk-r25-linux.zip -qO ndk.zip > /dev/null || exit 1
 unzip -q ndk.zip || exit 1
-mv android-ndk-r23b sdk/ndk-bundle || exit 1
+mv android-ndk-r25 sdk/ndk-bundle || exit 1
 
 echo "Download Xash3D FWGS Android source"
 git clone --depth 1 https://github.com/FWGS/xash3d-android-project -b waf android || exit 1

@@ -158,6 +158,7 @@ static void NetGraph_InitColors( void )
 			f = (float)(i - hfrac) / (float)(NETGRAPH_LERP_HEIGHT - hfrac );
 			VectorMA( mincolor[1], f, dc[1], netcolors[NETGRAPH_NET_COLORS + i] );
 		}
+		netcolors[NETGRAPH_NET_COLORS + i][3] = 255;
 	}
 }
 
@@ -259,7 +260,7 @@ static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 	for( a = 0; a < w; a++ )
 	{
 		i = ( cls.netchan.outgoing_sequence - a ) & NET_TIMINGS_MASK;
-		h = ( netstat_cmdinfo[i].cmd_lerp / 3.0f ) * NETGRAPH_LERP_HEIGHT;
+		h = Q_min(( netstat_cmdinfo[i].cmd_lerp / 3.0f ) * NETGRAPH_LERP_HEIGHT, net_graphheight->value * 0.7f);
 
 		fill.left = x + w - a - 1;
 		fill.right = fill.bottom = 1;
@@ -395,10 +396,10 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 		if( !out ) out = lastout;
 		else lastout = out;
 
-		Con_DrawString( x, y, va( "in :  %i %.2f k/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors );
+		Con_DrawString( x, y, va( "in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors );
 		y += 15;
 
-		Con_DrawString( x, y, va( "out:  %i %.2f k/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors );
+		Con_DrawString( x, y, va( "out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors );
 		y += 15;
 
 		if( graphtype > 2 )
@@ -615,7 +616,7 @@ static void NetGraph_GetScreenPos( wrect_t *rect, int *w, int *x, int *y )
 		*x = rect->left + rect->right - 5 - *w;
 		break;
 	case 2: // center
-		*x = rect->left + ( rect->right - 10 - *w ) / 2;
+		*x = ( rect->left + ( rect->right - 10 - *w )) / 2;
 		break;
 	default: // left sided
 		*x = rect->left + 5;
@@ -672,7 +673,7 @@ void SCR_DrawNetGraph( void )
 
 	if( graphtype < 3 )
 	{
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransColor );
 		ref.dllFuncs.GL_Bind( XASH_TEXTURE0, R_GetBuiltinTexture( REF_WHITE_TEXTURE ) );
 		ref.dllFuncs.Begin( TRI_QUADS ); // draw all the fills as a long solid sequence of quads for speedup reasons
 

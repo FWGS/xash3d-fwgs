@@ -250,18 +250,6 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	Key_Event( keynum, down );
 }
 
-static void SDLash_MouseKey( int key, int down, int istouch )
-{
-	if( CVAR_TO_BOOL( touch_emulate ) )
-	{
-		Touch_KeyEvent( key, down );
-	}
-	else if( in_mouseinitialized && !m_ignore->value && !istouch )
-	{
-		Key_Event( key, down );
-	}
-}
-
 /*
 =============
 SDLash_MouseEvent
@@ -270,13 +258,19 @@ SDLash_MouseEvent
 */
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
-	int down = button.state != SDL_RELEASED;
-	uint mstate = 0;
+	int down;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( button.which == SDL_TOUCH_MOUSEID )
 		return;
 #endif
+
+	if( button.state == SDL_RELEASED )
+		down = 0;
+	else if( button.clicks >= 2 )
+		down = 2; // special state for double-click in UI
+	else
+		down = 1;
 
 	switch( button.button )
 	{
@@ -297,10 +291,10 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 		break;
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_BUTTON_WHEELUP:
-		Key_Event( K_MWHEELUP, down );
+		IN_MWheelEvent( -1 );
 		break;
 	case SDL_BUTTON_WHEELDOWN:
-		Key_Event( K_MWHEELDOWN, down );
+		IN_MWheelEvent( 1 );
 		break;
 #endif // ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	default:
@@ -435,9 +429,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 	/* Mouse events */
 	case SDL_MOUSEMOTION:
 		if( host.mouse_visible )
-		{
 			SDL_GetRelativeMouseState( NULL, NULL );
-		}
 		break;
 
 	case SDL_MOUSEBUTTONUP:
@@ -478,12 +470,8 @@ static void SDLash_EventFilter( SDL_Event *event )
 		break;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_MOUSEWHEEL:
-	{
-		int wheelbutton = event->wheel.y < 0 ? K_MWHEELDOWN : K_MWHEELUP;
-		Key_Event( wheelbutton, true );
-		Key_Event( wheelbutton, false );
+		IN_MWheelEvent( event->wheel.y );
 		break;
-	}
 
 	/* Touch events */
 	case SDL_FINGERDOWN:
@@ -556,7 +544,8 @@ static void SDLash_EventFilter( SDL_Event *event )
 	{
 		// Swap axis to follow default axis binding:
 		// LeftX, LeftY, RightX, RightY, TriggerRight, TriggerLeft
-		static int sdlControllerAxisToEngine[] = {
+		static int sdlControllerAxisToEngine[] =
+		{
 			JOY_AXIS_SIDE, // SDL_CONTROLLER_AXIS_LEFTX,
 			JOY_AXIS_FWD, // SDL_CONTROLLER_AXIS_LEFTY,
 			JOY_AXIS_PITCH, // SDL_CONTROLLER_AXIS_RIGHTX,
@@ -679,7 +668,7 @@ TODO: kill mouse in win32 clients too
 */
 void Platform_PreCreateMove( void )
 {
-	if( CVAR_TO_BOOL( m_ignore ) )
+	if( CVAR_TO_BOOL( m_ignore ))
 	{
 		SDL_GetRelativeMouseState( NULL, NULL );
 		SDL_ShowCursor( SDL_TRUE );

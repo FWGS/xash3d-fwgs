@@ -871,10 +871,7 @@ void SV_ClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, vec3_t 
 	qboolean	rotated, transform_bbox;
 	matrix4x4	matrix;
 
-	memset( trace, 0, sizeof( trace_t ));
-	VectorCopy( end, trace->endpos );
-	trace->fraction = 1.0f;
-	trace->allsolid = 1;
+	PM_InitTrace( trace, end );
 
 	model = SV_ModelHandle( ent->v.modelindex );
 
@@ -945,10 +942,7 @@ void SV_ClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, vec3_t 
 
 		for( i = 0; i < hullcount; i++ )
 		{
-			memset( &trace_hitbox, 0, sizeof( trace_t ));
-			VectorCopy( end, trace_hitbox.endpos );
-			trace_hitbox.fraction = 1.0;
-			trace_hitbox.allsolid = 1;
+			PM_InitTrace( &trace_hitbox, end );
 
 			PM_RecursiveHullCheck( &hull[i], hull[i].firstclipnode, 0.0f, 1.0f, start_l, end_l, (pmtrace_t *)&trace_hitbox );
 
@@ -1114,10 +1108,7 @@ or custom physics implementation
 void SV_CustomClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, trace_t *trace )
 {
 	// initialize custom trace
-	memset( trace, 0, sizeof( trace_t ));
-	VectorCopy( end, trace->endpos );
-	trace->allsolid = true;
-	trace->fraction = 1.0f;
+	PM_InitTrace( trace, end );
 
 	if( svgame.physFuncs.ClipMoveToEntity != NULL )
 	{

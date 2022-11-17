@@ -48,9 +48,6 @@ def configure(conf):
 		conf.options.NO_ASYNC_RESOLVE = True
 		if not conf.check_cc( fragment='int main(){ int i = socket();}', lib = 'wattcpwl', mandatory=False ):
 			conf.define('XASH_NO_NETWORK',1)
-	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
-		for i in ['log']:
-			conf.check_cc(lib = i)
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
@@ -65,7 +62,7 @@ def configure(conf):
 	else:
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:
-			conf.fatal('SDL2 not availiable! If you want to build dedicated server, specify --dedicated')
+			conf.fatal('SDL2 not available! If you want to build dedicated server, specify --dedicated')
 		conf.define('XASH_SDL', 2)
 
 	if conf.env.DEST_OS == 'haiku':
@@ -106,8 +103,11 @@ def configure(conf):
 	conf.define_cond('PSAPI_VERSION', conf.env.DEST_OS == 'win32') # will be defined as 1
 
 def build(bld):
+	# public includes for renderers and utils use
+	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
+
 	is_cxx_link = False
-	libs = [ 'public', 'dllemu' ]
+	libs = [ 'engine_includes', 'public', 'dllemu' ]
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob([
@@ -165,8 +165,9 @@ def build(bld):
 			'client/*.c',
 			'client/vgui/*.c',
 			'client/avi/*.c'])
+		libs += ['opus']
 
-	includes = ['common', 'server', 'client', 'client/vgui', 'tests', '.', '../public', '../common', '../pm_shared' ]
+	includes = ['server', 'client', 'client/vgui' ]
 
 	if bld.env.SINGLE_BINARY:
 		install_path = bld.env.BINDIR
@@ -184,5 +185,6 @@ def build(bld):
 		includes = includes,
 		use      = libs,
 		install_path = install_path,
-		subsystem = bld.env.MSVC_SUBSYSTEM
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		rpath = '$ORIGIN'
 	)

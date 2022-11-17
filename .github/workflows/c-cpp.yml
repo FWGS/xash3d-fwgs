@@ -48,11 +48,11 @@ jobs:
       UPLOADTOOL_ISPRERELEASE: true
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: recursive
     - name: Checkout xash-extras
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: FWGS/xash-extras
         path: xash-extras
@@ -66,7 +66,7 @@ jobs:
     - name: Upload engine (prereleases)
       run: bash scripts/continious_upload.sh artifacts/*
     - name: Upload engine (artifacts)
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*

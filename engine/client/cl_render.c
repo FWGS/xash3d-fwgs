@@ -133,7 +133,7 @@ const char *CL_GenericHandle( int fileindex )
 	return cl.files_precache[fileindex];
 }
 
-int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef )
+intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef )
 {
 	switch( parm )
 	{
@@ -161,9 +161,9 @@ int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef )
 	case PARM_WATER_ALPHA:
 		return FBitSet( world.flags, FWORLD_WATERALPHA );
 	case PARM_DELUXEDATA:
-		return *(int *)&world.deluxedata;
+		return (intptr_t)world.deluxedata;
 	case PARM_SHADOWDATA:
-		return *(int *)&world.shadowdata;
+		return (intptr_t)world.shadowdata;
 	default:
 		// indicates call from client.dll
 		if( checkRef )
@@ -204,7 +204,7 @@ int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef )
 	return 0;
 }
 
-static int pfnRenderGetParm( int parm, int arg )
+static intptr_t pfnRenderGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, true );
 }

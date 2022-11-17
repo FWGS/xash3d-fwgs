@@ -530,7 +530,7 @@ typedef struct
 #define MAX_DEMOS		32
 #define MAX_MOVIES		8
 #define MAX_CDTRACKS	32
-#define MAX_CLIENT_SPRITES	256	// SpriteTextures
+#define MAX_CLIENT_SPRITES	512	// SpriteTextures (0-256 hud, 256-512 client)
 #define MAX_EFRAGS		8192	// Arcane Dimensions required
 #define MAX_REQUESTS	64
 

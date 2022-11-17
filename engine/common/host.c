@@ -74,7 +74,7 @@ void Sys_PrintUsage( void )
 #if XASH_MESSAGEBOX == MSGBOX_STDERR
 	"\n" // dirty hack to not have Xash Error: Usage: on same line
 #endif // XASH_MESSAGEBOX == MSGBOX_STDERR
-	"Usage:\n"
+	S_USAGE "\n"
 #if !XASH_MOBILE_PLATFORM
 	#if XASH_WIN32
 	O("<xash>.exe [options] [+command1] [+command2 arg]","")
@@ -151,6 +151,8 @@ void Sys_PrintUsage( void )
 	O("-clientlib <path>","override client DLL path")
 #endif
 	O("-rodir <path>    ","set read-only base directory, experimental")
+	O("-bugcomp         ","enable precise bug compatibility. Will break games that don't require it")
+	O("                 ","Refer to engine documentation for more info")
 
 	O("-ip <ip>         ","set custom ip")
 	O("-port <port>     ","set custom host port")
@@ -274,6 +276,13 @@ void Host_CheckSleep( void )
 {
 	int sleeptime = host_sleeptime->value;
 
+#ifndef XASH_DEDICATED
+	// never sleep in timedemo for benchmarking purposes
+	// also don't sleep with vsync for less lag
+	if( CL_IsTimeDemo( ) || CVAR_TO_BOOL( gl_vsync ))
+		return;
+#endif
+
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
@@ -305,7 +314,9 @@ void Host_NewInstance( const char *name, const char *finalmsg )
 
 	host.change_game = true;
 	Q_strncpy( host.finalmsg, finalmsg, sizeof( host.finalmsg ));
-	pChangeGame( name ); // call from hl.exe
+
+	if( !Sys_NewInstance( name ))
+		pChangeGame( name ); // call from hl.exe
 }
 
 /*
@@ -326,13 +337,13 @@ void Host_ChangeGame_f( void )
 	}
 
 	// validate gamedir
-	for( i = 0; i < SI.numgames; i++ )
+	for( i = 0; i < FI->numgames; i++ )
 	{
-		if( !Q_stricmp( SI.games[i]->gamefolder, Cmd_Argv( 1 )))
+		if( !Q_stricmp( FI->games[i]->gamefolder, Cmd_Argv( 1 )))
 			break;
 	}
 
-	if( i == SI.numgames )
+	if( i == FI->numgames )
 	{
 		Con_Printf( "%s not exist\n", Cmd_Argv( 1 ));
 	}
@@ -343,7 +354,7 @@ void Host_ChangeGame_f( void )
 	else
 	{
 		const char *arg1 = va( "%s%s", (host.type == HOST_NORMAL) ? "" : "#", Cmd_Argv( 1 ));
-		const char *arg2 = va( "change game to '%s'", SI.games[i]->title );
+		const char *arg2 = va( "change game to '%s'", FI->games[i]->title );
 
 		Host_NewInstance( arg1, arg2 );
 	}
@@ -593,24 +604,16 @@ double Host_CalcFPS( void )
 	}
 	else if( Host_IsLocalGame( ))
 	{
-		fps = host_maxfps->value;
+		if( !CVAR_TO_BOOL( gl_vsync ))
+			fps = host_maxfps->value;
 	}
 	else
 	{
-		fps = host_maxfps->value;
-		if( fps == 0.0 ) fps = MAX_FPS;
-		fps = bound( MIN_FPS, fps, MAX_FPS );
-	}
-
-	// probably left part of this condition is redundant :-)
-	if( host.type != HOST_DEDICATED && Host_IsLocalGame( ) && !CL_IsTimeDemo( ))
-	{
-		// ajdust fps for vertical synchronization
-		if( CVAR_TO_BOOL( gl_vsync ))
+		if( !CVAR_TO_BOOL( gl_vsync ))
 		{
-			if( vid_displayfrequency->value != 0.0f )
-				fps = vid_displayfrequency->value;
-			else fps = 60.0; // default
+			fps = host_maxfps->value;
+			if( fps == 0.0 ) fps = MAX_FPS;
+			fps = bound( MIN_FPS, fps, MAX_FPS );
 		}
 	}
 #endif
@@ -671,11 +674,19 @@ Host_Frame
 */
 void Host_Frame( float time )
 {
-	Host_CheckSleep();
+	static qboolean slept = false;
 
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
+	{
+		if( !slept )
+		{
+			Host_CheckSleep();
+			slept = true;
+		}
 		return;
+	}
+	slept = false;
 
 	Host_InputFrame ();  // input frame
 	Host_ClientBegin (); // begin client
@@ -698,15 +709,6 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	static char	hosterror2[MAX_SYSPATH];
 	static qboolean	recursive = false;
 	va_list		argptr;
-
-	if( host.mouse_visible && !CL_IsInMenu( ))
-	{
-		// hide VGUI mouse
-#ifdef XASH_SDL
-		SDL_ShowCursor( 0 );
-#endif
-		host.mouse_visible = false;
-	}
 
 	va_start( argptr, error );
 	Q_vsprintf( hosterror1, error, argptr );
@@ -854,10 +856,10 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	if( !Sys_CheckParm( "-disablehelp" ) )
 	{
-	    if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ) )
-	    {
+		 if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ) )
+		 {
 			Sys_PrintUsage();
-	    }
+		 }
 	}
 
 	if( !Sys_CheckParm( "-noch" ) )
@@ -865,7 +867,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	host.enabledll = !Sys_CheckParm( "-nodll" );
 
-	host.change_game = bChangeGame;
+	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
 
@@ -935,6 +937,13 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	// member console allowing
 	host.allow_console_init = host.allow_console;
+
+	if( Sys_CheckParm( "-bugcomp" ))
+	{
+		// add argument check here when we add other levels
+		// of bugcompatibility
+		host.bugcomp = BUGCOMP_GOLDSRC;
+	}
 
 	// timeBeginPeriod( 1 ); // a1ba: Do we need this?
 
@@ -1022,18 +1031,33 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	if( len && host.rodir[len - 1] == '/' )
 		host.rodir[len - 1] = 0;
 
-	if( !COM_CheckStringEmpty( host.rootdir ) || FS_SetCurrentDirectory( host.rootdir ) != 0 )
+	if( !COM_CheckStringEmpty( host.rootdir ))
+	{
+		Sys_Error( "Changing working directory failed (empty working directory)\n" );
+		return;
+	}
+
+	FS_LoadProgs();
+
+	if( FS_SetCurrentDirectory( host.rootdir ) != 0 )
 		Con_Reportf( "%s is working directory now\n", host.rootdir );
 	else
 		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
 
+	FS_Init();
+
 	Sys_InitLog();
+
+	// print bugcompatibility level here, after log was initialized
+	if( host.bugcomp == BUGCOMP_GOLDSRC )
+	{
+		Con_Printf( "^3BUGCOMP^7: GoldSrc bug-compatibility enabled\n" );
+	}
 
 	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
 
-	FS_Init();
 	Image_Init();
 	Sound_Init();
 
@@ -1043,7 +1067,15 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif
 
 	FS_LoadGameInfo( NULL );
+
+	if( FS_FileExists( va( "%s.rc", SI.basedirName ), false ))
+		Q_strncpy( SI.rcName, SI.basedirName, sizeof( SI.rcName ));	// e.g. valve.rc
+	else Q_strncpy( SI.rcName, SI.exeName, sizeof( SI.rcName ));	// e.g. quake.rc
+
 	Q_strncpy( host.gamefolder, GI->gamefolder, sizeof( host.gamefolder ));
+
+	Image_CheckPaletteQ1 ();
+	Host_InitDecals ();	// reload decals
 
 	// DEPRECATED: by FWGS fork
 #if 0

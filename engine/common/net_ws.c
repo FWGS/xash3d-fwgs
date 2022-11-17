@@ -35,7 +35,7 @@ GNU General Public License for more details.
 #define MAX_ROUTEABLE_PACKET		1400
 #define SPLITPACKET_MIN_SIZE			508		// RFC 791: 576(min ip packet) - 60 (ip header) - 8 (udp header)
 #define SPLITPACKET_MAX_SIZE			64000
-#define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )) )
+#define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )))
 
 // ff02:1
 static const uint8_t k_ipv6Bytes_LinkLocalAllNodes[16] =
@@ -219,7 +219,7 @@ void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr )
 void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 )
 {
 #if XASH_LITTLE_ENDIAN
-	memcpy( adr->ip6, ip6, sizeof( adr->ip6 ) );
+	memcpy( adr->ip6, ip6, sizeof( adr->ip6 ));
 #elif XASH_BIG_ENDIAN
 	memcpy( adr->ip6_0, ip6, sizeof( adr->ip6_0 ));
 	memcpy( adr->ip6_2, ip6 + sizeof( adr->ip6_0 ), sizeof( adr->ip6_2 ));
@@ -356,7 +356,7 @@ qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_st
 #endif
 }
 
-#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !(XASH_EMSCRIPTEN || XASH_DOS4GW) )
+#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !( XASH_EMSCRIPTEN || XASH_DOS4GW ))
 #define CAN_ASYNC_NS_RESOLVE
 #endif
 
@@ -516,7 +516,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 				return 2;
 			}
 
-			if( !Q_strcmp( copy, nsthread.hostname ) )
+			if( !Q_strcmp( copy, nsthread.hostname ))
 			{
 				ret = nsthread.result;
 
@@ -534,7 +534,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 				nsthread.busy = true;
 				mutex_unlock( &nsthread.mutexres );
 
-				if( create_thread( NET_ThreadStart ) )
+				if( create_thread( NET_ThreadStart ))
 				{
 					asyncfailed = false;
 					return 2;
@@ -874,17 +874,20 @@ qboolean NET_IsReservedAdr( netadr_t a )
 
 	if( a.type6 == NA_IP6 )
 	{
+		uint8_t ip6[16];
+
+		NET_NetadrToIP6Bytes( ip6, &a );
+
 		// Private addresses, fc00::/7
 		// Range is fc00:: to fdff:ffff:etc
-		if ( a.ipx[0] >= 0xFC && a.ipx[1] <= 0xFD )
+		if( ip6[0] >= 0xFC && ip6[1] <= 0xFD )
 		{
 			return true;
 		}
 
 		// Link-local fe80::/10
 		// Range is fe80:: to febf::
-		if ( a.ipx[0] == 0xFE
-			&& ( a.ipx[1] >= 0x80 && a.ipx[1] <= 0xBF ) )
+		if( ip6[0] == 0xFE && ( ip6[1] >= 0x80 && ip6[1] <= 0xBF ))
 		{
 			return true;
 		}
@@ -950,7 +953,7 @@ qboolean NET_StringToAdrEx( const char *string, netadr_t *adr, int family )
 
 	memset( adr, 0, sizeof( netadr_t ));
 
-	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ) )
+	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ))
 	{
 		adr->type = NA_LOOPBACK;
 		return true;
@@ -975,7 +978,7 @@ int NET_StringToAdrNB( const char *string, netadr_t *adr )
 	int res;
 
 	memset( adr, 0, sizeof( netadr_t ));
-	if( !Q_stricmp( string, "localhost" )  || !Q_stricmp( string, "loopback" ) )
+	if( !Q_stricmp( string, "localhost" )  || !Q_stricmp( string, "loopback" ))
 	{
 		adr->type = NA_LOOPBACK;
 		return true;
@@ -1393,13 +1396,13 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 				memcpy( data, buf, ret );
 				*length = ret;
 #if !XASH_DEDICATED
-				if( CL_LegacyMode() )
+				if( CL_LegacyMode( ))
 					return NET_LagPacket( true, sock, from, length, data );
 
 				// check for split message
 				if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
 				{
-					return NET_GetLong( data, ret, length, CL_GetSplitSize() );
+					return NET_GetLong( data, ret, length, CL_GetSplitSize( ));
 				}
 #endif
 				// lag the packet, if needed
@@ -1572,7 +1575,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 		if( err == WSAEADDRNOTAVAIL && ( to.type == NA_BROADCAST || to.type6 == NA_MULTICAST_IP6 ))
 			return;
 
-		if( Host_IsDedicated() )
+		if( Host_IsDedicated( ))
 		{
 			Con_DPrintf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
@@ -1678,7 +1681,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	else if( family == AF_INET )
 		pfamily = PF_INET;
 
-	if( NET_IsSocketError(( net_socket = socket( pfamily, SOCK_DGRAM, IPPROTO_UDP )) ) )
+	if( NET_IsSocketError(( net_socket = socket( pfamily, SOCK_DGRAM, IPPROTO_UDP ))))
 	{
 		err = WSAGetLastError();
 		if( err != WSAEAFNOSUPPORT )
@@ -1686,7 +1689,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		return INVALID_SOCKET;
 	}
 
-	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, (void*)&_true ) ) )
+	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, (void*)&_true )))
 	{
 		struct timeval timeout;
 
@@ -1697,12 +1700,12 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	}
 
 	// make it broadcast capable
-	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ) ) ) )
+	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ))))
 	{
 		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
 	}
 
-	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval )) ) )
+	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval ))))
 	{
 		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
 		closesocket( net_socket );
@@ -1786,29 +1789,67 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 NET_OpenIP
 ====================
 */
-static void NET_OpenIP( int *sockets, const char *net_iface, int hostport, int clientport, int family )
+static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_iface, int hostport, int clientport, int family )
 {
 	int port;
+	qboolean sv_nat = Cvar_VariableInteger("sv_nat");
+	qboolean cl_nat = Cvar_VariableInteger("cl_nat");
+
+	if( change_port && ( FBitSet( net_hostport->flags, FCVAR_CHANGED ) || sv_nat ))
+	{
+		// reopen socket to set random port
+		if( NET_IsSocketValid( sockets[NS_SERVER] ))
+			closesocket( sockets[NS_SERVER] );
+
+		sockets[NS_SERVER] = INVALID_SOCKET;
+		ClearBits( net_hostport->flags, FCVAR_CHANGED );
+	}
 
 	if( !NET_IsSocketValid( sockets[NS_SERVER] ))
 	{
-		port = hostport;
-		if( !port ) port = net_hostport->value;
-		if( !port ) port = PORT_SERVER; // forcing to default
+		port = net_iphostport->value;
+		if( !port )
+		{
+			if( sv_nat )
+				port = PORT_ANY;
+			else
+				port = net_hostport->value;
+
+			if( !port )
+				port = PORT_SERVER; // forcing to default
+		}
 		sockets[NS_SERVER] = NET_IPSocket( net_iface, port, family );
 
-		if( !NET_IsSocketValid( sockets[NS_SERVER] ) && Host_IsDedicated() )
+		if( !NET_IsSocketValid( sockets[NS_SERVER] ) && Host_IsDedicated( ))
 			Host_Error( "Couldn't allocate dedicated server IP port %d.\n", port );
 	}
 
 	// dedicated servers don't need client ports
-	if( Host_IsDedicated() ) return;
+	if( Host_IsDedicated( )) return;
+
+	if( change_port && ( FBitSet( net_clientport->flags, FCVAR_CHANGED ) || cl_nat ))
+	{
+		// reopen socket to set random port
+		if( NET_IsSocketValid( sockets[NS_CLIENT] ))
+			closesocket( sockets[NS_CLIENT] );
+
+		sockets[NS_CLIENT] = INVALID_SOCKET;
+		ClearBits( net_clientport->flags, FCVAR_CHANGED );
+	}
 
 	if( !NET_IsSocketValid( sockets[NS_CLIENT] ))
 	{
-		port = clientport;
-		if( !port ) port = net_clientport->value;
-		if( !port ) port = PORT_ANY; // forcing to default
+		port = net_ipclientport->value;
+		if( !port )
+		{
+			if( cl_nat )
+				port = PORT_ANY;
+			else
+				port = net_clientport->value;
+
+			if( !port )
+				port = PORT_ANY; // forcing to default
+		}
 		sockets[NS_CLIENT] = NET_IPSocket( net_iface, port, family );
 
 		if( !NET_IsSocketValid( sockets[NS_CLIENT] ))
@@ -1894,7 +1935,7 @@ NET_Config
 A single player game will only use the loopback code
 ====================
 */
-void NET_Config( qboolean multiplayer )
+void NET_Config( qboolean multiplayer, qboolean changeport )
 {
 	static qboolean	bFirst = true;
 	static qboolean	old_config;
@@ -1911,10 +1952,10 @@ void NET_Config( qboolean multiplayer )
 	{
 		// open sockets
 		if( net.allow_ip )
-			NET_OpenIP( net.ip_sockets, net_ipname->string, net_iphostport->value, net_ipclientport->value, AF_INET );
+			NET_OpenIP( changeport, net.ip_sockets, net_ipname->string, net_iphostport->value, net_ipclientport->value, AF_INET );
 
 		if( net.allow_ip6 )
-			NET_OpenIP( net.ip6_sockets, net_ip6name->string, net_ip6hostport->value, net_ip6clientport->value, AF_INET6 );
+			NET_OpenIP( changeport, net.ip6_sockets, net_ip6name->string, net_ip6hostport->value, net_ip6clientport->value, AF_INET6 );
 
 		// get our local address, if possible
 		if( bFirst )
@@ -2029,7 +2070,7 @@ void NET_Init( void )
 
 	net_clockwindow = Cvar_Get( "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
 	net_address = Cvar_Get( "net_address", "0", FCVAR_READ_ONLY, "contain local address of current client" );
-	net_ipname = Cvar_Get( "ip", "localhost", FCVAR_READ_ONLY, "network ip address" );
+	net_ipname = Cvar_Get( "ip", "localhost", 0, "network ip address" );
 	net_iphostport = Cvar_Get( "ip_hostport", "0", FCVAR_READ_ONLY, "network ip host port" );
 	net_hostport = Cvar_Get( "hostport", va( "%i", PORT_SERVER ), FCVAR_READ_ONLY, "network default host port" );
 	net_ipclientport = Cvar_Get( "ip_clientport", "0", FCVAR_READ_ONLY, "network ip client port" );
@@ -2053,7 +2094,7 @@ void NET_Init( void )
 	}
 
 #if XASH_WIN32
-	if( WSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ) )
+	if( WSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ))
 	{
 		Con_DPrintf( S_ERROR "network initialization failed.\n" );
 		return;
@@ -2104,7 +2145,7 @@ void NET_Shutdown( void )
 
 	NET_ClearLagData( true, true );
 
-	NET_Config( false );
+	NET_Config( false, false );
 #if XASH_WIN32
 	WSACleanup();
 #endif
@@ -2222,7 +2263,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 	if( error )
 	{
 		// Switch to next fastdl server if present
-		if( file->server && ( file->state > HTTP_QUEUE ) && (file->state != HTTP_FREE ) )
+		if( file->server && ( file->state > HTTP_QUEUE ) && ( file->state != HTTP_FREE ))
 		{
 			file->server = file->server->next;
 			file->state = HTTP_QUEUE; // Reset download state, HTTP_Run() will open file again
@@ -2316,7 +2357,7 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 		return false;
 	}
 
-	while( ( res = recv( curfile->socket, buf, BUFSIZ - curfile->header_size, 0 ) ) > 0) // if we got there, we are receiving data
+	while( ( res = recv( curfile->socket, buf, BUFSIZ - curfile->header_size, 0 )) > 0) // if we got there, we are receiving data
 	{
 		curfile->blocktime = 0;
 
@@ -2333,7 +2374,7 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 
 				Con_Reportf( "HTTP: Got response!\n" );
 
-				if( !Q_strstr( curfile->buf, "200 OK" ) )
+				if( !Q_strstr( curfile->buf, "200 OK" ))
 				{
 					*begin = 0; // cut string to print out response
 					begin = Q_strchr( curfile->buf, '\r' );
@@ -2355,7 +2396,7 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 
 					Con_Reportf( "HTTP: File size is %d\n", size );
 
-					if( ( curfile->size != -1 ) && ( curfile->size != size ) ) // check size if specified, not used
+					if( ( curfile->size != -1 ) && ( curfile->size != size )) // check size if specified, not used
 						Con_Reportf( S_WARN "Server reports wrong file size!\n" );
 
 					curfile->size = size;
@@ -2525,7 +2566,7 @@ void HTTP_Run( void )
 
 		if( curfile->state < HTTP_CONNECTED ) // Connection not enstabilished
 		{
-			res = connect( curfile->socket, (struct sockaddr*)&addr, sizeof( addr ) );
+			res = connect( curfile->socket, (struct sockaddr*)&addr, sizeof( addr ));
 
 			if( res )
 			{
@@ -2533,7 +2574,7 @@ void HTTP_Run( void )
 					curfile->state = HTTP_CONNECTED;
 				else
 				{
-					Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ) );
+					Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
 					HTTP_FreeFile( curfile, true ); // Cannot connect
 					break;
 				}
@@ -2567,7 +2608,7 @@ void HTTP_Run( void )
 				{
 					if( WSAGetLastError() != WSAEWOULDBLOCK && WSAGetLastError() != WSAENOTCONN )
 					{
-						Con_Printf( S_ERROR "failed to send request: %s\n", NET_ErrorString() );
+						Con_Printf( S_ERROR "failed to send request: %s\n", NET_ErrorString( ));
 						HTTP_FreeFile( curfile, true );
 						wait = true;
 						break;
@@ -2596,11 +2637,11 @@ void HTTP_Run( void )
 				continue;
 
 			Con_Reportf( "HTTP: Request sent!\n");
-			memset( curfile->buf, 0, sizeof( curfile->buf ) );
+			memset( curfile->buf, 0, sizeof( curfile->buf ));
 			curfile->state = HTTP_REQUEST_SENT;
 		}
 
-		if( !HTTP_ProcessStream( curfile ) )
+		if( !HTTP_ProcessStream( curfile ))
 			break;
 
 		if( curfile->size > 0 )
@@ -2614,8 +2655,8 @@ void HTTP_Run( void )
 			HTTP_FreeFile( curfile, false ); // success
 			break;
 		}
-		else if( (WSAGetLastError() != WSAEWOULDBLOCK) && (WSAGetLastError() != WSAEINPROGRESS) )
-			Con_Reportf( "problem downloading %s:\n%s\n", curfile->path, NET_ErrorString() );
+		else if(( WSAGetLastError( ) != WSAEWOULDBLOCK ) && ( WSAGetLastError( ) != WSAEINPROGRESS ))
+			Con_Reportf( "problem downloading %s:\n%s\n", curfile->path, NET_ErrorString( ));
 		else
 			curfile->blocktime += host.frametime;
 
@@ -2628,7 +2669,7 @@ void HTTP_Run( void )
 	}
 
 	// update progress
-	if( !Host_IsDedicated() )
+	if( !Host_IsDedicated() && iProgressCount != 0 )
 		Cvar_SetValue( "scr_download", flProgress/iProgressCount * 100 );
 
 	HTTP_AutoClean();
@@ -2643,14 +2684,14 @@ Add new download to end of queue
 */
 void HTTP_AddDownload( const char *path, int size, qboolean process )
 {
-	httpfile_t *httpfile = Z_Calloc( sizeof( httpfile_t ) );
+	httpfile_t *httpfile = Z_Calloc( sizeof( httpfile_t ));
 
 	Con_Reportf( "File %s queued to download\n", path );
 
 	httpfile->size = size;
 	httpfile->downloaded = 0;
 	httpfile->socket = -1;
-	Q_strncpy ( httpfile->path, path, sizeof( httpfile->path ) );
+	Q_strncpy ( httpfile->path, path, sizeof( httpfile->path ));
 
 	if( http.last_file )
 	{
@@ -2707,12 +2748,12 @@ static httpserver_t *HTTP_ParseURL( const char *url )
 		return NULL;
 
 	url += 7;
-	server = Z_Calloc( sizeof( httpserver_t ) );
+	server = Z_Calloc( sizeof( httpserver_t ));
 	i = 0;
 
-	while( *url && ( *url != ':' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ) )
+	while( *url && ( *url != ':' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
 	{
-		if( i > sizeof( server->host ) )
+		if( i > sizeof( server->host ))
 			return NULL;
 
 		server->host[i++] = *url++;
@@ -2724,7 +2765,7 @@ static httpserver_t *HTTP_ParseURL( const char *url )
 	{
 		server->port = Q_atoi( ++url );
 
-		while( *url && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ) )
+		while( *url && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
 			url++;
 	}
 	else
@@ -2732,9 +2773,9 @@ static httpserver_t *HTTP_ParseURL( const char *url )
 
 	i = 0;
 
-	while( *url && ( *url != '\r' ) && ( *url != '\n' ) )
+	while( *url && ( *url != '\r' ) && ( *url != '\n' ))
 	{
-		if( i > sizeof( server->path ) )
+		if( i > sizeof( server->path ))
 			return NULL;
 
 		server->path[i++] = *url++;
@@ -2776,7 +2817,7 @@ static void HTTP_AddCustomServer_f( void )
 {
 	if( Cmd_Argc() == 2 )
 	{
-		HTTP_AddCustomServer( Cmd_Argv( 1 ) );
+		HTTP_AddCustomServer( Cmd_Argv( 1 ));
 	}
 }
 
@@ -2907,7 +2948,7 @@ void HTTP_Init( void )
 
 	if( serverfile )
 	{
-		while( ( line = COM_ParseFile( line, token, sizeof( token ) ) ) )
+		while(( line = COM_ParseFile( line, token, sizeof( token ))))
 		{
 			httpserver_t *server = HTTP_ParseURL( token );
 

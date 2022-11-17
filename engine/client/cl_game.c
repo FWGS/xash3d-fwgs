@@ -149,21 +149,6 @@ qboolean CL_IsThirdPerson( void )
 
 /*
 ====================
-CL_GetPlayerInfo
-
-get player info by render request
-====================
-*/
-player_info_t *CL_GetPlayerInfo( int playerIndex )
-{
-	if( playerIndex < 0 || playerIndex >= cl.maxclients )
-		return NULL;
-
-	return &cl.players[playerIndex];
-}
-
-/*
-====================
 CL_CreatePlaylist
 
 Create a default valve playlist
@@ -1235,6 +1220,10 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	model_t	*mod;
 	int	i;
 
+	// use high indices for client sprites
+	// for GoldSrc bug-compatibility
+	const int start = type != SPR_HUDSPRITE ? MAX_CLIENT_SPRITES / 2 : 0;
+
 	if( !COM_CheckString( filename ))
 	{
 		Con_Reportf( S_ERROR "CL_LoadSpriteModel: bad name!\n" );
@@ -1244,8 +1233,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	Q_strncpy( name, filename, sizeof( name ));
 	COM_FixSlashes( name );
 
-	// slot 0 isn't used
-	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
+	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
 	{
 		if( !Q_stricmp( mod->name, name ))
 		{
@@ -1262,12 +1250,12 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	}
 
 	// find a free model slot spot
-	for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
+	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
 		if( !mod->name[0] ) break; // this is a valid spot
 
-	if( i == MAX_CLIENT_SPRITES )
+	if( i == MAX_CLIENT_SPRITES / 2 )
 	{
-		Con_Printf( S_ERROR "MAX_CLIENT_SPRITES limit exceeded (%d)\n", MAX_CLIENT_SPRITES );
+		Con_Printf( S_ERROR "MAX_CLIENT_SPRITES limit exceeded (%d)\n", MAX_CLIENT_SPRITES / 2 );
 		return NULL;
 	}
 
@@ -1308,7 +1296,7 @@ HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags )
 	if(( spr = CL_LoadSpriteModel( szPicName, SPR_CLIENT, texFlags )) == NULL )
 		return 0;
 
-	return (spr - clgame.sprites); // return index
+	return (spr - clgame.sprites) + 1; // return index
 }
 
 /*
@@ -1324,7 +1312,7 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 	if(( spr = CL_LoadSpriteModel( szPicName, SPR_HUDSPRITE, 0 )) == NULL )
 		return 0;
 
-	return (spr - clgame.sprites); // return index
+	return (spr - clgame.sprites) + 1; // return index
 }
 
 /*
@@ -1336,10 +1324,11 @@ CL_GetSpritePointer
 const model_t *CL_GetSpritePointer( HSPRITE hSprite )
 {
 	model_t	*mod;
+	int index = hSprite - 1;
 
-	if( hSprite <= 0 || hSprite >= MAX_CLIENT_SPRITES )
+	if( index < 0 || index >= MAX_CLIENT_SPRITES )
 		return NULL; // bad image
-	mod = &clgame.sprites[hSprite];
+	mod = &clgame.sprites[index];
 
 	if( mod->needload == NL_NEEDS_LOADED )
 	{
@@ -1947,7 +1936,14 @@ prints directly into console (can skip notify)
 */
 static void GAME_EXPORT pfnConsolePrint( const char *string )
 {
-	Con_Printf( "%s", string );
+	if( !COM_CheckString( string ))
+		return;
+
+	// WON GoldSrc behavior
+	if( string[0] != 1 )
+		Con_Printf( "%s", string );
+	else
+		Con_NPrintf( 0, "%s", string + 1 );
 }
 
 /*
@@ -2666,7 +2662,14 @@ pfnLoadMapSprite
 */
 model_t *pfnLoadMapSprite( const char *filename )
 {
-	return CL_LoadSpriteModel( filename, SPR_MAPSPRITE, 0 );
+	model_t *mod;
+
+	mod = Mod_FindName( filename, false );
+
+	if( CL_LoadHudSprite( filename, mod, SPR_MAPSPRITE, 0 ))
+		return mod;
+
+	return NULL;
 }
 
 /*
@@ -3087,11 +3090,7 @@ handle colon separately
 */
 char *pfnParseFile( char *data, char *token )
 {
-	char	*out;
-
-	out = _COM_ParseFileSafe( data, token, PFILE_TOKEN_MAX_LENGTH, PFILE_HANDLECOLON, NULL );
-
-	return out;
+	return COM_ParseFileSafe( data, token, PFILE_TOKEN_MAX_LENGTH, PFILE_HANDLECOLON, NULL, NULL );
 }
 
 /*
@@ -3312,7 +3311,7 @@ NetAPI_InitNetworking
 */
 void GAME_EXPORT NetAPI_InitNetworking( void )
 {
-	NET_Config( true ); // allow remote
+	NET_Config( true, false ); // allow remote
 }
 
 /*
@@ -3865,7 +3864,7 @@ static cl_enginefunc_t gEngfuncs =
 	(void*)Cmd_GetName,
 	pfnGetClientOldTime,
 	pfnGetGravity,
-	Mod_Handle,
+	CL_ModelHandle,
 	pfnEnableTexSort,
 	pfnSetLightmapColor,
 	pfnSetLightmapScale,
@@ -3910,11 +3909,13 @@ void CL_UnloadProgs( void )
 	if( Q_stricmp( GI->gamefolder, "hlfx" ) || GI->version != 0.5f )
 		clgame.dllFuncs.pfnShutdown();
 
+	if( GI->internal_vgui_support )
+		VGui_Shutdown();
+
 	Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
 	Cvar_FullSet( "host_clientloaded", "0", FCVAR_READ_ONLY );
 
 	COM_FreeLibrary( clgame.hInstance );
-	VGui_Shutdown();
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
 	memset( &clgame, 0, sizeof( clgame ));
@@ -3939,10 +3940,6 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	clgame.entities = NULL;
 
-	// NOTE: important stuff!
-	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
-	// during LoadLibrary
-	VGui_Startup( name, gameui.globals->scrWidth, gameui.globals->scrHeight );
 
 	// a1ba: we need to check if client.dll has direct dependency on SDL2
 	// and if so, disable relative mouse mode
@@ -3961,8 +3958,29 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.client_dll_uses_sdl = true;
 #endif
 
+	// NOTE: important stuff!
+	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
+	// during LoadLibrary
+	if( !GI->internal_vgui_support && VGui_LoadProgs( NULL ))
+	{
+		VGui_Startup( refState.width, refState.height );
+	}
+	else
+	{
+		// we failed to load vgui_support, but let's probe client.dll for support anyway
+		GI->internal_vgui_support = true;
+	}
+
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
-	if( !clgame.hInstance ) return false;
+
+	if( !clgame.hInstance )
+		return false;
+
+	// delayed vgui initialization for internal support
+	if( GI->internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
+	{
+		VGui_Startup( refState.width, refState.height );
+	}
 
 	// clear exports
 	for( func = cdll_exports; func && func->name; func++ )

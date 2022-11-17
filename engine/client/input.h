@@ -34,6 +34,7 @@ void IN_Init( void );
 void Host_InputFrame( void );
 void IN_Shutdown( void );
 void IN_MouseEvent( int key, int down );
+void IN_MWheelEvent( int direction );
 void IN_ActivateMouse( void );
 void IN_DeactivateMouse( void );
 void IN_MouseSavePos( void );
@@ -57,8 +58,8 @@ typedef enum
 	event_motion
 } touchEventType;
 
-extern convar_t *touch_enable;
-extern convar_t *touch_emulate;
+extern convar_t touch_enable;
+extern convar_t touch_emulate;
 
 void Touch_Draw( void );
 void Touch_SetClientOnly( byte state );
@@ -73,6 +74,7 @@ void Touch_GetMove( float * forward, float *side, float *yaw, float *pitch );
 void Touch_ResetDefaultButtons( void );
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy );
 void Touch_KeyEvent( int key, int down );
+qboolean Touch_WantVisibleCursor( void );
 
 //
 // in_joy.c

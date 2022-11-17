@@ -14,17 +14,23 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#if XASH_ANDROID
+#if XASH_WIN32
+#define STDOUT_FILENO 1
+#include <io.h>
+#elif XASH_ANDROID
 #include <android/log.h>
 #endif
 #include <string.h>
 #include <errno.h>
 
-#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM
-#define XASH_COLORIZE_CONSOLE
+// do not waste precious CPU cycles on mobiles or low memory devices
+#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+#define XASH_COLORIZE_CONSOLE true
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I was never encountered this bug anywhere else, so still enable by default
 // #define XASH_USE_SELECT 1
+#else
+#define XASH_COLORIZE_CONSOLE false
 #endif
 
 #if XASH_USE_SELECT
@@ -129,16 +135,18 @@ void Sys_InitLog( void )
 	if( s_ld.log_active )
 	{
 		s_ld.logfile = fopen( s_ld.log_path, mode );
-		if( !s_ld.logfile )
+
+		if ( !s_ld.logfile )
 		{
 			Con_Reportf( S_ERROR  "Sys_InitLog: can't create log file %s: %s\n", s_ld.log_path, strerror( errno ) );
+			return;
 		}
-		else
-		{
-			fprintf( s_ld.logfile, "=================================================================================\n" );
-			fprintf( s_ld.logfile, "\t%s (build %i) started at %s\n", s_ld.title, Q_buildnum(), Q_timestamp( TIME_FULL ));
-			fprintf( s_ld.logfile, "=================================================================================\n" );
-		}
+
+		s_ld.logfileno = fileno( s_ld.logfile );
+
+		fprintf( s_ld.logfile, "=================================================================================\n" );
+		fprintf( s_ld.logfile, "\t%s (build %i) started at %s\n", s_ld.title, Q_buildnum(), Q_timestamp( TIME_FULL ) );
+		fprintf( s_ld.logfile, "=================================================================================\n" );
 	}
 }
 
@@ -176,53 +184,92 @@ void Sys_CloseLog( void )
 	}
 }
 
-static void Sys_PrintColorized( const char *logtime, const char *msg )
+#if XASH_COLORIZE_CONSOLE == true
+static void Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 {
-	char colored[4096];
-	int len = 0;
-
-	while( *msg && ( len < 4090 ) )
+	static const char *q3ToAnsi[ 8 ] =
 	{
-		static char q3ToAnsi[ 8 ] =
-		{
-			'0', // COLOR_BLACK
-			'1', // COLOR_RED
-			'2', // COLOR_GREEN
-			'3', // COLOR_YELLOW
-			'4', // COLOR_BLUE
-			'6', // COLOR_CYAN
-			'5', // COLOR_MAGENTA
-			0 // COLOR_WHITE
-		};
+		"\033[30m", // COLOR_BLACK
+		"\033[31m", // COLOR_RED
+		"\033[32m", // COLOR_GREEN
+		"\033[33m", // COLOR_YELLOW
+		"\033[34m", // COLOR_BLUE
+		"\033[36m", // COLOR_CYAN
+		"\033[35m", // COLOR_MAGENTA
+		"\033[0m", // COLOR_WHITE
+	};
+	const char *esc = q3ToAnsi[c];
 
-		if( IsColorString( msg ) )
-		{
-			int color;
+	if( c == 7 )
+		write( fd, esc, 4 );
+	else write( fd, esc, 5 );
+}
+#else
+static void Sys_WriteEscapeSequenceForColorcode( int fd, int c ) {}
+#endif
 
-			msg++;
-			color = q3ToAnsi[ *msg++ % 8 ];
-			colored[len++] = '\033';
-			colored[len++] = '[';
-			if( color )
-			{
-				colored[len++] = '3';
-				colored[len++] = color;
-			}
-			else
-				colored[len++] = '0';
-			colored[len++] = 'm';
+static void Sys_PrintLogfile( const int fd, const char *logtime, const char *msg, const qboolean colorize )
+{
+	const char *p = msg;
+
+	write( fd, logtime, Q_strlen( logtime ) );
+
+	while( p && *p )
+	{
+		p = Q_strchr( msg, '^' );
+
+		if( p == NULL )
+		{
+			write( fd, msg, Q_strlen( msg ));
+			break;
+		}
+		else if( IsColorString( p ))
+		{
+			if( p != msg )
+				write( fd, msg, p - msg );
+			msg = p + 2;
+
+			if( colorize )
+				Sys_WriteEscapeSequenceForColorcode( fd, ColorIndex( p[1] ));
 		}
 		else
-			colored[len++] = *msg++;
+		{
+			write( fd, msg, p - msg + 1 );
+			msg = p + 1;
+		}
 	}
-	colored[len] = 0;
 
-	printf( "\033[34m%s\033[0m%s\033[0m", logtime, colored );
+	// flush the color
+	if( colorize )
+		Sys_WriteEscapeSequenceForColorcode( fd, 7 );
+}
+
+static void Sys_PrintStdout( const char *logtime, const char *msg )
+{
+#if XASH_MOBILE_PLATFORM
+	static char buf[MAX_PRINT_MSG];
+
+	// strip color codes
+	COM_StripColors( msg, buf );
+
+	// platform-specific output
+#if XASH_ANDROID && !XASH_DEDICATED
+	__android_log_write( ANDROID_LOG_DEBUG, "Xash", buf );
+#endif // XASH_ANDROID && !XASH_DEDICATED
+
+#if TARGET_OS_IOS
+	void IOS_Log( const char * );
+	IOS_Log( buf );
+#endif // TARGET_OS_IOS
+#elif !XASH_WIN32 // Wcon does the job
+	Sys_PrintLogfile( STDOUT_FILENO, logtime, msg, XASH_COLORIZE_CONSOLE );
+	Sys_FlushStdout();
+#endif
 }
 
 void Sys_PrintLog( const char *pMsg )
 {
-	time_t		crt_time;
+	time_t crt_time;
 	const struct tm	*crt_tm;
 	char logtime[32] = "";
 	static char lastchar;
@@ -230,39 +277,26 @@ void Sys_PrintLog( const char *pMsg )
 	time( &crt_time );
 	crt_tm = localtime( &crt_time );
 
-	// platform-specific output
-#if XASH_ANDROID && !XASH_DEDICATED
-	__android_log_print( ANDROID_LOG_DEBUG, "Xash", "%s", pMsg );
-#endif
-
-#if TARGET_OS_IOS
-	void IOS_Log(const char*);
-	IOS_Log(pMsg);
-#endif
-
 	if( !lastchar || lastchar == '\n')
 		strftime( logtime, sizeof( logtime ), "[%H:%M:%S] ", crt_tm ); //short time
 
-	// spew to stdout, except mobiles
-#if !XASH_MOBILE_PLATFORM
-#ifdef XASH_COLORIZE_CONSOLE
-	Sys_PrintColorized( logtime, pMsg );
-#else
-	printf( "%s %s", logtime, pMsg );
-#endif
-	Sys_FlushStdout();
-#endif
-
-	// save last char to detect when line was not ended
-	lastchar = pMsg[strlen(pMsg)-1];
+	// spew to stdout
+	Sys_PrintStdout( logtime, pMsg );
 
 	if( !s_ld.logfile )
+	{
+		// save last char to detect when line was not ended
+		lastchar = pMsg[Q_strlen( pMsg ) - 1];
 		return;
+	}
 
 	if( !lastchar || lastchar == '\n')
-		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S]", crt_tm ); //full time
+		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S] ", crt_tm ); //full time
+	
+	// save last char to detect when line was not ended
+	lastchar = pMsg[Q_strlen( pMsg ) - 1];
 
-	fprintf( s_ld.logfile, "%s %s", logtime, pMsg );
+	Sys_PrintLogfile( s_ld.logfileno, logtime, pMsg, false );
 	Sys_FlushLogfile();
 }
 

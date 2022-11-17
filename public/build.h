@@ -74,6 +74,7 @@ For more information, please refer to <http://unlicense.org/>
 #undef XASH_RISCV_DOUBLEFP
 #undef XASH_RISCV_SINGLEFP
 #undef XASH_RISCV_SOFTFP
+#undef XASH_SERENITY
 #undef XASH_WIN32
 #undef XASH_WIN64
 #undef XASH_X86
@@ -124,6 +125,9 @@ For more information, please refer to <http://unlicense.org/>
 	#define XASH_LITTLE_ENDIAN 1
 #elif defined __HAIKU__
 	#define XASH_HAIKU 1
+	#define XASH_POSIX 1
+#elif defined __serenity__
+	#define XASH_SERENITY 1
 	#define XASH_POSIX 1
 #else
 #error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"

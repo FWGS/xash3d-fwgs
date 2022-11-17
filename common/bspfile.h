@@ -73,7 +73,8 @@ BRUSH MODELS
 #define MAX_MAP_FACES		262144		// can be increased without problems
 #define MAX_MAP_MARKSURFACES		524288		// can be increased without problems
 #else
-#define MAX_MAP_MODELS		768		// embedded models
+// increased to match PrimeXT compilers
+#define MAX_MAP_MODELS		1024		// embedded models
 #define MAX_MAP_ENTSTRING		0x100000		// 1 Mb should be enough
 #define MAX_MAP_PLANES		65536		// can be increased without problems
 #define MAX_MAP_NODES		32767		// because negative shorts are leafs

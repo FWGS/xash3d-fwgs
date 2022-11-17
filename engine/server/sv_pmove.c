@@ -455,6 +455,8 @@ static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end,
 	matrix4x4	matrix;
 	hull_t	*hull;
 
+	PM_InitTrace( trace, end );
+
 	old_usehull = svgame.pmove->usehull;
 	svgame.pmove->usehull = 2;
 
