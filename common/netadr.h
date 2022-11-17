@@ -31,8 +31,6 @@ typedef enum
 	NA_MULTICAST_IP6, // all nodes multicast
 } netadrtype_t;
 
-#define NETADR_T_SIZE 20
-
 // Original structure:
 // typedef struct netadr_s
 // {
@@ -73,6 +71,6 @@ typedef struct netadr_s
 } netadr_t;
 #pragma pack( pop )
 
-extern int _check_netadr_t_size[sizeof( netadr_t ) == NETADR_T_SIZE ? 1 : -1];
+STATIC_ASSERT( sizeof( netadr_t ) == 20, "invalid netadr_t size" );
 
 #endif//NETADR_H
