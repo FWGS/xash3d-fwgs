@@ -419,7 +419,9 @@ void SV_ConnectClient( netadr_t from )
 	// reset viewentities (from previous level)
 	memset( newcl->viewentity, 0, sizeof( newcl->viewentity ));
 	newcl->num_viewents = 0;
-	newcl->listeners = 0;
+	// HACKHACK: can hear all players by default to avoid issues
+	// with server.dll without voice game manager
+	newcl->listeners = -1;
 
 	// initailize netchan
 	Netchan_Setup( NS_SERVER, &newcl->netchan, from, qport, newcl, SV_GetFragmentSize );
