@@ -21,6 +21,7 @@ typedef struct master_s
 	qboolean sent;
 	qboolean save;
 	string address;
+	netadr_t adr; // temporary, rewritten after each send
 } master_t;
 
 struct masterlist_s
@@ -44,31 +45,32 @@ qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data )
 
 	for( list = ml.list; list; list = list->next )
 	{
-		netadr_t adr;
 		int res;
 
 		if( list->sent )
 			continue;
 
-		res = NET_StringToAdrNB( list->address, &adr );
+		res = NET_StringToAdrNB( list->address, &list->adr );
 
 		if( !res )
 		{
 			Con_Reportf( "Can't resolve adr: %s\n", list->address );
 			list->sent = true;
+			list->adr.type = NA_UNUSED;
 			continue;
 		}
 
 		if( res == 2 )
 		{
 			list->sent = false;
+			list->adr.type = NA_UNUSED;
 			wait = true;
 			continue;
 		}
 
 		list->sent = true;
 
-		NET_SendPacket( sock, len, data, adr );
+		NET_SendPacket( sock, len, data, list->adr );
 	}
 
 	if( !wait )
@@ -83,6 +85,25 @@ qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data )
 	}
 
 	return wait;
+}
+
+/*
+========================
+NET_IsMasterAdr
+
+========================
+*/
+qboolean NET_IsMasterAdr( netadr_t adr )
+{
+	master_t *master;
+
+	for( master = ml.list; master; master = master->next )
+	{
+		if( NET_CompareAdr( adr, master->adr ))
+			return true;
+	}
+
+	return false;
 }
 
 /*
@@ -107,6 +128,7 @@ static void NET_AddMaster( const char *addr, qboolean save )
 	master->sent = false;
 	master->save = save;
 	master->next = NULL;
+	master->adr.type = NA_UNUSED;
 
 	// link in
 	if( last )
@@ -161,7 +183,10 @@ static void NET_ListMasters_f( void )
 
 	for( i = 1, list = ml.list; list; i++, list = list->next )
 	{
-		Msg( "%d\t%s\n", i, list->address );
+		Msg( "%d\t%s", i, list->address );
+		if( list->adr.type != NA_UNUSED )
+			Msg( "\t%s\n", NET_AdrToString( list->adr ));
+		else Msg( "\n" );
 	}
 }
 

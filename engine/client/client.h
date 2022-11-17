@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "net_api.h"
 #include "world.h"
 #include "ref_common.h"
+#include "voice.h"
 
 // client sprite types
 #define SPR_CLIENT		0	// client sprite for temp-entities or user-textures
@@ -465,7 +466,7 @@ typedef struct
 
 	string		cdtracks[MAX_CDTRACKS];	// 32 cd-tracks read from cdaudio.txt
 
-	model_t		sprites[MAX_CLIENT_SPRITES];	// client spritetextures
+	model_t		sprites[MAX_CLIENT_SPRITES];	// hud&client spritetexturesz
 	int		viewport[4];		// viewport sizes
 
 	client_draw_t	ds;			// draw2d stuff (hud, weaponmenu etc)
@@ -527,9 +528,6 @@ typedef struct
 	float		disable_screen;		// showing loading plaque between levels
 						// or changing rendering dlls
 						// if time gets > 30 seconds ahead, break it
-	int		disable_servercount;	// when we receive a frame and cl.servercount
-						// > cls.disable_servercount, clear disable_screen
-
 	qboolean		draw_changelevel;		// draw changelevel image 'Loading...'
 
 	keydest_t		key_dest;
@@ -705,7 +703,7 @@ dlight_t *CL_GetEntityLight( int number );
 //
 // cl_cmds.c
 //
-void CL_Quit_f( void ) NORETURN;
+void CL_Quit_f( void );
 void CL_ScreenShot_f( void );
 void CL_SnapShot_f( void );
 void CL_PlayCDTrack_f( void );
@@ -966,7 +964,7 @@ void CL_ClearAllRemaps( void );
 // cl_render.c
 //
 qboolean R_InitRenderAPI( void );
-int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef );
+intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef );
 lightstyle_t *CL_GetLightStyle( int number );
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
 const ref_overview_t *GL_GetOverviewParms( void );

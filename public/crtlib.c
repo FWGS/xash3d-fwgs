@@ -317,94 +317,6 @@ void Q_atov( float *vec, const char *str, size_t siz )
 	}
 }
 
-char *Q_strchr( const char *s, char c )
-{
-	size_t	len = Q_strlen( s );
-
-	while( len-- )
-	{
-		if( *++s == c )
-			return (char *)s;
-	}
-	return 0;
-}
-
-char *Q_strrchr( const char *s, char c )
-{
-	size_t	len = Q_strlen( s );
-
-	s += len;
-
-	while( len-- )
-	{
-		if( *--s == c )
-			return (char *)s;
-	}
-	return 0;
-}
-
-int Q_strnicmp( const char *s1, const char *s2, int n )
-{
-	int	c1, c2;
-
-	if( s1 == NULL )
-	{
-		if( s2 == NULL )
-			return 0;
-		else return -1;
-	}
-	else if( s2 == NULL )
-	{
-		return 1;
-	}
-
-	do {
-		c1 = *s1++;
-		c2 = *s2++;
-
-		if( !n-- ) return 0; // strings are equal until end point
-
-		if( c1 != c2 )
-		{
-			if( c1 >= 'a' && c1 <= 'z' ) c1 -= ('a' - 'A');
-			if( c2 >= 'a' && c2 <= 'z' ) c2 -= ('a' - 'A');
-			if( c1 != c2 ) return c1 < c2 ? -1 : 1;
-		}
-	} while( c1 );
-
-	// strings are equal
-	return 0;
-}
-
-int Q_strncmp( const char *s1, const char *s2, int n )
-{
-	int	c1, c2;
-
-	if( s1 == NULL )
-	{
-		if( s2 == NULL )
-			return 0;
-		else return -1;
-	}
-	else if( s2 == NULL )
-	{
-		return 1;
-	}
-
-	do {
-		c1 = *s1++;
-		c2 = *s2++;
-
-		// strings are equal until end point
-		if( !n-- ) return 0;
-		if( c1 != c2 ) return c1 < c2 ? -1 : 1;
-
-	} while( c1 );
-
-	// strings are equal
-	return 0;
-}
-
 static qboolean Q_starcmp( const char *pattern, const char *text )
 {
 	char		c, c1;
@@ -426,12 +338,15 @@ static qboolean Q_starcmp( const char *pattern, const char *text )
 	}
 }
 
-qboolean Q_stricmpext( const char *pattern, const char *text )
+qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlength )
 {
+	size_t  i = 0;
 	char	c;
 
 	while(( c = *pattern++ ) != '\0' )
 	{
+		i++;
+
 		switch( c )
 		{
 		case '?':
@@ -449,7 +364,12 @@ qboolean Q_stricmpext( const char *pattern, const char *text )
 				return false;
 		}
 	}
-	return ( *text == '\0' );
+	return ( *text == '\0' ) || i == minimumlength;
+}
+
+qboolean Q_stricmpext( const char *pattern, const char *text )
+{
+	return Q_strnicmpext( pattern, text, ~((size_t)0) );
 }
 
 const char* Q_timestamp( int format )
@@ -496,31 +416,7 @@ const char* Q_timestamp( int format )
 	return timestamp;
 }
 
-char *Q_strstr( const char *string, const char *string2 )
-{
-	int	c;
-	size_t	len;
-
-	if( !string || !string2 ) return NULL;
-
-	c = *string2;
-	len = Q_strlen( string2 );
-
-	while( string )
-	{
-		for( ; *string && *string != c; string++ );
-
-		if( *string )
-		{
-			if( !Q_strncmp( string, string2, len ))
-				break;
-			string++;
-		}
-		else return NULL;
-	}
-	return (char *)string;
-}
-
+#if !defined( HAVE_STRCASESTR )
 char *Q_stristr( const char *string, const char *string2 )
 {
 	int	c;
@@ -545,6 +441,7 @@ char *Q_stristr( const char *string, const char *string2 )
 	}
 	return (char *)string;
 }
+#endif // !defined( HAVE_STRCASESTR )
 
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args )
 {
@@ -613,6 +510,17 @@ char *Q_strpbrk(const char *s, const char *accept)
 	}
 
 	return NULL;
+}
+
+void COM_StripColors( const char *in, char *out )
+{
+	while ( *in )
+	{
+		if ( IsColorString( in ) )
+			in += 2;
+		else *out++ = *in++;
+	}
+	*out = '\0';
 }
 
 uint Q_hashkey( const char *string, uint hashSize, qboolean caseinsensitive )
@@ -921,6 +829,23 @@ void COM_RemoveLineFeed( char *str )
 
 /*
 ============
+COM_FixSlashes
+
+Changes all '/' characters into '\' characters, in place.
+============
+*/
+void COM_FixSlashes( char *pname )
+{
+	while( *pname )
+	{
+		if( *pname == '\\' )
+			*pname = '/';
+		pname++;
+	}
+}
+
+/*
+============
 COM_PathSlashFix
 ============
 */
@@ -989,10 +914,13 @@ COM_ParseFile
 text parser
 ==============
 */
-char *_COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *plen )
+char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *plen, qboolean *quoted )
 {
 	int	c, len = 0;
 	qboolean overflow = false;
+
+	if( quoted )
+		*quoted = false;
 
 	if( !token || !size )
 	{
@@ -1027,6 +955,9 @@ skipwhite:
 	// handle quoted strings specially
 	if( c == '\"' )
 	{
+		if( quoted )
+			*quoted = true;
+
 		data++;
 		while( 1 )
 		{

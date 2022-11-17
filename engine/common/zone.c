@@ -91,8 +91,8 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 	pool->totalsize += size;
 
 	// big allocations are not clumped
-	pool->realsize += sizeof( memheader_t ) + size + sizeof( int );
-	mem = (memheader_t *)Q_malloc( sizeof( memheader_t ) + size + sizeof( int ));
+	pool->realsize += sizeof( memheader_t ) + size + sizeof( size_t );
+	mem = (memheader_t *)Q_malloc( sizeof( memheader_t ) + size + sizeof( size_t ));
 	if( mem == NULL ) Sys_Error( "Mem_Alloc: out of memory (alloc at %s:%i)\n", filename, fileline );
 
 	mem->filename = filename;
@@ -162,7 +162,7 @@ static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline 
 	// memheader has been unlinked, do the actual free now
 	pool->totalsize -= mem->size;
 
-	pool->realsize -= sizeof( memheader_t ) + mem->size + sizeof( int );
+	pool->realsize -= sizeof( memheader_t ) + mem->size + sizeof( size_t );
 	Q_free( mem );
 }
 

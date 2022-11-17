@@ -60,7 +60,7 @@ void GL_RenderFrame( const ref_viewpass_t *rvp )
 	ref.dllFuncs.GL_RenderFrame( rvp );
 }
 
-static int pfnEngineGetParm( int parm, int arg )
+static intptr_t pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
 }
@@ -151,7 +151,7 @@ static player_info_t *pfnPlayerInfo( int index )
 	if( index == -1 ) // special index for menu
 		return &gameui.playerinfo;
 
-	if( index < 0 || index > cl.maxclients )
+	if( index < 0 || index >= cl.maxclients )
 		return NULL;
 
 	return &cl.players[index];
@@ -334,10 +334,6 @@ static ref_api_t gEngfuncs =
 	COM_FreeLibrary,
 	COM_GetProcAddress,
 
-	FS_LoadFile,
-	FS_FileExists,
-	FS_AllowDirectPaths,
-
 	R_Init_Video_,
 	R_Free_Video,
 
@@ -383,7 +379,9 @@ static ref_api_t gEngfuncs =
 
 	pfnDrawNormalTriangles,
 	pfnDrawTransparentTriangles,
-	&clgame.drawFuncs
+	&clgame.drawFuncs,
+
+	&g_fsapi,
 };
 
 static void R_UnloadProgs( void )

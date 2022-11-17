@@ -25,8 +25,8 @@ GNU General Public License for more details.
 enum png_colortype
 {
 	PNG_CT_GREY,
-	PNG_CT_PALLETE = BIT(0),
 	PNG_CT_RGB = BIT(1),
+	PNG_CT_PALLETE = (PNG_CT_RGB|BIT(0)),
 	PNG_CT_ALPHA = BIT(2),
 	PNG_CT_RGBA = (PNG_CT_RGB|PNG_CT_ALPHA)
 };

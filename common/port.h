@@ -47,14 +47,8 @@ GNU General Public License for more details.
 		#define O_BINARY    0
 		#define O_TEXT      0
 		#define _mkdir( x ) mkdir( x, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
-		#define LoadLibrary( x ) dlopen( x, RTLD_NOW )
-		#define GetProcAddress( x, y ) dlsym( x, y )
-		#define FreeLibrary( x ) dlclose( x )
 	#elif XASH_DOS4GW
 		#define PATH_SPLITTER "\\"
-		#define LoadLibrary( x ) (0)
-		#define GetProcAddress( x, y ) (0)
-		#define FreeLibrary( x ) (0)
 	#endif
 
 	typedef void* HANDLE;

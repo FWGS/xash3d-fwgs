@@ -27,8 +27,12 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "r_efx.h"
 #include "com_image.h"
+#include "filesystem.h"
 
-#define REF_API_VERSION 1
+// RefAPI changelog:
+// 1. Initial release
+// 2. FS functions are removed, instead we have full fs_api_t
+#define REF_API_VERSION 2
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -252,7 +256,7 @@ typedef enum
 
 typedef struct ref_api_s
 {
-	int	(*EngineGetParm)( int parm, int arg );	// generic
+	intptr_t (*EngineGetParm)( int parm, int arg );	// generic
 
 	// cvar handlers
 	cvar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
@@ -335,7 +339,7 @@ typedef struct ref_api_s
 
 	// utils
 	void  (*CL_ExtraUpdate)( void );
-	void  (*Host_Error)( const char *fmt, ... ) _format( 1 ) NORETURN;
+	void  (*Host_Error)( const char *fmt, ... ) _format( 1 );
 	void  (*COM_SetRandomSeed)( int lSeed );
 	float (*COM_RandomFloat)( float rmin, float rmax );
 	int   (*COM_RandomLong)( int rmin, int rmax );
@@ -366,13 +370,6 @@ typedef struct ref_api_s
 	void *(*COM_LoadLibrary)( const char *name, int build_ordinals_table, qboolean directpath );
 	void  (*COM_FreeLibrary)( void *handle );
 	void *(*COM_GetProcAddress)( void *handle, const char *name );
-
-	// filesystem
-	byte*	(*COM_LoadFile)( const char *path, fs_offset_t *pLength, qboolean gamedironly );
-	// use Mem_Free instead
-	// void	(*COM_FreeFile)( void *buffer );
-	int (*FS_FileExists)( const char *filename, int gamedironly );
-	void (*FS_AllowDirectPaths)( qboolean enable );
 
 	// video init
 	// try to create window
@@ -430,6 +427,9 @@ typedef struct ref_api_s
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
 	render_interface_t	*drawFuncs;
+
+	// filesystem exports
+	fs_api_t	*fsapi;
 } ref_api_t;
 
 struct mip_s;

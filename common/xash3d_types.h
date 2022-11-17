@@ -10,6 +10,7 @@
 
 #include <sys/types.h> // off_t
 #include STDINT_H
+#include <assert.h>
 
 typedef unsigned char byte;
 typedef int		sound_t;
@@ -87,6 +88,27 @@ typedef uint64_t longtime_t;
 	#define NORETURN
 #endif
 
+#if ( __GNUC__ >= 3 )
+	#define unlikely(x) __builtin_expect(x, 0)
+	#define likely(x)   __builtin_expect(x, 1)
+#elif defined( __has_builtin )
+	#if __has_builtin( __builtin_expect )
+		#define unlikely(x) __builtin_expect(x, 0)
+		#define likely(x)   __builtin_expect(x, 1)
+	#else
+		#define unlikely(x) (x)
+		#define likely(x)   (x)
+	#endif
+#else
+	#define unlikely(x) (x)
+	#define likely(x)   (x)
+#endif
+
+#if defined( static_assert ) // C11 static_assert
+#define STATIC_ASSERT static_assert
+#else
+#define STATIC_ASSERT( x, y ) extern int _static_assert_##__LINE__[( x ) ? 1 : -1]
+#endif
 
 #ifdef XASH_BIG_ENDIAN
 #define LittleLong(x) (((int)(((x)&255)<<24)) + ((int)((((x)>>8)&255)<<16)) + ((int)(((x)>>16)&255)<<8) + (((x) >> 24)&255))
@@ -122,7 +144,6 @@ typedef unsigned int	dword;
 typedef unsigned int	uint;
 typedef char		string[MAX_STRING];
 typedef struct file_s	file_t;		// normal file
-typedef struct wfile_s	wfile_t;		// wad file
 typedef struct stream_s	stream_t;		// sound stream for background music playing
 typedef off_t fs_offset_t;
 #if XASH_WIN32

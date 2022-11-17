@@ -76,13 +76,6 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
 
-typedef struct
-{
-	int	numfilenames;
-	char	**filenames;
-	char	*filenamesbuffer;
-} search_t;
-
 enum
 {
 	DEV_NONE = 0,
@@ -118,9 +111,8 @@ typedef enum
 #include "cvar.h"
 #include "con_nprint.h"
 #include "crclib.h"
-
-#define XASH_VERSION        "0.20" // engine current version
-#define XASH_COMPAT_VERSION "0.99" // version we are based on
+#include "ref_api.h"
+#include "fscallback.h"
 
 // PERFORMANCE INFO
 #define MIN_FPS         20.0f		// host minimum fps value for maxfps.
@@ -150,18 +142,6 @@ typedef enum
 #define MAX_STATIC_ENTITIES	32	// static entities that moved on the client when level is spawn
 #endif
 
-// filesystem flags
-#define FS_STATIC_PATH  ( 1U << 0 )  // FS_ClearSearchPath will be ignore this path
-#define FS_NOWRITE_PATH ( 1U << 1 )  // default behavior - last added gamedir set as writedir. This flag disables it
-#define FS_GAMEDIR_PATH ( 1U << 2 )  // just a marker for gamedir path
-#define FS_CUSTOM_PATH  ( 1U << 3 )  // custom directory
-#define FS_GAMERODIR_PATH	( 1U << 4 ) // caseinsensitive
-
-#define FS_GAMEDIRONLY_SEARCH_FLAGS ( FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH )
-
-#define GI		SI.GameInfo
-#define FS_Gamedir()	SI.GameInfo->gamefolder
-#define FS_Title()		SI.GameInfo->title
 #define GameState		(&host.game)
 
 #define FORCE_DRAW_VERSION_TIME 5.0f // draw version for 5 seconds
@@ -179,7 +159,6 @@ extern convar_t	*scr_download;
 extern convar_t	*cmd_scripting;
 extern convar_t	*sv_maxclients;
 extern convar_t	*cl_allow_levelshots;
-extern convar_t	*vid_displayfrequency;
 extern convar_t	host_developer;
 extern convar_t	*host_limitlocal;
 extern convar_t	*host_framerate;
@@ -202,61 +181,6 @@ GAMEINFO stuff
 internal shared gameinfo structure (readonly for engine parts)
 ========================================================================
 */
-typedef struct gameinfo_s
-{
-	// filesystem info
-	char		gamefolder[MAX_QPATH];	// used for change game '-game x'
-	char		basedir[MAX_QPATH];	// base game directory (like 'id1' for Quake or 'valve' for Half-Life)
-	char		falldir[MAX_QPATH];	// used as second basedir
-	char		startmap[MAX_QPATH];// map to start singleplayer game
-	char		trainmap[MAX_QPATH];// map to start hazard course (if specified)
-	char		title[64];	// Game Main Title
-	float		version;		// game version (optional)
-
-	// .dll pathes
-	char		dll_path[MAX_QPATH];	// e.g. "bin" or "cl_dlls"
-	char		game_dll[MAX_QPATH];	// custom path for game.dll
-
-	// .ico path
-	char		iconpath[MAX_QPATH];	// "game.ico" by default
-
-	// about mod info
-	string		game_url;		// link to a developer's site
-	string		update_url;	// link to updates page
-	char		type[MAX_QPATH];	// single, toolkit, multiplayer etc
-	char		date[MAX_QPATH];
-	size_t		size;
-
-	int		gamemode;
-	qboolean		secure;		// prevent to console acess
-	qboolean		nomodels;		// don't let player to choose model (use player.mdl always)
-	qboolean		noskills;		// disable skill menu selection
-	qboolean		render_picbutton_text; // use font renderer to render WON buttons
-
-	char		sp_entity[32];	// e.g. info_player_start
-	char		mp_entity[32];	// e.g. info_player_deathmatch
-	char		mp_filter[32];	// filtering multiplayer-maps
-
-	char		ambientsound[NUM_AMBIENTS][MAX_QPATH];	// quake ambient sounds
-
-	int		max_edicts;	// min edicts is 600, max edicts is 8196
-	int		max_tents;	// min temp ents is 300, max is 2048
-	int		max_beams;	// min beams is 64, max beams is 512
-	int		max_particles;	// min particles is 4096, max particles is 32768
-
-	char		game_dll_linux[64];	// custom path for game.dll
-	char		game_dll_osx[64];	// custom path for game.dll
-
-	qboolean	added;
-} gameinfo_t;
-
-typedef enum
-{
-	GAME_NORMAL,
-	GAME_SINGLEPLAYER_ONLY,
-	GAME_MULTIPLAYER_ONLY
-} gametype_t;
-
 typedef struct sysinfo_s
 {
 	string		exeName;		// exe.filename
@@ -264,9 +188,6 @@ typedef struct sysinfo_s
 	string		basedirName;	// name of base directory
 	string		gamedll;
 	string		clientlib;
-	gameinfo_t	*GameInfo;	// current GameInfo
-	gameinfo_t	*games[MAX_MODS];	// environment games (founded at each engine start)
-	int		numgames;
 } sysinfo_t;
 
 typedef enum
@@ -385,6 +306,16 @@ typedef struct
 	float		scale;		// curstate.scale
 } tentlist_t;
 
+typedef enum bugcomp_e
+{
+	// default mode, we assume that user dlls are not relying on engine bugs
+	BUGCOMP_OFF,
+
+	// GoldSrc mode, user dlls are relying on GoldSrc specific bugs
+	// but fixing them may break regular Xash games
+	BUGCOMP_GOLDSRC,
+} bugcomp_t;
+
 typedef struct host_parm_s
 {
 	HINSTANCE			hInst;
@@ -426,7 +357,7 @@ typedef struct host_parm_s
 	qboolean		allow_cheats;	// this host will allow cheating
 	qboolean		con_showalways;	// show console always (developer and dedicated)
 	qboolean		change_game;	// initialize when game is changed
-	qboolean		mouse_visible;	// vgui override cursor control
+	qboolean		mouse_visible;	// vgui override cursor control (never change outside Platform_SetCursorType!)
 	qboolean		shutdown_issued;	// engine is shutting down
 	qboolean		force_draw_version;	// used when fraps is loaded
 	float			force_draw_version_time;
@@ -459,6 +390,9 @@ typedef struct host_parm_s
 	struct decallist_s	*decalList;	// used for keep decals, when renderer is restarted or changed
 	int		numdecals;
 
+	// bug compatibility level, for very "special" games
+	bugcomp_t bugcomp;
+
 } host_parm_t;
 
 extern host_parm_t	host;
@@ -472,6 +406,13 @@ extern sysinfo_t	SI;
 #define CMD_REFDLL	BIT( 5 )		// added by ref.dll
 
 typedef void (*xcommand_t)( void );
+
+//
+// filesystem_engine.c
+//
+qboolean FS_LoadProgs( void );
+void FS_Init( void );
+void FS_Shutdown( void );
 
 //
 // cmd.c
@@ -531,56 +472,6 @@ void Mem_PrintStats( void );
 #define Mem_EmptyPool( pool ) _Mem_EmptyPool( pool, __FILE__, __LINE__ )
 #define Mem_IsAllocated( mem ) Mem_IsAllocatedExt( NULL, mem )
 #define Mem_Check() _Mem_Check( __FILE__, __LINE__ )
-
-//
-// filesystem.c
-//
-void FS_Init( void );
-void FS_Path( void );
-void FS_Rescan( void );
-void FS_Shutdown( void );
-void FS_ClearSearchPath( void );
-void FS_AllowDirectPaths( qboolean enable );
-void FS_AddGameDirectory( const char *dir, uint flags );
-void FS_AddGameHierarchy( const char *dir, uint flags );
-void FS_LoadGameInfo( const char *rootfolder );
-const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
-byte *W_LoadLump( wfile_t *wad, const char *lumpname, size_t *lumpsizeptr, const char type );
-void W_Close( wfile_t *wad );
-byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
-qboolean CRC32_File( dword *crcvalue, const char *filename );
-qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] );
-byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr );
-qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len );
-qboolean COM_ParseVector( char **pfile, float *v, size_t size );
-void COM_NormalizeAngles( vec3_t angles );
-int COM_FileSize( const char *filename );
-void COM_FixSlashes( char *pname );
-void COM_FreeFile( void *buffer );
-int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
-search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly );
-file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly );
-fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize );
-fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize );
-int FS_VPrintf( file_t *file, const char *format, va_list ap );
-int FS_Seek( file_t *file, fs_offset_t offset, int whence );
-int FS_Gets( file_t *file, byte *string, size_t bufsize );
-int FS_Printf( file_t *file, const char *format, ... ) _format( 2 );
-fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly );
-int FS_FileTime( const char *filename, qboolean gamedironly );
-int FS_Print( file_t *file, const char *msg );
-qboolean FS_Rename( const char *oldname, const char *newname );
-int FS_FileExists( const char *filename, int gamedironly );
-int FS_SetCurrentDirectory( const char *path );
-qboolean FS_SysFileExists( const char *path, qboolean casesensitive );
-qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
-qboolean FS_Delete( const char *path );
-int FS_UnGetc( file_t *file, byte c );
-fs_offset_t FS_Tell( file_t *file );
-qboolean FS_Eof( file_t *file );
-int FS_Close( file_t *file );
-int FS_Getc( file_t *file );
-fs_offset_t FS_FileLength( file_t *f );
 
 //
 // imagelib
@@ -671,16 +562,6 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags );
 uint Sound_GetApproxWavePlayLen( const char *filepath );
 
 //
-// build.c
-//
-int Q_buildnum( void );
-int Q_buildnum_compat( void );
-const char *Q_buildos( void );
-const char *Q_buildarch( void );
-const char *Q_buildcommit( void );
-
-
-//
 // host.c
 //
 typedef void( *pfnChangeGame )( const char *progname );
@@ -699,7 +580,7 @@ void Host_WriteConfig( void );
 qboolean Host_IsLocalGame( void );
 qboolean Host_IsLocalClient( void );
 void Host_ShutdownServer( void );
-void Host_Error( const char *error, ... ) _format( 1 ) NORETURN;
+void Host_Error( const char *error, ... ) _format( 1 );
 void Host_PrintEngineFeatures( void );
 void Host_Frame( float time );
 void Host_InitDecals( void );
@@ -879,7 +760,6 @@ void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
 struct cl_entity_s *CL_GetEntityByIndex( int index );
-struct player_info_s *CL_GetPlayerInfo( int playerIndex );
 void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
@@ -955,6 +835,11 @@ void UI_SetActiveMenu( qboolean fActive );
 void UI_ShowConnectionWarning( void );
 void Cmd_Null_f( void );
 void Rcon_Print( const char *pMsg );
+qboolean COM_ParseVector( char **pfile, float *v, size_t size );
+void COM_NormalizeAngles( vec3_t angles );
+int COM_FileSize( const char *filename );
+void COM_FreeFile( void *buffer );
+int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 
 // soundlib shared exports
 qboolean S_Init( void );
@@ -982,6 +867,7 @@ void GAME_EXPORT ID_SetCustomClientID( const char *id );
 void NET_InitMasters( void );
 void NET_SaveMasters( void );
 qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
+qboolean NET_IsMasterAdr( netadr_t adr );
 
 #ifdef REF_DLL
 #error "common.h in ref_dll"

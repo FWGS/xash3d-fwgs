@@ -48,6 +48,7 @@ typedef struct convar_s
 #define FCVAR_VIDRESTART		(1<<20)	// recreate the window is cvar with this flag was changed
 #define FCVAR_TEMPORARY		(1<<21)	// these cvars holds their values and can be unlink in any time
 #define FCVAR_MOVEVARS		(1<<22)	// this cvar is a part of movevars_t struct that shared between client and server
+#define FCVAR_USER_CREATED	(1<<23) // created by a set command (dll's used)
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc ) \
 	convar_t cv = { (char*)cvname, (char*)cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, (char*)cvdesc, NULL }

@@ -39,7 +39,7 @@ static void SV_RemoveID( const char *id )
 
 	for( filter = cidfilter; filter; filter = filter->next )
 	{
-		if( Q_strcmp( filter->id, id ) )
+		if( Q_strcmp( filter->id, id ))
 		{
 			prevfilter = filter;
 			continue;
@@ -78,7 +78,7 @@ qboolean SV_CheckID( const char *id )
 				return false;
 		}
 
-		if( !Q_strncmp( id, filter->id, len ) )
+		if( !Q_strncmp( id, filter->id, len ))
 		{
 			ret = true;
 			break;
@@ -90,7 +90,7 @@ qboolean SV_CheckID( const char *id )
 
 static void SV_BanID_f( void )
 {
-	float time = Q_atof( Cmd_Argv( 1 ) );
+	float time = Q_atof( Cmd_Argv( 1 ));
 	const char *id = Cmd_Argv( 2 );
 	sv_client_t *cl = NULL;
 	cidfilter_t *filter;
@@ -100,19 +100,19 @@ static void SV_BanID_f( void )
 
 	if( !id[0] )
 	{
-		Con_Reportf( "Usage: banid <minutes> <#userid or unique id>\n0 minutes for permanent ban\n" );
+		Con_Reportf( S_USAGE "banid <minutes> <#userid or unique id>\n0 minutes for permanent ban\n" );
 		return;
 	}
 
-	if( !Q_strnicmp( id, "STEAM_", 6 ) || !Q_strnicmp( id, "VALVE_", 6 ) )
+	if( !Q_strnicmp( id, "STEAM_", 6 ) || !Q_strnicmp( id, "VALVE_", 6 ))
 		id += 6;
-	if( !Q_strnicmp( id, "XASH_", 5 ) )
+	if( !Q_strnicmp( id, "XASH_", 5 ))
 		id += 5;
 
 	if( svs.clients )
 	{
 		if( id[0] == '#' )
-			cl = SV_ClientById( Q_atoi( id + 1 ) );
+			cl = SV_ClientById( Q_atoi( id + 1 ));
 
 		if( !cl )
 		{
@@ -122,7 +122,7 @@ static void SV_BanID_f( void )
 
 			for( i = 0, cl1 = svs.clients; i < sv_maxclients->value; i++, cl1++ )
 			{
-				if( !Q_strncmp( id, Info_ValueForKey( cl1->useragent, "uuid" ), len ) )
+				if( !Q_strncmp( id, Info_ValueForKey( cl1->useragent, "uuid" ), len ))
 				{
 					cl = cl1;
 					break;
@@ -152,14 +152,14 @@ static void SV_BanID_f( void )
 
 	SV_RemoveID( id );
 
-	filter = Mem_Malloc( host.mempool, sizeof( cidfilter_t ) );
+	filter = Mem_Malloc( host.mempool, sizeof( cidfilter_t ));
 	filter->endTime = time;
 	filter->next = cidfilter;
-	Q_strncpy( filter->id, id, sizeof( filter->id ) );
+	Q_strncpy( filter->id, id, sizeof( filter->id ));
 	cidfilter = filter;
 
-	if( cl && !Q_stricmp( Cmd_Argv( Cmd_Argc() - 1 ), "kick" ) )
-		Cbuf_AddText( va( "kick #%d \"Kicked and banned\"\n", cl->userid ) );
+	if( cl && !Q_stricmp( Cmd_Argv( Cmd_Argc() - 1 ), "kick" ))
+		Cbuf_AddText( va( "kick #%d \"Kicked and banned\"\n", cl->userid ));
 }
 
 static void SV_ListID_f( void )
@@ -197,7 +197,7 @@ static void SV_RemoveID_f( void )
 
 	if( !id[0] )
 	{
-		Con_Reportf("Usage: removeid <#slotnumber or uniqueid>\n");
+		Con_Reportf( S_USAGE "removeid <#slotnumber or uniqueid>\n");
 		return;
 	}
 
@@ -211,13 +211,13 @@ static void SV_WriteID_f( void )
 
 	if( !f )
 	{
-		Con_DPrintf( S_ERROR "Could not write %s\n", Cvar_VariableString( "bannedcfgfile" ) );
+		Con_DPrintf( S_ERROR "Could not write %s\n", Cvar_VariableString( "bannedcfgfile" ));
 		return;
 	}
 
 	FS_Printf( f, "//=======================================================================\n" );
 	FS_Printf( f, "//\t\tCopyright Flying With Gauss Team %s ©\n", Q_timestamp( TIME_YEAR_ONLY ));
-	FS_Printf( f, "//\t\t    %s - archive of id blacklist\n", Cvar_VariableString( "bannedcfgfile" ) );
+	FS_Printf( f, "//\t\t    %s - archive of id blacklist\n", Cvar_VariableString( "bannedcfgfile" ));
 	FS_Printf( f, "//=======================================================================\n" );
 
 	for( filter = cidfilter; filter; filter = filter->next )
@@ -426,7 +426,7 @@ static void SV_AddIP_f( void )
 		filter.endTime = host.realtime + minutes * 60;
 	else filter.endTime = 0;
 
-	if( !NET_StringToFilterAdr( adr, &filter.adr, &filter.prefixlen ) )
+	if( !NET_StringToFilterAdr( adr, &filter.adr, &filter.prefixlen ))
 	{
 		Con_Printf( "Invalid IP address!\n" );
 		SV_AddIP_PrintUsage();
@@ -511,7 +511,7 @@ static void SV_RemoveIP_f( void )
 
 	removeAll = Cmd_Argc() == 3 && !Q_strcmp( Cmd_Argv( 2 ), "removeAll" );
 
-	if( !NET_StringToFilterAdr( adr, &filter.adr, &filter.prefixlen ) )
+	if( !NET_StringToFilterAdr( adr, &filter.adr, &filter.prefixlen ))
 	{
 		Con_Printf( "Invalid IP address!\n" );
 		SV_RemoveIP_PrintUsage();

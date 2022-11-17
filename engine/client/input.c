@@ -47,8 +47,6 @@ convar_t *cl_backspeed;
 convar_t *look_filter;
 convar_t *m_rawinput;
 
-static qboolean s_bRawInput, s_bMouseGrab;
-
 /*
 ================
 IN_CollectInputDevices
@@ -63,7 +61,7 @@ uint IN_CollectInputDevices( void )
 	if( !m_ignore->value ) // no way to check is mouse connected, so use cvar only
 		ret |= INPUT_DEVICE_MOUSE;
 
-	if( CVAR_TO_BOOL(touch_enable) )
+	if( touch_enable.value )
 		ret |= INPUT_DEVICE_TOUCH;
 
 	if( Joy_IsActive() ) // connected or enabled
@@ -94,13 +92,13 @@ void IN_LockInputDevices( qboolean lock )
 	{
 		SetBits( m_ignore->flags, FCVAR_READ_ONLY );
 		SetBits( joy_enable->flags, FCVAR_READ_ONLY );
-		SetBits( touch_enable->flags, FCVAR_READ_ONLY );
+		SetBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
 	else
 	{
 		ClearBits( m_ignore->flags, FCVAR_READ_ONLY );
 		ClearBits( joy_enable->flags, FCVAR_READ_ONLY );
-		ClearBits( touch_enable->flags, FCVAR_READ_ONLY );
+		ClearBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
 }
 
@@ -173,19 +171,15 @@ Called when key_dest is changed
 */
 void IN_ToggleClientMouse( int newstate, int oldstate )
 {
-	if( newstate == oldstate ) return;
+	if( newstate == oldstate )
+		return;
 
-	if( oldstate == key_game )
+	// since SetCursorType controls cursor visibility
+	// execute it first, and then check mouse grab state
+	if( newstate == key_menu || newstate == key_console || newstate == key_message )
 	{
-		IN_DeactivateMouse();
-	}
-	else if( newstate == key_game )
-	{
-		IN_ActivateMouse();
-	}
+		Platform_SetCursorType( dc_arrow );
 
-	if( ( newstate == key_menu  || newstate == key_console || newstate == key_message ) && ( !CL_IsBackgroundMap() || CL_IsBackgroundDemo( )))
-	{
 #if XASH_ANDROID
 		Android_ShowMouse( true );
 #endif
@@ -195,6 +189,8 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	}
 	else
 	{
+		Platform_SetCursorType( dc_none );
+
 #if XASH_ANDROID
 		Android_ShowMouse( false );
 #endif
@@ -202,10 +198,21 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 		Evdev_SetGrab( true );
 #endif
 	}
+
+	if( oldstate == key_game )
+	{
+		IN_DeactivateMouse();
+	}
+	else if( newstate == key_game )
+	{
+		IN_ActivateMouse();
+	}
 }
 
 void IN_CheckMouseState( qboolean active )
 {
+	static qboolean s_bRawInput, s_bMouseGrab;
+
 #if XASH_WIN32
 	qboolean useRawInput = CVAR_TO_BOOL( m_rawinput ) && clgame.client_dll_uses_sdl || clgame.dllFuncs.pfnLookEvent;
 #else
@@ -276,7 +283,8 @@ void IN_ActivateMouse( void )
 		return;
 
 	IN_CheckMouseState( true );
-	clgame.dllFuncs.IN_ActivateMouse();
+	if( clgame.dllFuncs.IN_ActivateMouse )
+		clgame.dllFuncs.IN_ActivateMouse();
 	in_mouseactive = true;
 }
 
@@ -293,7 +301,8 @@ void IN_DeactivateMouse( void )
 		return;
 
 	IN_CheckMouseState( false );
-	clgame.dllFuncs.IN_DeactivateMouse();
+	if( clgame.dllFuncs.IN_DeactivateMouse )
+		clgame.dllFuncs.IN_DeactivateMouse();
 	in_mouseactive = false;
 }
 
@@ -306,25 +315,25 @@ IN_MouseMove
 */
 void IN_MouseMove( void )
 {
-	POINT	current_pos;
+	int x, y;
 
 	if( !in_mouseinitialized )
 		return;
 
+	if( touch_emulate.value )
+	{
+		// touch emulation overrides all input
+		Touch_KeyEvent( 0, 0 );
+		return;
+	}
+
 	// find mouse movement
-	Platform_GetMousePos( &current_pos.x, &current_pos.y );
+	Platform_GetMousePos( &x, &y );
 
-	VGui_MouseMove( current_pos.x, current_pos.y );
-
-	// HACKHACK: show cursor in UI, as mainui doesn't call
-	// platform-dependent SetCursor anymore
-#if XASH_SDL
-	if( UI_IsVisible() )
-		SDL_ShowCursor( SDL_TRUE );
-#endif
+	VGui_MouseMove( x, y );
 
 	// if the menu is visible, move the menu cursor
-	UI_MouseMove( current_pos.x, current_pos.y );
+	UI_MouseMove( x, y );
 }
 
 /*
@@ -334,8 +343,6 @@ IN_MouseEvent
 */
 void IN_MouseEvent( int key, int down )
 {
-	int	i;
-
 	if( !in_mouseinitialized )
 		return;
 
@@ -343,10 +350,15 @@ void IN_MouseEvent( int key, int down )
 		SetBits( in_mstate, BIT( key ));
 	else ClearBits( in_mstate, BIT( key ));
 
-	if( cls.key_dest == key_game )
+	// touch emulation overrides all input
+	if( touch_emulate.value )
+	{
+		Touch_KeyEvent( K_MOUSE1 + key, down );
+	}
+	else if( cls.key_dest == key_game )
 	{
 		// perform button actions
-		VGui_KeyEvent( K_MOUSE1 + key, down );
+		VGui_MouseEvent( K_MOUSE1 + key, down );
 
 		// don't do Key_Event here
 		// client may override IN_MouseEvent
@@ -359,6 +371,23 @@ void IN_MouseEvent( int key, int down )
 		// perform button actions
 		Key_Event( K_MOUSE1 + key, down );
 	}
+}
+
+/*
+==============
+IN_MWheelEvent
+
+direction is negative for wheel down, otherwise wheel up
+==============
+*/
+void IN_MWheelEvent( int y )
+{
+	int b = y > 0 ? K_MWHEELUP : K_MWHEELDOWN;
+
+	VGui_MWheelEvent( y );
+
+	Key_Event( b, true );
+	Key_Event( b, false );
 }
 
 /*

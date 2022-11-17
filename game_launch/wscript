@@ -21,9 +21,8 @@ def configure(conf):
 	conf.define_cond('XASH_DISABLE_MENU_CHANGEGAME', conf.options.DISABLE_MENU_CHANGEGAME)
 
 def build(bld):
+	libs = ['sdk_includes']
 	source = ['game.cpp']
-	includes = '. ../common ../public'
-	libs = []
 
 	if bld.env.DEST_OS != 'win32':
 		libs += [ 'DL' ]
@@ -31,13 +30,11 @@ def build(bld):
 		libs += ['USER32', 'SHELL32']
 		source += ['game.rc']
 
-	bld(
-		source   = source,
+	bld(source = source,
 		target   = 'xash3d', # hl.exe
 		features = 'c cxx cxxprogram',
-		includes = includes,
 		use      = libs,
-		rpath    = '.',
+		rpath    = '$ORIGIN',
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)

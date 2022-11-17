@@ -70,6 +70,7 @@ convar_t	*cl_upmax;
 convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
+convar_t	*cl_nat;
 convar_t	*hud_utf8;
 convar_t	*ui_renderworld;
 
@@ -195,8 +196,6 @@ void CL_CheckClientState( void )
 		Netchan_ReportFlow( &cls.netchan );
 
 		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart );
-		if(( cls.demoplayback || cls.disable_servercount != cl.servercount ) && cl.video_prepped )
-			SCR_EndLoadingPlaque(); // get rid of loading plaque
 	}
 }
 
@@ -234,6 +233,7 @@ void CL_SignonReply( void )
 			Mem_PrintStats();
 		break;
 	case 2:
+		SCR_EndLoadingPlaque();
 		if( cl.proxy_redirect && !cls.spectator )
 			CL_Disconnect();
 		cl.proxy_redirect = false;
@@ -302,7 +302,7 @@ static float CL_LerpPoint( void )
 	else if( server_frametime > 0.001f )
 	{
 		// automatic lerp (classic mode)
-		frac = ( cl.time - cl.mtime[1] ) / server_frametime;  
+		frac = ( cl.time - cl.mtime[1] ) / server_frametime;
 	}
 #endif
 	return frac;
@@ -367,7 +367,7 @@ void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 
 	min_interp = 1.0f / cl_updaterate->value;
 	interpolation_time = CL_LerpInterval( );
-	
+
 	if( (cl_interp->value + epsilon) < min_interp )
 	{
 		Con_Printf( "ex_interp forced up to %.1f msec\n", min_interp * 1000.f );
@@ -743,8 +743,14 @@ void CL_WritePacket( void )
 	if( cls.state == ca_connected ) numbackup = 0;
 
 	// clamp cmdrate
-	if( cl_cmdrate->value < 0.0f ) Cvar_SetValue( "cl_cmdrate", 0.0f );
-	else if( cl_cmdrate->value > 100.0f ) Cvar_SetValue( "cl_cmdrate", 100.0f );
+	if( cl_cmdrate->value < 10.0f )
+	{
+		Cvar_SetValue( "cl_cmdrate", 10.0f );
+	}
+	else if( cl_cmdrate->value > 100.0f )
+	{
+		Cvar_SetValue( "cl_cmdrate", 100.0f );
+	}
 
 	// Check to see if we can actually send this command
 
@@ -863,6 +869,9 @@ void CL_WritePacket( void )
 		// update size counter for netgraph
 		cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK].sendsize = MSG_GetNumBytesWritten( &buf );
 		cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK].heldback = false;
+
+		// send voice data to the server
+		CL_AddVoiceToDatagram();
 
 		// composite the rest of the datagram..
 		if( MSG_GetNumBitsWritten( &cls.datagram ) <= MSG_GetNumBitsLeft( &buf ))
@@ -1253,7 +1262,7 @@ void CL_Connect_f( void )
 
 	// if running a local server, kill it and reissue
 	if( SV_Active( )) Host_ShutdownServer();
-	NET_Config( true ); // allow remote
+	NET_Config( true, !CVAR_TO_BOOL( cl_nat )); // allow remote
 
 	Con_Printf( "server %s\n", server );
 	CL_Disconnect();
@@ -1299,7 +1308,7 @@ void CL_Rcon_f( void )
 	message[3] = (char)255;
 	message[4] = 0;
 
-	NET_Config( true );	// allow remote
+	NET_Config( true, false );	// allow remote
 
 	Q_strcat( message, "rcon " );
 	Q_strcat( message, rcon_client_password->string );
@@ -1500,6 +1509,7 @@ void CL_Disconnect( void )
 	cls.connect_time = 0;
 	cls.changedemo = false;
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // reset fragment size
+	Voice_Disconnect();
 	CL_Stop_f();
 
 	// send a disconnect message to the server
@@ -1562,7 +1572,7 @@ void CL_LocalServers_f( void )
 	netadr_t	adr;
 
 	Con_Printf( "Scanning for servers on the local network area...\n" );
-	NET_Config( true ); // allow remote
+	NET_Config( true, true ); // allow remote
 
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
@@ -1586,12 +1596,12 @@ void CL_InternetServers_f( void )
 	char *info = fullquery + sizeof( MS_SCAN_REQUEST ) - 1;
 	const size_t remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 
-	NET_Config( true ); // allow remote
+	NET_Config( true, true ); // allow remote
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
-	// Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
+	Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
 
 	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, sizeof( MS_SCAN_REQUEST ) + Q_strlen( info ), fullquery );
 	cls.internetservers_pending = true;
@@ -1715,15 +1725,22 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	static char	infostring[MAX_INFO_STRING+8];
 	char		*s = MSG_ReadString( msg );
 	int i;
+	const char *magic = ": wrong version\n";
+	size_t len = Q_strlen( s ), magiclen = Q_strlen( magic );
 
-	CL_FixupColorStringsForInfoString( s, infostring );
-
-	if( Q_strstr( infostring, "wrong version" ) )
+	if( len >= magiclen && !Q_strcmp( s + len - magiclen, magic ))
 	{
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "info %i", PROTOCOL_LEGACY_VERSION );
-		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
 		return;
 	}
+
+	if( !Info_IsValid( s ))
+	{
+		Con_Printf( "^1Server^7: %s, invalid infostring\n", NET_AdrToString( from ));
+		return;
+	}
+
+	CL_FixupColorStringsForInfoString( s, infostring );
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
 	{
@@ -1734,11 +1751,13 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	if( !COM_CheckString( Info_ValueForKey( infostring, "p" )))
 	{
 		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ) );
-		Con_Print("Legacy: ");
+		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 	}
-
-	// more info about servers
-	Con_Printf( "^2Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
+	else
+	{
+		// more info about servers
+		Con_Printf( "^2Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
+	}
 
 	UI_AddServerToList( from, infostring );
 }
@@ -2097,6 +2116,12 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( c, "f" ))
 	{
+		if( !NET_IsMasterAdr( from ))
+		{
+			Con_Printf( S_WARN "unexpected server list packet from %s\n", NET_AdrToString( from ));
+			return;
+		}
+
 		// serverlist got from masterserver
 		while( MSG_GetNumBitsLeft( msg ) > 8 )
 		{
@@ -2155,7 +2180,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			}
 			else if( clgame.request_type == NET_REQUEST_GAMEUI )
 			{
-				NET_Config( true ); // allow remote
+				NET_Config( true, false ); // allow remote
 				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
 			}
 		}
@@ -2810,6 +2835,8 @@ void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_logocolor );
 	Cvar_RegisterVariable( &cl_test_bandwidth );
 
+	Voice_RegisterCvars();
+
 	// register our variables
 	cl_crosshair = Cvar_Get( "crosshair", "1", FCVAR_ARCHIVE, "show weapon chrosshair" );
 	cl_nodelta = Cvar_Get ("cl_nodelta", "0", 0, "disable delta-compression for server messages" );
@@ -2832,6 +2859,7 @@ void CL_InitLocal( void )
 	cl_updaterate = Cvar_Get( "cl_updaterate", "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
 	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
 	cl_upmax = Cvar_Get( "cl_upmax", "1200", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
+	cl_nat = Cvar_Get( "cl_nat", "0", 0, "show servers running under NAT" );
 	rate = Cvar_Get( "rate", "3500", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 	topcolor = Cvar_Get( "topcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player top color" );
 	bottomcolor = Cvar_Get( "bottomcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player bottom color" );
@@ -2843,9 +2871,9 @@ void CL_InitLocal( void )
 
 	cl_nosmooth = Cvar_Get( "cl_nosmooth", "0", FCVAR_ARCHIVE, "disable smooth up stair climbing" );
 	cl_nointerp = Cvar_Get( "cl_nointerp", "0", FCVAR_CLIENTDLL, "disable interpolation of entities and players" );
-	cl_smoothtime = Cvar_Get( "cl_smoothtime", "0", FCVAR_ARCHIVE, "time to smooth up" );
+	cl_smoothtime = Cvar_Get( "cl_smoothtime", "0.1", FCVAR_ARCHIVE, "time to smooth up" );
 	cl_cmdbackup = Cvar_Get( "cl_cmdbackup", "10", FCVAR_ARCHIVE, "how many additional history commands are sent" );
-	cl_cmdrate = Cvar_Get( "cl_cmdrate", "30", FCVAR_ARCHIVE, "Max number of command packets sent to server per second" );
+	cl_cmdrate = Cvar_Get( "cl_cmdrate", "60", FCVAR_ARCHIVE, "Max number of command packets sent to server per second" );
 	cl_draw_particles = Cvar_Get( "r_drawparticles", "1", FCVAR_CHEAT, "render particles" );
 	cl_draw_tracers = Cvar_Get( "r_drawtracers", "1", FCVAR_CHEAT, "render tracers" );
 	cl_draw_beams = Cvar_Get( "r_drawbeams", "1", FCVAR_CHEAT, "render beams" );
@@ -2874,7 +2902,12 @@ void CL_InitLocal( void )
 	Cmd_AddRestrictedCommand ("kill", NULL, "die instantly" );
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
-	Cmd_AddCommand ("log", NULL, "logging server events" );
+
+	Cmd_AddRestrictedCommand ("ent_list", NULL, "list entities on server" );
+	Cmd_AddRestrictedCommand ("ent_fire", NULL, "fire entity command (be careful)" );
+	Cmd_AddRestrictedCommand ("ent_info", NULL, "dump entity information" );
+	Cmd_AddRestrictedCommand ("ent_create", NULL, "create entity with specified values (be careful)" );
+	Cmd_AddRestrictedCommand ("ent_getvars", NULL, "put parameters of specified entities to client's' ent_last_* cvars" );
 
 	// register our commands
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
@@ -3011,8 +3044,8 @@ void Host_ClientFrame( void )
 	// a new portion updates from server
 	CL_RedoPrediction ();
 
-	// TODO: implement
-//	Voice_Idle( host.frametime );
+	// update voice
+	Voice_Idle( host.frametime );
 
 	// emit visible entities
 	CL_EmitEntities ();
@@ -3031,9 +3064,6 @@ void Host_ClientFrame( void )
 
 	// catch changes video settings
 	VID_CheckChanges();
-
-	// process VGUI
-	VGui_RunFrame ();
 
 	// update the screen
 	SCR_UpdateScreen ();
@@ -3066,6 +3096,7 @@ void CL_Init( void )
 
 	VID_Init();	// init video
 	S_Init();	// init sound
+	Voice_Init( VOICE_DEFAULT_CODEC, 3 ); // init voice
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
@@ -3091,13 +3122,9 @@ CL_Shutdown
 */
 void CL_Shutdown( void )
 {
-	// already freed
-	if( !cls.initialized ) return;
-	cls.initialized = false;
-
 	Con_Printf( "CL_Shutdown()\n" );
 
-	if( !host.crashed )
+	if( !host.crashed && cls.initialized )
 	{
 		Host_WriteOpenGLConfig ();
 		Host_WriteVideoConfig ();
@@ -3111,6 +3138,11 @@ void CL_Shutdown( void )
 	Mobile_Shutdown ();
 	SCR_Shutdown ();
 	CL_UnloadProgs ();
+	cls.initialized = false;
+
+	// for client-side VGUI support we use other order
+	if( !GI->internal_vgui_support )
+		VGui_Shutdown();
 
 	FS_Delete( "demoheader.tmp" ); // remove tmp file
 	SCR_FreeCinematic (); // release AVI's *after* client.dll because custom renderer may use them
@@ -3118,4 +3150,5 @@ void CL_Shutdown( void )
 	R_Shutdown ();
 
 	Con_Shutdown ();
+
 }

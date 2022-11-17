@@ -1904,7 +1904,7 @@ handle temp-entity messages
 void CL_ParseTempEntity( sizebuf_t *msg )
 {
 	sizebuf_t		buf;
-	byte		pbuf[256];
+	byte		pbuf[2048];
 	int		iSize;
 	int		type, color, count, flags;
 	int		decalIndex, modelIndex, entityIndex;
@@ -1922,6 +1922,10 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 	else iSize = MSG_ReadWord( msg );
 
 	decalIndex = modelIndex = entityIndex = 0;
+
+	// this will probably be fatal anyway
+	if( iSize > sizeof( pbuf ))
+		Con_Printf( S_ERROR "%s: Temp buffer overflow!\n", __FUNCTION__ );
 
 	// parse user message into buffer
 	MSG_ReadBytes( msg, pbuf, iSize );
@@ -1970,6 +1974,9 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		pos[1] = MSG_ReadCoord( &buf );
 		pos[2] = MSG_ReadCoord( &buf );
 		R_BlobExplosion( pos );
+
+		hSound = S_RegisterSound( cl_explode_sounds[0] );
+		S_StartSound( pos, -1, CHAN_AUTO, hSound, VOL_NORM, 1.0f, PITCH_NORM, 0 );
 		break;
 	case TE_SMOKE:
 		pos[0] = MSG_ReadCoord( &buf );
@@ -2023,7 +2030,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		dl->decay = 300;
 
 		hSound = S_RegisterSound( cl_explode_sounds[0] );
-		S_StartSound( pos, 0, CHAN_STATIC, hSound, VOL_NORM, 0.6f, PITCH_NORM, 0 );
+		S_StartSound( pos, -1, CHAN_AUTO, hSound, VOL_NORM, 0.6f, PITCH_NORM, 0 );
 		break;
 	case TE_BSPDECAL:
 	case TE_DECAL:

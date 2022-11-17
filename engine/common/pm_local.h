@@ -40,6 +40,22 @@ int PM_TruePointContents( playermove_t *pmove, const vec3_t p );
 int PM_PointContents( playermove_t *pmove, const vec3_t p );
 void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent );
 
+static inline void PM_InitTrace( trace_t *trace, const vec3_t end )
+{
+	memset( trace, 0, sizeof( *trace ));
+	VectorCopy( end, trace->endpos );
+	trace->allsolid = true;
+	trace->fraction = 1.0f;
+}
+
+static inline void PM_InitPMTrace( pmtrace_t *trace, const vec3_t end )
+{
+	memset( trace, 0, sizeof( *trace ));
+	VectorCopy( end, trace->endpos );
+	trace->allsolid = true;
+	trace->fraction = 1.0f;
+}
+
 //
 // pm_surface.c
 //

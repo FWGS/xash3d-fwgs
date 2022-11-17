@@ -151,7 +151,6 @@ convar_t *touch_exp_mult;
 convar_t *touch_grid_enable;
 convar_t *touch_grid_count;
 convar_t *touch_config_file;
-convar_t *touch_enable;
 convar_t *touch_in_menu;
 convar_t *touch_joy_radius;
 convar_t *touch_dpad_radius;
@@ -162,7 +161,9 @@ convar_t *touch_highlight_b;
 convar_t *touch_highlight_a;
 convar_t *touch_precise_amount;
 convar_t *touch_joy_texture;
-convar_t *touch_emulate;
+
+CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
+CVAR_DEFINE_AUTO( touch_emulate, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate touch with mouse" );
 
 // code looks smaller with it
 #define B(x) (button->x)
@@ -216,6 +217,74 @@ static inline int Touch_ExportButtonToConfig( file_t *f, touch_button_t *button,
 
 /*
 =================
+Touch_DumpConfig
+
+Dump config to file
+=================
+*/
+qboolean Touch_DumpConfig( const char *name, const char *profilename )
+{
+	file_t *f;
+	touch_button_t *button;
+
+	f = FS_Open( name, "w", true );
+
+	if( !f )
+	{
+		Con_Printf( S_ERROR "Couldn't write %s.\n", name );
+		return false;
+	}
+
+	FS_Printf( f, "//=======================================================================\n");
+	FS_Printf( f, "//\tCopyright FWGS & XashXT group %s (c)\n", Q_timestamp( TIME_YEAR_ONLY ));
+	FS_Printf( f, "//\t\t\ttouchscreen config\n" );
+	FS_Printf( f, "//=======================================================================\n" );
+	FS_Printf( f, "\ntouch_config_file \"%s\"\n", profilename );
+	FS_Printf( f, "\n// touch cvars\n" );
+	FS_Printf( f, "\n// sensitivity settings\n" );
+	FS_Printf( f, "touch_pitch \"%f\"\n", touch_pitch->value );
+	FS_Printf( f, "touch_yaw \"%f\"\n", touch_yaw->value );
+	FS_Printf( f, "touch_forwardzone \"%f\"\n", touch_forwardzone->value );
+	FS_Printf( f, "touch_sidezone \"%f\"\n", touch_sidezone->value );
+	FS_Printf( f, "touch_nonlinear_look \"%d\"\n", CVAR_TO_BOOL(touch_nonlinear_look));
+	FS_Printf( f, "touch_pow_factor \"%f\"\n", touch_pow_factor->value );
+	FS_Printf( f, "touch_pow_mult \"%f\"\n", touch_pow_mult->value );
+	FS_Printf( f, "touch_exp_mult \"%f\"\n", touch_exp_mult->value );
+	FS_Printf( f, "\n// grid settings\n" );
+	FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count->value );
+	FS_Printf( f, "touch_grid_enable \"%d\"\n", CVAR_TO_BOOL(touch_grid_enable));
+	FS_Printf( f, "\n// global overstroke (width, r, g, b, a)\n" );
+	FS_Printf( f, "touch_set_stroke %d %d %d %d %d\n", touch.swidth, touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] );
+	FS_Printf( f, "\n// highlight when pressed\n" );
+	FS_Printf( f, "touch_highlight_r \"%f\"\n", touch_highlight_r->value );
+	FS_Printf( f, "touch_highlight_g \"%f\"\n", touch_highlight_g->value );
+	FS_Printf( f, "touch_highlight_b \"%f\"\n", touch_highlight_b->value );
+	FS_Printf( f, "touch_highlight_a \"%f\"\n", touch_highlight_a->value );
+	FS_Printf( f, "\n// _joy and _dpad options\n" );
+	FS_Printf( f, "touch_dpad_radius \"%f\"\n", touch_dpad_radius->value );
+	FS_Printf( f, "touch_joy_radius \"%f\"\n", touch_joy_radius->value );
+	FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
+	FS_Printf( f, "touch_precise_amount \"%f\"\n", touch_precise_amount->value );
+	FS_Printf( f, "\n// enable/disable move indicator\n" );
+	FS_Printf( f, "touch_move_indicator \"%f\"\n", touch_move_indicator->value );
+
+	FS_Printf( f, "\n// reset menu state when execing config\n" );
+	FS_Printf( f, "touch_setclientonly 0\n" );
+	FS_Printf( f, "\n// touch buttons\n" );
+	FS_Printf( f, "touch_removeall\n" );
+
+	for( button = touch.list_user.first; button; button = button->next )
+	{
+		Touch_ExportButtonToConfig( f, button, false );
+	}
+
+	FS_Close( f );
+
+	return true;
+}
+
+/*
+=================
 Touch_WriteConfig
 
 save current touch configuration
@@ -237,61 +306,14 @@ void Touch_WriteConfig( void )
 	Q_snprintf( newconfigfile, sizeof( newconfigfile ), "%s.new", touch_config_file->string );
 	Q_snprintf( oldconfigfile, sizeof( oldconfigfile ), "%s.bak", touch_config_file->string );
 
-	f = FS_Open( newconfigfile, "w", true );
-	if( f )
+	if( Touch_DumpConfig( newconfigfile, touch_config_file->string ))
 	{
-		touch_button_t *button;
-		FS_Printf( f, "//=======================================================================\n");
-		FS_Printf( f, "//\tCopyright FWGS & XashXT group %s (c)\n", Q_timestamp( TIME_YEAR_ONLY ));
-		FS_Printf( f, "//\t\t\ttouchscreen config\n" );
-		FS_Printf( f, "//=======================================================================\n" );
-		FS_Printf( f, "\ntouch_config_file \"%s\"\n", touch_config_file->string );
-		FS_Printf( f, "\n// touch cvars\n" );
-		FS_Printf( f, "\n// sensitivity settings\n" );
-		FS_Printf( f, "touch_pitch \"%f\"\n", touch_pitch->value );
-		FS_Printf( f, "touch_yaw \"%f\"\n", touch_yaw->value );
-		FS_Printf( f, "touch_forwardzone \"%f\"\n", touch_forwardzone->value );
-		FS_Printf( f, "touch_sidezone \"%f\"\n", touch_sidezone->value );
-		FS_Printf( f, "touch_nonlinear_look \"%d\"\n", CVAR_TO_BOOL(touch_nonlinear_look));
-		FS_Printf( f, "touch_pow_factor \"%f\"\n", touch_pow_factor->value );
-		FS_Printf( f, "touch_pow_mult \"%f\"\n", touch_pow_mult->value );
-		FS_Printf( f, "touch_exp_mult \"%f\"\n", touch_exp_mult->value );
-		FS_Printf( f, "\n// grid settings\n" );
-		FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count->value );
-		FS_Printf( f, "touch_grid_enable \"%d\"\n", CVAR_TO_BOOL(touch_grid_enable));
-		FS_Printf( f, "\n// global overstroke (width, r, g, b, a)\n" );
-		FS_Printf( f, "touch_set_stroke %d %d %d %d %d\n", touch.swidth, touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] );
-		FS_Printf( f, "\n// highlight when pressed\n" );
-		FS_Printf( f, "touch_highlight_r \"%f\"\n", touch_highlight_r->value );
-		FS_Printf( f, "touch_highlight_g \"%f\"\n", touch_highlight_g->value );
-		FS_Printf( f, "touch_highlight_b \"%f\"\n", touch_highlight_b->value );
-		FS_Printf( f, "touch_highlight_a \"%f\"\n", touch_highlight_a->value );
-		FS_Printf( f, "\n// _joy and _dpad options\n" );
-		FS_Printf( f, "touch_dpad_radius \"%f\"\n", touch_dpad_radius->value );
-		FS_Printf( f, "touch_joy_radius \"%f\"\n", touch_joy_radius->value );
-		FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
-		FS_Printf( f, "touch_precise_amount \"%f\"\n", touch_precise_amount->value );
-		FS_Printf( f, "\n// enable/disable move indicator\n" );
-		FS_Printf( f, "touch_move_indicator \"%f\"\n", touch_move_indicator->value );
-
-		FS_Printf( f, "\n// reset menu state when execing config\n" );
-		FS_Printf( f, "touch_setclientonly 0\n" );
-		FS_Printf( f, "\n// touch buttons\n" );
-		FS_Printf( f, "touch_removeall\n" );
-
-		for( button = touch.list_user.first; button; button = button->next )
-		{
-			Touch_ExportButtonToConfig( f, button, false );
-		}
-
-		FS_Close( f );
-
 		FS_Delete( oldconfigfile );
 		FS_Rename( touch_config_file->string, oldconfigfile );
+
 		FS_Delete( touch_config_file->string );
 		FS_Rename( newconfigfile, touch_config_file->string );
 	}
-	else Con_Printf( S_ERROR "Couldn't write %s.\n", touch_config_file->string );
 }
 
 /*
@@ -303,8 +325,8 @@ export current touch configuration into profile
 */
 static void Touch_ExportConfig_f( void )
 {
-	file_t	*f;
 	const char *name;
+	string profilename, profilebase;
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -316,65 +338,15 @@ static void Touch_ExportConfig_f( void )
 
 	name = Cmd_Argv( 1 );
 
-	Con_Reportf( "Exporting config to %s\n", name );
-	f = FS_Open( name, "w", true );
-	if( f )
+	if( Q_strstr( name, "touch_presets/" ))
 	{
-		string profilename, profilebase;
-		touch_button_t *button;
-
-		if( Q_strstr( name, "touch_presets/" ) )
-		{
-			COM_FileBase( name, profilebase );
-			Q_snprintf( profilename, sizeof( profilebase ), "touch_profiles/%s (copy).cfg", profilebase );
-		}
-		else Q_strncpy( profilename, name, sizeof( profilename ));
-		FS_Printf( f, "//=======================================================================\n");
-		FS_Printf( f, "//\tCopyright FWGS & XashXT group %s (c)\n", Q_timestamp( TIME_YEAR_ONLY ));
-		FS_Printf( f, "//\t\t\ttouchscreen preset\n" );
-		FS_Printf( f, "//=======================================================================\n" );
-		FS_Printf( f, "\ntouch_config_file \"%s\"\n", profilename );
-		FS_Printf( f, "\n// touch cvars\n" );
-		FS_Printf( f, "\n// sensitivity settings\n" );
-		FS_Printf( f, "touch_pitch \"%f\"\n", touch_pitch->value );
-		FS_Printf( f, "touch_yaw \"%f\"\n", touch_yaw->value );
-		FS_Printf( f, "touch_forwardzone \"%f\"\n", touch_forwardzone->value );
-		FS_Printf( f, "touch_sidezone \"%f\"\n", touch_sidezone->value );
-		FS_Printf( f, "touch_nonlinear_look \"%d\"\n", CVAR_TO_BOOL(touch_nonlinear_look) );
-		FS_Printf( f, "touch_pow_factor \"%f\"\n", touch_pow_factor->value );
-		FS_Printf( f, "touch_pow_mult \"%f\"\n", touch_pow_mult->value );
-		FS_Printf( f, "touch_exp_mult \"%f\"\n", touch_exp_mult->value );
-		FS_Printf( f, "\n// grid settings\n" );
-		FS_Printf( f, "touch_grid_count \"%d\"\n", (int)touch_grid_count->value );
-		FS_Printf( f, "touch_grid_enable \"%d\"\n", CVAR_TO_BOOL(touch_grid_enable) );
-		FS_Printf( f, "\n// global overstroke (width, r, g, b, a)\n" );
-		FS_Printf( f, "touch_set_stroke %d %d %d %d %d\n", touch.swidth, touch.scolor[0], touch.scolor[1], touch.scolor[2], touch.scolor[3] );
-		FS_Printf( f, "\n// highlight when pressed\n" );
-		FS_Printf( f, "touch_highlight_r \"%f\"\n", touch_highlight_r->value );
-		FS_Printf( f, "touch_highlight_g \"%f\"\n", touch_highlight_g->value );
-		FS_Printf( f, "touch_highlight_b \"%f\"\n", touch_highlight_b->value );
-		FS_Printf( f, "touch_highlight_a \"%f\"\n", touch_highlight_a->value );
-		FS_Printf( f, "\n// _joy and _dpad options\n" );
-		FS_Printf( f, "touch_dpad_radius \"%f\"\n", touch_dpad_radius->value );
-		FS_Printf( f, "touch_joy_radius \"%f\"\n", touch_joy_radius->value );
-		FS_Printf( f, "\n// how much slowdown when Precise Look button pressed\n" );
-		FS_Printf( f, "touch_precise_amount \"%f\"\n", touch_precise_amount->value );
-		FS_Printf( f, "\n// enable/disable move indicator\n" );
-		FS_Printf( f, "touch_move_indicator \"%f\"\n", touch_move_indicator->value );
-
-		FS_Printf( f, "\n// reset menu state when execing config\n" );
-		FS_Printf( f, "touch_setclientonly 0\n" );
-		FS_Printf( f, "\n// touch buttons\n" );
-		FS_Printf( f, "touch_removeall\n" );
-		for( button = touch.list_user.first; button; button = button->next )
-		{
-			Touch_ExportButtonToConfig( f, button, true );
-		}
-		FS_Printf( f, "\n// round button coordinates to grid\n" );
-		FS_Printf( f, "touch_roundall\n" );
-		FS_Close( f );
+		COM_FileBase( name, profilebase );
+		Q_snprintf( profilename, sizeof( profilebase ), "touch_profiles/%s (copy).cfg", profilebase );
 	}
-	else Con_Printf( S_ERROR "Couldn't write %s.\n", name );
+	else Q_strncpy( profilename, name, sizeof( profilename ));
+
+	Con_Reportf( "Exporting config to \"%s\", profile name \"%s\"\n", name, profilename );
+	Touch_DumpConfig( name, profilename );
 }
 
 /*
@@ -497,8 +469,8 @@ static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *nam
 
 void Touch_SetClientOnly( byte state )
 {
+	// TODO: fix clash with vgui cursors
 	touch.clientonly = state;
-	host.mouse_visible = state;
 
 	touch.move_finger = touch.look_finger = -1;
 	touch.forward = touch.side = 0;
@@ -994,7 +966,7 @@ static void Touch_InitEditor( void )
 
 	Touch_ClearList( &touch.list_edit );
 
-	temp = Touch_AddButton( &touch.list_edit, "close", "touch_default/edit_close.tga", "touch_disableedit", 0, y, x, y + 0.1f, color, true );
+	temp = Touch_AddButton( &touch.list_edit, "close", "touch_default/edit_close", "touch_disableedit", 0, y, x, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
 	temp = Touch_AddButton( &touch.list_edit, "close", "#Close and save", "", x, y, x + 0.2f, y + 0.1f, color, true );
@@ -1002,7 +974,7 @@ static void Touch_InitEditor( void )
 
 	y += 0.2f;
 
-	temp = Touch_AddButton( &touch.list_edit, "cancel", "touch_default/edit_reset.tga", "touch_reloadconfig", 0, y, x, y + 0.1f, color, true );
+	temp = Touch_AddButton( &touch.list_edit, "cancel", "touch_default/edit_reset", "touch_reloadconfig", 0, y, x, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
 	temp = Touch_AddButton( &touch.list_edit, "close", "#Cancel and reset", "", x, y, x + 0.2f, y + 0.1f, color, true );
@@ -1010,7 +982,7 @@ static void Touch_InitEditor( void )
 
 	y += 0.2f;
 
-	touch.hidebutton = Touch_AddButton( &touch.list_edit, "showhide", "touch_default/edit_hide.tga", "touch_toggleselection", 0, y, x, y + 0.1f, color, true );
+	touch.hidebutton = Touch_AddButton( &touch.list_edit, "showhide", "touch_default/edit_hide", "touch_toggleselection", 0, y, x, y + 0.1f, color, true );
 	SetBits( touch.hidebutton->flags, TOUCH_FL_HIDE | TOUCH_FL_NOEDIT );
 }
 
@@ -1038,23 +1010,23 @@ void Touch_Init( void )
 	MakeRGBA( color, 255, 255, 255, 255 );
 	Touch_AddDefaultButton( "look", "", "_look", 0.500000, 0.000000, 1.000000, 1, color, 0, 0, 0 );
 	Touch_AddDefaultButton( "move", "", "_move", 0.000000, 0.000000, 0.500000, 1, color, 0, 0, 0 );
-	Touch_AddDefaultButton( "invnext", "touch_default/next_weap.tga", "invnext", 0.000000, 0.530200, 0.120000, 0.757428, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "invprev", "touch_default/prev_weap.tga", "invprev", 0.000000, 0.075743, 0.120000, 0.302971, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "use", "touch_default/use.tga", "+use", 0.880000, 0.454457, 1.000000, 0.681685, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "jump", "touch_default/jump.tga", "+jump", 0.880000, 0.227228, 1.000000, 0.454457, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "attack", "touch_default/shoot.tga", "+attack", 0.760000, 0.530200, 0.880000, 0.757428, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "attack2", "touch_default/shoot_alt.tga", "+attack2", 0.760000, 0.302971, 0.880000, 0.530200, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "loadquick", "touch_default/load.tga", "loadquick", 0.760000, 0.000000, 0.840000, 0.151486, color, 2, 1, 16 );
-	Touch_AddDefaultButton( "savequick", "touch_default/save.tga", "savequick", 0.840000, 0.000000, 0.920000, 0.151486, color, 2, 1, 16 );
-	Touch_AddDefaultButton( "messagemode", "touch_default/keyboard.tga", "messagemode", 0.840000, 0.000000, 0.920000, 0.151486, color, 2, 1, 8 );
-	Touch_AddDefaultButton( "reload", "touch_default/reload.tga", "+reload", 0.000000, 0.302971, 0.120000, 0.530200, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "flashlight", "touch_default/flash_light_filled.tga", "impulse 100", 0.920000, 0.000000, 1.000000, 0.151486, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "scores", "touch_default/map.tga", "+showscores", 0.760000, 0.000000, 0.840000, 0.151486, color, 2, 1, 8 );
-	Touch_AddDefaultButton( "show_numbers", "touch_default/show_weapons.tga", "exec touch_default/numbers.cfg", 0.440000, 0.833171, 0.520000, 0.984656, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "duck", "touch_default/crouch.tga", "+duck", 0.880000, 0.757428, 1.000000, 0.984656, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "tduck", "touch_default/tduck.tga", ";+duck", 0.560000, 0.833171, 0.620000, 0.946785, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "edit", "touch_default/settings.tga", "touch_enableedit", 0.420000, 0.000000, 0.500000, 0.151486, color, 2, 1, 32 );
-	Touch_AddDefaultButton( "menu", "touch_default/menu.tga", "escape", 0.000000, 0.833171, 0.080000, 0.984656, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "invnext", "touch_default/next_weap", "invnext", 0.000000, 0.530200, 0.120000, 0.757428, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "invprev", "touch_default/prev_weap", "invprev", 0.000000, 0.075743, 0.120000, 0.302971, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "use", "touch_default/use", "+use", 0.880000, 0.454457, 1.000000, 0.681685, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "jump", "touch_default/jump", "+jump", 0.880000, 0.227228, 1.000000, 0.454457, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "attack", "touch_default/shoot", "+attack", 0.760000, 0.530200, 0.880000, 0.757428, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "attack2", "touch_default/shoot_alt", "+attack2", 0.760000, 0.302971, 0.880000, 0.530200, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "loadquick", "touch_default/load", "loadquick", 0.760000, 0.000000, 0.840000, 0.151486, color, 2, 1, 16 );
+	Touch_AddDefaultButton( "savequick", "touch_default/save", "savequick", 0.840000, 0.000000, 0.920000, 0.151486, color, 2, 1, 16 );
+	Touch_AddDefaultButton( "messagemode", "touch_default/keyboard", "messagemode", 0.840000, 0.000000, 0.920000, 0.151486, color, 2, 1, 8 );
+	Touch_AddDefaultButton( "reload", "touch_default/reload", "+reload", 0.000000, 0.302971, 0.120000, 0.530200, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "flashlight", "touch_default/flash_light_filled", "impulse 100", 0.920000, 0.000000, 1.000000, 0.151486, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "scores", "touch_default/map", "+showscores", 0.760000, 0.000000, 0.840000, 0.151486, color, 2, 1, 8 );
+	Touch_AddDefaultButton( "show_numbers", "touch_default/show_weapons", "exec touch_default/numbers.cfg", 0.440000, 0.833171, 0.520000, 0.984656, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "duck", "touch_default/crouch", "+duck", 0.880000, 0.757428, 1.000000, 0.984656, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "tduck", "touch_default/tduck", ";+duck", 0.560000, 0.833171, 0.620000, 0.946785, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "edit", "touch_default/settings", "touch_enableedit", 0.420000, 0.000000, 0.500000, 0.151486, color, 2, 1, 32 );
+	Touch_AddDefaultButton( "menu", "touch_default/menu", "escape", 0.000000, 0.833171, 0.080000, 0.984656, color, 2, 1, 0 );
 
 
 	Cmd_AddCommand( "touch_addbutton", Touch_AddButton_f, "add native touch button" );
@@ -1106,11 +1078,11 @@ void Touch_Init( void )
 	touch_dpad_radius = Cvar_Get( "touch_dpad_radius", "1.0", FCVAR_FILTERABLE, "dpad radius multiplier" );
 	touch_joy_radius = Cvar_Get( "touch_joy_radius", "1.0", FCVAR_FILTERABLE, "joy radius multiplier" );
 	touch_move_indicator = Cvar_Get( "touch_move_indicator", "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
-	touch_joy_texture = Cvar_Get( "touch_joy_texture", "touch_default/joy.tga", FCVAR_FILTERABLE, "texture for move indicator");
+	touch_joy_texture = Cvar_Get( "touch_joy_texture", "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
 
 	// input devices cvar
-	touch_enable = Cvar_Get( "touch_enable", DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
-	touch_emulate = Cvar_Get( "touch_emulate", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate touch with mouse" );
+	Cvar_RegisterVariable( &touch_enable );
+	Cvar_RegisterVariable( &touch_emulate );
 
 	/// TODO: touch sdl platform
 	// SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );
@@ -1372,7 +1344,7 @@ void Touch_Draw( void )
 {
 	touch_button_t *button;
 
-	if( !touch.initialized || (!CVAR_TO_BOOL(touch_enable) && !touch.clientonly) )
+	if( !touch.initialized || ( !touch_enable.value && !touch.clientonly ))
 		return;
 
 	Touch_InitConfig();
@@ -1515,9 +1487,9 @@ static void Touch_EditMove( touchEventType type, int fingerID, float x, float y,
 				touch.hidebutton->flags &= ~TOUCH_FL_HIDE;
 
 				if( FBitSet( button->flags, TOUCH_FL_HIDE ))
-					Q_strcpy( touch.hidebutton->texturefile, "touch_default/edit_show.tga" );
+					Q_strcpy( touch.hidebutton->texturefile, "touch_default/edit_show" );
 				else
-					Q_strcpy( touch.hidebutton->texturefile, "touch_default/edit_hide.tga" );
+					Q_strcpy( touch.hidebutton->texturefile, "touch_default/edit_hide" );
 			}
 		}
 		if( type == event_motion ) // shutdown button move
@@ -1966,9 +1938,8 @@ static int Touch_ControlsEvent( touchEventType type, int fingerID, float x, floa
 
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy )
 {
-
 	// simulate menu mouse click
-	if( cls.key_dest != key_game && !CVAR_TO_BOOL(touch_in_menu) )
+	if( cls.key_dest != key_game && !CVAR_TO_BOOL( touch_in_menu ))
 	{
 		touch.move_finger = touch.resize_finger = touch.look_finger = -1;
 		// Hack for keyboard, hope it help
@@ -2011,25 +1982,20 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	{
 		VGui_MouseMove( TO_SCRN_X(x), TO_SCRN_Y(y) );
 
-		if( type != event_motion )
-			VGui_KeyEvent( K_MOUSE1, type == event_down ? 1 : 0 );
-
-		// allow scoreboard scroll
-		if( host.mouse_visible && type == event_motion )
-			return 0;
+		switch( type )
+		{
+		case event_down:
+			VGui_MouseEvent( K_MOUSE1, 1 );
+			break;
+		case event_up:
+			VGui_MouseEvent( K_MOUSE1, 0 );
+			break;
+		default: break;
+		}
 	}
 
-	if( !touch.initialized || (!CVAR_TO_BOOL(touch_enable) && !touch.clientonly) )
-	{
-#if 0
-		if( type == event_down )
-			Key_Event( K_MOUSE1, true );
-		if( type == event_up )
-			Key_Event( K_MOUSE1, false );
-		Android_AddMove( dx * (float)refState.width, dy * (float)refState.height );
-#endif
+	if( !touch.initialized || ( !touch_enable.value && !touch.clientonly ))
 		return 0;
-	}
 
 	if( clgame.dllFuncs.pfnTouchEvent && clgame.dllFuncs.pfnTouchEvent( type, fingerID, x, y, dx, dy ) )
 		return true;
@@ -2048,35 +2014,65 @@ void Touch_GetMove( float *forward, float *side, float *yaw, float *pitch )
 
 void Touch_KeyEvent( int key, int down )
 {
-	int xi, yi;
-	float x, y;
 	static float lx, ly;
+	static int kidNamedFinger = -1;
+	touchEventType event;
+	float x, y;
+	int finger, xi, yi;
 
-	if( !CVAR_TO_BOOL(touch_emulate) )
+	if( !touch_emulate.value )
 	{
-		if( CVAR_TO_BOOL(touch_enable) )
+		if( touch_enable.value )
 			return;
 
 		if( !touch.clientonly )
 			return;
 	}
 
-	Platform_GetMousePos( &xi, &yi );
-
-	x = xi/SCR_W;
-	y = yi/SCR_H;
-
-	if( cls.key_dest == key_menu && down < 2 && key == K_MOUSE1 )
+	if( !key )
 	{
-		UI_MouseMove( xi, yi );
-		UI_KeyEvent( key, down );
+		if( kidNamedFinger < 0 )
+			return;
+
+		finger = kidNamedFinger;
+		event  = event_motion;
+	}
+	else
+	{
+		finger = key == K_MOUSE1 ? 0 : 1;
+		if( down )
+		{
+			event = event_down;
+			kidNamedFinger = finger;
+		}
+		else
+		{
+			event = event_up;
+			kidNamedFinger = -1;
+		}
 	}
 
-	if( down == 1 )
-		Touch_ControlsEvent( event_down, key == K_MOUSE1?0:1, x, y, 0, 0 );
-	else
-		Touch_ControlsEvent( down? event_motion: event_up, key == K_MOUSE1?0:1, x, y, x-lx, y-ly );
-	lx = x, ly = y;
+	// don't deactivate mouse in game
+	// checking a case when mouse and touchscreen
+	// can be used simultaneously
+	Platform_SetCursorType( dc_arrow );
+	Platform_GetMousePos( &xi, &yi );
+
+	x = xi / SCR_W;
+	y = yi / SCR_H;
+
+	Con_DPrintf( "event %d %.2f %.2f %.2f %.2f\n",
+		event, x, y, x - lx, y - ly );
+
+	IN_TouchEvent( event, finger, x, y, x - lx, y - ly );
+
+	lx = x;
+	ly = y;
+}
+
+qboolean Touch_WantVisibleCursor( void )
+{
+	return ( touch_enable.value && touch_emulate.value ) || touch.clientonly;
 }
 
 void Touch_Shutdown( void )

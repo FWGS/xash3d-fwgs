@@ -418,6 +418,8 @@ extern convar_t		sv_stopspeed;
 extern convar_t		sv_maxspeed;
 extern convar_t		sv_wateralpha;
 extern convar_t		sv_wateramp;
+extern convar_t		sv_voiceenable;
+extern convar_t		sv_voicequality;
 extern convar_t		sv_stepsize;
 extern convar_t		sv_maxvelocity;
 extern convar_t		sv_rollangle;
@@ -433,6 +435,8 @@ extern convar_t		sv_consistency;
 extern convar_t		sv_password;
 extern convar_t		sv_uploadmax;
 extern convar_t		sv_trace_messages;
+extern convar_t		sv_enttools_enable;
+extern convar_t		sv_enttools_maxfire;
 extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
@@ -470,7 +474,6 @@ void SV_SendResource( resource_t *pResource, sizebuf_t *msg );
 void SV_SendResourceList( sv_client_t *cl );
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
-int SV_GetConnectedClientsCount( int *bots );
 void Host_SetServerState( int state );
 qboolean SV_IsSimulating( void );
 void SV_FreeClients( void );
@@ -547,6 +550,7 @@ void SV_InitClientMove( void );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( void );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) _format( 2 );
+void SV_GetPlayerCount( int *clients, int *bots );
 
 //
 // sv_cmds.c
@@ -640,8 +644,11 @@ void SV_RestartAmbientSounds( void );
 void SV_RestartDecals( void );
 void SV_RestartStaticEnts( void );
 int pfnGetCurrentPlayer( void );
+int pfnDropToFloor( edict_t* e );
 edict_t *SV_EdictNum( int n );
 char *SV_Localinfo( void );
+void SV_SetModel( edict_t *ent, const char *name );
+
 //
 // sv_log.c
 //

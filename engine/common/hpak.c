@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include "filesystem.h"
+#include "hpak.h"
 
 #define HPAK_MAX_ENTRIES	0x8000
 #define HPAK_MIN_SIZE	(1 * 1024)
@@ -47,6 +47,18 @@ const char *HPAK_TypeFromIndex( int type )
 	case t_world: return "map";
 	}
 	return "?";
+}
+
+static inline void HPAK_ResourceToCompat( dresource_t *dest, resource_t *src )
+{
+	memcpy( dest, src, sizeof( *dest ));
+	dest->pNext = dest->pPrev = 0xDEADBEEF;
+}
+
+static inline void HPAK_ResourceFromCompat( resource_t *dest, dresource_t *src )
+{
+	memcpy( dest, src, sizeof( *src ));
+	dest->pNext = dest->pPrev = (void*)0xDEADBEEF;
 }
 
 static void HPAK_AddToQueue( const char *name, resource_t *pResource, void *data, file_t *f )
@@ -89,6 +101,7 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 	byte		md5[16];
 	file_t		*fout;
 	MD5Context_t	ctx;
+	dresource_t	dresource;
 
 	if( !COM_CheckString( filename ))
 		return;
@@ -145,7 +158,7 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 
 	hash_pack_info.count = 1;
 	hash_pack_info.entries = Z_Malloc( sizeof( hpak_lump_t ));
-	hash_pack_info.entries[0].resource = *pResource;
+	HPAK_ResourceToCompat( &hash_pack_info.entries[0].resource, pResource );
 	hash_pack_info.entries[0].filepos = FS_Tell( fout );
 	hash_pack_info.entries[0].disksize = pResource->nDownloadSize;
 
@@ -181,7 +194,7 @@ static qboolean HPAK_FindResource( hpak_info_t *hpk, byte *hash, resource_t *pRe
 		if( !memcmp( hpk->entries[i].resource.rgucMD5_hash, hash, 16 ))
 		{
 			if( pResource )
-				*pResource = hpk->entries[i].resource;
+				HPAK_ResourceFromCompat( pResource, &hpk->entries[i].resource );
 			return true;
 		}
 	}
@@ -330,7 +343,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	memset( pCurrentEntry, 0, sizeof( hpak_lump_t ));
 	FS_Seek( file_dst, hash_pack_header.infotableofs, SEEK_SET );
-	pCurrentEntry->resource = *pResource;
+	HPAK_ResourceToCompat( &pCurrentEntry->resource, pResource );
 	pCurrentEntry->filepos = FS_Tell( file_dst );
 	pCurrentEntry->disksize = pResource->nDownloadSize;
 
@@ -370,7 +383,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	int		i, num_lumps;
 	MD5Context_t	MD5_Hash;
 	string		pakname;
-	resource_t	*pRes;
+	dresource_t	*pRes;
 	byte		md5[16];
 
 	if( quiet ) HPAK_FlushHostQueue();
@@ -402,7 +415,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	FS_Seek( f, hdr.infotableofs, SEEK_SET );
 	FS_Read( f, &num_lumps, sizeof( num_lumps ));
 
-	if( num_lumps < 1 || num_lumps > MAX_FILES_IN_WAD )
+	if( num_lumps < 1 || num_lumps > HPAK_MAX_ENTRIES )
 	{
 		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s has too many lumps %u.\n", pakname, num_lumps );
 		FS_Close( f );
@@ -621,7 +634,7 @@ static qboolean HPAK_ResourceForIndex( const char *filename, int index, resource
 
 	directory.entries = Z_Malloc( sizeof( hpak_lump_t ) * directory.count );
 	FS_Read( f, directory.entries, sizeof( hpak_lump_t ) * directory.count );
-	*pResource = directory.entries[index-1].resource;
+	HPAK_ResourceFromCompat( pResource, &directory.entries[index-1].resource );
 	Z_Free( directory.entries );
 	FS_Close( f );
 
@@ -647,7 +660,7 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 
 	for( p = gp_hpak_queue; p != NULL; p = p->next )
 	{
-		if( !Q_stricmp(p->name, filename ) && !memcmp( p->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
+		if( !Q_stricmp( p->name, filename ) && !memcmp( p->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
 		{
 			if( buffer )
 			{
@@ -702,11 +715,13 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 	{
 		entry = &directory.entries[i];
 
-		if( !memcmp( entry->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
+		if( entry->filepos > 0 &&
+			entry->disksize > 0 &&
+			!memcmp( entry->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
 		{
 			FS_Seek( f, entry->filepos, SEEK_SET );
 
-			if( buffer && entry->disksize > 0 )
+			if( buffer )
 			{
 				tmpbuf = Z_Malloc( entry->disksize );
 				FS_Read( f, tmpbuf, entry->disksize );

@@ -111,9 +111,17 @@ hull_t *PM_HullForBox( const vec3_t mins, const vec3_t maxs )
 
 void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent )
 {
-	memcpy( out, in, 48 ); // matched
+	out->allsolid = in->allsolid;
+	out->startsolid = in->startsolid;
+	out->inopen = in->inopen;
+	out->inwater = in->inwater;
+	out->fraction = in->fraction;
+	out->plane.dist = in->plane.dist;
 	out->hitgroup = in->hitgroup;
 	out->ent = ent;
+
+	VectorCopy( in->endpos, out->endpos );
+	VectorCopy( in->plane.normal, out->plane.normal );
 }
 
 /*
@@ -446,10 +454,7 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 			VectorSubtract( end, offset, end_l );
 		}
 
-		memset( &trace_bbox, 0, sizeof( trace_bbox ));
-		VectorCopy( end, trace_bbox.endpos );
-		trace_bbox.allsolid = true;
-		trace_bbox.fraction = 1.0f;
+		PM_InitPMTrace( &trace_bbox, end );
 
 		if( hullcount < 1 )
 		{
@@ -475,10 +480,7 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 
 			for( last_hitgroup = 0, j = 0; j < hullcount; j++ )
 			{
-				memset( &trace_hitbox, 0, sizeof( trace_hitbox ));
-				VectorCopy( end, trace_hitbox.endpos );
-				trace_hitbox.allsolid = true;
-				trace_hitbox.fraction = 1.0f;
+				PM_InitPMTrace( &trace_hitbox, end );
 
 				PM_RecursiveHullCheck( &hull[j], hull[j].firstclipnode, 0, 1, start_l, end_l, &trace_hitbox );
 
@@ -622,10 +624,7 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 		{
 			pmtrace_t	trace;
 
-			memset( &trace, 0, sizeof( trace ));
-			VectorCopy( pos, trace.endpos );
-			trace.allsolid = true;
-			trace.fraction = 1.0f;
+			PM_InitPMTrace( &trace, pos );
 
 			// run custom sweep callback
 			if( pmove->server || Host_IsLocalClient( ))
