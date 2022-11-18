@@ -159,6 +159,11 @@ void FS_CloseZIP( zip_t *zip )
 	Mem_Free( zip );
 }
 
+void FS_Close_ZIP( searchpath_t *search )
+{
+	FS_CloseZIP( search->zip );
+}
+
 /*
 ============
 FS_SortZip
@@ -392,10 +397,10 @@ FS_OpenZipFile
 Open a packed file using its package file descriptor
 ===========
 */
-file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
+file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	zipfile_t	*pfile;
-	pfile = &zip->files[pack_ind];
+	pfile = &search->zip->files[pack_ind];
 
 	// compressed files handled in Zip_LoadFile
 	if( pfile->flags != ZIP_COMPRESSION_NO_COMPRESSION )
@@ -404,7 +409,7 @@ file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
 		return NULL;
 	}
 
-	return FS_OpenHandle( zip->filename, zip->handle, pfile->offset, pfile->size );
+	return FS_OpenHandle( search->zip->filename, search->zip->handle, pfile->offset, pfile->size );
 }
 
 byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly )
@@ -578,6 +583,14 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 		search->type = SEARCHPATH_ZIP;
 		search->next = fs_searchpaths;
 		search->flags |= flags;
+
+		search->printinfo = FS_PrintInfo_ZIP;
+		search->close = FS_Close_ZIP;
+		search->openfile = FS_OpenFile_ZIP;
+		search->filetime = FS_FileTime_ZIP;
+		search->findfile = FS_FindFile_ZIP;
+		search->search = FS_Search_ZIP;
+
 		fs_searchpaths = search;
 
 		Con_Reportf( "Adding zipfile: %s (%i files)\n", zipfile, zip->numfiles );
@@ -601,29 +614,29 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 	}
 }
 
-int FS_FileTimeZIP( zip_t *zip )
+int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
 {
-	return zip->filetime;
+	return search->zip->filetime;
 }
 
-void FS_PrintZIPInfo( char *dst, size_t size, zip_t *zip )
+void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
 {
-	Q_snprintf( dst, size, "%s (%i files)", zip->filename, zip->numfiles );
+	Q_snprintf( dst, size, "%s (%i files)", search->zip->filename, search->zip->numfiles );
 }
 
-int FS_FindFileZIP( zip_t *zip, const char *name )
+int FS_FindFile_ZIP( searchpath_t *search, const char *path )
 {
 	int	left, right, middle;
 
 	// look for the file (binary search)
 	left = 0;
-	right = zip->numfiles - 1;
+	right = search->zip->numfiles - 1;
 	while( left <= right )
 	{
 		int	diff;
 
 		middle = (left + right) / 2;
-		diff = Q_stricmp( zip->files[middle].name, name );
+		diff = Q_stricmp( search->zip->files[middle].name, path );
 
 		// Found it
 		if( !diff )
@@ -638,15 +651,15 @@ int FS_FindFileZIP( zip_t *zip, const char *name )
 	return -1;
 }
 
-void FS_SearchZIP( stringlist_t *list, zip_t *zip, const char *pattern )
+void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string temp;
 	const char *slash, *backslash, *colon, *separator;
 	int j, i;
 
-	for( i = 0; i < zip->numfiles; i++ )
+	for( i = 0; i < search->zip->numfiles; i++ )
 	{
-		Q_strncpy( temp, zip->files[i].name, sizeof( temp ));
+		Q_strncpy( temp, search->zip->files[i].name, sizeof( temp ));
 		while( temp[0] )
 		{
 			if( matchpattern( temp, pattern, true ))

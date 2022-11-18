@@ -117,12 +117,12 @@ FILEMATCH COMMON SYSTEM
 
 =============================================================================
 */
-static void stringlistinit( stringlist_t *list )
+void stringlistinit( stringlist_t *list )
 {
 	memset( list, 0, sizeof( *list ));
 }
 
-static void stringlistfreecontents( stringlist_t *list )
+void stringlistfreecontents( stringlist_t *list )
 {
 	int	i;
 
@@ -193,7 +193,7 @@ static void listlowercase( stringlist_t *list )
 	}
 }
 
-static void listdirectory( stringlist_t *list, const char *path, qboolean lowercase )
+void listdirectory( stringlist_t *list, const char *path, qboolean lowercase )
 {
 	int		i;
 	signed char *c;
@@ -463,6 +463,14 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	search->next = fs_searchpaths;
 	search->type = SEARCHPATH_PLAIN;
 	search->flags = flags;
+
+	search->printinfo = FS_PrintInfo_DIR;
+	search->close = FS_Close_DIR;
+	search->openfile = FS_OpenFile_DIR;
+	search->filetime = FS_FileTime_DIR;
+	search->findfile = FS_FindFile_DIR;
+	search->search = FS_Search_DIR;
+
 	fs_searchpaths = search;
 }
 
@@ -488,20 +496,7 @@ void FS_ClearSearchPath( void )
 		}
 		else fs_searchpaths = search->next;
 
-		switch( search->type )
-		{
-		case SEARCHPATH_PAK:
-			FS_ClosePAK( search->pack );
-			break;
-		case SEARCHPATH_WAD:
-			FS_CloseWAD( search->wad );
-			break;
-		case SEARCHPATH_ZIP:
-			FS_CloseZIP( search->zip );
-			break;
-		default:
-			break;
-		}
+		search->close( search );
 
 		Mem_Free( search );
 	}
@@ -1323,7 +1318,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 
 	dllInfo->encrypted = FS_CheckForCrypt( dllInfo->shortPath );
 
-	if( index < 0 && !dllInfo->encrypted && search )
+	if( index >= 0 && !dllInfo->encrypted && search )
 	{
 		Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ),
 			"%s%s", search->filename, dllInfo->shortPath );
@@ -1533,21 +1528,7 @@ void FS_Path_f( void )
 	{
 		string info;
 
-		switch( s->type )
-		{
-		case SEARCHPATH_PAK:
-			FS_PrintPAKInfo( info, sizeof( info ), s->pack );
-			break;
-		case SEARCHPATH_WAD:
-			FS_PrintWADInfo( info, sizeof( info ), s->wad );
-			break;
-		case SEARCHPATH_ZIP:
-			FS_PrintZIPInfo( info, sizeof( info ), s->zip );
-			break;
-		case SEARCHPATH_PLAIN:
-			Q_strncpy( info, s->filename, sizeof( info ));
-			break;
-		}
+		s->printinfo( s, info, sizeof(info) );
 
 		Con_Printf( "%s", info );
 
@@ -1816,48 +1797,16 @@ searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly )
 	// search through the path, one element at a time
 	for( search = fs_searchpaths; search; search = search->next )
 	{
+		int pack_ind;
+
 		if( gamedironly & !FBitSet( search->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
 
-		// is the element a pak file?
-		if( search->type == SEARCHPATH_PAK )
+		pack_ind = search->findfile( search, name );
+		if( pack_ind >= 0 )
 		{
-			int pack_ind = FS_FindFilePAK( search->pack, name );
-			if( pack_ind >= 0 )
-			{
-				if( index ) *index = pack_ind;
-				return search;
-			}
-		}
-		else if( search->type == SEARCHPATH_WAD )
-		{
-			int pack_ind = FS_FindFileWAD( search->wad, name );
-			if( pack_ind >= 0 )
-			{
-				if( index ) *index = pack_ind;
-				return search;
-			}
-		}
-		else if( search->type == SEARCHPATH_ZIP )
-		{
-			int pack_ind = FS_FindFileZIP( search->zip, name );
-			if( pack_ind >= 0 )
-			{
-				if( index ) *index = pack_ind;
-				return search;
-			}
-		}
-		else
-		{
-			char	netpath[MAX_SYSPATH];
-
-			Q_sprintf( netpath, "%s%s", search->filename, name );
-
-			if( FS_SysFileExists( netpath, !( search->flags & FS_CUSTOM_PATH ) ))
-			{
-				if( index != NULL ) *index = -1;
-				return search;
-			}
+			if( index ) *index = pack_ind;
+			return search;
 		}
 	}
 
@@ -1907,26 +1856,7 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 	if( search == NULL )
 		return NULL;
 
-	switch( search->type )
-	{
-	case SEARCHPATH_PAK:
-		return FS_OpenPackedFile( search->pack, pack_ind );
-	case SEARCHPATH_WAD:
-		return NULL; // let W_LoadFile get lump correctly
-	case SEARCHPATH_ZIP:
-		return FS_OpenZipFile( search->zip, pack_ind );
-	default:
-		if( pack_ind < 0 )
-		{
-			char	path [MAX_SYSPATH];
-
-			// found in the filesystem?
-			Q_sprintf( path, "%s%s", search->filename, filename );
-			return FS_SysOpen( path, mode );
-		}
-	}
-
-	return NULL;
+	return search->openfile( search, filename, mode, pack_ind );
 }
 
 /*
@@ -2611,26 +2541,7 @@ int FS_FileTime( const char *filename, qboolean gamedironly )
 	search = FS_FindFile( filename, &pack_ind, gamedironly );
 	if( !search ) return -1; // doesn't exist
 
-	switch( search->type )
-	{
-	case SEARCHPATH_PAK:
-		return FS_FileTimePAK( search->pack );
-	case SEARCHPATH_WAD:
-		return FS_FileTimeWAD( search->wad );
-	case SEARCHPATH_ZIP:
-		return FS_FileTimeZIP( search->zip );
-	default:
-		if( pack_ind < 0 )
-		{
-			char	path [MAX_SYSPATH];
-
-			// found in the filesystem?
-			Q_sprintf( path, "%s%s", search->filename, filename );
-			return FS_SysFileTime( path );
-		}
-	}
-
-	return -1; // doesn't exist
+	return search->filetime( search, filename );
 }
 
 /*
@@ -2724,80 +2635,23 @@ Allocate and fill a search structure with information on matching filenames.
 */
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 {
-	search_t		*search = NULL;
-	searchpath_t	*searchpath;
-	pack_t		*pak;
-	wfile_t		*wad;
-	zip_t		*zip;
-	int		i, basepathlength, numfiles, numchars;
-	int		resultlistindex, dirlistindex;
-	const char	*slash, *backslash, *colon, *separator;
-	string		netpath, temp;
-	stringlist_t	resultlist;
-	stringlist_t	dirlist;
-	char		*basepath;
+	search_t *search = NULL;
+	searchpath_t *searchpath;
+	int	i, numfiles, numchars;
+	stringlist_t resultlist;
 
 	if( pattern[0] == '.' || pattern[0] == ':' || pattern[0] == '/' || pattern[0] == '\\' )
 		return NULL; // punctuation issues
 
 	stringlistinit( &resultlist );
-	stringlistinit( &dirlist );
-	slash = Q_strrchr( pattern, '/' );
-	backslash = Q_strrchr( pattern, '\\' );
-	colon = Q_strrchr( pattern, ':' );
-	separator = Q_max( slash, backslash );
-	separator = Q_max( separator, colon );
-	basepathlength = separator ? (separator + 1 - pattern) : 0;
-	basepath = Mem_Calloc( fs_mempool, basepathlength + 1 );
-	if( basepathlength ) memcpy( basepath, pattern, basepathlength );
-	basepath[basepathlength] = 0;
 
 	// search through the path, one element at a time
 	for( searchpath = fs_searchpaths; searchpath; searchpath = searchpath->next )
 	{
 		if( gamedironly && !FBitSet( searchpath->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
-
-		// is the element a pak file?
-		if( searchpath->type == SEARCHPATH_PAK )
-		{
-			// look through all the pak file elements
-			FS_SearchPAK( &resultlist, searchpath->pack, pattern );
-		}
-		else if( searchpath->type == SEARCHPATH_ZIP )
-		{
-			FS_SearchZIP( &resultlist, searchpath->zip, pattern );
-		}
-		else if( searchpath->type == SEARCHPATH_WAD )
-		{
-			FS_SearchWAD( &resultlist, searchpath->wad, pattern );
-		}
-		else
-		{
-			// get a directory listing and look at each name
-			Q_sprintf( netpath, "%s%s", searchpath->filename, basepath );
-			stringlistinit( &dirlist );
-			listdirectory( &dirlist, netpath, caseinsensitive );
-
-			for( dirlistindex = 0; dirlistindex < dirlist.numstrings; dirlistindex++ )
-			{
-				Q_sprintf( temp, "%s%s", basepath, dirlist.strings[dirlistindex] );
-
-				if( matchpattern( temp, (char *)pattern, true ))
-				{
-					for( resultlistindex = 0; resultlistindex < resultlist.numstrings; resultlistindex++ )
-					{
-						if( !Q_strcmp( resultlist.strings[resultlistindex], temp ))
-							break;
-					}
-
-					if( resultlistindex == resultlist.numstrings )
-						stringlistappend( &resultlist, temp );
-				}
-			}
-
-			stringlistfreecontents( &dirlist );
-		}
+		
+		searchpath->search( searchpath, &resultlist, pattern, caseinsensitive );
 	}
 
 	if( resultlist.numstrings )
@@ -2806,29 +2660,27 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 		numfiles = resultlist.numstrings;
 		numchars = 0;
 
-		for( resultlistindex = 0; resultlistindex < resultlist.numstrings; resultlistindex++ )
-			numchars += (int)Q_strlen( resultlist.strings[resultlistindex]) + 1;
+		for( i = 0; i < resultlist.numstrings; i++ )
+			numchars += (int)Q_strlen( resultlist.strings[i]) + 1;
 		search = Mem_Calloc( fs_mempool, sizeof(search_t) + numchars + numfiles * sizeof( char* ));
 		search->filenames = (char **)((char *)search + sizeof( search_t ));
 		search->filenamesbuffer = (char *)((char *)search + sizeof( search_t ) + numfiles * sizeof( char* ));
 		search->numfilenames = (int)numfiles;
 		numfiles = numchars = 0;
 
-		for( resultlistindex = 0; resultlistindex < resultlist.numstrings; resultlistindex++ )
+		for( i = 0; i < resultlist.numstrings; i++ )
 		{
 			size_t	textlen;
 
 			search->filenames[numfiles] = search->filenamesbuffer + numchars;
-			textlen = Q_strlen(resultlist.strings[resultlistindex]) + 1;
-			memcpy( search->filenames[numfiles], resultlist.strings[resultlistindex], textlen );
+			textlen = Q_strlen(resultlist.strings[i]) + 1;
+			memcpy( search->filenames[numfiles], resultlist.strings[i], textlen );
 			numfiles++;
 			numchars += (int)textlen;
 		}
 	}
 
 	stringlistfreecontents( &resultlist );
-
-	Mem_Free( basepath );
 
 	return search;
 }

@@ -218,6 +218,26 @@ void FS_CloseWAD( wfile_t *wad )
 
 /*
 ===========
+FS_Close_WAD
+===========
+*/
+void FS_Close_WAD( searchpath_t *search )
+{
+	FS_CloseWAD( search->wad );
+}
+
+/*
+===========
+FS_OpenFile_WAD
+===========
+*/
+file_t *FS_OpenFile_WAD( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
+{
+	return NULL;
+}
+
+/*
+===========
 W_Open
 
 open the wad for reading & writing
@@ -376,6 +396,14 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 		search->type = SEARCHPATH_WAD;
 		search->next = fs_searchpaths;
 		search->flags |= flags;
+
+		search->printinfo = FS_PrintInfo_WAD;
+		search->close = FS_Close_WAD;
+		search->openfile = FS_OpenFile_WAD;
+		search->filetime = FS_FileTime_WAD;
+		search->findfile = FS_FindFile_WAD;
+		search->search = FS_Search_WAD;
+
 		fs_searchpaths = search;
 
 		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
@@ -501,20 +529,20 @@ byte *FS_LoadWADFile( const char *path, fs_offset_t *lumpsizeptr, qboolean gamed
 	return NULL;
 }
 
-int FS_FileTimeWAD( wfile_t *wad )
+int FS_FileTime_WAD( searchpath_t *search, const char *filename )
 {
-	return wad->filetime;
+	return search->wad->filetime;
 }
 
-void FS_PrintWADInfo( char *dst, size_t size, wfile_t *wad )
+void FS_PrintInfo_WAD( searchpath_t *search, char *dst, size_t size )
 {
-	Q_snprintf( dst, size, "%s (%i files)", wad->filename, wad->numlumps );
+	Q_snprintf( dst, size, "%s (%i files)", search->wad->filename, search->wad->numlumps );
 }
 
-int FS_FindFileWAD( wfile_t *wad, const char *name )
+int FS_FindFile_WAD( searchpath_t *search, const char *path )
 {
 	dlumpinfo_t	*lump;
-	signed char		type = W_TypeFromExt( name );
+	signed char		type = W_TypeFromExt( path );
 	qboolean		anywadname = true;
 	string		wadname, wadfolder;
 	string		shortname;
@@ -523,7 +551,7 @@ int FS_FindFileWAD( wfile_t *wad, const char *name )
 	if( type == TYP_NONE )
 		return -1;
 
-	COM_ExtractFilePath( name, wadname );
+	COM_ExtractFilePath( path, wadname );
 	wadfolder[0] = '\0';
 
 	if( COM_CheckStringEmpty( wadname ) )
@@ -535,7 +563,7 @@ int FS_FindFileWAD( wfile_t *wad, const char *name )
 	}
 
 	// make wadname from wad fullpath
-	COM_FileBase( wad->filename, shortname );
+	COM_FileBase( search->wad->filename, shortname );
 	COM_DefaultExtension( shortname, ".wad" );
 
 	// quick reject by wadname
@@ -544,20 +572,20 @@ int FS_FindFileWAD( wfile_t *wad, const char *name )
 
 	// NOTE: we can't using long names for wad,
 	// because we using original wad names[16];
-	COM_FileBase( name, shortname );
+	COM_FileBase( path, shortname );
 
-	lump = W_FindLump( wad, shortname, type );
+	lump = W_FindLump( search->wad, shortname, type );
 
 	if( lump )
 	{
-		return lump - wad->lumps;
+		return lump - search->wad->lumps;
 	}
 
 	return -1;
 
 }
 
-void FS_SearchWAD( stringlist_t *list, wfile_t *wad, const char *pattern )
+void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string	wadpattern, wadname, temp2;
 	signed char	type = W_TypeFromExt( pattern );
@@ -583,21 +611,21 @@ void FS_SearchWAD( stringlist_t *list, wfile_t *wad, const char *pattern )
 	}
 
 	// make wadname from wad fullpath
-	COM_FileBase( wad->filename, temp2 );
+	COM_FileBase( search->wad->filename, temp2 );
 	COM_DefaultExtension( temp2, ".wad" );
 
 	// quick reject by wadname
 	if( !anywadname && Q_stricmp( wadname, temp2 ))
 		return;
 
-	for( i = 0; i < wad->numlumps; i++ )
+	for( i = 0; i < search->wad->numlumps; i++ )
 	{
 		// if type not matching, we already have no chance ...
-		if( type != TYP_ANY && wad->lumps[i].type != type )
+		if( type != TYP_ANY && search->wad->lumps[i].type != type )
 			continue;
 
 		// build the lumpname with image suffix (if present)
-		Q_strncpy( temp, wad->lumps[i].name, sizeof( temp ));
+		Q_strncpy( temp, search->wad->lumps[i].name, sizeof( temp ));
 
 		while( temp[0] )
 		{
@@ -613,7 +641,7 @@ void FS_SearchWAD( stringlist_t *list, wfile_t *wad, const char *pattern )
 				{
 					// build path: wadname/lumpname.ext
 					Q_snprintf( temp2, sizeof(temp2), "%s/%s", wadfolder, temp );
-					COM_DefaultExtension( temp2, va(".%s", W_ExtFromType( wad->lumps[i].type )));
+					COM_DefaultExtension( temp2, va(".%s", W_ExtFromType( search->wad->lumps[i].type )));
 					stringlistappend( list, temp2 );
 				}
 			}
