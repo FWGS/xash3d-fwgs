@@ -230,13 +230,13 @@ FS_OpenPackedFile
 Open a packed file using its package file descriptor
 ===========
 */
-file_t *FS_OpenPackedFile( pack_t *pack, int pack_ind )
+file_t *FS_OpenFile_PAK( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	dpackfile_t	*pfile;
 
-	pfile = &pack->files[pack_ind];
+	pfile = &search->pack->files[pack_ind];
 
-	return FS_OpenHandle( pack->filename, pack->handle, pfile->filepos, pfile->filelen );
+	return FS_OpenHandle( search->pack->filename, search->pack->handle, pfile->filepos, pfile->filelen );
 }
 
 /*
@@ -284,6 +284,14 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 		search->type = SEARCHPATH_PAK;
 		search->next = fs_searchpaths;
 		search->flags |= flags;
+
+		search->printinfo = FS_PrintInfo_PAK;
+		search->close = FS_Close_PAK;
+		search->openfile = FS_OpenFile_PAK;
+		search->filetime = FS_FileTime_PAK;
+		search->findfile = FS_FindFile_PAK;
+		search->search = FS_Search_PAK;
+
 		fs_searchpaths = search;
 
 		Con_Reportf( "Adding pakfile: %s (%i files)\n", pakfile, pak->numfiles );
@@ -308,19 +316,19 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 	}
 }
 
-int FS_FindFilePAK( pack_t *pack, const char *name )
+int FS_FindFile_PAK( searchpath_t *search, const char *path )
 {
 	int	left, right, middle;
 
 	// look for the file (binary search)
 	left = 0;
-	right = pack->numfiles - 1;
+	right = search->pack->numfiles - 1;
 	while( left <= right )
 	{
 		int	diff;
 
 		middle = (left + right) / 2;
-		diff = Q_stricmp( pack->files[middle].name, name );
+		diff = Q_stricmp( search->pack->files[middle].name, path );
 
 		// Found it
 		if( !diff )
@@ -337,15 +345,15 @@ int FS_FindFilePAK( pack_t *pack, const char *name )
 	return -1;
 }
 
-void FS_SearchPAK( stringlist_t *list, pack_t *pack, const char *pattern )
+void FS_Search_PAK( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string temp;
 	const char *slash, *backslash, *colon, *separator;
 	int j, i;
 
-	for( i = 0; i < pack->numfiles; i++ )
+	for( i = 0; i < search->pack->numfiles; i++ )
 	{
-		Q_strncpy( temp, pack->files[i].name, sizeof( temp ));
+		Q_strncpy( temp, search->pack->files[i].name, sizeof( temp ));
 		while( temp[0] )
 		{
 			if( matchpattern( temp, pattern, true ))
@@ -377,21 +385,21 @@ void FS_SearchPAK( stringlist_t *list, pack_t *pack, const char *pattern )
 	}
 }
 
-int FS_FileTimePAK( pack_t *pack )
+int FS_FileTime_PAK( searchpath_t *search, const char *filename )
 {
-	return pack->filetime;
+	return search->pack->filetime;
 }
 
-void FS_PrintPAKInfo( char *dst, size_t size, pack_t *pack )
+void FS_PrintInfo_PAK( searchpath_t *search, char *dst, size_t size )
 {
-	Q_snprintf( dst, size, "%s (%i files)", pack->filename, pack->numfiles );
+	Q_snprintf( dst, size, "%s (%i files)", search->pack->filename, search->pack->numfiles );
 }
 
-void FS_ClosePAK( pack_t *pack )
+void FS_Close_PAK( searchpath_t *search )
 {
-	if( pack->files )
-		Mem_Free( pack->files );
-	if( pack->handle >= 0 )
-		close( pack->handle );
-	Mem_Free( pack );
+	if( search->pack->files )
+		Mem_Free( search->pack->files );
+	if( search->pack->handle >= 0 )
+		close( search->pack->handle );
+	Mem_Free( search->pack );
 }
