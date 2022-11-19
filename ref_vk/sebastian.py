@@ -265,6 +265,68 @@ def parseSpirv(raw_data):
 
 	return ctx
 
+class NameIndex:
+	def __init__(self):
+		self.__name_to_index = {}
+		self.__all = []
+
+	def getIndex(self, name):
+		return self.__name_to_index[name] if name in self.__name_to_index else -1
+
+	def getByName(self, name):
+		return self.__all[self.__name_to_index[name]] if name in self.__name_to_index else None
+
+	def getByIndex(self, index):
+		return self.__all[index]
+
+	def put(self, name, value):
+		if name in self.__name_to_index:
+			raise Exception('Already have a value for "%s"' % (name))
+
+		index = len(self.__all)
+		self.__all.append(value)
+		self.__name_to_index[name] = index
+		return index
+
+	def serialize(self, out):
+		out.writeArray(self.__all)
+
+
+class Resources:
+	def __init__(self):
+		self.__storage = NameIndex()
+
+	def getIndex(self, name, node):
+		index = self.__storage.getIndex(name)
+		type = node.getType()
+
+		if index >= 0:
+			res = self.__storage.getByIndex(index)
+			res.checkSameType(type)
+			return index
+
+		return self.__storage.put(name, self.Resource(name, type))
+
+	def serialize(self, out):
+		self.__storage.serialize(out)
+
+	class Resource:
+		def __init__(self, name, type):
+			self.__name = name
+			self.__type = type
+
+			#TODO: count, etc
+
+		def checkSameType(self, type):
+			if self.__type != type:
+				raise Exception('Conflicting types for resource "%s": %s != %s' % (self.__name, self.__type, type))
+
+		def serialize(self, out):
+			out.writeString(self.__name)
+			out.writeU32(self.__type)
+
+resources = Resources()
+
 class Binding:
 	STAGE_VERTEX_BIT = 0x00000001
 	STAGE_TESSELLATION_CONTROL_BIT = 0x00000002
@@ -288,11 +350,12 @@ class Binding:
 
 	def __init__(self, node):
 		self.write = node.name.startswith('out_')
-		self.name = removeprefix(node.name, 'out_')
 		self.index = node.binding
 		self.descriptor_set = node.descriptor_set
 		self.stages = 0
-		self.type = node.getType()
+
+		resource_name = removeprefix(node.name, 'out_')
+		self.__resource_index = resources.getIndex(resource_name, node)
 
 		#print(f"  {self.name}: ds={self.descriptor_set}, b={self.index}, type={self.type}")
 
@@ -302,13 +365,10 @@ class Binding:
 		assert(self.index >= 0)
 		assert(self.index < 255)
 
-		#TODO: type, count, etc
-
 	def serialize(self, out):
-		out.writeString(self.name)
 		header = (Binding.WRITE_BIT if self.write else 0) | (self.descriptor_set << 8) | self.index
 		out.writeU32(header)
-		out.writeU32(self.type)
+		out.writeU32(self.__resource_index)
 		out.writeU32(self.stages)
 
 class Shader:
@@ -337,7 +397,7 @@ class Shader:
 		if self.__bindings:
 			return self.__bindings
 
-		spirv = parseSpirv(self.__raw_data)
+		spirv = parseSpirv(self.getRawData())
 
 		bindings = []
 		for node in spirv.nodes:
@@ -377,6 +437,10 @@ class Shaders:
 		self.__map[name] = index
 
 		return shader
+
+	def parse(self):
+		for s in self.__shaders:
+			s.getBindings()
 
 	def getIndex(self, shader):
 		return self.__map[shader.name]
@@ -487,6 +551,7 @@ def writeOutput(file, pipelines):
 	MAGIC = bytearray([ord(c) for c in 'MEAT'])
 	out = Serializer(file)
 	out.write(MAGIC)
+	resources.serialize(out)
 	shaders.serialize(out)
 	out.writeArray(pipelines.values())
 
@@ -496,4 +561,5 @@ if args.depend:
 	json.dump([os.path.relpath(file) for file in shaders.getAllFiles()], args.depend)
 
 if args.output:
+	shaders.parse()
 	writeOutput(args.output, pipelines)

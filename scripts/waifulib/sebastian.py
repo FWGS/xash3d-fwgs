@@ -1,5 +1,5 @@
 from waflib import TaskGen, Task, Utils
-import json
+import json, os
 
 def configure(conf):
 	conf.find_program('sebastian', var='SEBASTIAN', exts='.py', path_list=[conf.path.abspath()])
@@ -27,6 +27,7 @@ class sebastian(Task.Task):
 
 		deps = json.loads(output)
 		ndeps = [bld.path.find_resource(str(dep)) for dep in deps]
+		ndeps.append(bld.path.find_resource(os.path.relpath(env.SEBASTIAN[0])))
 
 		return (ndeps, [])
 

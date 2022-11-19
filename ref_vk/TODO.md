@@ -2,13 +2,14 @@
 - [x] E213:
 	- [x] parse binding types
 	- [x] remove types from resources FIXME
-- [ ] E214: ~tentative~
-	- [ ] integrate sebastian into waf
+- [x] E214: ~tentative~
+	- [x] integrate sebastian into waf
+- [ ] E215:
 	- [ ] serialize binding image format
 	- [ ] serialize all resources with in/out and formats for images
 	- [ ] create images on meatpipe load
 
->=E215
+>E215
 - [ ] automatic resource creation
 	- [ ] resource management refactoring:
 		- [ ] resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
@@ -16,6 +17,7 @@
 		- [ ] register existing resources (tlas, buffers, temp images, ...)
 		- [ ] resource destruction
 	- [ ] create resources on demand
+- [ ] Rake Yuri
 
 # Programmable render
 - [x] parse spirv -> get bindings with names
