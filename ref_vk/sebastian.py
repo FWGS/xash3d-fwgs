@@ -103,8 +103,7 @@ class Serializer:
 			else:
 				i.serialize(self)
 
-class SpirvNode:
-	# TODO move this to Binding
+class TypeInfo:
 	TYPE_SAMPLER = 0
 	TYPE_COMBINED_IMAGE_SAMPLER = 1
 	TYPE_SAMPLED_IMAGE = 2
@@ -122,30 +121,59 @@ class SpirvNode:
 	TYPE_SAMPLE_WEIGHT_IMAGE_QCOM = 1000440000
 	TYPE_BLOCK_MATCH_IMAGE_QCOM = 1000440001
 
+	def __init__(self, type):
+		self.type = type
+		# TODO self.writable = None
+		# TODO self.readable = None
+		self.is_image = False
+		self.image_format = None
+
+	def __eq__(self, other):
+		if self.type != other.type:
+			return False
+
+		assert(self.is_image == other.is_image)
+
+		if self.is_image:
+			assert(self.image_format != None)
+			assert(other.image_format != None)
+
+			if self.image_format != other.image_format and self.image_format != 0 and other.image_format != 0:
+				return False
+
+		return True
+
+	def serialize(self, out):
+		out.writeU32(self.type)
+		if self.is_image:
+			out.writeU32(self.image_format)
+
+class SpirvNode:
 	def __init__(self):
 		self.descriptor_set = None
 		self.binding = None
 		self.name = None
-		self.type_node = None
+		self.parent_type_node = None
 		self.type = None
 		self.storage_class = None
-		pass
 
 	def getType(self):
 		node = self
 		while node:
 			#print(f"Checking node {node.name}, {node.storage_class}, {node.type}")
-			if node.storage_class == spv['StorageClass']['Uniform']:
-				return SpirvNode.TYPE_UNIFORM_BUFFER
-
-			if node.storage_class == spv['StorageClass']['StorageBuffer']:
-				return SpirvNode.TYPE_STORAGE_BUFFER
 
 			if node.type:
 				return node.type
 
-			node = node.type_node
+			node = node.parent_type_node
 		raise Exception('Couldn\'t find type for node %s' % self.name)
+
+	def setStorageClass(self, storage_class):
+		if storage_class == spv['StorageClass']['Uniform']:
+			self.type = TypeInfo(TypeInfo.TYPE_UNIFORM_BUFFER)
+		elif storage_class == spv['StorageClass']['StorageBuffer']:
+			self.type = TypeInfo(TypeInfo.TYPE_STORAGE_BUFFER)
+		self.storage_class = storage_class
 
 class SpirvContext:
 	def __init__(self, nodes_count):
@@ -173,28 +201,28 @@ def spvOpDecorate(ctx, args):
 		#print('Decor ', id, decor)
 
 def spvOpVariable(ctx, args):
-	type_node = ctx.getNode(args[0])
+	parent_type_node = ctx.getNode(args[0])
 	node = ctx.getNode(args[1])
 	storage_class = args[2]
 
-	node.type_node = type_node
-	node.storage_class = storage_class
+	node.parent_type_node = parent_type_node
+	node.setStorageClass(storage_class)
 	#node.op_type = 'OpVariable'
-	#print(node.name, "=(var)>", type_node.name, args[0])
+	#print(node.name, "=(var)>", parent_type_node.name, args[0])
 
 def spvOpTypePointer(ctx, args):
 	node = ctx.getNode(args[0])
 	storage_class = args[1]
-	type_node = ctx.getNode(args[2])
+	parent_type_node = ctx.getNode(args[2])
 
-	node.type_node = type_node
-	node.storage_class = storage_class
+	node.parent_type_node = parent_type_node
+	node.setStorageClass(storage_class)
 	#node.op_type = 'OpTypePointer'
-	#print(node.name, "=(ptr)>", type_node.name, args[2])
+	#print(node.name, "=(ptr)>", parent_type_node.name, args[2])
 
 def spvOpTypeAccelerationStructureKHR(ctx, args):
 	node = ctx.getNode(args[0])
-	node.type = SpirvNode.TYPE_ACCELERATION_STRUCTURE_KHR
+	node.type = TypeInfo(TypeInfo.TYPE_ACCELERATION_STRUCTURE_KHR)
 
 def spvOpTypeImage(ctx, args):
 	node = ctx.getNode(args[0])
@@ -205,9 +233,13 @@ def spvOpTypeImage(ctx, args):
 	ms = args[5]
 	sampled = args[6]
 	image_format = args[7]
-	node.type = SpirvNode.TYPE_STORAGE_IMAGE if sampled == 0 or sampled == 2 else SpirvNode.TYPE_COMBINED_IMAGE_SAMPLER # FIXME ?
 
-	node.image_format = image_format
+	type = TypeInfo.TYPE_STORAGE_IMAGE if sampled == 0 or sampled == 2 else TypeInfo.TYPE_COMBINED_IMAGE_SAMPLER # FIXME ?
+
+	node.type = TypeInfo(type)
+	node.type.is_image = True
+	node.type.image_format = image_format
+
 	qualifier = None if len(args) < 9 else args[8]
 
 	#print(f"{args[0]}: Image(type={sampled_type}, dim={dim}, depth={depth}, arrayed={arrayed}, ms={ms}, sampled={sampled}, image_format={image_format}, qualifier={qualifier})")
@@ -215,15 +247,18 @@ def spvOpTypeImage(ctx, args):
 def spvOpTypeSampledImage(ctx, args):
 	node = ctx.getNode(args[0])
 	image_type = ctx.getNode(args[1])
-	node.type_node = image_type
-	node.type = SpirvNode.TYPE_COMBINED_IMAGE_SAMPLER
+	node.parent_type_node = image_type
+
+	node.type = TypeInfo(TypeInfo.TYPE_COMBINED_IMAGE_SAMPLER)
+	node.type.is_image = True
+	node.type.image_format = spv['ImageFormat']['Unknown']
 
 def spvOpTypeArray(ctx, args):
 	node = ctx.getNode(args[0])
 	element_type = ctx.getNode(args[1])
 	length = args[2]
 
-	node.type_node = element_type
+	node.parent_type_node = element_type
 	#print(f"{args[0]}: Array(type={args[1]}, length={length})")
 
 spvOpHandlers = {
@@ -298,32 +333,31 @@ class Resources:
 
 	def getIndex(self, name, node):
 		index = self.__storage.getIndex(name)
-		type = node.getType()
 
 		if index >= 0:
 			res = self.__storage.getByIndex(index)
-			res.checkSameType(type)
+			res.checkSameType(node)
 			return index
 
-		return self.__storage.put(name, self.Resource(name, type))
+		return self.__storage.put(name, self.Resource(name, node))
 
 	def serialize(self, out):
 		self.__storage.serialize(out)
 
 	class Resource:
-		def __init__(self, name, type):
+		def __init__(self, name, node):
 			self.__name = name
-			self.__type = type
+			self.__type = node.getType()
 
 			#TODO: count, etc
 
-		def checkSameType(self, type):
-			if self.__type != type:
+		def checkSameType(self, node):
+			if self.__type != node.getType():
 				raise Exception('Conflicting types for resource "%s": %s != %s' % (self.__name, self.__type, type))
 
 		def serialize(self, out):
 			out.writeString(self.__name)
-			out.writeU32(self.__type)
+			self.__type.serialize(out)
 
 resources = Resources()
 

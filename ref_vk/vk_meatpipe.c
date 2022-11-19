@@ -20,6 +20,8 @@ typedef struct {
 typedef struct {
 	char name[64];
 	uint32_t type;
+	qboolean is_image;
+	uint32_t image_format;
 } res_t;
 
 typedef struct {
@@ -261,7 +263,13 @@ static qboolean readResources(load_context_t *ctx) {
 
 		res->type = READ_U32("Couldn't read resource %d:%s type", i, res->name);
 
-		gEngine.Con_Reportf("Resource %d:%s = %08x\n", i, res->name, res->type);
+		res->is_image = res->type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE || res->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+		if (res->is_image) {
+			res->image_format = READ_U32("Couldn't read image format for res %d:%s", i, res->name);
+		}
+
+		gEngine.Con_Reportf("Resource %d:%s = %08x is_image=%d image_format=%08x\n", i, res->name, res->type, res->is_image, res->image_format);
 	}
 
 	return true;
