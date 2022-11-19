@@ -5,7 +5,6 @@ import argparse
 import struct
 import copy
 from spirv import spv
-import sys
 import os
 
 # import sys

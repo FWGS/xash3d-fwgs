@@ -27,7 +27,8 @@ class sebastian(Task.Task):
 
 		deps = json.loads(output)
 		ndeps = [bld.path.find_resource(str(dep)) for dep in deps]
-		ndeps.append(bld.path.find_resource(os.path.relpath(env.SEBASTIAN[0])))
+		script_index = 1 if env.DEST_OS == 'win32' else 0
+		ndeps.append(bld.path.find_resource(os.path.relpath(env.SEBASTIAN[script_index])))
 
 		return (ndeps, [])
 
