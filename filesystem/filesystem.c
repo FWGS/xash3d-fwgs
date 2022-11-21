@@ -2643,7 +2643,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 {
 	search_t *search = NULL;
 	searchpath_t *searchpath;
-	int	i, numfiles, numchars;
+	int i, numfiles, numchars;
 	stringlist_t resultlist;
 
 	if( pattern[0] == '.' || pattern[0] == ':' || pattern[0] == '/' || pattern[0] == '\\' )
