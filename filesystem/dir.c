@@ -57,21 +57,25 @@ void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char *patter
 	slash = Q_strrchr( pattern, '/' );
 	backslash = Q_strrchr( pattern, '\\' );
 	colon = Q_strrchr( pattern, ':' );
+
 	separator = Q_max( slash, backslash );
 	separator = Q_max( separator, colon );
+	
 	basepathlength = separator ? (separator + 1 - pattern) : 0;
 	basepath = Mem_Calloc( fs_mempool, basepathlength + 1 );
 	if( basepathlength ) memcpy( basepath, pattern, basepathlength );
-	basepath[basepathlength] = 0;
+	basepath[basepathlength] = '\0';
 
-	Q_sprintf( netpath, "%s%s", search->filename, basepath );
+	Q_strcpy( temp,  basepath );
 
 	stringlistinit( &dirlist );
 	listdirectory( &dirlist, netpath, caseinsensitive );
 
+	Q_strcpy( temp,  basepath );
+
 	for( dirlistindex = 0; dirlistindex < dirlist.numstrings; dirlistindex++ )
 	{
-		Q_sprintf( temp, "%s%s", basepath, dirlist.strings[dirlistindex] );
+		Q_strcpy( &temp[basepathlength], dirlist.strings[dirlistindex] );
 
 		if( matchpattern( temp, (char *)pattern, true ) )
 		{
@@ -91,20 +95,18 @@ void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char *patter
 	Mem_Free( basepath );
 }
 
-int FS_FileTime_DIR( struct searchpath_s *search, const char *filename )
+int FS_FileTime_DIR( searchpath_t *search, const char *filename )
 {
 	char path[MAX_SYSPATH];
 
-	// found in the filesystem?
 	Q_sprintf( path, "%s%s", search->filename, filename );
 	return FS_SysFileTime( path );
 }
 
-file_t *FS_OpenFile_DIR( struct searchpath_s *search, const char *filename, const char *mode, int pack_ind )
+file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	char path[MAX_SYSPATH];
 
-	// found in the filesystem?
 	Q_sprintf( path, "%s%s", search->filename, filename );
 	return FS_SysOpen( path, mode );
 }
