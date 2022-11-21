@@ -38,7 +38,7 @@ int FS_FindFile_DIR( searchpath_t *search, const char *path )
 {
 	char netpath[MAX_SYSPATH];
 
-	Q_sprintf( netpath, "%s%s", search->filename, path );
+	Q_snprintf( netpath, sizeof( netpath ), "%s%s", search->filename, path );
 
 	if( FS_SysFileExists( netpath, !( search->flags & FS_CUSTOM_PATH ) ) )
 		return 0;
@@ -66,16 +66,16 @@ void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char *patter
 	if( basepathlength ) memcpy( basepath, pattern, basepathlength );
 	basepath[basepathlength] = '\0';
 
-	Q_strcpy( temp,  basepath );
+	Q_snprintf( netpath, sizeof( netpath ), "%s%s", search->filename, basepath );
 
 	stringlistinit( &dirlist );
 	listdirectory( &dirlist, netpath, caseinsensitive );
 
-	Q_strcpy( temp,  basepath );
+	Q_strncpy( temp,  basepath, sizeof( temp ) );
 
 	for( dirlistindex = 0; dirlistindex < dirlist.numstrings; dirlistindex++ )
 	{
-		Q_strcpy( &temp[basepathlength], dirlist.strings[dirlistindex] );
+		Q_strncpy( &temp[basepathlength], dirlist.strings[dirlistindex], sizeof( temp ) - basepathlength );
 
 		if( matchpattern( temp, (char *)pattern, true ) )
 		{
@@ -99,7 +99,7 @@ int FS_FileTime_DIR( searchpath_t *search, const char *filename )
 {
 	char path[MAX_SYSPATH];
 
-	Q_sprintf( path, "%s%s", search->filename, filename );
+	Q_snprintf( path, sizeof( path ), "%s%s", search->filename, filename );
 	return FS_SysFileTime( path );
 }
 
@@ -107,6 +107,6 @@ file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, const char 
 {
 	char path[MAX_SYSPATH];
 
-	Q_sprintf( path, "%s%s", search->filename, filename );
+	Q_snprintf( path, sizeof( path ), "%s%s", search->filename, filename );
 	return FS_SysOpen( path, mode );
 }
