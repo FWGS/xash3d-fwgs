@@ -284,57 +284,63 @@ const char *FS_FixFileCase( const char *path )
 #elif !XASH_WIN32 && !XASH_IOS // assume case insensitive
 	DIR *dir;
 	struct dirent *entry;
-	char path2[PATH_MAX], *fname;
+	char dirpath[PATH_MAX], *filename;
+	static char fixedpath[PATH_MAX];
 
 	if( !fs_caseinsensitive )
 		return path;
 
 	if( path[0] != '/' )
-		Q_snprintf( path2, sizeof( path2 ), "./%s", path );
-	else Q_strncpy( path2, path, PATH_MAX );
+		Q_snprintf( dirpath, sizeof( dirpath ), "./%s", path );
+	else Q_strncpy( dirpath, path, PATH_MAX );
 
-	fname = Q_strrchr( path2, '/' );
+	filename = Q_strrchr( dirpath, '/' );
 
-	if( fname )
-		*fname++ = 0;
+	if( filename )
+		*filename++ = '\0';
 	else
 	{
-		fname = (char*)path;
-		Q_strcpy( path2, ".");
+		filename = (char*)path;
+		Q_strcpy( dirpath, ".");
 	}
 
 	/* android has too slow directory scanning,
 		so drop out some not useful cases */
-	if( fname - path2 > 4 )
+	if( filename - dirpath > 4 )
 	{
 		char *point;
 		// too many wad textures
-		if( !Q_stricmp( fname - 5, ".wad") )
+		if( !Q_stricmp( filename - 5, ".wad") )
 			return path;
-		point = Q_strchr( fname, '.' );
+		point = Q_strchr( filename, '.' );
 		if( point )
 		{
 			if( !Q_strcmp( point, ".mip") || !Q_strcmp( point, ".dds" ) || !Q_strcmp( point, ".ent" ) )
 				return path;
-			if( fname[0] == '{' )
+			if( filename[0] == '{' )
 				return path;
 		}
 	}
 
 	//Con_Reportf( "FS_FixFileCase: %s\n", path );
 
-	if( !( dir = opendir( path2 ) ) )
+	if( !( dir = opendir( dirpath ) ) )
 		return path;
 
 	while( ( entry = readdir( dir ) ) )
 	{
-		if( Q_stricmp( entry->d_name, fname ) )
+		if( Q_stricmp( entry->d_name, filename ) )
 			continue;
 
-		path = va( "%s/%s", path2, entry->d_name );
-		//Con_Reportf( "FS_FixFileCase: %s %s %s\n", path2, fname, entry->d_name );
+		Q_snprintf( fixedpath, sizeof( fixedpath ), "%s/%s", dirpath, entry->d_name );
+
+		//Con_Reportf( "FS_FixFileCase: %s %s %s\n", dirpath, filename, entry->d_name );
+
+		path = fixedpath;
+
 		break;
 	}
+	
 	closedir( dir );
 #endif
 	return path;
