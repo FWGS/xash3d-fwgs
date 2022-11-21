@@ -15,12 +15,14 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 #include "platform/psp/ka/ka.h"
+#include "platform/psp/scemp3/pspmp3.h"
 #include <pspsdk.h>
 #include <pspkernel.h>
 #include <psppower.h>
 #include <psprtc.h>
 #include <pspprof.h>
 #include <pspctrl.h>
+#include <psputility.h>
 
 #include <ctype.h>
 
@@ -29,6 +31,8 @@ PSP_MODULE_INFO( "Xash3D", PSP_MODULE_USER, 1, 0 );
 PSP_MAIN_THREAD_ATTR( PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU );
 PSP_MAIN_THREAD_STACK_SIZE_KB( 512 );
 PSP_HEAP_SIZE_KB( -3 * 1024 ); /* 3 MB for prx modules */
+
+static qboolean	psp_audiolib_init = false;
 
 static int Platform_ExitCallback( int count, int arg, void *common )
 {
@@ -251,10 +255,68 @@ int Platform_UnloadModule( SceUID modid, int *sce_code )
 	return ( ( ( *sce_code ) < 0 ) ? -2 : 0 );
 }
 
+int Platform_InitAudioLibs( void )
+{
+	int	status;
+
+	if( psp_audiolib_init )
+		return -1;
+
+	status = sceUtilityLoadModule( PSP_MODULE_AV_AVCODEC );
+	if ( status < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceUtilityLoadModule(PSP_MODULE_AV_AVCODEC) returned 0x%08X\n", status );
+		return status;
+	}
+
+	status = sceUtilityLoadModule( PSP_MODULE_AV_MP3 );
+	if ( status < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceUtilityLoadModule(PSP_MODULE_AV_MP3) returned 0x%08X\n", status );
+		return status;
+	}
+
+	// init mp3 resources
+	status = sceMp3InitResource();
+	if ( status < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceMp3InitResource returned 0x%08X\n", status );
+		return status;
+	}
+
+	psp_audiolib_init = true;
+
+	return 0;
+}
+
+int Platform_ShutdownAudioLibs( void )
+{
+	int	status;
+
+	if( !psp_audiolib_init )
+		return -1;
+
+	status = sceMp3TermResource();
+	if ( status < 0 )
+		Con_DPrintf( S_ERROR "sceMp3TermResource returned 0x%08X\n", status );
+
+	status = sceUtilityUnloadModule( PSP_MODULE_AV_MP3 );
+	if ( status < 0 )
+		Con_DPrintf( S_ERROR "sceUtilityUnloadModule(PSP_MODULE_AV_MP3) returned 0x%08X\n", status );
+
+	status = sceUtilityUnloadModule( PSP_MODULE_AV_AVCODEC );
+	if ( status < 0 )
+		Con_DPrintf( S_ERROR "sceUtilityUnloadModule(PSP_MODULE_AV_AVCODEC) returned 0x%08X\n", status );
+
+	psp_audiolib_init = false;
+
+	return 0;
+}
+
 void Platform_Init( void )
 {
-	SceUID kamID;
-	int result;
+	SceUID	kamID;
+	int	result;
 
 	// disable fpu exceptions (division by zero and etc...)
 	pspSdkDisableFPUExceptions();
@@ -275,13 +337,16 @@ void Platform_Init( void )
 		Platform_UnloadModule( kamID, &result );
 	}
 
+	Platform_InitAudioLibs();
+
 	// P5 Ram init
-	P5Ram_Init();	
+	P5Ram_Init();
 }
 
 void Platform_Shutdown( void )
 {
 	P5Ram_Shutdown();
+	Platform_ShutdownAudioLibs();
 #if XASH_PROFILING
 	gprof_cleanup();
 #endif

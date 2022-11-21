@@ -95,8 +95,10 @@ def build(bld):
 		'common/*.c',
 		'common/imagelib/*.c',
 		'common/soundlib/*.c',
-		'common/soundlib/libmpg/*.c',
 		'server/*.c'])
+
+	if bld.env.DEST_OS != 'psp':
+		source += bld.path.ant_glob(['common/soundlib/libmpg/*.c'])
 
 	# basic build: dedicated only, no dependencies
 	if bld.env.DEST_OS == 'win32':

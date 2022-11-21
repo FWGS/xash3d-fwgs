@@ -1,0 +1,29 @@
+	.set noreorder
+
+#include "pspimport.s"
+
+	IMPORT_START	"sceMp3",0x00090011
+	IMPORT_FUNC	"sceMp3",0x07EC321A,sceMp3ReserveMp3Handle
+	IMPORT_FUNC	"sceMp3",0x0DB149F4,sceMp3NotifyAddStreamData
+	IMPORT_FUNC	"sceMp3",0x2A368661,sceMp3ResetPlayPosition
+	IMPORT_FUNC	"sceMp3",0x354D27EA,sceMp3GetSumDecodedSample
+	IMPORT_FUNC	"sceMp3",0x35750070,sceMp3InitResource
+	IMPORT_FUNC	"sceMp3",0x3C2FA058,sceMp3TermResource
+	IMPORT_FUNC	"sceMp3",0x3CEF484F,sceMp3SetLoopNum
+	IMPORT_FUNC	"sceMp3",0x44E07129,sceMp3Init
+	IMPORT_FUNC	"sceMp3",0x732B042A,sceMp3EndEntry
+	IMPORT_FUNC	"sceMp3",0x7F696782,sceMp3GetMp3ChannelNum
+	IMPORT_FUNC	"sceMp3",0x87677E40,sceMp3GetBitRate
+	IMPORT_FUNC	"sceMp3",0x87C263D1,sceMp3GetMaxOutputSample
+	IMPORT_FUNC	"sceMp3",0x8AB81558,sceMp3StartEntry
+	IMPORT_FUNC	"sceMp3",0x8F450998,sceMp3GetSamplingRate
+	IMPORT_FUNC	"sceMp3",0xA703FE0F,sceMp3GetInfoToAddStreamData
+	IMPORT_FUNC	"sceMp3",0xD021C0FB,sceMp3Decode
+	IMPORT_FUNC	"sceMp3",0xD0A56296,sceMp3CheckStreamDataNeeded
+	IMPORT_FUNC	"sceMp3",0xD8F54A51,sceMp3GetLoopNum
+	IMPORT_FUNC	"sceMp3",0xF5478233,sceMp3ReleaseMp3Handle
+	IMPORT_FUNC	"sceMp3",0xAE6D2027,sceMp3GetMPEGVersion
+	IMPORT_FUNC	"sceMp3",0x3548AEC8,sceMp3GetFrameNum
+	IMPORT_FUNC	"sceMp3",0x0840E808,sceMp3ResetPlayPositionByFrame
+	IMPORT_FUNC	"sceMp3",0x1B839B83,sceMp3LowLevelInit
+	IMPORT_FUNC	"sceMp3",0xE3EE2C81,sceMp3LowLevelDecode
