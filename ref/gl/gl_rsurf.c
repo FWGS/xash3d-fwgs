@@ -3315,8 +3315,10 @@ void R_DrawWorld( void )
 	// paranoia issues: when gl_renderer is "0" we need have something valid for currententity
 	// to prevent crashing until HeadShield drawing.
 	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
-	RI.currentmodel = RI.currententity->model;
+	if( !RI.currententity )
+		return;
 
+	RI.currentmodel = RI.currententity->model;
 	if( !RI.drawWorld || RI.onlyClientDraw )
 		return;
 
