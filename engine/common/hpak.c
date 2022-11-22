@@ -114,7 +114,7 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 
 	Con_Printf( "creating HPAK %s.\n", pakname );
 
-	fout = FS_Open( pakname, "wb", false );
+	fout = FS_Open( pakname, "wb", true );
 	if( !fout )
 	{
 		Con_DPrintf( S_ERROR "HPAK_CreatePak: can't write %s.\n", pakname );
@@ -260,7 +260,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	Q_strncpy( srcname, name, sizeof( srcname ));
 	COM_ReplaceExtension( srcname, ".hpk" );
 
-	file_src = FS_Open( srcname, "rb", false );
+	file_src = FS_Open( srcname, "rb", true );
 
 	if( !file_src )
 	{
@@ -272,7 +272,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	Q_strncpy( dstname, srcname, sizeof( dstname ));
 	COM_ReplaceExtension( dstname, ".hp2" );
 
-	file_dst = FS_Open( dstname, "wb", false );
+	file_dst = FS_Open( dstname, "wb", true );
 
 	if( !file_dst )
 	{
@@ -395,7 +395,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk" );
 
-	f = FS_Open( pakname, "rb", false );
+	f = FS_Open( pakname, "rb", true );
 	if( !f )
 	{
 		Con_DPrintf( S_ERROR "Couldn't find %s.\n", pakname );
@@ -545,7 +545,7 @@ qboolean HPAK_ResourceForHash( const char *filename, byte *hash, resource_t *pRe
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk" );
 
-	f = FS_Open( pakname, "rb", false );
+	f = FS_Open( pakname, "rb", true );
 	if( !f ) return false;
 
 	FS_Read( f, &header, sizeof( header ));
@@ -593,7 +593,7 @@ static qboolean HPAK_ResourceForIndex( const char *filename, int index, resource
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk" );
 
-	f = FS_Open( pakname, "rb", false );
+	f = FS_Open( pakname, "rb", true );
 	if( !f )
 	{
 		Con_DPrintf( S_ERROR "couldn't open %s.\n", pakname );
@@ -679,7 +679,7 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk" );
 
-	f = FS_Open( pakname, "rb", false );
+	f = FS_Open( pakname, "rb", true );
 	if( !f ) return false;
 
 	FS_Read( f, &header, sizeof( header ));
@@ -762,7 +762,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 	Q_strncpy( read_path, name, sizeof( read_path ));
 	COM_ReplaceExtension( read_path, ".hpk" );
 
-	file_src = FS_Open( read_path, "rb", false );
+	file_src = FS_Open( read_path, "rb", true );
 	if( !file_src )
 	{
 		Con_DPrintf( S_ERROR "%s couldn't open.\n", read_path );
@@ -771,7 +771,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 
 	Q_strncpy( save_path, read_path, sizeof( save_path ));
 	COM_ReplaceExtension( save_path, ".hp2" );
-	file_dst = FS_Open( save_path, "wb", false );
+	file_dst = FS_Open( save_path, "wb", true );
 
 	if( !file_dst )
 	{
@@ -892,7 +892,7 @@ void HPAK_List_f( void )
 	COM_ReplaceExtension( pakname, ".hpk" );
 	Con_Printf( "Contents for %s.\n", pakname );
 
-	f = FS_Open( pakname, "rb", false );
+	f = FS_Open( pakname, "rb", true );
 	if( !f )
 	{
 		Con_DPrintf( S_ERROR "couldn't open %s.\n", pakname );
@@ -983,7 +983,7 @@ void HPAK_Extract_f( void )
 	COM_ReplaceExtension( pakname, ".hpk" );
 	Con_Printf( "Contents for %s.\n", pakname );
 
-	f = FS_Open( pakname, "rb", false );
+	f = FS_Open( pakname, "rb", true );
 	if( !f )
 	{
 		Con_DPrintf( S_ERROR "couldn't open %s.\n", pakname );
