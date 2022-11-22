@@ -101,7 +101,7 @@ qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResou
 		{
 			if( !FBitSet( flags, FCUST_IGNOREINIT ))
 			{
-				if( pResource->nDownloadSize >= (1 * 1024) && pResource->nDownloadSize <= ( 16 * 1024 ))
+				if( pResource->nDownloadSize >= (1 * 1024) && pResource->nDownloadSize <= ( 128 * 1024 ))
 				{
 					pCust->bTranslated = true;
 					pCust->nUserData1 = 0;
@@ -111,6 +111,10 @@ qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResou
 						pCust->pInfo = FS_LoadImage( "#logo.bmp", pCust->pBuffer, pCust->resource.nDownloadSize );
 					else pCust->pInfo = NULL;
 					if( nLumps ) *nLumps = 1;
+				}
+				else
+				{
+					Con_Printf( S_WARN "Ignoring custom decal \"%s\": wrong size (%i bytes)\n", pResource->szFileName, pResource->nDownloadSize );
 				}
 			}
 		}
