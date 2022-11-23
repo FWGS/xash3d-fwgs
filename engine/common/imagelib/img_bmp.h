@@ -25,7 +25,12 @@ GNU General Public License for more details.
 #define BI_FILE_HEADER_SIZE 14
 #define BI_SIZE 40 // size of bitmap info header.
 #if !defined(BI_RGB)
-#define BI_RGB 0 // uncompressed RGB bitmap(defined in wingdi.h)
+#define BI_RGB		  0	// uncompressed RGB bitmap (defined in wingdi.h)
+#define BI_RLE8       1
+#define BI_RLE4       2
+#define BI_BITFIELDS  3
+#define BI_JPEG       4
+#define BI_PNG        5
 #endif
 
 #pragma pack( push, 1 )
