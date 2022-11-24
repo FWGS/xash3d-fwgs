@@ -117,11 +117,14 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	// setup gradient alpha for player decal
 	if( !Q_strncmp( name, "#logo", 5 ))
 	{
-		for( i = 0; i < (bhdr.colors - 1); i++ )
-			palette[i][3] = 255;
+		if( bhdr.colors > 0 )
+		{ 
+			for( i = 0; i < (bhdr.colors - 1); i++ )
+				palette[i][3] = 255;
 
-		// make last color in palette transparent, just like in WAD textures
-		palette[bhdr.colors - 1][3] = 0;
+			// make last color in palette transparent, just like in WAD textures
+			palette[bhdr.colors - 1][3] = 0;
+		}
 		image.flags |= IMAGE_HAS_ALPHA;
 	}
 
