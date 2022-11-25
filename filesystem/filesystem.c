@@ -1824,6 +1824,13 @@ searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly )
 		search = &fs_directpath;
 		memset( search, 0, sizeof( searchpath_t ));
 
+		search->printinfo = FS_PrintInfo_DIR;
+		search->close = FS_Close_DIR;
+		search->openfile = FS_OpenFile_DIR;
+		search->filetime = FS_FileTime_DIR;
+		search->findfile = FS_FindFile_DIR;
+		search->search = FS_Search_DIR;
+
 		// root folder has a more priority than netpath
 		Q_strncpy( search->filename, fs_rootdir, sizeof( search->filename ));
 		Q_strcat( search->filename, PATH_SPLITTER );
