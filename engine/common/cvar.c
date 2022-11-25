@@ -21,7 +21,7 @@ GNU General Public License for more details.
 convar_t	*cvar_vars = NULL; // head of list
 convar_t	*cmd_scripting;
 
-CVAR_DEFINE_AUTO( cl_filterstuffcmd, "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter commands coming from server" );
+CVAR_DEFINE_AUTO( cl_filterstuffcmd, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter commands coming from server" );
 
 /*
 ============
