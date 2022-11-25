@@ -17,8 +17,8 @@ GNU General Public License for more details.
 #include "hpak.h"
 
 #define HPAK_MAX_ENTRIES	0x8000
-#define HPAK_MIN_SIZE	(1 * 1024)
-#define HPAK_MAX_SIZE	(128 * 1024)
+#define HPAK_ENTRY_MIN_SIZE	(512)
+#define HPAK_ENTRY_MAX_SIZE	(128 * 1024)
 
 typedef struct hash_pack_queue_s
 {
@@ -216,7 +216,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	if( pData == NULL && pFile == NULL )
 		return;
 
-	if( pResource->nDownloadSize < HPAK_MIN_SIZE || pResource->nDownloadSize > HPAK_MAX_SIZE )
+	if( pResource->nDownloadSize < HPAK_ENTRY_MIN_SIZE || pResource->nDownloadSize > HPAK_ENTRY_MAX_SIZE )
 	{
 		Con_Printf( S_ERROR "%s: invalid size %s\n", name, Q_pretifymem( pResource->nDownloadSize, 2 ));
 		return;
@@ -325,7 +325,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	// make a new container
 	dstpak.count = srcpak.count + 1;
 	dstpak.entries = Z_Malloc( sizeof( hpak_lump_t ) * dstpak.count );
-	memcpy( dstpak.entries, srcpak.entries, srcpak.count );
+	memcpy( dstpak.entries, srcpak.entries, sizeof( hpak_lump_t ) * srcpak.count );
 
 	for( i = 0; i < srcpak.count; i++ )
 	{
@@ -431,7 +431,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 
 	for( i = 0; i < num_lumps; i++ )
 	{
-		if( dataDir[i].disksize < 1 || dataDir[i].disksize > 131071 )
+		if( dataDir[i].disksize < HPAK_ENTRY_MIN_SIZE || dataDir[i].disksize > HPAK_ENTRY_MAX_SIZE )
 		{
 			// odd max size
 			Con_DPrintf( S_ERROR "HPAK_ValidatePak: lump %i has invalid size %s\n", i, Q_pretifymem( dataDir[i].disksize, 2 ));
@@ -512,7 +512,7 @@ void HPAK_CheckSize( const char *filename )
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk" );
 
-	if( FS_FileSize( pakname, false ) > ( maxsize * 1000000 ))
+	if( FS_FileSize( pakname, false ) > ( maxsize * 1048576 ))
 	{
 		Con_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize->value );
 		Log_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize->value );
@@ -1035,7 +1035,7 @@ void HPAK_Extract_f( void )
 
 		Con_Printf( "Extracting %i: %10s %s %s\n", nCurrent + 1, type, size, lumpname );
 
-		if( entry->disksize <= 0 || entry->disksize >= HPAK_MAX_SIZE )
+		if( entry->disksize < HPAK_ENTRY_MIN_SIZE || entry->disksize > HPAK_ENTRY_MAX_SIZE )
 		{
 			Con_DPrintf( S_WARN "Unable to extract data, size invalid:  %s\n", Q_memprint( entry->disksize ));
 			continue;
