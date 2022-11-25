@@ -2106,6 +2106,8 @@ static qboolean SV_Begin_f( sv_client_t *cl )
 
 	// now client is spawned
 	cl->state = cs_spawned;
+	cl->connecttime = host.realtime;
+
 	return true;
 }
 
