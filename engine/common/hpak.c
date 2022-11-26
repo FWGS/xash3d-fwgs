@@ -226,7 +226,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	memset( &ctx, 0, sizeof( MD5Context_t ));
 	MD5Init( &ctx );
 
-	if( pData == NULL )
+	if( !pData )
 	{
 		byte		*temp;
 
@@ -327,9 +327,10 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	dstpak.entries = Z_Malloc( sizeof( hpak_lump_t ) * dstpak.count );
 	memcpy( dstpak.entries, srcpak.entries, sizeof( hpak_lump_t ) * srcpak.count );
 
+	// check is there are entry with same hash
 	for( i = 0; i < srcpak.count; i++ )
 	{
-		if( memcmp( md5, srcpak.entries[i].resource.rgucMD5_hash, 16 ))
+		if( memcmp( md5, srcpak.entries[i].resource.rgucMD5_hash, 16 ) == 0 )
 		{
 			pCurrentEntry = &dstpak.entries[i];
 
@@ -347,8 +348,10 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	pCurrentEntry->filepos = FS_Tell( file_dst );
 	pCurrentEntry->disksize = pResource->nDownloadSize;
 
-	if( !pData ) FS_FileCopy( file_dst, file_src, pCurrentEntry->disksize );
-	else FS_Write( file_dst, pData, pCurrentEntry->disksize );
+	if( !pData )
+		FS_FileCopy( file_dst, pFile, pCurrentEntry->disksize );
+	else
+		FS_Write( file_dst, pData, pCurrentEntry->disksize );
 
 	hash_pack_header.infotableofs = FS_Tell( file_dst );
 	FS_Write( file_dst, &dstpak.count, sizeof( dstpak.count ));
