@@ -20,8 +20,8 @@ typedef struct {
 typedef struct {
 	char name[64];
 	uint32_t type;
-	qboolean is_image;
-	uint32_t image_format;
+	int count;
+	int semantic;
 } res_t;
 
 typedef struct {
@@ -193,22 +193,16 @@ static int readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindi
 
 		const char *name = res->name;
 
-		const ray_resource_binding_desc_fixme_t *binding_fixme = RayResouceGetBindingForName_FIXME(name);
-		if (!binding_fixme) {
-			gEngine.Con_Printf(S_ERROR "Couldn't find fixme desc for binding %s\n", name);
-			return 0;
-		}
-
 		bindings[i] = (VkDescriptorSetLayoutBinding){
 			.binding = binding,
 			.descriptorType = res->type,
-			.descriptorCount = binding_fixme->count,
+			.descriptorCount = res->count,
 			.stageFlags = stages,
 			.pImmutableSamplers = NULL,
 		};
-		semantics[i] = write ? -binding_fixme->semantic : binding_fixme->semantic;
+		semantics[i] = write ? -res->semantic : res->semantic;
 
-		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x res=%d type=%d semantic=%d\n", i, name, descriptor_set, binding, stages, res_index, res->type, binding_fixme->semantic);
+		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x res=%d type=%d semantic=%d\n", i, name, descriptor_set, binding, stages, res_index, res->type, res->semantic);
 	}
 
 	return count;
@@ -263,13 +257,28 @@ static qboolean readResources(load_context_t *ctx) {
 
 		res->type = READ_U32("Couldn't read resource %d:%s type", i, res->name);
 
-		res->is_image = res->type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE || res->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		const qboolean is_image = res->type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE || res->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
-		if (res->is_image) {
-			res->image_format = READ_U32("Couldn't read image format for res %d:%s", i, res->name);
+		ray_resource_desc_t rrdesc = {
+			.type = is_image ? ResourceImage : ResourceBuffer,
+			.image_format = VK_FORMAT_UNDEFINED,
+		};
+
+
+		if (is_image) {
+			rrdesc.image_format = READ_U32("Couldn't read image format for res %d:%s", i, res->name);
 		}
 
-		gEngine.Con_Reportf("Resource %d:%s = %08x is_image=%d image_format=%08x\n", i, res->name, res->type, res->is_image, res->image_format);
+		const ray_resource_binding_desc_fixme_t *binding_fixme = RayResouceGetBindingForName_FIXME(res->name, rrdesc);
+		if (!binding_fixme) {
+			gEngine.Con_Printf(S_ERROR "Couldn't find fixme desc for binding %s\n", res->name);
+			return 0;
+		}
+
+		res->count = binding_fixme->count;
+		res->semantic = binding_fixme->semantic;
+
+		gEngine.Con_Reportf("Resource %d:%s = %08x is_image=%d image_format=%08x count=%d semantic=%d\n", i, res->name, res->type, is_image, rrdesc.image_format, res->count, res->semantic);
 	}
 
 	return true;

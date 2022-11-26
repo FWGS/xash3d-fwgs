@@ -65,4 +65,15 @@ typedef struct {
 	int count;
 } ray_resource_binding_desc_fixme_t;
 
-const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name);
+typedef enum {
+	ResourceUnknown,
+	ResourceBuffer,
+	ResourceImage,
+} ray_resource_type_e;
+
+typedef struct {
+	ray_resource_type_e type;
+	int image_format; // if type == ResourceImage
+} ray_resource_desc_t;
+
+const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name, ray_resource_desc_t desc);

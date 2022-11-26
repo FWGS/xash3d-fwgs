@@ -4,20 +4,24 @@
 	- [x] remove types from resources FIXME
 - [x] E214: ~tentative~
 	- [x] integrate sebastian into waf
-- [ ] E215:
-	- [ ] serialize binding image format
-	- [ ] serialize all resources with in/out and formats for images
+- [x] E215:
+	- [x] serialize binding image format
+- [ ] E216:
+	- [ ] meatpipe resource tracking
+		- [ ] name -> index mapping
+		- [x] validate image formats
 	- [ ] create images on meatpipe load
+	- [ ] begin Rake Yuri migration
 
->E215
+>=E217
 - [ ] automatic resource creation
+	- [ ] serialize all resources with in/out and formats for images
 	- [ ] resource management refactoring:
 		- [ ] resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
 		- [ ] resource automatic resolution: prducing, barriers, etc
 		- [ ] register existing resources (tlas, buffers, temp images, ...)
 		- [ ] resource destruction
 	- [ ] create resources on demand
-- [ ] Rake Yuri
 
 # Programmable render
 - [x] parse spirv -> get bindings with names

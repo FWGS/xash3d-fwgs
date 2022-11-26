@@ -102,6 +102,33 @@ class Serializer:
 			else:
 				i.serialize(self)
 
+class ImageFormat:
+    VK_FORMAT_UNDEFINED = 0
+    VK_FORMAT_R8G8B8A8_UNORM = 37
+    VK_FORMAT_R16G16B16A16_SFLOAT = 97
+    VK_FORMAT_R32G32B32A32_SFLOAT = 109
+
+    __map = {
+        'Unknown': VK_FORMAT_UNDEFINED,
+        'Rgba32f' : VK_FORMAT_R32G32B32A32_SFLOAT,
+        'Rgba16f' : VK_FORMAT_R16G16B16A16_SFLOAT,
+        'Rgba8' : VK_FORMAT_R8G8B8A8_UNORM,
+        # TODO map more
+    }
+
+    __revmap = None
+
+    def mapToVk(fmt):
+        if not ImageFormat.__revmap:
+            revmap = {}
+            formats = spv['ImageFormat']
+            for k, v in formats.items():
+                if k in ImageFormat.__map:
+                    revmap[v] = ImageFormat.__map[k]
+            ImageFormat.__revmap = revmap
+
+        return ImageFormat.__revmap[fmt]
+
 class TypeInfo:
 	TYPE_SAMPLER = 0
 	TYPE_COMBINED_IMAGE_SAMPLER = 1
@@ -145,7 +172,7 @@ class TypeInfo:
 	def serialize(self, out):
 		out.writeU32(self.type)
 		if self.is_image:
-			out.writeU32(self.image_format)
+			out.writeU32(ImageFormat.mapToVk(self.image_format))
 
 class SpirvNode:
 	def __init__(self):

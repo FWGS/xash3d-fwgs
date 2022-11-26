@@ -1,6 +1,8 @@
 #include "ray_resources.h"
 #include "vk_core.h"
 
+#include "shaders/ray_interop.h" // FIXME temp for type validation
+
 #include <stdlib.h>
 
 #define MAX_BARRIERS 16
@@ -95,46 +97,74 @@ void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill) {
 			0, 0, NULL, 0, NULL, image_barriers_count, image_barriers);
 	}
 }
-
-#define FIXME_DESC(name_, semantic_, count_) \
-	{ .name = name_, \
-	  .desc.semantic = (RayResource_##semantic_ + 1), \
-	  .desc.count = count_, \
-	}
-
 static const struct {
 	const char *name;
+	ray_resource_type_e type;
+	int image_format;
 	ray_resource_binding_desc_fixme_t desc;
 } fixme_descs[] = {
+
+#define FIXME_DESC_BUFFER(name_, semantic_, count_) \
+	{ .name = name_, \
+		.type = ResourceBuffer, \
+		.desc.semantic = (RayResource_##semantic_ + 1), \
+		.desc.count = count_, \
+	}
+
 	// External
-	FIXME_DESC("ubo", ubo, 1),
-	FIXME_DESC("tlas", tlas, 1),
-	FIXME_DESC("kusochki", kusochki, 1),
-	FIXME_DESC("indices", indices, 1),
-	FIXME_DESC("vertices", vertices, 1),
-	FIXME_DESC("textures", all_textures, MAX_TEXTURES),
-	FIXME_DESC("skybox", skybox, 1),
-	FIXME_DESC("lights", lights, 1),
-	FIXME_DESC("light_clusters", light_clusters, 1),
-	FIXME_DESC("light_grid", light_clusters, 1),
-	FIXME_DESC("dest", denoised, 1),
+	FIXME_DESC_BUFFER("ubo", ubo, 1),
+	FIXME_DESC_BUFFER("tlas", tlas, 1),
+	FIXME_DESC_BUFFER("kusochki", kusochki, 1),
+	FIXME_DESC_BUFFER("indices", indices, 1),
+	FIXME_DESC_BUFFER("vertices", vertices, 1),
+	FIXME_DESC_BUFFER("lights", lights, 1),
+	FIXME_DESC_BUFFER("light_clusters", light_clusters, 1),
+	FIXME_DESC_BUFFER("light_grid", light_clusters, 1),
+
+#define FIXME_DESC_IMAGE(name_, semantic_, image_format_, count_) \
+	{ .name = name_, \
+		.type = ResourceImage, \
+		.image_format = image_format_, \
+		.desc.semantic = (RayResource_##semantic_ + 1), \
+		.desc.count = count_, \
+	}
+
+	FIXME_DESC_IMAGE("textures", all_textures, VK_FORMAT_UNDEFINED, MAX_TEXTURES),
+	FIXME_DESC_IMAGE("skybox", skybox, VK_FORMAT_UNDEFINED, 1),
+	FIXME_DESC_IMAGE("dest", denoised,  VK_FORMAT_UNDEFINED,1),
 
 	// Internal, temporary
-	FIXME_DESC("base_color_a", base_color_a, 1),
-	FIXME_DESC("position_t", position_t, 1),
-	FIXME_DESC("normals_gs", normals_gs, 1),
-	FIXME_DESC("material_rmxx", material_rmxx, 1),
-	FIXME_DESC("emissive", emissive, 1),
-	FIXME_DESC("light_poly_diffuse", light_poly_diffuse, 1),
-	FIXME_DESC("light_poly_specular", light_poly_specular, 1),
-	FIXME_DESC("light_point_diffuse", light_point_diffuse, 1),
-	FIXME_DESC("light_point_specular", light_point_specular, 1),
+#define DECLARE_IMAGE(_, name_, format_) \
+	{ .name = #name_, \
+		.type = ResourceImage, \
+		.image_format = format_, \
+		.desc.semantic = (RayResource_##name_ + 1), \
+		.desc.count = 1, \
+	},
+#define rgba8 VK_FORMAT_R8G8B8A8_UNORM
+#define rgba32f VK_FORMAT_R32G32B32A32_SFLOAT
+#define rgba16f VK_FORMAT_R16G16B16A16_SFLOAT
+	RAY_PRIMARY_OUTPUTS(DECLARE_IMAGE)
+	RAY_LIGHT_DIRECT_POLY_OUTPUTS(DECLARE_IMAGE)
+	RAY_LIGHT_DIRECT_POINT_OUTPUTS(DECLARE_IMAGE)
 };
 
-const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name) {
+const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name, ray_resource_desc_t desc) {
 	for (int i = 0; i < COUNTOF(fixme_descs); ++i) {
-		if (strcmp(name, fixme_descs[i].name) == 0)
-			return &fixme_descs[i].desc;
+		if (strcmp(name, fixme_descs[i].name) != 0)
+			continue;
+
+		if (fixme_descs[i].type != desc.type) {
+			gEngine.Con_Printf(S_ERROR "Incompatible resource types for name %s: want %d, have %d\n", name, desc.type, fixme_descs[i].type);
+			return NULL;
+		}
+
+		if (fixme_descs[i].type == ResourceImage && fixme_descs[i].image_format != VK_FORMAT_UNDEFINED && desc.image_format != fixme_descs[i].image_format) {
+			gEngine.Con_Printf(S_ERROR "Incompatible image formats for name %s: want %d, have %d\n", name, desc.image_format, fixme_descs[i].image_format);
+			return NULL;
+		}
+
+		return &fixme_descs[i].desc;
 	}
 	return NULL;
 }
