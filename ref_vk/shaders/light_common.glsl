@@ -6,6 +6,7 @@
 layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadEXT RayPayloadShadow payload_shadow;
 #endif
 
+#ifdef RAY_TRACE
 uint traceShadowRay(vec3 pos, vec3 dir, float dist, uint flags) {
 	payload_shadow.hit_type = SHADOW_HIT;
 	traceRayEXT(tlas,
@@ -15,6 +16,7 @@ uint traceShadowRay(vec3 pos, vec3 dir, float dist, uint flags) {
 		pos, 0., dir, dist - shadow_offset_fudge, PAYLOAD_LOCATION_SHADOW);
 	return payload_shadow.hit_type;
 }
+#endif
 
 bool shadowed(vec3 pos, vec3 dir, float dist) {
 #ifdef RAY_TRACE
@@ -44,7 +46,7 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 
 // TODO join with just shadowed()
 bool shadowedSky(vec3 pos, vec3 dir, float dist) {
-#if 1
+#ifdef RAY_TRACE
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
 		//| gl_RayFlagsOpaqueEXT
@@ -54,6 +56,7 @@ bool shadowedSky(vec3 pos, vec3 dir, float dist) {
 	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
 	return payload_shadow.hit_type != SHADOW_SKY;
 #else
+	// FIXME ray query
 	return false;
 #endif
 }

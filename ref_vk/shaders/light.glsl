@@ -1,4 +1,4 @@
-layout (set = 0, binding = BINDING_LIGHTS) readonly buffer UBOLights { LightsMetadata m; } lights; // TODO this is pretty much static and should be a buffer, not UBO
+layout (set = 0, binding = BINDING_LIGHTS) readonly buffer SBOLights { LightsMetadata m; } lights;
 layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
 	ivec3 grid_min, grid_size;
 	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
@@ -7,6 +7,11 @@ layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UB
 
 const float color_culling_threshold = 0;//600./color_factor;
 const float shadow_offset_fudge = .1;
+
+#ifdef RAY_QUERY
+// TODO sync with native code
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+#endif
 
 #include "brdf.h"
 #include "light_common.glsl"

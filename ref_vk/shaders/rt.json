@@ -1,4 +1,5 @@
 {
+
 	"primary_ray": {
 		"rgen": "ray_primary",
 		"miss": [
@@ -9,22 +10,28 @@
 			{"closest": "ray_primary", "any": "ray_common_alphatest"}
 		]
 	},
-	"light_direct": {
-		"template": true,
-		"miss": [
-			"ray_shadow"
-		],
-		"hit": [
-			{"closest": "ray_shadow", "any": "ray_common_alphatest"}
-		]
-	},
+//	"light_direct": {
+//		"template": true,
+//		"miss": [
+//			"ray_shadow"
+//		],
+//		"hit": [
+//			{"closest": "ray_shadow", "any": "ray_common_alphatest"}
+//		]
+//	},
+//	"light_direct_poly": {
+//		"inherit": "light_direct",
+//		"rgen": "ray_light_poly_direct"
+//	},
+//	"light_direct_point": {
+//		"inherit": "light_direct",
+//		"rgen": "ray_light_direct_point"
+//	},
 	"light_direct_poly": {
-		"inherit": "light_direct",
-		"rgen": "ray_light_poly_direct"
+		"comp": "ray_light_direct_poly"
 	},
 	"light_direct_point": {
-		"inherit": "light_direct",
-		"rgen": "ray_light_direct_point"
+		"comp": "ray_light_direct_point"
 	},
 	"denoiser": {
 		"comp": "denoiser"

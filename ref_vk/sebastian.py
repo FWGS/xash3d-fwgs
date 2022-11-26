@@ -196,10 +196,44 @@ class SpirvNode:
 
 	def setStorageClass(self, storage_class):
 		if storage_class == spv['StorageClass']['Uniform']:
+			# TODO support older spirv shaders
+			# E.g. for the same
+			# layout (set = 0, binding = 7) readonly buffer SBOLights { LightsMetadata m; } lights;
+
+			# Newer, with --target-env=vulkan-1.2:
+			# OpName %lights "lights"
+			# OpDecorate %lights DescriptorSet 0
+			# OpDecorate %lights Binding 7
+			# %lights = OpVariable %_ptr_StorageBuffer_SBOLights StorageBuffer
+			#
+			# %_ptr_StorageBuffer_SBOLights = OpTypePointer StorageBuffer %SBOLights
+			#
+			# OpName %SBOLights "SBOLights"
+			# OpMemberName %SBOLights 0 "m"
+			# OpMemberDecorate %SBOLights 0 NonWritable
+			# OpMemberDecorate %SBOLights 0 Offset 0
+			# OpDecorate %SBOLights Block
+
+			# Older:
+			# OpName %lights "lights"
+			# OpDecorate %lights DescriptorSet 0
+			# OpDecorate %lights Binding 7
+			# %lights = OpVariable %_ptr_Uniform_SBOLights Uniform
+			#
+			# %_ptr_Uniform_SBOLights = OpTypePointer Uniform %SBOLights
+			#
+			# OpName %SBOLights "SBOLights"
+			# OpMemberName %SBOLights 0 "m"
+			# OpMemberDecorate %SBOLights 0 NonWritable
+			# OpMemberDecorate %SBOLights 0 Offset 0
+			# OpDecorate %SBOLights BufferBlock
+			# %SBOLights = OpTypeStruct %LightsMetadata
+
 			self.type = TypeInfo(TypeInfo.TYPE_UNIFORM_BUFFER)
 		elif storage_class == spv['StorageClass']['StorageBuffer']:
 			self.type = TypeInfo(TypeInfo.TYPE_STORAGE_BUFFER)
 		self.storage_class = storage_class
+		#print(f"Set node {self.name} storage class {storage_class}, type {self.type}")
 
 class SpirvContext:
 	def __init__(self, nodes_count):
@@ -457,6 +491,7 @@ class Shader:
 		if self.__bindings:
 			return self.__bindings
 
+		#print("Parsing", self.name)
 		spirv = parseSpirv(self.getRawData())
 
 		bindings = []
