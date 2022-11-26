@@ -24,6 +24,7 @@ GNU General Public License for more details.
 	#include <netinet/in.h>
 #endif
 
+// PNG signatures
 static const char png_sign[] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
 static const char ihdr_sign[] = {'I', 'H', 'D', 'R'};
 static const char trns_sign[] = {'t', 'R', 'N', 'S'};
@@ -31,6 +32,11 @@ static const char plte_sign[] = {'P', 'L', 'T', 'E'};
 static const char idat_sign[] = {'I', 'D', 'A', 'T'};
 static const char iend_sign[] = {'I', 'E', 'N', 'D'};
 static const int  iend_crc32 = 0xAE426082;
+
+// APNG signatures
+static const char actl_sign[] = {'a', 'c', 'T', 'L'};
+static const char fctl_sign[] = {'f', 'c', 'T', 'L'};
+static const char fdat_sign[] = {'f', 'd', 'A', 'T'};
 
 /*
 =============
@@ -45,9 +51,11 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	byte		*pallete = NULL, *trns = NULL;
 	uint	 	chunk_len, trns_len, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
 	uint		uncompressed_size, pixel_size, pixel_count, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha;
+	uint		seq_count, seq_curr = 0, seq_num, fdat_size, fdat_offset = 0;
 	qboolean 	has_iend_chunk = false;
 	z_stream 	stream = {0};
 	png_t		png_hdr;
+	apng_fctl_t	fctl_hdr = {0};
 
 	if( filesize < sizeof( png_hdr ) )
 		return false;
@@ -165,8 +173,48 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		// move pointer
 		buf_p += sizeof( chunk_sign );
 
+		// detect animated png
+		if( !memcmp( buf_p, actl_sign, sizeof( actl_sign ) ) )
+		{
+			memcpy( &seq_count, buf_p + sizeof( actl_sign ), sizeof( seq_count ) );
+			if( seq_count > 1 )
+				image.flags |= IMAGE_ANIMATION;
+		}
+		// find pre-frame fctl chunk
+		else if( !memcmp( buf_p, fctl_sign, sizeof( fctl_sign ) ) )
+		{
+			if( image.flags & IMAGE_ANIMATION )
+			{
+				memcpy( &fctl_hdr, buf_p + sizeof( fctl_sign ), sizeof( apng_fctl_t ) );
+
+				if( fctl_hdr.seq_num != seq_curr
+				    || !( fctl_hdr.x_off == 0
+				    || fctl_hdr.y_off == 0 )
+				    || fctl_hdr.x_off > INT_MAX
+				    || fctl_hdr.y_off > INT_MAX
+				    || fctl_hdr.width == 0
+				    || fctl_hdr.width + fctl_hdr.x_off > png_hdr.ihdr_chunk.width
+				    || fctl_hdr.height == 0
+				    || fctl_hdr.height + fctl_hdr.y_off > png_hdr.ihdr_chunk.height )
+				{
+					image.flags &= ~IMAGE_ANIMATION;
+
+					if( seq_curr > 0 )
+					{
+						newsize = fdat_offset;
+						fdat_offset = 0;
+					}
+
+					Con_DPrintf( S_WARN "Image_LoadPNG: found broken fcTL chunk (%s)\n", name );
+				}
+				else if( !idat_buf )
+					seq_curr++;
+				else if( !fdat_offset )
+					fdat_offset = oldsize;
+			}
+		}
 		// find transparency
-		if( !memcmp( buf_p, trns_sign, sizeof( trns_sign ) ) )
+		else if( !memcmp( buf_p, trns_sign, sizeof( trns_sign ) ) )
 		{
 			trns = buf_p + sizeof( trns_sign );
 			trns_len = chunk_len;
@@ -183,6 +231,31 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 			idat_buf = (byte *)Mem_Realloc( host.imagepool, idat_buf, newsize );
 			memcpy( idat_buf + oldsize, buf_p + sizeof( idat_sign ), chunk_len );
 			oldsize = newsize;
+		}
+		// get all fdAT chunks data
+		else if( !memcmp( buf_p, fdat_sign, sizeof( fdat_sign ) ) )
+		{
+			if( image.flags & IMAGE_ANIMATION )
+			{
+				memcpy( &seq_num, buf_p + sizeof( fdat_sign ), sizeof( seq_num ) );
+
+				if( seq_num != seq_curr )
+				{
+					image.flags &= ~IMAGE_ANIMATION;
+					newsize = fdat_offset;
+					fdat_offset = 0;
+					Con_DPrintf( S_WARN "Image_LoadPNG: found broken fdAT chunk (%s)\n", name );
+				}
+				else
+				{
+					fdat_size = chunk_len - sizeof( seq_num );
+					newsize = oldsize + fdat_size;
+					idat_buf = (byte *)Mem_Realloc( host.imagepool, idat_buf, newsize );
+					memcpy( idat_buf + oldsize, buf_p + sizeof( fdat_sign ) + sizeof( seq_num ), fdat_size );
+					oldsize = newsize;
+					seq_curr++;
+				}
+			}
 		}
 		else if( !memcmp( buf_p, iend_sign, sizeof( iend_sign ) ) )
 			has_iend_chunk = true;
@@ -211,6 +284,14 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		buf_p += sizeof( crc32 );
 	}
 
+	if( ( image.flags & IMAGE_ANIMATION ) && seq_curr != seq_count )
+	{
+		image.flags &= ~IMAGE_ANIMATION;
+		newsize = fdat_offset;
+		fdat_offset = 0;
+		Con_DPrintf( S_WARN "Image_LoadPNG: Broken APNG ancillary chunks (%s)\n", name );
+	}
+
 	if( png_hdr.ihdr_chunk.colortype == PNG_CT_PALLETE && !pallete )
 	{
 		Con_DPrintf( S_ERROR "Image_LoadPNG: PLTE chunk not found (%s)\n", name );
@@ -234,7 +315,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( oldsize == 0 )
 	{
-		Con_DPrintf( S_ERROR "Image_LoadPNG: Couldn't find IDAT chunks (%s)\n", name );
+		Con_DPrintf( S_ERROR "Image_LoadPNG: Couldn't find IDAT and fdAT chunks (%s)\n", name );
 		return false;
 	}
 
@@ -260,9 +341,19 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	image.type = PF_RGBA_32; // always exctracted to 32-bit buffer
-	image.width = png_hdr.ihdr_chunk.width;
-	image.height = png_hdr.ihdr_chunk.height;
-	pixel_count = image.height * image.width;
+
+	if( image.flags & IMAGE_ANIMATION )
+	{
+		image.width = fctl_hdr.width;
+		image.height = fctl_hdr.height;
+	}
+	else
+	{
+		image.width = png_hdr.ihdr_chunk.width;
+		image.height = png_hdr.ihdr_chunk.height;
+	}
+
+	pixel_count = png_hdr.ihdr_chunk.width * png_hdr.ihdr_chunk.height;
 	image.size = pixel_count * 4;
 
 	if( png_hdr.ihdr_chunk.colortype & PNG_CT_RGB )
@@ -278,8 +369,8 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	uncompressed_size = image.height * ( rowsize + 1 ); // +1 for filter
 	uncompressed_buffer = Mem_Malloc( host.imagepool, uncompressed_size );
 
-	stream.next_in = idat_buf;
-	stream.total_in = stream.avail_in = newsize;
+	stream.next_in = idat_buf + fdat_offset;
+	stream.total_in = stream.avail_in = newsize - fdat_offset;
 	stream.next_out = uncompressed_buffer;
 	stream.total_out = stream.avail_out = uncompressed_size;
 

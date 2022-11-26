@@ -68,6 +68,19 @@ typedef struct png_footer_s
 	uint8_t     iend_sign[4];
 	uint32_t    iend_crc32;
 } png_footer_t;
+
+typedef struct apng_fctl_s
+{
+	uint32_t	seq_num;
+	uint32_t	width;
+	uint32_t	height;
+	uint32_t	x_off;
+	uint32_t	y_off;
+	uint16_t	delay_num;
+	uint16_t	delay_denum;
+	uint8_t		dispose_op;
+	uint8_t		blend_op;
+} apng_fctl_t;
 #pragma pack( pop )
 #endif // IMG_PNG_H
 
