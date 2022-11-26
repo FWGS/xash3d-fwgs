@@ -1,6 +1,8 @@
 #ifndef LIGHT_COMMON_GLSL_INCLUDED
 #define LIGHT_COMMON_GLSL_INCLUDED
 
+#include "ray_kusochki.glsl"
+
 #ifdef RAY_TRACE2
 #include "ray_shadow_interface.glsl"
 layout(location = PAYLOAD_LOCATION_SHADOW) rayPayloadEXT RayPayloadShadow payload_shadow;
@@ -37,10 +39,11 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 		//| gl_RayFlagsSkipClosestHitShaderEXT
 		;
 	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE, pos, 0., dir, dist - shadow_offset_fudge);
+	// TODO alpha test
 	while (rayQueryProceedEXT(rq)) { }
 	return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
 #else
-	return false;
+#error RAY_TRACE or RAY_QUERY
 #endif
 }
 
@@ -55,9 +58,27 @@ bool shadowedSky(vec3 pos, vec3 dir, float dist) {
 		;
 	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
 	return payload_shadow.hit_type != SHADOW_SKY;
+#elif defined(RAY_QUERY)
+	rayQueryEXT rq;
+	const uint flags =  0
+		//| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT
+		//| gl_RayFlagsTerminateOnFirstHitEXT
+		//| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE, pos, 0., dir, dist - shadow_offset_fudge);
+	// TODO alpha test
+	while (rayQueryProceedEXT(rq)) { }
+
+	if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionTriangleEXT)
+		return true;
+
+	const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
+	const int kusok_index = instance_kusochki_offset + rayQueryGetIntersectionGeometryIndexEXT(rq, true);
+	const uint tex_base_color = getKusok(kusok_index).tex_base_color;
+	return (tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) == 0;
 #else
-	// FIXME ray query
-	return false;
+#error RAY_TRACE or RAY_QUERY
 #endif
 }
 
