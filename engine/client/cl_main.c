@@ -739,7 +739,7 @@ void CL_WritePacket( void )
 	MSG_Init( &buf, "ClientData", data, sizeof( data ));
 
 	// Determine number of backup commands to send along
-	numbackup = bound( 0, cl_cmdbackup->value, MAX_BACKUP_COMMANDS );
+	numbackup = bound( 0, cl_cmdbackup->value, cls.legacymode ? MAX_LEGACY_BACKUP_CMDS : MAX_BACKUP_COMMANDS );
 	if( cls.state == ca_connected ) numbackup = 0;
 
 	// clamp cmdrate
@@ -819,12 +819,13 @@ void CL_WritePacket( void )
 		newcmds = ( cls.netchan.outgoing_sequence - cls.lastoutgoingcommand );
 
 		// put an upper/lower bound on this
-		newcmds = bound( 0, newcmds, cls.legacymode?MAX_LEGACY_TOTAL_CMDS:MAX_TOTAL_CMDS );
+		newcmds = bound( 0, newcmds, cls.legacymode ? MAX_LEGACY_TOTAL_CMDS: MAX_TOTAL_CMDS );
 		if( cls.state == ca_connected ) newcmds = 0;
 
 		MSG_WriteByte( &buf, newcmds );
 
 		numcmds = newcmds + numbackup;
+
 		from = -1;
 
 		for( i = numcmds - 1; i >= 0; i-- )
