@@ -21,6 +21,29 @@ GNU General Public License for more details.
 convar_t	*cvar_vars = NULL; // head of list
 convar_t	*cmd_scripting;
 
+#ifdef HACKS_RELATED_HLMODS
+typedef struct cvar_filter_quirks_s
+{
+	const char *gamedir; // gamedir to enable for
+	const char *cvars; // list of cvars should be excluded from filter
+} cvar_filter_quirks_t;
+
+static cvar_filter_quirks_t cvar_filter_quirks[] =
+{
+	// EXAMPLE:
+	//{
+	//	"valve",
+	//	"test;test1;test100"
+	//},
+	{
+		"ricochet",
+		"r_drawviewmodel",
+	},
+};
+
+static cvar_filter_quirks_t *cvar_active_filter_quirks = NULL;
+#endif
+
 CVAR_DEFINE_AUTO( cl_filterstuffcmd, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter commands coming from server" );
 
 /*
@@ -902,6 +925,39 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	if( cl_filterstuffcmd.value <= 0.0f )
 		return true;
 
+#ifdef HACKS_RELATED_HLMODS
+	// check if game-specific filter exceptions should be applied
+	// TODO: for cmd exceptions, make generic function
+	if( cvar_active_filter_quirks )
+	{
+		const char *cur, *next;
+
+		cur = cvar_active_filter_quirks->cvars;
+		next = Q_strchr( cur, ';' );
+
+		// TODO: implement Q_strchrnul
+		while( cur && *cur )
+		{
+			size_t len = next ? next - cur : Q_strlen( cur );
+
+			// found, quit
+			if( !Q_strnicmp( cur, v->name, len ))
+				return true;
+
+			if( next )
+			{
+				cur = next + 1;
+				next = Q_strchr( cur, ';' );
+			}
+			else
+			{
+				// stop
+				cur = NULL;
+			}
+		}
+	}
+#endif
+
 	if( FBitSet( v->flags, FCVAR_FILTERABLE ))
 		return false;
 
@@ -1157,6 +1213,7 @@ Reads in all archived cvars
 void Cvar_Init( void )
 {
 	cvar_vars = NULL;
+	cvar_active_filter_quirks = NULL;
 	cmd_scripting = Cvar_Get( "cmd_scripting", "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "enable simple condition checking and variable operations" );
 	Cvar_RegisterVariable( &host_developer ); // early registering for dev
 	Cvar_RegisterVariable( &cl_filterstuffcmd );
@@ -1165,6 +1222,26 @@ void Cvar_Init( void )
 	Cmd_AddRestrictedCommand( "reset", Cvar_Reset_f, "reset any type variable to initial value" );
 	Cmd_AddCommand( "set", Cvar_Set_f, "create or change the value of a console variable" );
 	Cmd_AddCommand( "cvarlist", Cvar_List_f, "display all console variables beginning with the specified prefix" );
+}
+
+/*
+============
+Cvar_PostFSInit
+
+============
+*/
+void Cvar_PostFSInit( void )
+{
+	int i;
+
+	for( i = 0; i < ARRAYSIZE( cvar_filter_quirks ); i++ )
+	{
+		if( !Q_stricmp( cvar_filter_quirks[i].gamedir, GI->gamefolder ))
+		{
+			cvar_active_filter_quirks = &cvar_filter_quirks[i];
+			break;
+		}
+	}
 }
 
 #if XASH_ENGINE_TESTS
