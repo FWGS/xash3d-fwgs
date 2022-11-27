@@ -1067,6 +1067,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #endif
 
 	FS_LoadGameInfo( NULL );
+	Cvar_PostFSInit();
 
 	if( FS_FileExists( va( "%s.rc", SI.basedirName ), false ))
 		Q_strncpy( SI.rcName, SI.basedirName, sizeof( SI.rcName ));	// e.g. valve.rc
