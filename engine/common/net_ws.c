@@ -1898,7 +1898,7 @@ void NET_GetLocalAddress( void )
 			{
 				net_local.port = ((struct sockaddr_in *)&address)->sin_port;
 				Con_Printf( "Server IPv4 address %s\n", NET_AdrToString( net_local ));
-				Cvar_FullSet( "net_address", va( "%s", NET_AdrToString( net_local )), FCVAR_READ_ONLY );
+				Cvar_FullSet( "net_address", va( "%s", NET_AdrToString( net_local )), net_address->flags );
 			}
 			else Con_DPrintf( S_ERROR "Could not get TCP/IPv4 address. Reason: %s\n", NET_ErrorString( ));
 		}
@@ -1920,7 +1920,7 @@ void NET_GetLocalAddress( void )
 			{
 				net6_local.port = ((struct sockaddr_in6 *)&address)->sin6_port;
 				Con_Printf( "Server IPv6 address %s\n", NET_AdrToString( net6_local ));
-				Cvar_FullSet( "net6_address", va( "%s", NET_AdrToString( net6_local )), FCVAR_READ_ONLY );
+				Cvar_FullSet( "net6_address", va( "%s", NET_AdrToString( net6_local )), net6_address->flags );
 			}
 			else Con_DPrintf( S_ERROR "Could not get TCP/IPv6 address. Reason: %s\n", NET_ErrorString( ));
 		}
@@ -2069,8 +2069,8 @@ void NET_Init( void )
 	if( net.initialized ) return;
 
 	net_clockwindow = Cvar_Get( "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
-	net_address = Cvar_Get( "net_address", "0", FCVAR_READ_ONLY, "contain local address of current client" );
-	net_ipname = Cvar_Get( "ip", "localhost", 0, "network ip address" );
+	net_address = Cvar_Get( "net_address", "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "contain local address of current client" );
+	net_ipname = Cvar_Get( "ip", "localhost", FCVAR_PRIVILEGED, "network ip address" );
 	net_iphostport = Cvar_Get( "ip_hostport", "0", FCVAR_READ_ONLY, "network ip host port" );
 	net_hostport = Cvar_Get( "hostport", va( "%i", PORT_SERVER ), FCVAR_READ_ONLY, "network default host port" );
 	net_ipclientport = Cvar_Get( "ip_clientport", "0", FCVAR_READ_ONLY, "network ip client port" );
@@ -2079,10 +2079,10 @@ void NET_Init( void )
 	net_fakeloss = Cvar_Get( "fakeloss", "0", FCVAR_PRIVILEGED, "act like we dropped the packet this % of the time." );
 
 	// cvar equivalents for IPv6
-	net_ip6name = Cvar_Get( "ip6", "localhost", FCVAR_READ_ONLY, "network ip6 address" );
+	net_ip6name = Cvar_Get( "ip6", "localhost", FCVAR_PRIVILEGED, "network ip6 address" );
 	net_ip6hostport = Cvar_Get( "ip6_hostport", "0", FCVAR_READ_ONLY, "network ip6 host port" );
 	net_ip6clientport = Cvar_Get( "ip6_clientport", "0", FCVAR_READ_ONLY, "network ip6 client port" );
-	net6_address = Cvar_Get( "net6_address", "0", FCVAR_READ_ONLY, "contain local IPv6 address of current client" );
+	net6_address = Cvar_Get( "net6_address", "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "contain local IPv6 address of current client" );
 
 	// prepare some network data
 	for( i = 0; i < NS_COUNT; i++ )
@@ -2117,11 +2117,11 @@ void NET_Init( void )
 
 	// specify custom ip
 	if( Sys_GetParmFromCmdLine( "-ip", cmd ))
-		Cvar_FullSet( "ip", cmd, FCVAR_READ_ONLY );
+		Cvar_FullSet( "ip", cmd, net_ipname->flags );
 
 	// specify custom ip6
 	if( Sys_GetParmFromCmdLine( "-ip6", cmd ))
-		Cvar_FullSet( "ip6", cmd, FCVAR_READ_ONLY );
+		Cvar_FullSet( "ip6", cmd, net_ip6name->flags );
 
 	// adjust clockwindow
 	if( Sys_GetParmFromCmdLine( "-clockwindow", cmd ))
