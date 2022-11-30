@@ -441,6 +441,7 @@ extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
 extern convar_t		coop;
+extern convar_t		sv_cheats;
 
 extern	convar_t		*sv_pausable;		// allows pause in multiplayer
 extern	convar_t		*sv_check_errors;

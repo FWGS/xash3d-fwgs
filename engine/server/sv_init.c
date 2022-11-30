@@ -877,6 +877,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	if( !SV_InitGame( ))
 		return false;
 
+	// unlock sv_cheats in local game
+	ClearBits( sv_cheats.flags, FCVAR_READ_ONLY );
+
 	svs.initialized = true;
 	Log_Open();
 	Log_Printf( "Loading map \"%s\"\n", mapname );

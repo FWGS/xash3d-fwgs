@@ -1051,6 +1051,9 @@ void CL_SendConnectPacket( void )
 		input_devices = IN_CollectInputDevices();
 		IN_LockInputDevices( true );
 
+		Cvar_SetCheatState();
+		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
+
 		Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
 		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
 		Info_SetValueForKey( protinfo, "b", va( "%d", Q_buildnum() ), sizeof( protinfo ) );
