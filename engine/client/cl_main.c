@@ -1584,7 +1584,32 @@ void CL_LocalServers_f( void )
 	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", PROTOCOL_VERSION );
 }
 
-#define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0"
+/*
+=================
+CL_BuildMasterServerScanRequest
+=================
+*/
+size_t CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat )
+{
+	size_t remaining;
+	char *info;
+
+	if( unlikely( size < sizeof( MS_SCAN_REQUEST )))
+		return 0;
+
+	Q_strncpy( buf, MS_SCAN_REQUEST, size );
+
+	info = buf + sizeof( MS_SCAN_REQUEST ) - 1;
+	remaining = size - sizeof( MS_SCAN_REQUEST );
+
+	info[0] = 0;
+
+	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
+	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
+	Info_SetValueForKey( info, "nat", nat ? "1" : "0", remaining );
+
+	return sizeof( MS_SCAN_REQUEST ) + Q_strlen( info );
+}
 
 /*
 =================
@@ -1593,18 +1618,17 @@ CL_InternetServers_f
 */
 void CL_InternetServers_f( void )
 {
-	char	fullquery[512] = MS_SCAN_REQUEST;
-	char *info = fullquery + sizeof( MS_SCAN_REQUEST ) - 1;
-	const size_t remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
+	char	fullquery[512];
+	size_t len;
+	qboolean nat = cl_nat->value != 0.0f;
+
+	len = CL_BuildMasterServerScanRequest( fullquery, sizeof( fullquery ), nat );
+
+	Con_Printf( "Scanning for servers on the internet area...\n" );
 
 	NET_Config( true, true ); // allow remote
 
-	Con_Printf( "Scanning for servers on the internet area...\n" );
-	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
-	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
-	Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
-
-	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, sizeof( MS_SCAN_REQUEST ) + Q_strlen( info ), fullquery );
+	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, len, fullquery );
 	cls.internetservers_pending = true;
 
 	if( !cls.internetservers_wait )

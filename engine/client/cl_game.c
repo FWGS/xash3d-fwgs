@@ -3401,9 +3401,12 @@ void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double
 
 	if( request == NETAPI_REQUEST_SERVERLIST )
 	{
-		char	fullquery[512] = "1\xFF" "0.0.0.0:0\0" "\\gamedir\\";
+		char fullquery[512];
+		size_t len;
 
-		// make sure what port is specified
+		len = CL_BuildMasterServerScanRequest( fullquery, sizeof( fullquery ), false );
+
+		// make sure that port is specified
 		if( !nr->resp.remote_address.port )
 			nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
 
@@ -3431,7 +3434,7 @@ void GAME_EXPORT NetAPI_CancelRequest( int context )
 {
 	net_request_t	*nr;
 	int		i;
-
+;
 	// find a specified request
 	for( i = 0; i < MAX_REQUESTS; i++ )
 	{
