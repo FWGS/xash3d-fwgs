@@ -38,6 +38,7 @@ CVAR_DEFINE_AUTO( cl_allow_upload, "1", FCVAR_ARCHIVE, "allow to uploading resou
 CVAR_DEFINE_AUTO( cl_download_ingame, "1", FCVAR_ARCHIVE, "allow to downloading resources while client is active" );
 CVAR_DEFINE_AUTO( cl_logofile, "lambda", FCVAR_ARCHIVE, "player logo name" );
 CVAR_DEFINE_AUTO( cl_logocolor, "orange", FCVAR_ARCHIVE, "player logo color" );
+CVAR_DEFINE_AUTO( cl_logoext, "bmp", FCVAR_ARCHIVE, "temporary cvar to tell engine which logo must be packed" );
 CVAR_DEFINE_AUTO( cl_test_bandwidth, "1", FCVAR_ARCHIVE, "test network bandwith before connection" );
 convar_t	*rcon_client_password;
 convar_t	*rcon_address;
@@ -1206,7 +1207,7 @@ resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qbo
 
 void CL_CreateResourceList( void )
 {
-	char		szFileName[MAX_OSPATH];
+	char szFileName[MAX_OSPATH];
 	byte		rgucMD5_hash[16];
 	resource_t	*pNewResource;
 	int		nSize;
@@ -1214,30 +1215,36 @@ void CL_CreateResourceList( void )
 
 	HPAK_FlushHostQueue();
 	cl.num_resources = 0;
-
-	Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.bmp" );
 	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
 
+	// sanitize cvar value
+	if( Q_strcmp( cl_logoext.string, "bmp" ) &&
+		 Q_strcmp( cl_logoext.string, "png" ))
+		Cvar_DirectSet( &cl_logoext, "bmp" );
+
+	Q_snprintf( szFileName, sizeof( szFileName ),
+		"logos/remapped.%s", cl_logoext.string );
 	fp = FS_Open( szFileName, "rb", true );
 
-	if( fp )
+	if( !fp )
+		return;
+
+	MD5_HashFile( rgucMD5_hash, szFileName, NULL );
+	nSize = FS_FileLength( fp );
+
+	if( nSize != 0 )
 	{
-		MD5_HashFile( rgucMD5_hash, szFileName, NULL );
-		nSize = FS_FileLength( fp );
+		pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
 
-		if( nSize != 0 )
+		if( pNewResource )
 		{
-			pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
-
-			if( pNewResource )
-			{
-				SetBits( pNewResource->ucFlags, RES_CUSTOM );
-				memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
-				HPAK_AddLump( false, CUSTOM_RES_PATH, pNewResource, NULL, fp );
-			}
+			SetBits( pNewResource->ucFlags, RES_CUSTOM );
+			memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
+			HPAK_AddLump( false, CUSTOM_RES_PATH, pNewResource, NULL, fp );
 		}
-		FS_Close( fp );
 	}
+
+	FS_Close( fp );
 }
 
 /*
@@ -2861,6 +2868,7 @@ void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_download_ingame );
 	Cvar_RegisterVariable( &cl_logofile );
 	Cvar_RegisterVariable( &cl_logocolor );
+	Cvar_RegisterVariable( &cl_logoext );
 	Cvar_RegisterVariable( &cl_test_bandwidth );
 
 	Voice_RegisterCvars();
