@@ -281,7 +281,10 @@ static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 
 			for( j = start; j < h; j++ )
 			{
-				NetGraph_DrawRect( &fill, netcolors[NETGRAPH_NET_COLORS + j + extrap_point] );
+				int color = NETGRAPH_NET_COLORS + j + extrap_point;
+				color = Q_min( color, ARRAYSIZE( netcolors ) - 1 );
+
+				NetGraph_DrawRect( &fill, netcolors[color] );
 				fill.top--;
 			}
 		}
@@ -297,7 +300,10 @@ static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 
 			for( j = 0; j < h; j++ )
 			{
-				NetGraph_DrawRect( &fill, netcolors[NETGRAPH_NET_COLORS + j + oldh] );
+				int color = NETGRAPH_NET_COLORS + j + oldh;
+				color = Q_min( color, ARRAYSIZE( netcolors ) - 1 );
+
+				NetGraph_DrawRect( &fill, netcolors[color] );
 				fill.top--;
 			}
 		}
