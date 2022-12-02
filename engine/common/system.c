@@ -435,6 +435,7 @@ void Sys_Error( const char *error, ... )
 		Wcon_ShowConsole( false );
 #endif
 		MSGBOX( text );
+		Sys_Print( text );
 	}
 	else
 	{
@@ -445,7 +446,7 @@ void Sys_Error( const char *error, ... )
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
 	}
-	
+
 	Sys_Quit();
 }
 
