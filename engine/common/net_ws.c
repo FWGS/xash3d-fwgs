@@ -1674,12 +1674,10 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	int		err, net_socket;
 	uint		optval = 1;
 	dword		_true = 1;
-	int pfamily;
+	int pfamily = PF_INET;
 
 	if( family == AF_INET6 )
 		pfamily = PF_INET6;
-	else if( family == AF_INET )
-		pfamily = PF_INET;
 
 	if( NET_IsSocketError(( net_socket = socket( pfamily, SOCK_DGRAM, IPPROTO_UDP ))))
 	{
