@@ -43,7 +43,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	short		p, a, b, c, pa, pb, pc;
 	byte		*buf_p, *pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL;
 	byte		*pallete = NULL, *trns = NULL;
-	uint	 	chunk_len, trns_len, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
+	uint	 	chunk_len, trns_len, plte_len, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
 	uint		uncompressed_size, pixel_size, pixel_count, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha;
 	qboolean 	has_iend_chunk = false;
 	z_stream 	stream = {0};
@@ -163,7 +163,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		}
 
 		// move pointer
-		buf_p += sizeof( chunk_sign );
+		buf_p += sizeof( chunk_len );
 
 		// find transparency
 		if( !memcmp( buf_p, trns_sign, sizeof( trns_sign ) ) )
@@ -175,6 +175,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		else if( !memcmp( buf_p, plte_sign, sizeof( plte_sign ) ) )
 		{
 			pallete = buf_p + sizeof( plte_sign );
+			plte_len = chunk_len / 3;
 		}
 		// get all IDAT chunks data
 		else if( !memcmp( buf_p, idat_sign, sizeof( idat_sign ) ) )
@@ -467,14 +468,24 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	case PNG_CT_PALLETE:
 		for( y = 0; y < pixel_count; y++, raw += pixel_size )
 		{
-			*pixbuf++ = pallete[raw[0] + 2];
-			*pixbuf++ = pallete[raw[0] + 1];
-			*pixbuf++ = pallete[raw[0] + 0];
+			if( raw[0] < plte_len )
+			{
+				*pixbuf++ = pallete[3 * raw[0] + 0];
+				*pixbuf++ = pallete[3 * raw[0] + 1];
+				*pixbuf++ = pallete[3 * raw[0] + 2];
 
-			if( trns && raw[0] < trns_len )
-				*pixbuf++ = trns[raw[0]];
+				if( trns && raw[0] < trns_len )
+					*pixbuf++ = trns[raw[0]];
+				else
+					*pixbuf++ = 0xFF;
+			}
 			else
+			{
+				*pixbuf++ = 0;
+				*pixbuf++ = 0;
+				*pixbuf++ = 0;
 				*pixbuf++ = 0xFF;
+			}
 		}
 		break;
 	default:
