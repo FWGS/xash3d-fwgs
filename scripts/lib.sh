@@ -15,3 +15,4 @@ if [ -n "$TRAVIS_CPU_ARCH" ]; then
 elif [ -n "$GH_CPU_ARCH" ]; then
 	ARCH=$GH_CPU_ARCH
 fi
+#help
