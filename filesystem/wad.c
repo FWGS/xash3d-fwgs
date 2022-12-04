@@ -120,7 +120,7 @@ static signed char W_TypeFromExt( const char *lumpname )
 	const wadtype_t	*type;
 
 	// we not known about filetype, so match only by filename
-	if( !Q_strcmp( ext, "*" ) || !Q_strcmp( ext, "" ))
+	if( !Q_strcmp( ext, "*" ) || !COM_CheckStringEmpty( ext ))
 		return TYP_ANY;
 
 	for( type = wad_types; type->ext; type++ )
