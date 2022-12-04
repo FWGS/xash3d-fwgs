@@ -94,6 +94,7 @@ typedef enum
 	IMAGE_QUANTIZE	= BIT(25),	// make indexed image from 24 or 32- bit image
 	IMAGE_LIGHTGAMMA	= BIT(26),	// apply gamma for image
 	IMAGE_REMAP	= BIT(27),	// interpret width and height as top and bottom color
+	IMAGE_ANIMATION = BIT(28), // image has animation frames.
 } imgFlags_t;
 
 typedef struct rgbdata_s
