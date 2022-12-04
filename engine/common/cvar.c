@@ -409,7 +409,7 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 			// which executed from the config file. So we don't need to
 			// change value here: we *already* have actual value from config.
 			// in other cases we need to rewrite them
-			if( Q_strcmp( var->desc, "" ))
+			if( COM_CheckStringEmpty( var->desc ))
 			{
 				// directly set value
 				freestring( var->string );
