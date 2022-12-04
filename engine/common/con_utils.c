@@ -1324,8 +1324,9 @@ static void Cmd_WriteHelp(const char *name, const char *unused, const char *desc
 {
 	int	length;
 
-	if( !desc || !Q_strcmp( desc, "" ))
+	if( !COM_CheckString( desc ))
 		return; // ignore fantom cmds
+
 	if( name[0] == '+' || name[0] == '-' )
 		return; // key bindings
 
