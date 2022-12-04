@@ -2118,8 +2118,8 @@ SV_SendBuildInfo_f
 */
 static qboolean SV_SendBuildInfo_f( sv_client_t *cl )
 {
-	SV_ClientPrintf( cl, "Server running %s %s (build %i-%s, %s-%s)\n",
-		XASH_ENGINE_NAME, XASH_VERSION, Q_buildnum(), Q_buildcommit(), Q_buildos(), Q_buildarch() );
+	SV_ClientPrintf( cl, "Server running " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s, %s-%s)\n",
+		Q_buildnum(), Q_buildcommit(), Q_buildos(), Q_buildarch() );
 	return true;
 }
 
