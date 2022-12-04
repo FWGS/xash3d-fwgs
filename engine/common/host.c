@@ -1206,11 +1206,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	oldtime = Sys_DoubleTime() - 0.1;
 
-	if( Host_IsDedicated() && GameState->nextstate == STATE_RUNFRAME )
+	if( Host_IsDedicated( ))
 	{
+		if( GameState->nextstate == STATE_RUNFRAME )
+			Con_Printf( "Type 'map <mapname>' to start game... (TAB-autocomplete is working too)\n" );
+
 		// execute server.cfg after commandline
 		// so we have a chance to set servercfgfile
-		Con_Printf( "Type 'map <mapname>' to start game... (TAB-autocomplete is working too)\n" );
 		Cbuf_AddText( va( "exec %s\n", Cvar_VariableString( "servercfgfile" )));
 		Cbuf_Execute();
 	}
