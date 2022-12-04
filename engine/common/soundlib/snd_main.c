@@ -66,7 +66,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	Sound_Reset(); // clear old sounddata
 	Q_strncpy( loadname, filename, sizeof( loadname ));
 
-	if( Q_stricmp( ext, "" ))
+	if( COM_CheckStringEmpty( ext ))
 	{
 		// we needs to compare file extension with list of supported formats
 		// and be sure what is real extension, not a filename with dot
@@ -155,7 +155,7 @@ stream_t *FS_OpenStream( const char *filename )
 	Sound_Reset(); // clear old streaminfo
 	Q_strncpy( loadname, filename, sizeof( loadname ));
 
-	if( Q_stricmp( ext, "" ))
+	if( COM_CheckStringEmpty( ext ))
 	{
 		// we needs to compare file extension with list of supported formats
 		// and be sure what is real extension, not a filename with dot
