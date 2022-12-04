@@ -1802,7 +1802,6 @@ and the file index in the package if relevant
 searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly )
 {
 	searchpath_t	*search;
-	char		*pEnvPath;
 
 	// search through the path, one element at a time
 	for( search = fs_searchpaths; search; search = search->next )
@@ -1828,20 +1827,20 @@ searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly )
 		search = &fs_directpath;
 		memset( search, 0, sizeof( searchpath_t ));
 
-		search->printinfo = FS_PrintInfo_DIR;
-		search->close = FS_Close_DIR;
-		search->openfile = FS_OpenFile_DIR;
-		search->filetime = FS_FileTime_DIR;
-		search->findfile = FS_FindFile_DIR;
-		search->search = FS_Search_DIR;
-
 		// root folder has a more priority than netpath
 		Q_strncpy( search->filename, fs_rootdir, sizeof( search->filename ));
 		Q_strcat( search->filename, PATH_SPLITTER );
-		Q_snprintf( netpath, MAX_SYSPATH, "%s%s", search->filename, name );
+		Q_snprintf( netpath, sizeof( netpath ), "%s%s", search->filename, name );
 
-		if( FS_SysFileExists( netpath, !( search->flags & FS_CUSTOM_PATH ) ))
+		if( FS_SysFileExists( netpath, true ))
 		{
+			search->printinfo = FS_PrintInfo_DIR;
+			search->close = FS_Close_DIR;
+			search->openfile = FS_OpenFile_DIR;
+			search->filetime = FS_FileTime_DIR;
+			search->findfile = FS_FindFile_DIR;
+			search->search = FS_Search_DIR;
+
 			if( index != NULL )
 				*index = -1;
 			return search;
