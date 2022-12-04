@@ -1109,8 +1109,9 @@ Resend a connect message if the last one has timed out
 */
 void CL_CheckForResend( void )
 {
-	netadr_t	adr;
+	netadr_t adr;
 	int res;
+	qboolean bandwidthTest;
 
 	if( cls.internetservers_wait )
 		CL_InternetServers_f();
@@ -1175,14 +1176,18 @@ void CL_CheckForResend( void )
 		return;
 	}
 
+	bandwidthTest = !cls.legacymode && cl_test_bandwidth.value;
 	cls.serveradr = adr;
-	cls.max_fragment_size = Q_max( FRAGMENT_MAX_SIZE, cls.max_fragment_size >> Q_min( 1, cls.connect_retry ));
+	cls.max_fragment_size = Q_min( FRAGMENT_MAX_SIZE, cls.max_fragment_size / (cls.connect_retry + 1));
 	cls.connect_time = host.realtime; // for retransmit requests
 	cls.connect_retry++;
 
+	if( bandwidthTest )
+		Con_Printf( "Connecting to %s... [retry #%i, max fragment size %i]\n", cls.servername, cls.connect_retry, cls.max_fragment_size );
+	else
 	Con_Printf( "Connecting to %s... [retry #%i]\n", cls.servername, cls.connect_retry );
 
-	if( !cls.legacymode && cl_test_bandwidth.value )
+	if( bandwidthTest )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
 	else
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
