@@ -224,7 +224,7 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 	Q_strncpy( loadname, filename, sizeof( loadname ));
 	Image_Reset(); // clear old image
 
-	if( Q_stricmp( ext, "" ))
+	if( COM_CheckStringEmpty( ext ))
 	{
 		// we needs to compare file extension with list of supported formats
 		// and be sure what is real extension, not a filename with dot
@@ -355,7 +355,7 @@ writes image as any known format
 qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 {
 	const char	*ext = COM_FileExtension( filename );
-	qboolean		anyformat = !Q_stricmp( ext, "" ) ? true : false;
+	qboolean		anyformat = !COM_CheckStringEmpty( ext );
 	string		path, savename;
 	const savepixformat_t *format;
 
