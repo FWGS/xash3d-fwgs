@@ -766,7 +766,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "os", "w", len ); // Windows
 	Info_SetValueForKey( s, "secure", "0", len ); // server anti-cheat
 	Info_SetValueForKey( s, "lan", "0", len ); // LAN servers doesn't send info to master
-	Info_SetValueForKey( s, "version", va( "%s", XASH_VERSION ), len ); // server region. 255 -- all regions
+	Info_SetValueForKey( s, "version", XASH_VERSION, len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "region", "255", len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "product", GI->gamefolder, len ); // product? Where is the difference with gamedir?
 	Info_SetValueForKey( s, "nat", sv_nat.string, sizeof(s) ); // Server running under NAT, use reverse connection
@@ -964,8 +964,8 @@ void SV_Init( void )
 
 	MSG_Init( &net_message, "NetMessage", net_message_buffer, sizeof( net_message_buffer ));
 
-	Q_snprintf( versionString, sizeof( versionString ), "%s: %s-%s(%s-%s),%i,%i",
-		XASH_ENGINE_NAME, XASH_VERSION, Q_buildcommit(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
+	Q_snprintf( versionString, sizeof( versionString ), XASH_ENGINE_NAME ": " XASH_VERSION "-%s(%s-%s),%i,%i",
+		Q_buildcommit(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
 
 	Cvar_FullSet( "sv_version", versionString, FCVAR_READ_ONLY );
 
