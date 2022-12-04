@@ -1266,6 +1266,10 @@ static qboolean FS_CheckForCrypt( const char *dllname )
 	file_t	*f;
 	int	key;
 
+	// this encryption is specific to DLLs
+	if( Q_stricmp( COM_FileExtension( dllname ), "dll" ))
+		return false;
+
 	f = FS_Open( dllname, "rb", false );
 	if( !f ) return false;
 
