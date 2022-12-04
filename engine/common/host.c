@@ -1137,7 +1137,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	build = Cvar_Get( "buildnum", va( "%i", Q_buildnum_compat()), FCVAR_READ_ONLY, "returns a current build number" );
 	ver = Cvar_Get( "ver", va( "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat()), FCVAR_READ_ONLY, "shows an engine version" );
-	Cvar_Get( "host_ver", va( "%i %s %s %s %s", Q_buildnum(), XASH_VERSION, Q_buildos(), Q_buildarch(), Q_buildcommit() ), FCVAR_READ_ONLY, "detailed info about this build" );
+	Cvar_Get( "host_ver", va( "%i " XASH_VERSION " %s %s %s", Q_buildnum(), Q_buildos(), Q_buildarch(), Q_buildcommit() ), FCVAR_READ_ONLY, "detailed info about this build" );
 	Cvar_Get( "host_lowmemorymode", va( "%i", XASH_LOW_MEMORY ), FCVAR_READ_ONLY, "indicates if engine compiled for low RAM consumption (0 - normal, 1 - low engine limits, 2 - low protocol limits)" );
 
 	Mod_Init();
