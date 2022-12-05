@@ -161,7 +161,14 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		if( chunk_len > INT_MAX )
 		{
 			Con_DPrintf( S_ERROR "Image_LoadPNG: Found chunk with wrong size (%s)\n", name );
-			Mem_Free( idat_buf );
+			if( idat_buf ) Mem_Free( idat_buf );
+			return false;
+		}
+
+		if( chunk_len > filesize - ( buf_p - buffer ))
+		{
+			Con_DPrintf( S_ERROR "Image_LoadPNG: Found chunk with size past file size (%s)\n", name );
+			if( idat_buf ) Mem_Free( idat_buf );
 			return false;
 		}
 
