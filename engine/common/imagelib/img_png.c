@@ -82,14 +82,17 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	// convert image width and height to little endian
-	png_hdr.ihdr_chunk.height = ntohl( png_hdr.ihdr_chunk.height );
-	png_hdr.ihdr_chunk.width = ntohl( png_hdr.ihdr_chunk.width );
+	image.height = png_hdr.ihdr_chunk.height = ntohl( png_hdr.ihdr_chunk.height );
+	image.width  = png_hdr.ihdr_chunk.width  = ntohl( png_hdr.ihdr_chunk.width );
 
 	if( png_hdr.ihdr_chunk.height == 0 || png_hdr.ihdr_chunk.width == 0 )
 	{
 		Con_DPrintf( S_ERROR "Image_LoadPNG: Invalid image size %ux%u (%s)\n", png_hdr.ihdr_chunk.width, png_hdr.ihdr_chunk.height, name );
 		return false;
 	}
+
+	if( !Image_ValidSize( name ))
+		return false;
 
 	if( png_hdr.ihdr_chunk.bitdepth != 8 )
 	{
@@ -261,8 +264,6 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	image.type = PF_RGBA_32; // always exctracted to 32-bit buffer
-	image.width = png_hdr.ihdr_chunk.width;
-	image.height = png_hdr.ihdr_chunk.height;
 	pixel_count = image.height * image.width;
 	image.size = pixel_count * 4;
 
