@@ -237,7 +237,16 @@ void Image_AddCmdFlags( uint flags )
 
 qboolean Image_ValidSize( const char *name )
 {
-	if( image.width > IMAGE_MAXWIDTH || image.height > IMAGE_MAXHEIGHT || image.width <= 0 || image.height <= 0 )
+	int max_width = IMAGE_MAXWIDTH;
+	int max_height = IMAGE_MAXHEIGHT;
+
+	if( Image_CheckFlag( IL_LOAD_PLAYER_DECAL ))
+	{
+		max_width = PLDECAL_MAXWIDTH;
+		max_height = PLDECAL_MAXHEIGHT;
+	}
+
+	if( image.width > max_width || image.height > max_height || image.width <= 0 || image.height <= 0 )
 	{
 		Con_DPrintf( S_ERROR "Image: (%s) dims out of range [%dx%d]\n", name, image.width, image.height );
 		return false;
