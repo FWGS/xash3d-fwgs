@@ -26,6 +26,8 @@ static rgbdata_t *CustomDecal_LoadImage( const char *path, void *raw, int size )
 		testname = "#logo.png";
 	else testname = "#logo.bmp";
 
+	Image_SetForceFlags( IL_LOAD_PLAYER_DECAL );
+
 	return FS_LoadImage( testname, raw, size );
 }
 
