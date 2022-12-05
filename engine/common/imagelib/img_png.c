@@ -214,12 +214,18 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		if( ntohl( crc32 ) != crc32_check )
 		{
 			Con_DPrintf( S_ERROR "Image_LoadPNG: Found chunk with wrong CRC32 sum (%s)\n", name );
-			Mem_Free( idat_buf );
+			if( idat_buf ) Mem_Free( idat_buf );
 			return false;
 		}
 
 		// move pointer
 		buf_p += sizeof( crc32 );
+	}
+
+	if( oldsize == 0 )
+	{
+		Con_DPrintf( S_ERROR "Image_LoadPNG: Couldn't find IDAT chunks (%s)\n", name );
+		return false;
 	}
 
 	if( png_hdr.ihdr_chunk.colortype == PNG_CT_PALLETE && !pallete )
@@ -240,12 +246,6 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		Con_DPrintf( S_ERROR "Image_LoadPNG: IEND chunk has wrong size %u (%s)\n", chunk_len, name );
 		Mem_Free( idat_buf );
-		return false;
-	}
-
-	if( oldsize == 0 )
-	{
-		Con_DPrintf( S_ERROR "Image_LoadPNG: Couldn't find IDAT chunks (%s)\n", name );
 		return false;
 	}
 
