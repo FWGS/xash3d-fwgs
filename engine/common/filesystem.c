@@ -188,17 +188,17 @@ static qboolean		fs_ext_path = false;	// attempt to read\write from ./ or ../ pa
 static qboolean		fs_caseinsensitive = true; // try to search missing files
 #endif
 
+#if XASH_PSP
+static fsh_handle_t	*fsh_basedir = NULL;
+static fsh_handle_t	*fsh_gamedir = NULL;
+#endif
+
 #ifdef XASH_REDUCE_FD
 static file_t *fs_last_readfile;
 #ifndef XASH_NO_ZIP
 static zip_t *fs_last_zip;
 #endif // XASH_NO_ZIP
 static pack_t *fs_last_pak;
-
-#if XASH_PSP
-static fsh_handle_t	*fsh_basedir = NULL;
-static fsh_handle_t	*fsh_gamedir = NULL;
-#endif
 
 static void FS_EnsureOpenFile( file_t *file )
 {
@@ -270,7 +270,7 @@ static void FS_BackupFileName( file_t *file, const char *path, uint options )
 		if( file->backup_path )
 			Mem_Free( (void*)file->backup_path );
 		if( file == fs_last_readfile )
-			FS_EnsureOpenFile( NULL );
+			fs_last_readfile = NULL; // FS_EnsureOpenFile( NULL );
 	}
 #if XASH_PSP
 	else if( options == PSP_O_RDONLY )
@@ -1066,7 +1066,7 @@ static byte *Zip_LoadFile( const char *path, fs_offset_t *sizeptr, qboolean game
 
 	FS_EnsureOpenZip( search->zip );
 #if XASH_PSP
-	if( sceIoLseek( search->zip->handle, file->offset, PSP_SEEK_SET ) == -1 )
+	if( sceIoLseek( search->zip->handle, file->offset, PSP_SEEK_SET ) < 0 )
 		return NULL;
 #else
 	if( lseek( search->zip->handle, file->offset, SEEK_SET ) == -1 )
@@ -2608,8 +2608,13 @@ static file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offse
 #ifndef XASH_REDUCE_FD
 #if XASH_PSP
 	file->handle = sceIoOpen( syspath, PSP_O_RDONLY, 0666 );
+	if( file->handle < 0 )
+	{
+		Mem_Free( file );
+		return NULL;
+	}
 
-	if( sceIoLseek( file->handle, offset, SEEK_SET ) == -1 )
+	if( sceIoLseek( file->handle, offset, SEEK_SET ) < 0 )
 	{
 		Mem_Free( file );
 		return NULL;
@@ -3058,7 +3063,7 @@ int FS_Close( file_t *file )
 
 	if( file->handle >= 0 )
 #if XASH_PSP
-		if( sceIoClose( file->handle ) )
+		if( sceIoClose( file->handle ))
 #else
 		if( close( file->handle ))
 #endif
@@ -3084,7 +3089,11 @@ fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize )
 	// if necessary, seek to the exact file position we're supposed to be
 	if( file->buff_ind != file->buff_len )
 #if XASH_PSP
-		sceIoLseek( file->handle, file->buff_ind - file->buff_len, PSP_SEEK_CUR );
+		if(file->position != file->buff_ind - file->buff_len)
+		{
+			sceIoLseek( file->handle, file->buff_ind - file->buff_len, PSP_SEEK_CUR );
+			file->position = file->buff_ind - file->buff_len;
+		}
 #else
 		lseek( file->handle, file->buff_ind - file->buff_len, SEEK_CUR );
 #endif
@@ -3093,7 +3102,7 @@ fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize )
 #if XASH_PSP
 	// write the buffer and update the position
 	result = sceIoWrite( file->handle, data, (fs_offset_t)datasize );
-	file->position = sceIoLseek( file->handle, 0, PSP_SEEK_CUR );
+	file->position += result; //sceIoLseek( file->handle, 0, PSP_SEEK_CUR );
 #else
 	// write the buffer and update the position
 	result = write( file->handle, data, (fs_offset_t)datasize );
@@ -3162,7 +3171,8 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 		if( count > (fs_offset_t)buffersize )
 			count = (fs_offset_t)buffersize;
 #if XASH_PSP
-		sceIoLseek( file->handle, file->offset + file->position, PSP_SEEK_SET );
+		if( file->offset > 0 )
+			sceIoLseek( file->handle, file->offset + file->position, PSP_SEEK_SET );
 		nb = sceIoRead (file->handle, &((byte *)buffer)[done], count );
 #else
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
@@ -3185,7 +3195,8 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 		if( count == 0 )
 			return done;
 
-		sceIoLseek( file->handle, file->offset + file->position, PSP_SEEK_SET );
+		if( file->offset > 0 )
+			sceIoLseek( file->handle, file->offset + file->position, PSP_SEEK_SET );
 		nb = sceIoRead( file->handle, file->buff, count );
 #else
 		if( count > (fs_offset_t)sizeof( file->buff ))
@@ -3384,7 +3395,9 @@ int FS_Seek( file_t *file, fs_offset_t offset, int whence )
 	// Purge cached data
 	FS_Purge( file );
 #if XASH_PSP
-	if( sceIoLseek( file->handle, file->offset + offset, PSP_SEEK_SET ) == -1 )
+	if( file->position == offset && file->offset <= 0 )
+		return 0;
+	if( sceIoLseek( file->handle, file->offset + offset, PSP_SEEK_SET ) < 0 )
 		return -1;
 #else
 	if( lseek( file->handle, file->offset + offset, SEEK_SET ) == -1 )
