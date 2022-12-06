@@ -224,9 +224,11 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		}
+		case SDL_SCANCODE_PAUSE: keynum = K_PAUSE; break;
+		case SDL_SCANCODE_SCROLLLOCK: keynum = K_SCROLLOCK; break;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
-		// don't console spam on known functional buttons, but not used in engine
+		// don't console spam on known functional buttons, not used in engine
 		case SDL_SCANCODE_MUTE:
 		case SDL_SCANCODE_VOLUMEUP:
 		case SDL_SCANCODE_VOLUMEDOWN:
