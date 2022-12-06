@@ -58,6 +58,7 @@ CVAR_DEFINE_AUTO( mp_logfile, "1", 0, "log multiplayer frags to console" );
 CVAR_DEFINE_AUTO( sv_log_singleplayer, "0", FCVAR_ARCHIVE, "allows logging in singleplayer games" );
 CVAR_DEFINE_AUTO( sv_log_onefile, "0", FCVAR_ARCHIVE, "logs server information to only one file" );
 CVAR_DEFINE_AUTO( sv_trace_messages, "0", FCVAR_LATCH, "enable server usermessages tracing (good for developers)" );
+CVAR_DEFINE_AUTO( sv_master_response_timeout, "4", FCVAR_ARCHIVE, "master server heartbeat response timeout in seconds" );
 
 // game-related cvars
 CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer map cycle configuration file" );
@@ -751,6 +752,12 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
+	if( svs.last_heartbeat + sv_master_response_timeout.value < host.realtime )
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet (too late? try increasing sv_master_response_timeout value)\n");
+		return;
+	}
+
 	SV_GetPlayerCount( &clients, &bots );
 	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
 
@@ -937,6 +944,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &mp_logfile );
 	Cvar_RegisterVariable( &sv_log_onefile );
 	Cvar_RegisterVariable( &sv_log_singleplayer );
+	Cvar_RegisterVariable( &sv_master_response_timeout );
 
 	Cvar_RegisterVariable( &sv_background_freeze );
 
