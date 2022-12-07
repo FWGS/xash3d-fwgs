@@ -139,7 +139,7 @@ convar_t	*sv_allow_mouse;
 convar_t	*sv_allow_joystick;
 convar_t	*sv_allow_vr;
 
-void Master_Shutdown( void );
+static void Master_Heartbeat( void );
 
 //============================================================================
 /*
@@ -686,10 +686,21 @@ void Host_SetServerState( int state )
 Master_Add
 =================
 */
-void Master_Add( void )
+static void Master_Add( void )
 {
+	sizebuf_t msg;
+	char buf[16];
+	uint challenge;
+
 	NET_Config( true, false ); // allow remote
-	if( NET_SendToMasters( NS_SERVER, 2, "q\xFF" ))
+
+	svs.heartbeat_challenge = challenge = COM_RandomLong( 0, INT_MAX );
+
+	MSG_Init( &msg, "Master Join", buf, sizeof( buf ));
+	MSG_WriteBytes( &msg, "q\xFF", 2 );
+	MSG_WriteDword( &msg, challenge );
+
+	if( NET_SendToMasters( NS_SERVER, MSG_GetNumBytesWritten( &msg ), MSG_GetBuf( &msg )))
 		svs.last_heartbeat = MAX_HEARTBEAT;
 }
 
@@ -701,7 +712,7 @@ Send a message to the master every few minutes to
 let it know we are alive, and log information
 ================
 */
-void Master_Heartbeat( void )
+static void Master_Heartbeat( void )
 {
 	if( !public_server->value || svs.maxclients == 1 )
 		return; // only public servers send heartbeats
@@ -725,7 +736,7 @@ Master_Shutdown
 Informs all masters that this server is going down
 =================
 */
-void Master_Shutdown( void )
+static void Master_Shutdown( void )
 {
 	NET_Config( true, false ); // allow remote
 	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A" ));
@@ -741,10 +752,10 @@ Master will validate challenge and this server to public list
 */
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
-	uint	challenge;
+	uint	challenge, challenge2;
 	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
 	int	clients, bots;
-	int	len = sizeof( s );
+	const int len = sizeof( s );
 
 	if( !NET_IsMasterAdr( from ))
 	{
@@ -758,9 +769,16 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	SV_GetPlayerCount( &clients, &bots );
-	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
+	challenge = MSG_ReadDword( msg );
+	challenge2 = MSG_ReadDword( msg );
 
+	if( challenge2 != svs.heartbeat_challenge )
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet (wrong challenge!)\n" );
+		return;
+	}
+
+	SV_GetPlayerCount( &clients, &bots );
 	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
 	Info_SetValueForKey( s, "challenge", va( "%u", challenge ), len ); // challenge number
 	Info_SetValueForKey( s, "players", va( "%d", clients ), len ); // current player number, without bots
@@ -776,7 +794,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "version", XASH_VERSION, len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "region", "255", len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "product", GI->gamefolder, len ); // product? Where is the difference with gamedir?
-	Info_SetValueForKey( s, "nat", sv_nat.string, sizeof(s) ); // Server running under NAT, use reverse connection
+	Info_SetValueForKey( s, "nat", sv_nat.string, len ); // Server running under NAT, use reverse connection
 
 	NET_SendPacket( NS_SERVER, Q_strlen( s ), s, from );
 }
