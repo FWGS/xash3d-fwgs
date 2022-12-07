@@ -628,9 +628,6 @@ void SV_ActivateServer( int runPhysics )
 
 		if( COM_CheckString( cycle ))
 			Cbuf_AddText( va( "exec %s\n", cycle ));
-
-		if( public_server->value )
-			Master_Add( );
 	}
 }
 
