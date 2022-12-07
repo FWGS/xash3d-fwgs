@@ -27,22 +27,22 @@ void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 )
 {
 #if 1
 	__asm__ (
-		".set			push\n"					// save assembler option
-		".set			noreorder\n"			// suppress reordering
-		"lv.q			C100,  0 + %1\n"		// C100 = in1[0]
-		"lv.q			C110, 16 + %1\n"		// C110 = in1[1]
-		"lv.q			C120, 32 + %1\n"		// C120 = in1[2]
-		"lv.q			C130, 48 + %1\n"		// C130 = in1[3]
-		"lv.q			C200,  0 + %2\n"		// C200 = in2[0]
-		"lv.q			C210, 16 + %2\n"		// C210 = in2[1]
-		"lv.q			C220, 32 + %2\n"		// C220 = in2[2]
-		"lv.q			C230, 48 + %2\n"		// C230 = in2[3]
-		"vmmul.q		E000, E100, E200\n"		// E000 = E100 * E200
-		"sv.q			C000,  0 + %0\n"		// out[0] = C000
-		"sv.q			C010, 16 + %0\n"		// out[1] = C010
-		"sv.q			C020, 32 + %0\n"		// out[2] = C020
-		"sv.q			C030, 48 + %0\n"		// out[3] = C030
-		".set			pop\n"					// restore assembler option
+		".set		push\n"				// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"lv.q		C100,  0 + %1\n"		// C100 = in1[0]
+		"lv.q		C110, 16 + %1\n"		// C110 = in1[1]
+		"lv.q		C120, 32 + %1\n"		// C120 = in1[2]
+		"lv.q		C130, 48 + %1\n"		// C130 = in1[3]
+		"lv.q		C200,  0 + %2\n"		// C200 = in2[0]
+		"lv.q		C210, 16 + %2\n"		// C210 = in2[1]
+		"lv.q		C220, 32 + %2\n"		// C220 = in2[2]
+		"lv.q		C230, 48 + %2\n"		// C230 = in2[3]
+		"vmmul.q	E000, E100, E200\n"		// E000 = E100 * E200
+		"sv.q		C000,  0 + %0\n"		// out[0] = C000
+		"sv.q		C010, 16 + %0\n"		// out[1] = C010
+		"sv.q		C020, 32 + %0\n"		// out[2] = C020
+		"sv.q		C030, 48 + %0\n"		// out[3] = C030
+		".set		pop\n"				// restore assembler option
 		: "=m"( *out )
 		: "m"( *in1 ), "m"( *in2 )
 	);
@@ -122,44 +122,44 @@ void Matrix4x4_CreateModelview( matrix4x4 out )
 	out[1][2] = 1.0f;
 }
 
-void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] )
+void Matrix4x4_ToFMatrix4( const matrix4x4 in, ScePspFMatrix4 *out )
 {
-	out[ 0] = in[0][0];
-	out[ 1] = in[1][0];
-	out[ 2] = in[2][0];
-	out[ 3] = in[3][0];
-	out[ 4] = in[0][1];
-	out[ 5] = in[1][1];
-	out[ 6] = in[2][1];
-	out[ 7] = in[3][1];
-	out[ 8] = in[0][2];
-	out[ 9] = in[1][2];
-	out[10] = in[2][2];
-	out[11] = in[3][2];
-	out[12] = in[0][3];
-	out[13] = in[1][3];
-	out[14] = in[2][3];
-	out[15] = in[3][3];
+	// transpose matrix
+	__asm__ (
+		".set		push\n"				// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"lv.q		C000,  0 + %1\n"		// C000 = in->x
+		"lv.q		C010, 16 + %1\n"		// C010 = in->y
+		"lv.q		C020, 32 + %1\n"		// C020 = in->z
+		"lv.q		C030, 48 + %1\n"		// C030 = in->w
+		"sv.q		R000,  0 + %0\n"		// out->x = R000
+		"sv.q		R001, 16 + %0\n"		// out->y = R010
+		"sv.q		R002, 32 + %0\n"		// out->z = R020
+		"sv.q		R003, 48 + %0\n"		// out->w = R030
+		".set		pop\n"				// restore assembler option
+		: "=m"( *out )
+		: "m"( *in )
+	);
 }
 
-void Matrix4x4_FromArrayFloatGL( matrix4x4 out, const float in[16] )
+void Matrix4x4_FromFMatrix4( matrix4x4 out, ScePspFMatrix4 *in )
 {
-	out[0][0] = in[0];
-	out[1][0] = in[1];
-	out[2][0] = in[2];
-	out[3][0] = in[3];
-	out[0][1] = in[4];
-	out[1][1] = in[5];
-	out[2][1] = in[6];
-	out[3][1] = in[7];
-	out[0][2] = in[8];
-	out[1][2] = in[9];
-	out[2][2] = in[10];
-	out[3][2] = in[11];
-	out[0][3] = in[12];
-	out[1][3] = in[13];
-	out[2][3] = in[14];
-	out[3][3] = in[15];
+	// transpose matrix
+	__asm__ (
+		".set		push\n"				// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"lv.q		C000,  0 + %1\n"		// C000 = in->x
+		"lv.q		C010, 16 + %1\n"		// C010 = in->y
+		"lv.q		C020, 32 + %1\n"		// C020 = in->z
+		"lv.q		C030, 48 + %1\n"		// C030 = in->w
+		"sv.q		R000,  0 + %0\n"		// out->x = R000
+		"sv.q		R001, 16 + %0\n"		// out->y = R010
+		"sv.q		R002, 32 + %0\n"		// out->z = R020
+		"sv.q		R003, 48 + %0\n"		// out->w = R030
+		".set		pop\n"				// restore assembler option
+		: "=m"( *out )
+		: "m"( *in )
+	);
 }
 
 void Matrix4x4_CreateTranslate( matrix4x4 out, float x, float y, float z )

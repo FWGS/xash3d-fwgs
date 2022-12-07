@@ -1663,7 +1663,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
 
-	GU_ClipBeginBrush();
+	GU_ClipSetModelFrustum( RI.objectMatrix );
 
 	// sorting is not required, +Z_Realloc in Mod_LoadSubmodels (mod_bmodel.c)
 	for( i = 0; i < clmodel->nummodelsurfaces; i++, psurf++ )
@@ -1697,7 +1697,6 @@ void R_DrawBrushModel( cl_entity_t *e )
 	R_BlendLightmaps();
 	R_RenderFullbrights();
 	R_RenderDetails();
-	GU_ClipEndBrush();
 
 	// restore fog here
 	if( e->curstate.rendermode == kRenderTransAdd )
@@ -1711,6 +1710,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	sceGuDepthMask( GU_FALSE );
 
 	R_DrawModelHull();	// draw before restore
+	GU_ClipRestoreWorldFrustum();
 	R_LoadIdentity();	// restore worldmatrix
 }
 

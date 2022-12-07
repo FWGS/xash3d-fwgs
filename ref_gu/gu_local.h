@@ -497,8 +497,8 @@ int CL_FxBlend( cl_entity_t *e );
 //
 // gu_rmath.c
 //
-void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
-void Matrix4x4_FromArrayFloatGL( matrix4x4 out, const float in[16] );
+void Matrix4x4_ToFMatrix4( const matrix4x4 in, ScePspFMatrix4 *out );
+void Matrix4x4_FromFMatrix4( matrix4x4 out, ScePspFMatrix4 *in );
 void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
 void Matrix4x4_ConcatTranslate( matrix4x4 out, float x, float y, float z );
 void Matrix4x4_ConcatRotate( matrix4x4 out, float angle, float x, float y, float z );
@@ -690,9 +690,9 @@ int getTriAPI( int version, triangleapi_t *api );
 // gu_clipping.c
 //
 #define CLIPPING_DEBUGGING 0
-void GU_ClipBeginFrame( void );
-void GU_ClipBeginBrush( void );
-void GU_ClipEndBrush( void );
+void GU_ClipSetWorldFrustum( const matrix4x4 in );
+void GU_ClipRestoreWorldFrustum( void );
+void GU_ClipSetModelFrustum( const matrix4x4 in );
 void GU_ClipLoadFrustum( const mplane_t *plane ); // Experimental
 int GU_ClipIsRequired( gu_vert_t* uv, int uvc );
 void GU_Clip( gu_vert_t *uv, int uvc, gu_vert_t **cv, int* cvc );

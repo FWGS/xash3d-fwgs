@@ -625,7 +625,7 @@ void R_SetupGL( qboolean set_gl_state )
 	sceGuDisable( GU_ALPHA_TEST );
 	sceGuColor( GUCOLOR4F( 1.0f, 1.0f, 1.0f, 1.0f ) );
 
-	GU_ClipBeginFrame();
+	GU_ClipSetWorldFrustum( RI.worldviewProjectionMatrix );
 
 }
 

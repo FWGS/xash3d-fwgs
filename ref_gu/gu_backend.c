@@ -154,10 +154,10 @@ GL_LoadMatrix
 */
 void GL_LoadMatrix( const matrix4x4 source )
 {
-	float	dest[16];
+	ScePspFMatrix4	dest;
 
-	Matrix4x4_ToArrayFloatGL( source, dest );
-	sceGumLoadMatrix( ( const ScePspFMatrix4 * ) dest );
+	Matrix4x4_ToFMatrix4( source, &dest );
+	sceGumLoadMatrix( &dest );
 }
 
 /*
