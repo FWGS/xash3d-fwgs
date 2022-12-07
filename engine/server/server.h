@@ -377,6 +377,7 @@ typedef struct
 
 	double		last_heartbeat;
 	challenge_t	challenges[MAX_CHALLENGES];	// to prevent invalid IPs from connecting
+	uint		heartbeat_challenge;
 } server_static_t;
 
 //=============================================================================
@@ -478,9 +479,6 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
 void Host_SetServerState( int state );
 qboolean SV_IsSimulating( void );
 void SV_FreeClients( void );
-void Master_Add( void );
-void Master_Heartbeat( void );
-void Master_Packet( void );
 
 //
 // sv_init.c
