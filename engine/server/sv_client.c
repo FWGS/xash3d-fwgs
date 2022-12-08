@@ -2958,7 +2958,7 @@ void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 			{
 				Con_Reportf( "enttools->%s(): %s\n", u->name, s );
 				Log_Printf( "\"%s<%i><%s><>\" performed: %s\n", Info_ValueForKey( cl->userinfo, "name" ),
-							cl->userid, SV_GetClientIDString( cl ), NET_AdrToString( cl->netchan.remote_address ), s );
+							cl->userid, SV_GetClientIDString( cl ), s );
 
 				if( u->func )
 					u->func( cl );
