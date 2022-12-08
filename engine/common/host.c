@@ -345,7 +345,7 @@ void Host_ChangeGame_f( void )
 	}
 	else
 	{
-		const char *arg1 = va( "%s%s", (host.type == HOST_NORMAL) ? "" : "#", Cmd_Argv( 1 ));
+		const char *arg1 = va( "%s", Cmd_Argv( 1 ));
 		const char *arg2 = va( "change game to '%s'", FI->games[i]->title );
 
 		Host_NewInstance( arg1, arg2 );
