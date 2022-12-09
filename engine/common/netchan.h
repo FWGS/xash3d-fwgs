@@ -185,7 +185,7 @@ typedef struct fragbuf_s
 	struct fragbuf_s	*next;				// next buffer in chain
 	int		bufferid;				// id of this buffer
 	sizebuf_t		frag_message;			// message buffer where raw data is stored
-	byte		frag_message_buf[NET_MAX_FRAGMENT];	// the actual data sits here
+	byte		*frag_message_buf;	// the actual data sits here
 	qboolean		isfile;				// is this a file buffer?
 	qboolean		isbuffer;				// is this file buffer from memory ( custom decal, etc. ).
 	qboolean		iscompressed;			// is compressed file, we should using filename.ztmp

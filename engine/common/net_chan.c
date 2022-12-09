@@ -414,6 +414,7 @@ void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
 	while( buf )
 	{
 		n = buf->next;
+		Mem_Free( buf->frag_message_buf );
 		Mem_Free( buf );
 		buf = n;
 	}
@@ -535,12 +536,13 @@ Netchan_AllocFragbuf
 
 ==============================
 */
-fragbuf_t *Netchan_AllocFragbuf( void )
+fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t	*buf;
 
 	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ));
-	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, sizeof( buf->frag_message_buf ));
+	buf->frag_message_buf = (byte *)Mem_Calloc( net_mempool, fragment_size );
+	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, fragment_size );
 
 	return buf;
 }
@@ -736,7 +738,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		bytes = Q_min( remaining, chunksize );
 		remaining -= bytes;
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( bytes );
 		buf->bufferid = bufferid++;
 
 		// Copy in data
@@ -803,7 +805,7 @@ fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean allocate
 		return NULL;
 
 	// create new entry
-	pnewbuf = Netchan_AllocFragbuf();
+	pnewbuf = Netchan_AllocFragbuf( NET_MAX_FRAGMENT );
 	pnewbuf->bufferid = id;
 	Netchan_AddBufferToList( pplist, pnewbuf );
 
@@ -894,7 +896,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 	{
 		send = Q_min( remaining, chunksize );
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( send );
 		buf->bufferid = bufferid++;
 
 		// copy in data
@@ -959,7 +961,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	qboolean		bCompressed = false;
 	fragbufwaiting_t	*wait, *p;
 	fragbuf_t		*buf;
-
+	
 	if(( filesize = FS_FileSize( filename, false )) <= 0 )
 	{
 		Con_Printf( S_WARN "Unable to open %s for transfer\n", filename );
@@ -1013,7 +1015,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	{
 		send = Q_min( remaining, chunksize );
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( send );
 		buf->bufferid = bufferid++;
 
 		// copy in data
