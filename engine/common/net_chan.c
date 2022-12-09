@@ -978,8 +978,12 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	if( compressedFileTime >= fileTime )
 	{
 		// if compressed file already created and newer than source
-		if( FS_FileSize( compressedfilename, false ) != -1 )
+		fs_offset_t compressedSize = FS_FileSize( compressedfilename, false );
+		if( compressedSize != -1 )
+		{
 			bCompressed = true;
+			filesize = compressedSize;
+		}
 	}
 	else
 	{
