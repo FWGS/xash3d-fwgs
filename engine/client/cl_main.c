@@ -2472,11 +2472,18 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 	{
 		if( filename[0] != '!' )
 			Con_Printf( "processing %s\n", filename );
+
+		if( !Q_strnicmp( filename, "downloaded/", 11 ))
+		{
+			// skip "downloaded/" part to avoid mismatch with needed resources list
+			filename += 11; 
+		}
 	}
 	else if( !successfully_received )
 	{
 		Con_Printf( S_ERROR "server failed to transmit file '%s'\n", CL_CleanFileName( filename ));
 	}
+
 	if( cls.legacymode )
 	{
 		if( host.downloadcount > 0 )
