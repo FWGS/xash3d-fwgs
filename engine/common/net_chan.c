@@ -1192,6 +1192,13 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		return false;
 	}
 
+	if( filename[0] != '!' )
+	{
+		string temp_filename;
+		Q_snprintf( temp_filename, sizeof( temp_filename ), "downloaded/%s", filename );
+		Q_strncpy( filename, temp_filename, sizeof( filename ));
+	}
+
 	Q_strncpy( chan->incomingfilename, filename, sizeof( chan->incomingfilename ));
 
 	if( filename[0] != '!' && FS_FileExists( filename, false ))
