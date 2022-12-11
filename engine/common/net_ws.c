@@ -931,9 +931,51 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 		    return true;
 	}
 
-
 	Con_DPrintf( S_ERROR "NET_CompareAdr: bad address type\n" );
 	return false;
+}
+
+/*
+====================
+NET_CompareAdrSort
+
+Network address sorting comparator
+====================
+*/
+int NET_CompareAdrSort( const void *_a, const void *_b )
+{
+	const netadr_t *a = _a;
+	const netadr_t *b = _b;
+	int portdiff;
+
+	if( a->type6 != b->type6 )
+		return (int)a->type6 - (int)b->type6;
+
+	portdiff = (int)a->port - (int)b->port;
+
+	switch( a->type6 )
+	{
+	case NA_IP6:
+		return NET_NetadrIP6Compare( a, b );
+	case NA_MULTICAST_IP6:
+		return portdiff;
+	}
+
+	if( a->type != b->type )
+		return (int)a->type - (int)b->type;
+
+	switch( a->type )
+	{
+	case NA_IP:
+		return memcmp( a->ip, b->ip, sizeof( a->ip ));
+	case NA_IPX:
+		return memcmp( a->ipx, b->ipx, sizeof( a->ipx ));
+	case NA_BROADCAST:
+	case NA_BROADCAST_IPX:
+		return portdiff;
+	}
+
+	return 0;
 }
 
 /*

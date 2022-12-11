@@ -60,6 +60,7 @@ qboolean NET_CompareClassBAdr( const netadr_t a, const netadr_t b );
 qboolean NET_StringToAdr( const char *string, netadr_t *adr );
 qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen );
 int NET_StringToAdrNB( const char *string, netadr_t *adr );
+int NET_CompareAdrSort( const void *_a, const void *_b );
 qboolean NET_CompareAdr( const netadr_t a, const netadr_t b );
 qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b );
 qboolean NET_CompareAdrByMask( const netadr_t a, const netadr_t b, uint prefixlen );
