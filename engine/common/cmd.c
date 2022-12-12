@@ -1395,8 +1395,8 @@ void Cmd_Init( void )
 #endif // XASH_DEDICATED
 	Cmd_AddRestrictedCommand( "alias", Cmd_Alias_f, "create a script function. Without arguments show the list of all alias" );
 	Cmd_AddRestrictedCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
-	Cmd_AddCommand( "if", Cmd_If_f, "compare and set condition bits" );
-	Cmd_AddCommand( "else", Cmd_Else_f, "invert condition bit" );
+	Cmd_AddRestrictedCommand( "if", Cmd_If_f, "compare and set condition bits" );
+	Cmd_AddRestrictedCommand( "else", Cmd_Else_f, "invert condition bit" );
 
 #if defined(XASH_HASHED_VARS)
 	Cmd_AddCommand( "basecmd_stats", BaseCmd_Stats_f, "print info about basecmd usage" );
