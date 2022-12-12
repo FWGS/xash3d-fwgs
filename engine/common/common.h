@@ -165,6 +165,7 @@ extern convar_t	*host_framerate;
 extern convar_t	*host_maxfps;
 extern convar_t	sys_timescale;
 extern convar_t	cl_filterstuffcmd;
+extern convar_t	rcon_password;
 
 /*
 ==============================================================

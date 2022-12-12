@@ -40,7 +40,6 @@ CVAR_DEFINE_AUTO( cl_logofile, "lambda", FCVAR_ARCHIVE, "player logo name" );
 CVAR_DEFINE_AUTO( cl_logocolor, "orange", FCVAR_ARCHIVE, "player logo color" );
 CVAR_DEFINE_AUTO( cl_logoext, "bmp", FCVAR_ARCHIVE, "temporary cvar to tell engine which logo must be packed" );
 CVAR_DEFINE_AUTO( cl_test_bandwidth, "1", FCVAR_ARCHIVE, "test network bandwith before connection" );
-convar_t	*rcon_client_password;
 convar_t	*rcon_address;
 convar_t	*cl_timeout;
 convar_t	*cl_nopred;
@@ -1312,7 +1311,7 @@ void CL_Rcon_f( void )
 	string command;
 	int	i;
 
-	if( !COM_CheckString( rcon_client_password->string ))
+	if( !COM_CheckString( rcon_password.string ))
 	{
 		Con_Printf( "You must set 'rcon_password' before issuing an rcon command.\n" );
 		return;
@@ -1327,7 +1326,7 @@ void CL_Rcon_f( void )
 	NET_Config( true, false );	// allow remote
 
 	Q_strcat( message, "rcon " );
-	Q_strcat( message, rcon_client_password->string );
+	Q_strcat( message, rcon_password.string );
 	Q_strcat( message, " " );
 
 	for( i = 1; i < Cmd_Argc(); i++ )
@@ -2895,7 +2894,6 @@ void CL_InitLocal( void )
 	cl_charset = Cvar_Get( "cl_charset", "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
 	hud_utf8 = Cvar_Get( "hud_utf8", "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
 
-	rcon_client_password = Cvar_Get( "rcon_password", "", FCVAR_PRIVILEGED, "remote control client password" );
 	rcon_address = Cvar_Get( "rcon_address", "", FCVAR_PRIVILEGED, "remote control address" );
 
 	cl_trace_messages = Cvar_Get( "cl_trace_messages", "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable message names tracing (good for developers)");
