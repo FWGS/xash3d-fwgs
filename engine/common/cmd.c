@@ -984,7 +984,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 	cmd_condlevel = 0;
 
 	// cvar value substitution
-	if( CVAR_TO_BOOL( cmd_scripting ))
+	if( CVAR_TO_BOOL( cmd_scripting ) && isPrivileged )
 	{
 		while( *text )
 		{
