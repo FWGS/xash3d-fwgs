@@ -2489,14 +2489,13 @@ return NULL for file in pack
 */
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly )
 {
-	int		index;
 	searchpath_t	*search;
 
-	search = FS_FindFile( name, &index, gamedironly );
+	search = FS_FindFile( name, NULL, gamedironly );
 
 	if( search )
 	{
-		if( index != -1 ) // file in pack or wad
+		if( search->type != SEARCHPATH_PLAIN ) // file in pack or wad
 			return NULL;
 		return va( "%s%s", search->filename, name );
 	}
