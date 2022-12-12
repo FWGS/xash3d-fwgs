@@ -461,7 +461,7 @@ Feed the decoded data to engine sound subsystem
 static void Voice_StartChannel( uint samples, byte *data, int entnum )
 {
 	SND_ForceInitMouth( entnum );
-	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, VOICE_PCM_CHANNELS, data, 255 );
+	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, VOICE_PCM_CHANNELS, data, bound( 0, 255 * voice_scale.value, 255 ));
 }
 
 /*
