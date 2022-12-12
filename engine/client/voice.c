@@ -25,11 +25,12 @@ voice_state_t voice = { 0 };
 CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "enable voice chat" );
 CVAR_DEFINE_AUTO( voice_loopback, "0", FCVAR_PRIVILEGED, "loopback voice back to the speaker" );
 CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "incoming voice volume scale" );
+CVAR_DEFINE_AUTO( voice_transmit_scale, "1.0", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "outcoming voice volume scale" );
 CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "automatic voice gain control (average)" );
 CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
 CVAR_DEFINE_AUTO( voice_inputfromfile, "0", FCVAR_PRIVILEGED, "input voice from voice_input.wav" );
 
-static void Voice_ApplyGainAdjust( int16_t *samples, int count );
+static void Voice_ApplyGainAdjust( int16_t *samples, int count, float scale );
 
 /*
 ===============================================================================
@@ -202,7 +203,7 @@ static uint Voice_GetOpusCompressedData( byte *out, uint maxsize, uint *frames )
 		if( !voice.input_file )
 		{
 			// adjust gain before encoding, but only for input from voice
-			Voice_ApplyGainAdjust((opus_int16*)(voice.input_buffer + ofs), voice.frame_size);
+			Voice_ApplyGainAdjust((opus_int16*)(voice.input_buffer + ofs), voice.frame_size, voice_transmit_scale.value);
 		}
 #endif
 
@@ -256,10 +257,10 @@ Voice_ApplyGainAdjust
 
 =========================
 */
-static void Voice_ApplyGainAdjust( int16_t *samples, int count )
+static void Voice_ApplyGainAdjust( int16_t *samples, int count, float scale )
 {
 	float gain, modifiedMax;
-	int average, adjustedSample, blockOffset = 0;
+	int average, blockOffset = 0;
 
 	for( ;; )
 	{
@@ -278,10 +279,8 @@ static void Voice_ApplyGainAdjust( int16_t *samples, int count )
 				localMax = absSample;
 
 			localSum += absSample;
-
 			gain = voice.autogain.current_gain + i * voice.autogain.gain_multiplier;
-			adjustedSample = Q_min( SHRT_MAX, Q_max(( int )( sample * gain ), SHRT_MIN ));
-			samples[blockOffset + i] = adjustedSample;
+			samples[blockOffset + i] = bound( SHRT_MIN, (int)( sample * gain ), SHRT_MAX );
 		}
 
 		if( blockOffset % voice.autogain.block_size == 0 )
@@ -289,9 +288,9 @@ static void Voice_ApplyGainAdjust( int16_t *samples, int count )
 			average = localSum / blockSize;
 			modifiedMax = average + ( localMax - average ) * voice_avggain.value;
 
-			voice.autogain.current_gain = voice.autogain.next_gain * voice_scale.value;
-			voice.autogain.next_gain = Q_min( (float)SHRT_MAX / modifiedMax, voice_maxgain.value ) * voice_scale.value;
-			voice.autogain.gain_multiplier = ( voice.autogain.next_gain - voice.autogain.current_gain ) / ( voice.autogain.block_size - 1 );
+			voice.autogain.current_gain = voice.autogain.next_gain * scale;
+			voice.autogain.next_gain = Q_min( (float)SHRT_MAX / modifiedMax, voice_maxgain.value ) * scale;
+			voice.autogain.gain_multiplier = ( voice.autogain.next_gain - voice.autogain.current_gain ) / ( blockSize - 1 );
 		}
 		blockOffset += blockSize;
 	}
@@ -546,6 +545,7 @@ void Voice_RegisterCvars( void )
 	Cvar_RegisterVariable( &voice_enable );
 	Cvar_RegisterVariable( &voice_loopback );
 	Cvar_RegisterVariable( &voice_scale );
+	Cvar_RegisterVariable( &voice_transmit_scale );
 	Cvar_RegisterVariable( &voice_avggain );
 	Cvar_RegisterVariable( &voice_maxgain );
 	Cvar_RegisterVariable( &voice_inputfromfile );
