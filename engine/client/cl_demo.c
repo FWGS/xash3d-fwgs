@@ -518,14 +518,26 @@ CL_ReadDemoCmdHeader
 read the demo command
 =================
 */
-void CL_ReadDemoCmdHeader( byte *cmd, float *dt )
+qboolean CL_ReadDemoCmdHeader( byte *cmd, float *dt )
 {
 	// read the command
-	FS_Read( cls.demofile, cmd, sizeof( byte ));
-	Assert( *cmd >= 1 && *cmd <= dem_lastcmd );
+	// HACKHACK: skip NOPs
+	do
+	{
+		FS_Read( cls.demofile, cmd, sizeof( byte ));
+	} while( *cmd == dem_unknown );
+
+	if( *cmd > dem_lastcmd )
+	{
+		Con_Printf( S_ERROR "Demo cmd %d > %d, file offset = %d\n", *cmd, dem_lastcmd, (int)FS_Tell( cls.demofile ));
+		CL_DemoCompleted();
+		return false;
+	}
 
 	// read the timestamp
 	FS_Read( cls.demofile, dt, sizeof( float ));
+
+	return true;
 }
 
 /*
@@ -913,7 +925,8 @@ qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 		if( !cls.demofile ) break;
 		curpos = FS_Tell( cls.demofile );
 
-		CL_ReadDemoCmdHeader( &cmd, &demo.timestamp );
+		if( !CL_ReadDemoCmdHeader( &cmd, &demo.timestamp ))
+			return false;
 
 		fElapsedTime = CL_GetDemoPlaybackClock() - demo.starttime;
 		if( !cls.timedemo ) bSkipMessage = ((demo.timestamp - cl_serverframetime()) >= fElapsedTime) ? true : false;
