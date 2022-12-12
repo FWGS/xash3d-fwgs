@@ -521,8 +521,8 @@ void CL_AddVoiceToDatagram( void )
 
 	if( cls.state != ca_active || !Voice_IsRecording() || !voice.encoder )
 		return;
-
-	size = Voice_GetOpusCompressedData( voice.output_buffer, sizeof( voice.output_buffer ), &frames );
+	
+	size = Voice_GetOpusCompressedData( voice.compress_buffer, sizeof( voice.compress_buffer ), &frames );
 
 	if( size > 0 && MSG_GetNumBytesLeft( &cls.datagram ) >= size + 32 )
 	{
@@ -530,7 +530,7 @@ void CL_AddVoiceToDatagram( void )
 		MSG_WriteByte( &cls.datagram, voice_loopback.value != 0 );
 		MSG_WriteByte( &cls.datagram, frames );
 		MSG_WriteShort( &cls.datagram, size );
-		MSG_WriteBytes( &cls.datagram, voice.output_buffer, size );
+		MSG_WriteBytes( &cls.datagram, voice.compress_buffer, size );
 	}
 }
 
