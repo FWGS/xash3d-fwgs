@@ -1013,6 +1013,9 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 	char		remaining[1024];
 	int		i;
 
+	if( !rcon_enable.value )
+		return;
+
 	Con_Printf( "Rcon from %s:\n%s\n", NET_AdrToString( from ), MSG_GetData( msg ) + 4 );
 	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, NET_AdrToString( from ));
 	SV_BeginRedirect( from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );

@@ -30,6 +30,7 @@ CVAR_DEFINE_AUTO( sv_maxunlag, "0.5", 0, "max latency value which can be interpo
 CVAR_DEFINE_AUTO( sv_unlagpush, "0.0", 0, "interpolation bias for unlag time" );
 CVAR_DEFINE_AUTO( sv_unlagsamples, "1", 0, "max samples to interpolate" );
 CVAR_DEFINE_AUTO( rcon_password, "", 0, "remote connect password" );
+CVAR_DEFINE_AUTO( rcon_enable, "1", 0, "enable rcon" );
 CVAR_DEFINE_AUTO( sv_filterban, "1", 0, "filter banned users" );
 CVAR_DEFINE_AUTO( sv_cheats, "0", FCVAR_SERVER, "allow cheats on server" );
 CVAR_DEFINE_AUTO( sv_instancedbaseline, "1", 0, "allow to use instanced baselines to saves network overhead" );
@@ -909,6 +910,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &temp1 );
 
 	Cvar_RegisterVariable( &rcon_password );
+	Cvar_RegisterVariable( &rcon_enable );
 	Cvar_RegisterVariable( &sv_stepsize );
 	Cvar_RegisterVariable( &sv_newunit );
 	Cvar_RegisterVariable( &hostname );
