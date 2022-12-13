@@ -254,7 +254,7 @@ static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, 
 	else if( info->lumpnumber == LUMP_CLIPNODES && version != Q1BSP_VERSION )
 	{
 		// never run this check for BSP29 because Arguire QBSP 'broken' clipnodes!
-		if(( l->filelen % info->entrysize ) || ( l->filelen / info->entrysize ) >= MAX_MAP_CLIPNODES )
+		if(( l->filelen % info->entrysize ) || ( l->filelen / info->entrysize ) >= MAX_MAP_CLIPNODES_HLBSP )
 		{
 			real_entrysize = info->entrysize32;
 			SetBits( flags, LUMP_SILENT ); // shut up warning
@@ -2578,7 +2578,7 @@ static void Mod_LoadClipnodes( dbspmodel_t *bmod )
 
 	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Malloc( loadmodel->mempool, bmod->numclipnodes * sizeof( *out ));
 
-	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->numclipnodes >= MAX_MAP_CLIPNODES ))
+	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
 	{
 		dclipnode32_t	*in = bmod->clipnodes32;
 
