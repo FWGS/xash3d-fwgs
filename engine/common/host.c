@@ -286,14 +286,14 @@ static int Host_CalcSleep( void )
 		// let the dedicated server some sleep
 		return host_sleeptime->value;
 	}
-	else if( host.status == HOST_NOFOCUS )
+
+	switch( host.status )
 	{
-		if( SV_Active() && CL_IsInGame( ))
-			return host_sleeptime->value; // listenserver
-		return 20; // sleep 20 ms otherwise
-	}
-	else if( host.status == HOST_SLEEP )
-	{
+	case HOST_NOFOCUS:
+		if( SV_Active() && CL_IsInGame())
+			return host_sleeptime->value;
+		// fallthrough
+	case HOST_SLEEP:
 		return 20;
 	}
 
@@ -1229,6 +1229,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	if( Host_IsDedicated( ))
 	{
+		// in dedicated server input system can't set HOST_FRAME status
+		// so set it here as we're finished initializing
+		host.status = HOST_FRAME;
+
 		if( GameState->nextstate == STATE_RUNFRAME )
 			Con_Printf( "Type 'map <mapname>' to start game... (TAB-autocomplete is working too)\n" );
 
