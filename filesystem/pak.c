@@ -230,7 +230,7 @@ FS_OpenPackedFile
 Open a packed file using its package file descriptor
 ===========
 */
-file_t *FS_OpenFile_PAK( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
+static file_t *FS_OpenFile_PAK( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	dpackfile_t	*pfile;
 
@@ -238,6 +238,125 @@ file_t *FS_OpenFile_PAK( searchpath_t *search, const char *filename, const char 
 
 	return FS_OpenHandle( search->pack->filename, search->pack->handle, pfile->filepos, pfile->filelen );
 }
+
+/*
+===========
+FS_FindFile_PAK
+
+===========
+*/
+static int FS_FindFile_PAK( searchpath_t *search, const char *path )
+{
+	int	left, right, middle;
+
+	// look for the file (binary search)
+	left = 0;
+	right = search->pack->numfiles - 1;
+	while( left <= right )
+	{
+		int	diff;
+
+		middle = (left + right) / 2;
+		diff = Q_stricmp( search->pack->files[middle].name, path );
+
+		// Found it
+		if( !diff )
+		{
+			return middle;
+		}
+
+		// if we're too far in the list
+		if( diff > 0 )
+			right = middle - 1;
+		else left = middle + 1;
+	}
+
+	return -1;
+}
+
+/*
+===========
+FS_Search_PAK
+
+===========
+*/
+static void FS_Search_PAK( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
+{
+	string temp;
+	const char *slash, *backslash, *colon, *separator;
+	int j, i;
+
+	for( i = 0; i < search->pack->numfiles; i++ )
+	{
+		Q_strncpy( temp, search->pack->files[i].name, sizeof( temp ));
+		while( temp[0] )
+		{
+			if( matchpattern( temp, pattern, true ))
+			{
+				for( j = 0; j < list->numstrings; j++ )
+				{
+					if( !Q_strcmp( list->strings[j], temp ))
+						break;
+				}
+
+				if( j == list->numstrings )
+					stringlistappend( list, temp );
+			}
+
+			// strip off one path element at a time until empty
+			// this way directories are added to the listing if they match the pattern
+			slash = Q_strrchr( temp, '/' );
+			backslash = Q_strrchr( temp, '\\' );
+			colon = Q_strrchr( temp, ':' );
+			separator = temp;
+			if( separator < slash )
+				separator = slash;
+			if( separator < backslash )
+				separator = backslash;
+			if( separator < colon )
+				separator = colon;
+			*((char *)separator) = 0;
+		}
+	}
+}
+
+/*
+===========
+FS_FileTime_PAK
+
+===========
+*/
+static int FS_FileTime_PAK( searchpath_t *search, const char *filename )
+{
+	return search->pack->filetime;
+}
+
+/*
+===========
+FS_PrintInfo_PAK
+
+===========
+*/
+static void FS_PrintInfo_PAK( searchpath_t *search, char *dst, size_t size )
+{
+	Q_snprintf( dst, size, "%s (%i files)", search->pack->filename, search->pack->numfiles );
+}
+
+/*
+===========
+FS_Close_PAK
+
+===========
+*/
+static void FS_Close_PAK( searchpath_t *search )
+{
+	if( search->pack->files )
+		Mem_Free( search->pack->files );
+	if( search->pack->handle >= 0 )
+		close( search->pack->handle );
+	Mem_Free( search->pack );
+}
+
 
 /*
 ================
@@ -314,92 +433,4 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 			Con_Reportf( S_ERROR "FS_AddPak_Fullpath: unable to load pak \"%s\"\n", pakfile );
 		return false;
 	}
-}
-
-int FS_FindFile_PAK( searchpath_t *search, const char *path )
-{
-	int	left, right, middle;
-
-	// look for the file (binary search)
-	left = 0;
-	right = search->pack->numfiles - 1;
-	while( left <= right )
-	{
-		int	diff;
-
-		middle = (left + right) / 2;
-		diff = Q_stricmp( search->pack->files[middle].name, path );
-
-		// Found it
-		if( !diff )
-		{
-			return middle;
-		}
-
-		// if we're too far in the list
-		if( diff > 0 )
-			right = middle - 1;
-		else left = middle + 1;
-	}
-
-	return -1;
-}
-
-void FS_Search_PAK( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
-{
-	string temp;
-	const char *slash, *backslash, *colon, *separator;
-	int j, i;
-
-	for( i = 0; i < search->pack->numfiles; i++ )
-	{
-		Q_strncpy( temp, search->pack->files[i].name, sizeof( temp ));
-		while( temp[0] )
-		{
-			if( matchpattern( temp, pattern, true ))
-			{
-				for( j = 0; j < list->numstrings; j++ )
-				{
-					if( !Q_strcmp( list->strings[j], temp ))
-						break;
-				}
-
-				if( j == list->numstrings )
-					stringlistappend( list, temp );
-			}
-
-			// strip off one path element at a time until empty
-			// this way directories are added to the listing if they match the pattern
-			slash = Q_strrchr( temp, '/' );
-			backslash = Q_strrchr( temp, '\\' );
-			colon = Q_strrchr( temp, ':' );
-			separator = temp;
-			if( separator < slash )
-				separator = slash;
-			if( separator < backslash )
-				separator = backslash;
-			if( separator < colon )
-				separator = colon;
-			*((char *)separator) = 0;
-		}
-	}
-}
-
-int FS_FileTime_PAK( searchpath_t *search, const char *filename )
-{
-	return search->pack->filetime;
-}
-
-void FS_PrintInfo_PAK( searchpath_t *search, char *dst, size_t size )
-{
-	Q_snprintf( dst, size, "%s (%i files)", search->pack->filename, search->pack->numfiles );
-}
-
-void FS_Close_PAK( searchpath_t *search )
-{
-	if( search->pack->files )
-		Mem_Free( search->pack->files );
-	if( search->pack->handle >= 0 )
-		close( search->pack->handle );
-	Mem_Free( search->pack );
 }

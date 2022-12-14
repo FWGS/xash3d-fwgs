@@ -182,22 +182,11 @@ searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly );
 //
 // pak.c
 //
-int      FS_FileTime_PAK( searchpath_t *search, const char *filename );
-int      FS_FindFile_PAK( searchpath_t *search, const char *path );
-void     FS_PrintInfo_PAK( searchpath_t *search, char *dst, size_t size );
-void     FS_Close_PAK( searchpath_t *search );
-void     FS_Search_PAK( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive );
-file_t  *FS_OpenFile_PAK( searchpath_t *search, const char *filename, const char *mode, int pack_ind );
 qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int flags );
 
 //
 // wad.c
 //
-int      FS_FileTime_WAD( searchpath_t *search, const char *filename );
-int      FS_FindFile_WAD( searchpath_t *search, const char *path );
-void     FS_PrintInfo_WAD( searchpath_t *search, char *dst, size_t size );
-void     FS_Close_WAD( searchpath_t *search );
-void     FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive );
 byte    *FS_LoadWADFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly );
 qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags );
 
@@ -211,13 +200,7 @@ void FS_WatchFrame( void );
 //
 // zip.c
 //
-int      FS_FileTime_ZIP( searchpath_t *search, const char *filename );
-int      FS_FindFile_ZIP( searchpath_t *search, const char *path );
-void     FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size );
-void     FS_Close_ZIP( searchpath_t *search );
-void     FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive );
 byte    *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly );
-file_t  *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char *mode, int pack_ind );
 qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags );
 
 //
