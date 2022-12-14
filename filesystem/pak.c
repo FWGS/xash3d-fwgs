@@ -404,12 +404,12 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 		search->next = fs_searchpaths;
 		search->flags |= flags;
 
-		search->printinfo = FS_PrintInfo_PAK;
-		search->close = FS_Close_PAK;
-		search->openfile = FS_OpenFile_PAK;
-		search->filetime = FS_FileTime_PAK;
-		search->findfile = FS_FindFile_PAK;
-		search->search = FS_Search_PAK;
+		search->pfnPrintInfo = FS_PrintInfo_PAK;
+		search->pfnClose = FS_Close_PAK;
+		search->pfnOpenFile = FS_OpenFile_PAK;
+		search->pfnFileTime = FS_FileTime_PAK;
+		search->pfnFindFile = FS_FindFile_PAK;
+		search->pfnSearch = FS_Search_PAK;
 
 		fs_searchpaths = search;
 
