@@ -489,7 +489,7 @@ void FS_ClearSearchPath( void )
 		}
 		else fs_searchpaths = search->next;
 
-		search->close( search );
+		search->pfnClose( search );
 
 		Mem_Free( search );
 	}
@@ -1526,7 +1526,7 @@ void FS_Path_f( void )
 	{
 		string info;
 
-		s->printinfo( s, info, sizeof(info) );
+		s->pfnPrintInfo( s, info, sizeof(info) );
 
 		Con_Printf( "%s", info );
 
@@ -1799,7 +1799,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly )
 		if( gamedironly & !FBitSet( search->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
 
-		pack_ind = search->findfile( search, name );
+		pack_ind = search->pfnFindFile( search, name );
 		if( pack_ind >= 0 )
 		{
 			if( index ) *index = pack_ind;
@@ -1848,7 +1848,7 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 	if( search == NULL )
 		return NULL;
 
-	return search->openfile( search, filename, mode, pack_ind );
+	return search->pfnOpenFile( search, filename, mode, pack_ind );
 }
 
 /*
@@ -2532,7 +2532,7 @@ int FS_FileTime( const char *filename, qboolean gamedironly )
 	search = FS_FindFile( filename, &pack_ind, gamedironly );
 	if( !search ) return -1; // doesn't exist
 
-	return search->filetime( search, filename );
+	return search->pfnFileTime( search, filename );
 }
 
 /*
@@ -2642,7 +2642,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 		if( gamedironly && !FBitSet( searchpath->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
 		
-		searchpath->search( searchpath, &resultlist, pattern, caseinsensitive );
+		searchpath->pfnSearch( searchpath, &resultlist, pattern, caseinsensitive );
 	}
 
 	if( resultlist.numstrings )

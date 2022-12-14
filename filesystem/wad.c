@@ -596,12 +596,12 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 		search->next = fs_searchpaths;
 		search->flags |= flags;
 
-		search->printinfo = FS_PrintInfo_WAD;
-		search->close = FS_Close_WAD;
-		search->openfile = FS_OpenFile_WAD;
-		search->filetime = FS_FileTime_WAD;
-		search->findfile = FS_FindFile_WAD;
-		search->search = FS_Search_WAD;
+		search->pfnPrintInfo = FS_PrintInfo_WAD;
+		search->pfnClose = FS_Close_WAD;
+		search->pfnOpenFile = FS_OpenFile_WAD;
+		search->pfnFileTime = FS_FileTime_WAD;
+		search->pfnFindFile = FS_FindFile_WAD;
+		search->pfnSearch = FS_Search_WAD;
 
 		fs_searchpaths = search;
 

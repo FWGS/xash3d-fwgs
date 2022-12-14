@@ -79,12 +79,12 @@ typedef struct searchpath_s
 
 	struct searchpath_s *next;
 
-	void	( *printinfo )( struct searchpath_s *search, char *dst, size_t size );
-	void	( *close )( struct searchpath_s *search );
-	file_t	*( *openfile )( struct searchpath_s *search, const char *filename, const char *mode, int pack_ind );
-	int		( *filetime )( struct searchpath_s *search, const char *filename );
-	int		( *findfile )( struct searchpath_s *search, const char *path );
-	void	( *search )( struct searchpath_s *search, stringlist_t *list, const char *pattern, int caseinsensitive );
+	void    (*pfnPrintInfo)( struct searchpath_s *search, char *dst, size_t size );
+	void    (*pfnClose)( struct searchpath_s *search );
+	file_t *(*pfnOpenFile)( struct searchpath_s *search, const char *filename, const char *mode, int pack_ind );
+	int     (*pfnFileTime)( struct searchpath_s *search, const char *filename );
+	int     (*pfnFindFile)( struct searchpath_s *search, const char *path );
+	void    (*pfnSearch)( struct searchpath_s *search, stringlist_t *list, const char *pattern, int caseinsensitive );
 } searchpath_t;
 
 extern fs_globals_t  FI;

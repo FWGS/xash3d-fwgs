@@ -121,12 +121,12 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 	Q_strncpy( search->filename, path, sizeof( search->filename ));
 	search->type = SEARCHPATH_PLAIN;
 	search->flags = flags;
-	search->printinfo = FS_PrintInfo_DIR;
-	search->close = FS_Close_DIR;
-	search->openfile = FS_OpenFile_DIR;
-	search->filetime = FS_FileTime_DIR;
-	search->findfile = FS_FindFile_DIR;
-	search->search = FS_Search_DIR;
+	search->pfnPrintInfo = FS_PrintInfo_DIR;
+	search->pfnClose = FS_Close_DIR;
+	search->pfnOpenFile = FS_OpenFile_DIR;
+	search->pfnFileTime = FS_FileTime_DIR;
+	search->pfnFindFile = FS_FindFile_DIR;
+	search->pfnSearch = FS_Search_DIR;
 }
 
 qboolean FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags )

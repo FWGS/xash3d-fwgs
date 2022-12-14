@@ -706,12 +706,12 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 		search->next = fs_searchpaths;
 		search->flags |= flags;
 
-		search->printinfo = FS_PrintInfo_ZIP;
-		search->close = FS_Close_ZIP;
-		search->openfile = FS_OpenFile_ZIP;
-		search->filetime = FS_FileTime_ZIP;
-		search->findfile = FS_FindFile_ZIP;
-		search->search = FS_Search_ZIP;
+		search->pfnPrintInfo = FS_PrintInfo_ZIP;
+		search->pfnClose = FS_Close_ZIP;
+		search->pfnOpenFile = FS_OpenFile_ZIP;
+		search->pfnFileTime = FS_FileTime_ZIP;
+		search->pfnFindFile = FS_FindFile_ZIP;
+		search->pfnSearch = FS_Search_ZIP;
 
 		fs_searchpaths = search;
 
