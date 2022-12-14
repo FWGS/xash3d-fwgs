@@ -146,7 +146,12 @@ static void FS_EnsureOpenZip( zip_t *zip )
 static void FS_EnsureOpenZip( zip_t *zip ) {}
 #endif
 
-void FS_CloseZIP( zip_t *zip )
+/*
+============
+FS_CloseZIP
+============
+*/
+static void FS_CloseZIP( zip_t *zip )
 {
 	if( zip->files )
 		Mem_Free( zip->files );
@@ -159,7 +164,12 @@ void FS_CloseZIP( zip_t *zip )
 	Mem_Free( zip );
 }
 
-void FS_Close_ZIP( searchpath_t *search )
+/*
+============
+FS_Close_ZIP
+============
+*/
+static void FS_Close_ZIP( searchpath_t *search )
 {
 	FS_CloseZIP( search->zip );
 }
@@ -412,6 +422,12 @@ file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char 
 	return FS_OpenHandle( search->zip->filename, search->zip->handle, pfile->offset, pfile->size );
 }
 
+/*
+===========
+FS_LoadZIPFile
+
+===========
+*/
 byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly )
 {
 	searchpath_t	*search;
@@ -551,7 +567,113 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 	return NULL;
 }
 
+/*
+===========
+FS_FileTime_ZIP
 
+===========
+*/
+int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
+{
+	return search->zip->filetime;
+}
+
+/*
+===========
+FS_PrintInfo_ZIP
+
+===========
+*/
+void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
+{
+	Q_snprintf( dst, size, "%s (%i files)", search->zip->filename, search->zip->numfiles );
+}
+
+/*
+===========
+FS_FindFile_ZIP
+
+===========
+*/
+int FS_FindFile_ZIP( searchpath_t *search, const char *path )
+{
+	int	left, right, middle;
+
+	// look for the file (binary search)
+	left = 0;
+	right = search->zip->numfiles - 1;
+	while( left <= right )
+	{
+		int	diff;
+
+		middle = (left + right) / 2;
+		diff = Q_stricmp( search->zip->files[middle].name, path );
+
+		// Found it
+		if( !diff )
+			return middle;
+
+		// if we're too far in the list
+		if( diff > 0 )
+			right = middle - 1;
+		else left = middle + 1;
+	}
+
+	return -1;
+}
+
+/*
+===========
+FS_Search_ZIP
+
+===========
+*/
+void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
+{
+	string temp;
+	const char *slash, *backslash, *colon, *separator;
+	int j, i;
+
+	for( i = 0; i < search->zip->numfiles; i++ )
+	{
+		Q_strncpy( temp, search->zip->files[i].name, sizeof( temp ));
+		while( temp[0] )
+		{
+			if( matchpattern( temp, pattern, true ))
+			{
+				for( j = 0; j < list->numstrings; j++ )
+				{
+					if( !Q_strcmp( list->strings[j], temp ))
+						break;
+				}
+
+				if( j == list->numstrings )
+					stringlistappend( list, temp );
+			}
+
+			// strip off one path element at a time until empty
+			// this way directories are added to the listing if they match the pattern
+			slash = Q_strrchr( temp, '/' );
+			backslash = Q_strrchr( temp, '\\' );
+			colon = Q_strrchr( temp, ':' );
+			separator = temp;
+			if( separator < slash )
+				separator = slash;
+			if( separator < backslash )
+				separator = backslash;
+			if( separator < colon )
+				separator = colon;
+			*((char *)separator) = 0;
+		}
+	}
+}
+
+/*
+===========
+FS_AddZip_Fullpath
+
+===========
+*/
 qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
 {
 	searchpath_t	*search;
@@ -611,83 +733,6 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 		if( errorcode != ZIP_LOAD_NO_FILES )
 			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
 		return false;
-	}
-}
-
-int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
-{
-	return search->zip->filetime;
-}
-
-void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
-{
-	Q_snprintf( dst, size, "%s (%i files)", search->zip->filename, search->zip->numfiles );
-}
-
-int FS_FindFile_ZIP( searchpath_t *search, const char *path )
-{
-	int	left, right, middle;
-
-	// look for the file (binary search)
-	left = 0;
-	right = search->zip->numfiles - 1;
-	while( left <= right )
-	{
-		int	diff;
-
-		middle = (left + right) / 2;
-		diff = Q_stricmp( search->zip->files[middle].name, path );
-
-		// Found it
-		if( !diff )
-			return middle;
-
-		// if we're too far in the list
-		if( diff > 0 )
-			right = middle - 1;
-		else left = middle + 1;
-	}
-
-	return -1;
-}
-
-void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
-{
-	string temp;
-	const char *slash, *backslash, *colon, *separator;
-	int j, i;
-
-	for( i = 0; i < search->zip->numfiles; i++ )
-	{
-		Q_strncpy( temp, search->zip->files[i].name, sizeof( temp ));
-		while( temp[0] )
-		{
-			if( matchpattern( temp, pattern, true ))
-			{
-				for( j = 0; j < list->numstrings; j++ )
-				{
-					if( !Q_strcmp( list->strings[j], temp ))
-						break;
-				}
-
-				if( j == list->numstrings )
-					stringlistappend( list, temp );
-			}
-
-			// strip off one path element at a time until empty
-			// this way directories are added to the listing if they match the pattern
-			slash = Q_strrchr( temp, '/' );
-			backslash = Q_strrchr( temp, '\\' );
-			colon = Q_strrchr( temp, ':' );
-			separator = temp;
-			if( separator < slash )
-				separator = slash;
-			if( separator < backslash )
-				separator = backslash;
-			if( separator < colon )
-				separator = colon;
-			*((char *)separator) = 0;
-		}
 	}
 }
 

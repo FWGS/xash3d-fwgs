@@ -155,6 +155,48 @@ static const char *W_ExtFromType( signed char lumptype )
 }
 
 /*
+===========
+W_FindLump
+
+Serach for already existed lump
+===========
+*/
+static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed char matchtype )
+{
+	int	left, right;
+
+	if( !wad || !wad->lumps || matchtype == TYP_NONE )
+		return NULL;
+
+	// look for the file (binary search)
+	left = 0;
+	right = wad->numlumps - 1;
+
+	while( left <= right )
+	{
+		int	middle = (left + right) / 2;
+		int	diff = Q_stricmp( wad->lumps[middle].name, name );
+
+		if( !diff )
+		{
+			if(( matchtype == TYP_ANY ) || ( matchtype == wad->lumps[middle].type ))
+				return &wad->lumps[middle]; // found
+			else if( wad->lumps[middle].type < matchtype )
+				diff = 1;
+			else if( wad->lumps[middle].type > matchtype )
+				diff = -1;
+			else break; // not found
+		}
+
+		// if we're too far in the list
+		if( diff > 0 ) right = middle - 1;
+		else left = middle + 1;
+	}
+
+	return NULL;
+}
+
+/*
 ====================
 W_AddFileToWad
 
@@ -363,183 +405,34 @@ static wfile_t *W_Open( const char *filename, int *error )
 }
 
 /*
-====================
-FS_AddWad_Fullpath
-====================
-*/
-qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags )
-{
-	searchpath_t	*search;
-	wfile_t		*wad = NULL;
-	const char	*ext = COM_FileExtension( wadfile );
-	int		errorcode = WAD_LOAD_COULDNT_OPEN;
-
-	for( search = fs_searchpaths; search; search = search->next )
-	{
-		if( search->type == SEARCHPATH_WAD && !Q_stricmp( search->wad->filename, wadfile ))
-		{
-			if( already_loaded ) *already_loaded = true;
-			return true; // already loaded
-		}
-	}
-
-	if( already_loaded )
-		*already_loaded = false;
-
-	if( !Q_stricmp( ext, "wad" ))
-		wad = W_Open( wadfile, &errorcode );
-
-	if( wad )
-	{
-		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
-		search->wad = wad;
-		search->type = SEARCHPATH_WAD;
-		search->next = fs_searchpaths;
-		search->flags |= flags;
-
-		search->printinfo = FS_PrintInfo_WAD;
-		search->close = FS_Close_WAD;
-		search->openfile = FS_OpenFile_WAD;
-		search->filetime = FS_FileTime_WAD;
-		search->findfile = FS_FindFile_WAD;
-		search->search = FS_Search_WAD;
-
-		fs_searchpaths = search;
-
-		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
-		return true;
-	}
-	else
-	{
-		if( errorcode != WAD_LOAD_NO_FILES )
-			Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
-		return false;
-	}
-}
-
-/*
-=============================================================================
-
-WADSYSTEM PRIVATE ROUTINES
-
-=============================================================================
-*/
-
-/*
 ===========
-W_FindLump
+FS_FileTime_WAD
 
-Serach for already existed lump
 ===========
 */
-static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed char matchtype )
-{
-	int	left, right;
-
-	if( !wad || !wad->lumps || matchtype == TYP_NONE )
-		return NULL;
-
-	// look for the file (binary search)
-	left = 0;
-	right = wad->numlumps - 1;
-
-	while( left <= right )
-	{
-		int	middle = (left + right) / 2;
-		int	diff = Q_stricmp( wad->lumps[middle].name, name );
-
-		if( !diff )
-		{
-			if(( matchtype == TYP_ANY ) || ( matchtype == wad->lumps[middle].type ))
-				return &wad->lumps[middle]; // found
-			else if( wad->lumps[middle].type < matchtype )
-				diff = 1;
-			else if( wad->lumps[middle].type > matchtype )
-				diff = -1;
-			else break; // not found
-		}
-
-		// if we're too far in the list
-		if( diff > 0 ) right = middle - 1;
-		else left = middle + 1;
-	}
-
-	return NULL;
-}
-
-/*
-===========
-W_ReadLump
-
-reading lump into temp buffer
-===========
-*/
-static byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, fs_offset_t *lumpsizeptr )
-{
-	size_t	oldpos, size = 0;
-	byte	*buf;
-
-	// assume error
-	if( lumpsizeptr ) *lumpsizeptr = 0;
-
-	// no wads loaded
-	if( !wad || !lump ) return NULL;
-
-	oldpos = FS_Tell( wad->handle ); // don't forget restore original position
-
-	if( FS_Seek( wad->handle, lump->filepos, SEEK_SET ) == -1 )
-	{
-		Con_Reportf( S_ERROR "W_ReadLump: %s is corrupted\n", lump->name );
-		FS_Seek( wad->handle, oldpos, SEEK_SET );
-		return NULL;
-	}
-
-	buf = (byte *)Mem_Malloc( wad->mempool, lump->disksize );
-	size = FS_Read( wad->handle, buf, lump->disksize );
-
-	if( size < lump->disksize )
-	{
-		Con_Reportf( S_WARN "W_ReadLump: %s is probably corrupted\n", lump->name );
-		FS_Seek( wad->handle, oldpos, SEEK_SET );
-		Mem_Free( buf );
-		return NULL;
-	}
-
-	if( lumpsizeptr ) *lumpsizeptr = lump->disksize;
-	FS_Seek( wad->handle, oldpos, SEEK_SET );
-
-	return buf;
-}
-
-/*
-===========
-FS_LoadWADFile
-
-loading lump into the tmp buffer
-===========
-*/
-byte *FS_LoadWADFile( const char *path, fs_offset_t *lumpsizeptr, qboolean gamedironly )
-{
-	searchpath_t	*search;
-	int		index;
-
-	search = FS_FindFile( path, &index, gamedironly );
-	if( search && search->type == SEARCHPATH_WAD )
-		return W_ReadLump( search->wad, &search->wad->lumps[index], lumpsizeptr );
-	return NULL;
-}
-
-int FS_FileTime_WAD( searchpath_t *search, const char *filename )
+static int FS_FileTime_WAD( searchpath_t *search, const char *filename )
 {
 	return search->wad->filetime;
 }
 
-void FS_PrintInfo_WAD( searchpath_t *search, char *dst, size_t size )
+/*
+===========
+FS_PrintInfo_WAD
+
+===========
+*/
+static void FS_PrintInfo_WAD( searchpath_t *search, char *dst, size_t size )
 {
 	Q_snprintf( dst, size, "%s (%i files)", search->wad->filename, search->wad->numlumps );
 }
 
-int FS_FindFile_WAD( searchpath_t *search, const char *path )
+/*
+===========
+FS_FindFile_WAD
+
+===========
+*/
+static int FS_FindFile_WAD( searchpath_t *search, const char *path )
 {
 	dlumpinfo_t	*lump;
 	signed char		type = W_TypeFromExt( path );
@@ -582,10 +475,15 @@ int FS_FindFile_WAD( searchpath_t *search, const char *path )
 	}
 
 	return -1;
-
 }
 
-void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
+/*
+===========
+FS_Search_WAD
+
+===========
+*/
+static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string	wadpattern, wadname, temp2;
 	signed char	type = W_TypeFromExt( pattern );
@@ -661,4 +559,129 @@ void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char *patter
 			*((char *)separator) = 0;
 		}
 	}
+}
+
+/*
+====================
+FS_AddWad_Fullpath
+====================
+*/
+qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags )
+{
+	searchpath_t	*search;
+	wfile_t		*wad = NULL;
+	const char	*ext = COM_FileExtension( wadfile );
+	int		errorcode = WAD_LOAD_COULDNT_OPEN;
+
+	for( search = fs_searchpaths; search; search = search->next )
+	{
+		if( search->type == SEARCHPATH_WAD && !Q_stricmp( search->wad->filename, wadfile ))
+		{
+			if( already_loaded ) *already_loaded = true;
+			return true; // already loaded
+		}
+	}
+
+	if( already_loaded )
+		*already_loaded = false;
+
+	if( !Q_stricmp( ext, "wad" ))
+		wad = W_Open( wadfile, &errorcode );
+
+	if( wad )
+	{
+		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
+		search->wad = wad;
+		search->type = SEARCHPATH_WAD;
+		search->next = fs_searchpaths;
+		search->flags |= flags;
+
+		search->printinfo = FS_PrintInfo_WAD;
+		search->close = FS_Close_WAD;
+		search->openfile = FS_OpenFile_WAD;
+		search->filetime = FS_FileTime_WAD;
+		search->findfile = FS_FindFile_WAD;
+		search->search = FS_Search_WAD;
+
+		fs_searchpaths = search;
+
+		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
+		return true;
+	}
+	else
+	{
+		if( errorcode != WAD_LOAD_NO_FILES )
+			Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
+		return false;
+	}
+}
+
+/*
+=============================================================================
+
+WADSYSTEM PRIVATE ROUTINES
+
+=============================================================================
+*/
+
+/*
+===========
+W_ReadLump
+
+reading lump into temp buffer
+===========
+*/
+static byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, fs_offset_t *lumpsizeptr )
+{
+	size_t	oldpos, size = 0;
+	byte	*buf;
+
+	// assume error
+	if( lumpsizeptr ) *lumpsizeptr = 0;
+
+	// no wads loaded
+	if( !wad || !lump ) return NULL;
+
+	oldpos = FS_Tell( wad->handle ); // don't forget restore original position
+
+	if( FS_Seek( wad->handle, lump->filepos, SEEK_SET ) == -1 )
+	{
+		Con_Reportf( S_ERROR "W_ReadLump: %s is corrupted\n", lump->name );
+		FS_Seek( wad->handle, oldpos, SEEK_SET );
+		return NULL;
+	}
+
+	buf = (byte *)Mem_Malloc( wad->mempool, lump->disksize );
+	size = FS_Read( wad->handle, buf, lump->disksize );
+
+	if( size < lump->disksize )
+	{
+		Con_Reportf( S_WARN "W_ReadLump: %s is probably corrupted\n", lump->name );
+		FS_Seek( wad->handle, oldpos, SEEK_SET );
+		Mem_Free( buf );
+		return NULL;
+	}
+
+	if( lumpsizeptr ) *lumpsizeptr = lump->disksize;
+	FS_Seek( wad->handle, oldpos, SEEK_SET );
+
+	return buf;
+}
+
+/*
+===========
+FS_LoadWADFile
+
+loading lump into the tmp buffer
+===========
+*/
+byte *FS_LoadWADFile( const char *path, fs_offset_t *lumpsizeptr, qboolean gamedironly )
+{
+	searchpath_t	*search;
+	int		index;
+
+	search = FS_FindFile( path, &index, gamedironly );
+	if( search && search->type == SEARCHPATH_WAD )
+		return W_ReadLump( search->wad, &search->wad->lumps[index], lumpsizeptr );
+	return NULL;
 }
