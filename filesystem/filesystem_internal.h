@@ -223,12 +223,8 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 //
 // dir.c
 //
-void	FS_PrintInfo_DIR( searchpath_t *search, char *dst, size_t size );
-void	FS_Close_DIR( searchpath_t *search );
-file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, const char *mode, int pack_ind );
-int		FS_FileTime_DIR( searchpath_t *search, const char *filename );
-int		FS_FindFile_DIR( searchpath_t *search, const char *path );
-void	FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive );
+qboolean FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags );
+void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags );
 
 #ifdef __cplusplus
 }
