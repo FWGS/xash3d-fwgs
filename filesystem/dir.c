@@ -27,14 +27,17 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "common/com_strings.h"
 
-void FS_Close_DIR( searchpath_t *search ) {}
+static void FS_Close_DIR( searchpath_t *search )
+{
 
-void FS_PrintInfo_DIR( searchpath_t *search, char *dst, size_t size )
+}
+
+static void FS_PrintInfo_DIR( searchpath_t *search, char *dst, size_t size )
 {
 	Q_strncpy( dst, search->filename, size );
 }
 
-int FS_FindFile_DIR( searchpath_t *search, const char *path )
+static int FS_FindFile_DIR( searchpath_t *search, const char *path )
 {
 	char netpath[MAX_SYSPATH];
 
@@ -46,7 +49,7 @@ int FS_FindFile_DIR( searchpath_t *search, const char *path )
 	return -1;
 }
 
-void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
+static void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string netpath, temp;
 	stringlist_t dirlist;
@@ -95,7 +98,7 @@ void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char *patter
 	Mem_Free( basepath );
 }
 
-int FS_FileTime_DIR( searchpath_t *search, const char *filename )
+static int FS_FileTime_DIR( searchpath_t *search, const char *filename )
 {
 	char path[MAX_SYSPATH];
 
@@ -103,10 +106,53 @@ int FS_FileTime_DIR( searchpath_t *search, const char *filename )
 	return FS_SysFileTime( path );
 }
 
-file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
+static file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	char path[MAX_SYSPATH];
 
 	Q_snprintf( path, sizeof( path ), "%s%s", search->filename, filename );
 	return FS_SysOpen( path, mode );
+}
+
+void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags )
+{
+	memset( search, 0, sizeof( searchpath_t ));
+
+	Q_strncpy( search->filename, path, sizeof( search->filename ));
+	search->type = SEARCHPATH_PLAIN;
+	search->flags = flags;
+	search->printinfo = FS_PrintInfo_DIR;
+	search->close = FS_Close_DIR;
+	search->openfile = FS_OpenFile_DIR;
+	search->filetime = FS_FileTime_DIR;
+	search->findfile = FS_FindFile_DIR;
+	search->search = FS_Search_DIR;
+}
+
+qboolean FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags )
+{
+	searchpath_t *search;
+
+	for( search = fs_searchpaths; search; search = search->next )
+	{
+		if( search->type == SEARCHPATH_PLAIN && !Q_stricmp( search->filename, path ))
+		{
+			if( already_loaded )
+				*already_loaded = true;
+			return true;
+		}
+	}
+
+	if( already_loaded )
+		*already_loaded = false;
+
+	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
+	FS_InitDirectorySearchpath( search, path, flags );
+
+	search->next = fs_searchpaths;
+	fs_searchpaths = search;
+
+	Con_Printf( "Adding directory: %s\n", path );
+
+	return true;
 }

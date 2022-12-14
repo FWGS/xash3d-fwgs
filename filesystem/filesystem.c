@@ -464,20 +464,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 
 	// add the directory to the search path
 	// (unpacked files have the priority over packed files)
-	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
-	Q_strncpy( search->filename, dir, sizeof ( search->filename ));
-	search->next = fs_searchpaths;
-	search->type = SEARCHPATH_PLAIN;
-	search->flags = flags;
-
-	search->printinfo = FS_PrintInfo_DIR;
-	search->close = FS_Close_DIR;
-	search->openfile = FS_OpenFile_DIR;
-	search->filetime = FS_FileTime_DIR;
-	search->findfile = FS_FindFile_DIR;
-	search->search = FS_Search_DIR;
-
-	fs_searchpaths = search;
+	FS_AddDir_Fullpath( dir, NULL, flags );
 }
 
 /*
@@ -1155,7 +1142,7 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	{
 		if( !Q_strnicmp( FI.games[i]->gamefolder, dir, 64 ))
 		{
-			Con_Reportf( "FS_AddGameHierarchy: %d %s %s\n", i, FI.games[i]->gamefolder, FI.games[i]->basedir );
+			Con_Reportf( "FS_AddGameHierarchy: adding recursive basedir %s\n", FI.games[i]->basedir );
 			if( !FI.games[i]->added && Q_stricmp( FI.games[i]->gamefolder, FI.games[i]->basedir ))
 			{
 				FI.games[i]->added = true;
@@ -1211,6 +1198,7 @@ void FS_Rescan( void )
 	if( COM_CheckString( str ))
 		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
 #endif
+
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
 		FS_AddGameHierarchy( GI->basedir, 0 );
@@ -1821,29 +1809,17 @@ searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly )
 
 	if( fs_ext_path )
 	{
-		char	netpath[MAX_SYSPATH];
+		char netpath[MAX_SYSPATH], dirpath[MAX_SYSPATH];
 
-		// clear searchpath
-		search = &fs_directpath;
-		memset( search, 0, sizeof( searchpath_t ));
-
-		// root folder has a more priority than netpath
-		Q_strncpy( search->filename, fs_rootdir, sizeof( search->filename ));
-		Q_strcat( search->filename, PATH_SPLITTER );
-		Q_snprintf( netpath, sizeof( netpath ), "%s%s", search->filename, name );
-
+		Q_snprintf( dirpath, sizeof( dirpath ), "%s" PATH_SPLITTER, fs_rootdir );
+		Q_snprintf( netpath, sizeof( netpath ), "%s%s", dirpath, name );
 		if( FS_SysFileExists( netpath, true ))
 		{
-			search->printinfo = FS_PrintInfo_DIR;
-			search->close = FS_Close_DIR;
-			search->openfile = FS_OpenFile_DIR;
-			search->filetime = FS_FileTime_DIR;
-			search->findfile = FS_FindFile_DIR;
-			search->search = FS_Search_DIR;
+			FS_InitDirectorySearchpath( &fs_directpath, dirpath, 0 );
 
 			if( index != NULL )
 				*index = -1;
-			return search;
+			return &fs_directpath;
 		}
 	}
 
