@@ -120,7 +120,6 @@ typedef struct zipfile_s
 
 struct zip_s
 {
-	string		filename;
 	int		handle;
 	int		numfiles;
 	time_t		filetime;
@@ -381,7 +380,6 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		info[i].offset = info[i].offset + header.filename_len + header.extrafield_len + sizeof( header );
 	}
 
-	Q_strncpy( zip->filename, zipfile, sizeof( zip->filename ) );
 	zip->filetime = FS_SysFileTime( zipfile );
 	zip->numfiles = numpackfiles;
 	zip->files = info;
@@ -419,7 +417,7 @@ file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char 
 		return NULL;
 	}
 
-	return FS_OpenHandle( search->zip->filename, search->zip->handle, pfile->offset, pfile->size );
+	return FS_OpenHandle( search->filename, search->zip->handle, pfile->offset, pfile->size );
 }
 
 /*
@@ -586,7 +584,7 @@ FS_PrintInfo_ZIP
 */
 void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
 {
-	Q_snprintf( dst, size, "%s (%i files)", search->zip->filename, search->zip->numfiles );
+	Q_snprintf( dst, size, "%s (%i files)", search->filename, search->zip->numfiles );
 }
 
 /*
@@ -683,7 +681,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 
 	for( search = fs_searchpaths; search; search = search->next )
 	{
-		if( search->type == SEARCHPATH_ZIP && !Q_stricmp( search->zip->filename, zipfile ))
+		if( search->type == SEARCHPATH_ZIP && !Q_stricmp( search->filename, zipfile ))
 		{
 			if( already_loaded ) *already_loaded = true;
 			return true; // already loaded
@@ -701,10 +699,11 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 		int i;
 
 		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ) );
+		Q_strncpy( search->filename, zipfile, sizeof( search->filename ));
 		search->zip = zip;
 		search->type = SEARCHPATH_ZIP;
 		search->next = fs_searchpaths;
-		search->flags |= flags;
+		search->flags = flags;
 
 		search->pfnPrintInfo = FS_PrintInfo_ZIP;
 		search->pfnClose = FS_Close_ZIP;

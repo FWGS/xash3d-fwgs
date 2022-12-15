@@ -71,7 +71,6 @@ typedef struct
 
 struct wfile_s
 {
-	string		filename;
 	int		infotableofs;
 	int		numlumps;
 	poolhandle_t mempool;			// W_ReadLump temp buffers
@@ -204,7 +203,7 @@ Add a file to the list of files contained into a package
 and sort LAT in alpha-bethical order
 ====================
 */
-static dlumpinfo_t *W_AddFileToWad( const char *name, wfile_t *wad, dlumpinfo_t *newlump )
+static dlumpinfo_t *W_AddFileToWad( const char *wadfile, const char *name, wfile_t *wad, dlumpinfo_t *newlump )
 {
 	int		left, right;
 	dlumpinfo_t	*plump;
@@ -224,7 +223,7 @@ static dlumpinfo_t *W_AddFileToWad( const char *name, wfile_t *wad, dlumpinfo_t 
 				diff = 1;
 			else if( wad->lumps[middle].type > newlump->type )
 				diff = -1;
-			else Con_Reportf( S_WARN "Wad %s contains the file %s several times\n", wad->filename, name );
+			else Con_Reportf( S_WARN "Wad %s contains the file %s several times\n", wadfile, name );
 		}
 
 		// If we're too far in the list
@@ -313,7 +312,6 @@ static wfile_t *W_Open( const char *filename, int *error )
 	}
 
 	// copy wad name
-	Q_strncpy( wad->filename, filename, sizeof( wad->filename ));
 	wad->filetime = FS_SysFileTime( filename );
 	wad->mempool = Mem_AllocPool( filename );
 
@@ -366,7 +364,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( FS_Read( wad->handle, srclumps, lat_size ) != lat_size )
 	{
-		Con_Reportf( S_ERROR "W_ReadLumpTable: %s has corrupted lump allocation table\n", wad->filename );
+		Con_Reportf( S_ERROR "W_ReadLumpTable: %s has corrupted lump allocation table\n", filename );
 		if( error ) *error = WAD_LOAD_CORRUPTED;
 		Mem_Free( srclumps );
 		FS_CloseWAD( wad );
@@ -394,7 +392,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 		if( srclumps[i].type == 68 && !Q_stricmp( srclumps[i].name, "conchars" ))
 			srclumps[i].type = TYP_GFXPIC;
 
-		W_AddFileToWad( name, wad, &srclumps[i] );
+		W_AddFileToWad( filename, name, wad, &srclumps[i] );
 	}
 
 	// release source lumps
@@ -423,7 +421,7 @@ FS_PrintInfo_WAD
 */
 static void FS_PrintInfo_WAD( searchpath_t *search, char *dst, size_t size )
 {
-	Q_snprintf( dst, size, "%s (%i files)", search->wad->filename, search->wad->numlumps );
+	Q_snprintf( dst, size, "%s (%i files)", search->filename, search->wad->numlumps );
 }
 
 /*
@@ -456,7 +454,7 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path )
 	}
 
 	// make wadname from wad fullpath
-	COM_FileBase( search->wad->filename, shortname );
+	COM_FileBase( search->filename, shortname );
 	COM_DefaultExtension( shortname, ".wad" );
 
 	// quick reject by wadname
@@ -509,7 +507,7 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 	}
 
 	// make wadname from wad fullpath
-	COM_FileBase( search->wad->filename, temp2 );
+	COM_FileBase( search->filename, temp2 );
 	COM_DefaultExtension( temp2, ".wad" );
 
 	// quick reject by wadname
@@ -575,7 +573,7 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 
 	for( search = fs_searchpaths; search; search = search->next )
 	{
-		if( search->type == SEARCHPATH_WAD && !Q_stricmp( search->wad->filename, wadfile ))
+		if( search->type == SEARCHPATH_WAD && !Q_stricmp( search->filename, wadfile ))
 		{
 			if( already_loaded ) *already_loaded = true;
 			return true; // already loaded
@@ -591,10 +589,11 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 	if( wad )
 	{
 		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
+		Q_strncpy( search->filename, wadfile, sizeof( search->filename ));
 		search->wad = wad;
 		search->type = SEARCHPATH_WAD;
 		search->next = fs_searchpaths;
-		search->flags |= flags;
+		search->flags = flags;
 
 		search->pfnPrintInfo = FS_PrintInfo_WAD;
 		search->pfnClose = FS_Close_WAD;
@@ -608,12 +607,10 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
 		return true;
 	}
-	else
-	{
-		if( errorcode != WAD_LOAD_NO_FILES )
-			Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
-		return false;
-	}
+
+	if( errorcode != WAD_LOAD_NO_FILES )
+		Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
+	return false;
 }
 
 /*
