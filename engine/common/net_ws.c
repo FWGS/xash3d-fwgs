@@ -940,37 +940,53 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 NET_CompareAdrSort
 
 Network address sorting comparator
+guaranteed to return -1, 0 or 1
 ====================
 */
 int NET_CompareAdrSort( const void *_a, const void *_b )
 {
-	const netadr_t *a = _a;
-	const netadr_t *b = _b;
-	int portdiff;
+	const netadr_t *a = _a, *b = _b;
+	int porta, portb, portdiff, addrdiff;
 
 	if( a->type6 != b->type6 )
-		return (int)a->type6 - (int)b->type6;
+		return bound( -1, (int)a->type6 - (int)b->type6, 1 );
 
-	portdiff = (int)a->port - (int)b->port;
+	porta = ntohs( a->port );
+	portb = ntohs( b->port );
+	if( porta < portb )
+		portdiff = -1;
+	else if( porta > portb )
+		portdiff = 1;
+	else
+		portdiff = 0;
 
 	switch( a->type6 )
 	{
 	case NA_IP6:
-		return NET_NetadrIP6Compare( a, b );
+		if(( addrdiff = NET_NetadrIP6Compare( a, b )))
+			return addrdiff;
+		// fallthrough
 	case NA_MULTICAST_IP6:
 		return portdiff;
 	}
 
+	// don't check for full type earlier, as it's value depends on v6 address
 	if( a->type != b->type )
-		return (int)a->type - (int)b->type;
+		return bound( -1, (int)a->type - (int)b->type, 1 );
 
 	switch( a->type )
 	{
 	case NA_IP:
-		return memcmp( a->ip, b->ip, sizeof( a->ip ));
-	case NA_IPX:
-		return memcmp( a->ipx, b->ipx, sizeof( a->ipx ));
+		if(( addrdiff = memcmp( a->ip, b->ip, sizeof( a->ipx ))))
+			return addrdiff;
+		// fallthrough
 	case NA_BROADCAST:
+		return portdiff;
+
+	case NA_IPX:
+		if(( addrdiff = memcmp( a->ipx, b->ipx, sizeof( a->ipx ))))
+			return addrdiff;
+		// fallthrough
 	case NA_BROADCAST_IPX:
 		return portdiff;
 	}
