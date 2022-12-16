@@ -315,8 +315,6 @@ FS_Close_PAK
 */
 static void FS_Close_PAK( searchpath_t *search )
 {
-	if( search->pack->files )
-		Mem_Free( search->pack->files );
 	if( search->pack->handle >= 0 )
 		close( search->pack->handle );
 	Mem_Free( search->pack );
