@@ -496,22 +496,6 @@ int Q_sprintf( char *buffer, const char *format, ... )
 	return result;
 }
 
-char *Q_strpbrk(const char *s, const char *accept)
-{
-	for( ; *s; s++ )
-	{
-		const char *k;
-
-		for( k = accept; *k; k++ )
-		{
-			if( *s == *k )
-				return (char*)s;
-		}
-	}
-
-	return NULL;
-}
-
 void COM_StripColors( const char *in, char *out )
 {
 	while ( *in )
