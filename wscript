@@ -248,14 +248,6 @@ def configure(conf):
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
 
-	# check if we can use C99 stdint
-	if conf.check_cc(header_name='stdint.h', mandatory=False):
-		# use system
-		conf.define('STDINT_H', 'stdint.h')
-	else:
-		# include portable stdint by Paul Hsich
-		conf.define('STDINT_H', 'pstdint.h')
-
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
@@ -270,6 +262,15 @@ def configure(conf):
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
 
+	# check if we can use C99 stdint
+	conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
+
+	# check if we can use alloca.h or malloc.h
+	if conf.check_cc(header_name='alloca.h', mandatory=False):
+		conf.define('ALLOCA_H', 'alloca.h')
+	elif conf.check_cc(header_name='malloc.h', mandatory=False):
+		conf.define('ALLOCA_H', 'malloc.h')
+
 	if conf.env.DEST_OS != 'win32':
 		conf.check_cc(lib='dl', mandatory=False)
 
@@ -283,16 +284,7 @@ def configure(conf):
 		# Don't check them more than once, to save time
 		# Usually, they are always available
 		# but we need them in uselib
-		a = [
-			'user32',
-			'shell32',
-			'gdi32',
-			'advapi32',
-			'dbghelp',
-			'psapi',
-			'ws2_32'
-		]
-
+		a = [ 'user32', 'shell32', 'gdi32', 'advapi32', 'dbghelp', 'psapi', 'ws2_32' ]
 		if conf.env.COMPILER_CC == 'msvc':
 			for i in a:
 				conf.start_msg('Checking for MSVC library')
@@ -335,18 +327,17 @@ int main(void) { return 0; }''',
 	if conf.env.DEST_OS != 'win32':
 		strcasestr_frag = '''#include <string.h>
 int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
+		strchrnul_frag  = '''#include <string.h>
+int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 
-		if conf.check_cc(msg='Checking for strcasestr', mandatory=False, fragment=strcasestr_frag):
-			conf.define('HAVE_STRCASESTR', 1)
-		elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=strcasestr_frag, defines='_GNU_SOURCE=1'):
-			conf.define('_GNU_SOURCE', 1)
-			conf.define('HAVE_STRCASESTR', 1)
-
-	# check if we can use alloca.h or malloc.h
-	if conf.check_cc(header_name='alloca.h', mandatory=False):
-		conf.define('ALLOCA_H', 'alloca.h')
-	elif conf.check_cc(header_name='malloc.h', mandatory=False):
-		conf.define('ALLOCA_H', 'malloc.h')
+		def check_gnu_function(frag, msg, define):
+			if conf.check_cc(msg=msg, mandatory=False, fragment=frag):
+				conf.define(define, 1)
+			elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=frag, defines='_GNU_SOURCE=1'):
+				conf.define(define, 1)
+				conf.define('_GNU_SOURCE', 1)
+		check_gnu_function(strcasestr_frag, 'Checking for strcasestr', 'HAVE_STRCASESTR')
+		check_gnu_function(strchrnul_frag, 'Checking for strchrnul', 'HAVE_STRCHRNUL')
 
 	# indicate if we are packaging for Linux/BSD
 	if conf.options.PACKAGING:
