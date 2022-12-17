@@ -83,7 +83,7 @@ const char *Q_timestamp( int format );
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
 int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
-char *Q_strpbrk(const char *s, const char *accept);
+#define Q_strpbrk strpbrk
 void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
@@ -160,6 +160,20 @@ static inline char *Q_stristr( const char *s1, const char *s2 )
 #else // defined( HAVE_STRCASESTR )
 char *Q_stristr( const char *s1, const char *s2 );
 #endif // defined( HAVE_STRCASESTR )
+
+#if defined( HAVE_STRCHRNUL )
+#define Q_strchrnul strchrnul
+#else
+static inline const char *Q_strchrnul( const char *s, int c )
+{
+	const char *p = Q_strchr( s, c );
+
+	if( p )
+		return p;
+
+	return s + Q_strlen( s );
+}
+#endif
 
 #ifdef __cplusplus
 }
