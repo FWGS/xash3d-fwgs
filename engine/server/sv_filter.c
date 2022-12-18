@@ -94,6 +94,7 @@ static void SV_BanID_f( void )
 	const char *id = Cmd_Argv( 2 );
 	sv_client_t *cl = NULL;
 	cidfilter_t *filter;
+	char	buf[MAX_VA_STRING];
 
 	if( time )
 		time = host.realtime + time * 60.0f;
@@ -159,7 +160,10 @@ static void SV_BanID_f( void )
 	cidfilter = filter;
 
 	if( cl && !Q_stricmp( Cmd_Argv( Cmd_Argc() - 1 ), "kick" ))
-		Cbuf_AddText( va( "kick #%d \"Kicked and banned\"\n", cl->userid ));
+	{
+		Q_snprintf( buf, sizeof( buf ), "kick #%d \"Kicked and banned\"\n", cl->userid );
+		Cbuf_AddText( buf );
+	}
 }
 
 static void SV_ListID_f( void )

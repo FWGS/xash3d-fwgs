@@ -246,6 +246,7 @@ void SV_Maps_f( void )
 	const char *argStr = Cmd_Argv( 1 ); // Substr
 	int nummaps;
 	search_t *mapList;
+	char buf[MAX_VA_STRING];
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -253,7 +254,8 @@ void SV_Maps_f( void )
 		return;
 	}
 
-	mapList = FS_Search( va( "maps/*%s*.bsp", argStr ), true, true );
+	Q_snprintf( buf, sizeof( buf ), "maps/*%s*.bsp", argStr );
+	mapList = FS_Search( buf, true, true );
 
 	if( !mapList )
 	{
@@ -385,6 +387,8 @@ SV_HazardCourse_f
 */
 void SV_HazardCourse_f( void )
 {
+	char	buf[MAX_VA_STRING];
+
 	if( Cmd_Argc() != 1 )
 	{
 		Con_Printf( S_USAGE "hazardcourse\n" );
@@ -392,9 +396,11 @@ void SV_HazardCourse_f( void )
 	}
 
 	// special case for Gunman Chronicles: playing avi-file
-	if( FS_FileExists( va( "media/%s.avi", GI->trainmap ), false ))
+	Q_snprintf( buf, sizeof( buf ), "media/%s.avi", GI->trainmap );
+	if( FS_FileExists( buf, false ))
 	{
-		Cbuf_AddText( va( "wait; movie %s\n", GI->trainmap ));
+		Q_snprintf( buf, sizeof( buf ), "wait; movie %s\n", GI->trainmap );
+		Cbuf_AddText( buf );
 		Host_EndGame( true, DEFAULT_ENDGAME_MESSAGE );
 	}
 	else COM_NewGame( GI->trainmap );
@@ -477,6 +483,8 @@ SV_DeleteSave_f
 */
 void SV_DeleteSave_f( void )
 {
+	char	buf[MAX_VA_STRING];
+
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "killsave <name>\n" );
@@ -484,8 +492,10 @@ void SV_DeleteSave_f( void )
 	}
 
 	// delete save and saveshot
-	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.sav", Cmd_Argv( 1 )));
-	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.bmp", Cmd_Argv( 1 )));
+	Q_snprintf( buf, sizeof( buf ), DEFAULT_SAVE_DIRECTORY "%s.sav", Cmd_Argv( 1 ));
+	FS_Delete( buf );
+	Q_snprintf( buf, sizeof( buf ), DEFAULT_SAVE_DIRECTORY "%s.bmp", Cmd_Argv( 1 ));
+	FS_Delete( buf );
 }
 
 /*

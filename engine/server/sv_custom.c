@@ -289,6 +289,7 @@ void SV_SendConsistencyList( sv_client_t *cl, sizebuf_t *msg )
 qboolean SV_CheckFile( sizebuf_t *msg, const char *filename )
 {
 	resource_t	p;
+	char	buf[MAX_VA_STRING];
 
 	memset( &p, 0, sizeof( resource_t ));
 
@@ -304,7 +305,8 @@ qboolean SV_CheckFile( sizebuf_t *msg, const char *filename )
 		return true;
 
 	MSG_BeginServerCmd( msg, svc_stufftext );
-	MSG_WriteString( msg, va( "upload \"!MD5%s\"\n", MD5_Print( p.rgucMD5_hash )));
+	Q_snprintf( buf, sizeof( buf ), "upload \"!MD5%s\"\n", MD5_Print( p.rgucMD5_hash ) );
+	MSG_WriteString( msg, buf );
 
 	return false;
 }

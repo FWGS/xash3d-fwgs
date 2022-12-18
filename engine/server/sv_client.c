@@ -432,7 +432,7 @@ void SV_ConnectClient( netadr_t from )
 
 	// build protinfo answer
 	protinfo[0] = '\0';
-	Info_SetValueForKey( protinfo, "ext", va( "%d", newcl->extensions ), sizeof( protinfo ) );
+	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
 
 	// send the connect packet to the client
 	Netchan_OutOfBandPrint( NS_SERVER, from, "client_connect %s", protinfo );
@@ -875,13 +875,13 @@ void SV_Info( netadr_t from, int protocolVersion )
 		SV_GetPlayerCount( &count, &bots );
 
 		// a1ba: send protocol version to distinguish old engine and new
-		Info_SetValueForKey( s, "p", va( "%i", PROTOCOL_VERSION ), sizeof( s ));
+		Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", PROTOCOL_VERSION );
 		Info_SetValueForKey( s, "map", sv.name, sizeof( s ));
 		Info_SetValueForKey( s, "dm", svgame.globals->deathmatch ? "1" : "0", sizeof( s ));
 		Info_SetValueForKey( s, "team", svgame.globals->teamplay ? "1" : "0", sizeof( s ));
 		Info_SetValueForKey( s, "coop", svgame.globals->coop ? "1" : "0", sizeof( s ));
-		Info_SetValueForKey( s, "numcl", va( "%i", count ), sizeof( s ));
-		Info_SetValueForKey( s, "maxcl", va( "%i", svs.maxclients ), sizeof( s ));
+		Info_SetValueForKeyf( s, "numcl", sizeof( s ), "%i", count );
+		Info_SetValueForKeyf( s, "maxcl", sizeof( s ), "%i", svs.maxclients );
 		Info_SetValueForKey( s, "gamedir", GI->gamefolder, sizeof( s ));
 		Info_SetValueForKey( s, "password", have_password ? "1" : "0", sizeof( s ));
 
@@ -980,8 +980,8 @@ void SV_BuildNetAnswer( netadr_t from )
 		string[0] = '\0';
 		Info_SetValueForKey( string, "hostname", hostname.string, MAX_INFO_STRING );
 		Info_SetValueForKey( string, "gamedir", GI->gamefolder, MAX_INFO_STRING );
-		Info_SetValueForKey( string, "current", va( "%i", count ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "max", va( "%i", svs.maxclients ), MAX_INFO_STRING );
+		Info_SetValueForKeyf( string, "current", MAX_INFO_STRING, "%i", count );
+		Info_SetValueForKeyf( string, "max", MAX_INFO_STRING, "%i", svs.maxclients );
 		Info_SetValueForKey( string, "map", sv.name, MAX_INFO_STRING );
 
 		// send serverinfo
@@ -1349,6 +1349,7 @@ void SV_PutClientInServer( sv_client_t *cl )
 	static byte    	msg_buf[MAX_INIT_MSG + 0x200];	// MAX_INIT_MSG + some space
 	edict_t		*ent = cl->edict;
 	sizebuf_t		msg;
+	char			buf[MAX_VA_STRING];
 
 	MSG_Init( &msg, "Spawn", msg_buf, sizeof( msg_buf ));
 
@@ -1420,7 +1421,8 @@ void SV_PutClientInServer( sv_client_t *cl )
 	if( svgame.globals->cdAudioTrack )
 	{
 		MSG_BeginServerCmd( &msg, svc_stufftext );
-		MSG_WriteString( &msg, va( "cd loop %3d\n", svgame.globals->cdAudioTrack ));
+		Q_snprintf( buf, sizeof( buf ), "cd loop %3d\n", svgame.globals->cdAudioTrack );
+		MSG_WriteString( &msg, buf );
 		svgame.globals->cdAudioTrack = 0;
 	}
 
@@ -1631,6 +1633,7 @@ static qboolean SV_New_f( sv_client_t *cl )
 	sv_client_t	*cur;
 	sizebuf_t		msg;
 	int		i;
+	char		buf[MAX_VA_STRING];
 
 	memset( msg_buf, 0, sizeof( msg_buf ));
 	MSG_Init( &msg, "New", msg_buf, sizeof( msg_buf ));
@@ -1660,7 +1663,8 @@ static qboolean SV_New_f( sv_client_t *cl )
 
 	// server info string
 	MSG_BeginServerCmd( &msg, svc_stufftext );
-	MSG_WriteString( &msg, va( "fullserverinfo \"%s\"\n", SV_Serverinfo( )));
+	Q_snprintf( buf, sizeof( buf ), "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
+	MSG_WriteString( &msg, buf );
 
 	// collect the info about all the players and send to me
 	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
@@ -2736,19 +2740,26 @@ SV_EntSendVars
 */
 static void SV_EntSendVars( sv_client_t *cl, edict_t *ent )
 {
+	char buf[MAX_VA_STRING];
+
 	if( !ent )
 		return;
 
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_name \"%s\"\n", STRING( ent->v.targetname ) ));
+	Q_snprintf( buf, sizeof( buf ), "set ent_last_name \"%s\"\n", STRING( ent->v.targetname ));
+	MSG_WriteString( &cl->netchan.message, buf );
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_num %i\n", NUM_FOR_EDICT( ent ) ));
+	Q_snprintf( buf, sizeof( buf ), "set ent_last_num %i\n", NUM_FOR_EDICT( ent ));
+	MSG_WriteString( &cl->netchan.message, buf );
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_inst !%i_%i\n", NUM_FOR_EDICT( ent ), ent->serialnumber ));
+	Q_snprintf( buf, sizeof( buf ), "set ent_last_inst !%i_%i\n", NUM_FOR_EDICT( ent ), ent->serialnumber );
+	MSG_WriteString( &cl->netchan.message, buf );
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_origin \"%f %f %f\"\n", ent->v.origin[0], ent->v.origin[1], ent->v.origin[2]));
+	Q_snprintf( buf, sizeof( buf ), "set ent_last_origin \"%f %f %f\"\n", ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+	MSG_WriteString( &cl->netchan.message, buf );
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_class \"%s\"\n", STRING( ent->v.classname )));
+	Q_snprintf( buf, sizeof( buf ), "set ent_last_class \"%s\"\n", STRING( ent->v.classname ) );
+	MSG_WriteString( &cl->netchan.message, buf );
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
 	MSG_WriteString( &cl->netchan.message, "ent_getvars_cb\n" ); // why do we need this?
 }

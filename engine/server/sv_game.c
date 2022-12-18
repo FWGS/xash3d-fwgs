@@ -874,11 +874,13 @@ void SV_WriteEntityPatch( const char *filename )
 	if( lumplen >= 10 )
 	{
 		char	*entities = NULL;
+		char	buf[MAX_VA_STRING];
 
 		FS_Seek( f, lumpofs, SEEK_SET );
 		entities = (char *)Z_Calloc( lumplen + 1 );
 		FS_Read( f, entities, lumplen );
-		FS_WriteFile( va( "maps/%s.ent", filename ), entities, lumplen );
+		Q_snprintf( buf, sizeof( buf ), "maps/%s.ent", filename );
+		FS_WriteFile( buf, entities, lumplen );
 		Con_Printf( "Write 'maps/%s.ent'\n", filename );
 		Mem_Free( entities );
 	}
@@ -2207,8 +2209,11 @@ SV_StartMusic
 */
 void SV_StartMusic( const char *curtrack, const char *looptrack, int position )
 {
+	char buf[MAX_VA_STRING];
+
 	MSG_BeginServerCmd( &sv.multicast, svc_stufftext );
-	MSG_WriteString( &sv.multicast, va( "music \"%s\" \"%s\" %d\n", curtrack, looptrack, position ));
+	Q_snprintf( buf, sizeof( buf ), "music \"%s\" \"%s\" %d\n", curtrack, looptrack, position );
+	MSG_WriteString( &sv.multicast, buf );
 	SV_Multicast( MSG_ALL, NULL, NULL, false, false );
 }
 
@@ -3765,7 +3770,7 @@ void GAME_EXPORT pfnSetClientMaxspeed( const edict_t *pEdict, float fNewMaxspeed
 		return;
 
 	fNewMaxspeed = bound( -svgame.movevars.maxspeed, fNewMaxspeed, svgame.movevars.maxspeed );
-	Info_SetValueForKey( cl->physinfo, "maxspd", va( "%.f", fNewMaxspeed ), MAX_INFO_STRING );
+	Info_SetValueForKeyf( cl->physinfo, "maxspd", MAX_INFO_STRING, "%.f", fNewMaxspeed );
 	cl->edict->v.maxspeed = fNewMaxspeed;
 }
 
@@ -4781,6 +4786,7 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 	char		*classname = NULL;
 	char		token[2048];
 	vec3_t		origin;
+	char		buf[MAX_VA_STRING];
 
 	// go through all the dictionary pairs
 	while( 1 )
@@ -4886,7 +4892,10 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			pkvd[i].szKeyName = copystring( "angles" );
 
 			if( flYawAngle >= 0.0f )
-				pkvd[i].szValue = copystring( va( "%g %g %g", ent->v.angles[0], flYawAngle, ent->v.angles[2] ));
+			{
+				Q_snprintf( buf, sizeof( buf ), "%g %g %g", ent->v.angles[0], flYawAngle, ent->v.angles[2] );
+				pkvd[i].szValue = copystring( buf );
+			}
 			else if( flYawAngle == -1.0f )
 				pkvd[i].szValue = copystring( "-90 0 0" );
 			else if( flYawAngle == -2.0f )
@@ -4901,7 +4910,8 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 			COM_ParseVector( &pstart, origin, 3 );
 			Mem_Free( pkvd[i].szValue );	// release old value, so we don't need these
-			pkvd[i].szValue = copystring( va( "%g %g %g", origin[0], origin[1], origin[2] - 16.0f ));
+			Q_snprintf( buf, sizeof( buf ), "%g %g %g", origin[0], origin[1], origin[2] - 16.0f );
+			pkvd[i].szValue = copystring( buf );
 		}
 #endif
 		if( !Q_strcmp( pkvd[i].szKeyName, "light" ))

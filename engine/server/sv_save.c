@@ -1296,15 +1296,15 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 	int		tokenCount, tokenSize;
 	int		i, size, id, version;
 	sv_client_t	*cl = svs.clients;
-	char		name[MAX_QPATH];
 	soundlist_t	soundEntry;
 	decallist_t	decalEntry;
 	SAVE_CLIENT	header;
 	file_t		*pFile;
+	char		buf[MAX_VA_STRING];
 
-	Q_snprintf( name, sizeof( name ), DEFAULT_SAVE_DIRECTORY "%s.HL2", level );
+	Q_snprintf( buf, sizeof( buf ), DEFAULT_SAVE_DIRECTORY "%s.HL2", level );
 
-	if(( pFile = FS_Open( name, "rb", true )) == NULL )
+	if(( pFile = FS_Open( buf, "rb", true )) == NULL )
 		return; // something bad is happens
 
 	FS_Read( pFile, &id, sizeof( id ));
@@ -1389,7 +1389,8 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 		{
 			// NOTE: music is automatically goes across transition, never restore it on changelevel
 			MSG_BeginServerCmd( &sv.signon, svc_stufftext );
-			MSG_WriteString( &sv.signon, va( "music \"%s\" \"%s\" %i\n", header.introTrack, header.mainTrack, header.trackPosition ));
+			Q_snprintf( buf, sizeof( buf ), "music \"%s\" \"%s\" %i\n", header.introTrack, header.mainTrack, header.trackPosition );
+			MSG_WriteString( &sv.signon, buf );
 		}
 
 		// don't go camera across the levels
@@ -1702,6 +1703,7 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	SAVERESTOREDATA	*pSaveData;
 	GAME_HEADER	gameHeader;
 	file_t		*pFile;
+	char		buf[MAX_VA_STRING];
 
 	pSaveData = SaveGameState( false );
 	if( !pSaveData ) return false;
@@ -1739,7 +1741,8 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	}
 
 	// pending the preview image for savegame
-	Cbuf_AddText( va( "saveshot \"%s\"\n", pSaveName ));
+	Q_snprintf( buf, sizeof( buf ), "saveshot \"%s\"\n", pSaveName );
+	Cbuf_AddText( buf );
 	Con_Printf( "Saving game to %s...\n", name );
 
 	version = SAVEGAME_VERSION;
@@ -2171,7 +2174,7 @@ SV_SaveGame
 */
 qboolean SV_SaveGame( const char *pName )
 {
-	char   comment[80];
+	char   comment[80], buf[MAX_VA_STRING];
 	string savename;
 
 	if( !COM_CheckString( pName ))
@@ -2189,8 +2192,8 @@ qboolean SV_SaveGame( const char *pName )
 		for( n = 0; n < 1000; n++ )
 		{
 			Q_snprintf( savename, sizeof( savename ), "save%03d", n );
-
-			if( !FS_FileExists( va( DEFAULT_SAVE_DIRECTORY "%s.sav", savename ), true ))
+			Q_snprintf( buf, sizeof( buf ), DEFAULT_SAVE_DIRECTORY "%s.sav", savename );
+			if( !FS_FileExists( buf, true ))
 				break;
 		}
 
@@ -2204,7 +2207,8 @@ qboolean SV_SaveGame( const char *pName )
 
 #if !XASH_DEDICATED
 	// unload previous image from memory (it's will be overwritten)
-	GL_FreeImage( va( DEFAULT_SAVE_DIRECTORY "%s.bmp", savename ) );
+	Q_snprintf( buf, sizeof( buf ), DEFAULT_SAVE_DIRECTORY "%s.bmp", savename );
+	GL_FreeImage( buf );
 #endif // XASH_DEDICATED
 
 	SaveBuildComment( comment, sizeof( comment ));

@@ -60,6 +60,7 @@ void SV_SendSingleResource( const char *name, resourcetype_t type, int index, by
 {
 	resource_t	*pResource = &sv.resources[sv.num_resources];
 	int		nSize = 0;
+	char		buf[MAX_VA_STRING];
 
 	if( !COM_CheckString( name ))
 		return;
@@ -70,7 +71,8 @@ void SV_SendSingleResource( const char *name, resourcetype_t type, int index, by
 		nSize = ( name[0] != '*' ) ? FS_FileSize( name, false ) : 0;
 		break;
 	case t_sound:
-		nSize = FS_FileSize( va( DEFAULT_SOUNDPATH "%s", name ), false );
+		Q_snprintf( buf, sizeof( buf ), DEFAULT_SOUNDPATH "%s", name );
+		nSize = FS_FileSize( buf, false );
 		break;
 	default:
 		nSize = FS_FileSize( name, false );
@@ -334,6 +336,7 @@ void SV_CreateResourceList( void )
 	qboolean	ffirstsent = false;
 	int	i, nSize;
 	char	*s;
+	char	buf[MAX_VA_STRING];
 
 	sv.num_resources = 0;
 
@@ -361,7 +364,8 @@ void SV_CreateResourceList( void )
 		}
 		else
 		{
-			nSize = FS_FileSize( va( DEFAULT_SOUNDPATH "%s", s ), false );
+			Q_snprintf( buf, sizeof( buf ), DEFAULT_SOUNDPATH "%s", s );
+			nSize = FS_FileSize( buf, false );
 			SV_AddResource( t_sound, s, nSize, 0, i );
 		}
 	}
@@ -537,6 +541,7 @@ void SV_ActivateServer( int runPhysics )
 	byte		msg_buf[MAX_INIT_MSG];
 	sizebuf_t		msg;
 	sv_client_t	*cl;
+	char		buf[MAX_VA_STRING];
 
 	if( !svs.initialized )
 		return;
@@ -628,7 +633,10 @@ void SV_ActivateServer( int runPhysics )
 		const char *cycle = Cvar_VariableString( "mapchangecfgfile" );
 
 		if( COM_CheckString( cycle ))
-			Cbuf_AddText( va( "exec %s\n", cycle ));
+		{
+			Q_snprintf( buf, sizeof( buf ), "exec %s\n", cycle );
+			Cbuf_AddText( buf );
+		}
 	}
 }
 
@@ -738,6 +746,7 @@ determine the game type and prepare clients
 void SV_SetupClients( void )
 {
 	qboolean	changed_maxclients = false;
+	char		buf[MAX_VA_STRING];
 
 	// check if clients count was really changed
 	if( svs.maxclients != (int)sv_maxclients->value )
@@ -764,7 +773,8 @@ void SV_SetupClients( void )
 	if( coop.value ) Cvar_SetValue( "deathmatch", 0.0f );
 
 	// feedback for cvar
-	Cvar_FullSet( "maxplayers", va( "%d", svs.maxclients ), FCVAR_LATCH );
+	Q_snprintf( buf, sizeof( buf ), "%d", svs.maxclients );
+	Cvar_FullSet( "maxplayers", buf, FCVAR_LATCH );
 #if XASH_LOW_MEMORY != 2
 	SV_UPDATE_BACKUP = ( svs.maxclients == 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
 #endif

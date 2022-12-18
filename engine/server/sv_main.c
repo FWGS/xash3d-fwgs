@@ -677,7 +677,10 @@ Host_SetServerState
 */
 void Host_SetServerState( int state )
 {
-	Cvar_FullSet( "host_serverstate", va( "%i", state ), FCVAR_READ_ONLY );
+	char	buf[MAX_VA_STRING];
+
+	Q_snprintf( buf, sizeof( buf ), "%i", state );
+	Cvar_FullSet( "host_serverstate", buf, FCVAR_READ_ONLY );
 	sv.state = state;
 }
 
@@ -781,11 +784,11 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	}
 
 	SV_GetPlayerCount( &clients, &bots );
-	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
-	Info_SetValueForKey( s, "challenge", va( "%u", challenge ), len ); // challenge number
-	Info_SetValueForKey( s, "players", va( "%d", clients ), len ); // current player number, without bots
-	Info_SetValueForKey( s, "max", va( "%d", svs.maxclients ), len ); // max_players
-	Info_SetValueForKey( s, "bots", va( "%d", bots ), len ); // bot count
+	Info_SetValueForKeyf( s, "protocol", len, "%d", PROTOCOL_VERSION ); // protocol version
+	Info_SetValueForKeyf( s, "challenge", len, "%u", challenge ); // challenge number
+	Info_SetValueForKeyf( s, "players", len, "%d", clients ); // current player number, without bots
+	Info_SetValueForKeyf( s, "max", len, "%d", svs.maxclients ); // max_players
+	Info_SetValueForKeyf( s, "bots", len, "%d", bots ); // bot count
 	Info_SetValueForKey( s, "gamedir", GI->gamefolder, len ); // gamedir
 	Info_SetValueForKey( s, "map", sv.name, len ); // current map
 	Info_SetValueForKey( s, "type", (Host_IsDedicated()) ? "d" : "l", len ); // dedicated or local
@@ -874,7 +877,7 @@ void SV_Init( void )
 
 	SV_InitHostCommands();
 
-	Cvar_Get( "protocol", va( "%i", PROTOCOL_VERSION ), FCVAR_READ_ONLY, "displays server protocol version" );
+	Cvar_Getf( "protocol", FCVAR_READ_ONLY, "displays server protocol version", "%i", PROTOCOL_VERSION );
 	Cvar_Get( "suitvolume", "0.25", FCVAR_ARCHIVE, "HEV suit volume" );
 	Cvar_Get( "sv_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	Cvar_Get( "gamedir", GI->gamefolder, FCVAR_READ_ONLY, "game folder" );
