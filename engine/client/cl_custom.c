@@ -20,6 +20,7 @@ GNU General Public License for more details.
 qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 {
 	char	filepath[MAX_QPATH];
+	char	buf[MAX_VA_STRING];
 
 	switch( pResource->type )
 	{
@@ -78,7 +79,8 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 	}
 
 	MSG_BeginClientCmd( msg, clc_stringcmd );
-	MSG_WriteString( msg, va( "dlfile %s", filepath ));
+	Q_snprintf( buf, sizeof( buf ), "dlfile %s", filepath );
+	MSG_WriteString( msg, buf );
 	host.downloadcount++;
 
 	return false;

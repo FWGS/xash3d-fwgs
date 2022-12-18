@@ -1029,9 +1029,9 @@ void CL_SendConnectPacket( void )
 		Cvar_SetCheatState();
 		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
 
-		Info_SetValueForKey( protinfo, "d", va( "%d", input_devices ), sizeof( protinfo ) );
+		Info_SetValueForKeyf( protinfo, "d", sizeof( protinfo ), "%d", input_devices );
 		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
-		Info_SetValueForKey( protinfo, "b", va( "%d", Q_buildnum() ), sizeof( protinfo ) );
+		Info_SetValueForKeyf( protinfo, "b", sizeof( protinfo ), "%d", Q_buildnum() );
 		Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 	}
@@ -1065,7 +1065,7 @@ void CL_SendConnectPacket( void )
 
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
-		Info_SetValueForKey( protinfo, "ext", va("%d", extensions), sizeof( protinfo ));
+		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions );
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect by modern protocol\n" );
@@ -2086,7 +2086,8 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 
 		if( NET_CompareAdr( from, cls.legacyserver ))
 		{
-			Cbuf_AddText( va( "connect %s legacy\n", NET_AdrToString( from )));
+			Q_snprintf( buf, sizeof( buf ), "connect %s legacy\n", NET_AdrToString( from ) );
+			Cbuf_AddText( buf );
 			memset( &cls.legacyserver, 0, sizeof( cls.legacyserver ));
 		}
 	}
@@ -2104,7 +2105,10 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		else
 		{
 			if( UI_IsVisible() )
-				UI_ShowMessageBox( va("^3Server message^7\n%s", args ) );
+			{
+				Q_snprintf( buf, sizeof( buf ), "^3Server message^7\n%s", args );
+				UI_ShowMessageBox( buf );
+			}
 			Msg( "%s", args );
 		}
 	}

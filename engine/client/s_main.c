@@ -1842,16 +1842,19 @@ void S_Music_f( void )
 
 		for( i = 0; i < 2; i++ )
 		{
-			const char *intro_path = va( "media/%s.%s", intro, ext[i] );
-			const char *main_path = va( "media/%s.%s", main, ext[i] );
+			char path[MAX_VA_STRING];
 
-			if( FS_FileExists( intro_path, false ) && FS_FileExists( main_path, false ))
+			if( Q_snprintf( path, sizeof( path ), "media/%s.%s", intro, ext[i] ) > 0
+			    && FS_FileExists( path, false )
+			    && Q_snprintf( path, sizeof( path ), "media/%s.%s", main, ext[i] ) > 0
+			    && FS_FileExists( path, false ))
 			{
 				// combined track with introduction and main loop theme
 				S_StartBackgroundTrack( intro, main, 0, false );
 				break;
 			}
-			else if( FS_FileExists( va( "media/%s.%s", track, ext[i] ), false ))
+			else if( Q_snprintf( path, sizeof( path ), "media/%s.%s", track, ext[i] ) > 0
+			    && FS_FileExists( path, false ))
 			{
 				// single non-looped theme
 				S_StartBackgroundTrack( track, NULL, 0, false );

@@ -184,6 +184,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	const char	*pResName;
 	int		gametype;
 	int		i;
+	char		buf[MAX_VA_STRING];
 
 	Con_Reportf( "Serverdata packet received.\n" );
 	cls.timestart = Sys_DoubleTime();
@@ -220,7 +221,8 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	{
 		// seperate the printfs so the server message can have a color
 		Con_Print( "\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n" );
-		Con_Print( va( "%c%s\n\n", 2, clgame.maptitle ));
+		Q_snprintf( buf, sizeof( buf ), "%c%s\n\n", 2, clgame.maptitle );
+		Con_Print( buf );
 	}
 
 	// multiplayer game?
@@ -297,14 +299,14 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	}
 
 	// get splash name
-	if( cls.demoplayback && ( cls.demonum != -1 ))
-		Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", cls.demoname, refState.wideScreen ? "16x9" : "4x3" ));
-	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" ));
+	Q_snprintf( buf, sizeof( buf ), "levelshots/%s_%s", ( cls.demoplayback && ( cls.demonum != -1 )) ? cls.demoname : clgame.mapname, refState.wideScreen ? "16x9" : "4x3" );
+	Cvar_Set( "cl_levelshot_name", buf );
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
 	{
-		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name->string ), true ))
+		Q_snprintf( buf, sizeof( buf ), "%s.bmp", cl_levelshot_name->string );
+		if( !FS_FileExists( buf, true ))
 			Cvar_Set( "cl_levelshot_name", "*black" ); // render a black screen
 		cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
 	}

@@ -458,6 +458,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 	byte		data[MAX_INIT_MSG];
 	resource_t	*p, *n;
 	sizebuf_t		msg;
+	char		buf[MAX_VA_STRING];
 
 	MSG_Init( &msg, "Resource Batch", data, sizeof( data ));
 
@@ -499,7 +500,8 @@ void CL_BatchResourceRequest( qboolean initialize )
 				if( !FBitSet( p->ucFlags, RES_REQUESTED ))
 				{
 					MSG_BeginClientCmd( &msg, clc_stringcmd );
-					MSG_WriteString( &msg, va( "dlfile !MD5%s", MD5_Print( p->rgucMD5_hash ) ) );
+					Q_snprintf( buf, sizeof( buf ), "dlfile !MD5%s", MD5_Print( p->rgucMD5_hash ));
+					MSG_WriteString( &msg, buf );
 					SetBits( p->ucFlags, RES_REQUESTED );
 				}
 				break;
@@ -543,13 +545,16 @@ int CL_EstimateNeededResources( void )
 {
 	resource_t	*p;
 	int		nTotalSize = 0;
+	char		buf[MAX_VA_STRING];
 
 	for( p = cl.resourcesneeded.pNext; p != &cl.resourcesneeded; p = p->pNext )
 	{
 		switch( p->type )
 		{
 		case t_sound:
-			if( p->szFileName[0] != '*' && !FS_FileExists( va( DEFAULT_SOUNDPATH "%s", p->szFileName ), false ) )
+			if( p->szFileName[0] != '*'
+			    && ( Q_snprintf( buf, sizeof( buf ), DEFAULT_SOUNDPATH "%s", p->szFileName ) == -1
+			    || !FS_FileExists( buf, false )))
 			{
 				SetBits( p->ucFlags, RES_WASMISSING );
 				nTotalSize += p->nDownloadSize;
@@ -848,6 +853,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	char	gamefolder[MAX_QPATH];
 	qboolean	background;
 	int	i;
+	char	buf[MAX_VA_STRING];
 
 	Con_Reportf( "%s packet received.\n", legacy ? "Legacy serverdata" : "Serverdata" );
 
@@ -915,7 +921,8 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	{
 		// seperate the printfs so the server message can have a color
 		Con_Print( "\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n" );
-		Con_Print( va( "%c%s\n\n", 2, clgame.maptitle ));
+		Q_snprintf( buf, sizeof( buf ), "%c%s\n\n", 2, clgame.maptitle );
+		Con_Print( buf );
 	}
 
 	// multiplayer game?
@@ -965,14 +972,14 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 		CL_InitEdicts (); // re-arrange edicts
 
 	// get splash name
-	if( cls.demoplayback && ( cls.demonum != -1 ))
-		Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", cls.demoname, refState.wideScreen ? "16x9" : "4x3" ));
-	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" ));
+	Q_snprintf( buf, sizeof( buf ), "levelshots/%s_%s", ( cls.demoplayback && ( cls.demonum != -1 )) ? cls.demoname : clgame.mapname, refState.wideScreen ? "16x9" : "4x3" );
+	Cvar_Set( "cl_levelshot_name", buf );
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
 	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
 	{
-		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name->string ), true ))
+		Q_snprintf( buf, sizeof( buf ), "%s.bmp", cl_levelshot_name->string );
+		if( !FS_FileExists( buf, true ))
 			Cvar_Set( "cl_levelshot_name", "*black" ); // render a black screen
 		cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
 	}
@@ -1552,6 +1559,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 {
 	model_t	*mod;
 	int	i;
+	char	buf[MAX_VA_STRING];
 
 	if( cls.dl.custom || ( cls.signon == SIGNONS && cls.state == ca_active ) )
 	{
@@ -1607,7 +1615,8 @@ void CL_RegisterResources( sizebuf_t *msg )
 			// done with all resources, issue prespawn command.
 			// Include server count in case server disconnects and changes level during d/l
 			MSG_BeginClientCmd( msg, clc_stringcmd );
-			MSG_WriteString( msg, va( "spawn %i", cl.servercount ));
+			Q_snprintf( buf, sizeof( buf ), "spawn %i", cl.servercount );
+			MSG_WriteString( msg, buf );
 		}
 	}
 	else
@@ -1970,6 +1979,7 @@ void CL_ParseExec( sizebuf_t *msg )
 	qboolean is_class;
 	int class_idx;
 	string mapname;
+	char buf[MAX_VA_STRING];
 	const char *class_cfgs[] = {
 		"",
 		"exec scout.cfg\n",
@@ -2001,7 +2011,10 @@ void CL_ParseExec( sizebuf_t *msg )
 		COM_FileBase( clgame.mapname, mapname );
 
 		if ( COM_CheckString( mapname ) )
-			Cbuf_AddText( va( "exec %s.cfg\n", mapname ) );
+		{
+			Q_snprintf( buf, sizeof( buf ), "exec %s.cfg\n", mapname );
+			Cbuf_AddText( buf );
+		}
 	}
 }
 
@@ -2695,9 +2708,13 @@ void CL_LegacyParseResourceList( sizebuf_t *msg )
 	for( i = 0; i < reslist.rescount; i++ )
 	{
 		const char *path;
+		char buf[MAX_VA_STRING];
 
 		if( reslist.restype[i] == t_sound )
-			path = va( DEFAULT_SOUNDPATH "%s", reslist.resnames[i] );
+		{
+			Q_snprintf( buf, sizeof( buf ), DEFAULT_SOUNDPATH "%s", reslist.resnames[i] );
+			path = buf;
+		}
 		else path = reslist.resnames[i];
 
 		if( FS_FileExists( path, false ))
@@ -3037,6 +3054,7 @@ void CL_LegacyPrecache_f( void )
 {
 	int	spawncount, i;
 	model_t *mod;
+	char	buf[MAX_VA_STRING];
 
 	if( !cls.legacymode )
 		return;
@@ -3078,7 +3096,8 @@ void CL_LegacyPrecache_f( void )
 	// done with all resources, issue prespawn command.
 	// Include server count in case server disconnects and changes level during d/l
 	MSG_BeginClientCmd( &cls.netchan.message, clc_stringcmd );
-	MSG_WriteString( &cls.netchan.message, va( "begin %i", spawncount ));
+	Q_snprintf( buf, sizeof( buf ), "begin %i", spawncount );
+	MSG_WriteString( &cls.netchan.message, buf );
 	cls.signon = SIGNONS;
 }
 

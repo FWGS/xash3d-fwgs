@@ -729,6 +729,8 @@ static void Touch_SetCommand_f( void )
 
 static void Touch_ReloadConfig_f( void )
 {
+	char buf[MAX_VA_STRING];
+
 	touch.state = state_none;
 	if( touch.edit )
 		touch.edit->finger = -1;
@@ -737,7 +739,8 @@ static void Touch_ReloadConfig_f( void )
 	touch.edit = touch.selection = NULL;
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
 
-	Cbuf_AddText( va("exec %s\n", touch_config_file->string ) );
+	Q_snprintf( buf, sizeof( buf ), "exec %s\n", touch_config_file->string );
+	Cbuf_AddText( buf );
 }
 
 static touch_button_t *Touch_AddButton( touchbuttonlist_t *list,
@@ -945,6 +948,8 @@ static void Touch_DisableEdit_f( void )
 
 static void Touch_DeleteProfile_f( void )
 {
+	char buf[MAX_VA_STRING];
+
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "touch_deleteprofile <name>\n" );
@@ -952,7 +957,8 @@ static void Touch_DeleteProfile_f( void )
 	}
 
 	// delete profile
-	FS_Delete( va( "touch_profiles/%s.cfg", Cmd_Argv( 1 )));
+	Q_snprintf( buf, sizeof( buf ), "touch_profiles/%s.cfg", Cmd_Argv( 1 ));
+	FS_Delete( buf );
 }
 
 static void Touch_InitEditor( void )
@@ -1098,6 +1104,8 @@ void Touch_Init( void )
 //int pfnGetScreenInfo( SCREENINFO *pscrinfo );
 static void Touch_InitConfig( void )
 {
+	char buf[MAX_VA_STRING];
+
 	if( !touch.initialized )
 		return;
 
@@ -1111,7 +1119,8 @@ static void Touch_InitConfig( void )
 	//pfnGetScreenInfo( NULL ); //HACK: update hud screen parameters like iHeight
 	if( FS_FileExists( touch_config_file->string, true ) )
 	{
-		Cbuf_AddText( va( "exec \"%s\"\n", touch_config_file->string ) );
+		Q_snprintf( buf, sizeof( buf ), "exec \"%s\"\n", touch_config_file->string );
+		Cbuf_AddText( buf );
 		Cbuf_Execute();
 	}
 	else

@@ -73,6 +73,8 @@ S_StartBackgroundTrack
 */
 void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, int position, qboolean fullpath )
 {
+	char buf[MAX_VA_STRING];
+
 	S_StopBackgroundTrack();
 
 	if( !dma.initialized ) return;
@@ -95,7 +97,8 @@ void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, int 
 	else Q_strncpy( s_bgTrack.loopName, mainTrack, sizeof( s_bgTrack.loopName ));
 
 	// open stream
-	s_bgTrack.stream = FS_OpenStream( va( "media/%s", introTrack ));
+	Q_snprintf( buf, sizeof( buf ), "media/%s", introTrack );
+	s_bgTrack.stream = FS_OpenStream( buf );
 	Q_strncpy( s_bgTrack.current, introTrack, sizeof( s_bgTrack.current ));
 	memset( &musicfade, 0, sizeof( musicfade )); // clear any soundfade
 	s_bgTrack.source = cls.key_dest;
@@ -178,6 +181,7 @@ void S_StreamBackgroundTrack( void )
 	byte	raw[MAX_RAW_SAMPLES];
 	int	r, fileBytes;
 	rawchan_t	*ch = NULL;
+	char	buf[MAX_VA_STRING];
 
 	if( !dma.initialized || !s_bgTrack.stream || s_listener.streaming )
 		return;
@@ -242,7 +246,8 @@ void S_StreamBackgroundTrack( void )
 			if( s_bgTrack.loopName[0] )
 			{
 				FS_FreeStream( s_bgTrack.stream );
-				s_bgTrack.stream = FS_OpenStream( va( "media/%s", s_bgTrack.loopName ));
+				Q_snprintf( buf, sizeof( buf ), "media/%s", s_bgTrack.loopName );
+				s_bgTrack.stream = FS_OpenStream( buf );
 				Q_strncpy( s_bgTrack.current, s_bgTrack.loopName, sizeof( s_bgTrack.current ));
 
 				if( !s_bgTrack.stream ) return;

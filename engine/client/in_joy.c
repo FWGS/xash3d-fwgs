@@ -380,6 +380,8 @@ Main init procedure
 */
 void Joy_Init( void )
 {
+	char value[MAX_VA_STRING];
+
 	joy_pitch   = Cvar_Get( "joy_pitch",   "100.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick pitch sensitivity" );
 	joy_yaw     = Cvar_Get( "joy_yaw",     "100.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick yaw sensitivity" );
 	joy_side    = Cvar_Get( "joy_side",    "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick side sensitivity. Values from -1.0 to 1.0" );
@@ -413,7 +415,8 @@ void Joy_Init( void )
 		return;
 	}
 
-	Cvar_FullSet( "joy_found", va( "%d", Platform_JoyInit( joy_index->value )), FCVAR_READ_ONLY );
+	Q_snprintf( value, sizeof( value ), "%d", Platform_JoyInit( joy_index->value ));
+	Cvar_FullSet( "joy_found", value, FCVAR_READ_ONLY );
 }
 
 /*

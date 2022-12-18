@@ -223,8 +223,11 @@ static qboolean R_DoResetGamma( void )
 
 static qboolean R_Init_Video_( const int type )
 {
+	char buf[MAX_VA_STRING];
+
 	host.apply_opengl_config = true;
-	Cbuf_AddText( va( "exec %s.cfg", ref.dllFuncs.R_GetConfigName()));
+	Q_snprintf( buf, sizeof( buf ), "exec %s.cfg", ref.dllFuncs.R_GetConfigName());
+	Cbuf_AddText( buf );
 	Cbuf_Execute();
 	host.apply_opengl_config = false;
 

@@ -586,11 +586,13 @@ static void CL_InitTitles( const char *filename )
 	fs_offset_t	fileSize;
 	byte	*pMemFile;
 	int	i;
+	char	buf[MAX_VA_STRING];
 
 	// initialize text messages (game_text)
 	for( i = 0; i < MAX_TEXTCHANNELS; i++ )
 	{
-		cl_textmessage[i].pName = _copystring( clgame.mempool, va( TEXT_MSGNAME, i ), __FILE__, __LINE__ );
+		Q_snprintf( buf, sizeof( buf ), TEXT_MSGNAME, i );
+		cl_textmessage[i].pName = _copystring( clgame.mempool, buf, __FILE__, __LINE__ );
 		cl_textmessage[i].pMessage = cl_textbuffer[i];
 	}
 
@@ -1848,11 +1850,13 @@ returns specified message from titles.txt
 client_textmessage_t *CL_TextMessageGet( const char *pName )
 {
 	int	i;
+	char	buf[MAX_VA_STRING];
 
 	// first check internal messages
 	for( i = 0; i < MAX_TEXTCHANNELS; i++ )
 	{
-		if( !Q_strcmp( pName, va( TEXT_MSGNAME, i )))
+		Q_snprintf( buf, sizeof( buf ), TEXT_MSGNAME, i );
+		if( !Q_strcmp( pName, buf ))
 			return cl_textmessage + i;
 	}
 

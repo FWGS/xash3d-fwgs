@@ -371,6 +371,7 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 	int		out, i = ( cls.netchan.outgoing_sequence - 1 ) & NET_TIMINGS_MASK;
 	int		j = cls.netchan.incoming_sequence & NET_TIMINGS_MASK;
 	int		last_y = y - net_graphheight->value;
+	char		buf[MAX_VA_STRING];
 
 	if( count > 0 )
 	{
@@ -393,10 +394,14 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 	{
 		y -= net_graphheight->value;
 
-		CL_DrawString( x, y, va( "%.1f fps" , 1.0f / framerate ), colors, font, FONT_DRAW_NORENDERMODE );
+		Q_snprintf( buf, sizeof( buf ), "%.1f fps" , 1.0f / framerate );
+		CL_DrawString( x, y, buf, colors, font, FONT_DRAW_NORENDERMODE );
 
 		if( avg > 1.0f )
-			CL_DrawString( x + 75, y, va( "%i ms" , (int)avg ), colors, font, FONT_DRAW_NORENDERMODE );
+		{
+			Q_snprintf( buf, sizeof( buf ), "%i ms", (int)avg );
+			CL_DrawString( x + 75, y, buf, colors, font, FONT_DRAW_NORENDERMODE );
+		}
 
 		y += 15;
 
@@ -404,10 +409,12 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 		if( !out ) out = lastout;
 		else lastout = out;
 
-		CL_DrawString( x, y, va( "in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors, font, FONT_DRAW_NORENDERMODE );
+		Q_snprintf( buf, sizeof( buf ), "in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec );
+		CL_DrawString( x, y, buf, colors, font, FONT_DRAW_NORENDERMODE );
 		y += 15;
 
-		CL_DrawString( x, y, va( "out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors, font, FONT_DRAW_NORENDERMODE );
+		Q_snprintf( buf, sizeof( buf ), "out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec );
+		CL_DrawString( x, y, buf, colors, font, FONT_DRAW_NORENDERMODE );
 		y += 15;
 
 		if( graphtype > 2 )
@@ -415,14 +422,19 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 			int	loss = (int)(( packet_loss + PACKETLOSS_AVG_FRAC ) - 0.01f );
 			int	choke = (int)(( packet_choke + PACKETCHOKE_AVG_FRAC ) - 0.01f );
 
-			CL_DrawString( x, y, va( "loss: %i choke: %i", loss, choke ), colors, font, FONT_DRAW_NORENDERMODE );
+			Q_snprintf( buf, sizeof( buf ), "loss: %i choke: %i", loss, choke );
+			CL_DrawString( x, y, buf, colors, font, FONT_DRAW_NORENDERMODE );
 		}
 	}
 
 	if( graphtype < 3 )
-		CL_DrawString( ptx, pty, va( "%i/s", (int)cl_cmdrate->value ), colors, font, FONT_DRAW_NORENDERMODE );
+	{
+		Q_snprintf( buf, sizeof( buf ), "%i/s", (int)cl_cmdrate->value );
+		CL_DrawString( ptx, pty, buf, colors, font, FONT_DRAW_NORENDERMODE );
+	}
 
-	CL_DrawString( ptx, last_y, va( "%i/s" , (int)cl_updaterate->value ), colors, font, FONT_DRAW_NORENDERMODE );
+	Q_snprintf( buf, sizeof( buf ), "%i/s", (int)cl_updaterate->value );
+	CL_DrawString( ptx, last_y, buf, colors, font, FONT_DRAW_NORENDERMODE );
 }
 
 /*

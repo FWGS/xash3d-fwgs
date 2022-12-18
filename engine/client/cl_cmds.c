@@ -372,6 +372,8 @@ CL_DeleteDemo_f
 */
 void CL_DeleteDemo_f( void )
 {
+	char demoname[MAX_VA_STRING];
+	
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "killdemo <name>\n" );
@@ -385,7 +387,8 @@ void CL_DeleteDemo_f( void )
 	}
 
 	// delete demo
-	FS_Delete( va( "%s.dem", Cmd_Argv( 1 )));
+	Q_snprintf( demoname, sizeof( demoname ), "%s.dem", Cmd_Argv( 1 ));
+	FS_Delete( demoname );
 }
 
 /*
