@@ -256,6 +256,7 @@ vidmode_t *R_GetVideoMode( int num )
 
 static void R_InitVideoModes( void )
 {
+	char buf[MAX_VA_STRING];
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	int displayIndex = 0; // TODO: handle multiple displays somehow
 	int i, modes;
@@ -295,7 +296,8 @@ static void R_InitVideoModes( void )
 
 		vidmodes[num_vidmodes].width = mode.w;
 		vidmodes[num_vidmodes].height = mode.h;
-		vidmodes[num_vidmodes].desc = copystring( va( "%ix%i", mode.w, mode.h ));
+		Q_snprintf( buf, sizeof( buf ), "%ix%i", mode.w, mode.h );
+		vidmodes[num_vidmodes].desc = copystring( buf );
 
 		num_vidmodes++;
 	}
@@ -330,7 +332,8 @@ static void R_InitVideoModes( void )
 
 		vidmodes[num_vidmodes].width = mode->w;
 		vidmodes[num_vidmodes].height = mode->h;
-		vidmodes[num_vidmodes].desc = copystring( va( "%ix%i", mode->w, mode->h ));
+		Q_snprintf( buf, sizeof( buf ), "%ix%i", mode->w, mode->h );
+		vidmodes[num_vidmodes].desc = copystring( buf );
 
 		num_vidmodes++;
 	}
