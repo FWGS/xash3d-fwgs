@@ -240,7 +240,7 @@ int Android_GetSelectedPixelFormat( void )
 
 qboolean  R_Init_Video( const int type )
 {
-	string safe;
+	char buf[MAX_VA_STRING];
 	qboolean retval;
 
 	switch( Android_GetSelectedPixelFormat() )
@@ -258,14 +258,8 @@ qboolean  R_Init_Video( const int type )
 
 	if( FS_FileExists( GI->iconpath, true ) )
 	{
-		if( host.rodir[0] )
-		{
-			Android_SetIcon( va( "%s/%s/%s", host.rodir, GI->gamefolder, GI->iconpath ) );
-		}
-		else
-		{
-			Android_SetIcon( va( "%s/%s/%s", host.rootdir, GI->gamefolder, GI->iconpath ) );
-		}
+		Q_snprintf( buf, sizeof( buf ), "%s/%s/%s", COM_CheckStringEmpty( host.rodir ) ? host.rodir : host.rootdir, GI->gamefolder, GI->iconpath );
+		Android_SetIcon( buf );
 	}
 
 	Android_SetTitle( GI->title );
@@ -281,8 +275,8 @@ qboolean  R_Init_Video( const int type )
 		glw_state.software = false;
 		Sys_LoadLibrary( &egl_info );
 
-		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
-			glw_state.safe = bound( SAFE_NO, Q_atoi( safe ), SAFE_DONTCARE );
+		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", buf ) )
+			glw_state.safe = bound( SAFE_NO, Q_atoi( buf ), SAFE_DONTCARE );
 
 		break;
 	default:
