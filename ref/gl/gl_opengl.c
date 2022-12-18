@@ -335,6 +335,7 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	const dllfunc_t	*func;
 	cvar_t		*parm = NULL;
 	const char	*extensions_string;
+	char		desc[MAX_VA_STRING];
 
 	gEngfuncs.Con_Reportf( "GL_CheckExtension: %s ", name );
 	GL_SetExtension( r_ext, true );
@@ -342,7 +343,8 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	if( cvarname )
 	{
 		// system config disable extensions
-		parm = gEngfuncs.Cvar_Get( cvarname, "1", FCVAR_GLCONFIG|FCVAR_READ_ONLY, va( CVAR_GLCONFIG_DESCRIPTION, name ));
+		Q_snprintf( desc, sizeof( desc ), CVAR_GLCONFIG_DESCRIPTION, name );
+		parm = gEngfuncs.Cvar_Get( cvarname, "1", FCVAR_GLCONFIG|FCVAR_READ_ONLY, desc );
 	}
 
 	if(( parm && !CVAR_TO_BOOL( parm )) || ( !CVAR_TO_BOOL( gl_extensions ) && r_ext != GL_OPENGL_110 ))
@@ -763,6 +765,8 @@ void GL_InitExtensionsBigGL( void )
 
 void GL_InitExtensions( void )
 {
+	char value[MAX_VA_STRING];
+
 	GL_OnContextCreated();
 
 	// initialize gl extensions
@@ -803,8 +807,9 @@ void GL_InitExtensions( void )
 	if( GL_Support( GL_TEXTURE_2D_RECT_EXT ))
 		pglGetIntegerv( GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT, &glConfig.max_2d_rectangle_size );
 
-	gEngfuncs.Cvar_Get( "gl_max_size", va( "%i", glConfig.max_2d_texture_size ), 0, "opengl texture max dims" );
-	gEngfuncs.Cvar_Set( "gl_anisotropy", va( "%f", bound( 0, gl_texture_anisotropy->value, glConfig.max_texture_anisotropy )));
+	Q_snprintf( value, sizeof( value ), "%i", glConfig.max_2d_texture_size );
+	gEngfuncs.Cvar_Get( "gl_max_size", value, 0, "opengl texture max dims" );
+	gEngfuncs.Cvar_SetValue( "gl_anisotropy", bound( 0, gl_texture_anisotropy->value, glConfig.max_texture_anisotropy ));
 
 	if( GL_Support( GL_TEXTURE_COMPRESSION_EXT ))
 		gEngfuncs.Image_AddCmdFlags( IL_DDS_HARDWARE );

@@ -242,6 +242,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	int		linedelta, numframes;
 	mspriteframe_t	*pspriteframe;
 	msprite_t		*psprite;
+	char		poolname[MAX_VA_STRING];
 
 	if( loaded ) *loaded = false;
 	Q_snprintf( texname, sizeof( texname ), "#%s", mod->name );
@@ -275,7 +276,8 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 
 	// determine how many frames we needs
 	numframes = (pix->width * pix->height) / (w * h);
-	mod->mempool = Mem_AllocPool( va( "^2%s^7", mod->name ));
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
+	mod->mempool = Mem_AllocPool( poolname );
 	psprite = Mem_Calloc( mod->mempool, sizeof( msprite_t ) + ( numframes - 1 ) * sizeof( psprite->frames ));
 	mod->cache.data = psprite;	// make link to extradata
 
