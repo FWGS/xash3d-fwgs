@@ -819,7 +819,8 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 	}
 
 	// make sure what gamedir is really exist
-	if( !FS_SysFolderExists( va( "%s/%s", fs_rootdir, GameInfo->falldir )))
+	Q_snprintf( token, sizeof( token ), "%s/%s", fs_rootdir, GameInfo->falldir );
+	if( !FS_SysFolderExists( token ))
 		GameInfo->falldir[0] = '\0';
 }
 
@@ -911,16 +912,21 @@ FS_CheckForGameDir
 */
 static qboolean FS_CheckForGameDir( const char *gamedir )
 {
+	char	buf[MAX_VA_STRING];
+
 	// if directory contain config.cfg it's 100% gamedir
-	if( FS_FileExists( va( "%s/config.cfg", gamedir ), false ))
+	Q_snprintf( buf, sizeof( buf ), "%s/config.cfg", gamedir );
+	if( FS_FileExists( buf, false ))
 		return true;
 
 	// if directory contain progs.dat it's 100% gamedir
-	if( FS_FileExists( va( "%s/progs.dat", gamedir ), false ))
+	Q_snprintf( buf, sizeof( buf ), "%s/progs.dat", gamedir );
+	if( FS_FileExists( buf, false ))
 		return true;
 
 	// quake mods probably always archived but can missed config.cfg before first running
-	if( FS_FileExists( va( "%s/pak0.pak", gamedir ), false ))
+	Q_snprintf( buf, sizeof( buf ), "%s/pak0.pak", gamedir );
+	if( FS_FileExists( buf, false ))
 		return true;
 
 	// NOTE; adds here some additional checks if you wished
@@ -1014,6 +1020,7 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 {
 	int i;
 	qboolean isGameDir = flags & FS_GAMEDIR_PATH;
+	char buf[MAX_VA_STRING];
 
 	GI->added = true;
 
@@ -1046,15 +1053,23 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 			newFlags |= FS_GAMERODIR_PATH;
 
 		FS_AllowDirectPaths( true );
-		FS_AddGameDirectory( va( "%s/%s/", fs_rodir, dir ), newFlags );
+		Q_snprintf( buf, sizeof( buf ), "%s/%s/", fs_rodir, dir );
+		FS_AddGameDirectory( buf, newFlags );
 		FS_AllowDirectPaths( false );
 	}
 
 	if( isGameDir )
-		FS_AddGameDirectory( va( "%s/downloaded/", dir ), FS_NOWRITE_PATH | FS_CUSTOM_PATH );
-	FS_AddGameDirectory( va( "%s/", dir ), flags );
+	{
+		Q_snprintf( buf, sizeof( buf ), "%s/downloaded/", dir );
+		FS_AddGameDirectory( buf, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	}
+	Q_snprintf( buf, sizeof( buf ), "%s/", dir );
+	FS_AddGameDirectory( buf, flags );
 	if( isGameDir )
-		FS_AddGameDirectory( va( "%s/custom/", dir ), FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	{
+		Q_snprintf( buf, sizeof( buf ), "%s/custom/", dir );
+		FS_AddGameDirectory( buf, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+	}
 }
 
 /*
@@ -1072,8 +1087,12 @@ void FS_Rescan( void )
 
 #if XASH_IOS
 	{
-		FS_AddPak_Fullpath( va( "%sextras.pak", SDL_GetBasePath() ), NULL, extrasFlags );
-		FS_AddPak_Fullpath( va( "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder ), NULL, extrasFlags );
+		char buf[MAX_VA_STRING];
+
+		Q_snprintf( buf, sizeof( buf ), "%sextras.pak", SDL_GetBasePath() );
+		FS_AddPak_Fullpath( buf, NULL, extrasFlags );
+		Q_snprintf( buf, sizeof( buf ), "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder );
+		FS_AddPak_Fullpath( buf, NULL, extrasFlags );
 	}
 #else
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
@@ -1293,6 +1312,7 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 	qboolean		hasBaseDir = false;
 	qboolean		hasGameDir = false;
 	int		i;
+	char		buf[MAX_VA_STRING];
 
 	FS_InitMemory();
 #if !XASH_WIN32
@@ -1358,7 +1378,10 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 
 	// build list of game directories here
 	if( COM_CheckStringEmpty( fs_rodir ))
-		FS_AddGameDirectory( va( "%s/", fs_rodir ), FS_STATIC_PATH|FS_NOWRITE_PATH );
+	{
+		Q_snprintf( buf, sizeof( buf ), "%s/", fs_rodir );
+		FS_AddGameDirectory( buf, FS_STATIC_PATH|FS_NOWRITE_PATH );
+	}
 	FS_AddGameDirectory( "./", FS_STATIC_PATH );
 
 	for( i = 0; i < dirs.numstrings; i++ )
