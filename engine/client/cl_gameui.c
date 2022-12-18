@@ -838,7 +838,10 @@ send client connect
 */
 static void GAME_EXPORT pfnClientJoin( const netadr_t adr )
 {
-	Cbuf_AddText( va( "connect %s\n", NET_AdrToString( adr )));
+	string	buf;
+
+	Q_snprintf( buf, sizeof( buf ), "connect %s\n", NET_AdrToString( adr ));
+	Cbuf_AddText( buf );
 }
 
 /*

@@ -1381,7 +1381,8 @@ void CL_Record_f( void )
 		for( n = 0; n < 10000; n++ )
 		{
 			CL_DemoGetName( n, demoname );
-			if( !FS_FileExists( va( "%s.dem", demoname ), true ))
+			if( Q_snprintf( demopath, sizeof( demopath ), "%s.dem", demoname ) < 0
+			    || !FS_FileExists( demopath, true ))
 				break;
 		}
 
