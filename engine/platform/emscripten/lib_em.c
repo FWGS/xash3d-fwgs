@@ -24,14 +24,15 @@ void *EMSCRIPTEN_LoadLibrary( const char *dllname )
 	void *pHandle = NULL;
 
 #ifdef EMSCRIPTEN_LIB_FS
-	char path[MAX_SYSPATH];
+	char path[MAX_SYSPATH], buf[MAX_VA_STRING];
 	string prefix;
 	Q_strcpy(prefix, getenv( "LIBRARY_PREFIX" ) );
 	Q_snprintf( path, MAX_SYSPATH, "%s%s%s",  prefix, dllname, getenv( "LIBRARY_SUFFIX" ) );
 	pHandle = dlopen( path, RTLD_LAZY );
 	if( !pHandle )
 	{
-		COM_PushLibraryError( va("Loading %s:\n", path ) );
+		Q_snprintf( buf, sizeof( buf ), "Loading %s:\n", path );
+		COM_PushLibraryError( buf );
 		COM_PushLibraryError( dlerror() );
 	}
 	return pHandle;
