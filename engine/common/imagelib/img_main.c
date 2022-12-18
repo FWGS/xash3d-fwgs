@@ -577,7 +577,9 @@ void Test_RunImagelib( void )
 
 	for( i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++ )
 	{
-		const char *name = va( "test_gen.%s", extensions[i] );
+		string name;
+
+		Q_snprintf( name, sizeof( name ), "test_gen.%s", extensions[i] );
 
 		// test saving
 		qboolean ret = FS_SaveImage( name, &rgb );
