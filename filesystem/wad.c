@@ -497,7 +497,7 @@ FS_Search_WAD
 */
 static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
-	string	wadpattern, wadname, temp2;
+	string	wadpattern, wadname, temp2, buf;
 	signed char	type = W_TypeFromExt( pattern );
 	qboolean	anywadname = true;
 	string	wadfolder, temp;
@@ -550,8 +550,9 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 				if( j == list->numstrings )
 				{
 					// build path: wadname/lumpname.ext
-					Q_snprintf( temp2, sizeof(temp2), "%s/%s", wadfolder, temp );
-					COM_DefaultExtension( temp2, va(".%s", W_ExtFromType( search->wad->lumps[i].type )));
+					Q_snprintf( temp2, sizeof( buf ), "%s/%s", wadfolder, temp );
+					Q_snprintf( buf, sizeof( buf ), ".%s", W_ExtFromType( search->wad->lumps[i].type ));
+					COM_DefaultExtension( temp2, buf);
 					stringlistappend( list, temp2 );
 				}
 			}
