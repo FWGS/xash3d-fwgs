@@ -1,27 +1,17 @@
 # Real next
-- [x] E213:
-	- [x] parse binding types
-	- [x] remove types from resources FIXME
-- [x] E214: ~tentative~
-	- [x] integrate sebastian into waf
-- [x] E215:
-	- [x] serialize binding image format
-- [ ] E216:
+>=E217
 	- [ ] meatpipe resource tracking
 		- [ ] name -> index mapping
-		- [x] validate image formats
 	- [ ] create images on meatpipe load
-	- [ ] begin Rake Yuri migration
-
->=E217
 - [ ] automatic resource creation
 	- [ ] serialize all resources with in/out and formats for images
 	- [ ] resource management refactoring:
-		- [ ] resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
 		- [ ] resource automatic resolution: prducing, barriers, etc
 		- [ ] register existing resources (tlas, buffers, temp images, ...)
 		- [ ] resource destruction
 	- [ ] create resources on demand
+	- [ ] ? resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
+  - [ ] rake yuri primary ray
 
 # Programmable render
 - [x] parse spirv -> get bindings with names
@@ -488,3 +478,17 @@
   - BUT: filled on CPU, so it's not properly synchronsized
   - fix: upload using staging?
 	- [x] double/ring buffering
+
+- [x] E213:
+	- [x] parse binding types
+	- [x] remove types from resources FIXME
+- [x] E214: ~tentative~
+	- [x] integrate sebastian into waf
+- [x] E215:
+	- [x] serialize binding image format
+
+# 2022-11-26 E216 rake yuri
+	- [x] validate meatpipe image formats
+	- [x] begin Rake Yuri migration
+		- [x] direct lights
+
