@@ -299,10 +299,6 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	wad->handle = FS_Open( basename, "rb", false );
 
-	// HACKHACK: try to open WAD by full path for RoDir, when searchpaths are not ready
-	if( COM_CheckStringEmpty( fs_rodir ) && fs_ext_path && wad->handle == NULL )
-		wad->handle = FS_SysOpen( filename, "rb" );
-
 	if( wad->handle == NULL )
 	{
 		Con_Reportf( S_ERROR "W_Open: couldn't open %s\n", filename );
@@ -430,7 +426,7 @@ FS_FindFile_WAD
 
 ===========
 */
-static int FS_FindFile_WAD( searchpath_t *search, const char *path )
+static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
 	dlumpinfo_t	*lump;
 	signed char		type = W_TypeFromExt( path );
@@ -469,6 +465,8 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path )
 
 	if( lump )
 	{
+		if( fixedname )
+			Q_strncpy( fixedname, lump->name, len );
 		return lump - search->wad->lumps;
 	}
 
@@ -677,7 +675,7 @@ byte *FS_LoadWADFile( const char *path, fs_offset_t *lumpsizeptr, qboolean gamed
 	searchpath_t	*search;
 	int		index;
 
-	search = FS_FindFile( path, &index, gamedironly );
+	search = FS_FindFile( path, &index, NULL, 0, gamedironly );
 	if( search && search->type == SEARCHPATH_WAD )
 		return W_ReadLump( search->wad, &search->wad->lumps[index], lumpsizeptr );
 	return NULL;
