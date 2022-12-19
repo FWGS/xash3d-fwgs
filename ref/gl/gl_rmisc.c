@@ -46,14 +46,13 @@ static void R_ParseDetailTextures( const char *filename )
 			// NOTE: COM_ParseFile handled some symbols seperately
 			// this code will be fix it
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
-			Q_strncat( texname, "{", sizeof( texname ));
-			Q_strncat( texname, token, sizeof( texname ));
+			Q_snprintf( texname, sizeof( texname ), "{%s", token );
 		}
 		else Q_strncpy( texname, token, sizeof( texname ));
 
 		// read detailtexture name
 		pfile = COM_ParseFile( pfile, token, sizeof( token ));
-		Q_strncat( detail_texname, token, sizeof( detail_texname ));
+		Q_strncpy( detail_texname, token, sizeof( detail_texname ));
 
 		// trying the scales or '{'
 		pfile = COM_ParseFile( pfile, token, sizeof( token ));
