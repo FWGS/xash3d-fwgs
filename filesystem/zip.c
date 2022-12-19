@@ -202,15 +202,6 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	zip->handle = open( zipfile, O_RDONLY|O_BINARY );
 
-#if !XASH_WIN32
-	if( zip->handle < 0 )
-	{
-		const char *fzipfile = FS_FixFileCase( zipfile );
-		if( fzipfile != zipfile )
-			zip->handle = open( fzipfile, O_RDONLY|O_BINARY );
-	}
-#endif
-
 	if( zip->handle < 0 )
 	{
 		Con_Reportf( S_ERROR "%s couldn't open\n", zipfile );
@@ -439,7 +430,7 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 
 	if( sizeptr ) *sizeptr = 0;
 
-	search = FS_FindFile( path, &index, gamedironly );
+	search = FS_FindFile( path, &index, NULL, 0, gamedironly );
 
 	if( !search || search->type != SEARCHPATH_ZIP )
 		return  NULL;
@@ -593,7 +584,7 @@ FS_FindFile_ZIP
 
 ===========
 */
-int FS_FindFile_ZIP( searchpath_t *search, const char *path )
+int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
 	int	left, right, middle;
 
@@ -609,7 +600,11 @@ int FS_FindFile_ZIP( searchpath_t *search, const char *path )
 
 		// Found it
 		if( !diff )
+		{
+			if( fixedname )
+				Q_strncpy( fixedname, search->zip->files[middle].name, len );
 			return middle;
+		}
 
 		// if we're too far in the list
 		if( diff > 0 )
