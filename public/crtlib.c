@@ -824,8 +824,8 @@ void COM_FixSlashes( char *pname )
 {
 	while( *pname )
 	{
-		if( *pname == '\\' )
-			*pname = '/';
+		if( *pname == PATH_SEPARATOR_WIN )
+			*pname = PATH_SEPARATOR_NIX;
 		pname++;
 	}
 }
