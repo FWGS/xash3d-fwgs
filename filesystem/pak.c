@@ -104,15 +104,6 @@ static pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	packhandle = open( packfile, O_RDONLY|O_BINARY );
 
-#if !XASH_WIN32
-	if( packhandle < 0 )
-	{
-		const char *fpackfile = FS_FixFileCase( packfile );
-		if( fpackfile != packfile )
-			packhandle = open( fpackfile, O_RDONLY|O_BINARY );
-	}
-#endif
-
 	if( packhandle < 0 )
 	{
 		Con_Reportf( "%s couldn't open: %s\n", packfile, strerror( errno ));
@@ -210,7 +201,7 @@ FS_FindFile_PAK
 
 ===========
 */
-static int FS_FindFile_PAK( searchpath_t *search, const char *path )
+static int FS_FindFile_PAK( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
 	int	left, right, middle;
 
@@ -227,6 +218,8 @@ static int FS_FindFile_PAK( searchpath_t *search, const char *path )
 		// Found it
 		if( !diff )
 		{
+			if( fixedname )
+				Q_strncpy( fixedname, search->pack->files[middle].name, len );
 			return middle;
 		}
 
@@ -359,8 +352,6 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 
 	if( pak )
 	{
-		string	fullpath;
-
 		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
 		Q_strncpy( search->filename, pakfile, sizeof( search->filename ));
 		search->pack = pak;
@@ -384,7 +375,9 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 		{
 			if( !Q_stricmp( COM_FileExtension( pak->files[i].name ), "wad" ))
 			{
-				Q_snprintf( fullpath, MAX_STRING, "%s/%s", pakfile, pak->files[i].name );
+				char fullpath[MAX_SYSPATH];
+
+				Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", pakfile, pak->files[i].name );
 				FS_AddWad_Fullpath( fullpath, NULL, flags );
 			}
 		}

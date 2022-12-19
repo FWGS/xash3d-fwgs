@@ -24,6 +24,7 @@ extern "C"
 {
 #endif
 
+typedef struct dir_s dir_t;
 typedef struct zip_s zip_t;
 typedef struct pack_s pack_t;
 typedef struct wfile_s wfile_t;
@@ -72,6 +73,7 @@ typedef struct searchpath_s
 	
 	union
 	{
+		dir_t   *dir;
 		pack_t  *pack;
 		wfile_t *wad;
 		zip_t   *zip;
@@ -83,7 +85,7 @@ typedef struct searchpath_s
 	void    (*pfnClose)( struct searchpath_s *search );
 	file_t *(*pfnOpenFile)( struct searchpath_s *search, const char *filename, const char *mode, int pack_ind );
 	int     (*pfnFileTime)( struct searchpath_s *search, const char *filename );
-	int     (*pfnFindFile)( struct searchpath_s *search, const char *path );
+	int     (*pfnFindFile)( struct searchpath_s *search, const char *path, char *fixedname, size_t len );
 	void    (*pfnSearch)( struct searchpath_s *search, stringlist_t *list, const char *pattern, int caseinsensitive );
 } searchpath_t;
 
@@ -157,6 +159,13 @@ qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len )
 qboolean CRC32_File( dword *crcvalue, const char *filename );
 qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] );
 
+// stringlist ops
+void stringlistinit( stringlist_t *list );
+void stringlistfreecontents( stringlist_t *list );
+void stringlistappend( stringlist_t *list, char *text );
+void stringlistsort( stringlist_t *list );
+void listdirectory( stringlist_t *list, const char *path, qboolean lowercase );
+
 // filesystem ops
 int FS_FileExists( const char *filename, int gamedironly );
 int FS_FileTime( const char *filename, qboolean gamedironly );
@@ -165,19 +174,15 @@ qboolean FS_Rename( const char *oldname, const char *newname );
 qboolean FS_Delete( const char *path );
 qboolean FS_SysFileExists( const char *path, qboolean casesensitive );
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
-void 	 stringlistinit( stringlist_t *list );
-void 	 stringlistfreecontents( stringlist_t *list );
-void     stringlistappend( stringlist_t *list, char *text );
-void 	 listdirectory( stringlist_t *list, const char *path, qboolean lowercase );
 void     FS_CreatePath( char *path );
 qboolean FS_SysFolderExists( const char *path );
+qboolean FS_SysFileOrFolderExists( const char *path );
 file_t  *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedironly );
 
 int           FS_SysFileTime( const char *filename );
 file_t       *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_offset_t len );
 file_t       *FS_SysOpen( const char *filepath, const char *mode );
-const char   *FS_FixFileCase( const char *path );
-searchpath_t *FS_FindFile( const char *name, int *index, qboolean gamedironly );
+searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t len, qboolean gamedironly );
 
 //
 // pak.c
@@ -206,7 +211,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 //
 // dir.c
 //
-qboolean FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags );
 void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags );
 
 #ifdef __cplusplus
