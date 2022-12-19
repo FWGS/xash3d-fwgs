@@ -50,13 +50,16 @@ typedef struct mempool_s
 	struct mempool_s	*next;		// linked into global mempool list
 	const char	*filename;	// file name and line where Mem_AllocPool was called
 	int		fileline;
+#if XASH_64BIT
 	poolhandle_t idx;
+#endif
 	char		name[64];		// name of the pool
 	uint		sentinel2;	// should always be MEMHEADER_SENTINEL1
 } mempool_t;
 
 static mempool_t *poolchain = NULL; // critical stuff
 
+#if XASH_64BIT
 // a1ba: due to mempool being passed with the model through reused 32-bit field
 // which makes engine incompatible with 64-bit pointers I changed mempool type
 // from pointer to 32-bit handle, thankfully mempool structure is private
@@ -77,6 +80,12 @@ static mempool_t *Mem_FindPool( poolhandle_t poolptr )
 
 	return NULL;
 }
+#else
+static mempool_t *Mem_FindPool( poolhandle_t poolptr )
+{
+	return (mempool_t *)poolptr;
+}
+#endif
 
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
@@ -219,10 +228,14 @@ poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int filelin
 	pool->realsize = sizeof( mempool_t );
 	Q_strncpy( pool->name, name, sizeof( pool->name ));
 	pool->next = poolchain;
-	pool->idx = ++lastidx;
 	poolchain = pool;
-
+	
+#if XASH_64BIT
+	pool->idx = ++lastidx;
 	return pool->idx;
+#else
+	return (poolhandle_t)pool;
+#endif
 }
 
 void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
