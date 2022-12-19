@@ -2418,13 +2418,13 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 
 		if( FBitSet( flags, MAP_INVALID_VERSION ))
 		{
-			Q_strncpy( comment, va( "<map %s has invalid format>", mapName ), MAX_STRING );
+			Q_snprintf( comment, sizeof( comment ), "<map %s has invalid format>", mapName );
 			return 0;
 		}
 
 		if( !FBitSet( flags, MAP_IS_EXIST ))
 		{
-			Q_strncpy( comment, va( "<map %s is missed>", mapName ), MAX_STRING );
+			Q_snprintf( comment, sizeof( comment ), "<map %s is missed>", mapName );
 			return 0;
 		}
 
@@ -2433,10 +2433,10 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 
 		// split comment to sections
 		if( Q_strstr( savename, "quick" ))
-			Q_strncat( comment, "[quick]", CS_SIZE );
+			Q_snprintf( comment, sizeof( comment ), "[quick]%s", description );
 		else if( Q_strstr( savename, "autosave" ))
-			Q_strncat( comment, "[autosave]", CS_SIZE );
-		Q_strncat( comment, description, CS_SIZE );
+			Q_snprintf( comment, sizeof( comment ), "[autosave]%s", description );
+		else Q_strncpy( comment, description, sizeof( comment ));
 		strftime( timestring, sizeof ( timestring ), "%b%d %Y", file_tm );
 		Q_strncpy( comment + CS_SIZE, timestring, CS_TIME );
 		strftime( timestring, sizeof( timestring ), "%H:%M", file_tm );
