@@ -930,15 +930,26 @@ void SV_BuildNetAnswer( netadr_t from )
 	}
 	else if( type == NETAPI_REQUEST_PLAYERS )
 	{
+		size_t len = 0;
+
 		string[0] = '\0';
 
 		for( i = 0; i < svs.maxclients; i++ )
 		{
 			if( svs.clients[i].state >= cs_connected )
 			{
+				int ret;
 				edict_t *ed = svs.clients[i].edict;
 				float time = host.realtime - svs.clients[i].connection_started;
-				Q_strncat( string, va( "%c\\%s\\%i\\%f\\", count, svs.clients[i].name, (int)ed->v.frags, time ), sizeof( string ));
+				ret = Q_snprintf( &string[len], sizeof( string ) - len, "%c\\%s\\%i\\%f\\", count, svs.clients[i].name, (int)ed->v.frags, time );
+
+				if( ret == -1 )
+				{
+					Con_DPrintf( S_WARN "SV_BuildNetAnswer: NETAPI_REQUEST_PLAYERS: buffer overflow!\n" );
+					break;
+				}
+
+				len += ret;
 				count++;
 			}
 		}
