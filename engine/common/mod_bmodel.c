@@ -434,9 +434,9 @@ void Mod_PrintWorldStats_f( void )
 	Con_Printf( "Lighting: %s\n", FBitSet( w->flags, MODEL_COLORED_LIGHTING ) ? "colored" : "monochrome" );
 	Con_Printf( "World total leafs: %d\n", worldmodel->numleafs + 1 );
 	Con_Printf( "original name: ^1%s\n", worldmodel->name );
-	Con_Printf( "internal name: %s\n", (world.message[0]) ? va( "^2%s", world.message ) : "none" );
-	Con_Printf( "map compiler: %s\n", (world.compiler[0]) ? va( "^3%s", world.compiler ) : "unknown" );
-	Con_Printf( "map editor: %s\n", (world.generator[0]) ? va( "^2%s", world.generator ) : "unknown" );
+	Con_Printf( "internal name: ^2%s\n", world.message[0] ? world.message : "none" );
+	Con_Printf( "map compiler: ^3%s\n", world.compiler[0] ? world.compiler : "unknown" );
+	Con_Printf( "map editor: ^2%s\n", world.generator[0] ? world.generator : "unknown" );
 }
 
 /*
@@ -2781,7 +2781,8 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	dbspmodel_t	*bmod = &srcmodel;
 	model_t		*mod = loadmodel;
 	char		wadvalue[2048];
-	int		i;
+	size_t		len = 0;
+	int		i, ret;
 
 	// always reset the intermediate struct
 	memset( bmod, 0, sizeof( dbspmodel_t ));
@@ -2888,7 +2889,13 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	{
 		if( !bmod->wadlist.wadusage[i] )
 			continue;
-		Q_strncat( wadvalue, va( "%s.wad; ", bmod->wadlist.wadnames[i] ), sizeof( wadvalue ));
+		ret = Q_snprintf( &wadvalue[len], sizeof( wadvalue ), "%s.wad; ", bmod->wadlist.wadnames[i] );
+		if( ret == -1 )
+		{
+			Con_DPrintf( S_WARN "Too many wad files for output!\n" );
+			break;
+		}
+		len += ret;
 	}
 
 	if( COM_CheckString( wadvalue ))
