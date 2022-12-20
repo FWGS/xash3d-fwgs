@@ -244,6 +244,20 @@ def configure(conf):
 		cxxflags += conf.filter_cxxflags(compiler_optional_flags, cflags)
 		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags)
 
+        # check if we need to use irix linkflags
+        print("Here!")
+        print(conf.env.DEST_OS)
+        print(conf.env.COMPILER_CC)
+        if conf.env.DEST_OS == 'irix' and conf.env.COMPILER_CC == 'gcc':
+                linkflags.remove('-Wl,--no-undefined')
+                linkflags.append('-Wl,--unresolved-symbols=ignore-all')
+                print("irix and gcc")
+                # check if we're in a sgug environment
+                if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
+                        print("sgug")
+                        linkflags.append('-lc')
+        
+
 	conf.env.append_unique('CFLAGS', cflags)
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
