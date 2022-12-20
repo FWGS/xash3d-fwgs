@@ -1727,7 +1727,8 @@ static int GAME_EXPORT pfnClientCmd( const char *szCmdString )
 	else
 	{
 		// will exec later
-		Q_strncat( host.deferred_cmd, va( "%s\n", szCmdString ), sizeof( host.deferred_cmd ));
+		Q_strncat( host.deferred_cmd, szCmdString, sizeof( host.deferred_cmd ));
+		Q_strncat( host.deferred_cmd, "\n", sizeof( host.deferred_cmd ));
 	}
 
 	return 1;
