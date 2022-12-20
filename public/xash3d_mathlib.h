@@ -153,7 +153,13 @@ void PlaneIntersect( const struct mplane_s *plane, const vec3_t p0, const vec3_t
 
 void ClearBounds( vec3_t mins, vec3_t maxs );
 void AddPointToBounds( const vec3_t v, vec3_t mins, vec3_t maxs );
+#if XASH_PSP
+#define BoundsIntersect( mins1, maxs1, mins2, maxs2 ) \
+        (( mins1[0] > maxs2[0] || mins1[1] > maxs2[1] || mins1[2] > maxs2[2] ) ? false : \
+        ( maxs1[0] < mins2[0] || maxs1[1] < mins2[1] || maxs1[2] < mins2[2] ) ? false : true )
+#else
 qboolean BoundsIntersect( const vec3_t mins1, const vec3_t maxs1, const vec3_t mins2, const vec3_t maxs2 );
+#endif
 qboolean BoundsAndSphereIntersect( const vec3_t mins, const vec3_t maxs, const vec3_t origin, float radius );
 qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared, const vec3_t vLinePt, const vec3_t vLineDir );
 float RadiusFromBounds( const vec3_t mins, const vec3_t maxs );

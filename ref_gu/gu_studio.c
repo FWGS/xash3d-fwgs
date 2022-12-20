@@ -2427,7 +2427,7 @@ static void R_StudioDrawPoints( void )
 	{
 		mstudioboneweight_t	*pvertweight = (mstudioboneweight_t *)((byte *)m_pStudioHeader + m_pSubModel->blendvertinfoindex);
 		mstudioboneweight_t	*pnormweight = (mstudioboneweight_t *)((byte *)m_pStudioHeader + m_pSubModel->blendnorminfoindex);
-		matrix3x4		skinMat __attribute__( (aligned( 16 ) ) );
+		matrix3x4		skinMat;
 
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{

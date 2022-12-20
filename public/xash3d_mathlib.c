@@ -600,6 +600,7 @@ void ExpandBounds( vec3_t mins, vec3_t maxs, float offset )
 BoundsIntersect
 =================
 */
+#if !XASH_PSP
 qboolean BoundsIntersect( const vec3_t mins1, const vec3_t maxs1, const vec3_t mins2, const vec3_t maxs2 )
 {
 	if( mins1[0] > maxs2[0] || mins1[1] > maxs2[1] || mins1[2] > maxs2[2] )
@@ -608,6 +609,7 @@ qboolean BoundsIntersect( const vec3_t mins1, const vec3_t maxs1, const vec3_t m
 		return false;
 	return true;
 }
+#endif
 
 /*
 =================
@@ -757,6 +759,7 @@ make sure quaternions are within 180 degrees of one another,
 if not, reverse q
 ====================
 */
+#if !XASH_PSP
 void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
 {
 	// decide if one of the quaternions is backwards
@@ -845,9 +848,9 @@ void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt )
 	// 0.0 returns p, 1.0 return q.
 	// decide if one of the quaternions is backwards
 	QuaternionAlign( p, q, q2 );
-
 	QuaternionSlerpNoAlign( p, q2, t, qt );
 }
+#endif
 
 /*
 ====================

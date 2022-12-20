@@ -204,6 +204,9 @@ mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence,
 SetStudioHullPlane
 ====================
 */
+#if XASH_PSP
+static inline
+#endif
 void Mod_SetStudioHullPlane( int planenum, int bone, int axis, float offset, const vec3_t size )
 {
 	mplane_t	*pl = &studio_planes[planenum];
