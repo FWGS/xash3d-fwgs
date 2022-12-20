@@ -499,12 +499,12 @@ void Wcon_CreateConsole( void )
 
 	if( host.type == HOST_NORMAL )
 	{
-		Q_strncpy( s_wcd.title, va( "Xash3D %s", XASH_VERSION ), sizeof( s_wcd.title ));
+		Q_strncpy( s_wcd.title, "Xash3D " XASH_VERSION, sizeof( s_wcd.title ));
 		Q_strncpy( s_wcd.log_path, "engine.log", sizeof( s_wcd.log_path ));
 	}
 	else // dedicated console
 	{
-		Q_strncpy( s_wcd.title, va( "XashDS %s", XASH_VERSION ), sizeof( s_wcd.title ));
+		Q_strncpy( s_wcd.title, "XashDS " XASH_VERSION, sizeof( s_wcd.title ));
 		Q_strncpy( s_wcd.log_path, "dedicated.log", sizeof( s_wcd.log_path ));
 		s_wcd.log_active = true; // always make log
 	}
