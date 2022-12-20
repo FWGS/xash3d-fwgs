@@ -1351,7 +1351,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 
 poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
 {
-	return 0xDEADC0DE;
+	return (poolhandle_t)0xDEADC0DE;
 }
 
 void  _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
