@@ -213,6 +213,7 @@ static int FS_MaybeUpdateDirEntries( dir_t *dir, const char *path, const char *e
 	return FS_FindDirEntry( dir, entryname );
 }
 
+#if 1
 qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, size_t len, qboolean createpath )
 {
 	const char *prev = path;
@@ -325,6 +326,66 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, size_t len, qb
 
 	return true;
 }
+#else
+qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, size_t len, qboolean createpath )
+{
+	const char *prev = path;
+	const char *next = Q_strchrnul( prev, PATH_SEPARATOR );
+	size_t i = Q_strlen( dst ); // dst is expected to have searchpath filename
+
+	while( true )
+	{
+		stringlist_t list;
+		char entryname[MAX_SYSPATH];
+		int idx;
+
+		// get our entry name
+		Q_strncpy( entryname, prev, next - prev + 1 );
+
+		stringlistinit( &list );
+		listdirectory( &list, dst, false );
+
+		for( idx = 0; idx < list.numstrings; idx++ )
+		{
+			if( !Q_stricmp( list.strings[idx], entryname ))
+				break;
+		}
+
+		if( idx != list.numstrings )
+		{
+			i += Q_strncpy( &dst[i], list.strings[idx], len - i );
+			if( i >= len ) // overflow!
+			{
+				Con_Printf( "%s: overflow while searching %s (appending fixed file name)\n", __FUNCTION__, path );
+				return false;
+			}
+		}
+		else
+		{
+			stringlistfreecontents( &list );
+			return false;
+		}
+
+		stringlistfreecontents( &list );
+
+		// end of string, found file, return
+		if( next[0] == '\0' )
+			break;
+
+		// move pointer one character forward, find next path split character
+		prev = next + 1;
+		next = Q_strchrnul( prev, PATH_SEPARATOR );
+		i += Q_strncpy( &dst[i], PATH_SEPARATOR_STR, len - i );
+		if( i >= len ) // overflow!
+		{
+			Con_Printf( "%s: overflow while searching %s (path separator)\n", __FUNCTION__, path );
+			return false;
+		}
+	}
+
+	return true;
+}
+#endif
 
 static void FS_Close_DIR( searchpath_t *search )
 {
