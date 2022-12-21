@@ -164,8 +164,8 @@ static void FS_MergeDirEntries( dir_t *dir, const stringlist_t *list )
 		}
 
 		// found directory, move all entries
-		temp.entries[j].numentries = dir->entries[j].numentries;
-		temp.entries[j].entries = dir->entries[j].entries;
+		temp.entries[j].numentries = dir->entries[i].numentries;
+		temp.entries[j].entries = dir->entries[i].entries;
 	}
 
 	// now we can free old tree and replace it with temporary
