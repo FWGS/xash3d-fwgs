@@ -234,6 +234,7 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, size_t len, qb
 				Con_Printf( "%s: overflow while searching %s (caseinsensitive entry)\n", __FUNCTION__, path );
 				return false;
 			}
+			break;
 		}
 
 		// populate cache if needed
