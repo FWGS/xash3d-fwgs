@@ -70,7 +70,7 @@ typedef struct searchpath_s
 	string  filename;
 	int     type;
 	int     flags;
-	
+
 	union
 	{
 		dir_t   *dir;
@@ -91,12 +91,12 @@ typedef struct searchpath_s
 
 extern fs_globals_t  FI;
 extern searchpath_t *fs_searchpaths;
+extern searchpath_t *fs_writepath;
 extern poolhandle_t  fs_mempool;
 extern fs_interface_t g_engfuncs;
 extern qboolean      fs_ext_path;
 extern char          fs_rodir[MAX_SYSPATH];
 extern char          fs_rootdir[MAX_SYSPATH];
-extern char          fs_writedir[MAX_SYSPATH];
 extern fs_api_t      g_api;
 
 #define GI FI.GameInfo
@@ -164,7 +164,7 @@ void stringlistinit( stringlist_t *list );
 void stringlistfreecontents( stringlist_t *list );
 void stringlistappend( stringlist_t *list, char *text );
 void stringlistsort( stringlist_t *list );
-void listdirectory( stringlist_t *list, const char *path, qboolean lowercase );
+void listdirectory( stringlist_t *list, const char *path );
 
 // filesystem ops
 int FS_FileExists( const char *filename, int gamedironly );
@@ -212,6 +212,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 // dir.c
 //
 searchpath_t *FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags );
+qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t len, qboolean createpath );
 void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags );
 
 #ifdef __cplusplus
