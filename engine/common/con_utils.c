@@ -1355,7 +1355,6 @@ void Host_FinalizeConfig( file_t *f, const char *config )
 	FS_Close( f );
 	FS_Delete( backup );
 	FS_Rename( config, backup );
-	FS_Delete( config );
 	FS_Rename( newcfg, config );
 }
 
