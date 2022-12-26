@@ -13,14 +13,23 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include "build.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#if XASH_POSIX
-#include <unistd.h>
-#endif
 #include <errno.h>
 #include <stddef.h>
+#if XASH_POSIX
+#include <unistd.h>
+#include <sys/ioctl.h>
+#endif
+#if XASH_LINUX
+#include <linux/fs.h>
+#ifndef FS_CASEFOLD_FL // for compatibility with older distros
+#define FS_CASEFOLD_FL 0x40000000
+#endif // FS_CASEFOLD_FL
+#endif // XASH_LINUX
+
 #include "port.h"
 #include "filesystem_internal.h"
 #include "crtlib.h"
@@ -40,6 +49,29 @@ typedef struct dir_s
 	int numentries;
 	struct dir_s *entries; // sorted
 } dir_t;
+
+static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
+{
+#if XASH_WIN32
+	return false;
+#elif XASH_LINUX && defined( FS_IOC_GETFLAGS )
+	int flags = 0;
+	int fd;
+
+	fd = open( dir, O_RDONLY | O_NONBLOCK );
+	if( fd < 0 )
+		return true;
+
+	if( ioctl( fd, FS_IOC_GETFLAGS, &flags ) < 0 )
+		return true;
+
+	close( fd );
+
+	return !FBitSet( flags, FS_CASEFOLD_FL );
+#else
+	return true;
+#endif
+}
 
 static int FS_SortDirEntries( const void *_a, const void *_b )
 {
@@ -82,15 +114,18 @@ static void FS_InitDirEntries( dir_t *dir, const stringlist_t *list )
 
 static void FS_PopulateDirEntries( dir_t *dir, const char *path )
 {
-#if XASH_WIN32 // Windows is always case insensitive
-	dir->numentries = DIRENTRY_CASEINSENSITIVE;
-	dir->entries = NULL;
-#else
 	stringlist_t list;
 
 	if( !FS_SysFolderExists( path ))
 	{
 		dir->numentries = DIRENTRY_EMPTY_DIRECTORY;
+		dir->entries = NULL;
+		return;
+	}
+
+	if( !Platform_GetDirectoryCaseSensitivity( path ))
+	{
+		dir->numentries = DIRENTRY_CASEINSENSITIVE;
 		dir->entries = NULL;
 		return;
 	}
@@ -107,7 +142,6 @@ static void FS_PopulateDirEntries( dir_t *dir, const char *path )
 		FS_InitDirEntries( dir, &list );
 	}
 	stringlistfreecontents( &list );
-#endif
 }
 
 static int FS_FindDirEntry( dir_t *dir, const char *name )
