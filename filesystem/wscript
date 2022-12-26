@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 
+from waflib.Tools import waf_unit_test
+
 def options(opt):
-	pass
+	grp = opt.add_option_group('filesystem_stdio options')
+
+	grp.add_option('--enable-fs-tests', action='store_true', dest = 'FS_TESTS', default = False,
+		help = 'enable filesystem_stdio tests')
 
 def configure(conf):
 	nortti = {
@@ -9,6 +14,8 @@ def configure(conf):
 		'default': ['-fno-rtti', '-fno-exceptions']
 	}
 	conf.env.append_unique('CXXFLAGS', conf.get_flags_by_compiler(nortti, conf.env.COMPILER_CC))
+
+	conf.env.FS_TESTS = conf.options.FS_TESTS
 
 	if conf.env.DEST_OS != 'android':
 		if conf.env.cxxshlib_PATTERN.startswith('lib'):
@@ -22,3 +29,16 @@ def build(bld):
 		use = 'filesystem_includes public',
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM)
+
+	if bld.env.FS_TESTS:
+		# build in same module, so dynamic linking will work
+		# for now (until we turn libpublic to shared module lol)
+		bld.program(features = 'test',
+			source = 'tests/caseinsensitive.c',
+			target = 'test_caseinsensitive',
+			use = 'filesystem_includes public DL',
+			rpath = '$ORIGIN',
+			subsystem = bld.env.CONSOLE_SUBSYSTEM,
+			install_path = None)
+		bld.add_post_fun(waf_unit_test.summary)
+		bld.add_post_fun(waf_unit_test.set_exit_code)
