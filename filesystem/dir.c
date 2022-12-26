@@ -41,7 +41,7 @@ typedef struct dir_s
 	struct dir_s *entries; // sorted
 } dir_t;
 
-static int FS_SortDir( const void *_a, const void *_b )
+static int FS_SortDirEntries( const void *_a, const void *_b )
 {
 	const dir_t *a = _a;
 	const dir_t *b = _b;
@@ -65,25 +65,19 @@ static void FS_InitDirEntries( dir_t *dir, const stringlist_t *list )
 {
 	int i;
 
-	if( !list->numstrings )
-	{
-		dir->numentries = DIRENTRY_EMPTY_DIRECTORY;
-		dir->entries = NULL;
-		return;
-	}
-
 	dir->numentries = list->numstrings;
 	dir->entries = Mem_Malloc( fs_mempool, sizeof( dir_t ) * dir->numentries );
 
 	for( i = 0; i < list->numstrings; i++ )
 	{
 		dir_t *entry = &dir->entries[i];
+
 		Q_strncpy( entry->name, list->strings[i], sizeof( entry->name ));
 		entry->numentries = DIRENTRY_NOT_SCANNED;
 		entry->entries = NULL;
 	}
 
-	qsort( dir->entries, dir->numentries, sizeof( dir->entries[0] ), FS_SortDir );
+	qsort( dir->entries, dir->numentries, sizeof( dir->entries[0] ), FS_SortDirEntries );
 }
 
 static void FS_PopulateDirEntries( dir_t *dir, const char *path )
@@ -102,8 +96,16 @@ static void FS_PopulateDirEntries( dir_t *dir, const char *path )
 	}
 
 	stringlistinit( &list );
-	listdirectory( &list, path, false );
-	FS_InitDirEntries( dir, &list );
+	listdirectory( &list, path );
+	if( !list.numstrings )
+	{
+		dir->numentries = DIRENTRY_EMPTY_DIRECTORY;
+		dir->entries = NULL;
+	}
+	else
+	{
+		FS_InitDirEntries( dir, &list );
+	}
 	stringlistfreecontents( &list );
 #endif
 }
@@ -112,12 +114,10 @@ static int FS_FindDirEntry( dir_t *dir, const char *name )
 {
 	int left, right;
 
-	if( dir->numentries < 0 )
-		return -1;
-
 	// look for the file (binary search)
 	left = 0;
 	right = dir->numentries - 1;
+
 	while( left <= right )
 	{
 		int   middle = (left + right) / 2;
@@ -142,30 +142,37 @@ static void FS_MergeDirEntries( dir_t *dir, const stringlist_t *list )
 	int i;
 	dir_t temp;
 
+	// glorified realloc for sorted dir entries
+	// make new array and copy old entries with same name and subentries
+	// everything else get freed
+
 	FS_InitDirEntries( &temp, list );
 
-	// copy all entries that has the same name and has subentries
 	for( i = 0; i < dir->numentries; i++ )
 	{
+		dir_t *oldentry = &dir->entries[i];
+		dir_t *newentry;
 		int j;
 
 		// don't care about directories without subentries
-		if( dir->entries == NULL )
+		if( oldentry->entries == NULL )
 			continue;
 
 		// try to find this directory in new tree
-		j = FS_FindDirEntry( &temp, dir->entries[i].name );
+		j = FS_FindDirEntry( &temp, oldentry->name );
 
 		// not found, free memory
 		if( j < 0 )
 		{
-			FS_FreeDirEntries( &dir->entries[i] );
+			FS_FreeDirEntries( oldentry );
 			continue;
 		}
 
 		// found directory, move all entries
-		temp.entries[j].numentries = dir->entries[i].numentries;
-		temp.entries[j].entries = dir->entries[i].entries;
+		newentry = &temp.entries[j];
+
+		newentry->numentries = oldentry->numentries;
+		newentry->entries = oldentry->entries;
 	}
 
 	// now we can free old tree and replace it with temporary
@@ -177,216 +184,141 @@ static void FS_MergeDirEntries( dir_t *dir, const stringlist_t *list )
 static int FS_MaybeUpdateDirEntries( dir_t *dir, const char *path, const char *entryname )
 {
 	stringlist_t list;
-	qboolean update = false;
-	int idx;
+	int ret;
 
 	stringlistinit( &list );
-	listdirectory( &list, path, false );
+	listdirectory( &list, path );
 
-	// find the reason to update entries list
-	if( list.numstrings != dir->numentries )
+	if( list.numstrings == 0 ) // empty directory
 	{
-		// small optimization to not search string in the list
-		// and directly go updating entries
-		update = true;
+		FS_FreeDirEntries( dir );
+		dir->numentries = DIRENTRY_EMPTY_DIRECTORY;
+		ret = -1;
+	}
+	else if( dir->numentries < 0 ) // not initialized or was empty
+	{
+		FS_InitDirEntries( dir, &list );
+		ret = FS_FindDirEntry( dir, entryname );
+	}
+	else if( list.numstrings != dir->numentries ) // quick update
+	{
+		FS_MergeDirEntries( dir, &list );
+		ret = FS_FindDirEntry( dir, entryname );
 	}
 	else
 	{
-		for( idx = 0; idx < list.numstrings; idx++ )
+		// do heavy compare if directory now have an entry we need
+		int i;
+
+		for( i = 0; i < list.numstrings; i++ )
 		{
-			if( !Q_stricmp( list.strings[idx], entryname ))
-			{
-				update = true;
+			if( !Q_stricmp( list.strings[i], entryname ))
 				break;
-			}
 		}
+
+		if( i != list.numstrings )
+		{
+			FS_MergeDirEntries( dir, &list );
+			ret = FS_FindDirEntry( dir, entryname );
+		}
+		else ret = -1;
 	}
 
-	if( !update )
-	{
-		stringlistfreecontents( &list );
-		return -1;
-	}
-
-	FS_MergeDirEntries( dir, &list );
 	stringlistfreecontents( &list );
-	return FS_FindDirEntry( dir, entryname );
+	return ret;
 }
 
-#if 1
-qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, size_t len, qboolean createpath )
+static inline qboolean FS_AppendToPath( char *dst, size_t *pi, const size_t len, const char *src, const char *path, const char *err )
 {
-	const char *prev = path;
-	const char *next = Q_strchrnul( prev, PATH_SEPARATOR );
-	size_t i = Q_strlen( dst ); // dst is expected to have searchpath filename
+	size_t i = *pi;
 
-	while( true )
+	i += Q_strncpy( &dst[i], src, len - i );
+	*pi = i;
+
+	if( i >= len )
 	{
+		Con_Printf( S_ERROR "FS_FixFileCase: overflow while searching %s (%s)\n", path, err );
+		return false;
+	}
+	return true;
+}
+
+qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t len, qboolean createpath )
+{
+	const char *prev, *next;
+	size_t i = 0;
+
+	if( !FS_AppendToPath( dst, &i, len, dir->name, path, "init" ))
+		return false;
+
+	for( prev = path, next = Q_strchrnul( prev, PATH_SEPARATOR );
+		  ;
+		  prev = next + 1, next = Q_strchrnul( prev, PATH_SEPARATOR ))
+	{
+		qboolean uptodate = false; // do not run second scan if we're just updated our directory list
+		size_t temp;
 		char entryname[MAX_SYSPATH];
 		int ret;
 
 		// this subdirectory is case insensitive, just slam everything that's left
 		if( dir->numentries == DIRENTRY_CASEINSENSITIVE )
 		{
-			i += Q_strncpy( &dst[i], prev, len - i );
-			if( i >= len )
-			{
-				Con_Printf( "%s: overflow while searching %s (caseinsensitive entry)\n", __FUNCTION__, path );
+			if( !FS_AppendToPath( dst, &i, len, prev, path, "caseinsensitive entry" ))
 				return false;
-			}
 			break;
 		}
 
-		// populate cache if needed
 		if( dir->numentries == DIRENTRY_NOT_SCANNED )
+		{
+			// read directory first time
 			FS_PopulateDirEntries( dir, dst );
+			uptodate = true;
+		}
 
 		// get our entry name
 		Q_strncpy( entryname, prev, next - prev + 1 );
-		ret = FS_FindDirEntry( dir, entryname );
 
 		// didn't found, but does it exists in FS?
-		if( ret < 0 )
+		if(( ret = FS_FindDirEntry( dir, entryname )) < 0 )
 		{
-			ret = FS_MaybeUpdateDirEntries( dir, dst, entryname );
+			// if we're creating files or folders, we don't care if path doesn't exist
+			// so copy everything that's left and exit without an error
+			if( uptodate || ( ret = FS_MaybeUpdateDirEntries( dir, dst, entryname )) < 0 )
+				return createpath ? FS_AppendToPath( dst, &i, len, prev, path, "create path" ) : false;
 
-			if( ret < 0 )
-			{
-				// if we're creating files or folders, we don't care if path doesn't exist
-				// so copy everything that's left and exit without an error
-				if( createpath )
-				{
-					i += Q_strncpy( &dst[i], prev, len - i );
-					if( i >= len )
-					{
-						Con_Printf( "%s: overflow while searching %s (create path)\n", __FUNCTION__, path );
-						return false;
-					}
-
-					return true;
-				}
-				return false;
-			}
+			uptodate = true;
 		}
 
 		dir = &dir->entries[ret];
-		ret = Q_strncpy( &dst[i], dir->name, len - i );
+		temp = i;
+		if( !FS_AppendToPath( dst, &temp, len, dir->name, path, "case fix" ))
+			return false;
 
-		// file not found, rescan...
-		if( !FS_SysFileOrFolderExists( dst ))
+		if( !uptodate && !FS_SysFileOrFolderExists( dst )) // file not found, rescan...
 		{
-			// strip failed part
-			dst[i] = 0;
+			dst[i] = 0; // strip failed part
 
-			ret = FS_MaybeUpdateDirEntries( dir, dst, entryname );
-
-			// file not found, exit... =/
-			if( ret < 0 )
-			{
-				// if we're creating files or folders, we don't care if path doesn't exist
-				// so copy everything that's left and exit without an error
-				if( createpath )
-				{
-					i += Q_strncpy( &dst[i], prev, len - i );
-					if( i >= len )
-					{
-						Con_Printf( "%s: overflow while searching %s (create path 2)\n", __FUNCTION__, path );
-						return false;
-					}
-
-					return true;
-				}
-				return false;
-			}
+			// if we're creating files or folders, we don't care if path doesn't exist
+			// so copy everything that's left and exit without an error
+			if(( ret = FS_MaybeUpdateDirEntries( dir, dst, entryname )) < 0 )
+				return createpath ? FS_AppendToPath( dst, &i, len, prev, path, "create path rescan" ) : false;
 
 			dir = &dir->entries[ret];
-			ret = Q_strncpy( &dst[i], dir->name, len - i );
-		}
-
-		i += ret;
-		if( i >= len ) // overflow!
-		{
-			Con_Printf( "%s: overflow while searching %s (appending fixed file name)\n", __FUNCTION__, path );
-			return false;
-		}
-
-		// end of string, found file, return
-		if( next[0] == '\0' )
-			break;
-
-		// move pointer one character forward, find next path split character
-		prev = next + 1;
-		next = Q_strchrnul( prev, PATH_SEPARATOR );
-		i += Q_strncpy( &dst[i], PATH_SEPARATOR_STR, len - i );
-		if( i >= len ) // overflow!
-		{
-			Con_Printf( "%s: overflow while searching %s (path separator)\n", __FUNCTION__, path );
-			return false;
-		}
-	}
-
-	return true;
-}
-#else
-qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, size_t len, qboolean createpath )
-{
-	const char *prev = path;
-	const char *next = Q_strchrnul( prev, PATH_SEPARATOR );
-	size_t i = Q_strlen( dst ); // dst is expected to have searchpath filename
-
-	while( true )
-	{
-		stringlist_t list;
-		char entryname[MAX_SYSPATH];
-		int idx;
-
-		// get our entry name
-		Q_strncpy( entryname, prev, next - prev + 1 );
-
-		stringlistinit( &list );
-		listdirectory( &list, dst, false );
-
-		for( idx = 0; idx < list.numstrings; idx++ )
-		{
-			if( !Q_stricmp( list.strings[idx], entryname ))
-				break;
-		}
-
-		if( idx != list.numstrings )
-		{
-			i += Q_strncpy( &dst[i], list.strings[idx], len - i );
-			if( i >= len ) // overflow!
-			{
-				Con_Printf( "%s: overflow while searching %s (appending fixed file name)\n", __FUNCTION__, path );
+			if( !FS_AppendToPath( dst, &temp, len, dir->name, path, "case fix rescan" ))
 				return false;
-			}
 		}
-		else
-		{
-			stringlistfreecontents( &list );
-			return false;
-		}
-
-		stringlistfreecontents( &list );
+		i = temp;
 
 		// end of string, found file, return
-		if( next[0] == '\0' )
+		if( next[0] == '\0' || ( next[0] == PATH_SEPARATOR && next[1] == '\0' ))
 			break;
 
-		// move pointer one character forward, find next path split character
-		prev = next + 1;
-		next = Q_strchrnul( prev, PATH_SEPARATOR );
-		i += Q_strncpy( &dst[i], PATH_SEPARATOR_STR, len - i );
-		if( i >= len ) // overflow!
-		{
-			Con_Printf( "%s: overflow while searching %s (path separator)\n", __FUNCTION__, path );
+		if( !FS_AppendToPath( dst, &i, len, PATH_SEPARATOR_STR, path, "path separator" ))
 			return false;
-		}
 	}
 
 	return true;
 }
-#endif
 
 static void FS_Close_DIR( searchpath_t *search )
 {
@@ -403,7 +335,6 @@ static int FS_FindFile_DIR( searchpath_t *search, const char *path, char *fixedn
 {
 	char netpath[MAX_SYSPATH];
 
-	Q_strncpy( netpath, search->filename, sizeof( netpath ));
 	if( !FS_FixFileCase( search->dir, path, netpath, sizeof( netpath ), false ))
 		return -1;
 
@@ -438,12 +369,16 @@ static void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char 
 	if( basepathlength ) memcpy( basepath, pattern, basepathlength );
 	basepath[basepathlength] = '\0';
 
-	Q_snprintf( netpath, sizeof( netpath ), "%s%s", search->filename, basepath );
+	if( !FS_FixFileCase( search->dir, basepath, netpath, sizeof( netpath ), false ))
+	{
+		Mem_Free( basepath );
+		return;
+	}
 
 	stringlistinit( &dirlist );
-	listdirectory( &dirlist, netpath, caseinsensitive );
+	listdirectory( &dirlist, netpath );
 
-	Q_strncpy( temp,  basepath, sizeof( temp ) );
+	Q_strncpy( temp, basepath, sizeof( temp ));
 
 	for( dirlistindex = 0; dirlistindex < dirlist.numstrings; dirlistindex++ )
 	{
@@ -500,7 +435,7 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 
 	// create cache root
 	search->dir = Mem_Malloc( fs_mempool, sizeof( dir_t ));
-	search->dir->name[0] = 0; // root has no filename, unused
+	Q_strncpy( search->dir->name, search->filename, sizeof( search->dir->name ));
 	FS_PopulateDirEntries( search->dir, path );
 }
 

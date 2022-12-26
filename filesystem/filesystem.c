@@ -50,7 +50,6 @@ poolhandle_t  fs_mempool;
 searchpath_t *fs_searchpaths = NULL;	// chain
 char          fs_rodir[MAX_SYSPATH];
 char          fs_rootdir[MAX_SYSPATH];
-char          fs_writedir[MAX_SYSPATH];	// path that game allows to overwrite, delete and rename files (and create new of course)
 searchpath_t *fs_writepath;
 
 static char			fs_basedir[MAX_SYSPATH];	// base game directory
@@ -193,10 +192,8 @@ static void listlowercase( stringlist_t *list )
 	}
 }
 
-void listdirectory( stringlist_t *list, const char *path, qboolean lowercase )
+void listdirectory( stringlist_t *list, const char *path )
 {
-	int		i;
-	signed char *c;
 #if XASH_WIN32
 	char pattern[4096];
 	struct _finddata_t	n_file;
@@ -307,7 +304,7 @@ static qboolean FS_AddArchive_Fullpath( const char *file, qboolean *already_load
 ================
 FS_AddGameDirectory
 
-Sets fs_writedir, adds the directory to the head of the path,
+Sets fs_writepath, adds the directory to the head of the path,
 then loads and adds pak1.pak pak2.pak ...
 ================
 */
@@ -319,7 +316,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	int i;
 
 	stringlistinit( &list );
-	listdirectory( &list, dir, false );
+	listdirectory( &list, dir );
 	stringlistsort( &list );
 
 	// add any PAK package in the directory
@@ -351,10 +348,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	// (unpacked files have the priority over packed files)
 	search = FS_AddDir_Fullpath( dir, NULL, flags );
 	if( !FBitSet( flags, FS_NOWRITE_PATH ))
-	{
-		Q_strncpy( fs_writedir, dir, sizeof( fs_writedir ));
 		fs_writepath = search;
-	}
 }
 
 /*
@@ -1318,7 +1312,7 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 		}
 
 		stringlistinit( &dirs );
-		listdirectory( &dirs, fs_rodir, false );
+		listdirectory( &dirs, fs_rodir );
 		stringlistsort( &dirs );
 
 		for( i = 0; i < dirs.numstrings; i++ )
@@ -1342,7 +1336,7 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 
 	// validate directories
 	stringlistinit( &dirs );
-	listdirectory( &dirs, "./", false );
+	listdirectory( &dirs, "./" );
 	stringlistsort( &dirs );
 
 	for( i = 0; i < dirs.numstrings; i++ )
@@ -1794,8 +1788,11 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 		char	real_path[MAX_SYSPATH];
 
 		// open the file on disk directly
-		Q_sprintf( real_path, "%s/%s", fs_writedir, filepath );
+		if( !FS_FixFileCase( fs_writepath->dir, filepath, real_path, sizeof( real_path ), true ))
+			return NULL;
+
 		FS_CreatePath( real_path ); // Create directories up to the file
+
 		return FS_SysOpen( real_path, mode );
 	}
 
@@ -2455,25 +2452,40 @@ rename specified file from gamefolder
 */
 qboolean FS_Rename( const char *oldname, const char *newname )
 {
-	char	oldpath[MAX_SYSPATH], newpath[MAX_SYSPATH];
-	qboolean	iRet;
+	char oldname2[MAX_SYSPATH], newname2[MAX_SYSPATH], oldpath[MAX_SYSPATH], newpath[MAX_SYSPATH];
+	int ret;
 
-	if( !oldname || !newname || !*oldname || !*newname )
+	if( !COM_CheckString( oldname ) || !COM_CheckString( newname ))
 		return false;
 
 	// no work done
 	if( !Q_stricmp( oldname, newname ))
 		return true;
 
-	Q_snprintf( oldpath, sizeof( oldpath ), "%s%s", fs_writedir, oldname );
-	Q_snprintf( newpath, sizeof( newpath ), "%s%s", fs_writedir, newname );
+	// fix up slashes
+	Q_strncpy( oldname2, oldname, sizeof( oldname2 ));
+	Q_strncpy( newname2, newname, sizeof( newname2 ));
 
-	COM_FixSlashes( oldpath );
-	COM_FixSlashes( newpath );
+	COM_FixSlashes( oldname2 );
+	COM_FixSlashes( newname2 );
 
-	iRet = rename( oldpath, newpath );
+	// file does not exist
+	if( !FS_FixFileCase( fs_writepath->dir, oldname2, oldpath, sizeof( oldpath ), false ))
+		return false;
 
-	return (iRet == 0);
+	// exit if overflowed
+	if( !FS_FixFileCase( fs_writepath->dir, newname2, newpath, sizeof( newpath ), true ))
+		return false;
+
+	ret = rename( oldpath, newpath );
+	if( ret < 0 )
+	{
+		Con_Printf( "%s: failed to rename file %s (%s) to %s (%s): %s\n",
+			__FUNCTION__, oldpath, oldname2, newpath, newname2, strerror( errno ));
+		return false;
+	}
+
+	return true;
 }
 
 /*
@@ -2485,17 +2497,26 @@ delete specified file from gamefolder
 */
 qboolean GAME_EXPORT FS_Delete( const char *path )
 {
-	char	real_path[MAX_SYSPATH];
-	qboolean	iRet;
+	char path2[MAX_SYSPATH], real_path[MAX_SYSPATH];
+	int ret;
 
-	if( !path || !*path )
+	if( !COM_CheckString( path ))
 		return false;
 
-	Q_snprintf( real_path, sizeof( real_path ), "%s%s", fs_writedir, path );
-	COM_FixSlashes( real_path );
-	iRet = remove( real_path );
+	Q_strncpy( path2, path, sizeof( path2 ));
+	COM_FixSlashes( path2 );
 
-	return (iRet == 0);
+	if( !FS_FixFileCase( fs_writepath->dir, path2, real_path, sizeof( real_path ), true ))
+		return true;
+
+	ret = remove( real_path );
+	if( ret < 0 )
+	{
+		Con_Printf( "%s: failed to delete file %s (%s): %s\n", __FUNCTION__, real_path, path, strerror( errno ));
+		return false;
+	}
+
+	return true;
 }
 
 /*
@@ -2556,7 +2577,7 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	{
 		if( gamedironly && !FBitSet( searchpath->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
-		
+
 		searchpath->pfnSearch( searchpath, &resultlist, pattern, caseinsensitive );
 	}
 
