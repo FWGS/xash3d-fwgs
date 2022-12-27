@@ -622,7 +622,7 @@ CL_CreateCmd
 */
 void CL_CreateCmd( void )
 {
-	usercmd_t		cmd;
+	usercmd_t	nullcmd, *cmd;
 	runcmd_t		*pcmd;
 	vec3_t		angles;
 	qboolean		active;
@@ -635,7 +635,6 @@ void CL_CreateCmd( void )
 	// store viewangles in case it's will be freeze
 	VectorCopy( cl.viewangles, angles );
 	ms = bound( 1, host.frametime * 1000, 255 );
-	memset( &cmd, 0, sizeof( cmd ));
 	input_override = 0;
 
 	CL_SetSolidEntities();
@@ -654,12 +653,18 @@ void CL_CreateCmd( void )
 		pcmd->receivedtime = -1.0;
 		pcmd->heldback = false;
 		pcmd->sendsize = 0;
+		cmd = &pcmd->cmd;
+	}
+	else
+	{
+		memset( &nullcmd, 0, sizeof( nullcmd ));
+		cmd = &nullcmd;
 	}
 
 	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
 	Platform_PreCreateMove();
-	clgame.dllFuncs.CL_CreateMove( host.frametime, &pcmd->cmd, active );
-	IN_EngineAppendMove( host.frametime, &pcmd->cmd, active  );
+	clgame.dllFuncs.CL_CreateMove( host.frametime, cmd, active );
+	IN_EngineAppendMove( host.frametime, cmd, active  );
 
 	CL_PopPMStates();
 
