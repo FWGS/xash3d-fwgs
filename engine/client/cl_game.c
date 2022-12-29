@@ -1162,6 +1162,11 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 	// it's hud sprite, make difference names to prevent free shared textures
 	if( type == SPR_CLIENT || type == SPR_HUDSPRITE )
 		SetBits( m_pSprite->flags, MODEL_CLIENT );
+
+	// force nearest filter for hud sprites to have less artifacts with hud_scale
+	if( type == SPR_HUDSPRITE )
+		SetBits( texFlags, TF_NEAREST );
+
 	m_pSprite->numtexinfo = texFlags; // store texFlags into numtexinfo
 
 	if( !FS_FileExists( szSpriteName, false ) )
