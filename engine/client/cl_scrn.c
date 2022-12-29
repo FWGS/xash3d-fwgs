@@ -577,7 +577,7 @@ void SCR_UpdateScreen( void )
 	V_PostRender();
 }
 
-qboolean SCR_LoadFixedWidthFont( const char *fontname )
+static qboolean SCR_LoadFixedWidthFont( const char *fontname )
 {
 	int	i, fontWidth;
 
@@ -606,7 +606,7 @@ qboolean SCR_LoadFixedWidthFont( const char *fontname )
 	return true;
 }
 
-qboolean SCR_LoadVariableWidthFont( const char *fontname )
+static qboolean SCR_LoadVariableWidthFont( const char *fontname )
 {
 	int	i, fontWidth;
 	byte	*buffer;
@@ -657,21 +657,28 @@ INTERNAL RESOURCE
 */
 void SCR_LoadCreditsFont( void )
 {
-	const char *path = "gfx/creditsfont.fnt";
-	dword crc;
+	qboolean success = false;
+	dword crc = 0;
 
 	// replace default gfx.wad textures by current charset's font
 	if( !CRC32_File( &crc, "gfx.wad" ) || crc == 0x49eb9f16 )
 	{
-		const char *path2 = va("creditsfont_%s.fnt", Cvar_VariableString( "con_charset" ) );
-		if( FS_FileExists( path2, false ) )
-			path = path2;
+		string charsetFnt;
+
+		if( Q_snprintf( charsetFnt, sizeof( charsetFnt ),
+			"creditsfont_%s.fnt", Cvar_VariableString( "con_charset" )) > 0 )
+		{
+			if( FS_FileExists( charsetFnt, false ))
+				success = SCR_LoadVariableWidthFont( charsetFnt );
+		}
 	}
 
-	if( !SCR_LoadVariableWidthFont( path ))
+	if( !success && !SCR_LoadVariableWidthFont( "gfx/creditsfont.fnt" ))
 	{
 		if( !SCR_LoadFixedWidthFont( "gfx/conchars" ))
+		{
 			Con_DPrintf( S_ERROR "failed to load HUD font\n" );
+		}
 	}
 }
 
