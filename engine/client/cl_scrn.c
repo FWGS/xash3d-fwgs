@@ -587,7 +587,7 @@ qboolean SCR_LoadFixedWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE );
+	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE|TF_NEAREST );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 	cls.creditsFont.charHeight = clgame.scrInfo.iCharHeight = fontWidth / 16;
 	cls.creditsFont.type = FONT_FIXED;
@@ -619,7 +619,7 @@ qboolean SCR_LoadVariableWidthFont( const char *fontname )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE );
+	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_NEAREST );
 	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
 
 	// half-life font with variable chars witdh
