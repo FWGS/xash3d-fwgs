@@ -1870,13 +1870,10 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 
 	if( !NET_IsSocketValid( sockets[NS_SERVER] ))
 	{
-		port = net_iphostport->value;
+		port = hostport;
 		if( !port )
 		{
-			if( sv_nat )
-				port = PORT_ANY;
-			else
-				port = net_hostport->value;
+			port = sv_nat ? PORT_ANY : net_hostport->value;
 
 			if( !port )
 				port = PORT_SERVER; // forcing to default
@@ -1884,7 +1881,7 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 		sockets[NS_SERVER] = NET_IPSocket( net_iface, port, family );
 
 		if( !NET_IsSocketValid( sockets[NS_SERVER] ) && Host_IsDedicated( ))
-			Host_Error( "Couldn't allocate dedicated server IP port %d.\n", port );
+			return;
 	}
 
 	// dedicated servers don't need client ports
@@ -1902,13 +1899,10 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 
 	if( !NET_IsSocketValid( sockets[NS_CLIENT] ))
 	{
-		port = net_ipclientport->value;
+		port = clientport;
 		if( !port )
 		{
-			if( cl_nat )
-				port = PORT_ANY;
-			else
-				port = net_clientport->value;
+			port = cl_nat ? PORT_ANY : net_clientport->value;
 
 			if( !port )
 				port = PORT_ANY; // forcing to default
@@ -1918,6 +1912,8 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 		if( !NET_IsSocketValid( sockets[NS_CLIENT] ))
 			sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, PORT_ANY, family );
 	}
+
+	return;
 }
 
 /*
@@ -2022,6 +2018,21 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 
 		if( net.allow_ip6 )
 			NET_OpenIP( changeport, net.ip6_sockets, net_ip6name->string, net_ip6hostport->value, net_ip6clientport->value, AF_INET6 );
+
+		// validate sockets for dedicated
+		if( Host_IsDedicated( ))
+		{
+			qboolean nov4, nov6;
+			nov4 = net.allow_ip  && NET_IsSocketError( net.ip_sockets[NS_SERVER] );
+			nov6 = net.allow_ip6 && NET_IsSocketError( net.ip6_sockets[NS_SERVER] );
+
+			if( nov4 && nov6 )
+				Host_Error( "Couldn't allocate IPv4 and IPv6 server ports." );
+			else if( nov4 && !nov6 )
+				Con_Printf( S_ERROR "Couldn't allocate IPv4 server port" );
+			else if( !nov4 && nov6 )
+				Con_Printf( S_ERROR "Couldn't allocate IPv6 server_port" );
+		}
 
 		// get our local address, if possible
 		if( bFirst )
