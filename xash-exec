@@ -1,0 +1,7 @@
+#!/usr/sgug/bin/bash
+
+
+# Testing path
+export LD_LIBRARYN32_PATH=$PWD/build/filesystem:$LD_LIBRARYN32_PATH
+
+exec $PWD/build/engine/xash
