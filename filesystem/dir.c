@@ -295,19 +295,19 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		char entryname[MAX_SYSPATH];
 		int ret;
 
+		if( dir->numentries == DIRENTRY_NOT_SCANNED )
+		{
+			// read directory first time
+			FS_PopulateDirEntries( dir, dst );
+			uptodate = true;
+		}
+
 		// this subdirectory is case insensitive, just slam everything that's left
 		if( dir->numentries == DIRENTRY_CASEINSENSITIVE )
 		{
 			if( !FS_AppendToPath( dst, &i, len, prev, path, "caseinsensitive entry" ))
 				return false;
 			break;
-		}
-
-		if( dir->numentries == DIRENTRY_NOT_SCANNED )
-		{
-			// read directory first time
-			FS_PopulateDirEntries( dir, dst );
-			uptodate = true;
 		}
 
 		// get our entry name
