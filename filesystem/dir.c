@@ -210,6 +210,7 @@ static void FS_MergeDirEntries( dir_t *dir, const stringlist_t *list )
 	}
 
 	// now we can free old tree and replace it with temporary
+	// do not add null check there! If we hit it, it's probably a logic error!
 	Mem_Free( dir->entries );
 	dir->numentries = temp.numentries;
 	dir->entries = temp.entries;
@@ -229,7 +230,7 @@ static int FS_MaybeUpdateDirEntries( dir_t *dir, const char *path, const char *e
 		dir->numentries = DIRENTRY_EMPTY_DIRECTORY;
 		ret = -1;
 	}
-	else if( dir->numentries < 0 ) // not initialized or was empty
+	else if( dir->numentries <= DIRENTRY_EMPTY_DIRECTORY ) // not initialized or was empty
 	{
 		FS_InitDirEntries( dir, &list );
 		ret = FS_FindDirEntry( dir, entryname );
