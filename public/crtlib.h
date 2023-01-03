@@ -78,6 +78,7 @@ void Q_atov( float *vec, const char *str, size_t siz );
 #define Q_strrchr strrchr
 qboolean Q_stricmpext( const char *pattern, const char *text );
 qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlen );
+const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen );
 const char *Q_timestamp( int format );
 #define Q_vsprintf( buffer, format, args ) Q_vsnprintf( buffer, 99999, format, args )
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
