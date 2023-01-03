@@ -849,6 +849,7 @@ void SV_WriteEntityPatch( const char *filename )
 	byte		buf[MAX_TOKEN]; // 1 kb
 	string		bspfilename;
 	dheader_t		*header;
+	dlump_t entities;
 	file_t		*f;
 
 	Q_snprintf( bspfilename, sizeof( bspfilename ), "maps/%s.bsp", filename );
@@ -861,14 +862,14 @@ void SV_WriteEntityPatch( const char *filename )
 	header = (dheader_t *)buf;
 
 	// check all the lumps and some other errors
-	if( !Mod_TestBmodelLumps( bspfilename, buf, true ))
+	if( !Mod_TestBmodelLumps( f, bspfilename, buf, true, &entities ))
 	{
 		FS_Close( f );
 		return;
 	}
 
-	lumpofs = header->lumps[LUMP_ENTITIES].fileofs;
-	lumplen = header->lumps[LUMP_ENTITIES].filelen;
+	lumpofs = entities.fileofs;
+	lumplen = entities.filelen;
 
 	if( lumplen >= 10 )
 	{
@@ -899,6 +900,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	byte		buf[MAX_TOKEN];
 	char		*ents = NULL;
 	dheader_t		*header;
+	dlump_t entities;
 	size_t		ft1, ft2;
 	file_t		*f;
 
@@ -915,7 +917,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	header = (dheader_t *)buf;
 
 	// check all the lumps and some other errors
-	if( !Mod_TestBmodelLumps( bspfilename, buf, (host_developer.value) ? false : true ))
+	if( !Mod_TestBmodelLumps( f, bspfilename, buf, (host_developer.value) ? false : true, &entities ))
 	{
 		SetBits( *flags, MAP_INVALID_VERSION );
 		FS_Close( f );
@@ -923,8 +925,8 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	}
 
 	// after call Mod_TestBmodelLumps we gurantee what map is valid
-	lumpofs = header->lumps[LUMP_ENTITIES].fileofs;
-	lumplen = header->lumps[LUMP_ENTITIES].filelen;
+	lumpofs = entities.fileofs;
+	lumplen = entities.filelen;
 
 	// check for entfile too
 	Q_snprintf( entfilename, sizeof( entfilename ), "maps/%s.ent", filename );

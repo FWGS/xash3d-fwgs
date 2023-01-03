@@ -2738,33 +2738,14 @@ static void Mod_LoadLighting( dbspmodel_t *bmod )
 
 /*
 =================
-Mod_LumpLooksLikePlanes
+Mod_LumpLooksLikeEntities
 
 =================
 */
-static qboolean Mod_LumpLooksLikePlanes( const byte *in, dlump_t *lump, qboolean fast )
+static int Mod_LumpLooksLikeEntities( const char *lump, const size_t lumplen )
 {
-	int numplanes, i;
-	const dplane_t *planes;
-
-	if( lump->filelen < sizeof( dplane_t ) &&
-		lump->filelen % sizeof( dplane_t ) != 0 )
-		return false;
-
-	if( fast )
-		return true;
-
-	numplanes = lump->filelen / sizeof( dplane_t );
-	planes = (const dplane_t*)(in + lump->fileofs);
-
-	for( i = 0; i < numplanes; i++ )
-	{
-		// planes can only be from 0 to 5: PLANE_X, Y, Z and PLANE_ANYX, Y and Z
-		if( planes[i].type < 0 || planes[i].type > 5 )
-			return false;
-	}
-
-	return true;
+	// look for "classname" string
+	return Q_memmem( lump, lumplen, "\"classname\"", sizeof( "\"classname\"" ) - 1 ) != NULL ? 1 : 0;
 }
 
 /*
@@ -2800,43 +2781,29 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 #endif
 	switch( header->version )
 	{
-	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
+		// only relevant for half-life maps
+		if( !Mod_LumpLooksLikeEntities( mod_base + header->lumps[LUMP_ENTITIES].fileofs, header->lumps[LUMP_ENTITIES].filelen ) &&
+			 Mod_LumpLooksLikeEntities( mod_base + header->lumps[LUMP_PLANES].fileofs, header->lumps[LUMP_PLANES].filelen ))
+		{
+			// blue-shift swapped lumps
+			srclumps[0].lumpnumber = LUMP_PLANES;
+			srclumps[1].lumpnumber = LUMP_ENTITIES;
+			break;
+		}
+		// intended fallthrough
+	case Q1BSP_VERSION:
 	case QBSP2_VERSION:
+		// everything else
+		srclumps[0].lumpnumber = LUMP_ENTITIES;
+		srclumps[1].lumpnumber = LUMP_PLANES;
 		break;
 	default:
-		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", loadmodel->name, header->version, HLBSP_VERSION );
-		loadstat.numerrors++;
-		return false;
 	}
 
 	bmod->version = header->version;	// share up global
 	if( isworld ) world.flags = 0;	// clear world settings
 	bmod->isworld = isworld;
-
-	if( header->version == HLBSP_VERSION )
-	{
-		// only relevant for half-life maps
-		if( !Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_PLANES], false ) &&
-			Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_ENTITIES], false ))
-		{
-			// blue-shift swapped lumps
-			srclumps[0].lumpnumber = LUMP_PLANES;
-			srclumps[1].lumpnumber = LUMP_ENTITIES;
-		}
-		else
-		{
-			// everything else
-			srclumps[0].lumpnumber = LUMP_ENTITIES;
-			srclumps[1].lumpnumber = LUMP_PLANES;
-		}
-	}
-	else
-	{
-		// everything else
-		srclumps[0].lumpnumber = LUMP_ENTITIES;
-		srclumps[1].lumpnumber = LUMP_PLANES;
-	}
 
 	// loading base lumps
 	for( i = 0; i < ARRAYSIZE( srclumps ); i++ )
@@ -2907,14 +2874,42 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	return true;
 }
 
+static int Mod_LumpLooksLikeEntitiesFile( file_t *f, dlump_t *l, int flags, const char *msg )
+{
+	char *buf;
+	int ret;
+
+	if( FS_Seek( f, l->fileofs, SEEK_SET ) < 0 )
+	{
+		if( !FBitSet( flags, LUMP_SILENT ))
+			Con_DPrintf( S_ERROR "map ^2%s^7 %s lump past end of file\n", loadstat.name, msg );
+		return -1;
+	}
+
+	buf = Z_Malloc( l->filelen + 1 );
+	if( FS_Read( f, buf, l->filelen ) != l->filelen )
+	{
+		if( !FBitSet( flags, LUMP_SILENT ))
+			Con_DPrintf( S_ERROR "can't read %s lump of map ^2%s^7", msg, loadstat.name );
+		Z_Free( buf );
+		return -1;
+	}
+
+	ret = Mod_LumpLooksLikeEntities( buf, l->filelen );
+
+	Z_Free( buf );
+	return ret;
+}
+
 /*
 =================
 Mod_TestBmodelLumps
 
 check for possible errors
+return real entities lump (for bshift swapped lumps)
 =================
 */
-qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean silent )
+qboolean Mod_TestBmodelLumps( file_t *f, const char *name, const byte *mod_base, qboolean silent, dlump_t *entities )
 {
 	dheader_t	*header = (dheader_t *)mod_base;
 	int	i, flags = LUMP_TESTONLY;
@@ -2934,11 +2929,42 @@ qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean s
 		return false;
 	}
 #endif
+
 	switch( header->version )
 	{
-	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
+	{
+		int ret;
+
+		ret = Mod_LumpLooksLikeEntitiesFile( f, &header->lumps[LUMP_ENTITIES], flags, "entities" );
+		if( ret < 0 )
+			return false;
+
+		if( !ret )
+		{
+			ret = Mod_LumpLooksLikeEntitiesFile( f, &header->lumps[LUMP_PLANES], flags, "planes" );
+			if( ret < 0 )
+				return false;
+
+			if( ret )
+			{
+				// blue-shift swapped lumps
+				*entities = header->lumps[LUMP_PLANES];
+
+				srclumps[0].lumpnumber = LUMP_PLANES;
+				srclumps[1].lumpnumber = LUMP_ENTITIES;
+				break;
+			}
+		}
+	}
+		// intended fallthrough
+	case Q1BSP_VERSION:
 	case QBSP2_VERSION:
+		// everything else
+		*entities = header->lumps[LUMP_ENTITIES];
+
+		srclumps[0].lumpnumber = LUMP_ENTITIES;
+		srclumps[1].lumpnumber = LUMP_PLANES;
 		break;
 	default:
 		// don't early out: let me analyze errors
@@ -2946,30 +2972,6 @@ qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean s
 			Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", name, header->version, HLBSP_VERSION );
 		loadstat.numerrors++;
 		break;
-	}
-
-	if( header->version == HLBSP_VERSION )
-	{
-		// only relevant for half-life maps
-		if( Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_ENTITIES], true ) &&
-			 !Mod_LumpLooksLikePlanes( mod_base, &header->lumps[LUMP_PLANES], true ))
-		{
-			// blue-shift swapped lumps
-			srclumps[0].lumpnumber = LUMP_PLANES;
-			srclumps[1].lumpnumber = LUMP_ENTITIES;
-		}
-		else
-		{
-			// everything else
-			srclumps[0].lumpnumber = LUMP_ENTITIES;
-			srclumps[1].lumpnumber = LUMP_PLANES;
-		}
-	}
-	else
-	{
-		// everything else
-		srclumps[0].lumpnumber = LUMP_ENTITIES;
-		srclumps[1].lumpnumber = LUMP_PLANES;
 	}
 
 	// loading base lumps

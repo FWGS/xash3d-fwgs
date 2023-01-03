@@ -80,8 +80,9 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 
 		if( f )
 		{
-			dheader_t		*header;
+			dheader_t *header;
 			dextrahdr_t	*hdrext;
+			dlump_t entities;
 
 			memset( buf, 0, sizeof( buf ));
 			FS_Read( f, buf, sizeof( buf ));
@@ -89,10 +90,10 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 			ver = header->version;
 
 			// check all the lumps and some other errors
-			if( Mod_TestBmodelLumps( t->filenames[i], buf, true ))
+			if( Mod_TestBmodelLumps( f, t->filenames[i], buf, true, &entities ))
 			{
-				lumpofs = header->lumps[LUMP_ENTITIES].fileofs;
-				lumplen = header->lumps[LUMP_ENTITIES].filelen;
+				lumpofs = entities.fileofs;
+				lumplen = entities.filelen;
 				ver = header->version;
 			}
 
@@ -904,21 +905,22 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		{
 			int	num_spawnpoints = 0;
 			dheader_t	*header;
+			dlump_t entities;
 
 			memset( buf, 0, MAX_SYSPATH );
 			FS_Read( f, buf, MAX_SYSPATH );
 			header = (dheader_t *)buf;
 
 			// check all the lumps and some other errors
-			if( !Mod_TestBmodelLumps( t->filenames[i], buf, true ))
+			if( !Mod_TestBmodelLumps( f, t->filenames[i], buf, true, &entities ))
 			{
 				FS_Close( f );
 				continue;
 			}
 
 			// after call Mod_TestBmodelLumps we gurantee what map is valid
-			lumpofs = header->lumps[LUMP_ENTITIES].fileofs;
-			lumplen = header->lumps[LUMP_ENTITIES].filelen;
+			lumpofs = entities.fileofs;
+			lumplen = entities.filelen;
 
 			Q_strncpy( entfilename, t->filenames[i], sizeof( entfilename ));
 			COM_StripExtension( entfilename );
