@@ -487,7 +487,6 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	if( COM_CheckStringEmpty( GameInfo->game_dll_osx ) )
 		FS_Printf( f, "gamedll_osx\t\t\"%s\"\n", GameInfo->game_dll_osx );
 
-
 	if( COM_CheckStringEmpty( GameInfo->iconpath ))
 		FS_Printf( f, "icon\t\t\"%s\"\n", GameInfo->iconpath );
 
@@ -531,6 +530,13 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 			FS_Printf( f, "ambient%i\t\t%s\n", i, GameInfo->ambientsound[i] );
 		}
 	}
+
+	if( GameInfo->noskills )
+		FS_Printf( f, "noskills\t\t\"%i\"\n", GameInfo->nomodels );
+
+	// always expose our extensions :)
+	FS_Printf( f, "internal_vgui_support\t\t%s\n", GameInfo->internal_vgui_support ? "1" : "0" );
+	FS_Printf( f, "render_picbutton_text\t\t%s\n", GameInfo->render_picbutton_text ? "1" : "0" );
 
 	FS_Print( f, "\n\n\n" );
 	FS_Close( f );	// all done
