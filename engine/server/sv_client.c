@@ -852,39 +852,53 @@ The second parameter should be the current protocol version number.
 */
 void SV_Info( netadr_t from, int protocolVersion )
 {
-	char	string[MAX_INFO_STRING];
+	char s[512];
 
 	// ignore in single player
 	if( svs.maxclients == 1 || !svs.initialized )
 		return;
 
-	string[0] = '\0';
+	s[0] = '\0';
 
 	if( protocolVersion != PROTOCOL_VERSION )
 	{
-		Q_snprintf( string, sizeof( string ), "%s: wrong version\n", hostname.string );
+		Q_snprintf( s, sizeof( s ), "%s: wrong version\n", hostname.string );
 	}
 	else
 	{
-		int i, count, bots;
-		qboolean havePassword = COM_CheckStringEmpty( sv_password.string );
+		int count;
+		int bots;
+		int remaining;
+		char temp[sizeof( s )];
+		qboolean have_password = COM_CheckStringEmpty( sv_password.string );
 
 		SV_GetPlayerCount( &count, &bots );
 
 		// a1ba: send protocol version to distinguish old engine and new
-		Info_SetValueForKey( string, "p", va( "%i", PROTOCOL_VERSION ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "host", hostname.string, MAX_INFO_STRING );
-		Info_SetValueForKey( string, "map", sv.name, MAX_INFO_STRING );
-		Info_SetValueForKey( string, "dm", va( "%i", (int)svgame.globals->deathmatch ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "team", va( "%i", (int)svgame.globals->teamplay ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "coop", va( "%i", (int)svgame.globals->coop ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "numcl", va( "%i", count ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "maxcl", va( "%i", svs.maxclients ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "gamedir", GI->gamefolder, MAX_INFO_STRING );
-		Info_SetValueForKey( string, "password", havePassword ? "1" : "0", MAX_INFO_STRING );
+		Info_SetValueForKey( s, "p", va( "%i", PROTOCOL_VERSION ), sizeof( s ));
+		Info_SetValueForKey( s, "map", sv.name, sizeof( s ));
+		Info_SetValueForKey( s, "dm", svgame.globals->deathmatch ? "1" : "0", sizeof( s ));
+		Info_SetValueForKey( s, "team", svgame.globals->teamplay ? "1" : "0", sizeof( s ));
+		Info_SetValueForKey( s, "coop", svgame.globals->coop ? "1" : "0", sizeof( s ));
+		Info_SetValueForKey( s, "numcl", va( "%i", count ), sizeof( s ));
+		Info_SetValueForKey( s, "maxcl", va( "%i", svs.maxclients ), sizeof( s ));
+		Info_SetValueForKey( s, "gamedir", GI->gamefolder, sizeof( s ));
+		Info_SetValueForKey( s, "password", have_password ? "1" : "0", sizeof( s ));
+
+		// write host last so we can try to cut off too long hostnames
+		// TODO: value size limit for infostrings
+		remaining = sizeof( s ) - Q_strlen( s ) - sizeof( "\\host\\" ) - 1;
+		if( remaining < 0 )
+		{
+			// should never happen?
+			Con_Printf( S_ERROR "SV_Info: infostring overflow!\n" );
+			return;
+		}
+		Q_strncpy( temp, hostname.string, remaining );
+		Info_SetValueForKey( s, "host", temp, sizeof( s ));
 	}
 
-	Netchan_OutOfBandPrint( NS_SERVER, from, "info\n%s", string );
+	Netchan_OutOfBandPrint( NS_SERVER, from, "info\n%s", s );
 }
 
 /*
