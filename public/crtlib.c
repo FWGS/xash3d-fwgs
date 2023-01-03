@@ -372,6 +372,23 @@ qboolean Q_stricmpext( const char *pattern, const char *text )
 	return Q_strnicmpext( pattern, text, ~((size_t)0) );
 }
 
+const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen )
+{
+	const byte *i;
+
+	// quickly find first matching symbol
+	while( haystacklen && ( i = memchr( haystack, needle[0], haystacklen )))
+	{
+		if( !memcmp( i, needle, needlelen ))
+			return i;
+
+		haystacklen -= i - haystack;
+		haystack = i + 1;
+	}
+
+	return NULL;
+}
+
 const char* Q_timestamp( int format )
 {
 	static string	timestamp;
