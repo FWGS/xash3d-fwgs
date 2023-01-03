@@ -2804,6 +2804,9 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 		srclumps[1].lumpnumber = LUMP_PLANES;
 		break;
 	default:
+		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", loadmodel->name, header->version, HLBSP_VERSION );
+		loadstat.numerrors++;
+		return false;
 	}
 
 	bmod->version = header->version;	// share up global
