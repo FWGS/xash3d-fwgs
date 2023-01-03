@@ -1189,7 +1189,7 @@ void CL_CheckForResend( void )
 	if( bandwidthTest )
 		Con_Printf( "Connecting to %s... [retry #%i, max fragment size %i]\n", cls.servername, cls.connect_retry, cls.max_fragment_size );
 	else
-	Con_Printf( "Connecting to %s... [retry #%i]\n", cls.servername, cls.connect_retry );
+		Con_Printf( "Connecting to %s... [retry #%i]\n", cls.servername, cls.connect_retry );
 
 	if( bandwidthTest )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
@@ -1681,6 +1681,8 @@ void CL_Reconnect_f( void )
 
 	if( COM_CheckString( cls.servername ))
 	{
+		qboolean legacy = cls.legacymode;
+
 		if( cls.state >= ca_connected )
 			CL_Disconnect();
 
@@ -1688,6 +1690,7 @@ void CL_Reconnect_f( void )
 		cls.demonum = cls.movienum = -1;	// not in the demo loop now
 		cls.state = ca_connecting;
 		cls.signon = 0;
+		cls.legacymode = legacy; // don't change protocol
 
 		Con_Printf( "reconnecting...\n" );
 	}
