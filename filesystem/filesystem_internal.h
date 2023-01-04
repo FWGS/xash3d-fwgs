@@ -172,7 +172,7 @@ int FS_FileTime( const char *filename, qboolean gamedironly );
 fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly );
 qboolean FS_Rename( const char *oldname, const char *newname );
 qboolean FS_Delete( const char *path );
-qboolean FS_SysFileExists( const char *path, qboolean casesensitive );
+qboolean FS_SysFileExists( const char *path );
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
 void     FS_CreatePath( char *path );
 qboolean FS_SysFolderExists( const char *path );
