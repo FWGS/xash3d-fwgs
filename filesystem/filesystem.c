@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "build.h"
 #include <fcntl.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
 #if XASH_WIN32
@@ -99,8 +100,6 @@ static void FS_BackupFileName( file_t *file, const char *path, uint options )
 		file->backup_options = options;
 	}
 }
-
-
 #else
 static void FS_EnsureOpenFile( file_t *file ) {}
 static void FS_BackupFileName( file_t *file, const char *path, uint options ) {}
@@ -179,7 +178,8 @@ void stringlistsort( stringlist_t *list )
 	}
 }
 
-// convert names to lowercase because windows doesn't care, but pattern matching code often does
+#if XASH_DOS4GW
+// convert names to lowercase because dos doesn't care, but pattern matching code often does
 static void listlowercase( stringlist_t *list )
 {
 	char	*c;
@@ -191,6 +191,7 @@ static void listlowercase( stringlist_t *list )
 			*c = Q_tolower( *c );
 	}
 }
+#endif
 
 void listdirectory( stringlist_t *list, const char *path )
 {
@@ -1508,7 +1509,7 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 	file->ungetc = EOF;
 
 #if XASH_WIN32
-	file->handle = _wopen( FS_PathToWideChar(filepath), mod | opt, 0666 );
+	file->handle = _wopen( FS_PathToWideChar( filepath ), mod | opt, 0666 );
 #else
 	file->handle = open( filepath, mod|opt, 0666 );
 #endif
@@ -1581,6 +1582,14 @@ file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_o
 	return file;
 }
 
+#if !defined( S_ISREG )
+#define S_ISREG( m ) ( FBitSet( m, S_IFMT ) == S_IFREG )
+#endif
+
+#if !defined( S_ISDIR )
+#define S_ISDIR( m ) ( FBitSet( m, S_IFMT ) == S_IFDIR )
+#endif
+
 /*
 ==================
 FS_SysFileExists
@@ -1588,28 +1597,55 @@ FS_SysFileExists
 Look for a file in the filesystem only
 ==================
 */
-qboolean FS_SysFileExists( const char *path, qboolean caseinsensitive )
+qboolean FS_SysFileExists( const char *path )
 {
-#if XASH_WIN32
-	int desc;
-
-	if(( desc = open( path, O_RDONLY|O_BINARY )) < 0 )
-		return false;
-
-	close( desc );
-	return true;
-#elif XASH_POSIX
-	int ret;
 	struct stat buf;
 
-	ret = stat( path, &buf );
-
-	if( ret < 0 )
+#if XASH_WIN32
+	if( _wstat( FS_PathToWideChar( path ), &buf ) < 0 )
+#else
+	if( stat( path, &buf ) < 0 )
+#endif
 		return false;
 
 	return S_ISREG( buf.st_mode );
+}
+
+/*
+==================
+FS_SysFolderExists
+
+Look for a existing folder
+==================
+*/
+qboolean FS_SysFolderExists( const char *path )
+{
+	struct stat buf;
+
+#if XASH_WIN32
+	if( _wstat( FS_PathToWideChar( path ), &buf ) < 0 )
 #else
-#error
+	if( stat( path, &buf ) < 0 )
+#endif
+		return false;
+
+	return S_ISDIR( buf.st_mode );
+}
+
+/*
+==============
+FS_SysFileOrFolderExists
+
+Check if filesystem entry exists at all, don't mind the type
+==============
+*/
+qboolean FS_SysFileOrFolderExists( const char *path )
+{
+	struct stat buf;
+#if XASH_WIN32
+	return _wstat( FS_PathToWideChar( path ), &buf ) >= 0;
+#else
+	return stat( path, &buf ) >= 0;
 #endif
 }
 
@@ -1623,57 +1659,12 @@ Sets current directory, path should be in UTF-8 encoding
 int FS_SetCurrentDirectory( const char *path )
 {
 #if XASH_WIN32
-	return SetCurrentDirectoryW( FS_PathToWideChar(path) );
+	return SetCurrentDirectoryW( FS_PathToWideChar( path ));
 #elif XASH_POSIX
 	return !chdir( path );
 #else
 #error
 #endif
-}
-
-/*
-==================
-FS_SysFolderExists
-
-Look for a existing folder
-==================
-*/
-qboolean FS_SysFolderExists( const char *path )
-{
-#if XASH_WIN32
-	DWORD	dwFlags = GetFileAttributes( path );
-
-	return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );
-#elif XASH_POSIX
-	struct stat buf;
-
-	if( stat( path, &buf ) < 0 )
-		return false;
-
-	return S_ISDIR( buf.st_mode );
-#else
-#error
-#endif
-}
-
-/*
-==============
-FS_SysFileOrFolderExists
-
-Check if filesystem entry exists at all, don't mind the type
-==============
-*/
-qboolean FS_SysFileOrFolderExists( const char *path )
-{
-#if XASH_WIN32
-	return GetFileAttributes( path ) != -1;
-#elif XASH_POSIX
-	struct stat buf;
-	return stat( path, &buf ) >= 0;
-#else
-#error
-#endif
-
 }
 
 /*
@@ -1712,7 +1703,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 
 		Q_snprintf( dirpath, sizeof( dirpath ), "%s" PATH_SEPARATOR_STR, fs_rootdir );
 		Q_snprintf( netpath, sizeof( netpath ), "%s%s", dirpath, name );
-		if( FS_SysFileExists( netpath, true ))
+		if( FS_SysFileExists( netpath ))
 		{
 			static searchpath_t fs_directpath;
 
