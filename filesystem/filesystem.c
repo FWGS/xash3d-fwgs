@@ -205,7 +205,7 @@ void listdirectory( stringlist_t *list, const char *path )
 #endif
 
 #if XASH_WIN32
-	Q_snprintf( pattern, sizeof( pattern ), "%s*", path );
+	Q_snprintf( pattern, sizeof( pattern ), "%s/*", path );
 
 	// ask for the directory listing handle
 	hFile = _findfirst( pattern, &n_file );
@@ -820,7 +820,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 	}
 
 	// make sure what gamedir is really exist
-	if( !FS_SysFolderExists( va( "%s" PATH_SEPARATOR_STR "%s", fs_rootdir, GameInfo->falldir )))
+	if( !FS_SysFolderExists( va( "%s/%s", fs_rootdir, GameInfo->falldir )))
 		GameInfo->falldir[0] = '\0';
 }
 
@@ -893,7 +893,8 @@ static qboolean FS_ReadGameInfo( const char *filepath, const char *gamedir, game
 	char	*afile;
 
 	afile = (char *)FS_LoadFile( filepath, NULL, false );
-	if( !afile ) return false;
+	if( !afile )
+		return false;
 
 	FS_InitGameInfo( GameInfo, gamedir );
 
@@ -937,7 +938,6 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 {
 	string		liblist_path, gameinfo_path;
 	string		default_gameinfo_path;
-	gameinfo_t	tmpGameInfo;
 	qboolean	haveUpdate = false;
 
 	Q_snprintf( default_gameinfo_path, sizeof( default_gameinfo_path ), "%s/gameinfo.txt", fs_basedir );
@@ -945,18 +945,18 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 	Q_snprintf( liblist_path, sizeof( liblist_path ), "%s/liblist.gam", gamedir );
 
 	// here goes some RoDir magic...
-	if( COM_CheckStringEmpty( fs_rodir ) )
+	if( COM_CheckStringEmpty( fs_rodir ))
 	{
-		string	filepath_ro, liblist_ro;
+		string	gameinfo_ro, liblist_ro;
 		fs_offset_t roLibListTime, roGameInfoTime, rwGameInfoTime;
 
 		FS_AllowDirectPaths( true );
 
-		Q_snprintf( filepath_ro, sizeof( filepath_ro ), "%s/%s/gameinfo.txt", fs_rodir, gamedir );
+		Q_snprintf( gameinfo_ro, sizeof( gameinfo_ro ), "%s/%s/gameinfo.txt", fs_rodir, gamedir );
 		Q_snprintf( liblist_ro, sizeof( liblist_ro ), "%s/%s/liblist.gam", fs_rodir, gamedir );
 
 		roLibListTime = FS_SysFileTime( liblist_ro );
-		roGameInfoTime = FS_SysFileTime( filepath_ro );
+		roGameInfoTime = FS_SysFileTime( gameinfo_ro );
 		rwGameInfoTime = FS_SysFileTime( gameinfo_path );
 
 		if( roLibListTime > rwGameInfoTime )
@@ -965,17 +965,14 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 		}
 		else if( roGameInfoTime > rwGameInfoTime )
 		{
-			char *afile_ro = (char *)FS_LoadDirectFile( filepath_ro, NULL );
+			fs_offset_t len;
+			char *afile_ro = (char *)FS_LoadDirectFile( gameinfo_ro, &len );
 
 			if( afile_ro )
 			{
-				gameinfo_t gi;
-
+				Con_DPrintf( "Copy rodir %s to rwdir %s\n", gameinfo_ro, gameinfo_path );
 				haveUpdate = true;
-
-				FS_InitGameInfo( &gi, gamedir );
-				FS_ParseGenericGameInfo( &gi, afile_ro, true );
-				FS_WriteGameInfo( gameinfo_path, &gi );
+				FS_WriteFile( gameinfo_path, afile_ro, len );
 				Mem_Free( afile_ro );
 			}
 		}
@@ -990,6 +987,7 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 	// force to create gameinfo for specified game if missing
 	if(( FS_CheckForGameDir( gamedir ) || !Q_stricmp( fs_gamedir, gamedir )) && !FS_FileExists( gameinfo_path, false ))
 	{
+		gameinfo_t tmpGameInfo;
 		memset( &tmpGameInfo, 0, sizeof( tmpGameInfo ));
 
 		if( FS_ReadGameInfo( default_gameinfo_path, gamedir, &tmpGameInfo ))
@@ -1005,9 +1003,7 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 	if( !GameInfo || !FS_FileExists( gameinfo_path, false ))
 		return false; // no dest
 
-	if( FS_ReadGameInfo( gameinfo_path, gamedir, GameInfo ))
-		return true;
-	return false;
+	return FS_ReadGameInfo( gameinfo_path, gamedir, GameInfo );
 }
 
 /*
@@ -1327,8 +1323,8 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 			char roPath[MAX_SYSPATH];
 			char rwPath[MAX_SYSPATH];
 
-			Q_snprintf( roPath, sizeof( roPath ), "%s" PATH_SEPARATOR_STR "%s" PATH_SEPARATOR_STR, fs_rodir, dirs.strings[i] );
-			Q_snprintf( rwPath, sizeof( rwPath ), "%s" PATH_SEPARATOR_STR "%s" PATH_SEPARATOR_STR, fs_rootdir, dirs.strings[i] );
+			Q_snprintf( roPath, sizeof( roPath ), "%s/%s/", fs_rodir, dirs.strings[i] );
+			Q_snprintf( rwPath, sizeof( rwPath ), "%s/%s/", fs_rootdir, dirs.strings[i] );
 
 			// check if it's a directory
 			if( !FS_SysFolderExists( roPath ))
@@ -1368,7 +1364,7 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 
 	for( i = 0; i < dirs.numstrings; i++ )
 	{
-		if( !FS_SysFolderExists( dirs.strings[i] ) || ( !Q_strcmp( dirs.strings[i], ".." ) && !fs_ext_path ))
+		if( !FS_SysFolderExists( dirs.strings[i] ))
 			continue;
 
 		if( FI.games[FI.numgames] == NULL )
@@ -1445,9 +1441,13 @@ Internal function used to determine filetime
 */
 int FS_SysFileTime( const char *filename )
 {
+#if XASH_WIN32
+	struct _stat buf;
+	if( _wstat( FS_PathToWideChar( filename ), &buf ) < 0 )
+#else
 	struct stat buf;
-
-	if( stat( filename, &buf ) == -1 )
+	if( stat( filename, &buf ) < 0 )
+#endif
 		return -1;
 
 	return buf.st_mtime;
@@ -1599,11 +1599,11 @@ Look for a file in the filesystem only
 */
 qboolean FS_SysFileExists( const char *path )
 {
-	struct stat buf;
-
 #if XASH_WIN32
+	struct _stat buf;
 	if( _wstat( FS_PathToWideChar( path ), &buf ) < 0 )
 #else
+	struct stat buf;
 	if( stat( path, &buf ) < 0 )
 #endif
 		return false;
@@ -1620,11 +1620,11 @@ Look for a existing folder
 */
 qboolean FS_SysFolderExists( const char *path )
 {
-	struct stat buf;
-
 #if XASH_WIN32
+	struct _stat buf;
 	if( _wstat( FS_PathToWideChar( path ), &buf ) < 0 )
 #else
+	struct stat buf;
 	if( stat( path, &buf ) < 0 )
 #endif
 		return false;
@@ -1641,10 +1641,11 @@ Check if filesystem entry exists at all, don't mind the type
 */
 qboolean FS_SysFileOrFolderExists( const char *path )
 {
-	struct stat buf;
 #if XASH_WIN32
+	struct _stat buf;
 	return _wstat( FS_PathToWideChar( path ), &buf ) >= 0;
 #else
+	struct stat buf;
 	return stat( path, &buf ) >= 0;
 #endif
 }
@@ -1692,7 +1693,8 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 		pack_ind = search->pfnFindFile( search, name, fixedname, len );
 		if( pack_ind >= 0 )
 		{
-			if( index ) *index = pack_ind;
+			if( index )
+				*index = pack_ind;
 			return search;
 		}
 	}
@@ -1701,8 +1703,9 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	{
 		char netpath[MAX_SYSPATH], dirpath[MAX_SYSPATH];
 
-		Q_snprintf( dirpath, sizeof( dirpath ), "%s" PATH_SEPARATOR_STR, fs_rootdir );
+		Q_snprintf( dirpath, sizeof( dirpath ), "%s/", fs_rootdir );
 		Q_snprintf( netpath, sizeof( netpath ), "%s%s", dirpath, name );
+
 		if( FS_SysFileExists( netpath ))
 		{
 			static searchpath_t fs_directpath;
@@ -1713,9 +1716,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 
 			// just copy the name, we don't do case sensitivity fix there
 			if( fixedname )
-			{
 				Q_strncpy( fixedname, name, len );
-			}
 			FS_InitDirectorySearchpath( &fs_directpath, dirpath, 0 );
 
 			if( index != NULL )
