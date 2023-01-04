@@ -2887,7 +2887,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	return true;
 }
 
-static int Mod_LumpLooksLikeEntitiesFile( file_t *f, dlump_t *l, int flags, const char *msg )
+static int Mod_LumpLooksLikeEntitiesFile( file_t *f, const dlump_t *l, int flags, const char *msg )
 {
 	char *buf;
 	int ret;
