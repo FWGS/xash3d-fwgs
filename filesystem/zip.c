@@ -29,7 +29,7 @@ GNU General Public License for more details.
 #include "common/com_strings.h"
 #include "miniz.h"
 
-#define ZIP_HEADER_LF (('K'<<8)+('P')+(0x03<<16)+(0x04<<24))
+#define ZIP_HEADER_LF      (('K'<<8)+('P')+(0x03<<16)+(0x04<<24))
 #define ZIP_HEADER_SPANNED ((0x08<<24)+(0x07<<16)+('K'<<8)+'P')
 
 #define ZIP_HEADER_CDF ((0x02<<24)+(0x01<<16)+('K'<<8)+'P')
@@ -43,16 +43,16 @@ GNU General Public License for more details.
 #pragma pack( push, 1 )
 typedef struct zip_header_s
 {
-	unsigned int	signature; // little endian ZIP_HEADER
-	unsigned short	version; // version of pkzip need to unpack
-	unsigned short	flags; // flags (16 bits == 16 flags)
-	unsigned short	compression_flags; // compression flags (bits)
-	unsigned int	dos_date; // file modification time and file modification date
-	unsigned int	crc32; //crc32
-	unsigned int	compressed_size;
-	unsigned int	uncompressed_size;
-	unsigned short	filename_len;
-	unsigned short	extrafield_len;
+	uint32_t	signature; // little endian ZIP_HEADER
+	uint16_t	version; // version of pkzip need to unpack
+	uint16_t	flags; // flags (16 bits == 16 flags)
+	uint16_t	compression_flags; // compression flags (bits)
+	uint32_t	dos_date; // file modification time and file modification date
+	uint32_t	crc32; //crc32
+	uint32_t	compressed_size;
+	uint32_t	uncompressed_size;
+	uint16_t	filename_len;
+	uint16_t	extrafield_len;
 } zip_header_t;
 
 /*
@@ -62,52 +62,55 @@ typedef struct zip_header_s
 
 typedef struct zip_header_extra_s
 {
-	unsigned int	signature; // ZIP_HEADER_SPANNED
-	unsigned int	crc32;
-	unsigned int	compressed_size;
-	unsigned int	uncompressed_size;
+	uint32_t	signature; // ZIP_HEADER_SPANNED
+	uint32_t	crc32;
+	uint32_t	compressed_size;
+	uint32_t	uncompressed_size;
 } zip_header_extra_t;
 
 typedef struct zip_cdf_header_s
 {
-	unsigned int	signature;
-	unsigned short	version;
-	unsigned short	version_need;
-	unsigned short	generalPurposeBitFlag;
-	unsigned short	flags;
-	unsigned short	modification_time;
-	unsigned short	modification_date;
-	unsigned int	crc32;
-	unsigned int	compressed_size;
-	unsigned int	uncompressed_size;
-	unsigned short	filename_len;
-	unsigned short	extrafield_len;
-	unsigned short	file_commentary_len;
-	unsigned short	disk_start;
-	unsigned short	internal_attr;
-	unsigned int	external_attr;
-	unsigned int	local_header_offset;
+	uint32_t	signature;
+	uint16_t	version;
+	uint16_t	version_need;
+	uint16_t	generalPurposeBitFlag;
+	uint16_t	flags;
+	uint16_t	modification_time;
+	uint16_t	modification_date;
+	uint32_t	crc32;
+	uint32_t	compressed_size;
+	uint32_t	uncompressed_size;
+	uint16_t	filename_len;
+	uint16_t	extrafield_len;
+	uint16_t	file_commentary_len;
+	uint16_t	disk_start;
+	uint16_t	internal_attr;
+	uint32_t	external_attr;
+	uint32_t	local_header_offset;
 } zip_cdf_header_t;
 
 typedef struct zip_header_eocd_s
 {
-	unsigned short	disk_number;
-	unsigned short	start_disk_number;
-	unsigned short	number_central_directory_record;
-	unsigned short	total_central_directory_record;
-	unsigned int	size_of_central_directory;
-	unsigned int	central_directory_offset;
-	unsigned short	commentary_len;
+	uint16_t	disk_number;
+	uint16_t	start_disk_number;
+	uint16_t	number_central_directory_record;
+	uint16_t	total_central_directory_record;
+	uint32_t	size_of_central_directory;
+	uint32_t	central_directory_offset;
+	uint16_t	commentary_len;
 } zip_header_eocd_t;
 #pragma pack( pop )
 
 // ZIP errors
-#define ZIP_LOAD_OK			0
-#define ZIP_LOAD_COULDNT_OPEN		1
-#define ZIP_LOAD_BAD_HEADER		2
-#define ZIP_LOAD_BAD_FOLDERS		3
-#define ZIP_LOAD_NO_FILES		5
-#define ZIP_LOAD_CORRUPTED		6
+enum
+{
+	ZIP_LOAD_OK = 0,
+	ZIP_LOAD_COULDNT_OPEN,
+	ZIP_LOAD_BAD_HEADER,
+	ZIP_LOAD_BAD_FOLDERS,
+	ZIP_LOAD_NO_FILES,
+	ZIP_LOAD_CORRUPTED
+};
 
 typedef struct zipfile_s
 {
@@ -115,7 +118,7 @@ typedef struct zipfile_s
 	fs_offset_t	offset; // offset of local file header
 	fs_offset_t	size; //original file size
 	fs_offset_t	compressed_size; // compressed file size
-	unsigned short flags;
+	uint16_t flags;
 } zipfile_t;
 
 struct zip_s
