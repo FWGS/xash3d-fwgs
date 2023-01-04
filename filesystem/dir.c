@@ -287,9 +287,9 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 	if( !FS_AppendToPath( dst, &i, len, dir->name, path, "init" ))
 		return false;
 
-	for( prev = path, next = Q_strchrnul( prev, PATH_SEPARATOR );
+	for( prev = path, next = Q_strchrnul( prev, '/' );
 		  ;
-		  prev = next + 1, next = Q_strchrnul( prev, PATH_SEPARATOR ))
+		  prev = next + 1, next = Q_strchrnul( prev, '/' ))
 	{
 		qboolean uptodate = false; // do not run second scan if we're just updated our directory list
 		size_t temp;
@@ -309,9 +309,8 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 			if( !FS_AppendToPath( dst, &i, len, prev, path, "caseinsensitive entry" ))
 				return false;
 
-			if( FS_SysFileOrFolderExists( dst )) // file not found
-				return createpath;
-			break;
+			// check file existense
+			return createpath ? true : FS_SysFileOrFolderExists( dst );
 		}
 
 		// get our entry name
@@ -349,10 +348,10 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		i = temp;
 
 		// end of string, found file, return
-		if( next[0] == '\0' || ( next[0] == PATH_SEPARATOR && next[1] == '\0' ))
+		if( next[0] == '\0' || ( next[0] == '/' && next[1] == '\0' ))
 			break;
 
-		if( !FS_AppendToPath( dst, &i, len, PATH_SEPARATOR_STR, path, "path separator" ))
+		if( !FS_AppendToPath( dst, &i, len, "/", path, "path separator" ))
 			return false;
 	}
 
