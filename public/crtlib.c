@@ -382,8 +382,11 @@ const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *need
 		if( !memcmp( i, needle, needlelen ))
 			return i;
 
+		// skip one byte
+		i++;
+
 		haystacklen -= i - haystack;
-		haystack = i + 1;
+		haystack = i;
 	}
 
 	return NULL;
