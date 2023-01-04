@@ -28,8 +28,8 @@ extern "C"
 {
 #endif // __cplusplus
 
-#define FS_API_VERSION 1 // not stable yet!
-#define FS_API_CREATEINTERFACE_TAG "XashFileSystem001" // follow FS_API_VERSION!!!
+#define FS_API_VERSION 2 // not stable yet!
+#define FS_API_CREATEINTERFACE_TAG "XashFileSystem002" // follow FS_API_VERSION!!!
 
 // search path flags
 enum
@@ -176,7 +176,7 @@ typedef struct fs_api_t
 	fs_offset_t (*FileSize)( const char *filename, qboolean gamedironly );
 	qboolean (*Rename)( const char *oldname, const char *newname );
 	qboolean (*Delete)( const char *path );
-	qboolean (*SysFileExists)( const char *path, qboolean casesensitive );
+	qboolean (*SysFileExists)( const char *path );
 	const char *(*GetDiskPath)( const char *name, qboolean gamedironly );
 
 	// file watcher
