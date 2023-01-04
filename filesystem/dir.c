@@ -280,7 +280,8 @@ static inline qboolean FS_AppendToPath( char *dst, size_t *pi, const size_t len,
 
 qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t len, qboolean createpath )
 {
-	const char *prev, *next;
+	const char *prev;
+	const char *next;
 	size_t i = 0;
 
 	if( !FS_AppendToPath( dst, &i, len, dir->name, path, "init" ))
@@ -307,6 +308,9 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		{
 			if( !FS_AppendToPath( dst, &i, len, prev, path, "caseinsensitive entry" ))
 				return false;
+
+			if( FS_SysFileOrFolderExists( dst )) // file not found
+				return createpath;
 			break;
 		}
 
@@ -373,7 +377,7 @@ static int FS_FindFile_DIR( searchpath_t *search, const char *path, char *fixedn
 	if( !FS_FixFileCase( search->dir, path, netpath, sizeof( netpath ), false ))
 		return -1;
 
-	if( FS_SysFileExists( netpath, !FBitSet( search->flags, FS_CUSTOM_PATH )))
+	if( FS_SysFileExists( netpath ))
 	{
 		// return fixed case file name only local for that searchpath
 		if( fixedname )
