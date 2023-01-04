@@ -1006,7 +1006,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	if( COM_CheckString( baseDir ) )
 	{
-		Q_strncpy( host.rootdir, baseDir, sizeof(host.rootdir) );
+		Q_strncpy( host.rootdir, baseDir, sizeof( host.rootdir ));
 	}
 	else
 	{
@@ -1018,16 +1018,20 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 		if( !( szBasePath = SDL_GetBasePath() ) )
 			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
-		Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ) );
+		Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ));
 		SDL_free( szBasePath );
 #else
-		if( !getcwd( host.rootdir, sizeof(host.rootdir) ) )
+		if( !getcwd( host.rootdir, sizeof( host.rootdir )))
 		{
 			Sys_Error( "couldn't determine current directory: %s", strerror( errno ) );
 			host.rootdir[0] = 0;
 		}
 #endif
 	}
+
+#if XASH_WIN32
+	COM_FixSlashes( host.rootdir );
+#endif
 
 	len = Q_strlen( host.rootdir );
 
@@ -1044,6 +1048,10 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		if( COM_CheckString( roDir ))
 			Q_strncpy( host.rodir, roDir, sizeof( host.rodir ));
 	}
+
+#if XASH_WIN32
+	COM_FixSlashes( host.rootdir );
+#endif
 
 	len = Q_strlen( host.rodir );
 
