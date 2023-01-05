@@ -379,11 +379,6 @@ static int GAME_EXPORT pfnTruePointContents( float *p )
 	return PM_TruePointContents( svgame.pmove, p );
 }
 
-static int GAME_EXPORT pfnHullPointContents( struct hull_s *hull, int num, float *p )
-{
-	return PM_HullPointContents( hull, num, p );
-}
-
 static pmtrace_t GAME_EXPORT pfnPlayerTrace( float *start, float *end, int traceFlags, int ignore_pe )
 {
 	return PM_PlayerTraceExt( svgame.pmove, start, end, traceFlags, svgame.pmove->numphysent, svgame.pmove->physents, ignore_pe, NULL );
@@ -496,7 +491,7 @@ void SV_InitClientMove( void )
 	svgame.pmove->PM_StuckTouch = pfnStuckTouch;
 	svgame.pmove->PM_PointContents = pfnPointContents;
 	svgame.pmove->PM_TruePointContents = pfnTruePointContents;
-	svgame.pmove->PM_HullPointContents = pfnHullPointContents;
+	svgame.pmove->PM_HullPointContents = PM_HullPointContents;
 	svgame.pmove->PM_PlayerTrace = pfnPlayerTrace;
 	svgame.pmove->PM_TraceLine = pfnTraceLine;
 	svgame.pmove->RandomLong = COM_RandomLong;

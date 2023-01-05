@@ -36,7 +36,7 @@ hull_t *PM_HullForBsp( physent_t *pe, playermove_t *pmove, float *offset );
 qboolean PM_RecursiveHullCheck( hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, pmtrace_t *trace );
 pmtrace_t PM_PlayerTraceExt( playermove_t *pm, vec3_t p1, vec3_t p2, int flags, int numents, physent_t *ents, int ignore_pe, pfnIgnore pmFilter );
 int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, pfnIgnore pmFilter );
-int PM_HullPointContents( hull_t *hull, int num, const vec3_t p );
+int PM_HullPointContents( hull_t *hull, int num, vec3_t p );
 int PM_TruePointContents( playermove_t *pmove, const vec3_t p );
 int PM_PointContents( playermove_t *pmove, const vec3_t p );
 float PM_TraceModel( playermove_t *pmove, physent_t *pe, float *start, float *end, trace_t *trace );
