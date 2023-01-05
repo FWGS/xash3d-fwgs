@@ -414,7 +414,7 @@ static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end,
 
 static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
 {
-	return PM_TraceTexturePmove( svgame.pmove, ground, vstart, vend );
+	return PM_TraceTexture( svgame.pmove, ground, vstart, vend );
 }
 
 static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
