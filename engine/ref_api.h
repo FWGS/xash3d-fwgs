@@ -67,6 +67,10 @@ GNU General Public License for more details.
 #define FWORLD_WATERALPHA		BIT( 2 )
 #define FWORLD_HAS_DELUXEMAP		BIT( 3 )
 
+// special rendermode for screenfade modulate
+// (probably will be expanded at some point)
+#define kRenderScreenFadeModulate 0x1000
+
 typedef enum
 {
 	DEMO_INACTIVE = 0,

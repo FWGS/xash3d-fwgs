@@ -417,6 +417,10 @@ void GL_SetRenderMode( int mode )
 		pglDisable( GL_ALPHA_TEST );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 		break;
+	case kRenderScreenFadeModulate:
+		pglEnable( GL_BLEND );
+		pglDisable( GL_ALPHA_TEST );
+		pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
 	}
 }
 
