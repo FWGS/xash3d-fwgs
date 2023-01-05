@@ -374,33 +374,12 @@ static int GAME_EXPORT pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
 
 static void GAME_EXPORT pfnStuckTouch( int hitent, pmtrace_t *tr )
 {
-	int	i;
-
-	for( i = 0; i < svgame.pmove->numtouch; i++ )
-	{
-		if( svgame.pmove->touchindex[i].ent == hitent )
-			return;
-	}
-
-	if( svgame.pmove->numtouch >= MAX_PHYSENTS )
-		return;
-
-	VectorCopy( svgame.pmove->velocity, tr->deltavelocity );
-	tr->ent = hitent;
-
-	svgame.pmove->touchindex[svgame.pmove->numtouch++] = *tr;
+	return PM_StuckTouch( svgame.pmove, hitent, tr );
 }
 
 static int GAME_EXPORT pfnPointContents( float *p, int *truecontents )
 {
-	int	cont, truecont;
-
-	truecont = cont = PM_PointContents( svgame.pmove, p );
-	if( truecontents ) *truecontents = truecont;
-
-	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
-		cont = CONTENTS_WATER;
-	return cont;
+	return PM_PointContentsPmove( svgame.pmove, p, truecontents );
 }
 
 static int GAME_EXPORT pfnTruePointContents( float *p )
@@ -420,25 +399,7 @@ static pmtrace_t GAME_EXPORT pfnPlayerTrace( float *start, float *end, int trace
 
 static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
 {
-	static pmtrace_t	tr;
-	int		old_usehull;
-
-	old_usehull = svgame.pmove->usehull;
-	svgame.pmove->usehull = usehull;
-
-	switch( flags )
-	{
-	case PM_TRACELINE_PHYSENTSONLY:
-		tr = PM_PlayerTraceExt( svgame.pmove, start, end, 0, svgame.pmove->numphysent, svgame.pmove->physents, ignore_pe, NULL );
-		break;
-	case PM_TRACELINE_ANYVISIBLE:
-		tr = PM_PlayerTraceExt( svgame.pmove, start, end, 0, svgame.pmove->numvisent, svgame.pmove->visents, ignore_pe, NULL );
-		break;
-	}
-
-	svgame.pmove->usehull = old_usehull;
-
-	return &tr;
+	return PM_TraceLine( svgame.pmove, start, end, flags, usehull, ignore_pe );
 }
 
 static hull_t *pfnHullForBsp( physent_t *pe, float *offset )
@@ -448,61 +409,12 @@ static hull_t *pfnHullForBsp( physent_t *pe, float *offset )
 
 static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end, trace_t *trace )
 {
-	int	old_usehull;
-	vec3_t	start_l, end_l;
-	vec3_t	offset, temp;
-	qboolean	rotated;
-	matrix4x4	matrix;
-	hull_t	*hull;
-
-	PM_InitTrace( trace, end );
-
-	old_usehull = svgame.pmove->usehull;
-	svgame.pmove->usehull = 2;
-
-	hull = PM_HullForBsp( pe, svgame.pmove, offset );
-
-	svgame.pmove->usehull = old_usehull;
-
-	if( pe->solid == SOLID_BSP && !VectorIsNull( pe->angles ))
-		rotated = true;
-	else rotated = false;
-
- 	if( rotated )
- 	{
- 		Matrix4x4_CreateFromEntity( matrix, pe->angles, offset, 1.0f );
- 		Matrix4x4_VectorITransform( matrix, start, start_l );
- 		Matrix4x4_VectorITransform( matrix, end, end_l );
- 	}
- 	else
- 	{
- 		VectorSubtract( start, offset, start_l );
- 		VectorSubtract( end, offset, end_l );
- 	}
-
-	PM_RecursiveHullCheck( hull, hull->firstclipnode, 0, 1, start_l, end_l, (pmtrace_t *)trace );
-	trace->ent = NULL;
-
-	if( rotated )
-	{
-		VectorCopy( trace->plane.normal, temp );
-		Matrix4x4_TransformPositivePlane( matrix, temp, trace->plane.dist, trace->plane.normal, &trace->plane.dist );
-	}
-
-	VectorLerp( start, trace->fraction, end, trace->endpos );
-
-	return trace->fraction;
+	return PM_TraceModel( svgame.pmove, pe, start, end, trace );
 }
 
 static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
 {
-	physent_t *pe;
-
-	if( ground < 0 || ground >= svgame.pmove->numphysent )
-		return NULL; // bad ground
-
-	pe = &svgame.pmove->physents[ground];
-	return PM_TraceTexture( pe, vstart, vend );
+	return PM_TraceTexturePmove( svgame.pmove, ground, vstart, vend );
 }
 
 static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float volume, float attenuation, int fFlags, int pitch )
@@ -545,36 +457,12 @@ static int GAME_EXPORT pfnTestPlayerPositionEx( float *pos, pmtrace_t *ptrace, p
 
 static pmtrace_t *pfnTraceLineEx( float *start, float *end, int flags, int usehull, pfnIgnore pmFilter )
 {
-	static pmtrace_t	tr;
-	int		old_usehull;
-
-	old_usehull = svgame.pmove->usehull;
-	svgame.pmove->usehull = usehull;
-
-	switch( flags )
-	{
-	case PM_TRACELINE_PHYSENTSONLY:
-		tr = PM_PlayerTraceExt( svgame.pmove, start, end, 0, svgame.pmove->numphysent, svgame.pmove->physents, -1, pmFilter );
-		break;
-	case PM_TRACELINE_ANYVISIBLE:
-		tr = PM_PlayerTraceExt( svgame.pmove, start, end, 0, svgame.pmove->numvisent, svgame.pmove->visents, -1, pmFilter );
-		break;
-	}
-
-	svgame.pmove->usehull = old_usehull;
-
-	return &tr;
+	return PM_TraceLineEx( svgame.pmove, start, end, flags, usehull, pmFilter );
 }
 
 static struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend )
 {
-	physent_t *pe;
-
-	if( ground < 0 || ground >= svgame.pmove->numphysent )
-		return NULL; // bad ground
-
-	pe = &svgame.pmove->physents[ground];
-	return PM_TraceSurface( pe, vstart, vend );
+	return PM_TraceSurfacePmove( svgame.pmove, ground, vstart, vend );
 }
 
 /*

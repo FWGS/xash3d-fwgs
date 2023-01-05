@@ -359,7 +359,7 @@ static ref_api_t gEngfuncs =
 
 	pfnGetPhysent,
 	pfnTraceSurface,
-	PM_TraceLine,
+	PM_CL_TraceLine,
 	CL_VisTraceLine,
 	CL_TraceLine,
 	pfnGetMoveVars,

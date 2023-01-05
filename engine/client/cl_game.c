@@ -2222,14 +2222,7 @@ pfnPointContents
 */
 static int GAME_EXPORT pfnPointContents( const float *p, int *truecontents )
 {
-	int	cont, truecont;
-
-	truecont = cont = PM_PointContents( clgame.pmove, p );
-	if( truecontents ) *truecontents = truecont;
-
-	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
-		cont = CONTENTS_WATER;
-	return cont;
+	return PM_PointContentsPmove( clgame.pmove, p, truecontents );
 }
 
 /*
@@ -2534,19 +2527,13 @@ void GAME_EXPORT CL_PlayerTraceExt( float *start, float *end, int traceFlags, in
 
 /*
 =============
-pfnTraceTexture
+CL_TraceTexture
 
 =============
 */
-static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
+const char * GAME_EXPORT PM_CL_TraceTexture( int ground, float *vstart, float *vend )
 {
-	physent_t *pe;
-
-	if( ground < 0 || ground >= clgame.pmove->numphysent )
-		return NULL; // bad ground
-
-	pe = &clgame.pmove->physents[ground];
-	return PM_TraceTexture( pe, vstart, vend );
+	return PM_TraceTexturePmove( clgame.pmove, ground, vstart, vend );
 }
 
 /*
@@ -2557,13 +2544,7 @@ pfnTraceSurface
 */
 struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend )
 {
-	physent_t *pe;
-
-	if( ground < 0 || ground >= clgame.pmove->numphysent )
-		return NULL; // bad ground
-
-	pe = &clgame.pmove->physents[ground];
-	return PM_TraceSurface( pe, vstart, vend );
+	return PM_TraceSurfacePmove( clgame.pmove, ground, vstart, vend );
 }
 
 /*
@@ -3741,7 +3722,7 @@ static event_api_t gEventApi =
 	CL_WeaponAnim,
 	pfnPrecacheEvent,
 	CL_PlaybackEvent,
-	pfnTraceTexture,
+	PM_CL_TraceTexture,
 	pfnStopAllSounds,
 	pfnKillEvents,
 	CL_PlayerTraceExt,		// Xash3D added
