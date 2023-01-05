@@ -697,6 +697,5 @@ void SV_RunLightStyles( void );
 void SV_SetLightStyle( int style, const char* s, float f );
 const char *SV_GetLightStyle( int style );
 int SV_LightForEntity( edict_t *pEdict );
-void SV_ClearPhysEnts( void );
 
 #endif//SERVER_H

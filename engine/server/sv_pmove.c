@@ -22,14 +22,6 @@ GNU General Public License for more details.
 
 static qboolean has_update = false;
 
-void SV_ClearPhysEnts( void )
-{
-	svgame.pmove->numtouch = 0;
-	svgame.pmove->numvisent = 0;
-	svgame.pmove->nummoveent = 0;
-	svgame.pmove->numphysent = 0;
-}
-
 qboolean SV_PlayerIsFrozen( edict_t *pClient )
 {
 	if( sv_background_freeze.value && sv.background )

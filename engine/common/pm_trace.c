@@ -55,6 +55,14 @@ void Pmove_Init( void )
 	memcpy( host.player_maxs, pm_hullmaxs, sizeof( pm_hullmaxs ));
 }
 
+void PM_ClearPhysEnts( playermove_t *pmove )
+{
+	pmove->nummoveent = 0;
+	pmove->numphysent = 0;
+	pmove->numvisent = 0;
+	pmove->numtouch = 0;
+}
+
 /*
 ===================
 PM_InitBoxHull

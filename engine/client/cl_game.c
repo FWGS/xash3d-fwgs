@@ -2458,7 +2458,6 @@ pfnSetTraceHull
 void GAME_EXPORT CL_SetTraceHull( int hull )
 {
 	clgame.pmove->usehull = bound( 0, hull, 3 );
-
 }
 
 /*

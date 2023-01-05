@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "library.h"
 #include "vid_common.h"
+#include "pm_local.h"
 
 #define MAX_TOTAL_CMDS		32
 #define MAX_CMD_BUFFER		8000
@@ -1380,7 +1381,7 @@ void CL_ClearState( void )
 	CL_ClearEffects ();
 	CL_FreeEdicts ();
 
-	CL_ClearPhysEnts ();
+	PM_ClearPhysEnts( clgame.pmove );
 	NetAPI_CancelAllRequests();
 
 	// wipe the entire cl structure
