@@ -38,6 +38,13 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 int PM_HullPointContents( hull_t *hull, int num, const vec3_t p );
 int PM_TruePointContents( playermove_t *pmove, const vec3_t p );
 int PM_PointContents( playermove_t *pmove, const vec3_t p );
+float PM_TraceModel( playermove_t *pmove, physent_t *pe, float *start, float *end, trace_t *trace );
+pmtrace_t *PM_TraceLine( playermove_t *pmove, float *start, float *end, int flags, int usehull, int ignore_pe );
+pmtrace_t *PM_TraceLineEx( playermove_t *pmove, float *start, float *end, int flags, int usehull, pfnIgnore pmFilter );
+struct msurface_s *PM_TraceSurfacePmove( playermove_t *pmove, int ground, float *vstart, float *vend );
+const char *PM_TraceTexturePmove( playermove_t *pmove, int ground, float *vstart, float *vend );
+int PM_PointContentsPmove( playermove_t *pmove, const float *p, int *truecontents );
+void PM_StuckTouch( playermove_t *pmove, int hitent, pmtrace_t *tr );
 void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent );
 
 static inline void PM_InitTrace( trace_t *trace, const vec3_t end )

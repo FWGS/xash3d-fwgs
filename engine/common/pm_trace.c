@@ -732,3 +732,150 @@ int PM_PointContents( playermove_t *pmove, const vec3_t p )
 
 	return contents;
 }
+
+/*
+=============
+PM_TraceModel
+
+=============
+*/
+float PM_TraceModel( playermove_t *pmove, physent_t *pe, float *start, float *end, trace_t *trace )
+{
+	int	old_usehull;
+	vec3_t	start_l, end_l;
+	vec3_t	offset, temp;
+	qboolean	rotated;
+	matrix4x4	matrix;
+	hull_t	*hull;
+
+	PM_InitTrace( trace, end );
+
+	old_usehull = pmove->usehull;
+	pmove->usehull = 2;
+
+	hull = PM_HullForBsp( pe, pmove, offset );
+
+	pmove->usehull = old_usehull;
+
+	if( pe->solid == SOLID_BSP && !VectorIsNull( pe->angles ))
+		rotated = true;
+	else rotated = false;
+
+	if( rotated )
+	{
+		Matrix4x4_CreateFromEntity( matrix, pe->angles, offset, 1.0f );
+		Matrix4x4_VectorITransform( matrix, start, start_l );
+		Matrix4x4_VectorITransform( matrix, end, end_l );
+	}
+	else
+	{
+		VectorSubtract( start, offset, start_l );
+		VectorSubtract( end, offset, end_l );
+	}
+
+	PM_RecursiveHullCheck( hull, hull->firstclipnode, 0, 1, start_l, end_l, (pmtrace_t *)trace );
+	trace->ent = NULL;
+
+	if( rotated )
+	{
+		VectorCopy( trace->plane.normal, temp );
+		Matrix4x4_TransformPositivePlane( matrix, temp, trace->plane.dist, trace->plane.normal, &trace->plane.dist );
+	}
+
+	VectorLerp( start, trace->fraction, end, trace->endpos );
+
+	return trace->fraction;
+}
+
+pmtrace_t *PM_TraceLine( playermove_t *pmove, float *start, float *end, int flags, int usehull, int ignore_pe )
+{
+	static pmtrace_t	tr;
+	int		old_usehull;
+
+	old_usehull = pmove->usehull;
+	pmove->usehull = usehull;
+
+	switch( flags )
+	{
+	case PM_TRACELINE_PHYSENTSONLY:
+		tr = PM_PlayerTraceExt( pmove, start, end, 0, pmove->numphysent, pmove->physents, ignore_pe, NULL );
+		break;
+	case PM_TRACELINE_ANYVISIBLE:
+		tr = PM_PlayerTraceExt( pmove, start, end, 0, pmove->numvisent, pmove->visents, ignore_pe, NULL );
+		break;
+	}
+
+	pmove->usehull = old_usehull;
+
+	return &tr;
+}
+
+pmtrace_t *PM_TraceLineEx( playermove_t *pmove, float *start, float *end, int flags, int usehull, pfnIgnore pmFilter )
+{
+	static pmtrace_t	tr;
+	int		old_usehull;
+
+	old_usehull = pmove->usehull;
+	pmove->usehull = usehull;
+
+	switch( flags )
+	{
+	case PM_TRACELINE_PHYSENTSONLY:
+		tr = PM_PlayerTraceExt( pmove, start, end, 0, pmove->numphysent, pmove->physents, -1, pmFilter );
+		break;
+	case PM_TRACELINE_ANYVISIBLE:
+		tr = PM_PlayerTraceExt( pmove, start, end, 0, pmove->numvisent, pmove->visents, -1, pmFilter );
+		break;
+	}
+
+	pmove->usehull = old_usehull;
+
+	return &tr;
+}
+
+struct msurface_s *PM_TraceSurfacePmove( playermove_t *pmove, int ground, float *vstart, float *vend )
+{
+	if( ground < 0 || ground >= pmove->numphysent )
+		return NULL; // bad ground
+
+	return PM_TraceSurface( &pmove->physents[ground], vstart, vend );
+}
+
+const char *PM_TraceTexturePmove( playermove_t *pmove, int ground, float *vstart, float *vend )
+{
+	if( ground < 0 || ground >= pmove->numphysent )
+		return NULL; // bad ground
+
+	return PM_TraceTexture( &pmove->physents[ground], vstart, vend );
+}
+
+int PM_PointContentsPmove( playermove_t *pmove, const float *p, int *truecontents )
+{
+	int	cont, truecont;
+
+	truecont = cont = PM_PointContents( pmove, p );
+	if( truecontents ) *truecontents = truecont;
+
+	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
+		cont = CONTENTS_WATER;
+	return cont;
+}
+
+void PM_StuckTouch( playermove_t *pmove, int hitent, pmtrace_t *tr )
+{
+	int	i;
+
+	for( i = 0; i < pmove->numtouch; i++ )
+	{
+		if( pmove->touchindex[i].ent == hitent )
+			return;
+	}
+
+	if( pmove->numtouch >= MAX_PHYSENTS )
+		return;
+
+	VectorCopy( pmove->velocity, tr->deltavelocity );
+	tr->ent = hitent;
+
+	pmove->touchindex[pmove->numtouch++] = *tr;
+}
