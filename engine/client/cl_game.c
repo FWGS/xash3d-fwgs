@@ -581,6 +581,41 @@ void CL_DrawCenterPrint( void )
 	}
 }
 
+static int V_FadeAlpha( screenfade_t *sf )
+{
+	int alpha;
+
+	if( cl.time > sf->fadeReset && cl.time > sf->fadeEnd )
+	{
+		if( !FBitSet( sf->fadeFlags, FFADE_STAYOUT ))
+			return 0;
+	}
+
+	if( FBitSet( sf->fadeFlags, FFADE_STAYOUT ))
+	{
+		alpha = sf->fadealpha;
+		if( FBitSet( sf->fadeFlags, FFADE_OUT ) && sf->fadeTotalEnd > cl.time )
+		{
+			alpha += sf->fadeSpeed * ( sf->fadeTotalEnd - cl.time );
+		}
+		else
+		{
+			sf->fadeEnd = cl.time + 0.1;
+		}
+	}
+	else
+	{
+		alpha = sf->fadeSpeed * ( sf->fadeEnd - cl.time );
+		if( FBitSet( sf->fadeFlags, FFADE_OUT ))
+		{
+			alpha += sf->fadealpha;
+		}
+	}
+	alpha = bound( 0, alpha, sf->fadealpha );
+
+	return alpha;
+}
+
 /*
 =============
 CL_DrawScreenFade
@@ -592,41 +627,29 @@ can be modulated
 void CL_DrawScreenFade( void )
 {
 	screenfade_t	*sf = &clgame.fade;
-	int		iFadeAlpha, testFlags;
+	int		alpha;
 
-	// keep pushing reset time out indefinitely
-	if( sf->fadeFlags & FFADE_STAYOUT )
-		sf->fadeReset = cl.time + 0.1f;
+	alpha = V_FadeAlpha( sf );
 
-	if( sf->fadeReset == 0.0f && sf->fadeEnd == 0.0f )
-		return;	// inactive
-
-	// all done?
-	if(( cl.time > sf->fadeReset ) && ( cl.time > sf->fadeEnd ))
-	{
-		memset( &clgame.fade, 0, sizeof( clgame.fade ));
+	if( !alpha )
 		return;
-	}
 
-	testFlags = (sf->fadeFlags & ~FFADE_MODULATE);
-
-	// fading...
-	if( testFlags == FFADE_STAYOUT )
+	if( FBitSet( sf->fadeFlags, FFADE_MODULATE ))
 	{
-		iFadeAlpha = sf->fadealpha;
+		ref.dllFuncs.GL_SetRenderMode( kRenderScreenFadeModulate );
+
+		ref.dllFuncs.Color4ub(
+			(uint16_t)( sf->fader * alpha + ( 255 - alpha ) * 255 ) >> 8,
+			(uint16_t)( sf->fadeg * alpha + ( 255 - alpha ) * 255 ) >> 8,
+			(uint16_t)( sf->fadeb * alpha + ( 255 - alpha ) * 255 ) >> 8,
+			255 );
 	}
 	else
 	{
-		iFadeAlpha = sf->fadeSpeed * ( sf->fadeEnd - cl.time );
-		if( sf->fadeFlags & FFADE_OUT ) iFadeAlpha += sf->fadealpha;
-		iFadeAlpha = bound( 0, iFadeAlpha, sf->fadealpha );
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.Color4ub( sf->fader, sf->fadeg, sf->fadeb, alpha );
 	}
 
-	ref.dllFuncs.Color4ub( sf->fader, sf->fadeg, sf->fadeb, iFadeAlpha );
-
-	if( sf->fadeFlags & FFADE_MODULATE )
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
-	else ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1,
 		R_GetBuiltinTexture( REF_WHITE_TEXTURE ));
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
