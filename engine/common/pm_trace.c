@@ -138,7 +138,7 @@ PM_HullPointContents
 
 ==================
 */
-int PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
+int PM_HullPointContents( hull_t *hull, int num, vec3_t p )
 {
 	mplane_t		*plane;
 
