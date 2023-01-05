@@ -341,11 +341,6 @@ void GAME_EXPORT R_SetupSky(const char *skyboxname)
 
 }
 
-qboolean GAME_EXPORT VID_ScreenShot(const char *filename, int shot_type)
-{
-	return false;
-}
-
 qboolean GAME_EXPORT VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)
 {
 	// cubemaps? in my softrender???
