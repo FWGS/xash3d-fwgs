@@ -235,22 +235,6 @@ void CL_InitCDAudio( const char *filename )
 }
 
 /*
-====================
-CL_PointContents
-
-Return contents for point
-====================
-*/
-int CL_PointContents( const vec3_t p )
-{
-	int cont = PM_PointContents( clgame.pmove, p );
-
-	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
-		cont = CONTENTS_WATER;
-	return cont;
-}
-
-/*
 =============
 CL_AdjustXPos
 
@@ -2220,38 +2204,14 @@ pfnPointContents
 
 =============
 */
-static int GAME_EXPORT pfnPointContents( const float *p, int *truecontents )
+int GAME_EXPORT PM_CL_PointContents( const float *p, int *truecontents )
 {
 	return PM_PointContentsPmove( clgame.pmove, p, truecontents );
 }
 
-/*
-=============
-pfnTraceLine
-
-=============
-*/
-static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
+pmtrace_t *PM_CL_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
 {
-	static pmtrace_t	tr;
-	int		old_usehull;
-
-	old_usehull = clgame.pmove->usehull;
-	clgame.pmove->usehull = usehull;
-
-	switch( flags )
-	{
-	case PM_TRACELINE_PHYSENTSONLY:
-		tr = PM_PlayerTraceExt( clgame.pmove, start, end, 0, clgame.pmove->numphysent, clgame.pmove->physents, ignore_pe, NULL );
-		break;
-	case PM_TRACELINE_ANYVISIBLE:
-		tr = PM_PlayerTraceExt( clgame.pmove, start, end, 0, clgame.pmove->numvisent, clgame.pmove->visents, ignore_pe, NULL );
-		break;
-	}
-
-	clgame.pmove->usehull = old_usehull;
-
-	return &tr;
+	return PM_TraceLine( clgame.pmove, start, end, flags, usehull, ignore_pe );
 }
 
 static void GAME_EXPORT pfnPlaySoundByNameAtLocation( char *szSound, float volume, float *origin )
@@ -3827,9 +3787,9 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetClientTime,
 	pfnCalcShake,
 	pfnApplyShake,
-	pfnPointContents,
+	PM_CL_PointContents,
 	CL_WaterEntity,
-	pfnTraceLine,
+	PM_CL_TraceLine,
 	CL_LoadModel,
 	CL_AddEntity,
 	CL_GetSpritePointer,

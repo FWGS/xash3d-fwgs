@@ -716,11 +716,6 @@ static void GAME_EXPORT pfnStuckTouch( int hitent, pmtrace_t *tr )
 	return PM_StuckTouch( clgame.pmove, hitent, tr );
 }
 
-static int GAME_EXPORT pfnPointContents( float *p, int *truecontents )
-{
-	return PM_PointContentsPmove( clgame.pmove, p, truecontents );
-}
-
 static int GAME_EXPORT pfnTruePointContents( float *p )
 {
 	return PM_TruePointContents( clgame.pmove, p );
@@ -734,11 +729,6 @@ static int GAME_EXPORT pfnHullPointContents( struct hull_s *hull, int num, float
 static pmtrace_t GAME_EXPORT pfnPlayerTrace( float *start, float *end, int traceFlags, int ignore_pe )
 {
 	return PM_PlayerTraceExt( clgame.pmove, start, end, traceFlags, clgame.pmove->numphysent, clgame.pmove->physents, ignore_pe, NULL );
-}
-
-pmtrace_t *PM_CL_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
-{
-	return PM_TraceLine( clgame.pmove, start, end, flags, usehull, ignore_pe );
 }
 
 static void *pfnHullForBsp( physent_t *pe, float *offset )
@@ -817,7 +807,7 @@ void CL_InitClientMove( void )
 	clgame.pmove->Con_Printf = Con_Printf;
 	clgame.pmove->Sys_FloatTime = Sys_DoubleTime;
 	clgame.pmove->PM_StuckTouch = pfnStuckTouch;
-	clgame.pmove->PM_PointContents = pfnPointContents;
+	clgame.pmove->PM_PointContents = PM_CL_PointContents;
 	clgame.pmove->PM_TruePointContents = pfnTruePointContents;
 	clgame.pmove->PM_HullPointContents = pfnHullPointContents;
 	clgame.pmove->PM_PlayerTrace = pfnPlayerTrace;

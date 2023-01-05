@@ -1037,7 +1037,7 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 			vecSpot[1] = pos[1] + COM_RandomFloat( -0.5f, 0.5f ) * size[1];
 			vecSpot[2] = pos[2] + COM_RandomFloat( -0.5f, 0.5f ) * size[2];
 
-			if( CL_PointContents( vecSpot ) != CONTENTS_SOLID )
+			if( PM_CL_PointContents( vecSpot, NULL ) != CONTENTS_SOLID )
 				break; // valid spot
 		}
 
