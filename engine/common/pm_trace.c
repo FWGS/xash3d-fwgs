@@ -841,12 +841,19 @@ struct msurface_s *PM_TraceSurfacePmove( playermove_t *pmove, int ground, float 
 	return PM_TraceSurface( &pmove->physents[ground], vstart, vend );
 }
 
-const char *PM_TraceTexturePmove( playermove_t *pmove, int ground, float *vstart, float *vend )
+const char *PM_TraceTexture( playermove_t *pmove, int ground, float *vstart, float *vend )
 {
+	msurface_t *surf;
+
 	if( ground < 0 || ground >= pmove->numphysent )
 		return NULL; // bad ground
 
-	return PM_TraceTexture( &pmove->physents[ground], vstart, vend );
+	surf = PM_TraceSurface( &pmove->physents[ground], vstart, vend );
+
+	if( !surf || !surf->texinfo || !surf->texinfo->texture )
+		return NULL;
+
+	return surf->texinfo->texture->name;
 }
 
 int PM_PointContentsPmove( playermove_t *pmove, const float *p, int *truecontents )

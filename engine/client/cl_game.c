@@ -2533,7 +2533,7 @@ CL_TraceTexture
 */
 const char * GAME_EXPORT PM_CL_TraceTexture( int ground, float *vstart, float *vend )
 {
-	return PM_TraceTexturePmove( clgame.pmove, ground, vstart, vend );
+	return PM_TraceTexture( clgame.pmove, ground, vstart, vend );
 }
 
 /*
