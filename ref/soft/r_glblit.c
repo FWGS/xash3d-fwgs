@@ -812,3 +812,120 @@ void R_BlitScreen( void )
 	swblit.pUnlockBuffer();
 //	gEngfuncs.Con_Printf("blit end\n");
 }
+
+static uint32_t Get8888PixelAt( int u, int start )
+{
+	uint32_t s;
+	switch( swblit.bpp )
+	{
+	case 2:
+	{
+		pixel_t color = vid.screen[vid.buffer[start + u]];
+		uint8_t c[3];
+		c[0] = (((( color >> 11 ) & 0x1F ) * 527 ) + 23 ) >> 6;
+		c[1] = (((( color >> 5 )  & 0x3F ) * 259 ) + 33 ) >> 6;
+		c[2] = (((( color )       & 0x1F ) * 527 ) + 23 ) >> 6;
+
+		s = c[0] << 16 | c[1] << 8 | c[2];
+		break;
+	}
+	case 3:
+	case 4:
+	default:
+		s = vid.screen32[vid.buffer[start + u]];
+		break;
+	}
+	return s | 0xFF000000;
+}
+
+qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
+{
+	rgbdata_t *r_shot;
+	uint	flags = IMAGE_FLIP_Y;
+	int	width = 0, height = 0, u, v;
+	qboolean	result;
+
+	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+	r_shot->width = (vid.width + 3) & ~3;
+	r_shot->height = (vid.height + 3) & ~3;
+	r_shot->flags = IMAGE_HAS_COLOR;
+	r_shot->type = PF_BGRA_32; // was RGBA
+	r_shot->size = r_shot->width * r_shot->height * gEngfuncs.Image_GetPFDesc( r_shot->type )->bpp;
+	r_shot->palette = NULL;
+	r_shot->buffer = Mem_Malloc( r_temppool, r_shot->size );
+
+	// get screen frame
+	if( swblit.rotate )
+	{
+		uint32_t *pbuf = (uint32_t *)r_shot->buffer;
+
+		for( v = 0; v < vid.height; v++ )
+		{
+			uint start = vid.rowbytes * ( vid.height - v );
+			uint d = swblit.stride - v - 1;
+
+			for( u = 0; u < vid.width; u++ )
+			{
+				pbuf[d] = Get8888PixelAt( u, start );
+				d += swblit.stride;
+			}
+		}
+	}
+	else
+	{
+		uint32_t *pbuf = (uint32_t *)r_shot->buffer;
+
+		for( v = 0; v < vid.height;v++)
+		{
+			uint start = vid.rowbytes * ( vid.height - v );
+			uint dstart = swblit.stride * v;
+
+			for( u = 0; u < vid.width; u++ )
+			{
+				pbuf[dstart + u] = Get8888PixelAt( u, start );
+			}
+		}
+	}
+
+	switch( shot_type )
+	{
+	case VID_SCREENSHOT:
+		break;
+	case VID_SNAPSHOT:
+		gEngfuncs.fsapi->AllowDirectPaths( true );
+		break;
+	case VID_LEVELSHOT:
+		flags |= IMAGE_RESAMPLE;
+		if( gpGlobals->wideScreen )
+		{
+			height = 480;
+			width = 800;
+		}
+		else
+		{
+			height = 480;
+			width = 640;
+		}
+		break;
+	case VID_MINISHOT:
+		flags |= IMAGE_RESAMPLE;
+		height = 200;
+		width = 320;
+		break;
+	case VID_MAPSHOT:
+		flags |= IMAGE_RESAMPLE|IMAGE_QUANTIZE;	// GoldSrc request overviews in 8-bit format
+		height = 768;
+		width = 1024;
+		break;
+	}
+
+	gEngfuncs.Image_Process( &r_shot, width, height, flags, 0.0f );
+
+	// write image
+	result = gEngfuncs.FS_SaveImage( filename, r_shot );
+	gEngfuncs.fsapi->AllowDirectPaths( false );			// always reset after store screenshot
+	gEngfuncs.FS_FreeImage( r_shot );
+
+	return result;
+}
+
