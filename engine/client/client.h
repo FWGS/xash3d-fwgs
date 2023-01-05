@@ -832,6 +832,7 @@ void CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pm
 void CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr );
 pmtrace_t *PM_CL_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe );
 const char *PM_CL_TraceTexture( int ground, float *vstart, float *vend );
+int PM_CL_PointContents( const float *p, int *truecontents );
 void CL_SetTraceHull( int hull );
 void CL_GetMousePosition( int *mx, int *my ); // TODO: move to input
 cl_entity_t* CL_GetViewModel( void );
@@ -914,7 +915,6 @@ void CL_PredictMovement( qboolean repredicting );
 void CL_CheckPredictionError( void );
 qboolean CL_IsPredicted( void );
 int CL_TruePointContents( const vec3_t p );
-int CL_PointContents( const vec3_t p );
 int CL_WaterEntity( const float *rgflPos );
 cl_entity_t *CL_GetWaterEntity( const float *rgflPos );
 void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, qboolean runfuncs, double time );
