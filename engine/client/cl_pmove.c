@@ -28,20 +28,6 @@ GNU General Public License for more details.
 
 /*
 =============
-CL_ClearPhysEnts
-
-=============
-*/
-void CL_ClearPhysEnts( void )
-{
-	clgame.pmove->numtouch = 0;
-	clgame.pmove->numvisent = 0;
-	clgame.pmove->nummoveent = 0;
-	clgame.pmove->numphysent = 0;
-}
-
-/*
-=============
 CL_PushPMStates
 
 =============
@@ -807,7 +793,7 @@ void CL_InitClientMove( void )
 	clgame.pmove->Con_Printf = Con_Printf;
 	clgame.pmove->Sys_FloatTime = Sys_DoubleTime;
 	clgame.pmove->PM_StuckTouch = pfnStuckTouch;
-	clgame.pmove->PM_PointContents = PM_CL_PointContents;
+	clgame.pmove->PM_PointContents = (void*)PM_CL_PointContents;
 	clgame.pmove->PM_TruePointContents = pfnTruePointContents;
 	clgame.pmove->PM_HullPointContents = pfnHullPointContents;
 	clgame.pmove->PM_PlayerTrace = pfnPlayerTrace;

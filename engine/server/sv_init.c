@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "library.h"
 #include "voice.h"
+#include "pm_local.h"
 
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
@@ -651,7 +652,7 @@ void SV_DeactivateServer( void )
 
 	SV_FreeEdicts ();
 
-	SV_ClearPhysEnts ();
+	PM_ClearPhysEnts( svgame.pmove );
 
 	SV_EmptyStringPool();
 
