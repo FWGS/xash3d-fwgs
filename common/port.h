@@ -19,9 +19,6 @@ GNU General Public License for more details.
 
 #include "build.h"
 
-#define PATH_SEPARATOR_NIX '/'
-#define PATH_SEPARATOR_WIN '\\'
-
 #if !XASH_WIN32
 	#if XASH_APPLE
 		#include <sys/syslimits.h>
@@ -43,15 +40,10 @@ GNU General Public License for more details.
 	#if XASH_POSIX
 		#include <unistd.h>
 		#include <dlfcn.h>
-
-		#define PATH_SEPARATOR PATH_SEPARATOR_NIX
 		#define HAVE_DUP
-
 		#define O_BINARY    0
 		#define O_TEXT      0
 		#define _mkdir( x ) mkdir( x, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
-	#elif XASH_DOS4GW
-		#define PATH_SEPARATOR PATH_SEPARATOR_WIN
 	#endif
 
 	typedef void* HANDLE;
@@ -62,7 +54,6 @@ GNU General Public License for more details.
 		int x, y;
 	} POINT;
 #else // WIN32
-	#define PATH_SEPARATOR PATH_SEPARATOR_WIN
 	#ifdef __MINGW32__
 		#define _inline static inline
 		#define FORCEINLINE inline __attribute__((always_inline))
@@ -88,12 +79,6 @@ GNU General Public License for more details.
 
 #ifndef XASH_LOW_MEMORY
 #define XASH_LOW_MEMORY 0
-#endif
-
-#if PATH_SEPARATOR == PATH_SEPARATOR_WIN
-#define PATH_SEPARATOR_STR "\\"
-#else // PATH_SEPARATOR == PATH_SEPARATOR_NIX
-#define PATH_SEPARATOR_STR "/"
 #endif
 
 #include <stdlib.h>

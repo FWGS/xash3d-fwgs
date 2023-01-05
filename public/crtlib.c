@@ -837,16 +837,15 @@ void COM_RemoveLineFeed( char *str )
 ============
 COM_FixSlashes
 
-Changes all '/' characters into '\' characters, in place.
+Changes all '\' characters into '/' characters, in place.
 ============
 */
 void COM_FixSlashes( char *pname )
 {
-	while( *pname )
+	for( ; *pname; pname++ )
 	{
-		if( *pname == PATH_SEPARATOR_WIN )
-			*pname = PATH_SEPARATOR_NIX;
-		pname++;
+		if( *pname == '\\' )
+			*pname = '/';
 	}
 }
 
