@@ -211,7 +211,7 @@ typedef struct
 						// a lerp point for other data
 	double		oldtime;			// previous cl.time, time-oldtime is used
 						// to decay light values and smooth step ups
-	float		timedelta;		// floating delta between two updates
+	double		timedelta;		// floating delta between two updates
 
 	char		serverinfo[MAX_SERVERINFO_STRING];
 	player_info_t	players[MAX_CLIENTS];	// collected info about all other players include himself
@@ -917,7 +917,6 @@ qboolean CL_IsPredicted( void );
 int CL_TruePointContents( const vec3_t p );
 int CL_WaterEntity( const float *rgflPos );
 cl_entity_t *CL_GetWaterEntity( const float *rgflPos );
-void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, qboolean runfuncs, double time );
 int CL_TestLine( const vec3_t start, const vec3_t end, int flags );
 pmtrace_t *CL_VisTraceLine( vec3_t start, vec3_t end, int flags );
 pmtrace_t CL_TraceLine( vec3_t start, vec3_t end, int flags );

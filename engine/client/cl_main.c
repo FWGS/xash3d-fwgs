@@ -3030,12 +3030,12 @@ void CL_AdjustClock( void )
 	if( fabs( cl.timedelta ) >= 0.001f )
 	{
 		double msec, adjust;
-		float sign;
+		double sign;
 
-		msec = ( cl.timedelta * 1000.0f );
-		sign = ( msec < 0 ) ? 1.0f : -1.0f;
-		msec = fabs( msec );
-		adjust = sign * ( cl_fixtimerate->value / 1000.0f );
+		msec = ( cl.timedelta * 1000.0 );
+		sign = ( msec < 0 ) ? 1.0 : -1.0;
+		msec = Q_min( cl_fixtimerate->value, fabs( msec ));
+		adjust = sign * ( msec / 1000.0 );
 
 		if( fabs( adjust ) < fabs( cl.timedelta ))
 		{
