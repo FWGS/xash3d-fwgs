@@ -242,11 +242,6 @@ void CL_SignonReply( void )
 	}
 }
 
-float CL_LerpInterval( void )
-{
-	return Q_max( cl_interp->value, 1.f / cl_updaterate->value );
-}
-
 /*
 ===============
 CL_LerpPoint
@@ -257,55 +252,26 @@ should be put at.
 */
 static float CL_LerpPoint( void )
 {
-	float frac = 1.0f;
-	float server_frametime = cl_serverframetime();
+	double f = cl_serverframetime();
+	double frac;
 
-	if( server_frametime == 0.0f || cls.timedemo )
+	if( f == 0.0 || cls.timedemo )
 	{
+		double fgap = cl_clientframetime();
 		cl.time = cl.mtime[0];
+
+		// maybe don't need for Xash demos
+		if( cls.demoplayback )
+			cl.oldtime = cl.mtime[0] - fgap;
+
 		return 1.0f;
 	}
 
-	if( server_frametime > 0.1f )
-	{
-		// dropped packet, or start of demo
-		cl.mtime[1] = cl.mtime[0] - 0.1f;
-		server_frametime = 0.1f;
-	}
-#if 0
-	/*
-	g-cont: this code more suitable for singleplayer
-	NOTE in multiplayer causes significant framerate stutter/jitter and
-	occuring frames with zero time delta and even with negative time delta.
-	game becomes more twitchy and as if without interpolation.
-	*/
-	frac = (cl.time - cl.mtime[1]) / f;
-	if( frac < 0.0f )
-	{
-		if( frac < -0.01f )
-			cl.time = cl.mtime[1];
-		frac = 0.0f;
-	}
-	else if( frac > 1.0f )
-	{
-		if( frac > 1.01f )
-			cl.time = cl.mtime[0];
-		frac = 1.0f;
-	}
-#else
-	// for multiplayer
-	if( cl_interp->value > 0.001f )
-	{
-		// manual lerp value (goldsrc mode)
-		float td = Q_max( 0.f, cl.time - cl.mtime[0] );
-		frac = td / CL_LerpInterval();
-	}
-	else if( server_frametime > 0.001f )
-	{
-		// automatic lerp (classic mode)
-		frac = ( cl.time - cl.mtime[1] ) / server_frametime;
-	}
-#endif
+	if( cl_interp->value <= 0.001 )
+		return 1.0f;
+
+	frac = ( cl.time - cl.mtime[0] ) / cl_interp->value;
+
 	return frac;
 }
 
@@ -347,7 +313,7 @@ Validate interpolation cvars, calc interpolation window
 void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 {
 	const float epsilon = 0.001f; // to avoid float invalid comparision
-	float min_interp = MIN_EX_INTERP;
+	float min_interp;
 	float max_interp = MAX_EX_INTERP;
 	float interpolation_time;
 
@@ -367,7 +333,7 @@ void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 		max_interp = 0.2f;
 
 	min_interp = 1.0f / cl_updaterate->value;
-	interpolation_time = CL_LerpInterval( );
+	interpolation_time = cl_interp->value * 1000.0;
 
 	if( (cl_interp->value + epsilon) < min_interp )
 	{
