@@ -194,7 +194,7 @@ check for instant movement in case
 we don't want interpolate this
 ==================
 */
-qboolean CL_PlayerTeleported( local_state_t *from, local_state_t *to )
+static qboolean CL_PlayerTeleported( local_state_t *from, local_state_t *to )
 {
 	int	len, maxlen;
 	vec3_t	delta;
@@ -815,21 +815,10 @@ void CL_InitClientMove( void )
 	clgame.dllFuncs.pfnPlayerMoveInit( clgame.pmove );
 }
 
-static void PM_CheckMovingGround( clientdata_t *cd, entity_state_t *state, float frametime )
+static void CL_SetupPMove( playermove_t *pmove, const local_state_t *from, const usercmd_t *ucmd, qboolean runfuncs, double time )
 {
-	if(!( cd->flags & FL_BASEVELOCITY ))
-	{
-		// apply momentum (add in half of the previous frame of velocity first)
-		VectorMA( cd->velocity, 1.0f + (frametime * 0.5f), state->basevelocity, cd->velocity );
-		VectorClear( state->basevelocity );
-	}
-	cd->flags &= ~FL_BASEVELOCITY;
-}
-
-void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, qboolean runfuncs, double time )
-{
-	entity_state_t	*ps;
-	clientdata_t	*cd;
+	const entity_state_t	*ps;
+	const clientdata_t	*cd;
 
 	ps = &from->playerstate;
 	cd = &from->client;
@@ -846,13 +835,13 @@ void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, q
 	VectorCopy( ps->basevelocity, pmove->basevelocity );
 	VectorCopy( cd->view_ofs, pmove->view_ofs );
 	VectorClear( pmove->movedir );
-	pmove->flDuckTime = cd->flDuckTime;
+	pmove->flDuckTime = (float)cd->flDuckTime;
 	pmove->bInDuck = cd->bInDuck;
 	pmove->usehull = ps->usehull;
 	pmove->flTimeStepSound = cd->flTimeStepSound;
 	pmove->iStepLeft = ps->iStepLeft;
 	pmove->flFallVelocity = ps->flFallVelocity;
-	pmove->flSwimTime = cd->flSwimTime;
+	pmove->flSwimTime = (float)cd->flSwimTime;
 	VectorCopy( cd->punchangle, pmove->punchangle );
 	pmove->flNextPrimaryAttack = 0.0f; // not used by PM_ code
 	pmove->effects = ps->effects;
@@ -860,7 +849,7 @@ void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, q
 	pmove->gravity = ps->gravity;
 	pmove->friction = ps->friction;
 	pmove->oldbuttons = ps->oldbuttons;
-	pmove->waterjumptime = cd->waterjumptime;
+	pmove->waterjumptime = (float)cd->waterjumptime;
 	pmove->dead = (cl.local.health <= 0);
 	pmove->deadflag = cd->deadflag;
 	pmove->spectator = (cls.spectator != 0);
@@ -887,7 +876,7 @@ void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, q
 	Q_strncpy( pmove->physinfo, cls.physinfo, MAX_INFO_STRING );
 }
 
-void CL_FinishPMove( playermove_t *pmove, local_state_t *to )
+const void CL_FinishPMove( const playermove_t *pmove, local_state_t *to )
 {
 	entity_state_t	*ps;
 	clientdata_t	*cd;
@@ -898,7 +887,7 @@ void CL_FinishPMove( playermove_t *pmove, local_state_t *to )
 	cd->flags = pmove->flags;
 	cd->bInDuck = pmove->bInDuck;
 	cd->flTimeStepSound = pmove->flTimeStepSound;
-	cd->flDuckTime = pmove->flDuckTime;
+	cd->flDuckTime = (int)pmove->flDuckTime;
 	cd->flSwimTime = (int)pmove->flSwimTime;
 	cd->waterjumptime = (int)pmove->waterjumptime;
 	cd->watertype = pmove->watertype;
@@ -911,7 +900,7 @@ void CL_FinishPMove( playermove_t *pmove, local_state_t *to )
 	VectorCopy( pmove->angles, ps->angles );
 	VectorCopy( pmove->basevelocity, ps->basevelocity );
 	VectorCopy( pmove->punchangle, cd->punchangle );
-	ps->oldbuttons = pmove->cmd.buttons;
+	ps->oldbuttons = (uint)pmove->cmd.buttons;
 	ps->friction = pmove->friction;
 	ps->movetype = pmove->movetype;
 	ps->onground = pmove->onground;
@@ -1019,13 +1008,9 @@ void CL_PredictMovement( qboolean repredicting )
 {
 	runcmd_t		*to_cmd = NULL, *from_cmd;
 	local_state_t	*from = NULL, *to = NULL;
-	uint		current_command;
-	uint		current_command_mod;
-	frame_t		*frame = NULL;
+	frame_t *frame = NULL;
 	uint		i, stoppoint;
-	qboolean		runfuncs;
 	double		f = 1.0;
-	cl_entity_t	*ent;
 	double		time;
 
 	if( cls.state != ca_active || cls.spectator )
@@ -1036,7 +1021,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	CL_SetUpPlayerPrediction( false, false );
 
-	if( cls.state != ca_active || !cl.validsequence )
+	if( !cl.validsequence )
 		return;
 
 	if(( cls.netchan.outgoing_sequence - cls.netchan.incoming_acknowledged ) >= CL_UPDATE_MASK )
@@ -1077,6 +1062,10 @@ void CL_PredictMovement( qboolean repredicting )
 
 	for( i = 1; i < CL_UPDATE_MASK && cls.netchan.incoming_acknowledged + i < cls.netchan.outgoing_sequence + stoppoint; i++ )
 	{
+		uint		current_command;
+		uint		current_command_mod;
+		qboolean		runfuncs;
+
 		current_command = cls.netchan.incoming_acknowledged + i;
 		current_command_mod = current_command & CL_UPDATE_MASK;
 
@@ -1153,7 +1142,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	if( FBitSet( to->client.flags, FL_ONGROUND ))
 	{
-		ent = CL_GetEntityByIndex( cl.local.lastground );
+		cl_entity_t	*ent = CL_GetEntityByIndex( cl.local.lastground );
 		cl.local.onground = cl.local.lastground;
 		cl.local.moving = false;
 
@@ -1175,13 +1164,13 @@ void CL_PredictMovement( qboolean repredicting )
 	else
 	{
 		cl.local.onground = -1;
-		cl.local.moving = 0;
+		cl.local.moving = false;
 	}
 
 	if( cls.correction_time > 0 && !cl_nosmooth->value && cl_smoothtime->value )
 	{
-		vec3_t	delta;
-		float	frac;
+		vec3_t delta;
+		float frac;
 
 		// only decay timer once per frame
 		if( !repredicting )

@@ -139,7 +139,7 @@ typedef struct
 	int		light_level;
 	int		waterlevel;
 	int		usehull;
-	int		moving;
+	qboolean	moving;
 	int		pushmsec;
 	int		weapons;
 	float		maxspeed;
