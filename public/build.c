@@ -125,6 +125,77 @@ const char *Q_buildos( void )
 	return Q_PlatformStringByID( XASH_PLATFORM );
 }
 
+
+/*
+============
+Q_ArchitectureStringByID
+
+Returns name of the architecture by it's ID. Without any spaces.
+============
+*/
+const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int endianness, const qboolean is64 )
+{
+	// I don't want to change this function prototype
+	// and don't want to use static buffer either
+	// so encode all possible variants... :)
+	switch( arch )
+	{
+	case ARCHITECTURE_AMD64:
+		return "amd64";
+	case ARCHITECTURE_X86:
+		return "i386";
+	case ARCHITECTURE_E2K:
+		return "e2k";
+	case ARCHITECTURE_JS:
+		return "javascript";
+	case ARCHITECTURE_MIPS:
+		return endianness == ENDIANNESS_LITTLE ?
+			( is64 ? "mips64el" : "mipsel" ):
+			( is64 ? "mips64" : "mips" );
+	case ARCHITECTURE_ARM:
+		// no support for big endian ARM here
+		if( endianness == ENDIANNESS_LITTLE )
+		{
+			const int ver = ( abi >> ARCHITECTURE_ARM_VER_SHIFT ) & ARCHITECTURE_ARM_VER_MASK;
+			const qboolean hardfp = FBitSet( abi, ARCHITECTURE_ARM_HARDFP );
+
+			if( is64 )
+				return "aarch64";
+
+			switch( ver )
+			{
+			case 8:
+				return hardfp ? "armv8_32hf" : "armv8_32l";
+			case 7:
+				return hardfp ? "armv7hf" : "armv7l";
+			case 6:
+				return "armv6l";
+			case 5:
+				return "armv5l";
+			case 4:
+				return "armv4l";
+			}
+		}
+		break;
+	case ARCHITECTURE_RISCV:
+		switch( abi )
+		{
+		case ARCHITECTURE_RISCV_FP_SOFT:
+			return is64 ? "riscv64" : "riscv32";
+		case ARCHITECTURE_RISCV_FP_SINGLE:
+			return is64 ? "riscv64f" : "riscv32f";
+		case ARCHITECTURE_RISCV_FP_DOUBLE:
+			return is64 ? "riscv64d" : "riscv64f";
+		}
+		break;
+	}
+
+	assert( 0 );
+	return is64 ?
+		( endianness == ENDIANNESS_LITTLE ? "unknown64el" : "unknownel" ) :
+		( endianness == ENDIANNESS_LITTLE ? "unknown64be" : "unknownbe" );
+}
+
 /*
 ============
 Q_buildarch
@@ -134,65 +205,16 @@ Returns current name of the architecture. Without any spaces.
 */
 const char *Q_buildarch( void )
 {
-	const char *archname;
-
-#if XASH_AMD64
-	archname = "amd64";
-#elif XASH_X86
-	archname = "i386";
-#elif XASH_ARM && XASH_64BIT
-	archname = "arm64";
-#elif XASH_ARM
-	archname = "armv"
-	#if XASH_ARM == 8
-		"8_32" // for those who (mis)using 32-bit OS on 64-bit CPU
-	#elif XASH_ARM == 7
-		"7"
-	#elif XASH_ARM == 6
-		"6"
-	#elif XASH_ARM == 5
-		"5"
-	#elif XASH_ARM == 4
-		"4"
-	#endif
-
-	#if XASH_ARM_HARDFP
-		"hf"
-	#else
-		"l"
-	#endif
-	;
-#elif XASH_MIPS && XASH_BIG_ENDIAN
-	archname = "mips"
-	#if XASH_64BIT
-		"64"
-	#endif
-	#if XASH_LITTLE_ENDIAN
-		"el"
-	#endif
-	;
-#elif XASH_RISCV
-	archname = "riscv"
-	#if XASH_64BIT
-		"64"
-	#else
-		"32"
-	#endif
-	#if XASH_RISCV_SINGLEFP
-		"d"
-	#elif XASH_RISCV_DOUBLEFP
-		"f"
-	#endif
-	;
-#elif XASH_JS
-	archname = "javascript";
-#elif XASH_E2K
-	archname = "e2k";
+	return Q_ArchitectureStringByID(
+		XASH_ARCHITECTURE,
+		XASH_ARCHITECTURE_ABI,
+		XASH_ENDIANNESS,
+#if XASH_64BIT
+		true
 #else
-#error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
+		false
 #endif
-
-	return archname;
+	);
 }
 
 /*
