@@ -74,12 +74,14 @@ int Q_buildnum_compat( void )
 
 /*
 ============
-Q_buildos_
+Q_GetPlatformStringByID
 
 Returns name of operating system by ID. Without any spaces.
+
+TODO: add platform-dependent ABI variants, for example, different libc on Linux
 ============
 */
-const char *Q_GetPlatformStringByID( const int platform )
+const char *Q_PlatformStringByID( const int platform )
 {
 	switch( platform )
 	{

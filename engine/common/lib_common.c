@@ -126,16 +126,6 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 =============================================================================
 */
 
-enum
-{
-
-};
-
-static void COM_GenerateCommonLibraryName( const char *name, const char *ext, int os, int cpu, char *out, size_t size )
-{
-
-}
-
 static void COM_GenerateCommonLibraryName( const char *name, const char *ext, char *out, size_t size )
 {
 #if ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86

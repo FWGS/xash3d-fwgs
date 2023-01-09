@@ -126,8 +126,6 @@ GNU General Public License for more details.
 #define ARCHITECTURE_RISCV_FP_SOFT   0
 #define ARCHITECTURE_RISCV_FP_SINGLE 1
 #define ARCHITECTURE_RISCV_FP_DOUBLE 2
-#define ARCHITECTURE_RISCV_FP_MASK   ( BIT( 2 ) - 1 )
-#define ARCHITECTURE_RISCV_FP_SHIFT  0
 
 #if XASH_ARCHITECTURE == ARCHITECTURE_ARM
 	#if XASH_ARM_HARDFP
@@ -145,6 +143,8 @@ GNU General Public License for more details.
 	#else
 		#error
 	#endif
+#else
+	#define XASH_ARCHITECTURE_ABI 0 // unused
 #endif
 
 
