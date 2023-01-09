@@ -14,18 +14,28 @@ GNU General Public License for more details.
 */
 
 #include "crtlib.h"
+#include "buildenums.h"
 
 static const char *date = __DATE__ ;
 static const char *mon[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 static const char mond[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
-// returns days since Apr 1 2015
+/*
+===============
+Q_buildnum
+
+returns days since Apr 1 2015
+===============
+*/
 int Q_buildnum( void )
 {
-	int m = 0, d = 0, y = 0;
 	static int b = 0;
+	int m = 0;
+	int d = 0;
+	int y = 0;
 
-	if( b != 0 ) return b;
+	if( b != 0 )
+		return b;
 
 	for( m = 0; m < 11; m++ )
 	{
@@ -52,7 +62,7 @@ int Q_buildnum( void )
 Q_buildnum_compat
 
 Returns a Xash3D build number. This is left for compability with original Xash3D.
-IMPORTANT: this value must be changed ONLY after updating to newer Xash3D
+IMPORTANT: this value must be changed ONLY after updating to newer Xash3D base
 IMPORTANT: this value must be acquired through "build" cvar.
 =============
 */
@@ -64,44 +74,53 @@ int Q_buildnum_compat( void )
 
 /*
 ============
+Q_buildos_
+
+Returns name of operating system by ID. Without any spaces.
+============
+*/
+const char *Q_GetPlatformStringByID( const int platform )
+{
+	switch( platform )
+	{
+	case PLATFORM_WIN32:
+		return "win32";
+	case PLATFORM_ANDROID:
+		return "android";
+	case PLATFORM_LINUX:
+		return "linux";
+	case PLATFORM_APPLE:
+		return "apple";
+	case PLATFORM_FREEBSD:
+		return "freebsd";
+	case PLATFORM_NETBSD:
+		return "netbsd";
+	case PLATFORM_OPENBSD:
+		return "openbsd";
+	case PLATFORM_EMSCRIPTEN:
+		return "emscripten";
+	case PLATFORM_DOS4GW:
+		return "DOS4GW";
+	case PLATFORM_HAIKU:
+		return "haiku";
+	case PLATFORM_SERENITY:
+		return "serenity";
+	}
+
+	assert( 0 );
+	return "unknown";
+}
+
+/*
+============
 Q_buildos
 
-Returns current name of operating system. Without any spaces.
+Shortcut for Q_buildos_
 ============
 */
 const char *Q_buildos( void )
 {
-	const char *osname;
-
-#if XASH_MINGW
-	osname = "win32-mingw";
-#elif XASH_WIN32
-	osname = "win32";
-#elif XASH_ANDROID
-	osname = "android";
-#elif XASH_LINUX
-	osname = "linux";
-#elif XASH_APPLE
-	osname = "apple";
-#elif XASH_FREEBSD
-	osname = "freebsd";
-#elif XASH_NETBSD
-	osname = "netbsd";
-#elif XASH_OPENBSD
-	osname = "openbsd";
-#elif XASH_EMSCRIPTEN
-	osname = "emscripten";
-#elif XASH_DOS4GW
-	osname = "DOS4GW";
-#elif XASH_HAIKU
-	osname = "haiku";
-#elif XASH_SERENITY
-	osname = "serenityos";
-#else
-#error "Place your operating system name here! If this is a mistake, try to fix conditions above and report a bug"
-#endif
-
-	return osname;
+	return Q_PlatformStringByID( XASH_PLATFORM );
 }
 
 /*
