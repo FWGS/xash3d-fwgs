@@ -62,7 +62,7 @@ Sys_DebugBreak
 void Sys_DebugBreak( void )
 {
 #if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
-#if XASH_MSVC
+#if _MSC_VER
 	if( Sys_DebuggerPresent() )
 		_asm { int 3 }
 #elif XASH_X86

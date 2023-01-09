@@ -65,7 +65,7 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 
 		if( f ) return f;
 	}
-#elif XASH_MSVC
+#elif _MSC_VER
 	// TODO: COM_ConvertToLocalPlatform doesn't support MSVC yet
 	// also custom loader strips always MSVC mangling, so Win32
 	// platforms already use platform-neutral names
@@ -125,6 +125,16 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 
 =============================================================================
 */
+
+enum
+{
+
+};
+
+static void COM_GenerateCommonLibraryName( const char *name, const char *ext, int os, int cpu, char *out, size_t size )
+{
+
+}
 
 static void COM_GenerateCommonLibraryName( const char *name, const char *ext, char *out, size_t size )
 {
