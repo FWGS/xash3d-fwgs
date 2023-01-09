@@ -111,17 +111,6 @@ SETUP BACKENDS DEFINITIONS
 #endif // XASH_MESSAGEBOX
 
 //
-// select crashhandler based on defines
-//
-#ifndef XASH_CRASHHANDLER
-	#if XASH_WIN32 && defined(DBGHELP)
-		#define XASH_CRASHHANDLER CRASHHANDLER_DBGHELP
-	#elif XASH_LINUX || XASH_BSD
-		#define XASH_CRASHHANDLER CRASHHANDLER_UCONTEXT
-	#endif // !(XASH_LINUX || XASH_BSD || XASH_WIN32)
-#endif
-
-//
 // no timer - no xash
 //
 #ifndef XASH_TIMER
@@ -156,10 +145,6 @@ SETUP BACKENDS DEFINITIONS
 #ifndef XASH_INPUT
 	#define XASH_INPUT INPUT_NULL
 #endif // XASH_INPUT
-
-#ifndef XASH_CRASHHANDLER
-	#define XASH_CRASHHANDLER CRASHHANDLER_NULL
-#endif // XASH_CRASHHANDLER
 
 /*
 =========================================================================
