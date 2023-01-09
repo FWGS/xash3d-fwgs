@@ -25,9 +25,9 @@ Sys_Crash
 Crash handler, called from system
 ================
 */
-#if XASH_CRASHHANDLER == CRASHHANDLER_DBGHELP || XASH_CRASHHANDLER == CRASHHANDLER_WIN32
+#if XASH_WIN32
 
-#if XASH_CRASHHANDLER == CRASHHANDLER_DBGHELP
+#if DBGHELP
 
 #pragma comment( lib, "dbghelp" )
 
@@ -189,7 +189,7 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 
 	SymCleanup( process );
 }
-#endif /* XASH_CRASHHANDLER == CRASHHANDLER_DBGHELP */
+#endif /* DBGHELP */
 
 LPTOP_LEVEL_EXCEPTION_FILTER       oldFilter;
 static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
@@ -200,7 +200,7 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 		// check to avoid recursive call
 		host.crashed = true;
 
-#if XASH_CRASHHANDLER == CRASHHANDLER_DBGHELP
+#if DBGHELP
 		Sys_StackTrace( pInfo );
 #else
 		Sys_Warn( "Sys_Crash: call %p at address %p", pInfo->ExceptionRecord->ExceptionAddress, pInfo->ExceptionRecord->ExceptionCode );
@@ -239,21 +239,21 @@ void Sys_RestoreCrashHandler( void )
 	if( oldFilter ) SetUnhandledExceptionFilter( oldFilter );
 }
 
-#elif XASH_CRASHHANDLER == CRASHHANDLER_UCONTEXT
+#elif XASH_FREEBSD || XASH_NETBSD || XASH_OPENBSD || XASH_ANDROID || XASH_LINUX
 // Posix signal handler
-
-#include "library.h"
-
-#if XASH_FREEBSD || XASH_NETBSD || XASH_OPENBSD || XASH_ANDROID || XASH_LINUX
-#define HAVE_UCONTEXT_H 1
-#endif
-
-#ifdef HAVE_UCONTEXT_H
 #include <ucontext.h>
-#endif
-
 #include <signal.h>
 #include <sys/mman.h>
+#include "library.h"
+
+#define STACK_BACKTRACE_STR     "Stack backtrace:\n"
+#define STACK_DUMP_STR          "Stack dump:\n"
+
+#define STACK_BACKTRACE_STR_LEN ( sizeof( STACK_BACKTRACE_STR ) - 1 )
+#define STACK_DUMP_STR_LEN      ( sizeof( STACK_DUMP_STR ) - 1 )
+#define ALIGN( x, y ) (((uintptr_t) ( x ) + (( y ) - 1 )) & ~(( y ) - 1 ))
+
+static struct sigaction oldFilter;
 
 #ifdef XASH_DYNAMIC_DLADDR
 static int d_dladdr( void *sym, Dl_info *info )
@@ -284,28 +284,18 @@ static int Sys_PrintFrame( char *buf, int len, int i, void *addr )
 		if( dlinfo.dli_sname )
 			return Q_snprintf( buf, len, "%2d: %p <%s+%lu> (%s)\n", i, addr, dlinfo.dli_sname,
 				(unsigned long)addr - (unsigned long)dlinfo.dli_saddr, dlinfo.dli_fname ); // print symbol, module and address
-		else
-			return Q_snprintf( buf, len, "%2d: %p (%s)\n", i, addr, dlinfo.dli_fname ); // print module and address
+
+		return Q_snprintf( buf, len, "%2d: %p (%s)\n", i, addr, dlinfo.dli_fname ); // print module and address
 	}
-	else
-		return Q_snprintf( buf, len, "%2d: %p\n", i, addr ); // print only address
+
+	return Q_snprintf( buf, len, "%2d: %p\n", i, addr ); // print only address
 }
-
-struct sigaction oldFilter;
-
-#define STACK_BACKTRACE_STR     "Stack backtrace:\n"
-#define STACK_DUMP_STR          "Stack dump:\n"
-
-#define STACK_BACKTRACE_STR_LEN (sizeof( STACK_BACKTRACE_STR ) - 1)
-#define STACK_DUMP_STR_LEN      (sizeof( STACK_DUMP_STR ) - 1)
-#define ALIGN( x, y ) (((uintptr_t) (x) + ((y)-1)) & ~((y)-1))
 
 static void Sys_Crash( int signal, siginfo_t *si, void *context)
 {
 	void *pc = NULL, **bp = NULL, **sp = NULL; // this must be set for every OS!
 	char message[8192];
 	int len, logfd, i = 0;
-	size_t pagesize;
 
 #if XASH_OPENBSD
 	struct sigcontext *ucontext = (struct sigcontext*)context;
@@ -382,6 +372,7 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 	if( pc && bp && sp )
 	{
 		size_t pagesize = sysconf( _SC_PAGESIZE );
+
 		// try to print backtrace
 		write( STDERR_FILENO, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
 		write( logfd, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
@@ -466,7 +457,7 @@ void Sys_RestoreCrashHandler( void )
 	sigaction( SIGILL,  &oldFilter, NULL );
 }
 
-#elif XASH_CRASHHANDLER == CRASHHANDLER_NULL
+#else
 
 void Sys_SetupCrashHandler( void )
 {
