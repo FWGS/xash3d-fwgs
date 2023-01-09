@@ -137,7 +137,7 @@ Then you can use another oneliner to query all variables:
 		#define XASH_LITTLE_ENDIAN 1
 	#elif __BIG_ENDIAN__
 		#define XASH_BIG_ENDIAN 1
-	#elif defined__BYTE_ORDER__) && defined__ORDER_BIG_ENDIAN__) && defined__ORDER_LITTLE_ENDIAN__) // some compilers define this
+	#elif defined __BYTE_ORDER__ && defined __ORDER_BIG_ENDIAN__ && defined __ORDER_LITTLE_ENDIAN__ // some compilers define this
 		#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 			#define XASH_BIG_ENDIAN 1
 		#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
