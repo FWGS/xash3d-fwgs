@@ -56,23 +56,23 @@ Geometry readHitGeometry() {
 
 	const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
 	geom.kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
-	const Kusok kusok = kusochki[geom.kusok_index];
+	const Kusok kusok = getKusok(geom.kusok_index);
 
 	const uint first_index_offset = kusok.index_offset + gl_PrimitiveID * 3;
-	const uint vi1 = uint(indices[first_index_offset+0]) + kusok.vertex_offset;
-	const uint vi2 = uint(indices[first_index_offset+1]) + kusok.vertex_offset;
-	const uint vi3 = uint(indices[first_index_offset+2]) + kusok.vertex_offset;
+	const uint vi1 = uint(getIndex(first_index_offset+0)) + kusok.vertex_offset;
+	const uint vi2 = uint(getIndex(first_index_offset+1)) + kusok.vertex_offset;
+	const uint vi3 = uint(getIndex(first_index_offset+2)) + kusok.vertex_offset;
 
 	const vec3 pos[3] = {
-		gl_ObjectToWorldEXT * vec4(vertices[vi1].pos, 1.f),
-		gl_ObjectToWorldEXT * vec4(vertices[vi2].pos, 1.f),
-		gl_ObjectToWorldEXT * vec4(vertices[vi3].pos, 1.f),
+		gl_ObjectToWorldEXT * vec4(getVertex(vi1).pos, 1.f),
+		gl_ObjectToWorldEXT * vec4(getVertex(vi2).pos, 1.f),
+		gl_ObjectToWorldEXT * vec4(getVertex(vi3).pos, 1.f),
 	};
 
 	const vec2 uvs[3] = {
-		vertices[vi1].gl_tc,
-		vertices[vi2].gl_tc,
-		vertices[vi3].gl_tc,
+		getVertex(vi1).gl_tc,
+		getVertex(vi2).gl_tc,
+		getVertex(vi3).gl_tc,
 	};
 
 	geom.pos = baryMix(pos[0], pos[1], pos[2], bary);
@@ -85,17 +85,17 @@ Geometry readHitGeometry() {
 	// NOTE: only support rotations, for arbitrary transform would need to do transpose(inverse(mat3(gl_ObjectToWorldEXT)))
 	const mat3 normalTransform = mat3(gl_ObjectToWorldEXT);
 	geom.normal_shading = normalize(normalTransform * baryMix(
-		vertices[vi1].normal,
-		vertices[vi2].normal,
-		vertices[vi3].normal,
+		getVertex(vi1).normal,
+		getVertex(vi2).normal,
+		getVertex(vi3).normal,
 		bary));
 	geom.tangent = normalize(normalTransform * baryMix(
-		vertices[vi1].tangent,
-		vertices[vi2].tangent,
-		vertices[vi3].tangent,
+		getVertex(vi1).tangent,
+		getVertex(vi2).tangent,
+		getVertex(vi3).tangent,
 		bary));
 
-	geom.uv_lods = computeAnisotropicEllipseAxes(geom.pos, geom.normal_geometry, gl_WorldRayDirectionEXT, ubo.ray_cone_width * gl_HitTEXT, pos, uvs, geom.uv);
+	geom.uv_lods = computeAnisotropicEllipseAxes(geom.pos, geom.normal_geometry, gl_WorldRayDirectionEXT, ubo.ubo.ray_cone_width * gl_HitTEXT, pos, uvs, geom.uv);
 
 	return geom;
 }

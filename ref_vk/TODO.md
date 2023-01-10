@@ -1,7 +1,22 @@
+# Real next
+>=E217
+	- [ ] meatpipe resource tracking
+		- [ ] name -> index mapping
+	- [ ] create images on meatpipe load
+- [ ] automatic resource creation
+	- [ ] serialize all resources with in/out and formats for images
+	- [ ] resource management refactoring:
+		- [ ] resource automatic resolution: prducing, barriers, etc
+		- [ ] register existing resources (tlas, buffers, temp images, ...)
+		- [ ] resource destruction
+	- [ ] create resources on demand
+	- [ ] ? resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
+  - [ ] rake yuri primary ray
+
 # Programmable render
-- [ ] parse spirv -> get bindings with names
-  - [ ] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
-	- [ ] unnamed uniform blocks are uncomfortable to parse.
+- [x] parse spirv -> get bindings with names
+  - [x] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
+	- [x] unnamed uniform blocks are uncomfortable to parse.
 - [ ] passes "export" their bindings as detailed resource descriptions:
   - [ ] images: name, r/w, format, resolution (? not found in spv, needs to be externally supplied)
 	- [ ] buffers: name, r/w, size, type name (?)
@@ -463,3 +478,17 @@
   - BUT: filled on CPU, so it's not properly synchronsized
   - fix: upload using staging?
 	- [x] double/ring buffering
+
+- [x] E213:
+	- [x] parse binding types
+	- [x] remove types from resources FIXME
+- [x] E214: ~tentative~
+	- [x] integrate sebastian into waf
+- [x] E215:
+	- [x] serialize binding image format
+
+# 2022-11-26 E216 rake yuri
+	- [x] validate meatpipe image formats
+	- [x] begin Rake Yuri migration
+		- [x] direct lights
+

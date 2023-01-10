@@ -81,7 +81,7 @@ qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_bu
 		};
 
 		if (buffer_offset == ALO_ALLOC_FAILED) {
-			gEngine.Con_Printf(S_ERROR "Failed to allocated %u bytes for accel buffer\n", asci.size);
+			gEngine.Con_Printf(S_ERROR "Failed to allocated %u bytes for accel buffer\n", (uint32_t)asci.size);
 			return false;
 		}
 

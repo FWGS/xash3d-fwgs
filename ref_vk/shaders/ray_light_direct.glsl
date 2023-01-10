@@ -1,5 +1,4 @@
 #extension GL_EXT_control_flow_attributes : require
-#extension GL_EXT_ray_tracing: require
 
 #include "utils.glsl"
 #include "noise.glsl"
@@ -11,17 +10,15 @@
 #define X(index, name, format) layout(set=0,binding=index,format) uniform readonly image2D name;
 RAY_LIGHT_DIRECT_INPUTS(X)
 #undef X
-#define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_image_##name;
+#define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_##name;
 OUTPUTS(X)
 #undef X
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
-layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; };
+layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
 
 #include "ray_kusochki.glsl"
 
-#define RAY_TRACE
-#define RAY_TRACE2
 #undef SHADER_OFFSET_HIT_SHADOW_BASE
 #define SHADER_OFFSET_HIT_SHADOW_BASE 0
 #undef SHADER_OFFSET_MISS_SHADOW
@@ -40,14 +37,25 @@ void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
 }
 
 void main() {
+#ifdef RAY_TRACE
 	const vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
 	const ivec2 pix = ivec2(gl_LaunchIDEXT.xy);
+#elif defined(RAY_QUERY)
+	const ivec2 pix = ivec2(gl_GlobalInvocationID);
+	const ivec2 res = ivec2(imageSize(material_rmxx));
+	if (any(greaterThanEqual(pix, res))) {
+		return;
+	}
+	const vec2 uv = (gl_GlobalInvocationID.xy + .5) / res * 2. - 1.;
+#else
+#error You have two choices here. Ray trace, or Rake Yuri. So what it's gonna be, huh? Choose wisely.
+#endif
 
-	rand01_state = ubo.random_seed + gl_LaunchIDEXT.x * 1833 +  gl_LaunchIDEXT.y * 31337;
+	rand01_state = ubo.ubo.random_seed + pix.x * 1833 + pix.y * 31337;
 
 	// FIXME incorrect for reflection/refraction
-	const vec4 target    = ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
-	const vec3 direction = normalize((ubo.inv_view * vec4(target.xyz, 0)).xyz);
+	const vec4 target    = ubo.ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 direction = normalize((ubo.ubo.inv_view * vec4(target.xyz, 0)).xyz);
 
 	const vec4 material_data = imageLoad(material_rmxx, pix);
 
@@ -67,10 +75,10 @@ void main() {
 	computeLighting(pos + geometry_normal * .001, shading_normal, throughput, -direction, material, diffuse, specular);
 
 #if LIGHT_POINT
-	imageStore(out_image_light_point_diffuse, pix, vec4(diffuse / 4.0, 0.f));
-	imageStore(out_image_light_point_specular, pix, vec4(specular / 4.0, 0.f));
+	imageStore(out_light_point_diffuse, pix, vec4(diffuse / 4.0, 0.f));
+	imageStore(out_light_point_specular, pix, vec4(specular / 4.0, 0.f));
 #else
-	imageStore(out_image_light_poly_diffuse, pix, vec4(diffuse / 25.0, 0.f));
-	imageStore(out_image_light_poly_specular, pix, vec4(specular/ 25.0, 0.f));
+	imageStore(out_light_poly_diffuse, pix, vec4(diffuse / 25.0, 0.f));
+	imageStore(out_light_poly_specular, pix, vec4(specular/ 25.0, 0.f));
 #endif
 }

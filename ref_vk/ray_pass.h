@@ -16,14 +16,13 @@ typedef struct {
 
 
 struct ray_pass_s;
-
-typedef const char* ray_pass_shader_t;
+typedef struct ray_pass_s* ray_pass_p;
 
 typedef struct {
 	const char *debug_name;
 	ray_pass_layout_t layout;
 
-	ray_pass_shader_t shader;
+	VkShaderModule shader_module;
 	const VkSpecializationInfo *specialization;
 } ray_pass_create_compute_t;
 
@@ -31,17 +30,20 @@ struct ray_pass_s *RayPassCreateCompute( const ray_pass_create_compute_t *create
 
 
 typedef struct {
-	ray_pass_shader_t closest;
-	ray_pass_shader_t any;
+	VkShaderModule closest_module;
+	VkShaderModule any_module;
 } ray_pass_hit_group_t;
 
 typedef struct {
 	const char *debug_name;
 	ray_pass_layout_t layout;
 
-	ray_pass_shader_t raygen;
+	// TODO make a single tables of all shader modules
+	// and then reference them by index in raygen/miss/hit tables
+	// like it's done in vk_pipeline_ray_create_info_t
+	VkShaderModule raygen_module;
 
-	const ray_pass_shader_t *miss;
+	VkShaderModule *miss_module;
 	int miss_count;
 
 	const ray_pass_hit_group_t *hit;

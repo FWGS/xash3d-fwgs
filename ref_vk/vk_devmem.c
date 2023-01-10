@@ -67,8 +67,8 @@ static int allocateDeviceMemory(VkMemoryRequirements req, int type_index, VkMemo
 		};
 
 		if (g_vk_devmem.verbose) {
-			gEngine.Con_Reportf("allocateDeviceMemory size=%zu memoryTypeBits=0x%x allocate_flags=0x%x => typeIndex=%d\n",
-				mai.allocationSize, req.memoryTypeBits,
+			gEngine.Con_Reportf("allocateDeviceMemory size=%llu memoryTypeBits=0x%x allocate_flags=0x%x => typeIndex=%d\n",
+				(unsigned long long)mai.allocationSize, req.memoryTypeBits,
 				allocate_flags,
 				mai.memoryTypeIndex);
 		}
@@ -101,8 +101,8 @@ vk_devmem_t VK_DevMemAllocate(const char *name, VkMemoryRequirements req, VkMemo
 	const int type_index = findMemoryWithType(req.memoryTypeBits, prop_flags);
 
 	if (g_vk_devmem.verbose) {
-		gEngine.Con_Reportf("VK_DevMemAllocate name=\"%s\" size=%zu alignment=%zu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x => type_index=%d\n",
-			name, req.size, req.alignment, req.memoryTypeBits,
+		gEngine.Con_Reportf("VK_DevMemAllocate name=\"%s\" size=%llu alignment=%llu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x => type_index=%d\n",
+			name, (unsigned long long)req.size, (unsigned long long)req.alignment, req.memoryTypeBits,
 			prop_flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
 			prop_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
 			prop_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? 'C' : '.',

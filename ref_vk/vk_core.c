@@ -93,6 +93,7 @@ static const char* device_extensions[] = {
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+	VK_KHR_RAY_QUERY_EXTENSION_NAME,
 
 	// FIXME make this not depend on RTX
 #ifdef USE_AFTERMATH
@@ -493,9 +494,15 @@ static qboolean createDevice( void ) {
 			.rayTracingPipeline = VK_TRUE,
 			// TODO .rayTraversalPrimitiveCulling = VK_TRUE,
 		};
+		head = &ray_tracing_pipeline_feature;
+		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_pipeline_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+			.pNext = head,
+			.rayQuery = VK_TRUE,
+		};
 
 		if (vk_core.rtx) {
-			head = &ray_tracing_pipeline_feature;
+			head = &ray_query_pipeline_feature;
 		} else {
 			head = NULL;
 		}
@@ -504,6 +511,7 @@ static qboolean createDevice( void ) {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
 			.pNext = head,
 			.features.samplerAnisotropy = candidate_device->features.features.samplerAnisotropy,
+			.features.shaderInt16 = true,
 		};
 		head = &features;
 

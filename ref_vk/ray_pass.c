@@ -53,12 +53,35 @@ static void finalizePassDescriptors( ray_pass_t *header, const ray_pass_layout_t
 	header->desc.binding_semantics = Mem_Malloc(vk_core.pool, semantics_size);
 	memcpy(header->desc.binding_semantics, layout->bindings_semantics, semantics_size);
 
+	const size_t bindings_size = sizeof(layout->bindings[0]) * layout->bindings_count;
+	VkDescriptorSetLayoutBinding *bindings = Mem_Malloc(vk_core.pool, bindings_size);
+	memcpy(bindings, layout->bindings, bindings_size);
+	header->desc.riptors.bindings = bindings;
+
 	header->desc.riptors.values = Mem_Malloc(vk_core.pool, sizeof(header->desc.riptors.values[0]) * layout->bindings_count);
 }
 
 struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create ) {
 	ray_pass_tracing_impl_t *const pass = Mem_Malloc(vk_core.pool, sizeof(*pass));
 	ray_pass_t *const header = &pass->header;
+
+	// TODO support external specialization
+	ASSERT(!create->specialization);
+
+	const struct SpecializationData {
+		uint32_t sbt_record_size;
+	} spec_data = {
+		.sbt_record_size = vk_core.physical_device.sbt_record_size,
+	};
+	const VkSpecializationMapEntry spec_map[] = {
+		{.constantID = SPEC_SBT_RECORD_SIZE_INDEX, .offset = offsetof(struct SpecializationData, sbt_record_size), .size = sizeof(uint32_t) },
+	};
+	const VkSpecializationInfo spec = {
+		.mapEntryCount = COUNTOF(spec_map),
+		.pMapEntries = spec_map,
+		.dataSize = sizeof(spec_data),
+		.pData = &spec_data,
+	};
 
 	initPassDescriptors(header, &create->layout);
 
@@ -81,13 +104,14 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 		};
 
 		stages[stage_index++] = (vk_shader_stage_t) {
-			.filename = create->raygen,
+			.module = create->raygen_module,
+			.filename = NULL,
 			.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-			.specialization_info = create->specialization,
+			.specialization_info = &spec,
 		};
 
 		for (int i = 0; i < create->miss_count; ++i) {
-			const ray_pass_shader_t *const shader = create->miss + i;
+			const VkShaderModule shader_module = create->miss_module ? create->miss_module[i] : VK_NULL_HANDLE;
 
 			ASSERT(stage_index < MAX_STAGES);
 			ASSERT(miss_index < MAX_MISS_GROUPS);
@@ -96,9 +120,10 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 			// TODO really, there should be a global table of shader modules as some of them are used across several passes (e.g. any hit alpha test)
 			misses[miss_index++] = stage_index;
 			stages[stage_index++] = (vk_shader_stage_t) {
-				.filename = *shader,
+				.module = shader_module,
+				.filename = NULL,
 				.stage = VK_SHADER_STAGE_MISS_BIT_KHR,
-				.specialization_info = create->specialization,
+				.specialization_info = &spec,
 			};
 		}
 
@@ -108,25 +133,27 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 			ASSERT(hit_index < MAX_HIT_GROUPS);
 
 			// TODO handle duplicate filenames
-			if (group->any) {
+			if (group->any_module) {
 				ASSERT(stage_index < MAX_STAGES);
 				hits[hit_index].any = stage_index;
 				stages[stage_index++] = (vk_shader_stage_t) {
-					.filename = group->any,
+					.module = group->any_module,
+					.filename = NULL,
 					.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-					.specialization_info = create->specialization,
+					.specialization_info = &spec,
 				};
 			} else {
 				hits[hit_index].any = -1;
 			}
 
-			if (group->closest) {
+			if (group->closest_module) {
 				ASSERT(stage_index < MAX_STAGES);
 				hits[hit_index].closest = stage_index;
 				stages[stage_index++] = (vk_shader_stage_t) {
-					.filename = group->closest,
+					.module = group->closest_module,
+					.filename = NULL,
 					.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-					.specialization_info = create->specialization,
+					.specialization_info = &spec,
 				};
 			} else {
 				hits[hit_index].closest = -1;
@@ -164,7 +191,7 @@ struct ray_pass_s *RayPassCreateCompute( const ray_pass_create_compute_t *create
 
 	const vk_pipeline_compute_create_info_t pcci = {
 		.layout = header->desc.riptors.pipeline_layout,
-		.shader_filename = create->shader,
+		.shader_module = create->shader_module,
 		.specialization_info = create->specialization,
 	};
 
@@ -202,6 +229,7 @@ void RayPassDestroy( struct ray_pass_s *pass ) {
 	VK_DescriptorsDestroy(&pass->desc.riptors);
 	Mem_Free(pass->desc.riptors.values);
 	Mem_Free(pass->desc.binding_semantics);
+	Mem_Free((void*)pass->desc.riptors.bindings);
 	Mem_Free(pass);
 }
 

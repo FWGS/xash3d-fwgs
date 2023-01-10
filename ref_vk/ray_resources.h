@@ -59,3 +59,21 @@ typedef struct {
 } ray_resources_fill_t;
 
 void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill);
+
+typedef struct {
+	int semantic;
+	int count;
+} ray_resource_binding_desc_fixme_t;
+
+typedef enum {
+	ResourceUnknown,
+	ResourceBuffer,
+	ResourceImage,
+} ray_resource_type_e;
+
+typedef struct {
+	ray_resource_type_e type;
+	int image_format; // if type == ResourceImage
+} ray_resource_desc_t;
+
+const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name, ray_resource_desc_t desc);

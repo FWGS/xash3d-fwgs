@@ -216,7 +216,7 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_availa
 					force_recreate = true;
 					continue;
 				}
-				gEngine.Con_Printf(S_WARN "second vkAcquireNextImageKHR failed, frame will be lost\n", R_VkResultName(acquire_result));
+				gEngine.Con_Printf(S_WARN "second vkAcquireNextImageKHR failed with %s, frame will be lost\n", R_VkResultName(acquire_result));
 				return ret;
 		}
 
