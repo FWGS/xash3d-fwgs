@@ -35,6 +35,9 @@ typedef struct memheader_s
 	size_t		size;		// size of the memory after the header (excluding header and sentinel2)
 	const char	*filename;	// file name and line where Mem_Alloc was called
 	uint		fileline;
+#if !XASH_64BIT
+	uint		pad0; // doesn't have value, only to make Mem_Alloc return aligned addresses on ILP32
+#endif
 	uint		sentinel1;	// should always be MEMHEADER_SENTINEL1
 
 	// immediately followed by data, which is followed by a MEMHEADER_SENTINEL2 byte
