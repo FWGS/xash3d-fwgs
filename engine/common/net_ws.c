@@ -356,9 +356,9 @@ qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_st
 #endif
 }
 
-#if !defined XASH_NO_ASYNC_NS_RESOLVE && ( XASH_WIN32 || !( XASH_EMSCRIPTEN || XASH_DOS4GW ))
+#if !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
 #define CAN_ASYNC_NS_RESOLVE
-#endif
+#endif // !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
 
 #ifdef CAN_ASYNC_NS_RESOLVE
 static void NET_ResolveThread( void );
@@ -387,7 +387,7 @@ void *NET_ThreadStart( void *unused )
 DWORD WINAPI NET_ThreadStart( LPVOID unused )
 {
 	NET_ResolveThread();
-	ExitThread(0);
+	ExitThread( 0 );
 	return 0;
 }
 #endif // !_WIN32
@@ -414,14 +414,14 @@ static struct nsthread_s
 #endif
 ;
 
-#if XASH_WIN32
 static void NET_InitializeCriticalSections( void )
 {
 	net.threads_initialized = true;
-	pInitializeCriticalSection( &nsthread.mutexns );
-	pInitializeCriticalSection( &nsthread.mutexres );
-}
+#if XASH_WIN32
+	InitializeCriticalSection( &nsthread.mutexns );
+	InitializeCriticalSection( &nsthread.mutexres );
 #endif
+}
 
 void NET_ResolveThread( void )
 {
@@ -2176,9 +2176,10 @@ void NET_Init( void )
 		Con_DPrintf( S_ERROR "network initialization failed.\n" );
 		return;
 	}
-#else
-	// we have pthreads by default
-	net.threads_initialized = true;
+#endif
+
+#ifdef CAN_ASYNC_NS_RESOLVE
+	NET_InitializeCriticalSections();
 #endif
 
 	net.allow_ip = !Sys_CheckParm( "-noip" );
