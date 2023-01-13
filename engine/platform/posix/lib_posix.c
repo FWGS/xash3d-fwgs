@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #if XASH_LIB == LIB_POSIX
 #include <dlfcn.h>
 #ifdef XASH_IRIX
-#pragma message "Included"
 #include "platform/irix/dladdr.h"
 #endif
 #include "common.h"

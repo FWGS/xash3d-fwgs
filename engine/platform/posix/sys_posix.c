@@ -158,11 +158,11 @@ void Platform_Shutdown( void ) {}
 double Platform_DoubleTime( void )
 {
 	struct timespec ts;
-	#if XASH_IRIX
-	clock_gettime(CLOCK_SGI_CYCLE, &ts);
- 	#else	
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	#endif
+#if XASH_IRIX
+	clock_gettime( CLOCK_SGI_CYCLE, &ts );
+#else	
+	clock_gettime( CLOCK_MONOTONIC, &ts );
+#endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
 

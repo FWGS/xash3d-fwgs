@@ -252,7 +252,6 @@ def configure(conf):
                 linkflags.append('-Wl,--unresolved-symbols=ignore-all')
                 # check if we're in a sgug environment
                 if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
-                        print("sgug")
                         linkflags.append('-lc')
         
 
