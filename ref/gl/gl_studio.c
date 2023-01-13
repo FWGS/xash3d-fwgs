@@ -1744,48 +1744,20 @@ void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], vec3_t normal, vec3_t color,
 	out[2] = finalLight[2] * 255;
 }
 
-static void R_StudioSetColorBegin(short *ptricmds, vec3_t *pstudionorms )
-{
-	float	*lv = (float *)g_studio.lightvalues[ptricmds[1]];
-	rgba_t color;
-
-	if( g_studio.numlocallights )
-	{
-		color[3] = tr.blend * 255;
-		R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
-		pglColor4ubv( color );
-	}
-	else
-	{
-		if( RI.currententity->curstate.rendermode == kRenderTransColor )
-		{
-			color[3] = tr.blend * 255;
-			VectorCopy( (byte*)&RI.currententity->curstate.rendercolor, color );
-			pglColor4ubv( color );
-		}
-		else pglColor4f( lv[0], lv[1], lv[2], tr.blend );
-	}
-}
-
 static void R_StudioSetColorArray(short *ptricmds, vec3_t *pstudionorms, byte *color )
 {
 	float	*lv = (float *)g_studio.lightvalues[ptricmds[1]];
 
 	color[3] = tr.blend * 255;
+	R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
+}
 
-	if( g_studio.numlocallights )
-		R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
-	else
-	{
-		if( RI.currententity->curstate.rendermode == kRenderTransColor )
-			VectorCopy(  (byte*)&RI.currententity->curstate.rendercolor, color );
-		else
-		{
-			color[0] = lv[0] * 255;
-			color[1] = lv[1] * 255;
-			color[2] = lv[2] * 255;
-		}
-	}
+static void R_StudioSetColorBegin( short *ptricmds, vec3_t *pstudionorms )
+{
+	rgba_t color;
+
+	R_StudioSetColorArray( ptricmds, pstudionorms, color );
+	pglColor4ubv( color );
 }
 
 /*

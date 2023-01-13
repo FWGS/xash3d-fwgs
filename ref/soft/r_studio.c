@@ -1752,24 +1752,10 @@ static void R_StudioSetColorBegin(short *ptricmds, vec3_t *pstudionorms )
 	float	*lv = (float *)g_studio.lightvalues[ptricmds[1]];
 	rgba_t color;
 
-	if( g_studio.numlocallights )
-	{
-		color[3] = tr.blend * 255;
-		R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
-		//pglColor4ubv( color );
-		TriColor4ub(color[0], color[1], color[2], color[3]);
-	}
-	else
-	{
-		if( RI.currententity->curstate.rendermode == kRenderTransColor )
-		{
-			color[3] = tr.blend * 255;
-			VectorCopy( (byte*)&RI.currententity->curstate.rendercolor, color );
-			//pglColor4ubv( color );
-			TriColor4ub(color[0], color[1], color[2], color[3]);
-		}
-		else _TriColor4f( lv[0], lv[1], lv[2], tr.blend );
-	}
+	color[3] = tr.blend * 255;
+
+	R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
+	TriColor4ub( color[0], color[1], color[2], color[3] );
 }
 
 
