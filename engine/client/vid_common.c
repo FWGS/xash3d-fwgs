@@ -68,16 +68,21 @@ R_SaveVideoMode
 */
 void R_SaveVideoMode( int w, int h, int render_w, int render_h )
 {
-	host.renderinfo_changed = false;
-
 	if( !w || !h || !render_w || !render_h )
+	{
+		host.renderinfo_changed = false;
 		return;
+	}
 
 	host.window_center_x = w / 2;
 	host.window_center_y = h / 2;
 
 	Cvar_SetValue( "width", w );
 	Cvar_SetValue( "height", h );
+	
+	// immediately drop changed state or we may trigger
+	// video subsystem to reapply settings
+	host.renderinfo_changed = false;
 
 	if( refState.width == render_w && refState.height == render_h )
 		return;
