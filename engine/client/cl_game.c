@@ -3377,7 +3377,7 @@ void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double
 
 		// make sure that port is specified
 		if( !nr->resp.remote_address.port )
-			nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
+			nr->resp.remote_address.port = htons( PORT_MASTER );
 
 		// grab the list from the master server
 		Q_strcpy( &fullquery[22], GI->gamefolder );

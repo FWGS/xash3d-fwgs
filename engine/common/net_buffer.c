@@ -89,11 +89,6 @@ const char *svc_strings[svc_lastmsg+1] =
 	"svc_exec",
 };
 
-unsigned short MSG_BigShort( unsigned short swap )
-{
-	return (swap >> 8)|(swap << 8);
-}
-
 void MSG_InitMasks( void )
 {
 	uint	startbit, endbit;
