@@ -4,6 +4,10 @@
 
 #include "build.h"
 
+#if XASH_IRIX
+#include <port.h>
+#endif
+
 #if XASH_WIN32
 #include <wchar.h> // off_t
 #endif // _WIN32
