@@ -197,7 +197,6 @@ def configure(conf):
 		'-Werror=duplicated-cond',
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Wcast-align',
 		'-Werror=cast-align=strict', # =strict is for GCC >=8
 		'-Werror=packed',
 		'-Werror=packed-not-aligned',
