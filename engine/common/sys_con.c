@@ -22,6 +22,9 @@ GNU General Public License for more details.
 #endif
 #include <string.h>
 #include <errno.h>
+#if XASH_IRIX
+#include <sys/time.h>
+#endif
 
 // do not waste precious CPU cycles on mobiles or low memory devices
 #if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY

@@ -66,6 +66,7 @@ Then you can use another oneliner to query all variables:
 #undef XASH_FREEBSD
 #undef XASH_HAIKU
 #undef XASH_IOS
+#undef XASH_IRIX
 #undef XASH_JS
 #undef XASH_LINUX
 #undef XASH_LITTLE_ENDIAN
@@ -110,6 +111,8 @@ Then you can use another oneliner to query all variables:
 		#define XASH_HAIKU 1
 	#elif defined __serenity__
 		#define XASH_SERENITY 1
+	#elif defined __sgi
+		#define XASH_IRIX 1
 	#elif defined __APPLE__
 		#include <TargetConditionals.h>
 		#define XASH_APPLE 1

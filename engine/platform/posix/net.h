@@ -24,6 +24,9 @@ GNU General Public License for more details.
 #include <netdb.h>
 #include <errno.h>
 #include <fcntl.h>
+#if XASH_IRIX
+#include <sys/time.h>
+#endif
 
 #define WSAGetLastError()  errno
 #define WSAEINTR           EINTR
