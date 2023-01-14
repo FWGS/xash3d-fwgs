@@ -1,7 +1,12 @@
 die()
 {
-	cat build/config.log
 	exit 1
+}
+
+die_configure()
+{
+	cat build/config.log
+	die
 }
 
 if [ -n "$TRAVIS_BUILD_DIR" ]; then
