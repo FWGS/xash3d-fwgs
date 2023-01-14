@@ -244,7 +244,7 @@ void Joy_AxisMotionEvent( byte axis, short value )
 		return;
 	}
 
-	return Joy_KnownAxisMotionEvent( joyaxesmap[axis], value );
+	Joy_KnownAxisMotionEvent( joyaxesmap[axis], value );
 }
 
 void Joy_KnownAxisMotionEvent( engineAxis_t engineAxis, short value )

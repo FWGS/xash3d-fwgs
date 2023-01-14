@@ -366,7 +366,7 @@ static int GAME_EXPORT pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
 
 static void GAME_EXPORT pfnStuckTouch( int hitent, pmtrace_t *tr )
 {
-	return PM_StuckTouch( svgame.pmove, hitent, tr );
+	PM_StuckTouch( svgame.pmove, hitent, tr );
 }
 
 static int GAME_EXPORT pfnPointContents( float *p, int *truecontents )
