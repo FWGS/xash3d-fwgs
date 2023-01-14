@@ -1006,7 +1006,7 @@ void CL_SendConnectPacket( void )
 		return;
 	}
 
-	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
+	if( adr.port == 0 ) adr.port = htons( PORT_SERVER );
 	qport = Cvar_VariableString( "net_qport" );
 	key = ID_GetMD5();
 
@@ -1134,7 +1134,7 @@ void CL_CheckForResend( void )
 		return;
 	}
 
-	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
+	if( adr.port == 0 ) adr.port = htons( PORT_SERVER );
 
 	if( cls.connect_retry == CL_TEST_RETRIES_NORESPONCE )
 	{
@@ -1321,7 +1321,7 @@ void CL_Rcon_f( void )
 		}
 
 		NET_StringToAdr( rcon_address->string, &to );
-		if( to.port == 0 ) to.port = MSG_BigShort( PORT_SERVER );
+		if( to.port == 0 ) to.port = htons( PORT_SERVER );
 	}
 
 	NET_SendPacket( NS_CLIENT, Q_strlen( message ) + 1, message, to );
@@ -1563,7 +1563,7 @@ void CL_LocalServers_f( void )
 
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
-	adr.port = MSG_BigShort( PORT_SERVER );
+	adr.port = htons( PORT_SERVER );
 	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", PROTOCOL_VERSION );
 
 	adr.type = NA_MULTICAST_IP6;
