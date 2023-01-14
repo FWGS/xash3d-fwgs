@@ -23,16 +23,16 @@ jobs:
 #            targetos: linux
 #            targetarch: aarch64
 
-          - os: ubuntu-18.04
-            targetos: android
-            targetarch: 32
-          - os: ubuntu-18.04
-            targetos: android
-            targetarch: 64
+#          - os: ubuntu-18.04
+#            targetos: android
+#            targetarch: 32
+#          - os: ubuntu-18.04
+#            targetos: android
+#            targetarch: 64
 
-          - os: ubuntu-18.04
-            targetos: motomagx
-            targetarch: armv6
+#          - os: ubuntu-18.04
+#            targetos: motomagx
+#            targetarch: armv6
 
           - os: windows-latest
             targetos: win32
