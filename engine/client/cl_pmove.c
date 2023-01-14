@@ -790,7 +790,7 @@ void CL_InitClientMove( void )
 	clgame.pmove->PM_StuckTouch = pfnStuckTouch;
 	clgame.pmove->PM_PointContents = (void*)PM_CL_PointContents;
 	clgame.pmove->PM_TruePointContents = pfnTruePointContents;
-	clgame.pmove->PM_HullPointContents = PM_HullPointContents;
+	clgame.pmove->PM_HullPointContents = (void*)PM_HullPointContents;
 	clgame.pmove->PM_PlayerTrace = pfnPlayerTrace;
 	clgame.pmove->PM_TraceLine = PM_CL_TraceLine;
 	clgame.pmove->RandomLong = COM_RandomLong;
