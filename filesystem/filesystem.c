@@ -320,7 +320,8 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	listdirectory( &list, dir );
 	stringlistsort( &list );
 
-	// add any PAK package in the directory
+	// add archives in specific order PAK -> PK3 -> WAD
+	// so raw WADs takes precedence over WADs included into PAKs and PK3s
 	for( i = 0; i < list.numstrings; i++ )
 	{
 		const char *ext = COM_FileExtension( list.strings[i] );
@@ -330,12 +331,24 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
 			FS_AddPak_Fullpath( fullpath, NULL, flags );
 		}
-		else if( !Q_stricmp( ext, "pk3" ))
+	}
+
+	for( i = 0; i < list.numstrings; i++ )
+	{
+		const char *ext = COM_FileExtension( list.strings[i] );
+
+		if( !Q_stricmp( ext, "pk3" ))
 		{
 			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
 			FS_AddZip_Fullpath( fullpath, NULL, flags );
 		}
-		else if( !Q_stricmp( ext, "wad" ))
+	}
+
+	for( i = 0; i < list.numstrings; i++ )
+	{
+		const char *ext = COM_FileExtension( list.strings[i] );
+
+		if( !Q_stricmp( ext, "wad" ))
 		{
 			FS_AllowDirectPaths( true );
 			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
@@ -343,6 +356,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 			FS_AllowDirectPaths( false );
 		}
 	}
+
 	stringlistfreecontents( &list );
 
 	// add the directory to the search path
