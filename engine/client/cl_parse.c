@@ -1835,7 +1835,7 @@ void CL_ParseScreenFade( sizebuf_t *msg )
 	duration = (float)MSG_ReadWord( msg );
 	holdTime = (float)MSG_ReadWord( msg );
 	sf->fadeFlags = MSG_ReadShort( msg );
-	flScale = ( sf->fadeFlags & FFADE_LONGFADE ) ? (1.0f / 256.0f) : (1.0f / 4096.0f);
+	flScale = FBitSet( sf->fadeFlags, FFADE_LONGFADE ) ? (1.0f / 256.0f) : (1.0f / 4096.0f);
 
 	sf->fader = MSG_ReadByte( msg );
 	sf->fadeg = MSG_ReadByte( msg );
@@ -1848,7 +1848,7 @@ void CL_ParseScreenFade( sizebuf_t *msg )
 	// calc fade speed
 	if( duration > 0 )
 	{
-		if( sf->fadeFlags & FFADE_OUT )
+		if( FBitSet( sf->fadeFlags, FFADE_OUT ))
 		{
 			if( sf->fadeEnd )
 			{
@@ -1856,6 +1856,7 @@ void CL_ParseScreenFade( sizebuf_t *msg )
 			}
 
 			sf->fadeEnd += cl.time;
+			sf->fadeTotalEnd = sf->fadeEnd;
 			sf->fadeReset += sf->fadeEnd;
 		}
 		else
