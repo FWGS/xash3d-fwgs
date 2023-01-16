@@ -1,6 +1,5 @@
 #include "vk_rtx.h"
 
-#include "ray_pass.h"
 #include "ray_resources.h"
 #include "vk_ray_accel.h"
 
@@ -39,6 +38,10 @@
 #define FRAME_HEIGHT 1080
 #endif
 
+#define rgba8 VK_FORMAT_R8G8B8A8_UNORM
+#define rgba32f VK_FORMAT_R32G32B32A32_SFLOAT
+#define rgba16f VK_FORMAT_R16G16B16A16_SFLOAT
+
 // TODO sync with shaders
 // TODO optimal values
 #define WG_W 16
@@ -62,9 +65,6 @@ RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 #undef X
 
-	xvk_image_t diffuse_gi;
-	xvk_image_t specular;
-	xvk_image_t additive;
 } xvk_ray_frame_images_t;
 
 static struct {
@@ -75,7 +75,7 @@ static struct {
 	// TODO with proper intra-cmdbuf sync we don't really need 2x images
 	unsigned frame_number;
 	xvk_ray_frame_images_t frames[MAX_FRAMES_IN_FLIGHT];
-	vk_meatpipe_t mainpipe;
+	vk_meatpipe_t *mainpipe;
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
@@ -133,68 +133,44 @@ typedef struct {
 } perform_tracing_args_t;
 
 static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t* args) {
-	vk_ray_resources_t res = {
+	const vk_ray_resources_t res = {
 		.width = FRAME_WIDTH,
 		.height = FRAME_HEIGHT,
-		.resources = {
-			[RayResource_tlas] = {
-				.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-				.value.accel = (VkWriteDescriptorSetAccelerationStructureKHR){
+	};
+
+	R_VkResourceSetExternal("tlas", VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			(vk_descriptor_value_t){
+				.accel = (VkWriteDescriptorSetAccelerationStructureKHR) {
 					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 					.accelerationStructureCount = 1,
 					.pAccelerationStructures = &g_accel.tlas,
 					.pNext = NULL,
 				},
-			},
+			}, 1, (ray_resource_desc_t){ResourceUnknown, 0}, NULL
+	);
+
 #define RES_SET_BUFFER(name, type_, source_, offset_, size_) \
-	[RayResource_##name] = { \
-		.type = type_, \
-		.value.buffer = (VkDescriptorBufferInfo) { \
+	R_VkResourceSetExternal(#name, type_, (vk_descriptor_value_t){ \
+		.buffer = (VkDescriptorBufferInfo) { \
 			.buffer = (source_), \
 			.offset = (offset_), \
 			.range = (size_), \
 		} \
-	}
-			RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer.buffer, args->frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer)),
+	}, 1, (ray_resource_desc_t){ResourceBuffer, 0}, NULL)
+
+	RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer.buffer, args->frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer));
 
 #define RES_SET_SBUFFER_FULL(name, source_) \
 	RES_SET_BUFFER(name, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, source_.buffer, 0, source_.size)
-			RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer),
-			RES_SET_SBUFFER_FULL(indices, args->render_args->geometry_data),
-			RES_SET_SBUFFER_FULL(vertices, args->render_args->geometry_data),
-			RES_SET_BUFFER(lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->metadata.offset, args->light_bindings->metadata.size),
-			RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size),
+
+	RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer);
+	RES_SET_SBUFFER_FULL(indices, args->render_args->geometry_data);
+	RES_SET_SBUFFER_FULL(vertices, args->render_args->geometry_data);
+
+	RES_SET_BUFFER(lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->metadata.offset, args->light_bindings->metadata.size);
+	RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size);
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
-
-			[RayResource_all_textures] = {
-				.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.value.image_array = tglob.dii_all_textures,
-			},
-
-			[RayResource_skybox] = {
-				.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.value.image = {
-					.sampler = vk_core.default_sampler,
-					.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
-					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				},
-			},
-
-#define RES_SET_IMAGE(index, name, ...) \
-	[RayResource_##name] = { \
-		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
-		.write = {0}, \
-		.read = {0}, \
-		.image = &args->current_frame->name, \
-	},
-			RAY_PRIMARY_OUTPUTS(RES_SET_IMAGE)
-			RAY_LIGHT_DIRECT_POLY_OUTPUTS(RES_SET_IMAGE)
-			RAY_LIGHT_DIRECT_POINT_OUTPUTS(RES_SET_IMAGE)
-			RES_SET_IMAGE(-1, denoised)
-#undef RES_SET_IMAGE
-		},
-	};
 
 	// Upload kusochki updates
 	{
@@ -250,7 +226,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
-	R_VkMeatpipePerform(&g_rtx.mainpipe, cmdbuf, args->frame_index, &res);
+	// FIXME R_VkMeatpipePerform(&g_rtx.mainpipe, cmdbuf, args->frame_index, &res);
 
 	{
 		const r_vkimage_blit_args blit_args = {
@@ -297,9 +273,9 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
 		XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
 
-		vk_meatpipe_t newpipe;
-		if (R_VkMeatpipeLoad(&newpipe, "rt.meat")) {
-			R_VkMeatpipeDestroy(&g_rtx.mainpipe);
+		vk_meatpipe_t *const newpipe = R_VkMeatpipeCreateFromFile("rt.meat");
+		if (newpipe) {
+			R_VkMeatpipeDestroy(g_rtx.mainpipe);
 			g_rtx.mainpipe = newpipe;
 		}
 
@@ -359,7 +335,8 @@ qboolean VK_RayInit( void )
 	if (!RT_VkAccelInit())
 		return false;
 
-	ASSERT(R_VkMeatpipeLoad(&g_rtx.mainpipe, "rt.meat"));
+	g_rtx.mainpipe = R_VkMeatpipeCreateFromFile("rt.meat");
+	ASSERT(g_rtx.mainpipe);
 
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
@@ -400,9 +377,6 @@ qboolean VK_RayInit( void )
 
 		CREATE_GBUFFER_IMAGE(denoised, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-#define rgba8 VK_FORMAT_R8G8B8A8_UNORM
-#define rgba32f VK_FORMAT_R32G32B32A32_SFLOAT
-#define rgba16f VK_FORMAT_R16G16B16A16_SFLOAT
 #define X(index, name, format) CREATE_GBUFFER_IMAGE(name, format, 0);
 // TODO better format for normals VK_FORMAT_R16G16B16A16_SNORM
 // TODO make sure this format and usage is suppported
@@ -410,12 +384,40 @@ qboolean VK_RayInit( void )
 		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 #undef X
+
+	/*
+	R_VkResourceSetExternal("all_textures", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		(vk_descriptor_value_t){
+			.image_array = tglob.dii_all_textures,
+		}, MAX_TEXTURES, (ray_resource_desc_t){ResourceImage, VK_FORMAT_UNDEFINED}, NULL
+	);
+
+	R_VkResourceSetExternal("skybox", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		(vk_descriptor_value_t){
+			.image = {
+				.sampler = vk_core.default_sampler,
+				.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			},
+		}, 1, (ray_resource_desc_t){ResourceImage, VK_FORMAT_UNDEFINED}, NULL
+	);
+
+#define RES_SET_IMAGE(index, name, format) \
+	R_VkResourceSetExternal(#name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
+		(vk_descriptor_value_t){0}, \
+		1, (ray_resource_desc_t){ResourceImage, format}, \
+		&args->current_frame->name);
+
+	RAY_PRIMARY_OUTPUTS(RES_SET_IMAGE);
+	RAY_LIGHT_DIRECT_POLY_OUTPUTS(RES_SET_IMAGE);
+	RAY_LIGHT_DIRECT_POINT_OUTPUTS(RES_SET_IMAGE);
+	RES_SET_IMAGE(-1, denoised, rgba16f);
+	*/
+
+#undef RES_SET_IMAGE
 #undef rgba8
 #undef rgba32f
 #undef rgba16f
-		CREATE_GBUFFER_IMAGE(diffuse_gi, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
-		CREATE_GBUFFER_IMAGE(specular, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
-		CREATE_GBUFFER_IMAGE(additive, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
 #undef CREATE_GBUFFER_IMAGE
 	}
 
@@ -429,12 +431,7 @@ qboolean VK_RayInit( void )
 void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
-	R_VkMeatpipeDestroy(&g_rtx.mainpipe);
-
-	/* RayPassDestroy(g_rtx.pass.denoiser); */
-	/* RayPassDestroy(g_rtx.pass.light_direct_poly); */
-	/* RayPassDestroy(g_rtx.pass.light_direct_point); */
-	/* RayPassDestroy(g_rtx.pass.primary_ray); */
+	R_VkMeatpipeDestroy(g_rtx.mainpipe);
 
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
@@ -443,9 +440,6 @@ void VK_RayShutdown( void ) {
 		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
 		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
 #undef X
-		XVK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
-		XVK_ImageDestroy(&g_rtx.frames[i].specular);
-		XVK_ImageDestroy(&g_rtx.frames[i].additive);
 	}
 
 	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);

@@ -6,6 +6,67 @@
 #include <stdlib.h>
 
 #define MAX_BARRIERS 16
+#define MAX_RESOURCES 32
+#define MAX_NAME 32
+
+typedef struct vk_named_resource_t {
+	char name[MAX_NAME];
+	int count;
+	ray_resource_desc_t desc_fixme;
+} vk_named_resource_t;
+
+static struct {
+	vk_named_resource_t named[MAX_RESOURCES];
+	ray_resource_t resources[RayResource__COUNT];
+} g_resources;
+
+static int findSlot(const char* name) {
+	// Find the exact match if exists
+	// There might be gaps, so we need to check everything
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		if (strcmp(g_resources.named[i].name, name) == 0)
+			return i;
+	}
+
+	// Find first free slot
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		if (!g_resources.named[i].name[0])
+			return i;
+	}
+
+	return -1;
+}
+
+qboolean R_VkResourceSetExternal(const char* name, VkDescriptorType type, vk_descriptor_value_t value, int count, ray_resource_desc_t desc, const xvk_image_t *image) {
+	if (strlen(name) >= MAX_NAME)
+		return false;
+
+	const int index = findSlot(name);
+	if (index < 0)
+		return false;
+
+	vk_named_resource_t *const r = g_resources.named + index;
+	ray_resource_t *const rr = g_resources.resources + index;
+
+	if (!r->name[0]) {
+		strncpy(r->name, name, sizeof(r->name));
+		rr->type = type;
+		r->count = count;
+		r->desc_fixme = desc;
+	} else {
+		ASSERT(rr->type == type);
+		ASSERT(r->count == count);
+		ASSERT(r->desc_fixme.type == desc.type);
+		ASSERT(r->desc_fixme.image_format == desc.image_format);
+	}
+
+	rr->value = value;
+	rr->image = image;
+	memset(&rr->read, 0, sizeof(rr->read));
+	memset(&rr->write, 0, sizeof(rr->write));
+
+	return true;
+}
 
 void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill) {
 	VkImageMemoryBarrier image_barriers[MAX_BARRIERS];
@@ -15,7 +76,7 @@ void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill) {
 	for (int i = 0; i < fill.count; ++i) {
 		const qboolean write = fill.indices[i] < 0;
 		const int index = abs(fill.indices[i]) - 1;
-		ray_resource_t *const res = fill.resources->resources + index;
+		ray_resource_t *const res = g_resources.resources + index;
 
 		ASSERT(index >= 0);
 		ASSERT(index < RayResource__COUNT);
@@ -97,15 +158,14 @@ void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill) {
 			0, 0, NULL, 0, NULL, image_barriers_count, image_barriers);
 	}
 }
+
+#if 0
 static const struct {
-	const char *name;
-	ray_resource_type_e type;
-	int image_format;
 	ray_resource_binding_desc_fixme_t desc;
 } fixme_descs[] = {
 
 #define FIXME_DESC_BUFFER(name_, semantic_, count_) \
-	{ .name = name_, \
+	{ \
 		.type = ResourceBuffer, \
 		.desc.semantic = (RayResource_##semantic_ + 1), \
 		.desc.count = count_, \
@@ -122,7 +182,7 @@ static const struct {
 	FIXME_DESC_BUFFER("light_grid", light_clusters, 1),
 
 #define FIXME_DESC_IMAGE(name_, semantic_, image_format_, count_) \
-	{ .name = name_, \
+	{ \
 		.type = ResourceImage, \
 		.image_format = image_format_, \
 		.desc.semantic = (RayResource_##semantic_ + 1), \
@@ -135,7 +195,7 @@ static const struct {
 
 	// Internal, temporary
 #define DECLARE_IMAGE(_, name_, format_) \
-	{ .name = #name_, \
+	{ \
 		.type = ResourceImage, \
 		.image_format = format_, \
 		.desc.semantic = (RayResource_##name_ + 1), \
@@ -148,23 +208,28 @@ static const struct {
 	RAY_LIGHT_DIRECT_POLY_OUTPUTS(DECLARE_IMAGE)
 	RAY_LIGHT_DIRECT_POINT_OUTPUTS(DECLARE_IMAGE)
 };
+#endif
 
-const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name, ray_resource_desc_t desc) {
-	for (int i = 0; i < COUNTOF(fixme_descs); ++i) {
-		if (strcmp(name, fixme_descs[i].name) != 0)
+/*
+ray_resource_binding_desc_fixme_t RayResouceGetBindingForName_FIXME(const char *name, ray_resource_desc_t desc) {
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		const vk_named_resource_t *const res = g_resources.named + i;
+		if (strcmp(name, res->name) != 0)
 			continue;
 
-		if (fixme_descs[i].type != desc.type) {
-			gEngine.Con_Printf(S_ERROR "Incompatible resource types for name %s: want %d, have %d\n", name, desc.type, fixme_descs[i].type);
-			return NULL;
+		if (res->desc_fixme.type != desc.type) {
+			gEngine.Con_Printf(S_ERROR "Incompatible resource types for name %s: want %d, have %d\n", name, desc.type, res->desc_fixme.type);
+			break;
 		}
 
-		if (fixme_descs[i].type == ResourceImage && fixme_descs[i].image_format != VK_FORMAT_UNDEFINED && desc.image_format != fixme_descs[i].image_format) {
-			gEngine.Con_Printf(S_ERROR "Incompatible image formats for name %s: want %d, have %d\n", name, desc.image_format, fixme_descs[i].image_format);
-			return NULL;
+		if (res->desc_fixme.type == ResourceImage && res->desc_fixme.image_format != VK_FORMAT_UNDEFINED && desc.image_format != res->desc_fixme.image_format) {
+			gEngine.Con_Printf(S_ERROR "Incompatible image formats for name %s: want %d, have %d\n", name, desc.image_format, res->desc_fixme.image_format);
+			break;
 		}
 
-		return &fixme_descs[i].desc;
+		return (ray_resource_binding_desc_fixme_t){i, res->count};
 	}
-	return NULL;
+
+	return (ray_resource_binding_desc_fixme_t){-1,-1};
 }
+*/

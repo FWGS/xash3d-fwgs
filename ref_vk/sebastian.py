@@ -147,15 +147,20 @@ class TypeInfo:
 	TYPE_SAMPLE_WEIGHT_IMAGE_QCOM = 1000440000
 	TYPE_BLOCK_MATCH_IMAGE_QCOM = 1000440001
 
-	def __init__(self, type):
-		self.type = type
+	def __init__(self, type=None, parent=None, count=1):
+		self.type = parent.type if parent else type
+		self.is_image = parent.is_image if parent else False
+		self.image_format = parent.image_format if parent else None
+		self.count = count
+
 		# TODO self.writable = None
 		# TODO self.readable = None
-		self.is_image = False
-		self.image_format = None
 
 	def __eq__(self, other):
 		if self.type != other.type:
+			return False
+
+		if self.count != other.count:
 			return False
 
 		assert(self.is_image == other.is_image)
@@ -171,6 +176,7 @@ class TypeInfo:
 
 	def serialize(self, out):
 		out.writeU32(self.type)
+		out.writeU32(self.count)
 		if self.is_image:
 			out.writeU32(ImageFormat.mapToVk(self.image_format))
 
@@ -182,6 +188,8 @@ class SpirvNode:
 		self.parent_type_node = None
 		self.type = None
 		self.storage_class = None
+		self.value = None
+		self.count = None
 
 	def getType(self):
 		node = self
@@ -190,6 +198,9 @@ class SpirvNode:
 
 			if node.type:
 				return node.type
+
+			if node.count:
+				return TypeInfo(parent=node.parent_type_node.getType(), count = node.count)
 
 			node = node.parent_type_node
 		raise Exception('Couldn\'t find type for node %s' % self.name)
@@ -316,10 +327,20 @@ def spvOpTypeSampledImage(ctx, args):
 def spvOpTypeArray(ctx, args):
 	node = ctx.getNode(args[0])
 	element_type = ctx.getNode(args[1])
-	length = args[2]
+	length_node = args[2]
 
+	node.count = ctx.getNode(length_node).value
 	node.parent_type_node = element_type
-	#print(f"{args[0]}: Array(type={args[1]}, length={length})")
+
+	#print(f"{args[0]}: Array(type={args[1]}, length={node.count})")
+
+def spvOpSpecConstant(ctx, args):
+	type_node = ctx.getNode(args[0])
+	node = ctx.getNode(args[1])
+	value = args[2]
+
+	# TODO mind the type
+	node.value = value
 
 spvOpHandlers = {
 	spvOp['OpName']: spvOpName,
@@ -330,6 +351,7 @@ spvOpHandlers = {
 	spvOp['OpTypeImage']: spvOpTypeImage,
 	spvOp['OpTypeSampledImage']: spvOpTypeSampledImage,
 	spvOp['OpTypeArray']: spvOpTypeArray,
+	spvOp['OpSpecConstant']: spvOpSpecConstant,
 }
 
 def parseSpirv(raw_data):

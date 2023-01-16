@@ -1,11 +1,35 @@
 #pragma once
 
-#include "vk_rtx.h"
 #include "vk_const.h"
 #include "vk_image.h"
 #include "vk_descriptor.h"
 
 #include "shaders/ray_interop.h"
+
+//qboolean R_VkResourceInit(void);
+//void R_VkResourceShutdown();
+
+typedef enum {
+	ResourceUnknown,
+	ResourceBuffer,
+	ResourceImage,
+} ray_resource_type_e;
+
+typedef struct {
+	ray_resource_type_e type;
+	int image_format; // if type == ResourceImage
+} ray_resource_desc_t;
+
+qboolean R_VkResourceSetExternal(const char* name, VkDescriptorType type, vk_descriptor_value_t value, int count, ray_resource_desc_t desc, const xvk_image_t *image);
+
+/*
+typedef struct {
+	int semantic;
+	int count;
+} ray_resource_binding_desc_fixme_t;
+
+ray_resource_binding_desc_fixme_t RayResouceGetBindingForName_FIXME(const char *name, ray_resource_desc_t desc);
+*/
 
 #define RAY_SCENE_RESOURCES(X) \
 	X(TLAS, tlas) \
@@ -29,6 +53,10 @@ enum {
 	RayResource__COUNT
 };
 
+typedef struct vk_ray_resources_s {
+	uint32_t width, height;
+} vk_ray_resources_t;
+
 typedef struct {
 	VkAccessFlags access_mask;
 	VkImageLayout image_layout;
@@ -44,13 +72,7 @@ typedef struct {
 	};
 } ray_resource_t;
 
-typedef struct vk_ray_resources_s {
-	uint32_t width, height;
-	ray_resource_t resources[RayResource__COUNT];
-} vk_ray_resources_t;
-
 typedef struct {
-	vk_ray_resources_t *resources;
 	const int *indices;
 	int count;
 	VkPipelineStageFlagBits dest_pipeline;
@@ -59,21 +81,3 @@ typedef struct {
 } ray_resources_fill_t;
 
 void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill);
-
-typedef struct {
-	int semantic;
-	int count;
-} ray_resource_binding_desc_fixme_t;
-
-typedef enum {
-	ResourceUnknown,
-	ResourceBuffer,
-	ResourceImage,
-} ray_resource_type_e;
-
-typedef struct {
-	ray_resource_type_e type;
-	int image_format; // if type == ResourceImage
-} ray_resource_desc_t;
-
-const ray_resource_binding_desc_fixme_t *RayResouceGetBindingForName_FIXME(const char *name, ray_resource_desc_t desc);

@@ -7,7 +7,6 @@
 // - expose it as a struct[] interface of the pass
 // - resource/interface should prepare descriptors outside of pass code and just pass them to pass
 typedef struct {
-	const int *bindings_semantics; // RayResource_something
 	const VkDescriptorSetLayoutBinding *bindings;
 	int bindings_count;
 
@@ -19,6 +18,7 @@ struct ray_pass_s;
 typedef struct ray_pass_s* ray_pass_p;
 
 typedef struct {
+	// TODO int num_frame_slots;
 	const char *debug_name;
 	ray_pass_layout_t layout;
 
@@ -35,6 +35,7 @@ typedef struct {
 } ray_pass_hit_group_t;
 
 typedef struct {
+	// TODO int num_frame_slots;
 	const char *debug_name;
 	ray_pass_layout_t layout;
 
@@ -57,5 +58,12 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 
 void RayPassDestroy( struct ray_pass_s *pass );
 
-struct vk_ray_resources_s;
-void RayPassPerform( VkCommandBuffer cmdbuf, int frame_set_slot, struct ray_pass_s *pass, struct vk_ray_resources_s *res);
+struct vk_ray_resource_handle_s;
+typedef struct ray_pass_perform_args_s {
+	int frame_set_slot; // 0 or 1, until we do num_frame_slots
+	int width, height;
+	const struct vk_ray_resource_handle_s *resources;
+} ray_pass_perform_args_t;
+
+void RayPassPerform(struct ray_pass_s *pass, VkCommandBuffer cmdbuf, ray_pass_perform_args_t args );
+

@@ -40,13 +40,12 @@ typedef struct {
 	vk_descriptor_value_t *values;
 
 	VkPushConstantRange push_constants;
-	int num_sets;
 
 	VkPipelineLayout pipeline_layout;
 	VkDescriptorSetLayout desc_layout;
 	VkDescriptorPool desc_pool;
 
-	int num_desc_sets;
+	int num_sets;
 	VkDescriptorSet *desc_sets;
 } vk_descriptors_t;
 

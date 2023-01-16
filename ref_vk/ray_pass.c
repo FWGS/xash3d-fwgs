@@ -4,6 +4,7 @@
 #include "vk_descriptor.h"
 
 // FIXME this is only needed for MAX_CONCURRENT_FRAMES
+// TODO specify it externally as ctor arg
 #include "vk_framectl.h"
 
 #define MAX_STAGES 16
@@ -22,7 +23,6 @@ typedef struct ray_pass_s {
 	struct {
 		vk_descriptors_t riptors;
 		VkDescriptorSet sets[MAX_CONCURRENT_FRAMES];
-		int *binding_semantics;
 	} desc;
 } ray_pass_t;
 
@@ -49,10 +49,6 @@ static void initPassDescriptors( ray_pass_t *header, const ray_pass_layout_t *la
 }
 
 static void finalizePassDescriptors( ray_pass_t *header, const ray_pass_layout_t *layout ) {
-	const size_t semantics_size = sizeof(int) * layout->bindings_count;
-	header->desc.binding_semantics = Mem_Malloc(vk_core.pool, semantics_size);
-	memcpy(header->desc.binding_semantics, layout->bindings_semantics, semantics_size);
-
 	const size_t bindings_size = sizeof(layout->bindings[0]) * layout->bindings_count;
 	VkDescriptorSetLayoutBinding *bindings = Mem_Malloc(vk_core.pool, bindings_size);
 	memcpy(bindings, layout->bindings, bindings_size);
@@ -228,7 +224,6 @@ void RayPassDestroy( struct ray_pass_s *pass ) {
 
 	VK_DescriptorsDestroy(&pass->desc.riptors);
 	Mem_Free(pass->desc.riptors.values);
-	Mem_Free(pass->desc.binding_semantics);
 	Mem_Free((void*)pass->desc.riptors.bindings);
 	Mem_Free(pass);
 }
@@ -248,12 +243,11 @@ static void performCompute( VkCommandBuffer cmdbuf, int set_slot, const ray_pass
 	vkCmdDispatch(cmdbuf, (res->width + WG_W - 1) / WG_W, (res->height + WG_H - 1) / WG_H, 1);
 }
 
-void RayPassPerform( VkCommandBuffer cmdbuf, int frame_set_slot, struct ray_pass_s *pass, struct vk_ray_resources_s *res) {
+/*
+void RayPassPerform( VkCommandBuffer cmdbuf, int frame_set_slot, struct ray_pass_s *pass, const struct vk_ray_resources_s *res) {
 	{
 		 ray_resources_fill_t fill = {
-			.resources = res,
 			.count = pass->desc.riptors.num_bindings,
-			.indices = pass->desc.binding_semantics,
 			.out_values = pass->desc.riptors.values,
 		};
 
@@ -292,3 +286,4 @@ void RayPassPerform( VkCommandBuffer cmdbuf, int frame_set_slot, struct ray_pass
 
 	DEBUG_END(cmdbuf);
 }
+*/
