@@ -63,21 +63,22 @@ typedef struct {
 	VkPipelineStageFlagBits pipelines;
 } ray_resource_state_t;
 
-typedef struct {
+typedef struct vk_resource_s {
 	VkDescriptorType type;
 	ray_resource_state_t write, read;
 	union {
 		vk_descriptor_value_t value;
 		const xvk_image_t *image;
 	};
-} ray_resource_t;
+} vk_resource_t;
+
+typedef struct vk_resource_s *vk_resource_p;
 
 typedef struct {
-	const int *indices;
-	int count;
-	VkPipelineStageFlagBits dest_pipeline;
+	VkPipelineStageFlagBits pipeline;
+	vk_resource_p resource;
+	vk_descriptor_value_t* value;
+	qboolean write;
+} vk_resource_write_descriptor_args_t;
 
-	vk_descriptor_value_t *out_values;
-} ray_resources_fill_t;
-
-void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill);
+void R_VkResourceWriteToDescriptorValue(VkCommandBuffer cmdbuf, vk_resource_write_descriptor_args_t args);

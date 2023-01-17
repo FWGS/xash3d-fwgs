@@ -9,6 +9,7 @@
 typedef struct {
 	const VkDescriptorSetLayoutBinding *bindings;
 	int bindings_count;
+	int write_from;
 
 	VkPushConstantRange push_constants;
 } ray_pass_layout_t;
@@ -58,11 +59,14 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 
 void RayPassDestroy( struct ray_pass_s *pass );
 
-struct vk_ray_resource_handle_s;
+struct vk_resource_s;
+typedef struct vk_resource_s *vk_resource_p;
+
 typedef struct ray_pass_perform_args_s {
 	int frame_set_slot; // 0 or 1, until we do num_frame_slots
 	int width, height;
-	const struct vk_ray_resource_handle_s *resources;
+	const vk_resource_p *resources;
+	const int *resources_map;
 } ray_pass_perform_args_t;
 
 void RayPassPerform(struct ray_pass_s *pass, VkCommandBuffer cmdbuf, ray_pass_perform_args_t args );

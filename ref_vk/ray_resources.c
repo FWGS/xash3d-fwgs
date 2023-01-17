@@ -9,6 +9,7 @@
 #define MAX_RESOURCES 32
 #define MAX_NAME 32
 
+#if 0
 typedef struct vk_named_resource_t {
 	char name[MAX_NAME];
 	int count;
@@ -36,8 +37,13 @@ static int findSlot(const char* name) {
 
 	return -1;
 }
+#endif
 
 qboolean R_VkResourceSetExternal(const char* name, VkDescriptorType type, vk_descriptor_value_t value, int count, ray_resource_desc_t desc, const xvk_image_t *image) {
+	return false;
+}
+
+#if 0
 	if (strlen(name) >= MAX_NAME)
 		return false;
 
@@ -111,7 +117,6 @@ void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill) {
 			} else {
 				// Write happened
 				ASSERT(res->write.pipelines != 0);
-
 
 				// No barrier was issued
 				if (!(res->read.pipelines & fill.dest_pipeline)) {
@@ -233,3 +238,8 @@ ray_resource_binding_desc_fixme_t RayResouceGetBindingForName_FIXME(const char *
 	return (ray_resource_binding_desc_fixme_t){-1,-1};
 }
 */
+#endif
+
+void R_VkResourceWriteToDescriptorValue(VkCommandBuffer cmdbuf, vk_resource_write_descriptor_args_t args) {
+	ASSERT(!"Not implemented");
+}
