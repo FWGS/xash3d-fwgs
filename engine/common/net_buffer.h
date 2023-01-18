@@ -63,7 +63,15 @@ void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove );
 _inline int MSG_TellBit( sizebuf_t *sb ) { return sb->iCurBit; }
 _inline const char *MSG_GetName( sizebuf_t *sb ) { return sb->pDebugName; }
 qboolean MSG_CheckOverflow( sizebuf_t *sb );
-unsigned short MSG_BigShort( unsigned short swap );
+
+#if XASH_BIG_ENDIAN
+#define MSG_BigShort( x ) ( x )
+#else
+static inline uint16_t MSG_BigShort( const uint16_t x )
+{
+	return (x >> 8) | (x << 8);
+}
+#endif
 
 // init writing
 void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, int nBits );
