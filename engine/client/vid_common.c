@@ -186,8 +186,8 @@ void VID_Init( void )
 	Cvar_Get( "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen width" );
 	Cvar_Get( "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
 
-	window_xpos = Cvar_Get( "_window_xpos", "130", FCVAR_RENDERINFO, "window position by horizontal" );
-	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
+	window_xpos = Cvar_Get( "_window_xpos", "-1", FCVAR_RENDERINFO, "window position by horizontal" );
+	window_ypos = Cvar_Get( "_window_ypos", "-1", FCVAR_RENDERINFO, "window position by vertical" );
 
 	vid_gamma = Cvar_Get( "gamma", "2.5", FCVAR_ARCHIVE, "gamma amount" );
 	vid_brightness = Cvar_Get( "brightness", "0.0", FCVAR_ARCHIVE, "brightness factor" );
