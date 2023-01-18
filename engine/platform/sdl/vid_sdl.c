@@ -639,11 +639,33 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( !fullscreen )
 	{
+		SDL_Rect r;
+
 		wndFlags |= SDL_WINDOW_RESIZABLE;
-		xpos = Cvar_VariableInteger( "_window_xpos" );
-		ypos = Cvar_VariableInteger( "_window_ypos" );
-		if( xpos < 0 ) xpos = SDL_WINDOWPOS_CENTERED;
-		if( ypos < 0 ) ypos = SDL_WINDOWPOS_CENTERED;
+
+#if SDL_VERSION_ATLEAST( 2, 0, 5 )
+		if( SDL_GetDisplayUsableBounds( 0, &r ) < 0 &&
+			SDL_GetDisplayBounds( 0, &r ) < 0 )
+#else
+		if( SDL_GetDisplayBounds( 0, &r ) < 0 )
+#endif
+		{
+			Con_Reportf( S_ERROR "VID_CreateWindow: SDL_GetDisplayBounds failed: %s\n", SDL_GetError( ));
+			xpos = SDL_WINDOWPOS_CENTERED;
+			ypos = SDL_WINDOWPOS_CENTERED;
+		}
+		else
+		{
+			xpos = Cvar_VariableInteger( "_window_xpos" );
+			ypos = Cvar_VariableInteger( "_window_ypos" );
+
+			// don't create window outside of usable display space
+			if( xpos < r.x || xpos + width > r.x + r.w )
+				xpos = SDL_WINDOWPOS_CENTERED;
+
+			if( ypos < r.y || ypos + height > r.y + r.h )
+				ypos = SDL_WINDOWPOS_CENTERED;
+		}
 	}
 	else
 	{
