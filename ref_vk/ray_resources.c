@@ -6,74 +6,8 @@
 #include <stdlib.h>
 
 #define MAX_BARRIERS 16
-#define MAX_RESOURCES 32
-#define MAX_NAME 32
 
 #if 0
-typedef struct vk_named_resource_t {
-	char name[MAX_NAME];
-	int count;
-	ray_resource_desc_t desc_fixme;
-} vk_named_resource_t;
-
-static struct {
-	vk_named_resource_t named[MAX_RESOURCES];
-	ray_resource_t resources[RayResource__COUNT];
-} g_resources;
-
-static int findSlot(const char* name) {
-	// Find the exact match if exists
-	// There might be gaps, so we need to check everything
-	for (int i = 0; i < MAX_RESOURCES; ++i) {
-		if (strcmp(g_resources.named[i].name, name) == 0)
-			return i;
-	}
-
-	// Find first free slot
-	for (int i = 0; i < MAX_RESOURCES; ++i) {
-		if (!g_resources.named[i].name[0])
-			return i;
-	}
-
-	return -1;
-}
-#endif
-
-qboolean R_VkResourceSetExternal(const char* name, VkDescriptorType type, vk_descriptor_value_t value, int count, ray_resource_desc_t desc, const xvk_image_t *image) {
-	return false;
-}
-
-#if 0
-	if (strlen(name) >= MAX_NAME)
-		return false;
-
-	const int index = findSlot(name);
-	if (index < 0)
-		return false;
-
-	vk_named_resource_t *const r = g_resources.named + index;
-	ray_resource_t *const rr = g_resources.resources + index;
-
-	if (!r->name[0]) {
-		strncpy(r->name, name, sizeof(r->name));
-		rr->type = type;
-		r->count = count;
-		r->desc_fixme = desc;
-	} else {
-		ASSERT(rr->type == type);
-		ASSERT(r->count == count);
-		ASSERT(r->desc_fixme.type == desc.type);
-		ASSERT(r->desc_fixme.image_format == desc.image_format);
-	}
-
-	rr->value = value;
-	rr->image = image;
-	memset(&rr->read, 0, sizeof(rr->read));
-	memset(&rr->write, 0, sizeof(rr->write));
-
-	return true;
-}
-
 void RayResourcesFill(VkCommandBuffer cmdbuf, ray_resources_fill_t fill) {
 	VkImageMemoryBarrier image_barriers[MAX_BARRIERS];
 	int image_barriers_count = 0;

@@ -38,34 +38,7 @@
 #define FRAME_HEIGHT 1080
 #endif
 
-#define rgba8 VK_FORMAT_R8G8B8A8_UNORM
-#define rgba32f VK_FORMAT_R32G32B32A32_SFLOAT
-#define rgba16f VK_FORMAT_R16G16B16A16_SFLOAT
-
-// TODO sync with shaders
-// TODO optimal values
-#define WG_W 16
-#define WG_H 8
-
-typedef struct {
-	vec3_t pos;
-	float radius;
-	vec3_t color;
-	float padding_;
-} vk_light_t;
-
-typedef struct PushConstants vk_rtx_push_constants_t;
-
-typedef struct {
-	xvk_image_t denoised;
-
-#define X(index, name, ...) xvk_image_t name;
-RAY_PRIMARY_OUTPUTS(X)
-RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
-#undef X
-
-} xvk_ray_frame_images_t;
+#define MAX_RESOURCES 32
 
 static struct {
 	// Holds UniformBuffer data
@@ -74,13 +47,43 @@ static struct {
 
 	// TODO with proper intra-cmdbuf sync we don't really need 2x images
 	unsigned frame_number;
-	xvk_ray_frame_images_t frames[MAX_FRAMES_IN_FLIGHT];
 	vk_meatpipe_t *mainpipe;
+	vk_resource_p *mainpipe_resources;
+
+	struct {
+		char name[64];
+		vk_resource_t resource;
+		xvk_image_t image;
+	} res[MAX_RESOURCES];
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
 } g_rtx = {0};
 
+static int findResource(const char *name) {
+	// Find the exact match if exists
+	// There might be gaps, so we need to check everything
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		if (strcmp(g_rtx.res[i].name, name) == 0)
+			return i;
+	}
+
+	return -1;
+}
+
+static int getResourceSlotForName(const char *name) {
+	const int index = findResource(name);
+	if (index >= 0)
+		return index;
+
+	// Find first free slot
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		if (!g_rtx.res[i].name[0])
+			return i;
+	}
+
+	return -1;
+}
 
 void VK_RayNewMap( void ) {
 	RT_VkAccelNewMap();
@@ -127,17 +130,12 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 typedef struct {
 	const vk_ray_frame_render_args_t* render_args;
 	int frame_index;
-	const xvk_ray_frame_images_t *current_frame;
 	float fov_angle_y;
 	const vk_lights_bindings_t *light_bindings;
 } perform_tracing_args_t;
 
 static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t* args) {
-	const vk_ray_resources_t res = {
-		.width = FRAME_WIDTH,
-		.height = FRAME_HEIGHT,
-	};
-
+	#if 0
 	R_VkResourceSetExternal("tlas", VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 			(vk_descriptor_value_t){
 				.accel = (VkWriteDescriptorSetAccelerationStructureKHR) {
@@ -171,6 +169,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size);
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
+	#endif
 
 	// Upload kusochki updates
 	{
@@ -232,7 +231,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.src = {
-				.image = args->current_frame->denoised.image,
+				// FIXME .image = args->current_frame->denoised.image,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -252,10 +251,76 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	DEBUG_END(cmdbuf);
 }
 
+static void reloadMainpipe() {
+	vk_meatpipe_t *const newpipe = R_VkMeatpipeCreateFromFile("rt.meat");
+	if (!newpipe)
+		return;
+
+	const size_t newpipe_resources_size = sizeof(vk_resource_p) * newpipe->resources_count;
+	vk_resource_p *newpipe_resources = Mem_Calloc(vk_core.pool, newpipe_resources_size);
+
+	for (int i = 0; i < newpipe->resources_count; ++i) {
+		const vk_meatpipe_resource_t *mr = newpipe->resources + i;
+		gEngine.Con_Reportf("res %d/%d: %s descriptor=%u count=%d flags=[%c%c] image_format=%u\n",
+			i, newpipe->resources_count, mr->name, mr->descriptor_type, mr->count,
+			(mr->flags & MEATPIPE_RES_WRITE) ? 'W' : ' ',
+			(mr->flags & MEATPIPE_RES_CREATE) ? 'C' : ' ',
+			mr->image_format);
+
+		const qboolean create = !!(mr->flags & MEATPIPE_RES_CREATE);
+
+		const int index = create ? getResourceSlotForName(mr->name) : findResource(mr->name);
+		if (index < 0) {
+			gEngine.Con_Printf(S_ERROR "Couldn't find resource/slot for %s\n", mr->name);
+			goto fail;
+		}
+
+		// TODO create if creatable
+		if (create && g_rtx.res[index].image.image == VK_NULL_HANDLE) {
+			Q_strncpy(g_rtx.res[index].name, mr->name, sizeof(g_rtx.res[index].name));
+			const xvk_image_create_t create = {
+				.debug_name = mr->name,
+				.width = FRAME_WIDTH,
+				.height = FRAME_HEIGHT,
+				.mips = 1,
+				.layers = 1,
+				.format = mr->image_format,
+				.tiling = VK_IMAGE_TILING_OPTIMAL,
+				.usage = VK_IMAGE_USAGE_STORAGE_BIT,
+				.has_alpha = true,
+				.is_cubemap = false,
+			};
+			g_rtx.res[index].image = XVK_ImageCreate(&create);
+		}
+
+		g_rtx.mainpipe_resources[i] = &g_rtx.res[index].resource;
+	}
+
+	if (g_rtx.mainpipe) {
+		R_VkMeatpipeDestroy(g_rtx.mainpipe);
+
+		// FIXME also destroy all extra created resources/images
+
+		Mem_Free(g_rtx.mainpipe_resources);
+	}
+
+	g_rtx.mainpipe = newpipe;
+
+fail:
+	if (newpipe_resources) {
+		for (int i = 0; i < newpipe->resources_count; ++i) {
+			// FIXME on error we'll leak images
+		}
+		Mem_Free(newpipe_resources);
+	}
+
+	R_VkMeatpipeDestroy(newpipe);
+}
+
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
-	const xvk_ray_frame_images_t* current_frame = g_rtx.frames + (g_rtx.frame_number % 2);
+	// const xvk_ray_frame_images_t* current_frame = g_rtx.frames + (g_rtx.frame_number % 2);
 
 	ASSERT(vk_core.rtx);
 	// ubo should contain two matrices
@@ -273,11 +338,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
 		XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
 
-		vk_meatpipe_t *const newpipe = R_VkMeatpipeCreateFromFile("rt.meat");
-		if (newpipe) {
-			R_VkMeatpipeDestroy(g_rtx.mainpipe);
-			g_rtx.mainpipe = newpipe;
-		}
+		reloadMainpipe();
 
 		g_rtx.reload_pipeline = false;
 	}
@@ -286,7 +347,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
 			.src = {
-				.image = current_frame->denoised.image,
+				// FIXME .image = current_frame->denoised.image,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -301,13 +362,12 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			},
 		};
 
-		R_VkImageClear( cmdbuf, current_frame->denoised.image );
+		// FIMXE R_VkImageClear( cmdbuf, current_frame->denoised.image );
 		R_VkImageBlit( cmdbuf, &blit_args );
 	} else {
 		const perform_tracing_args_t trace_args = {
 			.render_args = args,
 			.frame_index = (g_rtx.frame_number % 2),
-			.current_frame = current_frame,
 			.fov_angle_y = args->fov_angle_y,
 			.light_bindings = &light_bindings,
 		};
@@ -335,8 +395,9 @@ qboolean VK_RayInit( void )
 	if (!RT_VkAccelInit())
 		return false;
 
-	g_rtx.mainpipe = R_VkMeatpipeCreateFromFile("rt.meat");
-	ASSERT(g_rtx.mainpipe);
+	reloadMainpipe();
+	if (!g_rtx.mainpipe)
+		return false;
 
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
@@ -355,35 +416,8 @@ qboolean VK_RayInit( void )
 	}
 	RT_RayModel_Clear();
 
-	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 #define CREATE_GBUFFER_IMAGE(name, format_, add_usage_bits) \
-		do { \
-			char debug_name[64]; \
-			const xvk_image_create_t create = { \
-				.debug_name = debug_name, \
-				.width = FRAME_WIDTH, \
-				.height = FRAME_HEIGHT, \
-				.mips = 1, \
-				.layers = 1, \
-				.format = format_, \
-				.tiling = VK_IMAGE_TILING_OPTIMAL, \
-				.usage = VK_IMAGE_USAGE_STORAGE_BIT | add_usage_bits, \
-				.has_alpha = true, \
-				.is_cubemap = false, \
-			}; \
-			Q_snprintf(debug_name, sizeof(debug_name), "rtx frames[%d] " # name, i); \
-			g_rtx.frames[i].name = XVK_ImageCreate(&create); \
-		} while(0)
-
 		CREATE_GBUFFER_IMAGE(denoised, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-
-#define X(index, name, format) CREATE_GBUFFER_IMAGE(name, format, 0);
-// TODO better format for normals VK_FORMAT_R16G16B16A16_SNORM
-// TODO make sure this format and usage is suppported
-		RAY_PRIMARY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
-#undef X
 
 	/*
 	R_VkResourceSetExternal("all_textures", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -412,14 +446,9 @@ qboolean VK_RayInit( void )
 	RAY_LIGHT_DIRECT_POLY_OUTPUTS(RES_SET_IMAGE);
 	RAY_LIGHT_DIRECT_POINT_OUTPUTS(RES_SET_IMAGE);
 	RES_SET_IMAGE(-1, denoised, rgba16f);
-	*/
-
 #undef RES_SET_IMAGE
-#undef rgba8
-#undef rgba32f
-#undef rgba16f
+	*/
 #undef CREATE_GBUFFER_IMAGE
-	}
 
 	gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
 	gEngine.Cmd_AddCommand("vk_rtx_reload_rad", reloadLighting, "Reload RAD files for static lights");
@@ -433,14 +462,12 @@ void VK_RayShutdown( void ) {
 
 	R_VkMeatpipeDestroy(g_rtx.mainpipe);
 
+	// FIXME destroy mainpipe resources
+	/*
 	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
 		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
-#define X(index, name, ...) XVK_ImageDestroy(&g_rtx.frames[i].name);
-		RAY_PRIMARY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
-#undef X
 	}
+	*/
 
 	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);
 	VK_BufferDestroy(&g_rtx.uniform_buffer);
