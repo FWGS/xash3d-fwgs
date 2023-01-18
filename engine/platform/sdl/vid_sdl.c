@@ -563,10 +563,11 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	want.driverdata = NULL;
 	want.format = want.refresh_rate = 0; // don't care
 
-	if( !SDL_GetClosestDisplayMode(0, &want, &got) )
+	if( !SDL_GetClosestDisplayMode( 0, &want, &got ))
 		return false;
 
-	Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
+	if( got.w != want.w || got.h != want.h )
+		Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
 
 	if( SDL_SetWindowDisplayMode( host.hWnd, &got) == -1 )
 		return false;
