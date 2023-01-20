@@ -251,7 +251,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	DEBUG_END(cmdbuf);
 }
 
-static void reloadMainpipe() {
+static void reloadMainpipe(void) {
 	vk_meatpipe_t *const newpipe = R_VkMeatpipeCreateFromFile("rt.meat");
 	if (!newpipe)
 		return;

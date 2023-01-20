@@ -167,6 +167,7 @@ finalize:
 #define MAX_BINDINGS 32
 static qboolean readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *bindings, vk_meatpipe_pass_t* pass ) {
 	pass->resource_map = NULL;
+	int write_from = -1;
 	const int count = READ_U32("Coulnd't read bindings count");
 
 	if (count > MAX_BINDINGS) {
@@ -176,7 +177,6 @@ static qboolean readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *
 
 	pass->resource_map = Mem_Malloc(vk_core.pool, sizeof(int) * count);
 
-	int write_from = -1;
 	for (int i = 0; i < count; ++i) {
 		const uint32_t header = READ_U32("Couldn't read header for binding %d", i);
 		const uint32_t res_index = READ_U32("Couldn't read res index for binding %d", i);
