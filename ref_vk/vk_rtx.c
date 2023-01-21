@@ -38,7 +38,33 @@
 #define FRAME_HEIGHT 1080
 #endif
 
+	// TODO each of these should be registered by the provider of the resource:
+#define EXTERNAL_RESOUCES(X) \
+		X(TLAS, tlas) \
+		X(Buffer, ubo) \
+		X(Buffer, kusochki) \
+		X(Buffer, indices) \
+		X(Buffer, vertices) \
+		X(Buffer, lights) \
+		X(Buffer, light_clusters) \
+		X(Texture, textures) \
+		X(Texture, skybox)
+
+enum {
+#define RES_ENUM(type, name) ExternalResource_##name,
+	EXTERNAL_RESOUCES(RES_ENUM)
+#undef RES_ENUM
+	ExternalResource_COUNT,
+};
+
 #define MAX_RESOURCES 32
+
+typedef struct {
+		char name[64];
+		vk_resource_t resource;
+		xvk_image_t image;
+		// TODO int refcount
+} rt_resource_t;
 
 static struct {
 	// Holds UniformBuffer data
@@ -49,12 +75,9 @@ static struct {
 	unsigned frame_number;
 	vk_meatpipe_t *mainpipe;
 	vk_resource_p *mainpipe_resources;
+	rt_resource_t *mainpipe_out;
 
-	struct {
-		char name[64];
-		vk_resource_t resource;
-		xvk_image_t image;
-	} res[MAX_RESOURCES];
+	rt_resource_t res[MAX_RESOURCES];
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
@@ -77,7 +100,7 @@ static int getResourceSlotForName(const char *name) {
 		return index;
 
 	// Find first free slot
-	for (int i = 0; i < MAX_RESOURCES; ++i) {
+	for (int i = ExternalResource_COUNT; i < MAX_RESOURCES; ++i) {
 		if (!g_rtx.res[i].name[0])
 			return i;
 	}
@@ -88,10 +111,20 @@ static int getResourceSlotForName(const char *name) {
 void VK_RayNewMap( void ) {
 	RT_VkAccelNewMap();
 	RT_RayModel_Clear();
+
+	g_rtx.res[ExternalResource_skybox].resource = (vk_resource_t){
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.value = (vk_descriptor_value_t){
+			.image = {
+				.sampler = vk_core.default_sampler,
+				.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			},
+		},
+	};
 }
 
-void VK_RayFrameBegin( void )
-{
+void VK_RayFrameBegin( void ) {
 	ASSERT(vk_core.rtx);
 
 	RT_VkAccelFrameBegin();
@@ -135,41 +168,48 @@ typedef struct {
 } perform_tracing_args_t;
 
 static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t* args) {
-	#if 0
-	R_VkResourceSetExternal("tlas", VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-			(vk_descriptor_value_t){
-				.accel = (VkWriteDescriptorSetAccelerationStructureKHR) {
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-					.accelerationStructureCount = 1,
-					.pAccelerationStructures = &g_accel.tlas,
-					.pNext = NULL,
-				},
-			}, 1, (ray_resource_desc_t){ResourceUnknown, 0}, NULL
-	);
+	// TODO move this to "TLAS producer"
+	g_rtx.res[ExternalResource_tlas].resource = (vk_resource_t){
+		.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+		.value = (vk_descriptor_value_t){
+			.accel = (VkWriteDescriptorSetAccelerationStructureKHR) {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+				.accelerationStructureCount = 1,
+				.pAccelerationStructures = &g_accel.tlas,
+				.pNext = NULL,
+			},
+		},
+	};
 
 #define RES_SET_BUFFER(name, type_, source_, offset_, size_) \
-	R_VkResourceSetExternal(#name, type_, (vk_descriptor_value_t){ \
-		.buffer = (VkDescriptorBufferInfo) { \
-			.buffer = (source_), \
-			.offset = (offset_), \
-			.range = (size_), \
+	g_rtx.res[ExternalResource_##name].resource = (vk_resource_t){ \
+		.type = type_, \
+		.value = (vk_descriptor_value_t) { \
+			.buffer = (VkDescriptorBufferInfo) { \
+				.buffer = (source_), \
+				.offset = (offset_), \
+				.range = (size_), \
+			} \
 		} \
-	}, 1, (ray_resource_desc_t){ResourceBuffer, 0}, NULL)
+	}
 
 	RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer.buffer, args->frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer));
 
 #define RES_SET_SBUFFER_FULL(name, source_) \
 	RES_SET_BUFFER(name, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, source_.buffer, 0, source_.size)
 
+	// TODO move this to ray model producer
 	RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer);
+
+	// TODO move these to vk_geometry
 	RES_SET_SBUFFER_FULL(indices, args->render_args->geometry_data);
 	RES_SET_SBUFFER_FULL(vertices, args->render_args->geometry_data);
 
+	// TODO move this to lights
 	RES_SET_BUFFER(lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->metadata.offset, args->light_bindings->metadata.size);
 	RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size);
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
-	#endif
 
 	// Upload kusochki updates
 	{
@@ -231,7 +271,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.src = {
-				// FIXME .image = args->current_frame->denoised.image,
+				.image = g_rtx.mainpipe_out->image.image,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -258,6 +298,7 @@ static void reloadMainpipe(void) {
 
 	const size_t newpipe_resources_size = sizeof(vk_resource_p) * newpipe->resources_count;
 	vk_resource_p *newpipe_resources = Mem_Calloc(vk_core.pool, newpipe_resources_size);
+	rt_resource_t *newpipe_out = NULL;
 
 	for (int i = 0; i < newpipe->resources_count; ++i) {
 		const vk_meatpipe_resource_t *mr = newpipe->resources + i;
@@ -269,15 +310,19 @@ static void reloadMainpipe(void) {
 
 		const qboolean create = !!(mr->flags & MEATPIPE_RES_CREATE);
 
+		// FIXME this should be specified as a flag, from rt.json
+		const qboolean output = Q_strcmp("dest", mr->name) == 0;
+
 		const int index = create ? getResourceSlotForName(mr->name) : findResource(mr->name);
 		if (index < 0) {
 			gEngine.Con_Printf(S_ERROR "Couldn't find resource/slot for %s\n", mr->name);
 			goto fail;
 		}
 
-		// TODO create if creatable
+		if (output)
+			newpipe_out = g_rtx.res + index;
+
 		if (create && g_rtx.res[index].image.image == VK_NULL_HANDLE) {
-			Q_strncpy(g_rtx.res[index].name, mr->name, sizeof(g_rtx.res[index].name));
 			const xvk_image_create_t create = {
 				.debug_name = mr->name,
 				.width = FRAME_WIDTH,
@@ -286,25 +331,34 @@ static void reloadMainpipe(void) {
 				.layers = 1,
 				.format = mr->image_format,
 				.tiling = VK_IMAGE_TILING_OPTIMAL,
-				.usage = VK_IMAGE_USAGE_STORAGE_BIT,
+				.usage = VK_IMAGE_USAGE_STORAGE_BIT | (output ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0),
 				.has_alpha = true,
 				.is_cubemap = false,
 			};
 			g_rtx.res[index].image = XVK_ImageCreate(&create);
+			Q_strncpy(g_rtx.res[index].name, mr->name, sizeof(g_rtx.res[index].name));
 		}
 
-		g_rtx.mainpipe_resources[i] = &g_rtx.res[index].resource;
+		newpipe_resources[i] = &g_rtx.res[index].resource;
+	}
+
+	if (!newpipe_out) {
+		gEngine.Con_Printf(S_ERROR "New rt.json doesn't define an 'dest' output texture\n");
+		goto fail;
 	}
 
 	if (g_rtx.mainpipe) {
 		R_VkMeatpipeDestroy(g_rtx.mainpipe);
 
 		// FIXME also destroy all extra created resources/images
+		// use refcounts or something
 
 		Mem_Free(g_rtx.mainpipe_resources);
 	}
 
 	g_rtx.mainpipe = newpipe;
+	g_rtx.mainpipe_resources = newpipe_resources;
+	g_rtx.mainpipe_out = newpipe_out;
 
 fail:
 	if (newpipe_resources) {
@@ -343,11 +397,13 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		g_rtx.reload_pipeline = false;
 	}
 
+	ASSERT(g_rtx.mainpipe_out);
+
 	if (g_ray_model_state.frame.num_models == 0) {
 		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
 			.src = {
-				// FIXME .image = current_frame->denoised.image,
+				.image = g_rtx.mainpipe_out->image.image,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -362,7 +418,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			},
 		};
 
-		// FIMXE R_VkImageClear( cmdbuf, current_frame->denoised.image );
+		R_VkImageClear( cmdbuf, g_rtx.mainpipe_out->image.image );
 		R_VkImageBlit( cmdbuf, &blit_args );
 	} else {
 		const perform_tracing_args_t trace_args = {
@@ -395,6 +451,18 @@ qboolean VK_RayInit( void )
 	if (!RT_VkAccelInit())
 		return false;
 
+#define REGISTER_EXTERNAL(type, name_) \
+	Q_strncpy(g_rtx.res[ExternalResource_##name_].name, #name_, sizeof(g_rtx.res[0].name));
+	EXTERNAL_RESOUCES(REGISTER_EXTERNAL)
+#undef REGISTER_EXTERNAL
+
+	g_rtx.res[ExternalResource_textures].resource = (vk_resource_t){
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.value = (vk_descriptor_value_t){
+			.image_array = tglob.dii_all_textures,
+		}
+	};
+
 	reloadMainpipe();
 	if (!g_rtx.mainpipe)
 		return false;
@@ -415,40 +483,6 @@ qboolean VK_RayInit( void )
 		return false;
 	}
 	RT_RayModel_Clear();
-
-#define CREATE_GBUFFER_IMAGE(name, format_, add_usage_bits) \
-		CREATE_GBUFFER_IMAGE(denoised, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-
-	/*
-	R_VkResourceSetExternal("all_textures", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		(vk_descriptor_value_t){
-			.image_array = tglob.dii_all_textures,
-		}, MAX_TEXTURES, (ray_resource_desc_t){ResourceImage, VK_FORMAT_UNDEFINED}, NULL
-	);
-
-	R_VkResourceSetExternal("skybox", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		(vk_descriptor_value_t){
-			.image = {
-				.sampler = vk_core.default_sampler,
-				.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			},
-		}, 1, (ray_resource_desc_t){ResourceImage, VK_FORMAT_UNDEFINED}, NULL
-	);
-
-#define RES_SET_IMAGE(index, name, format) \
-	R_VkResourceSetExternal(#name, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
-		(vk_descriptor_value_t){0}, \
-		1, (ray_resource_desc_t){ResourceImage, format}, \
-		&args->current_frame->name);
-
-	RAY_PRIMARY_OUTPUTS(RES_SET_IMAGE);
-	RAY_LIGHT_DIRECT_POLY_OUTPUTS(RES_SET_IMAGE);
-	RAY_LIGHT_DIRECT_POINT_OUTPUTS(RES_SET_IMAGE);
-	RES_SET_IMAGE(-1, denoised, rgba16f);
-#undef RES_SET_IMAGE
-	*/
-#undef CREATE_GBUFFER_IMAGE
 
 	gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
 	gEngine.Cmd_AddCommand("vk_rtx_reload_rad", reloadLighting, "Reload RAD files for static lights");

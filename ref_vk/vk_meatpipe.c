@@ -288,6 +288,8 @@ static qboolean readResources(load_context_t *ctx) {
 
 	for (int i = 0; i < ctx->meatpipe.resources_count; ++i) {
 		vk_meatpipe_resource_t *res = ctx->meatpipe.resources + i;
+		*res = (vk_meatpipe_resource_t){0};
+
 		READ_STR(res->name, "Couldn't read resource %d name", i);
 
 		res->descriptor_type = READ_U32("Couldn't read resource %d:%s type", i, res->name);
