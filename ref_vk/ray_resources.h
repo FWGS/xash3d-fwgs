@@ -20,9 +20,13 @@ typedef struct vk_resource_s *vk_resource_p;
 
 typedef struct {
 	VkPipelineStageFlagBits pipeline;
-	vk_resource_p resource;
-	vk_descriptor_value_t* value;
-	qboolean write;
-} vk_resource_write_descriptor_args_t;
+	const vk_resource_p *resources;
+	const int *resources_map;
+	vk_descriptor_value_t* values;
+	int count;
+	int write_begin; // Entries starting at this index are written into by the pass
+} vk_resources_write_descriptors_args_t;
 
-void R_VkResourceWriteToDescriptorValue(VkCommandBuffer cmdbuf, vk_resource_write_descriptor_args_t args);
+void R_VkResourcesPrepareDescriptorsValues(VkCommandBuffer cmdbuf, vk_resources_write_descriptors_args_t args);
+
+

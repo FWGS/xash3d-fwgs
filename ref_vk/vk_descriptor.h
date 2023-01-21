@@ -25,11 +25,13 @@ extern descriptor_pool_t vk_desc;
 qboolean VK_DescriptorInit( void );
 void VK_DescriptorShutdown( void );
 
+struct xvk_image_s;
 typedef union {
 	VkDescriptorBufferInfo buffer;
 	VkDescriptorImageInfo image;
 	VkDescriptorImageInfo *image_array;
 	VkWriteDescriptorSetAccelerationStructureKHR accel;
+	const struct xvk_image_s *image_object;
 } vk_descriptor_value_t;
 
 typedef struct {

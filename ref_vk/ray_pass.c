@@ -251,19 +251,16 @@ static void performCompute( VkCommandBuffer cmdbuf, int set_slot, const ray_pass
 }
 
 void RayPassPerform(struct ray_pass_s *pass, VkCommandBuffer cmdbuf, ray_pass_perform_args_t args ) {
-	for (int i = 0; i < pass->desc.riptors.num_bindings; ++i) {
-		vk_resource_p resource = args.resources[args.resources_map ? args.resources_map[i] : i];
-		vk_descriptor_value_t *value = pass->desc.riptors.values + i;
-
-		R_VkResourceWriteToDescriptorValue(cmdbuf,
-			(vk_resource_write_descriptor_args_t){
-				.pipeline = pass->pipeline_type,
-				.resource = resource,
-				.value = value,
-				.write = i >= pass->desc.write_from,
-			}
-		);
-	}
+	R_VkResourcesPrepareDescriptorsValues(cmdbuf,
+		(vk_resources_write_descriptors_args_t){
+			.pipeline = pass->pipeline_type,
+			.resources = args.resources,
+			.resources_map = args.resources_map,
+			.values = pass->desc.riptors.values,
+			.count = pass->desc.riptors.num_bindings,
+			.write_begin = pass->desc.write_from,
+		}
+	);
 
 	VK_DescriptorsWrite(&pass->desc.riptors, args.frame_set_slot);
 

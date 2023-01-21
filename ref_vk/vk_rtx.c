@@ -228,6 +228,15 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
+	// Clear intra-frame resources
+	for (int i = ExternalResource_COUNT; i < MAX_RESOURCES; ++i) {
+		rt_resource_t* const res = g_rtx.res + i;
+		if (!res->name[0] || !res->image.image)
+			continue;
+
+		res->resource.read = res->resource.write = (ray_resource_state_t){0};
+	}
+
 	DEBUG_BEGIN(cmdbuf, "yay tracing");
 	RT_VkAccelPrepareTlas(cmdbuf);
 	prepareUniformBuffer(args->render_args, args->frame_index, args->fov_angle_y);
@@ -265,7 +274,12 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
-	// FIXME R_VkMeatpipePerform(&g_rtx.mainpipe, cmdbuf, args->frame_index, &res);
+	R_VkMeatpipePerform(g_rtx.mainpipe, cmdbuf, (vk_meatpipe_perfrom_args_t) {
+		.frame_set_slot = args->frame_index,
+		.width = FRAME_WIDTH,
+		.height = FRAME_HEIGHT,
+		.resources = g_rtx.mainpipe_resources,
+	});
 
 	{
 		const r_vkimage_blit_args blit_args = {
@@ -310,6 +324,9 @@ static void reloadMainpipe(void) {
 
 		const qboolean create = !!(mr->flags & MEATPIPE_RES_CREATE);
 
+		// FIXME no assert, just complain
+		ASSERT(!create || mr->descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
 		// FIXME this should be specified as a flag, from rt.json
 		const qboolean output = Q_strcmp("dest", mr->name) == 0;
 
@@ -319,10 +336,12 @@ static void reloadMainpipe(void) {
 			goto fail;
 		}
 
-		if (output)
-			newpipe_out = g_rtx.res + index;
+		rt_resource_t *const res = g_rtx.res + index;
 
-		if (create && g_rtx.res[index].image.image == VK_NULL_HANDLE) {
+		if (output)
+			newpipe_out = res;
+
+		if (create && res->image.image == VK_NULL_HANDLE) {
 			const xvk_image_create_t create = {
 				.debug_name = mr->name,
 				.width = FRAME_WIDTH,
@@ -335,11 +354,22 @@ static void reloadMainpipe(void) {
 				.has_alpha = true,
 				.is_cubemap = false,
 			};
-			g_rtx.res[index].image = XVK_ImageCreate(&create);
-			Q_strncpy(g_rtx.res[index].name, mr->name, sizeof(g_rtx.res[index].name));
+			res->image = XVK_ImageCreate(&create);
+			Q_strncpy(res->name, mr->name, sizeof(res->name));
 		}
 
-		newpipe_resources[i] = &g_rtx.res[index].resource;
+		newpipe_resources[i] = &res->resource;
+
+		if (create) {
+			if (mr->descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+				newpipe_resources[i]->value.image_object = &res->image;
+
+			res->resource.type = mr->descriptor_type;
+		} else {
+			// TODO no assert, complain and exit
+			// can't do before all resources are properly registered by their producers and not all this temp crap we have right now
+			// ASSERT(res->resource.type == mr->descriptor_type);
+		}
 	}
 
 	if (!newpipe_out) {
@@ -359,6 +389,8 @@ static void reloadMainpipe(void) {
 	g_rtx.mainpipe = newpipe;
 	g_rtx.mainpipe_resources = newpipe_resources;
 	g_rtx.mainpipe_out = newpipe_out;
+
+	return;
 
 fail:
 	if (newpipe_resources) {
