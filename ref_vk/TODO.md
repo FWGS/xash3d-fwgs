@@ -1,29 +1,14 @@
 # Real next
->=E217
-	- [ ] meatpipe resource tracking
-		- [ ] name -> index mapping
-	- [ ] create images on meatpipe load
-- [ ] automatic resource creation
-	- [ ] serialize all resources with in/out and formats for images
-	- [ ] resource management refactoring:
-		- [ ] resource automatic resolution: prducing, barriers, etc
-		- [ ] register existing resources (tlas, buffers, temp images, ...)
-		- [ ] resource destruction
-	- [ ] create resources on demand
-	- [ ] ? resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
+>=E222
+  - [ ] refcount meatpipe created images
   - [ ] rake yuri primary ray
+	- [ ] resource management refactoring:
+		- [ ] register existing resources (tlas, buffers, temp images, ...) in their producers
+		- [ ] resource automatic resolution: prducing, barriers, etc
+		- [ ] resource destruction
+	- [ ] ? resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
 
 # Programmable render
-- [x] parse spirv -> get bindings with names
-  - [x] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
-	- [x] unnamed uniform blocks are uncomfortable to parse.
-- [ ] passes "export" their bindings as detailed resource descriptions:
-  - [ ] images: name, r/w, format, resolution (? not found in spv, needs to be externally supplied)
-	- [ ] buffers: name, r/w, size, type name (?)
-- [ ] name -> index resolver (hashmap kekw)
-- [ ] automatic creation of resources
-	- [ ] images
-	- [ ] buffers
 - [ ] implicit dependency tracking. pass defines:
 	- [ ] imports: list of things it needs
 	- [ ] exports: list of things it produces. those get created and registered with this pass as a producer
@@ -492,3 +477,20 @@
 	- [x] begin Rake Yuri migration
 		- [x] direct lights
 
+# 2023-01-21 E217-E221
+- [x] meatpipe resource tracking
+	- [x] name -> index mapping
+	- [x] create images on meatpipe load
+	- [x] automatic resource creation
+	- [x] serialize all resources with in/out and formats for images
+	- [x] create resources on demand
+- [x] parse spirv -> get bindings with names
+  - [x] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
+	- [x] unnamed uniform blocks are uncomfortable to parse.
+- [x] passes "export" their bindings as detailed resource descriptions:
+  - [x] images: name, r/w, format, resolution (? not found in spv, needs to be externally supplied)
+	- [-] buffers: name, r/w, size, type name (?) -- can't really do, too hard for now
+- [x] name -> index resolver (hashmap kekw)
+- [x] automatic creation of resources
+	- [x] images
+	- [-] buffers -- no immediate need for that
