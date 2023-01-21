@@ -17,6 +17,9 @@ layout(set = 0, binding = 4, rgba16f) uniform readonly image2D light_point_diffu
 layout(set = 0, binding = 5, rgba16f) uniform readonly image2D light_point_specular;
 layout(set = 0, binding = 6, rgba16f) uniform readonly image2D emissive;
 
+layout(set = 0, binding = 7, rgba32f) uniform readonly image2D position_t;
+layout(set = 0, binding = 8, rgba32f) uniform readonly image2D prev_position_t;
+
 //layout(set = 0, binding = 7, rgba32f) uniform readonly image2D position_t;
 //layout(set = 0, binding = 8, rgba16f) uniform readonly image2D normals_gs;
 
@@ -203,6 +206,9 @@ void main() {
 #if 0
 	}
 #endif
+
+	// DEBUG motion vectors
+	//colour = vec3(length(imageLoad(position_t, pix).rgb - imageLoad(prev_position_t, pix).rgb));
 
 	imageStore(out_dest, pix, vec4(colour, 0.));
 	//imageStore(out_dest, pix, imageLoad(light_poly, pix));

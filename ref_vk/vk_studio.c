@@ -47,6 +47,11 @@ typedef struct sortedmesh_s
 	int		flags;			// face flags
 } sortedmesh_t;
 
+typedef struct {
+	matrix3x4		worldtransform[MAXSTUDIOBONES];
+	matrix4x4		prev_transform;
+} studio_entity_prev_state_t;
+
 typedef struct
 {
 	double		time;
@@ -73,6 +78,8 @@ typedef struct
 	sortedmesh_t	meshes[MAXSTUDIOMESHES];	// sorted meshes
 	vec3_t		verts[MAXSTUDIOVERTS];
 	vec3_t		norms[MAXSTUDIOVERTS];
+
+	vec3_t		prev_verts[MAXSTUDIOVERTS]; // last frame state for motion vectors
 
 	// lighting state
 	float		ambientlight;
@@ -117,6 +124,9 @@ static cvar_t			*cl_himodels;
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
+
+#define MAX_ENTITIES_PREV_STATES_STUDIO 1024
+static studio_entity_prev_state_t g_entity_prev_states[MAX_ENTITIES_PREV_STATES_STUDIO];
 
 // global variables
 static qboolean		m_fDoRemap;
@@ -254,7 +264,7 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 	return true; // visible
 }
 
-void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 result )
+void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 *worldtransform, matrix3x4 result )
 {
 	float	flWeight0, flWeight1, flWeight2, flWeight3;
 	int	i, numbones = 0;
@@ -268,10 +278,10 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 
 	if( numbones == 4 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
-		vec4_t *boneMat2 = (vec4_t *)g_studio.worldtransform[boneweights->bone[2]];
-		vec4_t *boneMat3 = (vec4_t *)g_studio.worldtransform[boneweights->bone[3]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat2 = (vec4_t *)worldtransform[boneweights->bone[2]];
+		vec4_t *boneMat3 = (vec4_t *)worldtransform[boneweights->bone[3]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flWeight2 = boneweights->weight[2] / 255.0f;
@@ -295,9 +305,9 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else if( numbones == 3 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
-		vec4_t *boneMat2 = (vec4_t *)g_studio.worldtransform[boneweights->bone[2]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat2 = (vec4_t *)worldtransform[boneweights->bone[2]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flWeight2 = boneweights->weight[2] / 255.0f;
@@ -320,8 +330,8 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else if( numbones == 2 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flTotal = flWeight0 + flWeight1;
@@ -343,7 +353,7 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else
 	{
-		Matrix3x4_Copy( result, g_studio.worldtransform[boneweights->bone[0]] );
+		Matrix3x4_Copy( result, worldtransform[boneweights->bone[0]] );
 	}
 }
 
@@ -1059,6 +1069,26 @@ static void R_StudioSaveBones( void )
 		Matrix3x4_Copy( g_studio.cached_bonestransform[i], g_studio.bonestransform[i] );
 		Matrix3x4_Copy( g_studio.cached_lighttransform[i], g_studio.lighttransform[i] );
 		Q_strncpy( g_studio.cached_bonenames[i], pbones[i].name, 32 );
+	}
+}
+
+/*
+====================
+SaveTransformsForNextFrame
+
+====================
+*/
+
+static void R_StudioSaveTransformsForNextFrame( matrix3x4* bones_transforms )
+{
+	if (RI.currententity->index >= MAX_ENTITIES_PREV_STATES_STUDIO)
+		return;
+
+	studio_entity_prev_state_t *prev_state = &g_entity_prev_states[RI.currententity->index];
+
+	for( int i = 0; i < m_pStudioHeader->numbones; i++ )
+	{
+		Matrix3x4_Copy(prev_state->worldtransform[i], bones_transforms[i]);
 	}
 }
 
@@ -1946,6 +1976,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			*dst_vtx = (vk_vertex_t){0};
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
+			VectorCopy(g_studio.prev_verts[ptricmds[0]], dst_vtx->prev_pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 
@@ -2127,6 +2158,14 @@ static void R_StudioDrawPoints( void )
 	pskinref = (short *)((byte *)m_pStudioHeader + m_pStudioHeader->skinindex);
 	if( m_skinnum != 0 ) pskinref += (m_skinnum * m_pStudioHeader->numskinref);
 
+	studio_entity_prev_state_t *prev_frame_state = &g_entity_prev_states[RI.currententity->index];
+
+	if (RI.currententity->index >= MAX_ENTITIES_PREV_STATES_STUDIO)
+	{
+		gEngine.Con_Printf(S_ERROR "Studio entities previous frame states pool is overflow, increase it. Index is %s\n", RI.currententity->index);
+		prev_frame_state = &g_entity_prev_states[MAX_ENTITIES_PREV_STATES_STUDIO - 1]; // fallback to last element
+	}
+
 	if( FBitSet( m_pStudioHeader->flags, STUDIO_HAS_BONEWEIGHTS ) && m_pSubModel->blendvertinfoindex != 0 && m_pSubModel->blendnorminfoindex != 0 )
 	{
 		mstudioboneweight_t	*pvertweight = (mstudioboneweight_t *)((byte *)m_pStudioHeader + m_pSubModel->blendvertinfoindex);
@@ -2135,24 +2174,35 @@ static void R_StudioDrawPoints( void )
 
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
-			R_StudioComputeSkinMatrix( &pvertweight[i], skinMat );
+			R_StudioComputeSkinMatrix( &pvertweight[i], g_studio.worldtransform, skinMat );
 			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 
+		for( i = 0; i < m_pSubModel->numverts; i++ )
+		{
+			R_StudioComputeSkinMatrix( &pvertweight[i], prev_frame_state->worldtransform, skinMat );
+			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.prev_verts[i] );
+		}
+
 		for( i = 0; i < m_pSubModel->numnorms; i++ )
 		{
-			R_StudioComputeSkinMatrix( &pnormweight[i], skinMat );
+			R_StudioComputeSkinMatrix( &pnormweight[i], g_studio.worldtransform, skinMat );
 			Matrix3x4_VectorRotate( skinMat, pstudionorms[i], g_studio.norms[i] );
 		}
+
+		R_StudioSaveTransformsForNextFrame (g_studio.worldtransform );
 	}
 	else
 	{
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
 			Matrix3x4_VectorTransform( g_studio.bonestransform[pvertbone[i]], pstudioverts[i], g_studio.verts[i] );
+			Matrix3x4_VectorTransform( prev_frame_state->worldtransform[pvertbone[i]], pstudioverts[i], g_studio.prev_verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
+
+		R_StudioSaveTransformsForNextFrame( g_studio.bonestransform );
 	}
 
 	// generate shared normals for properly scaling glowing shell
@@ -2278,7 +2328,17 @@ static void R_StudioDrawPoints( void )
 		*/
 	}
 
+	int entity_id = RI.currententity->index;
+
+	if (entity_id < MAX_ENTITIES_PREV_STATES_STUDIO) {
+		Matrix4x4_Copy( *VK_RenderGetLastFrameTransform(), g_entity_prev_states[entity_id].prev_transform );
+	} else gEngine.Con_Printf(S_ERROR "Studio entities last states pool is overflow, increase it. Index is %s\n", entity_id );
+
 	VK_RenderModelDynamicCommit();
+
+	if (entity_id < MAX_ENTITIES_PREV_STATES_STUDIO) {
+		Matrix4x4_Copy( g_entity_prev_states[entity_id].prev_transform, *VK_RenderGetLastFrameTransform() );
+	}
 }
 
 static void R_StudioSetRemapColors( int newTop, int newBottom )

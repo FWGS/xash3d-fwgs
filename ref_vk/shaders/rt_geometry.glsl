@@ -40,6 +40,7 @@ vec4 computeAnisotropicEllipseAxes(in vec3 P, in vec3 f,
 
 struct Geometry {
 	vec3 pos;
+	vec3 prev_pos;
 
 	vec2 uv;
 	vec4 uv_lods;
@@ -69,6 +70,12 @@ Geometry readHitGeometry() {
 		gl_ObjectToWorldEXT * vec4(getVertex(vi3).pos, 1.f),
 	};
 
+	const vec3 prev_pos[3] = {
+		(kusok.prev_transform * vec4(getVertex(vi1).prev_pos, 1.f)).xyz,
+		(kusok.prev_transform * vec4(getVertex(vi2).prev_pos, 1.f)).xyz,
+		(kusok.prev_transform * vec4(getVertex(vi3).prev_pos, 1.f)).xyz,
+	};
+
 	const vec2 uvs[3] = {
 		getVertex(vi1).gl_tc,
 		getVertex(vi2).gl_tc,
@@ -76,6 +83,7 @@ Geometry readHitGeometry() {
 	};
 
 	geom.pos = baryMix(pos[0], pos[1], pos[2], bary);
+	geom.prev_pos = baryMix(prev_pos[0], prev_pos[1], prev_pos[2], bary);
 	geom.uv = baryMix(uvs[0], uvs[1], uvs[2], bary);
 	//TODO or not TODO? const vec2 texture_uv = texture_uv_stationary + push_constants.time * kusok.uv_speed;
 

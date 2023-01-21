@@ -87,6 +87,7 @@ static qboolean createPipelines( void )
 			{.binding = 0, .location = 3, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(vk_vertex_t, lm_tc)},
 			{.binding = 0, .location = 4, .format = VK_FORMAT_R8G8B8A8_UNORM, .offset = offsetof(vk_vertex_t, color)},
 			{.binding = 0, .location = 5, .format = VK_FORMAT_R32_UINT, .offset = offsetof(vk_vertex_t, flags)},
+			{.binding = 0, .location = 6, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(vk_vertex_t, prev_pos)},
 		};
 
 		const vk_shader_stage_t shader_stages[] = {
@@ -682,6 +683,9 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 
 	if (g_render_state.current_frame_is_ray_traced) {
 		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model, g_render_state.dirty_uniform_data.color, ent ? ent->curstate.rendercolor : (color24){255,255,255});
+
+		// store current transform here before it puts to entity history
+		Matrix4x4_Copy( model->prev_transform, g_render_state.model );
 		return;
 	}
 
@@ -746,6 +750,10 @@ static struct {
 	vk_render_model_t model;
 	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
 } g_dynamic_model = {0};
+
+matrix4x4 *VK_RenderGetLastFrameTransform() {
+	return &g_dynamic_model.model.prev_transform;
+}
 
 void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... ) {
 	va_list argptr;

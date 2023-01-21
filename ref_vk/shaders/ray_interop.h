@@ -18,6 +18,7 @@
 	X(12, normals_gs, rgba16f) \
 	X(13, material_rmxx, rgba8) \
 	X(14, emissive, rgba16f) \
+	X(15, prev_position_t, rgba32f) \
 
 #define RAY_LIGHT_DIRECT_INPUTS(X) \
 	X(10, position_t, rgba32f) \
@@ -103,6 +104,8 @@ struct Kusok {
 	float roughness;
 	float metalness;
 	PAD(2)
+
+	mat4 prev_transform;
 };
 
 struct PointLight {
@@ -153,6 +156,7 @@ struct PushConstants {
 
 struct UniformBuffer {
 	mat4 inv_proj, inv_view;
+	mat4 prev_inv_proj, prev_inv_view;
 	float ray_cone_width;
 	uint random_seed;
 	PAD(2)
