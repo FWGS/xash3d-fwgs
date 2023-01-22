@@ -63,7 +63,7 @@ typedef struct {
 		char name[64];
 		vk_resource_t resource;
 		xvk_image_t image;
-		// TODO int refcount
+		int refcount;
 } rt_resource_t;
 
 static struct {
@@ -305,6 +305,42 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	DEBUG_END(cmdbuf);
 }
 
+static void cleanupResources(void) {
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		rt_resource_t *const res = g_rtx.res + i;
+		if (!res->name[0] || res->refcount || !res->image.image)
+			continue;
+
+		XVK_ImageDestroy(&res->image);
+		res->name[0] = '\0';
+	}
+}
+
+static void destroyMainpipe(void) {
+	if (!g_rtx.mainpipe)
+		return;
+
+	ASSERT(g_rtx.mainpipe_resources);
+
+	for (int i = 0; i < g_rtx.mainpipe->resources_count; ++i) {
+		const vk_meatpipe_resource_t *mr = g_rtx.mainpipe->resources + i;
+		const int index = findResource(mr->name);
+		ASSERT(index >= 0);
+		ASSERT(index < MAX_RESOURCES);
+		rt_resource_t *const res = g_rtx.res + index;
+		ASSERT(res->refcount > 0);
+		res->refcount--;
+	}
+
+	cleanupResources();
+	R_VkMeatpipeDestroy(g_rtx.mainpipe);
+	g_rtx.mainpipe = NULL;
+
+	Mem_Free(g_rtx.mainpipe_resources);
+	g_rtx.mainpipe_resources = NULL;
+	g_rtx.mainpipe_out = NULL;
+}
+
 static void reloadMainpipe(void) {
 	vk_meatpipe_t *const newpipe = R_VkMeatpipeCreateFromFile("rt.meat");
 	if (!newpipe)
@@ -325,9 +361,12 @@ static void reloadMainpipe(void) {
 		const qboolean create = !!(mr->flags & MEATPIPE_RES_CREATE);
 
 		// FIXME no assert, just complain
-		ASSERT(!create || mr->descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+		if (create && mr->descriptor_type != VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+			gEngine.Con_Printf(S_ERROR "Only storage image creation is supported for meatpipes\n");
+			goto fail;
+		}
 
-		// FIXME this should be specified as a flag, from rt.json
+		// TODO this should be specified as a flag, from rt.json
 		const qboolean output = Q_strcmp("dest", mr->name) == 0;
 
 		const int index = create ? getResourceSlotForName(mr->name) : findResource(mr->name);
@@ -341,21 +380,25 @@ static void reloadMainpipe(void) {
 		if (output)
 			newpipe_out = res;
 
-		if (create && res->image.image == VK_NULL_HANDLE) {
-			const xvk_image_create_t create = {
-				.debug_name = mr->name,
-				.width = FRAME_WIDTH,
-				.height = FRAME_HEIGHT,
-				.mips = 1,
-				.layers = 1,
-				.format = mr->image_format,
-				.tiling = VK_IMAGE_TILING_OPTIMAL,
-				.usage = VK_IMAGE_USAGE_STORAGE_BIT | (output ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0),
-				.has_alpha = true,
-				.is_cubemap = false,
-			};
-			res->image = XVK_ImageCreate(&create);
-			Q_strncpy(res->name, mr->name, sizeof(res->name));
+		if (create) {
+			if (res->image.image == VK_NULL_HANDLE) {
+				const xvk_image_create_t create = {
+					.debug_name = mr->name,
+					.width = FRAME_WIDTH,
+					.height = FRAME_HEIGHT,
+					.mips = 1,
+					.layers = 1,
+					.format = mr->image_format,
+					.tiling = VK_IMAGE_TILING_OPTIMAL,
+					.usage = VK_IMAGE_USAGE_STORAGE_BIT | (output ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0),
+					.has_alpha = true,
+					.is_cubemap = false,
+				};
+				res->image = XVK_ImageCreate(&create);
+				Q_strncpy(res->name, mr->name, sizeof(res->name));
+			} else {
+				// TODO if (mr->image_format != res->image.format) { S_ERROR and goto fail }
+			}
 		}
 
 		newpipe_resources[i] = &res->resource;
@@ -377,14 +420,18 @@ static void reloadMainpipe(void) {
 		goto fail;
 	}
 
-	if (g_rtx.mainpipe) {
-		R_VkMeatpipeDestroy(g_rtx.mainpipe);
-
-		// FIXME also destroy all extra created resources/images
-		// use refcounts or something
-
-		Mem_Free(g_rtx.mainpipe_resources);
+	// Loading successful
+	// Update refcounts
+	for (int i = 0; i < newpipe->resources_count; ++i) {
+		const vk_meatpipe_resource_t *mr = newpipe->resources + i;
+		const int index = findResource(mr->name);
+		ASSERT(index >= 0);
+		ASSERT(index < MAX_RESOURCES);
+		rt_resource_t *const res = g_rtx.res + index;
+		res->refcount++;
 	}
+
+	destroyMainpipe();
 
 	g_rtx.mainpipe = newpipe;
 	g_rtx.mainpipe_resources = newpipe_resources;
@@ -393,12 +440,10 @@ static void reloadMainpipe(void) {
 	return;
 
 fail:
-	if (newpipe_resources) {
-		for (int i = 0; i < newpipe->resources_count; ++i) {
-			// FIXME on error we'll leak images
-		}
+	cleanupResources();
+
+	if (newpipe_resources)
 		Mem_Free(newpipe_resources);
-	}
 
 	R_VkMeatpipeDestroy(newpipe);
 }
@@ -484,7 +529,8 @@ qboolean VK_RayInit( void )
 		return false;
 
 #define REGISTER_EXTERNAL(type, name_) \
-	Q_strncpy(g_rtx.res[ExternalResource_##name_].name, #name_, sizeof(g_rtx.res[0].name));
+	Q_strncpy(g_rtx.res[ExternalResource_##name_].name, #name_, sizeof(g_rtx.res[0].name)); \
+	g_rtx.res[ExternalResource_##name_].refcount = 1;
 	EXTERNAL_RESOUCES(REGISTER_EXTERNAL)
 #undef REGISTER_EXTERNAL
 
@@ -494,6 +540,7 @@ qboolean VK_RayInit( void )
 			.image_array = tglob.dii_all_textures,
 		}
 	};
+	g_rtx.res[ExternalResource_textures].refcount = 1;
 
 	reloadMainpipe();
 	if (!g_rtx.mainpipe)
@@ -526,14 +573,7 @@ qboolean VK_RayInit( void )
 void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
-	R_VkMeatpipeDestroy(g_rtx.mainpipe);
-
-	// FIXME destroy mainpipe resources
-	/*
-	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
-		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
-	}
-	*/
+	destroyMainpipe();
 
 	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);
 	VK_BufferDestroy(&g_rtx.uniform_buffer);
