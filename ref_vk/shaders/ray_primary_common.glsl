@@ -1,4 +1,5 @@
-#extension GL_EXT_ray_tracing: require
+#ifndef RAY_PRIMARY_COMMON_GLSL_INCLUDED
+#define RAY_PRIMARY_COMMON_GLSL_INCLUDED
 
 #define GLSL
 #include "ray_interop.h"
@@ -13,3 +14,5 @@ struct RayPayloadPrimary {
 };
 
 #define PAYLOAD_LOCATION_PRIMARY 0
+
+#endif //ifndef RAY_PRIMARY_COMMON_GLSL_INCLUDED

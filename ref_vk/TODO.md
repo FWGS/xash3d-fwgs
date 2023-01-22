@@ -1,19 +1,19 @@
 # Real next
 >=E222
-	- [x] refcount meatpipe created images
-	- [ ] previous frame resources reference
-	- [ ] what if new meatpipe has different image format for a creatable image?
-	- [ ] rake yuri primary ray
-	- [ ] resource management refactoring:
-		- [ ] register existing resources (tlas, buffers, temp images, ...) in their producers
-		- [ ] resource automatic resolution: prducing, barriers, etc
-		- [ ] resource destruction
-	- [ ] ? resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
+- [x] refcount meatpipe created images
+- [x] rake yuri primary ray
+- [ ] previous frame resources reference
+- [ ] what if new meatpipe has different image format for a creatable image?
 
 # Programmable render
 - [ ] implicit dependency tracking. pass defines:
 	- [ ] imports: list of things it needs
 	- [ ] exports: list of things it produces. those get created and registered with this pass as a producer
+- [ ] resource management refactoring:
+	- [ ] register existing resources (tlas, buffers, temp images, ...) in their producers
+	- [ ] resource automatic resolution: prducing, barriers, etc
+	- [ ] resource destruction
+- [ ] ? resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
 
 # Parallel frames sync
 - [ ] light_grid_buffer (+ small lights_buffer):

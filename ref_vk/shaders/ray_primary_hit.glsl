@@ -1,36 +1,32 @@
-#version 460 core
-#extension GL_GOOGLE_include_directive : require
+#ifndef RAY_PRIMARY_HIT_GLSL_INCLUDED
+#define RAY_PRIMARY_HIT_GLSL_INCLUDED
 #extension GL_EXT_nonuniform_qualifier : enable
-#extension GL_EXT_ray_tracing: require
 
 #include "utils.glsl"
 #include "ray_primary_common.glsl"
 #include "ray_kusochki.glsl"
+#include "rt_geometry.glsl"
 #include "color_spaces.glsl"
 
 layout(set = 0, binding = 6) uniform sampler2D textures[MAX_TEXTURES];
 layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
 layout(set = 0, binding = 7) uniform samplerCube skybox;
 
-layout(location = PAYLOAD_LOCATION_PRIMARY) rayPayloadInEXT RayPayloadPrimary payload;
-hitAttributeEXT vec2 bary;
-
-#include "rt_geometry.glsl"
-
 vec4 sampleTexture(uint tex_index, vec2 uv, vec4 uv_lods) {
 	return textureGrad(textures[nonuniformEXT(tex_index)], uv, uv_lods.xy, uv_lods.zw);
 }
 
-void main() {
-	Geometry geom = readHitGeometry(bary, ubo.ubo.ray_cone_width);
-
-	payload.hit_t = vec4(geom.pos, gl_HitTEXT);
+void primaryRayHit(rayQueryEXT rq, inout RayPayloadPrimary payload) {
+	Geometry geom = readHitGeometry(rq, ubo.ubo.ray_cone_width, rayQueryGetIntersectionBarycentricsEXT(rq, true));
+	const float hitT = rayQueryGetIntersectionTEXT(rq, true);  //gl_HitTEXT;
+	const vec3 rayDirection = rayQueryGetWorldRayDirectionEXT(rq); //gl_WorldRayDirectionEXT
+	payload.hit_t = vec4(geom.pos, hitT);
 
 	const Kusok kusok = getKusok(geom.kusok_index);
 	const uint tex_base_color = kusok.tex_base_color;
 
 	if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) != 0) {
-		payload.emissive.rgb = SRGBtoLINEAR(texture(skybox, gl_WorldRayDirectionEXT).rgb);
+		payload.emissive.rgb = SRGBtoLINEAR(texture(skybox, rayDirection).rgb);
 		return;
 	} else {
 		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
@@ -61,3 +57,5 @@ void main() {
 		payload.emissive.rgb = payload.base_color_a.rgb;
 #endif
 }
+
+#endif // ifndef RAY_PRIMARY_HIT_GLSL_INCLUDED
