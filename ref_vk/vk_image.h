@@ -2,7 +2,7 @@
 #include "vk_core.h"
 #include "vk_devmem.h"
 
-typedef struct {
+typedef struct xvk_image_s {
 	vk_devmem_t devmem;
 	VkImage image;
 	VkImageView view;

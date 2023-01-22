@@ -1,6 +1,5 @@
 #include "vk_rtx.h"
 
-#include "ray_pass.h"
 #include "ray_resources.h"
 #include "vk_ray_accel.h"
 
@@ -39,33 +38,33 @@
 #define FRAME_HEIGHT 1080
 #endif
 
-// TODO sync with shaders
-// TODO optimal values
-#define WG_W 16
-#define WG_H 8
+	// TODO each of these should be registered by the provider of the resource:
+#define EXTERNAL_RESOUCES(X) \
+		X(TLAS, tlas) \
+		X(Buffer, ubo) \
+		X(Buffer, kusochki) \
+		X(Buffer, indices) \
+		X(Buffer, vertices) \
+		X(Buffer, lights) \
+		X(Buffer, light_clusters) \
+		X(Texture, textures) \
+		X(Texture, skybox)
+
+enum {
+#define RES_ENUM(type, name) ExternalResource_##name,
+	EXTERNAL_RESOUCES(RES_ENUM)
+#undef RES_ENUM
+	ExternalResource_COUNT,
+};
+
+#define MAX_RESOURCES 32
 
 typedef struct {
-	vec3_t pos;
-	float radius;
-	vec3_t color;
-	float padding_;
-} vk_light_t;
-
-typedef struct PushConstants vk_rtx_push_constants_t;
-
-typedef struct {
-	xvk_image_t denoised;
-
-#define X(index, name, ...) xvk_image_t name;
-RAY_PRIMARY_OUTPUTS(X)
-RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
-#undef X
-
-	xvk_image_t diffuse_gi;
-	xvk_image_t specular;
-	xvk_image_t additive;
-} xvk_ray_frame_images_t;
+		char name[64];
+		vk_resource_t resource;
+		xvk_image_t image;
+		int refcount;
+} rt_resource_t;
 
 static struct {
 	// Holds UniformBuffer data
@@ -74,21 +73,58 @@ static struct {
 
 	// TODO with proper intra-cmdbuf sync we don't really need 2x images
 	unsigned frame_number;
-	xvk_ray_frame_images_t frames[MAX_FRAMES_IN_FLIGHT];
-	vk_meatpipe_t mainpipe;
+	vk_meatpipe_t *mainpipe;
+	vk_resource_p *mainpipe_resources;
+	rt_resource_t *mainpipe_out;
+
+	rt_resource_t res[MAX_RESOURCES];
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
 } g_rtx = {0};
 
+static int findResource(const char *name) {
+	// Find the exact match if exists
+	// There might be gaps, so we need to check everything
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		if (strcmp(g_rtx.res[i].name, name) == 0)
+			return i;
+	}
+
+	return -1;
+}
+
+static int getResourceSlotForName(const char *name) {
+	const int index = findResource(name);
+	if (index >= 0)
+		return index;
+
+	// Find first free slot
+	for (int i = ExternalResource_COUNT; i < MAX_RESOURCES; ++i) {
+		if (!g_rtx.res[i].name[0])
+			return i;
+	}
+
+	return -1;
+}
 
 void VK_RayNewMap( void ) {
 	RT_VkAccelNewMap();
 	RT_RayModel_Clear();
+
+	g_rtx.res[ExternalResource_skybox].resource = (vk_resource_t){
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.value = (vk_descriptor_value_t){
+			.image = {
+				.sampler = vk_core.default_sampler,
+				.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			},
+		},
+	};
 }
 
-void VK_RayFrameBegin( void )
-{
+void VK_RayFrameBegin( void ) {
 	ASSERT(vk_core.rtx);
 
 	RT_VkAccelFrameBegin();
@@ -127,74 +163,53 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 typedef struct {
 	const vk_ray_frame_render_args_t* render_args;
 	int frame_index;
-	const xvk_ray_frame_images_t *current_frame;
 	float fov_angle_y;
 	const vk_lights_bindings_t *light_bindings;
 } perform_tracing_args_t;
 
 static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t* args) {
-	vk_ray_resources_t res = {
-		.width = FRAME_WIDTH,
-		.height = FRAME_HEIGHT,
-		.resources = {
-			[RayResource_tlas] = {
-				.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-				.value.accel = (VkWriteDescriptorSetAccelerationStructureKHR){
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-					.accelerationStructureCount = 1,
-					.pAccelerationStructures = &g_accel.tlas,
-					.pNext = NULL,
-				},
+	// TODO move this to "TLAS producer"
+	g_rtx.res[ExternalResource_tlas].resource = (vk_resource_t){
+		.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+		.value = (vk_descriptor_value_t){
+			.accel = (VkWriteDescriptorSetAccelerationStructureKHR) {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+				.accelerationStructureCount = 1,
+				.pAccelerationStructures = &g_accel.tlas,
+				.pNext = NULL,
 			},
+		},
+	};
+
 #define RES_SET_BUFFER(name, type_, source_, offset_, size_) \
-	[RayResource_##name] = { \
+	g_rtx.res[ExternalResource_##name].resource = (vk_resource_t){ \
 		.type = type_, \
-		.value.buffer = (VkDescriptorBufferInfo) { \
-			.buffer = (source_), \
-			.offset = (offset_), \
-			.range = (size_), \
+		.value = (vk_descriptor_value_t) { \
+			.buffer = (VkDescriptorBufferInfo) { \
+				.buffer = (source_), \
+				.offset = (offset_), \
+				.range = (size_), \
+			} \
 		} \
 	}
-			RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer.buffer, args->frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer)),
+
+	RES_SET_BUFFER(ubo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, g_rtx.uniform_buffer.buffer, args->frame_index * g_rtx.uniform_unit_size, sizeof(struct UniformBuffer));
 
 #define RES_SET_SBUFFER_FULL(name, source_) \
 	RES_SET_BUFFER(name, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, source_.buffer, 0, source_.size)
-			RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer),
-			RES_SET_SBUFFER_FULL(indices, args->render_args->geometry_data),
-			RES_SET_SBUFFER_FULL(vertices, args->render_args->geometry_data),
-			RES_SET_BUFFER(lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->metadata.offset, args->light_bindings->metadata.size),
-			RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size),
+
+	// TODO move this to ray model producer
+	RES_SET_SBUFFER_FULL(kusochki, g_ray_model_state.kusochki_buffer);
+
+	// TODO move these to vk_geometry
+	RES_SET_SBUFFER_FULL(indices, args->render_args->geometry_data);
+	RES_SET_SBUFFER_FULL(vertices, args->render_args->geometry_data);
+
+	// TODO move this to lights
+	RES_SET_BUFFER(lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->metadata.offset, args->light_bindings->metadata.size);
+	RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size);
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
-
-			[RayResource_all_textures] = {
-				.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.value.image_array = tglob.dii_all_textures,
-			},
-
-			[RayResource_skybox] = {
-				.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.value.image = {
-					.sampler = vk_core.default_sampler,
-					.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
-					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				},
-			},
-
-#define RES_SET_IMAGE(index, name, ...) \
-	[RayResource_##name] = { \
-		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, \
-		.write = {0}, \
-		.read = {0}, \
-		.image = &args->current_frame->name, \
-	},
-			RAY_PRIMARY_OUTPUTS(RES_SET_IMAGE)
-			RAY_LIGHT_DIRECT_POLY_OUTPUTS(RES_SET_IMAGE)
-			RAY_LIGHT_DIRECT_POINT_OUTPUTS(RES_SET_IMAGE)
-			RES_SET_IMAGE(-1, denoised)
-#undef RES_SET_IMAGE
-		},
-	};
 
 	// Upload kusochki updates
 	{
@@ -211,6 +226,15 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
+	}
+
+	// Clear intra-frame resources
+	for (int i = ExternalResource_COUNT; i < MAX_RESOURCES; ++i) {
+		rt_resource_t* const res = g_rtx.res + i;
+		if (!res->name[0] || !res->image.image)
+			continue;
+
+		res->resource.read = res->resource.write = (ray_resource_state_t){0};
 	}
 
 	DEBUG_BEGIN(cmdbuf, "yay tracing");
@@ -250,13 +274,18 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			0, 0, NULL, ARRAYSIZE(bmb), bmb, 0, NULL);
 	}
 
-	R_VkMeatpipePerform(&g_rtx.mainpipe, cmdbuf, args->frame_index, &res);
+	R_VkMeatpipePerform(g_rtx.mainpipe, cmdbuf, (vk_meatpipe_perfrom_args_t) {
+		.frame_set_slot = args->frame_index,
+		.width = FRAME_WIDTH,
+		.height = FRAME_HEIGHT,
+		.resources = g_rtx.mainpipe_resources,
+	});
 
 	{
 		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			.src = {
-				.image = args->current_frame->denoised.image,
+				.image = g_rtx.mainpipe_out->image.image,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -276,10 +305,158 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	DEBUG_END(cmdbuf);
 }
 
+static void cleanupResources(void) {
+	for (int i = 0; i < MAX_RESOURCES; ++i) {
+		rt_resource_t *const res = g_rtx.res + i;
+		if (!res->name[0] || res->refcount || !res->image.image)
+			continue;
+
+		XVK_ImageDestroy(&res->image);
+		res->name[0] = '\0';
+	}
+}
+
+static void destroyMainpipe(void) {
+	if (!g_rtx.mainpipe)
+		return;
+
+	ASSERT(g_rtx.mainpipe_resources);
+
+	for (int i = 0; i < g_rtx.mainpipe->resources_count; ++i) {
+		const vk_meatpipe_resource_t *mr = g_rtx.mainpipe->resources + i;
+		const int index = findResource(mr->name);
+		ASSERT(index >= 0);
+		ASSERT(index < MAX_RESOURCES);
+		rt_resource_t *const res = g_rtx.res + index;
+		ASSERT(res->refcount > 0);
+		res->refcount--;
+	}
+
+	cleanupResources();
+	R_VkMeatpipeDestroy(g_rtx.mainpipe);
+	g_rtx.mainpipe = NULL;
+
+	Mem_Free(g_rtx.mainpipe_resources);
+	g_rtx.mainpipe_resources = NULL;
+	g_rtx.mainpipe_out = NULL;
+}
+
+static void reloadMainpipe(void) {
+	vk_meatpipe_t *const newpipe = R_VkMeatpipeCreateFromFile("rt.meat");
+	if (!newpipe)
+		return;
+
+	const size_t newpipe_resources_size = sizeof(vk_resource_p) * newpipe->resources_count;
+	vk_resource_p *newpipe_resources = Mem_Calloc(vk_core.pool, newpipe_resources_size);
+	rt_resource_t *newpipe_out = NULL;
+
+	for (int i = 0; i < newpipe->resources_count; ++i) {
+		const vk_meatpipe_resource_t *mr = newpipe->resources + i;
+		gEngine.Con_Reportf("res %d/%d: %s descriptor=%u count=%d flags=[%c%c] image_format=%u\n",
+			i, newpipe->resources_count, mr->name, mr->descriptor_type, mr->count,
+			(mr->flags & MEATPIPE_RES_WRITE) ? 'W' : ' ',
+			(mr->flags & MEATPIPE_RES_CREATE) ? 'C' : ' ',
+			mr->image_format);
+
+		const qboolean create = !!(mr->flags & MEATPIPE_RES_CREATE);
+
+		// FIXME no assert, just complain
+		if (create && mr->descriptor_type != VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+			gEngine.Con_Printf(S_ERROR "Only storage image creation is supported for meatpipes\n");
+			goto fail;
+		}
+
+		// TODO this should be specified as a flag, from rt.json
+		const qboolean output = Q_strcmp("dest", mr->name) == 0;
+
+		const int index = create ? getResourceSlotForName(mr->name) : findResource(mr->name);
+		if (index < 0) {
+			gEngine.Con_Printf(S_ERROR "Couldn't find resource/slot for %s\n", mr->name);
+			goto fail;
+		}
+
+		rt_resource_t *const res = g_rtx.res + index;
+
+		if (output)
+			newpipe_out = res;
+
+		if (create) {
+			if (res->image.image == VK_NULL_HANDLE) {
+				const xvk_image_create_t create = {
+					.debug_name = mr->name,
+					.width = FRAME_WIDTH,
+					.height = FRAME_HEIGHT,
+					.mips = 1,
+					.layers = 1,
+					.format = mr->image_format,
+					.tiling = VK_IMAGE_TILING_OPTIMAL,
+					.usage = VK_IMAGE_USAGE_STORAGE_BIT | (output ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT : 0),
+					.has_alpha = true,
+					.is_cubemap = false,
+				};
+				res->image = XVK_ImageCreate(&create);
+				Q_strncpy(res->name, mr->name, sizeof(res->name));
+			} else {
+				// TODO if (mr->image_format != res->image.format) { S_ERROR and goto fail }
+			}
+		}
+
+		newpipe_resources[i] = &res->resource;
+
+		if (create) {
+			if (mr->descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+				newpipe_resources[i]->value.image_object = &res->image;
+
+			res->resource.type = mr->descriptor_type;
+		} else {
+			// TODO no assert, complain and exit
+			// can't do before all resources are properly registered by their producers and not all this temp crap we have right now
+			// ASSERT(res->resource.type == mr->descriptor_type);
+		}
+	}
+
+	if (!newpipe_out) {
+		gEngine.Con_Printf(S_ERROR "New rt.json doesn't define an 'dest' output texture\n");
+		goto fail;
+	}
+
+	// Loading successful
+	// Update refcounts
+	for (int i = 0; i < newpipe->resources_count; ++i) {
+		const vk_meatpipe_resource_t *mr = newpipe->resources + i;
+		const int index = findResource(mr->name);
+		ASSERT(index >= 0);
+		ASSERT(index < MAX_RESOURCES);
+		rt_resource_t *const res = g_rtx.res + index;
+		res->refcount++;
+	}
+
+	destroyMainpipe();
+
+	// TODO currently changing texture format is not handled. It will try to reuse existing image with the old format
+	// which will probably fail. To handle it we'd need to refactor this:
+	// 1. xvk_image_t should have a field with its current format? (or we'd also store if with the resource here)
+	// 2. do another loop here to detect format mismatch and recreate.
+
+	g_rtx.mainpipe = newpipe;
+	g_rtx.mainpipe_resources = newpipe_resources;
+	g_rtx.mainpipe_out = newpipe_out;
+
+	return;
+
+fail:
+	cleanupResources();
+
+	if (newpipe_resources)
+		Mem_Free(newpipe_resources);
+
+	R_VkMeatpipeDestroy(newpipe);
+}
+
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
 	const VkCommandBuffer cmdbuf = args->cmdbuf;
-	const xvk_ray_frame_images_t* current_frame = g_rtx.frames + (g_rtx.frame_number % 2);
+	// const xvk_ray_frame_images_t* current_frame = g_rtx.frames + (g_rtx.frame_number % 2);
 
 	ASSERT(vk_core.rtx);
 	// ubo should contain two matrices
@@ -297,20 +474,18 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 		gEngine.Con_Printf(S_WARN "Reloading RTX shaders/pipelines\n");
 		XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
 
-		vk_meatpipe_t newpipe;
-		if (R_VkMeatpipeLoad(&newpipe, "rt.meat")) {
-			R_VkMeatpipeDestroy(&g_rtx.mainpipe);
-			g_rtx.mainpipe = newpipe;
-		}
+		reloadMainpipe();
 
 		g_rtx.reload_pipeline = false;
 	}
+
+	ASSERT(g_rtx.mainpipe_out);
 
 	if (g_ray_model_state.frame.num_models == 0) {
 		const r_vkimage_blit_args blit_args = {
 			.in_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
 			.src = {
-				.image = current_frame->denoised.image,
+				.image = g_rtx.mainpipe_out->image.image,
 				.width = FRAME_WIDTH,
 				.height = FRAME_HEIGHT,
 				.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -325,13 +500,12 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			},
 		};
 
-		R_VkImageClear( cmdbuf, current_frame->denoised.image );
+		R_VkImageClear( cmdbuf, g_rtx.mainpipe_out->image.image );
 		R_VkImageBlit( cmdbuf, &blit_args );
 	} else {
 		const perform_tracing_args_t trace_args = {
 			.render_args = args,
 			.frame_index = (g_rtx.frame_number % 2),
-			.current_frame = current_frame,
 			.fov_angle_y = args->fov_angle_y,
 			.light_bindings = &light_bindings,
 		};
@@ -359,7 +533,23 @@ qboolean VK_RayInit( void )
 	if (!RT_VkAccelInit())
 		return false;
 
-	ASSERT(R_VkMeatpipeLoad(&g_rtx.mainpipe, "rt.meat"));
+#define REGISTER_EXTERNAL(type, name_) \
+	Q_strncpy(g_rtx.res[ExternalResource_##name_].name, #name_, sizeof(g_rtx.res[0].name)); \
+	g_rtx.res[ExternalResource_##name_].refcount = 1;
+	EXTERNAL_RESOUCES(REGISTER_EXTERNAL)
+#undef REGISTER_EXTERNAL
+
+	g_rtx.res[ExternalResource_textures].resource = (vk_resource_t){
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.value = (vk_descriptor_value_t){
+			.image_array = tglob.dii_all_textures,
+		}
+	};
+	g_rtx.res[ExternalResource_textures].refcount = 1;
+
+	reloadMainpipe();
+	if (!g_rtx.mainpipe)
+		return false;
 
 	g_rtx.uniform_unit_size = ALIGN_UP(sizeof(struct UniformBuffer), vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
@@ -378,47 +568,6 @@ qboolean VK_RayInit( void )
 	}
 	RT_RayModel_Clear();
 
-	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
-#define CREATE_GBUFFER_IMAGE(name, format_, add_usage_bits) \
-		do { \
-			char debug_name[64]; \
-			const xvk_image_create_t create = { \
-				.debug_name = debug_name, \
-				.width = FRAME_WIDTH, \
-				.height = FRAME_HEIGHT, \
-				.mips = 1, \
-				.layers = 1, \
-				.format = format_, \
-				.tiling = VK_IMAGE_TILING_OPTIMAL, \
-				.usage = VK_IMAGE_USAGE_STORAGE_BIT | add_usage_bits, \
-				.has_alpha = true, \
-				.is_cubemap = false, \
-			}; \
-			Q_snprintf(debug_name, sizeof(debug_name), "rtx frames[%d] " # name, i); \
-			g_rtx.frames[i].name = XVK_ImageCreate(&create); \
-		} while(0)
-
-		CREATE_GBUFFER_IMAGE(denoised, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-
-#define rgba8 VK_FORMAT_R8G8B8A8_UNORM
-#define rgba32f VK_FORMAT_R32G32B32A32_SFLOAT
-#define rgba16f VK_FORMAT_R16G16B16A16_SFLOAT
-#define X(index, name, format) CREATE_GBUFFER_IMAGE(name, format, 0);
-// TODO better format for normals VK_FORMAT_R16G16B16A16_SNORM
-// TODO make sure this format and usage is suppported
-		RAY_PRIMARY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
-#undef X
-#undef rgba8
-#undef rgba32f
-#undef rgba16f
-		CREATE_GBUFFER_IMAGE(diffuse_gi, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
-		CREATE_GBUFFER_IMAGE(specular, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
-		CREATE_GBUFFER_IMAGE(additive, VK_FORMAT_R16G16B16A16_SFLOAT, 0);
-#undef CREATE_GBUFFER_IMAGE
-	}
-
 	gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
 	gEngine.Cmd_AddCommand("vk_rtx_reload_rad", reloadLighting, "Reload RAD files for static lights");
 	gEngine.Cmd_AddCommand("vk_rtx_freeze", freezeModels, "Freeze models, do not update/add/delete models from to-draw list");
@@ -429,24 +578,7 @@ qboolean VK_RayInit( void )
 void VK_RayShutdown( void ) {
 	ASSERT(vk_core.rtx);
 
-	R_VkMeatpipeDestroy(&g_rtx.mainpipe);
-
-	/* RayPassDestroy(g_rtx.pass.denoiser); */
-	/* RayPassDestroy(g_rtx.pass.light_direct_poly); */
-	/* RayPassDestroy(g_rtx.pass.light_direct_point); */
-	/* RayPassDestroy(g_rtx.pass.primary_ray); */
-
-	for (int i = 0; i < ARRAYSIZE(g_rtx.frames); ++i) {
-		XVK_ImageDestroy(&g_rtx.frames[i].denoised);
-#define X(index, name, ...) XVK_ImageDestroy(&g_rtx.frames[i].name);
-		RAY_PRIMARY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POLY_OUTPUTS(X)
-		RAY_LIGHT_DIRECT_POINT_OUTPUTS(X)
-#undef X
-		XVK_ImageDestroy(&g_rtx.frames[i].diffuse_gi);
-		XVK_ImageDestroy(&g_rtx.frames[i].specular);
-		XVK_ImageDestroy(&g_rtx.frames[i].additive);
-	}
+	destroyMainpipe();
 
 	VK_BufferDestroy(&g_ray_model_state.kusochki_buffer);
 	VK_BufferDestroy(&g_rtx.uniform_buffer);

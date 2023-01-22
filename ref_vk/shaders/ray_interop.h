@@ -34,6 +34,7 @@
 
 #ifndef GLSL
 #include "xash3d_types.h"
+#include "vk_const.h"
 #define MAX_EMISSIVE_KUSOCHKI 256
 #define uint uint32_t
 #define vec2 vec2_t
