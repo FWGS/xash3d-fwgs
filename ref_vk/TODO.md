@@ -1,7 +1,9 @@
 # Real next
 >=E222
-  - [ ] refcount meatpipe created images
-  - [ ] rake yuri primary ray
+	- [x] refcount meatpipe created images
+	- [ ] previous frame resources reference
+	- [ ] what if new meatpipe has different image format for a creatable image?
+	- [ ] rake yuri primary ray
 	- [ ] resource management refactoring:
 		- [ ] register existing resources (tlas, buffers, temp images, ...) in their producers
 		- [ ] resource automatic resolution: prducing, barriers, etc

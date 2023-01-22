@@ -433,6 +433,11 @@ static void reloadMainpipe(void) {
 
 	destroyMainpipe();
 
+	// TODO currently changing texture format is not handled. It will try to reuse existing image with the old format
+	// which will probably fail. To handle it we'd need to refactor this:
+	// 1. xvk_image_t should have a field with its current format? (or we'd also store if with the resource here)
+	// 2. do another loop here to detect format mismatch and recreate.
+
 	g_rtx.mainpipe = newpipe;
 	g_rtx.mainpipe_resources = newpipe_resources;
 	g_rtx.mainpipe_out = newpipe_out;
