@@ -1,7 +1,5 @@
 # Real next
->=E222
-- [x] refcount meatpipe created images
-- [x] rake yuri primary ray
+>=E223
 - [ ] previous frame resources reference
 - [ ] what if new meatpipe has different image format for a creatable image?
 
@@ -496,3 +494,7 @@
 - [x] automatic creation of resources
 	- [x] images
 	- [-] buffers -- no immediate need for that
+
+# 2023-01-22 E222
+- [x] refcount meatpipe created images
+- [x] rake yuri primary ray
