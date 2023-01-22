@@ -1,3 +1,5 @@
+#ifndef RT_GEOMETRY_GLSL_INCLUDED
+#define RT_GEOMETRY_GLSL_INCLUDED
 #include "utils.glsl"
 
 // Taken from Journal of Computer Graphics Techniques, Vol. 10, No. 1, 2021.
@@ -51,22 +53,38 @@ struct Geometry {
 	int kusok_index;
 };
 
-Geometry readHitGeometry() {
+#ifdef RAY_QUERY
+Geometry readHitGeometry(rayQueryEXT rq, float ray_cone_width, vec2 bary) {
+	const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
+	const int geometry_index = rayQueryGetIntersectionGeometryIndexEXT(rq, true);
+	const int primitive_index = rayQueryGetIntersectionPrimitiveIndexEXT(rq, true);
+	const mat4x3 objectToWorld = rayQueryGetIntersectionObjectToWorldEXT(rq, true);
+	const vec3 ray_direction = rayQueryGetWorldRayDirectionEXT(rq);
+	const float hit_t = rayQueryGetIntersectionTEXT(rq, true);
+#else
+Geometry readHitGeometry(vec2 bary, float ray_cone_width) {
+	const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
+	const int geometry_index = gl_GeometryIndexEXT;
+	const int primitive_index = gl_PrimitiveID;
+	const mat4x3 objectToWorld = gl_ObjectToWorldEXT;
+	const vec3 ray_direction = gl_WorldRayDirectionEXT;
+	const float hit_t = gl_HitTEXT;
+#endif
+
 	Geometry geom;
 
-	const int instance_kusochki_offset = gl_InstanceCustomIndexEXT;
-	geom.kusok_index = instance_kusochki_offset + gl_GeometryIndexEXT;
+	geom.kusok_index = instance_kusochki_offset + geometry_index;
 	const Kusok kusok = getKusok(geom.kusok_index);
 
-	const uint first_index_offset = kusok.index_offset + gl_PrimitiveID * 3;
+	const uint first_index_offset = kusok.index_offset + primitive_index * 3;
 	const uint vi1 = uint(getIndex(first_index_offset+0)) + kusok.vertex_offset;
 	const uint vi2 = uint(getIndex(first_index_offset+1)) + kusok.vertex_offset;
 	const uint vi3 = uint(getIndex(first_index_offset+2)) + kusok.vertex_offset;
 
 	const vec3 pos[3] = {
-		gl_ObjectToWorldEXT * vec4(getVertex(vi1).pos, 1.f),
-		gl_ObjectToWorldEXT * vec4(getVertex(vi2).pos, 1.f),
-		gl_ObjectToWorldEXT * vec4(getVertex(vi3).pos, 1.f),
+		objectToWorld * vec4(getVertex(vi1).pos, 1.f),
+		objectToWorld * vec4(getVertex(vi2).pos, 1.f),
+		objectToWorld * vec4(getVertex(vi3).pos, 1.f),
 	};
 
 	const vec2 uvs[3] = {
@@ -83,7 +101,7 @@ Geometry readHitGeometry() {
 	geom.normal_geometry = normalize(cross(pos[2]-pos[0], pos[1]-pos[0]));
 
 	// NOTE: only support rotations, for arbitrary transform would need to do transpose(inverse(mat3(gl_ObjectToWorldEXT)))
-	const mat3 normalTransform = mat3(gl_ObjectToWorldEXT);
+	const mat3 normalTransform = mat3(objectToWorld); // mat3(gl_ObjectToWorldEXT);
 	geom.normal_shading = normalize(normalTransform * baryMix(
 		getVertex(vi1).normal,
 		getVertex(vi2).normal,
@@ -95,7 +113,8 @@ Geometry readHitGeometry() {
 		getVertex(vi3).tangent,
 		bary));
 
-	geom.uv_lods = computeAnisotropicEllipseAxes(geom.pos, geom.normal_geometry, gl_WorldRayDirectionEXT, ubo.ubo.ray_cone_width * gl_HitTEXT, pos, uvs, geom.uv);
+	geom.uv_lods = computeAnisotropicEllipseAxes(geom.pos, geom.normal_geometry, ray_direction, ray_cone_width * hit_t, pos, uvs, geom.uv);
 
 	return geom;
 }
+#endif // RT_GEOMETRY_GLSL_INCLUDED

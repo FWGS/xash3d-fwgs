@@ -1,6 +1,6 @@
 {
-
 	"primary_ray": {
+		/*
 		"rgen": "ray_primary",
 		"miss": [
 			"ray_primary"
@@ -9,6 +9,8 @@
 			{"closest": "ray_primary"},
 			{"closest": "ray_primary", "any": "ray_common_alphatest"}
 		]
+		*/
+		"comp": "ray_primary"
 	},
 //	"light_direct": {
 //		"template": true,
@@ -35,5 +37,6 @@
 	},
 	"denoiser": {
 		"comp": "denoiser"
-	}
+	},
+	//"RESOURCES": { "position_t_prev": { "previous_frame": "position_t" }, },
 }
