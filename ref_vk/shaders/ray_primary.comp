@@ -55,4 +55,5 @@ void main() {
 	imageStore(out_normals_gs, pix, payload.normals_gs);
 	imageStore(out_material_rmxx, pix, payload.material_rmxx);
 	imageStore(out_emissive, pix, payload.emissive);
+	imageStore(out_prev_position_t, pix, payload.prev_pos_t);
 }

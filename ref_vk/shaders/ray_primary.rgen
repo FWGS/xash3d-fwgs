@@ -41,4 +41,5 @@ void main() {
 	imageStore(out_normals_gs, ivec2(gl_LaunchIDEXT.xy), payload.normals_gs);
 	imageStore(out_material_rmxx, ivec2(gl_LaunchIDEXT.xy), payload.material_rmxx);
 	imageStore(out_emissive, ivec2(gl_LaunchIDEXT.xy), payload.emissive);
+	imageStore(out_prev_position_t, ivec2(gl_LaunchIDEXT.xy), payload.prev_pos_t);
 }

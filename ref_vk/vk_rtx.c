@@ -156,6 +156,13 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 	Matrix4x4_Invert_Full(view_inv, *args->view);
 	Matrix4x4_ToArrayFloatGL(view_inv, (float*)ubo->inv_view);
 
+	// last frame matrices
+	static matrix4x4 prev_inv_proj, prev_inv_view;
+	Matrix4x4_ToArrayFloatGL(prev_inv_proj, (float*)ubo->prev_inv_proj);
+	Matrix4x4_ToArrayFloatGL(prev_inv_view, (float*)ubo->prev_inv_view);
+	Matrix4x4_Copy(prev_inv_view, view_inv);
+	Matrix4x4_Copy(prev_inv_proj, proj_inv);
+
 	ubo->ray_cone_width = atanf((2.0f*tanf(DEG2RAD(fov_angle_y) * 0.5f)) / (float)FRAME_HEIGHT);
 	ubo->random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX);
 }
