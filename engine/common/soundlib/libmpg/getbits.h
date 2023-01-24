@@ -47,6 +47,10 @@ static uint getbits( mpg123_handle_t *fr, int number_of_bits )
 {
 	ulong	rval;
 
+	if( (long)(fr->wordpointer-fr->bsbuf)*8
+	    + fr->bitindex+number_of_bits > (long)fr->framesize*8 )
+		return 0;
+
 	rval = fr->wordpointer[0];
 	rval <<= 8;
 	rval |= fr->wordpointer[1];
