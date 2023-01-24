@@ -560,9 +560,10 @@ qboolean Con_FixedFont( void )
 	return false;
 }
 
-static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
+qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags )
 {
-	int	i, fontWidth;
+	int fontWidth;
+	int i;
 
 	if( font->valid )
 		return true; // already loaded
@@ -570,13 +571,12 @@ static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	// keep source to print directly into conback image
-	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_KEEP_SOURCE );
+	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, texFlags );
 	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
 
 	if( font->hFontTexture && fontWidth != 0 )
 	{
-		font->charHeight = fontWidth / 16 * con_fontscale->value;
+		font->charHeight = fontWidth / 16 * scale;
 		font->type = FONT_FIXED;
 
 		// build fixed rectangles
@@ -586,7 +586,7 @@ static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
 			font->fontRc[i].right = font->fontRc[i].left + fontWidth / 16;
 			font->fontRc[i].top = (i / 16) * (fontWidth / 16);
 			font->fontRc[i].bottom = font->fontRc[i].top + fontWidth / 16;
-			font->charWidths[i] = fontWidth / 16 * con_fontscale->value;
+			font->charWidths[i] = fontWidth / 16 * scale;
 		}
 		font->valid = true;
 	}
@@ -594,12 +594,13 @@ static qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font )
 	return true;
 }
 
-static qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font )
+qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags )
 {
-	int	i, fontWidth;
-	byte	*buffer;
 	fs_offset_t	length;
-	qfont_t	*src;
+	qfont_t *src;
+	byte *buffer;
+	int fontWidth;
+	int i;
 
 	if( font->valid )
 		return true; // already loaded
@@ -607,7 +608,7 @@ static qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font
 	if( !FS_FileExists( fontname, false ))
 		return false;
 
-	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_FONT|TF_NEAREST );
+	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, texFlags );
 	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
 
 	// setup consolefont
@@ -619,7 +620,7 @@ static qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font
 		if( buffer && length >= sizeof( qfont_t ))
 		{
 			src = (qfont_t *)buffer;
-			font->charHeight = src->rowheight * con_fontscale->value;
+			font->charHeight = src->rowheight * scale;
 			font->type = FONT_VARIABLE;
 
 			// build rectangles
@@ -629,7 +630,7 @@ static qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font
 				font->fontRc[i].right = font->fontRc[i].left + src->fontinfo[i].charwidth;
 				font->fontRc[i].top = (word)src->fontinfo[i].startoffset / fontWidth;
 				font->fontRc[i].bottom = font->fontRc[i].top + src->rowheight;
-				font->charWidths[i] = src->fontinfo[i].charwidth * con_fontscale->value;
+				font->charWidths[i] = src->fontinfo[i].charwidth * scale;
 			}
 			font->valid = true;
 		}
@@ -648,32 +649,45 @@ INTERNAL RESOURCE
 */
 static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 {
-	const char *path = NULL;
-	dword crc = 0;
+	qboolean success = false;
 
-	if( font->valid ) return; // already loaded
-
-	// replace default fonts.wad textures by current charset's font
-	if( !CRC32_File( &crc, "fonts.wad" ) || crc == 0x3c0a0029 )
-	{
-		const char *path2 = va("font%i_%s.fnt", fontNumber, Cvar_VariableString( "con_charset" ) );
-		if( FS_FileExists( path2, false ) )
-			path = path2;
-	}
+	if( font->valid )
+		return; // already loaded
 
 	// loading conchars
 	if( Sys_CheckParm( "-oldfont" ))
-		Con_LoadVariableWidthFont( "gfx/conchars.fnt", font );
+	{
+		success = Con_LoadVariableWidthFont( "gfx/conchars.fnt", font, con_fontscale->value, TF_FONT|TF_NEAREST );
+	}
 	else
 	{
-		if( !path )
-			path = va( "fonts/font%i", fontNumber );
+		string path;
+		dword crc = 0;
 
-		Con_LoadVariableWidthFont( path, font );
+		// replace default fonts.wad textures by current charset's font
+		if( !CRC32_File( &crc, "fonts.wad" ) || crc == 0x3c0a0029 )
+		{
+			if( Q_snprintf( path, sizeof( path ),
+				"font%i_%s.fnt", fontNumber, Cvar_VariableString( "con_charset" )) > 0 )
+			{
+				success = Con_LoadVariableWidthFont( path, font, con_fontscale->value, TF_FONT|TF_NEAREST );
+			}
+		}
+
+		if( !success )
+		{
+			Q_snprintf( path, sizeof( path ), "fonts/font%i", fontNumber );
+			success = Con_LoadVariableWidthFont( path, font, con_fontscale->value, TF_FONT|TF_NEAREST );
+		}
 	}
 
-	// quake fixed font as fallback
-	if( !font->valid ) Con_LoadFixedWidthFont( "gfx/conchars", font );
+	if( !success )
+	{
+		// quake fixed font as fallback
+		// keep source to print directly into conback image
+		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, con_fontscale->value, TF_FONT|TF_KEEP_SOURCE ))
+			Con_DPrintf( S_ERROR "failed to load console font\n" );
+	}
 }
 
 /*
@@ -2397,7 +2411,7 @@ void Con_RunConsole( void )
 			con.vislines = con.showlines;
 	}
 
-	if( FBitSet( con_charset->flags,   FCVAR_CHANGED ) ||
+	if( FBitSet( con_charset->flags,  FCVAR_CHANGED ) ||
 		FBitSet( con_fontscale->flags, FCVAR_CHANGED ) ||
 		FBitSet( con_fontnum->flags,   FCVAR_CHANGED ) ||
 		FBitSet( cl_charset->flags,    FCVAR_CHANGED ) )
@@ -2428,7 +2442,6 @@ void Con_RunConsole( void )
 		ClearBits( con_fontnum->flags,   FCVAR_CHANGED );
 		ClearBits( con_fontscale->flags, FCVAR_CHANGED );
 		ClearBits( cl_charset->flags,    FCVAR_CHANGED );
-
 	}
 }
 

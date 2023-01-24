@@ -1044,6 +1044,8 @@ void Con_Bottom( void );
 void Con_Top( void );
 void Con_PageDown( int lines );
 void Con_PageUp( int lines );
+qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags );
+qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags );
 
 //
 // s_main.c
