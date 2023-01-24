@@ -577,77 +577,6 @@ void SCR_UpdateScreen( void )
 	V_PostRender();
 }
 
-static qboolean SCR_LoadFixedWidthFont( const char *fontname )
-{
-	int	i, fontWidth;
-
-	if( cls.creditsFont.valid )
-		return true; // already loaded
-
-	if( !FS_FileExists( fontname, false ))
-		return false;
-
-	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_KEEP_SOURCE|TF_NEAREST );
-	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
-	cls.creditsFont.charHeight = clgame.scrInfo.iCharHeight = fontWidth / 16;
-	cls.creditsFont.type = FONT_FIXED;
-	cls.creditsFont.valid = true;
-
-	// build fixed rectangles
-	for( i = 0; i < 256; i++ )
-	{
-		cls.creditsFont.fontRc[i].left = (i * (fontWidth / 16)) % fontWidth;
-		cls.creditsFont.fontRc[i].right = cls.creditsFont.fontRc[i].left + fontWidth / 16;
-		cls.creditsFont.fontRc[i].top = (i / 16) * (fontWidth / 16);
-		cls.creditsFont.fontRc[i].bottom = cls.creditsFont.fontRc[i].top + fontWidth / 16;
-		cls.creditsFont.charWidths[i] = clgame.scrInfo.charWidths[i] = fontWidth / 16;
-	}
-
-	return true;
-}
-
-static qboolean SCR_LoadVariableWidthFont( const char *fontname )
-{
-	int	i, fontWidth;
-	byte	*buffer;
-	fs_offset_t	length;
-	qfont_t	*src;
-
-	if( cls.creditsFont.valid )
-		return true; // already loaded
-
-	if( !FS_FileExists( fontname, false ))
-		return false;
-
-	cls.creditsFont.hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, TF_IMAGE|TF_NEAREST );
-	R_GetTextureParms( &fontWidth, NULL, cls.creditsFont.hFontTexture );
-
-	// half-life font with variable chars witdh
-	buffer = FS_LoadFile( fontname, &length, false );
-
-	// setup creditsfont
-	if( buffer && length >= sizeof( qfont_t ))
-	{
-		src = (qfont_t *)buffer;
-		cls.creditsFont.charHeight = clgame.scrInfo.iCharHeight = src->rowheight;
-		cls.creditsFont.type = FONT_VARIABLE;
-
-		// build rectangles
-		for( i = 0; i < 256; i++ )
-		{
-			cls.creditsFont.fontRc[i].left = (word)src->fontinfo[i].startoffset % fontWidth;
-			cls.creditsFont.fontRc[i].right = cls.creditsFont.fontRc[i].left + src->fontinfo[i].charwidth;
-			cls.creditsFont.fontRc[i].top = (word)src->fontinfo[i].startoffset / fontWidth;
-			cls.creditsFont.fontRc[i].bottom = cls.creditsFont.fontRc[i].top + src->rowheight;
-			cls.creditsFont.charWidths[i] = clgame.scrInfo.charWidths[i] = src->fontinfo[i].charwidth;
-		}
-		cls.creditsFont.valid = true;
-	}
-	if( buffer ) Mem_Free( buffer );
-
-	return true;
-}
-
 /*
 ================
 SCR_LoadCreditsFont
@@ -657,6 +586,7 @@ INTERNAL RESOURCE
 */
 void SCR_LoadCreditsFont( void )
 {
+	cl_font_t *const font = &cls.creditsFont;
 	qboolean success = false;
 	dword crc = 0;
 
@@ -669,16 +599,27 @@ void SCR_LoadCreditsFont( void )
 			"creditsfont_%s.fnt", Cvar_VariableString( "con_charset" )) > 0 )
 		{
 			if( FS_FileExists( charsetFnt, false ))
-				success = SCR_LoadVariableWidthFont( charsetFnt );
+				success = Con_LoadVariableWidthFont( charsetFnt, font, 1.0f, TF_FONT );
 		}
 	}
 
-	if( !success && !SCR_LoadVariableWidthFont( "gfx/creditsfont.fnt" ))
+	if( !success && !Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, 1.0f, TF_FONT ))
 	{
-		if( !SCR_LoadFixedWidthFont( "gfx/conchars" ))
+		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, 1.0f, TF_FONT ))
 		{
 			Con_DPrintf( S_ERROR "failed to load HUD font\n" );
 		}
+	}
+
+	// copy font size for client.dll
+	if( success )
+	{
+		int i;
+
+		clgame.scrInfo.iCharHeight = cls.creditsFont.charHeight;
+
+		for( i = 0; i < ARRAYSIZE( cls.creditsFont.charWidths ); i++ )
+			clgame.scrInfo.charWidths[i] = cls.creditsFont.charWidths[i];
 	}
 }
 
