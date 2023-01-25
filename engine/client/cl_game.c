@@ -345,53 +345,43 @@ SPR_AdjustSize
 draw hudsprite routine
 ====================
 */
-static void SPR_AdjustSize( float *x, float *y, float *w, float *h )
+void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 {
 	float	xscale, yscale;
+
+	if( refState.width == clgame.scrInfo.iWidth && refState.height == clgame.scrInfo.iHeight )
+		return;
 
 	// scale for screen sizes
 	xscale = refState.width / (float)clgame.scrInfo.iWidth;
 	yscale = refState.height / (float)clgame.scrInfo.iHeight;
 
-	if( x ) *x *= xscale;
-	if( y ) *y *= yscale;
-	if( w ) *w *= xscale;
-	if( h ) *h *= yscale;
+	*x *= xscale;
+	*y *= yscale;
+	*w *= xscale;
+	*h *= yscale;
 }
 
-/*
-====================
-SPR_AdjustSize
-
-draw hudsprite routine
-====================
-*/
-static void SPR_AdjustSizei( int *x, int *y, int *w, int *h )
+void SPR_AdjustTexCoords( float width, float height, float *s1, float *t1, float *s2, float *t2 )
 {
-	float	xscale, yscale;
+	if( refState.width != clgame.scrInfo.iWidth )
+	{
+		// align to texel if scaling
+		*s1 += 0.5f;
+		*s2 -= 0.5f;
+	}
 
-	// scale for screen sizes
-	xscale = refState.width / (float)clgame.scrInfo.iWidth;
-	yscale = refState.height / (float)clgame.scrInfo.iHeight;
+	if( refState.height != clgame.scrInfo.iHeight )
+	{
+		// align to texel if scaling
+		*t1 += 0.5f;
+		*t2 -= 0.5f;
+	}
 
-	if( x ) *x *= xscale;
-	if( y ) *y *= yscale;
-	if( w ) *w *= xscale;
-	if( h ) *h *= yscale;
-}
-
-/*
-====================
-PictAdjustSize
-
-draw hudsprite routine
-====================
-*/
-void PicAdjustSize( float *x, float *y, float *w, float *h )
-{
-	if( !clgame.ds.adjust_size ) return;
-
-	SPR_AdjustSize( x, y, w, h );
+	*s1 /= width;
+	*t1 /= height;
+	*s2 /= width;
+	*t2 /= height;
 }
 
 static qboolean SPR_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
@@ -468,9 +458,7 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 
 	if( prc )
 	{
-		wrect_t	rc;
-
-		rc = *prc;
+		wrect_t	rc = *prc;
 
 		// Sigh! some stupid modmakers set wrong rectangles in hud.txt
 		if( rc.left <= 0 || rc.left >= width ) rc.left = 0;
@@ -478,11 +466,13 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 		if( rc.right <= 0 || rc.right > width ) rc.right = width;
 		if( rc.bottom <= 0 || rc.bottom > height ) rc.bottom = height;
 
+		s1 = rc.left;
+		t1 = rc.top;
+		s2 = rc.right;
+		t2 = rc.bottom;
+
 		// calc user-defined rectangle
-		s1 = (float)rc.left / width;
-		t1 = (float)rc.top / height;
-		s2 = (float)rc.right / width;
-		t2 = (float)rc.bottom / height;
+		SPR_AdjustTexCoords( width, height, &s1, &t1, &s2, &t2 );
 		width = rc.right - rc.left;
 		height = rc.bottom - rc.top;
 	}
@@ -950,13 +940,16 @@ draw loading progress bar
 */
 static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
 {
-	int	x, y, width, height, right;
+	float	x, y, width, height;
+	int iWidth, iHeight;
 
-	R_GetTextureParms( &width, &height, paused ? cls.pauseIcon : cls.loadingBar );
-	x = ( clgame.scrInfo.iWidth - width ) >> 1;
-	y = ( clgame.scrInfo.iHeight - height) >> 1;
+	R_GetTextureParms( &iWidth, &iHeight, paused ? cls.pauseIcon : cls.loadingBar );
+	x = ( clgame.scrInfo.iWidth - width ) / 2.0f;;
+	y = ( clgame.scrInfo.iHeight - height ) / 2.0f;
+	width = iWidth;
+	height = iHeight;
 
-	SPR_AdjustSizei( &x, &y, &width, &height );
+	SPR_AdjustSize( &x, &y, &width, &height );
 
 	if( !paused )
 	{
@@ -1169,10 +1162,6 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 	// it's hud sprite, make difference names to prevent free shared textures
 	if( type == SPR_CLIENT || type == SPR_HUDSPRITE )
 		SetBits( m_pSprite->flags, MODEL_CLIENT );
-
-	// force nearest filter for hud sprites to have less artifacts with hud_scale
-	if( type == SPR_HUDSPRITE )
-		SetBits( texFlags, TF_NEAREST );
 
 	m_pSprite->numtexinfo = texFlags; // store texFlags into numtexinfo
 
