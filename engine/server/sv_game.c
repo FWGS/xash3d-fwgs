@@ -2087,8 +2087,11 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 	}
 	else
 	{
-		// TESTTEST
-		if( *sample == '*' ) chan = CHAN_AUTO;
+		// '*' is special symbol to handle stream sounds
+		// (CHAN_VOICE but cannot be overriden)
+		// originally handled on client side
+		if( *sample == '*' )
+			chan = CHAN_STREAM;
 
 		// precache_sound can be used twice: cache sounds when loading
 		// and return sound index when server is active
