@@ -603,13 +603,11 @@ void SCR_LoadCreditsFont( void )
 		}
 	}
 
-	if( !success && !Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, 1.0f, TF_FONT ))
-	{
-		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, 1.0f, TF_FONT ))
-		{
-			Con_DPrintf( S_ERROR "failed to load HUD font\n" );
-		}
-	}
+	if( !success )
+		success = Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, 1.0f, TF_FONT );
+
+	if( !success )
+		success = Con_LoadFixedWidthFont( "gfx/conchars", font, 1.0f, TF_FONT );
 
 	// copy font size for client.dll
 	if( success )
@@ -621,6 +619,7 @@ void SCR_LoadCreditsFont( void )
 		for( i = 0; i < ARRAYSIZE( cls.creditsFont.charWidths ); i++ )
 			clgame.scrInfo.charWidths[i] = cls.creditsFont.charWidths[i];
 	}
+	else Con_DPrintf( S_ERROR "failed to load HUD font\n" );
 }
 
 /*
