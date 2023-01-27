@@ -24,17 +24,7 @@ void SND_InitMouth( int entnum, int entchannel )
 {
 	if(( entchannel == CHAN_VOICE || entchannel == CHAN_STREAM ) && entnum > 0 )
 	{
-		cl_entity_t	*clientEntity;
-
-		// init mouth movement vars
-		clientEntity = CL_GetEntityByIndex( entnum );
-
-		if( clientEntity )
-		{
-			clientEntity->mouth.mouthopen = 0;
-			clientEntity->mouth.sndcount = 0;
-			clientEntity->mouth.sndavg = 0;
-		}
+		SND_ForceInitMouth( entnum );
 	}
 }
 
@@ -42,15 +32,7 @@ void SND_CloseMouth( channel_t *ch )
 {
 	if( ch->entchannel == CHAN_VOICE || ch->entchannel == CHAN_STREAM )
 	{
-		cl_entity_t	*clientEntity;
-
-		clientEntity = CL_GetEntityByIndex( ch->entnum );
-
-		if( clientEntity )
-		{
-			// shut mouth
-			clientEntity->mouth.mouthopen = 0;
-		}
+		SND_ForceCloseMouth( ch->entnum );
 	}
 }
 
@@ -157,7 +139,7 @@ void SND_ForceInitMouth( int entnum )
 
 	clientEntity = CL_GetEntityByIndex( entnum );
 
-	if ( clientEntity )
+	if( clientEntity )
 	{
 		clientEntity->mouth.mouthopen = 0;
 		clientEntity->mouth.sndavg = 0;
@@ -171,7 +153,7 @@ void SND_ForceCloseMouth( int entnum )
 
 	clientEntity = CL_GetEntityByIndex( entnum );
 
-	if ( clientEntity )
+	if( clientEntity )
 		clientEntity->mouth.mouthopen = 0;
 }
 
