@@ -471,6 +471,23 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 
 /*
 ============
+Cvar_Getf
+============
+*/
+convar_t *Cvar_Getf( const char *var_name, int flags, const char *description, const char *format, ... )
+{
+	char value[MAX_VA_STRING];
+	va_list args;
+
+	va_start( args, format );
+	Q_vsnprintf( value, sizeof( value ), format, args );
+	va_end( args );
+
+	return Cvar_Get( var_name, value, flags, description );
+}
+
+/*
+============
 Cvar_RegisterVariable
 
 Adds a freestanding variable to the variable list.
