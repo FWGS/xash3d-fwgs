@@ -496,3 +496,16 @@ qboolean Info_SetValueForKey( char *s, const char *key, const char *value, int m
 
 	return Info_SetValueForStarKey( s, key, value, maxsize );
 }
+
+qboolean Info_SetValueForKeyf( char *s, const char *key, int maxsize, const char *format, ... )
+{
+	char value[MAX_VA_STRING];
+	va_list args;
+
+	va_start( args, format );
+	Q_vsnprintf( value, sizeof( value ), format, args );
+	va_end( args );
+
+	return Info_SetValueForKey( s, key, value, maxsize );
+}
+
