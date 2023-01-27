@@ -621,7 +621,7 @@ void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate )
 
 		ch->pitch *= ( sys_timescale.value + 1 ) / 2;
 
-		if( CL_GetEntityByIndex( ch->entnum ) && ( ch->entchannel == CHAN_VOICE ))
+		if( CL_GetEntityByIndex( ch->entnum ) && ( ch->entchannel == CHAN_VOICE || ch->entchannel == CHAN_STREAM ))
 		{
 			if( pSource->width == 1 )
 				SND_MoveMouth8( ch, pSource, sampleCount );
