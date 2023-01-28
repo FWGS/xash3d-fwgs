@@ -7,6 +7,7 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, rgba16f) uniform image2D out_dest;
+layout(set = 0, binding = 9, rgba16f) uniform readonly image2D prev_dest;
 
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D base_color_a;
 
@@ -203,6 +204,9 @@ void main() {
 #if 0
 	}
 #endif
+
+	const vec4 prev_colour = imageLoad(prev_dest, pix);
+	colour = mix(colour, prev_colour.rgb, vec3(.9));
 
 	imageStore(out_dest, pix, vec4(colour, 0.));
 	//imageStore(out_dest, pix, imageLoad(light_poly, pix));

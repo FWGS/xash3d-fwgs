@@ -495,19 +495,25 @@ class Binding:
 	STAGE_MESH_BIT_NV = 0x00000080
 	STAGE_SUBPASS_SHADING_BIT_HUAWEI = 0x00004000
 
+	# TODO same values for meatpipe.c too
 	WRITE_BIT = 0x80000000
+	CREATE_BIT = 0x40000000
 
 	def __init__(self, node):
 		self.write = node.name.startswith('out_')
+		self.create = self.write
 		self.index = node.binding
 		self.descriptor_set = node.descriptor_set
 		self.stages = 0
 
 		prev_name = removeprefix(node.name, 'prev_') if node.name.startswith('prev_') else None
-		prev_resource_index = resources.getIndex(self.prev, None) if prev_name else None
+		prev_resource_index = resources.getIndex(prev_name, None) if prev_name else None
 
 		resource_name = removeprefix(node.name, 'out_') if self.write else node.name
 		self.__resource_index = resources.getIndex(resource_name, node, prev_resource_index)
+
+		if prev_resource_index is not None:
+			self.create = True
 
 		assert(self.descriptor_set >= 0)
 		assert(self.descriptor_set < 255)
@@ -541,7 +547,11 @@ class Binding:
 		return self.__str__()
 
 	def serialize(self, out):
-		header = (Binding.WRITE_BIT if self.write else 0) | (self.descriptor_set << 8) | self.index
+		header = (self.descriptor_set << 8) | self.index
+		if self.write:
+			header |= Binding.WRITE_BIT
+		if self.create:
+			header |= Binding.CREATE_BIT
 		out.writeU32(header)
 		out.writeU32(resources.getMappedIndex(self.__resource_index))
 		out.writeU32(self.stages)
