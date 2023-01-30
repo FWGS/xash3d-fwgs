@@ -25,7 +25,7 @@ Image_LoadBMP
 qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	byte	*buf_p, *pixbuf;
-	rgba_t	palette[256];
+	rgba_t	palette[256] = { 0 };
 	int	i, columns, column, rows, row, bpp = 1;
 	int	cbPalBytes = 0, padSize = 0, bps = 0;
 	int	reflectivity[3] = { 0, 0, 0 };
