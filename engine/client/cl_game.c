@@ -938,31 +938,21 @@ CL_DrawLoading
 draw loading progress bar
 =============
 */
-static void CL_DrawLoadingOrPaused( qboolean paused, float percent )
+static void CL_DrawLoadingOrPaused( int tex )
 {
 	float	x, y, width, height;
 	int iWidth, iHeight;
 
-	R_GetTextureParms( &iWidth, &iHeight, paused ? cls.pauseIcon : cls.loadingBar );
-	x = ( clgame.scrInfo.iWidth - width ) / 2.0f;;
-	y = ( clgame.scrInfo.iHeight - height ) / 2.0f;
+	R_GetTextureParms( &iWidth, &iHeight, tex );
+	x = ( clgame.scrInfo.iWidth - iWidth ) / 2.0f;
+	y = ( clgame.scrInfo.iHeight - iHeight ) / 2.0f;
 	width = iWidth;
 	height = iHeight;
 
 	SPR_AdjustSize( &x, &y, &width, &height );
-
-	if( !paused )
-	{
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.loadingBar );
-	}
-	else
-	{
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, cls.pauseIcon );
-	}
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, tex );
 }
 
 void CL_DrawHUD( int state )
@@ -988,15 +978,15 @@ void CL_DrawHUD( int state )
 		CL_DrawCrosshair ();
 		CL_DrawCenterPrint ();
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
-		CL_DrawLoadingOrPaused( true, 0.0f );
+		CL_DrawLoadingOrPaused( cls.pauseIcon );
 		break;
 	case CL_LOADING:
-		CL_DrawLoadingOrPaused( false, scr_loading->value );
+		CL_DrawLoadingOrPaused( cls.loadingBar );
 		break;
 	case CL_CHANGELEVEL:
 		if( cls.draw_changelevel )
 		{
-			CL_DrawLoadingOrPaused( false, 100.0f );
+			CL_DrawLoadingOrPaused( cls.loadingBar );
 			cls.draw_changelevel = false;
 		}
 		break;
