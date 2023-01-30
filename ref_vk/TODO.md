@@ -1,6 +1,5 @@
 # Real next
 >=E223
-- [ ] previous frame resources reference
 - [ ] what if new meatpipe has different image format for a creatable image?
 
 # Programmable render
@@ -498,3 +497,14 @@
 # 2023-01-22 E222
 - [x] refcount meatpipe created images
 - [x] rake yuri primary ray
+
+# 2023-01-28 E223
+- [x] previous frame resources reference
+		- specification:
+			- [x] I: prev_ -> resource flag + pair index
+			- [ ] II: new section in json
+		- internals:
+			- [x] I: create a new image for prev_, track its source; swap them each frame
+						Result is meh: too much indirection, hard to follow, many things need manual fragile updates.
+			- [ ] II: create tightly coupled image pair[2], read from [frame%2] write to [frame%2+1]
+			- [ ] III: like (I) but with more general resource management: i.e. resource object for prev_ points to its source

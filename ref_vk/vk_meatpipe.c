@@ -190,7 +190,9 @@ static qboolean readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *
 		vk_meatpipe_resource_t *res = ctx->meatpipe.resources + res_index;
 
 #define BINDING_WRITE_BIT 0x80000000u
+#define BINDING_CREATE_BIT 0x40000000u
 		const qboolean write = !!(header & BINDING_WRITE_BIT);
+		const qboolean create = !!(header & BINDING_CREATE_BIT);
 		const uint32_t descriptor_set = (header >> 8) & 0xffu;
 		const uint32_t binding = header & 0xffu;
 
@@ -216,7 +218,10 @@ static qboolean readBindings(load_context_t *ctx, VkDescriptorSetLayoutBinding *
 		pass->resource_map[i] = res_index;
 
 		if (write)
-			res->flags |= MEATPIPE_RES_WRITE | MEATPIPE_RES_CREATE; // TODO distinguish between write and create
+			res->flags |= MEATPIPE_RES_WRITE;
+
+		if (create)
+			res->flags |= MEATPIPE_RES_CREATE;
 
 		gEngine.Con_Reportf("Binding %d: %s ds=%d b=%d s=%08x res=%d type=%d write=%d\n",
 			i, name, descriptor_set, binding, stages, res_index, res->descriptor_type, write);
@@ -299,6 +304,7 @@ static qboolean readResources(load_context_t *ctx) {
 
 		if (is_image) {
 			res->image_format = READ_U32("Couldn't read image format for res %d:%s", i, res->name);
+			res->prev_frame_index_plus_1 = READ_U32("Couldn't read resource %d:%s previous frame index", i, res->name);
 		}
 
 		gEngine.Con_Reportf("Resource %d:%s = %08x is_image=%d image_format=%08x count=%d\n",

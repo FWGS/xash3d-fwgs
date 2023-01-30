@@ -174,6 +174,9 @@ class TypeInfo:
 
 		return True
 
+	def __repr__(self):
+		return 'Type(type=%x is_image=%d image_format=%x count=%d)' % (self.type, self.is_image, self.image_format, self.count)
+
 	def serialize(self, out):
 		out.writeU32(self.type)
 		out.writeU32(self.count)
@@ -405,6 +408,9 @@ class NameIndex:
 		self.__name_to_index[name] = index
 		return index
 
+	def __iter__(self):
+		return iter(self.__all)
+
 	def serialize(self, out):
 		out.writeArray(self.__all)
 
@@ -412,34 +418,77 @@ class NameIndex:
 class Resources:
 	def __init__(self):
 		self.__storage = NameIndex()
+		self.__map = None
 
-	def getIndex(self, name, node):
+	def getIndex(self, name, node, dependency = None):
 		index = self.__storage.getIndex(name)
 
 		if index >= 0:
 			res = self.__storage.getByIndex(index)
-			res.checkSameType(node)
+			res.checkSameTypeNode(node)
 			return index
 
-		return self.__storage.put(name, self.Resource(name, node))
+		return self.__storage.put(name, self.Resource(name, node, dependency))
+
+	def getMappedIndex(self, index):
+		return self.__map.get(index, index)
+
+	def __sortDependencies(self):
+		# We should sort only once at export time
+		assert(not self.__map)
+		self.__map = dict()
+
+		# We need to make sure that all the images that are referenced by their prev_ counterparts
+		# have been created (i.e. listed in resources) earlier than all the referencees
+		for i, r in enumerate(self.__storage):
+			dep = r.dependency
+			if not dep:
+				continue
+
+			# Cannot R/W the same resource
+			assert(dep != i)
+
+			# Check that their formats are congruent
+			depr = self.__storage.getByIndex(dep)
+			if depr.type != r.type:
+				raise Exception('Conflicting types for resource %s (%s) and %s (%s)' % (depr.name, depr.type, r.name, r.type))
+
+			if dep < i:
+				continue
+
+			# It is an error to have multiple entries for the same pair
+			assert(i not in self.__map)
+			assert(dep not in self.__map)
+
+			# Just swap their externally-referenced indexes, don't swap entries in the array itself
+			# This should be enough so that the writer index is less than the reader one
+			self.__map[i] = dep
+			self.__map[dep] = i
+			r.dependency = i
 
 	def serialize(self, out):
+		self.__sortDependencies()
 		self.__storage.serialize(out)
 
 	class Resource:
-		def __init__(self, name, node):
-			self.__name = name
-			self.__type = node.getType()
+		def __init__(self, name, node, dependency = None):
+			self.name = name
+			self.type = node.getType() if node else None
+			self.dependency = dependency
 
-			#TODO: count, etc
+		def checkSameTypeNode(self, node):
+			if not self.type:
+				self.type = node.getType()
+				return
 
-		def checkSameType(self, node):
-			if self.__type != node.getType():
-				raise Exception('Conflicting types for resource "%s": %s != %s' % (self.__name, self.__type, type))
+			if self.type != node.getType():
+				raise Exception('Conflicting types for resource "%s": %s != %s' % (self.name, self.type, type))
 
 		def serialize(self, out):
-			out.writeString(self.__name)
-			self.__type.serialize(out)
+			out.writeString(self.name)
+			self.type.serialize(out)
+			if self.type.is_image:
+				out.writeU32((self.dependency + 1) if self.dependency is not None else 0)
 
 resources = Resources()
 
@@ -462,17 +511,25 @@ class Binding:
 	STAGE_MESH_BIT_NV = 0x00000080
 	STAGE_SUBPASS_SHADING_BIT_HUAWEI = 0x00004000
 
+	# TODO same values for meatpipe.c too
 	WRITE_BIT = 0x80000000
+	CREATE_BIT = 0x40000000
 
 	def __init__(self, node):
 		self.write = node.name.startswith('out_')
+		self.create = self.write
 		self.index = node.binding
 		self.descriptor_set = node.descriptor_set
 		self.stages = 0
 
-		resource_name = removeprefix(node.name, 'out_')
-		self.__resource_index = resources.getIndex(resource_name, node)
+		prev_name = removeprefix(node.name, 'prev_') if node.name.startswith('prev_') else None
+		prev_resource_index = resources.getIndex(prev_name, None) if prev_name else None
 
+		resource_name = removeprefix(node.name, 'out_') if self.write else node.name
+		self.__resource_index = resources.getIndex(resource_name, node, prev_resource_index)
+
+		if prev_resource_index is not None:
+			self.create = True
 
 		assert(self.descriptor_set >= 0)
 		assert(self.descriptor_set < 255)
@@ -506,9 +563,13 @@ class Binding:
 		return self.__str__()
 
 	def serialize(self, out):
-		header = (Binding.WRITE_BIT if self.write else 0) | (self.descriptor_set << 8) | self.index
+		header = (self.descriptor_set << 8) | self.index
+		if self.write:
+			header |= Binding.WRITE_BIT
+		if self.create:
+			header |= Binding.CREATE_BIT
 		out.writeU32(header)
-		out.writeU32(self.__resource_index)
+		out.writeU32(resources.getMappedIndex(self.__resource_index))
 		out.writeU32(self.stages)
 
 class Shader:
