@@ -48,11 +48,6 @@ typedef struct sortedmesh_s
 	int		flags;			// face flags
 } sortedmesh_t;
 
-typedef struct {
-	matrix3x4		worldtransform[MAXSTUDIOBONES];
-	matrix4x4		prev_transform;
-} studio_entity_prev_state_t;
-
 typedef struct
 {
 	double		time;
