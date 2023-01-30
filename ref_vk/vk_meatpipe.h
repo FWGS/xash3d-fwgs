@@ -16,6 +16,9 @@ typedef struct {
 	union {
 		uint32_t image_format;
 	};
+
+	// If this image is supposed to be read from previous frame
+	int prev_frame_index;
 } vk_meatpipe_resource_t;
 
 struct vk_meatpipe_pass_s;
