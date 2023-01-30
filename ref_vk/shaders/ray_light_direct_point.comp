@@ -5,5 +5,7 @@
 #define RAY_QUERY
 
 #define LIGHT_POINT 1
-#define OUTPUTS RAY_LIGHT_DIRECT_POINT_OUTPUTS
+#define OUTPUTS(X) \
+	X(20, light_point_diffuse, rgba16f) \
+	X(21, light_point_specular, rgba16f)
 #include "ray_light_direct.glsl"

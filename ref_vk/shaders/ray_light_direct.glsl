@@ -7,6 +7,11 @@
 #include "ray_interop.h"
 #undef GLSL
 
+#define RAY_LIGHT_DIRECT_INPUTS(X) \
+	X(10, position_t, rgba32f) \
+	X(11, normals_gs, rgba16f) \
+	X(12, material_rmxx, rgba8) \
+
 #define X(index, name, format) layout(set=0,binding=index,format) uniform readonly image2D name;
 RAY_LIGHT_DIRECT_INPUTS(X)
 #undef X
