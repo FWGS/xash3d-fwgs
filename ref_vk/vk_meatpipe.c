@@ -304,7 +304,7 @@ static qboolean readResources(load_context_t *ctx) {
 
 		if (is_image) {
 			res->image_format = READ_U32("Couldn't read image format for res %d:%s", i, res->name);
-			res->prev_frame_index = READ_U32("Couldn't read resource %d:%s previous frame index", i, res->name);
+			res->prev_frame_index_plus_1 = READ_U32("Couldn't read resource %d:%s previous frame index", i, res->name);
 		}
 
 		gEngine.Con_Reportf("Resource %d:%s = %08x is_image=%d image_format=%08x count=%d\n",

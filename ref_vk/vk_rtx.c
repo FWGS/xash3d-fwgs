@@ -64,7 +64,7 @@ typedef struct {
 		vk_resource_t resource;
 		xvk_image_t image;
 		int refcount;
-		int source_index;
+		int source_index_plus_1;
 } rt_resource_t;
 
 static struct {
@@ -232,11 +232,11 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	// Transfer previous frames before they had a chance of their resource-barrier metadata overwritten (as there's no guaranteed order for them)
 	for (int i = ExternalResource_COUNT; i < MAX_RESOURCES; ++i) {
 		rt_resource_t* const res = g_rtx.res + i;
-		if (!res->name[0] || !res->image.image || res->source_index <= 0)
+		if (!res->name[0] || !res->image.image || res->source_index_plus_1 <= 0)
 			continue;
 
-		ASSERT(res->source_index <= COUNTOF(g_rtx.res));
-		rt_resource_t *const src = g_rtx.res + res->source_index - 1;
+		ASSERT(res->source_index_plus_1 <= COUNTOF(g_rtx.res));
+		rt_resource_t *const src = g_rtx.res + res->source_index_plus_1 - 1;
 
 		// Swap resources
 		const vk_resource_t tmp_res = res->resource;
@@ -262,7 +262,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 	// Clear intra-frame resources
 	for (int i = ExternalResource_COUNT; i < MAX_RESOURCES; ++i) {
 		rt_resource_t* const res = g_rtx.res + i;
-		if (!res->name[0] || !res->image.image || res->source_index > 0)
+		if (!res->name[0] || !res->image.image || res->source_index_plus_1 > 0)
 			continue;
 
 		res->resource.read = res->resource.write = (ray_resource_state_t){0};
@@ -307,6 +307,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 
 	// Update image resource links after the prev_-related swap above
 	// TODO Preserve the indexes somewhere to avoid searching
+	// FIXME I don't really get why we need this, the pointers should have been preserved ?!
 	for (int i = 0; i < g_rtx.mainpipe->resources_count; ++i) {
 		const vk_meatpipe_resource_t *mr = g_rtx.mainpipe->resources + i;
 		const int index = findResource(mr->name);
@@ -315,7 +316,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 		rt_resource_t *const res = g_rtx.res + index;
 		const qboolean create = !!(mr->flags & MEATPIPE_RES_CREATE);
 		if (create && mr->descriptor_type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-			//ASSERT(g_rtx.mainpipe_resources[i]->value.image_object == &res->image);
+			// THIS FAILS WHY?! ASSERT(g_rtx.mainpipe_resources[i]->value.image_object == &res->image);
 			g_rtx.mainpipe_resources[i]->value.image_object = &res->image;
 	}
 
@@ -347,6 +348,8 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 
 		R_VkImageBlit( cmdbuf, &blit_args );
 
+		// TODO this is to make sure we remember image layout after image_blit
+		// The proper way to do this would be to teach R_VkImageBlit to properly track the image metadata (i.e. vk_resource_t state)
 		g_rtx.mainpipe_out->resource.write.image_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	}
 	DEBUG_END(cmdbuf);
@@ -471,15 +474,15 @@ static void reloadMainpipe(void) {
 	// Resolve prev_ frame resources
 	for (int i = 0; i < newpipe->resources_count; ++i) {
 		const vk_meatpipe_resource_t *mr = newpipe->resources + i;
-		if (mr->prev_frame_index <= 0)
+		if (mr->prev_frame_index_plus_1 <= 0)
 			continue;
 
-		ASSERT(mr->prev_frame_index < newpipe->resources_count);
+		ASSERT(mr->prev_frame_index_plus_1 < newpipe->resources_count);
 
 		const int index = findResource(mr->name);
 		ASSERT(index >= 0);
 
-		const vk_meatpipe_resource_t *pr = newpipe->resources + (mr->prev_frame_index - 1);
+		const vk_meatpipe_resource_t *pr = newpipe->resources + (mr->prev_frame_index_plus_1 - 1);
 
 		const int dest_index = findResource(pr->name);
 		if (dest_index < 0) {
@@ -487,7 +490,7 @@ static void reloadMainpipe(void) {
 			goto fail;
 		}
 
-		g_rtx.res[index].source_index = dest_index + 1;
+		g_rtx.res[index].source_index_plus_1 = dest_index + 1;
 	}
 
 	// Loading successful

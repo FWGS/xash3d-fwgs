@@ -17,8 +17,9 @@ typedef struct {
 		uint32_t image_format;
 	};
 
-	// If this image is supposed to be read from previous frame
-	int prev_frame_index;
+	// Index+1 of resource image to read data from if this resource is a "previous frame" contents of another one.
+	// Value of zero means that it is a standalone resource. The real index is the value - 1.
+	int prev_frame_index_plus_1;
 } vk_meatpipe_resource_t;
 
 struct vk_meatpipe_pass_s;

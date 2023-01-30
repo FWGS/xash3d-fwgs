@@ -174,6 +174,9 @@ class TypeInfo:
 
 		return True
 
+	def __repr__(self):
+		return 'Type(type=%x is_image=%d image_format=%x count=%d)' % (self.type, self.is_image, self.image_format, self.count)
+
 	def serialize(self, out):
 		out.writeU32(self.type)
 		out.writeU32(self.count)
@@ -422,7 +425,7 @@ class Resources:
 
 		if index >= 0:
 			res = self.__storage.getByIndex(index)
-			res.checkSameType(node)
+			res.checkSameTypeNode(node)
 			return index
 
 		return self.__storage.put(name, self.Resource(name, node, dependency))
@@ -431,21 +434,34 @@ class Resources:
 		return self.__map.get(index, index)
 
 	def __sortDependencies(self):
+		# We should sort only once at export time
 		assert(not self.__map)
 		self.__map = dict()
 
+		# We need to make sure that all the images that are referenced by their prev_ counterparts
+		# have been created (i.e. listed in resources) earlier than all the referencees
 		for i, r in enumerate(self.__storage):
 			dep = r.dependency
 			if not dep:
 				continue
 
+			# Cannot R/W the same resource
 			assert(dep != i)
+
+			# Check that their formats are congruent
+			depr = self.__storage.getByIndex(dep)
+			if depr.type != r.type:
+				raise Exception('Conflicting types for resource %s (%s) and %s (%s)' % (depr.name, depr.type, r.name, r.type))
+
 			if dep < i:
 				continue
 
+			# It is an error to have multiple entries for the same pair
 			assert(i not in self.__map)
 			assert(dep not in self.__map)
 
+			# Just swap their externally-referenced indexes, don't swap entries in the array itself
+			# This should be enough so that the writer index is less than the reader one
 			self.__map[i] = dep
 			self.__map[dep] = i
 			r.dependency = i
@@ -456,22 +472,22 @@ class Resources:
 
 	class Resource:
 		def __init__(self, name, node, dependency = None):
-			self.__name = name
-			self.__type = node.getType() if node else None
+			self.name = name
+			self.type = node.getType() if node else None
 			self.dependency = dependency
 
-		def checkSameType(self, node):
-			if not self.__type:
-				self.__type = node.getType()
+		def checkSameTypeNode(self, node):
+			if not self.type:
+				self.type = node.getType()
 				return
 
-			if self.__type != node.getType():
-				raise Exception('Conflicting types for resource "%s": %s != %s' % (self.__name, self.__type, type))
+			if self.type != node.getType():
+				raise Exception('Conflicting types for resource "%s": %s != %s' % (self.name, self.type, type))
 
 		def serialize(self, out):
-			out.writeString(self.__name)
-			self.__type.serialize(out)
-			if self.__type.is_image:
+			out.writeString(self.name)
+			self.type.serialize(out)
+			if self.type.is_image:
 				out.writeU32((self.dependency + 1) if self.dependency is not None else 0)
 
 resources = Resources()
