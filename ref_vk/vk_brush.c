@@ -13,6 +13,7 @@
 #include "vk_geometry.h"
 #include "vk_light.h"
 #include "vk_mapents.h"
+#include "vk_previous_frame.h"
 
 #include "ref_params.h"
 #include "eiface.h"
@@ -32,16 +33,6 @@ static struct {
 
 	int rtable[MOD_FRAMES][MOD_FRAMES];
 } g_brush;
-
-
-#define MAX_BRUSH_ENTITIES_PREV_STATES 1024
-
-typedef struct {
-	matrix4x4 prev_model_transform;
-	float prev_time;
-} brush_entity_prev_state_t;
-
-static brush_entity_prev_state_t g_brush_prev_states[MAX_BRUSH_ENTITIES_PREV_STATES];
 
 void VK_InitRandomTable( void )
 {
@@ -101,10 +92,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	uint16_t *indices;
 	r_geometry_buffer_lock_t buffer;
 
-	if (ent->index < MAX_BRUSH_ENTITIES_PREV_STATES) {
-		prev_time = g_brush_prev_states[ent->index].prev_time;
-		g_brush_prev_states[ent->index].prev_time = time;
-	} else gEngine.Con_Printf(S_ERROR "Brush entities previous frame states pool is overflow, increase it. Index is %s\n", ent->index );
+	prev_time = R_PrevFrame_Time(ent->index);
 
 #define MAX_WATER_VERTICES 16
 	vk_vertex_t poly_vertices[MAX_WATER_VERTICES];
@@ -289,16 +277,8 @@ void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
 		EmitWaterPolys( ent, surf, false );
 	}
 
-	int entity_id = ent->index;
-
-	if (entity_id < MAX_BRUSH_ENTITIES_PREV_STATES)
-		Matrix4x4_Copy( *VK_RenderGetLastFrameTransform(), g_brush_prev_states[entity_id].prev_model_transform );
-
 	// submit as dynamic model
 	VK_RenderModelDynamicCommit();
-
-	if (entity_id < MAX_BRUSH_ENTITIES_PREV_STATES)
-		Matrix4x4_Copy( g_brush_prev_states[entity_id].prev_model_transform, *VK_RenderGetLastFrameTransform() );
 
 	// TODO:
 	// - upload water geometry only once, animate in compute/vertex shader
@@ -392,18 +372,8 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4
 		}
 	}
 
-	int entity_id = ent->index;
-	if (entity_id < MAX_BRUSH_ENTITIES_PREV_STATES) {
-		Matrix4x4_Copy( bmodel->render_model.prev_transform,
-								g_brush_prev_states[entity_id].prev_model_transform );
-	} else gEngine.Con_Printf(S_ERROR "Brush entities previous frame states pool is overflow, increase it. Index is %s\n", ent->index );
-
 	bmodel->render_model.render_mode = render_mode;
 	VK_RenderModelDraw(ent, &bmodel->render_model);
-
-	if (entity_id >= 0 && entity_id < MAX_BRUSH_ENTITIES_PREV_STATES) {
-		Matrix4x4_Copy( g_brush_prev_states[entity_id].prev_model_transform, bmodel->render_model.prev_transform );
-	}
 }
 
 static qboolean renderableSurface( const msurface_t *surf, int i ) {

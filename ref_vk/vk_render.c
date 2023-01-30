@@ -12,6 +12,7 @@
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
 #include "vk_framectl.h" // FIXME needed for dynamic models cmdbuf
+#include "vk_previous_frame.h"
 #include "alolcator.h"
 
 #include "eiface.h"
@@ -682,10 +683,16 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 	int vertex_offset = 0;
 
 	if (g_render_state.current_frame_is_ray_traced) {
+		if (ent != NULL && model != NULL) {
+			R_PrevFrame_ModelTransform( ent->index, model->prev_transform );
+			R_PrevFrame_SaveCurrentState( ent->index, g_render_state.model );
+		}
+		else {
+			Matrix4x4_Copy( model->prev_transform, g_render_state.model );
+		}
+
 		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model, g_render_state.dirty_uniform_data.color, ent ? ent->curstate.rendercolor : (color24){255,255,255});
 
-		// store current transform here before it puts to entity history
-		Matrix4x4_Copy( model->prev_transform, g_render_state.model );
 		return;
 	}
 
@@ -750,10 +757,6 @@ static struct {
 	vk_render_model_t model;
 	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
 } g_dynamic_model = {0};
-
-matrix4x4 *VK_RenderGetLastFrameTransform( void ) {
-	return &g_dynamic_model.model.prev_transform;
-}
 
 void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... ) {
 	va_list argptr;
