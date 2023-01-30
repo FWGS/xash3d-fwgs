@@ -751,7 +751,7 @@ static struct {
 	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
 } g_dynamic_model = {0};
 
-matrix4x4 *VK_RenderGetLastFrameTransform() {
+matrix4x4 *VK_RenderGetLastFrameTransform( void ) {
 	return &g_dynamic_model.model.prev_transform;
 }
 
