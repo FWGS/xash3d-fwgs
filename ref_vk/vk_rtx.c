@@ -15,6 +15,7 @@
 #include "vk_ray_internal.h"
 #include "vk_staging.h"
 #include "vk_textures.h"
+#include "vk_previous_frame.h"
 
 #include "alolcator.h"
 
@@ -136,6 +137,8 @@ void VK_RayFrameBegin( void ) {
 		return;
 
 	XVK_RayModel_ClearForNextFrame();
+
+	R_PrevFrame_StartFrame();
 
 	// TODO: move all lighting update to scene?
 	if (g_rtx.reload_lighting) {

@@ -103,5 +103,3 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf );
 void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h );
 
 void VK_Render_FIXME_Barrier( VkCommandBuffer cmdbuf );
-
-matrix4x4* VK_RenderGetLastFrameTransform( void );

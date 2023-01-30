@@ -3,6 +3,7 @@
 #include "vk_textures.h"
 #include "vk_render.h"
 #include "vk_geometry.h"
+#include "vk_previous_frame.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"
@@ -124,9 +125,6 @@ static cvar_t			*cl_himodels;
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
-
-#define MAX_ENTITIES_PREV_STATES_STUDIO 1024
-static studio_entity_prev_state_t g_entity_prev_states[MAX_ENTITIES_PREV_STATES_STUDIO];
 
 // global variables
 static qboolean		m_fDoRemap;
@@ -1069,26 +1067,6 @@ static void R_StudioSaveBones( void )
 		Matrix3x4_Copy( g_studio.cached_bonestransform[i], g_studio.bonestransform[i] );
 		Matrix3x4_Copy( g_studio.cached_lighttransform[i], g_studio.lighttransform[i] );
 		Q_strncpy( g_studio.cached_bonenames[i], pbones[i].name, 32 );
-	}
-}
-
-/*
-====================
-SaveTransformsForNextFrame
-
-====================
-*/
-
-static void R_StudioSaveTransformsForNextFrame( matrix3x4* bones_transforms )
-{
-	if (RI.currententity->index >= MAX_ENTITIES_PREV_STATES_STUDIO)
-		return;
-
-	studio_entity_prev_state_t *prev_state = &g_entity_prev_states[RI.currententity->index];
-
-	for( int i = 0; i < m_pStudioHeader->numbones; i++ )
-	{
-		Matrix3x4_Copy(prev_state->worldtransform[i], bones_transforms[i]);
 	}
 }
 
@@ -2158,14 +2136,6 @@ static void R_StudioDrawPoints( void )
 	pskinref = (short *)((byte *)m_pStudioHeader + m_pStudioHeader->skinindex);
 	if( m_skinnum != 0 ) pskinref += (m_skinnum * m_pStudioHeader->numskinref);
 
-	studio_entity_prev_state_t *prev_frame_state = &g_entity_prev_states[RI.currententity->index];
-
-	if (RI.currententity->index >= MAX_ENTITIES_PREV_STATES_STUDIO)
-	{
-		gEngine.Con_Printf(S_ERROR "Studio entities previous frame states pool is overflow, increase it. Index is %s\n", RI.currententity->index);
-		prev_frame_state = &g_entity_prev_states[MAX_ENTITIES_PREV_STATES_STUDIO - 1]; // fallback to last element
-	}
-
 	if( FBitSet( m_pStudioHeader->flags, STUDIO_HAS_BONEWEIGHTS ) && m_pSubModel->blendvertinfoindex != 0 && m_pSubModel->blendnorminfoindex != 0 )
 	{
 		mstudioboneweight_t	*pvertweight = (mstudioboneweight_t *)((byte *)m_pStudioHeader + m_pSubModel->blendvertinfoindex);
@@ -2179,9 +2149,10 @@ static void R_StudioDrawPoints( void )
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 
+		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
-			R_StudioComputeSkinMatrix( &pvertweight[i], prev_frame_state->worldtransform, skinMat );
+			R_StudioComputeSkinMatrix( &pvertweight[i], prev_bones_transforms, skinMat );
 			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.prev_verts[i] );
 		}
 
@@ -2191,18 +2162,19 @@ static void R_StudioDrawPoints( void )
 			Matrix3x4_VectorRotate( skinMat, pstudionorms[i], g_studio.norms[i] );
 		}
 
-		R_StudioSaveTransformsForNextFrame (g_studio.worldtransform );
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.worldtransform );
 	}
 	else
 	{
+		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
 			Matrix3x4_VectorTransform( g_studio.bonestransform[pvertbone[i]], pstudioverts[i], g_studio.verts[i] );
-			Matrix3x4_VectorTransform( prev_frame_state->worldtransform[pvertbone[i]], pstudioverts[i], g_studio.prev_verts[i] );
+			Matrix3x4_VectorTransform( prev_bones_transforms[pvertbone[i]], pstudioverts[i], g_studio.prev_verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 
-		R_StudioSaveTransformsForNextFrame( g_studio.bonestransform );
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.bonestransform );
 	}
 
 	// generate shared normals for properly scaling glowing shell
@@ -2328,17 +2300,7 @@ static void R_StudioDrawPoints( void )
 		*/
 	}
 
-	int entity_id = RI.currententity->index;
-
-	if (entity_id < MAX_ENTITIES_PREV_STATES_STUDIO) {
-		Matrix4x4_Copy( *VK_RenderGetLastFrameTransform(), g_entity_prev_states[entity_id].prev_transform );
-	} else gEngine.Con_Printf(S_ERROR "Studio entities last states pool is overflow, increase it. Index is %s\n", entity_id );
-
 	VK_RenderModelDynamicCommit();
-
-	if (entity_id < MAX_ENTITIES_PREV_STATES_STUDIO) {
-		Matrix4x4_Copy( g_entity_prev_states[entity_id].prev_transform, *VK_RenderGetLastFrameTransform() );
-	}
 }
 
 static void R_StudioSetRemapColors( int newTop, int newBottom )
