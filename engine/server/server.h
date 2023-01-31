@@ -660,7 +660,7 @@ void SV_SetLogAddress_f( void );
 //
 // sv_save.c
 //
-void SV_SaveGame( const char *pName );
+qboolean SV_SaveGame( const char *pName );
 qboolean SV_LoadGame( const char *pName );
 int SV_LoadGameState( char const *level );
 void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char *start, qboolean background );
