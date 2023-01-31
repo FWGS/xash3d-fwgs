@@ -257,4 +257,9 @@ void CL_Crashed( void )
 {
 }
 
+void CL_HudMessage( const char *pMessage )
+{
+
+}
+
 #endif // XASH_DEDICATED
