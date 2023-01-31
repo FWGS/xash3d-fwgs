@@ -55,7 +55,6 @@ void GL_RenderFrame( const ref_viewpass_t *rvp )
 
 	VectorCopy( rvp->vieworigin, refState.vieworg );
 	VectorCopy( rvp->viewangles, refState.viewangles );
-	AngleVectors( refState.viewangles, refState.vforward, refState.vright, refState.vup );
 
 	ref.dllFuncs.GL_RenderFrame( rvp );
 }

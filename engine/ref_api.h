@@ -102,7 +102,6 @@ typedef struct ref_globals_s
 
 	vec3_t vieworg;
 	vec3_t viewangles;
-	vec3_t vforward, vright, vup;
 
 	// todo: fill this without engine help
 	// move to local
