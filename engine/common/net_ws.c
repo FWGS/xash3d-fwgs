@@ -1451,10 +1451,10 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 		addr_len = sizeof( addr );
 		ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
 
+		NET_SockadrToNetadr( &addr, from );
+
 		if( !NET_IsSocketError( ret ))
 		{
-			NET_SockadrToNetadr( &addr, from );
-
 			if( ret < NET_MAX_FRAGMENT )
 			{
 				// Transfer data
