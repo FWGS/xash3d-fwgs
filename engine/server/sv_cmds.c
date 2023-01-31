@@ -439,18 +439,23 @@ SV_Save_f
 */
 void SV_Save_f( void )
 {
+	qboolean ret = false;
+
 	switch( Cmd_Argc( ))
 	{
 	case 1:
-		SV_SaveGame( "new" );
+		ret = SV_SaveGame( "new" );
 		break;
 	case 2:
-		SV_SaveGame( Cmd_Argv( 1 ));
+		ret = SV_SaveGame( Cmd_Argv( 1 ));
 		break;
 	default:
 		Con_Printf( S_USAGE "save <savename>\n" );
 		break;
 	}
+
+	if( ret && CL_Active() && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		CL_HudMessage( "GAMESAVED" ); // defined in titles.txt
 }
 
 /*
