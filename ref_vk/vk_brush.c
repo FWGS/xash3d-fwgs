@@ -144,7 +144,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 				prev_nv = (r_turbsin[(int)(v[0] * 5.0f + prev_time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + prev_nv;
 				prev_nv = prev_nv * waveHeight + v[2];
 			}
-			else nv = v[2];
+			else prev_nv = nv = v[2];
 
 			os = v[3];
 			ot = v[4];
