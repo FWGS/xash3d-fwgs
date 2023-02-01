@@ -4,6 +4,10 @@
 #include "utils.glsl"
 #include "color_spaces.glsl"
 
+#define GLSL
+#include "ray_interop.h"
+#undef GLSL
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, rgba16f) uniform image2D out_dest;
@@ -20,6 +24,9 @@ layout(set = 0, binding = 6, rgba16f) uniform readonly image2D emissive;
 
 layout(set = 0, binding = 7, rgba32f) uniform readonly image2D position_t;
 layout(set = 0, binding = 8, rgba16f) uniform readonly image2D normals_gs;
+layout(set = 0, binding = 10, rgba32f) uniform readonly image2D geometry_prev_position;
+
+layout(set = 0, binding = 11) uniform UBO { UniformBuffer ubo; } ubo;
 
 //layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
 /* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D specular; */
@@ -111,7 +118,7 @@ void main() {
 #else
 	float total_scale = 0.;
 	vec3 colour = vec3(0.);
-	const int KERNEL_SIZE = 4;
+	const int KERNEL_SIZE = 2;
 	float specular_total_scale = 0.;
 	vec3 speculour = vec3(0.);
 
@@ -203,9 +210,46 @@ void main() {
 	}
 #endif
 
-	const vec4 prev_colour = imageLoad(prev_dest, pix);
-	colour = mix(colour, prev_colour.rgb, vec3(.5));
+	// DEBUG motion vectors
+	//colour = vec3(length(imageLoad(position_t, pix).rgb - imageLoad(prev_position_t, pix).rgb));
 
-	imageStore(out_dest, pix, vec4(colour, 0.));
+	// TODO: need to extract reprojecting from this shader because reprojected stuff need svgf denoising pass after it
+	const vec3 origin = (ubo.ubo.inv_view * vec4(0., 0., 0., 1.)).xyz;
+	const float depth = length(origin - imageLoad(position_t, pix).xyz);
+	const vec3 prev_position = imageLoad(geometry_prev_position, pix).rgb;
+	const vec4 clip_space = inverse(ubo.ubo.prev_inv_proj) * vec4((inverse(ubo.ubo.prev_inv_view) * vec4(prev_position, 1.)).xyz, 1.);
+	const vec2 reproj_uv = clip_space.xy / clip_space.w;
+	const ivec2 reproj_pix = ivec2((reproj_uv * 0.5 + vec2(0.5)) * vec2(res));
+	const vec3 prev_origin = (ubo.ubo.prev_inv_view * vec4(0., 0., 0., 1.)).xyz;
+	const float depth_nessesary = length(prev_position - prev_origin);
+	const float depth_treshold = 0.01 * clip_space.w;
+	float better_depth_offset = depth_treshold;
+	vec3 history_colour = colour;
+	for(int x = -1; x <=1; x++) {
+		for(int y = -1; y <=1; y++) {
+			const ivec2 p = reproj_pix + ivec2(x, y);
+			if (any(greaterThanEqual(p, res)) || any(lessThan(p, ivec2(0)))) {
+				continue;
+			}
+			const vec4 history_colour_depth = imageLoad( prev_dest, reproj_pix );
+			const float history_depth = history_colour_depth.w;
+			const float depth_offset = abs(history_depth - depth_nessesary);
+			if ( depth_offset < better_depth_offset ) {
+				better_depth_offset = depth_offset;
+				history_colour = history_colour_depth.rgb;
+			}
+		}
+	}
+	if (better_depth_offset < depth_treshold) {
+		colour = mix(colour, history_colour, 0.8);
+	}
+
+	// DEBUG motion vectors
+	//colour = vec3(length(imageLoad(position_t, pix).rgb - imageLoad(geometry_prev_position, pix).rgb));
+
+	//const vec4 prev_colour = imageLoad(prev_dest, pix);
+	//colour = mix(colour, prev_colour.rgb, vec3(.9));
+
+	imageStore(out_dest, pix, vec4(colour, depth));
 	//imageStore(out_dest, pix, imageLoad(light_poly, pix));
 }

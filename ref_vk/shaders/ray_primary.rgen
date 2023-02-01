@@ -10,6 +10,7 @@
 	X(12, normals_gs, rgba16f) \
 	X(13, material_rmxx, rgba8) \
 	X(14, emissive, rgba16f) \
+	X(15, geometry_prev_position, rgba32f) \
 
 #define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_##name;
 RAY_PRIMARY_OUTPUTS(X)
@@ -48,4 +49,5 @@ void main() {
 	imageStore(out_normals_gs, ivec2(gl_LaunchIDEXT.xy), payload.normals_gs);
 	imageStore(out_material_rmxx, ivec2(gl_LaunchIDEXT.xy), payload.material_rmxx);
 	imageStore(out_emissive, ivec2(gl_LaunchIDEXT.xy), payload.emissive);
+	imageStore(out_geometry_prev_position, ivec2(gl_LaunchIDEXT.xy), payload.prev_pos_t);
 }

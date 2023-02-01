@@ -82,6 +82,9 @@ typedef struct vk_render_model_s {
 	struct vk_ray_model_s *ray_model;
 	struct rt_light_add_polygon_s *polylights;
 	int polylights_count;
+
+	// previous frame ObjectToWorld (model) matrix
+	matrix4x4 prev_transform;
 } vk_render_model_t;
 
 qboolean VK_RenderModelInit( vk_render_model_t* model );

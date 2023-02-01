@@ -25,6 +25,7 @@ void main() {
 	Geometry geom = readHitGeometry(bary, ubo.ubo.ray_cone_width);
 
 	payload.hit_t = vec4(geom.pos, gl_HitTEXT);
+	payload.prev_pos_t = vec4(geom.prev_pos, 0.);
 
 	const Kusok kusok = getKusok(geom.kusok_index);
 	const uint tex_base_color = kusok.tex_base_color;
