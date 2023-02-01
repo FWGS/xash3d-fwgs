@@ -28,9 +28,6 @@ layout(set = 0, binding = 10, rgba32f) uniform readonly image2D geometry_prev_po
 
 layout(set = 0, binding = 11) uniform UBO { UniformBuffer ubo; } ubo;
 
-//layout(set = 0, binding = 7, rgba32f) uniform readonly image2D position_t;
-//layout(set = 0, binding = 8, rgba16f) uniform readonly image2D normals_gs;
-
 //layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
 /* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D specular; */
 /* layout(set = 0, binding = 4, rgba16f) uniform readonly image2D additive; */
