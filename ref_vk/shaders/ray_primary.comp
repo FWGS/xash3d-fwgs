@@ -15,6 +15,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 	X(12, normals_gs, rgba16f) \
 	X(13, material_rmxx, rgba8) \
 	X(14, emissive, rgba16f) \
+	X(15, geometry_prev_position, rgba32f) \
 
 #define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_##name;
 RAY_PRIMARY_OUTPUTS(X)
@@ -62,4 +63,5 @@ void main() {
 	imageStore(out_normals_gs, pix, payload.normals_gs);
 	imageStore(out_material_rmxx, pix, payload.material_rmxx);
 	imageStore(out_emissive, pix, payload.emissive);
+	imageStore(out_geometry_prev_position, pix, payload.prev_pos_t);
 }

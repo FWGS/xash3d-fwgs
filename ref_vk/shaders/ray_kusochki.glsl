@@ -9,6 +9,7 @@
 
 struct Vertex {
 	vec3 pos;
+	vec3 prev_pos;
 	vec3 normal;
 	vec3 tangent;
 	vec2 gl_tc;

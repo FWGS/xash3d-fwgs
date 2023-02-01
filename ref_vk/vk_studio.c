@@ -3,6 +3,7 @@
 #include "vk_textures.h"
 #include "vk_render.h"
 #include "vk_geometry.h"
+#include "vk_previous_frame.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"
@@ -73,6 +74,8 @@ typedef struct
 	sortedmesh_t	meshes[MAXSTUDIOMESHES];	// sorted meshes
 	vec3_t		verts[MAXSTUDIOVERTS];
 	vec3_t		norms[MAXSTUDIOVERTS];
+
+	vec3_t		prev_verts[MAXSTUDIOVERTS]; // last frame state for motion vectors
 
 	// lighting state
 	float		ambientlight;
@@ -254,7 +257,7 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 	return true; // visible
 }
 
-void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 result )
+void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 *worldtransform, matrix3x4 result )
 {
 	float	flWeight0, flWeight1, flWeight2, flWeight3;
 	int	i, numbones = 0;
@@ -268,10 +271,10 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 
 	if( numbones == 4 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
-		vec4_t *boneMat2 = (vec4_t *)g_studio.worldtransform[boneweights->bone[2]];
-		vec4_t *boneMat3 = (vec4_t *)g_studio.worldtransform[boneweights->bone[3]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat2 = (vec4_t *)worldtransform[boneweights->bone[2]];
+		vec4_t *boneMat3 = (vec4_t *)worldtransform[boneweights->bone[3]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flWeight2 = boneweights->weight[2] / 255.0f;
@@ -295,9 +298,9 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else if( numbones == 3 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
-		vec4_t *boneMat2 = (vec4_t *)g_studio.worldtransform[boneweights->bone[2]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat2 = (vec4_t *)worldtransform[boneweights->bone[2]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flWeight2 = boneweights->weight[2] / 255.0f;
@@ -320,8 +323,8 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else if( numbones == 2 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flTotal = flWeight0 + flWeight1;
@@ -343,7 +346,7 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else
 	{
-		Matrix3x4_Copy( result, g_studio.worldtransform[boneweights->bone[0]] );
+		Matrix3x4_Copy( result, worldtransform[boneweights->bone[0]] );
 	}
 }
 
@@ -1946,6 +1949,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			*dst_vtx = (vk_vertex_t){0};
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
+			VectorCopy(g_studio.prev_verts[ptricmds[0]], dst_vtx->prev_pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 
@@ -2135,24 +2139,37 @@ static void R_StudioDrawPoints( void )
 
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
-			R_StudioComputeSkinMatrix( &pvertweight[i], skinMat );
+			R_StudioComputeSkinMatrix( &pvertweight[i], g_studio.worldtransform, skinMat );
 			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 
+		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
+		for( i = 0; i < m_pSubModel->numverts; i++ )
+		{
+			R_StudioComputeSkinMatrix( &pvertweight[i], prev_bones_transforms, skinMat );
+			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.prev_verts[i] );
+		}
+
 		for( i = 0; i < m_pSubModel->numnorms; i++ )
 		{
-			R_StudioComputeSkinMatrix( &pnormweight[i], skinMat );
+			R_StudioComputeSkinMatrix( &pnormweight[i], g_studio.worldtransform, skinMat );
 			Matrix3x4_VectorRotate( skinMat, pstudionorms[i], g_studio.norms[i] );
 		}
+
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.worldtransform );
 	}
 	else
 	{
+		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
 			Matrix3x4_VectorTransform( g_studio.bonestransform[pvertbone[i]], pstudioverts[i], g_studio.verts[i] );
+			Matrix3x4_VectorTransform( prev_bones_transforms[pvertbone[i]], pstudioverts[i], g_studio.prev_verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
+
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.bonestransform );
 	}
 
 	// generate shared normals for properly scaling glowing shell

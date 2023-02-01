@@ -15,6 +15,7 @@
 #include "vk_ray_internal.h"
 #include "vk_staging.h"
 #include "vk_textures.h"
+#include "vk_previous_frame.h"
 
 #include "alolcator.h"
 
@@ -82,6 +83,8 @@ static struct {
 
 	qboolean reload_pipeline;
 	qboolean reload_lighting;
+
+	matrix4x4 prev_inv_proj, prev_inv_view;
 } g_rtx = {0};
 
 static int findResource(const char *name) {
@@ -135,6 +138,8 @@ void VK_RayFrameBegin( void ) {
 
 	XVK_RayModel_ClearForNextFrame();
 
+	R_PrevFrame_StartFrame();
+
 	// TODO: move all lighting update to scene?
 	if (g_rtx.reload_lighting) {
 		g_rtx.reload_lighting = false;
@@ -156,6 +161,12 @@ static void prepareUniformBuffer( const vk_ray_frame_render_args_t *args, int fr
 	// from vforward/right/up vectors and origin in g_camera
 	Matrix4x4_Invert_Full(view_inv, *args->view);
 	Matrix4x4_ToArrayFloatGL(view_inv, (float*)ubo->inv_view);
+
+	// previous frame matrices
+	Matrix4x4_ToArrayFloatGL(g_rtx.prev_inv_proj, (float*)ubo->prev_inv_proj);
+	Matrix4x4_ToArrayFloatGL(g_rtx.prev_inv_view, (float*)ubo->prev_inv_view);
+	Matrix4x4_Copy(g_rtx.prev_inv_view, view_inv);
+	Matrix4x4_Copy(g_rtx.prev_inv_proj, proj_inv);
 
 	ubo->ray_cone_width = atanf((2.0f*tanf(DEG2RAD(fov_angle_y) * 0.5f)) / (float)FRAME_HEIGHT);
 	ubo->random_seed = (uint32_t)gEngine.COM_RandomLong(0, INT32_MAX);

@@ -13,6 +13,7 @@
 #include "vk_geometry.h"
 #include "vk_light.h"
 #include "vk_mapents.h"
+#include "vk_previous_frame.h"
 
 #include "ref_params.h"
 #include "eiface.h"
@@ -82,6 +83,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 {
 	const float time = gpGlobals->time;
 	float	*v, nv, waveHeight;
+	float prev_nv, prev_time;
 	float	s, t, os, ot;
 	glpoly_t	*p;
 	int	i;
@@ -89,6 +91,8 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	int vertex_offset = 0;
 	uint16_t *indices;
 	r_geometry_buffer_lock_t buffer;
+
+	prev_time = R_PrevFrame_Time(ent->index);
 
 #define MAX_WATER_VERTICES 16
 	vk_vertex_t poly_vertices[MAX_WATER_VERTICES];
@@ -135,6 +139,10 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 				nv = r_turbsin[(int)(time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
 				nv = (r_turbsin[(int)(v[0] * 5.0f + time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
 				nv = nv * waveHeight + v[2];
+
+				prev_nv = r_turbsin[(int)(prev_time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				prev_nv = (r_turbsin[(int)(v[0] * 5.0f + prev_time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + prev_nv;
+				prev_nv = prev_nv * waveHeight + v[2];
 			}
 			else nv = v[2];
 
@@ -150,6 +158,10 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			poly_vertices[i].pos[0] = v[0];
 			poly_vertices[i].pos[1] = v[1];
 			poly_vertices[i].pos[2] = nv;
+
+			poly_vertices[i].prev_pos[0] = v[0];
+			poly_vertices[i].prev_pos[1] = v[1];
+			poly_vertices[i].prev_pos[2] = prev_nv;
 
 			poly_vertices[i].gl_tc[0] = s;
 			poly_vertices[i].gl_tc[1] = t;
@@ -575,6 +587,10 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 				vk_vertex_t vertex = {
 					{in_vertex->position[0], in_vertex->position[1], in_vertex->position[2]},
 				};
+
+				vertex.prev_pos[0] = in_vertex->position[0];
+				vertex.prev_pos[1] = in_vertex->position[1];
+				vertex.prev_pos[2] = in_vertex->position[2];
 
 				float s = DotProduct( in_vertex->position, surf->texinfo->vecs[0] ) + surf->texinfo->vecs[0][3];
 				float t = DotProduct( in_vertex->position, surf->texinfo->vecs[1] ) + surf->texinfo->vecs[1][3];

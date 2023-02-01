@@ -7,6 +7,7 @@
 struct RayPayloadOpaque {
 	float t_offset, pixel_cone_spread_angle;
 	vec4 hit_pos_t;
+	vec4 prev_pos_t;
 	vec3 normal;
 	vec3 geometry_normal;
 	vec3 base_color;
