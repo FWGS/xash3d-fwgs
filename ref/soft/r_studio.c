@@ -1256,18 +1256,18 @@ void R_StudioSetupChrome( float *pchrome, int bone, vec3_t normal )
 		vec3_t	tmp;		// vector pointing at bone in world reference frame
 
 		VectorNegate( g_studio.chrome_origin, tmp );
-		tmp[0] += g_studio.bonestransform[bone][0][3];
-		tmp[1] += g_studio.bonestransform[bone][1][3];
-		tmp[2] += g_studio.bonestransform[bone][2][3];
+		tmp[0] += g_studio.lighttransform[bone][0][3];
+		tmp[1] += g_studio.lighttransform[bone][1][3];
+		tmp[2] += g_studio.lighttransform[bone][2][3];
 
 		VectorNormalize( tmp );
 		CrossProduct( tmp, RI.vright, chromeupvec );
 		VectorNormalize( chromeupvec );
-		CrossProduct( tmp, chromeupvec, chromerightvec );
+		CrossProduct( chromeupvec, tmp, chromerightvec );
 		VectorNormalize( chromerightvec );
 
-		Matrix3x4_VectorIRotate( g_studio.bonestransform[bone], chromeupvec, g_studio.chromeup[bone] );
-		Matrix3x4_VectorIRotate( g_studio.bonestransform[bone], chromerightvec, g_studio.chromeright[bone] );
+		Matrix3x4_VectorIRotate( g_studio.lighttransform[bone], chromeupvec, g_studio.chromeup[bone] );
+		Matrix3x4_VectorIRotate( g_studio.lighttransform[bone], chromerightvec, g_studio.chromeright[bone] );
 
 		g_studio.chromeage[bone] = g_studio.framecount;
 	}
