@@ -671,6 +671,7 @@ extern convar_t	*cl_levelshot_name;
 extern convar_t	*cl_draw_beams;
 extern convar_t	*cl_clockreset;
 extern convar_t	*cl_fixtimerate;
+extern convar_t	*hud_fontscale;
 extern convar_t	*hud_scale;
 extern convar_t	*gl_showtextures;
 extern convar_t	*cl_bmodelinterp;
