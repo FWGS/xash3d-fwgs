@@ -178,7 +178,6 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
 	else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
 	ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, font->hFontTexture );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // don't forget reset color
 
 	return font->charWidths[number];
 }
@@ -214,7 +213,8 @@ int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *fon
 
 		if( IsColorString( s ))
 		{
-			if( FBitSet( flags, FONT_DRAW_FORCECOL ))
+			// don't copy alpha
+			if( !FBitSet( flags, FONT_DRAW_FORCECOL ))
 				VectorCopy( g_color_table[ColorIndex(*( s + 1 ))], current_color );
 
 			s += 2;
@@ -222,7 +222,7 @@ int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *fon
 		}
 
 		// skip setting rendermode, it was changed for this string already
-		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, color, font, flags | FONT_DRAW_NORENDERMODE );
+		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, current_color, font, flags | FONT_DRAW_NORENDERMODE );
 
 		s++;
 	}
