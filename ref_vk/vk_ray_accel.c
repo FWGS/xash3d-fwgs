@@ -179,7 +179,7 @@ void RT_VkAccelPrepareTlas(VkCommandBuffer cmdbuf) {
 					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
 					break;
 				case MaterialMode_Opaque_AlphaTest:
-					inst[i].mask = GEOMETRY_BIT_OPAQUE;
+					inst[i].mask = GEOMETRY_BIT_ALPHA_TEST;
 					inst[i].instanceShaderBindingTableRecordOffset = SHADER_OFFSET_HIT_ALPHA_TEST,
 					inst[i].flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
 					break;

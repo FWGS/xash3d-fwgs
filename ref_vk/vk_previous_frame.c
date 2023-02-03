@@ -39,7 +39,7 @@ typedef struct {
 
 prev_states_storage_t g_prev = { 0 };
 
-inline int clampIndex( int index, int array_length )
+static inline int clampIndex( int index, int array_length )
 {
 	if (index < 0)
 		return 0;

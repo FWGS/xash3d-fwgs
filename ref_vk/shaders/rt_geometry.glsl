@@ -125,4 +125,37 @@ Geometry readHitGeometry(vec2 bary, float ray_cone_width) {
 
 	return geom;
 }
+
+#ifdef RAY_QUERY
+struct MiniGeometry {
+	vec2 uv;
+	uint kusok_index;
+};
+
+MiniGeometry readCandidateMiniGeometry(rayQueryEXT rq) {
+		const uint instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, false);
+		const uint geometry_index = rayQueryGetIntersectionGeometryIndexEXT(rq, false);
+		const uint kusok_index = instance_kusochki_offset + geometry_index;
+		const Kusok kusok = getKusok(kusok_index);
+
+		const uint primitive_index = rayQueryGetIntersectionPrimitiveIndexEXT(rq, false);
+		const uint first_index_offset = kusok.index_offset + primitive_index * 3;
+		const uint vi1 = uint(getIndex(first_index_offset+0)) + kusok.vertex_offset;
+		const uint vi2 = uint(getIndex(first_index_offset+1)) + kusok.vertex_offset;
+		const uint vi3 = uint(getIndex(first_index_offset+2)) + kusok.vertex_offset;
+		const vec2 uvs[3] = {
+			getVertex(vi1).gl_tc,
+			getVertex(vi2).gl_tc,
+			getVertex(vi3).gl_tc,
+		};
+		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rq, false);
+		const vec2 uv = baryMix(uvs[0], uvs[1], uvs[2], bary);
+
+		MiniGeometry ret;
+		ret.uv = uv;
+		ret.kusok_index = kusok_index;
+		return ret;
+}
+#endif // #ifdef RAY_QUERY
+
 #endif // RT_GEOMETRY_GLSL_INCLUDED
