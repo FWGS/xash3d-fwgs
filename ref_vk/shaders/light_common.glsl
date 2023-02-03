@@ -24,20 +24,22 @@ uint traceShadowRay(vec3 pos, vec3 dir, float dist, uint flags) {
 #endif
 
 #if defined(RAY_QUERY)
-void shadowRayQuery(rayQueryEXT rq, vec3 pos, vec3 dir, float dist, uint flags) {
-	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE, pos, 0., dir, dist - shadow_offset_fudge);
+bool shadowTestAlphaMask(vec3 pos, vec3 dir, float dist) {
+	rayQueryEXT rq;
+	const uint flags =  0
+		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsNoOpaqueEXT
+		| gl_RayFlagsTerminateOnFirstHitEXT
+		;
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_ALPHA_TEST, pos, 0., dir, dist);
 
 	while (rayQueryProceedEXT(rq)) {
-		if (0 != (rayQueryGetRayFlagsEXT(rq) & gl_RayFlagsOpaqueEXT))
-			continue;
-
 		// Alpha test, takes 10ms
 		// TODO check other possible ways of doing alpha test. They might be more efficient:
 		// 1. Do a separate ray query for alpha masked geometry. Reason: here we might accidentally do the expensive
 		//    texture sampling for geometry that's ultimately invisible (i.e. behind walls). Also, shader threads congruence.
 		//    Separate pass could be more efficient as it'd be doing the same thing for every invocation.
 		// 2. Same as the above, but also with a completely independent TLAS. Why: no need to mask-check geometry for opaque-vs-alpha
-#if 1
 		const uint instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, false);
 		const uint geometry_index = rayQueryGetIntersectionGeometryIndexEXT(rq, false);
 		const uint kusok_index = instance_kusochki_offset + geometry_index;
@@ -61,8 +63,9 @@ void shadowRayQuery(rayQueryEXT rq, vec3 pos, vec3 dir, float dist, uint flags) 
 		if (texture_color.a >= alpha_mask_threshold) {
 			rayQueryConfirmIntersectionEXT(rq);
 		}
-#endif
 	}
+
+	return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
 }
 #endif
 
@@ -77,25 +80,30 @@ bool shadowed(vec3 pos, vec3 dir, float dist, bool check_sky) {
 	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
 	return check_sky ? payload_shadow.hit_type != SHADOW_SKY : payload_shadow.hit_type == SHADOW_HIT;
 #elif defined(RAY_QUERY)
-	const uint flags =  0
-		//| gl_RayFlagsCullFrontFacingTrianglesEXT
-		//| gl_RayFlagsOpaqueEXT
-		| gl_RayFlagsTerminateOnFirstHitEXT
-		;
-	rayQueryEXT rq;
-	shadowRayQuery(rq, pos, dir, dist, flags);
+	{
+		const uint flags =  0
+			| gl_RayFlagsCullFrontFacingTrianglesEXT
+			| gl_RayFlagsOpaqueEXT
+			| gl_RayFlagsTerminateOnFirstHitEXT
+			;
+		rayQueryEXT rq;
+		rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE, pos, 0., dir, dist - shadow_offset_fudge);
+		while (rayQueryProceedEXT(rq)) {}
 
-	if (!check_sky) {
-		return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
+		if (rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
+			if (!check_sky)
+				return true;
+
+			const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
+			const int kusok_index = instance_kusochki_offset + rayQueryGetIntersectionGeometryIndexEXT(rq, true);
+			const uint tex_base_color = getKusok(kusok_index).tex_base_color;
+			if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) == 0)
+				return true;
+		}
 	}
 
-	if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionTriangleEXT)
-		return true;
+	return shadowTestAlphaMask(pos, dir, dist);
 
-	const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
-	const int kusok_index = instance_kusochki_offset + rayQueryGetIntersectionGeometryIndexEXT(rq, true);
-	const uint tex_base_color = getKusok(kusok_index).tex_base_color;
-	return (tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) == 0;
 #else
 #error RAY_TRACE or RAY_QUERY
 #endif
