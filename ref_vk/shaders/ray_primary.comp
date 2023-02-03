@@ -23,6 +23,31 @@ RAY_PRIMARY_OUTPUTS(X)
 
 layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 
+vec3 traceAdditive(vec3 pos, vec3 dir, float L) {
+	const float additive_soft_overshoot = 16.;
+	vec3 ret = vec3(0., 0., 0.);
+	rayQueryEXT rq;
+	const uint flags = 0
+		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsSkipClosestHitShaderEXT
+		| gl_RayFlagsNoOpaqueEXT // force all to be non-opaque
+		;
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_ADDITIVE, pos, 0., dir, L + additive_soft_overshoot);
+	while (rayQueryProceedEXT(rq)) {
+		const MiniGeometry geom = readCandidateMiniGeometry(rq);
+		const uint tex_base_color = getKusok(geom.kusok_index).tex_base_color;
+		const vec4 texture_color = texture(textures[nonuniformEXT(tex_base_color)], geom.uv);
+		const vec4 kusok_color = getKusok(geom.kusok_index).color;
+		const vec3 color = texture_color.rgb * kusok_color.rgb * texture_color.a; // * kusok_color.a;
+		//const vec3 color = texture_color.rgb * kusok_color.rgb * texture_color.a * kusok_color.a;
+
+		const float hit_t = rayQueryGetIntersectionTEXT(rq, false);
+		const float overshoot = hit_t - L;
+		ret += color * smoothstep(additive_soft_overshoot, 0., overshoot);
+	}
+	return ret;
+}
+
 void main() {
 	const ivec2 pix = ivec2(gl_GlobalInvocationID);
 	const ivec2 res = ivec2(imageSize(out_position_t));
@@ -50,7 +75,7 @@ void main() {
 		//| gl_RayFlagsTerminateOnFirstHitEXT
 		//| gl_RayFlagsSkipClosestHitShaderEXT
 		;
-	const float L = 10000.; // TODO Why 10k?
+	float L = 10000.; // TODO Why 10k?
 	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_ALPHA_TEST, origin, 0., direction, L);
 	while (rayQueryProceedEXT(rq)) {
 		if (0 != (rayQueryGetRayFlagsEXT(rq) & gl_RayFlagsOpaqueEXT))
@@ -63,24 +88,9 @@ void main() {
 		//    texture sampling for geometry that's ultimately invisible (i.e. behind walls). Also, shader threads congruence.
 		//    Separate pass could be more efficient as it'd be doing the same thing for every invocation.
 		// 2. Same as the above, but also with a completely independent TLAS. Why: no need to mask-check geometry for opaque-vs-alpha
-		const uint instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, false);
-		const uint geometry_index = rayQueryGetIntersectionGeometryIndexEXT(rq, false);
-		const uint kusok_index = instance_kusochki_offset + geometry_index;
-		const Kusok kusok = getKusok(kusok_index);
-
-		const uint primitive_index = rayQueryGetIntersectionPrimitiveIndexEXT(rq, false);
-		const uint first_index_offset = kusok.index_offset + primitive_index * 3;
-		const uint vi1 = uint(getIndex(first_index_offset+0)) + kusok.vertex_offset;
-		const uint vi2 = uint(getIndex(first_index_offset+1)) + kusok.vertex_offset;
-		const uint vi3 = uint(getIndex(first_index_offset+2)) + kusok.vertex_offset;
-		const vec2 uvs[3] = {
-			getVertex(vi1).gl_tc,
-			getVertex(vi2).gl_tc,
-			getVertex(vi3).gl_tc,
-		};
-		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rq, false);
-		const vec2 uv = baryMix(uvs[0], uvs[1], uvs[2], bary);
-		const vec4 texture_color = texture(textures[nonuniformEXT(kusok.tex_base_color)], uv);
+		const MiniGeometry geom = readCandidateMiniGeometry(rq);
+		const uint tex_base_color = getKusok(geom.kusok_index).tex_base_color;
+		const vec4 texture_color = texture(textures[nonuniformEXT(tex_base_color)], geom.uv);
 
 		const float alpha_mask_threshold = .1f;
 		if (texture_color.a >= alpha_mask_threshold) {
@@ -90,7 +100,10 @@ void main() {
 
 	if (rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
 		primaryRayHit(rq, payload);
+		L = rayQueryGetIntersectionTEXT(rq, true);
 	}
+
+	payload.emissive.rgb += traceAdditive(origin, direction, L);
 
 	imageStore(out_position_t, pix, payload.hit_t);
 	imageStore(out_base_color_a, pix, payload.base_color_a);
