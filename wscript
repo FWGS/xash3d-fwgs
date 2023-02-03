@@ -209,6 +209,9 @@ def configure(conf):
 		'-Werror=sizeof-pointer-memaccess',
 		'-Werror=sizeof-array-div',
 		'-Werror=sizeof-pointer-div',
+		'-Werror=string-compare',
+		'-Werror=use-after-free=3',
+		'-Werror=sequence-point',
 #		'-Werror=format=2',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
