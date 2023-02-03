@@ -160,6 +160,7 @@ void SCR_NetSpeeds( void )
 	static int	max_clfps = 0;
 	int		cur_clfps = 0;
 	rgba_t		color;
+	cl_font_t *font = Con_GetCurFont();
 
 	if( !host.allow_console )
 		return;
@@ -196,25 +197,11 @@ void SCR_NetSpeeds( void )
 		Q_memprint( cls.netchan.total_sended )
 	);
 
-	x = refState.width - 320;
+	x = refState.width - 320 * font->scale;
 	y = 384;
 
-	Con_DrawStringLen( NULL, NULL, &height );
 	MakeRGBA( color, 255, 255, 255, 255 );
-
-	p = start = msg;
-
-	do
-	{
-		end = Q_strchr( p, '\n' );
-		if( end ) msg[end-start] = '\0';
-
-		Con_DrawString( x, y, p, color );
-		y += height;
-
-		if( end ) p = end + 1;
-		else break;
-	} while( 1 );
+	CL_DrawString( x, y, msg, color, font, 0 );
 }
 
 /*
@@ -234,28 +221,13 @@ void SCR_RSpeeds( void )
 		int	x, y, height;
 		char	*p, *start, *end;
 		rgba_t	color;
+		cl_font_t *font = Con_GetCurFont();
 
-		x = refState.width - 340;
+		x = refState.width - 340 * font->scale;
 		y = 64;
 
-		Con_DrawStringLen( NULL, NULL, &height );
 		MakeRGBA( color, 255, 255, 255, 255 );
-
-		p = start = msg;
-		do
-		{
-			end = Q_strchr( p, '\n' );
-			if( end ) msg[end-start] = '\0';
-
-			Con_DrawString( x, y, p, color );
-			y += height;
-
-			// handle '\n\n'
-			if( *p == '\n' )
-				y += height;
-			if( end ) p = end + 1;
-			else break;
-		} while( 1 );
+		CL_DrawString( x, y, msg, color, font, 0 );
 	}
 }
 
@@ -588,6 +560,7 @@ void SCR_LoadCreditsFont( void )
 {
 	cl_font_t *const font = &cls.creditsFont;
 	qboolean success = false;
+	float scale = hud_fontscale->value;
 	dword crc = 0;
 
 	// replace default gfx.wad textures by current charset's font
@@ -599,15 +572,15 @@ void SCR_LoadCreditsFont( void )
 			"creditsfont_%s.fnt", Cvar_VariableString( "con_charset" )) > 0 )
 		{
 			if( FS_FileExists( charsetFnt, false ))
-				success = Con_LoadVariableWidthFont( charsetFnt, font, 1.0f, TF_FONT );
+				success = Con_LoadVariableWidthFont( charsetFnt, font, scale, kRenderTransAdd, TF_FONT );
 		}
 	}
 
 	if( !success )
-		success = Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, 1.0f, TF_FONT );
+		success = Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, scale, kRenderTransAdd, TF_FONT );
 
 	if( !success )
-		success = Con_LoadFixedWidthFont( "gfx/conchars", font, 1.0f, TF_FONT );
+		success = Con_LoadFixedWidthFont( "gfx/conchars", font, scale, kRenderTransAdd, TF_FONT );
 
 	// copy font size for client.dll
 	if( success )

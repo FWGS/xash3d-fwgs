@@ -1148,7 +1148,7 @@ Draw button with symbol on it
 */
 static void OSK_DrawSymbolButton( int symb, float x, float y, float width, float height )
 {
-	char str[] = {symb & 255, 0};
+	cl_font_t *font = Con_GetCurFont();
 	byte color[] = { 255, 255, 255, 255 };
 	int x1 = x * refState.width,
 		y1 = y * refState.height,
@@ -1156,14 +1156,15 @@ static void OSK_DrawSymbolButton( int symb, float x, float y, float width, float
 		h = height * refState.height;
 
 	if( symb == osk.curbutton.val )
-	{
 		ref.dllFuncs.FillRGBABlend( x1, y1, w, h, 255, 160, 0, 100 );
-	}
 
 	if( !symb || symb == ' ' || (symb >= OSK_TAB && symb < OSK_SPECKEY_LAST ) )
 		return;
 
-	Con_DrawCharacter( x1 + 1, y1, symb, color );
+	CL_DrawCharacter(
+		x1 + width * 0.4 * refState.width,
+		y1 + height * 0.4 * refState.height,
+		symb, color, font, 0 );
 }
 
 /*
@@ -1177,7 +1178,11 @@ static void OSK_DrawSpecialButton( const char *name, float x, float y, float wid
 {
 	byte color[] = { 0, 255, 0, 255 };
 
-	Con_DrawString( x * refState.width, y * refState.height, name, color );
+	Con_DrawString(
+		x * refState.width + width * 0.4 * refState.width,
+		y * refState.height + height * 0.4 * refState.height,
+		name,
+		color );
 }
 
 
