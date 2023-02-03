@@ -206,6 +206,9 @@ def configure(conf):
 		'-Werror=implicit-fallthrough=2', # clang incompatible without "=2"
 		'-Werror=logical-op',
 		'-Werror=write-strings',
+		'-Werror=sizeof-pointer-memaccess',
+		'-Werror=sizeof-array-div',
+		'-Werror=sizeof-pointer-div',
 #		'-Werror=format=2',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
