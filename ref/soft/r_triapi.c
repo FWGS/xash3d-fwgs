@@ -119,7 +119,7 @@ void GAME_EXPORT TriBegin( int mode1 )
 	if( mode1 == TRI_QUADS )
 		mode1 = TRI_TRIANGLE_FAN;
 	mode = mode1;
-	vertcount = n = vertcount = 0;
+	n = vertcount = 0;
 }
 
 /*
