@@ -42,9 +42,9 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 		const float stopdot = lights.m.point_lights[i].color_stopdot.a;
 		const vec3 dir = lights.m.point_lights[i].dir_stopdot2.xyz;
 		const float stopdot2 = lights.m.point_lights[i].dir_stopdot2.a;
-		const bool not_environment = (lights.m.point_lights[i].environment == 0);
+		const bool is_environment = (lights.m.point_lights[i].environment != 0);
 
-		const vec3 light_dir = not_environment ? (origin_r.xyz - P) : -dir; // TODO need to randomize sampling direction for environment soft shadow
+		const vec3 light_dir = is_environment ? -dir : (origin_r.xyz - P); // TODO need to randomize sampling direction for environment soft shadow
 		const float radius = origin_r.w;
 
 		const vec3 light_dir_norm = normalize(light_dir);
@@ -64,7 +64,9 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 		float light_dist = 1e5; // TODO this is supposedly not the right way to do shadows for environment lights.m. qrad checks for hitting SURF_SKY, and maybe we should too?
 		const float d2 = dot(light_dir, light_dir);
 		const float r2 = origin_r.w * origin_r.w;
-		if (not_environment) {
+		if (is_environment) {
+			color *= 2; // TODO WHY?
+		} else {
 			if (radius < 1e-3)
 				continue;
 
@@ -86,8 +88,6 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 			//const float pdf = TWO_PI / asin(radius / dist);
 			const float pdf = 1. / ((1. - sqrt(d2 - r2) / dist) * spot_attenuation);
 			color /= pdf;
-		} else {
-			color *= 2;
 		}
 
 		// if (dot(color,color) < color_culling_threshold)
@@ -104,14 +104,8 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 			continue;
 
 		// FIXME split environment and other lights
-		if (not_environment) {
-			if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge))
-				continue;
-		} else {
-			// for environment light check that we've hit SURF_SKY
-			if (shadowedSky(P, light_dir_norm, light_dist + shadow_offset_fudge))
-				continue;
-		}
+		if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge, is_environment))
+			continue;
 
 		diffuse += ldiffuse;
 		specular += lspecular;

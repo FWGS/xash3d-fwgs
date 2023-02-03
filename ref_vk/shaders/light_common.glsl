@@ -66,7 +66,7 @@ void shadowRayQuery(rayQueryEXT rq, vec3 pos, vec3 dir, float dist, uint flags) 
 }
 #endif
 
-bool shadowed(vec3 pos, vec3 dir, float dist) {
+bool shadowed(vec3 pos, vec3 dir, float dist, bool check_sky) {
 #ifdef RAY_TRACE
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
@@ -75,42 +75,19 @@ bool shadowed(vec3 pos, vec3 dir, float dist) {
 		| gl_RayFlagsSkipClosestHitShaderEXT
 		;
 	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
-	return payload_shadow.hit_type == SHADOW_HIT;
+	return check_sky ? payload_shadow.hit_type != SHADOW_SKY : payload_shadow.hit_type == SHADOW_HIT;
 #elif defined(RAY_QUERY)
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
 		//| gl_RayFlagsOpaqueEXT
 		| gl_RayFlagsTerminateOnFirstHitEXT
-		//| gl_RayFlagsSkipClosestHitShaderEXT
 		;
 	rayQueryEXT rq;
 	shadowRayQuery(rq, pos, dir, dist, flags);
-	return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
-#else
-#error RAY_TRACE or RAY_QUERY
-#endif
-}
 
-// TODO join with just shadowed()
-bool shadowedSky(vec3 pos, vec3 dir, float dist) {
-#ifdef RAY_TRACE
-	const uint flags = 0
-		//| gl_RayFlagsCullFrontFacingTrianglesEXT
-		//| gl_RayFlagsOpaqueEXT
-		//| gl_RayFlagsTerminateOnFirstHitEXT
-		//| gl_RayFlagsSkipClosestHitShaderEXT
-		;
-	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
-	return payload_shadow.hit_type != SHADOW_SKY;
-#elif defined(RAY_QUERY)
-	const uint flags = 0
-		//| gl_RayFlagsCullFrontFacingTrianglesEXT
-		//| gl_RayFlagsOpaqueEXT
-		//| gl_RayFlagsTerminateOnFirstHitEXT
-		//| gl_RayFlagsSkipClosestHitShaderEXT
-		;
-	rayQueryEXT rq;
-	shadowRayQuery(rq, pos, dir, dist, flags);
+	if (!check_sky) {
+		return rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
+	}
 
 	if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionTriangleEXT)
 		return true;
