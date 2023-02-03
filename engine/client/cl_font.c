@@ -79,24 +79,26 @@ qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float sc
 
 qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, int rendermode, uint texFlags )
 {
+	fs_offset_t length;
 	qfont_t src;
-	file_t *fd;
+	byte *pfile;
 	int font_width, i;
 
 	if( font->valid )
 		return true;
 
-	fd = g_fsapi.Open( fontname, "r", false );
-	if( !fd )
+	pfile = g_fsapi.LoadFile( fontname, &length, false );
+	if( !pfile )
 		return false;
 
-	if( g_fsapi.Read( fd, &src, sizeof( qfont_t )) != sizeof( qfont_t ))
+	if( length < sizeof( src ))
 	{
-		g_fsapi.Close( fd );
+		Mem_Free( pfile );
 		return false;
 	}
 
-	g_fsapi.Close( fd );
+	memcpy( &src, pfile, sizeof( src ));
+	Mem_Free( pfile );
 
 	font->hFontTexture = CL_LoadFontTexture( fontname, texFlags, &font_width );
 	if( !font->hFontTexture )
