@@ -116,7 +116,7 @@ typedef struct
 
 	// console fonts
 	cl_font_t		chars[CON_NUMFONTS];// fonts.wad/font1.fnt
-	cl_font_t		*curFont, *lastUsedFont;
+	cl_font_t		*curFont;
 
 	// console input
 	field_t		input;
@@ -555,90 +555,9 @@ Con_FixedFont
 */
 qboolean Con_FixedFont( void )
 {
-	if( con.curFont && con.curFont->valid && con.curFont->type == FONT_FIXED )
-		return true;
-	return false;
+	return CL_FixedFont( con.curFont );
 }
 
-qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags )
-{
-	int fontWidth;
-	int i;
-
-	if( font->valid )
-		return true; // already loaded
-
-	if( !FS_FileExists( fontname, false ))
-		return false;
-
-	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, texFlags );
-	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
-
-	if( font->hFontTexture && fontWidth != 0 )
-	{
-		font->charHeight = fontWidth / 16 * scale;
-		font->type = FONT_FIXED;
-
-		// build fixed rectangles
-		for( i = 0; i < 256; i++ )
-		{
-			font->fontRc[i].left = (i * (fontWidth / 16)) % fontWidth;
-			font->fontRc[i].right = font->fontRc[i].left + fontWidth / 16;
-			font->fontRc[i].top = (i / 16) * (fontWidth / 16);
-			font->fontRc[i].bottom = font->fontRc[i].top + fontWidth / 16;
-			font->charWidths[i] = fontWidth / 16 * scale;
-		}
-		font->valid = true;
-	}
-
-	return true;
-}
-
-qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags )
-{
-	fs_offset_t	length;
-	qfont_t *src;
-	byte *buffer;
-	int fontWidth;
-	int i;
-
-	if( font->valid )
-		return true; // already loaded
-
-	if( !FS_FileExists( fontname, false ))
-		return false;
-
-	font->hFontTexture = ref.dllFuncs.GL_LoadTexture( fontname, NULL, 0, texFlags );
-	R_GetTextureParms( &fontWidth, NULL, font->hFontTexture );
-
-	// setup consolefont
-	if( font->hFontTexture && fontWidth != 0 )
-	{
-		// half-life font with variable chars witdh
-		buffer = FS_LoadFile( fontname, &length, false );
-
-		if( buffer && length >= sizeof( qfont_t ))
-		{
-			src = (qfont_t *)buffer;
-			font->charHeight = src->rowheight * scale;
-			font->type = FONT_VARIABLE;
-
-			// build rectangles
-			for( i = 0; i < 256; i++ )
-			{
-				font->fontRc[i].left = (word)src->fontinfo[i].startoffset % fontWidth;
-				font->fontRc[i].right = font->fontRc[i].left + src->fontinfo[i].charwidth;
-				font->fontRc[i].top = (word)src->fontinfo[i].startoffset / fontWidth;
-				font->fontRc[i].bottom = font->fontRc[i].top + src->rowheight;
-				font->charWidths[i] = src->fontinfo[i].charwidth * scale;
-			}
-			font->valid = true;
-		}
-		if( buffer ) Mem_Free( buffer );
-	}
-
-	return true;
-}
 
 /*
 ================
@@ -650,6 +569,7 @@ INTERNAL RESOURCE
 static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 {
 	qboolean success = false;
+	float scale = con_fontscale->value;
 
 	if( font->valid )
 		return; // already loaded
@@ -657,7 +577,7 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	// loading conchars
 	if( Sys_CheckParm( "-oldfont" ))
 	{
-		success = Con_LoadVariableWidthFont( "gfx/conchars.fnt", font, con_fontscale->value, TF_FONT|TF_NEAREST );
+		success = Con_LoadVariableWidthFont( "gfx/conchars.fnt", font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST );
 	}
 	else
 	{
@@ -670,14 +590,14 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 			if( Q_snprintf( path, sizeof( path ),
 				"font%i_%s.fnt", fontNumber, Cvar_VariableString( "con_charset" )) > 0 )
 			{
-				success = Con_LoadVariableWidthFont( path, font, con_fontscale->value, TF_FONT|TF_NEAREST );
+				success = Con_LoadVariableWidthFont( path, font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST );
 			}
 		}
 
 		if( !success )
 		{
 			Q_snprintf( path, sizeof( path ), "fonts/font%i", fontNumber );
-			success = Con_LoadVariableWidthFont( path, font, con_fontscale->value, TF_FONT|TF_NEAREST );
+			success = Con_LoadVariableWidthFont( path, font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST );
 		}
 	}
 
@@ -685,7 +605,7 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	{
 		// quake fixed font as fallback
 		// keep source to print directly into conback image
-		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, con_fontscale->value, TF_FONT|TF_KEEP_SOURCE ))
+		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, scale, kRenderTransTexture, TF_FONT|TF_KEEP_SOURCE ))
 			Con_DPrintf( S_ERROR "failed to load console font\n" );
 	}
 }
@@ -716,7 +636,7 @@ static void Con_LoadConchars( void )
 		fontSize = CON_NUMFONTS - 1;
 
 	// sets the current font
-	con.lastUsedFont = con.curFont = &con.chars[fontSize];
+	con.curFont = &con.chars[fontSize];
 }
 
 // CP1251 table
@@ -889,129 +809,25 @@ static void Con_DrawCharToConback( int num, const byte *conchars, byte *dest )
 
 /*
 ====================
-Con_TextAdjustSize
+Con_GetFont
 
-draw charcters routine
 ====================
 */
-static void Con_TextAdjustSize( int *x, int *y, int *w, int *h )
+cl_font_t *Con_GetFont( int num )
 {
-	float	xscale, yscale;
-
-	if( !x && !y && !w && !h ) return;
-
-	// scale for screen sizes
-	xscale = (float)refState.width / (float)clgame.scrInfo.iWidth;
-	yscale = (float)refState.height / (float)clgame.scrInfo.iHeight;
-
-	if( x ) *x *= xscale;
-	if( y ) *y *= yscale;
-	if( w ) *w *= xscale;
-	if( h ) *h *= yscale;
+	num = bound( 0, num, CON_NUMFONTS - 1 );
+	return &con.chars[num];
 }
 
 /*
 ====================
-Con_DrawGenericChar
+Con_GetCurFont
 
-draw console single character
 ====================
 */
-static int Con_DrawGenericChar( int x, int y, int number, rgba_t color )
+cl_font_t *Con_GetCurFont( void )
 {
-	int		width, height;
-	float		s1, t1, s2, t2;
-	wrect_t		*rc;
-
-	number &= 255;
-
-	if( !con.curFont || !con.curFont->valid )
-		return 0;
-
-	number = Con_UtfProcessChar( number );
-	if( !number )
-		return 0;
-
-	if( y < -con.curFont->charHeight )
-		return 0;
-
-	rc = &con.curFont->fontRc[number];
-	R_GetTextureParms( &width, &height, con.curFont->hFontTexture );
-
-	if( !width || !height )
-		return con.curFont->charWidths[number];
-
-	// don't apply color to fixed fonts it's already colored
-	if( con.curFont->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, con.curFont->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
-		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
-	else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
-
-	// calc rectangle
-	s1 = (float)rc->left / width;
-	t1 = (float)rc->top / height;
-	s2 = (float)rc->right / width;
-	t2 = (float)rc->bottom / height;
-	width = ( rc->right - rc->left ) * con_fontscale->value;
-	height = ( rc->bottom - rc->top ) * con_fontscale->value;
-
-	if( clgame.ds.adjust_size )
-		Con_TextAdjustSize( &x, &y, &width, &height );
-	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, con.curFont->hFontTexture );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // don't forget reset color
-
-	return con.curFont->charWidths[number];
-}
-
-/*
-====================
-Con_SetFont
-
-choose font size
-====================
-*/
-void Con_SetFont( int fontNum )
-{
-	fontNum = bound( 0, fontNum, CON_NUMFONTS - 1 );
-	con.curFont = &con.chars[fontNum];
-}
-
-/*
-====================
-Con_RestoreFont
-
-restore auto-selected console font
-(that based on screen resolution)
-====================
-*/
-void Con_RestoreFont( void )
-{
-	con.curFont = con.lastUsedFont;
-}
-
-/*
-====================
-Con_DrawCharacter
-
-client version of routine
-====================
-*/
-int Con_DrawCharacter( int x, int y, int number, rgba_t color )
-{
-	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-	return Con_DrawGenericChar( x, y, number, color );
-}
-
-/*
-====================
-Con_DrawCharacterLen
-
-returns character sizes in screen pixels
-====================
-*/
-void Con_DrawCharacterLen( int number, int *width, int *height )
-{
-	if( width && con.curFont ) *width = con.curFont->charWidths[number];
-	if( height && con.curFont ) *height = con.curFont->charHeight;
+	return con.curFont;
 }
 
 /*
@@ -1023,105 +839,7 @@ compute string width and height in screen pixels
 */
 void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height )
 {
-	int	curLength = 0;
-
-	if( !con.curFont )
-		return;
-	if( height )
-		*height = con.curFont->charHeight;
-	if (!length)
-		return;
-
-	*length = 0;
-
-	while( *pText )
-	{
-		byte	c = *pText;
-
-		if( *pText == '\n' )
-		{
-			pText++;
-			curLength = 0;
-		}
-
-		// skip color strings they are not drawing
-		if( IsColorString( pText ))
-		{
-			pText += 2;
-			continue;
-		}
-
-
-		// Convert to unicode
-		c = Con_UtfProcessChar( c );
-
-		if( c )
-			curLength += con.curFont->charWidths[c];
-
-		pText++;
-
-		if( curLength > *length )
-			*length = curLength;
-	}
-}
-
-/*
-==================
-Con_DrawString
-
-Draws a multi-colored string, optionally forcing
-to a fixed color.
-==================
-*/
-int Con_DrawGenericString( int x, int y, const char *string, rgba_t setColor, qboolean forceColor, int hideChar )
-{
-	rgba_t		color;
-	int		drawLen = 0;
-	int		numDraws = 0;
-	const char	*s;
-
-	if( !con.curFont ) return 0; // no font set
-
-	Con_UtfProcessChar( 0 );
-
-	// draw the colored text
-	memcpy( color, setColor, sizeof( color ));
-	s = string;
-
-	while( *s )
-	{
-		if( *s == '\n' )
-		{
-			s++;
-			if( !*s ) break; // at end the string
-			drawLen = 0; // begin new row
-			y += con.curFont->charHeight;
-		}
-
-		if( IsColorString( s ))
-		{
-			if( !forceColor )
-			{
-				memcpy( color, g_color_table[ColorIndex(*(s+1))], sizeof( color ));
-				color[3] = setColor[3];
-			}
-
-			s += 2;
-			numDraws++;
-			continue;
-		}
-
-		// hide char for overstrike mode
-		if( hideChar == numDraws )
-			drawLen += con.curFont->charWidths[*s];
-		else drawLen += Con_DrawCharacter( x + drawLen, y, *s, color );
-
-		numDraws++;
-		s++;
-	}
-
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-	return drawLen;
+	return CL_DrawStringLen( con.curFont, pText, length, height, FONT_DRAW_UTF8 );
 }
 
 /*
@@ -1133,9 +851,8 @@ client version of routine
 */
 int Con_DrawString( int x, int y, const char *string, rgba_t setColor )
 {
-	return Con_DrawGenericString( x, y, string, setColor, false, -1 );
+	return CL_DrawString( x, y, string, setColor, con.curFont, FONT_DRAW_UTF8 );
 }
-
 
 /*
 ================
@@ -1628,7 +1345,7 @@ Field_DrawInputLine
 void Field_DrawInputLine( int x, int y, field_t *edit )
 {
 	int	len, cursorChar;
-	int	drawLen, hideChar = -1;
+	int	drawLen;
 	int	prestep, curPos;
 	char	str[MAX_SYSPATH];
 	byte	*colorDefault;
@@ -1665,35 +1382,23 @@ void Field_DrawInputLine( int x, int y, field_t *edit )
 	// save char for overstrike
 	cursorChar = str[edit->cursor - prestep];
 
-	if( host.key_overstrike && cursorChar && !((int)( host.realtime * 4 ) & 1 ))
-		hideChar = edit->cursor - prestep; // skip this char
-
 	// draw it
-	Con_DrawGenericString( x, y, str, colorDefault, false, hideChar );
+	CL_DrawString( x, y, str, colorDefault, con.curFont, FONT_DRAW_UTF8 );
 
 	// draw the cursor
 	if((int)( host.realtime * 4 ) & 1 ) return; // off blink
 
 	// calc cursor position
 	str[edit->cursor - prestep] = 0;
-	Con_DrawStringLen( str, &curPos, NULL );
-	Con_UtfProcessChar( 0 );
+	CL_DrawStringLen( con.curFont, str, &curPos, NULL, FONT_DRAW_UTF8 );
 
-	if( host.key_overstrike && cursorChar )
+	if( host.key_overstrike )
 	{
-		// overstrike cursor
-#if 0
-		pglEnable( GL_BLEND );
-		pglDisable( GL_ALPHA_TEST );
-		pglBlendFunc( GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-#endif
-		Con_DrawGenericChar( x + curPos, y, cursorChar, colorDefault );
+		CL_DrawCharacter( x + curPos, y, '|', colorDefault, con.curFont, 0 );
 	}
 	else
 	{
-		Con_UtfProcessChar( 0 );
-		Con_DrawCharacter( x + curPos, y, '_', colorDefault );
+		CL_DrawCharacter( x + curPos, y, '_', colorDefault, con.curFont, 0 );
 	}
 }
 
@@ -1997,7 +1702,7 @@ void Con_DrawInput( int lines )
 		return;
 
 	y = lines - ( con.curFont->charHeight * 2 );
-	Con_DrawCharacter( con.curFont->charWidths[' '], y, ']', g_color_table[7] );
+	CL_DrawCharacter( con.curFont->charWidths[' '], y, ']', g_color_table[7], con.curFont, 0 );
 	Field_DrawInputLine(  con.curFont->charWidths[' ']*2, y, &con.input );
 }
 
@@ -2142,7 +1847,11 @@ int Con_DrawConsoleLine( int y, int lineno )
 		return 0;	// this string will be shown only at notify
 
 	if( y >= con.curFont->charHeight )
-		Con_DrawGenericString( con.curFont->charWidths[' '], y, li->start, g_color_table[7], false, -1 );
+	{
+		float x = con.curFont->charWidths[' '];
+
+		CL_DrawString( x, y, li->start, g_color_table[7], con.curFont, FONT_DRAW_UTF8 );
+	}
 
 	return con.curFont->charHeight;
 }
@@ -2212,14 +1921,12 @@ void Con_DrawSolidConsole( int lines )
 	Q_snprintf( curbuild, MAX_STRING, XASH_ENGINE_NAME " %i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 
 	Con_DrawStringLen( curbuild, &stringLen, &charH );
-	start = refState.width - stringLen;
-	stringLen = Con_StringLength( curbuild );
 
+	start = refState.width - stringLen;
 	fraction = lines / (float)refState.height;
 	color[3] = Q_min( fraction * 2.0f, 1.0f ) * 255; // fadeout version number
 
-	for( i = 0; i < stringLen; i++ )
-		width += Con_DrawCharacter( start + width, 0, curbuild[i], color );
+	Con_DrawString( start, 0, curbuild, color );
 
 	// draw the text
 	if( CON_LINES_COUNT > 0 )
@@ -2236,7 +1943,7 @@ void Con_DrawSolidConsole( int lines )
 
 			// draw red arrows to show the buffer is backscrolled
 			for( x = 0; x < con.linewidth; x += 4 )
-				Con_DrawCharacter(( x + 1 ) * start, y, '^', g_color_table[1] );
+				CL_DrawCharacter( ( x + 1 ) * start, y, '^', g_color_table[1], con.curFont, 0 );
 			y -= con.curFont->charHeight;
 		}
 		x = lastline;
@@ -2339,7 +2046,7 @@ void Con_DrawVersion( void )
 {
 	// draws the current build
 	byte	*color = g_color_table[7];
-	int	i, stringLen, width = 0, charH = 0;
+	int	stringLen, charH = 0;
 	int	start, height = refState.height;
 	qboolean	draw_version = false;
 	string	curbuild;
@@ -2370,8 +2077,7 @@ void Con_DrawVersion( void )
 	stringLen = Con_StringLength( curbuild );
 	height -= charH * 1.05f;
 
-	for( i = 0; i < stringLen; i++ )
-		width += Con_DrawCharacter( start + width, height, curbuild[i], color );
+	Con_DrawString( start, height, curbuild, color );
 }
 
 /*
@@ -2414,7 +2120,7 @@ void Con_RunConsole( void )
 	if( FBitSet( con_charset->flags,  FCVAR_CHANGED ) ||
 		FBitSet( con_fontscale->flags, FCVAR_CHANGED ) ||
 		FBitSet( con_fontnum->flags,   FCVAR_CHANGED ) ||
-		FBitSet( cl_charset->flags,    FCVAR_CHANGED ) )
+		FBitSet( cl_charset->flags,    FCVAR_CHANGED ))
 	{
 		// update codepage parameters
 		if( !Q_stricmp( con_charset->string, "cp1251" ))
@@ -2436,8 +2142,6 @@ void Con_RunConsole( void )
 		g_utf8 = !Q_stricmp( cl_charset->string, "utf-8" );
 		Con_InvalidateFonts();
 		Con_LoadConchars();
-		cls.creditsFont.valid = false;
-		SCR_LoadCreditsFont();
 		ClearBits( con_charset->flags,   FCVAR_CHANGED );
 		ClearBits( con_fontnum->flags,   FCVAR_CHANGED );
 		ClearBits( con_fontscale->flags, FCVAR_CHANGED );
@@ -2576,8 +2280,10 @@ Con_InvalidateFonts
 */
 void Con_InvalidateFonts( void )
 {
-	memset( con.chars, 0, sizeof( con.chars ));
-	con.curFont = con.lastUsedFont = NULL;
+	int i;
+	for( i = 0; i < ARRAYSIZE( con.chars ); i++ )
+		CL_FreeFont( &con.chars[i] );
+	con.curFont = NULL;
 }
 
 /*

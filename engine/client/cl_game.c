@@ -306,9 +306,7 @@ print centerscreen message
 */
 void CL_CenterPrint( const char *text, float y )
 {
-	int	length = 0;
-	int	width = 0;
-	char	*s;
+	cl_font_t *font = Con_GetCurFont();
 
 	if( !COM_CheckString( text ))
 		return;
@@ -317,24 +315,13 @@ void CL_CenterPrint( const char *text, float y )
 	clgame.centerPrint.totalWidth = 0;
 	clgame.centerPrint.time = cl.mtime[0]; // allow pause for centerprint
 	Q_strncpy( clgame.centerPrint.message, text, sizeof( clgame.centerPrint.message ));
-	s = clgame.centerPrint.message;
 
-	// count the number of lines for centering
-	while( *s )
-	{
-		if( *s == '\n' )
-		{
-			clgame.centerPrint.lines++;
-			if( width > clgame.centerPrint.totalWidth )
-				clgame.centerPrint.totalWidth = width;
-			width = 0;
-		}
-		else width += clgame.scrInfo.charWidths[*s];
-		s++;
-		length++;
-	}
+	CL_DrawStringLen( font,
+		clgame.centerPrint.message,
+		&clgame.centerPrint.totalWidth,
+		&clgame.centerPrint.totalHeight,
+		FONT_DRAW_HUD | FONT_DRAW_UTF8 );
 
-	clgame.centerPrint.totalHeight = ( clgame.centerPrint.lines * clgame.scrInfo.iCharHeight );
 	clgame.centerPrint.y = CL_AdjustYPos( y, clgame.centerPrint.totalHeight );
 }
 
@@ -502,6 +489,7 @@ called each frame
 */
 void CL_DrawCenterPrint( void )
 {
+	cl_font_t *font = Con_GetCurFont();
 	char	*pText;
 	int	i, j, x, y;
 	int	width, lineLength;
@@ -521,8 +509,10 @@ void CL_DrawCenterPrint( void )
 	y = clgame.centerPrint.y; // start y
 	colorDefault = g_color_table[7];
 	pText = clgame.centerPrint.message;
-	Con_DrawCharacterLen( 0, NULL, &charHeight );
 
+	CL_DrawCharacterLen( font, 0, NULL, &charHeight );
+
+	ref.dllFuncs.GL_SetRenderMode( font->rendermode );
 	for( i = 0; i < clgame.centerPrint.lines; i++ )
 	{
 		lineLength = 0;
@@ -532,7 +522,7 @@ void CL_DrawCenterPrint( void )
 		{
 			byte c = *pText;
 			line[lineLength] = c;
-			Con_DrawCharacterLen( c, &charWidth, NULL );
+			CL_DrawCharacterLen( font, c, &charWidth, NULL );
 			width += charWidth;
 			lineLength++;
 			pText++;
@@ -549,7 +539,7 @@ void CL_DrawCenterPrint( void )
 		for( j = 0; j < lineLength; j++ )
 		{
 			if( x >= 0 && y >= 0 && x <= refState.width )
-				x += Con_DrawCharacter( x, y, line[j], colorDefault );
+				x += CL_DrawCharacter( x, y, line[j], colorDefault, font, FONT_DRAW_UTF8 | FONT_DRAW_HUD | FONT_DRAW_NORENDERMODE );
 		}
 		y += charHeight;
 	}
@@ -1600,6 +1590,14 @@ int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
 	float scale_factor = hud_scale->value;
 
+	if( FBitSet( hud_fontscale->flags, FCVAR_CHANGED ))
+	{
+		CL_FreeFont( &cls.creditsFont );
+		SCR_LoadCreditsFont();
+
+		ClearBits( hud_fontscale->flags, FCVAR_CHANGED );
+	}
+
 	// setup screen info
 	clgame.scrInfo.iSize = sizeof( clgame.scrInfo );
 	clgame.scrInfo.iFlags = SCRINFO_SCREENFLASH;
@@ -1844,24 +1842,13 @@ returns drawed chachter width (in real screen pixels)
 */
 static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
 {
-	if( !cls.creditsFont.valid )
-		return 0;
+	rgba_t color = { r, g, b, 255 };
+	int flags = FONT_DRAW_HUD;
 
 	if( hud_utf8->value )
-		number = Con_UtfProcessChar( number );
+		flags |= FONT_DRAW_UTF8;
 
-	number &= 255;
-
-	if( number < 32 ) return 0;
-	if( y < -clgame.scrInfo.iCharHeight )
-		return 0;
-
-	clgame.ds.adjust_size = true;
-	pfnPIC_Set( cls.creditsFont.hFontTexture, r, g, b, 255 );
-	pfnPIC_DrawAdditive( x, y, -1, -1, &cls.creditsFont.fontRc[number] );
-	clgame.ds.adjust_size = false;
-
-	return clgame.scrInfo.charWidths[number];
+	return CL_DrawCharacter( x, y, number, color, &cls.creditsFont, flags );
 }
 
 /*
@@ -1873,20 +1860,12 @@ drawing string like a console string
 */
 int GAME_EXPORT pfnDrawConsoleString( int x, int y, char *string )
 {
-	int	drawLen;
+	cl_font_t *font = Con_GetFont( con_fontsize->value );
+	rgba_t color;
+	Vector4Copy( clgame.ds.textColor, color );
+	Vector4Set( clgame.ds.textColor, 255, 255, 255, 255 );
 
-	if( !COM_CheckString( string ))
-		return 0; // silent ignore
-	Con_SetFont( con_fontsize->value );
-
-	clgame.ds.adjust_size = true;
-	drawLen = Con_DrawString( x, y, string, clgame.ds.textColor );
-	MakeRGBA( clgame.ds.textColor, 255, 255, 255, 255 );
-	clgame.ds.adjust_size = false;
-
-	Con_RestoreFont();
-
-	return (x + drawLen); // exclude color prexfixes
+	return x + CL_DrawString( x, y, string, color, font, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
 }
 
 /*
@@ -1914,9 +1893,9 @@ compute string length in screen pixels
 */
 void GAME_EXPORT pfnDrawConsoleStringLen( const char *pText, int *length, int *height )
 {
-	Con_SetFont( con_fontsize->value );
-	Con_DrawStringLen( pText, length, height );
-	Con_RestoreFont();
+	cl_font_t *font = Con_GetFont( con_fontsize->value );
+
+	CL_DrawStringLen( font, pText, length, height, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
 }
 
 /*
@@ -2839,23 +2818,7 @@ pfnVGUI2DrawCharacter
 */
 static int GAME_EXPORT pfnVGUI2DrawCharacter( int x, int y, int number, unsigned int font )
 {
-	if( !cls.creditsFont.valid )
-		return 0;
-
-	number &= 255;
-
-	number = Con_UtfProcessChar( number );
-
-	if( number < 32 ) return 0;
-	if( y < -clgame.scrInfo.iCharHeight )
-		return 0;
-
-	clgame.ds.adjust_size = true;
-	gameui.ds.gl_texturenum = cls.creditsFont.hFontTexture;
-	pfnPIC_DrawAdditive( x, y, -1, -1, &cls.creditsFont.fontRc[number] );
-	clgame.ds.adjust_size = false;
-
-	return clgame.scrInfo.charWidths[number];
+	return pfnDrawCharacter( x, y, number, 255, 255, 255 );
 }
 
 /*
@@ -2866,9 +2829,6 @@ pfnVGUI2DrawCharacterAdditive
 */
 static int GAME_EXPORT pfnVGUI2DrawCharacterAdditive( int x, int y, int ch, int r, int g, int b, unsigned int font )
 {
-	if( !hud_utf8->value )
-		ch = Con_UtfProcessChar( ch );
-
 	return pfnDrawCharacter( x, y, ch, r, g, b );
 }
 
@@ -2880,16 +2840,13 @@ pfnDrawString
 */
 static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
 {
-	int iWidth = 0;
-	Con_UtfProcessChar(0);
+	rgba_t color = { r, g, b, 255 };
+	int flags = FONT_DRAW_HUD;
 
-	// draw the string until we hit the null character or a newline character
-	for ( ; *str != 0 && *str != '\n'; str++ )
-	{
-		iWidth += pfnVGUI2DrawCharacterAdditive( x + iWidth, y, (unsigned char)*str, r, g, b, 0 );
-	}
+	if( hud_utf8->value )
+		SetBits( flags, FONT_DRAW_UTF8 );
 
-	return iWidth;
+	return CL_DrawString( x, y, str, color, &cls.creditsFont, flags );
 }
 
 /*
@@ -2900,11 +2857,19 @@ pfnDrawStringReverse
 */
 static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int r, int g, int b )
 {
-	// find the end of the string
-	char *szIt;
-	for( szIt = (char*)str; *szIt != 0; szIt++ )
-		x -= clgame.scrInfo.charWidths[ (unsigned char) *szIt ];
-	return pfnDrawString( x, y, str, r, g, b );
+	rgba_t color = { r, g, b, 255 };
+	int flags = FONT_DRAW_HUD;
+	int width, height;
+
+	if( hud_utf8->value )
+		SetBits( flags, FONT_DRAW_UTF8 );
+
+	CL_DrawStringLen( &cls.creditsFont, str, &width, &height, flags );
+
+	x -= width;
+	y -= height;
+
+	return CL_DrawString( x, y, str, color, &cls.creditsFont, flags );
 }
 
 /*

@@ -487,22 +487,10 @@ static void PIC_DrawGeneric( float x, float y, float width, float height, const 
 	if( prc )
 	{
 		// calc user-defined rectangle
-		s1 = prc->left;
-		t1 = prc->top;
-		s2 = prc->right;
-		t2 = prc->bottom;
-
-		if( clgame.ds.adjust_size )
-		{
-			SPR_AdjustTexCoords( w, h, &s1, &t1, &s2, &t2 );
-		}
-		else
-		{
-			s1 /= (float)w;
-			t1 /= (float)h;
-			s2 /= (float)w;
-			t2 /= (float)h;
-		}
+		s1 = prc->left / (float)w;
+		t1 = prc->top / (float)h;
+		s2 = prc->right / (float)w;
+		t2 = prc->bottom / (float)h;
 
 		if( width == -1 && height == -1 )
 		{
@@ -526,8 +514,6 @@ static void PIC_DrawGeneric( float x, float y, float width, float height, const 
 	if( gameui.ds.scissor_test && !PIC_Scissor( &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
 		return;
 
-	if( clgame.ds.adjust_size )
-		SPR_AdjustSize( &x, &y, &width, &height );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, gameui.ds.gl_texturenum );
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }

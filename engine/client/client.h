@@ -318,17 +318,25 @@ typedef struct
 	pfnEventHook	func;	// user-defined function
 } cl_user_event_t;
 
-#define FONT_FIXED		0
-#define FONT_VARIABLE	1
+#define FONT_FIXED      0
+#define FONT_VARIABLE   1
+
+#define FONT_DRAW_HUD      BIT( 0 ) // pass to drawing function to apply hud_scale
+#define FONT_DRAW_UTF8     BIT( 1 ) // call UtfProcessChar
+#define FONT_DRAW_FORCECOL BIT( 2 ) // ignore colorcodes
+#define FONT_DRAW_NORENDERMODE BIT( 3 ) // ignore font's default rendermode
 
 typedef struct
 {
-	int		hFontTexture;		// handle to texture
-	wrect_t		fontRc[256];		// rectangles
-	byte		charWidths[256];
-	int		charHeight;
-	int		type;
-	qboolean		valid;			// all rectangles are valid
+	int      hFontTexture;    // handle to texture
+	wrect_t  fontRc[256];     // tex coords
+	float    scale;           // scale factor
+	byte     charWidths[256]; // scaled widths
+	int      charHeight;      // scaled height
+	int      type;            // fixed width font or variable
+	int      rendermode;      // default rendermode
+	qboolean	nearest;         // nearest filtering enabled
+	qboolean	valid;           // all rectangles are valid
 } cl_font_t;
 
 typedef struct
@@ -342,7 +350,6 @@ typedef struct
 	int		scissor_width;
 	int		scissor_height;
 	qboolean		scissor_test;
-	qboolean		adjust_size;		// allow to adjust scale for fonts
 
 	int		renderMode;		// override kRenderMode from TriAPI
 	TRICULLSTYLE	cullMode;			// override CULL FACE from TriAPI
@@ -797,6 +804,19 @@ word CL_EventIndex( const char *name );
 void CL_FireEvents( void );
 
 //
+// cl_font.c
+//
+qboolean CL_FixedFont( cl_font_t *font );
+qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, int rendermode, uint texFlags );
+qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, int rendermode, uint texFlags );
+void CL_FreeFont( cl_font_t *font );
+int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *font, int flags );
+int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *font, int flags );
+void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height );
+void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, int flags );
+
+
+//
 // cl_game.c
 //
 void CL_UnloadProgs( void );
@@ -1030,13 +1050,13 @@ int Con_UtfProcessChar( int in );
 int Con_UtfProcessCharForce( int in );
 int Con_UtfMoveLeft( char *str, int pos );
 int Con_UtfMoveRight( char *str, int pos, int length );
-void Con_DrawStringLen( const char *pText, int *length, int *height );
-int Con_DrawString( int x, int y, const char *string, rgba_t setColor );
-int Con_DrawCharacter( int x, int y, int number, rgba_t color );
-void Con_DrawCharacterLen( int number, int *width, int *height );
 void Con_DefaultColor( int r, int g, int b );
 void Con_InvalidateFonts( void );
-void Con_SetFont( int fontNum );
+cl_font_t *Con_GetCurFont( void );
+cl_font_t *Con_GetFont( int num );
+void Con_DrawCharacterLen( int number, int *width, int *height );
+int Con_DrawString( int x, int y, const char *string, rgba_t setColor ); // legacy, use cl_font.c
+void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height ); // legacy, use cl_font.c
 void Con_CharEvent( int key );
 void Con_RestoreFont( void );
 void Key_Console( int key );
@@ -1046,8 +1066,6 @@ void Con_Bottom( void );
 void Con_Top( void );
 void Con_PageDown( int lines );
 void Con_PageUp( int lines );
-qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags );
-qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, uint texFlags );
 
 //
 // s_main.c
