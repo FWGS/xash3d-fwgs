@@ -122,7 +122,8 @@ Platform_Vibrate
 */
 void Platform_Vibrate( float time, char flags )
 {
-	// stub
+	if( g_joy )
+		SDL_JoystickRumble( g_joy, 0xFFFF, 0xFFFF, time * 1000.0f );
 }
 
 /*
