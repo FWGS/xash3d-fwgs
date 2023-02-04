@@ -17,6 +17,7 @@ finish-args:
   - --socket=pulseaudio
   - --share=network
   - --filesystem=~/.steam:ro
+  - --filesystem=~/.local/share/Steam:ro
   - --filesystem=~/.xash:rw
   - --filesystem=xdg-run/app/com.discordapp.Discord:create
   - --device=all
