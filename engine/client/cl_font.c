@@ -270,8 +270,11 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 			// but high chances somebody's relying on this
 			s++;
 			draw_len = 0;
-			if( height )
-				*height += font->charHeight;
+			if( !FBitSet( flags, FONT_DRAW_NOLF ))
+			{
+				if( height )
+					*height += font->charHeight;
+			}
 		}
 
 		if( IsColorString( s ))
