@@ -135,6 +135,18 @@ void CL_FreeFont( cl_font_t *font )
 	memset( font, 0, sizeof( *font ));
 }
 
+static int CL_CalcTabStop( const cl_font_t *font, int x )
+{
+	int space = font->charWidths[' '];
+	int tab   = space * 6; // 6 spaces
+	int stop  = tab - x % tab;
+
+	if( stop < space )
+		return tab * 2 - x % tab; // select next
+
+	return stop;
+}
+
 int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *font, int flags )
 {
 	wrect_t *rc;
@@ -145,6 +157,16 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 	if( !font || !font->valid || y < -font->charHeight )
 		return 0;
 
+	// check if printable
+	if( number <= 32 )
+	{
+		if( number == ' ' )
+			return font->charWidths[' '];
+		else if( number == '\t' )
+			return CL_CalcTabStop( font, x );
+		return 0;
+	}
+
 	if( FBitSet( flags, FONT_DRAW_UTF8 ))
 		number = Con_UtfProcessChar( number & 255 );
 	else number &= 255;
@@ -154,7 +176,7 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 
 	R_GetTextureParms( &texw, &texh, font->hFontTexture );
 	if( !texw || !texh )
-		return 0;
+		return font->charWidths[number];
 
 	rc = &font->fontRc[number];
 	if( font->nearest || font->scale <= 1.0f )
@@ -241,7 +263,12 @@ int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *fon
 void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height )
 {
 	if( !font || !font->valid ) return;
-	if( width ) *width = font->charWidths[number & 255];
+	if( width )
+	{
+		if( number == '\t' )
+			*width = CL_CalcTabStop( font, 0 ); // at least return max tabstop
+		else *width = font->charWidths[number & 255];
+	}
 	if( height ) *height = font->charHeight;
 }
 
@@ -279,6 +306,12 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 				if( height )
 					*height += font->charHeight;
 			}
+			continue;
+		}
+		else if( *s == '\t' )
+		{
+			draw_len += CL_CalcTabStop( font, 0 ); // at least return max tabstop
+			s++;
 			continue;
 		}
 
