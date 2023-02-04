@@ -76,7 +76,11 @@ modules:
         python waf build
         python waf install --destdir=/
         mkdir -p /app/bin
+        mkdir -p /app/share/icons/hicolor/256x256/apps/
+        mkdir -p /app/share/applications
         install -m 0755 scripts/flatpak/run.sh /app/bin/run.sh
+        install -m 0644 game_launch/icon-xash-material.png /app/share/icons/hicolor/256x256/apps/su.xash.Engine.Compat.i386.png
+        install -m 0644 scripts/flatpak/su.xash.Engine.Compat.i386.desktop /app/share/applications/su.xash.Engine.Compat.i386.desktop
     sources:
     - type: dir
       path: ../../
