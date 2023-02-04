@@ -301,7 +301,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( wad->handle == NULL )
 	{
-		Con_Reportf( S_ERROR "W_Open: couldn't open %s\n", filename );
+		Con_Reportf( S_ERROR "W_Open: couldn't open %s: %s\n", filename, strerror( errno ));
 		if( error ) *error = WAD_LOAD_COULDNT_OPEN;
 		FS_CloseWAD( wad );
 		return NULL;
