@@ -1895,7 +1895,8 @@ void GAME_EXPORT pfnDrawConsoleStringLen( const char *pText, int *length, int *h
 {
 	cl_font_t *font = Con_GetFont( con_fontsize->value );
 
-	CL_DrawStringLen( font, pText, length, height, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
+	if( height ) *height = font->charHeight;
+	CL_DrawStringLen( font, pText, length, NULL, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
 }
 
 /*
@@ -2841,7 +2842,7 @@ pfnDrawString
 static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
 {
 	rgba_t color = { r, g, b, 255 };
-	int flags = FONT_DRAW_HUD;
+	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
 
 	if( hud_utf8->value )
 		SetBits( flags, FONT_DRAW_UTF8 );
@@ -2858,16 +2859,15 @@ pfnDrawStringReverse
 static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int r, int g, int b )
 {
 	rgba_t color = { r, g, b, 255 };
-	int flags = FONT_DRAW_HUD;
-	int width, height;
+	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
+	int width;
 
 	if( hud_utf8->value )
 		SetBits( flags, FONT_DRAW_UTF8 );
 
-	CL_DrawStringLen( &cls.creditsFont, str, &width, &height, flags );
+	CL_DrawStringLen( &cls.creditsFont, str, &width, NULL, flags );
 
 	x -= width;
-	y -= height;
 
 	return CL_DrawString( x, y, str, color, &cls.creditsFont, flags );
 }
