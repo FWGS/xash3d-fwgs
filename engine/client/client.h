@@ -340,17 +340,22 @@ typedef struct
 	qboolean	valid;           // all rectangles are valid
 } cl_font_t;
 
+typedef struct scissor_state_s
+{
+	int x;
+	int y;
+	int width;
+	int height;
+	qboolean test;
+} scissor_state_t;
+
 typedef struct
 {
+	// scissor test
+	scissor_state_t scissor;
+
 	// temp handle
 	const model_t	*pSprite;			// pointer to current SpriteTexture
-
-	// scissor test
-	int		scissor_x;
-	int		scissor_y;
-	int		scissor_width;
-	int		scissor_height;
-	qboolean		scissor_test;
 
 	int		renderMode;		// override kRenderMode from TriAPI
 	TRICULLSTYLE	cullMode;			// override CULL FACE from TriAPI
@@ -378,14 +383,10 @@ typedef struct cl_predicted_player_s
 
 typedef struct
 {
-	int		gl_texturenum;	// this is a real texnum
-
 	// scissor test
-	int		scissor_x;
-	int		scissor_y;
-	int		scissor_width;
-	int		scissor_height;
-	qboolean		scissor_test;
+	scissor_state_t scissor;
+
+	int		gl_texturenum;	// this is a real texnum
 
 	// holds text color
 	rgba_t		textColor;
@@ -862,6 +863,9 @@ void pfnGetScreenFade( struct screenfade_s *fade );
 physent_t *pfnGetPhysent( int idx );
 struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
 movevars_t *pfnGetMoveVars( void );
+void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int height );
+void CL_DisableScissor( scissor_state_t *scissor );
+qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
 
 _inline cl_entity_t *CL_EDICT_NUM( int n )
 {
