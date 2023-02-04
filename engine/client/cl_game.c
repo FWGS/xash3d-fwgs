@@ -371,55 +371,6 @@ void SPR_AdjustTexCoords( float width, float height, float *s1, float *t1, float
 	*t2 /= height;
 }
 
-static qboolean SPR_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
-{
-	float	dudx, dvdy;
-
-	// clip sub rect to sprite
-	if(( width == 0 ) || ( height == 0 ))
-		return false;
-
-	if( *x + *width <= clgame.ds.scissor_x )
-		return false;
-	if( *x >= clgame.ds.scissor_x + clgame.ds.scissor_width )
-		return false;
-	if( *y + *height <= clgame.ds.scissor_y )
-		return false;
-	if( *y >= clgame.ds.scissor_y + clgame.ds.scissor_height )
-		return false;
-
-	dudx = (*u1 - *u0) / *width;
-	dvdy = (*v1 - *v0) / *height;
-
-	if( *x < clgame.ds.scissor_x )
-	{
-		*u0 += (clgame.ds.scissor_x - *x) * dudx;
-		*width -= clgame.ds.scissor_x - *x;
-		*x = clgame.ds.scissor_x;
-	}
-
-	if( *x + *width > clgame.ds.scissor_x + clgame.ds.scissor_width )
-	{
-		*u1 -= (*x + *width - (clgame.ds.scissor_x + clgame.ds.scissor_width)) * dudx;
-		*width = clgame.ds.scissor_x + clgame.ds.scissor_width - *x;
-	}
-
-	if( *y < clgame.ds.scissor_y )
-	{
-		*v0 += (clgame.ds.scissor_y - *y) * dvdy;
-		*height -= clgame.ds.scissor_y - *y;
-		*y = clgame.ds.scissor_y;
-	}
-
-	if( *y + *height > clgame.ds.scissor_y + clgame.ds.scissor_height )
-	{
-		*v1 -= (*y + *height - (clgame.ds.scissor_y + clgame.ds.scissor_height)) * dvdy;
-		*height = clgame.ds.scissor_y + clgame.ds.scissor_height - *y;
-	}
-
-	return true;
-}
-
 /*
 ====================
 SPR_DrawGeneric
@@ -470,7 +421,7 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 	}
 
 	// pass scissor test if supposed
-	if( clgame.ds.scissor_test && !SPR_Scissor( &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
+	if( !CL_Scissor( &clgame.ds.scissor, &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
 		return;
 
 	// scale for screen sizes
@@ -826,6 +777,92 @@ const char *CL_SoundFromIndex( int index )
 }
 
 /*
+================
+CL_EnableScissor
+
+enable scissor test
+================
+*/
+void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int height )
+{
+	scissor->x = x;
+	scissor->y = y;
+	scissor->width = width;
+	scissor->height = height;
+	scissor->test = true;
+}
+
+/*
+================
+CL_DisableScissor
+
+disable scissor test
+================
+*/
+void CL_DisableScissor( scissor_state_t *scissor )
+{
+	scissor->test = false;
+}
+
+/*
+================
+CL_Scissor
+
+perform common scissor test
+================
+*/
+qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
+{
+	float dudx, dvdy;
+
+	if( !scissor->test )
+		return true;
+
+	// clip sub rect to sprite
+	if( *width == 0 || *height == 0 )
+		return false;
+
+	if( *x + *width <= scissor->x )
+		return false;
+	if( *x >= scissor->x + scissor->width )
+		return false;
+	if( *y + *height <= scissor->y )
+		return false;
+	if( *y >= scissor->y + scissor->height )
+		return false;
+
+	dudx = (*u1 - *u0) / *width;
+	dvdy = (*v1 - *v0) / *height;
+
+	if( *x < scissor->x )
+	{
+		*u0 += (scissor->x - *x) * dudx;
+		*width -= scissor->x - *x;
+		*x = scissor->x;
+	}
+
+	if( *x + *width > scissor->x + scissor->width )
+	{
+		*u1 -= (*x + *width - (scissor->x + scissor->width)) * dudx;
+		*width = scissor->x + scissor->width - *x;
+	}
+
+	if( *y < scissor->y )
+	{
+		*v0 += (scissor->y - *y) * dvdy;
+		*height -= scissor->y - *y;
+		*y = scissor->y;
+	}
+
+	if( *y + *height > scissor->y + scissor->height )
+	{
+		*v1 -= (*y + *height - (scissor->y + scissor->height)) * dvdy;
+		*height = scissor->y + scissor->height - *y;
+	}
+	return true;
+}
+
+/*
 =========
 SPR_EnableScissor
 
@@ -839,11 +876,7 @@ static void GAME_EXPORT SPR_EnableScissor( int x, int y, int width, int height )
 	width = bound( 0, width, clgame.scrInfo.iWidth - x );
 	height = bound( 0, height, clgame.scrInfo.iHeight - y );
 
-	clgame.ds.scissor_x = x;
-	clgame.ds.scissor_width = width;
-	clgame.ds.scissor_y = y;
-	clgame.ds.scissor_height = height;
-	clgame.ds.scissor_test = true;
+	CL_EnableScissor( &clgame.ds.scissor, x, y, width, height );
 }
 
 /*
@@ -854,11 +887,7 @@ SPR_DisableScissor
 */
 static void GAME_EXPORT SPR_DisableScissor( void )
 {
-	clgame.ds.scissor_x = 0;
-	clgame.ds.scissor_width = 0;
-	clgame.ds.scissor_y = 0;
-	clgame.ds.scissor_height = 0;
-	clgame.ds.scissor_test = false;
+	CL_DisableScissor( &clgame.ds.scissor );
 }
 
 /*
