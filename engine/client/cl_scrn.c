@@ -150,8 +150,7 @@ same as r_speeds but for network channel
 void SCR_NetSpeeds( void )
 {
 	static char	msg[MAX_SYSPATH];
-	int		x, y, height;
-	char		*p, *start, *end;
+	int		x, y;
 	float		time = cl.mtime[0];
 	static int	min_svfps = 100;
 	static int	max_svfps = 0;
@@ -201,7 +200,7 @@ void SCR_NetSpeeds( void )
 	y = 384;
 
 	MakeRGBA( color, 255, 255, 255, 255 );
-	CL_DrawString( x, y, msg, color, font, 0 );
+	CL_DrawString( x, y, msg, color, font, FONT_DRAW_RESETCOLORONLF );
 }
 
 /*
@@ -218,8 +217,7 @@ void SCR_RSpeeds( void )
 
 	if( ref.dllFuncs.R_SpeedsMessage( msg, sizeof( msg )))
 	{
-		int	x, y, height;
-		char	*p, *start, *end;
+		int	x, y;
 		rgba_t	color;
 		cl_font_t *font = Con_GetCurFont();
 
@@ -227,7 +225,7 @@ void SCR_RSpeeds( void )
 		y = 64;
 
 		MakeRGBA( color, 255, 255, 255, 255 );
-		CL_DrawString( x, y, msg, color, font, 0 );
+		CL_DrawString( x, y, msg, color, font, FONT_DRAW_RESETCOLORONLF );
 	}
 }
 
