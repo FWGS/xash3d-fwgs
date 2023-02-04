@@ -207,8 +207,12 @@ int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *fon
 			if( !*s )
 				break;
 
-			draw_len = 0;
-			y += font->charHeight;
+			// some client functions ignore newlines
+			if( !FBitSet( flags, FONT_DRAW_NOLF ))
+			{
+				draw_len = 0;
+				y += font->charHeight;
+			}
 		}
 
 		if( IsColorString( s ))
