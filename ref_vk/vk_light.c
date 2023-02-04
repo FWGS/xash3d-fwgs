@@ -536,6 +536,7 @@ void RT_LightsNewMapBegin( const struct model_s *map ) {
 			vk_lights_cell_t *const cell = g_lights.cells + i;
 			cell->num_point_lights = cell->num_static.point_lights = 0;
 			cell->num_polygons = cell->num_static.polygons = 0;
+			cell->dirty = true;
 		}
 	}
 }
@@ -545,10 +546,16 @@ void RT_LightsFrameBegin( void ) {
 	g_lights_.num_point_lights = g_lights_.num_static.point_lights;
 	g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices;
 
+	g_lights.stats.dirty_cells = 0;
+
 	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
 		vk_lights_cell_t *const cell = g_lights.cells + i;
 		cell->num_polygons = cell->num_static.polygons;
 		cell->num_point_lights = cell->num_static.point_lights;
+
+		if (cell->dirty)
+			++g_lights.stats.dirty_cells;
+		cell->dirty = false;
 	}
 }
 
@@ -564,6 +571,7 @@ static qboolean addSurfaceLightToCell( int cell_index, int polygon_light_index )
 	}
 
 	cluster->polygons[cluster->num_polygons++] = polygon_light_index;
+	cluster->dirty = true;
 	return true;
 }
 
@@ -578,6 +586,7 @@ static qboolean addLightToCell( int cell_index, int light_index ) {
 	}
 
 	cluster->point_lights[cluster->num_point_lights++] = light_index;
+	cluster->dirty = true;
 	return true;
 }
 

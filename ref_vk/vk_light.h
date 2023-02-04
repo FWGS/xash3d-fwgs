@@ -16,6 +16,8 @@ typedef struct {
 		uint8_t point_lights;
 		uint8_t polygons;
 	} num_static;
+
+	qboolean dirty;
 } vk_lights_cell_t;
 
 typedef struct {
@@ -57,6 +59,10 @@ typedef struct {
 	} map;
 
 	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
+
+	struct {
+		int dirty_cells;
+	} stats;
 } vk_lights_t;
 
 extern vk_lights_t g_lights;
