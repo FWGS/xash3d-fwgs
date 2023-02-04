@@ -325,6 +325,7 @@ typedef struct
 #define FONT_DRAW_UTF8     BIT( 1 ) // call UtfProcessChar
 #define FONT_DRAW_FORCECOL BIT( 2 ) // ignore colorcodes
 #define FONT_DRAW_NORENDERMODE BIT( 3 ) // ignore font's default rendermode
+#define FONT_DRAW_NOLF     BIT( 4 ) // ignore \n
 
 typedef struct
 {
