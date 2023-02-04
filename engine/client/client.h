@@ -326,6 +326,7 @@ typedef struct
 #define FONT_DRAW_FORCECOL BIT( 2 ) // ignore colorcodes
 #define FONT_DRAW_NORENDERMODE BIT( 3 ) // ignore font's default rendermode
 #define FONT_DRAW_NOLF     BIT( 4 ) // ignore \n
+#define FONT_DRAW_RESETCOLORONLF BIT( 5 ) // yet another flag to simulate consecutive Con_DrawString calls...
 
 typedef struct
 {

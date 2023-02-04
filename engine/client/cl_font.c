@@ -213,6 +213,10 @@ int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *fon
 				draw_len = 0;
 				y += font->charHeight;
 			}
+
+			if( FBitSet( flags, FONT_DRAW_RESETCOLORONLF ))
+				 Vector4Copy( color, current_color );
+			continue;
 		}
 
 		if( IsColorString( s ))
@@ -275,6 +279,7 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 				if( height )
 					*height += font->charHeight;
 			}
+			continue;
 		}
 
 		if( IsColorString( s ))
