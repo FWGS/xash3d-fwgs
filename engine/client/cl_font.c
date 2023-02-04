@@ -157,7 +157,7 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 		return 0;
 
 	rc = &font->fontRc[number];
-	if( font->nearest || font->scale > 1.0f )
+	if( font->nearest || font->scale <= 1.0f )
 		half = 0;
 
 	s1 = ((float)rc->left + half ) / texw;
