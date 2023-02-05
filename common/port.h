@@ -39,8 +39,13 @@ GNU General Public License for more details.
 
 	#if XASH_POSIX
 		#include <unistd.h>
-		#include <dlfcn.h>
-		#define HAVE_DUP
+		#ifdef XASH_NSWITCH
+			#define SOLDER_LIBDL_COMPAT
+			#include <solder.h>
+		#else
+			#include <dlfcn.h>
+			#define HAVE_DUP
+		#endif
 		#define O_BINARY    0
 		#define O_TEXT      0
 		#define _mkdir( x ) mkdir( x, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )

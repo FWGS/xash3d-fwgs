@@ -132,6 +132,9 @@ def configure(conf):
 	# Load compilers early
 	conf.load('xshlib xcompile compiler_c compiler_cxx')
 
+	if conf.options.NSWITCH:
+		conf.load('nswitch')
+
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
 		conf.env.DEST_CPU = 'x86_64'
@@ -170,6 +173,12 @@ def configure(conf):
 		enforce_pic = False
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.SINGLE_BINARY = True
+	elif conf.env.DEST_OS == 'nswitch':
+		conf.options.NO_VGUI          = True
+		conf.options.GL               = True
+		conf.options.SINGLE_BINARY    = True
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.options.USE_STBTT        = True
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
@@ -233,6 +242,14 @@ def configure(conf):
 
 	cflags, linkflags = conf.get_optimization_flags()
 
+	# on the Switch, allow undefined symbols by default, which is needed for libsolder to work
+	# we'll specifically disallow for the engine executable
+	# additionally, shared libs are linked without libc
+	if conf.env.DEST_OS == 'nswitch':
+		linkflags.remove('-Wl,--no-undefined')
+		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-nostartfiles'])
+		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-nostartfiles'])
+
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
 	if conf.env.COMPILER_CC != 'msvc' and not conf.options.DISABLE_WERROR:
@@ -282,7 +299,10 @@ def configure(conf):
 		conf.define('ALLOCA_H', 'malloc.h')
 
 	if conf.env.DEST_OS != 'win32':
-		conf.check_cc(lib='dl', mandatory=False)
+		if conf.env.DEST_OS == 'nswitch':
+			conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
+		else:
+			conf.check_cc(lib='dl', mandatory=False)
 
 		if not conf.env.LIB_M: # HACK: already added in xcompile!
 			conf.check_cc(lib='m')
@@ -354,7 +374,7 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.LIBDIR + '/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if sys.platform != 'win32' and not conf.env.DEST_OS == 'android':
+		if sys.platform != 'win32' and conf.env.DEST_OS != 'android':
 			conf.env.PREFIX = '/'
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX

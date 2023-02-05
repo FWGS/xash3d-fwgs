@@ -26,7 +26,6 @@ GNU General Public License for more details.
 #if XASH_POSIX
 #include <unistd.h>
 #include <signal.h>
-#include <dlfcn.h>
 
 #if !XASH_ANDROID
 #include <pwd.h>
@@ -35,6 +34,10 @@ GNU General Public License for more details.
 
 #if XASH_WIN32
 #include <process.h>
+#endif
+
+#if XASH_NSWITCH
+#include <switch.h>
 #endif
 
 #include "menu_int.h" // _UPDATE_PAGE macro
@@ -126,7 +129,7 @@ const char *Sys_GetCurrentUser( void )
 
 	if( GetUserName( s_userName, &size ))
 		return s_userName;
-#elif XASH_POSIX && !XASH_ANDROID
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 
@@ -566,6 +569,19 @@ it explicitly doesn't use internal allocation or string copy utils
 */
 qboolean Sys_NewInstance( const char *gamedir )
 {
+#if XASH_NSWITCH
+	char newargs[4096];
+	const char *exe = host.argv[0]; // arg 0 is always the full NRO path
+
+	// TODO: carry over the old args (assuming you can even pass any)
+	Q_snprintf( newargs, sizeof( newargs ), "%s -game %s", exe, gamedir );
+	// just restart the entire thing
+	printf( "envSetNextLoad exe: `%s`\n", exe );
+	printf( "envSetNextLoad argv:\n`%s`\n", newargs );
+	Host_Shutdown( );
+	envSetNextLoad( exe, newargs );
+	exit( 0 );
+#else
 	int i = 0;
 	qboolean replacedArg = false;
 	size_t exelen;
@@ -613,6 +629,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 		free( newargs[i] );
 	free( newargs );
 	free( exe );
+#endif
 
 	return false;
 }
