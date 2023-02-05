@@ -2,8 +2,13 @@
 
 echo "Xash3D FWGS installed as Flatpak."
 
+export XASH3D_BASEDIR="$HOME/.xash/"
+mkdir -p $XASH3D_BASEDIR
+cd $XASH3D_BASEDIR
+echo "Base directory is $XASH3D_BASEDIR"
+
 # TODO: detect by libraryfolders.vdf and installed apps
-HALFLIFESTEAMDIRS="$HOME/.local/share/Steam/steamapps/common/Half-Life $HOME/.steam/steam/steamapps/common/Half-Life"
+HALFLIFESTEAMDIRS="../.local/share/Steam/steamapps/common/Half-Life ../.steam/steam/steamapps/common/Half-Life"
 
 for i in $HALFLIFESTEAMDIRS; do
 #	echo $i
@@ -14,11 +19,6 @@ for i in $HALFLIFESTEAMDIRS; do
 	fi
 done
 
-XASHDATADIR="$HOME/.xash/"
-
-mkdir -p $XASHDATADIR
-export XASH3D_BASEDIR="$XASHDATADIR"
-echo "Base directory is $XASH3D_BASEDIR"
 
 export XASH3D_EXTRAS_PAK1=/app/share/xash3d/valve/extras.pk3
 exec $DEBUGGER /app/lib32/xash3d/xash3d "$@"
