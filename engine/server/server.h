@@ -438,6 +438,7 @@ extern convar_t		sv_uploadmax;
 extern convar_t		sv_trace_messages;
 extern convar_t		sv_enttools_enable;
 extern convar_t		sv_enttools_maxfire;
+extern convar_t		sv_autosave;
 extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
