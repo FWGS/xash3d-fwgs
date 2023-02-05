@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories=Game;Shooter;
+Comment=Half-Life compatible game engine
+Exec=
+Icon=su.xash.Engine.Compat.i386
+Keywords=first;person;shooter;multiplayer;half-life;halflife;singleplayer;
+Name=Xash3D FWGS
+PrefersNonDefaultGPU=true
+Terminal=false
+Type=Application
