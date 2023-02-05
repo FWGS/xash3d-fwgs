@@ -3,12 +3,16 @@
 echo "Xash3D FWGS installed as Flatpak."
 
 # TODO: detect by libraryfolders.vdf and installed apps
-HALFLIFESTEAMDIR="$HOME/.steam/steam/steamapps/common/Half-Life"
+HALFLIFESTEAMDIRS="$HOME/.local/share/Steam/steamapps/common/Half-Life $HOME/.steam/steam/steamapps/common/Half-Life"
 
-if [ -d "$HALFLIFESTEAMDIR" ]; then
-	echo "Detected Half-Life installation in $HALFLIFESTEAMDIR, using as RoDir"
-	export XASH3D_RODIR=$HALFLIFESTEAMDIR
-fi
+for i in $HALFLIFESTEAMDIRS; do
+#	echo $i
+	if [ -d "$i" ]; then
+		echo "Detected Half-Life installation in $i, using as RoDir"
+		export XASH3D_RODIR=$i
+		break
+	fi
+done
 
 XASHDATADIR="$HOME/.xash/"
 
