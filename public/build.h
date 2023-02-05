@@ -82,6 +82,7 @@ Then you can use another oneliner to query all variables:
 #undef XASH_SERENITY
 #undef XASH_WIN32
 #undef XASH_X86
+#undef XASH_NSWITCH
 
 //================================================================
 //
@@ -119,12 +120,14 @@ Then you can use another oneliner to query all variables:
 		#if TARGET_OS_IOS
 			#define XASH_IOS 1
 		#endif // TARGET_OS_IOS
+	#elif defined __SWITCH__
+		#define XASH_NSWITCH 1
 	#else
 		#error
 	#endif
 #endif
 
-#if XASH_ANDROID || defined XASH_IOS
+#if XASH_ANDROID || defined XASH_IOS || defined XASH_NSWITCH
 	#define XASH_MOBILE_PLATFORM 1
 #endif
 

@@ -48,6 +48,14 @@ def configure(conf):
 		conf.options.NO_ASYNC_RESOLVE = True
 		if not conf.check_cc( fragment='int main(){ int i = socket();}', lib = 'wattcpwl', mandatory=False ):
 			conf.define('XASH_NO_NETWORK',1)
+	elif conf.env.DEST_OS == 'nswitch':
+		conf.load('sdl2')
+		if not conf.env.HAVE_SDL2:
+			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
+		conf.define('XASH_SDL', 2)
+		# disallow undefined symbols
+		conf.env.append_unique('CXXFLAGS', '-Wl,--no-undefined')
+		conf.env.append_unique('CFLAGS', '-Wl,--no-undefined')
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
@@ -123,7 +131,7 @@ def build(bld):
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
 		source += bld.path.ant_glob(['platform/win32/*.c'])
-	elif bld.env.DEST_OS != 'dos': #posix
+	elif bld.env.DEST_OS != 'dos' and bld.env.DEST_OS != 'nswitch': #posix
 		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
 		if not bld.env.STATIC:
 			libs += ['DL']
@@ -162,6 +170,11 @@ def build(bld):
 		libs += ['LOG']
 		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c', 'platform/linux/*.c'])
 
+	if bld.env.DEST_OS == 'nswitch':
+		libs += [ 'SOLDER' ]
+		source += bld.path.ant_glob(['platform/posix/*.c'])
+		source += bld.path.ant_glob(['platform/nswitch/*.c'])
+
 	# add client files
 	if not bld.env.DEDICATED:
 		source += bld.path.ant_glob([
@@ -172,22 +185,34 @@ def build(bld):
 
 	includes = ['server', 'client', 'client/vgui' ]
 
-	if bld.env.SINGLE_BINARY:
-		install_path = bld.env.BINDIR
-		program = 'cxxprogram' if is_cxx_link else 'cprogram'
-		if bld.env.STATIC:
-			program += '_static'
-		features = ['c', program]
+	# Switch has custom parameters
+	if bld.env.DEST_OS == 'nswitch':
+		bld(source = source,
+			target = 'xash',
+			features = 'c cxxprogram',
+			includes = includes,
+			use = libs,
+			install_path = None,
+			nro_install_path = bld.env.BINDIR,
+			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
+			icon = 'platform/nswitch/icon.jpg')
 	else:
-		install_path = bld.env.LIBDIR
-		features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
+		if bld.env.SINGLE_BINARY:
+			install_path = bld.env.BINDIR
+			program = 'cxxprogram' if is_cxx_link else 'cprogram'
+			if bld.env.STATIC:
+				program += '_static'
+			features = ['c', program]
+		else:
+			install_path = bld.env.LIBDIR
+			features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
 
-	bld(source   = source,
-		target   = 'xash',
-		features = features,
-		includes = includes,
-		use      = libs,
-		install_path = install_path,
-		subsystem = bld.env.MSVC_SUBSYSTEM,
-		rpath = '$ORIGIN'
-	)
+		bld(source   = source,
+			target   = 'xash',
+			features = features,
+			includes = includes,
+			use      = libs,
+			install_path = install_path,
+			subsystem = bld.env.MSVC_SUBSYSTEM,
+			rpath = '$ORIGIN'
+		)

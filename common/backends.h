@@ -47,6 +47,7 @@ GNU General Public License for more details.
 #define MSGBOX_SDL     1
 #define MSGBOX_ANDROID 2
 #define MSGBOX_WIN32   3
+#define MSGBOX_NSWITCH 4
 
 
 // library loading (XASH_LIB)

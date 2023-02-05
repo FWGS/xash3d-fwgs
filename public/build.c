@@ -109,6 +109,8 @@ const char *Q_PlatformStringByID( const int platform )
 		return "serenity";
 	case PLATFORM_IRIX:
 		return "irix";
+	case PLATFORM_NSWITCH:
+		return "nswitch";
 	}
 
 	assert( 0 );

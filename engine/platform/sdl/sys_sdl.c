@@ -68,6 +68,9 @@ void Platform_Init( void )
 #ifdef XASH_WIN32
 	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
 #endif
+#ifdef XASH_NSWITCH
+	NSwitch_Init();
+#endif
 
 	SDLash_InitCursors();
 }
@@ -78,5 +81,8 @@ void Platform_Shutdown( void )
 
 #ifdef XASH_WIN32
 	Wcon_DestroyConsole();
+#endif
+#ifdef XASH_NSWITCH
+	NSwitch_Shutdown();
 #endif
 }
