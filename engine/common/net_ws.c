@@ -188,6 +188,19 @@ char *NET_ErrorString( void )
 #endif
 }
 
+_inline socklen_t NET_SockAddrLen( const struct sockaddr_storage *addr )
+{
+	switch ( addr->ss_family )
+	{
+	case AF_INET:
+		return sizeof( struct sockaddr_in );
+	case AF_INET6:
+		return sizeof( struct sockaddr_in6 );
+	default:
+		return sizeof( *addr ); // what the fuck is this?
+	}
+}
+
 _inline qboolean NET_IsSocketError( int retval )
 {
 #if XASH_WIN32 || XASH_DOS4GW
@@ -1626,7 +1639,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 
 	NET_NetadrToSockadr( &to, &addr );
 
-	ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, sizeof( addr ), splitsize );
+	ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, NET_SockAddrLen( &addr ), splitsize );
 
 	if( NET_IsSocketError( ret ))
 	{
@@ -1799,7 +1812,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		if( port == PORT_ANY ) ((struct sockaddr_in6 *)&addr)->sin6_port = 0;
 		else ((struct sockaddr_in6 *)&addr)->sin6_port = htons((short)port);
 
-		if( NET_IsSocketError( bind( net_socket, (struct sockaddr *)&addr, sizeof( addr ))))
+		if( NET_IsSocketError( bind( net_socket, (struct sockaddr *)&addr, sizeof( struct sockaddr_in6 ))))
 		{
 			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d bind6: %s\n", port, NET_ErrorString( ));
 			closesocket( net_socket );
@@ -1836,7 +1849,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		if( port == PORT_ANY ) ((struct sockaddr_in *)&addr)->sin_port = 0;
 		else ((struct sockaddr_in *)&addr)->sin_port = htons((short)port);
 
-		if( NET_IsSocketError( bind( net_socket, (struct sockaddr *)&addr, sizeof( addr ))))
+		if( NET_IsSocketError( bind( net_socket, (struct sockaddr *)&addr, sizeof( struct sockaddr_in ))))
 		{
 			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d bind: %s\n", port, NET_ErrorString( ));
 			closesocket( net_socket );
@@ -2644,7 +2657,7 @@ void HTTP_Run( void )
 
 		if( curfile->state < HTTP_CONNECTED ) // Connection not enstabilished
 		{
-			res = connect( curfile->socket, (struct sockaddr*)&addr, sizeof( addr ));
+			res = connect( curfile->socket, (struct sockaddr*)&addr, NET_SockAddrLen( &addr ) );
 
 			if( res )
 			{
