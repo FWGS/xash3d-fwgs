@@ -12,7 +12,9 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include "platform/platform.h"
 #if XASH_LIB == LIB_POSIX
 #ifdef XASH_IRIX
