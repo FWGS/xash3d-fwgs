@@ -502,7 +502,8 @@ void SV_AutoSave_f( void )
 		return;
 	}
 
-	SV_SaveGame( "autosave" );
+	if( Cvar_VariableInteger( "sv_autosave" ) )
+		SV_SaveGame( "autosave" );
 }
 
 /*
