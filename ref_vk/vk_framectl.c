@@ -189,7 +189,7 @@ static void updateGamma( void ) {
 static void showProfilingData( void ) {
 	{
 		const int dirty = g_lights.stats.dirty_cells;
-		gEngine.Con_NPrintf(4, "Dirty light cells: %d, estimated size = %dKiB\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024));
+		gEngine.Con_NPrintf(4, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
 	}
 
 	gEngine.Con_NPrintf(5, "Perf scopes:");

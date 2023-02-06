@@ -21,6 +21,7 @@
 #define vec3 vec3_t
 #define vec4 vec4_t
 #define mat4 matrix4x4
+typedef int ivec3[3];
 #define TOKENPASTE(x, y) x ## y
 #define TOKENPASTE2(x, y) TOKENPASTE(x, y)
 #define PAD(x) float TOKENPASTE2(pad_, __LINE__)[x];
@@ -111,6 +112,10 @@ struct LightsMetadata {
 	uint num_polygons;
 	uint num_point_lights;
 	PAD(2)
+	ivec3 grid_min_cell;
+	PAD(1)
+	ivec3 grid_size;
+	PAD(1)
 	STRUCT PointLight point_lights[MAX_POINT_LIGHTS];
 	STRUCT PolygonLight polygons[MAX_EMISSIVE_KUSOCHKI];
 	vec4 polygon_vertices[MAX_EMISSIVE_KUSOCHKI * 7]; // vec3 but aligned

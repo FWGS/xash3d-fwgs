@@ -17,7 +17,7 @@ typedef struct {
 		uint8_t polygons;
 	} num_static;
 
-	qboolean dirty;
+	uint32_t frame_sequence;
 } vk_lights_cell_t;
 
 typedef struct {
@@ -62,6 +62,7 @@ typedef struct {
 
 	struct {
 		int dirty_cells;
+		int ranges_uploaded;
 	} stats;
 } vk_lights_t;
 
@@ -83,7 +84,7 @@ typedef struct {
 		uint32_t offset, size;
 	} metadata, grid;
 } vk_lights_bindings_t;
-vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer );
+vk_lights_bindings_t VK_LightsUpload( void );
 
 qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id );
 

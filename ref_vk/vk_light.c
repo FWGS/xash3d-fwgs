@@ -38,16 +38,6 @@ typedef struct {
 	qboolean set;
 } vk_emissive_texture_t;
 
-typedef struct {
-	int min_cell[4], size[3]; // 4th element is padding
-	struct LightCluster cells[MAX_LIGHT_CLUSTERS];
-} vk_ray_shader_light_grid_t;
-
-struct Lights {
-	struct LightsMetadata metadata;
-	vk_ray_shader_light_grid_t grid;
-};
-
 static struct {
 	struct {
 		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
@@ -72,6 +62,7 @@ static struct {
 
 	bit_array_t visited_cells;
 
+	uint32_t frame_sequence;
 } g_lights_;
 
 static struct {
@@ -95,7 +86,9 @@ qboolean VK_LightsInit( void ) {
 
 	gEngine.Cmd_AddCommand("vk_lights_dump", debugDumpLights, "Dump all light sources for next frame");
 
-	if (!VK_BufferCreate("rt lights buffer", &g_lights_.buffer, sizeof(struct Lights),
+	const int buffer_size = sizeof(struct LightsMetadata) + sizeof(struct LightCluster) * MAX_LIGHT_CLUSTERS;
+
+	if (!VK_BufferCreate("rt lights buffer", &g_lights_.buffer, buffer_size,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
 		// FIXME complain, handle
@@ -536,7 +529,7 @@ void RT_LightsNewMapBegin( const struct model_s *map ) {
 			vk_lights_cell_t *const cell = g_lights.cells + i;
 			cell->num_point_lights = cell->num_static.point_lights = 0;
 			cell->num_polygons = cell->num_static.polygons = 0;
-			cell->dirty = true;
+			cell->frame_sequence = g_lights_.frame_sequence;
 		}
 	}
 }
@@ -552,10 +545,6 @@ void RT_LightsFrameBegin( void ) {
 		vk_lights_cell_t *const cell = g_lights.cells + i;
 		cell->num_polygons = cell->num_static.polygons;
 		cell->num_point_lights = cell->num_static.point_lights;
-
-		if (cell->dirty)
-			++g_lights.stats.dirty_cells;
-		cell->dirty = false;
 	}
 }
 
@@ -571,7 +560,10 @@ static qboolean addSurfaceLightToCell( int cell_index, int polygon_light_index )
 	}
 
 	cluster->polygons[cluster->num_polygons++] = polygon_light_index;
-	cluster->dirty = true;
+	if (cluster->frame_sequence != g_lights_.frame_sequence) {
+		++g_lights.stats.dirty_cells;
+		cluster->frame_sequence = g_lights_.frame_sequence;
+	}
 	return true;
 }
 
@@ -586,7 +578,11 @@ static qboolean addLightToCell( int cell_index, int light_index ) {
 	}
 
 	cluster->point_lights[cluster->num_point_lights++] = light_index;
-	cluster->dirty = true;
+
+	if (cluster->frame_sequence != g_lights_.frame_sequence) {
+		++g_lights.stats.dirty_cells;
+		cluster->frame_sequence = g_lights_.frame_sequence;
+	}
 	return true;
 }
 
@@ -952,6 +948,8 @@ void RT_LightsNewMapEnd( const struct model_s *map ) {
 			cell->num_static.polygons = cell->num_polygons;
 		}
 	}
+
+	g_lights.stats.dirty_cells = g_lights.map.grid_cells;
 }
 
 qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
@@ -1133,21 +1131,59 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 	}
 }
 
-static void uploadGrid( vk_ray_shader_light_grid_t *grid ) {
-	ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
+static void uploadGridRange( int begin, int end ) {
+	const int count = end - begin;
+	ASSERT( count > 0 );
 
-	VectorCopy(g_lights.map.grid_min_cell, grid->min_cell);
-	VectorCopy(g_lights.map.grid_size, grid->size);
+	const int size = count * sizeof(struct LightCluster);
+	const vk_staging_region_t locked = R_VkStagingLockForBuffer( (vk_staging_buffer_args_t) {
+		.buffer = g_lights_.buffer.buffer,
+		.offset = sizeof(struct LightsMetadata) + begin * sizeof(struct LightCluster),
+		.size = size,
+		.alignment = 16, // WHY?
+	} );
 
-	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-		const vk_lights_cell_t *const src = g_lights.cells + i;
-		struct LightCluster *const dst = grid->cells + i;
+	ASSERT(locked.ptr);
+
+	struct LightCluster *const grid = locked.ptr;
+	memset(grid, 0, size);
+
+	for (int i = 0; i < count; ++i) {
+		const vk_lights_cell_t *const src = g_lights.cells + i + begin;
+		struct LightCluster *const dst = grid + i;
 
 		dst->num_point_lights = src->num_point_lights;
 		dst->num_polygons = src->num_polygons;
 		memcpy(dst->point_lights, src->point_lights, sizeof(uint8_t) * src->num_point_lights);
 		memcpy(dst->polygons, src->polygons, sizeof(uint8_t) * src->num_polygons);
 	}
+
+	R_VkStagingUnlock( locked.handle );
+
+	g_lights.stats.ranges_uploaded++;
+}
+
+static void uploadGrid( void ) {
+	ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
+
+	g_lights.stats.ranges_uploaded = 0;
+
+	int begin = -1;
+	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+		const vk_lights_cell_t *const cell = g_lights.cells + i;
+
+		const qboolean dirty = cell->frame_sequence == g_lights_.frame_sequence;
+		if (dirty && begin < 0)
+			begin = i;
+
+		if (!dirty && begin >= 0) {
+			uploadGridRange(begin, i);
+			begin = -1;
+		}
+	}
+
+	if (begin >= 0)
+		uploadGridRange(begin, g_lights.map.grid_cells);
 }
 
 static void uploadPolygonLights( struct LightsMetadata *metadata ) {
@@ -1198,25 +1234,30 @@ static void uploadPointLights( struct LightsMetadata *metadata ) {
 	}
 }
 
-vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
-
+vk_lights_bindings_t VK_LightsUpload( void ) {
 	const vk_staging_region_t locked = R_VkStagingLockForBuffer( (vk_staging_buffer_args_t) {
 		.buffer = g_lights_.buffer.buffer,
 		.offset = 0,
 		.size = sizeof(struct LightsMetadata),
-		.alignment = 16,
+		.alignment = 16, // WHY?
 	} );
 
 	ASSERT(locked.ptr);
 
 	struct LightsMetadata *metadata = locked.ptr;
+	memset(metadata, 0, sizeof(*metadata));
+
+	VectorCopy(g_lights.map.grid_min_cell, metadata->grid_min_cell);
+	VectorCopy(g_lights.map.grid_size, metadata->grid_size);
 
 	uploadPolygonLights( metadata );
 	uploadPointLights( metadata );
 
-	// FIXME uploadGrid( &lights->grid );
-
 	R_VkStagingUnlock( locked.handle );
+
+	uploadGrid();
+
+	g_lights_.frame_sequence++;
 
 	return (vk_lights_bindings_t){
 		.buffer = g_lights_.buffer.buffer,
@@ -1226,7 +1267,7 @@ vk_lights_bindings_t VK_LightsUpload( VkCommandBuffer cmdbuf ) {
 		},
 		.grid = {
 			.offset = sizeof(struct LightsMetadata),
-			.size = sizeof(vk_ray_shader_light_grid_t),
+			.size = sizeof(struct LightCluster) * MAX_LIGHT_CLUSTERS,
 		},
 	};
 }
