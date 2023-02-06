@@ -245,6 +245,9 @@ void V_GetRefParams( ref_params_t *fd, ref_viewpass_t *rvp )
 	// part2: really used updates
 	VectorCopy( fd->crosshairangle, cl.crosshairangle );
 	VectorCopy( fd->cl_viewangles, cl.viewangles );
+	
+	// Enables old HL WON view bobbing
+    VectorCopy( view->angles, view->curstate.angles );
 
 	// setup ref_viewpass
 	rvp->viewport[0] = fd->viewport[0];
