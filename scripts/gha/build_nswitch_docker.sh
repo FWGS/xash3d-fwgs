@@ -33,11 +33,12 @@ echo "Building engine..."
 
 echo "Building HLSDK..."
 
-# TODO: replace with FWGS/hlsdk-portable.git when PRs are merged
-cd hlsdk-xash3d || die
+# TODO: replace with hlsdk-portable when PRs are merged
+pushd hlsdk-xash3d
 build_hlsdk hl valve
 build_hlsdk opfor gearbox
 build_hlsdk bshift bshift
+popd
 
 echo "Copying artifacts..."
 
