@@ -54,7 +54,6 @@ jobs:
       uses: actions/checkout@v3
       with:
         submodules: recursive
-        ref: switch_newer # REMOVEME: remove when merging into the main repo!
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
     - name: Build engine
