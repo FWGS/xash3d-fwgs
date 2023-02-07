@@ -63,7 +63,7 @@ static struct
 		VGUI_CursorSelect,
 		VGUI_GetColor,
 		VGUI_IsInGame,
-		NULL,
+		Key_EnableTextInput,
 		VGUI_GetMousePos,
 		VGUI_UtfProcessChar,
 		Platform_GetClipboardText,
