@@ -26,5 +26,6 @@ echo "Downloading and installing libsolder..."
 git clone https://github.com/fgsfdsfgs/libsolder.git
 
 pushd ./libsolder
-make && make install
+make
+sudo make install
 popd
