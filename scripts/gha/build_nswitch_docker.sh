@@ -14,8 +14,9 @@ build_hlsdk()
   ./waf clean
 }
 
-echo "Downloading missing dka64 packages..."
+echo "Downloading missing deps..."
 
+apt-get install -y --no-install-recommends python3 || die
 dkp-pacman -S --noconfirm dkp-toolchain-vars || die
 
 echo "Building libsolder..."
