@@ -246,8 +246,8 @@ def configure(conf):
 	cflags, linkflags = conf.get_optimization_flags()
 
 	# on the Switch, allow undefined symbols by default, which is needed for libsolder to work
-	# we'll specifically disallow for the engine executable
-	# additionally, shared libs are linked without libc
+	# we'll specifically disallow them for the engine executable
+	# additionally, shared libs are linked without standard libs, we'll add those back in the engine wscript
 	if conf.env.DEST_OS == 'nswitch':
 		linkflags.remove('-Wl,--no-undefined')
 		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-nostartfiles'])
@@ -303,7 +303,9 @@ def configure(conf):
 
 	if conf.env.DEST_OS != 'win32':
 		if conf.env.DEST_OS == 'nswitch':
-			conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
+			conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER', mandatory=True)
+			if conf.env.HAVE_SOLDER and conf.env.LIB_SOLDER and conf.options.BUILD_TYPE == 'debug':
+				conf.env.LIB_SOLDER[0] += 'd' # load libsolderd in debug mode
 		else:
 			conf.check_cc(lib='dl', mandatory=False)
 

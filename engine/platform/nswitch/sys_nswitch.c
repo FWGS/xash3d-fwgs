@@ -28,52 +28,37 @@ static int nxlink_sock = -1;
 
 /* HACKHACK: force-export stuff required by the dynamic libs */
 
-// libunwind stuff for C++ exceptions, required by filesystem_stdio
-extern void *_Unwind_GetIPInfo;
-extern void *_Unwind_Resume_or_Rethrow;
-extern void *_Unwind_GetRegionStart;
+// this is required by some std::filesystem crap in libstdc++
+// we don't have it defined in our libc
+long pathconf( const char *path, int name ) { return -1; }
+
+// part of libunwind; required by any dynamic lib that uses C++ exceptions
 extern void *_Unwind_Resume;
-extern void *_Unwind_DeleteException;
-extern void *_Unwind_RaiseException;
-extern void *_Unwind_SetIP;
-extern void *_Unwind_GetTextRelBase;
-extern void *_Unwind_GetLanguageSpecificData;
-extern void *_Unwind_SetGR;
-extern void *_Unwind_GetDataRelBase;
 
 // these are macros in our libc, so we need to wrap them
-static int tolower_fn(int c) { return tolower(c); }
-static int toupper_fn(int c) { return toupper(c); }
-static int isalnum_fn(int c) { return isalnum(c); }
-static int isalpha_fn(int c) { return isalpha(c); }
+static int tolower_fn( int c ) { return tolower( c ); }
+static int toupper_fn( int c ) { return toupper( c ); }
+static int isalnum_fn( int c ) { return isalnum( c ); }
+static int isalpha_fn( int c ) { return isalpha( c ); }
 
 static const solder_export_t aux_exports[] =
 {
-	SOLDER_EXPORT("tolower", tolower_fn),
-	SOLDER_EXPORT("toupper", toupper_fn),
-	SOLDER_EXPORT("isalnum", isalnum_fn),
-	SOLDER_EXPORT("isalpha", isalpha_fn),
-	SOLDER_EXPORT_SYMBOL(mkdir),
-	SOLDER_EXPORT_SYMBOL(remove),
-	SOLDER_EXPORT_SYMBOL(rename),
-	SOLDER_EXPORT_SYMBOL(fsync),
-	SOLDER_EXPORT_SYMBOL(strchrnul),
-	SOLDER_EXPORT_SYMBOL(stpcpy),
-	SOLDER_EXPORT_SYMBOL(_Unwind_GetIPInfo),
-	SOLDER_EXPORT_SYMBOL(_Unwind_Resume_or_Rethrow),
-	SOLDER_EXPORT_SYMBOL(_Unwind_GetRegionStart),
-	SOLDER_EXPORT_SYMBOL(_Unwind_Resume),
-	SOLDER_EXPORT_SYMBOL(_Unwind_DeleteException),
-	SOLDER_EXPORT_SYMBOL(_Unwind_RaiseException),
-	SOLDER_EXPORT_SYMBOL(_Unwind_SetIP),
-	SOLDER_EXPORT_SYMBOL(_Unwind_GetTextRelBase),
-	SOLDER_EXPORT_SYMBOL(_Unwind_GetLanguageSpecificData),
-	SOLDER_EXPORT_SYMBOL(_Unwind_SetGR),
-	SOLDER_EXPORT_SYMBOL(_Unwind_GetDataRelBase),
+	SOLDER_EXPORT( "tolower", tolower_fn ),
+	SOLDER_EXPORT( "toupper", toupper_fn ),
+	SOLDER_EXPORT( "isalnum", isalnum_fn ),
+	SOLDER_EXPORT( "isalpha", isalpha_fn ),
+	SOLDER_EXPORT_SYMBOL( mkdir ),
+	SOLDER_EXPORT_SYMBOL( remove ),
+	SOLDER_EXPORT_SYMBOL( rename ),
+	SOLDER_EXPORT_SYMBOL( pathconf ),
+	SOLDER_EXPORT_SYMBOL( fsync ),
+	SOLDER_EXPORT_SYMBOL( strchrnul ),
+	SOLDER_EXPORT_SYMBOL( stpcpy ),
+	SOLDER_EXPORT_SYMBOL( _Unwind_Resume ),
 };
 
 const solder_export_t *__solder_aux_exports = aux_exports;
-const size_t __solder_num_aux_exports = sizeof(aux_exports) / sizeof(*aux_exports);
+const size_t __solder_num_aux_exports = sizeof( aux_exports ) / sizeof( *aux_exports );
 
 /* end of export crap */
 

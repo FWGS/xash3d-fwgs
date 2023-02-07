@@ -49,13 +49,21 @@ def configure(conf):
 		if not conf.check_cc( fragment='int main(){ int i = socket();}', lib = 'wattcpwl', mandatory=False ):
 			conf.define('XASH_NO_NETWORK',1)
 	elif conf.env.DEST_OS == 'nswitch':
+		# re-enable undefined reference errors
+		conf.env.CXXFLAGS += ['-Wl,--no-undefined']
+		conf.env.CFLAGS += ['-Wl,--no-undefined']
+		# allow the SDL2 sanity check to complete properly by linking in libstdc++ and lm normally
+		conf.env.LDFLAGS += ['-lstdc++', '-lm']
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:
 			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
 		conf.define('XASH_SDL', 2)
-		# disallow undefined symbols
-		conf.env.append_unique('CXXFLAGS', '-Wl,--no-undefined')
-		conf.env.append_unique('CFLAGS', '-Wl,--no-undefined')
+		# HACK: now link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
+		# we can't do this right away because std::filesystem will complain about not having pathconf(),
+		# which we have defined in sys_nswitch.c
+		conf.env.LDFLAGS.remove('-lstdc++')
+		conf.env.LDFLAGS.remove('-lm')
+		conf.env.LDFLAGS += ['-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
