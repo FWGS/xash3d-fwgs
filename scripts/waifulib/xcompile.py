@@ -427,8 +427,9 @@ class NintendoSwitch:
 		return linkflags
 
 	def ldflags(self):
-		# system libraries implicitly require math and C++ standard library
-		ldflags = ['-lm', '-lstdc++']
+		# NOTE: shared libraries should be built without standard libs, so that they could import their contents from the NRO,
+		# but executables, including the SDL2 sanity check, will generally require libstdc++ and libm, which we will add manually
+		ldflags = [] # ['-lm', '-lstdc++']
 		return ldflags
 
 def options(opt):
