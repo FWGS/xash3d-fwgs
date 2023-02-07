@@ -1,6 +1,6 @@
 layout (set = 0, binding = BINDING_LIGHTS) readonly buffer SBOLights { LightsMetadata m; } lights;
 layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
-	ivec3 grid_min, grid_size;
+	//ivec3 grid_min, grid_size;
 	//uint8_t clusters_data[MAX_LIGHT_CLUSTERS * LIGHT_CLUSTER_SIZE + HACK_OFFSET];
 	LightCluster clusters_[MAX_LIGHT_CLUSTERS];
 } light_grid;
@@ -25,11 +25,11 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 	diffuse = specular = vec3(0.);
 
 	//diffuse = vec3(1.);//float(lights.m.num_point_lights) / 64.);
-//#define USE_CLUSTERS
+#define USE_CLUSTERS
 #ifdef USE_CLUSTERS
-	const uint num_point_lights = uint(light_grid.clusters[cluster_index].num_point_lights);
+	const uint num_point_lights = uint(light_grid.clusters_[cluster_index].num_point_lights);
 	for (uint j = 0; j < num_point_lights; ++j) {
-		const uint i = uint(light_grid.clusters[cluster_index].point_lights[j]);
+		const uint i = uint(light_grid.clusters_[cluster_index].point_lights[j]);
 #else
 	for (uint i = 0; i < lights.m.num_point_lights; ++i) {
 #endif
@@ -116,11 +116,11 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialProperties material, out vec3 diffuse, out vec3 specular) {
 	diffuse = specular = vec3(0.);
 
-	const ivec3 light_cell = ivec3(floor(P / LIGHT_GRID_CELL_SIZE)) - light_grid.grid_min;
-	const uint cluster_index = uint(dot(light_cell, ivec3(1, light_grid.grid_size.x, light_grid.grid_size.x * light_grid.grid_size.y)));
+	const ivec3 light_cell = ivec3(floor(P / LIGHT_GRID_CELL_SIZE)) - lights.m.grid_min_cell;
+	const uint cluster_index = uint(dot(light_cell, ivec3(1, lights.m.grid_size.x, lights.m.grid_size.x * lights.m.grid_size.y)));
 
 #ifdef USE_CLUSTERS
-	if (any(greaterThanEqual(light_cell, light_grid.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
+	if (any(greaterThanEqual(light_cell, lights.m.grid_size)) || cluster_index >= MAX_LIGHT_CLUSTERS)
 		return; // throughput * vec3(1., 0., 0.);
 #endif
 

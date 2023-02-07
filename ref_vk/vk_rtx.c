@@ -47,7 +47,7 @@
 		X(Buffer, indices) \
 		X(Buffer, vertices) \
 		X(Buffer, lights) \
-		X(Buffer, light_clusters) \
+		X(Buffer, light_grid) \
 		X(Texture, textures) \
 		X(Texture, skybox)
 
@@ -219,7 +219,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 
 	// TODO move this to lights
 	RES_SET_BUFFER(lights, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->metadata.offset, args->light_bindings->metadata.size);
-	RES_SET_BUFFER(light_clusters, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size);
+	RES_SET_BUFFER(light_grid, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, args->light_bindings->buffer, args->light_bindings->grid.offset, args->light_bindings->grid.size);
 #undef RES_SET_SBUFFER_FULL
 #undef RES_SET_BUFFER
 
@@ -547,7 +547,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 	// FIXME pass these matrices explicitly to let RTX module handle ubo itself
 
 	RT_LightsFrameEnd();
-	const vk_lights_bindings_t light_bindings = VK_LightsUpload(cmdbuf);
+	const vk_lights_bindings_t light_bindings = VK_LightsUpload();
 
 	g_rtx.frame_number++;
 

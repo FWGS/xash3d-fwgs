@@ -11,6 +11,9 @@
 #include "vk_staging.h"
 #include "vk_commandpool.h"
 
+#include "vk_light.h" // For stats
+#include "shaders/ray_interop.h" // stats: struct LightCluster
+
 #include "profiler.h"
 
 #include "eiface.h" // ARRAYSIZE
@@ -182,8 +185,13 @@ static void updateGamma( void ) {
 	}
 }
 
-// FIXME move this to r print speeds or something like that
+// FIXME move this to r_speeds or something like that
 static void showProfilingData( void ) {
+	{
+		const int dirty = g_lights.stats.dirty_cells;
+		gEngine.Con_NPrintf(4, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
+	}
+
 	gEngine.Con_NPrintf(5, "Perf scopes:");
 	for (int i = 0; i < g_aprof.num_scopes; ++i) {
 		const aprof_scope_t *const scope = g_aprof.scopes + i;
