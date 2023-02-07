@@ -189,9 +189,11 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 {
 	search_t *t;
 	string   matchbuf;
-	int	 i, nummaps;
+	int	 i, nummaps, ret;
 
-	t = FS_Search( va( "maps/%s*.bsp", s ), true, con_gamemaps->value );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), "maps/%s*.bsp", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, con_gamemaps->value );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -225,10 +227,12 @@ qboolean Cmd_GetDemoList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, numdems;
+	int		i, numdems, ret;
 
 	// lookup only in gamedir
-	t = FS_Search( va( "%s*.dem", s ), true, true );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), "%s*.dem", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, true );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -272,9 +276,11 @@ qboolean Cmd_GetMovieList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, nummovies;
+	int		i, nummovies, ret;
 
-	t = FS_Search( va( "media/%s*.avi", s ), true, false );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), "media/%s*.avi", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -319,9 +325,11 @@ qboolean Cmd_GetMusicList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, numtracks;
+	int		i, numtracks, ret;
 
-	t = FS_Search( va( "media/%s*.*", s ), true, false );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), "media/%s*.*", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -367,9 +375,11 @@ qboolean Cmd_GetSavesList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, numsaves;
+	int		i, numsaves, ret;
 
-	t = FS_Search( va( DEFAULT_SAVE_DIRECTORY "%s*.sav", s ), true, true );	// lookup only in gamedir
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), DEFAULT_SAVE_DIRECTORY "%s*.sav", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, true );	// lookup only in gamedir
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -414,9 +424,11 @@ qboolean Cmd_GetConfigList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, numconfigs;
+	int		i, numconfigs, ret;
 
-	t = FS_Search( va( "%s*.cfg", s ), true, false );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), "%s*.cfg", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -461,9 +473,11 @@ qboolean Cmd_GetSoundList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, numsounds;
+	int		i, numsounds, ret;
 
-	t = FS_Search( va( "%s%s*.*", DEFAULT_SOUNDPATH, s ), true, false );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), DEFAULT_SOUNDPATH "%s*.*", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, false );
 	if( !t ) return false;
 
 	Q_strncpy( matchbuf, t->filenames[0] + sizeof( DEFAULT_SOUNDPATH ) - 1, MAX_STRING );
@@ -513,10 +527,12 @@ qboolean Cmd_GetItemsList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, numitems;
+	int		i, numitems, ret;
 
 	if( !clgame.itemspath[0] ) return false; // not in game yet
-	t = FS_Search( va( "%s/%s*.txt", clgame.itemspath, s ), true, false );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), "%s/%s*.txt", clgame.itemspath, s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -706,9 +722,11 @@ qboolean Cmd_GetCustomList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
-	int		i, numitems;
+	int		i, numitems, ret;
 
-	t = FS_Search( va( "%s*.hpk", s ), true, false );
+	ret = Q_snprintf( matchbuf, sizeof( matchbuf ), "%s*.hpk", s );
+	if( ret == -1 ) return false;
+	t = FS_Search( matchbuf, true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf );
@@ -1041,9 +1059,11 @@ compare first argument with string
 */
 static qboolean Cmd_CheckName( const char *name )
 {
-	if( !Q_stricmp( Cmd_Argv( 0 ), name ))
+	const char *p = Cmd_Argv( 0 );
+
+	if( !Q_stricmp( p, name ))
 		return true;
-	if( !Q_stricmp( Cmd_Argv( 0 ), va( "\\%s", name )))
+	if( p[0] == '\\' && !Q_stricmp( &p[1], name ))
 		return true;
 	return false;
 }
@@ -1454,16 +1474,16 @@ save opengl variables into opengl.cfg
 */
 void Host_WriteOpenGLConfig( void )
 {
-	string name;
+	string name, newname;
 	file_t	*f;
 
 	if( Sys_CheckParm( "-nowriteconfig" ) )
 		return;
 
 	Q_snprintf( name, sizeof( name ), "%s.cfg", ref.dllFuncs.R_GetConfigName() );
+	Q_snprintf( newname, sizeof( newname ), "%s.new", name );
 
-
-	f = FS_Open( va( "%s.new", name ), "w", false );
+	f = FS_Open( newname, "w", false );
 	if( f )
 	{
 		Con_Reportf( "Host_WriteGLConfig()\n" );

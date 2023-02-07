@@ -1254,21 +1254,21 @@ static void Cmd_Apropos_f( void )
 	cmdalias_t *alias;
 	const char *partial;
 	int count = 0;
-	qboolean ispattern;
+	char buf[MAX_CMD_BUFFER];
 
-	if( Cmd_Argc() > 1 )
-	{
-		partial = Cmd_Args();
-	}
-	else
+	if( Cmd_Argc() < 2 )
 	{
 		Msg( "apropos what?\n" );
 		return;
 	}
 
-	ispattern = partial && Q_strpbrk( partial, "*?" );
-	if( !ispattern )
-		partial = va( "*%s*", partial );
+	partial = Cmd_Args();
+
+	if( !Q_strpbrk( partial, "*?" ) )
+	{
+		Q_snprintf( buf, MAX_CMD_BUFFER, "*%s*", partial );
+		partial = buf;
+	}
 
 	for( var = (convar_t*)Cvar_GetList(); var; var = var->next )
 	{
