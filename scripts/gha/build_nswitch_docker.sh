@@ -20,6 +20,8 @@ dkp-pacman -S --noconfirm dkp-toolchain-vars || die
 # forgive me father, for I have sinned
 ln -s /usr/bin/python3 /usr/bin/python
 
+source $DEVKITPRO/switchvars.sh
+
 echo "Building libsolder..."
 
 make -C libsolder install || die
