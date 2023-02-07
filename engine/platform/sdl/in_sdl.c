@@ -343,12 +343,10 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 	{
 		SDL_SetCursor( cursors.cursors[type] );
 		SDL_ShowCursor( true );
-		Key_EnableTextInput( true, false );
 	}
 	else
 	{
 		SDL_ShowCursor( false );
-		Key_EnableTextInput( false, false );
 	}
 #else
 	if( host.mouse_visible )
