@@ -1,0 +1,134 @@
+#version 460 core
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_ray_query: require
+
+#define RAY_QUERY
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set=0, binding=1) uniform accelerationStructureEXT tlas;
+
+#define RAY_LIGHT_DIRECT_INPUTS(X) \
+	X(10, position_t, rgba32f) \
+	X(11, normals_gs, rgba16f) \
+	X(12, material_rmxx, rgba8)
+#define X(index, name, format) layout(set=0,binding=index,format) uniform readonly image2D name;
+RAY_LIGHT_DIRECT_INPUTS(X)
+#undef X
+
+layout(set=0, binding=20, rgba16f) uniform writeonly image2D out_indirect_diffuse;
+
+#include "ray_primary_common.glsl"
+#include "ray_primary_hit.glsl"
+#include "brdf.h"
+#include "noise.glsl"
+
+void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
+	const vec4 n = imageLoad(normals_gs, uv);
+	geometry_normal = normalDecode(n.xy);
+	shading_normal = normalDecode(n.zw);
+}
+
+
+bool getHit(vec3 origin, vec3 direction, inout RayPayloadPrimary payload) {
+	rayQueryEXT rq;
+	const uint flags = 0
+		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT
+		//| gl_RayFlagsTerminateOnFirstHitEXT
+		//| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	const float L = 10000.; // TODO Why 10k?
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_ALPHA_TEST, origin, 0., direction, L);
+	while (rayQueryProceedEXT(rq)) {
+		if (0 != (rayQueryGetRayFlagsEXT(rq) & gl_RayFlagsOpaqueEXT))
+			continue;
+
+		// alpha test
+		// TODO check other possible ways of doing alpha test. They might be more efficient
+		// (although in this particular primary ray case it's not taht important):
+		// 1. Do a separate ray query for alpha masked geometry. Reason: here we might accidentally do the expensive
+		//    texture sampling for geometry that's ultimately invisible (i.e. behind walls). Also, shader threads congruence.
+		//    Separate pass could be more efficient as it'd be doing the same thing for every invocation.
+		// 2. Same as the above, but also with a completely independent TLAS. Why: no need to mask-check geometry for opaque-vs-alpha
+		const MiniGeometry geom = readCandidateMiniGeometry(rq);
+		const uint tex_base_color = getKusok(geom.kusok_index).tex_base_color;
+		const vec4 texture_color = texture(textures[nonuniformEXT(tex_base_color)], geom.uv);
+
+		const float alpha_mask_threshold = .1f;
+		if (texture_color.a >= alpha_mask_threshold) {
+			rayQueryConfirmIntersectionEXT(rq);
+		}
+	}
+
+	if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionTriangleEXT)
+		return false;
+
+	primaryRayHit(rq, payload);
+	//L = rayQueryGetIntersectionTEXT(rq, true);
+	return true;
+}
+
+vec3 computeBounce(ivec2 pix, vec3 direction) {
+	const vec4 material_data = imageLoad(material_rmxx, pix);
+
+	MaterialProperties material;
+	material.baseColor = vec3(1.);
+	material.emissive = vec3(0.f);
+	material.metalness = material_data.g;
+	material.roughness = material_data.r;
+
+	vec3 geometry_normal, shading_normal;
+	readNormals(pix, geometry_normal, shading_normal);
+
+	const float ray_normal_fudge = .01;
+	const vec3 pos = imageLoad(position_t, pix).xyz + geometry_normal * ray_normal_fudge;
+	vec3 throughput = vec3(1.);
+
+	// 1. Make a "random" material-based ray for diffuse lighting
+	vec3 bounce_direction = vec3(0.);
+	vec3 brdf_weight = vec3(0.);
+	const int brdf_type = DIFFUSE_TYPE;
+	//const int brdf_type = SPECULAR_TYPE; // FIXME test
+	const vec2 u = vec2(rand01(), rand01());
+	if (!evalIndirectCombinedBRDF(u, shading_normal, geometry_normal, -direction, material, brdf_type, bounce_direction, brdf_weight))
+		return vec3(0.);//vec3(1., 0., 0.);
+
+	const float throughput_threshold = 1e-3;
+	throughput *= brdf_weight;
+	if (dot(throughput, throughput) < throughput_threshold)
+		return vec3(0.);//, 1., 0.);
+
+	// 2. Rake yuri it, get hit
+	// 3. Get relevant Geometry data
+	RayPayloadPrimary payload;
+	payload.base_color_a = vec4(0.);
+	if (!getHit(pos, bounce_direction, payload))
+		return vec3(0.);//, 0., 1.);
+
+	// FIXME test
+	return payload.base_color_a.rgb * throughput;
+
+	// TODO
+	// 4. Sample light sources
+	//vec3 diffuse = vec3(0.), specular = vec3(0.);
+	//computeLighting(pos + geometry_normal * .001, shading_normal, throughput, -direction, material, diffuse, specular);
+}
+
+void main() {
+	const ivec2 pix = ivec2(gl_GlobalInvocationID);
+	const ivec2 res = ivec2(imageSize(out_indirect_diffuse));
+	if (any(greaterThanEqual(pix, res))) {
+		return;
+	}
+	const vec2 uv = (gl_GlobalInvocationID.xy + .5) / res * 2. - 1.;
+
+	const vec3 origin    = (ubo.ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
+	const vec4 target    = ubo.ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 direction = normalize((ubo.ubo.inv_view * vec4(target.xyz, 0)).xyz);
+
+	rand01_state = ubo.ubo.random_seed + pix.x * 1833 + pix.y * 31337 + 12;
+
+	const vec3 diffuse = computeBounce(pix, direction);
+	imageStore(out_indirect_diffuse, pix, vec4(diffuse, 0.f));
+}

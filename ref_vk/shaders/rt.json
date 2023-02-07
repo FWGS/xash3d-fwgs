@@ -35,6 +35,9 @@
 	"light_direct_point": {
 		"comp": "ray_light_direct_point"
 	},
+	"bounce": {
+		"comp": "bounce"
+	},
 	"denoiser": {
 		"comp": "denoiser"
 	},
