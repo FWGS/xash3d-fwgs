@@ -116,7 +116,7 @@ void Mod_ClearStudioCache( void )
 AddToStudioCache
 ====================
 */
-void Mod_AddToStudioCache( float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *pcontroller, byte *pblending, model_t *model, hull_t *hull, int numhitboxes )
+static void Mod_AddToStudioCache( float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *pcontroller, byte *pblending, model_t *model, hull_t *hull, int numhitboxes )
 {
 	mstudiocache_t *pCache;
 
@@ -153,7 +153,7 @@ void Mod_AddToStudioCache( float frame, int sequence, vec3_t angles, vec3_t orig
 CheckStudioCache
 ====================
 */
-mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *controller, byte *blending )
+static mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *controller, byte *blending )
 {
 	mstudiocache_t	*pCached;
 	int		i;
@@ -204,7 +204,7 @@ mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence,
 SetStudioHullPlane
 ====================
 */
-void Mod_SetStudioHullPlane( int planenum, int bone, int axis, float offset, const vec3_t size )
+static void Mod_SetStudioHullPlane( int planenum, int bone, int axis, float offset, const vec3_t size )
 {
 	mplane_t	*pl = &studio_planes[planenum];
 
@@ -823,7 +823,7 @@ int Mod_HitgroupForStudioHull( int index )
 StudioBoundVertex
 ====================
 */
-void Mod_StudioBoundVertex( vec3_t mins, vec3_t maxs, int *numverts, const vec3_t vertex )
+static void Mod_StudioBoundVertex( vec3_t mins, vec3_t maxs, int *numverts, const vec3_t vertex )
 {
 	if((*numverts) == 0 )
 		ClearBounds( mins, maxs );
@@ -837,7 +837,7 @@ void Mod_StudioBoundVertex( vec3_t mins, vec3_t maxs, int *numverts, const vec3_
 StudioAccumulateBoneVerts
 ====================
 */
-void Mod_StudioAccumulateBoneVerts( vec3_t mins, vec3_t maxs, int *numverts, vec3_t bone_mins, vec3_t bone_maxs, int *numbones )
+static void Mod_StudioAccumulateBoneVerts( vec3_t mins, vec3_t maxs, int *numverts, vec3_t bone_mins, vec3_t bone_maxs, int *numbones )
 {
 	vec3_t	delta;
 	vec3_t	point;
@@ -1009,7 +1009,7 @@ static int Mod_StudioBodyVariations( model_t *mod )
 R_StudioLoadHeader
 =================
 */
-studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
+static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 {
 	byte		*pin;
 	studiohdr_t	*phdr;

@@ -164,7 +164,7 @@ const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int 
 			const qboolean hardfp = FBitSet( abi, ARCHITECTURE_ARM_HARDFP );
 
 			if( is64 )
-				return "aarch64";
+				return "arm64"; // keep as arm64, it's not aarch64!
 
 			switch( ver )
 			{
