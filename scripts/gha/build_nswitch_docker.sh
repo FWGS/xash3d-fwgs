@@ -16,8 +16,9 @@ build_hlsdk()
 
 echo "Downloading missing deps..."
 
-apt-get install -y --no-install-recommends python3 python-is-python3 || die
 dkp-pacman -S --noconfirm dkp-toolchain-vars || die
+# forgive me father, for I have sinned
+ln -s /usr/bin/python3 /usr/bin/python
 
 echo "Building libsolder..."
 
