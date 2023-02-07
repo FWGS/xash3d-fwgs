@@ -1070,17 +1070,13 @@ Toggles a cvar for easy single key binding
 */
 void Cvar_Toggle_f( void )
 {
-	int	v;
-
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "toggle <variable>\n" );
 		return;
 	}
 
-	v = !Cvar_VariableInteger( Cmd_Argv( 1 ));
-
-	Cvar_Set( Cmd_Argv( 1 ), va( "%i", v ));
+	Cvar_Set( Cmd_Argv( 1 ), Cvar_VariableInteger( Cmd_Argv( 1 )) ? "0" : "1" );
 }
 
 /*
@@ -1162,7 +1158,6 @@ void Cvar_List_f( void )
 {
 	convar_t	*var;
 	const char	*match = NULL;
-	char	*value;
 	int	count = 0;
 	size_t	matchlen = 0;
 
@@ -1180,14 +1175,18 @@ void Cvar_List_f( void )
 		if( match && !Q_strnicmpext( match, var->name, matchlen ))
 			continue;
 
-		if( Q_colorstr( var->string ))
-			value = va( "\"%s\"", var->string );
-		else value = va( "\"^2%s^7\"", var->string );
-
 		if( FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))
-			Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, var->desc );
-		else Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, Cvar_BuildAutoDescription( var->flags ));
-
+		{
+			if( Q_colorstr( var->string ) )
+				Con_Printf( " %-*s %s ^3\"%s\"^7\n", 32, var->name, var->string, var->desc );
+			else Con_Printf( " %-*s %s ^3\"^2%s^7\"^7\n", 32, var->name, var->string, var->desc );
+		}
+		else
+		{
+			if( Q_colorstr( var->string ) )
+				Con_Printf( " %-*s %s ^3\"%s\"^7\n", 32, var->name, var->string, Cvar_BuildAutoDescription( var->flags ));
+			else Con_Printf( " %-*s %s ^3\"^2%s^7\"^7\n", 32, var->name, var->string, Cvar_BuildAutoDescription( var->flags ));
+		}
 		count++;
 	}
 

@@ -322,6 +322,7 @@ Change game modification
 void Host_ChangeGame_f( void )
 {
 	int	i;
+	char	msg[MAX_VA_STRING];
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -346,10 +347,9 @@ void Host_ChangeGame_f( void )
 	}
 	else
 	{
-		const char *arg1 = va( "%s", Cmd_Argv( 1 ));
-		const char *arg2 = va( "change game to '%s'", FI->games[i]->title );
+		Q_snprintf( msg, sizeof( msg ), "change game to '%s'", FI->games[i]->title );
 
-		Host_NewInstance( arg1, arg2 );
+		Host_NewInstance( Cmd_Argv( 1 ), msg );
 	}
 }
 
@@ -385,8 +385,10 @@ void Host_Exec_f( void )
 		};
 		int i;
 		qboolean allow = false;
+		char	config[MAX_VA_STRING];
 
-		unprivilegedWhitelist[0] = va( "%s.cfg", clgame.mapname );
+		Q_snprintf( config, sizeof( config ), "%s.cfg", clgame.mapname );
+		unprivilegedWhitelist[0] = config;
 
 		for( i = 0; i < ARRAYSIZE( unprivilegedWhitelist ); i++ )
 		{
@@ -821,13 +823,15 @@ void Host_Userconfigd_f( void )
 {
 	search_t *t;
 	int i;
+	char buf[MAX_VA_STRING];
 
 	t = FS_Search( "userconfig.d/*.cfg", true, false );
 	if( !t ) return;
 
 	for( i = 0; i < t->numfilenames; i++ )
 	{
-		Cbuf_AddText( va("exec %s\n", t->filenames[i] ) );
+		Q_snprintf( buf, sizeof( buf ), "exec %s\n", t->filenames[i] );
+		Cbuf_AddText( buf );
 	}
 
 	Mem_Free( t );
@@ -868,6 +872,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	const char *baseDir;
 	char ticrate[16];
 	int len;
+	string buf;
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
@@ -1105,7 +1110,8 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	FS_LoadGameInfo( NULL );
 	Cvar_PostFSInit();
 
-	if( FS_FileExists( va( "%s.rc", SI.basedirName ), false ))
+	Q_snprintf( buf, sizeof( buf ), "%s.rc", SI.basedirName );
+	if( FS_FileExists( buf, false ))
 		Q_strncpy( SI.rcName, SI.basedirName, sizeof( SI.rcName ));	// e.g. valve.rc
 	else Q_strncpy( SI.rcName, SI.exeName, sizeof( SI.rcName ));	// e.g. quake.rc
 
@@ -1148,6 +1154,7 @@ Host_Main
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
 	static double	oldtime, newtime;
+	string buf;
 
 	host.starttime = Sys_DoubleTime();
 
@@ -1173,10 +1180,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	con_gamemaps = Cvar_Get( "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
 	Cvar_RegisterVariable( &sys_timescale );
 
-	build = Cvar_Get( "buildnum", va( "%i", Q_buildnum_compat()), FCVAR_READ_ONLY, "returns a current build number" );
-	ver = Cvar_Get( "ver", va( "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat()), FCVAR_READ_ONLY, "shows an engine version" );
-	Cvar_Get( "host_ver", va( "%i " XASH_VERSION " %s %s %s", Q_buildnum(), Q_buildos(), Q_buildarch(), Q_buildcommit() ), FCVAR_READ_ONLY, "detailed info about this build" );
-	Cvar_Get( "host_lowmemorymode", va( "%i", XASH_LOW_MEMORY ), FCVAR_READ_ONLY, "indicates if engine compiled for low RAM consumption (0 - normal, 1 - low engine limits, 2 - low protocol limits)" );
+	build = Cvar_Getf( "buildnum", FCVAR_READ_ONLY, "returns a current build number", "%i", Q_buildnum_compat() );
+	ver = Cvar_Getf( "ver", FCVAR_READ_ONLY, "shows an engine version", "%i/" XASH_COMPAT_VERSION " (hw build %i)", PROTOCOL_VERSION, Q_buildnum_compat() );
+	Cvar_Getf( "host_ver", FCVAR_READ_ONLY, "detailed info about this build", "%i " XASH_VERSION " %s %s %s", Q_buildnum(), Q_buildos(), Q_buildarch(), Q_buildcommit());
+	Cvar_Getf( "host_lowmemorymode", FCVAR_READ_ONLY, "indicates if engine compiled for low RAM consumption (0 - normal, 1 - low engine limits, 2 - low protocol limits)", "%i", XASH_LOW_MEMORY );
 
 	Mod_Init();
 	NET_Init();
@@ -1221,7 +1228,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Wcon_ShowConsole( false ); // hide console
 #endif
 		// execute startup config and cmdline
-		Cbuf_AddText( va( "exec %s.rc\n", SI.rcName ));
+		Q_snprintf( buf, sizeof( buf ), "exec %s.rc\n", SI.rcName );
+		Cbuf_AddText( buf );
 		Cbuf_Execute();
 		if( !host.config_executed )
 		{
@@ -1255,7 +1263,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 		// execute server.cfg after commandline
 		// so we have a chance to set servercfgfile
-		Cbuf_AddText( va( "exec %s\n", Cvar_VariableString( "servercfgfile" )));
+		Q_snprintf( buf, sizeof( buf ), "exec %s\n", Cvar_VariableString( "servercfgfile" ));
+		Cbuf_AddText( buf );
 		Cbuf_Execute();
 	}
 

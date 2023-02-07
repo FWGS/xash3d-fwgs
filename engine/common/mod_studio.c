@@ -849,9 +849,11 @@ Mod_LoadStudioModel
 void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
 	studiohdr_t	*phdr;
+	char		poolname[MAX_VA_STRING];
 
 	if( loaded ) *loaded = false;
-	loadmodel->mempool = Mem_AllocPool( va( "^2%s^7", loadmodel->name ));
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", loadmodel->name );
+	loadmodel->mempool = Mem_AllocPool( poolname );
 	loadmodel->type = mod_studio;
 
 	phdr = R_StudioLoadHeader( mod, buffer );

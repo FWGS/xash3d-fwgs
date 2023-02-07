@@ -1473,7 +1473,7 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 {
 	qboolean	colored = false;
 	poolhandle_t mempool;
-	char	*ents;
+	char	*ents, name[MAX_VA_STRING];
 	model_t	*mod;
 	dmodel_t 	*bm;
 	int	i, j;
@@ -1517,7 +1517,8 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 
 		if( i != 0 )
 		{
-			Mod_FindModelOrigin( ents, va( "*%i", i ), bm->origin );
+			Q_snprintf( name, sizeof( name ), "*%i", i );
+			Mod_FindModelOrigin( ents, name, bm->origin );
 
 			// mark models that have origin brushes
 			if( !VectorIsNull( bm->origin ))
@@ -1546,8 +1547,6 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 
 		if( i < mod->numsubmodels - 1 )
 		{
-			char	name[8];
-
 			// duplicate the basic information
 			Q_snprintf( name, sizeof( name ), "*%i", i + 1 );
 			loadmodel = Mod_FindName( name, true );
@@ -1639,6 +1638,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 	char	wadstring[MAX_TOKEN];
 	string	keyname;
 	char	*pfile;
+	char	name[MAX_VA_STRING];
 
 	if( bmod->isworld )
 	{
@@ -1720,7 +1720,8 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 					COM_FileBase( pszWadFile, token );
 
 					// make sure what wad is really exist
-					if( FS_FileExists( va( "%s.wad", token ), false ))
+					Q_snprintf( name, sizeof( name ), "%s.wad", token );
+					if( FS_FileExists( name, false ))
 					{
 						int num = bmod->wadlist.count++;
 						Q_strncpy( bmod->wadlist.wadnames[num], token, sizeof( bmod->wadlist.wadnames[0] ));
@@ -1910,6 +1911,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 	int		num, max, altmax;
 	qboolean		custom_palette;
 	char		texname[64];
+	char		texpath[MAX_VA_STRING];
 	mip_t		*mt;
 	int 		i, j;
 
@@ -2022,8 +2024,8 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				// check wads in reverse order
 				for( j = bmod->wadlist.count - 1; j >= 0; j-- )
 				{
-					char	*texpath = va( "%s.wad/%s", bmod->wadlist.wadnames[j], texname );
-
+					Q_snprintf( texpath, sizeof( texpath ), "%s.wad/%s", bmod->wadlist.wadnames[j], texname );
+					
 					if( FS_FileExists( texpath, false ))
 					{
 						tx->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
@@ -2078,7 +2080,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 					// check wads in reverse order
 					for( j = bmod->wadlist.count - 1; j >= 0; j-- )
 					{
-						char	*texpath = va( "%s.wad/%s.mip", bmod->wadlist.wadnames[j], tx->name );
+						Q_snprintf( texpath, sizeof( texpath ), "%s.wad/%s.mip", bmod->wadlist.wadnames[j], tx->name );
 
 						if( FS_FileExists( texpath, false ))
 						{
@@ -3019,9 +3021,12 @@ Mod_LoadBrushModel
 */
 void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
+	char poolname[MAX_VA_STRING];
+
 	if( loaded ) *loaded = false;
 
-	loadmodel->mempool = Mem_AllocPool( va( "^2%s^7", loadmodel->name ));
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", loadmodel->name );
+	loadmodel->mempool = Mem_AllocPool( poolname );
 	loadmodel->type = mod_brush;
 
 	// loading all the lumps into heap

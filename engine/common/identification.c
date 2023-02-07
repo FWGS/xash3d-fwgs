@@ -203,13 +203,15 @@ qboolean ID_ValidateNetDevice( const char *dev )
 	const char *prefix = "/sys/class/net";
 	byte *pfile;
 	int assignType;
+	char buf[MAX_VA_STRING];
 
 	// These devices are fake, their mac address is generated each boot, while assign_type is 0
 	if( !Q_strnicmp( dev, "ccmni", sizeof( "ccmni" ) ) ||
 		!Q_strnicmp( dev, "ifb", sizeof( "ifb" ) ) )
 		return false;
 
-	pfile = FS_LoadDirectFile( va( "%s/%s/addr_assign_type", prefix, dev ), NULL );
+	Q_snprintf( buf, sizeof( buf ), "%s/%s/addr_assign_type", prefix, dev );
+	pfile = FS_LoadDirectFile( buf, NULL );
 
 	// if NULL, it may be old kernel
 	if( pfile )
@@ -232,6 +234,7 @@ int ID_ProcessNetDevices( bloomfilter_t *value )
 	DIR *dir;
 	struct dirent *entry;
 	int count = 0;
+	char buf[MAX_VA_STRING];
 
 	if( !( dir = opendir( prefix ) ) )
 		return 0;
@@ -244,7 +247,8 @@ int ID_ProcessNetDevices( bloomfilter_t *value )
 		if( !ID_ValidateNetDevice( entry->d_name ) )
 			continue;
 
-		count += ID_ProcessFile( value, va( "%s/%s/address", prefix, entry->d_name ) );
+		Q_snprintf( buf, sizeof( buf ), "%s/%s/address", prefix, entry->d_name );
+		count += ID_ProcessFile( value, buf );
 	}
 	closedir( dir );
 	return count;
@@ -258,6 +262,7 @@ int ID_CheckNetDevices( bloomfilter_t value )
 	struct dirent *entry;
 	int count = 0;
 	bloomfilter_t filter = 0;
+	char buf[MAX_VA_STRING];
 
 	if( !( dir = opendir( prefix ) ) )
 		return 0;
@@ -270,7 +275,8 @@ int ID_CheckNetDevices( bloomfilter_t value )
 		if( !ID_ValidateNetDevice( entry->d_name ) )
 			continue;
 
-		if( ID_ProcessFile( &filter, va( "%s/%s/address", prefix, entry->d_name ) ) )
+		Q_snprintf( buf, sizeof( buf ), "%s/%s/address", prefix, entry->d_name );
+		if( ID_ProcessFile( &filter, buf ) )
 			count += ( value & filter ) == filter, filter = 0;
 	}
 
@@ -322,6 +328,7 @@ int ID_ProcessFiles( bloomfilter_t *value, const char *prefix, const char *postf
 	DIR *dir;
 	struct dirent *entry;
 	int count = 0;
+	char buf[MAX_VA_STRING];
 
 	if( !( dir = opendir( prefix ) ) )
 	    return 0;
@@ -331,7 +338,8 @@ int ID_ProcessFiles( bloomfilter_t *value, const char *prefix, const char *postf
 		if( !Q_strcmp( entry->d_name, "." ) || !Q_strcmp( entry->d_name, ".." ) )
 			continue;
 
-		count += ID_ProcessFile( value, va( "%s/%s/%s", prefix, entry->d_name, postfix ) );
+		Q_snprintf( buf, sizeof( buf ), "%s/%s/%s", prefix, entry->d_name, postfix );
+		count += ID_ProcessFile( value, buf );
 	}
 	closedir( dir );
 	return count;
@@ -343,6 +351,7 @@ int ID_CheckFiles( bloomfilter_t value, const char *prefix, const char *postfix 
 	struct dirent *entry;
 	int count = 0;
 	bloomfilter_t filter = 0;
+	char buf[MAX_VA_STRING];
 
 	if( !( dir = opendir( prefix ) ) )
 	    return 0;
@@ -352,7 +361,8 @@ int ID_CheckFiles( bloomfilter_t value, const char *prefix, const char *postfix 
 		if( !Q_strcmp( entry->d_name, "." ) || !Q_strcmp( entry->d_name, ".." ) )
 			continue;
 
-		if( ID_ProcessFile( &filter, va( "%s/%s/%s", prefix, entry->d_name, postfix ) ) )
+		Q_snprintf( buf, sizeof( buf ), "%s/%s/%s", prefix, entry->d_name, postfix );
+		if( ID_ProcessFile( &filter, buf ) )
 			count += ( value & filter ) == filter, filter = 0;
 	}
 
@@ -613,6 +623,7 @@ void ID_Init( void )
 	MD5Context_t hash = {0};
 	byte md5[16];
 	int i;
+	char id_string[MAX_VA_STRING], config[MAX_VA_STRING];
 
 	Cmd_AddRestrictedCommand( "bloomfilter", ID_BloomFilter_f, "print bloomfilter raw value of arguments set");
 	Cmd_AddRestrictedCommand( "verifyhex", ID_VerifyHEX_f, "check if id source seems to be fake" );
@@ -633,7 +644,7 @@ void ID_Init( void )
 		CHAR szBuf[MAX_PATH];
 		ID_GetKeyData( HKEY_CURRENT_USER, "Software\\Xash3D\\", "xash_id", szBuf, MAX_PATH );
 
-		sscanf(szBuf, "%016llX", &id);
+		sscanf( szBuf, "%016llX", &id );
 		id ^= SYSTEM_XOR_MASK;
 		ID_Check();
 	}
@@ -642,11 +653,20 @@ void ID_Init( void )
 		const char *home = getenv( "HOME" );
 		if( COM_CheckString( home ) )
 		{
-			FILE *cfg = fopen( va( "%s/.config/.xash_id", home ), "r" );
+			FILE *cfg;
+
+			Q_snprintf( config, sizeof( config ), "%s/.config/.xash_id", home );
+			cfg = fopen( config, "r" );
 			if( !cfg )
-				cfg = fopen( va( "%s/.local/.xash_id", home ), "r" );
+			{
+				Q_snprintf( config, sizeof( config ), "%s/.local/.xash_id", home );
+				cfg = fopen( config, "r" );
+			}
 			if( !cfg )
-				cfg = fopen( va( "%s/.xash_id", home ), "r" );
+			{
+				Q_snprintf( config, sizeof( config ), "%s/.xash_id", home );
+				cfg = fopen( config, "r" );
+			}
 			if( cfg )
 			{
 				if( fscanf( cfg, "%016llX", &id ) > 0 )
@@ -679,24 +699,32 @@ void ID_Init( void )
 	for( i = 0; i < 16; i++ )
 		Q_sprintf( &id_md5[i*2], "%02hhx", md5[i] );
 
+	Q_snprintf( id_string, sizeof( id_string ), "%016llX", id^SYSTEM_XOR_MASK );
 #if XASH_ANDROID && !XASH_DEDICATED
-	Android_SaveID( va("%016llX", id^SYSTEM_XOR_MASK ) );
+	Android_SaveID( id_string );
 #elif XASH_WIN32
 	{
-		CHAR Buf[MAX_PATH];
-		sprintf( Buf, "%016llX", id^SYSTEM_XOR_MASK );
-		ID_SetKeyData( HKEY_CURRENT_USER, "Software\\Xash3D\\", REG_SZ, "xash_id", Buf, Q_strlen(Buf) );
+		ID_SetKeyData( HKEY_CURRENT_USER, "Software\\Xash3D\\", REG_SZ, "xash_id", id_string, Q_strlen( id_string ));
 	}
 #else
 	{
 		const char *home = getenv( "HOME" );
 		if( COM_CheckString( home ) )
 		{
-			FILE *cfg = fopen( va( "%s/.config/.xash_id", home ), "w" );
+			FILE *cfg;
+
+			Q_snprintf( config, sizeof( config ), "%s/.config/.xash_id", home );
+			cfg = fopen( config, "w" );
 			if( !cfg )
-				cfg = fopen( va( "%s/.local/.xash_id", home ), "w" );
+			{
+				Q_snprintf( config, sizeof( config ), "%s/.local/.xash_id", home );
+				cfg = fopen( config, "w" );
+			}
 			if( !cfg )
-				cfg = fopen( va( "%s/.xash_id", home ), "w" );
+			{
+				Q_snprintf( config, sizeof( config ), "%s/.xash_id", home );
+				cfg = fopen( config, "w" );
+			}
 			if( cfg )
 			{
 				fprintf( cfg, "%016llX", id^SYSTEM_XOR_MASK );
@@ -705,7 +733,7 @@ void ID_Init( void )
 		}
 	}
 #endif
-	FS_WriteFile( ".xash_id", va("%016llX", id^GAME_XOR_MASK), 16 );
+	FS_WriteFile( ".xash_id", id_string, 16 );
 #if 0
 	Msg("MD5 id: %s\nRAW id:%016llX\n", id_md5, id );
 #endif

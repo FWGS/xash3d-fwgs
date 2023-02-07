@@ -872,12 +872,17 @@ pfnCvar_RegisterVariable
 */
 cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags )
 {
+	char desc[MAX_VA_STRING];
+
 	// a1ba: try to mitigate outdated client.dll vulnerabilities
 	if( !Q_stricmp( szName, "motdfile" ))
 		flags |= FCVAR_PRIVILEGED;
 
 	if( FBitSet( flags, FCVAR_GLCONFIG ))
-		return (cvar_t *)Cvar_Get( szName, szValue, flags, va( CVAR_GLCONFIG_DESCRIPTION, szName ));
+	{
+		Q_snprintf( desc, sizeof( desc ), CVAR_GLCONFIG_DESCRIPTION, szName );
+		return (cvar_t *)Cvar_Get( szName, szValue, flags, desc );
+	}
 	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, Cvar_BuildAutoDescription( flags|FCVAR_CLIENTDLL ));
 }
 
@@ -889,8 +894,13 @@ pfnCvar_RegisterVariable
 */
 cvar_t *pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags )
 {
+	char desc[MAX_VA_STRING];
+
 	if( FBitSet( flags, FCVAR_GLCONFIG ))
-		return (cvar_t *)Cvar_Get( szName, szValue, flags, va( CVAR_GLCONFIG_DESCRIPTION, szName ));
+	{
+		Q_snprintf( desc, sizeof( desc ), CVAR_GLCONFIG_DESCRIPTION, szName );
+		return (cvar_t *)Cvar_Get( szName, szValue, flags, desc );
+	}
 	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_GAMEUIDLL, Cvar_BuildAutoDescription( flags|FCVAR_GAMEUIDLL ));
 }
 
