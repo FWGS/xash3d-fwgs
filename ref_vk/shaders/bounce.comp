@@ -20,8 +20,22 @@ layout(set=0, binding=20, rgba16f) uniform writeonly image2D out_indirect_diffus
 
 #include "ray_primary_common.glsl"
 #include "ray_primary_hit.glsl"
-#include "brdf.h"
+//#include "brdf.h" // already in light.glsl below
 #include "noise.glsl"
+
+#define TEXTURES_INCLUDED_ALREADY_FIXME
+#define LIGHT_POLYGON 1
+#define LIGHT_POINT 1
+#undef SHADER_OFFSET_HIT_SHADOW_BASE
+#define SHADER_OFFSET_HIT_SHADOW_BASE 0
+#undef SHADER_OFFSET_MISS_SHADOW
+#define SHADER_OFFSET_MISS_SHADOW 0
+#undef PAYLOAD_LOCATION_SHADOW
+#define PAYLOAD_LOCATION_SHADOW 0
+
+#define BINDING_LIGHTS 7
+#define BINDING_LIGHT_CLUSTERS 8
+#include "light.glsl"
 
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
 	const vec4 n = imageLoad(normals_gs, uv);
@@ -106,13 +120,24 @@ vec3 computeBounce(ivec2 pix, vec3 direction) {
 	if (!getHit(pos, bounce_direction, payload))
 		return vec3(0.);//, 0., 1.);
 
-	// FIXME test
-	return payload.base_color_a.rgb * throughput;
+	throughput *= payload.base_color_a.rgb;
 
-	// TODO
 	// 4. Sample light sources
-	//vec3 diffuse = vec3(0.), specular = vec3(0.);
-	//computeLighting(pos + geometry_normal * .001, shading_normal, throughput, -direction, material, diffuse, specular);
+	vec3 diffuse = vec3(0.);
+	{
+		vec3 specular = vec3(0.);
+		const vec3 hit_pos = payload.hit_t.xyz;
+		const vec3 hit_shading_normal = normalDecode(payload.normals_gs.zw);
+
+		MaterialProperties hit_material;
+		hit_material.baseColor = vec3(1.);
+		hit_material.emissive = vec3(0.f);
+		hit_material.metalness = payload.material_rmxx.g;
+		hit_material.roughness = payload.material_rmxx.r;
+		computeLighting(hit_pos, hit_shading_normal, throughput, -bounce_direction, hit_material, diffuse, specular);
+	}
+
+	return diffuse;
 }
 
 void main() {
