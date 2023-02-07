@@ -2,30 +2,17 @@
 
 cd $GITHUB_WORKSPACE
 
-echo "Downloading and installing dkp-pacman..."
+echo "Downloading devkitA64 docker container..."
 
-wget https://apt.devkitpro.org/install-devkitpro-pacman
-chmod +x ./install-devkitpro-pacman
-sudo ./install-devkitpro-pacman
-sudo dkp-pacman --noconfirm -Sy
+docker pull devkitpro/devkita64:latest || exit 1
 
-echo "Downloading and installing devkitA64..."
+echo "Downloading libsolder..."
 
-export DEVKITPRO=/opt/devkitpro
-export DEVKITA64=$DEVKITPRO/devkitA64
-export PORTLIBS=$DEVKITPRO/portlibs
+rm -rf libsolder
+git clone https://github.com/fgsfdsfgs/libsolder.git || exit 1
 
-sudo dkp-pacman --noconfirm -S devkitA64 dkp-toolchain-vars switch-cmake switch-pkg-config 
+echo "Downloading HLSDK..."
 
-echo "Downloading and installing packaged dependencies..."
-
-sudo dkp-pacman --noconfirm -S libnx switch-mesa switch-libdrm_nouveau switch-sdl2
-
-echo "Downloading and installing libsolder..."
-
-git clone https://github.com/fgsfdsfgs/libsolder.git
-
-pushd ./libsolder
-make
-sudo make install
-popd
+# TODO: change to FWGS/hlsdk-portable.git when changes are merged in
+rm -rf hlsdk-xash3d hlsdk-portable
+git clone --recursive https://github.com/fgsfdsfgs/hlsdk-xash3d.git || exit 1
