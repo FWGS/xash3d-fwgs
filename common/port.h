@@ -39,7 +39,7 @@ GNU General Public License for more details.
 
 	#if XASH_POSIX
 		#include <unistd.h>
-		#ifdef XASH_NSWITCH
+		#if XASH_NSWITCH
 			#define SOLDER_LIBDL_COMPAT
 			#include <solder.h>
 		#else
