@@ -2,9 +2,6 @@
 
 . scripts/lib.sh
 
-export DEVKITPRO=/opt/devkitpro
-source $DEVKITPRO/switchvars.sh || die
-
 # args: branch name, gamedir name
 build_hlsdk()
 {
@@ -17,9 +14,13 @@ build_hlsdk()
   ./waf clean
 }
 
+echo "Downloading missing dka64 packages..."
+
+dkp-pacman -S --noconfirm dkp-toolchain-vars || die
+
 echo "Building libsolder..."
 
-sudo make -C libsolder install || exit 1
+make -C libsolder install || die
 
 echo "Building engine..."
 
