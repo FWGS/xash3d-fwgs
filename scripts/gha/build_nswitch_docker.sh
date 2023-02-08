@@ -57,6 +57,7 @@ popd
 echo "Copying artifacts..."
 
 cp build/engine/xash.nro pkgtemp/xash3d/xash3d.nro
+cp build/filesystem/filesystem_stdio.so pkgtemp/xash3d/
 cp build/ref/gl/libref_gl.so pkgtemp/xash3d/
 cp build/ref/soft/libref_soft.so pkgtemp/xash3d/
 cp build/3rdparty/mainui/libmenu.so pkgtemp/xash3d/
