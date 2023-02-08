@@ -1446,7 +1446,7 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 	int		ret, protocol;
 	int		net_socket;
 	WSAsize_t	addr_len;
-	struct sockaddr_storage	addr;
+	struct sockaddr_storage	addr = { 0 };
 
 	*length = 0;
 
@@ -1612,7 +1612,7 @@ NET_SendPacketEx
 void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize )
 {
 	int		ret;
-	struct sockaddr_storage	addr;
+	struct sockaddr_storage	addr = { 0 };
 	SOCKET		net_socket = 0;
 
 	if( !net.initialized || to.type == NA_LOOPBACK )
@@ -1748,7 +1748,7 @@ NET_IPSocket
 */
 static int NET_IPSocket( const char *net_iface, int port, int family )
 {
-	struct sockaddr_storage	addr;
+	struct sockaddr_storage	addr = { 0 };
 	int		err, net_socket;
 	uint		optval = 1;
 	dword		_true = 1;
