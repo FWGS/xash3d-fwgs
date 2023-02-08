@@ -9,8 +9,8 @@ build_hlsdk()
   git checkout switch-$1
   ./waf configure -T release --nswitch || die_configure
   ./waf build || die
-  cp build/dlls/$1_nswitch_aarch64.so ../pkgtemp/xash3d/$2/dlls/
-  cp build/cl_dll/client_nswitch_aarch64.so ../pkgtemp/xash3d/$2/cl_dlls/
+  cp build/dlls/$1_nswitch_arm64.so ../pkgtemp/xash3d/$2/dlls/
+  cp build/cl_dll/client_nswitch_arm64.so ../pkgtemp/xash3d/$2/cl_dlls/
   ./waf clean
 }
 
