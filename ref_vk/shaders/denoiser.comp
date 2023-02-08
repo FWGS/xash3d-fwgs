@@ -29,6 +29,7 @@ layout(set = 0, binding = 10, rgba32f) uniform readonly image2D geometry_prev_po
 layout(set = 0, binding = 11) uniform UBO { UniformBuffer ubo; } ubo;
 
 layout(set = 0, binding = 12, rgba16f) uniform readonly image2D indirect_diffuse;
+layout(set = 0, binding = 13, rgba16f) uniform readonly image2D indirect_specular;
 
 //layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
 /* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D specular; */
@@ -159,6 +160,7 @@ void main() {
 			vec3 specular = vec3(0.);
 			specular += imageLoad(light_poly_specular, p).rgb;
 			specular += imageLoad(light_point_specular, p).rgb;
+			specular += imageLoad(indirect_specular, p).rgb;
 
 			{
 				const float sigma = KERNEL_SIZE / 2.;

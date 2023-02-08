@@ -17,6 +17,7 @@ RAY_LIGHT_DIRECT_INPUTS(X)
 #undef X
 
 layout(set=0, binding=20, rgba16f) uniform writeonly image2D out_indirect_diffuse;
+layout(set=0, binding=21, rgba16f) uniform writeonly image2D out_indirect_specular;
 
 #include "ray_primary_common.glsl"
 #include "ray_primary_hit.glsl"
@@ -33,8 +34,8 @@ layout(set=0, binding=20, rgba16f) uniform writeonly image2D out_indirect_diffus
 #undef PAYLOAD_LOCATION_SHADOW
 #define PAYLOAD_LOCATION_SHADOW 0
 
-#define BINDING_LIGHTS 7
-#define BINDING_LIGHT_CLUSTERS 8
+#define BINDING_LIGHTS 19
+#define BINDING_LIGHT_CLUSTERS 18
 #include "light.glsl"
 
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
@@ -83,7 +84,10 @@ bool getHit(vec3 origin, vec3 direction, inout RayPayloadPrimary payload) {
 	return true;
 }
 
-vec3 computeBounce(ivec2 pix, vec3 direction) {
+void computeBounce(ivec2 pix, vec3 direction, out vec3 diffuse, out vec3 specular) {
+	diffuse = vec3(0.);
+	specular = vec3(0.);
+
 	const vec4 material_data = imageLoad(material_rmxx, pix);
 
 	MaterialProperties material;
@@ -102,30 +106,42 @@ vec3 computeBounce(ivec2 pix, vec3 direction) {
 	// 1. Make a "random" material-based ray for diffuse lighting
 	vec3 bounce_direction = vec3(0.);
 	vec3 brdf_weight = vec3(0.);
-	const int brdf_type = DIFFUSE_TYPE;
-	//const int brdf_type = SPECULAR_TYPE; // FIXME test
+	int brdf_type = DIFFUSE_TYPE;
+
+	if (material.metalness == 1.0f && material.roughness == 0.0f) {
+		// Fast path for mirrors
+		brdf_type = SPECULAR_TYPE;
+	} else {
+		// Decide whether to sample diffuse or specular BRDF (based on Fresnel term)
+		const float brdf_probability = getBrdfProbability(material, -direction, shading_normal);
+		if (rand01() < brdf_probability) {
+			brdf_type = SPECULAR_TYPE;
+			throughput /= brdf_probability;
+		}
+	}
 	const vec2 u = vec2(rand01(), rand01());
 	if (!evalIndirectCombinedBRDF(u, shading_normal, geometry_normal, -direction, material, brdf_type, bounce_direction, brdf_weight))
-		return vec3(0.);//vec3(1., 0., 0.);
+		return;
 
 	const float throughput_threshold = 1e-3;
 	throughput *= brdf_weight;
 	if (dot(throughput, throughput) < throughput_threshold)
-		return vec3(0.);//, 1., 0.);
+		return;
 
 	// 2. Rake yuri it, get hit
 	// 3. Get relevant Geometry data
 	RayPayloadPrimary payload;
 	payload.base_color_a = vec4(0.);
+	payload.emissive = vec4(0.);
 	if (!getHit(pos, bounce_direction, payload))
-		return vec3(0.);//, 0., 1.);
+		return;
 
 	throughput *= payload.base_color_a.rgb;
 
 	// 4. Sample light sources
-	vec3 diffuse = vec3(0.);
 	{
-		vec3 specular = vec3(0.);
+		vec3 ldiffuse = vec3(0.);
+		vec3 lspecular = vec3(0.);
 		const vec3 hit_pos = payload.hit_t.xyz;
 		const vec3 hit_shading_normal = normalDecode(payload.normals_gs.zw);
 
@@ -134,10 +150,15 @@ vec3 computeBounce(ivec2 pix, vec3 direction) {
 		hit_material.emissive = vec3(0.f);
 		hit_material.metalness = payload.material_rmxx.g;
 		hit_material.roughness = payload.material_rmxx.r;
-		computeLighting(hit_pos, hit_shading_normal, throughput, -bounce_direction, hit_material, diffuse, specular);
-	}
+		computeLighting(hit_pos, hit_shading_normal, throughput, -bounce_direction, hit_material, ldiffuse, lspecular);
 
-	return diffuse;
+		const vec3 final_color = ldiffuse + lspecular;
+
+		if (brdf_type == DIFFUSE_TYPE)
+			diffuse += final_color;
+		else
+			specular += final_color;// + payload.emissive.rgb * 75;
+	}
 }
 
 void main() {
@@ -154,6 +175,8 @@ void main() {
 
 	rand01_state = ubo.ubo.random_seed + pix.x * 1833 + pix.y * 31337 + 12;
 
-	const vec3 diffuse = computeBounce(pix, direction);
+	vec3 diffuse, specular;
+	computeBounce(pix, direction, diffuse, specular);
 	imageStore(out_indirect_diffuse, pix, vec4(diffuse, 0.f));
+	imageStore(out_indirect_specular, pix, vec4(specular, 0.f));
 }
