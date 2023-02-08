@@ -352,7 +352,7 @@ class Android:
 
 class NintendoSwitch:
 	ctx          = None # waf context
-	arch         = "aarch64"
+	arch         = "arm64"
 	dkp_dir      = None
 	portlibs_dir = None
 	dka64_dir    = None
