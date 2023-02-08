@@ -38,6 +38,8 @@ layout(set=0, binding=21, rgba16f) uniform writeonly image2D out_indirect_specul
 #define BINDING_LIGHT_CLUSTERS 18
 #include "light.glsl"
 
+#include "trace_additive.glsl"
+
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
 	const vec4 n = imageLoad(normals_gs, uv);
 	geometry_normal = normalDecode(n.xy);
@@ -152,7 +154,7 @@ void computeBounce(ivec2 pix, vec3 direction, out vec3 diffuse, out vec3 specula
 		hit_material.roughness = payload.material_rmxx.r;
 		computeLighting(hit_pos, hit_shading_normal, throughput, -bounce_direction, hit_material, ldiffuse, lspecular);
 
-		const vec3 final_color = ldiffuse + lspecular;
+		const vec3 final_color = ldiffuse + lspecular + traceAdditive(pos, bounce_direction, payload.hit_t.w);
 
 		if (brdf_type == DIFFUSE_TYPE)
 			diffuse += final_color;
