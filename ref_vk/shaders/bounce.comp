@@ -157,7 +157,7 @@ void computeBounce(ivec2 pix, vec3 direction, out vec3 diffuse, out vec3 specula
 		if (brdf_type == DIFFUSE_TYPE)
 			diffuse += final_color;
 		else
-			specular += final_color;// + payload.emissive.rgb * 75;
+			specular += final_color + payload.emissive.rgb;
 	}
 }
 
