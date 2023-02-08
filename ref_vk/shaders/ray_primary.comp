@@ -62,6 +62,7 @@ void main() {
 
 	RayPayloadPrimary payload;
 	payload.hit_t = vec4(0.);
+	payload.prev_pos_t = vec4(0.);
 	payload.base_color_a = vec4(0.);
 	payload.normals_gs = vec4(0.);
 	payload.material_rmxx = vec4(0.);
