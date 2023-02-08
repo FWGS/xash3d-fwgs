@@ -1,3 +1,4 @@
+#extension GL_EXT_control_flow_attributes : require
 layout (set = 0, binding = BINDING_LIGHTS) readonly buffer SBOLights { LightsMetadata m; } lights;
 layout (set = 0, binding = BINDING_LIGHT_CLUSTERS, align = 1) readonly buffer UBOLightClusters {
 	//ivec3 grid_min, grid_size;
@@ -138,12 +139,18 @@ void computeLighting(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, MaterialPro
 
 #if LIGHT_POLYGON
 	sampleEmissiveSurfaces(P, N, throughput, view_dir, material, cluster_index, diffuse, specular);
+	// These constants are empirical. There's no known math reason behind them
+	diffuse /= 25.0;
+	specular /= 25.0;
 #endif
-
 
 #if LIGHT_POINT
 	vec3 ldiffuse = vec3(0.), lspecular = vec3(0.);
 	computePointLights(P, N, cluster_index, throughput, view_dir, material, ldiffuse, lspecular);
+	// These constants are empirical. There's no known math reason behind them
+	ldiffuse /= 4.;
+	lspecular /= 4.;
+
 	diffuse += ldiffuse;
 	specular += lspecular;
 #endif

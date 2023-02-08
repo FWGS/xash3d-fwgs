@@ -13,7 +13,11 @@ layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
 layout(set = 0, binding = 7) uniform samplerCube skybox;
 
 vec4 sampleTexture(uint tex_index, vec2 uv, vec4 uv_lods) {
+#ifndef RAY_BOUNCE
 	return textureGrad(textures[nonuniformEXT(tex_index)], uv, uv_lods.xy, uv_lods.zw);
+#else
+	return textureLod(textures[nonuniformEXT(tex_index)], uv, 2.);
+#endif
 }
 
 void primaryRayHit(rayQueryEXT rq, inout RayPayloadPrimary payload) {
@@ -34,6 +38,7 @@ void primaryRayHit(rayQueryEXT rq, inout RayPayloadPrimary payload) {
 		payload.material_rmxx.r = (kusok.tex_roughness > 0) ? sampleTexture(kusok.tex_roughness, geom.uv, geom.uv_lods).r : kusok.roughness;
 		payload.material_rmxx.g = (kusok.tex_metalness > 0) ? sampleTexture(kusok.tex_metalness, geom.uv, geom.uv_lods).r : kusok.metalness;
 
+#ifndef RAY_BOUNCE
 		const uint tex_normal = kusok.tex_normalmap;
 		vec3 T = geom.tangent;
 		if (tex_normal > 0 && dot(T,T) > .5) {
@@ -43,6 +48,7 @@ void primaryRayHit(rayQueryEXT rq, inout RayPayloadPrimary payload) {
 			const vec3 tnorm = sampleTexture(tex_normal, geom.uv, geom.uv_lods).xyz * 2. - 1.; // TODO is this sampling correct for normal data?
 			geom.normal_shading = normalize(TBN * tnorm);
 		}
+#endif
 	}
 
 	payload.normals_gs.xy = normalEncode(geom.normal_geometry);

@@ -11,7 +11,6 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, rgba16f) uniform image2D out_dest;
-layout(set = 0, binding = 9, rgba16f) uniform readonly image2D prev_dest;
 
 layout(set = 0, binding = 1, rgba8) uniform readonly image2D base_color_a;
 
@@ -24,9 +23,13 @@ layout(set = 0, binding = 6, rgba16f) uniform readonly image2D emissive;
 
 layout(set = 0, binding = 7, rgba32f) uniform readonly image2D position_t;
 layout(set = 0, binding = 8, rgba16f) uniform readonly image2D normals_gs;
+layout(set = 0, binding = 9, rgba16f) uniform readonly image2D prev_dest;
 layout(set = 0, binding = 10, rgba32f) uniform readonly image2D geometry_prev_position;
 
 layout(set = 0, binding = 11) uniform UBO { UniformBuffer ubo; } ubo;
+
+layout(set = 0, binding = 12, rgba16f) uniform readonly image2D indirect_diffuse;
+layout(set = 0, binding = 13, rgba16f) uniform readonly image2D indirect_specular;
 
 //layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
 /* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D specular; */
@@ -97,6 +100,7 @@ void main() {
 	//imageStore(out_dest, pix, vec4(imageLoad(specular, pix)*.5 + .5f)); return;
 	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(light_poly, pix).rgb), 0.)); return;
 	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(specular, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(indirect_diffuse, pix).rgb), 0.)); return;
 
 	/*
 	vec3 geometry_normal, shading_normal;
@@ -151,10 +155,12 @@ void main() {
 			vec3 diffuse = vec3(0.);
 			diffuse += imageLoad(light_point_diffuse, p).rgb;
 			diffuse += imageLoad(light_poly_diffuse, p).rgb;
+			diffuse += imageLoad(indirect_diffuse, p).rgb;
 
 			vec3 specular = vec3(0.);
 			specular += imageLoad(light_poly_specular, p).rgb;
 			specular += imageLoad(light_point_specular, p).rgb;
+			specular += imageLoad(indirect_specular, p).rgb;
 
 			{
 				const float sigma = KERNEL_SIZE / 2.;

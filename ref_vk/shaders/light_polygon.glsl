@@ -6,6 +6,18 @@
 #include "noise.glsl"
 #include "utils.glsl"
 
+#define DO_ALL_IN_CLUSTER 1
+
+#ifndef RAY_BOUNCE
+#define PROJECTED
+//#define SOLID
+//#define SIMPLE_SOLID
+#else
+//#define PROJECTED
+//#define SOLID
+//#define SIMPLE_SOLID
+#endif
+
 struct SampleContext {
 	mat4x3 world_to_shading;
 };
@@ -158,11 +170,6 @@ vec4 getPolygonLightSampleSolid(vec3 P, vec3 view_dir, SampleContext ctx, const 
 
 	return vec4(light_dir, contrib);
 }
-
-#define DO_ALL_IN_CLUSTER 1
-//#define PROJECTED
-//#define SOLID
-#define SIMPLE_SOLID
 
 void sampleSinglePolygonLight(in vec3 P, in vec3 N, in vec3 view_dir, in SampleContext ctx, in MaterialProperties material, in PolygonLight poly, inout vec3 diffuse, inout vec3 specular) {
 	// TODO cull by poly plane
