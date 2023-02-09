@@ -1638,7 +1638,6 @@ void Key_Console( int key )
 		return;
 	}
 
-#if XASH_NSWITCH
 	// enable the OSK with button press
 	if( key == K_Y_BUTTON )
 	{
@@ -1646,15 +1645,15 @@ void Key_Console( int key )
 		return;
 	}
 
-	// exit the console by pressing MINUS
-	if( key == K_BACK_BUTTON )
+	// exit the console by pressing MINUS on NSwitch
+	// or both Back(Select)/Start buttons for everyone else
+	if( key == K_BACK_BUTTON || key == K_START_BUTTON )
 	{
 		if( cls.state == ca_active && !cl.background )
 			Key_SetKeyDest( key_game );
 		else UI_SetActiveMenu( true );
 		return;
 	}
-#endif
 
 	// pass to the normal editline routine
 	Field_KeyDownEvent( &con.input, key );
