@@ -91,6 +91,34 @@ GNU General Public License for more details.
 #define SDL_JoystickID Uint8
 #endif
 
+static int SDLash_GameControllerButtonMapping[] =
+{
+#if XASH_NSWITCH // devkitPro/SDL has inverted Nintendo layout for SDL_GameController
+	K_B_BUTTON, K_A_BUTTON, K_Y_BUTTON, K_X_BUTTON,
+#else
+	K_A_BUTTON, K_B_BUTTON, K_X_BUTTON, K_Y_BUTTON,
+#endif
+	K_BACK_BUTTON, K_MODE_BUTTON, K_START_BUTTON,
+	K_LSTICK, K_RSTICK,
+	K_L1_BUTTON, K_R1_BUTTON,
+	K_DPAD_UP, K_DPAD_DOWN, K_DPAD_LEFT, K_DPAD_RIGHT,
+	K_MISC_BUTTON,
+	K_PADDLE1_BUTTON, K_PADDLE2_BUTTON, K_PADDLE3_BUTTON, K_PADDLE4_BUTTON,
+	K_TOUCHPAD,
+};
+
+// Swap axis to follow default axis binding:
+// LeftX, LeftY, RightX, RightY, TriggerRight, TriggerLeft
+static int SDLash_GameControllerAxisMapping[] =
+{
+	JOY_AXIS_SIDE, // SDL_CONTROLLER_AXIS_LEFTX,
+	JOY_AXIS_FWD, // SDL_CONTROLLER_AXIS_LEFTY,
+	JOY_AXIS_PITCH, // SDL_CONTROLLER_AXIS_RIGHTX,
+	JOY_AXIS_YAW, // SDL_CONTROLLER_AXIS_RIGHTY,
+	JOY_AXIS_LT, // SDL_CONTROLLER_AXIS_TRIGGERLEFT,
+	JOY_AXIS_RT, // SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
+};
+
 static qboolean SDLash_IsInstanceIDAGameController( SDL_JoystickID joyId )
 {
 #if !SDL_VERSION_ATLEAST( 2, 0, 4 )
@@ -544,37 +572,27 @@ static void SDLash_EventFilter( SDL_Event *event )
 	/* GameController API */
 	case SDL_CONTROLLERAXISMOTION:
 	{
-		// Swap axis to follow default axis binding:
-		// LeftX, LeftY, RightX, RightY, TriggerRight, TriggerLeft
-		static int sdlControllerAxisToEngine[] =
+		if( !Joy_IsActive( ))
+			break;
+
+		if( event->caxis.axis >= 0 && event->caxis.axis < ARRAYSIZE( SDLash_GameControllerAxisMapping ))
 		{
-			JOY_AXIS_SIDE, // SDL_CONTROLLER_AXIS_LEFTX,
-			JOY_AXIS_FWD, // SDL_CONTROLLER_AXIS_LEFTY,
-			JOY_AXIS_PITCH, // SDL_CONTROLLER_AXIS_RIGHTX,
-			JOY_AXIS_YAW, // SDL_CONTROLLER_AXIS_RIGHTY,
-			JOY_AXIS_LT, // SDL_CONTROLLER_AXIS_TRIGGERLEFT,
-			JOY_AXIS_RT, // SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
-		};
-		if( Joy_IsActive() && event->caxis.axis != (Uint8)SDL_CONTROLLER_AXIS_INVALID )
-			Joy_KnownAxisMotionEvent( sdlControllerAxisToEngine[event->caxis.axis], event->caxis.value );
+			Joy_KnownAxisMotionEvent( SDLash_GameControllerAxisMapping[event->caxis.axis], event->caxis.value );
+		}
 		break;
 	}
 
 	case SDL_CONTROLLERBUTTONDOWN:
 	case SDL_CONTROLLERBUTTONUP:
 	{
-		static int sdlControllerButtonToEngine[] =
-		{
-			K_A_BUTTON, K_B_BUTTON, K_X_BUTTON,	K_Y_BUTTON,
-			K_BACK_BUTTON, K_MODE_BUTTON, K_START_BUTTON,
-			K_LSTICK, K_RSTICK,
-			K_L1_BUTTON, K_R1_BUTTON,
-			K_DPAD_UP, K_DPAD_DOWN, K_DPAD_LEFT, K_DPAD_RIGHT
-		};
+		if( !Joy_IsActive( ))
+			break;
 
 		// TODO: Use joyinput funcs, for future multiple gamepads support
-		if( Joy_IsActive() && event->cbutton.button != (Uint8)SDL_CONTROLLER_BUTTON_INVALID )
-			Key_Event( sdlControllerButtonToEngine[event->cbutton.button], event->cbutton.state );
+		if( event->cbutton.button >= 0 && event->cbutton.button < ARRAYSIZE( SDLash_GameControllerButtonMapping ))
+		{
+			Key_Event( SDLash_GameControllerButtonMapping[event->cbutton.button], event->cbutton.state );
+		}
 		break;
 	}
 
