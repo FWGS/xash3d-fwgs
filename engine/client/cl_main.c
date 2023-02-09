@@ -709,6 +709,7 @@ void CL_WritePacket( void )
 
 	CL_ComputePacketLoss ();
 
+	memset( data, 0, sizeof( data ));
 	MSG_Init( &buf, "ClientData", data, sizeof( data ));
 
 	// Determine number of backup commands to send along
