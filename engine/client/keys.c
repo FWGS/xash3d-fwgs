@@ -104,9 +104,9 @@ keyname_t keynames[] =
 {"B_BUTTON", K_B_BUTTON, "+use"},
 {"X_BUTTON", K_X_BUTTON, "+reload"},
 {"Y_BUTTON", K_Y_BUTTON, "impulse 100"}, // Flashlight
-{"BACK",   K_BACK_BUTTON, "cancelselect"}, // Menu
+{"BACK",   K_BACK_BUTTON, "pause"}, // Menu
 {"MODE",   K_MODE_BUTTON, ""},
-{"START",  K_START_BUTTON, "pause"},
+{"START",  K_START_BUTTON, "escape"},
 {"STICK1", K_LSTICK, "+speed"},
 {"STICK2", K_RSTICK, "+duck"},
 {"L1_BUTTON",  K_L1_BUTTON, "+duck"},
@@ -374,7 +374,7 @@ void Key_Unbindall_f( void )
 {
 	int	i;
 
-	for( i = 0; i < 256; i++ )
+	for( i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( keys[i].binding )
 			Key_SetBinding( i, "" );
@@ -382,6 +382,7 @@ void Key_Unbindall_f( void )
 
 	// set some defaults
 	Key_SetBinding( K_ESCAPE, "escape" );
+	Key_SetBinding( K_START_BUTTON, "escape" );
 }
 
 /*
@@ -395,7 +396,7 @@ void Key_Reset_f( void )
 	int	i;
 
 	// clear all keys first
-	for( i = 0; i < 256; i++ )
+	for( i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( keys[i].binding )
 			Key_SetBinding( i, "" );
