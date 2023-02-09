@@ -895,8 +895,11 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
 	// HACKHACK: Quake console is always allowed
+	// HACKHACK: console is also always allowed on the Switch since we can't really pass command line
 	// TODO: determine if we are running QWrap more reliable
-	if( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" ))
+#if !XASH_NSWITCH
+	if( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" ) )
+#endif
 		host.allow_console = true;
 
 	if( Sys_CheckParm( "-dev" ))
@@ -1013,7 +1016,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #if TARGET_OS_IOS
 		const char *IOS_GetDocsDir();
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof(host.rootdir) );
-#elif XASH_SDL == 2
+#elif (XASH_SDL == 2) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
 		char *szBasePath;
 
 		if( !( szBasePath = SDL_GetBasePath() ) )

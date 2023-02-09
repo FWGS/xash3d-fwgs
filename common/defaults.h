@@ -47,7 +47,9 @@ SETUP BACKENDS DEFINITIONS
 			#endif // XASH_TIMER
 
 			#ifndef XASH_MESSAGEBOX
-				#define XASH_MESSAGEBOX MSGBOX_SDL
+				#if !XASH_NSWITCH // SDL2 messageboxes not available
+					#define XASH_MESSAGEBOX MSGBOX_SDL
+				#endif
 			#endif // XASH_MESSAGEBOX
 		#endif
 	#elif XASH_ANDROID
@@ -105,6 +107,8 @@ SETUP BACKENDS DEFINITIONS
 #ifndef XASH_MESSAGEBOX
 	#if XASH_WIN32
 		#define XASH_MESSAGEBOX MSGBOX_WIN32
+	#elif XASH_NSWITCH
+		#define XASH_MESSAGEBOX MSGBOX_NSWITCH
 	#else // !XASH_WIN32
 		#define XASH_MESSAGEBOX MSGBOX_STDERR
 	#endif // !XASH_WIN32
@@ -176,5 +180,10 @@ Default build-depended cvar and constant values
 #ifndef DEFAULT_FULLSCREEN
 	#define DEFAULT_FULLSCREEN 1
 #endif // DEFAULT_FULLSCREEN
+
+#if XASH_NSWITCH
+	#define DEFAULT_MODE_WIDTH  1280
+	#define DEFAULT_MODE_HEIGHT 720
+#endif // XASH_NSWITCH
 
 #endif // DEFAULTS_H
