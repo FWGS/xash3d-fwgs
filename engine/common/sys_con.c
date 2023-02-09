@@ -269,6 +269,7 @@ static void Sys_PrintStdout( const char *logtime, const char *msg )
 	// just spew it to stderr normally in debug mode
 	fprintf( stderr, "%s %s", logtime, buf );
 #endif // XASH_NSWITCH && NSWITCH_DEBUG
+
 #elif !XASH_WIN32 // Wcon does the job
 	Sys_PrintLogfile( STDOUT_FILENO, logtime, msg, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
