@@ -2,16 +2,13 @@
 
 . scripts/lib.sh
 
-# args: branch name, gamedir name
 build_hlsdk()
 {
-  echo "Building HLSDK: $1 branch..."
-  git checkout switch-$1
-  ./waf configure -T release --nswitch || die_configure
-  ./waf build || die
-  cp build/dlls/$1_nswitch_arm64.so ../pkgtemp/xash3d/$2/dlls/
-  cp build/cl_dll/client_nswitch_arm64.so ../pkgtemp/xash3d/$2/cl_dlls/
-  ./waf clean
+	echo "Building HLSDK: $1 branch..."
+	git checkout $1
+	./waf configure -T release --nswitch || die_configure
+	./waf build install --destdir=../pkgtemp/xash3d || die
+	./waf clean
 }
 
 echo "Setting up environment..."
@@ -43,22 +40,13 @@ make -C libsolder install || die
 echo "Building engine..."
 
 ./waf configure -T release --nswitch || die_configure
-./waf build || die
+./waf build install --destdir=pkgtemp/xash3d || die
 
 echo "Building HLSDK..."
 
 # TODO: replace with hlsdk-portable when PRs are merged
-pushd hlsdk-xash3d
-build_hlsdk hl valve
+pushd hlsdk-portable
+build_hlsdk mobile_hacks valve
 build_hlsdk opfor gearbox
 build_hlsdk bshift bshift
 popd
-
-echo "Copying artifacts..."
-
-cp build/engine/xash.nro pkgtemp/xash3d/xash3d.nro
-cp build/filesystem/filesystem_stdio.so pkgtemp/xash3d/
-cp build/ref/gl/libref_gl.so pkgtemp/xash3d/
-cp build/ref/soft/libref_soft.so pkgtemp/xash3d/
-cp build/3rdparty/mainui/libmenu.so pkgtemp/xash3d/
-cp build/3rdparty/extras/extras.pk3 pkgtemp/xash3d/valve/
