@@ -51,6 +51,11 @@ void Platform_UpdateStatusLine( void );
 static inline void Platform_UpdateStatusLine( void ) { }
 #endif  
 
+#if XASH_NSWITCH
+void NSwitch_Init( void );
+void NSwitch_Shutdown( void );
+#endif
+
 /*
 ==============================================================================
 

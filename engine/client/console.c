@@ -1230,7 +1230,7 @@ void Field_KeyDownEvent( field_t *edit, int key )
 		return;
 	}
 
-	if( key == K_BACKSPACE || key == K_B_BUTTON )
+	if( key == K_BACKSPACE || key == K_X_BUTTON )
 	{
 		if( edit->cursor > 0 )
 		{
@@ -1575,7 +1575,7 @@ void Key_Console( int key )
 	}
 
 	// command completion
-	if( key == K_TAB || key == K_X_BUTTON )
+	if( key == K_TAB || key == K_L2_BUTTON )
 	{
 		Con_CompleteCommand( &con.input );
 		Con_Bottom();
@@ -1638,6 +1638,24 @@ void Key_Console( int key )
 		return;
 	}
 
+#if XASH_NSWITCH
+	// enable the OSK with button press
+	if( key == K_Y_BUTTON )
+	{
+		Key_EnableTextInput( true, true );
+		return;
+	}
+
+	// exit the console by pressing MINUS
+	if( key == K_BACK_BUTTON )
+	{
+		if( cls.state == ca_active && !cl.background )
+			Key_SetKeyDest( key_game );
+		else UI_SetActiveMenu( true );
+		return;
+	}
+#endif
+
 	// pass to the normal editline routine
 	Field_KeyDownEvent( &con.input, key );
 }
@@ -1653,14 +1671,14 @@ void Key_Message( int key )
 {
 	char	buffer[MAX_SYSPATH];
 
-	if( key == K_ESCAPE )
+	if( key == K_ESCAPE || key == K_BACK_BUTTON )
 	{
 		Key_SetKeyDest( key_game );
 		Con_ClearField( &con.chat );
 		return;
 	}
 
-	if( key == K_ENTER || key == K_KP_ENTER )
+	if( key == K_ENTER || key == K_KP_ENTER || key == K_A_BUTTON )
 	{
 		if( con.chat.buffer[0] && cls.state == ca_active )
 		{

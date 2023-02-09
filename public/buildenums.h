@@ -39,6 +39,7 @@ GNU General Public License for more details.
 #define PLATFORM_HAIKU      10
 #define PLATFORM_SERENITY   11
 #define PLATFORM_IRIX       12
+#define PLATFORM_NSWITCH    13
 
 #if XASH_WIN32
 	#define XASH_PLATFORM PLATFORM_WIN32
@@ -64,6 +65,8 @@ GNU General Public License for more details.
 	#define XASH_PLATFORM PLATFORM_SERENITY
 #elif XASH_IRIX
 	#define XASH_PLATFORM PLATFORM_IRIX
+#elif XASH_NSWITCH
+	#define XASH_PLATFORM PLATFORM_NSWITCH
 #else
 	#error
 #endif
