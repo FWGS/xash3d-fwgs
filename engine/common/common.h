@@ -365,7 +365,6 @@ typedef struct host_parm_s
 	qboolean		apply_game_config;	// when true apply only to game cvars and ignore all other commands
 	qboolean		apply_opengl_config;// when true apply only to opengl cvars and ignore all other commands
 	qboolean		config_executed;	// a bit who indicated was config.cfg already executed e.g. from valve.rc
-	int		sv_cvars_restored;	// count of restored server cvars
 	qboolean		crashed;		// set to true if crashed
 	qboolean		daemonized;
 	qboolean		enabledll;

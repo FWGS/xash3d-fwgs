@@ -328,7 +328,6 @@ typedef struct
 	qboolean	msg_trace;		// trace this message
 
 	void		*hInstance;		// pointer to game.dll
-	qboolean		config_executed;		// should to execute config.cfg once time to restore FCVAR_ARCHIVE that specified in hl.dll
 
 	edict_t		*edicts;			// solid array of server entities
 	int		numEntities;		// actual entities count
