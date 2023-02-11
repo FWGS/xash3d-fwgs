@@ -26,7 +26,7 @@ echo "XASH3D_BASEDIR is $XASH3D_BASEDIR"
 if [ -z "$XASH3D_RODIR" ]; then
         # TODO: detect by libraryfolders.vdf and installed apps
         STEAMDIRS="\
-                $HOME/.local/share/Steam/steamapps/common/ \
+                $HOME/.local/share/Steam/steamapps/common \
                 $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common \
                 $HOME/.steam/steam/steamapps/common"
         HALFLIFEDIR="Half-Life"
@@ -38,13 +38,13 @@ if [ -z "$XASH3D_RODIR" ]; then
 
                 echo "Detected Steam library in $i, probing Half-Life..."
 
-                if [ ! -d "$i$HALFLIFEDIR" ]; then
+                if [ ! -d "$i/$HALFLIFEDIR" ]; then
                         continue
                 fi
 
-                echo "Detected Half-Life installation in $i$HALFLIFEDIR..."
+                echo "Detected Half-Life installation in $i/$HALFLIFEDIR..."
 
-                export XASH3D_RODIR="$i$HALFLIFEDIR"
+                export XASH3D_RODIR="$i/$HALFLIFEDIR"
                 break
         done
 fi
