@@ -164,9 +164,11 @@ void computeBounce(ivec2 pix, vec3 direction, out vec3 diffuse, out vec3 specula
 	}
 }
 
+const int INDIRECT_SCALE = 2;
+
 void main() {
 	const ivec2 pix = ivec2(gl_GlobalInvocationID);
-	const ivec2 res = ivec2(imageSize(out_indirect_diffuse));
+	const ivec2 res = ivec2(imageSize(out_indirect_diffuse)) / INDIRECT_SCALE;
 	if (any(greaterThanEqual(pix, res))) {
 		return;
 	}
@@ -179,7 +181,7 @@ void main() {
 	rand01_state = ubo.ubo.random_seed + pix.x * 1833 + pix.y * 31337 + 12;
 
 	vec3 diffuse, specular;
-	computeBounce(pix, direction, diffuse, specular);
+	computeBounce(pix * INDIRECT_SCALE, direction, diffuse, specular);
 	imageStore(out_indirect_diffuse, pix, vec4(diffuse, 0.f));
 	imageStore(out_indirect_specular, pix, vec4(specular, 0.f));
 }
