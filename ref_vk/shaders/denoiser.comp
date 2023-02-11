@@ -88,10 +88,19 @@ Components blurSamples(const ivec2 res, const ivec2 pix) {
 	c.direct_diffuse = c.direct_specular = c.indirect_diffuse = c.indirect_specular = vec3(0.);
 
 	const vec4 center_pos = imageLoad(position_t, pix);
-	const int KERNEL_SIZE = 3;
-	const float sigma = KERNEL_SIZE / 2.;
 
-	float total_scale = 0.;
+	const int DIRECT_DIFFUSE_KERNEL = 3;
+	const int INDIRECT_DIFFUSE_KERNEL = 5;
+	const int SPECULAR_KERNEL = 2;
+	const int KERNEL_SIZE = max(max(DIRECT_DIFFUSE_KERNEL, INDIRECT_DIFFUSE_KERNEL), SPECULAR_KERNEL);
+
+	const float direct_diffuse_sigma = DIRECT_DIFFUSE_KERNEL / 2.;
+	const float indirect_diffuse_sigma = INDIRECT_DIFFUSE_KERNEL / 2.;
+	const float specular_sigma = SPECULAR_KERNEL / 2.;
+
+	float direct_diffuse_total = 0.;
+	float indirect_diffuse_total = 0.;
+	float specular_total = 0.;
 
 	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
 		for (int y = -KERNEL_SIZE; y <= KERNEL_SIZE; ++y) {
@@ -100,8 +109,6 @@ Components blurSamples(const ivec2 res, const ivec2 pix) {
 				continue;
 			}
 
-			float scale = 1.f;
-
 			// const vec4 c = imageLoad(light_poly, p);
 			// if (c.a != material_index)
 			// 	continue;
@@ -109,6 +116,7 @@ Components blurSamples(const ivec2 res, const ivec2 pix) {
 			vec3 sample_geometry_normal, sample_shading_normal;
 			readNormals(p, sample_geometry_normal, sample_shading_normal);
 
+			float scale = 1.f;
 			// FIXME also filter by depth, (kusok index?), etc
 			//scale *= smoothstep(.9, 1., dot(sample_geometry_normal, geometry_normal));
 
@@ -119,25 +127,43 @@ Components blurSamples(const ivec2 res, const ivec2 pix) {
 			if ( scale <= 0. )
 				continue;
 
-			const float cscale = scale * normpdf(x, sigma) * normpdf(y, sigma);
-			total_scale += cscale;
+			if (all(lessThan(abs(ivec2(x, y)), ivec2(DIRECT_DIFFUSE_KERNEL))))
+			{
+				const float direct_diffuse_scale = scale * normpdf(x, direct_diffuse_sigma) * normpdf(y, direct_diffuse_sigma);
+				direct_diffuse_total += direct_diffuse_scale;
 
-			c.direct_diffuse += imageLoad(light_point_diffuse, p).rgb * cscale;
-			c.direct_diffuse += imageLoad(light_poly_diffuse, p).rgb * cscale;
+				c.direct_diffuse += imageLoad(light_point_diffuse, p).rgb * direct_diffuse_scale;
+				c.direct_diffuse += imageLoad(light_poly_diffuse, p).rgb * direct_diffuse_scale;
+			}
 
-			c.direct_specular += imageLoad(light_poly_specular, p).rgb * cscale;
-			c.direct_specular += imageLoad(light_point_specular, p).rgb * cscale;
+			if (all(lessThan(abs(ivec2(x, y)), ivec2(INDIRECT_DIFFUSE_KERNEL))))
+			{
+				const float indirect_diffuse_scale = scale * normpdf(x, indirect_diffuse_sigma) * normpdf(y, indirect_diffuse_sigma);
+				indirect_diffuse_total += indirect_diffuse_scale;
 
-			c.indirect_diffuse += imageLoad(indirect_diffuse, p).rgb * cscale;
-			c.indirect_specular += imageLoad(indirect_specular, p).rgb * cscale;
+				c.indirect_diffuse += imageLoad(indirect_diffuse, p).rgb * indirect_diffuse_scale;
+			}
+
+			if (all(lessThan(abs(ivec2(x, y)), ivec2(SPECULAR_KERNEL))))
+			{
+				const float specular_scale = scale * normpdf(x, specular_sigma) * normpdf(y, specular_sigma);
+				specular_total += specular_scale;
+
+				c.direct_specular += imageLoad(light_poly_specular, p).rgb * specular_scale;
+				c.direct_specular += imageLoad(light_point_specular, p).rgb * specular_scale;
+				c.indirect_specular += imageLoad(indirect_specular, p).rgb * specular_scale;
+			}
 		}
 
-	if (total_scale > 0.) {
-		const float rtotal = 1. / total_scale;
-		c.direct_diffuse *= rtotal;
-		c.direct_specular *= rtotal;
-		c.indirect_diffuse *= rtotal;
-		c.indirect_specular *= rtotal;
+	if (direct_diffuse_total > 0.)
+		c.direct_diffuse /= direct_diffuse_total;
+
+	if (indirect_diffuse_total > 0.)
+		c.indirect_diffuse *= indirect_diffuse_total;
+
+	if (specular_total > 0.) {
+		c.direct_specular *= specular_total;
+		c.indirect_specular *= specular_total;
 	}
 
 	return c;
@@ -210,8 +236,9 @@ void main() {
 		vec3 specular = c.direct_specular + c.indirect_specular;
 		vec3 history_diffuse = diffuse;
 		vec3 history_specular = specular;
-		for(int x = -1; x <=1; x++) {
-			for(int y = -1; y <=1; y++) {
+		const int TEMPORAL_KERNEL = 1; // lifekilled says it should be fixed
+		for(int x = -TEMPORAL_KERNEL; x <=TEMPORAL_KERNEL; x++) {
+			for(int y = -TEMPORAL_KERNEL; y <=TEMPORAL_KERNEL; y++) {
 				const ivec2 p = reproj_pix + ivec2(x, y);
 				if (any(greaterThanEqual(p, res)) || any(lessThan(p, ivec2(0)))) {
 					continue;
