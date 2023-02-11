@@ -1358,6 +1358,7 @@ void CL_ClearState( void )
 	MSG_Clear( &cls.netchan.message );
 	memset( &clgame.fade, 0, sizeof( clgame.fade ));
 	memset( &clgame.shake, 0, sizeof( clgame.shake ));
+	clgame.mapname[0] = '\0';
 	Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
 	cl.maxclients = 1; // allow to drawing player in menu
 	cl.mtime[0] = cl.mtime[1] = 1.0f; // because level starts from 1.0f second
