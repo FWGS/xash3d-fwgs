@@ -16,10 +16,15 @@ finish-args:
   - --socket=x11
   - --socket=pulseaudio
   - --share=network
-  - --filesystem=~/.steam:ro
-  - --filesystem=~/.local/share/Steam:ro
-  - --filesystem=~/.xash:rw
-  - --filesystem=xdg-run/app/com.discordapp.Discord:create
+  # Steam library path on Ubuntu
+  - --filesystem=~/.steam/steam/steamapps/common:ro
+  # ... on SteamOS 3
+  - --filesystem=~/.local/share/Steam/steamapps/common:ro
+  # ... on Steam Flatpak
+  - --filesystem=~/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common:ro
+  # allow talking with Discord for mods
+  # TODO: enable when somebody asks for it
+  # - --filesystem=xdg-run/app/com.discordapp.Discord:create
   - --device=all
   - --allow=multiarch
   - --allow=devel
