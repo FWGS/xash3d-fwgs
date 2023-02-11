@@ -857,6 +857,10 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	// wipe the client_t struct
 	if( !cls.changelevel && !cls.changedemo )
 		CL_ClearState ();
+
+	// Re-init hud video, especially if we changed game directories
+	clgame.dllFuncs.pfnVidInit();
+
 	cls.state = ca_connected;
 
 	// parse protocol version number
@@ -906,9 +910,6 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 
 	if( clgame.maxModels > MAX_MODELS )
 		Con_Printf( S_WARN "server model limit is above client model limit %i > %i\n", clgame.maxModels, MAX_MODELS );
-
-	// Re-init hud video, especially if we changed game directories
-	clgame.dllFuncs.pfnVidInit();
 
 	if( Con_FixedFont( ))
 	{
