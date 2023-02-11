@@ -2582,7 +2582,10 @@ static const char *pfnGetLevelName( void )
 {
 	static char	mapname[64];
 
-	if( cls.state >= ca_connected )
+	// a1ba: don't return maps/.bsp if no map is loaded yet
+	// in GoldSrc this is handled by cl.levelname field but we don't have it
+	// so emulate this behavior here
+	if( cls.state >= ca_connected && COM_CheckStringEmpty( clgame.mapname ))
 		Q_snprintf( mapname, sizeof( mapname ), "maps/%s.bsp", clgame.mapname );
 	else mapname[0] = '\0'; // not in game
 
