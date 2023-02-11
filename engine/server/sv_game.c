@@ -2455,21 +2455,6 @@ pfnServerExecute
 void GAME_EXPORT pfnServerExecute( void )
 {
 	Cbuf_Execute();
-
-	if( svgame.config_executed )
-		return;
-
-	// here we restore arhcived cvars only from game.dll
-	host.apply_game_config = true;
-	Cbuf_AddText( "exec config.cfg\n" );
-	Cbuf_Execute();
-
-	if( host.sv_cvars_restored > 0 )
-		Con_Reportf( "server executing ^2config.cfg^7 (%i cvars)\n", host.sv_cvars_restored );
-
-	host.apply_game_config = false;
-	svgame.config_executed = true;
-	host.sv_cvars_restored = 0;
 }
 
 /*
