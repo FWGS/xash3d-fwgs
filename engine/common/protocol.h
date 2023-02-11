@@ -302,6 +302,9 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define MAX_LEGACY_TOTAL_CMDS  16 // 28 - 16 = 12 real legacy max backup
 #define MAX_LEGACY_BACKUP_CMDS 12
 
+#define MAX_LEGACY_EDICTS (1 << MAX_LEGACY_ENTITY_BITS) // 4096 edicts
+#define MIN_LEGACY_EDICTS 30
+
 // Master Server protocol
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
 
