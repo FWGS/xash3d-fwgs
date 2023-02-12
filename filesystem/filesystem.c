@@ -373,24 +373,27 @@ FS_ClearSearchPath
 */
 void FS_ClearSearchPath( void )
 {
-	while( fs_searchpaths )
+	searchpath_t *cur, **prev;
+
+	prev = &fs_searchpaths;
+
+	while( true )
 	{
-		searchpath_t	*search = fs_searchpaths;
+		cur = *prev;
 
-		if( !search ) break;
+		if( !cur )
+			break;
 
-		if( FBitSet( search->flags, FS_STATIC_PATH ))
+		// never delete static paths
+		if( FBitSet( cur->flags, FS_STATIC_PATH ))
 		{
-			// skip read-only pathes
-			if( search->next )
-				fs_searchpaths = search->next->next;
-			else break;
+			prev = &cur->next;
+			continue;
 		}
-		else fs_searchpaths = search->next;
 
-		search->pfnClose( search );
-
-		Mem_Free( search );
+		*prev = cur->next;
+		cur->pfnClose( cur );
+		Mem_Free( cur );
 	}
 }
 
