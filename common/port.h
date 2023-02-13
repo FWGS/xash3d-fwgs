@@ -42,6 +42,10 @@ GNU General Public License for more details.
 		#if XASH_NSWITCH
 			#define SOLDER_LIBDL_COMPAT
 			#include <solder.h>
+		#elif XASH_PSVITA
+			#define VRTLD_LIBDL_COMPAT
+			#include <vrtld.h>
+			#define O_BINARY 0
 		#else
 			#include <dlfcn.h>
 			#define HAVE_DUP

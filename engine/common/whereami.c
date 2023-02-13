@@ -795,7 +795,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return length;
 }
 
-#elif defined(__sgi) || defined(__SWITCH__)
+#elif defined(__sgi) || defined(__SWITCH__) || defined(__vita__)
 
 /* 
  * These functions are stubbed for now to get the code compiling.

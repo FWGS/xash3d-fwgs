@@ -172,5 +172,10 @@ def get_optimization_flags(conf):
 	if conf.env.DEST_OS == 'nswitch' and conf.options.BUILD_TYPE == 'debug':
 		# enable remote debugger
 		cflags.append('-DNSWITCH_DEBUG')
+	elif conf.env.DEST_OS == 'psvita':
+		# this optimization is broken in vitasdk
+		cflags.append('-fno-optimize-sibling-calls')
+		# remove fvisibility to allow everything to be exported by default
+		cflags.remove('-fvisibility=hidden')
 
 	return cflags, linkflags
