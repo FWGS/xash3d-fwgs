@@ -67,7 +67,7 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 	return false;
 }
 
-#if !XASH_ANDROID && !XASH_NSWITCH
+#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	char xdgOpen[128];

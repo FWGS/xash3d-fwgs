@@ -58,8 +58,20 @@ def configure(conf):
 		if not conf.env.HAVE_SDL2:
 			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
 		conf.define('XASH_SDL', 2)
+		# then remove them to avoid them getting linked to shared objects
 		conf.env.LDFLAGS.remove('-lstdc++')
 		conf.env.LDFLAGS.remove('-lm')
+	elif conf.env.DEST_OS == 'psvita':
+		# allow the SDL2 sanity check to complete properly by linking in some deps missing from the pkg-config file
+		extra_libs = ['-lstdc++', '-lm', '-lSceShaccCgExt', '-lSceShaccCg_stub', '-ltaihen_stub', '-lSceKernelDmacMgr_stub']
+		conf.env.LDFLAGS += extra_libs
+		conf.load('sdl2')
+		if not conf.env.HAVE_SDL2:
+			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
+		conf.define('XASH_SDL', 2)
+		# then remove them to avoid them getting linked to shared objects
+		for lib in extra_libs:
+			conf.env.LDFLAGS.remove(lib)
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
@@ -135,7 +147,7 @@ def build(bld):
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
 		source += bld.path.ant_glob(['platform/win32/*.c'])
-	elif bld.env.DEST_OS != 'dos' and bld.env.DEST_OS != 'nswitch': #posix
+	elif bld.env.DEST_OS not in ['dos', 'nswitch', 'psvita']: #posix
 		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
 		if not bld.env.STATIC:
 			libs += ['DL']
@@ -178,6 +190,32 @@ def build(bld):
 		libs += [ 'SOLDER' ]
 		source += bld.path.ant_glob(['platform/posix/*.c'])
 		source += bld.path.ant_glob(['platform/nswitch/*.c'])
+		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
+		# we can't do this right away because std::filesystem will complain about not having pathconf(),
+		# which we have defined in sys_nswitch.c
+		bld.env.LDFLAGS += ['-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
+
+	if bld.env.DEST_OS == 'psvita':
+		libs += [ 'VRTLD' ]
+		source += bld.path.ant_glob(['platform/posix/*.c'])
+		source += bld.path.ant_glob(['platform/psvita/*.c'])
+		# HACK: link in the entirety of libstdc++ and -lm so that dynamic libs could use all of them without manual exporting
+		# also link in all the funky dependencies that aren't in SDL2's LDFLAGS
+		bld.env.LDFLAGS += [
+			'-Wl,--whole-archive',
+			'-lstdc++',
+			'-lpthread',
+			'-Wl,--no-whole-archive',
+			'-lm',
+			'-lkubridge_stub',
+			'-lSceShaccCgExt',
+			'-lSceShaccCg_stub',
+			'-ltaihen_stub',
+			'-lSceKernelModulemgr_stub',
+			'-lSceSblSsMgr_stub',
+			'-lSceVshBridge_stub',
+			'-lSceKernelDmacMgr_stub'
+		]
 
 	# add client files
 	if not bld.env.DEDICATED:
@@ -189,12 +227,8 @@ def build(bld):
 
 	includes = ['server', 'client', 'client/vgui' ]
 
-	# Switch has custom parameters
-	if bld.env.DEST_OS == 'nswitch':
-		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
-		# we can't do this right away because std::filesystem will complain about not having pathconf(),
-		# which we have defined in sys_nswitch.c
-		bld.env.LDFLAGS += ['-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
+	# Switch and PSVita have custom parameters
+	if bld.env.DEST_OS in ['nswitch', 'psvita']:
 		bld(source = source,
 			target = 'xash',
 			features = 'c cxxprogram',
@@ -203,7 +237,9 @@ def build(bld):
 			install_path = None,
 			nro_install_path = bld.env.BINDIR,
 			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
-			icon = 'platform/nswitch/icon.jpg')
+			icon = 'platform/nswitch/icon.jpg',
+			sce_sys = 'platform/psvita/sce_sys',
+		)
 	else:
 		if bld.env.SINGLE_BINARY:
 			install_path = bld.env.BINDIR
@@ -222,5 +258,5 @@ def build(bld):
 			use      = libs,
 			install_path = install_path,
 			subsystem = bld.env.MSVC_SUBSYSTEM,
-			rpath = '$ORIGIN'
+			rpath = '$ORIGIN',
 		)

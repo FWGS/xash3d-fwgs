@@ -129,7 +129,7 @@ const char *Sys_GetCurrentUser( void )
 
 	if( GetUserName( s_userName, &size ))
 		return s_userName;
-#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 
@@ -581,6 +581,9 @@ qboolean Sys_NewInstance( const char *gamedir )
 	Host_Shutdown( );
 	envSetNextLoad( exe, newargs );
 	exit( 0 );
+#elif XASH_PSVITA
+	fprintf( stderr, "Sys_NewInstance( %s ): not implemented yet\n", gamedir );
+	exit( 1 );
 #else
 	int i = 0;
 	qboolean replacedArg = false;

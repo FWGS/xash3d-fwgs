@@ -9,7 +9,9 @@
 
 #include <linux/fb.h>
 #include <sys/mman.h>
+#if !XASH_PSVITA
 #include <sys/ioctl.h>
+#endif
 #if XASH_ANDROID
 #include <linux/kd.h>
 #else

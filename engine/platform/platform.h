@@ -56,6 +56,12 @@ void NSwitch_Init( void );
 void NSwitch_Shutdown( void );
 #endif
 
+#if XASH_PSVITA
+void PSVita_Init( void );
+void PSVita_Shutdown( void );
+qboolean PSVita_GetBasePath( char *buf, const size_t buflen );
+#endif
+
 /*
 ==============================================================================
 
