@@ -158,37 +158,49 @@ Default build-depended cvar and constant values
 =========================================================================
 */
 
-#if XASH_MOBILE_PLATFORM
-	#define DEFAULT_TOUCH_ENABLE "1"
-	#define DEFAULT_M_IGNORE "1"
-#else // !XASH_MOBILE_PLATFORM
+// Platform overrides
+#if XASH_NSWITCH
 	#define DEFAULT_TOUCH_ENABLE "0"
-	#define DEFAULT_M_IGNORE "0"
-#endif // !XASH_MOBILE_PLATFORM
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_MODE_WIDTH   1280
+	#define DEFAULT_MODE_HEIGHT  720
+	#define DEFAULT_ALLOWCONSOLE 1
+#elif XASH_PSVITA
+	#define DEFAULT_TOUCH_ENABLE "0"
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_MODE_WIDTH  960
+	#define DEFAULT_MODE_HEIGHT 544
+	#define DEFAULT_ALLOWCONSOLE 1
+#elif XASH_MOBILE_PLATFORM
+	#define DEFAULT_TOUCH_ENABLE "1"
+	#define DEFAULT_M_IGNORE     "1"
+#endif // !XASH_MOBILE_PLATFORM && !XASH_NSWITCH
 
 #if XASH_ANDROID || XASH_IOS || XASH_EMSCRIPTEN
-#define XASH_INTERNAL_GAMELIBS
-// this means that libraries are provided with engine, but not in game data
-// You need add library loading code to library.c when adding new platform
+	// this means that libraries are provided with engine, but not in game data
+	// You need add library loading code to library.c when adding new platform
+	#define XASH_INTERNAL_GAMELIBS
 #endif // XASH_ANDROID || XASH_IOS || XASH_EMSCRIPTEN
 
-// allow override for developer/debug builds
+// Defaults
+#ifndef DEFAULT_TOUCH_ENABLE
+	#define DEFAULT_TOUCH_ENABLE "0"
+#endif // DEFAULT_TOUCH_ENABLE
+
+#ifndef DEFAULT_M_IGNORE
+	#define DEFAULT_M_IGNORE "0"
+#endif // DEFAULT_M_IGNORE
+
 #ifndef DEFAULT_DEV
 	#define DEFAULT_DEV 0
 #endif // DEFAULT_DEV
 
+#ifndef DEFAULT_ALLOWCONSOLE
+	#define DEFAULT_ALLOWCONSOLE 0
+#endif // DEFAULT_ALLOWCONSOLE
+
 #ifndef DEFAULT_FULLSCREEN
 	#define DEFAULT_FULLSCREEN 1
 #endif // DEFAULT_FULLSCREEN
-
-#if XASH_NSWITCH
-	#define DEFAULT_MODE_WIDTH  1280
-	#define DEFAULT_MODE_HEIGHT 720
-#endif // XASH_NSWITCH
-
-#if XASH_PSVITA
-	#define DEFAULT_MODE_WIDTH  960
-	#define DEFAULT_MODE_HEIGHT 544
-#endif // XASH_PSVITA
 
 #endif // DEFAULTS_H

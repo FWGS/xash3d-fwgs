@@ -894,12 +894,11 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
+	host.allow_console = DEFAULT_ALLOWCONSOLE;
+
 	// HACKHACK: Quake console is always allowed
-	// HACKHACK: console is also always allowed on the Switch since we can't really pass command line
 	// TODO: determine if we are running QWrap more reliable
-#if !XASH_NSWITCH || XASH_PSVITA
-	if( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" ) )
-#endif
+	if( !host.allow_console && ( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" )))
 		host.allow_console = true;
 
 	if( Sys_CheckParm( "-dev" ))

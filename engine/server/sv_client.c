@@ -1632,6 +1632,7 @@ static qboolean SV_New_f( sv_client_t *cl )
 	sizebuf_t		msg;
 	int		i;
 
+	memset( msg_buf, 0, sizeof( msg_buf ));
 	MSG_Init( &msg, "New", msg_buf, sizeof( msg_buf ));
 
 	if( cl->state != cs_connected )
@@ -1982,6 +1983,7 @@ static qboolean SV_SendRes_f( sv_client_t *cl )
 	if( cl->state != cs_connected )
 		return false;
 
+	memset( buffer, 0, sizeof( buffer ));
 	MSG_Init( &msg, "SendResources", buffer, sizeof( buffer ));
 
 	if( svs.maxclients > 1 && FBitSet( cl->flags, FCL_SEND_RESOURCES ))

@@ -32,7 +32,8 @@ GNU General Public License for more details.
 // RefAPI changelog:
 // 1. Initial release
 // 2. FS functions are removed, instead we have full fs_api_t
-#define REF_API_VERSION 2
+// 3. SlerpBones, CalcBonePosition/Quaternion calls were moved to libpublic/mathlib
+#define REF_API_VERSION 3
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -312,9 +313,6 @@ typedef struct ref_api_s
 	void (*Mod_CreatePolygonsForHull)( int hullnum );
 
 	// studio models
-	void (*R_StudioSlerpBones)( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s );
-	void (*R_StudioCalcBoneQuaternion)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q );
-	void (*R_StudioCalcBonePosition)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, vec3_t adj, vec3_t pos );
 	void *(*R_StudioGetAnim)( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
 	void	(*pfnStudioEvent)( const struct mstudioevent_s *event, const cl_entity_t *entity );
 

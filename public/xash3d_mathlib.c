@@ -872,3 +872,193 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 	return sides;
 }
 
+/*
+====================
+StudioSlerpBones
+
+====================
+*/
+void R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], const vec4_t q2[], const float pos2[][3], float s )
+{
+	int	i;
+
+	s = bound( 0.0f, s, 1.0f );
+
+	for( i = 0; i < numbones; i++ )
+	{
+		QuaternionSlerp( q1[i], q2[i], s, q1[i] );
+		VectorLerp( pos1[i], s, pos2[i], pos1[i] );
+	}
+}
+
+/*
+====================
+StudioCalcBoneQuaternion
+
+====================
+*/
+void R_StudioCalcBoneQuaternion( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec4_t q )
+{
+	vec3_t	angles1;
+	vec3_t	angles2;
+	int	j, k;
+
+	for( j = 0; j < 3; j++ )
+	{
+		if( !panim || panim->offset[j+3] == 0 )
+		{
+			angles2[j] = angles1[j] = pbone->value[j+3]; // default;
+		}
+		else
+		{
+			mstudioanimvalue_t *panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[j+3]);
+
+			k = frame;
+
+			// debug
+			if( panimvalue->num.total < panimvalue->num.valid )
+				k = 0;
+
+			// find span of values that includes the frame we want
+			while( panimvalue->num.total <= k )
+			{
+				k -= panimvalue->num.total;
+				panimvalue += panimvalue->num.valid + 1;
+
+				// debug
+				if( panimvalue->num.total < panimvalue->num.valid )
+					k = 0;
+			}
+
+			// bah, missing blend!
+			if( panimvalue->num.valid > k )
+			{
+				angles1[j] = panimvalue[k+1].value;
+
+				if( panimvalue->num.valid > k + 1 )
+				{
+					angles2[j] = panimvalue[k+2].value;
+				}
+				else
+				{
+					if( panimvalue->num.total > k + 1 )
+						angles2[j] = angles1[j];
+					else angles2[j] = panimvalue[panimvalue->num.valid+2].value;
+				}
+			}
+			else
+			{
+				angles1[j] = panimvalue[panimvalue->num.valid].value;
+				if( panimvalue->num.total > k + 1 )
+					angles2[j] = angles1[j];
+				else angles2[j] = panimvalue[panimvalue->num.valid+2].value;
+			}
+
+			angles1[j] = pbone->value[j+3] + angles1[j] * pbone->scale[j+3];
+			angles2[j] = pbone->value[j+3] + angles2[j] * pbone->scale[j+3];
+		}
+
+		if( pbone->bonecontroller[j+3] != -1 && adj != NULL )
+		{
+			angles1[j] += adj[pbone->bonecontroller[j+3]];
+			angles2[j] += adj[pbone->bonecontroller[j+3]];
+		}
+	}
+
+	if( !VectorCompare( angles1, angles2 ))
+	{
+		vec4_t	q1, q2;
+
+		AngleQuaternion( angles1, q1, true );
+		AngleQuaternion( angles2, q2, true );
+		QuaternionSlerp( q1, q2, s, q );
+	}
+	else
+	{
+		AngleQuaternion( angles1, q, true );
+	}
+}
+
+/*
+====================
+StudioCalcBonePosition
+
+====================
+*/
+void R_StudioCalcBonePosition( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec3_t pos )
+{
+	vec3_t	origin1;
+	vec3_t	origin2;
+	int	j, k;
+
+	for( j = 0; j < 3; j++ )
+	{
+		if( !panim || panim->offset[j] == 0 )
+		{
+			origin2[j] = origin1[j] = pbone->value[j]; // default;
+		}
+		else
+		{
+			mstudioanimvalue_t	*panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[j]);
+
+			k = frame;
+
+			// debug
+			if( panimvalue->num.total < panimvalue->num.valid )
+				k = 0;
+
+			// find span of values that includes the frame we want
+			while( panimvalue->num.total <= k )
+			{
+				k -= panimvalue->num.total;
+				panimvalue += panimvalue->num.valid + 1;
+
+				// debug
+				if( panimvalue->num.total < panimvalue->num.valid )
+					k = 0;
+			}
+
+			// bah, missing blend!
+			if( panimvalue->num.valid > k )
+			{
+				origin1[j] = panimvalue[k+1].value;
+
+				if( panimvalue->num.valid > k + 1 )
+				{
+					origin2[j] = panimvalue[k+2].value;
+				}
+				else
+				{
+					if( panimvalue->num.total > k + 1 )
+						origin2[j] = origin1[j];
+					else origin2[j] = panimvalue[panimvalue->num.valid+2].value;
+				}
+			}
+			else
+			{
+				origin1[j] = panimvalue[panimvalue->num.valid].value;
+				if( panimvalue->num.total > k + 1 )
+					origin2[j] = origin1[j];
+				else origin2[j] = panimvalue[panimvalue->num.valid+2].value;
+			}
+
+			origin1[j] = pbone->value[j] + origin1[j] * pbone->scale[j];
+			origin2[j] = pbone->value[j] + origin2[j] * pbone->scale[j];
+		}
+
+		if( pbone->bonecontroller[j] != -1 && adj != NULL )
+		{
+			origin1[j] += adj[pbone->bonecontroller[j]];
+			origin2[j] += adj[pbone->bonecontroller[j]];
+		}
+	}
+
+	if( !VectorCompare( origin1, origin2 ))
+	{
+		VectorLerp( origin1, s, origin2, pos );
+	}
+	else
+	{
+		VectorCopy( origin1, pos );
+	}
+}

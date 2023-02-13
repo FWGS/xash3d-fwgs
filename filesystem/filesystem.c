@@ -373,24 +373,27 @@ FS_ClearSearchPath
 */
 void FS_ClearSearchPath( void )
 {
-	while( fs_searchpaths )
+	searchpath_t *cur, **prev;
+
+	prev = &fs_searchpaths;
+
+	while( true )
 	{
-		searchpath_t	*search = fs_searchpaths;
+		cur = *prev;
 
-		if( !search ) break;
+		if( !cur )
+			break;
 
-		if( FBitSet( search->flags, FS_STATIC_PATH ))
+		// never delete static paths
+		if( FBitSet( cur->flags, FS_STATIC_PATH ))
 		{
-			// skip read-only pathes
-			if( search->next )
-				fs_searchpaths = search->next->next;
-			else break;
+			prev = &cur->next;
+			continue;
 		}
-		else fs_searchpaths = search->next;
 
-		search->pfnClose( search );
-
-		Mem_Free( search );
+		*prev = cur->next;
+		cur->pfnClose( cur );
+		Mem_Free( cur );
 	}
 }
 
@@ -1706,17 +1709,21 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 		{
 			static searchpath_t fs_directpath;
 
-			// clear old dir cache
-			if( fs_directpath.pfnClose )
-				fs_directpath.pfnClose( &fs_directpath );
+			// clear old dir cache, if needed
+			if( 0 != Q_strcmp( fs_directpath.filename, dirpath ))
+			{
+				if( fs_directpath.pfnClose )
+					fs_directpath.pfnClose( &fs_directpath );
+				FS_InitDirectorySearchpath( &fs_directpath, dirpath, 0 );
+			}
 
 			// just copy the name, we don't do case sensitivity fix there
 			if( fixedname )
 				Q_strncpy( fixedname, name, len );
-			FS_InitDirectorySearchpath( &fs_directpath, dirpath, 0 );
 
 			if( index != NULL )
 				*index = 0;
+
 			return &fs_directpath;
 		}
 	}

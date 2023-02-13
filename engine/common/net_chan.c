@@ -1589,6 +1589,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		}
 	}
 
+	memset( send_buf, 0, sizeof( send_buf ));
 	MSG_Init( &send, "NetSend", send_buf, sizeof( send_buf ));
 
 	// prepare the packet header
