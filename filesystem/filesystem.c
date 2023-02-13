@@ -1709,17 +1709,21 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 		{
 			static searchpath_t fs_directpath;
 
-			// clear old dir cache
-			if( fs_directpath.pfnClose )
-				fs_directpath.pfnClose( &fs_directpath );
+			// clear old dir cache, if needed
+			if( 0 != Q_strcmp( fs_directpath.filename, dirpath ))
+			{
+				if( fs_directpath.pfnClose )
+					fs_directpath.pfnClose( &fs_directpath );
+				FS_InitDirectorySearchpath( &fs_directpath, dirpath, 0 );
+			}
 
 			// just copy the name, we don't do case sensitivity fix there
 			if( fixedname )
 				Q_strncpy( fixedname, name, len );
-			FS_InitDirectorySearchpath( &fs_directpath, dirpath, 0 );
 
 			if( index != NULL )
 				*index = 0;
+
 			return &fs_directpath;
 		}
 	}
