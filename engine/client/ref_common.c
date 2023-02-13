@@ -278,9 +278,6 @@ static ref_api_t gEngfuncs =
 	Mod_PointInLeaf,
 	Mod_CreatePolygonsForHull,
 
-	R_StudioSlerpBones,
-	R_StudioCalcBoneQuaternion,
-	R_StudioCalcBonePosition,
 	R_StudioGetAnim,
 	pfnStudioEvent,
 

@@ -23,6 +23,7 @@ GNU General Public License for more details.
 
 #include "build.h"
 #include "com_model.h"
+#include "studio.h"
 
 // euler angle order
 #define PITCH		0
@@ -209,6 +210,10 @@ qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 );
 
 float V_CalcFov( float *fov_x, float width, float height );
 void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x );
+
+void R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], const vec4_t q2[], const float pos2[][3], float s );
+void R_StudioCalcBoneQuaternion( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec4_t q );
+void R_StudioCalcBonePosition( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const vec3_t adj, vec3_t pos );
 
 int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
 #define BOX_ON_PLANE_SIDE( emins, emaxs, p )			\
