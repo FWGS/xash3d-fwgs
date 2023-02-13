@@ -287,17 +287,33 @@ open the wad for reading & writing
 static wfile_t *W_Open( const char *filename, int *error )
 {
 	wfile_t		*wad = (wfile_t *)Mem_Calloc( fs_mempool, sizeof( wfile_t ));
-	const char *basename;
 	int		i, lumpcount;
 	dlumpinfo_t	*srclumps;
 	size_t		lat_size;
 	dwadinfo_t	header;
 
 	// NOTE: FS_Open is load wad file from the first pak in the list (while fs_ext_path is false)
-	if( fs_ext_path ) basename = filename;
-	else basename = COM_FileWithoutPath( filename );
+	if( fs_ext_path )
+	{
+		int ind;
+		searchpath_t *search = FS_FindFile( filename, &ind, NULL, 0, false );
 
-	wad->handle = FS_Open( basename, "rb", false );
+		// allow direct absolute paths
+		// TODO: catch them in FS_FindFile_DIR!
+		if( !search || ind < 0 )
+		{
+			wad->handle = FS_SysOpen( filename, "rb" );
+		}
+		else
+		{
+			wad->handle = search->pfnOpenFile( search, filename, "rb", ind );
+		}
+	}
+	else
+	{
+		const char *basename = COM_FileWithoutPath( filename );
+		wad->handle = FS_Open( basename, "rb", false );
+	}
 
 	if( wad->handle == NULL )
 	{
