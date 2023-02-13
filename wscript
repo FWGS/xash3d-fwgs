@@ -135,6 +135,9 @@ def configure(conf):
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
 
+	if conf.options.PSVITA:
+		conf.load('psvita')
+
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
 		conf.env.DEST_CPU = 'x86_64'
@@ -179,6 +182,14 @@ def configure(conf):
 		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.options.USE_STBTT        = True
+	elif conf.env.DEST_OS == 'psvita':
+		conf.options.NO_VGUI          = True
+		conf.options.GL               = True
+		conf.options.SINGLE_BINARY    = True
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.options.USE_STBTT        = True
+		# we'll specify -fPIC by hand for shared libraries only
+		enforce_pic                   = False
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
@@ -253,6 +264,16 @@ def configure(conf):
 		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-nostartfiles'])
 		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-nostartfiles'])
 
+	# same on the vita
+	if conf.env.DEST_OS == 'psvita':
+		conf.env.append_unique('CFLAGS_cshlib', ['-fPIC'])
+		conf.env.append_unique('CXXFLAGS_cxxshlib', ['-fPIC', '-fno-use-cxa-atexit'])
+		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
+		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
+		# set the metadata
+		conf.env.TITLEID = 'XASH10000'
+		conf.env.APPNAME = 'xash3d-fwgs'
+
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
 	if conf.env.COMPILER_CC != 'msvc' and not conf.options.DISABLE_WERROR:
@@ -306,6 +327,8 @@ def configure(conf):
 			conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER', mandatory=True)
 			if conf.env.HAVE_SOLDER and conf.env.LIB_SOLDER and conf.options.BUILD_TYPE == 'debug':
 				conf.env.LIB_SOLDER[0] += 'd' # load libsolderd in debug mode
+		elif conf.env.DEST_OS == 'psvita':
+			conf.check_cc(lib='vrtld', mandatory=True)
 		else:
 			conf.check_cc(lib='dl', mandatory=False)
 

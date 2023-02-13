@@ -17,7 +17,9 @@ GNU General Public License for more details.
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#if !XASH_PSVITA
 #include <sys/ioctl.h>
+#endif
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -79,7 +81,7 @@ static int ioctl_stub( int d, unsigned long r, ... )
 	return 0;
 }
 #define ioctlsocket ioctl_stub
-#else // XASH_EMSCRIPTEN
+#elif !XASH_PSVITA // XASH_EMSCRIPTEN
 #define ioctlsocket ioctl
 #endif // XASH_EMSCRIPTEN
 #define closesocket close

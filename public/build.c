@@ -111,6 +111,8 @@ const char *Q_PlatformStringByID( const int platform )
 		return "irix";
 	case PLATFORM_NSWITCH:
 		return "nswitch";
+	case PLATFORM_PSVITA:
+		return "psvita";
 	}
 
 	assert( 0 );

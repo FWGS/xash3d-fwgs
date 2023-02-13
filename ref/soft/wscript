@@ -22,6 +22,13 @@ def configure(conf):
 	conf.env.append_unique('DEFINES', 'REF_DLL')
 
 def build(bld):
+	libs = [ 'engine_includes' ]
+	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
+	if bld.env.DEST_OS == 'psvita':
+		libs += [ 'sdk_includes' ]
+	else:
+		libs += [ 'public', 'M' ]
+
 	if bld.env.DEDICATED:
 		return
 
@@ -29,7 +36,7 @@ def build(bld):
 		target   = 'ref_soft',
 		features = 'c',
 		includes = '.',
-		use      = 'engine_includes public M',
+		use      = libs,
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)

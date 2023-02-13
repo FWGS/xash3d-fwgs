@@ -1638,7 +1638,7 @@ void Key_Console( int key )
 		return;
 	}
 
-#if XASH_NSWITCH
+#if XASH_NSWITCH || XASH_PSVITA
 	// enable the OSK with button press
 	if( key == K_Y_BUTTON )
 	{

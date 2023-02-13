@@ -23,10 +23,18 @@ def configure(conf):
 
 def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
+
+	libs = [ 'filesystem_includes' ]
+	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
+	if bld.env.DEST_OS == 'psvita':
+		libs += [ 'sdk_includes' ]
+	else:
+		libs += [ 'public' ]
+
 	bld.shlib(target = 'filesystem_stdio',
 		features = 'cxx',
 		source = bld.path.ant_glob(['*.c', '*.cpp']),
-		use = 'filesystem_includes public',
+		use = libs,
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM)
 
@@ -36,7 +44,7 @@ def build(bld):
 		bld.program(features = 'test',
 			source = 'tests/caseinsensitive.c',
 			target = 'test_caseinsensitive',
-			use = 'filesystem_includes public DL',
+			use = libs + [ 'DL' ],
 			rpath = '$ORIGIN',
 			subsystem = bld.env.CONSOLE_SUBSYSTEM,
 			install_path = None)

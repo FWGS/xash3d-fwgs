@@ -87,7 +87,7 @@ typedef struct touchbuttonlist_s
 	touch_button_t *last;
 } touchbuttonlist_t;
 
-struct touch_s
+static struct touch_s
 {
 	qboolean initialized;
 	qboolean config_loaded;

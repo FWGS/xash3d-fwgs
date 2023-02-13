@@ -265,7 +265,7 @@ static void Sys_PrintStdout( const char *logtime, const char *msg )
 	IOS_Log( buf );
 #endif // TARGET_OS_IOS
 
-#if XASH_NSWITCH && NSWITCH_DEBUG
+#if (XASH_NSWITCH && NSWITCH_DEBUG) || XASH_PSVITA // REMOVEME
 	// just spew it to stderr normally in debug mode
 	fprintf( stderr, "%s %s", logtime, buf );
 #endif // XASH_NSWITCH && NSWITCH_DEBUG

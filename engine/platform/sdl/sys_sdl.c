@@ -71,6 +71,9 @@ void Platform_Init( void )
 #ifdef XASH_NSWITCH
 	NSwitch_Init();
 #endif
+#ifdef XASH_PSVITA
+	PSVita_Init();
+#endif
 
 	SDLash_InitCursors();
 }
@@ -84,5 +87,8 @@ void Platform_Shutdown( void )
 #endif
 #ifdef XASH_NSWITCH
 	NSwitch_Shutdown();
+#endif
+#ifdef XASH_PSVITA
+	PSVita_Shutdown();
 #endif
 }

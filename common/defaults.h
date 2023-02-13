@@ -186,4 +186,9 @@ Default build-depended cvar and constant values
 	#define DEFAULT_MODE_HEIGHT 720
 #endif // XASH_NSWITCH
 
+#if XASH_PSVITA
+	#define DEFAULT_MODE_WIDTH  960
+	#define DEFAULT_MODE_HEIGHT 544
+#endif // XASH_PSVITA
+
 #endif // DEFAULTS_H

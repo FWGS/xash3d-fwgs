@@ -170,7 +170,7 @@ float ApproachVal( float target, float value, float speed );
 //
 // matrixlib.c
 //
-#define Matrix3x4_LoadIdentity( mat )		Matrix3x4_Copy( mat, matrix3x4_identity )
+#define Matrix3x4_LoadIdentity( mat )		Matrix3x4_Copy( mat, m_matrix3x4_identity )
 #define Matrix3x4_Copy( out, in )		memcpy( out, in, sizeof( matrix3x4 ))
 
 void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[3] );
@@ -188,7 +188,7 @@ void Matrix3x4_OriginFromMatrix( const matrix3x4 in, float *out );
 void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out );
 void Matrix3x4_Transpose( matrix3x4 out, const matrix3x4 in1 );
 
-#define Matrix4x4_LoadIdentity( mat )	Matrix4x4_Copy( mat, matrix4x4_identity )
+#define Matrix4x4_LoadIdentity( mat )	Matrix4x4_Copy( mat, m_matrix4x4_identity )
 #define Matrix4x4_Copy( out, in )	memcpy( out, in, sizeof( matrix4x4 ))
 
 void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[3] );
@@ -229,8 +229,8 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
 
 extern vec3_t		vec3_origin;
 extern int		boxpnt[6][4];
-extern const matrix3x4	matrix3x4_identity;
-extern const matrix4x4	matrix4x4_identity;
+extern const matrix3x4	m_matrix3x4_identity;
+extern const matrix4x4	m_matrix4x4_identity;
 extern const float		m_bytenormals[NUMVERTEXNORMALS][3];
 
 #endif // XASH3D_MATHLIB_H
