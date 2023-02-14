@@ -983,8 +983,6 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_enttools_enable );
 	Cvar_RegisterVariable( &sv_enttools_maxfire );
 
-	Cvar_RegisterVariable( &sv_autosave );
-
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
 	sv_allow_touch = Cvar_Get( "sv_allow_touch", "1", FCVAR_ARCHIVE, "allow connect with touch controls" );
