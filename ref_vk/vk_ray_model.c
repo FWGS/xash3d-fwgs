@@ -153,7 +153,7 @@ void XVK_RayModel_Validate( void ) {
 	}
 }
 
-static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometry_t *geom, const vec3_t color, qboolean HACK_reflective) {
+static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometry_t *geom, const vec4_t color, qboolean HACK_reflective) {
 	const xvk_material_t *const mat = XVK_GetMaterialForTextureIndex( geom->texture );
 	ASSERT(mat);
 
@@ -299,7 +299,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 			kusochki[i].tex_base_color &= (~KUSOK_MATERIAL_FLAG_SKYBOX);
 		}
 
-		const vec3_t color = {1, 1, 1};
+		const vec4_t color = {1, 1, 1, 1};
 		applyMaterialToKusok(kusochki + i, mg, color, false);
 		Matrix4x4_LoadIdentity(kusochki[i].prev_transform);
 	}

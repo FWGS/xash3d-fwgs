@@ -54,7 +54,7 @@ void main() {
 		//| gl_RayFlagsSkipClosestHitShaderEXT
 		;
 	float L = 10000.; // TODO Why 10k?
-	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_ALPHA_TEST, origin, 0., direction, L);
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_ALPHA_TEST | GEOMETRY_BIT_REFRACTIVE, origin, 0., direction, L);
 	while (rayQueryProceedEXT(rq)) {
 		if (0 != (rayQueryGetRayFlagsEXT(rq) & gl_RayFlagsOpaqueEXT))
 			continue;
