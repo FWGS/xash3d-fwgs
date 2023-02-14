@@ -22,7 +22,7 @@ void VK_RayFrameAddModel( struct vk_ray_model_s *model, const struct vk_render_m
 typedef struct {
 	VkBuffer buffer;
 	uint32_t offset;
-	uint32_t size;
+	uint64_t size;
 } vk_buffer_region_t;
 
 typedef struct {
@@ -34,8 +34,7 @@ typedef struct {
 		uint32_t width, height;
 	} dst;
 
-	// TODO inv_view/proj matrices instead of UBO
-	vk_buffer_region_t ubo;
+	const matrix4x4 *projection, *view;
 
 	// Buffer holding vertex and index data
 	struct {

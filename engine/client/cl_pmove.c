@@ -794,6 +794,8 @@ static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end,
 	matrix4x4	matrix;
 	hull_t	*hull;
 
+	PM_InitTrace( trace, end );
+
 	old_usehull = clgame.pmove->usehull;
 	clgame.pmove->usehull = 2;
 
@@ -992,7 +994,6 @@ void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, q
 	pmove->flFallVelocity = ps->flFallVelocity;
 	pmove->flSwimTime = cd->flSwimTime;
 	VectorCopy( cd->punchangle, pmove->punchangle );
-	pmove->flSwimTime = cd->flSwimTime;
 	pmove->flNextPrimaryAttack = 0.0f; // not used by PM_ code
 	pmove->effects = ps->effects;
 	pmove->flags = cd->flags;

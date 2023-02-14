@@ -1,9 +1,16 @@
+#pragma once
+
 #include "vk_core.h"
+#include "vk_buffer.h"
+
+VkShaderModule R_VkShaderLoadFromMem(const void *ptr, uint32_t size, const char *name);
+void R_VkShaderDestroy(VkShaderModule module);
 
 typedef struct {
-  const char *filename;
+	VkShaderModule module;
+	const char *filename;
 	VkShaderStageFlagBits stage;
-	VkSpecializationInfo *specialization_info;
+	const VkSpecializationInfo *specialization_info;
 } vk_shader_stage_t;
 
 typedef struct {
@@ -35,11 +42,47 @@ VkPipeline VK_PipelineGraphicsCreate(const vk_pipeline_graphics_create_info_t *c
 
 typedef struct {
 	VkPipelineLayout layout;
-  const char *shader_filename;
-	VkSpecializationInfo *specialization_info;
+	VkShaderModule shader_module;
+	const VkSpecializationInfo *specialization_info;
 } vk_pipeline_compute_create_info_t;
 
 VkPipeline VK_PipelineComputeCreate(const vk_pipeline_compute_create_info_t *ci);
+
+typedef struct {
+	int closest;
+	int any;
+} vk_pipeline_ray_hit_group_t;
+
+typedef struct {
+	const char *debug_name;
+	VkPipelineLayout layout;
+
+	// FIXME make this pointer to shader modules, add int raygen_index
+	const vk_shader_stage_t *stages;
+	int stages_count;
+
+	struct {
+		const int *miss;
+		int miss_count;
+
+		const vk_pipeline_ray_hit_group_t *hit;
+		int hit_count;
+	} groups;
+} vk_pipeline_ray_create_info_t;
+
+typedef struct {
+	VkPipeline pipeline;
+	vk_buffer_t sbt_buffer; // TODO suballocate this from a single central buffer or something
+	struct {
+		VkStridedDeviceAddressRegionKHR raygen, miss, hit, callable;
+	} sbt;
+	char debug_name[32];
+} vk_pipeline_ray_t;
+
+vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_t *create);
+void VK_PipelineRayTracingTrace(VkCommandBuffer cmdbuf, const vk_pipeline_ray_t *pipeline, uint32_t width, uint32_t height);
+void VK_PipelineRayTracingDestroy(vk_pipeline_ray_t* pipeline);
+
 
 qboolean VK_PipelineInit( void );
 void VK_PipelineShutdown( void );

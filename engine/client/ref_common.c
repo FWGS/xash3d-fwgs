@@ -335,10 +335,6 @@ static ref_api_t gEngfuncs =
 	COM_FreeLibrary,
 	COM_GetProcAddress,
 
-	FS_LoadFile,
-	FS_FileExists,
-	FS_AllowDirectPaths,
-
 	R_Init_Video_,
 	R_Free_Video,
 
@@ -385,6 +381,8 @@ static ref_api_t gEngfuncs =
 	pfnDrawNormalTriangles,
 	pfnDrawTransparentTriangles,
 	&clgame.drawFuncs,
+
+	&g_fsapi,
 
 	XVK_GetInstanceExtensions,
 	XVK_GetVkGetInstanceProcAddr,
@@ -691,8 +689,8 @@ static void R_GetRenderDevices_f( void )
 		if( !device )
 			break;
 
-		Con_Printf( "%-3i %-4x:%-4x %-10s %s\n",
-			i, device->deviceID, device->vendorID,
+		Con_Printf( "%-3i %04x:%04x %-10s %s\n",
+			i, device->vendorID, device->deviceID,
 			R_DeviceTypeToString( device->deviceType ), device->deviceName );
 	}
 

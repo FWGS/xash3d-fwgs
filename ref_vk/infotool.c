@@ -98,11 +98,11 @@ void XVK_CameraDebugPrintCenterEntity( void ) {
 			cell_raw[1] - g_lights.map.grid_min_cell[1],
 			cell_raw[2] - g_lights.map.grid_min_cell[2],
 		};
-		const int cell_index = R_LightCellIndex( light_cell );
+		const int cell_index = RT_LightCellIndex( light_cell );
 
 		const vk_lights_cell_t *cell = (cell_index >= 0 && cell_index < MAX_LIGHT_CLUSTERS) ? g_lights.cells + cell_index : NULL;
 		p += Q_snprintf(p, end - p,
-			"light raw=(%d, %d, %d) cell=(%d, %d, %d) index=%d surf=%d point=%d\n",
+			"light raw=(%d, %d, %d) cell=(%d, %d, %d) index=%d poly=%d point=%d\n",
 			cell_raw[0],
 			cell_raw[1],
 			cell_raw[2],
@@ -110,13 +110,13 @@ void XVK_CameraDebugPrintCenterEntity( void ) {
 			light_cell[1],
 			light_cell[2],
 			cell_index,
-			cell ? cell->num_emissive_surfaces : -1,
+			cell ? cell->num_polygons : -1,
 			cell ? cell->num_point_lights : -1);
 
-		if (cell && cell->num_emissive_surfaces > 0) {
-			p += Q_snprintf(p, end - p, "surf:");
-			for (int i = 0; i < cell->num_emissive_surfaces; ++i) {
-				p += Q_snprintf(p, end - p, " %d", cell->emissive_surfaces[i]);
+		if (cell && cell->num_polygons > 0) {
+			p += Q_snprintf(p, end - p, "poly:");
+			for (int i = 0; i < cell->num_polygons; ++i) {
+				p += Q_snprintf(p, end - p, " %d", cell->polygons[i]);
 			}
 			p += Q_snprintf(p, end - p, "\n");
 		}

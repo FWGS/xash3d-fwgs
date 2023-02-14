@@ -2,6 +2,7 @@
 #include "vk_textures.h"
 #include "vk_mapents.h"
 #include "vk_const.h"
+#include "profiler.h"
 
 #include <stdio.h>
 
@@ -43,11 +44,19 @@ static void makePath(char *out, size_t out_size, const char *value, const char *
 #define MAKE_PATH(out, value) \
 	makePath(out, sizeof(out), value, path_begin, path_end)
 
+static struct {
+	int mat_files_read;
+	int texture_lookups;
+	int texture_loads;
+	int texture_lookup_duration_ns;
+	int texture_load_duration_ns;
+} g_stats;
+
 static void loadMaterialsFromFile( const char *filename, int depth ) {
 	fs_offset_t size;
 	const char *const path_begin = filename;
 	const char *path_end = Q_strrchr(filename, '/');
-	byte *data = gEngine.COM_LoadFile( filename, 0, false );
+	byte *data = gEngine.fsapi->LoadFile( filename, 0, false );
 	char *pos = (char*)data;
 	xvk_material_t current_material = {
 		.base_color = -1,
@@ -107,7 +116,10 @@ static void loadMaterialsFromFile( const char *filename, int depth ) {
 			break;
 
 		if (Q_stricmp(key, "for") == 0) {
+			const uint64_t lookup_begin_ns = aprof_time_now_ns();
 			current_material_index = XVK_FindTextureNamedLike(value);
+			g_stats.texture_lookup_duration_ns += aprof_time_now_ns() - lookup_begin_ns;
+			g_stats.texture_lookups++;
 			create = false;
 		} else if (Q_stricmp(key, "new") == 0) {
 			current_material_index = XVK_CreateDummyTexture(value);
@@ -147,18 +159,23 @@ static void loadMaterialsFromFile( const char *filename, int depth ) {
 			MAKE_PATH(texture_path, value);
 
 			if (tex_id_dest) {
+				const uint64_t load_begin_ns = aprof_time_now_ns();
 				const int tex_id = loadTexture(texture_path, force_reload);
+				g_stats.texture_load_duration_ns += aprof_time_now_ns() - load_begin_ns;
+
 				if (tex_id < 0) {
 					gEngine.Con_Printf(S_ERROR "Failed to load texture \"%s\" for key \"%s\"\n", value, key);
 					continue;
 				}
 
 				*tex_id_dest = tex_id;
+				g_stats.texture_loads++;
 			}
 		}
 	}
 
 	Mem_Free( data );
+	g_stats.mat_files_read++;
 }
 
 static void loadMaterialsFromFileF( const char *fmt, ... ) {
@@ -173,6 +190,9 @@ static void loadMaterialsFromFileF( const char *fmt, ... ) {
 }
 
 void XVK_ReloadMaterials( void ) {
+	memset(&g_stats, 0, sizeof(g_stats));
+	const uint64_t begin_time_ns = aprof_time_now_ns();
+
 	for (int i = 0; i < MAX_TEXTURES; ++i) {
 		xvk_material_t *const mat = g_materials.materials + i;
 		const vk_texture_t *const tex = findTexture( i );
@@ -183,21 +203,34 @@ void XVK_ReloadMaterials( void ) {
 	}
 
 	loadMaterialsFromFile( "pbr/materials.mat", MAX_INCLUDE_DEPTH );
-	loadMaterialsFromFile( "pbr/models/materials.mat", MAX_INCLUDE_DEPTH );
-	loadMaterialsFromFile( "pbr/sprites/materials.mat", MAX_INCLUDE_DEPTH );
+	loadMaterialsFromFile( "pbr/models/models.mat", MAX_INCLUDE_DEPTH );
+	loadMaterialsFromFile( "pbr/sprites/sprites.mat", MAX_INCLUDE_DEPTH );
 
 	{
 		const char *wad = g_map_entities.wadlist;
 		for (; *wad;) {
 			const char *const wad_end = Q_strchr(wad, ';');
-			loadMaterialsFromFileF("pbr/%.*s/materials.mat", wad_end - wad, wad);
+			loadMaterialsFromFileF("pbr/%.*s/%.*s.mat", wad_end - wad, wad, wad_end - wad, wad);
 			wad = wad_end + 1;
 		}
 	}
 
 	{
 		const model_t *map = gEngine.pfnGetModelByIndex( 1 );
-		loadMaterialsFromFileF("pbr/%s/materials.mat", map->name);
+		loadMaterialsFromFileF("pbr/%s/%s.mat", map->name, COM_FileWithoutPath(map->name));
+	}
+
+	// Print out statistics
+	{
+		const int duration_ms = (aprof_time_now_ns() - begin_time_ns) / 1000000ull;
+		gEngine.Con_Printf("Loading materials took %dms, .mat files parsed: %d. Texture lookups: %d (%dms). Texture loads: %d (%dms).\n",
+			duration_ms,
+			g_stats.mat_files_read,
+			g_stats.texture_lookups,
+			(int)(g_stats.texture_lookup_duration_ns / 1000000ull),
+			g_stats.texture_loads,
+			(int)(g_stats.texture_load_duration_ns / 1000000ull)
+			);
 	}
 }
 

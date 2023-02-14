@@ -2,7 +2,7 @@
 
 #include "vk_common.h"
 #include "vk_core.h"
-#include "vk_buffer.h"
+#include "vk_staging.h"
 #include "vk_const.h"
 #include "vk_descriptor.h"
 #include "vk_mapents.h" // wadlist
@@ -48,6 +48,18 @@ void initTextures( void )
 	/* FIXME
 	gEngine.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 	*/
+
+	{
+		const vk_texture_t *const default_texture = vk_textures + tglob.defaultTexture;
+		for (int i = 0; i < MAX_TEXTURES; ++i) {
+			const vk_texture_t *const tex = findTexture(i);;
+			tglob.dii_all_textures[i] = (VkDescriptorImageInfo){
+				.imageView = tex->vk.image.view != VK_NULL_HANDLE ? tex->vk.image.view : default_texture->vk.image.view,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.sampler = vk_core.default_sampler,
+			};
+		}
+	}
 }
 
 static void unloadSkybox( void );
@@ -313,8 +325,7 @@ static void VK_CreateInternalTextures( void )
 	}
 }
 
-static VkFormat VK_GetFormat(pixformat_t format)
-{
+static VkFormat VK_GetFormat(pixformat_t format) {
 	switch(format)
 	{
 		case PF_RGBA_32: return VK_FORMAT_R8G8B8A8_UNORM;
@@ -324,8 +335,7 @@ static VkFormat VK_GetFormat(pixformat_t format)
 	}
 }
 
-static size_t CalcImageSize( pixformat_t format, int width, int height, int depth )
-{
+static size_t CalcImageSize( pixformat_t format, int width, int height, int depth ) {
 	size_t	size = 0;
 
 	// check the depth error
@@ -352,6 +362,9 @@ static size_t CalcImageSize( pixformat_t format, int width, int height, int dept
 	case PF_ATI2:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
+	default:
+		gEngine.Con_Printf(S_ERROR "unsupported pixformat_t %d\n", format);
+		ASSERT(!"Unsupported format encountered");
 	}
 
 	return size;
@@ -532,14 +545,6 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 	}
 
 	{
-		size_t staging_offset = 0; // TODO multiple staging buffer users params.staging->ptr
-
-		// 5. Create/get cmdbuf for transitions
-		VkCommandBufferBeginInfo beginfo = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		};
-
 		// 	5.1 upload buf -> image:layout:DST
 		// 		5.1.1 transitionToLayout(UNDEFINED -> DST)
 		VkImageMemoryBarrier image_barrier = {
@@ -557,11 +562,14 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				.layerCount = num_layers,
 			}};
 
-		XVK_CHECK(vkBeginCommandBuffer(vk_core.cb_tex, &beginfo));
-		vkCmdPipelineBarrier(vk_core.cb_tex,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				0, 0, NULL, 0, NULL, 1, &image_barrier);
+		{
+			// cmdbuf may become invalidated in locks in the loops below
+			const VkCommandBuffer cmdbuf = R_VkStagingGetCommandBuffer();
+			vkCmdPipelineBarrier(cmdbuf,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					0, 0, NULL, 0, NULL, 1, &image_barrier);
+		}
 
 		// 		5.1.2 copyBufferToImage for all mip levels
 		for (int layer = 0; layer < num_layers; ++layer) {
@@ -571,36 +579,45 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 				const int width = Q_max( 1, ( pic->width >> mip ));
 				const int height = Q_max( 1, ( pic->height >> mip ));
 				const size_t mip_size = CalcImageSize( pic->type, width, height, 1 );
-
-				VkBufferImageCopy region = {0};
-				region.bufferOffset = staging_offset;
-				region.bufferRowLength = 0;
-				region.bufferImageHeight = 0;
-				region.imageSubresource = (VkImageSubresourceLayers){
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.mipLevel = mip,
-					.baseArrayLayer = layer,
-					.layerCount = 1,
+				const uint32_t texel_block_size = 4; // TODO compressed might be different
+				const vk_staging_image_args_t staging_args = {
+					.image = tex->vk.image.image,
+					.region = (VkBufferImageCopy) {
+						.bufferOffset = 0,
+						.bufferRowLength = 0,
+						.bufferImageHeight = 0,
+						.imageSubresource = (VkImageSubresourceLayers){
+							.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							.mipLevel = mip,
+							.baseArrayLayer = layer,
+							.layerCount = 1,
+						},
+						.imageExtent = (VkExtent3D){
+							.width = width,
+							.height = height,
+							.depth = 1,
+						},
+					},
+					.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					.size = mip_size,
+					.alignment = texel_block_size,
 				};
-				region.imageExtent = (VkExtent3D){
-					.width = width,
-					.height = height,
-					.depth = 1,
-				};
 
-				memcpy(((uint8_t*)g_vk_buffers.staging.mapped) + staging_offset, buf, mip_size);
+				const vk_staging_region_t staging = R_VkStagingLockForImage(staging_args);
+				ASSERT(staging.ptr);
+				memcpy(staging.ptr, buf, mip_size);
 
+				// Build mip in place for the next mip level
 				if ( mip < mipCount - 1 )
 				{
 					BuildMipMap( buf, width, height, 1, tex->flags );
 				}
 
-				// TODO we could do this only once w/ region array
-				vkCmdCopyBufferToImage(vk_core.cb_tex, g_vk_buffers.staging.buffer, tex->vk.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-				staging_offset += mip_size;
+				R_VkStagingUnlock(staging.handle);
 			}
 		}
+
+		const VkCommandBuffer cmdbuf = R_VkStagingCommit();
 
 		// 	5.2 image:layout:DST -> image:layout:SAMPLED
 		// 		5.2.1 transitionToLayout(DST -> SHADER_READ_ONLY)
@@ -615,20 +632,11 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 			.baseArrayLayer = 0,
 			.layerCount = num_layers,
 		};
-		vkCmdPipelineBarrier(vk_core.cb_tex,
+		vkCmdPipelineBarrier(cmdbuf,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 				0, 0, NULL, 0, NULL, 1, &image_barrier);
 
-		XVK_CHECK(vkEndCommandBuffer(vk_core.cb_tex));
-	}
-
-	{
-		VkSubmitInfo subinfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-		subinfo.commandBufferCount = 1;
-		subinfo.pCommandBuffers = &vk_core.cb_tex;
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 	}
 
 	// TODO how should we approach this:
@@ -727,6 +735,15 @@ int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 		return 0;
 	}
 
+	{
+		const int index = tex - vk_textures;
+		tglob.dii_all_textures[index] = (VkDescriptorImageInfo){
+			.imageView = tex->vk.image.view,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.sampler = vk_core.default_sampler,
+		};
+	}
+
 	/* FIXME
 	VK_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	*/
@@ -813,8 +830,17 @@ void VK_FreeTexture( unsigned int texnum ) {
 		gEngine.FS_FreeImage( tex->original );
 	*/
 
+	// TODO how to do this properly?
+	XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
+
 	XVK_ImageDestroy(&tex->vk.image);
 	memset(tex, 0, sizeof(*tex));
+
+	tglob.dii_all_textures[texnum] = (VkDescriptorImageInfo){
+		.imageView = vk_textures[tglob.defaultTexture].vk.image.view,
+		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		.sampler = vk_core.default_sampler,
+	};
 }
 
 int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
@@ -851,6 +877,15 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 		return 0;
 	}
 
+	{
+		const int index = tex - vk_textures;
+		tglob.dii_all_textures[index] = (VkDescriptorImageInfo){
+			.imageView = tex->vk.image.view,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.sampler = vk_core.default_sampler,
+		};
+	}
+
 	/* FIXME
 	VK_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	*/
@@ -867,7 +902,7 @@ int XVK_TextureLookupF( const char *fmt, ...) {
 	va_end( argptr );
 
 	tex_id = VK_FindTexture(buffer);
-	gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
+	//gEngine.Con_Reportf("Looked up texture %s -> %d\n", buffer, tex_id);
 	return tex_id;
 }
 
@@ -910,7 +945,7 @@ static int CheckSkybox( const char *name )
 		{
 			// build side name
 			sidename = va( "%s%s.%s", name, g_skybox_info[j].suffix, skybox_ext[i] );
-			if( gEngine.FS_FileExists( sidename, false ))
+			if( gEngine.fsapi->FileExists( sidename, false ))
 				num_checked_sides++;
 
 		}
@@ -922,7 +957,7 @@ static int CheckSkybox( const char *name )
 		{
 			// build side name
 			sidename = va( "%s_%s.%s", name, g_skybox_info[j].suffix, skybox_ext[i] );
-			if( gEngine.FS_FileExists( sidename, false ))
+			if( gEngine.fsapi->FileExists( sidename, false ))
 				num_checked_sides++;
 		}
 

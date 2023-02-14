@@ -82,7 +82,7 @@ static unsigned parseEntPropString(const char* value, string *out, unsigned bit)
 	const int len = Q_strlen(value);
 	if (len >= sizeof(string))
 		gEngine.Con_Printf(S_ERROR "Map entity value '%s' is too long, max length is %d\n",
-			value, sizeof(string));
+			value, (int)sizeof(string));
 	Q_strncpy(*out, value, sizeof(*out));
 	return bit;
 }
@@ -380,14 +380,15 @@ int findLightEntityWithIndex( int index ) {
 
 static void addPatchEntity( const entity_props_t *props, uint32_t have_fields ) {
 	for (int i = 0; i < props->_xvk_ent_id.num; ++i) {
-		const int light_index = findLightEntityWithIndex( props->_xvk_ent_id.values[i] );
+		const int ent_id = props->_xvk_ent_id.values[i];
+		const int light_index = findLightEntityWithIndex( ent_id );
 		if (light_index < 0) {
-			gEngine.Con_Printf(S_ERROR "Patch light entity with index=%d not found\n", props->_xvk_ent_id);
+			gEngine.Con_Printf(S_ERROR "Patch light entity with index=%d not found\n", ent_id);
 			continue;
 		}
 
 		if (have_fields == Field__xvk_ent_id) {
-			gEngine.Con_Reportf("Deleting light entity (%d of %d) with index=%d\n", light_index, g_map_entities.num_lights, props->_xvk_ent_id);
+			gEngine.Con_Reportf("Deleting light entity (%d of %d) with index=%d\n", light_index, g_map_entities.num_lights, ent_id);
 			g_map_entities.num_lights--;
 			memmove(g_map_entities.lights + light_index, g_map_entities.lights + light_index + 1, sizeof(*g_map_entities.lights) * g_map_entities.num_lights - light_index);
 			continue;
@@ -513,7 +514,7 @@ static void parsePatches( const model_t *const map ) {
 
 	Q_snprintf(filename, sizeof(filename), "luchiki/%s.patch", map->name);
 	gEngine.Con_Reportf("Loading patches from file \"%s\"\n", filename);
-	data = gEngine.COM_LoadFile( filename, 0, false );
+	data = gEngine.fsapi->LoadFile( filename, 0, false );
 	if (!data) {
 		gEngine.Con_Reportf("No patch file \"%s\"\n", filename);
 		return;

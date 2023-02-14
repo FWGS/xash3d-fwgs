@@ -86,6 +86,38 @@ const char *COM_OffsetNameForFunction( void *function )
 	return sname;
 }
 
+dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
+{
+	dll_user_t *p;
+	fs_dllinfo_t dllInfo;
+
+	// no fs loaded yet, but let engine find fs
+	if( !g_fsapi.FindLibrary )
+	{
+		p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
+		Q_strncpy( p->shortPath, dllname, sizeof( p->shortPath ));
+		Q_strncpy( p->fullPath, dllname, sizeof( p->fullPath ));
+		Q_strncpy( p->dllName, dllname, sizeof( p->dllName ));
+
+		return p;
+	}
+
+	// fs can't find library
+	if( !g_fsapi.FindLibrary( dllname, directpath, &dllInfo ))
+		return NULL;
+
+	// NOTE: for libraries we not fail even if search is NULL
+	// let the OS find library himself
+	p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
+	Q_strncpy( p->shortPath, dllInfo.shortPath, sizeof( p->shortPath ));
+	Q_strncpy( p->fullPath, dllInfo.fullPath, sizeof( p->fullPath ));
+	Q_strncpy( p->dllName, dllname, sizeof( p->dllName ));
+	p->custom_loader = dllInfo.custom_loader;
+	p->encrypted = dllInfo.encrypted;
+
+	return p;
+}
+
 /*
 =============================================================================
 
@@ -291,12 +323,12 @@ static char *COM_GetItaniumName( const char * const in_name )
 			len = len * 10 + ( *f - '0' );
 
 		// sane value
-		len = min( remaining, len );
+		len = Q_min( remaining, len );
 
 		if( len == 0 )
 			goto invalid_format;
 
-		Q_strncpy( symbols[i], f, min( len + 1, sizeof( out_name )));
+		Q_strncpy( symbols[i], f, Q_min( len + 1, sizeof( out_name )));
 		f += len;
 		remaining -= len;
 
@@ -361,7 +393,7 @@ char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, siz
 
 		if( at ) len = (uint)( at - prev );
 		else len = (uint)Q_strlen( prev );
-		Q_strncpy( symbols[i], prev, min( len + 1, sizeof( symbols[i] )));
+		Q_strncpy( symbols[i], prev, Q_min( len + 1, sizeof( symbols[i] )));
 		prev = at + 1;
 
 		if( !at )

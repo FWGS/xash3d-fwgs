@@ -16,12 +16,14 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 #include "net_encode.h"
+#include "platform/platform.h"
 
-#define HEARTBEAT_SECONDS	300.0f 		// 300 seconds
+#define HEARTBEAT_SECONDS	((sv_nat.value > 0.0f) ? 60.0f : 300.0f)  	// 1 or 5 minutes
 
 // server cvars
 CVAR_DEFINE_AUTO( sv_lan, "0", 0, "server is a lan server ( no heartbeat, no authentication, no non-class C addresses, 9999.0 rate, etc." );
 CVAR_DEFINE_AUTO( sv_lan_rate, "20000.0", 0, "rate for lan server" );
+CVAR_DEFINE_AUTO( sv_nat, "0", 0, "enable NAT bypass for this server" );
 CVAR_DEFINE_AUTO( sv_aim, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "auto aiming option" );
 CVAR_DEFINE_AUTO( sv_unlag, "1", 0, "allow lag compensation on server-side" );
 CVAR_DEFINE_AUTO( sv_maxunlag, "0.5", 0, "max latency value which can be interpolated (by default ping should not exceed 500 units)" );
@@ -55,6 +57,7 @@ CVAR_DEFINE_AUTO( mp_logecho, "1", 0, "log multiplayer frags to server logfile" 
 CVAR_DEFINE_AUTO( mp_logfile, "1", 0, "log multiplayer frags to console" );
 CVAR_DEFINE_AUTO( sv_log_singleplayer, "0", FCVAR_ARCHIVE, "allows logging in singleplayer games" );
 CVAR_DEFINE_AUTO( sv_log_onefile, "0", FCVAR_ARCHIVE, "logs server information to only one file" );
+CVAR_DEFINE_AUTO( sv_trace_messages, "0", FCVAR_LATCH, "enable server usermessages tracing (good for developers)" );
 
 // game-related cvars
 CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer map cycle configuration file" );
@@ -150,6 +153,41 @@ qboolean SV_HasActivePlayers( void )
 			return true;
 	}
 	return false;
+}
+
+/*
+================
+SV_GetConnectedClientsCount
+
+returns connected clients count (and optionally bots count)
+================
+*/
+int SV_GetConnectedClientsCount(int *bots)
+{
+	int index;
+	int	clients;
+
+	clients = 0;
+	if( svs.clients )
+	{
+		if( bots )
+			*bots = 0;
+
+		for( index = 0; index < svs.maxclients; index++ )
+		{
+			if( svs.clients[index].state >= cs_connected )
+			{
+				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
+				{
+					if( bots )
+						(*bots)++;
+				}
+				else
+					clients++;
+			}
+		}
+	}
+	return clients;
 }
 
 /*
@@ -649,6 +687,9 @@ void Host_ServerFrame( void )
 	// clear edict flags for next frame
 	SV_PrepWorldFrame ();
 
+	// update dedicated server status line in console
+	Platform_UpdateStatusLine ();
+
 	// send a heartbeat to the master if needed
 	Master_Heartbeat ();
 }
@@ -675,7 +716,7 @@ void Master_Add( void )
 {
 	netadr_t	adr;
 
-	NET_Config( true ); // allow remote
+	NET_Config( true, false ); // allow remote
 
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
 		Con_Printf( "can't resolve adr: %s\n", MASTERSERVER_ADR );
@@ -718,7 +759,7 @@ void Master_Shutdown( void )
 {
 	netadr_t	adr;
 
-	NET_Config( true ); // allow remote
+	NET_Config( true, false ); // allow remote
 
 	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
 		Con_Printf( "can't resolve addr: %s\n", MASTERSERVER_ADR );
@@ -737,22 +778,10 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
 	uint	challenge;
 	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
-	int	clients = 0, bots = 0, index;
+	int	clients = 0, bots = 0;
 	int	len = sizeof( s );
 
-	if( svs.clients )
-	{
-		for( index = 0; index < svs.maxclients; index++ )
-		{
-			if( svs.clients[index].state >= cs_connected )
-			{
-				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
-					bots++;
-				else clients++;
-			}
-		}
-	}
-
+	clients = SV_GetConnectedClientsCount( &bots );
 	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
 
 	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
@@ -770,6 +799,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "version", va( "%s", XASH_VERSION ), len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "region", "255", len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "product", GI->gamefolder, len ); // product? Where is the difference with gamedir?
+	Info_SetValueForKey( s, "nat", sv_nat.string, sizeof(s) ); // Server running under NAT, use reverse connection
 
 	NET_SendPacket( NS_SERVER, Q_strlen( s ), s, from );
 }
@@ -928,6 +958,7 @@ void SV_Init( void )
 	sv_hostmap = Cvar_Get( "hostmap", GI->startmap, 0, "keep name of last entered map" );
 	Cvar_RegisterVariable( &sv_password );
 	Cvar_RegisterVariable( &sv_lan );
+	Cvar_RegisterVariable( &sv_nat );
 	Cvar_RegisterVariable( &violence_ablood );
 	Cvar_RegisterVariable( &violence_hblood );
 	Cvar_RegisterVariable( &violence_agibs );
@@ -945,6 +976,8 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &bannedcfgfile );
 	Cvar_RegisterVariable( &listipcfgfile );
 	Cvar_RegisterVariable( &mapchangecfgfile );
+
+	Cvar_RegisterVariable( &sv_trace_messages );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
@@ -1061,6 +1094,8 @@ void SV_Shutdown( const char *finalmsg )
 		// drop the client if want to load a new map
 		if( CL_IsPlaybackDemo( ))
 			CL_Drop();
+
+		SV_UnloadProgs ();
 		return;
 	}
 
@@ -1076,7 +1111,7 @@ void SV_Shutdown( const char *finalmsg )
 	if( public_server->value && svs.maxclients != 1 )
 		Master_Shutdown();
 
-	NET_Config( false );
+	NET_Config( false, false );
 	SV_UnloadProgs ();
 	CL_Drop();
 

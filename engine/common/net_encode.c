@@ -980,10 +980,6 @@ qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timeb
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
-#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wduplicated-branches"
-#endif
 		if( pField->flags & DT_SIGNED )
 		{
 			fromF = *(int *)((byte *)from + pField->offset );
@@ -994,9 +990,6 @@ qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timeb
 			fromF = *(uint *)((byte *)from + pField->offset );
 			toF = *(uint *)((byte *)to + pField->offset );
 		}
-#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
-#pragma GCC diagnostic pop
-#endif
 		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
 		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
 		if( !Q_equal( pField->multiplier, 1.0 ) )
@@ -1121,7 +1114,7 @@ assume from and to is valid
 qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
 {
 	qboolean	bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
-	float		flValue, flAngle, flTime;
+	float		flValue, flAngle;
 	uint		iValue;
 	const char	*pStr;
 
@@ -1161,17 +1154,10 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
-#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wduplicated-branches"
-#endif
 		if( bSigned )
 			iValue = *(int32_t *)((int8_t *)to + pField->offset );
 		else
 			iValue = *(uint32_t *)((int8_t *)to + pField->offset );
-#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
-#pragma GCC diagnostic pop
-#endif
 		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
 
 		if( !Q_equal( pField->multiplier, 1.0 ) )
@@ -1219,6 +1205,53 @@ qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to
 }
 
 /*
+====================
+Delta_CopyField
+
+====================
+*/
+static void Delta_CopyField( delta_t *pField, void *from, void *to, double timebase )
+{
+	qboolean bSigned = FBitSet( pField->flags, DT_SIGNED );
+	uint8_t *to_field = (uint8_t *)to + pField->offset;
+	uint8_t *from_field = (uint8_t *)from + pField->offset;
+
+	if( FBitSet( pField->flags, DT_BYTE ))
+	{
+		if( bSigned )
+			*(int8_t *)( to_field ) = *(int8_t *)( from_field );
+		else
+			*(uint8_t *)( to_field ) = *(uint8_t *)( from_field );
+	}
+	else if( FBitSet( pField->flags, DT_SHORT ))
+	{
+		if( bSigned )
+			*(int16_t *)( to_field ) = *(int16_t *)( from_field );
+		else
+			*(uint16_t *)( to_field ) = *(uint16_t *)( from_field );
+	}
+	else if( FBitSet( pField->flags, DT_INTEGER ))
+	{
+		if( bSigned )
+			*(int32_t *)( to_field ) = *(int32_t *)( from_field );
+		else
+			*(uint32_t *)( to_field ) = *(uint32_t *)( from_field );
+	}
+	else if( FBitSet( pField->flags, DT_FLOAT|DT_ANGLE|DT_TIMEWINDOW_8|DT_TIMEWINDOW_BIG ))
+	{
+		*(float *)( to_field ) = *(float *)( from_field );
+	}
+	else if( FBitSet( pField->flags, DT_STRING ))
+	{
+		Q_strncpy( to_field, from_field, pField->size );
+	}
+	else
+	{
+		Assert( 0 );
+	}
+}
+
+/*
 =====================
 Delta_ReadField
 
@@ -1230,30 +1263,24 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 {
 	qboolean		bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
 	float		flValue, flAngle, flTime;
-	qboolean		bChanged;
 	uint		iValue;
 	const char	*pStr;
 	char		*pOut;
 
-	bChanged = MSG_ReadOneBit( msg );
+	if( !MSG_ReadOneBit( msg ) )
+	{
+		Delta_CopyField( pField, from, to, timebase );
+		return false;
+	}
 
 	Assert( pField->multiplier != 0.0f );
 
 	if( pField->flags & DT_BYTE )
 	{
-		if( bChanged )
-		{
-			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-			if( !Q_equal( pField->multiplier, 1.0 ) )
-				iValue /= pField->multiplier;
-		}
-		else
-		{
-			if( bSigned )
-				iValue = *(int8_t *)((uint8_t *)from + pField->offset );
-			else
-				iValue = *(uint8_t *)((uint8_t *)from + pField->offset );
-		}
+		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			iValue /= pField->multiplier;
+
 		if( bSigned )
 			*(int8_t *)((uint8_t *)to + pField->offset ) = iValue;
 		else
@@ -1261,19 +1288,10 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 	}
 	else if( pField->flags & DT_SHORT )
 	{
-		if( bChanged )
-		{
-			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-			if( !Q_equal( pField->multiplier, 1.0 ) )
-				iValue /= pField->multiplier;
-		}
-		else
-		{
-			if( bSigned )
-				iValue = *(int16_t *)((uint8_t *)from + pField->offset );
-			else
-				iValue = *(uint16_t *)((uint8_t *)from + pField->offset );
-		}
+		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			iValue /= pField->multiplier;
+
 		if( bSigned )
 			*(int16_t *)((uint8_t *)to + pField->offset ) = iValue;
 		else
@@ -1281,112 +1299,63 @@ qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to,
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
-#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wduplicated-branches"
-#endif
-		if( bChanged )
-		{
-			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-			if( !Q_equal( pField->multiplier, 1.0 ) )
-				iValue /= pField->multiplier;
-		}
-		else
-		{
-			if( bSigned )
-				iValue = *(int32_t *)((uint8_t *)from + pField->offset );
-			else
-				iValue = *(uint32_t *)((uint8_t *)from + pField->offset );
-		}
+		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			iValue /= pField->multiplier;
+
 		if( bSigned )
 			*(int32_t *)((uint8_t *)to + pField->offset ) = iValue;
 		else
 			*(uint32_t *)((uint8_t *)to + pField->offset ) = iValue;
-#if defined __GNUC__ && __GNUC_MAJOR < 9 && !defined __clang__
-#pragma GCC diagnostic pop
-#endif
 	}
 	else if( pField->flags & DT_FLOAT )
 	{
-		if( bChanged )
-		{
-			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-			if( bSigned )
-				flValue = (int)iValue;
-			else
-				flValue = iValue;
-
-			if( !Q_equal( pField->multiplier, 1.0 ) )
-				flValue = flValue / pField->multiplier;
-
-			if( !Q_equal( pField->post_multiplier, 1.0 ) )
-				flValue = flValue * pField->post_multiplier;
-		}
+		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
+		if( bSigned )
+			flValue = (int)iValue;
 		else
-		{
-			flValue = *(float *)((byte *)from + pField->offset );
-		}
+			flValue = iValue;
+
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			flValue = flValue / pField->multiplier;
+
+		if( !Q_equal( pField->post_multiplier, 1.0 ) )
+			flValue = flValue * pField->post_multiplier;
+
 		*(float *)((byte *)to + pField->offset ) = flValue;
 	}
 	else if( pField->flags & DT_ANGLE )
 	{
-		if( bChanged )
-		{
-			flAngle = MSG_ReadBitAngle( msg, pField->bits );
-		}
-		else
-		{
-			flAngle = *(float *)((byte *)from + pField->offset );
-		}
+		flAngle = MSG_ReadBitAngle( msg, pField->bits );
 		*(float *)((byte *)to + pField->offset ) = flAngle;
 	}
 	else if( pField->flags & DT_TIMEWINDOW_8 )
 	{
-		if( bChanged )
-		{
-			bSigned = true; // timewindow is always signed
-			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-			flTime = (timebase * 100.0 - iValue) / 100.0;
-		}
-		else
-		{
-			flTime = *(float *)((byte *)from + pField->offset );
-		}
+		bSigned = true; // timewindow is always signed
+		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
+		flTime = (timebase * 100.0 - (int)iValue) / 100.0;
+
 		*(float *)((byte *)to + pField->offset ) = flTime;
 	}
 	else if( pField->flags & DT_TIMEWINDOW_BIG )
 	{
-		if( bChanged )
-		{
-			bSigned = true; // timewindow is always signed
-			iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
+		bSigned = true; // timewindow is always signed
+		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
 
-			if( !Q_equal( pField->multiplier, 1.0 ) )
-				flTime = ( timebase * pField->multiplier - iValue ) / pField->multiplier;
-			else
-				flTime = timebase - iValue;
-		}
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			flTime = ( timebase * pField->multiplier - (int)iValue ) / pField->multiplier;
 		else
-		{
-			flTime = *(float *)((byte *)from + pField->offset );
-		}
+			flTime = timebase - (int)iValue;
+
 		*(float *)((byte *)to + pField->offset ) = flTime;
 	}
 	else if( pField->flags & DT_STRING )
 	{
-		if( bChanged )
-		{
-			pStr = MSG_ReadString( msg );
-		}
-		else
-		{
-			pStr = (char *)((byte *)from + pField->offset );
-		}
-
+		pStr = MSG_ReadString( msg );
 		pOut = (char *)((byte *)to + pField->offset );
 		Q_strncpy( pOut, pStr, pField->size );
 	}
-	return bChanged;
+	return true;
 }
 
 /*
@@ -1636,6 +1605,7 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, d
 	delta_t		*pField;
 	delta_info_t	*dt;
 	int		i;
+	qboolean noChanges;
 
 	dt = Delta_FindStruct( "clientdata_t" );
 	Assert( dt && dt->bInitialized );
@@ -1643,15 +1613,14 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, d
 	pField = dt->pFields;
 	Assert( pField != NULL );
 
-	*to = *from;
-
-	if( !cls.legacymode && !MSG_ReadOneBit( msg ))
-		return; // we have no changes
+	noChanges = !cls.legacymode && !MSG_ReadOneBit( msg );
 
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
 	{
-		Delta_ReadField( msg, pField, from, to, timebase );
+		if( noChanges )
+			Delta_CopyField( pField, from, to, timebase );
+		else Delta_ReadField( msg, pField, from, to, timebase );
 	}
 #endif
 }
@@ -1721,8 +1690,6 @@ void MSG_ReadWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to,
 
 	pField = dt->pFields;
 	Assert( pField != NULL );
-
-	*to = *from;
 
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
@@ -1909,7 +1876,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 					from = &cl.instanced_baseline[baseline_offset];
 			}
 		}
-		}
+	}
 	// g-cont. probably is redundant
 	*to = *from;
 

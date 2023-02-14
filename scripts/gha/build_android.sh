@@ -12,15 +12,14 @@ elif [[ "$GH_CPU_ARCH" == "32&64" ]]; then
 	export ARCHS="armeabi armeabi-v7a x86 aarch64 x86_64"
 fi
 
-export API=21
-export TOOLCHAIN=host
-export CC=clang-12
-export CXX=clang++-12
-export STRIP=llvm-strip-12
 sh compile.sh release
 
+popd
+
+mkdir -p artifacts/
+
 if [[ "$GH_CPU_ARCH" == "64" ]]; then
-	mv xashdroid.apk ../xashdroid-64.apk
+	mv android/xashdroid.apk artifacts/xashdroid-64.apk
 else
-	mv xashdroid.apk ../xashdroid-32.apk
+	mv android/xashdroid.apk artifacts/xashdroid-32.apk
 fi

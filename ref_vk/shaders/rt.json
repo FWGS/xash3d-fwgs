@@ -1,0 +1,45 @@
+{
+	"primary_ray": {
+		/*
+		"rgen": "ray_primary",
+		"miss": [
+			"ray_primary"
+		],
+		"hit": [
+			{"closest": "ray_primary"},
+			{"closest": "ray_primary", "any": "ray_common_alphatest"}
+		]
+		*/
+		"comp": "ray_primary"
+	},
+//	"light_direct": {
+//		"template": true,
+//		"miss": [
+//			"ray_shadow"
+//		],
+//		"hit": [
+//			{"closest": "ray_shadow", "any": "ray_common_alphatest"}
+//		]
+//	},
+//	"light_direct_poly": {
+//		"inherit": "light_direct",
+//		"rgen": "ray_light_poly_direct"
+//	},
+//	"light_direct_point": {
+//		"inherit": "light_direct",
+//		"rgen": "ray_light_direct_point"
+//	},
+	"light_direct_poly": {
+		"comp": "ray_light_direct_poly"
+	},
+	"light_direct_point": {
+		"comp": "ray_light_direct_point"
+	},
+	"bounce": {
+		"comp": "bounce"
+	},
+	"denoiser": {
+		"comp": "denoiser"
+	},
+	//"RESOURCES": { "position_t_prev": { "previous_frame": "position_t" }, },
+}

@@ -103,6 +103,11 @@ static void pfnTouch_RemoveButton( const char *name )
 	Touch_RemoveButton( name, true );
 }
 
+static char *pfnParseFileSafe( char *data, char *buf, const int size, unsigned int flags, int *len )
+{
+	return COM_ParseFileSafe( data, buf, size, flags, len, NULL );
+}
+
 static mobile_engfuncs_t gpMobileEngfuncs =
 {
 	MOBILITY_API_VERSION,
@@ -118,7 +123,7 @@ static mobile_engfuncs_t gpMobileEngfuncs =
 	Sys_Warn,
 	pfnGetNativeObject,
 	ID_SetCustomClientID,
-	_COM_ParseFileSafe
+	pfnParseFileSafe
 };
 
 qboolean Mobile_Init( void )

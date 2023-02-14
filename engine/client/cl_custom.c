@@ -106,7 +106,7 @@ void CL_RemoveFromResourceList( resource_t *pResource )
 	if( pResource->pPrev == NULL || pResource->pNext == NULL )
 		Host_Error( "mislinked resource in CL_RemoveFromResourceList\n" );
 
-	if ( pResource->pNext == pResource || pResource->pPrev == pResource )
+	if( pResource->pNext == pResource || pResource->pPrev == pResource )
 		Host_Error( "attempt to free last entry in list.\n" );
 
 	pResource->pPrev->pNext = pResource->pNext;

@@ -25,33 +25,34 @@ extern descriptor_pool_t vk_desc;
 qboolean VK_DescriptorInit( void );
 void VK_DescriptorShutdown( void );
 
+struct xvk_image_s;
 typedef union {
 	VkDescriptorBufferInfo buffer;
 	VkDescriptorImageInfo image;
 	VkDescriptorImageInfo *image_array;
 	VkWriteDescriptorSetAccelerationStructureKHR accel;
+	const struct xvk_image_s *image_object;
 } vk_descriptor_value_t;
 
 typedef struct {
 	int num_bindings;
-	VkDescriptorSetLayoutBinding *bindings;
+	const VkDescriptorSetLayoutBinding *bindings;
 
 	// Used in Write only
 	vk_descriptor_value_t *values;
 
 	VkPushConstantRange push_constants;
-	int num_sets;
 
 	VkPipelineLayout pipeline_layout;
 	VkDescriptorSetLayout desc_layout;
 	VkDescriptorPool desc_pool;
 
-	int num_desc_sets;
+	int num_sets;
 	VkDescriptorSet *desc_sets;
 } vk_descriptors_t;
 
 void VK_DescriptorsCreate(vk_descriptors_t *desc);
-void VK_DescriptorsWrite(const vk_descriptors_t *desc);
+void VK_DescriptorsWrite(const vk_descriptors_t *desc, int set_slot);
 void VK_DescriptorsDestroy(const vk_descriptors_t *desc);
 
 // typedef enum {

@@ -110,13 +110,7 @@ GNU General Public License for more details.
 #define MAX_EVENTS			(1<<MAX_EVENT_BITS)	// 10 bits == 1024 events (the original Half-Life limit)
 
 #define MAX_MODEL_BITS		12		// 12 bits == 4096 models
-#define MAX_SUPPORTED_MODELS		(1<<MAX_MODEL_BITS)
-
-#ifdef SUPPORT_BSP2_FORMAT
-#define MAX_MODELS			MAX_SUPPORTED_MODELS	// because BSP2 contain too much embedded bsp-models
-#else
-#define MAX_MODELS			1024		// g-cont. reduce the memory without breaking proto
-#endif
+#define MAX_MODELS			(1<<MAX_MODEL_BITS)
 
 #define MAX_SOUND_BITS		11
 #define MAX_SOUNDS			(1<<MAX_SOUND_BITS)	// 11 bits == 2048 sounds
@@ -187,7 +181,6 @@ GNU General Public License for more details.
 #undef MAX_VISIBLE_PACKET
 #undef MAX_VISIBLE_PACKET_VIS_BYTES
 #undef MAX_EVENTS
-#undef MAX_SUPPORTED_MODELS
 #undef MAX_MODELS
 #undef MAX_SOUNDS
 #undef MAX_CUSTOM
@@ -198,17 +191,10 @@ GNU General Public License for more details.
 // memory reduced protocol, not for use in multiplayer (but still compatible)
 #define MAX_VISIBLE_PACKET		128
 #define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
-
 #define MAX_EVENTS			128
-
-#define MAX_SUPPORTED_MODELS		512
-
 #define MAX_MODELS			512
-
-
 #define MAX_SOUNDS			512
 #define MAX_CUSTOM			32
-
 #define MAX_DLIGHTS			16		// dynamic lights (rendered per one frame)
 #define MAX_ELIGHTS			32		// entity only point lights
 #define MAX_RENDER_DECALS		64		// max rendering decals per a level
@@ -217,20 +203,14 @@ GNU General Public License for more details.
 #undef MAX_VISIBLE_PACKET
 #undef MAX_VISIBLE_PACKET_VIS_BYTES
 #undef MAX_EVENTS
-#undef MAX_SUPPORTED_MODELS
 #undef MAX_MODELS
 #undef MAX_CUSTOM
 #undef MAX_RENDER_DECALS
 #undef MAX_RESOURCES
 #define MAX_VISIBLE_PACKET		256
 #define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
-
 #define MAX_EVENTS			128
-
-#define MAX_SUPPORTED_MODELS		1024
-
 #define MAX_MODELS			1024
-
 #define MAX_CUSTOM			512
 #define MAX_RENDER_DECALS	128
 #define MAX_RESOURCES		1024
@@ -319,11 +299,6 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define MAX_LEGACY_ENTITY_BITS		12
 #define MAX_LEGACY_WEAPON_BITS		5
 #define MAX_LEGACY_MODEL_BITS 11
-#if XASH_LOW_MEMORY >= 1
-#define MAX_LEGACY_SERVERS 32
-#else
-#define MAX_LEGACY_SERVERS 256
-#endif
 #define MAX_LEGACY_TOTAL_CMDS 28 // magic number from old engine's sv_client.c
 
 #endif//NET_PROTOCOL_H

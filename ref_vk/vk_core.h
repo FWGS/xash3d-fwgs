@@ -10,13 +10,13 @@
 qboolean R_VkInit( void );
 void R_VkShutdown( void );
 
-// FIXME load from embedded static structs
-VkShaderModule loadShader(const char *filename);
-VkSemaphore createSemaphore( void );
-void destroySemaphore(VkSemaphore sema);
-VkFence createFence( void );
-void destroyFence(VkFence fence);
+VkSemaphore R_VkSemaphoreCreate( void );
+void R_VkSemaphoreDestroy(VkSemaphore sema);
 
+VkFence R_VkFenceCreate( qboolean signaled );
+void R_VkFenceDestroy(VkFence fence);
+
+// TODO move all these to vk_device.{h,c} or something
 typedef struct physical_device_s {
 	VkPhysicalDevice device;
 	VkPhysicalDeviceMemoryProperties2 memory_properties2;
@@ -26,6 +26,7 @@ typedef struct physical_device_s {
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR properties_accel;
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR properties_ray_tracing_pipeline;
 	qboolean anisotropy_enabled;
+	uint32_t sbt_record_size;
 } physical_device_t;
 
 typedef struct vulkan_core_s {
@@ -37,7 +38,7 @@ typedef struct vulkan_core_s {
 
 	// TODO store important capabilities that affect render code paths
 	// (as rtx, dedicated gpu memory, bindless, etc) separately in a struct
-	qboolean debug, rtx;
+	qboolean debug, validate, rtx;
 	struct {
 		VkSurfaceKHR surface;
 		uint32_t num_surface_formats;
@@ -50,10 +51,6 @@ typedef struct vulkan_core_s {
 	physical_device_t physical_device;
 	VkDevice device;
 	VkQueue queue;
-
-	VkCommandPool command_pool;
-	VkCommandBuffer cb;
-	VkCommandBuffer cb_tex;
 
 	VkSampler default_sampler;
 
@@ -96,6 +93,55 @@ do { \
 	} \
 } while (0)
 
+#if USE_AFTERMATH
+void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...);
+void R_Vk_NV_Checkpoint_Dump(void);
+#define DEBUG_NV_CHECKPOINTF(cmdbuf, fmt, ...) \
+	do { \
+		if (vk_core.debug) { \
+			R_Vk_NV_CheckpointF(cmdbuf, fmt, ##__VA_ARGS__); \
+			if (0) gEngine.Con_Reportf(fmt "\n", ##__VA_ARGS__); \
+		} \
+	} while(0)
+#else
+#define DEBUG_NV_CHECKPOINTF(...)
+#define R_Vk_NV_Checkpoint_Dump()
+#endif
+
+#define DEBUG_BEGIN(cmdbuf, msg) \
+	do { \
+		if (vk_core.debug) { \
+			const VkDebugUtilsLabelEXT label = { \
+				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT, \
+				.pLabelName = msg, \
+			}; \
+			vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label); \
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "begin %s", msg); \
+		} \
+	} while(0)
+
+#define DEBUG_BEGINF(cmdbuf, fmt, ...) \
+	do { \
+		if (vk_core.debug) { \
+			char buf[128]; \
+			snprintf(buf, sizeof(buf), fmt, ##__VA_ARGS__); \
+			const VkDebugUtilsLabelEXT label = { \
+				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT, \
+				.pLabelName = buf, \
+			}; \
+			vkCmdBeginDebugUtilsLabelEXT(cmdbuf, &label); \
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "begin " fmt, ##__VA_ARGS__); \
+		} \
+	} while(0)
+
+#define DEBUG_END(cmdbuf) \
+	do { \
+		if (vk_core.debug) { \
+			vkCmdEndDebugUtilsLabelEXT(cmdbuf); \
+			DEBUG_NV_CHECKPOINTF(cmdbuf, "end "); /* TODO: find corresponding begin */ \
+		} \
+	} while(0)
+
 // TODO make this not fatal: devise proper error handling strategies
 // FIXME Host_Error does not cause process to exit, we need to handle this manually
 #define XVK_CHECK(f) do { \
@@ -103,6 +149,8 @@ do { \
 		if (result != VK_SUCCESS) { \
 			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, R_VkResultName(result)); \
+			if (vk_core.debug) \
+				R_Vk_NV_Checkpoint_Dump(); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, R_VkResultName(result)); \
 		} \
@@ -187,7 +235,9 @@ do { \
 	X(vkBindImageMemory) \
 	X(vkCmdPipelineBarrier) \
 	X(vkCmdCopyBufferToImage) \
+	X(vkCmdCopyBuffer) \
 	X(vkQueueWaitIdle) \
+	X(vkDeviceWaitIdle) \
 	X(vkDestroyImage) \
 	X(vkCmdBindDescriptorSets) \
 	X(vkCreateSampler) \
@@ -210,6 +260,8 @@ do { \
 	X(vkCmdClearColorImage) \
 	X(vkCmdCopyImage) \
 	X(vkGetImageSubresourceLayout) \
+	X(vkCmdSetCheckpointNV) \
+	X(vkGetQueueCheckpointDataNV) \
 
 #define DEVICE_FUNCS_RTX(X) \
 	X(vkGetAccelerationStructureBuildSizesKHR) \

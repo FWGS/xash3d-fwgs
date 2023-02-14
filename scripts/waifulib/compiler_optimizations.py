@@ -30,7 +30,7 @@ compiler_optimizations.CFLAGS['gottagofast'] = {
 }
 '''
 
-VALID_BUILD_TYPES = ['fastnative', 'fast', 'release', 'debug', 'nooptimize', 'sanitize', 'none']
+VALID_BUILD_TYPES = ['fastnative', 'fast', 'release', 'debug', 'sanitize', 'none']
 
 LINKFLAGS = {
 	'common': {
@@ -41,6 +41,7 @@ LINKFLAGS = {
 	'sanitize': {
 		'clang': ['-fsanitize=undefined', '-fsanitize=address', '-pthread'],
 		'gcc':   ['-fsanitize=undefined', '-fsanitize=address', '-pthread'],
+		'msvc': ['/SAFESEH:NO']
 	},
 	'debug': {
 		'msvc': ['/INCREMENTAL', '/SAFESEH:NO']
@@ -50,7 +51,7 @@ LINKFLAGS = {
 CFLAGS = {
 	'common': {
 		# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
-		'msvc':    ['/D_USING_V110_SDK71_', '/FS', '/Zc:threadSafeInit-', '/MT'],
+		'msvc':    ['/D_USING_V110_SDK71_', '/FS', '/Zc:threadSafeInit-', '/MT', '/MP', '/Zc:__cplusplus'],
 		'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden', '-fno-threadsafe-statics'],
 		'gcc':     ['-g', '-fvisibility=hidden'],
 		'owcc':	   ['-fno-short-enum', '-ffloat-store', '-g3']
@@ -81,15 +82,11 @@ CFLAGS = {
 		'default': ['-O0']
 	},
 	'sanitize': {
-		'msvc':    ['/Od', '/RTC1', '/Zi'],
-		'gcc':     ['-Og', '-fsanitize=undefined', '-fsanitize=address', '-pthread'],
+		'msvc':    ['/Od', '/RTC1', '/Zi', '/fsanitize=address'],
+		'gcc':     ['-O0', '-fsanitize=undefined', '-fsanitize=address', '-pthread'],
 		'clang':   ['-O0', '-fsanitize=undefined', '-fsanitize=address', '-pthread'],
 		'default': ['-O0']
 	},
-	'nooptimize': {
-		'msvc':    ['/Od', '/Zi'],
-		'default': ['-O0']
-	}
 }
 
 LTO_CFLAGS = {

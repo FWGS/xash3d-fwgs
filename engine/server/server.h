@@ -325,6 +325,7 @@ typedef struct
 	qboolean		msg_started;		// to avoid recursive included messages
 	edict_t		*msg_ent;			// user message member entity
 	vec3_t		msg_org;			// user message member origin
+	qboolean	msg_trace;		// trace this message
 
 	void		*hInstance;		// pointer to game.dll
 	qboolean		config_executed;		// should to execute config.cfg once time to restore FCVAR_ARCHIVE that specified in hl.dll
@@ -431,6 +432,7 @@ extern convar_t		sv_skyvec_z;
 extern convar_t		sv_consistency;
 extern convar_t		sv_password;
 extern convar_t		sv_uploadmax;
+extern convar_t		sv_trace_messages;
 extern convar_t		deathmatch;
 extern convar_t		hostname;
 extern convar_t		skill;
@@ -468,6 +470,7 @@ void SV_SendResource( resource_t *pResource, sizebuf_t *msg );
 void SV_SendResourceList( sv_client_t *cl );
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
+int SV_GetConnectedClientsCount( int *bots );
 void Host_SetServerState( int state );
 qboolean SV_IsSimulating( void );
 void SV_FreeClients( void );
@@ -625,7 +628,6 @@ void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float
 edict_t *SV_FindGlobalEntity( string_t classname, string_t globalname );
 qboolean SV_CreateStaticEntity( struct sizebuf_s *msg, int index );
 void SV_SendUserReg( sizebuf_t *msg, sv_user_message_t *user );
-edict_t* pfnPEntityOfEntIndex( int iEntIndex );
 int pfnIndexOfEdict( const edict_t *pEdict );
 void pfnWriteBytes( const byte *bytes, int count );
 void SV_UpdateBaseVelocity( edict_t *ent );

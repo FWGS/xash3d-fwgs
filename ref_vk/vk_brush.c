@@ -10,14 +10,21 @@
 #include "vk_lightmap.h"
 #include "vk_scene.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "vk_light.h"
 #include "vk_mapents.h"
+#include "vk_previous_frame.h"
 
 #include "ref_params.h"
 #include "eiface.h"
 
 #include <math.h>
 #include <memory.h>
+
+typedef struct vk_brush_model_s {
+	vk_render_model_t render_model;
+	int num_water_surfaces;
+} vk_brush_model_t;
 
 static struct {
 	struct {
@@ -76,14 +83,16 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 {
 	const float time = gpGlobals->time;
 	float	*v, nv, waveHeight;
+	float prev_nv, prev_time;
 	float	s, t, os, ot;
 	glpoly_t	*p;
 	int	i;
 	int num_vertices = 0, num_indices = 0;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer = {0};
 	int vertex_offset = 0;
-	vk_vertex_t *gpu_vertices;
 	uint16_t *indices;
+	r_geometry_buffer_lock_t buffer;
+
+	prev_time = R_PrevFrame_Time(ent->index);
 
 #define MAX_WATER_VERTICES 16
 	vk_vertex_t poly_vertices[MAX_WATER_VERTICES];
@@ -108,17 +117,12 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		num_indices += triangles * 3;
 	}
 
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), num_vertices );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), num_indices );
-	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL)
-	{
-		// TODO should we free one of the above if it still succeeded?
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	if (!R_GeometryBufferAllocAndLock( &buffer, num_vertices, num_indices, LifetimeSingleFrame )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for %s\n", ent->model->name );
 		return;
 	}
 
-	gpu_vertices = vertex_buffer.ptr;
-	indices = index_buffer.ptr;
+	indices = buffer.indices.ptr;
 
 	for( p = warp->polys; p; p = p->next )
 	{
@@ -135,8 +139,12 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 				nv = r_turbsin[(int)(time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
 				nv = (r_turbsin[(int)(v[0] * 5.0f + time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
 				nv = nv * waveHeight + v[2];
+
+				prev_nv = r_turbsin[(int)(prev_time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				prev_nv = (r_turbsin[(int)(v[0] * 5.0f + prev_time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + prev_nv;
+				prev_nv = prev_nv * waveHeight + v[2];
 			}
-			else nv = v[2];
+			else prev_nv = nv = v[2];
 
 			os = v[3];
 			ot = v[4];
@@ -150,6 +158,10 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			poly_vertices[i].pos[0] = v[0];
 			poly_vertices[i].pos[1] = v[1];
 			poly_vertices[i].pos[2] = nv;
+
+			poly_vertices[i].prev_pos[0] = v[0];
+			poly_vertices[i].prev_pos[1] = v[1];
+			poly_vertices[i].prev_pos[2] = prev_nv;
 
 			poly_vertices[i].gl_tc[0] = s;
 			poly_vertices[i].gl_tc[1] = t;
@@ -196,12 +208,11 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		}
 #endif
 
-		memcpy(gpu_vertices + vertex_offset, poly_vertices, sizeof(vk_vertex_t) * p->numverts);
+		memcpy(buffer.vertices.ptr + vertex_offset, poly_vertices, sizeof(vk_vertex_t) * p->numverts);
 		vertex_offset += p->numverts;
 	}
 
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
-	XVK_RenderBufferUnlock( index_buffer.buffer );
+	R_GeometryBufferUnlock( &buffer );
 
 	// Render
 	{
@@ -211,10 +222,10 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			.surf = warp,
 
 			.max_vertex = num_vertices,
-			.vertex_offset = vertex_buffer.buffer.unit.offset,
+			.vertex_offset = buffer.vertices.unit_offset,
 
 			.element_count = num_indices,
-			.index_offset = index_buffer.buffer.unit.offset,
+			.index_offset = buffer.indices.unit_offset,
 		};
 
 		VK_RenderModelDynamicAddGeometry( &geometry );
@@ -326,7 +337,7 @@ const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s
 	return base;
 }
 
-void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode )
+void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4 model )
 {
 	// Expect all buffers to be bound
 	const model_t *mod = ent->model;
@@ -413,6 +424,7 @@ typedef struct {
 	int max_texture_id;
 	int water_surfaces;
 	//int sky_surfaces;
+	int emissive_surfaces;
 } model_sizes_t;
 
 static model_sizes_t computeSizes( const model_t *mod ) {
@@ -422,6 +434,7 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 	{
 		const int surface_index = mod->firstmodelsurface + i;
 		const msurface_t *surf = mod->surfaces + surface_index;
+		const int tex_id = surf->texinfo->texture->gl_texturenum;
 
 		sizes.water_surfaces += !!(surf->flags & (SURF_DRAWTURB | SURF_DRAWTURB_QUADS));
 
@@ -431,35 +444,62 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 		++sizes.num_surfaces;
 		sizes.num_vertices += surf->numedges;
 		sizes.num_indices += 3 * (surf->numedges - 1);
-		if (surf->texinfo->texture->gl_texturenum > sizes.max_texture_id)
-			sizes.max_texture_id = surf->texinfo->texture->gl_texturenum;
+		if (tex_id > sizes.max_texture_id)
+			sizes.max_texture_id = tex_id;
+
+		{
+			const xvk_patch_surface_t *const psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
+			vec3_t emissive;
+			if ((psurf && (psurf->flags & Patch_Surface_Emissive)) || (RT_GetEmissiveForTexture(emissive, tex_id)))
+				++sizes.emissive_surfaces;
+		}
 	}
 
 	return sizes;
+}
+
+static rt_light_add_polygon_t loadPolyLight(const model_t *mod, const int surface_index, const msurface_t *surf, const vec3_t emissive) {
+	rt_light_add_polygon_t lpoly = {0};
+	lpoly.num_vertices = Q_min(7, surf->numedges);
+
+	// TODO split, don't clip
+	if (surf->numedges > 7)
+		gEngine.Con_Printf(S_WARN "emissive surface %d has %d vertices; clipping to 7\n", surface_index, surf->numedges);
+
+	VectorCopy(emissive, lpoly.emissive);
+
+	for (int i = 0; i < lpoly.num_vertices; ++i) {
+		const int iedge = mod->surfedges[surf->firstedge + i];
+		const medge_t *edge = mod->edges + (iedge >= 0 ? iedge : -iedge);
+		const mvertex_t *vertex = mod->vertexes + (iedge >= 0 ? edge->v[0] : edge->v[1]);
+		VectorCopy(vertex->position, lpoly.vertices[i]);
+	}
+
+	lpoly.surface = surf;
+	return lpoly;
 }
 
 static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 	vk_brush_model_t *bmodel = mod->cache.data;
 	uint32_t vertex_offset = 0;
 	int num_geometries = 0;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *bvert = NULL;
 	uint16_t *bind = NULL;
 	uint32_t index_offset = 0;
+	r_geometry_buffer_lock_t buffer;
 
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), sizes.num_vertices );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), sizes.num_indices );
-	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL) {
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	if (!R_GeometryBufferAllocAndLock( &buffer, sizes.num_vertices, sizes.num_indices, LifetimeLong )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for %s\n", mod->name );
 		return false;
 	}
 
-	bvert = vertex_buffer.ptr;
-	bind = index_buffer.ptr;
+	bvert = buffer.vertices.ptr;
+	bind = buffer.indices.ptr;
 
-	index_offset = index_buffer.buffer.unit.offset;
+	index_offset = buffer.indices.unit_offset;
 
 	// Load sorted by gl_texturenum
+	// TODO this does not make that much sense in vulkan (can sort later)
 	for (int t = 0; t <= sizes.max_texture_id; ++t)
 	{
 		for( int i = 0; i < mod->nummodelsurfaces; ++i)
@@ -480,6 +520,30 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			if (t != tex_id)
 				continue;
 
+			// FIXME move this to rt_light_bsp and static loading
+			{
+				qboolean is_emissive = false;
+				vec3_t emissive = {0};
+				rt_light_add_polygon_t polylight;
+
+				if (psurf && (psurf->flags & Patch_Surface_Emissive)) {
+					is_emissive = true;
+					VectorCopy(psurf->emissive, emissive);
+				} else if (RT_GetEmissiveForTexture(emissive, tex_id)) {
+					is_emissive = true;
+				}
+
+				if (is_emissive) {
+					if (bmodel->render_model.polylights) {
+						ASSERT(bmodel->render_model.polylights_count < sizes.emissive_surfaces);
+						bmodel->render_model.polylights[bmodel->render_model.polylights_count++] = loadPolyLight(mod, surface_index, surf, emissive);
+					} else {
+						polylight = loadPolyLight(mod, surface_index, surf, emissive);
+						RT_LightAddPolygon(&polylight);
+					}
+				}
+			}
+
 			++num_geometries;
 
 			//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
@@ -494,7 +558,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			model_geometry->surf = surf;
 			model_geometry->texture = tex_id;
 
-			model_geometry->vertex_offset = vertex_buffer.buffer.unit.offset;
+			model_geometry->vertex_offset = buffer.vertices.unit_offset;
 			model_geometry->max_vertex = vertex_offset + surf->numedges;
 
 			model_geometry->index_offset = index_offset;
@@ -523,6 +587,10 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 				vk_vertex_t vertex = {
 					{in_vertex->position[0], in_vertex->position[1], in_vertex->position[2]},
 				};
+
+				vertex.prev_pos[0] = in_vertex->position[0];
+				vertex.prev_pos[1] = in_vertex->position[1];
+				vertex.prev_pos[2] = in_vertex->position[2];
 
 				float s = DotProduct( in_vertex->position, surf->texinfo->vecs[0] ) + surf->texinfo->vecs[0][3];
 				float t = DotProduct( in_vertex->position, surf->texinfo->vecs[1] ) + surf->texinfo->vecs[1][3];
@@ -572,8 +640,12 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 		}
 	}
 
-	XVK_RenderBufferUnlock( index_buffer.buffer );
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
+	R_GeometryBufferUnlock( &buffer );
+
+	if (bmodel->render_model.polylights) {
+		gEngine.Con_Reportf("Dynamic polylights %d %d \n", sizes.emissive_surfaces, bmodel->render_model.polylights_count);
+		ASSERT(sizes.emissive_surfaces == bmodel->render_model.polylights_count);
+	}
 
 	ASSERT(sizes.num_surfaces == num_geometries);
 	bmodel->render_model.num_geometries = num_geometries;
@@ -608,6 +680,9 @@ qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 		if (sizes.num_surfaces != 0) {
 			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));
 
+			if (!map && sizes.emissive_surfaces)
+				bmodel->render_model.polylights = Mem_Malloc(vk_core.pool, sizeof(bmodel->render_model.polylights[0]) * sizes.emissive_surfaces);
+
 			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
 				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
 				Mem_Free(bmodel);
@@ -631,6 +706,8 @@ void VK_BrushModelDestroy( model_t *mod ) {
 		return;
 
 	VK_RenderModelDestroy(&bmodel->render_model);
+	if (bmodel->render_model.polylights)
+		Mem_Free(bmodel->render_model.polylights);
 	Mem_Free(bmodel);
 	mod->cache.data = NULL;
 }

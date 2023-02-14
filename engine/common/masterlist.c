@@ -254,6 +254,5 @@ void NET_InitMasters( void )
 
 	// keep main master always there
 	NET_AddMaster( MASTERSERVER_ADR, false );
-	NET_AddMaster( MASTERSERVER_ADR2, false );
 	NET_LoadMasters( );
 }

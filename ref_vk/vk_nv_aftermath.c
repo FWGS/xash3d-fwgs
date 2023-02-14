@@ -2,6 +2,7 @@
 #include "vk_nv_aftermath.h"
 
 #include "vk_common.h"
+#include "vk_core.h"
 
 #include "xash3d_types.h"
 
@@ -69,14 +70,14 @@ static void callbackGpuCrashDump(const void* pGpuCrashDump, const uint32_t gpuCr
 }
 
 static void callbackShaderDebugInfo(const void* pShaderDebugInfo, const uint32_t shaderDebugInfoSize, void* pUserData) {
-    GFSDK_Aftermath_ShaderDebugInfoIdentifier identifier = {0};
+		GFSDK_Aftermath_ShaderDebugInfoIdentifier identifier = {0};
 	gEngine.Con_Printf(S_ERROR "AFTERMATH Shader Debug Info: %p, size=%d\n", pShaderDebugInfo, shaderDebugInfoSize);
 
-    AM_CHECK(GFSDK_Aftermath_GetShaderDebugInfoIdentifier(
-        GFSDK_Aftermath_Version_API,
-        pShaderDebugInfo,
-        shaderDebugInfoSize,
-        &identifier));
+		AM_CHECK(GFSDK_Aftermath_GetShaderDebugInfoIdentifier(
+				GFSDK_Aftermath_Version_API,
+				pShaderDebugInfo,
+				shaderDebugInfoSize,
+				&identifier));
 
 	char filename[64];
 	Q_snprintf(filename, sizeof(filename), "shader-%016llX-%016llX.nvdbg", identifier.id[0], identifier.id[1]);
@@ -89,16 +90,42 @@ static void callbackGpuCrashDumpDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpD
 	addValue(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_ApplicationVersion, "v0.0.1");
 }
 
+#define MAX_NV_CHECKPOINTS 2048
+
+typedef struct {
+	unsigned sequence;
+	char message[256];
+} vk_nv_checkpoint_entry_t;
+
+static struct {
+	unsigned sequence;
+	vk_nv_checkpoint_entry_t entries[MAX_NV_CHECKPOINTS];
+} g_nv_checkpoint = {0};
+
+static const char obsolete[] = "[OBSOLETE]";
+
+static void callbackResolveMarkers(const void* pMarker, void* pUserData, void** resolvedMarkerData, uint32_t* markerSize) {
+	const unsigned sequence = (uintptr_t)pMarker;
+	const vk_nv_checkpoint_entry_t *const entry = g_nv_checkpoint.entries + (sequence % MAX_NV_CHECKPOINTS);
+
+	const char *msg = entry->sequence == sequence ? entry->message : obsolete;
+	gEngine.Con_Reportf(S_ERROR "resolved marker %u: msg: %s\n", sequence, msg);
+
+	*resolvedMarkerData = (void*)msg;
+	*markerSize = strlen(msg);
+}
+
 static qboolean initialized = false;
 qboolean VK_AftermathInit() {
-    AM_CHECK(GFSDK_Aftermath_EnableGpuCrashDumps(
-        GFSDK_Aftermath_Version_API,
-        GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_Vulkan,
-        GFSDK_Aftermath_GpuCrashDumpFeatureFlags_DeferDebugInfoCallbacks,
-        callbackGpuCrashDump,
-        callbackShaderDebugInfo,
-        callbackGpuCrashDumpDescription,
-        NULL));
+	AM_CHECK(GFSDK_Aftermath_EnableGpuCrashDumps(
+		GFSDK_Aftermath_Version_API,
+		GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_Vulkan,
+		GFSDK_Aftermath_GpuCrashDumpFeatureFlags_DeferDebugInfoCallbacks,
+		callbackGpuCrashDump,
+		callbackShaderDebugInfo,
+		callbackGpuCrashDumpDescription,
+		callbackResolveMarkers,
+		NULL));
 
 	initialized = true;
 	return true;
@@ -109,4 +136,45 @@ void VK_AftermathShutdown() {
 		GFSDK_Aftermath_DisableGpuCrashDumps();
 	}
 }
+
+void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...) {
+	va_list argptr;
+
+	++g_nv_checkpoint.sequence;
+
+	vk_nv_checkpoint_entry_t *entry = g_nv_checkpoint.entries + (g_nv_checkpoint.sequence % MAX_NV_CHECKPOINTS);
+	entry->sequence = g_nv_checkpoint.sequence;
+
+	va_start( argptr, fmt );
+	vsnprintf( entry->message, sizeof entry->message, fmt, argptr );
+	va_end( argptr );
+
+	const uintptr_t marker = entry->sequence;
+	vkCmdSetCheckpointNV(cmdbuf, (const void*)marker);
+}
+
+void R_Vk_NV_Checkpoint_Dump(void) {
+	uint32_t checkpoints_count = 0;
+	vkGetQueueCheckpointDataNV(vk_core.queue, &checkpoints_count, NULL);
+
+	VkCheckpointDataNV checkpoints[32];
+	if (checkpoints_count > COUNTOF(checkpoints))
+		checkpoints_count = COUNTOF(checkpoints);
+
+	for (int i = 0; i < checkpoints_count; ++i) {
+		checkpoints[i].pNext = NULL;
+		checkpoints[i].sType = VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV;
+	}
+
+	vkGetQueueCheckpointDataNV(vk_core.queue, &checkpoints_count, checkpoints);
+
+	gEngine.Con_Reportf(S_ERROR "Checkpoints: %d\n", checkpoints_count);
+	for (int i = 0; i < checkpoints_count; ++i) {
+		const VkCheckpointDataNV *const checkpoint = checkpoints + i;
+		const unsigned sequence = (uintptr_t)checkpoint->pCheckpointMarker;
+		const vk_nv_checkpoint_entry_t *const entry = g_nv_checkpoint.entries + (sequence % MAX_NV_CHECKPOINTS);
+		gEngine.Con_Reportf(S_ERROR "\t%u: stage=%04x msg: %s\n", sequence, checkpoint->stage, entry->sequence == sequence ? entry->message : "[OBSOLETE]");
+	}
+}
+
 #endif //ifdef USE_AFTERMATH

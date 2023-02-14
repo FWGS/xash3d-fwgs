@@ -27,10 +27,14 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "r_efx.h"
 #include "com_image.h"
+#include "filesystem.h"
 #include "ref_vulkan.h"
 #include "ref_device.h"
 
-#define REF_API_VERSION 1
+// RefAPI changelog:
+// 1. Initial release
+// 2. FS functions are removed, instead we have full fs_api_t
+#define REF_API_VERSION 2
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -280,13 +284,13 @@ typedef struct ref_api_s
 	void (*Cbuf_Execute)( void );
 
 	// logging
-	void	(*Con_Printf)( const char *fmt, ... ); // typical console allowed messages
-	void	(*Con_DPrintf)( const char *fmt, ... ); // -dev 1
-	void	(*Con_Reportf)( const char *fmt, ... ); // -dev 2
+	void	(*Con_Printf)( const char *fmt, ... ) _format( 1 ); // typical console allowed messages
+	void	(*Con_DPrintf)( const char *fmt, ... ) _format( 1 ); // -dev 1
+	void	(*Con_Reportf)( const char *fmt, ... ) _format( 1 ); // -dev 2
 
 	// debug print
-	void	(*Con_NPrintf)( int pos, const char *fmt, ... );
-	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... );
+	void	(*Con_NPrintf)( int pos, const char *fmt, ... ) _format( 2 );
+	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... ) _format( 2 );
 	void	(*CL_CenterPrint)( const char *s, float y );
 	void (*Con_DrawStringLen)( const char *pText, int *length, int *height );
 	int (*Con_DrawString)( int x, int y, const char *string, rgba_t setColor );
@@ -338,7 +342,7 @@ typedef struct ref_api_s
 
 	// utils
 	void  (*CL_ExtraUpdate)( void );
-	void  (*Host_Error)( const char *fmt, ... );
+	void  (*Host_Error)( const char *fmt, ... ) _format( 1 );
 	void  (*COM_SetRandomSeed)( int lSeed );
 	float (*COM_RandomFloat)( float rmin, float rmax );
 	int   (*COM_RandomLong)( int rmin, int rmax );
@@ -369,13 +373,6 @@ typedef struct ref_api_s
 	void *(*COM_LoadLibrary)( const char *name, int build_ordinals_table, qboolean directpath );
 	void  (*COM_FreeLibrary)( void *handle );
 	void *(*COM_GetProcAddress)( void *handle, const char *name );
-
-	// filesystem
-	byte*	(*COM_LoadFile)( const char *path, fs_offset_t *pLength, qboolean gamedironly );
-	// use Mem_Free instead
-	// void	(*COM_FreeFile)( void *buffer );
-	int (*FS_FileExists)( const char *filename, int gamedironly );
-	void (*FS_AllowDirectPaths)( qboolean enable );
 
 	// video init
 	// try to create window
@@ -433,6 +430,9 @@ typedef struct ref_api_s
 	void	(*pfnDrawNormalTriangles)( void );
 	void	(*pfnDrawTransparentTriangles)( void );
 	render_interface_t	*drawFuncs;
+
+	// filesystem exports
+	fs_api_t	*fsapi;
 
 	int (*XVK_GetInstanceExtensions)( unsigned int count, const char **pNames );
 	void *(*XVK_GetVkGetInstanceProcAddr)( void );

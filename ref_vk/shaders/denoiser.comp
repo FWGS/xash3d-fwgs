@@ -1,16 +1,48 @@
 #version 460
 
 #include "noise.glsl"
+#include "utils.glsl"
+#include "color_spaces.glsl"
 
-layout(local_size_x = 16, local_size_y = 8, local_size_z = 1) in;
+#define GLSL
+#include "ray_interop.h"
+#undef GLSL
 
-layout(set = 0, binding = 0, rgba16f) uniform image2D dest;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-layout(set = 0, binding = 1, rgba8) uniform readonly image2D src_base_color;
-layout(set = 0, binding = 2, rgba16f) uniform readonly image2D src_diffuse_gi;
-layout(set = 0, binding = 3, rgba16f) uniform readonly image2D src_specular;
-layout(set = 0, binding = 4, rgba16f) uniform readonly image2D src_additive;
-layout(set = 0, binding = 5, rgba16f) uniform readonly image2D src_normals;
+layout(set = 0, binding = 0, rgba16f) uniform image2D out_dest;
+
+layout(set = 0, binding = 1, rgba8) uniform readonly image2D base_color_a;
+
+layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
+layout(set = 0, binding = 3, rgba16f) uniform readonly image2D light_poly_specular;
+
+layout(set = 0, binding = 4, rgba16f) uniform readonly image2D light_point_diffuse;
+layout(set = 0, binding = 5, rgba16f) uniform readonly image2D light_point_specular;
+layout(set = 0, binding = 6, rgba16f) uniform readonly image2D emissive;
+
+layout(set = 0, binding = 7, rgba32f) uniform readonly image2D position_t;
+layout(set = 0, binding = 8, rgba16f) uniform readonly image2D normals_gs;
+layout(set = 0, binding = 10, rgba32f) uniform readonly image2D geometry_prev_position;
+
+layout(set = 0, binding = 11) uniform UBO { UniformBuffer ubo; } ubo;
+
+layout(set = 0, binding = 12, rgba16f) uniform readonly image2D indirect_diffuse;
+layout(set = 0, binding = 13, rgba16f) uniform readonly image2D indirect_specular;
+
+layout(set = 0, binding = 14, rgba16f) uniform image2D out_temporal_diffuse;
+layout(set = 0, binding = 15, rgba16f) uniform image2D prev_temporal_diffuse;
+
+layout(set = 0, binding = 16, rgba16f) uniform image2D out_temporal_specular;
+layout(set = 0, binding = 17, rgba16f) uniform image2D prev_temporal_specular;
+
+const int INDIRECT_SCALE = 2;
+
+//layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
+/* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D specular; */
+/* layout(set = 0, binding = 4, rgba16f) uniform readonly image2D additive; */
+/* layout(set = 0, binding = 5, rgba16f) uniform readonly image2D normals; */
+/* layout(set = 0, binding = 6, rgba32f) uniform readonly image2D position_t; */
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -43,41 +75,35 @@ float normpdf2(in float x2, in float sigma) { return 0.39894*exp(-0.5*x2/(sigma*
 float normpdf(in float x, in float sigma) { return normpdf2(x*x, sigma); }
 
 void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
-	const vec4 n = imageLoad(src_normals, uv);
-	geometry_normal = vec3(n.xy, sqrt(1. - n.x*n.x - n.y*n.y));
-	shading_normal = vec3(n.zw, sqrt(1. - n.z*n.z - n.w*n.w));
+	const vec4 n = imageLoad(normals_gs, uv);
+	geometry_normal = normalDecode(n.xy);
+	shading_normal = normalDecode(n.zw);
 }
 
-void main() {
-	ivec2 res = ivec2(imageSize(src_base_color));
-	ivec2 pix = ivec2(gl_GlobalInvocationID);
+struct Components {
+	vec3 direct_diffuse, direct_specular, indirect_diffuse, indirect_specular;
+};
 
-	if (any(greaterThanEqual(pix, res))) {
-		return;
-	}
+Components blurSamples(const ivec2 res, const ivec2 pix) {
+	Components c;
+	c.direct_diffuse = c.direct_specular = c.indirect_diffuse = c.indirect_specular = vec3(0.);
 
-	const vec4 base_color = imageLoad(src_base_color, pix);
-	const float material_index = imageLoad(src_diffuse_gi, pix).a;
+	const vec4 center_pos = imageLoad(position_t, pix);
 
-	//imageStore(dest, pix, vec4(aces_tonemap(base_color.rgb), 0.)); return;
-	//imageStore(dest, pix, vec4((base_color.rgb), 0.)); return;
-	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_diffuse_gi, pix).rgb), 0.)); return;
-	//imageStore(dest, pix, vec4(aces_tonemap(imageLoad(src_specular, pix).rgb), 0.)); return;
+	const int DIRECT_DIFFUSE_KERNEL = 3;
+	const int INDIRECT_DIFFUSE_KERNEL = 5;
+	const int SPECULAR_KERNEL = 2;
+	const int KERNEL_SIZE = max(max(DIRECT_DIFFUSE_KERNEL, INDIRECT_DIFFUSE_KERNEL), SPECULAR_KERNEL);
 
-	vec3 geometry_normal, shading_normal;
-	readNormals(pix, geometry_normal, shading_normal);
+	const float direct_diffuse_sigma = DIRECT_DIFFUSE_KERNEL / 2.;
+	const float indirect_diffuse_sigma = INDIRECT_DIFFUSE_KERNEL / 2.;
+	const float specular_sigma = SPECULAR_KERNEL / 2.;
 
-	//imageStore(dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
+	float direct_diffuse_total = 0.;
+	float indirect_diffuse_total = 0.;
+	float specular_total = 0.;
 
-	/* const uint mi = uint(material_index); */
-	/* imageStore(dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.)); */
-	/* return; */
-
-	const int KERNEL_SIZE = 8;
-	float total_scale = 0.;
-	float specular_total_scale = 0.;
-	vec3 colour = vec3(0.);
-	vec3 speculour = vec3(0.);
+	const ivec2 res_scaled = res / INDIRECT_SCALE;
 	for (int x = -KERNEL_SIZE; x <= KERNEL_SIZE; ++x)
 		for (int y = -KERNEL_SIZE; y <= KERNEL_SIZE; ++y) {
 			const ivec2 p = pix + ivec2(x, y);
@@ -85,54 +111,174 @@ void main() {
 				continue;
 			}
 
-			const vec4 c = imageLoad(src_diffuse_gi, p);
-			if (c.a != material_index)
-				continue;
+			// const vec4 c = imageLoad(light_poly, p);
+			// if (c.a != material_index)
+			// 	continue;
 
 			vec3 sample_geometry_normal, sample_shading_normal;
 			readNormals(p, sample_geometry_normal, sample_shading_normal);
 
+			float scale = 1.f;
 			// FIXME also filter by depth, (kusok index?), etc
-			if ( dot(sample_geometry_normal, geometry_normal) < .99 )
+			//scale *= smoothstep(.9, 1., dot(sample_geometry_normal, geometry_normal));
+
+			const vec4 sample_pos = imageLoad(position_t, p);
+			// FIXME what are these magic numbers?
+			scale *= smoothstep(center_pos.w * 4. / 100., 0., distance(center_pos.xyz, sample_pos.xyz));
+
+			if ( scale <= 0. )
 				continue;
 
-			// TODO bilaterally filter shading normals
+			if (all(lessThan(abs(ivec2(x, y)), ivec2(DIRECT_DIFFUSE_KERNEL))))
+			{
+				const float direct_diffuse_scale = scale * normpdf(x, direct_diffuse_sigma) * normpdf(y, direct_diffuse_sigma);
+				direct_diffuse_total += direct_diffuse_scale;
 
-			const float sigma = KERNEL_SIZE / 2.;
-			const float scale = normpdf(x, sigma) * normpdf(y, sigma);
-			colour += scale * imageLoad(src_diffuse_gi, p).rgb;
-			total_scale += scale;
+				c.direct_diffuse += imageLoad(light_point_diffuse, p).rgb * direct_diffuse_scale;
+				c.direct_diffuse += imageLoad(light_poly_diffuse, p).rgb * direct_diffuse_scale;
+			}
 
-			const int SPECULAR_KERNEL_SIZE = 2;
-			if (all(lessThan(abs(ivec2(x, y)), ivec2(SPECULAR_KERNEL_SIZE)))) {
-				const float spigma = SPECULAR_KERNEL_SIZE / 2.;
-				const float specuale = normpdf(x, spigma) * normpdf(y, spigma);
-				speculour += specuale * imageLoad(src_specular, p).rgb;
-				specular_total_scale += specuale;
+			if (all(lessThan(abs(ivec2(x, y)), ivec2(INDIRECT_DIFFUSE_KERNEL))))
+			{
+				const ivec2 pscaled = pix / INDIRECT_SCALE + ivec2(x, y);
+
+				if (all(lessThan(pscaled, res_scaled)) && all(greaterThanEqual(pscaled, ivec2(0)))) {
+					const float indirect_diffuse_scale = scale * normpdf(x, indirect_diffuse_sigma) * normpdf(y, indirect_diffuse_sigma);
+					indirect_diffuse_total += indirect_diffuse_scale;
+
+					c.indirect_diffuse += imageLoad(indirect_diffuse, pscaled).rgb * indirect_diffuse_scale;
+				}
+			}
+
+			if (all(lessThan(abs(ivec2(x, y)), ivec2(SPECULAR_KERNEL))))
+			{
+				const float specular_scale = scale * normpdf(x, specular_sigma) * normpdf(y, specular_sigma);
+				specular_total += specular_scale;
+
+				c.direct_specular += imageLoad(light_poly_specular, p).rgb * specular_scale;
+				c.direct_specular += imageLoad(light_point_specular, p).rgb * specular_scale;
+
+				c.indirect_specular += imageLoad(indirect_specular, p / INDIRECT_SCALE).rgb * specular_scale;
 			}
 		}
 
-	if (total_scale > 0.) {
-		colour /= total_scale;
-		colour *= base_color.rgb;
+	if (direct_diffuse_total > 0.)
+		c.direct_diffuse /= direct_diffuse_total;
+
+	if (indirect_diffuse_total > 0.)
+		c.indirect_diffuse *= indirect_diffuse_total;
+
+	if (specular_total > 0.) {
+		c.direct_specular *= specular_total;
+		c.indirect_specular *= specular_total;
 	}
 
-	if (specular_total_scale > 0.) {
-		speculour /= specular_total_scale;
-		//speculour *= base_color.rgb;
-		colour += speculour;
+	return c;
+}
+
+void main() {
+	ivec2 res = ivec2(imageSize(base_color_a));
+	ivec2 pix = ivec2(gl_GlobalInvocationID);
+
+	if (any(greaterThanEqual(pix, res))) {
+		return;
 	}
 
-	//colour += imageLoad(src_specular, pix).rgb;
-	colour += imageLoad(src_additive, pix).rgb;
+	/* if (pix.y < res.y / 3) { */
+	/* 	imageStore(out_dest, pix, vec4(pow(float(pix.x) / res.x, 2.2))); return; */
+	/* } else if (pix.y < res.y * 2 / 3) { */
+	/* 	imageStore(out_dest, pix, vec4(float(pix.x) / res.x)); return; */
+	/* } else { */
+	/* 	imageStore(out_dest, pix, vec4(sqrt(float(pix.x) / res.x))); return; */
+	/* } */
 
-	// HACK: exposure
-	// TODO: should be dynamic based on previous frames brightness
-	colour *= 4.;
+	//const float material_index = imageLoad(light_poly, pix).a;
 
-	//colour = aces_tonemap(colour);
-	colour = reinhard02(colour, vec3(400.));
+	//imageStore(out_dest, pix, vec4(aces_tonemap(base_color_a.rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4((base_color_a.rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(fract(imageLoad(position_t, pix).rgb / 10.), 0.)); return;
+	//imageStore(out_dest, pix, vec4((imageLoad(light_poly, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4((imageLoad(light_poly, pix).rgb * base_color_a.rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(imageLoad(normals, pix)*.5 + .5f)); return;
+	//imageStore(out_dest, pix, vec4(imageLoad(specular, pix)*.5 + .5f)); return;
+	//imageStore(out_dest, pix, vec4(imageLoad(indirect_diffuse, pix)*.5 + .5f)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(light_poly, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(specular, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(indirect_diffuse, pix).rgb), 0.)); return;
 
-	imageStore(dest, pix, vec4(colour, 0.));
-	//imageStore(dest, pix, imageLoad(src_diffuse_gi, pix));
+	/*
+	vec3 geometry_normal, shading_normal;
+	readNormals(pix, geometry_normal, shading_normal);
+	*/
+
+	//imageStore(out_dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
+
+	/* const uint mi = uint(material_index); */
+	/* imageStore(out_dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.)); */
+	/* return; */
+
+	const Components c = blurSamples(res, pix);
+	//imageStore(out_dest, pix, vec4(aces_tonemap(c.direct_diffuse), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(c.direct_specular), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(c.indirect_diffuse), 0.)); return;
+	//imageStore(out_dest, pix, vec4(aces_tonemap(c.indirect_specular), 0.)); return;
+
+	vec3 colour = vec3(0.);
+	{
+		// DEBUG motion vectors
+		//colour = vec3(length(imageLoad(position_t, pix).rgb - imageLoad(prev_position_t, pix).rgb));
+
+		// TODO: need to extract reprojecting from this shader because reprojected stuff need svgf denoising pass after it
+		const vec3 origin = (ubo.ubo.inv_view * vec4(0., 0., 0., 1.)).xyz;
+		const float depth = length(origin - imageLoad(position_t, pix).xyz);
+		const vec3 prev_position = imageLoad(geometry_prev_position, pix).rgb;
+		const vec4 clip_space = inverse(ubo.ubo.prev_inv_proj) * vec4((inverse(ubo.ubo.prev_inv_view) * vec4(prev_position, 1.)).xyz, 1.);
+		const vec2 reproj_uv = clip_space.xy / clip_space.w;
+		const ivec2 reproj_pix = ivec2((reproj_uv * 0.5 + vec2(0.5)) * vec2(res));
+		const vec3 prev_origin = (ubo.ubo.prev_inv_view * vec4(0., 0., 0., 1.)).xyz;
+		const float depth_nessesary = length(prev_position - prev_origin);
+		const float depth_treshold = 0.01 * clip_space.w;
+
+		float better_depth_offset = depth_treshold;
+		vec3 diffuse = c.direct_diffuse + c.indirect_diffuse;
+		vec3 specular = c.direct_specular + c.indirect_specular;
+		vec3 history_diffuse = diffuse;
+		vec3 history_specular = specular;
+		const int TEMPORAL_KERNEL = 1; // lifekilled says it should be fixed
+		for(int x = -TEMPORAL_KERNEL; x <=TEMPORAL_KERNEL; x++) {
+			for(int y = -TEMPORAL_KERNEL; y <=TEMPORAL_KERNEL; y++) {
+				const ivec2 p = reproj_pix + ivec2(x, y);
+				if (any(greaterThanEqual(p, res)) || any(lessThan(p, ivec2(0)))) {
+					continue;
+				}
+				const vec4 history_diffuse_depth = imageLoad( prev_temporal_diffuse, reproj_pix );
+				const vec4 history_specular_sample = imageLoad( prev_temporal_specular, reproj_pix );
+
+				const float history_depth = history_diffuse_depth.w;
+				const float depth_offset = abs(history_depth - depth_nessesary);
+				if ( depth_offset < better_depth_offset ) {
+					better_depth_offset = depth_offset;
+					history_diffuse = history_diffuse_depth.rgb;
+					history_specular = history_specular_sample.rgb;
+				}
+			}
+		}
+		if (better_depth_offset < depth_treshold) {
+			diffuse = mix(diffuse, history_diffuse, 0.8);
+			specular = mix(specular, history_specular, 0.3);
+		}
+
+		imageStore(out_temporal_diffuse, pix, vec4(diffuse, depth));
+		imageStore(out_temporal_specular, pix, vec4(specular, 0./*unused*/));
+		colour = diffuse + specular;
+
+		//imageStore(out_dest, pix, vec4(LINEARtoSRGB(diffuse), 0.)); return;
+	}
+
+	const vec4 base_color_a = imageLoad(base_color_a, pix);
+	colour *= SRGBtoLINEAR(base_color_a.rgb);
+	colour += imageLoad(emissive, pix).rgb;
+	colour = LINEARtoSRGB(colour);
+
+	imageStore(out_dest, pix, vec4(colour, 0./*unused*/));
 }

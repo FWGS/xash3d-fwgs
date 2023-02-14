@@ -5,7 +5,7 @@
 #define DEFAULT_ALLOCATION_SIZE (64 * 1024 * 1024)
 
 typedef struct {
-	uint32_t type_bit;
+	uint32_t type_index;
 	VkMemoryPropertyFlags property_flags; // device vs host
 	VkMemoryAllocateFlags allocate_flags;
 	VkDeviceMemory device_memory;
@@ -20,6 +20,8 @@ typedef struct {
 static struct {
 	vk_device_memory_t allocs[MAX_DEVMEM_ALLOCS];
 	int num_allocs;
+
+	qboolean verbose;
 } g_vk_devmem;
 
 static int findMemoryWithType(uint32_t type_index_bits, VkMemoryPropertyFlags flags) {
@@ -45,9 +47,11 @@ static VkDeviceSize optimalSize(VkDeviceSize size) {
 	return size;
 }
 
-static int allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags prop_flags, VkMemoryAllocateFlags allocate_flags) {
-	if (g_vk_devmem.num_allocs == MAX_DEVMEM_ALLOCS)
+static int allocateDeviceMemory(VkMemoryRequirements req, int type_index, VkMemoryAllocateFlags allocate_flags) {
+	if (g_vk_devmem.num_allocs == MAX_DEVMEM_ALLOCS) {
+		gEngine.Host_Error("Ran out of device memory allocation slots\n");
 		return -1;
+	}
 
 	{
 		const VkMemoryAllocateFlagsInfo mafi = {
@@ -59,25 +63,22 @@ static int allocateDeviceMemory(VkMemoryRequirements req, VkMemoryPropertyFlags 
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 			.pNext = allocate_flags ? &mafi : NULL,
 			.allocationSize = optimalSize(req.size),
-			.memoryTypeIndex = findMemoryWithType(req.memoryTypeBits, prop_flags),
+			.memoryTypeIndex = type_index,
 		};
 
-		gEngine.Con_Reportf("allocateDeviceMemory size=%zu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x => typeIndex=%d\n",
-			mai.allocationSize, req.memoryTypeBits,
-			prop_flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
-			prop_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
-			prop_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? 'C' : '.',
-			prop_flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? '$' : '.',
-			prop_flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT ? 'L' : '.',
-			allocate_flags,
-			mai.memoryTypeIndex);
+		if (g_vk_devmem.verbose) {
+			gEngine.Con_Reportf("allocateDeviceMemory size=%llu memoryTypeBits=0x%x allocate_flags=0x%x => typeIndex=%d\n",
+				(unsigned long long)mai.allocationSize, req.memoryTypeBits,
+				allocate_flags,
+				mai.memoryTypeIndex);
+		}
 		ASSERT(mai.memoryTypeIndex != UINT32_MAX);
 
 		vk_device_memory_t *device_memory = g_vk_devmem.allocs + g_vk_devmem.num_allocs;
 		XVK_CHECK(vkAllocateMemory(vk_core.device, &mai, NULL, &device_memory->device_memory));
 		device_memory->property_flags = vk_core.physical_device.memory_properties2.memoryProperties.memoryTypes[mai.memoryTypeIndex].propertyFlags;
 		device_memory->allocate_flags = allocate_flags;
-		device_memory->type_bit = (1 << mai.memoryTypeIndex);
+		device_memory->type_index = mai.memoryTypeIndex;
 		device_memory->refcount = 0;
 		device_memory->size = mai.allocationSize;
 
@@ -97,15 +98,18 @@ vk_devmem_t VK_DevMemAllocate(const char *name, VkMemoryRequirements req, VkMemo
 	vk_devmem_t ret = {0};
 	int device_memory_index = -1;
 	alo_block_t block;
+	const int type_index = findMemoryWithType(req.memoryTypeBits, prop_flags);
 
-	gEngine.Con_Reportf("VK_DevMemAllocate name=\"%s\" size=%zu alignment=%zu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x\n",
-		name, req.size, req.alignment, req.memoryTypeBits,
-		prop_flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
-		prop_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
-		prop_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? 'C' : '.',
-		prop_flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? '$' : '.',
-		prop_flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT ? 'L' : '.',
-		allocate_flags);
+	if (g_vk_devmem.verbose) {
+		gEngine.Con_Reportf("VK_DevMemAllocate name=\"%s\" size=%llu alignment=%llu memoryTypeBits=0x%x prop_flags=%c%c%c%c%c allocate_flags=0x%x => type_index=%d\n",
+			name, (unsigned long long)req.size, (unsigned long long)req.alignment, req.memoryTypeBits,
+			prop_flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ? 'D' : '.',
+			prop_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ? 'V' : '.',
+			prop_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ? 'C' : '.',
+			prop_flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT ? '$' : '.',
+			prop_flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT ? 'L' : '.',
+			allocate_flags, type_index);
+	}
 
 	if (vk_core.rtx) {
 		// TODO this is needed only for the ray tracer and only while there's no proper staging
@@ -115,7 +119,7 @@ vk_devmem_t VK_DevMemAllocate(const char *name, VkMemoryRequirements req, VkMemo
 
 	for (int i = 0; i < g_vk_devmem.num_allocs; ++i) {
 		vk_device_memory_t *const device_memory = g_vk_devmem.allocs + i;
-		if ((device_memory->type_bit & req.memoryTypeBits) == 0)
+		if (device_memory->type_index != type_index)
 			continue;
 
 		if ((device_memory->allocate_flags & allocate_flags) != allocate_flags)
@@ -133,7 +137,7 @@ vk_devmem_t VK_DevMemAllocate(const char *name, VkMemoryRequirements req, VkMemo
 	}
 
 	if (device_memory_index < 0) {
-		device_memory_index = allocateDeviceMemory(req, prop_flags, allocate_flags);
+		device_memory_index = allocateDeviceMemory(req, type_index, allocate_flags);
 		ASSERT(device_memory_index >= 0);
 		if (device_memory_index < 0)
 			return ret;
@@ -148,7 +152,9 @@ vk_devmem_t VK_DevMemAllocate(const char *name, VkMemoryRequirements req, VkMemo
 		ret.offset = block.offset;
 		ret.mapped = device_memory->map ? (char*)device_memory->map + block.offset : NULL;
 
-		gEngine.Con_Reportf("Allocated devmem=%d block=%d offset=%d size=%d\n", device_memory_index, block.index, (int)block.offset, (int)block.size);
+		if (g_vk_devmem.verbose) {
+			gEngine.Con_Reportf("Allocated devmem=%d block=%d offset=%d size=%d\n", device_memory_index, block.index, (int)block.offset, (int)block.size);
+		}
 
 		device_memory->refcount++;
 		ret.priv_.devmem = device_memory_index;
@@ -165,7 +171,9 @@ void VK_DevMemFree(const vk_devmem_t *mem) {
 	vk_device_memory_t *const device_memory = g_vk_devmem.allocs + mem->priv_.devmem;
 	ASSERT(mem->device_memory == device_memory->device_memory);
 
-	gEngine.Con_Reportf("Freeing devmem=%d block=%d\n", mem->priv_.devmem, mem->priv_.block);
+	if (g_vk_devmem.verbose) {
+		gEngine.Con_Reportf("Freeing devmem=%d block=%d\n", mem->priv_.devmem, mem->priv_.block);
+	}
 
 	aloPoolFree(device_memory->allocator, mem->priv_.block);
 
@@ -173,6 +181,7 @@ void VK_DevMemFree(const vk_devmem_t *mem) {
 }
 
 qboolean VK_DevMemInit( void ) {
+	g_vk_devmem.verbose = !!gEngine.Sys_CheckParm("-vkdebugmem");
 	return true;
 }
 

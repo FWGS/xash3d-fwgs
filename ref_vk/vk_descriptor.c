@@ -143,14 +143,14 @@ void VK_DescriptorsCreate(vk_descriptors_t *desc)
 			int j;
 			for (j = 0; j < dpci.poolSizeCount; ++j) {
 				if (pools[j].type == bind->descriptorType) {
-					pools[j].descriptorCount += bind->descriptorCount;
+					pools[j].descriptorCount += bind->descriptorCount * desc->num_sets;
 					break;
 				}
 			}
 
 			if (j == dpci.poolSizeCount) {
 				ASSERT(dpci.poolSizeCount < ARRAYSIZE(pools));
-				pools[j].descriptorCount = bind->descriptorCount;
+				pools[j].descriptorCount = bind->descriptorCount * desc->num_sets;
 				pools[j].type = bind->descriptorType;
 				++dpci.poolSizeCount;
 			}
@@ -159,18 +159,19 @@ void VK_DescriptorsCreate(vk_descriptors_t *desc)
 		XVK_CHECK(vkCreateDescriptorPool(vk_core.device, &dpci, NULL, &desc->desc_pool));
 	}
 
+	for (int i = 0; i < desc->num_sets; ++i)
 	{
 		VkDescriptorSetAllocateInfo dsai = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 			.descriptorPool = desc->desc_pool,
-			.descriptorSetCount = desc->num_sets,
+			.descriptorSetCount = 1,
 			.pSetLayouts = &desc->desc_layout,
 		};
-		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, desc->desc_sets));
+		XVK_CHECK(vkAllocateDescriptorSets(vk_core.device, &dsai, desc->desc_sets + i));
 	}
 }
 
-void VK_DescriptorsWrite(const vk_descriptors_t *desc)
+void VK_DescriptorsWrite(const vk_descriptors_t *desc, int set_slot)
 {
 	VkWriteDescriptorSet wds[16];
 	ASSERT(ARRAYSIZE(wds) >= desc->num_bindings);
@@ -180,7 +181,7 @@ void VK_DescriptorsWrite(const vk_descriptors_t *desc)
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.descriptorCount = binding->descriptorCount,
 			.descriptorType = binding->descriptorType,
-			.dstSet = /* TODO */ desc->desc_sets[0],
+			.dstSet = desc->desc_sets[set_slot],
 			.dstBinding = binding->binding,
 			.dstArrayElement = 0,
 		};

@@ -46,6 +46,8 @@ static void createDepthImage(int w, int h, VkFormat depth_format) {
 }
 
 static void destroySwapchainAndFramebuffers( VkSwapchainKHR swapchain ) {
+	XVK_CHECK(vkDeviceWaitIdle( vk_core.device ));
+
 	for (uint32_t i = 0; i < g_swapchain.num_images; ++i) {
 		vkDestroyImageView(vk_core.device, g_swapchain.image_views[i], NULL);
 		vkDestroyFramebuffer(vk_core.device, g_swapchain.framebuffers[i], NULL);
@@ -188,7 +190,7 @@ void R_VkSwapchainShutdown( void ) {
 	destroySwapchainAndFramebuffers( g_swapchain.swapchain );
 }
 
-r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore semaphore, VkFence fence ) {
+r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_available ) {
 	r_vk_swapchain_framebuffer_t ret = {0};
 	qboolean force_recreate = false;
 
@@ -196,20 +198,26 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore semaphore, VkFen
 		// Check that swapchain has the same size
 		recreateSwapchain(force_recreate);
 
-		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_swapchain.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &ret.index);
+		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_swapchain.swapchain, UINT64_MAX, sem_image_available, VK_NULL_HANDLE, &ret.index);
 		switch (acquire_result) {
-			case VK_ERROR_OUT_OF_DATE_KHR:
-			case VK_ERROR_SURFACE_LOST_KHR:
-				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s, recreating swapchain\n", R_VkResultName(acquire_result));
+			case VK_SUCCESS:
+				break;
+
+			case VK_ERROR_OUT_OF_HOST_MEMORY:
+			case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+			case VK_ERROR_DEVICE_LOST:
+				gEngine.Host_Error("vkAcquireNextImageKHR returned %s, this is unrecoverable, crashing.\n", R_VkResultName(acquire_result));
+				XVK_CHECK(acquire_result);
+				return ret;
+
+			default:
+				gEngine.Con_Printf(S_WARN "vkAcquireNextImageKHR returned %s (%0#x), recreating swapchain\n", R_VkResultName(acquire_result), acquire_result);
 				if (i == 0) {
 					force_recreate = true;
 					continue;
 				}
-				gEngine.Con_Printf(S_WARN "second vkAcquireNextImageKHR failed, frame will be lost\n", R_VkResultName(acquire_result));
+				gEngine.Con_Printf(S_WARN "second vkAcquireNextImageKHR failed with %s, frame will be lost\n", R_VkResultName(acquire_result));
 				return ret;
-
-			default:
-				XVK_CHECK(acquire_result);
 		}
 
 		break;

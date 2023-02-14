@@ -96,8 +96,8 @@ static const loadpixformat_t load_null[] =
 static const loadpixformat_t load_game[] =
 {
 { "%s%s.%s", "dds", Image_LoadDDS, IL_HINT_NO },	// dds for world and studio models
-{ "%s%s.%s", "tga", Image_LoadTGA, IL_HINT_NO },	// hl vgui menus
 { "%s%s.%s", "bmp", Image_LoadBMP, IL_HINT_NO },	// WON menu images
+{ "%s%s.%s", "tga", Image_LoadTGA, IL_HINT_NO },	// hl vgui menus
 { "%s%s.%s", "png", Image_LoadPNG, IL_HINT_NO },	// NightFire 007 menus
 { "%s%s.%s", "mip", Image_LoadMIP, IL_HINT_NO },	// hl textures from wad or buffer
 { "%s%s.%s", "mdl", Image_LoadMDL, IL_HINT_HL },	// hl studio model skins
@@ -456,8 +456,8 @@ void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int 
 		g = palSrc[i*pal_size+1];
 		b = palSrc[i*pal_size+2];
 
-		maxcol = max( max( r, g ), b ) / 255.0f;
-		mincol = min( min( r, g ), b ) / 255.0f;
+		maxcol = Q_max( Q_max( r, g ), b ) / 255.0f;
+		mincol = Q_min( Q_min( r, g ), b ) / 255.0f;
 
 		if( maxcol == 0 ) continue;
 

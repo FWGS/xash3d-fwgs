@@ -5,8 +5,7 @@
 #include "vk_const.h"
 
 #define MAX_ACCELS 1024
-#define MAX_KUSOCHKI 8192
-#define MAX_EMISSIVE_KUSOCHKI 256
+#define MAX_KUSOCHKI 16384
 #define MODEL_CACHE_SIZE 1024
 
 #include "shaders/ray_interop.h"
@@ -20,6 +19,7 @@ typedef struct vk_ray_model_s {
 	uint32_t kusochki_offset;
 	qboolean dynamic;
 	qboolean taken;
+	qboolean kusochki_updated_this_frame;
 
 	struct {
 		uint32_t as_offset;
@@ -59,19 +59,7 @@ typedef struct {
 	// TODO unify with render buffer
 	// Needs: STORAGE_BUFFER
 	vk_buffer_t kusochki_buffer;
-	vk_ring_buffer_t kusochki_alloc;
-
-	// TODO this should really be a single uniform buffer for matrices and light data
-
-	// Expected to be small (qualifies for uniform buffer)
-	// Two distinct modes: (TODO which?)
-	// - static map-only lighting: constant for the entire map lifetime.
-	//   Could be joined with render buffer, if not for possible uniform buffer binding optimization.
-	//   This is how it operates now.
-	// - fully dynamic lights: re-built each frame, so becomes similar to scratch_buffer and could be unified (same about uniform binding opt)
-	//   This allows studio and other non-brush model to be emissive.
-	// Needs: STORAGE/UNIFORM_BUFFER
-	vk_buffer_t lights_buffer;
+	r_debuffer_t kusochki_alloc;
 
 	// Per-frame data that is accumulated between RayFrameBegin and End calls
 	struct {
@@ -91,4 +79,4 @@ extern xvk_ray_model_state_t g_ray_model_state;
 void XVK_RayModel_ClearForNextFrame( void );
 void XVK_RayModel_Validate(void);
 
-VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer);
+void RT_RayModel_Clear(void);

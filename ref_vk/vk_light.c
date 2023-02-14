@@ -1,11 +1,14 @@
 #include "vk_light.h"
+#include "vk_buffer.h"
 #include "vk_mapents.h"
 #include "vk_textures.h"
-#include "vk_brush.h"
 #include "vk_lightmap.h"
 #include "vk_cvar.h"
 #include "vk_common.h"
+#include "shaders/ray_interop.h"
+#include "bitarray.h"
 #include "profiler.h"
+#include "vk_staging.h"
 
 #include "mod_local.h"
 #include "xash3d_mathlib.h"
@@ -20,7 +23,7 @@
 #include "pmtrace.h"
 
 #define PROFILER_SCOPES(X) \
-	X(finalize , "VK_LightsFrameFinalize"); \
+	X(finalize , "RT_LightsFrameEnd"); \
 	X(emissive_surface, "VK_LightsAddEmissiveSurface"); \
 	X(static_lights, "add static lights"); \
 	X(dlights, "add dlights"); \
@@ -29,6 +32,38 @@
 #define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
 PROFILER_SCOPES(SCOPE_DECLARE)
 #undef SCOPE_DECLARE
+
+typedef struct {
+	vec3_t emissive;
+	qboolean set;
+} vk_emissive_texture_t;
+
+static struct {
+	struct {
+		vk_emissive_texture_t emissive_textures[MAX_TEXTURES];
+	} map;
+
+	vk_buffer_t buffer;
+
+	int num_polygons;
+	rt_light_polygon_t polygons[MAX_SURFACE_LIGHTS];
+
+	int num_point_lights;
+	vk_point_light_t point_lights[MAX_POINT_LIGHTS];
+
+	int num_polygon_vertices;
+	vec3_t polygon_vertices[MAX_SURFACE_LIGHTS * 7];
+
+	struct {
+		int point_lights;
+		int polygons;
+		int polygon_vertices;
+	} num_static;
+
+	bit_array_t visited_cells;
+
+	uint32_t frame_sequence;
+} g_lights_;
 
 static struct {
 	qboolean enabled;
@@ -46,17 +81,28 @@ static void debugDumpLights( void ) {
 
 vk_lights_t g_lights = {0};
 
-void VK_LightsInit( void ) {
+qboolean VK_LightsInit( void ) {
 	PROFILER_SCOPES(APROF_SCOPE_INIT);
 
 	gEngine.Cmd_AddCommand("vk_lights_dump", debugDumpLights, "Dump all light sources for next frame");
+
+	const int buffer_size = sizeof(struct LightsMetadata) + sizeof(struct LightCluster) * MAX_LIGHT_CLUSTERS;
+
+	if (!VK_BufferCreate("rt lights buffer", &g_lights_.buffer, buffer_size,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+		// FIXME complain, handle
+		return false;
+	}
+
+	return true;
 }
 
-static void clusterBitMapShutdown( void );
-
 void VK_LightsShutdown( void ) {
+	VK_BufferDestroy(&g_lights_.buffer);
+
 	gEngine.Cmd_RemoveCommand("vk_lights_dump");
-	clusterBitMapShutdown();
+	bitArrayDestroy(&g_lights_.visited_cells);
 }
 
 typedef struct {
@@ -98,7 +144,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 	vsnprintf( filename, sizeof filename, fmt, argptr );
 	va_end( argptr );
 
-	buffer = gEngine.COM_LoadFile( filename, &size, false);
+	buffer = gEngine.fsapi->LoadFile( filename, &size, false);
 
 	if (!buffer) {
 		gEngine.Con_Printf(S_ERROR "Couldn't load RAD data from file %s, the map will be completely black\n", filename);
@@ -184,7 +230,7 @@ static void loadRadData( const model_t *map, const char *fmt, ... ) {
 				}
 
 				if (tex_id) {
-					vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + tex_id;
+					vk_emissive_texture_t *const etex = g_lights_.map.emissive_textures + tex_id;
 					ASSERT(tex_id < MAX_TEXTURES);
 
 					etex->emissive[0] = r;
@@ -235,6 +281,7 @@ static void leafAccumFinalize( void ) {
 static int leafAccumAddPotentiallyVisibleFromLeaf(const model_t *const map, const mleaf_t *leaf, qboolean print_debug) {
 	int pvs_leaf_index = 0;
 	int leafs_added = 0;
+	ASSERT(leaf->compressed_vis);
 	const byte *pvs = leaf->compressed_vis;
 	for (;pvs_leaf_index < map->numleafs; ++pvs) {
 		uint8_t bits = pvs[0];
@@ -267,6 +314,12 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 	const int surf_index = surf - map->surfaces;
 	vk_surface_metadata_t * const smeta = g_lights_bsp.surfaces + surf_index;
 	const qboolean verbose_debug = false;
+
+	if (surf_index < 0 || surf_index >= g_lights_bsp.num_surfaces) {
+		gEngine.Con_Printf(S_ERROR "FIXME not implemented: attempting to add non-static polygon light\n");
+		return NULL;
+	}
+
 	ASSERT(surf_index >= 0);
 	ASSERT(surf_index < g_lights_bsp.num_surfaces);
 
@@ -312,7 +365,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 
 		leafAccumFinalize();
 
-		smeta->potentially_visible_leafs = (vk_light_leaf_set_t*)Mem_Malloc(vk_core.pool, sizeof(smeta->potentially_visible_leafs) + sizeof(int) * g_lights_bsp.accum.count);
+		smeta->potentially_visible_leafs = (vk_light_leaf_set_t*)Mem_Malloc(vk_core.pool, sizeof(smeta->potentially_visible_leafs[0]) + sizeof(int) * g_lights_bsp.accum.count);
 		smeta->potentially_visible_leafs->num = g_lights_bsp.accum.count;
 
 		for (int i = 0; i < g_lights_bsp.accum.count; ++i) {
@@ -323,42 +376,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMapSurface( const msurface_t *surf ) {
 	return smeta->potentially_visible_leafs;
 }
 
-
-static struct {
-#define CLUSTERS_BIT_MAP_SIZE_UINT ((g_lights.map.grid_cells + 31) / 32)
-	uint32_t *clusters_bit_map;
-} g_lights_tmp;
-
-static void clusterBitMapClear( void ) {
-	memset(g_lights_tmp.clusters_bit_map, 0, CLUSTERS_BIT_MAP_SIZE_UINT * sizeof(uint32_t));
-}
-
-// Returns true if wasn't set
-static qboolean clusterBitMapCheckOrSet( int cell_index ) {
-	uint32_t *const bits = g_lights_tmp.clusters_bit_map + (cell_index / 32);
-	const uint32_t bit = 1u << (cell_index % 32);
-
-	if ((*bits) & bit)
-		return false;
-
-	(*bits) |= bit;
-	return true;
-}
-
-static void clusterBitMapInit( void ) {
-	ASSERT(!g_lights_tmp.clusters_bit_map);
-
-	g_lights_tmp.clusters_bit_map = Mem_Malloc(vk_core.pool, CLUSTERS_BIT_MAP_SIZE_UINT * sizeof(uint32_t));
-	clusterBitMapClear();
-}
-
-static void clusterBitMapShutdown( void ) {
-	if (g_lights_tmp.clusters_bit_map)
-		Mem_Free(g_lights_tmp.clusters_bit_map);
-	g_lights_tmp.clusters_bit_map = NULL;
-}
-
-int R_LightCellIndex( const int light_cell[3] ) {
+int RT_LightCellIndex( const int light_cell[3] ) {
 	if (light_cell[0] < 0 || light_cell[1] < 0 || light_cell[2] < 0
 		|| (light_cell[0] >= g_lights.map.grid_size[0])
 		|| (light_cell[1] >= g_lights.map.grid_size[1])
@@ -433,8 +451,7 @@ vk_light_leaf_set_t *getMapLeafsAffectedByMovingSurface( const msurface_t *surf,
 	return (vk_light_leaf_set_t*)&g_lights_bsp.accum.count;
 }
 
-static void prepareSurfacesLeafVisibilityCache( void ) {
-	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
+static void prepareSurfacesLeafVisibilityCache( const struct model_s *map ) {
 	if (g_lights_bsp.surfaces != NULL) {
 		for (int i = 0; i < g_lights_bsp.num_surfaces; ++i) {
 			vk_surface_metadata_t *smeta = g_lights_bsp.surfaces + i;
@@ -450,9 +467,7 @@ static void prepareSurfacesLeafVisibilityCache( void ) {
 		g_lights_bsp.surfaces[i].potentially_visible_leafs = NULL;
 }
 
-void VK_LightsNewMap( void ) {
-	const model_t	*map = gEngine.pfnGetModelByIndex( 1 );
-
+void RT_LightsNewMapBegin( const struct model_s *map ) {
 	// 1. Determine map bounding box (and optimal grid size?)
 		// map->mins, maxs
 	vec3_t map_size, min_cell, max_cell;
@@ -485,35 +500,70 @@ void VK_LightsNewMap( void ) {
 		g_lights.map.grid_cells
 	);
 
-	clusterBitMapShutdown();
-	clusterBitMapInit();
+	bitArrayDestroy(&g_lights_.visited_cells);
+	g_lights_.visited_cells = bitArrayCreate(g_lights.map.grid_cells);
 
-	prepareSurfacesLeafVisibilityCache();
-}
+	prepareSurfacesLeafVisibilityCache( map );
 
-void VK_LightsFrameInit( void ) {
-	g_lights.num_emissive_surfaces = g_lights.num_static.emissive_surfaces;
-	g_lights.num_point_lights = g_lights.num_static.point_lights;
+	// Load RAD data based on map name
+	memset(g_lights_.map.emissive_textures, 0, sizeof(g_lights_.map.emissive_textures));
+	loadRadData( map, "maps/lights.rad" );
 
-	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-		vk_lights_cell_t *const cell = g_lights.cells + i;
-		cell->num_point_lights = cell->num_static.point_lights;
-		cell->num_emissive_surfaces = cell->num_static.emissive_surfaces;
+	{
+		int name_len = Q_strlen(map->name);
+
+		// Strip ".bsp" suffix
+		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
+			name_len -= 4;
+
+		loadRadData( map, "%.*s.rad", name_len, map->name );
+	}
+
+	// Clear static lights counts
+	{
+		g_lights_.num_polygons = g_lights_.num_static.polygons = 0;
+		g_lights_.num_point_lights = g_lights_.num_static.point_lights = 0;
+		g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices = 0;
+
+		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+			vk_lights_cell_t *const cell = g_lights.cells + i;
+			cell->num_point_lights = cell->num_static.point_lights = 0;
+			cell->num_polygons = cell->num_static.polygons = 0;
+			cell->frame_sequence = g_lights_.frame_sequence;
+		}
 	}
 }
 
-static qboolean addSurfaceLightToCell( int cell_index, int emissive_surface_index ) {
+void RT_LightsFrameBegin( void ) {
+	g_lights_.num_polygons = g_lights_.num_static.polygons;
+	g_lights_.num_point_lights = g_lights_.num_static.point_lights;
+	g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices;
+
+	g_lights.stats.dirty_cells = 0;
+
+	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+		vk_lights_cell_t *const cell = g_lights.cells + i;
+		cell->num_polygons = cell->num_static.polygons;
+		cell->num_point_lights = cell->num_static.point_lights;
+	}
+}
+
+static qboolean addSurfaceLightToCell( int cell_index, int polygon_light_index ) {
 	vk_lights_cell_t *const cluster = g_lights.cells + cell_index;
 
-	if (cluster->num_emissive_surfaces == MAX_VISIBLE_SURFACE_LIGHTS) {
+	if (cluster->num_polygons == MAX_VISIBLE_SURFACE_LIGHTS) {
 		return false;
 	}
 
 	if (debug_dump_lights.enabled) {
-		gEngine.Con_Reportf("    adding surface light %d to cell %d (count=%d)\n", emissive_surface_index, cell_index, cluster->num_emissive_surfaces+1);
+		gEngine.Con_Reportf("    adding polygon light %d to cell %d (count=%d)\n", polygon_light_index, cell_index, cluster->num_polygons+1);
 	}
 
-	cluster->emissive_surfaces[cluster->num_emissive_surfaces++] = emissive_surface_index;
+	cluster->polygons[cluster->num_polygons++] = polygon_light_index;
+	if (cluster->frame_sequence != g_lights_.frame_sequence) {
+		++g_lights.stats.dirty_cells;
+		cluster->frame_sequence = g_lights_.frame_sequence;
+	}
 	return true;
 }
 
@@ -528,6 +578,11 @@ static qboolean addLightToCell( int cell_index, int light_index ) {
 	}
 
 	cluster->point_lights[cluster->num_point_lights++] = light_index;
+
+	if (cluster->frame_sequence != g_lights_.frame_sequence) {
+		++g_lights.stats.dirty_cells;
+		cluster->frame_sequence = g_lights_.frame_sequence;
+	}
 	return true;
 }
 
@@ -566,140 +621,7 @@ static qboolean canSurfaceLightAffectAABB(const model_t *mod, const msurface_t *
 	return retval;
 }
 
-void VK_LightsAddEmissiveSurface( const struct vk_render_geometry_s *geom, const matrix3x4 *transform_row, qboolean static_map ) {
-	APROF_SCOPE_BEGIN_EARLY(emissive_surface);
-	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-	const int texture_num = geom->texture; // Animated texture
-	vk_emissive_surface_t *retval = NULL;
-	vec3_t emissive_color = {0};
-
-	ASSERT(texture_num >= 0);
-	ASSERT(texture_num < MAX_TEXTURES);
-
-	// Only brush model surfaces are supported to be emissive. This is not _strictly_ necessary, but is a bit simpler.
-	if (!geom->surf)
-		goto fin; // TODO break? no surface means that model is not brush
-
-	// Find out whether this surface is emissive
-	{
-		const int surface_index = geom->surf - world->surfaces;
-		const xvk_patch_surface_t *psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
-
-		ASSERT(surface_index >= 0);
-		ASSERT(surface_index < world->numsurfaces);
-
-		if (psurf && psurf->flags & Patch_Surface_Emissive) {
-			VectorCopy(psurf->emissive, emissive_color);
-		} else if (geom->material == kXVkMaterialEmissive) {
-			VectorCopy(geom->emissive, emissive_color);
-		} else if (g_lights.map.emissive_textures[texture_num].set) {
-			VectorCopy(g_lights.map.emissive_textures[texture_num].emissive, emissive_color);
-		} else {
-			goto fin;
-		}
-
-		if (emissive_color[0] == 0 && emissive_color[1] == 0 && emissive_color[2] == 0) {
-			if (static_map) {
-				gEngine.Con_Reportf("Surface %d got zero emissive color, not adding as a light source\n", surface_index);
-			}
-			goto fin;
-		}
-	}
-
-	if (g_lights.num_emissive_surfaces >= 256)
-		goto fin;
-
-	if (debug_dump_lights.enabled) {
-		const vk_texture_t *tex = findTexture(texture_num);
-		ASSERT(tex);
-		gEngine.Con_Reportf("surface light %d: %s (%f %f %f)\n", g_lights.num_emissive_surfaces, tex->name,
-			emissive_color[0],
-			emissive_color[1],
-			emissive_color[2]);
-	}
-
-	{
-		const vk_light_leaf_set_t *const leafs = static_map
-			? getMapLeafsAffectedByMapSurface( geom->surf )
-			: getMapLeafsAffectedByMovingSurface( geom->surf, transform_row );
-		vk_emissive_surface_t *esurf = g_lights.emissive_surfaces + g_lights.num_emissive_surfaces;
-
-		// Insert into emissive surfaces
-		esurf->kusok_index = geom->kusok_index;
-		VectorCopy(emissive_color, esurf->emissive);
-		Matrix3x4_Copy(esurf->transform, *transform_row);
-
-		clusterBitMapClear();
-
-		// Iterate through each visible/potentially affected leaf to get a range of grid cells
-		for (int i = 0; i < leafs->num; ++i) {
-			const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
-
-			const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
-			const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
-			const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
-
-			const int max_x = floorf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE) + 1;
-			const int max_y = floorf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE) + 1;
-			const int max_z = floorf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE) + 1;
-
-			const qboolean not_visible = static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, leaf->minmaxs);
-
-			if (debug_dump_lights.enabled) {
-				gEngine.Con_Reportf("  adding leaf %d (%d of %d) min=(%d, %d, %d), max=(%d, %d, %d) total=%d\n",
-					leaf->cluster, i, leafs->num,
-					min_x, min_y, min_z,
-					max_x, max_y, max_z,
-					(max_x - min_x) * (max_y - min_y) * (max_z - min_z)
-				);
-			}
-
-			if (not_visible)
-				continue;
-
-			for (int x = min_x; x < max_x; ++x)
-			for (int y = min_y; y < max_y; ++y)
-			for (int z = min_z; z < max_z; ++z) {
-				const int cell[3] = {
-					x - g_lights.map.grid_min_cell[0],
-					y - g_lights.map.grid_min_cell[1],
-					z - g_lights.map.grid_min_cell[2]
-				};
-
-				const int cell_index = R_LightCellIndex( cell );
-				if (cell_index < 0)
-					continue;
-
-				if (clusterBitMapCheckOrSet( cell_index )) {
-					const float minmaxs[6] = {
-						x * LIGHT_GRID_CELL_SIZE,
-						y * LIGHT_GRID_CELL_SIZE,
-						z * LIGHT_GRID_CELL_SIZE,
-						(x+1) * LIGHT_GRID_CELL_SIZE,
-						(y+1) * LIGHT_GRID_CELL_SIZE,
-						(z+1) * LIGHT_GRID_CELL_SIZE,
-					};
-
-					if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs))
-						continue;
-
-					if (!addSurfaceLightToCell(cell_index, g_lights.num_emissive_surfaces)) {
-						ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of emissive surfaces slots",
-							cell[0], cell[1],  cell[2], cell_index);
-					}
-				}
-			}
-		}
-
-		++g_lights.num_emissive_surfaces;
-		retval = esurf;
-	}
-
-fin:
-	APROF_SCOPE_END(emissive_surface);
-}
-
-static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
+static void addLightIndexToLeaf( const mleaf_t *leaf, int index ) {
 	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
 	const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
 	const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
@@ -726,11 +648,11 @@ static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
 			z - g_lights.map.grid_min_cell[2]
 		};
 
-		const int cell_index = R_LightCellIndex( cell );
+		const int cell_index = RT_LightCellIndex( cell );
 		if (cell_index < 0)
 			continue;
 
-		if (clusterBitMapCheckOrSet( cell_index )) {
+		if (bitArrayCheckOrSet(&g_lights_.visited_cells, cell_index)) {
 			if (!addLightToCell(cell_index, index)) {
 				ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of light slots",
 					cell[0], cell[1],  cell[2], cell_index);
@@ -739,9 +661,28 @@ static void addLightIndexToleaf( const mleaf_t *leaf, int index ) {
 	}
 }
 
-static void addPointLightToClusters( int index ) {
-	vk_point_light_t *const light = g_lights.point_lights + index;
+static void addPointLightToAllClusters( int index ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	// FIXME there's certainly a better way to do this: just enumerate
+	// all clusters, not all leafs
+
+	bitArrayClear(&g_lights_.visited_cells);
+	for (int i = 1; i <= world->numleafs; ++i) {
+		const mleaf_t *const leaf = world->leafs + i;
+		addLightIndexToLeaf( leaf, index );
+	}
+}
+
+static void addPointLightToClusters( int index ) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	if (!world->visdata) {
+		addPointLightToAllClusters( index );
+		return;
+	}
+
+	vk_point_light_t *const light = g_lights_.point_lights + index;
 	const mleaf_t* leaf = gEngine.Mod_PointInLeaf(light->origin, world->nodes);
 	const vk_light_leaf_set_t *const leafs = (vk_light_leaf_set_t*)&g_lights_bsp.accum.count;
 
@@ -749,28 +690,18 @@ static void addPointLightToClusters( int index ) {
 	leafAccumAddPotentiallyVisibleFromLeaf( world, leaf, false);
 	leafAccumFinalize();
 
-	clusterBitMapClear();
+	bitArrayClear(&g_lights_.visited_cells);
 	for (int i = 0; i < leafs->num; ++i) {
 		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
-		addLightIndexToleaf( leaf, index );
-	}
-}
-
-static void addPointLightToAllClusters( int index ) {
-	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
-
-	clusterBitMapClear();
-	for (int i = 1; i <= world->numleafs; ++i) {
-		const mleaf_t *const leaf = world->leafs + i;
-		addLightIndexToleaf( leaf, index );
+		addLightIndexToLeaf( leaf, index );
 	}
 }
 
 static int addPointLight( const vec3_t origin, const vec3_t color, float radius, int lightstyle, float hack_attenuation ) {
-	const int index = g_lights.num_point_lights;
-	vk_point_light_t *const plight = g_lights.point_lights + index;
+	const int index = g_lights_.num_point_lights;
+	vk_point_light_t *const plight = g_lights_.point_lights + index;
 
-	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
+	if (g_lights_.num_point_lights >= MAX_POINT_LIGHTS) {
 		ERROR_THROTTLED(10, "Too many lights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS);
 		return -1;
 	}
@@ -794,15 +725,15 @@ static int addPointLight( const vec3_t origin, const vec3_t color, float radius,
 	VectorSet(plight->dir, 0, 0, 0);
 
 	addPointLightToClusters( index );
-	g_lights.num_point_lights++;
+	g_lights_.num_point_lights++;
 	return index;
 }
 
 static int addSpotLight( const vk_light_entity_t *le, float radius, int lightstyle, float hack_attenuation, qboolean all_clusters ) {
-	const int index = g_lights.num_point_lights;
-	vk_point_light_t *const plight = g_lights.point_lights + index;
+	const int index = g_lights_.num_point_lights;
+	vk_point_light_t *const plight = g_lights_.point_lights + index;
 
-	if (g_lights.num_point_lights >= MAX_POINT_LIGHTS) {
+	if (g_lights_.num_point_lights >= MAX_POINT_LIGHTS) {
 		ERROR_THROTTLED(10, "Too many lights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS);
 		return -1;
 	}
@@ -836,11 +767,11 @@ static int addSpotLight( const vk_light_entity_t *le, float radius, int lightsty
 	else
 		addPointLightToClusters( index );
 
-	g_lights.num_point_lights++;
+	g_lights_.num_point_lights++;
 	return index;
 }
 
-void R_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player ) {
+void RT_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player ) {
 	// parameters
 	const float hack_attenuation = 0.1;
 	float radius = 1.0;
@@ -853,7 +784,7 @@ void R_LightAddFlashlight(const struct cl_entity_s *ent, qboolean local_player )
 	vec3_t color;
 	vec3_t origin;
 	vec3_t angles;
-	vk_light_entity_t le;
+	vk_light_entity_t le = { .type = LightTypeSpot };
 
 	float thirdperson_offset = 25;
 	vec3_t forward, view_ofs;
@@ -970,7 +901,7 @@ static void processStaticPointLights( void ) {
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 	ASSERT(world);
 
-	g_lights.num_point_lights = 0;
+	g_lights_.num_point_lights = 0;
 	for (int i = 0; i < g_map_entities.num_lights; ++i) {
 		const vk_light_entity_t *le = g_map_entities.lights + i;
 		const float default_radius = 2.f; // FIXME tune
@@ -1000,87 +931,354 @@ static void processStaticPointLights( void ) {
 	APROF_SCOPE_END(static_lights);
 }
 
-void VK_LightsLoadMapStaticLights( void ) {
-	const model_t *map = gEngine.pfnGetModelByIndex( 1 );
-
+void RT_LightsNewMapEnd( const struct model_s *map ) {
 	//debug_dump_lights.enabled = true;
-
-	// Clear static lights counts
-	{
-		g_lights.num_emissive_surfaces = g_lights.num_static.emissive_surfaces = 0;
-		g_lights.num_point_lights = g_lights.num_static.point_lights = 0;
-
-		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-			vk_lights_cell_t *const cell = g_lights.cells + i;
-			cell->num_point_lights = cell->num_static.point_lights = 0;
-			cell->num_emissive_surfaces = cell->num_static.emissive_surfaces = 0;
-		}
-	}
 
 	processStaticPointLights();
 
-	// Load RAD data based on map name
-	memset(g_lights.map.emissive_textures, 0, sizeof(g_lights.map.emissive_textures));
-	loadRadData( map, "maps/lights.rad" );
-
-	{
-		int name_len = Q_strlen(map->name);
-
-		// Strip ".bsp" suffix
-		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
-			name_len -= 4;
-
-		loadRadData( map, "%.*s.rad", name_len, map->name );
-	}
-
-	// Load static map model
-	{
-		matrix3x4 xform;
-		const vk_brush_model_t *const bmodel = map->cache.data;
-		ASSERT(bmodel);
-		Matrix3x4_LoadIdentity(xform);
-
-		for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
-			const vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
-			VK_LightsAddEmissiveSurface( geom, &xform, true );
-				// TODO how to differentiate between this and non-emissive gEngine.Con_Printf(S_ERROR "Ran out of surface light slots, geom %d of %d\n", i, bmodel->render_model.num_geometries);
-		}
-	}
-
 	// Fix static counts
 	{
-		g_lights.num_static.emissive_surfaces = g_lights.num_emissive_surfaces;
-		g_lights.num_static.point_lights = g_lights.num_point_lights;
+		g_lights_.num_static.polygons = g_lights_.num_polygons;
+		g_lights_.num_static.point_lights = g_lights_.num_point_lights;
+		g_lights_.num_static.polygon_vertices = g_lights_.num_polygon_vertices;
 
 		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
 			vk_lights_cell_t *const cell = g_lights.cells + i;
 			cell->num_static.point_lights = cell->num_point_lights;
-			cell->num_static.emissive_surfaces = cell->num_emissive_surfaces;
+			cell->num_static.polygons = cell->num_polygons;
 		}
 	}
+
+	g_lights.stats.dirty_cells = g_lights.map.grid_cells;
 }
 
-void XVK_GetEmissiveForTexture( vec3_t out, int texture_id ) {
+qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
 	ASSERT(texture_id >= 0);
 	ASSERT(texture_id < MAX_TEXTURES);
 
 	{
-		vk_emissive_texture_t *const etex = g_lights.map.emissive_textures + texture_id;
+		vk_emissive_texture_t *const etex = g_lights_.map.emissive_textures + texture_id;
 		if (etex->set) {
 			VectorCopy(etex->emissive, out);
+			return true;
 		} else {
-			VectorSet(out, 0, 0, 0);
+			VectorClear(out);
+			return false;
 		}
 	}
 }
 
-void VK_LightsFrameFinalize( void ) {
+static void addPolygonLightIndexToLeaf(const mleaf_t* leaf, int poly_index) {
+	const int min_x = floorf(leaf->minmaxs[0] / LIGHT_GRID_CELL_SIZE);
+	const int min_y = floorf(leaf->minmaxs[1] / LIGHT_GRID_CELL_SIZE);
+	const int min_z = floorf(leaf->minmaxs[2] / LIGHT_GRID_CELL_SIZE);
+
+	const int max_x = floorf(leaf->minmaxs[3] / LIGHT_GRID_CELL_SIZE) + 1;
+	const int max_y = floorf(leaf->minmaxs[4] / LIGHT_GRID_CELL_SIZE) + 1;
+	const int max_z = floorf(leaf->minmaxs[5] / LIGHT_GRID_CELL_SIZE) + 1;
+
+	const qboolean not_visible = false; //TODO static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, leaf->minmaxs);
+
+	if (debug_dump_lights.enabled) {
+		gEngine.Con_Reportf("  adding leaf %d min=(%d, %d, %d), max=(%d, %d, %d) total=%d\n",
+			leaf->cluster,
+			min_x, min_y, min_z,
+			max_x, max_y, max_z,
+			(max_x - min_x) * (max_y - min_y) * (max_z - min_z)
+		);
+	}
+
+	if (not_visible)
+		return;
+
+	for (int x = min_x; x < max_x; ++x)
+	for (int y = min_y; y < max_y; ++y)
+	for (int z = min_z; z < max_z; ++z) {
+		const int cell[3] = {
+			x - g_lights.map.grid_min_cell[0],
+			y - g_lights.map.grid_min_cell[1],
+			z - g_lights.map.grid_min_cell[2]
+		};
+
+		const int cell_index = RT_LightCellIndex( cell );
+		if (cell_index < 0)
+			continue;
+
+		if (bitArrayCheckOrSet(&g_lights_.visited_cells, cell_index)) {
+			const float minmaxs[6] = {
+				x * LIGHT_GRID_CELL_SIZE,
+				y * LIGHT_GRID_CELL_SIZE,
+				z * LIGHT_GRID_CELL_SIZE,
+				(x+1) * LIGHT_GRID_CELL_SIZE,
+				(y+1) * LIGHT_GRID_CELL_SIZE,
+				(z+1) * LIGHT_GRID_CELL_SIZE,
+			};
+
+			/* TODO if (static_map && !canSurfaceLightAffectAABB(world, geom->surf, esurf->emissive, minmaxs)) */
+			/* 	continue; */
+
+			if (!addSurfaceLightToCell(cell_index, poly_index)) {
+				ERROR_THROTTLED(10, "Cluster %d,%d,%d(%d) ran out of polygon light slots",
+					cell[0], cell[1],  cell[2], cell_index);
+			}
+		}
+	}
+}
+
+static void addPolygonLightToAllClusters( int poly_index ) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	// FIXME there's certainly a better way to do this: just enumerate
+	// all clusters, not all leafs
+
+	bitArrayClear(&g_lights_.visited_cells);
+	for (int i = 1; i <= world->numleafs; ++i) {
+		const mleaf_t *const leaf = world->leafs + i;
+		addPolygonLightIndexToLeaf( leaf, poly_index );
+	}
+}
+
+static void addPolygonLeafSetToClusters(const vk_light_leaf_set_t *leafs, int poly_index) {
+	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+
+	// FIXME this shouldn't happen in prod
+	if (!leafs)
+		return;
+
+	bitArrayClear(&g_lights_.visited_cells);
+
+	// Iterate through each visible/potentially affected leaf to get a range of grid cells
+	for (int i = 0; i < leafs->num; ++i) {
+		const mleaf_t *const leaf = world->leafs + leafs->leafs[i];
+		addPolygonLightIndexToLeaf(leaf, poly_index);
+	}
+}
+
+int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
+	if (g_lights_.num_polygons == MAX_SURFACE_LIGHTS) {
+		gEngine.Con_Printf(S_ERROR "Max number of polygon lights %d reached\n", MAX_SURFACE_LIGHTS);
+		return -1;
+	}
+
+	ASSERT(addpoly->num_vertices > 2);
+	ASSERT(addpoly->num_vertices < 8);
+	ASSERT(g_lights_.num_polygon_vertices + addpoly->num_vertices <= COUNTOF(g_lights_.polygon_vertices));
+
+	{
+		rt_light_polygon_t *const poly = g_lights_.polygons + g_lights_.num_polygons;
+		vec3_t *vertices = g_lights_.polygon_vertices + g_lights_.num_polygon_vertices;
+		vec3_t normal;
+
+		poly->vertices.offset = g_lights_.num_polygon_vertices;
+		poly->vertices.count = addpoly->num_vertices;
+
+		VectorCopy(addpoly->emissive, poly->emissive);
+		VectorSet(poly->center, 0, 0, 0);
+		VectorSet(normal, 0, 0, 0);
+
+		for (int i = 0; i < addpoly->num_vertices; ++i) {
+			if (addpoly->transform_row)
+				Matrix3x4_VectorTransform(*addpoly->transform_row, addpoly->vertices[i], vertices[i]);
+			else
+				VectorCopy(addpoly->vertices[i], vertices[i]);
+			VectorAdd(vertices[i], poly->center, poly->center);
+
+			if (i > 1) {
+				vec3_t e[2], lnormal;
+				VectorSubtract(vertices[i-0], vertices[0], e[0]);
+				VectorSubtract(vertices[i-1], vertices[0], e[1]);
+				CrossProduct(e[0], e[1], lnormal);
+				VectorAdd(lnormal, normal, normal);
+			}
+		}
+
+		poly->area = VectorLength(normal);
+		VectorM(1.f / poly->area, normal, poly->plane);
+		poly->plane[3] = -DotProduct(vertices[0], poly->plane);
+
+		VectorM(1.f / poly->vertices.count, poly->center, poly->center);
+
+		if (!addpoly->dynamic || debug_dump_lights.enabled) {
+			gEngine.Con_Reportf("added polygon light index=%d color=(%f, %f, %f) center=(%f, %f, %f) plane=(%f, %f, %f, %f) area=%f num_vertices=%d\n",
+				g_lights_.num_polygons,
+				poly->emissive[0],
+				poly->emissive[1],
+				poly->emissive[2],
+				poly->center[0],
+				poly->center[1],
+				poly->center[2],
+				poly->plane[0],
+				poly->plane[1],
+				poly->plane[2],
+				poly->plane[3],
+				poly->area,
+				poly->vertices.count
+			);
+		}
+
+		const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
+		if (world->visdata) {
+			const vk_light_leaf_set_t *const leafs = addpoly->dynamic
+				? getMapLeafsAffectedByMovingSurface( addpoly->surface, addpoly->transform_row )
+				: getMapLeafsAffectedByMapSurface( addpoly->surface );
+			addPolygonLeafSetToClusters(leafs, g_lights_.num_polygons);
+		} else {
+			addPolygonLightToAllClusters( g_lights_.num_polygons );
+		}
+
+		g_lights_.num_polygon_vertices += addpoly->num_vertices;
+		return g_lights_.num_polygons++;
+	}
+}
+
+static void uploadGridRange( int begin, int end ) {
+	const int count = end - begin;
+	ASSERT( count > 0 );
+
+	const int size = count * sizeof(struct LightCluster);
+	const vk_staging_region_t locked = R_VkStagingLockForBuffer( (vk_staging_buffer_args_t) {
+		.buffer = g_lights_.buffer.buffer,
+		.offset = sizeof(struct LightsMetadata) + begin * sizeof(struct LightCluster),
+		.size = size,
+		.alignment = 16, // WHY?
+	} );
+
+	ASSERT(locked.ptr);
+
+	struct LightCluster *const grid = locked.ptr;
+	memset(grid, 0, size);
+
+	for (int i = 0; i < count; ++i) {
+		const vk_lights_cell_t *const src = g_lights.cells + i + begin;
+		struct LightCluster *const dst = grid + i;
+
+		dst->num_point_lights = src->num_point_lights;
+		dst->num_polygons = src->num_polygons;
+		memcpy(dst->point_lights, src->point_lights, sizeof(uint8_t) * src->num_point_lights);
+		memcpy(dst->polygons, src->polygons, sizeof(uint8_t) * src->num_polygons);
+	}
+
+	R_VkStagingUnlock( locked.handle );
+
+	g_lights.stats.ranges_uploaded++;
+}
+
+static void uploadGrid( void ) {
+	ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
+
+	g_lights.stats.ranges_uploaded = 0;
+
+	int begin = -1;
+	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+		const vk_lights_cell_t *const cell = g_lights.cells + i;
+
+		const qboolean dirty = cell->frame_sequence == g_lights_.frame_sequence;
+		if (dirty && begin < 0)
+			begin = i;
+
+		if (!dirty && begin >= 0) {
+			uploadGridRange(begin, i);
+			begin = -1;
+		}
+	}
+
+	if (begin >= 0)
+		uploadGridRange(begin, g_lights.map.grid_cells);
+}
+
+static void uploadPolygonLights( struct LightsMetadata *metadata ) {
+	ASSERT(g_lights_.num_polygons <= MAX_EMISSIVE_KUSOCHKI);
+	metadata->num_polygons = g_lights_.num_polygons;
+	for (int i = 0; i < g_lights_.num_polygons; ++i) {
+		const rt_light_polygon_t *const src_poly = g_lights_.polygons + i;
+		struct PolygonLight *const dst_poly = metadata->polygons + i;
+
+		Vector4Copy(src_poly->plane, dst_poly->plane);
+		VectorCopy(src_poly->center, dst_poly->center);
+		dst_poly->area = src_poly->area;
+		VectorCopy(src_poly->emissive, dst_poly->emissive);
+
+		// TODO DEBUG_ASSERT
+		ASSERT(src_poly->vertices.count > 2);
+		ASSERT(src_poly->vertices.offset < 0xffffu);
+		ASSERT(src_poly->vertices.count < 0xffffu);
+
+		ASSERT(src_poly->vertices.offset + src_poly->vertices.count < COUNTOF(metadata->polygon_vertices));
+
+		dst_poly->vertices_count_offset = (src_poly->vertices.count << 16) | (src_poly->vertices.offset);
+	}
+
+	// TODO static assert
+	ASSERT(sizeof(metadata->polygon_vertices) >= sizeof(g_lights_.polygon_vertices));
+	for (int i = 0; i < g_lights_.num_polygon_vertices; ++i) {
+		VectorCopy(g_lights_.polygon_vertices[i], metadata->polygon_vertices[i]);
+	}
+}
+
+static void uploadPointLights( struct LightsMetadata *metadata ) {
+	metadata->num_point_lights = g_lights_.num_point_lights;
+	for (int i = 0; i < g_lights_.num_point_lights; ++i) {
+		vk_point_light_t *const src = g_lights_.point_lights + i;
+		struct PointLight *const dst = metadata->point_lights + i;
+
+		VectorCopy(src->origin, dst->origin_r);
+		dst->origin_r[3] = src->radius;
+
+		VectorCopy(src->color, dst->color_stopdot);
+		dst->color_stopdot[3] = src->stopdot;
+
+		VectorCopy(src->dir, dst->dir_stopdot2);
+		dst->dir_stopdot2[3] = src->stopdot2;
+
+		dst->environment = !!(src->flags & LightFlag_Environment);
+	}
+}
+
+vk_lights_bindings_t VK_LightsUpload( void ) {
+	const vk_staging_region_t locked = R_VkStagingLockForBuffer( (vk_staging_buffer_args_t) {
+		.buffer = g_lights_.buffer.buffer,
+		.offset = 0,
+		.size = sizeof(struct LightsMetadata),
+		.alignment = 16, // WHY?
+	} );
+
+	ASSERT(locked.ptr);
+
+	struct LightsMetadata *metadata = locked.ptr;
+	memset(metadata, 0, sizeof(*metadata));
+
+	VectorCopy(g_lights.map.grid_min_cell, metadata->grid_min_cell);
+	VectorCopy(g_lights.map.grid_size, metadata->grid_size);
+
+	uploadPolygonLights( metadata );
+	uploadPointLights( metadata );
+
+	R_VkStagingUnlock( locked.handle );
+
+	uploadGrid();
+
+	g_lights_.frame_sequence++;
+
+	return (vk_lights_bindings_t){
+		.buffer = g_lights_.buffer.buffer,
+		.metadata = {
+			.offset = 0,
+			.size = sizeof(struct LightsMetadata),
+		},
+		.grid = {
+			.offset = sizeof(struct LightsMetadata),
+			.size = sizeof(struct LightCluster) * MAX_LIGHT_CLUSTERS,
+		},
+	};
+}
+
+void RT_LightsFrameEnd( void ) {
 	APROF_SCOPE_BEGIN_EARLY(finalize);
 	const model_t* const world = gEngine.pfnGetModelByIndex( 1 );
 
-	if (g_lights.num_emissive_surfaces > UINT8_MAX) {
-		ERROR_THROTTLED(10, "Too many emissive surfaces found: %d; some areas will be dark", g_lights.num_emissive_surfaces);
-		g_lights.num_emissive_surfaces = UINT8_MAX;
+	if (g_lights_.num_polygons > UINT8_MAX) {
+		ERROR_THROTTLED(10, "Too many emissive surfaces found: %d; some areas will be dark", g_lights_.num_polygons);
+		g_lights_.num_polygons = UINT8_MAX;
 	}
 
 	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
@@ -1091,8 +1289,8 @@ void VK_LightsFrameFinalize( void ) {
 	/* 	} */
 	/* } */
 
-	for (int i = 0; i < g_lights.num_point_lights; ++i) {
-		vk_point_light_t *const light = g_lights.point_lights + i;
+	for (int i = 0; i < g_lights_.num_point_lights; ++i) {
+		vk_point_light_t *const light = g_lights_.point_lights + i;
 		if (light->lightstyle < 0 || light->lightstyle >= MAX_LIGHTSTYLES)
 			continue;
 
@@ -1114,14 +1312,14 @@ void VK_LightsFrameFinalize( void ) {
 	if (debug_dump_lights.enabled) {
 #if 0
 		// Print light grid stats
-		gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights.num_emissive_surfaces);
+		gEngine.Con_Reportf("Emissive surfaces found: %d\n", g_lights_.num_polygons);
 
 		{
 			#define GROUPSIZE 4
 			int histogram[1 + (MAX_VISIBLE_SURFACE_LIGHTS + GROUPSIZE - 1) / GROUPSIZE] = {0};
 			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
 				const vk_lights_cell_t *cluster = g_lights.cells + i;
-				const int hist_index = cluster->num_emissive_surfaces ? 1 + cluster->num_emissive_surfaces / GROUPSIZE : 0;
+				const int hist_index = cluster->num_polygons ? 1 + cluster->num_polygons / GROUPSIZE : 0;
 				histogram[hist_index]++;
 			}
 
@@ -1138,12 +1336,12 @@ void VK_LightsFrameFinalize( void ) {
 			int num_clusters_with_lights_in_range = 0;
 			for (int i = 0; i < g_lights.map.grid_cells; ++i) {
 				const vk_lights_cell_t *cluster = g_lights.cells + i;
-				if (cluster->num_emissive_surfaces > 0) {
-					gEngine.Con_Reportf(" cluster %d: emissive_surfaces=%d\n", i, cluster->num_emissive_surfaces);
+				if (cluster->num_polygons > 0) {
+					gEngine.Con_Reportf(" cluster %d: polygons=%d\n", i, cluster->num_polygons);
 				}
 
-				for (int j = 0; j < cluster->num_emissive_surfaces; ++j) {
-					const int index = cluster->emissive_surfaces[j];
+				for (int j = 0; j < cluster->num_polygons; ++j) {
+					const int index = cluster->polygons[j];
 					if (index >= vk_rtx_light_begin->value && index < vk_rtx_light_end->value) {
 						++num_clusters_with_lights_in_range;
 					}

@@ -1,3 +1,5 @@
+#ifndef NOISE_GLSL_INCLUDED
+#define NOISE_GLSL_INCLUDED
 // Copypasted from Mark Jarzynski and Marc Olano, Hash Functions for GPU Rendering, Journal of Computer Graphics Techniques (JCGT), vol. 9, no. 3, 21-38, 2020
 // http://www.jcgt.org/published/0009/03/02/
 // https://www.shadertoy.com/view/XlGcRh
@@ -119,19 +121,19 @@ uvec3 pcg3d16(uvec3 v)
 uvec4 pcg4d(uvec4 v)
 {
     v = v * 1664525u + 1013904223u;
-    
+
     v.x += v.y*v.w;
     v.y += v.z*v.x;
     v.z += v.x*v.y;
     v.w += v.y*v.z;
-    
+
     v ^= v >> 16u;
-    
+
     v.x += v.y*v.w;
     v.y += v.z*v.x;
     v.z += v.x*v.y;
     v.w += v.y*v.z;
-    
+
     return v;
 }
 
@@ -155,3 +157,4 @@ vec3 rand3_f01(uvec3 seed) {
     uvec3 v = pcg3d(seed);
     return vec3(uintToFloat01(v.x), uintToFloat01(v.y), uintToFloat01(v.z));
 }
+#endif // NOISE_GLSL_INCLUDED

@@ -2,6 +2,8 @@
 #include "vk_common.h"
 #include "vk_textures.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
+#include "vk_previous_frame.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"
@@ -38,7 +40,7 @@ typedef struct
 
 cvar_t *r_glowshellfreq;
 
-cvar_t r_shadows = { "r_shadows", "0", 0 };
+cvar_t r_shadows = { (char*)"r_shadows", (char*)"0", 0 };
 
 typedef struct sortedmesh_s
 {
@@ -72,6 +74,8 @@ typedef struct
 	sortedmesh_t	meshes[MAXSTUDIOMESHES];	// sorted meshes
 	vec3_t		verts[MAXSTUDIOVERTS];
 	vec3_t		norms[MAXSTUDIOVERTS];
+
+	vec3_t		prev_verts[MAXSTUDIOVERTS]; // last frame state for motion vectors
 
 	// lighting state
 	float		ambientlight;
@@ -253,7 +257,7 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 	return true; // visible
 }
 
-void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 result )
+void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 *worldtransform, matrix3x4 result )
 {
 	float	flWeight0, flWeight1, flWeight2, flWeight3;
 	int	i, numbones = 0;
@@ -267,10 +271,10 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 
 	if( numbones == 4 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
-		vec4_t *boneMat2 = (vec4_t *)g_studio.worldtransform[boneweights->bone[2]];
-		vec4_t *boneMat3 = (vec4_t *)g_studio.worldtransform[boneweights->bone[3]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat2 = (vec4_t *)worldtransform[boneweights->bone[2]];
+		vec4_t *boneMat3 = (vec4_t *)worldtransform[boneweights->bone[3]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flWeight2 = boneweights->weight[2] / 255.0f;
@@ -294,9 +298,9 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else if( numbones == 3 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
-		vec4_t *boneMat2 = (vec4_t *)g_studio.worldtransform[boneweights->bone[2]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat2 = (vec4_t *)worldtransform[boneweights->bone[2]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flWeight2 = boneweights->weight[2] / 255.0f;
@@ -319,8 +323,8 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else if( numbones == 2 )
 	{
-		vec4_t *boneMat0 = (vec4_t *)g_studio.worldtransform[boneweights->bone[0]];
-		vec4_t *boneMat1 = (vec4_t *)g_studio.worldtransform[boneweights->bone[1]];
+		vec4_t *boneMat0 = (vec4_t *)worldtransform[boneweights->bone[0]];
+		vec4_t *boneMat1 = (vec4_t *)worldtransform[boneweights->bone[1]];
 		flWeight0 = boneweights->weight[0] / 255.0f;
 		flWeight1 = boneweights->weight[1] / 255.0f;
 		flTotal = flWeight0 + flWeight1;
@@ -342,7 +346,7 @@ void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 resu
 	}
 	else
 	{
-		Matrix3x4_Copy( result, g_studio.worldtransform[boneweights->bone[0]] );
+		Matrix3x4_Copy( result, worldtransform[boneweights->bone[0]] );
 	}
 }
 
@@ -1902,11 +1906,11 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	float	*lv;
 	int	i;
 	int num_vertices = 0, num_indices = 0;
-	xvk_render_buffer_allocation_t vertex_buffer, index_buffer;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 	uint32_t vertex_offset = 0, index_offset = 0;
 	short* const ptricmds_initial = ptricmds;
+	r_geometry_buffer_lock_t buffer;
 
 	// Compute counts of vertices and indices
 	while(( i = *( ptricmds++ )))
@@ -1923,17 +1927,13 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(num_indices > 0);
 
 	// Get buffer region for vertices and indices
-	vertex_buffer = XVK_RenderBufferAllocAndLock( sizeof(vk_vertex_t), num_vertices );
-	index_buffer = XVK_RenderBufferAllocAndLock( sizeof(uint16_t), num_indices );
-	if (vertex_buffer.ptr == NULL || index_buffer.ptr == NULL)
-	{
-		// TODO should we free one of the above if it still succeeded?
-		gEngine.Con_Printf(S_ERROR "Ran out of buffer space\n");
+	if (!R_GeometryBufferAllocAndLock( &buffer, num_vertices, num_indices, LifetimeSingleFrame )) {
+		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for studio model\n");
 		return;
 	}
 
-	dst_vtx = vertex_buffer.ptr;
-	dst_idx = index_buffer.ptr;
+	dst_vtx = buffer.vertices.ptr;
+	dst_idx = buffer.indices.ptr;
 
 	// Restore ptricmds and upload vertices
 	ptricmds = ptricmds_initial;
@@ -1945,10 +1945,11 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 
 		for(int j = 0; j < vertices ; ++j, ++dst_vtx, ptricmds += 4 )
 		{
-			ASSERT((((vk_vertex_t*)vertex_buffer.ptr) + num_vertices) > dst_vtx);
+			ASSERT((((vk_vertex_t*)buffer.vertices.ptr) + num_vertices) > dst_vtx);
 			*dst_vtx = (vk_vertex_t){0};
 
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
+			VectorCopy(g_studio.prev_verts[ptricmds[0]], dst_vtx->prev_pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 
@@ -2004,9 +2005,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 	ASSERT(index_offset == num_indices);
 	ASSERT(vertex_offset == num_vertices);
 
-	XVK_RenderBufferUnlock( index_buffer.buffer );
-	XVK_RenderBufferUnlock( vertex_buffer.buffer );
-
+	R_GeometryBufferUnlock( &buffer );
 
 	// Render
 	{
@@ -2015,10 +2014,10 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			.texture = texture,
 			.material = FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ) ? kXVkMaterialChrome : kXVkMaterialRegular,
 
-			.vertex_offset = vertex_buffer.buffer.unit.offset,
+			.vertex_offset = buffer.vertices.unit_offset,
 			.max_vertex = num_vertices,
 
-			.index_offset = index_buffer.buffer.unit.offset,
+			.index_offset = buffer.indices.unit_offset,
 			.element_count = num_indices,
 		};
 
@@ -2140,24 +2139,37 @@ static void R_StudioDrawPoints( void )
 
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
-			R_StudioComputeSkinMatrix( &pvertweight[i], skinMat );
+			R_StudioComputeSkinMatrix( &pvertweight[i], g_studio.worldtransform, skinMat );
 			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 
+		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
+		for( i = 0; i < m_pSubModel->numverts; i++ )
+		{
+			R_StudioComputeSkinMatrix( &pvertweight[i], prev_bones_transforms, skinMat );
+			Matrix3x4_VectorTransform( skinMat, pstudioverts[i], g_studio.prev_verts[i] );
+		}
+
 		for( i = 0; i < m_pSubModel->numnorms; i++ )
 		{
-			R_StudioComputeSkinMatrix( &pnormweight[i], skinMat );
+			R_StudioComputeSkinMatrix( &pnormweight[i], g_studio.worldtransform, skinMat );
 			Matrix3x4_VectorRotate( skinMat, pstudionorms[i], g_studio.norms[i] );
 		}
+
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.worldtransform );
 	}
 	else
 	{
+		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
 			Matrix3x4_VectorTransform( g_studio.bonestransform[pvertbone[i]], pstudioverts[i], g_studio.verts[i] );
+			Matrix3x4_VectorTransform( prev_bones_transforms[pvertbone[i]], pstudioverts[i], g_studio.prev_verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
+
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.bonestransform );
 	}
 
 	// generate shared normals for properly scaling glowing shell
@@ -2319,7 +2331,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 
 			Q_snprintf( state->modelname, sizeof( state->modelname ), "models/player/%s/%s.mdl", info->model, info->model );
 
-			if( gEngine.FS_FileExists( state->modelname, false ))
+			if( gEngine.fsapi->FileExists( state->modelname, false ))
 				state->model = gEngine.Mod_ForName( state->modelname, false, true );
 			else state->model = NULL;
 

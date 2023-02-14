@@ -418,6 +418,8 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 		out->flags |= GFL_NOMODELS;
 	if( in->noskills )
 		out->flags |= GFL_NOSKILLS;
+	if( in->render_picbutton_text )
+		out->flags |= GFL_RENDER_PICBUTTON_TEXT;
 }
 
 static qboolean PIC_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
@@ -979,7 +981,7 @@ pfnGetGamesList
 */
 static GAMEINFO ** GAME_EXPORT pfnGetGamesList( int *numGames )
 {
-	if( numGames ) *numGames = SI.numgames;
+	if( numGames ) *numGames = FI->numgames;
 	return gameui.modsInfo;
 }
 
@@ -1059,10 +1061,7 @@ pfnChangeInstance
 */
 static void GAME_EXPORT pfnChangeInstance( const char *newInstance, const char *szFinalMessage )
 {
-	if( !szFinalMessage ) szFinalMessage = "";
-	if( !newInstance || !*newInstance ) return;
-
-	Host_NewInstance( newInstance, szFinalMessage );
+	Con_Reportf( S_ERROR "ChangeInstance menu call is deprecated!\n" );
 }
 
 /*
@@ -1119,6 +1118,29 @@ static char *pfnParseFile( char *buf, char *token )
 	return COM_ParseFile( buf, token, INT_MAX );
 }
 
+/*
+=============
+pfnFileExists
+
+legacy wrapper
+=============
+*/
+static int pfnFileExists( const char *path, int gamedironly )
+{
+	return FS_FileExists( path, gamedironly );
+}
+
+/*
+=============
+pfnDelete
+
+legacy wrapper
+=============
+*/
+static int pfnDelete( const char *path )
+{
+	return FS_Delete( path );
+}
 
 // engine callbacks
 static ui_enginefuncs_t gEngfuncs =
@@ -1166,7 +1188,7 @@ static ui_enginefuncs_t gEngfuncs =
 	pfnRenderScene,
 	pfnAddEntity,
 	Host_Error,
-	FS_FileExists,
+	pfnFileExists,
 	pfnGetGameDir,
 	Cmd_CheckMapsList,
 	CL_Active,
@@ -1205,7 +1227,7 @@ static ui_enginefuncs_t gEngfuncs =
 	COM_CompareFileTime,
 	VID_GetModeString,
 	(void*)COM_SaveFile,
-	(void*)FS_Delete
+	pfnDelete
 };
 
 static void pfnEnableTextInput( int enable )
@@ -1227,6 +1249,11 @@ static int pfnGetRenderers( unsigned int num, char *shortName, size_t size1, cha
 	return 1;
 }
 
+static char *pfnParseFileSafe( char *data, char *buf, const int size, unsigned int flags, int *len )
+{
+	return COM_ParseFileSafe( data, buf, size, flags, len, NULL );
+}
+
 static ui_extendedfuncs_t gExtendedfuncs =
 {
 	pfnEnableTextInput,
@@ -1235,7 +1262,8 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	Con_UtfMoveRight,
 	pfnGetRenderers,
 	Sys_DoubleTime,
-	_COM_ParseFileSafe,
+	pfnParseFileSafe,
+	NET_AdrToString,
 	R_GetRenderDevice
 };
 
@@ -1356,13 +1384,13 @@ qboolean UI_LoadProgs( void )
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );
 
 	// setup gameinfo
-	for( i = 0; i < SI.numgames; i++ )
+	for( i = 0; i < FI->numgames; i++ )
 	{
 		gameui.modsInfo[i] = Mem_Calloc( gameui.mempool, sizeof( GAMEINFO ));
-		UI_ConvertGameInfo( gameui.modsInfo[i], SI.games[i] );
+		UI_ConvertGameInfo( gameui.modsInfo[i], FI->games[i] );
 	}
 
-	UI_ConvertGameInfo( &gameui.gameInfo, SI.GameInfo ); // current gameinfo
+	UI_ConvertGameInfo( &gameui.gameInfo, FI->GameInfo ); // current gameinfo
 
 	// setup globals
 	gameui.globals->developer = host.allow_console;

@@ -1,3 +1,36 @@
+# Programmable render
+- [ ] what if new meatpipe has different image format for a creatable image?
+- [ ] implicit dependency tracking. pass defines:
+	- [ ] imports: list of things it needs
+	- [ ] exports: list of things it produces. those get created and registered with this pass as a producer
+- [ ] resource management refactoring:
+	- [ ] register existing resources (tlas, buffers, temp images, ...) in their producers
+	- [ ] resource automatic resolution: prducing, barriers, etc
+	- [ ] resource destruction
+- [ ] ? resource object: name, metadata(type, etc.), producer, status (ready, barriers, etc)
+
+# Parallel frames sync
+- [ ] models_cache
+  - lifetimes:
+    - static; entire map
+	- static; single to multiple frames
+	- dynamic; multiple frames
+  - : intra-cmdbuf
+
+# Multipass + Sampling
+- [ ] better simple sampling
+	- [x] all triangles
+	- [x] area based on triangles
+	- [ ] clipping?
+	- [ ] can we pack polygon lights better? e.g.:
+		- each light is strictly a triangle
+		- index is offset into triangles
+		- layout:
+			- vec4(plane) // is it really needed? is early culling important? can we shove area into there too? e.g plane_n.xy,plane_d, area
+			- vec4(v0xyz, e_r)
+			- vec4(v1xyz, e_g)
+			- vec4(v2xyz, e_b)
+
 # Next
 - [ ] remove surface visibility cache
 - [ ] rtx: rename point lights to lampochki
@@ -8,7 +41,6 @@
 		uint8_t data[];
 
 # Planned
-- [ ] rtx: shrink payload between shaders
 - [ ] improve nonuniformEXT usage: https://github.com/KhronosGroup/Vulkan-Samples/pull/243/files#diff-262568ff21d7a618c0069d6a4ddf78e715fe5326c71dd2f5cdf8fc8da929bc4eR31
 - [ ] rtx: experiment with refraction index and "refraction roughness"
 - [ ] emissive beams
@@ -25,7 +57,6 @@
 			- [ ] "Color" should use solid color instead of texture
 			- [ ] "Color", "Texture", ("Glow"?) should be able to reflect and refract, likely not universally though, as they might be used for different intended effects in game. figure this out on case-by-case basis. maybe we could control it based on texture names and such.
 			- [ ] "Additive" should just be emissive and not reflective/refractive
-- [ ] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
 - [ ] rtx: filter things to render, e.g.: some sprites are there to fake bloom, we don't need to draw them in rtx mode
 - [ ] possibly split vk_render into (a) rendering/pipeline, (b) buffer management/allocation, (c) render state
 - [ ] rtx: light styles: need static lights data, not clear how and what to do
@@ -37,7 +68,6 @@
 	- [x] chrome
 - [ ] more beams types
 - [ ] more particle types
-- [ ] rtx: better mip lods: there's a weird math that operates on fov degrees (not radians) that we copypasted from ray tracing gems 2 chapter 7. When the book is available, get through the math and figure this out.
 - [ ] sane texture memory management: do not allocate VKDeviceMemory for every texture
 - [ ] rtx: transparency layering issue, possible approaches:
 	- [ ]  trace a special transparent-only ray separately from opaque. This can at least be used to remove black texture areas
@@ -59,10 +89,9 @@
 - [ ] studio models: pre-compute buffer sizes and allocate them at once
 - [ ] rtx: denoise
 	- [ ] non local means ?
-	- [ ] reprojection
+	- [x] reprojection
 	- [ ] SVG+
 	- [ ] ...
-- [ ] rtx: add fps: rasterize into G-buffer, and only then compute lighting with rtx
 - [ ] rtx: bake light visibility in compute shader
 - [ ] dlight for flashlight seems to be broken
 - [ ] make 2nd commad buffer for resource upload
@@ -78,9 +107,7 @@
 - [ ] what is GL_Backend*/GL_RenderFrame ???
 - [ ] particles
 - [ ] decals
-- [ ] render skybox
 - [ ] lightmap dynamic styles
-- [ ] better flashlight: spotlight instead of dlight point
 - [ ] fog
 - [ ] studio models survive NewMap; need to compactify buffers after removing all brushes
 - [ ] sometimes it gets very slow (1fps) when ran under lldb (only on stream?)
@@ -90,16 +117,11 @@
 
 # Someday
 - [ ] more than one lightmap texture. E.g. sponza ends up having 3 lightmaps
-- [ ] nvnsight into buffer memory and stuff
 - [ ] start building command buffers in beginframe
-- [ ] multiple frames in flight (#nd cmdbuf, ...)
 - [ ] cleanup unused stuff in vk_studio.c
-- [ ] embed shaders into binary
-- [ ] verify resources lifetime: make sure we don't leak and delete all textures, brushes, models, etc between maps
-- [ ] custom allocator for vulkan
 - [ ] stats
 - [ ] better 2d renderer: fill DRAWQUAD(texture, color, ...) command into storage buffer instead of 4 vertices
-- [ ] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
+- [-] auto-atlas lots of smol textures: most of model texture are tiny (64x64 or less), can we not rebind them all the time? alt: bindless texture array
 - [ ] can we also try to coalesce sprite draw calls?
 - [ ] brush geometry is not watertight
 - [ ] collect render_draw_t w/o submitting them to cmdbuf, then sort by render_mode, trans depth, and other parameters, trying to batch as much stuff as possible; only then submit
@@ -389,3 +411,99 @@
 - [x] rtx: cull light sources (dlights and light textures) using bsp
 - [-] crash in PM_RecursiveHullCheck. havent seen this in a while
 - [x] rtx: remove lbsp
+
+## 2022-09-17 E207 Parallel frames
+- [x] allocate for N frames:
+	- [x] geometries
+	- [x] rt models
+		- [x] kusochki
+		  - [x] same ring buffer alloc as for geometries
+		    - [x] extract as a unit
+		- [x] tlas geom --//--
+	- [-] lights
+		- [x] make metadata buffer in lights
+		- [-] join lights grid+meta into a single buffer => pipeline loading issues
+		- [x] put lights data into a cpu-side vk buffer
+		- [-] sync+barrier upload => TOO BIG AND TOO SLOW, need to e.g. track dirty regions, compactify stuff (many clusters are the same), etc
+- [x] scratch buffer:
+  - should be fine (assuming intra-cmdbuf sync), contents lifetime is single frame only
+- [x] accels_buffer:
+  - ~~[ ] lifetime: multiple frames; dynamic: some b/tlases get rebuilt every frame~~
+  - ~~[ ] opt 1: double buffering~~
+  - [x] opt 2: intra-cmdbuf sync (can't write unless previous frame is done)
+- [x] uniform_buffer:
+  - lifetime: single frame
+- [x] tlas_geom_buffer:
+  - similar to scratch_buffer
+  - BUT: filled on CPU, so it's not properly synchronsized
+  - fix: upload using staging?
+	- [x] double/ring buffering
+
+- [x] E213:
+	- [x] parse binding types
+	- [x] remove types from resources FIXME
+- [x] E214: ~tentative~
+	- [x] integrate sebastian into waf
+- [x] E215:
+	- [x] serialize binding image format
+
+# 2022-11-26 E216 rake yuri
+	- [x] validate meatpipe image formats
+	- [x] begin Rake Yuri migration
+		- [x] direct lights
+
+# 2023-01-21 E217-E221
+- [x] meatpipe resource tracking
+	- [x] name -> index mapping
+	- [x] create images on meatpipe load
+	- [x] automatic resource creation
+	- [x] serialize all resources with in/out and formats for images
+	- [x] create resources on demand
+- [x] parse spirv -> get bindings with names
+  - [x] spirv needs to be compiled with -g, otherwise there are no OpName entries. Need a custom strip util that strips the rest?
+	- [x] unnamed uniform blocks are uncomfortable to parse.
+- [x] passes "export" their bindings as detailed resource descriptions:
+  - [x] images: name, r/w, format, resolution (? not found in spv, needs to be externally supplied)
+	- [-] buffers: name, r/w, size, type name (?) -- can't really do, too hard for now
+- [x] name -> index resolver (hashmap kekw)
+- [x] automatic creation of resources
+	- [x] images
+	- [-] buffers -- no immediate need for that
+
+# 2023-01-22 E222
+- [x] refcount meatpipe created images
+- [x] rake yuri primary ray
+
+# 2023-01-28 E223
+- [x] previous frame resources reference
+		- specification:
+			- [x] I: prev_ -> resource flag + pair index
+			- [ ] II: new section in json
+		- internals:
+			- [x] I: create a new image for prev_, track its source; swap them each frame
+						Result is meh: too much indirection, hard to follow, many things need manual fragile updates.
+			- [ ] II: create tightly coupled image pair[2], read from [frame%2] write to [frame%2+1]
+			- [ ] III: like (I) but with more general resource management: i.e. resource object for prev_ points to its source
+
+# 2023-01-28-02-08 E224-229
+- [x] light_grid_buffer (+ small lights_buffer):
+  - lifetime: single frame
+  - BUT: populated by CPU, needs sync; can't just ring-buffer it
+  - fixes: double-buffering?
+    - staging + sync upload? staging needs to be huge or done in chunks. also, cpu needs to wait on staging upload
+	- 2x size + wait: won't fit into device-local-host-visible mem
+	- decrease size first?
+- [x] additive transparency
+- [x] bounces
+- [x] skybox shadows
+- [-] rtx: shrink payload between shaders
+- [x] rtx: split ray tracing into modules: pipeline mgmt, buffer mgmt
+- [x] nvnsight into buffer memory and stuff
+- [x] multiple frames in flight (#nd cmdbuf, ...)
+- [x] embed shaders into binary
+- [x] verify resources lifetime: make sure we don't leak and delete all textures, brushes, models, etc between maps
+- [x] custom allocator for vulkan
+- [x] rtx: better mip lods: there's a weird math that operates on fov degrees (not radians) that we copypasted from ray tracing gems 2 chapter 7. When the book is available, get through the math and figure this out.
+- [x] render skybox
+- [x] better flashlight: spotlight instead of dlight point
+- [x] rtx: add fps: rasterize into G-buffer, and only then compute lighting with rtx

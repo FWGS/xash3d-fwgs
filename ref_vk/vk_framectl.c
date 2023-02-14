@@ -1,6 +1,6 @@
 #include "vk_framectl.h"
 
-#include "vk_2d.h"
+#include "vk_overlay.h"
 #include "vk_scene.h"
 #include "vk_render.h"
 #include "vk_rtx.h"
@@ -8,6 +8,11 @@
 #include "vk_devmem.h"
 #include "vk_swapchain.h"
 #include "vk_image.h"
+#include "vk_staging.h"
+#include "vk_commandpool.h"
+
+#include "vk_light.h" // For stats
+#include "shaders/ray_interop.h" // stats: struct LightCluster
 
 #include "profiler.h"
 
@@ -27,21 +32,26 @@ typedef enum {
 } frame_phase_t;
 
 static struct {
-	// TODO N frames in flight
-	VkSemaphore image_available;
-	VkSemaphore done;
-	VkFence fence;
+	vk_command_pool_t command;
+	VkSemaphore sem_framebuffer_ready[MAX_CONCURRENT_FRAMES];
+	VkSemaphore sem_done[MAX_CONCURRENT_FRAMES];
+	VkSemaphore sem_done2[MAX_CONCURRENT_FRAMES];
+	VkFence fence_done[MAX_CONCURRENT_FRAMES];
 
 	qboolean rtx_enabled;
 
-	r_vk_swapchain_framebuffer_t current_framebuffer;
-
-	frame_phase_t phase;
-	VkCommandBuffer cmdbuf;
+	struct {
+		int index;
+		r_vk_swapchain_framebuffer_t framebuffer;
+		frame_phase_t phase;
+	} current;
 } g_frame;
 
 #define PROFILER_SCOPES(X) \
-	X(end_frame , "R_EndFrame"); \
+	X(frame, "Frame"); \
+	X(begin_frame, "R_BeginFrame"); \
+	X(render_frame, "VK_RenderFrame"); \
+	X(end_frame, "R_EndFrame"); \
 	X(frame_gpu_wait, "Wait for GPU"); \
 
 #define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
@@ -83,7 +93,7 @@ static const VkFormat depth_formats[] = {
 static VkRenderPass createRenderPass( VkFormat depth_format, qboolean ray_tracing ) {
 	VkRenderPass render_pass;
 
-	VkAttachmentDescription attachments[] = {{
+	const VkAttachmentDescription attachments[] = {{
 		.format = SWAPCHAIN_FORMAT,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
 		.loadOp = ray_tracing ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR /* TODO: prod renderer should not care VK_ATTACHMENT_LOAD_OP_DONT_CARE */,
@@ -104,24 +114,24 @@ static VkRenderPass createRenderPass( VkFormat depth_format, qboolean ray_tracin
 		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 	}};
 
-	VkAttachmentReference color_attachment = {
+	const VkAttachmentReference color_attachment = {
 		.attachment = 0,
 		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 	};
 
-	VkAttachmentReference depth_attachment = {
+	const VkAttachmentReference depth_attachment = {
 		.attachment = 1,
 		.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 	};
 
-	VkSubpassDescription subdesc = {
+	const VkSubpassDescription subdesc = {
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 		.colorAttachmentCount = 1,
 		.pColorAttachments = &color_attachment,
 		.pDepthStencilAttachment = &depth_attachment,
 	};
 
-	VkRenderPassCreateInfo rpci = {
+	const VkRenderPassCreateInfo rpci = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		.attachmentCount = ARRAYSIZE(attachments),
 		.pAttachments = attachments,
@@ -133,35 +143,27 @@ static VkRenderPass createRenderPass( VkFormat depth_format, qboolean ray_tracin
 	return render_pass;
 }
 
-void R_BeginFrame( qboolean clearScene ) {
-	ASSERT(g_frame.phase == Phase_Submitted || g_frame.phase == Phase_Idle);
-
-	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
-		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
-	}
-	ClearBits( vk_rtx->flags, FCVAR_CHANGED );
-
-	{
-		gEngine.Con_NPrintf(5, "Perf scopes:");
-		for (int i = 0; i < g_aprof.num_scopes; ++i) {
-			const aprof_scope_t *const scope = g_aprof.scopes + i;
-			gEngine.Con_NPrintf(6 + i, "%s: c%d t%.03f(%.03f)ms s%.03f(%.03f)ms", scope->name,
-				scope->frame.count,
-				scope->frame.duration / 1e6,
-				(scope->frame.duration / 1e6) / scope->frame.count,
-				(scope->frame.duration - scope->frame.duration_children) / 1e6,
-				(scope->frame.duration - scope->frame.duration_children) / 1e6 / scope->frame.count);
+static void waitForFrameFence( void ) {
+	for(qboolean loop = true; loop; ) {
+#define MAX_WAIT (10ull * 1000*1000*1000)
+		const VkResult fence_result = vkWaitForFences(vk_core.device, 1, g_frame.fence_done + g_frame.current.index, VK_TRUE, MAX_WAIT);
+#undef MAX_WAIT
+		switch (fence_result) {
+			case VK_SUCCESS:
+				loop = false;
+				break;
+			case VK_TIMEOUT:
+				gEngine.Con_Printf(S_ERROR "Waiting for frame fence to be signaled timed out after 10 seconds. Wat\n");
+				break;
+			default:
+				XVK_CHECK(fence_result);
 		}
-
-		aprof_scope_frame();
 	}
 
-	ASSERT(!g_frame.current_framebuffer.framebuffer);
+	XVK_CHECK(vkResetFences(vk_core.device, 1, g_frame.fence_done + g_frame.current.index));
+}
 
-	g_frame.current_framebuffer = R_VkSwapchainAcquire( g_frame.image_available, g_frame.fence );
-	vk_frame.width = g_frame.current_framebuffer.width;
-	vk_frame.height = g_frame.current_framebuffer.height;
-
+static void updateGamma( void ) {
 	// FIXME when
 	{
 		cvar_t* vid_gamma = gEngine.pfnGetCvarPointer( "gamma", 0 );
@@ -181,25 +183,74 @@ void R_BeginFrame( qboolean clearScene ) {
 			// FIXME rebuild lightmaps
 		}
 	}
+}
+
+// FIXME move this to r_speeds or something like that
+static void showProfilingData( void ) {
+	{
+		const int dirty = g_lights.stats.dirty_cells;
+		gEngine.Con_NPrintf(4, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
+	}
+
+	gEngine.Con_NPrintf(5, "Perf scopes:");
+	for (int i = 0; i < g_aprof.num_scopes; ++i) {
+		const aprof_scope_t *const scope = g_aprof.scopes + i;
+		gEngine.Con_NPrintf(6 + i, "%s: c%d t%.03f(%.03f)ms s%.03f(%.03f)ms", scope->name,
+			scope->frame.count,
+			scope->frame.duration / 1e6,
+			(scope->frame.duration / 1e6) / scope->frame.count,
+			(scope->frame.duration - scope->frame.duration_children) / 1e6,
+			(scope->frame.duration - scope->frame.duration_children) / 1e6 / scope->frame.count);
+	}
+}
+
+void R_BeginFrame( qboolean clearScene ) {
+	ASSERT(g_frame.current.phase == Phase_Submitted || g_frame.current.phase == Phase_Idle);
+	const int prev_frame_index = g_frame.current.index % MAX_CONCURRENT_FRAMES;
+	g_frame.current.index = (g_frame.current.index + 1) % MAX_CONCURRENT_FRAMES;
+	const VkCommandBuffer cmdbuf = vk_frame.cmdbuf = g_frame.command.buffers[g_frame.current.index];
+
+	showProfilingData();
+	aprof_scope_frame();
+
+	APROF_SCOPE_BEGIN(frame);
+	APROF_SCOPE_BEGIN(begin_frame);
+
+	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
+		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
+	}
+	ClearBits( vk_rtx->flags, FCVAR_CHANGED );
+
+	updateGamma();
+
+	ASSERT(!g_frame.current.framebuffer.framebuffer);
+
+	waitForFrameFence();
+	R_VkStagingFrameBegin();
+
+	g_frame.current.framebuffer = R_VkSwapchainAcquire( g_frame.sem_framebuffer_ready[g_frame.current.index] );
+	vk_frame.width = g_frame.current.framebuffer.width;
+	vk_frame.height = g_frame.current.framebuffer.height;
 
 	VK_RenderBegin( g_frame.rtx_enabled );
 
-	g_frame.cmdbuf = vk_core.cb;
-
 	{
-		VkCommandBufferBeginInfo beginfo = {
+		const VkCommandBufferBeginInfo beginfo = {
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		};
-		XVK_CHECK(vkBeginCommandBuffer(g_frame.cmdbuf, &beginfo));
+		XVK_CHECK(vkBeginCommandBuffer(cmdbuf, &beginfo));
 	}
 
-	g_frame.phase = Phase_FrameBegan;
+	g_frame.current.phase = Phase_FrameBegan;
+	APROF_SCOPE_END(begin_frame);
 }
 
 void VK_RenderFrame( const struct ref_viewpass_s *rvp )
 {
+	APROF_SCOPE_BEGIN(render_frame);
 	VK_SceneRender( rvp );
+	APROF_SCOPE_END(render_frame);
 }
 
 static void enqueueRendering( VkCommandBuffer cmdbuf ) {
@@ -208,31 +259,33 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 		{.depthStencil = {1., 0.}} // TODO reverse-z
 	};
 
-	ASSERT(g_frame.phase == Phase_FrameBegan);
+	ASSERT(g_frame.current.phase == Phase_FrameBegan);
+
+	VK_Render_FIXME_Barrier(cmdbuf);
 
 	if (g_frame.rtx_enabled)
-		VK_RenderEndRTX( cmdbuf, g_frame.current_framebuffer.view, g_frame.current_framebuffer.image, g_frame.current_framebuffer.width, g_frame.current_framebuffer.height );
+		VK_RenderEndRTX( cmdbuf, g_frame.current.framebuffer.view, g_frame.current.framebuffer.image, g_frame.current.framebuffer.width, g_frame.current.framebuffer.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			.renderPass = g_frame.rtx_enabled ? vk_frame.render_pass.after_ray_tracing : vk_frame.render_pass.raster,
-			.renderArea.extent.width = g_frame.current_framebuffer.width,
-			.renderArea.extent.height = g_frame.current_framebuffer.height,
+			.renderArea.extent.width = g_frame.current.framebuffer.width,
+			.renderArea.extent.height = g_frame.current.framebuffer.height,
 			.clearValueCount = ARRAYSIZE(clear_value),
 			.pClearValues = clear_value,
-			.framebuffer = g_frame.current_framebuffer.framebuffer,
+			.framebuffer = g_frame.current.framebuffer.framebuffer,
 		};
 		vkCmdBeginRenderPass(cmdbuf, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
 	}
 
 	{
 		const VkViewport viewport[] = {
-			{0.f, 0.f, (float)g_frame.current_framebuffer.width, (float)g_frame.current_framebuffer.height, 0.f, 1.f},
+			{0.f, 0.f, (float)g_frame.current.framebuffer.width, (float)g_frame.current.framebuffer.height, 0.f, 1.f},
 		};
 		const VkRect2D scissor[] = {{
 			{0, 0},
-			{g_frame.current_framebuffer.width, g_frame.current_framebuffer.height},
+			{g_frame.current.framebuffer.width, g_frame.current.framebuffer.height},
 		}};
 
 		vkCmdSetViewport(cmdbuf, 0, ARRAYSIZE(viewport), viewport);
@@ -242,71 +295,87 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 	if (!g_frame.rtx_enabled)
 		VK_RenderEnd( cmdbuf );
 
-	vk2dEnd( cmdbuf );
+	R_VkOverlay_DrawAndFlip( cmdbuf );
 
 	vkCmdEndRenderPass(cmdbuf);
 
-	g_frame.phase = Phase_RenderingEnqueued;
+	g_frame.current.phase = Phase_RenderingEnqueued;
 }
 
 static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
-	ASSERT(g_frame.phase == Phase_RenderingEnqueued);
+	ASSERT(g_frame.current.phase == Phase_RenderingEnqueued);
 
 	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 
+	const VkCommandBuffer cmdbufs[] = {
+		R_VkStagingFrameEnd(),
+		cmdbuf,
+	};
+
 	{
-		const VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		const VkPipelineStageFlags stageflags[] = {
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		};
+		const VkSemaphore waitophores[] = {
+			g_frame.sem_framebuffer_ready[g_frame.current.index],
+			g_frame.sem_done2[(g_frame.current.index + 1) % MAX_CONCURRENT_FRAMES],
+		};
+		const VkSemaphore signalphores[] = {
+			g_frame.sem_done[g_frame.current.index],
+			g_frame.sem_done2[g_frame.current.index],
+		};
 		const VkSubmitInfo subinfo = {
 			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			.pNext = NULL,
-			.commandBufferCount = 1,
-			.pCommandBuffers = &cmdbuf,
-			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &g_frame.image_available,
-			.signalSemaphoreCount = 1,
-			.pSignalSemaphores = &g_frame.done,
-			.pWaitDstStageMask = &stageflags,
+			.commandBufferCount = cmdbufs[0] ? 2 : 1,
+			.pCommandBuffers = cmdbufs[0] ? cmdbufs : cmdbufs + 1,
+			.waitSemaphoreCount = COUNTOF(waitophores),
+			.pWaitSemaphores = waitophores,
+			.pWaitDstStageMask = stageflags,
+			.signalSemaphoreCount = COUNTOF(signalphores),
+			.pSignalSemaphores = signalphores,
 		};
-		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence));
-		g_frame.phase = Phase_Submitted;
+		//gEngine.Con_Printf("SYNC: wait for semaphore %d, signal semaphore %d\n", (g_frame.current.index + 1) % MAX_CONCURRENT_FRAMES, g_frame.current.index);
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, g_frame.fence_done[g_frame.current.index]));
+		g_frame.current.phase = Phase_Submitted;
 	}
 
-	R_VkSwapchainPresent(g_frame.current_framebuffer.index, g_frame.done);
-	g_frame.current_framebuffer = (r_vk_swapchain_framebuffer_t){0};
+	R_VkSwapchainPresent(g_frame.current.framebuffer.index, g_frame.sem_done[g_frame.current.index]);
+	g_frame.current.framebuffer = (r_vk_swapchain_framebuffer_t){0};
 
 	if (wait) {
 		APROF_SCOPE_BEGIN(frame_gpu_wait);
-		// TODO bad sync
-		XVK_CHECK(vkWaitForFences(vk_core.device, 1, &g_frame.fence, VK_TRUE, INT64_MAX));
-		XVK_CHECK(vkResetFences(vk_core.device, 1, &g_frame.fence));
+		XVK_CHECK(vkWaitForFences(vk_core.device, 1, g_frame.fence_done + g_frame.current.index, VK_TRUE, INT64_MAX));
 		APROF_SCOPE_END(frame_gpu_wait);
 
 		if (vk_core.debug) {
 			// FIXME more scopes
 			XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
 		}
-		g_frame.phase = Phase_Idle;
+		g_frame.current.phase = Phase_Idle;
 	}
+}
 
-	// TODO better sync implies multiple frames in flight, which means that we must
-	// retain temporary (SingleFrame) buffer contents for longer, until all users are done.
-	// (this probably means that we should really have some kind of refcount going on...)
-	// For now we can just erase these buffers now because of sync with fence
-	XVK_RenderBufferFrameClear();
-
-	g_frame.cmdbuf = VK_NULL_HANDLE;
+inline static VkCommandBuffer currentCommandBuffer( void ) {
+	return g_frame.command.buffers[g_frame.current.index];
 }
 
 void R_EndFrame( void )
 {
 	APROF_SCOPE_BEGIN_EARLY(end_frame);
 
-	if (g_frame.phase == Phase_FrameBegan) {
-		enqueueRendering( vk_core.cb );
-		submit( vk_core.cb, true );
+	if (g_frame.current.phase == Phase_FrameBegan) {
+		const VkCommandBuffer cmdbuf = currentCommandBuffer();
+		enqueueRendering( cmdbuf );
+		submit( cmdbuf, false );
+		//submit( cmdbuf, true );
+
+		vk_frame.cmdbuf = VK_NULL_HANDLE;
 	}
 
 	APROF_SCOPE_END(end_frame);
+	APROF_SCOPE_END(frame);
 }
 
 static void toggleRaytracing( void ) {
@@ -322,6 +391,8 @@ qboolean VK_FrameCtlInit( void )
 
 	const VkFormat depth_format = findSupportedImageFormat(depth_formats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
+	g_frame.command = R_VkCommandPoolCreate( MAX_CONCURRENT_FRAMES );
+
 	// FIXME move this out to renderers
 	vk_frame.render_pass.raster = createRenderPass(depth_format, false);
 	if (vk_core.rtx)
@@ -330,9 +401,34 @@ qboolean VK_FrameCtlInit( void )
 	if (!R_VkSwapchainInit(vk_frame.render_pass.raster, depth_format))
 		return false;
 
-	g_frame.image_available = createSemaphore();
-	g_frame.done = createSemaphore();
-	g_frame.fence = createFence();
+	for (int i = 0; i < MAX_CONCURRENT_FRAMES; ++i) {
+		g_frame.sem_framebuffer_ready[i] = R_VkSemaphoreCreate();
+		SET_DEBUG_NAMEF(g_frame.sem_framebuffer_ready[i], VK_OBJECT_TYPE_SEMAPHORE, "framebuffer_ready[%d]", i);
+		g_frame.sem_done[i] = R_VkSemaphoreCreate();
+		SET_DEBUG_NAMEF(g_frame.sem_done[i], VK_OBJECT_TYPE_SEMAPHORE, "done[%d]", i);
+		g_frame.sem_done2[i] = R_VkSemaphoreCreate();
+		SET_DEBUG_NAMEF(g_frame.sem_done2[i], VK_OBJECT_TYPE_SEMAPHORE, "done2[%d]", i);
+		g_frame.fence_done[i] = R_VkFenceCreate(true);
+		SET_DEBUG_NAMEF(g_frame.fence_done[i], VK_OBJECT_TYPE_FENCE, "done[%d]", i);
+	}
+
+	// Signal first frame semaphore as done
+	{
+		const VkPipelineStageFlags stageflags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		const VkSubmitInfo subinfo = {
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.pNext = NULL,
+			.commandBufferCount = 0,
+			.pCommandBuffers = NULL,
+			.waitSemaphoreCount = 0,
+			.pWaitSemaphores = NULL,
+			.pWaitDstStageMask = &stageflags,
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = g_frame.sem_done2 + 0,
+		};
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+		//gEngine.Con_Printf("SYNC: signal semaphore %d\n", 0);
+	}
 
 	g_frame.rtx_enabled = vk_core.rtx;
 
@@ -343,17 +439,21 @@ qboolean VK_FrameCtlInit( void )
 	return true;
 }
 
-void VK_FrameCtlShutdown( void )
-{
-	destroyFence(g_frame.fence);
-	destroySemaphore(g_frame.done);
-	destroySemaphore(g_frame.image_available);
+void VK_FrameCtlShutdown( void ) {
+	for (int i = 0; i < MAX_CONCURRENT_FRAMES; ++i) {
+		R_VkSemaphoreDestroy(g_frame.sem_framebuffer_ready[i]);
+		R_VkSemaphoreDestroy(g_frame.sem_done[i]);
+		R_VkSemaphoreDestroy(g_frame.sem_done2[i]);
+		R_VkFenceDestroy(g_frame.fence_done[i]);
+	}
 
 	R_VkSwapchainShutdown();
 
 	vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.raster, NULL);
 	if (vk_core.rtx)
 		vkDestroyRenderPass(vk_core.device, vk_frame.render_pass.after_ray_tracing, NULL);
+
+	R_VkCommandPoolDestroy( &g_frame.command );
 }
 
 static qboolean canBlitFromSwapchainToFormat( VkFormat dest_format ) {
@@ -377,10 +477,10 @@ static qboolean canBlitFromSwapchainToFormat( VkFormat dest_format ) {
 static rgbdata_t *XVK_ReadPixels( void ) {
 	const VkFormat dest_format = VK_FORMAT_R8G8B8A8_UNORM;
 	xvk_image_t dest_image;
-	const VkImage frame_image = g_frame.current_framebuffer.image;
+	const VkImage frame_image = g_frame.current.framebuffer.image;
 	rgbdata_t *r_shot = NULL;
 	qboolean blit = canBlitFromSwapchainToFormat( dest_format );
-	const VkCommandBuffer cmdbuf = g_frame.cmdbuf;
+	const VkCommandBuffer cmdbuf = currentCommandBuffer();
 
 	if (frame_image == VK_NULL_HANDLE) {
 		gEngine.Con_Printf(S_ERROR "no current image, can't take screenshot\n");
@@ -584,7 +684,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	case VID_SCREENSHOT:
 		break;
 	case VID_SNAPSHOT:
-		gEngine.FS_AllowDirectPaths( true );
+		gEngine.fsapi->AllowDirectPaths( true );
 		break;
 	case VID_LEVELSHOT:
 		flags |= IMAGE_RESAMPLE;
@@ -615,7 +715,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 
 	// write image
 	result = gEngine.FS_SaveImage( filename, r_shot );
-	gEngine.FS_AllowDirectPaths( false );			// always reset after store screenshot
+	gEngine.fsapi->AllowDirectPaths( false );			// always reset after store screenshot
 	gEngine.FS_FreeImage( r_shot );
 
 	gEngine.Con_Printf("Wrote screenshot %s\n", filename);

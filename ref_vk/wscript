@@ -37,6 +37,7 @@ def configure(conf):
 		conf.end_msg('found at ' + conf.env.VULKAN_SDK)
 
 	conf.load('glslc')
+	conf.load('sebastian')
 
 	conf.define('REF_DLL', 1)
 
@@ -60,10 +61,21 @@ def configure(conf):
 		conf.end_msg('SDK: {0}, includes: {1}, libpath: {2}, lib: {3}'.format(path, conf.env.INCLUDES_AFTERMATH, conf.env.LIBPATH_AFTERMATH, conf.env.LIB_AFTERMATH))
 
 	# TODO if debug
-	conf.env.GLSLCFLAGS += ['-g']
+	conf.env.GLSLCFLAGS += ['-g', '-O']
 
 	if '-Werror=declaration-after-statement' in conf.env.CFLAGS:
 		conf.env.CFLAGS.remove('-Werror=declaration-after-statement')
+
+def printTestSummary(bld):
+	results = getattr(bld, 'utest_results', [])
+	for (f, code, out, err) in results:
+		if code == 0:
+			Logs.pprint('GREEN', '%s: ok' % f)
+			continue
+
+		Logs.pprint('RED', '%s: test failed' % f)
+		Logs.pprint('CYAN', out.decode('utf-8'))
+		Logs.pprint('CYAN', err.decode('utf-8'))
 
 def build(bld):
 	if not bld.env.VK:
@@ -74,10 +86,13 @@ def build(bld):
 	libpath = []
 
 	source = bld.path.ant_glob(['*.c'])
-	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag', 'shaders/*.comp'])
-	rtx_glsl_source = bld.path.ant_glob(['shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss', 'shaders/*.rahit'])
+	glsl_source = bld.path.ant_glob(['shaders/*.vert', 'shaders/*.frag'])
+	rtx_glsl_source = bld.path.ant_glob(['shaders/*.rgen', 'shaders/*.rchit', 'shaders/*.rmiss', 'shaders/*.rahit', 'shaders/*.comp'])
+
+	meatpipes = bld.path.ant_glob(['shaders/*.json'])
 
 	includes = ['.',
+		'../filesystem',
 		'../engine',
 		'../engine/common',
 		'../engine/server',
@@ -88,13 +103,20 @@ def build(bld):
 
 	if bld.env.DEST_OS == 'win32':
 		includes.append(bld.env.VULKAN_SDK + '\\Include')
+		includes.append(bld.env.VULKAN_SDK + '\\Source\SPIRV-Reflect\include') # for spirv.h
 
 	if bld.env.HAVE_AFTERMATH:
 		defines.append('USE_AFTERMATH')
 		libs.append('AFTERMATH')
+		for file in ['GFSDK_Aftermath_Lib.x64.dll', 'llvm_7_0_1.dll']:
+			bld.install_files(
+				bld.env.LIBDIR,
+				bld.root.find_dir(bld.env.LIBPATH_AFTERMATH[0]).find_node(file))
 
 	if bld.env.COMPILER_CC == 'msvc':
 		bld.env.CFLAGS += ['/WX']
+	else:
+		bld.env.CFLAGS += ['-Werror'] # TODO , '-Wall']
 
 	bld.shlib(
 		source   = source,
@@ -119,11 +141,24 @@ def build(bld):
 	bld(
 		source = rtx_glsl_source,
 		features = 'glsl',
-		install_path = bld.env.LIBDIR + '/valve', # FIXME TEMPORARY!!!!
 		glslcflags = '--target-env=vulkan1.2'
 	)
+
+	bld(
+		source = meatpipes,
+		features = 'sebastian',
+		install_path = bld.env.LIBDIR + '/valve'
+	)
+	#print(things.tasks())
+	#bld.install_files(bld.env.LIBDIR + '/valve', things)
 
 	bld.install_files(bld.env.LIBDIR,
 					  bld.path.ant_glob('data/**'),
 					  cwd=bld.path.find_dir('data/'),
 					  relative_trick=True)
+
+	#bld.program(features='test', defines=['ALOLCATOR_TEST'],source='alolcator.c', target='alolcator')
+	bld.add_post_fun(printTestSummary)
+
+	#from waflib.Tools import waf_unit_test
+	#bld.add_post_fun(waf_unit_test.summary)

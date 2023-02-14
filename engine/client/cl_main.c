@@ -70,6 +70,7 @@ convar_t	*cl_upmax;
 convar_t	*cl_lw;
 convar_t	*cl_charset;
 convar_t	*cl_trace_messages;
+convar_t	*cl_nat;
 convar_t	*hud_utf8;
 convar_t	*ui_renderworld;
 
@@ -195,8 +196,6 @@ void CL_CheckClientState( void )
 		Netchan_ReportFlow( &cls.netchan );
 
 		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart );
-		if(( cls.demoplayback || cls.disable_servercount != cl.servercount ) && cl.video_prepped )
-			SCR_EndLoadingPlaque(); // get rid of loading plaque
 	}
 }
 
@@ -234,6 +233,7 @@ void CL_SignonReply( void )
 			Mem_PrintStats();
 		break;
 	case 2:
+		SCR_EndLoadingPlaque();
 		if( cl.proxy_redirect && !cls.spectator )
 			CL_Disconnect();
 		cl.proxy_redirect = false;
@@ -243,7 +243,7 @@ void CL_SignonReply( void )
 
 float CL_LerpInterval( void )
 {
-	return max( cl_interp->value, 1.f / cl_updaterate->value );
+	return Q_max( cl_interp->value, 1.f / cl_updaterate->value );
 }
 
 /*
@@ -296,7 +296,7 @@ static float CL_LerpPoint( void )
 	if( cl_interp->value > 0.001f )
 	{
 		// manual lerp value (goldsrc mode)
-		float td = max( 0.f, cl.time - cl.mtime[0] );
+		float td = Q_max( 0.f, cl.time - cl.mtime[0] );
 		frac = td / CL_LerpInterval();
 	}
 	else if( server_frametime > 0.001f )
@@ -528,7 +528,7 @@ qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 	if( released & ( IN_RIGHT|IN_MOVERIGHT ))
 		Cvar_SetValue( "r_showtextures", gl_showtextures->value + 1 );
 	if( released & ( IN_LEFT|IN_MOVELEFT ))
-		Cvar_SetValue( "r_showtextures", max( 1, gl_showtextures->value - 1 ));
+		Cvar_SetValue( "r_showtextures", Q_max( 1, gl_showtextures->value - 1 ));
 	oldbuttons = cmd->buttons;
 
 	return true;
@@ -1253,7 +1253,7 @@ void CL_Connect_f( void )
 
 	// if running a local server, kill it and reissue
 	if( SV_Active( )) Host_ShutdownServer();
-	NET_Config( true ); // allow remote
+	NET_Config( true, !CVAR_TO_BOOL( cl_nat )); // allow remote
 
 	Con_Printf( "server %s\n", server );
 	CL_Disconnect();
@@ -1299,7 +1299,7 @@ void CL_Rcon_f( void )
 	message[3] = (char)255;
 	message[4] = 0;
 
-	NET_Config( true );	// allow remote
+	NET_Config( true, false );	// allow remote
 
 	Q_strcat( message, "rcon " );
 	Q_strcat( message, rcon_client_password->string );
@@ -1562,8 +1562,7 @@ void CL_LocalServers_f( void )
 	netadr_t	adr;
 
 	Con_Printf( "Scanning for servers on the local network area...\n" );
-	NET_Config( true ); // allow remote
-	cls.legacyservercount = 0;
+	NET_Config( true, true ); // allow remote
 
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
@@ -1585,13 +1584,12 @@ void CL_InternetServers_f( void )
 	char *info = fullquery + sizeof( MS_SCAN_REQUEST ) - 1;
 	const size_t remaining = sizeof( fullquery ) - sizeof( MS_SCAN_REQUEST );
 
-	NET_Config( true ); // allow remote
+	NET_Config( true, true ); // allow remote
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
-	// Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
-	cls.legacyservercount = 0;
+	Info_SetValueForKey( info, "nat", cl_nat->string, remaining );
 
 	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, sizeof( MS_SCAN_REQUEST ) + Q_strlen( info ), fullquery );
 	cls.internetservers_pending = true;
@@ -1722,8 +1720,6 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	{
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "info %i", PROTOCOL_LEGACY_VERSION );
 		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
-		if( cls.legacyservercount < MAX_LEGACY_SERVERS )
-			cls.legacyservers[cls.legacyservercount++] = from;
 		return;
 	}
 
@@ -1733,14 +1729,10 @@ void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 		return; // unsupported proto
 	}
 
-	for( i = 0; i < cls.legacyservercount; i++ )
+	if( !COM_CheckString( Info_ValueForKey( infostring, "p" )))
 	{
-		if( NET_CompareAdr( cls.legacyservers[i], from ) )
-		{
-			Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ) );
-			Con_Print("Legacy: ");
-			break;
-		}
+		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ) );
+		Con_Print("Legacy: ");
 	}
 
 	// more info about servers
@@ -2161,7 +2153,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			}
 			else if( clgame.request_type == NET_REQUEST_GAMEUI )
 			{
-				NET_Config( true ); // allow remote
+				NET_Config( true, false ); // allow remote
 				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
 			}
 		}
@@ -2353,11 +2345,10 @@ Replace the displayed name for some resources
 */
 const char *CL_CleanFileName( const char *filename )
 {
-	const char	*pfilename = filename;
-
 	if( COM_CheckString( filename ) && filename[0] == '!' )
-		pfilename = "customization";
-	return pfilename;
+		return "customization";
+
+	return filename;
 }
 
 
@@ -2839,6 +2830,7 @@ void CL_InitLocal( void )
 	cl_updaterate = Cvar_Get( "cl_updaterate", "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
 	cl_dlmax = Cvar_Get( "cl_dlmax", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
 	cl_upmax = Cvar_Get( "cl_upmax", "1200", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
+	cl_nat = Cvar_Get( "cl_nat", "0", 0, "show servers running under NAT" );
 	rate = Cvar_Get( "rate", "3500", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 	topcolor = Cvar_Get( "topcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player top color" );
 	bottomcolor = Cvar_Get( "bottomcolor", "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "player bottom color" );
@@ -2881,7 +2873,6 @@ void CL_InitLocal( void )
 	Cmd_AddRestrictedCommand ("kill", NULL, "die instantly" );
 	Cmd_AddCommand ("god", NULL, "enable godmode" );
 	Cmd_AddCommand ("fov", NULL, "set client field of view" );
-	Cmd_AddCommand ("log", NULL, "logging server events" );
 
 	// register our commands
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
@@ -2921,7 +2912,7 @@ void CL_InitLocal( void )
 	Cmd_AddCommand ("levelshot", CL_LevelShot_f, "same as \"screenshot\", used for create plaque images" );
 	Cmd_AddCommand ("saveshot", CL_SaveShot_f, "used for create save previews with LoadGame menu" );
 
-	Cmd_AddRestrictedCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
+	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 
 	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
@@ -3078,7 +3069,6 @@ void CL_Init( void )
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 
 	// IN_TouchInit();
-	Con_LoadHistory();
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
@@ -3099,13 +3089,9 @@ CL_Shutdown
 */
 void CL_Shutdown( void )
 {
-	// already freed
-	if( !cls.initialized ) return;
-	cls.initialized = false;
-
 	Con_Printf( "CL_Shutdown()\n" );
 
-	if( !host.crashed )
+	if( !host.crashed && cls.initialized )
 	{
 		Host_WriteOpenGLConfig ();
 		Host_WriteVideoConfig ();
@@ -3119,6 +3105,9 @@ void CL_Shutdown( void )
 	Mobile_Shutdown ();
 	SCR_Shutdown ();
 	CL_UnloadProgs ();
+	cls.initialized = false;
+
+	VGui_Shutdown();
 
 	FS_Delete( "demoheader.tmp" ); // remove tmp file
 	SCR_FreeCinematic (); // release AVI's *after* client.dll because custom renderer may use them
@@ -3126,4 +3115,5 @@ void CL_Shutdown( void )
 	R_Shutdown ();
 
 	Con_Shutdown ();
+
 }

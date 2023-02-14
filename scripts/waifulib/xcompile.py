@@ -20,12 +20,14 @@ import os
 import sys
 
 ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
-ANDROID_NDK_SUPPORTED = [10, 19, 20, 23]
+ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25]
 ANDROID_NDK_HARDFP_MAX = 11 # latest version that supports hardfp
 ANDROID_NDK_GCC_MAX = 17 # latest NDK that ships with GCC
 ANDROID_NDK_UNIFIED_SYSROOT_MIN = 15
 ANDROID_NDK_SYSROOT_FLAG_MAX = 19 # latest NDK that need --sysroot flag
-ANDROID_NDK_API_MIN = { 10: 3, 19: 16, 20: 16, 23: 16 } # minimal API level ndk revision supports
+ANDROID_NDK_API_MIN = { 10: 3, 19: 16, 20: 16, 23: 16, 25: 19 } # minimal API level ndk revision supports
+
+ANDROID_STPCPY_API_MIN = 21 # stpcpy() introduced in SDK 21
 ANDROID_64BIT_API_MIN = 21 # minimal API level that supports 64-bit targets
 
 # This class does support ONLY r10e and r19c/r20 NDK
@@ -266,47 +268,43 @@ class Android:
 					'-isystem', '%s/usr/include/' % (self.sysroot())
 				]
 
-		cflags += ['-I%s' % (self.system_stl()), '-DANDROID', '-D__ANDROID__']
+		cflags += ['-I%s' % (self.system_stl())]
+		if not self.is_clang():
+			cflags += ['-DANDROID', '-D__ANDROID__']
 
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
 			cflags += ['-fno-sized-deallocation']
 
-		def fixup_host_clang_with_old_ndk():
-			cflags = []
-			# Clang builtin redefine w/ different calling convention bug
-			# NOTE: I did not added complex.h functions here, despite
-			# that NDK devs forgot to put __NDK_FPABI_MATH__ for complex
-			# math functions
-			# I personally don't need complex numbers support, but if you want it
-			# just run sed to patch header
-			for f in ['strtod', 'strtof', 'strtold']:
-				cflags += ['-fno-builtin-%s' % f]
-			return cflags
-
+		if self.is_clang():
+			# stpcpy() isn't available in early Android versions
+			# disable it here so Clang won't use it
+			if self.api < ANDROID_STPCPY_API_MIN:
+				cflags += ['-fno-builtin-stpcpy']
 
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':
 				# ARMv7 support
-				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS', '-DVECTORIZE_SINCOS']
-
-				if not self.is_clang() and not self.is_host():
-					cflags += [ '-mvectorize-with-neon-quad' ]
-
-				if self.is_host() and self.ndk_rev <= ANDROID_NDK_HARDFP_MAX:
-					cflags += fixup_host_clang_with_old_ndk()
+				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9']
 
 				if self.is_hardfp():
 					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
+
+					if self.is_host():
+						# Clang builtin redefine w/ different calling convention bug
+						# NOTE: I did not added complex.h functions here, despite
+						# that NDK devs forgot to put __NDK_FPABI_MATH__ for complex
+						# math functions
+						# I personally don't need complex numbers support, but if you want it
+						# just run sed to patch header
+						for f in ['strtod', 'strtof', 'strtold']:
+							cflags += ['-fno-builtin-%s' % f]
 				else:
 					cflags += ['-mfloat-abi=softfp']
 			else:
-				if self.is_host() and self.ndk_rev <= ANDROID_NDK_HARDFP_MAX:
-					cflags += fixup_host_clang_with_old_ndk()
-
 				# ARMv5 support
 				cflags += ['-march=armv5te', '-msoft-float']
 		elif self.is_x86():
-			cflags += ['-mtune=atom', '-march=atom', '-mssse3', '-mfpmath=sse', '-DVECTORIZE_SINCOS', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS']
+			cflags += ['-mtune=atom', '-march=atom', '-mssse3', '-mfpmath=sse']
 		return cflags
 
 	# they go before object list
@@ -322,8 +320,9 @@ class Android:
 
 		if self.is_clang() or self.is_host():
 			linkflags += ['-fuse-ld=lld']
+		else: linkflags += ['-no-canonical-prefixes']
 
-		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined', '-no-canonical-prefixes']
+		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
 		return linkflags
 
 	def ldflags(self):
@@ -332,10 +331,9 @@ class Android:
 		if self.ndk_rev < 23:
 			ldflags += ['-lgcc']
 
-		ldflags += ['-no-canonical-prefixes']
-
 		if self.is_clang() or self.is_host():
 			ldflags += ['-stdlib=libstdc++']
+		else: ldflags += ['-no-canonical-prefixes']
 
 		if self.is_arm():
 			if self.arch == 'armeabi-v7a':

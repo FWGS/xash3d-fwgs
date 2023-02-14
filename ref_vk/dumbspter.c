@@ -1,3 +1,4 @@
+#if 0
 #include "vk_common.h"
 #include "xash3d_types.h"
 #include "protocol.h"
@@ -165,3 +166,4 @@ void traverseBSP( void ) {
 	fclose(ctx.f);
 	//exit(0);
 }
+#endif

@@ -145,8 +145,6 @@ int R_WorldToScreen( const vec3_t point, vec3_t screen )
 
 	if( w < 0.001f )
 	{
-		screen[0] *= 100000;
-		screen[1] *= 100000;
 		behind = true;
 	}
 	else
@@ -379,7 +377,7 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	RI.farClip = R_GetFarClip();
 
 	zNear = 4.0f;
-	zFar = max( 256.0f, RI.farClip );
+	zFar = Q_max( 256.0f, RI.farClip );
 
 	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;

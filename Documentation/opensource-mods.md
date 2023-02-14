@@ -17,13 +17,20 @@ Mirrored on github - https://github.com/JoelTroch/am_src_rebirth
 Mirrored on github - https://github.com/nekonomicon/BattleGrounds
 
 ## Bubblemod
-Download page on official site - http://www.bubblemod.org/dl_default.php
+Download page on official site - http://www.bubblemod.org/dl_default.php (dead link!)
+
+Mirrored on github - https://github.com/HLSources/BubbleMod
 
 ## Chicken Fortress
 Official github repository - https://github.com/CKFDevPowered/CKF3Alpha
 
 ## Cold Ice
 Version 1.9 is available on ModDB - https://www.moddb.com/mods/cold-ice/downloads/cold-ice-sdk
+
+Version 1.9 mirrored on github - https://github.com/solidi/hl-mods/tree/master/ci
+
+## Cold Ice Ressurection
+Mirrored on github - https://github.com/solidi/hl-mods/tree/master/cir
 
 ## Cthulhu
 Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Cthulhu-HLmod-SDK
@@ -38,25 +45,36 @@ Official github repository - https://github.com/adslbarxatov/xash3d-for-ESHQ
 Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/Half-Life_2D_(Flat-Life)
 
 ## Gang Wars
-Mirrored on github - https://github.com/hammermaps/gw1.45src
+Mirrored on github - https://github.com/nekonomicon/gw1.45src
 
 ## Go-mod
 Versions 2.0 and 3.0, available in mod archives on ModDB - https://www.moddb.com/mods/go-mod/downloads
 
+Version 3.0, mirrored on github - https://github.com/nekonomicon/Go-mod30
+
 ## GT mod
 Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/GT_mod_(Polnie_ishodniki)
 
+## Half-Life: Advanced Deathmatch
+Mirrored on github - https://github.com/solidi/hl-mods/tree/master/hla
+
+## Half-Life: Decay
+Mirrored on github(PC Port) - https://github.com/hoaxer/Half-Life-Decay
+
 ## Half-Life: Echoes
-Download link on dropbox - https://www.dropbox.com/s/s6j8gtegn10wgvj/dlls.zip?dl=1
+Available on ModDB - https://www.moddb.com/mods/half-life-echoes
 
 ## Half-Life: Expanded Arsenal
 Available on ModDB - https://www.moddb.com/mods/half-life-expanded-arsenal
 
 ## Half-Life: Gravgun mod
-Branch **gravgun** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/gravgun
+Branch **gravgun** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/gravgun
 
 ## Half-Life: Invasion
-official github repository - https://github.com/jlecorre/hlinvasion
+Official github repository - https://github.com/jlecorre/hlinvasion
+
+## Half-Life: Pong
+Mirrored on github - https://github.com/solidi/hl-mods/tree/master/pong
 
 ## Half-Life: Quest Mode
 Available on cs-mapping.com.ua - https://old.cs-mapping.com.ua/forum/showthread.php?t=38030
@@ -92,7 +110,7 @@ Official github repository - https://github.com/desukuran/half-screwed
 Version 1.3 on ModDB - https://www.moddb.com/mods/headcrab-frenzy/downloads/headcrab-frenzy-13-beta-source-code
 
 ## Heart of Evil
-Available on ModDB - https://www.moddb.com/mods/heart-of-evil/downloads/heart-of-evil-dlls-source-code
+Mirrored on github - https://github.com/nekonomicon/HeartOfEvil
 
 ## Ingram Chillin' Mod
 Official SourceForge repository - https://sourceforge.net/projects/icm-hl/
@@ -155,7 +173,7 @@ Mirrored on github - https://github.com/ZXCmod/ZXCmod
 
 # Reimplementation
 ## Absolute Redemption
-Branch **redempt** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/redempt
+Branch **redempt** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/redempt
 
 ## Adrenaline Gamer
 OpenAG by YaLTeR - https://github.com/YaLTeR/OpenAG
@@ -163,34 +181,34 @@ OpenAG by YaLTeR - https://github.com/YaLTeR/OpenAG
 ## Afraid of Monsters
 malortie's recreation - https://github.com/malortie/hl-aom
 
-Branch **aom** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/aom
+Branch **aom** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aom
 
 ## Afraid of Monsters: Director's cut
-Reverse-engineered code, branch **aomdc** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/aomdc
+Reverse-engineered code, branch **aomdc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aomdc
 
 ## Azure Sheep
 malortie's recreation - https://github.com/malortie/hl-asheep
 
-Reverse-engineered code, branch **asheep** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/asheep
+Reverse-engineered code, branch **asheep** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/asheep
 
 ## Big Lolly
 malortie's recreation - https://github.com/malortie/hl-biglolly
 
-Branch **biglolly** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/biglolly
+Branch **biglolly** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/biglolly
 
 ## Black Ops
 malortie's recreation - https://github.com/malortie/hl-blackops
 
-Branch **blackops** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/blackops
+Branch **blackops** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/blackops
 
 ## Bloody Pizza: Vendetta
-Branch **caseclosed** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/caseclosed
+Branch **caseclosed** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/caseclosed
 
 ## Case Closed
-Branch **caseclosed** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/caseclosed
+Branch **caseclosed** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/caseclosed
 
 ## Cleaner's Adventures
-Branch **CAd** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/CAd
+Branch **CAd** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/CAd
 
 ## Counter Strike
 Reverse-engineered code of client part by a1batross - https://github.com/FWGS/cs16-client/tree/v1.32
@@ -208,54 +226,60 @@ Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/crack_lif
 ## Escape from the Darkness
 malortie's recreation - https://github.com/malortie/hl-eftd
 
-Reverse-engineered code, branch **eftd** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/eftd
+Reverse-engineered code, branch **eftd** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/eftd
 
 ## Half-Life: Blue Shift
 Unkle Mike's recreation - https://hlfx.ru/forum/showthread.php?s=&threadid=5253
 
-Reverse-engineered code, branch **bshift** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/bshift
+Reverse-engineered code, branch **bshift** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/bshift
 
 ## Half-Life: Induction
-Branch **induction** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/induction
+Branch **induction** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/induction
 
 ## Half-Life: Opposing Force
 Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/hlsdk-xash3d
 
-Reverse-engineered code, clean branch **opfor** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/opfor
+Reverse-engineered code, clean branch **opfor** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/opfor
 
 Spirit of Half Life: Opposing-Force Edition - https://github.com/Hammermaps-DEV/SOHL-V1.9-Opposing-Force-Edition
 
 ## Half-Life: Rebellion
-Reverse-engineered code, branch **rebellion** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/rebellion
+Reverse-engineered code, branch **rebellion** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/rebellion
+
+## Half-Life: Urbicide
+Branch **hl_urbicide** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/hl_urbicide
 
 ## Half-Life: Visitors
 malortie's recreation - https://github.com/malortie/hl-visitors
 
-Reverse-engineered code, branch **visitors** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/visitors
+Reverse-engineered code, branch **visitors** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/visitors
 
 ## Half-Secret
-Branch **half-secret** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/half-secret
+Branch **half-secret** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/half-secret
 
 ## Night at the Office
 malortie's recreation - https://github.com/malortie/hl-nato
 
-Branch **noffice** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/noffice
+Branch **noffice** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/noffice
 
 ## Poke 646
 malortie's recreation - https://github.com/malortie/hl-poke646
 
-Reverse-engineered code, branch **poke646** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/poke646
+Reverse-engineered code, branch **poke646** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646
 
 ## Poke 646: Vendetta
 malortie's recreation - https://github.com/malortie/hl-poke646-vendetta
 
-Reverse-engineered code, branch **poke646_vendetta** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/poke646_vendetta
+Reverse-engineered code, branch **poke646_vendetta** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646_vendetta
 
 ## Residual Life
-Reverse-engineered code, branch **residual_point** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/residual_point
+Reverse-engineered code, branch **residual_point** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/residual_point
 
 ## Residual Point
-Reverse-engineered code, branch **residual_point** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/residual_point
+Reverse-engineered code, branch **residual_point** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/residual_point
+
+## Sewer Beta
+Branch **sewer_beta** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/sewer_beta
 
 ## Team Fortress Classic
 Reverse-engineered code by Velaron - https://github.com/Velaron/tf15-client
@@ -263,59 +287,64 @@ Reverse-engineered code by Velaron - https://github.com/Velaron/tf15-client
 ## The Gate
 malortie's recreation - https://github.com/malortie/hl-thegate
 
-Reverse-engineered code, branch **thegate** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/thegate
+Reverse-engineered code, branch **thegate** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/thegate
 
 ## They Hunger
 malortie's recreation - https://github.com/malortie/hl-theyhunger
 
-Reverse-engineered code, branch **theyhunger** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/theyhunger
+Reverse-engineered code, branch **theyhunger** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/theyhunger
 
 They Hunger: Tactical - https://www.moddb.com/mods/they-hunger-tactical/downloads/tht-source-code-documentation
 
 ## Times of Troubles
 malortie's recreation - https://github.com/malortie/hl-tot
 
-Branch **tot** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/tot
+Branch **tot** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/tot
 
 # Derived work
 ## Adrenaline Gamer
-Branch **aghl** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/aghl
+Branch **aghl** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aghl
 
 ## Bubblemod
-Branch **bubblemod** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/bubblemod
+Branch **bubblemod** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/bubblemod
 
 ## Deathmatch Classic
 Deathmatch Classic: Adrenaline Gamer Edition - https://github.com/martinwebrant/agmod/tree/master/src/dmc
 
 Deathmatch Quaked - https://www.moddb.com/games/deathmatch-classic/downloads/dmq2
 
-Branch **dmc** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/dmc
+Branch **dmc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/dmc
 
 ## Half-Life: Echoes
-Branch **echoes** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/echoes
+Branch **echoes** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/echoes
 
 ## Half-Life: Invasion
 Port to HLSDK 2.4 by malortie - https://github.com/malortie/hl-invasion
 
 Port to Linux by fmoraw - https://github.com/fmoraw/hlinvasion
 
+Branch **invasion** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/invasion
+
 ## Half-Life: Top-Down
-Branch **hltopdown** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/hltopdown
+Branch **hltopdown** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/hltopdown
 
 ## Half-Screwed
-Branch **half-screwed** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/half-screwed
+Branch **half-screwed** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/half-screwed
 
 ## Natural Selection
 Port to Linux - https://github.com/fmoraw/NS
 
+## Spirit of Half-Life
+Version 1.2, branch **sohl1.2** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/sohl1.2
+
 ## Swiss Cheese Halloween 2002
 Just more playable version by malortie - https://github.com/malortie/hl-shall
 
-Branch **halloween** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/halloween
+Branch **halloween** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/halloween
 
 ## Threewave CTF
-Branch **dmc** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/dmc
+Branch **dmc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/dmc
 
 ## Zombie-X
-Branch **zombie-x** in hlsdk-xash3d - https://github.com/FWGS/hlsdk-xash3d/tree/zombie-x
+Branch **zombie-x** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/zombie-x
 

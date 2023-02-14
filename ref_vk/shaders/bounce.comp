@@ -1,0 +1,199 @@
+#version 460 core
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_ray_query: require
+
+#define RAY_BOUNCE
+#define RAY_QUERY
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set=0, binding=1) uniform accelerationStructureEXT tlas;
+
+#define RAY_LIGHT_DIRECT_INPUTS(X) \
+	X(10, position_t, rgba32f) \
+	X(11, normals_gs, rgba16f) \
+	X(12, material_rmxx, rgba8) \
+	X(13, base_color_a, rgba8)
+#define X(index, name, format) layout(set=0,binding=index,format) uniform readonly image2D name;
+RAY_LIGHT_DIRECT_INPUTS(X)
+#undef X
+
+layout(set=0, binding=20, rgba16f) uniform writeonly image2D out_indirect_diffuse;
+layout(set=0, binding=21, rgba16f) uniform writeonly image2D out_indirect_specular;
+
+#include "ray_primary_common.glsl"
+#include "ray_primary_hit.glsl"
+//#include "brdf.h" // already in light.glsl below
+#include "noise.glsl"
+
+#define TEXTURES_INCLUDED_ALREADY_FIXME
+#define LIGHT_POLYGON 1
+#define LIGHT_POINT 1
+#undef SHADER_OFFSET_HIT_SHADOW_BASE
+#define SHADER_OFFSET_HIT_SHADOW_BASE 0
+#undef SHADER_OFFSET_MISS_SHADOW
+#define SHADER_OFFSET_MISS_SHADOW 0
+#undef PAYLOAD_LOCATION_SHADOW
+#define PAYLOAD_LOCATION_SHADOW 0
+
+#define BINDING_LIGHTS 19
+#define BINDING_LIGHT_CLUSTERS 18
+#include "light.glsl"
+
+#include "trace_additive.glsl"
+
+void readNormals(ivec2 uv, out vec3 geometry_normal, out vec3 shading_normal) {
+	const vec4 n = imageLoad(normals_gs, uv);
+	geometry_normal = normalDecode(n.xy);
+	shading_normal = normalDecode(n.zw);
+}
+
+
+bool getHit(vec3 origin, vec3 direction, inout RayPayloadPrimary payload) {
+	rayQueryEXT rq;
+	const uint flags = 0
+		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT
+		//| gl_RayFlagsTerminateOnFirstHitEXT
+		//| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	const float L = 10000.; // TODO Why 10k?
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_ALPHA_TEST, origin, 0., direction, L);
+	while (rayQueryProceedEXT(rq)) {
+		if (0 != (rayQueryGetRayFlagsEXT(rq) & gl_RayFlagsOpaqueEXT))
+			continue;
+
+		// alpha test
+		// TODO check other possible ways of doing alpha test. They might be more efficient
+		// (although in this particular primary ray case it's not taht important):
+		// 1. Do a separate ray query for alpha masked geometry. Reason: here we might accidentally do the expensive
+		//    texture sampling for geometry that's ultimately invisible (i.e. behind walls). Also, shader threads congruence.
+		//    Separate pass could be more efficient as it'd be doing the same thing for every invocation.
+		// 2. Same as the above, but also with a completely independent TLAS. Why: no need to mask-check geometry for opaque-vs-alpha
+		const MiniGeometry geom = readCandidateMiniGeometry(rq);
+		const uint tex_base_color = getKusok(geom.kusok_index).tex_base_color;
+		const vec4 texture_color = texture(textures[nonuniformEXT(tex_base_color)], geom.uv);
+
+		const float alpha_mask_threshold = .1f;
+		if (texture_color.a >= alpha_mask_threshold) {
+			rayQueryConfirmIntersectionEXT(rq);
+		}
+	}
+
+	if (rayQueryGetIntersectionTypeEXT(rq, true) != gl_RayQueryCommittedIntersectionTriangleEXT)
+		return false;
+
+	primaryRayHit(rq, payload);
+	//L = rayQueryGetIntersectionTEXT(rq, true);
+	return true;
+}
+
+void computeBounce(ivec2 pix, vec3 direction, out vec3 diffuse, out vec3 specular) {
+	diffuse = vec3(0.);
+	specular = vec3(0.);
+
+	const vec4 material_data = imageLoad(material_rmxx, pix);
+	const vec4 base_a = imageLoad(base_color_a, pix);
+
+	MaterialProperties material;
+	material.baseColor = vec3(1.f);
+	material.emissive = vec3(0.f);
+	material.metalness = material_data.g;
+	material.roughness = material_data.r;
+
+	vec3 geometry_normal, shading_normal;
+	readNormals(pix, geometry_normal, shading_normal);
+
+	const float ray_normal_fudge = .01;
+	vec3 throughput = vec3(1.);
+
+	// 1. Make a "random" material-based ray for diffuse lighting
+	vec3 bounce_direction = vec3(0.);
+	int brdf_type = DIFFUSE_TYPE;
+
+	const float alpha = (base_a.a);
+	if (1. > alpha && rand01() > alpha) {
+		brdf_type = SPECULAR_TYPE;
+		// TODO: when not sampling randomly: throughput *= (1. - base_a.a);
+		bounce_direction = normalize(refract(direction, geometry_normal, .95));
+		geometry_normal = -geometry_normal;
+		//throughput /= base_a.rgb;
+	} else {
+		if (material.metalness == 1.0f && material.roughness == 0.0f) {
+			// Fast path for mirrors
+			brdf_type = SPECULAR_TYPE;
+		} else {
+			// Decide whether to sample diffuse or specular BRDF (based on Fresnel term)
+			const float brdf_probability = getBrdfProbability(material, -direction, shading_normal);
+			if (rand01() < brdf_probability) {
+				brdf_type = SPECULAR_TYPE;
+				throughput /= brdf_probability;
+			}
+		}
+
+		const vec2 u = vec2(rand01(), rand01());
+		vec3 brdf_weight = vec3(0.);
+		if (!evalIndirectCombinedBRDF(u, shading_normal, geometry_normal, -direction, material, brdf_type, bounce_direction, brdf_weight))
+			return;
+		throughput *= brdf_weight;
+	}
+
+	const float throughput_threshold = 1e-3;
+	if (dot(throughput, throughput) < throughput_threshold)
+		return;
+
+	// 2. Rake yuri it, get hit
+	// 3. Get relevant Geometry data
+	RayPayloadPrimary payload;
+	payload.base_color_a = vec4(0.);
+	payload.emissive = vec4(0.);
+	const vec3 pos = imageLoad(position_t, pix).xyz + geometry_normal * ray_normal_fudge;
+	if (!getHit(pos, bounce_direction, payload))
+		return;
+
+	throughput *= payload.base_color_a.rgb;
+
+	// 4. Sample light sources
+	{
+		vec3 ldiffuse = vec3(0.);
+		vec3 lspecular = vec3(0.);
+		const vec3 hit_pos = payload.hit_t.xyz;
+		const vec3 hit_shading_normal = normalDecode(payload.normals_gs.zw);
+
+		MaterialProperties hit_material;
+		hit_material.baseColor = vec3(1.);
+		hit_material.emissive = vec3(0.f);
+		hit_material.metalness = payload.material_rmxx.g;
+		hit_material.roughness = payload.material_rmxx.r;
+		computeLighting(hit_pos, hit_shading_normal, throughput, -bounce_direction, hit_material, ldiffuse, lspecular);
+
+		const vec3 final_color = ldiffuse + lspecular + traceAdditive(pos, bounce_direction, payload.hit_t.w);
+
+		if (brdf_type == DIFFUSE_TYPE)
+			diffuse += final_color;
+		else
+			specular += final_color + payload.emissive.rgb;
+	}
+}
+
+const int INDIRECT_SCALE = 2;
+
+void main() {
+	const ivec2 pix = ivec2(gl_GlobalInvocationID);
+	const ivec2 res = ivec2(imageSize(out_indirect_diffuse)) / INDIRECT_SCALE;
+	if (any(greaterThanEqual(pix, res))) {
+		return;
+	}
+	const vec2 uv = (gl_GlobalInvocationID.xy + .5) / res * 2. - 1.;
+
+	const vec3 origin    = (ubo.ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
+	const vec4 target    = ubo.ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 direction = normalize((ubo.ubo.inv_view * vec4(target.xyz, 0)).xyz);
+
+	rand01_state = ubo.ubo.random_seed + pix.x * 1833 + pix.y * 31337 + 12;
+
+	vec3 diffuse, specular;
+	computeBounce(pix * INDIRECT_SCALE, direction, diffuse, specular);
+	imageStore(out_indirect_diffuse, pix, vec4(diffuse, 0.f));
+	imageStore(out_indirect_specular, pix, vec4(specular, 0.f));
+}

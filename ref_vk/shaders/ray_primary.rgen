@@ -1,0 +1,53 @@
+#version 460 core
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_ray_tracing: require
+
+#include "ray_primary_common.glsl"
+
+#define RAY_PRIMARY_OUTPUTS(X) \
+	X(10, base_color_a, rgba8) \
+	X(11, position_t, rgba32f) \
+	X(12, normals_gs, rgba16f) \
+	X(13, material_rmxx, rgba8) \
+	X(14, emissive, rgba16f) \
+	X(15, geometry_prev_position, rgba32f) \
+
+#define X(index, name, format) layout(set=0,binding=index,format) uniform writeonly image2D out_##name;
+RAY_PRIMARY_OUTPUTS(X)
+#undef X
+
+layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
+layout(set = 0, binding = 2) uniform UBO { UniformBuffer ubo; } ubo;
+
+layout(location = PAYLOAD_LOCATION_PRIMARY) rayPayloadEXT RayPayloadPrimary payload;
+
+void main() {
+	const vec2 uv = (gl_LaunchIDEXT.xy + .5) / gl_LaunchSizeEXT.xy * 2. - 1.;
+
+	// FIXME start on a near plane
+	const vec3 origin    = (ubo.ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
+	const vec4 target    = ubo.ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
+	const vec3 direction = normalize((ubo.ubo.inv_view * vec4(target.xyz, 0)).xyz);
+
+	payload.hit_t = vec4(0.);
+	payload.base_color_a = vec4(0.);
+	payload.normals_gs = vec4(0.);
+	payload.material_rmxx = vec4(0.);
+	payload.emissive = vec4(0.);
+
+	const uint flags = gl_RayFlagsCullFrontFacingTrianglesEXT;
+	const uint sbt_offset = 0;
+	const uint sbt_stride = 0;
+	const float L = 10000.; // TODO Why 10k?
+	traceRayEXT(tlas, flags, GEOMETRY_BIT_OPAQUE, // | GEOMETRY_BIT_REFRACTIVE,
+		sbt_offset, sbt_stride, SHADER_OFFSET_MISS_REGULAR,
+		origin, 0., direction, L,
+		PAYLOAD_LOCATION_PRIMARY);
+
+	imageStore(out_position_t, ivec2(gl_LaunchIDEXT.xy), payload.hit_t);
+	imageStore(out_base_color_a, ivec2(gl_LaunchIDEXT.xy), payload.base_color_a);
+	imageStore(out_normals_gs, ivec2(gl_LaunchIDEXT.xy), payload.normals_gs);
+	imageStore(out_material_rmxx, ivec2(gl_LaunchIDEXT.xy), payload.material_rmxx);
+	imageStore(out_emissive, ivec2(gl_LaunchIDEXT.xy), payload.emissive);
+	imageStore(out_geometry_prev_position, ivec2(gl_LaunchIDEXT.xy), payload.prev_pos_t);
+}

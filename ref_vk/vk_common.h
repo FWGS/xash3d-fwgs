@@ -6,7 +6,7 @@
 #include "com_strings.h"
 #include "crtlib.h"
 
-#define ASSERT(x) if(!( x )) gEngine.Host_Error( "assert " #x " failed at %s:%i\n", __FILE__, __LINE__ )
+#define ASSERT(x) if(!( x )) gEngine.Host_Error( "assert %s failed at %s:%d\n", #x, __FILE__, __LINE__ )
 
 #define Mem_Malloc( pool, size ) gEngine._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) gEngine._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
@@ -45,6 +45,8 @@
 #define ERROR_THROTTLED(delay, msg, ...) PRINT_THROTTLED(delay, S_ERROR, msg, ##__VA_ARGS__)
 
 #define ALIGN_UP(ptr, align) ((((ptr) + (align) - 1) / (align)) * (align))
+
+#define COUNTOF(a) (sizeof(a)/sizeof((a)[0]))
 
 extern ref_api_t gEngine;
 extern ref_globals_t *gpGlobals;

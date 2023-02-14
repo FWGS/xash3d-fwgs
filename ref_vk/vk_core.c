@@ -2,23 +2,24 @@
 
 #include "vk_common.h"
 #include "vk_textures.h"
-#include "vk_2d.h"
+#include "vk_overlay.h"
 #include "vk_renderstate.h"
-#include "vk_buffer.h"
+#include "vk_staging.h"
 #include "vk_framectl.h"
 #include "vk_brush.h"
 #include "vk_scene.h"
 #include "vk_cvar.h"
 #include "vk_pipeline.h"
 #include "vk_render.h"
+#include "vk_geometry.h"
 #include "vk_studio.h"
 #include "vk_rtx.h"
 #include "vk_descriptor.h"
 #include "vk_nv_aftermath.h"
 #include "vk_devmem.h"
+#include "vk_commandpool.h"
 
 // FIXME move this rt-specific stuff out
-#include "vk_denoiser.h"
 #include "vk_light.h"
 
 #include "xash3d_types.h"
@@ -92,6 +93,7 @@ static const char* device_extensions[] = {
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+	VK_KHR_RAY_QUERY_EXTENSION_NAME,
 
 	// FIXME make this not depend on RTX
 #ifdef USE_AFTERMATH
@@ -111,6 +113,10 @@ VkBool32 VKAPI_PTR debugCallback(
 
 	if (Q_strcmp(pCallbackData->pMessageIdName, "VUID-vkMapMemory-memory-00683") == 0)
 		return VK_FALSE;
+
+	/* if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) { */
+	/* 	gEngine.Con_Printf(S_WARN "Validation: %s\n", pCallbackData->pMessage); */
+	/* } */
 
 	// TODO better messages, not only errors, what are other arguments for, ...
 	if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
@@ -154,7 +160,7 @@ static qboolean createInstance( void )
 {
 	const char ** instance_extensions = NULL;
 	unsigned int num_instance_extensions = vk_core.debug ? 1 : 0;
-	VkApplicationInfo app_info = {
+	const VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		// TODO support versions 1.0 and 1.1 for simple traditional rendering
 		// This would require using older physical device features and props query structures
@@ -165,9 +171,19 @@ static qboolean createInstance( void )
 		.pApplicationName = "",
 		.pEngineName = "xash3d-fwgs",
 	};
+	const VkValidationFeatureEnableEXT validation_features[] = {
+		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+	};
+	const VkValidationFeaturesEXT validation_ext = {
+		.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+		.pEnabledValidationFeatures = validation_features,
+		.enabledValidationFeatureCount = COUNTOF(validation_features),
+	};
 	VkInstanceCreateInfo create_info = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &app_info,
+		.pNext = vk_core.validate ? &validation_ext : NULL,
 	};
 
 	int vid_extensions = gEngine.XVK_GetInstanceExtensions(0, NULL);
@@ -202,7 +218,7 @@ static qboolean createInstance( void )
 	create_info.enabledExtensionCount = num_instance_extensions;
 	create_info.ppEnabledExtensionNames = instance_extensions;
 
-	if (vk_core.debug)
+	if (vk_core.validate)
 	{
 		create_info.enabledLayerCount = ARRAYSIZE(validation_layers);
 		create_info.ppEnabledLayerNames = validation_layers;
@@ -215,22 +231,22 @@ static qboolean createInstance( void )
 
 	loadInstanceFunctions(instance_funcs, ARRAYSIZE(instance_funcs));
 
-	if (vk_core.debug)
+	if (vk_core.debug || vk_core.validate)
 	{
 		loadInstanceFunctions(instance_debug_funcs, ARRAYSIZE(instance_debug_funcs));
 
-		if (vkCreateDebugUtilsMessengerEXT)
-		{
-			VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
-				.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-				.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
-				.messageType = 0x07,
-				.pfnUserCallback = debugCallback,
-			};
-			XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
-		} else
-		{
-			gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
+ 		if (vk_core.validate) {
+			if (vkCreateDebugUtilsMessengerEXT) {
+				VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
+					.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+					.messageSeverity = 0x1111, //:vovka: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+					.messageType = 0x07,
+					.pfnUserCallback = debugCallback,
+				};
+				XVK_CHECK(vkCreateDebugUtilsMessengerEXT(vk_core.instance, &debug_create_info, NULL, &vk_core.debug_messenger));
+			} else {
+				gEngine.Con_Printf(S_WARN "Vulkan debug utils messenger is not available\n");
+			}
 		}
 	}
 
@@ -453,43 +469,59 @@ static qboolean createDevice( void ) {
 
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
-			.pNext = NULL,
+			.pNext = head,
 			.accelerationStructure = VK_TRUE,
 		};
+		head = &accel_feature;
 		VkPhysicalDevice16BitStorageFeatures sixteen_bit_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
-			.pNext = &accel_feature,
+			.pNext = head,
 			.storageBuffer16BitAccess = VK_TRUE,
 		};
+		head = &sixteen_bit_feature;
 		VkPhysicalDeviceVulkan12Features vk12_features = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-			.pNext = &sixteen_bit_feature,
+			.pNext = head,
 			.shaderSampledImageArrayNonUniformIndexing = VK_TRUE, // Needed for texture sampling in closest hit shader
 			.storageBuffer8BitAccess = VK_TRUE,
 			.uniformAndStorageBuffer8BitAccess = VK_TRUE,
 			.bufferDeviceAddress = VK_TRUE,
 		};
+		head = &vk12_features;
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_feature = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
-			.pNext = &vk12_features,
+			.pNext = head,
 			.rayTracingPipeline = VK_TRUE,
 			// TODO .rayTraversalPrimitiveCulling = VK_TRUE,
 		};
+		head = &ray_tracing_pipeline_feature;
+		VkPhysicalDeviceRayQueryFeaturesKHR ray_query_pipeline_feature = {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+			.pNext = head,
+			.rayQuery = VK_TRUE,
+		};
+
+		if (vk_core.rtx) {
+			head = &ray_query_pipeline_feature;
+		} else {
+			head = NULL;
+		}
+
 		VkPhysicalDeviceFeatures2 features = {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-			.pNext = vk_core.rtx ? &ray_tracing_pipeline_feature: NULL,
+			.pNext = head,
 			.features.samplerAnisotropy = candidate_device->features.features.samplerAnisotropy,
+			.features.shaderInt16 = true,
 		};
+		head = &features;
 
 #ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
-			.pNext = &features,
-			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV,
+			.pNext = head,
+			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV
 		};
-		void *head = &diag_config_nv;
-#else
-		void *head = &features;
+		head = &diag_config_nv;
 #endif
 
 		const float queue_priorities[1] = {1.f};
@@ -558,6 +590,11 @@ static qboolean createDevice( void ) {
 		vk_core.physical_device.properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 		vkGetPhysicalDeviceProperties2(vk_core.physical_device.device, &vk_core.physical_device.properties2);
 
+		if (vk_core.rtx) {
+			//g_rtx.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleAlignment);
+			vk_core.physical_device.sbt_record_size = ALIGN_UP(vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupHandleSize, vk_core.physical_device.properties_ray_tracing_pipeline.shaderGroupBaseAlignment);
+		}
+
 		vkGetDeviceQueue(vk_core.device, 0, 0, &vk_core.queue);
 		return true;
 	}
@@ -593,37 +630,12 @@ static qboolean initSurface( void )
 	return true;
 }
 
-static qboolean createCommandPool( void ) {
-	VkCommandPoolCreateInfo cpci = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.queueFamilyIndex = 0,
-		.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-	};
-
-	VkCommandBuffer bufs[2];
-
-	VkCommandBufferAllocateInfo cbai = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandBufferCount = ARRAYSIZE(bufs),
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-	};
-
-
-	XVK_CHECK(vkCreateCommandPool(vk_core.device, &cpci, NULL, &vk_core.command_pool));
-	cbai.commandPool = vk_core.command_pool;
-	XVK_CHECK(vkAllocateCommandBuffers(vk_core.device, &cbai, bufs));
-
-	vk_core.cb = bufs[0];
-	vk_core.cb_tex = bufs[1];
-
-	return true;
-}
-
 qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
 
-	vk_core.debug = !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
+	vk_core.validate = !!gEngine.Sys_CheckParm("-vkvalidate");
+	vk_core.debug = vk_core.validate || !!(gEngine.Sys_CheckParm("-vkdebug") || gEngine.Sys_CheckParm("-gldebug"));
 	vk_core.rtx = false;
 	VK_LoadCvars();
 
@@ -679,13 +691,10 @@ qboolean R_VkInit( void )
 	if (!initSurface())
 		return false;
 
-	if (!createCommandPool())
-		return false;
-
 	if (!VK_DevMemInit())
 		return false;
 
-	if (!VK_BuffersInit())
+	if (!R_VkStagingInit())
 		return false;
 
 	// TODO move this to vk_texture module
@@ -718,6 +727,9 @@ qboolean R_VkInit( void )
 	if (!VK_FrameCtlInit())
 		return false;
 
+	if (!R_GeometryBuffer_Init())
+		return false;
+
 	if (!VK_RenderInit())
 		return false;
 
@@ -729,7 +741,7 @@ qboolean R_VkInit( void )
 
 	// All below need render_pass
 
-	if (!initVk2d())
+	if (!R_VkOverlay_Init())
 		return false;
 
 	if (!VK_BrushInit())
@@ -742,28 +754,26 @@ qboolean R_VkInit( void )
 
 		// FIXME move all this to rt-specific modules
 		VK_LightsInit();
-
-		if (!XVK_DenoiserInit())
-			return false;
 	}
 
 	return true;
 }
 
-void R_VkShutdown( void )
-{
+void R_VkShutdown( void ) {
+	XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
+
 	if (vk_core.rtx)
 	{
-		XVK_DenoiserDestroy();
 		VK_LightsShutdown();
 		VK_RayShutdown();
 	}
 
 	VK_BrushShutdown();
 	VK_StudioShutdown();
-	deinitVk2d();
+	R_VkOverlay_Shutdown();
 
 	VK_RenderShutdown();
+	R_GeometryBuffer_Shutdown();
 
 	VK_FrameCtlShutdown();
 
@@ -774,11 +784,9 @@ void R_VkShutdown( void )
 	VK_DescriptorShutdown();
 
 	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
-	VK_BuffersDestroy();
+	R_VkStagingShutdown();
 
 	VK_DevMemDestroy();
-
-	vkDestroyCommandPool(vk_core.device, vk_core.command_pool, NULL);
 
 	vkDestroyDevice(vk_core.device, NULL);
 
@@ -800,36 +808,7 @@ void R_VkShutdown( void )
 	gEngine.R_Free_Video();
 }
 
-VkShaderModule loadShader(const char *filename) {
-	fs_offset_t size = 0;
-	VkShaderModuleCreateInfo smci = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-	};
-	VkShaderModule shader;
-	byte* buf = gEngine.COM_LoadFile( filename, &size, false);
-	uint32_t *pcode;
-
-	if (!buf)
-	{
-		gEngine.Host_Error( S_ERROR "Cannot open shader file \"%s\"\n", filename);
-	}
-
-	if ((size % 4 != 0) || (((uintptr_t)buf & 3) != 0)) {
-		gEngine.Host_Error( S_ERROR "size %zu or buf %p is not aligned to 4 bytes as required by SPIR-V/Vulkan spec", size, buf);
-	}
-
-	smci.codeSize = size;
-	//smci.pCode = (const uint32_t*)buf;
-	//memcpy(&smci.pCode, &buf, sizeof(void*));
-	memcpy(&pcode, &buf, sizeof(pcode));
-	smci.pCode = pcode;
-
-	XVK_CHECK(vkCreateShaderModule(vk_core.device, &smci, NULL, &shader));
-	Mem_Free(buf);
-	return shader;
-}
-
-VkSemaphore createSemaphore( void ) {
+VkSemaphore R_VkSemaphoreCreate( void ) {
 	VkSemaphore sema;
 	VkSemaphoreCreateInfo sci = {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -839,20 +818,20 @@ VkSemaphore createSemaphore( void ) {
 	return sema;
 }
 
-void destroySemaphore(VkSemaphore sema) {
+void R_VkSemaphoreDestroy(VkSemaphore sema) {
 	vkDestroySemaphore(vk_core.device, sema, NULL);
 }
 
-VkFence createFence( void ) {
+VkFence R_VkFenceCreate( qboolean signaled ) {
 	VkFence fence;
-	VkFenceCreateInfo fci = {
+	const VkFenceCreateInfo fci = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-		.flags = 0,
+		.flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0,
 	};
 	XVK_CHECK(vkCreateFence(vk_core.device, &fci, NULL, &fence));
 	return fence;
 }
 
-void destroyFence(VkFence fence) {
+void R_VkFenceDestroy(VkFence fence) {
 	vkDestroyFence(vk_core.device, fence, NULL);
 }
