@@ -20,15 +20,34 @@ GNU General Public License for more details.
 #include <time.h>
 #include <ctype.h>
 #include <vitasdk.h>
+#include <vitaGL.h>
 #include <vrtld.h>
 
 #define DATA_PATH "data/xash3d"
+
+// 200MB libc heap, 512K main thread stack, 32MB for loading game DLLs, 8MB vertex pool
+// the rest goes to vitaGL
+SceUInt32 sceUserMainThreadStackSize = 512 * 1024;
+unsigned int _pthread_stack_default_user = 512 * 1024;
+unsigned int _newlib_heap_size_user = 200 * 1024 * 1024;
+#define VGL_MEM_THRESHOLD ( 32 * 1024 * 1024 )
+#define VGL_VERTEX_POOL_SIZE ( 8 * 1024 * 1024 )
+
+/* HACK: stubs for GL functions that are missing from vitaGL */
+
+static void glDrawBuffer( GLenum which )
+{
+	/* nada */
+}
+
+/* end of GL stubs*/
 
 /* HACKHACK: force-export stuff required by the dynamic libs */
 
 extern void *__aeabi_idiv;
 extern void *__aeabi_uidiv;
 extern void *__aeabi_idivmod;
+extern void *__aeabi_uidivmod;
 extern void *__aeabi_d2ulz;
 extern void *__aeabi_ul2d;
 
@@ -37,28 +56,33 @@ static const vrtld_export_t aux_exports[] =
 	VRTLD_EXPORT_SYMBOL( __aeabi_d2ulz ),
 	VRTLD_EXPORT_SYMBOL( __aeabi_idiv ),
 	VRTLD_EXPORT_SYMBOL( __aeabi_idivmod ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_uidivmod ),
 	VRTLD_EXPORT_SYMBOL( __aeabi_uidiv ),
 	VRTLD_EXPORT_SYMBOL( __aeabi_ul2d ),
 	VRTLD_EXPORT_SYMBOL( ctime ),
 	VRTLD_EXPORT_SYMBOL( vasprintf ),
+	VRTLD_EXPORT_SYMBOL( vsprintf ),
 	VRTLD_EXPORT_SYMBOL( vprintf ),
 	VRTLD_EXPORT_SYMBOL( printf ),
 	VRTLD_EXPORT_SYMBOL( putchar ),
 	VRTLD_EXPORT_SYMBOL( puts ),
 	VRTLD_EXPORT_SYMBOL( tolower ),
 	VRTLD_EXPORT_SYMBOL( toupper ),
+	VRTLD_EXPORT_SYMBOL( isalnum ),
+	VRTLD_EXPORT_SYMBOL( isalpha ),
 	VRTLD_EXPORT_SYMBOL( strchrnul ),
 	VRTLD_EXPORT_SYMBOL( rand ),
 	VRTLD_EXPORT_SYMBOL( srand ),
+	VRTLD_EXPORT_SYMBOL( glDrawBuffer ),
+	VRTLD_EXPORT( "dlopen", vrtld_dlopen ),
+	VRTLD_EXPORT( "dlclose", vrtld_dlclose ),
+	VRTLD_EXPORT( "dlsym", vrtld_dlsym ),
 };
 
 const vrtld_export_t *__vrtld_exports = aux_exports;
 const size_t __vrtld_num_exports = sizeof( aux_exports ) / sizeof( *aux_exports );
 
 /* end of export crap */
-
-SceUInt32 sceUserMainThreadStackSize = 1 * 1024 * 1024;
-unsigned int _newlib_heap_size_user = 128 * 1024 * 1024;
 
 void Platform_ShellExecute( const char *path, const char *parms )
 {
@@ -87,6 +111,12 @@ void PSVita_Init( void )
 	{
 		Sys_Error( "Could not init vrtld: %s\n", vrtld_dlerror( ) );
 	}
+
+	// init vitaGL with some memory budget for immediate mode vertices
+	// TODO: we don't need to do this for ref_soft
+	vglUseVram( GL_TRUE );
+	vglUseExtraMem( GL_TRUE );
+	vglInitExtended( VGL_VERTEX_POOL_SIZE, 960, 544, VGL_MEM_THRESHOLD, 0 );
 }
 
 void PSVita_Shutdown( void )
