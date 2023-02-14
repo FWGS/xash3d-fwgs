@@ -199,7 +199,7 @@ def build(bld):
 		libs += [ 'VRTLD' ]
 		source += bld.path.ant_glob(['platform/posix/*.c'])
 		source += bld.path.ant_glob(['platform/psvita/*.c'])
-		# HACK: link in the entirety of libstdc++ and -lm so that dynamic libs could use all of them without manual exporting
+		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
 		# also link in all the funky dependencies that aren't in SDL2's LDFLAGS
 		bld.env.LDFLAGS += [
 			'-Wl,--whole-archive',
@@ -207,10 +207,10 @@ def build(bld):
 			'-lpthread',
 			'-Wl,--no-whole-archive',
 			'-lm',
-			'-lkubridge_stub',
 			'-lSceShaccCgExt',
-			'-lSceShaccCg_stub',
+			'-lkubridge_stub',
 			'-ltaihen_stub',
+			'-lSceShaccCg_stub',
 			'-lSceKernelModulemgr_stub',
 			'-lSceSblSsMgr_stub',
 			'-lSceVshBridge_stub',
