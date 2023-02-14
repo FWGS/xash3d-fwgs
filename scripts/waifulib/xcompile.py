@@ -480,7 +480,7 @@ class PSVita:
 		# this optimization is broken in vitasdk
 		cflags += ['-fno-optimize-sibling-calls']
 		# disable some ARM bullshit
-		cflags += ['-fsigned-char', '-Wno-attributes']
+		cflags += ['-fsigned-char', '-fno-short-enums', '-Wno-attributes']
 		# base include dir
 		cflags += ['-isystem %s/arm-vita-eabi/include' % self.vitasdk_dir]
 		# SDL include dir
@@ -495,6 +495,8 @@ class PSVita:
 	# they go before object list
 	def linkflags(self):
 		linkflags = ['-Wl,--hash-style=sysv', '-Wl,-q', '-Wl,-z,nocopyreloc', '-mtune=cortex-a9', '-mfpu=neon']
+		# enforce no-short-enums again
+		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums']
 		return linkflags
 
 	def ldflags(self):

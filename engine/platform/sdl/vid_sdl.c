@@ -424,6 +424,14 @@ void *GL_GetProcAddress( const char *name )
 {
 	void *func = SDL_GL_GetProcAddress( name );
 
+#if XASH_PSVITA
+	// try to find in main module
+	if( !func )
+	{
+		func = dlsym( NULL, name );
+	}
+#endif
+
 	if( !func )
 	{
 		Con_Reportf( S_ERROR "GL_GetProcAddress failed for %s\n", name );
