@@ -1732,30 +1732,37 @@ Custom debug messages
 */
 int Con_DrawDebugLines( void )
 {
+	notify_t *notify = con.notify;
 	int	i, count = 0;
 	int	defaultX;
 	int	y = 20;
+	int	fontTall;
+
+	if( !con.curFont || !con.curFont->valid )
+		return 0;
 
 	defaultX = refState.width / 4;
+	fontTall = con.curFont->charHeight + 1;
 
-	for( i = 0; i < MAX_DBG_NOTIFY; i++ )
+	for( i = 0; i < ARRAYSIZE( con.notify ); i++, notify++ )
 	{
-		if( host.realtime < con.notify[i].expire && con.notify[i].key_dest == cls.key_dest )
-		{
-			int	x, len;
-			int	fontTall = 0;
+		int x, len;
 
-			Con_DrawStringLen( con.notify[i].szNotify, &len, &fontTall );
-			x = refState.width - Q_max( defaultX, len ) - 10;
-			fontTall += 1;
+		if( host.realtime > notify->expire )
+			continue;
 
-			if( y + fontTall > refState.height - 20 )
-				return count;
+		if( notify->key_dest != cls.key_dest )
+			continue;
 
-			count++;
-			y = 20 + fontTall * i;
-			Con_DrawString( x, y, con.notify[i].szNotify, con.notify[i].color );
-		}
+		Con_DrawStringLen( notify->szNotify, &len, NULL );
+		x = refState.width - Q_max( defaultX, len ) - 10;
+
+		if( y + fontTall > refState.height - 20 )
+			return count;
+
+		count++;
+		y += fontTall;
+		CL_DrawString( x, y, notify->szNotify, notify->color, con.curFont, FONT_DRAW_UTF8 | FONT_DRAW_NOLF );
 	}
 
 	return count;
