@@ -66,28 +66,29 @@ jobs:
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
-  flatpak:
-    name: "Flatpak"
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - app: su.xash.Engine.Compat.i386
-    container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-22.08
-      options: --privileged
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      UPLOADTOOL_ISPRERELEASE: true
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: recursive
-    - name: Build flatpak (Compat.i386)
-      uses: FWGS/flatpak-github-actions/flatpak-builder@v5
-      with:
-        bundle: ${{ matrix.app }}.flatpak
-        manifest-path: scripts/flatpak/${{ matrix.app }}.yml
-    - name: Upload engine (prereleases)
-      run: bash scripts/continious_upload.sh ${{ matrix.app }}.flatpak
+  # See https://github.com/w23/xash3d-fwgs/issues/430
+  # flatpak:
+  #   name: "Flatpak"
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - app: su.xash.Engine.Compat.i386
+  #   container:
+  #     image: bilelmoussaoui/flatpak-github-actions:freedesktop-22.08
+  #     options: --privileged
+  #   env:
+  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     UPLOADTOOL_ISPRERELEASE: true
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v3
+  #     with:
+  #       submodules: recursive
+  #   - name: Build flatpak (Compat.i386)
+  #     uses: FWGS/flatpak-github-actions/flatpak-builder@v5
+  #     with:
+  #       bundle: ${{ matrix.app }}.flatpak
+  #       manifest-path: scripts/flatpak/${{ matrix.app }}.yml
+  #   - name: Upload engine (prereleases)
+  #     run: bash scripts/continious_upload.sh ${{ matrix.app }}.flatpak
