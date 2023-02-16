@@ -81,7 +81,7 @@ def build(bld):
 	if not bld.env.VK:
 		return
 
-	libs = [ 'public', 'M' ]
+	libs = [ 'engine_includes', 'public', 'M' ]
 	defines = []
 	libpath = []
 

@@ -4,6 +4,7 @@
 #include "vk_render.h"
 #include "vk_geometry.h"
 #include "vk_previous_frame.h"
+#include "vk_renderstate.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"
@@ -12,7 +13,6 @@
 #include "triangleapi.h"
 #include "studio.h"
 #include "pm_local.h"
-#include "cl_tent.h"
 #include "pmtrace.h"
 #include "protocol.h"
 #include "enginefeatures.h"

@@ -11,7 +11,6 @@
 #include "triangleapi.h"
 #include "studio.h"
 #include "pm_local.h"
-#include "cl_tent.h"
 #include "pmtrace.h"
 #include "protocol.h"
 #include "enginefeatures.h"
