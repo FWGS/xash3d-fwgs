@@ -184,6 +184,7 @@ def configure(conf):
 		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.options.USE_STBTT        = True
+		conf.options.VULKAN           = False # https://github.com/w23/xash3d-fwgs/issues/429
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
