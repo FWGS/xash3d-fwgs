@@ -29,7 +29,8 @@ CVAR_DEFINE_AUTO( sv_unlag, "1", 0, "allow lag compensation on server-side" );
 CVAR_DEFINE_AUTO( sv_maxunlag, "0.5", 0, "max latency value which can be interpolated (by default ping should not exceed 500 units)" );
 CVAR_DEFINE_AUTO( sv_unlagpush, "0.0", 0, "interpolation bias for unlag time" );
 CVAR_DEFINE_AUTO( sv_unlagsamples, "1", 0, "max samples to interpolate" );
-CVAR_DEFINE_AUTO( rcon_password, "", 0, "remote connect password" );
+CVAR_DEFINE_AUTO( rcon_password, "", FCVAR_PROTECTED | FCVAR_PRIVILEGED, "remote connect password" );
+CVAR_DEFINE_AUTO( rcon_enable, "1", FCVAR_PROTECTED, "enable accepting remote commands on server" );
 CVAR_DEFINE_AUTO( sv_filterban, "1", 0, "filter banned users" );
 CVAR_DEFINE_AUTO( sv_cheats, "0", FCVAR_SERVER, "allow cheats on server" );
 CVAR_DEFINE_AUTO( sv_instancedbaseline, "1", 0, "allow to use instanced baselines to saves network overhead" );
@@ -58,6 +59,8 @@ CVAR_DEFINE_AUTO( mp_logfile, "1", 0, "log multiplayer frags to console" );
 CVAR_DEFINE_AUTO( sv_log_singleplayer, "0", FCVAR_ARCHIVE, "allows logging in singleplayer games" );
 CVAR_DEFINE_AUTO( sv_log_onefile, "0", FCVAR_ARCHIVE, "logs server information to only one file" );
 CVAR_DEFINE_AUTO( sv_trace_messages, "0", FCVAR_LATCH, "enable server usermessages tracing (good for developers)" );
+CVAR_DEFINE_AUTO( sv_master_response_timeout, "4", FCVAR_ARCHIVE, "master server heartbeat response timeout in seconds" );
+CVAR_DEFINE_AUTO( sv_autosave, "1", FCVAR_ARCHIVE|FCVAR_SERVER|FCVAR_PRIVILEGED, "enable autosaving" );
 
 // game-related cvars
 CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer map cycle configuration file" );
@@ -112,6 +115,14 @@ CVAR_DEFINE_AUTO( violence_ablood, "1", 0, "draw alien blood" );
 CVAR_DEFINE_AUTO( violence_hgibs, "1", 0, "show human gib entities" );
 CVAR_DEFINE_AUTO( violence_agibs, "1", 0, "show alien gib entities" );
 
+// voice chat
+CVAR_DEFINE_AUTO( sv_voiceenable, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "enable voice support" );
+CVAR_DEFINE_AUTO( sv_voicequality, "3", FCVAR_ARCHIVE|FCVAR_SERVER, "voice chat quality level, from 0 to 5, higher is better" );
+
+// enttools
+CVAR_DEFINE_AUTO( sv_enttools_enable, "0", FCVAR_ARCHIVE|FCVAR_PROTECTED, "enable powerful and dangerous entity tools" );
+CVAR_DEFINE_AUTO( sv_enttools_maxfire, "5", FCVAR_ARCHIVE|FCVAR_PROTECTED, "limit ent_fire actions count to prevent flooding" );
+
 convar_t	*sv_novis;			// disable server culling entities by vis
 convar_t	*sv_pausable;
 convar_t	*timeout;				// seconds without any message
@@ -130,7 +141,7 @@ convar_t	*sv_allow_mouse;
 convar_t	*sv_allow_joystick;
 convar_t	*sv_allow_vr;
 
-void Master_Shutdown( void );
+static void Master_Heartbeat( void );
 
 //============================================================================
 /*
@@ -153,41 +164,6 @@ qboolean SV_HasActivePlayers( void )
 			return true;
 	}
 	return false;
-}
-
-/*
-================
-SV_GetConnectedClientsCount
-
-returns connected clients count (and optionally bots count)
-================
-*/
-int SV_GetConnectedClientsCount(int *bots)
-{
-	int index;
-	int	clients;
-
-	clients = 0;
-	if( svs.clients )
-	{
-		if( bots )
-			*bots = 0;
-
-		for( index = 0; index < svs.maxclients; index++ )
-		{
-			if( svs.clients[index].state >= cs_connected )
-			{
-				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
-				{
-					if( bots )
-						(*bots)++;
-				}
-				else
-					clients++;
-			}
-		}
-	}
-	return clients;
 }
 
 /*
@@ -712,15 +688,22 @@ void Host_SetServerState( int state )
 Master_Add
 =================
 */
-void Master_Add( void )
+static void Master_Add( void )
 {
-	netadr_t	adr;
+	sizebuf_t msg;
+	char buf[16];
+	uint challenge;
 
 	NET_Config( true, false ); // allow remote
 
-	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		Con_Printf( "can't resolve adr: %s\n", MASTERSERVER_ADR );
-	else NET_SendPacket( NS_SERVER, 2, "q\xFF", adr );
+	svs.heartbeat_challenge = challenge = COM_RandomLong( 0, INT_MAX );
+
+	MSG_Init( &msg, "Master Join", buf, sizeof( buf ));
+	MSG_WriteBytes( &msg, "q\xFF", 2 );
+	MSG_WriteDword( &msg, challenge );
+
+	if( NET_SendToMasters( NS_SERVER, MSG_GetNumBytesWritten( &msg ), MSG_GetBuf( &msg )))
+		svs.last_heartbeat = MAX_HEARTBEAT;
 }
 
 /*
@@ -731,7 +714,7 @@ Send a message to the master every few minutes to
 let it know we are alive, and log information
 ================
 */
-void Master_Heartbeat( void )
+static void Master_Heartbeat( void )
 {
 	if( !public_server->value || svs.maxclients == 1 )
 		return; // only public servers send heartbeats
@@ -755,15 +738,10 @@ Master_Shutdown
 Informs all masters that this server is going down
 =================
 */
-void Master_Shutdown( void )
+static void Master_Shutdown( void )
 {
-	netadr_t	adr;
-
 	NET_Config( true, false ); // allow remote
-
-	if( !NET_StringToAdr( MASTERSERVER_ADR, &adr ))
-		Con_Printf( "can't resolve addr: %s\n", MASTERSERVER_ADR );
-	else NET_SendPacket( NS_SERVER, 2, "\x62\x0A", adr );
+	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A" ));
 }
 
 /*
@@ -776,14 +754,33 @@ Master will validate challenge and this server to public list
 */
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
-	uint	challenge;
+	uint	challenge, challenge2;
 	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
-	int	clients = 0, bots = 0;
-	int	len = sizeof( s );
+	int	clients, bots;
+	const int len = sizeof( s );
 
-	clients = SV_GetConnectedClientsCount( &bots );
-	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
+	if( !NET_IsMasterAdr( from ))
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet from %s\n", NET_AdrToString( from ));
+		return;
+	}
 
+	if( svs.last_heartbeat + sv_master_response_timeout.value < host.realtime )
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet (too late? try increasing sv_master_response_timeout value)\n");
+		return;
+	}
+
+	challenge = MSG_ReadDword( msg );
+	challenge2 = MSG_ReadDword( msg );
+
+	if( challenge2 != svs.heartbeat_challenge )
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet (wrong challenge!)\n" );
+		return;
+	}
+
+	SV_GetPlayerCount( &clients, &bots );
 	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
 	Info_SetValueForKey( s, "challenge", va( "%u", challenge ), len ); // challenge number
 	Info_SetValueForKey( s, "players", va( "%d", clients ), len ); // current player number, without bots
@@ -796,10 +793,10 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "os", "w", len ); // Windows
 	Info_SetValueForKey( s, "secure", "0", len ); // server anti-cheat
 	Info_SetValueForKey( s, "lan", "0", len ); // LAN servers doesn't send info to master
-	Info_SetValueForKey( s, "version", va( "%s", XASH_VERSION ), len ); // server region. 255 -- all regions
+	Info_SetValueForKey( s, "version", XASH_VERSION, len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "region", "255", len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "product", GI->gamefolder, len ); // product? Where is the difference with gamedir?
-	Info_SetValueForKey( s, "nat", sv_nat.string, sizeof(s) ); // Server running under NAT, use reverse connection
+	Info_SetValueForKey( s, "nat", sv_nat.string, len ); // Server running under NAT, use reverse connection
 
 	NET_SendPacket( NS_SERVER, Q_strlen( s ), s, from );
 }
@@ -914,6 +911,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &temp1 );
 
 	Cvar_RegisterVariable( &rcon_password );
+	Cvar_RegisterVariable( &rcon_enable );
 	Cvar_RegisterVariable( &sv_stepsize );
 	Cvar_RegisterVariable( &sv_newunit );
 	Cvar_RegisterVariable( &hostname );
@@ -967,8 +965,10 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &mp_logfile );
 	Cvar_RegisterVariable( &sv_log_onefile );
 	Cvar_RegisterVariable( &sv_log_singleplayer );
+	Cvar_RegisterVariable( &sv_master_response_timeout );
 
 	Cvar_RegisterVariable( &sv_background_freeze );
+	Cvar_RegisterVariable( &sv_autosave );
 
 	Cvar_RegisterVariable( &mapcyclefile );
 	Cvar_RegisterVariable( &motdfile );
@@ -977,7 +977,13 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &listipcfgfile );
 	Cvar_RegisterVariable( &mapchangecfgfile );
 
+	Cvar_RegisterVariable( &sv_voiceenable );
+	Cvar_RegisterVariable( &sv_voicequality );
 	Cvar_RegisterVariable( &sv_trace_messages );
+	Cvar_RegisterVariable( &sv_enttools_enable );
+	Cvar_RegisterVariable( &sv_enttools_maxfire );
+
+	Cvar_RegisterVariable( &sv_autosave );
 
 	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
 	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
@@ -990,8 +996,8 @@ void SV_Init( void )
 
 	MSG_Init( &net_message, "NetMessage", net_message_buffer, sizeof( net_message_buffer ));
 
-	Q_snprintf( versionString, sizeof( versionString ), "%s: %s-%s(%s-%s),%i,%i",
-		XASH_ENGINE_NAME, XASH_VERSION, Q_buildcommit(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
+	Q_snprintf( versionString, sizeof( versionString ), XASH_ENGINE_NAME ": " XASH_VERSION "-%s(%s-%s),%i,%i",
+		Q_buildcommit(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
 
 	Cvar_FullSet( "sv_version", versionString, FCVAR_READ_ONLY );
 

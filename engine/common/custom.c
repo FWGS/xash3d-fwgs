@@ -17,9 +17,23 @@ GNU General Public License for more details.
 #include "custom.h"
 #include "ref_common.h"
 
-qboolean CustomDecal_Validate( void *raw, int nFileSize )
+static rgbdata_t *CustomDecal_LoadImage( const char *path, void *raw, int size )
 {
-	rgbdata_t	*test = FS_LoadImage( "#logo.bmp", raw, nFileSize );
+	const char *testname;
+
+	// this way we limit file types
+	if( !Q_stricmp( COM_FileExtension( path ), "png" ))
+		testname = "#logo.png";
+	else testname = "#logo.bmp";
+
+	Image_SetForceFlags( IL_LOAD_PLAYER_DECAL );
+
+	return FS_LoadImage( testname, raw, size );
+}
+
+static qboolean CustomDecal_Validate( const char *path, void *raw, int nFileSize )
+{
+	rgbdata_t *test = CustomDecal_LoadImage( path, raw, nFileSize );
 
 	if( test )
 	{
@@ -97,20 +111,24 @@ qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResou
 	{
 		pCust->resource.playernum = playernumber;
 
-		if( CustomDecal_Validate( pCust->pBuffer, pResource->nDownloadSize ))
+		if( CustomDecal_Validate( pResource->szFileName, pCust->pBuffer, pResource->nDownloadSize ))
 		{
 			if( !FBitSet( flags, FCUST_IGNOREINIT ))
 			{
-				if( pResource->nDownloadSize >= (1 * 1024) && pResource->nDownloadSize <= ( 16 * 1024 ))
+				if( pResource->nDownloadSize >= (1 * 1024) && pResource->nDownloadSize <= ( 128 * 1024 ))
 				{
 					pCust->bTranslated = true;
 					pCust->nUserData1 = 0;
 					pCust->nUserData2 = 1;
 
 					if( !FBitSet( flags, FCUST_WIPEDATA ))
-						pCust->pInfo = FS_LoadImage( "#logo.bmp", pCust->pBuffer, pCust->resource.nDownloadSize );
+						pCust->pInfo = CustomDecal_LoadImage( pResource->szFileName, pCust->pBuffer, pCust->resource.nDownloadSize );
 					else pCust->pInfo = NULL;
 					if( nLumps ) *nLumps = 1;
+				}
+				else
+				{
+					Con_Printf( S_WARN "Ignoring custom decal \"%s\": wrong size (%i bytes)\n", pResource->szFileName, pResource->nDownloadSize );
 				}
 			}
 		}

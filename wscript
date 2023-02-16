@@ -2,8 +2,7 @@
 # encoding: utf-8
 # a1batross, mittorn, 2018
 
-from __future__ import print_function
-from waflib import Logs, Context, Configure
+from waflib import Build, Context, Logs
 import sys
 import os
 
@@ -14,70 +13,59 @@ top = '.'
 Context.Context.line_just = 55 # should fit for everything on 80x26
 
 class Subproject:
-	name      = ''
-	dedicated = True  # if true will be ignored when building dedicated server
-	singlebin = False # if true will be ignored when singlebinary is set
-	ignore    = False # if true will be ignored, set by user request
-	mandatory  = False
-
-	def __init__(self, name, dedicated=True, singlebin=False, mandatory = False, utility = False, fuzzer = False):
+	def __init__(self, name, fnFilter = None):
 		self.name = name
-		self.dedicated = dedicated
-		self.singlebin = singlebin
-		self.mandatory = mandatory
-		self.utility = utility
-		self.fuzzer = fuzzer
+		self.fnFilter = fnFilter
+
+	def is_exists(self, ctx):
+		return ctx.path.find_node(self.name + '/wscript')
 
 	def is_enabled(self, ctx):
-		if not self.mandatory:
-			if self.name in ctx.env.IGNORE_PROJECTS:
-				self.ignore = True
-
-		if self.ignore:
+		if not self.is_exists(ctx):
 			return False
 
-		if ctx.env.SINGLE_BINARY and self.singlebin:
-			return False
-
-		if ctx.env.DEST_OS == 'android' and self.singlebin:
-			return False
-
-		if ctx.env.DEDICATED and self.dedicated:
-			return False
-
-		if self.utility and not ctx.env.ENABLE_UTILS:
-			return False
-
-		if self.fuzzer and not ctx.env.ENABLE_FUZZER:
-			return False
+		if self.fnFilter:
+			return self.fnFilter(ctx)
 
 		return True
 
 SUBDIRS = [
-	Subproject('public',      dedicated=False, mandatory = True),
-	Subproject('filesystem',  dedicated=False, mandatory = True),
-	Subproject('game_launch', singlebin=True),
-	Subproject('ref_gl',),
-	Subproject('ref_vk',),
-	Subproject('ref_soft'),
-	Subproject('mainui'),
-	Subproject('vgui_support'),
-	Subproject('stub/server', dedicated=False),
-	Subproject('stub/client'),
+	# always configured and built
+	Subproject('public'),
+	Subproject('filesystem'),
+	Subproject('engine'),
+	Subproject('stub/server'),
 	Subproject('dllemu'),
-	Subproject('engine', dedicated=False),
-	Subproject('utils/mdldec', utility=True),
-	Subproject('utils/run-fuzzer', fuzzer=True)
-]
 
-def subdirs():
-	return map(lambda x: x.name, SUBDIRS)
+	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
+	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED and x.env.DEST_OS != 'android'),
+	Subproject('3rdparty/nanogl',       lambda x: not x.env.DEDICATED and x.env.NANOGL),
+	Subproject('3rdparty/gl-wes-v2',    lambda x: not x.env.DEDICATED and x.env.GLWES),
+	Subproject('3rdparty/gl4es',        lambda x: not x.env.DEDICATED and x.env.GL4ES),
+	Subproject('ref/gl',                lambda x: not x.env.DEDICATED and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
+	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and x.env.SOFT),
+	Subproject('ref_vk',                lambda x: not x.env.DEDICATED and x.env.VULKAN),
+	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
+	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
+	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
+	Subproject('game_launch',           lambda x: not x.env.SINGLE_BINARY and x.env.DEST_OS != 'android'),
+
+	# disable only by external dependency presense
+	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS and not x.env.DEDICATED),
+
+	# enabled optionally
+	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
+	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
+]
 
 def options(opt):
 	grp = opt.add_option_group('Common options')
 
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
 		help = 'build Xash Dedicated Server [default: %default]')
+
+	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
+		help = 'engine default game directory [default: %default]')
 
 	grp.add_option('--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
 		help = 'build single "xash" binary (always enabled for dedicated) [default: %default]')
@@ -88,17 +76,40 @@ def options(opt):
 	grp.add_option('-P', '--enable-packaging', action = 'store_true', dest = 'PACKAGING', default = False,
 		help = 'respect prefix option, useful for packaging for various operating systems [default: %default]')
 
+	grp.add_option('--enable-bundled-deps', action = 'store_true', dest = 'BUILD_BUNDLED_DEPS', default = False,
+		help = 'prefer to build bundled dependencies (like opus) instead of relying on system provided')
+
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
 
 	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = 'int',
 		help = 'enable low memory mode (only for devices have <128 ram)')
 
-	grp.add_option('--ignore-projects', action = 'store', dest = 'IGNORE_PROJECTS', default = None,
-		help = 'disable selected projects from build [default: %default]')
-
 	grp.add_option('--disable-werror', action = 'store_true', dest = 'DISABLE_WERROR', default = False,
 		help = 'disable compilation abort on warning')
+
+	grp = opt.add_option_group('Renderers options')
+
+	grp.add_option('--enable-all-renderers', action='store_true', dest='ALL_RENDERERS', default=False,
+		help = 'enable all renderers supported by Xash3D FWGS [default: %default]')
+
+	grp.add_option('--enable-gles1', action='store_true', dest='NANOGL', default=False,
+		help = 'enable gles1 renderer [default: %default]')
+
+	grp.add_option('--enable-gles2', action='store_true', dest='GLWES', default=False,
+		help = 'enable gles2 renderer [default: %default]')
+
+	grp.add_option('--enable-gl4es', action='store_true', dest='GL4ES', default=False,
+		help = 'enable gles2 renderer [default: %default]')
+
+	grp.add_option('--disable-gl', action='store_false', dest='GL', default=True,
+		help = 'disable opengl renderer [default: %default]')
+
+	grp.add_option('--disable-vulkan', action='store_false', dest='VULKAN', default=True,
+		help = 'disable vulkan renderer [default: %default]')
+
+	grp.add_option('--disable-soft', action='store_false', dest='SOFT', default=True,
+		help = 'disable soft renderer [default: %default]')
 
 	grp = opt.add_option_group('Utilities options')
 
@@ -111,26 +122,22 @@ def options(opt):
 	opt.load('compiler_optimizations subproject')
 
 	for i in SUBDIRS:
-		if not i.mandatory and not opt.path.find_node(i.name+'/wscript'):
-			i.ignore = True
+		if not i.is_exists(opt):
 			continue
 
 		opt.add_subproject(i.name)
 
-	opt.load('xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs')
-	if sys.platform == 'win32':
-		opt.load('msvc')
-	opt.load('reconfigure')
+	opt.load('xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc reconfigure')
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
-	if conf.options.IGNORE_PROJECTS:
-		conf.env.IGNORE_PROJECTS = conf.options.IGNORE_PROJECTS.split(',')
-
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 
 	# Load compilers early
 	conf.load('xshlib xcompile compiler_c compiler_cxx')
+
+	if conf.options.NSWITCH:
+		conf.load('nswitch')
 
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
@@ -171,6 +178,12 @@ def configure(conf):
 		enforce_pic = False
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.SINGLE_BINARY = True
+	elif conf.env.DEST_OS == 'nswitch':
+		conf.options.NO_VGUI          = True
+		conf.options.GL               = True
+		conf.options.SINGLE_BINARY    = True
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.options.USE_STBTT        = True
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
@@ -198,7 +211,6 @@ def configure(conf):
 		'-Werror=duplicated-cond',
 		'-Werror=bool-compare',
 		'-Werror=bool-operation',
-		'-Wcast-align',
 		'-Werror=cast-align=strict', # =strict is for GCC >=8
 		'-Werror=packed',
 		'-Werror=packed-not-aligned',
@@ -208,6 +220,12 @@ def configure(conf):
 		'-Werror=implicit-fallthrough=2', # clang incompatible without "=2"
 		'-Werror=logical-op',
 		'-Werror=write-strings',
+		'-Werror=sizeof-pointer-memaccess',
+		'-Werror=sizeof-array-div',
+		'-Werror=sizeof-pointer-div',
+		'-Werror=string-compare',
+		'-Werror=use-after-free=3',
+		'-Werror=sequence-point',
 #		'-Werror=format=2',
 #		'-Wdouble-promotion', # disable warning flood
 		'-Wstrict-aliasing',
@@ -232,6 +250,14 @@ def configure(conf):
 
 	cflags, linkflags = conf.get_optimization_flags()
 
+	# on the Switch, allow undefined symbols by default, which is needed for libsolder to work
+	# we'll specifically disallow them for the engine executable
+	# additionally, shared libs are linked without standard libs, we'll add those back in the engine wscript
+	if conf.env.DEST_OS == 'nswitch':
+		linkflags.remove('-Wl,--no-undefined')
+		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-nostartfiles'])
+		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-nostartfiles'])
+
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
 	if conf.env.COMPILER_CC != 'msvc' and not conf.options.DISABLE_WERROR:
@@ -245,43 +271,61 @@ def configure(conf):
 		cxxflags += conf.filter_cxxflags(compiler_optional_flags, cflags)
 		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags)
 
+		# check if we need to use irix linkflags
+		if conf.env.DEST_OS == 'irix' and conf.env.COMPILER_CC == 'gcc':
+			linkflags.remove('-Wl,--no-undefined')
+			linkflags.append('-Wl,--unresolved-symbols=ignore-all')
+			# check if we're in a sgug environment
+			if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
+				linkflags.append('-lc')
+
 	conf.env.append_unique('CFLAGS', cflags)
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
-
-	# check if we can use C99 stdint
-	if conf.check_cc(header_name='stdint.h', mandatory=False):
-		# use system
-		conf.define('STDINT_H', 'stdint.h')
-	else:
-		# include portable stdint by Paul Hsich
-		conf.define('STDINT_H', 'pstdint.h')
 
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 
+	conf.env.NANOGL = conf.options.NANOGL or conf.options.ALL_RENDERERS
+	conf.env.GLWES  = conf.options.GLWES or conf.options.ALL_RENDERERS
+	conf.env.GL4ES  = conf.options.GL4ES or conf.options.ALL_RENDERERS
+	conf.env.GL     = conf.options.GL or conf.options.ALL_RENDERERS
+	conf.env.SOFT   = conf.options.SOFT or conf.options.ALL_RENDERERS
+	conf.env.VULKAN = conf.options.VULKAN or conf.options.ALL_RENDERERS
+
+	conf.env.GAMEDIR = conf.options.GAMEDIR
+	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
+
+	# check if we can use C99 stdint
+	conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
+
+	# check if we can use alloca.h or malloc.h
+	if conf.check_cc(header_name='alloca.h', mandatory=False):
+		conf.define('ALLOCA_H', 'alloca.h')
+	elif conf.check_cc(header_name='malloc.h', mandatory=False):
+		conf.define('ALLOCA_H', 'malloc.h')
+
 	if conf.env.DEST_OS != 'win32':
-		conf.check_cc(lib='dl', mandatory=False)
+		if conf.env.DEST_OS == 'nswitch':
+			conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER', mandatory=True)
+			if conf.env.HAVE_SOLDER and conf.env.LIB_SOLDER and conf.options.BUILD_TYPE == 'debug':
+				conf.env.LIB_SOLDER[0] += 'd' # load libsolderd in debug mode
+		else:
+			conf.check_cc(lib='dl', mandatory=False)
 
 		if not conf.env.LIB_M: # HACK: already added in xcompile!
 			conf.check_cc(lib='m')
+
+		if conf.env.DEST_OS == 'android':
+			conf.check_cc(lib='log')
 	else:
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
 		# Usually, they are always available
 		# but we need them in uselib
-		a = [
-			'user32',
-			'shell32',
-			'gdi32',
-			'advapi32',
-			'dbghelp',
-			'psapi',
-			'ws2_32'
-		]
-
+		a = [ 'user32', 'shell32', 'gdi32', 'advapi32', 'dbghelp', 'psapi', 'ws2_32' ]
 		if conf.env.COMPILER_CC == 'msvc':
 			for i in a:
 				conf.start_msg('Checking for MSVC library')
@@ -324,28 +368,38 @@ int main(void) { return 0; }''',
 	if conf.env.DEST_OS != 'win32':
 		strcasestr_frag = '''#include <string.h>
 int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
+		strchrnul_frag  = '''#include <string.h>
+int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 
-		if conf.check_cc(msg='Checking for strcasestr', mandatory=False, fragment=strcasestr_frag):
-			conf.define('HAVE_STRCASESTR', 1)
-		elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=strcasestr_frag, defines='_GNU_SOURCE=1'):
-			conf.define('_GNU_SOURCE', 1)
-			conf.define('HAVE_STRCASESTR', 1)
-
-	# check if we can use alloca.h or malloc.h
-	if conf.check_cc(header_name='alloca.h', mandatory=False):
-		conf.define('ALLOCA_H', 'alloca.h')
-	elif conf.check_cc(header_name='malloc.h', mandatory=False):
-		conf.define('ALLOCA_H', 'malloc.h')
+		def check_gnu_function(frag, msg, define):
+			if conf.check_cc(msg=msg, mandatory=False, fragment=frag):
+				conf.define(define, 1)
+			elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=frag, defines='_GNU_SOURCE=1'):
+				conf.define(define, 1)
+				conf.define('_GNU_SOURCE', 1)
+		check_gnu_function(strcasestr_frag, 'Checking for strcasestr', 'HAVE_STRCASESTR')
+		check_gnu_function(strchrnul_frag, 'Checking for strchrnul', 'HAVE_STRCHRNUL')
 
 	# indicate if we are packaging for Linux/BSD
 	if conf.options.PACKAGING:
-		conf.env.LIBDIR = conf.env.BINDIR = '${PREFIX}/lib/xash3d'
+		conf.env.LIBDIR = conf.env.BINDIR = conf.env.LIBDIR + '/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if sys.platform != 'win32' and not conf.env.DEST_OS == 'android':
+		if sys.platform != 'win32' and conf.env.DEST_OS != 'android':
 			conf.env.PREFIX = '/'
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
+
+	if not conf.options.BUILD_BUNDLED_DEPS:
+		# check if we can use system opus
+		conf.define('CUSTOM_MODES', 1)
+
+		# try to link with export that only exists with CUSTOM_MODES defined
+		if conf.check_pkg('opus', 'opus', '''#include <opus_custom.h>
+int main(void){ return !opus_custom_encoder_init(0, 0, 0); }''', fatal = False):
+			conf.env.HAVE_SYSTEM_OPUS = True
+		else:
+			conf.undefine('CUSTOM_MODES')
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
@@ -357,7 +411,13 @@ int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
 		conf.add_subproject(i.name)
 
 def build(bld):
+	# don't clean QtCreator files and reconfigure saved options
+	bld.clean_files = bld.bldnode.ant_glob('**',
+		excl='*.user configuration.py .lock* *conf_check_*/** config.log %s/*' % Build.CACHE_DIR,
+		quiet=True, generator=True)
+
 	bld.load('xshlib')
+
 	for i in SUBDIRS:
 		if not i.is_enabled(bld):
 			continue

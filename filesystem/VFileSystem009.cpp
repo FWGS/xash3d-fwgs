@@ -42,14 +42,14 @@ static inline qboolean IsIdGamedir( const char *id )
 		!Q_strcmp( id, "GAMEDOWNLOAD" );
 }
 
-static inline const char* IdToDir( const char *id )
+static inline const char *IdToDir( const char *id )
 {
 	if( !Q_strcmp( id, "GAME" ))
 		return GI->gamefolder;
 	else if( !Q_strcmp( id, "GAMEDOWNLOAD" ))
 		return va( "%s/downloaded", GI->gamefolder );
 	else if( !Q_strcmp( id, "GAMECONFIG" ))
-		return fs_writedir; // full path here so it's totally our write allowed directory
+		return fs_writepath->filename; // full path here so it's totally our write allowed directory
 	else if( !Q_strcmp( id, "PLATFORM" ))
 		return "platform"; // stub
 	else if( !Q_strcmp( id, "CONFIG" ))
@@ -490,6 +490,18 @@ extern "C" void EXPORT *CreateInterface( const char *interface, int *retval )
 	{
 		if( retval ) *retval = 0;
 		return &g_VFileSystem009;
+	}
+
+	if( !Q_strcmp( interface, FS_API_CREATEINTERFACE_TAG ))
+	{
+		// return a copy, to disallow overriding
+		static fs_api_t copy = { 0 };
+
+		if( !copy.InitStdio )
+			memcpy( &copy, &g_api, sizeof( copy ));
+
+		if( retval ) *retval = 0;
+		return &copy;
 	}
 
 	if( retval ) *retval = 1;

@@ -249,7 +249,7 @@ void SV_Maps_f( void )
 
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: maps <substring>\nmaps * for full listing\n" );
+		Msg( S_USAGE "maps <substring>\nmaps * for full listing\n" );
 		return;
 	}
 
@@ -439,18 +439,23 @@ SV_Save_f
 */
 void SV_Save_f( void )
 {
+	qboolean ret = false;
+
 	switch( Cmd_Argc( ))
 	{
 	case 1:
-		SV_SaveGame( "new" );
+		ret = SV_SaveGame( "new" );
 		break;
 	case 2:
-		SV_SaveGame( Cmd_Argv( 1 ));
+		ret = SV_SaveGame( Cmd_Argv( 1 ));
 		break;
 	default:
 		Con_Printf( S_USAGE "save <savename>\n" );
 		break;
 	}
+
+	if( ret && CL_Active() && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		CL_HudMessage( "GAMESAVED" ); // defined in titles.txt
 }
 
 /*
@@ -497,7 +502,8 @@ void SV_AutoSave_f( void )
 		return;
 	}
 
-	SV_SaveGame( "autosave" );
+	if( Cvar_VariableInteger( "sv_autosave" ) )
+		SV_SaveGame( "autosave" );
 }
 
 /*

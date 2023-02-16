@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "net_api.h"
 #include "world.h"
 #include "ref_common.h"
+#include "voice.h"
 
 // client sprite types
 #define SPR_CLIENT		0	// client sprite for temp-entities or user-textures
@@ -107,7 +108,6 @@ extern int CL_UPDATE_BACKUP;
 #define MIN_UPDATERATE	10.0f
 #define MAX_UPDATERATE	102.0f
 
-#define MIN_EX_INTERP	0.005f
 #define MAX_EX_INTERP	0.1f
 
 #define CL_MIN_RESEND_TIME	1.5f		// mininum time gap (in seconds) before a subsequent connection request is sent.
@@ -138,7 +138,7 @@ typedef struct
 	int		light_level;
 	int		waterlevel;
 	int		usehull;
-	int		moving;
+	qboolean	moving;
 	int		pushmsec;
 	int		weapons;
 	float		maxspeed;
@@ -210,7 +210,7 @@ typedef struct
 						// a lerp point for other data
 	double		oldtime;			// previous cl.time, time-oldtime is used
 						// to decay light values and smooth step ups
-	float		timedelta;		// floating delta between two updates
+	double		timedelta;		// floating delta between two updates
 
 	char		serverinfo[MAX_SERVERINFO_STRING];
 	player_info_t	players[MAX_CLIENTS];	// collected info about all other players include himself
@@ -318,31 +318,45 @@ typedef struct
 	pfnEventHook	func;	// user-defined function
 } cl_user_event_t;
 
-#define FONT_FIXED		0
-#define FONT_VARIABLE	1
+#define FONT_FIXED      0
+#define FONT_VARIABLE   1
+
+#define FONT_DRAW_HUD      BIT( 0 ) // pass to drawing function to apply hud_scale
+#define FONT_DRAW_UTF8     BIT( 1 ) // call UtfProcessChar
+#define FONT_DRAW_FORCECOL BIT( 2 ) // ignore colorcodes
+#define FONT_DRAW_NORENDERMODE BIT( 3 ) // ignore font's default rendermode
+#define FONT_DRAW_NOLF     BIT( 4 ) // ignore \n
+#define FONT_DRAW_RESETCOLORONLF BIT( 5 ) // yet another flag to simulate consecutive Con_DrawString calls...
 
 typedef struct
 {
-	int		hFontTexture;		// handle to texture
-	wrect_t		fontRc[256];		// rectangles
-	byte		charWidths[256];
-	int		charHeight;
-	int		type;
-	qboolean		valid;			// all rectangles are valid
+	int      hFontTexture;    // handle to texture
+	wrect_t  fontRc[256];     // tex coords
+	float    scale;           // scale factor
+	byte     charWidths[256]; // scaled widths
+	int      charHeight;      // scaled height
+	int      type;            // fixed width font or variable
+	int      rendermode;      // default rendermode
+	qboolean	nearest;         // nearest filtering enabled
+	qboolean	valid;           // all rectangles are valid
 } cl_font_t;
 
+typedef struct scissor_state_s
+{
+	int x;
+	int y;
+	int width;
+	int height;
+	qboolean test;
+} scissor_state_t;
+
 typedef struct
 {
+	// scissor test
+	scissor_state_t scissor;
+
 	// temp handle
 	const model_t	*pSprite;			// pointer to current SpriteTexture
-
-	// scissor test
-	int		scissor_x;
-	int		scissor_y;
-	int		scissor_width;
-	int		scissor_height;
-	qboolean		scissor_test;
-	qboolean		adjust_size;		// allow to adjust scale for fonts
 
 	int		renderMode;		// override kRenderMode from TriAPI
 	TRICULLSTYLE	cullMode;			// override CULL FACE from TriAPI
@@ -370,14 +384,10 @@ typedef struct cl_predicted_player_s
 
 typedef struct
 {
-	int		gl_texturenum;	// this is a real texnum
-
 	// scissor test
-	int		scissor_x;
-	int		scissor_y;
-	int		scissor_width;
-	int		scissor_height;
-	qboolean		scissor_test;
+	scissor_state_t scissor;
+
+	int		gl_texturenum;	// this is a real texnum
 
 	// holds text color
 	rgba_t		textColor;
@@ -671,6 +681,7 @@ extern convar_t	*cl_levelshot_name;
 extern convar_t	*cl_draw_beams;
 extern convar_t	*cl_clockreset;
 extern convar_t	*cl_fixtimerate;
+extern convar_t	*hud_fontscale;
 extern convar_t	*hud_scale;
 extern convar_t	*gl_showtextures;
 extern convar_t	*cl_bmodelinterp;
@@ -753,6 +764,7 @@ int CL_IsDevOverviewMode( void );
 void CL_PingServers_f( void );
 void CL_SignonReply( void );
 void CL_ClearState( void );
+size_t CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat );
 
 //
 // cl_demo.c
@@ -795,6 +807,19 @@ word CL_EventIndex( const char *name );
 void CL_FireEvents( void );
 
 //
+// cl_font.c
+//
+qboolean CL_FixedFont( cl_font_t *font );
+qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, int rendermode, uint texFlags );
+qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, int rendermode, uint texFlags );
+void CL_FreeFont( cl_font_t *font );
+int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *font, int flags );
+int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *font, int flags );
+void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height );
+void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, int flags );
+
+
+//
 // cl_game.c
 //
 void CL_UnloadProgs( void );
@@ -823,11 +848,15 @@ model_t *CL_LoadClientSprite( const char *filename );
 model_t *CL_LoadModel( const char *modelname, int *index );
 HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags );
-void PicAdjustSize( float *x, float *y, float *w, float *h );
+void SPR_AdjustSize( float *x, float *y, float *w, float *h );
+void SPR_AdjustTexCoords( float width, float height, float *s1, float *t1, float *s2, float *t2 );
 int CL_GetScreenInfo( SCREENINFO *pscrinfo );
 void CL_FillRGBA( int x, int y, int width, int height, int r, int g, int b, int a );
 void CL_PlayerTrace( float *start, float *end, int traceFlags, int ignore_pe, pmtrace_t *tr );
 void CL_PlayerTraceExt( float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ), pmtrace_t *tr );
+pmtrace_t *PM_CL_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe );
+const char *PM_CL_TraceTexture( int ground, float *vstart, float *vend );
+int PM_CL_PointContents( const float *p, int *truecontents );
 void CL_SetTraceHull( int hull );
 void CL_GetMousePosition( int *mx, int *my ); // TODO: move to input
 cl_entity_t* CL_GetViewModel( void );
@@ -835,6 +864,9 @@ void pfnGetScreenFade( struct screenfade_s *fade );
 physent_t *pfnGetPhysent( int idx );
 struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
 movevars_t *pfnGetMoveVars( void );
+void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int height );
+void CL_DisableScissor( scissor_state_t *scissor );
+qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
 
 _inline cl_entity_t *CL_EDICT_NUM( int n )
 {
@@ -910,10 +942,8 @@ void CL_PredictMovement( qboolean repredicting );
 void CL_CheckPredictionError( void );
 qboolean CL_IsPredicted( void );
 int CL_TruePointContents( const vec3_t p );
-int CL_PointContents( const vec3_t p );
 int CL_WaterEntity( const float *rgflPos );
 cl_entity_t *CL_GetWaterEntity( const float *rgflPos );
-void CL_SetupPMove( playermove_t *pmove, local_state_t *from, usercmd_t *ucmd, qboolean runfuncs, double time );
 int CL_TestLine( const vec3_t start, const vec3_t end, int flags );
 pmtrace_t *CL_VisTraceLine( vec3_t start, vec3_t end, int flags );
 pmtrace_t CL_TraceLine( vec3_t start, vec3_t end, int flags );
@@ -922,7 +952,6 @@ void CL_PopTraceBounds( void );
 void CL_MoveSpectatorCamera( void );
 void CL_SetLastUpdate( void );
 void CL_RedoPrediction( void );
-void CL_ClearPhysEnts( void );
 void CL_PushPMStates( void );
 void CL_PopPMStates( void );
 void CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient );
@@ -963,7 +992,7 @@ void CL_ClearAllRemaps( void );
 // cl_render.c
 //
 qboolean R_InitRenderAPI( void );
-int CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef );
+intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRef );
 lightstyle_t *CL_GetLightStyle( int number );
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
 const ref_overview_t *GL_GetOverviewParms( void );
@@ -1027,13 +1056,13 @@ int Con_UtfProcessChar( int in );
 int Con_UtfProcessCharForce( int in );
 int Con_UtfMoveLeft( char *str, int pos );
 int Con_UtfMoveRight( char *str, int pos, int length );
-void Con_DrawStringLen( const char *pText, int *length, int *height );
-int Con_DrawString( int x, int y, const char *string, rgba_t setColor );
-int Con_DrawCharacter( int x, int y, int number, rgba_t color );
-void Con_DrawCharacterLen( int number, int *width, int *height );
 void Con_DefaultColor( int r, int g, int b );
 void Con_InvalidateFonts( void );
-void Con_SetFont( int fontNum );
+cl_font_t *Con_GetCurFont( void );
+cl_font_t *Con_GetFont( int num );
+void Con_DrawCharacterLen( int number, int *width, int *height );
+int Con_DrawString( int x, int y, const char *string, rgba_t setColor ); // legacy, use cl_font.c
+void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height ); // legacy, use cl_font.c
 void Con_CharEvent( int key );
 void Con_RestoreFont( void );
 void Key_Console( int key );

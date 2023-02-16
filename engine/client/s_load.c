@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#include "client.h"
 #include "sound.h"
 
 // during registration it is possible to have more sounds
@@ -28,7 +29,6 @@ static sfx_t	s_knownSfx[MAX_SFX];
 static sfx_t	*s_sfxHashList[MAX_SFX_HASH];
 static string	s_sentenceImmediateName;	// keep dummy sentence name
 qboolean		s_registering = false;
-int		s_registration_sequence = 0;
 
 /*
 =================
@@ -199,7 +199,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 				*pfInCache = ( sfx->cache != NULL ) ? true : false;
 			}
 			// prolonge registration
-			sfx->servercount = s_registration_sequence;
+			sfx->servercount = cl.servercount;
 			return sfx;
 		}
 	}
@@ -219,7 +219,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 	memset( sfx, 0, sizeof( *sfx ));
 	if( pfInCache ) *pfInCache = false;
 	Q_strncpy( sfx->name, name, MAX_STRING );
-	sfx->servercount = s_registration_sequence;
+	sfx->servercount = cl.servercount;
 	sfx->hashValue = COM_HashKey( sfx->name, MAX_SFX_HASH );
 
 	// link it in
@@ -273,7 +273,6 @@ void S_BeginRegistration( void )
 {
 	int	i;
 
-	s_registration_sequence++;
 	snd_ambient = false;
 
 	// check for automatic ambient sounds
@@ -309,7 +308,7 @@ void S_EndRegistration( void )
 		if( !sfx->name[0] || !Q_stricmp( sfx->name, "*default" ))
 			continue; // don't release default sound
 
-		if( sfx->servercount != s_registration_sequence )
+		if( sfx->servercount != cl.servercount )
 			S_FreeSound( sfx ); // don't need this sound
 	}
 
@@ -349,7 +348,7 @@ sound_t S_RegisterSound( const char *name )
 	sfx = S_FindName( name, NULL );
 	if( !sfx ) return -1;
 
-	sfx->servercount = s_registration_sequence;
+	sfx->servercount = cl.servercount;
 	if( !s_registering ) S_LoadSound( sfx );
 
 	return sfx - s_knownSfx;

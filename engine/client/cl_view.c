@@ -286,9 +286,6 @@ qboolean V_PreRender( void )
 	if( !ref.initialized )
 		return false;
 
-	if( host.status == HOST_NOFOCUS )
-		return false;
-
 	if( host.status == HOST_SLEEP )
 		return false;
 

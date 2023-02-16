@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "protocol.h"
 #include "net_buffer.h"
 #include "xash3d_mathlib.h"
-
 //#define DEBUG_NET_MESSAGES_SEND
 //#define DEBUG_NET_MESSAGES_READ
 
@@ -26,11 +25,69 @@ GNU General Public License for more details.
 // gives a 33% speedup in WriteUBitLong.
 static dword	BitWriteMasks[32][33];
 static dword	ExtraMasks[32];
-
-unsigned short MSG_BigShort( unsigned short swap )
+const char *svc_strings[svc_lastmsg+1] =
 {
-	return (swap >> 8)|(swap << 8);
-}
+	"svc_bad",
+	"svc_nop",
+	"svc_disconnect",
+	"svc_event",
+	"svc_changing",
+	"svc_setview",
+	"svc_sound",
+	"svc_time",
+	"svc_print",
+	"svc_stufftext",
+	"svc_setangle",
+	"svc_serverdata",
+	"svc_lightstyle",
+	"svc_updateuserinfo",
+	"svc_deltatable",
+	"svc_clientdata",
+	"svc_resource",
+	"svc_pings",
+	"svc_particle",
+	"svc_restoresound",
+	"svc_spawnstatic",
+	"svc_event_reliable",
+	"svc_spawnbaseline",
+	"svc_temp_entity",
+	"svc_setpause",
+	"svc_signonnum",
+	"svc_centerprint",
+	"svc_unused27",
+	"svc_unused28",
+	"svc_unused29",
+	"svc_intermission",
+	"svc_finale",
+	"svc_cdtrack",
+	"svc_restore",
+	"svc_cutscene",
+	"svc_weaponanim",
+	"svc_bspdecal",
+	"svc_roomtype",
+	"svc_addangle",
+	"svc_usermessage",
+	"svc_packetentities",
+	"svc_deltapacketentities",
+	"svc_choke",
+	"svc_resourcelist",
+	"svc_deltamovevars",
+	"svc_resourcerequest",
+	"svc_customization",
+	"svc_crosshairangle",
+	"svc_soundfade",
+	"svc_filetxferfailed",
+	"svc_hltv",
+	"svc_director",
+	"svc_voiceinit",
+	"svc_voicedata",
+	"svc_deltapacketbones",
+	"svc_unused55",
+	"svc_resourcelocation",
+	"svc_querycvarvalue",
+	"svc_querycvarvalue2",
+	"svc_exec",
+};
 
 void MSG_InitMasks( void )
 {

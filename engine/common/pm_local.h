@@ -33,6 +33,7 @@ void PM_DrawBBox( const vec3_t mins, const vec3_t maxs, const vec3_t origin, int
 // pm_trace.c
 //
 void Pmove_Init( void );
+void PM_ClearPhysEnts( playermove_t *pmove );
 void PM_InitBoxHull( void );
 hull_t *PM_HullForBsp( physent_t *pe, playermove_t *pmove, float *offset );
 qboolean PM_RecursiveHullCheck( hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, pmtrace_t *trace );
@@ -41,6 +42,13 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 int PM_HullPointContents( hull_t *hull, int num, const vec3_t p );
 int PM_TruePointContents( playermove_t *pmove, const vec3_t p );
 int PM_PointContents( playermove_t *pmove, const vec3_t p );
+float PM_TraceModel( playermove_t *pmove, physent_t *pe, float *start, float *end, trace_t *trace );
+pmtrace_t *PM_TraceLine( playermove_t *pmove, float *start, float *end, int flags, int usehull, int ignore_pe );
+pmtrace_t *PM_TraceLineEx( playermove_t *pmove, float *start, float *end, int flags, int usehull, pfnIgnore pmFilter );
+struct msurface_s *PM_TraceSurfacePmove( playermove_t *pmove, int ground, float *vstart, float *vend );
+const char *PM_TraceTexture( playermove_t *pmove, int ground, float *vstart, float *vend );
+int PM_PointContentsPmove( playermove_t *pmove, const float *p, int *truecontents );
+void PM_StuckTouch( playermove_t *pmove, int hitent, pmtrace_t *tr );
 void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent );
 
 static inline void PM_InitTrace( trace_t *trace, const vec3_t end )
@@ -62,7 +70,6 @@ static inline void PM_InitPMTrace( pmtrace_t *trace, const vec3_t end )
 //
 // pm_surface.c
 //
-const char *PM_TraceTexture( physent_t *pe, vec3_t vstart, vec3_t vend );
 msurface_t *PM_RecursiveSurfCheck( model_t *model, mnode_t *node, vec3_t p1, vec3_t p2 );
 msurface_t *PM_TraceSurface( physent_t *pe, vec3_t start, vec3_t end );
 int PM_TestLineExt( playermove_t *pmove, physent_t *ents, int numents, const vec3_t start, const vec3_t end, int flags );

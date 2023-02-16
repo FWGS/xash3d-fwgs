@@ -34,7 +34,8 @@ GNU General Public License for more details.
 // RefAPI changelog:
 // 1. Initial release
 // 2. FS functions are removed, instead we have full fs_api_t
-#define REF_API_VERSION 2
+// 3. SlerpBones, CalcBonePosition/Quaternion calls were moved to libpublic/mathlib
+#define REF_API_VERSION 3
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -69,6 +70,10 @@ GNU General Public License for more details.
 #define FWORLD_WATERALPHA		BIT( 2 )
 #define FWORLD_HAS_DELUXEMAP		BIT( 3 )
 
+// special rendermode for screenfade modulate
+// (probably will be expanded at some point)
+#define kRenderScreenFadeModulate 0x1000
+
 typedef enum
 {
 	DEMO_INACTIVE = 0,
@@ -100,7 +105,6 @@ typedef struct ref_globals_s
 
 	vec3_t vieworg;
 	vec3_t viewangles;
-	vec3_t vforward, vright, vup;
 
 	// todo: fill this without engine help
 	// move to local
@@ -259,7 +263,7 @@ typedef enum
 
 typedef struct ref_api_s
 {
-	int	(*EngineGetParm)( int parm, int arg );	// generic
+	intptr_t (*EngineGetParm)( int parm, int arg );	// generic
 
 	// cvar handlers
 	cvar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
@@ -312,9 +316,6 @@ typedef struct ref_api_s
 	void (*Mod_CreatePolygonsForHull)( int hullnum );
 
 	// studio models
-	void (*R_StudioSlerpBones)( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s );
-	void (*R_StudioCalcBoneQuaternion)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q );
-	void (*R_StudioCalcBonePosition)( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, vec3_t adj, vec3_t pos );
 	void *(*R_StudioGetAnim)( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
 	void	(*pfnStudioEvent)( const struct mstudioevent_s *event, const cl_entity_t *entity );
 

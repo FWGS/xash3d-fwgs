@@ -107,6 +107,16 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesi
 
 /*
 =================
+FS_SeekEx
+=================
+*/
+fs_offset_t FS_SeekEx( file_t *file, fs_offset_t offset, int whence )
+{
+	return FS_Seek( file, offset, whence ) == -1 ? -1 : FS_Tell( file );
+}
+
+/*
+=================
 Stream_OpenMPG
 =================
 */
@@ -138,7 +148,7 @@ stream_t *Stream_OpenMPG( const char *filename )
 	if( ret ) Con_DPrintf( S_ERROR "%s\n", get_error( mpeg ));
 
 	// trying to open stream and read header
-	if( !open_mpeg_stream( mpeg, file, (void*)FS_Read, (void*)FS_Seek, &sc ))
+	if( !open_mpeg_stream( mpeg, file, (void*)FS_Read, (void*)FS_SeekEx, &sc ))
 	{
 		Con_DPrintf( S_ERROR "Stream_OpenMPG: failed to load (%s): %s\n", filename, get_error( mpeg ));
 		close_decoder( mpeg );

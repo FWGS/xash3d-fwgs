@@ -422,54 +422,6 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 		out->flags |= GFL_RENDER_PICBUTTON_TEXT;
 }
 
-static qboolean PIC_Scissor( float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 )
-{
-	float	dudx, dvdy;
-
-	// clip sub rect to sprite
-	if(( width == 0 ) || ( height == 0 ))
-		return false;
-
-	if( *x + *width <= gameui.ds.scissor_x )
-		return false;
-	if( *x >= gameui.ds.scissor_x + gameui.ds.scissor_width )
-		return false;
-	if( *y + *height <= gameui.ds.scissor_y )
-		return false;
-	if( *y >= gameui.ds.scissor_y + gameui.ds.scissor_height )
-		return false;
-
-	dudx = (*u1 - *u0) / *width;
-	dvdy = (*v1 - *v0) / *height;
-
-	if( *x < gameui.ds.scissor_x )
-	{
-		*u0 += (gameui.ds.scissor_x - *x) * dudx;
-		*width -= gameui.ds.scissor_x - *x;
-		*x = gameui.ds.scissor_x;
-	}
-
-	if( *x + *width > gameui.ds.scissor_x + gameui.ds.scissor_width )
-	{
-		*u1 -= (*x + *width - (gameui.ds.scissor_x + gameui.ds.scissor_width)) * dudx;
-		*width = gameui.ds.scissor_x + gameui.ds.scissor_width - *x;
-	}
-
-	if( *y < gameui.ds.scissor_y )
-	{
-		*v0 += (gameui.ds.scissor_y - *y) * dvdy;
-		*height -= gameui.ds.scissor_y - *y;
-		*y = gameui.ds.scissor_y;
-	}
-
-	if( *y + *height > gameui.ds.scissor_y + gameui.ds.scissor_height )
-	{
-		*v1 -= (*y + *height - (gameui.ds.scissor_y + gameui.ds.scissor_height)) * dvdy;
-		*height = gameui.ds.scissor_y + gameui.ds.scissor_height - *y;
-	}
-	return true;
-}
-
 /*
 ====================
 PIC_DrawGeneric
@@ -488,10 +440,10 @@ static void PIC_DrawGeneric( float x, float y, float width, float height, const 
 	if( prc )
 	{
 		// calc user-defined rectangle
-		s1 = (float)prc->left / (float)w;
-		t1 = (float)prc->top / (float)h;
-		s2 = (float)prc->right / (float)w;
-		t2 = (float)prc->bottom / (float)h;
+		s1 = prc->left / (float)w;
+		t1 = prc->top / (float)h;
+		s2 = prc->right / (float)w;
+		t2 = prc->bottom / (float)h;
 
 		if( width == -1 && height == -1 )
 		{
@@ -512,10 +464,9 @@ static void PIC_DrawGeneric( float x, float y, float width, float height, const 
 	}
 
 	// pass scissor test if supposed
-	if( gameui.ds.scissor_test && !PIC_Scissor( &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
+	if( !CL_Scissor( &gameui.ds.scissor, &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
 		return;
 
-	PicAdjustSize( &x, &y, &width, &height );
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, s1, t1, s2, t2, gameui.ds.gl_texturenum );
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
@@ -660,11 +611,7 @@ static void GAME_EXPORT pfnPIC_EnableScissor( int x, int y, int width, int heigh
 	width = bound( 0, width, gameui.globals->scrWidth - x );
 	height = bound( 0, height, gameui.globals->scrHeight - y );
 
-	gameui.ds.scissor_x = x;
-	gameui.ds.scissor_width = width;
-	gameui.ds.scissor_y = y;
-	gameui.ds.scissor_height = height;
-	gameui.ds.scissor_test = true;
+	CL_EnableScissor( &gameui.ds.scissor, x, y, width, height );
 }
 
 /*
@@ -675,11 +622,7 @@ pfnPIC_DisableScissor
 */
 static void GAME_EXPORT pfnPIC_DisableScissor( void )
 {
-	gameui.ds.scissor_x = 0;
-	gameui.ds.scissor_width = 0;
-	gameui.ds.scissor_y = 0;
-	gameui.ds.scissor_height = 0;
-	gameui.ds.scissor_test = false;
+	CL_DisableScissor( &gameui.ds.scissor );
 }
 
 /*
@@ -767,7 +710,7 @@ static void GAME_EXPORT pfnDrawCharacter( int ix, int iy, int iwidth, int iheigh
 	t2 = t1 + size;
 
 	// pass scissor test if supposed
-	if( gameui.ds.scissor_test && !PIC_Scissor( &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
+	if( !CL_Scissor( &gameui.ds.scissor, &x, &y, &width, &height, &s1, &t1, &s2, &t2 ))
 		return;
 
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
@@ -1264,6 +1207,7 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	Sys_DoubleTime,
 	pfnParseFileSafe,
 	NET_AdrToString,
+	NET_CompareAdrSort,
 	R_GetRenderDevice
 };
 

@@ -116,7 +116,7 @@ void Mod_ClearStudioCache( void )
 AddToStudioCache
 ====================
 */
-void Mod_AddToStudioCache( float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *pcontroller, byte *pblending, model_t *model, hull_t *hull, int numhitboxes )
+static void Mod_AddToStudioCache( float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *pcontroller, byte *pblending, model_t *model, hull_t *hull, int numhitboxes )
 {
 	mstudiocache_t *pCache;
 
@@ -153,7 +153,7 @@ void Mod_AddToStudioCache( float frame, int sequence, vec3_t angles, vec3_t orig
 CheckStudioCache
 ====================
 */
-mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *controller, byte *blending )
+static mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *controller, byte *blending )
 {
 	mstudiocache_t	*pCached;
 	int		i;
@@ -204,7 +204,7 @@ mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence,
 SetStudioHullPlane
 ====================
 */
-void Mod_SetStudioHullPlane( int planenum, int bone, int axis, float offset, const vec3_t size )
+static void Mod_SetStudioHullPlane( int planenum, int bone, int axis, float offset, const vec3_t size )
 {
 	mplane_t	*pl = &studio_planes[planenum];
 
@@ -397,196 +397,6 @@ static void Mod_StudioCalcRotations( int boneused[], int numbones, const byte *p
 	if( pseqdesc->motiontype & STUDIO_Z ) pos[pseqdesc->motionbone][2] = 0.0f;
 }
 
-/*
-====================
-StudioCalcBoneQuaternion
-
-====================
-*/
-void R_StudioCalcBoneQuaternion( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q )
-{
-	vec3_t	angles1;
-	vec3_t	angles2;
-	int	j, k;
-
-	for( j = 0; j < 3; j++ )
-	{
-		if( !panim || panim->offset[j+3] == 0 )
-		{
-			angles2[j] = angles1[j] = pbone->value[j+3]; // default;
-		}
-		else
-		{
-			mstudioanimvalue_t *panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[j+3]);
-
-			k = frame;
-
-			// debug
-			if( panimvalue->num.total < panimvalue->num.valid )
-				k = 0;
-
-			// find span of values that includes the frame we want
-			while( panimvalue->num.total <= k )
-			{
-				k -= panimvalue->num.total;
-				panimvalue += panimvalue->num.valid + 1;
-
-				// debug
-				if( panimvalue->num.total < panimvalue->num.valid )
-					k = 0;
-			}
-
-			// bah, missing blend!
-			if( panimvalue->num.valid > k )
-			{
-				angles1[j] = panimvalue[k+1].value;
-
-				if( panimvalue->num.valid > k + 1 )
-				{
-					angles2[j] = panimvalue[k+2].value;
-				}
-				else
-				{
-					if( panimvalue->num.total > k + 1 )
-						angles2[j] = angles1[j];
-					else angles2[j] = panimvalue[panimvalue->num.valid+2].value;
-				}
-			}
-			else
-			{
-				angles1[j] = panimvalue[panimvalue->num.valid].value;
-				if( panimvalue->num.total > k + 1 )
-					angles2[j] = angles1[j];
-				else angles2[j] = panimvalue[panimvalue->num.valid+2].value;
-			}
-
-			angles1[j] = pbone->value[j+3] + angles1[j] * pbone->scale[j+3];
-			angles2[j] = pbone->value[j+3] + angles2[j] * pbone->scale[j+3];
-		}
-
-		if( pbone->bonecontroller[j+3] != -1 && adj != NULL )
-		{
-			angles1[j] += adj[pbone->bonecontroller[j+3]];
-			angles2[j] += adj[pbone->bonecontroller[j+3]];
-		}
-	}
-
-	if( !VectorCompare( angles1, angles2 ))
-	{
-		vec4_t	q1, q2;
-
-		AngleQuaternion( angles1, q1, true );
-		AngleQuaternion( angles2, q2, true );
-		QuaternionSlerp( q1, q2, s, q );
-	}
-	else
-	{
-		AngleQuaternion( angles1, q, true );
-	}
-}
-
-/*
-====================
-StudioCalcBonePosition
-
-====================
-*/
-void R_StudioCalcBonePosition( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec3_t pos )
-{
-	vec3_t	origin1;
-	vec3_t	origin2;
-	int	j, k;
-
-	for( j = 0; j < 3; j++ )
-	{
-		if( !panim || panim->offset[j] == 0 )
-		{
-			origin2[j] = origin1[j] = pbone->value[j]; // default;
-		}
-		else
-		{
-			mstudioanimvalue_t	*panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[j]);
-
-			k = frame;
-
-			// debug
-			if( panimvalue->num.total < panimvalue->num.valid )
-				k = 0;
-
-			// find span of values that includes the frame we want
-			while( panimvalue->num.total <= k )
-			{
-				k -= panimvalue->num.total;
-				panimvalue += panimvalue->num.valid + 1;
-
-  				// debug
-				if( panimvalue->num.total < panimvalue->num.valid )
-					k = 0;
-			}
-
-			// bah, missing blend!
-			if( panimvalue->num.valid > k )
-			{
-				origin1[j] = panimvalue[k+1].value;
-
-				if( panimvalue->num.valid > k + 1 )
-				{
-					origin2[j] = panimvalue[k+2].value;
-				}
-				else
-				{
-					if( panimvalue->num.total > k + 1 )
-						origin2[j] = origin1[j];
-					else origin2[j] = panimvalue[panimvalue->num.valid+2].value;
-				}
-			}
-			else
-			{
-				origin1[j] = panimvalue[panimvalue->num.valid].value;
-				if( panimvalue->num.total > k + 1 )
-					origin2[j] = origin1[j];
-				else origin2[j] = panimvalue[panimvalue->num.valid+2].value;
-			}
-
-			origin1[j] = pbone->value[j] + origin1[j] * pbone->scale[j];
-			origin2[j] = pbone->value[j] + origin2[j] * pbone->scale[j];
-		}
-
-		if( pbone->bonecontroller[j] != -1 && adj != NULL )
-		{
-			origin1[j] += adj[pbone->bonecontroller[j]];
-			origin2[j] += adj[pbone->bonecontroller[j]];
-		}
-	}
-
-	if( !VectorCompare( origin1, origin2 ))
-	{
-		VectorLerp( origin1, s, origin2, pos );
-	}
-	else
-	{
-		VectorCopy( origin1, pos );
-	}
-}
-
-/*
-====================
-StudioSlerpBones
-
-====================
-*/
-void R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s )
-{
-	int	i;
-
-	s = bound( 0.0f, s, 1.0f );
-
-	for( i = 0; i < numbones; i++ )
-	{
-		QuaternionSlerp( q1[i], q2[i], s, q1[i] );
-		VectorLerp( pos1[i], s, pos2[i], pos1[i] );
-	}
-}
 
 /*
 ====================
@@ -823,7 +633,7 @@ int Mod_HitgroupForStudioHull( int index )
 StudioBoundVertex
 ====================
 */
-void Mod_StudioBoundVertex( vec3_t mins, vec3_t maxs, int *numverts, const vec3_t vertex )
+static void Mod_StudioBoundVertex( vec3_t mins, vec3_t maxs, int *numverts, const vec3_t vertex )
 {
 	if((*numverts) == 0 )
 		ClearBounds( mins, maxs );
@@ -837,7 +647,7 @@ void Mod_StudioBoundVertex( vec3_t mins, vec3_t maxs, int *numverts, const vec3_
 StudioAccumulateBoneVerts
 ====================
 */
-void Mod_StudioAccumulateBoneVerts( vec3_t mins, vec3_t maxs, int *numverts, vec3_t bone_mins, vec3_t bone_maxs, int *numbones )
+static void Mod_StudioAccumulateBoneVerts( vec3_t mins, vec3_t maxs, int *numverts, vec3_t bone_mins, vec3_t bone_maxs, int *numbones )
 {
 	vec3_t	delta;
 	vec3_t	point;
@@ -1009,7 +819,7 @@ static int Mod_StudioBodyVariations( model_t *mod )
 R_StudioLoadHeader
 =================
 */
-studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
+static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 {
 	byte		*pin;
 	studiohdr_t	*phdr;

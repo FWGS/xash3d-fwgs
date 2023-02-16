@@ -423,15 +423,11 @@ GL_GetProcAddress
 */
 void *GL_GetProcAddress( const char *name )
 {
-#if defined( XASH_NANOGL )
-	void *func = nanoGL_GetProcAddress( name );
-#else
 	void *func = SDL_GL_GetProcAddress( name );
-#endif
 
 	if( !func )
 	{
-		Con_Reportf( S_ERROR  "Error: GL_GetProcAddress failed for %s\n", name );
+		Con_Reportf( S_ERROR "GL_GetProcAddress failed for %s\n", name );
 	}
 
 	return func;
@@ -554,7 +550,9 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	Uint32 wndFlags = 0;
 	static string wndname;
 
+#if !XASH_APPLE
 	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
 
 	want.w = width;
@@ -562,10 +560,11 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	want.driverdata = NULL;
 	want.format = want.refresh_rate = 0; // don't care
 
-	if( !SDL_GetClosestDisplayMode(0, &want, &got) )
+	if( !SDL_GetClosestDisplayMode( 0, &want, &got ))
 		return false;
 
-	Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
+	if( got.w != want.w || got.h != want.h )
+		Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
 
 	if( SDL_SetWindowDisplayMode( host.hWnd, &got) == -1 )
 		return false;
@@ -645,11 +644,33 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( !fullscreen )
 	{
+		SDL_Rect r;
+
 		wndFlags |= SDL_WINDOW_RESIZABLE;
-		xpos = Cvar_VariableInteger( "_window_xpos" );
-		ypos = Cvar_VariableInteger( "_window_ypos" );
-		if( xpos < 0 ) xpos = SDL_WINDOWPOS_CENTERED;
-		if( ypos < 0 ) ypos = SDL_WINDOWPOS_CENTERED;
+
+#if SDL_VERSION_ATLEAST( 2, 0, 5 )
+		if( SDL_GetDisplayUsableBounds( 0, &r ) < 0 &&
+			SDL_GetDisplayBounds( 0, &r ) < 0 )
+#else
+		if( SDL_GetDisplayBounds( 0, &r ) < 0 )
+#endif
+		{
+			Con_Reportf( S_ERROR "VID_CreateWindow: SDL_GetDisplayBounds failed: %s\n", SDL_GetError( ));
+			xpos = SDL_WINDOWPOS_CENTERED;
+			ypos = SDL_WINDOWPOS_CENTERED;
+		}
+		else
+		{
+			xpos = Cvar_VariableInteger( "_window_xpos" );
+			ypos = Cvar_VariableInteger( "_window_ypos" );
+
+			// don't create window outside of usable display space
+			if( xpos < r.x || xpos + width > r.x + r.w )
+				xpos = SDL_WINDOWPOS_CENTERED;
+
+			if( ypos < r.y || ypos + height > r.y + r.h )
+				ypos = SDL_WINDOWPOS_CENTERED;
+		}
 	}
 	else
 	{

@@ -28,7 +28,8 @@ extern "C"
 {
 #endif // __cplusplus
 
-#define FS_API_VERSION 1 // not stable yet!
+#define FS_API_VERSION 2 // not stable yet!
+#define FS_API_CREATEINTERFACE_TAG "XashFileSystem002" // follow FS_API_VERSION!!!
 
 // search path flags
 enum
@@ -75,10 +76,11 @@ typedef struct gameinfo_s
 	size_t		size;
 
 	int		gamemode;
-	qboolean		secure;		// prevent to console acess
-	qboolean		nomodels;		// don't let player to choose model (use player.mdl always)
-	qboolean		noskills;		// disable skill menu selection
-	qboolean		render_picbutton_text; // use font renderer to render WON buttons
+	qboolean	secure;		// prevent to console acess
+	qboolean	nomodels;		// don't let player to choose model (use player.mdl always)
+	qboolean	noskills;		// disable skill menu selection
+	qboolean	render_picbutton_text; // use font renderer to render WON buttons
+	qboolean	internal_vgui_support; // skip loading VGUI, pass ingame UI support API to client
 
 	char		sp_entity[32];	// e.g. info_player_start
 	char		mp_entity[32];	// e.g. info_player_deathmatch
@@ -118,6 +120,9 @@ typedef struct fs_globals_t
 	gameinfo_t	*games[MAX_MODS];	// environment games (founded at each engine start)
 	int		numgames;
 } fs_globals_t;
+
+typedef void (*fs_event_callback_t)( const char *path );
+
 
 typedef struct fs_api_t
 {
@@ -171,8 +176,12 @@ typedef struct fs_api_t
 	fs_offset_t (*FileSize)( const char *filename, qboolean gamedironly );
 	qboolean (*Rename)( const char *oldname, const char *newname );
 	qboolean (*Delete)( const char *path );
-	qboolean (*SysFileExists)( const char *path, qboolean casesensitive );
+	qboolean (*SysFileExists)( const char *path );
 	const char *(*GetDiskPath)( const char *name, qboolean gamedironly );
+
+	// file watcher
+	void (*WatchFrame)( void ); // engine will read all events and call appropriate callbacks
+	qboolean (*AddWatch)( const char *path, fs_event_callback_t callback );
 } fs_api_t;
 
 typedef struct fs_interface_t

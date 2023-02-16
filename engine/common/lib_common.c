@@ -65,7 +65,7 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 
 		if( f ) return f;
 	}
-#elif XASH_MSVC
+#elif _MSC_VER
 	// TODO: COM_ConvertToLocalPlatform doesn't support MSVC yet
 	// also custom loader strips always MSVC mangling, so Win32
 	// platforms already use platform-neutral names
@@ -160,6 +160,22 @@ static void COM_GenerateClientLibraryPath( const char *name, char *out, size_t s
 
 /*
 ==============
+COM_StripIntelSuffix
+
+Some modders use _i?86 suffix in game library name
+So strip it to follow library naming for non-Intel CPUs
+==============
+*/
+static void COM_StripIntelSuffix( char *out )
+{
+	char *suffix = Q_strrchr( out, '_' );
+
+	if( suffix && Q_stricmpext( "_i?86", suffix ))
+		*suffix = 0;
+}
+
+/*
+==============
 COM_GenerateServerLibraryPath
 
 Generates platform-unique and compatible name for server library
@@ -193,6 +209,7 @@ static void COM_GenerateServerLibraryPath( char *out, size_t size )
 
 	ext = COM_FileExtension( dllpath );
 	COM_StripExtension( dllpath );
+	COM_StripIntelSuffix( dllpath );
 
 	COM_GenerateCommonLibraryName( dllpath, ext, out, size );
 #endif
@@ -234,7 +251,7 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 		}
 		break;
 	default:
-		ASSERT( true );
+		ASSERT( 0 );
 		out[0] = 0;
 		break;
 	}

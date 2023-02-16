@@ -122,7 +122,8 @@ Platform_Vibrate
 */
 void Platform_Vibrate( float time, char flags )
 {
-	// stub
+	if( g_joy )
+		SDL_JoystickRumble( g_joy, 0xFFFF, 0xFFFF, time * 1000.0f );
 }
 
 /*
@@ -319,9 +320,6 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 		return;
 #endif
 
-	if( cls.key_dest != key_game || cl.paused )
-		return;
-
 	switch( type )
 	{
 		case dc_user:
@@ -333,22 +331,22 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 			break;
 	}
 
-	host.mouse_visible = visible;
-
-	if( CVAR_TO_BOOL( touch_emulate ))
+	// never disable cursor in touch emulation mode
+	if( !visible && touch_emulate.value )
 		return;
+
+	host.mouse_visible = visible;
+	VGui_UpdateInternalCursorState( type );
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( host.mouse_visible )
 	{
 		SDL_SetCursor( cursors.cursors[type] );
 		SDL_ShowCursor( true );
-		Key_EnableTextInput( true, false );
 	}
 	else
 	{
 		SDL_ShowCursor( false );
-		Key_EnableTextInput( false, false );
 	}
 #else
 	if( host.mouse_visible )

@@ -25,7 +25,7 @@ Image_LoadBMP
 qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	byte	*buf_p, *pixbuf;
-	rgba_t	palette[256];
+	rgba_t	palette[256] = { 0 };
 	int	i, columns, column, rows, row, bpp = 1;
 	int	cbPalBytes = 0, padSize = 0, bps = 0;
 	int	reflectivity[3] = { 0, 0, 0 };
@@ -69,8 +69,11 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	// bogus compression?  Only non-compressed supported.
 	if( bhdr.compression != BI_RGB )
 	{
-		Con_DPrintf( S_ERROR "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
-		return false;
+		if( bhdr.bitsPerPixel != 32 || bhdr.compression != BI_BITFIELDS )
+		{ 
+			Con_DPrintf( S_ERROR "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
+			return false;
+		}
 	}
 
 	image.width = columns = bhdr.width;
@@ -174,7 +177,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		break;
 	}
 
-	estimatedSize = ( buf_p - buffer ) + ( image.width + padSize ) * image.height * ( bhdr.bitsPerPixel >> 3 );
+	estimatedSize = ( buf_p - buffer ) + image.width * image.height * ( bhdr.bitsPerPixel >> 3 );
 	if( filesize < estimatedSize )
 	{
 		if( image.palette )

@@ -56,7 +56,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 
 void Platform_UpdateStatusLine( void )
 {
-	int clientsCount;
+	int clientsCount, botsCountUnused;
 	char szStatus[128];
 	static double lastTime;
 
@@ -67,7 +67,7 @@ void Platform_UpdateStatusLine( void )
 	if(( sv.time - lastTime ) < 0.5f )
 		return;
 
-	clientsCount = SV_GetConnectedClientsCount( NULL );
+	SV_GetPlayerCount( &clientsCount, &botsCountUnused );
 	Q_snprintf( szStatus, sizeof( szStatus ) - 1, "%.1f fps %2i/%2i on %16s", 1.f / sv.frametime, clientsCount, svs.maxclients, host.game.levelName );
 #ifdef XASH_WIN32
 	Wcon_SetStatus( szStatus );

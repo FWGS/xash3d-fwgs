@@ -209,7 +209,7 @@ qboolean SNDDMA_Init( void )
 	}
 
 	Msg( "OpenSL ES audio initialized.\n" );
-
+	dma.backendName = "OpenSL ES";
 	return true;
 }
 
@@ -253,5 +253,25 @@ void SNDDMA_Submit( void )
 void SNDDMA_BeginPainting( void )
 {
 	pthread_mutex_lock( &snddma_android_mutex );
+}
+
+qboolean VoiceCapture_Init( void )
+{
+	return false;
+}
+
+qboolean VoiceCapture_Activate( qboolean activate )
+{
+	return false;
+}
+
+qboolean VoiceCapture_Lock( qboolean lock )
+{
+	return false;
+}
+
+void VoiceCapture_Shutdown( void )
+{
+
 }
 #endif

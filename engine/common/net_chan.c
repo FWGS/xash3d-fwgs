@@ -414,6 +414,7 @@ void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
 	while( buf )
 	{
 		n = buf->next;
+		Mem_Free( buf->frag_message_buf );
 		Mem_Free( buf );
 		buf = n;
 	}
@@ -535,12 +536,13 @@ Netchan_AllocFragbuf
 
 ==============================
 */
-fragbuf_t *Netchan_AllocFragbuf( void )
+fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t	*buf;
 
 	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ));
-	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, sizeof( buf->frag_message_buf ));
+	buf->frag_message_buf = (byte *)Mem_Calloc( net_mempool, fragment_size );
+	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, fragment_size );
 
 	return buf;
 }
@@ -736,7 +738,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		bytes = Q_min( remaining, chunksize );
 		remaining -= bytes;
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( bytes );
 		buf->bufferid = bufferid++;
 
 		// Copy in data
@@ -803,7 +805,7 @@ fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean allocate
 		return NULL;
 
 	// create new entry
-	pnewbuf = Netchan_AllocFragbuf();
+	pnewbuf = Netchan_AllocFragbuf( NET_MAX_FRAGMENT );
 	pnewbuf->bufferid = id;
 	Netchan_AddBufferToList( pplist, pnewbuf );
 
@@ -894,7 +896,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 	{
 		send = Q_min( remaining, chunksize );
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( send );
 		buf->bufferid = bufferid++;
 
 		// copy in data
@@ -959,7 +961,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	qboolean		bCompressed = false;
 	fragbufwaiting_t	*wait, *p;
 	fragbuf_t		*buf;
-
+	
 	if(( filesize = FS_FileSize( filename, false )) <= 0 )
 	{
 		Con_Printf( S_WARN "Unable to open %s for transfer\n", filename );
@@ -978,8 +980,12 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	if( compressedFileTime >= fileTime )
 	{
 		// if compressed file already created and newer than source
-		if( FS_FileSize( compressedfilename, false ) != -1 )
+		fs_offset_t compressedSize = FS_FileSize( compressedfilename, false );
+		if( compressedSize != -1 )
+		{
 			bCompressed = true;
+			filesize = compressedSize;
+		}
 	}
 	else
 	{
@@ -1009,7 +1015,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	{
 		send = Q_min( remaining, chunksize );
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( send );
 		buf->bufferid = bufferid++;
 
 		// copy in data
@@ -1186,6 +1192,13 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		Con_Printf( S_ERROR "file fragment received with bad path, ignoring\n" );
 		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
 		return false;
+	}
+
+	if( filename[0] != '!' )
+	{
+		string temp_filename;
+		Q_snprintf( temp_filename, sizeof( temp_filename ), "downloaded/%s", filename );
+		Q_strncpy( filename, temp_filename, sizeof( filename ));
 	}
 
 	Q_strncpy( chan->incomingfilename, filename, sizeof( chan->incomingfilename ));
@@ -1576,6 +1589,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		}
 	}
 
+	memset( send_buf, 0, sizeof( send_buf ));
 	MSG_Init( &send, "NetSend", send_buf, sizeof( send_buf ));
 
 	// prepare the packet header

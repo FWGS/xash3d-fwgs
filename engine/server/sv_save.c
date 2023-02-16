@@ -1693,7 +1693,7 @@ SaveGameSlot
 do a save game
 =============
 */
-static int SaveGameSlot( const char *pSaveName, const char *pSaveComment )
+static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 {
 	char		hlPath[MAX_QPATH];
 	char		name[MAX_QPATH];
@@ -1704,7 +1704,7 @@ static int SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	file_t		*pFile;
 
 	pSaveData = SaveGameState( false );
-	if( !pSaveData ) return 0;
+	if( !pSaveData ) return false;
 
 	SaveFinish( pSaveData );
 	pSaveData = SaveInit( SAVE_HEAPSIZE, SAVE_HASHSTRINGS ); // re-init the buffer
@@ -1735,7 +1735,7 @@ static int SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	{
 		// something bad is happens
 		SaveFinish( pSaveData );
-		return 0;
+		return false;
 	}
 
 	// pending the preview image for savegame
@@ -1759,7 +1759,7 @@ static int SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	SaveFinish( pSaveData );
 	FS_Close( pFile );
 
-	return 1;
+	return true;
 }
 
 /*
@@ -2169,17 +2169,17 @@ qboolean SV_LoadGame( const char *pPath )
 SV_SaveGame
 ==================
 */
-void SV_SaveGame( const char *pName )
+qboolean SV_SaveGame( const char *pName )
 {
 	char   comment[80];
-	int    result;
 	string savename;
 
 	if( !COM_CheckString( pName ))
-		return;
+		return false;
 
 	// can we save at this point?
-	if( !IsValidSave( )) return;
+	if( !IsValidSave( ))
+		return false;
 
 	if( !Q_stricmp( pName, "new" ))
 	{
@@ -2197,7 +2197,7 @@ void SV_SaveGame( const char *pName )
 		if( n == 1000 )
 		{
 			Con_Printf( S_ERROR "no free slots for savegame\n" );
-			return;
+			return false;
 		}
 	}
 	else Q_strncpy( savename, pName, sizeof( savename ));
@@ -2208,12 +2208,7 @@ void SV_SaveGame( const char *pName )
 #endif // XASH_DEDICATED
 
 	SaveBuildComment( comment, sizeof( comment ));
-	result = SaveGameSlot( savename, comment );
-
-#if !XASH_DEDICATED
-	if( result && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-		CL_HudMessage( "GAMESAVED" ); // defined in titles.txt
-#endif // XASH_DEDICATED
+	return SaveGameSlot( savename, comment );
 }
 
 /*
@@ -2418,13 +2413,13 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 
 		if( FBitSet( flags, MAP_INVALID_VERSION ))
 		{
-			Q_strncpy( comment, va( "<map %s has invalid format>", mapName ), MAX_STRING );
+			Q_snprintf( comment, MAX_STRING, "<map %s has invalid format>", mapName );
 			return 0;
 		}
 
 		if( !FBitSet( flags, MAP_IS_EXIST ))
 		{
-			Q_strncpy( comment, va( "<map %s is missed>", mapName ), MAX_STRING );
+			Q_snprintf( comment, MAX_STRING, "<map %s is missed>", mapName );
 			return 0;
 		}
 
@@ -2433,10 +2428,10 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 
 		// split comment to sections
 		if( Q_strstr( savename, "quick" ))
-			Q_strncat( comment, "[quick]", CS_SIZE );
+			Q_snprintf( comment, CS_SIZE, "[quick]%s", description );
 		else if( Q_strstr( savename, "autosave" ))
-			Q_strncat( comment, "[autosave]", CS_SIZE );
-		Q_strncat( comment, description, CS_SIZE );
+			Q_snprintf( comment, CS_SIZE, "[autosave]%s", description );
+		else Q_strncpy( comment, description, CS_SIZE );
 		strftime( timestring, sizeof ( timestring ), "%b%d %Y", file_tm );
 		Q_strncpy( comment + CS_SIZE, timestring, CS_TIME );
 		strftime( timestring, sizeof( timestring ), "%H:%M", file_tm );

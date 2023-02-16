@@ -984,7 +984,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 	cmd_condlevel = 0;
 
 	// cvar value substitution
-	if( CVAR_TO_BOOL( cmd_scripting ))
+	if( CVAR_TO_BOOL( cmd_scripting ) && isPrivileged )
 	{
 		while( *text )
 		{
@@ -1171,17 +1171,21 @@ void Cmd_List_f( void )
 {
 	cmd_t	*cmd;
 	int	i = 0;
-	const char	*match;
+	size_t	matchlen = 0;
+	const char *match = NULL;
 
-	if( Cmd_Argc() > 1 ) match = Cmd_Argv( 1 );
-	else match = NULL;
+	if( Cmd_Argc() > 1 )
+	{
+		match = Cmd_Argv( 1 );
+		matchlen = Q_strlen( match );
+	}
 
 	for( cmd = cmd_functions; cmd; cmd = cmd->next )
 	{
 		if( cmd->name[0] == '@' )
 			continue;	// never show system cmds
 
-		if( match && !Q_stricmpext( match, cmd->name ))
+		if( match && !Q_strnicmpext( match, cmd->name, matchlen ))
 			continue;
 
 		Con_Printf( " %-*s ^3%s^7\n", 32, cmd->name, cmd->desc );
@@ -1391,8 +1395,8 @@ void Cmd_Init( void )
 #endif // XASH_DEDICATED
 	Cmd_AddRestrictedCommand( "alias", Cmd_Alias_f, "create a script function. Without arguments show the list of all alias" );
 	Cmd_AddRestrictedCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
-	Cmd_AddCommand( "if", Cmd_If_f, "compare and set condition bits" );
-	Cmd_AddCommand( "else", Cmd_Else_f, "invert condition bit" );
+	Cmd_AddRestrictedCommand( "if", Cmd_If_f, "compare and set condition bits" );
+	Cmd_AddRestrictedCommand( "else", Cmd_Else_f, "invert condition bit" );
 
 #if defined(XASH_HASHED_VARS)
 	Cmd_AddCommand( "basecmd_stats", BaseCmd_Stats_f, "print info about basecmd usage" );

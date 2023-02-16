@@ -159,13 +159,13 @@ extern convar_t	*scr_download;
 extern convar_t	*cmd_scripting;
 extern convar_t	*sv_maxclients;
 extern convar_t	*cl_allow_levelshots;
-extern convar_t	*vid_displayfrequency;
 extern convar_t	host_developer;
 extern convar_t	*host_limitlocal;
 extern convar_t	*host_framerate;
 extern convar_t	*host_maxfps;
 extern convar_t	sys_timescale;
 extern convar_t	cl_filterstuffcmd;
+extern convar_t	rcon_password;
 
 /*
 ==============================================================
@@ -307,6 +307,16 @@ typedef struct
 	float		scale;		// curstate.scale
 } tentlist_t;
 
+typedef enum bugcomp_e
+{
+	// default mode, we assume that user dlls are not relying on engine bugs
+	BUGCOMP_OFF,
+
+	// GoldSrc mode, user dlls are relying on GoldSrc specific bugs
+	// but fixing them may break regular Xash games
+	BUGCOMP_GOLDSRC,
+} bugcomp_t;
+
 typedef struct host_parm_s
 {
 	HINSTANCE			hInst;
@@ -348,14 +358,13 @@ typedef struct host_parm_s
 	qboolean		allow_cheats;	// this host will allow cheating
 	qboolean		con_showalways;	// show console always (developer and dedicated)
 	qboolean		change_game;	// initialize when game is changed
-	qboolean		mouse_visible;	// vgui override cursor control
+	qboolean		mouse_visible;	// vgui override cursor control (never change outside Platform_SetCursorType!)
 	qboolean		shutdown_issued;	// engine is shutting down
 	qboolean		force_draw_version;	// used when fraps is loaded
 	float			force_draw_version_time;
 	qboolean		apply_game_config;	// when true apply only to game cvars and ignore all other commands
 	qboolean		apply_opengl_config;// when true apply only to opengl cvars and ignore all other commands
 	qboolean		config_executed;	// a bit who indicated was config.cfg already executed e.g. from valve.rc
-	int		sv_cvars_restored;	// count of restored server cvars
 	qboolean		crashed;		// set to true if crashed
 	qboolean		daemonized;
 	qboolean		enabledll;
@@ -381,6 +390,14 @@ typedef struct host_parm_s
 	struct decallist_s	*decalList;	// used for keep decals, when renderer is restarted or changed
 	int		numdecals;
 
+	// bug compatibility level, for very "special" games
+	bugcomp_t bugcomp;
+
+	// measure time to first frame
+	double starttime;
+
+	// count of sleeps can be inserted between frames
+	double pureframetime;
 } host_parm_t;
 
 extern host_parm_t	host;
@@ -726,7 +743,6 @@ char *CL_Userinfo( void );
 void CL_LegacyUpdateInfo( void );
 void CL_CharEvent( int key );
 qboolean CL_DisableVisibility( void );
-int CL_PointContents( const vec3_t point );
 byte *COM_LoadFile( const char *filename, int usehunk, int *pLength );
 int CL_GetDemoComment( const char *demoname, char *comment );
 void COM_AddAppDirectoryToSearchPath( const char *pszBaseDir, const char *appName );
@@ -735,7 +751,6 @@ struct cmd_s *Cmd_GetFirstFunctionHandle( void );
 struct cmd_s *Cmd_GetNextFunctionHandle( struct cmd_s *cmd );
 struct cmdalias_s *Cmd_AliasGetList( void );
 const char *Cmd_GetName( struct cmd_s *cmd );
-struct pmtrace_s *PM_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 void SV_StartMusic( const char *curtrack, const char *looptrack, int position );
 void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
@@ -748,7 +763,6 @@ void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
 struct cl_entity_s *CL_GetEntityByIndex( int index );
-struct player_info_s *CL_GetPlayerInfo( int playerIndex );
 void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
@@ -856,6 +870,7 @@ void GAME_EXPORT ID_SetCustomClientID( const char *id );
 void NET_InitMasters( void );
 void NET_SaveMasters( void );
 qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
+qboolean NET_IsMasterAdr( netadr_t adr );
 
 #ifdef REF_DLL
 #error "common.h in ref_dll"

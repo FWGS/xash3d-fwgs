@@ -94,5 +94,25 @@ void SNDDMA_Shutdown( void )
 	}
 }
 
+qboolean VoiceCapture_Init( void )
+{
+	return false;
+}
+
+qboolean VoiceCapture_Activate( qboolean activate )
+{
+	return false;
+}
+
+qboolean VoiceCapture_Lock( qboolean lock )
+{
+	return false;
+}
+
+void VoiceCapture_Shutdown( void )
+{
+
+}
+
 #endif
 #endif

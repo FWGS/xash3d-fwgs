@@ -338,12 +338,15 @@ static qboolean Q_starcmp( const char *pattern, const char *text )
 	}
 }
 
-qboolean Q_stricmpext( const char *pattern, const char *text )
+qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlength )
 {
+	size_t  i = 0;
 	char	c;
 
 	while(( c = *pattern++ ) != '\0' )
 	{
+		i++;
+
 		switch( c )
 		{
 		case '?':
@@ -361,7 +364,32 @@ qboolean Q_stricmpext( const char *pattern, const char *text )
 				return false;
 		}
 	}
-	return ( *text == '\0' );
+	return ( *text == '\0' ) || i == minimumlength;
+}
+
+qboolean Q_stricmpext( const char *pattern, const char *text )
+{
+	return Q_strnicmpext( pattern, text, ~((size_t)0) );
+}
+
+const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen )
+{
+	const byte *i;
+
+	// quickly find first matching symbol
+	while( haystacklen && ( i = memchr( haystack, needle[0], haystacklen )))
+	{
+		if( !memcmp( i, needle, needlelen ))
+			return i;
+
+		// skip one byte
+		i++;
+
+		haystacklen -= i - haystack;
+		haystack = i;
+	}
+
+	return NULL;
 }
 
 const char* Q_timestamp( int format )
@@ -488,22 +516,6 @@ int Q_sprintf( char *buffer, const char *format, ... )
 	return result;
 }
 
-char *Q_strpbrk(const char *s, const char *accept)
-{
-	for( ; *s; s++ )
-	{
-		const char *k;
-
-		for( k = accept; *k; k++ )
-		{
-			if( *s == *k )
-				return (char*)s;
-		}
-	}
-
-	return NULL;
-}
-
 void COM_StripColors( const char *in, char *out )
 {
 	while ( *in )
@@ -552,14 +564,14 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	if( value > onemb )
 	{
 		value /= onemb;
-		Q_sprintf( suffix, " Mb" );
+		Q_strcpy( suffix, " Mb" );
 	}
 	else if( value > onekb )
 	{
 		value /= onekb;
-		Q_sprintf( suffix, " Kb" );
+		Q_strcpy( suffix, " Kb" );
 	}
-	else Q_sprintf( suffix, " bytes" );
+	else Q_strcpy( suffix, " bytes" );
 
 	// clamp to >= 0
 	digitsafterdecimal = Q_max( digitsafterdecimal, 0 );
@@ -583,8 +595,8 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	o = out;
 
 	// search for decimal or if it was integral, find the space after the raw number
-	dot = Q_strstr( i, "." );
-	if( !dot ) dot = Q_strstr( i, " " );
+	dot = Q_strchr( i, '.' );
+	if( !dot ) dot = Q_strchr( i, ' ' );
 
 	pos = dot - i;	// compute position of dot
 	pos -= 3;		// don't put a comma if it's <= 3 long
@@ -742,7 +754,7 @@ void COM_ExtractFilePath( const char *path, char *dest )
 		memcpy( dest, path, src - path );
 		dest[src - path - 1] = 0; // cutoff backslash
 	}
-	else Q_strcpy( dest, "" ); // file without path
+	else dest[0] = 0; // file without path
 }
 
 /*
@@ -777,10 +789,12 @@ COM_DefaultExtension
 void COM_DefaultExtension( char *path, const char *extension )
 {
 	const char	*src;
+	size_t		 len;
 
 	// if path doesn't have a .EXT, append extension
 	// (extension should include the .)
-	src = path + Q_strlen( path ) - 1;
+	len = Q_strlen( path );
+	src = path + len - 1;
 
 	while( *src != '/' && src != path )
 	{
@@ -789,7 +803,7 @@ void COM_DefaultExtension( char *path, const char *extension )
 		src--;
 	}
 
-	Q_strcat( path, extension );
+	Q_strcpy( &path[len], extension );
 }
 
 /*
@@ -823,16 +837,15 @@ void COM_RemoveLineFeed( char *str )
 ============
 COM_FixSlashes
 
-Changes all '/' characters into '\' characters, in place.
+Changes all '\' characters into '/' characters, in place.
 ============
 */
 void COM_FixSlashes( char *pname )
 {
-	while( *pname )
+	for( ; *pname; pname++ )
 	{
 		if( *pname == '\\' )
 			*pname = '/';
-		pname++;
 	}
 }
 

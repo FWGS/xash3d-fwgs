@@ -4,12 +4,17 @@
 
 #include "build.h"
 
+#if XASH_IRIX
+#include <port.h>
+#endif
+
 #if XASH_WIN32
 #include <wchar.h> // off_t
 #endif // _WIN32
 
 #include <sys/types.h> // off_t
 #include STDINT_H
+#include <assert.h>
 
 typedef unsigned char byte;
 typedef int		sound_t;
@@ -22,7 +27,12 @@ typedef byte		rgba_t[4];	// unsigned byte colorpack
 typedef byte		rgb_t[3];		// unsigned byte colorpack
 typedef vec_t		matrix3x4[3][4];
 typedef vec_t		matrix4x4[4][4];
+
+#if XASH_64BIT
 typedef uint32_t        poolhandle_t;
+#else
+typedef void*           poolhandle_t;
+#endif
 
 #undef true
 #undef false
@@ -103,6 +113,11 @@ typedef uint64_t longtime_t;
 	#define likely(x)   (x)
 #endif
 
+#if defined( static_assert ) // C11 static_assert
+#define STATIC_ASSERT static_assert
+#else
+#define STATIC_ASSERT( x, y ) extern int _static_assert_##__LINE__[( x ) ? 1 : -1]
+#endif
 
 #ifdef XASH_BIG_ENDIAN
 #define LittleLong(x) (((int)(((x)&255)<<24)) + ((int)((((x)>>8)&255)<<16)) + ((int)(((x)>>16)&255)<<8) + (((x) >> 24)&255))
