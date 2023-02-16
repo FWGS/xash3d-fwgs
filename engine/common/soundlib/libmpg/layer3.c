@@ -35,10 +35,10 @@ static float	tan1_1[16];
 static float	tan2_1[16];
 static float	tan1_2[16];
 static float	tan2_2[16];
-static float	pow1_1[2][16];
-static float	pow2_1[2][16];
-static float	pow1_2[2][16];
-static float	pow2_2[2][16];
+static float	pow1_1[2][32];
+static float	pow2_1[2][32];
+static float	pow1_2[2][32];
+static float	pow2_2[2][32];
 static int	mapbuf0[9][152];
 static int	mapbuf1[9][156];
 static int	mapbuf2[9][44];
@@ -217,7 +217,10 @@ void init_layer3( void )
 		tan2_1[i] = DOUBLE_TO_REAL_15( 1.0 / (1.0 + t));
 		tan1_2[i] = DOUBLE_TO_REAL_15( M_SQRT2 * t / (1.0 + t));
 		tan2_2[i] = DOUBLE_TO_REAL_15( M_SQRT2 / (1.0 + t));
+	}
 
+	for( i = 0; i < 32; i++ )
+	{
 		for( j = 0; j < 2; j++ )
 		{
 			double base = pow( 2.0, -0.25 * (j + 1.0));

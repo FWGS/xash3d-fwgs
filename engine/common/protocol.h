@@ -298,7 +298,14 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define SND_LEGACY_LARGE_INDEX		(1<<2)	// a send sound as short
 #define MAX_LEGACY_ENTITY_BITS		12
 #define MAX_LEGACY_WEAPON_BITS		5
-#define MAX_LEGACY_MODEL_BITS 11
-#define MAX_LEGACY_TOTAL_CMDS 28 // magic number from old engine's sv_client.c
+#define MAX_LEGACY_MODEL_BITS  11
+#define MAX_LEGACY_TOTAL_CMDS  16 // 28 - 16 = 12 real legacy max backup
+#define MAX_LEGACY_BACKUP_CMDS 12
+
+#define MAX_LEGACY_EDICTS (1 << MAX_LEGACY_ENTITY_BITS) // 4096 edicts
+#define MIN_LEGACY_EDICTS 30
+
+// Master Server protocol
+#define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
 
 #endif//NET_PROTOCOL_H

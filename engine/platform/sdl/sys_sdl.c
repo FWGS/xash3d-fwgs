@@ -62,11 +62,13 @@ void Platform_Init( void )
 	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
 	SDL_StopTextInput();
 #endif // XASH_SDL == 2
-#if XASH_POSIX
-	Posix_Daemonize();
-#endif
-#ifdef XASH_WIN32
+
+#if XASH_NSWITCH
+	NSwitch_Init();
+#elif XASH_WIN32
 	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
+#elif XASH_POSIX
+	Posix_Daemonize();
 #endif
 
 	SDLash_InitCursors();
@@ -76,7 +78,9 @@ void Platform_Shutdown( void )
 {
 	SDLash_FreeCursors();
 
-#ifdef XASH_WIN32
+#if XASH_NSWITCH
+	NSwitch_Shutdown();
+#elif XASH_WIN32
 	Wcon_DestroyConsole();
 #endif
 }

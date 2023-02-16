@@ -1,0 +1,40 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+import os
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if not conf.path.find_dir('opus') or not conf.path.find_dir('opus/src'):
+		conf.fatal('Can\'t find opus submodule. Run `git submodule update --init --recursive`.')
+		return
+
+	# TODO: ARM/x86 intrinsics detection
+	# TODO: maybe call autotools/cmake/meson instead?
+
+def build(bld):
+	sources = bld.path.ant_glob([
+		'opus/src/*.c',
+		'opus/celt/*.c',
+		'opus/silk/*.c',
+		'opus/silk/float/*.c'
+	], excl = [
+		'opus/src/repacketizer_demo.c',
+		'opus/src/opus_demo.c',
+		'opus/src/opus_compare.c',
+		'opus/celt/opus_custom_demo.c'
+	])
+	includes = ['opus/include/', 'opus/celt/', 'opus/silk/', 'opus/silk/float/']
+	defines = ['USE_ALLOCA', 'OPUS_BUILD', 'FLOAT_APPROX', 'PACKAGE_VERSION="1.3.1"', 'CUSTOM_MODES']
+
+	bld.stlib(
+		source = sources,
+		target = 'opus',
+		features = 'c',
+		includes = includes,
+		defines = defines,
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		export_includes = ['opus/include/']
+	)

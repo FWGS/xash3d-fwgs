@@ -14,9 +14,9 @@ build_engine()
 	cd "$CIRRUS_WORKING_DIR" || die
 
 	if [ "$APP" = "xashds" ]; then
-		./waf configure -T release -d || die
+		./waf configure -T release -d --enable-fs-tests || die_configure
 	elif [ "$APP" = "xash3d-fwgs" ]; then
-		./waf configure -T release --enable-stb --enable-utils --enable-gl4es --enable-gles1 --enable-gles2 || die
+		./waf configure -T release --enable-stb --enable-utils --enable-gl4es --enable-gles1 --enable-gles2 --enable-fs-tests || die_configure
 	else
 		die
 	fi

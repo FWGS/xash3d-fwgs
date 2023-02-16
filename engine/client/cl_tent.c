@@ -1037,7 +1037,7 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 			vecSpot[1] = pos[1] + COM_RandomFloat( -0.5f, 0.5f ) * size[1];
 			vecSpot[2] = pos[2] + COM_RandomFloat( -0.5f, 0.5f ) * size[2];
 
-			if( CL_PointContents( vecSpot ) != CONTENTS_SOLID )
+			if( PM_CL_PointContents( vecSpot, NULL ) != CONTENTS_SOLID )
 				break; // valid spot
 		}
 
@@ -1974,6 +1974,9 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		pos[1] = MSG_ReadCoord( &buf );
 		pos[2] = MSG_ReadCoord( &buf );
 		R_BlobExplosion( pos );
+
+		hSound = S_RegisterSound( cl_explode_sounds[0] );
+		S_StartSound( pos, -1, CHAN_AUTO, hSound, VOL_NORM, 1.0f, PITCH_NORM, 0 );
 		break;
 	case TE_SMOKE:
 		pos[0] = MSG_ReadCoord( &buf );
@@ -2027,7 +2030,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		dl->decay = 300;
 
 		hSound = S_RegisterSound( cl_explode_sounds[0] );
-		S_StartSound( pos, 0, CHAN_STATIC, hSound, VOL_NORM, 0.6f, PITCH_NORM, 0 );
+		S_StartSound( pos, -1, CHAN_AUTO, hSound, VOL_NORM, 0.6f, PITCH_NORM, 0 );
 		break;
 	case TE_BSPDECAL:
 	case TE_DECAL:
@@ -2928,7 +2931,13 @@ void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, float *pos
 		{
 			if( !pCust->nUserData1 )
 			{
+				int sprayTextureIndex;
 				const char *decalname = va( "player%dlogo%d", playernum, customIndex );
+				sprayTextureIndex = ref.dllFuncs.GL_FindTexture( decalname );
+				if( sprayTextureIndex != 0 )
+				{
+					ref.dllFuncs.GL_FreeTexture( sprayTextureIndex );
+				}
 				pCust->nUserData1 = GL_LoadTextureInternal( decalname, pCust->pInfo, TF_DECAL );
 			}
 			textureIndex = pCust->nUserData1;

@@ -258,6 +258,63 @@ void SV_CopyTraceToGlobal( trace_t *trace )
 }
 
 /*
+==============
+SV_SetModel
+==============
+*/
+void SV_SetModel( edict_t *ent, const char *modelname )
+{
+	char	name[MAX_QPATH];
+	qboolean	found = false;
+	model_t	*mod;
+	int	i = 1;
+
+	if( !SV_IsValidEdict( ent ))
+	{
+		Con_Printf( S_WARN "SV_SetModel: invalid entity %s\n", SV_ClassName( ent ));
+		return;
+	}
+
+	if( !modelname || modelname[0] <= ' ' )
+	{
+		Con_Printf( S_WARN "SV_SetModel: null name\n" );
+		return;
+	}
+
+	if( *modelname == '\\' || *modelname == '/' )
+		modelname++;
+
+	Q_strncpy( name, modelname, sizeof( name ));
+	COM_FixSlashes( name );
+
+	i = SV_ModelIndex( name );
+	if( i == 0 )
+	{
+		if( sv.state == ss_active )
+			Con_Printf( S_ERROR "SV_SetModel: failed to set model %s: world model cannot be changed\n", name );
+		return;
+	}
+
+	if( COM_CheckString( name ))
+	{
+		ent->v.model = MAKE_STRING( sv.model_precache[i] );
+		ent->v.modelindex = i;
+		mod = sv.models[i];
+	}
+	else
+	{
+		// model will be cleared
+		ent->v.model = ent->v.modelindex = 0;
+		mod = NULL;
+	}
+
+	// set the model size
+	if( mod && mod->type != mod_studio )
+		SV_SetMinMaxSize( ent, mod->mins, mod->maxs, true );
+	else SV_SetMinMaxSize( ent, vec3_origin, vec3_origin, true );
+}
+
+/*
 =============
 SV_ConvertTrace
 
@@ -792,6 +849,7 @@ void SV_WriteEntityPatch( const char *filename )
 	byte		buf[MAX_TOKEN]; // 1 kb
 	string		bspfilename;
 	dheader_t		*header;
+	dlump_t entities;
 	file_t		*f;
 
 	Q_snprintf( bspfilename, sizeof( bspfilename ), "maps/%s.bsp", filename );
@@ -804,14 +862,14 @@ void SV_WriteEntityPatch( const char *filename )
 	header = (dheader_t *)buf;
 
 	// check all the lumps and some other errors
-	if( !Mod_TestBmodelLumps( bspfilename, buf, true ))
+	if( !Mod_TestBmodelLumps( f, bspfilename, buf, true, &entities ))
 	{
 		FS_Close( f );
 		return;
 	}
 
-	lumpofs = header->lumps[LUMP_ENTITIES].fileofs;
-	lumplen = header->lumps[LUMP_ENTITIES].filelen;
+	lumpofs = entities.fileofs;
+	lumplen = entities.filelen;
 
 	if( lumplen >= 10 )
 	{
@@ -842,6 +900,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	byte		buf[MAX_TOKEN];
 	char		*ents = NULL;
 	dheader_t		*header;
+	dlump_t entities;
 	size_t		ft1, ft2;
 	file_t		*f;
 
@@ -858,7 +917,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	header = (dheader_t *)buf;
 
 	// check all the lumps and some other errors
-	if( !Mod_TestBmodelLumps( bspfilename, buf, (host_developer.value) ? false : true ))
+	if( !Mod_TestBmodelLumps( f, bspfilename, buf, (host_developer.value) ? false : true, &entities ))
 	{
 		SetBits( *flags, MAP_INVALID_VERSION );
 		FS_Close( f );
@@ -866,8 +925,8 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	}
 
 	// after call Mod_TestBmodelLumps we gurantee what map is valid
-	lumpofs = header->lumps[LUMP_ENTITIES].fileofs;
-	lumplen = header->lumps[LUMP_ENTITIES].filelen;
+	lumpofs = entities.fileofs;
+	lumplen = entities.filelen;
 
 	// check for entfile too
 	Q_snprintf( entfilename, sizeof( entfilename ), "maps/%s.ent", filename );
@@ -1319,61 +1378,7 @@ pfnSetModel
 */
 void GAME_EXPORT pfnSetModel( edict_t *e, const char *m )
 {
-	char	name[MAX_QPATH];
-	qboolean	found = false;
-	model_t	*mod;
-	int	i = 1;
-
-	if( !SV_IsValidEdict( e ))
-		return;
-
-	if( *m == '\\' || *m == '/' ) m++;
-	Q_strncpy( name, m, sizeof( name ));
-	COM_FixSlashes( name );
-
-	if( COM_CheckString( name ))
-	{
-		// check to see if model was properly precached
-		for( ; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
-		{
-			if( !Q_stricmp( sv.model_precache[i], name ))
-			{
-				found = true;
-				break;
-			}
-		}
-
-		if( !found )
-		{
-			Con_Printf( S_ERROR "Failed to set model %s: was not precached\n", name );
-			return;
-		}
-	}
-
-	if( e == svgame.edicts )
-	{
-		if( sv.state == ss_active )
-			Con_Printf( S_ERROR "Failed to set model %s: world model cannot be changed\n", name );
-		return;
-	}
-
-	if( COM_CheckString( name ))
-	{
-		e->v.model = MAKE_STRING( sv.model_precache[i] );
-		e->v.modelindex = i;
-		mod = sv.models[i];
-	}
-	else
-	{
-		// model will be cleared
-		e->v.model = e->v.modelindex = 0;
-		mod = NULL;
-	}
-
-	// set the model size
-	if( mod && mod->type != mod_studio )
-		SV_SetMinMaxSize( e, mod->mins, mod->maxs, true );
-	else SV_SetMinMaxSize( e, vec3_origin, vec3_origin, true );
+	SV_SetModel( e, m );
 }
 
 /*
@@ -2082,18 +2087,21 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 	}
 	else
 	{
-		// TESTTEST
-		if( *sample == '*' ) chan = CHAN_AUTO;
+		// '*' is special symbol to handle stream sounds
+		// (CHAN_VOICE but cannot be overriden)
+		// originally handled on client side
+		if( *sample == '*' )
+			chan = CHAN_STREAM;
 
 		// precache_sound can be used twice: cache sounds when loading
 		// and return sound index when server is active
 		sound_idx = SV_SoundIndex( sample );
-	}
 
-	if( !sound_idx )
-	{
-		Con_Printf( S_ERROR "SV_StartSound: %s not precached (%d)\n", sample, sound_idx );
-		return 0;
+		if( !sound_idx )
+		{
+			Con_Printf( S_ERROR "SV_StartSound: %s not precached (%d)\n", sample, sound_idx );
+			return 0;
+		}
 	}
 
 	spawn = FBitSet( flags, SND_RESTORE_POSITION ) ? false : true;
@@ -2447,21 +2455,6 @@ pfnServerExecute
 void GAME_EXPORT pfnServerExecute( void )
 {
 	Cbuf_Execute();
-
-	if( svgame.config_executed )
-		return;
-
-	// here we restore arhcived cvars only from game.dll
-	host.apply_game_config = true;
-	Cbuf_AddText( "exec config.cfg\n" );
-	Cbuf_Execute();
-
-	if( host.sv_cvars_restored > 0 )
-		Con_Reportf( "server executing ^2config.cfg^7 (%i cvars)\n", host.sv_cvars_restored );
-
-	host.apply_game_config = false;
-	svgame.config_executed = true;
-	host.sv_cvars_restored = 0;
 }
 
 /*
@@ -3092,11 +3085,9 @@ void SV_SetStringArrayMode( qboolean dynamic )
 #endif
 }
 
-#ifdef XASH_64BIT
-#if !XASH_WIN32
+#if XASH_64BIT && !XASH_WIN32 && !XASH_APPLE && !XASH_NSWITCH
 #define USE_MMAP
 #include <sys/mman.h>
-#endif
 #endif
 
 /*
@@ -3128,14 +3119,21 @@ void SV_AllocStringPool( void )
 
 #ifdef USE_MMAP
 	{
+		uint flags;
 		size_t pagesize = sysconf( _SC_PAGESIZE );
 		int arrlen = (str64.maxstringarray * 2) & ~(pagesize - 1);
 		void *base = svgame.dllFuncs.pfnGameInit;
 		void *start = svgame.hInstance - arrlen;
 
+#if defined(MAP_ANON)
+		flags = MAP_ANON | MAP_PRIVATE;
+#elif defined(MAP_ANONYMOUS)
+		flags = MAP_ANONYMOUS | MAP_PRIVATE;
+#endif
+
 		while( start - base > INT_MIN )
 		{
-			void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0 );
+			void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, flags, 0, 0 );
 			if( mapptr && mapptr != (void*)-1 && mapptr - base > INT_MIN && mapptr - base < INT_MAX )
 			{
 				ptr = mapptr;
@@ -3150,7 +3148,7 @@ void SV_AllocStringPool( void )
 			start = base;
 			while( start - base < INT_MAX )
 			{
-				void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0 );
+				void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, flags, 0, 0 );
 				if( mapptr && mapptr != (void*)-1  && mapptr - base > INT_MIN && mapptr - base < INT_MAX )
 				{
 					ptr = mapptr;
@@ -3375,7 +3373,9 @@ pfnPEntityOfEntIndex
 static edict_t *pfnPEntityOfEntIndex( int iEntIndex )
 {
 	// have to be bug-compatible with GoldSrc in this function
-	return SV_PEntityOfEntIndex( iEntIndex, false );
+	if( host.bugcomp == BUGCOMP_GOLDSRC )
+		return SV_PEntityOfEntIndex( iEntIndex, false );
+	return SV_PEntityOfEntIndex( iEntIndex, true );
 }
 
 /*

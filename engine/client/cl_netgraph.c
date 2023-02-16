@@ -281,7 +281,10 @@ static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 
 			for( j = start; j < h; j++ )
 			{
-				NetGraph_DrawRect( &fill, netcolors[NETGRAPH_NET_COLORS + j + extrap_point] );
+				int color = NETGRAPH_NET_COLORS + j + extrap_point;
+				color = Q_min( color, ARRAYSIZE( netcolors ) - 1 );
+
+				NetGraph_DrawRect( &fill, netcolors[color] );
 				fill.top--;
 			}
 		}
@@ -297,7 +300,10 @@ static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 
 			for( j = 0; j < h; j++ )
 			{
-				NetGraph_DrawRect( &fill, netcolors[NETGRAPH_NET_COLORS + j + oldh] );
+				int color = NETGRAPH_NET_COLORS + j + oldh;
+				color = Q_min( color, ARRAYSIZE( netcolors ) - 1 );
+
+				NetGraph_DrawRect( &fill, netcolors[color] );
 				fill.top--;
 			}
 		}
@@ -358,6 +364,7 @@ NetGraph_DrawTextFields
 static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int count, float avg, int packet_loss, int packet_choke, int graphtype )
 {
 	static int	lastout;
+	cl_font_t *font = Con_GetFont( 0 );
 	rgba_t		colors = { 0.9 * 255, 0.9 * 255, 0.7 * 255, 255 };
 	int		ptx = Q_max( x + w - NETGRAPH_LERP_HEIGHT - 1, 1 );
 	int		pty = Q_max( rect.top + rect.bottom - NETGRAPH_LERP_HEIGHT - 3, 1 );
@@ -379,16 +386,17 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 
 	// move rolling average
 	framerate = FRAMERATE_AVG_FRAC * host.frametime + ( 1.0f - FRAMERATE_AVG_FRAC ) * framerate;
-	Con_SetFont( 0 );
+
+	ref.dllFuncs.GL_SetRenderMode( font->rendermode );
 
 	if( framerate > 0.0f )
 	{
 		y -= net_graphheight->value;
 
-		Con_DrawString( x, y, va( "%.1f fps" , 1.0f / framerate ), colors );
+		CL_DrawString( x, y, va( "%.1f fps" , 1.0f / framerate ), colors, font, FONT_DRAW_NORENDERMODE );
 
 		if( avg > 1.0f )
-			Con_DrawString( x + 75, y, va( "%i ms" , (int)avg ), colors );
+			CL_DrawString( x + 75, y, va( "%i ms" , (int)avg ), colors, font, FONT_DRAW_NORENDERMODE );
 
 		y += 15;
 
@@ -396,10 +404,10 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 		if( !out ) out = lastout;
 		else lastout = out;
 
-		Con_DrawString( x, y, va( "in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors );
+		CL_DrawString( x, y, va( "in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors, font, FONT_DRAW_NORENDERMODE );
 		y += 15;
 
-		Con_DrawString( x, y, va( "out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors );
+		CL_DrawString( x, y, va( "out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors, font, FONT_DRAW_NORENDERMODE );
 		y += 15;
 
 		if( graphtype > 2 )
@@ -407,16 +415,14 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 			int	loss = (int)(( packet_loss + PACKETLOSS_AVG_FRAC ) - 0.01f );
 			int	choke = (int)(( packet_choke + PACKETCHOKE_AVG_FRAC ) - 0.01f );
 
-			Con_DrawString( x, y, va( "loss: %i choke: %i", loss, choke ), colors );
+			CL_DrawString( x, y, va( "loss: %i choke: %i", loss, choke ), colors, font, FONT_DRAW_NORENDERMODE );
 		}
 	}
 
 	if( graphtype < 3 )
-		Con_DrawString( ptx, pty, va( "%i/s", (int)cl_cmdrate->value ), colors );
+		CL_DrawString( ptx, pty, va( "%i/s", (int)cl_cmdrate->value ), colors, font, FONT_DRAW_NORENDERMODE );
 
-	Con_DrawString( ptx, last_y, va( "%i/s" , (int)cl_updaterate->value ), colors );
-
-	Con_RestoreFont();
+	CL_DrawString( ptx, last_y, va( "%i/s" , (int)cl_updaterate->value ), colors, font, FONT_DRAW_NORENDERMODE );
 }
 
 /*

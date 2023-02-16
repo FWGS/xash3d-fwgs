@@ -23,17 +23,20 @@ jobs:
 #            targetos: linux
 #            targetarch: aarch64
 
-          # - os: ubuntu-18.04
-          #   targetos: android
-          #   targetarch: 32
-          # - os: ubuntu-18.04
-          #   targetos: android
-          #   targetarch: 64
+#          - os: ubuntu-18.04
+#            targetos: android
+#            targetarch: 32
+#          - os: ubuntu-18.04
+#            targetos: android
+#            targetarch: 64
 
-          # - os: ubuntu-18.04
-          #   targetos: motomagx
-          #   targetarch: armv6
+#          - os: ubuntu-18.04
+#            targetos: motomagx
+#            targetarch: armv6
 
+          - os: ubuntu-20.04
+            targetos: nswitch
+            targetarch: arm64
           - os: windows-latest
             targetos: win32
             targetarch: amd64
@@ -41,7 +44,7 @@ jobs:
             targetos: win32
             targetarch: i386
     env:
-      SDL_VERSION: 2.0.14
+      SDL_VERSION: 2.26.2
       VULKAN_SDK_VERSION: 1.2.176.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,25 +52,43 @@ jobs:
       UPLOADTOOL_ISPRERELEASE: true
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: recursive
-    - name: Checkout xash-extras
-      uses: actions/checkout@v2
-      with:
-        repository: FWGS/xash-extras
-        path: xash-extras
-
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
-
     - name: Build engine
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
-
     - name: Upload engine (prereleases)
       run: bash scripts/continious_upload.sh artifacts/*
     - name: Upload engine (artifacts)
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
+  # See https://github.com/w23/xash3d-fwgs/issues/430
+  # flatpak:
+  #   name: "Flatpak"
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - app: su.xash.Engine.Compat.i386
+  #   container:
+  #     image: bilelmoussaoui/flatpak-github-actions:freedesktop-22.08
+  #     options: --privileged
+  #   env:
+  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     UPLOADTOOL_ISPRERELEASE: true
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v3
+  #     with:
+  #       submodules: recursive
+  #   - name: Build flatpak (Compat.i386)
+  #     uses: FWGS/flatpak-github-actions/flatpak-builder@v5
+  #     with:
+  #       bundle: ${{ matrix.app }}.flatpak
+  #       manifest-path: scripts/flatpak/${{ matrix.app }}.yml
+  #   - name: Upload engine (prereleases)
+  #     run: bash scripts/continious_upload.sh ${{ matrix.app }}.flatpak

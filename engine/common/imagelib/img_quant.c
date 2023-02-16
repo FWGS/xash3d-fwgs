@@ -408,7 +408,7 @@ void learn( void )
 		if( rad ) alterneigh( rad, j, r, g, b );   // alter neighbours
 
 		p += step;
-		if( p >= lim ) p -= lengthcount;
+		while( p >= lim ) p -= lengthcount;
 
 		i++;
 

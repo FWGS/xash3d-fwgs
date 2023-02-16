@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 #include "common.h"
 
-#define MEMHEADER_SENTINEL1	0xDEADF00D
-#define MEMHEADER_SENTINEL2	0xDF
+#define MEMHEADER_SENTINEL1	0xDEADF00DU
+#define MEMHEADER_SENTINEL2	0xDFU
 
 #ifdef XASH_CUSTOM_SWAP
 #include "platform/swap/swap.h"
@@ -34,15 +34,18 @@ typedef struct memheader_s
 	struct mempool_s	*pool;		// pool this memheader belongs to
 	size_t		size;		// size of the memory after the header (excluding header and sentinel2)
 	const char	*filename;	// file name and line where Mem_Alloc was called
-	uint		fileline;
-	uint		sentinel1;	// should always be MEMHEADER_SENTINEL1
+	int		fileline;
+#if !XASH_64BIT
+	uint32_t		pad0; // doesn't have value, only to make Mem_Alloc return aligned addresses on ILP32
+#endif
+	uint32_t		sentinel1;	// should always be MEMHEADER_SENTINEL1
 
 	// immediately followed by data, which is followed by a MEMHEADER_SENTINEL2 byte
 } memheader_t;
 
 typedef struct mempool_s
 {
-	uint		sentinel1;	// should always be MEMHEADER_SENTINEL1
+	uint32_t		sentinel1;	// should always be MEMHEADER_SENTINEL1
 	struct memheader_s	*chain;		// chain of individual memory allocations
 	size_t		totalsize;	// total memory allocated in this pool (inside memheaders)
 	size_t		realsize;		// total memory allocated in this pool (actual malloc total)
@@ -50,18 +53,21 @@ typedef struct mempool_s
 	struct mempool_s	*next;		// linked into global mempool list
 	const char	*filename;	// file name and line where Mem_AllocPool was called
 	int		fileline;
+#if XASH_64BIT
 	poolhandle_t idx;
+#endif
 	char		name[64];		// name of the pool
-	uint		sentinel2;	// should always be MEMHEADER_SENTINEL1
+	uint32_t		sentinel2;	// should always be MEMHEADER_SENTINEL1
 } mempool_t;
 
 static mempool_t *poolchain = NULL; // critical stuff
 
+#if XASH_64BIT
 // a1ba: due to mempool being passed with the model through reused 32-bit field
 // which makes engine incompatible with 64-bit pointers I changed mempool type
 // from pointer to 32-bit handle, thankfully mempool structure is private
 // But! Mempools are handled through linked list so we can't index them safely
-static uint lastidx = 0;
+static poolhandle_t lastidx = 0;
 
 static mempool_t *Mem_FindPool( poolhandle_t poolptr )
 {
@@ -77,6 +83,12 @@ static mempool_t *Mem_FindPool( poolhandle_t poolptr )
 
 	return NULL;
 }
+#else
+static mempool_t *Mem_FindPool( poolhandle_t poolptr )
+{
+	return (mempool_t *)poolptr;
+}
+#endif
 
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
@@ -219,10 +231,14 @@ poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int filelin
 	pool->realsize = sizeof( mempool_t );
 	Q_strncpy( pool->name, name, sizeof( pool->name ));
 	pool->next = poolchain;
-	pool->idx = ++lastidx;
 	poolchain = pool;
-
+	
+#if XASH_64BIT
+	pool->idx = ++lastidx;
 	return pool->idx;
+#else
+	return (poolhandle_t)pool;
+#endif
 }
 
 void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )

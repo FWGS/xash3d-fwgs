@@ -49,7 +49,9 @@ enum
 //
 int Q_buildnum( void );
 int Q_buildnum_compat( void );
+const char *Q_PlatformStringByID( const int platform );
 const char *Q_buildos( void );
+const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int endianness, const qboolean is64 );
 const char *Q_buildarch( void );
 const char *Q_buildcommit( void );
 
@@ -76,13 +78,15 @@ float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
 #define Q_strchr  strchr
 #define Q_strrchr strrchr
-qboolean Q_stricmpext( const char *s1, const char *s2 );
+qboolean Q_stricmpext( const char *pattern, const char *text );
+qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlen );
+const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen );
 const char *Q_timestamp( int format );
 #define Q_vsprintf( buffer, format, args ) Q_vsnprintf( buffer, 99999, format, args )
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
 int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
-char *Q_strpbrk(const char *s, const char *accept);
+#define Q_strpbrk strpbrk
 void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
@@ -159,6 +163,20 @@ static inline char *Q_stristr( const char *s1, const char *s2 )
 #else // defined( HAVE_STRCASESTR )
 char *Q_stristr( const char *s1, const char *s2 );
 #endif // defined( HAVE_STRCASESTR )
+
+#if defined( HAVE_STRCHRNUL )
+#define Q_strchrnul strchrnul
+#else
+static inline const char *Q_strchrnul( const char *s, int c )
+{
+	const char *p = Q_strchr( s, c );
+
+	if( p )
+		return p;
+
+	return s + Q_strlen( s );
+}
+#endif
 
 #ifdef __cplusplus
 }

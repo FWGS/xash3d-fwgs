@@ -49,6 +49,7 @@ typedef enum
 	IL_DDS_HARDWARE	= BIT(4),	// DXT compression is support
 	IL_LOAD_DECAL	= BIT(5),	// special mode for load gradient decals
 	IL_OVERVIEW	= BIT(6),	// overview required some unque operations
+	IL_LOAD_PLAYER_DECAL = BIT(7), // special mode for player decals
 } ilFlags_t;
 
 // goes into rgbdata_t->encode

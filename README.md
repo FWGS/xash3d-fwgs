@@ -58,19 +58,22 @@ Read more about Xash3D on ModDB: https://www.moddb.com/engines/xash3d-engine
 * Mobility API: allows better game integration on mobile devices(vibration, touch controls)
 * Different input methods: touch, gamepad and classic mouse & keyboard.
 * TrueType font rendering, as a part of mainui_cpp.
-* Multiple renderers support: OpenGL, GLESv1, GLESv2, Software
+* Multiple renderers support: OpenGL, GLESv1, GLESv2, Software.
+* Voice support.
+* External filesystem module like in GoldSrc engine.
+* External vgui support module.
+* PNG image format support.
 * A set of small improvements, without broken compatibility.
 
 ## Planned fork features
-* Virtual Reality support and game API
-* Voice support
-* Vulkan renderer
+* Virtual Reality support and game API.
+* Vulkan renderer.
 
 ## Installation & Running
 0) Get Xash3D FWGS binaries: you can use [testing](https://github.com/FWGS/xash3d-fwgs/releases/tag/continuous) build or you can compile engine from source code.
 1) Copy engine binaries to some directory.
 2) Copy `valve` directory from [Half-Life](https://store.steampowered.com/app/70/HalfLife/) to directory with engine binaries.
-If your CPU is NOT x86 compatible or you're running 64-bit version of the engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-xash3d).
+If your CPU is NOT x86 compatible or you're running 64-bit version of the engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-portable).
 This repository contains our fork of HLSDK and restored source code for some of the mods. Not all of them, of course.
 You still needed to copy `valve` directory as all game resources located there.
 3) Run the main executable (`xash3d.exe` or AppImage).
@@ -89,10 +92,10 @@ NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependenc
 
 ### Prerequisites
 
-If your CPU is x86 compatible, we are building 32-bit code by default. This was dont for keeping compatibility with Steam releases of Half-Life and based on it's engine games.
+If your CPU is x86 compatible, we are building 32-bit code by default. This was done to maintain compatibility with Steam releases of Half-Life and based on it's engine games.
 Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
-If your CPU is NOT x86 compatible or you decided build 64-bit version of engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-xash3d).
+If your CPU is NOT x86 compatible or you decided build 64-bit version of engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-portable).
 This repository contains our fork of HLSDK and restored source code for some of the mods. Not all of them, of course.
 
 #### Windows (Visual Studio)

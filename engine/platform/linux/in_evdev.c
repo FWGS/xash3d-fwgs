@@ -343,23 +343,16 @@ void IN_EvdevFrame ( void )
 			{
 				switch ( ev.code )
 				{
-					case REL_X: dx += ev.value;
+				case REL_X:
+					dx += ev.value;
 					break;
 
-					case REL_Y: dy += ev.value;
+				case REL_Y:
+					dy += ev.value;
 					break;
 
-					case REL_WHEEL:
-					if( ev.value > 0)
-					{
-						Key_Event( K_MWHEELDOWN, 1 );
-						Key_Event( K_MWHEELDOWN, 0 );
-					}
-					else
-					{
-						Key_Event( K_MWHEELUP, 1 );
-						Key_Event( K_MWHEELUP, 0 );
-					}
+				case REL_WHEEL:
+					IN_MWheelEvent( ev.value );
 					break;
 				}
 			}
@@ -367,7 +360,7 @@ void IN_EvdevFrame ( void )
 			{
 				int key = KeycodeFromEvdev( ev.code, ev.value );
 
-				if( CVAR_TO_BOOL(evdev_keydebug) )
+				if( CVAR_TO_BOOL( evdev_keydebug ))
 					Con_Printf( "key %d %d %d\n", ev.code, key, ev.value );
 
 				Key_Event( key , ev.value );

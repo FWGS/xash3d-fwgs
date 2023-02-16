@@ -21,7 +21,6 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 
 #define WINDOW_NAME			XASH_ENGINE_NAME " Window" // Half-Life
-convar_t	*vid_displayfrequency;
 convar_t	*vid_fullscreen;
 convar_t	*vid_mode;
 convar_t	*vid_brightness;
@@ -67,18 +66,29 @@ void VID_InitDefaultResolution( void )
 R_SaveVideoMode
 =================
 */
-void R_SaveVideoMode( int w, int h , int render_w, int render_h )
+void R_SaveVideoMode( int w, int h, int render_w, int render_h )
 {
+	if( !w || !h || !render_w || !render_h )
+	{
+		host.renderinfo_changed = false;
+		return;
+	}
+
 	host.window_center_x = w / 2;
 	host.window_center_y = h / 2;
 
 	Cvar_SetValue( "width", w );
 	Cvar_SetValue( "height", h );
+	
+	// immediately drop changed state or we may trigger
+	// video subsystem to reapply settings
+	host.renderinfo_changed = false;
+
+	if( refState.width == render_w && refState.height == render_h )
+		return;
 
 	refState.width = render_w;
 	refState.height = render_h;
-
-	host.renderinfo_changed = false;
 
 	// check for 4:3 or 5:4
 	if( render_w * 3 != render_h * 4 && render_w * 4 != render_h * 5 )
@@ -176,12 +186,11 @@ void VID_Init( void )
 	Cvar_Get( "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen width" );
 	Cvar_Get( "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
 
-	window_xpos = Cvar_Get( "_window_xpos", "130", FCVAR_RENDERINFO, "window position by horizontal" );
-	window_ypos = Cvar_Get( "_window_ypos", "48", FCVAR_RENDERINFO, "window position by vertical" );
+	window_xpos = Cvar_Get( "_window_xpos", "-1", FCVAR_RENDERINFO, "window position by horizontal" );
+	window_ypos = Cvar_Get( "_window_ypos", "-1", FCVAR_RENDERINFO, "window position by vertical" );
 
 	vid_gamma = Cvar_Get( "gamma", "2.5", FCVAR_ARCHIVE, "gamma amount" );
 	vid_brightness = Cvar_Get( "brightness", "0.0", FCVAR_ARCHIVE, "brightness factor" );
-	vid_displayfrequency = Cvar_Get ( "vid_displayfrequency", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "fullscreen refresh rate" );
 	vid_fullscreen = Cvar_Get( "fullscreen", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable fullscreen mode" );
 	vid_mode = Cvar_Get( "vid_mode", "0", FCVAR_RENDERINFO, "current video mode index (used just for storage)" );
 	vid_highdpi = Cvar_Get( "vid_highdpi", "1", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable High-DPI mode" );

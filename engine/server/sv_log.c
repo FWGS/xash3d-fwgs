@@ -76,8 +76,8 @@ void Log_Open( void )
 	}
 
 	if( fp ) svs.log.file = fp;
-	Log_Printf( "Log file started (file \"%s\") (game \"%s\") (version \"%i/%s/%d\")\n",
-	szTestFile, Info_ValueForKey( SV_Serverinfo(), "*gamedir" ), PROTOCOL_VERSION, XASH_VERSION, Q_buildnum() );
+	Log_Printf( "Log file started (file \"%s\") (game \"%s\") (version \"%i/" XASH_VERSION "/%d\")\n",
+	szTestFile, Info_ValueForKey( SV_Serverinfo(), "*gamedir" ), PROTOCOL_VERSION, Q_buildnum() );
 }
 
 void Log_Close( void )
@@ -214,7 +214,7 @@ void SV_ServerLog_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
-		Con_Printf("usage: log < on|off >\n" );
+		Con_Printf( S_USAGE "log < on|off >\n" );
 
 		if( svs.log.active )
 			Con_Printf( "currently logging\n" );

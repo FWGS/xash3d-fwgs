@@ -38,9 +38,7 @@ double Platform_DoubleTime( void );
 void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
-// commented out, as this is an optional feature or maybe implemented in system API directly
-// see system.c
-// qboolean Sys_DebuggerPresent( void );
+qboolean Sys_DebuggerPresent( void ); // optional, see Sys_DebugBreak
 
 #if XASH_ANDROID
 const char *Android_GetAndroidID( void );
@@ -52,6 +50,11 @@ void Android_SaveID( const char *id );
 void Platform_UpdateStatusLine( void );
 #else
 static inline void Platform_UpdateStatusLine( void ) { }
+#endif
+
+#if XASH_NSWITCH
+void NSwitch_Init( void );
+void NSwitch_Shutdown( void );
 #endif
 
 /*
@@ -161,5 +164,10 @@ void SNDDMA_Activate( qboolean active ); // pause audio
 // void SNDDMA_PrintDeviceName( void ); // unused
 // void SNDDMA_LockSound( void ); // unused
 // void SNDDMA_UnlockSound( void ); // unused
+
+qboolean VoiceCapture_Init( void );
+void VoiceCapture_Shutdown( void );
+qboolean VoiceCapture_Activate( qboolean activate );
+qboolean VoiceCapture_Lock( qboolean lock );
 
 #endif // PLATFORM_H

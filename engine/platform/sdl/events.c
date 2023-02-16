@@ -91,6 +91,34 @@ GNU General Public License for more details.
 #define SDL_JoystickID Uint8
 #endif
 
+static int SDLash_GameControllerButtonMapping[] =
+{
+#if XASH_NSWITCH // devkitPro/SDL has inverted Nintendo layout for SDL_GameController
+	K_B_BUTTON, K_A_BUTTON, K_Y_BUTTON, K_X_BUTTON,
+#else
+	K_A_BUTTON, K_B_BUTTON, K_X_BUTTON, K_Y_BUTTON,
+#endif
+	K_BACK_BUTTON, K_MODE_BUTTON, K_START_BUTTON,
+	K_LSTICK, K_RSTICK,
+	K_L1_BUTTON, K_R1_BUTTON,
+	K_DPAD_UP, K_DPAD_DOWN, K_DPAD_LEFT, K_DPAD_RIGHT,
+	K_MISC_BUTTON,
+	K_PADDLE1_BUTTON, K_PADDLE2_BUTTON, K_PADDLE3_BUTTON, K_PADDLE4_BUTTON,
+	K_TOUCHPAD,
+};
+
+// Swap axis to follow default axis binding:
+// LeftX, LeftY, RightX, RightY, TriggerRight, TriggerLeft
+static int SDLash_GameControllerAxisMapping[] =
+{
+	JOY_AXIS_SIDE, // SDL_CONTROLLER_AXIS_LEFTX,
+	JOY_AXIS_FWD, // SDL_CONTROLLER_AXIS_LEFTY,
+	JOY_AXIS_PITCH, // SDL_CONTROLLER_AXIS_RIGHTX,
+	JOY_AXIS_YAW, // SDL_CONTROLLER_AXIS_RIGHTY,
+	JOY_AXIS_LT, // SDL_CONTROLLER_AXIS_TRIGGERLEFT,
+	JOY_AXIS_RT, // SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
+};
+
 static qboolean SDLash_IsInstanceIDAGameController( SDL_JoystickID joyId )
 {
 #if !SDL_VERSION_ATLEAST( 2, 0, 4 )
@@ -224,9 +252,11 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		}
+		case SDL_SCANCODE_PAUSE: keynum = K_PAUSE; break;
+		case SDL_SCANCODE_SCROLLLOCK: keynum = K_SCROLLOCK; break;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
-		// don't console spam on known functional buttons, but not used in engine
+		// don't console spam on known functional buttons, not used in engine
 		case SDL_SCANCODE_MUTE:
 		case SDL_SCANCODE_VOLUMEUP:
 		case SDL_SCANCODE_VOLUMEDOWN:
@@ -250,18 +280,6 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	Key_Event( keynum, down );
 }
 
-static void SDLash_MouseKey( int key, int down, int istouch )
-{
-	if( CVAR_TO_BOOL( touch_emulate ) )
-	{
-		Touch_KeyEvent( key, down );
-	}
-	else if( in_mouseinitialized && !m_ignore->value && !istouch )
-	{
-		Key_Event( key, down );
-	}
-}
-
 /*
 =============
 SDLash_MouseEvent
@@ -270,13 +288,19 @@ SDLash_MouseEvent
 */
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
-	int down = button.state != SDL_RELEASED;
-	uint mstate = 0;
+	int down;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( button.which == SDL_TOUCH_MOUSEID )
 		return;
 #endif
+
+	if( button.state == SDL_RELEASED )
+		down = 0;
+	else if( button.clicks >= 2 )
+		down = 2; // special state for double-click in UI
+	else
+		down = 1;
 
 	switch( button.button )
 	{
@@ -297,10 +321,10 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 		break;
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_BUTTON_WHEELUP:
-		Key_Event( K_MWHEELUP, down );
+		IN_MWheelEvent( -1 );
 		break;
 	case SDL_BUTTON_WHEELDOWN:
-		Key_Event( K_MWHEELDOWN, down );
+		IN_MWheelEvent( 1 );
 		break;
 #endif // ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	default:
@@ -435,9 +459,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 	/* Mouse events */
 	case SDL_MOUSEMOTION:
 		if( host.mouse_visible )
-		{
 			SDL_GetRelativeMouseState( NULL, NULL );
-		}
 		break;
 
 	case SDL_MOUSEBUTTONUP:
@@ -478,12 +500,8 @@ static void SDLash_EventFilter( SDL_Event *event )
 		break;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	case SDL_MOUSEWHEEL:
-	{
-		int wheelbutton = event->wheel.y < 0 ? K_MWHEELDOWN : K_MWHEELUP;
-		Key_Event( wheelbutton, true );
-		Key_Event( wheelbutton, false );
+		IN_MWheelEvent( event->wheel.y );
 		break;
-	}
 
 	/* Touch events */
 	case SDL_FINGERDOWN:
@@ -554,36 +572,27 @@ static void SDLash_EventFilter( SDL_Event *event )
 	/* GameController API */
 	case SDL_CONTROLLERAXISMOTION:
 	{
-		// Swap axis to follow default axis binding:
-		// LeftX, LeftY, RightX, RightY, TriggerRight, TriggerLeft
-		static int sdlControllerAxisToEngine[] = {
-			JOY_AXIS_SIDE, // SDL_CONTROLLER_AXIS_LEFTX,
-			JOY_AXIS_FWD, // SDL_CONTROLLER_AXIS_LEFTY,
-			JOY_AXIS_PITCH, // SDL_CONTROLLER_AXIS_RIGHTX,
-			JOY_AXIS_YAW, // SDL_CONTROLLER_AXIS_RIGHTY,
-			JOY_AXIS_LT, // SDL_CONTROLLER_AXIS_TRIGGERLEFT,
-			JOY_AXIS_RT, // SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
-		};
-		if( Joy_IsActive() && event->caxis.axis != (Uint8)SDL_CONTROLLER_AXIS_INVALID )
-			Joy_KnownAxisMotionEvent( sdlControllerAxisToEngine[event->caxis.axis], event->caxis.value );
+		if( !Joy_IsActive( ))
+			break;
+
+		if( event->caxis.axis >= 0 && event->caxis.axis < ARRAYSIZE( SDLash_GameControllerAxisMapping ))
+		{
+			Joy_KnownAxisMotionEvent( SDLash_GameControllerAxisMapping[event->caxis.axis], event->caxis.value );
+		}
 		break;
 	}
 
 	case SDL_CONTROLLERBUTTONDOWN:
 	case SDL_CONTROLLERBUTTONUP:
 	{
-		static int sdlControllerButtonToEngine[] =
-		{
-			K_A_BUTTON, K_B_BUTTON, K_X_BUTTON,	K_Y_BUTTON,
-			K_BACK_BUTTON, K_MODE_BUTTON, K_START_BUTTON,
-			K_LSTICK, K_RSTICK,
-			K_L1_BUTTON, K_R1_BUTTON,
-			K_DPAD_UP, K_DPAD_DOWN, K_DPAD_LEFT, K_DPAD_RIGHT
-		};
+		if( !Joy_IsActive( ))
+			break;
 
 		// TODO: Use joyinput funcs, for future multiple gamepads support
-		if( Joy_IsActive() && event->cbutton.button != (Uint8)SDL_CONTROLLER_BUTTON_INVALID )
-			Key_Event( sdlControllerButtonToEngine[event->cbutton.button], event->cbutton.state );
+		if( event->cbutton.button >= 0 && event->cbutton.button < ARRAYSIZE( SDLash_GameControllerButtonMapping ))
+		{
+			Key_Event( SDLash_GameControllerButtonMapping[event->cbutton.button], event->cbutton.state );
+		}
 		break;
 	}
 
@@ -679,7 +688,7 @@ TODO: kill mouse in win32 clients too
 */
 void Platform_PreCreateMove( void )
 {
-	if( CVAR_TO_BOOL( m_ignore ) )
+	if( CVAR_TO_BOOL( m_ignore ))
 	{
 		SDL_GetRelativeMouseState( NULL, NULL );
 		SDL_ShowCursor( SDL_TRUE );

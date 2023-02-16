@@ -619,7 +619,9 @@ void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate )
 			ch->pitch = VOX_ModifyPitch( ch, ch->basePitch * 0.01f );
 		else ch->pitch = ch->basePitch * 0.01f;
 
-		if( CL_GetEntityByIndex( ch->entnum ) && ( ch->entchannel == CHAN_VOICE ))
+		ch->pitch *= ( sys_timescale.value + 1 ) / 2;
+
+		if( CL_GetEntityByIndex( ch->entnum ) && ( ch->entchannel == CHAN_VOICE || ch->entchannel == CHAN_STREAM ))
 		{
 			if( pSource->width == 1 )
 				SND_MoveMouth8( ch, pSource, sampleCount );
@@ -895,43 +897,13 @@ void S_MixUpsample( int sampleCount, int filtertype )
 	ppaint->ifilter++;
 }
 
-void MIX_MixStreamBuffer( int end )
-{
-	portable_samplepair_t	*pbuf;
-	rawchan_t			*ch;
-
-	pbuf = MIX_GetPFrontFromIPaint( ISTREAMBUFFER );
-	ch = S_FindRawChannel( S_RAW_SOUND_BACKGROUNDTRACK, false );
-
-	// clear the paint buffer
-	if( s_listener.paused || !ch || ch->s_rawend < paintedtime )
-	{
-		memset( pbuf, 0, (end - paintedtime) * sizeof( portable_samplepair_t ));
-	}
-	else
-	{
-		int	i, stop;
-
-		// copy from the streaming sound source
-		stop = (end < ch->s_rawend) ? end : ch->s_rawend;
-
-		for( i = paintedtime; i < stop; i++ )
-		{
-			pbuf[i-paintedtime].left = ( ch->rawsamples[i & ( ch->max_samples - 1 )].left * ch->leftvol ) >> 8;
-			pbuf[i-paintedtime].right = ( ch->rawsamples[i & ( ch->max_samples - 1 )].right * ch->rightvol ) >> 8;
-		}
-
-		for( ; i < end; i++ )
-			pbuf[i-paintedtime].left = pbuf[i-paintedtime].right = 0;
-	}
-}
-
 void MIX_MixRawSamplesBuffer( int end )
 {
-	portable_samplepair_t	*pbuf;
+	portable_samplepair_t	*pbuf, *roombuf, *streambuf;
 	uint			i, j, stop;
 
-	pbuf = MIX_GetCurrentPaintbufferPtr()->pbuf;
+	roombuf = MIX_GetPFrontFromIPaint( IROOMBUFFER );
+	streambuf = MIX_GetPFrontFromIPaint( ISTREAMBUFFER );
 
 	if( s_listener.paused ) return;
 
@@ -939,15 +911,18 @@ void MIX_MixRawSamplesBuffer( int end )
 	for( i = 0; i < MAX_RAW_CHANNELS; i++ )
 	{
 		// copy from the streaming sound source
-		rawchan_t	*ch = raw_channels[i];
+		rawchan_t *ch = raw_channels[i];
+		qboolean stream;
 
-		// background track should be mixing into another buffer
-		if( !ch || ch->entnum == S_RAW_SOUND_BACKGROUNDTRACK )
+		if( !ch )
 			continue;
 
 		// not audible
 		if( !ch->leftvol && !ch->rightvol )
 			continue;
+
+		stream = ch->entnum == S_RAW_SOUND_BACKGROUNDTRACK || CL_IsPlayerIndex( ch->entnum );
+		pbuf = stream ? streambuf : roombuf;
 
 		stop = (end < ch->s_rawend) ? end : ch->s_rawend;
 
@@ -956,6 +931,9 @@ void MIX_MixRawSamplesBuffer( int end )
 			pbuf[j-paintedtime].left += ( ch->rawsamples[j & ( ch->max_samples - 1 )].left * ch->leftvol ) >> 8;
 			pbuf[j-paintedtime].right += ( ch->rawsamples[j & ( ch->max_samples - 1 )].right * ch->rightvol ) >> 8;
 		}
+
+		if( ch->entnum > 0 )
+			SND_MoveMouthRaw( ch, &ch->rawsamples[paintedtime & ( ch->max_samples - 1 )], stop - paintedtime );
 	}
 }
 
@@ -965,9 +943,6 @@ void MIX_MixRawSamplesBuffer( int end )
 // caller also remixes all into final IPAINTBUFFER output.
 void MIX_UpsampleAllPaintbuffers( int end, int count )
 {
-	// process stream buffer
-	MIX_MixStreamBuffer( end );
-
 	// 11khz sounds are mixed into 3 buffers based on distance from listener, and facing direction
 	// These buffers are facing, facingaway, room
 	// These 3 mixed buffers are then each upsampled to 22khz.
@@ -1009,7 +984,6 @@ void MIX_UpsampleAllPaintbuffers( int end, int count )
 #endif
 
 	// mix raw samples from the video streams
-	MIX_SetCurrentPaintbuffer( IROOMBUFFER );
 	MIX_MixRawSamplesBuffer( end );
 
 	MIX_DeactivateAllPaintbuffers();

@@ -56,12 +56,11 @@ void GL_RenderFrame( const ref_viewpass_t *rvp )
 
 	VectorCopy( rvp->vieworigin, refState.vieworg );
 	VectorCopy( rvp->viewangles, refState.viewangles );
-	AngleVectors( refState.viewangles, refState.vforward, refState.vright, refState.vup );
 
 	ref.dllFuncs.GL_RenderFrame( rvp );
 }
 
-static int pfnEngineGetParm( int parm, int arg )
+static intptr_t pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
 }
@@ -152,7 +151,7 @@ static player_info_t *pfnPlayerInfo( int index )
 	if( index == -1 ) // special index for menu
 		return &gameui.playerinfo;
 
-	if( index < 0 || index > cl.maxclients )
+	if( index < 0 || index >= cl.maxclients )
 		return NULL;
 
 	return &cl.players[index];
@@ -280,9 +279,6 @@ static ref_api_t gEngfuncs =
 	Mod_PointInLeaf,
 	Mod_CreatePolygonsForHull,
 
-	R_StudioSlerpBones,
-	R_StudioCalcBoneQuaternion,
-	R_StudioCalcBonePosition,
 	R_StudioGetAnim,
 	pfnStudioEvent,
 
@@ -360,7 +356,7 @@ static ref_api_t gEngfuncs =
 
 	pfnGetPhysent,
 	pfnTraceSurface,
-	PM_TraceLine,
+	PM_CL_TraceLine,
 	CL_VisTraceLine,
 	CL_TraceLine,
 	pfnGetMoveVars,

@@ -26,7 +26,6 @@ GNU General Public License for more details.
 #if XASH_POSIX
 #include <unistd.h>
 #include <signal.h>
-#include <dlfcn.h>
 
 #if !XASH_ANDROID
 #include <pwd.h>
@@ -37,13 +36,16 @@ GNU General Public License for more details.
 #include <process.h>
 #endif
 
+#if XASH_NSWITCH
+#include <switch.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
 
 #include "library.h"
 #include "whereami.h"
 
 qboolean	error_on_exit = false;	// arg for exit();
-#define DEBUG_BREAK
 
 /*
 ================
@@ -54,23 +56,28 @@ double GAME_EXPORT Sys_DoubleTime( void )
 {
 	return Platform_DoubleTime();
 }
+
+/*
+================
+Sys_DebugBreak
+================
+*/
+void Sys_DebugBreak( void )
+{
 #if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
-	#undef DEBUG_BREAK
-	qboolean Sys_DebuggerPresent( void ); // see sys_linux.c
-	#if XASH_MSVC
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				_asm{ int 3 }
-	#elif XASH_X86
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				asm volatile("int $3;")
-	#else
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				raise( SIGINT )
-	#endif
+#if _MSC_VER
+	if( Sys_DebuggerPresent() )
+		_asm { int 3 }
+#elif XASH_X86
+	if( Sys_DebuggerPresent() )
+		asm volatile( "int $3;" );
+#else
+	if( Sys_DebuggerPresent() )
+		raise( SIGINT );
 #endif
+#endif
+}
+
 #if !XASH_DEDICATED
 /*
 ================
@@ -122,7 +129,7 @@ const char *Sys_GetCurrentUser( void )
 
 	if( GetUserName( s_userName, &size ))
 		return s_userName;
-#elif XASH_POSIX && !XASH_ANDROID
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 
@@ -377,12 +384,14 @@ void Sys_Warn( const char *format, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
-	DEBUG_BREAK;
-
 	va_start( argptr, format );
 	Q_vsnprintf( text, MAX_PRINT_MSG, format, argptr );
 	va_end( argptr );
+
+	Sys_DebugBreak();
+
 	Msg( "Sys_Warn: %s\n", text );
+
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
 		MSGBOX(text);
 }
@@ -400,12 +409,14 @@ void Sys_Error( const char *error, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
-	DEBUG_BREAK;
+	// enable cursor before debugger call
+	if( !Host_IsDedicated( ))
+		Platform_SetCursorType( dc_arrow );
 
 	if( host.status == HOST_ERR_FATAL )
 		return; // don't multiple executes
 
-	// make sure what console received last message
+	// make sure that console received last message
 	if( host.change_game ) Sys_Sleep( 200 );
 
 	error_on_exit = true;
@@ -413,6 +424,8 @@ void Sys_Error( const char *error, ... )
 	va_start( argptr, error );
 	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
 	va_end( argptr );
+
+	Sys_DebugBreak();
 
 	SV_SysError( text );
 
@@ -425,6 +438,7 @@ void Sys_Error( const char *error, ... )
 		Wcon_ShowConsole( false );
 #endif
 		MSGBOX( text );
+		Sys_Print( text );
 	}
 	else
 	{
@@ -435,7 +449,7 @@ void Sys_Error( const char *error, ... )
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
 	}
-	
+
 	Sys_Quit();
 }
 
@@ -555,6 +569,19 @@ it explicitly doesn't use internal allocation or string copy utils
 */
 qboolean Sys_NewInstance( const char *gamedir )
 {
+#if XASH_NSWITCH
+	char newargs[4096];
+	const char *exe = host.argv[0]; // arg 0 is always the full NRO path
+
+	// TODO: carry over the old args (assuming you can even pass any)
+	Q_snprintf( newargs, sizeof( newargs ), "%s -game %s", exe, gamedir );
+	// just restart the entire thing
+	printf( "envSetNextLoad exe: `%s`\n", exe );
+	printf( "envSetNextLoad argv:\n`%s`\n", newargs );
+	Host_Shutdown( );
+	envSetNextLoad( exe, newargs );
+	exit( 0 );
+#else
 	int i = 0;
 	qboolean replacedArg = false;
 	size_t exelen;
@@ -602,6 +629,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 		free( newargs[i] );
 	free( newargs );
 	free( exe );
+#endif
 
 	return false;
 }

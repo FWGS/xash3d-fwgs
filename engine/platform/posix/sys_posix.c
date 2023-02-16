@@ -67,7 +67,7 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 	return false;
 }
 
-#if !XASH_ANDROID
+#if !XASH_ANDROID && !XASH_NSWITCH
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	char xdgOpen[128];
@@ -158,9 +158,11 @@ void Platform_Shutdown( void ) {}
 double Platform_DoubleTime( void )
 {
 	struct timespec ts;
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
+#if XASH_IRIX
+	clock_gettime( CLOCK_SGI_CYCLE, &ts );
+#else	
+	clock_gettime( CLOCK_MONOTONIC, &ts );
+#endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
 

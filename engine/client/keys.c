@@ -104,9 +104,9 @@ keyname_t keynames[] =
 {"B_BUTTON", K_B_BUTTON, "+use"},
 {"X_BUTTON", K_X_BUTTON, "+reload"},
 {"Y_BUTTON", K_Y_BUTTON, "impulse 100"}, // Flashlight
-{"BACK",   K_BACK_BUTTON, "cancelselect"}, // Menu
+{"BACK",   K_BACK_BUTTON, "pause"}, // Menu
 {"MODE",   K_MODE_BUTTON, ""},
-{"START",  K_START_BUTTON, "pause"},
+{"START",  K_START_BUTTON, "escape"},
 {"STICK1", K_LSTICK, "+speed"},
 {"STICK2", K_RSTICK, "+duck"},
 {"L1_BUTTON",  K_L1_BUTTON, "+duck"},
@@ -123,13 +123,13 @@ keyname_t keynames[] =
 {"JOY4" , K_JOY4 , ""},
 {"C_BUTTON", K_C_BUTTON, ""},
 {"Z_BUTTON", K_Z_BUTTON, ""},
-{"AUX20", K_AUX20, ""}, // generic
-{"AUX21", K_AUX21, ""},
-{"AUX22", K_AUX22, ""},
-{"AUX23", K_AUX23, ""},
-{"AUX24", K_AUX24, ""},
-{"AUX25", K_AUX25, ""},
-{"AUX26", K_AUX26, ""},
+{"MISC_BUTTON", K_MISC_BUTTON, ""},
+{"PADDLE1", K_PADDLE1_BUTTON, ""},
+{"PADDLE2", K_PADDLE2_BUTTON, ""},
+{"PADDLE3", K_PADDLE3_BUTTON, ""},
+{"PADDLE4", K_PADDLE4_BUTTON, ""},
+{"TOUCHPAD", K_TOUCHPAD, ""},
+{"AUX26", K_AUX26, ""}, // generic
 {"AUX27", K_AUX27, ""},
 {"AUX28", K_AUX28, ""},
 {"AUX29", K_AUX29, ""},
@@ -374,7 +374,7 @@ void Key_Unbindall_f( void )
 {
 	int	i;
 
-	for( i = 0; i < 256; i++ )
+	for( i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( keys[i].binding )
 			Key_SetBinding( i, "" );
@@ -382,6 +382,7 @@ void Key_Unbindall_f( void )
 
 	// set some defaults
 	Key_SetBinding( K_ESCAPE, "escape" );
+	Key_SetBinding( K_START_BUTTON, "escape" );
 }
 
 /*
@@ -395,7 +396,7 @@ void Key_Reset_f( void )
 	int	i;
 
 	// clear all keys first
-	for( i = 0; i < 256; i++ )
+	for( i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( keys[i].binding )
 			Key_SetBinding( i, "" );
@@ -712,7 +713,6 @@ void GAME_EXPORT Key_Event( int key, int down )
 	}
 
 	VGui_KeyEvent( key, down );
-	Touch_KeyEvent( key, down );
 
 	// console key is hardcoded, so the user can never unbind it
 	if( key == '`' || key == '~' )
@@ -842,7 +842,9 @@ void GAME_EXPORT Key_SetKeyDest( int key_dest )
 		cls.key_dest = key_menu;
 		break;
 	case key_console:
+#if !XASH_NSWITCH // if we don't disable this, pops up the keyboard during load
 		Key_EnableTextInput( true, false );
+#endif
 		cls.key_dest = key_console;
 		break;
 	case key_message:
@@ -1149,7 +1151,7 @@ Draw button with symbol on it
 */
 static void OSK_DrawSymbolButton( int symb, float x, float y, float width, float height )
 {
-	char str[] = {symb & 255, 0};
+	cl_font_t *font = Con_GetCurFont();
 	byte color[] = { 255, 255, 255, 255 };
 	int x1 = x * refState.width,
 		y1 = y * refState.height,
@@ -1157,14 +1159,15 @@ static void OSK_DrawSymbolButton( int symb, float x, float y, float width, float
 		h = height * refState.height;
 
 	if( symb == osk.curbutton.val )
-	{
 		ref.dllFuncs.FillRGBABlend( x1, y1, w, h, 255, 160, 0, 100 );
-	}
 
 	if( !symb || symb == ' ' || (symb >= OSK_TAB && symb < OSK_SPECKEY_LAST ) )
 		return;
 
-	Con_DrawCharacter( x1 + 1, y1, symb, color );
+	CL_DrawCharacter(
+		x1 + width * 0.4 * refState.width,
+		y1 + height * 0.4 * refState.height,
+		symb, color, font, 0 );
 }
 
 /*
@@ -1178,7 +1181,11 @@ static void OSK_DrawSpecialButton( const char *name, float x, float y, float wid
 {
 	byte color[] = { 0, 255, 0, 255 };
 
-	Con_DrawString( x * refState.width, y * refState.height, name, color );
+	Con_DrawString(
+		x * refState.width + width * 0.4 * refState.width,
+		y * refState.height + height * 0.4 * refState.height,
+		name,
+		color );
 }
 
 

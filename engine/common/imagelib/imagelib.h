@@ -91,7 +91,7 @@ typedef struct imglib_s
 	// global parms
 	rgba_t			fogParams;	// some water textures has info about underwater fog
 
-	image_hint_t		hint;		// hint for some loaders
+	int			hint;		// hint for some loaders
 	byte			*tempbuffer;	// for convert operations
 	int			cmd_flags;	// global imglib flags
 	int			force_flags;	// override cmd_flags
@@ -103,6 +103,8 @@ typedef struct imglib_s
 #define IMAGE_MAXHEIGHT	8192
 #define LUMP_MAXWIDTH	1024	// WorldCraft limits
 #define LUMP_MAXHEIGHT	1024
+#define PLDECAL_MAXWIDTH  512
+#define PLDECAL_MAXHEIGHT 512
 
 enum
 {
@@ -171,7 +173,6 @@ rgbdata_t *Image_Quantize( rgbdata_t *pic );
 // img_utils.c
 //
 void Image_Reset( void );
-rgbdata_t *ImagePack( void );
 byte *Image_Copy( size_t size );
 void Image_CopyParms( rgbdata_t *src );
 qboolean Image_ValidSize( const char *name );

@@ -30,13 +30,17 @@ compiler_optimizations.CFLAGS['gottagofast'] = {
 }
 '''
 
-VALID_BUILD_TYPES = ['fastnative', 'fast', 'release', 'debug', 'sanitize', 'none']
+VALID_BUILD_TYPES = ['fastnative', 'fast', 'release', 'debug', 'sanitize', 'msan', 'none']
 
 LINKFLAGS = {
 	'common': {
 		'msvc':  ['/DEBUG'], # always create PDB, doesn't affect result binaries
 		'gcc':   ['-Wl,--no-undefined'],
 		'owcc':  ['-Wl,option stack=512k']
+	},
+	'msan': {
+		'clang': ['-fsanitize=memory', '-pthread'],
+		'default': ['NO_MSAN_HERE']
 	},
 	'sanitize': {
 		'clang': ['-fsanitize=undefined', '-fsanitize=address', '-pthread'],
@@ -80,6 +84,10 @@ CFLAGS = {
 		'msvc':    ['/Od', '/ZI'],
 		'owcc':    ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
 		'default': ['-O0']
+	},
+	'msan': {
+		'clang':   ['-O2', '-g', '-fno-omit-frame-pointer', '-fsanitize=memory', '-pthread'],
+		'default': ['NO_MSAN_HERE']
 	},
 	'sanitize': {
 		'msvc':    ['/Od', '/RTC1', '/Zi', '/fsanitize=address'],
@@ -160,5 +168,9 @@ def get_optimization_flags(conf):
 
 	if conf.options.POLLY:
 		cflags   += conf.get_flags_by_compiler(POLLY_CFLAGS, conf.env.COMPILER_CC)
+
+	if conf.env.DEST_OS == 'nswitch' and conf.options.BUILD_TYPE == 'debug':
+		# enable remote debugger
+		cflags.append('-DNSWITCH_DEBUG')
 
 	return cflags, linkflags
