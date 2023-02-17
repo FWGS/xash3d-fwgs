@@ -410,11 +410,13 @@ char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, siz
 
 		if( at ) len = (uint)( at - prev );
 		else len = (uint)Q_strlen( prev );
+
 		Q_strncpy( symbols[i], prev, Q_min( len + 1, sizeof( symbols[i] )));
-		prev = at + 1;
 
 		if( !at )
 			break;
+
+		prev = at + 1;
 	}
 
 	if( i == MAX_NESTED_NAMESPACES )
