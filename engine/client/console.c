@@ -1791,7 +1791,7 @@ void Con_DrawDebug( void )
 	}
 	else
 	{
-		timeStart = Sys_DoubleTime();
+		timeStart = host.realtime;
 	}
 
 	if( !host.allow_console || Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
