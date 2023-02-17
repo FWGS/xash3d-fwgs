@@ -2642,6 +2642,7 @@ void GAME_EXPORT pfnMessageEnd( void )
 {
 	const char	*name = "Unknown";
 	float		*org = NULL;
+	word realsize;
 
 	if( svgame.msg_name ) name = svgame.msg_name;
 	if( !svgame.msg_started ) Host_Error( "MessageEnd: called with no active message\n" );
@@ -2673,7 +2674,8 @@ void GAME_EXPORT pfnMessageEnd( void )
 				return;
 			}
 
-			*(word *)&sv.multicast.pData[svgame.msg_size_index] = svgame.msg_realsize;
+			realsize = svgame.msg_realsize;
+			memcpy( &sv.multicast.pData[svgame.msg_size_index], &realsize, sizeof( realsize ));
 		}
 	}
 	else if( svgame.msg[svgame.msg_index].size != -1 )
@@ -2705,7 +2707,8 @@ void GAME_EXPORT pfnMessageEnd( void )
 			return;
 		}
 
-		*(word *)&sv.multicast.pData[svgame.msg_size_index] = svgame.msg_realsize;
+		realsize = svgame.msg_realsize;
+		memcpy( &sv.multicast.pData[svgame.msg_size_index], &realsize, sizeof( realsize ));
 	}
 	else
 	{
