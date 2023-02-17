@@ -383,6 +383,7 @@ static void Mod_StudioCalcRotations( int boneused[], int numbones, const byte *p
 	// add in programtic controllers
 	pbone = (mstudiobone_t *)((byte *)mod_studiohdr + mod_studiohdr->boneindex);
 
+	memset( adj, 0, sizeof( adj ));
 	Mod_StudioCalcBoneAdj( adj, pcontroller );
 
 	for( j = numbones - 1; j >= 0; j-- )
