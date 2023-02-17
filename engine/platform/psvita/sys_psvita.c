@@ -30,8 +30,8 @@ GNU General Public License for more details.
 SceUInt32 sceUserMainThreadStackSize = 512 * 1024;
 unsigned int _pthread_stack_default_user = 512 * 1024;
 unsigned int _newlib_heap_size_user = 200 * 1024 * 1024;
-#define VGL_MEM_THRESHOLD ( 32 * 1024 * 1024 )
-#define VGL_VERTEX_POOL_SIZE ( 8 * 1024 * 1024 )
+#define VGL_MEM_THRESHOLD ( 40 * 1024 * 1024 )
+#define VGL_VERTEX_POOL_SIZE ( 4 * 1024 * 1024 )
 
 /* HACK: stubs for GL functions that are missing from vitaGL */
 
