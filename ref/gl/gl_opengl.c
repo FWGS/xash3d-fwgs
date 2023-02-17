@@ -370,7 +370,12 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	{
 		// functions are cleared before all the extensions are evaluated
 		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
-			GL_SetExtension( r_ext, false ); // one or more functions are invalid, extension will be disabled
+		{
+#if !XASH_PSVITA // on the vita some exts are implemented partially but that's still enough
+			// one or more functions are invalid, extension will be disabled
+			GL_SetExtension( r_ext, false );
+#endif
+		}
 	}
 #endif
 
