@@ -422,11 +422,7 @@ GL_GetProcAddress
 */
 void *GL_GetProcAddress( const char *name )
 {
-#if defined( XASH_NANOGL )
-	void *func = nanoGL_GetProcAddress( name );
-#else
 	void *func = SDL_GL_GetProcAddress( name );
-#endif
 
 #if XASH_PSVITA
 	// try to find in main module
@@ -438,7 +434,7 @@ void *GL_GetProcAddress( const char *name )
 
 	if( !func )
 	{
-		Con_Reportf( S_ERROR  "Error: GL_GetProcAddress failed for %s\n", name );
+		Con_Reportf( S_ERROR "GL_GetProcAddress failed for %s\n", name );
 	}
 
 	return func;
