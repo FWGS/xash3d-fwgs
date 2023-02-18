@@ -168,10 +168,9 @@ Default build-depended cvar and constant values
 #elif XASH_PSVITA
 	#define DEFAULT_TOUCH_ENABLE "0"
 	#define DEFAULT_M_IGNORE     "1"
-	#define DEFAULT_MODE_WIDTH  960
-	#define DEFAULT_MODE_HEIGHT 544
+	#define DEFAULT_MODE_WIDTH   960
+	#define DEFAULT_MODE_HEIGHT  544
 	#define DEFAULT_ALLOWCONSOLE 1
-	#define DEFAULT_DEV 255
 #elif XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
