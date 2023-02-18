@@ -54,7 +54,7 @@ typedef struct dir_s
 
 static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 {
-#if XASH_WIN32
+#if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH
 	return false;
 #elif XASH_LINUX && defined( FS_IOC_GETFLAGS )
 	int flags = 0;
