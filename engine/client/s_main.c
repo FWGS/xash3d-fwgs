@@ -199,6 +199,65 @@ qboolean SND_FStreamIsPlaying( sfx_t *sfx )
 
 /*
 =================
+SND_GetChannelTimeLeft
+
+TODO: this function needs to be removed after whole sound subsystem rewrite
+=================
+*/
+static int SND_GetChannelTimeLeft( const channel_t *ch )
+{
+	int remaining;
+
+	if( ch->pMixer.finished || !ch->sfx || !ch->sfx->cache )
+		return 0;
+
+	if( ch->isSentence ) // sentences are special, count all remaining words
+	{
+		int i;
+
+		if( !ch->currentWord )
+			return 0;
+
+		// current word
+		remaining = ch->currentWord->forcedEndSample - ch->currentWord->sample;
+
+		// here we count all remaining words, stopping if no sfx or sound file is available
+		// see VOX_LoadWord
+		for( i = ch->wordIndex + 1; i < ARRAYSIZE( ch->words ); i++ )
+		{
+			wavdata_t *sc;
+			int end;
+
+			// don't continue with broken sentences
+			if( !ch->words[i].sfx )
+				break;
+
+			if( !( sc = S_LoadSound( ch->words[i].sfx )))
+				break;
+
+			end = ch->words[i].end;
+
+			if( end )
+				remaining += sc->samples * 0.01f * end;
+			else remaining += sc->samples;
+		}
+	}
+	else
+	{
+		int curpos;
+		int samples;
+
+		// handle position looping
+		samples = ch->sfx->cache->samples;
+		curpos = S_ConvertLoopedPosition( ch->sfx->cache, ch->pMixer.sample, ch->use_loop );
+		remaining = bound( 0, samples - curpos, samples );
+	}
+
+	return remaining;
+}
+
+/*
+=================
 SND_PickDynamicChannel
 
 Select a channel from the dynamic channel allocation area.  For the given entity,
@@ -246,11 +305,7 @@ channel_t *SND_PickDynamicChannel( int entnum, int channel, sfx_t *sfx, qboolean
 			continue;
 
 		// try to pick the sound with the least amount of data left to play
-		timeleft = 0;
-		if( ch->sfx )
-		{
-			timeleft = 1; // ch->end - paintedtime
-		}
+		timeleft = SND_GetChannelTimeLeft( ch );
 
 		if( timeleft < life_left )
 		{
