@@ -16,6 +16,184 @@ GNU General Public License for more details.
 #include "soundlib.h"
 #include "libmpg/libmpg.h"
 
+#pragma pack( push, 1 )
+typedef struct did3v2_header_s
+{
+	char     ident[3];  // must be "ID3"
+	uint8_t  major_ver; // must be 4
+	uint8_t  minor_ver; // must be 0
+	uint8_t  flags;
+	uint32_t length; // size of extended header, padding and frames
+} did3v2_header_t;
+STATIC_ASSERT( sizeof( did3v2_header_t ) == 10,
+	"invalid did3v2_header_t size" );
+
+typedef struct did3v2_extended_header_s
+{
+	uint32_t length;
+	uint8_t  flags_length;
+	uint8_t  flags[1];
+} did3v2_extended_header_t;
+STATIC_ASSERT( sizeof( did3v2_extended_header_t ) == 6,
+	"invalid did3v2_extended_header_t size" );
+
+typedef struct did3v2_frame_s
+{
+	char     frame_id[4];
+	uint32_t length;
+	uint8_t  flags[2];
+} did3v2_frame_t;
+STATIC_ASSERT( sizeof( did3v2_frame_t ) == 10,
+	"invalid did3v2_frame_t size" );
+#pragma pack( pop )
+
+typedef enum did3v2_header_flags_e
+{
+	ID3V2_HEADER_UNSYHCHRONIZATION = BIT( 7U ),
+	ID3V2_HEADER_EXTENDED_HEADER   = BIT( 6U ),
+	ID3V2_HEADER_EXPERIMENTAL      = BIT( 5U ),
+	ID3V2_HEADER_FOOTER_PRESENT    = BIT( 4U ),
+} did3v2_header_flags_t;
+
+#define CHECK_IDENT( ident, b0, b1, b2 )        ((( ident )[0]) == ( b0 ) && (( ident )[1]) == ( b1 ) && (( ident )[2]) == ( b2 ))
+#define CHECK_FRAME_ID( ident, b0, b1, b2, b3 ) ( CHECK_IDENT( ident, b0, b1, b2 ) && (( ident )[3]) == ( b3 ))
+
+static uint32_t Sound_ParseSynchInteger( uint32_t v )
+{
+	uint32_t res = 0;
+
+	// read as big endian
+	res |= (( v >> 24 ) & 0x7f ) << 0;
+	res |= (( v >> 16 ) & 0x7f ) << 7;
+	res |= (( v >> 8  ) & 0x7f ) << 14;
+	res |= (( v >> 0  ) & 0x7f ) << 21;
+
+	return res;
+}
+
+static void Sound_HandleCustomID3Comment( const char *key, const char *value )
+{
+	if( !Q_strcmp( key, "LOOP_START" ) || !Q_strcmp( key, "LOOPSTART" ))
+		sound.loopstart = Q_atoi( value );
+	// unknown comment is not an error
+}
+
+static qboolean Sound_ParseID3Frame( const did3v2_frame_t *frame, const byte *buffer, size_t frame_length )
+{
+	if( CHECK_FRAME_ID( frame->frame_id, 'T', 'X', 'X', 'X' ))
+	{
+		string key, value;
+		int32_t key_len, value_len;
+
+		if( buffer[0] == 0x00 || buffer[1] == 0x03 )
+		{
+			key_len = Q_strncpy( key, &buffer[1], sizeof( key ));
+			value_len = frame_length - (1 + key_len + 1);
+			if( value_len <= 0 || value_len >= sizeof( value ))
+			{
+				Con_Printf( S_ERROR "Sound_ParseID3Frame: invalid TXXX description, possibly broken file.\n" );
+				return false;
+			}
+
+			memcpy( value, &buffer[1 + key_len + 1], value_len );
+			value[value_len + 1] = 0;
+
+			Sound_HandleCustomID3Comment( key, value );
+		}
+		else
+		{
+			if( buffer[0] == 0x01 || buffer[0] == 0x02 ) // UTF-16 with BOM
+				Con_Printf( S_ERROR "Sound_ParseID3Frame: UTF-16 encoding is unsupported. Use UTF-8 or ISO-8859!\n" );
+			else
+				Con_Printf( S_ERROR "Sound_ParseID3Frame: unknown TXXX tag encoding %d, possibly broken file.\n", buffer[0] );
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
+{
+	const did3v2_header_t *header = (const did3v2_header_t *)buffer;
+	const byte *buffer_begin = buffer;
+	uint32_t tag_length;
+
+	if( filesize < sizeof( *header ))
+		 return false;
+
+	buffer += sizeof( *header );
+
+	// support only id3v2
+	if( !CHECK_IDENT( header->ident, 'I', 'D', '3' ))
+	{
+		// old id3v1 header found
+		if( CHECK_IDENT( header->ident, 'T', 'A', 'G' ))
+			Con_Printf( S_ERROR "Sound_ParseID3Tag: ID3v1 is not supported! Convert to ID3v2.4!\n", header->major_ver );
+
+		return true; // missing tag header is not an error
+	}
+
+	// support only latest id3 v2.4
+	if( header->major_ver != 4 || header->minor_ver == 0xff )
+	{
+		Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid ID3v2 tag version 2.%d.%d. Convert to ID3v2.4!\n", header->major_ver, header->minor_ver );
+		return false;
+	}
+
+	tag_length = Sound_ParseSynchInteger( header->length );
+	if( tag_length > filesize - sizeof( *header ))
+	{
+		Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid tag length %u, possibly broken file.\n", tag_length );
+		return false;
+	}
+
+	// just skip extended header
+	if( FBitSet( header->flags, ID3V2_HEADER_EXTENDED_HEADER ))
+	{
+		const did3v2_extended_header_t *ext_header = (const did3v2_extended_header_t *)buffer;
+		uint32_t ext_length = Sound_ParseSynchInteger( ext_header->length );
+
+		if( ext_length > tag_length )
+		{
+			Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid extended header length %u, possibly broken file.\n", ext_length );
+			return false;
+		}
+
+		buffer += ext_length;
+	}
+
+	while( buffer - buffer_begin < tag_length )
+	{
+		const did3v2_frame_t *frame = (const did3v2_frame_t *)buffer;
+		uint32_t frame_length = Sound_ParseSynchInteger( frame->length );
+
+		if( frame_length > tag_length )
+		{
+			Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid frame length %u, possibly broken file.\n", frame_length );
+			return false;
+		}
+
+		buffer += sizeof( *frame );
+
+		// parse can fail, but it's ok to continue
+		Sound_ParseID3Frame( frame, buffer, frame_length );
+
+		buffer += frame_length;
+	}
+
+	return true;
+}
+
+#if XASH_ENGINE_TESTS
+int EXPORT Fuzz_Sound_ParseID3Tag( const uint8_t *Data, size_t Size )
+{
+	memset( &sound, 0, sizeof( sound ));
+	Sound_ParseID3Tag( Data, Size );
+	return 0;
+}
+#endif
+
 /*
 =================================================================
 
@@ -58,6 +236,12 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesi
 	sound.size = ( sound.channels * sound.rate * sound.width ) * ( sc.playtime / 1000 ); // in bytes
 	padsize = sound.size % FRAME_SIZE;
 	pos += FRAME_SIZE; // evaluate pos
+
+	if( !Sound_ParseID3Tag( buffer, filesize ))
+	{
+		Con_DPrintf( S_WARN "Sound_LoadMPG: (%s) failed to extract LOOP_START tag\n", name );
+		sound.loopstart = -1;
+	}
 
 	if( !sound.size )
 	{
