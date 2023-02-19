@@ -33,6 +33,7 @@ def add_runner_target(bld, lib, func):
 
 def build(bld):
 	add_runner_target(bld, 'libxash.so', 'Sound_LoadMPG')
+	add_runner_target(bld, 'libxash.so', 'Sound_ParseID3Tag')
 	add_runner_target(bld, 'libxash.so', 'Sound_LoadWAV')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadBMP')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadPNG')

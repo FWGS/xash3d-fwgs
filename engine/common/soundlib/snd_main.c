@@ -280,7 +280,6 @@ void FS_FreeStream( stream_t *stream )
 }
 
 #if XASH_ENGINE_TESTS
-
 #define IMPLEMENT_SOUNDLIB_FUZZ_TARGET( export, target ) \
 int EXPORT export( const uint8_t *Data, size_t Size ) \
 { \
