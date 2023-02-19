@@ -751,6 +751,11 @@ void GL_InitExtensionsBigGL( void )
 	// this won't work without extended context
 	if( glw_state.extended )
 		GL_CheckExtension( "GL_ARB_debug_output", debugoutputfuncs, "gl_debug_output", GL_DEBUG_OUTPUT );
+
+#if XASH_PSVITA
+	// NPOT textures are actually supported, but the extension is not listed in GL_EXTENSIONS
+	GL_SetExtension( GL_ARB_TEXTURE_NPOT_EXT, true );
+#endif
 }
 #endif
 
