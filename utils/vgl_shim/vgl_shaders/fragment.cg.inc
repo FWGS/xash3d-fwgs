@@ -9,6 +9,10 @@ uniform sampler2D uTex1 : TEXUNIT1;
 #if FEAT_ALPHA_TEST
 uniform float uAlphaTest;
 #endif
+#if FEAT_FOG
+// color + density, mode always GL_EXP
+uniform float4 uFog;
+#endif
 
 float4 main(
     uniform float4 uColor
@@ -23,6 +27,9 @@ float4 main(
 #endif
 #if ATTR_NORMAL
   , float3 vNormal : TEXCOORD2
+#endif
+#if FEAT_FOG
+  , float4 vPosition : WPOS
 #endif
 ) {
 #if ATTR_COLOR
@@ -39,6 +46,11 @@ float4 main(
 #if FEAT_ALPHA_TEST
   if (c.a <= uAlphaTest)
     discard;
+#endif
+#if FEAT_FOG
+  float fogDist = vPosition.z / vPosition.w;
+  float fogRate = clamp(exp(-uFog.w * fogDist), 0.f, 1.f);
+  c.rgb = lerp(uFog.rgb, c.rgb, fogRate);
 #endif
   return c;
 }

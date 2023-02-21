@@ -13,6 +13,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+/*
+	this is a "replacement" for vitaGL's immediate mode tailored specifically for xash
+	this will only provide performance gains if vitaGL is built with DRAW_SPEEDHACK=1
+	since that makes it assume that all vertex data pointers are GPU-mapped
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,7 +39,7 @@ GNU General Public License for more details.
 #include "vgl_shim.h"
 
 #define MAX_SHADERLEN 4096
-#define MAX_PROGS 32
+#define MAX_PROGS 64 // hopefully this is enough
 
 extern ref_api_t gEngfuncs;
 
@@ -50,7 +56,8 @@ enum vgl_attrib_e
 // continuation of previous enum
 enum vgl_flag_e
 {
-	VGL_FLAG_ALPHA_TEST = VGL_ATTR_MAX,
+	VGL_FLAG_ALPHA_TEST = VGL_ATTR_MAX, // 32
+	VGL_FLAG_FOG,                       // 64
 	VGL_FLAG_MAX
 };
 
@@ -63,6 +70,7 @@ typedef struct
 	GLint ualpha;
 	GLint utex0;
 	GLint utex1;
+	GLint ufog;
 } vgl_prog_t;
 
 static const char *vgl_vert_src =
@@ -83,6 +91,7 @@ static struct
 	GLint end;
 	GLenum prim;
 	GLfloat color[4];
+	GLfloat fog[4]; // color + density
 	GLfloat alpharef;
 	vgl_prog_t progs[MAX_PROGS];
 	vgl_prog_t *cur_prog;
@@ -99,6 +108,7 @@ static const char *vgl_flag_name[VGL_FLAG_MAX] =
 	"ATTR_TEXCOORD1",
 	"ATTR_NORMAL",
 	"FEAT_ALPHA_TEST",
+	"FEAT_FOG",
 };
 
 static const char *vgl_attr_name[VGL_ATTR_MAX] =
@@ -110,8 +120,9 @@ static const char *vgl_attr_name[VGL_ATTR_MAX] =
 	"inNormal",
 };
 
-// HACK: borrow alpha test flag from internal vitaGL state
+// HACK: borrow alpha test and fog flags from internal vitaGL state
 extern GLboolean alpha_test_state;
+extern GLboolean fogging;
 
 static GLuint VGL_GenerateShader( const vgl_prog_t *prog, GLenum type )
 {
@@ -144,7 +155,7 @@ static GLuint VGL_GenerateShader( const vgl_prog_t *prog, GLenum type )
 	if ( status == GL_FALSE )
 	{
 		gEngfuncs.Con_Reportf( S_ERROR "VGL_GenerateShader( 0x%04x, 0x%x ): compile failed:\n", prog->flags, type );
-		gEngfuncs.Con_Printf( "Shader text:\n%s\n\n", shader );
+		gEngfuncs.Con_DPrintf( "Shader text:\n%s\n\n", shader );
 		glDeleteShader( id );
 		return 0;
 	}
@@ -216,7 +227,7 @@ static vgl_prog_t *VGL_GetProg( const GLuint flags )
 	glGetProgramiv( glprog, GL_LINK_STATUS, &status );
 	if ( status == GL_FALSE )
 	{
-		gEngfuncs.Con_Reportf( S_ERROR "VGL_GetProg( 0x%04x ): link failed!\n", prog->flags );
+		gEngfuncs.Con_Reportf( S_ERROR "VGL_GetProg(): Failed linking progs for 0x%04x!\n", prog->flags );
 		prog->flags = 0;
 		glDeleteProgram( glprog );
 		return NULL;
@@ -226,6 +237,7 @@ static vgl_prog_t *VGL_GetProg( const GLuint flags )
 	prog->ualpha = glGetUniformLocation( glprog, "uAlphaTest" );
 	prog->utex0  = glGetUniformLocation( glprog, "uTex0" );
 	prog->utex1  = glGetUniformLocation( glprog, "uTex1" );
+	prog->ufog   = glGetUniformLocation( glprog, "uFog" );
 
 	// these never change
 	if ( prog->utex0 >= 0 )
@@ -235,7 +247,7 @@ static vgl_prog_t *VGL_GetProg( const GLuint flags )
 
 	prog->glprog = glprog;
 
-	gEngfuncs.Con_DPrintf( S_NOTE "VGL_GetProg(): Generated progs for 0x%04x: glprog=%u ucolor=%d ualpha=%d\n", flags, glprog, prog->ucolor, prog->ualpha );
+	gEngfuncs.Con_DPrintf( S_NOTE "VGL_GetProg(): Generated progs for 0x%04x\n", flags );
 
 	return prog;
 }
@@ -257,6 +269,8 @@ static vgl_prog_t *VGL_SetProg( const GLuint flags )
 				glUniform1f( prog->ualpha, vgl.alpharef );
 			if ( prog->ucolor >= 0 )
 				glUniform4fv( prog->ucolor, 1, vgl.color );
+			if ( prog->ufog >= 0 )
+				glUniform4fv( prog->ufog, 1, vgl.fog );
 			vgl.uchanged = GL_FALSE;
 		}
 	}
@@ -273,6 +287,16 @@ int VGL_ShimInit( void )
 {
 	int i;
 	GLuint total, size;
+	static const GLuint precache_progs[] = {
+		0x0001, // out = ucolor
+		0x0005, // out = tex0 * ucolor
+		0x0007, // out = tex0 * vcolor
+		0x0025, // out = tex0 * ucolor + FEAT_ALPHA_TEST
+		0x0041, // out = ucolor + FEAT_FOG
+		0x0045, // out = tex0 * ucolor + FEAT_FOG
+		0x0047, // out = tex0 * vcolor + FEAT_FOG
+		0x0065, // out = tex0 * ucolor + FEAT_ALPHA_TEST + FEAT_FOG
+	};
 
 	if ( vgl_init )
 		return 0;
@@ -296,6 +320,9 @@ int VGL_ShimInit( void )
 	VGL_ShimInstall();
 
 	gEngfuncs.Con_DPrintf( S_NOTE "VGL_ShimInit(): %u bytes allocated for vertex buffer\n", total );
+	gEngfuncs.Con_DPrintf( S_NOTE "VGL_ShimInit(): Pre-generating %u progs...\n", sizeof( precache_progs ) / sizeof( *precache_progs ) );
+	for ( i = 0; i < (int)( sizeof( precache_progs ) / sizeof( *precache_progs ) ); ++i )
+		VGL_GetProg( precache_progs[i] );
 
 	vgl_init = 1;
 	return 0;
@@ -359,9 +386,11 @@ void VGL_End( void )
 		goto _leave;
 	}
 
-	// enable alpha test if needed
+	// enable alpha test and fog if needed
 	if ( alpha_test_state )
 		flags |= 1 << VGL_FLAG_ALPHA_TEST;
+	if ( fogging )
+		flags |= 1 << VGL_FLAG_FOG;
 
 	prog = VGL_SetProg( flags );
 	if ( !prog )
@@ -489,44 +518,60 @@ void VGL_AlphaFunc( GLenum mode, GLfloat ref )
 	// mode is always GL_GREATER
 }
 
+void VGL_Fogf( GLenum param, GLfloat val )
+{
+	if ( param == GL_FOG_DENSITY )
+	{
+		vgl.fog[3] = val;
+		vgl.uchanged = GL_TRUE;
+	}
+}
+
+void VGL_Fogfv( GLenum param, const GLfloat *val )
+{
+	if ( param == GL_FOG_COLOR )
+	{
+		vgl.fog[0] = val[0];
+		vgl.fog[1] = val[1];
+		vgl.fog[2] = val[2];
+		vgl.uchanged = GL_TRUE;
+	}
+}
+
 void VGL_DrawBuffer( GLenum mode )
 {
 	/* unsupported */
 }
 
-#define VGL_DECLARE_PTR( name ) extern void *pgl ## name
-#define VGL_OVERRIDE_PTR( name ) pgl ## name = VGL_ ## name
+void VGL_Hint( GLenum hint, GLenum val )
+{
+	/* none of the used hints are supported; stub to prevent errors */
+}
+
+#define VGL_OVERRIDE_PTR( name ) \
+{ \
+	extern void *pgl ## name; \
+	pgl ## name = VGL_ ## name; \
+}
 
 void VGL_ShimInstall( void )
 {
-	VGL_DECLARE_PTR( Vertex2f );
-	VGL_DECLARE_PTR( Vertex3f );
-	VGL_DECLARE_PTR( Vertex3fv );
-	VGL_DECLARE_PTR( Color3f );
-	VGL_DECLARE_PTR( Color4f );
-	VGL_DECLARE_PTR( Color4ub );
-	VGL_DECLARE_PTR( Color4ubv );
-	VGL_DECLARE_PTR( Normal3fv );
-	VGL_DECLARE_PTR( TexCoord2f );
-	VGL_DECLARE_PTR( MultiTexCoord2f );
-	VGL_DECLARE_PTR( ShadeModel );
-	VGL_DECLARE_PTR( DrawBuffer );
-	VGL_DECLARE_PTR( AlphaFunc );
-	VGL_DECLARE_PTR( Begin );
-	VGL_DECLARE_PTR( End );
-	VGL_OVERRIDE_PTR( Vertex2f );
-	VGL_OVERRIDE_PTR( Vertex3f );
-	VGL_OVERRIDE_PTR( Vertex3fv );
-	VGL_OVERRIDE_PTR( Color3f );
-	VGL_OVERRIDE_PTR( Color4f );
-	VGL_OVERRIDE_PTR( Color4ub );
-	VGL_OVERRIDE_PTR( Color4ubv );
-	VGL_OVERRIDE_PTR( Normal3fv );
-	VGL_OVERRIDE_PTR( TexCoord2f );
-	VGL_OVERRIDE_PTR( MultiTexCoord2f );
-	VGL_OVERRIDE_PTR( ShadeModel );
-	VGL_OVERRIDE_PTR( DrawBuffer );
-	VGL_OVERRIDE_PTR( AlphaFunc );
-	VGL_OVERRIDE_PTR( Begin );
-	VGL_OVERRIDE_PTR( End );
+	VGL_OVERRIDE_PTR( Vertex2f )
+	VGL_OVERRIDE_PTR( Vertex3f )
+	VGL_OVERRIDE_PTR( Vertex3fv )
+	VGL_OVERRIDE_PTR( Color3f )
+	VGL_OVERRIDE_PTR( Color4f )
+	VGL_OVERRIDE_PTR( Color4ub )
+	VGL_OVERRIDE_PTR( Color4ubv )
+	VGL_OVERRIDE_PTR( Normal3fv )
+	VGL_OVERRIDE_PTR( TexCoord2f )
+	VGL_OVERRIDE_PTR( MultiTexCoord2f )
+	VGL_OVERRIDE_PTR( ShadeModel )
+	VGL_OVERRIDE_PTR( DrawBuffer )
+	VGL_OVERRIDE_PTR( AlphaFunc )
+	VGL_OVERRIDE_PTR( Fogf )
+	VGL_OVERRIDE_PTR( Fogfv )
+	VGL_OVERRIDE_PTR( Hint )
+	VGL_OVERRIDE_PTR( Begin )
+	VGL_OVERRIDE_PTR( End )
 }
