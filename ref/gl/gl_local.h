@@ -35,6 +35,12 @@ GNU General Public License for more details.
 #include "gl_export.h"
 #include "wadfile.h"
 
+#if XASH_PSVITA
+int VGL_ShimInit( void );
+void VGL_ShimShutdown( void );
+void VGL_ShimEndFrame( void );
+#endif
+
 #ifndef offsetof
 #ifdef __GNUC__
 #define offsetof(s,m) __builtin_offsetof(s,m)
