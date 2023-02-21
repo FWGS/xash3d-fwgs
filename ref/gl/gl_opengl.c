@@ -755,6 +755,8 @@ void GL_InitExtensionsBigGL( void )
 #if XASH_PSVITA
 	// NPOT textures are actually supported, but the extension is not listed in GL_EXTENSIONS
 	GL_SetExtension( GL_ARB_TEXTURE_NPOT_EXT, true );
+	// init our immediate mode override
+	VGL_ShimInit();
 #endif
 }
 #endif
@@ -824,6 +826,10 @@ void GL_ClearExtensions( void )
 	// now all extensions are disabled
 	memset( glConfig.extension, 0, sizeof( glConfig.extension ));
 	glw_state.initialized = false;
+#if XASH_PSVITA
+	// deinit our immediate mode override
+	VGL_ShimShutdown();
+#endif
 }
 
 //=======================================================================

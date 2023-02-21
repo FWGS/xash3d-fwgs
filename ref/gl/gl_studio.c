@@ -25,6 +25,14 @@ GNU General Public License for more details.
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
 
+#if XASH_PSVITA
+// save some address space by decreasing .bss size
+// we're not gonna be using the array renderer anyway
+#define MAXARRAYVERTS 1
+#else
+#define MAXARRAYVERTS MAXSTUDIOVERTS
+#endif
+
 typedef struct
 {
 	char		name[MAX_OSPATH];
@@ -112,10 +120,10 @@ typedef struct
 	player_model_t  player_models[MAX_CLIENTS];
 
 	// drawelements renderer
-	vec3_t			arrayverts[MAXSTUDIOVERTS];
-	vec2_t			arraycoord[MAXSTUDIOVERTS];
-	unsigned short	arrayelems[MAXSTUDIOVERTS*6];
-	GLubyte			arraycolor[MAXSTUDIOVERTS][4];
+	vec3_t			arrayverts[MAXARRAYVERTS];
+	vec2_t			arraycoord[MAXARRAYVERTS];
+	unsigned short	arrayelems[MAXARRAYVERTS*6];
+	GLubyte			arraycolor[MAXARRAYVERTS][4];
 	uint			numverts;
 	uint			numelems;
 } studio_draw_state_t;
@@ -149,6 +157,11 @@ void R_StudioInit( void )
 {
 	r_studio_sort_textures = gEngfuncs.Cvar_Get( "r_studio_sort_textures", "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
 	r_studio_drawelements = gEngfuncs.Cvar_Get( "r_studio_drawelements", "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
+
+#if XASH_PSVITA
+	// don't do the same array-building work twice since that's what our FFP shim does anyway
+	gEngfuncs.Cvar_SetValue( "r_studio_drawelements", 0 );
+#endif
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 
