@@ -25,14 +25,6 @@ GNU General Public License for more details.
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
 
-#if XASH_PSVITA
-// save some address space by decreasing .bss size
-// we're not gonna be using the array renderer anyway
-#define MAXARRAYVERTS 1
-#else
-#define MAXARRAYVERTS MAXSTUDIOVERTS
-#endif
-
 typedef struct
 {
 	char		name[MAX_OSPATH];
@@ -120,10 +112,10 @@ typedef struct
 	player_model_t  player_models[MAX_CLIENTS];
 
 	// drawelements renderer
-	vec3_t			arrayverts[MAXARRAYVERTS];
-	vec2_t			arraycoord[MAXARRAYVERTS];
-	unsigned short	arrayelems[MAXARRAYVERTS*6];
-	GLubyte			arraycolor[MAXARRAYVERTS][4];
+	vec3_t			arrayverts[MAXSTUDIOVERTS];
+	vec2_t			arraycoord[MAXSTUDIOVERTS];
+	unsigned short	arrayelems[MAXSTUDIOVERTS*6];
+	GLubyte			arraycolor[MAXSTUDIOVERTS][4];
 	uint			numverts;
 	uint			numelems;
 } studio_draw_state_t;
