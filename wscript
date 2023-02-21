@@ -55,6 +55,9 @@ SUBDIRS = [
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
+
+	# enabled on PSVita only
+	Subproject('utils/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
 ]
 
 def options(opt):

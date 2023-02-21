@@ -25,22 +25,12 @@ GNU General Public License for more details.
 
 #define DATA_PATH "data/xash3d"
 
-// 200MB libc heap, 512K main thread stack, 32MB for loading game DLLs, 8MB vertex pool
+// 200MB libc heap, 512K main thread stack, 40MB for loading game DLLs
 // the rest goes to vitaGL
 SceUInt32 sceUserMainThreadStackSize = 512 * 1024;
 unsigned int _pthread_stack_default_user = 512 * 1024;
 unsigned int _newlib_heap_size_user = 200 * 1024 * 1024;
 #define VGL_MEM_THRESHOLD ( 40 * 1024 * 1024 )
-#define VGL_VERTEX_POOL_SIZE ( 4 * 1024 * 1024 )
-
-/* HACK: stubs for GL functions that are missing from vitaGL */
-
-static void glDrawBuffer( GLenum which )
-{
-	/* nada */
-}
-
-/* end of GL stubs*/
 
 /* HACKHACK: force-export stuff required by the dynamic libs */
 
@@ -73,7 +63,7 @@ static const vrtld_export_t aux_exports[] =
 	VRTLD_EXPORT_SYMBOL( strchrnul ),
 	VRTLD_EXPORT_SYMBOL( rand ),
 	VRTLD_EXPORT_SYMBOL( srand ),
-	VRTLD_EXPORT_SYMBOL( glDrawBuffer ),
+	VRTLD_EXPORT_SYMBOL( sceGxmMapMemory ), // needed by vgl_shim
 	VRTLD_EXPORT( "dlopen", vrtld_dlopen ),
 	VRTLD_EXPORT( "dlclose", vrtld_dlclose ),
 	VRTLD_EXPORT( "dlsym", vrtld_dlsym ),
@@ -112,11 +102,11 @@ void PSVita_Init( void )
 		Sys_Error( "Could not init vrtld: %s\n", vrtld_dlerror( ) );
 	}
 
-	// init vitaGL with some memory budget for immediate mode vertices
+	// init vitaGL, leaving some memory for DLL mapping
 	// TODO: we don't need to do this for ref_soft
 	vglUseVram( GL_TRUE );
 	vglUseExtraMem( GL_TRUE );
-	vglInitExtended( VGL_VERTEX_POOL_SIZE, 960, 544, VGL_MEM_THRESHOLD, 0 );
+	vglInitExtended( 0, 960, 544, VGL_MEM_THRESHOLD, 0 );
 }
 
 void PSVita_Shutdown( void )
