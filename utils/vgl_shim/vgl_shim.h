@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #pragma once
 
 // max verts in a single frame
-#define VGL_MAX_VERTS 16384
+#define VGL_MAX_VERTS 32768
 
 int VGL_ShimInit( void );
 void VGL_ShimInstall( void );
