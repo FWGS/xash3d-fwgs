@@ -86,20 +86,20 @@ static const char *validation_layers[] = {
 	"VK_LAYER_KHRONOS_validation",
 };
 
-static const char* device_extensions[] = {
+static const char* device_extensions_req[] = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+};
 
-	// Optional: RTX
+static const char* device_extensions_rt[] = {
 	VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 	VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 	VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 	VK_KHR_RAY_QUERY_EXTENSION_NAME,
+};
 
-	// FIXME make this not depend on RTX
-#ifdef USE_AFTERMATH
+static const char* device_extensions_nv_checkpoint[] = {
 	VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME,
 	VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME,
-#endif
 };
 
 VkBool32 VKAPI_PTR debugCallback(
@@ -254,27 +254,43 @@ static qboolean createInstance( void )
 	return true;
 }
 
-static const VkExtensionProperties *findExtension( const VkExtensionProperties *exts, uint32_t num_exts, const char *extension )
-{
+static const VkExtensionProperties *findExtension( const VkExtensionProperties *exts, uint32_t num_exts, const char *extension ) {
 	for (uint32_t i = 0; i < num_exts; ++i) {
 		if (strncmp(exts[i].extensionName, extension, sizeof(exts[i].extensionName)) == 0)
 			return exts + i;
 	}
-
 	return NULL;
 }
 
-static qboolean deviceSupportsRtx( const VkExtensionProperties *exts, uint32_t num_exts )
-{
+static qboolean deviceSupportsExtensions(const VkExtensionProperties *exts, uint32_t num_exts, const char *check_extensions[], int check_extensions_count) {
 	qboolean result = true;
-
-	for (int i = 1 /* skip swapchain ext */; i < ARRAYSIZE(device_extensions); ++i) {
-		if (!findExtension(exts, num_exts, device_extensions[i])) {
-			gEngine.Con_Reportf(S_ERROR "Extension %s is not supported\n", device_extensions[i]);
+	for (int i = 0; i < check_extensions_count; ++i) {
+		if (!findExtension(exts, num_exts, check_extensions[i])) {
+			gEngine.Con_Reportf(S_ERROR "Extension %s is not supported\n", check_extensions[i]);
 			result = false;
 		}
 	}
 	return result;
+}
+
+static void devicePrintExtensionsFromList(const VkExtensionProperties *exts, uint32_t num_exts, const char *print_extensions[], int print_extensions_count) {
+	for (int i = 0; i < print_extensions_count; ++i) {
+		const VkExtensionProperties *const ext_prop = findExtension(exts, num_exts, print_extensions[i]);
+		if (!ext_prop) {
+			gEngine.Con_Printf( "\t\t\t%s: N/A\n", print_extensions[i]);
+		} else {
+			gEngine.Con_Printf( "\t\t\t%s: %u.%u.%u\n", ext_prop->extensionName, XVK_PARSE_VERSION(ext_prop->specVersion));
+		}
+	}
+}
+
+#define MAX_DEVICE_EXTENSIONS 16
+static int appendDeviceExtensions(const char** out, int out_count, const char *in_extensions[], int in_extensions_count) {
+	for (int i = 0; i < in_extensions_count; ++i) {
+		ASSERT(out_count < MAX_DEVICE_EXTENSIONS);
+		out[out_count++] = in_extensions[i];
+	}
+	return out_count;
 }
 
 // FIXME this is almost exactly the physical_device_t, reuse
@@ -285,6 +301,7 @@ typedef struct {
 	uint32_t queue_index;
 	qboolean anisotropy;
 	qboolean ray_tracing;
+	qboolean nv_checkpoint;
 } vk_available_device_t;
 
 static int enumerateDevices( vk_available_device_t **available_devices ) {
@@ -383,21 +400,19 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 			XVK_CHECK(vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &num_device_extensions, extensions));
 
 			gEngine.Con_Reportf( "\t\tSupported device extensions: %u\n", num_device_extensions);
-			for (int j = 0; j < ARRAYSIZE(device_extensions); ++j) {
-				const VkExtensionProperties *ext_prop = findExtension(extensions, num_device_extensions, device_extensions[j]);
-				if (!ext_prop) {
-					gEngine.Con_Printf( "\t\t\t%s: N/A\n", device_extensions[j]);
-				} else {
-					gEngine.Con_Printf( "\t\t\t%s: %u.%u.%u\n", ext_prop->extensionName, XVK_PARSE_VERSION(ext_prop->specVersion));
-				}
-			}
+			devicePrintExtensionsFromList(extensions, num_device_extensions, device_extensions_req, ARRAYSIZE(device_extensions_req));
+			devicePrintExtensionsFromList(extensions, num_device_extensions, device_extensions_rt, ARRAYSIZE(device_extensions_rt));
+			devicePrintExtensionsFromList(extensions, num_device_extensions, device_extensions_nv_checkpoint, ARRAYSIZE(device_extensions_nv_checkpoint));
 
 			vkGetPhysicalDeviceFeatures2(physical_devices[i], &features);
 			this_device->anisotropy = features.features.samplerAnisotropy;
 			gEngine.Con_Printf("\t\tAnistoropy supported: %d\n", this_device->anisotropy);
 
-			this_device->ray_tracing = deviceSupportsRtx(extensions, num_device_extensions);
+			this_device->ray_tracing = deviceSupportsExtensions(extensions, num_device_extensions, device_extensions_rt, ARRAYSIZE(device_extensions_rt));
 			gEngine.Con_Printf("\t\tRay tracing supported: %d\n", this_device->ray_tracing);
+
+			this_device->nv_checkpoint = vk_core.debug && deviceSupportsExtensions(extensions, num_device_extensions, device_extensions_nv_checkpoint, ARRAYSIZE(device_extensions_nv_checkpoint));
+			gEngine.Con_Printf("\t\tNV checkpoints supported: %d\n", this_device->nv_checkpoint);
 
 			Mem_Free(extensions);
 		}
@@ -515,14 +530,14 @@ static qboolean createDevice( void ) {
 		};
 		head = &features;
 
-#ifdef USE_AFTERMATH
 		VkDeviceDiagnosticsConfigCreateInfoNV diag_config_nv = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV,
 			.pNext = head,
 			.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV | VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV
 		};
-		head = &diag_config_nv;
-#endif
+
+		if (candidate_device->nv_checkpoint)
+			head = &diag_config_nv;
 
 		const float queue_priorities[1] = {1.f};
 		VkDeviceQueueCreateInfo queue_info = {
@@ -533,17 +548,21 @@ static qboolean createDevice( void ) {
 			.pQueuePriorities = queue_priorities,
 		};
 
+		const char* device_extensions[MAX_DEVICE_EXTENSIONS];
+		int device_extensions_count = 0;
+		device_extensions_count = appendDeviceExtensions(device_extensions, device_extensions_count, device_extensions_req, ARRAYSIZE(device_extensions_req));
+		if (vk_core.rtx)
+			device_extensions_count = appendDeviceExtensions(device_extensions, device_extensions_count, device_extensions_rt, ARRAYSIZE(device_extensions_rt));
+		if (candidate_device->nv_checkpoint)
+			device_extensions_count = appendDeviceExtensions(device_extensions, device_extensions_count, device_extensions_nv_checkpoint, ARRAYSIZE(device_extensions_nv_checkpoint));
+
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = head,
 			.flags = 0,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queue_info,
-
-			// TODO for now device_extensions array contains one required extension (swapchain)
-			// and a bunch of RTX-optional extensions. Use only one if RTX was not requested,
-			// and only use all of them if it was.
-			.enabledExtensionCount = vk_core.rtx ? ARRAYSIZE(device_extensions) : 1,
+			.enabledExtensionCount = device_extensions_count,
 			.ppEnabledExtensionNames = device_extensions,
 		};
 
@@ -569,6 +588,7 @@ static qboolean createDevice( void ) {
 				continue;
 			}
 		}
+		vk_core.nv_checkpoint = candidate_device->nv_checkpoint;
 
 		vk_core.physical_device.device = candidate_device->device;
 		vk_core.physical_device.anisotropy_enabled = features.features.samplerAnisotropy;

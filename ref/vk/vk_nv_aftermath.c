@@ -138,8 +138,9 @@ void VK_AftermathShutdown() {
 }
 
 void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...) {
-	va_list argptr;
+	ASSERT(vkCmdSetCheckpointNV);
 
+	va_list argptr;
 	++g_nv_checkpoint.sequence;
 
 	vk_nv_checkpoint_entry_t *entry = g_nv_checkpoint.entries + (g_nv_checkpoint.sequence % MAX_NV_CHECKPOINTS);
@@ -154,6 +155,8 @@ void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...) {
 }
 
 void R_Vk_NV_Checkpoint_Dump(void) {
+	ASSERT(vkGetQueueCheckpointDataNV);
+
 	uint32_t checkpoints_count = 0;
 	vkGetQueueCheckpointDataNV(vk_core.queue, &checkpoints_count, NULL);
 
