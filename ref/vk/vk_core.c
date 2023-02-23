@@ -641,7 +641,6 @@ static qboolean initSurface( void )
 	gEngine.Con_Reportf("Supported surface formats: %u\n", vk_core.surface.num_surface_formats);
 	for (uint32_t i = 0; i < vk_core.surface.num_surface_formats; ++i)
 	{
-		// TODO symbolicate
 		gEngine.Con_Reportf("\t%u: %s(%u) %s(%u)\n", i,
 			R_VkFormatName(vk_core.surface.surface_formats[i].format), vk_core.surface.surface_formats[i].format,
 			R_VkColorSpaceName(vk_core.surface.surface_formats[i].colorSpace), vk_core.surface.surface_formats[i].colorSpace);

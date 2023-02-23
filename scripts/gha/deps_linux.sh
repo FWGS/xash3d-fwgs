@@ -28,9 +28,9 @@ wget http://libsdl.org/release/SDL2-$SDL_VERSION.zip -O SDL2.zip
 unzip -q SDL2.zip
 mv SDL2-$SDL_VERSION SDL2_src
 
-# ref_vk required Vulkan SDK
+# ref_vk requires Vulkan SDK
 wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.176-bionic.list https://packages.lunarg.com/vulkan/1.2.176/lunarg-vulkan-1.2.176-bionic.list
+sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${VULKAN_SDK_VERSION}-focal.list https://packages.lunarg.com/vulkan/${VULKAN_SDK_VERSION}/lunarg-vulkan-${VULKAN_SDK_VERSION}-focal.list
 sudo apt update
 [ "$ARCH" = "i386" ] && SUFFIX=":i386" || SUFFIX=""
 sudo apt install -y vulkan-sdk"$SUFFIX"
