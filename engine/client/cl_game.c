@@ -308,10 +308,9 @@ void CL_CenterPrint( const char *text, float y )
 {
 	cl_font_t *font = Con_GetCurFont();
 
-	if( !COM_CheckString( text ))
+	if( !COM_CheckString( text ) || !font || !font->valid )
 		return;
 
-	clgame.centerPrint.lines = 1;
 	clgame.centerPrint.totalWidth = 0;
 	clgame.centerPrint.time = cl.mtime[0]; // allow pause for centerprint
 	Q_strncpy( clgame.centerPrint.message, text, sizeof( clgame.centerPrint.message ));
@@ -321,6 +320,10 @@ void CL_CenterPrint( const char *text, float y )
 		&clgame.centerPrint.totalWidth,
 		&clgame.centerPrint.totalHeight,
 		FONT_DRAW_HUD | FONT_DRAW_UTF8 );
+
+	if( font->charHeight )
+		clgame.centerPrint.lines = clgame.centerPrint.totalHeight / font->charHeight;
+	else clgame.centerPrint.lines = 1;
 
 	clgame.centerPrint.y = CL_AdjustYPos( y, clgame.centerPrint.totalHeight );
 }
