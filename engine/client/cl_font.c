@@ -303,6 +303,7 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 			draw_len = 0;
 			if( !FBitSet( flags, FONT_DRAW_NOLF ))
 			{
+				clgame.centerPrint.lines++;
 				if( height )
 					*height += font->charHeight;
 			}
