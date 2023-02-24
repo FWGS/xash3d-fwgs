@@ -4,6 +4,8 @@
 #include "xash3d_types.h"
 #include "com_strings.h" // S_ERROR
 
+#include "vk_nv_aftermath.h" // TODO remove explicit usage in XVK_CHECK
+
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
@@ -38,7 +40,7 @@ typedef struct vulkan_core_s {
 
 	// TODO store important capabilities that affect render code paths
 	// (as rtx, dedicated gpu memory, bindless, etc) separately in a struct
-	qboolean debug, validate, rtx;
+	qboolean debug, validate, rtx, nv_checkpoint;
 	struct {
 		VkSurfaceKHR surface;
 		uint32_t num_surface_formats;
@@ -93,21 +95,6 @@ do { \
 	} \
 } while (0)
 
-#if USE_AFTERMATH
-void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...);
-void R_Vk_NV_Checkpoint_Dump(void);
-#define DEBUG_NV_CHECKPOINTF(cmdbuf, fmt, ...) \
-	do { \
-		if (vk_core.debug) { \
-			R_Vk_NV_CheckpointF(cmdbuf, fmt, ##__VA_ARGS__); \
-			if (0) gEngine.Con_Reportf(fmt "\n", ##__VA_ARGS__); \
-		} \
-	} while(0)
-#else
-#define DEBUG_NV_CHECKPOINTF(...)
-#define R_Vk_NV_Checkpoint_Dump()
-#endif
-
 #define DEBUG_BEGIN(cmdbuf, msg) \
 	do { \
 		if (vk_core.debug) { \
@@ -149,8 +136,7 @@ void R_Vk_NV_Checkpoint_Dump(void);
 		if (result != VK_SUCCESS) { \
 			gEngine.Con_Printf( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, R_VkResultName(result)); \
-			if (vk_core.debug) \
-				R_Vk_NV_Checkpoint_Dump(); \
+			DEBUG_NV_CHECKPOINT_DUMP(); \
 			gEngine.Host_Error( S_ERROR "%s:%d " #f " failed (%d): %s\n", \
 				__FILE__, __LINE__, result, R_VkResultName(result)); \
 		} \

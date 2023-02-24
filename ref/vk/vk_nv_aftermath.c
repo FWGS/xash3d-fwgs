@@ -1,4 +1,3 @@
-#ifdef USE_AFTERMATH
 #include "vk_nv_aftermath.h"
 
 #include "vk_common.h"
@@ -6,12 +5,27 @@
 
 #include "xash3d_types.h"
 
+#ifdef USE_AFTERMATH
 #include "GFSDK_Aftermath.h"
 #include "GFSDK_Aftermath_GpuCrashDump.h"
 #include "GFSDK_Aftermath_GpuCrashDumpDecoding.h"
+#endif // ifdef USE_AFTERMATH
 
 #include <stdio.h>
 
+#define MAX_NV_CHECKPOINTS 2048
+
+typedef struct {
+	unsigned sequence;
+	char message[256];
+} vk_nv_checkpoint_entry_t;
+
+static struct {
+	unsigned sequence;
+	vk_nv_checkpoint_entry_t entries[MAX_NV_CHECKPOINTS];
+} g_nv_checkpoint = {0};
+
+#ifdef USE_AFTERMATH
 static const char *aftermathErrorName(GFSDK_Aftermath_Result result) {
 	switch (result) {
 #define CASE(c) case c: return #c;
@@ -90,17 +104,6 @@ static void callbackGpuCrashDumpDescription(PFN_GFSDK_Aftermath_AddGpuCrashDumpD
 	addValue(GFSDK_Aftermath_GpuCrashDumpDescriptionKey_ApplicationVersion, "v0.0.1");
 }
 
-#define MAX_NV_CHECKPOINTS 2048
-
-typedef struct {
-	unsigned sequence;
-	char message[256];
-} vk_nv_checkpoint_entry_t;
-
-static struct {
-	unsigned sequence;
-	vk_nv_checkpoint_entry_t entries[MAX_NV_CHECKPOINTS];
-} g_nv_checkpoint = {0};
 
 static const char obsolete[] = "[OBSOLETE]";
 
@@ -136,10 +139,12 @@ void VK_AftermathShutdown() {
 		GFSDK_Aftermath_DisableGpuCrashDumps();
 	}
 }
+#endif //ifdef USE_AFTERMATH
 
 void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...) {
-	va_list argptr;
+	ASSERT(vkCmdSetCheckpointNV);
 
+	va_list argptr;
 	++g_nv_checkpoint.sequence;
 
 	vk_nv_checkpoint_entry_t *entry = g_nv_checkpoint.entries + (g_nv_checkpoint.sequence % MAX_NV_CHECKPOINTS);
@@ -154,6 +159,8 @@ void R_Vk_NV_CheckpointF(VkCommandBuffer cmdbuf, const char *fmt, ...) {
 }
 
 void R_Vk_NV_Checkpoint_Dump(void) {
+	ASSERT(vkGetQueueCheckpointDataNV);
+
 	uint32_t checkpoints_count = 0;
 	vkGetQueueCheckpointDataNV(vk_core.queue, &checkpoints_count, NULL);
 
@@ -177,4 +184,3 @@ void R_Vk_NV_Checkpoint_Dump(void) {
 	}
 }
 
-#endif //ifdef USE_AFTERMATH
