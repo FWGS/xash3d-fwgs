@@ -195,7 +195,8 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 	}
 
 	if (geom->material == kXVkMaterialEmissive) {
-		VectorCopy( geom->emissive, kusok->emissive );
+		VectorCopy(geom->emissive, kusok->emissive);
+		Vector4Set(kusok->color, 0, 0, 0, 0); // Do not accept light from outside
 	} else {
 		RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
 	}

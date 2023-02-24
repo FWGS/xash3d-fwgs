@@ -34,7 +34,7 @@ void primaryRayHit(rayQueryEXT rq, inout RayPayloadPrimary payload) {
 		payload.emissive.rgb = SRGBtoLINEAR(texture(skybox, rayDirection).rgb);
 		return;
 	} else {
-		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods) * kusok.color;
+		payload.base_color_a = sampleTexture(tex_base_color, geom.uv, geom.uv_lods);
 		payload.material_rmxx.r = (kusok.tex_roughness > 0) ? sampleTexture(kusok.tex_roughness, geom.uv, geom.uv_lods).r : kusok.roughness;
 		payload.material_rmxx.g = (kusok.tex_metalness > 0) ? sampleTexture(kusok.tex_metalness, geom.uv, geom.uv_lods).r : kusok.metalness;
 
@@ -63,6 +63,8 @@ void primaryRayHit(rayQueryEXT rq, inout RayPayloadPrimary payload) {
 	if (any(greaterThan(kusok.emissive, vec3(0.))))
 		payload.emissive.rgb = payload.base_color_a.rgb;
 #endif
+
+	payload.base_color_a *= kusok.color;
 }
 
 #endif // ifndef RAY_PRIMARY_HIT_GLSL_INCLUDED
