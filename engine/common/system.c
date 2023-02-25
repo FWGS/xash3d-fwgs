@@ -40,6 +40,10 @@ GNU General Public License for more details.
 #include <switch.h>
 #endif
 
+#if XASH_PSVITA
+#include <vitasdk.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
 
 #include "library.h"
@@ -129,7 +133,12 @@ const char *Sys_GetCurrentUser( void )
 
 	if( GetUserName( s_userName, &size ))
 		return s_userName;
-#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
+#elif XASH_PSVITA
+	static string username;
+	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
+	if( username[0] )
+		return username;
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 
@@ -583,7 +592,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 	exit( 0 );
 #elif XASH_PSVITA
 	fprintf( stderr, "Sys_NewInstance( %s ): not implemented yet\n", gamedir );
-	exit( 1 );
+	exit( 0 );
 #else
 	int i = 0;
 	qboolean replacedArg = false;
