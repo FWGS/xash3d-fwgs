@@ -10,9 +10,6 @@ void VK_RenderShutdown( void );
 // Why? Xash Ref code is organized in a way where we can't reliably pass this info with
 // ScheduleDraw itself, so we need to either set up per-submodule global state, or
 // centralize this global state in here
-void VK_RenderStateSetColor( float r, float g, float b, float a );
-// TODO void VK_RenderStateGetColor( vec4_t color );
-
 void VK_RenderStateSetMatrixProjection(const matrix4x4 proj, float fov_angle_y);
 void VK_RenderStateSetMatrixView(const matrix4x4 view);
 void VK_RenderStateSetMatrixModel(const matrix4x4 model);
@@ -68,7 +65,11 @@ struct vk_ray_model_s;
 struct rt_light_add_polygon_s;
 typedef struct vk_render_model_s {
 	char debug_name[MAX_MODEL_NAME_LENGTH];
+
+	// FIXME: brushes, sprites, studio models, etc all treat render_mode differently
 	int render_mode;
+	vec4_t color;
+
 	int num_geometries;
 	vk_render_geometry_t *geometries;
 
@@ -91,7 +92,7 @@ qboolean VK_RenderModelInit( vk_render_model_t* model );
 void VK_RenderModelDestroy( vk_render_model_t* model );
 void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model );
 
-void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... );
+void VK_RenderModelDynamicBegin( int render_mode, const vec4_t color, const char *debug_name_fmt, ... );
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom );
 void VK_RenderModelDynamicCommit( void );
 

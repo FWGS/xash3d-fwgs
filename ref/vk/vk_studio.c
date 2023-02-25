@@ -2114,7 +2114,9 @@ static void R_StudioDrawPoints( void )
 
 	if( !m_pStudioHeader ) return;
 
-	VK_RenderModelDynamicBegin( RI.currententity->curstate.rendermode, "%s", m_pSubModel->name );
+	// FIXME: pass blend to studio model
+	const vec4_t color = {1, 1, 1, 1};
+	VK_RenderModelDynamicBegin( RI.currententity->curstate.rendermode, color, "%s", m_pSubModel->name );
 
 	g_studio.numverts = g_studio.numelems = 0;
 

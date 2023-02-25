@@ -643,14 +643,14 @@ static qboolean spriteIsOccluded( const cl_entity_t *e, vec3_t origin, float *ps
 	return false;
 }
 
-static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode, vec3_t color ) {
+static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode, const vec4_t color ) {
 	r_geometry_buffer_lock_t buffer;
 	if (!R_GeometryBufferAllocAndLock( &buffer, 4, 6, LifetimeSingleFrame )) {
 		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for sprite quad\n");
 		return;
 	}
 
-	vec3_t	point;
+	vec3_t point;
 	vk_vertex_t *dst_vtx;
 	uint16_t *dst_idx;
 
@@ -719,7 +719,7 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 			.emissive = {color[0], color[1], color[2]},
 		};
 
-		VK_RenderModelDynamicBegin( render_mode, "%s", debug_name );
+		VK_RenderModelDynamicBegin( render_mode, color, "%s", debug_name );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}
@@ -936,8 +936,8 @@ void R_VkSpriteDrawModel( cl_entity_t *e, float blend )
 	if( oldframe == frame )
 	{
 		// draw the single non-lerped frame
-		VK_RenderStateSetColor( color[0], color[1], color[2], blend );
-		R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color );
+		const vec4_t color4 = {color[0], color[1], color[2], blend};
+		R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color4 );
 	}
 	else
 	{
@@ -947,16 +947,14 @@ void R_VkSpriteDrawModel( cl_entity_t *e, float blend )
 
 		if( ilerp != 0.0f )
 		{
-			// FIXME VK make sure we end up with the same values as gl
-			VK_RenderStateSetColor( color[0], color[1], color[2], blend * ilerp );
-			R_DrawSpriteQuad( model->name, oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode, color );
+			const vec4_t color4 = {color[0], color[1], color[2], blend * ilerp};
+			R_DrawSpriteQuad( model->name, oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode, color4 );
 		}
 
 		if( lerp != 0.0f )
 		{
-			// FIXME VK make sure we end up with the same values as gl
-			VK_RenderStateSetColor( color[0], color[1], color[2], blend * lerp );
-			R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color );
+			const vec4_t color4 = {color[0], color[1], color[2], blend * lerp};
+			R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color4 );
 		}
 	}
 

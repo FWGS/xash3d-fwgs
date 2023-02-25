@@ -328,11 +328,10 @@ void VK_RenderShutdown( void )
 
 enum {
 	UNIFORM_UNSET = 0,
-	UNIFORM_SET_COLOR = 1,
 	UNIFORM_SET_MATRIX_MODEL = 2,
 	UNIFORM_SET_MATRIX_VIEW = 4,
 	UNIFORM_SET_MATRIX_PROJECTION = 8,
-	UNIFORM_SET_ALL = UNIFORM_SET_COLOR | UNIFORM_SET_MATRIX_MODEL | UNIFORM_SET_MATRIX_VIEW | UNIFORM_SET_MATRIX_PROJECTION,
+	UNIFORM_SET_ALL = UNIFORM_SET_MATRIX_MODEL | UNIFORM_SET_MATRIX_VIEW | UNIFORM_SET_MATRIX_PROJECTION,
 	UNIFORM_UPLOADED = 16,
 };
 
@@ -350,15 +349,6 @@ void VK_RenderBegin( qboolean ray_tracing ) {
 
 	if (ray_tracing)
 		VK_RayFrameBegin();
-}
-
-void VK_RenderStateSetColor( float r, float g, float b, float a )
-{
-	g_render_state.uniform_data_set_mask |= UNIFORM_SET_COLOR;
-	g_render_state.dirty_uniform_data.color[0] = r;
-	g_render_state.dirty_uniform_data.color[1] = g;
-	g_render_state.dirty_uniform_data.color[2] = b;
-	g_render_state.dirty_uniform_data.color[3] = a;
 }
 
 // Vulkan has Y pointing down, and z should end up in (0, 1)
@@ -682,6 +672,9 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 	int index_offset = -1;
 	int vertex_offset = 0;
 
+	// TODO get rid of this dirty ubo thing
+	Vector4Copy(model->color, g_render_state.dirty_uniform_data.color);
+
 	if (g_render_state.current_frame_is_ray_traced) {
 		if (ent != NULL && model != NULL) {
 			R_PrevFrame_ModelTransform( ent->index, model->prev_transform );
@@ -758,7 +751,7 @@ static struct {
 	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
 } g_dynamic_model = {0};
 
-void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... ) {
+void VK_RenderModelDynamicBegin( int render_mode, const vec4_t color, const char *debug_name_fmt, ... ) {
 	va_list argptr;
 	va_start( argptr, debug_name_fmt );
 	vsnprintf(g_dynamic_model.model.debug_name, sizeof(g_dynamic_model.model.debug_name), debug_name_fmt, argptr );
@@ -768,6 +761,7 @@ void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ..
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
 	g_dynamic_model.model.render_mode = render_mode;
+	Vector4Copy(color, g_dynamic_model.model.color);
 }
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom ) {
 	ASSERT(g_dynamic_model.model.geometries);
