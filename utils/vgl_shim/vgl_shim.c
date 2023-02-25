@@ -335,7 +335,8 @@ void VGL_ShimShutdown( void )
 	if ( !vgl_init )
 		return;
 
-	glFinish();
+	// flush everything that has been rendered this frame to prevent waiting in glDeleteProgram
+	vglSwapBuffers( GL_FALSE );
 	glUseProgram( 0 );
 
 	for ( i = 0; i < MAX_PROGS; ++i )
@@ -379,13 +380,6 @@ void VGL_End( void )
 	if ( !vgl.prim || !count )
 		goto _leave; // end without begin 
 
-	if ( vgl.end > VGL_MAX_VERTS )
-	{
-		gEngfuncs.Con_Reportf( S_ERROR "VGL_End(): Ran out of vertex space (%d overhead)\n", vgl.end - VGL_MAX_VERTS );
-		vgl.end = 0;
-		goto _leave;
-	}
-
 	// enable alpha test and fog if needed
 	if ( alpha_test_state )
 		flags |= 1 << VGL_FLAG_ALPHA_TEST;
@@ -425,7 +419,7 @@ void VGL_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 	++vgl.end;
 	if ( vgl.end >= VGL_MAX_VERTS )
 	{
-		gEngfuncs.Con_Reportf( S_ERROR "VGL_Vertex3f(): Vertex buffer overflow!\n" );
+		gEngfuncs.Con_DPrintf( S_ERROR "VGL_Vertex3f(): Vertex buffer overflow!\n" );
 		vgl.end = vgl.begin = 0;
 	}
 }
