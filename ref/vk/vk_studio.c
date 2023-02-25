@@ -54,7 +54,7 @@ typedef struct
 	double		frametime;
 	int		framecount;		// studio framecount
 	qboolean		interpolate;
-	int		rendermode;
+	int		rendermode, rendermode2;
 	float		blend;			// blend value
 
 	// bones
@@ -1110,6 +1110,7 @@ void R_StudioBuildNormalTable( void )
 	g_studio.chrome_origin[1] = sin( r_glowshellfreq->value * g_studio.time ) * 4000.0f;
 	g_studio.chrome_origin[2] = cos( r_glowshellfreq->value * g_studio.time * 0.33f ) * 4000.0f;
 
+	// FIXME VK: pass this to model color
 	if( e->curstate.rendercolor.r || e->curstate.rendercolor.g || e->curstate.rendercolor.b )
 		TriColor4ub( e->curstate.rendercolor.r, e->curstate.rendercolor.g, e->curstate.rendercolor.b, 255 );
 	else TriColor4ub( 255, 255, 255, 255 );
@@ -1679,7 +1680,7 @@ void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, vec3_t 
 	{
 		float	r, r2;
 
-		/* VK FIXME NOT IMPL if( tr.fFlipViewModel )
+		/* FIXME VK NOT IMPL if( tr.fFlipViewModel )
 			r = DotProduct( normal, light[i] );
 		else */ r = -DotProduct( normal, light[i] );
 
@@ -1710,53 +1711,17 @@ void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, vec3_t 
 	out[2] = finalLight[2] * 255;
 }
 
-static void R_StudioSetColorBegin(const short *ptricmds, const vec3_t *pstudionorms, rgba_t out_color )
+static void R_StudioSetColorArray(const short *ptricmds, const vec3_t *pstudionorms, byte *color )
 {
 	float	*lv = (float *)g_studio.lightvalues[ptricmds[1]];
 
-	if( g_studio.numlocallights )
-	{
-		// FIXME VK color[3] = tr.blend * 255;
-		out_color[3] = 255;
-		R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, out_color );
-	}
-	else
-	{
-		if( RI.currententity->curstate.rendermode == kRenderTransColor )
-		{
-			// FIXME VK color[3] = tr.blend * 255;
-			out_color[3] = 255;
-			VectorCopy( (byte*)&RI.currententity->curstate.rendercolor, out_color );
-		}
-		else
-		{
-			out_color[0] = lv[0] * 255.0f;
-			out_color[1] = lv[1] * 255.0f;
-			out_color[2] = lv[2] * 255.0f;
-			out_color[3] = 255; // FIXME VK tr.blend / 255.0f;
-		}
-	}
+	color[3] = g_studio.blend * 255;
+	R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
 }
 
-static void R_StudioSetColorArray(short *ptricmds, vec3_t *pstudionorms, byte *color )
+static void R_StudioSetColorBegin(const short *ptricmds, const vec3_t *pstudionorms, rgba_t out_color )
 {
-	float	*lv = (float *)g_studio.lightvalues[ptricmds[1]];
-
-	color[3] = 255; // FIXME VK tr.blend * 255;
-
-	if( g_studio.numlocallights )
-		R_LightLambert( g_studio.lightpos[ptricmds[0]], pstudionorms[ptricmds[1]], lv, color );
-	else
-	{
-		if( RI.currententity->curstate.rendermode == kRenderTransColor )
-			VectorCopy(  (byte*)&RI.currententity->curstate.rendercolor, color );
-		else
-		{
-			color[0] = lv[0] * 255;
-			color[1] = lv[1] * 255;
-			color[2] = lv[2] * 255;
-		}
-	}
+	R_StudioSetColorArray( ptricmds, pstudionorms, out_color );
 }
 
 void R_LightStrength( int bone, vec3_t localpos, vec4_t light[MAX_LOCALLIGHTS] )
@@ -1827,12 +1792,15 @@ mstudiotexture_t *R_StudioGetTexture( cl_entity_t *e )
 	return ptexture;
 }
 
+// TODO where does this need to be declared and defined? currently it's in vk_scene.c
+extern int CL_FxBlend( cl_entity_t *e );
+
 void R_StudioSetRenderamt( int iRenderamt )
 {
 	if( !RI.currententity ) return;
 
 	RI.currententity->curstate.renderamt = iRenderamt;
-	// VK FIXME tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
+	g_studio.blend = CL_FxBlend( RI.currententity ) / 255.0f;
 }
 
 /*
@@ -2114,8 +2082,23 @@ static void R_StudioDrawPoints( void )
 
 	if( !m_pStudioHeader ) return;
 
-	// FIXME: pass blend to studio model
-	const vec4_t color = {1, 1, 1, 1};
+	vec4_t color = {1, 1, 1, 1};
+	switch (g_studio.rendermode2) {
+		case kRenderNormal:
+			break;
+		case kRenderTransColor:
+			// TODO pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+			break;
+		case kRenderTransAdd:
+			// TODO pglBlendFunc( GL_ONE, GL_ONE );
+			// TODO pglDepthMask( GL_FALSE );
+			Vector4Set(color, g_studio.blend, g_studio.blend, g_studio.blend, 1.f);
+			break;
+		default:
+			// TODO pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+			Vector4Set(color, 1.f, 1.f, 1.f, g_studio.blend);
+			break;
+	}
 	VK_RenderModelDynamicBegin( RI.currententity->curstate.rendermode, color, "%s", m_pSubModel->name );
 
 	g_studio.numverts = g_studio.numelems = 0;
@@ -2203,7 +2186,7 @@ static void R_StudioDrawPoints( void )
 				const struct { float blend; } tr = {1.f};
 				if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
 					R_StudioSetupChrome( g_studio.chrome[k], *pnormbone, (float *)pstudionorms );
-				VectorSet( g_studio.lightvalues[k], tr.blend, tr.blend, tr.blend );
+				VectorSet( g_studio.lightvalues[k], g_studio.blend, g_studio.blend, g_studio.blend );
 			}
 		}
 		else
@@ -2232,9 +2215,7 @@ static void R_StudioDrawPoints( void )
 
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
 	{
-		// FIXME VK
-		const struct { float blend; } tr = {1.f};
-		float	oldblend = tr.blend;
+		float	oldblend = g_studio.blend;
 		uint startArrayVerts = g_studio.numverts;
 		uint startArrayElems = g_studio.numelems;
 		short	*ptricmds;
@@ -2256,7 +2237,7 @@ static void R_StudioDrawPoints( void )
 			pglAlphaFunc( GL_GREATER, 0.5f );
 			pglDepthMask( GL_TRUE );
 			if( R_ModelOpaque( RI.currententity->curstate.rendermode ))
-				tr.blend = 1.0f;
+				g_studio.blend = 1.0f;
 		}
 		else if( FBitSet( g_nFaceFlags, STUDIO_NF_ADDITIVE ))
 		{
@@ -2293,7 +2274,7 @@ static void R_StudioDrawPoints( void )
 		}
 
 		r_stats.c_studio_polys += pmesh->numtris;
-		tr.blend = oldblend;
+		g_studio.blend = oldblend;
 		*/
 	}
 
@@ -2633,34 +2614,7 @@ static void R_StudioDrawPointsShadow( void )
 
 void GL_StudioSetRenderMode( int rendermode )
 {
-	PRINT_NOT_IMPLEMENTED_ARGS("(%d)", rendermode);
-
-	/* FIXME VK
-	switch( rendermode )
-	{
-	case kRenderNormal:
-		break;
-	case kRenderTransColor:
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglEnable( GL_BLEND );
-		break;
-	case kRenderTransAdd:
-		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglColor4f( tr.blend, tr.blend, tr.blend, 1.0f );
-		pglBlendFunc( GL_ONE, GL_ONE );
-		pglDepthMask( GL_FALSE );
-		pglEnable( GL_BLEND );
-		break;
-	default:
-		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglColor4f( 1.0f, 1.0f, 1.0f, tr.blend );
-		pglDepthMask( GL_TRUE );
-		pglEnable( GL_BLEND );
-		break;
-	}
-	*/
+	g_studio.rendermode2 = rendermode;
 }
 
 /*
@@ -2680,7 +2634,7 @@ static void GL_StudioDrawShadow( void )
 
 	if( r_shadows.value && g_studio.rendermode != kRenderTransAdd && !FBitSet( RI.currentmodel->flags, STUDIO_AMBIENT_LIGHT ))
 	{
-		float	color = 1.0f; // FIXME VK - (tr.blend * 0.5f);
+		float	color = 1.0f - (g_studio.blend * 0.5f);
 
 	/* FIXME VK
 		pglDisable( GL_TEXTURE_2D );
@@ -3116,7 +3070,7 @@ void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 	VK_RenderDebugLabelEnd();
 }
 
-void R_DrawStudioModel( cl_entity_t *e )
+static void R_DrawStudioModel( cl_entity_t *e )
 {
 	/* FIXME VK
 	if( FBitSet( RI.params, RP_ENVVIEW ))
@@ -3211,8 +3165,8 @@ void R_DrawViewModel( void )
 	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
-	tr.blend = CL_FxBlend( view ) / 255.0f;
-	if( !R_ModelOpaque( view->curstate.rendermode ) && tr.blend <= 0.0f )
+	g_studio.blend = CL_FxBlend( view ) / 255.0f;
+	if( !R_ModelOpaque( view->curstate.rendermode ) && g_studio.blend <= 0.0f )
 		return; // invisible ?
 	*/
 
@@ -3531,11 +3485,13 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	PRINT_NOT_IMPLEMENTED_ARGS("(%s)", mod->name);
 }
 
-void VK_StudioDrawModel( cl_entity_t *ent, int render_mode )
+void VK_StudioDrawModel( cl_entity_t *ent, int render_mode, float blend )
 {
 	RI.currententity = ent;
 	RI.currentmodel = ent->model;
 	RI.drawWorld = true;
+
+	g_studio.blend = blend;
 
 	R_DrawStudioModel( ent );
 

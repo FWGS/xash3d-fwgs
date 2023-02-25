@@ -544,7 +544,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 
 		case mod_studio:
 			VK_RenderStateSetMatrixModel( matrix4x4_identity );
-			VK_StudioDrawModel( ent, render_mode );
+			VK_StudioDrawModel( ent, render_mode, blend );
 			break;
 
 		case mod_sprite:
@@ -591,8 +591,6 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
 		{
-			//VK_LightsBakePVL( 0 /* FIXME frame number */);
-
 			const float blend = 1.f;
 			VK_BrushModelDraw( world, kRenderNormal, blend, NULL );
 		}
