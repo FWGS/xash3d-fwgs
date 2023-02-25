@@ -591,7 +591,20 @@ qboolean Sys_NewInstance( const char *gamedir )
 	envSetNextLoad( exe, newargs );
 	exit( 0 );
 #elif XASH_PSVITA
-	fprintf( stderr, "Sys_NewInstance( %s ): not implemented yet\n", gamedir );
+	const char *exe = "app0:/eboot.bin";
+	char newgamedir[256];
+	char *newargv[4];
+	int newargc = 0;
+	// make a copy of the gamedir name just in case
+	Q_strncpy( newgamedir, gamedir, sizeof( newgamedir ) );
+	// TODO: carry over the old args
+	newargv[newargc++] = host.argv[0]; // this is not usually the executable path
+	newargv[newargc++] = (char *)"-game";
+	newargv[newargc++] = newgamedir;
+	newargv[newargc] = NULL;
+	// just restart the entire thing
+	Host_Shutdown( );
+	sceAppMgrLoadExec( exe, newargv, NULL );
 	exit( 0 );
 #else
 	int i = 0;
