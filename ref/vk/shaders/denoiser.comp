@@ -38,11 +38,9 @@ layout(set = 0, binding = 17, rgba16f) uniform image2D prev_temporal_specular;
 
 const int INDIRECT_SCALE = 2;
 
-//layout(set = 0, binding = 2, rgba16f) uniform readonly image2D light_poly_diffuse;
-/* layout(set = 0, binding = 3, rgba16f) uniform readonly image2D specular; */
-/* layout(set = 0, binding = 4, rgba16f) uniform readonly image2D additive; */
-/* layout(set = 0, binding = 5, rgba16f) uniform readonly image2D normals; */
-/* layout(set = 0, binding = 6, rgba32f) uniform readonly image2D position_t; */
+//#define DEBUG_TEXTURE normals_gs
+//#define DEBUG_TEXTURE emissive
+//#define DEBUG_TEXTURE light_point_diffuse
 
 // Blatantly copypasted from https://www.shadertoy.com/view/XsGfWV
 vec3 aces_tonemap(vec3 color){
@@ -192,26 +190,19 @@ void main() {
 	/* 	imageStore(out_dest, pix, vec4(sqrt(float(pix.x) / res.x))); return; */
 	/* } */
 
-	//const float material_index = imageLoad(light_poly, pix).a;
+#if defined(DEBUG_TEXTURE)
+	imageStore(out_dest, pix, vec4(LINEARtoSRGB(imageLoad(DEBUG_TEXTURE, pix).rgb), 0.)); return;
+#endif
 
-	//imageStore(out_dest, pix, vec4(aces_tonemap(base_color_a.rgb), 0.)); return;
-	//imageStore(out_dest, pix, vec4((base_color_a.rgb), 0.)); return;
-	//imageStore(out_dest, pix, vec4(fract(imageLoad(position_t, pix).rgb / 10.), 0.)); return;
-	//imageStore(out_dest, pix, vec4((imageLoad(light_poly, pix).rgb), 0.)); return;
-	//imageStore(out_dest, pix, vec4((imageLoad(light_poly, pix).rgb * base_color_a.rgb), 0.)); return;
-	//imageStore(out_dest, pix, vec4(imageLoad(normals, pix)*.5 + .5f)); return;
-	//imageStore(out_dest, pix, vec4(imageLoad(specular, pix)*.5 + .5f)); return;
-	//imageStore(out_dest, pix, vec4(imageLoad(indirect_diffuse, pix)*.5 + .5f)); return;
-	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(light_poly, pix).rgb), 0.)); return;
-	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(specular, pix).rgb), 0.)); return;
-	//imageStore(out_dest, pix, vec4(aces_tonemap(imageLoad(indirect_diffuse, pix).rgb), 0.)); return;
+	//imageStore(out_dest, pix, vec4(fract(imageLoad(position_t, pix).rgb/10.), 0.)); return;
+	//imageStore(out_dest, pix, vec4(fract(imageLoad(geometry_prev_position, pix).rgb/50.), 0.)); return;
 
-	/*
+#if 0
 	vec3 geometry_normal, shading_normal;
 	readNormals(pix, geometry_normal, shading_normal);
-	*/
-
 	//imageStore(out_dest, pix, vec4(.5 + geometry_normal * .5, 0.)); return;
+	imageStore(out_dest, pix, vec4(.5 + shading_normal * .5, 0.)); return;
+#endif
 
 	/* const uint mi = uint(material_index); */
 	/* imageStore(out_dest, pix, vec4(rand3_f01(uvec3(mi,mi+1,mi+2)), 0.)); */

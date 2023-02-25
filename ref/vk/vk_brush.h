@@ -14,7 +14,7 @@ void VK_BrushShutdown( void );
 qboolean VK_BrushModelLoad(struct model_s *mod, qboolean map);
 void VK_BrushModelDestroy(struct model_s *mod);
 
-void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4 model );
+void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, float blend, const matrix4x4 model );
 void VK_BrushStatsClear( void );
 
 const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s, const struct texture_s *base_override );

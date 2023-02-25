@@ -234,7 +234,21 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	// FIXME VK GL_SetupFogColorForSurfaces();
 }
 
-void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
+static vk_render_type_e brushRenderModeToRenderType( int render_mode ) {
+	switch (render_mode) {
+		case kRenderNormal:       return kVkRenderTypeSolid;
+		case kRenderTransColor:   return kVkRenderType_A_1mA_RW;
+		case kRenderTransTexture: return kVkRenderType_A_1mA_R;
+		case kRenderGlow:         return kVkRenderType_A_1mA_R;
+		case kRenderTransAlpha:   return kVkRenderType_AT;
+		case kRenderTransAdd:     return kVkRenderType_A_1_R;
+		default: ASSERT(!"Unxpected render_mode");
+	}
+
+	return kVkRenderTypeSolid;
+}
+
+static void brushDrawWaterSurfaces( const cl_entity_t *ent, const vec4_t color )
 {
 	const model_t *model = ent->model;
 	vec3_t		mins, maxs;
@@ -258,7 +272,7 @@ void XVK_DrawWaterSurfaces( const cl_entity_t *ent )
 	// if( R_CullBox( mins, maxs ))
 	// 	return;
 
-	VK_RenderModelDynamicBegin( ent->curstate.rendermode, "%s water", model->name );
+	VK_RenderModelDynamicBegin( brushRenderModeToRenderType(ent->curstate.rendermode), color, "%s water", model->name );
 
 	// Iterate through all surfaces, find *TURB*
 	for( int i = 0; i < model->nummodelsurfaces; i++ )
@@ -337,8 +351,7 @@ const texture_t *R_TextureAnimation( const cl_entity_t *ent, const msurface_t *s
 	return base;
 }
 
-void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4 model )
-{
+void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, float blend, const matrix4x4 model ) {
 	// Expect all buffers to be bound
 	const model_t *mod = ent->model;
 	vk_brush_model_t *bmodel = mod->cache.data;
@@ -348,8 +361,23 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4
 		return;
 	}
 
+	if (render_mode == kRenderTransColor) {
+		Vector4Set(bmodel->render_model.color,
+			ent->curstate.rendercolor.r / 255.f,
+			ent->curstate.rendercolor.g / 255.f,
+			ent->curstate.rendercolor.b / 255.f,
+			blend);
+	} else {
+		// Other render modes are not affected by entity current state color
+		Vector4Set(bmodel->render_model.color, 1, 1, 1, blend);
+	}
+
+	// Only Normal and TransAlpha have lightmaps
+	// TODO: on big maps more than a single lightmap texture is possible
+	bmodel->render_model.lightmap = (render_mode == kRenderNormal || render_mode == kRenderTransAlpha) ? 1 : 0;
+
 	if (bmodel->num_water_surfaces) {
-		XVK_DrawWaterSurfaces(ent);
+		brushDrawWaterSurfaces(ent, bmodel->render_model.color);
 	}
 
 	if (bmodel->render_model.num_geometries == 0)
@@ -360,8 +388,11 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4
 		const int surface_index = geom->surf - mod->surfaces;
 		const xvk_patch_surface_t *patch_surface = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces+surface_index : NULL;
 
+		if (render_mode == kRenderTransColor) {
+			// TransColor mode means no texture color is used
+			geom->texture = tglob.whiteTexture;
+		} else if (patch_surface && patch_surface->tex_id >= 0) {
 		// Patch by constant texture index first, if it exists
-		if (patch_surface && patch_surface->tex_id >= 0) {
 			geom->texture = patch_surface->tex_id;
 		} else {
 			// Optionally patch by texture_s pointer and run animations
@@ -372,7 +403,7 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, const matrix4x4
 		}
 	}
 
-	bmodel->render_model.render_mode = render_mode;
+	bmodel->render_model.render_type = brushRenderModeToRenderType(render_mode);
 	VK_RenderModelDraw(ent, &bmodel->render_model);
 }
 
@@ -672,10 +703,11 @@ qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 		vk_brush_model_t *bmodel = Mem_Calloc(vk_core.pool, model_size);
 		mod->cache.data = bmodel;
 		Q_strncpy(bmodel->render_model.debug_name, mod->name, sizeof(bmodel->render_model.debug_name));
-		bmodel->render_model.render_mode = kRenderNormal;
+		bmodel->render_model.render_type = kVkRenderTypeSolid;
 		bmodel->render_model.static_map = map;
 
 		bmodel->num_water_surfaces = sizes.water_surfaces;
+		Vector4Set(bmodel->render_model.color, 1, 1, 1, 1);
 
 		if (sizes.num_surfaces != 0) {
 			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));

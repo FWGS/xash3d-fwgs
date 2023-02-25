@@ -30,7 +30,7 @@ typedef struct {
 
 static struct {
 	VkPipelineLayout pipeline_layout;
-	VkPipeline pipelines[kRenderTransAdd + 1];
+	VkPipeline pipelines[kVkRenderType_COUNT];
 
 	vk_buffer_t uniform_buffer;
 	uint32_t ubo_align;
@@ -121,70 +121,80 @@ static qboolean createPipelines( void )
 			.cullMode = VK_CULL_MODE_FRONT_BIT,
 		};
 
-		for (int i = 0; i < ARRAYSIZE(g_render.pipelines); ++i)
+		for (int i = 0; i < kVkRenderType_COUNT; ++i)
 		{
 			const char *name = "UNDEFINED";
 			switch (i)
 			{
-				case kRenderNormal:
+				case kVkRenderTypeSolid:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.blendEnable = VK_FALSE;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
-					name = "brush kRenderNormal";
+					name = "kVkRenderTypeSolid";
 					break;
 
-				case kRenderTransColor:
+				case kVkRenderType_A_1mA_RW:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "brush kRenderTransColor";
+					name = "kVkRenderType_A_1mA_RW";
 					break;
 
-				case kRenderTransAdd:
+				case kVkRenderType_A_1mA_R:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-
-					// sprites do SRC_ALPHA
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;// TODO ? FACTOR_ONE;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					name = "brush kRenderTransAdd";
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+					name = "kVkRenderType_A_1mA_R";
 					break;
 
-				case kRenderTransAlpha:
+				case kVkRenderType_A_1:
+					spec_data.alpha_test_threshold = 0.f;
+					ci.depthWriteEnable = VK_FALSE;
+					ci.depthTestEnable = VK_FALSE; // Fake bloom, should be over geometry too
+					ci.blendEnable = VK_TRUE;
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					name = "kVkRenderType_A_1";
+					break;
+
+				case kVkRenderType_A_1_R:
+					spec_data.alpha_test_threshold = 0.f;
+					ci.depthWriteEnable = VK_FALSE;
+					ci.depthTestEnable = VK_TRUE;
+					ci.blendEnable = VK_TRUE;
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					name = "kVkRenderType_A_1_R";
+					break;
+
+				case kVkRenderType_AT:
 					spec_data.alpha_test_threshold = .25f;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_FALSE;
-					name = "brush kRenderTransAlpha(test)";
+					name = "kVkRenderType_AT";
 					break;
 
-				case kRenderGlow:
+				case kVkRenderType_1_1_R:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					break;
-
-				case kRenderTransTexture:
-					spec_data.alpha_test_threshold = 0.f;
-					ci.depthWriteEnable = VK_FALSE;
-					ci.depthTestEnable = VK_TRUE;
-					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "brush kRenderTransTexture/Glow";
+					name = "kVkRenderType_1_1_R";
 					break;
 
 				default:
@@ -228,7 +238,7 @@ typedef struct {
 
 typedef struct render_draw_s {
 	int lightmap, texture;
-	int render_mode;
+	int pipeline_index;
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
 	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
@@ -328,11 +338,10 @@ void VK_RenderShutdown( void )
 
 enum {
 	UNIFORM_UNSET = 0,
-	UNIFORM_SET_COLOR = 1,
 	UNIFORM_SET_MATRIX_MODEL = 2,
 	UNIFORM_SET_MATRIX_VIEW = 4,
 	UNIFORM_SET_MATRIX_PROJECTION = 8,
-	UNIFORM_SET_ALL = UNIFORM_SET_COLOR | UNIFORM_SET_MATRIX_MODEL | UNIFORM_SET_MATRIX_VIEW | UNIFORM_SET_MATRIX_PROJECTION,
+	UNIFORM_SET_ALL = UNIFORM_SET_MATRIX_MODEL | UNIFORM_SET_MATRIX_VIEW | UNIFORM_SET_MATRIX_PROJECTION,
 	UNIFORM_UPLOADED = 16,
 };
 
@@ -350,15 +359,6 @@ void VK_RenderBegin( qboolean ray_tracing ) {
 
 	if (ray_tracing)
 		VK_RayFrameBegin();
-}
-
-void VK_RenderStateSetColor( float r, float g, float b, float a )
-{
-	g_render_state.uniform_data_set_mask |= UNIFORM_SET_COLOR;
-	g_render_state.dirty_uniform_data.color[0] = r;
-	g_render_state.dirty_uniform_data.color[1] = g;
-	g_render_state.dirty_uniform_data.color[2] = b;
-	g_render_state.dirty_uniform_data.color[3] = a;
 }
 
 // Vulkan has Y pointing down, and z should end up in (0, 1)
@@ -453,8 +453,8 @@ static void drawCmdPushDraw( const render_draw_t *draw )
 {
 	draw_command_t *draw_command;
 
-	ASSERT(draw->render_mode >= 0);
-	ASSERT(draw->render_mode < ARRAYSIZE(g_render.pipelines));
+	ASSERT(draw->pipeline_index >= 0);
+	ASSERT(draw->pipeline_index < ARRAYSIZE(g_render.pipelines));
 	ASSERT(draw->lightmap >= 0);
 	ASSERT(draw->texture >= 0);
 
@@ -591,8 +591,8 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
 		}
 
-		if (pipeline != draw->draw.draw.render_mode) {
-			pipeline = draw->draw.draw.render_mode;
+		if (pipeline != draw->draw.draw.pipeline_index) {
+			pipeline = draw->draw.draw.pipeline_index;
 			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
 		}
 
@@ -682,6 +682,11 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 	int index_offset = -1;
 	int vertex_offset = 0;
 
+	// TODO get rid of this dirty ubo thing
+	Vector4Copy(model->color, g_render_state.dirty_uniform_data.color);
+	ASSERT(model->lightmap <= MAX_LIGHTMAPS);
+	const int lightmap = model->lightmap > 0 ? tglob.lightmapTextures[model->lightmap - 1] : tglob.whiteTexture;
+
 	if (g_render_state.current_frame_is_ray_traced) {
 		if (ent != NULL && model != NULL) {
 			R_PrevFrame_ModelTransform( ent->index, model->prev_transform );
@@ -691,7 +696,7 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 			Matrix4x4_Copy( model->prev_transform, g_render_state.model );
 		}
 
-		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model, g_render_state.dirty_uniform_data.color, ent ? ent->curstate.rendercolor : (color24){255,255,255});
+		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
 
 		return;
 	}
@@ -713,9 +718,9 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 		if (split) {
 			if (element_count) {
 				render_draw_t draw = {
-					.lightmap = tglob.lightmapTextures[0], // FIXME there can be more than one lightmap textures
+					.lightmap = lightmap,
 					.texture = current_texture,
-					.render_mode = model->render_mode,
+					.pipeline_index = model->render_type,
 					.element_count = element_count,
 					.vertex_offset = vertex_offset,
 					.index_offset = index_offset,
@@ -737,9 +742,9 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 
 	if (element_count) {
 		const render_draw_t draw = {
-			.lightmap = tglob.lightmapTextures[0],
+			.lightmap = lightmap,
 			.texture = current_texture,
-			.render_mode = model->render_mode,
+			.pipeline_index = model->render_type,
 			.element_count = element_count,
 			.vertex_offset = vertex_offset,
 			.index_offset = index_offset,
@@ -758,7 +763,7 @@ static struct {
 	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
 } g_dynamic_model = {0};
 
-void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ... ) {
+void VK_RenderModelDynamicBegin( vk_render_type_e render_type, const vec4_t color, const char *debug_name_fmt, ... ) {
 	va_list argptr;
 	va_start( argptr, debug_name_fmt );
 	vsnprintf(g_dynamic_model.model.debug_name, sizeof(g_dynamic_model.model.debug_name), debug_name_fmt, argptr );
@@ -767,7 +772,9 @@ void VK_RenderModelDynamicBegin( int render_mode, const char *debug_name_fmt, ..
 	ASSERT(!g_dynamic_model.model.geometries);
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
-	g_dynamic_model.model.render_mode = render_mode;
+	g_dynamic_model.model.render_type = render_type;
+	g_dynamic_model.model.lightmap = 0;
+	Vector4Copy(color, g_dynamic_model.model.color);
 }
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom ) {
 	ASSERT(g_dynamic_model.model.geometries);

@@ -390,8 +390,8 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			.emissive = { color[0], color[1], color[2] },
 		};
 
-
-		VK_RenderModelDynamicBegin( render_mode, "beam" /* TODO its name */ );
+		vk_render_type_e render_type = render_mode == kRenderNormal ? kVkRenderTypeSolid : kVkRenderType_A_1_R;
+		VK_RenderModelDynamicBegin( render_type, color, "beam" /* TODO its name */ );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}
@@ -1108,8 +1108,6 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	VK_RenderStateSetMatrixModel( matrix4x4_identity );
 
 	// TODO gl renderer has per-vertex color that is updated using brightness and whatever
-	VK_RenderStateSetColor( color[0], color[1], color[2], color[3] );
-
 	VK_RenderDebugLabelBegin( "beam" );
 
 	switch( pbeam->type )

@@ -523,61 +523,33 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 {
 	const model_t *mod = ent->model;
 	matrix4x4 model;
-	float alpha;
 
 	if (!mod)
 		return;
 
 	// handle studiomodels with custom rendermodes on texture
-	alpha = render_mode == kRenderNormal ? 1.f : CL_FxBlend( ent ) / 255.0f;
+	const float blend = render_mode == kRenderNormal ? 1.f : CL_FxBlend( ent ) / 255.0f;
 
 	// TODO ref_gl does this earlier (when adding entity), can we too?
-	if( alpha <= 0.0f )
+	if( blend <= 0.0f )
 		return;
-
-	switch (render_mode) {
-		case kRenderNormal:
-			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
-			break;
-
-		case kRenderTransColor:
-			// FIXME also zero out texture? use white texture
-			VK_RenderStateSetColor(
-					ent->curstate.rendercolor.r / 255.f,
-					ent->curstate.rendercolor.g / 255.f,
-					ent->curstate.rendercolor.b / 255.f,
-					ent->curstate.renderamt / 255.f);
-			break;
-
-		case kRenderTransAdd:
-			VK_RenderStateSetColor( alpha, alpha, alpha, 1.f);
-			break;
-
-		case kRenderTransAlpha:
-			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
-			// TODO Q1compat Vector4Set(e_ubo->color, 1.f, 1.f, 1.f, alpha);
-			break;
-
-		default:
-			VK_RenderStateSetColor( 1.f, 1.f, 1.f, alpha);
-	}
 
 	switch (mod->type)
 	{
 		case mod_brush:
 			R_RotateForEntity( model, ent );
 			VK_RenderStateSetMatrixModel( model );
-			VK_BrushModelDraw( ent, render_mode, model );
+			VK_BrushModelDraw( ent, render_mode, blend, model );
 			break;
 
 		case mod_studio:
 			VK_RenderStateSetMatrixModel( matrix4x4_identity );
-			VK_StudioDrawModel( ent, render_mode );
+			VK_StudioDrawModel( ent, render_mode, blend );
 			break;
 
 		case mod_sprite:
 			VK_RenderStateSetMatrixModel( matrix4x4_identity );
-			VK_SpriteDrawModel( ent );
+			R_VkSpriteDrawModel( ent, blend );
 			break;
 
 		case mod_alias:
@@ -608,7 +580,6 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 	// Draw view model
 	{
 		APROF_SCOPE_BEGIN(draw_viewmodel);
-		VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f );
 		R_RunViewmodelEvents();
 		R_DrawViewModel();
 		APROF_SCOPE_END(draw_viewmodel);
@@ -620,10 +591,8 @@ void VK_SceneRender( const ref_viewpass_t *rvp ) {
 		cl_entity_t *world = gEngine.GetEntityByIndex( 0 );
 		if( world && world->model )
 		{
-			//VK_LightsBakePVL( 0 /* FIXME frame number */);
-
-			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
-			VK_BrushModelDraw( world, kRenderNormal, NULL );
+			const float blend = 1.f;
+			VK_BrushModelDraw( world, kRenderNormal, blend, NULL );
 		}
 		APROF_SCOPE_END(draw_worldbrush);
 	}
