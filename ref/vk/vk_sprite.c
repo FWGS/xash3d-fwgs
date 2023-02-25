@@ -779,7 +779,7 @@ static qboolean R_SpriteAllowLerping( const cl_entity_t *e, msprite_t *psprite )
 
 void R_VkSpriteDrawModel( cl_entity_t *e, float blend )
 {
-	mspriteframe_t	*frame, *oldframe;
+	mspriteframe_t	*frame = NULL, *oldframe = NULL;
 	msprite_t		*psprite;
 	model_t		*model;
 	int		i, type;
@@ -953,12 +953,14 @@ void R_VkSpriteDrawModel( cl_entity_t *e, float blend )
 		if( ilerp != 0.0f )
 		{
 			const vec4_t color4 = {color[0], color[1], color[2], blend * ilerp};
+			ASSERT(oldframe);
 			R_DrawSpriteQuad( model->name, oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode, color4 );
 		}
 
 		if( lerp != 0.0f )
 		{
 			const vec4_t color4 = {color[0], color[1], color[2], blend * lerp};
+			ASSERT(frame);
 			R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color4 );
 		}
 	}
