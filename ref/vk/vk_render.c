@@ -131,7 +131,7 @@ static qboolean createPipelines( void )
 					ci.blendEnable = VK_FALSE;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
-					name = "brush kRenderNormal";
+					name = "kRenderNormal";
 					break;
 
 				case kRenderTransColor:
@@ -139,31 +139,21 @@ static qboolean createPipelines( void )
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "brush kRenderTransColor";
+					name = "kRenderTransColor";
 					break;
 
-				case kRenderTransAdd:
+				case kRenderTransTexture:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
-
-					// sprites do SRC_ALPHA
-					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;// TODO ? FACTOR_ONE;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					name = "brush kRenderTransAdd";
-					break;
-
-				case kRenderTransAlpha:
-					spec_data.alpha_test_threshold = .25f;
-					ci.depthWriteEnable = VK_TRUE;
-					ci.depthTestEnable = VK_TRUE;
-					ci.blendEnable = VK_FALSE;
-					name = "brush kRenderTransAlpha(test)";
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+					name = "kRenderTransTexture";
 					break;
 
 				case kRenderGlow:
@@ -174,17 +164,27 @@ static qboolean createPipelines( void )
 					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					name = "kRenderGlow";
 					break;
 
-				case kRenderTransTexture:
+				case kRenderTransAlpha:
+					// FIXME sprites are different: they don't do alpha test, but do blending
+					spec_data.alpha_test_threshold = .25f;
+					ci.depthWriteEnable = VK_TRUE;
+					ci.depthTestEnable = VK_TRUE;
+					ci.blendEnable = VK_FALSE;
+					name = "kRenderTransAlpha(test)";
+					break;
+
+				case kRenderTransAdd:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
 					ci.blendEnable = VK_TRUE;
-					ci.colorBlendOp = VK_BLEND_OP_ADD; // TODO check
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "brush kRenderTransTexture/Glow";
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					name = "kRenderTransAdd";
 					break;
 
 				default:

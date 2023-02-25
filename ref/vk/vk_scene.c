@@ -523,18 +523,18 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 {
 	const model_t *mod = ent->model;
 	matrix4x4 model;
-	float alpha;
 
 	if (!mod)
 		return;
 
 	// handle studiomodels with custom rendermodes on texture
-	alpha = render_mode == kRenderNormal ? 1.f : CL_FxBlend( ent ) / 255.0f;
+	const float blend = render_mode == kRenderNormal ? 1.f : CL_FxBlend( ent ) / 255.0f;
 
 	// TODO ref_gl does this earlier (when adding entity), can we too?
-	if( alpha <= 0.0f )
+	if( blend <= 0.0f )
 		return;
 
+	// FIXME these are not common! all ent types have different things for here
 	switch (render_mode) {
 		case kRenderNormal:
 			VK_RenderStateSetColor( 1.f, 1.f, 1.f, 1.f);
@@ -550,7 +550,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 			break;
 
 		case kRenderTransAdd:
-			VK_RenderStateSetColor( alpha, alpha, alpha, 1.f);
+			VK_RenderStateSetColor( blend, blend, blend, 1.f);
 			break;
 
 		case kRenderTransAlpha:
@@ -559,7 +559,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 			break;
 
 		default:
-			VK_RenderStateSetColor( 1.f, 1.f, 1.f, alpha);
+			VK_RenderStateSetColor( 1.f, 1.f, 1.f, blend);
 	}
 
 	switch (mod->type)
@@ -577,7 +577,7 @@ static void drawEntity( cl_entity_t *ent, int render_mode )
 
 		case mod_sprite:
 			VK_RenderStateSetMatrixModel( matrix4x4_identity );
-			VK_SpriteDrawModel( ent );
+			R_VkSpriteDrawModel( ent, blend );
 			break;
 
 		case mod_alias:

@@ -499,7 +499,7 @@ static const ref_device_t *pfnGetRenderDevice( unsigned int idx )
 	return &vk_core.devices[idx];
 }
 
-ref_interface_t gReffuncs =
+static const ref_interface_t gReffuncs =
 {
 	.R_Init = R_VkInit,
 	.R_Shutdown = R_VkShutdown,

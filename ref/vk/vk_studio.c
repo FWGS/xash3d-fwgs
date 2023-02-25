@@ -2713,7 +2713,7 @@ void R_StudioRenderFinal( void )
 	{
 		R_StudioSetupModel( i, (void**)&m_pBodyPart, (void**)&m_pSubModel );
 
-		GL_StudioSetRenderMode( rendermode );
+		// TODO does literally nothing GL_StudioSetRenderMode( rendermode );
 		R_StudioDrawPoints();
 		GL_StudioDrawShadow();
 	}

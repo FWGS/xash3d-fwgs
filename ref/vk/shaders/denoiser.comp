@@ -194,6 +194,9 @@ void main() {
 	imageStore(out_dest, pix, vec4(LINEARtoSRGB(imageLoad(DEBUG_TEXTURE, pix).rgb), 0.)); return;
 #endif
 
+	//imageStore(out_dest, pix, vec4(fract(imageLoad(position_t, pix).rgb/10.), 0.)); return;
+	//imageStore(out_dest, pix, vec4(fract(imageLoad(geometry_prev_position, pix).rgb/50.), 0.)); return;
+
 #if 0
 	vec3 geometry_normal, shading_normal;
 	readNormals(pix, geometry_normal, shading_normal);

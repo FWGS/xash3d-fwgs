@@ -400,7 +400,7 @@ NOTE: we using prevblending[0] and [1] for holds interval
 between frames where are we lerping
 ================
 */
-float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, mspriteframe_t **curframe )
+static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, mspriteframe_t **curframe )
 {
 	msprite_t		*psprite;
 	mspritegroup_t	*pspritegroup;
@@ -616,11 +616,10 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 }
 
 // Do occlusion test for glow-sprites
-qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
+static qboolean spriteIsOccluded( const cl_entity_t *e, vec3_t origin, float *pscale, float *blend )
 {
 	if( e->curstate.rendermode == kRenderGlow )
 	{
-		float	blend;
 		vec3_t	v;
 
 		TriWorldToScreen( origin, v );
@@ -630,10 +629,9 @@ qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 		if( v[1] < g_camera.viewport[1] || v[1] > g_camera.viewport[1] + g_camera.viewport[3] )
 			return true; // do scissor
 
-		blend = R_SpriteGlowBlend( origin, e->curstate.rendermode, e->curstate.renderfx, pscale );
-		// FIXME VK tr.blend *= blend;
+		*blend = R_SpriteGlowBlend( origin, e->curstate.rendermode, e->curstate.renderfx, pscale );
 
-		if( blend <= 0.01f )
+		if( *blend <= 0.01f )
 			return true; // faded
 	}
 	else
@@ -756,7 +754,7 @@ static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
 	return true;
 }
 
-static qboolean R_SpriteAllowLerping( cl_entity_t *e, msprite_t *psprite )
+static qboolean R_SpriteAllowLerping( const cl_entity_t *e, msprite_t *psprite )
 {
 	/* FIXME VK
 	if( !r_sprite_lerping->value )
@@ -775,7 +773,7 @@ static qboolean R_SpriteAllowLerping( cl_entity_t *e, msprite_t *psprite )
 	return true;
 }
 
-void VK_SpriteDrawModel( cl_entity_t *e )
+void R_VkSpriteDrawModel( cl_entity_t *e, float blend )
 {
 	mspriteframe_t	*frame, *oldframe;
 	msprite_t		*psprite;
@@ -816,7 +814,7 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 	scale = e->curstate.scale;
 	if( !scale ) scale = 1.0f;
 
-	if( R_SpriteOccluded( e, origin, &scale ))
+	if( spriteIsOccluded( e, origin, &scale, &blend))
 		return; // sprite culled
 
 	/* FIXME VK
@@ -831,7 +829,7 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 	switch( e->curstate.rendermode )
 	{
 	case kRenderTransAlpha:
-		pglDepthMask( GL_FALSE );
+		pglDepthMask( GL_FALSE ); // <-- FIXME this is different. GL render doesn't write depth, VK one does, as it expects it to be solid-like
 		// fallthrough
 	case kRenderTransColor:
 	case kRenderTransTexture:
@@ -938,14 +936,7 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 	if( oldframe == frame )
 	{
 		// draw the single non-lerped frame
-
-		/* FIXME VK make sure we end up with the same values
-		ubo->color[0] = color[0];
-		ubo->color[1] = color[1];
-		ubo->color[2] = color[2];
-		ubo->color[3] = tr.blend;
-		*/
-		VK_RenderStateSetColor( color[0], color[1], color[2], CL_FxBlend( e ) / 255.f );
+		VK_RenderStateSetColor( color[0], color[1], color[2], blend );
 		R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color );
 	}
 	else
@@ -957,14 +948,14 @@ void VK_SpriteDrawModel( cl_entity_t *e )
 		if( ilerp != 0.0f )
 		{
 			// FIXME VK make sure we end up with the same values as gl
-			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * ilerp );
+			VK_RenderStateSetColor( color[0], color[1], color[2], blend * ilerp );
 			R_DrawSpriteQuad( model->name, oldframe, origin, v_right, v_up, scale, oldframe->gl_texturenum, e->curstate.rendermode, color );
 		}
 
 		if( lerp != 0.0f )
 		{
 			// FIXME VK make sure we end up with the same values as gl
-			VK_RenderStateSetColor( color[0], color[1], color[2], 1.f * lerp );
+			VK_RenderStateSetColor( color[0], color[1], color[2], blend * lerp );
 			R_DrawSpriteQuad( model->name, frame, origin, v_right, v_up, scale, frame->gl_texturenum, e->curstate.rendermode, color );
 		}
 	}
