@@ -761,6 +761,10 @@ static qboolean R_SpriteAllowLerping( const cl_entity_t *e, msprite_t *psprite )
 		return false;
 	*/
 
+	// FIXME: lerping means drawing 2 coplanar quads blended on top of each other, which is not something ray tracing can do easily
+	if (vk_core.rtx)
+		return false;
+
 	if( psprite->numframes <= 1 )
 		return false;
 
@@ -884,7 +888,8 @@ void R_VkSpriteDrawModel( cl_entity_t *e, float blend )
 
 	if( R_SpriteAllowLerping( e, psprite ))
 		lerp = R_GetSpriteFrameInterpolant( e, &oldframe, &frame );
-	else frame = oldframe = R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
+	else
+		frame = oldframe = R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
 
 	type = psprite->type;
 
