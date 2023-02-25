@@ -249,6 +249,20 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 
 	/* gEngine.Con_Reportf("Loading model %s, geoms: %d\n", args.model->debug_name, args.model->num_geometries); */
 
+	qboolean HACK_additive_emissive = false;
+
+	switch (args.model->render_type) {
+		case kVkRenderType_A_1mA_RW: // blend: scr*a + dst*(1-a), depth: RW
+		case kVkRenderType_A_1mA_R:  // blend: scr*a + dst*(1-a), depth test
+			HACK_additive_emissive = true;
+			break;
+		case kVkRenderType_A_1:   // blend: scr*a + dst, no depth test or write
+		case kVkRenderType_A_1_R: // blend: scr*a + dst, depth test
+		case kVkRenderType_1_1_R: // blend: scr + dst, depth test
+			HACK_additive_emissive = true;
+			break;
+	}
+
 	for (int i = 0; i < args.model->num_geometries; ++i) {
 		vk_render_geometry_t *mg = args.model->geometries + i;
 		const uint32_t prim_count = mg->element_count / 3;
@@ -297,6 +311,11 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 			kusochki[i].tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
 		} else {
 			kusochki[i].tex_base_color &= (~KUSOK_MATERIAL_FLAG_SKYBOX);
+		}
+
+		if (HACK_additive_emissive && mg->material != kXVkMaterialEmissive) {
+			mg->material = kXVkMaterialEmissive;
+			VectorCopy(args.model->color, mg->emissive);
 		}
 
 		applyMaterialToKusok(kusochki + i, mg, args.model->color, false);
@@ -421,7 +440,6 @@ static void computeConveyorSpeed(const color24 rendercolor, int tex_index, vec2_
 }
 
 void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row) {
-	qboolean HACK_reflective = false;
 	vk_ray_draw_model_t* draw_model = g_ray_model_state.frame.models + g_ray_model_state.frame.num_models;
 
 	ASSERT(vk_core.rtx);
@@ -442,6 +460,9 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
 	}
 
+	qboolean HACK_reflective = false;
+	qboolean HACK_additive_emissive = false;
+
 	switch (render_model->render_type) {
 		case kVkRenderTypeSolid:
 			draw_model->material_mode = MaterialMode_Opaque;
@@ -451,12 +472,14 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			// FIXME proper trasnlucency
 			//HACK_reflective = true;
 			//draw_model->material_mode = MaterialMode_Refractive;
+			HACK_additive_emissive = true;
 			draw_model->material_mode = MaterialMode_Additive;
 			break;
 
 		case kVkRenderType_A_1:   // blend: scr*a + dst, no depth test or write
 		case kVkRenderType_A_1_R: // blend: scr*a + dst, depth test
 		case kVkRenderType_1_1_R: // blend: scr + dst, depth test
+			HACK_additive_emissive = true;
 			draw_model->material_mode = MaterialMode_Additive;
 			break;
 
@@ -490,7 +513,14 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		vk_kusok_data_t *const kusochki = kusok_staging.ptr;
 
 		for (int i = 0; i < render_model->num_geometries; ++i) {
-			const vk_render_geometry_t *geom = render_model->geometries + i;
+			vk_render_geometry_t *geom = render_model->geometries + i;
+
+			// FIXME an impedance mismatch: render_type is per-model, while materials and emissive color are per-geom
+			if (HACK_additive_emissive && geom->material != kXVkMaterialEmissive) {
+				geom->material = kXVkMaterialEmissive;
+				VectorCopy(render_model->color, geom->emissive);
+			}
+
 			applyMaterialToKusok(kusochki + i, geom, render_model->color, HACK_reflective);
 			Matrix4x4_Copy((kusochki + i)->prev_transform, render_model->prev_transform);
 		}
