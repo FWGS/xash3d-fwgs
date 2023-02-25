@@ -444,31 +444,30 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		memcpy(draw_model->transform_row, *transform_row, sizeof(draw_model->transform_row));
 	}
 
-	switch (render_model->render_mode) {
-		case kRenderNormal:
+	switch (render_model->render_type) {
+		case kVkRenderTypeSolid:
 			draw_model->material_mode = MaterialMode_Opaque;
 			break;
-
-		// C = (1 - alpha) * DST + alpha * SRC (TODO is this right?)
-		case kRenderTransColor:
-		case kRenderTransTexture:
-			HACK_reflective = true;
-			draw_model->material_mode = MaterialMode_Refractive;
-			break;
-
-		// Additive blending: C = SRC * alpha + DST
-		case kRenderGlow:
-		case kRenderTransAdd:
+		case kVkRenderType_A_1mA_RW: // blend: scr*a + dst*(1-a), depth: RW
+		case kVkRenderType_A_1mA_R:  // blend: scr*a + dst*(1-a), depth test
+			// FIXME proper trasnlucency
+			//HACK_reflective = true;
+			//draw_model->material_mode = MaterialMode_Refractive;
 			draw_model->material_mode = MaterialMode_Additive;
 			break;
 
-		// Alpha test (TODO additive? mixing?)
-		case kRenderTransAlpha:
+		case kVkRenderType_A_1:   // blend: scr*a + dst, no depth test or write
+		case kVkRenderType_A_1_R: // blend: scr*a + dst, depth test
+		case kVkRenderType_1_1_R: // blend: scr + dst, depth test
+			draw_model->material_mode = MaterialMode_Additive;
+			break;
+
+		case kVkRenderType_AT: // no blend, depth RW, alpha test
 			draw_model->material_mode = MaterialMode_Opaque_AlphaTest;
 			break;
 
 		default:
-			gEngine.Host_Error("Unexpected render mode %d\n", render_model->render_mode);
+			gEngine.Host_Error("Unexpected render type %d\n", render_model->render_type);
 	}
 
 // TODO optimize:

@@ -643,6 +643,20 @@ static qboolean spriteIsOccluded( const cl_entity_t *e, vec3_t origin, float *ps
 	return false;
 }
 
+static vk_render_type_e spriteRenderModeToRenderType( int render_mode ) {
+	switch (render_mode) {
+		case kRenderNormal:       return kVkRenderTypeSolid;
+		case kRenderTransColor:   return kVkRenderType_A_1mA_RW;
+		case kRenderTransTexture: return kVkRenderType_A_1mA_RW;
+		case kRenderGlow:         return kVkRenderType_A_1;
+		case kRenderTransAlpha:   return kVkRenderType_A_1mA_R;
+		case kRenderTransAdd:     return kVkRenderType_A_1_R;
+		default: ASSERT(!"Unxpected render_mode");
+	}
+
+	return kVkRenderTypeSolid;
+}
+
 static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale, int texture, int render_mode, const vec4_t color ) {
 	r_geometry_buffer_lock_t buffer;
 	if (!R_GeometryBufferAllocAndLock( &buffer, 4, 6, LifetimeSingleFrame )) {
@@ -719,7 +733,7 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 			.emissive = {color[0], color[1], color[2]},
 		};
 
-		VK_RenderModelDynamicBegin( render_mode, color, "%s", debug_name );
+		VK_RenderModelDynamicBegin( spriteRenderModeToRenderType(render_mode), color, "%s", debug_name );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}

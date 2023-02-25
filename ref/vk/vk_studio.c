@@ -2066,6 +2066,20 @@ _inline void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, floa
 }
 */
 
+static vk_render_type_e studioRenderModeToRenderType( int render_mode ) {
+	switch (render_mode) {
+		case kRenderNormal:       return kVkRenderTypeSolid;
+		case kRenderTransColor:   return kVkRenderType_A_1mA_RW;
+		case kRenderTransTexture: return kVkRenderType_A_1mA_RW;
+		case kRenderGlow:         return kVkRenderType_A_1mA_RW;
+		case kRenderTransAlpha:   return kVkRenderType_A_1mA_RW;
+		case kRenderTransAdd:     return kVkRenderType_1_1_R;
+		default: ASSERT(!"Unxpected render_mode");
+	}
+
+	return kVkRenderTypeSolid;
+}
+
 static void R_StudioDrawPoints( void )
 {
 	int		i, j, k, m_skinnum;
@@ -2082,24 +2096,11 @@ static void R_StudioDrawPoints( void )
 
 	if( !m_pStudioHeader ) return;
 
-	vec4_t color = {1, 1, 1, 1};
-	switch (g_studio.rendermode2) {
-		case kRenderNormal:
-			break;
-		case kRenderTransColor:
-			// TODO pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-			break;
-		case kRenderTransAdd:
-			// TODO pglBlendFunc( GL_ONE, GL_ONE );
-			// TODO pglDepthMask( GL_FALSE );
-			Vector4Set(color, g_studio.blend, g_studio.blend, g_studio.blend, 1.f);
-			break;
-		default:
-			// TODO pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-			Vector4Set(color, 1.f, 1.f, 1.f, g_studio.blend);
-			break;
+	vec4_t color = {1, 1, 1, g_studio.blend};
+	if (g_studio.rendermode2 == kRenderTransAdd) {
+		Vector4Set(color, g_studio.blend, g_studio.blend, g_studio.blend, 1.f);
 	}
-	VK_RenderModelDynamicBegin( RI.currententity->curstate.rendermode, color, "%s", m_pSubModel->name );
+	VK_RenderModelDynamicBegin( studioRenderModeToRenderType(RI.currententity->curstate.rendermode), color, "%s", m_pSubModel->name );
 
 	g_studio.numverts = g_studio.numelems = 0;
 

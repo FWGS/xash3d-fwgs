@@ -234,6 +234,20 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	// FIXME VK GL_SetupFogColorForSurfaces();
 }
 
+static vk_render_type_e brushRenderModeToRenderType( int render_mode ) {
+	switch (render_mode) {
+		case kRenderNormal:       return kVkRenderTypeSolid;
+		case kRenderTransColor:   return kVkRenderType_A_1mA_RW;
+		case kRenderTransTexture: return kVkRenderType_A_1mA_R;
+		case kRenderGlow:         return kVkRenderType_A_1mA_R;
+		case kRenderTransAlpha:   return kVkRenderType_AT;
+		case kRenderTransAdd:     return kVkRenderType_A_1_R;
+		default: ASSERT(!"Unxpected render_mode");
+	}
+
+	return kVkRenderTypeSolid;
+}
+
 static void brushDrawWaterSurfaces( const cl_entity_t *ent, const vec4_t color )
 {
 	const model_t *model = ent->model;
@@ -258,7 +272,7 @@ static void brushDrawWaterSurfaces( const cl_entity_t *ent, const vec4_t color )
 	// if( R_CullBox( mins, maxs ))
 	// 	return;
 
-	VK_RenderModelDynamicBegin( ent->curstate.rendermode, color, "%s water", model->name );
+	VK_RenderModelDynamicBegin( brushRenderModeToRenderType(ent->curstate.rendermode), color, "%s water", model->name );
 
 	// Iterate through all surfaces, find *TURB*
 	for( int i = 0; i < model->nummodelsurfaces; i++ )
@@ -389,18 +403,7 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, float blend, co
 		}
 	}
 
-	if (render_mode == kRenderTransColor) {
-		Vector4Set(bmodel->render_model.color,
-			ent->curstate.rendercolor.r / 255.f,
-			ent->curstate.rendercolor.g / 255.f,
-			ent->curstate.rendercolor.b / 255.f,
-			blend);
-	} else {
-		// Other render modes are not affected by entity current state color
-		Vector4Set(bmodel->render_model.color, 1, 1, 1, blend);
-	}
-
-	bmodel->render_model.render_mode = render_mode;
+	bmodel->render_model.render_type = brushRenderModeToRenderType(render_mode);
 	VK_RenderModelDraw(ent, &bmodel->render_model);
 }
 
@@ -700,7 +703,7 @@ qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 		vk_brush_model_t *bmodel = Mem_Calloc(vk_core.pool, model_size);
 		mod->cache.data = bmodel;
 		Q_strncpy(bmodel->render_model.debug_name, mod->name, sizeof(bmodel->render_model.debug_name));
-		bmodel->render_model.render_mode = kRenderNormal;
+		bmodel->render_model.render_type = kVkRenderTypeSolid;
 		bmodel->render_model.static_map = map;
 
 		bmodel->num_water_surfaces = sizes.water_surfaces;

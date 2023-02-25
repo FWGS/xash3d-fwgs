@@ -30,7 +30,7 @@ typedef struct {
 
 static struct {
 	VkPipelineLayout pipeline_layout;
-	VkPipeline pipelines[kRenderTransAdd + 1];
+	VkPipeline pipelines[kVkRenderType_COUNT];
 
 	vk_buffer_t uniform_buffer;
 	uint32_t ubo_align;
@@ -121,20 +121,20 @@ static qboolean createPipelines( void )
 			.cullMode = VK_CULL_MODE_FRONT_BIT,
 		};
 
-		for (int i = 0; i < ARRAYSIZE(g_render.pipelines); ++i)
+		for (int i = 0; i < kVkRenderType_COUNT; ++i)
 		{
 			const char *name = "UNDEFINED";
 			switch (i)
 			{
-				case kRenderNormal:
+				case kVkRenderTypeSolid:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.blendEnable = VK_FALSE;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
-					name = "kRenderNormal";
+					name = "kVkRenderTypeSolid";
 					break;
 
-				case kRenderTransColor:
+				case kVkRenderType_A_1mA_RW:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_TRUE;
 					ci.depthTestEnable = VK_TRUE;
@@ -142,10 +142,10 @@ static qboolean createPipelines( void )
 					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "kRenderTransColor";
+					name = "kVkRenderType_A_1mA_RW";
 					break;
 
-				case kRenderTransTexture:
+				case kVkRenderType_A_1mA_R:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
@@ -153,10 +153,10 @@ static qboolean createPipelines( void )
 					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					name = "kRenderTransTexture";
+					name = "kVkRenderType_A_1mA_R";
 					break;
 
-				case kRenderGlow:
+				case kVkRenderType_A_1:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_FALSE; // Fake bloom, should be over geometry too
@@ -164,19 +164,10 @@ static qboolean createPipelines( void )
 					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					name = "kRenderGlow";
+					name = "kVkRenderType_A_1";
 					break;
 
-				case kRenderTransAlpha:
-					// FIXME sprites are different: they don't do alpha test, but do blending
-					spec_data.alpha_test_threshold = .25f;
-					ci.depthWriteEnable = VK_TRUE;
-					ci.depthTestEnable = VK_TRUE;
-					ci.blendEnable = VK_FALSE;
-					name = "kRenderTransAlpha(test)";
-					break;
-
-				case kRenderTransAdd:
+				case kVkRenderType_A_1_R:
 					spec_data.alpha_test_threshold = 0.f;
 					ci.depthWriteEnable = VK_FALSE;
 					ci.depthTestEnable = VK_TRUE;
@@ -184,7 +175,26 @@ static qboolean createPipelines( void )
 					ci.colorBlendOp = VK_BLEND_OP_ADD;
 					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-					name = "kRenderTransAdd";
+					name = "kVkRenderType_A_1_R";
+					break;
+
+				case kVkRenderType_AT:
+					spec_data.alpha_test_threshold = .25f;
+					ci.depthWriteEnable = VK_TRUE;
+					ci.depthTestEnable = VK_TRUE;
+					ci.blendEnable = VK_FALSE;
+					name = "kVkRenderType_AT";
+					break;
+
+				case kVkRenderType_1_1_R:
+					spec_data.alpha_test_threshold = 0.f;
+					ci.depthWriteEnable = VK_FALSE;
+					ci.depthTestEnable = VK_TRUE;
+					ci.blendEnable = VK_TRUE;
+					ci.colorBlendOp = VK_BLEND_OP_ADD;
+					ci.srcAlphaBlendFactor = ci.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					ci.dstAlphaBlendFactor = ci.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+					name = "kVkRenderType_1_1_R";
 					break;
 
 				default:
@@ -228,7 +238,7 @@ typedef struct {
 
 typedef struct render_draw_s {
 	int lightmap, texture;
-	int render_mode;
+	int pipeline_index;
 	uint32_t element_count;
 	uint32_t index_offset, vertex_offset;
 	/* TODO this should be a separate thing? */ struct { float r, g, b; } emissive;
@@ -443,8 +453,8 @@ static void drawCmdPushDraw( const render_draw_t *draw )
 {
 	draw_command_t *draw_command;
 
-	ASSERT(draw->render_mode >= 0);
-	ASSERT(draw->render_mode < ARRAYSIZE(g_render.pipelines));
+	ASSERT(draw->pipeline_index >= 0);
+	ASSERT(draw->pipeline_index < ARRAYSIZE(g_render.pipelines));
 	ASSERT(draw->lightmap >= 0);
 	ASSERT(draw->texture >= 0);
 
@@ -581,8 +591,8 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 			vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipeline_layout, 0, 1, vk_desc.ubo_sets, 1, &ubo_offset);
 		}
 
-		if (pipeline != draw->draw.draw.render_mode) {
-			pipeline = draw->draw.draw.render_mode;
+		if (pipeline != draw->draw.draw.pipeline_index) {
+			pipeline = draw->draw.draw.pipeline_index;
 			vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, g_render.pipelines[pipeline]);
 		}
 
@@ -710,7 +720,7 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 				render_draw_t draw = {
 					.lightmap = lightmap,
 					.texture = current_texture,
-					.render_mode = model->render_mode,
+					.pipeline_index = model->render_type,
 					.element_count = element_count,
 					.vertex_offset = vertex_offset,
 					.index_offset = index_offset,
@@ -734,7 +744,7 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 		const render_draw_t draw = {
 			.lightmap = lightmap,
 			.texture = current_texture,
-			.render_mode = model->render_mode,
+			.pipeline_index = model->render_type,
 			.element_count = element_count,
 			.vertex_offset = vertex_offset,
 			.index_offset = index_offset,
@@ -753,7 +763,7 @@ static struct {
 	vk_render_geometry_t geometries[MAX_DYNAMIC_GEOMETRY];
 } g_dynamic_model = {0};
 
-void VK_RenderModelDynamicBegin( int render_mode, const vec4_t color, const char *debug_name_fmt, ... ) {
+void VK_RenderModelDynamicBegin( vk_render_type_e render_type, const vec4_t color, const char *debug_name_fmt, ... ) {
 	va_list argptr;
 	va_start( argptr, debug_name_fmt );
 	vsnprintf(g_dynamic_model.model.debug_name, sizeof(g_dynamic_model.model.debug_name), debug_name_fmt, argptr );
@@ -762,7 +772,7 @@ void VK_RenderModelDynamicBegin( int render_mode, const vec4_t color, const char
 	ASSERT(!g_dynamic_model.model.geometries);
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
-	g_dynamic_model.model.render_mode = render_mode;
+	g_dynamic_model.model.render_type = render_type;
 	g_dynamic_model.model.lightmap = 0;
 	Vector4Copy(color, g_dynamic_model.model.color);
 }

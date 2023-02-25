@@ -62,12 +62,22 @@ struct vk_ray_model_s;
 
 #define MAX_MODEL_NAME_LENGTH 64
 
+typedef enum {
+	kVkRenderTypeSolid,     // no blending, depth RW
+	kVkRenderType_A_1mA_RW, // blend: src*a + dst*(1-a), depth: RW
+	kVkRenderType_A_1mA_R,  // blend: src*a + dst*(1-a), depth test
+	kVkRenderType_A_1,      // blend: src*a + dst, no depth test or write
+	kVkRenderType_A_1_R,    // blend: src*a + dst, depth test
+	kVkRenderType_AT,       // no blend, depth RW, alpha test
+	kVkRenderType_1_1_R,    // blend: src + dst, depth test
+	kVkRenderType_COUNT
+} vk_render_type_e;
 struct rt_light_add_polygon_s;
 typedef struct vk_render_model_s {
 	char debug_name[MAX_MODEL_NAME_LENGTH];
 
 	// FIXME: brushes, sprites, studio models, etc all treat render_mode differently
-	int render_mode;
+	vk_render_type_e render_type;
 	vec4_t color;
 	int lightmap; // <= 0 if no lightmap
 
@@ -93,7 +103,7 @@ qboolean VK_RenderModelInit( vk_render_model_t* model );
 void VK_RenderModelDestroy( vk_render_model_t* model );
 void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model );
 
-void VK_RenderModelDynamicBegin( int render_mode, const vec4_t color, const char *debug_name_fmt, ... );
+void VK_RenderModelDynamicBegin( vk_render_type_e render_type, const vec4_t color, const char *debug_name_fmt, ... );
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom );
 void VK_RenderModelDynamicCommit( void );
 
