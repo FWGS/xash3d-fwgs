@@ -15,8 +15,8 @@ vec3 traceAdditive(vec3 pos, vec3 dir, float L) {
 		const MiniGeometry geom = readCandidateMiniGeometry(rq);
 		const uint tex_base_color = getKusok(geom.kusok_index).tex_base_color;
 		const vec4 texture_color = texture(textures[nonuniformEXT(tex_base_color)], geom.uv);
-		const vec3 kusok_emissive = getKusok(geom.kusok_index).emissive;
-		const vec3 color = texture_color.rgb * kusok_emissive * texture_color.a; // * kusok_color.a;
+		const Kusok kusok = getKusok(geom.kusok_index);
+		const vec3 color = texture_color.rgb * kusok.emissive * texture_color.a * kusok.color.a;
 
 		const float hit_t = rayQueryGetIntersectionTEXT(rq, false);
 		const float overshoot = hit_t - L;

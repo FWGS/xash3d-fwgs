@@ -196,7 +196,6 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 
 	if (geom->material == kXVkMaterialEmissive) {
 		VectorCopy(geom->emissive, kusok->emissive);
-		Vector4Set(kusok->color, 0, 0, 0, 0); // Do not accept light from outside
 	} else {
 		RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
 	}
@@ -300,8 +299,7 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 			kusochki[i].tex_base_color &= (~KUSOK_MATERIAL_FLAG_SKYBOX);
 		}
 
-		const vec4_t color = {1, 1, 1, 1};
-		applyMaterialToKusok(kusochki + i, mg, color, false);
+		applyMaterialToKusok(kusochki + i, mg, args.model->color, false);
 		Matrix4x4_LoadIdentity(kusochki[i].prev_transform);
 	}
 
@@ -422,7 +420,7 @@ static void computeConveyorSpeed(const color24 rendercolor, int tex_index, vec2_
 	speed[1] = sy * flRate;
 }
 
-void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row, const vec4_t color, color24 entcolor) {
+void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render_model, const matrix3x4 *transform_row) {
 	qboolean HACK_reflective = false;
 	vk_ray_draw_model_t* draw_model = g_ray_model_state.frame.models + g_ray_model_state.frame.num_models;
 
@@ -493,8 +491,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 		for (int i = 0; i < render_model->num_geometries; ++i) {
 			const vk_render_geometry_t *geom = render_model->geometries + i;
-			applyMaterialToKusok(kusochki + i, geom, color, HACK_reflective);
-
+			applyMaterialToKusok(kusochki + i, geom, render_model->color, HACK_reflective);
 			Matrix4x4_Copy((kusochki + i)->prev_transform, render_model->prev_transform);
 		}
 

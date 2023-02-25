@@ -696,7 +696,7 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 			Matrix4x4_Copy( model->prev_transform, g_render_state.model );
 		}
 
-		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model, g_render_state.dirty_uniform_data.color, ent ? ent->curstate.rendercolor : (color24){255,255,255});
+		VK_RayFrameAddModel(model->ray_model, model, (const matrix3x4*)g_render_state.model);
 
 		return;
 	}

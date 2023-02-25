@@ -707,6 +707,7 @@ qboolean VK_BrushModelLoad( model_t *mod, qboolean map )
 		bmodel->render_model.static_map = map;
 
 		bmodel->num_water_surfaces = sizes.water_surfaces;
+		Vector4Set(bmodel->render_model.color, 1, 1, 1, 1);
 
 		if (sizes.num_surfaces != 0) {
 			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));
