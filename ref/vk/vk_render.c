@@ -674,6 +674,8 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 
 	// TODO get rid of this dirty ubo thing
 	Vector4Copy(model->color, g_render_state.dirty_uniform_data.color);
+	ASSERT(model->lightmap <= MAX_LIGHTMAPS);
+	const int lightmap = model->lightmap > 0 ? tglob.lightmapTextures[model->lightmap - 1] : tglob.whiteTexture;
 
 	if (g_render_state.current_frame_is_ray_traced) {
 		if (ent != NULL && model != NULL) {
@@ -706,7 +708,7 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 		if (split) {
 			if (element_count) {
 				render_draw_t draw = {
-					.lightmap = tglob.lightmapTextures[0], // FIXME there can be more than one lightmap textures
+					.lightmap = lightmap,
 					.texture = current_texture,
 					.render_mode = model->render_mode,
 					.element_count = element_count,
@@ -730,7 +732,7 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 
 	if (element_count) {
 		const render_draw_t draw = {
-			.lightmap = tglob.lightmapTextures[0],
+			.lightmap = lightmap,
 			.texture = current_texture,
 			.render_mode = model->render_mode,
 			.element_count = element_count,
@@ -761,6 +763,7 @@ void VK_RenderModelDynamicBegin( int render_mode, const vec4_t color, const char
 	g_dynamic_model.model.geometries = g_dynamic_model.geometries;
 	g_dynamic_model.model.num_geometries = 0;
 	g_dynamic_model.model.render_mode = render_mode;
+	g_dynamic_model.model.lightmap = 0;
 	Vector4Copy(color, g_dynamic_model.model.color);
 }
 void VK_RenderModelDynamicAddGeometry( const vk_render_geometry_t *geom ) {

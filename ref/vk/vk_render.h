@@ -69,6 +69,7 @@ typedef struct vk_render_model_s {
 	// FIXME: brushes, sprites, studio models, etc all treat render_mode differently
 	int render_mode;
 	vec4_t color;
+	int lightmap; // <= 0 if no lightmap
 
 	int num_geometries;
 	vk_render_geometry_t *geometries;

@@ -358,6 +358,10 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, float blend, co
 		Vector4Set(bmodel->render_model.color, 1, 1, 1, blend);
 	}
 
+	// Only Normal and TransAlpha have lightmaps
+	// TODO: on big maps more than a single lightmap texture is possible
+	bmodel->render_model.lightmap = (render_mode == kRenderNormal || render_mode == kRenderTransAlpha) ? 1 : 0;
+
 	if (bmodel->num_water_surfaces) {
 		brushDrawWaterSurfaces(ent, bmodel->render_model.color);
 	}
