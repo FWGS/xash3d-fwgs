@@ -273,9 +273,6 @@ def configure(conf):
 		conf.env.append_unique('CXXFLAGS_cxxshlib', ['-fPIC', '-fno-use-cxa-atexit'])
 		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
 		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
-		# set the metadata
-		conf.env.TITLEID = 'XASH10000'
-		conf.env.APPNAME = 'xash3d-fwgs'
 
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)

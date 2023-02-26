@@ -83,10 +83,14 @@ def apply_fself(self):
 def apply_sfo(self):
 	fselffile = self.fself_task.outputs[0]
 	in_nodes = [fselffile]
+	scetitleid = getattr(self, 'title_id', None)
+	sceappname = getattr(self, 'app_name', None)
 
 	sfofile = fselffile.change_ext('.sfo')
 	out_nodes = [sfofile]
 
+	if scetitleid: self.env.TITLEID = scetitleid
+	if sceappname: self.env.APPNAME = sceappname
 	self.env.SFOFILE = str(sfofile)
 
 	self.sfo_task = self.create_task('mksfoex', in_nodes)
