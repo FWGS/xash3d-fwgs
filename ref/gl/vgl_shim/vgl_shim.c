@@ -333,15 +333,18 @@ void VGL_ShimShutdown( void )
 	if ( !vgl_init )
 		return;
 
-	// flush everything that has been rendered this frame to prevent waiting in glDeleteProgram
-	vglSwapBuffers( GL_FALSE );
+	glFinish();
 	glUseProgram( 0 );
 
+	/*
+	// FIXME: this sometimes causes the game to block on glDeleteProgram for up to a minute
+	//        but since this is only called on shutdown or game change, it should be fine to skip
 	for ( i = 0; i < MAX_PROGS; ++i )
 	{
 		if ( vgl.progs[i].flags )
 			glDeleteProgram( vgl.progs[i].glprog );
 	}
+	*/
 
 	for ( i = 0; i < VGL_ATTR_MAX; ++i )
 		free( vgl.attrbuf[i] );
