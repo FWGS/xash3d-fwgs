@@ -43,7 +43,7 @@ popd
 
 echo "Building engine..."
 
-./waf configure -T release --nswitch || die_configure
+./waf configure -T release --psvita || die_configure
 ./waf build install --destdir=pkgtemp/xash3d || die
 
 echo "Building HLSDK..."
