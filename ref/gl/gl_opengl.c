@@ -371,10 +371,8 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 		// functions are cleared before all the extensions are evaluated
 		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
 		{
-#if !XASH_PSVITA // on the vita some exts are implemented partially but that's still enough
 			// one or more functions are invalid, extension will be disabled
 			GL_SetExtension( r_ext, false );
-#endif
 		}
 	}
 #endif
@@ -753,6 +751,8 @@ void GL_InitExtensionsBigGL( void )
 		GL_CheckExtension( "GL_ARB_debug_output", debugoutputfuncs, "gl_debug_output", GL_DEBUG_OUTPUT );
 
 #if XASH_PSVITA
+	// not all GL1.1 functions are implemented in vitaGL, but there's enough
+	GL_SetExtension( GL_OPENGL_110, true );
 	// NPOT textures are actually supported, but the extension is not listed in GL_EXTENSIONS
 	GL_SetExtension( GL_ARB_TEXTURE_NPOT_EXT, true );
 	// init our immediate mode override
