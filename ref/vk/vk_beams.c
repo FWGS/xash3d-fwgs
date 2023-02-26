@@ -151,10 +151,8 @@ static float clampf(float v, float min, float max) {
 	return v;
 }
 
-static void applyBrightness( float brightness, const vec4_t color, rgba_t out ) {
-	out[0] = clampf(color[0] * color[3] * brightness, 0, 1) * 255.f;
-	out[1] = clampf(color[1] * color[3] * brightness, 0, 1) * 255.f;
-	out[2] = clampf(color[2] * color[3] * brightness, 0, 1) * 255.f;
+static void applyBrightness( float brightness, rgba_t out ) {
+	out[0] = out[1] = out[2] = clampf(brightness, 0, 1) * 255.f;
 	out[3] = 255;
 }
 
@@ -303,7 +301,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->gl_tc[0] = 0.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
 			dst_vtx->flags = 1;
-			applyBrightness( brightness, color, dst_vtx->color );
+			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint1, dst_vtx->pos );
 			VectorCopy( vAveNormal, dst_vtx->normal );
 			++dst_vtx;
@@ -312,7 +310,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->gl_tc[0] = 1.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
 			dst_vtx->flags = 1;
-			applyBrightness( brightness, color, dst_vtx->color );
+			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint2, dst_vtx->pos );
 			VectorCopy( vAveNormal, dst_vtx->normal );
 			++dst_vtx;
@@ -345,7 +343,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->gl_tc[0] = 0.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
 			dst_vtx->flags = 1;
-			applyBrightness( brightness, color, dst_vtx->color );
+			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint1, dst_vtx->pos );
 			VectorCopy( vLastNormal, dst_vtx->normal );
 			++dst_vtx;
@@ -354,7 +352,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->gl_tc[0] = 1.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
 			dst_vtx->flags = 1;
-			applyBrightness( brightness, color, dst_vtx->color );
+			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint2, dst_vtx->pos );
 			VectorCopy( vLastNormal, dst_vtx->normal );
 			++dst_vtx;
