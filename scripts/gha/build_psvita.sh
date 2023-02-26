@@ -7,7 +7,7 @@ build_hlsdk()
 	echo "Building HLSDK: $1 branch..."
 	git checkout $1
 	./waf configure -T release --psvita || die_configure
-	./waf build install --destdir=../pkgtemp/xash3d || die
+	./waf build install --destdir=../pkgtemp/data/xash3d || die
 	./waf clean
 }
 
@@ -18,7 +18,7 @@ cd "$BUILDDIR" || die
 
 rm -rf artifacts build pkgtemp
 
-mkdir -p pkgtemp/xash3d/{valve,gearbox,bshift}/{dlls,cl_dlls} || die
+mkdir -p pkgtemp/data/xash3d/{valve,gearbox,bshift}/{dlls,cl_dlls} || die
 mkdir -p artifacts/ || die
 
 echo "Building vitaGL..."
@@ -44,7 +44,8 @@ popd
 echo "Building engine..."
 
 ./waf configure -T release --psvita || die_configure
-./waf build install --destdir=pkgtemp/xash3d || die
+./waf build install --destdir=pkgtemp/data/xash3d || die
+cp build/engine/xash.vpk pkgtemp/
 
 echo "Building HLSDK..."
 
@@ -57,7 +58,7 @@ popd
 
 echo "Generating default config files..."
 
-pushd pkgtemp/xash3d/valve
+pushd pkgtemp/data/xash3d/valve
 
 touch config.cfg
 echo 'unbindall'                    >> config.cfg
@@ -93,5 +94,5 @@ popd
 echo "Packaging artifacts..."
 
 pushd pkgtemp
-7z a -t7z ../artifacts/xash3d-fwgs-psvita.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r xash3d/
+7z a -t7z ../artifacts/xash3d-fwgs-psvita.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r xash.vpk data/
 popd
