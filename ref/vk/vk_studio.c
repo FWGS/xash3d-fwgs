@@ -1932,7 +1932,6 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 				dst_vtx->gl_tc[1] = ptricmds[3] * t;
 			}
 
-			dst_vtx->flags = 1; // vertex lighting instead of lightmap lighting
 			R_StudioSetColorBegin( ptricmds, pstudionorms, dst_vtx->color );
 
 			if (j > 1) {

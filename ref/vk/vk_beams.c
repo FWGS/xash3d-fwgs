@@ -300,7 +300,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 			dst_vtx->gl_tc[0] = 0.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
-			dst_vtx->flags = 1;
 			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint1, dst_vtx->pos );
 			VectorCopy( vAveNormal, dst_vtx->normal );
@@ -309,7 +308,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 			dst_vtx->gl_tc[0] = 1.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
-			dst_vtx->flags = 1;
 			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint2, dst_vtx->pos );
 			VectorCopy( vAveNormal, dst_vtx->normal );
@@ -342,7 +340,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 			dst_vtx->gl_tc[0] = 0.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
-			dst_vtx->flags = 1;
 			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint1, dst_vtx->pos );
 			VectorCopy( vLastNormal, dst_vtx->normal );
@@ -351,7 +348,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 			dst_vtx->gl_tc[0] = 1.0f;
 			dst_vtx->gl_tc[1] = curSeg.texcoord;
-			dst_vtx->flags = 1;
 			applyBrightness( brightness, dst_vtx->color );
 			VectorCopy( vPoint2, dst_vtx->pos );
 			VectorCopy( vLastNormal, dst_vtx->normal );
