@@ -53,9 +53,9 @@ bool shadowTestAlphaMask(vec3 pos, vec3 dir, float dist) {
 		const uint vi2 = uint(getIndex(first_index_offset+1)) + kusok.vertex_offset;
 		const uint vi3 = uint(getIndex(first_index_offset+2)) + kusok.vertex_offset;
 		const vec2 uvs[3] = {
-			getVertex(vi1).gl_tc,
-			getVertex(vi2).gl_tc,
-			getVertex(vi3).gl_tc,
+			GET_VERTEX(vi1).gl_tc,
+			GET_VERTEX(vi2).gl_tc,
+			GET_VERTEX(vi3).gl_tc,
 		};
 		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rq, false);
 		const vec2 uv = baryMix(uvs[0], uvs[1], uvs[2], bary);

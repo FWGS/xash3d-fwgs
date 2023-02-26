@@ -13,10 +13,10 @@ vec3 traceAdditive(vec3 pos, vec3 dir, float L) {
 	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_ADDITIVE, pos, 0., dir, L + additive_soft_overshoot);
 	while (rayQueryProceedEXT(rq)) {
 		const MiniGeometry geom = readCandidateMiniGeometry(rq);
-		const uint tex_base_color = getKusok(geom.kusok_index).tex_base_color;
-		const vec4 texture_color = texture(textures[nonuniformEXT(tex_base_color)], geom.uv);
 		const Kusok kusok = getKusok(geom.kusok_index);
-		const vec3 color = texture_color.rgb * kusok.emissive * texture_color.a * kusok.color.a;
+
+		const vec4 texture_color = texture(textures[nonuniformEXT(kusok.tex_base_color)], geom.uv);
+		const vec3 color = texture_color.rgb * kusok.emissive * texture_color.a * kusok.color.a * SRGBtoLINEAR(geom.color.rgb * geom.color.a);
 
 		const float hit_t = rayQueryGetIntersectionTEXT(rq, false);
 		const float overshoot = hit_t - L;

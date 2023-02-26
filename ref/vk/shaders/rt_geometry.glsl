@@ -83,21 +83,21 @@ Geometry readHitGeometry(vec2 bary, float ray_cone_width) {
 	const uint vi3 = uint(getIndex(first_index_offset+2)) + kusok.vertex_offset;
 
 	const vec3 pos[3] = {
-		objectToWorld * vec4(getVertex(vi1).pos, 1.f),
-		objectToWorld * vec4(getVertex(vi2).pos, 1.f),
-		objectToWorld * vec4(getVertex(vi3).pos, 1.f),
+		objectToWorld * vec4(GET_VERTEX(vi1).pos, 1.f),
+		objectToWorld * vec4(GET_VERTEX(vi2).pos, 1.f),
+		objectToWorld * vec4(GET_VERTEX(vi3).pos, 1.f),
 	};
 
 	const vec3 prev_pos[3] = {
-		(kusok.prev_transform * vec4(getVertex(vi1).prev_pos, 1.f)).xyz,
-		(kusok.prev_transform * vec4(getVertex(vi2).prev_pos, 1.f)).xyz,
-		(kusok.prev_transform * vec4(getVertex(vi3).prev_pos, 1.f)).xyz,
+		(kusok.prev_transform * vec4(GET_VERTEX(vi1).prev_pos, 1.f)).xyz,
+		(kusok.prev_transform * vec4(GET_VERTEX(vi2).prev_pos, 1.f)).xyz,
+		(kusok.prev_transform * vec4(GET_VERTEX(vi3).prev_pos, 1.f)).xyz,
 	};
 
 	const vec2 uvs[3] = {
-		getVertex(vi1).gl_tc,
-		getVertex(vi2).gl_tc,
-		getVertex(vi3).gl_tc,
+		GET_VERTEX(vi1).gl_tc,
+		GET_VERTEX(vi2).gl_tc,
+		GET_VERTEX(vi3).gl_tc,
 	};
 
 	geom.pos = baryMix(pos[0], pos[1], pos[2], bary);
@@ -111,14 +111,14 @@ Geometry readHitGeometry(vec2 bary, float ray_cone_width) {
 	// NOTE: only support rotations, for arbitrary transform would need to do transpose(inverse(mat3(gl_ObjectToWorldEXT)))
 	const mat3 normalTransform = mat3(objectToWorld); // mat3(gl_ObjectToWorldEXT);
 	geom.normal_shading = normalize(normalTransform * baryMix(
-		getVertex(vi1).normal,
-		getVertex(vi2).normal,
-		getVertex(vi3).normal,
+		GET_VERTEX(vi1).normal,
+		GET_VERTEX(vi2).normal,
+		GET_VERTEX(vi3).normal,
 		bary));
 	geom.tangent = normalize(normalTransform * baryMix(
-		getVertex(vi1).tangent,
-		getVertex(vi2).tangent,
-		getVertex(vi3).tangent,
+		GET_VERTEX(vi1).tangent,
+		GET_VERTEX(vi2).tangent,
+		GET_VERTEX(vi3).tangent,
 		bary));
 
 	geom.uv_lods = computeAnisotropicEllipseAxes(geom.pos, geom.normal_geometry, ray_direction, ray_cone_width * hit_t, pos, uvs, geom.uv);
@@ -130,6 +130,7 @@ Geometry readHitGeometry(vec2 bary, float ray_cone_width) {
 struct MiniGeometry {
 	vec2 uv;
 	uint kusok_index;
+	vec4 color;
 };
 
 MiniGeometry readCandidateMiniGeometry(rayQueryEXT rq) {
@@ -144,16 +145,23 @@ MiniGeometry readCandidateMiniGeometry(rayQueryEXT rq) {
 		const uint vi2 = uint(getIndex(first_index_offset+1)) + kusok.vertex_offset;
 		const uint vi3 = uint(getIndex(first_index_offset+2)) + kusok.vertex_offset;
 		const vec2 uvs[3] = {
-			getVertex(vi1).gl_tc,
-			getVertex(vi2).gl_tc,
-			getVertex(vi3).gl_tc,
+			GET_VERTEX(vi1).gl_tc,
+			GET_VERTEX(vi2).gl_tc,
+			GET_VERTEX(vi3).gl_tc,
 		};
 		const vec2 bary = rayQueryGetIntersectionBarycentricsEXT(rq, false);
 		const vec2 uv = baryMix(uvs[0], uvs[1], uvs[2], bary);
 
+		const vec4 colors[3] = {
+			unpackUnorm4x8(GET_VERTEX(vi1).color),
+			unpackUnorm4x8(GET_VERTEX(vi2).color),
+			unpackUnorm4x8(GET_VERTEX(vi3).color),
+		};
+
 		MiniGeometry ret;
 		ret.uv = uv;
 		ret.kusok_index = kusok_index;
+		ret.color = baryMix(colors[0], colors[1], colors[2], bary);
 		return ret;
 }
 #endif // #ifdef RAY_QUERY
