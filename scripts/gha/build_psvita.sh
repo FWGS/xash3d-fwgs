@@ -27,7 +27,11 @@ make -C vitaGL NO_TEX_COMBINER=1 HAVE_UNFLIPPED_FBOS=1 HAVE_PTHREAD=1 SINGLE_THR
 
 echo "Building vrtld..."
 
-make -C vita-rtld -j2 install || die
+pushd vita-rtld
+cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release || die_configure
+cmake --build build -- -j2 || die
+cmake --install build || die
+popd
 
 echo "Building SDL..."
 
