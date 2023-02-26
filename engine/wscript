@@ -239,6 +239,8 @@ def build(bld):
 			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
 			icon = 'platform/nswitch/icon.jpg',
 			sce_sys = 'platform/psvita/sce_sys',
+			title_id = 'XASH10000',
+			app_name = 'xash3d-fwgs'
 		)
 	else:
 		if bld.env.SINGLE_BINARY:
