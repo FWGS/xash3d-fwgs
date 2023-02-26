@@ -590,22 +590,6 @@ qboolean Sys_NewInstance( const char *gamedir )
 	Host_Shutdown( );
 	envSetNextLoad( exe, newargs );
 	exit( 0 );
-#elif XASH_PSVITA
-	const char *exe = "app0:/eboot.bin";
-	char newgamedir[256];
-	char *newargv[4];
-	int newargc = 0;
-	// make a copy of the gamedir name just in case
-	Q_strncpy( newgamedir, gamedir, sizeof( newgamedir ) );
-	// TODO: carry over the old args
-	newargv[newargc++] = host.argv[0]; // this is not usually the executable path
-	newargv[newargc++] = (char *)"-game";
-	newargv[newargc++] = newgamedir;
-	newargv[newargc] = NULL;
-	// just restart the entire thing
-	Host_Shutdown( );
-	sceAppMgrLoadExec( exe, newargv, NULL );
-	exit( 0 );
 #else
 	int i = 0;
 	qboolean replacedArg = false;
@@ -638,6 +622,12 @@ qboolean Sys_NewInstance( const char *gamedir )
 	newargs[i++] = strdup( "-changegame" );
 	newargs[i] = NULL;
 
+#if XASH_PSVITA
+	// under normal circumstances it's always going to be the same path
+	exe = strdup( "app0:/eboot.bin" );
+	Host_Shutdown( );
+	sceAppMgrLoadExec( exe, newargs, NULL );
+#else
 	exelen = wai_getExecutablePath( NULL, 0, NULL );
 	exe = malloc( exelen + 1 );
 	wai_getExecutablePath( exe, exelen, NULL );
@@ -646,6 +636,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 	Host_Shutdown();
 
 	execv( exe, newargs );
+#endif
 
 	// if execv returned, it's probably an error
 	printf( "execv failed: %s", strerror( errno ));
