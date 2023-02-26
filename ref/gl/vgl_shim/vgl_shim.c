@@ -39,7 +39,8 @@ GNU General Public License for more details.
 #include "vgl_shim.h"
 
 #define MAX_SHADERLEN 4096
-#define MAX_PROGS 64 // hopefully this is enough
+// increase this when adding more attributes
+#define MAX_PROGS 32
 
 extern ref_api_t gEngfuncs;
 
@@ -49,15 +50,14 @@ enum vgl_attrib_e
 	VGL_ATTR_COLOR     = 1, // 2
 	VGL_ATTR_TEXCOORD0 = 2, // 4
 	VGL_ATTR_TEXCOORD1 = 3, // 8
-	VGL_ATTR_NORMAL    = 4, // 16
 	VGL_ATTR_MAX
 };
 
 // continuation of previous enum
 enum vgl_flag_e
 {
-	VGL_FLAG_ALPHA_TEST = VGL_ATTR_MAX, // 32
-	VGL_FLAG_FOG,                       // 64
+	VGL_FLAG_ALPHA_TEST = VGL_ATTR_MAX, // 16
+	VGL_FLAG_FOG,                       // 32
 	VGL_FLAG_MAX
 };
 
@@ -98,7 +98,7 @@ static struct
 	GLboolean uchanged;
 } vgl;
 
-static const int vgl_attr_size[VGL_ATTR_MAX] = { 3, 4, 2, 2, 3 };
+static const int vgl_attr_size[VGL_ATTR_MAX] = { 3, 4, 2, 2 };
 
 static const char *vgl_flag_name[VGL_FLAG_MAX] =
 {
@@ -106,7 +106,6 @@ static const char *vgl_flag_name[VGL_FLAG_MAX] =
 	"ATTR_COLOR",
 	"ATTR_TEXCOORD0",
 	"ATTR_TEXCOORD1",
-	"ATTR_NORMAL",
 	"FEAT_ALPHA_TEST",
 	"FEAT_FOG",
 };
@@ -117,7 +116,6 @@ static const char *vgl_attr_name[VGL_ATTR_MAX] =
 	"inColor",
 	"inTexCoord0",
 	"inTexCoord1",
-	"inNormal",
 };
 
 // HACK: borrow alpha test and fog flags from internal vitaGL state
@@ -291,11 +289,11 @@ int VGL_ShimInit( void )
 		0x0001, // out = ucolor
 		0x0005, // out = tex0 * ucolor
 		0x0007, // out = tex0 * vcolor
-		0x0025, // out = tex0 * ucolor + FEAT_ALPHA_TEST
-		0x0041, // out = ucolor + FEAT_FOG
-		0x0045, // out = tex0 * ucolor + FEAT_FOG
-		0x0047, // out = tex0 * vcolor + FEAT_FOG
-		0x0065, // out = tex0 * ucolor + FEAT_ALPHA_TEST + FEAT_FOG
+		0x0015, // out = tex0 * ucolor + FEAT_ALPHA_TEST
+		0x0021, // out = ucolor + FEAT_FOG
+		0x0025, // out = tex0 * ucolor + FEAT_FOG
+		0x0027, // out = tex0 * vcolor + FEAT_FOG
+		0x0035, // out = tex0 * ucolor + FEAT_ALPHA_TEST + FEAT_FOG
 	};
 
 	if ( vgl_init )
@@ -497,7 +495,7 @@ void VGL_MultiTexCoord2f( GLenum tex, GLfloat u, GLfloat v )
 
 void VGL_Normal3fv( const GLfloat *v )
 {
-	/* not sure if we actually need these */
+	/* this does not seem to be necessary */
 }
 
 void VGL_ShadeModel( GLenum unused )
