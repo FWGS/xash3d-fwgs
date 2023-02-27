@@ -1,5 +1,5 @@
 /*
-net.h - psvita network stubs
+net_psvita.h - psvita network stubs
 Copyright (C) 2021-2023 fgsfds
 
 This program is free software: you can redistribute it and/or modify
@@ -44,7 +44,11 @@ GNU General Public License for more details.
 // this is only used to set non-blocking on sockets
 static inline int ioctlsocket( int fd, int req, unsigned int *arg )
 {
-	return setsockopt( fd, SOL_SOCKET, SO_NONBLOCK, arg, sizeof( *arg ) );
+	if ( req == FIONBIO )
+	{
+		return setsockopt( fd, SOL_SOCKET, SO_NONBLOCK, arg, sizeof( *arg ) );
+	}
+	return -ENOSYS;
 }
 
 #endif // NET_PSVITA_H
