@@ -152,9 +152,14 @@ static float clampf(float v, float min, float max) {
 	return v;
 }
 
+// FIXME unclear how to organize this
 static void applyBrightness( float brightness, rgba_t out ) {
 	out[0] = out[1] = out[2] = clampf(brightness, 0, 1) * 255.f;
 	out[3] = 255;
+}
+
+static void TriBrightness( float brightness ) {
+	TriColor4f( brightness, brightness, brightness, 1.f );
 }
 
 static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments, int flags, const vec4_t color, int texture, int render_mode )
@@ -399,7 +404,7 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	}
 }
 
-static void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
+static void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments, const vec4_t color )
 {
 	int	i, noiseIndex, noiseStep;
 	float	div, length, fraction, factor, vLast, vStep;
@@ -425,6 +430,8 @@ static void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, 
 	// Iterator to resample noise waveform (it needs to be generated in powers of 2)
 	noiseStep = (int)((float)( NOISE_DIVISIONS - 1 ) * div * 65536.0f );
 	noiseIndex = 0;
+
+	TriBegin( TRI_TRIANGLE_STRIP );
 
 	for( i = 0; i < segments; i++ )
 	{
@@ -479,13 +486,12 @@ static void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, 
 		VectorCopy( screen, screenLast );
 		noiseIndex += noiseStep;
 	}
+
+	TriEndEx(color, "beam torus");
 }
 
-static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
+static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments, const vec4_t color )
 {
-	PRINT_NOT_IMPLEMENTED();
-
-/* FIXME VK
 	float	div, length, fraction;
 	float	w, vLast, vStep;
 	vec3_t	point;
@@ -508,6 +514,8 @@ static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, f
 
 	// clamp the beam width
 	w = fmod( freq, width * 0.1f ) * delta[2];
+
+	TriBegin( TRI_TRIANGLE_STRIP );
 
 	// NOTE: we must force the degenerate triangles to be on the edge
 	for( i = 0; i < segments; i++ )
@@ -532,14 +540,12 @@ static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, f
 
 		vLast += vStep;	// advance texture scroll (v axis only)
 	}
-	*/
+
+	TriEndEx(color, "beam disk");
 }
 
-static void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
+static void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments, const vec4_t color )
 {
-	PRINT_NOT_IMPLEMENTED();
-
-/* FIXME VK
 	float	div, length, fraction;
 	float	vLast, vStep;
 	vec3_t	point;
@@ -561,6 +567,7 @@ static void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scal
 	vLast = fmod( freq * speed, 1 );
 	scale = scale * length;
 
+	TriBegin( TRI_TRIANGLE_STRIP );
 	for ( i = 0; i < segments; i++ )
 	{
 		float	s, c;
@@ -586,14 +593,11 @@ static void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scal
 
 		vLast += vStep;	// Advance texture scroll (v axis only)
 	}
-*/
+	TriEndEx(color, "beam cylinder");
 }
 
-static void R_DrawBeamFollow( BEAM *pbeam, float frametime )
+static void R_DrawBeamFollow( BEAM *pbeam, float frametime, const vec4_t color )
 {
-	PRINT_NOT_IMPLEMENTED();
-
-/* FIXME VK
 	particle_t	*pnew, *particles;
 	float		fraction, div, vLast, vStep;
 	vec3_t		last1, last2, tmp, screen;
@@ -678,6 +682,7 @@ static void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	vLast = 0.0f;
 	vStep = 1.0f;
 
+	TriBegin( TRI_QUADS );
 	while( particles )
 	{
 		TriBrightness( fraction );
@@ -733,10 +738,11 @@ static void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 		VectorMA( particles->org, frametime, particles->vel, particles->org );
 		particles = particles->next;
 	}
-*/
+
+	TriEndEx(color, "beam follow");
 }
 
-static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, float freq, float speed, int segments )
+static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, float freq, float speed, int segments, const vec4_t color )
 {
 	int	i, j, noiseIndex, noiseStep;
 	float	div, length, fraction, factor, vLast, vStep;
@@ -798,6 +804,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 
 	j = segments / 8;
 
+	TriBegin( TRI_TRIANGLE_STRIP );
 	for( i = 0; i < segments + 1; i++ )
 	{
 		fraction = i * div;
@@ -851,6 +858,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 			FracNoise( rgNoise, NOISE_DIVISIONS );
 		}
 	}
+	TriEndEx( color, "beam ring" );
 }
 
 /*
@@ -1114,37 +1122,26 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	{
 	case TE_BEAMTORUS:
 		// FIXME VK GL_Cull( GL_NONE );
-		TriBegin( TRI_TRIANGLE_STRIP );
-		R_DrawTorus( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-		TriEnd();
+		R_DrawTorus( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, color );
 		break;
 	case TE_BEAMDISK:
 		// FIXME VK GL_Cull( GL_NONE );
-		TriBegin( TRI_TRIANGLE_STRIP );
-		R_DrawDisk( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-		TriEnd();
+		R_DrawDisk( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, color );
 		break;
 	case TE_BEAMCYLINDER:
 		// FIXME VK GL_Cull( GL_NONE );
-		TriBegin( TRI_TRIANGLE_STRIP );
-		R_DrawCylinder( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-		TriEnd();
+		R_DrawCylinder( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, color );
 		break;
 	case TE_BEAMPOINTS:
 	case TE_BEAMHOSE:
 		R_DrawSegs( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, pbeam->flags, color, texturenum, render_mode );
 		break;
 	case TE_BEAMFOLLOW:
-		// FIXME VK TriBegin( TRI_QUADS );
-		//TriColor4f( color[0], color[1], color[2], color[3] );
-		//R_DrawBeamFollow( pbeam, frametime );
-		//TriEnd();
+		R_DrawBeamFollow( pbeam, frametime, color );
 		break;
 	case TE_BEAMRING:
 		// FIXME VK GL_Cull( GL_NONE );
-		TriBegin( TRI_TRIANGLE_STRIP );
-		R_DrawRing( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
-		TriEnd();
+		R_DrawRing( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments, color );
 		break;
 	}
 

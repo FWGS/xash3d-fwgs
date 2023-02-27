@@ -94,7 +94,7 @@ static int genTriangleStripIndices(void) {
 	return num_indices;
 }
 
-static void emitDynamicGeometry(int num_indices) {
+static void emitDynamicGeometry(int num_indices, const vec4_t color, const char* name ) {
 	if (!num_indices)
 		return;
 
@@ -110,13 +110,9 @@ static void emitDynamicGeometry(int num_indices) {
 	R_GeometryBufferUnlock( &buffer );
 
 	{
-	// FIXME pass these properly
-		const vec4_t color = {1, 1, 1, 1};
-		const char* name = "FIXME triapi";
-
 		const vk_render_geometry_t geometry = {
 			.texture = g_triapi.texture_index,
-			.material = kXVkMaterialEmissive,
+			.material = (g_triapi.render_type == kVkRenderTypeSolid) ? kXVkMaterialRegular : kXVkMaterialEmissive,
 
 			.max_vertex = g_triapi.num_vertices,
 			.vertex_offset = buffer.vertices.unit_offset,
@@ -140,6 +136,18 @@ void TriEnd( void ) {
 	if (!g_triapi.num_vertices)
 		return;
 
+	const vk_vertex_t *const v = g_triapi.vertices + g_triapi.num_vertices - 1;
+	const vec4_t color = {v->color[0] / 255.f, v->color[1] / 255.f, v->color[2] / 255.f, 1.f};
+	TriEndEx( color, "unnamed triapi" );
+}
+
+void TriEndEx( const vec4_t color, const char* name ) {
+	if (!g_triapi.primitive_mode)
+		return;
+
+	if (!g_triapi.num_vertices)
+		return;
+
 	int num_indices = 0;
 	switch(g_triapi.primitive_mode - 1) {
 		/* case TRI_TRIANGLES: */
@@ -153,7 +161,7 @@ void TriEnd( void ) {
 			break;
 	}
 
-	emitDynamicGeometry(num_indices);
+	emitDynamicGeometry(num_indices, color, name);
 
 	g_triapi.num_vertices = 0;
 	g_triapi.primitive_mode = 0;

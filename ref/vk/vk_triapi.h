@@ -15,3 +15,4 @@ void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
 
 void TriEnd( void );
+void TriEndEx( const vec4_t color, const char* name );
