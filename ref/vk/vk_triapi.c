@@ -1,6 +1,7 @@
 #include "vk_triapi.h"
 #include "vk_geometry.h"
 #include "vk_render.h"
+#include "vk_sprite.h" // R_GetSpriteTexture
 
 #include "vk_textures.h" // FIXME temp
 
@@ -26,6 +27,18 @@ void TriSetTexture( int texture_index ) {
 	g_triapi.texture_index = texture_index;
 }
 
+int TriSpriteTexture( model_t *pSpriteModel, int frame )
+{
+	int	gl_texturenum;
+
+	if(( gl_texturenum = R_GetSpriteTexture( pSpriteModel, frame )) <= 0 )
+		return 0;
+
+	TriSetTexture( gl_texturenum );
+
+	return 1;
+}
+
 void TriRenderMode( int render_mode ) {
 	switch( render_mode )
 	{
@@ -45,6 +58,7 @@ void TriBegin( int primitive_mode ) {
 	switch(primitive_mode) {
 		case TRI_TRIANGLES: break;
 		case TRI_TRIANGLE_STRIP: break;
+		case TRI_QUADS: break;
 		default:
 			gEngine.Con_Printf(S_ERROR "TriBegin: unsupported primitive_mode %d\n", primitive_mode);
 			return;
@@ -66,6 +80,26 @@ void TriBegin( int primitive_mode ) {
 /* static int genTrianglesIndices(void) { */
 /* 	return 0; */
 /* } */
+
+static int genQuadsIndices(void) {
+	int num_indices = 0;
+	uint16_t *const dst_idx = g_triapi.indices;
+	for (int i = 3; i < g_triapi.num_vertices; i+=4) {
+		if (num_indices > MAX_TRIAPI_INDICES - 6) {
+			gEngine.Con_Printf(S_ERROR "Triapi ran out of indices space, max %d (vertices=%d)\n", MAX_TRIAPI_INDICES, g_triapi.num_vertices);
+			break;
+		}
+
+		dst_idx[num_indices++] = 0 + i;
+		dst_idx[num_indices++] = 1 + i;
+		dst_idx[num_indices++] = 2 + i;
+
+		dst_idx[num_indices++] = 0 + i;
+		dst_idx[num_indices++] = 2 + i;
+		dst_idx[num_indices++] = 3 + i;
+	}
+	return num_indices;
+}
 
 static int genTriangleStripIndices(void) {
 	int num_indices = 0;
@@ -153,9 +187,8 @@ void TriEndEx( const vec4_t color, const char* name ) {
 		/* case TRI_TRIANGLES: */
 		/* 	num_indices = genTrianglesIndices(); */
 		/* 	break; */
-		case TRI_TRIANGLE_STRIP:
-			num_indices = genTriangleStripIndices();
-			break;
+		case TRI_TRIANGLE_STRIP: num_indices = genTriangleStripIndices(); break;
+		case TRI_QUADS: num_indices = genQuadsIndices(); break;
 		default:
 			gEngine.Con_Printf(S_ERROR "TriEnd: unsupported primitive_mode %d\n", g_triapi.primitive_mode - 1);
 			break;

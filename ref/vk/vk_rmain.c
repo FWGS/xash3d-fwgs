@@ -11,6 +11,8 @@
 #include "vk_studio.h"
 #include "vk_beams.h"
 #include "vk_brush.h"
+#include "vk_rpart.h"
+#include "vk_triapi.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
@@ -174,16 +176,6 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 	return loaded;
 }
 
-// efx implementation
-static void CL_DrawParticles( double frametime, particle_t *particles, float partsize )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static void CL_DrawTracers( double frametime, particle_t *tracers )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-
 // Xash3D Render Interface
 // Get renderer info (doesn't changes engine state at all)
 
@@ -309,9 +301,13 @@ static void		AVI_UploadRawFrame( int texture, int cols, int rows, int width, int
 }
 
 // glState related calls (must use this instead of normal gl-calls to prevent de-synchornize local states between engine and the client)
-static void		GL_Bind( int tmu, unsigned int texnum )
+static void GL_Bind( int tmu, unsigned int texnum )
 {
-	PRINT_NOT_IMPLEMENTED();
+	if (tmu != 0) {
+		PRINT_NOT_IMPLEMENTED_ARGS("non-zero tmu=%d", tmu);
+	}
+
+	TriSetTexture(texnum);
 }
 static void		GL_SelectTexture( int tmu )
 {
@@ -386,35 +382,6 @@ static void*		R_GetProcAddress( const char *name )
 }
 
 // TriAPI Interface
-// NOTE: implementation isn't required to be compatible
-static void	TriRenderMode( int mode )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static void	TriBegin( int primitiveCode )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static void	TriEnd( void )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static void	TriColor4f( float r, float g, float b, float a )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static void	TriTexCoord2f( float u, float v )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static void	TriVertex3fv( const float *worldPnt )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
-static void	TriVertex3f( float x, float y, float z )
-{
-	PRINT_NOT_IMPLEMENTED();
-}
 static void	TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
 	PRINT_NOT_IMPLEMENTED();

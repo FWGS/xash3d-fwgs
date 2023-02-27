@@ -2,8 +2,11 @@
 
 #include "xash3d_types.h"
 
+typedef struct model_s model_t;
+
 void TriRenderMode( int mode );
 void TriSetTexture( int texture_index );
+int TriSpriteTexture( model_t *pSpriteModel, int frame );
 
 void TriBegin( int mode );
 
