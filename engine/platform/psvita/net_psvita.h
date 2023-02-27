@@ -41,8 +41,9 @@ GNU General Public License for more details.
 #define FIONBIO SO_NONBLOCK
 #endif
 
-// this is only used to set non-blocking on sockets
-static inline int ioctlsocket( int fd, int req, unsigned int *arg )
+/* ioctlsocket() is only used to set non-blocking on sockets */
+
+static inline int ioctl_psvita( int fd, int req, unsigned int *arg )
 {
 	if ( req == FIONBIO )
 	{
@@ -50,5 +51,7 @@ static inline int ioctlsocket( int fd, int req, unsigned int *arg )
 	}
 	return -ENOSYS;
 }
+
+#define ioctlsocket ioctl_psvita
 
 #endif // NET_PSVITA_H
