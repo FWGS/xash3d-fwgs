@@ -7,6 +7,7 @@
 #include "vk_sprite.h"
 #include "vk_scene.h"
 #include "vk_math.h"
+#include "vk_triapi.h"
 
 #include "xash3d_types.h"
 #include "xash3d_mathlib.h"
@@ -400,9 +401,6 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 static void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
 {
-	PRINT_NOT_IMPLEMENTED();
-
-/* FIXME VK
 	int	i, noiseIndex, noiseStep;
 	float	div, length, fraction, factor, vLast, vStep;
 	vec3_t	last1, last2, point, screen, screenLast, tmp, normal;
@@ -481,7 +479,6 @@ static void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, 
 		VectorCopy( screen, screenLast );
 		noiseIndex += noiseStep;
 	}
-*/
 }
 
 static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
@@ -741,9 +738,6 @@ static void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 
 static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, float freq, float speed, int segments )
 {
-	PRINT_NOT_IMPLEMENTED();
-
-/* FIXME VK
 	int	i, j, noiseIndex, noiseStep;
 	float	div, length, fraction, factor, vLast, vStep;
 	vec3_t	last1, last2, point, screen, screenLast;
@@ -787,6 +781,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 	VectorAdd( center, last1, tmp );		// maxs
 	VectorSubtract( center, last1, screen );	// mins
 
+	/* FIXME VK
 	if( !WORLDMODEL )
 		return;
 
@@ -795,6 +790,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 	{
 		return;
 	}
+	*/
 
 	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f );
 	VectorNormalize( yaxis );
@@ -855,7 +851,6 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 			FracNoise( rgNoise, NOISE_DIVISIONS );
 		}
 	}
-*/
 }
 
 /*
@@ -1115,15 +1110,24 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	{
 	case TE_BEAMTORUS:
 		// FIXME VK GL_Cull( GL_NONE );
+		TriBegin( TRI_TRIANGLE_STRIP );
+		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawTorus( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
+		TriEnd();
 		break;
 	case TE_BEAMDISK:
 		// FIXME VK GL_Cull( GL_NONE );
+		TriBegin( TRI_TRIANGLE_STRIP );
+		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawDisk( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
+		TriEnd();
 		break;
 	case TE_BEAMCYLINDER:
 		// FIXME VK GL_Cull( GL_NONE );
+		TriBegin( TRI_TRIANGLE_STRIP );
+		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawCylinder( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
+		TriEnd();
 		break;
 	case TE_BEAMPOINTS:
 	case TE_BEAMHOSE:
@@ -1131,11 +1135,16 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		break;
 	case TE_BEAMFOLLOW:
 		// FIXME VK TriBegin( TRI_QUADS );
-		R_DrawBeamFollow( pbeam, frametime );
+		//TriColor4f( color[0], color[1], color[2], color[3] );
+		//R_DrawBeamFollow( pbeam, frametime );
+		//TriEnd();
 		break;
 	case TE_BEAMRING:
 		// FIXME VK GL_Cull( GL_NONE );
+		TriBegin( TRI_TRIANGLE_STRIP );
+		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawRing( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
+		TriEnd();
 		break;
 	}
 
