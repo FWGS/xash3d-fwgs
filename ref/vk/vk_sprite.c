@@ -679,7 +679,6 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 	dst_vtx[0].gl_tc[0] = 0.f;
 	dst_vtx[0].gl_tc[1] = 1.f;
 	dst_vtx[0].lm_tc[0] = dst_vtx[0].lm_tc[1] = 0.f;
-	dst_vtx[0].flags = 1; // vertex lighting instead of lightmap lighting
 	Vector4Set(dst_vtx[0].color, 255, 255, 255, 255);
 	VectorCopy(v_normal, dst_vtx[0].normal);
 
@@ -688,7 +687,6 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 	dst_vtx[1].gl_tc[0] = 0.f;
 	dst_vtx[1].gl_tc[1] = 0.f;
 	dst_vtx[1].lm_tc[0] = dst_vtx[1].lm_tc[1] = 0.f;
-	dst_vtx[1].flags = 1; // vertex lighting instead of lightmap lighting
 	Vector4Set(dst_vtx[1].color, 255, 255, 255, 255);
 	VectorCopy(v_normal, dst_vtx[1].normal);
 
@@ -697,7 +695,6 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 	dst_vtx[2].gl_tc[0] = 1.f;
 	dst_vtx[2].gl_tc[1] = 0.f;
 	dst_vtx[2].lm_tc[0] = dst_vtx[2].lm_tc[1] = 0.f;
-	dst_vtx[2].flags = 1; // vertex lighting instead of lightmap lighting
 	Vector4Set(dst_vtx[2].color, 255, 255, 255, 255);
 	VectorCopy(v_normal, dst_vtx[2].normal);
 
@@ -706,7 +703,6 @@ static void R_DrawSpriteQuad( const char *debug_name, mspriteframe_t *frame, vec
 	dst_vtx[3].gl_tc[0] = 1.f;
 	dst_vtx[3].gl_tc[1] = 1.f;
 	dst_vtx[3].lm_tc[0] = dst_vtx[3].lm_tc[1] = 0.f;
-	dst_vtx[3].flags = 1; // vertex lighting instead of lightmap lighting
 	Vector4Set(dst_vtx[3].color, 255, 255, 255, 255);
 	VectorCopy(v_normal, dst_vtx[3].normal);
 

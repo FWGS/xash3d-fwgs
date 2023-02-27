@@ -30,12 +30,15 @@ vec3 normalDecode( vec2 f )
     return normalize( n );
 }
 
-vec3 baryMix(vec3 v1, vec3 v2, vec3 v3, vec2 bary) {
-	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
-}
-
 vec2 baryMix(vec2 v1, vec2 v2, vec2 v3, vec2 bary) {
 	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
 }
 
+vec3 baryMix(vec3 v1, vec3 v2, vec3 v3, vec2 bary) {
+	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
+}
+
+vec4 baryMix(vec4 v1, vec4 v2, vec4 v3, vec2 bary) {
+	return v1 * (1. - bary.x - bary.y) + v2 * bary.x + v3 * bary.y;
+}
 #endif // UTILS_GLSL_INCLUDED

@@ -169,6 +169,8 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 			poly_vertices[i].lm_tc[0] = 0;
 			poly_vertices[i].lm_tc[1] = 0;
 
+			Vector4Set(poly_vertices[i].color, 255, 255, 255, 255);
+
 #define WATER_NORMALS
 			poly_vertices[i].normal[0] = 0;
 			poly_vertices[i].normal[1] = 0;
@@ -653,6 +655,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 
 				vertex.lm_tc[0] = s;
 				vertex.lm_tc[1] = t;
+
+				Vector4Set(vertex.color, 255, 255, 255, 255);
 
 				*(bvert++) = vertex;
 

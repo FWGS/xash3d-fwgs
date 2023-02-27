@@ -24,7 +24,7 @@ void main() {
     const uint vi2 = uint(getIndex(first_index_offset+1)) + getKusok(kusok_index).vertex_offset;
     const uint vi3 = uint(getIndex(first_index_offset+2)) + getKusok(kusok_index).vertex_offset;
 
-    const vec2 texture_uv = getVertex(vi1).gl_tc * (1. - bary.x - bary.y) + getVertex(vi2).gl_tc * bary.x + getVertex(vi3).gl_tc * bary.y + push_constants.time * getKusok(kusok_index).uv_speed;
+    const vec2 texture_uv = GET_VERTEX(vi1).gl_tc * (1. - bary.x - bary.y) + GET_VERTEX(vi2).gl_tc * bary.x + GET_VERTEX(vi3).gl_tc * bary.y + push_constants.time * getKusok(kusok_index).uv_speed;
     // TODO mips
     const uint tex_index = getKusok(kusok_index).tex_base_color;
     const vec4 texture_color = texture(textures[nonuniformEXT(tex_index)], texture_uv);
