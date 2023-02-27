@@ -14,26 +14,53 @@ static struct {
 	uint16_t indices[MAX_TRIAPI_INDICES];
 
 	int num_vertices;
-	int mode;
+	int primitive_mode;
+	int texture_index;
+
+	vk_render_type_e render_type;
+
+	qboolean initialized;
 } g_triapi = {0};
 
-void TriBegin( int mode ) {
-	ASSERT(!g_triapi.mode);
+void TriSetTexture( int texture_index ) {
+	g_triapi.texture_index = texture_index;
+}
 
-	switch(mode) {
+void TriRenderMode( int render_mode ) {
+	switch( render_mode )
+	{
+	case kRenderTransAlpha: g_triapi.render_type = kVkRenderType_A_1mA_R; break;
+	case kRenderTransColor:
+	case kRenderTransTexture: g_triapi.render_type = kVkRenderType_A_1mA_RW; break;
+	case kRenderGlow:
+	case kRenderTransAdd: g_triapi.render_type = kVkRenderType_A_1_R; break;
+	case kRenderNormal:
+	default: g_triapi.render_type = kVkRenderTypeSolid; break;
+	}
+}
+
+void TriBegin( int primitive_mode ) {
+	ASSERT(!g_triapi.primitive_mode);
+
+	switch(primitive_mode) {
 		case TRI_TRIANGLES: break;
 		case TRI_TRIANGLE_STRIP: break;
 		default:
-			gEngine.Con_Printf(S_ERROR "TriBegin: unsupported mode %d\n", mode);
+			gEngine.Con_Printf(S_ERROR "TriBegin: unsupported primitive_mode %d\n", primitive_mode);
 			return;
 	}
 
-	g_triapi.mode = mode + 1;
-	g_triapi.num_vertices = 0;
-
 	vk_vertex_t *const ve = g_triapi.vertices + 0;
-	memset(ve, 0, sizeof *ve);
-	Vector4Set(ve->color, 255, 255, 255, 255);
+	if (g_triapi.num_vertices > 1)
+		*ve = g_triapi.vertices[g_triapi.num_vertices-1];
+
+	if (!g_triapi.initialized) {
+		Vector4Set(ve->color, 255, 255, 255, 255);
+		g_triapi.initialized = true;
+	}
+
+	g_triapi.primitive_mode = primitive_mode + 1;
+	g_triapi.num_vertices = 0;
 }
 
 /* static int genTrianglesIndices(void) { */
@@ -84,13 +111,11 @@ static void emitDynamicGeometry(int num_indices) {
 
 	{
 	// FIXME pass these properly
-		const int texture = tglob.whiteTexture;
 		const vec4_t color = {1, 1, 1, 1};
-		const vk_render_type_e render_type = kVkRenderType_A_1_R;
 		const char* name = "FIXME triapi";
 
 		const vk_render_geometry_t geometry = {
-			.texture = texture,
+			.texture = g_triapi.texture_index,
 			.material = kXVkMaterialEmissive,
 
 			.max_vertex = g_triapi.num_vertices,
@@ -102,21 +127,21 @@ static void emitDynamicGeometry(int num_indices) {
 			.emissive = { color[0], color[1], color[2] },
 		};
 
-		VK_RenderModelDynamicBegin( render_type, color, name );
+		VK_RenderModelDynamicBegin( g_triapi.render_type, color, name );
 		VK_RenderModelDynamicAddGeometry( &geometry );
 		VK_RenderModelDynamicCommit();
 	}
 }
 
 void TriEnd( void ) {
-	if (!g_triapi.mode)
+	if (!g_triapi.primitive_mode)
 		return;
 
 	if (!g_triapi.num_vertices)
 		return;
 
 	int num_indices = 0;
-	switch(g_triapi.mode - 1) {
+	switch(g_triapi.primitive_mode - 1) {
 		/* case TRI_TRIANGLES: */
 		/* 	num_indices = genTrianglesIndices(); */
 		/* 	break; */
@@ -124,14 +149,14 @@ void TriEnd( void ) {
 			num_indices = genTriangleStripIndices();
 			break;
 		default:
-			gEngine.Con_Printf(S_ERROR "TriEnd: unsupported mode %d\n", g_triapi.mode - 1);
+			gEngine.Con_Printf(S_ERROR "TriEnd: unsupported primitive_mode %d\n", g_triapi.primitive_mode - 1);
 			break;
 	}
 
 	emitDynamicGeometry(num_indices);
 
 	g_triapi.num_vertices = 0;
-	g_triapi.mode = 0;
+	g_triapi.primitive_mode = 0;
 }
 
 void TriTexCoord2f( float u, float v ) {

@@ -1106,26 +1106,27 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	// TODO gl renderer has per-vertex color that is updated using brightness and whatever
 	VK_RenderDebugLabelBegin( "beam" );
 
+	TriSetTexture( texturenum );
+	TriRenderMode( render_mode );
+	TriColor4f( color[0], color[1], color[2], color[3] );
+
 	switch( pbeam->type )
 	{
 	case TE_BEAMTORUS:
 		// FIXME VK GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
-		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawTorus( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
 		break;
 	case TE_BEAMDISK:
 		// FIXME VK GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
-		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawDisk( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
 		break;
 	case TE_BEAMCYLINDER:
 		// FIXME VK GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
-		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawCylinder( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
 		break;
@@ -1142,7 +1143,6 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	case TE_BEAMRING:
 		// FIXME VK GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
-		TriColor4f( color[0], color[1], color[2], color[3] );
 		R_DrawRing( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
 		break;
