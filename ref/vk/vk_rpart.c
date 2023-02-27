@@ -28,7 +28,6 @@ GNU General Public License for more details.
 #include "triangleapi.h"
 #include "pm_local.h"
 #include "studio.h"
-#include "client/cl_tent.h" // TriColor4ub
 #include "pm_movevars.h" // movevars_t
 
 static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
@@ -101,7 +100,7 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			TriColor4ub( gEngine.LightToTexGamma( pColor->r ),
+			TriColor4ub_( gEngine.LightToTexGamma( pColor->r ),
 				gEngine.LightToTexGamma( pColor->g ),
 				gEngine.LightToTexGamma( pColor->b ), alpha );
 
@@ -250,7 +249,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			}
 
 			pColor = &gTracerColors[p->color];
-			TriColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
+			TriColor4ub_( pColor->r, pColor->g, pColor->b, p->packedColor );
 
 			TriBegin( TRI_QUADS );
 				TriTexCoord2f( 0.0f, 0.8f );

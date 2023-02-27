@@ -12,6 +12,7 @@ void TriBegin( int mode );
 
 void TriTexCoord2f( float u, float v );
 void TriColor4f( float r, float g, float b, float a );
+void TriColor4ub_( byte r, byte g, byte b, byte a ); // FIXME consolidate with vk_renderstate
 
 // Emits next vertex
 void TriVertex3fv( const float *v );
