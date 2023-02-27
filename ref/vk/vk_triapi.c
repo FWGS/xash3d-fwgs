@@ -7,7 +7,7 @@
 #include "xash3d_mathlib.h"
 
 #define MAX_TRIAPI_VERTICES 1024
-#define MAX_TRIAPI_INDICES 1024
+#define MAX_TRIAPI_INDICES 4096
 
 static struct {
 	vk_vertex_t vertices[MAX_TRIAPI_VERTICES];
@@ -44,6 +44,11 @@ static int genTriangleStripIndices(void) {
 	int num_indices = 0;
 	uint16_t *const dst_idx = g_triapi.indices;
 	for (int i = 2; i < g_triapi.num_vertices; ++i) {
+		if (num_indices > MAX_TRIAPI_INDICES - 3) {
+			gEngine.Con_Printf(S_ERROR "Triapi ran out of indices space, max %d (vertices=%d)\n", MAX_TRIAPI_INDICES, g_triapi.num_vertices);
+			break;
+		}
+
 		if( i & 1 )
 		{
 			// draw triangle [n-1 n-2 n]
