@@ -84,7 +84,7 @@ void TriBegin( int primitive_mode ) {
 static int genQuadsIndices(void) {
 	int num_indices = 0;
 	uint16_t *const dst_idx = g_triapi.indices;
-	for (int i = 3; i < g_triapi.num_vertices; i+=4) {
+	for (int i = 0; i < g_triapi.num_vertices - 3; i+=4) {
 		if (num_indices > MAX_TRIAPI_INDICES - 6) {
 			gEngine.Con_Printf(S_ERROR "Triapi ran out of indices space, max %d (vertices=%d)\n", MAX_TRIAPI_INDICES, g_triapi.num_vertices);
 			break;
@@ -167,9 +167,6 @@ void TriEnd( void ) {
 	if (!g_triapi.primitive_mode)
 		return;
 
-	if (!g_triapi.num_vertices)
-		return;
-
 	const vk_vertex_t *const v = g_triapi.vertices + g_triapi.num_vertices - 1;
 	const vec4_t color = {v->color[0] / 255.f, v->color[1] / 255.f, v->color[2] / 255.f, 1.f};
 	TriEndEx( color, "unnamed triapi" );
@@ -177,9 +174,6 @@ void TriEnd( void ) {
 
 void TriEndEx( const vec4_t color, const char* name ) {
 	if (!g_triapi.primitive_mode)
-		return;
-
-	if (!g_triapi.num_vertices)
 		return;
 
 	int num_indices = 0;
