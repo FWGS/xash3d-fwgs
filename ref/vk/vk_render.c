@@ -688,8 +688,8 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 
 	if (g_render_state.current_frame_is_ray_traced) {
 		if (ent != NULL && model != NULL) {
-			R_PrevFrame_ModelTransform( ent->index, model->prev_transform );
 			R_PrevFrame_SaveCurrentState( ent->index, g_render_state.model );
+			R_PrevFrame_ModelTransform( ent->index, model->prev_transform );
 		}
 		else {
 			Matrix4x4_Copy( model->prev_transform, g_render_state.model );

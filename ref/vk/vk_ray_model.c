@@ -7,6 +7,7 @@
 #include "vk_render.h"
 #include "vk_staging.h"
 #include "vk_light.h"
+#include "vk_math.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -522,7 +523,8 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			}
 
 			applyMaterialToKusok(kusochki + i, geom, render_model->color, HACK_reflective);
-			Matrix4x4_Copy((kusochki + i)->prev_transform, render_model->prev_transform);
+
+			Matrix4x4_ToArrayFloatGL(render_model->prev_transform, (float*)(kusochki + i)->prev_transform);
 		}
 
 		/* gEngine.Con_Reportf("model %s: geom=%d kuoffs=%d kustoff=%d kustsz=%d sthndl=%d\n", */
