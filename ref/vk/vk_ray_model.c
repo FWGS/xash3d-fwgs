@@ -523,7 +523,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 
 			applyMaterialToKusok(kusochki + i, geom, render_model->color, HACK_reflective);
 
-			Matrix4x4_ToArrayFloatGL(render_model->prev_transform, (float*)(kusochki + i)->prev_transform);
+			Matrix4x4_ToArrayFloatGL(render_model->prev_transform, (float*)((kusochki + i)->prev_transform));
 		}
 
 		/* gEngine.Con_Reportf("model %s: geom=%d kuoffs=%d kustoff=%d kustsz=%d sthndl=%d\n", */
