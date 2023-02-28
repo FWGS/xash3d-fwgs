@@ -2129,6 +2129,7 @@ static void R_StudioDrawPoints( void )
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
 
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.worldtransform );
 		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
@@ -2141,11 +2142,10 @@ static void R_StudioDrawPoints( void )
 			R_StudioComputeSkinMatrix( &pnormweight[i], g_studio.worldtransform, skinMat );
 			Matrix3x4_VectorRotate( skinMat, pstudionorms[i], g_studio.norms[i] );
 		}
-
-		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.worldtransform );
 	}
 	else
 	{
+		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.bonestransform );
 		matrix3x4* prev_bones_transforms = R_PrevFrame_BoneTransforms( RI.currententity->index );
 		for( i = 0; i < m_pSubModel->numverts; i++ )
 		{
@@ -2153,8 +2153,6 @@ static void R_StudioDrawPoints( void )
 			Matrix3x4_VectorTransform( prev_bones_transforms[pvertbone[i]], pstudioverts[i], g_studio.prev_verts[i] );
 			R_LightStrength( pvertbone[i], pstudioverts[i], g_studio.lightpos[i] );
 		}
-
-		R_PrevFrame_SaveCurrentBoneTransforms( RI.currententity->index, g_studio.bonestransform );
 	}
 
 	// generate shared normals for properly scaling glowing shell
@@ -2210,7 +2208,7 @@ static void R_StudioDrawPoints( void )
 		qsort( g_studio.meshes, m_pSubModel->nummesh, sizeof( sortedmesh_t ), R_StudioMeshCompare );
 	}
 
-	// NOTE: rewind normals at start
+		// NOTE: rewind normals at start
 	pstudionorms = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->normindex);
 
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
