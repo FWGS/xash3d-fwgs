@@ -716,7 +716,7 @@ let it know we are alive, and log information
 */
 static void Master_Heartbeat( void )
 {
-	if( !public_server->value || svs.maxclients == 1 )
+	if(( !public_server->value && !sv_nat.value ) || svs.maxclients == 1 )
 		return; // only public servers send heartbeats
 
 	// check for time wraparound
