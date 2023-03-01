@@ -104,9 +104,14 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 		if (dot(combined,combined) < color_culling_threshold)
 			continue;
 
-		// FIXME split environment and other lights
-		if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge, is_environment))
-			continue;
+		// TODO split environment and other lights
+		if (is_environment) {
+			if (shadowedSky(P, light_dir_norm))
+				continue;
+		} else {
+			if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge))
+				continue;
+		}
 
 		diffuse += ldiffuse;
 		specular += lspecular;

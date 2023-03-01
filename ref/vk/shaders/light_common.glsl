@@ -29,7 +29,7 @@ uint traceShadowRay(vec3 pos, vec3 dir, float dist, uint flags) {
 bool shadowTestAlphaMask(vec3 pos, vec3 dir, float dist) {
 	rayQueryEXT rq;
 	const uint flags =  0
-		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsCullFrontFacingTrianglesEXT
 		//| gl_RayFlagsNoOpaqueEXT
 		| gl_RayFlagsTerminateOnFirstHitEXT
 		;
@@ -71,7 +71,7 @@ bool shadowTestAlphaMask(vec3 pos, vec3 dir, float dist) {
 }
 #endif
 
-bool shadowed(vec3 pos, vec3 dir, float dist, bool check_sky) {
+bool shadowed(vec3 pos, vec3 dir, float dist) {
 #ifdef RAY_TRACE
 	const uint flags =  0
 		//| gl_RayFlagsCullFrontFacingTrianglesEXT
@@ -80,11 +80,11 @@ bool shadowed(vec3 pos, vec3 dir, float dist, bool check_sky) {
 		| gl_RayFlagsSkipClosestHitShaderEXT
 		;
 	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
-	return check_sky ? payload_shadow.hit_type != SHADOW_SKY : payload_shadow.hit_type == SHADOW_HIT;
+	return payload_shadow.hit_type == SHADOW_HIT;
 #elif defined(RAY_QUERY)
 	{
 		const uint flags =  0
-			| gl_RayFlagsCullFrontFacingTrianglesEXT
+			//| gl_RayFlagsCullFrontFacingTrianglesEXT
 			| gl_RayFlagsOpaqueEXT
 			| gl_RayFlagsTerminateOnFirstHitEXT
 			;
@@ -92,19 +92,54 @@ bool shadowed(vec3 pos, vec3 dir, float dist, bool check_sky) {
 		rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE, pos, 0., dir, dist - shadow_offset_fudge);
 		while (rayQueryProceedEXT(rq)) {}
 
-		if (rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
-			if (!check_sky)
-				return true;
-
-			const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
-			const int kusok_index = instance_kusochki_offset + rayQueryGetIntersectionGeometryIndexEXT(rq, true);
-			const uint flags = getKusok(kusok_index).flags;
-			if ((flags & KUSOK_MATERIAL_FLAG_SKYBOX) == 0)
-				return true;
-		}
+		if (rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT)
+			return true;
 	}
 
 	return shadowTestAlphaMask(pos, dir, dist);
+
+#else
+#error RAY_TRACE or RAY_QUERY
+#endif
+}
+
+bool shadowedSky(vec3 pos, vec3 dir) {
+#ifdef RAY_TRACE
+	const uint flags =  0
+		//| gl_RayFlagsCullFrontFacingTrianglesEXT
+		//| gl_RayFlagsOpaqueEXT
+		| gl_RayFlagsTerminateOnFirstHitEXT
+		| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	const uint hit_type = traceShadowRay(pos, dir, dist, flags);
+	return payload_shadow.hit_type != SHADOW_SKY;
+#elif defined(RAY_QUERY)
+
+	rayQueryEXT rq;
+	const uint flags = 0
+		| gl_RayFlagsCullFrontFacingTrianglesEXT
+		| gl_RayFlagsOpaqueEXT
+		//| gl_RayFlagsTerminateOnFirstHitEXT
+		//| gl_RayFlagsSkipClosestHitShaderEXT
+		;
+	const float L = 10000.; // TODO Why 10k?
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE, pos, 0., dir, L);
+
+	// Find closest intersection, and then check whether that was a skybox
+	while (rayQueryProceedEXT(rq)) {}
+
+	if (rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
+		const uint instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
+		const uint geometry_index = rayQueryGetIntersectionGeometryIndexEXT(rq, true);
+		const uint kusok_index = instance_kusochki_offset + geometry_index;
+		const Kusok kusok = getKusok(kusok_index);
+		if ((kusok.flags & KUSOK_MATERIAL_FLAG_SKYBOX) == 0)
+			return true;
+	}
+
+	// check for alpha-masked surfaces separately
+	const float hit_t = rayQueryGetIntersectionTEXT(rq, true);
+	return shadowTestAlphaMask(pos, dir, hit_t);
 
 #else
 #error RAY_TRACE or RAY_QUERY
