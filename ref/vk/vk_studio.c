@@ -5,6 +5,7 @@
 #include "vk_geometry.h"
 #include "vk_previous_frame.h"
 #include "vk_renderstate.h"
+#include "vk_math.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"
@@ -74,6 +75,7 @@ typedef struct
 	sortedmesh_t	meshes[MAXSTUDIOMESHES];	// sorted meshes
 	vec3_t		verts[MAXSTUDIOVERTS];
 	vec3_t		norms[MAXSTUDIOVERTS];
+	vec3_t tangents[MAXSTUDIOVERTS];
 
 	vec3_t		prev_verts[MAXSTUDIOVERTS]; // last frame state for motion vectors
 
@@ -1127,14 +1129,16 @@ g_studio.verts must be computed
 void R_StudioGenerateNormals( void )
 {
 	int		v0, v1, v2;
-	vec3_t		e0, e1, norm;
+	vec3_t		e0, e1, norm, tangent;
 	mstudiomesh_t	*pmesh;
 	int		i, j;
 
 	ASSERT( m_pSubModel != NULL );
 
-	for( i = 0; i < m_pSubModel->numverts; i++ )
+	for( i = 0; i < m_pSubModel->numverts; i++ ) {
 		VectorClear( g_studio.norms[i] );
+		VectorClear( g_studio.tangents[i] );
+	}
 
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
 	{
@@ -1151,11 +1155,16 @@ void R_StudioGenerateNormals( void )
 
 				if( i > 2 )
 				{
+					// TODO should we get uv (for tangents) for STUDIO_NF_CHROME differently?
+					const vec2_t uv0 = {ptricmds[2], ptricmds[3]};
 					v0 = ptricmds[0]; ptricmds += 4;
+
+					vec2_t uv1 = {ptricmds[2], ptricmds[3]};
 					v1 = ptricmds[0]; ptricmds += 4;
 
 					for( i -= 2; i > 0; i--, ptricmds += 4 )
 					{
+						const vec2_t uv2 = {ptricmds[2], ptricmds[3]};
 						v2 = ptricmds[0];
 
 						VectorSubtract( g_studio.verts[v1], g_studio.verts[v0], e0 );
@@ -1166,7 +1175,14 @@ void R_StudioGenerateNormals( void )
 						VectorAdd( g_studio.norms[v1], norm, g_studio.norms[v1] );
 						VectorAdd( g_studio.norms[v2], norm, g_studio.norms[v2] );
 
+						computeTangent(tangent, g_studio.verts[v0], g_studio.verts[v1], g_studio.verts[v2], uv0, uv1, uv2);
+
+						VectorAdd( g_studio.tangents[v0], tangent, g_studio.tangents[v0] );
+						VectorAdd( g_studio.tangents[v1], tangent, g_studio.tangents[v1] );
+						VectorAdd( g_studio.tangents[v2], tangent, g_studio.tangents[v2] );
+
 						v1 = v2;
+						Vector2Copy(uv2, uv1);
 					}
 				}
 				else
@@ -1180,11 +1196,16 @@ void R_StudioGenerateNormals( void )
 				{
 					qboolean	odd = false;
 
+					// TODO should we get uv (for tangents) for STUDIO_NF_CHROME differently?
+					vec2_t uv0 = {ptricmds[2], ptricmds[3]};
 					v0 = ptricmds[0]; ptricmds += 4;
+
+					vec2_t uv1 = {ptricmds[2], ptricmds[3]};
 					v1 = ptricmds[0]; ptricmds += 4;
 
 					for( i -= 2; i > 0; i--, ptricmds += 4 )
 					{
+						const vec2_t uv2 = {ptricmds[2], ptricmds[3]};
 						v2 = ptricmds[0];
 
 						VectorSubtract( g_studio.verts[v1], g_studio.verts[v0], e0 );
@@ -1195,8 +1216,19 @@ void R_StudioGenerateNormals( void )
 						VectorAdd( g_studio.norms[v1], norm, g_studio.norms[v1] );
 						VectorAdd( g_studio.norms[v2], norm, g_studio.norms[v2] );
 
-						if( odd ) v1 = v2;
-						else v0 = v2;
+						computeTangent(tangent, g_studio.verts[v0], g_studio.verts[v1], g_studio.verts[v2], uv0, uv1, uv2);
+
+						VectorAdd( g_studio.tangents[v0], tangent, g_studio.tangents[v0] );
+						VectorAdd( g_studio.tangents[v1], tangent, g_studio.tangents[v1] );
+						VectorAdd( g_studio.tangents[v2], tangent, g_studio.tangents[v2] );
+
+						if( odd ) {
+							v1 = v2;
+							Vector2Copy(uv2, uv1);
+						} else {
+							v0 = v2;
+							Vector2Copy(uv2, uv0);
+						}
 
 						odd = !odd;
 					}
@@ -1209,8 +1241,10 @@ void R_StudioGenerateNormals( void )
 		}
 	}
 
-	for( i = 0; i < m_pSubModel->numverts; i++ )
+	for( i = 0; i < m_pSubModel->numverts; i++ ) {
 		VectorNormalize( g_studio.norms[i] );
+		VectorNormalize( g_studio.tangents[i] );
+	}
 }
 
 /*
@@ -1919,6 +1953,7 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 			VectorCopy(g_studio.verts[ptricmds[0]], dst_vtx->pos);
 			VectorCopy(g_studio.prev_verts[ptricmds[0]], dst_vtx->prev_pos);
 			VectorCopy(g_studio.norms[ptricmds[0]], dst_vtx->normal);
+			VectorCopy(g_studio.tangents[ptricmds[0]], dst_vtx->tangent);
 			dst_vtx->lm_tc[0] = dst_vtx->lm_tc[1] = 0.f;
 
 			if (FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))

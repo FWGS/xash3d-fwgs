@@ -267,17 +267,21 @@ void Matrix4x4_ConcatScale3( matrix4x4 out, float x, float y, float z )
 	Matrix4x4_Concat( out, base, temp );
 }
 
-void computeTangent(vec3_t out_tangent, vec3_t v0, vec3_t v1, vec3_t v2, vec2_t uv0, vec2_t uv1, vec2_t uv2) {
+void computeTangent(vec3_t out_tangent, const vec3_t v0, const vec3_t v1, const vec3_t v2, const vec2_t uv0, const vec2_t uv1, const vec2_t uv2) {
 	vec3_t e1, e2;
 	vec2_t duv1, duv2;
-	float f;
 
 	VectorSubtract(v1, v0, e1);
 	VectorSubtract(v2, v0, e2);
 	Vector2Subtract(uv1, uv0, duv1);
 	Vector2Subtract(uv2, uv0, duv2);
 
-	f = 1.f / (duv1[0] * duv2[1] - duv1[1] * duv2[0]);
+	const float div = duv1[0] * duv2[1] - duv1[1] * duv2[0];
+	if (fabs(div) < 1e-5f) {
+		VectorClear(out_tangent);
+		return;
+	}
+	const float f = 1.f / div;
 	out_tangent[0] = f * (duv2[1] * e1[0] - duv1[1] * e2[0]);
 	out_tangent[1] = f * (duv2[1] * e1[1] - duv1[1] * e2[1]);
 	out_tangent[2] = f * (duv2[1] * e1[2] - duv1[1] * e2[2]);
