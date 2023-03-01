@@ -20,7 +20,11 @@ vec3 traceAdditive(vec3 pos, vec3 dir, float L) {
 
 		const float hit_t = rayQueryGetIntersectionTEXT(rq, false);
 		const float overshoot = hit_t - L;
-		ret += color * smoothstep(additive_soft_overshoot, 0., overshoot);
+
+		if (overshoot < 0.)
+			ret += color;
+		else if ((kusok.flags & KUSOK_MATERIAL_FLAG_FIXME_GLOW) != 0)
+			ret += color * smoothstep(additive_soft_overshoot, 0., overshoot);
 	}
 	return ret;
 }

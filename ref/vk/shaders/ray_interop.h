@@ -63,7 +63,8 @@ LIST_SPECIALIZATION_CONSTANTS(DECLARE_SPECIALIZATION_CONSTANT)
 #define SHADER_OFFSET_HIT_REGULAR_BASE 0
 #define SHADER_OFFSET_HIT_SHADOW_BASE 3
 
-#define KUSOK_MATERIAL_FLAG_SKYBOX 0x80000000
+#define KUSOK_MATERIAL_FLAG_SKYBOX (1<<0)
+#define KUSOK_MATERIAL_FLAG_FIXME_GLOW (1<<1)
 
 struct Kusok {
 	uint index_offset;
@@ -85,7 +86,9 @@ struct Kusok {
 
 	float roughness;
 	float metalness;
-	PAD(2)
+	uint flags;
+
+	PAD(1)
 
 	mat4 prev_transform;
 };

@@ -184,7 +184,7 @@ void sampleSinglePolygonLight(in vec3 P, in vec3 N, in vec3 view_dir, in SampleC
 
 	const float dist = - dot(vec4(P, 1.f), poly.plane) / dot(light_sample_dir.xyz, poly.plane.xyz);
 
-	if (shadowed(P, light_sample_dir.xyz, dist, false))
+	if (shadowed(P, light_sample_dir.xyz, dist))
 		return;
 
 	vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
@@ -251,7 +251,7 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 		const float dist = - plane_dist / dot(light_sample_dir.xyz, poly.plane.xyz);
 		const vec3 emissive = poly.emissive;
 
-		if (!shadowed(P, light_sample_dir.xyz, dist, false)) {
+		if (!shadowed(P, light_sample_dir.xyz, dist)) {
 			//const float estimate = total_contrib;
 			const float estimate = light_sample_dir.w;
 			vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
@@ -327,7 +327,7 @@ void sampleEmissiveSurfaces(vec3 P, vec3 N, vec3 throughput, vec3 view_dir, Mate
 	const vec3 emissive = poly.emissive;
 
 	//if (true) {//!shadowed(P, light_sample_dir.xyz, dist)) {
-	if (!shadowed(P, light_sample_dir.xyz, dist, false)) {
+	if (!shadowed(P, light_sample_dir.xyz, dist)) {
 		//const float estimate = total_contrib;
 		const float estimate = light_sample_dir.w;
 		vec3 poly_diffuse = vec3(0.), poly_specular = vec3(0.);
