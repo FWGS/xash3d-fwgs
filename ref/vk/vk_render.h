@@ -30,6 +30,7 @@ typedef enum {
 	kXVkMaterialWater,
 	kXVkMaterialSky,
 	kXVkMaterialEmissive,
+	kXVkMaterialEmissiveGlow,
 	kXVkMaterialConveyor,
 	kXVkMaterialChrome,
 } XVkMaterialType;

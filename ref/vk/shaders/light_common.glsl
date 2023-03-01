@@ -98,8 +98,8 @@ bool shadowed(vec3 pos, vec3 dir, float dist, bool check_sky) {
 
 			const int instance_kusochki_offset = rayQueryGetIntersectionInstanceCustomIndexEXT(rq, true);
 			const int kusok_index = instance_kusochki_offset + rayQueryGetIntersectionGeometryIndexEXT(rq, true);
-			const uint tex_base_color = getKusok(kusok_index).tex_base_color;
-			if ((tex_base_color & KUSOK_MATERIAL_FLAG_SKYBOX) == 0)
+			const uint flags = getKusok(kusok_index).flags;
+			if ((flags & KUSOK_MATERIAL_FLAG_SKYBOX) == 0)
 				return true;
 		}
 	}

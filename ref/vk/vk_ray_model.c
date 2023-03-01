@@ -175,6 +175,8 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 	kusok->roughness = mat->roughness;
 	kusok->metalness = mat->metalness;
 
+	kusok->flags = 0;
+
 	// HACK until there is a proper mechanism for patching materials, see https://github.com/w23/xash3d-fwgs/issues/213
 	// FIXME also this erases previous roughness unconditionally
 	if (HACK_reflective) {
@@ -184,7 +186,10 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 	}
 
 	if (geom->material == kXVkMaterialSky)
-		kusok->tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
+		kusok->flags |= KUSOK_MATERIAL_FLAG_SKYBOX;
+
+	if (geom->material == kXVkMaterialEmissiveGlow)
+		kusok->flags |= KUSOK_MATERIAL_FLAG_FIXME_GLOW;
 
 	{
 		vec4_t gcolor;
@@ -195,7 +200,7 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 		Vector4Copy(gcolor, kusok->color);
 	}
 
-	if (geom->material == kXVkMaterialEmissive) {
+	if (geom->material == kXVkMaterialEmissive || geom->material == kXVkMaterialEmissiveGlow) {
 		VectorCopy(geom->emissive, kusok->emissive);
 	} else {
 		RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
@@ -308,13 +313,8 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		/* 	); */
 		/* } */
 
-		if (mg->material == kXVkMaterialSky) {
-			kusochki[i].tex_base_color |= KUSOK_MATERIAL_FLAG_SKYBOX;
-		} else {
-			kusochki[i].tex_base_color &= (~KUSOK_MATERIAL_FLAG_SKYBOX);
-		}
 
-		if (HACK_additive_emissive && mg->material != kXVkMaterialEmissive) {
+		if (HACK_additive_emissive && mg->material != kXVkMaterialEmissive && mg->material != kXVkMaterialEmissiveGlow) {
 			mg->material = kXVkMaterialEmissive;
 			VectorCopy(args.model->color, mg->emissive);
 		}
@@ -517,7 +517,7 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 			vk_render_geometry_t *geom = render_model->geometries + i;
 
 			// FIXME an impedance mismatch: render_type is per-model, while materials and emissive color are per-geom
-			if (HACK_additive_emissive && geom->material != kXVkMaterialEmissive) {
+			if (HACK_additive_emissive && geom->material != kXVkMaterialEmissive && geom->material != kXVkMaterialEmissiveGlow) {
 				geom->material = kXVkMaterialEmissive;
 				VectorCopy(render_model->color, geom->emissive);
 			}
