@@ -5,3 +5,9 @@
 {
 "_xvk_ent_id" "14 15" // remove hack light entity "EXIT"
 }
+
+// more bright lamp
+{
+"_xvk_surface_id" "567" // +0LAB1_W6        150 160 210  8800
+"_light" "150 160 210  35000"
+}

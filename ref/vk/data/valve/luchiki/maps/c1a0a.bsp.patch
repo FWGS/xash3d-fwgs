@@ -33,3 +33,10 @@
 {
 "_xvk_ent_id" "195" // remove hack lights entity
 }
+
+
+// restore light after remove hack light id 5
+{
+"_xvk_surface_id" "931 1702" // +0~GENERIC86B    60  220 170  10000
+"_light" "20 220 170 80000"
+}
