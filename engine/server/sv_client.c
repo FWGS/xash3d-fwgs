@@ -3116,7 +3116,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, "s" )) SV_AddToMaster( from, msg );
 	else if( !Q_strcmp( pcmd, "T" "Source" )) SV_TSourceEngineQuery( from );
 	else if( !Q_strcmp( pcmd, "i" )) NET_SendPacket( NS_SERVER, 5, "\xFF\xFF\xFF\xFFj", from ); // A2A_PING
-	else if( !Q_strcmp( pcmd, "c" ) && Cvar_VariableInteger( "sv_nat" ) && NET_IsFromMasters( from ))
+	else if( !Q_strcmp( pcmd, "c" ) && Cvar_VariableInteger( "sv_nat" ) && NET_IsMasterAdr( from ))
 	{
 		netadr_t to;
 		if( NET_StringToAdr( Cmd_Argv( 1 ), &to ) && !NET_IsReservedAdr( to ))
