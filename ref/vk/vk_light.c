@@ -467,7 +467,7 @@ static void prepareSurfacesLeafVisibilityCache( const struct model_s *map ) {
 		g_lights_bsp.surfaces[i].potentially_visible_leafs = NULL;
 }
 
-void RT_LightsNewMapBegin( const struct model_s *map ) {
+void RT_LightsNewMap( const struct model_s *map ) {
 	// 1. Determine map bounding box (and optimal grid size?)
 		// map->mins, maxs
 	vec3_t map_size, min_cell, max_cell;
@@ -504,48 +504,6 @@ void RT_LightsNewMapBegin( const struct model_s *map ) {
 	g_lights_.visited_cells = bitArrayCreate(g_lights.map.grid_cells);
 
 	prepareSurfacesLeafVisibilityCache( map );
-
-	// Load RAD data based on map name
-	memset(g_lights_.map.emissive_textures, 0, sizeof(g_lights_.map.emissive_textures));
-	loadRadData( map, "maps/lights.rad" );
-
-	{
-		int name_len = Q_strlen(map->name);
-
-		// Strip ".bsp" suffix
-		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
-			name_len -= 4;
-
-		loadRadData( map, "%.*s.rad", name_len, map->name );
-	}
-
-	// Clear static lights counts
-	{
-		g_lights_.num_polygons = g_lights_.num_static.polygons = 0;
-		g_lights_.num_point_lights = g_lights_.num_static.point_lights = 0;
-		g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices = 0;
-
-		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-			vk_lights_cell_t *const cell = g_lights.cells + i;
-			cell->num_point_lights = cell->num_static.point_lights = 0;
-			cell->num_polygons = cell->num_static.polygons = 0;
-			cell->frame_sequence = g_lights_.frame_sequence;
-		}
-	}
-}
-
-void RT_LightsFrameBegin( void ) {
-	g_lights_.num_polygons = g_lights_.num_static.polygons;
-	g_lights_.num_point_lights = g_lights_.num_static.point_lights;
-	g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices;
-
-	g_lights.stats.dirty_cells = 0;
-
-	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
-		vk_lights_cell_t *const cell = g_lights.cells + i;
-		cell->num_polygons = cell->num_static.polygons;
-		cell->num_point_lights = cell->num_static.point_lights;
-	}
 }
 
 static qboolean addSurfaceLightToCell( int cell_index, int polygon_light_index ) {
@@ -931,10 +889,39 @@ static void processStaticPointLights( void ) {
 	APROF_SCOPE_END(static_lights);
 }
 
-void RT_LightsNewMapEnd( const struct model_s *map ) {
-	//debug_dump_lights.enabled = true;
+void RT_LightsLoadBegin( const struct model_s *map ) {
+	// Load RAD data based on map name
+	{
+		int name_len = Q_strlen(map->name);
+
+		// Strip ".bsp" suffix
+		if (name_len > 4 && 0 == Q_stricmp(map->name + name_len - 4, ".bsp"))
+			name_len -= 4;
+
+		memset(g_lights_.map.emissive_textures, 0, sizeof(g_lights_.map.emissive_textures));
+		loadRadData( map, "maps/lights.rad" );
+		loadRadData( map, "%.*s.rad", name_len, map->name );
+	}
+
+	// Clear static lights counts
+	{
+		g_lights_.num_polygons = g_lights_.num_static.polygons = 0;
+		g_lights_.num_point_lights = g_lights_.num_static.point_lights = 0;
+		g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices = 0;
+
+		for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+			vk_lights_cell_t *const cell = g_lights.cells + i;
+			cell->num_point_lights = cell->num_static.point_lights = 0;
+			cell->num_polygons = cell->num_static.polygons = 0;
+			cell->frame_sequence = g_lights_.frame_sequence;
+		}
+	}
 
 	processStaticPointLights();
+}
+
+void RT_LightsLoadEnd( void ) {
+	//debug_dump_lights.enabled = true;
 
 	// Fix static counts
 	{
@@ -1128,6 +1115,20 @@ int RT_LightAddPolygon(const rt_light_add_polygon_t *addpoly) {
 
 		g_lights_.num_polygon_vertices += addpoly->num_vertices;
 		return g_lights_.num_polygons++;
+	}
+}
+
+void RT_LightsFrameBegin( void ) {
+	g_lights_.num_polygons = g_lights_.num_static.polygons;
+	g_lights_.num_point_lights = g_lights_.num_static.point_lights;
+	g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices;
+
+	g_lights.stats.dirty_cells = 0;
+
+	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
+		vk_lights_cell_t *const cell = g_lights.cells + i;
+		cell->num_polygons = cell->num_static.polygons;
+		cell->num_point_lights = cell->num_static.point_lights;
 	}
 }
 

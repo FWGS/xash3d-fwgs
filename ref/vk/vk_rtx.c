@@ -82,7 +82,6 @@ static struct {
 	rt_resource_t res[MAX_RESOURCES];
 
 	qboolean reload_pipeline;
-	qboolean reload_lighting;
 
 	matrix4x4 prev_inv_proj, prev_inv_view;
 } g_rtx = {0};
@@ -139,12 +138,6 @@ void VK_RayFrameBegin( void ) {
 	XVK_RayModel_ClearForNextFrame();
 
 	R_PrevFrame_StartFrame();
-
-	// TODO: move all lighting update to scene?
-	if (g_rtx.reload_lighting) {
-		g_rtx.reload_lighting = false;
-		// FIXME temporarily not supported VK_LightsLoadMapStaticLights();
-	}
 
 	// TODO shouldn't we do this in freeze models mode anyway?
 	RT_LightsFrameBegin();
@@ -601,10 +594,6 @@ static void reloadPipeline( void ) {
 	g_rtx.reload_pipeline = true;
 }
 
-static void reloadLighting( void ) {
-	g_rtx.reload_lighting = true;
-}
-
 static void freezeModels( void ) {
 	g_ray_model_state.freeze_models = !g_ray_model_state.freeze_models;
 }
@@ -653,7 +642,6 @@ qboolean VK_RayInit( void )
 	RT_RayModel_Clear();
 
 	gEngine.Cmd_AddCommand("vk_rtx_reload", reloadPipeline, "Reload RTX shader");
-	gEngine.Cmd_AddCommand("vk_rtx_reload_rad", reloadLighting, "Reload RAD files for static lights");
 	gEngine.Cmd_AddCommand("vk_rtx_freeze", freezeModels, "Freeze models, do not update/add/delete models from to-draw list");
 
 	return true;

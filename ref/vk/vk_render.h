@@ -59,10 +59,6 @@ typedef struct  vk_render_geometry_s {
 	vec3_t emissive;
 } vk_render_geometry_t;
 
-struct vk_ray_model_s;
-
-#define MAX_MODEL_NAME_LENGTH 64
-
 typedef enum {
 	kVkRenderTypeSolid,     // no blending, depth RW
 	kVkRenderType_A_1mA_RW, // blend: src*a + dst*(1-a), depth: RW
@@ -73,11 +69,14 @@ typedef enum {
 	kVkRenderType_1_1_R,    // blend: src + dst, depth test
 	kVkRenderType_COUNT
 } vk_render_type_e;
+
 struct rt_light_add_polygon_s;
+struct vk_ray_model_s;
+
 typedef struct vk_render_model_s {
+#define MAX_MODEL_NAME_LENGTH 64
 	char debug_name[MAX_MODEL_NAME_LENGTH];
 
-	// FIXME: brushes, sprites, studio models, etc all treat render_mode differently
 	vk_render_type_e render_type;
 	vec4_t color;
 	int lightmap; // <= 0 if no lightmap
@@ -88,13 +87,13 @@ typedef struct vk_render_model_s {
 	// This model will be one-frame only, its buffers are not preserved between frames
 	qboolean dynamic;
 
-	// FIXME ...
-	qboolean static_map;
-
 	// Non-NULL only for ray tracing
 	struct vk_ray_model_s *ray_model;
-	struct rt_light_add_polygon_s *polylights;
-	int polylights_count;
+
+	// Polylights which need to be added per-frame dynamically
+	// Used for non-worldmodel brush models which are not static
+	struct rt_light_add_polygon_s *dynamic_polylights;
+	int dynamic_polylights_count;
 
 	// previous frame ObjectToWorld (model) matrix
 	matrix4x4 prev_transform;

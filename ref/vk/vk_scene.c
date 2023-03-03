@@ -61,6 +61,44 @@ static struct {
 	draw_list_t	*draw_list;
 } g_lists;
 
+static void loadLights( const model_t *const map ) {
+	RT_LightsLoadBegin(map);
+
+	const int num_models = gEngine.EngineGetParm( PARM_NUMMODELS, 0 );
+	for( int i = 0; i < num_models; i++ ) {
+		const model_t	*const mod = gEngine.pfnGetModelByIndex( i + 1 );
+
+		if (!mod)
+			continue;
+
+		if( mod->type != mod_brush )
+			continue;
+
+		const qboolean is_worldmodel = i == 0;
+		R_VkBrushModelCollectEmissiveSurfaces(mod, is_worldmodel);
+	}
+
+	// Load static map lights
+	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
+	RT_LightsLoadEnd();
+}
+
+static void reloadMaterials( void ) {
+	// Materials do affect patching, as new materials can be referenced in patch data
+	// So we must do the full sequence
+	XVK_ParseMapEntities();
+	XVK_ReloadMaterials();
+	XVK_ParseMapPatches();
+
+	// Assumes that the map has been loaded
+
+	// Might have loaded new patch data, need to reload lighting data just in case
+	const model_t *const map = gEngine.pfnGetModelByIndex( 1 );
+	loadLights(map);
+}
+
+// Same as the above, but avoids reloading heavy materials data
+// Only reloads light entities, patches, rad files
 static void reloadPatches( void ) {
 	// Must re-parse map entities to initialize initial values before patching
 	XVK_ParseMapEntities();
@@ -70,23 +108,8 @@ static void reloadPatches( void ) {
 	// Assumes that the map brush model has been loaded
 
 	// Patching does disturb light sources, reinitialize
-
-	// FIXME loading patches will be broken now ;_;
-	// ?? VK_LightsLoadMapStaticLights();
-}
-
-static void reloadMaterials( void ) {
-	// Materials do affect patching, as new materials can be referenced in patch data
-	// So we must do the full sequencce
-	XVK_ParseMapEntities();
-	XVK_ReloadMaterials();
-	XVK_ParseMapPatches();
-
-	// Assumes that the map has been loaded
-
-	// Might have loaded new patch data, need to reload lighting data just in case
-	// FIXME loading patches will be broken now ;_;
-	// ??? VK_LightsLoadMapStaticLights();
+	const model_t *const map = gEngine.pfnGetModelByIndex( 1 );
+	loadLights(map);
 }
 
 void VK_SceneInit( void )
@@ -95,9 +118,11 @@ void VK_SceneInit( void )
 
 	g_lists.draw_list = g_lists.draw_stack;
 	g_lists.draw_stack_pos = 0;
+
 	if (vk_core.rtx) {
 		gEngine.Cmd_AddCommand("vk_rtx_reload_materials", reloadMaterials, "Reload PBR materials");
 		gEngine.Cmd_AddCommand("vk_rtx_reload_patches", reloadPatches, "Reload patches (does not update surface deletion)");
+		gEngine.Cmd_AddCommand("vk_rtx_reload_rad", reloadPatches, "Reload RAD files for static lights");
 	}
 }
 
@@ -178,9 +203,6 @@ void R_NewMap( void ) {
 	// Depends on loaded materials. Must preceed loading brush models.
 	XVK_ParseMapPatches();
 
-	// Need parsed map entities, and also should happen before brush model loading
-	RT_LightsNewMapBegin(map);
-
 	// Load all models at once
 	gEngine.Con_Reportf( "Num models: %d:\n", num_models );
 	for( int i = 0; i < num_models; i++ )
@@ -194,15 +216,12 @@ void R_NewMap( void ) {
 		if( m->type != mod_brush )
 			continue;
 
-		if (!VK_BrushModelLoad(m, i == 0))
-		{
-			gEngine.Con_Printf( S_ERROR "Couldn't load model %s\n", m->name );
-		}
+		if (!VK_BrushModelLoad(m))
+			gEngine.Host_Error( "Couldn't load model %s\n", m->name );
 	}
 
-	// Load static map lights
-	// Reads surfaces from loaded brush models (must happen after all brushes are loaded)
-	RT_LightsNewMapEnd(map);
+	RT_LightsNewMap(map);
+	loadLights(map);
 
 	// TODO should we do something like VK_BrushEndLoad?
 	VK_UploadLightmap();
