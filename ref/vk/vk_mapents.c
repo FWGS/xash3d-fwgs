@@ -10,6 +10,11 @@
 
 xvk_map_entities_t g_map_entities;
 
+static struct {
+	xvk_patch_surface_t *surfaces;
+	int surfaces_count;
+} g_patch;
+
 static unsigned parseEntPropWadList(const char* value, string *out, unsigned bit) {
 	int dst_left = sizeof(string) - 2; // ; \0
 	char *dst = *out;
@@ -321,16 +326,17 @@ static void addPatchSurface( const entity_props_t *props, uint32_t have_fields )
 			continue;
 		}
 
-		if (!g_map_entities.patch.surfaces) {
-			g_map_entities.patch.surfaces = Mem_Malloc(vk_core.pool, num_surfaces * sizeof(xvk_patch_surface_t));
+		if (!g_patch.surfaces) {
+			g_patch.surfaces = Mem_Malloc(vk_core.pool, num_surfaces * sizeof(xvk_patch_surface_t));
+			g_patch.surfaces_count = num_surfaces;
 			for (int i = 0; i < num_surfaces; ++i) {
-				g_map_entities.patch.surfaces[i].flags = Patch_Surface_NoPatch;
-				g_map_entities.patch.surfaces[i].tex_id = -1;
-				g_map_entities.patch.surfaces[i].tex = NULL;
+				g_patch.surfaces[i].flags = Patch_Surface_NoPatch;
+				g_patch.surfaces[i].tex_id = -1;
+				g_patch.surfaces[i].tex = NULL;
 			}
 		}
 
-		psurf = g_map_entities.patch.surfaces + index;
+		psurf = g_patch.surfaces + index;
 
 		if (should_remove) {
 			gEngine.Con_Reportf("Patch: surface %d removed\n", index);
@@ -507,9 +513,10 @@ static void parsePatches( const model_t *const map ) {
 	char filename[256];
 	byte *data;
 
-	if (g_map_entities.patch.surfaces) {
-		Mem_Free(g_map_entities.patch.surfaces);
-		g_map_entities.patch.surfaces = NULL;
+	if (g_patch.surfaces) {
+		Mem_Free(g_patch.surfaces);
+		g_patch.surfaces = NULL;
+		g_patch.surfaces_count = 0;
 	}
 
 	Q_snprintf(filename, sizeof(filename), "luchiki/%s.patch", map->name);
@@ -543,4 +550,15 @@ void XVK_ParseMapPatches( void ) {
 
 	parsePatches( map );
 	orientSpotlights();
+}
+
+const xvk_patch_surface_t* R_VkPatchGetSurface( int surface_index ) {
+	if (!g_patch.surfaces_count)
+		return NULL;
+
+	ASSERT(g_patch.surfaces);
+	ASSERT(surface_index >= 0);
+	ASSERT(surface_index < g_patch.surfaces_count);
+
+	return g_patch.surfaces + surface_index;
 }

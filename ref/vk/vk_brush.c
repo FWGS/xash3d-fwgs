@@ -388,7 +388,7 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, float blend, co
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 		vk_render_geometry_t *geom = bmodel->render_model.geometries + i;
 		const int surface_index = geom->surf - mod->surfaces;
-		const xvk_patch_surface_t *patch_surface = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces+surface_index : NULL;
+		const xvk_patch_surface_t *const patch_surface = R_VkPatchGetSurface(surface_index);
 
 		if (render_mode == kRenderTransColor) {
 			// TransColor mode means no texture color is used
@@ -427,9 +427,12 @@ static qboolean renderableSurface( const msurface_t *surf, int i ) {
 // 		PRINTFLAGS(PRINTFLAG)
 // 		gEngine.Con_Reportf("\n");
 // 	}
-//
-	if (g_map_entities.patch.surfaces && g_map_entities.patch.surfaces[i].flags & Patch_Surface_Delete)
-		return false;
+
+	{
+		const xvk_patch_surface_t *patch_surface = R_VkPatchGetSurface(i);
+		if (patch_surface && patch_surface->flags & Patch_Surface_Delete)
+			return false;
+	}
 
 	//if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) ) {
 	if( surf->flags & ( SURF_DRAWTURB | SURF_DRAWTURB_QUADS ) ) {
@@ -481,7 +484,7 @@ static model_sizes_t computeSizes( const model_t *mod ) {
 			sizes.max_texture_id = tex_id;
 
 		{
-			const xvk_patch_surface_t *const psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
+			const xvk_patch_surface_t *const psurf = R_VkPatchGetSurface(i);
 			vec3_t emissive;
 			if ((psurf && (psurf->flags & Patch_Surface_Emissive)) || (RT_GetEmissiveForTexture(emissive, tex_id)))
 				++sizes.emissive_surfaces;
@@ -545,7 +548,7 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			int index_count = 0;
 			vec3_t tangent;
 			int tex_id = surf->texinfo->texture->gl_texturenum;
-			const xvk_patch_surface_t *const psurf = g_map_entities.patch.surfaces ? g_map_entities.patch.surfaces + surface_index : NULL;
+			const xvk_patch_surface_t *const psurf = R_VkPatchGetSurface(i);
 
 			if (!renderableSurface(surf, surface_index))
 				continue;

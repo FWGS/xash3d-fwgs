@@ -72,6 +72,28 @@ typedef struct {
 	vec3_t origin;
 } xvk_mapent_target_t;
 
+#define MAX_MAPENT_TARGETS 256
+
+typedef struct {
+	int num_lights;
+	vk_light_entity_t lights[256];
+
+	int single_environment_index;
+	int entity_count;
+
+	string wadlist;
+
+	int num_targets;
+	xvk_mapent_target_t targets[MAX_MAPENT_TARGETS];
+} xvk_map_entities_t;
+
+extern xvk_map_entities_t g_map_entities;
+
+enum { NoEnvironmentLights = -1, MoreThanOneEnvironmentLight = -2 };
+
+void XVK_ParseMapEntities( void );
+void XVK_ParseMapPatches( void );
+
 enum {
 	Patch_Surface_NoPatch = 0,
 	Patch_Surface_Delete = 0x01,
@@ -93,30 +115,5 @@ typedef struct {
 	vec3_t emissive;
 } xvk_patch_surface_t;
 
-typedef struct {
-	xvk_patch_surface_t *surfaces;
-} xvk_patch_t;
+const xvk_patch_surface_t* R_VkPatchGetSurface( int surface_index );
 
-#define MAX_MAPENT_TARGETS 256
-
-typedef struct {
-	int num_lights;
-	vk_light_entity_t lights[256];
-
-	int single_environment_index;
-	int entity_count;
-
-	string wadlist;
-
-	int num_targets;
-	xvk_mapent_target_t targets[MAX_MAPENT_TARGETS];
-
-	xvk_patch_t patch;
-} xvk_map_entities_t;
-
-extern xvk_map_entities_t g_map_entities;
-
-enum { NoEnvironmentLights = -1, MoreThanOneEnvironmentLight = -2 };
-
-void XVK_ParseMapEntities( void );
-void XVK_ParseMapPatches( void );
