@@ -164,9 +164,6 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 	kusok->index_offset = geom->index_offset;
 	kusok->triangles = geom->element_count / 3;
 
-	/* if (!render_model->static_map) */
-	/* 	VK_LightsAddEmissiveSurface( geom, transform_row, false ); */
-
 	kusok->tex_base_color = mat->tex_base_color;
 	kusok->tex_roughness = mat->tex_roughness;
 	kusok->tex_metalness = mat->tex_metalness;
@@ -200,11 +197,7 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 		Vector4Copy(gcolor, kusok->color);
 	}
 
-	if (geom->material == kXVkMaterialEmissive || geom->material == kXVkMaterialEmissiveGlow) {
-		VectorCopy(geom->emissive, kusok->emissive);
-	} else {
-		RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
-	}
+	VectorCopy(geom->emissive, kusok->emissive);
 
 /* FIXME these should be done in a different way
 	if (geom->material == kXVkMaterialConveyor) {

@@ -35,7 +35,7 @@ typedef enum {
 	kXVkMaterialChrome,
 } XVkMaterialType;
 
-typedef struct  vk_render_geometry_s {
+typedef struct vk_render_geometry_s {
 	int index_offset, vertex_offset;
 
 	// Animated textures will be dynamic and change between frames
@@ -55,7 +55,7 @@ typedef struct  vk_render_geometry_s {
 	// - updating dynamic lights (TODO: can decouple from surface/brush models by providing texture_id and aabb directly here)
 	const struct msurface_s *surf;
 
-	// for kXVkMaterialEmissive
+	// for kXVkMaterialEmissive{,Glow} and others
 	vec3_t emissive;
 } vk_render_geometry_t;
 

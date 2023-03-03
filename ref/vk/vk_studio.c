@@ -2021,6 +2021,8 @@ static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float
 
 			.index_offset = buffer.indices.unit_offset,
 			.element_count = num_indices,
+
+			.emissive = {0, 0, 0},
 		};
 
 		VK_RenderModelDynamicAddGeometry( &geometry );

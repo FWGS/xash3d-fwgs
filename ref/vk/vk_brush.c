@@ -24,6 +24,7 @@
 typedef struct vk_brush_model_s {
 	vk_render_model_t render_model;
 	int num_water_surfaces;
+	int *surface_to_geometry_index;
 } vk_brush_model_t;
 
 static struct {
@@ -218,6 +219,9 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 
 	// Render
 	{
+		vec3_t emissive;
+		RT_GetEmissiveForTexture(emissive, warp->texinfo->texture->gl_texturenum);
+
 		const vk_render_geometry_t geometry = {
 			.texture = warp->texinfo->texture->gl_texturenum, // FIXME assert >= 0
 			.material = kXVkMaterialWater,
@@ -228,6 +232,7 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 
 			.element_count = num_indices,
 			.index_offset = buffer.indices.unit_offset,
+			.emissive = {emissive[0], emissive[1], emissive[2]},
 		};
 
 		VK_RenderModelDynamicAddGeometry( &geometry );
@@ -526,6 +531,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 			if (t != tex_id)
 				continue;
 
+			bmodel->surface_to_geometry_index[i] = num_geometries;
+
 			++num_geometries;
 
 			//gEngine.Con_Reportf( "surface %d: numverts=%d numedges=%d\n", i, surf->polys ? surf->polys->numverts : -1, surf->numedges );
@@ -536,6 +543,8 @@ static qboolean loadBrushSurfaces( model_sizes_t sizes, const model_t *mod ) {
 				// FIXME unlock and free buffers
 				return false;
 			}
+
+			VectorClear(model_geometry->emissive);
 
 			model_geometry->surf = surf;
 			model_geometry->texture = tex_id;
@@ -647,7 +656,8 @@ qboolean VK_BrushModelLoad( model_t *mod ) {
 		const model_sizes_t sizes = computeSizes( mod );
 		const size_t model_size =
 			sizeof(vk_brush_model_t) +
-			sizeof(vk_render_geometry_t) * sizes.num_surfaces;
+			sizeof(vk_render_geometry_t) * sizes.num_surfaces +
+			sizeof(int) * mod->nummodelsurfaces;
 
 		vk_brush_model_t *bmodel = Mem_Calloc(vk_core.pool, model_size);
 		mod->cache.data = bmodel;
@@ -659,6 +669,7 @@ qboolean VK_BrushModelLoad( model_t *mod ) {
 
 		if (sizes.num_surfaces != 0) {
 			bmodel->render_model.geometries = (vk_render_geometry_t*)((char*)(bmodel + 1));
+			bmodel->surface_to_geometry_index = (int*)((char*)(bmodel->render_model.geometries + sizes.num_surfaces));
 
 			if (!loadBrushSurfaces(sizes, mod) || !VK_RenderModelInit(&bmodel->render_model)) {
 				gEngine.Con_Printf(S_ERROR "Could not load model %s\n", mod->name);
@@ -733,21 +744,30 @@ void R_VkBrushModelCollectEmissiveSurfaces( const struct model_s *mod, qboolean 
 			continue;
 
 		const int tex_id = surf->texinfo->texture->gl_texturenum; // TODO animation?
-		const xvk_patch_surface_t *const psurf = R_VkPatchGetSurface(surface_index);
 
 		vec3_t emissive;
-		if ((psurf && (psurf->flags & Patch_Surface_Emissive)) || (RT_GetEmissiveForTexture(emissive, tex_id))) {
-			if (emissive_surfaces_count == MAX_SURFACE_LIGHTS) {
-				gEngine.Con_Printf(S_ERROR "Too many emissive surfaces for model %s: max=%d\n", mod->name, MAX_SURFACE_LIGHTS);
-				break;
-			}
-
-			emissive_surface_t* const surface = &emissive_surfaces[emissive_surfaces_count++];
-			surface->model_surface_index = i;
-			surface->surface_index = surface_index;
-			surface->surf = surf;
-			VectorCopy(emissive, surface->emissive);
+		const xvk_patch_surface_t *const psurf = R_VkPatchGetSurface(surface_index);
+		if (psurf && (psurf->flags & Patch_Surface_Emissive)) {
+			VectorCopy(psurf->emissive, emissive);
+		} else if (RT_GetEmissiveForTexture(emissive, tex_id)) {
+			// emissive
+		} else {
+			// not emissive, continue to the next
+			continue;
 		}
+
+		//gEngine.Con_Reportf("%d: i=%d surf_index=%d patch=%d(%#x) => emissive=(%f,%f,%f)\n", emissive_surfaces_count, i, surface_index, !!psurf, psurf?psurf->flags:0, emissive[0], emissive[1], emissive[2]);
+
+		if (emissive_surfaces_count == MAX_SURFACE_LIGHTS) {
+			gEngine.Con_Printf(S_ERROR "Too many emissive surfaces for model %s: max=%d\n", mod->name, MAX_SURFACE_LIGHTS);
+			break;
+		}
+
+		emissive_surface_t* const surface = &emissive_surfaces[emissive_surfaces_count++];
+		surface->model_surface_index = i;
+		surface->surface_index = surface_index;
+		surface->surf = surf;
+		VectorCopy(emissive, surface->emissive);
 	}
 
 	vk_brush_model_t *const bmodel = mod->cache.data;
@@ -769,6 +789,8 @@ void R_VkBrushModelCollectEmissiveSurfaces( const struct model_s *mod, qboolean 
 		} else {
 			RT_LightAddPolygon(&polylight);
 		}
+
+		VectorCopy(polylight.emissive, bmodel->render_model.geometries[bmodel->surface_to_geometry_index[s->model_surface_index]].emissive);
 	}
 
 	gEngine.Con_Reportf("Loaded %d polylights for %smodel %s\n", emissive_surfaces_count, is_worldmodel ? "world" : "movable ", mod->name);
