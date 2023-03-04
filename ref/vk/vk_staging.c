@@ -5,7 +5,7 @@
 
 #include <memory.h>
 
-#define DEFAULT_STAGING_SIZE (64*1024*1024)
+#define DEFAULT_STAGING_SIZE (128*1024*1024)
 #define MAX_STAGING_ALLOCS (2048)
 #define MAX_CONCURRENT_FRAMES 2
 #define COMMAND_BUFFER_COUNT (MAX_CONCURRENT_FRAMES + 1) // to accommodate two frames in flight plus something trying to upload data before waiting for the next frame to complete
