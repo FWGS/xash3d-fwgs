@@ -6,7 +6,7 @@
 
 #define MAX_ACCELS 2048
 #define MAX_KUSOCHKI 32768
-#define MODEL_CACHE_SIZE 1024
+#define MODEL_CACHE_SIZE 2048
 
 #include "shaders/ray_interop.h"
 
