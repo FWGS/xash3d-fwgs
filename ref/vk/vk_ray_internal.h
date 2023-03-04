@@ -4,7 +4,7 @@
 #include "vk_buffer.h"
 #include "vk_const.h"
 
-#define MAX_ACCELS 1024
+#define MAX_ACCELS 2048
 #define MAX_KUSOCHKI 16384
 #define MODEL_CACHE_SIZE 1024
 
