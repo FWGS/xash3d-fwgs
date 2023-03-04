@@ -1282,13 +1282,12 @@ void RT_LightsFrameEnd( void ) {
 		g_lights_.num_polygons = UINT8_MAX;
 	}
 
-	/* for (int i = 0; i < MAX_ELIGHTS; ++i) { */
-	/* 	const dlight_t *dlight = gEngine.GetEntityLight(i); */
-	/* 	if (!addDlight(dlight)) { */
-	/* 		ERROR_THROTTLED(10,"Too many elights, MAX_POINT_LIGHTS=%d", MAX_POINT_LIGHTS); */
-	/* 		break; */
-	/* 	} */
-	/* } */
+	for (int i = 0; i < MAX_ELIGHTS; ++i) {
+		const dlight_t *dlight = gEngine.GetEntityLight(i);
+		if (!dlight)
+			continue;
+		addDlight(dlight);
+	}
 
 	for (int i = 0; i < g_lights_.num_point_lights; ++i) {
 		vk_point_light_t *const light = g_lights_.point_lights + i;
