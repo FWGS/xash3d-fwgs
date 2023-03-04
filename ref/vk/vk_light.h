@@ -71,9 +71,15 @@ extern vk_lights_t g_lights;
 qboolean VK_LightsInit( void );
 void VK_LightsShutdown( void );
 
+// Allocate clusters and vis data for the new map
 struct model_s;
-void RT_LightsNewMapBegin( const struct model_s *map );
-void RT_LightsNewMapEnd( const struct model_s *map );
+void RT_LightsNewMap( const struct model_s *map );
+
+// Clear light data and prepare for loading
+// RT_LightsNewMap should have been already called for current map
+void RT_LightsLoadBegin( const struct model_s *map );
+// Finalize loading light data, i.e. mark everything loaded so far as static light data
+void RT_LightsLoadEnd( void );
 
 void RT_LightsFrameBegin( void );
 void RT_LightsFrameEnd( void );

@@ -662,6 +662,8 @@ qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 			.model = model,
 		};
 		model->ray_model = VK_RayModelCreate(args);
+		model->dynamic_polylights = NULL;
+		model->dynamic_polylights_count = 0;
 		return !!model->ray_model;
 	}
 
@@ -670,8 +672,11 @@ qboolean VK_RenderModelInit( vk_render_model_t *model ) {
 }
 
 void VK_RenderModelDestroy( vk_render_model_t* model ) {
+	// FIXME why the condition? we should do the cleanup anyway
 	if (vk_core.rtx && (g_render_state.current_frame_is_ray_traced || !model->dynamic)) {
 		VK_RayModelDestroy(model->ray_model);
+		if (model->dynamic_polylights)
+			Mem_Free(model->dynamic_polylights);
 	}
 }
 

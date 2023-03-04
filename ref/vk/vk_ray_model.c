@@ -164,9 +164,6 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 	kusok->index_offset = geom->index_offset;
 	kusok->triangles = geom->element_count / 3;
 
-	/* if (!render_model->static_map) */
-	/* 	VK_LightsAddEmissiveSurface( geom, transform_row, false ); */
-
 	kusok->tex_base_color = mat->tex_base_color;
 	kusok->tex_roughness = mat->tex_roughness;
 	kusok->tex_metalness = mat->tex_metalness;
@@ -200,11 +197,7 @@ static void applyMaterialToKusok(vk_kusok_data_t* kusok, const vk_render_geometr
 		Vector4Copy(gcolor, kusok->color);
 	}
 
-	if (geom->material == kXVkMaterialEmissive || geom->material == kXVkMaterialEmissiveGlow) {
-		VectorCopy(geom->emissive, kusok->emissive);
-	} else {
-		RT_GetEmissiveForTexture( kusok->emissive, geom->texture );
-	}
+	VectorCopy(geom->emissive, kusok->emissive);
 
 /* FIXME these should be done in a different way
 	if (geom->material == kXVkMaterialConveyor) {
@@ -266,6 +259,12 @@ vk_ray_model_t* VK_RayModelCreate( vk_ray_model_init_t args ) {
 		case kVkRenderType_A_1_R: // blend: scr*a + dst, depth test
 		case kVkRenderType_1_1_R: // blend: scr + dst, depth test
 			HACK_additive_emissive = true;
+			break;
+		case kVkRenderTypeSolid:
+		case kVkRenderType_AT:
+			break;
+		case kVkRenderType_COUNT:
+			ASSERT(!"Invalid model render_type");
 			break;
 	}
 
@@ -539,8 +538,8 @@ void VK_RayFrameAddModel( vk_ray_model_t *model, const vk_render_model_t *render
 		model->kusochki_updated_this_frame = true;
 	}
 
-	for (int i = 0; i < render_model->polylights_count; ++i) {
-		rt_light_add_polygon_t *const polylight = render_model->polylights + i;
+	for (int i = 0; i < render_model->dynamic_polylights_count; ++i) {
+		rt_light_add_polygon_t *const polylight = render_model->dynamic_polylights + i;
 		polylight->transform_row = (const matrix3x4*)transform_row;
 		polylight->dynamic = true;
 		RT_LightAddPolygon(polylight);
@@ -553,8 +552,7 @@ void RT_RayModel_Clear(void) {
 	R_DEBuffer_Init(&g_ray_model_state.kusochki_alloc, MAX_KUSOCHKI / 2, MAX_KUSOCHKI / 2);
 }
 
-void XVK_RayModel_ClearForNextFrame( void )
-{
+void XVK_RayModel_ClearForNextFrame( void ) {
 	// FIXME we depend on the fact that only a single frame can be in flight
 	// currently framectl waits for the queue to complete before returning
 	// so we can be sure here that previous frame is complete and we're free to
