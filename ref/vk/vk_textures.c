@@ -830,7 +830,10 @@ void VK_FreeTexture( unsigned int texnum ) {
 		gEngine.FS_FreeImage( tex->original );
 	*/
 
-	// TODO how to do this properly?
+	// Need to make sure that there are no references to this texture anywhere.
+	// It might have been added to staging and then immediately deleted, leaving references to its vkimage
+	// in the staging command buffer. See https://github.com/w23/xash3d-fwgs/issues/464
+	R_VkStagingFlushSync();
 	XVK_CHECK(vkDeviceWaitIdle(vk_core.device));
 
 	XVK_ImageDestroy(&tex->vk.image);

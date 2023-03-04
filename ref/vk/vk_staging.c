@@ -51,7 +51,7 @@ void R_VkStagingShutdown(void) {
 	R_VkCommandPoolDestroy( &g_staging.upload_pool );
 }
 
-static void flushStagingBufferSync(void) {
+void R_VkStagingFlushSync( void ) {
 	const VkCommandBuffer cmdbuf = R_VkStagingCommit();
 	if (!cmdbuf)
 		return;
@@ -59,7 +59,7 @@ static void flushStagingBufferSync(void) {
 	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 	g_staging.cmdbuf = VK_NULL_HANDLE;
 
-	gEngine.Con_Reportf(S_WARN "flushing staging buffer img count=%d\n", g_staging.images.count);
+	//gEngine.Con_Reportf(S_WARN "flushing staging buffer img count=%d\n", g_staging.images.count);
 
 	const VkSubmitInfo subinfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -84,14 +84,14 @@ static uint32_t allocateInRing(uint32_t size, uint32_t alignment) {
 	if (offset != ALO_ALLOC_FAILED)
 		return offset;
 
-	flushStagingBufferSync();
+	R_VkStagingFlushSync();
 
 	return R_FlippingBuffer_Alloc(&g_staging.buffer_alloc, size, alignment );
 }
 
 vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args) {
 	if ( g_staging.buffers.count >= MAX_STAGING_ALLOCS )
-		flushStagingBufferSync();
+		R_VkStagingFlushSync();
 
 	const uint32_t offset = allocateInRing(args.size, args.alignment);
 	if (offset == ALO_ALLOC_FAILED)
@@ -116,7 +116,7 @@ vk_staging_region_t R_VkStagingLockForBuffer(vk_staging_buffer_args_t args) {
 
 vk_staging_region_t R_VkStagingLockForImage(vk_staging_image_args_t args) {
 	if ( g_staging.images.count >= MAX_STAGING_ALLOCS )
-		flushStagingBufferSync();
+		R_VkStagingFlushSync();
 
 	const uint32_t offset = allocateInRing(args.size, args.alignment);
 	if (offset == ALO_ALLOC_FAILED)
