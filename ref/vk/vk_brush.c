@@ -736,6 +736,7 @@ void R_VkBrushModelCollectEmissiveSurfaces( const struct model_s *mod, qboolean 
 	emissive_surface_t emissive_surfaces[MAX_SURFACE_LIGHTS];
 	int emissive_surfaces_count = 0;
 
+	// Load list of all emissive surfaces
 	for( int i = 0; i < mod->nummodelsurfaces; ++i) {
 		const int surface_index = mod->firstmodelsurface + i;
 		const msurface_t *surf = mod->surfaces + surface_index;
@@ -773,6 +774,13 @@ void R_VkBrushModelCollectEmissiveSurfaces( const struct model_s *mod, qboolean 
 	vk_brush_model_t *const bmodel = mod->cache.data;
 	ASSERT(bmodel);
 
+	// Clear old per-geometry emissive values. The new emissive values will be assigned by the loop below only to the relevant geoms
+	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
+		vk_render_geometry_t *const geom = bmodel->render_model.geometries + i;
+		VectorClear(geom->emissive);
+	}
+
+	// Non-worldmodel brush models may move around and so must have their emissive surfaces treated as dynamic
 	if (!is_worldmodel) {
 		if (bmodel->render_model.dynamic_polylights)
 			Mem_Free(bmodel->render_model.dynamic_polylights);
@@ -780,16 +788,20 @@ void R_VkBrushModelCollectEmissiveSurfaces( const struct model_s *mod, qboolean 
 		bmodel->render_model.dynamic_polylights = Mem_Malloc(vk_core.pool, sizeof(bmodel->render_model.dynamic_polylights[0]) * emissive_surfaces_count);
 	}
 
+	// Apply all emissive surfaces found
 	for (int i = 0; i < emissive_surfaces_count; ++i) {
 		const emissive_surface_t* const s = emissive_surfaces + i;
-
 		const rt_light_add_polygon_t polylight = loadPolyLight(mod, s->surface_index, s->surf, s->emissive);
-		if (!is_worldmodel) {
-			bmodel->render_model.dynamic_polylights[i] = polylight;
-		} else {
+
+		// Worldmodel emissive surfaces are added immediately, as the worldmodel is always drawn and is static.
+		// Non-worldmodel ones will be applied later when the model is actually rendered
+		if (is_worldmodel) {
 			RT_LightAddPolygon(&polylight);
+		} else {
+			bmodel->render_model.dynamic_polylights[i] = polylight;
 		}
 
+		// Assign the emissive value to the right geometry
 		VectorCopy(polylight.emissive, bmodel->render_model.geometries[bmodel->surface_to_geometry_index[s->model_surface_index]].emissive);
 	}
 
