@@ -5,7 +5,7 @@
 #include "vk_const.h"
 
 #define MAX_ACCELS 2048
-#define MAX_KUSOCHKI 16384
+#define MAX_KUSOCHKI 32768
 #define MODEL_CACHE_SIZE 1024
 
 #include "shaders/ray_interop.h"
