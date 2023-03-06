@@ -60,6 +60,7 @@ void NSwitch_Shutdown( void );
 void PSVita_Init( void );
 void PSVita_Shutdown( void );
 qboolean PSVita_GetBasePath( char *buf, const size_t buflen );
+void PSVita_InputUpdate( void );
 #endif
 
 /*
