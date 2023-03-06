@@ -126,6 +126,8 @@ void Platform_Vibrate( float time, char flags )
 		SDL_JoystickRumble( g_joy, 0xFFFF, 0xFFFF, time * 1000.0f );
 }
 
+#if !XASH_PSVITA
+
 /*
 =============
 SDLash_EnableTextInput
@@ -138,6 +140,8 @@ void Platform_EnableTextInput( qboolean enable )
 	enable ? SDL_StartTextInput() : SDL_StopTextInput();
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
+
+#endif // !XASH_PSVITA
 
 /*
 =============
