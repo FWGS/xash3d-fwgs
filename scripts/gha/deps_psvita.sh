@@ -8,7 +8,7 @@ export VITASDK=/usr/local/vitasdk
 
 install_package()
 {
-	vdpm $1 || exit 1
+	./vdpm $1 || exit 1
 }
 
 git clone https://github.com/vitasdk/vdpm.git || exit 1
