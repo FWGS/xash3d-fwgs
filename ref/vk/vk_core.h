@@ -54,8 +54,6 @@ typedef struct vulkan_core_s {
 	VkDevice device;
 	VkQueue queue;
 
-	VkSampler default_sampler;
-
 	unsigned int num_devices;
 	ref_device_t *devices;
 } vulkan_core_t;

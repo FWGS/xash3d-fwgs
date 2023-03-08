@@ -26,6 +26,8 @@ typedef struct vk_texture_s
 
 #define MAX_LIGHTMAPS	256
 
+#define MAX_SAMPLERS 8 // TF_NEAREST x 2 * TF_BORDER x 2 * TF_CLAMP x 2
+
 typedef struct vk_textures_global_s
 {
 	int		defaultTexture;   	// use for bad textures
@@ -48,6 +50,14 @@ typedef struct vk_textures_global_s
 	vk_texture_t cubemap_placeholder;
 
 	VkDescriptorImageInfo dii_all_textures[MAX_TEXTURES];
+
+	// FIXME this should not exist, all textures should have their own samplers based on flags
+	VkSampler default_sampler_fixme;
+
+	struct {
+		texFlags_t flags;
+		VkSampler sampler;
+	} samplers[MAX_SAMPLERS];
 } vk_textures_global_t;
 
 // TODO rename this consistently

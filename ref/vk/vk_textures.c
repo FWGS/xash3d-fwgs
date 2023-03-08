@@ -21,15 +21,18 @@
 static vk_texture_t vk_textures[MAX_TEXTURES];
 static vk_texture_t* vk_texturesHashTable[TEXTURES_HASH_SIZE];
 static uint	vk_numTextures;
-vk_textures_global_t tglob;
+vk_textures_global_t tglob = {0};
 
 static void VK_CreateInternalTextures(void);
+static VkSampler pickSamplerForFlags( texFlags_t flags );
 
-void initTextures( void )
-{
+void initTextures( void ) {
 	memset( vk_textures, 0, sizeof( vk_textures ));
 	memset( vk_texturesHashTable, 0, sizeof( vk_texturesHashTable ));
 	vk_numTextures = 0;
+
+	tglob.default_sampler_fixme = pickSamplerForFlags(0);
+	ASSERT(tglob.default_sampler_fixme != VK_NULL_HANDLE);
 
 	// create unused 0-entry
 	Q_strncpy( vk_textures->name, "*unused*", sizeof( vk_textures->name ));
@@ -49,14 +52,19 @@ void initTextures( void )
 	gEngine.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 	*/
 
+	// Fill empty texture with references to the default texture
 	{
-		const vk_texture_t *const default_texture = vk_textures + tglob.defaultTexture;
+		const VkImageView default_view = vk_textures[tglob.defaultTexture].vk.image.view;
+		ASSERT(default_view != VK_NULL_HANDLE);
 		for (int i = 0; i < MAX_TEXTURES; ++i) {
-			const vk_texture_t *const tex = findTexture(i);;
+			const vk_texture_t *const tex = vk_textures + i;
+			if (tex->vk.image.view)
+				continue;
+
 			tglob.dii_all_textures[i] = (VkDescriptorImageInfo){
-				.imageView = tex->vk.image.view != VK_NULL_HANDLE ? tex->vk.image.view : default_texture->vk.image.view,
+				.imageView =  default_view,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				.sampler = vk_core.default_sampler,
+				.sampler = tglob.default_sampler_fixme,
 			};
 		}
 	}
@@ -73,6 +81,11 @@ void destroyTextures( void )
 
 	XVK_ImageDestroy(&tglob.cubemap_placeholder.vk.image);
 	memset(&tglob.cubemap_placeholder, 0, sizeof(tglob.cubemap_placeholder));
+
+	for (int i = 0; i < ARRAYSIZE(tglob.samplers); ++i) {
+		if (tglob.samplers[i].sampler != VK_NULL_HANDLE)
+			vkDestroySampler(vk_core.device, tglob.samplers[i].sampler, NULL);
+	}
 
 	//memset( tglob.lightmapTextures, 0, sizeof( tglob.lightmapTextures ));
 	memset( vk_texturesHashTable, 0, sizeof( vk_texturesHashTable ));
@@ -479,6 +492,48 @@ static void BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth, in
 	}
 }
 
+static VkSampler createSamplerForFlags( texFlags_t flags ) {
+	VkSampler sampler;
+	const VkFilter filter_mode = (flags & TF_NEAREST) ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+	const VkSamplerAddressMode addr_mode =
+		  (flags & TF_BORDER) ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER
+		: ((flags & TF_CLAMP) ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT);
+	const VkSamplerCreateInfo sci = {
+		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+		.magFilter =  filter_mode,
+		.minFilter = filter_mode,
+		.addressModeU = addr_mode,
+		.addressModeV = addr_mode,
+		.addressModeW = addr_mode,
+		.anisotropyEnable = vk_core.physical_device.anisotropy_enabled,
+		.maxAnisotropy = vk_core.physical_device.properties.limits.maxSamplerAnisotropy,
+		.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+		.unnormalizedCoordinates = VK_FALSE,
+		.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+		.minLod = 0.f,
+		.maxLod = 16.,
+	};
+	XVK_CHECK(vkCreateSampler(vk_core.device, &sci, NULL, &sampler));
+	return sampler;
+}
+
+static VkSampler pickSamplerForFlags( texFlags_t flags ) {
+	flags &= (TF_BORDER | TF_CLAMP | TF_NEAREST);
+
+	for (int i = 0; i < ARRAYSIZE(tglob.samplers); ++i) {
+		if (tglob.samplers[i].sampler == VK_NULL_HANDLE) {
+			tglob.samplers[i].flags = flags;
+			return tglob.samplers[i].sampler = createSamplerForFlags(flags);
+		}
+
+		if (tglob.samplers[i].flags == flags)
+			return tglob.samplers[i].sampler;
+	}
+
+	gEngine.Con_Printf(S_ERROR "Couldn't find/allocate sampler for flags %x\n", flags);
+	return tglob.default_sampler_fixme;
+}
+
 static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers, int num_layers, qboolean cubemap) {
 	const VkFormat format = VK_GetFormat(layers[0]->type);
 	int mipCount = 0;
@@ -642,21 +697,25 @@ static qboolean uploadTexture(vk_texture_t *tex, rgbdata_t *const *const layers,
 	// TODO how should we approach this:
 	// - per-texture desc sets can be inconvenient if texture is used in different incompatible contexts
 	// - update descriptor sets in batch?
-	if (vk_desc.next_free != MAX_TEXTURES)
-	{
-		VkDescriptorImageInfo dii_tex = {
+	if (vk_desc.next_free != MAX_TEXTURES) {
+		const int index = tex - vk_textures;
+		VkDescriptorImageInfo dii_tmp;
+		// FIXME handle cubemaps properly w/o this garbage. they should be the same as regular textures.
+		VkDescriptorImageInfo *const dii_tex = (num_layers == 1) ? tglob.dii_all_textures + index : &dii_tmp;
+		*dii_tex = (VkDescriptorImageInfo){
 			.imageView = tex->vk.image.view,
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.sampler = pickSamplerForFlags( tex->flags ),
 		};
-		VkWriteDescriptorSet wds[] = { {
+		const VkWriteDescriptorSet wds[] = { {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.dstBinding = 0,
 			.dstArrayElement = 0,
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.pImageInfo = &dii_tex,
+			.pImageInfo = dii_tex,
+			.dstSet = tex->vk.descriptor = vk_desc.sets[vk_desc.next_free++],
 		}};
-		wds[0].dstSet = tex->vk.descriptor = vk_desc.sets[vk_desc.next_free++];
 		vkUpdateDescriptorSets(vk_core.device, ARRAYSIZE(wds), wds, 0, NULL);
 	}
 	else
@@ -734,19 +793,6 @@ int	VK_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 		gEngine.FS_FreeImage( pic ); // release source texture
 		return 0;
 	}
-
-	{
-		const int index = tex - vk_textures;
-		tglob.dii_all_textures[index] = (VkDescriptorImageInfo){
-			.imageView = tex->vk.image.view,
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			.sampler = vk_core.default_sampler,
-		};
-	}
-
-	/* FIXME
-	VK_ApplyTextureParams( tex ); // update texture filter, wrap etc
-	*/
 
 	tex->width = pic->width;
 	tex->height = pic->height;
@@ -842,12 +888,11 @@ void VK_FreeTexture( unsigned int texnum ) {
 	tglob.dii_all_textures[texnum] = (VkDescriptorImageInfo){
 		.imageView = vk_textures[tglob.defaultTexture].vk.image.view,
 		.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		.sampler = vk_core.default_sampler,
+		.sampler = tglob.default_sampler_fixme,
 	};
 }
 
-int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update )
-{
+static int loadTextureFromBuffers( const char *name, rgbdata_t *const *const pic, int pic_count, texFlags_t flags, qboolean update ) {
 	vk_texture_t	*tex;
 
 	if( !Common_CheckTexName( name ))
@@ -872,28 +917,20 @@ int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 		tex = Common_AllocTexture( name, flags );
 	}
 
-	VK_ProcessImage( tex, pic );
+	for (int i = 0; i < pic_count; ++i)
+		VK_ProcessImage( tex, pic[i] );
 
-	if( !uploadTexture( tex, &pic, 1, false ))
+	if( !uploadTexture( tex, pic, pic_count, false ))
 	{
 		memset( tex, 0, sizeof( vk_texture_t ));
 		return 0;
 	}
 
-	{
-		const int index = tex - vk_textures;
-		tglob.dii_all_textures[index] = (VkDescriptorImageInfo){
-			.imageView = tex->vk.image.view,
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			.sampler = vk_core.default_sampler,
-		};
-	}
-
-	/* FIXME
-	VK_ApplyTextureParams( tex ); // update texture filter, wrap etc
-	*/
-
 	return (tex - vk_textures);
+}
+
+int VK_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update ) {
+	return loadTextureFromBuffers(name, &pic, 1, flags, update);
 }
 
 int XVK_TextureLookupF( const char *fmt, ...) {

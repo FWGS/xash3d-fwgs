@@ -649,6 +649,35 @@ static qboolean initSurface( void )
 	return true;
 }
 
+// TODO modules
+/*
+typedef struct r_vk_module_s {
+	qboolean (*init)(void);
+	void (*destroy)(void);
+
+	// TODO next: dependecies, refcounts, ...
+} r_vk_module_t;
+
+#define LIST_MODULES(X) ...
+
+=>
+extern const r_vk_module_t vk_instance_module;
+...
+extern const r_vk_module_t vk_rtx_module;
+...
+
+=>
+static const r_vk_module_t *const modules[] = {
+	&vk_instance_module,
+	&vk_device_module,
+	&vk_aftermath_module,
+	&vk_texture_module,
+	...
+	&vk_rtx_module,
+	...
+};
+*/
+
 qboolean R_VkInit( void )
 {
 	// FIXME !!!! handle initialization errors properly: destroy what has already been created
@@ -716,26 +745,6 @@ qboolean R_VkInit( void )
 	if (!R_VkStagingInit())
 		return false;
 
-	// TODO move this to vk_texture module
-	{
-		VkSamplerCreateInfo sci = {
-			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-			.magFilter = VK_FILTER_LINEAR,
-			.minFilter = VK_FILTER_LINEAR,
-			.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,// TODO CLAMP_TO_EDGE, for menus
-			.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,//CLAMP_TO_EDGE,
-			.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			.anisotropyEnable = vk_core.physical_device.anisotropy_enabled,
-			.maxAnisotropy = vk_core.physical_device.properties.limits.maxSamplerAnisotropy,
-			.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
-			.unnormalizedCoordinates = VK_FALSE,
-			.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-			.minLod = 0.f,
-			.maxLod = 16.,
-		};
-		XVK_CHECK(vkCreateSampler(vk_core.device, &sci, NULL, &vk_core.default_sampler));
-	}
-
 	if (!VK_PipelineInit())
 		return false;
 
@@ -802,7 +811,6 @@ void R_VkShutdown( void ) {
 
 	VK_DescriptorShutdown();
 
-	vkDestroySampler(vk_core.device, vk_core.default_sampler, NULL);
 	R_VkStagingShutdown();
 
 	VK_DevMemDestroy();

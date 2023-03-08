@@ -117,9 +117,10 @@ void VK_RayNewMap( void ) {
 
 	g_rtx.res[ExternalResource_skybox].resource = (vk_resource_t){
 		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		// FIXME we should pick tglob.dii_all_textures here directly
 		.value = (vk_descriptor_value_t){
 			.image = {
-				.sampler = vk_core.default_sampler,
+				.sampler = tglob.default_sampler_fixme,
 				.imageView = tglob.skybox_cube.vk.image.view ? tglob.skybox_cube.vk.image.view : tglob.cubemap_placeholder.vk.image.view,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			},

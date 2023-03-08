@@ -38,20 +38,20 @@ qboolean VK_DescriptorInit( void )
 	{
 		const int num_sets = MAX_TEXTURES;
 		// ... TODO find better place for this; this should be per-pipeline/shader
-		VkDescriptorSetLayoutBinding bindings[] = { {
+		const VkDescriptorSetLayoutBinding bindings[] = { {
 			.binding = 0,
 			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = 1,
 			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-			.pImmutableSamplers = &vk_core.default_sampler,
+			.pImmutableSamplers = NULL,
 		}};
-		VkDescriptorSetLayoutCreateInfo dslci = {
+		const VkDescriptorSetLayoutCreateInfo dslci = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 			.bindingCount = ARRAYSIZE(bindings),
 			.pBindings = bindings,
 		};
 		VkDescriptorSetLayout* tmp_layouts = Mem_Malloc(vk_core.pool, sizeof(VkDescriptorSetLayout) * num_sets);
-		VkDescriptorSetAllocateInfo dsai = {
+		const VkDescriptorSetAllocateInfo dsai = {
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 			.descriptorPool = vk_desc.pool,
 			.descriptorSetCount = num_sets,
