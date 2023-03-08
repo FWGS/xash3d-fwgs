@@ -36,6 +36,7 @@ GNU General Public License for more details.
 #include "dlight.h"
 #include "ref_api.h"
 #include "com_strings.h"
+#include "crtlib.h"
 #include "vgl_shim.h"
 
 #define MAX_SHADERLEN 4096
@@ -136,17 +137,17 @@ static GLuint VGL_GenerateShader( const vgl_prog_t *prog, GLenum type )
 
 	for ( i = 0; i < VGL_FLAG_MAX; ++i )
 	{
-		snprintf( tmp, sizeof( tmp ), "#define %s %d\n", vgl_flag_name[i], prog->flags & ( 1 << i ) );
-		strncat( shader, tmp, MAX_SHADERLEN );
+		Q_snprintf( tmp, sizeof( tmp ), "#define %s %d\n", vgl_flag_name[i], prog->flags & ( 1 << i ) );
+		Q_strncat( shader, tmp, MAX_SHADERLEN );
 	}
 
 	if ( type == GL_FRAGMENT_SHADER )
-		strncat( shader, vgl_frag_src, MAX_SHADERLEN );
+		Q_strncat( shader, vgl_frag_src, MAX_SHADERLEN );
 	else
-		strncat( shader, vgl_vert_src, MAX_SHADERLEN );
+		Q_strncat( shader, vgl_vert_src, MAX_SHADERLEN );
 
 	id = glCreateShader( type );
-	len = strlen( shader );
+	len = Q_strlen( shader );
 	glShaderSource( id, 1, (const void *)&shader, &len );
 	glCompileShader( id );
 	glGetShaderiv( id, GL_COMPILE_STATUS, &status );
