@@ -114,6 +114,7 @@ void Sys_PrintUsage( void )
 #if XASH_WIN32
 	O("-noavi           ","disable AVI support")
 	O("-nointro         ","disable intro video")
+	O("-minidumps       ","enable writing minidumps when game crashed")
 #endif // XASH_WIN32
 
 #if XASH_DOS
