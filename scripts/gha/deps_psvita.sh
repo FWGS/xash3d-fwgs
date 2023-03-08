@@ -6,10 +6,21 @@ echo "Downloading vitasdk..."
 
 export VITASDK=/usr/local/vitasdk
 
+install_package()
+{
+	vdpm $1 || exit 1
+}
+
 git clone https://github.com/vitasdk/vdpm.git || exit 1
 pushd vdpm
 ./bootstrap-vitasdk.sh || exit 1
-./install-all.sh || exit 1
+install_package taihen
+install_package kubridge
+install_package libk
+install_package zlib
+install_package SceShaccCgExt
+install_package vitaShaRK
+install_package libmathneon
 popd
 
 echo "Downloading vitaGL..."
