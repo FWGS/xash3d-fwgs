@@ -34,6 +34,7 @@ Crash handler, called from system
 #include <winnt.h>
 #include <dbghelp.h>
 #include <psapi.h>
+#include <time.h>
 
 #ifndef XASH_SDL
 typedef ULONG_PTR DWORD_PTR, *PDWORD_PTR;
@@ -189,6 +190,62 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 
 	SymCleanup( process );
 }
+
+static void Sys_GetProcessName( char *processName, size_t bufferSize )
+{
+	GetModuleBaseName( GetCurrentProcess(), NULL, processName, bufferSize - 1 );
+	COM_FileBase( processName, processName );
+}
+
+static void Sys_GetMinidumpFileName( const char *processName, char *mdmpFileName, size_t bufferSize )
+{
+	time_t currentUtcTime = time( NULL );
+	struct tm *currentLocalTime = localtime( &currentUtcTime );
+
+	Q_snprintf( mdmpFileName, bufferSize, "%s_%s_crash_%d%.2d%.2d_%.2d%.2d%.2d.mdmp",
+		processName,
+		Q_buildcommit(),
+		currentLocalTime->tm_year + 1900,
+		currentLocalTime->tm_mon + 1,
+		currentLocalTime->tm_mday,
+		currentLocalTime->tm_hour,
+		currentLocalTime->tm_min,
+		currentLocalTime->tm_sec);
+}
+
+static qboolean Sys_WriteMinidump(PEXCEPTION_POINTERS exceptionInfo, MINIDUMP_TYPE minidumpType)
+{
+	HRESULT errorCode;
+	string processName;
+	string mdmpFileName;
+	MINIDUMP_EXCEPTION_INFORMATION minidumpInfo;
+
+	Sys_GetProcessName( processName, sizeof( processName ));
+	Sys_GetMinidumpFileName( processName, mdmpFileName, sizeof( mdmpFileName ));
+
+	SetLastError( NOERROR );
+	HANDLE fileHandle = CreateFile(
+		mdmpFileName, GENERIC_WRITE, FILE_SHARE_WRITE,
+		NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	errorCode = HRESULT_FROM_WIN32( GetLastError( ));
+	if( !SUCCEEDED( errorCode )) {
+		CloseHandle( fileHandle );
+		return false;
+	}
+
+	minidumpInfo.ThreadId = GetCurrentThreadId();
+	minidumpInfo.ExceptionPointers = exceptionInfo;
+	minidumpInfo.ClientPointers = FALSE;
+
+	qboolean status = MiniDumpWriteDump(
+		GetCurrentProcess(), GetCurrentProcessId(), fileHandle,
+		minidumpType, &minidumpInfo, NULL, NULL);
+
+	CloseHandle( fileHandle );
+	return status;
+}
+
 #endif /* DBGHELP */
 
 LPTOP_LEVEL_EXCEPTION_FILTER       oldFilter;
@@ -209,6 +266,26 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 		if( host.type == HOST_NORMAL )
 			CL_Crashed(); // tell client about crash
 		else host.status = HOST_CRASHED;
+
+#if DBGHELP
+		if( Sys_CheckParm( "-minidumps" ))
+		{
+			int minidumpFlags = (
+				MiniDumpWithDataSegs | 
+				MiniDumpWithCodeSegs |
+				MiniDumpWithHandleData | 
+				MiniDumpWithFullMemory |
+				MiniDumpWithFullMemoryInfo |
+				MiniDumpWithIndirectlyReferencedMemory |
+				MiniDumpWithThreadInfo |
+				MiniDumpWithModuleHeaders);
+
+			if( !Sys_WriteMinidump( pInfo, (MINIDUMP_TYPE)minidumpFlags )) {
+				// fallback method, create minidump with minimal info in it
+				Sys_WriteMinidump( pInfo, MiniDumpWithDataSegs );
+			}
+		}
+#endif
 
 		if( host_developer.value <= 0 )
 		{
