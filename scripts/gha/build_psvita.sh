@@ -53,7 +53,7 @@ echo "Building HLSDK..."
 pushd hlsdk-xash3d
 build_hlsdk vita-mobile_hacks valve
 build_hlsdk vita-opfor gearbox
-# bshift will fall back to mobile_hacks
+build_hlsdk vita-bshift bshift
 popd
 
 echo "Generating default config files..."
