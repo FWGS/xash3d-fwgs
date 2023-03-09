@@ -104,12 +104,18 @@ void computePointLights(vec3 P, vec3 N, uint cluster_index, vec3 throughput, vec
 		if (dot(combined,combined) < color_culling_threshold)
 			continue;
 
+		vec3 shadow_sample_offset = normalize(vec3(rand01(), rand01(), rand01()) - vec3(0.5, 0.5, 0.5));
+		const float shadow_sample_radius = is_environment ? 1000. : 10.; // 10000 for some maps!
+		const vec3 shadow_sample_dir = light_dir_norm * light_dist + shadow_sample_offset * shadow_sample_radius;
+
 		// TODO split environment and other lights
 		if (is_environment) {
-			if (shadowedSky(P, light_dir_norm))
+			//if (shadowedSky(P, light_dir_norm))
+			if (shadowedSky(P, normalize(shadow_sample_dir)))
 				continue;
 		} else {
-			if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge))
+			//if (shadowed(P, light_dir_norm, light_dist + shadow_offset_fudge))
+			if (shadowed(P, normalize(shadow_sample_dir), length(shadow_sample_dir) + shadow_offset_fudge))
 				continue;
 		}
 
