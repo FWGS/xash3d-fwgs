@@ -16,7 +16,6 @@ pushd vdpm
 ./bootstrap-vitasdk.sh || exit 1
 install_package taihen
 install_package kubridge
-install_package libk
 install_package zlib
 install_package SceShaccCgExt
 install_package vitaShaRK
