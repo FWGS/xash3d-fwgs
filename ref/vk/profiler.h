@@ -26,19 +26,15 @@
 
 typedef int aprof_scope_id_t;
 
+// scope_name should be static const, and not on stack
 aprof_scope_id_t aprof_scope_init(const char *scope_name);
 void aprof_scope_event(aprof_scope_id_t, int begin);
-void aprof_scope_frame( void );
+// Returns event index for previous frame
+uint32_t aprof_scope_frame( void );
 uint64_t aprof_time_now_ns( void );
 
 typedef struct {
 	const char *name;
-
-	struct {
-		uint64_t duration;
-		uint64_t duration_children;
-		int count;
-	} frame;
 } aprof_scope_t;
 
 #define APROF_MAX_SCOPES 256
@@ -49,12 +45,43 @@ typedef struct {
 	uint64_t time_begin;
 } aprof_stack_frame_t;
 
+#define APROF_EVENT_TYPE_MASK 0x0full
+#define APROF_EVENT_TYPE_SHIFT 0
+#define APROF_EVENT_TYPE(event) (((event)&APROF_EVENT_TYPE_MASK) >> APROF_EVENT_TYPE_SHIFT)
+
+#define APROF_EVENT_SCOPE_ID_MASK 0xff00ull
+#define APROF_EVENT_SCOPE_ID_SHIFT 8
+#define APROF_EVENT_SCOPE_ID(event) (((event)&APROF_EVENT_SCOPE_ID_MASK) >> APROF_EVENT_SCOPE_ID_SHIFT)
+
+#define APROF_EVENT_TIMESTAMP_SHIFT 16
+#define APROF_EVENT_TIMESTAMP(event) ((event) >> APROF_EVENT_TIMESTAMP_SHIFT)
+
+#define APROF_EVENT_MAKE(type, scope_id, timestamp) \
+	(((type) << APROF_EVENT_TYPE_SHIFT) & APROF_EVENT_TYPE_MASK) | \
+	(((scope_id) << APROF_EVENT_SCOPE_ID_SHIFT) & APROF_EVENT_SCOPE_ID_MASK) | \
+	((timestamp) << APROF_EVENT_TIMESTAMP_SHIFT)
+
+enum {
+	APROF_EVENT_FRAME_BOUNDARY = 0,
+	APROF_EVENT_SCOPE_BEGIN = 1,
+	APROF_EVENT_SCOPE_END = 2,
+};
+
+// MUST be power of 2
+#define APROF_EVENT_BUFFER_SIZE (1<<20)
+#define APROF_EVENT_BUFFER_SIZE_MASK (APROF_EVENT_BUFFER_SIZE - 1)
+
+typedef uint64_t aprof_event_t;
+
 typedef struct {
 	aprof_scope_t scopes[APROF_MAX_SCOPES];
 	int num_scopes;
 
-	aprof_stack_frame_t stack[APROF_MAX_STACK_DEPTH];
-	int stack_depth;
+	aprof_event_t events[APROF_EVENT_BUFFER_SIZE];
+	uint32_t events_write;
+	uint32_t events_last_frame;
+
+	int current_frame_wraparounds;
 
 	// TODO event log for chrome://trace (or similar) export and analysis
 } aprof_state_t;
@@ -104,52 +131,24 @@ void aprof_scope_event(aprof_scope_id_t scope_id, int begin) {
 	if (scope_id < 0 || scope_id >= g_aprof.num_scopes)
 		return;
 
-	// TODO improve performance by just writing into an event array here
-	// analysis should be done on-demand later
-	if (begin) {
-		const int s = g_aprof.stack_depth;
-		if (g_aprof.stack_depth == APROF_MAX_STACK_DEPTH)
-			return;
+	g_aprof.events[g_aprof.events_write] = APROF_EVENT_MAKE(begin?APROF_EVENT_SCOPE_BEGIN:APROF_EVENT_SCOPE_END, scope_id, now);
+	g_aprof.events_write = (g_aprof.events_write + 1) & APROF_EVENT_BUFFER_SIZE_MASK;
 
-		g_aprof.stack[s].scope = scope_id;
-		g_aprof.stack[s].time_begin = now;
-		g_aprof.stack_depth++;
-	} else {
-		aprof_scope_t *scope;
-		const aprof_stack_frame_t *const frame = g_aprof.stack + g_aprof.stack_depth - 1;
-		uint64_t frame_duration;
-
-		assert(g_aprof.stack_depth > 0);
-		if (g_aprof.stack_depth == 0)
-			return;
-
-		assert(frame->scope == scope_id);
-
-		scope = g_aprof.scopes + frame->scope;
-		frame_duration = now - frame->time_begin;
-		scope->frame.duration += frame_duration;
-		scope->frame.count++;
-
-		if (g_aprof.stack_depth > 1) {
-			const aprof_stack_frame_t *const parent_frame = g_aprof.stack + g_aprof.stack_depth - 2;
-			aprof_scope_t *const parent_scope = g_aprof.scopes + parent_frame->scope;
-
-			assert(parent_frame->scope >= 0);
-			assert(parent_frame->scope < g_aprof.num_scopes);
-
-			parent_scope->frame.duration_children += frame_duration;
-		}
-
-		g_aprof.stack_depth--;
-	}
+	if (g_aprof.events_write == g_aprof.events_last_frame)
+		++g_aprof.current_frame_wraparounds;
 }
 
-void aprof_scope_frame( void ) {
-	assert(g_aprof.stack_depth == 0);
-	for (int i = 0; i < g_aprof.num_scopes; ++i) {
-		aprof_scope_t *const scope = g_aprof.scopes + i;
-		memset(&scope->frame, 0, sizeof(scope->frame));
-	}
+uint32_t aprof_scope_frame( void ) {
+	const uint64_t now = aprof_time_now_ns();
+	const uint32_t previous_frame = g_aprof.events_last_frame;
+
+	g_aprof.events_last_frame = g_aprof.events_write;
+	g_aprof.events[g_aprof.events_write] = APROF_EVENT_MAKE(APROF_EVENT_FRAME_BOUNDARY, 0, now);
+	g_aprof.events_write = (g_aprof.events_write + 1) & APROF_EVENT_BUFFER_SIZE_MASK;
+
+	g_aprof.current_frame_wraparounds = 0;
+
+	return previous_frame;
 }
 
 #endif

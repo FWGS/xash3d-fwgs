@@ -15,6 +15,7 @@
 #include "shaders/ray_interop.h" // stats: struct LightCluster
 
 #include "profiler.h"
+#include "r_slows.h"
 
 #include "eiface.h" // ARRAYSIZE
 
@@ -185,33 +186,16 @@ static void updateGamma( void ) {
 	}
 }
 
-// FIXME move this to r_speeds or something like that
-static void showProfilingData( void ) {
-	{
-		const int dirty = g_lights.stats.dirty_cells;
-		gEngine.Con_NPrintf(4, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
-	}
-
-	gEngine.Con_NPrintf(5, "Perf scopes:");
-	for (int i = 0; i < g_aprof.num_scopes; ++i) {
-		const aprof_scope_t *const scope = g_aprof.scopes + i;
-		gEngine.Con_NPrintf(6 + i, "%s: c%d t%.03f(%.03f)ms s%.03f(%.03f)ms", scope->name,
-			scope->frame.count,
-			scope->frame.duration / 1e6,
-			(scope->frame.duration / 1e6) / scope->frame.count,
-			(scope->frame.duration - scope->frame.duration_children) / 1e6,
-			(scope->frame.duration - scope->frame.duration_children) / 1e6 / scope->frame.count);
-	}
-}
-
 void R_BeginFrame( qboolean clearScene ) {
 	ASSERT(g_frame.current.phase == Phase_Submitted || g_frame.current.phase == Phase_Idle);
 	const int prev_frame_index = g_frame.current.index % MAX_CONCURRENT_FRAMES;
 	g_frame.current.index = (g_frame.current.index + 1) % MAX_CONCURRENT_FRAMES;
 	const VkCommandBuffer cmdbuf = vk_frame.cmdbuf = g_frame.command.buffers[g_frame.current.index];
 
-	showProfilingData();
-	aprof_scope_frame();
+	{
+		const uint32_t prev_frame_event_index = aprof_scope_frame();
+		R_ShowExtendedProfilingData(prev_frame_event_index);
+	}
 
 	APROF_SCOPE_BEGIN(frame);
 	APROF_SCOPE_BEGIN(begin_frame);
@@ -349,10 +333,10 @@ static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
 		XVK_CHECK(vkWaitForFences(vk_core.device, 1, g_frame.fence_done + g_frame.current.index, VK_TRUE, INT64_MAX));
 		APROF_SCOPE_END(frame_gpu_wait);
 
-		if (vk_core.debug) {
-			// FIXME more scopes
-			XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
-		}
+		/* if (vk_core.debug) { */
+		/* 	// FIXME more scopes */
+		/* 	XVK_CHECK(vkQueueWaitIdle(vk_core.queue)); */
+		/* } */
 		g_frame.current.phase = Phase_Idle;
 	}
 }
