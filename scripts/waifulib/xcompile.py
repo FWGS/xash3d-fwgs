@@ -480,7 +480,7 @@ class PSVita:
 		# this optimization is broken in vitasdk
 		cflags += ['-fno-optimize-sibling-calls']
 		# disable some ARM bullshit
-		cflags += ['-fsigned-char', '-fno-short-enums', '-Wno-attributes']
+		cflags += ['-fno-short-enums', '-Wno-attributes']
 		# base include dir
 		cflags += ['-isystem %s/arm-vita-eabi/include' % self.vitasdk_dir]
 		# SDL include dir
