@@ -631,7 +631,7 @@ of all text functions.
 char *va( const char *format, ... )
 {
 	va_list		argptr;
-	static char	string[16][1024], *s;
+	static char	string[16][MAX_VA_STRING], *s;
 	static int	stringindex = 0;
 
 	s = string[stringindex];
