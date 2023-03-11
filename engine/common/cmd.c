@@ -1264,7 +1264,7 @@ static void Cmd_Apropos_f( void )
 
 	partial = Cmd_Args();
 
-	if( Q_strpbrk( partial, "*?" ))
+	if( !Q_strpbrk( partial, "*?" ))
 	{
 		Q_snprintf( buf, sizeof( buf ), "*%s*", partial );
 		partial = buf;
