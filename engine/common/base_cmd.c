@@ -238,23 +238,27 @@ void BaseCmd_Stats_f( void )
 
 		if( len > maxsize )
 			maxsize = len;
+
 	}
 
-	Con_Printf( "Base command stats:\n");
-	Con_Printf( "Bucket minimal length: %d\n", minsize );
-	Con_Printf( "Bucket maximum length: %d\n", maxsize );
-	Con_Printf( "Empty buckets: %d\n", empty );
+	Con_Printf( "min length: %d, max length: %d, empty: %d\n", minsize, maxsize, empty );
 }
+
+typedef struct
+{
+	qboolean valid;
+	int lookups;
+} basecmd_test_stats_t;
 
 static void BaseCmd_CheckCvars( const char *key, const char *value, const void *unused, void *ptr )
 {
-	base_command_t *v = BaseCmd_Find( HM_CVAR, key );
-	qboolean *invalid = ptr;
+	basecmd_test_stats_t *stats = ptr;
 
-	if( !v )
+	stats->lookups++;
+	if( !BaseCmd_Find( HM_CVAR, key ))
 	{
 		Con_Printf( "Cvar %s is missing in basecmd\n", key );
-		*invalid = true;
+		stats->valid = false;
 	}
 }
 
@@ -267,38 +271,51 @@ testing order matches cbuf execute
 */
 void BaseCmd_Test_f( void )
 {
-	void *cmd;
-	cmdalias_t *a;
-	qboolean invalid = false;
+	basecmd_test_stats_t stats;
+	double start, end, dt;
+	int i;
 
-	// Cmd_LookupCmds don't allows to check alias, so just iterate
-	for( a = Cmd_AliasGetList(); a; a = a->next )
+	stats.valid = true;
+	stats.lookups = 0;
+
+	start = Sys_DoubleTime() * 1000;
+
+	for( i = 0; i < 1000; i++ )
 	{
-		base_command_t *v = BaseCmd_Find( HM_CMDALIAS, a->name );
+		cmdalias_t *a;
+		void *cmd;
 
-		if( !v )
+		// Cmd_LookupCmds don't allows to check alias, so just iterate
+		for( a = Cmd_AliasGetList(); a; a = a->next, stats.lookups++ )
 		{
-			Con_Printf( "Alias %s is missing in basecmd\n", a->name );
-			invalid = true;
+			if( !BaseCmd_Find( HM_CMDALIAS, a->name ))
+			{
+				Con_Printf( "Alias %s is missing in basecmd\n", a->name );
+				stats.valid = false;
+			}
 		}
+
+		for( cmd = Cmd_GetFirstFunctionHandle(); cmd;
+			 cmd = Cmd_GetNextFunctionHandle( cmd ), stats.lookups++ )
+		{
+			if( !BaseCmd_Find( HM_CMD, Cmd_GetName( cmd )))
+			{
+				Con_Printf( "Command %s is missing in basecmd\n", Cmd_GetName( cmd ));
+				stats.valid = false;
+			}
+		}
+
+		Cvar_LookupVars( 0, NULL, &stats.valid, (setpair_t)BaseCmd_CheckCvars );
 	}
 
-	for( cmd = Cmd_GetFirstFunctionHandle(); cmd;
-		 cmd = Cmd_GetNextFunctionHandle( cmd ) )
-	{
-		base_command_t *v = BaseCmd_Find( HM_CMD, Cmd_GetName( cmd ) );
+	end = Sys_DoubleTime() * 1000;
 
-		if( !v )
-		{
-			Con_Printf( "Command %s is missing in basecmd\n", Cmd_GetName( cmd ) );
-			invalid = true;
-		}
-	}
+	dt = end - start;
 
-	Cvar_LookupVars( 0, NULL, &invalid, (setpair_t)BaseCmd_CheckCvars );
-
-	if( !invalid )
-	{
+	if( !stats.valid )
 		Con_Printf( "BaseCmd is valid\n" );
-	}
+
+	Con_Printf( "Test took %.3f ms, %d lookups, %.3f us/lookup\n", dt, stats.lookups, dt / stats.lookups * 1000 );
+
+	BaseCmd_Stats_f();
 }
