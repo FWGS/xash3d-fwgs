@@ -17,9 +17,19 @@ GNU General Public License for more details.
 #include "base_cmd.h"
 #include "cdll_int.h"
 
-// TODO: use another hash function, as COM_HashKey depends on string length
 #define HASH_SIZE 128 // 128 * 4 * 4 == 2048 bytes
+
+typedef struct base_command_hashmap_s
+{
+	base_command_t          *basecmd; // base command: cvar, alias or command
+	const char              *name;    // key for searching
+	base_command_type_e     type;     // type for faster searching
+	struct base_command_hashmap_s *next;
+} base_command_hashmap_t;
+
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
+
+#define BaseCmd_HashKey( x ) COM_HashKey( name, HASH_SIZE )
 
 /*
 ============
@@ -28,7 +38,7 @@ BaseCmd_FindInBucket
 Find base command in bucket
 ============
 */
-base_command_hashmap_t *BaseCmd_FindInBucket( base_command_hashmap_t *bucket, base_command_type_e type, const char *name )
+static base_command_hashmap_t *BaseCmd_FindInBucket( base_command_hashmap_t *bucket, base_command_type_e type, const char *name )
 {
 	base_command_hashmap_t *i = bucket;
 	for( ; i && ( i->type != type || Q_stricmp( name, i->name ) ); // filter out
@@ -44,9 +54,9 @@ BaseCmd_GetBucket
 Get bucket which contain basecmd by given name
 ============
 */
-base_command_hashmap_t *BaseCmd_GetBucket( const char *name )
+static base_command_hashmap_t *BaseCmd_GetBucket( const char *name )
 {
-	return hashed_cmds[ COM_HashKey( name, HASH_SIZE ) ];
+	return hashed_cmds[ BaseCmd_HashKey( name ) ];
 }
 
 /*
@@ -73,7 +83,7 @@ BaseCmd_Find
 Find every type of base command and write into arguments
 ============
 */
-void BaseCmd_FindAll(const char *name, base_command_t **cmd, base_command_t **alias, base_command_t **cvar)
+void BaseCmd_FindAll( const char *name, base_command_t **cmd, base_command_t **alias, base_command_t **cvar )
 {
 	base_command_hashmap_t *base = BaseCmd_GetBucket( name );
 	base_command_hashmap_t *i = base;
@@ -101,7 +111,6 @@ void BaseCmd_FindAll(const char *name, base_command_t **cmd, base_command_t **al
 			}
 		}
 	}
-
 }
 
 /*
@@ -159,7 +168,7 @@ Remove base command from hashmap
 */
 void BaseCmd_Remove( base_command_type_e type, const char *name )
 {
-	uint hash = COM_HashKey( name, HASH_SIZE );
+	uint hash = BaseCmd_HashKey( name );
 	base_command_hashmap_t *i, *prev;
 
 	for( prev = NULL, i = hashed_cmds[hash]; i &&

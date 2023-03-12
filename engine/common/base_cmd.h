@@ -17,8 +17,6 @@ GNU General Public License for more details.
 #ifndef BASE_CMD_H
 #define BASE_CMD_H
 
-// TODO: Find cases when command hashmap works incorrect
-// and maybe disable it
 #define XASH_HASHED_VARS
 
 #ifdef XASH_HASHED_VARS
@@ -33,18 +31,9 @@ typedef enum base_command_type
 
 typedef void base_command_t;
 
-typedef struct base_command_hashmap_s
-{
-	base_command_t          *basecmd; // base command: cvar, alias or command
-	const char              *name;    // key for searching
-	base_command_type_e     type;     // type for faster searching
-	struct base_command_hashmap_s *next;
-} base_command_hashmap_t;
 
 
 void BaseCmd_Init( void );
-base_command_hashmap_t *BaseCmd_GetBucket( const char *name );
-base_command_hashmap_t *BaseCmd_FindInBucket( base_command_hashmap_t *bucket, base_command_type_e type, const char *name );
 base_command_t *BaseCmd_Find( base_command_type_e type, const char *name );
 void BaseCmd_FindAll( const char *name,
 	base_command_t **cmd, base_command_t **alias, base_command_t **cvar );
