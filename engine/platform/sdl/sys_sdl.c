@@ -63,15 +63,16 @@ void Platform_Init( void )
 	SDL_StopTextInput();
 #endif // XASH_SDL == 2
 
-#if XASH_NSWITCH
-	NSwitch_Init();
-#elif XASH_WIN32
+#if XASH_WIN32
 	Wcon_CreateConsole(); // system console used by dedicated server or show fatal errors
 #elif XASH_POSIX
 	Posix_Daemonize();
-#elif XASH_PSVITA
+#if XASH_PSVITA
 	PSVita_Init();
+#elif XASH_NSWITCH
+	NSwitch_Init();
 #endif
+#endif // XASH_POSIX
 
 	SDLash_InitCursors();
 }
