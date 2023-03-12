@@ -122,15 +122,23 @@ Add new typed base command to hashmap
 */
 void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const char *name )
 {
-	uint hash = COM_HashKey( name, HASH_SIZE );
-	base_command_hashmap_t *elem;
+	base_command_hashmap_t *elem, *cur, *find;
+	uint hash = BaseCmd_HashKey( name );
 
 	elem = Z_Malloc( sizeof( base_command_hashmap_t ) );
 	elem->basecmd = basecmd;
 	elem->type = type;
 	elem->name = name;
-	elem->next = hashed_cmds[hash];
-	hashed_cmds[hash] = elem;
+
+	// link the variable in alphanumerical order
+	for( cur = NULL, find = hashed_cmds[hash];
+		  find && Q_strcmp( find->name, elem->name ) < 0;
+		  cur = find, find = find->next );
+
+	if( cur ) cur->next = elem;
+	else hashed_cmds[hash] = elem;
+
+	elem->next = find;
 }
 
 /*
