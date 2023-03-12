@@ -844,6 +844,7 @@ void COM_NormalizeAngles( vec3_t angles );
 int COM_FileSize( const char *filename );
 void COM_FreeFile( void *buffer );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
+char *va( const char *format, ... ) _format( 1 );
 
 // soundlib shared exports
 qboolean S_Init( void );

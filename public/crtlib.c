@@ -621,30 +621,6 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 
 /*
 ============
-va
-
-does a varargs printf into a temp buffer,
-so I don't need to have varargs versions
-of all text functions.
-============
-*/
-char *va( const char *format, ... )
-{
-	va_list		argptr;
-	static char	string[16][MAX_VA_STRING], *s;
-	static int	stringindex = 0;
-
-	s = string[stringindex];
-	stringindex = (stringindex + 1) & 15;
-	va_start( argptr, format );
-	Q_vsnprintf( s, sizeof( string[0] ), format, argptr );
-	va_end( argptr );
-
-	return s;
-}
-
-/*
-============
 COM_FileBase
 
 Extracts the base name of a file (no path, no extension, assumes '/' as path separator)
