@@ -4886,7 +4886,12 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			pkvd[i].szKeyName = copystring( "angles" );
 
 			if( flYawAngle >= 0.0f )
-				pkvd[i].szValue = copystring( va( "%g %g %g", ent->v.angles[0], flYawAngle, ent->v.angles[2] ));
+			{
+				char temp[MAX_VA_STRING];
+
+				Q_snprintf( temp, sizeof( temp ), "%g %g %g", ent->v.angles[0], flYawAngle, ent->v.angles[2] );
+				pkvd[i].szValue = copystring( temp );
+			}
 			else if( flYawAngle == -1.0f )
 				pkvd[i].szValue = copystring( "-90 0 0" );
 			else if( flYawAngle == -2.0f )
@@ -4897,11 +4902,14 @@ qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 #ifdef HACKS_RELATED_HLMODS
 		if( adjust_origin && !Q_strcmp( pkvd[i].szKeyName, "origin" ))
 		{
+			char temp[MAX_VA_STRING];
 			char	*pstart = pkvd[i].szValue;
 
 			COM_ParseVector( &pstart, origin, 3 );
 			Mem_Free( pkvd[i].szValue );	// release old value, so we don't need these
-			pkvd[i].szValue = copystring( va( "%g %g %g", origin[0], origin[1], origin[2] - 16.0f ));
+
+			Q_snprintf( temp, sizeof( temp ), "%g %g %g", origin[0], origin[1], origin[2] - 16.0f );
+			pkvd[i].szValue = copystring( temp );
 		}
 #endif
 		if( !Q_strcmp( pkvd[i].szKeyName, "light" ))
