@@ -1517,7 +1517,10 @@ static void Mod_SetupSubmodels( dbspmodel_t *bmod )
 
 		if( i != 0 )
 		{
-			Mod_FindModelOrigin( ents, va( "*%i", i ), bm->origin );
+			char temp[MAX_VA_STRING];
+
+			Q_snprintf( temp, sizeof( temp ), "*%i", i );
+			Mod_FindModelOrigin( ents, temp, bm->origin );
 
 			// mark models that have origin brushes
 			if( !VectorIsNull( bm->origin ))
@@ -2022,7 +2025,9 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 				// check wads in reverse order
 				for( j = bmod->wadlist.count - 1; j >= 0; j-- )
 				{
-					char	*texpath = va( "%s.wad/%s", bmod->wadlist.wadnames[j], texname );
+					char texpath[MAX_VA_STRING];
+
+					Q_snprintf( texpath, sizeof( texpath ), "%s.wad/%s", bmod->wadlist.wadnames[j], texname );
 
 					if( FS_FileExists( texpath, false ))
 					{
@@ -2078,7 +2083,9 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 					// check wads in reverse order
 					for( j = bmod->wadlist.count - 1; j >= 0; j-- )
 					{
-						char	*texpath = va( "%s.wad/%s.mip", bmod->wadlist.wadnames[j], tx->name );
+						char texpath[MAX_VA_STRING];
+
+						Q_snprintf( texpath, sizeof( texpath ), "%s.wad/%s.mip", bmod->wadlist.wadnames[j], tx->name );
 
 						if( FS_FileExists( texpath, false ))
 						{
