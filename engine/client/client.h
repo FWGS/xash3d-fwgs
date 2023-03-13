@@ -817,6 +817,7 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *font, int flags );
 void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height );
 void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, int flags );
+int CL_DrawStringf( cl_font_t *font, float x, float y, rgba_t color, int flags, const char *fmt, ... ) _format( 6 );
 
 
 //
