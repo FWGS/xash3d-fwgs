@@ -393,10 +393,10 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 	{
 		y -= net_graphheight->value;
 
-		CL_DrawString( x, y, va( "%.1f fps" , 1.0f / framerate ), colors, font, FONT_DRAW_NORENDERMODE );
+		CL_DrawStringf( font, x, y, colors, FONT_DRAW_NORENDERMODE, "%.1f fps" , 1.0f / framerate);
 
 		if( avg > 1.0f )
-			CL_DrawString( x + 75, y, va( "%i ms" , (int)avg ), colors, font, FONT_DRAW_NORENDERMODE );
+			CL_DrawStringf( font, x + 75, y, colors, FONT_DRAW_NORENDERMODE, "%i ms" , (int)avg );
 
 		y += 15;
 
@@ -404,10 +404,12 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 		if( !out ) out = lastout;
 		else lastout = out;
 
-		CL_DrawString( x, y, va( "in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec ), colors, font, FONT_DRAW_NORENDERMODE );
+		CL_DrawStringf( font, x, y, colors, FONT_DRAW_NORENDERMODE,
+			"in :  %i %.2f kb/s", netstat_graph[j].msgbytes, cls.netchan.flow[FLOW_INCOMING].avgkbytespersec );
 		y += 15;
 
-		CL_DrawString( x, y, va( "out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec ), colors, font, FONT_DRAW_NORENDERMODE );
+		CL_DrawStringf( font, x, y, colors, FONT_DRAW_NORENDERMODE,
+			"out:  %i %.2f kb/s", out, cls.netchan.flow[FLOW_OUTGOING].avgkbytespersec );
 		y += 15;
 
 		if( graphtype > 2 )
@@ -415,14 +417,14 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 			int	loss = (int)(( packet_loss + PACKETLOSS_AVG_FRAC ) - 0.01f );
 			int	choke = (int)(( packet_choke + PACKETCHOKE_AVG_FRAC ) - 0.01f );
 
-			CL_DrawString( x, y, va( "loss: %i choke: %i", loss, choke ), colors, font, FONT_DRAW_NORENDERMODE );
+			CL_DrawStringf( font, x, y, colors, FONT_DRAW_NORENDERMODE, "loss: %i choke: %i", loss, choke );
 		}
 	}
 
 	if( graphtype < 3 )
-		CL_DrawString( ptx, pty, va( "%i/s", (int)cl_cmdrate->value ), colors, font, FONT_DRAW_NORENDERMODE );
+		CL_DrawStringf( font, ptx, pty, colors, FONT_DRAW_NORENDERMODE, "%i/s", (int)cl_cmdrate->value );
 
-	CL_DrawString( ptx, last_y, va( "%i/s" , (int)cl_updaterate->value ), colors, font, FONT_DRAW_NORENDERMODE );
+	CL_DrawStringf( font, ptx, last_y, colors, FONT_DRAW_NORENDERMODE, "%i/s" , (int)cl_updaterate->value );
 }
 
 /*
