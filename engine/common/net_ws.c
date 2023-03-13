@@ -2639,10 +2639,14 @@ void HTTP_Run( void )
 
 		if( curfile->state < HTTP_NS_RESOLVED )
 		{
+			char hostport[MAX_VA_STRING];
+
 			if( fResolving )
 				continue;
 
-			res = NET_StringToSockaddr( va( "%s:%d", curfile->server->host, curfile->server->port ), &addr, true, AF_INET );
+			Q_snprintf( hostport, sizeof( hostport ), "%s:%d", curfile->server->host, curfile->server->port );
+
+			res = NET_StringToSockaddr( hostport, &addr, true, AF_INET );
 
 			if( res == 2 )
 			{

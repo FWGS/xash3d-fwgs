@@ -1041,10 +1041,14 @@ compare first argument with string
 */
 static qboolean Cmd_CheckName( const char *name )
 {
-	if( !Q_stricmp( Cmd_Argv( 0 ), name ))
+	char *p = Cmd_Argv( 0 );
+
+	if( !Q_stricmp( p, name ))
 		return true;
-	if( !Q_stricmp( Cmd_Argv( 0 ), va( "\\%s", name )))
+
+	if( p[0] == '\\' && !Q_stricmp( &p[1], name ))
 		return true;
+
 	return false;
 }
 
