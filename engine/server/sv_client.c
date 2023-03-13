@@ -1420,7 +1420,7 @@ void SV_PutClientInServer( sv_client_t *cl )
 	if( svgame.globals->cdAudioTrack )
 	{
 		MSG_BeginServerCmd( &msg, svc_stufftext );
-		MSG_WriteString( &msg, va( "cd loop %3d\n", svgame.globals->cdAudioTrack ));
+		MSG_WriteStringf( &msg, "cd loop %3d\n", svgame.globals->cdAudioTrack );
 		svgame.globals->cdAudioTrack = 0;
 	}
 
@@ -1660,7 +1660,7 @@ static qboolean SV_New_f( sv_client_t *cl )
 
 	// server info string
 	MSG_BeginServerCmd( &msg, svc_stufftext );
-	MSG_WriteString( &msg, va( "fullserverinfo \"%s\"\n", SV_Serverinfo( )));
+	MSG_WriteStringf( &msg, "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
 
 	// collect the info about all the players and send to me
 	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
@@ -2740,15 +2740,15 @@ static void SV_EntSendVars( sv_client_t *cl, edict_t *ent )
 		return;
 
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_name \"%s\"\n", STRING( ent->v.targetname ) ));
+	MSG_WriteStringf( &cl->netchan.message, "set ent_last_name \"%s\"\n", STRING( ent->v.targetname ));
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_num %i\n", NUM_FOR_EDICT( ent ) ));
+	MSG_WriteStringf( &cl->netchan.message, "set ent_last_num %i\n", NUM_FOR_EDICT( ent ));
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_inst !%i_%i\n", NUM_FOR_EDICT( ent ), ent->serialnumber ));
+	MSG_WriteStringf( &cl->netchan.message, "set ent_last_inst !%i_%i\n", NUM_FOR_EDICT( ent ), ent->serialnumber );
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_origin \"%f %f %f\"\n", ent->v.origin[0], ent->v.origin[1], ent->v.origin[2]));
+	MSG_WriteStringf( &cl->netchan.message, "set ent_last_origin \"%f %f %f\"\n", ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
-	MSG_WriteString( &cl->netchan.message, va( "set ent_last_class \"%s\"\n", STRING( ent->v.classname )));
+	MSG_WriteStringf( &cl->netchan.message, "set ent_last_class \"%s\"\n", STRING( ent->v.classname ));
 	MSG_WriteByte( &cl->netchan.message, svc_stufftext );
 	MSG_WriteString( &cl->netchan.message, "ent_getvars_cb\n" ); // why do we need this?
 }

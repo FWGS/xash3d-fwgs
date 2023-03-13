@@ -499,7 +499,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 				if( !FBitSet( p->ucFlags, RES_REQUESTED ))
 				{
 					MSG_BeginClientCmd( &msg, clc_stringcmd );
-					MSG_WriteString( &msg, va( "dlfile !MD5%s", MD5_Print( p->rgucMD5_hash ) ) );
+					MSG_WriteStringf( &msg, "dlfile !MD5%s", MD5_Print( p->rgucMD5_hash ));;
 					SetBits( p->ucFlags, RES_REQUESTED );
 				}
 				break;
@@ -1607,7 +1607,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 			// done with all resources, issue prespawn command.
 			// Include server count in case server disconnects and changes level during d/l
 			MSG_BeginClientCmd( msg, clc_stringcmd );
-			MSG_WriteString( msg, va( "spawn %i", cl.servercount ));
+			MSG_WriteStringf( msg, "spawn %i", cl.servercount );
 		}
 	}
 	else
@@ -3078,7 +3078,7 @@ void CL_LegacyPrecache_f( void )
 	// done with all resources, issue prespawn command.
 	// Include server count in case server disconnects and changes level during d/l
 	MSG_BeginClientCmd( &cls.netchan.message, clc_stringcmd );
-	MSG_WriteString( &cls.netchan.message, va( "begin %i", spawncount ));
+	MSG_WriteStringf( &cls.netchan.message, "begin %i", spawncount );
 	cls.signon = SIGNONS;
 }
 

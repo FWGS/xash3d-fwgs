@@ -78,7 +78,7 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 	}
 
 	MSG_BeginClientCmd( msg, clc_stringcmd );
-	MSG_WriteString( msg, va( "dlfile %s", filepath ));
+	MSG_WriteStringf( msg, "dlfile %s", filepath );
 	host.downloadcount++;
 
 	return false;
