@@ -95,9 +95,15 @@ Cvar_BuildAutoDescription
 build cvar auto description that based on the setup flags
 ============
 */
-const char *Cvar_BuildAutoDescription( int flags )
+const char *Cvar_BuildAutoDescription( const char *szName, int flags )
 {
 	static char	desc[256];
+
+	if( FBitSet( flags, FCVAR_GLCONFIG ))
+	{
+		Q_snprintf( desc, sizeof( desc ), CVAR_GLCONFIG_DESCRIPTION, szName );
+		return desc;
+	}
 
 	desc[0] = '\0';
 
@@ -1187,7 +1193,7 @@ void Cvar_List_f( void )
 
 		if( FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))
 			Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, var->desc );
-		else Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, Cvar_BuildAutoDescription( var->flags ));
+		else Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, Cvar_BuildAutoDescription( var->name, var->flags ));
 
 		count++;
 	}
