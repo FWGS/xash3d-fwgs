@@ -237,7 +237,7 @@ def configure(conf):
 		'-Werror=sequence-point',
 #		'-Werror=format=2',
 #		'-Wdouble-promotion', # disable warning flood
-		'-Wstrict-aliasing',
+		'-Werror=strict-aliasing',
 		'-Wmisleading-indentation',
 	]
 
