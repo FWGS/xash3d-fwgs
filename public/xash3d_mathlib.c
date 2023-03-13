@@ -73,7 +73,7 @@ float SimpleSpline( float value )
 
 word FloatToHalf( float v )
 {
-	unsigned int	i = *((unsigned int *)&v);
+	unsigned int	i = FloatAsUint( v );
 	unsigned int	e = (i >> 23) & 0x00ff;
 	unsigned int	m = i & 0x007fffff;
 	unsigned short	h;
@@ -115,7 +115,7 @@ float HalfToFloat( word h )
 		}
 	}
 
-	return *((float *)&f);
+	return UintAsFloat( f );
 }
 
 /*
