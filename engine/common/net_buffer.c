@@ -452,6 +452,18 @@ qboolean MSG_WriteString( sizebuf_t *sb, const char *pStr )
 	return !sb->bOverflow;
 }
 
+qboolean MSG_WriteStringf( sizebuf_t *sb, const char *format, ... )
+{
+	va_list va;
+	char buf[MAX_VA_STRING];
+
+	va_start( va, format );
+	Q_vsnprintf( buf, sizeof( buf ), format, va );
+	va_end( va );
+
+	return MSG_WriteString( sb, buf );
+}
+
 int MSG_ReadOneBit( sizebuf_t *sb )
 {
 	if( !MSG_Overflow( sb, 1 ))
