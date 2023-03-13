@@ -737,7 +737,7 @@ static void Touch_ReloadConfig_f( void )
 	touch.edit = touch.selection = NULL;
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
 
-	Cbuf_AddText( va("exec %s\n", touch_config_file->string ) );
+	Cbuf_AddTextf( "exec %s\n", touch_config_file->string );
 }
 
 static touch_button_t *Touch_AddButton( touchbuttonlist_t *list,
@@ -1111,7 +1111,7 @@ static void Touch_InitConfig( void )
 	//pfnGetScreenInfo( NULL ); //HACK: update hud screen parameters like iHeight
 	if( FS_FileExists( touch_config_file->string, true ) )
 	{
-		Cbuf_AddText( va( "exec \"%s\"\n", touch_config_file->string ) );
+		Cbuf_AddTextf( "exec \"%s\"\n", touch_config_file->string );
 		Cbuf_Execute();
 	}
 	else

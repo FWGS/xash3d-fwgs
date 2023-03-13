@@ -827,7 +827,7 @@ void Host_Userconfigd_f( void )
 
 	for( i = 0; i < t->numfilenames; i++ )
 	{
-		Cbuf_AddText( va("exec %s\n", t->filenames[i] ) );
+		Cbuf_AddTextf( "exec %s\n", t->filenames[i] );
 	}
 
 	Mem_Free( t );
@@ -1221,7 +1221,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Wcon_ShowConsole( false ); // hide console
 #endif
 		// execute startup config and cmdline
-		Cbuf_AddText( va( "exec %s.rc\n", SI.rcName ));
+		Cbuf_AddTextf( "exec %s.rc\n", SI.rcName );
 		Cbuf_Execute();
 		if( !host.config_executed )
 		{
@@ -1255,7 +1255,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 		// execute server.cfg after commandline
 		// so we have a chance to set servercfgfile
-		Cbuf_AddText( va( "exec %s\n", Cvar_VariableString( "servercfgfile" )));
+		Cbuf_AddTextf( "exec %s\n", Cvar_VariableString( "servercfgfile" ));
 		Cbuf_Execute();
 	}
 

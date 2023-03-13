@@ -394,7 +394,7 @@ void SV_HazardCourse_f( void )
 	// special case for Gunman Chronicles: playing avi-file
 	if( FS_FileExists( va( "media/%s.avi", GI->trainmap ), false ))
 	{
-		Cbuf_AddText( va( "wait; movie %s\n", GI->trainmap ));
+		Cbuf_AddTextf( "wait; movie %s\n", GI->trainmap );
 		Host_EndGame( true, DEFAULT_ENDGAME_MESSAGE );
 	}
 	else COM_NewGame( GI->trainmap );

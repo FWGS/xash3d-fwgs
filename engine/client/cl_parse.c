@@ -2001,7 +2001,7 @@ void CL_ParseExec( sizebuf_t *msg )
 		COM_FileBase( clgame.mapname, mapname );
 
 		if ( COM_CheckString( mapname ) )
-			Cbuf_AddText( va( "exec %s.cfg\n", mapname ) );
+			Cbuf_AddTextf( "exec %s.cfg\n", mapname );
 	}
 }
 
