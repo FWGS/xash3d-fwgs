@@ -22,6 +22,8 @@ GNU General Public License for more details.
 #endif
 
 #include "build.h"
+#include "xash3d_types.h"
+#include "const.h"
 #include "com_model.h"
 #include "studio.h"
 
@@ -134,6 +136,42 @@ GNU General Public License for more details.
 #define PlaneDist(point,plane) ((plane)->type < 3 ? (point)[(plane)->type] : DotProduct((point), (plane)->normal))
 #define PlaneDiff(point,plane) (((plane)->type < 3 ? (point)[(plane)->type] : DotProduct((point), (plane)->normal)) - (plane)->dist)
 #define bound( min, num, max ) ((num) >= (min) ? ((num) < (max) ? (num) : (max)) : (min))
+
+// horrible cast but helps not breaking strict aliasing in mathlib
+// as union type punning should be fine in C but not in C++
+// so don't carry over this to C++ code
+typedef union
+{
+	float fl;
+	uint32_t u;
+	int32_t i;
+} float_bits_t;
+
+static inline uint32_t FloatAsUint( float v )
+{
+	float_bits_t bits = { v };
+	return bits.u;
+}
+
+static inline int32_t FloatAsInt( float v )
+{
+	float_bits_t bits = { v };
+	return bits.i;
+}
+
+static inline float IntAsFloat( int32_t i )
+{
+	float_bits_t bits;
+	bits.i = i;
+	return bits.fl;
+}
+
+static inline float UintAsFloat( uint32_t u )
+{
+	float_bits_t bits;
+	bits.u = u;
+	return bits.fl;
+}
 
 float rsqrt( float number );
 float anglemod( float a );
