@@ -120,6 +120,18 @@ void Cbuf_AddText( const char *text )
 	Cbuf_AddTextToBuffer( &cmd_text, text );
 }
 
+void Cbuf_AddTextf( const char *fmt, ... )
+{
+	va_list va;
+	char buf[MAX_VA_STRING];
+
+	va_start( va, fmt );
+	Q_vsnprintf( buf, sizeof( buf ), fmt, va );
+	va_end( va );
+
+	Cbuf_AddText( buf );
+}
+
 /*
 ============
 Cbuf_AddFilteredText

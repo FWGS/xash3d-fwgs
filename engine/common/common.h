@@ -425,6 +425,7 @@ void FS_Shutdown( void );
 void Cbuf_Init( void );
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
+void Cbuf_AddTextf( const char *text, ... ) _format( 1 );
 void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
 void Cbuf_ExecStuffCmds( void );
