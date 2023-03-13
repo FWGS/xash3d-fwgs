@@ -1009,8 +1009,8 @@ qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timeb
 		val_b = Q_rint((*(float *)((byte *)to + pField->offset )) * 100.0 );
 		val_a -= Q_rint(timebase * 100.0);
 		val_b -= Q_rint(timebase * 100.0);
-		fromF = *((int *)&val_a);
-		toF = *((int *)&val_b);
+		fromF = FloatAsInt( val_a );
+		toF = FloatAsInt( val_b );
 	}
 	else if( pField->flags & DT_TIMEWINDOW_BIG )
 	{
@@ -1030,8 +1030,8 @@ qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timeb
 			val_b = timebase - val_b;
 		}
 
-		fromF = *((int *)&val_a);
-		toF = *((int *)&val_b);
+		fromF = FloatAsInt( val_a );
+		toF = FloatAsInt( val_b );
 	}
 	else if( pField->flags & DT_STRING )
 	{
