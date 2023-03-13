@@ -292,8 +292,8 @@ void BuildTris( void )
 			t = (t + 0.5f) / m_pAliasHeader->skinheight;
 
 			// Carmack use floats and Valve use shorts here...
-			*(float *)&g_commands[g_numcommands++] = s;
-			*(float *)&g_commands[g_numcommands++] = t;
+			g_commands[g_numcommands++] = FloatAsInt( s );
+			g_commands[g_numcommands++] = FloatAsInt( t );
 		}
 	}
 
