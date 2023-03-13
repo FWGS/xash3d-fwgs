@@ -35,6 +35,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	dsprite_hl_t	*pinhl;
 	dsprite_t		*pin;
 	msprite_t		*psprite;
+	char		poolname[MAX_VA_STRING];
 	int		i, size;
 
 	if( loaded ) *loaded = false;
@@ -54,7 +55,8 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		return;
 	}
 
-	mod->mempool = Mem_AllocPool( va( "^2%s^7", mod->name ));
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
+	mod->mempool = Mem_AllocPool( poolname );
 
 	if( i == SPRITE_VERSION_Q1 || i == SPRITE_VERSION_32 )
 	{

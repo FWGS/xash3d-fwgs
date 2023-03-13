@@ -346,10 +346,10 @@ void Host_ChangeGame_f( void )
 	}
 	else
 	{
-		const char *arg1 = va( "%s", Cmd_Argv( 1 ));
-		const char *arg2 = va( "change game to '%s'", FI->games[i]->title );
+		char finalmsg[MAX_VA_STRING];
 
-		Host_NewInstance( arg1, arg2 );
+		Q_snprintf( finalmsg, sizeof( finalmsg ), "change game to '%s'", FI->games[i]->title );
+		Host_NewInstance( Cmd_Argv( 1 ), finalmsg );
 	}
 }
 
@@ -384,9 +384,11 @@ void Host_Exec_f( void )
 			"pyro.cfg", "spy.cfg", "engineer.cfg", "civilian.cfg"
 		};
 		int i;
+		char temp[MAX_VA_STRING];
 		qboolean allow = false;
 
-		unprivilegedWhitelist[0] = va( "%s.cfg", clgame.mapname );
+		Q_snprintf( temp, sizeof( temp ), "%s.cfg", clgame.mapname );
+		unprivilegedWhitelist[0] = temp;
 
 		for( i = 0; i < ARRAYSIZE( unprivilegedWhitelist ); i++ )
 		{

@@ -3019,9 +3019,13 @@ Mod_LoadBrushModel
 */
 void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
+	char poolname[MAX_VA_STRING];
+
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", loadmodel->name );
+
 	if( loaded ) *loaded = false;
 
-	loadmodel->mempool = Mem_AllocPool( va( "^2%s^7", loadmodel->name ));
+	loadmodel->mempool = Mem_AllocPool( poolname );
 	loadmodel->type = mod_brush;
 
 	// loading all the lumps into heap
