@@ -1842,8 +1842,12 @@ void S_Music_f( void )
 
 		for( i = 0; i < 2; i++ )
 		{
-			const char *intro_path = va( "media/%s.%s", intro, ext[i] );
-			const char *main_path = va( "media/%s.%s", main, ext[i] );
+			char intro_path[MAX_VA_STRING];
+			char main_path[MAX_VA_STRING];
+			char track_path[MAX_VA_STRING];
+
+			Q_snprintf( intro_path, sizeof( intro_path ), "media/%s.%s", intro, ext[i] );
+			Q_snprintf( main_path, sizeof( main_path ), "media/%s.%s", main, ext[i] );
 
 			if( FS_FileExists( intro_path, false ) && FS_FileExists( main_path, false ))
 			{
@@ -1851,7 +1855,10 @@ void S_Music_f( void )
 				S_StartBackgroundTrack( intro, main, 0, false );
 				break;
 			}
-			else if( FS_FileExists( va( "media/%s.%s", track, ext[i] ), false ))
+
+			Q_snprintf( track_path, sizeof( track_path ), "media/%s.%s", track, ext[i] );
+
+			if( FS_FileExists( track_path, false ))
 			{
 				// single non-looped theme
 				S_StartBackgroundTrack( track, NULL, 0, false );
