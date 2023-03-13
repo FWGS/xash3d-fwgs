@@ -1389,7 +1389,7 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 		{
 			// NOTE: music is automatically goes across transition, never restore it on changelevel
 			MSG_BeginServerCmd( &sv.signon, svc_stufftext );
-			MSG_WriteString( &sv.signon, va( "music \"%s\" \"%s\" %i\n", header.introTrack, header.mainTrack, header.trackPosition ));
+			MSG_WriteStringf( &sv.signon, "music \"%s\" \"%s\" %i\n", header.introTrack, header.mainTrack, header.trackPosition );
 		}
 
 		// don't go camera across the levels

@@ -304,7 +304,7 @@ qboolean SV_CheckFile( sizebuf_t *msg, const char *filename )
 		return true;
 
 	MSG_BeginServerCmd( msg, svc_stufftext );
-	MSG_WriteString( msg, va( "upload \"!MD5%s\"\n", MD5_Print( p.rgucMD5_hash )));
+	MSG_WriteStringf( msg, "upload \"!MD5%s\"\n", MD5_Print( p.rgucMD5_hash ));
 
 	return false;
 }

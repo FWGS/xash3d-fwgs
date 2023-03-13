@@ -2208,7 +2208,7 @@ SV_StartMusic
 void SV_StartMusic( const char *curtrack, const char *looptrack, int position )
 {
 	MSG_BeginServerCmd( &sv.multicast, svc_stufftext );
-	MSG_WriteString( &sv.multicast, va( "music \"%s\" \"%s\" %d\n", curtrack, looptrack, position ));
+	MSG_WriteStringf( &sv.multicast, "music \"%s\" \"%s\" %d\n", curtrack, looptrack, position );
 	SV_Multicast( MSG_ALL, NULL, NULL, false, false );
 }
 
