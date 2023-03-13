@@ -2694,10 +2694,15 @@ void CL_LegacyParseResourceList( sizebuf_t *msg )
 
 	for( i = 0; i < reslist.rescount; i++ )
 	{
+		char soundpath[MAX_VA_STRING];
 		const char *path;
 
 		if( reslist.restype[i] == t_sound )
-			path = va( DEFAULT_SOUNDPATH "%s", reslist.resnames[i] );
+		{
+			Q_snprintf( soundpath, sizeof( soundpath ), DEFAULT_SOUNDPATH "%s", reslist.resnames[i] );
+
+			path = soundpath;
+		}
 		else path = reslist.resnames[i];
 
 		if( FS_FileExists( path, false ))
