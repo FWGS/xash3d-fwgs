@@ -432,7 +432,7 @@ void SV_ConnectClient( netadr_t from )
 
 	// build protinfo answer
 	protinfo[0] = '\0';
-	Info_SetValueForKey( protinfo, "ext", va( "%d", newcl->extensions ), sizeof( protinfo ) );
+	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
 
 	// send the connect packet to the client
 	Netchan_OutOfBandPrint( NS_SERVER, from, "client_connect %s", protinfo );
@@ -875,13 +875,13 @@ void SV_Info( netadr_t from, int protocolVersion )
 		SV_GetPlayerCount( &count, &bots );
 
 		// a1ba: send protocol version to distinguish old engine and new
-		Info_SetValueForKey( s, "p", va( "%i", PROTOCOL_VERSION ), sizeof( s ));
+		Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", PROTOCOL_VERSION );
 		Info_SetValueForKey( s, "map", sv.name, sizeof( s ));
 		Info_SetValueForKey( s, "dm", svgame.globals->deathmatch ? "1" : "0", sizeof( s ));
 		Info_SetValueForKey( s, "team", svgame.globals->teamplay ? "1" : "0", sizeof( s ));
 		Info_SetValueForKey( s, "coop", svgame.globals->coop ? "1" : "0", sizeof( s ));
-		Info_SetValueForKey( s, "numcl", va( "%i", count ), sizeof( s ));
-		Info_SetValueForKey( s, "maxcl", va( "%i", svs.maxclients ), sizeof( s ));
+		Info_SetValueForKeyf( s, "numcl", sizeof( s ), "%i", count );
+		Info_SetValueForKeyf( s, "maxcl", sizeof( s ), "%i", svs.maxclients );
 		Info_SetValueForKey( s, "gamedir", GI->gamefolder, sizeof( s ));
 		Info_SetValueForKey( s, "password", have_password ? "1" : "0", sizeof( s ));
 
@@ -980,8 +980,8 @@ void SV_BuildNetAnswer( netadr_t from )
 		string[0] = '\0';
 		Info_SetValueForKey( string, "hostname", hostname.string, MAX_INFO_STRING );
 		Info_SetValueForKey( string, "gamedir", GI->gamefolder, MAX_INFO_STRING );
-		Info_SetValueForKey( string, "current", va( "%i", count ), MAX_INFO_STRING );
-		Info_SetValueForKey( string, "max", va( "%i", svs.maxclients ), MAX_INFO_STRING );
+		Info_SetValueForKeyf( string, "current", MAX_INFO_STRING, "%i", count );
+		Info_SetValueForKeyf( string, "max", MAX_INFO_STRING, "%i", svs.maxclients );
 		Info_SetValueForKey( string, "map", sv.name, MAX_INFO_STRING );
 
 		// send serverinfo

@@ -781,11 +781,11 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	}
 
 	SV_GetPlayerCount( &clients, &bots );
-	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
-	Info_SetValueForKey( s, "challenge", va( "%u", challenge ), len ); // challenge number
-	Info_SetValueForKey( s, "players", va( "%d", clients ), len ); // current player number, without bots
-	Info_SetValueForKey( s, "max", va( "%d", svs.maxclients ), len ); // max_players
-	Info_SetValueForKey( s, "bots", va( "%d", bots ), len ); // bot count
+	Info_SetValueForKeyf( s, "protocol", len, "%d", PROTOCOL_VERSION ); // protocol version
+	Info_SetValueForKeyf( s, "challenge", len, "%u", challenge ); // challenge number
+	Info_SetValueForKeyf( s, "players", len, "%d", clients ); // current player number, without bots
+	Info_SetValueForKeyf( s, "max", len, "%d", svs.maxclients ); // max_players
+	Info_SetValueForKeyf( s, "bots", len, "%d", bots ); // bot count
 	Info_SetValueForKey( s, "gamedir", GI->gamefolder, len ); // gamedir
 	Info_SetValueForKey( s, "map", sv.name, len ); // current map
 	Info_SetValueForKey( s, "type", (Host_IsDedicated()) ? "d" : "l", len ); // dedicated or local
