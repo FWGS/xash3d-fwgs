@@ -1041,7 +1041,7 @@ compare first argument with string
 */
 static qboolean Cmd_CheckName( const char *name )
 {
-	char *p = Cmd_Argv( 0 );
+	const char *p = Cmd_Argv( 0 );
 
 	if( !Q_stricmp( p, name ))
 		return true;
