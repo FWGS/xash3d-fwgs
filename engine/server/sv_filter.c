@@ -159,7 +159,7 @@ static void SV_BanID_f( void )
 	cidfilter = filter;
 
 	if( cl && !Q_stricmp( Cmd_Argv( Cmd_Argc() - 1 ), "kick" ))
-		Cbuf_AddText( va( "kick #%d \"Kicked and banned\"\n", cl->userid ));
+		Cbuf_AddTextf( "kick #%d \"Kicked and banned\"\n", cl->userid );
 }
 
 static void SV_ListID_f( void )

@@ -2086,7 +2086,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 
 		if( NET_CompareAdr( from, cls.legacyserver ))
 		{
-			Cbuf_AddText( va( "connect %s legacy\n", NET_AdrToString( from )));
+			Cbuf_AddTextf( "connect %s legacy\n", NET_AdrToString( from ));
 			memset( &cls.legacyserver, 0, sizeof( cls.legacyserver ));
 		}
 	}

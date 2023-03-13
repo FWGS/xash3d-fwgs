@@ -628,7 +628,7 @@ void SV_ActivateServer( int runPhysics )
 		const char *cycle = Cvar_VariableString( "mapchangecfgfile" );
 
 		if( COM_CheckString( cycle ))
-			Cbuf_AddText( va( "exec %s\n", cycle ));
+			Cbuf_AddTextf( "exec %s\n", cycle );
 	}
 }
 
