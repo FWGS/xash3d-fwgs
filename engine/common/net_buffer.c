@@ -366,7 +366,7 @@ void MSG_WriteBitFloat( sizebuf_t *sb, float val )
 	Assert( sizeof( int ) == sizeof( float ));
 	Assert( sizeof( float ) == 4 );
 
-	intVal = *((int *)&val );
+	intVal = FloatAsInt( val );
 	MSG_WriteUBitLong( sb, intVal, 32 );
 }
 
@@ -546,7 +546,7 @@ float MSG_ReadBitFloat( sizebuf_t *sb )
 		val |= ((int)sb->pData[byte + 4]) << ( 32 - bit );
 	sb->iCurBit += 32;
 
-	return *((float *)&val);
+	return IntAsFloat( val );
 }
 
 qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
