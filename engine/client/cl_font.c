@@ -260,6 +260,18 @@ int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *fon
 	return draw_len;
 }
 
+int CL_DrawStringf( cl_font_t *font, float x, float y, rgba_t color, int flags, const char *fmt, ... )
+{
+	va_list va;
+	char buf[MAX_VA_STRING];
+
+	va_start( va, fmt );
+	Q_vsnprintf( buf, sizeof( buf ), fmt, va );
+	va_end( va );
+
+	return CL_DrawString( x, y, buf, color, font, flags );
+}
+
 void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height )
 {
 	if( !font || !font->valid ) return;
