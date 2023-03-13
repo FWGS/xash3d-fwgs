@@ -296,9 +296,9 @@ float rsqrt( float number )
 		return 0.0f;
 
 	x = number * 0.5f;
-	i = *(int *)&number;	// evil floating point bit level hacking
+	i = FloatAsInt( number );	// evil floating point bit level hacking
 	i = 0x5f3759df - (i >> 1);	// what the fuck?
-	y = *(float *)&i;
+	y = IntAsFloat( i );
 	y = y * (1.5f - (x * y * y));	// first iteration
 
 	return y;
