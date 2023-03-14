@@ -14,6 +14,7 @@
 #include "vk_framectl.h" // FIXME needed for dynamic models cmdbuf
 #include "vk_previous_frame.h"
 #include "alolcator.h"
+#include "profiler.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -22,6 +23,13 @@
 #include <memory.h>
 
 #define MAX_UNIFORM_SLOTS (MAX_SCENE_ENTITIES * 2 /* solid + trans */ + 1)
+
+#define PROFILER_SCOPES(X) \
+	X(renderbegin, "VK_RenderBegin"); \
+
+#define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
+PROFILER_SCOPES(SCOPE_DECLARE)
+#undef SCOPE_DECLARE
 
 typedef struct {
 	matrix4x4 mvp;
@@ -278,6 +286,8 @@ static struct {
 } g_render_state;
 
 qboolean VK_RenderInit( void ) {
+	PROFILER_SCOPES(APROF_SCOPE_INIT);
+
 	g_render.ubo_align = Q_max(4, vk_core.physical_device.properties.limits.minUniformBufferOffsetAlignment);
 
 	const uint32_t uniform_unit_size = ((sizeof(uniform_data_t) + g_render.ubo_align - 1) / g_render.ubo_align) * g_render.ubo_align;
@@ -345,6 +355,8 @@ enum {
 };
 
 void VK_RenderBegin( qboolean ray_tracing ) {
+	APROF_SCOPE_BEGIN(renderbegin);
+
 	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
 	g_render_state.current_ubo_offset_FIXME = UINT32_MAX;
 	memset(&g_render_state.current_uniform_data, 0, sizeof(g_render_state.current_uniform_data));
@@ -358,6 +370,8 @@ void VK_RenderBegin( qboolean ray_tracing ) {
 
 	if (ray_tracing)
 		VK_RayFrameBegin();
+
+	APROF_SCOPE_END(renderbegin);
 }
 
 // Vulkan has Y pointing down, and z should end up in (0, 1)

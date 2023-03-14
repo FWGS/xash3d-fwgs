@@ -11,9 +11,6 @@
 #include "vk_staging.h"
 #include "vk_commandpool.h"
 
-#include "vk_light.h" // For stats
-#include "shaders/ray_interop.h" // stats: struct LightCluster
-
 #include "profiler.h"
 #include "r_slows.h"
 
@@ -54,6 +51,7 @@ static struct {
 	X(render_frame, "VK_RenderFrame"); \
 	X(end_frame, "R_EndFrame"); \
 	X(frame_gpu_wait, "Wait for GPU"); \
+	X(wait_for_frame_fence, "waitForFrameFence"); \
 
 #define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
 PROFILER_SCOPES(SCOPE_DECLARE)
@@ -145,6 +143,7 @@ static VkRenderPass createRenderPass( VkFormat depth_format, qboolean ray_tracin
 }
 
 static void waitForFrameFence( void ) {
+	APROF_SCOPE_BEGIN(wait_for_frame_fence);
 	for(qboolean loop = true; loop; ) {
 #define MAX_WAIT (10ull * 1000*1000*1000)
 		const VkResult fence_result = vkWaitForFences(vk_core.device, 1, g_frame.fence_done + g_frame.current.index, VK_TRUE, MAX_WAIT);
@@ -162,6 +161,7 @@ static void waitForFrameFence( void ) {
 	}
 
 	XVK_CHECK(vkResetFences(vk_core.device, 1, g_frame.fence_done + g_frame.current.index));
+	APROF_SCOPE_END(wait_for_frame_fence);
 }
 
 static void updateGamma( void ) {
