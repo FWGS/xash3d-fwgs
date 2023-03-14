@@ -7,6 +7,7 @@
 #include "profiler.h"
 
 #define MAX_FRAMES_HISTORY 256
+#define TARGET_FRAME_TIME (1000.f / 60.f)
 
 static struct {
 	float frame_times[MAX_FRAMES_HISTORY];
@@ -31,17 +32,20 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index) {
 	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - APROF_EVENT_TIMESTAMP(g_aprof.events[prev_frame_index]);
 	const float frame_time = delta_ns / 1e6;
 
-	gEngine.Con_NPrintf(5, "aprof events this frame: %u, wraps: %d, frame time: %.03fms (%lluns)\n", events, g_aprof.current_frame_wraparounds, frame_time, delta_ns);
+	gEngine.Con_NPrintf(5, "aprof events this frame: %u, wraps: %d, frame time: %.03fms\n", events, g_aprof.current_frame_wraparounds, frame_time);
 
 	g_slows.frame_times[g_slows.frame_num] = frame_time;
 	g_slows.frame_num = (g_slows.frame_num + 1) % MAX_FRAMES_HISTORY;
 
 	const float width = (float)vk_frame.width / MAX_FRAMES_HISTORY;
 	for (int i = 0; i < MAX_FRAMES_HISTORY; ++i) {
-		const float frame_time = g_slows.frame_times[i];
-		CL_FillRGBA(i * width, 100, width, frame_time * 2.f,
-				//255, 255, 255, 255);
-			255*linearstep(16.67, 16.67*2.f, frame_time), 255, 0, 127);
+		const float frame_time = g_slows.frame_times[(g_slows.frame_num + i) % MAX_FRAMES_HISTORY];
+
+		// > 60 fps => 0, 30..60 fps -> 1..0, <30fps => 1
+		const float time = linearstep(TARGET_FRAME_TIME, TARGET_FRAME_TIME*2.f, frame_time);
+		const int red = 255 * time;
+		const int green = 255 * (1 - time);
+		CL_FillRGBA(i * width, 100, width, frame_time * 2.f, red, green, 0, 127);
 	}
 
 	/* gEngine.Con_NPrintf(5, "Perf scopes:"); */
