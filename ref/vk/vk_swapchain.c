@@ -1,5 +1,6 @@
 #include "vk_swapchain.h"
 #include "vk_image.h"
+#include "profiler.h"
 
 #include "eiface.h" // ARRAYSIZE
 
@@ -98,6 +99,7 @@ qboolean recreateSwapchain( qboolean force ) {
 			.preTransform = surface_caps.currentTransform,
 			.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
 			.presentMode = VK_PRESENT_MODE_FIFO_KHR, // TODO caps, MAILBOX is better
+			//.presentMode = VK_PRESENT_MODE_MAILBOX_KHR, // TODO caps, MAILBOX is better
 			//.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR, // TODO caps, MAILBOX is better
 			.clipped = VK_TRUE,
 			.oldSwapchain = g_swapchain.swapchain,
@@ -191,6 +193,12 @@ void R_VkSwapchainShutdown( void ) {
 }
 
 r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_available ) {
+	static int _aprof_scope_id_scope = -1;
+	if (_aprof_scope_id_scope == -1)
+		_aprof_scope_id_scope = aprof_scope_init(__FUNCTION__);
+
+	APROF_SCOPE_BEGIN(scope);
+
 	r_vk_swapchain_framebuffer_t ret = {0};
 	qboolean force_recreate = false;
 
@@ -228,6 +236,8 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_availa
 	ret.height = g_swapchain.height;
 	ret.image = g_swapchain.images[ret.index];
 	ret.view = g_swapchain.image_views[ret.index];
+
+	APROF_SCOPE_END(scope);
 
 	return ret;
 }

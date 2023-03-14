@@ -15,6 +15,10 @@
 static struct {
 	float frame_times[MAX_FRAMES_HISTORY];
 	uint32_t frame_num;
+
+	aprof_event_t *paused_events;
+	int paused_events_count;
+	int pause_requested;
 } g_slows;
 
 static float linearstep(float min, float max, float v) {
@@ -32,7 +36,7 @@ static uint32_t getHash(const char *s) {
 	return CRC32_Final(crc);
 }
 
-static void drawProfilerScopes(uint64_t frame_begin_time, float time_scale_ms, uint32_t begin, uint32_t end, int y) {
+static void drawProfilerScopes(const aprof_event_t *events, uint64_t frame_begin_time, float time_scale_ms, uint32_t begin, uint32_t end, int y) {
 #define MAX_STACK_DEPTH 16
 	const int height = 20;
 
@@ -44,7 +48,7 @@ static void drawProfilerScopes(uint64_t frame_begin_time, float time_scale_ms, u
 	int max_depth = 0;
 
 	for (; begin != end; begin = (begin + 1) % APROF_EVENT_BUFFER_SIZE) {
-		const aprof_event_t event = g_aprof.events[begin];
+		const aprof_event_t event = events[begin];
 		const int event_type = APROF_EVENT_TYPE(event);
 		const uint64_t timestamp_ns = APROF_EVENT_TIMESTAMP(event);
 		const int scope_id = APROF_EVENT_SCOPE_ID(event);
@@ -66,7 +70,8 @@ static void drawProfilerScopes(uint64_t frame_begin_time, float time_scale_ms, u
 
 					ASSERT(stack[depth].scope_id == scope_id);
 
-					const int width = (timestamp_ns - stack[depth].begin_ns) * 1e-6 * time_scale_ms;
+					const float delta_ms = (timestamp_ns - stack[depth].begin_ns) * 1e-6;
+					const int width = delta_ms  * time_scale_ms;
 					const int x = (stack[depth].begin_ns - frame_begin_time) * 1e-6 * time_scale_ms;
 
 					const int yy = y + depth * height;
@@ -76,9 +81,12 @@ static void drawProfilerScopes(uint64_t frame_begin_time, float time_scale_ms, u
 					rgba_t color = {hash >> 24, (hash>>16)&0xff, hash&0xff, 127};
 					rgba_t text_color = {255-color[0], 255-color[1], 255-color[2], 255};
 					CL_FillRGBA(x, yy, width, height, color[0], color[1], color[2], color[3]);
+
+					// Tweak this if scope names escape the block boundaries
+					const int estimated_glyph_width = 8;
 					char tmp[64];
 					tmp[0] = '\0';
-					Q_strncpy(tmp, scope_name, Q_min(sizeof(tmp), width / 10));
+					Q_snprintf(tmp, Q_min(sizeof(tmp), width / estimated_glyph_width), "%s %.3fms", scope_name, delta_ms);
 					gEngine.Con_DrawString(x, yy, tmp, text_color);
 					break;
 				}
@@ -129,10 +137,33 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index) {
 		CL_FillRGBA(i * width, frame_bar_y, width, frame_time * frame_bar_y_scale, red, green, 0, 127);
 	}
 
+	if (g_slows.pause_requested && !g_slows.paused_events) {
+		const uint32_t frame_begin = prev_frame_index;
+		const uint32_t frame_end = g_aprof.events_last_frame + 1;
+
+		g_slows.paused_events_count = frame_end >= frame_begin ? frame_end - frame_begin : (frame_end + APROF_EVENT_BUFFER_SIZE - frame_begin);
+		g_slows.paused_events = Mem_Malloc(vk_core.pool, g_slows.paused_events_count * sizeof(g_slows.paused_events[0]));
+
+		if (frame_end >= frame_begin) {
+			memcpy(g_slows.paused_events, g_aprof.events + frame_begin, g_slows.paused_events_count * sizeof(g_slows.paused_events[0]));
+		} else {
+			const int first_chunk = (APROF_EVENT_BUFFER_SIZE - frame_begin) * sizeof(g_slows.paused_events[0]);
+			memcpy(g_slows.paused_events, g_aprof.events + frame_begin, first_chunk);
+			memcpy(g_slows.paused_events + first_chunk, g_aprof.events, frame_end * sizeof(g_slows.paused_events[0]));
+		}
+	}
+
 	{
+		const int y = frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2 + 10;
+
+		const aprof_event_t *const events = g_slows.paused_events ? g_slows.paused_events : g_aprof.events;
+		const int event_begin = g_slows.paused_events ? 0 : prev_frame_index;
+		const int event_end = g_slows.paused_events ? g_slows.paused_events_count - 1 : g_aprof.events_last_frame;
+		const uint64_t frame_begin_time = APROF_EVENT_TIMESTAMP(events[event_begin]);
+		const uint64_t frame_end_time = APROF_EVENT_TIMESTAMP(events[event_end]);
+		const uint64_t delta_ns = frame_end_time - frame_begin_time;
 		const float time_scale_ms = (double)vk_frame.width / (delta_ns / 1e6);
-		const int y = frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2;
-		drawProfilerScopes(frame_begin_time, time_scale_ms, prev_frame_index, g_aprof.events_last_frame, y);
+		drawProfilerScopes(events, frame_begin_time, time_scale_ms, event_begin, event_end, y);
 	}
 
 	/* gEngine.Con_NPrintf(5, "Perf scopes:"); */
@@ -145,4 +176,20 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index) {
 	/* 		(scope->frame.duration - scope->frame.duration_children) / 1e6, */
 	/* 		(scope->frame.duration - scope->frame.duration_children) / 1e6 / scope->frame.count); */
 	/* } */
+}
+
+static void togglePause( void ) {
+	if (g_slows.paused_events) {
+		Mem_Free(g_slows.paused_events);
+		g_slows.paused_events = NULL;
+		g_slows.paused_events_count = 0;
+		g_slows.pause_requested = 0;
+	} else {
+		g_slows.pause_requested = 1;
+	}
+
+}
+
+void R_SlowsInit( void ) {
+	gEngine.Cmd_AddCommand("r_slows_toggle_pause", togglePause, "Toggle frame profiler pause");
 }
