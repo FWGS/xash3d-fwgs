@@ -1417,7 +1417,13 @@ pfnSPR_Set
 */
 static void GAME_EXPORT pfnSPR_Set( HSPRITE hPic, int r, int g, int b )
 {
-	clgame.ds.pSprite = CL_GetSpritePointer( hPic );
+	const model_t *sprite = CL_GetSpritePointer( hPic );
+
+	// a1ba: do not alter the state if invalid HSPRITE was passed
+	if( !sprite )
+		return;
+
+	clgame.ds.pSprite = sprite;
 	clgame.ds.spriteColor[0] = bound( 0, r, 255 );
 	clgame.ds.spriteColor[1] = bound( 0, g, 255 );
 	clgame.ds.spriteColor[2] = bound( 0, b, 255 );
