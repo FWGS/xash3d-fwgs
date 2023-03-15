@@ -1372,7 +1372,7 @@ pfnSPR_Frames
 */
 int EXPORT pfnSPR_Frames( HSPRITE hPic )
 {
-	int	numFrames;
+	int	numFrames = 0;
 
 	ref.dllFuncs.R_GetSpriteParms( NULL, NULL, &numFrames, 0, CL_GetSpritePointer( hPic ));
 
@@ -1387,7 +1387,7 @@ pfnSPR_Height
 */
 static int GAME_EXPORT pfnSPR_Height( HSPRITE hPic, int frame )
 {
-	int	sprHeight;
+	int	sprHeight = 0;
 
 	ref.dllFuncs.R_GetSpriteParms( NULL, &sprHeight, NULL, frame, CL_GetSpritePointer( hPic ));
 
@@ -1402,7 +1402,7 @@ pfnSPR_Width
 */
 static int GAME_EXPORT pfnSPR_Width( HSPRITE hPic, int frame )
 {
-	int	sprWidth;
+	int	sprWidth = 0;
 
 	ref.dllFuncs.R_GetSpriteParms( &sprWidth, NULL, NULL, frame, CL_GetSpritePointer( hPic ));
 
