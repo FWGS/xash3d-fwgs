@@ -136,7 +136,7 @@ const char *Sys_GetCurrentUser( void )
 #elif XASH_PSVITA
 	static string username;
 	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
-	if( !COM_CheckStringEmpty( username ) )
+	if( COM_CheckStringEmpty( username ))
 		return username;
 #elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
 	uid_t uid = geteuid();
