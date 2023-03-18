@@ -214,9 +214,10 @@ void R_BeginFrame( qboolean clearScene ) {
 	APROF_SCOPE_BEGIN(begin_frame);
 
 	{
-		// FIXME correct only for nvidia where timestamps are ns
-		const uint64_t gpu_time_ns_fixme = (qpool->used) ? qpool->results[1] - qpool->results[0] : 0;
-		R_ShowExtendedProfilingData(prev_frame_event_index, gpu_time_ns_fixme);
+		// FIXME collect and show more gpu profiling data
+		const uint64_t gpu_time_begin_ns = (qpool->used) ? qpool->results[0] : 0;
+		const uint64_t gpu_time_end_ns = (qpool->used) ? qpool->results[1] : 0;
+		R_ShowExtendedProfilingData(prev_frame_event_index, gpu_time_begin_ns, gpu_time_end_ns);
 	}
 
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {

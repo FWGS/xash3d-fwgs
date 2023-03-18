@@ -36,7 +36,22 @@ static uint32_t getHash(const char *s) {
 	return CRC32_Final(crc);
 }
 
-static void drawProfilerScopes(const aprof_event_t *events, uint64_t frame_begin_time, float time_scale_ms, uint32_t begin, uint32_t end, int y) {
+static void drawTimeBar(uint64_t begin_time_ns, float time_scale_ms, int64_t begin_ns, int64_t end_ns, int y, int height, int glyph_width, const char *label, const rgba_t color) {
+	const float delta_ms = (end_ns - begin_ns) * 1e-6;
+	const int width = delta_ms  * time_scale_ms;
+	const int x = (begin_ns - begin_time_ns) * 1e-6 * time_scale_ms;
+
+	rgba_t text_color = {255-color[0], 255-color[1], 255-color[2], 255};
+	CL_FillRGBA(x, y, width, height, color[0], color[1], color[2], color[3]);
+
+	// Tweak this if scope names escape the block boundaries
+	char tmp[64];
+	tmp[0] = '\0';
+	Q_snprintf(tmp, Q_min(sizeof(tmp), width / glyph_width), "%s %.3fms", label, delta_ms);
+	gEngine.Con_DrawString(x, y, tmp, text_color);
+}
+
+static void drawProfilerScopes(const aprof_event_t *events, uint64_t begin_time, float time_scale_ms, uint32_t begin, uint32_t end, int y) {
 #define MAX_STACK_DEPTH 16
 
 	// hidpi scaling
@@ -46,6 +61,7 @@ static void drawProfilerScopes(const aprof_event_t *events, uint64_t frame_begin
 
 	// TODO "20" is fine for the "default" font. Unfortunately we don't have any access to font metrics from here, ref_api_t doesn't give us anything about fonts. ;_;
 	const int height = 20 * scale;
+	const int estimated_glyph_width = 8 * scale;
 
 	struct {
 		int scope_id;
@@ -77,24 +93,11 @@ static void drawProfilerScopes(const aprof_event_t *events, uint64_t frame_begin
 
 					ASSERT(stack[depth].scope_id == scope_id);
 
-					const float delta_ms = (timestamp_ns - stack[depth].begin_ns) * 1e-6;
-					const int width = delta_ms  * time_scale_ms;
-					const int x = (stack[depth].begin_ns - frame_begin_time) * 1e-6 * time_scale_ms;
-
-					const int yy = y + depth * height;
 					const char *scope_name = g_aprof.scopes[scope_id].name;
 					const uint32_t hash = getHash(scope_name);
 
-					rgba_t color = {hash >> 24, (hash>>16)&0xff, hash&0xff, 127};
-					rgba_t text_color = {255-color[0], 255-color[1], 255-color[2], 255};
-					CL_FillRGBA(x, yy, width, height, color[0], color[1], color[2], color[3]);
-
-					// Tweak this if scope names escape the block boundaries
-					const int estimated_glyph_width = 8;
-					char tmp[64];
-					tmp[0] = '\0';
-					Q_snprintf(tmp, Q_min(sizeof(tmp), width / estimated_glyph_width), "%s %.3fms", scope_name, delta_ms);
-					gEngine.Con_DrawString(x, yy, tmp, text_color);
+					const rgba_t color = {hash >> 24, (hash>>16)&0xff, hash&0xff, 127};
+					drawTimeBar(begin_time, time_scale_ms, stack[depth].begin_ns, timestamp_ns, y + depth * height, height, estimated_glyph_width, scope_name, color);
 					break;
 				}
 
@@ -108,7 +111,7 @@ static void drawProfilerScopes(const aprof_event_t *events, uint64_t frame_begin
 }
 
 // FIXME move this to r_speeds or something like that
-void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_time_ns) {
+void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
 	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
 
 	int line = 4;
@@ -122,7 +125,9 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_time_ns
 	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
 	const float frame_time = delta_ns / 1e6;
 
+	const uint64_t gpu_time_ns = gpu_frame_end_ns - gpu_frame_begin_ns;
 	gEngine.Con_NPrintf(line++, "GPU frame time: %.03fms\n", gpu_time_ns * 1e-6);
+
 	gEngine.Con_NPrintf(line++, "aprof events this frame: %u, wraps: %d, frame time: %.03fms\n", events, g_aprof.current_frame_wraparounds, frame_time);
 
 	g_slows.frame_times[g_slows.frame_num] = frame_time;
@@ -167,6 +172,23 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_time_ns
 	{
 		const int y = frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2 + 10;
 
+		// Draw latest 2 frames; find their boundaries
+		uint32_t rewind_frame = prev_frame_index;
+		for (int frame = 1; frame < 2;) {
+			rewind_frame = (rewind_frame - 1) % APROF_EVENT_BUFFER_SIZE; // NOTE: only correct for power-of-2 buffer sizes
+			const aprof_event_t event = g_aprof.events[rewind_frame];
+
+			// Exhausted all events
+			if (event == 0 || rewind_frame == g_aprof.events_write)
+				break;
+
+			// Note the frame
+			if (APROF_EVENT_TYPE(event) == APROF_EVENT_FRAME_BOUNDARY) {
+				++frame;
+				prev_frame_index = rewind_frame;
+			}
+		}
+
 		const aprof_event_t *const events = g_slows.paused_events ? g_slows.paused_events : g_aprof.events;
 		const int event_begin = g_slows.paused_events ? 0 : prev_frame_index;
 		const int event_end = g_slows.paused_events ? g_slows.paused_events_count - 1 : g_aprof.events_last_frame;
@@ -175,6 +197,9 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_time_ns
 		const uint64_t delta_ns = frame_end_time - frame_begin_time;
 		const float time_scale_ms = (double)vk_frame.width / (delta_ns / 1e6);
 		drawProfilerScopes(events, frame_begin_time, time_scale_ms, event_begin, event_end, y);
+
+		const rgba_t color = {255, 255, 0, 127};
+		drawTimeBar(frame_begin_time, time_scale_ms, gpu_frame_begin_ns, gpu_frame_end_ns, 10, 20, 8, "GPU TIME", color);
 	}
 
 	APROF_SCOPE_END(__FUNCTION__);

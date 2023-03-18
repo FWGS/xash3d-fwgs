@@ -251,6 +251,7 @@ do { \
 	X(vkCmdResetQueryPool) \
 	X(vkCmdWriteTimestamp) \
 	X(vkGetQueryPoolResults) \
+	X(vkGetCalibratedTimestampsEXT) \
 
 #define DEVICE_FUNCS_RTX(X) \
 	X(vkGetAccelerationStructureBuildSizesKHR) \

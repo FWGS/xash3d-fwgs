@@ -8,6 +8,7 @@ typedef struct {
 	VkQueryPool pool;
 	int used;
 	uint64_t results[MAX_QUERY_COUNT];
+	uint64_t end_timestamp_ns;
 } vk_query_pool_t;
 
 qboolean R_VkQueryPoolInit( vk_query_pool_t *pool );

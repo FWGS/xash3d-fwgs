@@ -103,6 +103,10 @@ static const char* device_extensions_nv_checkpoint[] = {
 	VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME,
 };
 
+static const char* device_extensions_extra[] = {
+	VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME,
+};
+
 VkBool32 VKAPI_PTR debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
@@ -303,6 +307,7 @@ typedef struct {
 	qboolean anisotropy;
 	qboolean ray_tracing;
 	qboolean nv_checkpoint;
+	qboolean calibrated_timestamps;
 } vk_available_device_t;
 
 static int enumerateDevices( vk_available_device_t **available_devices ) {
@@ -404,6 +409,7 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 			devicePrintExtensionsFromList(extensions, num_device_extensions, device_extensions_req, ARRAYSIZE(device_extensions_req));
 			devicePrintExtensionsFromList(extensions, num_device_extensions, device_extensions_rt, ARRAYSIZE(device_extensions_rt));
 			devicePrintExtensionsFromList(extensions, num_device_extensions, device_extensions_nv_checkpoint, ARRAYSIZE(device_extensions_nv_checkpoint));
+			devicePrintExtensionsFromList(extensions, num_device_extensions, device_extensions_extra, ARRAYSIZE(device_extensions_extra));
 
 			vkGetPhysicalDeviceFeatures2(physical_devices[i], &features);
 			this_device->anisotropy = features.features.samplerAnisotropy;
@@ -414,6 +420,8 @@ static int enumerateDevices( vk_available_device_t **available_devices ) {
 
 			this_device->nv_checkpoint = vk_core.debug && deviceSupportsExtensions(extensions, num_device_extensions, device_extensions_nv_checkpoint, ARRAYSIZE(device_extensions_nv_checkpoint));
 			gEngine.Con_Printf("\t\tNV checkpoints supported: %d\n", this_device->nv_checkpoint);
+
+			this_device->calibrated_timestamps = deviceSupportsExtensions(extensions, num_device_extensions, device_extensions_extra, ARRAYSIZE(device_extensions_extra));
 
 			Mem_Free(extensions);
 		}
@@ -556,6 +564,9 @@ static qboolean createDevice( void ) {
 			device_extensions_count = appendDeviceExtensions(device_extensions, device_extensions_count, device_extensions_rt, ARRAYSIZE(device_extensions_rt));
 		if (candidate_device->nv_checkpoint)
 			device_extensions_count = appendDeviceExtensions(device_extensions, device_extensions_count, device_extensions_nv_checkpoint, ARRAYSIZE(device_extensions_nv_checkpoint));
+
+		if (candidate_device->calibrated_timestamps)
+			device_extensions_count = appendDeviceExtensions(device_extensions, device_extensions_count, device_extensions_extra, ARRAYSIZE(device_extensions_extra));
 
 		VkDeviceCreateInfo create_info = {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

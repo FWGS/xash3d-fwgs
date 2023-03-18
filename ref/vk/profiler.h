@@ -40,6 +40,12 @@ void aprof_scope_event(aprof_scope_id_t, int begin);
 uint32_t aprof_scope_frame( void );
 uint64_t aprof_time_now_ns( void );
 
+#ifdef WIN32
+uint64_t aprof_time_now_native_divider( void );
+#else
+#define aprof_time_now_native_divider() 1
+#endif
+
 typedef struct {
 	const char *name;
 } aprof_scope_t;
@@ -81,6 +87,8 @@ enum {
 typedef uint64_t aprof_event_t;
 
 typedef struct {
+	uint64_t time_begin_ns;
+
 	aprof_scope_t scopes[APROF_MAX_SCOPES];
 	int num_scopes;
 
@@ -114,6 +122,9 @@ uint64_t aprof_time_now_ns( void ) {
 	QueryPerformanceCounter(&pc);
 	return pc.QuadPart * 1000000000ull / _aprof_frequency.QuadPart;
 }
+uint64_t aprof_time_now_native_divider( void ) {
+	return _aprof_frequency.QuadPart;
+}
 #else
 #error aprof is not implemented for this os
 #endif
@@ -126,6 +137,9 @@ aprof_scope_id_t aprof_scope_init(const char *scope_name) {
 		QueryPerformanceFrequency(&_aprof_frequency);
 #endif
 
+	if (!g_aprof.time_begin_ns)
+		g_aprof.time_begin_ns = aprof_time_now_ns();
+
 	if (g_aprof.num_scopes == APROF_MAX_SCOPES)
 		return -1;
 
@@ -134,7 +148,7 @@ aprof_scope_id_t aprof_scope_init(const char *scope_name) {
 }
 
 void aprof_scope_event(aprof_scope_id_t scope_id, int begin) {
-	const uint64_t now = aprof_time_now_ns();
+	const uint64_t now = aprof_time_now_ns() - g_aprof.time_begin_ns;
 	if (scope_id < 0 || scope_id >= g_aprof.num_scopes)
 		return;
 
@@ -146,7 +160,7 @@ void aprof_scope_event(aprof_scope_id_t scope_id, int begin) {
 }
 
 uint32_t aprof_scope_frame( void ) {
-	const uint64_t now = aprof_time_now_ns();
+	const uint64_t now = aprof_time_now_ns() - g_aprof.time_begin_ns;
 	const uint32_t previous_frame = g_aprof.events_last_frame;
 
 	g_aprof.events_last_frame = g_aprof.events_write;
