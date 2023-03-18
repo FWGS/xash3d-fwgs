@@ -39,6 +39,10 @@ static cvar_filter_quirks_t cvar_filter_quirks[] =
 		"ricochet",
 		"r_drawviewmodel",
 	},
+	{
+		"dod",
+		"cl_dodmusic" // Day of Defeat Beta 1.3 cvar
+	},
 };
 
 static cvar_filter_quirks_t *cvar_active_filter_quirks = NULL;
