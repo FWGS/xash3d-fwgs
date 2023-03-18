@@ -290,3 +290,17 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags )
 
 	return false;
 }
+
+qboolean Sound_SupportedFileFormat( const char *fileext )
+{
+	const loadwavfmt_t *format;
+	if( COM_CheckStringEmpty( fileext ))
+	{
+		for( format = sound.loadformats; format && format->formatstring; format++ )
+		{
+			if( !Q_stricmp( format->ext, fileext ))
+				return true;
+		}
+	}
+	return false;
+}
