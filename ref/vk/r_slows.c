@@ -38,7 +38,14 @@ static uint32_t getHash(const char *s) {
 
 static void drawProfilerScopes(const aprof_event_t *events, uint64_t frame_begin_time, float time_scale_ms, uint32_t begin, uint32_t end, int y) {
 #define MAX_STACK_DEPTH 16
-	const int height = 20;
+
+	// hidpi scaling
+	float scale = gEngine.pfnGetCvarFloat("con_fontscale");
+	if (scale <= 0.f)
+		scale = 1.f;
+
+	// TODO "20" is fine for the "default" font. Unfortunately we don't have any access to font metrics from here, ref_api_t doesn't give us anything about fonts. ;_;
+	const int height = 20 * scale;
 
 	struct {
 		int scope_id;
