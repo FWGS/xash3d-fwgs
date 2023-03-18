@@ -2,6 +2,7 @@
 #include "vk_buffer.h"
 #include "alolcator.h"
 #include "vk_commandpool.h"
+#include "profiler.h"
 
 #include <memory.h>
 
@@ -52,9 +53,11 @@ void R_VkStagingShutdown(void) {
 }
 
 void R_VkStagingFlushSync( void ) {
+	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
+
 	const VkCommandBuffer cmdbuf = R_VkStagingCommit();
 	if (!cmdbuf)
-		return;
+		goto end;
 
 	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 	g_staging.cmdbuf = VK_NULL_HANDLE;
@@ -75,6 +78,9 @@ void R_VkStagingFlushSync( void ) {
 	g_staging.buffers.count = 0;
 	g_staging.images.count = 0;
 	R_FlippingBuffer_Clear(&g_staging.buffer_alloc);
+
+end:
+	APROF_SCOPE_END(__FUNCTION__);
 };
 
 static uint32_t allocateInRing(uint32_t size, uint32_t alignment) {

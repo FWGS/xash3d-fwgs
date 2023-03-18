@@ -14,6 +14,13 @@
 #define APROF_SCOPE_BEGIN(scope) \
 	aprof_scope_event(_aprof_scope_id_##scope, 1)
 
+#define APROF_SCOPE_DECLARE_BEGIN(scope, scope_name) \
+	static aprof_scope_id_t _aprof_scope_id_##scope = -1; \
+	if (_aprof_scope_id_##scope == -1) { \
+		_aprof_scope_id_##scope = aprof_scope_init(scope_name); \
+	} \
+	aprof_scope_event(_aprof_scope_id_##scope, 1)
+
 #define APROF_TOKENPASTE(x, y) x ## y
 #define APROF_TOKENPASTE2(x, y) APROF_TOKENPASTE(x, y)
 
