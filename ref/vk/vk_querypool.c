@@ -40,4 +40,8 @@ void R_VkQueryPoolGetFrameResults( vk_query_pool_t *pool ) {
 		return;
 
 	vkGetQueryPoolResults(vk_core.device, pool->pool, 0, pool->used, pool->used * sizeof(uint64_t), pool->results, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+
+	for (int i = 0; i < pool->used; ++i) {
+		pool->results[i] *= vk_core.physical_device.properties.limits.timestampPeriod;
+	}
 }

@@ -64,16 +64,18 @@ void R_VkStagingFlushSync( void ) {
 
 	//gEngine.Con_Reportf(S_WARN "flushing staging buffer img count=%d\n", g_staging.images.count);
 
-	const VkSubmitInfo subinfo = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &cmdbuf,
-	};
+	{
+		const VkSubmitInfo subinfo = {
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.commandBufferCount = 1,
+			.pCommandBuffers = &cmdbuf,
+		};
 
-	// TODO wait for previous command buffer completion. Why: we might end up writing into the same dst
+		// TODO wait for previous command buffer completion. Why: we might end up writing into the same dst
 
-	XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
-	XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+		XVK_CHECK(vkQueueSubmit(vk_core.queue, 1, &subinfo, VK_NULL_HANDLE));
+		XVK_CHECK(vkQueueWaitIdle(vk_core.queue));
+	}
 
 	g_staging.buffers.count = 0;
 	g_staging.images.count = 0;
