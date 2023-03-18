@@ -276,9 +276,17 @@ model_t *SV_ModelHandle( int modelindex )
 	return sv.models[modelindex];
 }
 
+static resourcetype_t SV_DetermineResourceType( const char *filename )
+{
+	if( !Q_strncmp( filename, "sound/", 6 ) && Sound_SupportedFileFormat( COM_FileExtension( filename )))
+		return t_sound;
+	else
+		return t_generic;
+}
+
 void SV_ReadResourceList( const char *filename )
 {
-	string	token;
+	string token;
 	byte *afile;
 	char *pfile;
 
@@ -295,8 +303,23 @@ void SV_ReadResourceList( const char *filename )
 		if( !COM_IsSafeFileToDownload( token ))
 			continue;
 
-		Con_DPrintf( "  %s\n", token );
-		SV_GenericIndex( token );
+		COM_FixSlashes( token );
+		resourcetype_t restype = SV_DetermineResourceType( token );
+		Con_DPrintf( "  %s (%s)\n", token, COM_GetResourceTypeName( restype ));
+		switch( restype )
+		{
+			// TODO do we need to handle other resource types specifically too?
+			case t_sound:
+			{
+				const char *filepath = token;
+				filepath += 6; // skip "sound/" part
+				SV_SoundIndex( filepath );
+				break;
+			}
+			default:
+				SV_GenericIndex( token );
+				break;
+		}
 	}
 
 	Con_DPrintf( "----------------------------------\n" );
