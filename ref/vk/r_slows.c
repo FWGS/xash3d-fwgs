@@ -108,10 +108,13 @@ static void drawProfilerScopes(const aprof_event_t *events, uint64_t frame_begin
 }
 
 // FIXME move this to r_speeds or something like that
-void R_ShowExtendedProfilingData(uint32_t prev_frame_index) {
+void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_time_ns) {
+	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
+
+	int line = 4;
 	{
 		const int dirty = g_lights.stats.dirty_cells;
-		gEngine.Con_NPrintf(4, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
+		gEngine.Con_NPrintf(line++, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
 	}
 
 	const uint32_t events = g_aprof.events_last_frame - prev_frame_index;
@@ -119,13 +122,14 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index) {
 	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
 	const float frame_time = delta_ns / 1e6;
 
-	gEngine.Con_NPrintf(5, "aprof events this frame: %u, wraps: %d, frame time: %.03fms\n", events, g_aprof.current_frame_wraparounds, frame_time);
+	gEngine.Con_NPrintf(line++, "GPU frame time: %.03fms\n", gpu_time_ns * 1e-6);
+	gEngine.Con_NPrintf(line++, "aprof events this frame: %u, wraps: %d, frame time: %.03fms\n", events, g_aprof.current_frame_wraparounds, frame_time);
 
 	g_slows.frame_times[g_slows.frame_num] = frame_time;
 	g_slows.frame_num = (g_slows.frame_num + 1) % MAX_FRAMES_HISTORY;
 
 	const float width = (float)vk_frame.width / MAX_FRAMES_HISTORY;
-	const int frame_bar_y = 100;
+	const int frame_bar_y = 100; // TODO font_height * scale * (line + 1)
 	const float frame_bar_y_scale = 2.f; // ms to pixels
 
 	// 60fps
@@ -173,16 +177,7 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index) {
 		drawProfilerScopes(events, frame_begin_time, time_scale_ms, event_begin, event_end, y);
 	}
 
-	/* gEngine.Con_NPrintf(5, "Perf scopes:"); */
-	/* for (int i = 0; i < g_aprof.num_scopes; ++i) { */
-	/* 	const aprof_scope_t *const scope = g_aprof.scopes + i; */
-	/* 	gEngine.Con_NPrintf(6 + i, "%s: c%d t%.03f(%.03f)ms s%.03f(%.03f)ms", scope->name, */
-	/* 		scope->frame.count, */
-	/* 		scope->frame.duration / 1e6, */
-	/* 		(scope->frame.duration / 1e6) / scope->frame.count, */
-	/* 		(scope->frame.duration - scope->frame.duration_children) / 1e6, */
-	/* 		(scope->frame.duration - scope->frame.duration_children) / 1e6 / scope->frame.count); */
-	/* } */
+	APROF_SCOPE_END(__FUNCTION__);
 }
 
 static void togglePause( void ) {

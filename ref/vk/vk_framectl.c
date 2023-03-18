@@ -10,6 +10,7 @@
 #include "vk_image.h"
 #include "vk_staging.h"
 #include "vk_commandpool.h"
+#include "vk_querypool.h"
 
 #include "profiler.h"
 #include "r_slows.h"
@@ -22,6 +23,7 @@ extern ref_globals_t *gpGlobals;
 
 vk_framectl_t vk_frame = {0};
 
+// Phase tracking is needed for getting screenshots. Basically, getting a screenshot does the same things as R_EndFrame, and they need to be congruent.
 typedef enum {
 	Phase_Idle,
 	Phase_FrameBegan,
@@ -35,6 +37,9 @@ static struct {
 	VkSemaphore sem_done[MAX_CONCURRENT_FRAMES];
 	VkSemaphore sem_done2[MAX_CONCURRENT_FRAMES];
 	VkFence fence_done[MAX_CONCURRENT_FRAMES];
+
+	// TODO these should be tightly coupled with commandbuffers
+	vk_query_pool_t qpools[MAX_CONCURRENT_FRAMES];
 
 	qboolean rtx_enabled;
 
@@ -187,18 +192,32 @@ static void updateGamma( void ) {
 }
 
 void R_BeginFrame( qboolean clearScene ) {
+	APROF_SCOPE_DECLARE_BEGIN(begin_frame_tail, "R_BeginFrame_tail");
 	ASSERT(g_frame.current.phase == Phase_Submitted || g_frame.current.phase == Phase_Idle);
-	const int prev_frame_index = g_frame.current.index % MAX_CONCURRENT_FRAMES;
 	g_frame.current.index = (g_frame.current.index + 1) % MAX_CONCURRENT_FRAMES;
 	const VkCommandBuffer cmdbuf = vk_frame.cmdbuf = g_frame.command.buffers[g_frame.current.index];
+	vk_query_pool_t *const qpool = g_frame.qpools + g_frame.current.index;
 
 	{
-		const uint32_t prev_frame_event_index = aprof_scope_frame();
-		R_ShowExtendedProfilingData(prev_frame_event_index);
+		waitForFrameFence();
+		// Current command buffer is done and available
+		// Previous might still be in flight
+
+		R_VkQueryPoolGetFrameResults(g_frame.qpools + g_frame.current.index);
 	}
+
+	APROF_SCOPE_END(begin_frame_tail);
+
+	const uint32_t prev_frame_event_index = aprof_scope_frame();
 
 	APROF_SCOPE_BEGIN(frame);
 	APROF_SCOPE_BEGIN(begin_frame);
+
+	{
+		// FIXME correct only for nvidia where timestamps are ns
+		const uint64_t gpu_time_ns_fixme = (qpool->used) ? qpool->results[1] - qpool->results[0] : 0;
+		R_ShowExtendedProfilingData(prev_frame_event_index, gpu_time_ns_fixme);
+	}
 
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
 		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
@@ -209,7 +228,6 @@ void R_BeginFrame( qboolean clearScene ) {
 
 	ASSERT(!g_frame.current.framebuffer.framebuffer);
 
-	waitForFrameFence();
 	R_VkStagingFrameBegin();
 
 	g_frame.current.framebuffer = R_VkSwapchainAcquire( g_frame.sem_framebuffer_ready[g_frame.current.index] );
@@ -225,6 +243,8 @@ void R_BeginFrame( qboolean clearScene ) {
 		};
 		XVK_CHECK(vkBeginCommandBuffer(cmdbuf, &beginfo));
 	}
+
+	R_VkQueryPoolBegin(g_frame.qpools + g_frame.current.index, cmdbuf);
 
 	g_frame.current.phase = Phase_FrameBegan;
 	APROF_SCOPE_END(begin_frame);
@@ -289,6 +309,7 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 static void submit( VkCommandBuffer cmdbuf, qboolean wait ) {
 	ASSERT(g_frame.current.phase == Phase_RenderingEnqueued);
 
+	R_VkQueryPoolEnd(g_frame.qpools + g_frame.current.index, cmdbuf);
 	XVK_CHECK(vkEndCommandBuffer(cmdbuf));
 
 	const VkCommandBuffer cmdbufs[] = {
@@ -394,6 +415,8 @@ qboolean VK_FrameCtlInit( void )
 		SET_DEBUG_NAMEF(g_frame.sem_done2[i], VK_OBJECT_TYPE_SEMAPHORE, "done2[%d]", i);
 		g_frame.fence_done[i] = R_VkFenceCreate(true);
 		SET_DEBUG_NAMEF(g_frame.fence_done[i], VK_OBJECT_TYPE_FENCE, "done[%d]", i);
+
+		R_VkQueryPoolInit(g_frame.qpools + i);
 	}
 
 	// Signal first frame semaphore as done
@@ -429,6 +452,7 @@ void VK_FrameCtlShutdown( void ) {
 		R_VkSemaphoreDestroy(g_frame.sem_done[i]);
 		R_VkSemaphoreDestroy(g_frame.sem_done2[i]);
 		R_VkFenceDestroy(g_frame.fence_done[i]);
+		R_VkQueryPoolDestroy(g_frame.qpools + i);
 	}
 
 	R_VkSwapchainShutdown();

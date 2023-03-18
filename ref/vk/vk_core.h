@@ -246,6 +246,11 @@ do { \
 	X(vkGetImageSubresourceLayout) \
 	X(vkCmdSetCheckpointNV) \
 	X(vkGetQueueCheckpointDataNV) \
+	X(vkCreateQueryPool) \
+	X(vkDestroyQueryPool) \
+	X(vkCmdResetQueryPool) \
+	X(vkCmdWriteTimestamp) \
+	X(vkGetQueryPoolResults) \
 
 #define DEVICE_FUNCS_RTX(X) \
 	X(vkGetAccelerationStructureBuildSizesKHR) \
