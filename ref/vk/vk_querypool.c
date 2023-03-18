@@ -56,7 +56,7 @@ static uint64_t getGpuTimestampOffsetNs( const vk_query_pool_t *pool ) {
 		{
 			.sType = VK_STRUCTURE_TYPE_CALIBRATED_TIMESTAMP_INFO_EXT,
 			.pNext = NULL,
-#ifdef WIN32
+#if defined(_WIN32)
 			.timeDomain = VK_TIME_DOMAIN_QUERY_PERFORMANCE_COUNTER_EXT,
 #else
 			.timeDomain = VK_TIME_DOMAIN_CLOCK_MONOTONIC_EXT,
@@ -68,7 +68,7 @@ static uint64_t getGpuTimestampOffsetNs( const vk_query_pool_t *pool ) {
 	uint64_t max_deviation[2] = {0};
 	vkGetCalibratedTimestampsEXT(vk_core.device, 2, cti, timestamps, max_deviation);
 
-	const uint64_t cpu = (double)timestamps[1] / aprof_time_now_native_divider();
+	const uint64_t cpu = aprof_time_platform_to_ns(timestamps[1]);
 	const uint64_t gpu = (double)timestamps[0] * vk_core.physical_device.properties.limits.timestampPeriod;
 	return cpu - gpu;
 }

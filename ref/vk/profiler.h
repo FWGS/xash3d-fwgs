@@ -40,10 +40,10 @@ void aprof_scope_event(aprof_scope_id_t, int begin);
 uint32_t aprof_scope_frame( void );
 uint64_t aprof_time_now_ns( void );
 
-#ifdef WIN32
-uint64_t aprof_time_now_native_divider( void );
+#if defined(_WIN32)
+uint64_t aprof_time_platform_to_ns( uint64_t );
 #else
-#define aprof_time_now_native_divider() 1
+#define aprof_time_platform_to_ns(time) (time)
 #endif
 
 typedef struct {
@@ -122,8 +122,9 @@ uint64_t aprof_time_now_ns( void ) {
 	QueryPerformanceCounter(&pc);
 	return pc.QuadPart * 1000000000ull / _aprof_frequency.QuadPart;
 }
-uint64_t aprof_time_now_native_divider( void ) {
-	return _aprof_frequency.QuadPart;
+
+uint64_t aprof_time_platform_to_ns( uint64_t platform_time ) {
+	return platform_time * 1000000000ull / _aprof_frequency.QuadPart;
 }
 #else
 #error aprof is not implemented for this os
