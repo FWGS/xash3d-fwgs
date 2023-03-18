@@ -29,11 +29,11 @@
 { // TODO: animate texture
 "_xvk_ent_id" "354 355" // remove hack lights entity
 }
-//{
-//"_xvk_surface_id" "1183" // +0~DRKMTLS1      205 0   0    6000
-//"_light" "205 0 0 10000"
+{ // TODO: animate texture
+"_xvk_surface_id" "1183" // +0~DRKMTLS1      205 0   0    6000
+"_light" "205 0 0 10000"
 //"_xvk_texture" "RED1_ANIMATE"
-//}
+}
 {
 "_xvk_ent_id" "55 54 53 52 51" // remove hack lights entity
 }

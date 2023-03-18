@@ -1,0 +1,94 @@
+// section 1
+
+// alarm lights
+{
+"_xvk_ent_id" "100"
+"origin" "-2117 688 86"
+"_light" "255 255 0 100"
+}
+{
+"_xvk_ent_id" "94"
+"origin" "-2116 144 86"
+"_light" "255 255 0 100"
+}
+
+
+{
+"_xvk_ent_id" "103"
+"_light" "215 231 238 100"
+}
+
+// section 2
+{
+"_xvk_ent_id" "42"
+"origin" "-1840 -96 281"
+}
+{
+"_xvk_ent_id" "43"
+"origin" "-1840 -224 281"
+}
+
+{
+//"_xvk_ent_id" "36 35 34 33 37 38" // remove hack lights entity
+}
+{
+//"_xvk_ent_id" "26 25 28 27 32 31 30 24 23 29" // remove hack lights entity
+}
+{
+//"_xvk_ent_id" "403 404 405 406 21 22 20 19" // remove hack lights entity
+}
+
+{
+//"_xvk_surface_id" "2104 2101 2099" // SCRN3
+//"_light" "24 30 252 2000"
+}
+
+{
+"_xvk_ent_id" "403"
+"origin" "-2168 -866 302"
+"_light" "24 30 252 100"
+}
+{
+"_xvk_ent_id" "404"
+"origin" "-2216 -866 302"
+"_light" "24 30 252 100"
+}
+
+{
+"_xvk_ent_id" "405"
+"origin" "-2262 -866 302"
+"_light" "255 255 255 40"
+}
+{
+"_xvk_ent_id" "406"
+"origin" "-2309 -866 302"
+"_light" "255 255 255 40"
+}
+{
+"_xvk_ent_id" "405"
+"origin" "-2262 -866 302"
+"_light" "255 255 255 40"
+}
+
+{
+"_xvk_ent_id" "21"
+"origin" "-2384 -712 301"
+"_light" "24 30 252 100"
+}
+{
+"_xvk_ent_id" "22"
+"origin" "-2384 -664 301"
+"_light" "255 255 255 60"
+}
+{
+"_xvk_ent_id" "20"
+"origin" "-2384 -616 301"
+"_light" "24 30 252 100"
+}
+{
+"_xvk_ent_id" "19"
+"origin" "-2384 -568 301"
+"_light" "24 30 252 100"
+}
+
+
