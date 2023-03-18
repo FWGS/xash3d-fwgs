@@ -278,7 +278,7 @@ model_t *SV_ModelHandle( int modelindex )
 
 static resourcetype_t SV_DetermineResourceType( const char *filename )
 {
-	if( !Q_strncmp( filename, "sound/", 6 ) && Sound_SupportedFileFormat( COM_FileExtension( filename )))
+	if( !Q_strncmp( filename, DEFAULT_SOUNDPATH, sizeof( DEFAULT_SOUNDPATH ) - 1 ) && Sound_SupportedFileFormat( COM_FileExtension( filename )))
 		return t_sound;
 	else
 		return t_generic;
@@ -289,6 +289,7 @@ void SV_ReadResourceList( const char *filename )
 	string token;
 	byte *afile;
 	char *pfile;
+	resourcetype_t restype;
 
 	afile = FS_LoadFile( filename, NULL, false );
 	if( !afile ) return;
@@ -304,7 +305,7 @@ void SV_ReadResourceList( const char *filename )
 			continue;
 
 		COM_FixSlashes( token );
-		resourcetype_t restype = SV_DetermineResourceType( token );
+		restype = SV_DetermineResourceType( token );
 		Con_DPrintf( "  %s (%s)\n", token, COM_GetResourceTypeName( restype ));
 		switch( restype )
 		{
@@ -312,7 +313,7 @@ void SV_ReadResourceList( const char *filename )
 			case t_sound:
 			{
 				const char *filepath = token;
-				filepath += 6; // skip "sound/" part
+				filepath += sizeof( DEFAULT_SOUNDPATH ) - 1; // skip "sound/" part
 				SV_SoundIndex( filepath );
 				break;
 			}
