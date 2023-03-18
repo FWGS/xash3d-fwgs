@@ -638,6 +638,7 @@ void COM_HexConvert( const char *pszInput, int nInputLength, byte *pOutput );
 int COM_SaveFile( const char *filename, const void *data, int len );
 byte* COM_LoadFileForMe( const char *filename, int *pLength );
 qboolean COM_IsSafeFileToDownload( const char *filename );
+const char *COM_GetResourceTypeName( resourcetype_t restype );
 cvar_t *pfnCVarGetPointer( const char *szVarName );
 int pfnDrawConsoleString( int x, int y, char *string );
 void pfnDrawSetTextColor( float r, float g, float b );

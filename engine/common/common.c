@@ -1053,6 +1053,21 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 	return true;
 }
 
+const char *COM_GetResourceTypeName( resourcetype_t restype )
+{
+	switch( restype )
+	{
+		case t_decal: return "decal";
+		case t_eventscript: return "eventscript";
+		case t_generic: return "generic";
+		case t_model: return "model";
+		case t_skin: return "skin";
+		case t_sound: return "sound";
+		case t_world: return "world";
+		default: return "unknown";
+	}
+}
+
 char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline )
 {
 	char	*b;
