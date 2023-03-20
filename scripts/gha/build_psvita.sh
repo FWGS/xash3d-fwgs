@@ -49,11 +49,10 @@ cp build/engine/xash.vpk pkgtemp/
 
 echo "Building HLSDK..."
 
-# TODO: replace with hlsdk-portable and the correct branch names when PRs are merged
 pushd hlsdk-xash3d
-build_hlsdk vita-mobile_hacks valve
-build_hlsdk vita-opfor gearbox
-build_hlsdk vita-bshift bshift
+build_hlsdk mobile_hacks valve
+build_hlsdk opfor gearbox
+build_hlsdk bshift bshift
 popd
 
 echo "Generating default config files..."
