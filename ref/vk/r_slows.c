@@ -178,7 +178,6 @@ static int drawFrames( uint32_t prev_frame_index, int y, const uint64_t gpu_fram
 	y += g_slows.font_metrics.glyph_height * 6;
 	const int bar_height = g_slows.font_metrics.glyph_height;
 	const rgba_t color = {255, 255, 0, 127};
-	gEngine.Con_Reportf("frame_begin=%.03fs gpu_begin=%.03fs\n", frame_begin_time * 1e-9, gpu_frame_begin_ns * 1e-9);
 	drawTimeBar(frame_begin_time, time_scale_ms, gpu_frame_begin_ns, gpu_frame_end_ns, y, bar_height, "GPU TIME", color);
 	return y;
 }
