@@ -4,6 +4,10 @@
 #include <assert.h>
 #include <string.h>
 
+// Note: this module initializes itself on the first scope initialization.
+// I.e. it is invalid to call any of the functions before the first of aprof_scope_init/APROF_SCOPE_INIT/APROF_SCOPE_DECLARE_BEGIN is called.
+// TODO: explicit initialization function
+
 #define APROF_SCOPE_DECLARE(scope) \
 	static aprof_scope_id_t _aprof_scope_id_##scope = -1
 
@@ -43,7 +47,7 @@ uint64_t aprof_time_now_ns( void );
 #if defined(_WIN32)
 uint64_t aprof_time_platform_to_ns( uint64_t );
 #else
-#define aprof_time_platform_to_ns(time) (time)
+#define aprof_time_platform_to_ns(time) ((time) - g_aprof.time_begin_ns)
 #endif
 
 typedef struct {
@@ -51,12 +55,6 @@ typedef struct {
 } aprof_scope_t;
 
 #define APROF_MAX_SCOPES 256
-#define APROF_MAX_STACK_DEPTH 32
-
-typedef struct {
-	aprof_scope_id_t scope;
-	uint64_t time_begin;
-} aprof_stack_frame_t;
 
 #define APROF_EVENT_TYPE_MASK 0x0full
 #define APROF_EVENT_TYPE_SHIFT 0
@@ -124,7 +122,7 @@ uint64_t aprof_time_now_ns( void ) {
 }
 
 uint64_t aprof_time_platform_to_ns( uint64_t platform_time ) {
-	return platform_time * 1000000000ull / _aprof_frequency.QuadPart;
+	return platform_time * 1000000000ull / _aprof_frequency.QuadPart - g_aprof.time_begin_ns;
 }
 #else
 #error aprof is not implemented for this os
