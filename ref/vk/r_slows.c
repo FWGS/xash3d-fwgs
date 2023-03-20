@@ -3,6 +3,7 @@
 #include "shaders/ray_interop.h" // stats: struct LightCluster
 #include "vk_overlay.h"
 #include "vk_framectl.h"
+#include "vk_cvar.h"
 
 #include "profiler.h"
 
@@ -11,6 +12,18 @@
 
 #define MAX_FRAMES_HISTORY 256
 #define TARGET_FRAME_TIME (1000.f / 60.f)
+
+// Valid bits for `r_speeds` argument:
+enum {
+	SPEEDS_BIT_OFF = 0,       // `r_speeds 0` turns off all performance stats display
+	SPEEDS_BIT_SIMPLE = 1,    // `r_speeds 1` displays only basic info about frame time
+	SPEEDS_BIT_STATS = 2,     // `r_speeds 2` displays additional metrics, i.e. lights counts, dynamic geometry upload sizes, etc (TODO)
+	SPEEDS_BIT_GPU_USAGE = 4, // `r_speeds 4` displays overall GPU usage stats (TODO)
+	SPEEDS_BIT_FRAME = 8,     // `r_speeds 8` diplays details instrumental profiler frame data, e.g. specific functions times graphs, etc
+
+	// These bits can be combined, e.g. `r_speeds 9`, 8+1, will display 1: basic timing info and 8: frame graphs
+};
+
 
 static struct {
 	float frame_times[MAX_FRAMES_HISTORY];
@@ -182,46 +195,56 @@ static int drawFrames( uint32_t prev_frame_index, int y, const uint64_t gpu_fram
 	return y;
 }
 
-// FIXME move this to r_speeds or something like that
+static void getCurrentFontMetrics(void) {
+	// hidpi scaling
+	float scale = gEngine.pfnGetCvarFloat("con_fontscale");
+	if (scale <= 0.f)
+		scale = 1.f;
+
+	// TODO these numbers are mostly fine for the "default" font. Unfortunately
+	// we don't have any access to real font metrics from here, ref_api_t doesn't give us anything about fonts. ;_;
+	g_slows.font_metrics.glyph_width = 8 * scale;
+	g_slows.font_metrics.glyph_height = 20 * scale;
+}
+
 void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
 	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
 
-	{
-		// hidpi scaling
-		float scale = gEngine.pfnGetCvarFloat("con_fontscale");
-		if (scale <= 0.f)
-			scale = 1.f;
-
-		// TODO these numbers are mostly fine for the "default" font. Unfortunately
-		// we don't have any access to real font metrics from here, ref_api_t doesn't give us anything about fonts. ;_;
-		g_slows.font_metrics.glyph_width = 8 * scale;
-		g_slows.font_metrics.glyph_height = 20 * scale;
-	}
-
+	const uint32_t speeds_bits = r_speeds->value;
 	int line = 4;
-	{
-		const int dirty = g_lights.stats.dirty_cells;
-		gEngine.Con_NPrintf(line++, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
-	}
+
+	// TODO collect into a r_speeds_msg string, similar to ref/gl
+	//R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
 
 	const uint32_t events = g_aprof.events_last_frame - prev_frame_index;
 	const uint64_t frame_begin_time = APROF_EVENT_TIMESTAMP(g_aprof.events[prev_frame_index]);
 	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
 	const float frame_time = delta_ns / 1e6;
 
-	const uint64_t gpu_time_ns = gpu_frame_end_ns - gpu_frame_begin_ns;
-	gEngine.Con_NPrintf(line++, "GPU frame time: %.03fms\n", gpu_time_ns * 1e-6);
-	gEngine.Con_NPrintf(line++, "aprof events this frame: %u, wraps: %d, frame time: %.03fms\n", events, g_aprof.current_frame_wraparounds, frame_time);
+	if (speeds_bits & SPEEDS_BIT_SIMPLE) {
+		const uint64_t gpu_time_ns = gpu_frame_end_ns - gpu_frame_begin_ns;
+		gEngine.Con_NPrintf(line++, "GPU frame time: %.03fms\n", gpu_time_ns * 1e-6);
+	}
+
+	if (speeds_bits & SPEEDS_BIT_STATS) {
+		const int dirty = g_lights.stats.dirty_cells;
+		gEngine.Con_NPrintf(line++, "aprof events this frame: %u, wraps: %d, frame time: %.03fms\n", events, g_aprof.current_frame_wraparounds, frame_time);
+		gEngine.Con_NPrintf(line++, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
+	}
 
 	g_slows.frame_times[g_slows.frame_num] = frame_time;
 	g_slows.frame_num = (g_slows.frame_num + 1) % MAX_FRAMES_HISTORY;
 
 	handlePause( prev_frame_index );
 
-	int y = 100;
-	const float frame_bar_y_scale = 2.f; // ms to pixels (somehow)
-	y = drawFrameTimeGraph( y, frame_bar_y_scale ) + 20;
-	y = drawFrames( prev_frame_index, y, gpu_frame_begin_ns, gpu_frame_end_ns );
+	if (speeds_bits & SPEEDS_BIT_FRAME) {
+		getCurrentFontMetrics();
+		int y = 100;
+		const float frame_bar_y_scale = 2.f; // ms to pixels (somehow)
+		y = drawFrameTimeGraph( y, frame_bar_y_scale ) + 20;
+		y = drawFrames( prev_frame_index, y, gpu_frame_begin_ns, gpu_frame_end_ns );
+	}
+
 	APROF_SCOPE_END(__FUNCTION__);
 }
 

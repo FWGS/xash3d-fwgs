@@ -1,4 +1,3 @@
-//#include "xash3d_types.h"
 #include "const.h" // required for ref_api.h
 #include "cvardef.h"
 #include "com_model.h"

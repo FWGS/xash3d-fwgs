@@ -2,6 +2,11 @@
 
 #include "cvardef.h"
 
+#include "xash3d_types.h" // required for ref_api.h
+#include "const.h" // required for ref_api.h
+#include "com_model.h" // required for ref_api.h
+#include "ref_api.h"
+
 // from engine/common/cvar.h
 #define FCVAR_READ_ONLY		(1<<17)	// cannot be set by user at all, and can't be requested by CvarGetPointer from game dlls
 
@@ -23,7 +28,8 @@ void VK_LoadCvarsAfterInit( void );
 	X(vk_only) \
 	X(vk_device_target_id) \
 
-
 #define EXTERN_CVAR(cvar) extern cvar_t *cvar;
 DECLARE_CVAR(EXTERN_CVAR)
 #undef EXTERN_CVAR
+
+DECLARE_ENGINE_SHARED_CVAR_LIST()

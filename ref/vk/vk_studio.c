@@ -6,6 +6,7 @@
 #include "vk_previous_frame.h"
 #include "vk_renderstate.h"
 #include "vk_math.h"
+#include "vk_cvar.h"
 #include "camera.h"
 
 #include "xash3d_mathlib.h"
@@ -38,8 +39,6 @@ typedef struct
 	char		modelname[MAX_OSPATH];
 	model_t		*model;
 } player_model_t;
-
-cvar_t *r_glowshellfreq;
 
 cvar_t r_shadows = { (char*)"r_shadows", (char*)"0", 0 };
 
@@ -116,9 +115,7 @@ typedef struct
 } studio_draw_state_t;
 
 // studio-related cvars
-static cvar_t			*r_drawviewmodel;
 cvar_t			*cl_righthand = NULL;
-static cvar_t			*cl_himodels;
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
@@ -144,11 +141,7 @@ static struct {
 
 void R_StudioInit( void )
 {
-	cl_himodels = gEngine.pfnGetCvarPointer( "cl_himodels", 0 );
-	r_drawviewmodel = gEngine.Cvar_Get( "r_drawviewmodel", "1", 0, "draw firstperson weapon model" );
-
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
-	r_glowshellfreq = gEngine.Cvar_Get( "r_glowshellfreq", "2.2", 0, "glowing shell frequency update" );
 
 	// g-cont. cvar disabled by Valve
 //	gEngine.Cvar_RegisterVariable( &r_shadows );

@@ -6,13 +6,15 @@
 DECLARE_CVAR(NONEXTERN_CVAR)
 #undef NONEXTERN_CVAR
 
-static cvar_t *r_drawentities;
+DEFINE_ENGINE_SHARED_CVAR_LIST()
 
 void VK_LoadCvars( void )
 {
+#define gEngfuncs gEngine // ...
+	RETRIEVE_ENGINE_SHARED_CVAR_LIST()
+
 	r_lighting_modulate = gEngine.Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
 	cl_lightstyle_lerping = gEngine.pfnGetCvarPointer( "cl_lightstyle_lerping", 0 );
-	r_drawentities = gEngine.pfnGetCvarPointer( "r_drawentities", 0 );
 	r_lightmap = gEngine.Cvar_Get( "r_lightmap", "0", FCVAR_CHEAT, "lightmap debugging tool" );
 	ui_infotool = gEngine.Cvar_Get( "ui_infotool", "0", FCVAR_CHEAT, "DEBUG: print entity info under crosshair" );
 	vk_only = gEngine.Cvar_Get( "vk_only", "0", FCVAR_GLCONFIG, "Full disable Ray Tracing pipeline" );
