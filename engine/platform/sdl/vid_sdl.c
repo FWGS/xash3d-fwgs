@@ -619,7 +619,7 @@ static void WIN_SetWindowIcon( HICON ico )
 
 	if( SDL_GetWindowWMInfo( host.hWnd, &wminfo ) )
 	{
-		SetClassLongPtr( wminfo.info.win.window, GCLP_HICON, (LONG)ico );
+		SetClassLongPtr( wminfo.info.win.window, GCLP_HICON, (LONG_PTR)ico );
 	}
 }
 #endif
