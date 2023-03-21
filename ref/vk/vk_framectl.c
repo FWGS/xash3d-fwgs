@@ -49,14 +49,14 @@ static struct {
 } g_frame;
 
 #define PROFILER_SCOPES(X) \
-	X(frame, "Frame"); \
-	X(begin_frame, "R_BeginFrame"); \
-	X(render_frame, "VK_RenderFrame"); \
-	X(end_frame, "R_EndFrame"); \
-	X(frame_gpu_wait, "Wait for GPU"); \
-	X(wait_for_frame_fence, "waitForFrameFence"); \
+	X(frame, "Frame", APROF_SCOPE_FLAG_DECOR); \
+	X(begin_frame, "R_BeginFrame", 0); \
+	X(render_frame, "VK_RenderFrame", 0); \
+	X(end_frame, "R_EndFrame", 0); \
+	X(frame_gpu_wait, "Wait for GPU", APROF_SCOPE_FLAG_WAIT); \
+	X(wait_for_frame_fence, "waitForFrameFence", APROF_SCOPE_FLAG_WAIT); \
 
-#define SCOPE_DECLARE(scope, name) APROF_SCOPE_DECLARE(scope)
+#define SCOPE_DECLARE(scope, name, flags) APROF_SCOPE_DECLARE(scope)
 PROFILER_SCOPES(SCOPE_DECLARE)
 #undef SCOPE_DECLARE
 
@@ -391,7 +391,7 @@ static void toggleRaytracing( void ) {
 
 qboolean VK_FrameCtlInit( void )
 {
-	PROFILER_SCOPES(APROF_SCOPE_INIT);
+	PROFILER_SCOPES(APROF_SCOPE_INIT_EX);
 
 	const VkFormat depth_format = findSupportedImageFormat(depth_formats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 

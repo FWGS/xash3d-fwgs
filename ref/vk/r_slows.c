@@ -38,7 +38,11 @@ static struct {
 		int glyph_width, glyph_height;
 	} font_metrics;
 
-	char message[MAX_SPEEDS_MESSAGE];
+	struct {
+		uint64_t ref_cpu_time;
+		uint64_t ref_cpu_wait_time;
+		char message[MAX_SPEEDS_MESSAGE];
+	} frame;
 } g_slows;
 
 static void speedsPrintf( const char *msg, ... ) {
@@ -49,7 +53,7 @@ static void speedsPrintf( const char *msg, ... ) {
 	Q_vsprintf( text, msg, argptr );
 	va_end( argptr );
 
-	Q_strncat( g_slows.message, text, sizeof( g_slows.message ));
+	Q_strncat( g_slows.frame.message, text, sizeof( g_slows.frame.message ));
 }
 
 static float linearstep(float min, float max, float v) {
@@ -83,7 +87,7 @@ static void drawTimeBar(uint64_t begin_time_ns, float time_scale_ms, int64_t beg
 	gEngine.Con_DrawString(x, y, tmp, text_color);
 }
 
-static void drawProfilerScopes(const aprof_event_t *events, uint64_t begin_time, float time_scale_ms, uint32_t begin, uint32_t end, int y) {
+static void drawProfilerScopes(int draw, const aprof_event_t *events, uint64_t begin_time, float time_scale_ms, uint32_t begin, uint32_t end, int y) {
 #define MAX_STACK_DEPTH 16
 	struct {
 		int scope_id;
@@ -92,12 +96,22 @@ static void drawProfilerScopes(const aprof_event_t *events, uint64_t begin_time,
 	int depth = 0;
 	int max_depth = 0;
 
+	int under_waiting = 0;
+	g_slows.frame.ref_cpu_time = 0;
+	g_slows.frame.ref_cpu_wait_time = 0;
+
 	for (; begin != end; begin = (begin + 1) % APROF_EVENT_BUFFER_SIZE) {
 		const aprof_event_t event = events[begin];
 		const int event_type = APROF_EVENT_TYPE(event);
 		const uint64_t timestamp_ns = APROF_EVENT_TIMESTAMP(event);
 		const int scope_id = APROF_EVENT_SCOPE_ID(event);
 		switch (event_type) {
+			case APROF_EVENT_FRAME_BOUNDARY:
+				g_slows.frame.ref_cpu_time = 0;
+				g_slows.frame.ref_cpu_wait_time = 0;
+				under_waiting = 0;
+				break;
+
 			case APROF_EVENT_SCOPE_BEGIN: {
 					if (depth < MAX_STACK_DEPTH) {
 						stack[depth].begin_ns = timestamp_ns;
@@ -106,6 +120,11 @@ static void drawProfilerScopes(const aprof_event_t *events, uint64_t begin_time,
 					++depth;
 					if (max_depth < depth)
 						max_depth = depth;
+
+					const aprof_scope_t *const scope = g_aprof.scopes + scope_id;
+					if (scope->flags & APROF_SCOPE_FLAG_WAIT)
+						under_waiting++;
+
 					break;
 				}
 
@@ -115,12 +134,37 @@ static void drawProfilerScopes(const aprof_event_t *events, uint64_t begin_time,
 
 					ASSERT(stack[depth].scope_id == scope_id);
 
-					const char *scope_name = g_aprof.scopes[scope_id].name;
-					const uint32_t hash = getHash(scope_name);
+					const aprof_scope_t *const scope = g_aprof.scopes + scope_id;
+					const uint32_t hash = getHash(scope->name);
 
-					const rgba_t color = {hash >> 24, (hash>>16)&0xff, hash&0xff, 127};
-					const int bar_height = g_slows.font_metrics.glyph_height;
-					drawTimeBar(begin_time, time_scale_ms, stack[depth].begin_ns, timestamp_ns, y + depth * bar_height, bar_height, scope_name, color);
+					const uint64_t delta_ns = timestamp_ns - stack[depth].begin_ns;
+
+					// This is a top level scope that should be counter towards cpu usage
+					const int is_top_level = ((scope->flags & APROF_SCOPE_FLAG_DECOR) == 0) && (depth == 0 || (g_aprof.scopes[stack[depth-1].scope_id].flags & APROF_SCOPE_FLAG_DECOR));
+
+					// Only count top level scopes towards CPU time, and only if it's not waiting
+					if (is_top_level && under_waiting == 0)
+						g_slows.frame.ref_cpu_time += delta_ns;
+
+					// If this is a top level waiting scope (under any depth)
+					if (under_waiting == 1) {
+						// Count it towards waiting time
+						g_slows.frame.ref_cpu_wait_time += delta_ns;
+
+						// If this is not a top level scope, then we might count its top level parent
+						// towards cpu usage time, which is not correct. Subtract this waiting time from it.
+						if (!is_top_level)
+							g_slows.frame.ref_cpu_time -= delta_ns;
+					}
+
+					if (scope->flags & APROF_SCOPE_FLAG_WAIT)
+						under_waiting--;
+
+					if (draw) {
+						const rgba_t color = {hash >> 24, (hash>>16)&0xff, hash&0xff, 127};
+						const int bar_height = g_slows.font_metrics.glyph_height;
+						drawTimeBar(begin_time, time_scale_ms, stack[depth].begin_ns, timestamp_ns, y + depth * bar_height, bar_height, scope->name, color);
+					}
 					break;
 				}
 
@@ -174,7 +218,7 @@ static int drawFrameTimeGraph( const int frame_bar_y, const float frame_bar_y_sc
 	return frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2;
 }
 
-static int drawFrames( uint32_t prev_frame_index, int y, const uint64_t gpu_frame_begin_ns, const uint64_t gpu_frame_end_ns ) {
+static int drawFrames( int draw, uint32_t prev_frame_index, int y, const uint64_t gpu_frame_begin_ns, const uint64_t gpu_frame_end_ns ) {
 	// Draw latest 2 frames; find their boundaries
 	uint32_t rewind_frame = prev_frame_index;
 	const int max_frames_to_draw = 2;
@@ -200,12 +244,15 @@ static int drawFrames( uint32_t prev_frame_index, int y, const uint64_t gpu_fram
 	const uint64_t frame_end_time = APROF_EVENT_TIMESTAMP(events[event_end]);
 	const uint64_t delta_ns = frame_end_time - frame_begin_time;
 	const float time_scale_ms = (double)vk_frame.width / (delta_ns / 1e6);
-	drawProfilerScopes(events, frame_begin_time, time_scale_ms, event_begin, event_end, y);
+	drawProfilerScopes(draw, events, frame_begin_time, time_scale_ms, event_begin, event_end, y);
 
-	y += g_slows.font_metrics.glyph_height * 6;
-	const int bar_height = g_slows.font_metrics.glyph_height;
-	const rgba_t color = {255, 255, 0, 127};
-	drawTimeBar(frame_begin_time, time_scale_ms, gpu_frame_begin_ns, gpu_frame_end_ns, y, bar_height, "GPU TIME", color);
+	// Draw GPU last frame bar
+	if (draw) {
+		y += g_slows.font_metrics.glyph_height * 6;
+		const int bar_height = g_slows.font_metrics.glyph_height;
+		const rgba_t color = {255, 255, 0, 127};
+		drawTimeBar(frame_begin_time, time_scale_ms, gpu_frame_begin_ns, gpu_frame_end_ns, y, bar_height, "GPU TIME", color);
+	}
 	return y;
 }
 
@@ -224,39 +271,45 @@ static void getCurrentFontMetrics(void) {
 void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
 	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
 
-	g_slows.message[0] = '\0';
+	g_slows.frame.message[0] = '\0';
 
 	const uint32_t speeds_bits = r_speeds->value;
 
-	speedsPrintf( "Renderer: ^1Vulkan%s^7\n", vk_frame.rtx_enabled ? " RT" : "" );
+	if (speeds_bits)
+		speedsPrintf( "Renderer: ^1Vulkan%s^7\n", vk_frame.rtx_enabled ? " RT" : "" );
 
 	const uint32_t events = g_aprof.events_last_frame - prev_frame_index;
 	const uint64_t frame_begin_time = APROF_EVENT_TIMESTAMP(g_aprof.events[prev_frame_index]);
 	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
 	const float frame_time = delta_ns * 1e-6;
 
+	g_slows.frame_times[g_slows.frame_num] = frame_time;
+	g_slows.frame_num = (g_slows.frame_num + 1) % MAX_FRAMES_HISTORY;
+
+	handlePause( prev_frame_index );
+
+	{
+		getCurrentFontMetrics();
+		int y = 100;
+		const float frame_bar_y_scale = 2.f; // ms to pixels (somehow)
+																				 //
+		const int draw = speeds_bits & SPEEDS_BIT_FRAME;
+		if (draw)
+			y = drawFrameTimeGraph( y, frame_bar_y_scale ) + 20;
+
+		y = drawFrames( draw, prev_frame_index, y, gpu_frame_begin_ns, gpu_frame_end_ns );
+	}
+
 	if (speeds_bits & SPEEDS_BIT_SIMPLE) {
 		const uint64_t gpu_time_ns = gpu_frame_end_ns - gpu_frame_begin_ns;
 		speedsPrintf("frame: %.03fms GPU: %.03fms\n", frame_time, gpu_time_ns * 1e-6);
+		speedsPrintf("  (ref) CPU: %.03fms wait: %.03fms\n", g_slows.frame.ref_cpu_time * 1e-6, g_slows.frame.ref_cpu_wait_time * 1e-6);
 	}
 
 	if (speeds_bits & SPEEDS_BIT_STATS) {
 		const int dirty = g_lights.stats.dirty_cells;
 		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds, frame_time);
 		speedsPrintf("Dirty light cells: %d\n\tsize = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
-	}
-
-	g_slows.frame_times[g_slows.frame_num] = frame_time;
-	g_slows.frame_num = (g_slows.frame_num + 1) % MAX_FRAMES_HISTORY;
-
-	handlePause( prev_frame_index );
-
-	if (speeds_bits & SPEEDS_BIT_FRAME) {
-		getCurrentFontMetrics();
-		int y = 100;
-		const float frame_bar_y_scale = 2.f; // ms to pixels (somehow)
-		y = drawFrameTimeGraph( y, frame_bar_y_scale ) + 20;
-		y = drawFrames( prev_frame_index, y, gpu_frame_begin_ns, gpu_frame_end_ns );
 	}
 
 	APROF_SCOPE_END(__FUNCTION__);
@@ -291,7 +344,7 @@ qboolean R_SpeedsMessage( char *out, size_t size )
 	if( r_speeds->value <= 0 ) return false;
 	if( !out || !size ) return false;
 
-	Q_strncpy( out, g_slows.message, size );
+	Q_strncpy( out, g_slows.frame.message, size );
 
 	return true;
 }

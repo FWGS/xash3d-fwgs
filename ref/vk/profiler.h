@@ -12,18 +12,22 @@
 	static aprof_scope_id_t _aprof_scope_id_##scope = -1
 
 // scope_name is expected to be static and alive for the entire duration of the program
-#define APROF_SCOPE_INIT(scope, scope_name) \
-	_aprof_scope_id_##scope = aprof_scope_init(scope_name)
+#define APROF_SCOPE_INIT_EX(scope, scope_name, flags) \
+	_aprof_scope_id_##scope = aprof_scope_init(scope_name, flags)
+
+#define APROF_SCOPE_INIT(scope, scope_name) APROF_SCOPE_INIT_EX(scope, scope_name, 0)
 
 #define APROF_SCOPE_BEGIN(scope) \
 	aprof_scope_event(_aprof_scope_id_##scope, 1)
 
-#define APROF_SCOPE_DECLARE_BEGIN(scope, scope_name) \
+#define APROF_SCOPE_DECLARE_BEGIN_EX(scope, scope_name, flags) \
 	static aprof_scope_id_t _aprof_scope_id_##scope = -1; \
 	if (_aprof_scope_id_##scope == -1) { \
-		_aprof_scope_id_##scope = aprof_scope_init(scope_name); \
+		_aprof_scope_id_##scope = aprof_scope_init(scope_name, flags); \
 	} \
 	aprof_scope_event(_aprof_scope_id_##scope, 1)
+
+#define APROF_SCOPE_DECLARE_BEGIN(scope, scope_name) APROF_SCOPE_DECLARE_BEGIN_EX(scope, scope_name, 0)
 
 #define APROF_TOKENPASTE(x, y) x ## y
 #define APROF_TOKENPASTE2(x, y) APROF_TOKENPASTE(x, y)
@@ -38,7 +42,7 @@
 typedef int aprof_scope_id_t;
 
 // scope_name should be static const, and not on stack
-aprof_scope_id_t aprof_scope_init(const char *scope_name);
+aprof_scope_id_t aprof_scope_init(const char *scope_name, uint32_t flags);
 void aprof_scope_event(aprof_scope_id_t, int begin);
 // Returns event index for previous frame
 uint32_t aprof_scope_frame( void );
@@ -50,8 +54,19 @@ uint64_t aprof_time_platform_to_ns( uint64_t );
 #define aprof_time_platform_to_ns(time) ((time) - g_aprof.time_begin_ns)
 #endif
 
+enum {
+	// This scope covers waiting for external event.
+	// Its entire subtree shouldn't count towards CPU usage by external analyzers.
+	APROF_SCOPE_FLAG_WAIT = (1<<0),
+
+	// This scope itself doesn't really mean CPU work, and used only as a frame structure decoration.
+	// External tools shouldn't count it itself as CPU time used, but its children should be.
+	APROF_SCOPE_FLAG_DECOR = (1<<1),
+};
+
 typedef struct {
 	const char *name;
+	uint32_t flags;
 } aprof_scope_t;
 
 #define APROF_MAX_SCOPES 256
@@ -130,7 +145,7 @@ uint64_t aprof_time_platform_to_ns( uint64_t platform_time ) {
 
 aprof_state_t g_aprof = {0};
 
-aprof_scope_id_t aprof_scope_init(const char *scope_name) {
+aprof_scope_id_t aprof_scope_init(const char *scope_name, uint32_t flags) {
 #if defined(_WIN32)
 	if (_aprof_frequency.QuadPart == 0)
 		QueryPerformanceFrequency(&_aprof_frequency);
@@ -143,6 +158,7 @@ aprof_scope_id_t aprof_scope_init(const char *scope_name) {
 		return -1;
 
 	g_aprof.scopes[g_aprof.num_scopes].name = scope_name;
+	g_aprof.scopes[g_aprof.num_scopes].flags = flags;
 	return g_aprof.num_scopes++;
 }
 

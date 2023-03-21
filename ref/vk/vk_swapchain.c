@@ -202,7 +202,10 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_availa
 		// Check that swapchain has the same size
 		recreateSwapchain(force_recreate);
 
+		APROF_SCOPE_DECLARE_BEGIN_EX(vkAcquireNextImageKHR, "vkAcquireNextImageKHR", APROF_SCOPE_FLAG_WAIT);
 		const VkResult acquire_result = vkAcquireNextImageKHR(vk_core.device, g_swapchain.swapchain, UINT64_MAX, sem_image_available, VK_NULL_HANDLE, &ret.index);
+		APROF_SCOPE_END(vkAcquireNextImageKHR);
+
 		switch (acquire_result) {
 			case VK_SUCCESS:
 				break;
