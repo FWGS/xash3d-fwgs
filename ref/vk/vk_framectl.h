@@ -22,6 +22,8 @@ typedef struct vk_framectl_s {
 		// Preserves color buffer contents
 		VkRenderPass after_ray_tracing;
 	} render_pass;
+
+	qboolean rtx_enabled;
 } vk_framectl_t;
 
 extern vk_framectl_t vk_frame;

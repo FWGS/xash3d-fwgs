@@ -10,6 +10,7 @@
 #include "crclib.h" // CRC32 for stable random colors
 #include "xash3d_mathlib.h" // Q_min
 
+#define MAX_SPEEDS_MESSAGE 1024
 #define MAX_FRAMES_HISTORY 256
 #define TARGET_FRAME_TIME (1000.f / 60.f)
 
@@ -36,7 +37,20 @@ static struct {
 	struct {
 		int glyph_width, glyph_height;
 	} font_metrics;
+
+	char message[MAX_SPEEDS_MESSAGE];
 } g_slows;
+
+static void speedsPrintf( const char *msg, ... ) {
+	va_list	argptr;
+	char	text[MAX_SPEEDS_MESSAGE];
+
+	va_start( argptr, msg );
+	Q_vsprintf( text, msg, argptr );
+	va_end( argptr );
+
+	Q_strncat( g_slows.message, text, sizeof( g_slows.message ));
+}
 
 static float linearstep(float min, float max, float v) {
 	if (v <= min) return 0;
@@ -210,26 +224,26 @@ static void getCurrentFontMetrics(void) {
 void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
 	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
 
-	const uint32_t speeds_bits = r_speeds->value;
-	int line = 4;
+	g_slows.message[0] = '\0';
 
-	// TODO collect into a r_speeds_msg string, similar to ref/gl
-	//R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
+	const uint32_t speeds_bits = r_speeds->value;
+
+	speedsPrintf( "Renderer: ^1Vulkan%s^7\n", vk_frame.rtx_enabled ? " RT" : "" );
 
 	const uint32_t events = g_aprof.events_last_frame - prev_frame_index;
 	const uint64_t frame_begin_time = APROF_EVENT_TIMESTAMP(g_aprof.events[prev_frame_index]);
 	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
-	const float frame_time = delta_ns / 1e6;
+	const float frame_time = delta_ns * 1e-6;
 
 	if (speeds_bits & SPEEDS_BIT_SIMPLE) {
 		const uint64_t gpu_time_ns = gpu_frame_end_ns - gpu_frame_begin_ns;
-		gEngine.Con_NPrintf(line++, "GPU frame time: %.03fms\n", gpu_time_ns * 1e-6);
+		speedsPrintf("frame: %.03fms GPU: %.03fms\n", frame_time, gpu_time_ns * 1e-6);
 	}
 
 	if (speeds_bits & SPEEDS_BIT_STATS) {
 		const int dirty = g_lights.stats.dirty_cells;
-		gEngine.Con_NPrintf(line++, "aprof events this frame: %u, wraps: %d, frame time: %.03fms\n", events, g_aprof.current_frame_wraparounds, frame_time);
-		gEngine.Con_NPrintf(line++, "Dirty light cells: %d, size = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
+		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds, frame_time);
+		speedsPrintf("Dirty light cells: %d\n\tsize = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
 	}
 
 	g_slows.frame_times[g_slows.frame_num] = frame_time;
@@ -262,4 +276,22 @@ static void togglePause( void ) {
 
 void R_SlowsInit( void ) {
 	gEngine.Cmd_AddCommand("r_slows_toggle_pause", togglePause, "Toggle frame profiler pause");
+}
+
+// grab r_speeds message
+qboolean R_SpeedsMessage( char *out, size_t size )
+{
+	if( gEngine.drawFuncs->R_SpeedsMessage != NULL )
+	{
+		if( gEngine.drawFuncs->R_SpeedsMessage( out, size ))
+			return true;
+		// otherwise pass to default handler
+	}
+
+	if( r_speeds->value <= 0 ) return false;
+	if( !out || !size ) return false;
+
+	Q_strncpy( out, g_slows.message, size );
+
+	return true;
 }

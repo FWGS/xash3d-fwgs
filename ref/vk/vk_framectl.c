@@ -41,8 +41,6 @@ static struct {
 	// TODO these should be tightly coupled with commandbuffers
 	vk_query_pool_t qpools[MAX_CONCURRENT_FRAMES];
 
-	qboolean rtx_enabled;
-
 	struct {
 		int index;
 		r_vk_swapchain_framebuffer_t framebuffer;
@@ -221,7 +219,7 @@ void R_BeginFrame( qboolean clearScene ) {
 	}
 
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {
-		g_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
+		vk_frame.rtx_enabled = CVAR_TO_BOOL( vk_rtx );
 	}
 	ClearBits( vk_rtx->flags, FCVAR_CHANGED );
 
@@ -235,7 +233,7 @@ void R_BeginFrame( qboolean clearScene ) {
 	vk_frame.width = g_frame.current.framebuffer.width;
 	vk_frame.height = g_frame.current.framebuffer.height;
 
-	VK_RenderBegin( g_frame.rtx_enabled );
+	VK_RenderBegin( vk_frame.rtx_enabled );
 
 	{
 		const VkCommandBufferBeginInfo beginfo = {
@@ -268,13 +266,13 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 
 	VK_Render_FIXME_Barrier(cmdbuf);
 
-	if (g_frame.rtx_enabled)
+	if (vk_frame.rtx_enabled)
 		VK_RenderEndRTX( cmdbuf, g_frame.current.framebuffer.view, g_frame.current.framebuffer.image, g_frame.current.framebuffer.width, g_frame.current.framebuffer.height );
 
 	{
 		VkRenderPassBeginInfo rpbi = {
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			.renderPass = g_frame.rtx_enabled ? vk_frame.render_pass.after_ray_tracing : vk_frame.render_pass.raster,
+			.renderPass = vk_frame.rtx_enabled ? vk_frame.render_pass.after_ray_tracing : vk_frame.render_pass.raster,
 			.renderArea.extent.width = g_frame.current.framebuffer.width,
 			.renderArea.extent.height = g_frame.current.framebuffer.height,
 			.clearValueCount = ARRAYSIZE(clear_value),
@@ -297,7 +295,7 @@ static void enqueueRendering( VkCommandBuffer cmdbuf ) {
 		vkCmdSetScissor(cmdbuf, 0, ARRAYSIZE(scissor), scissor);
 	}
 
-	if (!g_frame.rtx_enabled)
+	if (!vk_frame.rtx_enabled)
 		VK_RenderEnd( cmdbuf );
 
 	R_VkOverlay_DrawAndFlip( cmdbuf );
@@ -386,9 +384,9 @@ void R_EndFrame( void )
 
 static void toggleRaytracing( void ) {
 	ASSERT(vk_core.rtx);
-	g_frame.rtx_enabled = !g_frame.rtx_enabled;
-	gEngine.Cvar_Set("vk_rtx", g_frame.rtx_enabled ? "1" : "0");
-	gEngine.Con_Printf(S_WARN "Switching ray tracing to %d\n", g_frame.rtx_enabled);
+	vk_frame.rtx_enabled = !vk_frame.rtx_enabled;
+	gEngine.Cvar_Set("vk_rtx", vk_frame.rtx_enabled ? "1" : "0");
+	gEngine.Con_Printf(S_WARN "Switching ray tracing to %d\n", vk_frame.rtx_enabled);
 }
 
 qboolean VK_FrameCtlInit( void )
@@ -438,7 +436,7 @@ qboolean VK_FrameCtlInit( void )
 		//gEngine.Con_Printf("SYNC: signal semaphore %d\n", 0);
 	}
 
-	g_frame.rtx_enabled = vk_core.rtx;
+	vk_frame.rtx_enabled = vk_core.rtx;
 
 	if (vk_core.rtx) {
 		gEngine.Cmd_AddCommand("vk_rtx_toggle", toggleRaytracing, "Toggle between rasterization and ray tracing");

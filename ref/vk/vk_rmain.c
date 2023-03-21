@@ -13,6 +13,7 @@
 #include "vk_brush.h"
 #include "vk_rpart.h"
 #include "vk_triapi.h"
+#include "r_slows.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
@@ -43,13 +44,13 @@ static void GL_ClearExtensions( void )
 {
 	PRINT_NOT_IMPLEMENTED();
 }
-static void GL_BackendStartFrame( void )
+static void GL_BackendStartFrame_UNUSED( void )
 {
-	PRINT_NOT_IMPLEMENTED();
+	/* Unused in Vulkan renderer. GL renderer only uses this to clear the r_speeds_msg string */
 }
-static void GL_BackendEndFrame( void )
+static void GL_BackendEndFrame_UNUSED( void )
 {
-	PRINT_NOT_IMPLEMENTED();
+	/* Unused in Vulkan renderer. GL renderer only uses this to populate r_speeds_msg string. In Vulkan this is done naturally in R_EndFrame */
 }
 
 // debug
@@ -361,12 +362,7 @@ static void		GL_OrthoBounds( const float *mins, const float *maxs )
 {
 	PRINT_NOT_IMPLEMENTED();
 }
-// grab r_speeds message
-static qboolean	R_SpeedsMessage( char *out, size_t size )
-{
-	PRINT_NOT_IMPLEMENTED();
-	return false;
-}
+
 // get visdata for current frame from custom renderer
 static byte*		Mod_GetCurrentVis( void )
 {
@@ -482,8 +478,8 @@ static const ref_interface_t gReffuncs =
 	R_EndFrame,
 	R_PushScene,
 	R_PopScene,
-	GL_BackendStartFrame,
-	GL_BackendEndFrame,
+	.GL_BackendStartFrame = GL_BackendStartFrame_UNUSED,
+	.GL_BackendEndFrame = GL_BackendEndFrame_UNUSED,
 
 	R_ClearScreen,
 	R_AllowFog,
@@ -579,7 +575,7 @@ static const ref_interface_t gReffuncs =
 
 	VK_RenderFrame,
 	GL_OrthoBounds,
-	R_SpeedsMessage,
+	.R_SpeedsMessage = R_SpeedsMessage,
 	Mod_GetCurrentVis,
 	R_NewMap,
 	R_ClearScene,
