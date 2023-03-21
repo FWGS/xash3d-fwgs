@@ -1727,14 +1727,12 @@ pfnServerCmd
 */
 static int GAME_EXPORT pfnServerCmd( const char *szCmdString )
 {
-	string	buf;
-
 	if( !COM_CheckString( szCmdString ))
 		return 0;
 
 	// just like the client typed "cmd xxxxx" at the console
-	Q_snprintf( buf, sizeof( buf ) - 1, "cmd %s\n", szCmdString );
-	Cbuf_AddText( buf );
+	MSG_BeginClientCmd( &cls.netchan.message, clc_stringcmd );
+	MSG_WriteString( &cls.netchan.message, szCmdString );
 
 	return 1;
 }
