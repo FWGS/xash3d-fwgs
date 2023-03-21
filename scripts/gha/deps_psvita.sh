@@ -26,7 +26,10 @@ popd
 
 echo "Downloading vitaGL..."
 
-git clone https://github.com/Rinnegatamante/vitaGL.git -b "$VITAGL_SRCREV" --depth=1 || exit 1
+git clone https://github.com/Rinnegatamante/vitaGL.git || exit 1
+pushd vitaGL
+git checkout $VITAGL_SRCREV || exit 1
+popd
 
 echo "Downloading vitaGL fork of SDL2..."
 
