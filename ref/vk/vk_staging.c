@@ -53,7 +53,7 @@ void R_VkStagingShutdown(void) {
 }
 
 void R_VkStagingFlushSync( void ) {
-	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
+	APROF_SCOPE_DECLARE_BEGIN(function, __FUNCTION__);
 
 	const VkCommandBuffer cmdbuf = R_VkStagingCommit();
 	if (!cmdbuf)
@@ -82,7 +82,7 @@ void R_VkStagingFlushSync( void ) {
 	R_FlippingBuffer_Clear(&g_staging.buffer_alloc);
 
 end:
-	APROF_SCOPE_END(__FUNCTION__);
+	APROF_SCOPE_END(function);
 };
 
 static uint32_t allocateInRing(uint32_t size, uint32_t alignment) {

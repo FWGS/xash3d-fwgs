@@ -269,7 +269,7 @@ static void getCurrentFontMetrics(void) {
 }
 
 void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
-	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
+	APROF_SCOPE_DECLARE_BEGIN(function, __FUNCTION__);
 
 	g_slows.frame.message[0] = '\0';
 
@@ -312,7 +312,7 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 		speedsPrintf("Dirty light cells: %d\n\tsize = %dKiB, ranges = %d\n", dirty, (int)(dirty * sizeof(struct LightCluster) / 1024), g_lights.stats.ranges_uploaded);
 	}
 
-	APROF_SCOPE_END(__FUNCTION__);
+	APROF_SCOPE_END(function);
 }
 
 static void togglePause( void ) {

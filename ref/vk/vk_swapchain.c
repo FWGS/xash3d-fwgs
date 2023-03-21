@@ -193,7 +193,7 @@ void R_VkSwapchainShutdown( void ) {
 }
 
 r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_available ) {
-	APROF_SCOPE_DECLARE_BEGIN(__FUNCTION__, __FUNCTION__);
+	APROF_SCOPE_DECLARE_BEGIN(function, __FUNCTION__);
 
 	r_vk_swapchain_framebuffer_t ret = {0};
 	qboolean force_recreate = false;
@@ -236,7 +236,7 @@ r_vk_swapchain_framebuffer_t R_VkSwapchainAcquire(  VkSemaphore sem_image_availa
 	ret.image = g_swapchain.images[ret.index];
 	ret.view = g_swapchain.image_views[ret.index];
 
-	APROF_SCOPE_END(__FUNCTION__);
+	APROF_SCOPE_END(function);
 
 	return ret;
 }
