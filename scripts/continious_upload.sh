@@ -263,12 +263,21 @@ urlencode() {
 for FILE in "$@" ; do
   FULLNAME="${FILE}"
   BASENAME="$(basename "${FILE}")"
-  curl -H "Authorization: token ${GITHUB_TOKEN}" \
-       -H "Accept: application/vnd.github.manifold-preview" \
-       -H "Content-Type: application/octet-stream" \
-       --data-binary "@$FULLNAME" \
-       "$upload_url?name=$(urlencode "$BASENAME")"
-  echo ""
+
+  for retries in {1..10}; do
+    echo "Upload attempt $retries"
+
+    if curl -H "Authorization: token ${GITHUB_TOKEN}" \
+         -H "Accept: application/vnd.github.manifold-preview" \
+         -H "Content-Type: application/octet-stream" \
+         --data-binary "@$FULLNAME" \
+         "$upload_url?name=$(urlencode "$BASENAME")"; then
+      break
+    fi
+
+    sleep 1m # try to avoid ratelimits???
+    echo ""
+  done
 done
 
 $shatool "$@"
