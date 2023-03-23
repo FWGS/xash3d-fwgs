@@ -156,7 +156,7 @@ void PSVita_Init( void )
 
 	if( vrtld_init( 0 ) < 0 )
 	{
-		Sys_Error( "Could not init vrtld: %s\n", vrtld_dlerror( ) );
+		Sys_Error( "Could not init vrtld:\n%s\n", vrtld_dlerror() );
 	}
 
 	// init vitaGL, leaving some memory for DLL mapping
