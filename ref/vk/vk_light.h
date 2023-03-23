@@ -59,11 +59,6 @@ typedef struct {
 	} map;
 
 	vk_lights_cell_t cells[MAX_LIGHT_CLUSTERS];
-
-	struct {
-		int dirty_cells;
-		int ranges_uploaded;
-	} stats;
 } vk_lights_t;
 
 extern vk_lights_t g_lights;
