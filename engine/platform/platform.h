@@ -60,6 +60,7 @@ void NSwitch_Shutdown( void );
 void PSVita_Init( void );
 void PSVita_Shutdown( void );
 qboolean PSVita_GetBasePath( char *buf, const size_t buflen );
+int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 void PSVita_InputUpdate( void );
 #endif
 

@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include <vrtld.h>
 
 #define DATA_PATH "data/xash3d"
+#define MAX_ARGV 5 // "" -log -dev X NULL
 
 // 200MB libc heap, 512K main thread stack, 40MB for loading game DLLs
 // the rest goes to vitaGL
@@ -75,9 +76,65 @@ const size_t __vrtld_num_exports = sizeof( aux_exports ) / sizeof( *aux_exports 
 
 /* end of export crap */
 
+static const char *PSVita_GetLaunchParameter( char *outbuf )
+{
+	SceAppUtilAppEventParam param;
+	memset( &param, 0, sizeof( param ) );
+	sceAppUtilReceiveAppEvent( &param );
+	if( param.type == 0x05 )
+	{
+		sceAppUtilAppEventParseLiveArea( &param, outbuf );
+		return outbuf;
+	}
+	return NULL;
+}
+
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	Con_Reportf( S_WARN "Tried to shell execute ;%s; -- not supported\n", path );
+}
+
+/*
+===========
+PSVita_GetArgv
+
+On the PS Vita under normal circumstances argv is empty, so we'll construct our own
+based on which button the user pressed in the LiveArea launcher.
+===========
+*/
+int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv )
+{
+	static const char *fake_argv[MAX_ARGV] = { "app0:/eboot.bin", NULL };
+	int fake_argc = 1;
+	char tmp[2048] = { 0 };
+	SceAppUtilInitParam initParam = { 0 };
+	SceAppUtilBootParam bootParam = { 0 };
+
+	// on the Vita under normal circumstances argv is empty, unless we're launching from Change Game
+	sceAppUtilInit( &initParam, &bootParam );
+
+	if( in_argc > 1 )
+	{
+		// probably coming from Change Game, in which case we just need to keep the old args
+		*out_argv = in_argv;
+		return in_argc;
+	}
+
+	// got empty args, which means that we're probably coming from LiveArea
+	// construct argv based on which button the user pressed in the LiveArea launcher
+	if( PSVita_GetLaunchParameter( tmp ))
+	{
+		if( !Q_strcmp( tmp, "dev" ))
+		{
+			// user hit the "Developer Mode" button, inject "-log" and "-dev" arguments
+			fake_argv[fake_argc++] = "-log";
+			fake_argv[fake_argc++] = "-dev";
+			fake_argv[fake_argc++] = "2";
+		}
+	}
+
+	*out_argv = (char **)fake_argv;
+	return fake_argc;
 }
 
 void PSVita_Init( void )
@@ -85,7 +142,7 @@ void PSVita_Init( void )
 	char xashdir[1024] = { 0 };
 
 	// cd to the base dir immediately for library loading to work
-	if ( PSVita_GetBasePath( xashdir, sizeof( xashdir ) ) )
+	if( PSVita_GetBasePath( xashdir, sizeof( xashdir )))
 	{
 		chdir( xashdir );
 	}
@@ -97,7 +154,7 @@ void PSVita_Init( void )
 	scePowerSetGpuXbarClockFrequency( 166 );
 	sceSysmoduleLoadModule( SCE_SYSMODULE_NET );
 
-	if ( vrtld_init( 0 ) < 0 )
+	if( vrtld_init( 0 ) < 0 )
 	{
 		Sys_Error( "Could not init vrtld: %s\n", vrtld_dlerror( ) );
 	}

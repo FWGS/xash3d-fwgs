@@ -8,4 +8,13 @@
 	<gate>
 		<startup-image>startup.png</startup-image>
 	</gate>
+
+	<frame id="frame3">
+		<liveitem>
+			<target>psla:dev</target>
+			<text>
+				<str>Developer mode</str>
+			</text>
+		</liveitem>
+	</frame>
 </livearea>
