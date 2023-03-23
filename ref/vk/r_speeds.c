@@ -1,4 +1,4 @@
-#include "r_slows.h"
+#include "r_speeds.h"
 #include "vk_light.h" // For stats
 #include "shaders/ray_interop.h" // stats: struct LightCluster
 #include "vk_overlay.h"
@@ -327,7 +327,7 @@ static void togglePause( void ) {
 
 }
 
-void R_SlowsInit( void ) {
+void R_SpeedsInit( void ) {
 	gEngine.Cmd_AddCommand("r_slows_toggle_pause", togglePause, "Toggle frame profiler pause");
 }
 

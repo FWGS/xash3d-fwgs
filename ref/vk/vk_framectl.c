@@ -13,7 +13,7 @@
 #include "vk_querypool.h"
 
 #include "profiler.h"
-#include "r_slows.h"
+#include "r_speeds.h"
 
 #include "eiface.h" // ARRAYSIZE
 

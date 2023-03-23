@@ -18,7 +18,7 @@
 #include "vk_nv_aftermath.h"
 #include "vk_devmem.h"
 #include "vk_commandpool.h"
-#include "r_slows.h"
+#include "r_speeds.h"
 
 // FIXME move this rt-specific stuff out
 #include "vk_light.h"
@@ -699,7 +699,7 @@ qboolean R_VkInit( void )
 	vk_core.rtx = false;
 	VK_LoadCvars();
 
-	R_SlowsInit();
+	R_SpeedsInit();
 
 	if( !gEngine.R_Init_Video( REF_VULKAN )) // request Vulkan surface
 	{

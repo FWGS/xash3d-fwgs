@@ -13,7 +13,7 @@
 #include "vk_brush.h"
 #include "vk_rpart.h"
 #include "vk_triapi.h"
-#include "r_slows.h"
+#include "r_speeds.h"
 
 #include "xash3d_types.h"
 #include "com_strings.h"
