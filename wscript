@@ -243,16 +243,16 @@ def configure(conf):
 	# additionally, shared libs are linked without standard libs, we'll add those back in the engine wscript
 	if conf.env.DEST_OS == 'nswitch':
 		linkflags.remove('-Wl,--no-undefined')
-		linkflags.extend(['-nostdlib', '-nostartfiles'])
-
+		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-nostartfiles'])
+		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-nostartfiles'])
 	# same on the vita
-	if conf.env.DEST_OS == 'psvita':
-		cflags.append('-fPIC')
-		cxxflags.extend(['-fPIC', '-fno-use-cxa-atexit'])
-		linkflags.extend(['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
-
+	elif conf.env.DEST_OS == 'psvita':
+		conf.env.append_unique('CFLAGS_cshlib', ['-fPIC'])
+		conf.env.append_unique('CXXFLAGS_cxxshlib', ['-fPIC', '-fno-use-cxa-atexit'])
+		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
+		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
 	# check if we need to use irix linkflags
-	if conf.env.DEST_OS == 'irix' and conf.env.COMPILER_CC == 'gcc':
+	elif conf.env.DEST_OS == 'irix' and conf.env.COMPILER_CC == 'gcc':
 		linkflags.remove('-Wl,--no-undefined')
 		linkflags.append('-Wl,--unresolved-symbols=ignore-all')
 		# check if we're in a sgug environment
