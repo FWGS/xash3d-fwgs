@@ -3,6 +3,7 @@
 #include "alolcator.h"
 #include "vk_commandpool.h"
 #include "profiler.h"
+#include "r_speeds.h"
 
 #include <memory.h>
 
@@ -14,6 +15,7 @@
 typedef struct {
 	VkImage image;
 	VkImageLayout layout;
+	size_t size; // for stats only
 } staging_image_t;
 
 static struct {
@@ -34,6 +36,14 @@ static struct {
 
 	vk_command_pool_t upload_pool;
 	VkCommandBuffer cmdbuf;
+
+	struct {
+		r_speeds_metric_t *total_size;
+		r_speeds_metric_t *buffers_size;
+		r_speeds_metric_t *images_size;
+		r_speeds_metric_t *buffer_chunks;
+		r_speeds_metric_t *images;
+	} stats;
 } g_staging = {0};
 
 qboolean R_VkStagingInit(void) {
@@ -43,6 +53,13 @@ qboolean R_VkStagingInit(void) {
 	g_staging.upload_pool = R_VkCommandPoolCreate( COMMAND_BUFFER_COUNT );
 
 	R_FlippingBuffer_Init(&g_staging.buffer_alloc, DEFAULT_STAGING_SIZE);
+
+	g_staging.stats.total_size = R_SpeedsRegisterMetric("staging_total_size", "KiB");
+	g_staging.stats.buffers_size = R_SpeedsRegisterMetric("staging_buffers_size", "KiB");
+	g_staging.stats.images_size = R_SpeedsRegisterMetric("staging_images_size", "KiB");
+
+	g_staging.stats.buffer_chunks = R_SpeedsRegisterMetric("staging_buffer_chunks", "");
+	g_staging.stats.images = R_SpeedsRegisterMetric("staging_images", "");
 
 	return true;
 }
@@ -135,6 +152,7 @@ vk_staging_region_t R_VkStagingLockForImage(vk_staging_image_args_t args) {
 
 	dest->image = args.image;
 	dest->layout = args.layout;
+	dest->size = args.size;
 	g_staging.images.copy[index] = args.region;
 	g_staging.images.copy[index].bufferOffset += offset;
 
@@ -171,10 +189,13 @@ static void commitBuffers(VkCommandBuffer cmdbuf) {
 
 		if (prev_buffer != VK_NULL_HANDLE) {
 			DEBUG_NV_CHECKPOINTF(cmdbuf, "staging dst_buffer=%p count=%d", prev_buffer, i-first_copy);
+			g_staging.stats.buffer_chunks->value++;
 			vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer,
 				prev_buffer,
 				i - first_copy, g_staging.buffers.copy + first_copy);
 		}
+
+		g_staging.stats.buffers_size->value += g_staging.buffers.copy[i].size;
 
 		prev_buffer = g_staging.buffers.dest[i];
 		first_copy = i;
@@ -182,6 +203,7 @@ static void commitBuffers(VkCommandBuffer cmdbuf) {
 
 	if (prev_buffer != VK_NULL_HANDLE) {
 		DEBUG_NV_CHECKPOINTF(cmdbuf, "staging dst_buffer=%p count=%d", prev_buffer, g_staging.buffers.count-first_copy);
+		g_staging.stats.buffer_chunks->value++;
 		vkCmdCopyBuffer(cmdbuf, g_staging.buffer.buffer,
 			prev_buffer,
 			g_staging.buffers.count - first_copy, g_staging.buffers.copy + first_copy);
@@ -196,6 +218,9 @@ static void commitImages(VkCommandBuffer cmdbuf) {
 		/* 	const VkBufferImageCopy *const copy = g_staging.images.copy + i; */
 		/* 	gEngine.Con_Reportf("  i%d: [%08llx, ?) => %p\n", i, copy->bufferOffset, g_staging.images.dest[i].image); */
 		/* } */
+
+		g_staging.stats.images->value++;
+		g_staging.stats.images_size->value += g_staging.images.dest[i].size;
 
 		vkCmdCopyBufferToImage(cmdbuf, g_staging.buffer.buffer,
 			g_staging.images.dest[i].image,
@@ -236,6 +261,12 @@ void R_VkStagingFrameBegin(void) {
 
 	g_staging.buffers.count = 0;
 	g_staging.images.count = 0;
+
+	g_staging.stats.images->value = 0;
+	g_staging.stats.buffer_chunks->value = 0;
+	g_staging.stats.total_size->value = 0;
+	g_staging.stats.buffers_size->value = 0;
+	g_staging.stats.images_size->value = 0;
 }
 
 VkCommandBuffer R_VkStagingFrameEnd(void) {
@@ -249,6 +280,10 @@ VkCommandBuffer R_VkStagingFrameEnd(void) {
 	g_staging.upload_pool.buffers[0] = g_staging.upload_pool.buffers[1];
 	g_staging.upload_pool.buffers[1] = g_staging.upload_pool.buffers[2];
 	g_staging.upload_pool.buffers[2] = tmp;
+
+	g_staging.stats.total_size->value = (g_staging.stats.images_size->value + g_staging.stats.buffers_size->value) / 1024;
+	g_staging.stats.images_size->value /= 1024;
+	g_staging.stats.buffers_size->value /= 1024;
 
 	return cmdbuf;
 }
