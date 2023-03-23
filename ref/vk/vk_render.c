@@ -15,6 +15,7 @@
 #include "vk_previous_frame.h"
 #include "alolcator.h"
 #include "profiler.h"
+#include "r_speeds.h"
 
 #include "eiface.h"
 #include "xash3d_mathlib.h"
@@ -44,6 +45,10 @@ static struct {
 	uint32_t ubo_align;
 
 	float fov_angle_y;
+
+	struct {
+		r_speeds_metric_t *models_dynamic;
+	} stats;
 } g_render;
 
 static qboolean createPipelines( void )
@@ -333,6 +338,7 @@ qboolean VK_RenderInit( void ) {
 	if (!createPipelines())
 		return false;
 
+	g_render.stats.models_dynamic = R_SpeedsRegisterMetric("models_dynamic", "");
 	return true;
 }
 
@@ -356,6 +362,8 @@ enum {
 
 void VK_RenderBegin( qboolean ray_tracing ) {
 	APROF_SCOPE_BEGIN(renderbegin);
+
+	g_render.stats.models_dynamic->value = 0;
 
 	g_render_state.uniform_data_set_mask = UNIFORM_UNSET;
 	g_render_state.current_ubo_offset_FIXME = UINT32_MAX;
@@ -807,6 +815,7 @@ void VK_RenderModelDynamicCommit( void ) {
 	ASSERT(g_dynamic_model.model.geometries);
 
 	if (g_dynamic_model.model.num_geometries > 0) {
+		g_render.stats.models_dynamic->value++;
 		g_dynamic_model.model.dynamic = true;
 		VK_RenderModelInit( &g_dynamic_model.model );
 		VK_RenderModelDraw( NULL, &g_dynamic_model.model );
