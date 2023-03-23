@@ -91,9 +91,13 @@ _inline int Sys_Start( void )
 #if !XASH_WIN32
 int main( int argc, char **argv )
 {
+#if XASH_PSVITA
+	// inject -dev -console into args if required
+	szArgc = PSVita_GetArgv( argc, argv, &szArgv );
+#else
 	szArgc = argc;
 	szArgv = argv;
-
+#endif // XASH_PSVITA
 	return Sys_Start();
 }
 #else
