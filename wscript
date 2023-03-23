@@ -29,6 +29,35 @@ class Subproject:
 
 		return True
 
+class RefDll:
+	def __init__(self, name, default, key = None):
+		self.name = name
+		self.default = default
+		self.dest = key if key else name.upper()
+
+	def register_option(self, opt):
+		kw = dict()
+		if self.default:
+			act = 'disable'
+			kw['action'] = 'store_false'
+		else:
+			act = 'enable'
+			kw['action'] = 'store_true'
+
+		key = '--%s-%s' % (act, self.name)
+
+		kw['dest'] = self.dest
+		kw['default'] = self.default
+		kw['help'] = '%s %s renderer [default: %%default]' % (act, self.name)
+
+		opt.add_option(key, **kw)
+
+	def register_env(self, env, opts, force):
+		env[self.dest] = force or opts.__dict__[self.dest]
+
+	def register_define(self, conf):
+		conf.define_cond('XASH_REF_%s_ENABLED' % self.dest, conf.env[self.dest])
+
 SUBDIRS = [
 	# always configured and built
 	Subproject('public'),
@@ -58,6 +87,14 @@ SUBDIRS = [
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
+]
+
+REFDLLS = [
+	RefDll('soft', True),
+	RefDll('gl', True),
+	RefDll('gles1', False, 'NANOGL'),
+	RefDll('gles2', False, 'GLWES'),
+	RefDll('gl4es', False),
 ]
 
 def options(opt):
@@ -95,20 +132,8 @@ def options(opt):
 	grp.add_option('--enable-all-renderers', action='store_true', dest='ALL_RENDERERS', default=False,
 		help = 'enable all renderers supported by Xash3D FWGS [default: %default]')
 
-	grp.add_option('--enable-gles1', action='store_true', dest='NANOGL', default=False,
-		help = 'enable gles1 renderer [default: %default]')
-
-	grp.add_option('--enable-gles2', action='store_true', dest='GLWES', default=False,
-		help = 'enable gles2 renderer [default: %default]')
-
-	grp.add_option('--enable-gl4es', action='store_true', dest='GL4ES', default=False,
-		help = 'enable gles2 renderer [default: %default]')
-
-	grp.add_option('--disable-gl', action='store_false', dest='GL', default=True,
-		help = 'disable opengl renderer [default: %default]')
-
-	grp.add_option('--disable-soft', action='store_false', dest='SOFT', default=True,
-		help = 'disable soft renderer [default: %default]')
+	for dll in REFDLLS:
+		dll.register_option(grp)
 
 	grp = opt.add_option_group('Utilities options')
 
@@ -210,105 +235,105 @@ def configure(conf):
 
 	conf.load('force_32bit')
 
-	compiler_optional_flags = [
-#		'-Wall', '-Wextra', '-Wpedantic',
-		'-fdiagnostics-color=always',
-		'-Werror=return-type',
-		'-Werror=parentheses',
-		'-Werror=vla',
-		'-Werror=tautological-compare',
-		'-Werror=duplicated-cond',
-		'-Werror=bool-compare',
-		'-Werror=bool-operation',
-		'-Werror=cast-align=strict', # =strict is for GCC >=8
-		'-Werror=packed',
-		'-Werror=packed-not-aligned',
-		'-Wuninitialized', # older GCC versions have -Wmaybe-uninitialized enabled by this switch, which is not accurate
-                                   # so just warn, not error
-		'-Winit-self',
-		'-Werror=implicit-fallthrough=2', # clang incompatible without "=2"
-		'-Werror=logical-op',
-		'-Werror=write-strings',
-		'-Werror=sizeof-pointer-memaccess',
-		'-Werror=sizeof-array-div',
-		'-Werror=sizeof-pointer-div',
-		'-Werror=string-compare',
-		'-Werror=use-after-free=3',
-		'-Werror=sequence-point',
-#		'-Werror=format=2',
-#		'-Wdouble-promotion', # disable warning flood
-		'-Werror=strict-aliasing',
-		'-Wmisleading-indentation',
-	]
-
-	c_compiler_optional_flags = [
-		'-Werror=incompatible-pointer-types',
-		'-Werror=implicit-function-declaration',
-		'-Werror=int-conversion',
-		'-Werror=implicit-int',
-		'-Werror=strict-prototypes',
-		'-Werror=old-style-declaration',
-		'-Werror=old-style-definition',
-		'-Werror=declaration-after-statement',
-		'-Werror=enum-conversion',
-		'-Werror=jump-misses-init',
-		'-Werror=strict-prototypes',
-#		'-Werror=nested-externs',
-		'-fnonconst-initializers' # owcc
-	]
-
 	cflags, linkflags = conf.get_optimization_flags()
+	cxxflags = list(cflags) # optimization flags are common between C and C++ but we need a copy
 
 	# on the Switch, allow undefined symbols by default, which is needed for libsolder to work
 	# we'll specifically disallow them for the engine executable
 	# additionally, shared libs are linked without standard libs, we'll add those back in the engine wscript
 	if conf.env.DEST_OS == 'nswitch':
 		linkflags.remove('-Wl,--no-undefined')
-		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-nostartfiles'])
-		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-nostartfiles'])
+		linkflags.extend(['-nostdlib', '-nostartfiles'])
 
 	# same on the vita
 	if conf.env.DEST_OS == 'psvita':
-		conf.env.append_unique('CFLAGS_cshlib', ['-fPIC'])
-		conf.env.append_unique('CXXFLAGS_cxxshlib', ['-fPIC', '-fno-use-cxa-atexit'])
-		conf.env.append_unique('LINKFLAGS_cshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
-		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
+		cflags.append('-fPIC')
+		cxxflags.extend(['-fPIC', '-fno-use-cxa-atexit'])
+		linkflags.extend(['-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
 
-	# And here C++ flags starts to be treated separately
-	cxxflags = list(cflags)
-	if conf.env.COMPILER_CC != 'msvc' and not conf.options.DISABLE_WERROR:
-		conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
-		conf.check_cxx(cxxflags=cflags, linkflags=linkflags, msg='Checking for required C++ flags')
+	# check if we need to use irix linkflags
+	if conf.env.DEST_OS == 'irix' and conf.env.COMPILER_CC == 'gcc':
+		linkflags.remove('-Wl,--no-undefined')
+		linkflags.append('-Wl,--unresolved-symbols=ignore-all')
+		# check if we're in a sgug environment
+		if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
+			linkflags.append('-lc')
 
-		conf.env.append_unique('CFLAGS', cflags)
-		conf.env.append_unique('CXXFLAGS', cxxflags)
-		conf.env.append_unique('LINKFLAGS', linkflags)
-
-		cxxflags += conf.filter_cxxflags(compiler_optional_flags, cflags)
-		cflags += conf.filter_cflags(compiler_optional_flags + c_compiler_optional_flags, cflags)
-
-		# check if we need to use irix linkflags
-		if conf.env.DEST_OS == 'irix' and conf.env.COMPILER_CC == 'gcc':
-			linkflags.remove('-Wl,--no-undefined')
-			linkflags.append('-Wl,--unresolved-symbols=ignore-all')
-			# check if we're in a sgug environment
-			if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
-				linkflags.append('-lc')
+	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
+	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
 
 	conf.env.append_unique('CFLAGS', cflags)
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
+
+	if conf.env.COMPILER_CC != 'msvc' and not conf.options.DISABLE_WERROR:
+		opt_flags = [
+			# '-Wall', '-Wextra', '-Wpedantic',
+			'-fdiagnostics-color=always',
+
+			# stable diagnostics, forced to error, sorted
+			'-Werror=bool-compare',
+			'-Werror=bool-operation',
+			'-Werror=cast-align=strict',
+			'-Werror=duplicated-cond',
+			# '-Werror=format=2',
+			'-Werror=implicit-fallthrough=2',
+			'-Werror=logical-op',
+			'-Werror=packed',
+			'-Werror=packed-not-aligned',
+			'-Werror=parentheses',
+			'-Werror=return-type',
+			'-Werror=sequence-point',
+			'-Werror=sizeof-pointer-memaccess',
+			'-Werror=sizeof-array-div',
+			'-Werror=sizeof-pointer-div',
+			'-Werror=strict-aliasing',
+			'-Werror=string-compare',
+			'-Werror=tautological-compare',
+			'-Werror=use-after-free=3',
+			'-Werror=vla',
+			'-Werror=write-strings',
+
+			# unstable diagnostics, may cause false positives
+			'-Winit-self',
+			'-Wmisleading-indentation',
+			'-Wunintialized',
+
+			# disabled, flood
+			# '-Wdouble-promotion',
+		]
+
+		opt_cflags = [
+			'-Werror=declaration-after-statement',
+			'-Werror=enum-conversion',
+			'-Werror=implicit-int',
+			'-Werror=implicit-function-declaration',
+			'-Werror=incompatible-pointer-types',
+			'-Werror=int-conversion',
+			'-Werror=jump-misses-init',
+			'-Werror=old-style-declaration',
+			'-Werror=old-style-definition',
+			'-Werror=strict-prototypes',
+			'-fnonconst-initializers' # owcc
+		]
+
+		opt_cxxflags = [] # TODO:
+
+		cflags = conf.filter_cflags(opt_flags + opt_cflags, cflags)
+		cxxflags = conf.filter_cxxflags(opt_flags + opt_cxxflags, cxxflags)
+
+		conf.env.append_unique('CFLAGS', cflags)
+		conf.env.append_unique('CXXFLAGS', cxxflags)
 
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 
-	conf.env.NANOGL = conf.options.NANOGL or conf.options.ALL_RENDERERS
-	conf.env.GLWES  = conf.options.GLWES or conf.options.ALL_RENDERERS
-	conf.env.GL4ES  = conf.options.GL4ES or conf.options.ALL_RENDERERS
-	conf.env.GL     = conf.options.GL or conf.options.ALL_RENDERERS
-	conf.env.SOFT   = conf.options.SOFT or conf.options.ALL_RENDERERS
+	setattr(conf, 'refdlls', REFDLLS)
+
+	for refdll in REFDLLS:
+		refdll.register_env(conf.env, conf.options, conf.options.ALL_RENDERERS)
 
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
@@ -322,22 +347,19 @@ def configure(conf):
 	elif conf.check_cc(header_name='malloc.h', mandatory=False):
 		conf.define('ALLOCA_H', 'malloc.h')
 
-	if conf.env.DEST_OS != 'win32':
-		if conf.env.DEST_OS == 'nswitch':
-			conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER', mandatory=True)
-			if conf.env.HAVE_SOLDER and conf.env.LIB_SOLDER and conf.options.BUILD_TYPE == 'debug':
-				conf.env.LIB_SOLDER[0] += 'd' # load libsolderd in debug mode
-		elif conf.env.DEST_OS == 'psvita':
-			conf.check_cc(lib='vrtld', mandatory=True)
-		else:
-			conf.check_cc(lib='dl', mandatory=False)
-
-		if not conf.env.LIB_M: # HACK: already added in xcompile!
-			conf.check_cc(lib='m')
-
-		if conf.env.DEST_OS == 'android':
-			conf.check_cc(lib='log')
-	else:
+	if conf.env.DEST_OS == 'nswitch':
+		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
+		if conf.env.HAVE_SOLDER and conf.env.LIB_SOLDER and conf.options.BUILD_TYPE == 'debug':
+			conf.env.LIB_SOLDER[0] += 'd' # load libsolderd in debug mode
+		conf.check_cc(lib='m')
+	elif conf.env.DEST_OS == 'psvita':
+		conf.check_cc(lib='vrtld')
+		conf.check_cc(lib='m')
+	elif conf.env.DEST_OS == 'android':
+		conf.check_cc(lib='dl')
+		conf.check_cc(lib='log')
+		# LIB_M added in xcompile!
+	elif conf.env.DEST_OS == 'win32':
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
 		# Usually, they are always available
@@ -351,6 +373,10 @@ def configure(conf):
 		else:
 			for i in a:
 				conf.check_cc(lib = i)
+	else:
+		conf.check_cc(lib='dl')
+		conf.check_cc(lib='m')
+
 
 	# check if we can use C99 tgmath
 	if conf.check_cc(header_name='tgmath.h', mandatory=False):
