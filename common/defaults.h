@@ -191,6 +191,10 @@ Default build-depended cvar and constant values
 	#define DEFAULT_M_IGNORE "0"
 #endif // DEFAULT_M_IGNORE
 
+#ifndef DEFAULT_JOY_DEADZONE
+	#define DEFAULT_JOY_DEADZONE "4096"
+#endif // DEFAULT_JOY_DEADZONE
+
 #ifndef DEFAULT_DEV
 	#define DEFAULT_DEV 0
 #endif // DEFAULT_DEV
