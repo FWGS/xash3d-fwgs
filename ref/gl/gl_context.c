@@ -512,16 +512,3 @@ int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, 
 
 	return REF_API_VERSION;
 }
-
-void EXPORT GetRefHumanReadableName( char *out, size_t size )
-{
-#if defined XASH_NANOGL
-	Q_strncpy( out, "GLES1(NanoGL)", size );
-#elif defined XASH_WES
-	Q_strncpy( out, "GLES2(gl-wes-v2)", size );
-#elif defined XASH_GL4ES
-	Q_strncpy( out, "GLES2(gl4es)", size );
-#else
-	Q_strncpy( out, "OpenGL", size );
-#endif
-}

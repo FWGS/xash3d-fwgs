@@ -621,9 +621,6 @@ typedef struct ref_interface_s
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );
 #define GET_REF_API "GetRefAPI"
 
-typedef void (*REF_HUMANREADABLE_NAME)( char *out, size_t len );
-#define GET_REF_HUMANREADABLE_NAME "GetRefHumanReadableName"
-
 #ifdef REF_DLL
 #define DEFINE_ENGINE_SHARED_CVAR( x, y ) cvar_t *x = NULL;
 #define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
