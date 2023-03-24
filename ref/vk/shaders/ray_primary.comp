@@ -25,18 +25,38 @@ layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
 
 #include "trace_additive.glsl"
 
+struct Ray {
+	vec3 origin, direction;
+	float dist;
+};
+
+vec3 clipToWorldSpace(vec3 clip) {
+	const vec4 eye_space = ubo.ubo.inv_proj * vec4(clip, 1.);
+	return (ubo.ubo.inv_view * vec4(eye_space.xyz / eye_space.w, 1.)).xyz;
+}
+
+Ray getPrimaryRay(in vec2 uv) {
+	uv = uv * 2. - 1.;
+	const vec3 world_near = clipToWorldSpace(vec3(uv, 0.));
+	const vec3 world_far = clipToWorldSpace(vec3(uv, 1.));
+
+	Ray ret;
+	ret.origin = world_near;
+	ret.direction = world_far - world_near;
+	ret.dist = length(ret.direction);
+	ret.direction /= ret.dist;
+	return ret;
+}
+
 void main() {
 	const ivec2 pix = ivec2(gl_GlobalInvocationID);
 	const ivec2 res = ivec2(imageSize(out_position_t));
 	if (any(greaterThanEqual(pix, res))) {
 		return;
 	}
-	const vec2 uv = (gl_GlobalInvocationID.xy + .5) / res * 2. - 1.;
 
-	// FIXME start on a near plane
-	const vec3 origin    = (ubo.ubo.inv_view * vec4(0, 0, 0, 1)).xyz;
-	const vec4 target    = ubo.ubo.inv_proj * vec4(uv.x, uv.y, 1, 1);
-	const vec3 direction = normalize((ubo.ubo.inv_view * vec4(target.xyz, 0)).xyz);
+	const vec2 uv = (gl_GlobalInvocationID.xy + .5) / res;
+	const Ray ray = getPrimaryRay(uv);
 
 	RayPayloadPrimary payload;
 	payload.hit_t = vec4(0.);
@@ -53,8 +73,7 @@ void main() {
 		//| gl_RayFlagsTerminateOnFirstHitEXT
 		//| gl_RayFlagsSkipClosestHitShaderEXT
 		;
-	float L = 10000.; // TODO Why 10k?
-	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_ALPHA_TEST | GEOMETRY_BIT_REFRACTIVE, origin, 0., direction, L);
+	rayQueryInitializeEXT(rq, tlas, flags, GEOMETRY_BIT_OPAQUE | GEOMETRY_BIT_ALPHA_TEST | GEOMETRY_BIT_REFRACTIVE, ray.origin, 0., ray.direction, ray.dist);
 	while (rayQueryProceedEXT(rq)) {
 		if (0 != (rayQueryGetRayFlagsEXT(rq) & gl_RayFlagsOpaqueEXT))
 			continue;
@@ -76,12 +95,14 @@ void main() {
 		}
 	}
 
+	float L = ray.dist;
+
 	if (rayQueryGetIntersectionTypeEXT(rq, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
 		primaryRayHit(rq, payload);
 		L = rayQueryGetIntersectionTEXT(rq, true);
 	}
 
-	payload.emissive.rgb += traceAdditive(origin, direction, L);
+	payload.emissive.rgb += traceAdditive(ray.origin, ray.direction, L);
 
 	imageStore(out_position_t, pix, payload.hit_t);
 	imageStore(out_base_color_a, pix, payload.base_color_a);
