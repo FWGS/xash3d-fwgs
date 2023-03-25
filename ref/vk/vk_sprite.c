@@ -4,6 +4,7 @@
 #include "vk_render.h"
 #include "vk_geometry.h"
 #include "vk_scene.h"
+#include "r_speeds.h"
 
 #include "sprite.h"
 #include "xash3d_mathlib.h"
@@ -16,6 +17,17 @@
 // it's a Valve default value for LoadMapSprite (probably must be power of two)
 #define MAPSPRITE_SIZE	128
 #define GLARE_FALLOFF	19000.0f
+
+static struct {
+	struct {
+		int sprites;
+	} stats;
+} g_sprite;
+
+qboolean R_SpriteInit(void) {
+	R_SpeedsRegisterMetric(&g_sprite.stats.sprites, "sprites_count", kSpeedsMetricCount);
+	return true;
+}
 
 static mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 {
@@ -830,6 +842,8 @@ void R_VkSpriteDrawModel( cl_entity_t *e, float blend )
 
 	if( spriteIsOccluded( e, origin, &scale, &blend))
 		return; // sprite culled
+
+	g_sprite.stats.sprites++;
 
 	/* FIXME VK
 	r_stats.c_sprite_models_drawn++;

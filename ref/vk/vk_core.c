@@ -19,6 +19,7 @@
 #include "vk_devmem.h"
 #include "vk_commandpool.h"
 #include "r_speeds.h"
+#include "vk_sprite.h"
 
 // FIXME move this rt-specific stuff out
 #include "vk_light.h"
@@ -797,6 +798,8 @@ qboolean R_VkInit( void )
 		// FIXME move all this to rt-specific modules
 		VK_LightsInit();
 	}
+
+	R_SpriteInit();
 
 	return true;
 }

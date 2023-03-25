@@ -8,3 +8,5 @@ void Mod_LoadMapSprite( struct model_s *mod, const void *buffer, size_t size, qb
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
 
 void R_VkSpriteDrawModel( cl_entity_t *e, float blend );
+
+qboolean R_SpriteInit(void);
