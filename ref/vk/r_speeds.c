@@ -9,9 +9,9 @@
 #include "xash3d_mathlib.h" // Q_min
 
 #define MAX_SPEEDS_MESSAGE 1024
-#define MAX_FRAMES_HISTORY 256
 #define MAX_SPEEDS_METRICS (APROF_MAX_SCOPES + 4)
 #define TARGET_FRAME_TIME (1000.f / 60.f)
+#define MAX_GRAPHS 8
 
 // Valid bits for `r_speeds` argument:
 enum {
@@ -29,22 +29,34 @@ typedef struct {
 	const char *name;
 	r_speeds_metric_type_t type;
 	// int low_watermark, high_watermark;
+	int graph_index;
 } r_speeds_metric_t;
 
-static struct {
-	float frame_times[MAX_FRAMES_HISTORY];
-	uint32_t frame_num;
+typedef struct {
+	float *data;
+	int data_count;
+	int data_write;
+	int source_metric;
 
+	int height;
+	int max_value;
+} r_speeds_graph_t;
+
+static struct {
 	aprof_event_t *paused_events;
 	int paused_events_count;
 	int pause_requested;
 
 	struct {
 		int glyph_width, glyph_height;
+		float scale;
 	} font_metrics;
 
 	r_speeds_metric_t metrics[MAX_SPEEDS_METRICS];
 	int metrics_count;
+
+	r_speeds_graph_t graphs[MAX_GRAPHS];
+	int graphs_count;
 
 	struct {
 		int frame_time_us, cpu_time_us, cpu_wait_time_us, gpu_time_us;
@@ -221,26 +233,28 @@ static void handlePause( uint32_t prev_frame_index ) {
 	}
 }
 
-static int drawFrameTimeGraph( const int frame_bar_y, const float frame_bar_y_scale ) {
-	const float width = (float)vk_frame.width / MAX_FRAMES_HISTORY;
+static int drawGraph( const r_speeds_graph_t *graph, const int frame_bar_y ) {
+	const float width = (float)vk_frame.width / graph->data_count;
+	const float height_scale = (float)graph->height / graph->max_value;
 
+	// TODO
 	// 60fps
-	CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME, vk_frame.width, 1, 0, 255, 0, 50);
-
+	//CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME, vk_frame.width, 1, 0, 255, 0, 50);
 	// 30fps
-	CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2, vk_frame.width, 1, 255, 0, 0, 50);
+	//CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2, vk_frame.width, 1, 255, 0, 0, 50);
 
-	for (int i = 0; i < MAX_FRAMES_HISTORY; ++i) {
-		const float frame_time = g_speeds.frame_times[(g_speeds.frame_num + i) % MAX_FRAMES_HISTORY];
+	for (int i = 0; i < graph->data_count; ++i) {
+		const float value = graph->data[(graph->data_write + i) % graph->data_count];
 
 		// > 60 fps => 0, 30..60 fps -> 1..0, <30fps => 1
-		const float time = linearstep(TARGET_FRAME_TIME, TARGET_FRAME_TIME*2.f, frame_time);
-		const int red = 255 * time;
-		const int green = 255 * (1 - time);
-		CL_FillRGBA(i * width, frame_bar_y, width, frame_time * frame_bar_y_scale, red, green, 0, 127);
+		//const float time = linearstep(TARGET_FRAME_TIME, TARGET_FRAME_TIME*2.f, value);
+		//const int red = 255 * time;
+		//const int green = 255 * (1 - time);
+		const int red = 255, green = 255, blue = 255;
+		CL_FillRGBA(i * width, frame_bar_y, width, value * height_scale, red, green, blue, 127);
 	}
 
-	return frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2;
+	return frame_bar_y + graph->height; // frame_bar_y_scale * TARGET_FRAME_TIME * 2;
 }
 
 static int drawFrames( int draw, uint32_t prev_frame_index, int y, const uint64_t gpu_frame_begin_ns, const uint64_t gpu_frame_end_ns ) {
@@ -316,6 +330,18 @@ static void getCurrentFontMetrics(void) {
 	// we don't have any access to real font metrics from here, ref_api_t doesn't give us anything about fonts. ;_;
 	g_speeds.font_metrics.glyph_width = 8 * scale;
 	g_speeds.font_metrics.glyph_height = 20 * scale;
+	g_speeds.font_metrics.scale = scale;
+}
+
+static int drawGraphs( int y ) {
+	for (int i = 0; i < g_speeds.graphs_count; ++i) {
+		r_speeds_graph_t *const graph = g_speeds.graphs + i;
+		graph->data[graph->data_write] = *g_speeds.metrics[graph->source_metric].p_value;
+		graph->data_write = (graph->data_write + 1) % graph->data_count;
+		y = drawGraph(graph, y) + 10;
+	}
+
+	return y;
 }
 
 void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
@@ -335,23 +361,17 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 	g_speeds.frame.frame_time_us = delta_ns / 1000;
 	g_speeds.frame.gpu_time_us = (gpu_frame_end_ns - gpu_frame_begin_ns) / 1000;
 
-	{
-		const float frame_time_ms = delta_ns * 1e-6;
-		g_speeds.frame_times[g_speeds.frame_num] = frame_time_ms;
-		g_speeds.frame_num = (g_speeds.frame_num + 1) % MAX_FRAMES_HISTORY;
-	}
 
 	handlePause( prev_frame_index );
 
 	{
 		getCurrentFontMetrics();
 		int y = 100;
-		const float frame_bar_y_scale = 2.f; // ms to pixels (somehow)
 		const int draw = speeds_bits & SPEEDS_BIT_FRAME;
-		if (draw)
-			y = drawFrameTimeGraph( y, frame_bar_y_scale ) + 20;
-
 		y = drawFrames( draw, prev_frame_index, y, gpu_frame_begin_ns, gpu_frame_end_ns );
+
+		if (draw)
+			y = drawGraphs(y + 10);
 	}
 
 	if (speeds_bits & SPEEDS_BIT_SIMPLE) {
@@ -381,8 +401,81 @@ static void togglePause( void ) {
 
 }
 
+static int findMetricIndexByName(const char *name) {
+	for (int i = 0; i < g_speeds.metrics_count; ++i) {
+		if (Q_strcmp(g_speeds.metrics[i].name, name) == 0)
+			return i;
+	}
+
+	return -1;
+}
+
+static void speedsGraphAdd( void ) {
+	const char *args = gEngine.Cmd_Args();
+	gEngine.Con_Reportf("ARGS: %s\n", args);
+
+	const int metric_index = findMetricIndexByName(args);
+	if (metric_index < 0) {
+		gEngine.Con_Printf(S_ERROR "Metric \"%s\" not found\n", args);
+		return;
+	}
+
+	r_speeds_metric_t *const metric = g_speeds.metrics + metric_index;
+	if (metric->graph_index >= 0) {
+		gEngine.Con_Printf(S_WARN "Metric \"%s\" already has graph @%d\n", args, metric->graph_index);
+		return;
+	}
+
+	if (g_speeds.graphs_count == MAX_GRAPHS) {
+		gEngine.Con_Printf(S_ERROR "Cannot add graph for metric \"%s\", no free graphs slots (max=%d)\n", args, MAX_GRAPHS);
+		return;
+	}
+
+	metric->graph_index = g_speeds.graphs_count++;
+	r_speeds_graph_t *const graph = g_speeds.graphs + metric->graph_index;
+
+	// TODO make these customizable
+	graph->data_count = 60;
+	graph->height = 100 * g_speeds.font_metrics.scale;
+	switch (metric->type) {
+		case kSpeedsMetricCount:
+			graph->max_value = 20;
+			break;
+		case kSpeedsMetricBytes:
+			graph->max_value = 1024*1024;
+			break;
+		case kSpeedsMetricMicroseconds:
+			graph->max_value = TARGET_FRAME_TIME * 2 * 1000;
+			break;
+	}
+
+	ASSERT(!graph->data);
+	graph->data = Mem_Malloc(vk_core.pool, graph->data_count * sizeof(float));
+	graph->data_write = 0;
+	graph->source_metric = metric_index;
+}
+
+static void speedsGraphRemove( void ) {
+	const char *args = gEngine.Cmd_Args();
+	gEngine.Con_Reportf("ARGS: %s\n", args);
+
+	// FIXME remove everything only if there are no indexes specified
+	for (int i = 0; i < g_speeds.graphs_count; ++i) {
+		r_speeds_graph_t *const graph = g_speeds.graphs + i;
+		ASSERT(graph->data);
+		Mem_Free(graph->data);
+		graph->data = NULL;
+	}
+
+	g_speeds.graphs_count = 0;
+}
+
 void R_SpeedsInit( void ) {
-	gEngine.Cmd_AddCommand("r_slows_toggle_pause", togglePause, "Toggle frame profiler pause");
+	gEngine.Cmd_AddCommand("r_speeds_toggle_pause", togglePause, "Toggle frame profiler pause");
+
+	// TODO is there a better UI/UX for this
+	gEngine.Cmd_AddCommand("r_speeds_graph_add", speedsGraphAdd, "Add graph for metric");
+	gEngine.Cmd_AddCommand("r_speeds_graph_remove", speedsGraphRemove, "Remove graphs by their indexes");
 
 	R_SpeedsRegisterMetric(&g_speeds.frame.frame_time_us, "frame", kSpeedsMetricMicroseconds);
 	R_SpeedsRegisterMetric(&g_speeds.frame.cpu_time_us, "cpu", kSpeedsMetricMicroseconds);
@@ -415,4 +508,5 @@ void R_SpeedsRegisterMetric(int* p_value, const char *name, r_speeds_metric_type
 	metric->p_value = p_value;
 	metric->name = name;
 	metric->type = type;
+	metric->graph_index = -1;
 }
