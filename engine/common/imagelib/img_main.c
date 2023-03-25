@@ -321,10 +321,9 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 	{
 		for( i = 0; i < 6; i++ )
 		{
-			if( Image_ProbeLoad( extfmt, loadname, cmap->type[i].suf, cmap->type[i].hint ) &&
-				 FS_AddSideToPack( cmap->type[i].flags )) // process flags to flip some sides
+			if( Image_ProbeLoad( extfmt, loadname, cmap->type[i].suf, cmap->type[i].hint ))
 			{
-				break;
+				FS_AddSideToPack( cmap->type[i].flags );
 			}
 
 			if( image.num_sides != i + 1 ) // check side
@@ -339,7 +338,7 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 			}
 		}
 
-		// make sure what all sides is loaded
+		// make sure that all sides is loaded
 		if( image.num_sides != 6 )
 		{
 			// unexpected errors ?
