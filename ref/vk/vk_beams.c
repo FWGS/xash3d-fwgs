@@ -8,6 +8,7 @@
 #include "vk_scene.h"
 #include "vk_math.h"
 #include "vk_triapi.h"
+#include "r_speeds.h"
 
 #include "xash3d_types.h"
 #include "xash3d_mathlib.h"
@@ -22,6 +23,17 @@ typedef struct
 	float	texcoord;	// Y texture coordinate
 	float	width;
 } beamseg_t;
+
+static struct {
+	struct {
+		int beams;
+	} stats;
+} g_beam;
+
+qboolean R_BeamInit(void) {
+	R_SpeedsRegisterMetric(&g_beam.stats.beams, "beams_count", kSpeedsMetricCount);
+	return true;
+}
 
 /*
 ==============================================================
@@ -977,6 +989,8 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		pbeam->die = gpGlobals->time;
 		return;
 	}
+
+	++g_beam.stats.beams;
 
 	// update frequency
 	pbeam->freq += frametime;

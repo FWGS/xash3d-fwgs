@@ -20,6 +20,7 @@
 #include "vk_commandpool.h"
 #include "r_speeds.h"
 #include "vk_sprite.h"
+#include "vk_beams.h"
 
 // FIXME move this rt-specific stuff out
 #include "vk_light.h"
@@ -800,6 +801,7 @@ qboolean R_VkInit( void )
 	}
 
 	R_SpriteInit();
+	R_BeamInit();
 
 	return true;
 }
