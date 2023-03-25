@@ -66,9 +66,9 @@ static struct {
 	uint32_t frame_sequence;
 
 	struct {
-		r_speeds_metric_t *dirty_cells;
-		r_speeds_metric_t *dirty_cells_size;
-		r_speeds_metric_t *ranges_uploaded;
+		int dirty_cells;
+		int dirty_cells_size;
+		int ranges_uploaded;
 	} stats;
 } g_lights_;
 
@@ -102,9 +102,9 @@ qboolean VK_LightsInit( void ) {
 		return false;
 	}
 
-	g_lights_.stats.dirty_cells = R_SpeedsRegisterMetric("lights_dirty_cells", "");
-	g_lights_.stats.dirty_cells_size = R_SpeedsRegisterMetric("lights_dirty_cells_size", "KiB");
-	g_lights_.stats.ranges_uploaded = R_SpeedsRegisterMetric("lights_ranges_uploaded", "");
+	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells, "lights_dirty_cells", "");
+	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells_size, "lights_dirty_cells_size", "KiB");
+	R_SpeedsRegisterMetric(&g_lights_.stats.ranges_uploaded, "lights_ranges_uploaded", "");
 
 	return true;
 }
@@ -530,7 +530,7 @@ static qboolean addSurfaceLightToCell( int cell_index, int polygon_light_index )
 
 	cluster->polygons[cluster->num_polygons++] = polygon_light_index;
 	if (cluster->frame_sequence != g_lights_.frame_sequence) {
-		++g_lights_.stats.dirty_cells->value;
+		++g_lights_.stats.dirty_cells;
 		cluster->frame_sequence = g_lights_.frame_sequence;
 	}
 	return true;
@@ -549,7 +549,7 @@ static qboolean addLightToCell( int cell_index, int light_index ) {
 	cluster->point_lights[cluster->num_point_lights++] = light_index;
 
 	if (cluster->frame_sequence != g_lights_.frame_sequence) {
-		++g_lights_.stats.dirty_cells->value;
+		++g_lights_.stats.dirty_cells;
 		cluster->frame_sequence = g_lights_.frame_sequence;
 	}
 	return true;
@@ -947,7 +947,7 @@ void RT_LightsLoadEnd( void ) {
 		}
 	}
 
-	g_lights_.stats.dirty_cells->value = g_lights.map.grid_cells;
+	g_lights_.stats.dirty_cells = g_lights.map.grid_cells;
 }
 
 qboolean RT_GetEmissiveForTexture( vec3_t out, int texture_id ) {
@@ -1134,9 +1134,6 @@ void RT_LightsFrameBegin( void ) {
 	g_lights_.num_point_lights = g_lights_.num_static.point_lights;
 	g_lights_.num_polygon_vertices = g_lights_.num_static.polygon_vertices;
 
-	g_lights_.stats.dirty_cells->value = 0;
-	g_lights_.stats.dirty_cells_size->value = 0;
-
 	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
 		vk_lights_cell_t *const cell = g_lights.cells + i;
 		cell->num_polygons = cell->num_static.polygons;
@@ -1173,13 +1170,11 @@ static void uploadGridRange( int begin, int end ) {
 
 	R_VkStagingUnlock( locked.handle );
 
-	g_lights_.stats.ranges_uploaded->value++;
+	g_lights_.stats.ranges_uploaded++;
 }
 
 static void uploadGrid( void ) {
 	ASSERT(g_lights.map.grid_cells <= MAX_LIGHT_CLUSTERS);
-
-	g_lights_.stats.ranges_uploaded->value = 0;
 
 	int begin = -1;
 	for (int i = 0; i < g_lights.map.grid_cells; ++i) {
@@ -1365,7 +1360,7 @@ void RT_LightsFrameEnd( void ) {
 #endif
 	}
 
-	g_lights_.stats.dirty_cells_size->value = g_lights_.stats.dirty_cells->value * sizeof(struct LightCluster) / 1024;
+	g_lights_.stats.dirty_cells_size = g_lights_.stats.dirty_cells * sizeof(struct LightCluster) / 1024;
 
 	debug_dump_lights.enabled = false;
 	APROF_SCOPE_END(finalize);

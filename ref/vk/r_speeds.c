@@ -24,6 +24,12 @@ enum {
 	// These bits can be combined, e.g. `r_speeds 9`, 8+1, will display 1: basic timing info and 8: frame graphs
 };
 
+typedef struct {
+	int *p_value;
+	const char *name;
+	const char *unit;
+	// int low_watermark, high_watermark;
+} r_speeds_metric_t;
 
 static struct {
 	float frame_times[MAX_FRAMES_HISTORY];
@@ -261,7 +267,8 @@ static int drawFrames( int draw, uint32_t prev_frame_index, int y, const uint64_
 static void printMetrics( void ) {
 	for (int i = 0; i < g_speeds.metrics_count; ++i) {
 		const r_speeds_metric_t *const metric = g_speeds.metrics + i;
-		speedsPrintf("%s: %d%s\n", metric->name, metric->value, metric->unit);
+		speedsPrintf("%s: %d%s\n", metric->name, *metric->p_value, metric->unit);
+		*metric->p_value = 0;
 	}
 }
 
@@ -357,12 +364,11 @@ qboolean R_SpeedsMessage( char *out, size_t size )
 	return true;
 }
 
-r_speeds_metric_t *R_SpeedsRegisterMetric( const char *name, const char *unit ) {
+void R_SpeedsRegisterMetric( int* p_value, const char *name, const char *unit ) {
 	ASSERT(g_speeds.metrics_count < MAX_SPEEDS_METRICS);
 
 	r_speeds_metric_t *metric = g_speeds.metrics + (g_speeds.metrics_count++);
+	metric->p_value = p_value;
 	metric->name = name;
 	metric->unit = unit;
-
-	return metric;
 }

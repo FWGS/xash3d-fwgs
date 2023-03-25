@@ -12,8 +12,8 @@ struct rt_vk_ray_accel_s g_accel = {0};
 
 static struct {
 	struct {
-		r_speeds_metric_t *blas_count;
-		r_speeds_metric_t *accels_built;
+		int blas_count;
+		int accels_built;
 	} stats;
 } g_accel_;
 
@@ -120,7 +120,7 @@ qboolean createOrUpdateAccelerationStructure(VkCommandBuffer cmdbuf, const as_bu
 
 	//gEngine.Con_Reportf("AS=%p, n_geoms=%u, scratch: %#x %d %#x\n", *args->p_accel, args->n_geoms, scratch_offset_initial, scratch_buffer_size, scratch_offset_initial + scratch_buffer_size);
 
-	g_accel_.stats.accels_built->value++;
+	g_accel_.stats.accels_built++;
 	vkCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &build_info, &args->build_ranges);
 	return true;
 }
@@ -207,7 +207,7 @@ void RT_VkAccelPrepareTlas(VkCommandBuffer cmdbuf) {
 		}
 	}
 
-	g_accel_.stats.blas_count->value = g_ray_model_state.frame.num_models;
+	g_accel_.stats.blas_count = g_ray_model_state.frame.num_models;
 
 	// Barrier for building all BLASes
 	// BLAS building is now in cmdbuf, need to synchronize with results
@@ -260,8 +260,8 @@ qboolean RT_VkAccelInit(void) {
 	g_accel.tlas_geom_buffer_addr = R_VkBufferGetDeviceAddress(g_accel.tlas_geom_buffer.buffer);
 	R_FlippingBuffer_Init(&g_accel.tlas_geom_buffer_alloc, MAX_ACCELS * 2);
 
-	g_accel_.stats.blas_count = R_SpeedsRegisterMetric("blas_count", "");
-	g_accel_.stats.accels_built = R_SpeedsRegisterMetric("accels_built", "");
+	R_SpeedsRegisterMetric(&g_accel_.stats.blas_count, "blas_count", "");
+	R_SpeedsRegisterMetric(&g_accel_.stats.accels_built, "accels_built", "");
 
 	return true;
 }
@@ -313,6 +313,4 @@ void RT_VkAccelNewMap(void) {
 
 void RT_VkAccelFrameBegin(void) {
 	g_accel.frame.scratch_offset = 0;
-	g_accel_.stats.accels_built->value = 0;
-	g_accel_.stats.blas_count->value = 0;
 }
