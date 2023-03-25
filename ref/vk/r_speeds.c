@@ -10,7 +10,7 @@
 
 #define MAX_SPEEDS_MESSAGE 1024
 #define MAX_FRAMES_HISTORY 256
-#define MAX_SPEEDS_METRICS 32
+#define MAX_SPEEDS_METRICS (APROF_MAX_SCOPES + 4)
 #define TARGET_FRAME_TIME (1000.f / 60.f)
 
 // Valid bits for `r_speeds` argument:
@@ -47,12 +47,16 @@ static struct {
 	int metrics_count;
 
 	struct {
-		uint64_t ref_cpu_time;
-		uint64_t ref_cpu_wait_time;
+		int frame_time_us, cpu_time_us, cpu_wait_time_us, gpu_time_us;
+		struct {
+			int initialized;
+			int time_us;
+		} scopes[APROF_MAX_SCOPES];
 		char message[MAX_SPEEDS_MESSAGE];
 	} frame;
 } g_speeds;
 
+static void speedsPrintf( const char *msg, ... ) _format(1);
 static void speedsPrintf( const char *msg, ... ) {
 	va_list	argptr;
 	char	text[MAX_SPEEDS_MESSAGE];
@@ -72,6 +76,7 @@ static float linearstep(float min, float max, float v) {
 
 #define P(fmt, ...) gEngine.Con_Reportf(fmt, ##__VA_ARGS__)
 
+// TODO better "random" colors for scope bars
 static uint32_t getHash(const char *s) {
 	dword crc;
 	CRC32_Init(&crc);
@@ -105,8 +110,8 @@ static void drawProfilerScopes(int draw, const aprof_event_t *events, uint64_t b
 	int max_depth = 0;
 
 	int under_waiting = 0;
-	g_speeds.frame.ref_cpu_time = 0;
-	g_speeds.frame.ref_cpu_wait_time = 0;
+	uint64_t ref_cpu_time = 0;
+	uint64_t ref_cpu_wait_time = 0;
 
 	for (; begin != end; begin = (begin + 1) % APROF_EVENT_BUFFER_SIZE) {
 		const aprof_event_t event = events[begin];
@@ -115,8 +120,8 @@ static void drawProfilerScopes(int draw, const aprof_event_t *events, uint64_t b
 		const int scope_id = APROF_EVENT_SCOPE_ID(event);
 		switch (event_type) {
 			case APROF_EVENT_FRAME_BOUNDARY:
-				g_speeds.frame.ref_cpu_time = 0;
-				g_speeds.frame.ref_cpu_wait_time = 0;
+				ref_cpu_time = 0;
+				ref_cpu_wait_time = 0;
 				under_waiting = 0;
 				break;
 
@@ -141,28 +146,37 @@ static void drawProfilerScopes(int draw, const aprof_event_t *events, uint64_t b
 					--depth;
 
 					ASSERT(stack[depth].scope_id == scope_id);
+					ASSERT(scope_id >= 0);
+					ASSERT(scope_id < APROF_MAX_SCOPES);
 
 					const aprof_scope_t *const scope = g_aprof.scopes + scope_id;
 					const uint32_t hash = getHash(scope->name);
 
 					const uint64_t delta_ns = timestamp_ns - stack[depth].begin_ns;
 
+					if (!g_speeds.frame.scopes[scope_id].initialized) {
+						R_SpeedsRegisterMetric(&g_speeds.frame.scopes[scope_id].time_us, scope->name, kSpeedsMetricMicroseconds);
+						g_speeds.frame.scopes[scope_id].initialized = 1;
+					}
+
+					g_speeds.frame.scopes[scope_id].time_us += delta_ns / 1000;
+
 					// This is a top level scope that should be counter towards cpu usage
 					const int is_top_level = ((scope->flags & APROF_SCOPE_FLAG_DECOR) == 0) && (depth == 0 || (g_aprof.scopes[stack[depth-1].scope_id].flags & APROF_SCOPE_FLAG_DECOR));
 
 					// Only count top level scopes towards CPU time, and only if it's not waiting
 					if (is_top_level && under_waiting == 0)
-						g_speeds.frame.ref_cpu_time += delta_ns;
+						ref_cpu_time += delta_ns;
 
 					// If this is a top level waiting scope (under any depth)
 					if (under_waiting == 1) {
 						// Count it towards waiting time
-						g_speeds.frame.ref_cpu_wait_time += delta_ns;
+						ref_cpu_wait_time += delta_ns;
 
 						// If this is not a top level scope, then we might count its top level parent
 						// towards cpu usage time, which is not correct. Subtract this waiting time from it.
 						if (!is_top_level)
-							g_speeds.frame.ref_cpu_time -= delta_ns;
+							ref_cpu_time -= delta_ns;
 					}
 
 					if (scope->flags & APROF_SCOPE_FLAG_WAIT)
@@ -180,6 +194,9 @@ static void drawProfilerScopes(int draw, const aprof_event_t *events, uint64_t b
 				break;
 		}
 	}
+
+	g_speeds.frame.cpu_time_us = ref_cpu_time / 1000;
+	g_speeds.frame.cpu_wait_time_us = ref_cpu_wait_time / 1000;
 
 	if (max_depth > MAX_STACK_DEPTH)
 		gEngine.Con_NPrintf(4, S_ERROR "Profiler stack overflow: reached %d, max available %d\n", max_depth, MAX_STACK_DEPTH);
@@ -308,10 +325,15 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 	const uint32_t events = g_aprof.events_last_frame - prev_frame_index;
 	const uint64_t frame_begin_time = APROF_EVENT_TIMESTAMP(g_aprof.events[prev_frame_index]);
 	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
-	const float frame_time = delta_ns * 1e-6;
 
-	g_speeds.frame_times[g_speeds.frame_num] = frame_time;
-	g_speeds.frame_num = (g_speeds.frame_num + 1) % MAX_FRAMES_HISTORY;
+	g_speeds.frame.frame_time_us = delta_ns / 1000;
+	g_speeds.frame.gpu_time_us = (gpu_frame_end_ns - gpu_frame_begin_ns) / 1000;
+
+	{
+		const float frame_time_ms = delta_ns * 1e-6;
+		g_speeds.frame_times[g_speeds.frame_num] = frame_time_ms;
+		g_speeds.frame_num = (g_speeds.frame_num + 1) % MAX_FRAMES_HISTORY;
+	}
 
 	handlePause( prev_frame_index );
 
@@ -327,14 +349,12 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 	}
 
 	if (speeds_bits & SPEEDS_BIT_SIMPLE) {
-		const uint64_t gpu_time_ns = gpu_frame_end_ns - gpu_frame_begin_ns;
-		speedsPrintf("frame: %.03fms GPU: %.03fms\n", frame_time, gpu_time_ns * 1e-6);
-		speedsPrintf("  (ref) CPU: %.03fms wait: %.03fms\n", g_speeds.frame.ref_cpu_time * 1e-6, g_speeds.frame.ref_cpu_wait_time * 1e-6);
+		speedsPrintf("frame: %.03fms GPU: %.03fms\n", g_speeds.frame.frame_time_us * 1e-3f, g_speeds.frame.gpu_time_us * 1e-3);
+		speedsPrintf("  (ref) CPU: %.03fms wait: %.03fms\n", g_speeds.frame.cpu_time_us * 1e-3, g_speeds.frame.cpu_wait_time_us * 1e-3);
 	}
 
 	if (speeds_bits & SPEEDS_BIT_STATS) {
-		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds, frame_time);
-
+		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds);
 		printMetrics();
 	}
 
@@ -355,6 +375,11 @@ static void togglePause( void ) {
 
 void R_SpeedsInit( void ) {
 	gEngine.Cmd_AddCommand("r_slows_toggle_pause", togglePause, "Toggle frame profiler pause");
+
+	R_SpeedsRegisterMetric(&g_speeds.frame.frame_time_us, "frame", kSpeedsMetricMicroseconds);
+	R_SpeedsRegisterMetric(&g_speeds.frame.cpu_time_us, "cpu", kSpeedsMetricMicroseconds);
+	R_SpeedsRegisterMetric(&g_speeds.frame.cpu_wait_time_us, "cpu_wait", kSpeedsMetricMicroseconds);
+	R_SpeedsRegisterMetric(&g_speeds.frame.gpu_time_us, "gpu", kSpeedsMetricMicroseconds);
 }
 
 // grab r_speeds message
