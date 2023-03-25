@@ -907,31 +907,55 @@ static qboolean FS_ReadGameInfo( const char *filepath, const char *gamedir, game
 
 /*
 ================
-FS_CheckForGameDir
+FS_CheckForQuakeGameDir
+
+Checks if game directory resembles Quake Engine game directory
+(some of checks may as well work with Xash gamedirs, it's not a bug)
 ================
 */
-static qboolean FS_CheckForGameDir( const char *gamedir )
+static qboolean FS_CheckForQuakeGameDir( const char *gamedir, qboolean direct )
 {
-	char	buf[MAX_VA_STRING];
-
-	// if directory contain config.cfg it's 100% gamedir
-	Q_snprintf( buf, sizeof( buf ), "%s/config.cfg", gamedir );
-	if( FS_FileExists( buf, false ))
-		return true;
-
-	// if directory contain progs.dat it's 100% gamedir
-	Q_snprintf( buf, sizeof( buf ), "%s/progs.dat", gamedir );
-	if( FS_FileExists( buf, false ))
-		return true;
-
+	// if directory contain config.cfg or progs.dat it's 100% gamedir
 	// quake mods probably always archived but can missed config.cfg before first running
-	Q_snprintf( buf, sizeof( buf ), "%s/pak0.pak", gamedir );
-	if( FS_FileExists( buf, false ))
-		return true;
+	const char *files[] = { "config.cfg", "progs.dat", "pak0.pak" };
+	int i;
 
-	// NOTE; adds here some additional checks if you wished
+	for( i = 0; i < sizeof( files ) / sizeof( files[0] ); i++ )
+	{
+		char	buf[MAX_VA_STRING];
+
+		Q_snprintf( buf, sizeof( buf ), "%s/%s", gamedir, files[i] );
+		if( direct ? FS_SysFileExists( buf ) : FS_FileExists( buf, false ))
+			return true;
+	}
 
 	return false;
+}
+
+/*
+===============
+FS_CheckForXashGameDir
+
+Checks if game directory resembles Xash3D game directory
+===============
+*/
+static qboolean FS_CheckForXashGameDir( const char *gamedir, qboolean direct )
+{
+	// if directory contain gameinfo.txt or liblist.gam it's 100% gamedir
+	const char *files[] = { "gameinfo.txt", "liblist.gam" };
+	int i;
+
+	for( i = 0; i < sizeof( files ) / sizeof( files[0] ); i++ )
+	{
+		char	buf[MAX_SYSPATH];
+
+		Q_snprintf( buf, sizeof( buf ), "%s/%s", gamedir, files[i] );
+		if( direct ? FS_SysFileExists( buf ) : FS_FileExists( buf, false ))
+			return true;
+	}
+
+	return false;
+
 }
 
 /*
@@ -990,7 +1014,7 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 		FS_ConvertGameInfo( gamedir, gameinfo_path, liblist_path );
 
 	// force to create gameinfo for specified game if missing
-	if(( FS_CheckForGameDir( gamedir ) || !Q_stricmp( fs_gamedir, gamedir )) && !FS_FileExists( gameinfo_path, false ))
+	if(( FS_CheckForQuakeGameDir( gamedir, false ) || !Q_stricmp( fs_gamedir, gamedir )) && !FS_FileExists( gameinfo_path, false ))
 	{
 		gameinfo_t tmpGameInfo;
 		memset( &tmpGameInfo, 0, sizeof( tmpGameInfo ));
@@ -1340,17 +1364,21 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
 			char roPath[MAX_SYSPATH];
-			char rwPath[MAX_SYSPATH];
 
 			Q_snprintf( roPath, sizeof( roPath ), "%s/%s/", fs_rodir, dirs.strings[i] );
-			Q_snprintf( rwPath, sizeof( rwPath ), "%s/%s/", fs_rootdir, dirs.strings[i] );
 
 			// check if it's a directory
 			if( !FS_SysFolderExists( roPath ))
 				continue;
 
-			// no need to check folders here, FS_CreatePath will not fail
-			FS_CreatePath( rwPath );
+			// check if it's gamedir
+			if( FS_CheckForXashGameDir( roPath, true ) || FS_CheckForQuakeGameDir( roPath, true ))
+			{
+				char rwPath[MAX_SYSPATH];
+
+				Q_snprintf( rwPath, sizeof( rwPath ), "%s/%s/", fs_rootdir, dirs.strings[i] );
+				FS_CreatePath( rwPath );
+			}
 		}
 
 		stringlistfreecontents( &dirs );
