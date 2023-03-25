@@ -296,6 +296,12 @@ static void printMetrics( void ) {
 				speedsPrintf("%s: %.03fms\n", metric->name, *metric->p_value * 1e-3f);
 				break;
 		}
+	}
+}
+
+static void clearMetrics( void ) {
+	for (int i = 0; i < g_speeds.metrics_count; ++i) {
+		const r_speeds_metric_t *const metric = g_speeds.metrics + i;
 		*metric->p_value = 0;
 	}
 }
@@ -357,6 +363,8 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds);
 		printMetrics();
 	}
+
+	clearMetrics();
 
 	APROF_SCOPE_END(function);
 }
