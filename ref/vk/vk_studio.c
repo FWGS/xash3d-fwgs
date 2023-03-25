@@ -8,6 +8,7 @@
 #include "vk_math.h"
 #include "vk_cvar.h"
 #include "camera.h"
+#include "r_speeds.h"
 
 #include "xash3d_mathlib.h"
 #include "const.h"
@@ -120,6 +121,10 @@ cvar_t			*cl_righthand = NULL;
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
 
+static struct {
+	int models_count;
+} g_studio_stats;
+
 // global variables
 static qboolean		m_fDoRemap;
 mstudiomodel_t		*m_pSubModel;
@@ -149,6 +154,8 @@ void R_StudioInit( void )
 	g_studio.interpolate = true;
 	g_studio.framecount = 0;
 	m_fDoRemap = false;
+
+	R_SpeedsRegisterMetric(&g_studio_stats.models_count, "models_studio", kSpeedsMetricCount);
 }
 
 /*
@@ -2684,7 +2691,7 @@ static void GL_StudioDrawShadow( void )
 	}
 }
 
-void R_StudioRenderFinal( void )
+static void R_StudioRenderFinal( void )
 {
 	int	i, rendermode;
 
@@ -3077,9 +3084,11 @@ static int R_StudioDrawModel( int flags )
 	return 1;
 }
 
-void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
+static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 {
 	VK_RenderDebugLabelBegin( e->model->name );
+
+	++g_studio_stats.models_count;
 
 	if( !RI.drawWorld )
 	{
