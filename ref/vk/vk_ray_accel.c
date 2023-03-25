@@ -260,8 +260,8 @@ qboolean RT_VkAccelInit(void) {
 	g_accel.tlas_geom_buffer_addr = R_VkBufferGetDeviceAddress(g_accel.tlas_geom_buffer.buffer);
 	R_FlippingBuffer_Init(&g_accel.tlas_geom_buffer_alloc, MAX_ACCELS * 2);
 
-	R_SpeedsRegisterMetric(&g_accel_.stats.blas_count, "blas_count", "");
-	R_SpeedsRegisterMetric(&g_accel_.stats.accels_built, "accels_built", "");
+	R_SpeedsRegisterMetric(&g_accel_.stats.blas_count, "blas_count", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_accel_.stats.accels_built, "accels_built", kSpeedsMetricCount);
 
 	return true;
 }

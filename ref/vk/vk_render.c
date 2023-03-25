@@ -48,6 +48,7 @@ static struct {
 
 	struct {
 		int dynamic_model_count;
+		int models_count;
 	} stats;
 } g_render;
 
@@ -338,7 +339,8 @@ qboolean VK_RenderInit( void ) {
 	if (!createPipelines())
 		return false;
 
-	R_SpeedsRegisterMetric(&g_render.stats.dynamic_model_count, "models_dynamic", "");
+	R_SpeedsRegisterMetric(&g_render.stats.dynamic_model_count, "models_dynamic", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_render.stats.models_count, "models", kSpeedsMetricCount);
 	return true;
 }
 
@@ -602,6 +604,10 @@ void VK_RenderEnd( VkCommandBuffer cmdbuf )
 			case DrawLabelEnd:
 				vkCmdEndDebugUtilsLabelEXT(cmdbuf);
 				continue;
+
+			case DrawDraw:
+				// Continue drawing below
+				break;
 		}
 
 		if (ubo_offset != draw->draw.ubo_offset)
@@ -710,6 +716,8 @@ void VK_RenderModelDraw( const cl_entity_t *ent, vk_render_model_t* model ) {
 	Vector4Copy(model->color, g_render_state.dirty_uniform_data.color);
 	ASSERT(model->lightmap <= MAX_LIGHTMAPS);
 	const int lightmap = model->lightmap > 0 ? tglob.lightmapTextures[model->lightmap - 1] : tglob.whiteTexture;
+
+	++g_render.stats.models_count;
 
 	if (g_render_state.current_frame_is_ray_traced) {
 		if (ent != NULL && model != NULL) {

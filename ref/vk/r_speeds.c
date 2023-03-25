@@ -27,7 +27,7 @@ enum {
 typedef struct {
 	int *p_value;
 	const char *name;
-	const char *unit;
+	r_speeds_metric_type_t type;
 	// int low_watermark, high_watermark;
 } r_speeds_metric_t;
 
@@ -267,7 +267,18 @@ static int drawFrames( int draw, uint32_t prev_frame_index, int y, const uint64_
 static void printMetrics( void ) {
 	for (int i = 0; i < g_speeds.metrics_count; ++i) {
 		const r_speeds_metric_t *const metric = g_speeds.metrics + i;
-		speedsPrintf("%s: %d%s\n", metric->name, *metric->p_value, metric->unit);
+		switch (metric->type) {
+			case kSpeedsMetricCount:
+				speedsPrintf("%s: %d\n", metric->name, *metric->p_value);
+				break;
+			case kSpeedsMetricBytes:
+				// TODO different units for different ranges, e.g. < 10k: bytes, < 10M: KiB, >10M: MiB
+				speedsPrintf("%s: %d%s\n", metric->name, *metric->p_value / 1024, "KiB");
+				break;
+			case kSpeedsMetricMicroseconds:
+				speedsPrintf("%s: %.03fms\n", metric->name, *metric->p_value * 1e-3f);
+				break;
+		}
 		*metric->p_value = 0;
 	}
 }
@@ -364,11 +375,11 @@ qboolean R_SpeedsMessage( char *out, size_t size )
 	return true;
 }
 
-void R_SpeedsRegisterMetric( int* p_value, const char *name, const char *unit ) {
+void R_SpeedsRegisterMetric(int* p_value, const char *name, r_speeds_metric_type_t type) {
 	ASSERT(g_speeds.metrics_count < MAX_SPEEDS_METRICS);
 
 	r_speeds_metric_t *metric = g_speeds.metrics + (g_speeds.metrics_count++);
 	metric->p_value = p_value;
 	metric->name = name;
-	metric->unit = unit;
+	metric->type = type;
 }

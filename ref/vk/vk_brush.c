@@ -14,6 +14,7 @@
 #include "vk_light.h"
 #include "vk_mapents.h"
 #include "vk_previous_frame.h"
+#include "r_speeds.h"
 
 #include "ref_params.h"
 #include "eiface.h"
@@ -30,6 +31,10 @@ typedef struct vk_brush_model_s {
 static struct {
 	struct {
 		int num_vertices, num_indices;
+
+		int models_drawn;
+		int water_surfaces_drawn;
+		int water_polys_drawn;
 	} stat;
 
 	int rtable[MOD_FRAMES][MOD_FRAMES];
@@ -56,6 +61,10 @@ void VK_InitRandomTable( void )
 qboolean VK_BrushInit( void )
 {
 	VK_InitRandomTable ();
+
+	R_SpeedsRegisterMetric(&g_brush.stat.models_drawn, "models_brush", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_brush.stat.water_surfaces_drawn, "water_surfaces", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_brush.stat.water_polys_drawn, "water_polys", kSpeedsMetricCount);
 
 	return true;
 }
@@ -93,6 +102,8 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 	uint16_t *indices;
 	r_geometry_buffer_lock_t buffer;
 
+	++g_brush.stat.water_surfaces_drawn;
+
 	prev_time = R_PrevFrame_Time(ent->index);
 
 #define MAX_WATER_VERTICES 16
@@ -122,6 +133,8 @@ static void EmitWaterPolys( const cl_entity_t *ent, const msurface_t *warp, qboo
 		gEngine.Con_Printf(S_ERROR "Cannot allocate geometry for %s\n", ent->model->name );
 		return;
 	}
+
+	g_brush.stat.water_polys_drawn += num_indices / 3;
 
 	indices = buffer.indices.ptr;
 
@@ -389,6 +402,8 @@ void VK_BrushModelDraw( const cl_entity_t *ent, int render_mode, float blend, co
 
 	if (bmodel->render_model.num_geometries == 0)
 		return;
+
+	++g_brush.stat.models_drawn;
 
 	for (int i = 0; i < bmodel->render_model.num_geometries; ++i) {
 		vk_render_geometry_t *geom = bmodel->render_model.geometries + i;

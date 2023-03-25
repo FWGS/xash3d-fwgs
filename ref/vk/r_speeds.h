@@ -9,4 +9,10 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 // Called from the engine into ref_api to get the latest speeds info
 qboolean R_SpeedsMessage( char *out, size_t size );
 
-void R_SpeedsRegisterMetric( int* p_value, const char *name, const char *unit );
+typedef enum {
+	kSpeedsMetricCount,
+	kSpeedsMetricBytes,
+	kSpeedsMetricMicroseconds,
+} r_speeds_metric_type_t;
+
+void R_SpeedsRegisterMetric(int* p_value, const char *name, r_speeds_metric_type_t type);

@@ -102,9 +102,9 @@ qboolean VK_LightsInit( void ) {
 		return false;
 	}
 
-	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells, "lights_dirty_cells", "");
-	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells_size, "lights_dirty_cells_size", "KiB");
-	R_SpeedsRegisterMetric(&g_lights_.stats.ranges_uploaded, "lights_ranges_uploaded", "");
+	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells, "lights_dirty_cells", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells_size, "lights_dirty_cells_size", kSpeedsMetricBytes);
+	R_SpeedsRegisterMetric(&g_lights_.stats.ranges_uploaded, "lights_ranges_uploaded", kSpeedsMetricCount);
 
 	return true;
 }
@@ -1360,7 +1360,7 @@ void RT_LightsFrameEnd( void ) {
 #endif
 	}
 
-	g_lights_.stats.dirty_cells_size = g_lights_.stats.dirty_cells * sizeof(struct LightCluster) / 1024;
+	g_lights_.stats.dirty_cells_size = g_lights_.stats.dirty_cells * sizeof(struct LightCluster);
 
 	debug_dump_lights.enabled = false;
 	APROF_SCOPE_END(finalize);

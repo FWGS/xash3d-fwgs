@@ -54,12 +54,12 @@ qboolean R_VkStagingInit(void) {
 
 	R_FlippingBuffer_Init(&g_staging.buffer_alloc, DEFAULT_STAGING_SIZE);
 
-	R_SpeedsRegisterMetric(&g_staging.stats.total_size, "staging_total_size", "KiB");
-	R_SpeedsRegisterMetric(&g_staging.stats.buffers_size, "staging_buffers_size", "KiB");
-	R_SpeedsRegisterMetric(&g_staging.stats.images_size, "staging_images_size", "KiB");
+	R_SpeedsRegisterMetric(&g_staging.stats.total_size, "staging_total_size", kSpeedsMetricBytes);
+	R_SpeedsRegisterMetric(&g_staging.stats.buffers_size, "staging_buffers_size", kSpeedsMetricBytes);
+	R_SpeedsRegisterMetric(&g_staging.stats.images_size, "staging_images_size", kSpeedsMetricBytes);
 
-	R_SpeedsRegisterMetric(&g_staging.stats.buffer_chunks, "staging_buffer_chunks", "");
-	R_SpeedsRegisterMetric(&g_staging.stats.images, "staging_images", "");
+	R_SpeedsRegisterMetric(&g_staging.stats.buffer_chunks, "staging_buffer_chunks", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_staging.stats.images, "staging_images", kSpeedsMetricCount);
 
 	return true;
 }
@@ -275,9 +275,7 @@ VkCommandBuffer R_VkStagingFrameEnd(void) {
 	g_staging.upload_pool.buffers[1] = g_staging.upload_pool.buffers[2];
 	g_staging.upload_pool.buffers[2] = tmp;
 
-	g_staging.stats.total_size = (g_staging.stats.images_size + g_staging.stats.buffers_size) / 1024;
-	g_staging.stats.images_size /= 1024;
-	g_staging.stats.buffers_size /= 1024;
+	g_staging.stats.total_size = g_staging.stats.images_size + g_staging.stats.buffers_size;
 
 	return cmdbuf;
 }
