@@ -69,6 +69,8 @@ static struct {
 		int dirty_cells;
 		int dirty_cells_size;
 		int ranges_uploaded;
+		int dynamic_polygons, dynamic_points;
+		int dlights, elights;
 	} stats;
 } g_lights_;
 
@@ -105,6 +107,13 @@ qboolean VK_LightsInit( void ) {
 	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells, "lights_dirty_cells", kSpeedsMetricCount);
 	R_SpeedsRegisterMetric(&g_lights_.stats.dirty_cells_size, "lights_dirty_cells_size", kSpeedsMetricBytes);
 	R_SpeedsRegisterMetric(&g_lights_.stats.ranges_uploaded, "lights_ranges_uploaded", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_lights_.num_polygons, "lights_polygons", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_lights_.num_point_lights, "lights_point", kSpeedsMetricCount);
+
+	R_SpeedsRegisterMetric(&g_lights_.stats.dynamic_polygons, "lights_polygons_dynamic", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_lights_.stats.dynamic_points, "lights_point_dynamic", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_lights_.stats.dlights, "lights_dlights", kSpeedsMetricCount);
+	R_SpeedsRegisterMetric(&g_lights_.stats.elights, "lights_elights", kSpeedsMetricCount);
 
 	return true;
 }
@@ -839,18 +848,16 @@ static float sphereSolidAngleFromDistDiv2Pi(float r, float d) {
 	return 1. - sqrt(d*d - r*r)/d;
 }
 
-static void addDlight( const dlight_t *dlight ) {
+static qboolean addDlight( const dlight_t *dlight ) {
 	const float k_light_radius = 2.f;
 	const float k_threshold = 2.f;
-
 	float max_comp;
 	vec3_t color;
-	int index;
 	float scaler;
 
 	max_comp = Q_max(dlight->color.r, Q_max(dlight->color.g, dlight->color.b));
 	if (max_comp < k_threshold || dlight->radius <= k_light_radius)
-		return;
+		return false;
 
 	scaler = k_threshold / (max_comp * sphereSolidAngleFromDistDiv2Pi(k_light_radius, dlight->radius));
 
@@ -860,9 +867,8 @@ static void addDlight( const dlight_t *dlight ) {
 		dlight->color.g * scaler,
 		dlight->color.b * scaler);
 
-	index = addPointLight(dlight->origin, color, k_light_radius, -1, 1.f);
-	if (index < 0)
-		return;
+	addPointLight(dlight->origin, color, k_light_radius, -1, 1.f);
+	return true;
 }
 
 static void processStaticPointLights( void ) {
@@ -1293,7 +1299,9 @@ void RT_LightsFrameEnd( void ) {
 		const dlight_t *dlight = gEngine.GetEntityLight(i);
 		if (!dlight)
 			continue;
-		addDlight(dlight);
+
+		if (addDlight(dlight))
+			++g_lights_.stats.elights;
 	}
 
 	for (int i = 0; i < g_lights_.num_point_lights; ++i) {
@@ -1312,7 +1320,9 @@ void RT_LightsFrameEnd( void ) {
 		const dlight_t *dlight = gEngine.GetDynamicLight(i);
 		if( !dlight || dlight->die < gpGlobals->time || !dlight->radius )
 			continue;
-		addDlight(dlight);
+
+		if (addDlight(dlight))
+			++g_lights_.stats.dlights;
 	}
 	APROF_SCOPE_END(dlights);
 
@@ -1361,6 +1371,8 @@ void RT_LightsFrameEnd( void ) {
 	}
 
 	g_lights_.stats.dirty_cells_size = g_lights_.stats.dirty_cells * sizeof(struct LightCluster);
+	g_lights_.stats.dynamic_points = g_lights_.num_point_lights - g_lights_.num_static.point_lights;
+	g_lights_.stats.dynamic_polygons = g_lights_.num_polygons - g_lights_.num_static.polygons;
 
 	debug_dump_lights.enabled = false;
 	APROF_SCOPE_END(finalize);
