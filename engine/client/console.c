@@ -1596,13 +1596,13 @@ void Key_Console( int key )
 	}
 
 	// console scrolling
-	if( key == K_PGUP )
+	if( key == K_PGUP || key == K_DPAD_UP )
 	{
 		Con_PageUp( 1 );
 		return;
 	}
 
-	if( key == K_PGDN )
+	if( key == K_PGDN || key == K_DPAD_DOWN )
 	{
 		Con_PageDown( 1 );
 		return;
