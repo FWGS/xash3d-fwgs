@@ -214,7 +214,7 @@ void IN_CheckMouseState( qboolean active )
 	static qboolean s_bRawInput, s_bMouseGrab;
 
 #if XASH_WIN32
-	qboolean useRawInput = CVAR_TO_BOOL( m_rawinput ) && clgame.client_dll_uses_sdl || clgame.dllFuncs.pfnLookEvent;
+	qboolean useRawInput = ( CVAR_TO_BOOL( m_rawinput ) && clgame.client_dll_uses_sdl ) || clgame.dllFuncs.pfnLookEvent != NULL;
 #else
 	qboolean useRawInput = true; // always use SDL code
 #endif
