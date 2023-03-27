@@ -41,6 +41,7 @@ typedef struct {
 
 	int height;
 	int max_value; // Computed automatically every frame
+	rgba_t color;
 } r_speeds_graph_t;
 
 static struct {
@@ -97,6 +98,13 @@ static uint32_t getHash(const char *s) {
 	CRC32_Init(&crc);
 	CRC32_ProcessBuffer(&crc, s, Q_strlen(s));
 	return CRC32_Final(crc);
+}
+
+static void getColorForString( const char *s, rgba_t out_color ) {
+	const uint32_t hash = getHash(s);
+	out_color[0] = (hash >> 16) & 0xff;
+	out_color[1] = (hash >> 8) & 0xff;
+	out_color[2] = hash & 0xff;
 }
 
 static void drawTimeBar(uint64_t begin_time_ns, float time_scale_ms, int64_t begin_ns, int64_t end_ns, int y, int height, const char *label, const rgba_t color) {
@@ -165,8 +173,6 @@ static void drawProfilerScopes(int draw, const aprof_event_t *events, uint64_t b
 					ASSERT(scope_id < APROF_MAX_SCOPES);
 
 					const aprof_scope_t *const scope = g_aprof.scopes + scope_id;
-					const uint32_t hash = getHash(scope->name);
-
 					const uint64_t delta_ns = timestamp_ns - stack[depth].begin_ns;
 
 					if (!g_speeds.frame.scopes[scope_id].initialized) {
@@ -198,7 +204,8 @@ static void drawProfilerScopes(int draw, const aprof_event_t *events, uint64_t b
 						under_waiting--;
 
 					if (draw) {
-						const rgba_t color = {hash >> 24, (hash>>16)&0xff, hash&0xff, 127};
+						rgba_t color = {0, 0, 0, 127};
+						getColorForString(scope->name, color);
 						const int bar_height = g_speeds.font_metrics.glyph_height;
 						drawTimeBar(begin_time, time_scale_ms, stack[depth].begin_ns, timestamp_ns, y + depth * bar_height, bar_height, scope->name, color);
 					}
@@ -240,11 +247,22 @@ static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 	const float width = (float)vk_frame.width / graph->data_count;
 	const float height_scale = (float)graph->height / graph->max_value;
 
-	rgba_t color = {255, 255, 255, 255}; // TODO = metric->color
+	CL_FillRGBABlend(0, frame_bar_y, vk_frame.width, graph->height, graph->color[0], graph->color[1], graph->color[2], 32);
+
 	const char *name = g_speeds.metrics[graph->source_metric].name;
-	gEngine.Con_DrawString(0, frame_bar_y, name, color);
+	rgba_t text_color = {0xed, 0x9f, 0x01, 0xff};
+	gEngine.Con_DrawString(0, frame_bar_y, name, text_color);
+	gEngine.Con_DrawString(0, frame_bar_y + graph->height - g_speeds.font_metrics.glyph_height, "0", text_color);
+
+	{
+		char buf[16];
+		Q_snprintf(buf, sizeof(buf), "%d", graph->max_value);
+		gEngine.Con_DrawString(0, frame_bar_y + g_speeds.font_metrics.glyph_height, buf, text_color);
+	}
 
 	frame_bar_y += graph->height;
+
+
 
 	// TODO
 	// 60fps
@@ -263,11 +281,15 @@ static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 		//const float time = linearstep(TARGET_FRAME_TIME, TARGET_FRAME_TIME*2.f, value);
 		//const int red = 255 * time;
 		//const int green = 255 * (1 - time);
+		//const int red = graph->color[0], green = graph->color[1], blue = graph->color[2];
+		const int red = 0xed, green = 0x9f, blue = 0x01;
+
 		const int x0 = (float)i * width;
 		const int x1 = (float)(i+1) * width;
-		const int height = value * height_scale;
-		const int y = frame_bar_y - height;
-		const int red = 255, green = 255, blue = 255;
+		const int y_pos = value * height_scale;
+		const int height = 2; //value * height_scale;
+		const int y = frame_bar_y - y_pos;
+
 		CL_FillRGBA(x0, y, x1-x0, height, red, green, blue, 127);
 	}
 
@@ -416,6 +438,8 @@ static void speedsGraphAddByMetricName( const_string_view_t name ) {
 	graph->data_count = 256;
 	graph->height = 100 * g_speeds.font_metrics.scale;
 	graph->max_value = 1; // Will be computed automatically on first frame
+	graph->color[3] = 255;
+	getColorForString(metric->name, graph->color);
 
 	ASSERT(!graph->data);
 	graph->data = Mem_Calloc(vk_core.pool, graph->data_count * sizeof(float));
@@ -430,6 +454,10 @@ static void speedsGraphsRemoveAll( void ) {
 		ASSERT(graph->data);
 		Mem_Free(graph->data);
 		graph->data = NULL;
+
+		ASSERT(graph->source_metric >= 0);
+		ASSERT(graph->source_metric < g_speeds.metrics_count);
+		g_speeds.metrics[graph->source_metric].graph_index = -1;
 	}
 
 	g_speeds.graphs_count = 0;
