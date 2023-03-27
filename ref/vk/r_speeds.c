@@ -44,6 +44,8 @@ typedef struct {
 } r_speeds_graph_t;
 
 static struct {
+	cvar_t *r_speeds_graphs;
+
 	aprof_event_t *paused_events;
 	int paused_events_count;
 	int pause_requested;
@@ -234,9 +236,15 @@ static void handlePause( uint32_t prev_frame_index ) {
 	}
 }
 
-static int drawGraph( r_speeds_graph_t *const graph, const int frame_bar_y ) {
+static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 	const float width = (float)vk_frame.width / graph->data_count;
 	const float height_scale = (float)graph->height / graph->max_value;
+
+	rgba_t color = {255, 255, 255, 255}; // TODO = metric->color
+	const char *name = g_speeds.metrics[graph->source_metric].name;
+	gEngine.Con_DrawString(0, frame_bar_y, name, color);
+
+	frame_bar_y += graph->height;
 
 	// TODO
 	// 60fps
@@ -246,7 +254,7 @@ static int drawGraph( r_speeds_graph_t *const graph, const int frame_bar_y ) {
 
 	int max_value = INT_MIN;
 	for (int i = 0; i < graph->data_count; ++i) {
-		int value = graph->data[(graph->data_write + i) % graph->data_count];
+		int value = Q_max(0, graph->data[(graph->data_write + i) % graph->data_count]);
 		max_value = Q_max(max_value, value);
 
 		value = Q_min(graph->max_value, value);
@@ -255,13 +263,17 @@ static int drawGraph( r_speeds_graph_t *const graph, const int frame_bar_y ) {
 		//const float time = linearstep(TARGET_FRAME_TIME, TARGET_FRAME_TIME*2.f, value);
 		//const int red = 255 * time;
 		//const int green = 255 * (1 - time);
+		const int x0 = (float)i * width;
+		const int x1 = (float)(i+1) * width;
+		const int height = value * height_scale;
+		const int y = frame_bar_y - height;
 		const int red = 255, green = 255, blue = 255;
-		CL_FillRGBA(i * width, frame_bar_y, width, value * height_scale, red, green, blue, 127);
+		CL_FillRGBA(x0, y, x1-x0, height, red, green, blue, 127);
 	}
 
 	graph->max_value = max_value ? max_value : 1;
 
-	return frame_bar_y + graph->height; // frame_bar_y_scale * TARGET_FRAME_TIME * 2;
+	return frame_bar_y;
 }
 
 static int drawFrames( int draw, uint32_t prev_frame_index, int y, const uint64_t gpu_frame_begin_ns, const uint64_t gpu_frame_end_ns ) {
@@ -351,50 +363,6 @@ static int drawGraphs( int y ) {
 	return y;
 }
 
-void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
-	APROF_SCOPE_DECLARE_BEGIN(function, __FUNCTION__);
-
-	g_speeds.frame.message[0] = '\0';
-
-	const uint32_t speeds_bits = r_speeds->value;
-
-	if (speeds_bits)
-		speedsPrintf( "Renderer: ^1Vulkan%s^7\n", vk_frame.rtx_enabled ? " RT" : "" );
-
-	const uint32_t events = g_aprof.events_last_frame - prev_frame_index;
-	const uint64_t frame_begin_time = APROF_EVENT_TIMESTAMP(g_aprof.events[prev_frame_index]);
-	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
-
-	g_speeds.frame.frame_time_us = delta_ns / 1000;
-	g_speeds.frame.gpu_time_us = (gpu_frame_end_ns - gpu_frame_begin_ns) / 1000;
-
-
-	handlePause( prev_frame_index );
-
-	{
-		getCurrentFontMetrics();
-		int y = 100;
-		const int draw = speeds_bits & SPEEDS_BIT_FRAME;
-		y = drawFrames( draw, prev_frame_index, y, gpu_frame_begin_ns, gpu_frame_end_ns );
-
-		if (draw)
-			y = drawGraphs(y + 10);
-	}
-
-	if (speeds_bits & SPEEDS_BIT_SIMPLE) {
-		speedsPrintf("frame: %.03fms GPU: %.03fms\n", g_speeds.frame.frame_time_us * 1e-3f, g_speeds.frame.gpu_time_us * 1e-3);
-		speedsPrintf("  (ref) CPU: %.03fms wait: %.03fms\n", g_speeds.frame.cpu_time_us * 1e-3, g_speeds.frame.cpu_wait_time_us * 1e-3);
-	}
-
-	if (speeds_bits & SPEEDS_BIT_STATS) {
-		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds);
-		printMetrics();
-	}
-
-	clearMetrics();
-
-	APROF_SCOPE_END(function);
-}
 
 static void togglePause( void ) {
 	if (g_speeds.paused_events) {
@@ -405,38 +373,41 @@ static void togglePause( void ) {
 	} else {
 		g_speeds.pause_requested = 1;
 	}
-
 }
 
-static int findMetricIndexByName(const char *name) {
+typedef struct {
+	const char *s;
+	int len;
+} const_string_view_t;
+
+static int findMetricIndexByName( const_string_view_t name) {
 	for (int i = 0; i < g_speeds.metrics_count; ++i) {
-		if (Q_strcmp(g_speeds.metrics[i].name, name) == 0)
+		if (Q_strncmp(g_speeds.metrics[i].name, name.s, name.len) == 0)
 			return i;
 	}
 
 	return -1;
 }
 
-static void speedsGraphAdd( void ) {
-	const char *args = gEngine.Cmd_Args();
-	gEngine.Con_Reportf("ARGS: %s\n", args);
-
-	const int metric_index = findMetricIndexByName(args);
+static void speedsGraphAddByMetricName( const_string_view_t name ) {
+	const int metric_index = findMetricIndexByName(name);
 	if (metric_index < 0) {
-		gEngine.Con_Printf(S_ERROR "Metric \"%s\" not found\n", args);
+		gEngine.Con_Printf(S_ERROR "Metric \"%.*s\" not found\n", name.len, name.s);
 		return;
 	}
 
 	r_speeds_metric_t *const metric = g_speeds.metrics + metric_index;
 	if (metric->graph_index >= 0) {
-		gEngine.Con_Printf(S_WARN "Metric \"%s\" already has graph @%d\n", args, metric->graph_index);
+		gEngine.Con_Printf(S_WARN "Metric \"%.*s\" already has graph @%d\n", name.len, name.s, metric->graph_index);
 		return;
 	}
 
 	if (g_speeds.graphs_count == MAX_GRAPHS) {
-		gEngine.Con_Printf(S_ERROR "Cannot add graph for metric \"%s\", no free graphs slots (max=%d)\n", args, MAX_GRAPHS);
+		gEngine.Con_Printf(S_ERROR "Cannot add graph for metric \"%.*s\", no free graphs slots (max=%d)\n", name.len, name.s, MAX_GRAPHS);
 		return;
 	}
+
+	gEngine.Con_Printf("Adding profiler graph for metric %.*s(%d) at graph index %d\n", name.len, name.s, metric_index, g_speeds.graphs_count);
 
 	metric->graph_index = g_speeds.graphs_count++;
 	r_speeds_graph_t *const graph = g_speeds.graphs + metric->graph_index;
@@ -447,16 +418,13 @@ static void speedsGraphAdd( void ) {
 	graph->max_value = 1; // Will be computed automatically on first frame
 
 	ASSERT(!graph->data);
-	graph->data = Mem_Malloc(vk_core.pool, graph->data_count * sizeof(float));
+	graph->data = Mem_Calloc(vk_core.pool, graph->data_count * sizeof(float));
 	graph->data_write = 0;
 	graph->source_metric = metric_index;
 }
 
-static void speedsGraphRemove( void ) {
-	const char *args = gEngine.Cmd_Args();
-	gEngine.Con_Reportf("ARGS: %s\n", args);
-
-	// FIXME remove everything only if there are no indexes specified
+static void speedsGraphsRemoveAll( void ) {
+	gEngine.Con_Printf("Removing all %d profiler graphs\n", g_speeds.graphs_count);
 	for (int i = 0; i < g_speeds.graphs_count; ++i) {
 		r_speeds_graph_t *const graph = g_speeds.graphs + i;
 		ASSERT(graph->data);
@@ -467,12 +435,30 @@ static void speedsGraphRemove( void ) {
 	g_speeds.graphs_count = 0;
 }
 
-void R_SpeedsInit( void ) {
-	gEngine.Cmd_AddCommand("r_speeds_toggle_pause", togglePause, "Toggle frame profiler pause");
+static void processGraphCvar( void ) {
+	if (!(g_speeds.r_speeds_graphs->flags & FCVAR_CHANGED))
+		return;
 
-	// TODO is there a better UI/UX for this
-	gEngine.Cmd_AddCommand("r_speeds_graph_add", speedsGraphAdd, "Add graph for metric");
-	gEngine.Cmd_AddCommand("r_speeds_graph_remove", speedsGraphRemove, "Remove graphs by their indexes");
+	// TODO only remove graphs that are not present in the new list
+	speedsGraphsRemoveAll();
+
+	const char *p = g_speeds.r_speeds_graphs->string;
+	while (*p) {
+		const char *next = Q_strchrnul(p, ',');
+		const const_string_view_t name = {p, next - p};
+		speedsGraphAddByMetricName( name );
+		if (!*next)
+			break;
+		p = next + 1;
+	}
+
+	g_speeds.r_speeds_graphs->flags &= ~FCVAR_CHANGED;
+}
+
+void R_SpeedsInit( void ) {
+	g_speeds.r_speeds_graphs = gEngine.Cvar_Get("r_speeds_graphs", "", FCVAR_GLCONFIG, "List of metrics to plot as graphs, separated by commas");
+
+	gEngine.Cmd_AddCommand("r_speeds_toggle_pause", togglePause, "Toggle frame profiler pause");
 
 	R_SpeedsRegisterMetric(&g_speeds.frame.frame_time_us, "frame", kSpeedsMetricMicroseconds);
 	R_SpeedsRegisterMetric(&g_speeds.frame.cpu_time_us, "cpu", kSpeedsMetricMicroseconds);
@@ -506,4 +492,52 @@ void R_SpeedsRegisterMetric(int* p_value, const char *name, r_speeds_metric_type
 	metric->name = name;
 	metric->type = type;
 	metric->graph_index = -1;
+}
+
+void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
+	APROF_SCOPE_DECLARE_BEGIN(function, __FUNCTION__);
+
+	// Reads current font/DPI scale, many functions below use it
+	getCurrentFontMetrics();
+
+	processGraphCvar();
+
+	g_speeds.frame.message[0] = '\0';
+
+	const uint32_t speeds_bits = r_speeds->value;
+
+	if (speeds_bits)
+		speedsPrintf( "Renderer: ^1Vulkan%s^7\n", vk_frame.rtx_enabled ? " RT" : "" );
+
+	const uint32_t events = g_aprof.events_last_frame - prev_frame_index;
+	const uint64_t frame_begin_time = APROF_EVENT_TIMESTAMP(g_aprof.events[prev_frame_index]);
+	const unsigned long long delta_ns = APROF_EVENT_TIMESTAMP(g_aprof.events[g_aprof.events_last_frame]) - frame_begin_time;
+
+	g_speeds.frame.frame_time_us = delta_ns / 1000;
+	g_speeds.frame.gpu_time_us = (gpu_frame_end_ns - gpu_frame_begin_ns) / 1000;
+
+	handlePause( prev_frame_index );
+
+	{
+		int y = 100;
+		const int draw = speeds_bits & SPEEDS_BIT_FRAME;
+		y = drawFrames( draw, prev_frame_index, y, gpu_frame_begin_ns, gpu_frame_end_ns );
+
+		if (draw)
+			y = drawGraphs(y + 10);
+	}
+
+	if (speeds_bits & SPEEDS_BIT_SIMPLE) {
+		speedsPrintf("frame: %.03fms GPU: %.03fms\n", g_speeds.frame.frame_time_us * 1e-3f, g_speeds.frame.gpu_time_us * 1e-3);
+		speedsPrintf("  (ref) CPU: %.03fms wait: %.03fms\n", g_speeds.frame.cpu_time_us * 1e-3, g_speeds.frame.cpu_wait_time_us * 1e-3);
+	}
+
+	if (speeds_bits & SPEEDS_BIT_STATS) {
+		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds);
+		printMetrics();
+	}
+
+	clearMetrics();
+
+	APROF_SCOPE_END(function);
 }
