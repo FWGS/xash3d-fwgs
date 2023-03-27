@@ -183,7 +183,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 #if XASH_ANDROID
 		Android_ShowMouse( true );
 #endif
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 		Evdev_SetGrab( false );
 #endif
 	}
@@ -194,7 +194,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 #if XASH_ANDROID
 		Android_ShowMouse( false );
 #endif
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 		Evdev_SetGrab( true );
 #endif
 	}
@@ -399,7 +399,7 @@ void IN_Shutdown( void )
 {
 	IN_DeactivateMouse( );
 
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 	Evdev_Shutdown();
 #endif
 
@@ -426,7 +426,7 @@ void IN_Init( void )
 
 		Touch_Init();
 
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 		Evdev_Init();
 #endif
 	}
@@ -532,7 +532,7 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 		*pitch += y * m_pitch->value;
 		*yaw   -= x * m_yaw->value;
 
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 		IN_EvdevMove( yaw, pitch );
 #endif
 	}
@@ -590,7 +590,7 @@ void IN_EngineAppendMove( float frametime, void *cmd1, qboolean active )
 
 void IN_Commands( void )
 {
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 	IN_EvdevFrame();
 #endif
 

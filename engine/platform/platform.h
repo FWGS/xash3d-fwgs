@@ -149,7 +149,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 //
 // in_evdev.c
 //
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 void Evdev_SetGrab( qboolean grab );
 void Evdev_Shutdown( void );
 void Evdev_Init( void );
