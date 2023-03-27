@@ -7,6 +7,7 @@
 
 #include "crclib.h" // CRC32 for stable random colors
 #include "xash3d_mathlib.h" // Q_min
+#include <limits.h>
 
 #define MAX_SPEEDS_MESSAGE 1024
 #define MAX_SPEEDS_METRICS (APROF_MAX_SCOPES + 4)
@@ -39,7 +40,7 @@ typedef struct {
 	int source_metric;
 
 	int height;
-	int max_value;
+	int max_value; // Computed automatically every frame
 } r_speeds_graph_t;
 
 static struct {
@@ -233,7 +234,7 @@ static void handlePause( uint32_t prev_frame_index ) {
 	}
 }
 
-static int drawGraph( const r_speeds_graph_t *graph, const int frame_bar_y ) {
+static int drawGraph( r_speeds_graph_t *const graph, const int frame_bar_y ) {
 	const float width = (float)vk_frame.width / graph->data_count;
 	const float height_scale = (float)graph->height / graph->max_value;
 
@@ -243,8 +244,12 @@ static int drawGraph( const r_speeds_graph_t *graph, const int frame_bar_y ) {
 	// 30fps
 	//CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2, vk_frame.width, 1, 255, 0, 0, 50);
 
+	int max_value = INT_MIN;
 	for (int i = 0; i < graph->data_count; ++i) {
-		const float value = graph->data[(graph->data_write + i) % graph->data_count];
+		int value = graph->data[(graph->data_write + i) % graph->data_count];
+		max_value = Q_max(max_value, value);
+
+		value = Q_min(graph->max_value, value);
 
 		// > 60 fps => 0, 30..60 fps -> 1..0, <30fps => 1
 		//const float time = linearstep(TARGET_FRAME_TIME, TARGET_FRAME_TIME*2.f, value);
@@ -253,6 +258,8 @@ static int drawGraph( const r_speeds_graph_t *graph, const int frame_bar_y ) {
 		const int red = 255, green = 255, blue = 255;
 		CL_FillRGBA(i * width, frame_bar_y, width, value * height_scale, red, green, blue, 127);
 	}
+
+	graph->max_value = max_value ? max_value : 1;
 
 	return frame_bar_y + graph->height; // frame_bar_y_scale * TARGET_FRAME_TIME * 2;
 }
@@ -435,19 +442,9 @@ static void speedsGraphAdd( void ) {
 	r_speeds_graph_t *const graph = g_speeds.graphs + metric->graph_index;
 
 	// TODO make these customizable
-	graph->data_count = 60;
+	graph->data_count = 256;
 	graph->height = 100 * g_speeds.font_metrics.scale;
-	switch (metric->type) {
-		case kSpeedsMetricCount:
-			graph->max_value = 20;
-			break;
-		case kSpeedsMetricBytes:
-			graph->max_value = 1024*1024;
-			break;
-		case kSpeedsMetricMicroseconds:
-			graph->max_value = TARGET_FRAME_TIME * 2 * 1000;
-			break;
-	}
+	graph->max_value = 1; // Will be computed automatically on first frame
 
 	ASSERT(!graph->data);
 	graph->data = Mem_Malloc(vk_core.pool, graph->data_count * sizeof(float));
