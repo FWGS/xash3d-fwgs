@@ -13,7 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include "platform/platform.h"
-#ifdef XASH_USE_EVDEV
+#if XASH_USE_EVDEV
 
 
 #include "common.h"
