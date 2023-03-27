@@ -44,8 +44,7 @@ echo "Building engine..."
 
 echo "Building HLSDK..."
 
-# TODO: replace with hlsdk-portable when PRs are merged
-pushd hlsdk-portable
+pushd hlsdk-portable || die
 build_hlsdk mobile_hacks valve
 build_hlsdk opfor gearbox
 build_hlsdk bshift bshift
