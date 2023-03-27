@@ -970,6 +970,8 @@ all the visible entities should pass this filter
 */
 qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 {
+	qboolean draw_player = true;
+
 	if( !ent || !ent->model )
 		return false;
 
@@ -979,7 +981,12 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 		cl.local.apply_effects = true;
 
 		if( !CL_IsThirdPerson( ) && ( ent->index == cl.viewentity ))
-			return false;
+		{
+			// we don't draw player in default renderer in firstperson mode
+			// but let the client.dll know about player entity anyway
+			// for use in custom renderers
+			draw_player = false;
+		}
 	}
 
 	// check for adding this entity
@@ -990,6 +997,9 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 			cl.local.apply_effects = false;
 		return false;
 	}
+
+	if( !draw_player )
+		return false;
 
 	if( entityType == ET_BEAM )
 	{
