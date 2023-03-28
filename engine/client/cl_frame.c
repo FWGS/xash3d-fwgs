@@ -241,7 +241,7 @@ CL_GetStudioEstimatedFrame
 
 ====================
 */
-float CL_GetStudioEstimatedFrame( cl_entity_t *ent )
+static float CL_GetStudioEstimatedFrame( cl_entity_t *ent )
 {
 	studiohdr_t	*pstudiohdr;
 	mstudioseqdesc_t	*pseqdesc;
@@ -255,7 +255,7 @@ float CL_GetStudioEstimatedFrame( cl_entity_t *ent )
 		{
 			sequence = bound( 0, ent->curstate.sequence, pstudiohdr->numseq - 1 );
 			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
-			return ref.dllFuncs.R_StudioEstimateFrame( ent, pseqdesc );
+			return ref.dllFuncs.R_StudioEstimateFrame( ent, pseqdesc, cl.time );
 		}
 	}
 
