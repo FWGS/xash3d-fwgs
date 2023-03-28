@@ -8,7 +8,6 @@ build_hlsdk()
 	git checkout $1
 	./waf configure -T release --psvita || die_configure
 	./waf build install --destdir=../pkgtemp/data/xash3d || die
-	./waf clean
 }
 
 export VITASDK=/usr/local/vitasdk
