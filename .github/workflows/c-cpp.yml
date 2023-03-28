@@ -108,13 +108,14 @@ jobs:
           mv "$i"/* .
           rm -rf "$i"
         done
+        ls -R .
     - name: Remove old release
       uses: FWGS/delete-tag-and-release@v0.2.1
       with:
         delete_release: true
         tag_name: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
     - name: Upload new release
-      uses: FWGS/upload-release-action@2.3.0
+      uses: FWGS/upload-release-action@2.5.0
       with:
         release_name: Xash3D FWGS Continuous ${{ github.ref_name }} Build
         tag: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
