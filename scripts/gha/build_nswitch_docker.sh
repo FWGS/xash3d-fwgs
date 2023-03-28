@@ -8,7 +8,6 @@ build_hlsdk()
 	git checkout $1
 	./waf configure -T release --nswitch || die_configure
 	./waf build install --destdir=../pkgtemp/xash3d || die
-	./waf clean
 }
 
 echo "Setting up environment..."
