@@ -33,7 +33,8 @@ GNU General Public License for more details.
 // 1. Initial release
 // 2. FS functions are removed, instead we have full fs_api_t
 // 3. SlerpBones, CalcBonePosition/Quaternion calls were moved to libpublic/mathlib
-#define REF_API_VERSION 3
+// 4. R_StudioEstimateFrame now has time argument
+#define REF_API_VERSION 4
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -499,7 +500,7 @@ typedef struct ref_interface_s
 	void (*R_ClearAllDecals)( void );
 
 	// studio interface
-	float (*R_StudioEstimateFrame)( cl_entity_t *e, mstudioseqdesc_t *pseqdesc );
+	float (*R_StudioEstimateFrame)( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double time );
 	void (*R_StudioLerpMovement)( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
 	void (*CL_InitStudioAPI)( void );
 
