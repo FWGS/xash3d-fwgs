@@ -34,12 +34,12 @@ jobs:
 #            targetos: motomagx
 #            targetarch: armv6
 
-#          - os: ubuntu-20.04
-#            targetos: nswitch
-#            targetarch: arm64
-#          - os: ubuntu-20.04
-#            targetos: psvita
-#            targetarch: armv7hf
+          - os: ubuntu-20.04
+            targetos: nswitch
+            targetarch: arm64
+          - os: ubuntu-20.04
+            targetos: psvita
+            targetarch: armv7hf
           - os: windows-latest
             targetos: win32
             targetarch: amd64
