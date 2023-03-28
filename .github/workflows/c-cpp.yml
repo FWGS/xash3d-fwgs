@@ -34,12 +34,12 @@ jobs:
 #            targetos: motomagx
 #            targetarch: armv6
 
-          - os: ubuntu-20.04
-            targetos: nswitch
-            targetarch: arm64
-          - os: ubuntu-20.04
-            targetos: psvita
-            targetarch: armv7hf
+#          - os: ubuntu-20.04
+#            targetos: nswitch
+#            targetarch: arm64
+#          - os: ubuntu-20.04
+#            targetos: psvita
+#            targetarch: armv7hf
           - os: windows-latest
             targetos: win32
             targetarch: amd64
@@ -94,28 +94,28 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, flatpak]
     if: ${{ github.event_name == 'push' }}
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - name: Fetch artifacts
       uses: actions/download-artifact@v3.0.1
       with:
         path: artifacts/
     - name: Repackage binaries
-      working-directory: artifacts/
       run: |
+        cd artifacts/
         for i in artifact-* su.xash.Engine.*; do
           mv "$i"/* .
           rm -rf "$i"
         done
         ls -R .
+        cd ../
     - name: Remove old release
-      uses: FWGS/delete-tag-and-release@v0.2.1
+      uses: FWGS/delete-tag-and-release@v0.2.1-dev
       with:
-        delete_release: true
         tag_name: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
+        delete_release: true
+        github_token: ${{ secrets.GITHUB_TOKEN }}
     - name: Upload new release
-      uses: FWGS/upload-release-action@2.5.0
+      uses: FWGS/upload-release-action@2.5.1
       with:
         release_name: Xash3D FWGS Continuous ${{ github.ref_name }} Build
         tag: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
