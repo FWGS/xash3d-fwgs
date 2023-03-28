@@ -1,5 +1,6 @@
 /*
 avi_win.c - playing AVI files (based on original AVIKit code, Win32 version)
+Copyright (c) 2003-2004, Ruari O'Sullivan
 Copyright (C) 2010 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
