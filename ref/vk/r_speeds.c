@@ -29,7 +29,7 @@ typedef struct {
 	int *p_value;
 	const char *name;
 	r_speeds_metric_type_t type;
-	// int low_watermark, high_watermark;
+	int low_watermark, high_watermark, max_value;
 	int graph_index;
 } r_speeds_metric_t;
 
@@ -272,56 +272,64 @@ static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 		min_width, vk_frame.width); // clamp to min_width..frame_width
 	const int graph_height = graph->height * g_speeds.font_metrics.scale;
 
-	const float width_factor = (float)graph_width / graph->data_count;
-	const float height_scale = (float)graph_height / graph->max_value;
+	const r_speeds_metric_t *const metric = g_speeds.metrics + graph->source_metric;
+	const int graph_max_value = metric->max_value ? Q_max(metric->max_value, graph->max_value) : graph->max_value;
 
-	// Draw background that podcherkivaet graph area
-	CL_FillRGBABlend(0, frame_bar_y, graph_width, graph_height, graph->color[0], graph->color[1], graph->color[2], 32);
+	const float width_factor = (float)graph_width / graph->data_count;
+	const float height_scale = (float)graph_height / graph_max_value;
 
 	rgba_t text_color = {0xed, 0x9f, 0x01, 0xff};
 
 	// Draw graph name
-	const r_speeds_metric_t *const metric = g_speeds.metrics + graph->source_metric;
 	const char *name = metric->name;
 	gEngine.Con_DrawString(0, frame_bar_y, name, text_color);
 	frame_bar_y += g_speeds.font_metrics.glyph_height;
 
+	// Draw background that podcherkivaet graph area
+	CL_FillRGBABlend(0, frame_bar_y, graph_width, graph_height, graph->color[0], graph->color[1], graph->color[2], 32);
+
 	// Draw max value
 	{
 		char buf[16];
-		metricTypeSnprintf(buf, sizeof(buf), graph->max_value, metric->type);
+		metricTypeSnprintf(buf, sizeof(buf), graph_max_value, metric->type);
 		gEngine.Con_DrawString(0, frame_bar_y, buf, text_color);
 	}
 
 	// Draw zero
 	gEngine.Con_DrawString(0, frame_bar_y + graph->height - g_speeds.font_metrics.glyph_height, "0", text_color);
+	frame_bar_y += graph_height;
 
-	// TODO
-	// 60fps
-	//CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME, vk_frame.width, 1, 0, 255, 0, 50);
-	// 30fps
-	//CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2, vk_frame.width, 1, 255, 0, 0, 50);
+	if (metric->low_watermark && metric->low_watermark < graph_max_value) {
+		const int y = frame_bar_y - metric->low_watermark * height_scale;
+		CL_FillRGBA(0, y, graph_width, 1, 0, 255, 0, 50);
+	}
+
+	if (metric->high_watermark && metric->high_watermark < graph_max_value) {
+		const int y = frame_bar_y - metric->high_watermark * height_scale;
+		CL_FillRGBA(0, y, graph_width, 1, 255, 0, 0, 50);
+	}
 
 	// Invert graph origin for better math below
-	frame_bar_y += graph_height;
 	int max_value = INT_MIN;
+	const qboolean watermarks = metric->low_watermark && metric->high_watermark;
 	for (int i = 0; i < graph->data_count; ++i) {
 		int value = Q_max(0, graph->data[(graph->data_write + i) % graph->data_count]);
 		max_value = Q_max(max_value, value);
 
-		value = Q_min(graph->max_value, value);
+		value = Q_min(graph_max_value, value);
 
-		// > 60 fps => 0, 30..60 fps -> 1..0, <30fps => 1
-		//const float time = linearstep(TARGET_FRAME_TIME, TARGET_FRAME_TIME*2.f, value);
-		//const int red = 255 * time;
-		//const int green = 255 * (1 - time);
-		//const int red = graph->color[0], green = graph->color[1], blue = graph->color[2];
-		const int red = 0xed, green = 0x9f, blue = 0x01;
+		int red = 0xed, green = 0x9f, blue = 0x01;
+		if (watermarks) {
+			// E.g: > 60 fps => 0, 30..60 fps -> 1..0, <30fps => 1
+			const float k = linearstep(metric->low_watermark, metric->high_watermark, value);
+			red = value < metric->low_watermark ? 0 : 255;
+			green = 255 * (1 - k);
+		}
 
 		const int x0 = (float)i * width_factor;
 		const int x1 = (float)(i+1) * width_factor;
 		const int y_pos = value * height_scale;
-		const int height = 2 * g_speeds.font_metrics.scale;
+		const int height = watermarks ? y_pos : 2 * g_speeds.font_metrics.scale;
 		const int y = frame_bar_y - y_pos;
 
 		CL_FillRGBA(x0, y, x1-x0, height, red, green, blue, 127);
@@ -546,6 +554,15 @@ void R_SpeedsRegisterMetric(int* p_value, const char *name, r_speeds_metric_type
 	metric->name = name;
 	metric->type = type;
 	metric->graph_index = -1;
+
+	// TODO how to make universally adjustable?
+	if (Q_strcmp("frame", name) == 0) {
+		metric->low_watermark = TARGET_FRAME_TIME * 1000;
+		metric->high_watermark = TARGET_FRAME_TIME * 2000;
+		metric->max_value = TARGET_FRAME_TIME * 3000;
+	} else {
+		metric->low_watermark = metric->high_watermark = metric->max_value;
+	}
 }
 
 void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
