@@ -1,3 +1,5 @@
+#pragma once
+
 #include "const.h" // required for ref_api.h
 #include "cvardef.h"
 #include "com_model.h"
@@ -47,6 +49,12 @@
 #define ALIGN_UP(ptr, align) ((((ptr) + (align) - 1) / (align)) * (align))
 
 #define COUNTOF(a) (sizeof(a)/sizeof((a)[0]))
+
+inline static int clampi32(int v, int min, int max) {
+	if (v < min) return min;
+	if (v > max) return max;
+	return v;
+}
 
 extern ref_api_t gEngine;
 extern ref_globals_t *gpGlobals;

@@ -217,12 +217,6 @@ void TriVertex3f( float x, float y, float z ) {
 	g_triapi.vertices[g_triapi.num_vertices] = g_triapi.vertices[g_triapi.num_vertices-1];
 }
 
-static int clampi32(int v, int min, int max) {
-	if (v < min) return min;
-	if (v > max) return max;
-	return v;
-}
-
 void TriColor4ub_( byte r, byte g, byte b, byte a ) {
 	Vector4Set(g_triapi.vertices[g_triapi.num_vertices].color, r, g, b, a);
 }

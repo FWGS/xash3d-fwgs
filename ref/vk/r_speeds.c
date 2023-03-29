@@ -46,6 +46,7 @@ typedef struct {
 
 static struct {
 	cvar_t *r_speeds_graphs;
+	cvar_t *r_speeds_graphs_width;
 
 	aprof_event_t *paused_events;
 	int paused_events_count;
@@ -72,6 +73,10 @@ static struct {
 	} frame;
 } g_speeds;
 
+static void speedsStrcat( const char *msg ) {
+	Q_strncat( g_speeds.frame.message, msg, sizeof( g_speeds.frame.message ));
+}
+
 static void speedsPrintf( const char *msg, ... ) _format(1);
 static void speedsPrintf( const char *msg, ... ) {
 	va_list	argptr;
@@ -81,7 +86,22 @@ static void speedsPrintf( const char *msg, ... ) {
 	Q_vsprintf( text, msg, argptr );
 	va_end( argptr );
 
-	Q_strncat( g_speeds.frame.message, text, sizeof( g_speeds.frame.message ));
+	speedsStrcat(text);
+}
+
+static void metricTypeSnprintf(char *buf, int buf_size, int value, r_speeds_metric_type_t type) {
+	switch (type) {
+		case kSpeedsMetricCount:
+			Q_snprintf(buf, buf_size, "%d", value);
+			break;
+		case kSpeedsMetricBytes:
+			// TODO different units for different ranges, e.g. < 10k: bytes, < 10M: KiB, >10M: MiB
+			Q_snprintf(buf, buf_size, "%dKiB", value / 1024);
+			break;
+		case kSpeedsMetricMicroseconds:
+			Q_snprintf(buf, buf_size, "%.03fms", value * 1e-3f);
+			break;
+	}
 }
 
 static float linearstep(float min, float max, float v) {
@@ -244,26 +264,37 @@ static void handlePause( uint32_t prev_frame_index ) {
 }
 
 static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
-	const float width = (float)vk_frame.width / graph->data_count;
-	const float graph_height = graph->height * g_speeds.font_metrics.scale;
-	const float height_scale = graph_height / graph->max_value;
+	const int min_width = 100 * g_speeds.font_metrics.scale;
+	const int graph_width = clampi32(
+		g_speeds.r_speeds_graphs_width->value < 1
+		? vk_frame.width / 2 // half frame width if invalid
+		: (int)(g_speeds.r_speeds_graphs_width->value * g_speeds.font_metrics.scale), // scaled value if valid
+		min_width, vk_frame.width); // clamp to min_width..frame_width
+	const int graph_height = graph->height * g_speeds.font_metrics.scale;
 
-	CL_FillRGBABlend(0, frame_bar_y, vk_frame.width, graph_height, graph->color[0], graph->color[1], graph->color[2], 32);
+	const float width_factor = (float)graph_width / graph->data_count;
+	const float height_scale = (float)graph_height / graph->max_value;
 
-	const char *name = g_speeds.metrics[graph->source_metric].name;
+	// Draw background that podcherkivaet graph area
+	CL_FillRGBABlend(0, frame_bar_y, graph_width, graph_height, graph->color[0], graph->color[1], graph->color[2], 32);
+
 	rgba_t text_color = {0xed, 0x9f, 0x01, 0xff};
-	gEngine.Con_DrawString(0, frame_bar_y, name, text_color);
-	gEngine.Con_DrawString(0, frame_bar_y + graph_height - g_speeds.font_metrics.glyph_height, "0", text_color);
 
+	// Draw graph name
+	const r_speeds_metric_t *const metric = g_speeds.metrics + graph->source_metric;
+	const char *name = metric->name;
+	gEngine.Con_DrawString(0, frame_bar_y, name, text_color);
+	frame_bar_y += g_speeds.font_metrics.glyph_height;
+
+	// Draw max value
 	{
 		char buf[16];
-		Q_snprintf(buf, sizeof(buf), "%d", graph->max_value);
-		gEngine.Con_DrawString(0, frame_bar_y + g_speeds.font_metrics.glyph_height, buf, text_color);
+		metricTypeSnprintf(buf, sizeof(buf), graph->max_value, metric->type);
+		gEngine.Con_DrawString(0, frame_bar_y, buf, text_color);
 	}
 
-	frame_bar_y += graph_height;
-
-
+	// Draw zero
+	gEngine.Con_DrawString(0, frame_bar_y + graph->height - g_speeds.font_metrics.glyph_height, "0", text_color);
 
 	// TODO
 	// 60fps
@@ -271,6 +302,8 @@ static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 	// 30fps
 	//CL_FillRGBA(0, frame_bar_y + frame_bar_y_scale * TARGET_FRAME_TIME * 2, vk_frame.width, 1, 255, 0, 0, 50);
 
+	// Invert graph origin for better math below
+	frame_bar_y += graph_height;
 	int max_value = INT_MIN;
 	for (int i = 0; i < graph->data_count; ++i) {
 		int value = Q_max(0, graph->data[(graph->data_write + i) % graph->data_count]);
@@ -285,8 +318,8 @@ static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 		//const int red = graph->color[0], green = graph->color[1], blue = graph->color[2];
 		const int red = 0xed, green = 0x9f, blue = 0x01;
 
-		const int x0 = (float)i * width;
-		const int x1 = (float)(i+1) * width;
+		const int x0 = (float)i * width_factor;
+		const int x1 = (float)(i+1) * width_factor;
 		const int y_pos = value * height_scale;
 		const int height = 2 * g_speeds.font_metrics.scale;
 		const int y = frame_bar_y - y_pos;
@@ -340,18 +373,9 @@ static int drawFrames( int draw, uint32_t prev_frame_index, int y, const uint64_
 static void printMetrics( void ) {
 	for (int i = 0; i < g_speeds.metrics_count; ++i) {
 		const r_speeds_metric_t *const metric = g_speeds.metrics + i;
-		switch (metric->type) {
-			case kSpeedsMetricCount:
-				speedsPrintf("%s: %d\n", metric->name, *metric->p_value);
-				break;
-			case kSpeedsMetricBytes:
-				// TODO different units for different ranges, e.g. < 10k: bytes, < 10M: KiB, >10M: MiB
-				speedsPrintf("%s: %d%s\n", metric->name, *metric->p_value / 1024, "KiB");
-				break;
-			case kSpeedsMetricMicroseconds:
-				speedsPrintf("%s: %.03fms\n", metric->name, *metric->p_value * 1e-3f);
-				break;
-		}
+		char buf[32];
+		metricTypeSnprintf(buf, sizeof(buf), (*metric->p_value), metric->type);
+		speedsPrintf("%s: %s\n", metric->name, buf);
 	}
 }
 
@@ -486,6 +510,7 @@ static void processGraphCvar( void ) {
 
 void R_SpeedsInit( void ) {
 	g_speeds.r_speeds_graphs = gEngine.Cvar_Get("r_speeds_graphs", "", FCVAR_GLCONFIG, "List of metrics to plot as graphs, separated by commas");
+	g_speeds.r_speeds_graphs_width = gEngine.Cvar_Get("r_speeds_graphs_width", "", FCVAR_GLCONFIG, "Graphs width in pixels");
 
 	gEngine.Cmd_AddCommand("r_speeds_toggle_pause", togglePause, "Toggle frame profiler pause");
 
@@ -529,8 +554,6 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 	// Reads current font/DPI scale, many functions below use it
 	getCurrentFontMetrics();
 
-	processGraphCvar();
-
 	g_speeds.frame.message[0] = '\0';
 
 	const uint32_t speeds_bits = r_speeds->value;
@@ -565,6 +588,8 @@ void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_b
 		speedsPrintf("profiler events: %u, wraps: %d\n", events, g_aprof.current_frame_wraparounds);
 		printMetrics();
 	}
+
+	processGraphCvar();
 
 	clearMetrics();
 
