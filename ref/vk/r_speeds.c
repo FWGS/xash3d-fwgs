@@ -245,14 +245,15 @@ static void handlePause( uint32_t prev_frame_index ) {
 
 static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 	const float width = (float)vk_frame.width / graph->data_count;
-	const float height_scale = (float)graph->height / graph->max_value;
+	const float graph_height = graph->height * g_speeds.font_metrics.scale;
+	const float height_scale = graph_height / graph->max_value;
 
-	CL_FillRGBABlend(0, frame_bar_y, vk_frame.width, graph->height, graph->color[0], graph->color[1], graph->color[2], 32);
+	CL_FillRGBABlend(0, frame_bar_y, vk_frame.width, graph_height, graph->color[0], graph->color[1], graph->color[2], 32);
 
 	const char *name = g_speeds.metrics[graph->source_metric].name;
 	rgba_t text_color = {0xed, 0x9f, 0x01, 0xff};
 	gEngine.Con_DrawString(0, frame_bar_y, name, text_color);
-	gEngine.Con_DrawString(0, frame_bar_y + graph->height - g_speeds.font_metrics.glyph_height, "0", text_color);
+	gEngine.Con_DrawString(0, frame_bar_y + graph_height - g_speeds.font_metrics.glyph_height, "0", text_color);
 
 	{
 		char buf[16];
@@ -260,7 +261,7 @@ static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 		gEngine.Con_DrawString(0, frame_bar_y + g_speeds.font_metrics.glyph_height, buf, text_color);
 	}
 
-	frame_bar_y += graph->height;
+	frame_bar_y += graph_height;
 
 
 
@@ -287,7 +288,7 @@ static int drawGraph( r_speeds_graph_t *const graph, int frame_bar_y ) {
 		const int x0 = (float)i * width;
 		const int x1 = (float)(i+1) * width;
 		const int y_pos = value * height_scale;
-		const int height = 2; //value * height_scale;
+		const int height = 2 * g_speeds.font_metrics.scale;
 		const int y = frame_bar_y - y_pos;
 
 		CL_FillRGBA(x0, y, x1-x0, height, red, green, blue, 127);
@@ -436,7 +437,7 @@ static void speedsGraphAddByMetricName( const_string_view_t name ) {
 
 	// TODO make these customizable
 	graph->data_count = 256;
-	graph->height = 100 * g_speeds.font_metrics.scale;
+	graph->height = 100;
 	graph->max_value = 1; // Will be computed automatically on first frame
 	graph->color[3] = 255;
 	getColorForString(metric->name, graph->color);
