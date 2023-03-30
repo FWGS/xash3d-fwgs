@@ -1245,37 +1245,28 @@ apply params for exploding sprite
 */
 void GAME_EXPORT R_Sprite_Explode( TEMPENTITY *pTemp, float scale, int flags )
 {
-	if( !pTemp ) return;
+	qboolean noadditive, drawalpha, rotate;
 
-	if( FBitSet( flags, TE_EXPLFLAG_NOADDITIVE ))
-	{
-		// solid sprite
-		pTemp->entity.curstate.rendermode = kRenderNormal;
-		pTemp->entity.curstate.renderamt = 255;
-	}
-	else if( FBitSet( flags, TE_EXPLFLAG_DRAWALPHA ))
-	{
-		// alpha sprite (came from hl2)
-		pTemp->entity.curstate.rendermode = kRenderTransAlpha;
-		pTemp->entity.curstate.renderamt = 180;
-	}
-	else
-	{
-		// additive sprite
-		pTemp->entity.curstate.rendermode = kRenderTransAdd;
-		pTemp->entity.curstate.renderamt = 180;
-	}
+	if( !pTemp )
+		return;
 
-	if( FBitSet( flags, TE_EXPLFLAG_ROTATE ))
-	{
-		// came from hl2
-		pTemp->entity.angles[2] = COM_RandomLong( 0, 360 );
-	}
+	noadditive = FBitSet( flags, TE_EXPLFLAG_NOADDITIVE );
+	drawalpha  = FBitSet( flags, TE_EXPLFLAG_DRAWALPHA );
+	rotate     = FBitSet( flags, TE_EXPLFLAG_ROTATE );
 
-	pTemp->entity.curstate.renderfx = kRenderFxNone;
-	pTemp->entity.baseline.origin[2] = 8;
-	pTemp->entity.origin[2] += 10;
 	pTemp->entity.curstate.scale = scale;
+	pTemp->entity.baseline.origin[2] = 8.0f;
+	pTemp->entity.origin[2] = pTemp->entity.origin[2] + 10.0f;
+	if( rotate )
+		pTemp->entity.angles[2] = COM_RandomFloat( 0.0, 360.0f );
+
+	pTemp->entity.curstate.rendermode = noadditive ? kRenderNormal :
+		drawalpha ? kRenderTransAlpha : kRenderTransAdd;
+	pTemp->entity.curstate.renderamt  = noadditive ? 0xff : 0xb4;
+	pTemp->entity.curstate.renderfx = 0;
+	pTemp->entity.curstate.rendercolor.r = 0;
+	pTemp->entity.curstate.rendercolor.g = 0;
+	pTemp->entity.curstate.rendercolor.b = 0;
 }
 
 /*
