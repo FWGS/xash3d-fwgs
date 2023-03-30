@@ -2684,11 +2684,23 @@ void HTTP_Run( void )
 
 		if( curfile->state < HTTP_REQUEST ) // Request not formatted
 		{
+			string useragent;
+
+			if( !COM_CheckStringEmpty( http_useragent->string ) || !Q_strcmp( http_useragent->string, "xash3d" ))
+			{
+				Q_snprintf( useragent, sizeof( useragent ), "%s/%s (%s-%s; build %d; %s)",
+					XASH_ENGINE_NAME, XASH_VERSION, Q_buildos( ), Q_buildarch( ), Q_buildnum( ), Q_buildcommit( ));
+			}
+			else
+			{
+				Q_strncpy( useragent, http_useragent->string, sizeof( useragent ));
+			}
+
 			curfile->query_length = Q_snprintf( curfile->buf, sizeof( curfile->buf ),
 				"GET %s%s HTTP/1.0\r\n"
 				"Host: %s\r\n"
 				"User-Agent: %s\r\n\r\n", curfile->server->path,
-				curfile->path, curfile->server->host, http_useragent->string );
+				curfile->path, curfile->server->host, useragent );
 			curfile->header_size = 0;
 			curfile->bytes_sent = 0;
 			curfile->state = HTTP_REQUEST;
