@@ -53,24 +53,6 @@ float anglemod( float a )
 	return a;
 }
 
-/*
-=================
-SimpleSpline
-
-NOTE: ripped from hl2 source
-hermite basis function for smooth interpolation
-Similar to Gain() above, but very cheap to call
-value should be between 0 & 1 inclusive
-=================
-*/
-float SimpleSpline( float value )
-{
-	float	valueSquared = value * value;
-
-	// nice little ease-in, ease-out spline-like curve
-	return (3.0f * valueSquared - 2.0f * valueSquared * value);
-}
-
 word FloatToHalf( float v )
 {
 	unsigned int	i = FloatAsUint( v );

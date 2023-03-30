@@ -177,7 +177,6 @@ float rsqrt( float number );
 float anglemod( float a );
 word FloatToHalf( float v );
 float HalfToFloat( word h );
-float SimpleSpline( float value );
 void RoundUpHullSize( vec3_t size );
 int SignbitsForPlane( const vec3_t normal );
 int PlaneTypeForNormal( const vec3_t normal );
