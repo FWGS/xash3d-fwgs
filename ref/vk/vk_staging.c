@@ -69,6 +69,8 @@ void R_VkStagingShutdown(void) {
 	R_VkCommandPoolDestroy( &g_staging.upload_pool );
 }
 
+// FIXME There's a severe race condition here. Submitting things manually and prematurely (before framectl had a chance to synchronize with the previous frame)
+// may lead to data races and memory corruption (e.g. writing into memory that's being read in some pipeline stage still going)
 void R_VkStagingFlushSync( void ) {
 	APROF_SCOPE_DECLARE_BEGIN(function, __FUNCTION__);
 

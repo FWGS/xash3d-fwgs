@@ -4,7 +4,7 @@
 
 #define MAX_QUERY_COUNT 128
 
-typedef struct {
+typedef struct vk_query_pool_s {
 	VkQueryPool pool;
 	int used;
 	uint64_t results[MAX_QUERY_COUNT];

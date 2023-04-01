@@ -649,14 +649,14 @@ void VK_RenderDebugLabelEnd( void )
 	drawCmdPushDebugLabelEnd();
 }
 
-void VK_RenderEndRTX( VkCommandBuffer cmdbuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
+void VK_RenderEndRTX( struct vk_combuf_s* combuf, VkImageView img_dst_view, VkImage img_dst, uint32_t w, uint32_t h )
 {
 	const VkBuffer geom_buffer = R_GeometryBuffer_Get();
 	ASSERT(vk_core.rtx);
 
 	{
 		const vk_ray_frame_render_args_t args = {
-			.cmdbuf = cmdbuf,
+			.combuf = combuf,
 			.dst = {
 				.image_view = img_dst_view,
 				.image = img_dst,

@@ -80,7 +80,8 @@ typedef struct {
 } vk_pipeline_ray_t;
 
 vk_pipeline_ray_t VK_PipelineRayTracingCreate(const vk_pipeline_ray_create_info_t *create);
-void VK_PipelineRayTracingTrace(VkCommandBuffer cmdbuf, const vk_pipeline_ray_t *pipeline, uint32_t width, uint32_t height);
+struct vk_combuf_s;
+void VK_PipelineRayTracingTrace(struct vk_combuf_s *combuf, const vk_pipeline_ray_t *pipeline, uint32_t width, uint32_t height, int scope_id);
 void VK_PipelineRayTracingDestroy(vk_pipeline_ray_t* pipeline);
 
 

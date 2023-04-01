@@ -3,6 +3,7 @@
 #include "ray_resources.h"
 #include "vk_pipeline.h"
 #include "vk_descriptor.h"
+#include "vk_combuf.h"
 
 // FIXME this is only needed for MAX_CONCURRENT_FRAMES
 // TODO specify it externally as ctor arg
@@ -21,6 +22,7 @@ typedef struct ray_pass_s {
 	ray_pass_type_t type; // TODO remove this in favor of VkPipelineStageFlagBits
 	VkPipelineStageFlagBits pipeline_type;
 	char debug_name[32];
+	int gpurofl_scope_id;
 
 	struct {
 		int write_from;
@@ -181,6 +183,7 @@ struct ray_pass_s *RayPassCreateTracing( const ray_pass_create_tracing_t *create
 	Q_strncpy(header->debug_name, create->debug_name, sizeof(header->debug_name));
 	header->type = RayPassType_Tracing;
 	header->pipeline_type = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+	header->gpurofl_scope_id = R_VkGpuScope_Register(create->debug_name);
 
 	return header;
 }
@@ -209,6 +212,7 @@ struct ray_pass_s *RayPassCreateCompute( const ray_pass_create_compute_t *create
 	Q_strncpy(header->debug_name, create->debug_name, sizeof(header->debug_name));
 	header->type = RayPassType_Compute;
 	header->pipeline_type = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	header->gpurofl_scope_id = R_VkGpuScope_Register(create->debug_name);
 
 	return header;
 }
@@ -235,23 +239,29 @@ void RayPassDestroy( struct ray_pass_s *pass ) {
 	Mem_Free(pass);
 }
 
-static void performTracing( VkCommandBuffer cmdbuf, int set_slot, const ray_pass_tracing_impl_t *tracing, int width, int height ) {
+static void performTracing( vk_combuf_t* combuf, int set_slot, const ray_pass_tracing_impl_t *tracing, int width, int height, int scope_id ) {
+	const VkCommandBuffer cmdbuf = combuf->cmdbuf;
+
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, tracing->pipeline.pipeline);
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, tracing->header.desc.riptors.pipeline_layout, 0, 1, tracing->header.desc.riptors.desc_sets + set_slot, 0, NULL);
-	VK_PipelineRayTracingTrace(cmdbuf, &tracing->pipeline, width, height);
+	VK_PipelineRayTracingTrace(combuf, &tracing->pipeline, width, height, scope_id);
 }
 
-static void performCompute( VkCommandBuffer cmdbuf, int set_slot, const ray_pass_compute_impl_t *compute, int width, int height) {
+static void performCompute( vk_combuf_t *combuf, int set_slot, const ray_pass_compute_impl_t *compute, int width, int height, int scope_id) {
 	const uint32_t WG_W = 8;
 	const uint32_t WG_H = 8;
+	const VkCommandBuffer cmdbuf = combuf->cmdbuf;
 
 	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, compute->pipeline);
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, compute->header.desc.riptors.pipeline_layout, 0, 1, compute->header.desc.riptors.desc_sets + set_slot, 0, NULL);
+
+	const int begin_id = R_VkCombufScopeBegin(combuf, scope_id);
 	vkCmdDispatch(cmdbuf, (width + WG_W - 1) / WG_W, (height + WG_H - 1) / WG_H, 1);
+	R_VkCombufScopeEnd(combuf, begin_id, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
-void RayPassPerform(struct ray_pass_s *pass, VkCommandBuffer cmdbuf, ray_pass_perform_args_t args ) {
-	R_VkResourcesPrepareDescriptorsValues(cmdbuf,
+void RayPassPerform(struct ray_pass_s *pass, vk_combuf_t *combuf, ray_pass_perform_args_t args ) {
+	R_VkResourcesPrepareDescriptorsValues(combuf->cmdbuf,
 		(vk_resources_write_descriptors_args_t){
 			.pipeline = pass->pipeline_type,
 			.resources = args.resources,
@@ -264,22 +274,22 @@ void RayPassPerform(struct ray_pass_s *pass, VkCommandBuffer cmdbuf, ray_pass_pe
 
 	VK_DescriptorsWrite(&pass->desc.riptors, args.frame_set_slot);
 
-	DEBUG_BEGIN(cmdbuf, pass->debug_name);
+	DEBUG_BEGIN(combuf->cmdbuf, pass->debug_name);
 
 	switch (pass->type) {
 		case RayPassType_Tracing:
 			{
 				ray_pass_tracing_impl_t *tracing = (ray_pass_tracing_impl_t*)pass;
-				performTracing(cmdbuf, args.frame_set_slot, tracing, args.width, args.height);
+				performTracing(combuf, args.frame_set_slot, tracing, args.width, args.height, pass->gpurofl_scope_id);
 				break;
 			}
 		case RayPassType_Compute:
 			{
 				ray_pass_compute_impl_t *compute = (ray_pass_compute_impl_t*)pass;
-				performCompute(cmdbuf, args.frame_set_slot, compute, args.width, args.height);
+				performCompute(combuf, args.frame_set_slot, compute, args.width, args.height, pass->gpurofl_scope_id);
 				break;
 			}
 	}
 
-	DEBUG_END(cmdbuf);
+	DEBUG_END(combuf->cmdbuf);
 }

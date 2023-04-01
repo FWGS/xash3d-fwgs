@@ -26,7 +26,7 @@ typedef struct {
 } vk_buffer_region_t;
 
 typedef struct {
-	VkCommandBuffer cmdbuf;
+	struct vk_combuf_s *combuf;
 
 	struct {
 		VkImageView image_view;

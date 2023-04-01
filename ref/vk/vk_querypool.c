@@ -80,9 +80,10 @@ void R_VkQueryPoolGetFrameResults( vk_query_pool_t *pool ) {
 	vkGetQueryPoolResults(vk_core.device, pool->pool, 0, pool->used, pool->used * sizeof(uint64_t), pool->results, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 
 	const uint64_t timestamp_offset_ns = getGpuTimestampOffsetNs( pool );
+	const double timestamp_period = vk_core.physical_device.properties.limits.timestampPeriod;
 
 	for (int i = 0; i < pool->used; ++i) {
-		const uint64_t gpu_ns = pool->results[i] * (double)vk_core.physical_device.properties.limits.timestampPeriod;
+		const uint64_t gpu_ns = pool->results[i] * timestamp_period;
 		pool->results[i] = timestamp_offset_ns + gpu_ns;
 	}
 }

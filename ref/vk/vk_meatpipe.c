@@ -421,10 +421,10 @@ void R_VkMeatpipeDestroy(vk_meatpipe_t *mp) {
 	Mem_Free(mp);
 }
 
-void R_VkMeatpipePerform(vk_meatpipe_t *mp, VkCommandBuffer cmdbuf, vk_meatpipe_perfrom_args_t args) {
+void R_VkMeatpipePerform(vk_meatpipe_t *mp, struct vk_combuf_s *combuf, vk_meatpipe_perfrom_args_t args) {
 	for (int i = 0; i < mp->passes_count; ++i) {
 		const vk_meatpipe_pass_t *pass = mp->passes + i;
-		RayPassPerform(pass->pass, cmdbuf,
+		RayPassPerform(pass->pass, combuf,
 			(ray_pass_perform_args_t){
 				.frame_set_slot = args.frame_set_slot,
 				.width = args.width,

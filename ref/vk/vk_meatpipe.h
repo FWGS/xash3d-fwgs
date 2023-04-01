@@ -42,4 +42,5 @@ typedef struct vk_meatpipe_perfrom_args_s {
 	const vk_resource_p *resources;
 } vk_meatpipe_perfrom_args_t;
 
-void R_VkMeatpipePerform(vk_meatpipe_t *mp, VkCommandBuffer cmdbuf, vk_meatpipe_perfrom_args_t args);
+struct vk_combuf_s;
+void R_VkMeatpipePerform(vk_meatpipe_t *mp, struct vk_combuf_s *combuf, vk_meatpipe_perfrom_args_t args);

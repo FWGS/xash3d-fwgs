@@ -69,5 +69,6 @@ typedef struct ray_pass_perform_args_s {
 	const int *resources_map;
 } ray_pass_perform_args_t;
 
-void RayPassPerform(struct ray_pass_s *pass, VkCommandBuffer cmdbuf, ray_pass_perform_args_t args );
+struct vk_combuf_s;
+void RayPassPerform(struct ray_pass_s *pass, struct vk_combuf_s* combuf, ray_pass_perform_args_t args );
 

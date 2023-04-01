@@ -16,6 +16,7 @@
 #include "vk_staging.h"
 #include "vk_textures.h"
 #include "vk_previous_frame.h"
+#include "vk_combuf.h"
 
 #include "alolcator.h"
 
@@ -173,7 +174,8 @@ typedef struct {
 	const vk_lights_bindings_t *light_bindings;
 } perform_tracing_args_t;
 
-static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t* args) {
+static void performTracing( vk_combuf_t *combuf, const perform_tracing_args_t* args) {
+	const VkCommandBuffer cmdbuf = combuf->cmdbuf;
 	// TODO move this to "TLAS producer"
 	g_rtx.res[ExternalResource_tlas].resource = (vk_resource_t){
 		.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
@@ -325,7 +327,7 @@ static void performTracing(VkCommandBuffer cmdbuf, const perform_tracing_args_t*
 			g_rtx.mainpipe_resources[i]->value.image_object = &res->image;
 	}
 
-	R_VkMeatpipePerform(g_rtx.mainpipe, cmdbuf, (vk_meatpipe_perfrom_args_t) {
+	R_VkMeatpipePerform(g_rtx.mainpipe, combuf, (vk_meatpipe_perfrom_args_t) {
 		.frame_set_slot = args->frame_index,
 		.width = FRAME_WIDTH,
 		.height = FRAME_HEIGHT,
@@ -533,7 +535,7 @@ fail:
 
 void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 {
-	const VkCommandBuffer cmdbuf = args->cmdbuf;
+	const VkCommandBuffer cmdbuf = args->combuf->cmdbuf;
 	// const xvk_ray_frame_images_t* current_frame = g_rtx.frames + (g_rtx.frame_number % 2);
 
 	ASSERT(vk_core.rtx);
@@ -587,7 +589,7 @@ void VK_RayFrameEnd(const vk_ray_frame_render_args_t* args)
 			.fov_angle_y = args->fov_angle_y,
 			.light_bindings = &light_bindings,
 		};
-		performTracing( cmdbuf, &trace_args );
+		performTracing( args->combuf, &trace_args );
 	}
 }
 

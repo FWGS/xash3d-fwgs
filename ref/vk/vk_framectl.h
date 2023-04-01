@@ -5,12 +5,10 @@
 
 #define MAX_CONCURRENT_FRAMES 2
 
+// TODO most of the things below should not be global. Instead, they should be passed as an argument/context to all the drawing functions that want this info
 typedef struct vk_framectl_s {
-	// TODO only used from 2d, remove
+	// TODO only used from 2d and r_speeds, remove
 	uint32_t width, height;
-
-	// FIXME
-	VkCommandBuffer cmdbuf;
 
 	// TODO move these into renderer and 2d
 	struct {

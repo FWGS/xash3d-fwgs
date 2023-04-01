@@ -1,6 +1,7 @@
 #include "vk_pipeline.h"
 
 #include "vk_framectl.h" // VkRenderPass
+#include "vk_combuf.h"
 
 #include "eiface.h"
 
@@ -369,7 +370,9 @@ void VK_PipelineRayTracingDestroy(vk_pipeline_ray_t* pipeline) {
 	pipeline->pipeline = VK_NULL_HANDLE;
 }
 
-void VK_PipelineRayTracingTrace(VkCommandBuffer cmdbuf, const vk_pipeline_ray_t *pipeline, uint32_t width, uint32_t height) {
+void VK_PipelineRayTracingTrace(vk_combuf_t *combuf, const vk_pipeline_ray_t *pipeline, uint32_t width, uint32_t height, int scope_id) {
 		// TODO bind this and accepts descriptors as args? vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
-		vkCmdTraceRaysKHR(cmdbuf, &pipeline->sbt.raygen, &pipeline->sbt.miss, &pipeline->sbt.hit, &pipeline->sbt.callable, width, height, 1 );
+		const int begin_id = R_VkCombufScopeBegin(combuf, scope_id);
+		vkCmdTraceRaysKHR(combuf->cmdbuf, &pipeline->sbt.raygen, &pipeline->sbt.miss, &pipeline->sbt.hit, &pipeline->sbt.callable, width, height, 1 );
+		R_VkCombufScopeEnd(combuf, begin_id, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 }
