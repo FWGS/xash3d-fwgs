@@ -374,9 +374,7 @@ typedef struct
 	entity_state_t	*baselines;		// [GI->max_edicts]
 	entity_state_t	*static_entities;		// [MAX_STATIC_ENTITIES];
 
-	double		last_heartbeat;
 	challenge_t	challenges[MAX_CHALLENGES];	// to prevent invalid IPs from connecting
-	uint		heartbeat_challenge;
 } server_static_t;
 
 //=============================================================================
@@ -444,6 +442,7 @@ extern convar_t		skill;
 extern convar_t		coop;
 extern convar_t		sv_cheats;
 extern convar_t		public_server;
+extern convar_t		sv_nat;
 
 extern	convar_t		*sv_pausable;		// allows pause in multiplayer
 extern	convar_t		*sv_check_errors;

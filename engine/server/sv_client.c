@@ -475,7 +475,7 @@ void SV_ConnectClient( netadr_t from )
 	Log_Printf( "\"%s<%i><%i><>\" connected, address \"%s\"\n", newcl->name, newcl->userid, i, NET_AdrToString( newcl->netchan.remote_address ));
 
 	if( count == 1 || count == svs.maxclients )
-		svs.last_heartbeat = MAX_HEARTBEAT;
+		NET_MasterClear();
 }
 
 /*
@@ -542,7 +542,7 @@ edict_t *SV_FakeConnect( const char *netname )
 	cl->state = cs_spawned;
 
 	if( count == 1 || count == svs.maxclients )
-		svs.last_heartbeat = MAX_HEARTBEAT;
+		NET_MasterClear();
 
 	return cl->edict;
 }
@@ -619,7 +619,7 @@ void SV_DropClient( sv_client_t *cl, qboolean crash )
 	}
 
 	if( i == svs.maxclients )
-		svs.last_heartbeat = MAX_HEARTBEAT;
+		NET_MasterClear();
 }
 
 /*
@@ -3116,7 +3116,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, "s" )) SV_AddToMaster( from, msg );
 	else if( !Q_strcmp( pcmd, "T" "Source" )) SV_TSourceEngineQuery( from );
 	else if( !Q_strcmp( pcmd, "i" )) NET_SendPacket( NS_SERVER, 5, "\xFF\xFF\xFF\xFFj", from ); // A2A_PING
-	else if( !Q_strcmp( pcmd, "c" ) && Cvar_VariableInteger( "sv_nat" ) && NET_IsMasterAdr( from ))
+	else if( !Q_strcmp( pcmd, "c" ) && sv_nat.value && NET_IsMasterAdr( from ))
 	{
 		netadr_t to;
 		if( NET_StringToAdr( Cmd_Argv( 1 ), &to ) && !NET_IsReservedAdr( to ))
