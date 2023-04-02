@@ -23,20 +23,6 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "xash3d_mathlib.h"
 
-void Q_strnupr( const char *in, char *out, size_t size_out )
-{
-	if( size_out == 0 ) return;
-
-	while( *in && size_out > 1 )
-	{
-		if( *in >= 'a' && *in <= 'z' )
-			*out++ = *in++ + 'A' - 'a';
-		else *out++ = *in++;
-		size_out--;
-	}
-	*out = '\0';
-}
-
 void Q_strnlwr( const char *in, char *out, size_t size_out )
 {
 	if( size_out == 0 ) return;
@@ -525,26 +511,6 @@ void COM_StripColors( const char *in, char *out )
 		else *out++ = *in++;
 	}
 	*out = '\0';
-}
-
-uint Q_hashkey( const char *string, uint hashSize, qboolean caseinsensitive )
-{
-	uint	i, hashKey = 0;
-
-	if( caseinsensitive )
-	{
-		for( i = 0; string[i]; i++)
-			hashKey += (i * 119) * Q_tolower( string[i] );
-	}
-	else
-	{
-		for( i = 0; string[i]; i++ )
-			hashKey += (i + 119) * (int)string[i];
-	}
-
-	hashKey = ((hashKey ^ (hashKey >> 10)) ^ (hashKey >> 20)) & (hashSize - 1);
-
-	return hashKey;
 }
 
 char *Q_pretifymem( float value, int digitsafterdecimal )
