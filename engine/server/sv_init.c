@@ -1012,7 +1012,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	}
 
 	// heartbeats will always be sent to the id master
-	svs.last_heartbeat = MAX_HEARTBEAT; // send immediately
+	NET_MasterClear();
 
 	// get actual movevars
 	SV_UpdateMovevars( true );
