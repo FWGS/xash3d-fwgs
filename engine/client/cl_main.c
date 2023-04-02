@@ -1084,7 +1084,7 @@ Resend a connect message if the last one has timed out
 void CL_CheckForResend( void )
 {
 	netadr_t adr;
-	int res;
+	net_gai_state_t res;
 	qboolean bandwidthTest;
 
 	if( cls.internetservers_wait )
@@ -1117,13 +1117,13 @@ void CL_CheckForResend( void )
 
 	res = NET_StringToAdrNB( cls.servername, &adr );
 
-	if( !res )
+	if( res == NET_EAI_NONAME )
 	{
 		CL_Disconnect();
 		return;
 	}
 
-	if( res == 2 )
+	if( res == NET_EAI_AGAIN )
 	{
 		cls.connect_time = MAX_HEARTBEAT;
 		return;

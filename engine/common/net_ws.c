@@ -398,7 +398,7 @@ void *NET_ThreadStart( void *unused )
 #define mutex_lock EnterCriticalSection
 #define mutex_unlock LeaveCriticalSection
 #define detach_thread( x ) CloseHandle(x)
-#define create_thread( pfn ) nsthread.thread = CreateThread( NULL, 0, pfn, NULL, 0, NULL )
+#define create_thread( pfn ) ( nsthread.thread = CreateThread( NULL, 0, pfn, NULL, 0, NULL ))
 #define mutex_t  CRITICAL_SECTION
 #define thread_t HANDLE
 DWORD WINAPI NET_ThreadStart( LPVOID unused )
@@ -477,7 +477,7 @@ idnewt:28000
 192.246.40.70:28000
 =============
 */
-static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, qboolean nonblocking, int family )
+static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, qboolean nonblocking, int family )
 {
 	int ret = 0, port;
 	char	*colon;
@@ -486,7 +486,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 	struct sockaddr_storage temp;
 
 	if( !net.initialized )
-		return false;
+		return NET_EAI_NONAME;
 
 	memset( sadr, 0, sizeof( *sadr ));
 
@@ -497,7 +497,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 		((struct sockaddr_in6 *)sadr)->sin6_port = htons((short)port);
 		memcpy(((struct sockaddr_in6 *)sadr)->sin6_addr.s6_addr, ip6, sizeof( struct in6_addr ));
 
-		return true;
+		return NET_EAI_OK;
 	}
 
 	Q_strncpy( copy, s, sizeof( copy ));
@@ -530,14 +530,14 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 			if( nsthread.busy )
 			{
 				mutex_unlock( &nsthread.mutexres );
-				return 2;
+				return NET_EAI_AGAIN;
 			}
 
 			if( !Q_strcmp( copy, nsthread.hostname ))
 			{
 				ret = nsthread.result;
 
-				nsthread.hostname[0] = 0;
+				nsthread.hostname[0] = '\0';
 				nsthread.family = AF_UNSPEC;
 				temp = nsthread.addr;
 				memset( &nsthread.addr, 0, sizeof( nsthread.addr ));
@@ -554,11 +554,11 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 				if( create_thread( NET_ThreadStart ))
 				{
 					asyncfailed = false;
-					return 2;
+					return NET_EAI_AGAIN;
 				}
 				else // failed to create thread
 				{
-					Con_Reportf( S_ERROR  "NET_StringToSockaddr: failed to create thread!\n");
+					Con_Reportf( S_ERROR "NET_StringToSockaddr: failed to create thread!\n");
 					nsthread.busy = false;
 				}
 			}
@@ -577,7 +577,8 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 			if( family == AF_INET6 )
 				sadr->ss_family = AF_INET6;
 			else sadr->ss_family = AF_INET;
-			return 0;
+
+			return NET_EAI_NONAME;
 		}
 
 		sadr->ss_family = temp.ss_family;
@@ -595,7 +596,7 @@ static int NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, q
 		}
 	}
 
-	return 1;
+	return NET_EAI_OK;
 }
 
 /*
@@ -1041,10 +1042,9 @@ qboolean NET_StringToAdrEx( const char *string, netadr_t *adr, int family )
 		return true;
 	}
 
-	if( !NET_StringToSockaddr( string, &s, false, family ))
+	if( NET_StringToSockaddr( string, &s, false, family ) != NET_EAI_OK )
 		return false;
 	NET_SockadrToNetadr( &s, adr );
-
 	return true;
 }
 
@@ -1054,13 +1054,13 @@ qboolean NET_StringToAdr( const char *string, netadr_t *adr )
 	return NET_StringToAdrEx( string, adr, AF_UNSPEC );
 }
 
-int NET_StringToAdrNB( const char *string, netadr_t *adr )
+net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr )
 {
 	struct sockaddr_storage s;
-	int res;
+	net_gai_state_t res;
 
 	memset( adr, 0, sizeof( netadr_t ));
-	if( !Q_stricmp( string, "localhost" )  || !Q_stricmp( string, "loopback" ))
+	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ))
 	{
 		adr->type = NA_LOOPBACK;
 		return true;
@@ -1068,12 +1068,10 @@ int NET_StringToAdrNB( const char *string, netadr_t *adr )
 
 	res = NET_StringToSockaddr( string, &s, true, AF_UNSPEC );
 
-	if( res == 0 || res == 2 )
-		return res;
+	if( res == NET_EAI_OK )
+		NET_SockadrToNetadr( &s, adr );
 
-	NET_SockadrToNetadr( &s, adr );
-
-	return true;
+	return res;
 }
 
 /*
@@ -2578,7 +2576,6 @@ void HTTP_Run( void )
 
 	for( curfile = http.first_file; curfile; curfile = curfile->next )
 	{
-		int res;
 		struct sockaddr_storage addr;
 
 		if( curfile->state == HTTP_FREE )
@@ -2639,6 +2636,7 @@ void HTTP_Run( void )
 
 		if( curfile->state < HTTP_NS_RESOLVED )
 		{
+			net_gai_state_t res;
 			char hostport[MAX_VA_STRING];
 
 			if( fResolving )
@@ -2648,13 +2646,13 @@ void HTTP_Run( void )
 
 			res = NET_StringToSockaddr( hostport, &addr, true, AF_INET );
 
-			if( res == 2 )
+			if( res == NET_EAI_AGAIN )
 			{
 				fResolving = true;
 				continue;
 			}
 
-			if( !res )
+			if( res == NET_EAI_NONAME )
 			{
 				Con_Printf( S_ERROR "failed to resolve server address for %s!\n", curfile->server->host );
 				HTTP_FreeFile( curfile, true ); // Cannot connect
@@ -2665,7 +2663,7 @@ void HTTP_Run( void )
 
 		if( curfile->state < HTTP_CONNECTED ) // Connection not enstabilished
 		{
-			res = connect( curfile->socket, (struct sockaddr*)&addr, NET_SockAddrLen( &addr ) );
+			int res = connect( curfile->socket, (struct sockaddr*)&addr, NET_SockAddrLen( &addr ) );
 
 			if( res )
 			{
@@ -2712,8 +2710,7 @@ void HTTP_Run( void )
 
 			while( curfile->bytes_sent < curfile->query_length )
 			{
-				res = send( curfile->socket, curfile->buf + curfile->bytes_sent, curfile->query_length - curfile->bytes_sent, 0 );
-
+				int res = send( curfile->socket, curfile->buf + curfile->bytes_sent, curfile->query_length - curfile->bytes_sent, 0 );
 
 				if( res < 0 )
 				{
