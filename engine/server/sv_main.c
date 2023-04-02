@@ -123,13 +123,14 @@ CVAR_DEFINE_AUTO( sv_voicequality, "3", FCVAR_ARCHIVE|FCVAR_SERVER, "voice chat 
 CVAR_DEFINE_AUTO( sv_enttools_enable, "0", FCVAR_ARCHIVE|FCVAR_PROTECTED, "enable powerful and dangerous entity tools" );
 CVAR_DEFINE_AUTO( sv_enttools_maxfire, "5", FCVAR_ARCHIVE|FCVAR_PROTECTED, "limit ent_fire actions count to prevent flooding" );
 
+CVAR_DEFINE( public_server, "public", "0", 0, "change server type from private to public" );
+
 convar_t	*sv_novis;			// disable server culling entities by vis
 convar_t	*sv_pausable;
 convar_t	*timeout;				// seconds without any message
 convar_t	*sv_lighting_modulate;
 convar_t	*sv_maxclients;
 convar_t	*sv_check_errors;
-convar_t	*public_server;			// should heartbeats be sent
 convar_t	*sv_reconnect_limit;		// minimum seconds between connect messages
 convar_t	*sv_validate_changelevel;
 convar_t	*sv_sendvelocity;
@@ -716,7 +717,7 @@ let it know we are alive, and log information
 */
 static void Master_Heartbeat( void )
 {
-	if(( !public_server->value && !sv_nat.value ) || svs.maxclients == 1 )
+	if(( !public_server.value && !sv_nat.value ) || svs.maxclients == 1 )
 		return; // only public servers send heartbeats
 
 	// check for time wraparound
@@ -935,7 +936,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_stopspeed );
 	sv_maxclients = Cvar_Get( "maxplayers", "1", FCVAR_LATCH, "server max capacity" );
 	sv_check_errors = Cvar_Get( "sv_check_errors", "0", FCVAR_ARCHIVE, "check edicts for errors" );
-	public_server = Cvar_Get ("public", "0", 0, "change server type from private to public" );
+	Cvar_RegisterVariable( &public_server );
 	sv_lighting_modulate = Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
 	sv_reconnect_limit = Cvar_Get ("sv_reconnect_limit", "3", FCVAR_ARCHIVE, "max reconnect attempts" );
 	Cvar_RegisterVariable( &sv_failuretime );
@@ -1112,7 +1113,7 @@ void SV_Shutdown( const char *finalmsg )
 	if( svs.clients )
 		SV_FinalMessage( finalmsg, false );
 
-	if( public_server->value && svs.maxclients != 1 )
+	if( public_server.value && svs.maxclients != 1 )
 		Master_Shutdown();
 
 	NET_Config( false, false );

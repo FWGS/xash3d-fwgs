@@ -443,6 +443,7 @@ extern convar_t		hostname;
 extern convar_t		skill;
 extern convar_t		coop;
 extern convar_t		sv_cheats;
+extern convar_t		public_server;
 
 extern	convar_t		*sv_pausable;		// allows pause in multiplayer
 extern	convar_t		*sv_check_errors;
@@ -451,7 +452,6 @@ extern	convar_t		*sv_lighting_modulate;
 extern	convar_t		*sv_novis;
 extern	convar_t		*sv_hostmap;
 extern	convar_t		*sv_validate_changelevel;
-extern	convar_t		*public_server;
 
 //===========================================================
 //
