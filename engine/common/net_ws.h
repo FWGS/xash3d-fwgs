@@ -23,6 +23,13 @@ typedef enum
 	NS_COUNT
 } netsrc_t;
 
+typedef enum
+{
+	NET_EAI_NONAME = 0,
+	NET_EAI_OK     = 1,
+	NET_EAI_AGAIN  = 2
+} net_gai_state_t;
+
 // Max length of unreliable message
 #define MAX_DATAGRAM		16384
 
@@ -59,7 +66,7 @@ qboolean NET_IsReservedAdr( netadr_t a );
 qboolean NET_CompareClassBAdr( const netadr_t a, const netadr_t b );
 qboolean NET_StringToAdr( const char *string, netadr_t *adr );
 qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen );
-int NET_StringToAdrNB( const char *string, netadr_t *adr );
+net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr );
 int NET_CompareAdrSort( const void *_a, const void *_b );
 qboolean NET_CompareAdr( const netadr_t a, const netadr_t b );
 qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b );
