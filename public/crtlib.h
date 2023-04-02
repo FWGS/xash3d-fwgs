@@ -58,8 +58,6 @@ const char *Q_buildcommit( void );
 //
 // crtlib.c
 //
-#define Q_strupr( in, out ) Q_strnupr( in, out, 99999 )
-void Q_strnupr( const char *in, char *out, size_t size_out );
 #define Q_strlwr( in, out ) Q_strnlwr( in, out, 99999 )
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 #define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
@@ -70,7 +68,6 @@ char Q_tolower( const char in );
 size_t Q_strncat( char *dst, const char *src, size_t siz );
 #define Q_strcpy( dst, src ) Q_strncpy( dst, src, 99999 )
 size_t Q_strncpy( char *dst, const char *src, size_t siz );
-uint Q_hashkey( const char *string, uint hashSize, qboolean caseinsensitive );
 qboolean Q_isdigit( const char *str );
 qboolean Q_isspace( const char *str );
 int Q_atoi( const char *str );
