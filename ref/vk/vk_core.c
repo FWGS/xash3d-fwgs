@@ -21,6 +21,7 @@
 #include "r_speeds.h"
 #include "vk_sprite.h"
 #include "vk_beams.h"
+#include "vk_combuf.h"
 
 // FIXME move this rt-specific stuff out
 #include "vk_light.h"
@@ -752,6 +753,9 @@ qboolean R_VkInit( void )
 
 	VK_LoadCvarsAfterInit();
 
+	if (!R_VkCombuf_Init())
+		return false;
+
 	if (!initSurface())
 		return false;
 
@@ -831,6 +835,8 @@ void R_VkShutdown( void ) {
 	VK_DescriptorShutdown();
 
 	R_VkStagingShutdown();
+	
+	R_VkCombuf_Destroy();
 
 	VK_DevMemDestroy();
 
