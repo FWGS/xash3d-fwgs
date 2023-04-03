@@ -34,69 +34,6 @@ int alpha;
 void D_DrawTurbulent8Span (void);
 
 
-/*
-=============
-D_WarpScreen
-
-this performs a slight compression of the screen at the same time as
-the sine warp, to keep the edges from wrapping
-=============
-*/
-void D_WarpScreen (void)
-{
-#if 0
-	int		w, h;
-	int		u,v, u2, v2;
-	byte	*dest;
-	int		*turb;
-	int		*col;
-	byte	**row;
-
-	static int	cached_width, cached_height;
-	static byte	*rowptr[1200+AMP2*2];
-	static int	column[1600+AMP2*2];
-
-	//
-	// these are constant over resolutions, and can be saved
-	//
-	w = r_newrefdef.width;
-	h = r_newrefdef.height;
-	if (w != cached_width || h != cached_height)
-	{
-		cached_width = w;
-		cached_height = h;
-		for (v=0 ; v<h+AMP2*2 ; v++)
-		{
-			v2 = (int)((float)v/(h + AMP2 * 2) * r_refdef.vrect.height);
-			rowptr[v] = r_warpbuffer + (WARP_WIDTH * v2);
-		}
-
-		for (u=0 ; u<w+AMP2*2 ; u++)
-		{
-			u2 = (int)((float)u/(w + AMP2 * 2) * r_refdef.vrect.width);
-			column[u] = u2;
-		}
-	}
-
-	turb = intsintable + ((int)(r_newrefdef.time*SPEED)&(CYCLE-1));
-	dest = vid.buffer + r_newrefdef.y * vid.rowbytes + r_newrefdef.x;
-
-	for (v=0 ; v<h ; v++, dest += vid.rowbytes)
-	{
-		col = &column[turb[v]];
-		row = &rowptr[v];
-		for (u=0 ; u<w ; u+=4)
-		{
-			dest[u+0] = row[turb[u+0]][col[u+0]];
-			dest[u+1] = row[turb[u+1]][col[u+1]];
-			dest[u+2] = row[turb[u+2]][col[u+2]];
-			dest[u+3] = row[turb[u+3]][col[u+3]];
-		}
-	}
-#endif
-}
-
-
 #if	!id386
 
 /*

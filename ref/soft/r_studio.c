@@ -669,35 +669,6 @@ float R_StudioEstimateInterpolant( cl_entity_t *e )
 
 /*
 ====================
-CL_GetSequenceDuration
-
-====================
-*/
-float CL_GetSequenceDuration( cl_entity_t *ent, int sequence )
-{
-	studiohdr_t	*pstudiohdr;
-	mstudioseqdesc_t	*pseqdesc;
-
-	if( ent->model != NULL && ent->model->type == mod_studio )
-	{
-		pstudiohdr = (studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, ent->model );
-
-		if( pstudiohdr )
-		{
-			sequence = bound( 0, sequence, pstudiohdr->numseq - 1 );
-			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
-
-			if( pseqdesc->numframes > 1 && pseqdesc->fps > 0 )
-				return (float)pseqdesc->numframes / (float)pseqdesc->fps;
-		}
-	}
-
-	return 0.1f;
-}
-
-
-/*
-====================
 StudioFxTransform
 
 ====================

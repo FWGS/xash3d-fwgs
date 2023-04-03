@@ -374,7 +374,6 @@ void GL_BackendStartFrame( void );
 void GL_BackendEndFrame( void );
 void GL_CleanUpTextureUnits( int last );
 void GL_Bind( int tmu, unsigned int texnum );
-void GL_LoadTexMatrix( const matrix4x4 m );
 void GL_LoadTexMatrixExt( const float *glmatrix );
 void GL_LoadMatrix( const matrix4x4 source );
 void GL_TexGen( unsigned int coord, unsigned int mode );
@@ -465,7 +464,6 @@ void R_MarkLights( dlight_t *light, int bit, mnode_t *node );
 colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );
 int R_CountSurfaceDlights( msurface_t *surf );
 colorVec R_LightPoint( const vec3_t p0 );
-int R_CountDlights( void );
 #endif
 //
 // gl_rmain.c
@@ -488,17 +486,11 @@ void R_DrawFog( void );
 //
 // gl_rmath.c
 //
-void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
-void Matrix4x4_FromArrayFloatGL( matrix4x4 out, const float in[16] );
 void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
 void Matrix4x4_ConcatTranslate( matrix4x4 out, float x, float y, float z );
 void Matrix4x4_ConcatRotate( matrix4x4 out, float angle, float x, float y, float z );
-void Matrix4x4_ConcatScale( matrix4x4 out, float x );
-void Matrix4x4_ConcatScale3( matrix4x4 out, float x, float y, float z );
 void Matrix4x4_CreateTranslate( matrix4x4 out, float x, float y, float z );
 void Matrix4x4_CreateRotate( matrix4x4 out, float angle, float x, float y, float z );
-void Matrix4x4_CreateScale( matrix4x4 out, float x );
-void Matrix4x4_CreateScale3( matrix4x4 out, float x, float y, float z );
 void Matrix4x4_CreateProjection(matrix4x4 out, float xMax, float xMin, float yMax, float yMin, float zNear, float zFar);
 void Matrix4x4_CreateOrtho(matrix4x4 m, float xLeft, float xRight, float yBottom, float yTop, float zNear, float zFar);
 void Matrix4x4_CreateModelview( matrix4x4 out );
@@ -522,7 +514,6 @@ texture_t *R_TextureAnimation( msurface_t *s );
 void GL_SetupFogColorForSurfaces( void );
 void R_DrawAlphaTextureChains( void );
 void GL_RebuildLightmaps( void );
-void GL_InitRandomTable( void );
 void GL_BuildLightmaps( void );
 void GL_ResetFogColor( void );
 void R_GenerateVBO();
@@ -551,7 +542,6 @@ void R_DrawSpriteModel( cl_entity_t *e );
 void R_StudioInit( void );
 void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded );
 void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
-float CL_GetSequenceDuration( cl_entity_t *ent, int sequence );
 struct mstudiotex_s *R_StudioGetTexture( cl_entity_t *e );
 int R_GetEntityRenderMode( cl_entity_t *ent );
 void R_DrawStudioModel( cl_entity_t *e );
@@ -1009,8 +999,6 @@ extern affinetridesc_t  r_affinetridesc;
 void D_DrawSurfaces (void);
 void R_DrawParticle( void );
 void D_ViewChanged (void);
-void D_WarpScreen (void);
-void R_PolysetUpdateTables (void);
 
 //=======================================================================//
 
@@ -1198,6 +1186,7 @@ void R_ScanEdges (void);
 //
 // r_surf.c
 //
+void GL_InitRandomTable( void );
 void D_FlushCaches( void );
 
 //

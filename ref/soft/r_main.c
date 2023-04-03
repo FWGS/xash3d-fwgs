@@ -1311,7 +1311,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 		if (!topnode)
 			return;	// no part in a visible leaf
 
-			alphaspans = true;
+		alphaspans = true;
 		VectorCopy (RI.currententity->origin, r_entorigin);
 		VectorSubtract (RI.vieworg, r_entorigin, tr.modelorg);
 		//VectorSubtract (r_origin, RI.currententity->origin, modelorg);
@@ -1971,6 +1971,7 @@ qboolean GAME_EXPORT R_Init( void )
 	R_StudioInit();
 	R_SpriteInit();
 	R_InitTurb();
+	GL_InitRandomTable();
 
 	return true;
 }

@@ -353,7 +353,7 @@ void R_BuildLightMap (void)
 
 #endif
 
-void R_InitRandomTable( void )
+void GL_InitRandomTable( void )
 {
 	int	tu, tv;
 
@@ -1103,52 +1103,6 @@ surfcache_t     *D_SCAlloc (int width, int size)
 	}
 
 	return new;
-}
-
-
-/*
-=================
-D_SCDump
-=================
-*/
-void D_SCDump (void)
-{
-	surfcache_t             *test;
-
-	for (test = sc_base ; test ; test = test->next)
-	{
-		if (test == sc_rover)
-			gEngfuncs.Con_Printf ("ROVER:\n");
-		gEngfuncs.Con_Printf ("%p : %i bytes     %i width\n",test, test->size, test->width);
-	}
-}
-
-//=============================================================================
-
-// if the num is not a power of 2, assume it will not repeat
-
-int     MaskForNum (int num)
-{
-	if (num==128)
-		return 127;
-	if (num==64)
-		return 63;
-	if (num==32)
-		return 31;
-	if (num==16)
-		return 15;
-	return 255;
-}
-
-int D_log2 (int num)
-{
-	int     c;
-
-	c = 0;
-
-	while (num>>=1)
-		c++;
-	return c;
 }
 
 //=============================================================================

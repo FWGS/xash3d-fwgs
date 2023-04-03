@@ -25,7 +25,6 @@ float	r_avertexnormals[NUMVERTEXNORMALS][3] = {
 
 
 void R_AliasSetUpTransform (void);
-void R_AliasTransformVector (vec3_t in, vec3_t out, float m[3][4] );
 void R_AliasProjectAndClipTestFinalVert (finalvert_t *fv);
 
 void R_AliasTransformFinalVerts( int numpoints, finalvert_t *fv, dtrivertx_t *oldv, dtrivertx_t *newv );
@@ -41,19 +40,6 @@ R_AliasCheckBBox
 #define BBOX_MUST_CLIP_XY   1
 #define BBOX_MUST_CLIP_Z    2
 #define BBOX_TRIVIAL_REJECT 8
-
-
-/*
-================
-R_AliasTransformVector
-================
-*/
-void R_AliasTransformVector(vec3_t in, vec3_t out, float xf[3][4] )
-{
-	out[0] = DotProduct(in, xf[0]) + xf[0][3];
-	out[1] = DotProduct(in, xf[1]) + xf[1][3];
-	out[2] = DotProduct(in, xf[2]) + xf[2][3];
-}
 
 void VectorInverse (vec3_t v)
 {
@@ -236,13 +222,6 @@ void R_AliasProjectAndClipTestFinalVert( finalvert_t *fv )
 		fv->flags |= ALIAS_RIGHT_CLIP;
 	if (fv->v > RI.aliasvrectbottom)
 		fv->flags |= ALIAS_BOTTOM_CLIP;
-}
-
-void R_AliasWorldToScreen( const float *v, float *out )
-{
-	out[0] = DotProduct(v, aliastransform[0]) + aliastransform[0][3];
-	out[1] = DotProduct(v, aliastransform[1]) + aliastransform[1][3];
-	out[2] = DotProduct(v, aliastransform[2]) + aliastransform[2][3];
 }
 
 void R_SetupFinalVert( finalvert_t *fv, float x, float y, float z, int light, int s, int t )
