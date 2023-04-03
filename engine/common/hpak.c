@@ -29,10 +29,10 @@ typedef struct hash_pack_queue_s
 	struct hash_pack_queue_s	*next;
 } hash_pack_queue_t;
 
-convar_t		*hpk_maxsize;
-hash_pack_queue_t	*gp_hpak_queue = NULL;
-hpak_header_t	hash_pack_header;
-hpak_info_t	hash_pack_info;
+static CVAR_DEFINE_AUTO( hpk_maxsize, "4", FCVAR_ARCHIVE, "set limit by size for all HPK-files ( 0 - unlimited )" );
+static hash_pack_queue_t	*gp_hpak_queue = NULL;
+static hpak_header_t	hash_pack_header;
+static hpak_info_t	hash_pack_info;
 
 const char *HPAK_TypeFromIndex( int type )
 {
@@ -504,7 +504,7 @@ void HPAK_CheckSize( const char *filename )
 	string	pakname;
 	int	maxsize;
 
-	maxsize = hpk_maxsize->value;
+	maxsize = hpk_maxsize.value;
 	if( maxsize <= 0 ) return;
 
 	if( !COM_CheckString( filename ) )
@@ -515,8 +515,8 @@ void HPAK_CheckSize( const char *filename )
 
 	if( FS_FileSize( pakname, false ) > ( maxsize * 1048576 ))
 	{
-		Con_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize->value );
-		Log_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize->value );
+		Con_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize.value );
+		Log_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize.value );
 		FS_Delete( filename );
 	}
 }
@@ -1097,7 +1097,7 @@ void HPAK_Init( void )
 	Cmd_AddRestrictedCommand( "hpkremove", HPAK_Remove_f, "remove specified file from HPK-file" );
 	Cmd_AddRestrictedCommand( "hpkval", HPAK_Validate_f, "validate specified HPK-file" );
 	Cmd_AddRestrictedCommand( "hpkextract", HPAK_Extract_f, "extract all lumps from specified HPK-file" );
-	hpk_maxsize = Cvar_Get( "hpk_maxsize", "0", FCVAR_ARCHIVE, "set limit by size for all HPK-files ( 0 - unlimited )" );
+	Cvar_RegisterVariable( &hpk_maxsize );
 
 	gp_hpak_queue = NULL;
 }
