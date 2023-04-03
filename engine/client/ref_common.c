@@ -74,16 +74,6 @@ static void pfnStudioEvent( const mstudioevent_t *event, const cl_entity_t *e )
 	clgame.dllFuncs.pfnStudioEvent( event, e );
 }
 
-static efrag_t* pfnGetEfragsFreeList( void )
-{
-	return clgame.free_efrags;
-}
-
-static void pfnSetEfragsFreeList( efrag_t *list )
-{
-	clgame.free_efrags = list;
-}
-
 static model_t *pfnGetDefaultSprite( enum ref_defaultsprite_e spr )
 {
 	switch( spr )

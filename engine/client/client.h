@@ -835,7 +835,6 @@ void CL_FreeEdicts( void );
 void CL_ClearWorld( void );
 void CL_DrawCenterPrint( void );
 void CL_ClearSpriteTextures( void );
-void CL_FreeEntity( cl_entity_t *pEdict );
 void CL_CenterPrint( const char *text, float y );
 void CL_TextMessageParse( byte *pMemFile, int fileSize );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
@@ -1002,7 +1001,6 @@ const ref_overview_t *GL_GetOverviewParms( void );
 //
 void R_StoreEfrags( efrag_t **ppefrag, int framecount );
 void R_AddEfrags( cl_entity_t *ent );
-void R_RemoveEfrags( cl_entity_t *ent );
 //
 // cl_tent.c
 //
