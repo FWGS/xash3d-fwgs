@@ -1932,23 +1932,6 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 }
 
 /*
-================
-GL_TexMemory
-
-return size of all uploaded textures
-================
-*/
-int GL_TexMemory( void )
-{
-	int	i, total = 0;
-
-	for( i = 0; i < gl_numTextures; i++ )
-		total += gl_textures[i].size;
-
-	return total;
-}
-
-/*
 ==============================================================================
 
 INTERNAL TEXTURES
