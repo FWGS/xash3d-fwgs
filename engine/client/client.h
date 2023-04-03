@@ -1155,7 +1155,6 @@ void CL_PlayVideo_f( void );
 // keys.c
 //
 int Key_IsDown( int keynum );
-const char *Key_IsBind( int keynum );
 void Key_Event( int key, int down );
 void Key_Init( void );
 void Key_WriteBindings( file_t *f );
