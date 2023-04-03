@@ -70,16 +70,6 @@ qboolean CL_DisableVisibility( void )
 	return false;
 }
 
-qboolean CL_IsBackgroundDemo( void )
-{
-	return false;
-}
-
-qboolean CL_IsBackgroundMap( void )
-{
-	return false;
-}
-
 void CL_Init( void )
 {
 

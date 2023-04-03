@@ -150,16 +150,6 @@ qboolean CL_DisableVisibility( void )
 	return cls.envshot_disable_vis;
 }
 
-qboolean CL_IsBackgroundDemo( void )
-{
-	return ( cls.demoplayback && cls.demonum != -1 );
-}
-
-qboolean CL_IsBackgroundMap( void )
-{
-	return ( cl.background && !cls.demoplayback );
-}
-
 char *CL_Userinfo( void )
 {
 	return cls.userinfo;
