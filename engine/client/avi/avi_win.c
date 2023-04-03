@@ -279,14 +279,6 @@ int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
 	return (time * Avi->video_fps);
 }
 
-int AVI_GetVideoFrameCount( movie_state_t *Avi )
-{
-	if( !Avi->active )
-		return 0;
-
-	return Avi->video_frames;
-}
-
 int AVI_TimeToSoundPosition( movie_state_t *Avi, int time )
 {
 	if( !Avi->active || !Avi->audio_stream )
