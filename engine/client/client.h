@@ -892,7 +892,6 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message );
 void CL_LegacyPrecache_f( void );
 
 void CL_ParseTempEntity( sizebuf_t *msg );
-void CL_StartResourceDownloading( const char *pszMessage, qboolean bCustom );
 qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );
 qboolean CL_RequestMissingResources( void );
 void CL_RegisterResources ( sizebuf_t *msg );

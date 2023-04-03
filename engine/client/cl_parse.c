@@ -587,7 +587,7 @@ int CL_EstimateNeededResources( void )
 	return nTotalSize;
 }
 
-void CL_StartResourceDownloading( const char *pszMessage, qboolean bCustom )
+static void CL_StartResourceDownloading( const char *pszMessage, qboolean bCustom )
 {
 	resourceinfo_t	ri;
 
@@ -603,6 +603,8 @@ void CL_StartResourceDownloading( const char *pszMessage, qboolean bCustom )
 	}
 	else
 	{
+		HTTP_ResetProcessState();
+
 		cls.state = ca_validate;
 		cls.dl.custom = false;
 	}
@@ -2665,15 +2667,14 @@ CL_ParseResourceList
 void CL_LegacyParseResourceList( sizebuf_t *msg )
 {
 	int	i = 0;
-
 	static struct
 	{
 		int  rescount;
 		int  restype[MAX_LEGACY_RESOURCES];
 		char resnames[MAX_LEGACY_RESOURCES][MAX_QPATH];
 	} reslist;
-	memset( &reslist, 0, sizeof( reslist ));
 
+	memset( &reslist, 0, sizeof( reslist ));
 	reslist.rescount = MSG_ReadWord( msg ) - 1;
 
 	if( reslist.rescount > MAX_LEGACY_RESOURCES )
@@ -2689,6 +2690,8 @@ void CL_LegacyParseResourceList( sizebuf_t *msg )
 	{
 		return;
 	}
+
+	HTTP_ResetProcessState();
 
 	host.downloadcount = 0;
 
