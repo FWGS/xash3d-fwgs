@@ -851,6 +851,8 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	qboolean	background;
 	int	i;
 
+	HPAK_CheckSize( CUSTOM_RES_PATH );
+
 	Con_Reportf( "%s packet received.\n", legacy ? "Legacy serverdata" : "Serverdata" );
 
 	cls.timestart = Sys_DoubleTime();

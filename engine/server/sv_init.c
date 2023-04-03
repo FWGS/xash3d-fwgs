@@ -945,6 +945,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	current_skill = bound( 0, current_skill, 3 );
 	Cvar_SetValue( "skill", (float)current_skill );
 
+	// enforce hpk_maxsize
+	HPAK_CheckSize( CUSTOM_RES_PATH );
+
 	// force normal player collisions for single player
 	if( svs.maxclients == 1 )
 		Cvar_SetValue( "sv_clienttrace", 1 );

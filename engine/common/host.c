@@ -1213,6 +1213,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	}
 	else Cmd_AddRestrictedCommand( "minimize", Host_Minimize_f, "minimize main window to tray" );
 
+	HPAK_CheckIntegrity( CUSTOM_RES_PATH );
+
 	host.errorframe = 0;
 
 	// post initializations
