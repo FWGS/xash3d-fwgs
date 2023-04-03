@@ -35,7 +35,7 @@ static bloomfilter_t id;
 
 #define bf64_mask ((1U<<6)-1)
 
-bloomfilter_t BloomFilter_Process( const char *buffer, int size )
+static bloomfilter_t BloomFilter_Process( const char *buffer, int size )
 {
 	dword crc32;
 	bloomfilter_t value = 0;
@@ -55,12 +55,12 @@ bloomfilter_t BloomFilter_Process( const char *buffer, int size )
 	return value;
 }
 
-bloomfilter_t BloomFilter_ProcessStr( const char *buffer )
+static bloomfilter_t BloomFilter_ProcessStr( const char *buffer )
 {
 	return BloomFilter_Process( buffer, Q_strlen( buffer ) );
 }
 
-uint BloomFilter_Weight( bloomfilter_t value )
+static uint BloomFilter_Weight( bloomfilter_t value )
 {
 	int weight = 0;
 
@@ -77,7 +77,7 @@ uint BloomFilter_Weight( bloomfilter_t value )
 	return weight;
 }
 
-qboolean BloomFilter_ContainsString( bloomfilter_t filter, const char *str )
+static qboolean BloomFilter_ContainsString( bloomfilter_t filter, const char *str )
 {
 	bloomfilter_t value = BloomFilter_ProcessStr( str );
 
@@ -94,9 +94,9 @@ IDENTIFICATION
 #define MAXBITS_GEN 30
 #define MAXBITS_CHECK MAXBITS_GEN + 6
 
-qboolean ID_ProcessFile( bloomfilter_t *value, const char *path );
+static qboolean ID_ProcessFile( bloomfilter_t *value, const char *path );
 
-void ID_BloomFilter_f( void )
+static void ID_BloomFilter_f( void )
 {
 	bloomfilter_t value = 0;
 	int i;
@@ -111,7 +111,7 @@ void ID_BloomFilter_f( void )
 	//	Msg( "%s: %d\n", Cmd_Argv( i ), BloomFilter_ContainsString( value, Cmd_Argv( i ) ) );
 }
 
-qboolean ID_VerifyHEX( const char *hex )
+static qboolean ID_VerifyHEX( const char *hex )
 {
 	uint chars = 0;
 	char prev = 0;
@@ -153,7 +153,7 @@ qboolean ID_VerifyHEX( const char *hex )
 	return false;
 }
 
-void ID_VerifyHEX_f( void )
+static void ID_VerifyHEX_f( void )
 {
 	if( ID_VerifyHEX( Cmd_Argv( 1 ) ) )
 		Msg( "Good\n" );
@@ -162,7 +162,7 @@ void ID_VerifyHEX_f( void )
 }
 
 #if XASH_LINUX
-qboolean ID_ProcessCPUInfo( bloomfilter_t *value )
+static qboolean ID_ProcessCPUInfo( bloomfilter_t *value )
 {
 	int cpuinfofd = open( "/proc/cpuinfo", O_RDONLY );
 	char buffer[1024], *pbuf, *pbuf2;
@@ -198,7 +198,7 @@ qboolean ID_ProcessCPUInfo( bloomfilter_t *value )
 	return true;
 }
 
-qboolean ID_ValidateNetDevice( const char *dev )
+static qboolean ID_ValidateNetDevice( const char *dev )
 {
 	const char *prefix = "/sys/class/net";
 	byte *pfile;
@@ -226,7 +226,7 @@ qboolean ID_ValidateNetDevice( const char *dev )
 	return true;
 }
 
-int ID_ProcessNetDevices( bloomfilter_t *value )
+static int ID_ProcessNetDevices( bloomfilter_t *value )
 {
 	const char *prefix = "/sys/class/net";
 	DIR *dir;
@@ -250,7 +250,7 @@ int ID_ProcessNetDevices( bloomfilter_t *value )
 	return count;
 }
 
-int ID_CheckNetDevices( bloomfilter_t value )
+static int ID_CheckNetDevices( bloomfilter_t value )
 {
 	const char *prefix = "/sys/class/net";
 
@@ -278,7 +278,7 @@ int ID_CheckNetDevices( bloomfilter_t value )
 	return count;
 }
 
-void ID_TestCPUInfo_f( void )
+static void ID_TestCPUInfo_f( void )
 {
 	bloomfilter_t value = 0;
 
@@ -290,7 +290,7 @@ void ID_TestCPUInfo_f( void )
 
 #endif
 
-qboolean ID_ProcessFile( bloomfilter_t *value, const char *path )
+static qboolean ID_ProcessFile( bloomfilter_t *value, const char *path )
 {
 	int fd = open( path, O_RDONLY );
 	char buffer[256];
@@ -317,7 +317,7 @@ qboolean ID_ProcessFile( bloomfilter_t *value, const char *path )
 }
 
 #if !XASH_WIN32
-int ID_ProcessFiles( bloomfilter_t *value, const char *prefix, const char *postfix )
+static int ID_ProcessFiles( bloomfilter_t *value, const char *prefix, const char *postfix )
 {
 	DIR *dir;
 	struct dirent *entry;
@@ -337,7 +337,7 @@ int ID_ProcessFiles( bloomfilter_t *value, const char *prefix, const char *postf
 	return count;
 }
 
-int ID_CheckFiles( bloomfilter_t value, const char *prefix, const char *postfix )
+static int ID_CheckFiles( bloomfilter_t value, const char *prefix, const char *postfix )
 {
 	DIR *dir;
 	struct dirent *entry;
@@ -360,7 +360,7 @@ int ID_CheckFiles( bloomfilter_t value, const char *prefix, const char *postfix 
 	return count;
 }
 #else
-int ID_GetKeyData( HKEY hRootKey, char *subKey, char *value, LPBYTE data, DWORD cbData )
+static int ID_GetKeyData( HKEY hRootKey, char *subKey, char *value, LPBYTE data, DWORD cbData )
 {
 	HKEY hKey;
 
@@ -376,7 +376,7 @@ int ID_GetKeyData( HKEY hRootKey, char *subKey, char *value, LPBYTE data, DWORD 
 	RegCloseKey( hKey );
 	return 1;
 }
-int ID_SetKeyData( HKEY hRootKey, char *subKey, DWORD dwType, char *value, LPBYTE data, DWORD cbData)
+static int ID_SetKeyData( HKEY hRootKey, char *subKey, DWORD dwType, char *value, LPBYTE data, DWORD cbData)
 {
 	HKEY hKey;
 	if( RegCreateKey( hRootKey, subKey, &hKey ) != ERROR_SUCCESS )
@@ -394,7 +394,7 @@ int ID_SetKeyData( HKEY hRootKey, char *subKey, DWORD dwType, char *value, LPBYT
 
 #define BUFSIZE 4096
 
-int ID_RunWMIC(char *buffer, const char *cmdline)
+static int ID_RunWMIC(char *buffer, const char *cmdline)
 {
 	HANDLE g_IN_Rd = NULL;
 	HANDLE g_IN_Wr = NULL;
@@ -438,7 +438,7 @@ int ID_RunWMIC(char *buffer, const char *cmdline)
 	return bSuccess;
 }
 
-int ID_ProcessWMIC( bloomfilter_t *value, const char *cmdline )
+static int ID_ProcessWMIC( bloomfilter_t *value, const char *cmdline )
 {
 	char buffer[BUFSIZE], token[BUFSIZE], *pbuf;
 	int count = 0;
@@ -458,7 +458,7 @@ int ID_ProcessWMIC( bloomfilter_t *value, const char *cmdline )
 	return count;
 }
 
-int ID_CheckWMIC( bloomfilter_t value, const char *cmdline )
+static int ID_CheckWMIC( bloomfilter_t value, const char *cmdline )
 {
 	char buffer[BUFSIZE], token[BUFSIZE], *pbuf;
 	int count = 0;
@@ -486,7 +486,7 @@ int ID_CheckWMIC( bloomfilter_t value, const char *cmdline )
 char *IOS_GetUDID( void );
 #endif
 
-bloomfilter_t ID_GenerateRawId( void )
+static bloomfilter_t ID_GenerateRawId( void )
 {
 	bloomfilter_t value = 0;
 	int count = 0;
@@ -519,7 +519,7 @@ bloomfilter_t ID_GenerateRawId( void )
 	return value;
 }
 
-uint ID_CheckRawId( bloomfilter_t filter )
+static uint ID_CheckRawId( bloomfilter_t filter )
 {
 	bloomfilter_t value = 0;
 	int count = 0;
@@ -563,7 +563,7 @@ uint ID_CheckRawId( bloomfilter_t filter )
 #define SYSTEM_XOR_MASK 0x10331c2dce4c91db
 #define GAME_XOR_MASK 0x7ffc48fbac1711f1
 
-void ID_Check( void )
+static void ID_Check( void )
 {
 	uint weight = BloomFilter_Weight( id );
 	uint mincount = weight >> 2;
