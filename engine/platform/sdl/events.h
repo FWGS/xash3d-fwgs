@@ -25,8 +25,6 @@ void VID_RestoreScreenResolution( void );
 qboolean  VID_CreateWindow( int width, int height, qboolean fullscreen );
 void      VID_DestroyWindow( void );
 void GL_InitExtensions( void );
-qboolean GL_CreateContext( void );
-qboolean GL_UpdateContext( void );
 qboolean GL_DeleteContext( void );
 void VID_SaveWindowSize( int width, int height );
 
