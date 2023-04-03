@@ -62,7 +62,7 @@ Sequence_GetCommandEnumForName
 
 =============
 */
-sequenceCommandEnum_e Sequence_GetCommandEnumForName( const char *commandName, sequenceCommandType_e type )
+static sequenceCommandEnum_e Sequence_GetCommandEnumForName( const char *commandName, sequenceCommandType_e type )
 {
 	int i;
 
@@ -82,7 +82,7 @@ Sequence_ResetDefaults
 
 =============
 */
-void Sequence_ResetDefaults( sequenceCommandLine_s *destination, sequenceCommandLine_s *source )
+static void Sequence_ResetDefaults( sequenceCommandLine_s *destination, sequenceCommandLine_s *source )
 {
 	if( !source )
 	{
@@ -131,7 +131,7 @@ Sequence_WriteDefaults
 
 =============
 */
-void Sequence_WriteDefaults( sequenceCommandLine_s *source, sequenceCommandLine_s *destination )
+static void Sequence_WriteDefaults( sequenceCommandLine_s *source, sequenceCommandLine_s *destination )
 {
 	if( !destination )
 		Con_Reportf( S_ERROR  "Attempt to bake defaults into a non-existant command." );
@@ -210,7 +210,7 @@ Sequence_BakeDefaults
 
 =============
 */
-void Sequence_BakeDefaults( sequenceCommandLine_s *destination, sequenceCommandLine_s *source )
+static void Sequence_BakeDefaults( sequenceCommandLine_s *destination, sequenceCommandLine_s *source )
 {
 	char *saveName, *saveMessage;
 
@@ -243,7 +243,7 @@ Sequence_SkipWhitespace
 
 =============
 */
-qboolean Sequence_SkipWhitespace( void )
+static qboolean Sequence_SkipWhitespace( void )
 {
 	qboolean newLine = false;
 
@@ -267,7 +267,7 @@ Sequence_IsNameValueChar
 
 =============
 */
-qboolean Sequence_IsNameValueChar( char ch )
+static qboolean Sequence_IsNameValueChar( char ch )
 {
 	if( isalnum( ch ) )
 		return true;
@@ -291,7 +291,7 @@ Sequence_IsSymbol
 
 =============
 */
-qboolean Sequence_IsSymbol( char ch )
+static qboolean Sequence_IsSymbol( char ch )
 {
 	switch( ch )
 	{
@@ -316,7 +316,7 @@ Sequence_GetNameValueString
 
 =============
 */
-size_t Sequence_GetNameValueString( char *token, size_t len )
+static size_t Sequence_GetNameValueString( char *token, size_t len )
 {
 	char *p;
 
@@ -346,7 +346,7 @@ Sequence_GetSymbol
 
 =============
 */
-char Sequence_GetSymbol( void )
+static char Sequence_GetSymbol( void )
 {
 	char ch;
 
@@ -366,7 +366,7 @@ Sequence_ValidateNameValueString
 
 =============
 */
-void Sequence_ValidateNameValueString( char *token )
+static void Sequence_ValidateNameValueString( char *token )
 {
 	char *scan;
 
@@ -383,7 +383,7 @@ Sequence_GetToken
 
 =============
 */
-size_t Sequence_GetToken( char *token, size_t size )
+static size_t Sequence_GetToken( char *token, size_t size )
 {
 	Sequence_SkipWhitespace( );
 
@@ -408,7 +408,7 @@ Sequence_GetLine
 
 =============
 */
-size_t Sequence_GetLine( char *line, int lineMaxLen )
+static size_t Sequence_GetLine( char *line, int lineMaxLen )
 {
 	int lineLen;
 	char *read;
@@ -439,7 +439,7 @@ Sequence_StripComments
 
 =============
 */
-void Sequence_StripComments( char *buffer, int *pBufSize )
+static void Sequence_StripComments( char *buffer, int *pBufSize )
 {
 	char *eof   = buffer + *pBufSize;
 	char *read  = buffer;
@@ -506,7 +506,7 @@ Sequence_ReadInt
 
 =============
 */
-int Sequence_ReadInt( void )
+static int Sequence_ReadInt( void )
 {
 	char str[MAX_STRING];
 
@@ -522,7 +522,7 @@ Sequence_ReadFloat
 
 =============
 */
-float Sequence_ReadFloat( void )
+static float Sequence_ReadFloat( void )
 {
 	char str[MAX_STRING];
 
@@ -538,7 +538,7 @@ Sequence_ReadFloat
 
 =============
 */
-void Sequence_ReadString( char **dest, char *string, size_t len )
+static void Sequence_ReadString( char **dest, char *string, size_t len )
 {
 	Sequence_SkipWhitespace( );
 	Sequence_GetNameValueString( string, len );
@@ -552,7 +552,7 @@ Sequence_ReadQuotedString
 
 =============
 */
-void Sequence_ReadQuotedString( char **dest, char *str, size_t len )
+static void Sequence_ReadQuotedString( char **dest, char *str, size_t len )
 {
 	char *write, ch;
 
@@ -585,7 +585,7 @@ Sequence_ConfirmCarriageReturnOrSymbol
 
 =============
 */
-qboolean Sequence_ConfirmCarriageReturnOrSymbol( char symbol )
+static qboolean Sequence_ConfirmCarriageReturnOrSymbol( char symbol )
 {
 	if( Sequence_SkipWhitespace( ) )
 		return true;
@@ -599,7 +599,7 @@ Sequence_IsCommandAModifier
 
 =============
 */
-qboolean Sequence_IsCommandAModifier( sequenceCommandEnum_e commandEnum )
+static qboolean Sequence_IsCommandAModifier( sequenceCommandEnum_e commandEnum )
 {
 	int i;
 
@@ -619,7 +619,7 @@ Sequence_ReadCommandData
 
 =============
 */
-void Sequence_ReadCommandData( sequenceCommandEnum_e commandEnum, sequenceCommandLine_s *defaults )
+static void Sequence_ReadCommandData( sequenceCommandEnum_e commandEnum, sequenceCommandLine_s *defaults )
 {
 	char temp[1024];
 
@@ -722,7 +722,7 @@ Sequence_ParseModifier
 
 =============
 */
-char Sequence_ParseModifier( sequenceCommandLine_s *defaults )
+static char Sequence_ParseModifier( sequenceCommandLine_s *defaults )
 {
 	char modifierName[MAX_STRING];
 	char delimiter;
@@ -756,7 +756,7 @@ Sequence_AddCommandLineToEntry
 
 =============
 */
-void Sequence_AddCommandLineToEntry( sequenceCommandLine_s *commandLine, sequenceEntry_s *entry )
+static void Sequence_AddCommandLineToEntry( sequenceCommandLine_s *commandLine, sequenceEntry_s *entry )
 {
 	sequenceCommandLine_s *scan;
 
@@ -776,7 +776,7 @@ Sequence_ParseModifierLine
 
 =============
 */
-char Sequence_ParseModifierLine( sequenceEntry_s *entry, sequenceCommandType_e modifierType )
+static char Sequence_ParseModifierLine( sequenceEntry_s *entry, sequenceCommandType_e modifierType )
 {
 	sequenceCommandLine_s *newCommandLine;
 	char delimiter = ',';
@@ -808,7 +808,7 @@ Sequence_ParseCommand
 
 =============
 */
-char Sequence_ParseCommand( sequenceCommandLine_s *newCommandLine )
+static char Sequence_ParseCommand( sequenceCommandLine_s *newCommandLine )
 {
 	char commandName[MAX_STRING], ch;
 	sequenceCommandEnum_e commandEnum;
@@ -847,7 +847,7 @@ Sequence_ParseCommandLine
 
 =============
 */
-char Sequence_ParseCommandLine( sequenceEntry_s *entry )
+static char Sequence_ParseCommandLine( sequenceEntry_s *entry )
 {
 	char symbol;
 	sequenceCommandLine_s *newCommandLine;
@@ -874,7 +874,7 @@ Sequence_ParseMacro
 
 =============
 */
-char Sequence_ParseMacro( sequenceEntry_s *entry )
+static char Sequence_ParseMacro( sequenceEntry_s *entry )
 {
 	char symbol;
 	sequenceCommandLine_s *newCommandLine;
@@ -902,7 +902,7 @@ Sequence_ParseLine
 
 =============
 */
-char Sequence_ParseLine( char start, sequenceEntry_s *entry )
+static char Sequence_ParseLine( char start, sequenceEntry_s *entry )
 {
 	char end = '\0';
 
@@ -933,7 +933,7 @@ Sequence_CalcEntryDuration
 
 =============
 */
-float Sequence_CalcEntryDuration( sequenceEntry_s *entry )
+static float Sequence_CalcEntryDuration( sequenceEntry_s *entry )
 {
 	float duration;
 	sequenceCommandLine_s *cmd;
@@ -952,7 +952,7 @@ Sequence_DoesEntryContainInfiniteLoop
 
 =============
 */
-qboolean Sequence_DoesEntryContainInfiniteLoop( sequenceEntry_s *entry )
+static qboolean Sequence_DoesEntryContainInfiniteLoop( sequenceEntry_s *entry )
 {
 	sequenceCommandLine_s *cmd;
 
@@ -971,7 +971,7 @@ Sequence_IsEntrySafe
 
 =============
 */
-qboolean Sequence_IsEntrySafe( sequenceEntry_s *entry )
+static qboolean Sequence_IsEntrySafe( sequenceEntry_s *entry )
 {
 	float duration;
 	sequenceCommandLine_s *cmd;
@@ -998,7 +998,7 @@ Sequence_CreateDefaultsCommand
 
 =============
 */
-void Sequence_CreateDefaultsCommand( sequenceEntry_s *entry )
+static void Sequence_CreateDefaultsCommand( sequenceEntry_s *entry )
 {
 	sequenceCommandLine_s *cmd;
 
@@ -1026,7 +1026,7 @@ Sequence_ParseEntry
 
 =============
 */
-char Sequence_ParseEntry( void )
+static char Sequence_ParseEntry( void )
 {
 	char symbol;
 	char token[MAX_STRING];
@@ -1068,7 +1068,7 @@ Sequence_FindSentenceGroup
 
 =============
 */
-sentenceGroupEntry_s *Sequence_FindSentenceGroup( const char *groupName )
+static sentenceGroupEntry_s *Sequence_FindSentenceGroup( const char *groupName )
 {
 	sentenceGroupEntry_s *groupEntry;
 
@@ -1152,7 +1152,7 @@ Sequence_AddSentenceGroup
 
 =============
 */
-sentenceGroupEntry_s *Sequence_AddSentenceGroup( char *groupName )
+static sentenceGroupEntry_s *Sequence_AddSentenceGroup( char *groupName )
 {
 	sentenceGroupEntry_s *entry, *last;
 
@@ -1181,7 +1181,7 @@ Sequence_AddSentenceToGroup
 
 =============
 */
-void Sequence_AddSentenceToGroup( char *groupName, char *data )
+static void Sequence_AddSentenceToGroup( char *groupName, char *data )
 {
 	sentenceEntry_s *entry, *last;
 	sentenceGroupEntry_s *group;
@@ -1223,7 +1223,7 @@ Sequence_ParseSentenceLine
 
 =============
 */
-qboolean Sequence_ParseSentenceLine( void )
+static qboolean Sequence_ParseSentenceLine( void )
 {
 	char data[1024];
 	char fullgroup[64];
@@ -1265,7 +1265,7 @@ Sequence_ParseSentenceBlock
 
 ==============
 */
-char Sequence_ParseSentenceBlock( void )
+static char Sequence_ParseSentenceBlock( void )
 {
 	qboolean end = false;
 	char ch = Sequence_GetSymbol( );
@@ -1286,7 +1286,7 @@ Sequence_ParseGlobalDataBlock
 
 ==============
 */
-char Sequence_ParseGlobalDataBlock( void )
+static char Sequence_ParseGlobalDataBlock( void )
 {
 	char token[MAX_STRING];
 
@@ -1304,7 +1304,7 @@ Sequence_GetEntryForName
 
 ==============
 */
-sequenceEntry_s *Sequence_GetEntryForName( const char *entryName )
+static sequenceEntry_s *Sequence_GetEntryForName( const char *entryName )
 {
 	sequenceEntry_s *scan;
 
@@ -1323,7 +1323,7 @@ Sequence_CopyCommand
 
 ==============
 */
-sequenceCommandLine_s *Sequence_CopyCommand( sequenceCommandLine_s *commandOrig )
+static sequenceCommandLine_s *Sequence_CopyCommand( sequenceCommandLine_s *commandOrig )
 {
 	sequenceCommandLine_s *commandCopy;
 
@@ -1354,7 +1354,7 @@ Sequence_CopyCommandList
 
 ==============
 */
-sequenceCommandLine_s *Sequence_CopyCommandList( sequenceCommandLine_s *list )
+static sequenceCommandLine_s *Sequence_CopyCommandList( sequenceCommandLine_s *list )
 {
 	sequenceCommandLine_s *scan, *copy, *new, *prev;
 
@@ -1389,7 +1389,7 @@ Sequence_ExpandGosubsForEntry
 
 ==============
 */
-qboolean Sequence_ExpandGosubsForEntry( sequenceEntry_s *entry )
+static qboolean Sequence_ExpandGosubsForEntry( sequenceEntry_s *entry )
 {
 	sequenceCommandLine_s *cmd, *copyList, *scan;
 	sequenceEntry_s *gosubEntry;
@@ -1437,7 +1437,7 @@ Sequence_ExpandAllGosubs
 
 ==============
 */
-void Sequence_ExpandAllGosubs( void )
+static void Sequence_ExpandAllGosubs( void )
 {
 	sequenceEntry_s *scan;
 	qboolean isComplete = true;
@@ -1457,7 +1457,7 @@ Sequence_FlattenEntry
 
 ==============
 */
-void Sequence_FlattenEntry( sequenceEntry_s *entry )
+static void Sequence_FlattenEntry( sequenceEntry_s *entry )
 {
 	sequenceCommandLine_s *cmd, *last = NULL;
 
@@ -1491,7 +1491,7 @@ Sequence_FlattenAllEntries
 
 ==============
 */
-void Sequence_FlattenAllEntries( void )
+static void Sequence_FlattenAllEntries( void )
 {
 	sequenceEntry_s *entry;
 
@@ -1551,7 +1551,7 @@ Sequence_ParseFile
 
 ==============
 */
-void Sequence_ParseFile( const char *fileName, qboolean isGlobal )
+static void Sequence_ParseFile( const char *fileName, qboolean isGlobal )
 {
 	byte *buffer;
 	fs_offset_t bufSize = 0;
@@ -1608,7 +1608,7 @@ Sequence_FreeCommand
 
 ==============
 */
-void Sequence_FreeCommand( sequenceCommandLine_s *kill )
+static void Sequence_FreeCommand( sequenceCommandLine_s *kill )
 {
 	Z_Free( kill->fireTargetNames );
 	Z_Free( kill->speakerName );
@@ -1625,7 +1625,7 @@ Sequence_FreeEntry
 
 ==============
 */
-void Sequence_FreeEntry( sequenceEntry_s *kill )
+static void Sequence_FreeEntry( sequenceEntry_s *kill )
 {
 	sequenceCommandLine_s *dead;
 
@@ -1647,7 +1647,7 @@ Sequence_FreeSentence
 
 ==============
 */
-void Sequence_FreeSentence( sentenceEntry_s *sentenceEntry )
+static void Sequence_FreeSentence( sentenceEntry_s *sentenceEntry )
 {
 	Z_Free( sentenceEntry->data );
 	Z_Free( sentenceEntry );
@@ -1659,7 +1659,7 @@ Sequence_FreeSentenceGroup
 
 ==============
 */
-void Sequence_FreeSentenceGroup( sentenceGroupEntry_s *groupEntry )
+static void Sequence_FreeSentenceGroup( sentenceGroupEntry_s *groupEntry )
 {
 	Z_Free( groupEntry->groupName );
 	Z_Free( groupEntry );
@@ -1671,7 +1671,7 @@ Sequence_FreeSentenceGroupEntries
 
 ==============
 */
-void Sequence_FreeSentenceGroupEntries( sentenceGroupEntry_s *groupEntry, qboolean purgeGlobals )
+static void Sequence_FreeSentenceGroupEntries( sentenceGroupEntry_s *groupEntry, qboolean purgeGlobals )
 {
 	sentenceEntry_s *sentenceEntry;
 	sentenceEntry_s *deadSentence;
@@ -1711,7 +1711,7 @@ Sequence_PurgeEntries
 
 ==============
 */
-void Sequence_PurgeEntries( qboolean purgeGlobals )
+static void Sequence_PurgeEntries( qboolean purgeGlobals )
 {
 	sequenceEntry_s *scan;
 	sequenceEntry_s *dead;
