@@ -172,46 +172,6 @@ hull_t *SV_HullForBox( const vec3_t mins, const vec3_t maxs )
 
 /*
 ==================
-SV_HullAutoSelect
-
-select the apropriate hull automatically
-==================
-*/
-hull_t *SV_HullAutoSelect( model_t *model, const vec3_t mins, const vec3_t maxs, const vec3_t size, vec3_t offset )
-{
-	float	curdiff;
-	float	lastdiff = 999;
-	int	i, hullNumber = 0;	// assume we fail
-	vec3_t	clip_size;
-	hull_t	*hull;
-
-	// NOTE: this is not matched with hardcoded values in some cases...
-	for( i = 0; i < MAX_MAP_HULLS; i++ )
-	{
-		VectorSubtract( model->hulls[i].clip_maxs, model->hulls[i].clip_mins, clip_size );
-		curdiff = floor( VectorAvg( size )) - floor( VectorAvg( clip_size ));
-		curdiff = fabs( curdiff );
-
-		if( curdiff < lastdiff )
-		{
-			hullNumber = i;
-			lastdiff = curdiff;
-		}
-	}
-
-	// TraceHull stuff
-	hull = &model->hulls[hullNumber];
-
-	// calculate an offset value to center the origin
-	// NOTE: never get offset of drawing hull
-	if( !hullNumber ) VectorCopy( hull->clip_mins, offset );
-	else VectorSubtract( hull->clip_mins, mins, offset );
-
-	return hull;
-}
-
-/*
-==================
 SV_HullForBsp
 
 forcing to select BSP hull

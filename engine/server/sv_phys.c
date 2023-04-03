@@ -719,29 +719,6 @@ void SV_AddGravity( edict_t *ent )
 }
 
 /*
-============
-SV_AddHalfGravity
-
-============
-*/
-void SV_AddHalfGravity( edict_t *ent, float timestep )
-{
-	float	ent_gravity;
-
-	if( ent->v.gravity )
-		ent_gravity = ent->v.gravity;
-	else ent_gravity = 1.0f;
-
-	// Add 1/2 of the total gravitational effects over this timestep
-	ent->v.velocity[2] -= ( 0.5f * ent_gravity * sv_gravity.value * timestep );
-	ent->v.velocity[2] += ( ent->v.basevelocity[2] * sv.frametime );
-	ent->v.basevelocity[2] = 0.0f;
-
-	// bound velocity
-	SV_CheckVelocity( ent );
-}
-
-/*
 ===============================================================================
 
 PUSHMOVE

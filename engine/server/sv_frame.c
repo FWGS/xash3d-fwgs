@@ -929,30 +929,6 @@ void SV_SendClientMessages( void )
 
 /*
 =======================
-SV_SendMessagesToAll
-
-e.g. before changing level
-=======================
-*/
-void SV_SendMessagesToAll( void )
-{
-	sv_client_t	*cl;
-	int		i;
-
-	if( sv.state == ss_dead )
-		return;
-
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-	{
-		if( cl->state >= cs_connected )
-			SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
-	}
-
-	SV_SendClientMessages();
-}
-
-/*
-=======================
 SV_SkipUpdates
 
 used before changing level
