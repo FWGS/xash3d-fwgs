@@ -1294,36 +1294,6 @@ void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float sy
 
 /*
 ===================
-S_GetRawSamplesLength
-===================
-*/
-uint S_GetRawSamplesLength( int entnum )
-{
-	rawchan_t	*ch;
-
-	if( !( ch = S_FindRawChannel( entnum, false )))
-		return 0;
-
-	return ch->s_rawend <= paintedtime ? 0 : (float)(ch->s_rawend - paintedtime) * DMA_MSEC_PER_SAMPLE;
-}
-
-/*
-===================
-S_ClearRawChannel
-===================
-*/
-void S_ClearRawChannel( int entnum )
-{
-	rawchan_t	*ch;
-
-	if( !( ch = S_FindRawChannel( entnum, false )))
-		return;
-
-	ch->s_rawend = 0;
-}
-
-/*
-===================
 S_FreeIdleRawChannels
 
 Free raw channel that have been idling for too long.
