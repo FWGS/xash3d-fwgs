@@ -142,26 +142,6 @@ void CL_FreeParticles( void )
 
 /*
 ================
-CL_FreeParticle
-
-move particle to freelist
-================
-*/
-void CL_FreeParticle( particle_t *p )
-{
-	if( p->deathfunc )
-	{
-		// call right the deathfunc before die
-		p->deathfunc( p );
-		p->deathfunc = NULL;
-	}
-
-	p->next = cl_free_particles;
-	cl_free_particles = p;
-}
-
-/*
-================
 CL_AllocParticleFast
 
 unconditionally give new particle pointer from cl_free_particles
