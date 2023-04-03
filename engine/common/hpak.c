@@ -101,7 +101,6 @@ void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *pData, f
 	byte		md5[16];
 	file_t		*fout;
 	MD5Context_t	ctx;
-	dresource_t	dresource;
 
 	if( !COM_CheckString( filename ))
 		return;
@@ -377,7 +376,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	FS_Rename( dstname, srcname );
 }
 
-static qboolean HPAK_Validate( const char *filename, qboolean quiet )
+static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean delete )
 {
 	file_t		*f;
 	hpak_lump_t	*dataDir;
@@ -412,6 +411,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	{
 		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s does not have a valid HPAK header.\n", pakname );
 		FS_Close( f );
+		if( delete ) FS_Delete( pakname );
 		return false;
 	}
 
@@ -422,6 +422,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	{
 		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s has too many lumps %u.\n", pakname, num_lumps );
 		FS_Close( f );
+		if( delete ) FS_Delete( pakname );
 		return false;
 	}
 
@@ -439,7 +440,8 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 			// odd max size
 			Con_DPrintf( S_ERROR "HPAK_ValidatePak: lump %i has invalid size %s\n", i, Q_pretifymem( dataDir[i].disksize, 2 ));
 			Mem_Free( dataDir );
-			FS_Close(f);
+			FS_Close( f );
+			if( delete ) FS_Delete( pakname );
 			return false;
 		}
 
@@ -465,6 +467,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 				Mem_Free( dataPak );
 				Mem_Free( dataDir );
 				FS_Close( f );
+				if( delete ) FS_Delete( pakname );
 				return false;
 			}
 			else Con_DPrintf( S_ERROR "failed\n" );
@@ -483,11 +486,6 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet )
 	return true;
 }
 
-void HPAK_ValidatePak( const char *filename )
-{
-	HPAK_Validate( filename, true );
-}
-
 void HPAK_CheckIntegrity( const char *filename )
 {
 	string	pakname;
@@ -498,7 +496,7 @@ void HPAK_CheckIntegrity( const char *filename )
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk" );
 
-	HPAK_ValidatePak( pakname );
+	HPAK_Validate( pakname, true, true );
 }
 
 void HPAK_CheckSize( const char *filename )
@@ -1090,7 +1088,7 @@ void HPAK_Validate_f( void )
 		return;
 	}
 
-	HPAK_Validate( Cmd_Argv( 1 ), false );
+	HPAK_Validate( Cmd_Argv( 1 ), false, false );
 }
 
 void HPAK_Init( void )
