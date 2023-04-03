@@ -57,11 +57,6 @@ int AVI_TimeToSoundPosition( movie_state_t *Avi, int time )
 	return 0;
 }
 
-int AVI_GetVideoFrameCount( movie_state_t *Avi )
-{
-	return 0;
-}
-
 void AVI_CloseVideo( movie_state_t *Avi )
 {
 	;
