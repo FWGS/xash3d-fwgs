@@ -58,7 +58,7 @@ qboolean R_VkCombuf_Init( void ) {
 		cb->profiler.timestamps_offset = i * MAX_QUERY_COUNT;
 	}
 
-	g_combuf.entire_combuf_scope_id = R_VkGpuScope_Register("EVERYTHING");
+	g_combuf.entire_combuf_scope_id = R_VkGpuScope_Register("GPU");
 
 	return true;
 }
@@ -66,6 +66,10 @@ qboolean R_VkCombuf_Init( void ) {
 void R_VkCombuf_Destroy( void ) {
 	vkDestroyQueryPool(vk_core.device, g_combuf.timestamp.pool, NULL);
 	R_VkCommandPoolDestroy(&g_combuf.pool);
+
+	for (int i = 0; i < g_combuf.scopes_count; ++i) {
+		Mem_Free((char*)g_combuf.scopes[i].name);
+	}
 }
 
 vk_combuf_t* R_VkCombufOpen( void ) {
@@ -109,13 +113,21 @@ void R_VkCombufEnd( vk_combuf_t* pub ) {
 	XVK_CHECK(vkEndCommandBuffer(cb->public.cmdbuf));
 }
 
+static const char* myStrdup(const char *src) {
+	const int len = strlen(src);
+	char *ret = Mem_Malloc(vk_core.pool, len + 1);
+	memcpy(ret, src, len);
+	ret[len] = '\0';
+	return ret;
+}
+
 int R_VkGpuScope_Register(const char *name) {
 	if (g_combuf.scopes_count == MAX_SCOPES) {
 		gEngine.Con_Printf(S_ERROR "Cannot register GPU profiler scope \"%s\": max number of scope %d reached\n", name, MAX_SCOPES);
 		return -1;
 	}
 
-	g_combuf.scopes[g_combuf.scopes_count].name = name;
+	g_combuf.scopes[g_combuf.scopes_count].name = myStrdup(name);
 
 	return g_combuf.scopes_count++;
 }
