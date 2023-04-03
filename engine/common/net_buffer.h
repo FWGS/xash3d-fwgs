@@ -84,7 +84,6 @@ void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits );
 void MSG_WriteBitLong( sizebuf_t *sb, uint data, int numbits, qboolean bSigned );
 qboolean MSG_WriteBits( sizebuf_t *sb, const void *pData, int nBits );
 void MSG_WriteBitAngle( sizebuf_t *sb, float fAngle, int numbits );
-void MSG_WriteBitFloat( sizebuf_t *sb, float val );
 
 // Byte-write functions
 #define MSG_BeginServerCmd( sb, cmd ) MSG_WriteCmdExt( sb, cmd, NS_SERVER, NULL )
@@ -117,7 +116,6 @@ _inline byte *MSG_GetBuf( sizebuf_t *sb ) { return sb->pData; } // just an alias
 
 // Bit-read functions
 int MSG_ReadOneBit( sizebuf_t *sb );
-float MSG_ReadBitFloat( sizebuf_t *sb );
 qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits );
 float MSG_ReadBitAngle( sizebuf_t *sb, int numbits );
 int MSG_ReadSBitLong( sizebuf_t *sb, int numbits );
