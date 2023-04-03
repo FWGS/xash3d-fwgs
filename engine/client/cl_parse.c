@@ -1238,11 +1238,9 @@ CL_ParseSetAngle
 set the view angle to this absolute value
 ================
 */
-void CL_ParseSetAngle( sizebuf_t *msg )
+static void CL_ParseSetAngle( sizebuf_t *msg )
 {
-	cl.viewangles[0] = MSG_ReadBitAngle( msg, 16 );
-	cl.viewangles[1] = MSG_ReadBitAngle( msg, 16 );
-	cl.viewangles[2] = MSG_ReadBitAngle( msg, 16 );
+	MSG_ReadVec3Angles( msg, cl.viewangles );
 }
 
 /*
