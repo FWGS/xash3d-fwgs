@@ -2,6 +2,7 @@
 #include "vk_overlay.h"
 #include "vk_framectl.h"
 #include "vk_cvar.h"
+#include "vk_combuf.h"
 
 #include "profiler.h"
 
@@ -565,8 +566,11 @@ void R_SpeedsRegisterMetric(int* p_value, const char *name, r_speeds_metric_type
 	}
 }
 
-void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns) {
+void R_SpeedsDisplayMore(uint32_t prev_frame_index, const struct vk_combuf_scopes_s *gpurofl) {
 	APROF_SCOPE_DECLARE_BEGIN(function, __FUNCTION__);
+
+	const uint64_t gpu_frame_begin_ns = gpurofl->timestamps[0];
+	const uint64_t gpu_frame_end_ns = gpurofl->timestamps[1];
 
 	// Reads current font/DPI scale, many functions below use it
 	getCurrentFontMetrics();

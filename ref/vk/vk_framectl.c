@@ -220,10 +220,8 @@ void R_BeginFrame( qboolean clearScene ) {
 	APROF_SCOPE_BEGIN(begin_frame);
 
 	{
-		// FIXME collect and show more gpu profiling data
-		const uint64_t gpu_time_begin_ns = 0;// FIXME (qpool->used) ? qpool->results[0] : 0;
-		const uint64_t gpu_time_end_ns = 0;// FIXME (qpool->used) ? qpool->results[1] : 0;
-		R_ShowExtendedProfilingData(prev_frame_event_index, gpu_time_begin_ns, gpu_time_end_ns);
+		const vk_combuf_scopes_t gpurofl = R_VkCombufScopesGet(frame->combuf);
+		R_SpeedsDisplayMore(prev_frame_event_index, &gpurofl);
 	}
 
 	if (vk_core.rtx && FBitSet( vk_rtx->flags, FCVAR_CHANGED )) {

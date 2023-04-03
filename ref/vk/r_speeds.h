@@ -4,7 +4,8 @@
 
 void R_SpeedsInit( void );
 
-void R_ShowExtendedProfilingData(uint32_t prev_frame_index, uint64_t gpu_frame_begin_ns, uint64_t gpu_frame_end_ns);
+struct vk_combuf_scopes_s;
+void R_SpeedsDisplayMore(uint32_t prev_frame_index, const struct vk_combuf_scopes_s *gpurofl);
 
 // Called from the engine into ref_api to get the latest speeds info
 qboolean R_SpeedsMessage( char *out, size_t size );
