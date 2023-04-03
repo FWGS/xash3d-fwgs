@@ -1683,68 +1683,6 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 
 /*
 ====================
-NET_BufferToBufferCompress
-
-generic fast compression
-====================
-*/
-qboolean NET_BufferToBufferCompress( byte *dest, uint *destLen, byte *source, uint sourceLen )
-{
-	uint	uCompressedLen = 0;
-	byte	*pbOut = NULL;
-
-	memcpy( dest, source, sourceLen );
-	pbOut = LZSS_Compress( source, sourceLen, &uCompressedLen );
-
-	if( pbOut && uCompressedLen > 0 && uCompressedLen <= *destLen )
-	{
-		memcpy( dest, pbOut, uCompressedLen );
-		*destLen = uCompressedLen;
-		free( pbOut );
-		return true;
-	}
-	else
-	{
-		if( pbOut ) free( pbOut );
-		memcpy( dest, source, sourceLen );
-		*destLen = sourceLen;
-		return false;
-	}
-}
-
-/*
-====================
-NET_BufferToBufferDecompress
-
-generic fast decompression
-====================
-*/
-qboolean NET_BufferToBufferDecompress( byte *dest, uint *destLen, byte *source, uint sourceLen )
-{
-	if( LZSS_IsCompressed( source ))
-	{
-		uint	uDecompressedLen = LZSS_GetActualSize( source );
-
-		if( uDecompressedLen <= *destLen )
-		{
-			*destLen = LZSS_Decompress( source, dest );
-		}
-		else
-		{
-			return false;
-		}
-	}
-	else
-	{
-		memcpy( dest, source, sourceLen );
-		*destLen = sourceLen;
-	}
-
-	return true;
-}
-
-/*
-====================
 NET_IPSocket
 ====================
 */

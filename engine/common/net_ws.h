@@ -72,8 +72,6 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b );
 qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b );
 qboolean NET_CompareAdrByMask( const netadr_t a, const netadr_t b, uint prefixlen );
 qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length );
-qboolean NET_BufferToBufferCompress( byte *dest, uint *destLen, byte *source, uint sourceLen );
-qboolean NET_BufferToBufferDecompress( byte *dest, uint *destLen, byte *source, uint sourceLen );
 void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to );
 void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize );
 void NET_ClearLagData( qboolean bClient, qboolean bServer );
