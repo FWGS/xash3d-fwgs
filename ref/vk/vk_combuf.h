@@ -2,6 +2,8 @@
 
 #include "vk_core.h"
 
+#define MAX_GPU_SCOPES 64
+
 typedef struct vk_combuf_s {
 	VkCommandBuffer cmdbuf;
 } vk_combuf_t;

@@ -68,8 +68,12 @@ static struct {
 		int frame_time_us, cpu_time_us, cpu_wait_time_us, gpu_time_us;
 		struct {
 			int initialized;
-			int time_us;
+			int time_us; // automatically zeroed by metrics each frame
 		} scopes[APROF_MAX_SCOPES];
+		struct {
+			int initialized;
+			int time_us; // automatically zeroed by metrics each frame
+		} gpu_scopes[MAX_GPU_SCOPES];
 		char message[MAX_SPEEDS_MESSAGE];
 	} frame;
 } g_speeds;
@@ -379,6 +383,13 @@ static int drawFrames( int draw, uint32_t prev_frame_index, int y, const vk_comb
 			const uint64_t begin_ns = gpurofl->timestamps[scope_index*2 + 0];
 			const uint64_t end_ns = gpurofl->timestamps[scope_index*2 + 1];
 			const char *name = gpurofl->scopes[scope_index].name;
+
+			if (!g_speeds.frame.gpu_scopes[scope_index].initialized) {
+				R_SpeedsRegisterMetric(&g_speeds.frame.gpu_scopes[scope_index].time_us, name, kSpeedsMetricMicroseconds);
+				g_speeds.frame.gpu_scopes[scope_index].initialized = 1;
+			}
+
+			g_speeds.frame.gpu_scopes[scope_index].time_us += (end_ns - begin_ns) / 1000;
 
 			rgba_t color = {255, 255, 0, 127};
 			getColorForString(name, color);

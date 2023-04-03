@@ -5,7 +5,6 @@
 
 #define MAX_COMMANDBUFFERS 4
 #define MAX_QUERY_COUNT 128
-#define MAX_SCOPES 64
 
 #define BEGIN_INDEX_TAG 0x10000000
 
@@ -14,7 +13,7 @@ typedef struct {
 	int used;
 	struct {
 		int timestamps_offset;
-		int scopes[MAX_SCOPES];
+		int scopes[MAX_GPU_SCOPES];
 		int scopes_count;
 	} profiler;
 } vk_combuf_impl_t;
@@ -28,7 +27,7 @@ static struct {
 		uint64_t values[MAX_QUERY_COUNT * MAX_COMMANDBUFFERS];
 	} timestamp;
 
-	vk_combuf_scope_t scopes[MAX_SCOPES];
+	vk_combuf_scope_t scopes[MAX_GPU_SCOPES];
 	int scopes_count;
 
 	int entire_combuf_scope_id;
@@ -122,8 +121,8 @@ static const char* myStrdup(const char *src) {
 }
 
 int R_VkGpuScope_Register(const char *name) {
-	if (g_combuf.scopes_count == MAX_SCOPES) {
-		gEngine.Con_Printf(S_ERROR "Cannot register GPU profiler scope \"%s\": max number of scope %d reached\n", name, MAX_SCOPES);
+	if (g_combuf.scopes_count == MAX_GPU_SCOPES) {
+		gEngine.Con_Printf(S_ERROR "Cannot register GPU profiler scope \"%s\": max number of scope %d reached\n", name, MAX_GPU_SCOPES);
 		return -1;
 	}
 
@@ -139,7 +138,7 @@ int R_VkCombufScopeBegin(vk_combuf_t* cumbuf, int scope_id) {
 	ASSERT(scope_id < g_combuf.scopes_count);
 
 	vk_combuf_impl_t *const cb = (vk_combuf_impl_t*)cumbuf;
-	if (cb->profiler.scopes_count == MAX_SCOPES)
+	if (cb->profiler.scopes_count == MAX_GPU_SCOPES)
 		return -1;
 
 	cb->profiler.scopes[cb->profiler.scopes_count] = scope_id;
