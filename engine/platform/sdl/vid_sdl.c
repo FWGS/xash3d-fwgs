@@ -491,7 +491,7 @@ qboolean GL_DeleteContext( void )
 GL_CreateContext
 =================
 */
-qboolean GL_CreateContext( void )
+static qboolean GL_CreateContext( void )
 {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
@@ -508,7 +508,7 @@ qboolean GL_CreateContext( void )
 GL_UpdateContext
 =================
 */
-qboolean GL_UpdateContext( void )
+static qboolean GL_UpdateContext( void )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
