@@ -746,24 +746,6 @@ qboolean Mod_HeadnodeVisible( mnode_t *node, const byte *visbits, int *lastleaf 
 }
 
 /*
-==================
-Mod_AmbientLevels
-
-grab the ambient sound levels for current point
-==================
-*/
-void Mod_AmbientLevels( const vec3_t p, byte *pvolumes )
-{
-	mleaf_t	*leaf;
-
-	if( !worldmodel || !p || !pvolumes )
-		return;
-
-	leaf = Mod_PointInLeaf( p, worldmodel->nodes );
-	*(int *)pvolumes = *(int *)leaf->ambient_sound_level;
-}
-
-/*
 =================
 Mod_FindModelOrigin
 
