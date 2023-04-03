@@ -1064,13 +1064,6 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 	CL_ClearUserMessage( pszName, svc_num );
 }
 
-void CL_FreeEntity( cl_entity_t *pEdict )
-{
-	Assert( pEdict != NULL );
-	R_RemoveEfrags( pEdict );
-	CL_KillDeadBeams( pEdict );
-}
-
 void CL_ClearWorld( void )
 {
 	cl_entity_t	*worldmodel;
