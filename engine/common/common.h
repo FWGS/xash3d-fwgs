@@ -780,8 +780,6 @@ int SV_GetMaxClients( void );
 qboolean CL_IsRecordDemo( void );
 qboolean CL_IsTimeDemo( void );
 qboolean CL_IsPlaybackDemo( void );
-qboolean CL_IsBackgroundDemo( void );
-qboolean CL_IsBackgroundMap( void );
 qboolean SV_Initialized( void );
 qboolean CL_LoadProgs( const char *name );
 void CL_ProcessFile( qboolean successfully_received, const char *filename );
@@ -860,7 +858,6 @@ void S_StopAllSounds( qboolean ambient );
 // gamma routines
 void BuildGammaTable( float gamma, float brightness );
 byte LightToTexGamma( byte b );
-byte TextureToGamma( byte b );
 
 //
 // identification.c
