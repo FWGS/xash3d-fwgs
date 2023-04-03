@@ -185,49 +185,6 @@ int PlaneTypeForNormal( const vec3_t normal )
 
 /*
 =================
-PlanesGetIntersectionPoint
-
-=================
-*/
-qboolean PlanesGetIntersectionPoint( const mplane_t *plane1, const mplane_t *plane2, const mplane_t *plane3, vec3_t out )
-{
-	vec3_t	n1, n2, n3;
-	vec3_t	n1n2, n2n3, n3n1;
-	float	denom;
-
-	VectorNormalize2( plane1->normal, n1 );
-	VectorNormalize2( plane2->normal, n2 );
-	VectorNormalize2( plane3->normal, n3 );
-
-	CrossProduct( n1, n2, n1n2 );
-	CrossProduct( n2, n3, n2n3 );
-	CrossProduct( n3, n1, n3n1 );
-
-	denom = DotProduct( n1, n2n3 );
-	VectorClear( out );
-
-	// check if the denominator is zero (which would mean that no intersection is to be found
-	if( denom == 0.0f )
-	{
-		// no intersection could be found, return <0,0,0>
-		return false;
-	}
-
-	// compute intersection point
-#if 0
-	VectorMAMAM( plane1->dist, n2n3, plane2->dist, n3n1, plane3->dist, n1n2, out );
-#else
-	VectorMA( out, plane1->dist, n2n3, out );
-	VectorMA( out, plane2->dist, n3n1, out );
-	VectorMA( out, plane3->dist, n1n2, out );
-#endif
-	VectorScale( out, ( 1.0f / denom ), out );
-
-	return true;
-}
-
-/*
-=================
 NearestPOW
 =================
 */

@@ -36,18 +36,6 @@ qboolean R_CullBox( const vec3_t mins, const vec3_t maxs )
 }
 
 /*
-=================
-R_CullSphere
-
-Returns true if the sphere is completely outside the frustum
-=================
-*/
-qboolean R_CullSphere( const vec3_t centre, const float radius )
-{
-	return GL_FrustumCullSphere( &RI.frustum, centre, radius, 0 );
-}
-
-/*
 =============
 R_CullModel
 =============
