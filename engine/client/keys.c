@@ -161,18 +161,6 @@ int GAME_EXPORT Key_IsDown( int keynum )
 
 /*
 ===================
-Key_GetBind
-===================
-*/
-const char *Key_IsBind( int keynum )
-{
-	if( keynum == -1 || !keys[keynum].binding )
-		return NULL;
-	return keys[keynum].binding;
-}
-
-/*
-===================
 Key_StringToKeynum
 
 Returns a key number to be used to index keys[] by looking at
