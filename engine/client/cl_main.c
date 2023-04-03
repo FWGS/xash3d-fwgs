@@ -2856,6 +2856,7 @@ void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_test_bandwidth );
 
 	Voice_RegisterCvars();
+	VGui_RegisterCvars();
 
 	// register our variables
 	cl_crosshair = Cvar_Get( "crosshair", "1", FCVAR_ARCHIVE, "show weapon chrosshair" );
