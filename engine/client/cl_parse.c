@@ -2889,7 +2889,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnstatic:
-			CL_ParseStaticEntity( msg );
+			CL_LegacyParseStaticEntity( msg );
 			break;
 		case svc_event_reliable:
 			CL_ParseReliableEvent( msg );
