@@ -125,28 +125,6 @@ qboolean R_PolysetScanLeftEdge_C(int height);
 
 /*
 ================
-R_PolysetUpdateTables
-================
-*/
-void R_PolysetUpdateTables (void)
-{
-	int		i;
-	byte	*s;
-
-	if (r_affinetridesc.skinwidth != skinwidth ||
-		r_affinetridesc.pskin != skinstart)
-	{
-		skinwidth = r_affinetridesc.skinwidth;
-		skinstart = r_affinetridesc.pskin;
-		s = skinstart;
-		for (i=0 ; i<MAX_LBM_HEIGHT ; i++, s+=skinwidth)
-			skintable[i] = s;
-	}
-}
-
-
-/*
-================
 R_DrawTriangle
 ================
 */

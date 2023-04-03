@@ -25,14 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 void R_SurfacePatch (void)
 {
 }
-
-void R_EdgeCodeStart (void)
-{
-}
-
-void R_EdgeCodeEnd (void)
-{
-}
 #endif
 
 
@@ -973,36 +965,6 @@ void D_TurbulentSurf (surf_t *s)
 	}
 }
 
-/*
-==============
-D_SkySurf
-==============
-*/
-void D_SkySurf (surf_t *s)
-{
-	pface = s->msurf;
-	miplevel = 0;
-	if (!pface->texinfo->texture)
-		return;
-	cacheblock = R_GetTexture(pface->texinfo->texture->gl_texturenum)->pixels[0];
-	cachewidth = 256;
-
-	d_zistepu = s->d_zistepu;
-	d_zistepv = s->d_zistepv;
-	d_ziorigin = s->d_ziorigin;
-
-	D_CalcGradients (pface);
-
-	D_DrawSpans16 (s->spans);
-
-// set up a gradient for the background surface that places it
-// effectively at infinity distance from the viewpoint
-	d_zistepu = 0;
-	d_zistepv = 0;
-	d_ziorigin = -0.9;
-
-	D_DrawZSpans (s->spans);
-}
 qboolean alphaspans;
 
 

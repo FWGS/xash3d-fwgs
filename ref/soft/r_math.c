@@ -99,46 +99,6 @@ void Matrix4x4_CreateModelview( matrix4x4 out )
 	out[1][2] = 1.0f;
 }
 
-void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] )
-{
-	out[ 0] = in[0][0];
-	out[ 1] = in[1][0];
-	out[ 2] = in[2][0];
-	out[ 3] = in[3][0];
-	out[ 4] = in[0][1];
-	out[ 5] = in[1][1];
-	out[ 6] = in[2][1];
-	out[ 7] = in[3][1];
-	out[ 8] = in[0][2];
-	out[ 9] = in[1][2];
-	out[10] = in[2][2];
-	out[11] = in[3][2];
-	out[12] = in[0][3];
-	out[13] = in[1][3];
-	out[14] = in[2][3];
-	out[15] = in[3][3];
-}
-
-void Matrix4x4_FromArrayFloatGL( matrix4x4 out, const float in[16] )
-{
-	out[0][0] = in[0];
-	out[1][0] = in[1];
-	out[2][0] = in[2];
-	out[3][0] = in[3];
-	out[0][1] = in[4];
-	out[1][1] = in[5];
-	out[2][1] = in[6];
-	out[3][1] = in[7];
-	out[0][2] = in[8];
-	out[1][2] = in[9];
-	out[2][2] = in[10];
-	out[3][2] = in[11];
-	out[0][3] = in[12];
-	out[1][3] = in[13];
-	out[2][3] = in[14];
-	out[3][3] = in[15];
-}
-
 void Matrix4x4_CreateTranslate( matrix4x4 out, float x, float y, float z )
 {
 	out[0][0] = 1.0f;
@@ -245,23 +205,5 @@ void Matrix4x4_ConcatRotate( matrix4x4 out, float angle, float x, float y, float
 
 	Matrix4x4_Copy( base, out );
 	Matrix4x4_CreateRotate( temp, angle, x, y, z );
-	Matrix4x4_Concat( out, base, temp );
-}
-
-void Matrix4x4_ConcatScale( matrix4x4 out, float x )
-{
-	matrix4x4	base, temp;
-
-	Matrix4x4_Copy( base, out );
-	Matrix4x4_CreateScale( temp, x );
-	Matrix4x4_Concat( out, base, temp );
-}
-
-void Matrix4x4_ConcatScale3( matrix4x4 out, float x, float y, float z )
-{
-	matrix4x4  base, temp;
-
-	Matrix4x4_Copy( base, out );
-	Matrix4x4_CreateScale3( temp, x, y, z );
 	Matrix4x4_Concat( out, base, temp );
 }

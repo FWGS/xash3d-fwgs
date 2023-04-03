@@ -158,22 +158,6 @@ void TransformVector (vec3_t in, vec3_t out)
 }
 
 /*
-================
-R_TransformPlane
-================
-*/
-void R_TransformPlane (mplane_t *p, float *normal, float *dist)
-{
-	float	d;
-
-	d = DotProduct (RI.vieworg, p->normal);
-	*dist = p->dist - d;
-// TODO: when we have rotating entities, this will need to use the view matrix
-	TransformVector (p->normal, normal);
-}
-
-
-/*
 ===============
 R_SetUpFrustumIndexes
 ===============
