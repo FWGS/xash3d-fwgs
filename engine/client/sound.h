@@ -276,8 +276,6 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 void S_RawSamples( uint samples, uint rate, word width, word channels, const byte *data, int entnum );
 void S_StopSound( int entnum, int channel, const char *soundname );
 void S_UpdateFrame( struct ref_viewpass_s *rvp );
-uint S_GetRawSamplesLength( int entnum );
-void S_ClearRawChannel( int entnum );
 void S_StopAllSounds( qboolean ambient );
 void S_FreeSounds( void );
 

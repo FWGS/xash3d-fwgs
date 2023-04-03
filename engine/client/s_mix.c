@@ -117,13 +117,6 @@ _inline void MIX_ActivatePaintbuffer( int ipaintbuffer )
 	paintbuffers[ipaintbuffer].factive = true;
 }
 
-// don't mix into this paintbuffer
-_inline void MIX_DeactivatePaintbuffer( int ipaintbuffer )
-{
-	Assert( ipaintbuffer < CPAINTBUFFERS );
-	paintbuffers[ipaintbuffer].factive = false;
-}
-
 _inline void MIX_SetCurrentPaintbuffer( int ipaintbuffer )
 {
 	Assert( ipaintbuffer < CPAINTBUFFERS );
@@ -167,12 +160,6 @@ _inline void MIX_ResetPaintbufferFilterCounters( void )
 
 	for( i = 0; i < CPAINTBUFFERS; i++ )
 		paintbuffers[i].ifilter = FILTERTYPE_NONE;
-}
-
-_inline void MIX_ResetPaintbufferFilterCounter( int ipaintbuffer )
-{
-	Assert( ipaintbuffer < CPAINTBUFFERS );
-	paintbuffers[ipaintbuffer].ifilter = 0;
 }
 
 // return pointer to front paintbuffer pbuf, given index
