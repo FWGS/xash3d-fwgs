@@ -143,32 +143,6 @@ void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const ch
 
 /*
 ============
-BaseCmd_Replace
-
-Used in case, when basecmd has been registered, but gamedll wants to register it's own
-============
-*/
-qboolean BaseCmd_Replace( base_command_type_e type, base_command_t *basecmd, const char *name )
-{
-	base_command_hashmap_t *i = BaseCmd_GetBucket( name );
-
-	for( ; i && ( i->type != type || Q_stricmp( name, i->name ) ) ; // filter out
-		 i = i->next );
-
-	if( !i )
-	{
-		Con_Reportf( S_ERROR  "BaseCmd_Replace: couldn't find %s\n", name);
-		return false;
-	}
-
-	i->basecmd = basecmd;
-	i->name = name; // may be freed after
-
-	return true;
-}
-
-/*
-============
 BaseCmd_Remove
 
 Remove base command from hashmap
