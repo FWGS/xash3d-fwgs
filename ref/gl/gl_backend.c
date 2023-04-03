@@ -118,18 +118,6 @@ void GL_BackendEndFrame( void )
 
 /*
 =================
-GL_LoadTexMatrix
-=================
-*/
-void GL_LoadTexMatrix( const matrix4x4 m )
-{
-	pglMatrixMode( GL_TEXTURE );
-	GL_LoadMatrix( m );
-	glState.texIdentityMatrix[glState.activeTMU] = false;
-}
-
-/*
-=================
 GL_LoadTexMatrixExt
 =================
 */
