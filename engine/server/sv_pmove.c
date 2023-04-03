@@ -354,11 +354,6 @@ static void GAME_EXPORT pfnParticle( const float *origin, int color, float life,
 	MSG_WriteByte( &sv.reliable_datagram, bound( 0, life * 8, 255 ));
 }
 
-int SV_TestLine( const vec3_t start, const vec3_t end, int flags )
-{
-	return PM_TestLineExt( svgame.pmove, svgame.pmove->physents, svgame.pmove->numphysent, start, end, flags );
-}
-
 static int GAME_EXPORT pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
 {
 	return PM_TestPlayerPosition( svgame.pmove, pos, ptrace, NULL );

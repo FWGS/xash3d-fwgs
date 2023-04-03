@@ -587,7 +587,6 @@ void SV_InactivateClients( void );
 int SV_FindBestBaselineForStatic( int index, entity_state_t **baseline, entity_state_t *to );
 void SV_WriteFrameToClient( sv_client_t *client, sizebuf_t *msg );
 void SV_BuildClientFrame( sv_client_t *client );
-void SV_SendMessagesToAll( void );
 void SV_SkipUpdates( void );
 
 //
