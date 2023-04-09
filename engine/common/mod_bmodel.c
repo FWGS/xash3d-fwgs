@@ -2495,7 +2495,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 		if( !Q_strncmp( tex->name, "sky", 3 ))
 			SetBits( out->flags, SURF_DRAWSKY );
 
-		if(( tex->name[0] == '*' && Q_stricmp( tex->name, "*default" )) || tex->name[0] == '!' )
+		if(( tex->name[0] == '*' && Q_stricmp( tex->name, REF_DEFAULT_TEXTURE )) || tex->name[0] == '!' )
 			SetBits( out->flags, SURF_DRAWTURB );
 
 		if( !Host_IsQuakeCompatible( ))
