@@ -25,7 +25,7 @@ GNU General Public License for more details.
 #include "server.h"			// LUMP_ error codes
 #include "ref_common.h"
 
-#define MIPTEX_CUSTOM_PALETTE_SIZE_BYTES 770
+#define MIPTEX_CUSTOM_PALETTE_SIZE_BYTES ( sizeof( int16_t ) + 768 )
 
 typedef struct wadlist_s
 {
@@ -218,114 +218,97 @@ static mlumpinfo_t		extlumps[EXTRA_LUMPS] =
 ===============================================================================
 */
 
-static mip_t* Mod_GetMipTexForTexture( dbspmodel_t* bmod, int textureIndex )
+static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 {
-	if( textureIndex < 0 ||
-	     textureIndex >= bmod->textures->nummiptex ||
-	     bmod->textures->dataofs[textureIndex] == -1 )
-	{
+	if( i < 0 || i >= bmod->textures->nummiptex )
 		return NULL;
-	}
 
-	return (mip_t*)((byte*)bmod->textures + bmod->textures->dataofs[textureIndex]);
+	if( bmod->textures->dataofs[i] == -1 )
+		return NULL;
+
+	return (mip_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
 }
 
 // Returns index of WAD that texture was found in, or -1 if not found.
-static int Mod_FindTextureInWadList(
-	wadlist_t* list,
-	const char* textureName,
-	char* foundPathBuffer,
-	size_t foundPathBufferLength )
+static int Mod_FindTextureInWadList( wadlist_t *list, const char *name, char *dst, size_t size )
 {
-	char pathInWad[MAX_VA_STRING];
-	int wadIndex;
+	int i;
 
-	if( !list || !textureName || !(*textureName) )
-	{
+	if( !list || !COM_CheckString( name ))
 		return -1;
-	}
 
 	// check wads in reverse order
-	for( wadIndex = list->count - 1; wadIndex >= 0; --wadIndex )
+	for( i = list->count - 1; i >= 0; i-- )
 	{
-		Q_snprintf( pathInWad, sizeof(pathInWad), "%s.wad/%s.mip", list->wadnames[wadIndex], textureName );
+		char path[MAX_VA_STRING];
 
-		if( FS_FileExists( pathInWad, false ) )
+		Q_snprintf( path, sizeof( path ), "%s.wad/%s.mip", list->wadnames[i], name );
+
+		if( FS_FileExists( path, false ))
 		{
-			if( foundPathBuffer && foundPathBufferLength > 0 )
-			{
-				Q_strncpy( foundPathBuffer, pathInWad, foundPathBufferLength );
-			}
+			if( dst && size > 0 )
+				Q_strncpy( dst, path, size );
 
-			return wadIndex;
+			return i;
 		}
 	}
 
 	return -1;
 }
 
-static size_t Mod_CalculateMipTexSize( mip_t* mipTex, qboolean customPalette )
+static fs_offset_t Mod_CalculateMipTexSize( mip_t *mt, qboolean palette )
 {
-	if( !mipTex )
-	{
+	if( !mt )
 		return 0;
-	}
 
-	return sizeof(*mipTex) +
-		(( mipTex->width * mipTex->height * 85) >> 6) +
-		(customPalette ? MIPTEX_CUSTOM_PALETTE_SIZE_BYTES : 0);
+	return sizeof( *mt ) + (( mt->width * mt->height * 85 ) >> 6 ) +
+		( palette ? MIPTEX_CUSTOM_PALETTE_SIZE_BYTES : 0 );
 }
 
-static qboolean Mod_CalcMipTexUsesCustomPalette( dbspmodel_t* bmod, int textureIndex )
+static qboolean Mod_CalcMipTexUsesCustomPalette( dbspmodel_t *bmod, int textureIndex )
 {
-	int size = 0;
 	int nextTextureIndex = 0;
-	mip_t* mipTex = NULL;
+	mip_t *mipTex;
+	fs_offset_t size, remainingBytes;
 
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
 
 	if( !mipTex || mipTex->offsets[0] <= 0 )
-	{
 		return false;
-	}
 
 	// Calculate the size assuming we are not using a custom palette.
-	size = (int)Mod_CalculateMipTexSize( mipTex, false );
+	size = Mod_CalculateMipTexSize( mipTex, false );
 
 	// Compute next data offset to determine allocated miptex space
-	for( nextTextureIndex = textureIndex + 1; nextTextureIndex < loadmodel->numtextures; ++nextTextureIndex )
+	for( nextTextureIndex = textureIndex + 1; nextTextureIndex < loadmodel->numtextures; nextTextureIndex++ )
 	{
 		int nextOffset = bmod->textures->dataofs[nextTextureIndex];
 
 		if( nextOffset != -1 )
 		{
-			int remainingBytes = nextOffset - (bmod->textures->dataofs[textureIndex] + size);
+			remainingBytes = nextOffset - ( bmod->textures->dataofs[textureIndex] + size );
 			return remainingBytes >= MIPTEX_CUSTOM_PALETTE_SIZE_BYTES;
 		}
 	}
 
 	// There was no other miptex after this one.
 	// See if there is enough space between the end and our offset.
-	return bmod->texdatasize - (bmod->textures->dataofs[textureIndex] + size) >= MIPTEX_CUSTOM_PALETTE_SIZE_BYTES;
+	remainingBytes = bmod->texdatasize - ( bmod->textures->dataofs[textureIndex] + size );
+	return remainingBytes >= MIPTEX_CUSTOM_PALETTE_SIZE_BYTES;
 }
 
-static qboolean Mod_NameImpliesTextureIsAnimated( texture_t* tex )
+static qboolean Mod_NameImpliesTextureIsAnimated( texture_t *tex )
 {
 	if( !tex )
-	{
 		return false;
-	}
 
+	// Not an animated texture name
 	if( tex->name[0] != '-' && tex->name[0] != '+' )
-	{
-		// Not an animated texture name
 		return false;
-	}
 
 	// Name implies texture is animated - check second character is valid.
-
-	if( !(tex->name[1] >= '0' && tex->name[1] <= '9') &&
-	    !(tex->name[1] >= 'a' && tex->name[1] <= 'j') )
+	if( !( tex->name[1] >= '0' && tex->name[1] <= '9' ) &&
+		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ))
 	{
 		Con_Printf( S_ERROR "Mod_NameImpliesTextureIsAnimated: animating texture \"%s\" has invalid name\n", tex->name );
 		return false;
@@ -334,23 +317,23 @@ static qboolean Mod_NameImpliesTextureIsAnimated( texture_t* tex )
 	return true;
 }
 
-static void Mod_CreateDefaultTexture(texture_t** texture)
+static void Mod_CreateDefaultTexture( texture_t **texture )
 {
+	texture_t *tex;
+
 	// Pointer must be valid, and value pointed to must be null.
 	if( !texture || *texture != NULL )
-	{
 		return;
-	}
 
-	*texture = Mem_Calloc( loadmodel->mempool, sizeof(texture_t) );
-	Q_strncpy( (*texture)->name, REF_DEFAULT_TEXTURE, sizeof((*texture)->name) );
+	*texture = tex = Mem_Calloc( loadmodel->mempool, sizeof( *tex ));
+	Q_strncpy( tex->name, REF_DEFAULT_TEXTURE, sizeof( tex->name ));
 
 #if !XASH_DEDICATED
-	if( !Host_IsDedicated() )
+	if( !Host_IsDedicated( ))
 	{
-		(*texture)->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
-		(*texture)->width = 16;
-		(*texture)->height = 16;
+		tex->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
+		tex->width = 16;
+		tex->height = 16;
 	}
 #endif // XASH_DEDICATED
 }
@@ -908,7 +891,7 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 	qboolean	model_found;
 	qboolean	origin_found;
 
-	if( !entities || !modelname || !*modelname )
+	if( !entities || !COM_CheckString( modelname ))
 		return;
 
 	if( !origin || !VectorIsNull( origin ))
@@ -2029,39 +2012,35 @@ static void Mod_LoadMarkSurfaces( dbspmodel_t *bmod )
 	}
 }
 
-static void Mod_LoadTextureData( dbspmodel_t* bmod, int textureIndex )
+static void Mod_LoadTextureData( dbspmodel_t *bmod, int textureIndex )
 {
 #if !XASH_DEDICATED
-	texture_t* texture = NULL;
-	mip_t* mipTex = NULL;
+	texture_t *texture = NULL;
+	mip_t *mipTex = NULL;
 	qboolean usesCustomPalette = false;
 	uint32_t txFlags = 0;
 
-	if( Host_IsDedicated() )
-	{
-		// Don't load texture data on dedicated server, as there is no renderer.
+	// Don't load texture data on dedicated server, as there is no renderer.
+	// FIXME: for ENGINE_IMPROVED_LINETRACE we need to load textures on server too
+	// but there is no facility for this yet
+	if( Host_IsDedicated( ))
 		return;
-	}
 
 	texture = loadmodel->textures[textureIndex];
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
 
 	if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && mipTex->name[0] == '{' )
-	{
 		SetBits( txFlags, TF_KEEP_SOURCE ); // Paranoia2 texture alpha-tracing
-	}
 
 	usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( bmod, textureIndex );
 
 	// check for multi-layered sky texture (quake1 specific)
-	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && (mipTex->width / mipTex->height) == 2 )
+	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
 	{
 		ref.dllFuncs.R_InitSkyClouds( mipTex, texture, usesCustomPalette ); // load quake sky
 
-		if( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) && R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ) )
-		{
+		if( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) && R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ))
 			SetBits( world.flags, FWORLD_SKYSPHERE );
-		}
 
 		// No texture to load in this case, so just exit.
 		return;
@@ -2072,10 +2051,10 @@ static void Mod_LoadTextureData( dbspmodel_t* bmod, int textureIndex )
 	// 2. Internal from map
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if( (r_wadtextures->value && bmod->wadlist.count > 0) || mipTex->offsets[0] <= 0 )
+	if(( r_wadtextures->value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 )
 	{
 		char texpath[MAX_VA_STRING];
-		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, mipTex->name, texpath, sizeof(texpath) );
+		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, mipTex->name, texpath, sizeof( texpath ));
 
 		if( wadIndex >= 0 )
 		{
@@ -2090,8 +2069,8 @@ static void Mod_LoadTextureData( dbspmodel_t* bmod, int textureIndex )
 		char texName[64];
 		const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
 
-		Q_snprintf( texName, sizeof(texName), "#%s:%s.mip", loadstat.name, mipTex->name );
-		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte*)mipTex, size, txFlags );
+		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex->name );
+		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, txFlags );
 	}
 
 	// If texture is completely missed:
@@ -2102,20 +2081,20 @@ static void Mod_LoadTextureData( dbspmodel_t* bmod, int textureIndex )
 	}
 
 	// Check for luma texture
-	if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, texture->gl_texturenum ), TF_HAS_LUMA ) )
+	if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, texture->gl_texturenum ), TF_HAS_LUMA ))
 	{
 		char texName[64];
-		Q_snprintf( texName, sizeof(texName), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
+		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
 
 		if( mipTex->offsets[0] > 0 )
 		{
 			const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
-			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte*)mipTex, size, TF_MAKELUMA );
+			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, TF_MAKELUMA );
 		}
 		else
 		{
 			char texpath[MAX_VA_STRING];
-			int wadIndex = -1;
+			int wadIndex;
 			fs_offset_t srcSize = 0;
 			byte* src = NULL;
 
@@ -2123,7 +2102,7 @@ static void Mod_LoadTextureData( dbspmodel_t* bmod, int textureIndex )
 			// doesn't exist there. The original texture is already loaded, but cannot be modified.
 			// Instead, load the original texture again and convert it to luma.
 
-			wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, texture->name, texpath, sizeof(texpath) );
+			wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, texture->name, texpath, sizeof( texpath ));
 
 			if( wadIndex >= 0 )
 			{
@@ -2135,23 +2114,19 @@ static void Mod_LoadTextureData( dbspmodel_t* bmod, int textureIndex )
 			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texName, src, srcSize, TF_MAKELUMA );
 
 			if( src )
-			{
 				Mem_Free( src );
-			}
 		}
 	}
 #endif // !XASH_DEDICATED
 }
 
-static void Mod_LoadTexture( dbspmodel_t* bmod, int textureIndex )
+static void Mod_LoadTexture( dbspmodel_t *bmod, int textureIndex )
 {
-	texture_t* texture = NULL;
-	mip_t* mipTex = NULL;
+	texture_t *texture;
+	mip_t *mipTex;
 
 	if( textureIndex < 0 || textureIndex >= loadmodel->numtextures )
-	{
 		return;
-	}
 
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
 
@@ -2164,16 +2139,14 @@ static void Mod_LoadTexture( dbspmodel_t* bmod, int textureIndex )
 	}
 
 	if( mipTex->name[0] == '\0' )
-	{
-		Q_snprintf( mipTex->name, sizeof(mipTex->name), "miptex_%i", textureIndex );
-	}
+		Q_snprintf( mipTex->name, sizeof( mipTex->name ), "miptex_%i", textureIndex );
 
-	texture = (texture_t*)Mem_Calloc( loadmodel->mempool, sizeof(texture_t) );
+	texture = (texture_t *)Mem_Calloc( loadmodel->mempool, sizeof( *texture ));
 	loadmodel->textures[textureIndex] = texture;
 
 	// Ensure texture name is lowercase.
-	Q_strncpy( texture->name, mipTex->name, sizeof(texture->name) );
-	Q_strnlwr( texture->name, texture->name, sizeof(texture->name) );
+	Q_strncpy( texture->name, mipTex->name, sizeof( texture->name ));
+	Q_strnlwr( texture->name, texture->name, sizeof( texture->name ));
 
 	texture->width = mipTex->width;
 	texture->height = mipTex->height;
@@ -2181,44 +2154,38 @@ static void Mod_LoadTexture( dbspmodel_t* bmod, int textureIndex )
 	Mod_LoadTextureData( bmod, textureIndex );
 }
 
-static void Mod_LoadAllTextures( dbspmodel_t* bmod )
+static void Mod_LoadAllTextures( dbspmodel_t *bmod )
 {
-	for( int index = 0; index < loadmodel->numtextures; ++index )
-	{
-		Mod_LoadTexture( bmod, index );
-	}
+	int i;
+
+	for( i = 0; i < loadmodel->numtextures; i++ )
+		Mod_LoadTexture( bmod, i );
 }
 
 static void Mod_SequenceAnimatedTexture( int baseTextureIndex )
 {
-	texture_t* anims[10];
-	texture_t* altanims[10];
-	texture_t* baseTexture = NULL;
+	texture_t *anims[10];
+	texture_t *altanims[10];
+	texture_t *baseTexture;
 	int max = 0;
 	int altmax = 0;
-	int candidateIndex = 0;
+	int candidateIndex;
 
 	if( baseTextureIndex < 0 || baseTextureIndex >= loadmodel->numtextures )
-	{
 		return;
-	}
 
 	baseTexture = loadmodel->textures[baseTextureIndex];
 
-	if( !Mod_NameImpliesTextureIsAnimated( baseTexture ) )
-	{
+	if( !Mod_NameImpliesTextureIsAnimated( baseTexture ))
 		return;
-	}
 
+	// Already sequenced
 	if( baseTexture->anim_next )
-	{
-		// Already sequenced
 		return;
-	}
 
 	// find the number of frames in the animation
-	memset( anims, 0, sizeof(anims) );
-	memset( altanims, 0, sizeof(altanims) );
+	memset( anims, 0, sizeof( anims ));
+	memset( altanims, 0, sizeof( altanims ));
 
 	if( baseTexture->name[1] >= '0' && baseTexture->name[1] <= '9' )
 	{
@@ -2238,23 +2205,19 @@ static void Mod_SequenceAnimatedTexture( int baseTextureIndex )
 	}
 
 	// Now search the rest of the textures to find all other frames.
-	for( candidateIndex = baseTextureIndex + 1; candidateIndex < loadmodel->numtextures; ++candidateIndex )
+	for( candidateIndex = baseTextureIndex + 1; candidateIndex < loadmodel->numtextures; candidateIndex++ )
 	{
-		texture_t* altTexture = loadmodel->textures[candidateIndex];
+		texture_t *altTexture = loadmodel->textures[candidateIndex];
 
-		if( !Mod_NameImpliesTextureIsAnimated( altTexture ) )
-		{
+		if( !Mod_NameImpliesTextureIsAnimated( altTexture ))
 			continue;
-		}
 
 		// This texture is animated, but is it part of the same group as
 		// the original texture we encountered? Check that the rest of
 		// the name matches the original (both will be valid for at least
 		// string index 2).
-		if( Q_strcmp( altTexture->name + 2, baseTexture->name + 2 ) != 0)
-		{
+		if( Q_strcmp( altTexture->name + 2, baseTexture->name + 2 ) != 0 )
 			continue;
-		}
 
 		if( altTexture->name[1] >= '0' && altTexture->name[1] <= '9' )
 		{
@@ -2263,9 +2226,7 @@ static void Mod_SequenceAnimatedTexture( int baseTextureIndex )
 			anims[frameIndex] = altTexture;
 
 			if( frameIndex >= max )
-			{
 				max = frameIndex + 1;
-			}
 		}
 		else
 		{
@@ -2274,16 +2235,14 @@ static void Mod_SequenceAnimatedTexture( int baseTextureIndex )
 			altanims[frameIndex] = altTexture;
 
 			if( frameIndex >= altmax )
-			{
 				altmax = frameIndex + 1;
-			}
 		}
 	}
 
 	// Link all standard animated frames together.
-	for( candidateIndex = 0; candidateIndex < max; ++candidateIndex )
+	for( candidateIndex = 0; candidateIndex < max; candidateIndex++ )
 	{
-		texture_t* tex = anims[candidateIndex];
+		texture_t *tex = anims[candidateIndex];
 
 		if( !tex )
 		{
@@ -2297,19 +2256,17 @@ static void Mod_SequenceAnimatedTexture( int baseTextureIndex )
 
 		tex->anim_total = max * ANIM_CYCLE;
 		tex->anim_min = candidateIndex * ANIM_CYCLE;
-		tex->anim_max = (candidateIndex + 1) * ANIM_CYCLE;
-		tex->anim_next = anims[(candidateIndex + 1) % max];
+		tex->anim_max = ( candidateIndex + 1 ) * ANIM_CYCLE;
+		tex->anim_next = anims[( candidateIndex + 1 ) % max];
 
 		if( altmax > 0 )
-		{
 			tex->alternate_anims = altanims[0];
-		}
 	}
 
 	// Link all alternate animated frames together.
-	for( candidateIndex = 0; candidateIndex < altmax; ++candidateIndex )
+	for( candidateIndex = 0; candidateIndex < altmax; candidateIndex++ )
 	{
-		texture_t* tex = altanims[candidateIndex];
+		texture_t *tex = altanims[candidateIndex];
 
 		if( !tex )
 		{
@@ -2323,22 +2280,20 @@ static void Mod_SequenceAnimatedTexture( int baseTextureIndex )
 
 		tex->anim_total = altmax * ANIM_CYCLE;
 		tex->anim_min = candidateIndex * ANIM_CYCLE;
-		tex->anim_max = (candidateIndex + 1) * ANIM_CYCLE;
-		tex->anim_next = altanims[(candidateIndex + 1) % altmax];
+		tex->anim_max = ( candidateIndex + 1 ) * ANIM_CYCLE;
+		tex->anim_next = altanims[( candidateIndex + 1 ) % altmax];
 
 		if( max > 0 )
-		{
 			tex->alternate_anims = anims[0];
-		}
 	}
 }
 
-static void Mod_SequenceAllAnimatedTextures(void)
+static void Mod_SequenceAllAnimatedTextures( void )
 {
-	for( int index = 0; index < loadmodel->numtextures; ++index )
-	{
-		Mod_SequenceAnimatedTexture( index );
-	}
+	int i;
+
+	for( i = 0; i < loadmodel->numtextures; i++ )
+		Mod_SequenceAnimatedTexture( i );
 }
 
 /*
@@ -2346,16 +2301,16 @@ static void Mod_SequenceAllAnimatedTextures(void)
 Mod_LoadTextures
 =================
 */
-static void Mod_LoadTextures( dbspmodel_t* bmod )
+static void Mod_LoadTextures( dbspmodel_t *bmod )
 {
-	dmiptexlump_t* lump = NULL;
+	dmiptexlump_t *lump;
 
 #if !XASH_DEDICATED
 	// release old sky layers first
 	if( !Host_IsDedicated() && bmod->isworld )
 	{
-		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ) );
-		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) );
+		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ));
+		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ));
 	}
 #endif
 
@@ -2368,8 +2323,8 @@ static void Mod_LoadTextures( dbspmodel_t* bmod )
 		return;
 	}
 
-	loadmodel->textures = (texture_t**)Mem_Calloc( loadmodel->mempool, lump->nummiptex * sizeof(texture_t*) );
-	loadmodel->numtextures = loadmodel->textures ? lump->nummiptex : 0;
+	loadmodel->textures = (texture_t **)Mem_Calloc( loadmodel->mempool, lump->nummiptex * sizeof( texture_t * ));
+	loadmodel->numtextures = lump->nummiptex;
 
 	Mod_LoadAllTextures( bmod );
 	Mod_SequenceAllAnimatedTextures();
