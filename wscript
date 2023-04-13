@@ -3,6 +3,7 @@
 # a1batross, mittorn, 2018
 
 from waflib import Build, Context, Logs
+from waflib.Tools import waf_unit_test
 import sys
 import os
 
@@ -126,6 +127,9 @@ def options(opt):
 
 	grp.add_option('--disable-werror', action = 'store_true', dest = 'DISABLE_WERROR', default = False,
 		help = 'disable compilation abort on warning')
+
+	grp.add_option('--enable-tests', action = 'store_true', dest = 'TESTS', default = False,
+		help = 'enable building standalone tests (does not enable engine tests!) [default: %default]')
 
 	grp = opt.add_option_group('Renderers options')
 
@@ -325,6 +329,7 @@ def configure(conf):
 		conf.env.append_unique('CFLAGS', cflags)
 		conf.env.append_unique('CXXFLAGS', cxxflags)
 
+	conf.env.TESTS         = conf.options.TESTS
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
@@ -466,3 +471,7 @@ def build(bld):
 			continue
 
 		bld.add_subproject(i.name)
+
+	if bld.env.TESTS:
+		bld.add_post_fun(waf_unit_test.summary)
+		bld.add_post_fun(waf_unit_test.set_exit_code)
