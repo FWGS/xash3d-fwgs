@@ -22,3 +22,17 @@ def build(bld):
 		features = 'c',
 		use      = 'sdk_includes',
 		subsystem = bld.env.MSVC_SUBSYSTEM)
+
+	if bld.env.TESTS:
+		tests = {
+			'strings': 'tests/test_strings.c',
+		}
+
+		for i in tests:
+			bld.program(features = 'test',
+				source = tests[i],
+				target = 'test_%s' % i,
+				use = 'public',
+				rpath = '$ORIGIN',
+				subsystem = bld.env.CONSOLE_SUBSYSTEM,
+				install_path = None)
