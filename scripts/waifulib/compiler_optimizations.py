@@ -118,7 +118,7 @@ POLLY_CFLAGS = {
 def options(opt):
 	grp = opt.add_option_group('Compiler optimization options')
 
-	grp.add_option('-T', '--build-type', action='store', dest='BUILD_TYPE', default=None,
+	grp.add_option('-T', '--build-type', action='store', dest='BUILD_TYPE', default='release',
 		help = 'build type: debug, release or none(custom flags)')
 
 	grp.add_option('--enable-lto', action = 'store_true', dest = 'LTO', default = False,
@@ -129,12 +129,11 @@ def options(opt):
 
 def configure(conf):
 	conf.start_msg('Build type')
-	if conf.options.BUILD_TYPE == None:
-		conf.end_msg('not set', color='RED')
-		conf.fatal('Set a build type, for example "-T release"')
-	elif not conf.options.BUILD_TYPE in VALID_BUILD_TYPES:
+
+	if not conf.options.BUILD_TYPE in VALID_BUILD_TYPES:
 		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
 		conf.fatal('Invalid build type. Valid are: %s' % ', '.join(VALID_BUILD_TYPES))
+
 	conf.end_msg(conf.options.BUILD_TYPE)
 
 	conf.msg('LTO build', 'yes' if conf.options.LTO else 'no')
