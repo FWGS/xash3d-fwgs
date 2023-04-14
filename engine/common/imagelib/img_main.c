@@ -576,12 +576,13 @@ void Test_RunImagelib( void )
 
 	for( i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++ )
 	{
+		qboolean ret;
 		char name[MAX_VA_STRING];
 
 		Q_snprintf( name, sizeof( name ), "test_gen.%s", extensions[i] );
 
 		// test saving
-		qboolean ret = FS_SaveImage( name, &rgb );
+		ret = FS_SaveImage( name, &rgb );
 		Con_Printf( "Checking if we can save images in '%s' format...\n", extensions[i] );
 		ASSERT(ret == true);
 
