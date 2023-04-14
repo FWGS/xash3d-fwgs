@@ -22,7 +22,7 @@ pfnCreateInterface_t g_pfnCreateInterface;
 fs_api_t g_fs;
 fs_globals_t *g_nullglobals;
 
-static qboolean LoadFilesystem( void )
+static bool LoadFilesystem()
 {
 	int temp = -1;
 
@@ -31,20 +31,26 @@ static qboolean LoadFilesystem( void )
 		return false;
 
 	// check our C-style interface existence
-	g_pfnGetFSAPI = (FSAPI)GetProcAddress( g_hModule, GET_FS_API );
+	g_pfnGetFSAPI = reinterpret_cast<FSAPI>( GetProcAddress( g_hModule, GET_FS_API ));
 	if( !g_pfnGetFSAPI )
 		return false;
 
+	g_nullglobals = NULL;
 	if( !g_pfnGetFSAPI( FS_API_VERSION, &g_fs, &g_nullglobals, NULL ))
 		return false;
 
+	if( !g_nullglobals )
+		return false;
+
 	// check Valve-style interface existence
-	g_pfnCreateInterface = (pfnCreateInterface_t)GetProcAddress( g_hModule, "CreateInterface" );
+	g_pfnCreateInterface = reinterpret_cast<pfnCreateInterface_t>( GetProcAddress( g_hModule, "CreateInterface" ));
 	if( !g_pfnCreateInterface )
 		return false;
 
 	if( !g_pfnCreateInterface( "VFileSystem009", &temp ) || temp != 0 )
 		return false;
+
+	temp = -1;
 
 	if( !g_pfnCreateInterface( FS_API_CREATEINTERFACE_TAG, &temp ) || temp != 0 )
 		return false;
@@ -52,7 +58,7 @@ static qboolean LoadFilesystem( void )
 	return true;
 }
 
-int main( void )
+int main()
 {
 	if( !LoadFilesystem() )
 		return EXIT_FAILURE;
