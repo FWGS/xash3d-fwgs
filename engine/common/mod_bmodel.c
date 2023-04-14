@@ -2145,8 +2145,7 @@ static void Mod_LoadTexture( dbspmodel_t *bmod, int textureIndex )
 	loadmodel->textures[textureIndex] = texture;
 
 	// Ensure texture name is lowercase.
-	Q_strncpy( texture->name, mipTex->name, sizeof( texture->name ));
-	Q_strnlwr( texture->name, texture->name, sizeof( texture->name ));
+	Q_strnlwr( mipTex->name, texture->name, sizeof( texture->name ));
 
 	texture->width = mipTex->width;
 	texture->height = mipTex->height;
