@@ -1677,47 +1677,56 @@ R_LightLambert
 
 ====================
 */
-void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], vec3_t normal, vec3_t color, byte *out )
+static void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, const vec3_t color, byte *out )
 {
 	vec3_t	finalLight;
-	vec3_t	localLight;
 	int	i;
+
+	if( !g_studio.numlocallights )
+	{
+		VectorScale( color, 255.0f, out );
+		return;
+	}
 
 	VectorCopy( color, finalLight );
 
 	for( i = 0; i < g_studio.numlocallights; i++ )
 	{
-		float	r, r2;
+		float	r;
 
-		if( tr.fFlipViewModel )
-			r = DotProduct( normal, light[i] );
-		else r = -DotProduct( normal, light[i] );
+		r = DotProduct( normal, light[i] );
+		if( likely( !tr.fFlipViewModel ))
+			r = -r;
 
 		if( r > 0.0f )
 		{
+			vec3_t localLight;
+			float temp;
+
 			if( light[i][3] == 0.0f )
 			{
-				r2 = DotProduct( light[i], light[i] );
+				float r2 = DotProduct( light[i], light[i] );
 
 				if( r2 > 0.0f )
 					light[i][3] = g_studio.locallightR2[i] / ( r2 * sqrt( r2 ));
 				else light[i][3] = 0.0001f;
 			}
 
-			localLight[0] = Q_min( g_studio.locallightcolor[i].r * r * light[i][3], 255.0f );
-			localLight[1] = Q_min( g_studio.locallightcolor[i].g * r * light[i][3], 255.0f );
-			localLight[2] = Q_min( g_studio.locallightcolor[i].b * r * light[i][3], 255.0f );
-			VectorScale( localLight, ( 1.0f / 255.0f ), localLight );
+			temp = Q_min( r * light[i][3] / 255.0f, 1.0f );
 
-			finalLight[0] = Q_min( finalLight[0] + localLight[0], 1.0f );
-			finalLight[1] = Q_min( finalLight[1] + localLight[1], 1.0f );
-			finalLight[2] = Q_min( finalLight[2] + localLight[2], 1.0f );
+			localLight[0] = (float)g_studio.locallightcolor[i].r * temp;
+			localLight[1] = (float)g_studio.locallightcolor[i].g * temp;
+			localLight[2] = (float)g_studio.locallightcolor[i].b * temp;
+
+			VectorAdd( finalLight, localLight, finalLight );
 		}
 	}
 
-	out[0] = finalLight[0] * 255;
-	out[1] = finalLight[1] * 255;
-	out[2] = finalLight[2] * 255;
+	VectorScale( finalLight, 255.0f, finalLight );
+
+	out[0] = Q_min( (int)( finalLight[0] ), 255 );
+	out[1] = Q_min( (int)( finalLight[1] ), 255 );
+	out[2] = Q_min( (int)( finalLight[2] ), 255 );
 }
 
 static void R_StudioSetColorArray(short *ptricmds, vec3_t *pstudionorms, byte *color )
