@@ -50,9 +50,9 @@ build_engine()
 	fi
 
 	if [ "$1" = "dedicated" ]; then
-		./waf configure -T release -d $AMD64 --enable-fs-tests || die_configure
+		./waf configure -T release -d $AMD64 --enable-tests || die_configure
 	elif [ "$1" = "full" ]; then
-		./waf configure --sdl2=SDL2_linux -T release --enable-stb $AMD64 --enable-utils --enable-fs-tests || die_confgure
+		./waf configure --sdl2=SDL2_linux -T release --enable-stb $AMD64 --enable-utils --enable-tests || die_confgure
 	else
 		die
 	fi
