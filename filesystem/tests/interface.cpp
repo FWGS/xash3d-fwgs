@@ -11,11 +11,12 @@
 #define LoadLibrary( x ) dlopen( x, RTLD_NOW )
 #define GetProcAddress( x, y ) dlsym( x, y )
 #define FreeLibrary( x ) dlclose( x )
+typedef void *HMODULE;
 #elif XASH_WIN32
 #include <windows.h>
 #endif
 
-void *g_hModule;
+HMODULE g_hModule;
 FSAPI g_pfnGetFSAPI;
 typedef void *(*pfnCreateInterface_t)( const char *, int * );
 pfnCreateInterface_t g_pfnCreateInterface;
