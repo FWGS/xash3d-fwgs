@@ -654,6 +654,24 @@ FRAME PARSING
 
 =========================================================================
 */
+static qboolean CL_ParseEntityNumFromPacket( sizebuf_t *msg, int *newnum )
+{
+	if( cls.legacymode )
+	{
+		*newnum = MSG_ReadWord( msg );
+		if( *newnum == 0 )
+			return false;
+	}
+	else
+	{
+		*newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+		if( *newnum == LAST_EDICT )
+			return false;
+	}
+
+	return true;
+}
+
 /*
 =================
 CL_FlushEntityPacket
@@ -674,8 +692,8 @@ void CL_FlushEntityPacket( sizebuf_t *msg )
 	// read it all, but ignore it
 	while( 1 )
 	{
-		newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-		if( newnum == LAST_EDICT ) break; // done
+		if( !CL_ParseEntityNumFromPacket( msg, &newnum ))
+			break; // done
 
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "CL_FlushEntityPacket: overflow\n" );
@@ -847,21 +865,12 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 
 	while( 1 )
 	{
-		int lastedict;
-		if( cls.legacymode )
-		{
-			newnum = MSG_ReadWord( msg );
-			lastedict = 0;
-		}
-		else
-		{
-			newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-			lastedict = LAST_EDICT;
-		}
+		if( !CL_ParseEntityNumFromPacket( msg, &newnum ))
+			break; // done
 
-		if( newnum == lastedict ) break; // end of packet entities
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "CL_ParsePacketEntities: overflow\n" );
+
 		player = CL_IsPlayerIndex( newnum );
 
 		while( oldnum < newnum )
