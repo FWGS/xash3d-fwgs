@@ -1066,14 +1066,16 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 
 void CL_ClearWorld( void )
 {
-	cl_entity_t	*worldmodel;
+	if( clgame.entities ) // check if we have entities, legacy protocol support kinda breaks this logic
+	{
+		cl_entity_t *worldmodel = clgame.entities;
 
-	worldmodel = clgame.entities;
-	worldmodel->curstate.modelindex = 1;	// world model
-	worldmodel->curstate.solid = SOLID_BSP;
-	worldmodel->curstate.movetype = MOVETYPE_PUSH;
-	worldmodel->model = cl.worldmodel;
-	worldmodel->index = 0;
+		worldmodel->curstate.modelindex = 1;	// world model
+		worldmodel->curstate.solid = SOLID_BSP;
+		worldmodel->curstate.movetype = MOVETYPE_PUSH;
+		worldmodel->model = cl.worldmodel;
+		worldmodel->index = 0;
+	}
 
 	world.max_recursion = 0;
 
