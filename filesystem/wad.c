@@ -337,6 +337,10 @@ static wfile_t *W_Open( const char *filename, int *error )
 		return NULL;
 	}
 
+	LittleLongSW(header.ident);
+	LittleLongSW(header.numlumps);
+	LittleLongSW(header.infotableofs);
+
 	if( header.ident != IDWAD2HEADER && header.ident != IDWAD3HEADER )
 	{
 		Con_Reportf( S_ERROR "W_Open: %s is not a WAD2 or WAD3 file\n", filename );
