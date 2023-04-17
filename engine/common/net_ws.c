@@ -1980,11 +1980,11 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 			nov6 = net.allow_ip6 && NET_IsSocketError( net.ip6_sockets[NS_SERVER] );
 
 			if( nov4 && nov6 )
-				Host_Error( "Couldn't allocate IPv4 and IPv6 server ports." );
+				Host_Error( "Couldn't allocate IPv4 and IPv6 server ports.\n" );
 			else if( nov4 && !nov6 )
-				Con_Printf( S_ERROR "Couldn't allocate IPv4 server port" );
+				Con_Printf( S_ERROR "Couldn't allocate IPv4 server port\n" );
 			else if( !nov4 && nov6 )
-				Con_Printf( S_ERROR "Couldn't allocate IPv6 server_port" );
+				Con_Printf( S_ERROR "Couldn't allocate IPv6 server_port\n" );
 		}
 
 		// get our local address, if possible
