@@ -16,26 +16,15 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "buildenums.h"
 
-static const char *date = __DATE__ ;
 static const char *mon[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 static const char mond[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
-/*
-===============
-Q_buildnum
-
-returns days since Apr 1 2015
-===============
-*/
-int Q_buildnum( void )
+int Q_buildnum_date( const char *date )
 {
-	static int b = 0;
+	int b;
 	int m = 0;
 	int d = 0;
 	int y = 0;
-
-	if( b != 0 )
-		return b;
 
 	for( m = 0; m < 11; m++ )
 	{
@@ -53,6 +42,23 @@ int Q_buildnum( void )
 		b += 1;
 	}
 	b -= 41728; // Apr 1 2015
+
+	return b;
+}
+
+/*
+===============
+Q_buildnum
+
+returns days since Apr 1 2015
+===============
+*/
+int Q_buildnum( void )
+{
+	static int b = 0;
+
+	if( !b )
+		b = Q_buildnum_date( __DATE__ );
 
 	return b;
 }
