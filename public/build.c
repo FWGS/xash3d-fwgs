@@ -164,8 +164,8 @@ const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int 
 		// no support for big endian ARM here
 		if( endianness == ENDIANNESS_LITTLE )
 		{
-			const int ver = ( abi >> ARCHITECTURE_ARM_VER_SHIFT ) & ARCHITECTURE_ARM_VER_MASK;
-			const qboolean hardfp = FBitSet( abi, ARCHITECTURE_ARM_HARDFP );
+			const uint ver = ( abi >> ARCH_ARM_VER_SHIFT ) & ARCH_ARM_VER_MASK;
+			const qboolean hardfp = FBitSet( abi, ARCH_ARM_HARDFP );
 
 			if( is64 )
 				return "arm64"; // keep as arm64, it's not aarch64!
@@ -188,11 +188,11 @@ const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int 
 	case ARCHITECTURE_RISCV:
 		switch( abi )
 		{
-		case ARCHITECTURE_RISCV_FP_SOFT:
+		case ARCH_RISCV_FP_SOFT:
 			return is64 ? "riscv64" : "riscv32";
-		case ARCHITECTURE_RISCV_FP_SINGLE:
+		case ARCH_RISCV_FP_SINGLE:
 			return is64 ? "riscv64f" : "riscv32f";
-		case ARCHITECTURE_RISCV_FP_DOUBLE:
+		case ARCH_RISCV_FP_DOUBLE:
 			return is64 ? "riscv64d" : "riscv64f";
 		}
 		break;
