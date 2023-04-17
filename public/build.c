@@ -193,7 +193,7 @@ const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int 
 		case ARCH_RISCV_FP_SINGLE:
 			return is64 ? "riscv64f" : "riscv32f";
 		case ARCH_RISCV_FP_DOUBLE:
-			return is64 ? "riscv64d" : "riscv64f";
+			return is64 ? "riscv64d" : "riscv32d";
 		}
 		break;
 	}
