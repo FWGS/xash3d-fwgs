@@ -99,6 +99,8 @@ REFDLLS = [
 ]
 
 def options(opt):
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject')
+
 	grp = opt.add_option_group('Common options')
 
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
@@ -147,15 +149,11 @@ def options(opt):
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
 		help = 'enable building libFuzzer runner [default: %default]' )
 
-	opt.load('compiler_optimizations subproject')
-
 	for i in SUBDIRS:
 		if not i.is_exists(opt):
 			continue
 
 		opt.add_subproject(i.name)
-
-	opt.load('xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc reconfigure')
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
