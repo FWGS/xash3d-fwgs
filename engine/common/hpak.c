@@ -456,8 +456,11 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 
 		pRes = &dataDir[i].resource;
 
-		Con_Printf( "%i:      %s %s %s:   ", i, HPAK_TypeFromIndex( pRes->type ),
-		Q_pretifymem( pRes->nDownloadSize, 2 ), pRes->szFileName );
+		if( !quiet )
+		{
+			Con_Printf( "%i:      %s %s %s:   ", i, HPAK_TypeFromIndex( pRes->type ),
+				Q_pretifymem( pRes->nDownloadSize, 2 ), pRes->szFileName );
+		}
 
 		if( memcmp( md5, pRes->rgucMD5_hash, 0x10 ))
 		{
