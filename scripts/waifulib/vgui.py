@@ -3,6 +3,7 @@
 # mittorn, 2018
 
 from waflib.Configure import conf
+from waflib import Logs
 import os
 
 VGUI_SUPPORTED_OS = ['win32', 'darwin', 'linux']
