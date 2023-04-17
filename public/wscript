@@ -26,6 +26,7 @@ def build(bld):
 	if bld.env.TESTS:
 		tests = {
 			'strings': 'tests/test_strings.c',
+			'build': 'tests/test_build.c',
 		}
 
 		for i in tests:
