@@ -2243,6 +2243,7 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 				else cls.state = ca_connecting;
 				cl.background = old_background;
 				cls.connect_time = MAX_HEARTBEAT;
+				cls.connect_retry = 0;
 			}
 			break;
 		case svc_setview:
@@ -2824,6 +2825,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 				else cls.state = ca_connecting;
 				cl.background = old_background;
 				cls.connect_time = MAX_HEARTBEAT;
+				cls.connect_retry = 0;
 			}
 			break;
 		case svc_setview:
