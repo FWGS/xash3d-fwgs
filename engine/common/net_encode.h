@@ -18,26 +18,6 @@ GNU General Public License for more details.
 
 #include "eiface.h"
 
-#define DT_BYTE		BIT( 0 )	// A byte
-#define DT_SHORT		BIT( 1 ) 	// 2 byte field
-#define DT_FLOAT		BIT( 2 )	// A floating point field
-#define DT_INTEGER		BIT( 3 )	// 4 byte integer
-#define DT_ANGLE		BIT( 4 )	// A floating point angle ( will get masked correctly )
-#define DT_TIMEWINDOW_8	BIT( 5 )	// A floating point timestamp, relative to sv.time
-#define DT_TIMEWINDOW_BIG	BIT( 6 )	// and re-encoded on the client relative to the client's clock
-#define DT_STRING		BIT( 7 )	// A null terminated string, sent as 8 byte chars
-#define DT_SIGNED		BIT( 8 )	// sign modificator
-
-#define NUM_FIELDS( x )	((sizeof( x ) / sizeof( x[0] )) - 1)
-
-// helper macroses
-#define ENTS_DEF( x )	#x, offsetof( entity_state_t, x ), sizeof( ((entity_state_t *)0)->x )
-#define UCMD_DEF( x )	#x, offsetof( usercmd_t, x ), sizeof( ((usercmd_t *)0)->x )
-#define EVNT_DEF( x )	#x, offsetof( event_args_t, x ), sizeof( ((event_args_t *)0)->x )
-#define PHYS_DEF( x )	#x, offsetof( movevars_t, x ), sizeof( ((movevars_t *)0)->x )
-#define CLDT_DEF( x )	#x, offsetof( clientdata_t, x ), sizeof( ((clientdata_t *)0)->x )
-#define WPDT_DEF( x )	#x, offsetof( weapon_data_t, x ), sizeof( ((weapon_data_t *)0)->x )
-
 enum
 {
 	CUSTOM_NONE = 0,
@@ -97,7 +77,6 @@ typedef struct
 void Delta_Init( void );
 void Delta_InitClient( void );
 void Delta_Shutdown( void );
-void Delta_InitFields( void );
 int Delta_NumTables( void );
 delta_info_t *Delta_FindStructByIndex( int index );
 void Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc );

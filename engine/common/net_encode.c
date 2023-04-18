@@ -28,6 +28,26 @@ GNU General Public License for more details.
 
 #define DELTA_PATH		"delta.lst"
 
+#define DT_BYTE		BIT( 0 )	// A byte
+#define DT_SHORT		BIT( 1 ) 	// 2 byte field
+#define DT_FLOAT		BIT( 2 )	// A floating point field
+#define DT_INTEGER		BIT( 3 )	// 4 byte integer
+#define DT_ANGLE		BIT( 4 )	// A floating point angle ( will get masked correctly )
+#define DT_TIMEWINDOW_8	BIT( 5 )	// A floating point timestamp, relative to sv.time
+#define DT_TIMEWINDOW_BIG	BIT( 6 )	// and re-encoded on the client relative to the client's clock
+#define DT_STRING		BIT( 7 )	// A null terminated string, sent as 8 byte chars
+#define DT_SIGNED		BIT( 8 )	// sign modificator
+
+#define NUM_FIELDS( x )	((sizeof( x ) / sizeof( x[0] )) - 1)
+
+// helper macroses
+#define ENTS_DEF( x )	#x, offsetof( entity_state_t, x ), sizeof( ((entity_state_t *)0)->x )
+#define UCMD_DEF( x )	#x, offsetof( usercmd_t, x ), sizeof( ((usercmd_t *)0)->x )
+#define EVNT_DEF( x )	#x, offsetof( event_args_t, x ), sizeof( ((event_args_t *)0)->x )
+#define PHYS_DEF( x )	#x, offsetof( movevars_t, x ), sizeof( ((movevars_t *)0)->x )
+#define CLDT_DEF( x )	#x, offsetof( clientdata_t, x ), sizeof( ((clientdata_t *)0)->x )
+#define WPDT_DEF( x )	#x, offsetof( weapon_data_t, x ), sizeof( ((weapon_data_t *)0)->x )
+
 static qboolean		delta_init = false;
 
 // list of all the struct names
@@ -308,7 +328,7 @@ static delta_info_t dt_info[] =
 { NULL },
 };
 
-delta_info_t *Delta_FindStruct( const char *name )
+static delta_info_t *Delta_FindStruct( const char *name )
 {
 	int	i;
 
@@ -340,7 +360,7 @@ delta_info_t *Delta_FindStructByIndex( int index )
 	return &dt_info[index];
 }
 
-delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
+static delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
 {
 	int	i;
 
@@ -356,7 +376,7 @@ delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
 	return NULL;
 }
 
-delta_info_t *Delta_FindStructByDelta( const delta_t *pFields )
+static delta_info_t *Delta_FindStructByDelta( const delta_t *pFields )
 {
 	int	i;
 
@@ -371,7 +391,7 @@ delta_info_t *Delta_FindStructByDelta( const delta_t *pFields )
 	return NULL;
 }
 
-void Delta_CustomEncode( delta_info_t *dt, const void *from, const void *to )
+static void Delta_CustomEncode( delta_info_t *dt, const void *from, const void *to )
 {
 	int	i;
 
@@ -387,7 +407,7 @@ void Delta_CustomEncode( delta_info_t *dt, const void *from, const void *to )
 	}
 }
 
-delta_field_t *Delta_FindFieldInfo( const delta_field_t *pInfo, const char *fieldName )
+static delta_field_t *Delta_FindFieldInfo( const delta_field_t *pInfo, const char *fieldName )
 {
 	if( !fieldName || !*fieldName )
 		return NULL;
@@ -400,7 +420,7 @@ delta_field_t *Delta_FindFieldInfo( const delta_field_t *pInfo, const char *fiel
 	return NULL;
 }
 
-int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fieldName )
+static int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fieldName )
 {
 	int	i;
 
@@ -415,7 +435,7 @@ int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fieldName )
 	return -1;
 }
 
-qboolean Delta_AddField( const char *pStructName, const char *pName, int flags, int bits, float mul, float post_mul )
+static qboolean Delta_AddField( const char *pStructName, const char *pName, int flags, int bits, float mul, float post_mul )
 {
 	delta_info_t	*dt;
 	delta_field_t	*pFieldInfo;
@@ -494,14 +514,14 @@ void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t *pFiel
 	MSG_WriteUBitLong( msg, pField->bits - 1, 5 ); // max received value is 32 (32 bit)
 
 	// multipliers is null-compressed
-	if( !Q_equal(pField->multiplier, 1.0f) )
+	if( !Q_equal( pField->multiplier, 1.0f ))
 	{
 		MSG_WriteOneBit( msg, 1 );
 		MSG_WriteFloat( msg, pField->multiplier );
 	}
 	else MSG_WriteOneBit( msg, 0 );
 
-	if( !Q_equal(pField->post_multiplier, 1.0f) )
+	if( !Q_equal( pField->post_multiplier, 1.0f ))
 	{
 		MSG_WriteOneBit( msg, 1 );
 		MSG_WriteFloat( msg, pField->post_multiplier );
@@ -555,7 +575,7 @@ void Delta_ParseTableField( sizebuf_t *msg )
 	Delta_AddField( dt->pName, pName, flags, bits, mul, post_mul );
 }
 
-qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delta_t *pField, qboolean bPost )
+static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delta_t *pField, qboolean bPost )
 {
 	string		token;
 	delta_field_t	*pFieldInfo;
@@ -633,7 +653,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	// read delta-bits
 	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
-		Con_DPrintf( S_ERROR "Delta_ReadField: %s field bits argument is missing\n", pField->name );
+		Con_DPrintf( S_ERROR "Delta_ParseField: %s field bits argument is missing\n", pField->name );
 		return false;
 	}
 
@@ -642,14 +662,14 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "," ))
 	{
-		Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
 		return false;
 	}
 
 	// read delta-multiplier
 	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
-		Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'multiplier' argument\n", pField->name );
+		Con_DPrintf( S_ERROR "Delta_ParseField: %s missing 'multiplier' argument\n", pField->name );
 		return false;
 	}
 
@@ -660,14 +680,14 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 		*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 		if( Q_strcmp( token, "," ))
 		{
-			Con_DPrintf( S_ERROR "Delta_ReadField: expected ',', found '%s' instead\n", token );
+			Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
 			return false;
 		}
 
 		// read delta-postmultiplier
 		if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 		{
-			Con_DPrintf( S_ERROR "Delta_ReadField: %s missing 'post_multiply' argument\n", pField->name );
+			Con_DPrintf( S_ERROR "Delta_ParseField: %s missing 'post_multiply' argument\n", pField->name );
 			return false;
 		}
 
@@ -695,7 +715,7 @@ qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delt
 	return true;
 }
 
-void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encodeDll, const char *encodeFunc )
+static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encodeDll, const char *encodeFunc )
 {
 	string		token;
 	delta_t		*pField;
@@ -749,7 +769,7 @@ void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encode
 	dt->bInitialized = true; // table is ok
 }
 
-void Delta_InitFields( void )
+static void Delta_InitFields( void )
 {
 	byte *afile;
 	char *pfile;
@@ -894,7 +914,7 @@ Delta_ClampIntegerField
 prevent data to out of range
 =====================
 */
-int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigned, int numbits )
+static int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigned, int numbits )
 {
 #ifdef _DEBUG
 	if( numbits < 32 && abs( iValue ) >= (uint)BIT( numbits ))
@@ -902,7 +922,7 @@ int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigned, int 
 #endif
 	if( numbits < 32 )
 	{
-		int signbits = bSigned ? (numbits - 1) : numbits;
+		int signbits = bSigned ? ( numbits - 1 ) : numbits;
 		int maxnum = BIT( signbits ) - 1;
 		int minnum = bSigned ? ( -maxnum - 1 ) : 0;
 		iValue = bound( minnum, iValue, maxnum );
@@ -919,7 +939,7 @@ compare fields by offsets
 assume from and to is valid
 =====================
 */
-qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timebase )
+static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timebase )
 {
 	qboolean	bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
 	float	val_a, val_b;
@@ -1111,7 +1131,7 @@ write fields by offsets
 assume from and to is valid
 =====================
 */
-qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
+static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
 {
 	qboolean	bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
 	float		flValue, flAngle;
@@ -1259,7 +1279,7 @@ read fields by offsets
 assume 'from' and 'to' is valid
 =====================
 */
-qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
+static qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
 {
 	qboolean		bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
 	float		flValue, flAngle, flTime;
