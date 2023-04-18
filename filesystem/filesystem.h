@@ -155,8 +155,8 @@ typedef struct fs_api_t
 	qboolean (*Eof)( file_t *file );
 	int (*Flush)( file_t *file );
 	int (*Close)( file_t *file );
-	int (*Gets)( file_t *file, byte *string, size_t bufsize );
-	int (*UnGetc)( file_t *file, byte c );
+	int (*Gets)( file_t *file, char *string, size_t bufsize );
+	int (*UnGetc)( file_t *file, char c );
 	int (*Getc)( file_t *file );
 	int (*VPrintf)( file_t *file, const char *format, va_list ap );
 	int (*Printf)( file_t *file, const char *format, ... ) _format( 2 );
