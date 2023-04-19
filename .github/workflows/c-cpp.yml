@@ -115,11 +115,11 @@ jobs:
         delete_release: true
         github_token: ${{ secrets.GITHUB_TOKEN }}
     - name: Upload new release
-      uses: FWGS/upload-release-action@2.5.1
+      uses: FWGS/action-gh-release@v0.1.15
       with:
-        release_name: Xash3D FWGS Continuous ${{ github.ref_name }} Build
-        tag: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
+        name: Xash3D FWGS Continuous ${{ github.ref_name }} Build
+        tag_name: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
         prerelease: true
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file_glob: true
-        file: artifacts/*
+        token: ${{ secrets.GITHUB_TOKEN }}
+        files: artifacts/*
+        draft: false
