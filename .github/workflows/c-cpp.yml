@@ -95,11 +95,17 @@ jobs:
     needs: [build, flatpak]
     if: ${{ github.event_name == 'push' }}
     steps:
+    - name: Remove old release
+      uses: FWGS/delete-tag-and-release@v0.2.1-dev
+      with:
+        tag_name: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
+        delete_release: true
+        github_token: ${{ secrets.GITHUB_TOKEN }}
     - name: Fetch artifacts
       uses: actions/download-artifact@v3.0.1
       with:
         path: artifacts/
-    - name: Repackage binaries
+    - name: Repackage binaries and allow GitHub to process removed release for few seconds
       run: |
         cd artifacts/
         for i in artifact-* su.xash.Engine.*; do
@@ -108,12 +114,7 @@ jobs:
         done
         ls -R .
         cd ../
-    - name: Remove old release
-      uses: FWGS/delete-tag-and-release@v0.2.1-dev
-      with:
-        tag_name: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
-        delete_release: true
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        sleep 20s
     - name: Upload new release
       uses: FWGS/action-gh-release@v0.1.15
       with:
