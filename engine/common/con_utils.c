@@ -1029,6 +1029,7 @@ autocomplete_list_t cmd_list[] =
 { "play", 1, Cmd_GetSoundList },
 { "map", 1, Cmd_GetMapList },
 { "cd", 1, Cmd_GetCDList },
+{ "mp3", 1, Cmd_GetCDList },
 { NULL }, // termiantor
 };
 
