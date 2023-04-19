@@ -200,7 +200,7 @@ CL_InitCDAudio
 Initialize CD playlist
 ====================
 */
-void CL_InitCDAudio( const char *filename )
+static void CL_InitCDAudio( const char *filename )
 {
 	byte *afile;
 	char *pfile;
@@ -221,8 +221,13 @@ void CL_InitCDAudio( const char *filename )
 	// format: trackname\n [num]
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
-		if( !Q_stricmp( token, "blank" )) token[0] = '\0';
-		Q_strncpy( clgame.cdtracks[c], token, sizeof( clgame.cdtracks[0] ));
+		if( !Q_stricmp( token, "blank" ))
+			clgame.cdtracks[c][0] = '\0';
+		else
+		{
+			Q_snprintf( clgame.cdtracks[c], sizeof( clgame.cdtracks[c] ),
+				"media/%s", token );
+		}
 
 		if( ++c > MAX_CDTRACKS - 1 )
 		{
