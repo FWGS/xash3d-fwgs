@@ -677,7 +677,7 @@ void ID_Init( void )
 	MD5Final( (byte*)md5, &hash );
 
 	for( i = 0; i < 16; i++ )
-		Q_sprintf( &id_md5[i*2], "%02hhx", md5[i] );
+		Q_snprintf( &id_md5[i*2], sizeof( id_md5 ) - i * 2, "%02hhx", md5[i] );
 
 #if XASH_ANDROID && !XASH_DEDICATED
 	Android_SaveID( va("%016llX", id^SYSTEM_XOR_MASK ) );

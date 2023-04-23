@@ -861,6 +861,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	byte	buf[MAX_SYSPATH];
 	string	mpfilter;
 	char	*buffer;
+	size_t	buffersize;
 	string	result;
 	int	i, size;
 	search_t	*t;
@@ -883,7 +884,8 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		return false;
 	}
 
-	buffer = Mem_Calloc( host.mempool, t->numfilenames * 2 * sizeof( result ));
+	buffersize = t->numfilenames * 2 * sizeof( result );
+	buffer = Mem_Calloc( host.mempool, buffersize );
 	use_filter = COM_CheckStringEmpty( GI->mp_filter ) ? true : false;
 
 	for( i = 0; i < t->numfilenames; i++ )
@@ -969,8 +971,8 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 			if( num_spawnpoints )
 			{
 				// format: mapname "maptitle"\n
-				Q_sprintf( result, "%s \"%s\"\n", mapname, message );
-				Q_strcat( buffer, result ); // add new string
+				Q_snprintf( result, sizeof( result ), "%s \"%s\"\n", mapname, message );
+				Q_strncat( buffer, result, buffersize ); // add new string
 			}
 		}
 	}

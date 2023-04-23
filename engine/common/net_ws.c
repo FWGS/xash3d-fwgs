@@ -732,7 +732,8 @@ const char *NET_AdrToString( const netadr_t a )
 		return s;
 	}
 
-	Q_sprintf( s, "%i.%i.%i.%i:%i", a.ip[0], a.ip[1], a.ip[2], a.ip[3], ntohs( a.port ));
+	Q_snprintf( s, sizeof( s ),
+		"%i.%i.%i.%i:%i", a.ip[0], a.ip[1], a.ip[2], a.ip[3], ntohs( a.port ));
 
 	return s;
 }
@@ -758,7 +759,8 @@ const char *NET_BaseAdrToString( const netadr_t a )
 		return s;
 	}
 
-	Q_sprintf( s, "%i.%i.%i.%i", a.ip[0], a.ip[1], a.ip[2], a.ip[3] );
+	Q_snprintf( s, sizeof( s ),
+		"%i.%i.%i.%i", a.ip[0], a.ip[1], a.ip[2], a.ip[3] );
 
 	return s;
 }
