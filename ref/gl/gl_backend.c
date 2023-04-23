@@ -55,7 +55,7 @@ void R_Speeds_Printf( const char *msg, ... )
 	char	text[2048];
 
 	va_start( argptr, msg );
-	Q_vsprintf( text, msg, argptr );
+	Q_vsnprintf( text, sizeof( text ), msg, argptr );
 	va_end( argptr );
 
 	Q_strncat( r_speeds_msg, text, sizeof( r_speeds_msg ));
