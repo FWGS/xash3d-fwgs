@@ -1830,7 +1830,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 				wadstring[MAX_TOKEN - 2] = 0;
 
 				if( !Q_strchr( wadstring, ';' ))
-					Q_strcat( wadstring, ";" );
+					Q_strncat( wadstring, ";", sizeof( wadstring ));
 
 				// parse wad pathes
 				for( pszWadFile = strtok( wadstring, ";" ); pszWadFile != NULL; pszWadFile = strtok( NULL, ";" ))

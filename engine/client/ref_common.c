@@ -512,7 +512,7 @@ static void R_GetRendererName( char *dest, size_t size, const char *opt )
 	else
 	{
 		// full path
-		Q_strcpy( dest, opt );
+		Q_strncpy( dest, opt, size );
 	}
 }
 

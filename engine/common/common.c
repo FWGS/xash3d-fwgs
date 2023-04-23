@@ -1006,7 +1006,7 @@ pfnGetGameDir
 void GAME_EXPORT pfnGetGameDir( char *szGetGameDir )
 {
 	if( !szGetGameDir ) return;
-	Q_strcpy( szGetGameDir, GI->gamefolder );
+	Q_strncpy( szGetGameDir, GI->gamefolder, sizeof( GI->gamefolder ));
 }
 
 qboolean COM_IsSafeFileToDownload( const char *filename )
@@ -1070,13 +1070,15 @@ const char *COM_GetResourceTypeName( resourcetype_t restype )
 
 char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline )
 {
+	size_t	size;
 	char	*b;
 
 	if( !s ) return NULL;
 	if( !mempool ) mempool = host.mempool;
 
-	b = _Mem_Alloc( mempool, Q_strlen( s ) + 1, false, filename, fileline );
-	Q_strcpy( b, s );
+	size = Q_strlen( s ) + 1;
+	b = _Mem_Alloc( mempool, size, false, filename, fileline );
+	Q_strncpy( b, s, size );
 
 	return b;
 }
@@ -1100,7 +1102,6 @@ used by CS:CZ
 void *GAME_EXPORT pfnSequenceGet( const char *fileName, const char *entryName )
 {
 	Msg( "Sequence_Get: file %s, entry %s\n", fileName, entryName );
-
 
 	return Sequence_Get( fileName, entryName );
 }

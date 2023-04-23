@@ -1294,15 +1294,15 @@ void CL_Rcon_f( void )
 
 	NET_Config( true, false );	// allow remote
 
-	Q_strcat( message, "rcon " );
-	Q_strcat( message, rcon_password.string );
-	Q_strcat( message, " " );
+	Q_strncat( message, "rcon ", sizeof( message ));
+	Q_strncat( message, rcon_password.string, sizeof( message ));
+	Q_strncat( message, " ", sizeof( message ) );
 
 	for( i = 1; i < Cmd_Argc(); i++ )
 	{
 		Cmd_Escape( command, Cmd_Argv( i ), sizeof( command ));
-		Q_strcat( message, command );
-		Q_strcat( message, " " );
+		Q_strncat( message, command, sizeof( message ));
+		Q_strncat( message, " ", sizeof( message ));
 	}
 
 	if( cls.state >= ca_connected )

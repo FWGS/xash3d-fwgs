@@ -571,7 +571,7 @@ qboolean Cmd_GetKeysList( const char *s, char *completedname, int length )
 		const char *keyname = Key_KeynumToString( i );
 
 		if(( *s == '*' ) || !Q_strnicmp( keyname, s, len))
-			Q_strcpy( keys[numkeys++], keyname );
+			Q_strncpy( keys[numkeys++], keyname, sizeof( keys[0] ));
 	}
 
 	if( !numkeys ) return false;
@@ -765,7 +765,7 @@ qboolean Cmd_GetGamesList( const char *s, char *completedname, int length )
 	for( i = 0, numgamedirs = 0; i < FI->numgames; i++ )
 	{
 		if(( *s == '*' ) || !Q_strnicmp( FI->games[i]->gamefolder, s, len))
-			Q_strcpy( gamedirs[numgamedirs++], FI->games[i]->gamefolder );
+			Q_strncpy( gamedirs[numgamedirs++], FI->games[i]->gamefolder, sizeof( gamedirs[0] ));
 	}
 
 	if( !numgamedirs ) return false;
@@ -826,7 +826,7 @@ qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 	for( i = 0, numcdcommands = 0; i < 8; i++ )
 	{
 		if(( *s == '*' ) || !Q_strnicmp( cd_command[i], s, len))
-			Q_strcpy( cdcommands[numcdcommands++], cd_command[i] );
+			Q_strncpy( cdcommands[numcdcommands++], cd_command[i], sizeof( cdcommands[0] ));
 	}
 
 	if( !numcdcommands ) return false;
