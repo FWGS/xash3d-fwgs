@@ -59,7 +59,6 @@ const char *Q_buildcommit( void );
 //
 // crtlib.c
 //
-#define Q_strlwr( in, out ) Q_strnlwr( in, out, 99999 )
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 #define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 size_t Q_colorstr( const char *string );
