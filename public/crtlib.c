@@ -803,7 +803,10 @@ void COM_PathSlashFix( char *path )
 	len = Q_strlen( path );
 
 	if( path[len - 1] != '\\' && path[len - 1] != '/' )
-		Q_strcpy( &path[len], "/" );
+	{
+		path[len] = '/';
+		path[len + 1] = '\0';
+	}
 }
 
 /*

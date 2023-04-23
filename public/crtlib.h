@@ -64,9 +64,7 @@ void Q_strnlwr( const char *in, char *out, size_t size_out );
 size_t Q_colorstr( const char *string );
 char Q_toupper( const char in );
 char Q_tolower( const char in );
-#define Q_strcat( dst, src ) Q_strncat( dst, src, 99999 )
 size_t Q_strncat( char *dst, const char *src, size_t siz );
-#define Q_strcpy( dst, src ) Q_strncpy( dst, src, 99999 )
 size_t Q_strncpy( char *dst, const char *src, size_t siz );
 qboolean Q_isdigit( const char *str );
 qboolean Q_isspace( const char *str );

@@ -1556,7 +1556,7 @@ static void Sequence_ParseFile( const char *fileName, qboolean isGlobal )
 	byte *buffer;
 	fs_offset_t bufSize = 0;
 
-	Q_strcpy( g_sequenceParseFileName, fileName );
+	Q_strncpy( g_sequenceParseFileName, fileName, sizeof( g_sequenceParseFileName ));
 	g_sequenceParseFileIsGlobal = isGlobal;
 
 	buffer = FS_LoadFile( va("sequences/%s.seq", fileName ), &bufSize, true );

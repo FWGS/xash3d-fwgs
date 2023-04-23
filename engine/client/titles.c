@@ -218,6 +218,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 	client_textmessage_t	textMessages[MAX_MESSAGES];
 	int			i, nameHeapSize, textHeapSize, messageSize, nameOffset;
 	int			messageCount, lastNamePos;
+	size_t		textHeapSizeRemaining;
 
 	lastNamePos = 0;
 	lineNumber = 0;
@@ -252,7 +253,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 				Con_Reportf( "TextMessage: unexpected '}' found, line %d\n", lineNumber );
 				return;
 			}
-			Q_strcpy( currentName, trim );
+			Q_strncpy( currentName, trim, sizeof( currentName ));
 			break;
 		case MSGFILE_TEXT:
 			if( IsEndOfText( trim ))
@@ -266,7 +267,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 					return;
 				}
 
-				Q_strcpy( nameHeap + lastNamePos, currentName );
+				Q_strncpy( nameHeap + lastNamePos, currentName, sizeof( nameHeap ) - lastNamePos );
 
 				// terminate text in-place in the memory file
 				// (it's temporary memory that will be deleted)
@@ -329,15 +330,20 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 
 
 	// copy text & fixup pointers
+	textHeapSizeRemaining = textHeapSize;
 	pCurrentText = pNameHeap + nameHeapSize;
 
 	for( i = 0; i < messageCount; i++ )
 	{
+		size_t currentTextSize = Q_strlen( clgame.titles[i].pMessage ) + 1;
+
 		clgame.titles[i].pName = pNameHeap;			// adjust name pointer (parallel buffer)
-		Q_strcpy( pCurrentText, clgame.titles[i].pMessage );	// copy text over
+		Q_strncpy( pCurrentText, clgame.titles[i].pMessage, textHeapSizeRemaining );	// copy text over
 		clgame.titles[i].pMessage = pCurrentText;
+
 		pNameHeap += Q_strlen( pNameHeap ) + 1;
-		pCurrentText += Q_strlen( pCurrentText ) + 1;
+		pCurrentText += currentTextSize;
+		textHeapSizeRemaining -= currentTextSize;
 	}
 
 	if(( pCurrentText - (char *)clgame.titles ) != ( textHeapSize + nameHeapSize + messageSize ))

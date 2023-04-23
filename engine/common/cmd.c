@@ -1162,13 +1162,13 @@ void Cmd_ForwardToServer( void )
 	str[0] = 0;
 	if( Q_stricmp( Cmd_Argv( 0 ), "cmd" ))
 	{
-		Q_strcat( str, Cmd_Argv( 0 ));
-		Q_strcat( str, " " );
+		Q_strncat( str, Cmd_Argv( 0 ), sizeof( str ));
+		Q_strncat( str, " ", sizeof( str ));
 	}
 
 	if( Cmd_Argc() > 1 )
-		Q_strcat( str, Cmd_Args( ));
-	else Q_strcat( str, "\n" );
+		Q_strncat( str, Cmd_Args( ), sizeof( str ));
+	else Q_strncat( str, "\n", sizeof( str ));
 
 	MSG_WriteString( &cls.netchan.message, str );
 }

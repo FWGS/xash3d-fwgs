@@ -1119,8 +1119,8 @@ void Cvar_Set_f( void )
 		len = Q_strlen( Cmd_Argv(i) + 1 );
 		if( l + len >= MAX_CMD_TOKENS - 2 )
 			break;
-		Q_strcat( combined, Cmd_Argv( i ));
-		if( i != c-1 ) Q_strcat( combined, " " );
+		Q_strncat( combined, Cmd_Argv( i ), sizeof( combined ));
+		if( i != c-1 ) Q_strncat( combined, " ", sizeof( combined ));
 		l += len;
 	}
 

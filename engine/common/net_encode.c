@@ -793,7 +793,7 @@ static void Delta_InitFields( void )
 		pfile = COM_ParseFile( pfile, encodeDll, sizeof( encodeDll ));
 
 		if( !Q_stricmp( encodeDll, "none" ))
-			Q_strcpy( encodeFunc, "null" );
+			Q_strncpy( encodeFunc, "null", sizeof( encodeFunc ));
 		else pfile = COM_ParseFile( pfile, encodeFunc, sizeof( encodeFunc ));
 
 		// jump to '{'
