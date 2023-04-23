@@ -226,7 +226,7 @@ static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 	if( bmod->textures->dataofs[i] == -1 )
 		return NULL;
 
-	return (mip_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
+	return (mip_t *)((byte *)bmod->textures + LittleLong( bmod->textures->dataofs[i] ));
 }
 
 // Returns index of WAD that texture was found in, or -1 if not found.
@@ -1904,7 +1904,7 @@ static void Mod_LoadVertexes( dbspmodel_t *bmod )
 {
 	dvertex_t	*in;
 	mvertex_t	*out;
-	int	i;
+	int	i, j;
 
 	in = bmod->vertexes;
 	out = loadmodel->vertexes = Mem_Malloc( loadmodel->mempool, bmod->numvertexes * sizeof( mvertex_t ));
@@ -1916,7 +1916,15 @@ static void Mod_LoadVertexes( dbspmodel_t *bmod )
 	{
 		if( bmod->isworld )
 			AddPointToBounds( in->point, world.mins, world.maxs );
+#ifdef XASH_BIG_ENDIAN
+		for( int j = 0; j < 3; j++ )
+		{
+
+			out->position[j] = LittleFloat( in->point[j] );
+		}
+#elif
 		VectorCopy( in->point, out->position );
+#endif
 	}
 
 	if( !bmod->isworld ) return;
@@ -2150,8 +2158,8 @@ static void Mod_LoadTexture( dbspmodel_t *bmod, int textureIndex )
 	// Ensure texture name is lowercase.
 	Q_strnlwr( mipTex->name, texture->name, sizeof( texture->name ));
 
-	texture->width = mipTex->width;
-	texture->height = mipTex->height;
+	texture->width = LittleLong( mipTex->width );
+	texture->height = LittleLong( mipTex->height );
 
 	Mod_LoadTextureData( bmod, textureIndex );
 }
@@ -2317,6 +2325,7 @@ static void Mod_LoadTextures( dbspmodel_t *bmod )
 #endif
 
 	lump = bmod->textures;
+	LittleLongSW( lump->nummiptex );
 
 	if( bmod->texdatasize < 1 || !lump || lump->nummiptex < 1 )
 	{
