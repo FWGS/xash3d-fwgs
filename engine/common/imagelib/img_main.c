@@ -422,7 +422,8 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 			{
 				for( i = 0; i < 6; i++ )
 				{
-					Q_sprintf( path, format->formatstring, savename, box[i].suf, format->ext );
+					Q_snprintf( path, sizeof( path ),
+						format->formatstring, savename, box[i].suf, format->ext );
 					if( !format->savefunc( path, pix )) break; // there were errors
 					pix->buffer += pix->size; // move pointer
 				}
@@ -444,7 +445,8 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 		{
 			if( !Q_stricmp( ext, format->ext ))
 			{
-				Q_sprintf( path, format->formatstring, savename, "", format->ext );
+				Q_snprintf( path, sizeof( path ),
+					format->formatstring, savename, "", format->ext );
 				if( format->savefunc( path, pix ))
 				{
 					// clear any force flags

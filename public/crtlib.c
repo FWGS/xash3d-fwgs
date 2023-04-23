@@ -490,18 +490,6 @@ int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... )
 	return result;
 }
 
-int Q_sprintf( char *buffer, const char *format, ... )
-{
-	va_list	args;
-	int	result;
-
-	va_start( args, format );
-	result = Q_vsnprintf( buffer, 99999, format, args );
-	va_end( args );
-
-	return result;
-}
-
 void COM_StripColors( const char *in, char *out )
 {
 	while ( *in )
@@ -530,14 +518,14 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	if( value > onemb )
 	{
 		value /= onemb;
-		Q_strcpy( suffix, " Mb" );
+		Q_strncpy( suffix, " Mb", sizeof( suffix ));
 	}
 	else if( value > onekb )
 	{
 		value /= onekb;
-		Q_strcpy( suffix, " Kb" );
+		Q_strncpy( suffix, " Kb", sizeof( suffix ));
 	}
-	else Q_strcpy( suffix, " bytes" );
+	else Q_strncpy( suffix, " bytes", sizeof( suffix ));
 
 	// clamp to >= 0
 	digitsafterdecimal = Q_max( digitsafterdecimal, 0 );
@@ -545,15 +533,15 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	// if it's basically integral, don't do any decimals
 	if( fabs( value - (int)value ) < 0.00001f )
 	{
-		Q_sprintf( val, "%i%s", (int)value, suffix );
+		Q_snprintf( val, sizeof( val ), "%i%s", (int)value, suffix );
 	}
 	else
 	{
 		char fmt[32];
 
 		// otherwise, create a format string for the decimals
-		Q_sprintf( fmt, "%%.%if%s", digitsafterdecimal, suffix );
-		Q_sprintf( val, fmt, (double)value );
+		Q_snprintf( fmt, sizeof( fmt ), "%%.%if%s", digitsafterdecimal, suffix );
+		Q_snprintf( val, sizeof( val ), fmt, (double)value );
 	}
 
 	// copy from in to out
