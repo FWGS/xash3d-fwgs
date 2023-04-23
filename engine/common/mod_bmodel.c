@@ -1878,7 +1878,7 @@ static void Mod_LoadPlanes( dbspmodel_t *bmod )
 		out->signbits = 0;
 		for( j = 0; j < 3; j++ )
 		{
-			out->normal[j] = in->normal[j];
+			out->normal[j] = LittleFloat( in->normal[j] );
 
 			if( out->normal[j] < 0.0f )
 				SetBits( out->signbits, BIT( j ));
@@ -1887,8 +1887,8 @@ static void Mod_LoadPlanes( dbspmodel_t *bmod )
 		if( VectorLength( out->normal ) < 0.5f )
 			Con_Printf( S_ERROR "bad normal for plane #%i\n", i );
 
-		out->dist = in->dist;
-		out->type = in->type;
+		out->dist = LittleFloat( in->dist );
+		out->type = LittleLong (in->type );
 	}
 }
 
