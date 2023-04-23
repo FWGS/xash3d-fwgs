@@ -142,7 +142,7 @@ static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 
 	if( !p )
 	{
-		Q_strcpy( szpath, "vox/" );
+		Q_strncpy( szpath, "vox/", nsize );
 		return psz;
 	}
 
