@@ -1711,6 +1711,9 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 	{
 		for( j = 0; j < 3; j++ )
 		{
+			in->mins[j] = LittleFloat( in->mins[j] );
+			in->maxs[j] = LittleFloat( in->maxs[j] );
+
 			// reset empty bounds to prevent error
 			if( in->mins[j] == 999999.0f )
 				in->mins[j] = 0.0f;
@@ -1720,15 +1723,15 @@ static void Mod_LoadSubmodels( dbspmodel_t *bmod )
 			// spread the mins / maxs by a unit
 			out->mins[j] = in->mins[j] - 1.0f;
 			out->maxs[j] = in->maxs[j] + 1.0f;
-			out->origin[j] = in->origin[j];
+			out->origin[j] = LittleFloat( in->origin[j] );
 		}
 
 		for( j = 0; j < MAX_MAP_HULLS; j++ )
-			out->headnode[j] = in->headnode[j];
+			out->headnode[j] = LittleLong( in->headnode[j] );
 
-		out->visleafs = in->visleafs;
-		out->firstface = in->firstface;
-		out->numfaces = in->numfaces;
+		out->visleafs = LittleLong( in->visleafs );
+		out->firstface = LittleLong( in->firstface );
+		out->numfaces = LittleLong( in->numfaces );
 
 		if( i == 0 && bmod->isworld )
 			continue; // skip the world to save mem
