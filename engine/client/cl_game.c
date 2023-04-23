@@ -3368,8 +3368,7 @@ void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double
 			nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
 
 		// grab the list from the master server
-		Q_strcpy( &fullquery[22], GI->gamefolder );
-		NET_SendPacket( NS_CLIENT, Q_strlen( GI->gamefolder ) + 23, fullquery, nr->resp.remote_address );
+		NET_SendPacket( NS_CLIENT, len, fullquery, nr->resp.remote_address );
 		clgame.request_type = NET_REQUEST_CLIENT;
 		clgame.master_request = nr; // holds the master request unitl the master acking
 	}
