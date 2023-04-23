@@ -1050,8 +1050,8 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 		remaining[0] = 0;
 		for( i = 2; i < Cmd_Argc(); i++ )
 		{
-			Q_strcat( remaining, Cmd_Argv( i ));
-			Q_strcat( remaining, " " );
+			Q_strncat( remaining, Cmd_Argv( i ), sizeof( remaining ));
+			Q_strncat( remaining, " ", sizeof( remaining ));
 		}
 		Cmd_ExecuteString( remaining );
 	}
@@ -3384,8 +3384,8 @@ void SV_ParseCvarValue2( sv_client_t *cl, sizebuf_t *msg )
 	string	name, value;
 	int	requestID = MSG_ReadLong( msg );
 
-	Q_strcpy( name, MSG_ReadString( msg ));
-	Q_strcpy( value, MSG_ReadString( msg ));
+	Q_strncpy( name, MSG_ReadString( msg ), sizeof( name ));
+	Q_strncpy( value, MSG_ReadString( msg ), sizeof( value ));
 
 	if( svgame.dllFuncs2.pfnCvarValue2 != NULL )
 		svgame.dllFuncs2.pfnCvarValue2( cl->edict, requestID, name, value );

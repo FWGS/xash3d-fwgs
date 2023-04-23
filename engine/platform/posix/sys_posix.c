@@ -50,11 +50,12 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 			needTrailingSlash = ( envPath[length - 1] == '/' ) ? 0 : 1;
 			if( length + baseNameLength + needTrailingSlash < size )
 			{
-				Q_strncpy( buf, envPath, length + 1 );
-				if( needTrailingSlash )
-					Q_strcpy( buf + length, "/" );
-				Q_strcpy( buf + length + needTrailingSlash, baseName );
-				buf[length + needTrailingSlash + baseNameLength] = '\0';
+				string temp;
+
+				Q_strncpy( temp, envPath, length + 1 );
+				Q_snprintf( buf, size, "%s%s%s",
+					temp, needTrailingSlash ? "/" : "", baseName );
+
 				if( access( buf, X_OK ) == 0 )
 					return true;
 			}
