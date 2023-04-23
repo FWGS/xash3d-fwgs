@@ -34,7 +34,7 @@ void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... )
 		return;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	MSG_BeginServerCmd( &cl->netchan.message, svc_print );
@@ -56,7 +56,7 @@ void SV_BroadcastPrintf( sv_client_t *ignore, const char *fmt, ... )
 	int		i;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	if( sv.state == ss_active )
@@ -97,7 +97,7 @@ void SV_BroadcastCommand( const char *fmt, ... )
 		return;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	MSG_BeginServerCmd( &sv.reliable_datagram, svc_stufftext );
