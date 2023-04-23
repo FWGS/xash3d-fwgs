@@ -769,7 +769,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	recursive = true;
 	Q_strncpy( hosterror2, hosterror1, MAX_SYSPATH );
 	host.errorframe = host.framecount; // to avoid multply calls per frame
-	Q_sprintf( host.finalmsg, "Server crashed: %s", hosterror1 );
+	Q_snprintf( host.finalmsg, sizeof( host.finalmsg ), "Server crashed: %s", hosterror1 );
 
 	// clearing cmd buffer to prevent execute any commands
 	COM_InitHostState();
