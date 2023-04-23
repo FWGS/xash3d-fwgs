@@ -110,7 +110,7 @@ static const char *FindActivityName( int type )
 GetMotionTypeString
 ============
 */
-static void GetMotionTypeString( int type, char *str, qboolean is_composite )
+static void GetMotionTypeString( int type, char *str, size_t size, qboolean is_composite )
 {
 	const char	*p = NULL;
 
@@ -119,46 +119,46 @@ static void GetMotionTypeString( int type, char *str, qboolean is_composite )
 	if( is_composite )
 	{
 		if( type & STUDIO_X )
-			Q_strcat( str, " X" );
+			Q_strncat( str, " X", size );
 
 		if( type & STUDIO_Y )
-			Q_strcat( str, " Y" );
+			Q_strncat( str, " Y", size );
 
 		if( type & STUDIO_Z )
-			Q_strcat( str, " Z" );
+			Q_strncat( str, " Z", size );
 
 		if( type & STUDIO_XR )
-			Q_strcat( str, " XR" );
+			Q_strncat( str, " XR", size );
 
 		if( type & STUDIO_YR )
-			Q_strcat( str, " YR" );
+			Q_strncat( str, " YR", size );
 
 		if( type & STUDIO_ZR )
-			Q_strcat( str, " ZR" );
+			Q_strncat( str, " ZR", size );
 
 		if( type & STUDIO_LX )
-			Q_strcat( str, " LX" );
+			Q_strncat( str, " LX", size );
 
 		if( type & STUDIO_LY )
-			Q_strcat( str, " LY" );
+			Q_strncat( str, " LY", size );
 
 		if( type & STUDIO_LZ )
-			Q_strcat( str, " LZ" );
+			Q_strncat( str, " LZ", size );
 
 		if( type & STUDIO_LXR )
-			Q_strcat( str, " LXR" );
+			Q_strncat( str, " LXR", size );
 
 		if( type & STUDIO_LYR )
-			Q_strcat( str, " LYR" );
+			Q_strncat( str, " LYR", size );
 
 		if( type & STUDIO_LZR )
-			Q_strcat( str, " LZR" );
+			Q_strncat( str, " LZR", size );
 
 		if( type & STUDIO_LINEAR )
-			Q_strcat( str, " LM" );
+			Q_strncat( str, " LM", size );
 
 		if( type & STUDIO_QUADRATIC_MOTION )
-			Q_strcat( str, " LQ" );
+			Q_strncat( str, " LQ", size );
 
 		return;
 	}
@@ -185,7 +185,7 @@ static void GetMotionTypeString( int type, char *str, qboolean is_composite )
 	}
 
 	if( p )
-		Q_strcpy( str, p );
+		Q_strncpy( str, p, size );
 }
 
 /*
@@ -380,7 +380,7 @@ static void WriteControllerInfo( FILE *fp )
 		bonecontroller = (mstudiobonecontroller_t *)( (byte *)model_hdr + model_hdr->bonecontrollerindex ) + i;
 		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + bonecontroller->bone;
 
-		GetMotionTypeString( bonecontroller->type & ~STUDIO_RLOOP, motion_types, false );
+		GetMotionTypeString( bonecontroller->type & ~STUDIO_RLOOP, motion_types, sizeof( motion_types ), false );
 
 		fprintf( fp, "$controller %i \"%s\" %s %f %f\n",
 		    bonecontroller->index, bone->name, motion_types,
@@ -464,7 +464,7 @@ static void WriteSequenceInfo( FILE *fp )
 				fprintf( fp, "\"%s_blend2\" ", seqdesc->label );
 			}
 
-			GetMotionTypeString( seqdesc->blendtype[0], motion_types, false );
+			GetMotionTypeString( seqdesc->blendtype[0], motion_types, sizeof( motion_types ), false );
 
 			fprintf( fp, "blend %s %.0f %.0f",
 			    motion_types, seqdesc->blendstart[0], seqdesc->blendend[0] );
@@ -476,7 +476,7 @@ static void WriteSequenceInfo( FILE *fp )
 
 		if( seqdesc->motiontype )
 		{
-			GetMotionTypeString( seqdesc->motiontype, motion_types, true );
+			GetMotionTypeString( seqdesc->motiontype, motion_types, sizeof( motion_types ), true );
 
 			fprintf( fp, "%s", motion_types );
 		}
