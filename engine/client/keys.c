@@ -434,8 +434,8 @@ void Key_Bind_f( void )
 
 	for( i = 2; i < c; i++ )
 	{
-		Q_strcat( cmd, Cmd_Argv( i ));
-		if( i != ( c - 1 )) Q_strcat( cmd, " " );
+		Q_strncat( cmd, Cmd_Argv( i ), sizeof( cmd ));
+		if( i != ( c - 1 )) Q_strncat( cmd, " ", sizeof( cmd ));
 	}
 
 	Key_SetBinding( b, cmd );
@@ -541,8 +541,8 @@ void Key_AddKeyCommands( int key, const char *kb, qboolean down )
 			if( button[0] == '+' )
 			{
 				// button commands add keynum as a parm
-				if( down ) Q_sprintf( cmd, "%s %i\n", button, key );
-				else Q_sprintf( cmd, "-%s %i\n", button + 1, key );
+				if( down ) Q_snprintf( cmd, sizeof( cmd ), "%s %i\n", button, key );
+				else Q_snprintf( cmd, sizeof( cmd ), "-%s %i\n", button + 1, key );
 				Cbuf_AddText( cmd );
 			}
 			else if( down )

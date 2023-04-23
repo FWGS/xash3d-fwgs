@@ -119,7 +119,7 @@ void R_NewMap( void )
 
 		Q_strncpy( mapname, WORLDMODEL->name, sizeof( mapname ));
 		COM_StripExtension( mapname );
-		Q_sprintf( filepath, "%s_detail.txt", mapname );
+		Q_snprintf( filepath, sizeof( filepath ), "%s_detail.txt", mapname );
 
 		R_ParseDetailTextures( filepath );
 	}

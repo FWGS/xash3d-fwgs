@@ -564,7 +564,7 @@ int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBuffer, i
 	// models\barney.mdl - D:\Xash3D\bshift\models\barney.mdl
 	if(( path = FS_GetDiskPath( fileName, false )) != NULL )
 	{
-		Q_sprintf( result, "%s/%s", host.rootdir, path );
+		Q_snprintf( result, sizeof( result ), "%s/%s", host.rootdir, path );
 
 		// check for enough room
 		if( Q_strlen( result ) > nameOutBufferSize )

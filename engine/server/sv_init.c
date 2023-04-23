@@ -997,7 +997,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	for( i = WORLD_INDEX; i < sv.worldmodel->numsubmodels; i++ )
 	{
-		Q_sprintf( sv.model_precache[i+1], "*%i", i );
+		Q_snprintf( sv.model_precache[i+1], sizeof( sv.model_precache[i+1] ), "*%i", i );
 		sv.models[i+1] = Mod_ForName( sv.model_precache[i+1], false, false );
 		SetBits( sv.model_precache_flags[i+1], RES_FATALIFMISSING );
 	}

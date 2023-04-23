@@ -145,7 +145,7 @@ void CL_PlayCDTrack_f( void )
 CL_ScreenshotGetName
 ==================
 */
-qboolean CL_ScreenshotGetName( int lastnum, char *filename )
+static qboolean CL_ScreenshotGetName( int lastnum, char *filename, size_t size )
 {
 	if( lastnum < 0 || lastnum > 9999 )
 	{
@@ -153,9 +153,7 @@ qboolean CL_ScreenshotGetName( int lastnum, char *filename )
 		return false;
 	}
 
-	Q_sprintf( filename, "scrshots/%s_shot%04d.png", clgame.mapname, lastnum );
-
-	return true;
+	return Q_snprintf( filename, size, "scrshots/%s_shot%04d.png", clgame.mapname, lastnum ) > 0;
 }
 
 /*
@@ -163,7 +161,7 @@ qboolean CL_ScreenshotGetName( int lastnum, char *filename )
 CL_SnapshotGetName
 ==================
 */
-qboolean CL_SnapshotGetName( int lastnum, char *filename )
+static qboolean CL_SnapshotGetName( int lastnum, char *filename, size_t size )
 {
 	if( lastnum < 0 || lastnum > 9999 )
 	{
@@ -172,9 +170,7 @@ qboolean CL_SnapshotGetName( int lastnum, char *filename )
 		return false;
 	}
 
-	Q_sprintf( filename, "../%s_%04d.png", clgame.mapname, lastnum );
-
-	return true;
+	return Q_snprintf( filename, size, "../%s_%04d.png", clgame.mapname, lastnum ) > 0;
 }
 
 /*
@@ -207,7 +203,7 @@ void CL_ScreenShot_f( void )
 		// scan for a free filename
 		for( i = 0; i < 9999; i++ )
 		{
-			if( !CL_ScreenshotGetName( i, checkname ))
+			if( !CL_ScreenshotGetName( i, checkname, sizeof( checkname )))
 				return;	// no namespace
 
 			if( !FS_FileExists( checkname, false ))
@@ -247,7 +243,7 @@ void CL_SnapShot_f( void )
 		// scan for a free filename
 		for( i = 0; i < 9999; i++ )
 		{
-			if( !CL_SnapshotGetName( i, checkname ))
+			if( !CL_SnapshotGetName( i, checkname, sizeof( checkname )))
 				return;	// no namespace
 
 			if( !FS_FileExists( checkname, false ))
@@ -278,7 +274,7 @@ void CL_EnvShot_f( void )
 		return;
 	}
 
-	Q_sprintf( cls.shotname, "gfx/env/%s", Cmd_Argv( 1 ));
+	Q_snprintf( cls.shotname, sizeof( cls.shotname ), "gfx/env/%s", Cmd_Argv( 1 ));
 	cls.scrshot_action = scrshot_envshot;	// build new frame for envshot
 	cls.envshot_vieworg = NULL; // no custom view
 	cls.envshot_viewsize = 0;
@@ -299,7 +295,7 @@ void CL_SkyShot_f( void )
 		return;
 	}
 
-	Q_sprintf( cls.shotname, "gfx/env/%s", Cmd_Argv( 1 ));
+	Q_snprintf( cls.shotname, sizeof( cls.shotname ),"gfx/env/%s", Cmd_Argv( 1 ));
 	cls.scrshot_action = scrshot_skyshot;	// build new frame for skyshot
 	cls.envshot_vieworg = NULL; // no custom view
 	cls.envshot_viewsize = 0;
@@ -323,7 +319,8 @@ void CL_LevelShot_f( void )
 	// check for exist
 	if( cls.demoplayback && ( cls.demonum != -1 ))
 	{
-		Q_sprintf( cls.shotname, "levelshots/%s_%s.bmp", cls.demoname, refState.wideScreen ? "16x9" : "4x3" );
+		Q_snprintf( cls.shotname, sizeof( cls.shotname ),
+			"levelshots/%s_%s.bmp", cls.demoname, refState.wideScreen ? "16x9" : "4x3" );
 		Q_snprintf( filename, sizeof( filename ), "%s.dem", cls.demoname );
 
 		// make sure what levelshot is newer than demo
@@ -332,7 +329,8 @@ void CL_LevelShot_f( void )
 	}
 	else
 	{
-		Q_sprintf( cls.shotname, "levelshots/%s_%s.bmp", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" );
+		Q_snprintf( cls.shotname, sizeof( cls.shotname ),
+			"levelshots/%s_%s.bmp", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" );
 
 		// make sure what levelshot is newer than bsp
 		ft1 = FS_FileTime( cl.worldmodel->name, false );
@@ -360,7 +358,7 @@ void CL_SaveShot_f( void )
 		return;
 	}
 
-	Q_sprintf( cls.shotname, DEFAULT_SAVE_DIRECTORY "%s.bmp", Cmd_Argv( 1 ));
+	Q_snprintf( cls.shotname, sizeof( cls.shotname ), DEFAULT_SAVE_DIRECTORY "%s.bmp", Cmd_Argv( 1 ));
 	cls.scrshot_action = scrshot_savegame;	// build new frame for saveshot
 }
 
