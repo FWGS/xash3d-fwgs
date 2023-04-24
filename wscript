@@ -346,10 +346,10 @@ def configure(conf):
 	conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
 
 	# check if we can use alloca.h or malloc.h
-	if conf.check_cc(header_name='alloca.h', mandatory=False):
-		conf.define('ALLOCA_H', 'alloca.h')
-	elif conf.check_cc(header_name='malloc.h', mandatory=False):
-		conf.define('ALLOCA_H', 'malloc.h')
+	for hdr in ['malloc.h', 'alloca.h']:
+		if conf.check_cc(header_name=hdr, mandatory=False):
+			conf.define('ALLOCA_H', hdr)
+			break
 
 	if conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
