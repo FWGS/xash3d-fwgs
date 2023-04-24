@@ -10,6 +10,7 @@ import os
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
 top = '.'
+default_prefix = '/' # Waf uses it to set default prefix
 
 Context.Context.line_just = 55 # should fit for everything on 80x26
 
@@ -427,12 +428,14 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 		check_gnu_function(strchrnul_frag, 'Checking for strchrnul', 'HAVE_STRCHRNUL')
 
 	# indicate if we are packaging for Linux/BSD
+	conf.env.PACKAGING = conf.options.PACKAGING
 	if conf.options.PACKAGING:
+		conf.env.PREFIX = conf.options.prefix
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.LIBDIR + '/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if sys.platform != 'win32' and conf.env.DEST_OS != 'android':
-			conf.env.PREFIX = '/'
+		if conf.options.prefix != default_prefix:
+			conf.fatal('--prefix option makes no sense without --enable-packaging!')
 
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
@@ -457,6 +460,10 @@ int main(void){ return !opus_custom_encoder_init(0, 0, 0); }''', fatal = False):
 		conf.add_subproject(i.name)
 
 def build(bld):
+	# guard rails to not let install to root
+	if bld.is_install and not bld.options.PACKAGING and not bld.options.destdir:
+		bld.fatal('Set the install destination directory using --destdir option')
+
 	# don't clean QtCreator files and reconfigure saved options
 	bld.clean_files = bld.bldnode.ant_glob('**',
 		excl='*.user configuration.py .lock* *conf_check_*/** config.log %s/*' % Build.CACHE_DIR,
