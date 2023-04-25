@@ -434,9 +434,6 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 		conf.env.LIBDIR = conf.env.BINDIR = conf.env.LIBDIR + '/xash3d'
 		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
 	else:
-		if conf.options.prefix != default_prefix:
-			conf.fatal('--prefix option makes no sense without --enable-packaging!')
-
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
