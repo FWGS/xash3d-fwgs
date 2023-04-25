@@ -6,7 +6,9 @@ build_hlsdk()
 {
 	echo "Building HLSDK: $1 branch..."
 	git checkout $1
-	./waf configure -T release --nswitch || die_configure
+
+	# This is not our bug if HLSDK doesn't build with -Werrors enabled
+	./waf configure -T release --nswitch --disable-werror || die_configure
 	./waf build install --destdir=../pkgtemp/xash3d || die
 }
 

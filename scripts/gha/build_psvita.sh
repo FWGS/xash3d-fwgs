@@ -6,7 +6,9 @@ build_hlsdk()
 {
 	echo "Building HLSDK: $1 branch..."
 	git checkout $1
-	./waf configure -T release --psvita || die_configure
+
+	# This is not our bug if HLSDK doesn't build with -Werrors enabled
+	./waf configure -T release --psvita --disable-werror || die_configure
 	./waf build install --destdir=../pkgtemp/data/xash3d || die
 }
 
