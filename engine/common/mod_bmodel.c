@@ -1767,7 +1767,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 
 		// world is check for entfile too
 		Q_strncpy( entfilename, loadmodel->name, sizeof( entfilename ));
-		COM_ReplaceExtension( entfilename, ".ent" );
+		COM_ReplaceExtension( entfilename, ".ent", sizeof( entfilename ));
 
 		// make sure what entity patch is never than bsp
 		ft1 = FS_FileTime( loadmodel->name, false );
