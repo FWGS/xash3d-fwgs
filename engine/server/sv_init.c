@@ -973,7 +973,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	if( svs.maxclients == 1 ) Cvar_SetValue( "sv_clienttrace", 1 );
 
 	// make sure what server name doesn't contain path and extension
-	COM_FileBase( mapname, sv.name );
+	COM_FileBase( mapname, sv.name, sizeof( sv.name ));
 
 	// precache and static commands can be issued during map initialization
 	Host_SetServerState( ss_loading );
