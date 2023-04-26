@@ -27,6 +27,7 @@ def build(bld):
 		tests = {
 			'strings': 'tests/test_strings.c',
 			'build': 'tests/test_build.c',
+			'filebase': 'tests/test_filebase.c',
 		}
 
 		for i in tests:
