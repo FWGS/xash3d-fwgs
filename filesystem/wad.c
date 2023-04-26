@@ -463,16 +463,20 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 	COM_ExtractFilePath( path, wadname );
 	wadfolder[0] = '\0';
 
-	if( COM_CheckStringEmpty( wadname ) )
+	if( COM_CheckStringEmpty( wadname ))
 	{
-		COM_FileBase( wadname, wadname );
-		Q_strncpy( wadfolder, wadname, sizeof( wadfolder ));
-		COM_DefaultExtension( wadname, ".wad" );
+		string wadbasename;
+
+		COM_FileBase( wadname, wadbasename, sizeof( wadbasename ));
+
+		Q_strncpy( wadfolder, wadbasename, sizeof( wadfolder ));
+		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", wadbasename );
+
 		anywadname = false;
 	}
 
 	// make wadname from wad fullpath
-	COM_FileBase( search->filename, shortname );
+	COM_FileBase( search->filename, shortname, sizeof( shortname ));
 	COM_DefaultExtension( shortname, ".wad" );
 
 	// quick reject by wadname
@@ -481,7 +485,7 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 
 	// NOTE: we can't using long names for wad,
 	// because we using original wad names[16];
-	COM_FileBase( path, shortname );
+	COM_FileBase( path, shortname, sizeof( shortname ));
 
 	lump = W_FindLump( search->wad, shortname, type );
 
@@ -516,19 +520,22 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 		return;
 
 	COM_ExtractFilePath( pattern, wadname );
-	COM_FileBase( pattern, wadpattern );
+	COM_FileBase( pattern, wadpattern, sizeof( wadpattern ));
 	wadfolder[0] = '\0';
 
 	if( COM_CheckStringEmpty( wadname ))
 	{
-		COM_FileBase( wadname, wadname );
-		Q_strncpy( wadfolder, wadname, sizeof( wadfolder ));
-		COM_DefaultExtension( wadname, ".wad" );
+		string wadbasename;
+
+		COM_FileBase( wadname, wadbasename, sizeof( wadbasename ));
+
+		Q_strncpy( wadfolder, wadbasename, sizeof( wadfolder ));
+		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", wadbasename );
 		anywadname = false;
 	}
 
 	// make wadname from wad fullpath
-	COM_FileBase( search->filename, temp2 );
+	COM_FileBase( search->filename, temp2, sizeof( temp2 ));
 	COM_DefaultExtension( temp2, ".wad" );
 
 	// quick reject by wadname
