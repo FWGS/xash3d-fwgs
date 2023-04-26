@@ -1,6 +1,7 @@
 /*
 crtlib.c - internal stdlib
 Copyright (C) 2011 Uncle Mike
+Copyright (c) QuakeSpasm contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -578,40 +579,37 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 COM_FileBase
 
 Extracts the base name of a file (no path, no extension, assumes '/' as path separator)
+a1ba: adapted and simplified version from QuakeSpasm
 ============
 */
-void COM_FileBase( const char *in, char *out )
+void COM_FileBase( const char *in, char *out, size_t size )
 {
-	int	len, start, end;
+	const char *dot, *slash, *s;
+	size_t len;
 
-	len = Q_strlen( in );
-	if( !len ) return;
+	if( unlikely( !COM_CheckString( in ) || size <= 1 ))
+	{
+		out[0] = 0;
+		return;
+	}
 
-	// scan backward for '.'
-	end = len - 1;
+	slash = in;
+	dot = NULL;
+	for( s = in; *s; s++ )
+	{
+		if( *s == '/' || *s == '\\' )
+			slash = s + 1;
 
-	while( end && in[end] != '.' && in[end] != '/' && in[end] != '\\' )
-		end--;
+		if( *s == '.' )
+			dot = s;
+	}
 
-	if( in[end] != '.' )
-		end = len-1; // no '.', copy to end
-	else end--; // found ',', copy to left of '.'
+	if( dot == NULL || dot < slash )
+		dot = s;
 
-	// scan backward for '/'
-	start = len - 1;
+	len = Q_min( size - 1, dot - slash );
 
-	while( start >= 0 && in[start] != '/' && in[start] != '\\' )
-		start--;
-
-	if( start < 0 || ( in[start] != '/' && in[start] != '\\' ))
-		start = 0;
-	else start++;
-
-	// length of new sting
-	len = end - start + 1;
-
-	// Copy partial string
-	Q_strncpy( out, &in[start], len + 1 );
+	memcpy( out, slash, len );
 	out[len] = 0;
 }
 
