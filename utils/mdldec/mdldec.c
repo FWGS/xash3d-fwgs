@@ -244,7 +244,7 @@ static qboolean LoadMDL( const char *modelname )
 		}
 	}
 
-	COM_FileBase( modelname, modelfile );
+	COM_FileBase( modelname, modelfile, sizeof( modelfile ));
 
 	SequenceNameFix();
 
