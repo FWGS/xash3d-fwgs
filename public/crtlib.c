@@ -714,7 +714,7 @@ void COM_StripExtension( char *path )
 COM_DefaultExtension
 ==================
 */
-void COM_DefaultExtension( char *path, const char *extension )
+void COM_DefaultExtension( char *path, const char *extension, size_t size )
 {
 	const char	*src;
 	size_t		 len;
@@ -731,7 +731,7 @@ void COM_DefaultExtension( char *path, const char *extension )
 		src--;
 	}
 
-	Q_strcpy( &path[len], extension );
+	Q_strncpy( &path[len], extension, size - len );
 }
 
 /*
@@ -739,10 +739,10 @@ void COM_DefaultExtension( char *path, const char *extension )
 COM_ReplaceExtension
 ==================
 */
-void COM_ReplaceExtension( char *path, const char *extension )
+void COM_ReplaceExtension( char *path, const char *extension, size_t size )
 {
 	COM_StripExtension( path );
-	COM_DefaultExtension( path, extension );
+	COM_DefaultExtension( path, extension, size );
 }
 
 /*
