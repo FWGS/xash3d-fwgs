@@ -329,7 +329,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 		{
 			model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
-			COM_FileBase( model->name, modelname );
+			COM_FileBase( model->name, modelname, sizeof( modelname ));
 
 			fprintf( fp, "$body \"%s\" \"%s\"\n\n", bodypart->name, modelname );
 			continue;
@@ -349,7 +349,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 				continue;
 			}
 
-			COM_FileBase( model->name, modelname );
+			COM_FileBase( model->name, modelname, sizeof( modelname ));
 
 			fprintf( fp, "studio \"%s\"\n", modelname );
 		}

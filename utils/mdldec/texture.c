@@ -39,7 +39,7 @@ static void WriteBMP( mstudiotexture_t *texture )
 	bmp_t		 bmp_hdr = {0,};
 	size_t		 texture_size;
 
-	COM_FileBase( texture->name, texturename );
+	COM_FileBase( texture->name, texturename, sizeof( texturename ));
 	len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.bmp", destdir, texturename );
 
 	if( len == -1 )
