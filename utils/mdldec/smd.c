@@ -465,7 +465,7 @@ static void WriteReferences( void )
 			if( !Q_strncmp( model->name, "blank", 5 ) )
 				continue;
 
-			COM_FileBase( model->name, name );
+			COM_FileBase( model->name, name, sizeof( name ));
 
 			len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.smd", destdir, name );
 
