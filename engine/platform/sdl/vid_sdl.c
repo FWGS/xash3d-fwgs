@@ -736,9 +736,8 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	if( !iconLoaded )
 	{
-		Q_strcpy( iconpath, GI->iconpath );
-		COM_StripExtension( iconpath );
-		COM_DefaultExtension( iconpath, ".tga" );
+		Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
+		COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
 
 		icon = FS_LoadImage( iconpath, NULL, 0 );
 
