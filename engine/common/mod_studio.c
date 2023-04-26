@@ -429,7 +429,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 	{
 		string	filepath, modelname, modelpath;
 
-		COM_FileBase( m_pSubModel->name, modelname );
+		COM_FileBase( m_pSubModel->name, modelname, sizeof( modelname ));
 		COM_ExtractFilePath( m_pSubModel->name, modelpath );
 
 		// NOTE: here we build real sub-animation filename because stupid user may rename model without recompile
