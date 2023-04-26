@@ -79,15 +79,14 @@ const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *need
 const char *Q_timestamp( int format );
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
-int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
 #define Q_strpbrk strpbrk
 void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
 void COM_FileBase( const char *in, char *out, size_t size );
 const char *COM_FileExtension( const char *in );
-void COM_DefaultExtension( char *path, const char *extension );
-void COM_ReplaceExtension( char *path, const char *extension );
+void COM_DefaultExtension( char *path, const char *extension, size_t size );
+void COM_ReplaceExtension( char *path, const char *extension, size_t size );
 void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
