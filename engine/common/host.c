@@ -509,7 +509,7 @@ qboolean Host_RegisterDecal( const char *name, int *count )
 	if( !COM_CheckString( name ))
 		return 0;
 
-	COM_FileBase( name, shortname );
+	COM_FileBase( name, shortname, sizeof( shortname ));
 
 	for( i = 1; i < MAX_DECALS && host.draw_decals[i][0]; i++ )
 	{

@@ -157,7 +157,7 @@ void CL_UpdateStudioTexture( cl_entity_t *entity, mstudiotexture_t *ptexture, in
 
 	// build name of original texture
 	Q_strncpy( mdlname, entity->model->name, sizeof( mdlname ));
-	COM_FileBase( ptexture->name, name );
+	COM_FileBase( ptexture->name, name, sizeof( name ));
 	COM_StripExtension( mdlname );
 
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
