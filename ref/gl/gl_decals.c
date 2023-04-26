@@ -1188,7 +1188,7 @@ int R_CreateDecalList( decallist_t *pList )
 			pList[total].scale = decal->scale;
 
 			R_DecalUnProject( decal, &pList[total] );
-			COM_FileBase( R_GetTexture( decal->texture )->name, pList[total].name );
+			COM_FileBase( R_GetTexture( decal->texture )->name, pList[total].name, sizeof( pList[total].name ));
 
 			// check to see if the decal should be added
 			total = DecalListAdd( pList, total );

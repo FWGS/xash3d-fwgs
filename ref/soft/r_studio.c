@@ -3537,7 +3537,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	}
 
 	Q_strncpy( mdlname, mod->name, sizeof( mdlname ));
-	COM_FileBase( ptexture->name, name );
+	COM_FileBase( ptexture->name, name, sizeof( name ));
 	COM_StripExtension( mdlname );
 
 	if( FBitSet( ptexture->flags, STUDIO_NF_NOMIPS ))

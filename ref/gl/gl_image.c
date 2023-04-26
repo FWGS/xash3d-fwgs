@@ -1587,7 +1587,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 	// create complexname from layer names
 	for( i = 0; i < numLayers - 1; i++ )
 	{
-		COM_FileBase( names[i], basename );
+		COM_FileBase( names[i], basename, sizeof( basename ));
 		ret = Q_snprintf( &name[len], sizeof( name ) - len, "%s|", basename );
 
 		if( ret == -1 )
@@ -1596,7 +1596,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 		len += ret;
 	}
 	
-	COM_FileBase( names[i], basename );
+	COM_FileBase( names[i], basename, sizeof( basename ));
 	ret = Q_snprintf( &name[len], sizeof( name ) - len, "%s[%i]", basename, numLayers );
 
 	if( ret == -1 )
