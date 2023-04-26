@@ -340,7 +340,7 @@ void SV_CreateGenericResources( void )
 	string	filename;
 
 	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
-	COM_ReplaceExtension( filename, ".res" );
+	COM_ReplaceExtension( filename, ".res", sizeof( filename ));
 	COM_FixSlashes( filename );
 
 	SV_ReadResourceList( filename );

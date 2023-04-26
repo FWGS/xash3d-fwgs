@@ -973,7 +973,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
 	Q_strncpy( compressedfilename, filename, sizeof( compressedfilename ));
-	COM_ReplaceExtension( compressedfilename, ".ztmp" );
+	COM_ReplaceExtension( compressedfilename, ".ztmp", sizeof( compressedfilename ));
 	compressedFileTime = FS_FileTime( compressedfilename, false );
 	fileTime = FS_FileTime( filename, false );
 
@@ -1559,7 +1559,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 						char	compressedfilename[MAX_OSPATH];
 
 						Q_strncpy( compressedfilename, pbuf->filename, sizeof( compressedfilename ));
-						COM_ReplaceExtension( compressedfilename, ".ztmp" );
+						COM_ReplaceExtension( compressedfilename, ".ztmp", sizeof( compressedfilename ));
 						file = FS_Open( compressedfilename, "rb", false );
 					}
 					else file = FS_Open( pbuf->filename, "rb", false );

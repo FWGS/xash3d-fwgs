@@ -101,8 +101,7 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 			if( hdrext->id == IDEXTRAHEADER ) version = hdrext->version;
 
 			Q_strncpy( entfilename, t->filenames[i], sizeof( entfilename ));
-			COM_StripExtension( entfilename );
-			COM_DefaultExtension( entfilename, ".ent" );
+			COM_ReplaceExtension( entfilename, ".ent", sizeof( entfilename ));
 			ents = (char *)FS_LoadFile( entfilename, NULL, true );
 
 			if( !ents && lumplen >= 10 )
@@ -925,8 +924,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 			lumplen = entities.filelen;
 
 			Q_strncpy( entfilename, t->filenames[i], sizeof( entfilename ));
-			COM_StripExtension( entfilename );
-			COM_DefaultExtension( entfilename, ".ent" );
+			COM_ReplaceExtension( entfilename, ".ent", sizeof( entfilename ));
 			ents = (char *)FS_LoadFile( entfilename, NULL, true );
 
 			if( !ents && lumplen >= 10 )
