@@ -84,7 +84,7 @@ int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
 void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
-void COM_FileBase( const char *in, char *out );
+void COM_FileBase( const char *in, char *out, size_t size );
 const char *COM_FileExtension( const char *in );
 void COM_DefaultExtension( char *path, const char *extension );
 void COM_ReplaceExtension( char *path, const char *extension );
