@@ -415,7 +415,7 @@ void Host_Exec_f( void )
 	}
 
 	Q_strncpy( cfgpath, arg, sizeof( cfgpath ));
-	COM_DefaultExtension( cfgpath, ".cfg" ); // append as default
+	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath )); // append as default
 
 	f = FS_LoadFile( cfgpath, &len, false );
 	if( !f )
