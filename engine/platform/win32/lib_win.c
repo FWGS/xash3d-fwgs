@@ -101,55 +101,55 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 	f = FS_Open( hInst->shortPath, "rb", false );
 	if( !f )
 	{
-		Q_sprintf( errorstring, "couldn't load %s", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "couldn't load %s", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &dos_header, sizeof( dos_header )) != sizeof( dos_header ))
 	{
-		Q_sprintf( errorstring, "%s has corrupted EXE header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s has corrupted EXE header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( dos_header.e_magic != IMAGE_DOS_SIGNATURE )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid dll signature", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid dll signature", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Seek( f, dos_header.e_lfanew, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s error seeking for new exe header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error seeking for new exe header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &nt_signature, sizeof( nt_signature )) != sizeof( nt_signature ))
 	{
-		Q_sprintf( errorstring, "%s has corrupted NT header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s has corrupted NT header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( nt_signature != IMAGE_NT_SIGNATURE )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid NT signature", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid NT signature", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &pe_header, sizeof( pe_header )) != sizeof( pe_header ))
 	{
-		Q_sprintf( errorstring, "%s does not have a valid PE header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid PE header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( !pe_header.SizeOfOptionalHeader )
 	{
-		Q_sprintf( errorstring, "%s does not have an optional header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have an optional header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &optional_header, sizeof( optional_header )) != sizeof( optional_header ))
 	{
-		Q_sprintf( errorstring, "%s optional header probably corrupted", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s optional header probably corrupted", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -159,7 +159,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 	{
 		if( FS_Read( f, &section_header, sizeof( section_header )) != sizeof( section_header ))
 		{
-			Q_sprintf( errorstring, "%s error during reading section header", hInst->shortPath );
+			Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading section header", hInst->shortPath );
 			goto table_error;
 		}
 
@@ -180,13 +180,13 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, exports_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid exports section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid exports section", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &export_directory, sizeof( export_directory )) != sizeof( export_directory ))
 	{
-		Q_sprintf( errorstring, "%s does not have a valid optional header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid optional header", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -194,7 +194,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( hInst->num_ordinals > MAX_LIBRARY_EXPORTS )
 	{
-		Q_sprintf( errorstring, "%s too many exports %i", hInst->shortPath, hInst->num_ordinals );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s too many exports %i", hInst->shortPath, hInst->num_ordinals );
 		hInst->num_ordinals = 0;
 		goto table_error;
 	}
@@ -203,7 +203,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, ordinal_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid ordinals section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid ordinals section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -211,7 +211,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Read( f, hInst->ordinals, hInst->num_ordinals * sizeof( word )) != (hInst->num_ordinals * sizeof( word )))
 	{
-		Q_sprintf( errorstring, "%s error during reading ordinals table", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading ordinals table", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -219,7 +219,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, function_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid export address section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid export address section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -227,7 +227,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Read( f, hInst->funcs, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{
-		Q_sprintf( errorstring, "%s error during reading export address section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading export address section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -235,7 +235,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, name_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s file does not have a valid names section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s file does not have a valid names section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -243,7 +243,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Read( f, p_Names, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{
-		Q_sprintf( errorstring, "%s error during reading names table", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading names table", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -264,7 +264,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( i != hInst->num_ordinals )
 	{
-		Q_sprintf( errorstring, "%s error during loading names section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during loading names section", hInst->shortPath );
 		goto table_error;
 	}
 	FS_Close( f );
