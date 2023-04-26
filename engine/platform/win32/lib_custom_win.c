@@ -373,21 +373,21 @@ void *MemoryLoadLibrary( const char *name )
 
 	if( !data )
 	{
-		Q_sprintf( errorstring, "couldn't load %s", name );
+		Q_snprintf( errorstring, sizeof( errorstring ), "couldn't load %s", name );
 		goto library_error;
 	}
 
 	dos_header = (PIMAGE_DOS_HEADER)data;
 	if( dos_header->e_magic != IMAGE_DOS_SIGNATURE )
 	{
-		Q_sprintf( errorstring, "%s it's not a valid executable file", name );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s it's not a valid executable file", name );
 		goto library_error;
 	}
 
 	old_header = (PIMAGE_NT_HEADERS)&((const byte *)(data))[dos_header->e_lfanew];
 	if( old_header->Signature != IMAGE_NT_SIGNATURE )
 	{
-		Q_sprintf( errorstring, "%s missing PE header", name );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s missing PE header", name );
 		goto library_error;
 	}
 
@@ -402,7 +402,7 @@ void *MemoryLoadLibrary( const char *name )
 
 	if( code == NULL )
 	{
-		Q_sprintf( errorstring, "%s can't reserve memory", name );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s can't reserve memory", name );
 		goto library_error;
 	}
 
@@ -436,7 +436,7 @@ void *MemoryLoadLibrary( const char *name )
 	// load required dlls and adjust function table of imports
 	if( !BuildImportTable( result ))
 	{
-		Q_sprintf( errorstring, "%s failed to build import table", name );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s failed to build import table", name );
 		goto library_error;
 	}
 
@@ -450,7 +450,7 @@ void *MemoryLoadLibrary( const char *name )
 		DllEntry = (DllEntryProc)CALCULATE_ADDRESS( code, result->headers->OptionalHeader.AddressOfEntryPoint );
 		if( DllEntry == 0 )
 		{
-			Q_sprintf( errorstring, "%s has no entry point", name );
+			Q_snprintf( errorstring, sizeof( errorstring ), "%s has no entry point", name );
 			goto library_error;
 		}
 
@@ -458,7 +458,7 @@ void *MemoryLoadLibrary( const char *name )
 		successfull = (*DllEntry)((HINSTANCE)code, DLL_PROCESS_ATTACH, 0 );
 		if( !successfull )
 		{
-			Q_sprintf( errorstring, "can't attach library %s", name );
+			Q_snprintf( errorstring, sizeof( errorstring ), "can't attach library %s", name );
 			goto library_error;
 		}
 		result->initialized = 1;
