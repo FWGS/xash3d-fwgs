@@ -467,13 +467,12 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 
 		Q_strncpy( wadfolder, wadbasename, sizeof( wadfolder ));
 		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", wadbasename );
-
 		anywadname = false;
 	}
 
 	// make wadname from wad fullpath
 	COM_FileBase( search->filename, shortname, sizeof( shortname ));
-	COM_DefaultExtension( shortname, ".wad" );
+	COM_DefaultExtension( shortname, ".wad", sizeof( shortname ));
 
 	// quick reject by wadname
 	if( !anywadname && Q_stricmp( wadname, shortname ))
@@ -532,7 +531,7 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 
 	// make wadname from wad fullpath
 	COM_FileBase( search->filename, temp2, sizeof( temp2 ));
-	COM_DefaultExtension( temp2, ".wad" );
+	COM_DefaultExtension( temp2, ".wad", sizeof( temp2 ));
 
 	// quick reject by wadname
 	if( !anywadname && Q_stricmp( wadname, temp2 ))
@@ -562,7 +561,7 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 					// build path: wadname/lumpname.ext
 					Q_snprintf( temp2, sizeof( temp2 ), "%s/%s", wadfolder, temp );
 					Q_snprintf( buf, sizeof( buf ), ".%s", W_ExtFromType( search->wad->lumps[i].type ));
-					COM_DefaultExtension( temp2, buf );
+					COM_DefaultExtension( temp2, buf, sizeof( temp2 ));
 					stringlistappend( list, temp2 );
 				}
 			}
