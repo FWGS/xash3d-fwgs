@@ -2007,7 +2007,7 @@ void CL_ParseExec( sizebuf_t *msg )
 	{
 		Cbuf_AddText( "exec mapdefault.cfg\n" );
 
-		COM_FileBase( clgame.mapname, mapname );
+		COM_FileBase( clgame.mapname, mapname, sizeof( mapname ));
 
 		if ( COM_CheckString( mapname ) )
 			Cbuf_AddTextf( "exec %s.cfg\n", mapname );

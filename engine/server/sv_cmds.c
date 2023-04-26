@@ -337,12 +337,12 @@ void SV_NextMap_f( void )
 		if( Q_stricmp( ext, "bsp" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], nextmap );
+		COM_FileBase( t->filenames[i], nextmap, sizeof( nextmap ));
 		if( Q_stricmp( sv_hostmap->string, nextmap ))
 			continue;
 
 		next = ( i + 1 ) % t->numfilenames;
-		COM_FileBase( t->filenames[next], nextmap );
+		COM_FileBase( t->filenames[next], nextmap, sizeof( nextmap ));
 		Cvar_DirectSet( sv_hostmap, nextmap );
 
 		// found current point, check for valid

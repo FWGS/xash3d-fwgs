@@ -146,7 +146,7 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 		}
 
 		if( f ) FS_Close(f);
-		COM_FileBase( t->filenames[i], mapname );
+		COM_FileBase( t->filenames[i], mapname, sizeof( mapname ));
 
 		switch( ver )
 		{
@@ -194,7 +194,7 @@ qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "maps/%s*.bsp", s ), true, con_gamemaps->value );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -231,7 +231,7 @@ qboolean Cmd_GetDemoList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "%s*.dem", s ), true, true );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -241,7 +241,7 @@ qboolean Cmd_GetDemoList( const char *s, char *completedname, int length )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "dem" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 		numdems++;
 	}
@@ -277,7 +277,7 @@ qboolean Cmd_GetMovieList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "media/%s*.avi", s ), true, false );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -287,7 +287,7 @@ qboolean Cmd_GetMovieList( const char *s, char *completedname, int length )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "avi" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 		nummovies++;
 	}
@@ -324,7 +324,7 @@ qboolean Cmd_GetMusicList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "media/%s*.*", s ), true, false );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -336,7 +336,7 @@ qboolean Cmd_GetMusicList( const char *s, char *completedname, int length )
 		if( Q_stricmp( ext, "wav" ) && Q_stricmp( ext, "mp3" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 		numtracks++;
 	}
@@ -372,7 +372,7 @@ qboolean Cmd_GetSavesList( const char *s, char *completedname, int length )
 	t = FS_Search( va( DEFAULT_SAVE_DIRECTORY "%s*.sav", s ), true, true );	// lookup only in gamedir
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -382,7 +382,7 @@ qboolean Cmd_GetSavesList( const char *s, char *completedname, int length )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "sav" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 		numsaves++;
 	}
@@ -419,7 +419,7 @@ qboolean Cmd_GetConfigList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "%s*.cfg", s ), true, false );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -429,7 +429,7 @@ qboolean Cmd_GetConfigList( const char *s, char *completedname, int length )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "cfg" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 		numconfigs++;
 	}
@@ -519,7 +519,7 @@ qboolean Cmd_GetItemsList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "%s/%s*.txt", clgame.itemspath, s ), true, false );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -529,7 +529,7 @@ qboolean Cmd_GetItemsList( const char *s, char *completedname, int length )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "txt" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 		numitems++;
 	}
@@ -711,7 +711,7 @@ qboolean Cmd_GetCustomList( const char *s, char *completedname, int length )
 	t = FS_Search( va( "%s*.hpk", s ), true, false );
 	if( !t ) return false;
 
-	COM_FileBase( t->filenames[0], matchbuf );
+	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
@@ -721,7 +721,7 @@ qboolean Cmd_GetCustomList( const char *s, char *completedname, int length )
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "hpk" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], matchbuf );
+		COM_FileBase( t->filenames[i], matchbuf, sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 		numitems++;
 	}
@@ -901,7 +901,7 @@ qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 			continue;
 
 		f = FS_Open( t->filenames[i], "rb", onlyingamedir );
-		COM_FileBase( t->filenames[i], mapname );
+		COM_FileBase( t->filenames[i], mapname, sizeof( mapname ));
 
 		if( f )
 		{

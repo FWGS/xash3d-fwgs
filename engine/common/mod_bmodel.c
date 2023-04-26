@@ -1483,7 +1483,7 @@ static qboolean Mod_LoadColoredLighting( dbspmodel_t *bmod )
 	fs_offset_t	litdatasize;
 	byte	*in;
 
-	COM_FileBase( loadmodel->name, modelname );
+	COM_FileBase( loadmodel->name, modelname, sizeof( modelname ));
 	Q_snprintf( path, sizeof( path ), "maps/%s.lit", modelname );
 
 	// make sure what deluxemap is actual
@@ -1538,7 +1538,7 @@ static void Mod_LoadDeluxemap( dbspmodel_t *bmod )
 	if( !FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ))
 		return;
 
-	COM_FileBase( loadmodel->name, modelname );
+	COM_FileBase( loadmodel->name, modelname, sizeof( modelname ));
 	Q_snprintf( path, sizeof( path ), "maps/%s.dlit", modelname );
 
 	// make sure what deluxemap is actual
@@ -1833,7 +1833,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 				for( pszWadFile = strtok( wadstring, ";" ); pszWadFile != NULL; pszWadFile = strtok( NULL, ";" ))
 				{
 					COM_FixSlashes( pszWadFile );
-					COM_FileBase( pszWadFile, token );
+					COM_FileBase( pszWadFile, token, sizeof( token ));
 
 					// make sure what wad is really exist
 					if( FS_FileExists( va( "%s.wad", token ), false ))

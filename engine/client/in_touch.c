@@ -340,7 +340,7 @@ static void Touch_ExportConfig_f( void )
 
 	if( Q_strstr( name, "touch_presets/" ))
 	{
-		COM_FileBase( name, profilebase );
+		COM_FileBase( name, profilebase, sizeof( profilebase ));
 		Q_snprintf( profilename, sizeof( profilebase ), "touch_profiles/%s (copy).cfg", profilebase );
 	}
 	else Q_strncpy( profilename, name, sizeof( profilename ));
