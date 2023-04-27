@@ -55,9 +55,6 @@ searchpath_t *fs_writepath;
 
 static char			fs_basedir[MAX_SYSPATH];	// base game directory
 static char			fs_gamedir[MAX_SYSPATH];	// game current directory
-#if !XASH_WIN32
-static qboolean		fs_caseinsensitive = true; // try to search missing files
-#endif
 
 #ifdef XASH_REDUCE_FD
 static file_t *fs_last_readfile;
@@ -1339,9 +1336,6 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 	char		buf[MAX_VA_STRING];
 
 	FS_InitMemory();
-#if !XASH_WIN32
-	fs_caseinsensitive = caseinsensitive;
-#endif
 
 	Q_strncpy( fs_rootdir, rootdir, sizeof( fs_rootdir ));
 	Q_strncpy( fs_gamedir, gamedir, sizeof( fs_gamedir ));

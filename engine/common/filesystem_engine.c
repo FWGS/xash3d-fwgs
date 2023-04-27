@@ -104,22 +104,16 @@ FS_Init
 */
 void FS_Init( void )
 {
-	qboolean		caseinsensitive = true;
 	string gamedir;
 
 	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 
-#if !XASH_WIN32
-	if( Sys_CheckParm( "-casesensitive" ) )
-		caseinsensitive = false;
-#endif
-
 	if( !Sys_GetParmFromCmdLine( "-game", gamedir ))
 		Q_strncpy( gamedir, SI.basedirName, sizeof( gamedir )); // gamedir == basedir
 
-	if( !FS_InitStdio( caseinsensitive, host.rootdir, SI.basedirName, gamedir, host.rodir ))
+	if( !FS_InitStdio( true, host.rootdir, SI.basedirName, gamedir, host.rodir ))
 	{
 		Host_Error( "Can't init filesystem_stdio!\n" );
 		return;
