@@ -1327,7 +1327,7 @@ void _Sys_Error( const char *fmt, ... )
 FS_Init
 ================
 */
-qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir )
+qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir )
 {
 	stringlist_t	dirs;
 	qboolean		hasBaseDir = false;
