@@ -129,7 +129,7 @@ typedef void (*fs_event_callback_t)( const char *path );
 
 typedef struct fs_api_t
 {
-	qboolean (*InitStdio)( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
+	qboolean (*InitStdio)( qboolean unused_set_to_true, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
 	void (*ShutdownStdio)( void );
 
 	// search path utils
