@@ -55,8 +55,11 @@ static fs_interface_t fs_memfuncs =
 
 static void FS_UnloadProgs( void )
 {
-	COM_FreeLibrary( fs_hInstance );
-	fs_hInstance = 0;
+	if( fs_hInstance )
+	{
+		COM_FreeLibrary( fs_hInstance );
+		fs_hInstance = 0;
+	}
 }
 
 #ifdef XASH_INTERNAL_GAMELIBS
@@ -133,9 +136,8 @@ FS_Shutdown
 */
 void FS_Shutdown( void )
 {
-	int	i;
-
-	FS_ShutdownStdio();
+	if( g_fsapi.ShutdownStdio )
+		g_fsapi.ShutdownStdio();
 
 	memset( &SI, 0, sizeof( sysinfo_t ));
 
