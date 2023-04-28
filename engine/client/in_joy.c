@@ -407,7 +407,9 @@ void Joy_Init( void )
 
 	joy_enable = Cvar_Get( "joy_enable", "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable joystick" );
 
-	if( Sys_CheckParm( "-nojoy" ))
+	// renamed from -nojoy to -noenginejoy to not conflict with
+	// client.dll's joystick support
+	if( Sys_CheckParm( "-noenginejoy" ))
 	{
 		Cvar_FullSet( "joy_enable", "0", FCVAR_READ_ONLY );
 		return;
