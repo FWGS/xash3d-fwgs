@@ -1545,6 +1545,42 @@ void CL_SendConsistencyInfo( sizebuf_t *msg )
 
 /*
 ==================
+CL_StartDark
+==================
+*/
+static void CL_StartDark( void )
+{
+	if( Cvar_VariableValue( "v_dark" ))
+	{
+		screenfade_t		*sf = &clgame.fade;
+		float			fadetime = 5.0f;
+		client_textmessage_t	*title;
+
+		title = CL_TextMessageGet( "GAMETITLE" );
+		if( Host_IsQuakeCompatible( ))
+			fadetime = 1.0f;
+
+		if( title )
+		{
+			// get settings from titles.txt
+			sf->fadeEnd = title->holdtime + title->fadeout;
+			sf->fadeReset = title->fadeout;
+		}
+		else sf->fadeEnd = sf->fadeReset = fadetime;
+
+		sf->fadeFlags = FFADE_IN;
+		sf->fader = sf->fadeg = sf->fadeb = 0;
+		sf->fadealpha = 255;
+		sf->fadeSpeed = (float)sf->fadealpha / sf->fadeReset;
+		sf->fadeReset += cl.time;
+		sf->fadeEnd += sf->fadeReset;
+
+		Cvar_SetValue( "v_dark", 0.0f );
+	}
+}
+
+/*
+==================
 CL_RegisterResources
 
 Clean up and move to next part of sequence.
@@ -1591,6 +1627,9 @@ void CL_RegisterResources( sizebuf_t *msg )
 
 			// tell rendering system we have a new set of models.
 			ref.dllFuncs.R_NewMap ();
+
+			// check if this map must start from dark screen
+			CL_StartDark ();
 
 			CL_SetupOverviewParams();
 
