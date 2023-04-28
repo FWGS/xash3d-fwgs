@@ -104,51 +104,63 @@ static void SV_BanID_f( void )
 		return;
 	}
 
-	if( !Q_strnicmp( id, "STEAM_", 6 ) || !Q_strnicmp( id, "VALVE_", 6 ))
-		id += 6;
-	if( !Q_strnicmp( id, "XASH_", 5 ))
-		id += 5;
-
-	if( svs.clients )
+	if( !svs.clients )
 	{
-		if( id[0] == '#' )
-			cl = SV_ClientById( Q_atoi( id + 1 ));
+		Con_Reportf( S_ERROR "banid: no players\n" );
+		return;
+	}
+
+	if( id[0] == '#' )
+	{
+		Con_Printf( S_ERROR "banid: not supported\n" );
+		return;
+#if 0
+		int i = Q_atoi( &id[1] );
+
+		cl = SV_ClientById( i );
 
 		if( !cl )
 		{
-			int i;
-			sv_client_t *cl1;
-			int len = Q_strlen( id );
+			Con_Printf( S_ERROR "banid: no such player with userid %d\n", i );
+			return;
+		}
+#endif
+	}
+	else
+	{
+		size_t len;
+		int i;
 
-			for( i = 0, cl1 = svs.clients; i < sv_maxclients->value; i++, cl1++ )
+		if( !Q_strnicmp( id, "STEAM_", 6 ) || !Q_strnicmp( id, "VALVE_", 6 ))
+			id += 6;
+		if( !Q_strnicmp( id, "XASH_", 5 ))
+			id += 5;
+
+		len = Q_strlen( id );
+
+		for( i = 0; i < sv_maxclients->value; i++ )
+		{
+			if( FBitSet( svs.clients[i].flags, FCL_FAKECLIENT ))
+				continue;
+
+			if( svs.clients[i].state != cs_spawned )
+				continue;
+
+			if( !Q_strncmp( id, Info_ValueForKey( svs.clients[i].useragent, "uuid" ), len ))
 			{
-				if( !Q_strncmp( id, Info_ValueForKey( cl1->useragent, "uuid" ), len ))
-				{
-					cl = cl1;
-					break;
-				}
+				cl = &svs.clients[i];
+				break;
 			}
 		}
 
 		if( !cl )
 		{
-			Con_DPrintf( S_WARN "banid: no such player\n" );
-		}
-		else
-			id = Info_ValueForKey( cl->useragent, "uuid" );
-
-		if( !id[0] )
-		{
-			Con_DPrintf( S_ERROR "Could not ban, not implemented yet\n" );
+			Con_Printf( S_ERROR "banid: no such player with userid %s\n", id );
 			return;
 		}
 	}
 
-	if( !id[0] || id[0] == '#' )
-	{
-		Con_DPrintf( S_ERROR "banid: bad id\n" );
-		return;
-	}
+	id = Info_ValueForKey( cl->useragent, "uuid" );
 
 	SV_RemoveID( id );
 
