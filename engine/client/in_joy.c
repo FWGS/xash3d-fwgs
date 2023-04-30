@@ -44,6 +44,7 @@ static struct joy_axis_s
 	short prevval;
 } joyaxis[MAX_AXES] = { 0 };
 static byte currentbinding; // add posibility to remap keys, to place it in joykeys[]
+static qboolean joy_initialized;
 convar_t *joy_enable;
 static convar_t *joy_pitch;
 static convar_t *joy_yaw;
@@ -416,6 +417,8 @@ void Joy_Init( void )
 	}
 
 	Cvar_FullSet( "joy_found", va( "%d", Platform_JoyInit( joy_index->value )), FCVAR_READ_ONLY );
+
+	joy_initialized = true;
 }
 
 /*
@@ -427,5 +430,8 @@ Shutdown joystick code
 */
 void Joy_Shutdown( void )
 {
-	Cvar_FullSet( "joy_found", 0, FCVAR_READ_ONLY );
+	if( joy_initialized )
+	{
+		Cvar_FullSet( "joy_found", 0, FCVAR_READ_ONLY );
+	}
 }
