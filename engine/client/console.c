@@ -1481,6 +1481,10 @@ static void Con_SaveHistory( con_history_t *self )
 	int historyStart = self->next - CON_HISTORY, i;
 	file_t *f;
 
+	// do not save history if nothing was executed
+	if( self->next == 0 )
+		return;
+
 	if( historyStart < 0 )
 		historyStart = 0;
 
