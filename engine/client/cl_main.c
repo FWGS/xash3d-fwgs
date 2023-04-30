@@ -3163,10 +3163,11 @@ void CL_Shutdown( void )
 	cls.initialized = false;
 
 	// for client-side VGUI support we use other order
-	if( !GI->internal_vgui_support )
+	if( FI && FI->GameInfo && !FI->GameInfo->internal_vgui_support )
 		VGui_Shutdown();
 
-	FS_Delete( "demoheader.tmp" ); // remove tmp file
+	if( g_fsapi.Delete )
+		g_fsapi.Delete( "demoheader.tmp" ); // remove tmp file
 	SCR_FreeCinematic (); // release AVI's *after* client.dll because custom renderer may use them
 	S_Shutdown ();
 	R_Shutdown ();
