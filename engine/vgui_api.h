@@ -151,6 +151,7 @@ enum VGUI_KeyAction
 	KA_PRESSED,
 	KA_RELEASED
 };
+
 enum VGUI_MouseAction
 {
 	MA_PRESSED=0,
@@ -159,7 +160,7 @@ enum VGUI_MouseAction
 	MA_WHEEL
 };
 
-typedef struct  vguiapi_s
+typedef struct legacy_vguiapi_s
 {
 	qboolean initialized;
 	// called from vgui_support
@@ -195,5 +196,10 @@ typedef struct  vguiapi_s
 	void	(*Key)( enum VGUI_KeyAction action, enum VGUI_KeyCode code );
 	void	(*MouseMove)( int x, int y );
 	void	(*TextInput)( const char *text );
-} vguiapi_t;
+} legacy_vguiapi_t;
+
+typedef void (*LEGACY_VGUISUPPORTAPI)( legacy_vguiapi_t * );
+#define LEGACY_GET_VGUI_SUPPORT_API "InitAPI"
+#define LEGACY_CLIENT_GET_VGUI_SUPPORT_API "InitVGUISupportAPI"
+
 #endif // VGUI_API_H

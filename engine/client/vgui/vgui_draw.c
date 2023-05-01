@@ -35,7 +35,7 @@ static qboolean GAME_EXPORT VGUI_IsInGame( void );
 static struct
 {
 	qboolean initialized;
-	vguiapi_t dllFuncs;
+	legacy_vguiapi_t dllFuncs;
 	VGUI_DefaultCursor cursor;
 
 	HINSTANCE hInstance;
@@ -117,7 +117,7 @@ qboolean VGui_IsActive( void )
 	return vgui.initialized;
 }
 
-static void VGui_FillAPIFromRef( vguiapi_t *to, const ref_interface_t *from )
+static void VGui_FillAPIFromRef( legacy_vguiapi_t *to, const ref_interface_t *from )
 {
 	to->DrawInit = from->VGUI_DrawInit;
 	to->DrawShutdown = from->VGUI_DrawShutdown;
@@ -141,7 +141,7 @@ void VGui_RegisterCvars( void )
 
 qboolean VGui_LoadProgs( HINSTANCE hInstance )
 {
-	void (*F)( vguiapi_t* );
+	LEGACY_VGUISUPPORTAPI F;
 	qboolean client = hInstance != NULL;
 
 	// not loading interface from client.dll, load vgui_support.dll instead
@@ -174,7 +174,7 @@ qboolean VGui_LoadProgs( HINSTANCE hInstance )
 	}
 
 	// try legacy API first
-	F = COM_GetProcAddress( hInstance, client ? "InitVGUISupportAPI" : "InitAPI" );
+	F = COM_GetProcAddress( hInstance, client ? LEGACY_CLIENT_GET_VGUI_SUPPORT_API : LEGACY_GET_VGUI_SUPPORT_API );
 
 	if( F )
 	{
