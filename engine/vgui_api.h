@@ -19,6 +19,12 @@ GNU General Public License for more details.
 #include "key_modifiers.h"
 #include "cursor_type.h"
 
+// VGUI support API changelog:
+// 1. Initial revision
+#define VGUI_SUPPORT_API_VERSION 1
+
+#define ENABLE_LEGACY_API_SUPPORT 1
+
 // VGUI generic vertex
 
 typedef struct
@@ -160,6 +166,7 @@ enum VGUI_MouseAction
 	MA_WHEEL
 };
 
+#if ENABLE_LEGACY_API_SUPPORT
 typedef struct legacy_vguiapi_s
 {
 	qboolean initialized;
@@ -201,5 +208,49 @@ typedef struct legacy_vguiapi_s
 typedef void (*LEGACY_VGUISUPPORTAPI)( legacy_vguiapi_t * );
 #define LEGACY_GET_VGUI_SUPPORT_API "InitAPI"
 #define LEGACY_CLIENT_GET_VGUI_SUPPORT_API "InitVGUISupportAPI"
+
+#endif // ENABLE_LEGACY_API_SUPPORT
+
+typedef struct vgui_support_api_s
+{
+	void	(*DrawInit)( void );
+	void	(*DrawShutdown)( void );
+	void	(*SetupDrawingText)( int *pColor );
+	void	(*SetupDrawingRect)( int *pColor );
+	void	(*SetupDrawingImage)( int *pColor );
+	void	(*BindTexture)( int id );
+	void	(*EnableTexture)( qboolean enable );
+	void	(*CreateTexture)( int id, int width, int height );
+	void	(*UploadTexture)( int id, const char *buffer, int width, int height );
+	void	(*UploadTextureBlock)( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
+	void	(*DrawQuad)( const vpoint_t *ul, const vpoint_t *lr );
+	void	(*GetTextureSizes)( int *width, int *height );
+	int		(*GenerateTexture)( void );
+	void	*(*EngineMalloc)( size_t size );
+	void	(*CursorSelect)( VGUI_DefaultCursor cursor );
+	byte		(*GetColor)( int i, int j );
+	qboolean	(*IsInGame)( void );
+	void	(*EnableTextInput)( qboolean enable, qboolean force );
+	void	(*GetCursorPos)( int *x, int *y );
+	int		(*ProcessUtfChar)( int ch );
+	int		(*GetClipboardText)( char *buffer, size_t bufferSize );
+	void	(*SetClipboardText)( const char *text );
+	key_modifier_t (*GetKeyModifiers)( void );
+} vgui_support_api_t;
+
+typedef struct vgui_support_interface_s
+{
+	void	(*Startup)( int width, int height );
+	void	(*Shutdown)( void );
+	void	*(*GetPanel)( void );
+	void	(*Paint)( void );
+	void	(*Mouse)( enum VGUI_MouseAction action, int code );
+	void	(*Key)( enum VGUI_KeyAction action, enum VGUI_KeyCode code );
+	void	(*MouseMove)( int x, int y );
+	void	(*TextInput)( const char *text );
+} vgui_support_interface_t;
+
+typedef int (*VGUISUPPORTAPI)( int version, vgui_support_interface_t *pFunctionTable, vgui_support_api_t *engfuncs );
+#define GET_VGUI_SUPPORT_API "GetVGUISupportAPI"
 
 #endif // VGUI_API_H
