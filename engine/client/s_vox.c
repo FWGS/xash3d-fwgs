@@ -176,6 +176,7 @@ static const char *VOX_LookupString( const char *pszin )
 			i = Q_atoi( pszin + 1 );
 			if(( sentenceEntry = Sequence_GetSentenceByIndex( i )))
 				return sentenceEntry->data;
+			return NULL;
 		}
 		else
 		{
