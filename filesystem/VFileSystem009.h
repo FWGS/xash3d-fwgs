@@ -150,4 +150,6 @@ public:
 	virtual void AddSearchPathNoWrite(const char *, const char *) = 0; /* linkage=_ZN11IFileSystem20AddSearchPathNoWriteEPKcS1_ */
 };
 
+#define FILESYSTEM_INTERFACE_VERSION "VFileSystem009" // never change this!
+
 #endif // VFILESYSTEM009_H

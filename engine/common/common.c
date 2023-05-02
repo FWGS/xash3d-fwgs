@@ -553,7 +553,6 @@ This doesn't search in the pak file.
 */
 int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBuffer, int nameOutBufferSize )
 {
-	const char	*path;
 	char		result[MAX_SYSPATH];
 
 	if( !COM_CheckString( fileName ) || !nameOutBuffer || nameOutBufferSize <= 0 )
@@ -562,10 +561,8 @@ int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBuffer, i
 	// filename examples:
 	// media\sierra.avi - D:\Xash3D\valve\media\sierra.avi
 	// models\barney.mdl - D:\Xash3D\bshift\models\barney.mdl
-	if(( path = FS_GetDiskPath( fileName, false )) != NULL )
+	if( g_fsapi.GetFullDiskPath( result, sizeof( result ), fileName, false ))
 	{
-		Q_snprintf( result, sizeof( result ), "%s/%s", host.rootdir, path );
-
 		// check for enough room
 		if( Q_strlen( result ) > nameOutBufferSize )
 			return 0;

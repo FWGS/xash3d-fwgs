@@ -2434,6 +2434,30 @@ const char *FS_GetDiskPath( const char *name, qboolean gamedironly )
 
 /*
 ==================
+FS_GetFullDiskPath
+
+Build full path for file on disk
+return false for file in pack
+==================
+*/
+qboolean FS_GetFullDiskPath( char *buffer, size_t size, const char *name, qboolean gamedironly )
+{
+	searchpath_t *search;
+	char temp[MAX_SYSPATH];
+
+	search = FS_FindFile( name, NULL, temp, sizeof( temp ), gamedironly );
+
+	if( search && search->type == SEARCHPATH_PLAIN )
+	{
+		Q_snprintf( buffer, size, "%s/%s", search->filename, temp );
+		return true;
+	}
+
+	return false;
+}
+
+/*
+==================
 FS_FileSize
 
 return size of file in bytes
@@ -2773,6 +2797,11 @@ fs_api_t g_api =
 	FS_Delete,
 	FS_SysFileExists,
 	FS_GetDiskPath,
+
+	NULL,
+	NULL,
+
+	FS_GetFullDiskPath,
 };
 
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs )

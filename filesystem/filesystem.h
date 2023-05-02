@@ -182,9 +182,11 @@ typedef struct fs_api_t
 	qboolean (*SysFileExists)( const char *path );
 	const char *(*GetDiskPath)( const char *name, qboolean gamedironly );
 
-	// file watcher
-	void (*WatchFrame)( void ); // engine will read all events and call appropriate callbacks
-	qboolean (*AddWatch)( const char *path, fs_event_callback_t callback );
+	// reserved
+	void (*Unused0)( void );
+	void (*Unused1)( void );
+
+	qboolean (*GetFullDiskPath)( char *buffer, size_t size, const char *name, qboolean gamedironly );
 } fs_api_t;
 
 typedef struct fs_interface_t
