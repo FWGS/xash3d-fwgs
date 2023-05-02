@@ -177,6 +177,7 @@ qboolean FS_Rename( const char *oldname, const char *newname );
 qboolean FS_Delete( const char *path );
 qboolean FS_SysFileExists( const char *path );
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
+qboolean FS_GetFullDiskPath( char *buffer, size_t size, const char *name, qboolean gamedironly );
 void     FS_CreatePath( char *path );
 qboolean FS_SysFolderExists( const char *path );
 qboolean FS_SysFileOrFolderExists( const char *path );
