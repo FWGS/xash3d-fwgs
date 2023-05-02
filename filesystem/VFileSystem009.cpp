@@ -511,7 +511,7 @@ public:
 
 extern "C" void EXPORT *CreateInterface( const char *interface, int *retval )
 {
-	if( !Q_strcmp( interface, "VFileSystem009" ))
+	if( !Q_strcmp( interface, FILESYSTEM_INTERFACE_VERSION ))
 	{
 		if( retval )
 			*retval = 0;

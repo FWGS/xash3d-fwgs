@@ -48,7 +48,7 @@ static bool LoadFilesystem()
 	if( !g_pfnCreateInterface )
 		return false;
 
-	if( !g_pfnCreateInterface( "VFileSystem009", &temp ) || temp != 0 )
+	if( !g_pfnCreateInterface( FILESYSTEM_INTERFACE_VERSION, &temp ) || temp != 0 )
 		return false;
 
 	temp = -1;
