@@ -117,6 +117,9 @@ static vgui_support_api_t gEngfuncs =
 	Platform_GetClipboardText,
 	Platform_SetClipboardText,
 	Platform_GetKeyModifiers,
+	COM_LoadLibrary,
+	COM_FreeLibrary,
+	COM_GetProcAddress,
 };
 
 static void VGui_FillAPIFromRef( vgui_support_api_t *to, const ref_interface_t *from )
@@ -175,7 +178,7 @@ static qboolean VGui_ProbeNewAPI( HINSTANCE hInstance,
 	vgui_support_interface_t *iface, const vgui_support_api_t *api )
 {
 	const int version = VGUI_SUPPORT_API_VERSION;
-	vgui_support_api_t localapi;
+	static vgui_support_api_t localapi;
 	VGUISUPPORTAPI F;
 
 	F = COM_GetProcAddress( hInstance, GET_VGUI_SUPPORT_API );
@@ -287,7 +290,7 @@ VGui_Startup
 
 ================
 */
-void VGui_Startup( int width, int height )
+void VGui_Startup( HINSTANCE clientInstance, int width, int height )
 {
 	// vgui not initialized from both support and client modules, skip
 	if( !vgui.initialized )
@@ -302,11 +305,17 @@ void VGui_Startup( int width, int height )
 	else if( width <= 1280 ) width = 1280;
 	else if( width <= 1600 ) width = 1600;
 
-	if( vgui.dllFuncs.Startup )
-		vgui.dllFuncs.Startup( width, height );
+	if( !clientInstance )
+	{
+		if( vgui.dllFuncs.Startup )
+			vgui.dllFuncs.Startup( width, height );
+	}
+	else
+	{
+		if( vgui.dllFuncs.ClientStartup )
+			vgui.dllFuncs.ClientStartup( clientInstance, width, height );
+	}
 }
-
-
 
 /*
 ================

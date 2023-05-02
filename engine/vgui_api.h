@@ -209,10 +209,13 @@ typedef void (*LEGACY_VGUISUPPORTAPI)( legacy_vguiapi_t * );
 #define LEGACY_GET_VGUI_SUPPORT_API "InitAPI"
 #define LEGACY_CLIENT_GET_VGUI_SUPPORT_API "InitVGUISupportAPI"
 
+#define vguiapi_t legacy_vguiapi_t
+
 #endif // ENABLE_LEGACY_API_SUPPORT
 
 typedef struct vgui_support_api_s
 {
+	// LEGACY COMPATIBLE FUNCTIONS
 	void	(*DrawInit)( void );
 	void	(*DrawShutdown)( void );
 	void	(*SetupDrawingText)( int *pColor );
@@ -236,10 +239,17 @@ typedef struct vgui_support_api_s
 	int		(*GetClipboardText)( char *buffer, size_t bufferSize );
 	void	(*SetClipboardText)( const char *text );
 	key_modifier_t (*GetKeyModifiers)( void );
+	// END OF LEGACY COMPATIBLE FUCNTIONS
+	// DON'T BREAK ABI, ONLY ADD NEW FUNCTIONS TO THE END OF STRUCTURE
+
+	void	*(*LoadLibrary)( const char *dllname, int build_ordinals_table, qboolean directpath );
+	void 	(*FreeLibrary)( void *hInstance );
+	void 	*(*GetProcAddress)( void *hInstance, const char *name );
 } vgui_support_api_t;
 
 typedef struct vgui_support_interface_s
 {
+	// LEGACY COMPATIBLE FUNCTIONS
 	void	(*Startup)( int width, int height );
 	void	(*Shutdown)( void );
 	void	*(*GetPanel)( void );
@@ -248,6 +258,11 @@ typedef struct vgui_support_interface_s
 	void	(*Key)( enum VGUI_KeyAction action, enum VGUI_KeyCode code );
 	void	(*MouseMove)( int x, int y );
 	void	(*TextInput)( const char *text );
+	// END OF LEGACY COMPATIBLE FUCNTIONS
+	// DON'T BREAK ABI, ONLY ADD NEW FUNCTIONS TO THE END OF STRUCTURE
+
+	// initialize VGUI2 after client.dll was loaded
+	void (*ClientStartup)( void *clientInstance, int width, int height );
 } vgui_support_interface_t;
 
 typedef int (*VGUISUPPORTAPI)( int version, vgui_support_interface_t *pFunctionTable, vgui_support_api_t *engfuncs );
