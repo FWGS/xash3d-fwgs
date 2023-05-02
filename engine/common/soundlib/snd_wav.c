@@ -62,11 +62,14 @@ FindNextChunk
 */
 static void FindNextChunk( const char *name )
 {
+	int remaining;
+
 	while( 1 )
 	{
 		iff_dataPtr = iff_lastChunk;
+		remaining = iff_end - iff_dataPtr;
 
-		if( iff_dataPtr >= iff_end )
+		if( remaining < 8 )
 		{
 			// didn't find the chunk
 			iff_dataPtr = NULL;
@@ -76,14 +79,24 @@ static void FindNextChunk( const char *name )
 		iff_dataPtr += 4;
 		iff_chunkLen = GetLittleLong();
 
+		remaining -= 8;
+
 		if( iff_chunkLen < 0 )
 		{
 			iff_dataPtr = NULL;
 			return;
 		}
 
+		if( iff_chunkLen > remaining )
+		{
+			iff_chunkLen = remaining;
+		}
+
+		remaining -= iff_chunkLen;
 		iff_dataPtr -= 8;
-		iff_lastChunk = iff_dataPtr + 8 + ((iff_chunkLen + 1) & ~1);
+		iff_lastChunk = iff_dataPtr + 8 + iff_chunkLen;
+		if( iff_chunkLen & 1 && remaining )
+			iff_chunkLen++;
 
 		if( !Q_strncmp( (const char *)iff_dataPtr, name, 4 ))
 			return;
