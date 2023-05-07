@@ -18,7 +18,7 @@ GNU General Public License for more details.
 //
 // avikit.c
 //
-typedef struct movie_state_s  movie_state_t;
+typedef struct movie_state_s movie_state_t;
 int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time );
 byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame );
 qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *duration );

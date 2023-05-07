@@ -14,8 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "build.h"
-#if XASH_WIN32
+#include "defaults.h"
+#if XASH_AVI == AVI_WIN32
 #include "common.h"
 #include "client.h"
 #include <vfw.h> // video for windows
@@ -732,4 +732,4 @@ void AVI_Shutdown( void )
 	Sys_FreeLibrary( &msacm_dll );
 	avi_initialized = false;
 }
-#endif // _WIN32
+#endif // XASH_AVI == AVI_WIN32
