@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "build.h"
-#if !XASH_WIN32
+#include "defaults.h"
+#if XASH_AVI == AVI_NULL
 #include "common.h"
 
 int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
@@ -87,4 +87,4 @@ void AVI_Shutdown( void )
 	;
 }
 
-#endif // WIN32
+#endif // XASH_AVI == AVI_NULL
