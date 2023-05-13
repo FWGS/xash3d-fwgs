@@ -85,6 +85,9 @@ Official gitlab repository - https://gitlab.com/Sockman/hltopdown
 ## Half-Life: Update
 Official github repository - https://github.com/Fograin/hl-subsmod-ex
 
+## Half-Life: Rally
+Official gitlab repository - https://gitlab.com/hlrally/src
+
 ## Half-Life: Weapon Edition
 Available on ModDB - https://www.moddb.com/mods/half-life-weapon-edition/downloads/half-life-weapon-edition-1508-alpha-open-src
 
