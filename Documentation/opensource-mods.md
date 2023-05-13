@@ -17,7 +17,7 @@ Mirrored on github - https://github.com/JoelTroch/am_src_rebirth
 Mirrored on github - https://github.com/nekonomicon/BattleGrounds
 
 ## Bubblemod
-Download page on official site - http://www.bubblemod.org/dl_default.php (dead link!)
+Download page on official site(WM snapshot) - [http://www.bubblemod.org/dl_default.php](https://web.archive.org/web/20130717133158/http://www.bubblemod.org/dl_default.php)
 
 Mirrored on github - https://github.com/HLSources/BubbleMod
 
