@@ -795,9 +795,9 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return length;
 }
 
-#elif defined(__sgi) || defined(__SWITCH__) || defined(__vita__)
+#elif defined(__sgi)
 
-/* 
+/*
  * These functions are stubbed for now to get the code compiling.
  * In the future it may be possible to get these working in some way.
  * Current ideas are checking the working directory for a binary with
@@ -813,13 +813,29 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
 WAI_FUNCSPEC
 int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length)
 {
-	return -1;
+  return -1;
 }
 
 WAI_FUNCSPEC
 int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
 {
-	return -1;
+  return -1;
+}
+
+#elif defined(__SWITCH__) || defined(__vita__)
+
+/* Not possible on this platform */
+
+WAI_FUNCSPEC
+int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length)
+{
+  return -1;
+}
+
+WAI_FUNCSPEC
+int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
+{
+  return -1;
 }
 
 #else
