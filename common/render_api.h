@@ -157,6 +157,21 @@ typedef struct decallist_s
 	modelstate_t	studio_state;	// studio decals only
 } decallist_t;
 
+enum movie_parms_e
+{
+	AVI_PARM_LAST = 0, // marker for SetParm to end parse parsing arguments
+	AVI_RENDER_TEXNUM, // (int) sets texture to draw into, if 0 will draw to screen
+	AVI_RENDER_X, // (int) when set to screen, sets position where to draw
+	AVI_RENDER_Y,
+	AVI_RENDER_W, // (int) sets texture or screen width
+	AVI_RENDER_H, // set to -1 to draw full screen
+	AVI_REWIND, // no argument, rewind playback to the beginning
+	AVI_ENTNUM, // (int) entity number, -1 for no spatialization
+	AVI_VOLUME, // (int) volume from 0 to 255
+	AVI_ATTN, // (float) attenuation value
+};
+
+struct movie_state_s;
 struct ref_viewpass_s;
 
 typedef struct render_api_s
@@ -201,8 +216,8 @@ typedef struct render_api_s
 	void		(*AVI_FreeVideo)( void *Avi );
 	int		(*AVI_IsActive)( void *Avi );
 	void		(*AVI_StreamSound)( void *Avi, int entnum, float fvol, float attn, float synctime );
-	void		(*AVI_Reserved0)( void );	// for potential interface expansion without broken compatibility
-	void		(*AVI_Reserved1)( void );
+	qboolean	(*AVI_Think)( struct movie_state_s *Avi );
+	qboolean	(*AVI_SetParm)( struct movie_state_s *Avi, enum movie_parms_e parm, ... );
 
 	// glState related calls (must use this instead of normal gl-calls to prevent de-synchornize local states between engine and the client)
 	void		(*GL_Bind)( int tmu, unsigned int texnum );
