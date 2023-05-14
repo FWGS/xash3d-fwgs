@@ -3468,6 +3468,39 @@ static int GAME_EXPORT NetAPI_CompareAdr( netadr_t *a, netadr_t *b )
 
 /*
 =================
+NetAPI_StringToAdr
+
+=================
+*/
+static int GAME_EXPORT NetAPI_StringToAdr( char *s, netadr_t *a )
+{
+	return NET_StringToAdr( s, a );
+}
+
+/*
+=================
+NetAPI_ValueForKey
+
+=================
+*/
+static const char * GAME_EXPORT NetAPI_ValueForKey( const char *s, const char *key )
+{
+	return Info_ValueForKey( s, key );
+}
+
+/*
+=================
+NetAPI_RemoveKey
+
+=================
+*/
+static void GAME_EXPORT NetAPI_RemoveKey( char *s, const char *key )
+{
+	Info_RemoveKey( s, key );
+}
+
+/*
+=================
 NetAPI_SetValueForKey
 
 =================
@@ -3666,9 +3699,9 @@ static net_api_t gNetApi =
 	NetAPI_CancelAllRequests,
 	NetAPI_AdrToString,
 	NetAPI_CompareAdr,
-	NET_StringToAdr,
-	Info_ValueForKey,
-	Info_RemoveKey,
+	NetAPI_StringToAdr,
+	NetAPI_ValueForKey,
+	NetAPI_RemoveKey,
 	NetAPI_SetValueForKey,
 };
 
