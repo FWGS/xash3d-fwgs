@@ -34,4 +34,21 @@ movie_state_t *AVI_GetState( int num );
 qboolean AVI_Initailize( void );
 void AVI_Shutdown( void );
 
+// new interface
+enum movie_parms_e
+{
+	AVI_PARM_LAST = 0, // marker for SetParm to end parse parsing arguments
+
+	AVI_RENDER_TEXNUM, // (int) sets texture to draw into, if 0 will draw to screen
+	AVI_RENDER_X, // (int) when set to screen, sets position where to draw
+	AVI_RENDER_Y,
+	AVI_RENDER_W, // (int) sets texture or screen width
+	AVI_RENDER_H, // set to -1 to draw full screen
+
+	AVI_REWIND
+};
+
+qboolean AVI_SetParm( movie_state_t *Avi, int parm, ... );
+qboolean AVI_Think( movie_state_t *Avi );
+
 #endif // AVI_H

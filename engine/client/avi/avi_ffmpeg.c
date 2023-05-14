@@ -1,0 +1,581 @@
+/*
+avi_ffmpreg.c - playing AVI files (ffmpeg backend)
+Copyright (C) 2023 Alibek Omarov
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#include "defaults.h"
+#if XASH_AVI == AVI_FFMPEG
+#include "common.h"
+#include "client.h"
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
+
+struct movie_state_s
+{
+	qboolean active;
+	qboolean quiet;
+	qboolean have_texture;
+
+	// ffmpreg contexts
+	AVFormatContext *fmt_ctx;
+	AVCodecContext *video_ctx;
+	AVCodecContext *audio_ctx;
+	struct SwsContext *sws_ctx;
+	struct SwrContext *swr_ctx;
+
+	AVPacket *pkt;
+	AVFrame *frame;
+
+	int64_t first_time;
+	int64_t last_time;
+
+	// video stream info
+	int video_stream, xres, yres;
+	double duration;
+	enum AVPixelFormat pix_fmt;
+
+	// audio stream info
+	int audio_stream, channels, rate;
+	enum AVSampleFormat s_fmt;
+
+	byte *dst;
+	int dst_linesize;
+
+	byte *cached_audio;
+	size_t cached_audio_buf_len; // absolute size of cached_audio array
+	size_t cached_audio_len; // how many data in bytes we have in cached_audio array
+	size_t cached_audio_pos; // how far we've read into cached_audio array
+
+	// rendering video parameters
+	int x, y, w, h; // passed to R_DrawStretchRaw
+	int texture; // passed to R_UploadStretchRaw
+};
+
+static qboolean avi_initialized;
+static movie_state_t avi[2];
+
+qboolean AVI_SetParm( movie_state_t *Avi, int parm, ... )
+{
+	qboolean ret = true;
+	va_list va;
+	va_start( va, parm );
+
+	while( parm != AVI_PARM_LAST )
+	{
+		switch( parm )
+		{
+		case AVI_RENDER_TEXNUM:
+			Avi->texture = va_arg( va, int );
+			break;
+		case AVI_RENDER_X:
+			Avi->x = va_arg( va, int );
+			break;
+		case AVI_RENDER_Y:
+			Avi->y = va_arg( va, int );
+			break;
+		case AVI_RENDER_W:
+			Avi->w = va_arg( va, int );
+			break;
+		case AVI_RENDER_H:
+			Avi->h = va_arg( va, int );
+			break;
+		case AVI_REWIND:
+			if( Avi->audio_ctx )
+				avcodec_flush_buffers( Avi->audio_ctx );
+			avcodec_flush_buffers( Avi->video_ctx );
+			Avi->cached_audio_len = Avi->cached_audio_pos = 0;
+			Avi->last_time = -1;
+			Avi->first_time = 0;
+			av_seek_frame( Avi->fmt_ctx, -1, 0, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_BACKWARD );
+			break;
+		default:
+			ret = false;
+		}
+
+		parm = va_arg( va, enum movie_parms_e );
+	}
+
+
+	va_end( va );
+
+	return ret;
+}
+
+static void AVI_SpewError( qboolean quiet, const char *fmt, ... ) FORMAT_CHECK( 2 );
+static void AVI_SpewError( qboolean quiet, const char *fmt, ... )
+{
+	char buf[MAX_VA_STRING];
+	va_list va;
+
+	if( quiet )
+		return;
+
+	va_start( va, fmt );
+	Q_vsnprintf( buf, sizeof( buf ), fmt, va );
+	va_end( va );
+
+	Con_Printf( S_ERROR "%s", buf );
+}
+
+static void AVI_SpewAvError( qboolean quiet, const char *func, int numerr )
+{
+	if( !quiet )
+		Con_Printf( S_ERROR "%s: %s (%d)\n", func, av_err2str( numerr ), numerr );
+}
+
+static int AVI_OpenCodecContext( AVCodecContext **dst_dec_ctx, AVFormatContext *fmt_ctx, enum AVMediaType type, qboolean quiet )
+{
+	const AVCodec *dec;
+	AVCodecContext *dec_ctx;
+	AVStream *st;
+	int idx, ret;
+
+	if(( ret = av_find_best_stream( fmt_ctx, type, -1, -1, NULL, 0 )) < 0 )
+	{
+		AVI_SpewAvError( quiet, "av_find_best_stream", ret );
+		return ret;
+	}
+
+	idx = ret;
+	st = fmt_ctx->streams[idx];
+
+	if( !( dec = avcodec_find_decoder( st->codecpar->codec_id )))
+	{
+		AVI_SpewError( quiet, S_ERROR "Failed to find %s codec\n", av_get_media_type_string( type ));
+		return AVERROR( EINVAL );
+	}
+
+	if( !( dec_ctx = avcodec_alloc_context3( dec )))
+	{
+		AVI_SpewError( quiet, S_ERROR "Failed to allocate %s codec context", dec->name );
+		return AVERROR( ENOMEM );
+	}
+
+	if(( ret = avcodec_parameters_to_context( dec_ctx, st->codecpar )) < 0 )
+	{
+		AVI_SpewAvError( quiet, "avcodec_parameters_to_context", ret );
+		avcodec_free_context( &dec_ctx );
+		return ret;
+	}
+
+	dec_ctx->pkt_timebase = st->time_base;
+
+	if(( ret = avcodec_open2( dec_ctx, dec, NULL )) < 0 )
+	{
+		AVI_SpewAvError( quiet, "avcodec_open2", ret );
+
+		avcodec_free_context( &dec_ctx );
+		return ret;
+	}
+
+	*dst_dec_ctx = dec_ctx;
+	return idx; // always positive
+}
+
+int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
+{
+	return 0;
+}
+
+int AVI_TimeToSoundPosition( movie_state_t *Avi, int time )
+{
+	return 0;
+}
+
+qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *duration )
+{
+	if( !Avi->active )
+		return false;
+
+	if( xres )
+		*xres = Avi->xres;
+
+	if( yres )
+		*yres = Avi->yres;
+
+	if( duration )
+		*duration = Avi->duration;
+
+	return true;
+}
+
+qboolean AVI_GetAudioInfo( movie_state_t *Avi, wavdata_t *snd_info )
+{
+	if( !Avi->active || Avi->audio_stream < 0 )
+		return false;
+
+	snd_info->rate = Avi->rate;
+	snd_info->channels = Avi->channels;
+	snd_info->width = av_get_bytes_per_sample( Avi->s_fmt );
+	snd_info->size = (size_t)snd_info->rate * snd_info->width * snd_info->channels;
+	snd_info->loopStart = 0;
+
+	return true;
+}
+
+// just let it compile, bruh!
+byte *AVI_GetVideoFrame( movie_state_t *Avi, int target )
+{
+	return NULL;
+}
+
+int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int length )
+{
+	size_t copy = Q_min( length, Q_max( Avi->cached_audio_len - Avi->cached_audio_pos, 0 ));
+
+	if( !Avi->cached_audio )
+		return 0;
+
+	memcpy( audiodata, Avi->cached_audio + Avi->cached_audio_pos, copy );
+
+	Avi->cached_audio_pos += copy;
+
+	// Con_Printf( "%s: requested audio chunk of size %d, giving %d\n", __func__, length, copy );
+
+	return copy;
+}
+
+static void AVI_HandleAudio( movie_state_t *Avi, const AVFrame *frame )
+{
+	size_t samples = frame->nb_samples;
+	size_t len = samples * av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels;
+	int outsamples;
+	uint8_t *ptr;
+
+	// allocate data
+	if( !Avi->cached_audio )
+	{
+		Avi->cached_audio_buf_len = len;
+		Avi->cached_audio_pos = 0;
+		Avi->cached_audio = Mem_Calloc( host.mempool, len );
+
+		outsamples = swr_convert( Avi->swr_ctx, &Avi->cached_audio, samples, (void *)frame->data, samples );
+		Avi->cached_audio_len = outsamples * av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels;
+
+		// Con_Printf( "%s: got audio chunk of size %d samples\n", __func__, outsamples );
+		return;
+	}
+
+	if( Avi->cached_audio_pos )
+	{
+		// Con_Printf( "%s: erasing old data of size %d\n", __func__, Avi->cached_audio_pos );
+
+		Avi->cached_audio_len -= Avi->cached_audio_pos;
+		memmove( Avi->cached_audio, Avi->cached_audio + Avi->cached_audio_pos, Avi->cached_audio_len );
+		Avi->cached_audio_pos = 0;
+	}
+
+	if( len + Avi->cached_audio_len > Avi->cached_audio_buf_len )
+	{
+		// Con_Printf( "%s: resizing old buffer of size %d to size %d\n", __func__, Avi->cached_audio_buf_len, len + Avi->cached_audio_buf_len );
+
+		Avi->cached_audio_buf_len = len + Avi->cached_audio_len;
+		Avi->cached_audio = Mem_Realloc( host.mempool, Avi->cached_audio, Avi->cached_audio_buf_len );
+	}
+
+	ptr = Avi->cached_audio + Avi->cached_audio_len;
+	outsamples = swr_convert( Avi->swr_ctx, &ptr, samples, (void *)frame->data, samples );
+	Avi->cached_audio_len += outsamples * av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels;
+
+	// Con_Printf( "%s: got audio chunk of size %d samples\n", __func__, outsamples );
+}
+
+qboolean AVI_Think( movie_state_t *Avi )
+{
+	int res;
+	qboolean decoded = false;
+	qboolean flushing = false;
+	qboolean redraw = false;
+	int64_t curtime;
+
+	curtime = host.realtime * Avi->video_ctx->pkt_timebase.den / Avi->video_ctx->pkt_timebase.num;
+
+	if( !Avi->first_time )
+		Avi->first_time = curtime;
+
+	if( Avi->last_time > curtime )
+	{
+		// draw last still image
+		if( Avi->texture == 0 && Avi->have_texture )
+			ref.dllFuncs.R_DrawStretchRaw( Avi->x, Avi->y, Avi->w, Avi->h, Avi->xres, Avi->yres, Avi->dst, false );
+
+		return true; // we're still alive
+	}
+
+	res = av_read_frame( Avi->fmt_ctx, Avi->pkt );
+
+	if( res < 0 )
+	{
+		if( res != AVERROR_EOF )
+			AVI_SpewAvError( Avi->quiet, "av_read_frame", res );
+
+		if( Avi->audio_ctx )
+			avcodec_flush_buffers( Avi->audio_ctx );
+
+		avcodec_flush_buffers( Avi->video_ctx );
+		flushing = true;
+	}
+	else
+	{
+		if( Avi->pkt->stream_index == Avi->audio_stream )
+		{
+			res = avcodec_send_packet( Avi->audio_ctx, Avi->pkt );
+			if( res < 0 )
+				AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (audio)", res );
+		}
+		else if( Avi->pkt->stream_index == Avi->video_stream )
+		{
+			res = avcodec_send_packet( Avi->video_ctx, Avi->pkt );
+			if( res < 0 )
+				AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (audio)", res );
+		}
+		av_packet_unref( Avi->pkt );
+	}
+
+	if( Avi->audio_ctx )
+	{
+		while( avcodec_receive_frame( Avi->audio_ctx, Avi->frame ) >= 0 )
+		{
+			AVI_HandleAudio( Avi, Avi->frame );
+
+			decoded = true;
+		}
+	}
+
+	if( Avi->video_ctx )
+	{
+		while( avcodec_receive_frame( Avi->video_ctx, Avi->frame ) >= 0 )
+		{
+			Avi->sws_ctx = sws_getCachedContext( Avi->sws_ctx,
+				Avi->xres, Avi->yres, Avi->pix_fmt,
+				Avi->xres, Avi->yres, AV_PIX_FMT_BGRA, SWS_POINT, NULL, NULL, NULL );
+
+			sws_scale( Avi->sws_ctx, (void*)Avi->frame->data, Avi->frame->linesize, 0, Avi->video_ctx->height,
+				&Avi->dst, &Avi->dst_linesize );
+
+			Avi->last_time = Avi->first_time + Avi->frame->best_effort_timestamp;
+			Avi->have_texture = true;
+
+			redraw = true;
+		}
+	}
+
+	if( redraw )
+	{
+		if( Avi->texture == 0 )
+		{
+			int w, h;
+			w = Avi->w >= 0 ? Avi->w : refState.width;
+			h = Avi->h >= 0 ? Avi->h : refState.height;
+
+			ref.dllFuncs.R_DrawStretchRaw( Avi->x, Avi->y, w, h, Avi->xres, Avi->yres, Avi->dst, redraw );
+		}
+		else if( Avi->texture > 0 )
+		{
+			ref.dllFuncs.AVI_UploadRawFrame( Avi->texture, Avi->xres, Avi->yres, Avi->w, Avi->h, Avi->dst );
+		}
+		else
+		{
+			// no output
+		}
+	}
+
+	if( flushing && !decoded )
+		return false; // probably hit an EOF
+
+	Con_NPrintf( 1, "cached_audio_buf_len = %d\n", Avi->cached_audio_buf_len );
+
+	return true;
+}
+
+void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audio, int quiet )
+{
+	byte *dst[4];
+	int dst_linesize[4];
+	int ret;
+
+	if( Avi->active )
+		AVI_CloseVideo( Avi );
+
+	Avi->active = false;
+	Avi->quiet = quiet;
+	Avi->video_ctx = Avi->audio_ctx = NULL;
+	Avi->fmt_ctx = NULL;
+
+	if(( ret = avformat_open_input( &Avi->fmt_ctx, filename, NULL, NULL )) < 0 )
+	{
+		AVI_SpewAvError( quiet, "avformat_open_input", ret );
+		return;
+	}
+
+	if(( ret = avformat_find_stream_info( Avi->fmt_ctx, NULL )) < 0 )
+	{
+		AVI_SpewAvError( quiet, "avformat_find_stream_info", ret );
+		return;
+	}
+
+	if( !( Avi->pkt = av_packet_alloc( )))
+	{
+		AVI_SpewAvError( quiet, "av_packet_alloc", 0 );
+		return;
+	}
+
+	if( !( Avi->frame = av_frame_alloc( )))
+	{
+		AVI_SpewAvError( quiet, "av_frame_alloc", 0 );
+		return;
+	}
+
+	Avi->video_stream = AVI_OpenCodecContext( &Avi->video_ctx, Avi->fmt_ctx, AVMEDIA_TYPE_VIDEO, quiet );
+
+	if( Avi->video_stream < 0 )
+		return;
+
+	Avi->xres     = Avi->video_ctx->width;
+	Avi->yres     = Avi->video_ctx->height;
+	Avi->pix_fmt  = Avi->video_ctx->pix_fmt;
+	Avi->duration = Avi->fmt_ctx->duration / (double)AV_TIME_BASE;
+
+	if(( ret = av_image_alloc( dst, dst_linesize, Avi->xres, Avi->yres, AV_PIX_FMT_BGRA, 1 )) < 0 )
+	{
+		AVI_SpewAvError( quiet, "av_image_alloc", ret );
+		return;
+	}
+
+	Avi->dst = dst[0];
+	Avi->dst_linesize = dst_linesize[0];
+	Avi->active = true;
+
+	if( load_audio )
+	{
+		Avi->audio_stream = AVI_OpenCodecContext( &Avi->audio_ctx, Avi->fmt_ctx, AVMEDIA_TYPE_AUDIO, quiet );
+
+		// audio stream was requested but it wasn't found
+		if( Avi->audio_stream < 0 )
+			return;
+
+		Avi->channels = Avi->audio_ctx->ch_layout.nb_channels;
+		Avi->s_fmt = AV_SAMPLE_FMT_S16;
+		Avi->rate = Avi->audio_ctx->sample_rate;
+
+		if(( ret = swr_alloc_set_opts2( &Avi->swr_ctx, &Avi->audio_ctx->ch_layout, Avi->s_fmt, Avi->rate,
+			&Avi->audio_ctx->ch_layout, Avi->audio_ctx->sample_fmt, Avi->audio_ctx->sample_rate, 0, 0 )) < 0 )
+		{
+			AVI_SpewAvError( quiet, "swr_alloc_set_opts2", ret );
+			return;
+		}
+
+		if(( ret = swr_init( Avi->swr_ctx )) < 0 )
+		{
+			AVI_SpewAvError( quiet, "swr_init", ret );
+			return;
+		}
+	}
+}
+
+void AVI_CloseVideo( movie_state_t *Avi )
+{
+	if( Avi->active )
+	{
+		if( Avi->cached_audio )
+			Mem_Free( Avi->cached_audio );
+
+		av_free( Avi->dst );
+		av_frame_free( &Avi->frame );
+		av_packet_free( &Avi->pkt );
+		sws_freeContext( Avi->sws_ctx );
+		avcodec_free_context( &Avi->audio_ctx );
+		avcodec_free_context( &Avi->video_ctx );
+		avformat_close_input( &Avi->fmt_ctx );
+	}
+
+	memset( Avi, 0, sizeof( *Avi ));
+}
+
+movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
+{
+	movie_state_t	*Avi;
+	string		path;
+	const char	*fullpath;
+
+	// fast reject
+	if( !avi_initialized )
+		return NULL;
+
+	// open cinematic
+	Q_snprintf( path, sizeof( path ), "media/%s", filename );
+	COM_DefaultExtension( path, ".avi", sizeof( path ));
+	fullpath = FS_GetDiskPath( path, false );
+
+	if( FS_FileExists( path, false ) && !fullpath )
+	{
+		Con_Printf( "Couldn't load %s from packfile. Please extract it\n", path );
+		return NULL;
+	}
+
+	Avi = Mem_Calloc( cls.mempool, sizeof( movie_state_t ));
+	AVI_OpenVideo( Avi, fullpath, load_audio, false );
+
+	if( !AVI_IsActive( Avi ))
+	{
+		AVI_FreeVideo( Avi ); // something bad happens
+		return NULL;
+	}
+
+	// all done
+	return Avi;
+}
+
+void AVI_FreeVideo( movie_state_t *Avi )
+{
+	if( !Avi )
+		return;
+
+	if( Mem_IsAllocatedExt( cls.mempool, Avi ))
+	{
+		AVI_CloseVideo( Avi );
+		Mem_Free( Avi );
+	}
+}
+
+qboolean AVI_IsActive( movie_state_t *Avi )
+{
+	return Avi ? Avi->active : false;
+}
+
+movie_state_t *AVI_GetState( int num )
+{
+	return &avi[num];
+}
+
+qboolean AVI_Initailize( void )
+{
+	if( Sys_CheckParm( "-noavi" ))
+	{
+		Con_Printf( "AVI: Disabled\n" );
+		return false;
+	}
+
+	avi_initialized = true;
+	return true;
+}
+
+void AVI_Shutdown( void )
+{
+	avi_initialized = false;
+}
+
+#endif // XASH_AVI == AVI_NULL
