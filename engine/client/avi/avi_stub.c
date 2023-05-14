@@ -79,6 +79,8 @@ movie_state_t *AVI_GetState( int num )
 
 qboolean AVI_Initailize( void )
 {
+	Con_Printf( "AVI: Not supported\n" );
+
 	return false;
 }
 

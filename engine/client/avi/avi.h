@@ -34,4 +34,7 @@ movie_state_t *AVI_GetState( int num );
 qboolean AVI_Initailize( void );
 void AVI_Shutdown( void );
 
+qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... );
+qboolean AVI_Think( movie_state_t *Avi );
+
 #endif // AVI_H
