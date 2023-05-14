@@ -78,7 +78,7 @@ modules:
     build-options: *compat-i386-opts
     build-commands:
       - |
-        python waf configure -T release --enable-all-renderers --enable-packaging --prefix=/app --libdir=/app/lib32
+        python waf configure -T release --enable-all-renderers --enable-packaging --enable-lto --prefix=/app --libdir=/app/lib32
         python waf build
         python waf install --destdir=/
         mkdir -p /app/bin
