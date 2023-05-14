@@ -99,13 +99,13 @@ CFLAGS = {
 
 LTO_CFLAGS = {
 	'msvc':  ['/GL'],
-	'gcc':   ['-flto'],
+	'gcc':   ['-flto=auto'],
 	'clang': ['-flto']
 }
 
 LTO_LINKFLAGS = {
 	'msvc':  ['/LTCG'],
-	'gcc':   ['-flto'],
+	'gcc':   ['-flto=auto'],
 	'clang': ['-flto']
 }
 
@@ -176,5 +176,9 @@ def get_optimization_flags(conf):
 		cflags.append('-fno-optimize-sibling-calls')
 		# remove fvisibility to allow everything to be exported by default
 		cflags.remove('-fvisibility=hidden')
+
+	# on all compilers (except MSVC?) we need to copy CFLAGS to LINKFLAGS
+	if conf.options.LTO and conf.env.COMPILER_CC != 'msvc':
+		linkflags += cflags
 
 	return cflags, linkflags
