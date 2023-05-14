@@ -2056,16 +2056,13 @@ void Con_DrawVersion( void )
 		break;
 	}
 
-	if( !host.force_draw_version )
-	{
-		if(( cls.key_dest != key_menu && !draw_version ) || CL_IsDevOverviewMode() == 2 || net_graph->value )
-			return;
-	}
-
 	if( host.force_draw_version_time > host.realtime )
-		host.force_draw_version = false;
+		draw_version = true;
 
-	if( host.force_draw_version || draw_version )
+	if(( cls.key_dest != key_menu && !draw_version ) || CL_IsDevOverviewMode() == 2 || net_graph->value )
+		return;
+
+	if( draw_version )
 		Q_snprintf( curbuild, MAX_STRING, XASH_ENGINE_NAME " v%i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 	else Q_snprintf( curbuild, MAX_STRING, "v%i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 
