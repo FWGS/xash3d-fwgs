@@ -665,12 +665,12 @@ void CL_ParseTextMessage( sizebuf_t *msg )
 	text->g2 = MSG_ReadByte( msg );
 	text->b2 = MSG_ReadByte( msg );
 	text->a2 = MSG_ReadByte( msg );
-	text->fadein = (float)(MSG_ReadShort( msg ) / 256.0f );
-	text->fadeout = (float)(MSG_ReadShort( msg ) / 256.0f );
-	text->holdtime = (float)(MSG_ReadShort( msg ) / 256.0f );
+	text->fadein = (float)(MSG_ReadWord( msg ) / 256.0f );
+	text->fadeout = (float)(MSG_ReadWord( msg ) / 256.0f );
+	text->holdtime = (float)(MSG_ReadWord( msg ) / 256.0f );
 
 	if( text->effect == 2 )
-		text->fxtime = (float)(MSG_ReadShort( msg ) / 256.0f );
+		text->fxtime = (float)(MSG_ReadWord( msg ) / 256.0f );
 	else text->fxtime = 0.0f;
 
 	// to prevent grab too long messages
