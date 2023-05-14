@@ -2417,16 +2417,19 @@ return NULL for file in pack
 */
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly )
 {
-	static char temp[MAX_SYSPATH];
+	static char diskpath[MAX_SYSPATH];
+	char fullpath[MAX_SYSPATH];
 	searchpath_t	*search;
 
-	search = FS_FindFile( name, NULL, temp, sizeof( temp ), gamedironly );
+	search = FS_FindFile( name, NULL, fullpath, sizeof( fullpath ), gamedironly );
 
 	if( search )
 	{
 		if( search->type != SEARCHPATH_PLAIN ) // file in pack or wad
 			return NULL;
-		return temp;
+
+		Q_snprintf( diskpath, sizeof( diskpath ), "%s/%s", search->filename, fullpath );
+		return diskpath;
 	}
 
 	return NULL;
