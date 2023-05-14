@@ -64,20 +64,21 @@ CFLAGS = {
 		'msvc':    ['/O2', '/Oy', '/Zi'],
 		'gcc': {
 			'3':       ['-O3', '-fomit-frame-pointer'],
-			'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer']
+			'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer', '-fno-semantic-interposition']
 		},
 		'clang':   ['-Ofast'],
 		'default': ['-O3']
 	},
 	'fastnative': {
 		'msvc':    ['/O2', '/Oy', '/Zi'],
-		'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
+		'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer', '-fno-semantic-interposition'],
 		'clang':   ['-Ofast', '-march=native'],
 		'default': ['-O3']
 	},
 	'release': {
 		'msvc':    ['/O2', '/Zi'],
 		'owcc':    ['-O3', '-foptimize-sibling-calls', '-fomit-leaf-frame-pointer', '-fomit-frame-pointer', '-fschedule-insns', '-funsafe-math-optimizations', '-funroll-loops', '-frerun-optimizer', '-finline-functions', '-finline-limit=512', '-fguess-branch-probability', '-fno-strict-aliasing', '-floop-optimize'],
+		'gcc':     ['-O3', '-fno-semantic-interposition'],
 		'default': ['-O3']
 	},
 	'debug': {
