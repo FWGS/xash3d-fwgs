@@ -382,7 +382,7 @@ void Voice_RecordStart( void )
 		{
 			Sound_Process( &voice.input_file, voice.samplerate, voice.width, SOUND_RESAMPLE );
 			voice.input_file_pos = 0;
-			
+
 			voice.start_time = Sys_DoubleTime();
 			voice.is_recording = true;
 		}
@@ -499,7 +499,7 @@ void CL_AddVoiceToDatagram( void )
 
 	if( cls.state != ca_active || !Voice_IsRecording() || !voice.encoder )
 		return;
-	
+
 	size = Voice_GetOpusCompressedData( voice.output_buffer, sizeof( voice.output_buffer ), &frames );
 
 	if( size > 0 && MSG_GetNumBytesLeft( &cls.datagram ) >= size + 32 )
@@ -600,8 +600,10 @@ qboolean Voice_Init( const char *pszCodecName, int quality )
 	}
 
 	// reinitialize only if codec parameters are different
-	if( Q_strcmp( voice.codec, pszCodecName ) && voice.quality != quality )
-		Voice_Shutdown();
+	if( !Q_strcmp( voice.codec, pszCodecName ) && voice.quality == quality )
+		return true;
+
+	Voice_Shutdown();
 
 	voice.autogain.block_size = 128;
 
