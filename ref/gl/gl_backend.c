@@ -220,6 +220,7 @@ void GL_CleanUpTextureUnits( int last )
 			pglDisable( glState.currentTextureTargets[i] );
 			glState.currentTextureTargets[i] = GL_NONE;
 			glState.currentTextures[i] = -1; // unbind texture
+			glState.currentTexturesIndex[i] = 0;
 		}
 
 		GL_SetTexCoordArrayMode( GL_NONE );
