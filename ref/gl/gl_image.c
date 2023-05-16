@@ -1418,9 +1418,11 @@ static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 
 	// copy initial params
 	Q_strncpy( tex->name, name, sizeof( tex->name ));
+
 	if( FBitSet( flags, TF_SKYSIDE ))
 		tex->texnum = tr.skyboxbasenum++;
-	else tex->texnum = i; // texnum is used for fast acess into gl_textures array too
+	else pglGenTextures( 1, &tex->texnum );
+
 	tex->flags = flags;
 
 	// add to hash table
