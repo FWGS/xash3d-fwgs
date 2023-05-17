@@ -548,6 +548,51 @@ edict_t *SV_FakeConnect( const char *netname )
 }
 
 /*
+==================
+SV_Kick_f
+
+Kick a user off of the server
+==================
+*/
+void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... )
+{
+	const char *clientId;
+	va_list va;
+	char buf[MAX_VA_STRING];
+
+	if( NET_IsLocalAddress( cl->netchan.remote_address ))
+	{
+		Con_Printf( "The local player cannot be kicked!\n" );
+		return;
+	}
+
+	clientId = SV_GetClientIDString( cl );
+
+	va_start( va, fmt );
+	Q_vsnprintf( buf, sizeof( buf ), fmt, va );
+	va_end( va );
+
+	if( buf[0] )
+	{
+		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\" (message \"%s\")\n", cl->name, cl->userid, clientId, buf );
+		SV_BroadcastPrintf( cl, "%s was kicked with message: \"%s\"\n", cl->name, buf );
+		SV_ClientPrintf( cl, "You were kicked from the game with message: \"%s\"\n", buf );
+		if( cl->useragent[0] )
+			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nKicked with message:\n%s\n", buf );
+	}
+	else
+	{
+		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\"\n", cl->name, cl->userid, clientId );
+		SV_BroadcastPrintf( cl, "%s was kicked\n", cl->name );
+		SV_ClientPrintf( cl, "You were kicked from the game\n" );
+		if( cl->useragent[0] )
+			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nYou were kicked from the game\n" );
+	}
+
+	SV_DropClient( cl, false );
+}
+
+/*
 =====================
 SV_DropClient
 

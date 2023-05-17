@@ -457,6 +457,7 @@ extern	convar_t		*sv_validate_changelevel;
 // sv_main.c
 //
 void SV_FinalMessage( const char *message, qboolean reconnect );
+void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
 void SV_DropClient( sv_client_t *cl, qboolean crash );
 void SV_UpdateMovevars( qboolean initialize );
 int SV_ModelIndex( const char *name );
