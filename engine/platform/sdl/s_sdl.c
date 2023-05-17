@@ -21,13 +21,12 @@ GNU General Public License for more details.
 #include "voice.h"
 
 #include <SDL.h>
+#include <stdlib.h>
 
 #define SAMPLE_16BIT_SHIFT 1
 #define SECONDARY_BUFFER_SIZE 0x10000
 
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
-#include <stdlib.h>
-#define SDL_setenv setenv
 #define SDL_GetCurrentAudioDriver() "legacysdl"
 #define SDL_OpenAudioDevice( a, b, c, d, e ) SDL_OpenAudio( ( c ), ( d ) )
 #define SDL_CloseAudioDevice( a ) SDL_CloseAudio()
@@ -99,8 +98,8 @@ qboolean SNDDMA_Init( void )
 
 	// even if we don't have PA
 	// we still can safely set env variables
-	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
-	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
+	setenv( "PULSE_PROP_application.name", GI->title, 1 );
+	setenv( "PULSE_PROP_media.role", "game", 1 );
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
