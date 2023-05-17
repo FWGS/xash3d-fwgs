@@ -98,8 +98,10 @@ qboolean SNDDMA_Init( void )
 
 	// even if we don't have PA
 	// we still can safely set env variables
+#if XASH_POSIX
 	setenv( "PULSE_PROP_application.name", GI->title, 1 );
 	setenv( "PULSE_PROP_media.role", "game", 1 );
+#endif // XASH_POSIX
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
