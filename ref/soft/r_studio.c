@@ -131,7 +131,6 @@ mstudiobodyparts_t		*m_pBodyPart;
 player_info_t		*m_pPlayerInfo;
 studiohdr_t		*m_pStudioHeader;
 float			m_flGaitMovement;
-int			g_iBackFaceCull;
 int			g_nTopColor, g_nBottomColor;	// remap colors
 int			g_nFaceFlags, g_nForceFaceFlags;
 
@@ -1836,7 +1835,7 @@ sets true for enable backculling (for left-hand viewmodel)
 */
 void R_StudioSetCullState( int iCull )
 {
-	g_iBackFaceCull = iCull;
+	// This function intentionally does nothing
 }
 
 /*
@@ -3443,7 +3442,7 @@ void R_DrawViewModel( void )
 	RI.currentmodel = RI.currententity->model;
 
 	// backface culling for left-handed weapons
-	if( R_AllowFlipViewModel( RI.currententity ) || g_iBackFaceCull )
+	if( R_AllowFlipViewModel( RI.currententity ))
 	{
 		tr.fFlipViewModel = true;
 		//pglFrontFace( GL_CW );
@@ -3465,7 +3464,7 @@ void R_DrawViewModel( void )
 	s_ziscale = (float)0x8000 * (float)0x10000;
 
 	// backface culling for left-handed weapons
-	if( R_AllowFlipViewModel( RI.currententity ) || g_iBackFaceCull )
+	if( R_AllowFlipViewModel( RI.currententity ))
 	{
 		tr.fFlipViewModel = false;
 		//pglFrontFace( GL_CCW );
