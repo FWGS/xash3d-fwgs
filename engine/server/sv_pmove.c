@@ -911,11 +911,23 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 
 	if( cl->ignorecmdtime > host.realtime )
 	{
+		if( !cl->ignorecmdtime_warned )
+		{
+			// report to server op
+			Con_Reportf( S_WARN "%s time is faster than server time (speed hack?)\n", cl->name );
+			cl->ignorecmdtime_warned = true;
+			cl->ignorecmdtime_warns++;
+
+			// automatically kick player
+			if( sv_speedhack_kick.value && cl->ignorecmdtime_warns > MAX_CLIENT_IGNORECMDTIME_WARNS )
+				SV_KickPlayer( cl, "Speed hacks aren't allowed on this server" );
+		}
 		cl->cmdtime += ((double)ucmd->msec / 1000.0 );
 		return;
 	}
 
 	cl->ignorecmdtime = 0.0;
+	cl->ignorecmdtime_warned = false;
 
 	// chop up very long commands
 	if( cmd.msec > 50 )

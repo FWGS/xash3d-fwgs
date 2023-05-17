@@ -80,6 +80,8 @@ extern int SV_UPDATE_BACKUP;
 #define FCL_SEND_RESOURCES	BIT( 9 )
 #define FCL_FORCE_UNMODIFIED	BIT( 10 )
 
+#define MAX_CLIENT_IGNORECMDTIME_WARNS 10 // just a random number (for now)
+
 typedef enum
 {
 	ss_dead,		// no map loaded
@@ -258,6 +260,9 @@ typedef struct sv_client_s
 	int		userid;			// identifying number on server
 	int		extensions;
 	char		useragent[MAX_INFO_STRING];
+
+	int ignorecmdtime_warns; // how many times client time was faster than server during this session
+	qboolean ignorecmdtime_warned; // did we warn our server operator in the log for this batch of commands?
 } sv_client_t;
 
 /*
@@ -443,6 +448,7 @@ extern convar_t		coop;
 extern convar_t		sv_cheats;
 extern convar_t		public_server;
 extern convar_t		sv_nat;
+extern convar_t		sv_speedhack_kick;
 
 extern	convar_t		*sv_pausable;		// allows pause in multiplayer
 extern	convar_t		*sv_check_errors;
