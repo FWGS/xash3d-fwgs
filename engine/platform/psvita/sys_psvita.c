@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <vitasdk.h>
 #include <vitaGL.h>
 #include <vrtld.h>
+#include <sys/reent.h>
 
 #define DATA_PATH "data/xash3d"
 #define MAX_ARGV 5 // "" -log -dev X NULL
@@ -41,7 +42,6 @@ extern void *__aeabi_idivmod;
 extern void *__aeabi_uidivmod;
 extern void *__aeabi_d2ulz;
 extern void *__aeabi_ul2d;
-extern void *_impure_ptr;
 
 static const vrtld_export_t aux_exports[] =
 {
