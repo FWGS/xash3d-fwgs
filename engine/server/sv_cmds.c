@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
-extern convar_t	*con_gamemaps;
+extern convar_t	con_gamemaps;
 
 /*
 =================
@@ -321,8 +321,8 @@ void SV_NextMap_f( void )
 	int	i, next;
 	search_t	*t;
 
-	t = FS_Search( "maps\\*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
-	if( !t ) t = FS_Search( "maps/*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
+	t = FS_Search( "maps\\*.bsp", true, con_gamemaps.value ); // only in gamedir
+	if( !t ) t = FS_Search( "maps/*.bsp", true, con_gamemaps.value ); // only in gamedir
 
 	if( !t )
 	{

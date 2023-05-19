@@ -726,7 +726,7 @@ void CL_WritePacket( void )
 
 	// In single player, send commands as fast as possible
 	// Otherwise, only send when ready and when not choking bandwidth
-	if( cl.maxclients == 1 || ( NET_IsLocalAddress( cls.netchan.remote_address ) && !host_limitlocal->value ))
+	if( cl.maxclients == 1 || ( NET_IsLocalAddress( cls.netchan.remote_address ) && !host_limitlocal.value ))
 		send_command = true;
 
 	if(( host.realtime >= cls.nextcmdtime ) && Netchan_CanPacket( &cls.netchan, true ))

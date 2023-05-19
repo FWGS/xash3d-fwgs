@@ -422,7 +422,7 @@ void SV_ReadPackets( void )
 
 			if( Netchan_Process( &cl->netchan, &net_message ))
 			{
-				if(( svs.maxclients == 1 && !host_limitlocal->value ) || ( cl->state != cs_spawned ))
+				if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
 					SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
 
 				// this is a valid, sequenced packet, so process it
@@ -441,7 +441,7 @@ void SV_ReadPackets( void )
 				{
 					MSG_Init( &net_message, "ClientPacket", net_message_buffer, curSize );
 
-					if(( svs.maxclients == 1 && !host_limitlocal->value ) || ( cl->state != cs_spawned ))
+					if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
 						SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
 
 					// this is a valid, sequenced packet, so process it

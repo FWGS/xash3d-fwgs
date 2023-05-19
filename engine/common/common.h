@@ -156,13 +156,12 @@ void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile,
 extern convar_t	gl_vsync;
 extern convar_t	scr_loading;
 extern convar_t	scr_download;
-extern convar_t	*cmd_scripting;
+extern convar_t	cmd_scripting;
 extern convar_t	*sv_maxclients;
 extern convar_t	cl_allow_levelshots;
 extern convar_t	host_developer;
-extern convar_t	*host_limitlocal;
-extern convar_t	*host_framerate;
-extern convar_t	*host_maxfps;
+extern convar_t	host_limitlocal;
+extern convar_t	host_maxfps;
 extern convar_t	sys_timescale;
 extern convar_t	cl_filterstuffcmd;
 extern convar_t	rcon_password;
