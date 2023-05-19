@@ -863,7 +863,7 @@ void SV_SendClientMessages( void )
 			continue;
 		}
 
-		if( !host_limitlocal->value && NET_IsLocalAddress( cl->netchan.remote_address ))
+		if( !host_limitlocal.value && NET_IsLocalAddress( cl->netchan.remote_address ))
 			SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
 
 		if( cl->state == cs_spawned )
