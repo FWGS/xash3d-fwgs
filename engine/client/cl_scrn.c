@@ -558,7 +558,7 @@ void SCR_LoadCreditsFont( void )
 {
 	cl_font_t *const font = &cls.creditsFont;
 	qboolean success = false;
-	float scale = hud_fontscale->value;
+	float scale = hud_fontscale.value;
 	dword crc = 0;
 
 	// replace default gfx.wad textures by current charset's font

@@ -196,7 +196,7 @@ void CL_ParseServerTime( sizebuf_t *msg )
 
 	dt = cl.time - cl.mtime[0];
 
-	if( fabs( dt ) > cl_clockreset->value )	// 0.1 by default
+	if( fabs( dt ) > cl_clockreset.value )	// 0.1 by default
 	{
 		cl.time = cl.mtime[0];
 		cl.timedelta = 0.0f;
@@ -2153,7 +2153,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 	// parse user message into buffer
 	MSG_ReadBytes( msg, pbuf, iSize );
 
-	if( cl_trace_messages->value )
+	if( cl_trace_messages.value )
 	{
 		Con_Reportf( "^3USERMSG %s SIZE %i SVC_NUM %i\n",
 			clgame.msg[i].name, iSize, clgame.msg[i].number );

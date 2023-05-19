@@ -339,7 +339,7 @@ qboolean V_PreRender( void )
 	// if the screen is disabled (loading plaque is up)
 	if( cls.disable_screen )
 	{
-		if(( host.realtime - cls.disable_screen ) > cl_timeout->value )
+		if(( host.realtime - cls.disable_screen ) > cl_timeout.value )
 		{
 			Con_Reportf( "V_PreRender: loading plaque timed out\n" );
 			cls.disable_screen = 0.0f;
@@ -368,7 +368,7 @@ void V_RenderView( void )
 	ref_viewpass_t	rvp;
 	int		viewnum = 0;
 
-	if( !cl.video_prepped || ( !ui_renderworld->value && UI_IsVisible() && !cl.background ))
+	if( !cl.video_prepped || ( !ui_renderworld.value && UI_IsVisible() && !cl.background ))
 		return; // still loading
 
 	V_CalcViewRect ();	// compute viewport rectangle

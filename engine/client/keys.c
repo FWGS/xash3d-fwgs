@@ -1055,7 +1055,7 @@ static qboolean OSK_KeyEvent( int key, int down )
 					break;
 				}
 
-				if( !Q_stricmp( cl_charset->string, "utf-8" ) )
+				if( !Q_stricmp( cl_charset.string, "utf-8" ) )
 					ch = (unsigned char)osk.curbutton.val;
 				else
 					ch = Con_UtfProcessCharForce( (unsigned char)osk.curbutton.val );
