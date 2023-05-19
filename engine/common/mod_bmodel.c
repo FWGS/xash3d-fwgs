@@ -2051,7 +2051,7 @@ static void Mod_LoadTextureData( dbspmodel_t *bmod, int textureIndex )
 	// 2. Internal from map
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if(( r_wadtextures->value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 )
+	if(( r_wadtextures.value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 )
 	{
 		char texpath[MAX_VA_STRING];
 		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, mipTex->name, texpath, sizeof( texpath ));
