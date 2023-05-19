@@ -46,8 +46,8 @@ uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );
 void IN_EngineAppendMove( float frametime, void *cmd, qboolean active );
 
-extern convar_t *m_yaw;
-extern convar_t *m_pitch;
+extern convar_t m_yaw;
+extern convar_t m_pitch;
 //
 // in_touch.c
 //
