@@ -557,11 +557,11 @@ static void SetFullscreenModeFromCommandLine( void )
 #if !XASH_MOBILE_PLATFORM
 	if( Sys_CheckParm( "-fullscreen" ))
 	{
-		Cvar_Set( "fullscreen", "1" );
+		Cvar_DirectSet( vid_fullscreen, "1" );
 	}
 	else if( Sys_CheckParm( "-windowed" ))
 	{
-		Cvar_Set( "fullscreen", "0" );
+		Cvar_DirectSet( vid_fullscreen, "0" );
 	}
 #endif
 }

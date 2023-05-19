@@ -596,7 +596,7 @@ static qboolean VID_SetScreenResolution( int width, int height )
 void VID_RestoreScreenResolution( void )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( !Cvar_VariableInteger("fullscreen") )
+	if( !vid_fullscreen->value )
 	{
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 	}
@@ -1117,7 +1117,6 @@ Set the described video mode
 */
 qboolean VID_SetMode( void )
 {
-	qboolean	fullscreen = false;
 	int iScreenWidth, iScreenHeight;
 	rserr_t	err;
 
@@ -1146,14 +1145,13 @@ qboolean VID_SetMode( void )
 	}
 
 	if( !FBitSet( vid_fullscreen->flags, FCVAR_CHANGED ) )
-		Cvar_SetValue( "fullscreen", DEFAULT_FULLSCREEN );
+		Cvar_DirectSet( vid_fullscreen, DEFAULT_FULLSCREEN );
 	else
 		ClearBits( vid_fullscreen->flags, FCVAR_CHANGED );
 
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
-	fullscreen = Cvar_VariableInteger("fullscreen") != 0;
 
-	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, fullscreen )) == rserr_ok )
+	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, vid_fullscreen->value )) == rserr_ok )
 	{
 		sdlState.prev_width = iScreenWidth;
 		sdlState.prev_height = iScreenHeight;
@@ -1162,7 +1160,7 @@ qboolean VID_SetMode( void )
 	{
 		if( err == rserr_invalid_fullscreen )
 		{
-			Cvar_SetValue( "fullscreen", 0 );
+			Cvar_DirectSet( vid_fullscreen, "0" );
 			Con_Reportf( S_ERROR  "VID_SetMode: fullscreen unavailable in this mode\n" );
 			Sys_Warn("fullscreen unavailable in this mode!");
 			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, false )) == rserr_ok )

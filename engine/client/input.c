@@ -36,7 +36,6 @@ static struct inputstate_s
 	float lastpitch, lastyaw;
 } inputstate;
 
-extern convar_t *vid_fullscreen;
 convar_t *m_pitch;
 convar_t *m_yaw;
 
