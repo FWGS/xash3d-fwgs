@@ -919,7 +919,7 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 			cl->ignorecmdtime_warns++;
 
 			// automatically kick player
-			if( sv_speedhack_kick.value && cl->ignorecmdtime_warns > MAX_CLIENT_IGNORECMDTIME_WARNS )
+			if( sv_speedhack_kick.value && cl->ignorecmdtime_warns > sv_speedhack_kick.value )
 				SV_KickPlayer( cl, "Speed hacks aren't allowed on this server" );
 		}
 		cl->cmdtime += ((double)ucmd->msec / 1000.0 );
