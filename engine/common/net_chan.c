@@ -1331,7 +1331,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 
 	if( host.downloadcount == 0 )
 	{
-		scr_download->value = -1.0f;
+		scr_download.value = -1.0f;
 		host.downloadfile[0] = '\0';
 	}
 
@@ -1399,7 +1399,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 
 	}
 
-	scr_download->value = bestpercent;
+	scr_download.value = bestpercent;
 #endif // XASH_DEDICATED
 }
 
