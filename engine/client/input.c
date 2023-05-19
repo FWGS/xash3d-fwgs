@@ -85,18 +85,18 @@ player is connected to the server
 */
 void IN_LockInputDevices( qboolean lock )
 {
-	extern convar_t *joy_enable; // private to input system
+	extern convar_t joy_enable; // private to input system
 
 	if( lock )
 	{
 		SetBits( m_ignore.flags, FCVAR_READ_ONLY );
-		SetBits( joy_enable->flags, FCVAR_READ_ONLY );
+		SetBits( joy_enable.flags, FCVAR_READ_ONLY );
 		SetBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
 	else
 	{
 		ClearBits( m_ignore.flags, FCVAR_READ_ONLY );
-		ClearBits( joy_enable->flags, FCVAR_READ_ONLY );
+		ClearBits( joy_enable.flags, FCVAR_READ_ONLY );
 		ClearBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
 }

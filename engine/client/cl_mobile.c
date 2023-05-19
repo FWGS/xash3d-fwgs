@@ -20,17 +20,17 @@ GNU General Public License for more details.
 #include "input.h"
 #include "platform/platform.h"
 
-mobile_engfuncs_t *gMobileEngfuncs;
+static mobile_engfuncs_t *gMobileEngfuncs;
 
-convar_t *vibration_length;
-convar_t *vibration_enable;
+static CVAR_DEFINE_AUTO( vibration_length, "1.0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "vibration length" );
+static CVAR_DEFINE_AUTO( vibration_enable, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "enable vibration" );
 
 static cl_font_t g_scaled_font;
 static float g_font_scale;
 
 static void pfnVibrate( float life, char flags )
 {
-	if( !vibration_enable->value )
+	if( !vibration_enable.value )
 		return;
 
 	if( life < 0.0f )
@@ -42,7 +42,7 @@ static void pfnVibrate( float life, char flags )
 	//Con_Reportf( "Vibrate: %f %d\n", life, flags );
 
 	// here goes platform-specific backends
-	Platform_Vibrate( life * vibration_length->value, flags );
+	Platform_Vibrate( life * vibration_length.value, flags );
 }
 
 static void Vibrate_f( void )
@@ -142,8 +142,8 @@ qboolean Mobile_Init( void )
 		success = true;
 
 	Cmd_AddCommand( "vibrate", (xcommand_t)Vibrate_f, "Vibrate for specified time");
-	vibration_length = Cvar_Get( "vibration_length", "1.0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "Vibration length");
-	vibration_enable = Cvar_Get( "vibration_enable", "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "Enable vibration");
+	Cvar_RegisterVariable( &vibration_length );
+	Cvar_RegisterVariable( &vibration_enable );
 
 	return success;
 }
