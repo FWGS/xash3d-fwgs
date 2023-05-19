@@ -25,8 +25,6 @@ cvar_t	*r_lighting_extended;
 cvar_t	*r_lighting_modulate;
 cvar_t	*r_lighting_ambient;
 cvar_t	*r_detailtextures;
-cvar_t	*r_adjust_fov;
-cvar_t	*r_decals;
 cvar_t	*r_novis;
 cvar_t	*r_nocull;
 cvar_t	*r_lockpvs;
