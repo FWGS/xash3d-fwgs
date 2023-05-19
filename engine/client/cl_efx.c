@@ -21,9 +21,9 @@ static int ramp2[8] = { 0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66 };
 static int ramp3[6] = { 0x6d, 0x6b, 6, 5, 4, 3 };
 static int gSparkRamp[9] = { 0xfe, 0xfd, 0xfc, 0x6f, 0x6e, 0x6d, 0x6c, 0x67, 0x60 };
 
-convar_t		*tracerspeed;
-convar_t		*tracerlength;
-convar_t		*traceroffset;
+static CVAR_DEFINE_AUTO( tracerspeed, "6000", 0, "tracer speed" );
+static CVAR_DEFINE_AUTO( tracerlength, "0.8", 0, "tracer length factor" );
+static CVAR_DEFINE_AUTO( traceroffset, "30", 0, "tracer starting offset" );
 
 particle_t	*cl_active_particles;
 particle_t	*cl_active_tracers;
@@ -100,9 +100,9 @@ void CL_InitParticles( void )
 		cl_avelocities[i][2] = COM_RandomFloat( 0.0f, 2.55f );
 	}
 
-	tracerspeed = Cvar_Get( "tracerspeed", "6000", 0, "tracer speed" );
-	tracerlength = Cvar_Get( "tracerlength", "0.8", 0, "tracer length factor" );
-	traceroffset = Cvar_Get( "traceroffset", "30", 0, "tracer starting offset" );
+	Cvar_RegisterVariable( &tracerspeed );
+	Cvar_RegisterVariable( &tracerlength );
+	Cvar_RegisterVariable( &traceroffset );
 }
 
 /*
@@ -249,7 +249,7 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 	VectorCopy( org, p->org );
 	VectorCopy( vel, p->vel );
 	p->die = cl.time + life;
-	p->ramp = tracerlength->value;
+	p->ramp = tracerlength.value;
 	p->color = 4; // select custom color
 	p->packedColor = 255; // alpha
 
@@ -1804,14 +1804,14 @@ void GAME_EXPORT R_TracerEffect( const vec3_t start, const vec3_t end )
 	float	len, speed;
 	float	offset;
 
-	speed = Q_max( tracerspeed->value, 3.0f );
+	speed = Q_max( tracerspeed.value, 3.0f );
 
 	VectorSubtract( end, start, dir );
 	len = VectorLength( dir );
 	if( len == 0.0f ) return;
 
 	VectorScale( dir, 1.0f / len, dir ); // normalize
-	offset = COM_RandomFloat( -10.0f, 9.0f ) + traceroffset->value;
+	offset = COM_RandomFloat( -10.0f, 9.0f ) + traceroffset.value;
 	VectorScale( dir, offset, vel );
 	VectorAdd( start, vel, pos );
 	VectorScale( dir, speed, vel );
