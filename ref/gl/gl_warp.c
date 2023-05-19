@@ -71,7 +71,7 @@ static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
 	{
 		// check HL-style skyboxes
 		num_checked_sides = 0;
-		for( j = 0; j < 6; j++ )
+		for( j = 0; j < SKYBOX_MAX_SIDES; j++ )
 		{
 			// build side name
 			Q_snprintf( sidename, sizeof( sidename ), "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
@@ -87,7 +87,7 @@ static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
 
 		// check Q1-style skyboxes
 		num_checked_sides = 0;
-		for( j = 0; j < 6; j++ )
+		for( j = 0; j < SKYBOX_MAX_SIDES; j++ )
 		{
 			// build side name
 			Q_snprintf( sidename, sizeof( sidename ), "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
@@ -294,7 +294,7 @@ void R_ClearSkyBox( void )
 {
 	int	i;
 
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		RI.skyMins[0][i] = RI.skyMins[1][i] = 9999999.0f;
 		RI.skyMaxs[0][i] = RI.skyMaxs[1][i] = -9999999.0f;
@@ -348,13 +348,13 @@ void R_UnloadSkybox( void )
 	int	i;
 
 	// release old skybox
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( !tr.skyboxTextures[i] ) continue;
 		GL_FreeTexture( tr.skyboxTextures[i] );
 	}
 
-	tr.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)
+	tr.skyboxbasenum = SKYBOX_BASE_NUM;	// set skybox base (to let some mods load hi-res skyboxes)
 
 	memset( tr.skyboxTextures, 0, sizeof( tr.skyboxTextures ));
 	tr.fCustomSkybox = false;
@@ -381,7 +381,7 @@ void R_DrawSkyBox( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( RI.skyMins[0][i] >= RI.skyMaxs[0][i] || RI.skyMins[1][i] >= RI.skyMaxs[1][i] )
 			continue;
@@ -447,7 +447,7 @@ void R_SetupSky( const char *skyboxname )
 	R_UnloadSkybox();
 	gEngfuncs.Con_DPrintf( "SKY:  " );
 
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		tr.skyboxTextures[i] = GL_LoadTexture( sidenames[i], NULL, 0, TF_CLAMP|TF_SKY );
 
@@ -632,7 +632,7 @@ void R_DrawClouds( void )
 	pglDepthFunc( GL_GEQUAL );
 	pglDepthMask( GL_FALSE );
 
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( RI.skyMins[0][i] >= RI.skyMaxs[0][i] || RI.skyMins[1][i] >= RI.skyMaxs[1][i] )
 			continue;

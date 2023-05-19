@@ -105,6 +105,9 @@ extern poolhandle_t r_temppool;
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
 
+#define SKYBOX_BASE_NUM 5800 // set skybox base (to let some mods load hi-res skyboxes)
+#define SKYBOX_MAX_SIDES 6   // box can only have 6 sides
+
 typedef struct gltexture_s
 {
 	char		name[256];	// game path, including extension (can be store image programs)
@@ -181,8 +184,8 @@ typedef struct
 	int		cached_contents;	// in water
 	int		cached_waterlevel;	// was in water
 
-	float		skyMins[2][6];
-	float		skyMaxs[2][6];
+	float		skyMins[2][SKYBOX_MAX_SIDES];
+	float		skyMaxs[2][SKYBOX_MAX_SIDES];
 
 	matrix4x4		objectMatrix;		// currententity matrix
 	matrix4x4		worldviewMatrix;		// modelview for world
@@ -217,7 +220,7 @@ typedef struct
 	int		alphaskyTexture;	// quake1 alpha-sky layer
 	int		lightmapTextures[MAX_LIGHTMAPS];
 	int		dlightTexture;	// custom dlight texture
-	int		skyboxTextures[6];	// skybox sides
+	int		skyboxTextures[SKYBOX_MAX_SIDES];	// skybox sides
 	int		cinTexture;      	// cinematic texture
 
 	int		skytexturenum;	// this not a gl_texturenum!
