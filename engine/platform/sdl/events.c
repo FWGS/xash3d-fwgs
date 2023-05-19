@@ -406,10 +406,12 @@ static size_t num_open_game_controllers = 0;
 
 static void SDLash_GameController_Add( int index )
 {
-	extern convar_t *joy_enable; // private to input system
+	extern convar_t joy_enable; // private to input system
 	SDL_GameController *controller;
-	if( !joy_enable->value )
+
+	if( !joy_enable.value )
 		return;
+
 	controller = SDL_GameControllerOpen( index );
 	if( !controller )
 	{

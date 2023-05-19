@@ -45,22 +45,24 @@ static struct joy_axis_s
 } joyaxis[MAX_AXES] = { 0 };
 static byte currentbinding; // add posibility to remap keys, to place it in joykeys[]
 static qboolean joy_initialized;
-convar_t *joy_enable;
-static convar_t *joy_pitch;
-static convar_t *joy_yaw;
-static convar_t *joy_forward;
-static convar_t *joy_side;
-static convar_t *joy_found;
-static convar_t *joy_index;
-static convar_t *joy_lt_threshold;
-static convar_t *joy_rt_threshold;
-static convar_t *joy_side_deadzone;
-static convar_t *joy_forward_deadzone;
-static convar_t *joy_side_key_threshold;
-static convar_t *joy_forward_key_threshold;
-static convar_t *joy_pitch_deadzone;
-static convar_t *joy_yaw_deadzone;
-static convar_t *joy_axis_binding;
+
+static CVAR_DEFINE_AUTO( joy_pitch,   "100.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick pitch sensitivity" );
+static CVAR_DEFINE_AUTO( joy_yaw,     "100.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick yaw sensitivity" );
+static CVAR_DEFINE_AUTO( joy_side,    "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick side sensitivity. Values from -1.0 to 1.0" );
+static CVAR_DEFINE_AUTO( joy_forward, "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick forward sensitivity. Values from -1.0 to 1.0" );
+static CVAR_DEFINE_AUTO( joy_lt_threshold, "16384", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "left trigger threshold. Value from 0 to 32767");
+static CVAR_DEFINE_AUTO( joy_rt_threshold, "16384", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "right trigger threshold. Value from 0 to 32767" );
+static CVAR_DEFINE_AUTO( joy_side_key_threshold, "24576", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "side axis key event emit threshold. Value from 0 to 32767" );
+static CVAR_DEFINE_AUTO( joy_forward_key_threshold, "24576", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "forward axis key event emit threshold. Value from 0 to 32767");
+static CVAR_DEFINE_AUTO( joy_side_deadzone, DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "side axis deadzone. Value from 0 to 32767" );
+static CVAR_DEFINE_AUTO( joy_forward_deadzone, DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "forward axis deadzone. Value from 0 to 32767");
+static CVAR_DEFINE_AUTO( joy_pitch_deadzone, DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "pitch axis deadzone. Value from 0 to 32767");
+static CVAR_DEFINE_AUTO( joy_yaw_deadzone, DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "yaw axis deadzone. Value from 0 to 32767" );
+static CVAR_DEFINE_AUTO( joy_axis_binding, "sfpyrl", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "axis hardware id to engine inner axis binding, "
+	"s - side, f - forward, y - yaw, p - pitch, r - left trigger, l - right trigger" );
+static CVAR_DEFINE_AUTO( joy_found, "0", FCVAR_READ_ONLY, "is joystick is connected" );
+static CVAR_DEFINE_AUTO( joy_index, "0", FCVAR_READ_ONLY, "current active joystick" );
+CVAR_DEFINE_AUTO( joy_enable, "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable joystick" );
 
 /*
 ============
@@ -69,7 +71,7 @@ Joy_IsActive
 */
 qboolean Joy_IsActive( void )
 {
-	return joy_found->value && joy_enable->value;
+	return joy_found.value && joy_enable.value;
 }
 
 /*
@@ -94,7 +96,7 @@ void Joy_HatMotionEvent( byte hat, byte value )
 	};
 	int i;
 
-	if( !joy_found->value )
+	if( !joy_found.value )
 		return;
 
 	for( i = 0; i < ARRAYSIZE( keys ); i++ )
@@ -125,11 +127,11 @@ static void Joy_ProcessTrigger( const engineAxis_t engineAxis, short value )
 	{
 	case JOY_AXIS_RT:
 		trigButton = K_JOY2;
-		trigThreshold = joy_rt_threshold->value;
+		trigThreshold = joy_rt_threshold.value;
 		break;
 	case JOY_AXIS_LT:
 		trigButton = K_JOY1;
-		trigThreshold = joy_lt_threshold->value;
+		trigThreshold = joy_lt_threshold.value;
 		break;
 	default:
 		Con_Reportf( S_ERROR  "Joy_ProcessTrigger: invalid axis = %i", engineAxis );
@@ -159,12 +161,12 @@ static int Joy_GetHatValueForAxis( const engineAxis_t engineAxis )
 	switch( engineAxis )
 	{
 	case JOY_AXIS_SIDE:
-		threshold = joy_side_key_threshold->value;
+		threshold = joy_side_key_threshold.value;
 		negative = JOY_HAT_LEFT;
 		positive = JOY_HAT_RIGHT;
 		break;
 	case JOY_AXIS_FWD:
-		threshold = joy_side_key_threshold->value;
+		threshold = joy_side_key_threshold.value;
 		negative = JOY_HAT_UP;
 		positive = JOY_HAT_DOWN;
 		break;
@@ -198,10 +200,10 @@ static void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
 
 	switch( engineAxis )
 	{
-	case JOY_AXIS_FWD:   deadzone = joy_forward_deadzone->value; break;
-	case JOY_AXIS_SIDE:  deadzone = joy_side_deadzone->value; break;
-	case JOY_AXIS_PITCH: deadzone = joy_pitch_deadzone->value; break;
-	case JOY_AXIS_YAW:   deadzone = joy_yaw_deadzone->value; break;
+	case JOY_AXIS_FWD:   deadzone = joy_forward_deadzone.value; break;
+	case JOY_AXIS_SIDE:  deadzone = joy_side_deadzone.value; break;
+	case JOY_AXIS_PITCH: deadzone = joy_pitch_deadzone.value; break;
+	case JOY_AXIS_YAW:   deadzone = joy_yaw_deadzone.value; break;
 	default:
 		Con_Reportf( S_ERROR  "Joy_ProcessStick: invalid axis = %i", engineAxis );
 		break;
@@ -236,7 +238,7 @@ Axis events
 */
 void Joy_AxisMotionEvent( byte axis, short value )
 {
-	if( !joy_found->value )
+	if( !joy_found.value )
 		return;
 
 	if( axis >= MAX_AXES )
@@ -271,7 +273,7 @@ Trackball events. UNDONE
 */
 void Joy_BallMotionEvent( byte ball, short xrel, short yrel )
 {
-	//if( !joy_found->value )
+	//if( !joy_found.value )
 	//	return;
 }
 
@@ -284,7 +286,7 @@ Button events
 */
 void Joy_ButtonEvent( byte button, byte down )
 {
-	if( !joy_found->value )
+	if( !joy_found.value )
 		return;
 
 	// generic game button code.
@@ -309,7 +311,7 @@ Called when joystick is removed. For future expansion
 */
 void Joy_RemoveEvent( void )
 {
-	if( joy_found->value )
+	if( joy_found.value )
 		Cvar_FullSet( "joy_found", "0", FCVAR_READ_ONLY );
 }
 
@@ -322,7 +324,7 @@ Called when joystick is removed. For future expansion
 */
 void Joy_AddEvent( void )
 {
-	if( joy_enable->value && !joy_found->value )
+	if( joy_enable.value && !joy_found.value )
 		Cvar_FullSet( "joy_found", "1", FCVAR_READ_ONLY );
 }
 
@@ -338,9 +340,9 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 	if( !Joy_IsActive() )
 		return;
 
-	if( FBitSet( joy_axis_binding->flags, FCVAR_CHANGED ) )
+	if( FBitSet( joy_axis_binding.flags, FCVAR_CHANGED ) )
 	{
-		const char *bind = joy_axis_binding->string;
+		const char *bind = joy_axis_binding.string;
 		size_t i;
 
 		for( i = 0; bind[i]; i++ )
@@ -357,18 +359,18 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 			}
 		}
 
-		ClearBits( joy_axis_binding->flags, FCVAR_CHANGED );
+		ClearBits( joy_axis_binding.flags, FCVAR_CHANGED );
 	}
 
-	*fw     -= joy_forward->value * (float)joyaxis[JOY_AXIS_FWD ].val/(float)SHRT_MAX;  // must be form -1.0 to 1.0
-	*side   += joy_side->value    * (float)joyaxis[JOY_AXIS_SIDE].val/(float)SHRT_MAX;
+	*fw     -= joy_forward.value * (float)joyaxis[JOY_AXIS_FWD ].val/(float)SHRT_MAX;  // must be form -1.0 to 1.0
+	*side   += joy_side.value    * (float)joyaxis[JOY_AXIS_SIDE].val/(float)SHRT_MAX;
 #if !defined(XASH_SDL)
-	*dpitch += joy_pitch->value * (float)joyaxis[JOY_AXIS_PITCH].val/(float)SHRT_MAX * host.realframetime;  // abs axis rotate is frametime related
-	*dyaw   -= joy_yaw->value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
+	*dpitch += joy_pitch.value * (float)joyaxis[JOY_AXIS_PITCH].val/(float)SHRT_MAX * host.realframetime;  // abs axis rotate is frametime related
+	*dyaw   -= joy_yaw.value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
 #else
 	// HACKHACK: SDL have inverted look axis.
-	*dpitch -= joy_pitch->value * (float)joyaxis[JOY_AXIS_PITCH].val/(float)SHRT_MAX * host.realframetime;
-	*dyaw   += joy_yaw->value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
+	*dpitch -= joy_pitch.value * (float)joyaxis[JOY_AXIS_PITCH].val/(float)SHRT_MAX * host.realframetime;
+	*dyaw   += joy_yaw.value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
 #endif
 }
 
@@ -381,32 +383,31 @@ Main init procedure
 */
 void Joy_Init( void )
 {
-	joy_pitch   = Cvar_Get( "joy_pitch",   "100.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick pitch sensitivity" );
-	joy_yaw     = Cvar_Get( "joy_yaw",     "100.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick yaw sensitivity" );
-	joy_side    = Cvar_Get( "joy_side",    "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick side sensitivity. Values from -1.0 to 1.0" );
-	joy_forward = Cvar_Get( "joy_forward", "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "joystick forward sensitivity. Values from -1.0 to 1.0" );
+	Cvar_RegisterVariable( &joy_pitch );
+	Cvar_RegisterVariable( &joy_yaw );
+	Cvar_RegisterVariable( &joy_side );
+	Cvar_RegisterVariable( &joy_forward );
 
-	joy_lt_threshold = Cvar_Get( "joy_lt_threshold", "16384", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "left trigger threshold. Value from 0 to 32767");
-	joy_rt_threshold = Cvar_Get( "joy_rt_threshold", "16384", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "right trigger threshold. Value from 0 to 32767" );
+	Cvar_RegisterVariable( &joy_lt_threshold );
+	Cvar_RegisterVariable( &joy_rt_threshold );
 
 	// emit a key event at 75% axis move
-	joy_side_key_threshold = Cvar_Get( "joy_side_key_threshold", "24576", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "side axis key event emit threshold. Value from 0 to 32767" );
-	joy_forward_key_threshold = Cvar_Get( "joy_forward_key_threshold", "24576", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "forward axis key event emit threshold. Value from 0 to 32767");
+	Cvar_RegisterVariable( &joy_side_key_threshold );
+	Cvar_RegisterVariable( &joy_forward_key_threshold );
 
 	// by default, we rely on deadzone detection come from system, but some glitchy devices report false deadzones
-	joy_side_deadzone = Cvar_Get( "joy_side_deadzone", DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "side axis deadzone. Value from 0 to 32767" );
-	joy_forward_deadzone = Cvar_Get( "joy_forward_deadzone", DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "forward axis deadzone. Value from 0 to 32767");
-	joy_pitch_deadzone = Cvar_Get( "joy_pitch_deadzone", DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "pitch axis deadzone. Value from 0 to 32767");
-	joy_yaw_deadzone = Cvar_Get( "joy_yaw_deadzone", DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "yaw axis deadzone. Value from 0 to 32767" );
+	Cvar_RegisterVariable( &joy_side_deadzone );
+	Cvar_RegisterVariable( &joy_forward_deadzone );
+	Cvar_RegisterVariable( &joy_pitch_deadzone );
+	Cvar_RegisterVariable( &joy_yaw_deadzone );
 
-	joy_axis_binding = Cvar_Get( "joy_axis_binding", "sfpyrl", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "axis hardware id to engine inner axis binding, "
-		"s - side, f - forward, y - yaw, p - pitch, r - left trigger, l - right trigger" );
-	joy_found   = Cvar_Get( "joy_found", "0", FCVAR_READ_ONLY, "is joystick is connected" );
+	Cvar_RegisterVariable( &joy_axis_binding );
+	Cvar_RegisterVariable( &joy_found );
 	// we doesn't loaded config.cfg yet, so this cvar is not archive.
 	// change by +set joy_index in cmdline
-	joy_index   = Cvar_Get( "joy_index", "0", FCVAR_READ_ONLY, "current active joystick" );
+	Cvar_RegisterVariable( &joy_index );
 
-	joy_enable = Cvar_Get( "joy_enable", "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable joystick" );
+	Cvar_RegisterVariable( &joy_enable );
 
 	// renamed from -nojoy to -noenginejoy to not conflict with
 	// client.dll's joystick support
@@ -416,7 +417,7 @@ void Joy_Init( void )
 		return;
 	}
 
-	Cvar_FullSet( "joy_found", va( "%d", Platform_JoyInit( joy_index->value )), FCVAR_READ_ONLY );
+	Cvar_FullSet( "joy_found", va( "%d", Platform_JoyInit( joy_index.value )), FCVAR_READ_ONLY );
 
 	joy_initialized = true;
 }
