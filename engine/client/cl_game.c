@@ -914,7 +914,7 @@ void CL_DrawCrosshair( void )
 	int	x, y, width, height;
 	float xscale, yscale;
 
-	if( !clgame.ds.pCrosshair || !cl_crosshair->value )
+	if( !clgame.ds.pCrosshair || !cl_crosshair.value )
 		return;
 
 	// any camera on or client is died
@@ -1630,14 +1630,14 @@ get actual screen info
 */
 int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
-	float scale_factor = hud_scale->value;
+	float scale_factor = hud_scale.value;
 
-	if( FBitSet( hud_fontscale->flags, FCVAR_CHANGED ))
+	if( FBitSet( hud_fontscale.flags, FCVAR_CHANGED ))
 	{
 		CL_FreeFont( &cls.creditsFont );
 		SCR_LoadCreditsFont();
 
-		ClearBits( hud_fontscale->flags, FCVAR_CHANGED );
+		ClearBits( hud_fontscale.flags, FCVAR_CHANGED );
 	}
 
 	// setup screen info
@@ -1889,7 +1889,7 @@ static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g,
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD;
 
-	if( hud_utf8->value )
+	if( hud_utf8.value )
 		flags |= FONT_DRAW_UTF8;
 
 	return CL_DrawCharacter( x, y, number, color, &cls.creditsFont, flags );
@@ -2888,7 +2888,7 @@ static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int 
 	rgba_t color = { r, g, b, 255 };
 	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
 
-	if( hud_utf8->value )
+	if( hud_utf8.value )
 		SetBits( flags, FONT_DRAW_UTF8 );
 
 	return CL_DrawString( x, y, str, color, &cls.creditsFont, flags );
@@ -2906,7 +2906,7 @@ static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int 
 	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
 	int width;
 
-	if( hud_utf8->value )
+	if( hud_utf8.value )
 		SetBits( flags, FONT_DRAW_UTF8 );
 
 	CL_DrawStringLen( &cls.creditsFont, str, &width, NULL, flags );
@@ -3296,7 +3296,7 @@ static void GAME_EXPORT NetAPI_Status( net_status_t *status )
 	status->remote_address = cls.netchan.remote_address;
 	status->packet_loss = packet_loss;
 	status->local_address = net_local;
-	status->rate = rate->value;
+	status->rate = rate.value;
 }
 
 /*
