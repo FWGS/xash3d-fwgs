@@ -50,8 +50,8 @@ typedef enum
 
 #include "netadr.h"
 
-extern convar_t	*net_showpackets;
-extern convar_t	*net_clockwindow;
+extern convar_t	net_showpackets;
+extern convar_t	net_clockwindow;
 
 void NET_Init( void );
 void NET_Shutdown( void );
