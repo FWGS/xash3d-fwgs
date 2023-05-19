@@ -719,10 +719,10 @@ void GAME_EXPORT Key_Event( int key, int down )
 		switch( cls.key_dest )
 		{
 		case key_game:
-			if( CVAR_TO_BOOL( gl_showtextures ))
+			if( r_showtextures.value )
 			{
 				// close texture atlas
-				Cvar_SetValue( "r_showtextures", 0.0f );
+				Cvar_DirectSet( &r_showtextures, "0" );
 				return;
 			}
 			else if( host.mouse_visible && cls.state != ca_cinematic )
