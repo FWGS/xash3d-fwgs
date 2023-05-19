@@ -1904,7 +1904,7 @@ drawing string like a console string
 */
 int GAME_EXPORT pfnDrawConsoleString( int x, int y, char *string )
 {
-	cl_font_t *font = Con_GetFont( con_fontsize->value );
+	cl_font_t *font = Con_GetFont( con_fontsize.value );
 	rgba_t color;
 	Vector4Copy( clgame.ds.textColor, color );
 	Vector4Set( clgame.ds.textColor, 255, 255, 255, 255 );
@@ -1937,7 +1937,7 @@ compute string length in screen pixels
 */
 void GAME_EXPORT pfnDrawConsoleStringLen( const char *pText, int *length, int *height )
 {
-	cl_font_t *font = Con_GetFont( con_fontsize->value );
+	cl_font_t *font = Con_GetFont( con_fontsize.value );
 
 	if( height ) *height = font->charHeight;
 	CL_DrawStringLen( font, pText, length, NULL, FONT_DRAW_UTF8 | FONT_DRAW_HUD );

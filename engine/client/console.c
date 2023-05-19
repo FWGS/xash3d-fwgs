@@ -22,13 +22,14 @@ GNU General Public License for more details.
 #include "wadfile.h"
 #include "input.h"
 
-convar_t	*con_notifytime;
-convar_t	*scr_conspeed;
-convar_t	*con_fontsize;
-convar_t	*con_charset;
-convar_t	*con_fontscale;
-convar_t	*con_fontnum;
-convar_t        *con_color;
+static CVAR_DEFINE_AUTO( scr_conspeed, "600", FCVAR_ARCHIVE, "console moving speed" );
+static CVAR_DEFINE_AUTO( con_notifytime, "3", FCVAR_ARCHIVE, "notify time to live" );
+CVAR_DEFINE_AUTO( con_fontsize, "1", FCVAR_ARCHIVE, "console font number (0, 1 or 2)" );
+static CVAR_DEFINE_AUTO( con_charset, "cp1251", FCVAR_ARCHIVE, "console font charset (only cp1251 supported now)" );
+static CVAR_DEFINE_AUTO( con_fontscale, "1.0", FCVAR_ARCHIVE, "scale font texture" );
+static CVAR_DEFINE_AUTO( con_fontnum, "-1", FCVAR_ARCHIVE, "console font number (0, 1 or 2), -1 for autoselect" );
+static CVAR_DEFINE_AUTO( con_color, "240 180 24", FCVAR_ARCHIVE, "set a custom console color" );
+
 
 static int g_codepage = 0;
 static qboolean g_utf8 = false;
@@ -162,14 +163,13 @@ Con_SetColor
 */
 static void Con_SetColor( void )
 {
-	vec3_t color;
 	int r, g, b;
 	int num;
 
-	if( !FBitSet( con_color->flags, FCVAR_CHANGED ))
+	if( !FBitSet( con_color.flags, FCVAR_CHANGED ))
 		return;
 
-	num = sscanf( con_color->string, "%i %i %i", &r, &g, &b );
+	num = sscanf( con_color.string, "%i %i %i", &r, &g, &b );
 
 	switch( num )
 	{
@@ -180,11 +180,11 @@ static void Con_SetColor( void )
 		Con_DefaultColor( r, g, b );
 		break;
 	default:
-		Cvar_DirectSet( con_color, con_color->def_string );
+		Cvar_DirectSet( &con_color, con_color.def_string );
 		break;
 	}
 
-	ClearBits( con_color->flags, FCVAR_CHANGED );
+	ClearBits( con_color.flags, FCVAR_CHANGED );
 }
 
 /*
@@ -538,7 +538,7 @@ INTERNAL RESOURCE
 static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 {
 	qboolean success = false;
-	float scale = con_fontscale->value;
+	float scale = con_fontscale.value;
 
 	if( font->valid )
 		return; // already loaded
@@ -593,8 +593,8 @@ static void Con_LoadConchars( void )
 		Con_LoadConsoleFont( i, con.chars + i );
 
 	// select properly fontsize
-	if( con_fontnum->value >= 0 && con_fontnum->value <= CON_NUMFONTS - 1 )
-		fontSize = con_fontnum->value;
+	if( con_fontnum.value >= 0 && con_fontnum.value <= CON_NUMFONTS - 1 )
+		fontSize = con_fontnum.value;
 	else if( refState.width <= 640 )
 		fontSize = 0;
 	else if( refState.width >= 1280 )
@@ -830,19 +830,17 @@ Con_Init
 */
 void Con_Init( void )
 {
-	int	i;
-
 	if( host.type == HOST_DEDICATED )
 		return; // dedicated server already have console
 
 	// must be init before startup video subsystem
-	scr_conspeed = Cvar_Get( "scr_conspeed", "600", FCVAR_ARCHIVE, "console moving speed" );
-	con_notifytime = Cvar_Get( "con_notifytime", "3", FCVAR_ARCHIVE, "notify time to live" );
-	con_fontsize = Cvar_Get( "con_fontsize", "1", FCVAR_ARCHIVE, "console font number (0, 1 or 2)" );
-	con_charset = Cvar_Get( "con_charset", "cp1251", FCVAR_ARCHIVE, "console font charset (only cp1251 supported now)" );
-	con_fontscale = Cvar_Get( "con_fontscale", "1.0", FCVAR_ARCHIVE, "scale font texture" );
-	con_fontnum = Cvar_Get( "con_fontnum", "-1", FCVAR_ARCHIVE, "console font number (0, 1 or 2), -1 for autoselect" );
-	con_color = Cvar_Get( "con_color", "240 180 24", FCVAR_ARCHIVE, "set a custom console color" );
+	Cvar_RegisterVariable( &scr_conspeed );
+	Cvar_RegisterVariable( &con_notifytime );
+	Cvar_RegisterVariable( &con_fontsize );
+	Cvar_RegisterVariable( &con_charset );
+	Cvar_RegisterVariable( &con_fontscale );
+	Cvar_RegisterVariable( &con_fontnum );
+	Cvar_RegisterVariable( &con_color );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -1799,7 +1797,7 @@ void Con_DrawNotify( void )
 		{
 			con_lineinfo_t	*l = &CON_LINES( i );
 
-			if( l->addtime < ( time - con_notifytime->value ))
+			if( l->addtime < ( time - con_notifytime.value ))
 				continue;
 
 			Con_DrawString( x, y, l->start, g_color_table[7] );
@@ -2095,7 +2093,7 @@ void Con_RunConsole( void )
 	}
 	else con.showlines = 0; // none visible
 
-	lines_per_frame = fabs( scr_conspeed->value ) * host.realframetime;
+	lines_per_frame = fabs( scr_conspeed.value ) * host.realframetime;
 
 	if( con.showlines < con.vislines )
 	{
@@ -2110,34 +2108,34 @@ void Con_RunConsole( void )
 			con.vislines = con.showlines;
 	}
 
-	if( FBitSet( con_charset->flags,  FCVAR_CHANGED ) ||
-		FBitSet( con_fontscale->flags, FCVAR_CHANGED ) ||
-		FBitSet( con_fontnum->flags,   FCVAR_CHANGED ) ||
+	if( FBitSet( con_charset.flags,  FCVAR_CHANGED ) ||
+		FBitSet( con_fontscale.flags, FCVAR_CHANGED ) ||
+		FBitSet( con_fontnum.flags,   FCVAR_CHANGED ) ||
 		FBitSet( cl_charset.flags,    FCVAR_CHANGED ))
 	{
 		// update codepage parameters
-		if( !Q_stricmp( con_charset->string, "cp1251" ))
+		if( !Q_stricmp( con_charset.string, "cp1251" ))
 		{
 			g_codepage = 1251;
 		}
-		else if( !Q_stricmp( con_charset->string, "cp1252" ))
+		else if( !Q_stricmp( con_charset.string, "cp1252" ))
 		{
 			g_codepage = 1252;
 		}
 		else
 		{
-			Con_Printf( S_WARN "Unknown charset %s, defaulting to cp1252", con_charset->string );
+			Con_Printf( S_WARN "Unknown charset %s, defaulting to cp1252", con_charset.string );
 
-			Cvar_DirectSet( con_charset, "cp1252" );
+			Cvar_DirectSet( &con_charset, "cp1252" );
 			g_codepage = 1252;
 		}
 
 		g_utf8 = !Q_stricmp( cl_charset.string, "utf-8" );
 		Con_InvalidateFonts();
 		Con_LoadConchars();
-		ClearBits( con_charset->flags,   FCVAR_CHANGED );
-		ClearBits( con_fontnum->flags,   FCVAR_CHANGED );
-		ClearBits( con_fontscale->flags, FCVAR_CHANGED );
+		ClearBits( con_charset.flags,   FCVAR_CHANGED );
+		ClearBits( con_fontnum.flags,   FCVAR_CHANGED );
+		ClearBits( con_fontscale.flags, FCVAR_CHANGED );
 		ClearBits( cl_charset.flags,    FCVAR_CHANGED );
 	}
 }
