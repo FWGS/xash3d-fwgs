@@ -736,7 +736,6 @@ extern cvar_t	*r_lighting_ambient;
 extern cvar_t	*r_studio_lambert;
 extern cvar_t	*r_detailtextures;
 extern cvar_t	*r_drawentities;
-extern cvar_t	*r_decals;
 extern cvar_t	*r_novis;
 extern cvar_t	*r_nocull;
 extern cvar_t	*r_lockpvs;

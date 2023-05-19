@@ -683,7 +683,7 @@ extern convar_t	*cl_clockreset;
 extern convar_t	*cl_fixtimerate;
 extern convar_t	*hud_fontscale;
 extern convar_t	*hud_scale;
-extern convar_t	*gl_showtextures;
+extern convar_t	r_showtextures;
 extern convar_t	*cl_bmodelinterp;
 extern convar_t	*cl_lw;		// local weapons
 extern convar_t	*cl_charset;
@@ -697,7 +697,7 @@ extern convar_t	*v_dark;	// start from dark
 extern convar_t	*net_graph;
 extern convar_t	*rate;
 extern convar_t	*m_ignore;
-extern convar_t	*r_showtree;
+extern convar_t	r_showtree;
 extern convar_t	*ui_renderworld;
 
 //=============================================================================

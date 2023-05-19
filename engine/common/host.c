@@ -278,7 +278,7 @@ static int Host_CalcSleep( void )
 #ifndef XASH_DEDICATED
 	// never sleep in timedemo for benchmarking purposes
 	// also don't sleep with vsync for less lag
-	if( CL_IsTimeDemo( ) || CVAR_TO_BOOL( gl_vsync ))
+	if( CL_IsTimeDemo( ) || gl_vsync.value )
 		return 0;
 #endif
 
@@ -599,12 +599,12 @@ double Host_CalcFPS( void )
 	}
 	else if( Host_IsLocalGame( ))
 	{
-		if( !CVAR_TO_BOOL( gl_vsync ))
+		if( !gl_vsync.value )
 			fps = host_maxfps->value;
 	}
 	else
 	{
-		if( !CVAR_TO_BOOL( gl_vsync ))
+		if( !gl_vsync.value )
 		{
 			fps = host_maxfps->value;
 			if( fps == 0.0 ) fps = MAX_FPS;

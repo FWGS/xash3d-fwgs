@@ -627,7 +627,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
 #define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
 	if(!( x = gEngfuncs.pfnGetCvarPointer( #y, 0 ) )) \
-		gEngfuncs.Host_Error( S_ERROR "engine betrayed us and didn't gave us %s cvar pointer\n", #y );
+		gEngfuncs.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
 #define ENGINE_SHARED_CVAR_NAME( f, x, y ) f( x, y )
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
 
@@ -638,7 +638,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define ENGINE_SHARED_CVAR_LIST( f ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \
-	ENGINE_SHARED_CVAR_NAME( f, gl_showtextures, r_showtextures ) \
+	ENGINE_SHARED_CVAR( f, r_showtextures ) \
 	ENGINE_SHARED_CVAR( f, r_speeds ) \
 	ENGINE_SHARED_CVAR( f, r_fullbright ) \
 	ENGINE_SHARED_CVAR( f, r_norefresh ) \

@@ -311,7 +311,7 @@ void V_GetRefParams( ref_params_t *fd, ref_viewpass_t *rvp )
 	rvp->fov_y = V_CalcFov( &rvp->fov_x, clgame.viewport[2], clgame.viewport[3] );
 
 	// adjust FOV for widescreen
-	if( refState.wideScreen && r_adjust_fov->value )
+	if( refState.wideScreen && r_adjust_fov.value )
 		V_AdjustFov( &rvp->fov_x, &rvp->fov_y, clgame.viewport[2], clgame.viewport[3], false );
 
 	rvp->flags = 0;
@@ -472,7 +472,7 @@ void R_ShowTree( void )
 	float	y = NODE_INTERVAL_Y(1.0f);
 	mleaf_t *viewleaf;
 
-	if( !cl.worldmodel || !CVAR_TO_BOOL( r_showtree ))
+	if( !cl.worldmodel || !r_showtree.value )
 		return;
 
 	world.recursion_level = 0;
