@@ -273,12 +273,12 @@ void SV_CheckCmdTimes( void )
 
 		diff = cl->connecttime + cl->cmdtime - host.realtime;
 
-		if( diff > net_clockwindow->value )
+		if( diff > net_clockwindow.value )
 		{
-			cl->ignorecmdtime = net_clockwindow->value + host.realtime;
+			cl->ignorecmdtime = net_clockwindow.value + host.realtime;
 			cl->cmdtime = host.realtime - cl->connecttime;
 		}
-		else if( diff < -net_clockwindow->value )
+		else if( diff < -net_clockwindow.value )
 		{
 			cl->cmdtime = host.realtime - cl->connecttime;
 		}
