@@ -108,23 +108,24 @@ typedef struct
 } net_state_t;
 
 static net_state_t		net;
-static convar_t		*net_ipname;
-static convar_t		*net_hostport;
-static convar_t		*net_iphostport;
-static convar_t		*net_clientport;
-static convar_t		*net_ipclientport;
-static convar_t		*net_fakelag;
-static convar_t		*net_fakeloss;
-static convar_t		*net_address;
-convar_t			*net_clockwindow;
+static CVAR_DEFINE_AUTO( net_address, "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "contain local address of current client" );
+static CVAR_DEFINE( net_ipname, "ip", "localhost", FCVAR_PRIVILEGED, "network ip address" );
+static CVAR_DEFINE( net_iphostport, "ip_hostport", "0", FCVAR_READ_ONLY, "network ip host port" );
+static CVAR_DEFINE( net_hostport, "hostport", "0", FCVAR_READ_ONLY, "network default host port" );
+static CVAR_DEFINE( net_ipclientport, "ip_clientport", "0", FCVAR_READ_ONLY, "network ip client port" );
+static CVAR_DEFINE( net_clientport, "clientport", "0", FCVAR_READ_ONLY, "network default client port" );
+static CVAR_DEFINE( net_fakelag, "fakelag", "0", FCVAR_PRIVILEGED, "lag all incoming network data (including loopback) by xxx ms." );
+static CVAR_DEFINE( net_fakeloss, "fakeloss", "0", FCVAR_PRIVILEGED, "act like we dropped the packet this % of the time." );
+CVAR_DEFINE( net_clockwindow, "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
+
 netadr_t			net_local;
 netadr_t			net6_local;
 
 // cvars equivalents for IPv6
-static convar_t		*net_ip6name;
-static convar_t		*net_ip6hostport;
-static convar_t		*net_ip6clientport;
-static convar_t		*net6_address;
+static CVAR_DEFINE( net_ip6name, "ip6", "localhost", FCVAR_PRIVILEGED, "network ip6 address" );
+static CVAR_DEFINE( net_ip6hostport, "ip6_hostport", "0", FCVAR_READ_ONLY, "network ip6 host port" );
+static CVAR_DEFINE( net_ip6clientport, "ip6_clientport", "0", FCVAR_READ_ONLY, "network ip6 client port" );
+static CVAR_DEFINE_AUTO( net6_address, "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "contain local IPv6 address of current client" );
 
 /*
 ====================
@@ -1243,11 +1244,11 @@ static void NET_AdjustLag( void )
 	dt = bound( 0.0, dt, 0.1 );
 	lasttime = host.realtime;
 
-	if( host_developer.value || !net_fakelag->value )
+	if( host_developer.value || !net_fakelag.value )
 	{
-		if( net_fakelag->value != net.fakelag )
+		if( net_fakelag.value != net.fakelag )
 		{
-			diff = net_fakelag->value - net.fakelag;
+			diff = net_fakelag.value - net.fakelag;
 			converge = dt * 200.0f;
 			if( fabs( diff ) < converge )
 				converge = fabs( diff );
@@ -1288,14 +1289,14 @@ static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, 
 
 	if( newdata )
 	{
-		if( net_fakeloss->value != 0.0f )
+		if( net_fakeloss.value != 0.0f )
 		{
 			if( host_developer.value )
 			{
 				net.losscount[sock]++;
-				if( net_fakeloss->value <= 0.0f )
+				if( net_fakeloss.value <= 0.0f )
 				{
-					ninterval = fabs( net_fakeloss->value );
+					ninterval = fabs( net_fakeloss.value );
 					if( ninterval < 2 ) ninterval = 2;
 
 					if(( net.losscount[sock] % ninterval ) == 0 )
@@ -1303,7 +1304,7 @@ static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, 
 				}
 				else
 				{
-					if( COM_RandomLong( 0, 100 ) <= net_fakeloss->value )
+					if( COM_RandomLong( 0, 100 ) <= net_fakeloss.value )
 						return false;
 				}
 			}
@@ -1392,7 +1393,7 @@ qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize )
 		for( i = 0; i < NET_MAX_FRAGMENTS; i++ )
 			net.split_flags[i] = -1;
 
-		if( net_showpackets && net_showpackets->value == 4.0f )
+		if( net_showpackets.value == 4.0f )
 			Con_Printf( "<-- Split packet restart %i count %i seq\n", net.split.split_count, sequence_number );
 	}
 
@@ -1406,7 +1407,7 @@ qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize )
 		net.split.split_count--;
 		net.split_flags[packet_number] = sequence_number;
 
-		if( net_showpackets && net_showpackets->value == 4.0f )
+		if( net_showpackets.value == 4.0f )
 			Con_Printf( "<-- Split packet %i of %i, %i bytes %i seq\n", packet_number + 1, packet_count, size, sequence_number );
 	}
 	else
@@ -1577,7 +1578,7 @@ int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t len, in
 			pPacket->packet_id = (packet_number << 8) + packet_count;
 			memcpy( packet + sizeof( SPLITPACKET ), buf + ( packet_number * body_size ), size );
 
-			if( net_showpackets && net_showpackets->value == 3.0f )
+			if( net_showpackets.value == 3.0f )
 			{
 				netadr_t	adr;
 
@@ -1813,14 +1814,14 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 	qboolean sv_nat = Cvar_VariableInteger("sv_nat");
 	qboolean cl_nat = Cvar_VariableInteger("cl_nat");
 
-	if( change_port && ( FBitSet( net_hostport->flags, FCVAR_CHANGED ) || sv_nat ))
+	if( change_port && ( FBitSet( net_hostport.flags, FCVAR_CHANGED ) || sv_nat ))
 	{
 		// reopen socket to set random port
 		if( NET_IsSocketValid( sockets[NS_SERVER] ))
 			closesocket( sockets[NS_SERVER] );
 
 		sockets[NS_SERVER] = INVALID_SOCKET;
-		ClearBits( net_hostport->flags, FCVAR_CHANGED );
+		ClearBits( net_hostport.flags, FCVAR_CHANGED );
 	}
 
 	if( !NET_IsSocketValid( sockets[NS_SERVER] ))
@@ -1828,7 +1829,7 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 		port = hostport;
 		if( !port )
 		{
-			port = sv_nat ? PORT_ANY : net_hostport->value;
+			port = sv_nat ? PORT_ANY : net_hostport.value;
 
 			if( !port )
 				port = PORT_SERVER; // forcing to default
@@ -1842,14 +1843,14 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 	// dedicated servers don't need client ports
 	if( Host_IsDedicated( )) return;
 
-	if( change_port && ( FBitSet( net_clientport->flags, FCVAR_CHANGED ) || cl_nat ))
+	if( change_port && ( FBitSet( net_clientport.flags, FCVAR_CHANGED ) || cl_nat ))
 	{
 		// reopen socket to set random port
 		if( NET_IsSocketValid( sockets[NS_CLIENT] ))
 			closesocket( sockets[NS_CLIENT] );
 
 		sockets[NS_CLIENT] = INVALID_SOCKET;
-		ClearBits( net_clientport->flags, FCVAR_CHANGED );
+		ClearBits( net_clientport.flags, FCVAR_CHANGED );
 	}
 
 	if( !NET_IsSocketValid( sockets[NS_CLIENT] ))
@@ -1857,7 +1858,7 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 		port = clientport;
 		if( !port )
 		{
-			port = cl_nat ? PORT_ANY : net_clientport->value;
+			port = cl_nat ? PORT_ANY : net_clientport.value;
 
 			if( !port )
 				port = PORT_ANY; // forcing to default
@@ -1865,7 +1866,7 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 		sockets[NS_CLIENT] = NET_IPSocket( net_iface, port, family );
 
 		if( !NET_IsSocketValid( sockets[NS_CLIENT] ))
-			sockets[NS_CLIENT] = NET_IPSocket( net_ipname->string, PORT_ANY, family );
+			sockets[NS_CLIENT] = NET_IPSocket( net_ipname.string, PORT_ANY, family );
 	}
 
 	return;
@@ -1901,8 +1902,8 @@ void NET_GetLocalAddress( void )
 	if( net.allow_ip )
 	{
 		// If we have changed the ip var from the command line, use that instead.
-		if( Q_stricmp( net_ipname->string, "localhost" ))
-			Q_strncpy( buff, net_ipname->string, sizeof( buff ));
+		if( Q_stricmp( net_ipname.string, "localhost" ))
+			Q_strncpy( buff, net_ipname.string, sizeof( buff ));
 		else Q_strncpy( buff, hostname, sizeof( buff ));
 
 		if( NET_StringToAdrEx( buff, &net_local, AF_INET ))
@@ -1914,7 +1915,7 @@ void NET_GetLocalAddress( void )
 				net_local.port = ((struct sockaddr_in *)&address)->sin_port;
 				net_addr_string = NET_AdrToString( net_local );
 				Con_Printf( "Server IPv4 address %s\n", net_addr_string );
-				Cvar_FullSet( "net_address", net_addr_string, net_address->flags );
+				Cvar_FullSet( "net_address", net_addr_string, net_address.flags );
 			}
 			else Con_DPrintf( S_ERROR "Could not get TCP/IPv4 address. Reason: %s\n", NET_ErrorString( ));
 		}
@@ -1924,8 +1925,8 @@ void NET_GetLocalAddress( void )
 	if( net.allow_ip6 )
 	{
 		// If we have changed the ip var from the command line, use that instead.
-		if( Q_stricmp( net_ip6name->string, "localhost" ))
-			Q_strncpy( buff, net_ip6name->string, sizeof( buff ));
+		if( Q_stricmp( net_ip6name.string, "localhost" ))
+			Q_strncpy( buff, net_ip6name.string, sizeof( buff ));
 		else Q_strncpy( buff, hostname, sizeof( buff ));
 
 		if( NET_StringToAdrEx( buff, &net6_local, AF_INET6 ))
@@ -1937,7 +1938,7 @@ void NET_GetLocalAddress( void )
 				net6_local.port = ((struct sockaddr_in6 *)&address)->sin6_port;
 				net_addr_string = NET_AdrToString( net6_local );
 				Con_Printf( "Server IPv6 address %s\n", net_addr_string );
-				Cvar_FullSet( "net6_address", net_addr_string, net6_address->flags );
+				Cvar_FullSet( "net6_address", net_addr_string, net6_address.flags );
 			}
 			else Con_DPrintf( S_ERROR "Could not get TCP/IPv6 address. Reason: %s\n", NET_ErrorString( ));
 		}
@@ -1969,10 +1970,10 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 	{
 		// open sockets
 		if( net.allow_ip )
-			NET_OpenIP( changeport, net.ip_sockets, net_ipname->string, net_iphostport->value, net_ipclientport->value, AF_INET );
+			NET_OpenIP( changeport, net.ip_sockets, net_ipname.string, net_iphostport.value, net_ipclientport.value, AF_INET );
 
 		if( net.allow_ip6 )
-			NET_OpenIP( changeport, net.ip6_sockets, net_ip6name->string, net_ip6hostport->value, net_ip6clientport->value, AF_INET6 );
+			NET_OpenIP( changeport, net.ip6_sockets, net_ip6name.string, net_ip6hostport.value, net_ip6clientport.value, AF_INET6 );
 
 		// validate sockets for dedicated
 		if( Host_IsDedicated( ))
@@ -2100,21 +2101,26 @@ void NET_Init( void )
 
 	if( net.initialized ) return;
 
-	net_clockwindow = Cvar_Get( "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
-	net_address = Cvar_Get( "net_address", "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "contain local address of current client" );
-	net_ipname = Cvar_Get( "ip", "localhost", FCVAR_PRIVILEGED, "network ip address" );
-	net_iphostport = Cvar_Get( "ip_hostport", "0", FCVAR_READ_ONLY, "network ip host port" );
-	net_hostport = Cvar_Getf( "hostport", FCVAR_READ_ONLY, "network default host port", "%i", PORT_SERVER );
-	net_ipclientport = Cvar_Get( "ip_clientport", "0", FCVAR_READ_ONLY, "network ip client port" );
-	net_clientport = Cvar_Getf( "clientport", FCVAR_READ_ONLY, "network default client port", "%i", PORT_CLIENT );
-	net_fakelag = Cvar_Get( "fakelag", "0", FCVAR_PRIVILEGED, "lag all incoming network data (including loopback) by xxx ms." );
-	net_fakeloss = Cvar_Get( "fakeloss", "0", FCVAR_PRIVILEGED, "act like we dropped the packet this % of the time." );
+	Cvar_RegisterVariable( &net_address );
+	Cvar_RegisterVariable( &net_ipname );
+	Cvar_RegisterVariable( &net_iphostport );
+	Cvar_RegisterVariable( &net_hostport );
+	Cvar_RegisterVariable( &net_ipclientport );
+	Cvar_RegisterVariable( &net_clientport );
+	Cvar_RegisterVariable( &net_fakelag );
+	Cvar_RegisterVariable( &net_fakeloss );
+
+	Q_snprintf( cmd, sizeof( cmd ), "%i", PORT_SERVER );
+	Cvar_DirectSet( &net_hostport, cmd );
+
+	Q_snprintf( cmd, sizeof( cmd ), "%i", PORT_CLIENT );
+	Cvar_DirectSet( &net_clientport, cmd );
 
 	// cvar equivalents for IPv6
-	net_ip6name = Cvar_Get( "ip6", "localhost", FCVAR_PRIVILEGED, "network ip6 address" );
-	net_ip6hostport = Cvar_Get( "ip6_hostport", "0", FCVAR_READ_ONLY, "network ip6 host port" );
-	net_ip6clientport = Cvar_Get( "ip6_clientport", "0", FCVAR_READ_ONLY, "network ip6 client port" );
-	net6_address = Cvar_Get( "net6_address", "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "contain local IPv6 address of current client" );
+	Cvar_RegisterVariable( &net_ip6name );
+	Cvar_RegisterVariable( &net_ip6hostport );
+	Cvar_RegisterVariable( &net_ip6clientport );
+	Cvar_RegisterVariable( &net6_address );
 
 	// prepare some network data
 	for( i = 0; i < NS_COUNT; i++ )
@@ -2150,11 +2156,11 @@ void NET_Init( void )
 
 	// specify custom ip
 	if( Sys_GetParmFromCmdLine( "-ip", cmd ))
-		Cvar_FullSet( "ip", cmd, net_ipname->flags );
+		Cvar_FullSet( "ip", cmd, net_ipname.flags );
 
 	// specify custom ip6
 	if( Sys_GetParmFromCmdLine( "-ip6", cmd ))
-		Cvar_FullSet( "ip6", cmd, net_ip6name->flags );
+		Cvar_FullSet( "ip6", cmd, net_ip6name.flags );
 
 	// adjust clockwindow
 	if( Sys_GetParmFromCmdLine( "-clockwindow", cmd ))
@@ -2246,10 +2252,10 @@ static struct http_static_s
 } http;
 
 
-static convar_t *http_useragent;
-static convar_t *http_autoremove;
-static convar_t *http_timeout;
-static convar_t *http_maxconnections;
+static CVAR_DEFINE_AUTO( http_useragent, "", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "User-Agent string" );
+static CVAR_DEFINE_AUTO( http_autoremove, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "remove broken files" );
+static CVAR_DEFINE_AUTO( http_timeout, "45", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "timeout for http downloader" );
+static CVAR_DEFINE_AUTO( http_maxconnections, "4", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum http connection number" );
 
 /*
 ========================
@@ -2304,7 +2310,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		}
 
 		// Called because there was no servers to download, free file now
-		if( http_autoremove->value == 1 ) // remove broken file
+		if( http_autoremove.value == 1 ) // remove broken file
 			FS_Delete( incname );
 		else // autoremove disabled, keep file
 			Con_Printf( "cannot download %s from any server. "
@@ -2525,7 +2531,7 @@ void HTTP_Run( void )
 		{
 			char name[MAX_SYSPATH];
 
-			if( iActiveCount > http_maxconnections->value )
+			if( iActiveCount > http_maxconnections.value )
 				continue;
 
 			if( !curfile->server )
@@ -2624,14 +2630,14 @@ void HTTP_Run( void )
 		{
 			string useragent;
 
-			if( !COM_CheckStringEmpty( http_useragent->string ) || !Q_strcmp( http_useragent->string, "xash3d" ))
+			if( !COM_CheckStringEmpty( http_useragent.string ) || !Q_strcmp( http_useragent.string, "xash3d" ))
 			{
 				Q_snprintf( useragent, sizeof( useragent ), "%s/%s (%s-%s; build %d; %s)",
 					XASH_ENGINE_NAME, XASH_VERSION, Q_buildos( ), Q_buildarch( ), Q_buildnum( ), Q_buildcommit( ));
 			}
 			else
 			{
-				Q_strncpy( useragent, http_useragent->string, sizeof( useragent ));
+				Q_strncpy( useragent, http_useragent.string, sizeof( useragent ));
 			}
 
 			curfile->query_length = Q_snprintf( curfile->buf, sizeof( curfile->buf ),
@@ -2666,7 +2672,7 @@ void HTTP_Run( void )
 					curfile->blocktime += host.frametime;
 					wait = true;
 
-					if( curfile->blocktime > http_timeout->value )
+					if( curfile->blocktime > http_timeout.value )
 					{
 						Con_Printf( S_ERROR "timeout on request send:\n%s\n", curfile->buf );
 						HTTP_FreeFile( curfile, true );
@@ -2708,7 +2714,7 @@ void HTTP_Run( void )
 		else
 			curfile->blocktime += host.frametime;
 
-		if( curfile->blocktime > http_timeout->value )
+		if( curfile->blocktime > http_timeout.value )
 		{
 			Con_Printf( S_ERROR "timeout on receiving data!\n");
 			HTTP_FreeFile( curfile, true );
@@ -2986,10 +2992,11 @@ void HTTP_Init( void )
 	Cmd_AddRestrictedCommand( "http_clear", HTTP_Clear_f, "cancel all downloads" );
 	Cmd_AddRestrictedCommand( "http_list", HTTP_List_f, "list all queued downloads" );
 	Cmd_AddCommand( "http_addcustomserver", HTTP_AddCustomServer_f, "add custom fastdl server");
-	http_useragent = Cvar_Get( "http_useragent", "", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "User-Agent string" );
-	http_autoremove = Cvar_Get( "http_autoremove", "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "remove broken files" );
-	http_timeout = Cvar_Get( "http_timeout", "45", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "timeout for http downloader" );
-	http_maxconnections =  Cvar_Get( "http_maxconnections", "4", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum http connection number" );
+
+	Cvar_RegisterVariable( &http_useragent );
+	Cvar_RegisterVariable( &http_autoremove );
+	Cvar_RegisterVariable( &http_timeout );
+	Cvar_RegisterVariable( &http_maxconnections );
 
 	// Read servers from fastdl.txt
 	line = serverfile = (char *)FS_LoadFile( "fastdl.txt", 0, false );
