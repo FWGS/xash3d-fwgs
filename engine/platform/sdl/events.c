@@ -693,7 +693,7 @@ TODO: kill mouse in win32 clients too
 */
 void Platform_PreCreateMove( void )
 {
-	if( CVAR_TO_BOOL( m_ignore ))
+	if( m_ignore.value )
 	{
 		SDL_GetRelativeMouseState( NULL, NULL );
 		SDL_ShowCursor( SDL_TRUE );
