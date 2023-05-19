@@ -366,7 +366,7 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 	cl.video_prepped = false;
 
 	if( !Host_IsDedicated() )
-		oldclear = gl_clear->value;
+		oldclear = gl_clear.value;
 
 	if( CL_IsInMenu( ) && !cls.changedemo && !is_background )
 	{
@@ -382,7 +382,7 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 		return;
 
 	if( !Host_IsDedicated() )
-		gl_clear->value = 0.0f;
+		gl_clear.value = 0.0f;
 
 	if( is_background ) IN_MouseSavePos( );
 	cls.draw_changelevel = !is_background;
@@ -391,7 +391,7 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 	cl.background = is_background;		// set right state before svc_serverdata is came
 
 	if( !Host_IsDedicated() )
-		gl_clear->value = oldclear;
+		gl_clear.value = oldclear;
 
 //	SNDDMA_LockSound();
 }

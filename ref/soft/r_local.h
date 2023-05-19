@@ -1103,7 +1103,6 @@ extern cvar_t   *sw_stipplealpha;
 extern cvar_t   *sw_surfcacheoverride;
 extern cvar_t *sw_waterwarp;
 extern cvar_t   *sw_texfilt;
-extern cvar_t	*r_decals;
 extern cvar_t	*r_traceglow;
 extern cvar_t	*sw_notransbrushes;
 extern cvar_t	*sw_noalphabrushes;

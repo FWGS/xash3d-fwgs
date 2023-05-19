@@ -455,13 +455,13 @@ void GL_UpdateSwapInterval( void )
 	if( cls.state < ca_active )
 	{
 		SDL_GL_SetSwapInterval( 0 );
-		SetBits( gl_vsync->flags, FCVAR_CHANGED );
+		SetBits( gl_vsync.flags, FCVAR_CHANGED );
 	}
-	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
+	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
-		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
+		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
 
-		if( SDL_GL_SetSwapInterval( gl_vsync->value ) )
+		if( SDL_GL_SetSwapInterval( gl_vsync.value ) )
 			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
 	}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
@@ -676,7 +676,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 		glw_state.safe++;
 
-		if( !gl_msaa_samples->value && glw_state.safe == SAFE_NOMSAA )
+		if( !gl_msaa_samples.value && glw_state.safe == SAFE_NOMSAA )
 			glw_state.safe++; // no need to skip msaa, if we already disabled it
 
 		GL_SetupAttributes(); // re-choose attributes
@@ -816,7 +816,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 		glw_state.safe++;
 
-		if( !gl_msaa_samples->value && glw_state.safe == SAFE_NOMSAA )
+		if( !gl_msaa_samples.value && glw_state.safe == SAFE_NOMSAA )
 			glw_state.safe++; // no need to skip msaa, if we already disabled it
 
 		GL_SetupAttributes(); // re-choose attributes
@@ -1131,7 +1131,7 @@ qboolean VID_SetMode( void )
 	else
 		ClearBits( vid_fullscreen.flags, FCVAR_CHANGED );
 
-	SetBits( gl_vsync->flags, FCVAR_CHANGED );
+	SetBits( gl_vsync.flags, FCVAR_CHANGED );
 
 	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, vid_fullscreen.value )) == rserr_ok )
 	{

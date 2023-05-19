@@ -8,14 +8,14 @@
 struct ref_state_s ref;
 ref_globals_t refState;
 
-convar_t *gl_vsync;
-convar_t *gl_showtextures;
-convar_t *r_decals;
-convar_t *r_adjust_fov;
-convar_t *r_showtree;
-convar_t *gl_msaa_samples;
-convar_t *gl_clear;
-convar_t *r_refdll;
+CVAR_DEFINE_AUTO( gl_vsync, "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
+CVAR_DEFINE_AUTO( r_showtextures, "0", FCVAR_CHEAT, "show all uploaded textures" );
+CVAR_DEFINE_AUTO( r_adjust_fov, "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
+CVAR_DEFINE_AUTO( r_decals, "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
+CVAR_DEFINE_AUTO( gl_msaa_samples, "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
+CVAR_DEFINE_AUTO( gl_clear, "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
+CVAR_DEFINE_AUTO( r_showtree, "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
+static CVAR_DEFINE_AUTO( r_refdll, "", FCVAR_RENDERINFO, "choose renderer implementation, if supported" );
 
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
@@ -618,14 +618,14 @@ qboolean R_Init( void )
 	qboolean success = false;
 	string requested;
 
-	gl_vsync = Cvar_Get( "gl_vsync", "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
-	gl_showtextures = Cvar_Get( "r_showtextures", "0", FCVAR_CHEAT, "show all uploaded textures" );
-	r_adjust_fov = Cvar_Get( "r_adjust_fov", "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
-	r_decals = Cvar_Get( "r_decals", "4096", FCVAR_ARCHIVE, "sets the maximum number of decals" );
-	gl_msaa_samples = Cvar_Get( "gl_msaa_samples", "0", FCVAR_GLCONFIG, "samples number for multisample anti-aliasing" );
-	gl_clear = Cvar_Get( "gl_clear", "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
-	r_showtree = Cvar_Get( "r_showtree", "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
-	r_refdll = Cvar_Get( "r_refdll", "", FCVAR_RENDERINFO, "choose renderer implementation, if supported" );
+	Cvar_RegisterVariable( &gl_vsync );
+	Cvar_RegisterVariable( &r_showtextures );
+	Cvar_RegisterVariable( &r_adjust_fov );
+	Cvar_RegisterVariable( &r_decals );
+	Cvar_RegisterVariable( &gl_msaa_samples );
+	Cvar_RegisterVariable( &gl_clear );
+	Cvar_RegisterVariable( &r_showtree );
+	Cvar_RegisterVariable( &r_refdll );
 
 	// cvars that are expected to exist
 	Cvar_Get( "r_speeds", "0", FCVAR_ARCHIVE, "shows renderer speeds" );
@@ -669,9 +669,9 @@ qboolean R_Init( void )
 	if( !success && Sys_GetParmFromCmdLine( "-ref", requested ))
 		success = R_LoadRenderer( requested );
 
-	if( !success && COM_CheckString( r_refdll->string ))
+	if( !success && COM_CheckString( r_refdll.string ))
 	{
-		Q_strncpy( requested, r_refdll->string, sizeof( requested ));
+		Q_strncpy( requested, r_refdll.string, sizeof( requested ));
 		success = R_LoadRenderer( requested );
 	}
 

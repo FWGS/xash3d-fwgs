@@ -232,10 +232,10 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 		// loading user settings
 		CSCR_LoadDefaultCVars( "user.scr" );
 
-		if( r_decals->value > mp_decals.value )
-			Cvar_SetValue( "r_decals", mp_decals.value );
+		if( r_decals.value > mp_decals.value )
+			Cvar_DirectSet( &r_decals, mp_decals.string );
 	}
-	else Cvar_Reset( "r_decals" );
+	else Cvar_DirectSet( &r_decals, NULL );
 
 	if( cl.background )	// tell the game parts about background state
 		Cvar_FullSet( "cl_background", "1", FCVAR_READ_ONLY );

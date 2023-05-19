@@ -168,11 +168,11 @@ void GL_UpdateSwapInterval( void )
 	{
 		// setup fb vsync here
 		fb.vsync = false;
-		SetBits( gl_vsync->flags, FCVAR_CHANGED );
+		SetBits( gl_vsync.flags, FCVAR_CHANGED );
 	}
-	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
+	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
-		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
+		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
 		fb.vsync = true;
 	}
 }

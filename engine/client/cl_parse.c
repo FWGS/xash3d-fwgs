@@ -931,10 +931,10 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 		// loading user settings
 		CSCR_LoadDefaultCVars( "user.scr" );
 
-		if( r_decals->value > mp_decals.value )
-			Cvar_SetValue( "r_decals", mp_decals.value );
+		if( r_decals.value > mp_decals.value )
+			Cvar_DirectSet( &r_decals, mp_decals.string );
 	}
-	else Cvar_Reset( "r_decals" );
+	else Cvar_DirectSet( &r_decals, NULL );
 
 	// set the background state
 	if( cls.demoplayback && ( cls.demonum != -1 ))

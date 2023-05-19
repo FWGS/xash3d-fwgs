@@ -480,7 +480,7 @@ qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 	int		changed;
 	int		pressed, released;
 
-	if( !gl_showtextures->value || CL_IsDevOverviewMode( ))
+	if( !r_showtextures.value || CL_IsDevOverviewMode( ))
 		return false;
 
 	changed = (oldbuttons ^ cmd->buttons);
@@ -488,9 +488,9 @@ qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 	released = changed & (~cmd->buttons);
 
 	if( released & ( IN_RIGHT|IN_MOVERIGHT ))
-		Cvar_SetValue( "r_showtextures", gl_showtextures->value + 1 );
+		Cvar_SetValue( "r_showtextures", r_showtextures.value + 1 );
 	if( released & ( IN_LEFT|IN_MOVELEFT ))
-		Cvar_SetValue( "r_showtextures", Q_max( 1, gl_showtextures->value - 1 ));
+		Cvar_SetValue( "r_showtextures", Q_max( 1, r_showtextures.value - 1 ));
 	oldbuttons = cmd->buttons;
 
 	return true;
@@ -511,7 +511,7 @@ qboolean CL_ProcessOverviewCmds( usercmd_t *cmd )
 	float		step = (2.0f / size) * host.realframetime;
 	float		step2 = step * 100.0f * (2.0f / ov->flZoom);
 
-	if( !CL_IsDevOverviewMode() || gl_showtextures->value )
+	if( !CL_IsDevOverviewMode() || r_showtextures.value )
 		return false;
 
 	if( ov->flZoom < 0.0f ) sign = -1;
