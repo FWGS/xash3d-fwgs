@@ -204,7 +204,7 @@ Default build-depended cvar and constant values
 #endif // DEFAULT_ALLOWCONSOLE
 
 #ifndef DEFAULT_FULLSCREEN
-	#define DEFAULT_FULLSCREEN 1
+	#define DEFAULT_FULLSCREEN "1" // must be a string
 #endif // DEFAULT_FULLSCREEN
 
 #endif // DEFAULTS_H
