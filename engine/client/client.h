@@ -694,7 +694,7 @@ extern convar_t	scr_centertime;
 extern convar_t	scr_viewsize;
 extern convar_t	scr_loading;
 extern convar_t	v_dark;	// start from dark
-extern convar_t	*net_graph;
+extern convar_t	net_graph;
 extern convar_t	rate;
 extern convar_t	m_ignore;
 extern convar_t	r_showtree;
