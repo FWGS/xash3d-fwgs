@@ -1421,7 +1421,16 @@ static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 
 	if( FBitSet( flags, TF_SKYSIDE ))
 		tex->texnum = tr.skyboxbasenum++;
-	else pglGenTextures( 1, &tex->texnum );
+	else
+	{
+		// keep generating new texture names to avoid collision with predefined skybox objects
+		do
+		{
+			pglGenTextures( 1, &tex->texnum );
+		}
+		while( tex->texnum >= SKYBOX_BASE_NUM &&
+			tex->texnum <= SKYBOX_BASE_NUM + SKYBOX_MAX_SIDES );
+	}
 
 	tex->flags = flags;
 
