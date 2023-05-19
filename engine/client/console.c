@@ -2113,7 +2113,7 @@ void Con_RunConsole( void )
 	if( FBitSet( con_charset->flags,  FCVAR_CHANGED ) ||
 		FBitSet( con_fontscale->flags, FCVAR_CHANGED ) ||
 		FBitSet( con_fontnum->flags,   FCVAR_CHANGED ) ||
-		FBitSet( cl_charset->flags,    FCVAR_CHANGED ))
+		FBitSet( cl_charset.flags,    FCVAR_CHANGED ))
 	{
 		// update codepage parameters
 		if( !Q_stricmp( con_charset->string, "cp1251" ))
@@ -2132,13 +2132,13 @@ void Con_RunConsole( void )
 			g_codepage = 1252;
 		}
 
-		g_utf8 = !Q_stricmp( cl_charset->string, "utf-8" );
+		g_utf8 = !Q_stricmp( cl_charset.string, "utf-8" );
 		Con_InvalidateFonts();
 		Con_LoadConchars();
 		ClearBits( con_charset->flags,   FCVAR_CHANGED );
 		ClearBits( con_fontnum->flags,   FCVAR_CHANGED );
 		ClearBits( con_fontscale->flags, FCVAR_CHANGED );
-		ClearBits( cl_charset->flags,    FCVAR_CHANGED );
+		ClearBits( cl_charset.flags,    FCVAR_CHANGED );
 	}
 }
 

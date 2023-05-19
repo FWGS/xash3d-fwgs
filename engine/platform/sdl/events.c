@@ -346,7 +346,7 @@ static void SDLash_InputEvent( SDL_TextInputEvent input )
 	{
 		int ch;
 
-		if( !Q_stricmp( cl_charset->string, "utf-8" ) )
+		if( !Q_stricmp( cl_charset.string, "utf-8" ) )
 			ch = (unsigned char)*text;
 		else
 			ch = Con_UtfProcessCharForce( (unsigned char)*text );
