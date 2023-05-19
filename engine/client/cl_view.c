@@ -39,7 +39,7 @@ void V_CalcViewRect( void )
 	{
 		// intermission is always full screen
 		if( cl.intermission ) size = 120.0f;
-		else size = scr_viewsize->value;
+		else size = scr_viewsize.value;
 
 		if( size >= 120.0f )
 			sb_lines = 0;		// no status bar at all
@@ -47,12 +47,12 @@ void V_CalcViewRect( void )
 			sb_lines = 24;		// no inventory
 		else sb_lines = 48;
 
-		if( scr_viewsize->value >= 100.0f )
+		if( scr_viewsize.value >= 100.0f )
 		{
 			full = true;
 			size = 100.0f;
 		}
-		else size = scr_viewsize->value;
+		else size = scr_viewsize.value;
 
 		if( cl.intermission )
 		{
@@ -144,7 +144,7 @@ void V_SetRefParams( ref_params_t *fd )
 	VectorCopy( cl.viewangles, fd->cl_viewangles );
 	fd->health = cl.local.health;
 	VectorCopy( cl.crosshairangle, fd->crosshairangle );
-	fd->viewsize = scr_viewsize->value;
+	fd->viewsize = scr_viewsize.value;
 
 	VectorCopy( cl.punchangle, fd->punchangle );
 	fd->maxclients = cl.maxclients;
