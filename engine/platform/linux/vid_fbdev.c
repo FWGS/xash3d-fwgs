@@ -122,7 +122,6 @@ qboolean VID_SetMode( void )
 rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 {
 	int render_w, render_h;
-	uint rotate = vid_rotate->value;
 
 	FB_GetScreenRes( &width, &height );
 
@@ -131,23 +130,7 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 
 	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height );
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
-	{
-		if( rotate & 1 )
-		{
-			int swap = render_w;
-
-			render_w = render_h;
-			render_h = swap;
-		}
-
-		render_h /= vid_scale->value;
-		render_w /= vid_scale->value;
-	}
-	else
-	{
-		Con_Printf( S_WARN "failed to setup screen transform\n" );
-	}
+	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h );
 
 	return rserr_ok;
