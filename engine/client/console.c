@@ -2059,7 +2059,7 @@ void Con_DrawVersion( void )
 	if( host.force_draw_version_time > host.realtime )
 		draw_version = true;
 
-	if(( cls.key_dest != key_menu && !draw_version ) || CL_IsDevOverviewMode() == 2 || net_graph->value )
+	if(( cls.key_dest != key_menu && !draw_version ) || CL_IsDevOverviewMode() == 2 || net_graph.value )
 		return;
 
 	if( draw_version )
