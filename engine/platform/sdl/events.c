@@ -374,7 +374,7 @@ static void SDLash_ActiveEvent( int gain )
 			SNDDMA_Activate( true );
 		}
 		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
-		if( vid_fullscreen->value )
+		if( vid_fullscreen.value )
 			VID_SetMode();
 	}
 	else
@@ -611,10 +611,15 @@ static void SDLash_EventFilter( SDL_Event *event )
 		switch( event->window.event )
 		{
 		case SDL_WINDOWEVENT_MOVED:
-			if( !vid_fullscreen->value )
+			if( !vid_fullscreen.value )
 			{
-				Cvar_SetValue( "_window_xpos", (float)event->window.data1 );
-				Cvar_SetValue( "_window_ypos", (float)event->window.data2 );
+				char val[32];
+
+				Q_snprintf( val, sizeof( val ), "%d", event->window.data1 );
+				Cvar_DirectSet( &window_xpos, val );
+
+				Q_snprintf( val, sizeof( val ), "%d", event->window.data2 );
+				Cvar_DirectSet( &window_ypos, val );
 			}
 			break;
 		case SDL_WINDOWEVENT_MINIMIZED:
@@ -624,7 +629,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 		case SDL_WINDOWEVENT_RESTORED:
 			host.status = HOST_FRAME;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
-			if( vid_fullscreen->value )
+			if( vid_fullscreen.value )
 				VID_SetMode();
 			break;
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
@@ -635,7 +640,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
 		{
-			if( vid_fullscreen->value )
+			if( vid_fullscreen.value )
 				break;
 
 			VID_SaveWindowSize( event->window.data1, event->window.data2 );

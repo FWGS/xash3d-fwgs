@@ -523,7 +523,6 @@ static qboolean GL_UpdateContext( void )
 void VID_SaveWindowSize( int width, int height )
 {
 	int render_w = width, render_h = height;
-	uint rotate = vid_rotate->value;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !glw_state.software )
@@ -532,24 +531,7 @@ void VID_SaveWindowSize( int width, int height )
 		SDL_RenderSetLogicalSize( sw.renderer, width, height );
 #endif
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
-	{
-		if( rotate & 1 )
-		{
-			int swap = render_w;
-
-			render_w = render_h;
-			render_h = swap;
-		}
-
-		render_h /= vid_scale->value;
-		render_w /= vid_scale->value;
-	}
-	else
-	{
-		Con_Printf( S_WARN "failed to setup screen transform\n" );
-	}
-
+	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h );
 }
 
@@ -561,7 +543,7 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	static string wndname;
 
 #if !XASH_APPLE
-	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
+	if( vid_highdpi.value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
 
@@ -596,7 +578,7 @@ static qboolean VID_SetScreenResolution( int width, int height )
 void VID_RestoreScreenResolution( void )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( !vid_fullscreen->value )
+	if( !vid_fullscreen.value )
 	{
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 	}
@@ -641,7 +623,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	int xpos, ypos;
 	const char *localIcoPath;
 
-	if( vid_highdpi->value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
+	if( vid_highdpi.value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
 	if( glw_state.software )
 		wndFlags &= ~SDL_WINDOW_OPENGL;
@@ -665,8 +647,8 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		}
 		else
 		{
-			xpos = Cvar_VariableInteger( "_window_xpos" );
-			ypos = Cvar_VariableInteger( "_window_ypos" );
+			xpos = window_xpos.value;
+			ypos = window_ypos.value;
 
 			// don't create window outside of usable display space
 			if( xpos < r.x || xpos + width > r.x + r.w )
@@ -1144,14 +1126,14 @@ qboolean VID_SetMode( void )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	}
 
-	if( !FBitSet( vid_fullscreen->flags, FCVAR_CHANGED ) )
-		Cvar_DirectSet( vid_fullscreen, DEFAULT_FULLSCREEN );
+	if( !FBitSet( vid_fullscreen.flags, FCVAR_CHANGED ) )
+		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
 	else
-		ClearBits( vid_fullscreen->flags, FCVAR_CHANGED );
+		ClearBits( vid_fullscreen.flags, FCVAR_CHANGED );
 
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
 
-	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, vid_fullscreen->value )) == rserr_ok )
+	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, vid_fullscreen.value )) == rserr_ok )
 	{
 		sdlState.prev_width = iScreenWidth;
 		sdlState.prev_height = iScreenHeight;
@@ -1160,7 +1142,7 @@ qboolean VID_SetMode( void )
 	{
 		if( err == rserr_invalid_fullscreen )
 		{
-			Cvar_DirectSet( vid_fullscreen, "0" );
+			Cvar_DirectSet( &vid_fullscreen, "0" );
 			Con_Reportf( S_ERROR  "VID_SetMode: fullscreen unavailable in this mode\n" );
 			Sys_Warn("fullscreen unavailable in this mode!");
 			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, false )) == rserr_ok )
