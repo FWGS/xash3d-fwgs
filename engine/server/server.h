@@ -80,8 +80,6 @@ extern int SV_UPDATE_BACKUP;
 #define FCL_SEND_RESOURCES	BIT( 9 )
 #define FCL_FORCE_UNMODIFIED	BIT( 10 )
 
-#define MAX_CLIENT_IGNORECMDTIME_WARNS 10 // just a random number (for now)
-
 typedef enum
 {
 	ss_dead,		// no map loaded
