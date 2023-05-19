@@ -6,7 +6,7 @@
 #include "r_efx.h"
 #include "cl_tent.h"
 #include "pm_local.h"
-#define PART_SIZE	Q_max( 0.5f, cl_draw_particles->value )
+#define PART_SIZE	Q_max( 0.5f, cl_draw_particles.value )
 
 /*
 ==============================================================
@@ -171,7 +171,7 @@ particle_t * GAME_EXPORT R_AllocParticle( void (*callback)( particle_t*, float )
 {
 	particle_t	*p;
 
-	if( !cl_draw_particles->value )
+	if( !cl_draw_particles.value )
 		return NULL;
 
 	// never alloc particles when we not in game
@@ -222,7 +222,7 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 {
 	particle_t	*p;
 
-	if( !cl_draw_tracers->value )
+	if( !cl_draw_tracers.value )
 		return NULL;
 
 	// never alloc particles when we not in game
@@ -2067,16 +2067,16 @@ void CL_FreeDeadBeams( void )
 void CL_DrawEFX( float time, qboolean fTrans )
 {
 	CL_FreeDeadBeams();
-	if( CVAR_TO_BOOL( cl_draw_beams ))
+	if( cl_draw_beams.value )
 		ref.dllFuncs.CL_DrawBeams( fTrans, cl_active_beams );
 
 	if( fTrans )
 	{
 		R_FreeDeadParticles( &cl_active_particles );
-		if( CVAR_TO_BOOL( cl_draw_particles ))
+		if( cl_draw_particles.value )
 			ref.dllFuncs.CL_DrawParticles( time, cl_active_particles, PART_SIZE );
 		R_FreeDeadParticles( &cl_active_tracers );
-		if( CVAR_TO_BOOL( cl_draw_tracers ))
+		if( cl_draw_tracers.value )
 			ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
 	}
 }

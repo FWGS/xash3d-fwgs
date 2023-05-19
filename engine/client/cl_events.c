@@ -84,7 +84,7 @@ void CL_DescribeEvent( event_info_t *ei, int slot )
 	con_nprint_t	info;
 	string origin_str = { 0 }; //, angles_str = { 0 };
 
-	if( !cl_showevents->value )
+	if( !cl_showevents.value )
 		return;
 
 	info.time_to_live = 1.0f;

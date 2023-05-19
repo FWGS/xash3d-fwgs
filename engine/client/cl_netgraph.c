@@ -376,8 +376,8 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 	{
 		avg = avg / (float)( count - ( host.frametime * FRAMERATE_AVG_FRAC ));
 
-		if( cl_updaterate->value > 0.0f )
-			avg -= 1000.0f / cl_updaterate->value;
+		if( cl_updaterate.value > 0.0f )
+			avg -= 1000.0f / cl_updaterate.value;
 
 		// can't be below zero
 		avg = Q_max( 0.0f, avg );
@@ -422,9 +422,9 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 	}
 
 	if( graphtype < 3 )
-		CL_DrawStringf( font, ptx, pty, colors, FONT_DRAW_NORENDERMODE, "%i/s", (int)cl_cmdrate->value );
+		CL_DrawStringf( font, ptx, pty, colors, FONT_DRAW_NORENDERMODE, "%i/s", (int)cl_cmdrate.value );
 
-	CL_DrawStringf( font, ptx, last_y, colors, FONT_DRAW_NORENDERMODE, "%i/s" , (int)cl_updaterate->value );
+	CL_DrawStringf( font, ptx, last_y, colors, FONT_DRAW_NORENDERMODE, "%i/s" , (int)cl_updaterate.value );
 }
 
 /*
