@@ -144,8 +144,8 @@ keyname_t keynames[] =
 
 static void OSK_EnableTextInput( qboolean enable, qboolean force );
 static qboolean OSK_KeyEvent( int key, int down );
-static convar_t *osk_enable;
-static convar_t *key_rotate;
+static CVAR_DEFINE_AUTO( osk_enable, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "enable built-in on-screen keyboard" );
+static CVAR_DEFINE_AUTO( key_rotate, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "rotate arrow keys (0-3)" );
 
 /*
 ===================
@@ -513,8 +513,8 @@ void Key_Init( void )
 	// setup default binding. "unbindall" from config.cfg will be reset it
 	for( kn = keynames; kn->name; kn++ ) Key_SetBinding( kn->keynum, kn->binding );
 
-	osk_enable = Cvar_Get( "osk_enable", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable built-in on-screen keyboard" );
-	key_rotate = Cvar_Get( "key_rotate", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "rotate arrow keys (0-3)" );
+	Cvar_RegisterVariable( &osk_enable );
+	Cvar_RegisterVariable( &key_rotate );
 
 }
 
@@ -590,7 +590,7 @@ static qboolean Key_IsAllowedAutoRepeat( int key )
 
 static int Key_Rotate( int key )
 {
-	if( key_rotate->value == 1.0f ) // CW
+	if( key_rotate.value == 1.0f ) // CW
 	{
 		if( key == K_UPARROW )
 				key = K_LEFTARROW;
@@ -602,7 +602,7 @@ static int Key_Rotate( int key )
 				key = K_RIGHTARROW;
 	}
 
-	else if( key_rotate->value == 3.0f ) // CCW
+	else if( key_rotate.value == 3.0f ) // CCW
 	{
 		if( key == K_UPARROW )
 				key = K_RIGHTARROW;
@@ -614,7 +614,7 @@ static int Key_Rotate( int key )
 				key = K_LEFTARROW;
 	}
 
-	else if( key_rotate->value == 2.0f )
+	else if( key_rotate.value == 2.0f )
 	{
 		if( key == K_UPARROW )
 				key = K_DOWNARROW;
@@ -797,7 +797,7 @@ Key_EnableTextInput
 */
 void Key_EnableTextInput( qboolean enable, qboolean force )
 {
-	if( CVAR_TO_BOOL( osk_enable ) )
+	if( osk_enable.value )
 	{
 		OSK_EnableTextInput( enable, force );
 		return;
@@ -995,7 +995,7 @@ struct osk_s
 
 static qboolean OSK_KeyEvent( int key, int down )
 {
-	if( !osk.enable || !CVAR_TO_BOOL( osk_enable ) )
+	if( !osk.enable || !osk_enable.value )
 		return false;
 
 	if( osk.sending )
@@ -1190,7 +1190,7 @@ void OSK_Draw( void )
 	float  x, y;
 	int i, j;
 
-	if( !osk.enable || !CVAR_TO_BOOL(osk_enable) || !osk.curbutton.val )
+	if( !osk.enable || !osk_enable.value || !osk.curbutton.val )
 		return;
 
 	// draw keyboard
