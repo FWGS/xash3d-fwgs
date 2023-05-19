@@ -1985,7 +1985,7 @@ static int GAME_EXPORT pfnGetWindowCenterX( void )
 {
 	int x = 0;
 #if XASH_WIN32
-	if( m_ignore->value )
+	if( m_ignore.value )
 	{
 		POINT pos;
 		GetCursorPos( &pos );
@@ -2010,7 +2010,7 @@ static int GAME_EXPORT pfnGetWindowCenterY( void )
 {
 	int y = 0;
 #if XASH_WIN32
-	if( m_ignore->value )
+	if( m_ignore.value )
 	{
 		POINT pos;
 		GetCursorPos( &pos );

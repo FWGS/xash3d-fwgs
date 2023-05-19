@@ -36,15 +36,15 @@ static struct inputstate_s
 	float lastpitch, lastyaw;
 } inputstate;
 
-convar_t *m_pitch;
-convar_t *m_yaw;
+CVAR_DEFINE_AUTO( m_pitch, "0.022", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "mouse pitch value" );
+CVAR_DEFINE_AUTO( m_yaw, "0.022", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "mouse yaw value" );
+CVAR_DEFINE_AUTO( m_ignore, DEFAULT_M_IGNORE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "ignore mouse events" );
+static CVAR_DEFINE_AUTO( look_filter, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "filter look events making it smoother" );
+static CVAR_DEFINE_AUTO( m_rawinput, "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable mouse raw input" );
 
-convar_t *m_ignore;
-convar_t *cl_forwardspeed;
-convar_t *cl_sidespeed;
-convar_t *cl_backspeed;
-convar_t *look_filter;
-convar_t *m_rawinput;
+static CVAR_DEFINE_AUTO( cl_forwardspeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default forward move speed" );
+static CVAR_DEFINE_AUTO( cl_backspeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default back move speed"  );
+static CVAR_DEFINE_AUTO( cl_sidespeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default side move speed"  );
 
 /*
 ================
@@ -57,7 +57,7 @@ uint IN_CollectInputDevices( void )
 {
 	uint ret = 0;
 
-	if( !m_ignore->value ) // no way to check is mouse connected, so use cvar only
+	if( !m_ignore.value ) // no way to check is mouse connected, so use cvar only
 		ret |= INPUT_DEVICE_MOUSE;
 
 	if( touch_enable.value )
@@ -89,13 +89,13 @@ void IN_LockInputDevices( qboolean lock )
 
 	if( lock )
 	{
-		SetBits( m_ignore->flags, FCVAR_READ_ONLY );
+		SetBits( m_ignore.flags, FCVAR_READ_ONLY );
 		SetBits( joy_enable->flags, FCVAR_READ_ONLY );
 		SetBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
 	else
 	{
-		ClearBits( m_ignore->flags, FCVAR_READ_ONLY );
+		ClearBits( m_ignore.flags, FCVAR_READ_ONLY );
 		ClearBits( joy_enable->flags, FCVAR_READ_ONLY );
 		ClearBits( touch_enable.flags, FCVAR_READ_ONLY );
 	}
@@ -109,12 +109,12 @@ IN_StartupMouse
 */
 void IN_StartupMouse( void )
 {
-	m_ignore = Cvar_Get( "m_ignore", DEFAULT_M_IGNORE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "ignore mouse events" );
+	Cvar_RegisterVariable( &m_ignore );
 
-	m_pitch = Cvar_Get( "m_pitch", "0.022", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "mouse pitch value" );
-	m_yaw = Cvar_Get( "m_yaw", "0.022", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "mouse yaw value" );
-	look_filter = Cvar_Get( "look_filter", "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "filter look events making it smoother" );
-	m_rawinput = Cvar_Get( "m_rawinput", "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable mouse raw input" );
+	Cvar_RegisterVariable( &m_pitch );
+	Cvar_RegisterVariable( &m_yaw );
+	Cvar_RegisterVariable( &look_filter );
+	Cvar_RegisterVariable( &m_rawinput );
 
 	// You can use -nomouse argument to prevent using mouse from client
 	// -noenginemouse will disable all mouse input
@@ -213,7 +213,7 @@ void IN_CheckMouseState( qboolean active )
 	static qboolean s_bRawInput, s_bMouseGrab;
 
 #if XASH_WIN32
-	qboolean useRawInput = ( CVAR_TO_BOOL( m_rawinput ) && clgame.client_dll_uses_sdl ) || clgame.dllFuncs.pfnLookEvent != NULL;
+	qboolean useRawInput = ( m_rawinput.value && clgame.client_dll_uses_sdl ) || clgame.dllFuncs.pfnLookEvent != NULL;
 #else
 	qboolean useRawInput = true; // always use SDL code
 #endif
@@ -413,9 +413,9 @@ IN_Init
 */
 void IN_Init( void )
 {
-	cl_forwardspeed	= Cvar_Get( "cl_forwardspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default forward move speed" );
-	cl_backspeed	= Cvar_Get( "cl_backspeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default back move speed"  );
-	cl_sidespeed	= Cvar_Get( "cl_sidespeed", "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default side move speed"  );
+	Cvar_RegisterVariable( &cl_forwardspeed );
+	Cvar_RegisterVariable( &cl_backspeed );
+	Cvar_RegisterVariable( &cl_sidespeed );
 
 	if( !Host_IsDedicated() )
 	{
@@ -452,8 +452,8 @@ static void IN_JoyAppendMove( usercmd_t *cmd, float forwardmove, float sidemove 
 {
 	static uint moveflags = T | S;
 
-	if( forwardmove ) cmd->forwardmove  = forwardmove * cl_forwardspeed->value;
-	if( sidemove ) cmd->sidemove  = sidemove * cl_sidespeed->value;
+	if( forwardmove ) cmd->forwardmove  = forwardmove * cl_forwardspeed.value;
+	if( sidemove ) cmd->sidemove  = sidemove * cl_sidespeed.value;
 
 	if( forwardmove )
 	{
@@ -528,8 +528,8 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 	{
 		float x, y;
 		Platform_MouseMove( &x, &y );
-		*pitch += y * m_pitch->value;
-		*yaw   -= x * m_yaw->value;
+		*pitch += y * m_pitch.value;
+		*yaw   -= x * m_yaw.value;
 
 #if XASH_USE_EVDEV
 		IN_EvdevMove( yaw, pitch );
@@ -539,7 +539,7 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 	Joy_FinalizeMove( forward, side, yaw, pitch );
 	Touch_GetMove( forward, side, yaw, pitch );
 
-	if( look_filter->value )
+	if( look_filter.value )
 	{
 		*pitch = ( inputstate.lastpitch + *pitch ) / 2;
 		*yaw   = ( inputstate.lastyaw   + *yaw ) / 2;
@@ -597,7 +597,7 @@ void IN_Commands( void )
 	{
 		float forward = 0, side = 0, pitch = 0, yaw = 0;
 
-		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !CVAR_TO_BOOL( m_ignore ) );
+		IN_CollectInput( &forward, &side, &pitch, &yaw, in_mouseinitialized && !m_ignore.value );
 
 		if( cls.key_dest == key_game )
 		{

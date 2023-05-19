@@ -387,11 +387,11 @@ void IN_EvdevFrame ( void )
 			Key_ClearStates();
 		}
 
-		if( CVAR_TO_BOOL(m_ignore) )
+		if( m_ignore.value )
 			continue;
 
-		evdev.x += -dx * m_yaw->value;
-		evdev.y += dy * m_pitch->value;
+		evdev.x += -dx * m_yaw.value;
+		evdev.y += dy * m_pitch.value;
 	}
 	if( evdev.grabtime <= host.realtime )
 		evdev.grab = false;
