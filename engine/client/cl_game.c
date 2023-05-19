@@ -458,7 +458,7 @@ void CL_DrawCenterPrint( void )
 	if( !clgame.centerPrint.time )
 		return;
 
-	if(( cl.time - clgame.centerPrint.time ) >= scr_centertime->value )
+	if(( cl.time - clgame.centerPrint.time ) >= scr_centertime.value )
 	{
 		// time expired
 		clgame.centerPrint.time = 0.0f;

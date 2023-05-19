@@ -974,9 +974,9 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" ));
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
-	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
+	if(( cl_allow_levelshots.value && !cls.changelevel ) || cl.background )
 	{
-		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name->string ), true ))
+		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name.string ), true ))
 			Cvar_Set( "cl_levelshot_name", "*black" ); // render a black screen
 		cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
 	}
@@ -1550,7 +1550,7 @@ CL_StartDark
 */
 static void CL_StartDark( void )
 {
-	if( Cvar_VariableValue( "v_dark" ))
+	if( v_dark.value )
 	{
 		screenfade_t		*sf = &clgame.fade;
 		float			fadetime = 5.0f;
@@ -1575,7 +1575,7 @@ static void CL_StartDark( void )
 		sf->fadeReset += cl.time;
 		sf->fadeEnd += sf->fadeReset;
 
-		Cvar_SetValue( "v_dark", 0.0f );
+		Cvar_DirectSet( &v_dark, "0" );
 	}
 }
 

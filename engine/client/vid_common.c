@@ -124,11 +124,11 @@ check vid modes and fullscreen
 */
 void VID_CheckChanges( void )
 {
-	if( FBitSet( cl_allow_levelshots->flags, FCVAR_CHANGED ))
+	if( FBitSet( cl_allow_levelshots.flags, FCVAR_CHANGED ))
 	{
 		//GL_FreeTexture( cls.loadingBar );
 		SCR_RegisterTextures(); // reload 'lambda' image
-		ClearBits( cl_allow_levelshots->flags, FCVAR_CHANGED );
+		ClearBits( cl_allow_levelshots.flags, FCVAR_CHANGED );
 	}
 
 	if( host.renderinfo_changed )

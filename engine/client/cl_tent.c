@@ -2843,10 +2843,10 @@ void CL_TestLights( void )
 	float	f, r;
 	dlight_t	*dl;
 
-	if( !CVAR_TO_BOOL( cl_testlights ))
+	if( !cl_testlights.value )
 		return;
 
-	numLights = bound( 1, cl_testlights->value, MAX_DLIGHTS );
+	numLights = bound( 1, cl_testlights.value, MAX_DLIGHTS );
 	AngleVectors( cl.viewangles, forward, right, NULL );
 
 	for( i = 0; i < numLights; i++ )

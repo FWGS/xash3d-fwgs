@@ -1754,10 +1754,10 @@ void Con_DrawDebug( void )
 	string		dlstring;
 	int		x, y;
 
-	if( scr_download->value != -1.0f )
+	if( scr_download.value != -1.0f )
 	{
 		Q_snprintf( dlstring, sizeof( dlstring ), "Downloading [%d remaining]: ^2%s^7 %5.1f%% time %.f secs",
-			host.downloadcount, host.downloadfile, scr_download->value, Sys_DoubleTime() - timeStart );
+			host.downloadcount, host.downloadfile, scr_download.value, Sys_DoubleTime() - timeStart );
 		x = refState.width - 500;
 		y = con.curFont->charHeight * 1.05f;
 		Con_DrawString( x, y, dlstring, g_color_table[7] );
@@ -1981,7 +1981,7 @@ void Con_DrawConsole( void )
 
 	if( cls.state == ca_connecting || cls.state == ca_connected )
 	{
-		if( !cl_allow_levelshots->value )
+		if( !cl_allow_levelshots.value )
 		{
 			if(( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" )) && cls.key_dest != key_console )
 				con.vislines = con.showlines = 0;

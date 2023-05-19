@@ -698,7 +698,7 @@ void CL_DemoAborted( void )
 	cls.demofile = NULL;
 	cls.demonum = -1;
 
-	Cvar_SetValue( "v_dark", 0.0f );
+	Cvar_DirectSet( &v_dark, "0" );
 }
 
 /*
@@ -716,7 +716,7 @@ void CL_DemoCompleted( void )
 	if( !CL_NextDemo() && !cls.changedemo )
 		UI_SetActiveMenu( true );
 
-	Cvar_SetValue( "v_dark", 0.0f );
+	Cvar_DirectSet( &v_dark, "0" );
 }
 
 /*
@@ -1306,7 +1306,7 @@ void CL_CheckStartupDemos( void )
 	}
 
 	// run demos loop in background mode
-	Cvar_SetValue( "v_dark", 1.0f );
+	Cvar_DirectSet( &v_dark, "1" );
 	cls.demos_pending = false;
 	cls.demonum = 0;
 	CL_NextDemo ();
