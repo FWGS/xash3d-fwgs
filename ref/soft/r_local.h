@@ -30,7 +30,7 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
-//#include "cvar.h"
+#include "common/cvar.h"
 typedef struct mip_s mip_t;
 
 typedef	int	fixed8_t;
@@ -40,10 +40,6 @@ typedef	int	fixed16_t;
 #define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 #include <stdio.h>
-
-#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	cvar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	cvar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
 #define WORLD (gEngfuncs.GetWorld())
 #define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
@@ -676,7 +672,6 @@ void TriBrightness( float brightness );
 
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;
-extern cvar_t	*r_dynamic;
 
 DECLARE_ENGINE_SHARED_CVAR_LIST()
 
@@ -1089,29 +1084,16 @@ extern int              r_clipflags;
 //extern qboolean r_fov_greater_than_90;
 
 
-extern cvar_t   *sw_aliasstats;
-extern cvar_t   *sw_clearcolor;
-extern cvar_t   *sw_drawflat;
-extern cvar_t   *sw_draworder;
-extern cvar_t   *sw_maxedges;
-extern cvar_t   *sw_maxsurfs;
-extern cvar_t   *sw_mipcap;
-extern cvar_t   *sw_mipscale;
-extern cvar_t   *sw_reportsurfout;
-extern cvar_t   *sw_reportedgeout;
-extern cvar_t   *sw_stipplealpha;
-extern cvar_t   *sw_surfcacheoverride;
-extern cvar_t *sw_waterwarp;
-extern cvar_t   *sw_texfilt;
-extern cvar_t	*r_traceglow;
-extern cvar_t	*sw_notransbrushes;
-extern cvar_t	*sw_noalphabrushes;
-
-extern cvar_t	*tracerred;
-extern cvar_t	*tracergreen;
-extern cvar_t	*tracerblue;
-extern cvar_t	*traceralpha;
-
+extern convar_t   sw_clearcolor;
+extern convar_t   sw_drawflat;
+extern convar_t   sw_draworder;
+extern convar_t   sw_maxedges;
+extern convar_t   sw_mipcap;
+extern convar_t   sw_mipscale;
+extern convar_t   sw_surfcacheoverride;
+extern convar_t   sw_texfilt;
+extern convar_t   r_traceglow;
+extern convar_t   sw_noalphabrushes;
 
 extern struct qfrustum_s {
 	mplane_t screenedge[4];
@@ -1119,8 +1101,6 @@ extern struct qfrustum_s {
 	int frustum_indexes[4*6];
 	int *pfrustum_indexes[4];
 } qfrustum;
-
-extern cvar_t *r_fullbright;
 
 #define CACHESPOT(surf) ((surfcache_t**)surf->info->reserved)
 extern int              r_currentkey;

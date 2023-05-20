@@ -23,9 +23,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define NUM_MIPS	4
 
-cvar_t	*sw_mipcap;
-cvar_t	*sw_mipscale;
-
 surfcache_t		*d_initial_rover;
 qboolean		d_roverwrapped;
 int				d_minmip;
@@ -361,14 +358,14 @@ void R_SetupFrameQ (void)
 	d_roverwrapped = false;
 	d_initial_rover = sc_rover;
 
-	d_minmip = sw_mipcap->value;
+	d_minmip = sw_mipcap.value;
 	if (d_minmip > 3)
 		d_minmip = 3;
 	else if (d_minmip < 0)
 		d_minmip = 0;
 
 	for (i=0 ; i<(NUM_MIPS-1) ; i++)
-		d_scalemip[i] = basemip[i] * sw_mipscale->value;
+		d_scalemip[i] = basemip[i] * sw_mipscale.value;
 
 	//d_aflatcolor = 0;
 }

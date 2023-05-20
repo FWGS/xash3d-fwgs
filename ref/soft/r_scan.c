@@ -519,7 +519,7 @@ int kernel[2][2][2] =
    }
 };
 #ifndef DISABLE_TEXFILTER
-#define SW_TEXFILT (sw_texfilt->value == 1.0f)
+#define SW_TEXFILT (sw_texfilt.value == 1.0f)
 #else
 #define SW_TEXFILT 0
 #endif
