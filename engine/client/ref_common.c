@@ -379,14 +379,14 @@ static void R_UnloadProgs( void )
 
 	Cvar_FullSet( "host_refloaded", "0", FCVAR_READ_ONLY );
 
+	Cvar_Unlink( FCVAR_RENDERINFO | FCVAR_GLCONFIG );
+	Cmd_Unlink( CMD_REFDLL );
+
 	COM_FreeLibrary( ref.hInstance );
 	ref.hInstance = NULL;
 
 	memset( &refState, 0, sizeof( refState ));
 	memset( &ref.dllFuncs, 0, sizeof( ref.dllFuncs ));
-
-	Cvar_Unlink( FCVAR_RENDERINFO | FCVAR_GLCONFIG );
-	Cmd_Unlink( CMD_REFDLL );
 }
 
 static void CL_FillTriAPIFromRef( triangleapi_t *dst, const ref_interface_t *src )
