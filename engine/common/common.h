@@ -157,7 +157,6 @@ extern convar_t	gl_vsync;
 extern convar_t	scr_loading;
 extern convar_t	scr_download;
 extern convar_t	cmd_scripting;
-extern convar_t	*sv_maxclients;
 extern convar_t	cl_allow_levelshots;
 extern convar_t	host_developer;
 extern convar_t	host_limitlocal;
