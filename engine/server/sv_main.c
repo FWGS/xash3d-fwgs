@@ -124,22 +124,21 @@ CVAR_DEFINE_AUTO( sv_enttools_maxfire, "5", FCVAR_ARCHIVE|FCVAR_PROTECTED, "limi
 
 CVAR_DEFINE( public_server, "public", "0", 0, "change server type from private to public" );
 
-convar_t	*sv_novis;			// disable server culling entities by vis
-convar_t	*sv_pausable;
-convar_t	*timeout;				// seconds without any message
-convar_t	*sv_lighting_modulate;
-convar_t	*sv_maxclients;
-convar_t	*sv_check_errors;
-convar_t	*sv_reconnect_limit;		// minimum seconds between connect messages
-convar_t	*sv_validate_changelevel;
-convar_t	*sv_sendvelocity;
-convar_t	*sv_hostmap;
+CVAR_DEFINE_AUTO( sv_novis, "0", 0, "force to ignore server visibility" );			// disable server culling entities by vis
+CVAR_DEFINE( sv_pausable, "pausable", "1", FCVAR_SERVER, "allow players to pause or not" );
+static CVAR_DEFINE_AUTO( timeout, "125", FCVAR_SERVER, "connection timeout" );				// seconds without any message
+CVAR_DEFINE( sv_lighting_modulate, "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
+CVAR_DEFINE( sv_maxclients, "maxplayers", "1", FCVAR_LATCH, "server max capacity" );
+CVAR_DEFINE_AUTO( sv_check_errors, "0", FCVAR_ARCHIVE, "check edicts for errors" );
+CVAR_DEFINE_AUTO( sv_reconnect_limit, "3", FCVAR_ARCHIVE, "max reconnect attempts" );		// minimum seconds between connect messages
+CVAR_DEFINE_AUTO( sv_validate_changelevel, "0", 0, "test change level for level-designer errors" );
+CVAR_DEFINE( sv_hostmap, "hostmap", "", 0, "keep name of last entered map" );
 
-convar_t	*sv_allow_noinputdevices;
-convar_t	*sv_allow_touch;
-convar_t	*sv_allow_mouse;
-convar_t	*sv_allow_joystick;
-convar_t	*sv_allow_vr;
+static CVAR_DEFINE_AUTO( sv_allow_joystick, "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
+static CVAR_DEFINE_AUTO( sv_allow_mouse, "1", FCVAR_ARCHIVE, "allow connect with mouse" );
+static CVAR_DEFINE_AUTO( sv_allow_touch, "1", FCVAR_ARCHIVE, "allow connect with touch controls" );
+static CVAR_DEFINE_AUTO( sv_allow_vr, "1", FCVAR_ARCHIVE, "allow connect from vr version" );
+static CVAR_DEFINE_AUTO( sv_allow_noinputdevices, "1", FCVAR_ARCHIVE, "allow connect from old versions without useragent" );
 
 //============================================================================
 /*
@@ -472,7 +471,7 @@ void SV_ReadPackets( void )
 ==================
 SV_CheckTimeouts
 
-If a packet has not been received from a client for timeout->value
+If a packet has not been received from a client for timeout.value
 seconds, drop the conneciton.  Server frames are used instead of
 realtime to avoid dropping the local client while debugging.
 
@@ -487,7 +486,7 @@ void SV_CheckTimeouts( void )
 	double		droppoint;
 	int		i, numclients = 0;
 
-	droppoint = host.realtime - timeout->value;
+	droppoint = host.realtime - timeout.value;
 
 	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
 	{
@@ -750,7 +749,7 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 	const char *input_devices_str = Info_ValueForKey( useragent, "d" );
 	const char *id = Info_ValueForKey( useragent, "uuid" );
 
-	if( !sv_allow_noinputdevices->value && ( !input_devices_str || !input_devices_str[0] ) )
+	if( !sv_allow_noinputdevices.value && ( !input_devices_str || !input_devices_str[0] ) )
 	{
 		SV_RejectConnection( from, "This server does not allow\nconnect without input devices list.\nPlease update your engine.\n" );
 		return false;
@@ -760,22 +759,22 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 	{
 		int input_devices = Q_atoi( input_devices_str );
 
-		if( !sv_allow_touch->value && ( input_devices & INPUT_DEVICE_TOUCH ) )
+		if( !sv_allow_touch.value && ( input_devices & INPUT_DEVICE_TOUCH ) )
 		{
 			SV_RejectConnection( from, "This server does not allow touch\nDisable it (touch_enable 0)\nto play on this server\n" );
 			return false;
 		}
-		if( !sv_allow_mouse->value && ( input_devices & INPUT_DEVICE_MOUSE) )
+		if( !sv_allow_mouse.value && ( input_devices & INPUT_DEVICE_MOUSE) )
 		{
 			SV_RejectConnection( from, "This server does not allow mouse\nDisable it(m_ignore 1)\nto play on this server\n" );
 			return false;
 		}
-		if( !sv_allow_joystick->value && ( input_devices & INPUT_DEVICE_JOYSTICK) )
+		if( !sv_allow_joystick.value && ( input_devices & INPUT_DEVICE_JOYSTICK) )
 		{
 			SV_RejectConnection( from, "This server does not allow joystick\nDisable it(joy_enable 0)\nto play on this server\n" );
 			return false;
 		}
-		if( !sv_allow_vr->value && ( input_devices & INPUT_DEVICE_VR) )
+		if( !sv_allow_vr.value && ( input_devices & INPUT_DEVICE_VR) )
 		{
 			SV_RejectConnection( from, "This server does not allow VR\n" );
 			return false;
@@ -852,9 +851,9 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_stepsize );
 	Cvar_RegisterVariable( &sv_newunit );
 	Cvar_RegisterVariable( &hostname );
-	timeout = Cvar_Get( "timeout", "125", FCVAR_SERVER, "connection timeout" );
-	sv_pausable = Cvar_Get( "pausable", "1", FCVAR_SERVER, "allow players to pause or not" );
-	sv_validate_changelevel = Cvar_Get( "sv_validate_changelevel", "0", 0, "test change level for level-designer errors" );
+	Cvar_RegisterVariable( &timeout );
+	Cvar_RegisterVariable( &sv_pausable );
+	Cvar_RegisterVariable( &sv_validate_changelevel );
 	Cvar_RegisterVariable( &sv_clienttrace );
 	Cvar_RegisterVariable( &sv_bounce );
 	Cvar_RegisterVariable( &sv_spectatormaxspeed );
@@ -870,11 +869,11 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_friction );
 	Cvar_RegisterVariable( &sv_edgefriction );
 	Cvar_RegisterVariable( &sv_stopspeed );
-	sv_maxclients = Cvar_Get( "maxplayers", "1", FCVAR_LATCH, "server max capacity" );
-	sv_check_errors = Cvar_Get( "sv_check_errors", "0", FCVAR_ARCHIVE, "check edicts for errors" );
+	Cvar_RegisterVariable( &sv_maxclients );
+	Cvar_RegisterVariable( &sv_check_errors );
 	Cvar_RegisterVariable( &public_server );
-	sv_lighting_modulate = Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
-	sv_reconnect_limit = Cvar_Get ("sv_reconnect_limit", "3", FCVAR_ARCHIVE, "max reconnect attempts" );
+	Cvar_RegisterVariable( &sv_lighting_modulate );
+	Cvar_RegisterVariable( &sv_reconnect_limit );
 	Cvar_RegisterVariable( &sv_failuretime );
 	Cvar_RegisterVariable( &sv_unlag );
 	Cvar_RegisterVariable( &sv_maxunlag );
@@ -889,8 +888,9 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_instancedbaseline );
 	Cvar_RegisterVariable( &sv_consistency );
 	Cvar_RegisterVariable( &sv_downloadurl );
-	sv_novis = Cvar_Get( "sv_novis", "0", 0, "force to ignore server visibility" );
-	sv_hostmap = Cvar_Get( "hostmap", GI->startmap, 0, "keep name of last entered map" );
+	Cvar_RegisterVariable( &sv_novis );
+	Cvar_RegisterVariable( &sv_hostmap );
+	Cvar_DirectSet( &sv_hostmap, GI->startmap );
 	Cvar_RegisterVariable( &sv_password );
 	Cvar_RegisterVariable( &sv_lan );
 	Cvar_RegisterVariable( &sv_nat );
@@ -922,11 +922,11 @@ void SV_Init( void )
 
 	Cvar_RegisterVariable( &sv_speedhack_kick );
 
-	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
-	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
-	sv_allow_touch = Cvar_Get( "sv_allow_touch", "1", FCVAR_ARCHIVE, "allow connect with touch controls" );
-	sv_allow_vr = Cvar_Get( "sv_allow_vr", "1", FCVAR_ARCHIVE, "allow connect from vr version" );
-	sv_allow_noinputdevices = Cvar_Get( "sv_allow_noinputdevices", "1", FCVAR_ARCHIVE, "allow connect from old versions without useragent" );
+	Cvar_RegisterVariable( &sv_allow_joystick );
+	Cvar_RegisterVariable( &sv_allow_mouse );
+	Cvar_RegisterVariable( &sv_allow_touch );
+	Cvar_RegisterVariable( &sv_allow_vr );
+	Cvar_RegisterVariable( &sv_allow_noinputdevices );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );

@@ -792,7 +792,7 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 
 	if( smooth && !FBitSet( flags, MAP_HAS_LANDMARK ))
 	{
-		if( sv_validate_changelevel->value )
+		if( sv_validate_changelevel.value )
 		{
 			// NOTE: we find valid map but specified landmark it's doesn't exist
 			// run simple changelevel like in q1, throw warning
@@ -812,7 +812,7 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 
 	if( !smooth && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
 	{
-		if( sv_validate_changelevel->value )
+		if( sv_validate_changelevel.value )
 		{
 			Con_Printf( S_ERROR "changelevel: %s doesn't have a valid spawnpoint. Ignored.\n", mapname );
 			return;
@@ -822,7 +822,7 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 	// bad changelevel position invoke enables in one-way transition
 	if( sv.framecount < 15 )
 	{
-		if( sv_validate_changelevel->value )
+		if( sv_validate_changelevel.value )
 		{
 			Con_Printf( S_WARN "an infinite changelevel was detected and will be disabled until a next save\\restore\n" );
 			return; // lock with svs.spawncount here
@@ -4187,7 +4187,7 @@ byte *pfnSetFatPVS( const float *org )
 {
 	qboolean	fullvis = false;
 
-	if( !sv.worldmodel->visdata || sv_novis->value || !org || CL_DisableVisibility( ))
+	if( !sv.worldmodel->visdata || sv_novis.value || !org || CL_DisableVisibility( ))
 		fullvis = true;
 
 	// portals can't change viewpoint!
@@ -4237,7 +4237,7 @@ byte *pfnSetFatPAS( const float *org )
 {
 	qboolean	fullvis = false;
 
-	if( !sv.worldmodel->visdata || sv_novis->value || !org || CL_DisableVisibility( ))
+	if( !sv.worldmodel->visdata || sv_novis.value || !org || CL_DisableVisibility( ))
 		fullvis = true;
 
 	// portals can't change viewpoint!

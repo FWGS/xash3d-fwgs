@@ -765,7 +765,7 @@ void SV_SetupClients( void )
 	qboolean	changed_maxclients = false;
 
 	// check if clients count was really changed
-	if( svs.maxclients != (int)sv_maxclients->value )
+	if( svs.maxclients != (int)sv_maxclients.value )
 		changed_maxclients = true;
 
 	if( !changed_maxclients ) return; // nothing to change
@@ -774,7 +774,7 @@ void SV_SetupClients( void )
 	if( svs.maxclients ) Host_ShutdownServer();
 
 	// copy the actual value from cvar
-	svs.maxclients = (int)sv_maxclients->value;
+	svs.maxclients = (int)sv_maxclients.value;
 
 	// dedicated servers are can't be single player and are usually DM
 	if( Host_IsDedicated() )
@@ -802,7 +802,7 @@ void SV_SetupClients( void )
 	// init network stuff
 	NET_Config(( svs.maxclients > 1 ), true );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
-	ClearBits( sv_maxclients->flags, FCVAR_CHANGED );
+	ClearBits( sv_maxclients.flags, FCVAR_CHANGED );
 }
 
 static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
