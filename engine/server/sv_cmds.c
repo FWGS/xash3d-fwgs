@@ -175,7 +175,7 @@ qboolean SV_ValidateMap( const char *pMapName, qboolean check_spawn )
 	int	flags;
 
 	// determine spawn entity classname
-	if( !check_spawn || (int)sv_maxclients->value <= 1 )
+	if( !check_spawn || (int)sv_maxclients.value <= 1 )
 		spawn_entity = GI->sp_entity;
 	else spawn_entity = GI->mp_entity;
 
@@ -227,7 +227,7 @@ void SV_Map_f( void )
 	if( !SV_ValidateMap( mapname, true ))
 		return;
 
-	Cvar_DirectSet( sv_hostmap, mapname );
+	Cvar_DirectSet( &sv_hostmap, mapname );
 	COM_LoadLevel( mapname, false );
 }
 
@@ -338,12 +338,12 @@ void SV_NextMap_f( void )
 			continue;
 
 		COM_FileBase( t->filenames[i], nextmap, sizeof( nextmap ));
-		if( Q_stricmp( sv_hostmap->string, nextmap ))
+		if( Q_stricmp( sv_hostmap.string, nextmap ))
 			continue;
 
 		next = ( i + 1 ) % t->numfilenames;
 		COM_FileBase( t->filenames[next], nextmap, sizeof( nextmap ));
-		Cvar_DirectSet( sv_hostmap, nextmap );
+		Cvar_DirectSet( &sv_hostmap, nextmap );
 
 		// found current point, check for valid
 		if( SV_ValidateMap( nextmap, true ))
@@ -535,7 +535,7 @@ void SV_Reload_f( void )
 		return;
 
 	if( !SV_LoadGame( SV_GetLatestSave( )))
-		COM_LoadLevel( sv_hostmap->string, false );
+		COM_LoadLevel( sv_hostmap.string, false );
 }
 
 /*

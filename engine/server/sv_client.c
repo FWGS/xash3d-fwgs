@@ -1762,7 +1762,7 @@ static qboolean SV_Pause_f( sv_client_t *cl )
 	if( UI_CreditsActive( ))
 		return true;
 
-	if( !sv_pausable->value )
+	if( !sv_pausable.value )
 	{
 		SV_ClientPrintf( cl, "Pause not allowed.\n" );
 		return true;
