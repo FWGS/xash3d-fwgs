@@ -58,6 +58,7 @@ typedef struct convar_s
 
 #define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
+#ifndef REF_DLL
 cvar_t *Cvar_GetList( void );
 #define Cvar_FindVar( name )	Cvar_FindVarExt( name, 0 )
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
@@ -81,5 +82,6 @@ qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged );
 void Cvar_Init( void );
 void Cvar_PostFSInit( void );
 void Cvar_Unlink( int group );
+#endif // REF_DLL
 
 #endif//CVAR_H
