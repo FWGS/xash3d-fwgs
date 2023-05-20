@@ -214,8 +214,8 @@ void GL_SetupFogColorForSurfaces( void )
 		return;
 	}
 
-	div = (r_detailtextures->value) ? 2.0f : 1.0f;
-	factor = (r_detailtextures->value) ? 3.0f : 2.0f;
+	div = (r_detailtextures.value) ? 2.0f : 1.0f;
+	factor = (r_detailtextures.value) ? 3.0f : 2.0f;
 	fogColor[0] = pow( RI.fogColor[0] / div, ( 1.0f / factor ));
 	fogColor[1] = pow( RI.fogColor[1] / div, ( 1.0f / factor ));
 	fogColor[2] = pow( RI.fogColor[2] / div, ( 1.0f / factor ));
@@ -355,7 +355,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	}
 
 	// remove co-linear points - Ed
-	if( !CVAR_TO_BOOL( gl_keeptjunctions ) && !FBitSet( fa->flags, SURF_UNDERWATER ))
+	if( !gl_keeptjunctions.value && !FBitSet( fa->flags, SURF_UNDERWATER ))
 	{
 		for( i = 0; i < lnumverts; i++ )
 		{
@@ -879,7 +879,7 @@ void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
 
 _inline qboolean R_HasLightmap( void )
 {
-	if( CVAR_TO_BOOL( r_fullbright ) || !WORLDMODEL->lightdata )
+	if( r_fullbright->value || !WORLDMODEL->lightdata )
 		return false;
 
 	if( RI.currententity )
@@ -916,7 +916,7 @@ void R_BlendLightmaps( void )
 
 	GL_SetupFogColorForSurfaces ();
 
-	if( !CVAR_TO_BOOL( r_lightmap ))
+	if( !r_lightmap->value )
 		pglEnable( GL_BLEND );
 	else pglDisable( GL_BLEND );
 
@@ -943,7 +943,7 @@ void R_BlendLightmaps( void )
 	}
 
 	// render dynamic lightmaps
-	if( CVAR_TO_BOOL( r_dynamic ))
+	if( r_dynamic->value )
 	{
 		LM_InitBlock();
 
@@ -1153,7 +1153,7 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		draw_fullbrights = true;
 	}
 
-	if( CVAR_TO_BOOL( r_detailtextures ))
+	if( r_detailtextures.value )
 	{
 		if( glState.isFogEnabled )
 		{
@@ -1522,7 +1522,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	model_t		*clmodel;
 	qboolean		rotated;
 	dlight_t		*l;
-	qboolean allow_vbo = CVAR_TO_BOOL( r_vbo );
+	qboolean allow_vbo = r_vbo.value;
 
 	if( !RI.drawWorld ) return;
 
@@ -1627,7 +1627,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	}
 
 	// sort faces if needs
-	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !CVAR_TO_BOOL( gl_nosort ))
+	if( !FBitSet( clmodel->flags, MODEL_LIQUID ) && e->curstate.rendermode == kRenderTransTexture && !gl_nosort.value )
 		qsort( gpGlobals->draw_surfaces, num_sorted, sizeof( sortedface_t ), R_SurfaceCompare );
 
 	// draw sorted translucent surfaces
@@ -1803,8 +1803,8 @@ void R_GenerateVBO( void )
 	}
 
 	// save in config if enabled manually
-	if( CVAR_TO_BOOL( r_vbo ) )
-		r_vbo->flags |= FCVAR_ARCHIVE;
+	if( r_vbo.value )
+		r_vbo.flags |= FCVAR_ARCHIVE;
 
 	vbos.mempool = Mem_AllocPool("Render VBO Zone");
 
@@ -1979,7 +1979,7 @@ void R_GenerateVBO( void )
 	// select maximum possible length for dlight
 	vbos.dlight_tc = Mem_Calloc( vbos.mempool, sizeof( vec2_t ) * (int)(vbos.arraylist->next?USHRT_MAX + 1:vbos.arraylist->array_len + 1) );
 
-	if( CVAR_TO_BOOL(r_vbo_dlightmode) )
+	if( r_vbo_dlightmode.value )
 	{
 		pglGenBuffersARB( 1, &vbos.dlight_vbo );
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
@@ -2176,7 +2176,7 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 	if( !tex )
 		tex = R_TextureAnim( WORLDMODEL->textures[number] );
 
-	if( CVAR_TO_BOOL( r_detailtextures ) && tex->dt_texturenum && mtst.tmu_dt != -1 )
+	if( r_detailtextures.value && tex->dt_texturenum && mtst.tmu_dt != -1 )
 	{
 		mtst.details_enabled = true;
 		GL_Bind( mtst.tmu_dt, tex->dt_texturenum );
@@ -2185,7 +2185,7 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 	}
 	else R_DisableDetail();
 
-	GL_Bind( mtst.tmu_gl, CVAR_TO_BOOL( r_lightmap )?tr.whiteTexture:tex->gl_texturenum );
+	GL_Bind( mtst.tmu_gl, r_lightmap->value ?tr.whiteTexture:tex->gl_texturenum );
 
 	return tex;
 }
@@ -2200,7 +2200,7 @@ draw details when not enough tmus
 static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray, texture_t *tex, qboolean resetvbo )
 {
 	// draw details in additional pass
-	if( r_detailtextures->value && mtst.tmu_dt == -1 && tex->dt_texturenum )
+	if( r_detailtextures.value && mtst.tmu_dt == -1 && tex->dt_texturenum )
 	{
 		gl_texture_t *glt = R_GetTexture( tex->gl_texturenum );
 
@@ -2266,7 +2266,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 	R_AdditionalPasses( vbo, vbotex->curindex, vbotex->indexarray, texture, false );
 
 	// draw debug lines
-	if( CVAR_TO_BOOL(gl_wireframe) && !skiplighting )
+	if( gl_wireframe.value && !skiplighting )
 	{
 		R_SetDecalMode( true );
 		pglDisable( GL_TEXTURE_2D );
@@ -2640,7 +2640,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 	int k;
 	vboarray_t *vbo = vbos.arraylist;
 
-	if( !CVAR_TO_BOOL( r_vbo ) )
+	if( !r_vbo.value )
 		return;
 
 	// bind array
@@ -2969,7 +2969,7 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 
 qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 {
-	if( CVAR_TO_BOOL(r_vbo) && vbos.surfdata[surf - WORLDMODEL->surfaces].vbotexture )
+	if( r_vbo.value && vbos.surfdata[surf - WORLDMODEL->surfaces].vbotexture )
 	{
 		// find vbotexture_t assotiated with this surface
 		int idx = surf - WORLDMODEL->surfaces;
@@ -2988,7 +2988,7 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 		if( vbos.mintexture > texturenum )
 			vbos.mintexture = texturenum;
 
-		buildlightmap &= !CVAR_TO_BOOL( r_fullbright ) && !!WORLDMODEL->lightdata;
+		buildlightmap &= !r_fullbright->value && !!WORLDMODEL->lightdata;
 
 		if( buildlightmap && R_CheckLightMap( surf ) )
 		{
@@ -3047,7 +3047,7 @@ loc0:
 	if( node->visframe != tr.visframecount )
 		return;
 
-	if( clipflags && !CVAR_TO_BOOL( r_nocull ))
+	if( clipflags && !r_nocull.value )
 	{
 		for( i = 0; i < 6; i++ )
 		{
@@ -3198,7 +3198,7 @@ void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 		if( node->visframe != tr.visframecount )
 			return;
 
-		if( clipflags && !r_nocull->value )
+		if( clipflags && !r_nocull.value )
 		{
 			for( i = 0; i < 6; i++ )
 			{
@@ -3262,7 +3262,7 @@ void R_DrawTriangleOutlines( void )
 	glpoly_t		*p;
 	float		*v;
 
-	if( !gl_wireframe->value )
+	if( !gl_wireframe.value )
 		return;
 
 	pglDisable( GL_TEXTURE_2D );
@@ -3347,7 +3347,7 @@ void R_DrawWorld( void )
 	r_stats.t_world_node = end - start;
 
 	start = gEngfuncs.pfnTime();
-	R_DrawVBO( !CVAR_TO_BOOL(r_fullbright) && !!WORLDMODEL->lightdata, true );
+	R_DrawVBO( !r_fullbright->value && !!WORLDMODEL->lightdata, true );
 
 	R_DrawTextureChains();
 
@@ -3392,10 +3392,10 @@ void R_MarkLeaves( void )
 
 	if( !RI.drawWorld ) return;
 
-	if( FBitSet( r_novis->flags, FCVAR_CHANGED ) || tr.fResetVis )
+	if( FBitSet( r_novis.flags, FCVAR_CHANGED ) || tr.fResetVis )
 	{
 		// force recalc viewleaf
-		ClearBits( r_novis->flags, FCVAR_CHANGED );
+		ClearBits( r_novis.flags, FCVAR_CHANGED );
 		tr.fResetVis = false;
 		RI.viewleaf = NULL;
 	}
@@ -3425,12 +3425,12 @@ void R_MarkLeaves( void )
 
 	// development aid to let you run around
 	// and see exactly where the pvs ends
-	if( r_lockpvs->value ) return;
+	if( r_lockpvs.value ) return;
 
 	RI.oldviewleaf = RI.viewleaf;
 	tr.visframecount++;
 
-	if( r_novis->value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
+	if( r_novis.value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
 		novis = true;
 
 	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
