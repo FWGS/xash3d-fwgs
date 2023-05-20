@@ -3874,13 +3874,13 @@ void CL_UnloadProgs( void )
 	Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
 	Cvar_FullSet( "host_clientloaded", "0", FCVAR_READ_ONLY );
 
+	Cvar_Unlink( FCVAR_CLIENTDLL );
+	Cmd_Unlink( CMD_CLIENTDLL );
+
 	COM_FreeLibrary( clgame.hInstance );
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
 	memset( &clgame, 0, sizeof( clgame ));
-
-	Cvar_Unlink( FCVAR_CLIENTDLL );
-	Cmd_Unlink( CMD_CLIENTDLL );
 }
 
 qboolean CL_LoadProgs( const char *name )

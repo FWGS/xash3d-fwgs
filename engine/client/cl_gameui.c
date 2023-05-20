@@ -1218,12 +1218,12 @@ void UI_UnloadProgs( void )
 
 	Cvar_FullSet( "host_gameuiloaded", "0", FCVAR_READ_ONLY );
 
+	Cvar_Unlink( FCVAR_GAMEUIDLL );
+	Cmd_Unlink( CMD_GAMEUIDLL );
+
 	COM_FreeLibrary( gameui.hInstance );
 	Mem_FreePool( &gameui.mempool );
 	memset( &gameui, 0, sizeof( gameui ));
-
-	Cvar_Unlink( FCVAR_GAMEUIDLL );
-	Cmd_Unlink( CMD_GAMEUIDLL );
 }
 
 qboolean UI_LoadProgs( void )
