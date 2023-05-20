@@ -927,10 +927,10 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 		if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 			GL_Cull( GL_NONE );
 
-		if( gl_polyoffset->value )
+		if( gl_polyoffset.value )
 		{
 			pglEnable( GL_POLYGON_OFFSET_FILL );
-			pglPolygonOffset( -1.0f, -gl_polyoffset->value );
+			pglPolygonOffset( -1.0f, -gl_polyoffset.value );
 		}
 	}
 
@@ -1020,7 +1020,7 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 				pglEnable( GL_ALPHA_TEST );
 		}
 
-		if( gl_polyoffset->value )
+		if( gl_polyoffset.value )
 			pglDisable( GL_POLYGON_OFFSET_FILL );
 
 		if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
@@ -1058,10 +1058,10 @@ void DrawDecalsBatch( void )
 	if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 		GL_Cull( GL_NONE );
 
-	if( gl_polyoffset->value )
+	if( gl_polyoffset.value )
 	{
 		pglEnable( GL_POLYGON_OFFSET_FILL );
-		pglPolygonOffset( -1.0f, -gl_polyoffset->value );
+		pglPolygonOffset( -1.0f, -gl_polyoffset.value );
 	}
 
 	for( i = 0; i < tr.num_draw_decals; i++ )
@@ -1076,7 +1076,7 @@ void DrawDecalsBatch( void )
 		pglDisable( GL_ALPHA_TEST );
 	}
 
-	if( gl_polyoffset->value )
+	if( gl_polyoffset.value )
 		pglDisable( GL_POLYGON_OFFSET_FILL );
 
 	if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )

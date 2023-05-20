@@ -113,7 +113,7 @@ void R_NewMap( void )
 	R_StudioResetPlayerModels();
 
 	// upload detailtextures
-	if( CVAR_TO_BOOL( r_detailtextures ))
+	if( r_detailtextures.value )
 	{
 		string	mapname, filepath;
 
