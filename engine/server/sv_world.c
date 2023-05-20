@@ -1604,7 +1604,7 @@ void SV_RunLightStyles( void )
 	lightstyle_t	*ls;
 	float		scale;
 
-	scale = sv_lighting_modulate->value;
+	scale = sv_lighting_modulate.value;
 
 	// run lightstyles animation
 	for( i = 0, ls = sv.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
