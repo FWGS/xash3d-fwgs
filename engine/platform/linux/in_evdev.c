@@ -37,7 +37,7 @@ struct evdev_s
 	qboolean shift;
 } evdev;
 
-static convar_t *evdev_keydebug;
+static CVAR_DEFINE_AUTO( evdev_keydebug, "0", 0, "print key events to console" );
 
 static int KeycodeFromEvdev(int keycode, int value)
 {
@@ -360,7 +360,7 @@ void IN_EvdevFrame ( void )
 			{
 				int key = KeycodeFromEvdev( ev.code, ev.value );
 
-				if( CVAR_TO_BOOL( evdev_keydebug ))
+				if( evdev_keydebug.value )
 					Con_Printf( "key %d %d %d\n", ev.code, key, ev.value );
 
 				Key_Event( key , ev.value );
@@ -457,7 +457,7 @@ void Evdev_Shutdown( void )
 	Cmd_RemoveCommand( "evdev_open" );
 	Cmd_RemoveCommand( "evdev_close" );
 	Cmd_RemoveCommand( "evdev_autodetect" );
-	evdev_keydebug = Cvar_Get( "evdev_keydebug", "0", 0, "print key events to console" );
+	Cvar_RegisterVariable( &evdev_keydebug );
 
 	for( i = 0; i < evdev.devices; i++ )
 	{
