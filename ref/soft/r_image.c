@@ -605,7 +605,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				{
 					unsigned int alpha = (data[i * 4 + 3] * 8 / 256) << (16 - 3);
 					tex->alpha_pixels[i] = (tex->pixels[j][i] >> 3) | alpha;
-					if( !sw_noalphabrushes->value && data[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ) )
+					if( !sw_noalphabrushes.value && data[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ) )
 						tex->pixels[j][i] = TRANSPARENT_COLOR; //0000 0011 0100 1001;
 				}
 
