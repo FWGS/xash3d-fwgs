@@ -102,7 +102,7 @@ qboolean GL_FrustumCullBox( gl_frustum_t *out, const vec3_t mins, const vec3_t m
 	int	iClipFlags;
 	int	i, bit;
 
-	if( r_nocull->value )
+	if( r_nocull.value )
 		return false;
 
 	if( userClipFlags != 0 )
@@ -163,7 +163,7 @@ qboolean GL_FrustumCullSphere( gl_frustum_t *out, const vec3_t center, float rad
 	int	iClipFlags;
 	int	i, bit;
 
-	if( r_nocull->value )
+	if( r_nocull.value )
 		return false;
 
 	if( userClipFlags != 0 )

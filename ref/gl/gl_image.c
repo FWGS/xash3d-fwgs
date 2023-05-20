@@ -167,7 +167,7 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 	}
 	else if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
 	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || ( IsLightMap( tex ) && gl_lightmap_nearest->value ))
+		if( FBitSet( tex->flags, TF_NEAREST ) || ( IsLightMap( tex ) && gl_lightmap_nearest.value ))
 		{
 			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -180,7 +180,7 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 	}
 	else
 	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest->value )
+		if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest.value )
 		{
 			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
 			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -193,11 +193,11 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 
 		// set texture anisotropy if available
 		if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_ALPHACONTRAST ))
-			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
+			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy.value );
 
 		// set texture LOD bias if available
 		if( GL_Support( GL_TEXTURE_LOD_BIAS ) && ( tex->numMips > 1 ))
-			pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias->value );
+			pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias.value );
 	}
 
 	// check if border is not supported
@@ -276,15 +276,15 @@ static void GL_UpdateTextureParams( int iTexture )
 
 	// set texture anisotropy if available
 	if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP|TF_ALPHACONTRAST ))
-		pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
+		pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy.value );
 
 	// set texture LOD bias if available
 	if( GL_Support( GL_TEXTURE_LOD_BIAS ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP ))
-		pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias->value );
+		pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias.value );
 
 	if( IsLightMap( tex ))
 	{
-		if( gl_lightmap_nearest->value )
+		if( gl_lightmap_nearest.value )
 		{
 			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -298,7 +298,7 @@ static void GL_UpdateTextureParams( int iTexture )
 
 	if( tex->numMips <= 1 ) return;
 
-	if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest->value )
+	if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest.value )
 	{
 		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
 		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -321,24 +321,24 @@ void R_SetTextureParameters( void )
 
 	if( GL_Support( GL_ANISOTROPY_EXT ))
 	{
-		if( gl_texture_anisotropy->value > glConfig.max_texture_anisotropy )
+		if( gl_texture_anisotropy.value > glConfig.max_texture_anisotropy )
 			gEngfuncs.Cvar_SetValue( "gl_anisotropy", glConfig.max_texture_anisotropy );
-		else if( gl_texture_anisotropy->value < 1.0f )
+		else if( gl_texture_anisotropy.value < 1.0f )
 			gEngfuncs.Cvar_SetValue( "gl_anisotropy", 1.0f );
 	}
 
 	if( GL_Support( GL_TEXTURE_LOD_BIAS ))
 	{
-		if( gl_texture_lodbias->value < -glConfig.max_texture_lod_bias )
+		if( gl_texture_lodbias.value < -glConfig.max_texture_lod_bias )
 			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", -glConfig.max_texture_lod_bias );
-		else if( gl_texture_lodbias->value > glConfig.max_texture_lod_bias )
+		else if( gl_texture_lodbias.value > glConfig.max_texture_lod_bias )
 			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", glConfig.max_texture_lod_bias );
 	}
 
-	ClearBits( gl_texture_anisotropy->flags, FCVAR_CHANGED );
-	ClearBits( gl_texture_lodbias->flags, FCVAR_CHANGED );
-	ClearBits( gl_texture_nearest->flags, FCVAR_CHANGED );
-	ClearBits( gl_lightmap_nearest->flags, FCVAR_CHANGED );
+	ClearBits( gl_texture_anisotropy.flags, FCVAR_CHANGED );
+	ClearBits( gl_texture_lodbias.flags, FCVAR_CHANGED );
+	ClearBits( gl_texture_nearest.flags, FCVAR_CHANGED );
+	ClearBits( gl_lightmap_nearest.flags, FCVAR_CHANGED );
 
 	// change all the existing mipmapped texture objects
 	for( i = 0; i < gl_numTextures; i++ )
@@ -577,7 +577,7 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{
-		int	step = (int)gl_round_down->value;
+		int	step = (int)gl_round_down.value;
 		int	scaled_width, scaled_height;
 
 		for( scaled_width = 1; scaled_width < width; scaled_width <<= 1 );
@@ -1140,7 +1140,7 @@ static void GL_CheckTexImageError( gl_texture_t *tex )
 	Assert( tex != NULL );
 
 	// catch possible errors
-	if( CVAR_TO_BOOL( gl_check_errors ) && ( err = pglGetError()) != GL_NO_ERROR )
+	if( gl_check_errors.value && ( err = pglGetError()) != GL_NO_ERROR )
 		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s while uploading %s [%s]\n", GL_ErrorString( err ), tex->name, GL_TargetToString( tex->target ));
 }
 

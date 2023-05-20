@@ -39,8 +39,9 @@ void R_DrawWorldHull( void )
 		ClearBits( r_showhull->flags, FCVAR_CHANGED );
 	}
 
-	if( !CVAR_TO_BOOL( r_showhull ))
+	if( !r_showhull->flags )
 		return;
+
 	pglDisable( GL_TEXTURE_2D );
 
 	list_for_each_entry( poly, &hull->polys, chain )
@@ -61,7 +62,7 @@ void R_DrawModelHull( void )
 	winding_t		*poly;
 	int		i;
 
-	if( !CVAR_TO_BOOL( r_showhull ))
+	if( !r_showhull->flags )
 		return;
 
 	if( !RI.currentmodel || RI.currentmodel->name[0] != '*' )
