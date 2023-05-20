@@ -31,7 +31,7 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
-//#include "cvar.h"
+#include "common/cvar.h"
 #include "gl_export.h"
 #include "wadfile.h"
 
@@ -53,10 +53,6 @@ void VGL_ShimEndFrame( void );
 #define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 #include <stdio.h>
-
-#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	cvar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	cvar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
 #define WORLD (gEngfuncs.GetWorld())
 #define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
@@ -713,36 +709,33 @@ extern ref_globals_t *gpGlobals;
 //
 // renderer cvars
 //
-extern cvar_t	*gl_texture_anisotropy;
-extern cvar_t	*gl_extensions;
-extern cvar_t	*gl_check_errors;
-extern cvar_t	*gl_texture_lodbias;
-extern cvar_t	*gl_texture_nearest;
-extern cvar_t	*gl_lightmap_nearest;
-extern cvar_t	*gl_keeptjunctions;
-extern cvar_t	*gl_round_down;
-extern cvar_t	*gl_wireframe;
-extern cvar_t	*gl_polyoffset;
-extern cvar_t	*gl_finish;
-extern cvar_t	*gl_nosort;
-extern cvar_t	*gl_clear;
-extern cvar_t	*gl_test;		// cvar to testify new effects
-extern cvar_t	*gl_msaa;
-extern cvar_t *gl_stencilbits;
+extern convar_t	gl_texture_anisotropy;
+extern convar_t	gl_extensions;
+extern convar_t	gl_check_errors;
+extern convar_t	gl_texture_lodbias;
+extern convar_t	gl_texture_nearest;
+extern convar_t	gl_lightmap_nearest;
+extern convar_t	gl_keeptjunctions;
+extern convar_t	gl_round_down;
+extern convar_t	gl_wireframe;
+extern convar_t	gl_polyoffset;
+extern convar_t	gl_finish;
+extern convar_t	gl_nosort;
+extern convar_t	gl_test;		// cvar to testify new effects
+extern convar_t	gl_msaa;
+extern convar_t	gl_stencilbits;
 
-extern cvar_t	*r_lighting_extended;
-extern cvar_t	*r_lighting_modulate;
-extern cvar_t	*r_lighting_ambient;
-extern cvar_t	*r_studio_lambert;
-extern cvar_t	*r_detailtextures;
-extern cvar_t	*r_drawentities;
-extern cvar_t	*r_novis;
-extern cvar_t	*r_nocull;
-extern cvar_t	*r_lockpvs;
-extern cvar_t	*r_lockfrustum;
-extern cvar_t	*r_traceglow;
-extern cvar_t *r_vbo;
-extern cvar_t *r_vbo_dlightmode;
+extern convar_t	r_lighting_extended;
+extern convar_t	r_lighting_ambient;
+extern convar_t	r_studio_lambert;
+extern convar_t	r_detailtextures;
+extern convar_t	r_novis;
+extern convar_t	r_nocull;
+extern convar_t	r_lockpvs;
+extern convar_t	r_lockfrustum;
+extern convar_t	r_traceglow;
+extern convar_t	r_vbo;
+extern convar_t	r_vbo_dlightmode;
 
 
 //

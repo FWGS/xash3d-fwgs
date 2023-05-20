@@ -121,9 +121,9 @@ typedef struct
 } studio_draw_state_t;
 
 // studio-related cvars
-static cvar_t			*r_studio_sort_textures;
+static CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
 static cvar_t			*cl_righthand = NULL;
-static cvar_t			*r_studio_drawelements;
+static CVAR_DEFINE_AUTO( r_studio_drawelements, "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
@@ -146,8 +146,8 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	r_studio_sort_textures = gEngfuncs.Cvar_Get( "r_studio_sort_textures", "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
-	r_studio_drawelements = gEngfuncs.Cvar_Get( "r_studio_drawelements", "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_drawelements );
 
 #if XASH_PSVITA
 	// don't do the same array-building work twice since that's what our FFP shim does anyway
@@ -2331,7 +2331,7 @@ static void R_StudioDrawPoints( void )
 		}
 	}
 
-	if( r_studio_sort_textures->value && need_sort )
+	if( r_studio_sort_textures.value && need_sort )
 	{
 		// resort opaque and translucent meshes draw order
 		qsort( g_studio.meshes, m_pSubModel->nummesh, sizeof( sortedmesh_t ), R_StudioMeshCompare );
@@ -2378,7 +2378,7 @@ static void R_StudioDrawPoints( void )
 
 		R_StudioSetupSkin( m_pStudioHeader, pskinref[pmesh->skinref] );
 
-		if( CVAR_TO_BOOL(r_studio_drawelements) )
+		if( r_studio_drawelements.value )
 		{
 			if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
 				R_StudioBuildArrayChromeMesh( ptricmds, pstudionorms, s, t, shellscale );
