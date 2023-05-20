@@ -56,33 +56,21 @@ int		r_screenwidth;
 
 int                     r_viewcluster, r_oldviewcluster;
 
-cvar_t	*sw_aliasstats;
-cvar_t	*sw_allow_modex;
-cvar_t	*sw_clearcolor;
-cvar_t	*sw_drawflat;
-cvar_t	*sw_draworder;
-cvar_t	*sw_maxedges;
-cvar_t	*sw_maxsurfs;
-cvar_t	*sw_reportedgeout;
-cvar_t	*sw_reportsurfout;
-cvar_t  *sw_stipplealpha;
-cvar_t	*sw_surfcacheoverride;
-cvar_t	*sw_waterwarp;
-cvar_t	*sw_texfilt;
-cvar_t	*sw_notransbrushes;
-cvar_t	*sw_noalphabrushes;
+CVAR_DEFINE_AUTO( sw_clearcolor, "48999", 0, "screen clear color");
+CVAR_DEFINE_AUTO( sw_drawflat, "0", 0, "");
+CVAR_DEFINE_AUTO( sw_draworder, "0", 0, "");
+CVAR_DEFINE_AUTO( sw_maxedges, "32", 0, "");
+static CVAR_DEFINE_AUTO( sw_maxsurfs, "0", 0, "");
+CVAR_DEFINE_AUTO( sw_mipscale, "1", FCVAR_GLCONFIG, "nothing");
+CVAR_DEFINE_AUTO( sw_mipcap, "0", FCVAR_GLCONFIG, "nothing" );
+CVAR_DEFINE_AUTO( sw_surfcacheoverride, "0", 0, "");
+static CVAR_DEFINE_AUTO( sw_waterwarp, "1", FCVAR_GLCONFIG, "nothing");
+static CVAR_DEFINE_AUTO( sw_notransbrushes, "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)");
+CVAR_DEFINE_AUTO( sw_noalphabrushes, "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)");
+CVAR_DEFINE_AUTO( r_traceglow, "1", FCVAR_GLCONFIG, "cull flares behind models" );
+CVAR_DEFINE_AUTO( sw_texfilt, "0", FCVAR_GLCONFIG, "texture dither");
+static CVAR_DEFINE_AUTO( r_novis, "0", 0, "" );
 
-cvar_t	*r_drawworld;
-cvar_t	*r_dspeeds;
-cvar_t  *r_lerpmodels;
-cvar_t  *r_novis;
-cvar_t	*r_traceglow;
-
-cvar_t	*r_lightlevel;	//FIXME HACK
-
-//PGM
-cvar_t	*sw_lockpvs;
-//PGM
 
 DEFINE_ENGINE_SHARED_CVAR_LIST()
 
@@ -164,10 +152,10 @@ static qboolean R_OpaqueEntity( cl_entity_t *ent )
 	if( rendermode == kRenderNormal )
 		return true;
 
-	if( sw_notransbrushes->value && ent->model && ent->model->type == mod_brush && rendermode == kRenderTransTexture )
+	if( sw_notransbrushes.value && ent->model && ent->model->type == mod_brush && rendermode == kRenderTransTexture )
 		return true;
 
-	if( sw_noalphabrushes->value && ent->model && ent->model->type == mod_brush && rendermode == kRenderTransAlpha )
+	if( sw_noalphabrushes.value && ent->model && ent->model->type == mod_brush && rendermode == kRenderTransAlpha )
 		return true;
 
 	return false;
@@ -1529,7 +1517,7 @@ void R_MarkLeaves (void)
 	mnode_t	*node;
 	int		i;
 
-	if (r_oldviewcluster == r_viewcluster && !r_novis->value && r_viewcluster != -1)
+	if (r_oldviewcluster == r_viewcluster && !r_novis.value && r_viewcluster != -1)
 		return;
 
 	tr.visframecount++;
@@ -1823,7 +1811,7 @@ void GAME_EXPORT R_NewMap (void)
 	R_ClearDecals(); // clear all level decals
 	R_StudioResetPlayerModels();
 
-	r_cnumsurfs = sw_maxsurfs->value;
+	r_cnumsurfs = sw_maxsurfs.value;
 
 	if (r_cnumsurfs <= MINSURFACES)
 			r_cnumsurfs = MINSURFACES;
@@ -1844,7 +1832,7 @@ void GAME_EXPORT R_NewMap (void)
 			r_surfsonstack = true;
 	}
 
-	r_numallocatededges = sw_maxedges->value;
+	r_numallocatededges = sw_maxedges.value;
 
 	if (r_numallocatededges < MINEDGES)
 			r_numallocatededges = MINEDGES;
@@ -1913,32 +1901,23 @@ qboolean GAME_EXPORT R_Init( void )
 
 	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
 
-//	sw_aliasstats = ri.Cvar_Get ("sw_polymodelstats", "0", 0);
-//	sw_allow_modex = ri.Cvar_Get( "sw_allow_modex", "1", CVAR_ARCHIVE );
-	sw_clearcolor = gEngfuncs.Cvar_Get ("sw_clearcolor", "48999", 0, "screen clear color");
-	sw_drawflat = gEngfuncs.Cvar_Get ("sw_drawflat", "0", 0, "");
-	sw_draworder = gEngfuncs.Cvar_Get ("sw_draworder", "0", 0, "");
-	sw_maxedges = gEngfuncs.Cvar_Get ("sw_maxedges", "32", 0, "");
-	sw_maxsurfs = gEngfuncs.Cvar_Get ("sw_maxsurfs", "0", 0, "");
-	sw_mipscale = gEngfuncs.Cvar_Get ("sw_mipscale", "1", FCVAR_GLCONFIG, "nothing");
-	sw_mipcap = gEngfuncs.Cvar_Get( "sw_mipcap", "0", FCVAR_GLCONFIG, "nothing" );
-	sw_reportedgeout = gEngfuncs.Cvar_Get ("sw_reportedgeout", "0", 0, "");
-	sw_reportsurfout = gEngfuncs.Cvar_Get ("sw_reportsurfout", "0", 0, "");
-	sw_stipplealpha = gEngfuncs.Cvar_Get( "sw_stipplealpha", "1", FCVAR_GLCONFIG, "nothing" );
-	sw_surfcacheoverride = gEngfuncs.Cvar_Get ("sw_surfcacheoverride", "0", 0, "");
-	sw_waterwarp = gEngfuncs.Cvar_Get ("sw_waterwarp", "1", FCVAR_GLCONFIG, "nothing");
-	sw_notransbrushes = gEngfuncs.Cvar_Get( "sw_notransbrushes", "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)");
-	sw_noalphabrushes = gEngfuncs.Cvar_Get( "sw_noalphabrushes", "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)");
-	r_traceglow = gEngfuncs.Cvar_Get( "r_traceglow", "1", FCVAR_GLCONFIG, "cull flares behind models" );
+
+	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
+	gEngfuncs.Cvar_RegisterVariable( &sw_drawflat );
+	gEngfuncs.Cvar_RegisterVariable( &sw_draworder );
+	gEngfuncs.Cvar_RegisterVariable( &sw_maxedges );
+	gEngfuncs.Cvar_RegisterVariable( &sw_maxsurfs );
+	gEngfuncs.Cvar_RegisterVariable( &sw_mipscale );
+	gEngfuncs.Cvar_RegisterVariable( &sw_mipcap );
+	gEngfuncs.Cvar_RegisterVariable( &sw_surfcacheoverride );
+	gEngfuncs.Cvar_RegisterVariable( &sw_waterwarp );
+	gEngfuncs.Cvar_RegisterVariable( &sw_notransbrushes );
+	gEngfuncs.Cvar_RegisterVariable( &sw_noalphabrushes );
+	gEngfuncs.Cvar_RegisterVariable( &r_traceglow );
 #ifndef DISABLE_TEXFILTER
-	sw_texfilt = gEngfuncs.Cvar_Get ("sw_texfilt", "0", FCVAR_GLCONFIG, "texture dither");
+	gEngfuncs.Cvar_RegisterVariable( &sw_texfilt );
 #endif
-//	r_speeds = ri.Cvar_Get ("r_speeds", "0", 0);
-	//r_drawworld = ri.Cvar_Get ("r_drawworld", "1", 0);
-	//r_dspeeds = ri.Cvar_Get ("r_dspeeds", "0", 0);
-//	r_lightlevel = ri.Cvar_Get ("r_lightlevel", "0", 0);
-	//r_lerpmodels = ri.Cvar_Get( "r_lerpmodels", "1", 0 );
-	r_novis = gEngfuncs.Cvar_Get( "r_novis", "0", 0, "" );
+	gEngfuncs.Cvar_RegisterVariable( &r_novis );
 
 	r_temppool = Mem_AllocPool( "ref_soft zone" );
 
