@@ -231,7 +231,7 @@ static ref_api_t gEngfuncs =
 	Cvar_VariableString,
 	Cvar_SetValue,
 	Cvar_Set,
-	(void*)Cvar_RegisterVariable,
+	Cvar_RegisterVariable,
 	Cvar_FullSet,
 
 	Cmd_AddRefCommand,
