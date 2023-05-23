@@ -911,7 +911,7 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 
 	if( cl->ignorecmdtime > host.realtime )
 	{
-		if( !cl->ignorecmdtime_warned )
+		if( !cl->ignorecmdtime_warned && !FBitSet( cl->flags, FCL_FAKECLIENT ))
 		{
 			// report to server op
 			Con_Reportf( S_WARN "%s time is faster than server time (speed hack?)\n", cl->name );
