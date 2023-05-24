@@ -681,18 +681,18 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 {
 	const char	*pszValue;
 
-	if( !var ) return;	// ???
+	if( unlikely( !var )) return;	// ???
 
 	// lookup for registration
-	if( CVAR_CHECK_SENTINEL( var ) || ( var->next == NULL && !FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED )))
+	if( unlikely( CVAR_CHECK_SENTINEL( var ) || ( var->next == NULL && !FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))))
 	{
 		// need to registering cvar fisrt
 		Cvar_RegisterVariable( var );	// ok, register it
-	}
 
-	// lookup for registration again
-	if( var != Cvar_FindVar( var->name ))
-		return; // how this possible?
+		// lookup for registration again
+		if( var != Cvar_FindVar( var->name ))
+			return; // how this possible?
+	}
 
 	if( FBitSet( var->flags, FCVAR_READ_ONLY ))
 	{
