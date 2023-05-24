@@ -178,6 +178,13 @@ def get_optimization_flags(conf):
 		# remove fvisibility to allow everything to be exported by default
 		cflags.remove('-fvisibility=hidden')
 
+	if conf.env.COMPILER_CC != 'msvc' and conf.env.COMPILER_CC != 'owcc':
+		# HLSDK by default compiles with these options under Linux
+		# no reason for us to not do the same
+		if conf.env.DEST_CPU == 'x86':
+			cflags.append('-march=pentium-m')
+			cflags.append('-mtune=core2')
+
 	# on all compilers (except MSVC?) we need to copy CFLAGS to LINKFLAGS
 	if conf.options.LTO and conf.env.COMPILER_CC != 'msvc':
 		linkflags += cflags
