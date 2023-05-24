@@ -92,7 +92,8 @@ jobs:
   release:
     name: "Upload releases"
     runs-on: ubuntu-latest
-    needs: [build, flatpak]
+    #needs: [build, flatpak]
+    needs: build
     if: ${{ github.event_name == 'push' }}
     steps:
     - name: Remove old release
