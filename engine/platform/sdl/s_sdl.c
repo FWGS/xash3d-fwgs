@@ -49,19 +49,25 @@ static SDL_AudioDeviceID in_dev = 0;
 static SDL_AudioFormat sdl_format;
 static char sdl_backend_name[32];
 
-//static qboolean	snd_firsttime = true;
-//static qboolean	primary_format_set;
-
 void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 {
-	int size    = dma.samples << 1;
-	int pos     = dma.samplepos << 1;
-	int wrapped = pos + len - size;
+	const int size = dma.samples << 1;
+	int pos;
+	int wrapped;
 
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !dma.buffer )
+	{
+		memset( stream, 0, len );
 		return;
+	}
 #endif
+
+	pos = dma.samplepos << 1;
+	if( pos >= size )
+		pos = dma.samplepos = 0;
+
+	wrapped = pos + len - size;
 
 	if( wrapped < 0 )
 	{
@@ -71,10 +77,14 @@ void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 	else
 	{
 		int remaining = size - pos;
+
 		memcpy( stream, dma.buffer + pos, remaining );
 		memcpy( stream + remaining, dma.buffer, wrapped );
 		dma.samplepos = wrapped >> 1;
 	}
+
+	if( dma.samplepos >= size )
+		dma.samplepos = 0;
 }
 
 /*
@@ -90,18 +100,16 @@ qboolean SNDDMA_Init( void )
 	SDL_AudioSpec desired, obtained;
 	int samplecount;
 
-	if( SDL_Init( SDL_INIT_AUDIO ) )
-	{
-		Con_Reportf( S_ERROR  "Audio: SDL: %s \n", SDL_GetError( ) );
-		return false;
-	}
-
 	// even if we don't have PA
 	// we still can safely set env variables
-#if XASH_POSIX
-	setenv( "PULSE_PROP_application.name", GI->title, 1 );
-	setenv( "PULSE_PROP_media.role", "game", 1 );
-#endif // XASH_POSIX
+	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
+	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
+
+	if( SDL_Init( SDL_INIT_AUDIO ))
+	{
+		Con_Reportf( S_ERROR "Audio: SDL: %s \n", SDL_GetError( ) );
+		return false;
+	}
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
@@ -166,7 +174,7 @@ Makes sure dma.buffer is valid
 */
 void SNDDMA_BeginPainting( void )
 {
-//	SDL_LockAudioDevice( sdl_dev );
+	SDL_LockAudioDevice( sdl_dev );
 }
 
 /*
@@ -179,7 +187,7 @@ Also unlocks the dsound buffer
 */
 void SNDDMA_Submit( void )
 {
-//	SDL_UnlockAudioDevice( sdl_dev );
+	SDL_UnlockAudioDevice( sdl_dev );
 }
 
 /*
