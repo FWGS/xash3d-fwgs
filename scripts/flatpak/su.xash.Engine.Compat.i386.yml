@@ -68,11 +68,9 @@ modules:
         mkdir -p /app/lib/i386-linux-gnu
         mkdir -p /app/lib/debug/lib/i386-linux-gnu
         mkdir -p /app/lib/i386-linux-gnu/GL
-        install -Dm644 ld.so.conf /app/etc/ld.so.conf
-    sources:
-      - type: file
-        dest-filename: ld.so.conf
-        url: data:/app/lib32%0A/app/lib/i386-linux-gnu%0A
+        mkdir -p /app/etc
+        echo "/app/lib32" > /app/etc/ld.so.conf
+        echo "/app/lib/i386-linux-gnu" >> /app/etc/ld.so.conf
   - name: xash
     buildsystem: simple
     build-options: *compat-i386-opts
