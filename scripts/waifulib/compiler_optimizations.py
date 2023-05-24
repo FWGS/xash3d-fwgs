@@ -181,7 +181,9 @@ def get_optimization_flags(conf):
 	if conf.env.COMPILER_CC != 'msvc' and conf.env.COMPILER_CC != 'owcc':
 		# HLSDK by default compiles with these options under Linux
 		# no reason for us to not do the same
-		if conf.env.DEST_CPU == 'x86':
+
+		# TODO: fix DEST_CPU in force 32 bit mode
+		if conf.env.DEST_CPU == 'x86' or (conf.env.DEST_CPU == 'x86_64' and conf.env.DEST_SIZEOF_VOID_P == 4):
 			cflags.append('-march=pentium-m')
 			cflags.append('-mtune=core2')
 
