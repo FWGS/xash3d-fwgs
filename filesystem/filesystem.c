@@ -1439,7 +1439,10 @@ void FS_ShutdownStdio( void )
 	int i;
 	// release gamedirs
 	for( i = 0; i < FI.numgames; i++ )
-		if( FI.games[i] ) Mem_Free( FI.games[i] );
+	{
+		if( FI.games[i] )
+			Mem_Free( FI.games[i] );
+	}
 
 	FS_ClearSearchPath(); // release all wad files too
 	Mem_FreePool( &fs_mempool );
