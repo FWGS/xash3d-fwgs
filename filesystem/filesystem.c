@@ -1206,11 +1206,11 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	searchpath_t	*search;
 	int index, start = 0, i, len;
 
-	fs_ext_path = directpath;
-
 	// check for bad exports
 	if( !COM_CheckString( dllname ))
 		return false;
+
+	fs_ext_path = directpath;
 
 	// HACKHACK remove absoulte path to valve folder
 	if( !Q_strnicmp( dllname, "..\\valve\\", 9 ) || !Q_strnicmp( dllname, "../valve/", 9 ))
@@ -1419,6 +1419,7 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 	}
 
 	stringlistfreecontents( &dirs );
+
 	Con_Reportf( "FS_Init: done\n" );
 
 	return true;
@@ -1821,6 +1822,9 @@ Open a file. The syntax is the same as fopen
 */
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 {
+	if( !fs_searchpaths )
+		return NULL;
+
 	// some stupid mappers used leading '/' or '\' in path to models or sounds
 	if( filepath[0] == '/' || filepath[0] == '\\' )
 		filepath++;
@@ -2348,9 +2352,7 @@ byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 	file = FS_SysOpen( path, "rb" );
 
 	if( !file )
-	{
 		return NULL;
-	}
 
 	// Try to load
 	filesize = file->real_length;
@@ -2531,6 +2533,9 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 	char oldname2[MAX_SYSPATH], newname2[MAX_SYSPATH], oldpath[MAX_SYSPATH], newpath[MAX_SYSPATH];
 	int ret;
 
+	if( !fs_writepath )
+		return false;
+
 	if( !COM_CheckString( oldname ) || !COM_CheckString( newname ))
 		return false;
 
@@ -2576,7 +2581,7 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 	char path2[MAX_SYSPATH], real_path[MAX_SYSPATH];
 	int ret;
 
-	if( !COM_CheckString( path ))
+	if( !fs_writepath || !COM_CheckString( path ))
 		return false;
 
 	Q_strncpy( path2, path, sizeof( path2 ));
