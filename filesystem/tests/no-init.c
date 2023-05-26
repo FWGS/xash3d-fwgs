@@ -48,7 +48,7 @@ static int TestNoInit( void )
 	g_fs.AllowDirectPaths( false );
 	if( g_fs.Search( "asfjkajk", 0, 0 ) != 0 )
 		return 0;
-	g_fs.SetCurrentDirectory( "asdasdasdasd" );
+	g_fs.SetCurrentDirectory( "." ); // must succeed!
 	g_fs.FindLibrary( "kek", true, &dllinfo );
 	if( g_fs.Open( "afbvasvwerf", "w+", true ) != 0 )
 		return 0;

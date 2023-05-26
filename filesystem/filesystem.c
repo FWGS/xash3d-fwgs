@@ -1703,17 +1703,36 @@ qboolean FS_SysFileOrFolderExists( const char *path )
 FS_SetCurrentDirectory
 
 Sets current directory, path should be in UTF-8 encoding
+TODO: make this non-fatal
 ==================
 */
 int FS_SetCurrentDirectory( const char *path )
 {
 #if XASH_WIN32
-	return SetCurrentDirectoryW( FS_PathToWideChar( path ));
+	if( !SetCurrentDirectoryW( FS_PathToWideChar( path )))
+	{
+		char buf[1024];
+		FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, GetLastError(), MAKELANGID( LANG_ENGLISH, SUBLANG_DEFAULT ),
+			buf, sizeof( buf ), NULL );
+
+		Sys_Error( "Changing directory to %s failed: %s\n", path, buf )
+		return false;
+	}
 #elif XASH_POSIX
-	return !chdir( path );
+	if( chdir( path ) < 0 )
+	{
+		Sys_Error( "Changing directory to %s failed: %s\n", path, strerror( errno ));
+		return false;
+	}
 #else
-#error
+	// it may be fine for some systems to skip chdir
+	Con_Printf( "FS_SetCurrentDirectory: not implemented, ignoring...\n" );
+	return true;
 #endif
+
+	Con_Printf( "%s is working directory now\n", path );
+	return true;
 }
 
 /*
