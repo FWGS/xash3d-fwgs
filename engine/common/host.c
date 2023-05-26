@@ -1077,10 +1077,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	FS_LoadProgs();
 
-	if( FS_SetCurrentDirectory( host.rootdir ) != 0 )
-		Con_Reportf( "%s is working directory now\n", host.rootdir );
-	else
-		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
+	// TODO: this function will cause engine to stop in case of fail
+	// when it will have an option to return string error, restore Sys_Error
+	FS_SetCurrentDirectory( host.rootdir );
 
 	FS_Init();
 
