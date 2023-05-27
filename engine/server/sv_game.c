@@ -2838,60 +2838,11 @@ pfnWriteString
 */
 void GAME_EXPORT pfnWriteString( const char *src )
 {
-	static char	string[MAX_USERMSG_LENGTH];
-	int		len = Q_strlen( src ) + 1;
-	int		rem = sizeof( string ) - 1;
-	char		*dst;
-
-	if( len == 1 )
-	{
-		MSG_WriteChar( &sv.multicast, 0 );
-		svgame.msg_realsize += 1;
-		return; // fast exit
-	}
-
-	// prepare string to sending
-	dst = string;
-
-	while( 1 )
-	{
-		// some escaped chars parsed as two symbols - merge it here
-		if( src[0] == '\\' && src[1] == 'n' )
-		{
-			*dst++ = '\n';
-			src += 2;
-			len -= 1;
-		}
-		else if( src[0] == '\\' && src[1] == 'r' )
-		{
-			*dst++ = '\r';
-			src += 2;
-			len -= 1;
-		}
-		else if( src[0] == '\\' && src[1] == 't' )
-		{
-			*dst++ = '\t';
-			src += 2;
-			len -= 1;
-		}
-		else if(( *dst++ = *src++ ) == 0 )
-			break;
-
-		if( --rem <= 0 )
-		{
-			Con_Printf( S_ERROR "pfnWriteString: exceeds %i symbols\n", len );
-			*dst = '\0'; // string end (not included in count)
-			len = Q_strlen( string ) + 1;
-			break;
-		}
-	}
-
-	*dst = '\0'; // string end (not included in count)
-	MSG_WriteString( &sv.multicast, string );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %s )\n", __FUNCTION__, string );
+	MSG_WriteString( &sv.multicast, src );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %s )\n", __FUNCTION__, src );
 
 	// NOTE: some messages with constant string length can be marked as known sized
-	svgame.msg_realsize += len;
+	svgame.msg_realsize += Q_strlen( src ) + 1;
 }
 
 /*
