@@ -90,6 +90,7 @@ typedef struct searchpath_s
 	int     (*pfnFileTime)( struct searchpath_s *search, const char *filename );
 	int     (*pfnFindFile)( struct searchpath_s *search, const char *path, char *fixedname, size_t len );
 	void    (*pfnSearch)( struct searchpath_s *search, stringlist_t *list, const char *pattern, int caseinsensitive );
+	byte   *(*pfnLoadFile)( struct searchpath_s *search, const char *path, int pack_ind, fs_offset_t *filesize );
 } searchpath_t;
 
 extern fs_globals_t  FI;
@@ -196,20 +197,11 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 //
 // wad.c
 //
-byte    *FS_LoadWADFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly );
 qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags );
-
-//
-// watch.c
-//
-qboolean FS_WatchInitialize( void );
-int FS_AddWatch( const char *path, fs_event_callback_t callback );
-void FS_WatchFrame( void );
 
 //
 // zip.c
 //
-byte    *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly );
 qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags );
 
 //

@@ -2265,34 +2265,42 @@ Always appends a 0 byte.
 */
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 {
-	file_t	*file;
-	byte	*buf = NULL;
-	fs_offset_t	filesize = 0;
+	searchpath_t *search;
+	file_t *file;
+	char netpath[MAX_SYSPATH];
+	int pack_ind;
 
-	file = FS_Open( path, "rb", gamedironly );
+	if( !fs_searchpaths || FS_CheckNastyPath( path ))
+		return NULL;
+
+	search = FS_FindFile( path, &pack_ind, netpath, sizeof( netpath ), gamedironly );
+
+	if( !search )
+		return NULL;
+
+	// custom load file function for compressed files
+	if( search->pfnLoadFile )
+		return search->pfnLoadFile( search, netpath, pack_ind, filesizeptr );
+
+	file = search->pfnOpenFile( search, netpath, "rb", pack_ind );
 
 	if( file )
 	{
-		filesize = file->real_length;
+		fs_offset_t	filesize = file->real_length;
+		byte *buf;
 
 		buf = (byte *)Mem_Malloc( fs_mempool, filesize + 1 );
 		buf[filesize] = '\0';
 		FS_Read( file, buf, filesize );
 		FS_Close( file );
-	}
-	else
-	{
-		buf = FS_LoadWADFile( path, &filesize, gamedironly );
 
-		if( !buf )
-			buf = FS_LoadZIPFile( path, &filesize, gamedironly );
+		if( filesizeptr )
+			*filesizeptr = filesize;
 
+		return buf;
 	}
 
-	if( filesizeptr )
-		*filesizeptr = filesize;
-
-	return buf;
+	return NULL;
 }
 
 qboolean CRC32_File( dword *crcvalue, const char *filename )
