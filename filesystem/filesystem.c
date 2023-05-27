@@ -403,7 +403,7 @@ Return true if the path should be rejected due to one of the following:
 	or are just not a good idea for a mod to be using.
 ====================
 */
-int FS_CheckNastyPath (const char *path, qboolean isgamedir)
+static int FS_CheckNastyPath( const char *path )
 {
 	// all: never allow an empty path, as for gamedir it would access the parent directory and a non-gamedir path it is just useless
 	if( !COM_CheckString( path )) return 2;
@@ -425,8 +425,10 @@ int FS_CheckNastyPath (const char *path, qboolean isgamedir)
 	// Windows and UNIXes: don't allow absolute paths
 	if( path[0] == '/') return 2; // attempt to go outside the game directory
 
+#if 0
 	// all: forbid trailing slash on gamedir
 	if( isgamedir && path[Q_strlen(path)-1] == '/' ) return 2;
+#endif
 
 	// all: forbid leading dot on any filename for any reason
 	if( Q_strstr(path, "/.")) return 2; // attempt to go outside the game directory
@@ -1851,7 +1853,7 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 	if( filepath[0] == '/' || filepath[0] == '\\' )
 		filepath++;
 
-	if( FS_CheckNastyPath( filepath, false ))
+	if( FS_CheckNastyPath( filepath ))
 		return NULL;
 
 	// if the file is opened in "write", "append", or "read/write" mode
