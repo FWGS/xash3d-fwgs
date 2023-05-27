@@ -399,7 +399,7 @@ FS_OpenZipFile
 Open a packed file using its package file descriptor
 ===========
 */
-file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
+static file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	zipfile_t	*pfile;
 	pfile = &search->zip->files[pack_ind];
@@ -559,7 +559,7 @@ FS_FileTime_ZIP
 
 ===========
 */
-int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
+static int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
 {
 	return search->zip->filetime;
 }
@@ -570,7 +570,7 @@ FS_PrintInfo_ZIP
 
 ===========
 */
-void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
+static void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
 {
 	Q_snprintf( dst, size, "%s (%i files)", search->filename, search->zip->numfiles );
 }
@@ -581,7 +581,7 @@ FS_FindFile_ZIP
 
 ===========
 */
-int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedname, size_t len )
+static int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
 	int	left, right, middle;
 
@@ -618,7 +618,7 @@ FS_Search_ZIP
 
 ===========
 */
-void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
+static void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string temp;
 	const char *slash, *backslash, *colon, *separator;
