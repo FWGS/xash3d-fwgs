@@ -1716,7 +1716,7 @@ int FS_SetCurrentDirectory( const char *path )
 			NULL, GetLastError(), MAKELANGID( LANG_ENGLISH, SUBLANG_DEFAULT ),
 			buf, sizeof( buf ), NULL );
 
-		Sys_Error( "Changing directory to %s failed: %s\n", path, buf )
+		Sys_Error( "Changing directory to %s failed: %s\n", path, buf );
 		return false;
 	}
 #elif XASH_POSIX
