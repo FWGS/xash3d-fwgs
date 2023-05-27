@@ -251,7 +251,7 @@ FS_CloseWAD
 finalize wad or just close
 ===========
 */
-void FS_CloseWAD( wfile_t *wad )
+static void FS_CloseWAD( wfile_t *wad )
 {
 	Mem_FreePool( &wad->mempool );
 	if( wad->handle != NULL )
@@ -264,7 +264,7 @@ void FS_CloseWAD( wfile_t *wad )
 FS_Close_WAD
 ===========
 */
-void FS_Close_WAD( searchpath_t *search )
+static void FS_Close_WAD( searchpath_t *search )
 {
 	FS_CloseWAD( search->wad );
 }
@@ -274,7 +274,7 @@ void FS_Close_WAD( searchpath_t *search )
 FS_OpenFile_WAD
 ===========
 */
-file_t *FS_OpenFile_WAD( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
+static file_t *FS_OpenFile_WAD( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	return NULL;
 }
