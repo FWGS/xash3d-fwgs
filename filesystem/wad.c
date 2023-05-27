@@ -583,6 +583,53 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 	}
 }
 
+
+/*
+===========
+W_ReadLump
+
+reading lump into temp buffer
+===========
+*/
+static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *lumpsizeptr )
+{
+	const wfile_t *wad = search->wad;
+	const dlumpinfo_t *lump = &wad->lumps[pack_ind];
+	size_t	oldpos, size = 0;
+	byte	*buf;
+
+	// assume error
+	if( lumpsizeptr ) *lumpsizeptr = 0;
+
+	// no wads loaded
+	if( !wad || !lump ) return NULL;
+
+	oldpos = FS_Tell( wad->handle ); // don't forget restore original position
+
+	if( FS_Seek( wad->handle, lump->filepos, SEEK_SET ) == -1 )
+	{
+		Con_Reportf( S_ERROR "W_ReadLump: %s is corrupted\n", lump->name );
+		FS_Seek( wad->handle, oldpos, SEEK_SET );
+		return NULL;
+	}
+
+	buf = (byte *)Mem_Malloc( wad->mempool, lump->disksize );
+	size = FS_Read( wad->handle, buf, lump->disksize );
+
+	if( size < lump->disksize )
+	{
+		Con_Reportf( S_WARN "W_ReadLump: %s is probably corrupted\n", lump->name );
+		FS_Seek( wad->handle, oldpos, SEEK_SET );
+		Mem_Free( buf );
+		return NULL;
+	}
+
+	if( lumpsizeptr ) *lumpsizeptr = lump->disksize;
+	FS_Seek( wad->handle, oldpos, SEEK_SET );
+
+	return buf;
+}
+
 /*
 ====================
 FS_AddWad_Fullpath
@@ -625,6 +672,7 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 		search->pfnFileTime = FS_FileTime_WAD;
 		search->pfnFindFile = FS_FindFile_WAD;
 		search->pfnSearch = FS_Search_WAD;
+		search->pfnLoadFile = W_ReadLump;
 
 		fs_searchpaths = search;
 
@@ -635,74 +683,4 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 	if( errorcode != WAD_LOAD_NO_FILES )
 		Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
 	return false;
-}
-
-/*
-=============================================================================
-
-WADSYSTEM PRIVATE ROUTINES
-
-=============================================================================
-*/
-
-/*
-===========
-W_ReadLump
-
-reading lump into temp buffer
-===========
-*/
-static byte *W_ReadLump( wfile_t *wad, dlumpinfo_t *lump, fs_offset_t *lumpsizeptr )
-{
-	size_t	oldpos, size = 0;
-	byte	*buf;
-
-	// assume error
-	if( lumpsizeptr ) *lumpsizeptr = 0;
-
-	// no wads loaded
-	if( !wad || !lump ) return NULL;
-
-	oldpos = FS_Tell( wad->handle ); // don't forget restore original position
-
-	if( FS_Seek( wad->handle, lump->filepos, SEEK_SET ) == -1 )
-	{
-		Con_Reportf( S_ERROR "W_ReadLump: %s is corrupted\n", lump->name );
-		FS_Seek( wad->handle, oldpos, SEEK_SET );
-		return NULL;
-	}
-
-	buf = (byte *)Mem_Malloc( wad->mempool, lump->disksize );
-	size = FS_Read( wad->handle, buf, lump->disksize );
-
-	if( size < lump->disksize )
-	{
-		Con_Reportf( S_WARN "W_ReadLump: %s is probably corrupted\n", lump->name );
-		FS_Seek( wad->handle, oldpos, SEEK_SET );
-		Mem_Free( buf );
-		return NULL;
-	}
-
-	if( lumpsizeptr ) *lumpsizeptr = lump->disksize;
-	FS_Seek( wad->handle, oldpos, SEEK_SET );
-
-	return buf;
-}
-
-/*
-===========
-FS_LoadWADFile
-
-loading lump into the tmp buffer
-===========
-*/
-byte *FS_LoadWADFile( const char *path, fs_offset_t *lumpsizeptr, qboolean gamedironly )
-{
-	searchpath_t	*search;
-	int		index;
-
-	search = FS_FindFile( path, &index, NULL, 0, gamedironly );
-	if( search && search->type == SEARCHPATH_WAD )
-		return W_ReadLump( search->wad, &search->wad->lumps[index], lumpsizeptr );
-	return NULL;
 }
