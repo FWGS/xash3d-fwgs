@@ -420,11 +420,10 @@ FS_LoadZIPFile
 
 ===========
 */
-byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly )
+static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *sizeptr )
 {
-	searchpath_t	*search;
+	zipfile_t *file;
 	int		index;
-	zipfile_t	*file = NULL;
 	byte		*compressed_buffer = NULL, *decompressed_buffer = NULL;
 	int		zlib_result = 0;
 	dword		test_crc, final_crc;
@@ -433,12 +432,7 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 
 	if( sizeptr ) *sizeptr = 0;
 
-	search = FS_FindFile( path, &index, NULL, 0, gamedironly );
-
-	if( !search || search->type != SEARCHPATH_ZIP )
-		return  NULL;
-
-	file = &search->zip->files[index];
+	file = &search->zip->files[pack_ind];
 
 	FS_EnsureOpenZip( search->zip );
 
@@ -709,6 +703,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 		search->pfnFileTime = FS_FileTime_ZIP;
 		search->pfnFindFile = FS_FindFile_ZIP;
 		search->pfnSearch = FS_Search_ZIP;
+		search->pfnLoadFile = FS_LoadZIPFile;
 
 		fs_searchpaths = search;
 
