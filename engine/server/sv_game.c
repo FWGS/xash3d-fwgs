@@ -3157,6 +3157,60 @@ void SV_FreeStringPool( void )
 }
 
 /*
+============
+SV_ProcessString
+
+Process newly allocated string
+pass NULL pointer to dst to get required length incl. null terminator
+============
+*/
+static uint SV_ProcessString( char *dst, const char *src )
+{
+	const char *p;
+	uint i = 0;
+
+	p = src;
+
+	while( *p )
+	{
+		if( *p == '\\' )
+		{
+			char replace = 0;
+
+			switch( p[1] )
+			{
+			case 'n': replace = '\n'; break;
+			// GoldSrc doesn't replace these symbols
+			// but old hack in pfnWriteString did
+			case 'r': replace = '\r'; break;
+			case 't': replace = '\t'; break;
+			}
+
+			if( replace )
+			{
+				if( dst )
+					dst[i] = replace;
+				i++;
+				p += 2;
+				continue;
+			}
+		}
+
+		if( dst )
+			dst[i] = *p;
+		i++;
+		p++;
+	}
+
+	// null terminator
+	if( dst )
+		dst[i] = '\0';
+	i++;
+
+	return i;
+}
+
+/*
 =============
 SV_AllocString
 
@@ -3168,7 +3222,8 @@ use -str64dup to disable deduplication, -str64alloc to set array size
 */
 string_t GAME_EXPORT SV_AllocString( const char *szValue )
 {
-	const char *newString = NULL;
+	char *newString = NULL;
+	uint len;
 	int cmp;
 
 	if( svgame.physFuncs.pfnAllocString != NULL )
@@ -3178,15 +3233,17 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	cmp = 1;
 
 	if( !str64.allowdup )
+	{
 		for( newString = str64.poldstringbase + 1;
 			newString < str64.plast && ( cmp = Q_strcmp( newString, szValue ) );
 			newString += Q_strlen( newString ) + 1 );
+	}
 
 	if( cmp )
 	{
-		uint len = Q_strlen( szValue );
+		uint len = SV_ProcessString( NULL, szValue );
 
-		if( str64.plast - str64.poldstringbase + len + 2 > str64.maxstringarray )
+		if( str64.plast - str64.poldstringbase + len + 1 > str64.maxstringarray )
 		{
 			str64.plast = str64.pstringbase + 1;
 			str64.poldstringbase = str64.pstringbase;
@@ -3194,22 +3251,27 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 		}
 
 		//MsgDev( D_NOTE, "SV_AllocString: %ld %s\n", str64.plast - svgame.globals->pStringBase, szValue );
-		memcpy( str64.plast, szValue, len + 1 );
-		str64.totalalloc += len + 1;
+		SV_ProcessString( str64.plast, szValue );
+		str64.totalalloc += len;
 
 		newString = str64.plast;
-		str64.plast += len + 1;
+		str64.plast += len;
 	}
 	else
+	{
 		str64.numdups++;
 		//MsgDev( D_NOTE, "SV_AllocString: dup %ld %s\n", newString - svgame.globals->pStringBase, szValue );
+	}
 
 	if( newString - str64.pstringarray > str64.maxalloc )
 		str64.maxalloc = newString - str64.pstringarray;
 
 	return newString - svgame.globals->pStringBase;
 #else
-	newString = _copystring( svgame.stringspool, szValue, __FILE__, __LINE__ );
+	len = SV_ProcessString( NULL, szValue );
+	newString = Mem_Malloc( svgame.stringspool, len );
+	SV_ProcessString( newString, szValue );
+
 	return newString - svgame.globals->pStringBase;
 #endif
 }
