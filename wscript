@@ -261,6 +261,13 @@ def configure(conf):
 		# check if we're in a sgug environment
 		if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
 			linkflags.append('-lc')
+	elif conf.env.SAILFISH != None:
+		# TODO: enable XASH_MOBILE_PLATFORM
+		conf.env.append_unique('DEFINES', 'XASH_SAILFISH=%s' % conf.env.SAILFISH)
+
+		# Do not warn us about bug in SDL_Audio headers
+		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
+		conf.env.append_unique('CXXFLAGS', ['-Wno-attributes'])
 
 	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
@@ -334,6 +341,11 @@ def configure(conf):
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
+
+	if conf.env.SAILFISH == 'aurora':
+		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
+	else:
+		conf.env.DEFAULT_RPATH = '$ORIGIN'
 
 	setattr(conf, 'refdlls', REFDLLS)
 
@@ -432,8 +444,13 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 	conf.env.PACKAGING = conf.options.PACKAGING
 	if conf.options.PACKAGING:
 		conf.env.PREFIX = conf.options.prefix
-		conf.env.LIBDIR = conf.env.BINDIR = conf.env.LIBDIR + '/xash3d'
-		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
+		if conf.env.SAILFISH == "aurora":
+			conf.env.SHAREDIR = '${PREFIX}/share/su.xash.Engine/rodir'
+		elif conf.env.SAILFISH == "sailfish":
+			conf.env.SHAREDIR = '${PREFIX}/share/harbour-xash3d-fwgs/rodir'
+		else:
+			conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
+			conf.env.LIBDIR += '/xash3d'
 	else:
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
