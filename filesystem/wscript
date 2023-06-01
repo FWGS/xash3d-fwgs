@@ -45,6 +45,6 @@ def build(bld):
 				source = tests[i],
 				target = 'test_%s' % i,
 				use = libs + ['DL'],
-				rpath = '$ORIGIN',
+				rpath = bld.env.DEFAULT_RPATH,
 				subsystem = bld.env.CONSOLE_SUBSYSTEM,
 				install_path = None)
