@@ -261,10 +261,10 @@ def configure(conf):
 		# check if we're in a sgug environment
 		if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
 			linkflags.append('-lc')
-	elif conf.env.SAILFISH != None:
+	elif conf.env.SAILFISH in ['aurora', 'sailfish']:
 		# TODO: enable XASH_MOBILE_PLATFORM
 		conf.define('XASH_SAILFISH', 1)
-		if conf.env.SAILFISH == "aurora":
+		if conf.env.SAILFISH == 'aurora':
 			conf.define('XASH_AURORAOS', 1)
 
 		# Do not warn us about bug in SDL_Audio headers
