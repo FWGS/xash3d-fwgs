@@ -153,18 +153,18 @@ _inline int Sys_Start( void )
 	pfnChangeGame changeGame = NULL;
 	const char *game = getenv( E_GAME );
 
-#ifdef XASH_SAILFISH
+#if XASH_SAILFISH
 	const char *home = getenv( "HOME" );
 	char buf[1024];
 
 	snprintf( buf, sizeof( buf ), "%s/xash", home );
 	setenv( "XASH3D_BASEDIR", buf, true );
-#if XASH_SAILFISH == aurora
+#if XASH_AURORAOS
 	setenv( "XASH3D_RODIR", "/usr/share/su.xash.Engine/rodir", true );
 #else
 	setenv( "XASH3D_RODIR", "/usr/share/harbour-xash3d-fwgs/rodir", true );
-#endif
-#endif // SAILFISH
+#endif // XASH_AURORAOS
+#endif // XASH_SAILFISH
 
 	if( !game )
 		game = XASH_GAMEDIR;
