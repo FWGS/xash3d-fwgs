@@ -263,7 +263,9 @@ def configure(conf):
 			linkflags.append('-lc')
 	elif conf.env.SAILFISH != None:
 		# TODO: enable XASH_MOBILE_PLATFORM
-		conf.env.append_unique('DEFINES', 'XASH_SAILFISH=%s' % conf.env.SAILFISH)
+		conf.define('XASH_SAILFISH', 1)
+		if conf.env.SAILFISH == "aurora":
+			conf.define('XASH_AURORAOS', 1)
 
 		# Do not warn us about bug in SDL_Audio headers
 		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
