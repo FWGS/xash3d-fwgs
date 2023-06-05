@@ -43,6 +43,9 @@ qboolean Sys_DebuggerPresent( void ); // optional, see Sys_DebugBreak
 const char *Android_GetAndroidID( void );
 const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
+void Android_Init( void );
+void *Android_GetNativeObject( const char *name );
+int Android_GetKeyboardHeight( void );
 #endif
 
 #if XASH_WIN32
