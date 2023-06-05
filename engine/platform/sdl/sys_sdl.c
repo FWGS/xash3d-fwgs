@@ -71,6 +71,8 @@ void Platform_Init( void )
 	PSVita_Init();
 #elif XASH_NSWITCH
 	NSwitch_Init();
+#elif XASH_ANDROID
+	Android_Init();
 #endif
 #endif // XASH_POSIX
 

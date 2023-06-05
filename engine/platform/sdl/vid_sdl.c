@@ -628,7 +628,8 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	if( glw_state.software )
 		wndFlags &= ~SDL_WINDOW_OPENGL;
 
-	if( !fullscreen )
+#if !XASH_MOBILE_PLATFORM
+	if ( !fullscreen )
 	{
 		SDL_Rect r;
 
@@ -663,6 +664,10 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED;
 		xpos = ypos = 0;
 	}
+#else
+	wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_INPUT_GRABBED;
+	xpos = ypos = SDL_WINDOWPOS_UNDEFINED;
+#endif
 
 	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
 	{
@@ -690,6 +695,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		return false;
 	}
 
+#if !XASH_MOBILE_PLATFORM
 	if( fullscreen )
 	{
 		if( !VID_SetScreenResolution( width, height ) )
@@ -701,6 +707,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	{
 		VID_RestoreScreenResolution();
 	}
+#endif
 
 #if XASH_WIN32 // ICO support only for Win32
 	if(( localIcoPath = FS_GetDiskPath( GI->iconpath, true )))
