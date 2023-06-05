@@ -43,7 +43,7 @@ void *ANDROID_LoadLibrary( const char *dllname )
 	}
 
 	// HACKHACK: keep old behaviour for compability
-	if( Q_strstr( dllname, "." OS_LIB_EXT ) || Q_strstr( dllname, PATH_SPLITTER ))
+	if( Q_strstr( dllname, "." OS_LIB_EXT ) || Q_strstr( dllname, "/" ))
 	{
 		pHandle = dlopen( dllname, RTLD_LAZY );
 		if( pHandle )
