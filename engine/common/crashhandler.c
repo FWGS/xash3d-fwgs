@@ -334,24 +334,6 @@ void Sys_RestoreCrashHandler( void )
 
 static struct sigaction oldFilter;
 
-#ifdef XASH_DYNAMIC_DLADDR
-static int d_dladdr( void *sym, Dl_info *info )
-{
-	static int (*dladdr_real) ( void *sym, Dl_info *info );
-
-	if( !dladdr_real )
-		dladdr_real = dlsym( (void*)(size_t)(-1), "dladdr" );
-
-	memset( info, 0, sizeof( *info ) );
-
-	if( !dladdr_real )
-		return -1;
-
-	return dladdr_real(  sym, info );
-}
-#define dladdr d_dladdr
-#endif
-
 static int Sys_PrintFrame( char *buf, int len, int i, void *addr )
 {
 	Dl_info dlinfo;
