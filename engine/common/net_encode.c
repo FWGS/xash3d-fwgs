@@ -958,13 +958,13 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 	{
 		if( pField->flags & DT_SIGNED )
 		{
-			fromF = *(signed char *)((byte *)from + pField->offset );
-			toF = *(signed char *)((byte *)to + pField->offset );
+			fromF = *(int8_t *)((int8_t *)from + pField->offset );
+			toF = *(int8_t *)((int8_t *)to + pField->offset );
 		}
 		else
 		{
-			fromF = *(byte *)((byte *)from + pField->offset );
-			toF = *(byte *)((byte *)to + pField->offset );
+			fromF = *(uint8_t *)((int8_t *)from + pField->offset );
+			toF = *(uint8_t *)((int8_t *)to + pField->offset );
 		}
 
 		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
@@ -980,13 +980,13 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 	{
 		if( pField->flags & DT_SIGNED )
 		{
-			fromF = *(short *)((byte *)from + pField->offset );
-			toF = *(short *)((byte *)to + pField->offset );
+			fromF = *(int16_t *)((int8_t *)from + pField->offset );
+			toF = *(int16_t *)((int8_t *)to + pField->offset );
 		}
 		else
 		{
-			fromF = *(word *)((byte *)from + pField->offset );
-			toF = *(word *)((byte *)to + pField->offset );
+			fromF = *(uint16_t *)((int8_t *)from + pField->offset );
+			toF = *(uint16_t *)((int8_t *)to + pField->offset );
 		}
 
 		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
@@ -1002,13 +1002,13 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 	{
 		if( pField->flags & DT_SIGNED )
 		{
-			fromF = *(int *)((byte *)from + pField->offset );
-			toF = *(int *)((byte *)to + pField->offset );
+			fromF = *(int32_t *)((int8_t *)from + pField->offset );
+			toF = *(int32_t *)((int8_t *)to + pField->offset );
 		}
 		else
 		{
-			fromF = *(uint *)((byte *)from + pField->offset );
-			toF = *(uint *)((byte *)to + pField->offset );
+			fromF = *(uint32_t *)((int8_t *)from + pField->offset );
+			toF = *(uint32_t *)((int8_t *)to + pField->offset );
 		}
 		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
 		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
