@@ -23,8 +23,8 @@ GNU General Public License for more details.
 // precalculated bit masks for WriteUBitLong.
 // Using these tables instead of doing the calculations
 // gives a 33% speedup in WriteUBitLong.
-static dword	BitWriteMasks[32][33];
-static dword	ExtraMasks[32];
+static uint32_t	BitWriteMasks[32][33];
+static uint32_t	ExtraMasks[32];
 const char *svc_strings[svc_lastmsg+1] =
 {
 	"svc_bad",
@@ -119,7 +119,7 @@ void MSG_InitExt( sizebuf_t *sb, const char *pDebugName, void *pData, int nBytes
 void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, int nBits )
 {
 	// make sure it's dword aligned and padded.
-	Assert(((dword)pData & 3 ) == 0 );
+	Assert(((uint32_t)pData & 3 ) == 0 );
 
 	sb->pDebugName = "Unnamed";
 	sb->pData = (byte *)pData;
@@ -219,14 +219,14 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 		int	nBitsLeft = numbits;
 		int	iCurBit = sb->iCurBit;
 		uint	iDWord = iCurBit >> 5;	// Mask in a dword.
-		dword	iCurBitMasked;
+		uint32_t	iCurBitMasked;
 		int	nBitsWritten;
 
 		Assert(( iDWord * 4 + sizeof( int )) <= (uint)MSG_GetMaxBytes( sb ));
 
 		iCurBitMasked = iCurBit & 31;
-		((dword *)sb->pData)[iDWord] &= BitWriteMasks[iCurBitMasked][nBitsLeft];
-		((dword *)sb->pData)[iDWord] |= curData << iCurBitMasked;
+		((uint32_t *)sb->pData)[iDWord] &= BitWriteMasks[iCurBitMasked][nBitsLeft];
+		((uint32_t *)sb->pData)[iDWord] |= curData << iCurBitMasked;
 
 		// did it span a dword?
 		nBitsWritten = 32 - iCurBitMasked;
@@ -238,8 +238,8 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 			curData >>= nBitsWritten;
 
 			iCurBitMasked = iCurBit & 31;
-			((dword *)sb->pData)[iDWord+1] &= BitWriteMasks[iCurBitMasked][nBitsLeft];
-			((dword *)sb->pData)[iDWord+1] |= curData << iCurBitMasked;
+			((uint32_t *)sb->pData)[iDWord+1] &= BitWriteMasks[iCurBitMasked][nBitsLeft];
+			((uint32_t *)sb->pData)[iDWord+1] |= curData << iCurBitMasked;
 		}
 		sb->iCurBit += numbits;
 	}
@@ -284,7 +284,7 @@ qboolean MSG_WriteBits( sizebuf_t *sb, const void *pData, int nBits )
 	int	nBitsLeft = nBits;
 
 	// get output dword-aligned.
-	while((( dword )pOut & 3 ) != 0 && nBitsLeft >= 8 )
+	while((( uint32_t )pOut & 3 ) != 0 && nBitsLeft >= 8 )
 	{
 		MSG_WriteUBitLong( sb, *pOut, 8 );
 
@@ -295,9 +295,9 @@ qboolean MSG_WriteBits( sizebuf_t *sb, const void *pData, int nBits )
 	// read dwords.
 	while( nBitsLeft >= 32 )
 	{
-		MSG_WriteUBitLong( sb, *(( dword *)pOut ), 32 );
+		MSG_WriteUBitLong( sb, *(( uint32_t *)pOut ), 32 );
 
-		pOut += sizeof( dword );
+		pOut += sizeof( uint32_t );
 		nBitsLeft -= 32;
 	}
 
@@ -518,7 +518,7 @@ qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
 	int	nBitsLeft = nBits;
 
 	// get output dword-aligned.
-	while((( dword )pOut & 3) != 0 && nBitsLeft >= 8 )
+	while((( uint32_t )pOut & 3) != 0 && nBitsLeft >= 8 )
 	{
 		*pOut = (byte)MSG_ReadUBitLong( sb, 8 );
 		++pOut;
@@ -528,8 +528,8 @@ qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
 	// read dwords.
 	while( nBitsLeft >= 32 )
 	{
-		*((dword *)pOut) = MSG_ReadUBitLong( sb, 32 );
-		pOut += sizeof( dword );
+		*((uint32_t *)pOut) = MSG_ReadUBitLong( sb, 32 );
+		pOut += sizeof( uint32_t );
 		nBitsLeft -= 32;
 	}
 
