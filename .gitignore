@@ -60,6 +60,7 @@ Makefile.dep
 ALL_BUILD.*
 INSTALL.*
 ZERO_CHECK.*
+CMakeLists.txt
 
 # Visual Studio
 *.obj
@@ -333,3 +334,6 @@ __pycache__
 .history/*
 .cache/*
 enc_temp_folder/
+
+# KDevelop4
+*.kdev4

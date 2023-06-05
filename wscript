@@ -100,7 +100,7 @@ REFDLLS = [
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject cmake')
 
 	grp = opt.add_option_group('Common options')
 
@@ -176,7 +176,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
+	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake')
 
 	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
 	if conf.env.MSVC_TARGETS[0] == 'x86':
