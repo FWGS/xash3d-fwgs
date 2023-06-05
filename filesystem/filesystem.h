@@ -204,6 +204,9 @@ typedef struct fs_interface_t
 	void *(*_Mem_Alloc)( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline );
 	void *(*_Mem_Realloc)( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
 	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
+
+	// platform
+	void *(*_Platform_GetNativeObject)( const char *object );
 } fs_interface_t;
 
 typedef int (*FSAPI)( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *interface );
