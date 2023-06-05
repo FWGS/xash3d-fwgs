@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "library.h"
+#include "platform/platform.h"
 
 fs_api_t g_fsapi;
 fs_globals_t *FI;
@@ -51,6 +52,8 @@ static fs_interface_t fs_memfuncs =
 	_Mem_Alloc,
 	_Mem_Realloc,
 	_Mem_Free,
+
+	Platform_GetNativeObject,
 };
 
 static void FS_UnloadProgs( void )
