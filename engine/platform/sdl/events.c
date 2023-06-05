@@ -25,7 +25,7 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "vid_common.h"
 
-#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_SCANCODE_A SDLK_a
 #define SDL_SCANCODE_Z SDLK_z
 #define SDL_SCANCODE_1 SDLK_1
@@ -150,6 +150,13 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 #endif
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
+#if XASH_ANDROID
+	if( keynum == SDL_SCANCODE_VOLUMEUP || keynum == SDL_SCANCODE_VOLUMEDOWN )
+	{
+		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+	}
+#endif
+
 	if( SDL_IsTextInputActive() && down && cls.key_dest != key_game )
 	{
 		if( SDL_GetModState() & KMOD_CTRL )
@@ -202,6 +209,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_MINUS: keynum = '-'; break;
 		case SDL_SCANCODE_TAB: keynum = K_TAB; break;
 		case SDL_SCANCODE_RETURN: keynum = K_ENTER; break;
+		case SDL_SCANCODE_AC_BACK:
 		case SDL_SCANCODE_ESCAPE: keynum = K_ESCAPE; break;
 		case SDL_SCANCODE_SPACE: keynum = K_SPACE; break;
 		case SDL_SCANCODE_BACKSPACE: keynum = K_BACKSPACE; break;
@@ -261,6 +269,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_VOLUMEDOWN:
 		case SDL_SCANCODE_BRIGHTNESSDOWN:
 		case SDL_SCANCODE_BRIGHTNESSUP:
+		case SDL_SCANCODE_SELECT:
 			return;
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_UNKNOWN:
@@ -682,7 +691,11 @@ void Platform_RunEvents( void )
 
 void* Platform_GetNativeObject( const char *name )
 {
-	return NULL; // SDL don't have it
+#if XASH_ANDROID
+	return Android_GetNativeObject( name );
+#else
+	return NULL;
+#endif
 }
 
 /*
