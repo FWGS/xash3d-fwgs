@@ -383,37 +383,37 @@ void MSG_WriteCmdExt( sizebuf_t *sb, int cmd, netsrc_t type, const char *name )
 		}
 	}
 #endif
-	MSG_WriteUBitLong( sb, cmd, sizeof( byte ) << 3 );
+	MSG_WriteUBitLong( sb, cmd, sizeof( uint8_t ) << 3 );
 }
 
 void MSG_WriteChar( sizebuf_t *sb, int val )
 {
-	MSG_WriteSBitLong( sb, val, sizeof( char ) << 3 );
+	MSG_WriteSBitLong( sb, val, sizeof( int8_t ) << 3 );
 }
 
 void MSG_WriteByte( sizebuf_t *sb, int val )
 {
-	MSG_WriteUBitLong( sb, val, sizeof( byte ) << 3 );
+	MSG_WriteUBitLong( sb, val, sizeof( uint8_t ) << 3 );
 }
 
 void MSG_WriteShort( sizebuf_t *sb, int val )
 {
-	MSG_WriteSBitLong( sb, val, sizeof(short ) << 3 );
+	MSG_WriteSBitLong( sb, val, sizeof( int16_t ) << 3 );
 }
 
 void MSG_WriteWord( sizebuf_t *sb, int val )
 {
-	MSG_WriteUBitLong( sb, val, sizeof( word ) << 3 );
+	MSG_WriteUBitLong( sb, val, sizeof( uint16_t ) << 3 );
 }
 
 void MSG_WriteLong( sizebuf_t *sb, int val )
 {
-	MSG_WriteSBitLong( sb, val, sizeof( int ) << 3 );
+	MSG_WriteSBitLong( sb, val, sizeof( int32_t ) << 3 );
 }
 
-void MSG_WriteDword( sizebuf_t *sb, dword val )
+void MSG_WriteDword( sizebuf_t *sb, uint val )
 {
-	MSG_WriteUBitLong( sb, val, sizeof( dword ) << 3 );
+	MSG_WriteUBitLong( sb, val, sizeof( uint32_t ) << 3 );
 }
 
 void MSG_WriteFloat( sizebuf_t *sb, float val )
@@ -591,7 +591,7 @@ uint MSG_ReadBitLong( sizebuf_t *sb, int numbits, qboolean bSigned )
 
 int MSG_ReadCmd( sizebuf_t *sb, netsrc_t type )
 {
-	int	cmd = MSG_ReadUBitLong( sb, sizeof( byte ) << 3 );
+	int	cmd = MSG_ReadUBitLong( sb, sizeof( uint8_t ) << 3 );
 
 #ifdef DEBUG_NET_MESSAGES_READ
 	if( type == NS_SERVER )
@@ -608,22 +608,22 @@ int MSG_ReadCmd( sizebuf_t *sb, netsrc_t type )
 
 int MSG_ReadChar( sizebuf_t *sb )
 {
-	return MSG_ReadSBitLong( sb, sizeof( char ) << 3 );
+	return MSG_ReadSBitLong( sb, sizeof( int8_t ) << 3 );
 }
 
 int MSG_ReadByte( sizebuf_t *sb )
 {
-	return MSG_ReadUBitLong( sb, sizeof( byte ) << 3 );
+	return MSG_ReadUBitLong( sb, sizeof( uint8_t ) << 3 );
 }
 
 int MSG_ReadShort( sizebuf_t *sb )
 {
-	return MSG_ReadSBitLong( sb, sizeof( short ) << 3 );
+	return MSG_ReadSBitLong( sb, sizeof( int16_t ) << 3 );
 }
 
 int MSG_ReadWord( sizebuf_t *sb )
 {
-	return MSG_ReadUBitLong( sb, sizeof( word ) << 3 );
+	return MSG_ReadUBitLong( sb, sizeof( uint16_t ) << 3 );
 }
 
 float MSG_ReadCoord( sizebuf_t *sb )
@@ -650,12 +650,12 @@ void MSG_ReadVec3Angles( sizebuf_t *sb, vec3_t fa )
 
 int MSG_ReadLong( sizebuf_t *sb )
 {
-	return MSG_ReadSBitLong( sb, sizeof( int ) << 3 );
+	return MSG_ReadSBitLong( sb, sizeof( int32_t ) << 3 );
 }
 
-dword MSG_ReadDword( sizebuf_t *sb )
+uint MSG_ReadDword( sizebuf_t *sb )
 {
-	return MSG_ReadUBitLong( sb, sizeof( dword ) << 3 );
+	return MSG_ReadUBitLong( sb, sizeof( uint32_t ) << 3 );
 }
 
 float MSG_ReadFloat( sizebuf_t *sb )
