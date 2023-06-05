@@ -1277,33 +1277,34 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	return true;
 }
 
-poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
+static poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
 {
 	return (poolhandle_t)0xDEADC0DE;
 }
 
-void  _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
+static void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
 {
 	// stub
 }
 
-void* _Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+static void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
-	if( clear ) return calloc( 1, size );
-	return malloc( size );
+	void *ptr = malloc( size );
+	if( clear ) memset( ptr, 0, size );
+	return ptr;
 }
 
-void* _Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+static void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	return realloc( memptr, size );
 }
 
-void  _Mem_Free( void *data, const char *filename, int fileline )
+static void _Mem_Free( void *data, const char *filename, int fileline )
 {
 	free( data );
 }
 
-void _Con_Printf( const char *fmt, ... )
+static void _Con_Printf( const char *fmt, ... )
 {
 	va_list ap;
 
@@ -1312,7 +1313,7 @@ void _Con_Printf( const char *fmt, ... )
 	va_end( ap );
 }
 
-void _Sys_Error( const char *fmt, ... )
+static void _Sys_Error( const char *fmt, ... )
 {
 	va_list ap;
 
@@ -1323,6 +1324,10 @@ void _Sys_Error( const char *fmt, ... )
 	exit( 1 );
 }
 
+static void *_Platform_GetNativeObject_stub( const char *object )
+{
+	return NULL;
+}
 
 /*
 ================
@@ -2738,7 +2743,8 @@ fs_interface_t g_engfuncs =
 	_Mem_FreePool,
 	_Mem_Alloc,
 	_Mem_Realloc,
-	_Mem_Free
+	_Mem_Free,
+	_Platform_GetNativeObject_stub
 };
 
 static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
@@ -2778,6 +2784,12 @@ static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
 		g_engfuncs._Mem_Free = engfuncs->_Mem_Free;
 
 		Con_Reportf( "filesystem_stdio: custom memory allocation functions found\n" );
+	}
+
+	if( engfuncs->_Platform_GetNativeObject )
+	{
+		g_engfuncs._Platform_GetNativeObject = engfuncs->_Platform_GetNativeObject;
+		Con_Reportf( "filesystem_stdio: custom platform-specific functions found\n" );
 	}
 
 	return true;
