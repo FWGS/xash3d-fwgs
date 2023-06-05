@@ -47,9 +47,9 @@ void Android_SaveID( const char *id );
 
 #if XASH_WIN32
 void Platform_UpdateStatusLine( void );
-#else 
+#else
 static inline void Platform_UpdateStatusLine( void ) { }
-#endif  
+#endif
 
 #if XASH_NSWITCH
 void NSwitch_Init( void );
@@ -106,11 +106,6 @@ void Platform_SetClipboardText( const char *buffer );
 
 #if !XASH_SDL
 #define SDL_VERSION_ATLEAST( x, y, z ) 0
-#endif
-
-#if XASH_ANDROID
-void Android_ShowMouse( qboolean show );
-void Android_MouseMove( float *x, float *y );
 #endif
 
 /*
