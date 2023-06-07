@@ -272,11 +272,6 @@ void Platform_RunEvents( void )
 
 }
 
-void *Platform_GetNativeObject( const char *name )
-{
-	return NULL;
-}
-
 void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
 	*x = *y = 0;
