@@ -639,52 +639,35 @@ static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, f
 FS_AddWad_Fullpath
 ====================
 */
-searchpath_t *FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags )
+searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags )
 {
-	searchpath_t	*search;
-	wfile_t		*wad = NULL;
-	const char	*ext = COM_FileExtension( wadfile );
-	int		errorcode = WAD_LOAD_COULDNT_OPEN;
+	searchpath_t *search;
+	wfile_t *wad;
+	int errorcode = WAD_LOAD_COULDNT_OPEN;
 
-	for( search = fs_searchpaths; search; search = search->next )
+	wad = W_Open( wadfile, &errorcode );
+
+	if( !wad )
 	{
-		if( search->type == SEARCHPATH_WAD && !Q_stricmp( search->filename, wadfile ))
-		{
-			if( already_loaded ) *already_loaded = true;
-			return search; // already loaded
-		}
+		if( errorcode != WAD_LOAD_NO_FILES )
+			Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
+		return NULL;
 	}
 
-	if( already_loaded )
-		*already_loaded = false;
+	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
+	Q_strncpy( search->filename, wadfile, sizeof( search->filename ));
+	search->wad = wad;
+	search->type = SEARCHPATH_WAD;
+	search->flags = flags;
 
-	if( !Q_stricmp( ext, "wad" ))
-		wad = W_Open( wadfile, &errorcode );
+	search->pfnPrintInfo = FS_PrintInfo_WAD;
+	search->pfnClose = FS_Close_WAD;
+	search->pfnOpenFile = FS_OpenFile_WAD;
+	search->pfnFileTime = FS_FileTime_WAD;
+	search->pfnFindFile = FS_FindFile_WAD;
+	search->pfnSearch = FS_Search_WAD;
+	search->pfnLoadFile = W_ReadLump;
 
-	if( wad )
-	{
-		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
-		Q_strncpy( search->filename, wadfile, sizeof( search->filename ));
-		search->wad = wad;
-		search->type = SEARCHPATH_WAD;
-		search->next = fs_searchpaths;
-		search->flags = flags;
-
-		search->pfnPrintInfo = FS_PrintInfo_WAD;
-		search->pfnClose = FS_Close_WAD;
-		search->pfnOpenFile = FS_OpenFile_WAD;
-		search->pfnFileTime = FS_FileTime_WAD;
-		search->pfnFindFile = FS_FindFile_WAD;
-		search->pfnSearch = FS_Search_WAD;
-		search->pfnLoadFile = W_ReadLump;
-
-		fs_searchpaths = search;
-
-		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
-		return search;
-	}
-
-	if( errorcode != WAD_LOAD_NO_FILES )
-		Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
-	return NULL;
+	Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
+	return search;
 }

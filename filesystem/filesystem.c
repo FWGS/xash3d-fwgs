@@ -56,6 +56,23 @@ searchpath_t *fs_writepath;
 static char			fs_basedir[MAX_SYSPATH];	// base game directory
 static char			fs_gamedir[MAX_SYSPATH];	// game current directory
 
+// add archives in specific order PAK -> PK3 -> WAD
+// so raw WADs takes precedence over WADs included into PAKs and PK3s
+const fs_archive_t g_archives[] =
+{
+{ "pak", SEARCHPATH_PAK, FS_AddPak_Fullpath, true },
+{ "pk3", SEARCHPATH_ZIP, FS_AddZip_Fullpath, true },
+{ "wad", SEARCHPATH_WAD, FS_AddWad_Fullpath, false },
+{ NULL }, // end marker
+};
+
+// special fs_archive_t for plain directories
+static const fs_archive_t g_directory_archive =
+{ NULL, SEARCHPATH_PLAIN, FS_AddDir_Fullpath, false };
+
+// static const fs_archive_t g_android_archive =
+// { NULL, SEARCHPATH_ANDROID, FS_AddAndroid_Fullpath, false, false };
+
 #ifdef XASH_REDUCE_FD
 static file_t *fs_last_readfile;
 static zip_t *fs_last_zip;
@@ -278,23 +295,69 @@ void FS_CreatePath( char *path )
 	}
 }
 
+searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const char *file, int flags )
+{
+	searchpath_t *search;
 
+	for( search = fs_searchpaths; search; search = search->next )
+	{
+		if( search->type == archive->type && !Q_stricmp( search->filename, file ))
+			return search; // already loaded
+	}
+
+	search = archive->pfnAddArchive_Fullpath( file, flags );
+
+	if( !search )
+		return NULL;
+
+	search->next = fs_searchpaths;
+	fs_searchpaths = search;
+
+	// time to add in search list all the wads from this archive
+	if( archive->load_wads )
+	{
+		stringlist_t list;
+		int i;
+
+		stringlistinit( &list );
+		search->pfnSearch( search, &list, "*.wad", true );
+		stringlistsort( &list ); // keep always sorted
+
+		for( i = 0; i < list.numstrings; i++ )
+		{
+			searchpath_t *wad;
+			char fullpath[MAX_SYSPATH];
+
+			Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", file, list.strings[i] );
+			if(( wad = FS_AddWad_Fullpath( fullpath, flags )))
+			{
+				wad->next = fs_searchpaths;
+				fs_searchpaths = wad;
+			}
+		}
+
+		stringlistfreecontents( &list );
+	}
+
+	return search;
+}
 
 /*
 ================
 FS_AddArchive_Fullpath
 ================
 */
-static searchpath_t *FS_AddArchive_Fullpath( const char *file, qboolean *already_loaded, int flags )
+static searchpath_t *FS_AddExtras_Fullpath( const char *file, int flags )
 {
+	const fs_archive_t *archive;
 	const char *ext = COM_FileExtension( file );
 
-	if( !Q_stricmp( ext, "pk3" ))
-		return FS_AddZip_Fullpath( file, already_loaded, flags );
-	else if ( !Q_stricmp( ext, "pak" ))
-		return FS_AddPak_Fullpath( file, already_loaded, flags );
+	for( archive = g_archives; archive->ext; archive++ )
+	{
+		if( !Q_stricmp( ext, archive->ext ))
+			return FS_AddArchive_Fullpath( archive, file, flags );
+	}
 
-	// skip wads, this function only meant to be used for extras
 	return NULL;
 }
 
@@ -308,6 +371,7 @@ then loads and adds pak1.pak pak2.pak ...
 */
 void FS_AddGameDirectory( const char *dir, uint flags )
 {
+	const fs_archive_t *archive;
 	stringlist_t list;
 	searchpath_t *search;
 	char fullpath[MAX_SYSPATH];
@@ -317,48 +381,30 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	listdirectory( &list, dir );
 	stringlistsort( &list );
 
-	// add archives in specific order PAK -> PK3 -> WAD
-	// so raw WADs takes precedence over WADs included into PAKs and PK3s
-	for( i = 0; i < list.numstrings; i++ )
+	for( archive = g_archives; archive->ext; archive++ )
 	{
-		const char *ext = COM_FileExtension( list.strings[i] );
-
-		if( !Q_stricmp( ext, "pak" ))
-		{
-			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
-			FS_AddPak_Fullpath( fullpath, NULL, flags );
-		}
-	}
-
-	for( i = 0; i < list.numstrings; i++ )
-	{
-		const char *ext = COM_FileExtension( list.strings[i] );
-
-		if( !Q_stricmp( ext, "pk3" ))
-		{
-			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
-			FS_AddZip_Fullpath( fullpath, NULL, flags );
-		}
-	}
-
-	for( i = 0; i < list.numstrings; i++ )
-	{
-		const char *ext = COM_FileExtension( list.strings[i] );
-
-		if( !Q_stricmp( ext, "wad" ))
-		{
+		if( archive->type == SEARCHPATH_WAD ) // HACKHACK: wads need direct paths but only in this function
 			FS_AllowDirectPaths( true );
+
+		for( i = 0; i < list.numstrings; i++ )
+		{
+			const char *ext = COM_FileExtension( list.strings[i] );
+
+			if( Q_stricmp( ext, archive->ext ))
+				continue;
+
 			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
-			FS_AddWad_Fullpath( fullpath, NULL, flags );
-			FS_AllowDirectPaths( false );
+			FS_AddArchive_Fullpath( archive, fullpath, flags );
 		}
+
+		FS_AllowDirectPaths( false );
 	}
 
 	stringlistfreecontents( &list );
 
 	// add the directory to the search path
 	// (unpacked files have the priority over packed files)
-	search = FS_AddDir_Fullpath( dir, NULL, flags );
+	search = FS_AddArchive_Fullpath( &g_directory_archive, dir, flags );
 	if( !FBitSet( flags, FS_NOWRITE_PATH ))
 		fs_writepath = search;
 }
@@ -1108,25 +1154,13 @@ void FS_Rescan( void )
 
 	FS_ClearSearchPath();
 
-#if XASH_IOS
-	{
-		char buf[MAX_VA_STRING];
-
-		Q_snprintf( buf, sizeof( buf ), "%sextras.pak", SDL_GetBasePath() );
-		FS_AddPak_Fullpath( buf, NULL, extrasFlags );
-		Q_snprintf( buf, sizeof( buf ), "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder );
-		FS_AddPak_Fullpath( buf, NULL, extrasFlags );
-	}
-#else
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
 	if( COM_CheckString( str ))
-		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
+		FS_AddExtras_Fullpath( str, extrasFlags );
 
 	str = getenv( "XASH3D_EXTRAS_PAK2" );
 	if( COM_CheckString( str ))
-		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
-#endif
-
+		FS_AddExtras_Fullpath( str, extrasFlags );
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
 		FS_AddGameHierarchy( GI->basedir, 0 );
