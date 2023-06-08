@@ -330,7 +330,7 @@ If keep_plain_dirs is set, the pack will be added AFTER the first sequence of
 plain directories.
 ================
 */
-qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int flags )
+searchpath_t *FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int flags )
 {
 	searchpath_t	*search;
 	pack_t		*pak = NULL;
@@ -342,7 +342,7 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 		if( search->type == SEARCHPATH_PAK && !Q_stricmp( search->filename, pakfile ))
 		{
 			if( already_loaded ) *already_loaded = true;
-			return true; // already loaded
+			return search; // already loaded
 		}
 	}
 
@@ -384,12 +384,12 @@ qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int 
 			}
 		}
 
-		return true;
+		return search;
 	}
 	else
 	{
 		if( errorcode != PAK_LOAD_NO_FILES )
 			Con_Reportf( S_ERROR "FS_AddPak_Fullpath: unable to load pak \"%s\"\n", pakfile );
-		return false;
+		return NULL;
 	}
 }

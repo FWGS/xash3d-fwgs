@@ -635,7 +635,7 @@ static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, f
 FS_AddWad_Fullpath
 ====================
 */
-qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags )
+searchpath_t *FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags )
 {
 	searchpath_t	*search;
 	wfile_t		*wad = NULL;
@@ -647,7 +647,7 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 		if( search->type == SEARCHPATH_WAD && !Q_stricmp( search->filename, wadfile ))
 		{
 			if( already_loaded ) *already_loaded = true;
-			return true; // already loaded
+			return search; // already loaded
 		}
 	}
 
@@ -677,10 +677,10 @@ qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int 
 		fs_searchpaths = search;
 
 		Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
-		return true;
+		return search;
 	}
 
 	if( errorcode != WAD_LOAD_NO_FILES )
 		Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
-	return false;
+	return NULL;
 }

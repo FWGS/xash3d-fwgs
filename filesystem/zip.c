@@ -664,7 +664,7 @@ FS_AddZip_Fullpath
 
 ===========
 */
-qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
+searchpath_t *FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
 {
 	searchpath_t	*search;
 	zip_t		*zip = NULL;
@@ -676,7 +676,7 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 		if( search->type == SEARCHPATH_ZIP && !Q_stricmp( search->filename, zipfile ))
 		{
 			if( already_loaded ) *already_loaded = true;
-			return true; // already loaded
+			return search; // already loaded
 		}
 	}
 
@@ -718,13 +718,14 @@ qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int 
 				FS_AddWad_Fullpath( fullpath, NULL, flags );
 			}
 		}
-		return true;
+
+		return search;
 	}
 	else
 	{
 		if( errorcode != ZIP_LOAD_NO_FILES )
 			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
-		return false;
+		return NULL;
 	}
 }
 
