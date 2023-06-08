@@ -57,7 +57,8 @@ enum
 	SEARCHPATH_PLAIN = 0,
 	SEARCHPATH_PAK,
 	SEARCHPATH_WAD,
-	SEARCHPATH_ZIP
+	SEARCHPATH_ZIP,
+	SEARCHPATH_PK3DIR, // it's actually a plain directory but it must behave like a ZIP archive
 };
 
 typedef struct stringlist_s
