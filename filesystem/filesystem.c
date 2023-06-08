@@ -285,7 +285,7 @@ void FS_CreatePath( char *path )
 FS_AddArchive_Fullpath
 ================
 */
-static qboolean FS_AddArchive_Fullpath( const char *file, qboolean *already_loaded, int flags )
+static searchpath_t *FS_AddArchive_Fullpath( const char *file, qboolean *already_loaded, int flags )
 {
 	const char *ext = COM_FileExtension( file );
 
@@ -295,7 +295,7 @@ static qboolean FS_AddArchive_Fullpath( const char *file, qboolean *already_load
 		return FS_AddPak_Fullpath( file, already_loaded, flags );
 
 	// skip wads, this function only meant to be used for extras
-	return false;
+	return NULL;
 }
 
 /*

@@ -193,17 +193,17 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 //
 // pak.c
 //
-qboolean FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int flags );
 
 //
 // wad.c
 //
-qboolean FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags );
 
 //
 // zip.c
 //
-qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags );
 
 //
 // dir.c
