@@ -290,6 +290,10 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 	if( !FS_AppendToPath( dst, &i, len, dir->name, path, "init" ))
 		return false;
 
+	// nothing to fix
+	if( !COM_CheckStringEmpty( path ))
+		return true;
+
 	for( prev = path, next = Q_strchrnul( prev, '/' );
 		  ;
 		  prev = next + 1, next = Q_strchrnul( prev, '/' ))
@@ -464,8 +468,12 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 {
 	memset( search, 0, sizeof( searchpath_t ));
 
-	Q_strncpy( search->filename, path, sizeof( search->filename ));
-	search->type = SEARCHPATH_PLAIN;
+	Q_strncpy( search->filename, path, sizeof( search->filename ) - 1 );
+	COM_PathSlashFix( search->filename );
+
+	if( !Q_stricmp( COM_FileExtension( path ), "pk3dir" ))
+		search->type = SEARCHPATH_PK3DIR;
+	else search->type = SEARCHPATH_PLAIN;
 	search->flags = flags;
 	search->pfnPrintInfo = FS_PrintInfo_DIR;
 	search->pfnClose = FS_Close_DIR;
