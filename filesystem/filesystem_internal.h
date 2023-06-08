@@ -93,6 +93,16 @@ typedef struct searchpath_s
 	byte   *(*pfnLoadFile)( struct searchpath_s *search, const char *path, int pack_ind, fs_offset_t *filesize );
 } searchpath_t;
 
+typedef searchpath_t *(*FS_ADDARCHIVE_FULLPATH)( const char *path, int flags );
+
+typedef struct fs_archive_s
+{
+	const char *ext;
+	int type;
+	FS_ADDARCHIVE_FULLPATH pfnAddArchive_Fullpath;
+	qboolean load_wads; // load wads from this archive
+} fs_archive_t;
+
 extern fs_globals_t  FI;
 extern searchpath_t *fs_searchpaths;
 extern searchpath_t *fs_writepath;
@@ -102,6 +112,7 @@ extern qboolean      fs_ext_path;
 extern char          fs_rodir[MAX_SYSPATH];
 extern char          fs_rootdir[MAX_SYSPATH];
 extern fs_api_t      g_api;
+extern const fs_archive_t g_archives[];
 
 #define GI FI.GameInfo
 
@@ -123,6 +134,7 @@ extern fs_api_t      g_api;
 //
 qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
 void FS_ShutdownStdio( void );
+searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const char *file, int flags );
 
 // search path utils
 void FS_Rescan( void );
@@ -193,22 +205,22 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 //
 // pak.c
 //
-searchpath_t *FS_AddPak_Fullpath( const char *pakfile, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddPak_Fullpath( const char *pakfile, int flags );
 
 //
 // wad.c
 //
-searchpath_t *FS_AddWad_Fullpath( const char *wadfile, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags );
 
 //
 // zip.c
 //
-searchpath_t *FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags );
 
 //
 // dir.c
 //
-searchpath_t *FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags );
+searchpath_t *FS_AddDir_Fullpath( const char *path, int flags );
 qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t len, qboolean createpath );
 void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags );
 
