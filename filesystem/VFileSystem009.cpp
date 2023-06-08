@@ -470,11 +470,19 @@ public:
 	bool AddPackFile( const char *path, const char *id ) override
 	{
 		char dir[MAX_VA_STRING], fullpath[MAX_VA_STRING];
+		const char *ext = COM_FileExtension( path );
 
-		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", IdToDir( dir, sizeof( dir ), id ), path );
-		CopyAndFixSlashes( fullpath, path, sizeof( fullpath ));
+		IdToDir( dir, sizeof( dir ), id );
+		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", dir, path );
+		COM_FixSlashes( fullpath );
 
-		return !!FS_AddPak_Fullpath( fullpath, nullptr, FS_CUSTOM_PATH );
+		for( const fs_archive_t *archive = g_archives; archive->ext; archive++ )
+		{
+			if( archive->type == SEARCHPATH_PAK && !Q_stricmp( ext, archive->ext ))
+				return FS_AddArchive_Fullpath( archive, fullpath, FS_CUSTOM_PATH );
+		}
+
+		return false;
 	}
 
 	FileHandle_t OpenFromCacheForRead( const char *path , const char *mode, const char *id ) override

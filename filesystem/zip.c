@@ -664,68 +664,36 @@ FS_AddZip_Fullpath
 
 ===========
 */
-searchpath_t *FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
+searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
 {
-	searchpath_t	*search;
-	zip_t		*zip = NULL;
-	const char	*ext = COM_FileExtension( zipfile );
-	int		errorcode = ZIP_LOAD_COULDNT_OPEN;
+	searchpath_t *search;
+	zip_t *zip;
+	int i, errorcode = ZIP_LOAD_COULDNT_OPEN;
 
-	for( search = fs_searchpaths; search; search = search->next )
-	{
-		if( search->type == SEARCHPATH_ZIP && !Q_stricmp( search->filename, zipfile ))
-		{
-			if( already_loaded ) *already_loaded = true;
-			return search; // already loaded
-		}
-	}
+	zip = FS_LoadZip( zipfile, &errorcode );
 
-	if( already_loaded ) *already_loaded = false;
-
-	if( !Q_stricmp( ext, "pk3" ) )
-		zip = FS_LoadZip( zipfile, &errorcode );
-
-	if( zip )
-	{
-		string	fullpath;
-		int i;
-
-		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ) );
-		Q_strncpy( search->filename, zipfile, sizeof( search->filename ));
-		search->zip = zip;
-		search->type = SEARCHPATH_ZIP;
-		search->next = fs_searchpaths;
-		search->flags = flags;
-
-		search->pfnPrintInfo = FS_PrintInfo_ZIP;
-		search->pfnClose = FS_Close_ZIP;
-		search->pfnOpenFile = FS_OpenFile_ZIP;
-		search->pfnFileTime = FS_FileTime_ZIP;
-		search->pfnFindFile = FS_FindFile_ZIP;
-		search->pfnSearch = FS_Search_ZIP;
-		search->pfnLoadFile = FS_LoadZIPFile;
-
-		fs_searchpaths = search;
-
-		Con_Reportf( "Adding zipfile: %s (%i files)\n", zipfile, zip->numfiles );
-
-		// time to add in search list all the wads that contains in current pakfile (if do)
-		for( i = 0; i < zip->numfiles; i++ )
-		{
-			if( !Q_stricmp( COM_FileExtension( zip->files[i].name ), "wad" ))
-			{
-				Q_snprintf( fullpath, MAX_STRING, "%s/%s", zipfile, zip->files[i].name );
-				FS_AddWad_Fullpath( fullpath, NULL, flags );
-			}
-		}
-
-		return search;
-	}
-	else
+	if( !zip )
 	{
 		if( errorcode != ZIP_LOAD_NO_FILES )
 			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
 		return NULL;
 	}
+
+	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ) );
+	Q_strncpy( search->filename, zipfile, sizeof( search->filename ));
+	search->zip = zip;
+	search->type = SEARCHPATH_ZIP;
+	search->flags = flags;
+
+	search->pfnPrintInfo = FS_PrintInfo_ZIP;
+	search->pfnClose = FS_Close_ZIP;
+	search->pfnOpenFile = FS_OpenFile_ZIP;
+	search->pfnFileTime = FS_FileTime_ZIP;
+	search->pfnFindFile = FS_FindFile_ZIP;
+	search->pfnSearch = FS_Search_ZIP;
+	search->pfnLoadFile = FS_LoadZIPFile;
+
+	Con_Reportf( "Adding zipfile: %s (%i files)\n", zipfile, zip->numfiles );
+	return search;
 }
 
