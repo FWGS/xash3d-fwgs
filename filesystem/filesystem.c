@@ -48,11 +48,11 @@ GNU General Public License for more details.
 fs_globals_t FI;
 qboolean      fs_ext_path = false;	// attempt to read\write from ./ or ../ pathes
 poolhandle_t  fs_mempool;
-searchpath_t *fs_searchpaths = NULL;	// chain
 char          fs_rodir[MAX_SYSPATH];
 char          fs_rootdir[MAX_SYSPATH];
 searchpath_t *fs_writepath;
 
+static searchpath_t *fs_searchpaths = NULL;	// chain
 static char			fs_basedir[MAX_SYSPATH];	// base game directory
 static char			fs_gamedir[MAX_SYSPATH];	// game current directory
 
@@ -1841,6 +1841,33 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 		*index = -1;
 
 	return NULL;
+}
+
+/*
+===========================
+FS_FullPathToRelativePath
+
+Converts full path to the relative path considering current searchpaths
+(do not use this function, implemented only for VFileSystem009)
+===========================
+*/
+qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size )
+{
+	searchpath_t *sp;
+
+	for( sp = fs_searchpaths; sp; sp = sp->next )
+	{
+		size_t splen = Q_strlen( sp->filename );
+
+		if( !Q_strnicmp( sp->filename, src, splen ))
+		{
+			Q_strncpy( dst, src + splen + 1, size );
+			return true;
+		}
+	}
+
+	Q_strncpy( dst, src, size );
+	return false;
 }
 
 

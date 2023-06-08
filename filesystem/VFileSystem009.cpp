@@ -406,8 +406,6 @@ public:
 
 	bool FullPathToRelativePath( const char *path, char *out ) override
 	{
-		searchpath_t *sp;
-
 		if( !COM_CheckString( path ))
 		{
 			*out = 0;
@@ -416,19 +414,7 @@ public:
 
 		FixupPath( p, path );
 
-		for( sp = fs_searchpaths; sp; sp = sp->next )
-		{
-			size_t splen = Q_strlen( sp->filename );
-
-			if( !Q_strnicmp( sp->filename, p, splen ))
-			{
-				Q_strncpy( out, p + splen + 1, 512 );
-				return true;
-			}
-		}
-
-		Q_strncpy( out, p, 512 );
-		return false;
+		return FS_FullPathToRelativePath( out, p, 512 );
 	}
 
 	bool GetCurrentDirectory( char *p, int size ) override
