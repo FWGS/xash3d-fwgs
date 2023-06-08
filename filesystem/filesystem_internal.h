@@ -104,7 +104,6 @@ typedef struct fs_archive_s
 } fs_archive_t;
 
 extern fs_globals_t  FI;
-extern searchpath_t *fs_searchpaths;
 extern searchpath_t *fs_writepath;
 extern poolhandle_t  fs_mempool;
 extern fs_interface_t g_engfuncs;
@@ -201,6 +200,7 @@ int           FS_SysFileTime( const char *filename );
 file_t       *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_offset_t len );
 file_t       *FS_SysOpen( const char *filepath, const char *mode );
 searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t len, qboolean gamedironly );
+qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size );
 
 //
 // pak.c
