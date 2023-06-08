@@ -60,9 +60,10 @@ static char			fs_gamedir[MAX_SYSPATH];	// game current directory
 // so raw WADs takes precedence over WADs included into PAKs and PK3s
 const fs_archive_t g_archives[] =
 {
-{ "pak", SEARCHPATH_PAK, FS_AddPak_Fullpath, true },
-{ "pk3", SEARCHPATH_ZIP, FS_AddZip_Fullpath, true },
-{ "wad", SEARCHPATH_WAD, FS_AddWad_Fullpath, false },
+{ "pak",    SEARCHPATH_PAK,    FS_AddPak_Fullpath, true },
+{ "pk3",    SEARCHPATH_ZIP,    FS_AddZip_Fullpath, true },
+{ "pk3dir", SEARCHPATH_PK3DIR, FS_AddDir_Fullpath, true },
+{ "wad",    SEARCHPATH_WAD,    FS_AddWad_Fullpath, false },
 { NULL }, // end marker
 };
 
