@@ -3063,64 +3063,6 @@ void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 }
 
 /*
-==================
-SV_TSourceEngineQuery
-==================
-*/
-void SV_TSourceEngineQuery( netadr_t from )
-{
-	// A2S_INFO
-	char	answer[1024] = "";
-	int	count, bots;
-	int	index;
-	sizebuf_t	buf;
-
-	SV_GetPlayerCount( &count, &bots );
-
-	MSG_Init( &buf, "TSourceEngineQuery", answer, sizeof( answer ));
-
-	MSG_WriteLong( &buf, -1 ); // Mark as connectionless
-	MSG_WriteByte( &buf, 'm' );
-	MSG_WriteString( &buf, NET_AdrToString( net_local ));
-	MSG_WriteString( &buf, hostname.string );
-	MSG_WriteString( &buf, sv.name );
-	MSG_WriteString( &buf, GI->gamefolder );
-	MSG_WriteString( &buf, GI->title );
-	MSG_WriteByte( &buf, count );
-	MSG_WriteByte( &buf, svs.maxclients );
-	MSG_WriteByte( &buf, PROTOCOL_VERSION );
-	MSG_WriteByte( &buf, Host_IsDedicated() ? 'D' : 'L' );
-#if defined(_WIN32)
-	MSG_WriteByte( &buf, 'W' );
-#else
-	MSG_WriteByte( &buf, 'L' );
-#endif
-	if( Q_stricmp( GI->gamefolder, "valve" ))
-	{
-		MSG_WriteByte( &buf, 1 ); // mod
-		MSG_WriteString( &buf, GI->game_url );
-		MSG_WriteString( &buf, GI->update_url );
-		MSG_WriteByte( &buf, 0 );
-		MSG_WriteLong( &buf, (int)GI->version );
-		MSG_WriteLong( &buf, GI->size );
-
-		if( GI->gamemode == 2 )
-			MSG_WriteByte( &buf, 1 ); // multiplayer_only
-		else MSG_WriteByte( &buf, 0 );
-
-		if( Q_strstr( GI->game_dll, "hl." ))
-			MSG_WriteByte( &buf, 0 ); // Half-Life DLL
-		else MSG_WriteByte( &buf, 1 ); // Own DLL
-	}
-	else MSG_WriteByte( &buf, 0 ); // Half-Life
-
-	MSG_WriteByte( &buf, GI->secure ); // unsecure
-	MSG_WriteByte( &buf, bots );
-
-	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &buf ), MSG_GetData( &buf ), from );
-}
-
-/*
 =================
 SV_ConnectionlessPacket
 
@@ -3159,8 +3101,8 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, "rcon" )) SV_RemoteCommand( from, msg );
 	else if( !Q_strcmp( pcmd, "netinfo" )) SV_BuildNetAnswer( from );
 	else if( !Q_strcmp( pcmd, "s" )) SV_AddToMaster( from, msg );
-	else if( !Q_strcmp( pcmd, "T" "Source" )) SV_TSourceEngineQuery( from );
 	else if( !Q_strcmp( pcmd, "i" )) NET_SendPacket( NS_SERVER, 5, "\xFF\xFF\xFF\xFFj", from ); // A2A_PING
+	else if( SV_SourceQuery_HandleConnnectionlessPacket( pcmd, from ) ) return;
 	else if( !Q_strcmp( pcmd, "c" ) && sv_nat.value && NET_IsMasterAdr( from ))
 	{
 		netadr_t to;
