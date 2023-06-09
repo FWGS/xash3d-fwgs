@@ -181,7 +181,7 @@ void SV_SourceQuery_Players( netadr_t from )
 SV_SourceQuery_HandleConnnectionlessPacket
 ==================
 */
-qboolean SV_SourceQuery_HandleConnnectionlessPacket( char *c, netadr_t from )
+qboolean SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from )
 {
 	int request = c[0];
 
@@ -189,25 +189,25 @@ qboolean SV_SourceQuery_HandleConnnectionlessPacket( char *c, netadr_t from )
 	{
 	case SOURCE_QUERY_INFO:
 		SV_SourceQuery_Details( from );
-		return TRUE;
+		return true;
 
 	case SOURCE_QUERY_PING:
 		Netchan_OutOfBandPrint( NS_SERVER, from, "%c00000000000000", SOURCE_QUERY_ACK );
-		return TRUE;
+		return true;
 
 	case SOURCE_QUERY_ACK:
-		return TRUE;
+		return true;
 
 	case SOURCE_QUERY_RULES:
 		SV_SourceQuery_Rules( from );
-		return TRUE;
+		return true;
 
 	case SOURCE_QUERY_PLAYERS:
 		SV_SourceQuery_Players( from );
-		return TRUE;
+		return true;
 
 	default:
-		return FALSE;
+		return false;
 	}
-	return FALSE;
+	return false;
 }
