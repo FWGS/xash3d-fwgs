@@ -25,9 +25,6 @@ GNU General Public License for more details.
 #define SOURCE_QUERY_PLAYERS 'U'
 #define SOURCE_QUERY_PLAYERS_RESPONSE 'D'
 
-#define SOURCE_QUERY_PING 'i'
-#define SOURCE_QUERY_ACK 'j'
-
 #define SOURCE_QUERY_CONNECTIONLESS -1
 
 /*
@@ -189,13 +186,6 @@ qboolean SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t fro
 	{
 	case SOURCE_QUERY_INFO:
 		SV_SourceQuery_Details( from );
-		return true;
-
-	case SOURCE_QUERY_PING:
-		Netchan_OutOfBandPrint( NS_SERVER, from, "%c00000000000000", SOURCE_QUERY_ACK );
-		return true;
-
-	case SOURCE_QUERY_ACK:
 		return true;
 
 	case SOURCE_QUERY_RULES:
