@@ -35,28 +35,16 @@ SV_SourceQuery_Details
 void SV_SourceQuery_Details( netadr_t from )
 {
 	sizebuf_t buf;
-	char answer[2048] = "";
-	char version[128] = "";
-
-	int i, bot_count = 0, client_count = 0;
+	char answer[2048];
+	int i, bot_count, client_count;
 	int is_private = 0;
 
-	if ( svs.clients )
-	{
-		for ( i = 0; i < svs.maxclients; i++ )
-		{
-			if ( svs.clients[i].state >= cs_connected )
-			{
-				if ( svs.clients[i].edict->v.flags & FL_FAKECLIENT )
-					bot_count++;
+	SV_GetPlayerCount( &client_count, &bot_count );
+	client_count += bot_count; // bots are counted as players in this reply
+	if( COM_CheckStringEmpty( sv_password.string ) && Q_stricmp( sv_password.string, "none" ))
+		is_private = 1;
 
-				client_count++;
-			}
-		}
-	}
-	is_private = ( sv_password.string[0] && ( Q_stricmp( sv_password.string, "none" ) || !Q_strlen( sv_password.string ) ) ? 1 : 0 );
-
-    MSG_Init( &buf, "TSourceEngineQuery", answer, sizeof( answer ));
+	MSG_Init( &buf, "TSourceEngineQuery", answer, sizeof( answer ));
 
 	MSG_WriteLong( &buf, SOURCE_QUERY_CONNECTIONLESS );
 	MSG_WriteByte( &buf, SOURCE_QUERY_DETAILS );
@@ -65,7 +53,7 @@ void SV_SourceQuery_Details( netadr_t from )
 	MSG_WriteString( &buf, hostname.string );
 	MSG_WriteString( &buf, sv.name );
 	MSG_WriteString( &buf, GI->gamefolder );
-	MSG_WriteString( &buf, svgame.dllFuncs.pfnGetGameDescription( ) );
+	MSG_WriteString( &buf, svgame.dllFuncs.pfnGetGameDescription( ));
 
 	MSG_WriteShort( &buf, 0 );
 	MSG_WriteByte( &buf, client_count );
@@ -73,9 +61,9 @@ void SV_SourceQuery_Details( netadr_t from )
 	MSG_WriteByte( &buf, bot_count );
 
 	MSG_WriteByte( &buf, Host_IsDedicated( ) ? 'd' : 'l' );
-#if defined( _WIN32 )
+#if XASH_WIN32
 	MSG_WriteByte( &buf, 'w' );
-#elif defined( __APPLE__ )
+#elif XASH_APPLE
 	MSG_WriteByte( &buf, 'm' );
 #else
 	MSG_WriteByte( &buf, 'l' );
@@ -95,34 +83,33 @@ SV_SourceQuery_Rules
 void SV_SourceQuery_Rules( netadr_t from )
 {
 	sizebuf_t buf;
-	char answer[1024 * 8] = "";
-
+	char answer[1024 * 8];
 	cvar_t *cvar;
 	int cvar_count = 0;
 
-	for ( cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
+	for( cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
 	{
-		if ( cvar->flags & FCVAR_SERVER )
+		if( FBitSet( cvar->flags, FCVAR_SERVER ))
 			cvar_count++;
 	}
-	if ( cvar_count <= 0 )
+	if( cvar_count <= 0 )
 		return;
 
-	MSG_Init( &buf, "TSourceEngineQueryRules", answer, sizeof( answer ) );
+	MSG_Init( &buf, "TSourceEngineQueryRules", answer, sizeof( answer ));
 
 	MSG_WriteLong( &buf, SOURCE_QUERY_CONNECTIONLESS );
 	MSG_WriteByte( &buf, SOURCE_QUERY_RULES_RESPONSE );
 	MSG_WriteShort( &buf, cvar_count );
 
-	for ( cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
+	for( cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
 	{
-		if ( !( cvar->flags & FCVAR_SERVER ) )
+		if( !FBitSet( cvar->flags, FCVAR_SERVER ))
 			continue;
 
 		MSG_WriteString( &buf, cvar->name );
 
-		if ( cvar->flags & FCVAR_PROTECTED )
-			MSG_WriteString( &buf, ( Q_strlen( cvar->string ) > 0 && Q_stricmp( cvar->string, "none" ) ) ? "1" : "0" );
+		if( FBitSet( cvar->flags, FCVAR_PROTECTED ))
+			MSG_WriteString( &buf, ( COM_CheckStringEmpty( cvar->string ) && Q_stricmp( cvar->string, "none" )) ? "1" : "0" );
 		else
 			MSG_WriteString( &buf, cvar->string );
 	}
@@ -137,38 +124,33 @@ SV_SourceQuery_Players
 void SV_SourceQuery_Players( netadr_t from )
 {
 	sizebuf_t buf;
-	char answer[1024 * 8] = "";
+	char answer[1024 * 8];
+	int i, client_count, bot_count_unused;
 
-	int i, client_count = 0;
+	SV_GetPlayerCount( &client_count, &bot_count_unused );
 
-	if ( svs.clients )
-	{
-		for ( i = 0; i < svs.maxclients; i++ )
-		{
-			if ( svs.clients[i].state >= cs_connected )
-				client_count++;
-		}
-	}
-	if ( client_count <= 0 )
+	if( client_count <= 0 )
 		return;
 
-	MSG_Init( &buf, "TSourceEngineQueryPlayers", answer, sizeof( answer ) );
+	MSG_Init( &buf, "TSourceEngineQueryPlayers", answer, sizeof( answer ));
 
 	MSG_WriteLong( &buf, SOURCE_QUERY_CONNECTIONLESS );
 	MSG_WriteByte( &buf, SOURCE_QUERY_PLAYERS_RESPONSE );
 	MSG_WriteByte( &buf, client_count );
 
-	for ( i = 0; i < svs.maxclients; i++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
 		sv_client_t *cl = &svs.clients[i];
 
-		if ( cl->state < cs_connected )
+		if( cl->state < cs_connected )
 			continue;
 
 		MSG_WriteByte( &buf, i );
 		MSG_WriteString( &buf, cl->name );
 		MSG_WriteLong( &buf, cl->edict->v.frags );
-		MSG_WriteFloat( &buf, ( cl->edict->v.flags &  FL_FAKECLIENT ) ? -1.0 : ( host.realtime - cl->connecttime ) );
+		if( FBitSet( cl->flags, FCL_FAKECLIENT ))
+			MSG_WriteFloat( &buf, -1.0f );
+		else MSG_WriteFloat( &buf, host.realtime - cl->connecttime );
 	}
 	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &buf ), MSG_GetData( &buf ), from );
 }
@@ -182,7 +164,7 @@ qboolean SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t fro
 {
 	int request = c[0];
 
-	switch ( request )
+	switch( request )
 	{
 	case SOURCE_QUERY_INFO:
 		SV_SourceQuery_Details( from );
