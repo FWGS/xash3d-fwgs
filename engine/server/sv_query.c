@@ -52,8 +52,8 @@ void SV_SourceQuery_Details( netadr_t from )
 			{
 				if ( svs.clients[i].edict->v.flags & FL_FAKECLIENT )
 					bot_count++;
-                    
-                client_count++;
+
+				client_count++;
 			}
 		}
 	}

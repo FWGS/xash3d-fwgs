@@ -3092,8 +3092,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	pcmd = Cmd_Argv( 0 );
 	Con_Reportf( "SV_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), pcmd );
 
-	if (SV_SourceQuery_HandleConnnectionlessPacket ( pcmd, from ) ) return;
-	else if( !Q_strcmp( pcmd, "ping" )) SV_Ping( from );
+	if( !Q_strcmp( pcmd, "ping" )) SV_Ping( from );
 	else if( !Q_strcmp( pcmd, "ack" )) SV_Ack( from );
 	else if( !Q_strcmp( pcmd, "info" )) SV_Info( from, Q_atoi( Cmd_Argv( 1 )));
 	else if( !Q_strcmp( pcmd, "bandwidth" )) SV_TestBandWidth( from );
@@ -3102,9 +3101,8 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, "rcon" )) SV_RemoteCommand( from, msg );
 	else if( !Q_strcmp( pcmd, "netinfo" )) SV_BuildNetAnswer( from );
 	else if( !Q_strcmp( pcmd, "s" )) SV_AddToMaster( from, msg );
-	else if( !Q_strcmp( pcmd, "i" )) NET_SendPacket( NS_SERVER, 5, "\xFF\xFF\xFF\xFFj", from ); // A2A_PING
+	else if (SV_SourceQuery_HandleConnnectionlessPacket ( pcmd, from ) ) return;
 	else if( !Q_strcmp( pcmd, "c" ) && sv_nat.value && NET_IsMasterAdr( from ))
-
 	{
 		netadr_t to;
 		if( NET_StringToAdr( Cmd_Argv( 1 ), &to ) && !NET_IsReservedAdr( to ))
