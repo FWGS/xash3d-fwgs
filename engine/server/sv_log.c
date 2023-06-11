@@ -181,7 +181,7 @@ void SV_SetLogAddress_f( void )
 
 	if( Cmd_Argc() != 3 )
 	{
-		Con_Printf( "logaddress: usage\nlogaddress < ip port | off >\n" );
+		Con_Printf( S_USAGE "logaddress < ip port | off >\n" );
 
 		if( svs.log.active && svs.log.net_log )
 			Con_Printf( "current: %s\n", NET_AdrToString( svs.log.net_address ));
