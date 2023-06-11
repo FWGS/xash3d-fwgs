@@ -125,9 +125,10 @@ void SV_SourceQuery_Players( netadr_t from )
 {
 	sizebuf_t buf;
 	char answer[1024 * 8];
-	int i, client_count, bot_count_unused;
+	int i, client_count, bot_count;
 
-	SV_GetPlayerCount( &client_count, &bot_count_unused );
+	SV_GetPlayerCount( &client_count, &bot_count );
+	client_count += bot_count; // bots are counted as players in this reply
 
 	if( client_count <= 0 )
 		return;
