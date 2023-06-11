@@ -169,11 +169,21 @@ void SV_SetLogAddress_f( void )
 	int port;
 	string addr;
 
+	if( svs.log.net_log && Cmd_Argc() == 2 && !Q_strcmp( Cmd_Argv( 1 ), "off" )) 
+	{
+		svs.log.net_log = false;
+		memset( &svs.log.net_address, 0, sizeof( netadr_t ));
+
+		Con_Printf( "logaddress: disabled.\n" );
+
+		return;
+	}
+
 	if( Cmd_Argc() != 3 )
 	{
-		Con_Printf( "logaddress: usage\nlogaddress ip port\n" );
+		Con_Printf( "logaddress: usage\nlogaddress < ip port | off >\n" );
 
-		if( svs.log.active )
+		if( svs.log.active && svs.log.net_log )
 			Con_Printf( "current: %s\n", NET_AdrToString( svs.log.net_address ));
 
 		return;
