@@ -1992,6 +1992,11 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		int	realsize;
 		dword	crcValue2 = 0;
 
+		// this message only used during connection
+		// it doesn't make sense after client_connect
+		if( cls.state != ca_connecting )
+			return;
+
 		if( !CL_IsFromConnectingServer( from ))
 			return;
 
@@ -2055,6 +2060,11 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( c, "challenge" ))
 	{
+		// this message only used during connection
+		// it doesn't make sense after client_connect
+		if( cls.state != ca_connecting )
+			return;
+
 		if( !CL_IsFromConnectingServer( from ))
 			return;
 
@@ -2073,6 +2083,11 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( c, "disconnect" ))
 	{
+		// this message only used during connection
+		// it doesn't make sense after client_connect
+		if( cls.state != ca_connecting )
+			return;
+
 		if( !CL_IsFromConnectingServer( from ))
 			return;
 
