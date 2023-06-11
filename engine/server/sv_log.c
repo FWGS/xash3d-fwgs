@@ -225,7 +225,10 @@ void SV_ServerLog_f( void )
 	if( !Q_stricmp( Cmd_Argv( 1 ), "off" ))
 	{
 		if( svs.log.active )
+		{
 			Log_Close();
+			svs.log.active = false;
+		}
 	}
 	else if( !Q_stricmp( Cmd_Argv( 1 ), "on" ))
 	{
