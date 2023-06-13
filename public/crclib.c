@@ -104,9 +104,7 @@ void GAME_EXPORT CRC32_ProcessByte( dword *pulCRC, byte ch )
 {
 	dword	ulCrc = *pulCRC;
 
-	ulCrc ^= ch;
-	ulCrc = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-	*pulCRC = ulCrc;
+	*pulCRC = crc32table[((byte)ulCrc ^ ch)] ^ (ulCrc >> 8);
 }
 
 void GAME_EXPORT CRC32_ProcessBuffer( dword *pulCRC, const void *pBuffer, int nBuffer )
