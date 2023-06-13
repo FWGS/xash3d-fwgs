@@ -378,6 +378,13 @@ typedef struct
 	entity_state_t	*static_entities;		// [MAX_STATIC_ENTITIES];
 
 	challenge_t	challenges[MAX_CHALLENGES];	// to prevent invalid IPs from connecting
+
+	sizebuf_t testpacket;         // pregenerataed testpacket, only needs CRC32 patching
+	byte      *testpacket_buf;    // check for NULL if testpacket is available
+	byte      *testpacket_crcpos; // pointer to write pregenerated crc (unaligned!!!)
+	uint32_t  *testpacket_crcs;   // checksums lookup table
+	int       testpacket_filepos; // file position (need to calculate lookup table pos)
+	int       testpacket_filelen; // file and lookup table length
 } server_static_t;
 
 //=============================================================================

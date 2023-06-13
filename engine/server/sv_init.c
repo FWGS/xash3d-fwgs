@@ -884,6 +884,77 @@ static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean m
 
 /*
 ================
+SV_GenerateTestPacket
+================
+*/
+static void SV_GenerateTestPacket( void )
+{
+	const int maxsize = FRAGMENT_MAX_SIZE;
+	uint32_t crc;
+	file_t *file;
+	byte *filepos;
+	int i, filesize;
+
+	// testpacket already generated once, exit
+	// testpacket and lookup table takes ~300k of memory
+	// disable for low memory mode
+	if( svs.testpacket_buf || XASH_LOW_MEMORY >= 0 )
+		return;
+
+	// don't need in singleplayer with full client
+	if( svs.maxclients <= 1 && !Host_IsDedicated( ))
+		return;
+
+	file = FS_Open( "gfx.wad", "rb", false );
+	if( FS_FileLength( file ) < maxsize )
+	{
+		FS_Close( file );
+		return;
+	}
+
+	svs.testpacket_buf = Mem_Malloc( host.mempool, sizeof( *svs.testpacket_buf ) * maxsize );
+
+	// write packet base data
+	MSG_Init( &svs.testpacket, "BandWidthTest", svs.testpacket_buf, maxsize );
+	MSG_WriteLong( &svs.testpacket, -1 );
+	MSG_WriteString( &svs.testpacket, "testpacket" );
+	svs.testpacket_crcpos = svs.testpacket.pData + MSG_GetNumBytesWritten( &svs.testpacket );
+	MSG_WriteDword( &svs.testpacket, 0 ); // to be changed by crc
+
+	// time to read our file
+	svs.testpacket_filepos = MSG_GetNumBytesWritten( &svs.testpacket );
+	svs.testpacket_filelen = maxsize - svs.testpacket_filepos;
+
+	filepos = svs.testpacket.pData + svs.testpacket_filepos;
+	FS_Read( file, filepos, svs.testpacket_filelen );
+	FS_Close( file );
+
+	// now generate checksums lookup table
+	svs.testpacket_crcs = Mem_Malloc( host.mempool, sizeof( *svs.testpacket_crcs ) * svs.testpacket_filelen );
+	crc = 0; // intentional omit of CRC32_Init because of the client
+
+	// TODO: shrink to minimum!
+	for( i = 0; i < svs.testpacket_filelen; i++ )
+	{
+		uint32_t crc2;
+
+		CRC32_ProcessByte( &crc, filepos[i] );
+		svs.testpacket_crcs[i] = crc;
+#if 0
+		// test
+		crc2 = 0;
+		CRC32_ProcessBuffer( &crc2, filepos, i + 1 );
+		if( svs.testpacket_crcs[i] != crc2 )
+		{
+			Con_Printf( "%d: 0x%x != 0x%x\n", i, svs.testpacket_crcs[i], crc2 );
+			svs.testpacket_crcs[i] = crc = crc2;
+		}
+#endif
+	}
+}
+
+/*
+================
 SV_SpawnServer
 
 Change the server to a new map, taking all connected
@@ -1025,6 +1096,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	// clear physics interaction links
 	SV_ClearWorld();
+
+	// pregenerate test packet
+	SV_GenerateTestPacket();
 
 	return true;
 }
