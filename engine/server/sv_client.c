@@ -832,14 +832,10 @@ SV_TestBandWidth
 */
 void SV_TestBandWidth( netadr_t from )
 {
-	int	version = Q_atoi( Cmd_Argv( 1 ));
-	int	packetsize = Q_atoi( Cmd_Argv( 2 ));
-	byte	send_buf[FRAGMENT_MAX_SIZE];
-	dword	crcValue = 0;
-	byte	*filepos;
-	int	crcpos;
-	file_t	*test;
-	sizebuf_t	send;
+	const int version = Q_atoi( Cmd_Argv( 1 ));
+	const int packetsize = Q_atoi( Cmd_Argv( 2 ));
+	uint32_t crc;
+	int ofs;
 
 	// don't waste time of protocol mismatched
 	if( version != PROTOCOL_VERSION )
@@ -848,32 +844,29 @@ void SV_TestBandWidth( netadr_t from )
 		return;
 	}
 
-	test = FS_Open( "gfx.wad", "rb", false );
-
-	if( FS_FileLength( test ) < sizeof( send_buf ))
+	// quickly reject invalid packets
+	if( !svs.testpacket_buf ||
+		( packetsize <= FRAGMENT_MIN_SIZE ) ||
+		( packetsize > FRAGMENT_MAX_SIZE ))
 	{
 		// skip the test and just get challenge
 		SV_GetChallenge( from );
 		return;
 	}
 
-	// write the packet header
-	MSG_Init( &send, "BandWidthPacket", send_buf, sizeof( send_buf ));
-	MSG_WriteLong( &send, -1 );	// -1 sequence means out of band
-	MSG_WriteString( &send, "testpacket" );
-	crcpos = MSG_GetNumBytesWritten( &send );
-	MSG_WriteLong( &send, 0 ); // reserve space for crc
-	filepos = send.pData + MSG_GetNumBytesWritten( &send );
-	packetsize = packetsize - MSG_GetNumBytesWritten( &send ); // adjust the packet size
-	FS_Read( test, filepos, packetsize );
-	FS_Close( test );
+	// don't go out of bounds
+	ofs = packetsize - svs.testpacket_filepos - 1;
+	if(( ofs < 0 ) || ( ofs > svs.testpacket_filelen ))
+	{
+		SV_GetChallenge( from );
+		return;
+	}
 
-	CRC32_ProcessBuffer( &crcValue, filepos, packetsize );	// calc CRC
-	MSG_SeekToBit( &send, packetsize << 3, SEEK_CUR );
-	*(uint *)&send.pData[crcpos] = crcValue;
+	crc = svs.testpacket_crcs[ofs];
+	memcpy( svs.testpacket_crcpos, &crc, sizeof( crc ));
 
 	// send the datagram
-	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), from );
+	NET_SendPacket( NS_SERVER, packetsize, MSG_GetData( &svs.testpacket ), from );
 }
 
 /*
