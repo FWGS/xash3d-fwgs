@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #define CRC32_INIT_VALUE	0xFFFFFFFFUL
 #define CRC32_XOR_VALUE	0xFFFFFFFFUL
 
-static const dword crc32table[NUM_BYTES] =
+static const uint32_t crc32table[NUM_BYTES] =
 {
 0x00000000, 0x77073096, 0xee0e612c, 0x990951ba,
 0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
@@ -90,26 +90,26 @@ static const dword crc32table[NUM_BYTES] =
 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
-void GAME_EXPORT CRC32_Init( dword *pulCRC )
+void GAME_EXPORT CRC32_Init( uint32_t *pulCRC )
 {
 	*pulCRC = CRC32_INIT_VALUE;
 }
 
-dword GAME_EXPORT CRC32_Final( dword pulCRC )
+uint32_t GAME_EXPORT CRC32_Final( uint32_t pulCRC )
 {
 	return pulCRC ^ CRC32_XOR_VALUE;
 }
 
-void GAME_EXPORT CRC32_ProcessByte( dword *pulCRC, byte ch )
+void GAME_EXPORT CRC32_ProcessByte( uint32_t *pulCRC, byte ch )
 {
-	dword	ulCrc = *pulCRC;
+	uint32_t	ulCrc = *pulCRC;
 
 	*pulCRC = crc32table[((byte)ulCrc ^ ch)] ^ (ulCrc >> 8);
 }
 
-void GAME_EXPORT CRC32_ProcessBuffer( dword *pulCRC, const void *pBuffer, int nBuffer )
+void GAME_EXPORT CRC32_ProcessBuffer( uint32_t *pulCRC, const void *pBuffer, int nBuffer )
 {
-	dword	ulCrc = *pulCRC, tmp;
+	uint32_t	ulCrc = *pulCRC, tmp;
 	byte	*pb = (byte *)pBuffer;
 
 	while( nBuffer >= sizeof( uint64_t ))
@@ -159,7 +159,7 @@ For proxy protecting
 */
 byte CRC32_BlockSequence( byte *base, int length, int sequence )
 {
-	dword	CRC;
+	uint32_t	CRC;
 	char	*ptr;
 	char	buffer[64];
 
