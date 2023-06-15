@@ -13,6 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Linux build specifically want oldest Ubuntu as possible
+          # to be crossdistribution compatible, otherwise use ubuntu-latest
           - os: ubuntu-20.04
             targetos: linux
             targetarch: amd64
@@ -34,10 +36,10 @@ jobs:
 #            targetos: motomagx
 #            targetarch: armv6
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             targetos: nswitch
             targetarch: arm64
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             targetos: psvita
             targetarch: armv7hf
           - os: windows-latest
