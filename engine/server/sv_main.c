@@ -144,7 +144,7 @@ CVAR_DEFINE_AUTO( sv_userinfo_enable_penalty, "1", FCVAR_ARCHIVE, "enable penalt
 CVAR_DEFINE_AUTO( sv_userinfo_penalty_time, "0.3", FCVAR_ARCHIVE, "initial penalty time" );
 CVAR_DEFINE_AUTO( sv_userinfo_penalty_multiplier, "2", FCVAR_ARCHIVE, "penalty time multiplier" );
 CVAR_DEFINE_AUTO( sv_userinfo_penalty_attempts, "4", FCVAR_ARCHIVE, "if max attempts count was exceeded, penalty time will be increased" );
-
+CVAR_DEFINE_AUTO( sv_fullupdate_penalty_time, "1", FCVAR_ARCHIVE, "allow fullupdate command only once in this timewindow (set 0 to disable)" );
 
 //============================================================================
 /*
@@ -938,6 +938,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_userinfo_penalty_time );
 	Cvar_RegisterVariable( &sv_userinfo_penalty_multiplier );
 	Cvar_RegisterVariable( &sv_userinfo_penalty_attempts );
+	Cvar_RegisterVariable( &sv_fullupdate_penalty_time );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );

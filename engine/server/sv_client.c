@@ -3090,10 +3090,18 @@ void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 
 	if( !u->name && sv.state == ss_active )
 	{
+		qboolean fullupdate = !Q_strcmp( Cmd_Argv( 0 ), "fullupdate" );
+
+		if( fullupdate )
+		{
+			if( sv_fullupdate_penalty_time.value && host.realtime < cl->fullupdate_next_calltime )
+				return;
+		}
+
 		// custom client commands
 		svgame.dllFuncs.pfnClientCommand( cl->edict );
 
-		if( !Q_strcmp( Cmd_Argv( 0 ), "fullupdate" ))
+		if( fullupdate )
 		{
 			// resend the ambient sounds for demo recording
 			SV_RestartAmbientSounds();
@@ -3103,6 +3111,9 @@ void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 			SV_RestartStaticEnts();
 			// resend the viewentity
 			SV_UpdateClientView( cl );
+
+			if( sv_fullupdate_penalty_time.value )
+				cl->fullupdate_next_calltime = host.realtime + sv_fullupdate_penalty_time.value;
 		}
 	}
 }
