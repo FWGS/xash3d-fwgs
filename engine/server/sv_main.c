@@ -140,6 +140,12 @@ static CVAR_DEFINE_AUTO( sv_allow_touch, "1", FCVAR_ARCHIVE, "allow connect with
 static CVAR_DEFINE_AUTO( sv_allow_vr, "1", FCVAR_ARCHIVE, "allow connect from vr version" );
 static CVAR_DEFINE_AUTO( sv_allow_noinputdevices, "1", FCVAR_ARCHIVE, "allow connect from old versions without useragent" );
 
+CVAR_DEFINE_AUTO( sv_userinfo_enable_penalty, "1", FCVAR_ARCHIVE, "enable penalty time for too fast userinfo updates(name, model, etc)" );
+CVAR_DEFINE_AUTO( sv_userinfo_penalty_time, "0.3", FCVAR_ARCHIVE, "initial penalty time" );
+CVAR_DEFINE_AUTO( sv_userinfo_penalty_multiplier, "2", FCVAR_ARCHIVE, "penalty time multiplier" );
+CVAR_DEFINE_AUTO( sv_userinfo_penalty_attempts, "4", FCVAR_ARCHIVE, "if max attempts count was exceeded, penalty time will be increased" );
+
+
 //============================================================================
 /*
 ================
@@ -927,6 +933,11 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_allow_touch );
 	Cvar_RegisterVariable( &sv_allow_vr );
 	Cvar_RegisterVariable( &sv_allow_noinputdevices );
+
+	Cvar_RegisterVariable( &sv_userinfo_enable_penalty );
+	Cvar_RegisterVariable( &sv_userinfo_penalty_time );
+	Cvar_RegisterVariable( &sv_userinfo_penalty_multiplier );
+	Cvar_RegisterVariable( &sv_userinfo_penalty_attempts );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );

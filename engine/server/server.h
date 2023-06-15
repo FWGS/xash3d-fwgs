@@ -261,6 +261,11 @@ typedef struct sv_client_s
 
 	int ignorecmdtime_warns; // how many times client time was faster than server during this session
 	qboolean ignorecmdtime_warned; // did we warn our server operator in the log for this batch of commands?
+
+	double fullupdate_next_calltime;
+	double userinfo_next_changetime;
+	double userinfo_penalty;
+	int    userinfo_change_attempts;
 } sv_client_t;
 
 /*
@@ -462,6 +467,10 @@ extern convar_t		sv_novis;
 extern convar_t		sv_hostmap;
 extern convar_t		sv_validate_changelevel;
 extern convar_t		sv_maxclients;
+extern convar_t		sv_userinfo_enable_penalty;
+extern convar_t		sv_userinfo_penalty_time;
+extern convar_t		sv_userinfo_penalty_multiplier;
+extern convar_t		sv_userinfo_penalty_attempts;
 
 //===========================================================
 //
@@ -479,7 +488,6 @@ int SV_CalcPacketLoss( sv_client_t *cl );
 void SV_ExecuteUserCommand (char *s);
 void SV_InitOperatorCommands( void );
 void SV_KillOperatorCommands( void );
-void SV_UserinfoChanged( sv_client_t *cl );
 void SV_RemoteCommand( netadr_t from, sizebuf_t *msg );
 void SV_PrepWorldFrame( void );
 void SV_ProcessFile( sv_client_t *cl, const char *filename );

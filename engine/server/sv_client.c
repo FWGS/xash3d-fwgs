@@ -42,6 +42,8 @@ typedef struct ucmd_s
 
 static int	g_userid = 1;
 
+static void SV_UserinfoChanged( sv_client_t *cl );
+
 /*
 =================
 SV_GetPlayerCount
@@ -1775,6 +1777,50 @@ static qboolean SV_Pause_f( sv_client_t *cl )
 	return true;
 }
 
+static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
+{
+	qboolean allow = true; // predict state
+
+	if( !sv_userinfo_enable_penalty.value )
+		return allow;
+
+	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
+		return allow;
+
+	// start from 1 second
+	if( !cl->userinfo_penalty )
+		cl->userinfo_penalty = sv_userinfo_penalty_time.value;
+
+	// player changes userinfo after limit time window, but before
+	// next timewindow
+	// he seems to be spammer, so just increase change attempts
+	if( host.realtime < cl->userinfo_next_changetime + cl->userinfo_penalty * sv_userinfo_penalty_multiplier.value )
+	{
+		// player changes userinfo too quick! ignore!
+		if( host.realtime < cl->userinfo_next_changetime )
+		{
+			Con_Reportf( "SV_ShouldUpdateUserinfo: ignore userinfo update for %s: penalty %f, attempts %i\n",
+				cl->name, cl->userinfo_penalty, cl->userinfo_change_attempts );
+			allow = false;
+		}
+
+		cl->userinfo_change_attempts++;
+	}
+
+	// they spammed too fast, increase penalty
+	if( cl->userinfo_change_attempts > sv_userinfo_penalty_attempts.value )
+	{
+		Con_Reportf( "SV_ShouldUpdateUserinfo: penalty set %f for %s\n",
+			cl->userinfo_penalty, cl->name );
+		cl->userinfo_penalty *= sv_userinfo_penalty_multiplier.value;
+		cl->userinfo_change_attempts = 0;
+	}
+
+	cl->userinfo_next_changetime = host.realtime + cl->userinfo_penalty;
+
+	return allow;
+}
+
 /*
 =================
 SV_UserinfoChanged
@@ -1783,7 +1829,7 @@ Pull specific info from a newly changed userinfo string
 into a more C freindly form.
 =================
 */
-void SV_UserinfoChanged( sv_client_t *cl )
+static void SV_UserinfoChanged( sv_client_t *cl )
 {
 	int		i, dupc = 1;
 	edict_t		*ent = cl->edict;
@@ -1792,6 +1838,12 @@ void SV_UserinfoChanged( sv_client_t *cl )
 	const char		*val;
 
 	if( !COM_CheckString( cl->userinfo ))
+		return;
+
+	if( !SV_ShouldUpdateUserinfo( cl ))
+		return;
+
+	if( !Info_IsValid( cl->userinfo ))
 		return;
 
 	val = Info_ValueForKey( cl->userinfo, "name" );
