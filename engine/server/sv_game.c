@@ -4207,8 +4207,7 @@ byte *pfnSetFatPVS( const float *org )
 	if( !FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
 	{
 		vec3_t	viewPos, offset;
-
-		ASSERT( pfnGetCurrentPlayer() != -1 );
+		qboolean client_active = pfnGetCurrentPlayer() != -1;
 
 		// see code from client.cpp for understanding:
 		// org = pView->v.origin + pView->v.view_ofs;
@@ -4218,7 +4217,7 @@ byte *pfnSetFatPVS( const float *org )
 		// }
 		// so we have unneeded duck calculations who have affect when player
 		// is ducked into water. Remove offset to restore right PVS position
-		if( FBitSet( sv.current_client->edict->v.flags, FL_DUCKING ))
+		if( client_active && FBitSet( sv.current_client->edict->v.flags, FL_DUCKING ))
 		{
 			VectorSubtract( svgame.pmove->player_mins[0], svgame.pmove->player_mins[1], offset );
 			VectorSubtract( org, offset, viewPos );
@@ -4227,7 +4226,9 @@ byte *pfnSetFatPVS( const float *org )
 
 		// build a new PVS frame
 		Mod_FatPVS( viewPos, FATPVS_RADIUS, fatpvs, world.fatbytes, false, fullvis );
-		VectorCopy( viewPos, viewPoint[pfnGetCurrentPlayer()] );
+
+		if( client_active )
+			VectorCopy( viewPos, viewPoint[pfnGetCurrentPlayer()] );
 	}
 	else
 	{
@@ -4257,8 +4258,7 @@ byte *pfnSetFatPAS( const float *org )
 	if( !FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
 	{
 		vec3_t	viewPos, offset;
-
-		ASSERT( pfnGetCurrentPlayer() != -1 );
+		qboolean client_active = pfnGetCurrentPlayer() != -1;
 
 		// see code from client.cpp for understanding:
 		// org = pView->v.origin + pView->v.view_ofs;
@@ -4268,7 +4268,7 @@ byte *pfnSetFatPAS( const float *org )
 		// }
 		// so we have unneeded duck calculations who have affect when player
 		// is ducked into water. Remove offset to restore right PVS position
-		if( FBitSet( sv.current_client->edict->v.flags, FL_DUCKING ))
+		if( client_active && FBitSet( sv.current_client->edict->v.flags, FL_DUCKING ))
 		{
 			VectorSubtract( svgame.pmove->player_mins[0], svgame.pmove->player_mins[1], offset );
 			VectorSubtract( org, offset, viewPos );
