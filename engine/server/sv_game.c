@@ -4190,13 +4190,28 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 
 /*
 =============
+pfnGetCurrentPlayer
+
+=============
+*/
+static int GAME_EXPORT pfnGetCurrentPlayer( void )
+{
+	int	idx = sv.current_client - svs.clients;
+
+	if( idx < 0 || idx >= svs.maxclients )
+		return -1;
+	return idx;
+}
+
+/*
+=============
 pfnSetFatPVS
 
 The client will interpolate the view position,
 so we can't use a single PVS point
 =============
 */
-byte *pfnSetFatPVS( const float *org )
+static byte * GAME_EXPORT pfnSetFatPVS( const float *org )
 {
 	qboolean	fullvis = false;
 
@@ -4247,7 +4262,7 @@ The client will interpolate the hear position,
 so we can't use a single PHS point
 =============
 */
-byte *pfnSetFatPAS( const float *org )
+static byte * GAME_EXPORT pfnSetFatPAS( const float *org )
 {
 	qboolean	fullvis = false;
 
@@ -4353,21 +4368,6 @@ int GAME_EXPORT pfnCanSkipPlayer( const edict_t *player )
 		return false;
 
 	return FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) ? true : false;
-}
-
-/*
-=============
-pfnGetCurrentPlayer
-
-=============
-*/
-int GAME_EXPORT pfnGetCurrentPlayer( void )
-{
-	int	idx = sv.current_client - svs.clients;
-
-	if( idx < 0 || idx >= svs.maxclients )
-		return -1;
-	return idx;
 }
 
 /*
