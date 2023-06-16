@@ -35,6 +35,13 @@ void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
 qboolean Sys_DebuggerPresent( void ); // optional, see Sys_DebugBreak
+void Platform_SetStatus( const char *status );
+
+#if XASH_WIN32 || XASH_LINUX
+#define XASH_PLATFORM_HAVE_STATUS 1
+#else
+#undef XASH_PLATFORM_HAVE_STATUS
+#endif
 
 #if XASH_POSIX
 void Posix_Daemonize( void );
@@ -57,9 +64,6 @@ int Android_GetKeyboardHeight( void );
 #if XASH_WIN32
 void Wcon_CreateConsole( void );
 void Wcon_DestroyConsole( void );
-void Platform_UpdateStatusLine( void );
-#else
-static inline void Platform_UpdateStatusLine( void ) { }
 #endif
 
 #if XASH_NSWITCH
@@ -80,14 +84,16 @@ void DOS_Init( void );
 void DOS_Shutdown( void );
 #endif
 
+#if XASH_LINUX
+void Linux_Init( void );
+void Linux_Shutdown( void );
+#endif
+
 static inline void Platform_Init( void )
 {
 #if XASH_POSIX
+	// daemonize as early as possible, because we need to close our file descriptors
 	Posix_Daemonize( );
-#endif
-
-#if XASH_WIN32
-	Wcon_CreateConsole( );
 #endif
 
 #if XASH_SDL
@@ -102,6 +108,10 @@ static inline void Platform_Init( void )
 	PSVita_Init( );
 #elif XASH_DOS
 	DOS_Init( );
+#elif XASH_WIN32
+	Wcon_CreateConsole( );
+#elif XASH_LINUX
+	Linux_Init( );
 #endif
 }
 
@@ -113,6 +123,10 @@ static inline void Platform_Shutdown( void )
 	PSVita_Shutdown( );
 #elif XASH_DOS
 	DOS_Shutdown( );
+#elif XASH_WIN32
+	Wcon_DestroyConsole( );
+#elif XASH_LINUX
+	Linux_Shutdown( );
 #endif
 
 #if XASH_SDL
