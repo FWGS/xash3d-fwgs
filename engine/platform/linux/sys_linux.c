@@ -16,7 +16,11 @@ GNU General Public License for more details.
 #include <time.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 #include "platform/platform.h"
+
+static void *g_hsystemd;
+static int (*g_pfn_sd_notify)( int unset_environment, const char *state );
 
 qboolean Sys_DebuggerPresent( void )
 {
@@ -49,4 +53,53 @@ qboolean Sys_DebuggerPresent( void )
 	}
 
 	return false;
+}
+
+void Platform_SetStatus( const char *status )
+{
+	string notify_str;
+
+	if( !g_pfn_sd_notify )
+		return;
+
+	// TODO: report STOPPING=1
+	Q_snprintf( notify_str, sizeof( notify_str ),
+		"READY=1\n"
+		"WATCHDOG=1\n"
+		"STATUS=%s\n", status );
+
+	// Quote: In order to support both service managers that implement this
+	// scheme and those which do not, it is generally recommended to ignore
+	// the return value of this call
+	// a1ba: ok, you asked for no error handling :)
+	g_pfn_sd_notify( false, notify_str );
+}
+
+void Linux_Init( void )
+{
+	// sd_notify only for dedicated targets, don't waste time on full client
+	if( !Host_IsDedicated( ))
+		return;
+
+	if(( g_hsystemd = dlopen( "libsystemd.so.0", RTLD_LAZY )) == NULL )
+		return;
+
+	if(( g_pfn_sd_notify = dlsym( g_hsystemd, "sd_notify" )) == NULL )
+	{
+		dlclose( g_hsystemd );
+		g_hsystemd = NULL;
+	}
+
+	Con_Reportf( "%s: sd_notify found, will report status to systemd\n", __func__ );
+}
+
+void Linux_Shutdown( void )
+{
+	g_pfn_sd_notify = NULL;
+
+	if( g_hsystemd )
+	{
+		dlclose( g_hsystemd );
+		g_hsystemd = NULL;
+	}
 }
