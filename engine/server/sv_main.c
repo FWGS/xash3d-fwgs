@@ -625,6 +625,43 @@ qboolean SV_RunGameFrame( void )
 	}
 }
 
+static void SV_UpdateStatusLine( void )
+{
+#if XASH_PLATFORM_HAVE_STATUS
+	static double lasttime;
+	string status;
+
+	if( !Host_IsDedicated( ))
+		return;
+
+	// update only every 1/2 seconds
+	if(( host.realtime - lasttime ) < 0.5f )
+		return;
+
+	if( sv.state == ss_active )
+	{
+		int clients, bots;
+		SV_GetPlayerCount( &clients, &bots );
+
+		Q_snprintf( status, sizeof( status ),
+			"%.1f fps %2i/%2i on %16s",
+			1.f / sv.frametime,
+			clients, svs.maxclients, host.game.levelName );
+	}
+	else if( sv.state == ss_loading )
+		Q_strncpy( status, "Loading level", sizeof( status ));
+	else if( !svs.initialized )
+		Q_strncpy( status, "Server is not loaded", sizeof( status ));
+	// FIXME: unreachable branch
+	// else if( host.status == HOST_SHUTDOWN )
+	//	Q_strncpy( status, "Shutting down...", sizeof( status ));
+	else Q_strncpy( status, "Unknown status", sizeof( status ));
+
+	Platform_SetStatus( status );
+	lasttime = host.realtime;
+#endif // XASH_PLATFORM_HAVE_STATUS
+}
+
 /*
 ==================
 Host_ServerFrame
@@ -633,6 +670,9 @@ Host_ServerFrame
 */
 void Host_ServerFrame( void )
 {
+	// update dedicated server status line in console
+	SV_UpdateStatusLine ();
+
 	// if server is not active, do nothing
 	if( !svs.initialized ) return;
 
@@ -666,9 +706,6 @@ void Host_ServerFrame( void )
 
 	// clear edict flags for next frame
 	SV_PrepWorldFrame ();
-
-	// update dedicated server status line in console
-	Platform_UpdateStatusLine ();
 
 	// send a heartbeat to the master if needed
 	NET_MasterHeartbeat ();

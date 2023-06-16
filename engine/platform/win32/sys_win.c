@@ -54,27 +54,6 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	ShellExecute( NULL, "open", path, parms, NULL, SW_SHOW );
 }
 
-void Platform_UpdateStatusLine( void )
-{
-	int clientsCount, botsCountUnused;
-	char szStatus[128];
-	static double lastTime;
-
-	if( host.type != HOST_DEDICATED )
-		return;
-
-	// update only every 1/2 seconds
-	if(( sv.time - lastTime ) < 0.5f )
-		return;
-
-	SV_GetPlayerCount( &clientsCount, &botsCountUnused );
-	Q_snprintf( szStatus, sizeof( szStatus ) - 1, "%.1f fps %2i/%2i on %16s", 1.f / sv.frametime, clientsCount, svs.maxclients, host.game.levelName );
-#ifdef XASH_WIN32
-	Wcon_SetStatus( szStatus );
-#endif
-	lastTime = sv.time;
-}
-
 #if XASH_MESSAGEBOX == MSGBOX_WIN32
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
