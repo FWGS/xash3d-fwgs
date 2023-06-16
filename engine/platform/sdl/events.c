@@ -689,15 +689,6 @@ void Platform_RunEvents( void )
 #endif
 }
 
-void* Platform_GetNativeObject( const char *name )
-{
-#if XASH_ANDROID
-	return Android_GetNativeObject( name );
-#else
-	return NULL;
-#endif
-}
-
 /*
 ========================
 Platform_PreCreateMove
