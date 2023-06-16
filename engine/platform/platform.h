@@ -30,14 +30,20 @@ GNU General Public License for more details.
 
 ==============================================================================
 */
-
-void Platform_Init( void );
-void Platform_Shutdown( void );
 double Platform_DoubleTime( void );
 void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
 qboolean Sys_DebuggerPresent( void ); // optional, see Sys_DebugBreak
+
+#if XASH_POSIX
+void Posix_Daemonize( void );
+#endif
+
+#if XASH_SDL
+void SDLash_Init( void );
+void SDLash_Shutdown( void );
+#endif
 
 #if XASH_ANDROID
 const char *Android_GetAndroidID( void );
@@ -49,6 +55,8 @@ int Android_GetKeyboardHeight( void );
 #endif
 
 #if XASH_WIN32
+void Wcon_CreateConsole( void );
+void Wcon_DestroyConsole( void );
 void Platform_UpdateStatusLine( void );
 #else
 static inline void Platform_UpdateStatusLine( void ) { }
@@ -66,6 +74,62 @@ qboolean PSVita_GetBasePath( char *buf, const size_t buflen );
 int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 void PSVita_InputUpdate( void );
 #endif
+
+#if XASH_DOS
+void DOS_Init( void );
+void DOS_Shutdown( void );
+#endif
+
+static inline void Platform_Init( void )
+{
+#if XASH_POSIX
+	Posix_Daemonize( );
+#endif
+
+#if XASH_WIN32
+	Wcon_CreateConsole( );
+#endif
+
+#if XASH_SDL
+	SDLash_Init( );
+#endif
+
+#if XASH_ANDROID
+	Android_Init( );
+#elif XASH_NSWITCH
+	NSwitch_Init( );
+#elif XASH_PSVITA
+	PSVita_Init( );
+#elif XASH_DOS
+	DOS_Init( );
+#endif
+}
+
+static inline void Platform_Shutdown( void )
+{
+#if XASH_NSWITCH
+	NSwitch_Shutdown( );
+#elif XASH_PSVITA
+	PSVita_Shutdown( );
+#elif XASH_DOS
+	DOS_Shutdown( );
+#endif
+
+#if XASH_SDL
+	SDLash_Shutdown( );
+#endif
+}
+
+static inline void *Platform_GetNativeObject( const char *name )
+{
+	void *ptr = NULL;
+
+#if XASH_ANDROID
+	ptr = Android_GetNativeObject( name );
+#endif
+
+	return ptr;
+}
 
 /*
 ==============================================================================

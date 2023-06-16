@@ -146,23 +146,6 @@ void Posix_Daemonize( void )
 
 }
 
-#if !XASH_SDL && !XASH_ANDROID
-void Platform_Init( void )
-{
-	Posix_Daemonize();
-}
-
-void Platform_Shutdown( void )
-{
-
-}
-
-void *Platform_GetNativeObject( const char *name )
-{
-	return NULL;
-}
-#endif
-
 #if XASH_TIMER == TIMER_POSIX
 double Platform_DoubleTime( void )
 {
