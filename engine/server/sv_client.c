@@ -1077,6 +1077,7 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 	static char	outputbuf[2048];
 	const char	*adr;
 	char		remaining[1024];
+	char		*p = remaining;
 	int		i;
 
 	if( !rcon_enable.value || !COM_CheckStringEmpty( rcon_password.string ))
@@ -1094,8 +1095,9 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 		remaining[0] = 0;
 		for( i = 2; i < Cmd_Argc(); i++ )
 		{
-			Q_strncat( remaining, Cmd_Argv( i ), sizeof( remaining ));
-			Q_strncat( remaining, " ", sizeof( remaining ));
+			p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
+			p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
+			p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
 		}
 		Cmd_ExecuteString( remaining );
 
