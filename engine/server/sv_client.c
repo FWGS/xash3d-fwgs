@@ -1075,18 +1075,22 @@ Redirect all printfs
 void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 {
 	static char	outputbuf[2048];
+	const char	*adr;
 	char		remaining[1024];
 	int		i;
 
-	if( !rcon_enable.value )
+	if( !rcon_enable.value || !COM_CheckStringEmpty( rcon_password.string ))
 		return;
 
-	Con_Printf( "Rcon from %s:\n%s\n", NET_AdrToString( from ), MSG_GetData( msg ) + 4 );
-	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, NET_AdrToString( from ));
-	SV_BeginRedirect( from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+	adr = NET_AdrToString( from );
+
+	Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
+	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
 
 	if( Rcon_Validate( ))
 	{
+		SV_BeginRedirect( from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+
 		remaining[0] = 0;
 		for( i = 2; i < Cmd_Argc(); i++ )
 		{
@@ -1094,10 +1098,10 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 			Q_strncat( remaining, " ", sizeof( remaining ));
 		}
 		Cmd_ExecuteString( remaining );
+
+		SV_EndRedirect();
 	}
 	else Con_Printf( S_ERROR "Bad rcon_password.\n" );
-
-	SV_EndRedirect();
 }
 
 /*
