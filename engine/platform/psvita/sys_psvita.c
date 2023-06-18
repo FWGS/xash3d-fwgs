@@ -34,6 +34,10 @@ unsigned int _pthread_stack_default_user = 512 * 1024;
 unsigned int _newlib_heap_size_user = 200 * 1024 * 1024;
 #define VGL_MEM_THRESHOLD ( 40 * 1024 * 1024 )
 
+// HACKHACK: create some slack at the end of the RX segment of the ELF
+// for vita-elf-create to put the generated symbol table into
+const char vitaelf_slack __attribute__ ((aligned (0x20000))) = 0xFF;
+
 /* HACKHACK: force-export stuff required by the dynamic libs */
 
 extern void *__aeabi_idiv;
