@@ -838,7 +838,6 @@ void CL_ClearSpriteTextures( void );
 void CL_CenterPrint( const char *text, float y );
 void CL_TextMessageParse( byte *pMemFile, int fileSize );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
-int pfnDecalIndexFromName( const char *szDecalName );
 model_t *CL_ModelHandle( int modelindex );
 void NetAPI_CancelAllRequests( void );
 cl_entity_t *CL_GetLocalPlayer( void );
