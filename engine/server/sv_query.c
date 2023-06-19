@@ -32,7 +32,7 @@ GNU General Public License for more details.
 SV_SourceQuery_Details
 ==================
 */
-void SV_SourceQuery_Details( netadr_t from )
+static void SV_SourceQuery_Details( netadr_t from )
 {
 	sizebuf_t buf;
 	char answer[2048];
@@ -80,7 +80,7 @@ void SV_SourceQuery_Details( netadr_t from )
 SV_SourceQuery_Rules
 ==================
 */
-void SV_SourceQuery_Rules( netadr_t from )
+static void SV_SourceQuery_Rules( netadr_t from )
 {
 	sizebuf_t buf;
 	char answer[1024 * 8];
@@ -121,7 +121,7 @@ void SV_SourceQuery_Rules( netadr_t from )
 SV_SourceQuery_Players
 ==================
 */
-void SV_SourceQuery_Players( netadr_t from )
+static void SV_SourceQuery_Players( netadr_t from )
 {
 	sizebuf_t buf;
 	char answer[1024 * 8];
