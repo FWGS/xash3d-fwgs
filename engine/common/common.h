@@ -626,8 +626,6 @@ qboolean SV_Active( void );
 
 ==============================================================
 */
-void pfnCvar_RegisterServerVariable( cvar_t *variable );
-void pfnCvar_RegisterEngineVariable( cvar_t *variable );
 cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags );
 cvar_t *pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags );
 char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize );
@@ -646,7 +644,6 @@ void pfnGetModelBounds( model_t *mod, float *mins, float *maxs );
 void pfnCVarDirectSet( cvar_t *var, const char *szValue );
 int COM_CheckParm( char *parm, char **ppnext );
 void pfnGetGameDir( char *szGetGameDir );
-int pfnDecalIndex( const char *m );
 int pfnGetModelType( model_t *mod );
 int pfnIsMapValid( char *filename );
 void Con_Reportf( const char *szFmt, ... ) _format( 1 );
@@ -666,8 +663,6 @@ void *pfnSequencePickSentence( const char *groupName, int pickMethod, int *picke
 int pfnIsCareerMatch( void );
 
 // Decay engfuncs (stubs)
-int pfnGetTimesTutorMessageShown( int mid );
-void pfnRegisterTutorMessageShown( int mid );
 void pfnConstructTutorMessageDecayBuffer( int *buffer, int buflen );
 void pfnProcessTutorMessageDecayBuffer( int *buffer, int bufferLength );
 void pfnResetTutorMessageDecayData( void );
@@ -752,7 +747,6 @@ struct cmd_s *Cmd_GetNextFunctionHandle( struct cmd_s *cmd );
 struct cmdalias_s *Cmd_AliasGetList( void );
 const char *Cmd_GetName( struct cmd_s *cmd );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
-void SV_StartMusic( const char *curtrack, const char *looptrack, int position );
 void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
 void Log_Printf( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );

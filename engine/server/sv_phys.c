@@ -1958,6 +1958,19 @@ static int GAME_EXPORT pfnPointContents( const float *pos, int groupmask )
 	return cont;
 }
 
+/*
+=============
+pfnWriteBytes
+
+=============
+*/
+static void GAME_EXPORT pfnWriteBytes( const byte *bytes, int count )
+{
+	MSG_WriteBytes( &sv.multicast, bytes, count );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, count );
+	svgame.msg_realsize += count;
+}
+
 const byte *pfnLoadImagePixels( const char *filename, int *width, int *height )
 {
 	rgbdata_t	*pic = FS_LoadImage( filename, NULL, 0 );

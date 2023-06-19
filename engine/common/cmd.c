@@ -547,7 +547,7 @@ int GAME_EXPORT Cmd_Argc( void )
 Cmd_Argv
 ============
 */
-const char *Cmd_Argv( int arg )
+const char *GAME_EXPORT Cmd_Argv( int arg )
 {
 	if((uint)arg >= cmd_argc )
 		return "";
@@ -559,7 +559,7 @@ const char *Cmd_Argv( int arg )
 Cmd_Args
 ============
 */
-const char *Cmd_Args( void )
+const char *GAME_EXPORT Cmd_Args( void )
 {
 	return cmd_args;
 }

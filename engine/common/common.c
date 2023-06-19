@@ -860,33 +860,6 @@ void GAME_EXPORT pfnGetModelBounds( model_t *mod, float *mins, float *maxs )
 
 /*
 =============
-pfnCvar_RegisterServerVariable
-
-standard path to register game variable
-=============
-*/
-void GAME_EXPORT pfnCvar_RegisterServerVariable( cvar_t *variable )
-{
-	if( variable != NULL )
-		SetBits( variable->flags, FCVAR_EXTDLL );
-	Cvar_RegisterVariable( (convar_t *)variable );
-}
-
-/*
-=============
-pfnCvar_RegisterEngineVariable
-
-use with precaution: this cvar will NOT unlinked
-after game.dll is unloaded
-=============
-*/
-void GAME_EXPORT pfnCvar_RegisterEngineVariable( cvar_t *variable )
-{
-	Cvar_RegisterVariable( (convar_t *)variable );
-}
-
-/*
-=============
 pfnCvar_RegisterVariable
 
 =============
@@ -1125,30 +1098,7 @@ pfnIsCareerMatch
 used by CS:CZ (client stub)
 =============
 */
-int GAME_EXPORT GAME_EXPORT pfnIsCareerMatch( void )
-{
-	return 0;
-}
-
-/*
-=============
-pfnRegisterTutorMessageShown
-
-only exists in PlayStation version
-=============
-*/
-void GAME_EXPORT pfnRegisterTutorMessageShown( int mid )
-{
-}
-
-/*
-=============
-pfnGetTimesTutorMessageShown
-
-only exists in PlayStation version
-=============
-*/
-int GAME_EXPORT pfnGetTimesTutorMessageShown( int mid )
+int GAME_EXPORT pfnIsCareerMatch( void )
 {
 	return 0;
 }
