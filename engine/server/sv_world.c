@@ -589,7 +589,7 @@ void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 SV_LinkEdict
 ===============
 */
-void SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
+void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 {
 	areanode_t	*node;
 	int		headnode;
@@ -1347,17 +1347,12 @@ trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end,
 	return clip.trace;
 }
 
-trace_t SV_MoveNormal( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
-{
-	return SV_Move( start, mins, maxs, end, type, e, false );
-}
-
 /*
 ==================
 SV_MoveNoEnts
 ==================
 */
-trace_t SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
+trace_t GAME_EXPORT SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
 {
 	moveclip_t	clip;
 	vec3_t		trace_endpos;
@@ -1404,7 +1399,7 @@ find the face where the traceline hit
 assume pTextureEntity is valid
 ==================
 */
-msurface_t *SV_TraceSurface( edict_t *ent, const vec3_t start, const vec3_t end )
+msurface_t *GAME_EXPORT SV_TraceSurface( edict_t *ent, const vec3_t start, const vec3_t end )
 {
 	matrix4x4		matrix;
 	model_t		*bmodel;
@@ -1645,22 +1640,6 @@ void SV_SetLightStyle( int style, const char* s, float f )
 	MSG_WriteByte( &sv.reliable_datagram, style );
 	MSG_WriteString( &sv.reliable_datagram, sv.lightstyles[style].pattern );
 	MSG_WriteFloat( &sv.reliable_datagram, sv.lightstyles[style].time );
-}
-
-/*
-==================
-SV_GetLightStyle
-
-needs to get correct working SV_LightPoint
-==================
-*/
-const char *SV_GetLightStyle( int style )
-{
-	if( style < 0 ) style = 0;
-	if( style >= MAX_LIGHTSTYLES )
-		Host_Error( "SV_GetLightStyle: style: %i >= %d", style, MAX_LIGHTSTYLES );
-
-	return sv.lightstyles[style].pattern;
 }
 
 /*
