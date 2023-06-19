@@ -52,7 +52,7 @@ Set up the planes and clipnodes so that the six floats of a bounding box
 can just be stored out and get a proper hull_t structure.
 ===================
 */
-void SV_InitBoxHull( void )
+static void SV_InitBoxHull( void )
 {
 	int	i, side;
 
@@ -84,7 +84,7 @@ StudioPlayerBlend
 
 ====================
 */
-void SV_StudioPlayerBlend( mstudioseqdesc_t *pseqdesc, int *pBlend, float *pPitch )
+static void SV_StudioPlayerBlend( mstudioseqdesc_t *pseqdesc, int *pBlend, float *pPitch )
 {
 	// calc up/down pointing
 	*pBlend = (*pPitch * 3);
@@ -115,7 +115,7 @@ SV_CheckSphereIntersection
 check clients only
 ====================
 */
-qboolean SV_CheckSphereIntersection( edict_t *ent, const vec3_t start, const vec3_t end )
+static qboolean SV_CheckSphereIntersection( edict_t *ent, const vec3_t start, const vec3_t end )
 {
 	int		i, sequence;
 	float		radiusSquared;
@@ -158,7 +158,7 @@ To keep everything totally uniform, bounding boxes are turned into small
 BSP trees instead of being compared directly.
 ===================
 */
-hull_t *SV_HullForBox( const vec3_t mins, const vec3_t maxs )
+static hull_t *SV_HullForBox( const vec3_t mins, const vec3_t maxs )
 {
 	box_planes[0].dist = maxs[0];
 	box_planes[1].dist = mins[0];
@@ -177,7 +177,7 @@ SV_HullForBsp
 forcing to select BSP hull
 ==================
 */
-hull_t *SV_HullForBsp( edict_t *ent, const vec3_t mins, const vec3_t maxs, vec3_t offset )
+static hull_t *SV_HullForBsp( edict_t *ent, const vec3_t mins, const vec3_t maxs, vec3_t offset )
 {
 	hull_t		*hull;
 	model_t		*model;
@@ -249,7 +249,7 @@ Offset is filled in to contain the adjustment that must be added to the
 testing object's origin to get a point to use with the returned hull.
 ================
 */
-hull_t *SV_HullForEntity( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset )
+static hull_t *SV_HullForEntity( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset )
 {
 	hull_t	*hull;
 	vec3_t	hullmins, hullmaxs;
@@ -282,7 +282,7 @@ SV_HullForStudioModel
 
 ====================
 */
-hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset, int *numhitboxes )
+static hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset, int *numhitboxes )
 {
 	qboolean		useComplexHull;
 	float		scale = 0.5f;
@@ -376,7 +376,7 @@ SV_CreateAreaNode
 builds a uniformly subdivided tree for the given world size
 ===============
 */
-areanode_t *SV_CreateAreaNode( int depth, vec3_t mins, vec3_t maxs )
+static areanode_t *SV_CreateAreaNode( int depth, vec3_t mins, vec3_t maxs )
 {
 	areanode_t	*anode;
 	vec3_t		size;
@@ -460,7 +460,7 @@ void SV_UnlinkEdict( edict_t *ent )
 SV_TouchLinks
 ====================
 */
-void SV_TouchLinks( edict_t *ent, areanode_t *node )
+static void SV_TouchLinks( edict_t *ent, areanode_t *node )
 {
 	link_t	*l, *next;
 	edict_t	*touch;
@@ -547,7 +547,7 @@ SV_FindTouchedLeafs
 
 ===============
 */
-void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
+static void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 {
 	int	sides;
 	mleaf_t	*leaf;
@@ -664,7 +664,7 @@ POINT TESTING IN HULLS
 
 ===============================================================================
 */
-void SV_WaterLinks( const vec3_t origin, int *pCont, areanode_t *node )
+static void SV_WaterLinks( const vec3_t origin, int *pCont, areanode_t *node )
 {
 	link_t	*l, *next;
 	edict_t	*touch;
@@ -768,40 +768,6 @@ int GAME_EXPORT SV_PointContents( const vec3_t p )
 	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
 		cont = CONTENTS_WATER;
 	return cont;
-}
-
-//===========================================================================
-
-/*
-============
-SV_TestEntityPosition
-
-returns true if the entity is in solid currently
-============
-*/
-qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker )
-{
-	qboolean	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
-	trace_t	trace;
-
-	if( FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
-	{
-		// to avoid falling through tracktrain update client mins\maxs here
-		if( FBitSet( ent->v.flags, FL_DUCKING ))
-			SV_SetMinMaxSize( ent, svgame.pmove->player_mins[1], svgame.pmove->player_maxs[1], true );
-		else SV_SetMinMaxSize( ent, svgame.pmove->player_mins[0], svgame.pmove->player_maxs[0], true );
-	}
-
-	trace = SV_Move( ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_NORMAL, ent, monsterClip );
-
-	if( SV_IsValidEdict( blocker ) && SV_IsValidEdict( trace.ent ))
-	{
-		if( trace.ent->v.movetype == MOVETYPE_PUSH || trace.ent == blocker )
-			return trace.startsolid;
-		return false;
-	}
-
-	return trace.startsolid;
 }
 
 /*
@@ -952,7 +918,7 @@ if the bsp behind it prevents out origin from getting through. so if the trace w
 continue the trace to the edges of the portal cutout instead.
 ==================
 */
-void SV_PortalCSG( edict_t *portal, const vec3_t trace_mins, const vec3_t trace_maxs, const vec3_t start, const vec3_t end, trace_t *trace )
+static void SV_PortalCSG( edict_t *portal, const vec3_t trace_mins, const vec3_t trace_maxs, const vec3_t start, const vec3_t end, trace_t *trace )
 {
 	vec4_t	planes[6];	//far, near, right, left, up, down
 	int	plane, k;
@@ -1257,7 +1223,7 @@ SV_ClipToWorldBrush
 Mins and maxs enclose the entire area swept by the move
 ====================
 */
-void SV_ClipToWorldBrush( areanode_t *node, moveclip_t *clip )
+static void SV_ClipToWorldBrush( areanode_t *node, moveclip_t *clip )
 {
 	link_t	*l, *next;
 	edict_t	*touch;
@@ -1591,26 +1557,6 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 
 	// go down back side
 	return SV_RecursiveLightPoint( model, node->children[!side], mid, end );
-}
-
-void SV_RunLightStyles( void )
-{
-	int		i, ofs;
-	lightstyle_t	*ls;
-	float		scale;
-
-	scale = sv_lighting_modulate.value;
-
-	// run lightstyles animation
-	for( i = 0, ls = sv.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
-	{
-		ls->time += sv.frametime;
-		ofs = (ls->time * 10);
-
-		if( ls->length == 0 ) ls->value = scale; // disable this light
-		else if( ls->length == 1 ) ls->value = ( ls->map[0] / 12.0f ) * scale;
-		else ls->value = ( ls->map[ofs % ls->length] / 12.0f ) * scale;
-	}
 }
 
 /*
