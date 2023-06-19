@@ -138,7 +138,7 @@ PM_HullPointContents
 
 ==================
 */
-int PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
+int GAME_EXPORT PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
 {
 	mplane_t		*plane;
 

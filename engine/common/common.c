@@ -661,7 +661,7 @@ COM_MemFgets
 
 =============
 */
-char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize )
+char *GAME_EXPORT COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize )
 {
 	int	i, last, stop;
 
@@ -772,7 +772,7 @@ COM_LoadFile
 
 =============
 */
-byte *COM_LoadFile( const char *filename, int usehunk, int *pLength )
+byte *GAME_EXPORT COM_LoadFile( const char *filename, int usehunk, int *pLength )
 {
 	return COM_LoadFileForMe( filename, pLength );
 }
