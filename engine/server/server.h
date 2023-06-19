@@ -558,7 +558,6 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg );
 void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg );
 edict_t *SV_FakeConnect( const char *netname );
 void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
-void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed );
 void SV_BuildReconnect( sizebuf_t *msg );
 qboolean SV_IsPlayerIndex( int idx );
 int SV_CalcPing( sv_client_t *cl );
@@ -675,9 +674,8 @@ void SV_ClearGameState( void );
 //
 // sv_pmove.c
 //
-void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin );
-void SV_GetTrueMinMax( sv_client_t *cl, int edictnum, vec3_t mins, vec3_t maxs );
 qboolean SV_PlayerIsFrozen( edict_t *pClient );
+void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed );
 
 //
 // sv_world.c

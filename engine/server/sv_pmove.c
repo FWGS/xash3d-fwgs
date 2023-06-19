@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "studio.h"
 
 static qboolean has_update = false;
+static void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin );
 
 qboolean SV_PlayerIsFrozen( edict_t *pClient )
 {
@@ -51,7 +52,7 @@ void SV_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_
 	}
 }
 
-qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
+static qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
 {
 	model_t	*mod = SV_ModelHandle( ed->v.modelindex );
 
@@ -145,7 +146,7 @@ qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
 	return true;
 }
 
-qboolean SV_ShouldUnlagForPlayer( sv_client_t *cl )
+static qboolean SV_ShouldUnlagForPlayer( sv_client_t *cl )
 {
 	// can't unlag in singleplayer
 	if( svs.maxclients <= 1 )
@@ -165,7 +166,7 @@ qboolean SV_ShouldUnlagForPlayer( sv_client_t *cl )
 	return true;
 }
 
-void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin )
+static void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin )
 {
 	if( !SV_ShouldUnlagForPlayer( cl ))
 		return;
@@ -177,7 +178,7 @@ void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin )
 		VectorCopy( svgame.interp[edictnum-1].oldpos, origin );
 }
 
-void SV_GetTrueMinMax( sv_client_t *cl, int edictnum, vec3_t mins, vec3_t maxs )
+static void SV_GetTrueMinMax( sv_client_t *cl, int edictnum, vec3_t mins, vec3_t maxs )
 {
 	if( !SV_ShouldUnlagForPlayer( cl ))
 		return;
@@ -199,7 +200,7 @@ SV_AddLinksToPmove
 collect solid entities
 ====================
 */
-void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3_t pmove_maxs )
+static void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3_t pmove_maxs )
 {
 	link_t	*l, *next;
 	edict_t	*check, *pl;
@@ -291,7 +292,7 @@ void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3_t
 SV_AddLaddersToPmove
 ====================
 */
-void SV_AddLaddersToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3_t pmove_maxs )
+static void SV_AddLaddersToPmove( areanode_t *node, const vec3_t pmove_mins, const vec3_t pmove_maxs )
 {
 	link_t	*l, *next;
 	edict_t	*check;
@@ -379,12 +380,12 @@ static pmtrace_t GAME_EXPORT pfnPlayerTrace( float *start, float *end, int trace
 	return PM_PlayerTraceExt( svgame.pmove, start, end, traceFlags, svgame.pmove->numphysent, svgame.pmove->physents, ignore_pe, NULL );
 }
 
-static pmtrace_t *pfnTraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
+static pmtrace_t *GAME_EXPORT pfnTraceLine( float *start, float *end, int flags, int usehull, int ignore_pe )
 {
 	return PM_TraceLine( svgame.pmove, start, end, flags, usehull, ignore_pe );
 }
 
-static hull_t *pfnHullForBsp( physent_t *pe, float *offset )
+static hull_t *GAME_EXPORT pfnHullForBsp( physent_t *pe, float *offset )
 {
 	return PM_HullForBsp( pe, svgame.pmove, offset );
 }
@@ -394,7 +395,7 @@ static float GAME_EXPORT pfnTraceModel( physent_t *pe, float *start, float *end,
 	return PM_TraceModel( svgame.pmove, pe, start, end, trace );
 }
 
-static const char *pfnTraceTexture( int ground, float *vstart, float *vend )
+static const char *GAME_EXPORT pfnTraceTexture( int ground, float *vstart, float *vend )
 {
 	return PM_TraceTexture( svgame.pmove, ground, vstart, vend );
 }
@@ -437,12 +438,12 @@ static int GAME_EXPORT pfnTestPlayerPositionEx( float *pos, pmtrace_t *ptrace, p
 	return PM_TestPlayerPosition( svgame.pmove, pos, ptrace, pmFilter );
 }
 
-static pmtrace_t *pfnTraceLineEx( float *start, float *end, int flags, int usehull, pfnIgnore pmFilter )
+static pmtrace_t *GAME_EXPORT pfnTraceLineEx( float *start, float *end, int flags, int usehull, pfnIgnore pmFilter )
 {
 	return PM_TraceLineEx( svgame.pmove, start, end, flags, usehull, pmFilter );
 }
 
-static struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend )
+static struct msurface_s *GAME_EXPORT pfnTraceSurface( int ground, float *vstart, float *vend )
 {
 	return PM_TraceSurfacePmove( svgame.pmove, ground, vstart, vend );
 }
@@ -678,7 +679,7 @@ static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
 	pmove->runfuncs = false;
 }
 
-entity_state_t *SV_FindEntInPack( int index, client_frame_t *frame )
+static entity_state_t *SV_FindEntInPack( int index, client_frame_t *frame )
 {
 	entity_state_t	*state;
 	int		i;
@@ -693,7 +694,7 @@ entity_state_t *SV_FindEntInPack( int index, client_frame_t *frame )
 	return NULL;
 }
 
-qboolean SV_UnlagCheckTeleport( vec3_t old_pos, vec3_t new_pos )
+static qboolean SV_UnlagCheckTeleport( vec3_t old_pos, vec3_t new_pos )
 {
 	int	i;
 
@@ -705,7 +706,7 @@ qboolean SV_UnlagCheckTeleport( vec3_t old_pos, vec3_t new_pos )
 	return false;
 }
 
-void SV_SetupMoveInterpolant( sv_client_t *cl )
+static void SV_SetupMoveInterpolant( sv_client_t *cl )
 {
 	int		i, j, clientnum;
 	float		finalpush, lerp_msec;
@@ -855,7 +856,7 @@ void SV_SetupMoveInterpolant( sv_client_t *cl )
 	}
 }
 
-void SV_RestoreMoveInterpolant( sv_client_t *cl )
+static void SV_RestoreMoveInterpolant( sv_client_t *cl )
 {
 	sv_client_t	*check;
 	sv_interp_t	*oldlerp;
