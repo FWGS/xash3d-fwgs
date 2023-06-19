@@ -516,14 +516,10 @@ void SV_DeactivateServer( void );
 void SV_Physics( void );
 qboolean SV_InitPhysicsAPI( void );
 void SV_CheckVelocity( edict_t *ent );
-qboolean SV_CheckWater( edict_t *ent );
-qboolean SV_RunThink( edict_t *ent );
 qboolean SV_PlayerRunThink( edict_t *ent, float frametime, double time );
 qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker );
 void SV_Impact( edict_t *e1, edict_t *e2, trace_t *trace );
-qboolean SV_CanPushed( edict_t *ent );
 void SV_FreeOldEntities( void );
-void SV_CheckAllEnts( void );
 
 //
 // sv_move.c
@@ -693,7 +689,6 @@ void SV_CustomClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, v
 trace_t SV_TraceHull( edict_t *ent, int hullNum, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end );
 trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e, qboolean monsterclip );
 trace_t SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e );
-trace_t SV_MoveNormal( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e );
 const char *SV_TraceTexture( edict_t *ent, const vec3_t start, const vec3_t end );
 msurface_t *SV_TraceSurface( edict_t *ent, const vec3_t start, const vec3_t end );
 trace_t SV_MoveToss( edict_t *tossent, edict_t *ignore );
@@ -703,7 +698,6 @@ int SV_TruePointContents( const vec3_t p );
 int SV_PointContents( const vec3_t p );
 void SV_RunLightStyles( void );
 void SV_SetLightStyle( int style, const char* s, float f );
-const char *SV_GetLightStyle( int style );
 int SV_LightForEntity( edict_t *pEdict );
 
 //
