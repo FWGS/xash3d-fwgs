@@ -621,21 +621,16 @@ edict_t *SV_AllocEdict( void );
 void SV_FreeEdict( edict_t *pEdict );
 void SV_InitEdict( edict_t *pEdict );
 const char *SV_ClassName( const edict_t *e );
-void SV_FreePrivateData( edict_t *pEdict );
 void SV_CopyTraceToGlobal( trace_t *trace );
 qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line );
 void SV_SetMinMaxSize( edict_t *e, const float *min, const float *max, qboolean relink );
-edict_t* SV_FindEntityByString( edict_t *pStartEdict, const char *pszField, const char *pszValue );
 void SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
-void SV_PlaybackReliableEvent( sizebuf_t *msg, word eventindex, float delay, event_args_t *args );
 int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample, int vol, float attn, int flags, int pitch, const vec3_t pos );
 qboolean SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax );
 void SV_QueueChangeLevel( const char *level, const char *landname );
 void SV_WriteEntityPatch( const char *filename );
-float SV_AngleMod( float ideal, float current, float speed );
 void SV_SpawnEntities( const char *mapname );
-edict_t* SV_AllocPrivateData( edict_t *ent, string_t className );
 edict_t* SV_CreateNamedEntity( edict_t *ent, string_t className );
 string_t SV_AllocString( const char *szValue );
 string_t SV_MakeString( const char *szValue );
@@ -652,18 +647,14 @@ edict_t *SV_FindGlobalEntity( string_t classname, string_t globalname );
 qboolean SV_CreateStaticEntity( struct sizebuf_s *msg, int index );
 void SV_SendUserReg( sizebuf_t *msg, sv_user_message_t *user );
 int pfnIndexOfEdict( const edict_t *pEdict );
-void pfnWriteBytes( const byte *bytes, int count );
 void SV_UpdateBaseVelocity( edict_t *ent );
-int pfnPrecacheModel( const char *s );
-int pfnModelIndex( const char *m );
-void pfnRemoveEntity( edict_t* e );
 void SV_RestartAmbientSounds( void );
 void SV_RestartDecals( void );
 void SV_RestartStaticEnts( void );
 int pfnDropToFloor( edict_t* e );
 edict_t *SV_EdictNum( int n );
-char *SV_Localinfo( void );
 void SV_SetModel( edict_t *ent, const char *name );
+int pfnDecalIndex( const char *m );
 
 //
 // sv_log.c
