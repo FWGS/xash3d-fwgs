@@ -184,6 +184,38 @@ void SV_UpdateBaseVelocity( edict_t *ent )
 }
 
 /*
+============
+SV_TestEntityPosition
+
+returns true if the entity is in solid currently
+============
+*/
+static qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker )
+{
+	qboolean	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
+	trace_t	trace;
+
+	if( FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
+	{
+		// to avoid falling through tracktrain update client mins\maxs here
+		if( FBitSet( ent->v.flags, FL_DUCKING ))
+			SV_SetMinMaxSize( ent, svgame.pmove->player_mins[1], svgame.pmove->player_maxs[1], true );
+		else SV_SetMinMaxSize( ent, svgame.pmove->player_mins[0], svgame.pmove->player_maxs[0], true );
+	}
+
+	trace = SV_Move( ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_NORMAL, ent, monsterClip );
+
+	if( SV_IsValidEdict( blocker ) && SV_IsValidEdict( trace.ent ))
+	{
+		if( trace.ent->v.movetype == MOVETYPE_PUSH || trace.ent == blocker )
+			return trace.startsolid;
+		return false;
+	}
+
+	return trace.startsolid;
+}
+
+/*
 =============
 SV_RunThink
 
@@ -1744,6 +1776,26 @@ static void SV_Physics_Entity( edict_t *ent )
 	// this produce a corrupted baselines
 	if( sv.state == ss_active && FBitSet( ent->v.flags, FL_KILLME ))
 		SV_FreeEdict( ent );
+}
+
+static void SV_RunLightStyles( void )
+{
+	int		i, ofs;
+	lightstyle_t	*ls;
+	float		scale;
+
+	scale = sv_lighting_modulate.value;
+
+	// run lightstyles animation
+	for( i = 0, ls = sv.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
+	{
+		ls->time += sv.frametime;
+		ofs = (ls->time * 10);
+
+		if( ls->length == 0 ) ls->value = scale; // disable this light
+		else if( ls->length == 1 ) ls->value = ( ls->map[0] / 12.0f ) * scale;
+		else ls->value = ( ls->map[ofs % ls->length] / 12.0f ) * scale;
+	}
 }
 
 /*

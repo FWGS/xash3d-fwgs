@@ -517,7 +517,6 @@ void SV_Physics( void );
 qboolean SV_InitPhysicsAPI( void );
 void SV_CheckVelocity( edict_t *ent );
 qboolean SV_PlayerRunThink( edict_t *ent, float frametime, double time );
-qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker );
 void SV_Impact( edict_t *e1, edict_t *e2, trace_t *trace );
 void SV_FreeOldEntities( void );
 
@@ -691,10 +690,8 @@ const char *SV_TraceTexture( edict_t *ent, const vec3_t start, const vec3_t end 
 msurface_t *SV_TraceSurface( edict_t *ent, const vec3_t start, const vec3_t end );
 trace_t SV_MoveToss( edict_t *tossent, edict_t *ignore );
 void SV_LinkEdict( edict_t *ent, qboolean touch_triggers );
-void SV_TouchLinks( edict_t *ent, areanode_t *node );
 int SV_TruePointContents( const vec3_t p );
 int SV_PointContents( const vec3_t p );
-void SV_RunLightStyles( void );
 void SV_SetLightStyle( int style, const char* s, float f );
 int SV_LightForEntity( edict_t *pEdict );
 
