@@ -65,7 +65,7 @@ Utility functions
 SV_CheckAllEnts
 ================
 */
-void SV_CheckAllEnts( void )
+static void SV_CheckAllEnts( void )
 {
 	static double	nextcheck;
 	edict_t		*e;
@@ -193,7 +193,7 @@ in a frame.  Not used for pushmove objects, because they must be exact.
 Returns false if the entity removed itself.
 =============
 */
-qboolean SV_RunThink( edict_t *ent )
+static qboolean SV_RunThink( edict_t *ent )
 {
 	float	thinktime;
 
@@ -300,7 +300,7 @@ SV_AngularMove
 may use friction for smooth stopping
 =============
 */
-void SV_AngularMove( edict_t *ent, float frametime, float friction )
+static void SV_AngularMove( edict_t *ent, float frametime, float friction )
 {
 	float	adjustment;
 	int	i;
@@ -334,7 +334,7 @@ SV_LinearMove
 use friction for smooth stopping
 =============
 */
-void SV_LinearMove( edict_t *ent, float frametime, float friction )
+static void SV_LinearMove( edict_t *ent, float frametime, float friction )
 {
 	int	i;
 	float	adjustment;
@@ -368,7 +368,7 @@ SV_RecursiveWaterLevel
 recursively recalculating the middle
 =============
 */
-float SV_RecursiveWaterLevel( vec3_t origin, float out, float in, int count )
+static float SV_RecursiveWaterLevel( vec3_t origin, float out, float in, int count )
 {
 	vec3_t	point;
 	float	offset;
@@ -390,7 +390,7 @@ SV_Submerged
 determine how deep the entity is
 =============
 */
-float SV_Submerged( edict_t *ent )
+static float SV_Submerged( edict_t *ent )
 {
 	float	start, bottom;
 	vec3_t	point;
@@ -423,7 +423,7 @@ float SV_Submerged( edict_t *ent )
 SV_CheckWater
 =============
 */
-qboolean SV_CheckWater( edict_t *ent )
+static qboolean SV_CheckWater( edict_t *ent )
 {
 	int	cont, truecont;
 	vec3_t	point;
@@ -491,7 +491,7 @@ SV_CheckMover
 test thing (applies the friction to pushables while standing on moving platform)
 =============
 */
-qboolean SV_CheckMover( edict_t *ent )
+static qboolean SV_CheckMover( edict_t *ent )
 {
 	edict_t	*gnd = ent->v.groundentity;
 
@@ -514,7 +514,7 @@ SV_ClipVelocity
 Slide off of the impacting object
 ==================
 */
-int SV_ClipVelocity( vec3_t in, vec3_t normal, vec3_t out, float overbounce )
+static int SV_ClipVelocity( vec3_t in, vec3_t normal, vec3_t out, float overbounce )
 {
 	float	backoff;
 	float	change;
@@ -557,7 +557,7 @@ Returns the clipflags if the velocity was modified (hit something solid)
 4 = dead stop
 ============
 */
-int SV_FlyMove( edict_t *ent, float time, trace_t *steptrace )
+static int SV_FlyMove( edict_t *ent, float time, trace_t *steptrace )
 {
 	int	i, j, numplanes, bumpcount, blocked;
 	vec3_t	dir, end, planes[MAX_CLIP_PLANES];
@@ -701,7 +701,7 @@ SV_AddGravity
 
 ============
 */
-void SV_AddGravity( edict_t *ent )
+static void SV_AddGravity( edict_t *ent )
 {
 	float	ent_gravity;
 
@@ -732,7 +732,7 @@ SV_AllowPushRotate
 Allows to change entity yaw?
 ============
 */
-qboolean SV_AllowPushRotate( edict_t *ent )
+static qboolean SV_AllowPushRotate( edict_t *ent )
 {
 	model_t	*mod;
 
@@ -757,7 +757,7 @@ SV_PushEntity
 Does not change the entities velocity at all
 ============
 */
-trace_t SV_PushEntity( edict_t *ent, const vec3_t lpush, const vec3_t apush, int *blocked, float flDamage )
+static trace_t SV_PushEntity( edict_t *ent, const vec3_t lpush, const vec3_t apush, int *blocked, float flDamage )
 {
 	trace_t	trace;
 	qboolean	monsterBlock;
@@ -819,7 +819,7 @@ SV_CanPushed
 filter entities for push
 ============
 */
-qboolean SV_CanPushed( edict_t *ent )
+static qboolean SV_CanPushed( edict_t *ent )
 {
 	// filter movetypes to collide with
 	switch( ent->v.movetype )
@@ -1118,7 +1118,7 @@ SV_Physics_Pusher
 
 ================
 */
-void SV_Physics_Pusher( edict_t *ent )
+static void SV_Physics_Pusher( edict_t *ent )
 {
 	float	oldtime, oldtime2;
 	float	thinktime, movetime;
@@ -1192,7 +1192,7 @@ SV_Physics_Follow
 just copy angles and origin of parent
 =============
 */
-void SV_Physics_Follow( edict_t *ent )
+static void SV_Physics_Follow( edict_t *ent )
 {
 	edict_t	*parent;
 
@@ -1220,7 +1220,7 @@ SV_Physics_Compound
 a glue two entities together
 =============
 */
-void SV_Physics_Compound( edict_t *ent )
+static void SV_Physics_Compound( edict_t *ent )
 {
 	edict_t	*parent;
 
@@ -1300,7 +1300,7 @@ SV_PhysicsNoclip
 A moving object that doesn't obey physics
 =============
 */
-void SV_Physics_Noclip( edict_t *ent )
+static void SV_Physics_Noclip( edict_t *ent )
 {
 	// regular thinking
 	if( !SV_RunThink( ent )) return;
@@ -1327,7 +1327,7 @@ SV_CheckWaterTransition
 
 =============
 */
-void SV_CheckWaterTransition( edict_t *ent )
+static void SV_CheckWaterTransition( edict_t *ent )
 {
 	vec3_t	point;
 	int	cont;
@@ -1400,7 +1400,7 @@ SV_Physics_Toss
 Toss, bounce, and fly movement.  When onground, do nothing.
 =============
 */
-void SV_Physics_Toss( edict_t *ent )
+static void SV_Physics_Toss( edict_t *ent )
 {
 	trace_t	trace;
 	vec3_t	move;
@@ -1546,7 +1546,7 @@ This is also used for objects that have become still on the ground, but
 will fall if the floor is pulled out from under them.
 =============
 */
-void SV_Physics_Step( edict_t *ent )
+static void SV_Physics_Step( edict_t *ent )
 {
 	qboolean	inwater;
 	qboolean	wasonground;
@@ -1678,7 +1678,7 @@ SV_PhysicsNone
 Non moving objects can only think
 =============
 */
-void SV_Physics_None( edict_t *ent )
+static void SV_Physics_None( edict_t *ent )
 {
 	SV_RunThink( ent );
 }
@@ -1801,7 +1801,7 @@ SV_GetServerTime
 Inplementation for new physics interface
 ================
 */
-double SV_GetServerTime( void )
+static double GAME_EXPORT SV_GetServerTime( void )
 {
 	return sv.time;
 }
@@ -1813,7 +1813,7 @@ SV_GetFrameTime
 Inplementation for new physics interface
 ================
 */
-double SV_GetFrameTime( void )
+static double GAME_EXPORT SV_GetFrameTime( void )
 {
 	return sv.frametime;
 }
@@ -1825,7 +1825,7 @@ SV_GetHeadNode
 Inplementation for new physics interface
 ================
 */
-areanode_t *SV_GetHeadNode( void )
+static areanode_t *GAME_EXPORT SV_GetHeadNode( void )
 {
 	return sv_areanodes;
 }
@@ -1837,7 +1837,7 @@ SV_ServerState
 Inplementation for new physics interface
 ================
 */
-int SV_ServerState( void )
+static int GAME_EXPORT SV_ServerState( void )
 {
 	return sv.state;
 }
@@ -1897,7 +1897,23 @@ void SV_DrawOrthoTriangles( void )
 	}
 }
 
-void SV_UpdateFogSettings( unsigned int packed_fog )
+/*
+==================
+SV_GetLightStyle
+
+needs to get correct working SV_LightPoint
+==================
+*/
+const char *GAME_EXPORT SV_GetLightStyle( int style )
+{
+	if( style < 0 ) style = 0;
+	if( style >= MAX_LIGHTSTYLES )
+		Host_Error( "SV_GetLightStyle: style: %i >= %d", style, MAX_LIGHTSTYLES );
+
+	return sv.lightstyles[style].pattern;
+}
+
+static void GAME_EXPORT SV_UpdateFogSettings( unsigned int packed_fog )
 {
 	svgame.movevars.fog_settings = packed_fog;
 	host.movevars_changed = true; // force to transmit
@@ -1909,7 +1925,7 @@ pfnGetFilesList
 
 =========
 */
-static char **pfnGetFilesList( const char *pattern, int *numFiles, int gamedironly )
+static char **GAME_EXPORT pfnGetFilesList( const char *pattern, int *numFiles, int gamedironly )
 {
 	static search_t	*t = NULL;
 
@@ -1927,12 +1943,12 @@ static char **pfnGetFilesList( const char *pattern, int *numFiles, int gamediron
 	return t->filenames;
 }
 
-static void *pfnMem_Alloc( size_t cb, const char *filename, const int fileline )
+static void *GAME_EXPORT pfnMem_Alloc( size_t cb, const char *filename, const int fileline )
 {
 	return _Mem_Alloc( svgame.mempool, cb, true, filename, fileline );
 }
 
-static void pfnMem_Free( void *mem, const char *filename, const int fileline )
+static void GAME_EXPORT pfnMem_Free( void *mem, const char *filename, const int fileline )
 {
 	if( !mem ) return;
 	_Mem_Free( mem, filename, fileline );
@@ -1958,6 +1974,11 @@ static int GAME_EXPORT pfnPointContents( const float *pos, int groupmask )
 	return cont;
 }
 
+static trace_t GAME_EXPORT SV_MoveNormal( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
+{
+	return SV_Move( start, mins, maxs, end, type, e, false );
+}
+
 /*
 =============
 pfnWriteBytes
@@ -1971,7 +1992,7 @@ static void GAME_EXPORT pfnWriteBytes( const byte *bytes, int count )
 	svgame.msg_realsize += count;
 }
 
-const byte *pfnLoadImagePixels( const char *filename, int *width, int *height )
+static const byte *GAME_EXPORT pfnLoadImagePixels( const char *filename, int *width, int *height )
 {
 	rgbdata_t	*pic = FS_LoadImage( filename, NULL, 0 );
 	byte	*buffer;
@@ -1987,14 +2008,14 @@ const byte *pfnLoadImagePixels( const char *filename, int *width, int *height )
 	return buffer;
 }
 
-const char* pfnGetModelName( int modelindex )
+static const char *GAME_EXPORT pfnGetModelName( int modelindex )
 {
 	if( modelindex < 0 || modelindex >= MAX_MODELS )
 		return NULL;
 	return sv.model_precache[modelindex];
 }
 
-static const byte *GL_TextureData( unsigned int texnum )
+static const byte *GAME_EXPORT GL_TextureData( unsigned int texnum )
 {
 #if !XASH_DEDICATED
 	return Host_IsDedicated() ? NULL : ref.dllFuncs.GL_TextureData( texnum );

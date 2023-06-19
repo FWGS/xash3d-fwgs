@@ -760,7 +760,7 @@ SV_BoxInPVS
 check brush boxes in fat pvs
 ==============
 */
-qboolean SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
+qboolean GAME_EXPORT SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax )
 {
 	if( !Mod_BoxVisible( absmin, absmax, Mod_GetPVSForPoint( org )))
 		return false;

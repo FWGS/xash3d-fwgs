@@ -270,7 +270,7 @@ SV_ModelHandle
 get model by handle
 ================
 */
-model_t *SV_ModelHandle( int modelindex )
+model_t *GAME_EXPORT SV_ModelHandle( int modelindex )
 {
 	if( modelindex < 0 || modelindex >= MAX_MODELS )
 		return NULL;
