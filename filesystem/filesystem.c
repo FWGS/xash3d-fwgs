@@ -1913,7 +1913,7 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 	if( !fs_searchpaths )
 		return NULL;
 
-	// some stupid mappers used leading '/' or '\' in path to models or sounds
+	// some mappers used leading '/' or '\' in path to models or sounds
 	if( filepath[0] == '/' || filepath[0] == '\\' )
 		filepath++;
 
@@ -2336,6 +2336,13 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 	file_t *file;
 	char netpath[MAX_SYSPATH];
 	int pack_ind;
+
+	// some mappers used leading '/' or '\' in path to models or sounds
+	if( path[0] == '/' || path[0] == '\\' )
+		path++;
+
+	if( path[0] == '/' || path[0] == '\\' )
+		path++;
 
 	if( !fs_searchpaths || FS_CheckNastyPath( path ))
 		return NULL;
