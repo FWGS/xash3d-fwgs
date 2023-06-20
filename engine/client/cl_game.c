@@ -1685,6 +1685,22 @@ static void GAME_EXPORT pfnSetCrosshair( HSPRITE hspr, wrect_t rc, int r, int g,
 	clgame.ds.rcCrosshair = rc;
 }
 
+
+/*
+=============
+pfnCvar_RegisterVariable
+
+=============
+*/
+static cvar_t *GAME_EXPORT pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags )
+{
+	// a1ba: try to mitigate outdated client.dll vulnerabilities
+	if( !Q_stricmp( szName, "motdfile" ))
+		flags |= FCVAR_PRIVILEGED;
+
+	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_CLIENTDLL ));
+}
+
 /*
 =============
 pfnHookUserMsg
