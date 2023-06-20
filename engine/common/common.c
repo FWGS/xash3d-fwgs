@@ -104,7 +104,7 @@ static float fran1( void )
 	return temp;
 }
 
-void COM_SetRandomSeed( int lSeed )
+void GAME_EXPORT COM_SetRandomSeed( int lSeed )
 {
 	if( lSeed ) idum = lSeed;
 	else idum = -time( NULL );
@@ -267,7 +267,7 @@ static void LZSS_BuildHash( lzss_state_t *state, const byte *source )
 	list->start = node;
 }
 
-byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_length, byte *pOutputBuf, uint *pOutputSize )
+static byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_length, byte *pOutputBuf, uint *pOutputSize )
 {
 	byte		*pStart = pOutputBuf; // allocate the output buffer, compressed buffer is expected to be less, caller will free
 	byte		*pEnd = pStart + input_length - sizeof( lzss_header_t ) - 8; // prevent compression failure
@@ -613,7 +613,7 @@ COM_Nibble
 Returns the 4 bit nibble for a hex character
 ==================
 */
-byte COM_Nibble( char c )
+static byte COM_Nibble( char c )
 {
 	if(( c >= '0' ) && ( c <= '9' ))
 	{
@@ -715,7 +715,7 @@ Cache_Check
 consistency check
 ====================
 */
-void *Cache_Check( poolhandle_t mempool, cache_user_t *c )
+void *GAME_EXPORT Cache_Check( poolhandle_t mempool, cache_user_t *c )
 {
 	if( !c->data )
 		return NULL;
@@ -732,7 +732,7 @@ COM_LoadFileForMe
 
 =============
 */
-byte* GAME_EXPORT COM_LoadFileForMe( const char *filename, int *pLength )
+byte *GAME_EXPORT COM_LoadFileForMe( const char *filename, int *pLength )
 {
 	string	name;
 	byte	*file, *pfile;
@@ -860,38 +860,12 @@ void GAME_EXPORT pfnGetModelBounds( model_t *mod, float *mins, float *maxs )
 
 /*
 =============
-pfnCvar_RegisterVariable
-
-=============
-*/
-cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags )
-{
-	// a1ba: try to mitigate outdated client.dll vulnerabilities
-	if( !Q_stricmp( szName, "motdfile" ))
-		flags |= FCVAR_PRIVILEGED;
-
-	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_CLIENTDLL ));
-}
-
-/*
-=============
-pfnCvar_RegisterVariable
-
-=============
-*/
-cvar_t *pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags )
-{
-	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_GAMEUIDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_GAMEUIDLL ));
-}
-
-/*
-=============
 pfnCVarGetPointer
 
 can return NULL
 =============
 */
-cvar_t *pfnCVarGetPointer( const char *szVarName )
+cvar_t *GAME_EXPORT pfnCVarGetPointer( const char *szVarName )
 {
 	return (cvar_t *)Cvar_FindVar( szVarName );
 }

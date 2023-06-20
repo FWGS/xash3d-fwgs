@@ -626,8 +626,6 @@ qboolean SV_Active( void );
 
 ==============================================================
 */
-cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags );
-cvar_t *pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags );
 char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize );
 void COM_HexConvert( const char *pszInput, int nInputLength, byte *pOutput );
 int COM_SaveFile( const char *filename, const void *data, int len );
