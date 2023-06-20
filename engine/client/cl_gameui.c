@@ -644,6 +644,17 @@ static void GAME_EXPORT pfnFillRGBA( int x, int y, int width, int height, int r,
 
 /*
 =============
+pfnCvar_RegisterVariable
+
+=============
+*/
+static cvar_t *GAME_EXPORT pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags )
+{
+	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_GAMEUIDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_GAMEUIDLL ));
+}
+
+/*
+=============
 pfnClientCmd
 
 =============
