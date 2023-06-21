@@ -35,7 +35,7 @@ static qboolean GAME_EXPORT VGUI_IsInGame( void );
 static struct
 {
 	qboolean initialized;
-	vguiapi_t dllFuncs;
+	vgui_support_interface_t dllFuncs;
 	VGUI_DefaultCursor cursor;
 
 	HINSTANCE hInstance;
@@ -44,32 +44,7 @@ static struct
 } vgui =
 {
 	false,
-	{
-		false, // Not initialized yet
-		NULL, // VGUI_DrawInit,
-		NULL, // VGUI_DrawShutdown,
-		NULL, // VGUI_SetupDrawingText,
-		NULL, // VGUI_SetupDrawingRect,
-		NULL, // VGUI_SetupDrawingImage,
-		NULL, // VGUI_BindTexture,
-		NULL, // VGUI_EnableTexture,
-		NULL, // VGUI_CreateTexture,
-		NULL, // VGUI_UploadTexture,
-		NULL, // VGUI_UploadTextureBlock,
-		NULL, // VGUI_DrawQuad,
-		NULL, // VGUI_GetTextureSizes,
-		NULL, // VGUI_GenerateTexture,
-		VGUI_EngineMalloc,
-		VGUI_CursorSelect,
-		VGUI_GetColor,
-		VGUI_IsInGame,
-		Key_EnableTextInput,
-		VGUI_GetMousePos,
-		VGUI_UtfProcessChar,
-		Platform_GetClipboardText,
-		Platform_SetClipboardText,
-		Platform_GetKeyModifiers,
-	},
+	{ 0 }, // not initialized yet
 	-1
 };
 
@@ -117,7 +92,37 @@ qboolean VGui_IsActive( void )
 	return vgui.initialized;
 }
 
-static void VGui_FillAPIFromRef( vguiapi_t *to, const ref_interface_t *from )
+static vgui_support_api_t gEngfuncs =
+{
+	NULL, // VGUI_DrawInit,
+	NULL, // VGUI_DrawShutdown,
+	NULL, // VGUI_SetupDrawingText,
+	NULL, // VGUI_SetupDrawingRect,
+	NULL, // VGUI_SetupDrawingImage,
+	NULL, // VGUI_BindTexture,
+	NULL, // VGUI_EnableTexture,
+	NULL, // VGUI_CreateTexture,
+	NULL, // VGUI_UploadTexture,
+	NULL, // VGUI_UploadTextureBlock,
+	NULL, // VGUI_DrawQuad,
+	NULL, // VGUI_GetTextureSizes,
+	NULL, // VGUI_GenerateTexture,
+	VGUI_EngineMalloc,
+	VGUI_CursorSelect,
+	VGUI_GetColor,
+	VGUI_IsInGame,
+	Key_EnableTextInput,
+	VGUI_GetMousePos,
+	VGUI_UtfProcessChar,
+	Platform_GetClipboardText,
+	Platform_SetClipboardText,
+	Platform_GetKeyModifiers,
+	COM_LoadLibrary,
+	COM_FreeLibrary,
+	COM_GetProcAddress,
+};
+
+static void VGui_FillAPIFromRef( vgui_support_api_t *to, const ref_interface_t *from )
 {
 	to->DrawInit = from->VGUI_DrawInit;
 	to->DrawShutdown = from->VGUI_DrawShutdown;
@@ -139,56 +144,144 @@ void VGui_RegisterCvars( void )
 	Cvar_RegisterVariable( &vgui_utf8 );
 }
 
+static HINSTANCE VGui_LoadSupportLibrary( void )
+{
+	string vguiloader;
+	string vguilib;
+	HINSTANCE hInstance;
+
+	// HACKHACK: try to load path from custom path
+	// to support having different versions of VGUI
+	if( Sys_GetParmFromCmdLine( "-vguilib", vguilib ) && !COM_LoadLibrary( vguilib, false, false ))
+	{
+		Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s", COM_GetLibraryError());
+	}
+
+	if( !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ))
+	{
+		Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, sizeof( vguiloader ));
+	}
+
+	hInstance = COM_LoadLibrary( vguiloader, false, false );
+
+	if( !hInstance )
+	{
+		if( FS_FileExists( vguiloader, false ))
+			Con_Reportf( S_ERROR "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
+		else Con_Reportf( "vgui_support: not found\n" );
+	}
+
+	return hInstance;
+}
+
+static qboolean VGui_ProbeNewAPI( HINSTANCE hInstance,
+	vgui_support_interface_t *iface, const vgui_support_api_t *api )
+{
+	const int version = VGUI_SUPPORT_API_VERSION;
+	static vgui_support_api_t localapi;
+	VGUISUPPORTAPI F;
+
+	F = COM_GetProcAddress( hInstance, GET_VGUI_SUPPORT_API );
+
+	if( !F )
+		return false;
+
+	// keep local temporary copy, do not let vgui_support to mess up here
+	memcpy( &localapi, api, sizeof( localapi ));
+
+	if( F( version, iface, &localapi ) != version )
+		return false;
+
+	Con_Reportf( "vgui_support: initialized new API\n" );
+
+	return true;
+}
+
+static qboolean VGui_ProbeOldAPI( HINSTANCE hInstance,
+	vgui_support_interface_t *iface, const vgui_support_api_t *api,
+	qboolean client )
+{
+	static legacy_vguiapi_t localapi;
+	LEGACY_VGUISUPPORTAPI F;
+
+	F = COM_GetProcAddress( hInstance, client ? LEGACY_CLIENT_GET_VGUI_SUPPORT_API : LEGACY_GET_VGUI_SUPPORT_API );
+
+	if( !F )
+		return false;
+
+	memset( &localapi, 0, sizeof( localapi ));
+	localapi.DrawInit = api->DrawInit;
+	localapi.DrawShutdown = api->DrawShutdown;
+	localapi.SetupDrawingText = api->SetupDrawingText;
+	localapi.SetupDrawingRect = api->SetupDrawingRect;
+	localapi.SetupDrawingImage = api->SetupDrawingImage;
+	localapi.BindTexture = api->BindTexture;
+	localapi.EnableTexture = api->EnableTexture;
+	localapi.CreateTexture = api->CreateTexture;
+	localapi.UploadTexture = api->UploadTexture;
+	localapi.UploadTextureBlock = api->UploadTextureBlock;
+	localapi.DrawQuad = api->DrawQuad;
+	localapi.GetTextureSizes = api->GetTextureSizes;
+	localapi.GenerateTexture = api->GenerateTexture;
+	localapi.EngineMalloc = api->EngineMalloc;
+	localapi.CursorSelect = api->CursorSelect;
+	localapi.GetColor = api->GetColor;
+	localapi.IsInGame = api->IsInGame;
+	localapi.EnableTextInput = api->EnableTextInput;
+	localapi.GetCursorPos = api->GetCursorPos;
+	localapi.ProcessUtfChar = api->ProcessUtfChar;
+	localapi.GetClipboardText = api->GetClipboardText;
+	localapi.SetClipboardText = api->SetClipboardText;
+	localapi.GetKeyModifiers = api->GetKeyModifiers;
+
+	F( &localapi );
+
+	localapi.initialized = true;
+
+	iface->Startup = localapi.Startup;
+	iface->Shutdown = localapi.Shutdown;
+	iface->GetPanel = localapi.GetPanel;
+	iface->Paint = localapi.Paint;
+	iface->Mouse = localapi.Mouse;
+	iface->Key = localapi.Key;
+	iface->MouseMove = localapi.MouseMove;
+	iface->TextInput = localapi.TextInput;
+
+	Con_Reportf( "vgui_support: initialized legacy API in %s module\n", client ? "client" : "support" );
+
+	return true;
+}
+
 qboolean VGui_LoadProgs( HINSTANCE hInstance )
 {
-	void (*F)( vguiapi_t* );
+	LEGACY_VGUISUPPORTAPI F;
 	qboolean client = hInstance != NULL;
 
 	// not loading interface from client.dll, load vgui_support.dll instead
 	if( !client )
 	{
-		string vguiloader, vguilib;
+		hInstance = vgui.hInstance = VGui_LoadSupportLibrary();
 
-		// HACKHACK: try to load path from custom path
-		// to support having different versions of VGUI
-		if( Sys_GetParmFromCmdLine( "-vguilib", vguilib ) && !COM_LoadLibrary( vguilib, false, false ))
+		if( !hInstance )
+			return false;
+	}
+
+	// prepare api funcs
+	VGui_FillAPIFromRef( &gEngfuncs, &ref.dllFuncs );
+
+	// try new API first
+	if( !VGui_ProbeNewAPI( vgui.hInstance, &vgui.dllFuncs, &gEngfuncs ))
+	{
+		// try legacy API next
+		if( !VGui_ProbeOldAPI( vgui.hInstance, &vgui.dllFuncs, &gEngfuncs, client ))
 		{
-			Con_Reportf( S_WARN "VGUI preloading failed. Default library will be used! Reason: %s", COM_GetLibraryError());
-		}
-
-		if( !Sys_GetParmFromCmdLine( "-vguiloader", vguiloader ))
-		{
-			Q_strncpy( vguiloader, VGUI_SUPPORT_DLL, sizeof( vguiloader ));
-		}
-
-		hInstance = vgui.hInstance = COM_LoadLibrary( vguiloader, false, false );
-
-		if( !vgui.hInstance )
-		{
-			if( FS_FileExists( vguiloader, false ))
-				Con_Reportf( S_ERROR "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
-			else Con_Reportf( "vgui_support: not found\n" );
-
+			Con_Reportf( S_ERROR "Failed to find VGUI support API entry point in %s module\n", client ? "client" : "support" );
 			return false;
 		}
 	}
 
-	// try legacy API first
-	F = COM_GetProcAddress( hInstance, client ? "InitVGUISupportAPI" : "InitAPI" );
-
-	if( F )
-	{
-		VGui_FillAPIFromRef( &vgui.dllFuncs, &ref.dllFuncs );
-		F( &vgui.dllFuncs );
-
-		vgui.initialized = vgui.dllFuncs.initialized = true;
-		Con_Reportf( "vgui_support: initialized legacy API in %s module\n", client ? "client" : "support" );
-
-		return true;
-	}
-
-	Con_Reportf( S_ERROR "Failed to find VGUI support API entry point in %s module\n", client ? "client" : "support" );
-	return false;
+	vgui.initialized = true;
+	return true;
 }
 
 /*
@@ -197,7 +290,7 @@ VGui_Startup
 
 ================
 */
-void VGui_Startup( int width, int height )
+void VGui_Startup( HINSTANCE clientInstance, int width, int height )
 {
 	// vgui not initialized from both support and client modules, skip
 	if( !vgui.initialized )
@@ -212,11 +305,17 @@ void VGui_Startup( int width, int height )
 	else if( width <= 1280 ) width = 1280;
 	else if( width <= 1600 ) width = 1600;
 
-	if( vgui.dllFuncs.Startup )
-		vgui.dllFuncs.Startup( width, height );
+	if( !clientInstance )
+	{
+		if( vgui.dllFuncs.Startup )
+			vgui.dllFuncs.Startup( width, height );
+	}
+	else
+	{
+		if( vgui.dllFuncs.ClientStartup )
+			vgui.dllFuncs.ClientStartup( clientInstance, width, height );
+	}
 }
-
-
 
 /*
 ================

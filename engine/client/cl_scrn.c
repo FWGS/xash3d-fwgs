@@ -715,7 +715,9 @@ void SCR_VidInit( void )
 	// notify vgui about screen size change
 	if( clgame.hInstance )
 	{
-		VGui_Startup( refState.width, refState.height );
+		// do not pass client pointer, we do not want to
+		// re-initialize vgui2
+		VGui_Startup( NULL, refState.width, refState.height );
 	}
 
 	CL_ClearSpriteTextures(); // now all hud sprites are invalid

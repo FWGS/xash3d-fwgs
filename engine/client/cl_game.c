@@ -3938,7 +3938,7 @@ qboolean CL_LoadProgs( const char *name )
 	// during LoadLibrary
 	if( !GI->internal_vgui_support && VGui_LoadProgs( NULL ))
 	{
-		VGui_Startup( refState.width, refState.height );
+		VGui_Startup( NULL, refState.width, refState.height );
 	}
 	else
 	{
@@ -3954,7 +3954,8 @@ qboolean CL_LoadProgs( const char *name )
 	// delayed vgui initialization for internal support
 	if( GI->internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
 	{
-		VGui_Startup( refState.width, refState.height );
+		// do not pass client pointer yet
+		VGui_Startup( NULL, refState.width, refState.height );
 	}
 
 	// clear exports
@@ -4036,6 +4037,9 @@ qboolean CL_LoadProgs( const char *name )
 		clgame.hInstance = NULL;
 		return false;
 	}
+
+	// try to load VGUI2
+	VGui_Startup( clgame.hInstance, refState.width, refState.height );
 
 	Cvar_FullSet( "host_clientloaded", "1", FCVAR_READ_ONLY );
 
