@@ -457,15 +457,14 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
-		# check if we can use system opus
-		conf.define('CUSTOM_MODES', 1)
+		# search for exact version of opus, 1.4 has fixes for custom modes
+		if conf.check_cfg(package='opus', uselib_store='opus', args='opus >= 1.4 --cflags --libs', mandatory=False):
+			# now try to link with export that only exists with CUSTOM_MODES defined
+			frag='''#include <opus_custom.h>
+int main(void) { return !opus_custom_encoder_init(0, 0, 0); }'''
 
-		# try to link with export that only exists with CUSTOM_MODES defined
-		if conf.check_pkg('opus', 'opus', '''#include <opus_custom.h>
-int main(void){ return !opus_custom_encoder_init(0, 0, 0); }''', fatal = False):
-			conf.env.HAVE_SYSTEM_OPUS = True
-		else:
-			conf.undefine('CUSTOM_MODES')
+			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus', fragment=frag, mandatory=False):
+				conf.env.HAVE_SYSTEM_OPUS = True
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
