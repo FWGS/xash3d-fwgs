@@ -457,7 +457,7 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
-		# search for exact version of opus, 1.4 has fixes for custom modes
+		# search for opus 1.4 or higher, it has fixes for custom modes
 		if conf.check_cfg(package='opus', uselib_store='opus', args='opus >= 1.4 --cflags --libs', mandatory=False):
 			# now try to link with export that only exists with CUSTOM_MODES defined
 			frag='''#include <opus_custom.h>
