@@ -16,13 +16,15 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 #include "wadfile.h"
+
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
 #define TURBSCALE		( 256.0f / ( M_PI2 ))
-const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
-static const int		r_skyTexOrder[6] = { 0, 2, 1, 3, 4, 5 };
 
-static const vec3_t skyclip[6] =
+static const char* r_skyBoxSuffix[SKYBOX_MAX_SIDES] = { "rt", "bk", "lf", "ft", "up", "dn" };
+static const int r_skyTexOrder[SKYBOX_MAX_SIDES] = { 0, 2, 1, 3, 4, 5 };
+
+static const vec3_t skyclip[SKYBOX_MAX_SIDES] =
 {
 {  1,  1,  0 },
 {  1, -1,  0 },
@@ -33,7 +35,7 @@ static const vec3_t skyclip[6] =
 };
 
 // 1 = s, 2 = t, 3 = 2048
-static const int st_to_vec[6][3] =
+static const int st_to_vec[SKYBOX_MAX_SIDES][3] =
 {
 {  3, -1,  2 },
 { -3,  1,  2 },
@@ -44,7 +46,7 @@ static const int st_to_vec[6][3] =
 };
 
 // s = [0]/[2], t = [1]/[2]
-static const int vec_to_st[6][3] =
+static const int vec_to_st[SKYBOX_MAX_SIDES][3] =
 {
 { -2,  3,  1 },
 {  2,  3, -1 },
@@ -55,9 +57,9 @@ static const int vec_to_st[6][3] =
 };
 
 // speed up sin calculations
-float r_turbsin[] =
+static float r_turbsin[] =
 {
-	#include "warpsin.h"
+#include "warpsin.h"
 };
 
 static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
@@ -105,7 +107,7 @@ static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
 	return false;
 }
 
-void DrawSkyPolygon( int nump, vec3_t vecs )
+static void DrawSkyPolygon( int nump, vec3_t vecs )
 {
 	int	i, j, axis;
 	float	s, t, dv, *vp;
@@ -153,7 +155,7 @@ void DrawSkyPolygon( int nump, vec3_t vecs )
 ClipSkyPolygon
 ==============
 */
-void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
+static void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 {
 	const float	*norm;
 	float		*v, d, e;
@@ -248,7 +250,7 @@ loc1:
 	ClipSkyPolygon( newc[1], newv[1][0], stage + 1 );
 }
 
-void MakeSkyVec( float s, float t, int axis )
+static void MakeSkyVec( float s, float t, int axis )
 {
 	int	j, k, farclip;
 	vec3_t	v, b;
@@ -270,14 +272,8 @@ void MakeSkyVec( float s, float t, int axis )
 	s = (s + 1.0f) * 0.5f;
 	t = (t + 1.0f) * 0.5f;
 
-	if( s < 1.0f / 512.0f )
-		s = 1.0f / 512.0f;
-	else if( s > 511.0f / 512.0f )
-		s = 511.0f / 512.0f;
-	if( t < 1.0f / 512.0f )
-		t = 1.0f / 512.0f;
-	else if( t > 511.0f / 512.0f )
-		t = 511.0f / 512.0f;
+	s = bound( 1.0f / 512.0f, s, 511.0f / 512.0f );
+	t = bound( 1.0f / 512.0f, t, 511.0f / 512.0f );
 
 	t = 1.0f - t;
 
@@ -478,7 +474,7 @@ void R_SetupSky( const char *skyboxname )
 R_CloudVertex
 ==============
 */
-void R_CloudVertex( float s, float t, int axis, vec3_t v )
+static void R_CloudVertex( float s, float t, int axis, vec3_t v )
 {
 	int	j, k, farclip;
 	vec3_t	b;
@@ -502,7 +498,7 @@ void R_CloudVertex( float s, float t, int axis, vec3_t v )
 R_CloudTexCoord
 =============
 */
-void R_CloudTexCoord( vec3_t v, float speed, float *s, float *t )
+static void R_CloudTexCoord( vec3_t v, float speed, float *s, float *t )
 {
 	float	length, speedscale;
 	vec3_t	dir;
@@ -525,7 +521,7 @@ void R_CloudTexCoord( vec3_t v, float speed, float *s, float *t )
 R_CloudDrawPoly
 ===============
 */
-void R_CloudDrawPoly( glpoly_t *p )
+static void R_CloudDrawPoly( glpoly_t *p )
 {
 	float	s, t;
 	float	*v;
@@ -563,7 +559,7 @@ void R_CloudDrawPoly( glpoly_t *p )
 R_CloudRenderSide
 ==============
 */
-void R_CloudRenderSide( int axis )
+static void R_CloudRenderSide( int axis )
 {
 	vec3_t	verts[4];
 	float	di, qi, dj, qj;
