@@ -744,8 +744,6 @@ void GL_InitExtensionsBigGL( void )
 #if XASH_PSVITA
 	// not all GL1.1 functions are implemented in vitaGL, but there's enough
 	GL_SetExtension( GL_OPENGL_110, true );
-	// NPOT textures are actually supported, but the extension is not listed in GL_EXTENSIONS
-	GL_SetExtension( GL_ARB_TEXTURE_NPOT_EXT, true );
 	// init our immediate mode override
 	VGL_ShimInit();
 #endif
