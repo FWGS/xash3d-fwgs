@@ -202,25 +202,6 @@ int NearestPOW( int value, qboolean roundDown )
 	return n;
 }
 
-// remap a value in the range [A,B] to [C,D].
-float RemapVal( float val, float A, float B, float C, float D )
-{
-	return C + (D - C) * (val - A) / (B - A);
-}
-
-float ApproachVal( float target, float value, float speed )
-{
-	float	delta = target - value;
-
-	if( delta > speed )
-		value += speed;
-	else if( delta < -speed )
-		value -= speed;
-	else value = target;
-
-	return value;
-}
-
 /*
 =================
 rsqrt
