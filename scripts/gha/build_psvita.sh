@@ -24,7 +24,7 @@ mkdir -p artifacts/ || die
 
 echo "Building vitaGL..."
 
-make -C vitaGL NO_TEX_COMBINER=1 HAVE_UNFLIPPED_FBOS=1 HAVE_PTHREAD=1 MATH_SPEEDHACK=1 DRAW_SPEEDHACK=1 HAVE_CUSTOM_HEAP=1 -j2 install || die
+make -C vitaGL NO_TEX_COMBINER=1 HAVE_UNFLIPPED_FBOS=1 HAVE_PTHREAD=1 MATH_SPEEDHACK=1 DRAW_SPEEDHACK=1 -j2 install || die
 
 echo "Building vrtld..."
 
