@@ -6,7 +6,7 @@ echo "Downloading vitasdk..."
 
 export VITASDK=/usr/local/vitasdk
 
-VITAGL_SRCREV="c52391378c2bf1a00a0194c4fd88c35492d104b8" # lock vitaGL version to avoid compilation errors
+VITAGL_SRCREV="064db9efb15833e18777a3e768b8b1fb2abee78f" # lock vitaGL version to avoid compilation errors
 
 install_package()
 {
