@@ -315,16 +315,28 @@ static const delta_field_t ent_fields[] =
 { NULL },
 };
 
+enum
+{
+	DT_EVENT_T = 0,
+	DT_MOVEVARS_T,
+	DT_USERCMD_T,
+	DT_CLIENTDATA_T,
+	DT_WEAPONDATA_T,
+	DT_ENTITY_STATE_T,
+	DT_ENTITY_STATE_PLAYER_T,
+	DT_CUSTOM_ENTITY_STATE_T,
+};
+
 static delta_info_t dt_info[] =
 {
-{ "event_t", ev_fields, NUM_FIELDS( ev_fields ) },
-{ "movevars_t", pm_fields, NUM_FIELDS( pm_fields ) },
-{ "usercmd_t", cmd_fields, NUM_FIELDS( cmd_fields ) },
-{ "clientdata_t", cd_fields, NUM_FIELDS( cd_fields ) },
-{ "weapon_data_t", wd_fields, NUM_FIELDS( wd_fields ) },
-{ "entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
-{ "entity_state_player_t", ent_fields, NUM_FIELDS( ent_fields ) },
-{ "custom_entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
+[DT_EVENT_T]               = { "event_t", ev_fields, NUM_FIELDS( ev_fields ) },
+[DT_MOVEVARS_T]            = { "movevars_t", pm_fields, NUM_FIELDS( pm_fields ) },
+[DT_USERCMD_T]             = { "usercmd_t", cmd_fields, NUM_FIELDS( cmd_fields ) },
+[DT_CLIENTDATA_T]          = { "clientdata_t", cd_fields, NUM_FIELDS( cd_fields ) },
+[DT_WEAPONDATA_T]          = { "weapon_data_t", wd_fields, NUM_FIELDS( wd_fields ) },
+[DT_ENTITY_STATE_T]	       = { "entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
+[DT_ENTITY_STATE_PLAYER_T] = { "entity_state_player_t", ent_fields, NUM_FIELDS( ent_fields ) },
+[DT_CUSTOM_ENTITY_STATE_T] = { "custom_entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
 { NULL },
 };
 
@@ -347,16 +359,13 @@ static delta_info_t *Delta_FindStruct( const char *name )
 	return NULL;
 }
 
-int Delta_NumTables( void )
+static int Delta_NumTables( void )
 {
 	return NUM_FIELDS( dt_info );
 }
 
-delta_info_t *Delta_FindStructByIndex( int index )
+static delta_info_t *Delta_FindStructByIndex( int index )
 {
-	if( index < 0 || index >= NUM_FIELDS( dt_info ))
-		return NULL;
-
 	return &dt_info[index];
 }
 
@@ -435,16 +444,11 @@ static int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fiel
 	return -1;
 }
 
-static qboolean Delta_AddField( const char *pStructName, const char *pName, int flags, int bits, float mul, float post_mul )
+static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, int bits, float mul, float post_mul )
 {
-	delta_info_t	*dt;
 	delta_field_t	*pFieldInfo;
 	delta_t		*pField;
 	int		i;
-
-	// get the delta struct
-	dt = Delta_FindStruct( pStructName );
-	Assert( dt != NULL );
 
 	// check for coexisting field
 	for( i = 0, pField = dt->pFields; i < dt->numFields; i++, pField++ )
@@ -464,13 +468,13 @@ static qboolean Delta_AddField( const char *pStructName, const char *pName, int 
 	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName );
 	if( !pFieldInfo )
 	{
-		Con_DPrintf( S_ERROR "Delta_Add: couldn't find description for %s->%s\n", pStructName, pName );
+		Con_DPrintf( S_ERROR "Delta_Add: couldn't find description for %s->%s\n", dt->pName, pName );
 		return false;
 	}
 
 	if( dt->numFields + 1 > dt->maxFields )
 	{
-		Con_DPrintf( S_WARN "Delta_Add: can't add %s->%s encoder list is full\n", pStructName, pName );
+		Con_DPrintf( S_WARN "Delta_Add: can't add %s->%s encoder list is full\n", dt->pName, pName );
 		return false; // too many fields specified (duplicated ?)
 	}
 
@@ -491,7 +495,7 @@ static qboolean Delta_AddField( const char *pStructName, const char *pName, int 
 	return true;
 }
 
-void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t *pField )
+static void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t *pField )
 {
 	int	nameIndex;
 	delta_info_t *dt;
@@ -572,7 +576,7 @@ void Delta_ParseTableField( sizebuf_t *msg )
 		Delta_Shutdown();
 
 	// add field to table
-	Delta_AddField( dt->pName, pName, flags, bits, mul, post_mul );
+	Delta_AddField( dt, pName, flags, bits, mul, post_mul );
 }
 
 static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delta_t *pField, qboolean bPost )
@@ -820,43 +824,43 @@ void Delta_Init( void )
 	Delta_InitFields ();	// initialize fields
 	delta_init = true;
 
-	dt = Delta_FindStruct( "movevars_t" );
+	dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 
 	Assert( dt != NULL );
 	if( dt->bInitialized ) return;	// "movevars_t" already specified by user
 
 	// create movevars_t delta internal
-	Delta_AddField( "movevars_t", "gravity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "stopspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "maxspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "spectatormaxspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "accelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "airaccelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "wateraccelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "friction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "edgefriction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "waterfriction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "bounce", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "stepsize", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
-	Delta_AddField( "movevars_t", "maxvelocity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "gravity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "stopspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "maxspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "spectatormaxspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "accelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "airaccelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "wateraccelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "friction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "edgefriction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "waterfriction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "bounce", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "stepsize", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
+	Delta_AddField( dt, "maxvelocity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 
 	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		Delta_AddField( "movevars_t", "zmax", DT_FLOAT|DT_SIGNED, 18, 1.0f, 1.0f );
-	else Delta_AddField( "movevars_t", "zmax", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
+		Delta_AddField( dt, "zmax", DT_FLOAT|DT_SIGNED, 18, 1.0f, 1.0f );
+	else Delta_AddField( dt, "zmax", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
 
-	Delta_AddField( "movevars_t", "waveHeight", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
-	Delta_AddField( "movevars_t", "skyName", DT_STRING, 1, 1.0f, 1.0f );
-	Delta_AddField( "movevars_t", "footsteps", DT_INTEGER, 1, 1.0f, 1.0f );
-	Delta_AddField( "movevars_t", "rollangle", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
-	Delta_AddField( "movevars_t", "rollspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
-	Delta_AddField( "movevars_t", "skycolor_r", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f ); // 0 - 264
-	Delta_AddField( "movevars_t", "skycolor_g", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
-	Delta_AddField( "movevars_t", "skycolor_b", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
-	Delta_AddField( "movevars_t", "skyvec_x", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f ); // 0 - 1
-	Delta_AddField( "movevars_t", "skyvec_y", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
-	Delta_AddField( "movevars_t", "skyvec_z", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
-	Delta_AddField( "movevars_t", "wateralpha", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
-	Delta_AddField( "movevars_t", "fog_settings", DT_INTEGER, 32, 1.0f, 1.0f );
+	Delta_AddField( dt, "waveHeight", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
+	Delta_AddField( dt, "skyName", DT_STRING, 1, 1.0f, 1.0f );
+	Delta_AddField( dt, "footsteps", DT_INTEGER, 1, 1.0f, 1.0f );
+	Delta_AddField( dt, "rollangle", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
+	Delta_AddField( dt, "rollspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "skycolor_r", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f ); // 0 - 264
+	Delta_AddField( dt, "skycolor_g", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
+	Delta_AddField( dt, "skycolor_b", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
+	Delta_AddField( dt, "skyvec_x", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f ); // 0 - 1
+	Delta_AddField( dt, "skyvec_y", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
+	Delta_AddField( dt, "skyvec_z", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
+	Delta_AddField( dt, "wateralpha", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
+	Delta_AddField( dt, "fog_settings", DT_INTEGER, 32, 1.0f, 1.0f );
 	dt->numFields = NUM_FIELDS( pm_fields ) - 4;
 
 	// now done
@@ -1001,10 +1005,10 @@ int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean playe
 	}
 
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
-		dt = Delta_FindStruct( "custom_entity_state_t" );
+		dt = Delta_FindStructByIndex( DT_CUSTOM_ENTITY_STATE_T );
 	else if( player )
-		dt = Delta_FindStruct( "entity_state_player_t" );
-	else dt = Delta_FindStruct( "entity_state_t" );
+		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_PLAYER_T );
+	else dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 
 	Assert( dt && dt->bInitialized );
 
@@ -1308,7 +1312,7 @@ void MSG_WriteDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to )
 	delta_info_t	*dt;
 	int		i;
 
-	dt = Delta_FindStruct( "usercmd_t" );
+	dt = Delta_FindStructByIndex( DT_USERCMD_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1335,7 +1339,7 @@ void MSG_ReadDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to )
 	delta_info_t	*dt;
 	int		i;
 
-	dt = Delta_FindStruct( "usercmd_t" );
+	dt = Delta_FindStructByIndex( DT_USERCMD_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1370,7 +1374,7 @@ void MSG_WriteDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to )
 	delta_info_t	*dt;
 	int		i;
 
-	dt = Delta_FindStruct( "event_t" );
+	dt = Delta_FindStructByIndex( DT_EVENT_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1397,7 +1401,7 @@ void MSG_ReadDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to )
 	delta_info_t	*dt;
 	int		i;
 
-	dt = Delta_FindStruct( "event_t" );
+	dt = Delta_FindStructByIndex( DT_EVENT_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1426,7 +1430,7 @@ qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *t
 	int		i, startBit;
 	int		numChanges = 0;
 
-	dt = Delta_FindStruct( "movevars_t" );
+	dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1461,7 +1465,7 @@ void MSG_ReadDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *to )
 	delta_info_t	*dt;
 	int		i;
 
-	dt = Delta_FindStruct( "movevars_t" );
+	dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1498,7 +1502,7 @@ void MSG_WriteClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, 
 	int		i, startBit;
 	int		numChanges = 0;
 
-	dt = Delta_FindStruct( "clientdata_t" );
+	dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1539,7 +1543,7 @@ void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, d
 	int		i;
 	qboolean noChanges;
 
-	dt = Delta_FindStruct( "clientdata_t" );
+	dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1579,7 +1583,7 @@ void MSG_WriteWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to
 	int		i, startBit;
 	int		numChanges = 0;
 
-	dt = Delta_FindStruct( "weapon_data_t" );
+	dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1617,7 +1621,7 @@ void MSG_ReadWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to,
 	delta_info_t	*dt;
 	int		i;
 
-	dt = Delta_FindStruct( "weapon_data_t" );
+	dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1700,15 +1704,15 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
 	{
-		dt = Delta_FindStruct( "custom_entity_state_t" );
+		dt = Delta_FindStructByIndex( DT_CUSTOM_ENTITY_STATE_T );
 	}
 	else if( delta_type == DELTA_PLAYER )
 	{
-		dt = Delta_FindStruct( "entity_state_player_t" );
+		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_PLAYER_T );
 	}
 	else
 	{
-		dt = Delta_FindStruct( "entity_state_t" );
+		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 	}
 
 	Assert( dt && dt->bInitialized );
@@ -1818,15 +1822,15 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 
 	if( cls.legacymode ? ( to->entityType == ENTITY_BEAM ) : FBitSet( to->entityType, ENTITY_BEAM ))
 	{
-		dt = Delta_FindStruct( "custom_entity_state_t" );
+		dt = Delta_FindStructByIndex( DT_CUSTOM_ENTITY_STATE_T );
 	}
 	else if( delta_type == DELTA_PLAYER )
 	{
-		dt = Delta_FindStruct( "entity_state_player_t" );
+		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_PLAYER_T );
 	}
 	else
 	{
-		dt = Delta_FindStruct( "entity_state_t" );
+		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 	}
 
 	Assert( dt && dt->bInitialized );
@@ -1842,6 +1846,27 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 #endif // XASH_DEDICATED
 	// message parsed
 	return true;
+}
+
+/*
+==================
+Delta_WriteDescriptionToClient
+
+send delta communication encoding
+==================
+*/
+void Delta_WriteDescriptionToClient( sizebuf_t *msg )
+{
+	int	tableIndex;
+	int	fieldIndex;
+
+	for( tableIndex = 0; tableIndex < Delta_NumTables(); tableIndex++ )
+	{
+		delta_info_t	*dt = Delta_FindStructByIndex( tableIndex );
+
+		for( fieldIndex = 0; fieldIndex < dt->numFields; fieldIndex++ )
+			Delta_WriteTableField( msg, tableIndex, &dt->pFields[fieldIndex] );
+	}
 }
 
 /*
