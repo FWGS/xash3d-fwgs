@@ -65,7 +65,6 @@ size_t Q_colorstr( const char *string );
 char Q_toupper( const char in );
 char Q_tolower( const char in );
 size_t Q_strncat( char *dst, const char *src, size_t siz );
-size_t Q_strncpy( char *dst, const char *src, size_t siz );
 qboolean Q_isdigit( const char *str );
 qboolean Q_isspace( const char *str );
 int Q_atoi( const char *str );
@@ -121,6 +120,25 @@ static inline int Q_strncmp( const char *s1, const char *s2, size_t n )
 static inline char *Q_strstr( const char *s1, const char *s2 )
 {
 	return unlikely( !s1 || !s2 ) ? NULL : (char*)strstr( s1, s2 );
+}
+
+// Q_strncpy is the same as strlcpy
+static inline size_t Q_strncpy( char *dst, const char *src, size_t siz )
+{
+	size_t len;
+
+	if( unlikely( !dst || !src || !siz ))
+		return 0;
+
+	len = strlen( src );
+	if( len + 1 > siz ) // check if truncate
+	{
+		memcpy( dst, src, siz - 1 );
+		dst[siz - 1] = 0;
+	}
+	else memcpy( dst, src, len + 1 );
+
+	return len; // count does not include NULL
 }
 
 // libc extensions, be careful
