@@ -77,8 +77,6 @@ typedef struct
 void Delta_Init( void );
 void Delta_InitClient( void );
 void Delta_Shutdown( void );
-int Delta_NumTables( void );
-delta_info_t *Delta_FindStructByIndex( int index );
 void Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc );
 int Delta_FindField( delta_t *pFields, const char *fieldname );
 void Delta_SetField( delta_t *pFields, const char *fieldname );
@@ -87,7 +85,7 @@ void Delta_SetFieldByIndex( delta_t *pFields, int fieldNumber );
 void Delta_UnsetFieldByIndex( delta_t *pFields, int fieldNumber );
 
 // send table over network
-void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t *pField );
+void Delta_WriteDescriptionToClient( sizebuf_t *msg );
 void Delta_ParseTableField( sizebuf_t *msg );
 
 
