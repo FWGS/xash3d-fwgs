@@ -271,40 +271,6 @@ typedef struct
 	double		forcedEnd;
 } soundlist_t;
 
-typedef struct
-{
-	char		model[MAX_QPATH];	// curstate.modelindex = SV_ModelIndex
-	vec3_t		tentOffset;	// if attached, client origin + tentOffset = tent origin.
-	short		clientIndex;
-	float		fadeSpeed;
-	float		bounceFactor;
-	byte		hitSound;
-	qboolean		high_priority;
-	float		x, y, z;
-	int		flags;
-	float		time;
-
-	// base state
-	vec3_t		velocity;		// baseline.origin
-	vec3_t		avelocity;	// baseline.angles
-	int		fadeamount;	// baseline.renderamt
-	float		sparklife;	// baseline.framerate
-	float		thinkTime;	// baseline.scale
-
-	// current state
-	vec3_t		origin;		// entity.origin
-	vec3_t		angles;		// entity.angles
-	float		renderamt;	// curstate.renderamt
-	color24		rendercolor;	// curstate.rendercolor
-	int		rendermode;	// curstate.rendermode
-	int		renderfx;		// curstate.renderfx
-	float		framerate;	// curstate.framerate
-	float		frame;		// curstate.frame
-	byte		body;		// curstate.body
-	byte		skin;		// curstate.skin
-	float		scale;		// curstate.scale
-} tentlist_t;
-
 typedef enum bugcomp_e
 {
 	// default mode, we assume that user dlls are not relying on engine bugs
