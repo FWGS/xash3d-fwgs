@@ -1568,27 +1568,6 @@ void SV_BuildReconnect( sizebuf_t *msg )
 }
 
 /*
-==================
-SV_WriteDeltaDescriptionToClient
-
-send delta communication encoding
-==================
-*/
-void SV_WriteDeltaDescriptionToClient( sizebuf_t *msg )
-{
-	int	tableIndex;
-	int	fieldIndex;
-
-	for( tableIndex = 0; tableIndex < Delta_NumTables(); tableIndex++ )
-	{
-		delta_info_t	*dt = Delta_FindStructByIndex( tableIndex );
-
-		for( fieldIndex = 0; fieldIndex < dt->numFields; fieldIndex++ )
-			Delta_WriteTableField( msg, tableIndex, &dt->pFields[fieldIndex] );
-	}
-}
-
-/*
 ================
 SV_SendServerdata
 
@@ -1632,7 +1611,7 @@ void SV_SendServerdata( sizebuf_t *msg, sv_client_t *cl )
 	}
 
 	// send delta-encoding
-	SV_WriteDeltaDescriptionToClient( msg );
+	Delta_WriteDescriptionToClient( msg );
 
 	// now client know delta and can reading encoded messages
 	SV_FullUpdateMovevars( cl, msg );
