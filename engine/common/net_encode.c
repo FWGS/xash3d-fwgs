@@ -948,7 +948,7 @@ assume from and to is valid
 */
 static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timebase )
 {
-	qboolean	bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
+	int		signbit = ( pField->flags & DT_SIGNED ) ? 1 : 0;
 	float	val_a, val_b;
 	int	fromF, toF;
 
@@ -963,7 +963,7 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 
 	if( pField->flags & DT_BYTE )
 	{
-		if( pField->flags & DT_SIGNED )
+		if( signbit )
 		{
 			fromF = *(int8_t *)((int8_t *)from + pField->offset );
 			toF = *(int8_t *)((int8_t *)to + pField->offset );
@@ -974,18 +974,18 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 			toF = *(uint8_t *)((int8_t *)to + pField->offset );
 		}
 
-		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
-		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
+		fromF = Delta_ClampIntegerField( pField, fromF, signbit, pField->bits );
+		toF = Delta_ClampIntegerField( pField, toF, signbit, pField->bits );
 
-		if( !Q_equal(pField->multiplier, 1.0) )
+		if( !Q_equal(pField->multiplier, 1.0f ))
 			fromF *= pField->multiplier;
 
-		if( !Q_equal( pField->multiplier, 1.0 ) )
+		if( !Q_equal( pField->multiplier, 1.0f ))
 			toF *= pField->multiplier;
 	}
 	else if( pField->flags & DT_SHORT )
 	{
-		if( pField->flags & DT_SIGNED )
+		if( signbit )
 		{
 			fromF = *(int16_t *)((int8_t *)from + pField->offset );
 			toF = *(int16_t *)((int8_t *)to + pField->offset );
@@ -996,18 +996,18 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 			toF = *(uint16_t *)((int8_t *)to + pField->offset );
 		}
 
-		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
-		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
+		fromF = Delta_ClampIntegerField( pField, fromF, signbit, pField->bits );
+		toF = Delta_ClampIntegerField( pField, toF, signbit, pField->bits );
 
-		if( !Q_equal( pField->multiplier, 1.0 ) )
+		if( !Q_equal(pField->multiplier, 1.0f ))
 			fromF *= pField->multiplier;
 
-		if( !Q_equal( pField->multiplier, 1.0 ) )
+		if( !Q_equal( pField->multiplier, 1.0f ))
 			toF *= pField->multiplier;
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
-		if( pField->flags & DT_SIGNED )
+		if( signbit )
 		{
 			fromF = *(int32_t *)((int8_t *)from + pField->offset );
 			toF = *(int32_t *)((int8_t *)to + pField->offset );
@@ -1017,11 +1017,13 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 			fromF = *(uint32_t *)((int8_t *)from + pField->offset );
 			toF = *(uint32_t *)((int8_t *)to + pField->offset );
 		}
-		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
-		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
-		if( !Q_equal( pField->multiplier, 1.0 ) )
+		fromF = Delta_ClampIntegerField( pField, fromF, signbit, pField->bits );
+		toF = Delta_ClampIntegerField( pField, toF, signbit, pField->bits );
+
+		if( !Q_equal(pField->multiplier, 1.0f ))
 			fromF *= pField->multiplier;
-		if( !Q_equal( pField->multiplier, 1.0 ) )
+
+		if( !Q_equal( pField->multiplier, 1.0f ))
 			toF *= pField->multiplier;
 	}
 	else if( pField->flags & ( DT_ANGLE|DT_FLOAT ))
@@ -1032,8 +1034,8 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 	}
 	else if( pField->flags & DT_TIMEWINDOW_8 )
 	{
-		val_a = Q_rint((*(float *)((byte *)from + pField->offset )) * 100.0 );
-		val_b = Q_rint((*(float *)((byte *)to + pField->offset )) * 100.0 );
+		val_a = Q_rint((*(float *)((byte *)from + pField->offset )) * 100.0f );
+		val_b = Q_rint((*(float *)((byte *)to + pField->offset )) * 100.0f );
 		val_a -= Q_rint(timebase * 100.0);
 		val_b -= Q_rint(timebase * 100.0);
 		fromF = FloatAsInt( val_a );
@@ -1044,7 +1046,7 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 		val_a = (*(float *)((byte *)from + pField->offset ));
 		val_b = (*(float *)((byte *)to + pField->offset ));
 
-		if( !Q_equal( pField->multiplier, 1.0 ) )
+		if( !Q_equal( pField->multiplier, 1.0f ))
 		{
 			val_a *= pField->multiplier;
 			val_b *= pField->multiplier;
@@ -1070,7 +1072,7 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 		toF = Q_strcmp( s1, s2 );
 	}
 
-	return ( fromF == toF ) ? true : false;
+	return fromF == toF;
 }
 
 /*
