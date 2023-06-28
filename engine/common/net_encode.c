@@ -951,7 +951,6 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 	uint8_t *from_field = (uint8_t *)from + pField->offset;
 	uint8_t *to_field = (uint8_t *)to + pField->offset;
 	uint field_type = pField->flags & ~DT_SIGNED;
-	int signbit = FBitSet( pField->flags, DT_SIGNED ) ? 1 : 0;
 	int fromF;
 	int toF;
 
@@ -961,68 +960,29 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 	switch( field_type )
 	{
 	case DT_BYTE:
-		if( signbit )
-		{
-			fromF = *(int8_t *)from_field;
-			toF   = *(int8_t *)to_field;
-		}
-		else
-		{
-			fromF = *(uint8_t *)from_field;
-			toF   = *(uint8_t *)to_field;
-		}
-		break;
+		return *to_field == *from_field;
 	case DT_SHORT:
-		if( signbit )
-		{
-			fromF = *(int16_t *)from_field;
-			toF   = *(int16_t *)to_field;
-		}
-		else
-		{
-			fromF = *(uint16_t *)from_field;
-			toF   = *(uint16_t *)to_field;
-		}
-		break;
+		return *(uint16_t *)to_field == *(uint16_t *)from_field;
 	case DT_INTEGER:
-		if( signbit )
-		{
-			fromF = *(int32_t *)from_field;
-			toF   = *(int32_t *)to_field;
-		}
-		else
-		{
-			fromF = *(uint32_t *)from_field;
-			toF   = *(uint32_t *)to_field;
-		}
-		break;
 	case DT_ANGLE:
 	case DT_FLOAT:
 		return *(uint32_t *)to_field == *(uint32_t *)from_field;
 	case DT_TIMEWINDOW_8:
-		fromF = Q_rint((*(float *)from_field) * 100.0f );
-		toF   = Q_rint((*(float *)to_field) * 100.0f );
-		return fromF == toF;
+		fromF = (int)((*(float *)from_field) * 100.0f );
+		toF   = (int)((*(float *)to_field) * 100.0f );
+		return toF == fromF;
 	case DT_TIMEWINDOW_BIG:
-		fromF = Q_rint((*(float *)from_field) * 1000.0f );
-		toF   = Q_rint((*(float *)to_field) * 1000.0f );
-		return fromF == toF;
+		fromF = (int)((*(float *)from_field) * pField->multiplier );
+		toF   = (int)((*(float *)to_field) * pField->multiplier );
+		return toF == fromF;
 	case DT_STRING:
 		return Q_strcmp( to_field, from_field ) == 0;
 	default:
-		Con_Reportf( S_ERROR "bad field %s type: %d\n", pField->name, pField->flags );
-		return true;
+		break;
 	}
 
-	// if fields are equal, no need to clamp, return immediately
-	if( toF == fromF )
-		return true;
-
-	// clamp integer fields
-	fromF = Delta_ClampIntegerField( pField, fromF, signbit, pField->bits );
-	toF   = Delta_ClampIntegerField( pField, toF, signbit, pField->bits );
-
-	return toF == fromF;
+	Con_Reportf( S_ERROR "bad field %s type: %d\n", pField->name, pField->flags );
+	return false;
 }
 
 /*
