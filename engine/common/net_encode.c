@@ -918,7 +918,7 @@ Delta_ClampIntegerField
 prevent data to out of range
 =====================
 */
-static int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigned, int numbits )
+static int Delta_ClampIntegerField( delta_t *pField, int iValue, int signbit, int numbits )
 {
 #ifdef _DEBUG
 	if( numbits < 32 && abs( iValue ) >= (uint)BIT( numbits ))
@@ -926,10 +926,13 @@ static int Delta_ClampIntegerField( delta_t *pField, int iValue, qboolean bSigne
 #endif
 	if( numbits < 32 )
 	{
-		int signbits = bSigned ? ( numbits - 1 ) : numbits;
+		int signbits = numbits - signbit;
 		int maxnum = BIT( signbits ) - 1;
-		int minnum = bSigned ? ( -maxnum - 1 ) : 0;
-		iValue = bound( minnum, iValue, maxnum );
+
+		if( iValue > maxnum )
+			iValue = maxnum;
+		else if( signbit && iValue < -maxnum - 1 )
+			iValue = -maxnum - 1;
 	}
 
 	return iValue; // clamped;
@@ -1089,7 +1092,7 @@ assume from and to is valid
 */
 static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
 {
-	qboolean	bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
+	int		signbit = FBitSet( pField->flags, DT_SIGNED ) ? 1 : 0;
 	float		flValue, flAngle;
 	uint		iValue;
 	const char	*pStr;
@@ -1104,49 +1107,49 @@ static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, v
 
 	if( pField->flags & DT_BYTE )
 	{
-		if( bSigned )
+		if( signbit )
 			iValue = *(int8_t *)((int8_t *)to + pField->offset );
 		else
 			iValue = *(uint8_t *)((int8_t *)to + pField->offset );
-		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
+		iValue = Delta_ClampIntegerField( pField, iValue, signbit, pField->bits );
 
 		if( !Q_equal( pField->multiplier, 1.0 ) )
 			iValue *= pField->multiplier;
 
-		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
+		MSG_WriteBitLong( msg, iValue, pField->bits, signbit );
 	}
 	else if( pField->flags & DT_SHORT )
 	{
-		if( bSigned )
+		if( signbit )
 			iValue = *(int16_t *)((int8_t *)to + pField->offset );
 		else
 			iValue = *(uint16_t *)((int8_t *)to + pField->offset );
-		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
+		iValue = Delta_ClampIntegerField( pField, iValue, signbit, pField->bits );
 
 		if( !Q_equal( pField->multiplier, 1.0 ) )
 			iValue *= pField->multiplier;
 	
-		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
+		MSG_WriteBitLong( msg, iValue, pField->bits, signbit );
 	}
 	else if( pField->flags & DT_INTEGER )
 	{
-		if( bSigned )
+		if( signbit )
 			iValue = *(int32_t *)((int8_t *)to + pField->offset );
 		else
 			iValue = *(uint32_t *)((int8_t *)to + pField->offset );
-		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
+		iValue = Delta_ClampIntegerField( pField, iValue, signbit, pField->bits );
 
 		if( !Q_equal( pField->multiplier, 1.0 ) )
 			iValue *= pField->multiplier;
 
-		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
+		MSG_WriteBitLong( msg, iValue, pField->bits, signbit );
 	}
 	else if( pField->flags & DT_FLOAT )
 	{
 		flValue = *(float *)((byte *)to + pField->offset );
 		iValue = (int)((double)flValue * pField->multiplier);
-		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
-		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
+		iValue = Delta_ClampIntegerField( pField, iValue, signbit, pField->bits );
+		MSG_WriteBitLong( msg, iValue, pField->bits, signbit );
 	}
 	else if( pField->flags & DT_ANGLE )
 	{
@@ -1158,19 +1161,19 @@ static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, v
 	}
 	else if( pField->flags & DT_TIMEWINDOW_8 )
 	{
-		bSigned = true; // timewindow is always signed
+		signbit = 1; // timewindow is always signed
 		flValue = *(float *)((byte *)to + pField->offset );
 		iValue = (int)Q_rint( timebase * 100.0 ) - (int)Q_rint( flValue * 100.0 );
-		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
-		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
+		iValue = Delta_ClampIntegerField( pField, iValue, signbit, pField->bits );
+		MSG_WriteBitLong( msg, iValue, pField->bits, signbit );
 	}
 	else if( pField->flags & DT_TIMEWINDOW_BIG )
 	{
-		bSigned = true; // timewindow is always signed
+		signbit = 1; // timewindow is always signed
 		flValue = *(float *)((byte *)to + pField->offset );
 		iValue = (int)Q_rint( timebase * pField->multiplier ) - (int)Q_rint( flValue * pField->multiplier );
-		iValue = Delta_ClampIntegerField( pField, iValue, bSigned, pField->bits );
-		MSG_WriteBitLong( msg, iValue, pField->bits, bSigned );
+		iValue = Delta_ClampIntegerField( pField, iValue, signbit, pField->bits );
+		MSG_WriteBitLong( msg, iValue, pField->bits, signbit );
 	}
 	else if( pField->flags & DT_STRING )
 	{
