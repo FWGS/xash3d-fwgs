@@ -948,41 +948,129 @@ assume from and to is valid
 */
 static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timebase )
 {
-	uint8_t *from_field = (uint8_t *)from + pField->offset;
-	uint8_t *to_field = (uint8_t *)to + pField->offset;
-	uint field_type = pField->flags & ~DT_SIGNED;
-	int fromF;
-	int toF;
+	qboolean	bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
+	float	val_a, val_b;
+	int	fromF, toF;
+
+	Assert( pField != NULL );
+	Assert( from != NULL );
+	Assert( to != NULL );
 
 	if( pField->bInactive )
 		return true;
 
-	switch( field_type )
+	fromF = toF = 0;
+
+	if( pField->flags & DT_BYTE )
 	{
-	case DT_BYTE:
-		return *to_field == *from_field;
-	case DT_SHORT:
-		return *(uint16_t *)to_field == *(uint16_t *)from_field;
-	case DT_INTEGER:
-	case DT_ANGLE:
-	case DT_FLOAT:
-		return *(uint32_t *)to_field == *(uint32_t *)from_field;
-	case DT_TIMEWINDOW_8:
-		fromF = (int)((*(float *)from_field) * 100.0f );
-		toF   = (int)((*(float *)to_field) * 100.0f );
-		return toF == fromF;
-	case DT_TIMEWINDOW_BIG:
-		fromF = (int)((*(float *)from_field) * pField->multiplier );
-		toF   = (int)((*(float *)to_field) * pField->multiplier );
-		return toF == fromF;
-	case DT_STRING:
-		return Q_strcmp( to_field, from_field ) == 0;
-	default:
-		break;
+		if( pField->flags & DT_SIGNED )
+		{
+			fromF = *(int8_t *)((int8_t *)from + pField->offset );
+			toF = *(int8_t *)((int8_t *)to + pField->offset );
+		}
+		else
+		{
+			fromF = *(uint8_t *)((int8_t *)from + pField->offset );
+			toF = *(uint8_t *)((int8_t *)to + pField->offset );
+		}
+
+		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
+		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
+
+		if( !Q_equal(pField->multiplier, 1.0) )
+			fromF *= pField->multiplier;
+
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			toF *= pField->multiplier;
+	}
+	else if( pField->flags & DT_SHORT )
+	{
+		if( pField->flags & DT_SIGNED )
+		{
+			fromF = *(int16_t *)((int8_t *)from + pField->offset );
+			toF = *(int16_t *)((int8_t *)to + pField->offset );
+		}
+		else
+		{
+			fromF = *(uint16_t *)((int8_t *)from + pField->offset );
+			toF = *(uint16_t *)((int8_t *)to + pField->offset );
+		}
+
+		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
+		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
+
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			fromF *= pField->multiplier;
+
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			toF *= pField->multiplier;
+	}
+	else if( pField->flags & DT_INTEGER )
+	{
+		if( pField->flags & DT_SIGNED )
+		{
+			fromF = *(int32_t *)((int8_t *)from + pField->offset );
+			toF = *(int32_t *)((int8_t *)to + pField->offset );
+		}
+		else
+		{
+			fromF = *(uint32_t *)((int8_t *)from + pField->offset );
+			toF = *(uint32_t *)((int8_t *)to + pField->offset );
+		}
+		fromF = Delta_ClampIntegerField( pField, fromF, bSigned, pField->bits );
+		toF = Delta_ClampIntegerField( pField, toF, bSigned, pField->bits );
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			fromF *= pField->multiplier;
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+			toF *= pField->multiplier;
+	}
+	else if( pField->flags & ( DT_ANGLE|DT_FLOAT ))
+	{
+		// don't convert floats to integers
+		fromF = *((int *)((byte *)from + pField->offset ));
+		toF = *((int *)((byte *)to + pField->offset ));
+	}
+	else if( pField->flags & DT_TIMEWINDOW_8 )
+	{
+		val_a = Q_rint((*(float *)((byte *)from + pField->offset )) * 100.0 );
+		val_b = Q_rint((*(float *)((byte *)to + pField->offset )) * 100.0 );
+		val_a -= Q_rint(timebase * 100.0);
+		val_b -= Q_rint(timebase * 100.0);
+		fromF = FloatAsInt( val_a );
+		toF = FloatAsInt( val_b );
+	}
+	else if( pField->flags & DT_TIMEWINDOW_BIG )
+	{
+		val_a = (*(float *)((byte *)from + pField->offset ));
+		val_b = (*(float *)((byte *)to + pField->offset ));
+
+		if( !Q_equal( pField->multiplier, 1.0 ) )
+		{
+			val_a *= pField->multiplier;
+			val_b *= pField->multiplier;
+			val_a = (timebase * pField->multiplier) - val_a;
+			val_b = (timebase * pField->multiplier) - val_b;
+		}
+		else
+		{
+			val_a = timebase - val_a;
+			val_b = timebase - val_b;
+		}
+
+		fromF = FloatAsInt( val_a );
+		toF = FloatAsInt( val_b );
+	}
+	else if( pField->flags & DT_STRING )
+	{
+		// compare strings
+		char	*s1 = (char *)((byte *)from + pField->offset );
+		char	*s2 = (char *)((byte *)to + pField->offset );
+
+		// 0 is equal, otherwise not equal
+		toF = Q_strcmp( s1, s2 );
 	}
 
-	Con_Reportf( S_ERROR "bad field %s type: %d\n", pField->name, pField->flags );
-	return false;
+	return ( fromF == toF ) ? true : false;
 }
 
 /*
