@@ -373,7 +373,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			old_background = cl.background;
 			if( MSG_ReadOneBit( msg ))
 			{
-				int old_maxplayers = cl.maxclients;
+				int maxclients = cl.maxclients;
 
 				cls.changelevel = true;
 				S_StopAllSounds( true );
@@ -386,15 +386,14 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 					cls.changedemo = true;
 				}
 
-				CL_ClearState ();
+				CL_ClearState( );
 
 				// a1ba: need to restore cl.maxclients because engine chooses
 				// frame backups count depending on this value
 				// In general, it's incorrect to call CL_InitEdicts right after
 				// CL_ClearState because of this bug. Some time later this logic
 				// should be re-done.
-				cl.maxclients = old_maxplayers;
-				CL_InitEdicts (); // re-arrange edicts
+				CL_InitEdicts( maxclients ); // re-arrange edicts
 			}
 			else Con_Printf( "Server disconnected, reconnecting\n" );
 
