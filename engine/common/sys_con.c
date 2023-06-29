@@ -30,8 +30,8 @@ GNU General Public License for more details.
 #if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
 #define XASH_COLORIZE_CONSOLE true
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
-// I was never encountered this bug anywhere else, so still enable by default
-// #define XASH_USE_SELECT 1
+// I have never encountered this bug anywhere else, so still enable by default
+#define XASH_USE_SELECT 1
 #else
 #define XASH_COLORIZE_CONSOLE false
 #endif
@@ -54,6 +54,7 @@ static LogData s_ld;
 char *Sys_Input( void )
 {
 #if XASH_USE_SELECT
+	if( Host_IsDedicated( ))
 	{
 		fd_set rfds;
 		static char line[1024];
