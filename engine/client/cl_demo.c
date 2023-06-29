@@ -648,11 +648,13 @@ void CL_DemoStartPlayback( int mode )
 {
 	if( cls.changedemo )
 	{
+		int maxclients = cl.maxclients;
+
 		S_StopAllSounds( true );
 		SCR_BeginLoadingPlaque( false );
 
-		CL_ClearState ();
-		CL_InitEdicts (); // re-arrange edicts
+		CL_ClearState( );
+		CL_InitEdicts( maxclients ); // re-arrange edicts
 	}
 	else
 	{

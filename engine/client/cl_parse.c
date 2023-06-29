@@ -966,7 +966,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
 
 	if( !cls.changelevel && !cls.changedemo )
-		CL_InitEdicts (); // re-arrange edicts
+		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
 
 	// get splash name
 	if( cls.demoplayback && ( cls.demonum != -1 ))
@@ -2260,6 +2260,8 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			old_background = cl.background;
 			if( MSG_ReadOneBit( msg ))
 			{
+				int maxclients = cl.maxclients;
+
 				cls.changelevel = true;
 				S_StopAllSounds( true );
 
@@ -2271,8 +2273,8 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 					cls.changedemo = true;
 				}
 
-				CL_ClearState ();
-				CL_InitEdicts (); // re-arrange edicts
+				CL_ClearState();
+				CL_InitEdicts( maxclients ); // re-arrange edicts
 			}
 			else Con_Printf( "Server disconnected, reconnecting\n" );
 

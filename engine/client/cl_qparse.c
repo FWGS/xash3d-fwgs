@@ -258,7 +258,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
 
 	if( !cls.changelevel && !cls.changedemo )
-		CL_InitEdicts (); // re-arrange edicts
+		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
 
 	// Quake just have a large packet of initialization data
 	for( i = 1; i < MAX_MODELS; i++ )
