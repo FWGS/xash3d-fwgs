@@ -11,9 +11,6 @@ top = '.'
 def options(opt):
 	grp = opt.add_option_group('Engine options')
 
-	grp.add_option('--enable-stdin-input', action = 'store_true', dest = 'USE_SELECT', default = False,
-		help = 'enable console input from stdin (always enabled for dedicated) [default: %default]')
-
 	grp.add_option('--enable-fbdev', action = 'store_true', dest = 'FBDEV_SW', default = False,
 		help = 'build fbdev-only software-only engine')
 
@@ -93,9 +90,6 @@ def configure(conf):
 		conf.env.LIB_HAIKU = ['network']
 		conf.env.LIBPATH_HAIKU = ['/boot/system/lib']
 
-	if conf.options.USE_SELECT == None:
-		conf.options.USE_SELECT = conf.options.DEDICATED
-
 	if conf.options.STATIC:
 		conf.env.STATIC = True
 		conf.define('XASH_NO_LIBDL',1)
@@ -120,7 +114,6 @@ def configure(conf):
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
 	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
 	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', conf.options.NO_ASYNC_RESOLVE)
-	conf.define_cond('XASH_USE_SELECT', conf.options.USE_SELECT or conf.options.DEDICATED)
 	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
 	conf.define_cond('XASH_64BIT', conf.env.DEST_SIZEOF_VOID_P != 4)
 	conf.define_cond('DBGHELP', conf.env.DEST_OS == 'win32')

@@ -196,7 +196,6 @@ def configure(conf):
 		conf.options.GL4ES  = True
 		conf.options.GL     = False
 	elif conf.env.MAGX:
-		conf.options.USE_SELECT       = True
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
