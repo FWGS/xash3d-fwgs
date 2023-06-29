@@ -830,7 +830,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize );
 void CL_ParseFinaleCutscene( sizebuf_t *msg, int level );
 void CL_ParseTextMessage( sizebuf_t *msg );
 void CL_DrawHUD( int state );
-void CL_InitEdicts( void );
+void CL_InitEdicts( int maxclients );
 void CL_FreeEdicts( void );
 void CL_ClearWorld( void );
 void CL_DrawCenterPrint( void );

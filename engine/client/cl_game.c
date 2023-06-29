@@ -1088,13 +1088,13 @@ void CL_ClearWorld( void )
 	clgame.numStatics = 0;
 }
 
-void CL_InitEdicts( void )
+void CL_InitEdicts( int maxclients )
 {
 	Assert( clgame.entities == NULL );
 
 	if( !clgame.mempool ) return; // Host_Error without client
 #if XASH_LOW_MEMORY != 2
-	CL_UPDATE_BACKUP = ( cl.maxclients <= 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
+	CL_UPDATE_BACKUP = ( maxclients <= 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
 #endif
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
 	cls.packet_entities = Mem_Realloc( clgame.mempool, cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
@@ -1140,7 +1140,7 @@ void CL_ClearEdicts( void )
 
 	// in case we stopped with error
 	clgame.maxEntities = 2;
-	CL_InitEdicts();
+	CL_InitEdicts( cl.maxclients );
 }
 
 /*
@@ -4054,7 +4054,7 @@ qboolean CL_LoadProgs( const char *name )
 	if( !Mobile_Init() ) // Xash3D FWGS extension: mobile interface
 		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get mobility API\n" );
 
-	CL_InitEdicts ();		// initailize local player and world
+	CL_InitEdicts( cl.maxclients );		// initailize local player and world
 	CL_InitClientMove();	// initialize pm_shared
 
 	// initialize game
