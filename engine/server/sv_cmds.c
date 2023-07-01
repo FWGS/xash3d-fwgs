@@ -1044,6 +1044,7 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "localinfo" );
 	Cmd_RemoveCommand( "serverinfo" );
 	Cmd_RemoveCommand( "clientinfo" );
+	Cmd_RemoveCommand( "clientuseragent" );
 	Cmd_RemoveCommand( "playersonly" );
 	Cmd_RemoveCommand( "restart" );
 	Cmd_RemoveCommand( "entpatch" );
@@ -1052,6 +1053,7 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "shutdownserver" );
 	Cmd_RemoveCommand( "changelevel" );
 	Cmd_RemoveCommand( "changelevel2" );
+	Cmd_RemoveCommand( "redirect" );
 	Cmd_RemoveCommand( "logaddress" );
 	Cmd_RemoveCommand( "log" );
 
