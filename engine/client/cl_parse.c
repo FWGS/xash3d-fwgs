@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "shake.h"
 #include "hltv.h"
 #include "input.h"
+#include "server.h"
 #if XASH_LOW_MEMORY != 2
 int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
@@ -848,8 +849,10 @@ CL_ParseServerData
 void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 {
 	char	gamefolder[MAX_QPATH];
+	string	mapfile;
 	qboolean	background;
 	int	i;
+	uint32_t	mapCRC;
 
 	HPAK_CheckSize( CUSTOM_RES_PATH );
 
@@ -909,6 +912,18 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 		{
 			host.player_mins[i/3][i%3] = MSG_ReadChar( msg );
 			host.player_maxs[i/3][i%3] = MSG_ReadChar( msg );
+		}
+	}
+
+	Q_snprintf( mapfile, sizeof( mapfile ), "maps/%s.bsp", clgame.mapname );
+	if( CRC32_MapFile( &mapCRC, mapfile, cl.maxclients > 1 ))
+	{
+		// validate map checksum
+		if( mapCRC != cl.checksum )
+		{
+			Con_Printf( S_ERROR "Your map [%s] differs from the server's.\n", clgame.mapname );
+			CL_Disconnect_f(); // for local game, call EndGame
+			Host_AbortCurrentFrame(); // to avoid svc_bad
 		}
 	}
 
