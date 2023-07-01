@@ -504,6 +504,7 @@ void SV_FreeClients( void );
 //
 // sv_init.c
 //
+qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
 qboolean SV_InitGame( void );
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
