@@ -1324,11 +1324,11 @@ static void CL_DemoGetName( int lastnum, char *filename, size_t size )
 	if( lastnum < 0 || lastnum > 9999 )
 	{
 		// bound
-		Q_strncpy( filename, "demo9999.dem", size );
+		Q_strncpy( filename, "demo9999", size );
 		return;
 	}
 
-	Q_snprintf( filename, size, "demo%04d.dem", lastnum );
+	Q_snprintf( filename, size, "demo%04d", lastnum );
 }
 
 /*
@@ -1383,7 +1383,9 @@ void CL_Record_f( void )
 		for( n = 0; n < 10000; n++ )
 		{
 			CL_DemoGetName( n, demoname, sizeof( demoname ));
-			if( !FS_FileExists( demoname, true ))
+			Q_snprintf( demopath, sizeof( demopath ), "%s.dem", demoname );
+
+			if( !FS_FileExists( demopath, true ))
 				break;
 		}
 
