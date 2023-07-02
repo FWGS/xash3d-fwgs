@@ -714,29 +714,36 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 
-			if( !isGameInfo && !Q_stricmp( token, "singleplayer_only" ))
+			if( isGameInfo )
 			{
-				// TODO: Remove this ugly hack too.
-				// This was made because Half-Life has multiplayer,
-				// but for some reason it's marked as singleplayer_only.
-				// Old WON version is fine.
-				if( !Q_stricmp( GameInfo->gamefolder, "valve") )
-					GameInfo->gamemode = GAME_NORMAL;
-				else
-					GameInfo->gamemode = GAME_SINGLEPLAYER_ONLY;
-				Q_strncpy( GameInfo->type, "Single", sizeof( GameInfo->type ));
-			}
-			else if( !isGameInfo && !Q_stricmp( token, "multiplayer_only" ))
-			{
-				GameInfo->gamemode = GAME_MULTIPLAYER_ONLY;
-				Q_strncpy( GameInfo->type, "Multiplayer", sizeof( GameInfo->type ));
+				Q_strncpy( GameInfo->type, token, sizeof( GameInfo->type ));
 			}
 			else
 			{
-				// pass type without changes
-				if( !isGameInfo )
-					GameInfo->gamemode = GAME_NORMAL;
-				Q_strncpy( GameInfo->type, token, sizeof( GameInfo->type ));
+				if( !Q_stricmp( token, "singleplayer_only" ))
+				{
+					// TODO: Remove this ugly hack too.
+					// This was made because Half-Life has multiplayer,
+					// but for some reason it's marked as singleplayer_only.
+					// Old WON version is fine.
+					if( !Q_stricmp( GameInfo->gamefolder, "valve") )
+						GameInfo->gamemode = GAME_NORMAL;
+					else
+						GameInfo->gamemode = GAME_SINGLEPLAYER_ONLY;
+					Q_strncpy( GameInfo->type, "Single", sizeof( GameInfo->type ));
+				}
+				else if( !Q_stricmp( token, "multiplayer_only" ))
+				{
+					GameInfo->gamemode = GAME_MULTIPLAYER_ONLY;
+					Q_strncpy( GameInfo->type, "Multiplayer", sizeof( GameInfo->type ));
+				}
+				else
+				{
+					// pass type without changes
+					if( !isGameInfo )
+						GameInfo->gamemode = GAME_NORMAL;
+					Q_strncpy( GameInfo->type, token, sizeof( GameInfo->type ));
+				}
 			}
 		}
 		// valid for both
