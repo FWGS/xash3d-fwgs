@@ -122,8 +122,10 @@ Platform_Vibrate
 */
 void Platform_Vibrate( float time, char flags )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 9 )
 	if( g_joy )
 		SDL_JoystickRumble( g_joy, 0xFFFF, 0xFFFF, time * 1000.0f );
+#endif // SDL_VERSION_ATLEAST( 2, 0, 9 )
 }
 
 #if !XASH_PSVITA
