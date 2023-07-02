@@ -758,11 +758,6 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->size = Q_atoi( token );
 		}
-		else if( !Q_stricmp( token, "edicts" ))
-		{
-			pfile = COM_ParseFile( pfile, token, sizeof( token ));
-			GameInfo->max_edicts = Q_atoi( token );
-		}
 		else if( !Q_stricmp( token, isGameInfo ? "mp_entity" : "mpentity" ))
 		{
 			pfile = COM_ParseFile( pfile, GameInfo->mp_entity, sizeof( GameInfo->mp_entity ));
