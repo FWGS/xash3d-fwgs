@@ -73,7 +73,7 @@ These strings are specific to Xash3D FWGS.
 | `autosave_aged_count`   | integer    | 2                        | Auto saves limit used in saves rotation |
 | `gamedll_linux`         | string     | Generated from `gamedll` | Game server DLL for 32-bit x86 Linux (see LibraryNaming.md for details) |
 | `gamedll_osx`           | string     | Generated from `gamedll` | Game server DLL for 32-bit x86 macOS (see LibraryNaming.md for details) |
-| `internal_vgui_support` | boolean    | 0                        | When set to 1, the engine will not load vgui_support DLL, as VGUI support is done (or intentionally ignored) on the game side. |
+| `internal_vgui_support` | boolean    | 0                        | Only for programmers! Required to be set as 1 for PrimeXT!<br>When set to 1, the engine will not load vgui_support DLL, as VGUI support is done (or intentionally ignored) on the game side. |
 | `render_picbutton_text` | boolean    | 0                        | When set to 1, the UI will not use prerendered `btns_main.bmp` and dynamically render them instead |
 | `quicksave_aged_count`  | integer    | 2                        | Quick saves limit used in saves rotation |
 
