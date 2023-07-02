@@ -688,6 +688,7 @@ extern convar_t	cl_bmodelinterp;
 extern convar_t	cl_lw;		// local weapons
 extern convar_t	cl_charset;
 extern convar_t	cl_trace_messages;
+extern convar_t	cl_trace_events;
 extern convar_t	hud_utf8;
 extern convar_t	cl_showevents;
 extern convar_t	scr_centertime;

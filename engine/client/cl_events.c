@@ -225,6 +225,18 @@ qboolean CL_FireEvent( event_info_t *ei, int slot )
 
 		if( ev->index == ei->index )
 		{
+			name = cl.event_precache[ei->index];
+
+			if( cl_trace_events.value )
+			{
+				Con_Printf( "^3EVENT %s AT %.2f %.2f %.2f\n"    // event name
+					"\t%.2f %.2f %i %i %s %s\n", // bool params
+					name, ei->args.origin[0], ei->args.origin[1], ei->args.origin[2],
+					ei->args.fparam1, ei->args.fparam2,
+					ei->args.iparam1, ei->args.iparam2,
+					ei->args.bparam1 ? "TRUE" : "FALSE", ei->args.bparam2 ? "TRUE" : "FALSE" );
+			}
+
 			if( ev->func )
 			{
 				CL_DescribeEvent( ei, slot );
@@ -232,7 +244,6 @@ qboolean CL_FireEvent( event_info_t *ei, int slot )
 				return true;
 			}
 
-			name = cl.event_precache[ei->index];
 			Con_Reportf( S_ERROR "CL_FireEvent: %s not hooked\n", name );
 			break;
 		}
