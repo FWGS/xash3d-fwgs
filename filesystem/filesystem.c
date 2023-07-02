@@ -2694,7 +2694,7 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 		return true;
 
 	ret = remove( real_path );
-	if( ret < 0 )
+	if( ret < 0 && errno != ENOENT )
 	{
 		Con_Printf( "%s: failed to delete file %s (%s): %s\n", __FUNCTION__, real_path, path, strerror( errno ));
 		return false;
