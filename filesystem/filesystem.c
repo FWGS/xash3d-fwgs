@@ -598,11 +598,18 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	if( GameInfo->noskills )
 		FS_Printf( f, "noskills\t\t\"%i\"\n", GameInfo->nomodels );
 
+#define SAVE_AGED_COUNT 2 // the default count of quick and auto saves
+	if( GameInfo->quicksave_aged_count != SAVE_AGED_COUNT )
+		FS_Printf( f, "quicksave_aged_count\t\t%d\n", GameInfo->quicksave_aged_count );
+
+	if( GameInfo->autosave_aged_count != SAVE_AGED_COUNT )
+		FS_Printf( f, "autosave_aged_count\t\t%d\n", GameInfo->autosave_aged_count );
+#undef SAVE_AGED_COUNT
+
 	// always expose our extensions :)
 	FS_Printf( f, "internal_vgui_support\t\t%s\n", GameInfo->internal_vgui_support ? "1" : "0" );
 	FS_Printf( f, "render_picbutton_text\t\t%s\n", GameInfo->render_picbutton_text ? "1" : "0" );
 
-	FS_Print( f, "\n\n\n" );
 	FS_Close( f );	// all done
 }
 
@@ -846,6 +853,16 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->internal_vgui_support = Q_atoi( token );
+			}
+			else if( !Q_stricmp( token, "quicksave_aged_count" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->quicksave_aged_count = bound( 2, Q_atoi( token ), 99 );
+			}
+			else if( !Q_stricmp( token, "autosave_aged_count" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->autosave_aged_count = bound( 2, Q_atoi( token ), 99 );
 			}
 		}
 	}

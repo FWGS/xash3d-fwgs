@@ -100,6 +100,9 @@ typedef struct gameinfo_s
 	char		game_dll_osx[64];	// custom path for game.dll
 
 	qboolean	added;
+
+	int		quicksave_aged_count; // min is 1, max is 99
+	int		autosave_aged_count; // min is 1, max is 99
 } gameinfo_t;
 
 typedef enum
