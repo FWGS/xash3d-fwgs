@@ -818,7 +818,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			else if( !Q_stricmp( token, "max_particles" ))
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
-				GameInfo->max_particles = bound( 4096, Q_atoi( token ), 32768 );
+				GameInfo->max_particles = bound( 1024, Q_atoi( token ), 131072 );
 			}
 			else if( !Q_stricmp( token, "gamemode" ))
 			{
