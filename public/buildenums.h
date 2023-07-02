@@ -89,6 +89,7 @@ GNU General Public License for more details.
 #define ARCHITECTURE_JS      6
 #define ARCHITECTURE_E2K     7
 #define ARCHITECTURE_RISCV   8
+#define ARCHITECTURE_PPC     9
 
 #if XASH_AMD64
 	#define XASH_ARCHITECTURE ARCHITECTURE_AMD64
@@ -104,6 +105,8 @@ GNU General Public License for more details.
 	#define XASH_ARCHITECTURE ARCHITECTURE_E2K
 #elif XASH_RISCV
 	#define XASH_ARCHITECTURE ARCHITECTURE_RISCV
+#elif XASH_PPC
+	#define XASH_ARCHITECTURE ARCHITECTURE_PPC
 #else
 	#error
 #endif

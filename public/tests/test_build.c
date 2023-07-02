@@ -47,6 +47,12 @@ static struct
 { ARCHITECTURE_MIPS, 0, ENDIANNESS_LITTLE, true,  "mips64el" },
 { ARCHITECTURE_MIPS, 0, ENDIANNESS_LITTLE, false, "mipsel" },
 
+// all possible PowerPC names
+{ ARCHITECTURE_PPC, 0, ENDIANNESS_BIG,    true,  "ppc64" },
+{ ARCHITECTURE_PPC, 0, ENDIANNESS_BIG,    false, "ppc" },
+{ ARCHITECTURE_PPC, 0, ENDIANNESS_LITTLE, true,  "ppc64el" },
+{ ARCHITECTURE_PPC, 0, ENDIANNESS_LITTLE, false, "ppcel" },
+
 // All ARM is little endian only (for now?)
 // Arm64 is always arm64, no matter the version (for now)
 // Arm64 don't care about hardfp bit

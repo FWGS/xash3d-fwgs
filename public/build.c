@@ -162,6 +162,10 @@ const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int 
 		return "e2k";
 	case ARCHITECTURE_JS:
 		return "javascript";
+	case ARCHITECTURE_PPC:
+		return endianness == ENDIANNESS_LITTLE ?
+			( is64 ? "ppc64el" : "ppcel" ):
+			( is64 ? "ppc64" : "ppc" );
 	case ARCHITECTURE_MIPS:
 		return endianness == ENDIANNESS_LITTLE ?
 			( is64 ? "mips64el" : "mipsel" ):
