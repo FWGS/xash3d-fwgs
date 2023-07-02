@@ -35,7 +35,6 @@ half-life implementation of saverestore system
 
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
 #define SAVE_HASHSTRINGS		0xFFF				// 4095 unique strings
-#define SAVE_AGED_COUNT		2
 
 // savedata headers
 typedef struct
@@ -1727,8 +1726,10 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	COM_FixSlashes( name );
 
 	// output to disk
-	if( !Q_stricmp( pSaveName, "quick" ) || !Q_stricmp( pSaveName, "autosave" ))
-		AgeSaveList( pSaveName, SAVE_AGED_COUNT );
+	if( !Q_stricmp( pSaveName, "quick" ))
+		AgeSaveList( pSaveName, GI->quicksave_aged_count );
+	else if( !Q_stricmp( pSaveName, "autosave" ))
+		AgeSaveList( pSaveName, GI->autosave_aged_count );
 
 	// output to disk
 	if(( pFile = FS_Open( name, "wb", true )) == NULL )
