@@ -76,6 +76,7 @@ Then you can use another oneliner to query all variables:
 #undef XASH_NETBSD
 #undef XASH_OPENBSD
 #undef XASH_POSIX
+#undef XASH_PPC
 #undef XASH_RISCV
 #undef XASH_RISCV_DOUBLEFP
 #undef XASH_RISCV_SINGLEFP
@@ -195,6 +196,11 @@ Then you can use another oneliner to query all variables:
 #elif defined __e2k__
 	#define XASH_64BIT 1
 	#define XASH_E2K 1
+#elif defined __PPC__ || defined __powerpc__
+	#define XASH_PPC 1
+	#if defined __PPC64__ || defined __powerpc64__
+		#define XASH_64BIT 1
+	#endif
 #elif defined _M_ARM // msvc
 	#define XASH_ARM 7
 	#define XASH_ARM_HARDFP 1
