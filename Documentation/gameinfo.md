@@ -2,7 +2,7 @@
 
 gameinfo.txt is an essential part of any Xash3D based game. It allows basic customization for games creators, like setting game title, DLL paths, etc.
 
-This document defines gameinfo.txt syntax, supported keys and liblist.gam conversion rules for the latest version of the engine. Note for engine developers, update this document first and make any changes to parser second.
+This document defines gameinfo.txt syntax, supported keys and liblist.gam conversion rules for the latest version of the engine. Note for engine developers, keep this document in sync with an implementation.
 
 ## gameinfo.txt syntax
 
