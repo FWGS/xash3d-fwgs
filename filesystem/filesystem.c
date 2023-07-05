@@ -348,7 +348,7 @@ searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const char *f
 FS_AddArchive_Fullpath
 ================
 */
-static searchpath_t *FS_AddExtras_Fullpath( const char *file, int flags )
+static searchpath_t *FS_MountArchive_Fullpath( const char *file, int flags )
 {
 	const fs_archive_t *archive;
 	const char *ext = COM_FileExtension( file );
@@ -1176,11 +1176,11 @@ void FS_Rescan( void )
 
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
 	if( COM_CheckString( str ))
-		FS_AddExtras_Fullpath( str, extrasFlags );
+		FS_MountArchive_Fullpath( str, extrasFlags );
 
 	str = getenv( "XASH3D_EXTRAS_PAK2" );
 	if( COM_CheckString( str ))
-		FS_AddExtras_Fullpath( str, extrasFlags );
+		FS_MountArchive_Fullpath( str, extrasFlags );
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
 		FS_AddGameHierarchy( GI->basedir, 0 );
@@ -2939,7 +2939,7 @@ fs_api_t g_api =
 	FS_GetDiskPath,
 
 	NULL,
-	NULL,
+	(void *)FS_MountArchive_Fullpath,
 
 	FS_GetFullDiskPath,
 };

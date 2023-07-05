@@ -129,7 +129,6 @@ typedef struct fs_globals_t
 
 typedef void (*fs_event_callback_t)( const char *path );
 
-
 typedef struct fs_api_t
 {
 	qboolean (*InitStdio)( qboolean unused_set_to_true, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
@@ -187,7 +186,7 @@ typedef struct fs_api_t
 
 	// reserved
 	void (*Unused0)( void );
-	void (*Unused1)( void );
+	void *(*MountArchive_Fullpath)( const char *path, int flags );
 
 	qboolean (*GetFullDiskPath)( char *buffer, size_t size, const char *name, qboolean gamedironly );
 } fs_api_t;
