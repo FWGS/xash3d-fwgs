@@ -315,7 +315,7 @@ searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const char *f
 	fs_searchpaths = search;
 
 	// time to add in search list all the wads from this archive
-	if( archive->load_wads )
+	if( archive->load_wads && !FBitSet( flags, FS_SKIP_ARCHIVED_WADS ))
 	{
 		stringlist_t list;
 		int i;
