@@ -75,8 +75,9 @@ modules:
     buildsystem: simple
     build-options: *compat-i386-opts
     build-commands:
+# HACKHACK: removed --enable-lto because it causes linker errors in Flatpak build
       - |
-        python waf configure -T release --enable-all-renderers --enable-packaging --enable-lto --prefix=/app --libdir=/app/lib32
+        python waf configure -T release --enable-all-renderers --enable-packaging --prefix=/app --libdir=/app/lib32
         python waf build
         python waf install --destdir=/
         mkdir -p /app/bin
