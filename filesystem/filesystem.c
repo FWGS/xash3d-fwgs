@@ -1261,6 +1261,7 @@ search for library, assume index is valid
 */
 static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dllinfo_t *dllInfo )
 {
+	string fixedname;
 	searchpath_t	*search;
 	int index, start = 0, i, len;
 
@@ -1286,7 +1287,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 
 	COM_DefaultExtension( dllInfo->shortPath, "."OS_LIB_EXT, sizeof( dllInfo->shortPath ));	// apply ext if forget
 
-	search = FS_FindFile( dllInfo->shortPath, &index, NULL, 0, false );
+	search = FS_FindFile( dllInfo->shortPath, &index, fixedname, sizeof( fixedname ), false );
 
 	if( !search && !directpath )
 	{
@@ -1294,9 +1295,11 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 
 		// trying check also 'bin' folder for indirect paths
 		Q_strncpy( dllInfo->shortPath, dllname, sizeof( dllInfo->shortPath ));
-		search = FS_FindFile( dllInfo->shortPath, &index, NULL, 0, false );
+		search = FS_FindFile( dllInfo->shortPath, &index, fixedname, sizeof( fixedname ), false );
 		if( !search ) return false; // unable to find
 	}
+
+	Q_strncpy( dllInfo->shortPath, fixedname, sizeof( dllInfo->shortPath ));
 
 	dllInfo->encrypted = FS_CheckForCrypt( dllInfo->shortPath );
 
