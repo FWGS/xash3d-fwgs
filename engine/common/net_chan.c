@@ -254,7 +254,7 @@ void Netchan_Init( void )
 	Cvar_RegisterVariable( &net_chokeloop );
 	Cvar_RegisterVariable( &net_showdrop );
 	Cvar_RegisterVariable( &net_qport );
-	Cvar_DirectSet( &net_qport, buf );
+	Cvar_FullSet( net_qport.name, buf, net_qport.flags );
 
 	net_mempool = Mem_AllocPool( "Network Pool" );
 

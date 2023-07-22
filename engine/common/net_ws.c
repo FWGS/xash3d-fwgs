@@ -2111,10 +2111,10 @@ void NET_Init( void )
 	Cvar_RegisterVariable( &net_fakeloss );
 
 	Q_snprintf( cmd, sizeof( cmd ), "%i", PORT_SERVER );
-	Cvar_DirectSet( &net_hostport, cmd );
+	Cvar_FullSet( "hostport", cmd, FCVAR_READ_ONLY );
 
 	Q_snprintf( cmd, sizeof( cmd ), "%i", PORT_CLIENT );
-	Cvar_DirectSet( &net_clientport, cmd );
+	Cvar_FullSet( "clientport", cmd, FCVAR_READ_ONLY );
 
 	// cvar equivalents for IPv6
 	Cvar_RegisterVariable( &net_ip6name );
