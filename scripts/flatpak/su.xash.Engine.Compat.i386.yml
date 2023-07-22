@@ -77,7 +77,7 @@ modules:
     build-commands:
 # HACKHACK: removed --enable-lto because it causes linker errors in Flatpak build
       - |
-        python waf configure -T release --enable-all-renderers --enable-packaging --prefix=/app --libdir=/app/lib32
+        python waf configure -T release --enable-all-renderers --enable-packaging --prefix=/app --libdir=/app/lib32 --bindir=/app/lib32/xash3d
         python waf build
         python waf install --destdir=/
         mkdir -p /app/bin
