@@ -22,7 +22,6 @@ GNU General Public License for more details.
 #include "const.h"
 #include "client.h"
 #include "library.h"
-#include "sequence.h"
 
 static const char *file_exts[] =
 {
@@ -1047,7 +1046,7 @@ void *GAME_EXPORT pfnSequenceGet( const char *fileName, const char *entryName )
 {
 	Msg( "Sequence_Get: file %s, entry %s\n", fileName, entryName );
 
-	return Sequence_Get( fileName, entryName );
+	return NULL;
 }
 
 /*
@@ -1061,7 +1060,7 @@ void *GAME_EXPORT pfnSequencePickSentence( const char *groupName, int pickMethod
 {
 	Msg( "Sequence_PickSentence: group %s, pickMethod %i\n", groupName, pickMethod );
 
-	return  Sequence_PickSentence( groupName, pickMethod, picked );
+	return NULL;
 
 }
 
