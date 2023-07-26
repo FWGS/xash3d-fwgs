@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #include "library.h"
 #include "vid_common.h"
 #include "pm_local.h"
-#include "sequence.h"
 
 #define MAX_TOTAL_CMDS		32
 #define MAX_CMD_BUFFER		8000
@@ -233,9 +232,6 @@ void CL_SignonReply( void )
 		if( cl.proxy_redirect && !cls.spectator )
 			CL_Disconnect();
 		cl.proxy_redirect = false;
-
-		if( cls.demoplayback )
-			Sequence_OnLevelLoad( clgame.mapname );
 		break;
 	}
 }
@@ -3138,7 +3134,6 @@ void CL_Init( void )
 	VID_Init();	// init video
 	S_Init();	// init sound
 	Voice_Init( VOICE_DEFAULT_CODEC, 3 ); // init voice
-	Sequence_Init();
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));

@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "library.h"
 #include "voice.h"
 #include "pm_local.h"
-#include "sequence.h"
 
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
@@ -1085,8 +1084,6 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		svs.clients[i].edict = ent;
 		SV_InitEdict( ent );
 	}
-
-	Sequence_OnLevelLoad( sv.name );
 
 	// heartbeats will always be sent to the id master
 	NET_MasterClear();
