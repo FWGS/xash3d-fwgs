@@ -1450,7 +1450,7 @@ void GAME_EXPORT Host_WriteServerConfig( const char *name )
 	else Con_DPrintf( S_ERROR "Couldn't write %s.\n", name );
 
 	// don't unload library that wasn't loaded by us
-	if( already_loaded )
+	if( !already_loaded )
 		SV_FreeGameProgs();	// release progs with all variables
 }
 
