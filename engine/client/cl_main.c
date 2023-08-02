@@ -1555,6 +1555,8 @@ void CL_LocalServers_f( void )
 {
 	netadr_t	adr;
 
+	memset( &adr, 0, sizeof( adr ));
+
 	Con_Printf( "Scanning for servers on the local network area...\n" );
 	NET_Config( true, true ); // allow remote
 
