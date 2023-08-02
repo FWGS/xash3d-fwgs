@@ -723,7 +723,7 @@ const char *NET_AdrToString( const netadr_t a )
 
 	if( a.type == NA_LOOPBACK )
 		return "loopback";
-	if( a.type6 == NA_IP6 )
+	if( a.type6 == NA_IP6 || a.type6 == NA_MULTICAST_IP6 )
 	{
 		uint8_t ip6[16];
 
@@ -750,7 +750,7 @@ const char *NET_BaseAdrToString( const netadr_t a )
 
 	if( a.type == NA_LOOPBACK )
 		return "loopback";
-	if( a.type6 == NA_IP6 )
+	if( a.type6 == NA_IP6 || a.type6 == NA_MULTICAST_IP6 )
 	{
 		uint8_t ip6[16];
 
