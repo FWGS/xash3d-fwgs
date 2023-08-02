@@ -1423,12 +1423,14 @@ save serverinfo variables into server.cfg (using for dedicated server too)
 */
 void GAME_EXPORT Host_WriteServerConfig( const char *name )
 {
+	qboolean already_loaded;
 	file_t	*f;
 	string newconfigfile;
 
 	Q_snprintf( newconfigfile, MAX_STRING, "%s.new", name );
 
-	SV_InitGameProgs();	// collect user variables
+	// TODO: remove this mechanism, make it safer for now
+	already_loaded = SV_InitGameProgs();	// collect user variables
 
 	// FIXME: move this out until menu parser is done
 	CSCR_LoadDefaultCVars( "settings.scr" );
@@ -1447,7 +1449,9 @@ void GAME_EXPORT Host_WriteServerConfig( const char *name )
 	}
 	else Con_DPrintf( S_ERROR "Couldn't write %s.\n", name );
 
-	SV_FreeGameProgs();	// release progs with all variables
+	// don't unload library that wasn't loaded by us
+	if( already_loaded )
+		SV_FreeGameProgs();	// release progs with all variables
 }
 
 /*
