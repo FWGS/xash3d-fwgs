@@ -1115,16 +1115,18 @@ int SV_GetMaxClients( void )
 	return svs.maxclients;
 }
 
-void SV_InitGameProgs( void )
+qboolean SV_InitGameProgs( void )
 {
 	string dllpath;
 
-	if( svgame.hInstance ) return; // already loaded
+	if( svgame.hInstance ) return true; // already loaded
 
 	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
 
 	// just try to initialize
 	SV_LoadProgs( dllpath );
+
+	return false;
 }
 
 void SV_FreeGameProgs( void )
