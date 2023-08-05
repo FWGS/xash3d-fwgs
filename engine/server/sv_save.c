@@ -2043,12 +2043,12 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 
 	if( start )
 	{
-		Q_strncpy( _startspot, start, MAX_STRING );
+		Q_strncpy( _startspot, start, sizeof( _startspot ));
 		startspot = _startspot;
 	}
 
-	Q_strncpy( level, mapname, MAX_STRING );
-	Q_strncpy( oldlevel, sv.name, MAX_STRING );
+	Q_strncpy( level, mapname, sizeof( level ));
+	Q_strncpy( oldlevel, sv.name, sizeof( oldlevel ));
 
 	if( loadfromsavedgame )
 	{
