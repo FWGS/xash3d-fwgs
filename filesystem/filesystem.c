@@ -2056,8 +2056,9 @@ Read up to "buffersize" bytes from a file
 */
 fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 {
-	fs_offset_t	count, done;
+	fs_offset_t	done;
 	fs_offset_t	nb;
+	size_t	count;
 
 	// nothing to copy
 	if( buffersize == 0 ) return 1;
@@ -2077,7 +2078,7 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	{
 		count = file->buff_len - file->buff_ind;
 
-		done += ((fs_offset_t)buffersize > count ) ? count : (fs_offset_t)buffersize;
+		done += ( buffersize > count ) ? (fs_offset_t)count : (fs_offset_t)buffersize;
 		memcpy( buffer, &file->buff[file->buff_ind], done );
 		file->buff_ind += done;
 
@@ -2095,10 +2096,10 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	// if we have a lot of data to get, put them directly into "buffer"
 	if( buffersize > sizeof( file->buff ) / 2 )
 	{
-		if( count > (fs_offset_t)buffersize )
-			count = (fs_offset_t)buffersize;
+		if( count > buffersize )
+			count = buffersize;
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
-		nb = read (file->handle, &((byte *)buffer)[done], count );
+		nb = read( file->handle, (byte *)buffer + done, count );
 
 		if( nb > 0 )
 		{
@@ -2110,8 +2111,8 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	}
 	else
 	{
-		if( count > (fs_offset_t)sizeof( file->buff ))
-			count = (fs_offset_t)sizeof( file->buff );
+		if( count > sizeof( file->buff ))
+			count = sizeof( file->buff );
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read( file->handle, file->buff, count );
 
