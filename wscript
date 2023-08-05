@@ -301,6 +301,7 @@ def configure(conf):
 			'-Werror=sizeof-pointer-div',
 			'-Werror=strict-aliasing',
 			'-Werror=string-compare',
+			'-Werror=stringop-overflow',
 			'-Werror=tautological-compare',
 			'-Werror=use-after-free=3',
 			'-Werror=unsequenced', # clang's version of -Werror=sequence-point
