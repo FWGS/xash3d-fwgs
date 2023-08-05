@@ -86,7 +86,7 @@ static void FindNextChunk( const char *filename, const char *name )
 
 		if( iff_chunkLen > remaining )
 		{
-			Con_DPrintf( "%s: '%s' truncated by %i bytes", __func__, filename, iff_chunkLen - remaining );
+			Con_DPrintf( "%s: '%s' truncated by %i bytes\n", __func__, filename, iff_chunkLen - remaining );
 			iff_chunkLen = remaining;
 		}
 
