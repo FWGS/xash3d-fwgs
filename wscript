@@ -301,7 +301,6 @@ def configure(conf):
 			'-Werror=sizeof-pointer-div',
 			'-Werror=strict-aliasing',
 			'-Werror=string-compare',
-			'-Werror=stringop-overflow',
 			'-Werror=tautological-compare',
 			'-Werror=use-after-free=3',
 			'-Werror=unsequenced', # clang's version of -Werror=sequence-point
@@ -316,6 +315,10 @@ def configure(conf):
 			# disabled, flood
 			# '-Wdouble-promotion',
 		]
+
+		# buggy compiler on NSW
+		if conf.env.DEST_OS != 'nswitch':
+			opt_flags += [ '-Werror=stringop-overflow' ]
 
 		opt_cflags = [
 			'-Werror=declaration-after-statement',
