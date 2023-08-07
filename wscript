@@ -310,15 +310,12 @@ def configure(conf):
 			# unstable diagnostics, may cause false positives
 			'-Winit-self',
 			'-Wmisleading-indentation',
+			'-Wstringop-overflow',
 			'-Wunintialized',
 
 			# disabled, flood
 			# '-Wdouble-promotion',
 		]
-
-		# buggy compiler on NSW
-		if conf.env.DEST_OS != 'nswitch':
-			opt_flags += [ '-Werror=stringop-overflow' ]
 
 		opt_cflags = [
 			'-Werror=declaration-after-statement',
