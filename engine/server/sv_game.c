@@ -3219,7 +3219,18 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	int cmp;
 
 	if( svgame.physFuncs.pfnAllocString != NULL )
-		return svgame.physFuncs.pfnAllocString( szValue );
+	{
+		string_t i;
+
+		newString = Mem_Malloc( svgame.stringspool, SV_ProcessString( NULL, szValue ));
+
+		SV_ProcessString( newString, szValue );
+		i = svgame.physFuncs.pfnAllocString( newString );
+
+		Mem_Free( newString );
+
+		return i;
+	}
 
 #ifdef XASH_64BIT
 	cmp = 1;
