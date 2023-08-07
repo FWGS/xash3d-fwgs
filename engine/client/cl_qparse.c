@@ -694,17 +694,13 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	cl_entity_t	*ent;
 	int		newnum;
 
-	memset( &state, 0, sizeof( state ));
 	newnum = MSG_ReadWord( msg ); // entnum
 
 	if( newnum >= clgame.maxEntities )
 		Host_Error( "CL_AllocEdict: no free edicts\n" );
 
-	ent = CL_EDICT_NUM( newnum );
-	memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
-	ent->index = newnum;
-
 	// parse baseline
+	memset( &state, 0, sizeof( state ));
 	state.modelindex = MSG_ReadByte( msg );
 	state.frame = MSG_ReadByte( msg );
 	state.colormap = MSG_ReadByte( msg );
@@ -715,8 +711,10 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	state.angles[1] = MSG_ReadAngle( msg );
 	state.origin[2] = MSG_ReadCoord( msg );
 	state.angles[2] = MSG_ReadAngle( msg );
-	ent->player = CL_IsPlayerIndex( newnum );
 
+	ent = CL_EDICT_NUM( newnum );
+	ent->index = newnum;
+	ent->player = CL_IsPlayerIndex( newnum );
 	memcpy( &ent->baseline, &state, sizeof( entity_state_t ));
 	memcpy( &ent->prevstate, &state, sizeof( entity_state_t ));
 }
