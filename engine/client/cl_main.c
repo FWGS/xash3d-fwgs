@@ -1589,7 +1589,9 @@ size_t CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat )
 
 	info[0] = 0;
 
+#ifndef XASH_ALL_SERVERS
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
+#endif
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
 	Info_SetValueForKey( info, "nat", nat ? "1" : "0", remaining );
 

@@ -135,6 +135,9 @@ def options(opt):
 	grp.add_option('--enable-tests', action = 'store_true', dest = 'TESTS', default = False,
 		help = 'enable building standalone tests (does not enable engine tests!) [default: %default]')
 
+	# a1ba: special option for me
+	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
+
 	grp = opt.add_option_group('Renderers options')
 
 	grp.add_option('--enable-all-renderers', action='store_true', dest='ALL_RENDERERS', default=False,
@@ -357,6 +360,7 @@ def configure(conf):
 
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
+	conf.define_cond('XASH_ALL_SERVERS', conf.options.ALL_SERVERS)
 
 	# check if we can use C99 stdint
 	conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
