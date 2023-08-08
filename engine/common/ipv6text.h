@@ -25,8 +25,10 @@ extern "C" {
 extern void IPv6IPToString( char *pszOutText, const unsigned char *ip );
 
 /// Format IPv6 IP and port to string.  This uses the recommended
-/// bracket notation, eg [1234::1]:12345.  Your buffer must be
+/// bracket notation, eg [1234::1]:12345.  Your buffer MUST be
 /// at least k_ncchMaxIPV6AddrStringWithPort bytes.
+///
+/// If the scope is zero, it is not printed.
 extern void IPv6AddrToString( char *pszOutText, const unsigned char *ip, uint16_t port, uint32_t scope );
 
 /// Parse IPv6 address string.  Returns true if parsed OK.  Returns false
@@ -41,7 +43,7 @@ extern void IPv6AddrToString( char *pszOutText, const unsigned char *ip, uint16_
 ///
 /// Leading and trailing whitespace is OK around the entire string,
 /// but not internal whitespace.  The different methods for separating the
-/// port in RFC5952 are supported section 6, except the ambiguous case
+/// port in RFC5952 section 6 are supported, except the ambiguous case
 /// of a colon to separate the port, when the IP contains a double-colon.
 /// Brackets around an IP are OK, even if there is no port.
 ///

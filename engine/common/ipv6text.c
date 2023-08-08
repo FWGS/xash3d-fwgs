@@ -177,7 +177,9 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 	{
 		// Next thing must be a quad, or end of input.  Is it a quad?
 		int quadDigit = ParseIPv6Addr_HexDigitVal( *s );
+		const char *pszStartQuad;
 		int quad;
+
 		if ( quadDigit < 0 )
 		{
 			if ( bQuadMustFollow )
@@ -189,6 +191,7 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 		if ( d >= pEndIP )
 			return false;
 
+		pszStartQuad = s;
 		++s;
 		quad = quadDigit;
 
@@ -212,6 +215,60 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 					++s;
 				}
 			}
+		}
+
+		// Check if we hit a period, which would happen if we
+		// have an IPv4 dotted decimal.  For example, "::ffff:192.168.1.210"
+		if ( *s == '.' )
+		{
+			// Make sure we would have room to store four more bytes.
+			unsigned char *pEndDottedDecimal = d+4;
+			if ( pEndDottedDecimal > pEndIP )
+				return false;
+
+			// Parse 4 octets
+			s = pszStartQuad;
+			for (;;)
+			{
+
+				// Parse 1-3 decimal digits
+				int octet = ParseIPv6Addr_DecimalDigitVal( *s );
+				int dig;
+
+				if ( octet < 0 )
+					return false;
+				++s;
+				dig = ParseIPv6Addr_DecimalDigitVal( *s );
+				if ( dig >= 0 )
+				{
+					++s;
+					octet = octet*10 + dig;
+					dig = ParseIPv6Addr_DecimalDigitVal( *s );
+					if ( dig >= 0 )
+					{
+						++s;
+						octet = octet*10 + dig;
+
+						// Make sure value is in range.
+						if ( octet > 255 )
+							return false;
+					}
+				}
+				*(d++) = (unsigned char)octet;
+
+				// All done?
+				if ( d >= pEndDottedDecimal )
+					break;
+
+				// Next thing must be dot dot separator
+				if ( *s != '.' )
+					return false;
+
+				// Eat dot
+				++s;
+			}
+
+			break;
 		}
 
 		// Stash it in the next slot, ignoring for now the issue
@@ -288,7 +345,7 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 		int nScopeDigit;
 
 		++s;
-        
+
 		nScopeDigit = ParseIPv6Addr_DecimalDigitVal( *s );
 		if ( nScopeDigit < 0 )
 			return false;
