@@ -95,12 +95,16 @@ byte *Sound_Copy( size_t size )
 
 uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
 {
+	string    name;
 	file_t    *f;
 	wavehdr_t wav;
 	size_t    filesize;
 	uint      msecs;
 
-	f = FS_Open( filepath, "rb", false );
+	Q_strncpy( name, filepath, sizeof( filepath ));
+	COM_FixSlashes( name );
+
+	f = FS_Open( name, "rb", false );
 	if( !f )
 		return 0;
 
