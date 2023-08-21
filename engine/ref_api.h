@@ -123,7 +123,6 @@ enum
 	XASH_TEXTURE1,
 	XASH_TEXTURE2,
 	XASH_TEXTURE3,		// g-cont. 4 units should be enough
-	XASH_TEXTURE4,		// mittorn. bump+detail needs 5 for single-pass
 	MAX_TEXTURE_UNITS = 32	// can't access to all over units without GLSL or cg
 };
 
