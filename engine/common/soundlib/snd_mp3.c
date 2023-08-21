@@ -129,7 +129,7 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 	{
 		// old id3v1 header found
 		if( CHECK_IDENT( header->ident, 'T', 'A', 'G' ))
-			Con_Printf( S_ERROR "Sound_ParseID3Tag: ID3v1 is not supported! Convert to ID3v2.4!\n", header->major_ver );
+			Con_Printf( S_ERROR "Sound_ParseID3Tag: ID3v1 is not supported! Convert to ID3v2.4!\n" );
 
 		return true; // missing tag header is not an error
 	}
