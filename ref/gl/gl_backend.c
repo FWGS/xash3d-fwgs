@@ -260,6 +260,27 @@ void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t )
 }
 
 /*
+====================
+GL_EnableTextureUnit
+====================
+*/
+void GL_EnableTextureUnit( int tmu, qboolean enable )
+{
+	// only enable fixed-function pipeline units
+	if( tmu < glConfig.max_texture_units )
+	{
+		if( enable )
+		{
+			pglEnable( glState.currentTextureTargets[tmu] );
+		}
+		else if( glState.currentTextureTargets[tmu] != GL_NONE )
+		{
+			pglDisable( glState.currentTextureTargets[tmu] );
+		}
+	}
+}
+
+/*
 =================
 GL_TextureTarget
 =================
@@ -274,11 +295,10 @@ void GL_TextureTarget( uint target )
 
 	if( glState.currentTextureTargets[glState.activeTMU] != target )
 	{
-		if( glState.currentTextureTargets[glState.activeTMU] != GL_NONE )
-			pglDisable( glState.currentTextureTargets[glState.activeTMU] );
+		GL_EnableTextureUnit( glState.activeTMU, false );
 		glState.currentTextureTargets[glState.activeTMU] = target;
 		if( target != GL_NONE )
-			pglEnable( glState.currentTextureTargets[glState.activeTMU] );
+			GL_EnableTextureUnit( glState.activeTMU, true );
 	}
 }
 
