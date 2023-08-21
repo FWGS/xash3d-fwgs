@@ -301,6 +301,7 @@ void GL_CleanupAllTextureUnits( void );
 void GL_LoadIdentityTexMatrix( void );
 void GL_DisableAllTexGens( void );
 void GL_SetRenderMode( int mode );
+void GL_EnableTextureUnit( int tmu, qboolean enable );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
 void R_ShowTextures( void );
