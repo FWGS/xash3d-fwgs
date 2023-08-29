@@ -3222,12 +3222,12 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 	{
 		string_t i;
 
-		newString = Mem_Malloc( svgame.stringspool, SV_ProcessString( NULL, szValue ));
+		newString = Mem_Malloc( host.mempool, SV_ProcessString( NULL, szValue ));
 
 		SV_ProcessString( newString, szValue );
 		i = svgame.physFuncs.pfnAllocString( newString );
 
-		Mem_Free( newString );
+		Mem_Free( host.mempool );
 
 		return i;
 	}
