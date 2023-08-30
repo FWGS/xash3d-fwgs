@@ -85,7 +85,7 @@ static qboolean Sound_ParseID3Frame( const did3v2_frame_t *frame, const byte *bu
 		string key, value;
 		int32_t key_len, value_len;
 
-		if( buffer[0] == 0x00 || buffer[1] == 0x03 )
+		if( buffer[0] == 0x00 || buffer[0] == 0x03 )
 		{
 			key_len = Q_strncpy( key, &buffer[1], sizeof( key ));
 			value_len = frame_length - (1 + key_len + 1);
