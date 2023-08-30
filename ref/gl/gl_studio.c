@@ -2340,6 +2340,16 @@ static void R_StudioDrawPoints( void )
 	// NOTE: rewind normals at start
 	pstudionorms = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->normindex);
 
+	tr.fFlipViewModel = false;
+	GL_Cull( GL_FRONT );
+
+	// backface culling for left-handed weapons
+	if( R_AllowFlipViewModel( RI.currententity ))
+	{
+		tr.fFlipViewModel = true;
+		GL_Cull( GL_NONE );
+	}
+
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
 	{
 		float	oldblend = tr.blend;
@@ -3662,13 +3672,6 @@ void R_DrawViewModel( void )
 	pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
 	RI.currentmodel = RI.currententity->model;
 
-	// backface culling for left-handed weapons
-	if( R_AllowFlipViewModel( RI.currententity ))
-	{
-		tr.fFlipViewModel = true;
-		pglFrontFace( GL_CW );
-	}
-
 	switch( RI.currententity->model->type )
 	{
 	case mod_alias:
@@ -3682,13 +3685,6 @@ void R_DrawViewModel( void )
 
 	// restore depth range
 	pglDepthRange( gldepthmin, gldepthmax );
-
-	// backface culling for left-handed weapons
-	if( R_AllowFlipViewModel( RI.currententity ))
-	{
-		tr.fFlipViewModel = false;
-		pglFrontFace( GL_CCW );
-	}
 }
 
 /*
