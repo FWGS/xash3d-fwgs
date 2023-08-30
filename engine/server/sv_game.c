@@ -3227,7 +3227,7 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 		SV_ProcessString( newString, szValue );
 		i = svgame.physFuncs.pfnAllocString( newString );
 
-		Mem_Free( host.mempool );
+		Mem_Free( newString );
 
 		return i;
 	}
