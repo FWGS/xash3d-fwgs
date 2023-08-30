@@ -2340,14 +2340,16 @@ static void R_StudioDrawPoints( void )
 	// NOTE: rewind normals at start
 	pstudionorms = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->normindex);
 
-	tr.fFlipViewModel = false;
-	GL_Cull( GL_FRONT );
-
 	// backface culling for left-handed weapons
 	if( R_AllowFlipViewModel( RI.currententity ))
 	{
 		tr.fFlipViewModel = true;
 		GL_Cull( GL_NONE );
+	}
+	else
+	{
+		tr.fFlipViewModel = false;
+		GL_Cull( GL_FRONT );
 	}
 
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
