@@ -1029,7 +1029,31 @@ void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 	}
 
-	if( cls.legacymode )
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		byte send_buf[MAX_PRINT_MSG];
+		byte steam_cert[512];
+		sizebuf_t send;
+
+		protinfo[0] = 0;
+
+		memset( steam_cert, 0, sizeof( steam_cert ));
+
+		Info_SetValueForKey( protinfo, "prot", "3", sizeof( protinfo )); // steam auth type
+		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
+		Info_SetValueForKey( protinfo, "cdkey", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sizeof( protinfo ));
+
+		Info_SetValueForStarKey( cls.userinfo, "*hltv", "0", sizeof( cls.userinfo ));
+
+		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
+		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
+		MSG_WriteStringf( &send, "connect %i %i \"%s\" \"%s\"\n",
+			PROTOCOL_GOLDSRC_VERSION_REAL, cls.challenge, protinfo, cls.userinfo );
+		MSG_WriteBytes( &send, steam_cert, sizeof( steam_cert ));
+
+		NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
+	}
+	else if( cls.legacymode == PROTO_LEGACY )
 	{
 		// set related userinfo keys
 		if( cl_dlmax.value >= 40000 || cl_dlmax.value < 100 )
@@ -1228,12 +1252,15 @@ CL_Connect_f
 void CL_Connect_f( void )
 {
 	string	server;
-	qboolean legacyconnect = false;
+	protocolstate_t protocol = PROTO_CURRENT;
 
 	// hidden hint to connect by using legacy protocol
 	if( Cmd_Argc() == 3 )
 	{
-		legacyconnect = !Q_strcmp( Cmd_Argv( 2 ), "legacy" );
+		if( !Q_strcmp( Cmd_Argv( 2 ), "legacy" ))
+			protocol = PROTO_LEGACY;
+		else if( !Q_strcmp( Cmd_Argv( 2 ), "goldsrc" ))
+			protocol = PROTO_GOLDSRC;
 	}
 	else if( Cmd_Argc() != 2 )
 	{
@@ -1255,7 +1282,7 @@ void CL_Connect_f( void )
 	Key_SetKeyDest( key_console );
 
 	cls.state = ca_connecting;
-	cls.legacymode = legacyconnect;
+	cls.legacymode = protocol;
 	Q_strncpy( cls.servername, server, sizeof( cls.servername ));
 	cls.connect_time = MAX_HEARTBEAT; // CL_CheckForResend() will fire immediately
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // guess a we can establish connection with maximum fragment size
@@ -1431,7 +1458,9 @@ void CL_Reconnect( qboolean setup_netchan )
 		uint flags = 0;
 
 		if( cls.legacymode == PROTO_GOLDSRC )
-			SetBits( flags, NETCHAN_USE_MUNGE );
+		{
+			SetBits( flags, NETCHAN_USE_MUNGE | NETCHAN_USE_BZIP2 | NETCHAN_GOLDSRC );
+		}
 		else if( cls.legacymode == PROTO_LEGACY )
 		{
 			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ));
@@ -1485,7 +1514,7 @@ This is also called on Host_Error, so it shouldn't cause any errors
 */
 void CL_Disconnect( void )
 {
-	cls.legacymode = false;
+	cls.legacymode = PROTO_CURRENT;
 
 	if( cls.state == ca_disconnected )
 		return;
@@ -1664,7 +1693,7 @@ void CL_Reconnect_f( void )
 
 	if( COM_CheckString( cls.servername ))
 	{
-		qboolean legacy = cls.legacymode;
+		protocolstate_t legacy = cls.legacymode;
 
 		if( cls.state >= ca_connected )
 			CL_Disconnect();
@@ -1956,7 +1985,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Con_Reportf( "CL_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), c );
 
 	// server connection
-	if( !Q_strcmp( c, "client_connect" ))
+	if( !Q_strcmp( c, "client_connect" ) || !Q_strcmp( c, S2C_CONNECTION ))
 	{
 		if( !CL_IsFromConnectingServer( from ))
 			return;
@@ -2074,7 +2103,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// ping from somewhere
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "ack" );
 	}
-	else if( !Q_strcmp( c, "challenge" ))
+	else if( !Q_strcmp( c, "challenge" ) || !Q_strcmp( c, S2C_CHALLENGE ))
 	{
 		// this message only used during connection
 		// it doesn't make sense after client_connect
@@ -2117,12 +2146,19 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			memset( &cls.legacyserver, 0, sizeof( cls.legacyserver ));
 		}
 	}
-	else if( !Q_strcmp( c, "errormsg" ))
+	else if( !Q_strcmp( c, "errormsg" ) || c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
 	{
+		const char *fmt = "%s";
+
 		if( !CL_IsFromConnectingServer( from ))
 			return;
 
 		args = MSG_ReadString( msg );
+		if( c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
+		{
+			fmt = "%s\n";
+			args++; // skip one byte
+		}
 
 		if( !Q_strcmp( args, "Server uses protocol version 48.\n" ))
 		{
@@ -2132,7 +2168,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		{
 			if( UI_IsVisible() )
 				UI_ShowMessageBox( va("^3Server message^7\n%s", args ) );
-			Msg( "%s", args );
+			Msg( fmt, args );
 		}
 	}
 	else if( !Q_strcmp( c, "updatemsg" ))
