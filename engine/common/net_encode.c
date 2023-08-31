@@ -1988,7 +1988,10 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 	int		baseline_offset = 0;
 
 	if( number < 0 || number >= clgame.maxEntities )
-		Host_Error( "MSG_ReadDeltaEntity: bad delta entity number: %i\n", number );
+	{
+		Con_Printf( S_ERROR "MSG_ReadDeltaEntity: bad delta entity number: %i\n", number );
+		return false;
+	}
 
 	fRemoveType = MSG_ReadUBitLong( msg, 2 );
 
@@ -2010,7 +2013,8 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 			return false;
 		}
 
-		Host_Error( "MSG_ReadDeltaEntity: unknown update type %i\n", fRemoveType );
+		Con_Printf( S_ERROR "MSG_ReadDeltaEntity: unknown update type %i\n", fRemoveType );
+		return false;
 	}
 
 	if( !cls.legacymode )
@@ -2058,7 +2062,11 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 	}
 
-	Assert( dt && dt->bInitialized );
+	if( !(dt && dt->bInitialized) )
+	{
+		Con_Printf( S_ERROR "MSG_ReadDeltaEntity: broken delta\n");
+		return true;
+	}
 
 	pField = dt->pFields;
 	Assert( pField != NULL );
