@@ -777,3 +777,8 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message )
 		}
 	}
 }
+
+qboolean CL_GoldSrcMode( void )
+{
+	return cls.legacymode == PROTO_GOLDSRC;
+}

@@ -80,6 +80,7 @@ void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
 
 #if !XASH_DEDICATED
 qboolean CL_LegacyMode( void );
+qboolean CL_GoldSrcMode( void );
 int CL_GetSplitSize( void );
 #endif
 
