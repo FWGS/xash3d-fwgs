@@ -33,6 +33,19 @@ enum
 	DELTA_STATIC,
 };
 
+enum
+{
+	DT_EVENT_T = 0,
+	DT_MOVEVARS_T,
+	DT_USERCMD_T,
+	DT_CLIENTDATA_T,
+	DT_WEAPONDATA_T,
+	DT_ENTITY_STATE_T,
+	DT_ENTITY_STATE_PLAYER_T,
+	DT_CUSTOM_ENTITY_STATE_T,
+	DT_GOLDSRC_DELTA_T,
+};
+
 // struct info (filled by engine)
 typedef struct
 {
@@ -53,6 +66,17 @@ struct delta_s
 	int		bits;		// how many bits we send\receive
 	qboolean		bInactive;	// unsetted by user request
 };
+
+typedef struct goldsrc_delta_s
+{
+	int   fieldType;
+	char  fieldName[32];
+	int   fieldOffset;
+	short fieldSize;
+	int   significant_bits;
+	float premultiply;
+	float postmultiply;
+} goldsrc_delta_t;
 
 typedef void (*pfnDeltaEncode)( struct delta_s *pFields, const byte *from, const byte *to );
 
@@ -76,6 +100,7 @@ typedef struct
 //
 void Delta_Init( void );
 void Delta_InitClient( void );
+void Delta_InitMeta( void );
 void Delta_Shutdown( void );
 void Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc );
 int Delta_FindField( delta_t *pFields, const char *fieldname );
@@ -87,7 +112,7 @@ void Delta_UnsetFieldByIndex( delta_t *pFields, int fieldNumber );
 // send table over network
 void Delta_WriteDescriptionToClient( sizebuf_t *msg );
 void Delta_ParseTableField( sizebuf_t *msg );
-
+void Delta_ParseTableField_GS( sizebuf_t *msg );
 
 // encode routines
 struct entity_state_s;
@@ -109,5 +134,7 @@ void MSG_ReadWeaponData( sizebuf_t *msg, struct weapon_data_s *from, struct weap
 void MSG_WriteDeltaEntity( struct entity_state_s *from, struct entity_state_s *to, sizebuf_t *msg, qboolean force, int type, double timebase, int ofs );
 qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, struct entity_state_s *from, struct entity_state_s *to, int num, int type, double timebase );
 int Delta_TestBaseline( struct entity_state_s *from, struct entity_state_s *to, qboolean player, double timebase );
+void Delta_ReadGSFields( sizebuf_t *msg, int index, void *from, void *to, double timebase );
+void Delta_WriteGSFields( sizebuf_t *msg, int index, void *from, void *to, double timebase );
 
 #endif//NET_ENCODE_H
