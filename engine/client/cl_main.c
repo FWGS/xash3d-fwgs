@@ -2339,8 +2339,13 @@ void CL_ReadNetMessage( void )
 		// run special handler for quake demos
 		if( cls.demoplayback == DEMO_QUAKE1 )
 			CL_ParseQuakeMessage( &net_message, true );
-		else if( cls.legacymode ) CL_ParseLegacyServerMessage( &net_message, true );
-		else CL_ParseServerMessage( &net_message, true );
+		else if( cls.legacymode == PROTO_LEGACY )
+			CL_ParseLegacyServerMessage( &net_message, true );
+		else if( cls.legacymode == PROTO_GOLDSRC )
+			CL_ParseGoldSrcServerMessage( &net_message, true );
+		else
+			CL_ParseServerMessage( &net_message, true );
+
 		cl.send_reply = true;
 	}
 
@@ -2354,7 +2359,11 @@ void CL_ReadNetMessage( void )
 		if( Netchan_CopyNormalFragments( &cls.netchan, &net_message, &curSize ))
 		{
 			MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
-			CL_ParseServerMessage( &net_message, false );
+
+			if( cls.legacymode == PROTO_GOLDSRC )
+				CL_ParseGoldSrcServerMessage( &net_message, false );
+			else
+				CL_ParseServerMessage( &net_message, false );
 		}
 
 		if( Netchan_CopyFileFragments( &cls.netchan, &net_message ))

@@ -926,6 +926,11 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message );
 void CL_LegacyPrecache_f( void );
 
 //
+// cl_parse_gs.c
+//
+void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message );
+
+//
 // cl_scrn.c
 //
 void SCR_VidInit( void );
