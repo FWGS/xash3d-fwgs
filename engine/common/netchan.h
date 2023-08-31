@@ -211,8 +211,10 @@ typedef enum fragsize_e
 
 typedef enum
 {
-	NETCHAN_USE_MUNGE = BIT( 0 ),
-	NETCHAN_USE_LEGACY_SPLIT = BIT( 1 )
+	NETCHAN_USE_LEGACY_SPLIT = BIT( 0 ),
+	NETCHAN_USE_MUNGE = BIT( 1 ),
+	NETCHAN_USE_BZIP2 = BIT( 2 ),
+	NETCHAN_GOLDSRC = BIT( 3 )
 } netchan_flags_t;
 
 // Network Connection Channel
@@ -277,12 +279,14 @@ typedef struct netchan_s
 	// added for net_speeds
 	size_t		total_sended;
 	size_t		total_received;
-	qboolean	split;
 	unsigned int	maxpacket;
 	unsigned int	splitid;
 	netsplit_t netsplit;
 
-	qboolean use_munge;
+	qboolean split : 1;
+	qboolean use_munge : 1;
+	qboolean use_bz2 : 1;
+	qboolean gs_netchan : 1;
 } netchan_t;
 
 extern netadr_t		net_from;

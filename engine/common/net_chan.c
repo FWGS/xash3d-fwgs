@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "net_encode.h"
 #include "protocol.h"
+#if !XASH_DEDICATED
+#include "bzip2/bzlib.h"
+#endif // !XASH_DEDICATED
 
 #define MAKE_FRAGID( id, count )	((( id & 0xffff ) << 16 ) | ( count & 0xffff ))
 #define FRAG_GETID( fragid )		(( fragid >> 16 ) & 0xffff )
@@ -319,8 +322,10 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 	chan->qport = qport;
 	chan->client = client;
 	chan->pfnBlockSize = pfnBlockSize;
-	chan->use_munge = FBitSet( flags, NETCHAN_USE_MUNGE );
-	chan->split = FBitSet( flags, NETCHAN_USE_LEGACY_SPLIT );
+	chan->split      = FBitSet( flags, NETCHAN_USE_LEGACY_SPLIT ) ? 1 : 0;
+	chan->use_munge  = FBitSet( flags, NETCHAN_USE_MUNGE ) ? 1 : 0;
+	chan->use_bz2    = FBitSet( flags, NETCHAN_USE_BZIP2 ) ? 1 : 0;
+	chan->gs_netchan = FBitSet( flags, NETCHAN_GOLDSRC ) ? 1 : 0;
 
 	MSG_Init( &chan->message, "NetData", chan->message_buf, sizeof( chan->message_buf ));
 }
@@ -720,7 +725,19 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 
 	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 
-	if( !LZSS_IsCompressed( MSG_GetData( msg )))
+	if( chan->use_bz2 && memcmp( MSG_GetData( msg ), "BZ2", 4 ))
+	{
+		byte pbOut[0x10000];
+		uint uCompressedSize = MSG_GetNumBytesWritten( msg ) - 4;
+		if( !BZ2_bzBuffToBuffCompress( pbOut, &uCompressedSize, MSG_GetData( msg ), MSG_GetNumBytesWritten( msg ), 9, 0, 30 ))
+		{
+			Con_Reportf( "Compressing split packet with BZip2 (%d -> %d bytes)\n", MSG_GetNumBytesWritten( msg ), uCompressedSize );
+			memcpy( msg->pData, "BZ2", 4 );
+			memcpy( msg->pData + 4, pbOut, uCompressedSize );
+			MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
+		}
+	}
+	else if( !chan->use_bz2 && !LZSS_IsCompressed( MSG_GetData( msg )))
 	{
 		uint	uCompressedSize = 0;
 		uint	uSourceSize = MSG_GetNumBytesWritten( msg );
@@ -728,7 +745,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 
 		if( pbOut && uCompressedSize > 0 && uCompressedSize < uSourceSize )
 		{
-			Con_Reportf( "Compressing split packet (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
+			Con_Reportf( "Compressing split packet with LZSS (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
 			memcpy( msg->pData, pbOut, uCompressedSize );
 			MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
 		}
@@ -1125,7 +1142,16 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		p = n;
 	}
 
-	if( LZSS_IsCompressed( MSG_GetData( msg )))
+	if( chan->use_bz2 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ) )
+	{
+		byte buf[0x10000];
+		uint uDecompressedLen = sizeof( buf );
+
+		BZ2_bzBuffToBuffDecompress( buf, &uDecompressedLen, MSG_GetData( msg ) + 4, MSG_GetNumBytesWritten( msg ) - 4, 1, 0 );
+		memcpy( msg->pData, buf, uDecompressedLen );
+		size = uDecompressedLen;
+	}
+	else if( !chan->use_bz2 && LZSS_IsCompressed( MSG_GetData( msg )))
 	{
 		uint	uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ));
 		byte	buf[NET_MAX_MESSAGE];
@@ -1162,7 +1188,8 @@ Netchan_CopyFileFragments
 */
 qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 {
-	char	filename[MAX_OSPATH];
+	char filename[MAX_OSPATH], compressor[32];
+	uint uncompressedSize;
 	int	nsize, pos;
 	byte	*buffer;
 	fragbuf_t	*p, *n;
@@ -1185,6 +1212,15 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	MSG_Clear( msg );
 
 	Q_strncpy( filename, MSG_ReadString( msg ), sizeof( filename ));
+	if( chan->gs_netchan )
+	{
+		Q_strncpy( compressor, MSG_ReadString( msg ), sizeof( compressor ));
+		uncompressedSize = MSG_ReadLong( msg );
+	}
+	else
+	{
+		compressor[0] = 0;
+	}
 
 	if( !COM_CheckString( filename ))
 	{
@@ -1255,10 +1291,25 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		p = n;
 	}
 
-	if( LZSS_IsCompressed( buffer ))
+	if( chan->gs_netchan && chan->use_bz2 )
 	{
-		uint	uncompressedSize = LZSS_GetActualSize( buffer ) + 1;
-		byte	*uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
+		if( !Q_stricmp( compressor, "bz2" ))
+		{
+			byte *uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
+
+			Con_DPrintf( "Decompressing file %s (%d -> %d bytes)\n", filename, nsize, uncompressedSize );
+			BZ2_bzBuffToBuffDecompress( uncompressedBuffer, &uncompressedSize, buffer, nsize, 1, 0 );
+			Mem_Free( buffer );
+			nsize = uncompressedSize;
+			buffer = uncompressedBuffer;
+		}
+	}
+	else if( LZSS_IsCompressed( buffer ))
+	{
+		byte	*uncompressedBuffer;
+
+		uncompressedSize = LZSS_GetActualSize( buffer ) + 1;
+		uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
 		nsize = LZSS_Decompress( buffer, uncompressedBuffer );
 		Mem_Free( buffer );
@@ -1621,7 +1672,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 	MSG_WriteLong( &send, w2 );
 
 	// send the qport if we are a client
-	if( chan->sock == NS_CLIENT )
+	if( chan->sock == NS_CLIENT && !chan->gs_netchan )
 	{
 		MSG_WriteWord( &send, Cvar_VariableInteger( "net_qport" ));
 	}
@@ -1634,8 +1685,16 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 			{
 				MSG_WriteByte( &send, 1 );
 				MSG_WriteLong( &send, chan->reliable_fragid[i] );
-				MSG_WriteLong( &send, chan->frag_startpos[i] );
-				MSG_WriteLong( &send, chan->frag_length[i] );
+				if( chan->gs_netchan )
+				{
+					MSG_WriteShort( &send, chan->frag_startpos[i] >> 3 );
+					MSG_WriteShort( &send, chan->frag_length[i] >> 3 );
+				}
+				else
+				{
+					MSG_WriteLong( &send, chan->frag_startpos[i] );
+					MSG_WriteLong( &send, chan->frag_length[i] );
+				}
 			}
 			else
 			{
@@ -1767,8 +1826,16 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 			{
 				frag_message[i] = true;
 				fragid[i] = MSG_ReadLong( msg );
-				frag_offset[i] = MSG_ReadLong( msg );
-				frag_length[i] = MSG_ReadLong( msg );
+				if( chan->gs_netchan )
+				{
+					frag_offset[i] = MSG_ReadShort( msg ) << 3;
+					frag_length[i] = MSG_ReadShort( msg ) << 3;
+				}
+				else
+				{
+					frag_offset[i] = MSG_ReadLong( msg );
+					frag_length[i] = MSG_ReadLong( msg );
+				}
 			}
 		}
 
