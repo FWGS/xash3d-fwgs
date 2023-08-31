@@ -828,7 +828,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta )
 		CL_WriteDemoJumpTime();
 
 	// sentinel count. save it for debug checking
-	if( cls.legacymode == PROTO_GOLDSRC )
+	if( cls.legacymode == PROTO_LEGACY )
 		count = MSG_ReadWord( msg );
 	else count = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1;
 
