@@ -223,7 +223,7 @@ void CL_SignonReply( void )
 	switch( cls.signon )
 	{
 	case 1:
-		CL_ServerCommand( true, "begin" );
+		CL_ServerCommand( true, cls.legacymode == PROTO_GOLDSRC ? "sendents" : "begin" );
 		if( host_developer.value >= DEV_EXTENDED )
 			Mem_PrintStats();
 		break;
