@@ -209,6 +209,12 @@ typedef enum fragsize_e
 	FRAGSIZE_UNRELIABLE
 } fragsize_t;
 
+typedef enum
+{
+	NETCHAN_USE_MUNGE = BIT( 0 ),
+	NETCHAN_USE_LEGACY_SPLIT = BIT( 1 )
+} netchan_flags_t;
+
 // Network Connection Channel
 typedef struct netchan_s
 {
@@ -275,6 +281,8 @@ typedef struct netchan_s
 	unsigned int	maxpacket;
 	unsigned int	splitid;
 	netsplit_t netsplit;
+
+	qboolean use_munge;
 } netchan_t;
 
 extern netadr_t		net_from;
@@ -288,7 +296,7 @@ extern int		net_drop;
 
 void Netchan_Init( void );
 void Netchan_Shutdown( void );
-void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ) );
+void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ), unsigned int flags );
 void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filename, byte *pbuf, int size );
 qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *length );
 qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg );

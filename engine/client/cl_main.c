@@ -1406,7 +1406,7 @@ int CL_GetSplitSize( void )
 	if( Host_IsDedicated() )
 		return 0;
 
-	if( !(cls.extensions & NET_EXT_SPLITSIZE) )
+	if( !FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 		return 1400;
 
 	splitsize = cl_dlmax.value;
@@ -1428,16 +1428,17 @@ void CL_Reconnect( qboolean setup_netchan )
 {
 	if( setup_netchan )
 	{
-		Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize );
+		uint flags = 0;
 
-		if( cls.legacymode )
+		if( cls.legacymode == PROTO_GOLDSRC )
+			SetBits( flags, NETCHAN_USE_MUNGE );
+		else if( cls.legacymode == PROTO_LEGACY )
 		{
-			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ) );
+			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ));
 
-			if( extensions & NET_LEGACY_EXT_SPLIT )
+			if( FBitSet( extensions, NET_LEGACY_EXT_SPLIT ))
 			{
-				// only enable incoming split for legacy mode
-				cls.netchan.split = true;
+				SetBits( flags, NETCHAN_USE_LEGACY_SPLIT );
 				Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax.value, 65536 );
 			}
 		}
@@ -1445,12 +1446,11 @@ void CL_Reconnect( qboolean setup_netchan )
 		{
 			cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
 
-			if( cls.extensions & NET_EXT_SPLITSIZE )
-			{
+			if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 				Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax.value );
-			}
 		}
 
+		Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize, flags );
 	}
 	else
 	{

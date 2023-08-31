@@ -303,7 +303,7 @@ Netchan_Setup
 called to open a channel to a remote system
 ==============
 */
-void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ))
+void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ), unsigned int flags )
 {
 	Netchan_Clear( chan );
 
@@ -319,6 +319,8 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 	chan->qport = qport;
 	chan->client = client;
 	chan->pfnBlockSize = pfnBlockSize;
+	chan->use_munge = FBitSet( flags, NETCHAN_USE_MUNGE );
+	chan->split = FBitSet( flags, NETCHAN_USE_LEGACY_SPLIT );
 
 	MSG_Init( &chan->message, "NetData", chan->message_buf, sizeof( chan->message_buf ));
 }
@@ -1690,6 +1692,10 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		int splitsize = 0;
 		if( chan->pfnBlockSize )
 			splitsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
+
+		if( chan->use_munge )
+			COM_Munge2( send.pData + 8, MSG_GetNumBytesWritten( &send ) - 8, (byte)( chan->outgoing_sequence - 1 ));
+
 		NET_SendPacketEx( chan->sock, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), chan->remote_address, splitsize );
 	}
 
@@ -1740,6 +1746,9 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	MSG_Clear( msg );
 	sequence = MSG_ReadLong( msg );
 	sequence_ack = MSG_ReadLong( msg );
+
+	if( chan->use_munge )
+		COM_UnMunge2( msg->pData + 8, ( msg->nDataBits >> 3 ) - 8, sequence & 0xFF );
 
 	// read the qport if we are a server
 	if( chan->sock == NS_SERVER )
