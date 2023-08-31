@@ -674,7 +674,13 @@ void CL_WriteUsercmd( sizebuf_t *msg, int from, int to )
 	t = &cl.commands[to].cmd;
 
 	// write it into the buffer
-	MSG_WriteDeltaUsercmd( msg, f, t );
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		MSG_StartBitWriting( msg );
+		Delta_WriteGSFields( msg, DT_USERCMD_T, f, t, 0.0 );
+		MSG_EndBitWriting( msg );
+	}
+	else MSG_WriteDeltaUsercmd( msg, f, t );
 }
 
 /*
@@ -773,6 +779,9 @@ void CL_WritePacket( void )
 		// begin a client move command
 		MSG_BeginClientCmd( &buf, clc_move );
 
+		if( cls.legacymode == PROTO_GOLDSRC )
+			MSG_WriteByte( &buf, 0 );
+
 		// save the position for a checksum byte
 		key = MSG_GetRealBytesWritten( &buf );
 		MSG_WriteByte( &buf, 0 );
@@ -810,7 +819,15 @@ void CL_WritePacket( void )
 
 		// calculate a checksum over the move commands
 		size = MSG_GetRealBytesWritten( &buf ) - key - 1;
+		if( cls.legacymode == PROTO_GOLDSRC )
+		{
+			size = Q_min( size, 255 );
+			buf.pData[key - 1] = size;
+		}
 		buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
+
+		if( cls.legacymode == PROTO_GOLDSRC )
+			COM_Munge( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
 
 		// message we are constructing.
 		i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
