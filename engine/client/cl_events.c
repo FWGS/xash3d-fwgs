@@ -390,11 +390,19 @@ void CL_ParseReliableEvent( sizebuf_t *msg )
 
 	event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
-	if( MSG_ReadOneBit( msg ))
-		delay = (float)MSG_ReadWord( msg ) * (1.0f / 100.0f);
-
 	// reliable events not use delta-compression just null-compression
-	MSG_ReadDeltaEvent( msg, &nullargs, &args );
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		Delta_ReadGSFields( msg, DT_EVENT_T, &nullargs, &args, 0.0f );
+		if( MSG_ReadOneBit( msg ))
+			delay = (float)MSG_ReadWord( msg ) * (1.0f / 100.0f);
+	}
+	else
+	{
+		if( MSG_ReadOneBit( msg ))
+			delay = (float)MSG_ReadWord( msg ) * (1.0f / 100.0f);
+		MSG_ReadDeltaEvent( msg, &nullargs, &args );
+	}
 
 	if( args.entindex > 0 && args.entindex <= cl.maxclients )
 		args.angles[PITCH] *= -3.0f;
@@ -426,15 +434,25 @@ void CL_ParseEvent( sizebuf_t *msg )
 	// parse events queue
 	for( i = 0 ; i < num_events; i++ )
 	{
+		int entity_bits;
+		if( cls.legacymode == PROTO_GOLDSRC )
+			entity_bits = MAX_GOLDSRC_ENTITY_BITS;
+		else if( cls.legacymode == PROTO_LEGACY )
+			entity_bits = MAX_LEGACY_ENTITY_BITS;
+		else
+			entity_bits = MAX_ENTITY_BITS;
+
 		event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
 		if( MSG_ReadOneBit( msg ))
-			packet_index = MSG_ReadUBitLong( msg, cls.legacymode ? MAX_LEGACY_ENTITY_BITS : MAX_ENTITY_BITS );
+			packet_index = MSG_ReadUBitLong( msg, entity_bits );
 		else packet_index = -1;
 
 		if( MSG_ReadOneBit( msg ))
 		{
-			MSG_ReadDeltaEvent( msg, &nullargs, &args );
+			if( cls.legacymode == PROTO_GOLDSRC )
+				Delta_ReadGSFields( msg, DT_EVENT_T, &nullargs, &args, 0.0f );
+			else MSG_ReadDeltaEvent( msg, &nullargs, &args );
 		}
 
 		if( MSG_ReadOneBit( msg ))
