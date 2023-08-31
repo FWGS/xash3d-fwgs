@@ -301,6 +301,13 @@ typedef enum
 	CL_CHANGELEVEL,	// draw 'loading' during changelevel
 } scrstate_t;
 
+typedef enum
+{
+	PROTO_CURRENT = 0, // Xash3D 49
+	PROTO_LEGACY,  // Xash3D 48
+	PROTO_GOLDSRC, // GoldSrc 48
+} protocolstate_t;
+
 typedef struct
 {
 	char		name[32];
@@ -624,7 +631,7 @@ typedef struct
 	uint32_t internetservers_query_len;
 
 	// legacy mode support
-	qboolean legacymode;				// one-way 48 protocol compatibility
+	protocolstate_t legacymode;
 	netadr_t legacyserver;
 	int extensions;
 
