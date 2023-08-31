@@ -1754,9 +1754,13 @@ void Con_DrawDebug( void )
 
 	if( scr_download.value != -1.0f )
 	{
+		int length;
 		Q_snprintf( dlstring, sizeof( dlstring ), "Downloading [%d remaining]: ^2%s^7 %5.1f%% time %.f secs",
 			host.downloadcount, host.downloadfile, scr_download.value, Sys_DoubleTime() - timeStart );
-		x = refState.width - 500;
+
+		Con_DrawStringLen( dlstring, &length, NULL );
+		length = Q_max( length, 500 );
+		x = refState.width - length * 1.05f;
 		y = con.curFont->charHeight * 1.05f;
 		Con_DrawString( x, y, dlstring, g_color_table[7] );
 	}
