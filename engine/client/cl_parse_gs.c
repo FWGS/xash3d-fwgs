@@ -498,6 +498,23 @@ static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 	}
 }
 
+static void CL_ParseSpawnStaticSound( sizebuf_t *msg )
+{
+	vec3_t pos;
+	int handle, entnum, pitch, flags;
+	float volume, attn;
+
+	MSG_ReadVec3Coord( msg, pos );
+	handle = MSG_ReadShort( msg );
+	volume = MSG_ReadByte( msg ) * ( 1.0f / 255.0f );
+	attn   = MSG_ReadByte( msg ) * ( 1.0f / 64.0f );
+	entnum = MSG_ReadShort( msg );
+	pitch  = MSG_ReadByte( msg );
+	flags  = MSG_ReadByte( msg );
+
+	S_AmbientSound( pos, entnum, handle, volume, attn, pitch, flags );
+}
+
 /*
 =====================================================================
 
@@ -653,6 +670,9 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_centerprint:
 			CL_CenterPrint( MSG_ReadString( msg ), 0.25f );
+			break;
+		case svc_goldsrc_spawnstaticsound:
+			CL_ParseSpawnStaticSound( msg );
 			break;
 		case svc_intermission:
 			cl.intermission = 1;
