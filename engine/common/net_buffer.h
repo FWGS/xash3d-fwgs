@@ -43,6 +43,9 @@ struct sizebuf_s
 	byte		*pData;
 	int		iCurBit;
 	int		nDataBits;
+
+	// to support GoldSrc broken signed integers
+	int iAlternateSign;
 };
 
 #define MSG_StartReading			MSG_StartWriting
@@ -113,6 +116,24 @@ _inline int MSG_GetNumBitsLeft( sizebuf_t *sb ) { return sb->nDataBits - sb->iCu
 _inline int MSG_GetNumBytesLeft( sizebuf_t *sb ) { return MSG_GetNumBitsLeft( sb ) >> 3; }
 _inline byte *MSG_GetData( sizebuf_t *sb ) { return sb->pData; }
 _inline byte *MSG_GetBuf( sizebuf_t *sb ) { return sb->pData; } // just an alias
+_inline void MSG_EndBitWriting( sizebuf_t *sb )
+{
+	sb->iAlternateSign--;
+
+	if( sb->iAlternateSign < 0 )
+	{
+		Con_Printf( "%s: non-even MSG_Start/EndBitWriting\n", __func__ );
+		sb->iAlternateSign = 0;
+	}
+
+	// we have native bit ops here, just pad to closest byte
+	MSG_SeekToBit( sb, MSG_GetNumBytesWritten( sb ) << 3, SEEK_SET );
+}
+
+_inline void MSG_StartBitWriting( sizebuf_t *sb )
+{
+	sb->iAlternateSign++;
+}
 
 // Bit-read functions
 int MSG_ReadOneBit( sizebuf_t *sb );

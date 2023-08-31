@@ -166,6 +166,7 @@ void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, in
 
 	sb->iCurBit = iStartBit;
 	sb->bOverflow = false;
+	sb->iAlternateSign = 0;
 }
 
 /*
@@ -287,17 +288,35 @@ void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits )
 	// do we have a valid # of bits to encode with?
 	Assert( numbits >= 1 && numbits <= 32 );
 
-	// NOTE: it does this wierdness here so it's bit-compatible with regular integer data in the buffer.
-	// (Some old code writes direct integers right into the buffer).
-	if( data < 0 )
+	if( sb->iAlternateSign )
 	{
-		MSG_WriteUBitLong( sb, (uint)( 0x80000000 + data ), numbits - 1 );
-		MSG_WriteOneBit( sb, 1 );
+		// NOTE: it does this wierdness here so it's bit-compatible with regular integer data in the buffer.
+		// (Some old code writes direct integers right into the buffer).
+		if( data < 0 )
+		{
+			MSG_WriteOneBit( sb, 1 );
+			MSG_WriteUBitLong( sb, (uint)( 0x80000000 + data ), numbits - 1 );
+		}
+		else
+		{
+			MSG_WriteOneBit( sb, 0 );
+			MSG_WriteUBitLong( sb, (uint)data, numbits - 1 );
+		}
 	}
 	else
 	{
-		MSG_WriteUBitLong( sb, (uint)data, numbits - 1 );
-		MSG_WriteOneBit( sb, 0 );
+		// NOTE: it does this wierdness here so it's bit-compatible with regular integer data in the buffer.
+		// (Some old code writes direct integers right into the buffer).
+		if( data < 0 )
+		{
+			MSG_WriteUBitLong( sb, (uint)( 0x80000000 + data ), numbits - 1 );
+			MSG_WriteOneBit( sb, 1 );
+		}
+		else
+		{
+			MSG_WriteUBitLong( sb, (uint)data, numbits - 1 );
+			MSG_WriteOneBit( sb, 0 );
+		}
 	}
 }
 
@@ -602,12 +621,24 @@ int MSG_ReadSBitLong( sizebuf_t *sb, int numbits )
 {
 	int	r, sign;
 
-	r = MSG_ReadUBitLong( sb, numbits - 1 );
+	if( sb->iAlternateSign )
+	{
+		sign = MSG_ReadOneBit( sb );
+		r = MSG_ReadUBitLong( sb, numbits - 1 );
 
-	// NOTE: it does this wierdness here so it's bit-compatible with regular integer data in the buffer.
-	// (Some old code writes direct integers right into the buffer).
-	sign = MSG_ReadOneBit( sb );
-	if( sign ) r = -( BIT( numbits - 1 ) - r );
+		if( sign )
+			r = -r;
+	}
+	else
+	{
+		r = MSG_ReadUBitLong( sb, numbits - 1 );
+
+		// NOTE: it does this wierdness here so it's bit-compatible with regular integer data in the buffer.
+		// (Some old code writes direct integers right into the buffer).
+		sign = MSG_ReadOneBit( sb );
+
+		if( sign ) r = -( BIT( numbits - 1 ) - r );
+	}
 
 	return r;
 }
@@ -638,7 +669,14 @@ int MSG_ReadCmd( sizebuf_t *sb, netsrc_t type )
 
 int MSG_ReadChar( sizebuf_t *sb )
 {
-	return MSG_ReadSBitLong( sb, sizeof( int8_t ) << 3 );
+	int alt = sb->iAlternateSign;
+	int ret;
+
+	sb->iAlternateSign = 0;
+	ret = MSG_ReadSBitLong( sb, sizeof( int8_t ) << 3 );
+	sb->iAlternateSign = alt;
+
+	return ret;
 }
 
 int MSG_ReadByte( sizebuf_t *sb )
@@ -648,7 +686,14 @@ int MSG_ReadByte( sizebuf_t *sb )
 
 int MSG_ReadShort( sizebuf_t *sb )
 {
-	return MSG_ReadSBitLong( sb, sizeof( int16_t ) << 3 );
+	int alt = sb->iAlternateSign;
+	int ret;
+
+	sb->iAlternateSign = 0;
+	ret = MSG_ReadSBitLong( sb, sizeof( int16_t ) << 3 );
+	sb->iAlternateSign = alt;
+
+	return ret;
 }
 
 int MSG_ReadWord( sizebuf_t *sb )
@@ -680,7 +725,14 @@ void MSG_ReadVec3Angles( sizebuf_t *sb, vec3_t fa )
 
 int MSG_ReadLong( sizebuf_t *sb )
 {
-	return MSG_ReadSBitLong( sb, sizeof( int32_t ) << 3 );
+	int alt = sb->iAlternateSign;
+	int ret;
+
+	sb->iAlternateSign = 0;
+	ret = MSG_ReadSBitLong( sb, sizeof( int32_t ) << 3 );
+	sb->iAlternateSign = alt;
+
+	return ret;
 }
 
 uint MSG_ReadDword( sizebuf_t *sb )
