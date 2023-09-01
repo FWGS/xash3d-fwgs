@@ -2463,7 +2463,8 @@ void CL_SetLightstyle( int style, const char *s, float f )
 		}
 	}
 
-	Con_Reportf( "Lightstyle %i (%s), interp %s\n", style, ls->pattern, ls->interp ? "Yes" : "No" );
+	if( COM_CheckStringEmpty( ls->pattern ))
+		Con_Reportf( "Lightstyle %i (%s), interp %s\n", style, ls->pattern, ls->interp ? "Yes" : "No" );
 }
 
 /*
