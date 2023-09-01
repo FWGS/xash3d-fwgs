@@ -101,15 +101,15 @@ typedef struct delta_header_t
 	qboolean instanced : 1;
 	uint instanced_baseline_index : 6;
 	uint offset : 6;
-
-	int entnum;
 } delta_header_t;
 
-static void CL_ParseDeltaHeader( sizebuf_t *msg, qboolean delta, int oldnum, struct delta_header_t *hdr )
+static int CL_ParseDeltaHeader( sizebuf_t *msg, qboolean delta, int oldnum, struct delta_header_t *hdr )
 {
+	int entnum;
+
 	hdr->remove = hdr->custom = hdr->instanced = false;
 	hdr->instanced_baseline_index = hdr->offset = 0;
-	hdr->entnum = oldnum;
+	entnum = oldnum;
 
 	if( !delta )
 	{
@@ -117,11 +117,11 @@ static void CL_ParseDeltaHeader( sizebuf_t *msg, qboolean delta, int oldnum, str
 		// if we have next bit NON set, then it's a one of next 64 entities
 		// if not, it's a new entity
 		if( MSG_ReadOneBit( msg ))
-			hdr->entnum++;
+			entnum++;
 		else if( MSG_ReadOneBit( msg ) == 0 )
-			hdr->entnum += MSG_ReadUBitLong( msg, 6 );
+			entnum += MSG_ReadUBitLong( msg, 6 );
 		else
-			hdr->entnum += MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
+			entnum += MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
 	}
 	else
 	{
@@ -130,8 +130,8 @@ static void CL_ParseDeltaHeader( sizebuf_t *msg, qboolean delta, int oldnum, str
 
 		// same logic as above
 		if( MSG_ReadOneBit( msg ) == 0 )
-			hdr->entnum += MSG_ReadUBitLong( msg, 6 );
-		else hdr->entnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
+			entnum += MSG_ReadUBitLong( msg, 6 );
+		else entnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
 	}
 
 	// if we are not removing this entity
@@ -157,14 +157,16 @@ static void CL_ParseDeltaHeader( sizebuf_t *msg, qboolean delta, int oldnum, str
 				hdr->offset = MSG_ReadUBitLong( msg, 6 );
 		}
 	}
+
+	return entnum;
 }
 
-static int CL_GetEntityDelta( const struct delta_header_t *hdr )
+static int CL_GetEntityDelta( const struct delta_header_t *hdr, int entnum )
 {
 	if( hdr->custom )
 		return DT_CUSTOM_ENTITY_STATE_T;
 
-	if( CL_IsPlayerIndex( hdr->entnum ))
+	if( CL_IsPlayerIndex( entnum ))
 		return DT_ENTITY_STATE_PLAYER_T;
 
 	return DT_ENTITY_STATE_T;
@@ -178,7 +180,7 @@ static void CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
 	// read it all but ignore it
 	while( 1 )
 	{
-		int oldnum = 0;
+		int num = 0;
 		entity_state_t from = { 0 }, to;
 		delta_header_t hdr;
 
@@ -186,7 +188,7 @@ static void CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
 		{
 			MSG_SeekToBit( msg, -16, SEEK_CUR );
 
-			CL_ParseDeltaHeader( msg, false, oldnum, &hdr );
+			num = CL_ParseDeltaHeader( msg, false, num, &hdr );
 		}
 		else break;
 
@@ -196,16 +198,17 @@ static void CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
 		if( hdr.remove )
 			continue;
 
-		Delta_ReadGSFields( msg, CL_GetEntityDelta( &hdr ), &from, &to, cl.mtime[0] );
+		Delta_ReadGSFields( msg, CL_GetEntityDelta( &hdr, num ), &from, &to, cl.mtime[0] );
 	}
 
 	MSG_EndBitWriting( msg );
 }
 
-static void CL_DeltaEntityGS( delta_header_t *hdr, sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t *from, qboolean has_update )
+static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t *from, qboolean has_update )
 {
 	cl_entity_t	*ent;
 	entity_state_t	*to;
+	qboolean newent = from == NULL;
 	int pack = frame->num_entities;
 
 	// alloc next slot to store update
@@ -219,43 +222,32 @@ static void CL_DeltaEntityGS( delta_header_t *hdr, sizebuf_t *msg, frame_t *fram
 	}
 
 	ent = CL_EDICT_NUM( newnum );
+	if( hdr->remove )
+	{
+		if( !newent )
+			CL_KillDeadBeams( ent );
+		return;
+	}
+
 	ent->index = newnum; // enumerate entity index
-	if( !from )
+	if( newent )
 	{
 		if( hdr->instanced )
-		{
 			from = &cl.instanced_baseline[hdr->instanced_baseline_index];
-		}
 		else if( hdr->offset != 0 )
-		{
 			from = &cls.packet_entities[(cls.next_client_entities - hdr->offset) % cls.num_client_entities];
-		}
 		else
-		{
 			from = &ent->baseline;
-		}
 	}
+
+	if( has_update )
+		Delta_ReadGSFields( msg, CL_GetEntityDelta( hdr, newnum ), from, to, cl.mtime[0] );
+	else memcpy( to, from, sizeof( entity_state_t ));
 
 	to->entityType = hdr->custom ? ENTITY_BEAM : ENTITY_NORMAL;
 	to->number = newnum;
 
-	if( has_update )
-		Delta_ReadGSFields( msg, CL_GetEntityDelta( hdr ), from, to, cl.mtime[0] );
-	else memcpy( to, from, sizeof( entity_state_t ));
-
-	if( hdr->remove )
-	{
-		memset( to, 0, sizeof( *to ));
-		to->number = -1;
-
-		CL_KillDeadBeams( ent ); // release dead beams
-
-		// this is for reference
-		Con_DPrintf( "Entity %i was removed from server\n", newnum );
-		return;
-	}
-
-	if( !from )
+	if( newent )
 	{
 		// interpolation must be reset
 		SETVISBIT( frame->flags, pack );
@@ -267,6 +259,15 @@ static void CL_DeltaEntityGS( delta_header_t *hdr, sizebuf_t *msg, frame_t *fram
 	// add entity to packet
 	cls.next_client_entities++;
 	frame->num_entities++;
+}
+
+static void CL_CopyPacketEntity( frame_t *frame, int num, entity_state_t *from )
+{
+	delta_header_t fakehdr =
+	{
+		.custom = FBitSet( from->entityType, ENTITY_BEAM ) == ENTITY_BEAM,
+	};
+	CL_DeltaEntityGS( &fakehdr, NULL, frame, num, from, false );
 }
 
 static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
@@ -318,6 +319,7 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 	// read it all but ignore it
 	while( 1 )
 	{
+		int bufstart;
 		qboolean player;
 		delta_header_t hdr;
 		int val = MSG_ReadWord( msg );
@@ -325,38 +327,37 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 		if( val )
 		{
 			MSG_SeekToBit( msg, -16, SEEK_CUR );
-			CL_ParseDeltaHeader( msg, delta, numbase, &hdr );
-			numbase = hdr.entnum;
+			numbase = newnum = CL_ParseDeltaHeader( msg, delta, numbase, &hdr );
 		}
 		else break;
 
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "%s: overflow\n", __func__ );
 
-		newnum = hdr.entnum;
 		player = CL_IsPlayerIndex( newnum );
 
 		while( oldnum < newnum )
 		{
 			// one or more entities from the old packet are unchanged
-			CL_DeltaEntityGS( &hdr, msg, frame, oldnum, oldent, false );
+			CL_CopyPacketEntity( frame, oldnum, oldent );
 			oldnum = CL_UpdateOldEntNum( ++oldindex, oldframe, &oldent );
 		}
 
+		bufstart = MSG_GetNumBytesRead( msg );
+
 		if( oldnum == newnum )
 		{
-			int bufstart = MSG_GetNumBytesRead( msg );
-			CL_DeltaEntityGS( &hdr, msg, frame, newnum, oldent, !hdr.remove );
-			if( player ) playerbytes += MSG_GetNumBytesRead( msg ) - bufstart;
+			// from delta
+			CL_DeltaEntityGS( &hdr, msg, frame, newnum, oldent, true );
 			oldnum = CL_UpdateOldEntNum( ++oldindex, oldframe, &oldent );
 		}
 		else if( oldnum > newnum )
 		{
-			// delta from baseline ?
-			int bufstart = MSG_GetNumBytesRead( msg );
-			CL_DeltaEntityGS( &hdr, msg, frame, newnum, NULL, !hdr.remove );
-			if( player ) playerbytes += MSG_GetNumBytesRead( msg ) - bufstart;
+			// from baseline
+			CL_DeltaEntityGS( &hdr, msg, frame, newnum, NULL, true );
 		}
+
+		if( player ) playerbytes += MSG_GetNumBytesRead( msg ) - bufstart;
 	}
 
 	if( MSG_CheckOverflow( msg ))
@@ -366,12 +367,7 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 	while( oldnum != MAX_ENTNUMBER )
 	{
 		// one or more entities from the old packet are unchanged
-		delta_header_t hdr =
-		{
-			.custom = FBitSet( oldent->entityType, ENTITY_BEAM ),
-			.entnum = oldnum,
-		};
-		CL_DeltaEntityGS( &hdr, msg, frame, oldnum, oldent, false );
+		CL_CopyPacketEntity( frame, oldnum, oldent );
 		oldnum = CL_UpdateOldEntNum( ++oldindex, oldframe, &oldent );
 	}
 
