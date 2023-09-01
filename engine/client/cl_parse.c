@@ -1278,8 +1278,6 @@ void CL_ParseBaseline( sizebuf_t *msg, int protocol )
 			else
 				Delta_ReadGSFields( msg, DT_ENTITY_STATE_T, &ent->prevstate, &ent->baseline, 1.0f );
 
-			Con_Printf( "entnum = %d %d\n", newnum, MSG_GetNumBitsWritten( msg ) - bits );
-
 			ent->baseline.entityType = type;
 			ent->baseline.number = newnum;
 		}
