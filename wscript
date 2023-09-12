@@ -180,7 +180,11 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake')
+	conf.load('msvs msdev subproject gitversion clang_compilation_database waf_unit_test enforce_pic cmake')
+
+	# macOS (Darwin) doesn't support objcopy so we need to disable binary stripping
+	if conf.env.DEST_OS != 'darwin':
+		conf.load('strip_on_install')
 
 	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
 	if conf.env.MSVC_TARGETS[0] == 'x86':
@@ -193,7 +197,9 @@ def configure(conf):
 	enforce_pic = True # modern defaults
 
 	# modify options dictionary early
-	if conf.env.DEST_OS == 'android':
+	if conf.env.DEST_OS == 'darwin':
+		conf.options.DISABLE_WERROR = True
+	elif conf.env.DEST_OS == 'android':
 		conf.options.NO_VGUI= True # skip vgui
 		conf.options.NANOGL = True
 		conf.options.GLWES  = True
