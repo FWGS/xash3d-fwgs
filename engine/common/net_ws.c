@@ -1066,7 +1066,7 @@ net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr )
 	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ))
 	{
 		adr->type = NA_LOOPBACK;
-		return true;
+		return NET_EAI_OK;
 	}
 
 	res = NET_StringToSockaddr( string, &s, true, AF_UNSPEC );
