@@ -206,7 +206,7 @@ void CL_ScreenShot_f( void )
 			if( !CL_ScreenshotGetName( i, checkname, sizeof( checkname )))
 				return;	// no namespace
 
-			if( !FS_FileExists( checkname, false ))
+			if( !FS_FileExists( checkname, true ))
 				break;
 		}
 
@@ -246,7 +246,7 @@ void CL_SnapShot_f( void )
 			if( !CL_SnapshotGetName( i, checkname, sizeof( checkname )))
 				return;	// no namespace
 
-			if( !FS_FileExists( checkname, false ))
+			if( !FS_FileExists( checkname, true ))
 				break;
 		}
 
