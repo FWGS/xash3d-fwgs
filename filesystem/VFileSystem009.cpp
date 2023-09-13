@@ -517,8 +517,7 @@ extern "C" void EXPORT *CreateInterface( const char *interface, int *retval )
 	{
 		static fs_api_t copy = { 0 }; // return a copy, to disallow overriding
 
-		if( !copy.InitStdio )
-			memcpy( &copy, &g_api, sizeof( copy ));
+		memcpy( &copy, &g_api, sizeof( copy ));
 
 		if( retval )
 			*retval = 0;
