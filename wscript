@@ -350,6 +350,8 @@ def configure(conf):
 
 	if conf.env.SAILFISH == 'aurora':
 		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
+	elif conf.env.DEST_OS == 'darwin':
+		conf.env.DEFAULT_RPATH = '@loader_path'
 	else:
 		conf.env.DEFAULT_RPATH = '$ORIGIN'
 
