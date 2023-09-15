@@ -1,8 +1,8 @@
 app-id: su.xash.Engine.Compat.i386
 runtime: org.freedesktop.Platform
-runtime-version: &runtime-version '22.08'
+runtime-version: &runtime-version '23.08'
 x-gl-version: &gl-version '1.4'
-x-gl-versions: &gl-versions 22.08;1.4
+x-gl-versions: &gl-versions 23.08;1.4
 sdk: org.freedesktop.Sdk
 command: run.sh
 separate-locales: false
