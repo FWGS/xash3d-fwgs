@@ -35,5 +35,5 @@ Table is sorted by status.
 | PSVita          | Old Engine fork            | not maintained           | [GitHub Repository](https://github.com/fgsfdsfgs/vitaXash3D)
 | Switch          | Old Engine fork            | not maintained           | [GitHub Repository](https://github.com/switchports/xash3d-switch)
 | 3DS             | Old Engine fork            | not maintained           | [GitHub Repository](https://github.com/masterfeizz/Xash3DS)
-| macOS           | Deprecated                 | @sofakng                 | 
+| macOS           | Supported                  | @sofakng                 | 
 | iOS             | Deprecated                 | not maintained           | See GitHub issue #61
