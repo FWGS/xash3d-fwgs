@@ -1090,8 +1090,6 @@ void SV_Shutdown( const char *finalmsg )
 		// drop the client if want to load a new map
 		if( CL_IsPlaybackDemo( ))
 			CL_Drop();
-
-		SV_UnloadProgs ();
 		return;
 	}
 
@@ -1108,7 +1106,7 @@ void SV_Shutdown( const char *finalmsg )
 		NET_MasterShutdown();
 
 	NET_Config( false, false );
-	SV_UnloadProgs ();
+	SV_DeactivateServer();
 	CL_Drop();
 
 	// free current level

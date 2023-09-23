@@ -5148,7 +5148,8 @@ qboolean SV_LoadProgs( const char *name )
 	static playermove_t		gpMove;
 	edict_t			*e;
 
-	if( svgame.hInstance ) SV_UnloadProgs();
+	if( svgame.hInstance )
+		return true;
 
 	// fill it in
 	svgame.pmove = &gpMove;
