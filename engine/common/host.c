@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "base_cmd.h"
 #include "client.h"
+#include "server.h"
 #include "netchan.h"
 #include "protocol.h"
 #include "mod_local.h"
@@ -1308,6 +1309,7 @@ void EXPORT Host_Shutdown( void )
 #endif
 
 	SV_Shutdown( "Server shutdown\n" );
+	SV_UnloadProgs();
 	SV_ShutdownFilter();
 	CL_Shutdown();
 
