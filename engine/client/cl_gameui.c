@@ -982,28 +982,21 @@ pfnCheckGameDll
 */
 int GAME_EXPORT pfnCheckGameDll( void )
 {
-	string dllpath;
-	void	*hInst;
-
-#if TARGET_OS_IPHONE
-	// loading server library drains too many ram
-	// so 512MB iPod Touch cannot even connect to
-	// to servers in cstrike
+#if XASH_INTERNAL_GAMELIBS
 	return true;
-#endif
+#else
+	string dllpath;
 
 	if( svgame.hInstance )
 		return true;
 
 	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
 
-	if(( hInst = COM_LoadLibrary( dllpath, true, false )) != NULL )
-	{
-		COM_FreeLibrary( hInst ); // don't increase linker's reference counter
+	if( FS_FileExists( dllpath, false ))
 		return true;
-	}
-	Con_Reportf( S_WARN "Could not load server library: %s\n", COM_GetLibraryError() );
+
 	return false;
+#endif
 }
 
 /*
