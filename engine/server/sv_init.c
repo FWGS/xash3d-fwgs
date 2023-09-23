@@ -1115,28 +1115,6 @@ int SV_GetMaxClients( void )
 	return svs.maxclients;
 }
 
-qboolean SV_InitGameProgs( void )
-{
-	string dllpath;
-
-	if( svgame.hInstance ) return true; // already loaded
-
-	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
-
-	// just try to initialize
-	SV_LoadProgs( dllpath );
-
-	return false;
-}
-
-void SV_FreeGameProgs( void )
-{
-	if( svs.initialized ) return;	// server is active
-
-	// unload progs (free cvars and commands)
-	SV_UnloadProgs();
-}
-
 /*
 ================
 SV_ExecLoadLevel

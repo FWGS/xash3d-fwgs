@@ -747,8 +747,6 @@ void SV_ShutdownGame( void );
 void SV_ExecLoadLevel( void );
 void SV_ExecLoadGame( void );
 void SV_ExecChangeLevel( void );
-qboolean SV_InitGameProgs( void );
-void SV_FreeGameProgs( void );
 void CL_WriteMessageHistory( void );
 void CL_SendCmd( void );
 void CL_Disconnect( void );
