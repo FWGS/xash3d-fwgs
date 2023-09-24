@@ -706,7 +706,7 @@ qboolean SV_InitGame( void )
 {
 	string dllpath;
 
-	if( svs.game_library_loaded )
+	if( svgame.hInstance )
 		return true;
 
 	// first initialize?
@@ -721,7 +721,6 @@ qboolean SV_InitGame( void )
 	}
 
 	// client frames will be allocated in SV_ClientConnect
-	svs.game_library_loaded = true;
 	return true;
 }
 
