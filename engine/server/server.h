@@ -360,7 +360,6 @@ typedef struct
 typedef struct
 {
 	qboolean		initialized;		// sv_init has completed
-	qboolean	game_library_loaded;	// is game library loaded in SV_InitGame
 	double		timestart;		// just for profiling
 
 	int		maxclients;		// server max clients
