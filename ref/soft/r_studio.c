@@ -3711,9 +3711,6 @@ void GAME_EXPORT CL_InitStudioAPI( void )
 	// trying to grab them from client.dll
 	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand", 0 );
 
-	if( cl_righthand == NULL )
-		cl_righthand = gEngfuncs.Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );
-
 	// Xash will be used internal StudioModelRenderer
 	if( gEngfuncs.pfnGetStudioModelInterface( STUDIO_INTERFACE_VERSION, &pStudioDraw, &gStudioAPI ))
 		return;
