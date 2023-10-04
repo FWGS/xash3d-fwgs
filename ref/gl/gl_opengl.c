@@ -304,6 +304,62 @@ static dllfunc_t shaderobjectsfuncs[] =
 { NULL, NULL }
 };
 
+static dllfunc_t shaderobjectsfuncs_gles[] =
+{
+	{ "glDeleteShader"             , (void **)&pglDeleteObjectARB },
+	//{ "glGetHandleARB"                , (void **)&pglGetHandleARB },
+	{ "glDetachShader"             , (void **)&pglDetachObjectARB },
+	{ "glCreateShader"       , (void **)&pglCreateShaderObjectARB },
+	{ "glShaderSource"             , (void **)&pglShaderSourceARB },
+	{ "glCompileShader"            , (void **)&pglCompileShaderARB },
+	{ "glCreateProgram"      , (void **)&pglCreateProgramObjectARB },
+	{ "glAttachShader"             , (void **)&pglAttachObjectARB },
+	{ "glLinkProgram"              , (void **)&pglLinkProgramARB },
+	{ "glUseProgram"         , (void **)&pglUseProgramObjectARB },
+	{ "glValidateProgram"          , (void **)&pglValidateProgramARB },
+	{ "glUniform1f"                , (void **)&pglUniform1fARB },
+	{ "glUniform2f"                , (void **)&pglUniform2fARB },
+	{ "glUniform3f"                , (void **)&pglUniform3fARB },
+	{ "glUniform4f"                , (void **)&pglUniform4fARB },
+	{ "glUniform1i"                , (void **)&pglUniform1iARB },
+	{ "glUniform2i"                , (void **)&pglUniform2iARB },
+	{ "glUniform3i"                , (void **)&pglUniform3iARB },
+	{ "glUniform4i"                , (void **)&pglUniform4iARB },
+	{ "glUniform1f"               , (void **)&pglUniform1fvARB },
+	{ "glUniform2fv"               , (void **)&pglUniform2fvARB },
+	{ "glUniform3fv"               , (void **)&pglUniform3fvARB },
+	{ "glUniform4fv"               , (void **)&pglUniform4fvARB },
+	{ "glUniform1iv"               , (void **)&pglUniform1ivARB },
+	{ "glUniform2iv"               , (void **)&pglUniform2ivARB },
+	{ "glUniform3iv"               , (void **)&pglUniform3ivARB },
+	{ "glUniform4iv"               , (void **)&pglUniform4ivARB },
+	{ "glUniformMatrix2fv"         , (void **)&pglUniformMatrix2fvARB },
+	{ "glUniformMatrix3fv"         , (void **)&pglUniformMatrix3fvARB },
+	{ "glUniformMatrix4fv"         , (void **)&pglUniformMatrix4fvARB },
+	{ "glGetShaderfv"     , (void **)&pglGetObjectParameterfvARB },
+	{ "glGetShaderiv"     , (void **)&pglGetObjectParameterivARB },
+	{ "glGetShaderInfoLog"               , (void **)&pglGetInfoLogARB },
+	{ "glGetAttachedObjects"       , (void **)&pglGetAttachedObjectsARB },
+	{ "glGetUniformLocation"       , (void **)&pglGetUniformLocationARB },
+	{ "glGetActiveUniform"         , (void **)&pglGetActiveUniformARB },
+	{ "glGetUniformfv"             , (void **)&pglGetUniformfvARB },
+	{ "glGetUniformiv"             , (void **)&pglGetUniformivARB },
+	{ "glGetShaderSource"          , (void **)&pglGetShaderSourceARB },
+	{ "glVertexAttribPointer"      , (void **)&pglVertexAttribPointerARB },
+	{ "glEnableVertexAttribArray"  , (void **)&pglEnableVertexAttribArrayARB },
+	{ "glDisableVertexAttribArray" , (void **)&pglDisableVertexAttribArrayARB },
+	{ "glBindAttribLocation"       , (void **)&pglBindAttribLocationARB },
+	{ "glGetActiveAttrib"          , (void **)&pglGetActiveAttribARB },
+	{ "glGetAttribLocation"        , (void **)&pglGetAttribLocationARB },
+	{ "glVertexAttrib2f"              , (void **)&pglVertexAttrib2fARB },
+	{ "glVertexAttrib2fv"             , (void **)&pglVertexAttrib2fvARB },
+	{ "glVertexAttrib3fv"             , (void **)&pglVertexAttrib3fvARB },
+	//{ "glVertexAttrib4f"              , (void **)&pglVertexAttrib4fARB },
+	//{ "glVertexAttrib4fv"             , (void **)&pglVertexAttrib4fvARB },
+	//{ "glVertexAttrib4ubv"            , (void **)&pglVertexAttrib4ubvARB },
+{ NULL, NULL }
+};
+
 
 /*
 ========================
@@ -603,7 +659,11 @@ void GL_InitExtensionsGLES( void )
 #elif defined( XASH_WES )
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_WES;
+#elif defined( XASH_GLES3COMPAT )
+	glConfig.context = CONTEXT_TYPE_GLES_2_X;
+	glConfig.wrapper = GLES_WRAPPER_NONE;
 #else
+
 #error "unknown gles wrapper"
 #endif
 
@@ -644,6 +704,10 @@ void GL_InitExtensionsGLES( void )
 		case GL_ARB_TEXTURE_NPOT_EXT:
 			GL_CheckExtension( "GL_OES_texture_npot", NULL, "gl_texture_npot", extid );
 			break;
+		case GL_SHADER_OBJECTS_EXT:
+			GL_CheckExtension( "ES2 Shaders", shaderobjectsfuncs_gles, "gl_shaderobjects", extid );
+			break;
+
 		case GL_DEBUG_OUTPUT:
 			if( glw_state.extended )
 				GL_CheckExtension( "GL_KHR_debug", NULL, NULL, extid );
@@ -665,6 +729,7 @@ void GL_InitExtensionsGLES( void )
 			GL_SetExtension( extid, false );
 		}
 	}
+	GL2_ShimInit();
 }
 #else
 void GL_InitExtensionsBigGL( void )
@@ -761,7 +826,7 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT );
 	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE );
 	GL_CheckExtension( "GL_ARB_texture_compression_bptc", NULL, "gl_texture_bptc_compression", GL_ARB_TEXTURE_COMPRESSION_BPTC );
-	GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", R_SHADER_OBJECTS_EXT );
+	GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT );
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT ))
 	{
 		pglGetIntegerv( GL_MAX_TEXTURE_COORDS_ARB, &glConfig.max_texture_coords );

@@ -27,6 +27,8 @@ GNU General Public License for more details.
 #define XASH_GLES
 #define XASH_GL_STATIC
 #define REF_GL_KEEP_MANGLED_FUNCTIONS
+#elif defined XASH_GLES3COMPAT
+#define XASH_GLES
 #endif
 
 typedef uint GLenum;
@@ -1358,7 +1360,7 @@ APIENTRY_LINKAGE void GL_FUNCTION( glGenVertexArrays )( GLsizei n, const GLuint 
 APIENTRY_LINKAGE GLboolean GL_FUNCTION( glIsVertexArray )( GLuint array );
 APIENTRY_LINKAGE void GL_FUNCTION( glSwapInterval ) ( int interval );
 
-#if !defined( XASH_GLES ) && !defined( XASH_GL4ES )
+#if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES ))
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 #endif /* !XASH_GLES && !XASH_GL4ES */
 

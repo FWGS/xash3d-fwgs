@@ -1070,7 +1070,7 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	}
 	else if( tex->target == GL_TEXTURE_2D_MULTISAMPLE )
 	{
-#if !defined( XASH_GLES ) && !defined( XASH_GL4ES )
+#if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES ))
 		samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat("gl_msaa_samples");
 		switch (samplesCount)
 		{
