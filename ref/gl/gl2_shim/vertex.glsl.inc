@@ -31,9 +31,11 @@ out vec2 vTexCoord0;
 out vec3 vNormal;
 #endif
 
+uniform mat4 uMVP;
+
 void main()
 {
-    gl_Position = gl_ModelViewProjectionMatrix * vec4(inPosition,1.0f);
+	gl_Position = uMVP * vec4(inPosition,1.0f);
 #if ATTR_COLOR
     vColor = inColor;
 #endif

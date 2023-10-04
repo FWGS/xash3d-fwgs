@@ -38,6 +38,7 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "gl2_shim.h"
 #include "../gl_export.h"
+#include "xash3d_mathlib.h"
 #define MAX_SHADERLEN 4096
 // increase this when adding more attributes
 #define MAX_PROGS 32
@@ -75,6 +76,7 @@ typedef struct
 	GLint utex0;
 	GLint utex1;
 	GLint ufog;
+	GLint uMVP;
 } gl2wrap_prog_t;
 
 static const char *gl2wrap_vert_src =
@@ -101,6 +103,14 @@ static struct
 	gl2wrap_prog_t *cur_prog;
 	GLboolean uchanged;
 } gl2wrap;
+
+static struct
+{
+	float mvp[16], mv[16], pr[16], dummy[16];
+	GLenum mode;
+	float *current;
+} gl2wrap_matrix;
+
 
 static const int gl2wrap_attr_size[GL2_ATTR_MAX] = { 3, 4, 2, 2 };
 
@@ -264,6 +274,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	prog->utex0  = pglGetUniformLocationARB( glprog, "uTex0" );
 	prog->utex1  = pglGetUniformLocationARB( glprog, "uTex1" );
 	prog->ufog   = pglGetUniformLocationARB( glprog, "uFog" );
+	prog->uMVP   = pglGetUniformLocationARB( glprog, "uMVP" );
 
 	// these never change
 	if ( prog->utex0 >= 0 )
@@ -277,7 +288,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 
 	return prog;
 }
-
+static void GL2_UpdateMVP( gl2wrap_prog_t *prog);
 static gl2wrap_prog_t *GL2_SetProg( const GLuint flags )
 {
 	gl2wrap_prog_t *prog = NULL;
@@ -299,6 +310,7 @@ static gl2wrap_prog_t *GL2_SetProg( const GLuint flags )
 				pglUniform4fvARB( prog->ufog, 1, gl2wrap.fog );
 			gl2wrap.uchanged = GL_FALSE;
 		}
+		GL2_UpdateMVP( prog );
 	}
 	else
 	{
@@ -590,6 +602,104 @@ void GL2_Disable( GLenum e )
 	else rpglDisable(e);
 }
 
+void GL2_MatrixMode( GLenum m )
+{
+//	if(gl2wrap_matrix.mode == m)
+//		return;
+	gl2wrap_matrix.mode = m;
+	switch( m )
+	{
+	case GL_MODELVIEW:
+		gl2wrap_matrix.current = gl2wrap_matrix.mv;
+		break;
+	case GL_PROJECTION:
+		gl2wrap_matrix.current = gl2wrap_matrix.pr;
+		break;
+	default:
+		gl2wrap_matrix.current = gl2wrap_matrix.dummy;
+		break;
+	}
+}
+
+void GL2_LoadIdentity( void )
+{
+	float *m = (float*)gl2wrap_matrix.current;
+	m[1]  = m[2]  = m[3]  = m[4]  = 0.0f;
+	m[6]  = m[7]  = m[8]  = m[9]  = 0.0f;
+	m[11] = m[12] = m[13] = m[14] = 0.0f;
+	m[0]  = m[5]  = m[10] = m[15] = 1.0f;
+
+}
+
+
+void GL2_Ortho(double l, double r, double b, double t, double n, double f)
+{
+	GLfloat m0  = 2 / (r - l);
+	GLfloat m5  = 2 / (t - b);
+	GLfloat m10 = - 2 / (f - n);
+	GLfloat m12 = - (r + l) / (r - l);
+	GLfloat m13 = - (t + b) / (t - b);
+	GLfloat m14 = - (f + n) / (f - n);
+	float *m = gl2wrap_matrix.current;
+
+	m[12] += m12 * m[0] + m13 * m[4] + m14 * m[8];
+	m[13] += m12 * m[1] + m13 * m[5] + m14 * m[9];
+	m[14] += m12 * m[2] + m13 * m[6] + m14 * m[10];
+	m[15] += m12 * m[3] + m13 * m[7] + m14 * m[11];
+	m[0]  *= m0;
+	m[1]  *= m0;
+	m[2]  *= m0;
+	m[3]  *= m0;
+	m[4]  *= m5;
+	m[5]  *= m5;
+	m[6]  *= m5;
+	m[7]  *= m5;
+	m[8]  *= m10;
+	m[9]  *= m10;
+	m[10] *= m10;
+	m[11] *= m10;
+}
+
+static void GL2_Mul4x4(const GLfloat *in0, const GLfloat *in1, GLfloat *out)
+{
+	out[0]  = in0[0] * in1[0] + in0[1] * in1[4] + in0[2] * in1[8] + in0[3] * in1[12];
+	out[1]  = in0[0] * in1[1] + in0[1] * in1[5] + in0[2] * in1[9] + in0[3] * in1[13];
+	out[2]  = in0[0] * in1[2] + in0[1] * in1[6] + in0[2] * in1[10] + in0[3] * in1[14];
+	out[3]  = in0[0] * in1[3] + in0[1] * in1[7] + in0[2] * in1[11] + in0[3] * in1[15];
+	out[4]  = in0[4] * in1[0] + in0[5] * in1[4] + in0[6] * in1[8] + in0[7] * in1[12];
+	out[5]  = in0[4] * in1[1] + in0[5] * in1[5] + in0[6] * in1[9] + in0[7] * in1[13];
+	out[6]  = in0[4] * in1[2] + in0[5] * in1[6] + in0[6] * in1[10] + in0[7] * in1[14];
+	out[7]  = in0[4] * in1[3] + in0[5] * in1[7] + in0[6] * in1[11] + in0[7] * in1[15];
+	out[8]  = in0[8] * in1[0] + in0[9] * in1[4] + in0[10] * in1[8] + in0[11] * in1[12];
+	out[9]  = in0[8] * in1[1] + in0[9] * in1[5] + in0[10] * in1[9] + in0[11] * in1[13];
+	out[10] = in0[8] * in1[2] + in0[9] * in1[6] + in0[10] * in1[10] + in0[11] * in1[14];
+	out[11] = in0[8] * in1[3] + in0[9] * in1[7] + in0[10] * in1[11] + in0[11] * in1[15];
+	out[12] = in0[12] * in1[0] + in0[13] * in1[4] + in0[14] * in1[8] + in0[15] * in1[12];
+	out[13] = in0[12] * in1[1] + in0[13] * in1[5] + in0[14] * in1[9] + in0[15] * in1[13];
+	out[14] = in0[12] * in1[2] + in0[13] * in1[6] + in0[14] * in1[10] + in0[15] * in1[14];
+	out[15] = in0[12] * in1[3] + in0[13] * in1[7] + in0[14] * in1[11] + in0[15] * in1[15];
+}
+
+static void GL2_UpdateMVP( gl2wrap_prog_t *prog )
+{
+	GL2_Mul4x4(gl2wrap_matrix.mv, gl2wrap_matrix.pr, gl2wrap_matrix.mvp );
+	pglUniformMatrix4fvARB(prog->uMVP, 1, false, (void*)gl2wrap_matrix.mvp);
+}
+
+static void GL2_LoadMatrixf( const GLfloat *m )
+{
+	memcpy( gl2wrap_matrix.current, m, 16*sizeof(float) );
+}
+
+static void GL2_Scalef(float x, float y, float z)
+{
+}
+static void GL2_Translatef(float x, float y, float z)
+{
+}
+
+
+
 
 #define GL2_OVERRIDE_PTR( name ) \
 { \
@@ -620,4 +730,10 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( End )
 	GL2_OVERRIDE_PTR( Enable )
 	GL2_OVERRIDE_PTR( Disable )
+	GL2_OVERRIDE_PTR( MatrixMode )
+	GL2_OVERRIDE_PTR( LoadIdentity )
+	GL2_OVERRIDE_PTR( Ortho )
+	GL2_OVERRIDE_PTR( LoadMatrixf )
+	GL2_OVERRIDE_PTR( Scalef )
+	GL2_OVERRIDE_PTR( Translatef )
 }
