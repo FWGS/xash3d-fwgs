@@ -90,7 +90,6 @@ SUBDIRS = [
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
-	Subproject('ref/gl/gl2_shim',   lambda x: not x.env.DEDICATED and x.env.GL),
 
 ]
 
@@ -100,6 +99,7 @@ REFDLLS = [
 	RefDll('gles1', False, 'NANOGL'),
 	RefDll('gles2', False, 'GLWES'),
 	RefDll('gl4es', False),
+	RefDll('gles3compat', False),
 ]
 
 def options(opt):

@@ -1,8 +1,8 @@
 R"(
 
 #define layout(x)
-#define in attribute
-#define out varying
+//#define in attribute
+//#define out varying
 
 layout(location = 0) in vec3 inPosition;
 #if ATTR_COLOR
