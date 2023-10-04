@@ -37,10 +37,9 @@ def build(bld):
 	if bld.env.DEST_OS == 'psvita':
 		libs += [ 'sdk_includes', 'vgl_shim' ]
 	else:
-		libs += [ 'gl2_shim' ]
 		libs += [ 'public', 'M' ]
 
-	source = bld.path.ant_glob(['*.c'])
+		source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
 	includes = '.'
 
 	targets = {
@@ -63,6 +62,11 @@ def build(bld):
 			'enable':  bld.env.GL4ES,
 			'libs':    ['DL', 'gl4es', 'LOG'],
 			'defines': ['XASH_GL_STATIC', 'XASH_GL4ES'],
+		},
+		'ref_gles3compat': {
+			'enable':  bld.env.GLES3COMPAT,
+			'libs':    ['DL', 'gl4es', 'LOG'],
+			'defines': ['XASH_GLES3COMPAT'],
 		},
 	}
 

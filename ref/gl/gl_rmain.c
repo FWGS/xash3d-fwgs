@@ -1128,7 +1128,7 @@ void R_EndFrame( void )
 #if XASH_PSVITA
 	VGL_ShimEndFrame();
 #endif
-#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+#if !defined( XASH_GL_STATIC )
 	GL2_ShimEndFrame();
 #endif
 	// flush any remaining 2D bits
