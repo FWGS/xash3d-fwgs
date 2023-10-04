@@ -40,6 +40,9 @@ int VGL_ShimInit( void );
 void VGL_ShimShutdown( void );
 void VGL_ShimEndFrame( void );
 #endif
+#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+#include "gl2_shim/gl2_shim.h"
+#endif
 
 #ifndef offsetof
 #ifdef __GNUC__
@@ -617,6 +620,7 @@ enum
 	GL_DRAW_RANGEELEMENTS_EXT,
 	GL_TEXTURE_MULTISAMPLE,
 	GL_ARB_TEXTURE_COMPRESSION_BPTC,
+	R_SHADER_OBJECTS_EXT,
 	GL_EXTCOUNT,		// must be last
 };
 
