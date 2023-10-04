@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #include "particledef.h"
 #include "entity_types.h"
 
+
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
 float		gldepthmin, gldepthmax;
@@ -1126,6 +1127,9 @@ void R_EndFrame( void )
 {
 #if XASH_PSVITA
 	VGL_ShimEndFrame();
+#endif
+#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+	GL2_ShimEndFrame();
 #endif
 	// flush any remaining 2D bits
 	R_Set2DMode( false );

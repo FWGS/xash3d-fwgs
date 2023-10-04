@@ -247,6 +247,64 @@ static dllfunc_t drawrangeelementsextfuncs[] =
 { NULL, NULL }
 };
 
+
+static dllfunc_t shaderobjectsfuncs[] =
+{
+	{ GL_CALL( glDeleteObjectARB ) },
+	{ GL_CALL( glGetHandleARB ) },
+	{ GL_CALL( glDetachObjectARB ) },
+	{ GL_CALL( glCreateShaderObjectARB ) },
+	{ GL_CALL( glShaderSourceARB ) },
+	{ GL_CALL( glCompileShaderARB ) },
+	{ GL_CALL( glCreateProgramObjectARB ) },
+	{ GL_CALL( glAttachObjectARB ) },
+	{ GL_CALL( glLinkProgramARB ) },
+	{ GL_CALL( glUseProgramObjectARB ) },
+	{ GL_CALL( glValidateProgramARB ) },
+	{ GL_CALL( glUniform1fARB ) },
+	{ GL_CALL( glUniform2fARB ) },
+	{ GL_CALL( glUniform3fARB ) },
+	{ GL_CALL( glUniform4fARB ) },
+	{ GL_CALL( glUniform1iARB ) },
+	{ GL_CALL( glUniform2iARB ) },
+	{ GL_CALL( glUniform3iARB ) },
+	{ GL_CALL( glUniform4iARB ) },
+	{ GL_CALL( glUniform1fvARB ) },
+	{ GL_CALL( glUniform2fvARB ) },
+	{ GL_CALL( glUniform3fvARB ) },
+	{ GL_CALL( glUniform4fvARB ) },
+	{ GL_CALL( glUniform1ivARB ) },
+	{ GL_CALL( glUniform2ivARB ) },
+	{ GL_CALL( glUniform3ivARB ) },
+	{ GL_CALL( glUniform4ivARB ) },
+	{ GL_CALL( glUniformMatrix2fvARB ) },
+	{ GL_CALL( glUniformMatrix3fvARB ) },
+	{ GL_CALL( glUniformMatrix4fvARB ) },
+	{ GL_CALL( glGetObjectParameterfvARB ) },
+	{ GL_CALL( glGetObjectParameterivARB ) },
+	{ GL_CALL( glGetInfoLogARB ) },
+	{ GL_CALL( glGetAttachedObjectsARB ) },
+	{ GL_CALL( glGetUniformLocationARB ) },
+	{ GL_CALL( glGetActiveUniformARB ) },
+	{ GL_CALL( glGetUniformfvARB ) },
+	{ GL_CALL( glGetUniformivARB ) },
+	{ GL_CALL( glGetShaderSourceARB ) },
+	{ GL_CALL( glVertexAttribPointerARB ) },
+	{ GL_CALL( glEnableVertexAttribArrayARB ) },
+	{ GL_CALL( glDisableVertexAttribArrayARB ) },
+	{ GL_CALL( glBindAttribLocationARB ) },
+	{ GL_CALL( glGetActiveAttribARB ) },
+	{ GL_CALL( glGetAttribLocationARB ) },
+	{ GL_CALL( glVertexAttrib2fARB ) },
+	{ GL_CALL( glVertexAttrib2fvARB ) },
+//	{ GL_CALL( glVertexAttrib3fv ) },
+//	{ GL_CALL( glVertexAttrib4f ) },
+//	{ GL_CALL( glVertexAttrib4fv ) },
+//	{ GL_CALL( glVertexAttrib4ubv ) },
+{ NULL, NULL }
+};
+
+
 /*
 ========================
 DebugCallback
@@ -703,6 +761,7 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT );
 	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE );
 	GL_CheckExtension( "GL_ARB_texture_compression_bptc", NULL, "gl_texture_bptc_compression", GL_ARB_TEXTURE_COMPRESSION_BPTC );
+	GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", R_SHADER_OBJECTS_EXT );
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT ))
 	{
 		pglGetIntegerv( GL_MAX_TEXTURE_COORDS_ARB, &glConfig.max_texture_coords );
@@ -746,6 +805,10 @@ void GL_InitExtensionsBigGL( void )
 	GL_SetExtension( GL_OPENGL_110, true );
 	// init our immediate mode override
 	VGL_ShimInit();
+#endif
+#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+	if( gEngfuncs.Sys_CheckParm("-gl2shim") )
+		GL2_ShimInit();
 #endif
 }
 #endif
@@ -821,6 +884,9 @@ void GL_ClearExtensions( void )
 #if XASH_PSVITA
 	// deinit our immediate mode override
 	VGL_ShimShutdown();
+#endif
+#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+	GL2_ShimShutdown();
 #endif
 }
 
