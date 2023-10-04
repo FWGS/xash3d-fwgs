@@ -18,7 +18,7 @@ GNU General Public License for more details.
 	this will only provide performance gains if vitaGL is built with DRAW_SPEEDHACK=1
 	since that makes it assume that all vertex data pointers are GPU-mapped
 */
-
+#ifndef XASH_GL_STATIC
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -167,7 +167,7 @@ static GLuint GL2_GenerateShader( const gl2wrap_prog_t *prog, GLenum type )
 	shader = shader_buf;
 	//shader[0] = '\n';
 	shader[0] = 0;
-	Q_strncat(shader, "#version 130\n", MAX_SHADERLEN);
+	Q_strncat(shader, "#version 300 es\n", MAX_SHADERLEN);
 
 	for ( i = 0; i < GL2_FLAG_MAX; ++i )
 	{
@@ -182,7 +182,7 @@ static GLuint GL2_GenerateShader( const gl2wrap_prog_t *prog, GLenum type )
 
 	id = pglCreateShaderObjectARB( type );
 	len = Q_strlen( shader );
-	pglShaderSourceARB( id, 1, (const void *)&shader, &len );
+	pglShaderSourceARB( id, 1, (void *)&shader, &len );
 	pglCompileShaderARB( id );
 	pglGetObjectParameterivARB( id, GL_OBJECT_COMPILE_STATUS_ARB, &status );
 	//pglGetOShaderiv( id, GL_OBJECT_COMPILE_STATUS_ARB, &status );
@@ -412,6 +412,13 @@ void GL2_Begin( GLenum prim )
 		pglDisableVertexAttribArrayARB( i );
 }
 
+unsigned short triquads_array[] =
+{
+	0, 1, 2, 0, 2, 3,
+	4, 5, 6, 4, 6, 7,
+	8, 9, 10, 8, 10, 11
+};
+
 void GL2_End( void )
 {
 	int i;
@@ -444,13 +451,83 @@ void GL2_End( void )
 		}
 	}
 
-	pglDrawArrays( gl2wrap.prim, 0, count );
+#ifdef XASH_GLES
+	if(gl2wrap.prim == GL_QUADS)
+	{
+		pglDrawElements(GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array);
+	}
+	else if( gl2wrap.prim == GL_POLYGON )
+		pglDrawArrays( GL_TRIANGLE_FAN, 0, count );
+	else
+#endif
+		pglDrawArrays( gl2wrap.prim, 0, count );
 
 _leave:
 	gl2wrap.prim = GL_NONE;
 	gl2wrap.begin = gl2wrap.end;
 	gl2wrap.cur_flags = 0;
 }
+
+#ifdef XASH_GLES
+void (*rpglTexImage2D)( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
+void GL2_TexImage2D( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels )
+{
+	void *data = (void*)pixels;
+	if( pixels && format == GL_RGBA && (
+		internalformat == GL_RGB ||
+		internalformat == GL_RGB8 ||
+		internalformat == GL_RGB5 ||
+		internalformat == GL_LUMINANCE ||
+		internalformat == GL_LUMINANCE8 ||
+		internalformat == GL_LUMINANCE4 )) // strip alpha from texture
+	{
+		unsigned char *in = data, *out;
+		int i = 0, size = width * height * 4;
+
+		data = out = (unsigned char*)malloc( size );
+
+		for( i = 0; i < size; i += 4, in += 4, out += 4 )
+		{
+			memcpy( out, in, 3 );
+			out[3] = 255;
+		}
+		internalformat = format;
+	}
+	if( internalformat == GL_LUMINANCE8_ALPHA8 )
+		internalformat = GL_RGBA;
+	rpglTexImage2D( target, level, internalformat, width, height, border, format, type, data );
+	if( data != pixels )
+		free(data);
+}
+void (*rpglTexParameteri)( GLenum target, GLenum pname, GLint param );
+void GL2_TexParameteri( GLenum target, GLenum pname, GLint param )
+{
+	if ( pname == GL_TEXTURE_BORDER_COLOR )
+	{
+		return; // not supported by opengl es
+	}
+	if ( ( pname == GL_TEXTURE_WRAP_S ||
+		   pname == GL_TEXTURE_WRAP_T ) &&
+		 param == GL_CLAMP )
+	{
+		param = 0x812F;
+	}
+
+	rpglTexParameteri( target, pname, param );
+}
+
+
+GLboolean (*rpglIsEnabled)(GLenum e);
+GLboolean GL2_IsEnabled(GLenum e)
+{
+	if(e == GL_FOG)
+		return fogging;
+	return rpglIsEnabled(e);
+}
+
+#endif
+
+
 
 void GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 {
@@ -586,6 +663,10 @@ void GL2_Hint( GLenum hint, GLenum val )
 
 void GL2_Enable( GLenum e )
 {
+#ifdef XASH_GLES
+	if( e == GL_TEXTURE_2D )
+		return;
+#endif
 	if( e == GL_FOG )
 		fogging = 1;
 	else if( e == GL_ALPHA_TEST )
@@ -595,6 +676,10 @@ void GL2_Enable( GLenum e )
 
 void GL2_Disable( GLenum e )
 {
+#ifdef XASH_GLES
+	if( e == GL_TEXTURE_2D )
+		return;
+#endif
 	if( e == GL_FOG )
 		fogging = 0;
 	else if( e == GL_ALPHA_TEST )
@@ -736,4 +821,13 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( LoadMatrixf )
 	GL2_OVERRIDE_PTR( Scalef )
 	GL2_OVERRIDE_PTR( Translatef )
+#ifdef XASH_GLES
+	rpglTexImage2D = pglTexImage2D;
+	rpglTexParameteri = pglTexParameteri;
+	rpglIsEnabled = pglIsEnabled;
+	GL2_OVERRIDE_PTR( TexParameteri )
+	GL2_OVERRIDE_PTR( TexImage2D )
+	GL2_OVERRIDE_PTR( IsEnabled )
+#endif
 }
+#endif
