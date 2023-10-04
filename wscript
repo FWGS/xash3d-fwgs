@@ -90,6 +90,8 @@ SUBDIRS = [
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
+	Subproject('ref/gl/gl2_shim',   lambda x: not x.env.DEDICATED and x.env.GL),
+
 ]
 
 REFDLLS = [
