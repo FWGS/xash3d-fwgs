@@ -247,7 +247,7 @@ static dllfunc_t drawrangeelementsextfuncs[] =
 { NULL, NULL }
 };
 
-
+#ifndef XASH_GL_STATIC
 static dllfunc_t shaderobjectsfuncs[] =
 {
 	{ GL_CALL( glDeleteObjectARB ) },
@@ -360,8 +360,6 @@ static dllfunc_t shaderobjectsfuncs_gles[] =
 { NULL, NULL }
 };
 
-
-#ifndef XASH_GL_STATIC
 static dllfunc_t vaofuncs[] =
 {
 { "glBindVertexArray"    , (void **)&pglBindVertexArray },
@@ -715,12 +713,14 @@ void GL_InitExtensionsGLES( void )
 		case GL_ARB_TEXTURE_NPOT_EXT:
 			GL_CheckExtension( "GL_OES_texture_npot", NULL, "gl_texture_npot", extid );
 			break;
+#ifndef XASH_GL_STATIC
 		case GL_SHADER_OBJECTS_EXT:
 			GL_CheckExtension( "ES2 Shaders", shaderobjectsfuncs_gles, "gl_shaderobjects", extid );
 			break;
 		case GL_ARB_VERTEX_ARRAY_OBJECT_EXT:
 			GL_CheckExtension( "vertex_array_object", vaofuncs, "gl_vertex_array_object", extid );
 			break;
+#endif
 		case GL_DEBUG_OUTPUT:
 			if( glw_state.extended )
 				GL_CheckExtension( "GL_KHR_debug", NULL, NULL, extid );
@@ -742,7 +742,9 @@ void GL_InitExtensionsGLES( void )
 			GL_SetExtension( extid, false );
 		}
 	}
+#ifndef XASH_GL_STATIC
 	GL2_ShimInit();
+#endif
 }
 #else
 void GL_InitExtensionsBigGL( void )
@@ -839,9 +841,13 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT );
 	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE );
 	GL_CheckExtension( "GL_ARB_texture_compression_bptc", NULL, "gl_texture_bptc_compression", GL_ARB_TEXTURE_COMPRESSION_BPTC );
-	GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT );
+#ifndef XASH_GL_STATIC
+	if(glConfig.context == CONTEXT_TYPE_GL_CORE )
+		GL_CheckExtension( "shader_objects", shaderobjectsfuncs_gles, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT );
+	else
+		GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT );
 	GL_CheckExtension( "GL_ARB_vertex_array_object", vaofuncs, "gl_vertex_array_object", GL_ARB_VERTEX_ARRAY_OBJECT_EXT );
-
+#endif
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT ))
 	{
 		pglGetIntegerv( GL_MAX_TEXTURE_COORDS_ARB, &glConfig.max_texture_coords );
