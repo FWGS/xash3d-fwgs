@@ -361,6 +361,17 @@ static dllfunc_t shaderobjectsfuncs_gles[] =
 };
 
 
+#ifndef XASH_GL_STATIC
+static dllfunc_t vaofuncs[] =
+{
+{ "glBindVertexArray"    , (void **)&pglBindVertexArray },
+{ "glDeleteVertexArrays" , (void **)&pglDeleteVertexArrays },
+{ "glGenVertexArrays"    , (void **)&pglGenVertexArrays },
+{ "glIsVertexArray"      , (void **)&pglIsVertexArray },
+{ NULL, NULL }
+};
+#endif
+
 /*
 ========================
 DebugCallback
@@ -459,7 +470,7 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 
 	extensions_string = glConfig.extensions_string;
 
-	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ))
+	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ) && glConfig.context != CONTEXT_TYPE_GL_CORE)
 	{
 		GL_SetExtension( r_ext, false );	// update render info
 		gEngfuncs.Con_Reportf( "- ^1failed\n" );
@@ -674,7 +685,7 @@ void GL_InitExtensionsGLES( void )
 		switch( extid )
 		{
 		case GL_ARB_VERTEX_BUFFER_OBJECT_EXT:
-			GL_SetExtension( extid, true );
+			GL_CheckExtension( "vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", extid );
 			break;
 		case GL_ARB_MULTITEXTURE:
 			GL_SetExtension( extid, true ); // required to be supported by wrapper
@@ -707,7 +718,9 @@ void GL_InitExtensionsGLES( void )
 		case GL_SHADER_OBJECTS_EXT:
 			GL_CheckExtension( "ES2 Shaders", shaderobjectsfuncs_gles, "gl_shaderobjects", extid );
 			break;
-
+		case GL_ARB_VERTEX_ARRAY_OBJECT_EXT:
+			GL_CheckExtension( "vertex_array_object", vaofuncs, "gl_vertex_array_object", extid );
+			break;
 		case GL_DEBUG_OUTPUT:
 			if( glw_state.extended )
 				GL_CheckExtension( "GL_KHR_debug", NULL, NULL, extid );
@@ -735,7 +748,7 @@ void GL_InitExtensionsGLES( void )
 void GL_InitExtensionsBigGL( void )
 {
 	// intialize wrapper type
-	glConfig.context = CONTEXT_TYPE_GL;
+	glConfig.context = gEngfuncs.Sys_CheckParm( "-glcore" )? CONTEXT_TYPE_GL_CORE : CONTEXT_TYPE_GL;
 	glConfig.wrapper = GLES_WRAPPER_NONE;
 
 	if( Q_stristr( glConfig.renderer_string, "geforce" ))
@@ -827,6 +840,8 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE );
 	GL_CheckExtension( "GL_ARB_texture_compression_bptc", NULL, "gl_texture_bptc_compression", GL_ARB_TEXTURE_COMPRESSION_BPTC );
 	GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT );
+	GL_CheckExtension( "GL_ARB_vertex_array_object", vaofuncs, "gl_vertex_array_object", GL_ARB_VERTEX_ARRAY_OBJECT_EXT );
+
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT ))
 	{
 		pglGetIntegerv( GL_MAX_TEXTURE_COORDS_ARB, &glConfig.max_texture_coords );
@@ -1179,6 +1194,8 @@ void GL_SetupAttributes( int safegl )
 		SetBits( context_flags, FCONTEXT_CORE_PROFILE );
 
 		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_CORE );
+		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 3 );
+		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 3 );
 	}
 	else
 	{
