@@ -30,6 +30,8 @@ CVAR_DEFINE_AUTO( r_traceglow, "1", FCVAR_GLCONFIG, "cull flares behind models" 
 CVAR_DEFINE_AUTO( gl_round_down, "2", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "round texture sizes to nearest POT value" );
 CVAR_DEFINE( r_vbo, "gl_vbo", "0", FCVAR_ARCHIVE, "draw world using VBO (known to be glitchy)" );
 CVAR_DEFINE( r_vbo_dlightmode, "gl_vbo_dlightmode", "1", FCVAR_ARCHIVE, "vbo dlight rendering mode (0-1)" );
+extern convar_t r_studio_drawelements;
+extern convar_t r_studio_sort_textures;
 
 DEFINE_ENGINE_SHARED_CVAR_LIST()
 
@@ -720,6 +722,9 @@ void GL_InitExtensionsGLES( void )
 		case GL_ARB_VERTEX_ARRAY_OBJECT_EXT:
 			GL_CheckExtension( "vertex_array_object", vaofuncs, "gl_vertex_array_object", extid );
 			break;
+		case GL_DRAW_RANGEELEMENTS_EXT:
+			GL_CheckExtension( "draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid );
+			break;
 #endif
 		case GL_DEBUG_OUTPUT:
 			if( glw_state.extended )
@@ -1010,7 +1015,8 @@ void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &gl_msaa );
 	gEngfuncs.Cvar_RegisterVariable( &gl_stencilbits );
 	gEngfuncs.Cvar_RegisterVariable( &gl_round_down );
-
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_drawelements );
 	// these cvar not used by engine but some mods requires this
 	gEngfuncs.Cvar_RegisterVariable( &gl_polyoffset );
 

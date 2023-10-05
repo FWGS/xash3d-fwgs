@@ -121,9 +121,9 @@ typedef struct
 } studio_draw_state_t;
 
 // studio-related cvars
-static CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
+CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
 static cvar_t			*cl_righthand = NULL;
-static CVAR_DEFINE_AUTO( r_studio_drawelements, "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
+CVAR_DEFINE_AUTO( r_studio_drawelements, "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
@@ -146,8 +146,6 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
-	gEngfuncs.Cvar_RegisterVariable( &r_studio_drawelements );
 
 #if XASH_PSVITA
 	// don't do the same array-building work twice since that's what our FFP shim does anyway
