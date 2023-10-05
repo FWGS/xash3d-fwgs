@@ -120,8 +120,8 @@ static const char *gl2wrap_attr_name[GL2_ATTR_MAX] =
 };
 
 // HACK: borrow alpha test and fog flags from internal vitaGL state
-GLboolean alpha_test_state;
-GLboolean fogging;
+static GLboolean alpha_test_state;
+static GLboolean fogging;
 
 static char *GL_PrintInfoLog( GLhandleARB object )
 {
@@ -245,6 +245,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	pglDeleteObjectARB( vp );
 	pglDeleteObjectARB( fp );
 
+#ifndef XASH_GLES
 	pglGetObjectParameterivARB( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
 	if ( status == GL_FALSE )
 	{
@@ -253,6 +254,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 		pglDeleteObjectARB( glprog );
 		return NULL;
 	}
+#endif
 
 	prog->ucolor = pglGetUniformLocationARB( glprog, "uColor" );
 	prog->ualpha = pglGetUniformLocationARB( glprog, "uAlphaTest" );
@@ -262,9 +264,9 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	prog->uMVP   = pglGetUniformLocationARB( glprog, "uMVP" );
 
 	// these never change
-	if ( prog->utex0 >= 0 )
+	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD0 ) && prog->utex0 >= 0 )
 		pglUniform1iARB( prog->utex0, 0 );
-	if ( prog->utex1 >= 0 )
+	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD0 ) && prog->utex1 >= 0 )
 		pglUniform1iARB( prog->utex1, 1 );
 
 	prog->glprog = glprog;
@@ -345,7 +347,7 @@ int GL2_ShimInit( void )
 	gl2wrap.uchanged = GL_TRUE;
 
 	total = 0;
-	if( pglGenVertexArrays )
+	if( glConfig.context == CONTEXT_TYPE_GL_CORE &&  pglGenVertexArrays )
 		pglGenVertexArrays(1, &gl2wrap.vao);
 	if(gl2wrap.vao)
 		pglBindVertexArray(gl2wrap.vao);
@@ -354,7 +356,7 @@ int GL2_ShimInit( void )
 		size = GL2_MAX_VERTS * gl2wrap_attr_size[i] * sizeof( GLfloat );
 		// TODO: rework storage, support MapBuffer
 		gl2wrap.attrbuf[i] = memalign( 0x100, size );
-		if( glConfig.context == CONTEXT_TYPE_GL_CORE)
+		if( gl2wrap.vao )
 			pglGenBuffersARB( 1, &gl2wrap.attrbufobj[i] );
 		total += size;
 	}
@@ -365,7 +367,7 @@ int GL2_ShimInit( void )
 	GL2_ShimInstall();
 
 	gEngfuncs.Con_DPrintf( S_NOTE "GL2_ShimInit(): %u bytes allocated for vertex buffer\n", total );
-	gEngfuncs.Con_DPrintf( S_NOTE "GL2_ShimInit(): Pre-generating %u progs...\n", sizeof( precache_progs ) / sizeof( *precache_progs ) );
+	gEngfuncs.Con_DPrintf( S_NOTE "GL2_ShimInit(): Pre-generating %u progs...\n", (uint)(sizeof( precache_progs ) / sizeof( *precache_progs ) ));
 	for ( i = 0; i < (int)( sizeof( precache_progs ) / sizeof( *precache_progs ) ); ++i )
 		GL2_GetProg( precache_progs[i] );
 
@@ -407,7 +409,7 @@ void GL2_ShimEndFrame( void )
 	gl2wrap.end = gl2wrap.begin = 0;
 }
 
-void GL2_Begin( GLenum prim )
+static void APIENTRY GL2_Begin( GLenum prim )
 {
 	int i;
 	gl2wrap.prim = prim;
@@ -423,7 +425,7 @@ void GL2_Begin( GLenum prim )
 }
 
 
-void GL2_End( void )
+static void APIENTRY GL2_End( void )
 {
 	int i;
 	gl2wrap_prog_t *prog;
@@ -482,8 +484,8 @@ _leave:
 	gl2wrap.cur_flags = 0;
 }
 
-void (*rpglTexImage2D)( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
-void GL2_TexImage2D( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels )
+static void (* APIENTRY rpglTexImage2D)( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
+static void APIENTRY GL2_TexImage2D( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels )
 {
 	void *data = (void*)pixels;
 	if( pixels && format == GL_RGBA && (
@@ -506,14 +508,14 @@ void GL2_TexImage2D( GLenum target, GLint level, GLint internalformat, GLsizei w
 		}
 		internalformat = format;
 	}
-	if( internalformat == GL_LUMINANCE8_ALPHA8 )
+	if( internalformat == GL_LUMINANCE8_ALPHA8 || internalformat == GL_RGB )
 		internalformat = GL_RGBA;
 	rpglTexImage2D( target, level, internalformat, width, height, border, format, type, data );
 	if( data != pixels )
 		free(data);
 }
-void (*rpglTexParameteri)( GLenum target, GLenum pname, GLint param );
-void GL2_TexParameteri( GLenum target, GLenum pname, GLint param )
+static void (* APIENTRY rpglTexParameteri)( GLenum target, GLenum pname, GLint param );
+static void APIENTRY GL2_TexParameteri( GLenum target, GLenum pname, GLint param )
 {
 	if ( pname == GL_TEXTURE_BORDER_COLOR )
 	{
@@ -530,8 +532,8 @@ void GL2_TexParameteri( GLenum target, GLenum pname, GLint param )
 }
 
 
-GLboolean (*rpglIsEnabled)(GLenum e);
-GLboolean GL2_IsEnabled(GLenum e)
+GLboolean (* APIENTRY rpglIsEnabled)(GLenum e);
+static GLboolean APIENTRY GL2_IsEnabled(GLenum e)
 {
 	if(e == GL_FOG)
 		return fogging;
@@ -541,7 +543,7 @@ GLboolean GL2_IsEnabled(GLenum e)
 
 
 
-void GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
+static void APIENTRY GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 {
 	GLfloat *p = gl2wrap.attrbuf[GL2_ATTR_POS] + gl2wrap.end * 3;
 	*p++ = x;
@@ -555,17 +557,17 @@ void GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 	}
 }
 
-void GL2_Vertex2f( GLfloat x, GLfloat y )
+static void APIENTRY GL2_Vertex2f( GLfloat x, GLfloat y )
 {
 	GL2_Vertex3f( x, y, 0.f );
 }
 
-void GL2_Vertex3fv( const GLfloat *v )
+static void APIENTRY GL2_Vertex3fv( const GLfloat *v )
 {
 	GL2_Vertex3f( v[0], v[1], v[2] );
 }
 
-void GL2_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
+static void APIENTRY GL2_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 {
 	gl2wrap.color[0] = r;
 	gl2wrap.color[1] = g;
@@ -584,22 +586,22 @@ void GL2_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 	}
 }
 
-void GL2_Color3f( GLfloat r, GLfloat g, GLfloat b )
+static void APIENTRY GL2_Color3f( GLfloat r, GLfloat g, GLfloat b )
 {
 	GL2_Color4f( r, g, b, 1.f );
 }
 
-void GL2_Color4ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
+static void APIENTRY GL2_Color4ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
 {
 	GL2_Color4f( (GLfloat)r / 255.f, (GLfloat)g / 255.f, (GLfloat)b / 255.f, (GLfloat)a / 255.f );
 }
 
-void GL2_Color4ubv( const GLubyte *v )
+static void APIENTRY GL2_Color4ubv( const GLubyte *v )
 {
 	GL2_Color4ub( v[0], v[1], v[2], v[3] );
 }
 
-void GL2_TexCoord2f( GLfloat u, GLfloat v )
+static void APIENTRY GL2_TexCoord2f( GLfloat u, GLfloat v )
 {
 	// by spec glTexCoord always updates texunit 0
 	GLfloat *p = gl2wrap.attrbuf[GL2_ATTR_TEXCOORD0] + gl2wrap.end * 2;
@@ -608,7 +610,7 @@ void GL2_TexCoord2f( GLfloat u, GLfloat v )
 	*p++ = v;
 }
 
-void GL2_MultiTexCoord2f( GLenum tex, GLfloat u, GLfloat v )
+static void APIENTRY GL2_MultiTexCoord2f( GLenum tex, GLfloat u, GLfloat v )
 {
 	GLfloat *p;
 	// assume there can only be two
@@ -626,24 +628,15 @@ void GL2_MultiTexCoord2f( GLenum tex, GLfloat u, GLfloat v )
 	*p++ = v;
 }
 
-void GL2_Normal3fv( const GLfloat *v )
-{
-	/* this does not seem to be necessary */
-}
 
-void GL2_ShadeModel( GLenum unused )
-{
-	/* this doesn't do anything in vitaGL except spit errors in debug mode, so stub it out */
-}
-
-void GL2_AlphaFunc( GLenum mode, GLfloat ref )
+static void APIENTRY GL2_AlphaFunc( GLenum mode, GLfloat ref )
 {
 	gl2wrap.alpharef = ref;
 	gl2wrap.uchanged = GL_TRUE;
 	// mode is always GL_GREATER
 }
 
-void GL2_Fogf( GLenum param, GLfloat val )
+static void APIENTRY GL2_Fogf( GLenum param, GLfloat val )
 {
 	if ( param == GL_FOG_DENSITY )
 	{
@@ -652,7 +645,7 @@ void GL2_Fogf( GLenum param, GLfloat val )
 	}
 }
 
-void GL2_Fogfv( GLenum param, const GLfloat *val )
+static void APIENTRY GL2_Fogfv( GLenum param, const GLfloat *val )
 {
 	if ( param == GL_FOG_COLOR )
 	{
@@ -663,49 +656,34 @@ void GL2_Fogfv( GLenum param, const GLfloat *val )
 	}
 }
 
-void GL2_DrawBuffer( GLenum mode )
-{
-	/* unsupported */
-}
-
-void GL2_Hint( GLenum hint, GLenum val )
-{
-	/* none of the used hints are supported; stub to prevent errors */
-}
-
-void GL2_Enable( GLenum e )
+static void APIENTRY GL2_Enable( GLenum e )
 {
 	if( e == GL_TEXTURE_2D )
-		{pglUseProgramObjectARB(0);}
+		{}
 	else if( e == GL_FOG )
 		fogging = 1;
 	else if( e == GL_ALPHA_TEST )
 		alpha_test_state = 1;
-	else if(glConfig.context != CONTEXT_TYPE_GL)
-	{
+	else
 		rpglEnable(e);
-		return;
-	}
-	rpglEnable(e);
 }
 
-void GL2_Disable( GLenum e )
+static void APIENTRY GL2_Disable( GLenum e )
 {
 	if( e == GL_TEXTURE_2D )
 		{}
-	if( e == GL_FOG )
+	else if( e == GL_FOG )
 		fogging = 0;
 	else if( e == GL_ALPHA_TEST )
 		alpha_test_state = 0;
-	else if(glConfig.context != CONTEXT_TYPE_GL)
+	else
 	{
 		rpglDisable(e);
-		return;
 	}
-	rpglDisable(e);
+
 }
 
-void GL2_MatrixMode( GLenum m )
+static void APIENTRY GL2_MatrixMode( GLenum m )
 {
 //	if(gl2wrap_matrix.mode == m)
 //		return;
@@ -724,7 +702,7 @@ void GL2_MatrixMode( GLenum m )
 	}
 }
 
-void GL2_LoadIdentity( void )
+static void APIENTRY GL2_LoadIdentity( void )
 {
 	float *m = (float*)gl2wrap_matrix.current;
 	m[1]  = m[2]  = m[3]  = m[4]  = 0.0f;
@@ -735,7 +713,7 @@ void GL2_LoadIdentity( void )
 }
 
 
-void GL2_Ortho(double l, double r, double b, double t, double n, double f)
+static void APIENTRY GL2_Ortho(double l, double r, double b, double t, double n, double f)
 {
 	GLfloat m0  = 2 / (r - l);
 	GLfloat m5  = 2 / (t - b);
@@ -789,19 +767,17 @@ static void GL2_UpdateMVP( gl2wrap_prog_t *prog )
 	pglUniformMatrix4fvARB(prog->uMVP, 1, false, (void*)gl2wrap_matrix.mvp);
 }
 
-static void GL2_LoadMatrixf( const GLfloat *m )
+static void APIENTRY GL2_LoadMatrixf( const GLfloat *m )
 {
 	memcpy( gl2wrap_matrix.current, m, 16*sizeof(float) );
 }
 
-static void GL2_Scalef(float x, float y, float z)
-{
-}
-static void GL2_Translatef(float x, float y, float z)
-{
-}
+static void ( APIENTRY*_pglDepthRangef)(GLfloat far, GLfloat near);
 
-
+static void APIENTRY GL2_DepthRange(GLdouble far, GLdouble near)
+{
+	_pglDepthRangef(far, near);
+}
 
 
 #define GL2_OVERRIDE_PTR( name ) \
@@ -815,10 +791,12 @@ static void GL2_Translatef(float x, float y, float z)
 	pgl ## name = GL2_ ## name; \
 }
 
-#define GL2_OVERRIDE_PTR_B( name ) \
+
+static void APIENTRY stub( void ){}
+
+#define GL2_STUB( name ) \
 { \
-	rpgl ## name = pgl ## name; \
-	pgl ## name = GL2_ ## name; \
+	*((void**)&pgl ## name) = (void*)stub; \
 }
 
 void GL2_ShimInstall( void )
@@ -830,15 +808,13 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( Color4f )
 	GL2_OVERRIDE_PTR( Color4ub )
 	GL2_OVERRIDE_PTR( Color4ubv )
-	GL2_OVERRIDE_PTR( Normal3fv )
+	GL2_STUB( Normal3fv )
 	GL2_OVERRIDE_PTR( TexCoord2f )
 	GL2_OVERRIDE_PTR( MultiTexCoord2f )
-	GL2_OVERRIDE_PTR( ShadeModel )
-	GL2_OVERRIDE_PTR( DrawBuffer )
 	GL2_OVERRIDE_PTR( AlphaFunc )
 	GL2_OVERRIDE_PTR( Fogf )
 	GL2_OVERRIDE_PTR( Fogfv )
-	GL2_OVERRIDE_PTR( Hint )
+	GL2_STUB( Hint ) // fog
 	GL2_OVERRIDE_PTR( Begin )
 	GL2_OVERRIDE_PTR( End )
 	GL2_OVERRIDE_PTR_B( Enable )
@@ -847,10 +823,26 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( LoadIdentity )
 	GL2_OVERRIDE_PTR( Ortho )
 	GL2_OVERRIDE_PTR( LoadMatrixf )
-	GL2_OVERRIDE_PTR( Scalef )
-	GL2_OVERRIDE_PTR( Translatef )
-	GL2_OVERRIDE_PTR_B( TexImage2D )
-	GL2_OVERRIDE_PTR_B( TexParameteri )
+	GL2_STUB( Scalef )
+	GL2_STUB( Translatef )
+	GL2_STUB( TexEnvi )
+	GL2_STUB( TexEnvf )
+	GL2_STUB( ClientActiveTextureARB )
+	GL2_STUB( ActiveTextureARB )
+	GL2_STUB( Fogi )
+	GL2_STUB( ShadeModel )
+#ifdef XASH_GLES
+	_pglDepthRangef = gEngfuncs.GL_GetProcAddress("glDepthRangef");
+	GL2_STUB( PolygonMode )
+	GL2_STUB( PointSize )
+	GL2_OVERRIDE_PTR( DepthRange )
+	GL2_STUB( DrawBuffer )
+#endif
+	if( glConfig.context != CONTEXT_TYPE_GL )
+	{
+		GL2_OVERRIDE_PTR_B( TexImage2D )
+		GL2_OVERRIDE_PTR_B( TexParameteri )
+	}
 	GL2_OVERRIDE_PTR_B( IsEnabled )
 
 
