@@ -688,9 +688,12 @@ void GL_InitExtensionsGLES( void )
 			GL_CheckExtension( "vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", extid );
 			break;
 		case GL_ARB_MULTITEXTURE:
-			GL_SetExtension( extid, true ); // required to be supported by wrapper
+			GL_CheckExtension( "multitexture", multitexturefuncs, "gl_arb_multitexture", GL_ARB_MULTITEXTURE );
+			//GL_SetExtension( extid, true ); // required to be supported by wrapper
 
 			pglGetIntegerv( GL_MAX_TEXTURE_UNITS_ARB, &glConfig.max_texture_units );
+			if( glConfig.max_texture_units <= 1 )
+				pglGetIntegerv( GL_MAX_TEXTURE_IMAGE_UNITS_ARB, &glConfig.max_texture_units );
 			if( glConfig.max_texture_units <= 1 )
 			{
 				GL_SetExtension( extid, false );
