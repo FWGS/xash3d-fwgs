@@ -18,8 +18,9 @@ GNU General Public License for more details.
 	this will only provide performance gains if vitaGL is built with DRAW_SPEEDHACK=1
 	since that makes it assume that all vertex data pointers are GPU-mapped
 */
-#ifndef XASH_GL_STATIC
+
 #include "gl_local.h"
+#ifndef XASH_GL_STATIC
 #include "gl2_shim.h"
 #include <malloc.h>
 //#include "xash3d_mathlib.h"
@@ -142,23 +143,43 @@ static char *GL_PrintInfoLog( GLhandleARB object )
 }
 
 
-static GLuint GL2_GenerateShader( const gl2wrap_prog_t *prog, GLenum type )
+static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 {
 	char *shader, shader_buf[MAX_SHADERLEN + 1];
 	char tmp[256];
 	int i;
 	GLint status, len;
-	GLuint id;
+	GLuint id, loc;
+	int version = 320;
 
 	shader = shader_buf;
 	//shader[0] = '\n';
 	shader[0] = 0;
-	Q_strncat(shader, "#version 300 es\n", MAX_SHADERLEN);
+
+	Q_snprintf(shader, MAX_SHADERLEN, "#version %d%s\n", version, version >= 300 && version < 330 ? " es":"");
+
+	Q_snprintf(tmp, sizeof( tmp ), "#define VER %d\n", version);
+	Q_strncat( shader, tmp, MAX_SHADERLEN );
 
 	for ( i = 0; i < GL2_FLAG_MAX; ++i )
 	{
 		Q_snprintf( tmp, sizeof( tmp ), "#define %s %d\n", gl2wrap_flag_name[i], prog->flags & ( 1 << i ) );
 		Q_strncat( shader, tmp, MAX_SHADERLEN );
+	}
+	loc = 0;
+	for ( i = 0; i < GL2_ATTR_MAX; ++i )
+	{
+		if ( prog->flags & ( 1 << i ) )
+		{
+			Q_snprintf( tmp, sizeof( tmp ), "#define LOC_%s %d\n", gl2wrap_flag_name[i], loc++ );
+			Q_strncat( shader, tmp, MAX_SHADERLEN );
+			prog->attridx[i] = loc;
+
+		}
+		else
+		{
+			prog->attridx[i] = -1;
+		}
 	}
 
 	if ( type == GL_FRAGMENT_SHADER_ARB )

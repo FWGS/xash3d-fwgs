@@ -1,10 +1,20 @@
 R"(
+
+
+#if VER <= 300
+#define layout(x)
+#endif
+#if VER < 300
+#define out attribute
+#define in varying
+#define texture texture2D
+#endif
 precision mediump float;
 #if ATTR_TEXCOORD0
-uniform sampler2D uTex0;
+layout(location = 5) uniform sampler2D uTex0;
 #endif
 #if ATTR_TEXCOORD1
-uniform sampler2D uTex1;
+layout(location = 6) uniform sampler2D uTex1;
 #endif
 #if FEAT_ALPHA_TEST
 uniform float uAlphaTest;
@@ -12,7 +22,7 @@ uniform float uAlphaTest;
 #if FEAT_FOG
 uniform vec4 uFog;
 #endif
-uniform vec4 uColor;
+layout(location = 2) uniform vec4 uColor;
 #if ATTR_COLOR
 in vec4 vColor;
 #endif
@@ -25,7 +35,11 @@ in vec2 vTexCoord1;
 #if ATTR_NORMAL
 in vec2 vNormal;
 #endif
+#if VER >= 300
 out vec4 oFragColor;
+#else
+#define oFragColor gl_FragColor
+#endif
 void main()
 {
 #if ATTR_COLOR
