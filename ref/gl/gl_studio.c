@@ -146,8 +146,6 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
-	gEngfuncs.Cvar_RegisterVariable( &r_studio_drawelements );
 
 #if XASH_PSVITA
 	// don't do the same array-building work twice since that's what our FFP shim does anyway

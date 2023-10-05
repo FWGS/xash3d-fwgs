@@ -720,6 +720,9 @@ void GL_InitExtensionsGLES( void )
 		case GL_ARB_VERTEX_ARRAY_OBJECT_EXT:
 			GL_CheckExtension( "vertex_array_object", vaofuncs, "gl_vertex_array_object", extid );
 			break;
+		case GL_DRAW_RANGEELEMENTS_EXT:
+			GL_CheckExtension( "draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid );
+			break;
 #endif
 		case GL_DEBUG_OUTPUT:
 			if( glw_state.extended )
