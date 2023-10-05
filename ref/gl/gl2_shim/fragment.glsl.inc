@@ -9,7 +9,7 @@ R"(
 #define in varying
 #define texture texture2D
 #endif
-#if version >= 130
+#if VER >= 130
 precision mediump float;
 #endif
 #if ATTR_TEXCOORD0
