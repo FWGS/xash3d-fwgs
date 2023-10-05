@@ -19,26 +19,10 @@ GNU General Public License for more details.
 	since that makes it assume that all vertex data pointers are GPU-mapped
 */
 #ifndef XASH_GL_STATIC
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <malloc.h>
-
-#include "port.h"
-#include "xash3d_types.h"
-#include "cvardef.h"
-#include "const.h"
-#include "com_model.h"
-#include "cl_entity.h"
-#include "render_api.h"
-#include "protocol.h"
-#include "dlight.h"
-#include "ref_api.h"
-#include "com_strings.h"
-#include "crtlib.h"
+#include "gl_local.h"
 #include "gl2_shim.h"
-#include "../gl_export.h"
-#include "xash3d_mathlib.h"
+#include <malloc.h>
+//#include "xash3d_mathlib.h"
 #define MAX_SHADERLEN 4096
 // increase this when adding more attributes
 #define MAX_PROGS 32
@@ -92,6 +76,7 @@ static int gl2wrap_init = 0;
 static struct
 {
 	GLfloat *attrbuf[GL2_ATTR_MAX];
+	GLuint attrbufobj[GL2_ATTR_MAX];
 	GLuint cur_flags;
 	GLint begin;
 	GLint end;
@@ -102,6 +87,7 @@ static struct
 	gl2wrap_prog_t progs[MAX_PROGS];
 	gl2wrap_prog_t *cur_prog;
 	GLboolean uchanged;
+	GLuint vao;
 } gl2wrap;
 
 static struct
@@ -185,8 +171,7 @@ static GLuint GL2_GenerateShader( const gl2wrap_prog_t *prog, GLenum type )
 	pglShaderSourceARB( id, 1, (void *)&shader, &len );
 	pglCompileShaderARB( id );
 	pglGetObjectParameterivARB( id, GL_OBJECT_COMPILE_STATUS_ARB, &status );
-	//pglGetOShaderiv( id, GL_OBJECT_COMPILE_STATUS_ARB, &status );
-	//gEngfuncs.Con_Reportf( S_ERROR "GL2_GenerateShader( 0x%04x, 0x%x ): compile failed: %s\n", prog->flags, type, GL_PrintInfoLog(id));
+
 	if ( status == GL_FALSE )
 	{
 		gEngfuncs.Con_Reportf( S_ERROR "GL2_GenerateShader( 0x%04x, 0x%x ): compile failed: %s\n", prog->flags, type, GL_PrintInfoLog(id));
@@ -321,6 +306,8 @@ static gl2wrap_prog_t *GL2_SetProg( const GLuint flags )
 	return prog;
 }
 
+#define TRIQUADS_SIZE 256
+unsigned short triquads_array[ TRIQUADS_SIZE * 6 ];
 
 int GL2_ShimInit( void )
 {
@@ -341,6 +328,15 @@ int GL2_ShimInit( void )
 		return 0;
 
 	memset( &gl2wrap, 0, sizeof( gl2wrap ) );
+	for( i = 0; i < TRIQUADS_SIZE; i++ )
+	{
+		triquads_array[i * 6] = i * 4;
+		triquads_array[i * 6 + 1] = i * 4 + 1;
+		triquads_array[i * 6 + 2] = i * 4 + 2;
+		triquads_array[i * 6 + 3] = i * 4;
+		triquads_array[i * 6 + 4] = i * 4 + 2;
+		triquads_array[i * 6 + 5] = i * 4 + 3;
+	}
 
 	gl2wrap.color[0] = 1.f;
 	gl2wrap.color[1] = 1.f;
@@ -349,12 +345,22 @@ int GL2_ShimInit( void )
 	gl2wrap.uchanged = GL_TRUE;
 
 	total = 0;
+	if( pglGenVertexArrays )
+		pglGenVertexArrays(1, &gl2wrap.vao);
+	if(gl2wrap.vao)
+		pglBindVertexArray(gl2wrap.vao);
 	for ( i = 0; i < GL2_ATTR_MAX; ++i )
 	{
 		size = GL2_MAX_VERTS * gl2wrap_attr_size[i] * sizeof( GLfloat );
+		// TODO: rework storage, support MapBuffer
 		gl2wrap.attrbuf[i] = memalign( 0x100, size );
+		if( glConfig.context == CONTEXT_TYPE_GL_CORE)
+			pglGenBuffersARB( 1, &gl2wrap.attrbufobj[i] );
 		total += size;
 	}
+	if(gl2wrap.vao)
+		pglBindVertexArray(0);
+	
 
 	GL2_ShimInstall();
 
@@ -362,6 +368,7 @@ int GL2_ShimInit( void )
 	gEngfuncs.Con_DPrintf( S_NOTE "GL2_ShimInit(): Pre-generating %u progs...\n", sizeof( precache_progs ) / sizeof( *precache_progs ) );
 	for ( i = 0; i < (int)( sizeof( precache_progs ) / sizeof( *precache_progs ) ); ++i )
 		GL2_GetProg( precache_progs[i] );
+
 
 	gl2wrap_init = 1;
 	return 0;
@@ -408,16 +415,13 @@ void GL2_Begin( GLenum prim )
 	// pos always enabled
 	gl2wrap.cur_flags = 1 << GL2_ATTR_POS;
 	// disable all vertex attrib pointers
+	if(gl2wrap.vao)
+		pglBindVertexArray(gl2wrap.vao);
+
 	for ( i = 0; i < GL2_ATTR_MAX; ++i )
 		pglDisableVertexAttribArrayARB( i );
 }
 
-unsigned short triquads_array[] =
-{
-	0, 1, 2, 0, 2, 3,
-	4, 5, 6, 4, 6, 7,
-	8, 9, 10, 8, 10, 11
-};
 
 void GL2_End( void )
 {
@@ -441,17 +445,23 @@ void GL2_End( void )
 		gEngfuncs.Host_Error( "GL2_End(): Could not find program for flags 0x%04x!\n", flags );
 		goto _leave;
 	}
-
 	for ( i = 0; i < GL2_ATTR_MAX; ++i )
 	{
 		if ( prog->attridx[i] >= 0 )
 		{
 			pglEnableVertexAttribArrayARB( prog->attridx[i] );
-			pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_attr_size[i], GL_FLOAT, GL_FALSE, 0, gl2wrap.attrbuf[i] + gl2wrap_attr_size[i] * gl2wrap.begin );
+			if(gl2wrap.attrbufobj[i])
+			{
+				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i] );
+				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, gl2wrap_attr_size[i] * 4 * count,  gl2wrap.attrbuf[i] + gl2wrap_attr_size[i] * gl2wrap.begin , GL_STATIC_DRAW_ARB );
+				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_attr_size[i], GL_FLOAT, GL_FALSE, 0, 0 );
+			}
+			else
+				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_attr_size[i], GL_FLOAT, GL_FALSE, 0, gl2wrap.attrbuf[i] + gl2wrap_attr_size[i] * gl2wrap.begin );
 		}
 	}
 
-#ifdef XASH_GLES
+#if 1 //def XASH_GLES
 	if(gl2wrap.prim == GL_QUADS)
 	{
 		pglDrawElements(GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array);
@@ -463,12 +473,15 @@ void GL2_End( void )
 		pglDrawArrays( gl2wrap.prim, 0, count );
 
 _leave:
+	if(gl2wrap.vao)
+		pglBindVertexArray(0);
+	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
+	
 	gl2wrap.prim = GL_NONE;
 	gl2wrap.begin = gl2wrap.end;
 	gl2wrap.cur_flags = 0;
 }
 
-#ifdef XASH_GLES
 void (*rpglTexImage2D)( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
 void GL2_TexImage2D( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels )
 {
@@ -525,7 +538,6 @@ GLboolean GL2_IsEnabled(GLenum e)
 	return rpglIsEnabled(e);
 }
 
-#endif
 
 
 
@@ -663,28 +675,34 @@ void GL2_Hint( GLenum hint, GLenum val )
 
 void GL2_Enable( GLenum e )
 {
-#ifdef XASH_GLES
 	if( e == GL_TEXTURE_2D )
-		return;
-#endif
-	if( e == GL_FOG )
+		{pglUseProgramObjectARB(0);}
+	else if( e == GL_FOG )
 		fogging = 1;
 	else if( e == GL_ALPHA_TEST )
 		alpha_test_state = 1;
-	else rpglEnable(e);
+	else if(glConfig.context != CONTEXT_TYPE_GL)
+	{
+		rpglEnable(e);
+		return;
+	}
+	rpglEnable(e);
 }
 
 void GL2_Disable( GLenum e )
 {
-#ifdef XASH_GLES
 	if( e == GL_TEXTURE_2D )
-		return;
-#endif
+		{}
 	if( e == GL_FOG )
 		fogging = 0;
 	else if( e == GL_ALPHA_TEST )
 		alpha_test_state = 0;
-	else rpglDisable(e);
+	else if(glConfig.context != CONTEXT_TYPE_GL)
+	{
+		rpglDisable(e);
+		return;
+	}
+	rpglDisable(e);
 }
 
 void GL2_MatrixMode( GLenum m )
@@ -791,10 +809,20 @@ static void GL2_Translatef(float x, float y, float z)
 	pgl ## name = GL2_ ## name; \
 }
 
+#define GL2_OVERRIDE_PTR_B( name ) \
+{ \
+	rpgl ## name = pgl ## name; \
+	pgl ## name = GL2_ ## name; \
+}
+
+#define GL2_OVERRIDE_PTR_B( name ) \
+{ \
+	rpgl ## name = pgl ## name; \
+	pgl ## name = GL2_ ## name; \
+}
+
 void GL2_ShimInstall( void )
 {
-	rpglEnable = pglEnable;
-	rpglDisable = pglDisable;
 	GL2_OVERRIDE_PTR( Vertex2f )
 	GL2_OVERRIDE_PTR( Vertex3f )
 	GL2_OVERRIDE_PTR( Vertex3fv )
@@ -813,21 +841,18 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( Hint )
 	GL2_OVERRIDE_PTR( Begin )
 	GL2_OVERRIDE_PTR( End )
-	GL2_OVERRIDE_PTR( Enable )
-	GL2_OVERRIDE_PTR( Disable )
+	GL2_OVERRIDE_PTR_B( Enable )
+	GL2_OVERRIDE_PTR_B( Disable )
 	GL2_OVERRIDE_PTR( MatrixMode )
 	GL2_OVERRIDE_PTR( LoadIdentity )
 	GL2_OVERRIDE_PTR( Ortho )
 	GL2_OVERRIDE_PTR( LoadMatrixf )
 	GL2_OVERRIDE_PTR( Scalef )
 	GL2_OVERRIDE_PTR( Translatef )
-#ifdef XASH_GLES
-	rpglTexImage2D = pglTexImage2D;
-	rpglTexParameteri = pglTexParameteri;
-	rpglIsEnabled = pglIsEnabled;
-	GL2_OVERRIDE_PTR( TexParameteri )
-	GL2_OVERRIDE_PTR( TexImage2D )
-	GL2_OVERRIDE_PTR( IsEnabled )
-#endif
+	GL2_OVERRIDE_PTR_B( TexImage2D )
+	GL2_OVERRIDE_PTR_B( TexParameteri )
+	GL2_OVERRIDE_PTR_B( IsEnabled )
+
+
 }
 #endif
