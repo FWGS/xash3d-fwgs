@@ -30,8 +30,6 @@ GNU General Public License for more details.
 
 extern ref_api_t gEngfuncs;
 
-static void APIENTRY (*rpglEnable)(GLenum e);
-static void APIENTRY (*rpglDisable)(GLenum e);
 
 enum gl2wrap_attrib_e
 {
@@ -124,6 +122,12 @@ static const char *gl2wrap_attr_name[GL2_ATTR_MAX] =
 static GLboolean alpha_test_state;
 static GLboolean fogging;
 
+static void APIENTRY (*rpglEnable)(GLenum e);
+static void APIENTRY (*rpglDisable)(GLenum e);
+static void APIENTRY (*rpglDrawElements )( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices );
+static void APIENTRY (*rpglDrawArrays )(GLenum mode, GLint first, GLsizei count);
+static void APIENTRY (*rpglDrawRangeElements )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
+static void APIENTRY (*rpglBindBufferARB)( GLenum buf, GLuint obj);
 static char *GL_PrintInfoLog( GLhandleARB object )
 {
 	static char	msg[8192];
@@ -150,7 +154,7 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 	int i;
 	GLint status, len;
 	GLuint id, loc;
-	int version = 320;
+	int version = 130;
 
 	shader = shader_buf;
 	//shader[0] = '\n';
@@ -287,7 +291,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	// these never change
 	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD0 ) && prog->utex0 >= 0 )
 		pglUniform1iARB( prog->utex0, 0 );
-	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD0 ) && prog->utex1 >= 0 )
+	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD1 ) && prog->utex1 >= 0 )
 		pglUniform1iARB( prog->utex1, 1 );
 
 	prog->glprog = glprog;
@@ -478,6 +482,7 @@ static void APIENTRY GL2_End( void )
 				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i] );
 				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, gl2wrap_attr_size[i] * 4 * count,  gl2wrap.attrbuf[i] + gl2wrap_attr_size[i] * gl2wrap.begin , GL_STATIC_DRAW_ARB );
 				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_attr_size[i], GL_FLOAT, GL_FALSE, 0, 0 );
+
 			}
 			else
 				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_attr_size[i], GL_FLOAT, GL_FALSE, 0, gl2wrap.attrbuf[i] + gl2wrap_attr_size[i] * gl2wrap.begin );
@@ -487,13 +492,16 @@ static void APIENTRY GL2_End( void )
 #if 1 //def XASH_GLES
 	if(gl2wrap.prim == GL_QUADS)
 	{
-		pglDrawElements(GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array);
+		if(rpglDrawRangeElements)
+			rpglDrawRangeElements(GL_TRIANGLES, 0, count, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array);
+		else
+			rpglDrawElements(GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array);
 	}
 	else if( gl2wrap.prim == GL_POLYGON )
-		pglDrawArrays( GL_TRIANGLE_FAN, 0, count );
+		rpglDrawArrays( GL_TRIANGLE_FAN, 0, count );
 	else
 #endif
-		pglDrawArrays( gl2wrap.prim, 0, count );
+		rpglDrawArrays( gl2wrap.prim, 0, count );
 
 _leave:
 	if(gl2wrap.vao)
@@ -800,6 +808,158 @@ static void APIENTRY GL2_DepthRange(GLdouble far, GLdouble near)
 	_pglDepthRangef(far, near);
 }
 
+typedef struct gl2wrap_arraypointer_s
+{
+	const void *userptr;
+	GLint size;
+	GLenum type;
+	GLsizei stride;
+	GLuint vbo;
+	//GLboolean enabled;
+} gl2wrap_arraypointer_t;
+
+static struct
+{
+	gl2wrap_arraypointer_t ptr[GL2_ATTR_MAX];
+	unsigned int flags;
+	unsigned int texture;
+	GLuint vbo;
+} gl2wrap_arrays;
+
+
+static void GL2_SetPointer( int idx, GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	gl2wrap_arrays.ptr[idx].size = size;
+	gl2wrap_arrays.ptr[idx].type = type;
+	gl2wrap_arrays.ptr[idx].stride = stride;
+	gl2wrap_arrays.ptr[idx].userptr = pointer;
+	gl2wrap_arrays.ptr[idx].vbo = gl2wrap_arrays.vbo;
+}
+
+void GL2_VertexPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	GL2_SetPointer(GL2_ATTR_POS, size, type, stride, pointer);
+}
+
+void GL2_ColorPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	GL2_SetPointer(GL2_ATTR_COLOR, size, type, stride, pointer);
+}
+
+void GL2_TexCoordPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+{
+	GL2_SetPointer(GL2_ATTR_TEXCOORD0 + gl2wrap_arrays.texture, size, type, stride, pointer);
+}
+
+static unsigned int GL2_GetArrIdx( GLenum array )
+{
+	switch (array) {
+	case GL_VERTEX_ARRAY:
+		return GL2_ATTR_POS;
+	case GL_COLOR_ARRAY:
+		return GL2_ATTR_COLOR;
+	case GL_TEXTURE_COORD_ARRAY:
+			ASSERT(gl2wrap_arrays.texture < 2);
+		return GL2_ATTR_TEXCOORD0 + gl2wrap_arrays.texture;
+	default:
+		return 0;
+	}
+}
+
+void GL2_EnableClientState( GLenum array )
+{
+	gl2wrap_prog_t *prog;
+	GLuint flags = gl2wrap.cur_flags;
+	int idx = GL2_GetArrIdx(array);
+	//gl2wrap_arrays.ptr[idx].enabled = 1;
+	gl2wrap_arrays.flags |= 1 << idx;
+	// enable alpha test and fog if needed
+
+
+	prog = GL2_SetProg( flags );
+	//pglEnableVertexAttribArrayARB( prog->attridx[idx] );
+}
+
+void GL2_DisableClientState( GLenum array )
+{
+	unsigned int idx = GL2_GetArrIdx(array);
+	//gl2wrap_arrays.ptr[idx].enabled = 0;
+	gl2wrap_arrays.flags &= ~(1 << idx);
+	//pglDisableVertexAttribArrayARB( gl2wrap.cur_prog->attridx[idx] );
+}
+
+static void GL2_SetupArrays( void )
+{
+	unsigned int flags = gl2wrap_arrays.flags;
+	gl2wrap_prog_t *prog;
+	if ( alpha_test_state )
+		flags |= 1 << GL2_FLAG_ALPHA_TEST;
+	if ( fogging )
+		flags |= 1 << GL2_FLAG_FOG;
+	prog = GL2_SetProg( flags );// | GL2_ATTR_TEXCOORD0 );
+	for( int i = 0; i < GL2_ATTR_MAX; i++ )
+	{
+		if(prog->attridx[i] < 0)
+			continue;
+		if( flags & (1 << i)  )
+		{
+			pglEnableVertexAttribArrayARB( prog->attridx[i] );
+			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.ptr[i].vbo );
+			pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, gl2wrap_arrays.ptr[i].userptr );
+			if(i == GL2_ATTR_TEXCOORD0)
+				pglUniform1iARB( prog->utex0, 0 );
+			if(i == GL2_ATTR_TEXCOORD1)
+				pglUniform1iARB( prog->utex1, 1 );
+		}
+		else
+		{
+			pglDisableVertexAttribArrayARB( prog->attridx[i] );
+		}
+	}
+	rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.vbo );
+}
+
+static void APIENTRY GL2_DrawElements( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices )
+{
+	GL2_SetupArrays();
+	rpglDrawElements(mode, count, type, indices);
+}
+
+static void APIENTRY GL2_DrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices )
+{
+	GL2_SetupArrays();
+	if(rpglDrawRangeElements)
+		rpglDrawRangeElements(mode, start, end, count, type, indices);
+	else
+		rpglDrawElements(mode, count, type, indices);
+}
+
+static void APIENTRY GL2_DrawArrays( GLenum mode, GLint first, GLsizei count )
+{
+	GL2_SetupArrays();
+	rpglDrawArrays( mode, first, count );
+}
+
+static void APIENTRY GL2_BindBufferARB( GLenum buf, GLuint obj)
+{
+	if( buf == GL_ARRAY_BUFFER_ARB )
+		gl2wrap_arrays.vbo = obj;
+	rpglBindBufferARB( buf, obj );
+}
+
+static void APIENTRY GL2_ActiveTextureARB( GLenum tex )
+{
+	//gl2wrap_arrays.texture = GL_TEXTURE0_ARB - tex;
+}
+
+static void APIENTRY GL2_ClientActiveTextureARB( GLenum tex )
+{
+	gl2wrap_arrays.texture = tex - GL_TEXTURE0_ARB;
+
+	//pglActiveTextureARB(tex);
+}
+
+
 
 #define GL2_OVERRIDE_PTR( name ) \
 { \
@@ -848,8 +1008,8 @@ void GL2_ShimInstall( void )
 	GL2_STUB( Translatef )
 	GL2_STUB( TexEnvi )
 	GL2_STUB( TexEnvf )
-	GL2_STUB( ClientActiveTextureARB )
-	GL2_STUB( ActiveTextureARB )
+	GL2_OVERRIDE_PTR( ClientActiveTextureARB )
+	//GL2_OVERRIDE_PTR( ActiveTextureARB )
 	GL2_STUB( Fogi )
 	GL2_STUB( ShadeModel )
 #ifdef XASH_GLES
@@ -865,7 +1025,14 @@ void GL2_ShimInstall( void )
 		GL2_OVERRIDE_PTR_B( TexParameteri )
 	}
 	GL2_OVERRIDE_PTR_B( IsEnabled )
-
-
+	GL2_OVERRIDE_PTR_B( DrawRangeElements )
+	GL2_OVERRIDE_PTR_B( DrawElements )
+	GL2_OVERRIDE_PTR_B( DrawArrays )
+	GL2_OVERRIDE_PTR_B( BindBufferARB )
+	GL2_OVERRIDE_PTR( EnableClientState )
+	GL2_OVERRIDE_PTR( DisableClientState )
+	GL2_OVERRIDE_PTR( VertexPointer )
+	GL2_OVERRIDE_PTR( ColorPointer )
+	GL2_OVERRIDE_PTR( TexCoordPointer )
 }
 #endif
