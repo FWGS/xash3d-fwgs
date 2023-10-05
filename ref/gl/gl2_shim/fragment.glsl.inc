@@ -9,7 +9,9 @@ R"(
 #define in varying
 #define texture texture2D
 #endif
+#if version >= 130
 precision mediump float;
+#endif
 #if ATTR_TEXCOORD0
 layout(location = 5) uniform sampler2D uTex0;
 #endif
