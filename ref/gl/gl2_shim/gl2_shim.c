@@ -154,7 +154,7 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 	int i;
 	GLint status, len;
 	GLuint id, loc;
-	int version = 130;
+	int version = 300;
 
 	shader = shader_buf;
 	//shader[0] = '\n';
