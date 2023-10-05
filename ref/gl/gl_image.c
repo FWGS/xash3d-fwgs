@@ -1418,7 +1418,7 @@ static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 	// copy initial params
 	Q_strncpy( tex->name, name, sizeof( tex->name ));
 
-	if( FBitSet( flags, TF_SKYSIDE ))
+	if( FBitSet( flags, TF_SKYSIDE ) && glConfig.context != CONTEXT_TYPE_GL_CORE )
 		tex->texnum = tr.skyboxbasenum++;
 	else
 	{

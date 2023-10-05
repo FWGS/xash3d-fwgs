@@ -761,11 +761,8 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 	float	s, t, os, ot;
 	glpoly_t	*p;
 	int	i;
-#ifndef XASH_GLES
-	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
-#else
-	const qboolean useQuads = false; // TODO: figure out why
-#endif
+
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS ) && glConfig.context == CONTEXT_TYPE_GL;
 
 	if( !warp->polys ) return;
 
