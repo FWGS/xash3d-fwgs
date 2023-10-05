@@ -815,7 +815,6 @@ typedef struct gl2wrap_arraypointer_s
 	GLenum type;
 	GLsizei stride;
 	GLuint vbo;
-	//GLboolean enabled;
 } gl2wrap_arraypointer_t;
 
 static struct
@@ -838,17 +837,17 @@ static void GL2_SetPointer( int idx, GLint size, GLenum type, GLsizei stride, co
 
 void GL2_VertexPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
 {
-	GL2_SetPointer(GL2_ATTR_POS, size, type, stride, pointer);
+	GL2_SetPointer( GL2_ATTR_POS, size, type, stride, pointer );
 }
 
 void GL2_ColorPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
 {
-	GL2_SetPointer(GL2_ATTR_COLOR, size, type, stride, pointer);
+	GL2_SetPointer( GL2_ATTR_COLOR, size, type, stride, pointer );
 }
 
 void GL2_TexCoordPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
 {
-	GL2_SetPointer(GL2_ATTR_TEXCOORD0 + gl2wrap_arrays.texture, size, type, stride, pointer);
+	GL2_SetPointer( GL2_ATTR_TEXCOORD0 + gl2wrap_arrays.texture, size, type, stride, pointer );
 }
 
 static unsigned int GL2_GetArrIdx( GLenum array )
@@ -868,27 +867,17 @@ static unsigned int GL2_GetArrIdx( GLenum array )
 
 void GL2_EnableClientState( GLenum array )
 {
-	gl2wrap_prog_t *prog;
-	GLuint flags = gl2wrap.cur_flags;
 	int idx = GL2_GetArrIdx(array);
-	//gl2wrap_arrays.ptr[idx].enabled = 1;
 	gl2wrap_arrays.flags |= 1 << idx;
-	// enable alpha test and fog if needed
-
-
-	prog = GL2_SetProg( flags );
-	//pglEnableVertexAttribArrayARB( prog->attridx[idx] );
 }
 
 void GL2_DisableClientState( GLenum array )
 {
 	unsigned int idx = GL2_GetArrIdx(array);
-	//gl2wrap_arrays.ptr[idx].enabled = 0;
 	gl2wrap_arrays.flags &= ~(1 << idx);
-	//pglDisableVertexAttribArrayARB( gl2wrap.cur_prog->attridx[idx] );
 }
 
-static void GL2_SetupArrays( void )
+static void GL2_SetupArrays( GLuint start, GLuint end )
 {
 	unsigned int flags = gl2wrap_arrays.flags;
 	gl2wrap_prog_t *prog;
@@ -897,6 +886,8 @@ static void GL2_SetupArrays( void )
 	if ( fogging )
 		flags |= 1 << GL2_FLAG_FOG;
 	prog = GL2_SetProg( flags );// | GL2_ATTR_TEXCOORD0 );
+	if( gl2wrap.vao )
+		pglBindVertexArray( gl2wrap.vao );
 	for( int i = 0; i < GL2_ATTR_MAX; i++ )
 	{
 		if(prog->attridx[i] < 0)
@@ -921,22 +912,22 @@ static void GL2_SetupArrays( void )
 
 static void APIENTRY GL2_DrawElements( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices )
 {
-	GL2_SetupArrays();
-	rpglDrawElements(mode, count, type, indices);
+	GL2_SetupArrays( 0, 0 );
+	rpglDrawElements( mode, count, type, indices );
 }
 
 static void APIENTRY GL2_DrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices )
 {
-	GL2_SetupArrays();
+	GL2_SetupArrays( start, end );
 	if(rpglDrawRangeElements)
-		rpglDrawRangeElements(mode, start, end, count, type, indices);
+		rpglDrawRangeElements( mode, start, end, count, type, indices );
 	else
-		rpglDrawElements(mode, count, type, indices);
+		rpglDrawElements( mode, count, type, indices );
 }
 
 static void APIENTRY GL2_DrawArrays( GLenum mode, GLint first, GLsizei count )
 {
-	GL2_SetupArrays();
+	GL2_SetupArrays( 0, count );
 	rpglDrawArrays( mode, first, count );
 }
 
