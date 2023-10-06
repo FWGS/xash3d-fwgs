@@ -97,6 +97,18 @@ static struct
 	uint64_t update;
 } gl2wrap_matrix;
 
+//#define QUAD_BATCH
+
+#ifdef QUAD_BATCH
+static struct
+{
+	unsigned int texture;
+	unsigned int flags;
+	GLboolean active;
+} gl2wrap_quad;
+#endif
+
+
 
 static const int gl2wrap_attr_size[GL2_ATTR_MAX] = { 3, 4, 2, 2 };
 
@@ -123,12 +135,27 @@ static const char *gl2wrap_attr_name[GL2_ATTR_MAX] =
 static GLboolean alpha_test_state;
 static GLboolean fogging;
 
+
 static void APIENTRY (*rpglEnable)(GLenum e);
 static void APIENTRY (*rpglDisable)(GLenum e);
 static void APIENTRY (*rpglDrawElements )( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices );
 static void APIENTRY (*rpglDrawArrays )(GLenum mode, GLint first, GLsizei count);
 static void APIENTRY (*rpglDrawRangeElements )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
 static void APIENTRY (*rpglBindBufferARB)( GLenum buf, GLuint obj);
+#ifdef QUAD_BATCH
+void GL2_FlushPrims( void );
+static void APIENTRY (*rpglBindTexture)( GLenum tex, GLuint obj);
+static void APIENTRY GL2_BindTexture( GLenum tex, GLuint obj)
+{
+	if( gl2wrap_quad.texture != obj )
+	{
+		GL2_FlushPrims();
+		gl2wrap_quad.texture = obj;
+	}
+	rpglBindTexture( tex, obj );
+}
+#endif
+
 static char *GL_PrintInfoLog( GLhandleARB object )
 {
 	static char	msg[8192];
@@ -289,12 +316,14 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	prog->ufog   = pglGetUniformLocationARB( glprog, "uFog" );
 	prog->uMVP   = pglGetUniformLocationARB( glprog, "uMVP" );
 
+	pglUseProgramObjectARB( glprog );
 	// these never change
 	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD0 ) && prog->utex0 >= 0 )
 		pglUniform1iARB( prog->utex0, 0 );
 	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD1 ) && prog->utex1 >= 0 )
 		pglUniform1iARB( prog->utex1, 1 );
-
+	if( gl2wrap.cur_prog )
+		pglUseProgramObjectARB( gl2wrap.cur_prog->glprog );
 	prog->glprog = glprog;
 
 	gEngfuncs.Con_DPrintf( S_NOTE "GL2_GetProg(): Generated progs for 0x%04x\n", flags );
@@ -333,8 +362,11 @@ static gl2wrap_prog_t *GL2_SetProg( const GLuint flags )
 	gl2wrap.cur_prog = prog;
 	return prog;
 }
-
+#ifdef QUAD_BATCH
+#define TRIQUADS_SIZE 16384
+#else
 #define TRIQUADS_SIZE 256
+#endif
 unsigned short triquads_array[ TRIQUADS_SIZE * 6 ];
 
 int GL2_ShimInit( void )
@@ -432,16 +464,36 @@ void GL2_ShimShutdown( void )
 
 void GL2_ShimEndFrame( void )
 {
+#ifdef QUAD_BATCH
+	GL2_FlushPrims();
+#endif
 	gl2wrap.end = gl2wrap.begin = 0;
 }
 
 static void APIENTRY GL2_Begin( GLenum prim )
 {
 	int i;
+
+#ifdef QUAD_BATCH
+	if( gl2wrap.prim == GL_QUADS && gl2wrap_quad.active )
+	{
+		GLuint flags = gl2wrap.cur_flags;
+		GLuint flags2 = gl2wrap.cur_flags;
+		
+		if( gl2wrap_quad.flags != flags || prim != GL_QUADS )
+		{
+
+			GL2_FlushPrims();
+		}
+		else if( gl2wrap_quad.flags == flags && prim == GL_QUADS )
+			return;
+	}
+	gl2wrap_quad.active = false;
+#endif
 	gl2wrap.prim = prim;
 	gl2wrap.begin = gl2wrap.end;
 	// pos always enabled
-	gl2wrap.cur_flags = 1 << GL2_ATTR_POS;
+	gl2wrap.cur_flags |= 1 << GL2_ATTR_POS;
 	// disable all vertex attrib pointers
 	if(gl2wrap.vao)
 		pglBindVertexArray(gl2wrap.vao);
@@ -450,14 +502,12 @@ static void APIENTRY GL2_Begin( GLenum prim )
 		pglDisableVertexAttribArrayARB( i );
 }
 
-
-static void APIENTRY GL2_End( void )
+void GL2_FlushPrims( void )
 {
 	int i;
-	gl2wrap_prog_t *prog;
 	GLuint flags = gl2wrap.cur_flags;
 	GLint count = gl2wrap.end - gl2wrap.begin;
-
+	gl2wrap_prog_t *prog;
 	if ( !gl2wrap.prim || !count )
 		goto _leave; // end without begin 
 
@@ -493,10 +543,12 @@ static void APIENTRY GL2_End( void )
 #if 1 //def XASH_GLES
 	if(gl2wrap.prim == GL_QUADS)
 	{
-		if(rpglDrawRangeElements)
-			rpglDrawRangeElements(GL_TRIANGLES, 0, count, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array);
+		if(count == 4)
+			rpglDrawArrays( GL_TRIANGLE_FAN, 0, count );
+		else if(rpglDrawRangeElements)
+			rpglDrawRangeElements( GL_TRIANGLES, 0, count, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array );
 		else
-			rpglDrawElements(GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array);
+			rpglDrawElements( GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array );
 	}
 	else if( gl2wrap.prim == GL_POLYGON )
 		rpglDrawArrays( GL_TRIANGLE_FAN, 0, count );
@@ -512,6 +564,30 @@ _leave:
 	gl2wrap.prim = GL_NONE;
 	gl2wrap.begin = gl2wrap.end;
 	gl2wrap.cur_flags = 0;
+#ifdef QUAD_BATCH
+	gl2wrap_quad.active = 0;
+#endif
+}
+
+
+static void APIENTRY GL2_End( void )
+{
+	int i;
+#ifdef QUAD_BATCH
+	if( gl2wrap.prim == GL_QUADS )
+	{
+		GLuint flags = gl2wrap.cur_flags;
+		// enable alpha test and fog if needed
+		/*if ( alpha_test_state )
+			flags |= 1 << GL2_FLAG_ALPHA_TEST;
+		if ( fogging )
+			flags |= 1 << GL2_FLAG_FOG;*/
+		gl2wrap_quad.flags = flags;
+		gl2wrap_quad.active = 1;
+		return;
+	}
+#endif
+	GL2_FlushPrims();
 }
 
 static void (* APIENTRY rpglTexImage2D)( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
@@ -599,11 +675,22 @@ static void APIENTRY GL2_Vertex3fv( const GLfloat *v )
 
 static void APIENTRY GL2_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 {
+#ifdef QUAD_BATCH
+	if(gl2wrap_quad.active)
+	{
+		if( !(gl2wrap.color[0] == r && gl2wrap.color[1] == g && gl2wrap.color[2] == b && gl2wrap.color[3] == a) )
+			GL2_FlushPrims();
+	}
+#endif
 	gl2wrap.color[0] = r;
 	gl2wrap.color[1] = g;
 	gl2wrap.color[2] = b;
 	gl2wrap.color[3] = a;
 	gl2wrap.uchanged = GL_TRUE;
+#ifdef QUAD_BATCH
+	if(gl2wrap_quad.active)
+		return;
+#endif
 	if ( gl2wrap.prim )
 	{
 		// HACK: enable color attribute if we're using color inside a Begin-End pair
@@ -688,6 +775,10 @@ static void APIENTRY GL2_Fogfv( GLenum param, const GLfloat *val )
 
 static void APIENTRY GL2_Enable( GLenum e )
 {
+#ifdef QUAD_BATCH
+	if( e == GL_BLEND || e == GL_ALPHA_TEST )
+		GL2_FlushPrims();
+#endif
 	if( e == GL_TEXTURE_2D )
 		{}
 	else if( e == GL_FOG )
@@ -700,6 +791,11 @@ static void APIENTRY GL2_Enable( GLenum e )
 
 static void APIENTRY GL2_Disable( GLenum e )
 {
+#ifdef QUAD_BATCH
+	if( e == GL_BLEND || e == GL_ALPHA_TEST )
+		GL2_FlushPrims();
+#endif
+
 	if( e == GL_TEXTURE_2D )
 		{}
 	else if( e == GL_FOG )
@@ -717,6 +813,9 @@ static void APIENTRY GL2_MatrixMode( GLenum m )
 {
 //	if(gl2wrap_matrix.mode == m)
 //		return;
+#ifdef QUAD_BATCH
+	GL2_FlushPrims();
+#endif
 	gl2wrap_matrix.mode = m;
 	switch( m )
 	{
@@ -888,6 +987,10 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 {
 	unsigned int flags = gl2wrap_arrays.flags;
 	gl2wrap_prog_t *prog;
+#ifdef QUAD_BATCH
+	GL2_FlushPrims();
+#endif
+
 	if ( alpha_test_state )
 		flags |= 1 << GL2_FLAG_ALPHA_TEST;
 	if ( fogging )
@@ -904,10 +1007,12 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 			pglEnableVertexAttribArrayARB( prog->attridx[i] );
 			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.ptr[i].vbo );
 			pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, gl2wrap_arrays.ptr[i].userptr );
+			/*
 			if(i == GL2_ATTR_TEXCOORD0)
 				pglUniform1iARB( prog->utex0, 0 );
 			if(i == GL2_ATTR_TEXCOORD1)
 				pglUniform1iARB( prog->utex1, 1 );
+			*/
 		}
 		else
 		{
@@ -1032,5 +1137,8 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( VertexPointer )
 	GL2_OVERRIDE_PTR( ColorPointer )
 	GL2_OVERRIDE_PTR( TexCoordPointer )
+#ifdef QUAD_BATCH
+	GL2_OVERRIDE_PTR_B( BindTexture )
+#endif
 }
 #endif
