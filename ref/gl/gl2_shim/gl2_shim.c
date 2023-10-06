@@ -94,6 +94,7 @@ static struct
 	float mvp[16], mv[16], pr[16], dummy[16];
 	GLenum mode;
 	float *current;
+	uint64_t update;
 } gl2wrap_matrix;
 
 
@@ -738,7 +739,7 @@ static void APIENTRY GL2_LoadIdentity( void )
 	m[6]  = m[7]  = m[8]  = m[9]  = 0.0f;
 	m[11] = m[12] = m[13] = m[14] = 0.0f;
 	m[0]  = m[5]  = m[10] = m[15] = 1.0f;
-
+	gl2wrap_matrix.update = 0xFFFFFFFFFFFFFFFF;
 }
 
 
@@ -768,6 +769,7 @@ static void APIENTRY GL2_Ortho(double l, double r, double b, double t, double n,
 	m[9]  *= m10;
 	m[10] *= m10;
 	m[11] *= m10;
+	gl2wrap_matrix.update = 0xFFFFFFFFFFFFFFFF;
 }
 
 static void GL2_Mul4x4(const GLfloat *in0, const GLfloat *in1, GLfloat *out)
@@ -792,13 +794,18 @@ static void GL2_Mul4x4(const GLfloat *in0, const GLfloat *in1, GLfloat *out)
 
 static void GL2_UpdateMVP( gl2wrap_prog_t *prog )
 {
-	GL2_Mul4x4(gl2wrap_matrix.mv, gl2wrap_matrix.pr, gl2wrap_matrix.mvp );
-	pglUniformMatrix4fvARB(prog->uMVP, 1, false, (void*)gl2wrap_matrix.mvp);
+	if( gl2wrap_matrix.update & ( 1U << prog->flags ) )
+	{
+		gl2wrap_matrix.update &= ~( 1U << prog->flags );
+		GL2_Mul4x4( gl2wrap_matrix.mv, gl2wrap_matrix.pr, gl2wrap_matrix.mvp );
+		pglUniformMatrix4fvARB( prog->uMVP, 1, false, (void*)gl2wrap_matrix.mvp );
+	}
 }
 
 static void APIENTRY GL2_LoadMatrixf( const GLfloat *m )
 {
-	memcpy( gl2wrap_matrix.current, m, 16*sizeof(float) );
+	memcpy( gl2wrap_matrix.current, m, 16 * sizeof(float) );
+	gl2wrap_matrix.update = 0xFFFFFFFFFFFFFFFF;
 }
 
 static void ( APIENTRY*_pglDepthRangef)(GLfloat far, GLfloat near);
