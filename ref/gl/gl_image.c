@@ -1607,7 +1607,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 
 		len += ret;
 	}
-	
+
 	COM_FileBase( names[i], basename, sizeof( basename ));
 	ret = Q_snprintf( &name[len], sizeof( name ) - len, "%s[%i]", basename, numLayers );
 
@@ -1941,6 +1941,23 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	GL_ApplyTextureParams( image ); // update texture filter, wrap etc
 
 	gEngfuncs.FS_FreeImage( pic );
+}
+
+/*
+================
+GL_TexMemory
+
+return size of all uploaded textures
+================
+*/
+int GL_TexMemory( void )
+{
+	int	i, total = 0;
+
+	for( i = 0; i < gl_numTextures; i++ )
+		total += gl_textures[i].size;
+
+	return total;
 }
 
 /*

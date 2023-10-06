@@ -448,6 +448,8 @@ void R_InitDlightTexture( void );
 void R_TextureList_f( void );
 void R_InitImages( void );
 void R_ShutdownImages( void );
+int R_TexMemory( void );
+
 #if 1
 //
 // gl_rlight.c
