@@ -147,6 +147,8 @@ static int GL_RefGetParm( int parm, int arg )
 	case PARM_TEX_FLAGS:
 		glt = R_GetTexture( arg );
 		return glt->flags;
+	case PARM_TEX_MEMORY:
+		return R_TexMemory();
 	case PARM_ACTIVE_TMU:
 		return  0; //glState.activeTMU;
 	case PARM_LIGHTSTYLEVALUE:
