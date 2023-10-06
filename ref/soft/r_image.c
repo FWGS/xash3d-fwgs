@@ -1200,6 +1200,23 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 }
 
 /*
+================
+R_TexMemory
+
+return size of all uploaded textures
+================
+*/
+int R_TexMemory( void )
+{
+	int	i, total = 0;
+
+	for( i = 0; i < r_numImages; i++ )
+		total += r_images[i].size;
+
+	return total;
+}
+
+/*
 ==============================================================================
 
 INTERNAL TEXTURES
