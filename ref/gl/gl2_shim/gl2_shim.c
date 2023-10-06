@@ -920,7 +920,7 @@ typedef struct gl2wrap_arraypointer_s
 	GLint size;
 	GLenum type;
 	GLsizei stride;
-	GLuint vbo;
+	GLuint vbo, vbo_fb;
 } gl2wrap_arraypointer_t;
 
 static struct
@@ -996,8 +996,11 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 	if ( fogging )
 		flags |= 1 << GL2_FLAG_FOG;
 	prog = GL2_SetProg( flags );// | GL2_ATTR_TEXCOORD0 );
+	if(!prog)
+		return;
 	if( gl2wrap.vao )
 		pglBindVertexArray( gl2wrap.vao );
+
 	for( int i = 0; i < GL2_ATTR_MAX; i++ )
 	{
 		if(prog->attridx[i] < 0)
@@ -1005,8 +1008,37 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 		if( flags & (1 << i)  )
 		{
 			pglEnableVertexAttribArrayARB( prog->attridx[i] );
-			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.ptr[i].vbo );
-			pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, gl2wrap_arrays.ptr[i].userptr );
+			if( gl2wrap.vao && !gl2wrap_arrays.ptr[i].vbo )
+			{
+	// detect stride by type
+				int stride = gl2wrap_arrays.ptr[i].stride;
+				if( stride == 0 )
+				{
+					if( gl2wrap_arrays.ptr[i].type == GL_UNSIGNED_BYTE )
+						stride = gl2wrap_arrays.ptr[i].size;
+					else
+						stride = gl2wrap_arrays.ptr[i].size * 4;
+				}
+
+				if(	!gl2wrap_arrays.ptr[i].vbo_fb )
+					pglGenBuffersARB( 1, &gl2wrap_arrays.ptr[i].vbo_fb );
+				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.ptr[i].vbo_fb );
+				if(!end)
+				{
+					pglDisableVertexAttribArrayARB( prog->attridx[i] );
+					gEngfuncs.Con_Printf(S_ERROR "NON-vbo array for DrawElements call, SKIPPING!\n");
+					continue;
+				}
+				
+				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, end * stride, gl2wrap_arrays.ptr[i].userptr, GL_STREAM_DRAW_ARB );
+				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, 0 );
+				
+			}
+			else
+			{
+				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.ptr[i].vbo );
+				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, gl2wrap_arrays.ptr[i].userptr );
+			}
 			/*
 			if(i == GL2_ATTR_TEXCOORD0)
 				pglUniform1iARB( prog->utex0, 0 );
