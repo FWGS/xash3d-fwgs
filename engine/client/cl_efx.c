@@ -1236,12 +1236,15 @@ R_BloodStream
 particle spray 2
 ===============
 */
-void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t dir, int pcolor, int speed )
+void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor, int speed )
 {
 	particle_t	*p;
 	int		i, j;
 	float		arc;
 	int		accel = speed; // must be integer due to bug in GoldSrc
+	vec3_t dir;
+
+	VectorNormalize2( ndir, dir );
 
 	for( arc = 0.05f, i = 0; i < 100; i++ )
 	{
