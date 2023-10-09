@@ -2679,9 +2679,7 @@ void CL_UpdateFlashlight( cl_entity_t *ent )
 	falloff *= falloff;
 
 	// apply brigthness to dlight
-	dl->color.r = bound( 0, falloff * 255, 255 );
-	dl->color.g = bound( 0, falloff * 255, 255 );
-	dl->color.b = bound( 0, falloff * 255, 255 );
+	dl->color.r = dl->color.g = dl->color.b = bound( 0, falloff * 255, 255 );
 	dl->die = cl.time + 0.01f; // die on next frame
 	dl->radius = 80;
 }
