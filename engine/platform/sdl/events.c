@@ -631,15 +631,19 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 				Q_snprintf( val, sizeof( val ), "%d", event->window.data2 );
 				Cvar_DirectSet( &window_ypos, val );
+
+				Cvar_DirectSet( &vid_maximized, "0" );
 			}
 			break;
 		case SDL_WINDOWEVENT_MINIMIZED:
 			host.status = HOST_SLEEP;
+			Cvar_DirectSet( &vid_maximized, "0" );
 			VID_RestoreScreenResolution( );
 			break;
 		case SDL_WINDOWEVENT_RESTORED:
 			host.status = HOST_FRAME;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+			Cvar_DirectSet( &vid_maximized, "0" );
 			if( vid_fullscreen.value )
 				VID_SetMode();
 			break;
@@ -651,12 +655,18 @@ static void SDLash_EventFilter( SDL_Event *event )
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
 		{
+			SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
+
 			if( vid_fullscreen.value )
 				break;
 
-			VID_SaveWindowSize( event->window.data1, event->window.data2 );
+			VID_SaveWindowSize( event->window.data1, event->window.data2,
+				FBitSet( SDL_GetWindowFlags( wnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
 			break;
 		}
+		case SDL_WINDOWEVENT_MAXIMIZED:
+			Cvar_DirectSet( &vid_maximized, "1" );
+			break;
 		default:
 			break;
 		}
