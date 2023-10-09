@@ -29,7 +29,8 @@ static CVAR_DEFINE_AUTO( vid_rotate, "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "sc
 static CVAR_DEFINE_AUTO( vid_scale, "1.0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "pixel scale" );
 
 CVAR_DEFINE_AUTO( vid_highdpi, "1",  FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable High-DPI mode" );
-CVAR_DEFINE( vid_fullscreen, "fullscreen", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable fullscreen mode" );
+CVAR_DEFINE_AUTO( vid_maximized, "0", FCVAR_RENDERINFO, "window maximized state, read-only" );
+CVAR_DEFINE( vid_fullscreen, "fullscreen", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "enable fullscren mode" );
 CVAR_DEFINE( window_xpos, "_window_xpos", "-1", FCVAR_RENDERINFO, "window position by horizontal" );
 CVAR_DEFINE( window_ypos, "_window_ypos", "-1", FCVAR_RENDERINFO, "window position by vertical" );
 
@@ -66,7 +67,7 @@ void VID_InitDefaultResolution( void )
 R_SaveVideoMode
 =================
 */
-void R_SaveVideoMode( int w, int h, int render_w, int render_h )
+void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximized )
 {
 	if( !w || !h || !render_w || !render_h )
 	{
@@ -79,6 +80,7 @@ void R_SaveVideoMode( int w, int h, int render_w, int render_h )
 
 	Cvar_SetValue( "width", w );
 	Cvar_SetValue( "height", h );
+	Cvar_DirectSet( &vid_maximized, maximized ? "1" : "0" );
 	
 	// immediately drop changed state or we may trigger
 	// video subsystem to reapply settings
@@ -221,6 +223,7 @@ void VID_Init( void )
 	Cvar_RegisterVariable( &vid_rotate );
 	Cvar_RegisterVariable( &vid_scale );
 	Cvar_RegisterVariable( &vid_fullscreen );
+	Cvar_RegisterVariable( &vid_maximized );
 	Cvar_RegisterVariable( &vid_brightness );
 	Cvar_RegisterVariable( &vid_gamma );
 	Cvar_RegisterVariable( &window_xpos );

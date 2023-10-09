@@ -520,7 +520,7 @@ static qboolean GL_UpdateContext( void )
 	return true;
 }
 
-void VID_SaveWindowSize( int width, int height )
+void VID_SaveWindowSize( int width, int height, qboolean maximized )
 {
 	int render_w = width, render_h = height;
 
@@ -532,7 +532,7 @@ void VID_SaveWindowSize( int width, int height )
 #endif
 
 	VID_SetDisplayTransform( &render_w, &render_h );
-	R_SaveVideoMode( width, height, render_w, render_h );
+	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }
 
 static qboolean VID_SetScreenResolution( int width, int height )
@@ -568,9 +568,9 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	//SDL_SetWindowPosition( host.hWnd, 0, 0 );
 	SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
-	VID_SaveWindowSize( got.w, got.h );
+	VID_SaveWindowSize( got.w, got.h, true );
 #else
-	VID_SaveWindowSize( width, height );
+	VID_SaveWindowSize( width, height, true );
 #endif
 	return true;
 }
@@ -622,6 +622,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	char iconpath[MAX_STRING];
 	int xpos, ypos;
 	const char *localIcoPath;
+	qboolean maximized = vid_maximized.value != 0.0f;
 
 	if( vid_highdpi.value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
@@ -634,6 +635,8 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		SDL_Rect r;
 
 		wndFlags |= SDL_WINDOW_RESIZABLE;
+		if( maximized )
+			wndFlags |= SDL_WINDOW_MAXIMIZED;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
 		if( SDL_GetDisplayUsableBounds( 0, &r ) < 0 &&
@@ -691,9 +694,11 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 	// window creation has failed...
 	if( glw_state.safe >= SAFE_LAST )
-	{
 		return false;
-	}
+
+	// update window size if it was maximized, just in case
+	if( FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ) != 0 )
+		SDL_GetWindowSize( host.hWnd, &width, &height );
 
 #if !XASH_MOBILE_PLATFORM
 	if( fullscreen )
@@ -840,7 +845,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
-	VID_SaveWindowSize( width, height );
+	VID_SaveWindowSize( width, height, maximized );
 
 	return true;
 }
@@ -1094,7 +1099,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 		SDL_SetWindowSize( host.hWnd, width, height );
 
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-		VID_SaveWindowSize( width, height );
+		VID_SaveWindowSize( width, height, true );
 	}
 
 	return rserr_ok;
@@ -1136,7 +1141,7 @@ qboolean VID_SetMode( void )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	}
 
-	if( !FBitSet( vid_fullscreen.flags, FCVAR_CHANGED ) )
+	if( !FBitSet( vid_fullscreen.flags, FCVAR_CHANGED ))
 		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
 	else
 		ClearBits( vid_fullscreen.flags, FCVAR_CHANGED );
@@ -1167,11 +1172,12 @@ qboolean VID_SetMode( void )
 		// try setting it back to something safe
 		if(( err = R_ChangeDisplaySettings( sdlState.prev_width, sdlState.prev_height, false )) != rserr_ok )
 		{
-			Con_Reportf( S_ERROR  "VID_SetMode: could not revert to safe mode\n" );
+			Con_Reportf( S_ERROR "VID_SetMode: could not revert to safe mode\n" );
 			Sys_Warn("could not revert to safe mode!");
 			return false;
 		}
 	}
+
 	return true;
 }
 
