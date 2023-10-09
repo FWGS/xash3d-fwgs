@@ -808,7 +808,7 @@ compute string width and height in screen pixels
 */
 void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height )
 {
-	return CL_DrawStringLen( con.curFont, pText, length, height, FONT_DRAW_UTF8 );
+	CL_DrawStringLen( con.curFont, pText, length, height, FONT_DRAW_UTF8 );
 }
 
 /*
