@@ -9,6 +9,13 @@ typedef struct vidmode_s
 	int			height;
 } vidmode_t;
 
+typedef enum window_mode_e
+{
+	WINDOW_MODE_WINDOWED = 0,
+	WINDOW_MODE_FULLSCREEN,
+	WINDOW_MODE_BORDERLESS,
+	WINDOW_MODE_COUNT,
+} window_mode_t;
 
 typedef struct
 {
@@ -21,8 +28,6 @@ typedef struct
 	qboolean		initialized;	// OpenGL subsystem started
 	qboolean		extended;		// extended context allows to GL_Debug
 	qboolean        software;
-
-
 } glwstate_t;
 
 extern glwstate_t glw_state;
