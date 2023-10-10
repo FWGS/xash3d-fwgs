@@ -1158,7 +1158,7 @@ qboolean VID_SetMode( void )
 			Cvar_DirectSet( &vid_fullscreen, "0" );
 			Con_Reportf( S_ERROR  "VID_SetMode: fullscreen unavailable in this mode\n" );
 			Sys_Warn("fullscreen unavailable in this mode!");
-			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, window_mode )) == rserr_ok )
+			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, WINDOW_MODE_WINDOWED )) == rserr_ok )
 				return true;
 		}
 		else if( err == rserr_invalid_mode )
@@ -1168,7 +1168,7 @@ qboolean VID_SetMode( void )
 		}
 
 		// try setting it back to something safe
-		if(( err = R_ChangeDisplaySettings( sdlState.prev_width, sdlState.prev_height, window_mode )) != rserr_ok )
+		if(( err = R_ChangeDisplaySettings( sdlState.prev_width, sdlState.prev_height, WINDOW_MODE_WINDOWED )) != rserr_ok )
 		{
 			Con_Reportf( S_ERROR "VID_SetMode: could not revert to safe mode\n" );
 			Sys_Warn("could not revert to safe mode!");
