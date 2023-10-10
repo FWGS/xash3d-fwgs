@@ -205,11 +205,12 @@ typedef enum
 } rserr_t;
 
 struct vidmode_s;
+typedef enum window_mode_e window_mode_t;
 // Window
 qboolean  R_Init_Video( const int type );
 void      R_Free_Video( void );
 qboolean  VID_SetMode( void );
-rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen );
+rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode );
 int       R_MaxVideoModes( void );
 struct vidmode_s *R_GetVideoMode( int num );
 void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement
