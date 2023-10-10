@@ -76,12 +76,12 @@ void R_Free_Video( void )
 
 qboolean VID_SetMode( void )
 {
-	R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
+	R_ChangeDisplaySettings( 0, 0, WINDOW_MODE_FULLSCREEN ); // width and height are ignored anyway
 
 	return true;
 }
 
-rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
+rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	int render_w, render_h;
 	uint rotate = vid_rotate->value;
