@@ -383,7 +383,7 @@ static void SDLash_ActiveEvent( int gain )
 			SNDDMA_Activate( true );
 		}
 		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
-		if( vid_fullscreen.value )
+		if( vid_fullscreen.value == WINDOW_MODE_FULLSCREEN )
 			VID_SetMode();
 	}
 	else
@@ -622,7 +622,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 		switch( event->window.event )
 		{
 		case SDL_WINDOWEVENT_MOVED:
-			if( !vid_fullscreen.value )
+			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
 			{
 				char val[32];
 
@@ -644,7 +644,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 			host.status = HOST_FRAME;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			Cvar_DirectSet( &vid_maximized, "0" );
-			if( vid_fullscreen.value )
+			if( vid_fullscreen.value == WINDOW_MODE_FULLSCREEN )
 				VID_SetMode();
 			break;
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
@@ -654,16 +654,13 @@ static void SDLash_EventFilter( SDL_Event *event )
 			SDLash_ActiveEvent( false );
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
-		{
-			SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
-
-			if( vid_fullscreen.value )
-				break;
-
-			VID_SaveWindowSize( event->window.data1, event->window.data2,
-				FBitSet( SDL_GetWindowFlags( wnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
+			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
+			{
+				SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
+				VID_SaveWindowSize( event->window.data1, event->window.data2,
+					FBitSet( SDL_GetWindowFlags( wnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
+			}
 			break;
-		}
 		case SDL_WINDOWEVENT_MAXIMIZED:
 			Cvar_DirectSet( &vid_maximized, "1" );
 			break;

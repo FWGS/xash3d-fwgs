@@ -22,7 +22,7 @@ GNU General Public License for more details.
 
 // window management
 void VID_RestoreScreenResolution( void );
-qboolean  VID_CreateWindow( int width, int height, qboolean fullscreen );
+qboolean  VID_CreateWindow( int width, int height, window_mode_t window_mode );
 void      VID_DestroyWindow( void );
 void GL_InitExtensions( void );
 qboolean GL_DeleteContext( void );

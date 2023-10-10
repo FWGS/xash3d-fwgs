@@ -16,8 +16,6 @@ GNU General Public License for more details.
 #include <SDL.h>
 #include "common.h"
 #include "client.h"
-#include "mod_local.h"
-#include "input.h"
 #include "vid_common.h"
 #include "platform/sdl/events.h"
 
@@ -355,7 +353,7 @@ static void R_FreeVideoModes( void )
 	vidmodes = NULL;
 }
 
-#ifdef WIN32
+#if XASH_WIN32
 typedef enum _XASH_DPI_AWARENESS
 {
 	XASH_DPI_UNAWARE = 0,
@@ -414,6 +412,20 @@ static void WIN_SetDPIAwareness( void )
 		}
 		else Con_Reportf( "SetDPIAwareness: Can't load user32.dll\n" );
 	}
+}
+
+#include <SDL_syswm.h>
+static qboolean WIN_SetWindowIcon( HICON ico )
+{
+	SDL_SysWMinfo wminfo;
+
+	if( SDL_GetWindowWMInfo( host.hWnd, &wminfo ))
+	{
+		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_SMALL, (LONG_PTR)ico );
+		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_BIG, (LONG_PTR)ico );
+		return true;
+	}
+	return false;
 }
 #endif
 
@@ -535,39 +547,62 @@ void VID_SaveWindowSize( int width, int height, qboolean maximized )
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }
 
-static qboolean VID_SetScreenResolution( int width, int height )
+static qboolean VID_SetScreenResolution( int width, int height, window_mode_t window_mode )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_DisplayMode want, got;
+	SDL_DisplayMode got;
 	Uint32 wndFlags = 0;
-	static string wndname;
 
 #if !XASH_APPLE
-	if( vid_highdpi.value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
+	if( vid_highdpi.value )
+		SetBits( wndFlags, SDL_WINDOW_ALLOW_HIGHDPI );
 #endif
-	Q_strncpy( wndname, GI->title, sizeof( wndname ));
-
-	want.w = width;
-	want.h = height;
-	want.driverdata = NULL;
-	want.format = want.refresh_rate = 0; // don't care
-
-	if( !SDL_GetClosestDisplayMode( 0, &want, &got ))
-		return false;
-
-	if( got.w != want.w || got.h != want.h )
-		Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
-
-	if( SDL_SetWindowDisplayMode( host.hWnd, &got) == -1 )
-		return false;
-
-	if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN) == -1 )
-		return false;
 
 	SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
-	//SDL_SetWindowPosition( host.hWnd, 0, 0 );
-	SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
+	if( window_mode == WINDOW_MODE_BORDERLESS )
+	{
+		if( SDL_GetDesktopDisplayMode( 0, &got ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_GetDesktopDisplayMode: %s", __func__, SDL_GetError( ));
+			return false;
+		}
+
+		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN_DESKTOP ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (borderless): %s", __func__, SDL_GetError( ));
+			return false;
+		}
+	}
+	else if( window_mode == WINDOW_MODE_FULLSCREEN )
+	{
+		SDL_DisplayMode want = { 0 };
+		want.w = width;
+		want.h = height;
+
+		if( SDL_GetClosestDisplayMode( 0, &want, &got ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_GetClosestDisplayMode: %s", __func__, SDL_GetError( ));
+			return false;
+		}
+
+		if( got.w != want.w || got.h != want.h )
+			Con_Reportf( S_NOTE "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate );
+
+		if( SDL_SetWindowDisplayMode( host.hWnd, &got ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s", __func__, SDL_GetError( ));
+			return false;
+		}
+
+		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s", __func__, SDL_GetError( ));
+			return false;
+		}
+	}
+
+	SDL_SetWindowSize( host.hWnd, got.w, got.h );
 	VID_SaveWindowSize( got.w, got.h, true );
 #else
 	VID_SaveWindowSize( width, height, true );
@@ -578,65 +613,122 @@ static qboolean VID_SetScreenResolution( int width, int height )
 void VID_RestoreScreenResolution( void )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( !vid_fullscreen.value )
+	switch((window_mode_t)vid_fullscreen.value )
 	{
+	case WINDOW_MODE_WINDOWED:
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
-	}
-	else
-	{
+		break;
+	default:
 		SDL_MinimizeWindow( host.hWnd );
 		SDL_SetWindowFullscreen( host.hWnd, 0 );
+		break;
 	}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
-#if XASH_WIN32 // ICO support only for Win32
-#include "SDL_syswm.h"
-static void WIN_SetWindowIcon( HICON ico )
+static void VID_SetWindowIcon( SDL_Window *hWnd )
 {
-	SDL_SysWMinfo wminfo;
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	rgbdata_t *icon = NULL;
+	char iconpath[MAX_STRING];
+	const char *localIcoPath;
 
-	if( !ico )
-		return;
-
-	if( SDL_GetWindowWMInfo( host.hWnd, &wminfo ) )
+#if XASH_WIN32 // ICO support only for Win32
+	if(( localIcoPath = FS_GetDiskPath( GI->iconpath, true )))
 	{
-		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_SMALL, (LONG_PTR)ico );
-		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_BIG, (LONG_PTR)ico );
+		HICON ico = (HICON)LoadImage( NULL, localIcoPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
+		if( ico && WIN_SetWindowIcon( ico ))
+			return;
 	}
-}
+#endif // _WIN32 && !XASH_64BIT
+
+	Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
+	COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
+	icon = FS_LoadImage( iconpath, NULL, 0 );
+
+	if( icon )
+	{
+		SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
+			icon->width, icon->height, 32, 4 * icon->width,
+			0x000000ff, 0x0000ff00, 0x00ff0000,	0xff000000 );
+
+		if( surface )
+		{
+			SDL_SetWindowIcon( host.hWnd, surface );
+			SDL_FreeSurface( surface );
+			FS_FreeImage( icon );
+			return;
+		}
+
+		FS_FreeImage( icon );
+	}
+
+#if XASH_WIN32 // ICO support only for Win32
+	WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 )));
 #endif
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+}
+
+static qboolean VID_CreateWindowWithSafeGL( const char *wndname, int xpos, int ypos, int w, int h, uint32_t flags )
+{
+	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
+	{
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+		host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, w, h, flags );
+#else
+		host.hWnd = sw.surf = SDL_SetVideoMode( width, height, 16, flags );
+#endif
+		// we have window, exit loop
+		if( host.hWnd )
+			break;
+
+		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s' with safegl level %d: %s\n", wndname, glw_state.safe, SDL_GetError());
+
+		glw_state.safe++;
+
+		if( !gl_msaa_samples.value && glw_state.safe == SAFE_NOMSAA )
+			glw_state.safe++; // no need to skip msaa, if we already disabled it
+
+		GL_SetupAttributes(); // re-choose attributes
+
+		// try again create window
+	}
+
+	// window creation has failed...
+	if( glw_state.safe >= SAFE_LAST )
+		return false;
+
+	return true;
+}
 
 /*
 =================
 VID_CreateWindow
 =================
 */
-qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
+qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 {
-	static string	wndname;
+	string wndname;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	Uint32 wndFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
-	rgbdata_t *icon = NULL;
-	qboolean iconLoaded = false;
-	char iconpath[MAX_STRING];
-	int xpos, ypos;
-	const char *localIcoPath;
 	qboolean maximized = vid_maximized.value != 0.0f;
+	Uint32 wndFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
+	int xpos, ypos;
 
-	if( vid_highdpi.value ) wndFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
-	if( glw_state.software )
-		wndFlags &= ~SDL_WINDOW_OPENGL;
+
+	if( vid_highdpi.value )
+		SetBits( wndFlags, SDL_WINDOW_ALLOW_HIGHDPI );
+	if( !glw_state.software )
+		SetBits( wndFlags, SDL_WINDOW_OPENGL );
 
 #if !XASH_MOBILE_PLATFORM
-	if ( !fullscreen )
+	if( window_mode == WINDOW_MODE_WINDOWED )
 	{
 		SDL_Rect r;
 
-		wndFlags |= SDL_WINDOW_RESIZABLE;
+		SetBits( wndFlags, SDL_WINDOW_RESIZABLE );
 		if( maximized )
-			wndFlags |= SDL_WINDOW_MAXIMIZED;
+			SetBits( wndFlags, SDL_WINDOW_MAXIMIZED );
 
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
 		if( SDL_GetDisplayUsableBounds( 0, &r ) < 0 &&
@@ -664,7 +756,11 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	}
 	else
 	{
-		wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED;
+		if( window_mode == WINDOW_MODE_FULLSCREEN )
+			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN );
+		else
+			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN_DESKTOP );
+		SetBits( wndFlags, SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED );
 		xpos = ypos = 0;
 	}
 #else
@@ -672,93 +768,20 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	xpos = ypos = SDL_WINDOWPOS_UNDEFINED;
 #endif
 
-	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
-	{
-		host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, width, height, wndFlags );
-
-		// we have window, exit loop
-		if( host.hWnd )
-			break;
-
-		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s' with safegl level %d: %s\n", wndname, glw_state.safe, SDL_GetError());
-
-		glw_state.safe++;
-
-		if( !gl_msaa_samples.value && glw_state.safe == SAFE_NOMSAA )
-			glw_state.safe++; // no need to skip msaa, if we already disabled it
-
-		GL_SetupAttributes(); // re-choose attributes
-
-		// try again create window
-	}
-
-	// window creation has failed...
-	if( glw_state.safe >= SAFE_LAST )
+	if( !VID_CreateWindowWithSafeGL( wndname, xpos, ypos, width, height, wndFlags ))
 		return false;
 
 	// update window size if it was maximized, just in case
-	if( FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ) != 0 )
+	if( FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED|SDL_WINDOW_FULLSCREEN_DESKTOP ) != 0 )
 		SDL_GetWindowSize( host.hWnd, &width, &height );
 
 #if !XASH_MOBILE_PLATFORM
-	if( fullscreen )
+	if( window_mode != WINDOW_MODE_WINDOWED )
 	{
-		if( !VID_SetScreenResolution( width, height ) )
-		{
+		if( !VID_SetScreenResolution( width, height, window_mode ))
 			return false;
-		}
 	}
-	else
-	{
-		VID_RestoreScreenResolution();
-	}
-#endif
-
-#if XASH_WIN32 // ICO support only for Win32
-	if(( localIcoPath = FS_GetDiskPath( GI->iconpath, true )))
-	{
-		HICON ico;
-
-		ico = (HICON)LoadImage( NULL, localIcoPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
-
-		if( ico )
-		{
-			iconLoaded = true;
-			WIN_SetWindowIcon( ico );
-		}
-	}
-#endif // _WIN32 && !XASH_64BIT
-
-	if( !iconLoaded )
-	{
-		Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
-		COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
-
-		icon = FS_LoadImage( iconpath, NULL, 0 );
-
-		if( icon )
-		{
-			SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
-				icon->width, icon->height, 32, 4 * icon->width,
-				0x000000ff, 0x0000ff00, 0x00ff0000,	0xff000000 );
-
-			if( surface )
-			{
-				SDL_SetWindowIcon( host.hWnd, surface );
-				SDL_FreeSurface( surface );
-				iconLoaded = true;
-			}
-
-			FS_FreeImage( icon );
-		}
-	}
-
-#if XASH_WIN32 // ICO support only for Win32
-	if( !iconLoaded )
-	{
-		WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 ) ) );
-		iconLoaded = true;
-	}
+	else VID_RestoreScreenResolution();
 #endif
 
 	SDL_ShowWindow( host.hWnd );
@@ -802,47 +825,14 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	Uint32 flags = 0;
 
-	if( fullscreen )
-	{
-		flags |= SDL_FULLSCREEN|SDL_HWSURFACE;
-	}
+	if( window_mode != WINDOW_MODE_WINDOWED )
+		SetBits( flags, SDL_FULLSCREEN|SDL_HWSURFACE );
 
-	if( glw_state.software )
-	{
-		// flags |= SDL_ASYNCBLIT;
-	}
-	else
-	{
-		flags |= SDL_OPENGL;
-	}
+	if( !glw_state.software )
+		SetBits( flags, SDL_OPENGL );
 
-	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
-	{
-		host.hWnd = sw.surf = SDL_SetVideoMode( width, height, 16, flags );
-
-		// we have window, exit loop
-		if( host.hWnd )
-			break;
-
-		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s' with safegl level %d: %s\n", wndname, glw_state.safe, SDL_GetError());
-
-		glw_state.safe++;
-
-		if( !gl_msaa_samples.value && glw_state.safe == SAFE_NOMSAA )
-			glw_state.safe++; // no need to skip msaa, if we already disabled it
-
-		GL_SetupAttributes(); // re-choose attributes
-
-		// try again create window
-	}
-
-	// window creation has failed...
-	if( glw_state.safe >= SAFE_LAST )
-	{
+	if( !VID_CreateWindowWithSafeGL( wndname, xpos, ypos, width, height, wndFlags ))
 		return false;
-	}
-
-
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	VID_SaveWindowSize( width, height, maximized );
@@ -1061,7 +1051,7 @@ qboolean R_Init_Video( const int type )
 	return true;
 }
 
-rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
+rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_DisplayMode displayMode;
@@ -1070,35 +1060,40 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 
 	// check our desktop attributes
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
+	if( window_mode == WINDOW_MODE_BORDERLESS )
+	{
+		width = displayMode.w;
+		height = displayMode.h;
+	}
 #endif
 
-	Con_Reportf( "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, fullscreen ? "fullscreen" : "windowed" );
-
-	refState.fullScreen = fullscreen;
+	refState.fullScreen = window_mode != WINDOW_MODE_WINDOWED;
+	Con_Reportf( "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, refState.fullScreen ? "fullscreen" : "windowed" );
 
 	if( !host.hWnd )
 	{
-		if( !VID_CreateWindow( width, height, fullscreen ) )
+		if( !VID_CreateWindow( width, height, window_mode ))
 			return rserr_invalid_mode;
 	}
-	else if( fullscreen )
+	else if( refState.fullScreen )
 	{
-		if( !VID_SetScreenResolution( width, height ) )
+		if( !VID_SetScreenResolution( width, height, window_mode ))
 			return rserr_invalid_fullscreen;
 	}
 	else
 	{
 		VID_RestoreScreenResolution();
+
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) )
+		if( SDL_SetWindowFullscreen( host.hWnd, 0 ))
 			return rserr_invalid_fullscreen;
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
 		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
 #endif
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 		SDL_SetWindowSize( host.hWnd, width, height );
-
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+
 		VID_SaveWindowSize( width, height, true );
 	}
 
