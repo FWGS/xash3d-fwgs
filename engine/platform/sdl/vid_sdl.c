@@ -1111,6 +1111,7 @@ qboolean VID_SetMode( void )
 {
 	int iScreenWidth, iScreenHeight;
 	rserr_t	err;
+	window_mode_t window_mode;
 
 	iScreenWidth = Cvar_VariableInteger( "width" );
 	iScreenHeight = Cvar_VariableInteger( "height" );
@@ -1143,7 +1144,9 @@ qboolean VID_SetMode( void )
 
 	SetBits( gl_vsync.flags, FCVAR_CHANGED );
 
-	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, vid_fullscreen.value )) == rserr_ok )
+	window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
+
+	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, window_mode )) == rserr_ok )
 	{
 		sdlState.prev_width = iScreenWidth;
 		sdlState.prev_height = iScreenHeight;
@@ -1155,7 +1158,7 @@ qboolean VID_SetMode( void )
 			Cvar_DirectSet( &vid_fullscreen, "0" );
 			Con_Reportf( S_ERROR  "VID_SetMode: fullscreen unavailable in this mode\n" );
 			Sys_Warn("fullscreen unavailable in this mode!");
-			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, false )) == rserr_ok )
+			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, window_mode )) == rserr_ok )
 				return true;
 		}
 		else if( err == rserr_invalid_mode )
@@ -1165,7 +1168,7 @@ qboolean VID_SetMode( void )
 		}
 
 		// try setting it back to something safe
-		if(( err = R_ChangeDisplaySettings( sdlState.prev_width, sdlState.prev_height, false )) != rserr_ok )
+		if(( err = R_ChangeDisplaySettings( sdlState.prev_width, sdlState.prev_height, window_mode )) != rserr_ok )
 		{
 			Con_Reportf( S_ERROR "VID_SetMode: could not revert to safe mode\n" );
 			Sys_Warn("could not revert to safe mode!");
