@@ -27,7 +27,7 @@ GNU General Public License for more details.
 #define MAX_SHADERLEN 4096
 // increase this when adding more attributes
 #define MAX_PROGS 32
-
+#define MAX_BEGINEND_VERTS 8192
 void* APIENTRY (*_pglMapBufferRange)(GLenum target, GLsizei offset, GLsizei length, GLbitfield access);
 void* APIENTRY (*_pglFlushMappedBufferRange)(GLenum target, GLsizei offset, GLsizei length);
 void (*_pglBufferStorage)( 	GLenum target,
@@ -93,7 +93,8 @@ static struct
 {
 	GLfloat *attrbuf[GL2_ATTR_MAX];
 	GLuint *attrbufobj[GL2_ATTR_MAX];
-	GLuint attrbufpers[GL2_ATTR_MAX];
+	void **mappings[GL2_ATTR_MAX];
+	//GLuint attrbufpers[GL2_ATTR_MAX];
 	GLuint attrbufcycle;
 	GLuint cur_flags;
 	GLint begin;
@@ -229,7 +230,7 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 		Q_snprintf( tmp, sizeof( tmp ), "#define %s %d\n", gl2wrap_flag_name[i], prog->flags & ( 1 << i ) );
 		Q_strncat( shader, tmp, MAX_SHADERLEN );
 	}
-	if( version > 310 )
+	if( version >= 310 )
 	{
 		loc = 0;
 		for ( i = 0; i < GL2_ATTR_MAX; ++i )
@@ -322,6 +323,8 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 			prog->attridx[i] = loc;
 			if(gl2wrap_config.version <= 300)
 				pglBindAttribLocationARB( glprog, loc++, gl2wrap_attr_name[i] );
+			else
+				loc++;
 		}
 		else
 		{
@@ -359,14 +362,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	{
 		if( prog->attridx[i] >= 0 )
 		{
-			if( gl2wrap_config.incremental)
-			{
-				pglBindVertexArray( prog->vao_begin[0] );
-				pglEnableVertexAttribArrayARB( prog->attridx[i] );
-				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i] );
-				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_attr_size[i], GL_FLOAT, GL_FALSE, 0, 0 );
-			}
-			else if(gl2wrap_config.vao_mandatory)
+			if(gl2wrap_config.vao_mandatory || gl2wrap_config.incremental )
 			{
 				for(int j = 0; j < gl2wrap_config.cycle_buffers; j++ )
 				{
@@ -450,20 +446,20 @@ int GL2_ShimInit( void )
 	if ( gl2wrap_init )
 		return 0;
 	gl2wrap_config.vao_mandatory = true;
-	gl2wrap_config.incremental = false;
+	gl2wrap_config.incremental =true;
 	gl2wrap_config.async = true;
 	gl2wrap_config.force_flush = false;
 	gl2wrap_config.buf_storage = true;
 	gl2wrap_config.coherent = true;
-	gl2wrap_config.supports_mapbuffer = false;
-	gl2wrap_config.cycle_buffers = 1;
-	gl2wrap_config.version = 300;
+	gl2wrap_config.supports_mapbuffer = true;
+	gl2wrap_config.cycle_buffers = 4096;
+	gl2wrap_config.version = 310;
 	if(gl2wrap_config.buf_storage)
 		gl2wrap_config.incremental = true;
 	if(gl2wrap_config.incremental && !gl2wrap_config.buf_storage)
 		gl2wrap_config.async = true;
 	if(gl2wrap_config.incremental)
-		gl2wrap_config.cycle_buffers = 1;
+		gl2wrap_config.cycle_buffers = 4;
 	if(!gl2wrap_config.vao_mandatory)
 		gl2wrap_config.cycle_buffers = 1;
 
@@ -505,29 +501,38 @@ int GL2_ShimInit( void )
 		}
 		if( gl2wrap_config.incremental )
 		{
-			pglGenBuffersARB( 1, &gl2wrap.attrbufpers[i] );
-			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i] );
+			gl2wrap.attrbufobj[i] = malloc(gl2wrap_config.cycle_buffers * 4);
 			if( gl2wrap_config.buf_storage )
+				gl2wrap.mappings[i] = malloc(gl2wrap_config.cycle_buffers * 8);
+			pglGenBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap.attrbufobj[i] );
+
+			for(int j = 0; j < gl2wrap_config.cycle_buffers; j++ )
 			{
-				_pglBufferStorage( GL_ARRAY_BUFFER_ARB, size, NULL,
-								   0x0002 //GL_MAP_WRITE_BIT
-								 | (gl2wrap_config.coherent?0x80:0)
-								   | 0x40
-								   );
-				gl2wrap.attrbuf[i] = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
-											 0,
-											 size,
-											   0x0002 //GL_MAP_WRITE_BIT
-											//	| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
-											//	| 0x0008 // GL_MAP_INVALIDATE_BUFFER_BIT
-											// |0x0020 //GL_MAP_UNSYNCHRONIZED_BIT
-											 |(!gl2wrap_config.coherent?0x0010:0) // GL_MAP_FLUSH_EXPLICIT_BIT
-											| 0X40
-											|(gl2wrap_config.coherent?0x80:0) // GL_MAP_COHERENT_BIT
-										 );
+				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][j] );
+				if( gl2wrap_config.buf_storage )
+				{
+					_pglBufferStorage( GL_ARRAY_BUFFER_ARB, size, NULL,
+									   0x0002 //GL_MAP_WRITE_BIT
+									 | (gl2wrap_config.coherent?0x80:0)
+									   | 0x40
+									   );
+					gl2wrap.mappings[i][j] = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
+												 0,
+												 size,
+												   0x0002 //GL_MAP_WRITE_BIT
+												//	| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
+												//	| 0x0008 // GL_MAP_INVALIDATE_BUFFER_BIT
+												// |0x0020 //GL_MAP_UNSYNCHRONIZED_BIT
+												 |(!gl2wrap_config.coherent?0x0010:0) // GL_MAP_FLUSH_EXPLICIT_BIT
+												| 0X40
+												|(gl2wrap_config.coherent?0x80:0) // GL_MAP_COHERENT_BIT
+											 );
+				}
+				else
+					pglBufferDataARB( GL_ARRAY_BUFFER_ARB, size, NULL, GL_STREAM_DRAW_ARB );
 			}
-			else
-				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, size, NULL, GL_STREAM_DRAW_ARB );
+			if( gl2wrap_config.buf_storage )
+				gl2wrap.attrbuf[i] = gl2wrap.mappings[i][0];
 		}
 		else
 		{
@@ -540,7 +545,7 @@ int GL2_ShimInit( void )
 					for(int j = 0; j < gl2wrap_config.cycle_buffers; j++ )
 					{
 						rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][j] );
-						pglBufferDataARB( GL_ARRAY_BUFFER_ARB, 8192, NULL, GL_STREAM_DRAW_ARB );
+						pglBufferDataARB( GL_ARRAY_BUFFER_ARB, MAX_BEGINEND_VERTS, NULL, GL_STREAM_DRAW_ARB );
 					}
 				}
 			}
@@ -589,9 +594,10 @@ void GL2_ShimShutdown( void )
 		{
 			if(gl2wrap_config.buf_storage)
 			{
-				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i] );
-				pglUnmapBufferARB( GL_ARRAY_BUFFER_ARB );
-				pglDeleteBuffersARB( 1, &gl2wrap.attrbufpers[i] );
+				/// TODO: cleanup
+				//pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i] );
+				//pglUnmapBufferARB( GL_ARRAY_BUFFER_ARB );
+				//pglDeleteBuffersARB( 1, &gl2wrap.attrbufpers[i] );
 			}
 			else
 				free( gl2wrap.attrbuf[i] );
@@ -603,25 +609,29 @@ void GL2_ShimShutdown( void )
 	gl2wrap_init = 0;
 }
 
-void GL2_ShimEndFrame( void )
+static void GL2_ResetPersistentBuffer( void )
 {
 	int i;
-	pglFinish();
-	pglFlush();
+
 #ifdef QUAD_BATCH
 	GL2_FlushPrims();
 #endif
 	gl2wrap.end = gl2wrap.begin = 0;
-	if( 0 && gl2wrap_config.incremental)
+
+	if( gl2wrap_config.incremental)
 	{
+		gl2wrap.attrbufcycle = (gl2wrap.attrbufcycle + 1) % gl2wrap_config.cycle_buffers;
 		for ( i = 0; i < GL2_ATTR_MAX; ++i )
 		{
 			int		size = GL2_MAX_VERTS * gl2wrap_attr_size[i] * sizeof( GLfloat );
-			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i] );
+			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][gl2wrap.attrbufcycle] );
 			if(gl2wrap_config.buf_storage)
+
+
 			{
+
 				pglUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
-				gl2wrap.attrbuf[i] = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
+				gl2wrap.mappings[i][gl2wrap.attrbufcycle] = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
 											 0,
 											 size,
 											   0x0002 //GL_MAP_WRITE_BIT
@@ -632,6 +642,7 @@ void GL2_ShimEndFrame( void )
 											| 0X40
 											| (gl2wrap_config.coherent?0x00000080:0) // GL_MAP_COHERENT_BIT
 										 );
+				gl2wrap.attrbuf[i] = gl2wrap.mappings[i][gl2wrap.attrbufcycle];
 			}
 			else
 			{
@@ -649,13 +660,24 @@ void GL2_ShimEndFrame( void )
 				(void)mem;
 				pglUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
 			}
+
 		}
 	}
+}
+
+
+void GL2_ShimEndFrame( void )
+{
+#ifdef QUAD_BATCH
+	GL2_FlushPrims();
+#endif
 }
 
 static void APIENTRY GL2_Begin( GLenum prim )
 {
 	int i;
+	if(gl2wrap.begin + MAX_BEGINEND_VERTS > GL2_MAX_VERTS )
+		GL2_ResetPersistentBuffer();
 
 #ifdef QUAD_BATCH
 	if( gl2wrap.prim == GL_QUADS && gl2wrap_quad.active )
@@ -717,7 +739,7 @@ void GL2_FlushPrims( void )
 			if ( prog->attridx[i] >= 0 )
 			{
 				void *mem;
-				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i]);
+				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][gl2wrap.attrbufcycle]);
 				mem = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
 											 gl2wrap_attr_size[i] * 4 * gl2wrap.begin,
 											 gl2wrap_attr_size[i] * 4 * count,
@@ -741,7 +763,7 @@ void GL2_FlushPrims( void )
 		{
 			if ( prog->attridx[i] >= 0 )
 			{
-				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i]);
+				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][gl2wrap.attrbufcycle]);
 				_pglFlushMappedBufferRange( GL_ARRAY_BUFFER_ARB, 0, gl2wrap_attr_size[i] * 4 * count );
 			}
 		}
@@ -801,7 +823,7 @@ void GL2_FlushPrims( void )
 
 	if(gl2wrap_config.incremental)
 	{
-		pglBindVertexArray( prog->vao_begin[0] );
+		pglBindVertexArray( prog->vao_begin[gl2wrap.attrbufcycle] );
 		startindex = gl2wrap.begin;
 	}
 
@@ -823,7 +845,6 @@ void GL2_FlushPrims( void )
 _leave:
 	if(gl2wrap_config.vao_mandatory)
 		pglBindVertexArray(0);
-	//gl2wrap.vaocycle = (gl2wrap.vaocycle + 1) % CYCLE_ARRAYS;
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
 	
 	gl2wrap.prim = GL_NONE;
@@ -930,10 +951,12 @@ static void APIENTRY GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 		*p++ = gl2wrap.color[2];
 		*p++ = gl2wrap.color[3];
 	}
-	if ( gl2wrap.end >= GL2_MAX_VERTS )
+	if ( gl2wrap.end - gl2wrap.begin >= MAX_BEGINEND_VERTS )
 	{
+		GLenum prim = gl2wrap.prim;
 		gEngfuncs.Con_DPrintf( S_ERROR "GL2_Vertex3f(): Vertex buffer overflow!\n" );
-		gl2wrap.end = gl2wrap.begin = 0;
+		GL2_FlushPrims();
+		GL2_Begin( prim );
 	}
 }
 
@@ -1053,7 +1076,7 @@ static void APIENTRY GL2_Enable( GLenum e )
 	if( e == GL_BLEND || e == GL_ALPHA_TEST )
 		GL2_FlushPrims();
 #endif
-	if( e == GL_TEXTURE_2D )
+	if( e == GL_TEXTURE_2D || e == GL_TEXTURE_1D )
 		{}
 	else if( e == GL_FOG )
 		fogging = 1;
@@ -1070,7 +1093,7 @@ static void APIENTRY GL2_Disable( GLenum e )
 		GL2_FlushPrims();
 #endif
 
-	if( e == GL_TEXTURE_2D )
+	if( e == GL_TEXTURE_2D || e == GL_TEXTURE_1D  )
 		{}
 	else if( e == GL_FOG )
 		fogging = 0;
