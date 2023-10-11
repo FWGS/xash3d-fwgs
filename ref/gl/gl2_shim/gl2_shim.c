@@ -117,6 +117,7 @@ static struct
 	qboolean async; // enable MAP_UNSYNCHRONIZED_BIT on temporary mappings
 	qboolean force_flush; // enable MAP_FLUSH_EXPLICIT_BIT and FlushMappedBufferRange calls
 	uint32_t cycle_buffers; // cycle N buffers during draw to reduce locking in non-incremental mode
+	uint32_t version;
 } gl2wrap_config;
 
 static struct
@@ -212,7 +213,7 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 	int i;
 	GLint status, len;
 	GLuint id, loc;
-	int version = 300;
+	int version = gl2wrap_config.version;
 
 	shader = shader_buf;
 	//shader[0] = '\n';
@@ -228,19 +229,22 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 		Q_snprintf( tmp, sizeof( tmp ), "#define %s %d\n", gl2wrap_flag_name[i], prog->flags & ( 1 << i ) );
 		Q_strncat( shader, tmp, MAX_SHADERLEN );
 	}
-	loc = 0;
-	for ( i = 0; i < GL2_ATTR_MAX; ++i )
+	if( version > 310 )
 	{
-		if ( prog->flags & ( 1 << i ) )
+		loc = 0;
+		for ( i = 0; i < GL2_ATTR_MAX; ++i )
 		{
-			Q_snprintf( tmp, sizeof( tmp ), "#define LOC_%s %d\n", gl2wrap_flag_name[i], loc++ );
-			Q_strncat( shader, tmp, MAX_SHADERLEN );
-			prog->attridx[i] = loc;
+			if ( prog->flags & ( 1 << i ) )
+			{
+				Q_snprintf( tmp, sizeof( tmp ), "#define LOC_%s %d\n", gl2wrap_flag_name[i], loc++ );
+				Q_strncat( shader, tmp, MAX_SHADERLEN );
+				prog->attridx[i] = loc;
 
-		}
-		else
-		{
-			prog->attridx[i] = -1;
+			}
+			else
+			{
+				prog->attridx[i] = -1;
+			}
 		}
 	}
 
@@ -316,7 +320,8 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 		if ( flags & ( 1 << i ) )
 		{
 			prog->attridx[i] = loc;
-			pglBindAttribLocationARB( glprog, loc++, gl2wrap_attr_name[i] );
+			if(gl2wrap_config.version <= 300)
+				pglBindAttribLocationARB( glprog, loc++, gl2wrap_attr_name[i] );
 		}
 		else
 		{
@@ -420,12 +425,12 @@ static gl2wrap_prog_t *GL2_SetProg( const GLuint flags )
 	gl2wrap.cur_prog = prog;
 	return prog;
 }
-#if 0 //def QUAD_BATCH
-#define TRIQUADS_SIZE 16384
+#if 1 //def QUAD_BATCH
+#define TRIQUADS_SIZE GL2_MAX_VERTS / 4 * 6
 #else
 #define TRIQUADS_SIZE 256
 #endif
-unsigned short triquads_array[ TRIQUADS_SIZE * 6 ];
+unsigned short triquads_array[4][ TRIQUADS_SIZE * 6 ];
 
 int GL2_ShimInit( void )
 {
@@ -445,13 +450,14 @@ int GL2_ShimInit( void )
 	if ( gl2wrap_init )
 		return 0;
 	gl2wrap_config.vao_mandatory = true;
-	gl2wrap_config.incremental = true;
-	gl2wrap_config.async = false;
+	gl2wrap_config.incremental = false;
+	gl2wrap_config.async = true;
 	gl2wrap_config.force_flush = false;
 	gl2wrap_config.buf_storage = true;
 	gl2wrap_config.coherent = true;
-	gl2wrap_config.supports_mapbuffer = true;
-	gl2wrap_config.cycle_buffers = 4096;
+	gl2wrap_config.supports_mapbuffer = false;
+	gl2wrap_config.cycle_buffers = 1;
+	gl2wrap_config.version = 300;
 	if(gl2wrap_config.buf_storage)
 		gl2wrap_config.incremental = true;
 	if(gl2wrap_config.incremental && !gl2wrap_config.buf_storage)
@@ -462,15 +468,19 @@ int GL2_ShimInit( void )
 		gl2wrap_config.cycle_buffers = 1;
 
 	memset( &gl2wrap, 0, sizeof( gl2wrap ) );
-	/// TODO: calculate correct TRIQUADS_SIZE
-	for( i = 0; i < TRIQUADS_SIZE; i++ )
+	/// TODO: use IBO
+	for( i = 0; i < 4; i++ )
 	{
-		triquads_array[i * 6] = i * 4;
-		triquads_array[i * 6 + 1] = i * 4 + 1;
-		triquads_array[i * 6 + 2] = i * 4 + 2;
-		triquads_array[i * 6 + 3] = i * 4;
-		triquads_array[i * 6 + 4] = i * 4 + 2;
-		triquads_array[i * 6 + 5] = i * 4 + 3;
+		int j;
+		for( j = 0; j < TRIQUADS_SIZE; j++ )
+		{
+			triquads_array[i][j * 6] = j * 4 + i;
+			triquads_array[i][j * 6 + 1] = j * 4 + 1 + i;
+			triquads_array[i][j * 6 + 2] = j * 4 + 2 + i;
+			triquads_array[i][j * 6 + 3] = j * 4 + i;
+			triquads_array[i][j * 6 + 4] = j * 4 + 2 + i;
+			triquads_array[i][j * 6 + 5] = j * 4 + 3 + i;
+		}
 	}
 
 	gl2wrap.color[0] = 1.f;
@@ -602,7 +612,7 @@ void GL2_ShimEndFrame( void )
 	GL2_FlushPrims();
 #endif
 	gl2wrap.end = gl2wrap.begin = 0;
-	if(gl2wrap_config.incremental)
+	if( 0 && gl2wrap_config.incremental)
 	{
 		for ( i = 0; i < GL2_ATTR_MAX; ++i )
 		{
@@ -799,10 +809,11 @@ void GL2_FlushPrims( void )
 	{
 		if(count == 4)
 			rpglDrawArrays( GL_TRIANGLE_FAN, startindex, count );
+		/// TODO: use DrawRangeElementsBaseVertex when supported
 		else if(rpglDrawRangeElements)
-			rpglDrawRangeElements( GL_TRIANGLES, startindex, startindex + count, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array + (startindex / 4 * 6) );
+			rpglDrawRangeElements( GL_TRIANGLES, startindex, startindex + count, Q_min(count / 4 * 6,sizeof(triquads_array)/2 - startindex), GL_UNSIGNED_SHORT, &triquads_array[startindex % 4][0] + (startindex / 4 * 6) );
 		else
-			rpglDrawElements( GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, triquads_array + (startindex / 4 * 6) );
+			rpglDrawElements( GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, &triquads_array[startindex % 4][0] + (startindex / 4 * 6) );
 	}
 	else if( gl2wrap.prim == GL_POLYGON )
 		rpglDrawArrays( GL_TRIANGLE_FAN, startindex, count );
@@ -910,6 +921,15 @@ static void APIENTRY GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 	*p++ = y;
 	*p++ = z;
 	++gl2wrap.end;
+	if(gl2wrap.cur_flags & 1 << GL2_ATTR_COLOR)
+	{
+		GLfloat *p = gl2wrap.attrbuf[GL2_ATTR_COLOR] + gl2wrap.end * 4;
+		gl2wrap.cur_flags |= 1 << GL2_ATTR_COLOR;
+		*p++ = gl2wrap.color[0];
+		*p++ = gl2wrap.color[1];
+		*p++ = gl2wrap.color[2];
+		*p++ = gl2wrap.color[3];
+	}
 	if ( gl2wrap.end >= GL2_MAX_VERTS )
 	{
 		gEngfuncs.Con_DPrintf( S_ERROR "GL2_Vertex3f(): Vertex buffer overflow!\n" );
