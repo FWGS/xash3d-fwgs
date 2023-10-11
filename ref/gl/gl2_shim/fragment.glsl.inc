@@ -13,10 +13,10 @@ R"(
 precision mediump float;
 #endif
 #if ATTR_TEXCOORD0
-layout(location = 5) uniform sampler2D uTex0;
+uniform sampler2D uTex0;
 #endif
 #if ATTR_TEXCOORD1
-layout(location = 6) uniform sampler2D uTex1;
+uniform sampler2D uTex1;
 #endif
 #if FEAT_ALPHA_TEST
 uniform float uAlphaTest;
@@ -24,7 +24,7 @@ uniform float uAlphaTest;
 #if FEAT_FOG
 uniform vec4 uFog;
 #endif
-layout(location = 2) uniform vec4 uColor;
+uniform vec4 uColor;
 #if ATTR_COLOR
 in vec4 vColor;
 #endif
