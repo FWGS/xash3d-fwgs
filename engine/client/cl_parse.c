@@ -993,9 +993,10 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	{
 		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name.string ), true ))
 			Cvar_Set( "cl_levelshot_name", "*black" ); // render a black screen
-		cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
 	}
 
+	cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
+	
 	for( i = 0; i < MAX_CLIENTS; i++ )
 		COM_ClearCustomizationList( &cl.players[i].customdata, true );
 	CL_CreateCustomizationList();
