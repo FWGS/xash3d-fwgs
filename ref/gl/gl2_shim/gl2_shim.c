@@ -28,9 +28,10 @@ GNU General Public License for more details.
 // increase this when adding more attributes
 #define MAX_PROGS 32
 #define MAX_BEGINEND_VERTS 8192
-void* APIENTRY (*_pglMapBufferRange)(GLenum target, GLsizei offset, GLsizei length, GLbitfield access);
-void* APIENTRY (*_pglFlushMappedBufferRange)(GLenum target, GLsizei offset, GLsizei length);
-void (*_pglBufferStorage)( 	GLenum target,
+void* (APIENTRY* _pglMapBufferRange)(GLenum target, GLsizei offset, GLsizei length, GLbitfield access);
+void* (APIENTRY* _pglFlushMappedBufferRange)(GLenum target, GLsizei offset, GLsizei length);
+void* (APIENTRY* _pglDrawRangeElementsBaseVertex)( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices, GLuint vertex );
+void (APIENTRY*_pglBufferStorage)( 	GLenum target,
 	GLsizei size,
 	const GLvoid * data,
 	GLbitfield flags);
@@ -106,6 +107,7 @@ static struct
 	gl2wrap_prog_t progs[MAX_PROGS];
 	gl2wrap_prog_t *cur_prog;
 	GLboolean uchanged;
+	GLuint triquads_ibo[4];
 } gl2wrap;
 
 static struct
@@ -168,12 +170,12 @@ static GLboolean alpha_test_state;
 static GLboolean fogging;
 
 
-static void APIENTRY (*rpglEnable)(GLenum e);
-static void APIENTRY (*rpglDisable)(GLenum e);
-static void APIENTRY (*rpglDrawElements )( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices );
-static void APIENTRY (*rpglDrawArrays )(GLenum mode, GLint first, GLsizei count);
-static void APIENTRY (*rpglDrawRangeElements )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
-static void APIENTRY (*rpglBindBufferARB)( GLenum buf, GLuint obj);
+static void (APIENTRY*rpglEnable)(GLenum e);
+static void (APIENTRY*rpglDisable)(GLenum e);
+static void (APIENTRY*rpglDrawElements )( GLenum mode, GLsizei count, GLenum type, const GLvoid *indices );
+static void (APIENTRY*rpglDrawArrays )(GLenum mode, GLint first, GLsizei count);
+static void (APIENTRY*rpglDrawRangeElements )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
+static void (APIENTRY*rpglBindBufferARB)( GLenum buf, GLuint obj);
 #ifdef QUAD_BATCH
 void GL2_FlushPrims( void );
 static void APIENTRY (*rpglBindTexture)( GLenum tex, GLuint obj);
@@ -421,12 +423,8 @@ static gl2wrap_prog_t *GL2_SetProg( const GLuint flags )
 	gl2wrap.cur_prog = prog;
 	return prog;
 }
-#if 1 //def QUAD_BATCH
+
 #define TRIQUADS_SIZE GL2_MAX_VERTS / 4 * 6
-#else
-#define TRIQUADS_SIZE 256
-#endif
-unsigned short triquads_array[4][ TRIQUADS_SIZE * 6 ];
 
 int GL2_ShimInit( void )
 {
@@ -464,19 +462,26 @@ int GL2_ShimInit( void )
 		gl2wrap_config.cycle_buffers = 1;
 
 	memset( &gl2wrap, 0, sizeof( gl2wrap ) );
+	GL2_ShimInstall();
+
 	/// TODO: use IBO
-	for( i = 0; i < 4; i++ )
+	for( i = 0; i < (!!_pglDrawRangeElementsBaseVertex?1:4); i++ )
 	{
 		int j;
+		GLushort triquads_array[TRIQUADS_SIZE * 6];
+
 		for( j = 0; j < TRIQUADS_SIZE; j++ )
 		{
-			triquads_array[i][j * 6] = j * 4 + i;
-			triquads_array[i][j * 6 + 1] = j * 4 + 1 + i;
-			triquads_array[i][j * 6 + 2] = j * 4 + 2 + i;
-			triquads_array[i][j * 6 + 3] = j * 4 + i;
-			triquads_array[i][j * 6 + 4] = j * 4 + 2 + i;
-			triquads_array[i][j * 6 + 5] = j * 4 + 3 + i;
+			triquads_array[j * 6] = j * 4 + i;
+			triquads_array[j * 6 + 1] = j * 4 + 1 + i;
+			triquads_array[j * 6 + 2] = j * 4 + 2 + i;
+			triquads_array[j * 6 + 3] = j * 4 + i;
+			triquads_array[j * 6 + 4] = j * 4 + 2 + i;
+			triquads_array[j * 6 + 5] = j * 4 + 3 + i;
 		}
+		pglGenBuffersARB( 1, &gl2wrap.triquads_ibo[i] );
+		rpglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, gl2wrap.triquads_ibo[i] );
+		pglBufferDataARB( GL_ELEMENT_ARRAY_BUFFER_ARB, sizeof(triquads_array), triquads_array, GL_STATIC_DRAW_ARB );
 	}
 
 	gl2wrap.color[0] = 1.f;
@@ -485,7 +490,6 @@ int GL2_ShimInit( void )
 	gl2wrap.color[3] = 1.f;
 	gl2wrap.uchanged = GL_TRUE;
 
-	GL2_ShimInstall();
 	total = 0;
 
 	for ( i = 0; i < GL2_ATTR_MAX; ++i )
@@ -555,6 +559,8 @@ int GL2_ShimInit( void )
 	}
 	if( gl2wrap_config.vao_mandatory )
 		pglBindVertexArray(0);
+	rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
+	rpglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0 );
 	
 
 
@@ -831,11 +837,24 @@ void GL2_FlushPrims( void )
 	{
 		if(count == 4)
 			rpglDrawArrays( GL_TRIANGLE_FAN, startindex, count );
-		/// TODO: use DrawRangeElementsBaseVertex when supported
+		else if(_pglDrawRangeElementsBaseVertex)
+		{
+			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, gl2wrap.triquads_ibo[0] );
+			_pglDrawRangeElementsBaseVertex( GL_TRIANGLES, startindex, startindex + count, Q_min(count / 4 * 6,TRIQUADS_SIZE * 6 - startindex), GL_UNSIGNED_SHORT, (void*)(size_t)(startindex / 4 * 6 * 2), startindex % 4 );
+			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
+		}
 		else if(rpglDrawRangeElements)
-			rpglDrawRangeElements( GL_TRIANGLES, startindex, startindex + count, Q_min(count / 4 * 6,sizeof(triquads_array)/2 - startindex), GL_UNSIGNED_SHORT, &triquads_array[startindex % 4][0] + (startindex / 4 * 6) );
+		{
+			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, gl2wrap.triquads_ibo[startindex % 4] );
+			rpglDrawRangeElements( GL_TRIANGLES, startindex, startindex + count, Q_min(count / 4 * 6,TRIQUADS_SIZE * 6 - startindex), GL_UNSIGNED_SHORT, (void*)(size_t)(startindex / 4 * 6 * 2) );
+			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0 );
+		}
 		else
-			rpglDrawElements( GL_TRIANGLES, Q_min(count / 4 * 6,sizeof(triquads_array)/2), GL_UNSIGNED_SHORT, &triquads_array[startindex % 4][0] + (startindex / 4 * 6) );
+		{
+			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, gl2wrap.triquads_ibo[startindex % 4] );
+			rpglDrawElements( GL_TRIANGLES, Q_min(count / 4 * 6,TRIQUADS_SIZE * 6 - startindex), GL_UNSIGNED_SHORT,  (void*)(size_t)(startindex / 4 * 6 * 2) );
+			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0 );
+		}
 	}
 	else if( gl2wrap.prim == GL_POLYGON )
 		rpglDrawArrays( GL_TRIANGLE_FAN, startindex, count );
@@ -876,7 +895,7 @@ static void APIENTRY GL2_End( void )
 	GL2_FlushPrims();
 }
 
-static void (* APIENTRY rpglTexImage2D)( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
+static void (APIENTRY* rpglTexImage2D)( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
 static void APIENTRY GL2_TexImage2D( GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels )
 {
 	void *data = (void*)pixels;
@@ -906,7 +925,7 @@ static void APIENTRY GL2_TexImage2D( GLenum target, GLint level, GLint internalf
 	if( data != pixels )
 		free(data);
 }
-static void (* APIENTRY rpglTexParameteri)( GLenum target, GLenum pname, GLint param );
+static void (APIENTRY*  rpglTexParameteri)( GLenum target, GLenum pname, GLint param );
 static void APIENTRY GL2_TexParameteri( GLenum target, GLenum pname, GLint param )
 {
 	if ( pname == GL_TEXTURE_BORDER_COLOR )
@@ -924,7 +943,7 @@ static void APIENTRY GL2_TexParameteri( GLenum target, GLenum pname, GLint param
 }
 
 
-GLboolean (* APIENTRY rpglIsEnabled)(GLenum e);
+GLboolean (APIENTRY* rpglIsEnabled)(GLenum e);
 static GLboolean APIENTRY GL2_IsEnabled(GLenum e)
 {
 	if(e == GL_FOG)
@@ -1247,17 +1266,17 @@ static void GL2_SetPointer( int idx, GLint size, GLenum type, GLsizei stride, co
 //		gl2wrap_arrays.vbo_flags &= ~(1 << idx);
 }
 
-void GL2_VertexPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+static void APIENTRY GL2_VertexPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
 {
 	GL2_SetPointer( GL2_ATTR_POS, size, type, stride, pointer );
 }
 
-void GL2_ColorPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+static void APIENTRY GL2_ColorPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
 {
 	GL2_SetPointer( GL2_ATTR_COLOR, size, type, stride, pointer );
 }
 
-void GL2_TexCoordPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
+static void APIENTRY GL2_TexCoordPointer( GLint size, GLenum type, GLsizei stride, const GLvoid *pointer )
 {
 	GL2_SetPointer( GL2_ATTR_TEXCOORD0 + gl2wrap_arrays.texture, size, type, stride, pointer );
 }
@@ -1277,13 +1296,13 @@ static unsigned int GL2_GetArrIdx( GLenum array )
 	}
 }
 
-void GL2_EnableClientState( GLenum array )
+static void APIENTRY GL2_EnableClientState( GLenum array )
 {
 	int idx = GL2_GetArrIdx(array);
 	gl2wrap_arrays.flags |= 1 << idx;
 }
 
-void GL2_DisableClientState( GLenum array )
+static void APIENTRY GL2_DisableClientState( GLenum array )
 {
 	unsigned int idx = GL2_GetArrIdx(array);
 	gl2wrap_arrays.flags &= ~(1 << idx);
@@ -1587,6 +1606,7 @@ void GL2_ShimInstall( void )
 	_pglWaitSync = gEngfuncs.GL_GetProcAddress("glWaitSync");
 	_pglClientWaitSync = gEngfuncs.GL_GetProcAddress("glClientWaitSync");
 	_pglDeleteSync = gEngfuncs.GL_GetProcAddress("glDeleteSync");
+	_pglDrawRangeElementsBaseVertex = gEngfuncs.GL_GetProcAddress("glDrawRangeElementsBaseVertex");
 
 #ifdef QUAD_BATCH
 	GL2_OVERRIDE_PTR_B( BindTexture )
