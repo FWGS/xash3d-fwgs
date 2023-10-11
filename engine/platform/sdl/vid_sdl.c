@@ -757,14 +757,15 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 	else
 	{
 		if( window_mode == WINDOW_MODE_FULLSCREEN )
-			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN );
+			// need input grab only in true fullscreen mode
+			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_INPUT_GRABBED );
 		else
 			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN_DESKTOP );
-		SetBits( wndFlags, SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED );
+		SetBits( wndFlags, SDL_WINDOW_BORDERLESS );
 		xpos = ypos = 0;
 	}
 #else
-	wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_INPUT_GRABBED;
+	SetBits( wndFlags, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_INPUT_GRABBED );
 	xpos = ypos = SDL_WINDOWPOS_UNDEFINED;
 #endif
 
