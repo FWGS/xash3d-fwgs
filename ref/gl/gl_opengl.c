@@ -249,7 +249,32 @@ static dllfunc_t drawrangeelementsextfuncs[] =
 { NULL, NULL }
 };
 
+
+// mangling in gl2shim???
+// still need resolve some ext dynamicly, and mangling beginend wrappers will help only with LTO
+// anyway this will not work with gl-wes/nanogl, we do not link to libGLESv2, so skip this now
 #ifndef XASH_GL_STATIC
+
+static dllfunc_t mapbufferrangefuncs[] =
+{
+{ GL_CALL( glMapBufferRange ) },
+{ GL_CALL( glFlushMappedBufferRange ) },
+{ NULL, NULL }
+};
+
+static dllfunc_t drawrangeelementsbasevertexfuncs[] =
+{
+{ GL_CALL( glDrawRangeElementsBaseVertex ) },
+{ NULL, NULL }
+};
+
+static dllfunc_t bufferstoragefuncs[] =
+{
+{ GL_CALL( glBufferStorage ) },
+{ NULL, NULL }
+};
+
+
 static dllfunc_t shaderobjectsfuncs[] =
 {
 	{ GL_CALL( glDeleteObjectARB ) },
@@ -731,6 +756,17 @@ void GL_InitExtensionsGLES( void )
 		case GL_DRAW_RANGEELEMENTS_EXT:
 			GL_CheckExtension( "draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid, 0 );
 			break;
+		case GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT:
+			if( !GL_CheckExtension( "GL_OES_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 0 ) )
+				GL_CheckExtension( "GL_EXT_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 3.2 );
+			break;
+		case GL_MAP_BUFFER_RANGE_EXT:
+			GL_CheckExtension( "GL_EXT_map_buffer_range", mapbufferrangefuncs, "gl_map_buffer_range", GL_MAP_BUFFER_RANGE_EXT , 3.0);
+			break;
+		case GL_BUFFER_STORAGE_EXT:
+			GL_CheckExtension( "GL_EXT_buffer_storage", bufferstoragefuncs, "gl_buffer_storage", GL_BUFFER_STORAGE_EXT, 0);
+			break;
+
 #endif
 		case GL_DEBUG_OUTPUT:
 			if( glw_state.extended )
@@ -856,8 +892,11 @@ void GL_InitExtensionsBigGL( void )
 	if(glConfig.context == CONTEXT_TYPE_GL_CORE )
 		GL_CheckExtension( "shader_objects", shaderobjectsfuncs_gles, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT, 2.0 );
 	else
-		GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT, 0 );
-	GL_CheckExtension( "GL_ARB_vertex_array_object", vaofuncs, "gl_vertex_array_object", GL_ARB_VERTEX_ARRAY_OBJECT_EXT, 0 );
+		GL_CheckExtension( "GL_ARB_shader_objects", shaderobjectsfuncs, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT, 2.0 );
+	GL_CheckExtension( "GL_ARB_vertex_array_object", vaofuncs, "gl_vertex_array_object", GL_ARB_VERTEX_ARRAY_OBJECT_EXT, 3.0 );
+	GL_CheckExtension( "GL_ARB_buffer_storage", bufferstoragefuncs, "gl_buffer_storage", GL_BUFFER_STORAGE_EXT, 4.4);
+	GL_CheckExtension( "GL_ARB_map_buffer_range", mapbufferrangefuncs, "gl_map_buffer_range", GL_MAP_BUFFER_RANGE_EXT , 3.0);
+	GL_CheckExtension( "GL_ARB_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 3.2 );
 #endif
 	if( GL_CheckExtension( "GL_ARB_shading_language_100", NULL, NULL, GL_SHADER_GLSL100_EXT, 2.0 ))
 	{
