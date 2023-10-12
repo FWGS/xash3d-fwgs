@@ -1008,7 +1008,7 @@ static void APIENTRY GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 	*p++ = x;
 	*p++ = y;
 	*p++ = z;
-	++gl2wrap.end;
+
 	if(gl2wrap.cur_flags & 1 << GL2_ATTR_COLOR)
 	{
 		GLfloat *p = gl2wrap.attrbuf[GL2_ATTR_COLOR] + gl2wrap.end * 4;
@@ -1018,6 +1018,7 @@ static void APIENTRY GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 		*p++ = gl2wrap.color[2];
 		*p++ = gl2wrap.color[3];
 	}
+	++gl2wrap.end;
 	if ( gl2wrap.end - gl2wrap.begin >= MAX_BEGINEND_VERTS )
 	{
 		GLenum prim = gl2wrap.prim;
