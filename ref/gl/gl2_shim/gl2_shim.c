@@ -755,7 +755,7 @@ void GL2_FlushPrims( void )
 	GLint count = gl2wrap.end - gl2wrap.begin;
 	gl2wrap_prog_t *prog;
 	if ( !gl2wrap.prim || !count )
-		goto _leave; // end without begin 
+		goto leave_label; // end without begin
 
 	// enable alpha test and fog if needed
 	if ( gl2wrap_state.alpha_test )
@@ -774,7 +774,7 @@ void GL2_FlushPrims( void )
 	if ( !prog )
 	{
 		gEngfuncs.Host_Error( "GL2_End(): Could not find program for flags 0x%04x!\n", flags );
-		goto _leave;
+		goto leave_label;
 	}
 
 
@@ -865,7 +865,7 @@ void GL2_FlushPrims( void )
 	else // TRIANGLES, LINES, TRISTRIP, TRIFAN supported anyway
 		rpglDrawArrays( gl2wrap.prim, startindex, count );
 
-_leave:
+leave_label:
 	if(gl2wrap_config.vao_mandatory)
 	{
 		pglBindVertexArray(0);
@@ -1229,14 +1229,14 @@ static void APIENTRY GL2_LoadMatrixf( const GLfloat *m )
 	memcpy( gl2wrap_matrix.current, m, 16 * sizeof(float) );
 	gl2wrap_matrix.update = 0xFFFFFFFFFFFFFFFF;
 }
+#ifdef XASH_GLES
+static void ( APIENTRY *_pglDepthRangef)(GLfloat zFar, GLfloat zNear);
 
-static void ( APIENTRY*_pglDepthRangef)(GLfloat far, GLfloat near);
-
-static void APIENTRY GL2_DepthRange(GLdouble far, GLdouble near)
+static void APIENTRY GL2_DepthRange(GLdouble zFar, GLdouble zNear)
 {
-	_pglDepthRangef(far, near);
+	_pglDepthRangef(zFar, zNear);
 }
-
+#endif
 /*
 ======================
 
