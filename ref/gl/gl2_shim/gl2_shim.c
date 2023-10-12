@@ -1,6 +1,6 @@
 /*
-gl2wrap_shim.c - vitaGL custom immediate mode shim
-Copyright (C) 2023 fgsfds
+gl2_shim.c - GL CORE/ES2+ FFP emulation
+Copyright (C) 2023 mittorn, fgsfds
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -14,9 +14,21 @@ GNU General Public License for more details.
 */
 
 /*
-	this is a "replacement" for vitaGL's immediate mode tailored specifically for xash
-	this will only provide performance gains if vitaGL is built with DRAW_SPEEDHACK=1
-	since that makes it assume that all vertex data pointers are GPU-mapped
+based on vglshim, as it has almost all needed for using glbegins on gles
+BufStorage mode should work similar to vglshim with vitagl's DRAW_SPEEDHACK
+as it uses gpu-mapped in similar way
+
+gl2shim will not give much performance gain. It does not batch small drawcalls, just do little copy optimization
+It just allows to draw similar way as in native legacy context, but in es/core contexts
+
+Limitations:
+1. Matrix support is very limited, only combined MVP
+2. No TexEnv support, multitexture always works in MODULATE mode
+3. DrawElements with client pointers will not work on CORE/WEBGL contexts, DrawRangeElements will
+4. No quads in arrays drawing (simple DrawArrays(GL_QUADS) may be implemented, but DrawElements not)
+5. Textures are enabled with texcoord attribs, not glEnable (can be changed, but who cares?)
+6. Begin/End limited to 8192 vertices. It is possible to support more, but need change glVertex logic to split drawcals, which may make it slower
+7. Textures internalformat ignored except of removing alpha from RGB textures
 */
 
 #include "gl_local.h"
@@ -27,6 +39,7 @@ GNU General Public License for more details.
 #define MAX_SHADERLEN 4096
 // increase this when adding more attributes
 #define MAX_PROGS 32
+// must be LESS GL2_MAX_VERTS
 #define MAX_BEGINEND_VERTS 8192
 void* (APIENTRY* _pglMapBufferRange)(GLenum target, GLsizei offset, GLsizei length, GLbitfield access);
 void* (APIENTRY* _pglFlushMappedBufferRange)(GLenum target, GLsizei offset, GLsizei length);
@@ -35,15 +48,15 @@ void (APIENTRY*_pglBufferStorage)( 	GLenum target,
 	GLsizei size,
 	const GLvoid * data,
 	GLbitfield flags);
-void (*_pglWaitSync)( 	void * sync,
+void (APIENTRY*_pglWaitSync)( 	void * sync,
 	GLbitfield flags,
 	uint64_t timeout);
-GLuint (*_pglClientWaitSync)( 	void * sync,
+GLuint (APIENTRY*_pglClientWaitSync)( 	void * sync,
 	GLbitfield flags,
 	uint64_t timeout);
-void *(*_pglFenceSync)( 	GLenum condition,
+void *(APIENTRY*_pglFenceSync)( 	GLenum condition,
 	GLbitfield flags);
-void (*_pglDeleteSync)( void * sync );
+void (APIENTRY*_pglDeleteSync)( void * sync );
 
 extern ref_api_t gEngfuncs;
 
@@ -120,7 +133,7 @@ static struct
 	qboolean async; // enable MAP_UNSYNCHRONIZED_BIT on temporary mappings
 	qboolean force_flush; // enable MAP_FLUSH_EXPLICIT_BIT and FlushMappedBufferRange calls
 	uint32_t cycle_buffers; // cycle N buffers during draw to reduce locking in non-incremental mode
-	uint32_t version;
+	uint32_t version; // glsl version to use
 } gl2wrap_config;
 
 static struct
@@ -435,9 +448,9 @@ static void GL2_InitTriQuads( void )
 	for( i = 0; i < (!!_pglDrawRangeElementsBaseVertex?1:4); i++ )
 	{
 		int j;
-		GLushort triquads_array[TRIQUADS_SIZE * 6];
+		GLushort triquads_array[TRIQUADS_SIZE];
 
-		for( j = 0; j < TRIQUADS_SIZE; j++ )
+		for( j = 0; j < TRIQUADS_SIZE / 6; j++ )
 		{
 			triquads_array[j * 6] = j * 4 + i;
 			triquads_array[j * 6 + 1] = j * 4 + 1 + i;
@@ -644,8 +657,6 @@ static void GL2_ResetPersistentBuffer( void )
 			int		size = GL2_MAX_VERTS * gl2wrap_attr_size[i] * sizeof( GLfloat );
 			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][gl2wrap.attrbufcycle] );
 			if(gl2wrap_config.buf_storage)
-
-
 			{
 
 				pglUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
@@ -718,8 +729,17 @@ static void APIENTRY GL2_Begin( GLenum prim )
 	// pos always enabled
 	gl2wrap.cur_flags |= 1 << GL2_ATTR_POS;
 }
-void (*_pglMemoryBarrier)(GLbitfield barriers);
+void (APIENTRY*_pglMemoryBarrier)(GLbitfield barriers);
 
+/*
+==============================
+UpdateIncrementalBuffer
+
+glBufferStorage allows to write directly without mapping buffer every time before draw
+This allows keep VAO unchanged and fastly build needed pipeline in driver for every program variant
+When buffer storage not supported, we still may use cached VAO, but map/unmap it every time writing new data
+==============================
+*/
 static void GL2_UpdateIncrementalBuffer( gl2wrap_prog_t *prog, int count )
 {
 	int i;
@@ -750,6 +770,7 @@ static void GL2_UpdateIncrementalBuffer( gl2wrap_prog_t *prog, int count )
 	}
 	else if(!gl2wrap_config.coherent)
 	{
+		// non-coherent buffers anyway require unmapping or flushing after write
 		for( i = 0; i < GL2_ATTR_MAX; i++)
 		{
 			if ( prog->attridx[i] >= 0 )
@@ -852,10 +873,18 @@ void GL2_FlushPrims( void )
 
 	if(gl2wrap.prim == GL_QUADS)
 	{
+		// simple case, one quad may draw like polygon(4)
 		if(count == 4)
 			rpglDrawArrays( GL_TRIANGLE_FAN, startindex, count );
 		else if(_pglDrawRangeElementsBaseVertex)
 		{
+			/*
+			 * Opengl deprecated QUADS, but made some workarounds availiable
+			 * idea: bound static index array that will repeat 0 1 2 0 2 3 4 5 6 4 6 7...
+			 * sequence and draw source arrays. But our array may have different offset
+			 * When DrawRangeElementsBaseVertex unavailiable, we need build 4 different index arrays (as sequence have period 4)
+			 * or just put 0-4 offset when it's availiable
+			 * */
 			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, gl2wrap.triquads_ibo[0] );
 			_pglDrawRangeElementsBaseVertex( GL_TRIANGLES, startindex, startindex + count, Q_min(count / 4 * 6,TRIQUADS_SIZE * 6 - startindex), GL_UNSIGNED_SHORT, (void*)(size_t)(startindex / 4 * 6 * 2), startindex % 4 );
 			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
@@ -873,15 +902,17 @@ void GL2_FlushPrims( void )
 			pglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0 );
 		}
 	}
-	else if( gl2wrap.prim == GL_POLYGON )
+	else if( gl2wrap.prim == GL_POLYGON ) // does it have any difference with TRIFAN?
 		rpglDrawArrays( GL_TRIANGLE_FAN, startindex, count );
-	else
+	else // TRIANGLES, LINES, TRISTRIP, TRIFAN supported anyway
 		rpglDrawArrays( gl2wrap.prim, startindex, count );
 
 _leave:
 	if(gl2wrap_config.vao_mandatory)
+	{
 		pglBindVertexArray(0);
-	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
+	}
 	
 	gl2wrap.prim = GL_NONE;
 	gl2wrap.begin = gl2wrap.end;
@@ -1027,12 +1058,7 @@ static void APIENTRY GL2_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 	if ( gl2wrap.prim )
 	{
 		// HACK: enable color attribute if we're using color inside a Begin-End pair
-		GLfloat *p = gl2wrap.attrbuf[GL2_ATTR_COLOR] + gl2wrap.end * 4;
 		gl2wrap.cur_flags |= 1 << GL2_ATTR_COLOR;
-		*p++ = r;
-		*p++ = g;
-		*p++ = b;
-		*p++ = a;
 	}
 }
 
@@ -1137,6 +1163,15 @@ static void APIENTRY GL2_Disable( GLenum e )
 		rpglDisable(e);
 }
 
+
+/*
+===========================
+
+Limited matrix emulation
+
+===========================
+*/
+
 static void APIENTRY GL2_MatrixMode( GLenum m )
 {
 //	if(gl2wrap_matrix.mode == m)
@@ -1221,6 +1256,7 @@ static void GL2_Mul4x4(const GLfloat *in0, const GLfloat *in1, GLfloat *out)
 
 static void GL2_UpdateMVP( gl2wrap_prog_t *prog )
 {
+	// use bitset to determine if need update matrix for this prog
 	if( gl2wrap_matrix.update & ( 1U << prog->flags ) )
 	{
 		gl2wrap_matrix.update &= ~( 1U << prog->flags );
@@ -1242,6 +1278,13 @@ static void APIENTRY GL2_DepthRange(GLdouble far, GLdouble near)
 	_pglDepthRangef(far, near);
 }
 
+/*
+======================
+
+Array drawing
+
+=====================
+*/
 typedef struct gl2wrap_arraypointer_s
 {
 	const void *userptr;
@@ -1318,6 +1361,148 @@ static void APIENTRY GL2_DisableClientState( GLenum array )
 	gl2wrap_arrays.flags &= ~(1 << idx);
 }
 
+
+/*
+===========================
+UploadBufferData
+
+Dumb buffer upload
+Used when uploading very large buffers or when persistent/incremental buffers disabled (MapBuffer unavailiable?)
+===========================
+ */
+static void GL2_UploadBufferData( gl2wrap_prog_t *prog, int size, GLuint start, GLuint end, int stride, int attr )
+{
+	if(	!gl2wrap_arrays.ptr[attr].vbo_fb )
+	{
+		gl2wrap_arrays.ptr[attr].vbo_fb = malloc(4 * gl2wrap_config.cycle_buffers);
+		pglGenBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap_arrays.ptr[attr].vbo_fb );
+	}
+	rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.ptr[attr].vbo_fb[gl2wrap_arrays.ptr[attr].vbo_cycle] );
+	gl2wrap_arrays.ptr[attr].vbo_cycle = (gl2wrap_arrays.ptr[attr].vbo_cycle + 1) % gl2wrap_config.cycle_buffers;
+	pglBufferDataARB( GL_ARRAY_BUFFER_ARB, end * stride, gl2wrap_arrays.ptr[attr].userptr, GL_STREAM_DRAW_ARB );
+	pglVertexAttribPointerARB( prog->attridx[attr], gl2wrap_arrays.ptr[attr].size, gl2wrap_arrays.ptr[attr].type, attr == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[attr].stride, 0 );
+}
+/*
+===========================
+UpdatePersistentArrayBuffer
+
+Persistent array always mapped to stream_pointer with BufferStorage
+just memcopy it into and flush when overflowed
+===========================
+ */
+static void GL2_UpdatePersistentArrayBuffer( gl2wrap_prog_t *prog, int size, int offset, GLuint start, GLuint end, int stride, int attr )
+{
+
+	if(gl2wrap_arrays.stream_counter + size > GL2_MAX_VERTS * 64)
+	{
+		pglUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+		gl2wrap_arrays.stream_counter = 0;
+		gl2wrap_arrays.stream_pointer = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
+														   0,
+														   GL2_MAX_VERTS * 64,
+															 0x0002 //GL_MAP_WRITE_BIT
+														  //	| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
+														  //	| 0x0008 // GL_MAP_INVALIDATE_BUFFER_BIT
+														  // |0x0020 //GL_MAP_UNSYNCHRONIZED_BIT
+														   |(!gl2wrap_config.coherent?0x0010:0) // GL_MAP_FLUSH_EXPLICIT_BIT
+														  | 0X40
+														  | (gl2wrap_config.coherent?0x00000080:0) // GL_MAP_COHERENT_BIT
+													   );
+		//i = -1;
+		//continue;
+		size = end * stride, offset = 0;
+	}
+
+	memcpy(((char*)gl2wrap_arrays.stream_pointer) + gl2wrap_arrays.stream_counter, ((char*)gl2wrap_arrays.ptr[attr].userptr) + offset, size);
+	if( !gl2wrap_config.coherent )
+		_pglFlushMappedBufferRange( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_counter, size );
+	pglVertexAttribPointerARB( prog->attridx[attr], gl2wrap_arrays.ptr[attr].size, gl2wrap_arrays.ptr[attr].type, attr == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[attr].stride, (void*)(gl2wrap_arrays.stream_counter - offset) );
+	gl2wrap_arrays.stream_counter += size;
+}
+
+/*
+===========================
+UpdateIncrementalArrayBuffer
+
+Like persistent buffer, but map every time when copying data when BufferStorage unavailiable
+===========================
+ */
+static void GL2_UpdateIncrementalArrayBuffer( gl2wrap_prog_t *prog, int size, int offset, GLuint start, GLuint end, int stride, int attr )
+{
+	void *mem;
+	qboolean inv = false;
+	if(gl2wrap_arrays.stream_counter + size > GL2_MAX_VERTS * 64)
+		size = end * stride, offset = 0, gl2wrap_arrays.stream_counter = 0, inv = true;
+	mem = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
+							   gl2wrap_arrays.stream_counter,
+							   size,
+								 0x0002 //GL_MAP_WRITE_BIT
+								| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
+								| (inv?0x0008:0) // GL_MAP_INVALIDATE_BUFFER_BIT
+							   |(gl2wrap_config.async ? 0x0020:0) //GL_MAP_UNSYNCHRONIZED_BIT
+							   |(gl2wrap_config.force_flush ? 0x0010:0) // GL_MAP_FLUSH_EXPLICIT_BIT
+								 // GL_MAP_COHERENT_BIT
+						   );
+	memcpy(mem, ((char*)gl2wrap_arrays.ptr[attr].userptr) + offset, size);
+	if(gl2wrap_config.force_flush)
+		_pglFlushMappedBufferRange(GL_ARRAY_BUFFER_ARB, 0, size);
+	pglUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
+	pglVertexAttribPointerARB( prog->attridx[attr], gl2wrap_arrays.ptr[attr].size, gl2wrap_arrays.ptr[attr].type, attr == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[attr].stride, (void*)(gl2wrap_arrays.stream_counter - offset) );
+	gl2wrap_arrays.stream_counter += size;
+}
+
+/*
+===========================
+AllocArrayPersistenStorage
+
+Prepare BufferStorage
+===========================
+ */
+static void GL2_AllocArrayPersistenStorage( void )
+{
+	pglGenBuffersARB( 1, &gl2wrap_arrays.stream_buffer );
+	rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_buffer );
+	_pglBufferStorage( GL_ARRAY_BUFFER_ARB, GL2_MAX_VERTS * 64, NULL,
+					   0x0002 //GL_MAP_WRITE_BIT
+					 | (gl2wrap_config.coherent?0x00000080:0)
+					   | 0x40
+					   );
+	gl2wrap_arrays.stream_pointer = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
+													   0,
+													   GL2_MAX_VERTS * 64,
+														 0x0002 //GL_MAP_WRITE_BIT
+													  //	| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
+													  //	| 0x0008 // GL_MAP_INVALIDATE_BUFFER_BIT
+													  // |0x0020 //GL_MAP_UNSYNCHRONIZED_BIT
+													  // |0x0010 // GL_MAP_FLUSH_EXPLICIT_BIT
+													  | (!gl2wrap_config.coherent?0x0010:0)
+													  | 0X40
+													  | (gl2wrap_config.coherent?0x00000080:0) // GL_MAP_COHERENT_BIT
+												   );
+}
+
+static void GL2_AllocArrays( void )
+{
+	if(	gl2wrap_config.buf_storage && !gl2wrap_arrays.stream_pointer )
+		GL2_AllocArrayPersistenStorage();
+	else if(!gl2wrap_config.buf_storage && gl2wrap_config.incremental && !gl2wrap_arrays.stream_buffer)
+	{
+		// prepare incremental buffer
+		pglGenBuffersARB( 1, &gl2wrap_arrays.stream_buffer );
+		rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_buffer );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, GL2_MAX_VERTS * 64, NULL, GL_STREAM_DRAW_ARB );
+	}
+}
+
+/*
+======================
+SetupArrays
+
+If vao usage mandatory, use persistent/incremental buffers when possible
+else just set client pointers to default VAO
+Usage of client pointers is forbidden with non-default VAO and unavailiable in Core
+======================
+*/
 static void GL2_SetupArrays( GLuint start, GLuint end )
 {
 	gl2wrap_prog_t *prog;
@@ -1347,9 +1532,11 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 	{
 		if(prog->attridx[i] < 0)
 			continue;
-		if( flags & (1 << i)  )
+		if( flags & (1 << i)  ) // attribute is enabled
 		{
 			pglEnableVertexAttribArrayARB( prog->attridx[i] );
+			// sometimes usage of client pointers may be faster, sometimes not
+			// anyway gl core disallows that, so try use streaming
 			if( gl2wrap_config.vao_mandatory && !gl2wrap_arrays.ptr[i].vbo )
 			{
 				// detect stride by type
@@ -1364,41 +1551,12 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 						stride = gl2wrap_arrays.ptr[i].size * 4;
 				}
 
-
-				if(	gl2wrap_config.buf_storage && !gl2wrap_arrays.stream_pointer )
-				{
-					pglGenBuffersARB( 1, &gl2wrap_arrays.stream_buffer );
-					rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_buffer );
-					_pglBufferStorage( GL_ARRAY_BUFFER_ARB, GL2_MAX_VERTS * 64, NULL,
-									   0x0002 //GL_MAP_WRITE_BIT
-									 | (gl2wrap_config.coherent?0x00000080:0)
-									   | 0x40
-									   );
-					gl2wrap_arrays.stream_pointer = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
-																	   0,
-																	   GL2_MAX_VERTS * 64,
-																		 0x0002 //GL_MAP_WRITE_BIT
-																	  //	| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
-																	  //	| 0x0008 // GL_MAP_INVALIDATE_BUFFER_BIT
-																	  // |0x0020 //GL_MAP_UNSYNCHRONIZED_BIT
-																	  // |0x0010 // GL_MAP_FLUSH_EXPLICIT_BIT
-																	  | (!gl2wrap_config.coherent?0x0010:0)
-																	  | 0X40
-																	  | (gl2wrap_config.coherent?0x00000080:0) // GL_MAP_COHERENT_BIT
-																   );
-				}
-				else if(!gl2wrap_config.buf_storage && gl2wrap_config.incremental && !gl2wrap_arrays.stream_buffer)
-				{
-					pglGenBuffersARB( 1, &gl2wrap_arrays.stream_buffer );
-					rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_buffer );
-					pglBufferDataARB( GL_ARRAY_BUFFER_ARB, GL2_MAX_VERTS * 64, NULL, GL_STREAM_DRAW_ARB );
-				}
-				else
-				{
-					rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_buffer );
-				}
+				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_buffer );
 				if(!end)
 				{
+					// we cannot handle this case in VAO without known buffer length
+					// only workaround is scanning index array to determine buffer limits, but it is slow,
+					// so just do not use DrawElements when DrawRangeElements availiable
 					pglDisableVertexAttribArrayARB( prog->attridx[i] );
 					gEngfuncs.Con_Printf(S_ERROR "NON-vbo array for DrawElements call, SKIPPING!\n");
 					continue;
@@ -1406,71 +1564,22 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 				size = (end - start) * stride;
 				offset = start * stride;
 
+				// Logical buffer start can lie before real buffer start
+				// but attrib pointer cannot have negative buffer offset
 				if( gl2wrap_arrays.stream_counter < offset )
 					size = end * stride, offset = 0;
 
-				if( (!gl2wrap_config.buf_storage && !gl2wrap_config.incremental) || size > GL2_MAX_VERTS * 32) /// TODO: support incremental for !buf_storage
+				if( (!gl2wrap_config.buf_storage && !gl2wrap_config.incremental) || size > GL2_MAX_VERTS * 32)
 				{
-					if(	!gl2wrap_arrays.ptr[i].vbo_fb )
-					{
-						gl2wrap_arrays.ptr[i].vbo_fb = malloc(4 * gl2wrap_config.cycle_buffers);
-						pglGenBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap_arrays.ptr[i].vbo_fb );
-					}
-					rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_arrays.ptr[i].vbo_fb[gl2wrap_arrays.ptr[i].vbo_cycle] );
-					gl2wrap_arrays.ptr[i].vbo_cycle = (gl2wrap_arrays.ptr[i].vbo_cycle + 1) % gl2wrap_config.cycle_buffers;
-					pglBufferDataARB( GL_ARRAY_BUFFER_ARB, end * stride, gl2wrap_arrays.ptr[i].userptr, GL_STREAM_DRAW_ARB );
-					pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, 0 );
+					GL2_UploadBufferData( prog, size , start, end, stride, i );
 					continue;
 				}
 				if(!gl2wrap_config.buf_storage && gl2wrap_config.incremental)
 				{
-					void *mem;
-					qboolean inv = false;
-					if(gl2wrap_arrays.stream_counter + size > GL2_MAX_VERTS * 64)
-						size = end * stride, offset = 0, gl2wrap_arrays.stream_counter = 0, inv = true;
-					mem = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
-											   gl2wrap_arrays.stream_counter,
-											   size,
-												 0x0002 //GL_MAP_WRITE_BIT
-												| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
-												| (inv?0x0008:0) // GL_MAP_INVALIDATE_BUFFER_BIT
-											   |(gl2wrap_config.async ? 0x0020:0) //GL_MAP_UNSYNCHRONIZED_BIT
-											   |(gl2wrap_config.force_flush ? 0x0010:0) // GL_MAP_FLUSH_EXPLICIT_BIT
-												 // GL_MAP_COHERENT_BIT
-										   );
-					memcpy(mem, ((char*)gl2wrap_arrays.ptr[i].userptr) + offset, size);
-					if(gl2wrap_config.force_flush)
-						_pglFlushMappedBufferRange(GL_ARRAY_BUFFER_ARB, 0, size);
-					pglUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
-					pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, (void*)(gl2wrap_arrays.stream_counter - offset) );
-					gl2wrap_arrays.stream_counter += size;
+					GL2_UpdateIncrementalArrayBuffer( prog, size, offset, start, end, stride, i);
 					continue;
 				}
-				if(gl2wrap_arrays.stream_counter + size > GL2_MAX_VERTS * 64)
-				{
-					pglUnmapBufferARB(GL_ARRAY_BUFFER_ARB);
-					gl2wrap_arrays.stream_counter = 0;
-					gl2wrap_arrays.stream_pointer = _pglMapBufferRange(GL_ARRAY_BUFFER_ARB,
-																	   0,
-																	   GL2_MAX_VERTS * 64,
-																		 0x0002 //GL_MAP_WRITE_BIT
-																	  //	| 0x0004// GL_MAP_INVALIDATE_RANGE_BIT.
-																	  //	| 0x0008 // GL_MAP_INVALIDATE_BUFFER_BIT
-																	  // |0x0020 //GL_MAP_UNSYNCHRONIZED_BIT
-																	   |(!gl2wrap_config.coherent?0x0010:0) // GL_MAP_FLUSH_EXPLICIT_BIT
-																	  | 0X40
-																	  | (gl2wrap_config.coherent?0x00000080:0) // GL_MAP_COHERENT_BIT
-																   );
-					//i = -1;
-					//continue;
-					size = end * stride, offset = 0;
-				}
-
-				memcpy(((char*)gl2wrap_arrays.stream_pointer) + gl2wrap_arrays.stream_counter, ((char*)gl2wrap_arrays.ptr[i].userptr) + offset, size);
-				if( !gl2wrap_config.coherent )
-					_pglFlushMappedBufferRange( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_counter, size );
-				pglVertexAttribPointerARB( prog->attridx[i], gl2wrap_arrays.ptr[i].size, gl2wrap_arrays.ptr[i].type, i == GL2_ATTR_COLOR, gl2wrap_arrays.ptr[i].stride, (void*)(gl2wrap_arrays.stream_counter - offset) );
-				gl2wrap_arrays.stream_counter += size;
+				GL2_UpdatePersistentArrayBuffer( prog, size, offset, start, end, stride, i);
 			}
 			else
 			{
@@ -1489,6 +1598,7 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 			pglDisableVertexAttribArrayARB( prog->attridx[i] );
 		}
 	}
+	// restore state
 	rpglBindBufferARB( GL_ARRAY_BUFFER_ARB,  gl2wrap_state.vbo );
 }
 
@@ -1621,5 +1731,6 @@ void GL2_ShimInstall( void )
 #ifdef QUAD_BATCH
 	GL2_OVERRIDE_PTR_B( BindTexture )
 #endif
+	GL2_AllocArrays();
 }
 #endif
