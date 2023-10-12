@@ -355,16 +355,22 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	pglDeleteObjectARB( fp );
 
 /// TODO: detect arb/core shaders in engine
-#if 0 //ndef XASH_GLES
-	pglGetObjectParameterivARB( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
+
+	if( pglProgramiv )
+		pglProgramiv( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
+	else
+		pglGetObjectParameterivARB( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
 	if ( status == GL_FALSE )
 	{
 		gEngfuncs.Con_Reportf( S_ERROR "GL2_GetProg(): Failed linking progs for 0x%04x!\n%s\n", prog->flags, GL_PrintInfoLog(glprog) );
 		prog->flags = 0;
-		pglDeleteObjectARB( glprog );
+		if( pglDeleteProgram )
+			pglDeleteProgram( glprog );
+		else
+			pglDeleteObjectARB( glprog );
 		return NULL;
 	}
-#endif
+
 
 	prog->ucolor = pglGetUniformLocationARB( glprog, "uColor" );
 	prog->ualpha = pglGetUniformLocationARB( glprog, "uAlphaTest" );
