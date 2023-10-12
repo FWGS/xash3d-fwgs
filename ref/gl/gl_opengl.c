@@ -984,7 +984,7 @@ void GL_InitExtensions( void )
 			char *str;
 			for(i = 0; i < n; i++)
 				len += Q_strlen((const char*)pglGetStringi(GL_EXTENSIONS, i)) + 1;
-			str = (char*)Mem_Calloc( 1, len );
+			str = (char*)Mem_Calloc( r_temppool, len );
 			glConfig.extensions_string = str;
 			for(i = 0; i < n; i++)
 			{
@@ -1163,6 +1163,8 @@ qboolean R_Init( void )
 
 	GL_SetDefaultState();
 
+	r_temppool = Mem_AllocPool( "Render Zone" );
+
 	// create the window and set up the context
 	if( !gEngfuncs.R_Init_Video( REF_GL )) // request GL context
 	{
@@ -1170,10 +1172,9 @@ qboolean R_Init( void )
 		gEngfuncs.R_Free_Video();
 // Why? Host_Error again???
 //		gEngfuncs.Host_Error( "Can't initialize video subsystem\nProbably driver was not installed" );
+		Mem_FreePool( &r_temppool );
 		return false;
 	}
-
-	r_temppool = Mem_AllocPool( "Render Zone" );
 
 	GL_SetDefaults();
 	R_CheckVBO();
