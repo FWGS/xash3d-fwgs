@@ -39,7 +39,7 @@ def build(bld):
 	else:
 		libs += [ 'public', 'M' ]
 
-		source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
+	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
 	includes = '.'
 
 	targets = {
