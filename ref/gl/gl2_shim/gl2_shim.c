@@ -202,12 +202,15 @@ static void APIENTRY GL2_BindTexture( GLenum tex, GLuint obj)
 }
 #endif
 
-static char *GL_PrintInfoLog( GLhandleARB object )
+static char *GL_PrintInfoLog( GLhandleARB object, qboolean program )
 {
 	static char	msg[8192];
 	int		maxLength = 0;
 
-	pglGetObjectParameterivARB( object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &maxLength );
+	if( program && pglProgramiv)
+		pglProgramiv( object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &maxLength );
+	else
+		pglGetObjectParameterivARB( object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &maxLength );
 
 	if( maxLength >= sizeof( msg ))
 	{
@@ -215,7 +218,10 @@ static char *GL_PrintInfoLog( GLhandleARB object )
 		maxLength = sizeof( msg ) - 1;
 	}
 
-	pglGetInfoLogARB( object, maxLength, &maxLength, msg );
+	if( program && pglGetProgramInfoLog)
+		pglGetProgramInfoLog( object, maxLength, &maxLength, msg );
+	else
+		pglGetInfoLogARB( object, maxLength, &maxLength, msg );
 
 	return msg;
 }
@@ -276,7 +282,7 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 
 	if ( status == GL_FALSE )
 	{
-		gEngfuncs.Con_Reportf( S_ERROR "GL2_GenerateShader( 0x%04x, 0x%x ): compile failed: %s\n", prog->flags, type, GL_PrintInfoLog(id));
+		gEngfuncs.Con_Reportf( S_ERROR "GL2_GenerateShader( 0x%04x, 0x%x ): compile failed: %s\n", prog->flags, type, GL_PrintInfoLog(id, false));
 
 		gEngfuncs.Con_DPrintf( "Shader text:\n%s\n\n", shader );
 		pglDeleteObjectARB( id );
@@ -358,7 +364,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 		pglGetObjectParameterivARB( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
 	if ( status == GL_FALSE )
 	{
-		gEngfuncs.Con_Reportf( S_ERROR "GL2_GetProg(): Failed linking progs for 0x%04x!\n%s\n", prog->flags, GL_PrintInfoLog(glprog) );
+		gEngfuncs.Con_Reportf( S_ERROR "GL2_GetProg(): Failed linking progs for 0x%04x!\n%s\n", prog->flags, GL_PrintInfoLog(glprog, true) );
 		prog->flags = 0;
 		if( pglDeleteProgram )
 			pglDeleteProgram( glprog );
