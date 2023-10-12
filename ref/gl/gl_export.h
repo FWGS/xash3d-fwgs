@@ -813,6 +813,11 @@ typedef float GLmatrix[16];
 #define GL_DEBUG_SEVERITY_MEDIUM_ARB		0x9147
 #define GL_DEBUG_SEVERITY_LOW_ARB		0x9148
 
+// GL Core additions
+#define GL_NUM_EXTENSIONS                 0x821D
+
+
+
 #define WGL_CONTEXT_MAJOR_VERSION_ARB		0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB		0x2092
 #define WGL_CONTEXT_LAYER_PLANE_ARB		0x2093
@@ -890,6 +895,7 @@ typedef float GLmatrix[16];
 // helper opengl functions
 APIENTRY_LINKAGE GLenum GL_FUNCTION( glGetError )(void);
 APIENTRY_LINKAGE const GLubyte * GL_FUNCTION( glGetString )(GLenum name);
+APIENTRY_LINKAGE const GLubyte * GL_FUNCTION( glGetStringi )(GLenum name, GLint i);
 
 // base gl functions
 APIENTRY_LINKAGE void GL_FUNCTION( glAccum )(GLenum op, GLfloat value);
