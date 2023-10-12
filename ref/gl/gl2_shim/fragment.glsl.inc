@@ -1,69 +1,65 @@
-R"(
-
-
-#if VER <= 300
-#define layout(x)
-#endif
-#if VER < 300
-#define out attribute
-#define in varying
-#define texture texture2D
-#endif
-#if VER >= 130
-precision mediump float;
-#endif
-#if ATTR_TEXCOORD0
-uniform sampler2D uTex0;
-#endif
-#if ATTR_TEXCOORD1
-uniform sampler2D uTex1;
-#endif
-#if FEAT_ALPHA_TEST
-uniform float uAlphaTest;
-#endif
-#if FEAT_FOG
-uniform vec4 uFog;
-#endif
-uniform vec4 uColor;
-#if ATTR_COLOR
-in vec4 vColor;
-#endif
-#if ATTR_TEXCOORD0
-in vec2 vTexCoord0;
-#endif
-#if ATTR_TEXCOORD1
-in vec2 vTexCoord1;
-#endif
-#if ATTR_NORMAL
-in vec2 vNormal;
-#endif
-#if VER >= 300
-out vec4 oFragColor;
-#else
-#define oFragColor gl_FragColor
-#endif
-void main()
-{
-#if ATTR_COLOR
-   vec4 c = vColor;
-#else
-   vec4 c = uColor;
-#endif
-#if ATTR_TEXCOORD0
-    c = c * texture(uTex0, vTexCoord0);
-#endif
-#if ATTR_TEXCOORD1
-    c = c * texture(uTex1, vTexCoord1);
-#endif
-#if FEAT_ALPHA_TEST
-    if(c.a <= uAlphaTest)
-        discard;
-#endif
-#if FEAT_FOG
-    float fogDist = gl_FragCoord.z / gl_FragCoord.w;
-    float fogRate = clamp(exp(-uFog.w * fogDist), 0.f, 1.f);
-    c.rgb = mix(uFog.rgb, c.rgb, fogRate);
-#endif
-    oFragColor = c;
-}
-)"
+"#if VER <= 300\n"
+"#define layout(x)\n"
+"#endif\n"
+"#if VER < 300\n"
+"#define out attribute\n"
+"#define in varying\n"
+"#define texture texture2D\n"
+"#endif\n"
+"#if VER >= 130\n"
+"precision mediump float;\n"
+"#endif\n"
+"#if ATTR_TEXCOORD0\n"
+"uniform sampler2D uTex0;\n"
+"#endif\n"
+"#if ATTR_TEXCOORD1\n"
+"uniform sampler2D uTex1;\n"
+"#endif\n"
+"#if FEAT_ALPHA_TEST\n"
+"uniform float uAlphaTest;\n"
+"#endif\n"
+"#if FEAT_FOG\n"
+"uniform vec4 uFog;\n"
+"#endif\n"
+"uniform vec4 uColor;\n"
+"#if ATTR_COLOR\n"
+"in vec4 vColor;\n"
+"#endif\n"
+"#if ATTR_TEXCOORD0\n"
+"in vec2 vTexCoord0;\n"
+"#endif\n"
+"#if ATTR_TEXCOORD1\n"
+"in vec2 vTexCoord1;\n"
+"#endif\n"
+"#if ATTR_NORMAL\n"
+"in vec2 vNormal;\n"
+"#endif\n"
+"#if VER >= 300\n"
+"out vec4 oFragColor;\n"
+"#else\n"
+"#define oFragColor gl_FragColor\n"
+"#endif\n"
+"void main()\n"
+"{\n"
+"#if ATTR_COLOR\n"
+"vec4 c = vColor;\n"
+"#else\n"
+"vec4 c = uColor;\n"
+"#endif\n"
+"#if ATTR_TEXCOORD0\n"
+"c = c * texture(uTex0, vTexCoord0);\n"
+"#endif\n"
+"#if ATTR_TEXCOORD1\n"
+"c = c * texture(uTex1, vTexCoord1);\n"
+"#endif\n"
+"#if FEAT_ALPHA_TEST\n"
+"if(c.a <= uAlphaTest)\n"
+"discard;\n"
+"#endif\n"
+"#if FEAT_FOG\n"
+"float fogDist = gl_FragCoord.z / gl_FragCoord.w;\n"
+"float fogRate = clamp(exp(-uFog.w * fogDist), 0.f, 1.f);\n"
+"c.rgb = mix(uFog.rgb, c.rgb, fogRate);\n"
+"#endif\n"
+"oFragColor = c;\n"
+"}\n"
