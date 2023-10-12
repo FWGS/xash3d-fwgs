@@ -563,7 +563,7 @@ void GL_CheckForErrors_( const char *filename, const int fileline );
 const char *GL_ErrorString( int err );
 qboolean GL_Support( int r_ext );
 int GL_MaxTextureUnits( void );
-qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext );
+qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext, float minver );
 void GL_SetExtension( int r_ext, int enable );
 
 //
@@ -666,6 +666,8 @@ typedef struct
 	int		depth_bits;
 	int		stencil_bits;
 	int		msaasamples;
+	int		version_major;
+	int		version_minor;
 
 	gl_context_type_t	context;
 	gles_wrapper_t	wrapper;
