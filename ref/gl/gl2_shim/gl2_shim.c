@@ -207,8 +207,8 @@ static char *GL_PrintInfoLog( GLhandleARB object, qboolean program )
 	static char	msg[8192];
 	int		maxLength = 0;
 
-	if( program && pglProgramiv)
-		pglProgramiv( object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &maxLength );
+	if( program && pglGetProgramiv)
+		pglGetProgramiv( object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &maxLength );
 	else
 		pglGetObjectParameterivARB( object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &maxLength );
 
@@ -358,8 +358,8 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 
 /// TODO: detect arb/core shaders in engine
 
-	if( pglProgramiv )
-		pglProgramiv( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
+	if( pglGetProgramiv )
+		pglGetProgramiv( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
 	else
 		pglGetObjectParameterivARB( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
 	if ( status == GL_FALSE )

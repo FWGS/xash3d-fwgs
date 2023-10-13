@@ -1374,7 +1374,7 @@ APIENTRY_LINKAGE void GL_FUNCTION( glSwapInterval ) ( int interval );
 
 // arb shaders change in core
 APIENTRY_LINKAGE void GL_FUNCTION( glDeleteProgram )(GLuint program);
-APIENTRY_LINKAGE void GL_FUNCTION( glProgramiv )(GLuint program, GLenum e, GLuint *v);
+APIENTRY_LINKAGE void GL_FUNCTION( glGetProgramiv )(GLuint program, GLenum e, GLuint *v);
 APIENTRY_LINKAGE void GL_FUNCTION( glGetProgramInfoLog )(GLhandleARB obj, GLsizei maxLength, GLsizei *length, GLcharARB *infoLog);
 
 // gl2shim deps
