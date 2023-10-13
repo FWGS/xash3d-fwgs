@@ -583,7 +583,7 @@ int GL2_ShimInit( void )
 
 	gl2wrap_config.version = 310;
 	if( gEngfuncs.Sys_CheckParm("-minshaders") )
-		gl2wrap_config.version = 110;
+		gl2wrap_config.version = 100;
 	if(gl2wrap_config.buf_storage)
 		gl2wrap_config.incremental = true, gl2wrap_config.vao_mandatory = true;
 	if(!pglBindVertexArray || !gl2wrap_config.vao_mandatory)
@@ -658,7 +658,11 @@ int GL2_ShimInit( void )
 		{
 			gl2wrap_config.version = 110;
 			if(!GL2_InitProgs())
-				gEngfuncs.Host_Error("Failed to compile shaders!\n");
+			{
+				gl2wrap_config.version = 100;
+				if(!GL2_InitProgs())
+					gEngfuncs.Host_Error("Failed to compile shaders!\n");
+			}
 		}
 	}
 
