@@ -750,10 +750,12 @@ void GL_InitExtensionsGLES( void )
 			GL_CheckExtension( "ES2 Shaders", shaderobjectsfuncs_gles, "gl_shaderobjects", extid, 2.0 );
 			break;
 		case GL_ARB_VERTEX_ARRAY_OBJECT_EXT:
-			GL_CheckExtension( "vertex_array_object", vaofuncs, "gl_vertex_array_object", extid, 0 );
+			if(!GL_CheckExtension( "GL_OES_vertex_array_object", vaofuncs, "gl_vertex_array_object", extid, 3.0 ))
+				!GL_CheckExtension( "GL_EXT_vertex_array_object", vaofuncs, "gl_vertex_array_object", extid, 3.0 );
 			break;
 		case GL_DRAW_RANGEELEMENTS_EXT:
-			GL_CheckExtension( "draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid, 0 );
+			if(!GL_CheckExtension( "GL_EXT_draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid, 3.0 ))
+				GL_CheckExtension( "GL_OES_draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid, 3.0 );
 			break;
 		case GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT:
 			if( !GL_CheckExtension( "GL_OES_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 0 ) )
@@ -884,7 +886,7 @@ void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_texture_float", NULL, "gl_texture_float", GL_ARB_TEXTURE_FLOAT_EXT, 0 );
 	GL_CheckExtension( "GL_ARB_depth_buffer_float", NULL, "gl_texture_depth_float", GL_ARB_DEPTH_FLOAT_EXT, 0 );
 	GL_CheckExtension( "GL_EXT_gpu_shader4", NULL, NULL, GL_EXT_GPU_SHADER4, 0 ); // don't confuse users
-	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT, 3.0 );
+	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT, 2.0 );
 	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE, 0 );
 	GL_CheckExtension( "GL_ARB_texture_compression_bptc", NULL, "gl_texture_bptc_compression", GL_ARB_TEXTURE_COMPRESSION_BPTC, 0 );
 #ifndef XASH_GL_STATIC
@@ -1287,7 +1289,13 @@ void GL_SetupAttributes( int safegl )
 	}
 	else
 	{
-		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_COMPATIBILITY );
+		if( !safegl )
+			gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_COMPATIBILITY );
+		else
+		{
+			gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 1 );
+			gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 1 );
+		}
 	}
 #endif // XASH_GLES
 
