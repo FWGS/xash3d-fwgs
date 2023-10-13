@@ -991,6 +991,7 @@ void GL_InitExtensionsBigGL( void )
 void GL_InitExtensions( void )
 {
 	char value[MAX_VA_STRING];
+	GLint major = 0, minor = 0;
 
 	GL_OnContextCreated();
 
@@ -1002,11 +1003,26 @@ void GL_InitExtensions( void )
 	glConfig.renderer_string = (const char *)pglGetString( GL_RENDERER );
 	glConfig.version_string = (const char *)pglGetString( GL_VERSION );
 	glConfig.extensions_string = (const char *)pglGetString( GL_EXTENSIONS );
-	if( !glConfig.version_major && glConfig.version_string )
+
+	pglGetIntegerv(GL_MAJOR_VERSION, &major);
+	pglGetIntegerv(GL_MINOR_VERSION, &minor);
+	if( !major && glConfig.version_string )
 	{
-		float ver = Q_atof( glConfig.version_string );
-		glConfig.version_major = ver;
-		glConfig.version_major = (int)(ver * 10) % 10;
+		const char *str = glConfig.version_string;
+		float ver;
+
+		while(*str && (*str < '0' || *str > '9')) str++;
+		ver = Q_atof(str);
+		if( ver )
+		{
+			glConfig.version_major = ver;
+			glConfig.version_minor = (int)(ver * 10) % 10;
+		}
+	}
+	else
+	{
+		glConfig.version_major = major;
+		glConfig.version_minor = minor;
 	}
 #ifndef XASH_GL_STATIC
 	if( !glConfig.extensions_string )
