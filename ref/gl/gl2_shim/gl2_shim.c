@@ -381,8 +381,11 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	prog->ufog   = pglGetUniformLocationARB( glprog, "uFog" );
 	prog->uMVP   = pglGetUniformLocationARB( glprog, "uMVP" );
 
-	prog->vao_begin = malloc(gl2wrap_config.cycle_buffers * 4);
-	pglGenVertexArrays( gl2wrap_config.cycle_buffers, prog->vao_begin );
+	if(gl2wrap_config.vao_mandatory)
+	{
+		prog->vao_begin = malloc(gl2wrap_config.cycle_buffers * 4);
+		pglGenVertexArrays( gl2wrap_config.cycle_buffers, prog->vao_begin );
+	}
 	pglUseProgramObjectARB( glprog );
 	for ( i = 0; i < GL2_ATTR_MAX; ++i )
 	{
@@ -400,7 +403,8 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 			}
 		}
 	}
-	pglBindVertexArray( 0 );
+	if( gl2wrap_config.vao_mandatory )
+		pglBindVertexArray( 0 );
 
 	// these never change
 	if ( prog->flags & ( 1U << GL2_ATTR_TEXCOORD0 ) && prog->utex0 >= 0 )
@@ -500,11 +504,8 @@ static void GL2_InitIncrementalBuffer( int i, GLuint size )
 }
 
 
-
-int GL2_ShimInit( void )
+qboolean GL2_InitProgs( void )
 {
-	int i;
-	GLuint total;
 	static const GLuint precache_progs[] = {
 		0x0001, // out = ucolor
 		0x0005, // out = tex0 * ucolor
@@ -515,10 +516,35 @@ int GL2_ShimInit( void )
 		0x0027, // out = tex0 * vcolor + FEAT_FOG
 		0x0035, // out = tex0 * ucolor + FEAT_ALPHA_TEST + FEAT_FOG
 	};
+	int i;
+	gEngfuncs.Con_DPrintf( S_NOTE "GL2_InitProgs(): Pre-generating %u progs, version %d...\n", (uint)(sizeof( precache_progs ) / sizeof( *precache_progs )), gl2wrap_config.version );
+	for ( i = 0; i < (int)( sizeof( precache_progs ) / sizeof( *precache_progs ) ); ++i )
+		if( !GL2_GetProg( precache_progs[i] ))
+				return false;
+	return true;
+}
+
+
+int GL2_ShimInit( void )
+{
+	int i;
+	GLuint total;
+
 
 	if ( gl2wrap_init )
 		return 0;
-	gl2wrap_config.vao_mandatory = true;
+
+	if(!pglBindBufferARB)
+	{
+		gEngfuncs.Con_Printf( S_ERROR "GL2_ShimInit(): missing VBO, disabling\n");
+		return 1;
+	}
+	if(!pglCompileShaderARB)
+	{
+		gEngfuncs.Con_Printf( S_ERROR "GL2_ShimInit(): missing shaders, disabling\n");
+		return 1;
+	}
+	gl2wrap_config.vao_mandatory = gEngfuncs.Sys_CheckParm("-vao") || glConfig.context == CONTEXT_TYPE_GL_CORE;
 	gl2wrap_config.incremental =true;
 	gl2wrap_config.async = true;
 	gl2wrap_config.force_flush = false;
@@ -526,15 +552,52 @@ int GL2_ShimInit( void )
 	gl2wrap_config.coherent = true;
 	gl2wrap_config.supports_mapbuffer = true;
 	gl2wrap_config.cycle_buffers = 4096;
+	if( !pglBufferStorage )
+	{
+		gl2wrap_config.buf_storage = false;
+		gEngfuncs.Con_Printf( S_NOTE "GL2_ShimInit(): missing BufferStorage\n");
+	}
+
+	if( !pglMapBufferRange )
+	{
+		gl2wrap_config.incremental = false, gl2wrap_config.supports_mapbuffer = false;
+		gEngfuncs.Con_Printf( S_NOTE "GL2_ShimInit(): missing MapBufferRange, disabling incremental rendering\n");
+	}
+	if( gEngfuncs.Sys_CheckParm("-nocoherent") )
+		gl2wrap_config.coherent = false;
+	if( gEngfuncs.Sys_CheckParm("-nobufstor") )
+		gl2wrap_config.buf_storage = false;
+	if( gEngfuncs.Sys_CheckParm("-noasync") )
+		gl2wrap_config.async = false;
+	if( gEngfuncs.Sys_CheckParm("-forceflush") )
+		gl2wrap_config.force_flush = true;
+	if( gEngfuncs.Sys_CheckParm("-nomapbuffer") )
+		gl2wrap_config.supports_mapbuffer = false;
+	if( gEngfuncs.Sys_CheckParm("-noincremental") )
+		gl2wrap_config.incremental = false, gl2wrap_config.buf_storage = false;
+
 	gl2wrap_config.version = 310;
+	if( gEngfuncs.Sys_CheckParm("-minshaders") )
+		gl2wrap_config.version = 110;
 	if(gl2wrap_config.buf_storage)
-		gl2wrap_config.incremental = true;
+		gl2wrap_config.incremental = true, gl2wrap_config.vao_mandatory = true;
+	if(!pglBindVertexArray || !gl2wrap_config.vao_mandatory)
+		gl2wrap_config.incremental = gl2wrap_config.buf_storage = gl2wrap_config.vao_mandatory = false;
 	if(gl2wrap_config.incremental && !gl2wrap_config.buf_storage)
 		gl2wrap_config.async = true;
 	if(gl2wrap_config.incremental)
 		gl2wrap_config.cycle_buffers = 4;
 	if(!gl2wrap_config.vao_mandatory)
 		gl2wrap_config.cycle_buffers = 1;
+	gEngfuncs.Con_Printf( S_NOTE "GL2_ShimInit(): config: %s%s%s%s%s%s%sCYCLE=%d VER=%d\n",
+						  gl2wrap_config.buf_storage?"BUF_STOR ":"",
+						  gl2wrap_config.buf_storage&&gl2wrap_config.coherent?"COHERENT ":"",
+						  gl2wrap_config.async?"ASYNC ":"",
+						  gl2wrap_config.incremental?"INC ":"",
+						  gl2wrap_config.force_flush?"FLUSH ":"",
+						  gl2wrap_config.vao_mandatory?"VAO ":"",
+						  gl2wrap_config.supports_mapbuffer?"MAP ":"",
+						  gl2wrap_config.cycle_buffers, gl2wrap_config.version );
 
 	memset( &gl2wrap, 0, sizeof( gl2wrap ) );
 	GL2_ShimInstall();
@@ -586,10 +649,17 @@ int GL2_ShimInit( void )
 	rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
 	
 	gEngfuncs.Con_DPrintf( S_NOTE "GL2_ShimInit(): %u bytes allocated for vertex buffer\n", total );
-	gEngfuncs.Con_DPrintf( S_NOTE "GL2_ShimInit(): Pre-generating %u progs...\n", (uint)(sizeof( precache_progs ) / sizeof( *precache_progs ) ));
-	for ( i = 0; i < (int)( sizeof( precache_progs ) / sizeof( *precache_progs ) ); ++i )
-		GL2_GetProg( precache_progs[i] );
 
+	if( !GL2_InitProgs() )
+	{
+		gl2wrap_config.version = 300;
+		if(!GL2_InitProgs())
+		{
+			gl2wrap_config.version = 110;
+			if(!GL2_InitProgs())
+				gEngfuncs.Host_Error("Failed to compile shaders!\n");
+		}
+	}
 
 	gl2wrap_init = 1;
 	return 0;
