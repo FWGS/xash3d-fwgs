@@ -381,7 +381,7 @@ static dllfunc_t shaderobjectsfuncs_gles[] =
 	{ "glVertexAttrib2f"              , (void **)&pglVertexAttrib2fARB },
 	{ "glVertexAttrib2fv"             , (void **)&pglVertexAttrib2fvARB },
 	{ "glVertexAttrib3fv"             , (void **)&pglVertexAttrib3fvARB },
-	{ "glProgramiv"                  , (void**)&pglProgramiv },
+	{ "glGetProgramiv"                  , (void**)&pglGetProgramiv },
 	{ "glDeleteProgram"                  , (void**)&pglDeleteProgram },
 	{ "glGetProgramInfoLog"               , (void **)&pglGetProgramInfoLog },
 	//{ "glVertexAttrib4f"              , (void **)&pglVertexAttrib4fARB },
