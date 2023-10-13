@@ -188,6 +188,9 @@ static void (APIENTRY*rpglDrawElements )( GLenum mode, GLsizei count, GLenum typ
 static void (APIENTRY*rpglDrawArrays )(GLenum mode, GLint first, GLsizei count);
 static void (APIENTRY*rpglDrawRangeElements )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
 static void (APIENTRY*rpglBindBufferARB)( GLenum buf, GLuint obj);
+
+static void GL2_FreeArrays( void );
+
 #ifdef QUAD_BATCH
 void GL2_FlushPrims( void );
 static void APIENTRY (*rpglBindTexture)( GLenum tex, GLuint obj);
@@ -353,6 +356,8 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 	}
 
 	pglLinkProgramARB( glprog );
+	pglDetachObjectARB( glprog, vp );
+	pglDetachObjectARB( glprog, fp );
 	pglDeleteObjectARB( vp );
 	pglDeleteObjectARB( fp );
 
@@ -383,7 +388,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 
 	if(gl2wrap_config.vao_mandatory)
 	{
-		prog->vao_begin = malloc(gl2wrap_config.cycle_buffers * 4);
+		prog->vao_begin = Mem_Calloc( r_temppool, gl2wrap_config.cycle_buffers * sizeof( GLuint ));
 		pglGenVertexArrays( gl2wrap_config.cycle_buffers, prog->vao_begin );
 	}
 	pglUseProgramObjectARB( glprog );
@@ -481,9 +486,9 @@ static void GL2_InitTriQuads( void )
 
 static void GL2_InitIncrementalBuffer( int i, GLuint size )
 {
-	gl2wrap.attrbufobj[i] = malloc(gl2wrap_config.cycle_buffers * 4);
+	gl2wrap.attrbufobj[i] = Mem_Calloc( r_temppool, gl2wrap_config.cycle_buffers * sizeof( GLuint ));
 	if( gl2wrap_config.buf_storage )
-		gl2wrap.mappings[i] = malloc(gl2wrap_config.cycle_buffers * 8);
+		gl2wrap.mappings[i] = Mem_Calloc( r_temppool, gl2wrap_config.cycle_buffers * sizeof( void* ));
 	pglGenBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap.attrbufobj[i] );
 
 	for(int j = 0; j < gl2wrap_config.cycle_buffers; j++ )
@@ -616,11 +621,7 @@ int GL2_ShimInit( void )
 		GLuint size = GL2_MAX_VERTS * gl2wrap_attr_size[i] * sizeof( GLfloat );
 		if( !gl2wrap_config.buf_storage )
 		{
-#ifdef XASH_POSIX
-			gl2wrap.attrbuf[i] = memalign( 0x100, size );
-#else
-			gl2wrap.attrbuf[i] = malloc( size );
-#endif
+			gl2wrap.attrbuf[i] = Mem_Calloc( r_temppool, size );
 		}
 		if( gl2wrap_config.incremental )
 			GL2_InitIncrementalBuffer( i, size );
@@ -674,31 +675,45 @@ void GL2_ShimShutdown( void )
 
 	pglFinish();
 	pglUseProgramObjectARB( 0 );
+	GL2_FreeArrays();
+	pglDeleteBuffersARB( (!!pglDrawRangeElementsBaseVertex?1:4),  gl2wrap.triquads_ibo );
 
-	/*
-	// FIXME: this sometimes causes the game to block on glDeleteProgram for up to a minute
-	//        but since this is only called on shutdown or game change, it should be fine to skip
 	for ( i = 0; i < MAX_PROGS; ++i )
 	{
 		if ( gl2wrap.progs[i].flags )
-			glDeleteProgram( gl2wrap.progs[i].glprog );
-	}
-	*/
-
-	if( gl2wrap_config.buf_storage )
-	{
-		for ( i = 0; i < GL2_ATTR_MAX; ++i )
 		{
-			if(gl2wrap_config.buf_storage)
+			int j;
+			pglDeleteProgram( gl2wrap.progs[i].glprog );
+			if(gl2wrap.progs[i].vao_begin )
 			{
-				/// TODO: cleanup
-				//pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufpers[i] );
-				//pglUnmapBufferARB( GL_ARRAY_BUFFER_ARB );
-				//pglDeleteBuffersARB( 1, &gl2wrap.attrbufpers[i] );
+				pglDeleteVertexArrays( gl2wrap_config.cycle_buffers, gl2wrap.progs[i].vao_begin );
+				Mem_Free( gl2wrap.progs[i].vao_begin );
 			}
-			else
-				free( gl2wrap.attrbuf[i] );
 		}
+
+	}
+
+	for ( i = 0; i < GL2_ATTR_MAX; ++i )
+	{
+		int j;
+		if( gl2wrap_config.buf_storage )
+		{
+			for( j = 0; j < gl2wrap_config.cycle_buffers; j++ )
+			{
+				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][j] );
+				pglUnmapBufferARB( GL_ARRAY_BUFFER_ARB );
+			}
+		}
+		if( gl2wrap.attrbufobj[i] )
+		{
+			pglDeleteBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap.attrbufobj[i] );
+			Mem_Free( gl2wrap.attrbufobj[i] );
+		}
+		if( gl2wrap.mappings[i] )
+			Mem_Free( gl2wrap.mappings[i] );
+
+		if( !gl2wrap_config.buf_storage )
+			Mem_Free( gl2wrap.attrbuf[i] );
 	}
 
 	memset( &gl2wrap, 0, sizeof( gl2wrap ) );
@@ -1500,6 +1515,20 @@ static void GL2_AllocArrays( void )
 		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, GL2_MAX_VERTS * 64, NULL, GL_STREAM_DRAW_ARB );
 	}
 }
+
+static void GL2_FreeArrays( void )
+{
+	if( gl2wrap_arrays.vao_dynamic )
+		pglDeleteVertexArrays( 1, &gl2wrap_arrays.vao_dynamic );
+	if(gl2wrap_arrays.stream_pointer)
+	{
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap_arrays.stream_buffer );
+		pglUnmapBufferARB( GL_ARRAY_BUFFER_ARB );
+	}
+	pglDeleteBuffersARB( 1, &gl2wrap_arrays.stream_buffer );
+	memset( &gl2wrap_arrays, 0, sizeof( gl2wrap_arrays ) );
+}
+
 
 /*
 ======================
