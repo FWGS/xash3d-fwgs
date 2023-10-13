@@ -1054,9 +1054,6 @@ void GL_ClearExtensions( void )
 	// deinit our immediate mode override
 	VGL_ShimShutdown();
 #endif
-#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
-	GL2_ShimShutdown();
-#endif
 }
 
 //=======================================================================
@@ -1201,6 +1198,9 @@ void R_Shutdown( void )
 
 	GL_RemoveCommands();
 	R_ShutdownImages();
+#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+	GL2_ShimShutdown();
+#endif
 
 	Mem_FreePool( &r_temppool );
 
