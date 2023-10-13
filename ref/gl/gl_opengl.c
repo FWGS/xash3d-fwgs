@@ -752,8 +752,12 @@ void GL_InitExtensionsGLES( void )
 			break;
 		case GL_ARB_MULTITEXTURE:
 			if(!GL_CheckExtension( "multitexture", multitexturefuncs, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0) && glConfig.wrapper == GLES_WRAPPER_NONE  )
+#ifndef XASH_GL_STATIC
 				if( !GL_CheckExtension( "multitexture_es1", multitexturefuncs_es, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0 ) )
 					if( !GL_CheckExtension( "multitexture_es2", multitexturefuncs_es2, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 2.0 ) )
+#else
+				break;
+#endif
 			//GL_SetExtension( extid, true ); // required to be supported by wrapper
 
 			pglGetIntegerv( GL_MAX_TEXTURE_UNITS_ARB, &glConfig.max_texture_units );
