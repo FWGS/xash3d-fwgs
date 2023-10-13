@@ -783,8 +783,13 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	{
 		if( !glw_state.initialized )
 		{
-			if( !GL_CreateContext( ))
-				return false;
+			while( !GL_CreateContext( ))
+			{
+				glw_state.safe++;
+				if(glw_state.safe > SAFE_DONTCARE)
+					return false;
+				GL_SetupAttributes(); // re-choose attributes
+			}
 
 			VID_StartupGamma();
 		}
