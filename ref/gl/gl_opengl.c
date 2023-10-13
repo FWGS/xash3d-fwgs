@@ -222,8 +222,10 @@ static dllfunc_t vbofuncs[] =
 	{ GL_CALL( glDeleteBuffersARB ) },
 	{ GL_CALL( glGenBuffersARB ) },
 	{ GL_CALL( glIsBufferARB ) },
+#ifndef XASH_GLES
 	{ GL_CALL( glMapBufferARB ) },
-	{ GL_CALL( glUnmapBufferARB ) }, // ,
+	{ GL_CALL( glUnmapBufferARB ) },
+#endif
 	{ GL_CALL( glBufferDataARB ) },
 	{ GL_CALL( glBufferSubDataARB ) },
 	{ NULL, NULL }
@@ -257,6 +259,9 @@ static dllfunc_t mapbufferrangefuncs[] =
 {
 { GL_CALL( glMapBufferRange ) },
 { GL_CALL( glFlushMappedBufferRange ) },
+#ifdef XASH_GLES
+{ GL_CALL( glUnmapBufferARB ) },
+#endif
 { NULL, NULL }
 };
 
@@ -361,10 +366,10 @@ static dllfunc_t shaderobjectsfuncs_gles[] =
 	{ "glUniformMatrix2fv"         , (void **)&pglUniformMatrix2fvARB },
 	{ "glUniformMatrix3fv"         , (void **)&pglUniformMatrix3fvARB },
 	{ "glUniformMatrix4fv"         , (void **)&pglUniformMatrix4fvARB },
-	{ "glGetShaderfv"     , (void **)&pglGetObjectParameterfvARB },
+//	{ "glGetShaderfv"     , (void **)&pglGetObjectParameterfvARB }, // missing in ES2?
 	{ "glGetShaderiv"     , (void **)&pglGetObjectParameterivARB },
 	{ "glGetShaderInfoLog"               , (void **)&pglGetInfoLogARB },
-	{ "glGetAttachedObjects"       , (void **)&pglGetAttachedObjectsARB },
+//	{ "glGetAttachedObjects"       , (void **)&pglGetAttachedObjectsARB }, // missing in ES2?
 	{ "glGetUniformLocation"       , (void **)&pglGetUniformLocationARB },
 	{ "glGetActiveUniform"         , (void **)&pglGetActiveUniformARB },
 	{ "glGetUniformfv"             , (void **)&pglGetUniformfvARB },
@@ -396,6 +401,23 @@ static dllfunc_t vaofuncs[] =
 { "glIsVertexArray"      , (void **)&pglIsVertexArray },
 { NULL, NULL }
 };
+
+static dllfunc_t multitexturefuncs_es[] =
+{
+	{ GL_CALL( glActiveTexture ) },
+	{ GL_CALL( glActiveTextureARB ) },
+	{ GL_CALL( glClientActiveTexture ) },
+	{ GL_CALL( glClientActiveTextureARB ) },
+	{ NULL					, NULL }
+};
+
+static dllfunc_t multitexturefuncs_es2[] =
+{
+	{ GL_CALL( glActiveTexture ) },
+	{ GL_CALL( glActiveTextureARB ) },
+	{ NULL					, NULL }
+};
+
 #endif
 
 /*
@@ -514,8 +536,20 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 		// functions are cleared before all the extensions are evaluated
 		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
 		{
-			// one or more functions are invalid, extension will be disabled
-			GL_SetExtension( r_ext, false );
+			// HACK: fix ARB names
+			char *str = Q_strstr(func->name, "ARB");
+			if(str)
+			{
+				string name;
+				Q_strncpy( name, func->name, MAX_STRING );
+				name[str - func->name] = '\0';
+				*func->func = gEngfuncs.GL_GetProcAddress( name );
+				if(!*func->func)
+					GL_SetExtension( r_ext, false );
+			}
+			else
+				// one or more functions are invalid, extension will be disabled
+				GL_SetExtension( r_ext, false );
 		}
 	}
 #endif
@@ -715,7 +749,9 @@ void GL_InitExtensionsGLES( void )
 			GL_CheckExtension( "vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", extid, 1.0 );
 			break;
 		case GL_ARB_MULTITEXTURE:
-			GL_CheckExtension( "multitexture", multitexturefuncs, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0 );
+			if(!GL_CheckExtension( "multitexture", multitexturefuncs, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0) && glConfig.wrapper == GLES_WRAPPER_NONE  )
+				if( !GL_CheckExtension( "multitexture_es1", multitexturefuncs_es, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0 ) )
+					if( !GL_CheckExtension( "multitexture_es2", multitexturefuncs_es2, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 2.0 ) )
 			//GL_SetExtension( extid, true ); // required to be supported by wrapper
 
 			pglGetIntegerv( GL_MAX_TEXTURE_UNITS_ARB, &glConfig.max_texture_units );
