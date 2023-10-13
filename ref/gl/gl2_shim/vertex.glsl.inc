@@ -37,7 +37,7 @@
 "\n"
 "void main()\n"
 "{\n"
-"gl_Position = uMVP * vec4(inPosition,1.0f);\n"
+"gl_Position = uMVP * vec4(inPosition,1.0);\n"
 "#if ATTR_COLOR\n"
 "vColor = inColor;\n"
 "#endif\n"

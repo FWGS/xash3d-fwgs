@@ -63,7 +63,7 @@
 "#endif\n"
 "#if FEAT_FOG\n"
 "float fogDist = gl_FragCoord.z / gl_FragCoord.w;\n"
-"float fogRate = clamp(exp(-uFog.w * fogDist), 0.f, 1.f);\n"
+"float fogRate = clamp(exp(-uFog.w * fogDist), 0.0, 1.0);\n"
 "c.rgb = mix(uFog.rgb, c.rgb, fogRate);\n"
 "#endif\n"
 "oFragColor = c;\n"
