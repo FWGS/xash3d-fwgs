@@ -390,8 +390,15 @@ static void WriteControllerInfo( FILE *fp )
 
 		GetMotionTypeString( bonecontroller->type & ~STUDIO_RLOOP, motion_types, sizeof( motion_types ), false );
 
-		fprintf( fp, "$controller %i \"%s\" %s %f %f\n",
-		    bonecontroller->index, bone->name, motion_types,
+		fputs( "$controller ", fp );
+
+		if( bonecontroller->index == 4 )
+			fputs( "Mouth", fp );
+		else
+			fprintf( fp, "%i", bonecontroller->index );
+
+		fprintf( fp, " \"%s\" %s %f %f\n",
+		    bone->name, motion_types,
 		    bonecontroller->start, bonecontroller->end );
 	}
 
