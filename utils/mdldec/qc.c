@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include <stdlib.h>
 #include <string.h>
+#include "xash3d_mathlib.h"
 #include "eiface.h"
 #include "studio.h"
 #include "crtlib.h"
@@ -437,6 +438,29 @@ static void WriteHitBoxInfo( FILE *fp )
 
 /*
 ============
+CalcSequenceGroupSize
+============
+*/
+static int CalcSequenceGroupSize( void )
+{
+	int			i, maxsize = 0, groupsize = DEFAULT_SEQGROUPSIZE;
+
+	for( i = 1; i < model_hdr->numseqgroups; i++ )
+		maxsize = Q_max( anim_hdr[i]->length, maxsize );
+
+	if( maxsize > 0 )
+	{
+		groupsize = maxsize / 1024;
+
+		if( maxsize % 1024 )
+			groupsize++;
+	}
+
+	return groupsize;
+}
+
+/*
+============
 WriteSequenceInfo
 ============
 */
@@ -449,7 +473,7 @@ static void WriteSequenceInfo( FILE *fp )
 	mstudioseqdesc_t	*seqdesc;
 
 	if( model_hdr->numseqgroups > 1 )
-		fputs( "$sequencegroupsize 64\n\n", fp );
+		fprintf( fp, "$sequencegroupsize %d\n\n", CalcSequenceGroupSize( ) );
 
 	if( model_hdr->numseq > 0 )
 		fprintf( fp, "// %i animation sequence(s)\n", model_hdr->numseq );
