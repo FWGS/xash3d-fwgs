@@ -197,6 +197,7 @@ static void WriteTextureRenderMode( FILE *fp )
 {
 	int		  i;
 	mstudiotexture_t *texture;
+	long		  pos = ftell( fp );
 
 	for( i = 0; i < texture_hdr->numtextures; i++ )
 	{
@@ -234,6 +235,9 @@ static void WriteTextureRenderMode( FILE *fp )
 		if( texture->flags & STUDIO_NF_TWOSIDE )
 			fprintf( fp, "$texrendermode \"%s\" \"twoside\" \n", texture->name );
 	}
+
+	if( ftell( fp ) != pos )
+		fputs( "\n", fp );
 }
 
 /*
@@ -250,7 +254,7 @@ static void WriteSkinFamilyInfo( FILE *fp )
 	if( texture_hdr->numskinfamilies < 2 )
 		return;
 
-	fprintf( fp, "\n// %i skin families\n", texture_hdr->numskinfamilies );
+	fprintf( fp, "// %i skin families\n", texture_hdr->numskinfamilies );
 
 	fputs( "$texturegroup skinfamilies \n{\n", fp );
 
@@ -279,7 +283,7 @@ static void WriteSkinFamilyInfo( FILE *fp )
 		fputs( "}\n", fp );
 	}
 
-	fputs( "}\n", fp );
+	fputs( "}\n\n", fp );
 }
 
 /*
@@ -296,7 +300,7 @@ static void WriteAttachmentInfo( FILE *fp )
 	if( !model_hdr->numattachments )
 		return;
 
-	fprintf( fp, "\n// %i attachment(s)\n", model_hdr->numattachments );
+	fprintf( fp, "// %i attachment(s)\n", model_hdr->numattachments );
 
 	for( i = 0; i < model_hdr->numattachments; ++i )
 	{
@@ -305,6 +309,8 @@ static void WriteAttachmentInfo( FILE *fp )
 
 		fprintf( fp, "$attachment %i \"%s\" %f %f %f\n", i, bone->name, attachment->org[0], attachment->org[1], attachment->org[2] );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -319,7 +325,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 	mstudiomodel_t		*model;
 	char			 modelname[64];
 
-	fputs( "\n// reference mesh(es)\n", fp );
+	fputs( "// reference mesh(es)\n", fp );
 
 	for( i = 0; i < model_hdr->numbodyparts; ++i )
 	{
@@ -331,7 +337,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 
 			COM_FileBase( model->name, modelname, sizeof( modelname ));
 
-			fprintf( fp, "$body \"%s\" \"%s\"\n\n", bodypart->name, modelname );
+			fprintf( fp, "$body \"%s\" \"%s\"\n", bodypart->name, modelname );
 			continue;
 		}
 
@@ -354,8 +360,10 @@ static void WriteBodyGroupInfo( FILE *fp )
 			fprintf( fp, "studio \"%s\"\n", modelname );
 		}
 
-		fputs( "}\n\n" , fp );
+		fputs( "}\n", fp );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -373,7 +381,7 @@ static void WriteControllerInfo( FILE *fp )
 	if( !model_hdr->numbonecontrollers )
 		return;
 
-	fprintf( fp, "\n// %i bone controller(s)\n", model_hdr->numbonecontrollers );
+	fprintf( fp, "// %i bone controller(s)\n", model_hdr->numbonecontrollers );
 
 	for( i = 0; i < model_hdr->numbonecontrollers; ++i )
 	{
@@ -386,6 +394,8 @@ static void WriteControllerInfo( FILE *fp )
 		    bonecontroller->index, bone->name, motion_types,
 		    bonecontroller->start, bonecontroller->end );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -402,7 +412,7 @@ static void WriteHitBoxInfo( FILE *fp )
 	if( !model_hdr->numhitboxes )
 		return;
 
-	fprintf( fp, "\n// %i hit box(es)\n", model_hdr->numhitboxes );
+	fprintf( fp, "// %i hit box(es)\n", model_hdr->numhitboxes );
 
 	for( i = 0; i < model_hdr->numhitboxes; i++ )
 	{
@@ -414,6 +424,8 @@ static void WriteHitBoxInfo( FILE *fp )
 		    hitbox->bbmin[0], hitbox->bbmin[1], hitbox->bbmin[2],
 		    hitbox->bbmax[0], hitbox->bbmax[1], hitbox->bbmax[2] );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -430,10 +442,10 @@ static void WriteSequenceInfo( FILE *fp )
 	mstudioseqdesc_t	*seqdesc;
 
 	if( model_hdr->numseqgroups > 1 )
-		fputs( "\n$sequencegroupsize 64\n", fp );
+		fputs( "$sequencegroupsize 64\n\n", fp );
 
 	if( model_hdr->numseq > 0 )
-		fprintf( fp, "\n// %i animation sequence(s)\n", model_hdr->numseq );
+		fprintf( fp, "// %i animation sequence(s)\n", model_hdr->numseq );
 
 	for( i = 0; i < model_hdr->numseq; ++i )
 	{
@@ -556,6 +568,8 @@ static void WriteSequenceInfo( FILE *fp )
 		if( seqdesc->numblends > 2 )
 			fputs( "}\n", fp );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -603,34 +617,32 @@ void WriteQCScript( void )
 
 	fputs( "$cd \".\"\n", fp );
 	fputs( "$cdtexture \".\"\n", fp );
-	fputs( "$scale 1.0\n", fp );
 	fputs( "$cliptotextures\n", fp );
-	fputs( "\n", fp );
-
-	if( !model_hdr->numtextures )
-		fputs( "$externaltextures\n", fp );
-
-	fprintf( fp, "$flags %i\n", model_hdr->flags );
-
-	fputs( "\n", fp );
-
-	fprintf( fp, "$bbox %f %f %f", model_hdr->min[0], model_hdr->min[1], model_hdr->min[2] );
-	fprintf( fp, " %f %f %f\n", model_hdr->max[0], model_hdr->max[1], model_hdr->max[2] );
-	fprintf( fp, "$cbox %f %f %f", model_hdr->bbmin[0], model_hdr->bbmin[1], model_hdr->bbmin[2] );
-	fprintf( fp, " %f %f %f\n", model_hdr->bbmax[0], model_hdr->bbmax[1], model_hdr->bbmax[2] );
-	fprintf( fp, "$eyeposition %f %f %f\n", model_hdr->eyeposition[0], model_hdr->eyeposition[1], model_hdr->eyeposition[2] );
-
+	fputs( "$scale 1.0\n", fp );
 	fputs( "\n", fp );
 
 	WriteBodyGroupInfo( fp );
-	WriteTextureRenderMode( fp );
+
+	fprintf( fp, "$flags %i\n\n", model_hdr->flags );
+	fprintf( fp, "$eyeposition %f %f %f\n\n", model_hdr->eyeposition[0], model_hdr->eyeposition[1], model_hdr->eyeposition[2] );
+
+	if( !model_hdr->numtextures )
+		fputs( "$externaltextures\n\n", fp );
+
 	WriteSkinFamilyInfo( fp );
+	WriteTextureRenderMode( fp );
 	WriteAttachmentInfo( fp );
-	WriteControllerInfo( fp );
+
+	fprintf( fp, "$bbox %f %f %f", model_hdr->min[0], model_hdr->min[1], model_hdr->min[2] );
+	fprintf( fp, " %f %f %f\n\n", model_hdr->max[0], model_hdr->max[1], model_hdr->max[2] );
+	fprintf( fp, "$cbox %f %f %f", model_hdr->bbmin[0], model_hdr->bbmin[1], model_hdr->bbmin[2] );
+	fprintf( fp, " %f %f %f\n\n", model_hdr->bbmax[0], model_hdr->bbmax[1], model_hdr->bbmax[2] );
+
 	WriteHitBoxInfo( fp );
+	WriteControllerInfo( fp );
 	WriteSequenceInfo( fp );
 
-	fputs( "\n// End of QC script.\n", fp );
+	fputs( "// End of QC script.\n", fp );
 	fclose( fp );
 
 	printf( "QC Script: %s\n", filename );
