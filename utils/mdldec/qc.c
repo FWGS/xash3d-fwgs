@@ -262,7 +262,7 @@ static void WriteSkinFamilyInfo( FILE *fp )
 
 	for( i = 0; i < texture_hdr->numskinfamilies; ++i )
 	{
-		fputs( "{", fp );
+		fputs( "\t{", fp );
 
 		for( j = 0; j < texture_hdr->numskinref; ++j )
 		{
@@ -351,13 +351,13 @@ static void WriteBodyGroupInfo( FILE *fp )
 
 			if( !Q_strncmp( model->name, "blank", 5 ) )
 			{
-				fputs( "blank\n", fp );
+				fputs( "\tblank\n", fp );
 				continue;
 			}
 
 			COM_FileBase( model->name, modelname, sizeof( modelname ));
 
-			fprintf( fp, "studio \"%s\"\n", modelname );
+			fprintf( fp, "\tstudio \"%s\"\n", modelname );
 		}
 
 		fputs( "}\n", fp );
@@ -527,23 +527,18 @@ static void WriteSequenceInfo( FILE *fp )
 
 		if( seqdesc->numevents > 2 )
 		{
-			fputs( "{\n ", fp );
+			fputs( "{\n", fp );
 
 			for( j = 0; j < seqdesc->numevents; j++ )
 			{
-				if( seqdesc->numblends <= 2 )
-					fputs( " ", fp );
-				else
-					fputs( "          ", fp );
-
 				event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex ) + j;
 
-				fprintf( fp, "{ event %i %i", event->event, event->frame );
+				fprintf( fp, "\t{ event %i %i", event->event, event->frame );
 
 				if( event->options[0] != '\0' )
 					fprintf( fp, " \"%s\"", event->options );
 
-				fputs( " }\n ", fp );
+				fputs( " }\n", fp );
 			}
 
 			fputs( "}", fp );
