@@ -2341,7 +2341,7 @@ void CL_ReadPackets( void )
 	// decide the simulation time
 	cl.oldtime = cl.time;
 
-	if( cls.demoplayback != DEMO_XASH3D && !cl.paused )
+	if( !cl.paused )
 		cl.time += host.frametime;
 
 	// demo time
