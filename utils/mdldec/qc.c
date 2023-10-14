@@ -263,7 +263,7 @@ static void WriteSkinFamilyInfo( FILE *fp )
 
 	for( i = 0; i < texture_hdr->numskinfamilies; ++i )
 	{
-		fputs( "\t{", fp );
+		fputs( "\t{\n", fp );
 
 		for( j = 0; j < texture_hdr->numskinref; ++j )
 		{
@@ -276,12 +276,12 @@ static void WriteSkinFamilyInfo( FILE *fp )
 
 				texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ) + index;
 
-				fprintf( fp, " \"%s\" ", texture->name );
+				fprintf( fp, "\t\t\"%s\"\n", texture->name );
 				break;
 			}
 		}
 
-		fputs( "}\n", fp );
+		fputs( "\t}\n", fp );
 	}
 
 	fputs( "}\n\n", fp );
