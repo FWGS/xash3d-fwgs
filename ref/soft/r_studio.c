@@ -117,7 +117,7 @@ typedef struct
 } studio_draw_state_t;
 
 // studio-related cvars
-static CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
+CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
 static cvar_t			*cl_righthand = NULL;
 
 static r_studio_interface_t	*pStudioDraw;
@@ -141,8 +141,6 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
-
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 
 	// g-cont. cvar disabled by Valve
