@@ -257,7 +257,7 @@ static void WriteSkinFamilyInfo( FILE *fp )
 
 	fprintf( fp, "// %i skin families\n", texture_hdr->numskinfamilies );
 
-	fputs( "$texturegroup skinfamilies \n{\n", fp );
+	fputs( "$texturegroup \"skinfamilies\"\n{\n", fp );
 
 	skinref = (short *)( (byte *)texture_hdr + texture_hdr->skinindex );
 
