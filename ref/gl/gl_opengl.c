@@ -843,6 +843,8 @@ void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_lockpvs );
 	gEngfuncs.Cvar_RegisterVariable( &r_lockfrustum );
 	gEngfuncs.Cvar_RegisterVariable( &r_traceglow );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_drawelements );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );

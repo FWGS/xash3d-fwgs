@@ -1918,6 +1918,7 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Cvar_RegisterVariable( &sw_texfilt );
 #endif
 	gEngfuncs.Cvar_RegisterVariable( &r_novis );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
 
 	r_temppool = Mem_AllocPool( "ref_soft zone" );
 
