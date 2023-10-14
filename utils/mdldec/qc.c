@@ -610,12 +610,7 @@ void WriteQCScript( void )
 	if( !model_hdr->numtextures )
 		fputs( "$externaltextures\n", fp );
 
-	if( model_hdr->flags != 0 )
-	{
-		fprintf( fp, "$flags %i\n", model_hdr->flags );
-
-		printf( "WARNING: This model uses the $flags keyword set to %i\n", model_hdr->flags );
-	}
+	fprintf( fp, "$flags %i\n", model_hdr->flags );
 
 	fputs( "\n", fp );
 
