@@ -601,8 +601,8 @@ void WriteQCScript( void )
 
 	fprintf( fp, "$modelname \"%s.mdl\"\n", modelfile );
 
-	fputs( "$cd \".\\\"\n", fp );
-	fputs( "$cdtexture \".\\\"\n", fp );
+	fputs( "$cd \".\"\n", fp );
+	fputs( "$cdtexture \".\"\n", fp );
 	fputs( "$scale 1.0\n", fp );
 	fputs( "$cliptotextures\n", fp );
 	fputs( "\n", fp );
