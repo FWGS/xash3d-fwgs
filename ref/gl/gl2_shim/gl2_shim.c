@@ -1065,7 +1065,15 @@ static void APIENTRY GL2_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 	}
 	++gl2wrap.end;
 
-	if( gl2wrap.end - gl2wrap.begin >= MAX_BEGINEND_VERTS )
+	if( gl2wrap.prim == GL_QUADS )
+	{
+		if( !( ( gl2wrap.end - gl2wrap.begin ) % 4 ) && gl2wrap.end > ( GL2_MAX_VERTS - 4 ) )
+		{
+			GL2_FlushPrims();
+			GL2_Begin( GL_QUADS );
+		}
+	}
+	else if( gl2wrap.end - gl2wrap.begin >= MAX_BEGINEND_VERTS )
 	{
 		GLenum prim = gl2wrap.prim;
 		gEngfuncs.Con_DPrintf( S_ERROR "GL2_Vertex3f: Vertex buffer overflow!\n" );
