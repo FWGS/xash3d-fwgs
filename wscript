@@ -75,6 +75,7 @@ SUBDIRS = [
 	Subproject('3rdparty/gl4es',        lambda x: not x.env.DEDICATED and x.env.GL4ES),
 	Subproject('ref/gl',                lambda x: not x.env.DEDICATED and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
 	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and not x.env.SUPPORT_BSP2_FORMAT and x.env.SOFT),
+	Subproject('ref/null',              lambda x: not x.env.DEDICATED and x.env.NULL),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
@@ -100,6 +101,7 @@ REFDLLS = [
 	RefDll('gles2', False, 'GLWES'),
 	RefDll('gl4es', False),
 	RefDll('gles3compat', False),
+	RefDll('null', False),
 ]
 
 def options(opt):
