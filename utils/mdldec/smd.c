@@ -525,7 +525,7 @@ static void WriteSequences( void )
 			if( seqdesc->numblends == 1 )
 				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.smd", destdir, seqdesc->label );
 			else
-				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s_blend%i.smd", destdir, seqdesc->label, j + 1 );
+				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s_blend%02i.smd", destdir, seqdesc->label, j + 1 );
 
 			if( len == -1 )
 			{
