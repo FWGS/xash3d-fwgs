@@ -301,7 +301,7 @@ static void WriteAttachmentInfo( FILE *fp )
 	if( !model_hdr->numattachments )
 		return;
 
-	fprintf( fp, "// %i attachment(s)\n", model_hdr->numattachments );
+	fprintf( fp, "// %i attachment%s\n", model_hdr->numattachments, model_hdr->numattachments > 1 ? "s" : "" );
 
 	for( i = 0; i < model_hdr->numattachments; ++i )
 	{
@@ -326,7 +326,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 	mstudiomodel_t		*model;
 	char			 modelname[64];
 
-	fprintf( fp, "// %i reference mesh(es)\n", model_hdr->numbodyparts );
+	fprintf( fp, "// %i reference mesh%s\n", model_hdr->numbodyparts, model_hdr->numbodyparts > 1 ? "es" : "" );
 
 	for( i = 0; i < model_hdr->numbodyparts; ++i )
 	{
@@ -382,7 +382,7 @@ static void WriteControllerInfo( FILE *fp )
 	if( !model_hdr->numbonecontrollers )
 		return;
 
-	fprintf( fp, "// %i bone controller(s)\n", model_hdr->numbonecontrollers );
+	fprintf( fp, "// %i bone controller%s\n", model_hdr->numbonecontrollers, model_hdr->numbonecontrollers > 1 ? "s" : "" );
 
 	for( i = 0; i < model_hdr->numbonecontrollers; ++i )
 	{
@@ -420,7 +420,7 @@ static void WriteHitBoxInfo( FILE *fp )
 	if( !model_hdr->numhitboxes )
 		return;
 
-	fprintf( fp, "// %i hit box(es)\n", model_hdr->numhitboxes );
+	fprintf( fp, "// %i hit box%s\n", model_hdr->numhitboxes, model_hdr->numhitboxes > 1 ? "es" : "" );
 
 	for( i = 0; i < model_hdr->numhitboxes; i++ )
 	{
@@ -476,7 +476,7 @@ static void WriteSequenceInfo( FILE *fp )
 		fprintf( fp, "$sequencegroupsize %d\n\n", CalcSequenceGroupSize( ) );
 
 	if( model_hdr->numseq > 0 )
-		fprintf( fp, "// %i animation sequence(s)\n", model_hdr->numseq );
+		fprintf( fp, "// %i animation sequence%s\n", model_hdr->numseq, model_hdr->numseq > 1 ? "s" : "" );
 
 	for( i = 0; i < model_hdr->numseq; ++i )
 	{
