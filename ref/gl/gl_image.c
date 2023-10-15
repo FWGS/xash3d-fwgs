@@ -1083,9 +1083,9 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 				samplesCount = 1;
 		}
 		pglTexImage2DMultisample( tex->target, samplesCount, tex->format, width, height, GL_TRUE );
-#else /* !XASH_GLES && !XASH_GL4ES */
+#else /* !XASH_GL_STATIC !XASH_GLES && !XASH_GL4ES */
 		gEngfuncs.Con_Printf( S_ERROR "GLES renderer don't support GL_TEXTURE_2D_MULTISAMPLE!\n" );
-#endif /* !XASH_GLES && !XASH_GL4ES */
+#endif /* !XASH_GL_STATIC !XASH_GLES && !XASH_GL4ES */
 	}
 	else // 2D or RECT
 	{

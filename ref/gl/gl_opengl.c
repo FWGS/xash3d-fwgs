@@ -336,6 +336,19 @@ static dllfunc_t shaderobjectsfuncs[] =
 { NULL, NULL }
 };
 
+
+/*
+==================
+Even if *ARB functions may work in GL driver in Core context,
+renderdoc completely ignores this calls, so we cannot workaround this
+by removing ARB suffix after failed function resolve
+I desided not to remove ARB suffix from function declarations because
+it historicaly related to ARB_shader_object extension, not GL2+ functions
+and all shader code from XashXT/ancient xash3d uses it too
+Commented out lines left there intentionally to prevent usage on core/gles
+==================
+*/
+
 static dllfunc_t shaderobjectsfuncs_gles[] =
 {
 	{ "glDeleteShader"             , (void **)&pglDeleteObjectARB },
@@ -386,22 +399,24 @@ static dllfunc_t shaderobjectsfuncs_gles[] =
 	{ "glVertexAttrib2f"              , (void **)&pglVertexAttrib2fARB },
 	{ "glVertexAttrib2fv"             , (void **)&pglVertexAttrib2fvARB },
 	{ "glVertexAttrib3fv"             , (void **)&pglVertexAttrib3fvARB },
-	{ "glGetProgramiv"                  , (void**)&pglGetProgramiv },
-	{ "glDeleteProgram"                  , (void**)&pglDeleteProgram },
-	{ "glGetProgramInfoLog"               , (void **)&pglGetProgramInfoLog },
+
+	// Core/GLES only
+	{ GL_CALL( glGetProgramiv ) },
+	{ GL_CALL( glDeleteProgram ) },
+	{ GL_CALL( glGetProgramInfoLog ) },
 	//{ "glVertexAttrib4f"              , (void **)&pglVertexAttrib4fARB },
 	//{ "glVertexAttrib4fv"             , (void **)&pglVertexAttrib4fvARB },
 	//{ "glVertexAttrib4ubv"            , (void **)&pglVertexAttrib4ubvARB },
-{ NULL, NULL }
+	{ NULL, NULL }
 };
 
 static dllfunc_t vaofuncs[] =
 {
-{ "glBindVertexArray"    , (void **)&pglBindVertexArray },
-{ "glDeleteVertexArrays" , (void **)&pglDeleteVertexArrays },
-{ "glGenVertexArrays"    , (void **)&pglGenVertexArrays },
-{ "glIsVertexArray"      , (void **)&pglIsVertexArray },
-{ NULL, NULL }
+	{ GL_CALL( glBindVertexArray ) },
+	{ GL_CALL( glDeleteVertexArrays ) },
+	{ GL_CALL( glGenVertexArrays ) },
+	{ GL_CALL( glIsVertexArray ) },
+	{ NULL, NULL }
 };
 
 static dllfunc_t multitexturefuncs_es[] =
@@ -539,14 +554,16 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
 		{
 			// HACK: fix ARB names
-			char *str = Q_strstr(func->name, "ARB");
+			char *str = Q_strstr( func->name, "ARB" );
 			if(str)
 			{
 				string name;
+
 				Q_strncpy( name, func->name, MAX_STRING );
 				name[str - func->name] = '\0';
 				*func->func = gEngfuncs.GL_GetProcAddress( name );
-				if(!*func->func)
+
+				if( !*func->func )
 					GL_SetExtension( r_ext, false );
 			}
 			else
@@ -752,13 +769,14 @@ void GL_InitExtensionsGLES( void )
 			break;
 		case GL_ARB_MULTITEXTURE:
 			if(!GL_CheckExtension( "multitexture", multitexturefuncs, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0) && glConfig.wrapper == GLES_WRAPPER_NONE  )
+			{
 #ifndef XASH_GL_STATIC
-				if( !GL_CheckExtension( "multitexture_es1", multitexturefuncs_es, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0 ) )
-					if( !GL_CheckExtension( "multitexture_es2", multitexturefuncs_es2, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 2.0 ) )
-#else
-				break;
+				if( !GL_CheckExtension( "multitexture_es1", multitexturefuncs_es, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0 )
+						&&  !GL_CheckExtension( "multitexture_es2", multitexturefuncs_es2, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 2.0 ) )
+					break; // switch( extid )
 #endif
-			//GL_SetExtension( extid, true ); // required to be supported by wrapper
+			}
+			GL_SetExtension( extid, true ); // required to be supported by wrapper
 
 			pglGetIntegerv( GL_MAX_TEXTURE_UNITS_ARB, &glConfig.max_texture_units );
 			if( glConfig.max_texture_units <= 1 )
@@ -792,15 +810,15 @@ void GL_InitExtensionsGLES( void )
 			GL_CheckExtension( "ES2 Shaders", shaderobjectsfuncs_gles, "gl_shaderobjects", extid, 2.0 );
 			break;
 		case GL_ARB_VERTEX_ARRAY_OBJECT_EXT:
-			if(!GL_CheckExtension( "GL_OES_vertex_array_object", vaofuncs, "gl_vertex_array_object", extid, 3.0 ))
-				!GL_CheckExtension( "GL_EXT_vertex_array_object", vaofuncs, "gl_vertex_array_object", extid, 3.0 );
+			if( !GL_CheckExtension( "GL_OES_vertex_array_object", vaofuncs, "gl_vertex_array_object", extid, 3.0 ))
+				GL_CheckExtension( "GL_EXT_vertex_array_object", vaofuncs, "gl_vertex_array_object", extid, 3.0 );
 			break;
 		case GL_DRAW_RANGEELEMENTS_EXT:
-			if(!GL_CheckExtension( "GL_EXT_draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid, 3.0 ))
+			if( !GL_CheckExtension( "GL_EXT_draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid, 3.0 ))
 				GL_CheckExtension( "GL_OES_draw_range_elements", drawrangeelementsfuncs, "gl_drawrangeelements", extid, 3.0 );
 			break;
 		case GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT:
-			if( !GL_CheckExtension( "GL_OES_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 0 ) )
+			if( !GL_CheckExtension( "GL_OES_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 0 ))
 				GL_CheckExtension( "GL_EXT_draw_elements_base_vertex", drawrangeelementsbasevertexfuncs, "gl_drawrangeelementsbasevertex", GL_DRAW_RANGE_ELEMENTS_BASE_VERTEX_EXT, 3.2 );
 			break;
 		case GL_MAP_BUFFER_RANGE_EXT:
