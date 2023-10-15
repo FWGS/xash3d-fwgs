@@ -265,8 +265,18 @@ void CL_LegacyParseResourceList( sizebuf_t *msg )
 	}
 
 	if( CL_IsPlaybackDemo() )
-	{
 		return;
+
+	if( !cl_allow_download.value )
+	{
+		Con_DPrintf( "Refusing new resource, cl_allow_download set to 0\n" );
+		reslist.rescount = 0;
+	}
+
+	if( cls.state == ca_active && !cl_download_ingame.value )
+	{
+		Con_DPrintf( "Refusing new resource, cl_download_ingame set to 0\n" );
+		reslist.rescount = 0;
 	}
 
 	HTTP_ResetProcessState();
