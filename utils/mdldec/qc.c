@@ -482,52 +482,19 @@ static void WriteSequenceInfo( FILE *fp )
 	{
 		seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ) + i;
 
-		fprintf( fp, "$sequence \"%s\" ", seqdesc->label );
+		fprintf( fp, "$sequence \"%s\" {\n", seqdesc->label );
 
 		if( seqdesc->numblends > 1 )
 		{
-			if( seqdesc->numblends > 2 )
+			for( j = 0; j < seqdesc->numblends; j++ )
 			{
-				fputs( "{\n", fp );
-
-				for( j = 0; j < seqdesc->numblends; j++ )
-				{
-					fputs( "          ", fp );
-
-					fprintf( fp, "\"%s_blend%i\" ", seqdesc->label, j + 1 );
-
-					fputs( "\n", fp );
-				}
-
-				fputs( "          ", fp );
+				fprintf( fp, "\t\"%s_blend%02i\"\n", seqdesc->label, j + 1 );
 			}
-			else
-			{
-				fprintf( fp, "\"%s_blend1\" ", seqdesc->label );
-				fprintf( fp, "\"%s_blend2\" ", seqdesc->label );
-			}
-
-			GetMotionTypeString( seqdesc->blendtype[0], motion_types, sizeof( motion_types ), false );
-
-			fprintf( fp, "blend %s %.0f %.0f",
-			    motion_types, seqdesc->blendstart[0], seqdesc->blendend[0] );
 		}
 		else
 		{
-			fprintf( fp, "\"%s\"", seqdesc->label );
+			fprintf( fp, "\t\"%s\"\n", seqdesc->label );
 		}
-
-		if( seqdesc->motiontype )
-		{
-			GetMotionTypeString( seqdesc->motiontype, motion_types, sizeof( motion_types ), true );
-
-			fprintf( fp, "%s", motion_types );
-		}
-
-		fprintf( fp, " fps %.0f ", seqdesc->fps );
-
-		if( seqdesc->flags == 1 )
-			fputs( "loop ", fp );
 
 		if( seqdesc->activity )
 		{
@@ -535,64 +502,61 @@ static void WriteSequenceInfo( FILE *fp )
 
 			if( activity )
 			{
-				fprintf( fp, "%s %i ", activity, seqdesc->actweight );
+				fprintf( fp, "\t%s %i\n", activity, seqdesc->actweight );
 			}
 			else
 			{
 				printf( "WARNING: Sequence %s has a custom activity flag (ACT_%i %i).\n",
 				    seqdesc->label, seqdesc->activity, seqdesc->actweight );
 
-				fprintf( fp, "ACT_%i %i ", seqdesc->activity, seqdesc->actweight );
+				fprintf( fp, "\tACT_%i %i\n", seqdesc->activity, seqdesc->actweight );
 			}
+		}
+
+		if( seqdesc->blendtype[0] )
+		{
+			GetMotionTypeString( seqdesc->blendtype[0], motion_types, sizeof( motion_types ), false );
+
+			fprintf( fp, "\tblend %s %.0f %.0f\n",
+			    motion_types, seqdesc->blendstart[0], seqdesc->blendend[0] );
+		}
+
+		for( j = 0; j < seqdesc->numevents; j++ )
+		{
+			event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex ) + j;
+
+			fprintf( fp, "\t{ event %i %i", event->event, event->frame );
+
+			if( event->options[0] != '\0' )
+				fprintf( fp, " \"%s\"", event->options );
+
+			fputs( " }\n", fp );
+		}
+
+
+		fprintf( fp, "\tfps %.0f\n", seqdesc->fps );
+
+		if( seqdesc->flags == 1 )
+			fputs( "\tloop\n", fp );
+
+		if( seqdesc->motiontype )
+		{
+			GetMotionTypeString( seqdesc->motiontype, motion_types, sizeof( motion_types ), true );
+
+			fprintf( fp, "\t%s\n", motion_types );
 		}
 
 		if( seqdesc->entrynode && seqdesc->exitnode )
 		{
 			if( seqdesc->entrynode == seqdesc->exitnode )
-				fprintf( fp, "node %i ", seqdesc->entrynode );
+				fprintf( fp, "\tnode %i\n", seqdesc->entrynode );
 			else if( seqdesc->nodeflags )
-				fprintf( fp, "rtransition %i %i ", seqdesc->entrynode, seqdesc->exitnode );
+				fprintf( fp, "\trtransition %i %i\n", seqdesc->entrynode, seqdesc->exitnode );
 			else
-				fprintf( fp, "transition %i %i ", seqdesc->entrynode, seqdesc->exitnode );
+				fprintf( fp, "\ttransition %i %i\n", seqdesc->entrynode, seqdesc->exitnode );
 		}
 
-		if( seqdesc->numevents > 2 )
-		{
-			fputs( "{\n", fp );
-
-			for( j = 0; j < seqdesc->numevents; j++ )
-			{
-				event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex ) + j;
-
-				fprintf( fp, "\t{ event %i %i", event->event, event->frame );
-
-				if( event->options[0] != '\0' )
-					fprintf( fp, " \"%s\"", event->options );
-
-				fputs( " }\n", fp );
-			}
-
-			fputs( "}", fp );
-		}
-		else
-		{
-			for( j = 0; j < seqdesc->numevents; j++ )
-			{
-				event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex ) + j;
-
-				fprintf( fp, "{ event %i %i", event->event, event->frame );
-
-				if( event->options[0] != '\0')
-					fprintf( fp, " \"%s\"", event->options );
-
-				fputs( " } ", fp );
-			}
-		}
-
-		fputs( "\n", fp );
-
-		if( seqdesc->numblends > 2 )
-			fputs( "}\n", fp );
+		fputs( "}\n", fp );
 	}
 
 	fputs( "\n", fp );
