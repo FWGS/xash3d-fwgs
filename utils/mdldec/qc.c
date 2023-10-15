@@ -326,7 +326,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 	mstudiomodel_t		*model;
 	char			 modelname[64];
 
-	fputs( "// reference mesh(es)\n", fp );
+	fprintf( fp, "// %i reference mesh(es)\n", model_hdr->numbodyparts );
 
 	for( i = 0; i < model_hdr->numbodyparts; ++i )
 	{
