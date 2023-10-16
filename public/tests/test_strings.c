@@ -12,9 +12,6 @@ int Test_Strcpycatcmp( void )
 	if( Q_strcmp( dst, buf ))
 		return 2;
 
-	if( Q_strcpy( dst, buf ) != sizeof( buf ) - 1 )
-		return 3;
-
 	if( Q_strcmp( dst, buf ))
 		return 4;
 

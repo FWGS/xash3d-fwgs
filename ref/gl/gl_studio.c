@@ -121,9 +121,9 @@ typedef struct
 } studio_draw_state_t;
 
 // studio-related cvars
-static cvar_t			*r_studio_sort_textures;
+CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
+CVAR_DEFINE_AUTO( r_studio_drawelements, "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
 static cvar_t			*cl_righthand = NULL;
-static cvar_t			*r_studio_drawelements;
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
@@ -135,7 +135,6 @@ mstudiobodyparts_t		*m_pBodyPart;
 player_info_t		*m_pPlayerInfo;
 studiohdr_t		*m_pStudioHeader;
 float			m_flGaitMovement;
-int			g_iBackFaceCull;
 int			g_nTopColor, g_nBottomColor;	// remap colors
 int			g_nFaceFlags, g_nForceFaceFlags;
 
@@ -147,8 +146,8 @@ R_StudioInit
 */
 void R_StudioInit( void )
 {
-	r_studio_sort_textures = gEngfuncs.Cvar_Get( "r_studio_sort_textures", "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
-	r_studio_drawelements = gEngfuncs.Cvar_Get( "r_studio_drawelements", "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
+	gEngfuncs.Cvar_RegisterVariable( &r_studio_drawelements );
 
 #if XASH_PSVITA
 	// don't do the same array-building work twice since that's what our FFP shim does anyway
@@ -1839,7 +1838,7 @@ sets true for enable backculling (for left-hand viewmodel)
 */
 void R_StudioSetCullState( int iCull )
 {
-	g_iBackFaceCull = iCull;
+	// This function intentionally does nothing
 }
 
 /*
@@ -2332,7 +2331,7 @@ static void R_StudioDrawPoints( void )
 		}
 	}
 
-	if( r_studio_sort_textures->value && need_sort )
+	if( r_studio_sort_textures.value && need_sort )
 	{
 		// resort opaque and translucent meshes draw order
 		qsort( g_studio.meshes, m_pSubModel->nummesh, sizeof( sortedmesh_t ), R_StudioMeshCompare );
@@ -2340,6 +2339,18 @@ static void R_StudioDrawPoints( void )
 
 	// NOTE: rewind normals at start
 	pstudionorms = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->normindex);
+
+	// backface culling for left-handed weapons
+	if( R_AllowFlipViewModel( RI.currententity ))
+	{
+		tr.fFlipViewModel = true;
+		GL_Cull( GL_NONE );
+	}
+	else
+	{
+		tr.fFlipViewModel = false;
+		GL_Cull( GL_FRONT );
+	}
 
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
 	{
@@ -2379,7 +2390,7 @@ static void R_StudioDrawPoints( void )
 
 		R_StudioSetupSkin( m_pStudioHeader, pskinref[pmesh->skinref] );
 
-		if( CVAR_TO_BOOL(r_studio_drawelements) )
+		if( r_studio_drawelements.value )
 		{
 			if( FBitSet( g_nFaceFlags, STUDIO_NF_CHROME ))
 				R_StudioBuildArrayChromeMesh( ptricmds, pstudionorms, s, t, shellscale );
@@ -3663,13 +3674,6 @@ void R_DrawViewModel( void )
 	pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
 	RI.currentmodel = RI.currententity->model;
 
-	// backface culling for left-handed weapons
-	if( R_AllowFlipViewModel( RI.currententity ) || g_iBackFaceCull )
-	{
-		tr.fFlipViewModel = true;
-		pglFrontFace( GL_CW );
-	}
-
 	switch( RI.currententity->model->type )
 	{
 	case mod_alias:
@@ -3683,13 +3687,6 @@ void R_DrawViewModel( void )
 
 	// restore depth range
 	pglDepthRange( gldepthmin, gldepthmax );
-
-	// backface culling for left-handed weapons
-	if( R_AllowFlipViewModel( RI.currententity ) || g_iBackFaceCull )
-	{
-		tr.fFlipViewModel = false;
-		pglFrontFace( GL_CCW );
-	}
 }
 
 /*
@@ -3757,7 +3754,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	}
 
 	Q_strncpy( mdlname, mod->name, sizeof( mdlname ));
-	COM_FileBase( ptexture->name, name );
+	COM_FileBase( ptexture->name, name, sizeof( name ));
 	COM_StripExtension( mdlname );
 
 	if( FBitSet( ptexture->flags, STUDIO_NF_NOMIPS ))
@@ -3933,9 +3930,6 @@ void CL_InitStudioAPI( void )
 
 	// trying to grab them from client.dll
 	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand", 0 );
-
-	if( cl_righthand == NULL )
-		cl_righthand = gEngfuncs.Cvar_Get( "cl_righthand", "0", FCVAR_ARCHIVE, "flip viewmodel (left to right)" );
 
 	// Xash will be used internal StudioModelRenderer
 	if( gEngfuncs.pfnGetStudioModelInterface( STUDIO_INTERFACE_VERSION, &pStudioDraw, &gStudioAPI ))

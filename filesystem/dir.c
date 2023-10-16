@@ -290,6 +290,10 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 	if( !FS_AppendToPath( dst, &i, len, dir->name, path, "init" ))
 		return false;
 
+	// nothing to fix
+	if( !COM_CheckStringEmpty( path ))
+		return true;
+
 	for( prev = path, next = Q_strchrnul( prev, '/' );
 		  ;
 		  prev = next + 1, next = Q_strchrnul( prev, '/' ))
@@ -464,8 +468,12 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 {
 	memset( search, 0, sizeof( searchpath_t ));
 
-	Q_strncpy( search->filename, path, sizeof( search->filename ));
-	search->type = SEARCHPATH_PLAIN;
+	Q_strncpy( search->filename, path, sizeof( search->filename ) - 1 );
+	COM_PathSlashFix( search->filename );
+
+	if( !Q_stricmp( COM_FileExtension( path ), "pk3dir" ))
+		search->type = SEARCHPATH_PK3DIR;
+	else search->type = SEARCHPATH_PLAIN;
 	search->flags = flags;
 	search->pfnPrintInfo = FS_PrintInfo_DIR;
 	search->pfnClose = FS_Close_DIR;
@@ -480,29 +488,12 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 	FS_PopulateDirEntries( search->dir, path );
 }
 
-searchpath_t *FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, int flags )
+searchpath_t *FS_AddDir_Fullpath( const char *path, int flags )
 {
 	searchpath_t *search;
 
-	for( search = fs_searchpaths; search; search = search->next )
-	{
-		if( search->type == SEARCHPATH_PLAIN && !Q_stricmp( search->filename, path ))
-		{
-			if( already_loaded )
-				*already_loaded = true;
-			return search;
-		}
-	}
-
-	if( already_loaded )
-		*already_loaded = false;
-
 	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
 	FS_InitDirectorySearchpath( search, path, flags );
-
-	search->next = fs_searchpaths;
-	fs_searchpaths = search;
-
 	Con_Printf( "Adding directory: %s\n", path );
 
 	return search;

@@ -2629,7 +2629,7 @@ void CL_UpdateFlashlight( cl_entity_t *ent )
 	vec3_t		forward, view_ofs;
 	vec3_t		vecSrc, vecEnd;
 	float		falloff;
-	pmtrace_t		*trace;
+	pmtrace_t		trace;
 	cl_entity_t	*hit;
 	dlight_t		*dl;
 
@@ -2660,28 +2660,26 @@ void CL_UpdateFlashlight( cl_entity_t *ent )
 	VectorAdd( ent->origin, view_ofs, vecSrc );
 	VectorMA( vecSrc, FLASHLIGHT_DISTANCE, forward, vecEnd );
 
-	trace = CL_VisTraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
+	trace = CL_TraceLine( vecSrc, vecEnd, PM_STUDIO_BOX );
 
 	// update flashlight endpos
 	dl = CL_AllocDlight( ent->index );
 #if 1
-	hit = CL_GetEntityByIndex( clgame.pmove->visents[trace->ent].info );
+	hit = CL_GetEntityByIndex( clgame.pmove->visents[trace.ent].info );
 	if( hit && hit->model && ( hit->model->type == mod_alias || hit->model->type == mod_studio ))
 		VectorCopy( hit->origin, dl->origin );
-	else VectorCopy( trace->endpos, dl->origin );
+	else VectorCopy( trace.endpos, dl->origin );
 #else
 	VectorCopy( trace->endpos, dl->origin );
 #endif
 	// compute falloff
-	falloff = trace->fraction * FLASHLIGHT_DISTANCE;
+	falloff = trace.fraction * FLASHLIGHT_DISTANCE;
 	if( falloff < 500.0f ) falloff = 1.0f;
 	else falloff = 500.0f / falloff;
 	falloff *= falloff;
 
 	// apply brigthness to dlight
-	dl->color.r = bound( 0, falloff * 255, 255 );
-	dl->color.g = bound( 0, falloff * 255, 255 );
-	dl->color.b = bound( 0, falloff * 255, 255 );
+	dl->color.r = dl->color.g = dl->color.b = bound( 0, falloff * 255, 255 );
 	dl->die = cl.time + 0.01f; // die on next frame
 	dl->radius = 80;
 }
@@ -2843,10 +2841,10 @@ void CL_TestLights( void )
 	float	f, r;
 	dlight_t	*dl;
 
-	if( !CVAR_TO_BOOL( cl_testlights ))
+	if( !cl_testlights.value )
 		return;
 
-	numLights = bound( 1, cl_testlights->value, MAX_DLIGHTS );
+	numLights = bound( 1, cl_testlights.value, MAX_DLIGHTS );
 	AngleVectors( cl.viewangles, forward, right, NULL );
 
 	for( i = 0; i < numLights; i++ )

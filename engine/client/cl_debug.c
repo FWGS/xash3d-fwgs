@@ -45,7 +45,7 @@ const char *CL_MsgInfo( int cmd )
 {
 	static string	sz;
 
-	Q_strcpy( sz, "???" );
+	Q_strncpy( sz, "???", sizeof( sz ));
 
 	if( cmd >= 0 && cmd <= svc_lastmsg )
 	{

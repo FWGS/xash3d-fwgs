@@ -202,25 +202,6 @@ int NearestPOW( int value, qboolean roundDown )
 	return n;
 }
 
-// remap a value in the range [A,B] to [C,D].
-float RemapVal( float val, float A, float B, float C, float D )
-{
-	return C + (D - C) * (val - A) / (B - A);
-}
-
-float ApproachVal( float target, float value, float speed )
-{
-	float	delta = target - value;
-
-	if( delta > speed )
-		value += speed;
-	else if( delta < -speed )
-		value -= speed;
-	else value = target;
-
-	return value;
-}
-
 /*
 =================
 rsqrt
@@ -241,31 +222,6 @@ float rsqrt( float number )
 	y = y * (1.5f - (x * y * y));	// first iteration
 
 	return y;
-}
-
-/*
-=================
-SinCos
-=================
-*/
-void SinCos( float radians, float *sine, float *cosine )
-{
-#if _MSC_VER == 1200
-	_asm
-	{
-		fld	dword ptr [radians]
-		fsincos
-
-		mov edx, dword ptr [cosine]
-		mov eax, dword ptr [sine]
-
-		fstp dword ptr [edx]
-		fstp dword ptr [eax]
-	}
-#else
-	*sine = sin(radians);
-	*cosine = cos(radians);
-#endif
 }
 
 /*
@@ -701,53 +657,6 @@ void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt )
 	QuaternionAlign( p, q, q2 );
 
 	QuaternionSlerpNoAlign( p, q2, t, qt );
-}
-
-/*
-====================
-V_CalcFov
-====================
-*/
-float V_CalcFov( float *fov_x, float width, float height )
-{
-	float	x, half_fov_y;
-
-	if( *fov_x < 1.0f || *fov_x > 179.0f )
-		*fov_x = 90.0f; // default value
-
-	x = width / tan( DEG2RAD( *fov_x ) * 0.5f );
-	half_fov_y = atan( height / x );
-
-	return RAD2DEG( half_fov_y ) * 2;
-}
-
-/*
-====================
-V_AdjustFov
-====================
-*/
-void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x )
-{
-	float x, y;
-
-	if( width * 3 == 4 * height || width * 4 == height * 5 )
-	{
-		// 4:3 or 5:4 ratio
-		return;
-	}
-
-	if( lock_x )
-	{
-		*fov_y = 2 * atan((width * 3) / (height * 4) * tan( *fov_y * M_PI_F / 360.0f * 0.5f )) * 360 / M_PI_F;
-		return;
-	}
-
-	y = V_CalcFov( fov_x, 640, 480 );
-	x = *fov_x;
-
-	*fov_x = V_CalcFov( &y, height, width );
-	if( *fov_x < x ) *fov_x = x;
-	else *fov_y = y;
 }
 
 /*

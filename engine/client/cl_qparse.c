@@ -232,10 +232,10 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 		// loading user settings
 		CSCR_LoadDefaultCVars( "user.scr" );
 
-		if( r_decals->value > mp_decals.value )
-			Cvar_SetValue( "r_decals", mp_decals.value );
+		if( r_decals.value > mp_decals.value )
+			Cvar_DirectSet( &r_decals, mp_decals.string );
 	}
-	else Cvar_Reset( "r_decals" );
+	else Cvar_DirectSet( &r_decals, NULL );
 
 	if( cl.background )	// tell the game parts about background state
 		Cvar_FullSet( "cl_background", "1", FCVAR_READ_ONLY );
@@ -258,7 +258,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
 
 	if( !cls.changelevel && !cls.changedemo )
-		CL_InitEdicts (); // re-arrange edicts
+		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
 
 	// Quake just have a large packet of initialization data
 	for( i = 1; i < MAX_MODELS; i++ )
@@ -302,9 +302,9 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" ));
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
-	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
+	if(( cl_allow_levelshots.value && !cls.changelevel ) || cl.background )
 	{
-		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name->string ), true ))
+		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name.string ), true ))
 			Cvar_Set( "cl_levelshot_name", "*black" ); // render a black screen
 		cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
 	}
@@ -694,17 +694,13 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	cl_entity_t	*ent;
 	int		newnum;
 
-	memset( &state, 0, sizeof( state ));
 	newnum = MSG_ReadWord( msg ); // entnum
 
 	if( newnum >= clgame.maxEntities )
 		Host_Error( "CL_AllocEdict: no free edicts\n" );
 
-	ent = CL_EDICT_NUM( newnum );
-	memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
-	ent->index = newnum;
-
 	// parse baseline
+	memset( &state, 0, sizeof( state ));
 	state.modelindex = MSG_ReadByte( msg );
 	state.frame = MSG_ReadByte( msg );
 	state.colormap = MSG_ReadByte( msg );
@@ -715,8 +711,10 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	state.angles[1] = MSG_ReadAngle( msg );
 	state.origin[2] = MSG_ReadCoord( msg );
 	state.angles[2] = MSG_ReadAngle( msg );
-	ent->player = CL_IsPlayerIndex( newnum );
 
+	ent = CL_EDICT_NUM( newnum );
+	ent->index = newnum;
+	ent->player = CL_IsPlayerIndex( newnum );
 	memcpy( &ent->baseline, &state, sizeof( entity_state_t ));
 	memcpy( &ent->prevstate, &state, sizeof( entity_state_t ));
 }

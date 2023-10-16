@@ -632,7 +632,7 @@ void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	{
 		// NOTE: we may have the decal on this surface that come from another level.
 		// check duplicate with same position and texture
-		while( decal != NULL )
+		while( decal != NULL && decal != decal->pnext )
 		{
 			if( VectorCompare( decal->position, decalinfo->m_Position ) && decal->texture == decalinfo->m_iTexture )
 				return; // decal already exists, don't place it again
@@ -1200,7 +1200,7 @@ int GAME_EXPORT R_CreateDecalList( decallist_t *pList )
 			pList[total].scale = decal->scale;
 
 			R_DecalUnProject( decal, &pList[total] );
-			COM_FileBase( R_GetTexture( decal->texture )->name, pList[total].name );
+			COM_FileBase( R_GetTexture( decal->texture )->name, pList[total].name, sizeof( pList[total].name ));
 
 			// check to see if the decal should be added
 			total = DecalListAdd( pList, total );

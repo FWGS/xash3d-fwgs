@@ -39,7 +39,7 @@ void V_CalcViewRect( void )
 	{
 		// intermission is always full screen
 		if( cl.intermission ) size = 120.0f;
-		else size = scr_viewsize->value;
+		else size = scr_viewsize.value;
 
 		if( size >= 120.0f )
 			sb_lines = 0;		// no status bar at all
@@ -47,12 +47,12 @@ void V_CalcViewRect( void )
 			sb_lines = 24;		// no inventory
 		else sb_lines = 48;
 
-		if( scr_viewsize->value >= 100.0f )
+		if( scr_viewsize.value >= 100.0f )
 		{
 			full = true;
 			size = 100.0f;
 		}
-		else size = scr_viewsize->value;
+		else size = scr_viewsize.value;
 
 		if( cl.intermission )
 		{
@@ -144,7 +144,7 @@ void V_SetRefParams( ref_params_t *fd )
 	VectorCopy( cl.viewangles, fd->cl_viewangles );
 	fd->health = cl.local.health;
 	VectorCopy( cl.crosshairangle, fd->crosshairangle );
-	fd->viewsize = scr_viewsize->value;
+	fd->viewsize = scr_viewsize.value;
 
 	VectorCopy( cl.punchangle, fd->punchangle );
 	fd->maxclients = cl.maxclients;
@@ -230,6 +230,53 @@ void V_RefApplyOverview( ref_viewpass_t *rvp )
 }
 
 /*
+====================
+V_CalcFov
+====================
+*/
+static float V_CalcFov( float *fov_x, float width, float height )
+{
+	float	x, half_fov_y;
+
+	if( *fov_x < 1.0f || *fov_x > 179.0f )
+		*fov_x = 90.0f; // default value
+
+	x = width / tan( DEG2RAD( *fov_x ) * 0.5f );
+	half_fov_y = atan( height / x );
+
+	return RAD2DEG( half_fov_y ) * 2;
+}
+
+/*
+====================
+V_AdjustFov
+====================
+*/
+static void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x )
+{
+	float x, y;
+
+	if( width * 3 == 4 * height || width * 4 == height * 5 )
+	{
+		// 4:3 or 5:4 ratio
+		return;
+	}
+
+	if( lock_x )
+	{
+		*fov_y = 2 * atan((width * 3) / (height * 4) * tan( *fov_y * M_PI_F / 360.0f * 0.5f )) * 360 / M_PI_F;
+		return;
+	}
+
+	y = V_CalcFov( fov_x, 640, 480 );
+	x = *fov_x;
+
+	*fov_x = V_CalcFov( &y, height, width );
+	if( *fov_x < x ) *fov_x = x;
+	else *fov_y = y;
+}
+
+/*
 =============
 V_GetRefParams
 =============
@@ -264,7 +311,7 @@ void V_GetRefParams( ref_params_t *fd, ref_viewpass_t *rvp )
 	rvp->fov_y = V_CalcFov( &rvp->fov_x, clgame.viewport[2], clgame.viewport[3] );
 
 	// adjust FOV for widescreen
-	if( refState.wideScreen && r_adjust_fov->value )
+	if( refState.wideScreen && r_adjust_fov.value )
 		V_AdjustFov( &rvp->fov_x, &rvp->fov_y, clgame.viewport[2], clgame.viewport[3], false );
 
 	rvp->flags = 0;
@@ -292,7 +339,7 @@ qboolean V_PreRender( void )
 	// if the screen is disabled (loading plaque is up)
 	if( cls.disable_screen )
 	{
-		if(( host.realtime - cls.disable_screen ) > cl_timeout->value )
+		if(( host.realtime - cls.disable_screen ) > cl_timeout.value )
 		{
 			Con_Reportf( "V_PreRender: loading plaque timed out\n" );
 			cls.disable_screen = 0.0f;
@@ -317,11 +364,13 @@ V_RenderView
 */
 void V_RenderView( void )
 {
-	ref_params_t	rp;
+	// HACKHACK: make ref params static
+	// not really critical but allows client.dll to take address of refdef and don't trigger ASan
+	static ref_params_t	rp;
 	ref_viewpass_t	rvp;
 	int		viewnum = 0;
 
-	if( !cl.video_prepped || ( !ui_renderworld->value && UI_IsVisible() && !cl.background ))
+	if( !cl.video_prepped || ( !ui_renderworld.value && UI_IsVisible() && !cl.background ))
 		return; // still loading
 
 	V_CalcViewRect ();	// compute viewport rectangle
@@ -425,7 +474,7 @@ void R_ShowTree( void )
 	float	y = NODE_INTERVAL_Y(1.0f);
 	mleaf_t *viewleaf;
 
-	if( !cl.worldmodel || !CVAR_TO_BOOL( r_showtree ))
+	if( !cl.worldmodel || !r_showtree.value )
 		return;
 
 	world.recursion_level = 0;

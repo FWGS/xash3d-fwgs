@@ -962,9 +962,9 @@ void R_InitCaches (void)
 	int		pix;
 
 	// calculate size to allocate
-	if (sw_surfcacheoverride->value)
+	if (sw_surfcacheoverride.value)
 	{
-		size = sw_surfcacheoverride->value;
+		size = sw_surfcacheoverride.value;
 	}
 	else
 	{

@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "sound.h"
 #include "const.h"
-#include "sequence.h"
 #include <ctype.h>
 
 static int cszrawsentences = 0;
@@ -142,7 +141,7 @@ static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 
 	if( !p )
 	{
-		Q_strcpy( szpath, "vox/" );
+		Q_strncpy( szpath, "vox/", nsize );
 		return psz;
 	}
 
@@ -165,23 +164,11 @@ static const char *VOX_LookupString( const char *pszin )
 	int i = -1, len;
 	const char *c;
 
-	// check if we are a CSCZ or immediate sentence
+	// check if we are an immediate sentence
 	if( *pszin == '#' )
 	{
-		// Q_atoi is too smart and allows negative values
-		// so check with Q_isdigit beforehand
-		if( Q_isdigit( pszin + 1 ))
-		{
-			sentenceEntry_s *sentenceEntry;
-			i = Q_atoi( pszin + 1 );
-			if(( sentenceEntry = Sequence_GetSentenceByIndex( i )))
-				return sentenceEntry->data;
-		}
-		else
-		{
-			// immediate sentence, probably coming from "speak" command
-			return pszin + 1;
-		}
+		// immediate sentence, probably coming from "speak" command
+		return pszin + 1;
 	}
 
 	// check if we received an index

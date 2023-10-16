@@ -84,10 +84,10 @@ such as during the connection stage while waiting for the client to load,
 then a packet only needs to be delivered if there is something in the
 unacknowledged reliable
 */
-convar_t	*net_showpackets;
-convar_t	*net_chokeloopback;
-convar_t	*net_showdrop;
-convar_t	*net_qport;
+CVAR_DEFINE_AUTO( net_showpackets, "0", 0, "show network packets" );
+CVAR_DEFINE_AUTO( net_chokeloop, "0", 0, "apply bandwidth choke to loopback packets" );
+CVAR_DEFINE_AUTO( net_showdrop, "0", 0, "show packets that are dropped" );
+CVAR_DEFINE_AUTO( net_qport, "0", FCVAR_READ_ONLY, "current quake netport" );
 
 int	net_drop;
 netadr_t	net_from;
@@ -243,15 +243,18 @@ Netchan_Init
 */
 void Netchan_Init( void )
 {
+	char buf[32];
 	int	port;
 
 	// pick a port value that should be nice and random
 	port = COM_RandomLong( 1, 65535 );
+	Q_snprintf( buf, sizeof( buf ), "%i", port );
 
-	net_showpackets = Cvar_Get ("net_showpackets", "0", 0, "show network packets" );
-	net_chokeloopback = Cvar_Get( "net_chokeloop", "0", 0, "apply bandwidth choke to loopback packets" );
-	net_showdrop = Cvar_Get( "net_showdrop", "0", 0, "show packets that are dropped" );
-	net_qport = Cvar_Getf( "net_qport", FCVAR_READ_ONLY, "current quake netport", "%i", port );
+	Cvar_RegisterVariable( &net_showpackets );
+	Cvar_RegisterVariable( &net_chokeloop );
+	Cvar_RegisterVariable( &net_showdrop );
+	Cvar_RegisterVariable( &net_qport );
+	Cvar_FullSet( net_qport.name, buf, net_qport.flags );
 
 	net_mempool = Mem_AllocPool( "Network Pool" );
 
@@ -273,8 +276,8 @@ void Netchan_ReportFlow( netchan_t *chan )
 
 	Assert( chan != NULL );
 
-	Q_strcpy( incoming, Q_pretifymem((float)chan->flow[FLOW_INCOMING].totalbytes, 3 ));
-	Q_strcpy( outgoing, Q_pretifymem((float)chan->flow[FLOW_OUTGOING].totalbytes, 3 ));
+	Q_strncpy( incoming, Q_pretifymem((float)chan->flow[FLOW_INCOMING].totalbytes, 3 ), sizeof( incoming ));
+	Q_strncpy( outgoing, Q_pretifymem((float)chan->flow[FLOW_OUTGOING].totalbytes, 3 ), sizeof( outgoing ));
 
 	Con_DPrintf( "Signon network traffic:  %s from server, %s to server\n", incoming, outgoing );
 }
@@ -349,7 +352,7 @@ Returns true if the bandwidth choke isn't active
 qboolean Netchan_CanPacket( netchan_t *chan, qboolean choke )
 {
 	// never choke loopback packets.
-	if( !choke || ( !net_chokeloopback->value && NET_IsLocalAddress( chan->remote_address ) ))
+	if( !choke || ( !net_chokeloop.value && NET_IsLocalAddress( chan->remote_address ) ))
 	{
 		chan->cleartime = host.realtime;
 		return true;
@@ -973,7 +976,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
 	Q_strncpy( compressedfilename, filename, sizeof( compressedfilename ));
-	COM_ReplaceExtension( compressedfilename, ".ztmp" );
+	COM_ReplaceExtension( compressedfilename, ".ztmp", sizeof( compressedfilename ));
 	compressedFileTime = FS_FileTime( compressedfilename, false );
 	fileTime = FS_FileTime( filename, false );
 
@@ -1331,7 +1334,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 
 	if( host.downloadcount == 0 )
 	{
-		scr_download->value = -1.0f;
+		scr_download.value = -1.0f;
 		host.downloadfile[0] = '\0';
 	}
 
@@ -1399,7 +1402,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 
 	}
 
-	scr_download->value = bestpercent;
+	scr_download.value = bestpercent;
 #endif // XASH_DEDICATED
 }
 
@@ -1559,7 +1562,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 						char	compressedfilename[MAX_OSPATH];
 
 						Q_strncpy( compressedfilename, pbuf->filename, sizeof( compressedfilename ));
-						COM_ReplaceExtension( compressedfilename, ".ztmp" );
+						COM_ReplaceExtension( compressedfilename, ".ztmp", sizeof( compressedfilename ));
 						file = FS_Open( compressedfilename, "rb", false );
 					}
 					else file = FS_Open( pbuf->filename, "rb", false );
@@ -1699,7 +1702,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 	chan->cleartime += ( MSG_GetNumBytesWritten( &send ) + UDP_HEADER_SIZE ) * fRate;
 
-	if( net_showpackets->value && net_showpackets->value != 2.0f )
+	if( net_showpackets.value && net_showpackets.value != 2.0f )
 	{
 		Con_Printf( " %s --> sz=%i seq=%i ack=%i rel=%i tm=%f\n"
 			, ns_strings[chan->sock]
@@ -1769,7 +1772,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	sequence_ack &= ~BIT( 30 );
 	sequence_ack &= ~BIT( 31 );
 
-	if( net_showpackets->value && net_showpackets->value != 3.0f )
+	if( net_showpackets.value && net_showpackets.value != 3.0f )
 	{
 		Con_Printf( " %s <-- sz=%i seq=%i ack=%i rel=%i tm=%f\n"
 			, ns_strings[chan->sock]
@@ -1783,7 +1786,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	// discard stale or duplicated packets
 	if( sequence <= (uint)chan->incoming_sequence )
 	{
-		if( net_showdrop->value )
+		if( net_showdrop.value )
 		{
 			const char *adr = NET_AdrToString( chan->remote_address );
 
@@ -1796,7 +1799,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 
 	// dropped packets don't keep the message from being used
 	net_drop = sequence - ( chan->incoming_sequence + 1 );
-	if( net_drop > 0 && net_showdrop->value )
+	if( net_drop > 0 && net_showdrop.value )
 		Con_Printf( "%s:dropped %i packets at %i\n", NET_AdrToString( chan->remote_address ), net_drop, sequence );
 
 	// if the current outgoing reliable message has been acknowledged

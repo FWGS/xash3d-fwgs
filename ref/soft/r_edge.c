@@ -111,7 +111,7 @@ void R_BeginEdgeFrame (void)
 	surfaces[1].flags = 0; // SURF_DRAWBACKGROUND;
 
 // put the background behind everything in the world
-	if (sw_draworder->value)
+	if (sw_draworder.value)
 	{
 		pdrawfunc = R_GenerateSpansBackward;
 		surfaces[1].key = 0;
@@ -896,7 +896,7 @@ void D_BackgroundSurf (surf_t *s)
 	d_zistepv = 0;
 	d_ziorigin = -0.9;
 
-	D_FlatFillSurface (s, (int)sw_clearcolor->value & 0xFFFF);
+	D_FlatFillSurface (s, (int)sw_clearcolor.value & 0xFFFF);
 	D_DrawZSpans (s->spans);
 }
 
@@ -1234,7 +1234,7 @@ void D_DrawSurfaces (void)
 	TransformVector (tr.modelorg, transformed_modelorg);
 	VectorCopy (transformed_modelorg, world_transformed_modelorg);
 
-	if (!sw_drawflat->value)
+	if (!sw_drawflat.value)
 	{
 		for (s = &surfaces[1] ; s<surface_p ; s++)
 		{

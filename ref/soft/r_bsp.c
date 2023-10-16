@@ -943,9 +943,6 @@ R_RenderWorld
 */
 void R_RenderWorld (void)
 {
-
-	//if (!r_drawworld->value)
-	//	return;
 	if ( !RI.drawWorld )
 		return;
 

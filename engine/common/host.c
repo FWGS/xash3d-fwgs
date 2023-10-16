@@ -54,114 +54,114 @@ CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in d
 CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_CHEAT|FCVAR_FILTERABLE, "scale frame time" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
 
-convar_t	*host_serverstate;
-convar_t	*host_gameloaded;
-convar_t	*host_clientloaded;
-convar_t	*host_limitlocal;
-convar_t	*host_maxfps;
-convar_t	*host_framerate;
-convar_t	*host_sleeptime;
-convar_t	*con_gamemaps;
-convar_t	*build, *ver;
+static CVAR_DEFINE_AUTO( host_serverstate, "0", FCVAR_READ_ONLY, "displays current server state" );
+static CVAR_DEFINE_AUTO( host_gameloaded, "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
+static CVAR_DEFINE_AUTO( host_clientloaded, "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
+CVAR_DEFINE_AUTO( host_limitlocal, "0", 0, "apply cl_cmdrate and rate to loopback connection" );
+CVAR_DEFINE( host_maxfps, "fps_max", "72", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "host fps upper limit" );
+static CVAR_DEFINE_AUTO( host_framerate, "0", FCVAR_FILTERABLE, "locks frame timing to this value in seconds" );
+static CVAR_DEFINE( host_sleeptime, "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
+CVAR_DEFINE( con_gamemaps, "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
 
 void Sys_PrintUsage( void )
 {
+	string version_str;
 	const char *usage_str;
 
-#define O(x,y) "   "x"  "y"\n"
+	Q_snprintf( version_str, sizeof( version_str ),
+		XASH_ENGINE_NAME " %i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 
-	usage_str = ""
-#if XASH_MESSAGEBOX == MSGBOX_STDERR
-	"\n" // dirty hack to not have Xash Error: Usage: on same line
-#endif // XASH_MESSAGEBOX == MSGBOX_STDERR
-	S_USAGE "\n"
-#if !XASH_MOBILE_PLATFORM
-	#if XASH_WIN32
-	O("<xash>.exe [options] [+command1] [+command2 arg]","")
-	#else // XASH_WIN32
-	O("<xash> [options] [+command1] [+command2 arg]","")
-	#endif // !XASH_WIN32
-#endif // !XASH_MOBILE_PLATFORM
-	"Options:\n"
-	O("-dev [level]     ","set log verbosity 0-2")
-	O("-log             ","write log to \"engine.log\"")
-	O("-nowriteconfig   ","disable config save")
+#if XASH_WIN32
+#define XASH_EXE "(xash).exe"
+#else
+#define XASH_EXE "(xash)"
+#endif
 
-#if !XASH_WIN32
-	O("-casesensitive   ","disable case-insensitive FS emulation")
-#endif // !XASH_WIN32
+#define O( x, y ) "  "x"  "y"\n"
 
-#if !XASH_MOBILE_PLATFORM
-	O("-daemonize       ","run engine in background, dedicated only")
-#endif // !XASH_MOBILE_PLATFORM
+	usage_str = S_USAGE XASH_EXE " [options] [+command] [+command2 arg] ...\n"
 
+"\nCommon options:\n"
+	O("-dev [level]     ", "set log verbosity 0-2")
+	O("-log             ", "write log to \"engine.log\"")
+	O("-nowriteconfig   ", "disable config save")
+	O("-noch            ", "disable crashhandler")
+#if XASH_WIN32 // !!!!
+	O("-minidumps       ", "enable writing minidumps when game is crashed")
+#endif
+	O("-rodir <path>    ", "set read-only base directory")
+	O("-bugcomp         ", "enable precise bug compatibility. Will break games that don't require it")
+	O("                 ", "Refer to engine documentation for more info")
+	O("-disablehelp     ", "disable this message")
 #if !XASH_DEDICATED
-	O("-toconsole       ","run engine witn console open")
-	O("-width <n>       ","set window width")
-	O("-height <n>      ","set window height")
-	O("-oldfont         ","enable unused Quake font in Half-Life")
+	O("-dedicated       ", "run engine in dedicated mode")
+#endif
 
+"\nNetworking options:\n"
+	O("-noip            ", "disable IPv4")
+	O("-ip <ip>         ", "set IPv4 address")
+	O("-port <port>     ", "set IPv4 port")
+	O("-noip6           ", "disable IPv6")
+	O("-ip6 <ip>        ", "set IPv6 address")
+	O("-port6 <port>    ", "set IPv6 port")
+	O("-clockwindow <cw>", "adjust clockwindow used to ignore client commands to prevent speed hacks")
+
+"\nGame options:\n"
+	O("-dll <path>      ", "override server DLL path")
+#if !XASH_DEDICATED
+	O("-clientlib <path>", "override client DLL path")
+	O("-console         ", "run engine with console enabled")
+	O("-toconsole       ", "run engine witn console open")
+	O("-oldfont         ", "enable unused Quake font in Half-Life")
+	O("-width <n>       ", "set window width")
+	O("-height <n>      ", "set window height")
+	O("-borderless      ", "run engine in fullscreen borderless mode")
+	O("-fullscreen      ", "run engine in fullscreen mode")
+	O("-windowed        ", "run engine in windowed mode")
+	O("-ref <name>      ", "use selected renderer dll")
+	O("-gldebug         ", "enable OpenGL debug log")
+#if XASH_WIN32
+	O("-noavi           ", "disable AVI support")
+	O("-nointro         ", "disable intro video")
+#endif
+	O("-noenginejoy     ", "disable engine builtin joystick support")
+	O("-noenginemouse   ", "disable engine builtin mouse support")
+	O("-nosound         ", "disable sound output")
+#endif
+
+"\nPlatform-specific options:\n"
 #if !XASH_MOBILE_PLATFORM
-	O("-fullscreen      ","run engine in fullscreen mode")
-	O("-windowed        ","run engine in windowed mode")
-	O("-dedicated       ","run engine in dedicated server mode")
-#endif // XASH_MOBILE_PLATFORM
-
+	O("-daemonize       ", "run engine as a daemon")
+#endif
+#if XASH_SDL == 2
+	O("-sdl_joy_old_api ","use SDL legacy joystick API")
+	O("-sdl_renderer <n>","use alternative SDL_Renderer for software")
+#endif // XASH_SDL
 #if XASH_ANDROID
 	O("-nativeegl       ","use native egl implementation. Use if screen does not update or black")
 #endif // XASH_ANDROID
-
-#if XASH_WIN32
-	O("-noavi           ","disable AVI support")
-	O("-nointro         ","disable intro video")
-	O("-minidumps       ","enable writing minidumps when game crashed")
-#endif // XASH_WIN32
-
 #if XASH_DOS
 	O("-novesa          ","disable vesa")
 #endif // XASH_DOS
-
 #if XASH_VIDEO == VIDEO_FBDEV
 	O("-fbdev <path>    ","open selected framebuffer")
 	O("-ttygfx          ","set graphics mode in tty")
 	O("-doublebuffer    ","enable doublebuffering")
 #endif // XASH_VIDEO == VIDEO_FBDEV
-
 #if XASH_SOUND == SOUND_ALSA
 	O("-alsadev <dev>   ","open selected ALSA device")
 #endif // XASH_SOUND == SOUND_ALSA
-
-	O("-nojoy           ","disable joystick support")
-
-#ifdef XASH_SDL
-	O("-sdl_joy_old_api ","use SDL legacy joystick API")
-	O("-sdl_renderer <n>","use alternative SDL_Renderer for software")
-#endif // XASH_SDL
-	O("-nosound         ","disable sound")
-	O("-noenginemouse   ","disable mouse completely")
-
-	O("-ref <name>      ","use selected renderer dll")
-	O("-gldebug         ","enable OpenGL debug log")
-#endif // XASH_DEDICATED
-
-	O("-noip            ","disable TCP/IP")
-	O("-noch            ","disable crashhandler")
-	O("-disablehelp     ","disable this message")
-	O("-dll <path>      ","override server DLL path")
-#if !XASH_DEDICATED
-	O("-clientlib <path>","override client DLL path")
-#endif
-	O("-rodir <path>    ","set read-only base directory, experimental")
-	O("-bugcomp         ","enable precise bug compatibility. Will break games that don't require it")
-	O("                 ","Refer to engine documentation for more info")
-
-	O("-ip <ip>         ","set custom ip")
-	O("-port <port>     ","set custom host port")
-	O("-clockwindow <cw>","adjust clockwindow")
 	;
-#undef  O
+#undef O
 
-	Sys_Error( "%s", usage_str );
+	// HACKHACK: pretty output in dedicated
+#if XASH_MESSAGEBOX != MSGBOX_STDERR
+	Platform_MessageBox( version_str, usage_str, false );
+#else
+	fprintf( stderr, "%s\n%s", version_str, usage_str );
+#endif
+
+	Sys_Quit();
 }
 
 int Host_CompareFileTime( int ft1, int ft2 )
@@ -278,27 +278,27 @@ static int Host_CalcSleep( void )
 #ifndef XASH_DEDICATED
 	// never sleep in timedemo for benchmarking purposes
 	// also don't sleep with vsync for less lag
-	if( CL_IsTimeDemo( ) || CVAR_TO_BOOL( gl_vsync ))
+	if( CL_IsTimeDemo( ) || gl_vsync.value )
 		return 0;
 #endif
 
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
-		return host_sleeptime->value;
+		return host_sleeptime.value;
 	}
 
 	switch( host.status )
 	{
 	case HOST_NOFOCUS:
 		if( SV_Active() && CL_IsInGame())
-			return host_sleeptime->value;
+			return host_sleeptime.value;
 		// fallthrough
 	case HOST_SLEEP:
 		return 20;
 	}
 
-	return host_sleeptime->value;
+	return host_sleeptime.value;
 }
 
 void Host_NewInstance( const char *name, const char *finalmsg )
@@ -415,7 +415,7 @@ void Host_Exec_f( void )
 	}
 
 	Q_strncpy( cfgpath, arg, sizeof( cfgpath ));
-	COM_DefaultExtension( cfgpath, ".cfg" ); // append as default
+	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath )); // append as default
 
 	f = FS_LoadFile( cfgpath, &len, false );
 	if( !f )
@@ -509,7 +509,7 @@ qboolean Host_RegisterDecal( const char *name, int *count )
 	if( !COM_CheckString( name ))
 		return 0;
 
-	COM_FileBase( name, shortname );
+	COM_FileBase( name, shortname, sizeof( shortname ));
 
 	for( i = 1; i < MAX_DECALS && host.draw_decals[i][0]; i++ )
 	{
@@ -599,14 +599,14 @@ double Host_CalcFPS( void )
 	}
 	else if( Host_IsLocalGame( ))
 	{
-		if( !CVAR_TO_BOOL( gl_vsync ))
-			fps = host_maxfps->value;
+		if( !gl_vsync.value )
+			fps = host_maxfps.value;
 	}
 	else
 	{
-		if( !CVAR_TO_BOOL( gl_vsync ))
+		if( !gl_vsync.value )
 		{
-			fps = host_maxfps->value;
+			fps = host_maxfps.value;
 			if( fps == 0.0 ) fps = MAX_FPS;
 			fps = bound( MIN_FPS, fps, MAX_FPS );
 		}
@@ -681,8 +681,8 @@ qboolean Host_FilterTime( float time )
 	oldtime = host.realtime;
 
 	// NOTE: allow only in singleplayer while demos are not active
-	if( host_framerate->value > 0.0f && Host_IsLocalGame() && !CL_IsPlaybackDemo() && !CL_IsRecordDemo( ))
-		host.frametime = bound( MIN_FRAMETIME, host_framerate->value * scale, MAX_FRAMETIME );
+	if( host_framerate.value > 0.0f && Host_IsLocalGame() && !CL_IsPlaybackDemo() && !CL_IsRecordDemo( ))
+		host.frametime = bound( MIN_FRAMETIME, host_framerate.value * scale, MAX_FRAMETIME );
 	else host.frametime = bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME );
 
 	return true;
@@ -733,7 +733,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	va_list		argptr;
 
 	va_start( argptr, error );
-	Q_vsprintf( hosterror1, error, argptr );
+	Q_vsnprintf( hosterror1, sizeof( hosterror1 ), error, argptr );
 	va_end( argptr );
 
 	CL_WriteMessageHistory (); // before Q_error call
@@ -769,7 +769,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	recursive = true;
 	Q_strncpy( hosterror2, hosterror1, MAX_SYSPATH );
 	host.errorframe = host.framecount; // to avoid multply calls per frame
-	Q_sprintf( host.finalmsg, "Server crashed: %s", hosterror1 );
+	Q_snprintf( host.finalmsg, sizeof( host.finalmsg ), "Server crashed: %s", hosterror1 );
 
 	// clearing cmd buffer to prevent execute any commands
 	COM_InitHostState();
@@ -1077,10 +1077,9 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	FS_LoadProgs();
 
-	if( FS_SetCurrentDirectory( host.rootdir ) != 0 )
-		Con_Reportf( "%s is working directory now\n", host.rootdir );
-	else
-		Sys_Error( "Changing working directory to %s failed.\n", host.rootdir );
+	// TODO: this function will cause engine to stop in case of fail
+	// when it will have an option to return string error, restore Sys_Error
+	FS_SetCurrentDirectory( host.rootdir );
 
 	FS_Init();
 
@@ -1165,18 +1164,18 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cmd_AddRestrictedCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
 	}
 
-	host_serverstate = Cvar_Get( "host_serverstate", "0", FCVAR_READ_ONLY, "displays current server state" );
-	host_maxfps = Cvar_Get( "fps_max", "72", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "host fps upper limit" );
-	host_framerate = Cvar_Get( "host_framerate", "0", FCVAR_FILTERABLE, "locks frame timing to this value in seconds" );
-	host_sleeptime = Cvar_Get( "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
-	host_gameloaded = Cvar_Get( "host_gameloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
-	host_clientloaded = Cvar_Get( "host_clientloaded", "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
-	host_limitlocal = Cvar_Get( "host_limitlocal", "0", 0, "apply cl_cmdrate and rate to loopback connection" );
-	con_gamemaps = Cvar_Get( "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
+	Cvar_RegisterVariable( &host_serverstate );
+	Cvar_RegisterVariable( &host_maxfps );
+	Cvar_RegisterVariable( &host_framerate );
+	Cvar_RegisterVariable( &host_sleeptime );
+	Cvar_RegisterVariable( &host_gameloaded );
+	Cvar_RegisterVariable( &host_clientloaded );
+	Cvar_RegisterVariable( &host_limitlocal );
+	Cvar_RegisterVariable( &con_gamemaps );
 	Cvar_RegisterVariable( &sys_timescale );
 
-	build = Cvar_Getf( "buildnum", FCVAR_READ_ONLY, "returns a current build number", "%i", Q_buildnum_compat());
-	ver = Cvar_Getf( "ver", FCVAR_READ_ONLY, "shows an engine version", "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat());
+	Cvar_Getf( "buildnum", FCVAR_READ_ONLY, "returns a current build number", "%i", Q_buildnum_compat());
+	Cvar_Getf( "ver", FCVAR_READ_ONLY, "shows an engine version", "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat());
 	Cvar_Getf( "host_ver", FCVAR_READ_ONLY, "detailed info about this build", "%i " XASH_VERSION " %s %s %s", Q_buildnum(), Q_buildos(), Q_buildarch(), Q_buildcommit());
 	Cvar_Getf( "host_lowmemorymode", FCVAR_READ_ONLY, "indicates if engine compiled for low RAM consumption (0 - normal, 1 - low engine limits, 2 - low protocol limits)", "%i", XASH_LOW_MEMORY );
 

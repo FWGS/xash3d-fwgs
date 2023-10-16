@@ -239,7 +239,7 @@ hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t ang
 	bSkipShield = false;
 	*numhitboxes = 0; // assume error
 
-	if( mod_studiocache->value )
+	if( mod_studiocache.value )
 	{
 		bonecache = Mod_CheckStudioCache( model, frame, sequence, angles, origin, size, pcontroller, pblending );
 
@@ -286,7 +286,7 @@ hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t ang
 	// tell trace code about hitbox count
 	*numhitboxes = (bSkipShield) ? (mod_studiohdr->numhitboxes - 1) : (mod_studiohdr->numhitboxes);
 
-	if( mod_studiocache->value )
+	if( mod_studiocache.value )
 		Mod_AddToStudioCache( frame, sequence, angles, origin, size, pcontroller, pblending, model, studio_hull, *numhitboxes );
 
 	return studio_hull;
@@ -429,7 +429,7 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 	{
 		string	filepath, modelname, modelpath;
 
-		COM_FileBase( m_pSubModel->name, modelname );
+		COM_FileBase( m_pSubModel->name, modelname, sizeof( modelname ));
 		COM_ExtractFilePath( m_pSubModel->name, modelpath );
 
 		// NOTE: here we build real sub-animation filename because stupid user may rename model without recompile

@@ -1,0 +1,21 @@
+[Unit]
+Description=%I - Xash3D FWGS Dedicated Server
+After=network.target
+
+[Service]
+# replace xash by your user
+# !!! do not run xash as root !!!
+User=xash
+Group=xash
+Restart=always
+
+# replace /opt/xash/srv by your path
+WorkingDirectory=/opt/xash/srv/%I
+EnvironmentFile=-/opt/xash/srv/%I/env
+ExecStart=/opt/xash/bin/xash $EXTRA_OPTS
+
+# engine should call sd_notify once half a second
+WatchdogSec=5s
+
+[Install]
+WantedBy=multi-user.target

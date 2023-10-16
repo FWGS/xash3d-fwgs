@@ -663,14 +663,14 @@ char *Wcon_Input( void )
 
 /*
 ================
-Wcon_SetStatus
+Platform_SetStatus
 
 set server status string in console
 ================
 */
-void Wcon_SetStatus( const char *pStatus )
+void Platform_SetStatus( const char *pStatus )
 {
-	if( host.type != HOST_DEDICATED || s_wcd.attached )
+	if( s_wcd.attached )
 		return;
 
 	Q_strncpy( s_wcd.statusLine, pStatus, sizeof( s_wcd.statusLine ) - 1 );

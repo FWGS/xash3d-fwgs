@@ -86,7 +86,7 @@ CL_IsPredicted
 */
 qboolean CL_IsPredicted( void )
 {
-	if( cl_nopred->value || cl.intermission )
+	if( cl_nopred.value || cl.intermission )
 		return false;
 
 	// never predict the quake demos
@@ -183,7 +183,7 @@ void CL_SetIdealPitch( void )
 	}
 
 	if( steps < 2 ) return;
-	cl.local.idealpitch = -dir * cl_idealpitchscale->value;
+	cl.local.idealpitch = -dir * cl_idealpitchscale.value;
 }
 
 /*
@@ -234,7 +234,7 @@ void CL_CheckPredictionError( void )
 	// save the prediction error for interpolation
 	if( dist > MAX_PREDICTION_ERROR )
 	{
-		if( cl_showerror->value && host_developer.value )
+		if( cl_showerror.value && host_developer.value )
 			Con_NPrintf( 10 + ( ++pos & 3 ), "^3player teleported:^7 %.3f units\n", dist );
 
 		// a teleport or something or gamepaused
@@ -242,7 +242,7 @@ void CL_CheckPredictionError( void )
 	}
 	else
 	{
-		if( cl_showerror->value && dist > MIN_PREDICTION_EPSILON && host_developer.value )
+		if( cl_showerror.value && dist > MIN_PREDICTION_EPSILON && host_developer.value )
 			Con_NPrintf( 10 + ( ++pos & 3 ), "^1prediction error:^7 %.3f units\n", dist );
 
 		VectorCopy( cl.frames[cmd].playerstate[cl.playernum].origin, cl.local.predicted_origins[frame] );
@@ -253,7 +253,7 @@ void CL_CheckPredictionError( void )
 		// GoldSrc checks for singleplayer
 		// we would check for local server
 		if( dist > MIN_CORRECTION_DISTANCE && !SV_Active() )
-			cls.correction_time = cl_smoothtime->value;
+			cls.correction_time = cl_smoothtime.value;
 	}
 }
 
@@ -533,7 +533,7 @@ void GAME_EXPORT CL_SetSolidPlayers( int playernum )
 	physent_t		*pe;
 	int		i;
 
-	if( !cl_solid_players->value )
+	if( !cl_solid_players.value )
 		return;
 
 	for( i = 0; i < MAX_CLIENTS; i++ )
@@ -1105,7 +1105,7 @@ void CL_PredictMovement( qboolean repredicting )
 			cl.local.onground = frame->playerstate[cl.playernum].onground;
 		else cl.local.onground = -1;
 
-		if( !repredicting || !CVAR_TO_BOOL( cl_lw ))
+		if( !repredicting || !cl_lw.value )
 			cl.local.viewmodel = to->client.viewmodel;
 		cl.local.repredicting = false;
 		cl.local.moving = false;
@@ -1137,7 +1137,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	cl.local.waterlevel = to->client.waterlevel;
 	cl.local.usehull = to->playerstate.usehull;
-	if( !repredicting || !CVAR_TO_BOOL( cl_lw ))
+	if( !repredicting || !cl_lw.value )
 		cl.local.viewmodel = to->client.viewmodel;
 
 	if( FBitSet( to->client.flags, FL_ONGROUND ))
@@ -1167,7 +1167,7 @@ void CL_PredictMovement( qboolean repredicting )
 		cl.local.moving = false;
 	}
 
-	if( cls.correction_time > 0 && !cl_nosmooth->value && cl_smoothtime->value )
+	if( cls.correction_time > 0 && !cl_nosmooth.value && cl_smoothtime.value )
 	{
 		vec3_t delta;
 		float frac;
@@ -1177,14 +1177,14 @@ void CL_PredictMovement( qboolean repredicting )
 			cls.correction_time -= host.frametime;
 
 		// Make sure smoothtime is postive
-		if( cl_smoothtime->value <= 0.0f )
-			Cvar_DirectSet( cl_smoothtime, "0.1" );
+		if( cl_smoothtime.value <= 0.0f )
+			Cvar_DirectSet( &cl_smoothtime, "0.1" );
 
 		// Clamp from 0 to cl_smoothtime.value
-		cls.correction_time = bound( 0.0, cls.correction_time, cl_smoothtime->value );
+		cls.correction_time = bound( 0.0, cls.correction_time, cl_smoothtime.value );
 
 		// Compute backward interpolation fraction along full correction
-		frac = 1.0f - cls.correction_time / cl_smoothtime->value;
+		frac = 1.0f - cls.correction_time / cl_smoothtime.value;
 
 		// Determine how much error we still have to make up for
 		VectorSubtract( cl.simorg, cl.local.lastorigin, delta );

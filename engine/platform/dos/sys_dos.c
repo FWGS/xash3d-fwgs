@@ -25,13 +25,6 @@ void Platform_SetClipboardText( const char *buffer, size_t size )
 
 }
 
-
-void *Platform_GetNativeObject( const char *name )
-{
-	return NULL;
-}
-
-
 void Platform_Vibrate(float life, char flags)
 {
 
@@ -89,7 +82,7 @@ static void __interrupt __far timerhandler()
 // in_dos.c
 extern void __interrupt __far keyhandler( void );
 
-void Platform_Init( void )
+void DOS_Init( void )
 {
 	// save original vectors
 	orig_int_1c = _dos_getvect( 0x1c );
@@ -104,7 +97,7 @@ void Platform_Init( void )
 }
 
 
-void Platform_Shutdown( void )
+void DOS_Shutdown( void )
 {
 	// restore freq
 	outp( 0x43, 0x34 );

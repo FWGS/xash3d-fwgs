@@ -10,6 +10,7 @@ import os
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
 top = '.'
+default_prefix = '/' # Waf uses it to set default prefix
 
 Context.Context.line_just = 55 # should fit for everything on 80x26
 
@@ -84,6 +85,7 @@ SUBDIRS = [
 
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
+#	Subproject('utils/xar',        lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
 
 	# enabled on PSVita only
@@ -99,7 +101,7 @@ REFDLLS = [
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject cmake')
 
 	grp = opt.add_option_group('Common options')
 
@@ -132,6 +134,9 @@ def options(opt):
 
 	grp.add_option('--enable-tests', action = 'store_true', dest = 'TESTS', default = False,
 		help = 'enable building standalone tests (does not enable engine tests!) [default: %default]')
+
+	# a1ba: special option for me
+	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
 
 	grp = opt.add_option_group('Renderers options')
 
@@ -175,7 +180,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic')
+	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake')
 
 	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
 	if conf.env.MSVC_TARGETS[0] == 'x86':
@@ -195,7 +200,6 @@ def configure(conf):
 		conf.options.GL4ES  = True
 		conf.options.GL     = False
 	elif conf.env.MAGX:
-		conf.options.USE_SELECT       = True
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
@@ -260,6 +264,15 @@ def configure(conf):
 		# check if we're in a sgug environment
 		if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
 			linkflags.append('-lc')
+	elif conf.env.SAILFISH in ['aurora', 'sailfish']:
+		# TODO: enable XASH_MOBILE_PLATFORM
+		conf.define('XASH_SAILFISH', 1)
+		if conf.env.SAILFISH == 'aurora':
+			conf.define('XASH_AURORAOS', 1)
+
+		# Do not warn us about bug in SDL_Audio headers
+		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
+		conf.env.append_unique('CXXFLAGS', ['-Wno-attributes'])
 
 	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
@@ -293,12 +306,14 @@ def configure(conf):
 			'-Werror=string-compare',
 			'-Werror=tautological-compare',
 			'-Werror=use-after-free=3',
+			'-Werror=unsequenced', # clang's version of -Werror=sequence-point
 			'-Werror=vla',
 			'-Werror=write-strings',
 
 			# unstable diagnostics, may cause false positives
 			'-Winit-self',
 			'-Wmisleading-indentation',
+			'-Wstringop-overflow',
 			'-Wunintialized',
 
 			# disabled, flood
@@ -333,6 +348,13 @@ def configure(conf):
 	conf.env.DEDICATED     = conf.options.DEDICATED
 	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 
+	if conf.env.SAILFISH == 'aurora':
+		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
+	elif conf.env.DEST_OS == 'darwin':
+		conf.env.DEFAULT_RPATH = '@loader_path'
+	else:
+		conf.env.DEFAULT_RPATH = '$ORIGIN'
+
 	setattr(conf, 'refdlls', REFDLLS)
 
 	for refdll in REFDLLS:
@@ -340,6 +362,7 @@ def configure(conf):
 
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
+	conf.define_cond('XASH_ALL_SERVERS', conf.options.ALL_SERVERS)
 
 	# check if we can use C99 stdint
 	conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
@@ -427,25 +450,28 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 		check_gnu_function(strchrnul_frag, 'Checking for strchrnul', 'HAVE_STRCHRNUL')
 
 	# indicate if we are packaging for Linux/BSD
+	conf.env.PACKAGING = conf.options.PACKAGING
 	if conf.options.PACKAGING:
-		conf.env.LIBDIR = conf.env.BINDIR = conf.env.LIBDIR + '/xash3d'
-		conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
+		conf.env.PREFIX = conf.options.prefix
+		if conf.env.SAILFISH == "aurora":
+			conf.env.SHAREDIR = '${PREFIX}/share/su.xash.Engine/rodir'
+		elif conf.env.SAILFISH == "sailfish":
+			conf.env.SHAREDIR = '${PREFIX}/share/harbour-xash3d-fwgs/rodir'
+		else:
+			conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
+			conf.env.LIBDIR += '/xash3d'
 	else:
-		if sys.platform != 'win32' and conf.env.DEST_OS != 'android':
-			conf.env.PREFIX = '/'
-
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
-		# check if we can use system opus
-		conf.define('CUSTOM_MODES', 1)
+		# search for opus 1.4 or higher, it has fixes for custom modes
+		if conf.check_cfg(package='opus', uselib_store='opus', args='opus >= 1.4 --cflags --libs', mandatory=False):
+			# now try to link with export that only exists with CUSTOM_MODES defined
+			frag='''#include <opus_custom.h>
+int main(void) { return !opus_custom_encoder_init(0, 0, 0); }'''
 
-		# try to link with export that only exists with CUSTOM_MODES defined
-		if conf.check_pkg('opus', 'opus', '''#include <opus_custom.h>
-int main(void){ return !opus_custom_encoder_init(0, 0, 0); }''', fatal = False):
-			conf.env.HAVE_SYSTEM_OPUS = True
-		else:
-			conf.undefine('CUSTOM_MODES')
+			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus', fragment=frag, mandatory=False):
+				conf.env.HAVE_SYSTEM_OPUS = True
 
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
@@ -457,6 +483,10 @@ int main(void){ return !opus_custom_encoder_init(0, 0, 0); }''', fatal = False):
 		conf.add_subproject(i.name)
 
 def build(bld):
+	# guard rails to not let install to root
+	if bld.is_install and not bld.options.PACKAGING and not bld.options.destdir:
+		bld.fatal('Set the install destination directory using --destdir option')
+
 	# don't clean QtCreator files and reconfigure saved options
 	bld.clean_files = bld.bldnode.ant_glob('**',
 		excl='*.user configuration.py .lock* *conf_check_*/** config.log %s/*' % Build.CACHE_DIR,

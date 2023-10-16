@@ -605,7 +605,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				{
 					unsigned int alpha = (data[i * 4 + 3] * 8 / 256) << (16 - 3);
 					tex->alpha_pixels[i] = (tex->pixels[j][i] >> 3) | alpha;
-					if( !sw_noalphabrushes->value && data[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ) )
+					if( !sw_noalphabrushes.value && data[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ) )
 						tex->pixels[j][i] = TRANSPARENT_COLOR; //0000 0011 0100 1001;
 				}
 
@@ -1197,6 +1197,23 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 	GL_ApplyTextureParams( image ); // update texture filter, wrap etc
 
 	gEngfuncs.FS_FreeImage( pic );
+}
+
+/*
+================
+R_TexMemory
+
+return size of all uploaded textures
+================
+*/
+int R_TexMemory( void )
+{
+	int	i, total = 0;
+
+	for( i = 0; i < r_numImages; i++ )
+		total += r_images[i].size;
+
+	return total;
 }
 
 /*

@@ -281,13 +281,22 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	RI.fogColor[0] = flFogColor[0] / 255.0f;
 	RI.fogColor[1] = flFogColor[1] / 255.0f;
 	RI.fogColor[2] = flFogColor[2] / 255.0f;
-	RI.fogStart = flStart;
 	RI.fogColor[3] = 1.0f;
-	RI.fogDensity = 0.0f;
-	RI.fogSkybox = true;
+
+	RI.fogStart = flStart;
 	RI.fogEnd = flEnd;
 
-	pglFogi( GL_FOG_MODE, GL_LINEAR );
+	if( RI.fogDensity > 0.0f )
+	{
+		pglFogi( GL_FOG_MODE, GL_EXP2 );
+		pglFogf( GL_FOG_DENSITY, RI.fogDensity );
+	}
+	else
+	{
+		pglFogi( GL_FOG_MODE, GL_LINEAR );
+		RI.fogSkybox = true;
+	}
+
 	pglFogfv( GL_FOG_COLOR, RI.fogColor );
 	pglFogf( GL_FOG_START, RI.fogStart );
 	pglFogf( GL_FOG_END, RI.fogEnd );

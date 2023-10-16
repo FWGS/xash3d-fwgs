@@ -399,7 +399,7 @@ FS_OpenZipFile
 Open a packed file using its package file descriptor
 ===========
 */
-file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
+static file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
 	zipfile_t	*pfile;
 	pfile = &search->zip->files[pack_ind];
@@ -420,11 +420,10 @@ FS_LoadZIPFile
 
 ===========
 */
-byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly )
+static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *sizeptr )
 {
-	searchpath_t	*search;
+	zipfile_t *file;
 	int		index;
-	zipfile_t	*file = NULL;
 	byte		*compressed_buffer = NULL, *decompressed_buffer = NULL;
 	int		zlib_result = 0;
 	dword		test_crc, final_crc;
@@ -433,12 +432,7 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 
 	if( sizeptr ) *sizeptr = 0;
 
-	search = FS_FindFile( path, &index, NULL, 0, gamedironly );
-
-	if( !search || search->type != SEARCHPATH_ZIP )
-		return  NULL;
-
-	file = &search->zip->files[index];
+	file = &search->zip->files[pack_ind];
 
 	FS_EnsureOpenZip( search->zip );
 
@@ -565,7 +559,7 @@ FS_FileTime_ZIP
 
 ===========
 */
-int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
+static int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
 {
 	return search->zip->filetime;
 }
@@ -576,7 +570,7 @@ FS_PrintInfo_ZIP
 
 ===========
 */
-void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
+static void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
 {
 	Q_snprintf( dst, size, "%s (%i files)", search->filename, search->zip->numfiles );
 }
@@ -587,7 +581,7 @@ FS_FindFile_ZIP
 
 ===========
 */
-int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedname, size_t len )
+static int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
 	int	left, right, middle;
 
@@ -624,7 +618,7 @@ FS_Search_ZIP
 
 ===========
 */
-void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
+static void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string temp;
 	const char *slash, *backslash, *colon, *separator;
@@ -670,66 +664,36 @@ FS_AddZip_Fullpath
 
 ===========
 */
-qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
+searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
 {
-	searchpath_t	*search;
-	zip_t		*zip = NULL;
-	const char	*ext = COM_FileExtension( zipfile );
-	int		errorcode = ZIP_LOAD_COULDNT_OPEN;
+	searchpath_t *search;
+	zip_t *zip;
+	int i, errorcode = ZIP_LOAD_COULDNT_OPEN;
 
-	for( search = fs_searchpaths; search; search = search->next )
-	{
-		if( search->type == SEARCHPATH_ZIP && !Q_stricmp( search->filename, zipfile ))
-		{
-			if( already_loaded ) *already_loaded = true;
-			return true; // already loaded
-		}
-	}
+	zip = FS_LoadZip( zipfile, &errorcode );
 
-	if( already_loaded ) *already_loaded = false;
-
-	if( !Q_stricmp( ext, "pk3" ) )
-		zip = FS_LoadZip( zipfile, &errorcode );
-
-	if( zip )
-	{
-		string	fullpath;
-		int i;
-
-		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ) );
-		Q_strncpy( search->filename, zipfile, sizeof( search->filename ));
-		search->zip = zip;
-		search->type = SEARCHPATH_ZIP;
-		search->next = fs_searchpaths;
-		search->flags = flags;
-
-		search->pfnPrintInfo = FS_PrintInfo_ZIP;
-		search->pfnClose = FS_Close_ZIP;
-		search->pfnOpenFile = FS_OpenFile_ZIP;
-		search->pfnFileTime = FS_FileTime_ZIP;
-		search->pfnFindFile = FS_FindFile_ZIP;
-		search->pfnSearch = FS_Search_ZIP;
-
-		fs_searchpaths = search;
-
-		Con_Reportf( "Adding zipfile: %s (%i files)\n", zipfile, zip->numfiles );
-
-		// time to add in search list all the wads that contains in current pakfile (if do)
-		for( i = 0; i < zip->numfiles; i++ )
-		{
-			if( !Q_stricmp( COM_FileExtension( zip->files[i].name ), "wad" ))
-			{
-				Q_snprintf( fullpath, MAX_STRING, "%s/%s", zipfile, zip->files[i].name );
-				FS_AddWad_Fullpath( fullpath, NULL, flags );
-			}
-		}
-		return true;
-	}
-	else
+	if( !zip )
 	{
 		if( errorcode != ZIP_LOAD_NO_FILES )
 			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
-		return false;
+		return NULL;
 	}
+
+	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ) );
+	Q_strncpy( search->filename, zipfile, sizeof( search->filename ));
+	search->zip = zip;
+	search->type = SEARCHPATH_ZIP;
+	search->flags = flags;
+
+	search->pfnPrintInfo = FS_PrintInfo_ZIP;
+	search->pfnClose = FS_Close_ZIP;
+	search->pfnOpenFile = FS_OpenFile_ZIP;
+	search->pfnFileTime = FS_FileTime_ZIP;
+	search->pfnFindFile = FS_FindFile_ZIP;
+	search->pfnSearch = FS_Search_ZIP;
+	search->pfnLoadFile = FS_LoadZIPFile;
+
+	Con_Reportf( "Adding zipfile: %s (%i files)\n", zipfile, zip->numfiles );
+	return search;
 }
 

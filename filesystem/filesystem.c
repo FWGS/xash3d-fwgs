@@ -48,16 +48,31 @@ GNU General Public License for more details.
 fs_globals_t FI;
 qboolean      fs_ext_path = false;	// attempt to read\write from ./ or ../ pathes
 poolhandle_t  fs_mempool;
-searchpath_t *fs_searchpaths = NULL;	// chain
 char          fs_rodir[MAX_SYSPATH];
 char          fs_rootdir[MAX_SYSPATH];
 searchpath_t *fs_writepath;
 
+static searchpath_t *fs_searchpaths = NULL;	// chain
 static char			fs_basedir[MAX_SYSPATH];	// base game directory
 static char			fs_gamedir[MAX_SYSPATH];	// game current directory
-#if !XASH_WIN32
-static qboolean		fs_caseinsensitive = true; // try to search missing files
-#endif
+
+// add archives in specific order PAK -> PK3 -> WAD
+// so raw WADs takes precedence over WADs included into PAKs and PK3s
+const fs_archive_t g_archives[] =
+{
+{ "pak",    SEARCHPATH_PAK,    FS_AddPak_Fullpath, true },
+{ "pk3",    SEARCHPATH_ZIP,    FS_AddZip_Fullpath, true },
+{ "pk3dir", SEARCHPATH_PK3DIR, FS_AddDir_Fullpath, true },
+{ "wad",    SEARCHPATH_WAD,    FS_AddWad_Fullpath, false },
+{ NULL }, // end marker
+};
+
+// special fs_archive_t for plain directories
+static const fs_archive_t g_directory_archive =
+{ NULL, SEARCHPATH_PLAIN, FS_AddDir_Fullpath, false };
+
+// static const fs_archive_t g_android_archive =
+// { NULL, SEARCHPATH_ANDROID, FS_AddAndroid_Fullpath, false, false };
 
 #ifdef XASH_REDUCE_FD
 static file_t *fs_last_readfile;
@@ -281,24 +296,70 @@ void FS_CreatePath( char *path )
 	}
 }
 
+searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const char *file, int flags )
+{
+	searchpath_t *search;
 
+	for( search = fs_searchpaths; search; search = search->next )
+	{
+		if( search->type == archive->type && !Q_stricmp( search->filename, file ))
+			return search; // already loaded
+	}
+
+	search = archive->pfnAddArchive_Fullpath( file, flags );
+
+	if( !search )
+		return NULL;
+
+	search->next = fs_searchpaths;
+	fs_searchpaths = search;
+
+	// time to add in search list all the wads from this archive
+	if( archive->load_wads && !FBitSet( flags, FS_SKIP_ARCHIVED_WADS ))
+	{
+		stringlist_t list;
+		int i;
+
+		stringlistinit( &list );
+		search->pfnSearch( search, &list, "*.wad", true );
+		stringlistsort( &list ); // keep always sorted
+
+		for( i = 0; i < list.numstrings; i++ )
+		{
+			searchpath_t *wad;
+			char fullpath[MAX_SYSPATH];
+
+			Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", file, list.strings[i] );
+			if(( wad = FS_AddWad_Fullpath( fullpath, flags )))
+			{
+				wad->next = fs_searchpaths;
+				fs_searchpaths = wad;
+			}
+		}
+
+		stringlistfreecontents( &list );
+	}
+
+	return search;
+}
 
 /*
 ================
 FS_AddArchive_Fullpath
 ================
 */
-static qboolean FS_AddArchive_Fullpath( const char *file, qboolean *already_loaded, int flags )
+static searchpath_t *FS_MountArchive_Fullpath( const char *file, int flags )
 {
+	const fs_archive_t *archive;
 	const char *ext = COM_FileExtension( file );
 
-	if( !Q_stricmp( ext, "pk3" ))
-		return FS_AddZip_Fullpath( file, already_loaded, flags );
-	else if ( !Q_stricmp( ext, "pak" ))
-		return FS_AddPak_Fullpath( file, already_loaded, flags );
+	for( archive = g_archives; archive->ext; archive++ )
+	{
+		if( !Q_stricmp( ext, archive->ext ))
+			return FS_AddArchive_Fullpath( archive, file, flags );
+	}
 
-	// skip wads, this function only meant to be used for extras
-	return false;
+	return NULL;
 }
 
 /*
@@ -311,6 +372,7 @@ then loads and adds pak1.pak pak2.pak ...
 */
 void FS_AddGameDirectory( const char *dir, uint flags )
 {
+	const fs_archive_t *archive;
 	stringlist_t list;
 	searchpath_t *search;
 	char fullpath[MAX_SYSPATH];
@@ -320,48 +382,30 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	listdirectory( &list, dir );
 	stringlistsort( &list );
 
-	// add archives in specific order PAK -> PK3 -> WAD
-	// so raw WADs takes precedence over WADs included into PAKs and PK3s
-	for( i = 0; i < list.numstrings; i++ )
+	for( archive = g_archives; archive->ext; archive++ )
 	{
-		const char *ext = COM_FileExtension( list.strings[i] );
-
-		if( !Q_stricmp( ext, "pak" ))
-		{
-			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
-			FS_AddPak_Fullpath( fullpath, NULL, flags );
-		}
-	}
-
-	for( i = 0; i < list.numstrings; i++ )
-	{
-		const char *ext = COM_FileExtension( list.strings[i] );
-
-		if( !Q_stricmp( ext, "pk3" ))
-		{
-			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
-			FS_AddZip_Fullpath( fullpath, NULL, flags );
-		}
-	}
-
-	for( i = 0; i < list.numstrings; i++ )
-	{
-		const char *ext = COM_FileExtension( list.strings[i] );
-
-		if( !Q_stricmp( ext, "wad" ))
-		{
+		if( archive->type == SEARCHPATH_WAD ) // HACKHACK: wads need direct paths but only in this function
 			FS_AllowDirectPaths( true );
+
+		for( i = 0; i < list.numstrings; i++ )
+		{
+			const char *ext = COM_FileExtension( list.strings[i] );
+
+			if( Q_stricmp( ext, archive->ext ))
+				continue;
+
 			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
-			FS_AddWad_Fullpath( fullpath, NULL, flags );
-			FS_AllowDirectPaths( false );
+			FS_AddArchive_Fullpath( archive, fullpath, flags );
 		}
+
+		FS_AllowDirectPaths( false );
 	}
 
 	stringlistfreecontents( &list );
 
 	// add the directory to the search path
 	// (unpacked files have the priority over packed files)
-	search = FS_AddDir_Fullpath( dir, NULL, flags );
+	search = FS_AddArchive_Fullpath( &g_directory_archive, dir, flags );
 	if( !FBitSet( flags, FS_NOWRITE_PATH ))
 		fs_writepath = search;
 }
@@ -406,7 +450,7 @@ Return true if the path should be rejected due to one of the following:
 	or are just not a good idea for a mod to be using.
 ====================
 */
-int FS_CheckNastyPath (const char *path, qboolean isgamedir)
+static int FS_CheckNastyPath( const char *path )
 {
 	// all: never allow an empty path, as for gamedir it would access the parent directory and a non-gamedir path it is just useless
 	if( !COM_CheckString( path )) return 2;
@@ -428,8 +472,10 @@ int FS_CheckNastyPath (const char *path, qboolean isgamedir)
 	// Windows and UNIXes: don't allow absolute paths
 	if( path[0] == '/') return 2; // attempt to go outside the game directory
 
+#if 0
 	// all: forbid trailing slash on gamedir
 	if( isgamedir && path[Q_strlen(path)-1] == '/' ) return 2;
+#endif
 
 	// all: forbid leading dot on any filename for any reason
 	if( Q_strstr(path, "/.")) return 2; // attempt to go outside the game directory
@@ -552,11 +598,18 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	if( GameInfo->noskills )
 		FS_Printf( f, "noskills\t\t\"%i\"\n", GameInfo->nomodels );
 
+#define SAVE_AGED_COUNT 2 // the default count of quick and auto saves
+	if( GameInfo->quicksave_aged_count != SAVE_AGED_COUNT )
+		FS_Printf( f, "quicksave_aged_count\t\t%d\n", GameInfo->quicksave_aged_count );
+
+	if( GameInfo->autosave_aged_count != SAVE_AGED_COUNT )
+		FS_Printf( f, "autosave_aged_count\t\t%d\n", GameInfo->autosave_aged_count );
+#undef SAVE_AGED_COUNT
+
 	// always expose our extensions :)
 	FS_Printf( f, "internal_vgui_support\t\t%s\n", GameInfo->internal_vgui_support ? "1" : "0" );
 	FS_Printf( f, "render_picbutton_text\t\t%s\n", GameInfo->render_picbutton_text ? "1" : "0" );
 
-	FS_Print( f, "\n\n\n" );
 	FS_Close( f );	// all done
 }
 
@@ -655,35 +708,42 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		{
 			pfile = COM_ParseFile( pfile, GameInfo->iconpath, sizeof( GameInfo->iconpath ));
 			COM_FixSlashes( GameInfo->iconpath );
-			COM_DefaultExtension( GameInfo->iconpath, ".ico" );
+			COM_DefaultExtension( GameInfo->iconpath, ".ico", sizeof( GameInfo->iconpath ));
 		}
 		else if( !Q_stricmp( token, "type" ))
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 
-			if( !isGameInfo && !Q_stricmp( token, "singleplayer_only" ))
+			if( isGameInfo )
 			{
-				// TODO: Remove this ugly hack too.
-				// This was made because Half-Life has multiplayer,
-				// but for some reason it's marked as singleplayer_only.
-				// Old WON version is fine.
-				if( !Q_stricmp( GameInfo->gamefolder, "valve") )
-					GameInfo->gamemode = GAME_NORMAL;
-				else
-					GameInfo->gamemode = GAME_SINGLEPLAYER_ONLY;
-				Q_strncpy( GameInfo->type, "Single", sizeof( GameInfo->type ));
-			}
-			else if( !isGameInfo && !Q_stricmp( token, "multiplayer_only" ))
-			{
-				GameInfo->gamemode = GAME_MULTIPLAYER_ONLY;
-				Q_strncpy( GameInfo->type, "Multiplayer", sizeof( GameInfo->type ));
+				Q_strncpy( GameInfo->type, token, sizeof( GameInfo->type ));
 			}
 			else
 			{
-				// pass type without changes
-				if( !isGameInfo )
-					GameInfo->gamemode = GAME_NORMAL;
-				Q_strncpy( GameInfo->type, token, sizeof( GameInfo->type ));
+				if( !Q_stricmp( token, "singleplayer_only" ))
+				{
+					// TODO: Remove this ugly hack too.
+					// This was made because Half-Life has multiplayer,
+					// but for some reason it's marked as singleplayer_only.
+					// Old WON version is fine.
+					if( !Q_stricmp( GameInfo->gamefolder, "valve") )
+						GameInfo->gamemode = GAME_NORMAL;
+					else
+						GameInfo->gamemode = GAME_SINGLEPLAYER_ONLY;
+					Q_strncpy( GameInfo->type, "Single", sizeof( GameInfo->type ));
+				}
+				else if( !Q_stricmp( token, "multiplayer_only" ))
+				{
+					GameInfo->gamemode = GAME_MULTIPLAYER_ONLY;
+					Q_strncpy( GameInfo->type, "Multiplayer", sizeof( GameInfo->type ));
+				}
+				else
+				{
+					// pass type without changes
+					if( !isGameInfo )
+						GameInfo->gamemode = GAME_NORMAL;
+					Q_strncpy( GameInfo->type, token, sizeof( GameInfo->type ));
+				}
 			}
 		}
 		// valid for both
@@ -697,11 +757,6 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->size = Q_atoi( token );
-		}
-		else if( !Q_stricmp( token, "edicts" ))
-		{
-			pfile = COM_ParseFile( pfile, token, sizeof( token ));
-			GameInfo->max_edicts = Q_atoi( token );
 		}
 		else if( !Q_stricmp( token, isGameInfo ? "mp_entity" : "mpentity" ))
 		{
@@ -763,7 +818,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			else if( !Q_stricmp( token, "max_particles" ))
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
-				GameInfo->max_particles = bound( 4096, Q_atoi( token ), 32768 );
+				GameInfo->max_particles = bound( 1024, Q_atoi( token ), 131072 );
 			}
 			else if( !Q_stricmp( token, "gamemode" ))
 			{
@@ -800,6 +855,16 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->internal_vgui_support = Q_atoi( token );
+			}
+			else if( !Q_stricmp( token, "quicksave_aged_count" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->quicksave_aged_count = bound( 2, Q_atoi( token ), 99 );
+			}
+			else if( !Q_stricmp( token, "autosave_aged_count" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->autosave_aged_count = bound( 2, Q_atoi( token ), 99 );
 			}
 		}
 	}
@@ -1057,8 +1122,10 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	// for example, czeror->czero->cstrike->valve
 	for( i = 0; i < FI.numgames; i++ )
 	{
-		if( !Q_strnicmp( FI.games[i]->gamefolder, dir, 64 ))
+		if( !Q_stricmp( FI.games[i]->gamefolder, dir ))
 		{
+			dir = FI.games[i]->gamefolder; // fixup directory case
+
 			Con_Reportf( "FS_AddGameHierarchy: adding recursive basedir %s\n", FI.games[i]->basedir );
 			if( !FI.games[i]->added && Q_stricmp( FI.games[i]->gamefolder, FI.games[i]->basedir ))
 			{
@@ -1109,25 +1176,13 @@ void FS_Rescan( void )
 
 	FS_ClearSearchPath();
 
-#if XASH_IOS
-	{
-		char buf[MAX_VA_STRING];
-
-		Q_snprintf( buf, sizeof( buf ), "%sextras.pak", SDL_GetBasePath() );
-		FS_AddPak_Fullpath( buf, NULL, extrasFlags );
-		Q_snprintf( buf, sizeof( buf ), "%sextras_%s.pak", SDL_GetBasePath(), GI->gamefolder );
-		FS_AddPak_Fullpath( buf, NULL, extrasFlags );
-	}
-#else
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
 	if( COM_CheckString( str ))
-		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
+		FS_MountArchive_Fullpath( str, extrasFlags );
 
 	str = getenv( "XASH3D_EXTRAS_PAK2" );
 	if( COM_CheckString( str ))
-		FS_AddArchive_Fullpath( str, NULL, extrasFlags );
-#endif
-
+		FS_MountArchive_Fullpath( str, extrasFlags );
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
 		FS_AddGameHierarchy( GI->basedir, 0 );
@@ -1150,7 +1205,7 @@ void FS_LoadGameInfo( const char *rootfolder )
 	// lock uplevel of gamedir for read\write
 	fs_ext_path = false;
 
-	if( rootfolder ) Q_strcpy( fs_gamedir, rootfolder );
+	if( rootfolder ) Q_strncpy( fs_gamedir, rootfolder, sizeof( fs_gamedir ));
 	Con_Reportf( "FS_LoadGameInfo( %s )\n", fs_gamedir );
 
 	// clear any old pathes
@@ -1206,14 +1261,15 @@ search for library, assume index is valid
 */
 static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dllinfo_t *dllInfo )
 {
+	string fixedname;
 	searchpath_t	*search;
 	int index, start = 0, i, len;
-
-	fs_ext_path = directpath;
 
 	// check for bad exports
 	if( !COM_CheckString( dllname ))
 		return false;
+
+	fs_ext_path = directpath;
 
 	// HACKHACK remove absoulte path to valve folder
 	if( !Q_strnicmp( dllname, "..\\valve\\", 9 ) || !Q_strnicmp( dllname, "../valve/", 9 ))
@@ -1221,7 +1277,6 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 
 	// replace all backward slashes
 	len = Q_strlen( dllname );
-
 	for( i = 0; i < len; i++ )
 	{
 		if( dllname[i+start] == '\\' ) dllInfo->shortPath[i] = '/';
@@ -1229,18 +1284,24 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	}
 	dllInfo->shortPath[i] = '\0';
 
-	COM_DefaultExtension( dllInfo->shortPath, "."OS_LIB_EXT );	// apply ext if forget
+	COM_DefaultExtension( dllInfo->shortPath, "."OS_LIB_EXT, sizeof( dllInfo->shortPath ));	// apply ext if forget
 
-	search = FS_FindFile( dllInfo->shortPath, &index, NULL, 0, false );
+	search = FS_FindFile( dllInfo->shortPath, &index, fixedname, sizeof( fixedname ), false );
 
-	if( !search && !directpath )
+	if( search )
+	{
+		Q_strncpy( dllInfo->shortPath, fixedname, sizeof( dllInfo->shortPath ));
+	}
+	else if( !directpath )
 	{
 		fs_ext_path = false;
 
 		// trying check also 'bin' folder for indirect paths
-		Q_strncpy( dllInfo->shortPath, dllname, sizeof( dllInfo->shortPath ));
-		search = FS_FindFile( dllInfo->shortPath, &index, NULL, 0, false );
-		if( !search ) return false; // unable to find
+		search = FS_FindFile( dllname, &index, fixedname, sizeof( fixedname ), false );
+		if( !search )
+			return false; // unable to find
+
+		Q_strncpy( dllInfo->shortPath, fixedname, sizeof( dllInfo->shortPath ));
 	}
 
 	dllInfo->encrypted = FS_CheckForCrypt( dllInfo->shortPath );
@@ -1278,33 +1339,34 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	return true;
 }
 
-poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
+static poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
 {
 	return (poolhandle_t)0xDEADC0DE;
 }
 
-void  _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
+static void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
 {
 	// stub
 }
 
-void* _Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+static void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
-	if( clear ) return calloc( 1, size );
-	return malloc( size );
+	void *ptr = malloc( size );
+	if( clear ) memset( ptr, 0, size );
+	return ptr;
 }
 
-void* _Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+static void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	return realloc( memptr, size );
 }
 
-void  _Mem_Free( void *data, const char *filename, int fileline )
+static void _Mem_Free( void *data, const char *filename, int fileline )
 {
 	free( data );
 }
 
-void _Con_Printf( const char *fmt, ... )
+static void _Con_Printf( const char *fmt, ... )
 {
 	va_list ap;
 
@@ -1313,7 +1375,7 @@ void _Con_Printf( const char *fmt, ... )
 	va_end( ap );
 }
 
-void _Sys_Error( const char *fmt, ... )
+static void _Sys_Error( const char *fmt, ... )
 {
 	va_list ap;
 
@@ -1324,13 +1386,17 @@ void _Sys_Error( const char *fmt, ... )
 	exit( 1 );
 }
 
+static void *_Platform_GetNativeObject_stub( const char *object )
+{
+	return NULL;
+}
 
 /*
 ================
 FS_Init
 ================
 */
-qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir )
+qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir )
 {
 	stringlist_t	dirs;
 	qboolean		hasBaseDir = false;
@@ -1339,9 +1405,6 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 	char		buf[MAX_VA_STRING];
 
 	FS_InitMemory();
-#if !XASH_WIN32
-	fs_caseinsensitive = caseinsensitive;
-#endif
 
 	Q_strncpy( fs_rootdir, rootdir, sizeof( fs_rootdir ));
 	Q_strncpy( fs_gamedir, gamedir, sizeof( fs_gamedir ));
@@ -1425,6 +1488,7 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 	}
 
 	stringlistfreecontents( &dirs );
+
 	Con_Reportf( "FS_Init: done\n" );
 
 	return true;
@@ -1445,7 +1509,10 @@ void FS_ShutdownStdio( void )
 	int i;
 	// release gamedirs
 	for( i = 0; i < FI.numgames; i++ )
-		if( FI.games[i] ) Mem_Free( FI.games[i] );
+	{
+		if( FI.games[i] )
+			Mem_Free( FI.games[i] );
+	}
 
 	FS_ClearSearchPath(); // release all wad files too
 	Mem_FreePool( &fs_mempool );
@@ -1705,17 +1772,36 @@ qboolean FS_SysFileOrFolderExists( const char *path )
 FS_SetCurrentDirectory
 
 Sets current directory, path should be in UTF-8 encoding
+TODO: make this non-fatal
 ==================
 */
 int FS_SetCurrentDirectory( const char *path )
 {
 #if XASH_WIN32
-	return SetCurrentDirectoryW( FS_PathToWideChar( path ));
+	if( !SetCurrentDirectoryW( FS_PathToWideChar( path )))
+	{
+		char buf[1024];
+		FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, GetLastError(), MAKELANGID( LANG_ENGLISH, SUBLANG_DEFAULT ),
+			buf, sizeof( buf ), NULL );
+
+		Sys_Error( "Changing directory to %s failed: %s\n", path, buf );
+		return false;
+	}
 #elif XASH_POSIX
-	return !chdir( path );
+	if( chdir( path ) < 0 )
+	{
+		Sys_Error( "Changing directory to %s failed: %s\n", path, strerror( errno ));
+		return false;
+	}
 #else
-#error
+	// it may be fine for some systems to skip chdir
+	Con_Printf( "FS_SetCurrentDirectory: not implemented, ignoring...\n" );
+	return true;
 #endif
+
+	Con_Printf( "%s is working directory now\n", path );
+	return true;
 }
 
 /*
@@ -1785,6 +1871,33 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	return NULL;
 }
 
+/*
+===========================
+FS_FullPathToRelativePath
+
+Converts full path to the relative path considering current searchpaths
+(do not use this function, implemented only for VFileSystem009)
+===========================
+*/
+qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size )
+{
+	searchpath_t *sp;
+
+	for( sp = fs_searchpaths; sp; sp = sp->next )
+	{
+		size_t splen = Q_strlen( sp->filename );
+
+		if( !Q_strnicmp( sp->filename, src, splen ))
+		{
+			Q_strncpy( dst, src + splen + 1, size );
+			return true;
+		}
+	}
+
+	Q_strncpy( dst, src, size );
+	return false;
+}
+
 
 /*
 ===========
@@ -1824,14 +1937,17 @@ Open a file. The syntax is the same as fopen
 */
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 {
-	// some stupid mappers used leading '/' or '\' in path to models or sounds
+	if( !fs_searchpaths )
+		return NULL;
+
+	// some mappers used leading '/' or '\' in path to models or sounds
 	if( filepath[0] == '/' || filepath[0] == '\\' )
 		filepath++;
 
 	if( filepath[0] == '/' || filepath[0] == '\\' )
 		filepath++;
 
-	if( FS_CheckNastyPath( filepath, false ))
+	if( FS_CheckNastyPath( filepath ))
 		return NULL;
 
 	// if the file is opened in "write", "append", or "read/write" mode
@@ -1940,8 +2056,9 @@ Read up to "buffersize" bytes from a file
 */
 fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 {
-	fs_offset_t	count, done;
+	fs_offset_t	done;
 	fs_offset_t	nb;
+	size_t	count;
 
 	// nothing to copy
 	if( buffersize == 0 ) return 1;
@@ -1961,7 +2078,7 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	{
 		count = file->buff_len - file->buff_ind;
 
-		done += ((fs_offset_t)buffersize > count ) ? count : (fs_offset_t)buffersize;
+		done += ( buffersize > count ) ? (fs_offset_t)count : (fs_offset_t)buffersize;
 		memcpy( buffer, &file->buff[file->buff_ind], done );
 		file->buff_ind += done;
 
@@ -1979,10 +2096,10 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	// if we have a lot of data to get, put them directly into "buffer"
 	if( buffersize > sizeof( file->buff ) / 2 )
 	{
-		if( count > (fs_offset_t)buffersize )
-			count = (fs_offset_t)buffersize;
+		if( count > buffersize )
+			count = buffersize;
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
-		nb = read (file->handle, &((byte *)buffer)[done], count );
+		nb = read( file->handle, (byte *)buffer + done, count );
 
 		if( nb > 0 )
 		{
@@ -1994,8 +2111,8 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	}
 	else
 	{
-		if( count > (fs_offset_t)sizeof( file->buff ))
-			count = (fs_offset_t)sizeof( file->buff );
+		if( count > sizeof( file->buff ))
+			count = sizeof( file->buff );
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read( file->handle, file->buff, count );
 
@@ -2064,7 +2181,7 @@ int FS_VPrintf( file_t *file, const char *format, va_list ap )
 	while( 1 )
 	{
 		tempbuff = (char *)Mem_Malloc( fs_mempool, buff_size );
-		len = Q_vsprintf( tempbuff, format, ap );
+		len = Q_vsnprintf( tempbuff, buff_size, format, ap );
 
 		if( len >= 0 && len < buff_size )
 			break;
@@ -2243,34 +2360,49 @@ Always appends a 0 byte.
 */
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 {
-	file_t	*file;
-	byte	*buf = NULL;
-	fs_offset_t	filesize = 0;
+	searchpath_t *search;
+	file_t *file;
+	char netpath[MAX_SYSPATH];
+	int pack_ind;
 
-	file = FS_Open( path, "rb", gamedironly );
+	// some mappers used leading '/' or '\' in path to models or sounds
+	if( path[0] == '/' || path[0] == '\\' )
+		path++;
+
+	if( path[0] == '/' || path[0] == '\\' )
+		path++;
+
+	if( !fs_searchpaths || FS_CheckNastyPath( path ))
+		return NULL;
+
+	search = FS_FindFile( path, &pack_ind, netpath, sizeof( netpath ), gamedironly );
+
+	if( !search )
+		return NULL;
+
+	// custom load file function for compressed files
+	if( search->pfnLoadFile )
+		return search->pfnLoadFile( search, netpath, pack_ind, filesizeptr );
+
+	file = search->pfnOpenFile( search, netpath, "rb", pack_ind );
 
 	if( file )
 	{
-		filesize = file->real_length;
+		fs_offset_t	filesize = file->real_length;
+		byte *buf;
 
 		buf = (byte *)Mem_Malloc( fs_mempool, filesize + 1 );
 		buf[filesize] = '\0';
 		FS_Read( file, buf, filesize );
 		FS_Close( file );
-	}
-	else
-	{
-		buf = FS_LoadWADFile( path, &filesize, gamedironly );
 
-		if( !buf )
-			buf = FS_LoadZIPFile( path, &filesize, gamedironly );
+		if( filesizeptr )
+			*filesizeptr = filesize;
 
+		return buf;
 	}
 
-	if( filesizeptr )
-		*filesizeptr = filesize;
-
-	return buf;
+	return NULL;
 }
 
 qboolean CRC32_File( dword *crcvalue, const char *filename )
@@ -2351,9 +2483,7 @@ byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 	file = FS_SysOpen( path, "rb" );
 
 	if( !file )
-	{
 		return NULL;
-	}
 
 	// Try to load
 	filesize = file->real_length;
@@ -2423,19 +2553,46 @@ return NULL for file in pack
 */
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly )
 {
-	static char temp[MAX_SYSPATH];
+	static char diskpath[MAX_SYSPATH];
+	char fullpath[MAX_SYSPATH];
 	searchpath_t	*search;
 
-	search = FS_FindFile( name, NULL, temp, sizeof( temp ), gamedironly );
+	search = FS_FindFile( name, NULL, fullpath, sizeof( fullpath ), gamedironly );
 
 	if( search )
 	{
 		if( search->type != SEARCHPATH_PLAIN ) // file in pack or wad
 			return NULL;
-		return temp;
+
+		Q_snprintf( diskpath, sizeof( diskpath ), "%s/%s", search->filename, fullpath );
+		return diskpath;
 	}
 
 	return NULL;
+}
+
+/*
+==================
+FS_GetFullDiskPath
+
+Build full path for file on disk
+return false for file in pack
+==================
+*/
+qboolean FS_GetFullDiskPath( char *buffer, size_t size, const char *name, qboolean gamedironly )
+{
+	searchpath_t *search;
+	char temp[MAX_SYSPATH];
+
+	search = FS_FindFile( name, NULL, temp, sizeof( temp ), gamedironly );
+
+	if( search && search->type == SEARCHPATH_PLAIN )
+	{
+		Q_snprintf( buffer, size, "%s/%s", search->filename, temp );
+		return true;
+	}
+
+	return false;
 }
 
 /*
@@ -2507,6 +2664,9 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 	char oldname2[MAX_SYSPATH], newname2[MAX_SYSPATH], oldpath[MAX_SYSPATH], newpath[MAX_SYSPATH];
 	int ret;
 
+	if( !fs_writepath )
+		return false;
+
 	if( !COM_CheckString( oldname ) || !COM_CheckString( newname ))
 		return false;
 
@@ -2552,7 +2712,7 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 	char path2[MAX_SYSPATH], real_path[MAX_SYSPATH];
 	int ret;
 
-	if( !COM_CheckString( path ))
+	if( !fs_writepath || !COM_CheckString( path ))
 		return false;
 
 	Q_strncpy( path2, path, sizeof( path2 ));
@@ -2562,7 +2722,7 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 		return true;
 
 	ret = remove( real_path );
-	if( ret < 0 )
+	if( ret < 0 && errno != ENOENT )
 	{
 		Con_Printf( "%s: failed to delete file %s (%s): %s\n", __FUNCTION__, real_path, path, strerror( errno ));
 		return false;
@@ -2680,7 +2840,8 @@ fs_interface_t g_engfuncs =
 	_Mem_FreePool,
 	_Mem_Alloc,
 	_Mem_Realloc,
-	_Mem_Free
+	_Mem_Free,
+	_Platform_GetNativeObject_stub
 };
 
 static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
@@ -2720,6 +2881,12 @@ static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
 		g_engfuncs._Mem_Free = engfuncs->_Mem_Free;
 
 		Con_Reportf( "filesystem_stdio: custom memory allocation functions found\n" );
+	}
+
+	if( engfuncs->_Platform_GetNativeObject )
+	{
+		g_engfuncs._Platform_GetNativeObject = engfuncs->_Platform_GetNativeObject;
+		Con_Reportf( "filesystem_stdio: custom platform-specific functions found\n" );
 	}
 
 	return true;
@@ -2779,6 +2946,11 @@ fs_api_t g_api =
 	FS_Delete,
 	FS_SysFileExists,
 	FS_GetDiskPath,
+
+	NULL,
+	(void *)FS_MountArchive_Fullpath,
+
+	FS_GetFullDiskPath,
 };
 
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs )

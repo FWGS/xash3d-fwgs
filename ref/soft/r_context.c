@@ -138,14 +138,6 @@ static int GL_RefGetParm( int parm, int arg )
 	case PARM_TEX_LIGHTMAP:
 		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
 		return tr.lightmapTextures[arg];
-	case PARM_WIDESCREEN:
-		return gpGlobals->wideScreen;
-	case PARM_FULLSCREEN:
-		return gpGlobals->fullScreen;
-	case PARM_SCREEN_WIDTH:
-		return gpGlobals->width;
-	case PARM_SCREEN_HEIGHT:
-		return gpGlobals->height;
 	case PARM_TEX_TARGET:
 		glt = R_GetTexture( arg );
 		return 0; //glt->target;
@@ -155,6 +147,8 @@ static int GL_RefGetParm( int parm, int arg )
 	case PARM_TEX_FLAGS:
 		glt = R_GetTexture( arg );
 		return glt->flags;
+	case PARM_TEX_MEMORY:
+		return R_TexMemory();
 	case PARM_ACTIVE_TMU:
 		return  0; //glState.activeTMU;
 	case PARM_LIGHTSTYLEVALUE:

@@ -1483,7 +1483,7 @@ static qboolean Mod_LoadColoredLighting( dbspmodel_t *bmod )
 	fs_offset_t	litdatasize;
 	byte	*in;
 
-	COM_FileBase( loadmodel->name, modelname );
+	COM_FileBase( loadmodel->name, modelname, sizeof( modelname ));
 	Q_snprintf( path, sizeof( path ), "maps/%s.lit", modelname );
 
 	// make sure what deluxemap is actual
@@ -1538,7 +1538,7 @@ static void Mod_LoadDeluxemap( dbspmodel_t *bmod )
 	if( !FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ))
 		return;
 
-	COM_FileBase( loadmodel->name, modelname );
+	COM_FileBase( loadmodel->name, modelname, sizeof( modelname ));
 	Q_snprintf( path, sizeof( path ), "maps/%s.dlit", modelname );
 
 	// make sure what deluxemap is actual
@@ -1767,7 +1767,7 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 
 		// world is check for entfile too
 		Q_strncpy( entfilename, loadmodel->name, sizeof( entfilename ));
-		COM_ReplaceExtension( entfilename, ".ent" );
+		COM_ReplaceExtension( entfilename, ".ent", sizeof( entfilename ));
 
 		// make sure what entity patch is never than bsp
 		ft1 = FS_FileTime( loadmodel->name, false );
@@ -1830,13 +1830,13 @@ static void Mod_LoadEntities( dbspmodel_t *bmod )
 				wadstring[MAX_TOKEN - 2] = 0;
 
 				if( !Q_strchr( wadstring, ';' ))
-					Q_strcat( wadstring, ";" );
+					Q_strncat( wadstring, ";", sizeof( wadstring ));
 
 				// parse wad pathes
 				for( pszWadFile = strtok( wadstring, ";" ); pszWadFile != NULL; pszWadFile = strtok( NULL, ";" ))
 				{
 					COM_FixSlashes( pszWadFile );
-					COM_FileBase( pszWadFile, token );
+					COM_FileBase( pszWadFile, token, sizeof( token ));
 
 					// make sure what wad is really exist
 					if( FS_FileExists( va( "%s.wad", token ), false ))
@@ -2068,7 +2068,7 @@ static void Mod_LoadTextureData( dbspmodel_t *bmod, int textureIndex )
 	// 2. Internal from map
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if(( r_wadtextures->value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 )
+	if(( r_wadtextures.value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 )
 	{
 		char texpath[MAX_VA_STRING];
 		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, mipTex->name, texpath, sizeof( texpath ));
@@ -3212,7 +3212,7 @@ Mod_CheckLump
 check lump for existing
 ==================
 */
-int Mod_CheckLump( const char *filename, const int lump, int *lumpsize )
+int GAME_EXPORT Mod_CheckLump( const char *filename, const int lump, int *lumpsize )
 {
 	file_t		*f = FS_Open( filename, "rb", false );
 	byte		buffer[sizeof( dheader_t ) + sizeof( dextrahdr_t )];
@@ -3271,7 +3271,7 @@ Mod_ReadLump
 reading random lump by user request
 ==================
 */
-int Mod_ReadLump( const char *filename, const int lump, void **lumpdata, int *lumpsize )
+int GAME_EXPORT Mod_ReadLump( const char *filename, const int lump, void **lumpdata, int *lumpsize )
 {
 	file_t		*f = FS_Open( filename, "rb", false );
 	byte		buffer[sizeof( dheader_t ) + sizeof( dextrahdr_t )];
@@ -3353,7 +3353,7 @@ writing lump by user request
 only empty lumps is allows
 ==================
 */
-int Mod_SaveLump( const char *filename, const int lump, void *lumpdata, int lumpsize )
+int GAME_EXPORT Mod_SaveLump( const char *filename, const int lump, void *lumpdata, int lumpsize )
 {
 	byte		buffer[sizeof( dheader_t ) + sizeof( dextrahdr_t )];
 	size_t		prefetch_size = sizeof( buffer );

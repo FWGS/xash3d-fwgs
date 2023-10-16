@@ -64,20 +64,21 @@ CFLAGS = {
 		'msvc':    ['/O2', '/Oy', '/Zi'],
 		'gcc': {
 			'3':       ['-O3', '-fomit-frame-pointer'],
-			'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer']
+			'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer', '-fno-semantic-interposition']
 		},
 		'clang':   ['-Ofast'],
 		'default': ['-O3']
 	},
 	'fastnative': {
 		'msvc':    ['/O2', '/Oy', '/Zi'],
-		'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
+		'gcc':     ['-Ofast', '-march=native', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer', '-fno-semantic-interposition'],
 		'clang':   ['-Ofast', '-march=native'],
 		'default': ['-O3']
 	},
 	'release': {
 		'msvc':    ['/O2', '/Zi'],
 		'owcc':    ['-O3', '-foptimize-sibling-calls', '-fomit-leaf-frame-pointer', '-fomit-frame-pointer', '-fschedule-insns', '-funsafe-math-optimizations', '-funroll-loops', '-frerun-optimizer', '-finline-functions', '-finline-limit=512', '-fguess-branch-probability', '-fno-strict-aliasing', '-floop-optimize'],
+		'gcc':     ['-O3', '-fno-semantic-interposition'],
 		'default': ['-O3']
 	},
 	'debug': {
@@ -99,13 +100,13 @@ CFLAGS = {
 
 LTO_CFLAGS = {
 	'msvc':  ['/GL'],
-	'gcc':   ['-flto'],
+	'gcc':   ['-flto=auto'],
 	'clang': ['-flto']
 }
 
 LTO_LINKFLAGS = {
 	'msvc':  ['/LTCG'],
-	'gcc':   ['-flto'],
+	'gcc':   ['-flto=auto'],
 	'clang': ['-flto']
 }
 
@@ -176,5 +177,18 @@ def get_optimization_flags(conf):
 		cflags.append('-fno-optimize-sibling-calls')
 		# remove fvisibility to allow everything to be exported by default
 		cflags.remove('-fvisibility=hidden')
+
+	if conf.env.COMPILER_CC != 'msvc' and conf.env.COMPILER_CC != 'owcc':
+		# HLSDK by default compiles with these options under Linux
+		# no reason for us to not do the same
+
+		# TODO: fix DEST_CPU in force 32 bit mode
+		if conf.env.DEST_CPU == 'x86' or (conf.env.DEST_CPU == 'x86_64' and conf.env.DEST_SIZEOF_VOID_P == 4):
+			cflags.append('-march=pentium-m')
+			cflags.append('-mtune=core2')
+
+	# on all compilers (except MSVC?) we need to copy CFLAGS to LINKFLAGS
+	if conf.options.LTO and conf.env.COMPILER_CC != 'msvc':
+		linkflags += cflags
 
 	return cflags, linkflags

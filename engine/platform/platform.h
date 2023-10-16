@@ -30,26 +30,41 @@ GNU General Public License for more details.
 
 ==============================================================================
 */
-
-void Platform_Init( void );
-void Platform_Shutdown( void );
 double Platform_DoubleTime( void );
 void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
 qboolean Sys_DebuggerPresent( void ); // optional, see Sys_DebugBreak
+void Platform_SetStatus( const char *status );
+
+#if XASH_WIN32 || XASH_LINUX
+#define XASH_PLATFORM_HAVE_STATUS 1
+#else
+#undef XASH_PLATFORM_HAVE_STATUS
+#endif
+
+#if XASH_POSIX
+void Posix_Daemonize( void );
+#endif
+
+#if XASH_SDL
+void SDLash_Init( void );
+void SDLash_Shutdown( void );
+#endif
 
 #if XASH_ANDROID
 const char *Android_GetAndroidID( void );
 const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
+void Android_Init( void );
+void *Android_GetNativeObject( const char *name );
+int Android_GetKeyboardHeight( void );
 #endif
 
 #if XASH_WIN32
-void Platform_UpdateStatusLine( void );
-#else 
-static inline void Platform_UpdateStatusLine( void ) { }
-#endif  
+void Wcon_CreateConsole( void );
+void Wcon_DestroyConsole( void );
+#endif
 
 #if XASH_NSWITCH
 void NSwitch_Init( void );
@@ -63,6 +78,72 @@ qboolean PSVita_GetBasePath( char *buf, const size_t buflen );
 int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 void PSVita_InputUpdate( void );
 #endif
+
+#if XASH_DOS
+void DOS_Init( void );
+void DOS_Shutdown( void );
+#endif
+
+#if XASH_LINUX
+void Linux_Init( void );
+void Linux_Shutdown( void );
+#endif
+
+static inline void Platform_Init( void )
+{
+#if XASH_POSIX
+	// daemonize as early as possible, because we need to close our file descriptors
+	Posix_Daemonize( );
+#endif
+
+#if XASH_SDL
+	SDLash_Init( );
+#endif
+
+#if XASH_ANDROID
+	Android_Init( );
+#elif XASH_NSWITCH
+	NSwitch_Init( );
+#elif XASH_PSVITA
+	PSVita_Init( );
+#elif XASH_DOS
+	DOS_Init( );
+#elif XASH_WIN32
+	Wcon_CreateConsole( );
+#elif XASH_LINUX
+	Linux_Init( );
+#endif
+}
+
+static inline void Platform_Shutdown( void )
+{
+#if XASH_NSWITCH
+	NSwitch_Shutdown( );
+#elif XASH_PSVITA
+	PSVita_Shutdown( );
+#elif XASH_DOS
+	DOS_Shutdown( );
+#elif XASH_WIN32
+	Wcon_DestroyConsole( );
+#elif XASH_LINUX
+	Linux_Shutdown( );
+#endif
+
+#if XASH_SDL
+	SDLash_Shutdown( );
+#endif
+}
+
+static inline void *Platform_GetNativeObject( const char *name )
+{
+	void *ptr = NULL;
+
+#if XASH_ANDROID
+	ptr = Android_GetNativeObject( name );
+#endif
+
+	return ptr;
+}
 
 /*
 ==============================================================================
@@ -108,11 +189,6 @@ void Platform_SetClipboardText( const char *buffer );
 #define SDL_VERSION_ATLEAST( x, y, z ) 0
 #endif
 
-#if XASH_ANDROID
-void Android_ShowMouse( qboolean show );
-void Android_MouseMove( float *x, float *y );
-#endif
-
 /*
 ==============================================================================
 
@@ -129,11 +205,12 @@ typedef enum
 } rserr_t;
 
 struct vidmode_s;
+typedef enum window_mode_e window_mode_t;
 // Window
 qboolean  R_Init_Video( const int type );
 void      R_Free_Video( void );
 qboolean  VID_SetMode( void );
-rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen );
+rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode );
 int       R_MaxVideoModes( void );
 struct vidmode_s *R_GetVideoMode( int num );
 void*     GL_GetProcAddress( const char *name ); // RenderAPI requirement

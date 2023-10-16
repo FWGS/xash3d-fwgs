@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <vitasdk.h>
 #include <vitaGL.h>
 #include <vrtld.h>
+#include <sys/reent.h>
 
 #define DATA_PATH "data/xash3d"
 #define MAX_ARGV 5 // "" -log -dev X NULL
@@ -32,6 +33,10 @@ SceUInt32 sceUserMainThreadStackSize = 512 * 1024;
 unsigned int _pthread_stack_default_user = 512 * 1024;
 unsigned int _newlib_heap_size_user = 200 * 1024 * 1024;
 #define VGL_MEM_THRESHOLD ( 40 * 1024 * 1024 )
+
+// HACKHACK: create some slack at the end of the RX segment of the ELF
+// for vita-elf-create to put the generated symbol table into
+const char vitaelf_slack __attribute__ ((aligned (0x20000))) = 0xFF;
 
 /* HACKHACK: force-export stuff required by the dynamic libs */
 
@@ -50,6 +55,7 @@ static const vrtld_export_t aux_exports[] =
 	VRTLD_EXPORT_SYMBOL( __aeabi_uidivmod ),
 	VRTLD_EXPORT_SYMBOL( __aeabi_uidiv ),
 	VRTLD_EXPORT_SYMBOL( __aeabi_ul2d ),
+	VRTLD_EXPORT_SYMBOL( _impure_ptr ),
 	VRTLD_EXPORT_SYMBOL( ctime ),
 	VRTLD_EXPORT_SYMBOL( vasprintf ),
 	VRTLD_EXPORT_SYMBOL( vsprintf ),

@@ -22,7 +22,6 @@ GNU General Public License for more details.
 #include "const.h"
 #include "client.h"
 #include "library.h"
-#include "sequence.h"
 
 static const char *file_exts[] =
 {
@@ -104,7 +103,7 @@ static float fran1( void )
 	return temp;
 }
 
-void COM_SetRandomSeed( int lSeed )
+void GAME_EXPORT COM_SetRandomSeed( int lSeed )
 {
 	if( lSeed ) idum = lSeed;
 	else idum = -time( NULL );
@@ -267,7 +266,7 @@ static void LZSS_BuildHash( lzss_state_t *state, const byte *source )
 	list->start = node;
 }
 
-byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_length, byte *pOutputBuf, uint *pOutputSize )
+static byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_length, byte *pOutputBuf, uint *pOutputSize )
 {
 	byte		*pStart = pOutputBuf; // allocate the output buffer, compressed buffer is expected to be less, caller will free
 	byte		*pEnd = pStart + input_length - sizeof( lzss_header_t ) - 8; // prevent compression failure
@@ -553,7 +552,6 @@ This doesn't search in the pak file.
 */
 int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBuffer, int nameOutBufferSize )
 {
-	const char	*path;
 	char		result[MAX_SYSPATH];
 
 	if( !COM_CheckString( fileName ) || !nameOutBuffer || nameOutBufferSize <= 0 )
@@ -562,10 +560,8 @@ int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBuffer, i
 	// filename examples:
 	// media\sierra.avi - D:\Xash3D\valve\media\sierra.avi
 	// models\barney.mdl - D:\Xash3D\bshift\models\barney.mdl
-	if(( path = FS_GetDiskPath( fileName, false )) != NULL )
+	if( g_fsapi.GetFullDiskPath( result, sizeof( result ), fileName, false ))
 	{
-		Q_sprintf( result, "%s/%s", host.rootdir, path );
-
 		// check for enough room
 		if( Q_strlen( result ) > nameOutBufferSize )
 			return 0;
@@ -616,7 +612,7 @@ COM_Nibble
 Returns the 4 bit nibble for a hex character
 ==================
 */
-byte COM_Nibble( char c )
+static byte COM_Nibble( char c )
 {
 	if(( c >= '0' ) && ( c <= '9' ))
 	{
@@ -664,7 +660,7 @@ COM_MemFgets
 
 =============
 */
-char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize )
+char *GAME_EXPORT COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize )
 {
 	int	i, last, stop;
 
@@ -718,7 +714,7 @@ Cache_Check
 consistency check
 ====================
 */
-void *Cache_Check( poolhandle_t mempool, cache_user_t *c )
+void *GAME_EXPORT Cache_Check( poolhandle_t mempool, cache_user_t *c )
 {
 	if( !c->data )
 		return NULL;
@@ -735,7 +731,7 @@ COM_LoadFileForMe
 
 =============
 */
-byte* GAME_EXPORT COM_LoadFileForMe( const char *filename, int *pLength )
+byte *GAME_EXPORT COM_LoadFileForMe( const char *filename, int *pLength )
 {
 	string	name;
 	byte	*file, *pfile;
@@ -775,7 +771,7 @@ COM_LoadFile
 
 =============
 */
-byte *COM_LoadFile( const char *filename, int usehunk, int *pLength )
+byte *GAME_EXPORT COM_LoadFile( const char *filename, int usehunk, int *pLength )
 {
 	return COM_LoadFileForMe( filename, pLength );
 }
@@ -863,65 +859,12 @@ void GAME_EXPORT pfnGetModelBounds( model_t *mod, float *mins, float *maxs )
 
 /*
 =============
-pfnCvar_RegisterServerVariable
-
-standard path to register game variable
-=============
-*/
-void GAME_EXPORT pfnCvar_RegisterServerVariable( cvar_t *variable )
-{
-	if( variable != NULL )
-		SetBits( variable->flags, FCVAR_EXTDLL );
-	Cvar_RegisterVariable( (convar_t *)variable );
-}
-
-/*
-=============
-pfnCvar_RegisterEngineVariable
-
-use with precaution: this cvar will NOT unlinked
-after game.dll is unloaded
-=============
-*/
-void GAME_EXPORT pfnCvar_RegisterEngineVariable( cvar_t *variable )
-{
-	Cvar_RegisterVariable( (convar_t *)variable );
-}
-
-/*
-=============
-pfnCvar_RegisterVariable
-
-=============
-*/
-cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags )
-{
-	// a1ba: try to mitigate outdated client.dll vulnerabilities
-	if( !Q_stricmp( szName, "motdfile" ))
-		flags |= FCVAR_PRIVILEGED;
-
-	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_CLIENTDLL ));
-}
-
-/*
-=============
-pfnCvar_RegisterVariable
-
-=============
-*/
-cvar_t *pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags )
-{
-	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_GAMEUIDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_GAMEUIDLL ));
-}
-
-/*
-=============
 pfnCVarGetPointer
 
 can return NULL
 =============
 */
-cvar_t *pfnCVarGetPointer( const char *szVarName )
+cvar_t *GAME_EXPORT pfnCVarGetPointer( const char *szVarName )
 {
 	return (cvar_t *)Cvar_FindVar( szVarName );
 }
@@ -1006,7 +949,7 @@ pfnGetGameDir
 void GAME_EXPORT pfnGetGameDir( char *szGetGameDir )
 {
 	if( !szGetGameDir ) return;
-	Q_strcpy( szGetGameDir, GI->gamefolder );
+	Q_strncpy( szGetGameDir, GI->gamefolder, sizeof( GI->gamefolder ));
 }
 
 qboolean COM_IsSafeFileToDownload( const char *filename )
@@ -1070,13 +1013,15 @@ const char *COM_GetResourceTypeName( resourcetype_t restype )
 
 char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline )
 {
+	size_t	size;
 	char	*b;
 
 	if( !s ) return NULL;
 	if( !mempool ) mempool = host.mempool;
 
-	b = _Mem_Alloc( mempool, Q_strlen( s ) + 1, false, filename, fileline );
-	Q_strcpy( b, s );
+	size = Q_strlen( s ) + 1;
+	b = _Mem_Alloc( mempool, size, false, filename, fileline );
+	Q_strncpy( b, s, size );
 
 	return b;
 }
@@ -1101,8 +1046,7 @@ void *GAME_EXPORT pfnSequenceGet( const char *fileName, const char *entryName )
 {
 	Msg( "Sequence_Get: file %s, entry %s\n", fileName, entryName );
 
-
-	return Sequence_Get( fileName, entryName );
+	return NULL;
 }
 
 /*
@@ -1116,7 +1060,7 @@ void *GAME_EXPORT pfnSequencePickSentence( const char *groupName, int pickMethod
 {
 	Msg( "Sequence_PickSentence: group %s, pickMethod %i\n", groupName, pickMethod );
 
-	return  Sequence_PickSentence( groupName, pickMethod, picked );
+	return NULL;
 
 }
 
@@ -1127,30 +1071,7 @@ pfnIsCareerMatch
 used by CS:CZ (client stub)
 =============
 */
-int GAME_EXPORT GAME_EXPORT pfnIsCareerMatch( void )
-{
-	return 0;
-}
-
-/*
-=============
-pfnRegisterTutorMessageShown
-
-only exists in PlayStation version
-=============
-*/
-void GAME_EXPORT pfnRegisterTutorMessageShown( int mid )
-{
-}
-
-/*
-=============
-pfnGetTimesTutorMessageShown
-
-only exists in PlayStation version
-=============
-*/
-int GAME_EXPORT pfnGetTimesTutorMessageShown( int mid )
+int GAME_EXPORT pfnIsCareerMatch( void )
 {
 	return 0;
 }

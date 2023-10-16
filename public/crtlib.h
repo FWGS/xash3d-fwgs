@@ -59,16 +59,12 @@ const char *Q_buildcommit( void );
 //
 // crtlib.c
 //
-#define Q_strlwr( in, out ) Q_strnlwr( in, out, 99999 )
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 #define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 size_t Q_colorstr( const char *string );
 char Q_toupper( const char in );
 char Q_tolower( const char in );
-#define Q_strcat( dst, src ) Q_strncat( dst, src, 99999 )
 size_t Q_strncat( char *dst, const char *src, size_t siz );
-#define Q_strcpy( dst, src ) Q_strncpy( dst, src, 99999 )
-size_t Q_strncpy( char *dst, const char *src, size_t siz );
 qboolean Q_isdigit( const char *str );
 qboolean Q_isspace( const char *str );
 int Q_atoi( const char *str );
@@ -80,18 +76,16 @@ qboolean Q_stricmpext( const char *pattern, const char *text );
 qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlen );
 const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen );
 const char *Q_timestamp( int format );
-#define Q_vsprintf( buffer, format, args ) Q_vsnprintf( buffer, 99999, format, args )
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
-int Q_sprintf( char *buffer, const char *format, ... ) _format( 2 );
 #define Q_strpbrk strpbrk
 void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
-void COM_FileBase( const char *in, char *out );
+void COM_FileBase( const char *in, char *out, size_t size );
 const char *COM_FileExtension( const char *in );
-void COM_DefaultExtension( char *path, const char *extension );
-void COM_ReplaceExtension( char *path, const char *extension );
+void COM_DefaultExtension( char *path, const char *extension, size_t size );
+void COM_ReplaceExtension( char *path, const char *extension, size_t size );
 void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
@@ -126,6 +120,25 @@ static inline int Q_strncmp( const char *s1, const char *s2, size_t n )
 static inline char *Q_strstr( const char *s1, const char *s2 )
 {
 	return unlikely( !s1 || !s2 ) ? NULL : (char*)strstr( s1, s2 );
+}
+
+// Q_strncpy is the same as strlcpy
+static inline size_t Q_strncpy( char *dst, const char *src, size_t siz )
+{
+	size_t len;
+
+	if( unlikely( !dst || !src || !siz ))
+		return 0;
+
+	len = strlen( src );
+	if( len + 1 > siz ) // check if truncate
+	{
+		memcpy( dst, src, siz - 1 );
+		dst[siz - 1] = 0;
+	}
+	else memcpy( dst, src, len + 1 );
+
+	return len; // count does not include NULL
 }
 
 // libc extensions, be careful

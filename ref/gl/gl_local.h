@@ -31,7 +31,7 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
-//#include "cvar.h"
+#include "common/cvar.h"
 #include "gl_export.h"
 #include "wadfile.h"
 
@@ -53,10 +53,6 @@ void VGL_ShimEndFrame( void );
 #define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 #include <stdio.h>
-
-#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc )	cvar_t cv = { cvname, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc )	cvar_t cv = { #cv, cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, cvdesc }
-#define CVAR_TO_BOOL( x )		((x) && ((x)->value != 0.0f) ? true : false )
 
 #define WORLD (gEngfuncs.GetWorld())
 #define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
@@ -104,6 +100,9 @@ extern poolhandle_t r_temppool;
 #define CULL_OTHER		4		// culled by other reason
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
+
+#define SKYBOX_BASE_NUM 5800 // set skybox base (to let some mods load hi-res skyboxes)
+#define SKYBOX_MAX_SIDES 6   // box can only have 6 sides
 
 typedef struct gltexture_s
 {
@@ -181,8 +180,8 @@ typedef struct
 	int		cached_contents;	// in water
 	int		cached_waterlevel;	// was in water
 
-	float		skyMins[2][6];
-	float		skyMaxs[2][6];
+	float		skyMins[2][SKYBOX_MAX_SIDES];
+	float		skyMaxs[2][SKYBOX_MAX_SIDES];
 
 	matrix4x4		objectMatrix;		// currententity matrix
 	matrix4x4		worldviewMatrix;		// modelview for world
@@ -217,7 +216,7 @@ typedef struct
 	int		alphaskyTexture;	// quake1 alpha-sky layer
 	int		lightmapTextures[MAX_LIGHTMAPS];
 	int		dlightTexture;	// custom dlight texture
-	int		skyboxTextures[6];	// skybox sides
+	int		skyboxTextures[SKYBOX_MAX_SIDES];	// skybox sides
 	int		cinTexture;      	// cinematic texture
 
 	int		skytexturenum;	// this not a gl_texturenum!
@@ -302,6 +301,7 @@ void GL_CleanupAllTextureUnits( void );
 void GL_LoadIdentityTexMatrix( void );
 void GL_DisableAllTexGens( void );
 void GL_SetRenderMode( int mode );
+void GL_EnableTextureUnit( int tmu, qboolean enable );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
 void R_ShowTextures( void );
@@ -366,6 +366,7 @@ void R_InitDlightTexture( void );
 void R_TextureList_f( void );
 void R_InitImages( void );
 void R_ShutdownImages( void );
+int GL_TexMemory( void );
 
 //
 // gl_rlight.c
@@ -677,6 +678,7 @@ typedef struct
 	int width, height;
 	int		activeTMU;
 	GLint		currentTextures[MAX_TEXTURE_UNITS];
+	GLint		currentTexturesIndex[MAX_TEXTURE_UNITS];
 	GLuint		currentTextureTargets[MAX_TEXTURE_UNITS];
 	GLboolean		texIdentityMatrix[MAX_TEXTURE_UNITS];
 	GLint		genSTEnabled[MAX_TEXTURE_UNITS];	// 0 - disabled, OR 1 - S, OR 2 - T, OR 4 - R
@@ -709,38 +711,35 @@ extern ref_globals_t *gpGlobals;
 //
 // renderer cvars
 //
-extern cvar_t	*gl_texture_anisotropy;
-extern cvar_t	*gl_extensions;
-extern cvar_t	*gl_check_errors;
-extern cvar_t	*gl_texture_lodbias;
-extern cvar_t	*gl_texture_nearest;
-extern cvar_t	*gl_lightmap_nearest;
-extern cvar_t	*gl_keeptjunctions;
-extern cvar_t	*gl_round_down;
-extern cvar_t	*gl_wireframe;
-extern cvar_t	*gl_polyoffset;
-extern cvar_t	*gl_finish;
-extern cvar_t	*gl_nosort;
-extern cvar_t	*gl_clear;
-extern cvar_t	*gl_test;		// cvar to testify new effects
-extern cvar_t	*gl_msaa;
-extern cvar_t *gl_stencilbits;
+extern convar_t	gl_texture_anisotropy;
+extern convar_t	gl_extensions;
+extern convar_t	gl_check_errors;
+extern convar_t	gl_texture_lodbias;
+extern convar_t	gl_texture_nearest;
+extern convar_t	gl_lightmap_nearest;
+extern convar_t	gl_keeptjunctions;
+extern convar_t	gl_round_down;
+extern convar_t	gl_wireframe;
+extern convar_t	gl_polyoffset;
+extern convar_t	gl_finish;
+extern convar_t	gl_nosort;
+extern convar_t	gl_test;		// cvar to testify new effects
+extern convar_t	gl_msaa;
+extern convar_t	gl_stencilbits;
 
-extern cvar_t	*r_lighting_extended;
-extern cvar_t	*r_lighting_modulate;
-extern cvar_t	*r_lighting_ambient;
-extern cvar_t	*r_studio_lambert;
-extern cvar_t	*r_detailtextures;
-extern cvar_t	*r_drawentities;
-extern cvar_t	*r_decals;
-extern cvar_t	*r_novis;
-extern cvar_t	*r_nocull;
-extern cvar_t	*r_lockpvs;
-extern cvar_t	*r_lockfrustum;
-extern cvar_t	*r_traceglow;
-extern cvar_t *r_vbo;
-extern cvar_t *r_vbo_dlightmode;
-
+extern convar_t	r_lighting_extended;
+extern convar_t	r_lighting_ambient;
+extern convar_t	r_studio_lambert;
+extern convar_t	r_detailtextures;
+extern convar_t	r_novis;
+extern convar_t	r_nocull;
+extern convar_t	r_lockpvs;
+extern convar_t	r_lockfrustum;
+extern convar_t	r_traceglow;
+extern convar_t	r_vbo;
+extern convar_t	r_vbo_dlightmode;
+extern convar_t r_studio_sort_textures;
+extern convar_t r_studio_drawelements;
 
 //
 // engine shared convars

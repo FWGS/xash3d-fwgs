@@ -113,43 +113,15 @@ void R_NewMap( void )
 	R_StudioResetPlayerModels();
 
 	// upload detailtextures
-	if( CVAR_TO_BOOL( r_detailtextures ))
+	if( r_detailtextures.value )
 	{
 		string	mapname, filepath;
 
 		Q_strncpy( mapname, WORLDMODEL->name, sizeof( mapname ));
 		COM_StripExtension( mapname );
-		Q_sprintf( filepath, "%s_detail.txt", mapname );
+		Q_snprintf( filepath, sizeof( filepath ), "%s_detail.txt", mapname );
 
 		R_ParseDetailTextures( filepath );
-	}
-
-	if( gEngfuncs.pfnGetCvarFloat( "v_dark" ))
-	{
-		screenfade_t		*sf = gEngfuncs.GetScreenFade();
-		float			fadetime = 5.0f;
-		client_textmessage_t	*title;
-
-		title = gEngfuncs.pfnTextMessageGet( "GAMETITLE" );
-		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-			fadetime = 1.0f;
-
-		if( title )
-		{
-			// get settings from titles.txt
-			sf->fadeEnd = title->holdtime + title->fadeout;
-			sf->fadeReset = title->fadeout;
-		}
-		else sf->fadeEnd = sf->fadeReset = fadetime;
-
-		sf->fadeFlags = FFADE_IN;
-		sf->fader = sf->fadeg = sf->fadeb = 0;
-		sf->fadealpha = 255;
-		sf->fadeSpeed = (float)sf->fadealpha / sf->fadeReset;
-		sf->fadeReset += gpGlobals->time;
-		sf->fadeEnd += sf->fadeReset;
-
-		gEngfuncs.Cvar_SetValue( "v_dark", 0.0f );
 	}
 
 	// clear out efrags in case the level hasn't been reloaded

@@ -6,7 +6,7 @@
 #include "r_efx.h"
 #include "cl_tent.h"
 #include "pm_local.h"
-#define PART_SIZE	Q_max( 0.5f, cl_draw_particles->value )
+#define PART_SIZE	Q_max( 0.5f, cl_draw_particles.value )
 
 /*
 ==============================================================
@@ -21,9 +21,9 @@ static int ramp2[8] = { 0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66 };
 static int ramp3[6] = { 0x6d, 0x6b, 6, 5, 4, 3 };
 static int gSparkRamp[9] = { 0xfe, 0xfd, 0xfc, 0x6f, 0x6e, 0x6d, 0x6c, 0x67, 0x60 };
 
-convar_t		*tracerspeed;
-convar_t		*tracerlength;
-convar_t		*traceroffset;
+static CVAR_DEFINE_AUTO( tracerspeed, "6000", 0, "tracer speed" );
+static CVAR_DEFINE_AUTO( tracerlength, "0.8", 0, "tracer length factor" );
+static CVAR_DEFINE_AUTO( traceroffset, "30", 0, "tracer starting offset" );
 
 particle_t	*cl_active_particles;
 particle_t	*cl_active_tracers;
@@ -100,9 +100,9 @@ void CL_InitParticles( void )
 		cl_avelocities[i][2] = COM_RandomFloat( 0.0f, 2.55f );
 	}
 
-	tracerspeed = Cvar_Get( "tracerspeed", "6000", 0, "tracer speed" );
-	tracerlength = Cvar_Get( "tracerlength", "0.8", 0, "tracer length factor" );
-	traceroffset = Cvar_Get( "traceroffset", "30", 0, "tracer starting offset" );
+	Cvar_RegisterVariable( &tracerspeed );
+	Cvar_RegisterVariable( &tracerlength );
+	Cvar_RegisterVariable( &traceroffset );
 }
 
 /*
@@ -171,7 +171,7 @@ particle_t * GAME_EXPORT R_AllocParticle( void (*callback)( particle_t*, float )
 {
 	particle_t	*p;
 
-	if( !cl_draw_particles->value )
+	if( !cl_draw_particles.value )
 		return NULL;
 
 	// never alloc particles when we not in game
@@ -222,7 +222,7 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 {
 	particle_t	*p;
 
-	if( !cl_draw_tracers->value )
+	if( !cl_draw_tracers.value )
 		return NULL;
 
 	// never alloc particles when we not in game
@@ -249,7 +249,7 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 	VectorCopy( org, p->org );
 	VectorCopy( vel, p->vel );
 	p->die = cl.time + life;
-	p->ramp = tracerlength->value;
+	p->ramp = tracerlength.value;
 	p->color = 4; // select custom color
 	p->packedColor = 255; // alpha
 
@@ -1236,12 +1236,15 @@ R_BloodStream
 particle spray 2
 ===============
 */
-void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t dir, int pcolor, int speed )
+void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor, int speed )
 {
 	particle_t	*p;
 	int		i, j;
 	float		arc;
 	int		accel = speed; // must be integer due to bug in GoldSrc
+	vec3_t dir;
+
+	VectorNormalize2( ndir, dir );
 
 	for( arc = 0.05f, i = 0; i < 100; i++ )
 	{
@@ -1804,14 +1807,14 @@ void GAME_EXPORT R_TracerEffect( const vec3_t start, const vec3_t end )
 	float	len, speed;
 	float	offset;
 
-	speed = Q_max( tracerspeed->value, 3.0f );
+	speed = Q_max( tracerspeed.value, 3.0f );
 
 	VectorSubtract( end, start, dir );
 	len = VectorLength( dir );
 	if( len == 0.0f ) return;
 
 	VectorScale( dir, 1.0f / len, dir ); // normalize
-	offset = COM_RandomFloat( -10.0f, 9.0f ) + traceroffset->value;
+	offset = COM_RandomFloat( -10.0f, 9.0f ) + traceroffset.value;
 	VectorScale( dir, offset, vel );
 	VectorAdd( start, vel, pos );
 	VectorScale( dir, speed, vel );
@@ -2067,16 +2070,16 @@ void CL_FreeDeadBeams( void )
 void CL_DrawEFX( float time, qboolean fTrans )
 {
 	CL_FreeDeadBeams();
-	if( CVAR_TO_BOOL( cl_draw_beams ))
+	if( cl_draw_beams.value )
 		ref.dllFuncs.CL_DrawBeams( fTrans, cl_active_beams );
 
 	if( fTrans )
 	{
 		R_FreeDeadParticles( &cl_active_particles );
-		if( CVAR_TO_BOOL( cl_draw_particles ))
+		if( cl_draw_particles.value )
 			ref.dllFuncs.CL_DrawParticles( time, cl_active_particles, PART_SIZE );
 		R_FreeDeadParticles( &cl_active_tracers );
-		if( CVAR_TO_BOOL( cl_draw_tracers ))
+		if( cl_draw_tracers.value )
 			ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
 	}
 }

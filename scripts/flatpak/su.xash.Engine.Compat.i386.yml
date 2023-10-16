@@ -1,8 +1,8 @@
 app-id: su.xash.Engine.Compat.i386
 runtime: org.freedesktop.Platform
-runtime-version: &runtime-version '22.08'
+runtime-version: &runtime-version '23.08'
 x-gl-version: &gl-version '1.4'
-x-gl-versions: &gl-versions 22.08;1.4
+x-gl-versions: &gl-versions 23.08;1.4
 sdk: org.freedesktop.Sdk
 command: run.sh
 separate-locales: false
@@ -68,17 +68,16 @@ modules:
         mkdir -p /app/lib/i386-linux-gnu
         mkdir -p /app/lib/debug/lib/i386-linux-gnu
         mkdir -p /app/lib/i386-linux-gnu/GL
-        install -Dm644 ld.so.conf /app/etc/ld.so.conf
-    sources:
-      - type: file
-        dest-filename: ld.so.conf
-        url: data:/app/lib32%0A/app/lib/i386-linux-gnu%0A
+        mkdir -p /app/etc
+        echo "/app/lib32" > /app/etc/ld.so.conf
+        echo "/app/lib/i386-linux-gnu" >> /app/etc/ld.so.conf
   - name: xash
     buildsystem: simple
     build-options: *compat-i386-opts
     build-commands:
+# HACKHACK: removed --enable-lto because it causes linker errors in Flatpak build
       - |
-        python waf configure -T release --enable-all-renderers --enable-packaging --prefix=/app --libdir=/app/lib32
+        python waf configure -T release --enable-all-renderers --enable-packaging --prefix=/app --libdir=/app/lib32 --bindir=/app/lib32/xash3d
         python waf build
         python waf install --destdir=/
         mkdir -p /app/bin

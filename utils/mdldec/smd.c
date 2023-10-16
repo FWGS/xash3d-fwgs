@@ -383,6 +383,7 @@ WriteFrameInfo
 static void WriteFrameInfo( FILE *fp, mstudioanim_t *anim, mstudioseqdesc_t *seqdesc, int frame )
 {
 	int			 i, j;
+	float			 scale;
 	vec_t			 motion[6]; // x, y, z, xr, yr, zr
 	mstudiobone_t		*bone;
 
@@ -396,8 +397,10 @@ static void WriteFrameInfo( FILE *fp, mstudioanim_t *anim, mstudioseqdesc_t *seq
 
 		if( bone->parent == -1 )
 		{
+			scale = frame / (float)( seqdesc->numframes - 1 );
+
 			for( j = 0; j < 3; j++ )
-				motion[j] += frame * 1.0f / seqdesc->numframes * seqdesc->linearmovement[j];
+				motion[j] += scale * seqdesc->linearmovement[j];
 
 			ProperBoneRotationZ( motion, 270.0f );
 		}
@@ -465,7 +468,7 @@ static void WriteReferences( void )
 			if( !Q_strncmp( model->name, "blank", 5 ) )
 				continue;
 
-			COM_FileBase( model->name, name );
+			COM_FileBase( model->name, name, sizeof( name ));
 
 			len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.smd", destdir, name );
 
@@ -522,7 +525,7 @@ static void WriteSequences( void )
 			if( seqdesc->numblends == 1 )
 				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.smd", destdir, seqdesc->label );
 			else
-				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s_blend%i.smd", destdir, seqdesc->label, j + 1 );
+				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s_blend%02i.smd", destdir, seqdesc->label, j + 1 );
 
 			if( len == -1 )
 			{

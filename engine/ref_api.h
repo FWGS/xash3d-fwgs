@@ -123,7 +123,6 @@ enum
 	XASH_TEXTURE1,
 	XASH_TEXTURE2,
 	XASH_TEXTURE3,		// g-cont. 4 units should be enough
-	XASH_TEXTURE4,		// mittorn. bump+detail needs 5 for single-pass
 	MAX_TEXTURE_UNITS = 32	// can't access to all over units without GLSL or cg
 };
 
@@ -238,6 +237,7 @@ typedef struct remap_info_s
 	model_t		*model;		// for catch model changes
 } remap_info_t;
 
+typedef struct convar_s convar_t;
 struct con_nprint_s;
 struct engine_studio_api_s;
 struct r_studio_interface_s;
@@ -270,7 +270,7 @@ typedef struct ref_api_s
 	const char *(*pfnGetCvarString)( const char *szName );
 	void        (*Cvar_SetValue)( const char *name, float value );
 	void        (*Cvar_Set)( const char *name, const char *value );
-	void (*Cvar_RegisterVariable)( cvar_t *var );
+	void (*Cvar_RegisterVariable)( convar_t *var );
 	void (*Cvar_FullSet)( const char *var_name, const char *value, int flags );
 
 	// command handlers
@@ -627,7 +627,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
 #define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
 	if(!( x = gEngfuncs.pfnGetCvarPointer( #y, 0 ) )) \
-		gEngfuncs.Host_Error( S_ERROR "engine betrayed us and didn't gave us %s cvar pointer\n", #y );
+		gEngfuncs.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
 #define ENGINE_SHARED_CVAR_NAME( f, x, y ) f( x, y )
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
 
@@ -638,7 +638,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define ENGINE_SHARED_CVAR_LIST( f ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \
-	ENGINE_SHARED_CVAR_NAME( f, gl_showtextures, r_showtextures ) \
+	ENGINE_SHARED_CVAR( f, r_showtextures ) \
 	ENGINE_SHARED_CVAR( f, r_speeds ) \
 	ENGINE_SHARED_CVAR( f, r_fullbright ) \
 	ENGINE_SHARED_CVAR( f, r_norefresh ) \
@@ -659,6 +659,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 	ENGINE_SHARED_CVAR( f, r_sprite_lighting ) \
 	ENGINE_SHARED_CVAR( f, r_drawviewmodel ) \
 	ENGINE_SHARED_CVAR( f, r_glowshellfreq ) \
+	ENGINE_SHARED_CVAR( f, r_lighting_modulate ) \
 
 #define DECLARE_ENGINE_SHARED_CVAR_LIST() \
 	ENGINE_SHARED_CVAR_LIST( DECLARE_ENGINE_SHARED_CVAR )

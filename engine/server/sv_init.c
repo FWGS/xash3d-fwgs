@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "library.h"
 #include "voice.h"
 #include "pm_local.h"
-#include "sequence.h"
 
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
@@ -270,7 +269,7 @@ SV_ModelHandle
 get model by handle
 ================
 */
-model_t *SV_ModelHandle( int modelindex )
+model_t *GAME_EXPORT SV_ModelHandle( int modelindex )
 {
 	if( modelindex < 0 || modelindex >= MAX_MODELS )
 		return NULL;
@@ -340,7 +339,7 @@ void SV_CreateGenericResources( void )
 	string	filename;
 
 	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
-	COM_ReplaceExtension( filename, ".res" );
+	COM_ReplaceExtension( filename, ".res", sizeof( filename ));
 	COM_FixSlashes( filename );
 
 	SV_ReadResourceList( filename );
@@ -765,7 +764,7 @@ void SV_SetupClients( void )
 	qboolean	changed_maxclients = false;
 
 	// check if clients count was really changed
-	if( svs.maxclients != (int)sv_maxclients->value )
+	if( svs.maxclients != (int)sv_maxclients.value )
 		changed_maxclients = true;
 
 	if( !changed_maxclients ) return; // nothing to change
@@ -774,7 +773,7 @@ void SV_SetupClients( void )
 	if( svs.maxclients ) Host_ShutdownServer();
 
 	// copy the actual value from cvar
-	svs.maxclients = (int)sv_maxclients->value;
+	svs.maxclients = (int)sv_maxclients.value;
 
 	// dedicated servers are can't be single player and are usually DM
 	if( Host_IsDedicated() )
@@ -802,10 +801,10 @@ void SV_SetupClients( void )
 	// init network stuff
 	NET_Config(( svs.maxclients > 1 ), true );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
-	ClearBits( sv_maxclients->flags, FCVAR_CHANGED );
+	ClearBits( sv_maxclients.flags, FCVAR_CHANGED );
 }
 
-static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
+qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
 {
 	char	headbuf[1024], buffer[1024];
 	int	i, num_bytes, lumplen;
@@ -880,6 +879,77 @@ static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean m
 	FS_Close( f );
 
 	return 1;
+}
+
+/*
+================
+SV_GenerateTestPacket
+================
+*/
+static void SV_GenerateTestPacket( void )
+{
+	const int maxsize = FRAGMENT_MAX_SIZE;
+	uint32_t crc;
+	file_t *file;
+	byte *filepos;
+	int i, filesize;
+
+	// testpacket already generated once, exit
+	// testpacket and lookup table takes ~300k of memory
+	// disable for low memory mode
+	if( svs.testpacket_buf || XASH_LOW_MEMORY >= 0 )
+		return;
+
+	// don't need in singleplayer with full client
+	if( svs.maxclients <= 1 && !Host_IsDedicated( ))
+		return;
+
+	file = FS_Open( "gfx.wad", "rb", false );
+	if( FS_FileLength( file ) < maxsize )
+	{
+		FS_Close( file );
+		return;
+	}
+
+	svs.testpacket_buf = Mem_Malloc( host.mempool, sizeof( *svs.testpacket_buf ) * maxsize );
+
+	// write packet base data
+	MSG_Init( &svs.testpacket, "BandWidthTest", svs.testpacket_buf, maxsize );
+	MSG_WriteLong( &svs.testpacket, -1 );
+	MSG_WriteString( &svs.testpacket, "testpacket" );
+	svs.testpacket_crcpos = svs.testpacket.pData + MSG_GetNumBytesWritten( &svs.testpacket );
+	MSG_WriteDword( &svs.testpacket, 0 ); // to be changed by crc
+
+	// time to read our file
+	svs.testpacket_filepos = MSG_GetNumBytesWritten( &svs.testpacket );
+	svs.testpacket_filelen = maxsize - svs.testpacket_filepos;
+
+	filepos = svs.testpacket.pData + svs.testpacket_filepos;
+	FS_Read( file, filepos, svs.testpacket_filelen );
+	FS_Close( file );
+
+	// now generate checksums lookup table
+	svs.testpacket_crcs = Mem_Malloc( host.mempool, sizeof( *svs.testpacket_crcs ) * svs.testpacket_filelen );
+	crc = 0; // intentional omit of CRC32_Init because of the client
+
+	// TODO: shrink to minimum!
+	for( i = 0; i < svs.testpacket_filelen; i++ )
+	{
+		uint32_t crc2;
+
+		CRC32_ProcessByte( &crc, filepos[i] );
+		svs.testpacket_crcs[i] = crc;
+#if 0
+		// test
+		crc2 = 0;
+		CRC32_ProcessBuffer( &crc2, filepos, i + 1 );
+		if( svs.testpacket_crcs[i] != crc2 )
+		{
+			Con_Printf( "%d: 0x%x != 0x%x\n", i, svs.testpacket_crcs[i], crc2 );
+			svs.testpacket_crcs[i] = crc = crc2;
+		}
+#endif
+	}
 }
 
 /*
@@ -973,7 +1043,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	if( svs.maxclients == 1 ) Cvar_SetValue( "sv_clienttrace", 1 );
 
 	// make sure what server name doesn't contain path and extension
-	COM_FileBase( mapname, sv.name );
+	COM_FileBase( mapname, sv.name, sizeof( sv.name ));
 
 	// precache and static commands can be issued during map initialization
 	Host_SetServerState( ss_loading );
@@ -997,7 +1067,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	for( i = WORLD_INDEX; i < sv.worldmodel->numsubmodels; i++ )
 	{
-		Q_sprintf( sv.model_precache[i+1], "*%i", i );
+		Q_snprintf( sv.model_precache[i+1], sizeof( sv.model_precache[i+1] ), "*%i", i );
 		sv.models[i+1] = Mod_ForName( sv.model_precache[i+1], false, false );
 		SetBits( sv.model_precache_flags[i+1], RES_FATALIFMISSING );
 	}
@@ -1015,8 +1085,6 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		SV_InitEdict( ent );
 	}
 
-	Sequence_OnLevelLoad( sv.name );
-
 	// heartbeats will always be sent to the id master
 	NET_MasterClear();
 
@@ -1025,6 +1093,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	// clear physics interaction links
 	SV_ClearWorld();
+
+	// pregenerate test packet
+	SV_GenerateTestPacket();
 
 	return true;
 }
@@ -1044,16 +1115,18 @@ int SV_GetMaxClients( void )
 	return svs.maxclients;
 }
 
-void SV_InitGameProgs( void )
+qboolean SV_InitGameProgs( void )
 {
 	string dllpath;
 
-	if( svgame.hInstance ) return; // already loaded
+	if( svgame.hInstance ) return true; // already loaded
 
 	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
 
 	// just try to initialize
 	SV_LoadProgs( dllpath );
+
+	return false;
 }
 
 void SV_FreeGameProgs( void )

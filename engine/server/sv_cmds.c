@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
-extern convar_t	*con_gamemaps;
+extern convar_t	con_gamemaps;
 
 /*
 =================
@@ -34,7 +34,7 @@ void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... )
 		return;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	MSG_BeginServerCmd( &cl->netchan.message, svc_print );
@@ -56,7 +56,7 @@ void SV_BroadcastPrintf( sv_client_t *ignore, const char *fmt, ... )
 	int		i;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	if( sv.state == ss_active )
@@ -97,7 +97,7 @@ void SV_BroadcastCommand( const char *fmt, ... )
 		return;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	MSG_BeginServerCmd( &sv.reliable_datagram, svc_stufftext );
@@ -175,7 +175,7 @@ qboolean SV_ValidateMap( const char *pMapName, qboolean check_spawn )
 	int	flags;
 
 	// determine spawn entity classname
-	if( !check_spawn || (int)sv_maxclients->value <= 1 )
+	if( !check_spawn || (int)sv_maxclients.value <= 1 )
 		spawn_entity = GI->sp_entity;
 	else spawn_entity = GI->mp_entity;
 
@@ -227,7 +227,7 @@ void SV_Map_f( void )
 	if( !SV_ValidateMap( mapname, true ))
 		return;
 
-	Cvar_DirectSet( sv_hostmap, mapname );
+	Cvar_DirectSet( &sv_hostmap, mapname );
 	COM_LoadLevel( mapname, false );
 }
 
@@ -321,8 +321,8 @@ void SV_NextMap_f( void )
 	int	i, next;
 	search_t	*t;
 
-	t = FS_Search( "maps\\*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
-	if( !t ) t = FS_Search( "maps/*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
+	t = FS_Search( "maps\\*.bsp", true, con_gamemaps.value ); // only in gamedir
+	if( !t ) t = FS_Search( "maps/*.bsp", true, con_gamemaps.value ); // only in gamedir
 
 	if( !t )
 	{
@@ -337,13 +337,13 @@ void SV_NextMap_f( void )
 		if( Q_stricmp( ext, "bsp" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], nextmap );
-		if( Q_stricmp( sv_hostmap->string, nextmap ))
+		COM_FileBase( t->filenames[i], nextmap, sizeof( nextmap ));
+		if( Q_stricmp( sv_hostmap.string, nextmap ))
 			continue;
 
 		next = ( i + 1 ) % t->numfilenames;
-		COM_FileBase( t->filenames[next], nextmap );
-		Cvar_DirectSet( sv_hostmap, nextmap );
+		COM_FileBase( t->filenames[next], nextmap, sizeof( nextmap ));
+		Cvar_DirectSet( &sv_hostmap, nextmap );
 
 		// found current point, check for valid
 		if( SV_ValidateMap( nextmap, true ))
@@ -535,7 +535,7 @@ void SV_Reload_f( void )
 		return;
 
 	if( !SV_LoadGame( SV_GetLatestSave( )))
-		COM_LoadLevel( sv_hostmap->string, false );
+		COM_LoadLevel( sv_hostmap.string, false );
 }
 
 /*
@@ -584,7 +584,7 @@ Kick a user off of the server
 void SV_Kick_f( void )
 {
 	sv_client_t	*cl;
-	const char *param, *clientId;
+	const char *param;
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -604,38 +604,7 @@ void SV_Kick_f( void )
 		return;
 	}
 
-	if( NET_IsLocalAddress( cl->netchan.remote_address ))
-	{
-		Con_Printf( "The local player cannot be kicked!\n" );
-		return;
-	}
-
-	param = Cmd_Argv( 2 );
-
-	clientId = SV_GetClientIDString( cl );
-
-	if( *param )
-	{
-		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\" (message \"%s\")\n", cl->name, cl->userid, clientId, param );
-		SV_BroadcastPrintf( cl, "%s was kicked with message: \"%s\"\n", cl->name, param );
-		SV_ClientPrintf( cl, "You were kicked from the game with message: \"%s\"\n", param );
-	}
-	else
-	{
-		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\"\n", cl->name, cl->userid, clientId );
-		SV_BroadcastPrintf( cl, "%s was kicked\n", cl->name );
-		SV_ClientPrintf( cl, "You were kicked from the game\n" );
-	}
-
-	if( cl->useragent[0] )
-	{
-		if( *param )
-			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nKicked with message:\n%s\n", param );
-		else
-			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nYou were kicked from the game\n" );
-	}
-
-	SV_DropClient( cl, false );
+	SV_KickPlayer( cl, "%s", Cmd_Argv( 2 ));
 }
 
 /*
@@ -1075,6 +1044,7 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "localinfo" );
 	Cmd_RemoveCommand( "serverinfo" );
 	Cmd_RemoveCommand( "clientinfo" );
+	Cmd_RemoveCommand( "clientuseragent" );
 	Cmd_RemoveCommand( "playersonly" );
 	Cmd_RemoveCommand( "restart" );
 	Cmd_RemoveCommand( "entpatch" );
@@ -1083,6 +1053,7 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "shutdownserver" );
 	Cmd_RemoveCommand( "changelevel" );
 	Cmd_RemoveCommand( "changelevel2" );
+	Cmd_RemoveCommand( "redirect" );
 	Cmd_RemoveCommand( "logaddress" );
 	Cmd_RemoveCommand( "log" );
 

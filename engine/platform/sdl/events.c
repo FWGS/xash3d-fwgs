@@ -25,7 +25,7 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "vid_common.h"
 
-#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_SCANCODE_A SDLK_a
 #define SDL_SCANCODE_Z SDLK_z
 #define SDL_SCANCODE_1 SDLK_1
@@ -150,6 +150,13 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 #endif
 	qboolean numLock = SDL_GetModState() & KMOD_NUM;
 
+#if XASH_ANDROID
+	if( keynum == SDL_SCANCODE_VOLUMEUP || keynum == SDL_SCANCODE_VOLUMEDOWN )
+	{
+		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+	}
+#endif
+
 	if( SDL_IsTextInputActive() && down && cls.key_dest != key_game )
 	{
 		if( SDL_GetModState() & KMOD_CTRL )
@@ -202,6 +209,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_MINUS: keynum = '-'; break;
 		case SDL_SCANCODE_TAB: keynum = K_TAB; break;
 		case SDL_SCANCODE_RETURN: keynum = K_ENTER; break;
+		case SDL_SCANCODE_AC_BACK:
 		case SDL_SCANCODE_ESCAPE: keynum = K_ESCAPE; break;
 		case SDL_SCANCODE_SPACE: keynum = K_SPACE; break;
 		case SDL_SCANCODE_BACKSPACE: keynum = K_BACKSPACE; break;
@@ -248,7 +256,6 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_COMMA: keynum = ','; break;
 		case SDL_SCANCODE_PRINTSCREEN:
 		{
-			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		}
@@ -262,6 +269,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_VOLUMEDOWN:
 		case SDL_SCANCODE_BRIGHTNESSDOWN:
 		case SDL_SCANCODE_BRIGHTNESSUP:
+		case SDL_SCANCODE_SELECT:
 			return;
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_UNKNOWN:
@@ -347,7 +355,7 @@ static void SDLash_InputEvent( SDL_TextInputEvent input )
 	{
 		int ch;
 
-		if( !Q_stricmp( cl_charset->string, "utf-8" ) )
+		if( !Q_stricmp( cl_charset.string, "utf-8" ) )
 			ch = (unsigned char)*text;
 		else
 			ch = Con_UtfProcessCharForce( (unsigned char)*text );
@@ -374,9 +382,8 @@ static void SDLash_ActiveEvent( int gain )
 		{
 			SNDDMA_Activate( true );
 		}
-		host.force_draw_version = true;
 		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
-		if( vid_fullscreen->value )
+		if( vid_fullscreen.value == WINDOW_MODE_FULLSCREEN )
 			VID_SetMode();
 	}
 	else
@@ -398,8 +405,7 @@ static void SDLash_ActiveEvent( int gain )
 		{
 			SNDDMA_Activate( false );
 		}
-		host.force_draw_version = true;
-		host.force_draw_version_time = host.realtime + 2;
+		host.force_draw_version_time = host.realtime + 2.0;
 		VID_RestoreScreenResolution();
 	}
 }
@@ -409,10 +415,12 @@ static size_t num_open_game_controllers = 0;
 
 static void SDLash_GameController_Add( int index )
 {
-	extern convar_t *joy_enable; // private to input system
+	extern convar_t joy_enable; // private to input system
 	SDL_GameController *controller;
-	if( !joy_enable->value )
+
+	if( !joy_enable.value )
 		return;
+
 	controller = SDL_GameControllerOpen( index );
 	if( !controller )
 	{
@@ -614,21 +622,29 @@ static void SDLash_EventFilter( SDL_Event *event )
 		switch( event->window.event )
 		{
 		case SDL_WINDOWEVENT_MOVED:
-			if( !vid_fullscreen->value )
+			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
 			{
-				Cvar_SetValue( "_window_xpos", (float)event->window.data1 );
-				Cvar_SetValue( "_window_ypos", (float)event->window.data2 );
+				char val[32];
+
+				Q_snprintf( val, sizeof( val ), "%d", event->window.data1 );
+				Cvar_DirectSet( &window_xpos, val );
+
+				Q_snprintf( val, sizeof( val ), "%d", event->window.data2 );
+				Cvar_DirectSet( &window_ypos, val );
+
+				Cvar_DirectSet( &vid_maximized, "0" );
 			}
 			break;
 		case SDL_WINDOWEVENT_MINIMIZED:
 			host.status = HOST_SLEEP;
+			Cvar_DirectSet( &vid_maximized, "0" );
 			VID_RestoreScreenResolution( );
 			break;
 		case SDL_WINDOWEVENT_RESTORED:
 			host.status = HOST_FRAME;
-			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
-			if( vid_fullscreen->value )
+			Cvar_DirectSet( &vid_maximized, "0" );
+			if( vid_fullscreen.value == WINDOW_MODE_FULLSCREEN )
 				VID_SetMode();
 			break;
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
@@ -638,13 +654,16 @@ static void SDLash_EventFilter( SDL_Event *event )
 			SDLash_ActiveEvent( false );
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
-		{
-			if( vid_fullscreen->value )
-				break;
-
-			VID_SaveWindowSize( event->window.data1, event->window.data2 );
+			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
+			{
+				SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
+				VID_SaveWindowSize( event->window.data1, event->window.data2,
+					FBitSet( SDL_GetWindowFlags( wnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
+			}
 			break;
-		}
+		case SDL_WINDOWEVENT_MAXIMIZED:
+			Cvar_DirectSet( &vid_maximized, "1" );
+			break;
 		default:
 			break;
 		}
@@ -677,11 +696,6 @@ void Platform_RunEvents( void )
 #endif
 }
 
-void* Platform_GetNativeObject( const char *name )
-{
-	return NULL; // SDL don't have it
-}
-
 /*
 ========================
 Platform_PreCreateMove
@@ -692,7 +706,7 @@ TODO: kill mouse in win32 clients too
 */
 void Platform_PreCreateMove( void )
 {
-	if( CVAR_TO_BOOL( m_ignore ))
+	if( m_ignore.value )
 	{
 		SDL_GetRelativeMouseState( NULL, NULL );
 		SDL_ShowCursor( SDL_TRUE );

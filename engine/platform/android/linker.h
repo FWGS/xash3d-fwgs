@@ -140,10 +140,10 @@ struct soinfo {
 #endif
 
 #if defined(USE_RELA)
-  Elf_Rela* plt_rela;
+  Elf_RelA* plt_rela;
   size_t plt_rela_count;
 
-  Elf_Rela* rela;
+  Elf_RelA* rela;
   size_t rela_count;
 #else
   Elf_Rel* plt_rel;

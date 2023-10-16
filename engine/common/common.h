@@ -144,7 +144,7 @@ typedef enum
 
 #define GameState		(&host.game)
 
-#define FORCE_DRAW_VERSION_TIME 5.0f // draw version for 5 seconds
+#define FORCE_DRAW_VERSION_TIME 5.0 // draw version for 5 seconds
 
 #ifdef _DEBUG
 void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile, int szLine, const char* szMessage );
@@ -153,16 +153,14 @@ void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile,
 #define Assert( f )
 #endif
 
-extern convar_t	*gl_vsync;
-extern convar_t	*scr_loading;
-extern convar_t	*scr_download;
-extern convar_t	*cmd_scripting;
-extern convar_t	*sv_maxclients;
-extern convar_t	*cl_allow_levelshots;
+extern convar_t	gl_vsync;
+extern convar_t	scr_loading;
+extern convar_t	scr_download;
+extern convar_t	cmd_scripting;
+extern convar_t	cl_allow_levelshots;
 extern convar_t	host_developer;
-extern convar_t	*host_limitlocal;
-extern convar_t	*host_framerate;
-extern convar_t	*host_maxfps;
+extern convar_t	host_limitlocal;
+extern convar_t	host_maxfps;
 extern convar_t	sys_timescale;
 extern convar_t	cl_filterstuffcmd;
 extern convar_t	rcon_password;
@@ -273,40 +271,6 @@ typedef struct
 	double		forcedEnd;
 } soundlist_t;
 
-typedef struct
-{
-	char		model[MAX_QPATH];	// curstate.modelindex = SV_ModelIndex
-	vec3_t		tentOffset;	// if attached, client origin + tentOffset = tent origin.
-	short		clientIndex;
-	float		fadeSpeed;
-	float		bounceFactor;
-	byte		hitSound;
-	qboolean		high_priority;
-	float		x, y, z;
-	int		flags;
-	float		time;
-
-	// base state
-	vec3_t		velocity;		// baseline.origin
-	vec3_t		avelocity;	// baseline.angles
-	int		fadeamount;	// baseline.renderamt
-	float		sparklife;	// baseline.framerate
-	float		thinkTime;	// baseline.scale
-
-	// current state
-	vec3_t		origin;		// entity.origin
-	vec3_t		angles;		// entity.angles
-	float		renderamt;	// curstate.renderamt
-	color24		rendercolor;	// curstate.rendercolor
-	int		rendermode;	// curstate.rendermode
-	int		renderfx;		// curstate.renderfx
-	float		framerate;	// curstate.framerate
-	float		frame;		// curstate.frame
-	byte		body;		// curstate.body
-	byte		skin;		// curstate.skin
-	float		scale;		// curstate.scale
-} tentlist_t;
-
 typedef enum bugcomp_e
 {
 	// default mode, we assume that user dlls are not relying on engine bugs
@@ -360,8 +324,7 @@ typedef struct host_parm_s
 	qboolean		change_game;	// initialize when game is changed
 	qboolean		mouse_visible;	// vgui override cursor control (never change outside Platform_SetCursorType!)
 	qboolean		shutdown_issued;	// engine is shutting down
-	qboolean		force_draw_version;	// used when fraps is loaded
-	float			force_draw_version_time;
+	double			force_draw_version_time;
 	qboolean		apply_game_config;	// when true apply only to game cvars and ignore all other commands
 	qboolean		apply_opengl_config;// when true apply only to opengl cvars and ignore all other commands
 	qboolean		config_executed;	// a bit who indicated was config.cfg already executed e.g. from valve.rc
@@ -629,10 +592,6 @@ qboolean SV_Active( void );
 
 ==============================================================
 */
-void pfnCvar_RegisterServerVariable( cvar_t *variable );
-void pfnCvar_RegisterEngineVariable( cvar_t *variable );
-cvar_t *pfnCvar_RegisterClientVariable( const char *szName, const char *szValue, int flags );
-cvar_t *pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags );
 char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize );
 void COM_HexConvert( const char *pszInput, int nInputLength, byte *pOutput );
 int COM_SaveFile( const char *filename, const void *data, int len );
@@ -649,7 +608,6 @@ void pfnGetModelBounds( model_t *mod, float *mins, float *maxs );
 void pfnCVarDirectSet( cvar_t *var, const char *szValue );
 int COM_CheckParm( char *parm, char **ppnext );
 void pfnGetGameDir( char *szGetGameDir );
-int pfnDecalIndex( const char *m );
 int pfnGetModelType( model_t *mod );
 int pfnIsMapValid( char *filename );
 void Con_Reportf( const char *szFmt, ... ) _format( 1 );
@@ -669,8 +627,6 @@ void *pfnSequencePickSentence( const char *groupName, int pickMethod, int *picke
 int pfnIsCareerMatch( void );
 
 // Decay engfuncs (stubs)
-int pfnGetTimesTutorMessageShown( int mid );
-void pfnRegisterTutorMessageShown( int mid );
 void pfnConstructTutorMessageDecayBuffer( int *buffer, int buflen );
 void pfnProcessTutorMessageDecayBuffer( int *buffer, int bufferLength );
 void pfnResetTutorMessageDecayData( void );
@@ -755,7 +711,6 @@ struct cmd_s *Cmd_GetNextFunctionHandle( struct cmd_s *cmd );
 struct cmdalias_s *Cmd_AliasGetList( void );
 const char *Cmd_GetName( struct cmd_s *cmd );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
-void SV_StartMusic( const char *curtrack, const char *looptrack, int position );
 void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
 void Log_Printf( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
@@ -792,7 +747,7 @@ void SV_ShutdownGame( void );
 void SV_ExecLoadLevel( void );
 void SV_ExecLoadGame( void );
 void SV_ExecChangeLevel( void );
-void SV_InitGameProgs( void );
+qboolean SV_InitGameProgs( void );
 void SV_FreeGameProgs( void );
 void CL_WriteMessageHistory( void );
 void CL_SendCmd( void );

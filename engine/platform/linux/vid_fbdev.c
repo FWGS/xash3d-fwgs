@@ -114,15 +114,14 @@ qboolean VID_SetMode( void )
 {
 	if( fb.tty_fd > 0 )
 		ioctl( fb.tty_fd, KDSETMODE, KD_GRAPHICS );
-	R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
+	R_ChangeDisplaySettings( 0, 0, WINDOW_MODE_FULLSCREEN ); // width and height are ignored anyway
 
 	return true;
 }
 
-rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
+rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	int render_w, render_h;
-	uint rotate = vid_rotate->value;
 
 	FB_GetScreenRes( &width, &height );
 
@@ -131,23 +130,7 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 
 	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height );
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
-	{
-		if( rotate & 1 )
-		{
-			int swap = render_w;
-
-			render_w = render_h;
-			render_h = swap;
-		}
-
-		render_h /= vid_scale->value;
-		render_w /= vid_scale->value;
-	}
-	else
-	{
-		Con_Printf( S_WARN "failed to setup screen transform\n" );
-	}
+	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h );
 
 	return rserr_ok;
@@ -185,11 +168,11 @@ void GL_UpdateSwapInterval( void )
 	{
 		// setup fb vsync here
 		fb.vsync = false;
-		SetBits( gl_vsync->flags, FCVAR_CHANGED );
+		SetBits( gl_vsync.flags, FCVAR_CHANGED );
 	}
-	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
+	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
-		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
+		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
 		fb.vsync = true;
 	}
 }
@@ -287,11 +270,6 @@ void Platform_PreCreateMove( void )
 void Platform_RunEvents( void )
 {
 
-}
-
-void *Platform_GetNativeObject( const char *name )
-{
-	return NULL;
 }
 
 void GAME_EXPORT Platform_GetMousePos( int *x, int *y )

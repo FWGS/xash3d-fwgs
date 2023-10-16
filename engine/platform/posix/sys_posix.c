@@ -50,11 +50,12 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 			needTrailingSlash = ( envPath[length - 1] == '/' ) ? 0 : 1;
 			if( length + baseNameLength + needTrailingSlash < size )
 			{
-				Q_strncpy( buf, envPath, length + 1 );
-				if( needTrailingSlash )
-					Q_strcpy( buf + length, "/" );
-				Q_strcpy( buf + length + needTrailingSlash, baseName );
-				buf[length + needTrailingSlash + baseNameLength] = '\0';
+				string temp;
+
+				Q_strncpy( temp, envPath, length + 1 );
+				Q_snprintf( buf, size, "%s%s%s",
+					temp, needTrailingSlash ? "/" : "", baseName );
+
 				if( access( buf, X_OK ) == 0 )
 					return true;
 			}
@@ -145,22 +146,13 @@ void Posix_Daemonize( void )
 
 }
 
-#if !XASH_SDL && !XASH_ANDROID
-
-void Platform_Init( void )
-{
-	Posix_Daemonize();
-}
-void Platform_Shutdown( void ) {}
-#endif
-
 #if XASH_TIMER == TIMER_POSIX
 double Platform_DoubleTime( void )
 {
 	struct timespec ts;
 #if XASH_IRIX
 	clock_gettime( CLOCK_SGI_CYCLE, &ts );
-#else	
+#else
 	clock_gettime( CLOCK_MONOTONIC, &ts );
 #endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;

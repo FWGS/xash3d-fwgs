@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "library.h"
+#include "platform/platform.h"
 
 fs_api_t g_fsapi;
 fs_globals_t *FI;
@@ -51,12 +52,17 @@ static fs_interface_t fs_memfuncs =
 	_Mem_Alloc,
 	_Mem_Realloc,
 	_Mem_Free,
+
+	Platform_GetNativeObject,
 };
 
 static void FS_UnloadProgs( void )
 {
-	COM_FreeLibrary( fs_hInstance );
-	fs_hInstance = 0;
+	if( fs_hInstance )
+	{
+		COM_FreeLibrary( fs_hInstance );
+		fs_hInstance = 0;
+	}
 }
 
 #ifdef XASH_INTERNAL_GAMELIBS
@@ -104,22 +110,16 @@ FS_Init
 */
 void FS_Init( void )
 {
-	qboolean		caseinsensitive = true;
 	string gamedir;
 
 	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 
-#if !XASH_WIN32
-	if( Sys_CheckParm( "-casesensitive" ) )
-		caseinsensitive = false;
-#endif
-
 	if( !Sys_GetParmFromCmdLine( "-game", gamedir ))
 		Q_strncpy( gamedir, SI.basedirName, sizeof( gamedir )); // gamedir == basedir
 
-	if( !FS_InitStdio( caseinsensitive, host.rootdir, SI.basedirName, gamedir, host.rodir ))
+	if( !FS_InitStdio( true, host.rootdir, SI.basedirName, gamedir, host.rodir ))
 	{
 		Host_Error( "Can't init filesystem_stdio!\n" );
 		return;
@@ -139,9 +139,8 @@ FS_Shutdown
 */
 void FS_Shutdown( void )
 {
-	int	i;
-
-	FS_ShutdownStdio();
+	if( g_fsapi.ShutdownStdio )
+		g_fsapi.ShutdownStdio();
 
 	memset( &SI, 0, sizeof( sysinfo_t ));
 

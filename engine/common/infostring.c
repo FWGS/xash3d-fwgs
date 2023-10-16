@@ -189,7 +189,7 @@ Searches the string for the given
 key and returns the associated value, or an empty string.
 ===============
 */
-const char *Info_ValueForKey( const char *s, const char *key )
+const char *GAME_EXPORT Info_ValueForKey( const char *s, const char *key )
 {
 	char	pkey[MAX_KV_SIZE];
 	static	char value[4][MAX_KV_SIZE]; // use two buffers so compares work without stomping on each other
@@ -277,7 +277,9 @@ qboolean GAME_EXPORT Info_RemoveKey( char *s, const char *key )
 
 		if( !Q_strncmp( key, pkey, cmpsize ))
 		{
-			Q_strcpy( start, s ); // remove this part
+			size_t size = Q_strlen( s ) + 1;
+
+			memmove( start, s, size ); // remove this part
 			return true;
 		}
 

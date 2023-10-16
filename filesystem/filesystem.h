@@ -43,6 +43,8 @@ enum
 	FS_CUSTOM_PATH    = BIT( 3 ), // gamedir but with custom/mod data
 	FS_GAMERODIR_PATH = BIT( 4 ), // gamedir but read-only
 
+	FS_SKIP_ARCHIVED_WADS = BIT( 5 ), // don't mount wads inside archives automatically
+
 	FS_GAMEDIRONLY_SEARCH_FLAGS = FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH
 };
 
@@ -100,6 +102,9 @@ typedef struct gameinfo_s
 	char		game_dll_osx[64];	// custom path for game.dll
 
 	qboolean	added;
+
+	int		quicksave_aged_count; // min is 1, max is 99
+	int		autosave_aged_count; // min is 1, max is 99
 } gameinfo_t;
 
 typedef enum
@@ -126,10 +131,9 @@ typedef struct fs_globals_t
 
 typedef void (*fs_event_callback_t)( const char *path );
 
-
 typedef struct fs_api_t
 {
-	qboolean (*InitStdio)( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
+	qboolean (*InitStdio)( qboolean unused_set_to_true, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
 	void (*ShutdownStdio)( void );
 
 	// search path utils
@@ -182,9 +186,11 @@ typedef struct fs_api_t
 	qboolean (*SysFileExists)( const char *path );
 	const char *(*GetDiskPath)( const char *name, qboolean gamedironly );
 
-	// file watcher
-	void (*WatchFrame)( void ); // engine will read all events and call appropriate callbacks
-	qboolean (*AddWatch)( const char *path, fs_event_callback_t callback );
+	// reserved
+	void (*Unused0)( void );
+	void *(*MountArchive_Fullpath)( const char *path, int flags );
+
+	qboolean (*GetFullDiskPath)( char *buffer, size_t size, const char *name, qboolean gamedironly );
 } fs_api_t;
 
 typedef struct fs_interface_t
@@ -202,6 +208,9 @@ typedef struct fs_interface_t
 	void *(*_Mem_Alloc)( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline );
 	void *(*_Mem_Realloc)( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
 	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
+
+	// platform
+	void *(*_Platform_GetNativeObject)( const char *object );
 } fs_interface_t;
 
 typedef int (*FSAPI)( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *interface );

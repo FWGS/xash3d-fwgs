@@ -85,7 +85,7 @@ static qboolean Sound_ParseID3Frame( const did3v2_frame_t *frame, const byte *bu
 		string key, value;
 		int32_t key_len, value_len;
 
-		if( buffer[0] == 0x00 || buffer[1] == 0x03 )
+		if( buffer[0] == 0x00 || buffer[0] == 0x03 )
 		{
 			key_len = Q_strncpy( key, &buffer[1], sizeof( key ));
 			value_len = frame_length - (1 + key_len + 1);
@@ -129,7 +129,7 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 	{
 		// old id3v1 header found
 		if( CHECK_IDENT( header->ident, 'T', 'A', 'G' ))
-			Con_Printf( S_ERROR "Sound_ParseID3Tag: ID3v1 is not supported! Convert to ID3v2.4!\n", header->major_ver );
+			Con_Printf( S_ERROR "Sound_ParseID3Tag: ID3v1 is not supported! Convert to ID3v2.4!\n" );
 
 		return true; // missing tag header is not an error
 	}

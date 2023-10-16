@@ -13,6 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Linux build specifically want oldest Ubuntu as possible
+          # to be crossdistribution compatible, otherwise use ubuntu-latest
           - os: ubuntu-20.04
             targetos: linux
             targetarch: amd64
@@ -34,10 +36,10 @@ jobs:
 #            targetos: motomagx
 #            targetarch: armv6
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             targetos: nswitch
             targetarch: arm64
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             targetos: psvita
             targetarch: armv7hf
           - os: windows-latest
@@ -47,7 +49,7 @@ jobs:
             targetos: win32
             targetarch: i386
     env:
-      SDL_VERSION: 2.26.2
+      SDL_VERSION: 2.28.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       ANDROID_SDK_TOOLS_VER: 4333796
     steps:
@@ -80,7 +82,7 @@ jobs:
       with:
         submodules: recursive
     - name: Build flatpak (Compat.i386)
-      uses: FWGS/flatpak-github-actions/flatpak-builder@v5
+      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.1
       with:
         bundle: ${{ matrix.app }}.flatpak
         manifest-path: scripts/flatpak/${{ matrix.app }}.yml

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #ifndef QC_H
 #define QC_H
 
+#define DEFAULT_SEQGROUPSIZE	64
 #define ACTIVITIES_FILE	"activities.txt"
 
 qboolean	LoadActivityList( const char *appname );
