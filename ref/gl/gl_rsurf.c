@@ -2235,7 +2235,8 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 			pglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
 	}
 }
-
+#define MINIMIZE_UPLOAD
+#define DISCARD_DLIGHTS
 /*
 =====================
 R_DrawLightmappedVBO
@@ -2307,9 +2308,20 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 		if( vbos.dlight_vbo )
 		{
 		// calculate minimum indexbase
-		for( surf = newsurf = vbotex->dlightchain; surf; surf = surf->info->lightmapchain )
-			if(min_index > vbos.surfdata[((char*)surf - (char*)WORLDMODEL->surfaces) / sizeof( *surf )].startindex )
-				min_index = vbos.surfdata[((char*)surf - (char*)WORLDMODEL->surfaces) / sizeof( *surf )].startindex;
+			for( surf = newsurf = vbotex->dlightchain; surf; surf = surf->info->lightmapchain )
+			{
+				uint indexbase = vbos.surfdata[((char*)surf - (char*)WORLDMODEL->surfaces) / sizeof( *surf )].startindex;
+				if(min_index > indexbase)
+					min_index = indexbase;
+#ifdef MINIMIZE_UPLOAD
+				if( max_index < indexbase + surf->polys->numverts )
+					max_index = indexbase + surf->polys->numverts;
+#endif
+			}
+#ifdef MINIMIZE_UPLOAD
+			pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+			pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), NULL, GL_STREAM_DRAW_ARB );
+#endif
 		}
 		else
 		{
@@ -2347,18 +2359,19 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 				// upload already generated block
 				if( vbos.dlight_vbo )
 				{
+#ifndef MINIMIZE_UPLOAD
 					pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
 					pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
-
+#endif
 					pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
 					pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index* sizeof( vbovertex_t ) + offsetof(vbovertex_t,pos)) );
 					GL_SelectTexture( XASH_TEXTURE0 );
 					pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
 					GL_SelectTexture( XASH_TEXTURE1 );
 				}
-
+#ifdef DISCARD_DLIGHTS
 				pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
-
+#endif
 				LM_UploadDynamicBlock();
 #if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
 				if( pglDrawRangeElements )
@@ -2366,7 +2379,12 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 				else
 #endif
 				pglDrawElements( GL_TRIANGLES, dlightindex, GL_UNSIGNED_SHORT, dlightarray );
+#ifdef MINIMIZE_UPLOAD
+				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), NULL, GL_STREAM_DRAW_ARB );
+#else
 				max_index = 0;
+#endif
 
 				// draw decals that lighted with this lightmap
 				if( decalcount )
@@ -2485,9 +2503,16 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 				vbos.dlight_tc[index][0] = surf->polys->verts[index - indexbase][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
 				vbos.dlight_tc[index][1] = surf->polys->verts[index - indexbase][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
 			}
-
+#ifndef MINIMIZE_UPLOAD
 			if( max_index < indexbase + surf->polys->numverts )
 				max_index = indexbase + surf->polys->numverts;
+#else
+			if( vbos.dlight_vbo )
+			{
+				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+				pglBufferSubDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * (indexbase - min_index), sizeof( vec2_t )* surf->polys->numverts, vbos.dlight_tc + indexbase );
+			}
+#endif
 
 			// if surface has decals, build decal array
 			for( pdecal = surf->pdecals; pdecal; pdecal = pdecal->pnext )
@@ -2536,14 +2561,18 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 		if( dlightindex )
 		{
+#ifdef DISCARD_DLIGHTS
 			pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+#endif
 			// update block
 			LM_UploadDynamicBlock();
 
 			if( vbos.dlight_vbo )
 			{
+#ifndef MINIMIZE_UPLOAD
 				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
 				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
+#endif
 				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
 				pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,pos)) );
 				GL_SelectTexture( XASH_TEXTURE0 );
