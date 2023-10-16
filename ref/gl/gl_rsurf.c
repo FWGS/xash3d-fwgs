@@ -1970,10 +1970,10 @@ void R_GenerateVBO( void )
 	{
 		pglGenBuffersARB( 1, &vbos.dlight_vbo );
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
-		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * (int)(vbos.arraylist->next?USHRT_MAX + 1:vbos.arraylist->array_len + 1) , vbos.dlight_tc, GL_STREAM_DRAW_ARB );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * (int)(vbos.arraylist->next?USHRT_MAX + 1:vbos.arraylist->array_len + 1) , NULL, GL_STREAM_DRAW_ARB );
 		pglGenBuffersARB( 1, &vbos.decal_dlight_vbo );
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
-		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), vbos.decal_dlight, GL_STREAM_DRAW_ARB );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), NULL, GL_STREAM_DRAW_ARB );
 	}
 
 
@@ -2287,6 +2287,8 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 		unsigned int dlightindex = 0;
 		msurface_t *surf, *newsurf;
 		int decalcount = 0;
+		int min_index = 65536;
+		int max_index = 0;
 
 
 		GL_Bind( mtst.tmu_lm, tr.dlightTexture );
@@ -2300,6 +2302,19 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 		// clear the block
 		LM_InitBlock();
+
+
+		if( vbos.dlight_vbo )
+		{
+		// calculate minimum indexbase
+		for( surf = newsurf = vbotex->dlightchain; surf; surf = surf->info->lightmapchain )
+			if(min_index > vbos.surfdata[((char*)surf - (char*)WORLDMODEL->surfaces) / sizeof( *surf )].startindex )
+				min_index = vbos.surfdata[((char*)surf - (char*)WORLDMODEL->surfaces) / sizeof( *surf )].startindex;
+		}
+		else
+		{
+			min_index = 0;
+		}
 
 		// accumulate indexes for every dlighted surface until dlight block full
 		for( surf = newsurf = vbotex->dlightchain; surf; surf = surf->info->lightmapchain )
@@ -2330,13 +2345,28 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 			{
 				// out of free block space. Draw all generated index array and clear it
 				// upload already generated block
+				if( vbos.dlight_vbo )
+				{
+					pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+					pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
+
+					pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
+					pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index* sizeof( vbovertex_t ) + offsetof(vbovertex_t,pos)) );
+					GL_SelectTexture( XASH_TEXTURE0 );
+					pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
+					GL_SelectTexture( XASH_TEXTURE1 );
+				}
+
+				pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+
 				LM_UploadDynamicBlock();
 #if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
 				if( pglDrawRangeElements )
-					pglDrawRangeElements( GL_TRIANGLES, 0, vbo->array_len, dlightindex, GL_UNSIGNED_SHORT, dlightarray );
+					pglDrawRangeElements( GL_TRIANGLES, min_index, max_index, dlightindex, GL_UNSIGNED_SHORT, dlightarray );
 				else
 #endif
 				pglDrawElements( GL_TRIANGLES, dlightindex, GL_UNSIGNED_SHORT, dlightarray );
+				max_index = 0;
 
 				// draw decals that lighted with this lightmap
 				if( decalcount )
@@ -2402,7 +2432,9 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 					}
 
+
 					// restore states pointers for next dynamic lightmap
+					pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), NULL, GL_STREAM_DRAW_ARB );
 					pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 					pglDepthMask( GL_TRUE );
 					pglDisable( GL_BLEND );
@@ -2447,18 +2479,15 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 			for( index = indexbase + 2; index < indexbase + surf->polys->numverts; index++ )
 			{
-				dlightarray[dlightindex++] = indexbase;
-				dlightarray[dlightindex++] = index - 1;
-				dlightarray[dlightindex++] = index;
+				dlightarray[dlightindex++] = indexbase - min_index;
+				dlightarray[dlightindex++] = index - 1 - min_index;
+				dlightarray[dlightindex++] = index - min_index;
 				vbos.dlight_tc[index][0] = surf->polys->verts[index - indexbase][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
 				vbos.dlight_tc[index][1] = surf->polys->verts[index - indexbase][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
 			}
 
-			if( vbos.dlight_vbo )
-			{
-				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
-				pglBufferSubDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * indexbase, sizeof( vec2_t )* surf->polys->numverts, vbos.dlight_tc + indexbase );
-			}
+			if( max_index < indexbase + surf->polys->numverts )
+				max_index = indexbase + surf->polys->numverts;
 
 			// if surface has decals, build decal array
 			for( pdecal = surf->pdecals; pdecal; pdecal = pdecal->pnext )
@@ -2507,18 +2536,30 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 		if( dlightindex )
 		{
+			pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
 			// update block
 			LM_UploadDynamicBlock();
+
+			if( vbos.dlight_vbo )
+			{
+				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
+				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
+				pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,pos)) );
+				GL_SelectTexture( XASH_TEXTURE0 );
+				pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
+				GL_SelectTexture( XASH_TEXTURE1 );
+			}
 
 			// draw remaining array
 #if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
 			if( pglDrawRangeElements )
-				pglDrawRangeElements( GL_TRIANGLES, 0, vbo->array_len, dlightindex, GL_UNSIGNED_SHORT, dlightarray );
+				pglDrawRangeElements( GL_TRIANGLES, min_index, max_index, dlightindex, GL_UNSIGNED_SHORT, dlightarray );
 			else
 #endif
 				pglDrawElements( GL_TRIANGLES, dlightindex, GL_UNSIGNED_SHORT, dlightarray );
 
-			R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true );
+			//R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true );
 
 			// draw remaining decals
 			if( decalcount )
@@ -2586,6 +2627,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 				}
 
 				// reset states
+				pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), NULL, GL_STREAM_DRAW_ARB );
 				pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 				pglDepthMask( GL_TRUE );
 				pglDisable( GL_BLEND );
@@ -2602,8 +2644,11 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 
 		// restore static lightmap
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
+		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t,pos) );
 		GL_Bind( mtst.tmu_lm, tr.lightmapTextures[lightmap] );
 		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t, lm_tc ) );
+		R_SetupVBOTexture( texture, 0 );
+		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t, gl_tc ) );
 
 		// prepare to next frame
 		vbotex->dlightchain = NULL;
@@ -2614,24 +2659,8 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 	vbotex->curindex = 0;
 }
 
-/*
-=====================
-R_DrawVBO
-
-Draw generated index arrays
-=====================
-*/
-void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
+void R_SetupVBOArray( vboarray_t *vbo, qboolean drawlightmap, qboolean drawtextures )
 {
-	int numtextures = WORLDMODEL->numtextures;
-	int numlightmaps =  gl_lms.current_lightmap_texture;
-	int k;
-	vboarray_t *vbo = vbos.arraylist;
-
-	if( !r_vbo.value )
-		return;
-
-	GL_SetupFogColorForSurfacesEx( 1, 0.5f );
 
 	// bind array
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
@@ -2656,7 +2685,29 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 		pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
 		R_SetLightmap();
 	}
+}
 
+
+/*
+=====================
+R_DrawVBO
+
+Draw generated index arrays
+=====================
+*/
+void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
+{
+	int numtextures = WORLDMODEL->numtextures;
+	int numlightmaps =  gl_lms.current_lightmap_texture;
+	int k;
+	vboarray_t *vbo = vbos.arraylist;
+
+	if( !r_vbo.value )
+		return;
+
+	GL_SetupFogColorForSurfacesEx( 1, 0.5f );
+
+	R_SetupVBOArray( vbo, drawlightmap, drawtextures );
 	mtst.skiptexture = !drawtextures;
 	mtst.tmu_dt = glConfig.max_texture_units > 2 && r_vbo_detail.value == 2? XASH_TEXTURE2:-1;
 
@@ -2711,21 +2762,17 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 				vbotex = vbotex->next;
 				vbo = vbo->next;
 
-				// bind new vertex and index arrays
-				pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
-				pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t,pos) );
-
-				// update texcoord pointers
 				if( drawtextures )
 				{
 					tex = R_SetupVBOTexture( tex, j );
-					pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t, gl_tc ) );
 				}
+
+				// update texcoord pointers
+				R_SetupVBOArray( vbo, drawlightmap, drawtextures );
 
 				if( drawlightmap )
 				{
 					GL_Bind( mtst.tmu_lm, tr.lightmapTextures[k] );
-					pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t, lm_tc ) );
 				}
 
 				// draw new array
