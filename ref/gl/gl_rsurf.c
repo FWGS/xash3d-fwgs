@@ -1182,7 +1182,7 @@ dynamic:
 
 	if( is_dynamic )
 	{
-		if(( fa->styles[maps] >= 32 || fa->styles[maps] == 0 || fa->styles[maps] == 20 ) && ( fa->dlightframe != tr.framecount ))
+		if(( maps <  MAXLIGHTMAPS ) && ( fa->styles[maps] >= 32 || fa->styles[maps] == 0 || fa->styles[maps] == 20 ) && ( fa->dlightframe != tr.framecount ))
 		{
 			byte		temp[132*132*4];
 			mextrasurf_t	*info = fa->info;
@@ -2878,11 +2878,11 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 	}
 
 	// already up to date
-	if( !is_dynamic && ( fa->dlightframe != tr.framecount || maps == MAXLIGHTMAPS ) )
+	if( !is_dynamic && ( fa->dlightframe != tr.framecount ))
 		return false;
 
 	// build lightmap
-	if(( fa->styles[maps] >= 32 || fa->styles[maps] == 0 ) && ( fa->dlightframe != tr.framecount ))
+	if(( maps <  MAXLIGHTMAPS ) && ( fa->styles[maps] >= 32 || fa->styles[maps] == 0 ) && ( fa->dlightframe != tr.framecount ))
 	{
 		byte	temp[132*132*4];
 		int	smax, tmax;
