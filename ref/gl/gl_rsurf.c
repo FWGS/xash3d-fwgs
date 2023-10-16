@@ -2690,7 +2690,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 				// update texcoord pointers
 				if( drawtextures )
 				{
-					tex = R_SetupVBOTexture( tex, 0 );
+					tex = R_SetupVBOTexture( tex, j );
 					pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t, gl_tc ) );
 				}
 
