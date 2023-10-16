@@ -1958,8 +1958,8 @@ static void Mod_LoadEdges( dbspmodel_t *bmod )
 
 		for( i = 0; i < bmod->numedges; i++, in++, out++ )
 		{
-			out->v[0] = in->v[0];
-			out->v[1] = in->v[1];
+			out->v[0] = LittleLong( in->v[0] );
+			out->v[1] = LittleLong( in->v[1] );
 		}
 	}
 	else
@@ -1968,8 +1968,8 @@ static void Mod_LoadEdges( dbspmodel_t *bmod )
 
 		for( i = 0; i < bmod->numedges; i++, in++, out++ )
 		{
-			out->v[0] = (word)in->v[0];
-			out->v[1] = (word)in->v[1];
+			out->v[0] = LittleShort( (word)in->v[0] );
+			out->v[1] = LittleShort( (word)in->v[1] );
 		}
 	}
 }
@@ -1983,6 +1983,12 @@ static void Mod_LoadSurfEdges( dbspmodel_t *bmod )
 {
 	loadmodel->surfedges = Mem_Malloc( loadmodel->mempool, bmod->numsurfedges * sizeof( dsurfedge_t ));
 	memcpy( loadmodel->surfedges, bmod->surfedges, bmod->numsurfedges * sizeof( dsurfedge_t ));
+#ifdef XASH_BIG_ENDIAN
+	for( int i = 0; i < bmod->numsurfedges; i++ )
+	{
+		LittleLongSW( loadmodel->surfedges[i] );
+	}
+#endif
 	loadmodel->numsurfedges = bmod->numsurfedges;
 }
 
