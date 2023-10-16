@@ -216,7 +216,16 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 	}
 }
 
-void GL_SetupFogColorForSurfaces( void )
+/*
+===============================
+GL_SetupFogColorForSurfaces
+
+every render pass applies new fog layer, resulting in wrong fog color
+recalculate fog color for current pass count
+===============================
+*/
+
+void GL_SetupFogColorForSurfacesEx( int passes, float density )
 {
 	vec3_t	fogColor;
 	float	factor, div;
@@ -224,18 +233,25 @@ void GL_SetupFogColorForSurfaces( void )
 	if( !glState.isFogEnabled )
 		return;
 
-	if( RI.currententity && RI.currententity->curstate.rendermode == kRenderTransTexture )
+	if(( passes < 2 ) || (RI.currententity && RI.currententity->curstate.rendermode == kRenderTransTexture ))
 	{
 		pglFogfv( GL_FOG_COLOR, RI.fogColor );
 		return;
 	}
 
-	div = (r_detailtextures.value) ? 2.0f : 1.0f;
-	factor = (r_detailtextures.value) ? 3.0f : 2.0f;
+	div = passes - 1;
+	factor = passes;
 	fogColor[0] = pow( RI.fogColor[0] / div, ( 1.0f / factor ));
 	fogColor[1] = pow( RI.fogColor[1] / div, ( 1.0f / factor ));
 	fogColor[2] = pow( RI.fogColor[2] / div, ( 1.0f / factor ));
 	pglFogfv( GL_FOG_COLOR, fogColor );
+	pglFogf( GL_FOG_DENSITY, RI.fogDensity * density );
+}
+
+
+void GL_SetupFogColorForSurfaces( void )
+{
+	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f );
 }
 
 void GL_ResetFogColor( void )
@@ -1039,7 +1055,7 @@ void R_RenderFullbrights( void )
 R_RenderDetails
 ================
 */
-void R_RenderDetails( void )
+void R_RenderDetails( int passes )
 {
 	gl_texture_t	*glt;
 	mextrasurf_t	*es, *p;
@@ -1049,12 +1065,19 @@ void R_RenderDetails( void )
 	if( !draw_details )
 		return;
 
-	GL_SetupFogColorForSurfaces();
+	GL_SetupFogColorForSurfacesEx( passes, passes == 2 ? 0.5f : 1.0f );
 
 	pglEnable( GL_BLEND );
 	pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL );
-	pglDepthFunc( GL_EQUAL );
+	if(passes == 3)
+		pglDepthFunc( GL_EQUAL );
+	else
+	{
+		pglDepthFunc( GL_LEQUAL );
+		//pglDepthMask( GL_FALSE );
+		pglEnable( GL_POLYGON_OFFSET_FILL );
+	}
 
 	for( i = 1; i < MAX_TEXTURES; i++ )
 	{
@@ -1077,6 +1100,7 @@ void R_RenderDetails( void )
 	pglDisable( GL_BLEND );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 	pglDepthFunc( GL_LEQUAL );
+	pglDisable( GL_POLYGON_OFFSET_FILL );
 
 	draw_details = false;
 
@@ -1549,8 +1573,6 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	// setup the rendermode
 	R_SetRenderMode( e );
-	GL_SetupFogColorForSurfaces ();
-
 	if( e->curstate.rendermode == kRenderTransAdd )
 	{
 		R_AllowFog( false );
@@ -1559,6 +1581,9 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 	if( e->curstate.rendermode == kRenderTransColor || e->curstate.rendermode == kRenderTransTexture )
 		allow_vbo = false;
+
+	if( !allow_vbo )
+		GL_SetupFogColorForSurfaces ();
 
 	psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
 	num_sorted = 0;
@@ -1609,7 +1634,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	GL_ResetFogColor();
 	R_BlendLightmaps();
 	R_RenderFullbrights();
-	R_RenderDetails();
+	R_RenderDetails( allow_vbo? 2: 3 );
 
 	// restore fog here
 	if( e->curstate.rendermode == kRenderTransAdd )
@@ -2037,6 +2062,7 @@ static void R_DisableDetail( void )
 		GL_SelectTexture( mtst.tmu_dt );
 		pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
 		pglDisable( GL_TEXTURE_2D );
+		pglMatrixMode( GL_TEXTURE );
 		pglLoadIdentity();
 	}
 }
@@ -2147,6 +2173,7 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 	}
 	else R_DisableDetail();
 
+
 	GL_Bind( mtst.tmu_gl, r_lightmap->value ?tr.whiteTexture:tex->gl_texturenum );
 
 	return tex;
@@ -2162,7 +2189,7 @@ draw details when not enough tmus
 static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray, texture_t *tex, qboolean resetvbo )
 {
 	// draw details in additional pass
-	if( r_detailtextures.value && mtst.tmu_dt == -1 && tex->dt_texturenum )
+	if( r_detailtextures.value && r_vbo_detail.value == 1 && mtst.tmu_dt == -1 && tex->dt_texturenum )
 	{
 		gl_texture_t *glt = R_GetTexture( tex->gl_texturenum );
 
@@ -2199,8 +2226,8 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 		pglLoadIdentity();
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 		pglDisable( GL_BLEND );
-		GL_Bind( XASH_TEXTURE1, mtst.lm );
-		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof( vbovertex_t, lm_tc ) );
+		//GL_Bind( XASH_TEXTURE1, mtst.lm );
+		//pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof( vbovertex_t, lm_tc ) );
 
 		GL_SelectTexture( XASH_TEXTURE1 );
 		pglEnable( GL_TEXTURE_2D );
@@ -2224,8 +2251,6 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 	else
 #endif
 	pglDrawElements( GL_TRIANGLES, vbotex->curindex, GL_UNSIGNED_SHORT, vbotex->indexarray );
-
-	R_AdditionalPasses( vbo, vbotex->curindex, vbotex->indexarray, texture, false );
 
 	// draw debug lines
 	if( gl_wireframe.value && !skiplighting )
@@ -2584,6 +2609,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 		vbotex->dlightchain = NULL;
 	}
 
+	R_AdditionalPasses( vbo, vbotex->curindex, vbotex->indexarray, texture, false );
 	// prepare to next frame
 	vbotex->curindex = 0;
 }
@@ -2604,6 +2630,8 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 
 	if( !r_vbo.value )
 		return;
+
+	GL_SetupFogColorForSurfacesEx( 1, 0.5f );
 
 	// bind array
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
@@ -2630,7 +2658,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 	}
 
 	mtst.skiptexture = !drawtextures;
-	mtst.tmu_dt = glConfig.max_texture_units > 2? XASH_TEXTURE2:-1;
+	mtst.tmu_dt = glConfig.max_texture_units > 2 && r_vbo_detail.value == 2? XASH_TEXTURE2:-1;
 
 	// setup limits
 	if( vbos.minlightmap > vbos.minarraysplit_lm )
@@ -2951,6 +2979,41 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 			vbos.mintexture = texturenum;
 
 		buildlightmap &= !r_fullbright->value && !!WORLDMODEL->lightdata;
+
+		/* draw details in regular way */
+		if( r_vbo_detail.value == 0 )
+		{
+			if( r_detailtextures.value && surf->texinfo && surf->texinfo  )
+			{
+				texture_t *t = surf->texinfo->texture;
+
+				if( glState.isFogEnabled )
+				{
+					// don't apply detail textures for windows in the fog
+					if( RI.currententity->curstate.rendermode != kRenderTransTexture )
+					{
+						if( t->dt_texturenum )
+						{
+							surf->info->detailchain = detail_surfaces[t->dt_texturenum];
+							detail_surfaces[t->dt_texturenum] = surf->info;
+						}
+						else
+						{
+							// draw stub detail texture for underwater surfaces
+							surf->info->detailchain = detail_surfaces[tr.grayTexture];
+							detail_surfaces[tr.grayTexture] = surf->info;
+						}
+						draw_details = true;
+					}
+				}
+				else if( t->dt_texturenum )
+				{
+					surf->info->detailchain = detail_surfaces[t->dt_texturenum];
+					detail_surfaces[t->dt_texturenum] = surf->info;
+					draw_details = true;
+				}
+			}
+		}
 
 		if( buildlightmap && R_CheckLightMap( surf ) )
 		{
@@ -3319,7 +3382,7 @@ void R_DrawWorld( void )
 		GL_ResetFogColor();
 		R_BlendLightmaps();
 		R_RenderFullbrights();
-		R_RenderDetails();
+		R_RenderDetails( r_vbo.value? 2 : 3 );
 
 		if( skychain )
 			R_DrawSkyBox();

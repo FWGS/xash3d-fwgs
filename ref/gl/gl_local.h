@@ -774,6 +774,7 @@ extern convar_t	r_lockfrustum;
 extern convar_t	r_traceglow;
 extern convar_t	r_vbo;
 extern convar_t	r_vbo_dlightmode;
+extern convar_t	r_vbo_detail;
 extern convar_t r_studio_sort_textures;
 extern convar_t r_studio_drawelements;
 extern convar_t r_ripple;
