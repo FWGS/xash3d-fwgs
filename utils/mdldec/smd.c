@@ -399,8 +399,7 @@ static void WriteFrameInfo( FILE *fp, mstudioanim_t *anim, mstudioseqdesc_t *seq
 		{
 			scale = frame / (float)( seqdesc->numframes - 1 );
 
-			for( j = 0; j < 3; j++ )
-				motion[j] += scale * seqdesc->linearmovement[j];
+			VectorMA( motion, scale, seqdesc->linearmovement, motion );
 
 			ProperBoneRotationZ( motion, 270.0f );
 		}
