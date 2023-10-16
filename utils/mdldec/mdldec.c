@@ -266,6 +266,8 @@ static void ShowHelp( const char *app_name )
 
 int main( int argc, char *argv[] )
 {
+	int ret = 0;
+
 	puts( "\nHalf-Life Studio Model Decompiler " APP_VERSION );
 	puts( "Copyright Flying With Gauss 2020 (c) " );
 	puts( "--------------------------------------------------" );
@@ -273,6 +275,7 @@ int main( int argc, char *argv[] )
 	if( argc == 1 )
 	{
 		ShowHelp( argv[0] );
+		ret = 2;
 		goto end;
 	}
 	else if( argc == 3 )
@@ -280,6 +283,7 @@ int main( int argc, char *argv[] )
 		if( Q_strlen( argv[2] ) > MAX_SYSPATH - 2 )
 		{
 			fputs( "ERROR: Destination path is too long.\n", stderr );
+			ret = 1;
 			goto end;
 		}
 
@@ -287,7 +291,10 @@ int main( int argc, char *argv[] )
 	}
 
 	if( !LoadActivityList( argv[0] ) || !LoadMDL( argv[1] ) )
+	{
+		ret = 1;
 		goto end;
+	}
 
 	WriteQCScript();
 	WriteSMD();
@@ -298,6 +305,6 @@ int main( int argc, char *argv[] )
 end:
 	puts( "--------------------------------------------------" );
 
-	return 0;
+	return ret;
 }
 
