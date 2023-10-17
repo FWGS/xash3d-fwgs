@@ -120,7 +120,7 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 		return false;
 	}
 
-	memcpy( &index, buffer + KTX2_IDENTIFIER_SIZE + sizeof( ktx2_header_t ), sizeof index );
+	memcpy( &index, buffer + KTX2_IDENTIFIER_SIZE + sizeof( ktx2_header_t ), sizeof( index ));
 
 	for( int mip = 0; mip < header->levelCount; ++mip )
 	{
@@ -129,7 +129,7 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 		const uint32_t mip_size = Image_ComputeSize( image.type, width, height, image.depth );
 
 		ktx2_level_t level;
-		memcpy( &level, levels_begin + mip * sizeof level, sizeof level );
+		memcpy( &level, levels_begin + mip * sizeof( level ), sizeof( level ));
 
 		if( mip_size != level.byteLength )
 		{
@@ -154,7 +154,7 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 	for( int mip = 0, cursor = 0; mip < header->levelCount; ++mip )
 	{
 		ktx2_level_t level;
-		memcpy( &level, levels_begin + mip * sizeof level, sizeof level );
+		memcpy( &level, levels_begin + mip * sizeof( level ), sizeof( level ));
 		memcpy( image.rgba + cursor, buffer + level.byteOffset, level.byteLength );
 		cursor += level.byteLength;
 	}
@@ -175,7 +175,7 @@ qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t files
 		return false;
 	}
 
-	memcpy( &header, buffer + KTX2_IDENTIFIER_SIZE, sizeof header );
+	memcpy( &header, buffer + KTX2_IDENTIFIER_SIZE, sizeof( header ));
 
 	image.width = header.pixelWidth;
 	image.height = header.pixelHeight;
