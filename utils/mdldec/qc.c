@@ -513,12 +513,15 @@ static void WriteSequenceInfo( FILE *fp )
 			}
 		}
 
-		if( seqdesc->blendtype[0] )
+		if( seqdesc->numblends > 1 )
 		{
 			GetMotionTypeString( seqdesc->blendtype[0], motion_types, sizeof( motion_types ), false );
 
 			fprintf( fp, "\tblend %s %.0f %.0f\n",
 			    motion_types, seqdesc->blendstart[0], seqdesc->blendend[0] );
+
+			if( !seqdesc->blendtype[0] )
+				printf( "WARNING: Something wrong with blending type for sequence: %s\n", seqdesc->label );
 		}
 
 		for( j = 0; j < seqdesc->numevents; j++ )
@@ -613,7 +616,7 @@ void WriteQCScript( void )
 
 	WriteBodyGroupInfo( fp );
 
-	fprintf( fp, "$flags %i\n\n", model_hdr->flags );
+	fprintf( fp, "$flags %u\n\n", model_hdr->flags &~( STUDIO_HAS_BONEINFO | STUDIO_HAS_BONEWEIGHTS ) );
 	fprintf( fp, "$eyeposition %f %f %f\n\n", model_hdr->eyeposition[0], model_hdr->eyeposition[1], model_hdr->eyeposition[2] );
 
 	if( !model_hdr->numtextures )
@@ -621,6 +624,10 @@ void WriteQCScript( void )
 
 	WriteSkinFamilyInfo( fp );
 	WriteTextureRenderMode( fp );
+
+	if( model_hdr->flags & ( STUDIO_HAS_BONEINFO | STUDIO_HAS_BONEWEIGHTS ) )
+		fputs( "$boneweights\n\n", fp );
+
 	WriteAttachmentInfo( fp );
 
 	fprintf( fp, "$bbox %f %f %f", model_hdr->min[0], model_hdr->min[1], model_hdr->min[2] );
