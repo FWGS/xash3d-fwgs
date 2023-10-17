@@ -25,17 +25,18 @@ GNU General Public License for more details.
 #include "smd.h"
 
 static matrix3x4	*bonetransform;
+static matrix3x4	*worldtransform;
 
 /*
 ============
 CreateBoneTransformMatrices
 ============
 */
-static qboolean CreateBoneTransformMatrices( void )
+static qboolean CreateBoneTransformMatrices( matrix3x4 **matrix )
 {
-	bonetransform = calloc( model_hdr->numbones, sizeof( matrix3x4 ) );
+	*matrix = calloc( model_hdr->numbones, sizeof( matrix3x4 ) );
 
-	if( !bonetransform )
+	if( !*matrix )
 	{
 		fputs( "ERROR: Couldn't allocate memory for bone transformation matrices!\n", stderr );
 		return false;
@@ -75,12 +76,26 @@ static void FillBoneTransformMatrices( void )
 
 /*
 ============
+FillWorldTransformMatrices
+============
+*/
+static void FillWorldTransformMatrices( void )
+{
+	int			 i;
+	mstudioboneinfo_t	*boneinfo = (mstudioboneinfo_t *)( (byte *)model_hdr + model_hdr->boneindex + model_hdr->numbones * sizeof( mstudiobone_t ) );
+
+	for( i = 0; i < model_hdr->numbones; i++, boneinfo++ )
+		Matrix3x4_ConcatTransforms( worldtransform[i], bonetransform[i], boneinfo->poseToBone );
+}
+
+/*
+============
 RemoveBoneTransformMatrices
 ============
 */
-static void RemoveBoneTransformMatrices( void )
+static void RemoveBoneTransformMatrices( matrix3x4 **matrix )
 {
-	free( bonetransform );
+	free( *matrix );
 }
 
 /*
@@ -220,15 +235,19 @@ WriteTriangleInfo
 */
 static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t *texture, mstudiotrivert_t **triverts, qboolean isevenstrip )
 {
-	int	 i, indices[3];
-	int	 vert_index;
-	int	 norm_index;
-	int	 bone_index;
-	float	 s, t, u, v;
-	byte	*vertbone;
-	vec3_t	*studioverts;
-	vec3_t	*studionorms;
-	vec3_t	 vert, norm;
+	int			 i, j, k, l, indices[3];
+	int			 vert_index;
+	int			 norm_index;
+	int			 bone_index;
+	int			 valid_bones;
+	float			 s, t, u, v;
+	byte			*vertbone;
+	vec3_t			*studioverts;
+	vec3_t			*studionorms;
+	vec3_t			 vert, norm;
+	float			 weights[MAXSTUDIOBONEWEIGHTS], oldweight, totalweight;
+	matrix3x4		 bonematrix[MAXSTUDIOBONEWEIGHTS], skinmatrix, *pskinmatrix;
+	mstudioboneweight_t	*studioboneweights;
 
 	if( isevenstrip )
 	{
@@ -246,6 +265,7 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 	vertbone    = ( (byte *)model_hdr + model->vertinfoindex );
 	studioverts = (vec3_t *)( (byte *)model_hdr + model->vertindex );
 	studionorms = (vec3_t *)( (byte *)model_hdr + model->normindex );
+	studioboneweights = (mstudioboneweight_t *)( (byte *)model_hdr + model->blendvertinfoindex );
 
 	s = 1.0f / texture->width;
 	t = 1.0f / texture->height;
@@ -258,8 +278,39 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 		norm_index = triverts[indices[i]]->normindex;
 		bone_index = vertbone[vert_index];
 
-		Matrix3x4_VectorTransform( bonetransform[bone_index], studioverts[vert_index], vert );
-		Matrix3x4_VectorRotate( bonetransform[bone_index], studionorms[norm_index], norm );
+		if( model_hdr->flags & STUDIO_HAS_BONEWEIGHTS )
+		{
+			valid_bones = 0, totalweight = 0;
+			memset(skinmatrix, 0, sizeof(matrix3x4));
+
+			for( j = 0; j < MAXSTUDIOBONEWEIGHTS; ++j )
+				if( studioboneweights[vert_index].bone[j] != -1 )
+					valid_bones++;
+
+			for( j = 0; j < valid_bones; ++j )
+			{
+				Matrix3x4_Copy( bonematrix[j], worldtransform[studioboneweights[vert_index].bone[j]] );
+				weights[j] = studioboneweights[vert_index].weight[j] / 255.0f;
+				totalweight += weights[j];
+			}
+
+			oldweight = weights[0];
+
+			if( totalweight < 1.0f )
+				weights[0] += 1.0f - totalweight;
+
+			for( j = 0; j < valid_bones; ++j )
+				for( k = 0; k < 3; ++k )
+					for( l = 0; l < 4; ++l )
+						skinmatrix[k][l] += bonematrix[j][k][l] * weights[j];
+
+			pskinmatrix = &skinmatrix;
+		}
+		else
+			pskinmatrix = &bonetransform[bone_index];
+
+		Matrix3x4_VectorTransform( *pskinmatrix, studioverts[vert_index], vert );
+		Matrix3x4_VectorRotate( *pskinmatrix, studionorms[norm_index], norm );
 		VectorNormalize( norm );
 
 		if( texture->flags & STUDIO_NF_UV_COORDS )
@@ -273,11 +324,25 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 			v = 1.0f - triverts[indices[i]]->t * t;
 		}
 
-		fprintf( fp, "%3i %f %f %f %f %f %f %f %f\n",
+		fprintf( fp, "%3i %f %f %f %f %f %f %f %f",
 		    bone_index,
 		    vert[0], vert[1], vert[2],
 		    norm[0], norm[1], norm[2],
 		    u, v );
+
+		if( model_hdr->flags & STUDIO_HAS_BONEWEIGHTS )
+		{
+			fprintf( fp, " %d", valid_bones );
+
+			weights[0] = oldweight;
+
+			for( j = 0; j < valid_bones; ++j )
+				fprintf( fp, " %d %f",
+				    studioboneweights[vert_index].bone[j],
+				    weights[j] );
+		}
+
+		fputs( "\n", fp );
 	}
 }
 
@@ -451,10 +516,18 @@ static void WriteReferences( void )
 	char			 name[64];
 	char			 filename[MAX_SYSPATH];
 
-	if( !CreateBoneTransformMatrices() )
+	if( !CreateBoneTransformMatrices( &bonetransform ) )
 		return;
 
 	FillBoneTransformMatrices();
+
+	if( model_hdr->flags & STUDIO_HAS_BONEINFO )
+	{
+		if( !CreateBoneTransformMatrices( &worldtransform ) )
+			return;
+
+		FillWorldTransformMatrices();
+	}
 
 	for( i = 0; i < model_hdr->numbodyparts; i++ )
 	{
@@ -474,8 +547,7 @@ static void WriteReferences( void )
 			if( len == -1 )
 			{
 				fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.smd\n", name );
-				RemoveBoneTransformMatrices();
-				return;
+				goto _fail;
 			}
 
 			fp = fopen( filename, "w" );
@@ -483,8 +555,7 @@ static void WriteReferences( void )
 			if( !fp )
 			{
 				fprintf( stderr, "ERROR: Can't write %s\n", filename );
-				RemoveBoneTransformMatrices();
-				return;
+				goto _fail;
 			}
 
 			fputs( "version 1\n", fp );
@@ -499,7 +570,11 @@ static void WriteReferences( void )
 		}
 	}
 
-	RemoveBoneTransformMatrices();
+_fail:
+	RemoveBoneTransformMatrices( &bonetransform );
+
+	if( model_hdr->flags & STUDIO_HAS_BONEINFO )
+		RemoveBoneTransformMatrices( &worldtransform );
 }
 
 /*
