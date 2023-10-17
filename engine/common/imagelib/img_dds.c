@@ -362,10 +362,10 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 			SetBits( image.flags, IMAGE_HAS_ALPHA );
 		else if( image.type == PF_DXT5 && Image_CheckDXT5Alpha( &header, fin ))
 			SetBits( image.flags, IMAGE_HAS_ALPHA );
-		else if ( image.type == PF_BC5_SIGNED || image.type == PF_BC5_UNSIGNED )
-			SetBits(image.flags, IMAGE_HAS_ALPHA);
-		else if ( image.type == PF_BC7_UNORM || image.type == PF_BC7_SRGB )
-			SetBits(image.flags, IMAGE_HAS_ALPHA);
+		else if( image.type == PF_BC5_SIGNED || image.type == PF_BC5_UNSIGNED )
+			SetBits( image.flags, IMAGE_HAS_ALPHA );
+		else if( image.type == PF_BC7_UNORM || image.type == PF_BC7_SRGB )
+			SetBits( image.flags, IMAGE_HAS_ALPHA );
 		if( !FBitSet( header.dsPixelFormat.dwFlags, DDS_LUMINANCE ))
 			SetBits( image.flags, IMAGE_HAS_COLOR );
 		break;

@@ -19,7 +19,7 @@ GNU General Public License for more details.
 
 static void Image_KTX2Format( uint32_t ktx2_format )
 {
-	switch ( ktx2_format )
+	switch( ktx2_format )
 	{
 		case KTX2_FORMAT_BC4_UNORM_BLOCK:
 			// 1 component for ref_gl
