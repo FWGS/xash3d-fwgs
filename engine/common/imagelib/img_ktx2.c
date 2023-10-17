@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #include "imagelib.h"
 #include "xash3d_mathlib.h"
-#include "ktx2.h"
+#include "img_ktx2.h"
 
 static void Image_KTX2Format( uint32_t ktx2_format )
 {
