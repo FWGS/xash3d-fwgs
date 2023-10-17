@@ -32,6 +32,9 @@ GNU General Public License for more details.
 #define TYPE_DX10	(('0'<<24)+('1'<<16)+('X'<<8)+'D') // little-endian "DX10"
 #define TYPE_ATI1	(('1'<<24)+('I'<<16)+('T'<<8)+'A') // little-endian "ATI1"
 #define TYPE_ATI2	(('2'<<24)+('I'<<16)+('T'<<8)+'A') // little-endian "ATI2"
+#define TYPE_BC5S	(('S'<<24)+('5'<<16)+('C'<<8)+'B') // little-endian "BC5S"
+#define TYPE_BC4S	(('S'<<24)+('4'<<16)+('C'<<8)+'B') // little-endian "BC4S"
+#define TYPE_BC4U	(('U'<<24)+('4'<<16)+('C'<<8)+'B') // little-endian "BC4U"
 #define TYPE_RXGB	(('B'<<24)+('G'<<16)+('X'<<8)+'R') // little-endian "RXGB" doom3 normalmaps
 #define TYPE_$	(('\0'<<24)+('\0'<<16)+('\0'<<8)+'$') // little-endian "$"
 #define TYPE_o	(('\0'<<24)+('\0'<<16)+('\0'<<8)+'o') // little-endian "o"
@@ -202,7 +205,7 @@ typedef enum
 	DXGI_FORMAT_FORCE_UINT = 0xffffffff
 } dxgi_format_t;
 
-typedef enum 
+typedef enum
 {
 	D3D10_RESOURCE_DIMENSION_UNKNOWN = 0,
 	D3D10_RESOURCE_DIMENSION_BUFFER = 1,
