@@ -75,7 +75,6 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 	// Sets image.type and image.flags
 	Image_KTX2Format( header->vkFormat );
 
-	// TODO add logs for these
 	if( image.type == PF_UNKNOWN )
 	{
 		Con_DPrintf( S_ERROR "%s: unsupported KTX2 format %d\n", __FUNCTION__, header->vkFormat );
@@ -190,7 +189,6 @@ qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t files
 		// If KTX2 to imagelib conversion failed, try passing the file as raw data.
 		// This is useful for ref_vk which can directly support hundreds of formats which we don't convert to pixformat_t here
 
-		// TODO something like Image_CheckFlag( IL_SUPPORTS_KTX2_RAW )?
 		Con_DPrintf( S_WARN "%s: (%s) could not be converted to supported imagelib format, passing as raw KTX2 data\n", __FUNCTION__, name );
 		// This is a catch-all for ref_vk, which can do this format directly and natively
 		image.type = PF_KTX2_RAW;
