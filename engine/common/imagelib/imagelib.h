@@ -142,6 +142,7 @@ void Image_CopyPalette32bit( void );
 void Image_SetPixelFormat( void );
 void Image_GetPaletteQ1( void );
 void Image_GetPaletteHL( void );
+size_t Image_ComputeSize( int type, int width, int height, int depth );
 
 //
 // formats load
@@ -156,6 +157,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t filesize );
 
 //
 // formats save
