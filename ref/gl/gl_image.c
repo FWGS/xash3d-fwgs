@@ -388,7 +388,8 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 	case PF_DXT5:
 	case PF_BC6H_SIGNED:
 	case PF_BC6H_UNSIGNED:
-	case PF_BC7:
+	case PF_BC7_UNORM:
+	case PF_BC7_SRGB:
 	case PF_ATI2:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
@@ -694,7 +695,7 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 
 	Assert( tex != NULL );
 
-	if( ImageDXT( format ))
+	if( ImageCompressed( format ))
 	{
 		switch( format )
 		{
@@ -703,7 +704,8 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		case PF_DXT5: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; break;
 		case PF_BC6H_SIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB; break;
 		case PF_BC6H_UNSIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB; break;
-		case PF_BC7: tex->format = GL_COMPRESSED_RGBA_BPTC_UNORM_ARB; break;
+		case PF_BC7_SRGB:
+		case PF_BC7_UNORM: tex->format = GL_COMPRESSED_RGBA_BPTC_UNORM_ARB; break;
 		case PF_ATI2:
 			if( glConfig.hardware_type == GLHW_RADEON )
 				tex->format = GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI;
@@ -1094,7 +1096,7 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	}
 }
 
-static void GL_TextureImageDXT( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, size_t size, const void *data )
+static void GL_TextureImageCompressed( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, size_t size, const void *data )
 {
 	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
 	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
@@ -1176,7 +1178,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		return false;
 	}
 
-	if( pic->type == PF_BC6H_SIGNED || pic->type == PF_BC6H_UNSIGNED || pic->type == PF_BC7 )
+	if( pic->type == PF_BC6H_SIGNED || pic->type == PF_BC6H_UNSIGNED || pic->type == PF_BC7_UNORM || pic->type == PF_BC7_SRGB )
 	{
 		if( !GL_Support( GL_ARB_TEXTURE_COMPRESSION_BPTC ))
 		{
@@ -1217,7 +1219,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 		if( buf != NULL && buf >= bufend )
 			gEngfuncs.Host_Error( "GL_UploadTexture: %s image buffer overflow\n", tex->name );
 
-		if( ImageDXT( pic->type ))
+		if( ImageCompressed( pic->type ))
 		{
 			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 			{
@@ -1225,7 +1227,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				height = Q_max( 1, ( tex->height >> j ));
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
 				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageDXT( tex, i, j, width, height, tex->depth, size, buf );
+				GL_TextureImageCompressed( tex, i, j, width, height, tex->depth, size, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
 				tex->numMips++;
@@ -1259,7 +1261,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
 			else data = buf;
 
-			if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+			if( !ImageCompressed( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
 				data = GL_ApplyFilter( data, tex->width, tex->height );
 
 			// mips will be auto-generated if desired
@@ -1307,7 +1309,7 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 
 	tex->encode = pic->encode; // share encode method
 
-	if( ImageDXT( pic->type ))
+	if( ImageCompressed( pic->type ))
 	{
 		if( !pic->numMips )
 			tex->flags |= TF_NOMIPMAP; // disable mipmapping by user request
@@ -1922,7 +1924,7 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 		return;
 	}
 
-	if( ImageDXT( image->original->type ))
+	if( ImageCompressed( image->original->type ))
 	{
 		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: can't process compressed texture %s\n", image->name );
 		return;

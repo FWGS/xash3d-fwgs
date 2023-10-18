@@ -557,7 +557,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
 	else data = buf;
 
-	//if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+	//if( !ImageCompressed( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
 	//	data = GL_ApplyFilter( data, tex->width, tex->height );
 
 	// mips will be auto-generated if desired
@@ -663,7 +663,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		if( buf != NULL && buf >= bufend )
 			gEngfuncs.Host_Error( "GL_UploadTexture: %s image buffer overflow\n", tex->name );
 
-		if( ImageDXT( pic->type ))
+		if( ImageCompressed( pic->type ))
 		{
 			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 			{
@@ -671,7 +671,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				height = Q_max( 1, ( tex->height >> j ));
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
 				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageDXT( tex, i, j, width, height, tex->depth, size, buf );
+				GL_TextureImageCompressed( tex, i, j, width, height, tex->depth, size, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
 				tex->numMips++;
@@ -705,7 +705,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
 			else data = buf;
 
-			if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+			if( !ImageCompressed( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
 				data = GL_ApplyFilter( data, tex->width, tex->height );
 
 			// mips will be auto-generated if desired
@@ -753,7 +753,7 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 	if( tex->flags & TF_FORCE_COLOR ) pic->flags |= IMAGE_HAS_COLOR;
 	if( pic->flags & IMAGE_HAS_ALPHA ) tex->flags |= TF_HAS_ALPHA;
 
-	if( ImageDXT( pic->type ))
+	if( ImageCompressed( pic->type ))
 	{
 		if( !pic->numMips )
 			tex->flags |= TF_NOMIPMAP; // disable mipmapping by user request
@@ -1178,7 +1178,7 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 		return;
 	}
 
-	if( ImageDXT( image->original->type ))
+	if( ImageCompressed( image->original->type ))
 	{
 		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: can't process compressed texture %s\n", image->name );
 		return;
