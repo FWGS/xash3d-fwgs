@@ -249,7 +249,7 @@ WriteSkinFamilyInfo
 static void WriteSkinFamilyInfo( FILE *fp )
 {
 	int			 i, j, k;
-	short			*skinref, index;
+	short			*skinref, *index;
 	mstudiotexture_t	*texture;
 
 	if( texture_hdr->numskinfamilies < 2 )
@@ -260,23 +260,22 @@ static void WriteSkinFamilyInfo( FILE *fp )
 	fputs( "$texturegroup \"skinfamilies\"\n{\n", fp );
 
 	skinref = (short *)( (byte *)texture_hdr + texture_hdr->skinindex );
+	texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
 
 	for( i = 0; i < texture_hdr->numskinfamilies; ++i )
 	{
 		fputs( "\t{\n", fp );
 
-		for( j = 0; j < texture_hdr->numskinref; ++j )
-		{
-			index = *( skinref + i * texture_hdr->numskinref + j );
+		index = skinref + i * texture_hdr->numskinref;
 
+		for( j = 0; j < texture_hdr->numskinref; ++j, ++index )
+		{
 			for( k = 0; k < texture_hdr->numskinfamilies; ++k )
 			{
-				if( index == *( skinref + k * texture_hdr->numskinref + j ) )
+				if( *index == *( skinref + k * texture_hdr->numskinref + j ) )
 					continue;
 
-				texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ) + index;
-
-				fprintf( fp, "\t\t\"%s\"\n", texture->name );
+				fprintf( fp, "\t\t\"%s\"\n", texture[*index].name );
 				break;
 			}
 		}
@@ -301,15 +300,13 @@ static void WriteAttachmentInfo( FILE *fp )
 	if( !model_hdr->numattachments )
 		return;
 
+	attachment = (mstudioattachment_t *)( (byte *)model_hdr + model_hdr->attachmentindex );
+	bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
+
 	fprintf( fp, "// %i attachment%s\n", model_hdr->numattachments, model_hdr->numattachments > 1 ? "s" : "" );
 
-	for( i = 0; i < model_hdr->numattachments; ++i )
-	{
-		attachment = (mstudioattachment_t *)( (byte *)model_hdr + model_hdr->attachmentindex ) + i;
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + attachment->bone;
-
-		fprintf( fp, "$attachment %i \"%s\" %f %f %f\n", i, bone->name, attachment->org[0], attachment->org[1], attachment->org[2] );
-	}
+	for( i = 0; i < model_hdr->numattachments; ++i, ++attachment )
+		fprintf( fp, "$attachment %i \"%s\" %f %f %f\n", i, bone[attachment->bone].name, attachment->org[0], attachment->org[1], attachment->org[2] );
 
 	fputs( "\n", fp );
 }
@@ -322,20 +319,18 @@ WriteBodyGroupInfo
 static void WriteBodyGroupInfo( FILE *fp )
 {
 	int			 i, j;
-	mstudiobodyparts_t	*bodypart;
+	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex );
 	mstudiomodel_t		*model;
 	char			 modelname[64];
 
 	fprintf( fp, "// %i reference mesh%s\n", model_hdr->numbodyparts, model_hdr->numbodyparts > 1 ? "es" : "" );
 
-	for( i = 0; i < model_hdr->numbodyparts; ++i )
+	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
 	{
-		bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex ) + i;
+		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
 		if( bodypart->nummodels == 1 )
 		{
-			model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
-
 			COM_FileBase( model->name, modelname, sizeof( modelname ));
 
 			fprintf( fp, "$body \"%s\" \"%s\"\n", bodypart->name, modelname );
@@ -346,10 +341,8 @@ static void WriteBodyGroupInfo( FILE *fp )
 
 		fputs( "{\n", fp );
 
-		for( j = 0; j < bodypart->nummodels; ++j )
+		for( j = 0; j < bodypart->nummodels; ++j, ++model )
 		{
-			model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex ) + j;
-
 			if( !Q_strncmp( model->name, "blank", 5 ) )
 			{
 				fputs( "\tblank\n", fp );
@@ -382,13 +375,13 @@ static void WriteControllerInfo( FILE *fp )
 	if( !model_hdr->numbonecontrollers )
 		return;
 
+	bonecontroller = (mstudiobonecontroller_t *)( (byte *)model_hdr + model_hdr->bonecontrollerindex );
+	bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
+
 	fprintf( fp, "// %i bone controller%s\n", model_hdr->numbonecontrollers, model_hdr->numbonecontrollers > 1 ? "s" : "" );
 
-	for( i = 0; i < model_hdr->numbonecontrollers; ++i )
+	for( i = 0; i < model_hdr->numbonecontrollers; ++i, ++bonecontroller )
 	{
-		bonecontroller = (mstudiobonecontroller_t *)( (byte *)model_hdr + model_hdr->bonecontrollerindex ) + i;
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + bonecontroller->bone;
-
 		GetMotionTypeString( bonecontroller->type & ~STUDIO_RLOOP, motion_types, sizeof( motion_types ), false );
 
 		fputs( "$controller ", fp );
@@ -399,7 +392,7 @@ static void WriteControllerInfo( FILE *fp )
 			fprintf( fp, "%i", bonecontroller->index );
 
 		fprintf( fp, " \"%s\" %s %f %f\n",
-		    bone->name, motion_types,
+		    bone[bonecontroller->bone].name, motion_types,
 		    bonecontroller->start, bonecontroller->end );
 	}
 
@@ -420,18 +413,16 @@ static void WriteHitBoxInfo( FILE *fp )
 	if( !model_hdr->numhitboxes )
 		return;
 
+	hitbox = (mstudiobbox_t *)( (byte *)model_hdr + model_hdr->hitboxindex );
+	bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
+
 	fprintf( fp, "// %i hit box%s\n", model_hdr->numhitboxes, model_hdr->numhitboxes > 1 ? "es" : "" );
 
-	for( i = 0; i < model_hdr->numhitboxes; i++ )
-	{
-		hitbox = (mstudiobbox_t *)( (byte *)model_hdr + model_hdr->hitboxindex ) + i;
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + hitbox->bone;
-
+	for( i = 0; i < model_hdr->numhitboxes; ++i, ++hitbox )
 		fprintf( fp, "$hbox %i \"%s\" %f %f %f %f %f %f\n",
-		    hitbox->group, bone->name,
+		    hitbox->group, bone[hitbox->bone].name,
 		    hitbox->bbmin[0], hitbox->bbmin[1], hitbox->bbmin[2],
 		    hitbox->bbmax[0], hitbox->bbmax[1], hitbox->bbmax[2] );
-	}
 
 	fputs( "\n", fp );
 }
@@ -477,19 +468,18 @@ static void WriteSequenceInfo( FILE *fp )
 
 	if( model_hdr->numseq > 0 )
 		fprintf( fp, "// %i animation sequence%s\n", model_hdr->numseq, model_hdr->numseq > 1 ? "s" : "" );
+	else return;
 
-	for( i = 0; i < model_hdr->numseq; ++i )
+	seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
+
+	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
-		seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ) + i;
-
 		fprintf( fp, "$sequence \"%s\" {\n", seqdesc->label );
 
 		if( seqdesc->numblends > 1 )
 		{
 			for( j = 0; j < seqdesc->numblends; j++ )
-			{
 				fprintf( fp, "\t\"%s_blend%02i\"\n", seqdesc->label, j + 1 );
-			}
 		}
 		else
 		{
@@ -524,10 +514,10 @@ static void WriteSequenceInfo( FILE *fp )
 				printf( "WARNING: Something wrong with blending type for sequence: %s\n", seqdesc->label );
 		}
 
-		for( j = 0; j < seqdesc->numevents; j++ )
-		{
-			event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex ) + j;
+		event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex );
 
+		for( j = 0; j < seqdesc->numevents; ++j, ++event )
+		{
 			fprintf( fp, "\t{ event %i %i", event->event, event->frame );
 
 			if( event->options[0] != '\0' )

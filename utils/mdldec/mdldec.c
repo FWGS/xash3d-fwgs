@@ -41,21 +41,17 @@ static void SequenceNameFix( void )
 {
 	int			 i, j, counter;
 	qboolean		 hasduplicates = false;
-	mstudioseqdesc_t	*seqdesc, *seqdesc1;
+	mstudioseqdesc_t	*seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ), *seqdesc1;
 
-	for( i = 0; i < model_hdr->numseq; i++ )
+	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
-		seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ) + i;
-
 		counter = 1;
 
-		for( j = 0; j < model_hdr->numseq; j++ )
-		{
-			seqdesc1 = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ) + j;
+		seqdesc1 = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
 
+		for( j = 0; j < model_hdr->numseq; ++j, ++seqdesc1 )
 			if( j != i && !Q_strncmp( seqdesc1->label, seqdesc->label, sizeof( seqdesc1->label ) ) )
 				Q_snprintf( seqdesc1->label, sizeof( seqdesc1->label ), "%s_%i", seqdesc1->label, ++counter );
-		}
 
 		if( counter > 1 )
 		{
@@ -79,15 +75,11 @@ BoneNameFix
 static void BoneNameFix( void )
 {
 	int		 i, counter = 0;
-	mstudiobone_t	*bone;
+	mstudiobone_t	*bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
-	for( i = 0; i < model_hdr->numbones; i++ )
-	{
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + i;
-
+	for( i = 0; i < model_hdr->numbones; ++i, ++bone )
 		if( bone->name[0] == '\0' )
 			Q_snprintf( bone->name, sizeof( bone->name ), "MDLDEC_Bone%i", ++counter );
-	}
 
 	if( counter )
 		printf( "WARNING: Gived name to %i unnamed bone(s).\n", counter );
