@@ -33,7 +33,7 @@ static void WriteBMP( mstudiotexture_t *texture )
 	int		 i, len;
 	FILE		*fp;
 	const byte	*p;
-	byte		*palette, *pic, *buf;
+	byte		*palette, *pic;
 	char		 filename[MAX_SYSPATH], texturename[64];
 	rgba_t		 rgba_palette[256];
 	bmp_t		 bmp_hdr = {0,};
@@ -87,22 +87,16 @@ static void WriteBMP( mstudiotexture_t *texture )
 
 	fwrite( rgba_palette, sizeof( rgba_palette ), 1, fp );
 
-	buf = malloc( texture_size );
-
 	p = pic;
 	p += ( bmp_hdr.height - 1 ) * bmp_hdr.width;
 
 	for( i = 0; i < bmp_hdr.height; i++ )
 	{
-		memcpy( buf + bmp_hdr.width * i, p, bmp_hdr.width );
+		fwrite( p, bmp_hdr.width, 1, fp );
 		p -= bmp_hdr.width;
 	}
 
-	fwrite( buf, texture_size, 1, fp );
-
 	fclose( fp );
-
-	free( buf );
 
 	printf( "Texture: %s\n", filename );
 }
@@ -115,13 +109,9 @@ WriteTextures
 void WriteTextures( void )
 {
 	int			 i;
-	mstudiotexture_t	*texture;
+	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
 
-	for( i = 0; i < texture_hdr->numtextures; i++ )
-	{
-		texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ) + i;
-
+	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
 		WriteBMP( texture );
-	}
 }
 

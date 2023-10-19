@@ -53,14 +53,12 @@ FillBoneTransformMatrices
 static void FillBoneTransformMatrices( void )
 {
 	int		 i;
-	mstudiobone_t	*bone;
+	mstudiobone_t	*bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 	matrix3x4	 bonematrix;
 	vec4_t		 q;
 
-	for( i = 0; i < model_hdr->numbones; i++ )
+	for( i = 0; i < model_hdr->numbones; ++i, ++bone )
 	{
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + i;
-
 		AngleQuaternion( &bone->value[3], q, true );
 		Matrix3x4_FromOriginQuat( bonematrix, q, bone->value );
 
@@ -84,7 +82,7 @@ static void FillWorldTransformMatrices( void )
 	int			 i;
 	mstudioboneinfo_t	*boneinfo = (mstudioboneinfo_t *)( (byte *)model_hdr + model_hdr->boneindex + model_hdr->numbones * sizeof( mstudiobone_t ) );
 
-	for( i = 0; i < model_hdr->numbones; i++, boneinfo++ )
+	for( i = 0; i < model_hdr->numbones; ++i, ++boneinfo )
 		Matrix3x4_ConcatTransforms( worldtransform[i], bonetransform[i], boneinfo->poseToBone );
 }
 
@@ -186,16 +184,12 @@ WriteNodes
 static void WriteNodes( FILE *fp )
 {
 	int		 i;
-	mstudiobone_t	*bone;
+	mstudiobone_t	*bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
 	fputs( "nodes\n", fp );
 
-	for( i = 0; i < model_hdr->numbones; i++ )
-	{
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + i;
-
+	for( i = 0; i < model_hdr->numbones; ++i, ++bone )
 		fprintf( fp, "%3i \"%s\" %i\n", i, bone->name, bone->parent );
-	}
 
 	fputs( "end\n", fp );
 }
@@ -208,15 +202,13 @@ WriteSkeleton
 static void WriteSkeleton( FILE *fp )
 {
 	int		 i, j;
-	mstudiobone_t	*bone;
+	mstudiobone_t	*bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
 	fputs( "skeleton\n", fp );
 	fputs( "time 0\n", fp );
 
-	for( i = 0; i < model_hdr->numbones; i++ )
+	for( i = 0; i < model_hdr->numbones; ++i, ++bone )
 	{
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + i;
-
 		fprintf( fp, "%3i", i );
 
 		for( j = 0; j < 6; j++ )
@@ -235,7 +227,7 @@ WriteTriangleInfo
 */
 static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t *texture, mstudiotrivert_t **triverts, qboolean isevenstrip )
 {
-	int			 i, j, k, l, indices[3];
+	int			 i, j, k, l, index;
 	int			 vert_index;
 	int			 norm_index;
 	int			 bone_index;
@@ -249,19 +241,6 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 	matrix3x4		 bonematrix[MAXSTUDIOBONEWEIGHTS], skinmatrix, *pskinmatrix;
 	mstudioboneweight_t	*studioboneweights;
 
-	if( isevenstrip )
-	{
-		indices[0] = 1;
-		indices[1] = 2;
-		indices[2] = 0;
-	}
-	else
-	{
-		indices[0] = 0;
-		indices[1] = 1;
-		indices[2] = 2;
-	}
-
 	vertbone    = ( (byte *)model_hdr + model->vertinfoindex );
 	studioverts = (vec3_t *)( (byte *)model_hdr + model->vertindex );
 	studionorms = (vec3_t *)( (byte *)model_hdr + model->normindex );
@@ -274,14 +253,15 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 
 	for( i = 0; i < 3; i++ )
 	{
-		vert_index = triverts[indices[i]]->vertindex;
-		norm_index = triverts[indices[i]]->normindex;
+		index = isevenstrip ? ( i + 1 ) % 3 : i;
+		vert_index = triverts[index]->vertindex;
+		norm_index = triverts[index]->normindex;
 		bone_index = vertbone[vert_index];
 
 		if( model_hdr->flags & STUDIO_HAS_BONEWEIGHTS )
 		{
 			valid_bones = 0, totalweight = 0;
-			memset(skinmatrix, 0, sizeof(matrix3x4));
+			memset( skinmatrix, 0, sizeof( matrix3x4 ) );
 
 			for( j = 0; j < MAXSTUDIOBONEWEIGHTS; ++j )
 				if( studioboneweights[vert_index].bone[j] != -1 )
@@ -315,13 +295,13 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 
 		if( texture->flags & STUDIO_NF_UV_COORDS )
 		{
-			u = HalfToFloat( triverts[indices[i]]->s );
-			v = -HalfToFloat( triverts[indices[i]]->t );
+			u = HalfToFloat( triverts[index]->s );
+			v = -HalfToFloat( triverts[index]->t );
 		}
 		else
 		{
-			u = ( triverts[indices[i]]->s + 1.0f ) * s;
-			v = 1.0f - triverts[indices[i]]->t * t;
+			u = ( triverts[index]->s + 1.0f ) * s;
+			v = 1.0f - triverts[index]->t * t;
 		}
 
 		fprintf( fp, "%3i %f %f %f %f %f %f %f %f",
@@ -354,16 +334,15 @@ WriteTriangles
 static void WriteTriangles( FILE *fp, mstudiomodel_t *model )
 {
 	int			 i, j, k;
-	mstudiomesh_t		*mesh;
+	mstudiomesh_t		*mesh = (mstudiomesh_t *)( (byte *)model_hdr + model->meshindex );
 	mstudiotexture_t	*texture;
 	mstudiotrivert_t	*triverts[3];
 	short			*tricmds;
 
 	fputs( "triangles\n", fp );
 
-	for( i = 0; i < model->nummesh; i++ )
+	for( i = 0; i < model->nummesh; ++i, ++mesh )
 	{
-		mesh = (mstudiomesh_t *)( (byte *)model_hdr + model->meshindex ) + i;
 		tricmds = (short *)( (byte *)model_hdr + mesh->triindex );
 		texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ) + mesh->skinref;
 
@@ -450,14 +429,12 @@ static void WriteFrameInfo( FILE *fp, mstudioanim_t *anim, mstudioseqdesc_t *seq
 	int			 i, j;
 	float			 scale;
 	vec_t			 motion[6]; // x, y, z, xr, yr, zr
-	mstudiobone_t		*bone;
+	mstudiobone_t		*bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
 	fprintf( fp, "time %i\n", frame );
 
-	for( i = 0; i < model_hdr->numbones; i++, anim++ )
+	for( i = 0; i < model_hdr->numbones; ++i, ++anim, ++bone )
 	{
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + i;
-
 		CalcBonePosition( anim, bone, motion, frame );
 
 		if( bone->parent == -1 )
@@ -529,14 +506,14 @@ static void WriteReferences( void )
 		FillWorldTransformMatrices();
 	}
 
-	for( i = 0; i < model_hdr->numbodyparts; i++ )
+	bodypart = (mstudiobodyparts_t *)( (byte *)model_hdr + model_hdr->bodypartindex );
+
+	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
 	{
-		bodypart = (mstudiobodyparts_t *)( (byte *)model_hdr + model_hdr->bodypartindex ) + i;
+		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
-		for( j = 0; j < bodypart->nummodels; j++ )
+		for( j = 0; j < bodypart->nummodels; ++j, ++model )
 		{
-			model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex ) + j;
-
 			if( !Q_strncmp( model->name, "blank", 5 ) )
 				continue;
 
@@ -588,12 +565,10 @@ static void WriteSequences( void )
 	int			 len;
 	FILE			*fp;
 	char			 filename[MAX_SYSPATH];
-	mstudioseqdesc_t	*seqdesc;
+	mstudioseqdesc_t	*seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
 
-	for( i = 0; i < model_hdr->numseq; i++ )
+	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
-		seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ) + i;
-
 		for( j = 0; j < seqdesc->numblends; j++ )
 		{
 			if( seqdesc->numblends == 1 )
