@@ -1795,7 +1795,6 @@ static struct arraystate_s
 	enum texture_state_e tstate;
 	enum lightmap_state_e lstate;
 	int itexture;
-	int ilightmap;
 	qboolean decal_mode;
 } vboarray;
 
@@ -2248,13 +2247,14 @@ void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean dra
 		if( drawlightmap && vboarray.lstate != VBO_LIGHTMAP_STATIC )
 		{
 			// set lightmap texenv
-			if( vboarray.ilightmap )
-				GL_Bind( mtst.tmu_lm = XASH_TEXTURE1, tr.lightmapTextures[vboarray.ilightmap] );
+			if( mtst.lm  )
+				GL_Bind( mtst.tmu_lm = XASH_TEXTURE1, mtst.lm );
 			else
 				GL_SelectTexture( mtst.tmu_lm = XASH_TEXTURE1 );
 			pglEnable( GL_TEXTURE_2D );
 			pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
 			R_SetLightmap();
+			vboarray.lstate =  VBO_LIGHTMAP_STATIC;
 		}
 		R_SetDecalMode( false );
 	}
@@ -2910,7 +2910,6 @@ void R_ClearVBOState( qboolean drawlightmap, qboolean drawtextures )
 	vboarray.tstate = VBO_TEXTURE_NONE;
 	vboarray.lstate = VBO_LIGHTMAP_NONE;
 	vboarray.itexture = 0;
-	vboarray.ilightmap = 0;
 }
 
 
@@ -2958,7 +2957,6 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 		if( drawlightmap )
 		{
 			GL_Bind( mtst.tmu_lm, mtst.lm = tr.lightmapTextures[k] );
-			vboarray.ilightmap = k;
 		}
 
 		for( j = vbos.mintexture; j < vbos.maxtexture; j++ )
