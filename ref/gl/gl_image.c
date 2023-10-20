@@ -166,7 +166,7 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 	}
 	else if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
 	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || ( IsLightMap( tex ) && gl_lightmap_nearest.value ))
+		if( FBitSet( tex->flags, TF_NEAREST ) || ( IsLightMap( tex ) && gl_lightmap_nearest.value ) || ( tex->flags == TF_SKYSIDE && gl_texture_nearest.value ))
 		{
 			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
