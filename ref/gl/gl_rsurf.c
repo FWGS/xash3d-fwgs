@@ -1917,7 +1917,7 @@ void R_GenerateVBO( void )
 				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
 					continue;
 
-				if( R_TextureRandomTiling( surf ) != world->textures[j] )
+				if( R_TextureAnimation( surf ) != world->textures[j] )
 					continue;
 
 				if( vbo->array_len + surf->polys->numverts > VBOINDEX_MAX )
@@ -1985,7 +1985,7 @@ void R_GenerateVBO( void )
 				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
 					continue;
 
-				if( R_TextureRandomTiling( surf ) != world->textures[j] )
+				if( R_TextureAnimation( surf ) != world->textures[j] )
 					continue;
 
 				// switch to next array
