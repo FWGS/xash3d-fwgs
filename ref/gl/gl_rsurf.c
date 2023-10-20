@@ -2284,7 +2284,7 @@ void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean dra
 			pglEnableClientState( GL_VERTEX_ARRAY );
 			pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t,pos) );
 		}
-		vboarray.astate = VBO_ARRAY_STATIC;
+
 
 		// setup multitexture
 		if( drawtextures && vboarray.tstate != VBO_TEXTURE_MAIN )
@@ -2297,7 +2297,7 @@ void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean dra
 			vboarray.tstate = VBO_TEXTURE_MAIN;
 		}
 
-		if( drawlightmap && vboarray.lstate != VBO_LIGHTMAP_STATIC )
+		if( drawlightmap && (vboarray.lstate != VBO_LIGHTMAP_STATIC || vboarray.astate == VBO_ARRAY_DECAL ) )
 		{
 			// set lightmap texenv
 			if( mtst.lm  )
@@ -2309,6 +2309,7 @@ void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean dra
 			R_SetLightmap();
 			vboarray.lstate =  VBO_LIGHTMAP_STATIC;
 		}
+		vboarray.astate = VBO_ARRAY_STATIC;
 		R_SetDecalMode( false );
 	}
 }
