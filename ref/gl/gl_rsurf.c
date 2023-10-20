@@ -425,6 +425,44 @@ texture_t *R_TextureAnim( texture_t *b )
 	return base;
 }
 
+
+/*
+===============
+R_TextureRandomTiling
+
+Returns the proper texture for a given surface without animation
+===============
+*/
+texture_t *R_TextureRandomTiling( msurface_t *s )
+{
+	texture_t	*base = s->texinfo->texture;
+	int	count, reletive;
+
+	if( !base->anim_total )
+		return base;
+
+	if( base->name[0] == '-' )
+	{
+		int	tx = (int)((s->texturemins[0] + (base->width << 16)) / base->width) % MOD_FRAMES;
+		int	ty = (int)((s->texturemins[1] + (base->height << 16)) / base->height) % MOD_FRAMES;
+
+		reletive = rtable[tx][ty] % base->anim_total;
+	}
+
+	count = 0;
+
+	while( base->anim_min > reletive || base->anim_max <= reletive )
+	{
+		base = base->anim_next;
+
+		if( !base || ++count > MOD_FRAMES )
+			return s->texinfo->texture;
+	}
+
+	return base;
+}
+
+
 /*
 ===============
 R_TextureAnimation
@@ -1280,6 +1318,8 @@ void R_DrawTextureChains( void )
 		skychain = NULL;
 	}
 
+	R_DrawVBO( !r_fullbright->value && !!WORLDMODEL->lightdata, true );
+
 	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
 		t = WORLDMODEL->textures[i];
@@ -1808,7 +1848,10 @@ Allocate memory for arrays, fill it with vertex attribs and upload to GPU
 */
 void R_GenerateVBO( void )
 {
-	int numtextures = WORLDMODEL->numtextures;
+	model_t *world = WORLDMODEL;
+	msurface_t *surfaces = world->surfaces;
+	int numsurfaces = world->numsurfaces;
+	int numtextures = world->numtextures;
 	int numlightmaps = gl_lms.current_lightmap_texture;
 	int k, len = 0;
 	vboarray_t *vbo;
@@ -1854,17 +1897,17 @@ void R_GenerateVBO( void )
 			int i;
 			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
 
-			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
+			for( i = 0; i < numsurfaces; i++ )
 			{
-				msurface_t *surf = &WORLDMODEL->surfaces[i];
-
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
-					continue;
+				msurface_t *surf = &surfaces[i];
 
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( R_TextureAnimation( surf ) != WORLDMODEL->textures[j] )
+				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+					continue;
+
+				if( R_TextureRandomTiling( surf ) != world->textures[j] )
 					continue;
 
 				if( vbo->array_len + surf->polys->numverts > USHRT_MAX )
@@ -1921,18 +1964,18 @@ void R_GenerateVBO( void )
 			if( maxindex < vbotex->len )
 				maxindex = vbotex->len;
 
-			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
+			for( i = 0; i < numsurfaces; i++ )
 			{
-				msurface_t *surf = &WORLDMODEL->surfaces[i];
+				msurface_t *surf = &surfaces[i];
 				int l;
-
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
-					continue;
 
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( R_TextureAnimation( surf ) != WORLDMODEL->textures[j] )
+				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+					continue;
+
+				if( R_TextureRandomTiling( surf ) != world->textures[j] )
 					continue;
 
 				// switch to next array
@@ -1968,9 +2011,9 @@ void R_GenerateVBO( void )
 					vbo->array[len + l].lm_tc[0] = v[5];
 					vbo->array[len + l].lm_tc[1] = v[6];
 #ifdef NO_TEXTURE_MATRIX
-					if( WORLDMODEL->textures[j]->dt_texturenum )
+					if( world->textures[j]->dt_texturenum )
 					{
-						gl_texture_t *glt = R_GetTexture( WORLDMODEL->textures[j]->gl_texturenum );
+						gl_texture_t *glt = R_GetTexture( world->textures[j]->gl_texturenum );
 						vbo->array[len + l].dt_tc[0] = v[3] * glt->xscale;
 						vbo->array[len + l].dt_tc[1] = v[4] * glt->yscale;
 					}
@@ -2987,6 +3030,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 				vbo = vbo->next;
 				vboarray.astate = VBO_ARRAY_NONE; // invalidate
 				vboarray.tstate = VBO_TEXTURE_NONE;
+				vboarray.lstate = VBO_LIGHTMAP_NONE;
 
 				if( drawtextures )
 				{
@@ -3516,7 +3560,6 @@ void R_DrawWorld( void )
 	r_stats.t_world_node = end - start;
 
 	start = gEngfuncs.pfnTime();
-	R_DrawVBO( !r_fullbright->value && !!WORLDMODEL->lightdata, true );
 
 	R_DrawTextureChains();
 
