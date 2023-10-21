@@ -1015,8 +1015,12 @@ qboolean R_Init_Video( const int type )
 	refState.desktopBitsPixel = 16;
 #endif
 
+#ifdef SDL_HINT_QTWAYLAND_WINDOW_FLAGS
 	SDL_SetHint( SDL_HINT_QTWAYLAND_WINDOW_FLAGS, "OverridesSystemGestures" );
+#endif
+#ifdef SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
+#endif
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 ) && !XASH_WIN32
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
