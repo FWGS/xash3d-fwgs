@@ -172,6 +172,8 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 {
 	if( newstate == oldstate )
 		return;
+	if( m_ignore.value )
+		return;
 
 	// since SetCursorType controls cursor visibility
 	// execute it first, and then check mouse grab state
@@ -211,6 +213,9 @@ void IN_CheckMouseState( qboolean active )
 #else
 	qboolean useRawInput = true; // always use SDL code
 #endif
+
+	if( m_ignore.value )
+		return;
 
 	if( active && useRawInput && !host.mouse_visible && cls.state == ca_active )
 	{
