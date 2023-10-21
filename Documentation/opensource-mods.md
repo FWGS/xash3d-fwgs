@@ -133,22 +133,8 @@ Available in mod archive on ModDB - https://www.moddb.com/mods/overturn
 ## Oz Deathmatch
 Mirrored on github - https://github.com/nekonomicon/OZDM
 
-## Spirit of Half-Life
-[Logic&Trick's](https://github.com/LogicAndTrick) mirror - https://files.logic-and-trick.com/#/Half-Life/Mods/Spirit%20of%20Half-Life
-
-## Threewave CTF
-*Unfinished mod by Valve Software*
-
-Available in Valve's Half-Life repository with Deathmatch Classic sources - https://github.com/ValveSoftware/halflife/tree/master/dmc
-
-## Trinity Render
-Available on ModDB: https://www.moddb.com/mods/half-life-episode-two/downloads/trinity-rendering-engine-v308f
-
-## Tyrian: Ground Assault
-Available on ModDB: https://www.moddb.com/mods/tyriangroundassault/downloads/tyrianga-v1-0-src
-
 ## Paranoia
-Available on ModDB: https://www.moddb.com/mods/paranoia/downloads/paranoia-toolkit
+Available on ModDB - https://www.moddb.com/mods/paranoia/downloads/paranoia-toolkit
 
 ## Paranoia 2: The Savior
 Prealpha, mirrored on github - https://github.com/a1batross/Paranoia2_ancient
@@ -163,11 +149,36 @@ Was found on HLFX - http://hlfx.ru/forum/showthread.php?s=2c892dfc52f72be52a89c3
 ## Ricochet
 Available in Valve's Half-Life repository - https://github.com/ValveSoftware/halflife/tree/master/ricochet
 
+## Spirit of Half-Life
+[Logic&Trick's](https://github.com/LogicAndTrick) mirror - https://files.logic-and-trick.com/#/Half-Life/Mods/Spirit%20of%20Half-Life
+
+## The Wastes
+Version 1.5: mirrored on code.idtech.space - https://code.idtech.space/vera/halflife-thewastes-sdk
+
+## Threewave CTF
+*Unfinished mod by Valve Software*
+
+Available in Valve's Half-Life repository with Deathmatch Classic sources - https://github.com/ValveSoftware/halflife/tree/master/dmc
+
+## Trinity Render
+Available on ModDB - https://www.moddb.com/mods/half-life-episode-two/downloads/trinity-rendering-engine-v308f
+
+## Tyrian: Ground Assault
+Available on ModDB - https://www.moddb.com/mods/tyriangroundassault/downloads/tyrianga-v1-0-src
+
+## Wasteland
+Mirrored on code.idtech.space - https://code.idtech.space/vera/halflife-wasteland-sdk
+
 ## Wizard Wars
 Download page on official site - http://www.thothie.com/ww/
 
 ## XashXT
 Mirrored on github - https://github.com/a1batross/XashXT_original
+
+## Xen-Warrior
+*Source code is a part of Spirit of Half-Life 1.0-1.2 under XENWARRIOR macro*
+
+[Logic&Trick's](https://github.com/LogicAndTrick) mirror - https://files.logic-and-trick.com/#/Half-Life/Mods/Spirit%20of%20Half-Life
 
 ## Zombie-X
 Available in mod archive on ModDB - https://www.moddb.com/mods/zombie-x-10-final/downloads/zombie-x-10-dle-beta6-last-version
@@ -190,12 +201,12 @@ malortie's recreation - https://github.com/malortie/hl-aom
 Branch **aom** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aom
 
 ## Afraid of Monsters: Director's cut
-Reverse-engineered code, branch **aomdc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aomdc
+Reverse-engineered code: branch **aomdc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aomdc
 
 ## Azure Sheep
 malortie's recreation - https://github.com/malortie/hl-asheep
 
-Reverse-engineered code, branch **asheep** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/asheep
+Reverse-engineered code: branch **asheep** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/asheep
 
 ## Big Lolly
 malortie's recreation - https://github.com/malortie/hl-biglolly
@@ -232,12 +243,17 @@ Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/crack_lif
 ## Escape from the Darkness
 malortie's recreation - https://github.com/malortie/hl-eftd
 
-Reverse-engineered code, branch **eftd** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/eftd
+Reverse-engineered code: branch **eftd** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/eftd
+
+## Half-Life: Black Guard
+*This mod uses dlls from Cleaner's Adventures*
+
+Branch **CAd** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/CAd
 
 ## Half-Life: Blue Shift
 Unkle Mike's recreation - https://hlfx.ru/forum/showthread.php?s=&threadid=5253
 
-Reverse-engineered code, branch **bshift** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/bshift
+Reverse-engineered code: branch **bshift** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/bshift
 
 ## Half-Life: Induction
 Branch **induction** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/induction
@@ -245,12 +261,12 @@ Branch **induction** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/
 ## Half-Life: Opposing Force
 Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/hlsdk-xash3d
 
-Reverse-engineered code, clean branch **opfor** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/opfor
+Reverse-engineered code: clean branch **opfor** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/opfor
 
 Spirit of Half Life: Opposing-Force Edition - https://github.com/Hammermaps-DEV/SOHL-V1.9-Opposing-Force-Edition
 
 ## Half-Life: Rebellion
-Reverse-engineered code, branch **rebellion** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/rebellion
+Reverse-engineered code: branch **rebellion** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/rebellion
 
 ## Half-Life: Urbicide
 Branch **hl_urbicide** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/hl_urbicide
@@ -258,7 +274,7 @@ Branch **hl_urbicide** in hlsdk-portable - https://github.com/FWGS/hlsdk-portabl
 ## Half-Life: Visitors
 malortie's recreation - https://github.com/malortie/hl-visitors
 
-Reverse-engineered code, branch **visitors** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/visitors
+Reverse-engineered code: branch **visitors** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/visitors
 
 ## Half-Secret
 Branch **half-secret** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/half-secret
@@ -271,18 +287,18 @@ Branch **noffice** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tr
 ## Poke 646
 malortie's recreation - https://github.com/malortie/hl-poke646
 
-Reverse-engineered code, branch **poke646** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646
+Reverse-engineered code: branch **poke646** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646
 
 ## Poke 646: Vendetta
 malortie's recreation - https://github.com/malortie/hl-poke646-vendetta
 
-Reverse-engineered code, branch **poke646_vendetta** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646_vendetta
+Reverse-engineered code: branch **poke646_vendetta** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646_vendetta
 
 ## Residual Life
-Reverse-engineered code, branch **residual_point** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/residual_point
+Reverse-engineered code: branch **residual_point** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/residual_point
 
 ## Residual Point
-Reverse-engineered code, branch **residual_point** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/residual_point
+Reverse-engineered code: branch **residual_point** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/residual_point
 
 ## Sewer Beta
 Branch **sewer_beta** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/sewer_beta
@@ -293,12 +309,12 @@ Reverse-engineered code by Velaron - https://github.com/Velaron/tf15-client
 ## The Gate
 malortie's recreation - https://github.com/malortie/hl-thegate
 
-Reverse-engineered code, branch **thegate** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/thegate
+Reverse-engineered code: branch **thegate** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/thegate
 
 ## They Hunger
 malortie's recreation - https://github.com/malortie/hl-theyhunger
 
-Reverse-engineered code, branch **theyhunger** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/theyhunger
+Reverse-engineered code: branch **theyhunger** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/theyhunger
 
 They Hunger: Tactical - https://www.moddb.com/mods/they-hunger-tactical/downloads/tht-source-code-documentation
 
@@ -341,15 +357,21 @@ Branch **half-screwed** in hlsdk-portable - https://github.com/FWGS/hlsdk-portab
 Port to Linux - https://github.com/fmoraw/NS
 
 ## Spirit of Half-Life
-Version 1.2, branch **sohl1.2** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/sohl1.2
+Version 1.2: branch **sohl1.2** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/sohl1.2
 
 ## Swiss Cheese Halloween 2002
 Just more playable version by malortie - https://github.com/malortie/hl-shall
 
 Branch **halloween** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/halloween
 
+## The Wastes
+Version 1.5: Port to Linux - https://git.mentality.rip/a1batross/halflife-thewastes-sdk
+
 ## Threewave CTF
 Branch **dmc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/dmc
+
+## Xen-Warrior
+Branch **sohl1.2** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/sohl1.2
 
 ## Zombie-X
 Branch **zombie-x** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/zombie-x
