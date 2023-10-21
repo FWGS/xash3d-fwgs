@@ -551,22 +551,46 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 		// functions are cleared before all the extensions are evaluated
 		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
 		{
+
+			string name;
+
 			// HACK: fix ARB names
-			char *str = Q_strstr( func->name, "ARB" );
-			if(str)
+			const char *str = Q_strstr( func->name, "ARB" );
+			Q_strncpy( name, func->name, MAX_STRING );
+
+			if( str )
 			{
-				string name;
-
-				Q_strncpy( name, func->name, MAX_STRING );
-				name[str - func->name] = '\0';
+				name[str - func->name] = '\0'; // cut func suffix
+				// if this was glFuncARB, try glFunc
 				*func->func = gEngfuncs.GL_GetProcAddress( name );
-
-				if( !*func->func )
-					GL_SetExtension( r_ext, false );
 			}
 			else
-				// one or more functions are invalid, extension will be disabled
+			{
+				// set pointer to func name end to cut it correctly
+				str = func->name + Q_strlen( func->name );
+				name[str - func->name] = '\0';
+			}
+
+			// try glFuncEXT
+			if( !*func->func )
+			{
+				Q_strncat( name, "EXT", MAX_STRING );
+				*func->func = gEngfuncs.GL_GetProcAddress( name );
+			}
+
+#ifdef XASH_GLES
+			// try glFuncOES
+			if( !*func->func )
+			{
+				name[str - func->name] = '\0'; // cut EXT from previous try
+				Q_strncat( name, "OES", MAX_STRING );
+				*func->func = gEngfuncs.GL_GetProcAddress( name );
+			}
+#endif
+			if( !*func->func )
 				GL_SetExtension( r_ext, false );
+			else // GL_GetProcAddress prints errors about missing functions, so tell user that we found it with different name
+				gEngfuncs.Con_Printf( S_NOTE "found %s\n", name );
 		}
 	}
 #endif
