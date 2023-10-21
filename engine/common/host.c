@@ -1025,12 +1025,21 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 			host.rootdir[0] = 0;
 		}
 #elif (XASH_SDL == 2) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
-		char *szBasePath;
-
-		if( !( szBasePath = SDL_GetBasePath() ) )
+		char *szBasePath = SDL_GetBasePath();
+		if( szBasePath )
+		{
+			Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ));
+			SDL_free( szBasePath );
+		}
+		else
+		{
+#if XASH_POSIX || XASH_WIN32
+			if( !getcwd( host.rootdir, sizeof( host.rootdir )))
+				Sys_Error( "couldn't determine current directory: %s, getcwd: %s", SDL_GetError(), strerror( errno ));
+#else
 			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
-		Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ));
-		SDL_free( szBasePath );
+#endif
+		}
 #else
 		if( !getcwd( host.rootdir, sizeof( host.rootdir )))
 		{
