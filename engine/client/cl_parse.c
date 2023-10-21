@@ -1534,7 +1534,7 @@ void CL_SendConsistencyInfo( sizebuf_t *msg )
 		{
 		case force_exactfile:
 			MD5_HashFile( md5, filename, NULL );
-			pc->value = *(int *)md5;
+			memcpy( &pc->value, md5, sizeof( pc->value ));
 
 			if( user_changed_diskfile )
 				MSG_WriteUBitLong( msg, 0, 32 );

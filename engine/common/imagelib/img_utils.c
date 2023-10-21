@@ -284,7 +284,9 @@ int Image_ComparePalette( const byte *pal )
 void Image_SetPalette( const byte *pal, uint *d_table )
 {
 	byte	rgba[4];
+	uint uirgba; // TODO: palette looks byte-swapped on big-endian
 	int	i;
+
 
 	// setup palette
 	switch( image.d_rendermode )
@@ -296,7 +298,8 @@ void Image_SetPalette( const byte *pal, uint *d_table )
 			rgba[1] = pal[i*3+1];
 			rgba[2] = pal[i*3+2];
 			rgba[3] = 0xFF;
-			d_table[i] = *(uint *)rgba;
+			memcpy( &uirgba, rgba, sizeof( uirgba ));
+			d_table[i] = uirgba;
 		}
 		break;
 	case LUMP_GRADIENT:
@@ -306,7 +309,8 @@ void Image_SetPalette( const byte *pal, uint *d_table )
 			rgba[1] = pal[766];
 			rgba[2] = pal[767];
 			rgba[3] = i;
-			d_table[i] = *(uint *)rgba;
+			memcpy( &uirgba, rgba, sizeof( uirgba ));
+			d_table[i] = uirgba;
 		}
 		break;
 	case LUMP_MASKED:
@@ -316,7 +320,8 @@ void Image_SetPalette( const byte *pal, uint *d_table )
 			rgba[1] = pal[i*3+1];
 			rgba[2] = pal[i*3+2];
 			rgba[3] = 0xFF;
-			d_table[i] = *(uint *)rgba;
+			memcpy( &uirgba, rgba, sizeof( uirgba ));
+			d_table[i] = uirgba;
 		}
 		d_table[255] = 0;
 		break;
@@ -327,7 +332,8 @@ void Image_SetPalette( const byte *pal, uint *d_table )
 			rgba[1] = pal[i*4+1];
 			rgba[2] = pal[i*4+2];
 			rgba[3] = pal[i*4+3];
-			d_table[i] = *(uint *)rgba;
+			memcpy( &uirgba, rgba, sizeof( uirgba ));
+			d_table[i] = uirgba;
 		}
 		break;
 	}

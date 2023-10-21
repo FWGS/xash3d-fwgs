@@ -273,8 +273,10 @@ static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 	}
 	else if( a->type == NA_IP )
 	{
+		uint32_t ip;
 		((struct sockaddr_in *)s)->sin_family = AF_INET;
-		((struct sockaddr_in *)s)->sin_addr.s_addr = *(uint32_t *)&a->ip;
+		memcpy( &ip, &a->ip, sizeof( ip ));
+		((struct sockaddr_in *)s)->sin_addr.s_addr = ip;
 		((struct sockaddr_in *)s)->sin_port = a->port;
 	}
 	else if( a->type6 == NA_IP6 )
@@ -314,7 +316,7 @@ static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 	if( s->ss_family == AF_INET )
 	{
 		a->type = NA_IP;
-		*(int *)&a->ip = ((struct sockaddr_in *)s)->sin_addr.s_addr;
+		memcpy( &a->ip, &((struct sockaddr_in *)s)->sin_addr.s_addr, sizeof( uint32_t ));
 		a->port = ((struct sockaddr_in *)s)->sin_port;
 	}
 	else if( s->ss_family == AF_INET6 )

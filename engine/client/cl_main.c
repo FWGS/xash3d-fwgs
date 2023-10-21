@@ -2247,7 +2247,8 @@ void CL_ReadNetMessage( void )
 
 	while( CL_GetMessage( net_message_buffer, &curSize ))
 	{
-		if( cls.legacymode && *((int *)&net_message_buffer) == 0xFFFFFFFE )
+		const int split_header = 0xFFFFFFFE;
+		if( cls.legacymode && !memcmp( &split_header, net_message_buffer, sizeof( split_header )))
 			// Will rewrite existing packet by merged
 			if( !NetSplit_GetLong( &cls.netchan.netsplit, &net_from, net_message_buffer, &curSize ) )
 				continue;
