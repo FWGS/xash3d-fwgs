@@ -92,7 +92,7 @@ client_t		cl;
 client_static_t	cls;
 clgame_static_t	clgame;
 
-void CL_InternetServers_f( void );
+static void CL_SendMasterServerScanRequest( void );
 
 //======================================================================
 int GAME_EXPORT CL_Active( void )
@@ -1081,7 +1081,7 @@ void CL_CheckForResend( void )
 	qboolean bandwidthTest;
 
 	if( cls.internetservers_wait )
-		CL_InternetServers_f();
+		CL_SendMasterServerScanRequest();
 
 	// if the local server is running and we aren't then connect
 	if( cls.state == ca_disconnected && SV_Active( ))
@@ -1574,10 +1574,10 @@ void CL_LocalServers_f( void )
 CL_BuildMasterServerScanRequest
 =================
 */
-static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat, const char *filter )
+static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t *key, qboolean nat, const char *filter )
 {
 	size_t remaining;
-	char *info;
+	char *info, temp[32];
 
 	if( unlikely( size < sizeof( MS_SCAN_REQUEST )))
 		return 0;
@@ -1589,13 +1589,30 @@ static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, q
 
 	Q_strncpy( info, filter, remaining );
 
+	*key = COM_RandomLong( 0, 0x7FFFFFFF );
+
 #ifndef XASH_ALL_SERVERS
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
 #endif
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining ); // let master know about client version
 	Info_SetValueForKey( info, "nat", nat ? "1" : "0", remaining );
 
+	Q_snprintf( temp, sizeof( temp ), "%x", *key );
+	Info_SetValueForKey( info, "key", temp, remaining );
+
 	return sizeof( MS_SCAN_REQUEST ) + Q_strlen( info );
+}
+
+/*
+=================
+CL_SendMasterServerScanRequest
+=================
+*/
+static void CL_SendMasterServerScanRequest( void )
+{
+	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT,
+		cls.internetservers_query_len, cls.internetservers_query );
+	cls.internetservers_pending = true;
 }
 
 /*
@@ -1605,24 +1622,24 @@ CL_InternetServers_f
 */
 void CL_InternetServers_f( void )
 {
-	char	fullquery[512];
-	size_t len;
 	qboolean nat = cl_nat.value != 0.0f;
+	uint32_t key;
 
-	if( Cmd_Argc( ) > 2 )
+	if( Cmd_Argc( ) > 2 || ( Cmd_Argc( ) == 2 && !Info_IsValid( Cmd_Argv( 1 ))))
 	{
 		Con_Printf( S_USAGE "internetservers [filter]\n" );
 		return;
 	}
 
-	len = CL_BuildMasterServerScanRequest( fullquery, sizeof( fullquery ), nat, Cmd_Argv( 1 ));
+	cls.internetservers_query_len = CL_BuildMasterServerScanRequest(
+		cls.internetservers_query, sizeof( cls.internetservers_query ),
+		&cls.internetservers_key, nat, Cmd_Argv( 1 ));
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 
 	NET_Config( true, true ); // allow remote
 
-	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, len, fullquery );
-	cls.internetservers_pending = true;
+	CL_SendMasterServerScanRequest();
 }
 
 /*
@@ -2147,6 +2164,25 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		if( !NET_IsMasterAdr( from ))
 		{
 			Con_Printf( S_WARN "unexpected server list packet from %s\n", NET_AdrToString( from ));
+			return;
+		}
+
+		// check the extra header
+		if( MSG_ReadByte( msg ) == 0x7f )
+		{
+			uint32_t key = MSG_ReadDword( msg );
+
+			if( cls.internetservers_key != key )
+			{
+				Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
+				return;
+			}
+
+			MSG_ReadByte( msg ); // reserved byte
+		}
+		else
+		{
+			Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
 			return;
 		}
 
