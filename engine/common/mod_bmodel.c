@@ -2022,9 +2022,9 @@ static void Mod_LoadMarkSurfaces( dbspmodel_t *bmod )
 
 		for( i = 0; i < bmod->nummarkfaces; i++, in++ )
 		{
-			if( *in < 0 || *in >= loadmodel->numsurfaces )
+			if( LittleShort( *in ) < 0 || LittleShort( *in ) >= loadmodel->numsurfaces )
 				Host_Error( "Mod_LoadMarkFaces: bad surface number in '%s'\n", loadmodel->name );
-			out[i] = loadmodel->surfaces + *in;
+			out[i] = loadmodel->surfaces + LittleShort( *in );
 		}
 	}
 }
