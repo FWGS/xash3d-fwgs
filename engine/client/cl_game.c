@@ -3336,6 +3336,9 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	if( remote_address->type != NA_IPX && remote_address->type != NA_BROADCAST_IPX )
 		return; // IPX no longer support
 
+	if( request == NETAPI_REQUEST_SERVERLIST )
+		return; // no support for server list requests
+
 	// find a free request
 	for( i = 0; i < MAX_REQUESTS; i++ )
 	{
@@ -3372,28 +3375,9 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	nr->resp.remote_address = *remote_address;
 	nr->flags = flags;
 
-	if( request == NETAPI_REQUEST_SERVERLIST )
-	{
-		char fullquery[512];
-		size_t len;
-
-		len = CL_BuildMasterServerScanRequest( fullquery, sizeof( fullquery ), false );
-
-		// make sure that port is specified
-		if( !nr->resp.remote_address.port )
-			nr->resp.remote_address.port = MSG_BigShort( PORT_MASTER );
-
-		// grab the list from the master server
-		NET_SendPacket( NS_CLIENT, len, fullquery, nr->resp.remote_address );
-		clgame.request_type = NET_REQUEST_CLIENT;
-		clgame.master_request = nr; // holds the master request unitl the master acking
-	}
-	else
-	{
-		// local servers request
-		Q_snprintf( req, sizeof( req ), "netinfo %i %i %i", PROTOCOL_VERSION, context, request );
-		Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, "%s", req );
-	}
+	// local servers request
+	Q_snprintf( req, sizeof( req ), "netinfo %i %i %i", PROTOCOL_VERSION, context, request );
+	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, "%s", req );
 }
 
 /*
@@ -3419,13 +3403,6 @@ static void GAME_EXPORT NetAPI_CancelRequest( int context )
 				SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
 				nr->resp.ping = host.realtime - nr->timesend;
 				nr->pfnFunc( &nr->resp );
-			}
-
-			if( clgame.net_requests[i].resp.type == NETAPI_REQUEST_SERVERLIST && &clgame.net_requests[i] == clgame.master_request )
-			{
-				if( clgame.request_type == NET_REQUEST_CLIENT )
-					clgame.request_type = NET_REQUEST_CANCEL;
-				clgame.master_request = NULL;
 			}
 
 			memset( &clgame.net_requests[i], 0, sizeof( net_request_t ));
@@ -3456,8 +3433,6 @@ void GAME_EXPORT NetAPI_CancelAllRequests( void )
 	}
 
 	memset( clgame.net_requests, 0, sizeof( clgame.net_requests ));
-	clgame.request_type = NET_REQUEST_CANCEL;
-	clgame.master_request = NULL;
 }
 
 /*
