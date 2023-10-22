@@ -760,6 +760,8 @@ static void Touch_SetCommand_f( void )
 	Con_Printf( S_USAGE "touch_setcommand <name> <command>\n" );
 }
 
+static void Touch_LoadDefaults_f( void );
+
 static void Touch_ReloadConfig_f( void )
 {
 	touch.state = state_none;
@@ -769,8 +771,15 @@ static void Touch_ReloadConfig_f( void )
 		touch.selection->finger = -1;
 	touch.edit = touch.selection = NULL;
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
-
-	Cbuf_AddTextf( "exec %s\n", touch_config_file.string );
+	if( FS_FileExists( touch_config_file.string, true ) )
+	{
+		Cbuf_AddTextf( "exec \"%s\"\n", touch_config_file.string );
+	}
+	else
+	{
+		Touch_LoadDefaults_f();
+		touch.configchanged = true;
+	}
 }
 
 static touch_button_t *Touch_AddButton( touchbuttonlist_t *list,
