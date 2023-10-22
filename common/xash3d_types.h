@@ -86,16 +86,19 @@ typedef uint64_t longtime_t;
 	#endif
 	#define _format(x) __attribute__((format(printf, x, x+1)))
 	#define NORETURN __attribute__((noreturn))
+	#define NONNULL __attribute__((nonnull))
 #elif defined(_MSC_VER)
 	#define EXPORT          __declspec( dllexport )
 	#define GAME_EXPORT
 	#define _format(x)
 	#define NORETURN
+	#define NONNULL
 #else
 	#define EXPORT
 	#define GAME_EXPORT
 	#define _format(x)
 	#define NORETURN
+	#define NONNULL
 #endif
 
 #if ( __GNUC__ >= 3 )
