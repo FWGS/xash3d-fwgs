@@ -2744,10 +2744,10 @@ static void Mod_LoadClipnodes( dbspmodel_t *bmod )
 
 		for( i = 0; i < bmod->numclipnodes; i++, out++, in++ )
 		{
-			out->planenum = in->planenum;
+			out->planenum = LittleLong( in->planenum );
 
-			out->children[0] = (unsigned short)in->children[0];
-			out->children[1] = (unsigned short)in->children[1];
+			out->children[0] = LittleShort( (unsigned short)in->children[0] );
+			out->children[1] = LittleShort( (unsigned short)in->children[1] );
 
 			// Arguire QBSP 'broken' clipnodes
 			if( out->children[0] >= bmod->numclipnodes )
