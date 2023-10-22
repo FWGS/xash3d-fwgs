@@ -2662,18 +2662,18 @@ static void Mod_LoadLeafs( dbspmodel_t *bmod )
 
 			for( j = 0; j < 3; j++ )
 			{
-				out->minmaxs[j+0] = in->mins[j];
-				out->minmaxs[j+3] = in->maxs[j];
+				out->minmaxs[j+0] = LittleLong( in->mins[j] );
+				out->minmaxs[j+3] = LittleLong( in->maxs[j] );
 			}
 
-			out->contents = in->contents;
-			p = in->visofs;
+			out->contents = LittleLong( in->contents );
+			p = LittleLong( in->visofs );
 
 			for( j = 0; j < 4; j++ )
 				out->ambient_sound_level[j] = in->ambient_level[j];
 
-			out->firstmarksurface = loadmodel->marksurfaces + in->firstmarksurface;
-			out->nummarksurfaces = in->nummarksurfaces;
+			out->firstmarksurface = loadmodel->marksurfaces + LittleShort( in->firstmarksurface );
+			out->nummarksurfaces = LittleShort( in->nummarksurfaces );
 		}
 
 		if( bmod->isworld )
