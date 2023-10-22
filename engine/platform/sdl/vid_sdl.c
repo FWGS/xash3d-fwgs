@@ -645,9 +645,9 @@ void VID_RestoreScreenResolution( void )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 static void VID_SetWindowIcon( SDL_Window *hWnd )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	rgbdata_t *icon = NULL;
 	char iconpath[MAX_STRING];
 	const char *localIcoPath;
@@ -685,8 +685,8 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 #if XASH_WIN32 // ICO support only for Win32
 	WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 )));
 #endif
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 static qboolean VID_CreateWindowWithSafeGL( const char *wndname, int xpos, int ypos, int w, int h, uint32_t flags )
 {
@@ -804,6 +804,7 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 	else VID_RestoreScreenResolution();
 #endif
 
+	VID_SetWindowIcon( host.hWnd );
 	SDL_ShowWindow( host.hWnd );
 
 	if( glw_state.software )
