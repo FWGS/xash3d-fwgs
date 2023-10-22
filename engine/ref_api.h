@@ -237,7 +237,7 @@ typedef struct remap_info_s
 	model_t		*model;		// for catch model changes
 } remap_info_t;
 
-typedef struct convar_s convar_t;
+struct convar_s;
 struct con_nprint_s;
 struct engine_studio_api_s;
 struct r_studio_interface_s;
@@ -270,7 +270,7 @@ typedef struct ref_api_s
 	const char *(*pfnGetCvarString)( const char *szName );
 	void        (*Cvar_SetValue)( const char *name, float value );
 	void        (*Cvar_Set)( const char *name, const char *value );
-	void (*Cvar_RegisterVariable)( convar_t *var );
+	void (*Cvar_RegisterVariable)( struct convar_s *var );
 	void (*Cvar_FullSet)( const char *var_name, const char *value, int flags );
 
 	// command handlers

@@ -209,6 +209,7 @@ def configure(conf):
 		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.define('XASH_SDLMAIN', 1)
+		conf.define('XASH_MAGX', 1)
 		enforce_pic = False
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.SINGLE_BINARY = True
@@ -275,6 +276,9 @@ def configure(conf):
 		# Do not warn us about bug in SDL_Audio headers
 		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
 		conf.env.append_unique('CXXFLAGS', ['-Wno-attributes'])
+	elif conf.env.MAGX:
+		conf.env.append_unique('CFLAGS', ['-std=gnu99'])
+		conf.env.append_unique('CXXFLAGS', ['-std=gnu++98'])
 
 	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')

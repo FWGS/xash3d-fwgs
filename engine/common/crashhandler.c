@@ -404,7 +404,7 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 	pc = (void*)ucontext->uc_mcontext.pc;
 	bp = (void*)ucontext->uc_mcontext.regs[29];
 	sp = (void*)ucontext->uc_mcontext.sp;
-#elif XASH_ARM
+#elif XASH_ARM && !XASH_MAGX
 	pc = (void*)ucontext->uc_mcontext.arm_pc;
 	bp = (void*)ucontext->uc_mcontext.arm_fp;
 	sp = (void*)ucontext->uc_mcontext.arm_sp;
