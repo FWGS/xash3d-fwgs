@@ -121,8 +121,10 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 		{
 			value = MSG_ReadUBitLong( msg, 32 );
 
+			LittleLongSW( value );
+
 			// will be compare only first 4 bytes
-			if( memcmp( &value , r->rgucMD5_hash, 4 ))
+			if( memcmp( &value, r->rgucMD5_hash, 4 ))
 				badresindex = idx + 1;
 		}
 		else
