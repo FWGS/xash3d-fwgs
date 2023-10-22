@@ -423,13 +423,6 @@ typedef struct
 	float		applied_angle;
 } screen_shake_t;
 
-typedef enum
-{
-	NET_REQUEST_CANCEL = 0,	// request was cancelled for some reasons
-	NET_REQUEST_GAMEUI,		// called from GameUI
-	NET_REQUEST_CLIENT,		// called from Client
-} net_request_type_t;
-
 typedef struct
 {
 	net_response_t		resp;
@@ -491,9 +484,7 @@ typedef struct
 	client_textmessage_t *titles;			// title messages, not network messages
 	int		numTitles;
 
-	net_request_type_t	request_type;		// filter the requests
 	net_request_t	net_requests[MAX_REQUESTS];	// no reason to keep more
-	net_request_t	*master_request;		// queued master request
 
 	efrag_t		*free_efrags;		// linked efrags
 	cl_entity_t	viewent;			// viewmodel

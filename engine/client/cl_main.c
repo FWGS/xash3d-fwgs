@@ -1617,14 +1617,6 @@ void CL_InternetServers_f( void )
 
 	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT, len, fullquery );
 	cls.internetservers_pending = true;
-
-	if( !cls.internetservers_wait )
-	{
-		// now we clearing the vgui request
-		if( clgame.master_request != NULL )
-			memset( clgame.master_request, 0, sizeof( net_request_t ));
-		clgame.request_type = NET_REQUEST_GAMEUI;
-	}
 }
 
 /*
@@ -2161,58 +2153,10 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 
 			// list is ends here
 			if( !servadr.port )
-			{
-				if( clgame.request_type == NET_REQUEST_CLIENT && clgame.master_request != NULL )
-				{
-					net_request_t	*nr = clgame.master_request;
-					net_adrlist_t	*list, **prev;
-
-					// setup the answer
-					nr->resp.remote_address = from;
-					nr->resp.error = NET_SUCCESS;
-					nr->resp.ping = host.realtime - nr->timesend;
-
-					if( nr->timeout <= host.realtime )
-						SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
-
-					Con_Printf( "serverlist call: %s\n", NET_AdrToString( from ));
-					nr->pfnFunc( &nr->resp );
-
-					// throw the list, now it will be stored in user area
-					prev = (net_adrlist_t**)&nr->resp.response;
-
-					while( 1 )
-					{
-						list = *prev;
-						if( !list ) break;
-
-						// throw out any variables the game created
-						*prev = list->next;
-						Mem_Free( list );
-					}
-					memset( nr, 0, sizeof( *nr )); // done
-					clgame.request_type = NET_REQUEST_CANCEL;
-					clgame.master_request = NULL;
-				}
 				break;
-			}
 
-			if( clgame.request_type == NET_REQUEST_CLIENT && clgame.master_request != NULL )
-			{
-				net_request_t	*nr = clgame.master_request;
-				net_adrlist_t	*list;
-
-				// adding addresses into list
-				list = Z_Malloc( sizeof( *list ));
-				list->remote_address = servadr;
-				list->next = nr->resp.response;
-				nr->resp.response = list;
-			}
-			else if( clgame.request_type == NET_REQUEST_GAMEUI )
-			{
-				NET_Config( true, false ); // allow remote
-				Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
-			}
+			NET_Config( true, false ); // allow remote
+			Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
 		}
 
 		if( cls.internetservers_pending )
