@@ -296,6 +296,7 @@ def configure(conf):
 			# '-Werror=format=2',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
+			'-Werror=nonnull',
 			'-Werror=packed',
 			'-Werror=packed-not-aligned',
 			'-Werror=parentheses',
