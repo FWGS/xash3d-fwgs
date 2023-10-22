@@ -70,6 +70,7 @@ GNU General Public License for more details.
 #define NET_MAX_MESSAGE		PAD_NUMBER(( NET_MAX_PAYLOAD + HEADER_BYTES ), 16 )
 
 #define MASTERSERVER_ADR		"mentality.rip:27010"
+#define MASTERSERVER_ADR_TEST	"mentality.rip:27011"
 #define MS_SCAN_REQUEST		"1\xFF" "0.0.0.0:0\0"
 
 #define PORT_MASTER			27010

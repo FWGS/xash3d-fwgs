@@ -419,5 +419,6 @@ void NET_InitMasters( void )
 
 	// keep main master always there
 	NET_AddMaster( MASTERSERVER_ADR, false );
+	NET_AddMaster( MASTERSERVER_ADR_TEST, false );
 	NET_LoadMasters( );
 }
