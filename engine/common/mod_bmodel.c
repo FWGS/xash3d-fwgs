@@ -2591,18 +2591,18 @@ static void Mod_LoadNodes( dbspmodel_t *bmod )
 
 			for( j = 0; j < 3; j++ )
 			{
-				out->minmaxs[j+0] = in->mins[j];
-				out->minmaxs[j+3] = in->maxs[j];
+				out->minmaxs[j+0] = LittleShort( in->mins[j] );
+				out->minmaxs[j+3] = LittleShort( in->maxs[j] );
 			}
 
-			p = in->planenum;
+			p = LittleLong( in->planenum );
 			out->plane = loadmodel->planes + p;
-			out->firstsurface = in->firstface;
-			out->numsurfaces = in->numfaces;
+			out->firstsurface = LittleShort( in->firstface );
+			out->numsurfaces = LittleShort( in->numfaces );
 
 			for( j = 0; j < 2; j++ )
 			{
-				p = in->children[j];
+				p = LittleShort( in->children[j] );
 				if( p >= 0 ) out->children[j] = loadmodel->nodes + p;
 				else out->children[j] = (mnode_t *)(loadmodel->leafs + ( -1 - p ));
 			}
