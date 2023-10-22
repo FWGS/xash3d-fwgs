@@ -756,7 +756,6 @@ int CL_IsDevOverviewMode( void );
 void CL_PingServers_f( void );
 void CL_SignonReply( void );
 void CL_ClearState( void );
-size_t CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat );
 
 //
 // cl_demo.c

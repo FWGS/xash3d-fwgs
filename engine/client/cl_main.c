@@ -1574,7 +1574,7 @@ void CL_LocalServers_f( void )
 CL_BuildMasterServerScanRequest
 =================
 */
-size_t CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat )
+static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat, const char *filter )
 {
 	size_t remaining;
 	char *info;
@@ -1587,7 +1587,7 @@ size_t CL_BuildMasterServerScanRequest( char *buf, size_t size, qboolean nat )
 	info = buf + sizeof( MS_SCAN_REQUEST ) - 1;
 	remaining = size - sizeof( MS_SCAN_REQUEST );
 
-	info[0] = 0;
+	Q_strncpy( info, filter, remaining );
 
 #ifndef XASH_ALL_SERVERS
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
@@ -1609,7 +1609,13 @@ void CL_InternetServers_f( void )
 	size_t len;
 	qboolean nat = cl_nat.value != 0.0f;
 
-	len = CL_BuildMasterServerScanRequest( fullquery, sizeof( fullquery ), nat );
+	if( Cmd_Argc( ) > 2 )
+	{
+		Con_Printf( S_USAGE "internetservers [filter]\n" );
+		return;
+	}
+
+	len = CL_BuildMasterServerScanRequest( fullquery, sizeof( fullquery ), nat, Cmd_Argv( 1 ));
 
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 
