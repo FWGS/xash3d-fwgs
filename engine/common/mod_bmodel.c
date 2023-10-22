@@ -2380,9 +2380,9 @@ static void Mod_LoadTexInfo( dbspmodel_t *bmod )
 	{
 		for( j = 0; j < 2; j++ )
 			for( k = 0; k < 4; k++ )
-				out->vecs[j][k] = in->vecs[j][k];
+				out->vecs[j][k] = LittleFloat( in->vecs[j][k] );
 
-		miptex = in->miptex;
+		miptex = LittleLong( in->miptex );
 		if( miptex < 0 || miptex > loadmodel->numtextures )
 			miptex = 0; // this is possible?
 		out->texture = loadmodel->textures[miptex];
