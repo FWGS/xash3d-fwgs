@@ -2445,21 +2445,21 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 		{
 			dface_t	*in = &bmod->surfaces[i];
 
-			if(( in->firstedge + in->numedges ) > loadmodel->numsurfedges )
+			if(( LittleLong( in->firstedge ) + LittleShort( in->numedges ) ) > loadmodel->numsurfedges )
 			{
-				Con_Reportf( S_ERROR "bad surface %i from %zu\n", i, bmod->numsurfaces );
+				Con_Reportf( S_ERROR "bad surface %i from %d\n", i, bmod->numsurfaces );
 				continue;
 			}
 
-			out->firstedge = in->firstedge;
-			out->numedges = in->numedges;
+			out->firstedge = LittleLong( in->firstedge );
+			out->numedges = LittleShort( in->numedges );
 			if( in->side ) SetBits( out->flags, SURF_PLANEBACK );
-			out->plane = loadmodel->planes + in->planenum;
-			out->texinfo = loadmodel->texinfo + in->texinfo;
+			out->plane = loadmodel->planes + LittleShort( in->planenum );
+			out->texinfo = loadmodel->texinfo + LittleShort( in->texinfo );
 
 			for( j = 0; j < MAXLIGHTMAPS; j++ )
 				out->styles[j] = in->styles[j];
-			lightofs = in->lightofs;
+			lightofs = LittleLong( in->lightofs );
 		}
 
 		tex = out->texinfo->texture;
