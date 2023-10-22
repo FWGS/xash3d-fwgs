@@ -549,48 +549,54 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	for( func = funcs; func && func->name; func++ )
 	{
 		// functions are cleared before all the extensions are evaluated
-		if((*func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
+		if(( *func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
 		{
-
 			string name;
+			char *end;
+			size_t i = 0;
+#ifdef XASH_GLES
+			const char *suffixes[] = { "", "EXT", "OES" };
+#else
+			const char *suffixes[] = { "", "EXT" };
+#endif
 
 			// HACK: fix ARB names
-			const char *str = Q_strstr( func->name, "ARB" );
-			Q_strncpy( name, func->name, MAX_STRING );
-
-			if( str )
+			Q_strncpy( name, func->name, sizeof( name ));
+			if(( end = Q_strstr( name, "ARB" )))
 			{
-				name[str - func->name] = '\0'; // cut func suffix
-				// if this was glFuncARB, try glFunc
-				*func->func = gEngfuncs.GL_GetProcAddress( name );
+				*end = '\0';
 			}
-			else
+			else // I need Q_strstrnul
 			{
-				// set pointer to func name end to cut it correctly
-				str = func->name + Q_strlen( func->name );
-				name[str - func->name] = '\0';
+				end = name + Q_strlen( name );
+				i++; // skip empty suffix
 			}
 
-			// try glFuncEXT
-			if( !*func->func )
+			for( ; i < sizeof( suffixes ) / sizeof( suffixes[0] ); i++ )
 			{
-				Q_strncat( name, "EXT", MAX_STRING );
-				*func->func = gEngfuncs.GL_GetProcAddress( name );
+				void *f;
+
+				Q_strncat( name, suffixes[i], sizeof( name ));
+
+				if(( f = gEngfuncs.GL_GetProcAddress( name )))
+				{
+					// GL_GetProcAddress prints errors about missing functions, so tell user that we found it with different name
+					gEngfuncs.Con_Printf( S_NOTE "found %s\n", name );
+
+					*func->func = f;
+					break;
+				}
+				else
+				{
+					*end = '\0'; // cut suffix, try next
+				}
 			}
 
-#ifdef XASH_GLES
-			// try glFuncOES
-			if( !*func->func )
+			// not found...
+			if( i == sizeof( suffixes ) / sizeof( suffixes[0] ))
 			{
-				name[str - func->name] = '\0'; // cut EXT from previous try
-				Q_strncat( name, "OES", MAX_STRING );
-				*func->func = gEngfuncs.GL_GetProcAddress( name );
-			}
-#endif
-			if( !*func->func )
 				GL_SetExtension( r_ext, false );
-			else // GL_GetProcAddress prints errors about missing functions, so tell user that we found it with different name
-				gEngfuncs.Con_Printf( S_NOTE "found %s\n", name );
+			}
 		}
 	}
 #endif
