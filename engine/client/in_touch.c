@@ -817,6 +817,7 @@ static void Touch_LoadDefaults_f( void )
 		button->flags |= g_DefaultButtons[i].flags;
 		button->aspect = g_DefaultButtons[i].aspect;
 	}
+	touch.configchanged = true;
 }
 
 // Add default button from client
