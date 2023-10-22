@@ -132,6 +132,8 @@ static struct touch_s
 	int whitetexture;
 	int joytexture; // touch indicator
 	qboolean configchanged;
+	float actual_aspect_ratio; // maximum aspect ratio from launch, or aspect ratio when entering editor
+	float config_aspect_ratio; // aspect ratio set by command from config or after entering editor
 } touch;
 
 // private to the engine flags
@@ -168,12 +170,41 @@ CVAR_DEFINE_AUTO( touch_emulate, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate
 #define B(x) (button->x)
 #define SCR_W ((float)refState.width)
 #define SCR_H ((float)refState.height)
-#define TO_SCRN_Y(x) (refState.height * (x))
+#define TO_SCRN_Y(x) (refState.width * (x) * Touch_AspectRatio())
 #define TO_SCRN_X(x) (refState.width * (x))
 
 static void IN_TouchCheckCoords( float *x1, float *y1, float *x2, float *y2  );
 static void IN_TouchEditClear( void );
 static void Touch_InitConfig( void );
+
+void Touch_NotifyResize( void )
+{
+	if( refState.width && refState.height && ( !touch.configchanged || !touch.actual_aspect_ratio ))
+	{
+		float aspect_ratio = SCR_H/SCR_W;
+		if( aspect_ratio < 0.99 && aspect_ratio > touch.actual_aspect_ratio )
+			touch.actual_aspect_ratio = aspect_ratio;
+	}
+}
+
+static inline float Touch_AspectRatio( void )
+{
+	if( touch.config_aspect_ratio )
+		return touch.config_aspect_ratio;
+	else if( touch.actual_aspect_ratio )
+		return touch.actual_aspect_ratio;
+	else if( refState.width && refState.height )
+		return SCR_H/SCR_W;
+	else
+		return 9.0f / 16.0f;
+}
+
+
+static void Touch_ConfigAspectRatio_f( void )
+{
+	touch.config_aspect_ratio = Q_atof( Cmd_Argv( 1 ));
+}
+
 
 /*
 ==========================
@@ -206,7 +237,7 @@ static inline int Touch_ExportButtonToConfig( file_t *f, touch_button_t *button,
 
 	if( keepAspect )
 	{
-		float aspect = ( B(y2) - B(y1) ) / ( ( B(x2) - B(x1) ) /(SCR_H/SCR_W) );
+		float aspect = ( B(y2) - B(y1) ) / ( ( B(x2) - B(x1) ) /(Touch_AspectRatio()) );
 		FS_Printf( f, " %f\n", aspect );
 	}
 	else FS_Printf( f, "\n" );
@@ -271,6 +302,8 @@ qboolean Touch_DumpConfig( const char *name, const char *profilename )
 	FS_Printf( f, "touch_setclientonly 0\n" );
 	FS_Printf( f, "\n// touch buttons\n" );
 	FS_Printf( f, "touch_removeall\n" );
+	FS_Printf( f, "touch_aspectratio %f\n", Touch_AspectRatio());
+
 
 	for( button = touch.list_user.first; button; button = button->next )
 	{
@@ -376,7 +409,7 @@ static void Touch_GenerateCode_f( void )
 		if( FBitSet( flags, TOUCH_FL_DEF_HIDE ))
 			SetBits( flags, TOUCH_FL_HIDE );
 
-		aspect = ( B(y2) - B(y1) ) / ( ( B(x2) - B(x1) ) /(SCR_H/SCR_W) );
+		aspect = ( B(y2) - B(y1) ) / ( ( B(x2) - B(x1) ) /(Touch_AspectRatio()) );
 		if( memcmp( &c, &B(color), sizeof( rgba_t ) ) )
 		{
 			Con_Printf( "unsigned char color[] = { %d, %d, %d, %d };\n", B(color[0]), B(color[1]), B(color[2]), B(color[3]) );
@@ -549,6 +582,7 @@ static void Touch_RemoveAll_f( void )
 {
 	IN_TouchEditClear();
 	Touch_ClearList( &touch.list_user );
+	touch.config_aspect_ratio = 0.0f;
 }
 
 static void Touch_SetColor( touchbuttonlist_t *list, const char *name, byte *color )
@@ -784,7 +818,7 @@ void Touch_AddClientButton( const char *name, const char *texture, const char *c
 		IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
 	if( round == round_aspect )
 	{
-		y2 = y1 + ( x2 - x1 ) * (SCR_W/SCR_H) * aspect;
+		y2 = y1 + ( x2 - x1 ) / (Touch_AspectRatio()) * aspect;
 	}
 	button = Touch_AddButton( &touch.list_user, name, texture, command, x1, y1, x2, y2, color, true );
 	button->flags |= flags | TOUCH_FL_CLIENT | TOUCH_FL_NOEDIT;
@@ -809,7 +843,7 @@ static void Touch_LoadDefaults_f( void )
 			if( g_DefaultButtons[i].texturefile[0] == '#' )
 				y2 = y1 + ( (float)clgame.scrInfo.iCharHeight / (float)clgame.scrInfo.iHeight ) * g_DefaultButtons[i].aspect + touch.swidth*2/SCR_H;
 			else
-				y2 = y1 + ( x2 - x1 ) * (SCR_W/SCR_H) * g_DefaultButtons[i].aspect;
+				y2 = y1 + (( x2 - x1 ) / Touch_AspectRatio()) * g_DefaultButtons[i].aspect;
 		}
 
 		IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
@@ -910,7 +944,7 @@ static void Touch_AddButton_f( void )
 		if( aspect )
 		{
 			if( B( texturefile )[0] != '#' )
-				B( y2 ) = B( y1 ) + ( B( x2 ) - B( x1 )) * ( SCR_W / SCR_H ) * aspect;
+				B( y2 ) = B( y1 ) + (( B( x2 ) - B( x1 )) / Touch_AspectRatio() ) * aspect;
 			B( aspect ) = aspect;
 		}
 	}
@@ -918,11 +952,39 @@ static void Touch_AddButton_f( void )
 
 static void Touch_EnableEdit_f( void )
 {
+	touch_button_t *button;
+	float current_ratio = SCR_H/SCR_W;
 	if( touch.state == state_none )
 		touch.state = state_edit;
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
 	touch.move_button = NULL;
 	touch.configchanged = true;
+	/* try determine the best ratio
+	 * User enters editor. Window now have correct size. Need to fix aspect ratio in some cases */
+	// Case A: no config was loaded, touch was generated with lower height, but window was resized higher, reset it to actual size
+	if( touch.actual_aspect_ratio > current_ratio )
+		touch.actual_aspect_ratio = current_ratio;
+	if( !touch.config_aspect_ratio )
+		touch.config_aspect_ratio = touch.actual_aspect_ratio;
+	// Case B: config was loaded, but window may be resized later, so keep y coordinate as is
+	touch.actual_aspect_ratio = current_ratio;
+	// convert coordinates to actual aspect ratio after it was updated
+	if( touch.config_aspect_ratio != touch.actual_aspect_ratio )
+	{
+		for( button = touch.list_user.first; button; button = button->next )
+		{
+			B(y1) /= touch.actual_aspect_ratio / touch.config_aspect_ratio;
+			B(y2) /= touch.actual_aspect_ratio / touch.config_aspect_ratio;
+
+			// clamp positions to make buttons visible by user
+			if( B(y2) > 1.0f )
+			{
+				B(y1) -= B(y2) - 1.0f;
+				B(y2) -= B(y2) - 1.0f;
+			}
+		}
+		touch.config_aspect_ratio = touch.actual_aspect_ratio;
+	}
 }
 
 static void Touch_DisableEdit_f( void )
@@ -957,7 +1019,7 @@ static void Touch_DeleteProfile_f( void )
 
 static void Touch_InitEditor( void )
 {
-	float x = 0.1f * (SCR_H/SCR_W);
+	float x = 0.1f * (Touch_AspectRatio());
 	float y = 0.05f;
 	touch_button_t *temp;
 	rgba_t color;
@@ -1052,6 +1114,7 @@ void Touch_Init( void )
 	Cmd_AddRestrictedCommand( "touch_generate_code", Touch_GenerateCode_f, "create code sample for mobility API" );
 	Cmd_AddCommand( "touch_fade", Touch_Fade_f, "start fade animation for selected buttons" );
 	Cmd_AddRestrictedCommand( "touch_toggleselection", Touch_ToggleSelection_f, "toggle vidibility on selected button in editor" );
+	Cmd_AddRestrictedCommand( "touch_aspectratio", Touch_ConfigAspectRatio_f, "set current aspect ratio" );
 
 	// not saved, just runtime state for scripting
 	Cvar_RegisterVariable( &touch_in_menu );
@@ -1171,9 +1234,9 @@ static void Touch_DrawTexture ( float x1, float y1, float x2, float y2, int text
 }
 
 #define GRID_COUNT_X ((int)touch_grid_count.value)
-#define GRID_COUNT_Y (((int)touch_grid_count.value) * SCR_H / SCR_W)
+#define GRID_COUNT_Y (((int)touch_grid_count.value) * Touch_AspectRatio())
 #define GRID_X (1.0f/GRID_COUNT_X)
-#define GRID_Y (SCR_W/SCR_H/GRID_COUNT_X)
+#define GRID_Y (1.0f/Touch_AspectRatio()/GRID_COUNT_X)
 #define GRID_ROUND_X(x) ((float)round( x * GRID_COUNT_X ) / GRID_COUNT_X)
 #define GRID_ROUND_Y(x) ((float)round( x * GRID_COUNT_Y ) / GRID_COUNT_Y)
 
@@ -1251,7 +1314,7 @@ static float Touch_DrawText( float x1, float y1, float x2, float y2, const char 
 	{
 		while( *s && ( *s != '\n' ) && ( *s != ';' ) && ( x1 < maxx ) )
 			x1 += Touch_DrawCharacter( x1, y1, *s++, size );
-		y1 += cls.creditsFont.charHeight / 1024.f * size / SCR_H * SCR_W;
+		y1 += cls.creditsFont.charHeight / 1024.f * size / Touch_AspectRatio();
 
 		if( y1 >= maxy )
 			break;
@@ -1358,10 +1421,11 @@ void Touch_Draw( void )
 	if( !touch.initialized || ( !touch_enable.value && !touch.clientonly ))
 		return;
 
-	Touch_InitConfig();
-
 	if( cls.key_dest != key_game && !touch_in_menu.value )
 		return;
+
+	Touch_InitConfig();
+
 
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 
@@ -1949,6 +2013,8 @@ static int Touch_ControlsEvent( touchEventType type, int fingerID, float x, floa
 
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy )
 {
+	y *= SCR_H/SCR_W/Touch_AspectRatio();
+//	Con_Printf("%f %f\n", TO_SCRN_X(x), TO_SCRN_Y(y));
 	// simulate menu mouse click
 	if( cls.key_dest != key_game && !touch_in_menu.value )
 	{
