@@ -2964,6 +2964,7 @@ void R_ClearVBOState( qboolean drawlightmap, qboolean drawtextures )
 	vboarray.tstate = VBO_TEXTURE_NONE;
 	vboarray.lstate = VBO_LIGHTMAP_NONE;
 	vboarray.itexture = 0;
+	mtst.lm = 0;
 }
 
 
@@ -3240,6 +3241,10 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 				vbos.decaldata->lm[vbotex->lightmaptexturenum] = surf;
 			}
 		}
+
+		// now this path does not draw wapred surfaces, so count it as one poly
+		r_stats.c_world_polys++;
+
 		return true;
 	}
 	return false;
