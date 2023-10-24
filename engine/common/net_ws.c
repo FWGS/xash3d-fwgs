@@ -444,6 +444,7 @@ static void NET_InitializeCriticalSections( void )
 void NET_ResolveThread( void )
 {
 	struct sockaddr_storage addr;
+	qboolean res;
 
 	RESOLVE_DBG( "[resolve thread] starting resolve for " );
 	RESOLVE_DBG( nsthread.hostname );
@@ -453,13 +454,14 @@ void NET_ResolveThread( void )
 	RESOLVE_DBG( " with gethostbyname\n" );
 #endif
 
-	if( NET_GetHostByName( nsthread.hostname, nsthread.family, &addr ))
+	if(( res = NET_GetHostByName( nsthread.hostname, nsthread.family, &addr )))
 		RESOLVE_DBG( "[resolve thread] success\n" );
 	else
 		RESOLVE_DBG( "[resolve thread] failed\n" );
 	mutex_lock( &nsthread.mutexres );
 	nsthread.addr = addr;
 	nsthread.busy = false;
+	nsthread.result = res ? NET_EAI_OK : NET_EAI_NONAME;
 	RESOLVE_DBG( "[resolve thread] returning result\n" );
 	mutex_unlock( &nsthread.mutexres );
 	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
@@ -544,6 +546,7 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 				memset( &nsthread.addr, 0, sizeof( nsthread.addr ));
 
 				detach_thread( nsthread.thread );
+				asyncfailed = false;
 			}
 			else
 			{
