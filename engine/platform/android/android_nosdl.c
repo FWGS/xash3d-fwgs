@@ -579,12 +579,12 @@ Platform_Init
 Initialize android-related cvars
 ========================
 */
-void Platform_Init( void )
+void Android_Init( void )
 {
 	android_sleep = Cvar_Get( "android_sleep", "1", FCVAR_ARCHIVE, "Enable sleep in background" );
 }
 
-void Platform_Shutdown( void )
+void Android_Shutdown( void )
 {
 
 }
@@ -617,7 +617,7 @@ void Platform_Vibrate( float life, char flags )
 Android_GetNativeObject
 ========================
 */
-void *Platform_GetNativeObject( const char *objName )
+void *Android_GetNativeObject( const char *objName )
 {
 	static const char *availObjects[] = { "JNIEnv", "ActivityClass", NULL };
 	void *object = NULL;
@@ -750,7 +750,7 @@ Android_ShowMouse
 */
 void Android_ShowMouse( qboolean show )
 {
-	if( m_ignore->value )
+	if( m_ignore.value )
 		show = true;
 	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.showMouse, show );
 }
@@ -840,7 +840,6 @@ void Platform_RunEvents( void )
 
 			if( events.queue[i].arg == K_AUX31 || events.queue[i].arg == K_AUX29 )
 			{
-				host.force_draw_version = true;
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			}
 			break;
@@ -849,7 +848,6 @@ void Platform_RunEvents( void )
 
 			if( events.queue[i].arg == K_AUX31 || events.queue[i].arg == K_AUX29 )
 			{
-				host.force_draw_version = true;
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			}
 			break;
@@ -862,8 +860,7 @@ void Platform_RunEvents( void )
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
 				Android_UpdateSurface( true );
 				host.status = HOST_FRAME;
-				SetBits( gl_vsync->flags, FCVAR_CHANGED ); // set swap interval
-				host.force_draw_version = true;
+				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			}
 
@@ -883,7 +880,7 @@ void Platform_RunEvents( void )
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
 				Android_UpdateSurface( true );
-				SetBits( gl_vsync->flags, FCVAR_CHANGED ); // set swap interval
+				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				VID_SetMode();
 			}
 			break;
@@ -945,11 +942,9 @@ void Platform_RunEvents( void )
 			// re-enable sound after onPause
 //			host.status = HOST_FRAME;
 			SNDDMA_Activate( true );
-			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		case event_onfocuschange:
-			host.force_draw_version = true;
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		}
@@ -963,7 +958,7 @@ void Platform_RunEvents( void )
 		int ch;
 
 		// if engine does not use utf-8, we need to convert it to preferred encoding
-		if( !Q_stricmp( cl_charset->string, "utf-8" ) )
+		if( !Q_stricmp( cl_charset.string, "utf-8" ) )
 			ch = (unsigned char)events.inputtext[i];
 		else
 			ch = Con_UtfProcessCharForce( (unsigned char)events.inputtext[i] );
