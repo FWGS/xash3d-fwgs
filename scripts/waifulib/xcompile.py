@@ -214,7 +214,7 @@ class Android:
 			if 'CC' in environ:
 				s = environ['CC']
 
-			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
+			return '%s --target=%s' % (s, self.ndk_triplet())  #%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
 
 	def cxx(self):
@@ -225,7 +225,7 @@ class Android:
 			if 'CXX' in environ:
 				s = environ['CXX']
 
-			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
+			return '%s --target=%s' % (s, self.ndk_triplet()) #%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
@@ -242,7 +242,8 @@ class Android:
 
 	def system_stl(self):
 		# TODO: proper STL support
-		return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'system', 'include'))
+		#return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'system', 'include')) broken with clang-15? TODO: check different ndk versions
+		return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'stlport', 'stlport'))
 
 	def libsysroot(self):
 		arch = self.arch
@@ -316,15 +317,18 @@ class Android:
 		linkflags = []
 		if self.is_host():
 			linkflags += ['--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
+			linkflags += ['--gcc-install-dir=%s/lib/gcc/%s/4.9/' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
+			linkflags += ['-fuse-ld=%s/bin/aarch64-linux-android-ld.bfd' % self.gen_gcc_toolchain_path()]
 
 		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX:
 			linkflags += ['--sysroot=%s' % (self.sysroot())]
 		elif self.is_host():
 			linkflags += ['--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path())]
 
-		if self.is_clang() or self.is_host():
-			linkflags += ['-fuse-ld=lld']
-		else: linkflags += ['-no-canonical-prefixes']
+		#if self.is_clang() or self.is_host():
+		#	linkflags += ['-fuse-ld=lld']
+		#else:
+		linkflags += ['-no-canonical-prefixes']
 
 		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
 		return linkflags
