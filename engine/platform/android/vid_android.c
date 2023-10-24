@@ -1,5 +1,5 @@
 #include "platform/platform.h"
-#in !XASH_SDL
+#if !XASH_SDL
 #include "input.h"
 #include "client.h"
 #include "filesystem.h"
@@ -75,6 +75,7 @@ static dllfunc_t egl_funcs[] =
 #undef EGL_FF
 dll_info_t egl_info = { "libEGL.so", egl_funcs, false };
 
+
 static struct nativeegl_s
 {
 	qboolean valid;
@@ -88,6 +89,8 @@ static struct nativeegl_s
 	const char *extensions;
 } negl;
 
+convar_t *cv_vid_scale;
+convar_t *cv_vid_rotate;
 /*
 ========================
 Android_SwapInterval
@@ -243,6 +246,8 @@ qboolean  R_Init_Video( const int type )
 {
 	char buf[MAX_VA_STRING];
 	qboolean retval;
+	cv_vid_scale = Cvar_FindVar( "vid_scale" );
+	cv_vid_rotate = Cvar_FindVar( "vid_rotate" );
 
 	switch( Android_GetSelectedPixelFormat() )
 	{
@@ -441,7 +446,7 @@ qboolean VID_SetMode( void )
 
 	if( vid_android.has_context )
 	{
-		R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
+		R_ChangeDisplaySettings( 0, 0, WINDOW_MODE_WINDOWED ); // width and height are ignored anyway
 		return true;
 	}
 
@@ -454,7 +459,7 @@ qboolean VID_SetMode( void )
 	(*jni.env)->SetIntArrayRegion( jni.env, attribs, 0, s1, nAttribs );
 	(*jni.env)->SetIntArrayRegion( jni.env, contextAttribs, 0, s2, nContextAttribs );
 
-	R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
+	R_ChangeDisplaySettings( 0, 0, WINDOW_MODE_WINDOWED ); // width and height are ignored anyway
 
 	if( glw_state.software )
 		return true;
@@ -468,10 +473,10 @@ qboolean VID_SetMode( void )
 	return false;
 }
 
-rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
+rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	int render_w, render_h;
-	uint rotate = vid_rotate->value;
+	uint rotate = cv_vid_rotate->value;
 
 	Android_GetScreenRes(&width, &height);
 
@@ -480,7 +485,7 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 
 	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height);
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
+	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, cv_vid_scale->value, cv_vid_scale->value ) )
 	{
 		if( rotate & 1 )
 		{
@@ -490,15 +495,15 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 			render_h = swap;
 		}
 
-		render_h /= vid_scale->value;
-		render_w /= vid_scale->value;
+		render_h /= cv_vid_scale->value;
+		render_w /= cv_vid_scale->value;
 	}
 	else
 	{
 		Con_Printf( S_WARN "failed to setup screen transform\n" );
 	}
 
-	R_SaveVideoMode( width, height, render_w, render_h );
+	R_SaveVideoMode( width, height, render_w, render_h, true );
 
 	refState.wideScreen = true; // V_AdjustFov will check for widescreen
 
@@ -596,12 +601,12 @@ void GL_UpdateSwapInterval( void )
 	if( cls.state < ca_active )
 	{
 		Android_SwapInterval( 0 );
-		SetBits( gl_vsync->flags, FCVAR_CHANGED );
+		SetBits( gl_vsync.flags, FCVAR_CHANGED );
 	}
-	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
+	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
-		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
-		Android_SwapInterval( gl_vsync->value );
+		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
+		Android_SwapInterval( gl_vsync.value );
 	}
 }
 
