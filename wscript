@@ -2,7 +2,7 @@
 # encoding: utf-8
 # a1batross, mittorn, 2018
 
-from waflib import Build, Context, Logs
+from waflib import Build, Context, Logs, Options, Configure
 from waflib.Tools import waf_unit_test
 import sys
 import os
@@ -104,6 +104,20 @@ REFDLLS = [
 	RefDll('null', False),
 ]
 
+def process_extra_projects(ctx):
+	projs = ''
+	if isinstance(ctx,Options.OptionsContext):
+		options, commands, envvars = ctx.parse_cmd_args()
+		projs = options.EXTRA_PROJECTS
+	elif isinstance(ctx,Configure.ConfigurationContext):
+		projs = ctx.options.EXTRA_PROJECTS
+		ctx.env.EXTRA_PROJECTS = projs
+	else:
+		projs = ctx.env.EXTRA_PROJECTS
+	for proj in projs.split(','):
+		ctx.add_subproject(proj)
+
+
 def options(opt):
 	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject cmake')
 
@@ -154,12 +168,15 @@ def options(opt):
 
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
 		help = 'enable building libFuzzer runner [default: %default]' )
+	grp.add_option('--extra-projects', action = 'store', dest = 'EXTRA_PROJECTS', default = '', type = 'string',
+		help = 'add extra projects' )
 
 	for i in SUBDIRS:
 		if not i.is_exists(opt):
 			continue
 
 		opt.add_subproject(i.name)
+	process_extra_projects(opt)
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
@@ -493,6 +510,7 @@ int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const
 			continue
 
 		conf.add_subproject(i.name)
+	process_extra_projects(conf)
 
 def build(bld):
 	# guard rails to not let install to root
@@ -515,3 +533,4 @@ def build(bld):
 	if bld.env.TESTS:
 		bld.add_post_fun(waf_unit_test.summary)
 		bld.add_post_fun(waf_unit_test.set_exit_code)
+	process_extra_projects(bld)
