@@ -67,7 +67,7 @@ CVAR_DEFINE_AUTO( sw_surfcacheoverride, "0", 0, "");
 static CVAR_DEFINE_AUTO( sw_waterwarp, "1", FCVAR_GLCONFIG, "nothing");
 static CVAR_DEFINE_AUTO( sw_notransbrushes, "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)");
 CVAR_DEFINE_AUTO( sw_noalphabrushes, "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)");
-CVAR_DEFINE_AUTO( r_traceglow, "1", FCVAR_GLCONFIG, "cull flares behind models" );
+CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" );
 CVAR_DEFINE_AUTO( sw_texfilt, "0", FCVAR_GLCONFIG, "texture dither");
 static CVAR_DEFINE_AUTO( r_novis, "0", 0, "" );
 
