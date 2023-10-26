@@ -1983,7 +1983,7 @@ void Con_DrawConsole( void )
 
 	if( cls.state == ca_connecting || cls.state == ca_connected )
 	{
-		if( !cl_allow_levelshots.value )
+		if( !cl_allow_levelshots.value && !cls.timedemo )
 		{
 			if(( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" )) && cls.key_dest != key_console )
 				con.vislines = con.showlines = 0;
@@ -1993,7 +1993,7 @@ void Con_DrawConsole( void )
 		{
 			con.showlines = 0;
 
-			if( host_developer.value >= DEV_EXTENDED )
+			if( host_developer.value >= DEV_EXTENDED && !cls.timedemo )
 				Con_DrawNotify(); // draw notify lines
 		}
 	}
@@ -2025,7 +2025,7 @@ void Con_DrawConsole( void )
 		{
 			if( con.vislines )
 				Con_DrawSolidConsole( con.vislines );
-			else if( cls.state == ca_active && ( cls.key_dest == key_game || cls.key_dest == key_message ))
+			else if( cls.state == ca_active && ( cls.key_dest == key_game || cls.key_dest == key_message ) && !cls.timedemo )
 				Con_DrawNotify(); // draw notify lines
 		}
 		break;
