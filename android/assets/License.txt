@@ -1,4 +1,0 @@
-These PNG files are copyright to Emile Belanger.
-They are permitted for use in SDLxash3D Android port, full copyright is owned by Emile Belanger.
-Other use not permitted without permission from Emile Belanger.
-emile.belanger@gmail.com

@@ -1,12 +1,11 @@
-[submodule "xash-extras"]
-	path = xash-extras
-	url = https://github.com/FWGS/xash-extras
-[submodule "jni/src/xash3d-fwgs"]
-	path = xash3d-fwgs
-	url = https://github.com/FWGS/xash3d-fwgs
-[submodule "hlsdk-xash3d"]
-	path = hlsdk-xash3d
-	url = https://github.com/FWGS/hlsdk-xash3d
+[submodule "hlsdk-portable"]
+	path = app/src/main/cpp/hlsdk-portable
+	url = https://github.com/FWGS/hlsdk-portable
+	branch = mobile_hacks
 [submodule "xash3d-fwgs"]
-	path = xash3d-fwgs
+	path = app/src/main/cpp/xash3d-fwgs
 	url = https://github.com/FWGS/xash3d-fwgs
+[submodule "SDL"]
+	path = app/src/main/cpp/SDL
+	url = https://github.com/libsdl-org/SDL
+	branch = release-2.24.1

@@ -1,34 +1,14 @@
-# Build data
+.gradle/
 build/
-build-xash3d-fwgs
-build-hlsdk-xash3d
-libs/armeabi*
-libs/x86
-obj
-bin
-gen
-
-# Private info
+.externalNativeBuild
+.cxx/
+.idea/
 local.properties
-
-# Builds
-*.apk
-
-# VKontakte gives a shit when uploading APK
-*.bin 
-
-# Generated
-android/assets/extras.pak
-android/res/values/git-rev.xml
-android/src/in/celest/xash3d/XashConfig.java
-android/lib
-
-# Waf
-build_current
-*waf-*/
-*waf3-*/
-.lock-waf*
-*.lastbuildstate
-*.unsuccessfulbuild
-__pycache__
-*.pyc
+.project
+.classpath
+.gradle
+.settings
+release/
+*.hprof
+.vscode/
+*.bak
