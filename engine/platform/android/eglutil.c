@@ -239,6 +239,7 @@ must be called with valid context
 qboolean EGL_UpdateSurface( void *window )
 {
 	egl.MakeCurrent( eglstate.dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT );
+	host.status = HOST_SLEEP;
 
 	if( eglstate.surface )
 		egl.DestroySurface( eglstate.dpy, eglstate.surface );
@@ -246,6 +247,7 @@ qboolean EGL_UpdateSurface( void *window )
 	if( !window )
 	{
 		Con_Reportf( S_NOTE "EGL_UpdateSurface: missing native window, detaching context\n" );
+		return false;
 	}
 
 	if(( eglstate.surface = egl.CreateWindowSurface( eglstate.dpy, eglstate.cfg, window, NULL )) == EGL_NO_SURFACE )
@@ -259,6 +261,8 @@ qboolean EGL_UpdateSurface( void *window )
 		Con_Reportf( S_ERROR "eglMakeCurrent returned error: 0x%x\n", egl.GetError() );
 		return false;
 	}
+	Con_DPrintf( S_NOTE "restored current context\n" );
+	host.status = HOST_FRAME;
 
 	return true;
 
