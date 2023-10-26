@@ -879,6 +879,7 @@ void Platform_RunEvents( void )
 			{
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+				Android_UpdateSurface( false );
 				Android_UpdateSurface( true );
 				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				VID_SetMode();
