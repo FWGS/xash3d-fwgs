@@ -2129,6 +2129,9 @@ qboolean SV_InitPhysicsAPI( void )
 {
 	static PHYSICAPI	pPhysIface;
 
+	if( GI->use_large_lightmaps )
+		SetBits( host.features, ENGINE_LARGE_LIGHTMAPS );
+
 	pPhysIface = (PHYSICAPI)COM_GetProcAddress( svgame.hInstance, "Server_GetPhysicsInterface" );
 	if( pPhysIface )
 	{
@@ -2140,7 +2143,6 @@ qboolean SV_InitPhysicsAPI( void )
 			{
 				// grab common engine features (it will be shared across the network)
 				host.features = svgame.physFuncs.SV_CheckFeatures();
-				Host_PrintEngineFeatures ();
 			}
 			return true;
 		}
@@ -2150,6 +2152,8 @@ qboolean SV_InitPhysicsAPI( void )
 
 		return false; // just tell user about problems
 	}
+
+	Host_PrintEngineFeatures();
 
 	// physic interface is missed
 	return true;
