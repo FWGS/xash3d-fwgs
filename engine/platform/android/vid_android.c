@@ -504,14 +504,16 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	Con_Printf( "SW_CreateBuffer: buffer %d %d %x %d %p\n", buffer.width, buffer.height, buffer.format, buffer.stride, buffer.bits );
 	if( width > buffer.width || height > buffer.height )
 	{
-		Con_Printf( "SW_CreateBuffer: buffer too small %d %d\n", width, height );
-		// resize event missed?
+		// resize event missed? do not resize now, wait for REAL resize event or when java code will be fixed
+		Con_Printf( S_ERROR "SW_CreateBuffer: buffer too small, need %dx%d, got %dx%d, java part probably sucks\n", width, height, buffer.width, buffer.height );
+#if 0
 		if( jni.width < buffer.width )
 			jni.width = buffer.width;
 		if( jni.height < buffer.height )
 			jni.width = buffer.height;
 		VID_SetMode();
 		Android_UpdateSurface( true );
+#endif
 		return false;
 	}
 	if( buffer.format != WINDOW_FORMAT_RGB_565 )
