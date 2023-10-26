@@ -122,9 +122,10 @@ Check if we may use native EGL without jni calls
 void Android_UpdateSurface( qboolean active )
 {
 	vid_android.nativeegl = false;
-
-	if( glw_state.software || eglstate.valid )
+	Con_Printf("1\n");
+	if( glw_state.software || ( eglstate.valid && !eglstate.imported ) )
 	{
+		Con_Printf("2\n");
 		if( vid_android.window && !active )
 		{
 			nw.release( vid_android.window );
@@ -157,20 +158,33 @@ void Android_UpdateSurface( qboolean active )
 		}
 		return;
 	}
-
+	Con_Printf("3\n");
 	if( !vid_android.has_context )
 		return;
 
-	if( ( active && host.status == HOST_FRAME ) || !active )
+	//if( ( active && host.status == HOST_FRAME ) || !active )
+	if( !active )
+	{
+		Con_Printf("toggleEGL 0\n");
 		(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
+	}
+	host.status = HOST_SLEEP;
 
 	if( active )
+	{
+		Con_Printf("toggleEGL 1\n");
 		(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+		host.status = HOST_FRAME;
+	}
+
+	// todo: check opengl context here and set HOST_SLEEP if not
 
 	if( !Sys_CheckParm("-nativeegl") || !active )
 		return; // enabled by user
 
 	vid_android.nativeegl = EGL_ImportContext();
+	if( vid_android.nativeegl )
+		Con_DPrintf( "nativeEGL success\n");
 }
 
 /*
@@ -270,6 +284,7 @@ qboolean  R_Init_Video( const int type )
 
 	host.renderinfo_changed = false;
 
+	host.status = HOST_FRAME; // where it should we done? We have broken host.status on all non-SDL platforms!
 	return true;
 }
 
@@ -323,7 +338,7 @@ qboolean VID_SetMode( void )
 	{
 		vid_android.has_context = vid_android.nativeegl = EGL_CreateContext();
 
-		if(	vid_android.has_context	)
+		if( vid_android.has_context )
 			Android_UpdateSurface( true );
 		else
 			return false;

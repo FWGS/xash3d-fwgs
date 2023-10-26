@@ -854,12 +854,12 @@ void Platform_RunEvents( void )
 
 		case event_set_pause:
 			// destroy EGL surface when hiding application
+			Con_Printf( "pause event %d\n", events.queue[i].arg );
 			if( !events.queue[i].arg )
 			{
 				SNDDMA_Activate( true );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
 				Android_UpdateSurface( true );
-				host.status = HOST_FRAME;
 				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			}
@@ -868,21 +868,26 @@ void Platform_RunEvents( void )
 			{
 				SNDDMA_Activate( false );
 				Android_UpdateSurface( false );
-				host.status = HOST_NOFOCUS;
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
 			}
+			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
 			break;
 
 		case event_resize:
 			// reinitialize EGL and change engine screen size
-			if( host.status == HOST_FRAME &&( refState.width != jni.width || refState.height != jni.height ) )
+			if( ( host.status == HOST_FRAME || host.status == HOST_NOFOCUS ) &&( refState.width != jni.width || refState.height != jni.height ))
 			{
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+				Con_DPrintf("resize event\n");
 				Android_UpdateSurface( false );
 				Android_UpdateSurface( true );
 				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				VID_SetMode();
+			}
+			else
+			{
+				Con_DPrintf("resize skip %d %d %d %d %d", jni.width, jni.height, refState.width, refState.height, host.status );
 			}
 			break;
 		case event_joyadd:
@@ -934,14 +939,14 @@ void Platform_RunEvents( void )
 #endif
 			// disable sound during call/screen-off
 			SNDDMA_Activate( false );
-//			host.status = HOST_NOFOCUS;
+			host.status = HOST_SLEEP;
 			// stop blocking UI thread
 			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
 
 			break;
 		case event_onresume:
 			// re-enable sound after onPause
-//			host.status = HOST_FRAME;
+			host.status = HOST_FRAME;
 			SNDDMA_Activate( true );
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
