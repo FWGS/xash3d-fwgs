@@ -859,7 +859,9 @@ void GL_InitExtensionsGLES( void )
 #endif
 		case GL_DEBUG_OUTPUT:
 			if( glw_state.extended )
-				GL_CheckExtension( "GL_KHR_debug", NULL, NULL, extid, 0 );
+				GL_CheckExtension( "GL_KHR_debug", debugoutputfuncs, "gl_debug_output", extid, 0 );
+			else
+				GL_SetExtension( extid, false );
 			break;
 		// case GL_TEXTURE_COMPRESSION_EXT: NOPE
 		// case GL_SHADER_GLSL100_EXT: NOPE
@@ -1123,6 +1125,7 @@ void GL_InitExtensions( void )
 
 			// force everything to happen in the main thread instead of in a separate driver thread
 			pglEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
+
 		}
 
 		// enable all the low priority messages
