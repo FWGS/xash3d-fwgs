@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-	<style name="red_small_text" parent="@android:style/TextAppearance.Small">
-		<item name="android:textColor">#FF0000</item>
-	</style>
-</resources>
