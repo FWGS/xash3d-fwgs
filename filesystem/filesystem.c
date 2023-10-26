@@ -609,6 +609,7 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	// always expose our extensions :)
 	FS_Printf( f, "internal_vgui_support\t\t%s\n", GameInfo->internal_vgui_support ? "1" : "0" );
 	FS_Printf( f, "render_picbutton_text\t\t%s\n", GameInfo->render_picbutton_text ? "1" : "0" );
+	FS_Printf( f, "use_large_lightmaps\t\t%s\n", GameInfo->use_large_lightmaps ? "1" : "0" );
 
 	FS_Close( f );	// all done
 }
@@ -865,6 +866,11 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->autosave_aged_count = bound( 2, Q_atoi( token ), 99 );
+			}
+			else if( !Q_stricmp( token, "use_large_lightmaps" ))
+			{
+				pfile = COM_ParseFile( pfile, token, sizeof( token ));
+				GameInfo->use_large_lightmaps = Q_atoi( token ) ? true : false;
 			}
 		}
 	}

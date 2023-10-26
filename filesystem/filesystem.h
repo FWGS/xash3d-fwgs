@@ -105,6 +105,8 @@ typedef struct gameinfo_s
 
 	int		quicksave_aged_count; // min is 1, max is 99
 	int		autosave_aged_count; // min is 1, max is 99
+
+	qboolean	use_large_lightmaps; // enables engine feature ENGINE_LARGE_LIGHTMAPS without the need of patching the DLL
 } gameinfo_t;
 
 typedef enum

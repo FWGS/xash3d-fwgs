@@ -76,6 +76,7 @@ These strings are specific to Xash3D FWGS.
 | `internal_vgui_support` | boolean    | 0                        | Only for programmers! Required to be set as 1 for PrimeXT!<br>When set to 1, the engine will not load vgui_support DLL, as VGUI support is done (or intentionally ignored) on the game side. |
 | `render_picbutton_text` | boolean    | 0                        | When set to 1, the UI will not use prerendered `btns_main.bmp` and dynamically render them instead |
 | `quicksave_aged_count`  | integer    | 2                        | Quick saves limit used in saves rotation |
+| `use_large_lightmaps`   | boolean    | 0                        | Enables ENGINE_LARGE_LIGHTMAPS feature. DLL still overrides this key through PhysicAPI. |
 
 ## Note on GoldSrc liblist.gam support
 
