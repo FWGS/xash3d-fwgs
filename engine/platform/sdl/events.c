@@ -128,7 +128,7 @@ static qboolean SDLash_IsInstanceIDAGameController( SDL_JoystickID joyId )
 		return true;
 	return false;
 #else
-	if( SDL_GameControllerFromInstanceID( joyId ) )
+	if( SDL_GameControllerFromInstanceID( joyId ) != NULL )
 		return true;
 	return false;
 #endif
@@ -148,7 +148,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 #else
 	int keynum = key.keysym.sym;
 #endif
-	qboolean numLock = SDL_GetModState() & KMOD_NUM;
+	qboolean numLock = FBitSet( SDL_GetModState(), KMOD_NUM );
 
 #if XASH_ANDROID
 	if( keynum == SDL_SCANCODE_VOLUMEUP || keynum == SDL_SCANCODE_VOLUMEDOWN )
@@ -159,7 +159,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 
 	if( SDL_IsTextInputActive() && down && cls.key_dest != key_game )
 	{
-		if( SDL_GetModState() & KMOD_CTRL )
+		if( FBitSet( SDL_GetModState(), KMOD_CTRL ))
 		{
 			if( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
 			{
@@ -176,7 +176,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 
 		if( isprint( keynum ) )
 		{
-			if( SDL_GetModState() & KMOD_SHIFT )
+			if( FBitSet( SDL_GetModState(), KMOD_SHIFT ))
 			{
 				keynum = Key_ToUpper( keynum );
 			}
