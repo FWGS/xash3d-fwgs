@@ -34,7 +34,7 @@ GNU General Public License for more details.
 CVAR_DEFINE_AUTO( mp_decals, "300", FCVAR_ARCHIVE, "decals limit in multiplayer" );
 CVAR_DEFINE_AUTO( dev_overview, "0", 0, "draw level in overview-mode" );
 CVAR_DEFINE_AUTO( cl_resend, "6.0", 0, "time to resend connect" );
-CVAR_DEFINE_AUTO( cl_allow_download, "1", FCVAR_ARCHIVE, "allow to downloading resources from the server" );
+CVAR_DEFINE( cl_allow_download, "cl_allowdownload", "1", FCVAR_ARCHIVE, "allow to downloading resources from the server" );
 CVAR_DEFINE_AUTO( cl_allow_upload, "1", FCVAR_ARCHIVE, "allow to uploading resources to the server" );
 CVAR_DEFINE_AUTO( cl_download_ingame, "1", FCVAR_ARCHIVE, "allow to downloading resources while client is active" );
 CVAR_DEFINE_AUTO( cl_logofile, "lambda", FCVAR_ARCHIVE, "player logo name" );
