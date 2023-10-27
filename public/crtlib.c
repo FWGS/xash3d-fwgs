@@ -642,7 +642,14 @@ COM_ExtractFilePath
 */
 void COM_ExtractFilePath( const char *path, char *dest )
 {
-	const char *src = path + Q_strlen( path ) - 1;
+	size_t len = Q_strlen( path );
+	const char *src = path + len - 1;
+
+	if( len == 0 )
+	{
+		dest[0] = 0;
+		return;
+	}
 
 	// back up until a \ or the start
 	while( src != path && !(*(src - 1) == '\\' || *(src - 1) == '/' ))
