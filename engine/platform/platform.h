@@ -37,6 +37,11 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 qboolean Sys_DebuggerPresent( void ); // optional, see Sys_DebugBreak
 void Platform_SetStatus( const char *status );
 
+// legacy iOS port functions
+#if TARGET_OS_IOS
+const char *IOS_GetDocsDir( void );
+#endif // TARGET_OS_IOS
+
 #if XASH_WIN32 || XASH_LINUX
 #define XASH_PLATFORM_HAVE_STATUS 1
 #else
