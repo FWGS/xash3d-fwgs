@@ -2389,6 +2389,9 @@ draw details when not enough tmus
 */
 static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray, texture_t *tex, qboolean resetvbo, size_t offset )
 {
+	if( !indexlen )
+		return;
+
 	// draw details in additional pass
 	if( r_detailtextures.value && r_vbo_detail.value == 1 && mtst.tmu_dt == -1 && tex->dt_texturenum )
 	{
@@ -2773,33 +2776,37 @@ Draw array for given vbotexture_t. build and draw dynamic lightmaps if present
 */
 static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *texture, int lightmap, qboolean skiplighting )
 {
-#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-	if( pglDrawRangeElements )
-		pglDrawRangeElements( GL_TRIANGLES, 0, vbo->array_len, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
-	else
-#endif
-	pglDrawElements( GL_TRIANGLES, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
-
-	// draw debug lines
-	if( gl_wireframe.value && !skiplighting )
+	if( vbotex->curindex )
 	{
-		R_SetDecalMode( true );
-		pglDisable( GL_TEXTURE_2D );
-		GL_SelectTexture( XASH_TEXTURE0 );
-		pglDisable( GL_TEXTURE_2D );
-		pglDisable( GL_DEPTH_TEST );
 #if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
 		if( pglDrawRangeElements )
-			pglDrawRangeElements( GL_LINES, 0, vbo->array_len, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+			pglDrawRangeElements( GL_TRIANGLES, 0, vbo->array_len, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
 		else
 #endif
-		pglDrawElements( GL_LINES, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
-		pglEnable( GL_DEPTH_TEST );
-		pglEnable( GL_TEXTURE_2D );
-		GL_SelectTexture( XASH_TEXTURE1 );
-		pglEnable( GL_TEXTURE_2D );
-		R_SetDecalMode( false );
+		pglDrawElements( GL_TRIANGLES, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+
+		// draw debug lines
+		if( gl_wireframe.value && !skiplighting )
+		{
+			R_SetDecalMode( true );
+			pglDisable( GL_TEXTURE_2D );
+			GL_SelectTexture( XASH_TEXTURE0 );
+			pglDisable( GL_TEXTURE_2D );
+			pglDisable( GL_DEPTH_TEST );
+#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
+			if( pglDrawRangeElements )
+				pglDrawRangeElements( GL_LINES, 0, vbo->array_len, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+			else
+#endif
+				pglDrawElements( GL_LINES, vbotex->curindex, GL_VBOINDEX_TYPE, vbotex->indexarray );
+			pglEnable( GL_DEPTH_TEST );
+			pglEnable( GL_TEXTURE_2D );
+			GL_SelectTexture( XASH_TEXTURE1 );
+			pglEnable( GL_TEXTURE_2D );
+			R_SetDecalMode( false );
+		}
 	}
+
 	//Msg( "%d %d %d\n", vbo->array_len, vbotex->len, lightmap );
 	if( skiplighting )
 	{
