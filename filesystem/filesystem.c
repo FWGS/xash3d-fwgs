@@ -770,13 +770,13 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		else if( !Q_stricmp( token, "secure" ))
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
-			GameInfo->secure = Q_atoi( token );
+			GameInfo->secure = Q_atoi( token ) ? true : false;
 		}
 		// valid for both
 		else if( !Q_stricmp( token, "nomodels" ))
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
-			GameInfo->nomodels = Q_atoi( token );
+			GameInfo->nomodels = Q_atoi( token ) ? true : false;
 		}
 		else if( !Q_stricmp( token, isGameInfo ? "max_edicts" : "edicts" ))
 		{
@@ -844,17 +844,17 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 			else if( !Q_stricmp( token, "noskills" ))
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
-				GameInfo->noskills = Q_atoi( token );
+				GameInfo->noskills = Q_atoi( token ) ? true : false;
 			}
 			else if( !Q_stricmp( token, "render_picbutton_text" ))
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
-				GameInfo->render_picbutton_text = Q_atoi( token );
+				GameInfo->render_picbutton_text = Q_atoi( token ) ? true : false;
 			}
 			else if( !Q_stricmp( token, "internal_vgui_support" ))
 			{
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
-				GameInfo->internal_vgui_support = Q_atoi( token );
+				GameInfo->internal_vgui_support = Q_atoi( token ) ? true : false;
 			}
 			else if( !Q_stricmp( token, "quicksave_aged_count" ))
 			{
