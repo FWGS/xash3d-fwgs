@@ -127,6 +127,7 @@ void Sys_PrintUsage( void )
 	O("-noenginejoy     ", "disable engine builtin joystick support")
 	O("-noenginemouse   ", "disable engine builtin mouse support")
 	O("-nosound         ", "disable sound output")
+	O("-timedemo        ", "run timedemo and exit")
 #endif
 
 "\nPlatform-specific options:\n"
@@ -1158,6 +1159,7 @@ Host_Main
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
 	static double	oldtime, newtime;
+	string demoname;
 
 	host.starttime = Sys_DoubleTime();
 
@@ -1253,6 +1255,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cmd_RemoveCommand( "setgl" );
 	Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
 	SCR_CheckStartupVids();	// must be last
+
+	if( Sys_GetParmFromCmdLine( "-timedemo", demoname ))
+		Cbuf_AddTextf( "timedemo %s\n", demoname );
 
 	oldtime = Sys_DoubleTime() - 0.1;
 
