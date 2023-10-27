@@ -150,7 +150,10 @@ public:
 
 	void RemoveFile( const char *path, const char *id ) override
 	{
-		FS_Delete( path ); // FS_Delete is aware of slashes
+		char dir[MAX_VA_STRING], fullpath[MAX_VA_STRING];
+
+		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", IdToDir( dir, sizeof( dir ), id ), path );
+		FS_Delete( fullpath ); // FS_Delete is aware of slashes
 	}
 
 	void CreateDirHierarchy( const char *path, const char *id ) override
