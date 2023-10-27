@@ -144,12 +144,13 @@ def build(bld):
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
 		source += bld.path.ant_glob(['platform/win32/*.c'])
 	elif bld.env.DEST_OS not in ['dos', 'nswitch', 'psvita']: #posix
-		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
+		libs += [ 'M', 'RT', 'PTHREAD']
 		if not bld.env.STATIC:
 			libs += ['DL']
 		source += bld.path.ant_glob(['platform/posix/*.c'])
 
 	if bld.env.DEST_OS == 'linux':
+		libs += ['ASOUND']
 		source += bld.path.ant_glob(['platform/linux/*.c'])
 
 	if bld.env.DEST_OS == 'irix':
