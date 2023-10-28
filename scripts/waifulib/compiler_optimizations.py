@@ -64,6 +64,7 @@ CFLAGS = {
 		'msvc':    ['/O2', '/Oy', '/Zi'],
 		'gcc': {
 			'3':       ['-O3', '-fomit-frame-pointer'],
+			'4':       ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer'],
 			'default': ['-Ofast', '-funsafe-math-optimizations', '-funsafe-loop-optimizations', '-fomit-frame-pointer', '-fno-semantic-interposition']
 		},
 		'clang':   ['-Ofast'],
