@@ -2989,7 +2989,7 @@ qboolean Mod_LoadBmodelLumps( const byte *mod_base, qboolean isworld )
 	{
 		loadmodel = mod;		// restore pointer to world
 #if !XASH_DEDICATED
-		Mod_InitDebugHulls();	// FIXME: build hulls for separate bmodels (shells, medkits etc)
+		Mod_InitDebugHulls( mod );	// FIXME: build hulls for separate bmodels (shells, medkits etc)
 		world.deluxedata = bmod->deluxedata_out;	// deluxemap data pointer
 		world.shadowdata = bmod->shadowdata_out;	// occlusion data pointer
 #endif // XASH_DEDICATED
