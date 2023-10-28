@@ -303,7 +303,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		loaded = true;
 		break;
 	case Q1BSP_VERSION:
-	case HLBSP_VERSION:
+	case LittleLong(HLBSP_VERSION):
 	case QBSP2_VERSION:
 		Mod_LoadBrushModel( mod, buf, &loaded );
 		// ref.dllFuncs.Mod_LoadModel( mod_brush, mod, buf, &loaded, 0 );
