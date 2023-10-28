@@ -329,7 +329,7 @@ void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
 
 }
 
-void GAME_EXPORT GL_SubdivideSurface(msurface_t *fa)
+void GAME_EXPORT GL_SubdivideSurface( model_t *mod, msurface_t *fa )
 {
 
 }

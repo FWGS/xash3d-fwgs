@@ -98,16 +98,6 @@ static void *pfnMod_Extradata( int type, model_t *m )
 	return NULL;
 }
 
-static model_t *pfnMod_GetCurrentLoadingModel( void )
-{
-	return loadmodel;
-}
-
-static void pfnMod_SetCurrentLoadingModel( model_t *m )
-{
-	loadmodel = m;
-}
-
 static void pfnGetPredictedOrigin( vec3_t v )
 {
 	VectorCopy( cl.simorg, v );
@@ -282,8 +272,6 @@ static ref_api_t gEngfuncs =
 	Mod_ForName,
 	pfnMod_Extradata,
 	CL_ModelHandle,
-	pfnMod_GetCurrentLoadingModel,
-	pfnMod_SetCurrentLoadingModel,
 
 	CL_GetRemapInfoForEntity,
 	CL_AllocRemapInfo,

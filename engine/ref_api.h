@@ -330,8 +330,6 @@ typedef struct ref_api_s
 	model_t *(*Mod_ForName)( const char *name, qboolean crash, qboolean trackCRC );
 	void *(*Mod_Extradata)( int type, model_t *model );
 	struct model_s *(*pfnGetModelByIndex)( int index ); // CL_ModelHandle
-	struct model_s *(*Mod_GetCurrentLoadingModel)( void ); // loadmodel
-	void (*Mod_SetCurrentLoadingModel)( struct model_s* ); // loadmodel
 
 	// remap
 	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
@@ -506,7 +504,7 @@ typedef struct ref_interface_s
 
 	// bmodel
 	void (*R_InitSkyClouds)( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette );
-	void (*GL_SubdivideSurface)( msurface_t *fa );
+	void (*GL_SubdivideSurface)( model_t *mod, msurface_t *fa );
 	void (*CL_RunLightStyles)( void );
 
 	// sprites

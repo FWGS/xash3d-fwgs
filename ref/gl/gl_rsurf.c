@@ -78,7 +78,7 @@ static void BoundPoly( int numverts, float *verts, vec3_t mins, vec3_t maxs )
 	}
 }
 
-static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts )
+static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int numverts, float *verts )
 {
 	vec3_t		front[SUBDIVIDE_SIZE], back[SUBDIVIDE_SIZE];
 	mextrasurf_t	*warpinfo = warpface->info;
@@ -88,7 +88,6 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 	float		sample_size;
 	vec3_t		mins, maxs;
 	glpoly_t		*poly;
-	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	if( numverts > ( SUBDIVIDE_SIZE - 4 ))
 		gEngfuncs.Host_Error( "Mod_SubdividePolygon: too many vertexes on face ( %i )\n", numverts );
@@ -143,8 +142,8 @@ static void SubdividePolygon_r( msurface_t *warpface, int numverts, float *verts
 			}
 		}
 
-		SubdividePolygon_r( warpface, f, front[0] );
-		SubdividePolygon_r( warpface, b, back[0] );
+		SubdividePolygon_r( loadmodel, warpface, f, front[0] );
+		SubdividePolygon_r( loadmodel, warpface, b, back[0] );
 		return;
 	}
 
@@ -238,13 +237,12 @@ boundaries so that turbulent and sky warps
 can be done reasonably.
 ================
 */
-void GL_SubdivideSurface( msurface_t *fa )
+void GL_SubdivideSurface( model_t *loadmodel, msurface_t *fa )
 {
 	vec3_t	verts[SUBDIVIDE_SIZE];
 	int	numverts;
 	int	i, lindex;
 	float	*vec;
-	model_t *loadmodel = gEngfuncs.Mod_GetCurrentLoadingModel();
 
 	// convert edges back to a normal polygon
 	numverts = 0;
@@ -261,7 +259,7 @@ void GL_SubdivideSurface( msurface_t *fa )
 	SetBits( fa->flags, SURF_DRAWTURB_QUADS ); // predict state
 
 	// do subdivide
-	SubdividePolygon_r( fa, numverts, verts[0] );
+	SubdividePolygon_r( loadmodel, fa, numverts, verts[0] );
 }
 
 /*
