@@ -212,8 +212,8 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 	// NOTE: dladdr() is a glibc extension
 	{
 		Dl_info info = {0};
-		dladdr( (void*)function, &info );
-		if( info.dli_sname )
+		int ret = dladdr( (void*)function, &info );
+		if( ret && info.dli_sname )
 			return COM_GetPlatformNeutralName( info.dli_sname );
 	}
 #ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
