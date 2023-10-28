@@ -2505,7 +2505,7 @@ static void Mod_LoadSurfaces( dbspmodel_t *bmod )
 
 #if !XASH_DEDICATED // TODO: Do we need subdivide on server?
 		if( FBitSet( out->flags, SURF_DRAWTURB ) && !Host_IsDedicated() )
-			ref.dllFuncs.GL_SubdivideSurface( out ); // cut up polygon for warps
+			ref.dllFuncs.GL_SubdivideSurface( loadmodel, out ); // cut up polygon for warps
 #endif
 	}
 

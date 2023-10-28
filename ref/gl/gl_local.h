@@ -426,7 +426,7 @@ void R_MarkLeaves( void );
 void R_DrawWorld( void );
 void R_DrawWaterSurfaces( void );
 void R_DrawBrushModel( cl_entity_t *e );
-void GL_SubdivideSurface( msurface_t *fa );
+void GL_SubdivideSurface( model_t *mod, msurface_t *fa );
 void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa );
 void DrawGLPoly( glpoly_t *p, float xScale, float yScale );
 texture_t *R_TextureAnimation( msurface_t *s );
