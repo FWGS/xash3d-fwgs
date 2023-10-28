@@ -318,7 +318,7 @@ class Android:
 		if self.is_host():
 			linkflags += ['--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
 			linkflags += ['--gcc-install-dir=%s/lib/gcc/%s/4.9/' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
-			linkflags += ['-fuse-ld=%s/bin/aarch64-linux-android-ld.bfd' % self.gen_gcc_toolchain_path()]
+			linkflags += ['-fuse-ld=%s/bin/%s-ld.bfd' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
 			linkflags += ['--unwindlib=none']
 			linkflags += ['--rtlib=libgcc']
 
