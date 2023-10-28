@@ -1090,6 +1090,10 @@ void SV_Shutdown( const char *finalmsg )
 		// drop the client if want to load a new map
 		if( CL_IsPlaybackDemo( ))
 			CL_Drop();
+
+#if XASH_WIN32
+		SV_UnloadProgs();
+#endif // XASH_WIN32
 		return;
 	}
 
@@ -1107,6 +1111,9 @@ void SV_Shutdown( const char *finalmsg )
 
 	NET_Config( false, false );
 	SV_DeactivateServer();
+#if XASH_WIN32
+	SV_UnloadProgs();
+#endif // XASH_WIN32
 	CL_Drop();
 
 	// free current level
