@@ -29,6 +29,7 @@
 #if defined __ANDROID__ && !defined XASH_64BIT
 #include <string.h>
 #include <android/log.h>
+#include <dlfcn.h>
 #include "linker.h"
 
 static Elf_Sym* soinfo_elf_lookup(soinfo* si, unsigned hash, const char* name) {
@@ -56,6 +57,33 @@ static Elf_Sym* soinfo_elf_lookup(soinfo* si, unsigned hash, const char* name) {
     return NULL;
 }
 
+static Elf_Sym* soinfo_elf_lookup_reverse(soinfo* si, size_t addr) {
+	Elf_Sym* symtab = si->symtab;
+
+	if( si->nbucket == 0 )
+		return NULL;
+
+	for(int j = 0; j < si->nbucket; j++)
+	for (unsigned n = si->bucket[j]; n != 0; n = si->chain[n]) {
+		Elf_Sym* s = symtab + n;
+		if (s->st_value != addr) continue;
+
+			/* only concern ourselves with global and weak symbol definitions */
+		switch (ELF_ST_BIND(s->st_info)) {
+		case STB_GLOBAL:
+		case STB_LOCAL:
+		case STB_WEAK:
+			if (s->st_shndx == SHN_UNDEF) {
+				continue;
+			}
+			return s;
+		}
+	}
+
+	return NULL;
+}
+
+
 static unsigned elfhash(const char* _name) {
     const unsigned char* name = (const unsigned char*) _name;
     unsigned h = 0, g;
@@ -81,6 +109,55 @@ static unsigned elfhash(const char* _name) {
 static Elf_Sym* dlsym_handle_lookup(soinfo* si, const char* name) {
     return soinfo_elf_lookup(si, elfhash(name), name);
 }
+
+extern "C" void *ANDROID_LoadLibrary( const char *dllname );
+static int dladdr_fallback( const void *addr, Dl_info *info )
+{
+	static soinfo *server_info;
+	Elf_Sym *sym;
+
+	if( !server_info )
+		server_info = (soinfo*)ANDROID_LoadLibrary( "server" );
+	if( !server_info )
+		return 0;
+	//__android_log_print( ANDROID_LOG_ERROR, "dladdr_fb", "%p %p\n", addr, server_info );
+
+	sym =  soinfo_elf_lookup_reverse( server_info, ((char*)addr) - ((char*)server_info->base ));
+	//__android_log_print( ANDROID_LOG_ERROR, "dladdr_fb", "sym %p %p\n", addr, sym );
+	if( sym )
+	{
+		info->dli_sname = server_info->strtab + sym->st_name;
+		info->dli_fname = "server";
+		info->dli_fbase = (void*)server_info->base;
+		info->dli_saddr = (void*)addr;
+		//__android_log_print( ANDROID_LOG_ERROR, "dladdr_fb", "name %p %s\n", addr, info->dli_sname );
+		return 1;
+	}
+
+	return 0;
+}
+
+
+
+extern "C" int __attribute__((visibility("hidden"))) dladdr( const void *addr, Dl_info *info )
+{
+	static int (*pDladdr)( const void *addr, Dl_info *info );
+	// __android_log_print( ANDROID_LOG_ERROR, "dladdr", "dladdr %p %p %p\n", addr, pDladdr, &dladdr );
+
+	if(!pDladdr)
+	{
+		void *lib = dlopen( "libdl.so", RTLD_NOW );
+		if( lib )
+			*(void**)&pDladdr = dlsym( lib, "dladdr" );
+		if( (void*)pDladdr == (void*)&dladdr )
+			pDladdr = 0;
+		if( !pDladdr )
+			pDladdr = dladdr_fallback;
+	}
+	// __android_log_print( ANDROID_LOG_ERROR, "dladdr", "dladdr %p\n", addr );
+	return pDladdr( addr, info );
+}
+
 
 extern "C" void* dlsym_weak(void* handle, const char* symbol) {
 
