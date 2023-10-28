@@ -80,8 +80,8 @@ static qboolean SV_CopyEdictToPhysEnt( physent_t *pe, edict_t *ed )
 	}
 	else
 	{
-		// otherwise copy the classname
-		Q_strncpy( pe->name, STRING( ed->v.classname ), sizeof( pe->name ));
+		// otherwise copy the modelname
+		Q_strncpy( pe->name, mod->name, sizeof( pe->name ));
 	}
 
 	pe->model = pe->studiomodel = NULL;
