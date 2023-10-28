@@ -851,11 +851,11 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	char poolname[MAX_VA_STRING];
 	studiohdr_t	*phdr;
 
-	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", loadmodel->name );
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
 
 	if( loaded ) *loaded = false;
-	loadmodel->mempool = Mem_AllocPool( poolname );
-	loadmodel->type = mod_studio;
+	mod->mempool = Mem_AllocPool( poolname );
+	mod->type = mod_studio;
 
 	phdr = R_StudioLoadHeader( mod, buffer );
 	if( !phdr ) return;	// bad model
@@ -886,9 +886,9 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 				// give space for textures and skinrefs
 				size1 = thdr->numtextures * sizeof( mstudiotexture_t );
 				size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
-				mod->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length + size1 + size2 );
-				memcpy( loadmodel->cache.data, buffer, phdr->length ); // copy main mdl buffer
-				phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
+				mod->cache.data = Mem_Calloc( mod->mempool, phdr->length + size1 + size2 );
+				memcpy( mod->cache.data, buffer, phdr->length ); // copy main mdl buffer
+				phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
 				phdr->numskinfamilies = thdr->numskinfamilies;
 				phdr->numtextures = thdr->numtextures;
 				phdr->numskinref = thdr->numskinref;
@@ -905,52 +905,52 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 		else
 		{
 			// NOTE: don't modify source buffer because it's used for CRC computing
-			loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
-			memcpy( loadmodel->cache.data, buffer, phdr->length );
-			phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
+			mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
+			memcpy( mod->cache.data, buffer, phdr->length );
+			phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
 #if !XASH_DEDICATED
 			ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 #endif
 
 			// NOTE: we wan't keep raw textures in memory. just cutoff model pointer above texture base
-			loadmodel->cache.data = Mem_Realloc( loadmodel->mempool, loadmodel->cache.data, phdr->texturedataindex );
-			phdr = (studiohdr_t *)loadmodel->cache.data; // get the new pointer on studiohdr
+			mod->cache.data = Mem_Realloc( mod->mempool, mod->cache.data, phdr->texturedataindex );
+			phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
 			phdr->length = phdr->texturedataindex;	// update model size
 		}
 	}
 	else
 	{
 		// just copy model into memory
-		loadmodel->cache.data = Mem_Calloc( loadmodel->mempool, phdr->length );
-		memcpy( loadmodel->cache.data, buffer, phdr->length );
+		mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
+		memcpy( mod->cache.data, buffer, phdr->length );
 
-		phdr = loadmodel->cache.data;
+		phdr = mod->cache.data;
 	}
 
 	// setup bounding box
 	if( !VectorCompare( vec3_origin, phdr->bbmin ))
 	{
 		// clipping bounding box
-		VectorCopy( phdr->bbmin, loadmodel->mins );
-		VectorCopy( phdr->bbmax, loadmodel->maxs );
+		VectorCopy( phdr->bbmin, mod->mins );
+		VectorCopy( phdr->bbmax, mod->maxs );
 	}
 	else if( !VectorCompare( vec3_origin, phdr->min ))
 	{
 		// movement bounding box
-		VectorCopy( phdr->min, loadmodel->mins );
-		VectorCopy( phdr->max, loadmodel->maxs );
+		VectorCopy( phdr->min, mod->mins );
+		VectorCopy( phdr->max, mod->maxs );
 	}
 	else
 	{
 		// well compute bounds from vertices and round to nearest even values
-		Mod_StudioComputeBounds( phdr, loadmodel->mins, loadmodel->maxs, true );
-		RoundUpHullSize( loadmodel->mins );
-		RoundUpHullSize( loadmodel->maxs );
+		Mod_StudioComputeBounds( phdr, mod->mins, mod->maxs, true );
+		RoundUpHullSize( mod->mins );
+		RoundUpHullSize( mod->maxs );
 	}
 
-	loadmodel->numframes = Mod_StudioBodyVariations( loadmodel );
-	loadmodel->radius = RadiusFromBounds( loadmodel->mins, loadmodel->maxs );
-	loadmodel->flags = phdr->flags; // copy header flags
+	mod->numframes = Mod_StudioBodyVariations( mod );
+	mod->radius = RadiusFromBounds( mod->mins, mod->maxs );
+	mod->flags = phdr->flags; // copy header flags
 
 	if( loaded ) *loaded = true;
 }
