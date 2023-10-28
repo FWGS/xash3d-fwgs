@@ -210,6 +210,8 @@ static mlumpinfo_t		extlumps[EXTRA_LUMPS] =
 { LUMP_SHADOWMAP, 0, MAX_MAP_LIGHTING / 3, sizeof( byte ), -1, "shadowmap", USE_EXTRAHEADER, (const void **)&srcmodel.shadowdata, &srcmodel.shadowdatasize },
 };
 
+static model_t *loadmodel;
+
 /*
 ===============================================================================
 
@@ -3150,6 +3152,8 @@ Mod_LoadBrushModel
 void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
 	char poolname[MAX_VA_STRING];
+
+	loadmodel = mod;
 
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", loadmodel->name );
 

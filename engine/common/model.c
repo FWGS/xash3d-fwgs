@@ -31,7 +31,6 @@ poolhandle_t      com_studiocache;		// cache for submodels
 CVAR_DEFINE( mod_studiocache, "r_studiocache", "1", FCVAR_ARCHIVE, "enables studio cache for speedup tracing hitboxes" );
 CVAR_DEFINE_AUTO( r_wadtextures, "0", 0, "completely ignore textures in the bsp-file if enabled" );
 CVAR_DEFINE_AUTO( r_showhull, "0", 0, "draw collision hulls 1-3" );
-model_t		*loadmodel;
 
 /*
 ===============================================================================
@@ -287,7 +286,6 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	Con_Reportf( "loading %s\n", mod->name );
 	mod->needload = NL_PRESENT;
 	mod->type = mod_bad;
-	loadmodel = mod;
 
 	// call the apropriate loader
 	switch( *(uint *)buf )
