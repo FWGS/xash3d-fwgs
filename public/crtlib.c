@@ -642,20 +642,13 @@ COM_ExtractFilePath
 */
 void COM_ExtractFilePath( const char *path, char *dest )
 {
-	size_t len = Q_strlen( path );
-	const char *src = path + len - 1;
-
-	if( len == 0 )
-	{
-		dest[0] = 0;
-		return;
-	}
+	const char *src = path + Q_strlen( path ) - 1;
 
 	// back up until a \ or the start
-	while( src != path && !(*(src - 1) == '\\' || *(src - 1) == '/' ))
+	while( src > path && !(*(src - 1) == '\\' || *(src - 1) == '/' ))
 		src--;
 
-	if( src != path )
+	if( src > path )
 	{
 		memcpy( dest, path, src - path );
 		dest[src - path - 1] = 0; // cutoff backslash
