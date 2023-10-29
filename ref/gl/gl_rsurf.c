@@ -875,7 +875,7 @@ void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
 	}
 }
 
-_inline qboolean R_HasLightmap( void )
+static qboolean R_HasLightmap( void )
 {
 	if( r_fullbright->value || !WORLDMODEL->lightdata )
 		return false;
