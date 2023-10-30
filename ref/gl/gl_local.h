@@ -489,6 +489,11 @@ void R_ClearSkyBox( void );
 void R_DrawSkyBox( void );
 void R_DrawClouds( void );
 void EmitWaterPolys( msurface_t *warp, qboolean reverse );
+void R_InitRipples( void );
+void R_ResetRipples( void );
+void R_AnimateRipples( void );
+void R_UpdateRippleTexParams( void );
+void R_UploadRipples( texture_t *image );
 
 //
 // gl_vgui.c
@@ -750,6 +755,9 @@ extern convar_t	r_vbo;
 extern convar_t	r_vbo_dlightmode;
 extern convar_t r_studio_sort_textures;
 extern convar_t r_studio_drawelements;
+extern convar_t r_ripple;
+extern convar_t r_ripple_updatetime;
+extern convar_t r_ripple_spawntime;
 
 //
 // engine shared convars
