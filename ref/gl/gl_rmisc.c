@@ -150,6 +150,7 @@ void R_NewMap( void )
 
 	GL_BuildLightmaps ();
 	R_GenerateVBO();
+	R_ResetRipples();
 
 	if( gEngfuncs.drawFuncs->R_NewMap != NULL )
 		gEngfuncs.drawFuncs->R_NewMap();
