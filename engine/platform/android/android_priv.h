@@ -32,6 +32,14 @@ extern struct jnimethods_s
 	int width, height;
 } jni;
 
+typedef enum surfacestate_e
+{
+	surface_pause,
+	surface_active,
+	surface_dummy,
+
+} surfacestate_t;
+
 
 extern struct jnimouse_s
 {
@@ -41,6 +49,6 @@ extern struct jnimouse_s
 //
 // vid_android.c
 //
-void Android_UpdateSurface( qboolean active );
+void Android_UpdateSurface( surfacestate_t state );
 
 #endif // ANDROID_PRIV_H

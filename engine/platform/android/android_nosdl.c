@@ -261,7 +261,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 	jni.getGLAttribute = (*env)->GetStaticMethodID(env, jni.actcls, "getGLAttribute", "(I)I");
 	jni.deleteGLContext = (*env)->GetStaticMethodID(env, jni.actcls, "deleteGLContext", "()Z");
 	jni.getSelectedPixelFormat = (*env)->GetStaticMethodID(env, jni.actcls, "getSelectedPixelFormat", "()I");
-	jni.getSurface = (*env)->GetStaticMethodID(env, jni.actcls, "getNativeSurface", "()Landroid/view/Surface;");
+	jni.getSurface = (*env)->GetStaticMethodID(env, jni.actcls, "getNativeSurface", "(I)Landroid/view/Surface;");
 
 	/* Run the application. */
 
@@ -810,12 +810,12 @@ void Platform_PreCreateMove( void )
 
 /*
 ========================
-Android_RunEvents
+Android_ProcessEvents
 
 Execute all events from queue
 ========================
 */
-void Platform_RunEvents( void )
+static void Android_ProcessEvents( void )
 {
 	int i;
 
@@ -859,7 +859,7 @@ void Platform_RunEvents( void )
 			{
 				SNDDMA_Activate( true );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
-				Android_UpdateSurface( true );
+				Android_UpdateSurface( surface_active );
 				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			}
@@ -867,7 +867,7 @@ void Platform_RunEvents( void )
 			if( events.queue[i].arg )
 			{
 				SNDDMA_Activate( false );
-				Android_UpdateSurface( false );
+				Android_UpdateSurface( !android_sleep->value ? surface_dummy : surface_pause );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
 			}
 			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
@@ -880,14 +880,14 @@ void Platform_RunEvents( void )
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
 				Con_DPrintf("resize event\n");
-				Android_UpdateSurface( false );
-				Android_UpdateSurface( true );
+				Android_UpdateSurface( surface_pause );
+				Android_UpdateSurface( surface_active );
 				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				VID_SetMode();
 			}
 			else
 			{
-				Con_DPrintf("resize skip %d %d %d %d %d", jni.width, jni.height, refState.width, refState.height, host.status );
+				Con_DPrintf("resize skip %d %d %d %d %d\n", jni.width, jni.height, refState.width, refState.height, host.status );
 			}
 			break;
 		case event_joyadd:
@@ -939,14 +939,14 @@ void Platform_RunEvents( void )
 #endif
 			// disable sound during call/screen-off
 			SNDDMA_Activate( false );
-			host.status = HOST_SLEEP;
+			//host.status = HOST_SLEEP;
 			// stop blocking UI thread
 			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
 
 			break;
 		case event_onresume:
 			// re-enable sound after onPause
-			host.status = HOST_FRAME;
+			//host.status = HOST_FRAME;
 			SNDDMA_Activate( true );
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
@@ -993,6 +993,18 @@ void Platform_RunEvents( void )
 	//end events read
 	Android_Unlock();
 	pthread_mutex_lock( &events.framemutex );
+}
+
+void Platform_RunEvents( void )
+{
+	Android_ProcessEvents();
+
+	// do not allow running frames while android_sleep is 1, but surface/context not restored
+	while( android_sleep->value && host.status == HOST_SLEEP )
+	{
+		usleep( 20000 );
+		Android_ProcessEvents();
+	}
 }
 
 #endif // XASH_DEDICATED

@@ -119,63 +119,63 @@ Android_UpdateSurface
 Check if we may use native EGL without jni calls
 ========================
 */
-void Android_UpdateSurface( qboolean active )
+void Android_UpdateSurface( surfacestate_t state )
 {
 	vid_android.nativeegl = false;
-	Con_Printf("1\n");
-	if( glw_state.software || ( eglstate.valid && !eglstate.imported ) )
+	qboolean active = state == surface_active;
+
+	if( glw_state.software || ( eglstate.valid && !eglstate.imported ))
 	{
-		Con_Printf("2\n");
-		if( vid_android.window && !active )
+		if( vid_android.window )
 		{
+			EGL_UpdateSurface( NULL, false );
 			nw.release( vid_android.window );
 			vid_android.window = NULL;
 		}
+		if( state == surface_dummy && glw_state.software )
+			return;
+		// first, ask EGL for surfaceless mode
+		if( state == surface_dummy && EGL_UpdateSurface( NULL, true ))
+		{
+			vid_android.nativeegl = true;
+			return;
+		}
 
-		if( active )
+		if( state != surface_pause )
 		{
 			EGLint format = WINDOW_FORMAT_RGB_565;
 			jobject surf;
 			if( vid_android.window )
 				nw.release( vid_android.window );
-			surf = (*jni.env)->CallStaticObjectMethod(jni.env, jni.actcls, jni.getSurface);
+			surf = (*jni.env)->CallStaticObjectMethod( jni.env, jni.actcls, jni.getSurface, state );
 			Con_DPrintf("Surface handle %p\n", surf);
-			vid_android.window = nw.fromSurface(jni.env, surf);
-			Con_DPrintf("NativeWindow %p\n", vid_android.window);
+			if( surf )
+			{
+				vid_android.window = nw.fromSurface(jni.env, surf);
+				Con_DPrintf("NativeWindow %p\n", vid_android.window);
 
-			if( eglstate.valid )
-				egl.GetConfigAttrib( eglstate.dpy, eglstate.cfg, EGL_NATIVE_VISUAL_ID, &format );
+				if( eglstate.valid )
+					egl.GetConfigAttrib( eglstate.dpy, eglstate.cfg, EGL_NATIVE_VISUAL_ID, &format );
 
-			nw.setBuffersGeometry(vid_android.window, 0, 0, format );
+				nw.setBuffersGeometry(vid_android.window, 0, 0, format );
 
-			(*jni.env)->DeleteLocalRef( jni.env, surf );
+				(*jni.env)->DeleteLocalRef( jni.env, surf );
+			}
 		}
 
-		if( Sys_CheckParm( "-egl" ))
+		if( eglstate.valid && !eglstate.imported )
 		{
-			EGL_UpdateSurface( vid_android.window );
+			EGL_UpdateSurface( vid_android.window, state == surface_dummy );
 			vid_android.nativeegl = true;
 		}
 		return;
 	}
-	Con_Printf("3\n");
+
 	if( !vid_android.has_context )
 		return;
 
-	//if( ( active && host.status == HOST_FRAME ) || !active )
-	if( !active )
-	{
-		Con_Printf("toggleEGL 0\n");
-		(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
-	}
-	host.status = HOST_SLEEP;
-
-	if( active )
-	{
-		Con_Printf("toggleEGL 1\n");
-		(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
-		host.status = HOST_FRAME;
-	}
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, (int)state );
+	host.status = HOST_FRAME; // active ? HOST_FRAME : HOST_SLEEP;
 
 	// todo: check opengl context here and set HOST_SLEEP if not
 
@@ -257,9 +257,13 @@ qboolean  R_Init_Video( const int type )
 	if( glw_state.software )
 	{
 		uint arg;
-//		Con_Reportf( S_ERROR "Native software mode isn't supported on Android yet! :(\n" );
-//		return false;
-		Android_UpdateSurface( true );
+
+		if( !nw.release )
+		{
+			Con_Reportf( S_ERROR "Native software mode unavailiable\n" );
+			return false;
+		}
+		Android_UpdateSurface( surface_active );
 		if( !SW_CreateBuffer( jni.width, jni.height, &arg, &arg, &arg, &arg, &arg ) )
 			return false;
 	}
@@ -339,7 +343,7 @@ qboolean VID_SetMode( void )
 		vid_android.has_context = vid_android.nativeegl = EGL_CreateContext();
 
 		if( vid_android.has_context )
-			Android_UpdateSurface( true );
+			Android_UpdateSurface( surface_active );
 		else
 			return false;
 	}
