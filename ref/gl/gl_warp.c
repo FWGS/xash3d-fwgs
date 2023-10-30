@@ -957,9 +957,9 @@ void R_AnimateRipples( void )
 
 		g_ripple.oldtime = g_ripple.time;
 
-		x = gEngfuncs.COM_RandomLong( 0, 0x7fff );
-		y = gEngfuncs.COM_RandomLong( 0, 0x7fff );
-		val = gEngfuncs.COM_RandomLong( 0, 0x3ff );
+		x = rand() & 0x7fff;
+		y = rand() & 0x7fff;
+		val = rand() & 0x3ff;
 
 		R_SpawnNewRipple( x, y, val );
 	}
