@@ -16,6 +16,7 @@ CVAR_DEFINE_AUTO( gl_msaa_samples, "0", FCVAR_GLCONFIG, "samples number for mult
 CVAR_DEFINE_AUTO( gl_clear, "0", FCVAR_ARCHIVE, "clearing screen after each frame" );
 CVAR_DEFINE_AUTO( r_showtree, "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 static CVAR_DEFINE_AUTO( r_refdll, "", FCVAR_RENDERINFO, "choose renderer implementation, if supported" );
+static CVAR_DEFINE_AUTO( r_refdll_loaded, "", FCVAR_READ_ONLY, "currently loaded renderer" );
 
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
@@ -519,6 +520,7 @@ static qboolean R_LoadRenderer( const char *refopt )
 		return false;
 	}
 
+	Cvar_FullSet( "r_refdll_loaded", refopt, FCVAR_READ_ONLY );
 	Con_Reportf( "Renderer %s initialized\n", refdll );
 
 	return true;
@@ -610,6 +612,7 @@ qboolean R_Init( void )
 	Cvar_RegisterVariable( &gl_clear );
 	Cvar_RegisterVariable( &r_showtree );
 	Cvar_RegisterVariable( &r_refdll );
+	Cvar_RegisterVariable( &r_refdll_loaded );
 
 	// cvars that are expected to exist
 	Cvar_Get( "r_speeds", "0", FCVAR_ARCHIVE, "shows renderer speeds" );
