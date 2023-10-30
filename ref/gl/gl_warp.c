@@ -1012,7 +1012,9 @@ void R_UploadRipples( texture_t *image )
 		return;
 
 	g_ripple.gl_texturenum = image->gl_texturenum;
-	g_ripple.texturescale = RIPPLES_CACHEWIDTH / image->width;
+
+	// TODO: original sw.dll always draws at 64x64
+	g_ripple.texturescale = Q_max( 2, RIPPLES_CACHEWIDTH / image->width );
 
 	pixels = (uint32_t *)glt->original->buffer;
 	v = MostSignificantBit( image->width );
