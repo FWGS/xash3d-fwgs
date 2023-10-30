@@ -23,20 +23,15 @@ GNU General Public License for more details.
 
 #if XASH_EMSCRIPTEN
 #include <emscripten.h>
-#elif XASH_WIN32
-extern "C"
-{
-// Enable NVIDIA High Performance Graphics while using Integrated Graphics.
-__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
-
-// Enable AMD High Performance Graphics while using Integrated Graphics.
-__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
-}
 #endif
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
 #ifndef XASH_GAMEDIR
 #define XASH_GAMEDIR	"valve"
+#endif
+
+#if XASH_WIN32
+#error "Single-binary or dedicated builds aren't supported for Windows!"
 #endif
 
 static char        szGameDir[128]; // safe place to keep gamedir
@@ -47,7 +42,7 @@ static void Sys_ChangeGame( const char *progname )
 {
 	// a1ba: may never be called within engine
 	// if platform supports execv() function
-	Q_strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
+	Q_strncpy( szGameDir, progname, sizeof( szGameDir ));
 	Host_Shutdown( );
 	exit( Host_Main( szArgc, szArgv, szGameDir, 1, &Sys_ChangeGame ) );
 }
@@ -88,7 +83,6 @@ _inline int Sys_Start( void )
 	return ret;
 }
 
-#if !XASH_WIN32
 int main( int argc, char **argv )
 {
 #if XASH_PSVITA
@@ -100,36 +94,4 @@ int main( int argc, char **argv )
 #endif // XASH_PSVITA
 	return Sys_Start();
 }
-#else
-int __stdcall WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR cmdLine, int nShow)
-{
-	LPWSTR* lpArgv;
-	int ret, i;
-
-	lpArgv = CommandLineToArgvW( GetCommandLineW(), &szArgc );
-	szArgv = ( char** )malloc( (szArgc + 1) * sizeof( char* ));
-
-	for( i = 0; i < szArgc; ++i )
-	{
-		size_t size = wcslen(lpArgv[i]) + 1;
-
-		// just in case, allocate some more memory
-		szArgv[i] = ( char * )malloc( size * sizeof( wchar_t ));
-		wcstombs( szArgv[i], lpArgv[i], size );
-	}
-	szArgv[szArgc] = 0;
-
-	LocalFree( lpArgv );
-
-	ret = Sys_Start();
-
-	for( ; i < szArgc; ++i )
-		free( szArgv[i] );
-	free( szArgv );
-
-	return ret;
-}
-#endif // XASH_WIN32
-
-
-#endif
+#endif // SINGLE_BINARY
