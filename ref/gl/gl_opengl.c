@@ -30,6 +30,10 @@ CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" 
 CVAR_DEFINE_AUTO( gl_round_down, "2", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "round texture sizes to nearest POT value" );
 CVAR_DEFINE( r_vbo, "gl_vbo", "0", FCVAR_ARCHIVE, "draw world using VBO (known to be glitchy)" );
 CVAR_DEFINE( r_vbo_dlightmode, "gl_vbo_dlightmode", "1", FCVAR_ARCHIVE, "vbo dlight rendering mode (0-1)" );
+CVAR_DEFINE_AUTO( r_ripple, "0", FCVAR_GLCONFIG, "enable software-like water texture ripple simulation" );
+CVAR_DEFINE_AUTO( r_ripple_updatetime, "0.05", FCVAR_GLCONFIG, "how fast ripple simulation is" );
+CVAR_DEFINE_AUTO( r_ripple_spawntime, "0.1", FCVAR_GLCONFIG, "how fast new ripples spawn" );
+
 
 DEFINE_ENGINE_SHARED_CVAR_LIST()
 
@@ -1186,6 +1190,9 @@ void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_traceglow );
 	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
 	gEngfuncs.Cvar_RegisterVariable( &r_studio_drawelements );
+	gEngfuncs.Cvar_RegisterVariable( &r_ripple );
+	gEngfuncs.Cvar_RegisterVariable( &r_ripple_updatetime );
+	gEngfuncs.Cvar_RegisterVariable( &r_ripple_spawntime );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );
