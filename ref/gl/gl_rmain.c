@@ -969,6 +969,8 @@ void R_RenderScene( void )
 
 	R_MarkLeaves();
 	R_DrawFog ();
+	if( RI.drawWorld )
+		R_AnimateRipples();
 
 	R_CheckGLFog();
 	R_DrawWorld();

@@ -204,7 +204,7 @@ void GL_SetupFogColorForSurfaces( void )
 	vec3_t	fogColor;
 	float	factor, div;
 
-	if( !glState.isFogEnabled)
+	if( !glState.isFogEnabled )
 		return;
 
 	if( RI.currententity && RI.currententity->curstate.rendermode == kRenderTransTexture )
@@ -1135,14 +1135,15 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 	t = R_TextureAnimation( fa );
 
-	GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
-
 	if( FBitSet( fa->flags, SURF_DRAWTURB ))
 	{
+		R_UploadRipples( t );
+
 		// warp texture, no lightmaps
 		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
 		return;
 	}
+	else GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
 
 	if( t->fb_texturenum )
 	{
@@ -1411,7 +1412,7 @@ void R_DrawWaterSurfaces( void )
 			continue;
 
 		// set modulate mode explicitly
-		GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
+		R_UploadRipples( t );
 
 		for( ; s; s = s->texturechain )
 			EmitWaterPolys( s, false );
