@@ -236,18 +236,39 @@ destroy old surface, recreate and make context current
 must be called with valid context
 =========================
 */
-qboolean EGL_UpdateSurface( void *window )
+qboolean EGL_UpdateSurface( void *window, qboolean dummy )
 {
+	if( !eglstate.valid )
+		return false;
+
 	egl.MakeCurrent( eglstate.dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT );
 	host.status = HOST_SLEEP;
 
 	if( eglstate.surface )
+	{
 		egl.DestroySurface( eglstate.dpy, eglstate.surface );
+		eglstate.surface = EGL_NO_SURFACE;
+	}
 
 	if( !window )
 	{
-		Con_Reportf( S_NOTE "EGL_UpdateSurface: missing native window, detaching context\n" );
-		return false;
+
+		if( dummy && eglstate.support_surfaceless_context )
+		{
+			if( egl.MakeCurrent( eglstate.dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, eglstate.context ))
+			{
+				Con_Reportf( S_NOTE "EGL_UpdateSurface: using surfaceless mode\n" );
+				return true;
+			}
+			else
+			{
+				egl.MakeCurrent( eglstate.dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT );
+				eglstate.support_surfaceless_context = false;
+			}
+			Con_Reportf( S_NOTE "EGL_UpdateSurface: missing native window, detaching context\n" );
+		}
+
+		return false; // let platform fallback to dummy surface or pause engine
 	}
 
 	if(( eglstate.surface = egl.CreateWindowSurface( eglstate.dpy, eglstate.cfg, window, NULL )) == EGL_NO_SURFACE )
@@ -261,8 +282,10 @@ qboolean EGL_UpdateSurface( void *window )
 		Con_Reportf( S_ERROR "eglMakeCurrent returned error: 0x%x\n", egl.GetError() );
 		return false;
 	}
+
 	Con_DPrintf( S_NOTE "restored current context\n" );
-	host.status = HOST_FRAME;
+	if( !dummy)
+		host.status = HOST_FRAME;
 
 	return true;
 
@@ -320,6 +343,11 @@ qboolean EGL_CreateContext( void )
 
 	eglstate.valid = true;
 	eglstate.imported = false;
+
+	// now check if it's safe to use surfaceless context here without surface fallback
+	if( eglstate.extensions && Q_strstr( eglstate.extensions, "EGL_KHR_surfaceless_context" ))
+		eglstate.support_surfaceless_context = true;
+
 
 	return true;
 }

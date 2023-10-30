@@ -12,6 +12,7 @@ extern struct eglstate_s
 	EGLContext context;
 	EGLConfig cfg;
 	EGLint numCfg;
+	qboolean support_surfaceless_context;
 
 	const char *extensions;
 	int gl_attribs[REF_GL_ATTRIBUTES_COUNT];
@@ -49,7 +50,7 @@ void * EGL_GetProcAddress( const char *name );
 void EGL_Terminate( void );
 qboolean EGL_ImportContext( void );
 qboolean EGL_CreateContext( void );
-qboolean EGL_UpdateSurface( void *window );
+qboolean EGL_UpdateSurface( void *window, qboolean dummy );
 int EGL_GetAttribute( int attr, int *val );
 size_t EGL_GenerateContextConfig( EGLint *attribs, size_t size );
 size_t EGL_GenerateConfig( EGLint *attribs, size_t size );
