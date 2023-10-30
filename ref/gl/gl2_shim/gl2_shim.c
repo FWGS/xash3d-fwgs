@@ -1309,9 +1309,9 @@ static void GL2_Mul4x4( const GLfloat *in0, const GLfloat *in1, GLfloat *out )
 static void GL2_UpdateMVP( gl2wrap_prog_t *prog )
 {
 	// use bitset to determine if need update matrix for this prog
-	if( FBitSet( gl2wrap_matrix.update, BIT( prog->flags )))
+	if( FBitSet( gl2wrap_matrix.update, BIT64( prog->flags )))
 	{
-		ClearBits( gl2wrap_matrix.update, BIT( prog->flags ));
+		ClearBits( gl2wrap_matrix.update, BIT64( prog->flags ));
 		GL2_Mul4x4( gl2wrap_matrix.mv, gl2wrap_matrix.pr, gl2wrap_matrix.mvp );
 		pglUniformMatrix4fvARB( prog->uMVP, 1, false, (void *)gl2wrap_matrix.mvp );
 	}

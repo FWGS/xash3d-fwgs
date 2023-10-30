@@ -57,6 +57,7 @@ typedef uint64_t longtime_t;
 #define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
 
 #define BIT( n )		( 1U << ( n ))
+#define BIT64( n )		( 1ULL << ( n ))
 #define GAMMA		( 2.2f )		// Valve Software gamma
 #define INVGAMMA		( 1.0f / 2.2f )	// back to 1.0
 #define TEXGAMMA		( 0.9f )		// compensate dim textures
