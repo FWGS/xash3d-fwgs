@@ -105,13 +105,16 @@ REFDLLS = [
 ]
 
 def process_extra_projects_opts(ctx):
-	projs = ''
 	options, commands, envvars = ctx.parse_cmd_args()
 	projs = options.EXTRA_PROJECTS
+	if not projs:
+		return
 	for proj in projs.split(','):
 		ctx.add_subproject(proj)
 def process_extra_projects_conf(ctx):
 	projs = ctx.options.EXTRA_PROJECTS
+	if not projs:
+		return
 	ctx.env.EXTRA_PROJECTS = projs
 
 	for proj in projs.split(','):
@@ -128,6 +131,8 @@ def process_extra_projects_conf(ctx):
 
 def process_extra_projects_bld(ctx):
 	projs = ctx.env.EXTRA_PROJECTS
+	if not projs:
+		return
 	for proj in projs.split(','):
 		ctx.add_subproject(proj)
 
