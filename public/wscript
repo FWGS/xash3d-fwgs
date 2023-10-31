@@ -12,8 +12,7 @@ def options(opt):
 	return
 
 def configure(conf):
-	# stub
-	return
+	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 
 def build(bld):
 	bld(name = 'sdk_includes', export_includes = '. ../common ../pm_shared ../engine')
