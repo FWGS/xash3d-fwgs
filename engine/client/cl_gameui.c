@@ -982,7 +982,7 @@ pfnCheckGameDll
 */
 int GAME_EXPORT pfnCheckGameDll( void )
 {
-#if XASH_INTERNAL_GAMELIBS
+#ifdef XASH_INTERNAL_GAMELIBS
 	return true;
 #else
 	string dllpath;

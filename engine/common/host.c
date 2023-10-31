@@ -1020,7 +1020,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 #if TARGET_OS_IOS
 		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof( host.rootdir ));
 #elif XASH_ANDROID && XASH_SDL
-		Q_strncpy( host.rootdir, SDL_AndroidGetExternalStoragePath, sizeof( host.rootdir ));
+		Q_strncpy( host.rootdir, SDL_AndroidGetExternalStoragePath(), sizeof( host.rootdir ));
 #elif XASH_PSVITA
 		if ( !PSVita_GetBasePath( host.rootdir, sizeof( host.rootdir )))
 		{
