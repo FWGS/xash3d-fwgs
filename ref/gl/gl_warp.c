@@ -790,9 +790,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 	if( !warp->polys ) return;
 
 	// set the current waveheight
-	if( r_ripple.value )
-		waveHeight = 0;
-	else if( warp->polys->verts[0][2] >= RI.vieworg[2] )
+	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
 		waveHeight = -RI.currententity->curstate.scale;
 	else waveHeight = RI.currententity->curstate.scale;
 
