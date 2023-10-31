@@ -476,7 +476,6 @@ int main(void) { return !opus_custom_encoder_init(0, 0, 0); }'''
 			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus', fragment=frag, mandatory=False):
 				conf.env.HAVE_SYSTEM_OPUS = True
 
-	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 
 	for i in SUBDIRS:
