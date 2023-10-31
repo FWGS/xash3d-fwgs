@@ -32,7 +32,8 @@ extern "C"
 #endif // __cplusplus
 
 #define FS_API_VERSION 2 // not stable yet!
-#define FS_API_CREATEINTERFACE_TAG "XashFileSystem002" // follow FS_API_VERSION!!!
+#define FS_API_CREATEINTERFACE_TAG   "XashFileSystem002" // follow FS_API_VERSION!!!
+#define FILESYSTEM_INTERFACE_VERSION "VFileSystem009" // never change this!
 
 // search path flags
 enum
@@ -210,7 +211,7 @@ typedef struct fs_interface_t
 	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
 
 	// platform
-	void *(*_Platform_GetNativeObject)( const char *object );
+	void *(*_Sys_GetNativeObject)( const char *object );
 } fs_interface_t;
 
 typedef int (*FSAPI)( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *interface );

@@ -649,3 +649,31 @@ qboolean Sys_NewInstance( const char *gamedir )
 
 	return false;
 }
+
+
+/*
+==================
+Sys_GetNativeObject
+
+Get platform-specific native object
+==================
+*/
+void *Sys_GetNativeObject( const char *obj )
+{
+	void *ptr;
+
+	if( !COM_CheckString( obj ))
+		return NULL;
+
+	ptr = FS_GetNativeObject( obj );
+
+	if( ptr )
+		return ptr;
+
+	// Backend should consider that obj is case-sensitive
+#if XASH_ANDROID
+	ptr = Android_GetNativeObject( obj );
+#endif // XASH_ANDROID
+
+	return ptr;
+}

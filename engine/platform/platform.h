@@ -139,17 +139,6 @@ static inline void Platform_Shutdown( void )
 #endif
 }
 
-static inline void *Platform_GetNativeObject( const char *name )
-{
-	void *ptr = NULL;
-
-#if XASH_ANDROID
-	ptr = Android_GetNativeObject( name );
-#endif
-
-	return ptr;
-}
-
 /*
 ==============================================================================
 
@@ -158,7 +147,6 @@ static inline void *Platform_GetNativeObject( const char *name )
 ==============================================================================
 */
 void Platform_Vibrate( float life, char flags );
-void*Platform_GetNativeObject( const char *name );
 
 /*
 ==============================================================================

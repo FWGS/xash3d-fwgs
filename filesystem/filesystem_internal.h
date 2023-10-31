@@ -127,7 +127,7 @@ extern const fs_archive_t g_archives[];
 #define Con_DPrintf (*g_engfuncs._Con_DPrintf)
 #define Con_Reportf (*g_engfuncs._Con_Reportf)
 #define Sys_Error   (*g_engfuncs._Sys_Error)
-#define Platform_GetNativeObject (*g_engfuncs._Platform_GetNativeObject)
+#define Sys_GetNativeObject (*g_engfuncs._Sys_GetNativeObject)
 
 //
 // filesystem.c
