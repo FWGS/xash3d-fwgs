@@ -2116,6 +2116,7 @@ static server_physics_api_t gPhysicsAPI =
 	COM_SaveFile,
 	pfnLoadImagePixels,
 	pfnGetModelName,
+	Sys_GetNativeObject
 };
 
 /*
