@@ -471,7 +471,7 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 		if conf.check_cfg(package='opus', uselib_store='opus', args='opus >= 1.4 --cflags --libs', mandatory=False):
 			# now try to link with export that only exists with CUSTOM_MODES defined
 			frag='''#include <opus_custom.h>
-int main(void) { return !opus_custom_encoder_init(0, 0, 0); }'''
+int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const OpusCustomMode *)1, 1); }'''
 
 			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus', fragment=frag, mandatory=False):
 				conf.env.HAVE_SYSTEM_OPUS = True
