@@ -215,6 +215,7 @@ typedef struct ui_extendedfuncs_s {
 	// network address funcs
 	const char *(*pfnAdrToString)( const struct netadr_s a );
 	int (*pfnCompareAdr)( const void *a, const void *b ); // netadr_t
+	void *(*pfnGetNativeObject)( const char *name );
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine

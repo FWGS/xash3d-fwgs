@@ -1220,6 +1220,7 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	pfnParseFileSafe,
 	NET_AdrToString,
 	NET_CompareAdrSort,
+	Sys_GetNativeObject,
 };
 
 void UI_UnloadProgs( void )
