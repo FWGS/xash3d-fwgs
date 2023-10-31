@@ -107,7 +107,10 @@ typedef struct server_physics_api_s
 	int		(*pfnSaveFile)( const char *filename, const void *data, int len );
 	const byte	*(*pfnLoadImagePixels)( const char *filename, int *width, int *height );
 
-	const char*	(*pfnGetModelName)( int modelindex );
+	const char *(*pfnGetModelName)( int modelindex );
+
+	// FWGS extension
+	void       *(*pfnGetNativeObject)( const char *object );
 } server_physics_api_t;
 
 // physic callbacks
