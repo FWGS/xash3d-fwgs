@@ -82,7 +82,7 @@ static struct
 	uint32_t texture[RIPPLES_TEXSIZE];
 	int gl_texturenum;
 	int rippletexturenum;
-	int texturescale; // not all textures are 128x128, scale the texcoords down
+	float texturescale; // not all textures are 128x128, scale the texcoords down
 } g_ripple;
 
 static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
@@ -1010,7 +1010,15 @@ void R_UploadRipples( texture_t *image )
 		return;
 
 	g_ripple.gl_texturenum = image->gl_texturenum;
-	g_ripple.texturescale = Q_max( 1, image->width / 64 );
+	if( r_ripple.value == 1.0f )
+	{
+		g_ripple.texturescale = Q_max( 1.0f, image->width / 64.0f );
+	}
+	else
+	{
+		g_ripple.texturescale = 1.0f;
+	}
+
 
 	pixels = (uint32_t *)glt->original->buffer;
 	wbits = MostSignificantBit( image->width );
