@@ -909,21 +909,19 @@ static void R_SpawnNewRipple( int x, int y, short val )
 
 static void R_RunRipplesAnimation( const short *oldbuf, short *pbuf )
 {
-	unsigned int i = 0;
+	size_t i = 0;
+	const int w = RIPPLES_CACHEWIDTH;
+	const int m = RIPPLES_TEXSIZE_MASK;
 
-	for( i = 0; i < RIPPLES_TEXSIZE; i++, pbuf++ )
+	for( i = w; i < m + w; i++, pbuf++ )
 	{
-		int p = RIPPLES_CACHEWIDTH + i;
-		int val;
+		*pbuf = (
+			( (int)oldbuf[( i - ( w * 2 )) & m]
+			+ (int)oldbuf[( i - ( w + 1 )) & m]
+			+ (int)oldbuf[( i - ( w - 1 )) & m]
+			+ (int)oldbuf[( i ) & m]) >> 1 ) - (int)*pbuf;
 
-		val = ((int)oldbuf[(p - ( RIPPLES_CACHEWIDTH * 2 )) & RIPPLES_TEXSIZE_MASK]
-			+ (int)oldbuf[(p - ( RIPPLES_CACHEWIDTH + 1 )) & RIPPLES_TEXSIZE_MASK]
-			+ (int)oldbuf[(p - ( RIPPLES_CACHEWIDTH - 1 )) & RIPPLES_TEXSIZE_MASK]
-			+ (int)oldbuf[p & RIPPLES_TEXSIZE_MASK]) >> 1;
-
-		val -= *pbuf;
-
-		*pbuf = (short)val - (short)( val >> 6 );
+		*pbuf -= ( *pbuf >> 6 );
 	}
 }
 
@@ -989,7 +987,7 @@ void R_UploadRipples( texture_t *image )
 {
 	gl_texture_t *glt;
 	uint32_t *pixels;
-	int v, wmask, hmask;
+	int wbits, wmask, wshft;
 
 	// discard unuseful textures
 	if( !r_ripple.value || image->width > RIPPLES_CACHEWIDTH || image->width != image->height )
@@ -1012,25 +1010,30 @@ void R_UploadRipples( texture_t *image )
 		return;
 
 	g_ripple.gl_texturenum = image->gl_texturenum;
-
-	// TODO: original sw.dll always draws at 64x64
-	g_ripple.texturescale = Q_max( 2, RIPPLES_CACHEWIDTH / image->width );
+	g_ripple.texturescale = Q_max( 1, image->width / 64 );
 
 	pixels = (uint32_t *)glt->original->buffer;
-	v = MostSignificantBit( image->width );
+	wbits = MostSignificantBit( image->width );
+	wshft = 7 - wbits;
 	wmask = image->width - 1;
-	hmask = image->height - 1;
 
-	for( int i = 0; i < RIPPLES_TEXSIZE; i++ )
+	for( int y = 0; y < image->height; y++ )
 	{
-		int val = g_ripple.curbuf[i];
-		int x = ( val >> 4 ) + i;
-		int y = ( i >> 7 ) - ( val >> 4 );
-		int pixel = ( x & wmask ) + (( y & hmask ) << ( v & 0x1f )); // ???
+		int ry = y << ( 7 + wshft );
 
-		g_ripple.texture[i] = pixels[pixel];
+		for( int x = 0; x < image->width; x++ )
+		{
+			int rx = x << wshft;
+			int val = g_ripple.curbuf[ry + rx] >> 4;
+
+			int py = (y - val) & wmask;
+			int px = (x + val) & wmask;
+			int p = ( py << wbits ) + px;
+
+			g_ripple.texture[(y << wbits) + x] = pixels[p];
+		}
 	}
 
-	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, RIPPLES_CACHEWIDTH, RIPPLES_CACHEWIDTH, 0,
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->width, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, g_ripple.texture );
 }
