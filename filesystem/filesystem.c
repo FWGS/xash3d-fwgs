@@ -1386,7 +1386,7 @@ static void _Sys_Error( const char *fmt, ... )
 	exit( 1 );
 }
 
-static void *_Platform_GetNativeObject_stub( const char *object )
+static void *Sys_GetNativeObject_stub( const char *object )
 {
 	return NULL;
 }
@@ -2841,7 +2841,7 @@ fs_interface_t g_engfuncs =
 	_Mem_Alloc,
 	_Mem_Realloc,
 	_Mem_Free,
-	_Platform_GetNativeObject_stub
+	Sys_GetNativeObject_stub
 };
 
 static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
@@ -2883,9 +2883,9 @@ static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
 		Con_Reportf( "filesystem_stdio: custom memory allocation functions found\n" );
 	}
 
-	if( engfuncs->_Platform_GetNativeObject )
+	if( engfuncs->_Sys_GetNativeObject )
 	{
-		g_engfuncs._Platform_GetNativeObject = engfuncs->_Platform_GetNativeObject;
+		g_engfuncs._Sys_GetNativeObject = engfuncs->_Sys_GetNativeObject;
 		Con_Reportf( "filesystem_stdio: custom platform-specific functions found\n" );
 	}
 

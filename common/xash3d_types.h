@@ -181,6 +181,7 @@ typedef struct dll_info_s
 } dll_info_t;
 
 typedef void (*setpair_t)( const char *key, const void *value, const void *buffer, void *numpairs );
+typedef void *(*pfnCreateInterface_t)( const char *, int * );
 
 // config strings are a general means of communication from
 // the server to all connected clients.

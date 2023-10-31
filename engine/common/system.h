@@ -70,6 +70,7 @@ void Sys_InitLog( void );
 void Sys_CloseLog( void );
 void Sys_Quit( void ) NORETURN;
 qboolean Sys_NewInstance( const char *gamedir );
+void *Sys_GetNativeObject( const char *obj );
 
 //
 // sys_con.c

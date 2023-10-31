@@ -18,7 +18,6 @@ typedef void *HMODULE;
 
 HMODULE g_hModule;
 FSAPI g_pfnGetFSAPI;
-typedef void *(*pfnCreateInterface_t)( const char *, int * );
 pfnCreateInterface_t g_pfnCreateInterface;
 fs_api_t g_fs;
 fs_globals_t *g_nullglobals;

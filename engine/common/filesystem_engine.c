@@ -23,7 +23,16 @@ GNU General Public License for more details.
 fs_api_t g_fsapi;
 fs_globals_t *FI;
 
+static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
+
+void *FS_GetNativeObject( const char *obj )
+{
+	if( fs_pfnCreateInterface )
+		return fs_pfnCreateInterface( obj, NULL );
+
+	return NULL;
+}
 
 static void FS_Rescan_f( void )
 {
@@ -53,7 +62,7 @@ static fs_interface_t fs_memfuncs =
 	_Mem_Realloc,
 	_Mem_Free,
 
-	Platform_GetNativeObject,
+	Sys_GetNativeObject,
 };
 
 static void FS_UnloadProgs( void )
@@ -95,6 +104,13 @@ qboolean FS_LoadProgs( void )
 	{
 		FS_UnloadProgs();
 		Host_Error( "FS_LoadProgs: can't initialize filesystem API: wrong version\n" );
+		return false;
+	}
+
+	if( !( fs_pfnCreateInterface = (pfnCreateInterface_t)COM_GetProcAddress( fs_hInstance, "CreateInterface" )))
+	{
+		FS_UnloadProgs();
+		Host_Error( "FS_LoadProgs: can't find CreateInterface entry point in %s\n", name );
 		return false;
 	}
 

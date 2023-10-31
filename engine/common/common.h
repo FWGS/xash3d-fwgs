@@ -381,6 +381,7 @@ typedef void (*xcommand_t)( void );
 qboolean FS_LoadProgs( void );
 void FS_Init( void );
 void FS_Shutdown( void );
+void *FS_GetNativeObject( const char *obj );
 
 //
 // cmd.c

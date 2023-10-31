@@ -87,15 +87,6 @@ static int pfnDrawScaledCharacter( int x, int y, int number, int r, int g, int b
 	return CL_DrawCharacter( x, y, number, color, &g_scaled_font, flags );
 }
 
-static void *pfnGetNativeObject( const char *obj )
-{
-	if( !obj )
-		return NULL;
-
-	// Backend should consider that obj is case-sensitive
-	return Platform_GetNativeObject( obj );
-}
-
 static void pfnTouch_HideButtons( const char *name, byte state )
 {
 	Touch_HideButtons( name, state, true );
@@ -124,7 +115,7 @@ static mobile_engfuncs_t gpMobileEngfuncs =
 	Touch_ResetDefaultButtons,
 	pfnDrawScaledCharacter,
 	Sys_Warn,
-	pfnGetNativeObject,
+	Sys_GetNativeObject,
 	ID_SetCustomClientID,
 	pfnParseFileSafe
 };
