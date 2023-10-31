@@ -167,7 +167,7 @@ def configure(conf):
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx cmake')
+	conf.load('xshlib xcompile compiler_c compiler_cxx cmake gccdeps msvcdeps')
 
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
