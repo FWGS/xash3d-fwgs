@@ -95,7 +95,11 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 	//gEngfuncs.Con_Printf ("pixels is %p\n", pic->pixels[0] );
 
 	height = h;
-	if (y < 0)
+
+	if( y < -h ) // out of display, out of bounds
+		return;
+
+	if( y < 0 )
 	{
 		skip = -y;
 		height += y;
