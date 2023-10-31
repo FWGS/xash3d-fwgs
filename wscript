@@ -104,18 +104,35 @@ REFDLLS = [
 	RefDll('null', False),
 ]
 
-def process_extra_projects(ctx):
+def process_extra_projects_opts(ctx):
 	projs = ''
-	if isinstance(ctx,Options.OptionsContext):
-		options, commands, envvars = ctx.parse_cmd_args()
-		projs = options.EXTRA_PROJECTS
-	elif isinstance(ctx,Configure.ConfigurationContext):
-		projs = ctx.options.EXTRA_PROJECTS
-		ctx.env.EXTRA_PROJECTS = projs
-	else:
-		projs = ctx.env.EXTRA_PROJECTS
+	options, commands, envvars = ctx.parse_cmd_args()
+	projs = options.EXTRA_PROJECTS
 	for proj in projs.split(','):
 		ctx.add_subproject(proj)
+def process_extra_projects_conf(ctx):
+	projs = ctx.options.EXTRA_PROJECTS
+	ctx.env.EXTRA_PROJECTS = projs
+
+	for proj in projs.split(','):
+		tools_orig = ctx.tools.copy()
+		ctx.add_subproject(proj)
+		waifulib_path = os.path.join(proj, 'scripts', 'waifulib')
+		if os.path.isdir(waifulib_path):
+			for tool in ctx.tools:
+				if not tool in tools_orig:
+					if os.path.isfile(os.path.join(waifulib_path, tool['tool'] + '.py')):
+						tool['tooldir'] = [waifulib_path]
+						Logs.info('External tooldir set: ' + str(tool))
+
+
+def process_extra_projects_bld(ctx):
+	projs = ctx.env.EXTRA_PROJECTS
+	for proj in projs.split(','):
+		ctx.add_subproject(proj)
+
+
+
 
 
 def options(opt):
@@ -176,7 +193,7 @@ def options(opt):
 			continue
 
 		opt.add_subproject(i.name)
-	process_extra_projects(opt)
+	process_extra_projects_opts(opt)
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
@@ -510,7 +527,7 @@ int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const
 			continue
 
 		conf.add_subproject(i.name)
-	process_extra_projects(conf)
+	process_extra_projects_conf(conf)
 
 def build(bld):
 	# guard rails to not let install to root
@@ -533,4 +550,4 @@ def build(bld):
 	if bld.env.TESTS:
 		bld.add_post_fun(waf_unit_test.summary)
 		bld.add_post_fun(waf_unit_test.set_exit_code)
-	process_extra_projects(bld)
+	process_extra_projects_bld(bld)
