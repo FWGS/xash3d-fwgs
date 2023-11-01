@@ -44,6 +44,7 @@ class Android:
 	ndk_rev        = 0
 	is_hardfloat   = False
 	clang          = False
+	ndk_binutils   = False
 
 	def __init__(self, ctx, arch, toolchain, api):
 		self.ctx = ctx
@@ -229,7 +230,7 @@ class Android:
 		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
-		if self.is_host():
+		if self.is_host() and not self.ndk_binutils:
 			environ = getattr(self.ctx, 'environ', os.environ)
 
 			if 'STRIP' in environ:
@@ -239,6 +240,18 @@ class Android:
 		if self.ndk_rev >= 23:
 			return os.path.join(self.gen_binutils_path(), 'llvm-strip')
 		return os.path.join(self.gen_binutils_path(), 'strip')
+
+	def objcopy(self):
+		if self.is_host() and not self.ndk_binutils:
+			environ = getattr(self.ctx, 'environ', os.environ)
+
+			if 'OBJCOPY' in environ:
+				return environ['OBJCOPY']
+			return 'llvm-objcopy'
+
+		if self.ndk_rev >= 23:
+			return os.path.join(self.gen_binutils_path(), 'llvm-objcopy')
+		return os.path.join(self.gen_binutils_path(), 'objcopy')
 
 	def system_stl(self):
 		# TODO: proper STL support
@@ -327,7 +340,10 @@ class Android:
 		if self.is_host():
 			linkflags += ['--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
 			linkflags += ['--gcc-install-dir=%s/lib/gcc/%s/4.9/' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
-			linkflags += ['-fuse-ld=%s/bin/%s-ld.bfd' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
+			if self.ndk_binutils:
+				linkflags += ['-fuse-ld=%s/bin/%s-ld.bfd' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
+			else:
+				linkflags += ['-fuse-ld=lld']
 			linkflags += ['--unwindlib=none']
 			linkflags += ['--rtlib=libgcc']
 
@@ -543,6 +559,7 @@ def configure(conf):
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
+		conf.environ['OBJCOPY'] = android.objcopy()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags(True)
 		conf.env.LINKFLAGS += android.linkflags()
