@@ -301,7 +301,6 @@ typedef struct ref_api_s
 	// entity management
 	struct cl_entity_s *(*GetLocalPlayer)( void );
 	struct cl_entity_s *(*GetViewModel)( void );
-	struct cl_entity_s *(*GetEntityByIndex)( int idx );
 	struct cl_entity_s *(*R_BeamGetEntity)( int index );
 	struct cl_entity_s *(*CL_GetWaterEntity)( const vec3_t p );
 	qboolean (*CL_AddVisibleEntity)( cl_entity_t *ent, int entityType );
@@ -329,7 +328,7 @@ typedef struct ref_api_s
 	// model management
 	model_t *(*Mod_ForName)( const char *name, qboolean crash, qboolean trackCRC );
 	void *(*Mod_Extradata)( int type, model_t *model );
-	struct model_s *(*pfnGetModelByIndex)( int index ); // CL_ModelHandle
+	struct model_s **(*pfnGetModels)( void );
 
 	// remap
 	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
@@ -463,7 +462,7 @@ typedef struct ref_interface_s
 
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
-	void		(*R_ProcessEntData)( qboolean allocate );
+	void		(*R_ProcessEntData)( qboolean allocate, cl_entity_t *entities, unsigned int max_entities );
 
 	// debug
 	void (*R_ShowTextures)( void );

@@ -750,15 +750,15 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 
 	if( entityIndex > 0 )
 	{
-		ent = gEngfuncs.GetEntityByIndex( entityIndex );
+		ent = CL_GetEntityByIndex( entityIndex );
 
-		if( modelIndex > 0 ) model = gEngfuncs.pfnGetModelByIndex( modelIndex );
-		else if( ent != NULL ) model = gEngfuncs.pfnGetModelByIndex( ent->curstate.modelindex );
+		if( modelIndex > 0 ) model = CL_ModelHandle( modelIndex );
+		else if( ent != NULL ) model = CL_ModelHandle( ent->curstate.modelindex );
 		else return;
 	}
 	else if( modelIndex > 0 )
-		model = gEngfuncs.pfnGetModelByIndex( modelIndex );
-	else model = WORLDMODEL;
+		model = CL_ModelHandle( modelIndex );
+	else model = CL_ModelHandle( 1 );
 
 	if( !model ) return;
 

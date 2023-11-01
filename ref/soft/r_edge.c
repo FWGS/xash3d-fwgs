@@ -1118,7 +1118,7 @@ void D_SolidSurf (surf_t *s)
 	{
 		if( alphaspans )
 			return;
-		RI.currententity = gEngfuncs.GetEntityByIndex(0); //r_worldentity;
+		RI.currententity = CL_GetEntityByIndex(0); //r_worldentity;
 		tr.modelviewIdentity = true;
 	}
 

@@ -949,7 +949,7 @@ void R_RenderWorld (void)
 	c_drawnode=0;
 
 	// auto cycle the world frame for texture animation
-	RI.currententity = gEngfuncs.GetEntityByIndex(0);
+	RI.currententity = CL_GetEntityByIndex(0);
 	//RI.currententity->frame = (int)(gpGlobals->time*2);
 
 	VectorCopy (RI.vieworg, tr.modelorg);
