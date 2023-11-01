@@ -263,8 +263,15 @@ class Android:
 
 	def cflags(self, cxx = False):
 		cflags = []
+		android_from_none = False
+		if self.is_host() and self.is_arm() and self.is_hardfp():
+			# clang android target may change with ndk
+			# override target to none while compiling and
+			# add some android options manually
+			android_from_none = True
+			cflags += ['--target=arm-none-eabi']
 
-		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX:
+		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX and not android_from_none:
 			cflags += ['--sysroot=%s' % (self.sysroot())]
 		else:
 			if self.is_host():
@@ -274,8 +281,10 @@ class Android:
 				]
 
 		cflags += ['-I%s' % (self.system_stl())]
-		if not self.is_clang():
-			cflags += ['-DANDROID', '-D__ANDROID__']
+		if not self.is_clang() or android_from_none:
+			cflags += ['-DANDROID', '-D__ANDROID__=1']
+		if android_from_none:
+			cflags += [ '-D__linux__=1', '-fPIC'] # TODO: compare with linux target?
 
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
 			cflags += ['-fno-sized-deallocation']
@@ -292,7 +301,7 @@ class Android:
 				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9']
 
 				if self.is_hardfp():
-					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
+					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK', '-DGLES_SOFTFLOAT']
 
 					if self.is_host():
 						# Clang builtin redefine w/ different calling convention bug
