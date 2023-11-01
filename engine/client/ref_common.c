@@ -212,6 +212,11 @@ static qboolean R_Init_Video_( const int type )
 	return R_Init_Video( type );
 }
 
+static model_t **pfnGetModels( void )
+{
+	return cl.models;
+}
+
 static ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
@@ -248,7 +253,6 @@ static ref_api_t gEngfuncs =
 
 	CL_GetLocalPlayer,
 	CL_GetViewModel,
-	CL_GetEntityByIndex,
 	R_BeamGetEntity,
 	CL_GetWaterEntity,
 	CL_AddVisibleEntity,
@@ -272,7 +276,7 @@ static ref_api_t gEngfuncs =
 
 	Mod_ForName,
 	pfnMod_Extradata,
-	CL_ModelHandle,
+	pfnGetModels,
 
 	CL_GetRemapInfoForEntity,
 	CL_AllocRemapInfo,

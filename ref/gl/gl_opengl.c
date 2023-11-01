@@ -1284,6 +1284,11 @@ qboolean R_Init( void )
 		return false;
 	}
 
+	// see R_ProcessEntData for tr.entities initialization
+	tr.world = gEngfuncs.GetWorld();
+	tr.models = gEngfuncs.pfnGetModels();
+	tr.movevars = gEngfuncs.pfnGetMoveVars();
+
 	GL_SetDefaults();
 	R_CheckVBO();
 	R_InitImages();

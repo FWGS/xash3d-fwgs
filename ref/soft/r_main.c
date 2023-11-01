@@ -425,7 +425,7 @@ R_GetFarClip
 static float R_GetFarClip( void )
 {
 	if( WORLDMODEL && RI.drawWorld )
-		return MOVEVARS->zmax * 1.73f;
+		return tr.movevars->zmax * 1.73f;
 	return 2048.0f;
 }
 
@@ -539,7 +539,7 @@ void R_RotateForEntity( cl_entity_t *e )
 #if 0
 	float	scale = 1.0f;
 
-	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
+	if( e == CL_GetEntityByIndex( 0 ) )
 	{
 		R_LoadIdentity();
 		return;
@@ -567,7 +567,7 @@ void R_TranslateForEntity( cl_entity_t *e )
 #if 0
 	float	scale = 1.0f;
 
-	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
+	if( e == CL_GetEntityByIndex( 0 ) )
 	{
 		R_LoadIdentity();
 		return;
@@ -784,7 +784,7 @@ void R_DrawEntitiesOnList( void )
 	//d_aflatcolor = 0;
 	tr.blend = 1.0f;
 //	GL_CheckForErrors();
-	//RI.currententity = gEngfuncs.GetEntityByIndex(0);
+	//RI.currententity = CL_GetEntityByIndex(0);
 	d_pdrawspans = R_PolysetFillSpans8;
 	GL_SetRenderMode(kRenderNormal);
 	// first draw solid entities
@@ -815,7 +815,7 @@ void R_DrawEntitiesOnList( void )
 			extern void	(*d_pdrawspans)(void *);
 			extern void R_PolysetFillSpans8 ( void * );
 			d_pdrawspans = R_PolysetFillSpans8;
-			//RI.currententity = gEngfuncs.GetEntityByIndex(0);
+			//RI.currententity = CL_GetEntityByIndex(0);
 			R_AliasSetUpTransform();
 			image_t *image = R_GetTexture(GL_LoadTexture("gfx/env/desertbk", NULL, 0, 0));
 			r_affinetridesc.pskin = image->pixels[0];
@@ -1937,6 +1937,10 @@ qboolean GAME_EXPORT R_Init( void )
 		gEngfuncs.R_Free_Video();
 		return false;
 	}
+
+	// see R_ProcessEntData for tr.entities initialization
+	tr.models = gEngfuncs.pfnGetModels();
+	tr.movevars = gEngfuncs.pfnGetMoveVars();
 
 	R_InitBlit( glblit );
 

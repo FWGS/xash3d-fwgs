@@ -295,13 +295,21 @@ const byte *GL_TextureData( unsigned int texnum )
 	return NULL;
 }
 
-void R_ProcessEntData( qboolean allocate )
+void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
 {
 	if( !allocate )
 	{
 		tr.draw_list->num_solid_entities = 0;
 		tr.draw_list->num_trans_entities = 0;
 		tr.draw_list->num_beam_entities = 0;
+
+		tr.max_entities = 0;
+		tr.entities = NULL;
+	}
+	else
+	{
+		tr.max_entities = max_entities;
+		tr.entities = entities;
 	}
 
 	if( gEngfuncs.drawFuncs->R_ProcessEntData )

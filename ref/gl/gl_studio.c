@@ -1851,7 +1851,7 @@ void R_StudioRenderShadow( int iSprite, float *p1, float *p2, float *p3, float *
 	if( !p1 || !p2 || !p3 || !p4 )
 		return;
 
-	if( TriSpriteTexture( gEngfuncs.pfnGetModelByIndex( iSprite ), 0 ))
+	if( TriSpriteTexture( CL_ModelHandle( iSprite ), 0 ))
 	{
 		TriRenderMode( kRenderTransAlpha );
 		TriColor4f( 0.0f, 0.0f, 0.0f, 1.0f );
@@ -3371,7 +3371,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		// copy attachments into global entity array
 		if( RI.currententity->index > 0 )
 		{
-			cl_entity_t *ent = gEngfuncs.GetEntityByIndex( RI.currententity->index );
+			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
 			memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
 		}
 	}
@@ -3414,7 +3414,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		if( pplayer->weaponmodel )
 		{
 			cl_entity_t	saveent = *RI.currententity;
-			model_t		*pweaponmodel = gEngfuncs.pfnGetModelByIndex( pplayer->weaponmodel );
+			model_t		*pweaponmodel = CL_ModelHandle( pplayer->weaponmodel );
 
 			m_pStudioHeader = (studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, pweaponmodel );
 
@@ -3500,7 +3500,7 @@ static int R_StudioDrawModel( int flags )
 		// copy attachments into global entity array
 		if( RI.currententity->index > 0 )
 		{
-			cl_entity_t *ent = gEngfuncs.GetEntityByIndex( RI.currententity->index );
+			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
 			memcpy( ent->attachment, RI.currententity->attachment, sizeof( vec3_t ) * 4 );
 		}
 	}
@@ -3569,7 +3569,7 @@ void R_DrawStudioModel( cl_entity_t *e )
 	{
 		if( e->curstate.movetype == MOVETYPE_FOLLOW && e->curstate.aiment > 0 )
 		{
-			cl_entity_t *parent = gEngfuncs.GetEntityByIndex( e->curstate.aiment );
+			cl_entity_t *parent = CL_GetEntityByIndex( e->curstate.aiment );
 
 			if( parent && parent->model && parent->model->type == mod_studio )
 			{
@@ -3828,7 +3828,9 @@ void Mod_StudioUnloadTextures( void *data )
 
 static model_t *pfnModelHandle( int modelindex )
 {
-	return gEngfuncs.pfnGetModelByIndex( modelindex );
+	if( modelindex < 0 || modelindex >= MAX_MODELS )
+		return NULL;
+	return CL_ModelHandle( modelindex );
 }
 
 static void *pfnMod_CacheCheck( struct cache_user_s *c )

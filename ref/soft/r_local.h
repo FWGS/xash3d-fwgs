@@ -41,13 +41,8 @@ typedef	int	fixed16_t;
 
 #include <stdio.h>
 
-#define WORLD (gEngfuncs.GetWorld())
-#define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
-#define MOVEVARS (gEngfuncs.pfnGetMoveVars())
-
 // make mod_ref.h?
 #define LM_SAMPLE_SIZE             16
-
 
 extern poolhandle_t r_temppool;
 
@@ -298,6 +293,13 @@ typedef struct
 	int sample_size;
 	uint sample_bits;
 	qboolean map_unload;
+
+	// get from engine
+	cl_entity_t *entities;
+	movevars_t *movevars;
+	model_t **models;
+
+	uint max_entities;
 } gl_globals_t;
 
 typedef struct
@@ -671,6 +673,21 @@ void TriBrightness( float brightness );
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( (parm), 0 )
+
+//
+// helper funcs
+//
+static inline cl_entity_t *CL_GetEntityByIndex( int index )
+{
+	return &tr.entities[index];
+}
+
+static inline model_t *CL_ModelHandle( int index )
+{
+	return tr.models[index];
+}
+
+#define WORLDMODEL (tr.models[1])
 
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;

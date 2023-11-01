@@ -28,7 +28,7 @@ GNU General Public License for more details.
 // REFTODO: rewrite in triapi
 void R_DrawWorldHull( void )
 {
-	hull_model_t	*hull = &WORLD->hull_models[0];
+	hull_model_t	*hull = &tr.world->hull_models[0];
 	winding_t		*poly;
 	int		i;
 
@@ -69,10 +69,10 @@ void R_DrawModelHull( void )
 		return;
 
 	i = atoi( RI.currentmodel->name + 1 );
-	if( i < 1 || i >= WORLD->num_hull_models )
+	if( i < 1 || i >= tr.world->num_hull_models )
 		return;
 
-	hull = &WORLD->hull_models[i];
+	hull = &tr.world->hull_models[i];
 
 	pglPolygonOffset( 1.0f, 2.0 );
 	pglEnable( GL_POLYGON_OFFSET_FILL );
