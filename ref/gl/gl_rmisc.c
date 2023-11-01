@@ -146,7 +146,7 @@ void R_NewMap( void )
  		tx->texturechain = NULL;
 	}
 
-	R_SetupSky( MOVEVARS->skyName );
+	R_SetupSky( tr.movevars->skyName );
 
 	GL_BuildLightmaps ();
 	R_GenerateVBO();

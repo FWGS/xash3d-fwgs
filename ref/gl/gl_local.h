@@ -57,10 +57,6 @@ void VGL_ShimEndFrame( void );
 
 #include <stdio.h>
 
-#define WORLD (gEngfuncs.GetWorld())
-#define WORLDMODEL (gEngfuncs.pfnGetModelByIndex( 1 ))
-#define MOVEVARS (gEngfuncs.pfnGetMoveVars())
-
 // make mod_ref.h?
 #define LM_SAMPLE_SIZE             16
 
@@ -257,6 +253,14 @@ typedef struct
 	vec3_t		modelorg;		// relative to viewpoint
 
 	qboolean fCustomSkybox;
+
+	// get from engine
+	struct world_static_s *world;
+	cl_entity_t *entities;
+	movevars_t *movevars;
+	model_t **models;
+
+	uint max_entities;
 } gl_globals_t;
 
 typedef struct
@@ -707,7 +711,6 @@ typedef struct
 	qboolean		in2DMode;
 } glstate_t;
 
-
 typedef struct
 {
 	qboolean		initialized;	// OpenGL subsystem started
@@ -723,6 +726,21 @@ extern ref_globals_t *gpGlobals;
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( ( parm ), 0 )
+
+//
+// helper funcs
+//
+static inline cl_entity_t *CL_GetEntityByIndex( int index )
+{
+	return &tr.entities[index];
+}
+
+static inline model_t *CL_ModelHandle( int index )
+{
+	return tr.models[index];
+}
+
+#define WORLDMODEL (tr.models[1])
 
 //
 // renderer cvars

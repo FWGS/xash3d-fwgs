@@ -1109,12 +1109,12 @@ void CL_InitEdicts( int maxclients )
 		clgame.remap_info = (remap_info_t **)Mem_Calloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
 	}
 
-	ref.dllFuncs.R_ProcessEntData( true );
+	ref.dllFuncs.R_ProcessEntData( true, clgame.entities, clgame.maxEntities );
 }
 
 void CL_FreeEdicts( void )
 {
-	ref.dllFuncs.R_ProcessEntData( false );
+	ref.dllFuncs.R_ProcessEntData( false, NULL, 0 );
 
 	if( clgame.entities )
 		Mem_Free( clgame.entities );

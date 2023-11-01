@@ -758,7 +758,7 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		float		flRate, flAngle;
 		gl_texture_t	*texture;
 
-		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && RI.currententity == gEngfuncs.GetEntityByIndex( 0 ) )
+		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && RI.currententity == CL_GetEntityByIndex( 0 ))
 		{
 			// same as doom speed
 			flConveyorSpeed = -35.0f;
@@ -1235,7 +1235,7 @@ void R_DrawTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
+	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
@@ -1266,7 +1266,7 @@ void R_DrawTextureChains( void )
 		if( !s || ( i == tr.skytexturenum ))
 			continue;
 
-		if(( s->flags & SURF_DRAWTURB ) && MOVEVARS->wateralpha < 1.0f )
+		if(( s->flags & SURF_DRAWTURB ) && tr.movevars->wateralpha < 1.0f )
 			continue;	// draw translucent water later
 
 		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( s->flags, SURF_TRANSPARENT ))
@@ -1309,7 +1309,7 @@ void R_DrawAlphaTextureChains( void )
 	GL_SetupFogColorForSurfaces();
 
 	// restore worldmodel
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
+	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 	RI.currententity->curstate.rendermode = kRenderTransAlpha;
 	draw_alpha_surfaces = false;
@@ -1350,11 +1350,11 @@ void R_DrawWaterSurfaces( void )
 		return;
 
 	// non-transparent water is already drawed
-	if( MOVEVARS->wateralpha >= 1.0f )
+	if( tr.movevars->wateralpha >= 1.0f )
 		return;
 
 	// restore worldmodel
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
+	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
 	// go back to the world matrix
@@ -1365,7 +1365,7 @@ void R_DrawWaterSurfaces( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglColor4f( 1.0f, 1.0f, 1.0f, MOVEVARS->wateralpha );
+	pglColor4f( 1.0f, 1.0f, 1.0f, tr.movevars->wateralpha );
 
 	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
@@ -3280,7 +3280,7 @@ void R_DrawWorld( void )
 
 	// paranoia issues: when gl_renderer is "0" we need have something valid for currententity
 	// to prevent crashing until HeadShield drawing.
-	RI.currententity = gEngfuncs.GetEntityByIndex( 0 );
+	RI.currententity = CL_GetEntityByIndex( 0 );
 	if( !RI.currententity )
 		return;
 
@@ -3490,7 +3490,7 @@ void GL_RebuildLightmaps( void )
 
 	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
-		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
+		if(( m = CL_ModelHandle( i + 1 )) == NULL )
 			continue;
 
 		if( m->name[0] == '*' || m->type != mod_brush )
@@ -3554,7 +3554,7 @@ void GL_BuildLightmaps( void )
 
 	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
 	{
-		if(( m = gEngfuncs.pfnGetModelByIndex( i + 1 )) == NULL )
+		if(( m = CL_ModelHandle( i + 1 )) == NULL )
 			continue;
 
 		if( m->name[0] == '*' || m->type != mod_brush )

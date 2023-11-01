@@ -895,7 +895,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	{
 		cl_entity_t	*parent;
 
-		parent = gEngfuncs.GetEntityByIndex( e->curstate.aiment );
+		parent = CL_GetEntityByIndex( e->curstate.aiment );
 
 		if( parent && parent->model )
 		{

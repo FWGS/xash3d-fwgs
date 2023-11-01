@@ -273,9 +273,10 @@ void Mod_UnloadTextures( model_t *mod )
 	}
 }
 
-void GAME_EXPORT R_ProcessEntData( qboolean allocate )
+void GAME_EXPORT R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
 {
-
+	tr.entities = entities;
+	tr.max_entities = max_entities;
 }
 
 // stubs

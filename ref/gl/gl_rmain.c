@@ -324,7 +324,7 @@ R_GetFarClip
 static float R_GetFarClip( void )
 {
 	if( WORLDMODEL && RI.drawWorld )
-		return MOVEVARS->zmax * 1.73f;
+		return tr.movevars->zmax * 1.73f;
 	return 2048.0f;
 }
 
@@ -429,7 +429,7 @@ void R_RotateForEntity( cl_entity_t *e )
 {
 	float	scale = 1.0f;
 
-	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
+	if( e == CL_GetEntityByIndex( 0 ))
 	{
 		R_LoadIdentity();
 		return;
@@ -455,7 +455,7 @@ void R_TranslateForEntity( cl_entity_t *e )
 {
 	float	scale = 1.0f;
 
-	if( e == gEngfuncs.GetEntityByIndex( 0 ) )
+	if( e == CL_GetEntityByIndex( 0 ))
 	{
 		R_LoadIdentity();
 		return;
@@ -669,7 +669,7 @@ static void R_CheckFog( void )
 	// quake global fog
 	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 	{
-		if( !MOVEVARS->fog_settings )
+		if( !tr.movevars->fog_settings )
 		{
 			if( pglIsEnabled( GL_FOG ))
 				pglDisable( GL_FOG );
@@ -678,10 +678,10 @@ static void R_CheckFog( void )
 		}
 
 		// quake-style global fog
-		RI.fogColor[0] = ((MOVEVARS->fog_settings & 0xFF000000) >> 24) / 255.0f;
-		RI.fogColor[1] = ((MOVEVARS->fog_settings & 0xFF0000) >> 16) / 255.0f;
-		RI.fogColor[2] = ((MOVEVARS->fog_settings & 0xFF00) >> 8) / 255.0f;
-		RI.fogDensity = ((MOVEVARS->fog_settings & 0xFF) / 255.0f) * 0.01f;
+		RI.fogColor[0] = ((tr.movevars->fog_settings & 0xFF000000) >> 24) / 255.0f;
+		RI.fogColor[1] = ((tr.movevars->fog_settings & 0xFF0000) >> 16) / 255.0f;
+		RI.fogColor[2] = ((tr.movevars->fog_settings & 0xFF00) >> 8) / 255.0f;
+		RI.fogDensity = ((tr.movevars->fog_settings & 0xFF) / 255.0f) * 0.01f;
 		RI.fogStart = RI.fogEnd = 0.0f;
 		RI.fogColor[3] = 1.0f;
 		RI.fogCustom = false;
