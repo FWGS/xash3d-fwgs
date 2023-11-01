@@ -556,13 +556,15 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	for( func = funcs; func && func->name; func++ )
 	{
 		// functions are cleared before all the extensions are evaluated
+#ifndef XASH_GLES // arb on gles is last (TODO: separate search tables for GLES/CORE)
 		if(( *func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
+#endif
 		{
 			string name;
 			char *end;
 			size_t i = 0;
 #ifdef XASH_GLES
-			const char *suffixes[] = { "", "EXT", "OES" };
+			const char *suffixes[] = { "", "EXT", "OES", "ARB" };
 #else
 			const char *suffixes[] = { "", "EXT" };
 #endif
@@ -576,7 +578,9 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 			else // I need Q_strstrnul
 			{
 				end = name + Q_strlen( name );
+#ifndef XASH_GLES
 				i++; // skip empty suffix
+#endif
 			}
 
 			for( ; i < sizeof( suffixes ) / sizeof( suffixes[0] ); i++ )
@@ -588,6 +592,9 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 				if(( f = gEngfuncs.GL_GetProcAddress( name )))
 				{
 					// GL_GetProcAddress prints errors about missing functions, so tell user that we found it with different name
+#ifdef XASH_GLES
+					if(i != 0)
+#endif
 					gEngfuncs.Con_Printf( S_NOTE "found %s\n", name );
 
 					*func->func = f;
