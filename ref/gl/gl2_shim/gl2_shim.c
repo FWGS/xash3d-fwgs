@@ -383,7 +383,9 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 		{
 			if( gl2wrap_config.vao_mandatory || gl2wrap_config.incremental )
 			{
-				for( int j = 0; j < gl2wrap_config.cycle_buffers; j++ )
+				int j;
+
+				for( j = 0; j < gl2wrap_config.cycle_buffers; j++ )
 				{
 					pglBindVertexArray( prog->vao_begin[j] );
 					pglEnableVertexAttribArrayARB( prog->attridx[i] );
@@ -472,12 +474,14 @@ static void GL2_InitTriQuads( void )
 
 static void GL2_InitIncrementalBuffer( int i, GLuint size )
 {
+	int j;
+
 	gl2wrap.attrbufobj[i] = Mem_Calloc( r_temppool, gl2wrap_config.cycle_buffers * sizeof( GLuint ));
 	if( gl2wrap_config.buf_storage )
 		gl2wrap.mappings[i] = Mem_Calloc( r_temppool, gl2wrap_config.cycle_buffers * sizeof( void * ));
 	pglGenBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap.attrbufobj[i] );
 
-	for( int j = 0; j < gl2wrap_config.cycle_buffers; j++ )
+	for( j = 0; j < gl2wrap_config.cycle_buffers; j++ )
 	{
 		rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][j] );
 		if( gl2wrap_config.buf_storage )
@@ -628,7 +632,9 @@ int GL2_ShimInit( void )
 				pglGenBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap.attrbufobj[i] );
 				if( gl2wrap_config.supports_mapbuffer )
 				{
-					for( int j = 0; j < gl2wrap_config.cycle_buffers; j++ )
+					int j;
+
+					for( j = 0; j < gl2wrap_config.cycle_buffers; j++ )
 					{
 						rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][j] );
 						pglBufferDataARB( GL_ARRAY_BUFFER_ARB, MAX_BEGINEND_VERTS, NULL, GL_STREAM_DRAW_ARB );
@@ -1550,6 +1556,7 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 {
 	gl2wrap_prog_t *prog;
 	unsigned int flags = gl2wrap_arrays.flags;
+	int i;
 
 	if( !flags )
 		return; // Legacy pointers not used
@@ -1573,7 +1580,7 @@ static void GL2_SetupArrays( GLuint start, GLuint end )
 		pglBindVertexArray( gl2wrap_arrays.vao_dynamic );
 	}
 
-	for( int i = 0; i < GL2_ATTR_MAX; i++ )
+	for( i = 0; i < GL2_ATTR_MAX; i++ )
 	{
 		if( prog->attridx[i] < 0 )
 			continue;
