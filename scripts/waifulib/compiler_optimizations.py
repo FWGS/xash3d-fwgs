@@ -30,7 +30,7 @@ compiler_optimizations.CFLAGS['gottagofast'] = {
 }
 '''
 
-VALID_BUILD_TYPES = ['fastnative', 'fast', 'release', 'debug', 'sanitize', 'msan', 'none']
+VALID_BUILD_TYPES = ['fastnative', 'fast', 'humanrights', 'debug', 'sanitize', 'msan', 'none']
 
 LINKFLAGS = {
 	'common': {
@@ -75,7 +75,7 @@ CFLAGS = {
 		'clang':   ['-Ofast', '-march=native'],
 		'default': ['-O3']
 	},
-	'release': {
+	'humanrights': {
 		'msvc':    ['/O2', '/Zi'],
 		'owcc':    ['-O3', '-foptimize-sibling-calls', '-fomit-leaf-frame-pointer', '-fomit-frame-pointer', '-fschedule-insns', '-funsafe-math-optimizations', '-funroll-loops', '-frerun-optimizer', '-finline-functions', '-finline-limit=512', '-fguess-branch-probability', '-fno-strict-aliasing', '-floop-optimize'],
 		'gcc':     ['-O3', '-fno-semantic-interposition'],
@@ -119,7 +119,7 @@ POLLY_CFLAGS = {
 def options(opt):
 	grp = opt.add_option_group('Compiler optimization options')
 
-	grp.add_option('-T', '--build-type', action='store', dest='BUILD_TYPE', default='release',
+	grp.add_option('-T', '--build-type', action='store', dest='BUILD_TYPE', default='humanrights',
 		help = 'build type: debug, release or none(custom flags)')
 
 	grp.add_option('--enable-lto', action = 'store_true', dest = 'LTO', default = False,
@@ -130,6 +130,11 @@ def options(opt):
 
 def configure(conf):
 	conf.start_msg('Build type')
+
+	# legacy naming for default release build
+	# https://chaos.social/@karolherbst/111340511652012860
+	if conf.options.BUILD_TYPE == 'release':
+		conf.options.BUILD_TYPE = 'humanrights'
 
 	if not conf.options.BUILD_TYPE in VALID_BUILD_TYPES:
 		conf.end_msg(conf.options.BUILD_TYPE, color='RED')
