@@ -42,7 +42,7 @@ R_CullModel
 */
 int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
 {
-	if( e == gEngfuncs.GetViewModel() )
+	if( e == tr.viewent )
 	{
 		if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
 			return 1;

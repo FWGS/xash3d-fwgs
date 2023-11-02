@@ -196,7 +196,7 @@ static qboolean R_AllowFlipViewModel( cl_entity_t *e )
 {
 	if( cl_righthand && cl_righthand->value > 0 )
 	{
-		if( e == gEngfuncs.GetViewModel() )
+		if( e == tr.viewent )
 			return true;
 	}
 
@@ -412,7 +412,7 @@ pfnGetViewEntity
 */
 static cl_entity_t *pfnGetViewEntity( void )
 {
-	return gEngfuncs.GetViewModel();
+	return tr.viewent;
 }
 
 /*
@@ -2488,7 +2488,7 @@ static void R_StudioDrawAbsBBox( void )
 	int	i;
 
 	// looks ugly, skip
-	if( RI.currententity == gEngfuncs.GetViewModel() )
+	if( RI.currententity == tr.viewent )
 		return;
 
 	if( !R_StudioComputeBBox( p ))
@@ -3605,7 +3605,7 @@ void R_RunViewmodelEvents( void )
 	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
-	RI.currententity = gEngfuncs.GetViewModel();
+	RI.currententity = tr.viewent;
 
 	if( !RI.currententity->model || RI.currententity->model->type != mod_studio )
 		return;
@@ -3627,7 +3627,7 @@ R_GatherPlayerLight
 */
 void R_GatherPlayerLight( void )
 {
-	cl_entity_t	*view = gEngfuncs.GetViewModel();
+	cl_entity_t	*view = tr.viewent;
 	colorVec		c;
 
 	tr.ignore_lightgamma = true;
@@ -3643,7 +3643,7 @@ R_DrawViewModel
 */
 void R_DrawViewModel( void )
 {
-	cl_entity_t	*view = gEngfuncs.GetViewModel();
+	cl_entity_t	*view = tr.viewent;
 
 	R_GatherPlayerLight();
 

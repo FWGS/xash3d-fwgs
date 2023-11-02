@@ -427,7 +427,7 @@ rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
 	skin.encode = DXT_ENCODE_DEFAULT;
 	skin.numMips = 1;
 	skin.buffer = data;
-	skin.palette = (byte *)gEngfuncs.CL_GetPaletteColor( 0 );
+	skin.palette = (byte *)tr.palette;
 	skin.size = width * height;
 
 	if( !gEngfuncs.Image_CustomPalette() )
@@ -1261,7 +1261,7 @@ static void R_AliasDrawAbsBBox( cl_entity_t *e, const vec3_t absmin, const vec3_
 	int	i;
 
 	// looks ugly, skip
-	if( r_drawentities->value != 5 || e == gEngfuncs.GetViewModel() )
+	if( r_drawentities->value != 5 || e == tr.viewent )
 		return;
 
 	// compute a full bounding box

@@ -1288,6 +1288,8 @@ qboolean R_Init( void )
 	tr.world = gEngfuncs.GetWorld();
 	tr.models = gEngfuncs.pfnGetModels();
 	tr.movevars = gEngfuncs.pfnGetMoveVars();
+	tr.palette = gEngfuncs.CL_GetPaletteColor();
+	tr.viewent = gEngfuncs.GetViewModel();
 
 	GL_SetDefaults();
 	R_CheckVBO();

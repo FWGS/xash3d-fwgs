@@ -104,9 +104,9 @@ static void pfnGetPredictedOrigin( vec3_t v )
 	VectorCopy( cl.simorg, v );
 }
 
-static color24 *pfnCL_GetPaletteColor( int color ) // clgame.palette[color]
+static color24 *pfnCL_GetPaletteColor( void ) // clgame.palette[color]
 {
-	return &clgame.palette[color];
+	return clgame.palette;
 }
 
 static void pfnCL_GetScreenInfo( int *width, int *height ) // clgame.scrInfo, ptrs may be NULL
@@ -156,11 +156,6 @@ static int pfnGetStudioModelInterface( int version, struct r_studio_interface_s 
 	return clgame.dllFuncs.pfnGetStudioModelInterface ?
 		clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio ) :
 		0;
-}
-
-static poolhandle_t pfnImage_GetPool( void )
-{
-	return host.imagepool;
 }
 
 static const bpc_desc_t *pfnImage_GetPFDesc( int idx )
@@ -251,7 +246,6 @@ static ref_api_t gEngfuncs =
 	Con_DrawString,
 	CL_DrawCenterPrint,
 
-	CL_GetLocalPlayer,
 	CL_GetViewModel,
 	R_BeamGetEntity,
 	CL_GetWaterEntity,
@@ -289,7 +283,6 @@ static ref_api_t gEngfuncs =
 	COM_RandomFloat,
 	COM_RandomLong,
 	pfnRefGetScreenFade,
-	CL_TextMessageGet,
 	pfnGetPredictedOrigin,
 	pfnCL_GetPaletteColor,
 	pfnCL_GetScreenInfo,
@@ -353,7 +346,6 @@ static ref_api_t gEngfuncs =
 	FS_CopyImage,
 	FS_FreeImage,
 	Image_SetMDLPointer,
-	pfnImage_GetPool,
 	pfnImage_GetPFDesc,
 
 	pfnDrawNormalTriangles,
