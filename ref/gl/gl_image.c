@@ -1668,11 +1668,11 @@ int GL_LoadTextureArray( const char **names, int flags )
 		else
 		{
 			// create new image
-			pic = Mem_Malloc( gEngfuncs.Image_GetPool(), sizeof( rgbdata_t ));
+			pic = Mem_Malloc( r_temppool, sizeof( rgbdata_t ));
 			memcpy( pic, src, sizeof( rgbdata_t ));
 
 			// expand pic buffer for all layers
-			pic->buffer = Mem_Malloc( gEngfuncs.Image_GetPool(), pic->size * numLayers );
+			pic->buffer = Mem_Malloc( r_temppool, pic->size * numLayers );
 			pic->depth = 0;
 		}
 

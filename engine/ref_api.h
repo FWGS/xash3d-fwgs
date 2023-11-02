@@ -34,7 +34,9 @@ GNU General Public License for more details.
 // 2. FS functions are removed, instead we have full fs_api_t
 // 3. SlerpBones, CalcBonePosition/Quaternion calls were moved to libpublic/mathlib
 // 4. R_StudioEstimateFrame now has time argument
-#define REF_API_VERSION 4
+// 5. Removed GetSomethingByIndex calls, renderers are supposed to cache pointer values.
+//    Removed previously unused calls
+#define REF_API_VERSION 5
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -299,7 +301,6 @@ typedef struct ref_api_s
 	void	(*CL_DrawCenterPrint)( void );
 
 	// entity management
-	struct cl_entity_s *(*GetLocalPlayer)( void );
 	struct cl_entity_s *(*GetViewModel)( void );
 	struct cl_entity_s *(*R_BeamGetEntity)( int index );
 	struct cl_entity_s *(*CL_GetWaterEntity)( const vec3_t p );
@@ -343,9 +344,8 @@ typedef struct ref_api_s
 	float (*COM_RandomFloat)( float rmin, float rmax );
 	int   (*COM_RandomLong)( int rmin, int rmax );
 	struct screenfade_s *(*GetScreenFade)( void );
-	struct client_textmessage_s *(*pfnTextMessageGet)( const char *pName );
 	void (*GetPredictedOrigin)( vec3_t v );
-	color24 *(*CL_GetPaletteColor)(int color); // clgame.palette[color]
+	color24 *(*CL_GetPaletteColor)( void ); // clgame.palette[color]
 	void (*CL_GetScreenInfo)( int *width, int *height ); // clgame.scrInfo, ptrs may be NULL
 	void (*SetLocalLightLevel)( int level ); // cl.local.light_level
 	int (*Sys_CheckParm)( const char *flag );
@@ -419,7 +419,6 @@ typedef struct ref_api_s
 	rgbdata_t *(*FS_CopyImage)( rgbdata_t *in );
 	void (*FS_FreeImage)( rgbdata_t *pack );
 	void (*Image_SetMDLPointer)( byte *p );
-	poolhandle_t (*Image_GetPool)( void );
 	const struct bpc_desc_s *(*Image_GetPFDesc)( int idx );
 
 	// client exports
