@@ -49,7 +49,7 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 {
 	particle_t	*p;
 	vec3_t		right, up;
-	color24		*pColor;
+	color24		сolor;
 	int		alpha;
 	float		size;
 
@@ -85,15 +85,15 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			VectorScale( RI.cull_vup, size, up );
 
 			p->color = bound( 0, p->color, 255 );
-			pColor = gEngfuncs.CL_GetPaletteColor( p->color );
+			сolor = tr.palette[p->color];
 
 			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			pglColor4ub( gEngfuncs.LightToTexGamma( pColor->r ),
-				gEngfuncs.LightToTexGamma( pColor->g ),
-				gEngfuncs.LightToTexGamma( pColor->b ), alpha );
+			pglColor4ub( gEngfuncs.LightToTexGamma( сolor.r ),
+				gEngfuncs.LightToTexGamma( сolor.g ),
+				gEngfuncs.LightToTexGamma( сolor.b ), alpha );
 
 			pglTexCoord2f( 0.0f, 1.0f );
 			pglVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
@@ -205,7 +205,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 		{
 			vec3_t	verts[4], tmp2;
 			vec3_t	tmp, normal;
-			color24	*pColor;
+			color24	color;
 
 			// Transform point into screen space
 			TriWorldToScreen( start, screen );
@@ -235,8 +235,8 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 				p->color = 0;
 			}
 
-			pColor = &gTracerColors[p->color];
-			pglColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
+			color = gTracerColors[p->color];
+			pglColor4ub( color.r, color.g, color.b, p->packedColor );
 
 			pglBegin( GL_QUADS );
 				pglTexCoord2f( 0.0f, 0.8f );

@@ -259,6 +259,8 @@ typedef struct
 	cl_entity_t *entities;
 	movevars_t *movevars;
 	model_t **models;
+	color24 *palette;
+	cl_entity_t *viewent;
 
 	uint max_entities;
 } gl_globals_t;

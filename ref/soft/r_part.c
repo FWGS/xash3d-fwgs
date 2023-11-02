@@ -49,7 +49,7 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 {
 	particle_t	*p;
 	vec3_t		right, up;
-	color24		*pColor;
+	color24		color;
 	int		alpha;
 	float		size;
 
@@ -84,17 +84,17 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			VectorScale( RI.cull_vup, size, up );
 
 			p->color = bound( 0, p->color, 255 );
-			pColor = gEngfuncs.CL_GetPaletteColor( p->color );
+			color = tr.palette[p->color];
 
 			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			//TriColor4ub( gEngfuncs.LightToTexGamma( pColor->r ),
-			//	gEngfuncs.LightToTexGamma( pColor->g ),
-		//		gEngfuncs.LightToTexGamma( pColor->b ), alpha );
+			//TriColor4ub( gEngfuncs.LightToTexGamma( color.r ),
+			//	gEngfuncs.LightToTexGamma( color.g ),
+		//		gEngfuncs.LightToTexGamma( color.b ), alpha );
 			//TriBrightness( alpha / 255.0f );
-			_TriColor4f(1.0f*alpha/255/255*pColor->r,1.0f*alpha/255/255*pColor->g,1.0f*alpha/255/255* pColor->b,1.0f );
+			_TriColor4f(1.0f*alpha/255/255*color.r,1.0f*alpha/255/255*color.g,1.0f*alpha/255/255* color.b,1.0f );
 
 			TriBegin( TRI_QUADS );
 			TriTexCoord2f( 0.0f, 1.0f );
@@ -211,7 +211,7 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 		{
 			vec3_t	verts[4], tmp2;
 			vec3_t	tmp, normal;
-			color24	*pColor;
+			color24	color;
 			short alpha = p->packedColor;
 
 			// Transform point into screen space
@@ -242,9 +242,9 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 				p->color = 0;
 			}
 
-			pColor = &gTracerColors[p->color];
-			//TriColor4ub( pColor->r, pColor->g, pColor->b, p->packedColor );
-			_TriColor4f(1.0f*alpha/255/255*pColor->r,1.0f*alpha/255/255*pColor->g,1.0f*alpha/255/255* pColor->b,1.0f );
+			color = gTracerColors[p->color];
+			//TriColor4ub( color.r, color.g, color.b, p->packedColor );
+			_TriColor4f(1.0f*alpha/255/255*color.r,1.0f*alpha/255/255*color.g,1.0f*alpha/255/255* color.b,1.0f );
 
 
 			TriBegin( TRI_QUADS );
