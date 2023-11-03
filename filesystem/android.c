@@ -42,13 +42,6 @@ struct android_assets_s
 	AAssetDir *dir;
 };
 
-/*
-struct android_saf_s
-{
-
-};
-*/
-
 struct jni_methods_s
 {
 	JNIEnv *env;
@@ -57,15 +50,14 @@ struct jni_methods_s
 	jmethodID getPackageName;
 	jmethodID getCallingPackage;
 	jmethodID getAssetsList;
+	jmethodID getAssets;
 } jni;
 
 static void Android_GetAssetManager( android_assets_t *assets )
 {
-	jmethodID getAssets;
 	jobject assetManager;
 
-	getAssets = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getAssets", "(Z)Landroid/content/res/AssetManager;" );
-	assetManager = (*jni.env)->CallObjectMethod( jni.env, jni.activity, getAssets, assets->engine );
+	assetManager = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAssets, assets->engine );
 
 	if( assetManager )
 		assets->asset_manager = AAssetManager_fromJava( jni.env, assetManager );
@@ -117,8 +109,7 @@ static void FS_CloseAndroidAssets( android_assets_t *assets )
 
 static android_assets_t *FS_LoadAndroidAssets( qboolean engine )
 {
-	android_assets_t *assets = (android_assets_t *)Mem_Calloc( fs_mempool, sizeof( android_assets_t ));
-	memset( assets, 0, sizeof( android_assets_t ));
+	android_assets_t *assets = Mem_Calloc( fs_mempool, sizeof( *assets ));
 
 	assets->engine = engine;
 
@@ -229,7 +220,7 @@ static void FS_Search_AndroidAssets( searchpath_t *search, stringlist_t *list, c
 
 static file_t *FS_OpenFile_AndroidAssets( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
-	file_t *file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ));
+	file_t *file = Mem_Calloc( fs_mempool, sizeof( *file ));
 	AAsset *assets = AAssetManager_open( search->assets->asset_manager, filename, AASSET_MODE_RANDOM );
 
 	file->handle = AAsset_openFileDescriptor( assets, &file->offset, &file->real_length );
@@ -279,29 +270,28 @@ searchpath_t *FS_AddAndroidAssets_Fullpath( const char *path, int flags )
 	android_assets_t *assets = NULL;
 	qboolean engine = true;
 
-	if(( flags & FS_STATIC_PATH ) || ( flags & FS_CUSTOM_PATH ))
+	if( FBitSet( flags, FS_STATIC_PATH | FS_CUSTOM_PATH ))
 		return NULL;
 
-	if(( flags & FS_GAMEDIR_PATH ) && Q_stricmp( GI->basedir, GI->gamefolder ))
+	if( FBitSet( flags, FS_GAMEDIR_PATH ) && Q_stricmp( GI->basedir, GI->gamefolder ))
 		engine = false;
 
 	assets = FS_LoadAndroidAssets( engine );
 
 	if( !assets )
 	{
-		Con_Reportf( S_ERROR "%s: unable to load Android assets \"%s\"\n", __FUNCTION__, Android_GetPackageName( engine ) );
+		Con_Reportf( S_ERROR "%s: unable to load Android assets \"%s\"\n", __FUNCTION__, Android_GetPackageName( engine ));
 		return NULL;
 	}
 
 	Q_strncpy( assets->package_name, Android_GetPackageName( engine ), sizeof( assets->package_name ));
 
-	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
-	memset( search, 0, sizeof( searchpath_t ));
+	search = Mem_Calloc( fs_mempool, sizeof( *search ));
 
 	Q_strncpy( search->filename, assets->package_name, sizeof( search->filename ));
 	search->assets = assets;
 	search->type = SEARCHPATH_ANDROID_ASSETS;
-	search->flags = FS_NOWRITE_PATH | FS_CUSTOM_PATH;
+	SetBits( search->flags, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
 
 	search->pfnPrintInfo = FS_PrintInfo_AndroidAssets;
 	search->pfnClose = FS_Close_AndroidAssets;
@@ -329,6 +319,7 @@ void FS_InitAndroid( void )
 	jni.getPackageName = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getPackageName", "()Ljava/lang/String;" );
 	jni.getCallingPackage = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getCallingPackage", "()Ljava/lang/String;" );
 	jni.getAssetsList = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getAssetsList", "(ZLjava/lang/String;)[Ljava/lang/String;" );
+	jni.getAssets = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getAssets", "(Z)Landroid/content/res/AssetManager;" );
 }
 
 #endif // XASH_ANDROID
