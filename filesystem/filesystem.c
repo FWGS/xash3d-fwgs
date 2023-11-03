@@ -156,7 +156,7 @@ void stringlistfreecontents( stringlist_t *list )
 	list->strings = NULL;
 }
 
-void stringlistappend( stringlist_t *list, char *text )
+void stringlistappend( stringlist_t *list, const char *text )
 {
 	size_t	textlen;
 
