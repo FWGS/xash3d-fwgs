@@ -1320,9 +1320,10 @@ HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags )
 =========
 pfnSPR_Load
 
+function exported for support GoldSrc Monitor utility
 =========
 */
-static HSPRITE GAME_EXPORT pfnSPR_Load( const char *szPicName )
+HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 {
 	model_t	*spr;
 
@@ -1368,9 +1369,10 @@ static const model_t *CL_GetSpritePointer( HSPRITE hSprite )
 =========
 pfnSPR_Frames
 
+function exported for support GoldSrc Monitor utility
 =========
 */
-static int GAME_EXPORT pfnSPR_Frames( HSPRITE hPic )
+int EXPORT pfnSPR_Frames( HSPRITE hPic )
 {
 	int	numFrames = 0;
 
