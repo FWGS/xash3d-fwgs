@@ -144,14 +144,4 @@ void Platform_ShellExecute( const char *path, const char *parms )
 #endif
 }
 
-/*
-========================
-Android_GetKeyboardHeight
-========================
-*/
-int Android_GetKeyboardHeight( void )
-{
-	return (*jni.env)->CallIntMethod( jni.env, jni.activity, jni.getKeyboardHeight );
-}
-
 #endif // XASH_DEDICATED
