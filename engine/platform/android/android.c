@@ -32,10 +32,9 @@ struct jnimethods_s
 	JNIEnv *env;
 	jobject activity;
 	jclass actcls;
-	jmethodID getID;
-	jmethodID saveID;
-	jmethodID loadID;
-	jmethodID getKeyboardHeight;
+	jmethodID loadAndroidID;
+	jmethodID getAndroidID;
+	jmethodID saveAndroidID;
 } jni;
 
 void Android_Init( void )
@@ -43,10 +42,9 @@ void Android_Init( void )
 	jni.env = (JNIEnv *)SDL_AndroidGetJNIEnv();
 	jni.activity = (jobject)SDL_AndroidGetActivity();
 	jni.actcls = (*jni.env)->GetObjectClass( jni.env, jni.activity );
-	jni.loadID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "loadAndroidID", "()Ljava/lang/String;" );
-	jni.getID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "getAndroidID", "()Ljava/lang/String;" );
-	jni.saveID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "saveAndroidID", "(Ljava/lang/String;)V" );
-	jni.getKeyboardHeight = (*jni.env)->GetMethodID( jni.env, jni.actcls, "getKeyboardHeight", "()I" );
+	jni.loadAndroidID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "loadAndroidID", "()Ljava/lang/String;" );
+	jni.getAndroidID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "getAndroidID", "()Ljava/lang/String;" );
+	jni.saveAndroidID = (*jni.env)->GetMethodID( jni.env, jni.actcls, "saveAndroidID", "(Ljava/lang/String;)V" );
 
 	SDL_SetHint( SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight" );
 	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1" );
@@ -95,7 +93,7 @@ const char *Android_GetAndroidID( void )
 
 	if( COM_CheckString( id ) ) return id;
 
-	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getID );
+	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAndroidID );
 	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, sizeof( id ) );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
@@ -114,7 +112,7 @@ const char *Android_LoadID( void )
 	jstring resultJNIStr;
 	const char *resultCStr;
 
-	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.loadID );
+	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.loadAndroidID );
 	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, sizeof( id ) );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
@@ -129,7 +127,7 @@ Android_SaveID
 */
 void Android_SaveID( const char *id )
 {
-	(*jni.env)->CallVoidMethod( jni.env, jni.activity, jni.saveID, (*jni.env)->NewStringUTF( jni.env, id ) );
+	(*jni.env)->CallVoidMethod( jni.env, jni.activity, jni.saveAndroidID, (*jni.env)->NewStringUTF( jni.env, id ) );
 }
 
 /*
