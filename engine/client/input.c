@@ -172,8 +172,6 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 {
 	if( newstate == oldstate )
 		return;
-	if( m_ignore.value )
-		return;
 
 	// since SetCursorType controls cursor visibility
 	// execute it first, and then check mouse grab state
@@ -193,6 +191,10 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 		Evdev_SetGrab( true );
 #endif
 	}
+
+	// don't leave the user without cursor if they enabled m_ignore
+	if( m_ignore.value )
+		return;
 
 	if( oldstate == key_game )
 	{
