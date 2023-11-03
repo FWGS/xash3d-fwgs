@@ -200,6 +200,7 @@ def configure(conf):
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = True
 		conf.options.GL4ES            = True
+		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
 		conf.options.SINGLE_BINARY    = True
 		conf.define('XASH_SDLMAIN', 1)
