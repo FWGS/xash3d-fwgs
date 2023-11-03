@@ -10,19 +10,19 @@ def configure(conf):
 	}
 	conf.env.append_unique('CXXFLAGS', conf.get_flags_by_compiler(nortti, conf.env.COMPILER_CC))
 
-	if conf.env.DEST_OS != 'android':
-		if conf.env.cxxshlib_PATTERN.startswith('lib'):
-			conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
+	if conf.env.DEST_OS == 'android':
+		conf.check_cc(lib='android')
+	elif conf.env.cxxshlib_PATTERN.startswith('lib'): # remove lib prefix for other systems than Android
+		conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
 
 def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
 
-	libs = [ 'filesystem_includes' ]
+	libs = [ 'filesystem_includes', 'sdk_includes' ]
+
 	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
-	if bld.env.DEST_OS == 'psvita':
-		libs += [ 'sdk_includes' ]
-	else:
-		libs += [ 'public' ]
+	if bld.env.DEST_OS != 'psvita':
+		libs += [ 'public', 'ANDROID' ]
 
 	bld.shlib(target = 'filesystem_stdio',
 		features = 'cxx seq',
