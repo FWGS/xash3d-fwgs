@@ -71,8 +71,10 @@ const fs_archive_t g_archives[] =
 static const fs_archive_t g_directory_archive =
 { NULL, SEARCHPATH_PLAIN, FS_AddDir_Fullpath, false };
 
-// static const fs_archive_t g_android_archive =
-// { NULL, SEARCHPATH_ANDROID, FS_AddAndroid_Fullpath, false, false };
+#ifdef XASH_ANDROID
+static const fs_archive_t g_android_archive =
+{ NULL, SEARCHPATH_ANDROID_ASSETS, FS_AddAndroidAssets_Fullpath, false };
+#endif
 
 #ifdef XASH_REDUCE_FD
 static file_t *fs_last_readfile;
@@ -402,6 +404,10 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	}
 
 	stringlistfreecontents( &list );
+
+#ifdef XASH_ANDROID
+	FS_AddArchive_Fullpath( &g_android_archive, dir, flags );
+#endif
 
 	// add the directory to the search path
 	// (unpacked files have the priority over packed files)
@@ -1405,6 +1411,10 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 	char		buf[MAX_VA_STRING];
 
 	FS_InitMemory();
+
+#ifdef XASH_ANDROID
+	FS_InitAndroid();
+#endif
 
 	Q_strncpy( fs_rootdir, rootdir, sizeof( fs_rootdir ));
 	Q_strncpy( fs_gamedir, gamedir, sizeof( fs_gamedir ));

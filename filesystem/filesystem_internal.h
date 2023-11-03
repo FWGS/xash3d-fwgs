@@ -22,6 +22,10 @@ GNU General Public License for more details.
 #include "xash3d_types.h"
 #include "filesystem.h"
 
+#if XASH_ANDROID
+#include <android/asset_manager.h>
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -31,6 +35,10 @@ typedef struct dir_s dir_t;
 typedef struct zip_s zip_t;
 typedef struct pack_s pack_t;
 typedef struct wfile_s wfile_t;
+#if XASH_ANDROID
+typedef struct android_assets_s android_assets_t;
+// typedef struct android_saf_s android_saf_t;
+#endif
 
 #define FILE_BUFF_SIZE		(2048)
 
@@ -58,7 +66,8 @@ enum
 	SEARCHPATH_PAK,
 	SEARCHPATH_WAD,
 	SEARCHPATH_ZIP,
-	SEARCHPATH_PK3DIR, // it's actually a plain directory but it must behave like a ZIP archive
+	SEARCHPATH_PK3DIR, // it's actually a plain directory but it must behave like a ZIP archive,
+	SEARCHPATH_ANDROID_ASSETS
 };
 
 typedef struct stringlist_s
@@ -81,6 +90,9 @@ typedef struct searchpath_s
 		pack_t  *pack;
 		wfile_t *wad;
 		zip_t   *zip;
+#if XASH_ANDROID
+		android_assets_t *assets;
+#endif
 	};
 
 	struct searchpath_s *next;
@@ -224,6 +236,12 @@ searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags );
 searchpath_t *FS_AddDir_Fullpath( const char *path, int flags );
 qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t len, qboolean createpath );
 void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags );
+
+//
+// android.c
+//
+void FS_InitAndroid( void );
+searchpath_t *FS_AddAndroidAssets_Fullpath( const char *path, int flags );
 
 #ifdef __cplusplus
 }
