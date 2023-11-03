@@ -139,7 +139,7 @@ void Sys_PrintUsage( void )
 	O("-sdl_joy_old_api ","use SDL legacy joystick API")
 	O("-sdl_renderer <n>","use alternative SDL_Renderer for software")
 #endif // XASH_SDL
-#if XASH_ANDROID
+#if XASH_ANDROID && !XASH_SDL
 	O("-nativeegl       ","use native egl implementation. Use if screen does not update or black")
 #endif // XASH_ANDROID
 #if XASH_DOS
