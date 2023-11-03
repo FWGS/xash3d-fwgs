@@ -196,11 +196,13 @@ def configure(conf):
 
 	# modify options dictionary early
 	if conf.env.DEST_OS == 'android':
-		conf.options.NO_VGUI= True # skip vgui
-		conf.options.NANOGL = True
-		conf.options.GLWES  = True
-		conf.options.GL4ES  = True
-		conf.options.GL     = False
+		conf.options.NO_VGUI          = True # skip vgui
+		conf.options.NANOGL           = True
+		conf.options.GLWES            = True
+		conf.options.GL4ES            = True
+		conf.options.GL               = False
+		conf.options.SINGLE_BINARY    = True
+		conf.define('XASH_SDLMAIN', 1)
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
