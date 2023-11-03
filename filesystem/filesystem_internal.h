@@ -191,7 +191,7 @@ qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] );
 // stringlist ops
 void stringlistinit( stringlist_t *list );
 void stringlistfreecontents( stringlist_t *list );
-void stringlistappend( stringlist_t *list, char *text );
+void stringlistappend( stringlist_t *list, const char *text );
 void stringlistsort( stringlist_t *list );
 void listdirectory( stringlist_t *list, const char *path );
 
