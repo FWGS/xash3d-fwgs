@@ -56,6 +56,27 @@ qboolean MakeDirectory( const char *path )
 
 /*
 ============
+ExtractFileName
+============
+*/
+void ExtractFileName( char *name, size_t size )
+{
+	char	tmp[MAX_SYSPATH];
+
+	if( !( name && *name ) || size <= 0 )
+		return;
+
+	name[size - 1] = '\0';
+
+	if( Q_strpbrk( name, "/\\" ))
+	{
+		COM_FileBase( name, tmp, sizeof( tmp ));
+		Q_strncpy( name, tmp, size );
+	}
+}
+
+/*
+============
 GetFileSize
 ============
 */
@@ -75,25 +96,24 @@ off_t GetSizeOfFile( FILE *fp )
 LoadFile
 ============
 */
-byte *LoadFile( const char *filename )
+byte *LoadFile( const char *filename, off_t *size )
 {
 	FILE	*fp;
 	byte	*buf;
-	off_t	 size;
 
 	fp = fopen( filename, "rb" );
 
 	if( !fp )
 		return NULL;
 
-	size = GetSizeOfFile( fp );
+	*size = GetSizeOfFile( fp );
 
-	buf = malloc( size );
+	buf = malloc( *size );
 
 	if( !buf )
 		return NULL;
 
-	fread( buf, size, 1, fp );
+	fread( buf, *size, 1, fp );
 	fclose( fp );
 
 	return buf;
