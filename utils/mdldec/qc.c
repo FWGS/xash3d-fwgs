@@ -321,7 +321,6 @@ static void WriteBodyGroupInfo( FILE *fp )
 	int			 i, j;
 	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex );
 	mstudiomodel_t		*model;
-	char			 modelname[64];
 
 	fprintf( fp, "// %i reference mesh%s\n", model_hdr->numbodyparts, model_hdr->numbodyparts > 1 ? "es" : "" );
 
@@ -331,9 +330,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 
 		if( bodypart->nummodels == 1 )
 		{
-			COM_FileBase( model->name, modelname, sizeof( modelname ));
-
-			fprintf( fp, "$body \"%s\" \"%s\"\n", bodypart->name, modelname );
+			fprintf( fp, "$body \"%s\" \"%s\"\n", bodypart->name, model->name );
 			continue;
 		}
 
@@ -349,9 +346,7 @@ static void WriteBodyGroupInfo( FILE *fp )
 				continue;
 			}
 
-			COM_FileBase( model->name, modelname, sizeof( modelname ));
-
-			fprintf( fp, "\tstudio \"%s\"\n", modelname );
+			fprintf( fp, "\tstudio \"%s\"\n", model->name );
 		}
 
 		fputs( "}\n", fp );

@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,34 +35,215 @@ studiohdr_t	**anim_hdr;
 
 /*
 ============
+IsValidName
+============
+*/
+static qboolean IsValidName( char *name )
+{
+	if( !( isalpha( *name ) || isdigit( *name )))
+		return false;
+
+	while( *( ++name))
+	{
+		if( isalpha( *name ) || isdigit( *name )
+		    || *name == '.' || *name == '-' || *name == '_'
+		    || *name == ' ' || *name == '(' || *name == ')'
+		    || *name == '[' || *name == ']')
+			continue;
+		// Found control character Ctrl+Shift+A(SOH|^A|0x1) in the end of name in some models.
+		else if( name[1] == '\0' )
+		{
+			*name = '\0';
+			return true;
+		}
+
+		return false;
+	}
+
+	return true;
+}
+
+/*
+============
+TextureNameFix
+============
+*/
+static void TextureNameFix( void )
+{
+	int			 i, j, len, counter, protected = 0;
+	qboolean		 hasduplicates = false;
+	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ), *texture1;
+
+	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
+	{
+		ExtractFileName( texture->name, sizeof( texture->name ));
+		if( !Q_strchr( texture->name, '.' ) )
+			Q_strncat( texture->name, ".bmp", sizeof( texture->name ));
+	}
+
+	texture -= i;
+
+	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
+	{
+		if( !IsValidName( texture->name ))
+		{
+			Q_snprintf( texture->name, sizeof( texture->name ), "MDLDEC_Texture%i.bmp", ++protected );
+			continue;
+		}
+
+		counter = 0;
+
+		texture1 = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
+
+		for( j = 0; j < texture_hdr->numtextures; ++j, ++texture1 )
+		{
+			if( j != i && !Q_strncmp( texture1->name, texture->name, sizeof( texture1->name)))
+			{
+				len = Q_snprintf( texture1->name, sizeof( texture1->name ), "%s_%i.bmp", texture1->name, ++counter );
+
+				if( len == -1 )
+					Q_snprintf( texture1->name, sizeof( texture1->name ), "MDLDEC_Texture%i_%i.bmp", j, counter );
+			}
+		}
+
+		if( counter > 0 )
+		{
+			printf( "WARNING: Texture name \"%s\" is repeated %i times.\n", texture->name, counter );
+
+			hasduplicates = true;
+		}
+	}
+
+	if( protected )
+		printf( "WARNING: Gived name to %i protected texture(s).\n", protected );
+
+	if( hasduplicates )
+		puts( "WARNING: Added numeric suffix to repeated texture name(s)." );
+}
+
+/*
+============
+BodypartNameFix
+============
+*/
+static void BodypartNameFix( void )
+{
+	int			 i, j, k, len, counter, protected = 0, protected_models = 0;
+	qboolean		 hasduplicates = false;
+	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex );
+	mstudiomodel_t		*model, *model1;
+
+	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
+		ExtractFileName( bodypart->name, sizeof( bodypart->name ));
+
+	bodypart -= i;
+
+	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
+	{
+		if( !IsValidName( bodypart->name ))
+		{
+			Q_snprintf( bodypart->name, sizeof( bodypart->name ), "MDLDEC_Bodypart%i", ++protected );
+			continue;
+		}
+
+		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
+
+		for( j = 0; j < bodypart->nummodels; ++j, ++model )
+			ExtractFileName( model->name, sizeof( model->name ));
+
+		model -= j;
+
+		for( j = 0; j < bodypart->nummodels; ++j, ++model )
+		{
+			if( !IsValidName( model->name ))
+			{
+				Q_snprintf( model->name, sizeof( model->name ), "MDLDEC_Model%i", ++protected_models );
+				continue;
+			}
+
+			counter = 0;
+
+			model1 = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
+
+			for( k = 0; k < bodypart->nummodels; ++k, ++model1 )
+			{
+				if( k != j && !Q_strncmp( model1->name, model->name, sizeof( model1->name )))
+				{
+					len = Q_snprintf( model1->name, sizeof( model1->name ), "%s_%i", model1->name, ++counter );
+
+					if( len == -1 )
+						Q_snprintf( model1->name, sizeof( model1->name ), "MDLDEC_Model%i_%i", k, counter );
+				}
+			}
+
+			if( counter > 0 )
+			{
+				printf( "WARNING: Sequence name \"%s\" is repeated %i times.\n", model->name, counter );
+
+				hasduplicates = true;
+			}
+		}
+	}
+
+	if( protected )
+		printf( "WARNING: Gived name to %i protected bodypart(s).\n", protected );
+
+	if( protected_models )
+		printf( "WARNING: Gived name to %i protected model(s).\n", protected_models );
+
+	if( hasduplicates )
+		puts( "WARNING: Added numeric suffix to repeated bodypart name(s)." );
+}
+
+/*
+============
 SequenceNameFix
 ============
 */
 static void SequenceNameFix( void )
 {
-	int			 i, j, counter;
+	int			 i, j, len, counter, protected = 0;
 	qboolean		 hasduplicates = false;
 	mstudioseqdesc_t	*seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ), *seqdesc1;
 
 	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
+		ExtractFileName( seqdesc->label, sizeof( seqdesc->label ));
+
+	seqdesc -= i;
+
+	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
-		counter = 1;
+		if( !IsValidName( seqdesc->label ))
+		{
+			Q_snprintf( seqdesc->label, sizeof( seqdesc->label ), "MDLDEC_Sequence%i", ++protected );
+			continue;
+		}
+
+		counter = 0;
 
 		seqdesc1 = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
 
 		for( j = 0; j < model_hdr->numseq; ++j, ++seqdesc1 )
-			if( j != i && !Q_strncmp( seqdesc1->label, seqdesc->label, sizeof( seqdesc1->label ) ) )
-				Q_snprintf( seqdesc1->label, sizeof( seqdesc1->label ), "%s_%i", seqdesc1->label, ++counter );
+		{
+			if( j != i && !Q_strncmp( seqdesc1->label, seqdesc->label, sizeof( seqdesc1->label )))
+			{
+				len = Q_snprintf( seqdesc1->label, sizeof( seqdesc1->label ), "%s_%i", seqdesc1->label, ++counter );
 
-		if( counter > 1 )
+				if( len == -1 )
+					Q_snprintf( seqdesc1->label, sizeof( seqdesc1->label ), "MDLDEC_Sequence%i_%i", j, counter );
+			}
+		}
+
+		if( counter > 0 )
 		{
 			printf( "WARNING: Sequence name \"%s\" is repeated %i times.\n", seqdesc->label, counter );
-
-			Q_snprintf( seqdesc->label, sizeof( seqdesc->label ), "%s_1", seqdesc->label );
 
 			hasduplicates = true;
 		}
 	}
+
+	if( protected )
+		printf( "WARNING: Gived name to %i protected sequence(s).\n", protected );
 
 	if( hasduplicates )
 		puts( "WARNING: Added numeric suffix to repeated sequence name(s)." );
@@ -74,15 +256,19 @@ BoneNameFix
 */
 static void BoneNameFix( void )
 {
-	int		 i, counter = 0;
+	int		 i, protected = 0;
 	mstudiobone_t	*bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
 	for( i = 0; i < model_hdr->numbones; ++i, ++bone )
-		if( bone->name[0] == '\0' )
-			Q_snprintf( bone->name, sizeof( bone->name ), "MDLDEC_Bone%i", ++counter );
+	{
+		bone->name[sizeof( bone->name ) - 1] = '\0';
 
-	if( counter )
-		printf( "WARNING: Gived name to %i unnamed bone(s).\n", counter );
+		if( !IsValidName( bone->name ) )
+			Q_snprintf( bone->name, sizeof( bone->name ), "MDLDEC_Bone%i", ++protected );
+	}
+
+	if( protected )
+		printf( "WARNING: Gived name to %i protected bone(s).\n", protected );
 }
 
 /*
@@ -94,6 +280,7 @@ static qboolean LoadMDL( const char *modelname )
 {
 	int		 i;
 	size_t		 len;
+	off_t		 filesize;
 	char		 texturename[MAX_SYSPATH];
 	char		 seqgroupname[MAX_SYSPATH];
 	const char	*ext;
@@ -124,7 +311,13 @@ static qboolean LoadMDL( const char *modelname )
 		return false;
 	}
 
-	model_hdr = (studiohdr_t *)LoadFile( modelname );
+	model_hdr = (studiohdr_t *)LoadFile( modelname, &filesize );
+
+	if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
+	{
+		fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", modelname );
+		return false;
+	}
 
 	if( !model_hdr )
 	{
@@ -144,7 +337,7 @@ static qboolean LoadMDL( const char *modelname )
 
 	if( model_hdr->version != STUDIO_VERSION )
 	{
-		fprintf( stderr, "ERROR: %s has unknown Studio MDL format version.\n", modelname );
+		fprintf( stderr, "ERROR: %s has unknown Studio MDL format version %d.\n", modelname, model_hdr->version );
 		return false;
 	}
 
@@ -174,7 +367,7 @@ static qboolean LoadMDL( const char *modelname )
 		Q_strncpy( texturename, modelname, sizeof( texturename ));
 		Q_strncpy( &texturename[len], "t.mdl", sizeof( texturename ) - len );
 
-		texture_hdr = (studiohdr_t *)LoadFile( texturename );
+		texture_hdr = (studiohdr_t *)LoadFile( texturename, &filesize );
 
 		if( !texture_hdr )
 		{
@@ -182,7 +375,7 @@ static qboolean LoadMDL( const char *modelname )
 			// dirty hack for casesensetive filesystems
 			texturename[len] = 'T';
 
-			texture_hdr = (studiohdr_t *)LoadFile( texturename );
+			texture_hdr = (studiohdr_t *)LoadFile( texturename, &filesize );
 
 			if( !texture_hdr )
 #endif
@@ -190,6 +383,12 @@ static qboolean LoadMDL( const char *modelname )
 				fprintf( stderr, "ERROR: Can't open external textures file %s\n", texturename );
 				return false;
 			}
+		}
+
+		if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
+		{
+			fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", texturename );
+			return false;
 		}
 
 		if( memcmp( &texture_hdr->ident, id_mdlhdr, sizeof( id_mdlhdr ) )
@@ -220,11 +419,17 @@ static qboolean LoadMDL( const char *modelname )
 		{
 			Q_snprintf( &seqgroupname[len], sizeof( seqgroupname ) - len, "%02d.mdl", i );
 
-			anim_hdr[i] = (studiohdr_t *)LoadFile( seqgroupname );
+			anim_hdr[i] = (studiohdr_t *)LoadFile( seqgroupname, &filesize );
 
 			if( !anim_hdr[i] )
 			{
 				fprintf( stderr, "ERROR: Can't open sequence file %s\n", seqgroupname );
+				return false;
+			}
+
+			if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
+			{
+				fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", seqgroupname );
 				return false;
 			}
 
@@ -237,6 +442,22 @@ static qboolean LoadMDL( const char *modelname )
 	}
 
 	COM_FileBase( modelname, modelfile, sizeof( modelfile ));
+
+	// Some validation checks was found in mdldec-golang by Psycrow101
+	if( model_hdr->numhitboxes > model_hdr->numbones * ( MAXSTUDIOSRCBONES / MAXSTUDIOBONES ))
+	{
+		printf( "WARNING: Invalid hitboxes number %d.\n", model_hdr->numhitboxes );
+		model_hdr->numhitboxes = 0;
+	}
+	else if( model_hdr->hitboxindex + model_hdr->numhitboxes * ( sizeof( mstudiobbox_t ) + sizeof( mstudiohitboxset_t )) > model_hdr->length )
+	{
+		printf( "WARNING: Invalid hitboxes offset %d.\n", model_hdr->hitboxindex );
+		model_hdr->numhitboxes = 0;
+	}
+
+	TextureNameFix();
+
+	BodypartNameFix();
 
 	SequenceNameFix();
 

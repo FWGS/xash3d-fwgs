@@ -490,7 +490,6 @@ static void WriteReferences( void )
 	FILE			*fp;
 	mstudiomodel_t		*model;
 	mstudiobodyparts_t	*bodypart;
-	char			 name[64];
 	char			 filename[MAX_SYSPATH];
 
 	if( !CreateBoneTransformMatrices( &bonetransform ) )
@@ -517,13 +516,11 @@ static void WriteReferences( void )
 			if( !Q_strncmp( model->name, "blank", 5 ) )
 				continue;
 
-			COM_FileBase( model->name, name, sizeof( name ));
-
-			len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.smd", destdir, name );
+			len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.smd", destdir, model->name );
 
 			if( len == -1 )
 			{
-				fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.smd\n", name );
+				fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.smd\n", model->name );
 				goto _fail;
 			}
 
