@@ -16,7 +16,7 @@ build_engine()
 	if [ "$APP" = "xashds" ]; then
 		./waf configure -T release -d --enable-tests || die_configure
 	elif [ "$APP" = "xash3d-fwgs" ]; then
-		./waf configure -T release --enable-stb --enable-utils --enable-gl4es --enable-gles1 --enable-gles2 --enable-tests || die_configure
+		./waf configure -T release --enable-utils --enable-gl4es --enable-gles1 --enable-gles2 --enable-tests || die_configure
 	else
 		die
 	fi
