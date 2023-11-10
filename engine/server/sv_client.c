@@ -1772,6 +1772,9 @@ static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 		return allow;
 
+	if( Host_IsLocalGame( ))
+		return allow;
+
 	// start from 1 second
 	if( !cl->userinfo_penalty )
 		cl->userinfo_penalty = sv_userinfo_penalty_time.value;
