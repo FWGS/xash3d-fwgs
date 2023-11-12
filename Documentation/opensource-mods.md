@@ -228,7 +228,7 @@ Branch **caseclosed** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable
 Branch **CAd** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/CAd
 
 ## Counter Strike
-Reverse-engineered code of client part by a1batross - https://github.com/FWGS/cs16-client/tree/v1.32
+Reverse-engineered code of client part by a1batross - https://github.com/Velaron/cs16-client
 
 Reverse-engineered code of server part by nagist - https://github.com/nagist/cs16nd
 
