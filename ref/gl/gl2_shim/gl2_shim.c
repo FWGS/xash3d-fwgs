@@ -34,7 +34,7 @@ Limitations:
 #include "gl_local.h"
 #ifndef XASH_GL_STATIC
 #include "gl2_shim.h"
-#include <malloc.h>
+#include ALLOCA_H
 
 #define MAX_SHADERLEN 4096
 // increase this when adding more attributes
