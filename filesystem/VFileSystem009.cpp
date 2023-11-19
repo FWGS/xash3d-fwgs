@@ -233,6 +233,13 @@ public:
 		return FS_FileTime( p, false );
 	}
 
+	long int GetFileModificationTime( const char *path )
+	{
+		// TODO: properly reverse-engineer this
+		FixupPath( p, path );
+		return FS_FileTime( p, false );
+	}
+
 	void FileTimeToString( char *p, int size, long int time ) override
 	{
 		const time_t curtime = time;
