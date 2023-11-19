@@ -603,7 +603,7 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	}
 
 	if( GameInfo->noskills )
-		FS_Printf( f, "noskills\t\t\"%i\"\n", GameInfo->nomodels );
+		FS_Printf( f, "noskills\t\t\"%i\"\n", GameInfo->noskills );
 
 #define SAVE_AGED_COUNT 2 // the default count of quick and auto saves
 	if( GameInfo->quicksave_aged_count != SAVE_AGED_COUNT )
