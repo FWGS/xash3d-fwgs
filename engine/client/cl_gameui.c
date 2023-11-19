@@ -414,11 +414,15 @@ static void UI_ConvertGameInfo( GAMEINFO *out, gameinfo_t *in )
 	out->gamemode = in->gamemode;
 
 	if( in->nomodels )
-		out->flags |= GFL_NOMODELS;
+		SetBits( out->flags, GFL_NOMODELS );
 	if( in->noskills )
-		out->flags |= GFL_NOSKILLS;
+		SetBits( out->flags, GFL_NOSKILLS );
 	if( in->render_picbutton_text )
-		out->flags |= GFL_RENDER_PICBUTTON_TEXT;
+		SetBits( out->flags, GFL_RENDER_PICBUTTON_TEXT );
+	if( in->hd_background )
+		SetBits( out->flags, GFL_HD_BACKGROUND );
+	if( in->animated_title )
+		SetBits( out->flags, GFL_ANIMATED_TITLE );
 }
 
 /*
