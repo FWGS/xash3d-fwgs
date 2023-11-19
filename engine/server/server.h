@@ -472,6 +472,8 @@ extern convar_t		sv_userinfo_penalty_multiplier;
 extern convar_t		sv_userinfo_penalty_attempts;
 extern convar_t		sv_fullupdate_penalty_time;
 extern convar_t		sv_log_outofband;
+extern convar_t		sv_allow_autoaim;
+extern convar_t		sv_aim;
 
 //===========================================================
 //

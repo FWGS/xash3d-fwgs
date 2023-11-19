@@ -2385,7 +2385,9 @@ static void GAME_EXPORT pfnGetAimVector( edict_t* ent, float speed, float *rgflR
 
 	// try all possible entities
 	VectorCopy( svgame.globals->v_forward, bestdir );
-	bestdist = Cvar_VariableValue( "sv_aim" );
+	if( sv_allow_autoaim.value )
+		bestdist = sv_aim.value;
+	else bestdist = 0;
 
 	check = EDICT_NUM( 1 ); // start at first client
 	for( i = 1; i < svgame.numEntities; i++, check++ )
