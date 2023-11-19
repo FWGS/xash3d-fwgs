@@ -106,6 +106,10 @@ typedef struct gameinfo_s
 
 	int		quicksave_aged_count; // min is 1, max is 99
 	int		autosave_aged_count; // min is 1, max is 99
+
+	// HL25 compatibility keys
+	qboolean hd_background;
+	qboolean animated_title;
 } gameinfo_t;
 
 typedef enum

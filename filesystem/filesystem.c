@@ -613,6 +613,13 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 		FS_Printf( f, "autosave_aged_count\t\t%d\n", GameInfo->autosave_aged_count );
 #undef SAVE_AGED_COUNT
 
+	// HL25 compatibility
+	if( GameInfo->animated_title )
+		FS_Printf( f, "animated_title\t\t%i\n", GameInfo->animated_title );
+
+	if( GameInfo->hd_background )
+		FS_Printf( f, "hd_background\t\t%i\n", GameInfo->hd_background );
+
 	// always expose our extensions :)
 	FS_Printf( f, "internal_vgui_support\t\t%s\n", GameInfo->internal_vgui_support ? "1" : "0" );
 	FS_Printf( f, "render_picbutton_text\t\t%s\n", GameInfo->render_picbutton_text ? "1" : "0" );
@@ -789,6 +796,17 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			GameInfo->max_edicts = bound( MIN_EDICTS, Q_atoi( token ), MAX_EDICTS );
+		}
+		// valid for both
+		else if( !Q_stricmp( token, "hd_background" ))
+		{
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
+			GameInfo->hd_background = Q_atoi( token ) ? true : false;
+		}
+		else if( !Q_stricmp( token, "animated_title" ))
+		{
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
+			GameInfo->animated_title = Q_atoi( token ) ? true : false;
 		}
 		// only for gameinfo
 		else if( isGameInfo )
