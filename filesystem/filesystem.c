@@ -644,7 +644,7 @@ void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
 	Q_strncpy( GameInfo->sp_entity, "info_player_start", sizeof( GameInfo->sp_entity ));
 	Q_strncpy( GameInfo->mp_entity, "info_player_deathmatch", sizeof( GameInfo->mp_entity ));
 
-	GameInfo->max_edicts     = 900; // default value if not specified
+	GameInfo->max_edicts     = DEFAULT_MAX_EDICTS; // default value if not specified
 	GameInfo->max_tents      = 500;
 	GameInfo->max_beams      = 128;
 	GameInfo->max_particles  = 4096;
