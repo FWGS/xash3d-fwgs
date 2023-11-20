@@ -274,6 +274,13 @@ void CL_GenericShot_f( void )
 		string checkname;
 		int i;
 
+		// allow overriding screenshot by users request
+		if( Cmd_Argc() > 1 )
+		{
+			Q_strncpy( cls.shotname, Cmd_Argv( 1 ), sizeof( cls.shotname ));
+			break;
+		}
+
 		if( type == scrshot_snapshot )
 		{
 			fmt = "../%s_%04d.png";
