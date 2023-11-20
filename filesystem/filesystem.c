@@ -34,6 +34,7 @@ GNU General Public License for more details.
 #include <stdio.h>
 #include <stdarg.h>
 #include "port.h"
+#include "defaults.h"
 #include "const.h"
 #include "crtlib.h"
 #include "crclib.h"
