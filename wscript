@@ -378,6 +378,9 @@ def configure(conf):
 		conf.define('ALLOCA_H', 'alloca.h')
 	elif conf.check_cc(header_name='malloc.h', mandatory=False):
 		conf.define('ALLOCA_H', 'malloc.h')
+	elif conf.check_cc(fragment = '''#include <stdlib.h>
+		int main(void) { alloca(1); }''', msg = 'Checking for alloca in stdlib.h'):
+		conf.define('ALLOCA_H', 'stdlib.h')
 
 	if conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
