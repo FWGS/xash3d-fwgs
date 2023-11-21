@@ -320,7 +320,9 @@ void Sys_RestoreCrashHandler( void )
 
 #elif XASH_FREEBSD || XASH_NETBSD || XASH_OPENBSD || XASH_ANDROID || XASH_LINUX
 // Posix signal handler
+#ifndef XASH_OPENBSD
 #include <ucontext.h>
+#endif
 #include <signal.h>
 #include <sys/mman.h>
 #include "library.h"
