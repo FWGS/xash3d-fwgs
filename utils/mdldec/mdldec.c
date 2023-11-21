@@ -43,7 +43,7 @@ static qboolean IsValidName( char *name )
 	if( !( isalpha( *name ) || isdigit( *name )))
 		return false;
 
-	while( *( ++name))
+	while( *( ++name ))
 	{
 		if( isalpha( *name ) || isdigit( *name )
 		    || *name == '.' || *name == '-' || *name == '_'
@@ -305,7 +305,7 @@ static qboolean LoadMDL( const char *modelname )
 		return false;
 	}
 
-	if( Q_strcmp( ext, "mdl" ) )
+	if( Q_stricmp( ext, "mdl" ) )
 	{
 		fprintf( stderr, "ERROR: Only .mdl-files is supported.\n" );
 		return false;
@@ -349,16 +349,17 @@ static qboolean LoadMDL( const char *modelname )
 
 	if( destdir[0] != '\0' )
 	{
-		if( !MakeDirectory( destdir ) )
+		if( !MakeDirectory( destdir ))
 		{
 			fprintf( stderr, "ERROR: Couldn't create directory %s\n", destdir );
 			return false;
 		}
-
-		COM_PathSlashFix( destdir );
 	}
 	else
 		COM_ExtractFilePath( modelname, destdir );
+
+	if( destdir[0] != '\0' )
+		COM_PathSlashFix( destdir );
 
 	len -= ( sizeof( ".mdl" ) - 1 ); // path length without extension
 
