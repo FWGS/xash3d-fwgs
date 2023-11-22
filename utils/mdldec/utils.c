@@ -70,7 +70,7 @@ void ExtractFileName( char *name, size_t size )
 
 	if( Q_strpbrk( name, "/\\" ))
 	{
-		COM_FileBase( name, tmp, sizeof( tmp ));
+		Q_strncpy( tmp, COM_FileWithoutPath( name ), sizeof( tmp ));
 		Q_strncpy( name, tmp, size );
 	}
 }
