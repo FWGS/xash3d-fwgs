@@ -75,11 +75,7 @@ static void TextureNameFix( void )
 	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ), *texture1;
 
 	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
-	{
 		ExtractFileName( texture->name, sizeof( texture->name ));
-		if( !Q_strchr( texture->name, '.' ) )
-			Q_strncat( texture->name, ".bmp", sizeof( texture->name ));
-	}
 
 	texture -= i;
 
@@ -149,7 +145,10 @@ static void BodypartNameFix( void )
 		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
 		for( j = 0; j < bodypart->nummodels; ++j, ++model )
+		{
 			ExtractFileName( model->name, sizeof( model->name ));
+			COM_StripExtension( model->name );
+		}
 
 		model -= j;
 
@@ -207,7 +206,10 @@ static void SequenceNameFix( void )
 	mstudioseqdesc_t	*seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ), *seqdesc1;
 
 	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
+	{
 		ExtractFileName( seqdesc->label, sizeof( seqdesc->label ));
+		COM_StripExtension( seqdesc->label );
+	}
 
 	seqdesc -= i;
 
@@ -313,15 +315,15 @@ static qboolean LoadMDL( const char *modelname )
 
 	model_hdr = (studiohdr_t *)LoadFile( modelname, &filesize );
 
-	if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
-	{
-		fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", modelname );
-		return false;
-	}
-
 	if( !model_hdr )
 	{
 		fprintf( stderr, "ERROR: Can't open %s\n", modelname );
+		return false;
+	}
+
+	if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
+	{
+		fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", modelname );
 		return false;
 	}
 
