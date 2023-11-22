@@ -409,7 +409,7 @@ def configure(conf):
 			for i in a:
 				conf.check_cc(lib = i)
 	else:
-		conf.check_cc(lib='dl')
+		conf.check_cc(lib='dl', mandatory = False)
 		conf.check_cc(lib='m')
 
 
