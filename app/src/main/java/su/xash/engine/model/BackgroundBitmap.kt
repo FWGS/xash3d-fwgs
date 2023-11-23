@@ -23,7 +23,11 @@ object BackgroundBitmap {
         var width: Int
         var height = 0
 
-        val bgLayout = file.findFile("resource")?.findFile("BackgroundLayout.txt")
+        var bgLayout = file.findFile("resource")?.findFile("HD_BackgroundLayout.txt")
+        if (bgLayout == null) {
+            bgLayout = file.findFile("resource")?.findFile("BackgroundLayout.txt")
+        }
+
         if (bgLayout == null) {
             val dir = file.findFile("resource")?.findFile("background")
             for (i in 0 until BACKGROUND_ROWS) {
