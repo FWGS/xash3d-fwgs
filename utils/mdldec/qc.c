@@ -22,6 +22,8 @@ GNU General Public License for more details.
 #include "version.h"
 #include "mdldec.h"
 #include "utils.h"
+#include "smd.h"
+#include "texture.h"
 #include "qc.h"
 
 static char	**activity_names;
@@ -62,7 +64,7 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !fp )
 		{
-			fputs( "ERROR: Can't open file " ACTIVITIES_FILE ".\n", stderr );
+			fputs( "ERROR: Couldn't open file " ACTIVITIES_FILE ".\n", stderr );
 			return false;
 		}
 	}
@@ -474,11 +476,11 @@ static void WriteSequenceInfo( FILE *fp )
 		if( seqdesc->numblends > 1 )
 		{
 			for( j = 0; j < seqdesc->numblends; j++ )
-				fprintf( fp, "\t\"%s_blend%02i\"\n", seqdesc->label, j + 1 );
+				fprintf( fp, "\t\"" DEFAULT_SEQUENCEPATH "%s_blend%02i\"\n", seqdesc->label, j + 1 );
 		}
 		else
 		{
-			fprintf( fp, "\t\"%s\"\n", seqdesc->label );
+			fprintf( fp, "\t\"" DEFAULT_SEQUENCEPATH "%s\"\n", seqdesc->label );
 		}
 
 		if( seqdesc->activity )
@@ -565,7 +567,7 @@ void WriteQCScript( void )
 
 	if( len == -1 )
 	{
-		fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.qc\n", modelfile );
+		fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s.qc\n", modelfile );
 		return;
 	}
 
@@ -573,7 +575,7 @@ void WriteQCScript( void )
 
 	if( !fp )
 	{
-		fprintf( stderr, "ERROR: Can't write %s\n", filename );
+		fprintf( stderr, "ERROR: Couldn't write %s\n", filename );
 		return;
 	}
 
@@ -594,7 +596,7 @@ void WriteQCScript( void )
 	fprintf( fp, "$modelname \"%s.mdl\"\n", modelfile );
 
 	fputs( "$cd \".\"\n", fp );
-	fputs( "$cdtexture \".\"\n", fp );
+	fputs( "$cdtexture \"./" DEFAULT_TEXTUREPATH "\"\n", fp );
 	fputs( "$cliptotextures\n", fp );
 	fputs( "$scale 1.0\n", fp );
 	fputs( "\n", fp );

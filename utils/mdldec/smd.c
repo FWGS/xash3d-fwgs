@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "mdldec.h"
 #include "smd.h"
+#include "utils.h"
 
 static matrix3x4	*bonetransform;
 static matrix3x4	*worldtransform;
@@ -520,7 +521,7 @@ static void WriteReferences( void )
 
 			if( len == -1 )
 			{
-				fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.smd\n", model->name );
+				fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s.smd\n", model->name );
 				goto _fail;
 			}
 
@@ -528,7 +529,7 @@ static void WriteReferences( void )
 
 			if( !fp )
 			{
-				fprintf( stderr, "ERROR: Can't write %s\n", filename );
+				fprintf( stderr, "ERROR: Couldn't write %s\n", filename );
 				goto _fail;
 			}
 
@@ -559,31 +560,41 @@ WriteSequences
 static void WriteSequences( void )
 {
 	int			 i, j;
-	int			 len;
+	int			 len, namelen, emptyplace;
 	FILE			*fp;
-	char			 filename[MAX_SYSPATH];
+	char			 path[MAX_SYSPATH];
 	mstudioseqdesc_t	*seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
+
+	len = Q_snprintf( path, MAX_SYSPATH, "%s" DEFAULT_SEQUENCEPATH, destdir );
+
+	if( len == -1 || !MakeDirectory( path ))
+	{
+		fputs( "ERROR: Destination path is too long or write permission denied. Couldn't create directory for sequences\n", stderr );
+		return;
+	}
+
+	emptyplace = MAX_SYSPATH - len;
 
 	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
 		for( j = 0; j < seqdesc->numblends; j++ )
 		{
 			if( seqdesc->numblends == 1 )
-				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.smd", destdir, seqdesc->label );
+				namelen = Q_snprintf( &path[len], emptyplace, "%s.smd", seqdesc->label );
 			else
-				len = Q_snprintf( filename, MAX_SYSPATH, "%s%s_blend%02i.smd", destdir, seqdesc->label, j + 1 );
+				namelen = Q_snprintf( &path[len], emptyplace, "%s_blend%02i.smd", seqdesc->label, j + 1 );
 
-			if( len == -1 )
+			if( namelen == -1 )
 			{
-				fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.smd\n", seqdesc->label );
+				fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s.smd\n", seqdesc->label );
 				return;
 			}
 
-			fp = fopen( filename, "w" );
+			fp = fopen( path, "w" );
 
 			if( !fp )
 			{
-				fprintf( stderr, "ERROR: Can't write %s\n", filename );
+				fprintf( stderr, "ERROR: Couldn't write %s\n", path );
 				return;
 			}
 
@@ -594,7 +605,7 @@ static void WriteSequences( void )
 
 			fclose( fp );
 
-			printf( "Sequence: %s\n", filename );
+			printf( "Sequence: %s\n", path );
 		}
 	}
 }
