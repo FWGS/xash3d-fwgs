@@ -56,6 +56,40 @@ qboolean MakeDirectory( const char *path )
 
 /*
 ============
+MakeFullPath
+============
+*/
+qboolean MakeFullPath( const char *path )
+{
+	char *p = (char *)path, tmp;
+
+	for( ; *p; )
+	{
+		p = Q_strpbrk( p, "/\\" );
+
+		if( p )
+		{
+			tmp = *p;
+			*p = '\0';
+		}
+
+		if( !MakeDirectory( path ))
+		{
+			fprintf( stderr, "ERROR: Couldn't create directory %s\n", path );
+			return false;
+		}
+
+		if( !p )
+			break;
+
+		*p++ = tmp;
+	}
+
+	return true;
+}
+
+/*
+============
 ExtractFileName
 ============
 */
