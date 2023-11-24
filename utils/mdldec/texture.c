@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "img_tga.h"
 #include "mdldec.h"
 #include "texture.h"
+#include "utils.h"
 
 /*
 ============
@@ -130,27 +131,37 @@ WriteTextures
 */
 void WriteTextures( void )
 {
-	int			 i, len;
+	int			 i, len, namelen, emptyplace;
 	FILE			*fp;
 	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
-	char			 filename[MAX_SYSPATH];
+	char			 path[MAX_SYSPATH];
+
+	len = Q_snprintf( path, MAX_SYSPATH, "%s" DEFAULT_TEXTUREPATH, destdir );
+
+	if( len == -1 || !MakeDirectory( path ))
+	{
+		fputs( "ERROR: Destination path is too long or write permission denied. Couldn't create directory for textures\n", stderr );
+		return;
+	}
+
+	emptyplace = MAX_SYSPATH - len;
 
 	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
 	{
-		len = Q_snprintf( filename, MAX_SYSPATH, "%s%s", destdir, texture->name );
+		namelen = Q_strncpy( &path[len], texture->name, emptyplace );
 
-		if( len == -1 )
+		if( emptyplace - namelen < 0 )
 		{
-			fprintf( stderr, "ERROR: Destination path is too long. Can't write %s\n", texture->name );
-			continue;
+			fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s\n", texture->name );
+			return;
 		}
 
-		fp = fopen( filename, "wb" );
+		fp = fopen( path, "wb" );
 
 		if( !fp )
 		{
-			fprintf( stderr, "ERROR: Can't write texture file %s\n", filename );
-			continue;
+			fprintf( stderr, "ERROR: Couldn't write texture file %s\n", path );
+			return;
 		}
 
 		if( !Q_stricmp( COM_FileExtension( texture->name ), "tga" ))
@@ -160,7 +171,7 @@ void WriteTextures( void )
 
 		fclose( fp );
 
-		printf( "Texture: %s\n", filename );
+		printf( "Texture: %s\n", path );
 	}
 }
 
