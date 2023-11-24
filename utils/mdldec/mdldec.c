@@ -351,11 +351,8 @@ static qboolean LoadMDL( const char *modelname )
 
 	if( destdir[0] != '\0' )
 	{
-		if( !MakeDirectory( destdir ))
-		{
-			fprintf( stderr, "ERROR: Couldn't create directory %s\n", destdir );
+		if( !MakeFullPath( destdir ))
 			return false;
-		}
 	}
 	else
 		COM_ExtractFilePath( modelname, destdir );
