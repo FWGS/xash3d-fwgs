@@ -4967,12 +4967,6 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			pkvd[i].szValue = copystring( temp );
 		}
 #endif
-		if( !Q_strcmp( pkvd[i].szKeyName, "light" ))
-		{
-			Mem_Free( pkvd[i].szKeyName );
-			pkvd[i].szKeyName = copystring( "light_level" );
-		}
-
 		if( !pkvd[i].fHandled )
 		{
 			pkvd[i].szClassName = classname;
