@@ -2411,7 +2411,7 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 			if( begin ) // Got full header
 			{
 				int cutheadersize = begin - curfile->buf + 4; // after that begin of data
-				char *length;
+				char *content_length_line;
 
 				Con_Reportf( "HTTP: Got response!\n" );
 
@@ -2430,10 +2430,13 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 				}
 
 				// print size
-				length = Q_stristr( curfile->buf, "Content-Length: " );
-				if( length )
+				content_length_line = Q_stristr( curfile->buf, "Content-Length: " );
+				if( content_length_line )
 				{
-					int size = Q_atoi( length += 16 );
+					int size;
+
+					content_length_line += sizeof( "Content-Length: " ) - 1;
+					size = Q_atoi( content_length_line );
 
 					Con_Reportf( "HTTP: File size is %d\n", size );
 
@@ -2874,6 +2877,10 @@ static void HTTP_AddCustomServer_f( void )
 	if( Cmd_Argc() == 2 )
 	{
 		HTTP_AddCustomServer( Cmd_Argv( 1 ));
+	}
+	else
+	{
+		Con_Printf( S_USAGE "http_addcustomserver <url>\n" );
 	}
 }
 
