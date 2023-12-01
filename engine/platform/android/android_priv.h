@@ -9,6 +9,7 @@
 extern struct jnimethods_s
 {
 	jclass actcls;
+	jclass bindcls;
 	JavaVM *vm;
 	JNIEnv *env;
 	jmethodID enableTextInput;
@@ -27,7 +28,6 @@ extern struct jnimethods_s
 	jmethodID createGLContext;
 	jmethodID getGLAttribute;
 	jmethodID deleteGLContext;
-	jmethodID getSelectedPixelFormat;
 	jmethodID getSurface;
 	int width, height;
 } jni;
