@@ -77,7 +77,10 @@ void Sys_DebugBreak( void )
 		asm volatile( "int $3;" );
 #else
 	if( Sys_DebuggerPresent() )
-		raise( SIGINT );
+	{
+		INLINE_RAISE( SIGINT );
+		INLINE_NANOSLEEP1(); // sometimes signal comes with delay, let it interrupt nanosleep
+	}
 #endif
 #endif
 }
