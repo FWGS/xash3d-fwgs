@@ -199,30 +199,12 @@ static int Android_GetGLAttribute( int eglAttr )
 	return ret;
 }
 
-int Android_GetSelectedPixelFormat( void )
-{
-	return (*jni.env)->CallStaticIntMethod( jni.env, jni.actcls, jni.getSelectedPixelFormat );
-}
-
 qboolean  R_Init_Video( const int type )
 {
 	char buf[MAX_VA_STRING];
 	qboolean retval;
 	cv_vid_scale = Cvar_FindVar( "vid_scale" );
 	cv_vid_rotate = Cvar_FindVar( "vid_rotate" );
-
-	switch( Android_GetSelectedPixelFormat() )
-	{
-	case 1:
-		refState.desktopBitsPixel = 16;
-		break;
-	case 2:
-		refState.desktopBitsPixel = 8;
-		break;
-	default:
-		refState.desktopBitsPixel = 32;
-		break;
-	}
 
 	if( FS_FileExists( GI->iconpath, true ) )
 	{
