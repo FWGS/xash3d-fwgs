@@ -121,8 +121,8 @@ Check if we may use native EGL without jni calls
 */
 void Android_UpdateSurface( surfacestate_t state )
 {
-	vid_android.nativeegl = false;
 	qboolean active = state == surface_active;
+	vid_android.nativeegl = false;
 
 	if( glw_state.software || ( eglstate.valid && !eglstate.imported ))
 	{
