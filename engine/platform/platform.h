@@ -131,6 +131,8 @@ static inline void Platform_Shutdown( void )
 
 #if XASH_SDL
 	SDLash_Shutdown( );
+#elif XASH_ANDROID
+	Android_Shutdown();
 #endif
 }
 

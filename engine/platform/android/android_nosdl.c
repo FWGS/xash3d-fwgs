@@ -265,6 +265,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 	jni.getGLAttribute = (*env)->GetStaticMethodID(env, jni.bindcls, "getGLAttribute", "(I)I");
 	jni.deleteGLContext = (*env)->GetStaticMethodID(env, jni.bindcls, "deleteGLContext", "()Z");
 	jni.getSurface = (*env)->GetStaticMethodID(env, jni.bindcls, "getNativeSurface", "(I)Landroid/view/Surface;");
+	jni.preShutdown = (*env)->GetStaticMethodID(env, jni.bindcls, "preShutdown", "()V");
 
 	// jni fails when called from signal handler callback, so jump here when called messagebox from handler
 	if( setjmp( crash_frame ))
@@ -272,8 +273,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 		// note: this will destroy stack and shutting down engine with return-from-main
 		// will be impossible, but Sys_Quit works
 		(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.messageBox, (*jni.env)->NewStringUTF( jni.env, "crash" ), (*jni.env)->NewStringUTF( jni.env , crash_text ) );
-
-		// java shutdown callback here?
+		(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.preShutdown );
 
 		// UB, but who cares, we already crashed!
 		longjmp( restore_frame, 1 );
@@ -603,7 +603,9 @@ void Android_Init( void )
 
 void Android_Shutdown( void )
 {
-
+	if( host.crashed )
+		return;
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.preShutdown );
 }
 
 /*
