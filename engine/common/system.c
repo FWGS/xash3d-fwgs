@@ -19,6 +19,10 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include <errno.h>
 
+#if _MSC_VER
+#include <intrin.h>
+#endif
+
 #ifdef XASH_SDL
 #include <SDL.h>
 #endif
@@ -68,17 +72,15 @@ Sys_DebugBreak
 */
 void Sys_DebugBreak( void )
 {
-#if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
 #if _MSC_VER
-	if( Sys_DebuggerPresent() )
-		_asm { int 3 }
-#elif XASH_X86
-	if( Sys_DebuggerPresent() )
-		asm volatile( "int $3;" );
-#else
-	if( Sys_DebuggerPresent() )
-		raise( SIGINT );
-#endif
+	if( Sys_DebuggerPresent( ))
+		__debugbreak();
+#else // !_MSC_VER
+	if( Sys_DebuggerPresent( ))
+	{
+		INLINE_RAISE( SIGINT );
+		INLINE_NANOSLEEP1(); // sometimes signal comes with delay, let it interrupt nanosleep
+	}
 #endif
 }
 

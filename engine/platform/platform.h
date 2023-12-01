@@ -64,6 +64,8 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
+int Android_GetKeyboardHeight( void );
+void Android_Shutdown( void );
 #endif
 
 #if XASH_WIN32
@@ -255,5 +257,90 @@ qboolean VoiceCapture_Init( void );
 void VoiceCapture_Shutdown( void );
 qboolean VoiceCapture_Activate( qboolean activate );
 qboolean VoiceCapture_Lock( qboolean lock );
+
+// this allows to make break in current line, without entering libc code
+// libc built with -fomit-frame-pointer may just eat stack frame (hello, glibc), making entering libc even more useless
+// calling syscalls directly allows to make break like if it was asm("int $3") on x86
+#if XASH_LINUX && XASH_X86
+	#define INLINE_RAISE(x) asm volatile( "int $3;" );
+	#define INLINE_NANOSLEEP1() // nothing!
+#elif XASH_LINUX && XASH_ARM && !XASH_64BIT
+	#define INLINE_RAISE(x) do \
+		{ \
+			int raise_pid = getpid(); \
+			int raise_tid = gettid(); \
+			int raise_sig = (x); \
+			__asm__ volatile (  \
+				"mov r7,#268\n\t" \
+				"mov r0,%0\n\t" \
+				"mov r1,%1\n\t" \
+				"mov r2,%2\n\t" \
+				"svc 0\n\t" \
+				: \
+				: "r"(raise_pid), "r"(raise_tid), "r"(raise_sig) \
+				: "r0", "r1", "r2", "r7", "memory"
+			); \
+		} while( 0 )
+	#define INLINE_NANOSLEEP1() do \
+		{ \
+			struct timespec ns_t1 = {1, 0}; \
+			struct timespec ns_t2 = {0, 0}; \
+			__asm__ volatile ( \
+				"mov r7,#162\n\t" \
+				"mov r0,%0\n\t" \
+				"mov r1,%1\n\t" \
+				"svc 0\n\t" \
+				: \
+				: "r"(&ns_t1), "r"(&ns_t2) \
+				: "r0", "r1", "r7", "memory" \
+			); \
+		} while( 0 )
+#elif XASH_LINUX && XASH_ARM && XASH_64BIT
+	#define INLINE_RAISE(x) do \
+		{ \
+			int raise_pid = getpid(); \
+			int raise_tid = gettid(); \
+			int raise_sig = (x); \
+			__asm__ volatile ( \
+				"mov x8,#131\n\t" \
+				"mov x0,%0\n\t" \
+				"mov x1,%1\n\t" \
+				"mov x2,%2\n\t" \
+				"svc 0\n\t" \
+				: \
+				: "r"(raise_pid), "r"(raise_tid), "r"(raise_sig) \
+				: "x0", "x1", "x2", "x8", "memory", "cc" \
+			); \
+		} while( 0 )
+	#define INLINE_NANOSLEEP1() do \
+		{ \
+			struct timespec ns_t1 = {1, 0}; \
+			struct timespec ns_t2 = {0, 0}; \
+			__asm__ volatile ( \
+				"mov x8,#101\n\t" \
+				"mov x0,%0\n\t" \
+				"mov x1,%1\n\t" \
+				"svc 0\n\t" \
+				: \
+				: "r"(&ns_t1), "r"(&ns_t2) \
+				: "x0", "x1", "x8", "memory", "cc" \
+			); \
+		} while( 0 )
+#elif XASH_LINUX
+	#ifdef __NR_tgkill
+		#define INLINE_RAISE(x) syscall( __NR_tgkill, getpid(), gettid(), x )
+	#else // __NR_tgkill
+		#define INLINE_RAISE(x) raise(x)
+	#endif // __NR_tgkill
+	#define INLINE_NANOSLEEP1() do \
+		{ \
+			struct timespec ns_t1 = {1, 0}; \
+			struct timespec ns_t2 = {0, 0}; \
+			nanosleep( &ns_t1, &ns_t2 ); \
+		} while( 0 )
+#else // generic
+	#define INLINE_RAISE(x) raise(x)
+	#define INLINE_NANOSLEEP1() sleep(1)
+#endif // generic
 
 #endif // PLATFORM_H
