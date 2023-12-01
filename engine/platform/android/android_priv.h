@@ -29,6 +29,7 @@ extern struct jnimethods_s
 	jmethodID getGLAttribute;
 	jmethodID deleteGLContext;
 	jmethodID getSurface;
+	jmethodID preShutdown;
 	int width, height;
 } jni;
 
