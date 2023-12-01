@@ -79,7 +79,11 @@ CFLAGS = {
 	'humanrights': {
 		'msvc':    ['/O2', '/Zi'],
 		'owcc':    ['-O3', '-foptimize-sibling-calls', '-fomit-leaf-frame-pointer', '-fomit-frame-pointer', '-fschedule-insns', '-funsafe-math-optimizations', '-funroll-loops', '-frerun-optimizer', '-finline-functions', '-finline-limit=512', '-fguess-branch-probability', '-fno-strict-aliasing', '-floop-optimize'],
-		'gcc':     ['-O3', '-fno-semantic-interposition'],
+		'gcc': {
+			'4':   ['-O3'],
+			'3':   ['-O3'],
+			'default': ['-O3','-fno-semantic-interposition'],
+		},
 		'default': ['-O3']
 	},
 	'debug': {
