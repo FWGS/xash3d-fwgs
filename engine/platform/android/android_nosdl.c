@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "errno.h"
 #include <pthread.h>
 #include <sys/prctl.h>
+#include <setjmp.h>
 
 #ifndef JNICALL
 #define JNICALL // a1ba: workaround for my IDE, where Java files are not included
@@ -162,6 +163,9 @@ static struct {
 struct jnimethods_s jni;
 struct jnimouse_s   jnimouse;
 
+static jmp_buf crash_frame, restore_frame;
+char crash_text[1024];
+
 #define Android_Lock() pthread_mutex_lock(&events.mutex);
 #define Android_Unlock() pthread_mutex_unlock(&events.mutex);
 #define Android_PushEvent() Android_Unlock()
@@ -206,7 +210,7 @@ nativeSetPause
 */
 #define VA_ARGS(...) , ##__VA_ARGS__ // GCC extension
 #define DECLARE_JNI_INTERFACE( ret, name, ... ) \
-	JNIEXPORT ret JNICALL Java_su_xash_engine_XashActivity_##name( JNIEnv *env, jclass clazz VA_ARGS(__VA_ARGS__) )
+	JNIEXPORT ret JNICALL Java_su_xash_engine_XashBinding_##name( JNIEnv *env, jclass clazz VA_ARGS(__VA_ARGS__) )
 
 DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 {
@@ -242,26 +246,39 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 	/* Init callbacks. */
 
 	jni.env = env;
-	jni.actcls = (*env)->FindClass(env, "su/xash/engine/XashActivity");
-	jni.enableTextInput = (*env)->GetStaticMethodID(env, jni.actcls, "showKeyboard", "(I)V");
-	jni.vibrate = (*env)->GetStaticMethodID(env, jni.actcls, "vibrate", "(I)V" );
-	jni.messageBox = (*env)->GetStaticMethodID(env, jni.actcls, "messageBox", "(Ljava/lang/String;Ljava/lang/String;)V");
-	jni.notify = (*env)->GetStaticMethodID(env, jni.actcls, "engineThreadNotify", "()V");
-	jni.setTitle = (*env)->GetStaticMethodID(env, jni.actcls, "setTitle", "(Ljava/lang/String;)V");
-	jni.setIcon = (*env)->GetStaticMethodID(env, jni.actcls, "setIcon", "(Ljava/lang/String;)V");
-	jni.getAndroidId = (*env)->GetStaticMethodID(env, jni.actcls, "getAndroidID", "()Ljava/lang/String;");
-	jni.saveID = (*env)->GetStaticMethodID(env, jni.actcls, "saveID", "(Ljava/lang/String;)V");
-	jni.loadID = (*env)->GetStaticMethodID(env, jni.actcls, "loadID", "()Ljava/lang/String;");
-	jni.showMouse = (*env)->GetStaticMethodID(env, jni.actcls, "showMouse", "(I)V");
-	jni.shellExecute = (*env)->GetStaticMethodID(env, jni.actcls, "shellExecute", "(Ljava/lang/String;)V");
+	jni.bindcls = (*env)->FindClass(env, "su/xash/engine/XashBinding");
+	jni.enableTextInput = (*env)->GetStaticMethodID(env, jni.bindcls, "showKeyboard", "(I)V");
+	jni.vibrate = (*env)->GetStaticMethodID(env, jni.bindcls, "vibrate", "(I)V" );
+	jni.messageBox = (*env)->GetStaticMethodID(env, jni.bindcls, "messageBox", "(Ljava/lang/String;Ljava/lang/String;)V");
+	jni.notify = (*env)->GetStaticMethodID(env, jni.bindcls, "engineThreadNotify", "()V");
+	jni.setTitle = (*env)->GetStaticMethodID(env, jni.bindcls, "setTitle", "(Ljava/lang/String;)V");
+	jni.setIcon = (*env)->GetStaticMethodID(env, jni.bindcls, "setIcon", "(Ljava/lang/String;)V");
+	jni.getAndroidId = (*env)->GetStaticMethodID(env, jni.bindcls, "getAndroidID", "()Ljava/lang/String;");
+	jni.saveID = (*env)->GetStaticMethodID(env, jni.bindcls, "saveID", "(Ljava/lang/String;)V");
+	jni.loadID = (*env)->GetStaticMethodID(env, jni.bindcls, "loadID", "()Ljava/lang/String;");
+	jni.showMouse = (*env)->GetStaticMethodID(env, jni.bindcls, "showMouse", "(I)V");
+	jni.shellExecute = (*env)->GetStaticMethodID(env, jni.bindcls, "shellExecute", "(Ljava/lang/String;)V");
 
-	jni.swapBuffers = (*env)->GetStaticMethodID(env, jni.actcls, "swapBuffers", "()V");
-	jni.toggleEGL = (*env)->GetStaticMethodID(env, jni.actcls, "toggleEGL", "(I)V");
-	jni.createGLContext = (*env)->GetStaticMethodID(env, jni.actcls, "createGLContext", "([I[I)Z");
-	jni.getGLAttribute = (*env)->GetStaticMethodID(env, jni.actcls, "getGLAttribute", "(I)I");
-	jni.deleteGLContext = (*env)->GetStaticMethodID(env, jni.actcls, "deleteGLContext", "()Z");
-	jni.getSelectedPixelFormat = (*env)->GetStaticMethodID(env, jni.actcls, "getSelectedPixelFormat", "()I");
-	jni.getSurface = (*env)->GetStaticMethodID(env, jni.actcls, "getNativeSurface", "(I)Landroid/view/Surface;");
+	jni.swapBuffers = (*env)->GetStaticMethodID(env, jni.bindcls, "swapBuffers", "()V");
+	jni.toggleEGL = (*env)->GetStaticMethodID(env, jni.bindcls, "toggleEGL", "(I)V");
+	jni.createGLContext = (*env)->GetStaticMethodID(env, jni.bindcls, "createGLContext", "([I[I)Z");
+	jni.getGLAttribute = (*env)->GetStaticMethodID(env, jni.bindcls, "getGLAttribute", "(I)I");
+	jni.deleteGLContext = (*env)->GetStaticMethodID(env, jni.bindcls, "deleteGLContext", "()Z");
+	jni.getSurface = (*env)->GetStaticMethodID(env, jni.bindcls, "getNativeSurface", "(I)Landroid/view/Surface;");
+
+	// jni fails when called from signal handler callback, so jump here when called messagebox from handler
+	if( setjmp( crash_frame ))
+	{
+		// note: this will destroy stack and shutting down engine with return-from-main
+		// will be impossible, but Sys_Quit works
+		(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.messageBox, (*jni.env)->NewStringUTF( jni.env, "crash" ), (*jni.env)->NewStringUTF( jni.env , crash_text ) );
+
+		// java shutdown callback here?
+
+		// UB, but who cares, we already crashed!
+		longjmp( restore_frame, 1 );
+		return 127; // unreach
+	}
 
 	/* Run the application. */
 
@@ -598,7 +615,9 @@ Show virtual keyboard
 */
 void Platform_EnableTextInput( qboolean enable )
 {
-	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.enableTextInput, enable );
+	if( host.crashed )
+		return;
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.enableTextInput, enable );
 }
 
 /*
@@ -609,7 +628,7 @@ Android_Vibrate
 void Platform_Vibrate( float life, char flags )
 {
 	if( life )
-		(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.vibrate, (int)life );
+		(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.vibrate, (int)life );
 }
 
 /*
@@ -632,6 +651,8 @@ void *Android_GetNativeObject( const char *objName )
 	}
 	else if( !strcasecmp( objName, "ActivityClass" ) )
 	{
+		if( !jni.actcls )
+			jni.actcls = (*jni.env)->FindClass( jni.env, "su/xash/engine/XashActivity" );
 		object = (void*)jni.actcls;
 	}
 
@@ -648,7 +669,16 @@ Show messagebox and wait for OK button press
 #if XASH_MESSAGEBOX == MSGBOX_ANDROID
 void Platform_MessageBox( const char *title, const char *text, qboolean parentMainWindow )
 {
-	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.messageBox, (*jni.env)->NewStringUTF( jni.env, title ), (*jni.env)->NewStringUTF( jni.env ,text ) );
+	// jni calls from signal handler broken since some android version, so move to "safe" frame and pass text
+	if( host.crashed )
+	{
+		if( setjmp( restore_frame ) )
+			return;
+		Q_strncpy( crash_text, text, 1024 );
+		longjmp( crash_frame, 1 );
+		return;
+	}
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.messageBox, (*jni.env)->NewStringUTF( jni.env, title ), (*jni.env)->NewStringUTF( jni.env ,text ) );
 }
 #endif // XASH_MESSAGEBOX == MSGBOX_ANDROID
 
@@ -666,7 +696,7 @@ const char *Android_GetAndroidID( void )
 	if( id[0] )
 		return id;
 
-	resultJNIStr = (jstring)(*jni.env)->CallStaticObjectMethod( jni.env, jni.actcls, jni.getAndroidId );
+	resultJNIStr = (jstring)(*jni.env)->CallStaticObjectMethod( jni.env, jni.bindcls, jni.getAndroidId );
 	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, 64 );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
@@ -685,7 +715,7 @@ Android_LoadID
 const char *Android_LoadID( void )
 {
 	static char id[65];
-	jstring resultJNIStr = (jstring)(*jni.env)->CallStaticObjectMethod( jni.env, jni.actcls, jni.loadID );
+	jstring resultJNIStr = (jstring)(*jni.env)->CallStaticObjectMethod( jni.env, jni.bindcls, jni.loadID );
 	const char *resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, 64 );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
@@ -699,7 +729,7 @@ Android_SaveID
 */
 void Android_SaveID( const char *id )
 {
-	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.saveID, (*jni.env)->NewStringUTF( jni.env, id ) );
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.saveID, (*jni.env)->NewStringUTF( jni.env, id ) );
 }
 
 /*
@@ -752,7 +782,7 @@ void Android_ShowMouse( qboolean show )
 {
 	if( m_ignore.value )
 		show = true;
-	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.showMouse, show );
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.showMouse, show );
 }
 
 /*
@@ -771,7 +801,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	jstr = (*jni.env)->NewStringUTF( jni.env, path );
 
 	// open browser
-	(*jni.env)->CallStaticVoidMethod(jni.env, jni.actcls, jni.shellExecute, jstr);
+	(*jni.env)->CallStaticVoidMethod(jni.env, jni.bindcls, jni.shellExecute, jstr);
 
 	// no need to free jstr
 }
@@ -858,7 +888,7 @@ static void Android_ProcessEvents( void )
 			if( !events.queue[i].arg )
 			{
 				SNDDMA_Activate( true );
-//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.toggleEGL, 1 );
 				Android_UpdateSurface( surface_active );
 				SetBits( gl_vsync.flags, FCVAR_CHANGED ); // set swap interval
 				host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
@@ -868,17 +898,17 @@ static void Android_ProcessEvents( void )
 			{
 				SNDDMA_Activate( false );
 				Android_UpdateSurface( !android_sleep->value ? surface_dummy : surface_pause );
-//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
+//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.toggleEGL, 0 );
 			}
-			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
+			(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.notify );
 			break;
 
 		case event_resize:
 			// reinitialize EGL and change engine screen size
 			if( ( host.status == HOST_FRAME || host.status == HOST_NOFOCUS ) &&( refState.width != jni.width || refState.height != jni.height ))
 			{
-//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 0 );
-//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, 1 );
+//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.toggleEGL, 0 );
+//				(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.toggleEGL, 1 );
 				Con_DPrintf("resize event\n");
 				Android_UpdateSurface( surface_pause );
 				Android_UpdateSurface( surface_active );
@@ -920,7 +950,7 @@ static void Android_ProcessEvents( void )
 		case event_ondestroy:
 			//host.skip_configs = true; // skip config save, because engine may be killed during config save
 			Sys_Quit();
-			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
+			(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.notify );
 			break;
 		case event_onpause:
 #ifdef PARANOID_CONFIG_SAVE
@@ -941,7 +971,7 @@ static void Android_ProcessEvents( void )
 			SNDDMA_Activate( false );
 			//host.status = HOST_SLEEP;
 			// stop blocking UI thread
-			(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.notify );
+			(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.notify );
 
 			break;
 		case event_onresume:

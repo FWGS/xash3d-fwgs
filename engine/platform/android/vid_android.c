@@ -68,7 +68,7 @@ Android_SetTitle
 */
 static void Android_SetTitle( const char *title )
 {
-	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.setTitle, (*jni.env)->NewStringUTF( jni.env, title ) );
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.setTitle, (*jni.env)->NewStringUTF( jni.env, title ) );
 }
 
 /*
@@ -78,7 +78,7 @@ Android_SetIcon
 */
 static void Android_SetIcon( const char *path )
 {
-	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.setIcon, (*jni.env)->NewStringUTF( jni.env, path ) );
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.setIcon, (*jni.env)->NewStringUTF( jni.env, path ) );
 }
 
 /*
@@ -108,7 +108,7 @@ void GL_SwapBuffers( void )
 	}
 	else
 	{
-		(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.swapBuffers );
+		(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.swapBuffers );
 	}
 }
 
@@ -147,7 +147,7 @@ void Android_UpdateSurface( surfacestate_t state )
 			jobject surf;
 			if( vid_android.window )
 				nw.release( vid_android.window );
-			surf = (*jni.env)->CallStaticObjectMethod( jni.env, jni.actcls, jni.getSurface, state );
+			surf = (*jni.env)->CallStaticObjectMethod( jni.env, jni.bindcls, jni.getSurface, state );
 			Con_DPrintf("Surface handle %p\n", surf);
 			if( surf )
 			{
@@ -174,7 +174,7 @@ void Android_UpdateSurface( surfacestate_t state )
 	if( !vid_android.has_context )
 		return;
 
-	(*jni.env)->CallStaticVoidMethod( jni.env, jni.actcls, jni.toggleEGL, (int)state );
+	(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.toggleEGL, (int)state );
 	host.status = HOST_FRAME; // active ? HOST_FRAME : HOST_SLEEP;
 
 	// todo: check opengl context here and set HOST_SLEEP if not
@@ -194,7 +194,7 @@ Android_GetGLAttribute
 */
 static int Android_GetGLAttribute( int eglAttr )
 {
-	int ret = (*jni.env)->CallStaticIntMethod( jni.env, jni.actcls, jni.getGLAttribute, eglAttr );
+	int ret = (*jni.env)->CallStaticIntMethod( jni.env, jni.bindcls, jni.getGLAttribute, eglAttr );
 	// Con_Reportf( "Android_GetGLAttribute( %i ) => %i\n", eglAttr, ret );
 	return ret;
 }
@@ -276,7 +276,7 @@ qboolean  R_Init_Video( const int type )
 
 void R_Free_Video( void )
 {
-	// (*jni.env)->CallStaticBooleanMethod( jni.env, jni.actcls, jni.deleteGLContext );
+	// (*jni.env)->CallStaticBooleanMethod( jni.env, jni.bindcls, jni.deleteGLContext );
 
 	// VID_DestroyWindow ();
 
@@ -348,7 +348,7 @@ qboolean VID_SetMode( void )
 	R_ChangeDisplaySettings( 0, 0, WINDOW_MODE_WINDOWED ); // width and height are ignored anyway
 
 
-	if( (*jni.env)->CallStaticBooleanMethod( jni.env, jni.actcls, jni.createGLContext, attribs, contextAttribs ) )
+	if( (*jni.env)->CallStaticBooleanMethod( jni.env, jni.bindcls, jni.createGLContext, attribs, contextAttribs ) )
 	{
 		vid_android.has_context = true;
 		return true;
