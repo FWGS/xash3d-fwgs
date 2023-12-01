@@ -257,4 +257,17 @@ void VoiceCapture_Shutdown( void );
 qboolean VoiceCapture_Activate( qboolean activate );
 qboolean VoiceCapture_Lock( qboolean lock );
 
+#ifdef XASH_LINUX
+// this allows to make break in this line, not somewhere in libc
+// libc builds with -fomit-frame-pointer may just eat stack frame (hello, glibc), making this useless
+// calling syscalls directly allows to make break like if it was asm("int $3") on x86
+#ifdef __arm__
+#define INLINE_RAISE(x) do{int raise_pid = getpid(), raise_sig = (x);__asm__ volatile ( "mov r7,#37\n\tmov r0,%0\n\tmov r1,%1\n\tsvc 0\n\t": :"r"(raise_pid),"r"(raise_sig):"memory");}while(0)
+#define INLINE_NANOSLEEP1() do{struct timespec ns_t1 = {1,0}, ns_t2 = {0, 0}; __asm__ volatile ( "mov r7,#162\n\tmov r0,%0\n\tmov r1,%1\n\tsvc 0\n\t": :"r"(&ns_t1),"r"(&ns_t2):"memory");}while(0)
+#else
+#define INLINE_RAISE(x) raise(x)
+#define INLINE_NANOSLEEP1() do{struct timespec ns_t1 = {1,0}, ns_t2 = {0, 0}; nanosleep(&ns_t1, &ns_t2);}while(0)
+#endif
+#endif
+
 #endif // PLATFORM_H
