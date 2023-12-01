@@ -212,6 +212,12 @@ nativeSetPause
 #define DECLARE_JNI_INTERFACE( ret, name, ... ) \
 	JNIEXPORT ret JNICALL Java_su_xash_engine_XashBinding_##name( JNIEnv *env, jclass clazz VA_ARGS(__VA_ARGS__) )
 
+static int _debugger_present = -1;
+static void _sigtrap_handler(int signum)
+{
+	_debugger_present = 0;
+}
+
 DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 {
 	int i;
@@ -280,8 +286,18 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 		return 127; // unreach
 	}
 
-	/* Run the application. */
+	if( getenv( "XASH3D_GDB_WAIT" ))
+	{
+		signal(SIGTRAP, _sigtrap_handler);
+		while(_debugger_present <= 0)
+		{
+			_debugger_present = 1;
+			INLINE_RAISE( SIGTRAP );
+			INLINE_NANOSLEEP1();
+		}
+	}
 
+	/* Run the application. */
 	status = Host_Main( argc, argv, getenv("XASH3D_GAMEDIR"), false, NULL );
 
 	/* Release the arguments. */
@@ -586,6 +602,7 @@ DECLARE_JNI_INTERFACE( int, nativeTestWritePermission, jstring jPath )
 
 JNIEXPORT jint JNICALL JNI_OnLoad( JavaVM *vm, void *reserved )
 {
+	prctl(PR_SET_DUMPABLE, 1);
 	return JNI_VERSION_1_6;
 }
 
