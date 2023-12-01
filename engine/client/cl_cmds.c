@@ -85,6 +85,12 @@ void CL_PlayCDTrack_f( void )
 		paused = false;
 		looped = false;
 	}
+	else if( !Q_stricmp( command, "playfile" ))
+	{
+		S_StartBackgroundTrack( pszTrack, NULL, 0, true );
+		paused = false;
+		looped = false;
+	}
 	else if( !Q_stricmp( command, "loop" ))
 	{
 		if( Q_isdigit( pszTrack ))
@@ -93,6 +99,12 @@ void CL_PlayCDTrack_f( void )
 			S_StartBackgroundTrack( clgame.cdtracks[track-1], clgame.cdtracks[track-1], 0, false );
 		}
 		else S_StartBackgroundTrack( pszTrack, pszTrack, 0, true );
+		paused = false;
+		looped = true;
+	}
+	else if( !Q_stricmp( command, "loopfile" ))
+	{
+		S_StartBackgroundTrack( pszTrack, pszTrack, 0, true );
 		paused = false;
 		looped = true;
 	}
