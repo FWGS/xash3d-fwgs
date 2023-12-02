@@ -189,8 +189,7 @@ def build(bld):
 		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
 		# we can't do this right away because std::filesystem will complain about not having pathconf(),
 		# which we have defined in sys_nswitch.c
-		# HACKHACK: disable implicit linking with libstdc++ to make the hack above work when linking as C++ program
-		bld.env.LDFLAGS += ['-nostdlib++', '-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
+		bld.env.LDFLAGS += ['-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
 
 	if bld.env.DEST_OS == 'psvita':
 		libs += [ 'VRTLD' ]
@@ -226,9 +225,13 @@ def build(bld):
 
 	# Switch and PSVita have custom parameters
 	if bld.env.DEST_OS in ['nswitch', 'psvita']:
+		program = 'cxxprogram'
+		if bld.env.DEST_OS == 'nswitch':
+			program = 'cprogram' # avoid linking with g++, we link standard library explicitly
+
 		bld(source = source,
 			target = 'xash',
-			features = 'c cxxprogram',
+			features = ['c', program],
 			includes = includes,
 			use = libs,
 			install_path = None,
