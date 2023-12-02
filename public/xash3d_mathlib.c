@@ -386,18 +386,6 @@ void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, v
 //
 /*
 =================
-ClearBounds
-=================
-*/
-void ClearBounds( vec3_t mins, vec3_t maxs )
-{
-	// make bogus range
-	mins[0] = mins[1] = mins[2] =  999999.0f;
-	maxs[0] = maxs[1] = maxs[2] = -999999.0f;
-}
-
-/*
-=================
 AddPointToBounds
 =================
 */
@@ -416,7 +404,7 @@ void AddPointToBounds( const vec3_t v, vec3_t mins, vec3_t maxs )
 
 /*
 =================
-ExpandBounds
+ExpandBounds (not used anywhere?)
 =================
 */
 void ExpandBounds( vec3_t mins, vec3_t maxs, float offset )
@@ -427,34 +415,6 @@ void ExpandBounds( vec3_t mins, vec3_t maxs, float offset )
 	maxs[0] += offset;
 	maxs[1] += offset;
 	maxs[2] += offset;
-}
-
-/*
-=================
-BoundsIntersect
-=================
-*/
-qboolean BoundsIntersect( const vec3_t mins1, const vec3_t maxs1, const vec3_t mins2, const vec3_t maxs2 )
-{
-	if( mins1[0] > maxs2[0] || mins1[1] > maxs2[1] || mins1[2] > maxs2[2] )
-		return false;
-	if( maxs1[0] < mins2[0] || maxs1[1] < mins2[1] || maxs1[2] < mins2[2] )
-		return false;
-	return true;
-}
-
-/*
-=================
-BoundsAndSphereIntersect
-=================
-*/
-qboolean BoundsAndSphereIntersect( const vec3_t mins, const vec3_t maxs, const vec3_t origin, float radius )
-{
-	if( mins[0] > origin[0] + radius || mins[1] > origin[1] + radius || mins[2] > origin[2] + radius )
-		return false;
-	if( maxs[0] < origin[0] - radius || maxs[1] < origin[1] - radius || maxs[2] < origin[2] - radius )
-		return false;
-	return true;
 }
 
 /*
