@@ -212,10 +212,11 @@ nativeSetPause
 #define DECLARE_JNI_INTERFACE( ret, name, ... ) \
 	JNIEXPORT ret JNICALL Java_su_xash_engine_XashBinding_##name( JNIEnv *env, jclass clazz VA_ARGS(__VA_ARGS__) )
 
-static int _debugger_present = -1;
+static volatile int _debugger_present = -1;
 static void _sigtrap_handler(int signum)
 {
 	_debugger_present = 0;
+	__android_log_print( ANDROID_LOG_ERROR, "XashGDBWait", "It's a TRAP!" );
 }
 
 DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
@@ -295,6 +296,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 			INLINE_RAISE( SIGTRAP );
 			INLINE_NANOSLEEP1();
 		}
+		signal(SIGTRAP, SIG_DFL);
 	}
 
 	/* Run the application. */
