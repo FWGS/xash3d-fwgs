@@ -41,7 +41,7 @@ make -C libsolder install || die
 echo "Building engine..."
 
 ./waf configure -T release --nswitch || die_configure
-./waf build install --destdir=pkgtemp/xash3d || die
+./waf build install --destdir=pkgtemp/xash3d -v || die
 
 echo "Building HLSDK..."
 
