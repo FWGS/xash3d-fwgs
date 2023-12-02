@@ -439,6 +439,7 @@ void GL_ResetFogColor( void );
 void R_GenerateVBO( void );
 void R_ClearVBO( void );
 void R_AddDecalVBO( decal_t *pdecal, msurface_t *surf );
+void R_LightmapCoord( const vec3_t v, const msurface_t *surf, const float sample_size, vec2_t coords );
 
 //
 // gl_rpart.c

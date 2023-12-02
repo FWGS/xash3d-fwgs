@@ -61,6 +61,52 @@ void Mod_SetOrthoBounds( const float *mins, const float *maxs )
 	Vector2Subtract( maxs, world_orthocenter, world_orthohalf );
 }
 
+void R_LightmapCoord( const vec3_t v, const msurface_t *surf, const float sample_size, vec2_t coords )
+{
+	const mextrasurf_t *info = surf->info;
+	float s, t;
+
+	s = DotProduct( v, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
+	s += surf->light_s * sample_size;
+	s += sample_size * 0.5f;
+	s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
+
+	t = DotProduct( v, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
+	t += surf->light_t * sample_size;
+	t += sample_size * 0.5f;
+	t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
+
+	Vector2Set( coords, s, t );
+}
+
+static void R_TextureCoord( const vec3_t v, const msurface_t *surf, vec2_t coords )
+{
+	const mtexinfo_t *info = surf->texinfo;
+	float s, t;
+
+	s = DotProduct( v, info->vecs[0] );
+	t = DotProduct( v, info->vecs[1] );
+
+	if( !FBitSet( surf->flags, SURF_DRAWTURB ))
+	{
+		s = ( s + info->vecs[0][3] ) / info->texture->width;
+		t = ( t + info->vecs[1][3] ) / info->texture->height;
+	}
+
+	Vector2Set( coords, s, t );
+}
+
+static void R_GetEdgePosition( const model_t *mod, const msurface_t *fa, int i, vec3_t vec )
+{
+	const int lindex = mod->surfedges[fa->firstedge + i];
+	const medge_t *pedges = mod->edges;
+
+	if( lindex > 0 )
+		VectorCopy( mod->vertexes[pedges[lindex].v[0]].position, vec );
+	else
+		VectorCopy( mod->vertexes[pedges[-lindex].v[1]].position, vec );
+}
+
 static void BoundPoly( int numverts, float *verts, vec3_t mins, vec3_t maxs )
 {
 	int	i, j;
@@ -81,9 +127,8 @@ static void BoundPoly( int numverts, float *verts, vec3_t mins, vec3_t maxs )
 static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int numverts, float *verts )
 {
 	vec3_t		front[SUBDIVIDE_SIZE], back[SUBDIVIDE_SIZE];
-	mextrasurf_t	*warpinfo = warpface->info;
 	float		dist[SUBDIVIDE_SIZE];
-	float		m, frac, s, t, *v;
+	float		m, frac, *v;
 	int		i, j, k, f, b;
 	float		sample_size;
 	vec3_t		mins, maxs;
@@ -160,41 +205,13 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 	for( i = 0; i < numverts; i++, verts += 3 )
 	{
 		VectorCopy( verts, poly->verts[i] );
-
-		if( FBitSet( warpface->flags, SURF_DRAWTURB ))
-		{
-			s = DotProduct( verts, warpface->texinfo->vecs[0] );
-			t = DotProduct( verts, warpface->texinfo->vecs[1] );
-		}
-		else
-		{
-			s = DotProduct( verts, warpface->texinfo->vecs[0] ) + warpface->texinfo->vecs[0][3];
-			t = DotProduct( verts, warpface->texinfo->vecs[1] ) + warpface->texinfo->vecs[1][3];
-			s /= warpface->texinfo->texture->width;
-			t /= warpface->texinfo->texture->height;
-		}
-
-		poly->verts[i][3] = s;
-		poly->verts[i][4] = t;
+		R_TextureCoord( verts, warpface, &poly->verts[i][3] );
 
 		// for speed reasons
 		if( !FBitSet( warpface->flags, SURF_DRAWTURB ))
 		{
 			// lightmap texture coordinates
-			s = DotProduct( verts, warpinfo->lmvecs[0] ) + warpinfo->lmvecs[0][3];
-			s -= warpinfo->lightmapmins[0];
-			s += warpface->light_s * sample_size;
-			s += sample_size * 0.5f;
-			s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
-
-			t = DotProduct( verts, warpinfo->lmvecs[1] ) + warpinfo->lmvecs[1][3];
-			t -= warpinfo->lightmapmins[1];
-			t += warpface->light_t * sample_size;
-			t += sample_size * 0.5f;
-			t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
-
-			poly->verts[i][5] = s;
-			poly->verts[i][6] = t;
+			R_LightmapCoord( verts, warpface, sample_size, &poly->verts[i][5] );
 		}
 	}
 }
@@ -240,26 +257,16 @@ can be done reasonably.
 void GL_SubdivideSurface( model_t *loadmodel, msurface_t *fa )
 {
 	vec3_t	verts[SUBDIVIDE_SIZE];
-	int	numverts;
-	int	i, lindex;
-	float	*vec;
+	int	i;
 
 	// convert edges back to a normal polygon
-	numverts = 0;
 	for( i = 0; i < fa->numedges; i++ )
-	{
-		lindex = loadmodel->surfedges[fa->firstedge + i];
-
-		if( lindex > 0 ) vec = loadmodel->vertexes[loadmodel->edges[lindex].v[0]].position;
-		else vec = loadmodel->vertexes[loadmodel->edges[-lindex].v[1]].position;
-		VectorCopy( vec, verts[numverts] );
-		numverts++;
-	}
+		R_GetEdgePosition( loadmodel, fa, i, verts[i] );
 
 	SetBits( fa->flags, SURF_DRAWTURB_QUADS ); // predict state
 
 	// do subdivide
-	SubdividePolygon_r( loadmodel, fa, numverts, verts[0] );
+	SubdividePolygon_r( loadmodel, fa, fa->numedges, verts[0] );
 }
 
 /*
@@ -269,14 +276,10 @@ GL_BuildPolygonFromSurface
 */
 void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 {
-	int		i, lindex, lnumverts;
-	medge_t		*pedges, *r_pedge;
-	mextrasurf_t	*info = fa->info;
+	int		i, lnumverts;
 	float		sample_size;
 	texture_t		*tex;
 	gl_texture_t	*glt;
-	float		*vec;
-	float		s, t;
 	glpoly_t		*poly;
 
 	if( !mod || !fa->texinfo || !fa->texinfo->texture )
@@ -296,7 +299,6 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
 
 	// reconstruct the polygon
-	pedges = mod->edges;
 	lnumverts = fa->numedges;
 
 	// detach if already created, reconstruct again
@@ -312,44 +314,9 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 
 	for( i = 0; i < lnumverts; i++ )
 	{
-		lindex = mod->surfedges[fa->firstedge + i];
-
-		if( lindex > 0 )
-		{
-			r_pedge = &pedges[lindex];
-			vec = mod->vertexes[r_pedge->v[0]].position;
-		}
-		else
-		{
-			r_pedge = &pedges[-lindex];
-			vec = mod->vertexes[r_pedge->v[1]].position;
-		}
-
-		s = DotProduct( vec, fa->texinfo->vecs[0] ) + fa->texinfo->vecs[0][3];
-		s /= fa->texinfo->texture->width;
-
-		t = DotProduct( vec, fa->texinfo->vecs[1] ) + fa->texinfo->vecs[1][3];
-		t /= fa->texinfo->texture->height;
-
-		VectorCopy( vec, poly->verts[i] );
-		poly->verts[i][3] = s;
-		poly->verts[i][4] = t;
-
-		// lightmap texture coordinates
-		s = DotProduct( vec, info->lmvecs[0] ) + info->lmvecs[0][3];
-		s -= info->lightmapmins[0];
-		s += fa->light_s * sample_size;
-		s += sample_size * 0.5f;
-		s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
-
-		t = DotProduct( vec, info->lmvecs[1] ) + info->lmvecs[1][3];
-		t -= info->lightmapmins[1];
-		t += fa->light_t * sample_size;
-		t += sample_size * 0.5f;
-		t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
-
-		poly->verts[i][5] = s;
-		poly->verts[i][6] = t;
+		R_GetEdgePosition( mod, fa, i, poly->verts[i] );
+		R_TextureCoord( poly->verts[i], fa, &poly->verts[i][3] );
+		R_LightmapCoord( poly->verts[i], fa, sample_size, &poly->verts[i][5] );
 	}
 
 	// remove co-linear points - Ed

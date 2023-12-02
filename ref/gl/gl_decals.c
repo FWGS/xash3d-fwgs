@@ -391,30 +391,15 @@ float *R_DecalVertsClip( decal_t *pDecal, msurface_t *surf, int texture, int *pV
 // Generate lighting coordinates at each vertex for decal vertices v[] on surface psurf
 static void R_DecalVertsLight( float *v, msurface_t *surf, int vertCount )
 {
-	float		s, t;
-	mtexinfo_t	*tex;
-	mextrasurf_t	*info = surf->info;
 	float		sample_size;
 	int		j;
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	tex = surf->texinfo;
 
 	for( j = 0; j < vertCount; j++, v += VERTEXSIZE )
 	{
 		// lightmap texture coordinates
-		s = DotProduct( v, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
-		s += surf->light_s * sample_size;
-		s += sample_size * 0.5f;
-		s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
-
-		t = DotProduct( v, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
-		t += surf->light_t * sample_size;
-		t += sample_size * 0.5f;
-		t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
-
-		v[5] = s;
-		v[6] = t;
+		R_LightmapCoord( v, surf, sample_size, &v[5] );
 	}
 }
 
