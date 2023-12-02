@@ -195,10 +195,32 @@ void AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up 
 void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, vec3_t angles );
 void PlaneIntersect( const struct mplane_s *plane, const vec3_t p0, const vec3_t p1, vec3_t out );
 
-void ClearBounds( vec3_t mins, vec3_t maxs );
+static inline void ClearBounds( vec3_t mins, vec3_t maxs )
+{
+	// make bogus range
+	mins[0] = mins[1] = mins[2] =  999999.0f;
+	maxs[0] = maxs[1] = maxs[2] = -999999.0f;
+}
+
+static inline qboolean BoundsIntersect( const vec3_t mins1, const vec3_t maxs1, const vec3_t mins2, const vec3_t maxs2 )
+{
+	if( mins1[0] > maxs2[0] || mins1[1] > maxs2[1] || mins1[2] > maxs2[2] )
+		return false;
+	if( maxs1[0] < mins2[0] || maxs1[1] < mins2[1] || maxs1[2] < mins2[2] )
+		return false;
+	return true;
+}
+
+static inline qboolean BoundsAndSphereIntersect( const vec3_t mins, const vec3_t maxs, const vec3_t origin, float radius )
+{
+	if( mins[0] > origin[0] + radius || mins[1] > origin[1] + radius || mins[2] > origin[2] + radius )
+		return false;
+	if( maxs[0] < origin[0] - radius || maxs[1] < origin[1] - radius || maxs[2] < origin[2] - radius )
+		return false;
+	return true;
+}
+
 void AddPointToBounds( const vec3_t v, vec3_t mins, vec3_t maxs );
-qboolean BoundsIntersect( const vec3_t mins1, const vec3_t maxs1, const vec3_t mins2, const vec3_t maxs2 );
-qboolean BoundsAndSphereIntersect( const vec3_t mins, const vec3_t maxs, const vec3_t origin, float radius );
 qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared, const vec3_t vLinePt, const vec3_t vLineDir );
 float RadiusFromBounds( const vec3_t mins, const vec3_t maxs );
 void ExpandBounds( vec3_t mins, vec3_t maxs, float offset );
