@@ -63,6 +63,8 @@ const char *Android_LoadID( void );
 void Android_SaveID( const char *id );
 void Android_Init( void );
 void *Android_GetNativeObject( const char *name );
+int Android_GetKeyboardHeight( void );
+void Android_Shutdown( void );
 #endif
 
 #if XASH_WIN32
@@ -254,10 +256,17 @@ qboolean VoiceCapture_Lock( qboolean lock );
 // libc builds with -fomit-frame-pointer may just eat stack frame (hello, glibc), making this useless
 // calling syscalls directly allows to make break like if it was asm("int $3") on x86
 #ifdef __arm__
-#define INLINE_RAISE(x) do{int raise_pid = getpid(), raise_sig = (x);__asm__ volatile ( "mov r7,#37\n\tmov r0,%0\n\tmov r1,%1\n\tsvc 0\n\t": :"r"(raise_pid),"r"(raise_sig):"memory");}while(0)
-#define INLINE_NANOSLEEP1() do{struct timespec ns_t1 = {1,0}, ns_t2 = {0, 0}; __asm__ volatile ( "mov r7,#162\n\tmov r0,%0\n\tmov r1,%1\n\tsvc 0\n\t": :"r"(&ns_t1),"r"(&ns_t2):"memory");}while(0)
+#define INLINE_RAISE(x) do{int raise_pid = getpid(), raise_tid=gettid(), raise_sig = (x);__asm__ volatile ( "mov r7,#268\n\tmov r0,%0\n\tmov r1,%1\n\tmov r2,%2\n\tsvc 0\n\t": :"r"(raise_pid), "r"(raise_tid), "r"(raise_sig):"r0", "r1", "r2", "r7", "memory");}while(0)
+#define INLINE_NANOSLEEP1() do{struct timespec ns_t1 = {1,0}, ns_t2 = {0, 0}; __asm__ volatile ( "mov r7,#162\n\tmov r0,%0\n\tmov r1,%1\n\tsvc 0\n\t": :"r"(&ns_t1), "r"(&ns_t2):"r0", "r1", "r7", "memory");}while(0)
+#elif defined __aarch64__
+#define INLINE_RAISE(x) do{int raise_pid = getpid(), raise_tid=gettid(), raise_sig = (x);__asm__ volatile ( "mov x8,#131\n\tmov x0,%0\n\tmov x1,%1\n\tmov x2,%2\n\tsvc 0\n\t": :"r"(raise_pid), "r"(raise_tid), "r"(raise_sig):"x0", "x1", "x2", "x8", "memory", "cc");}while(0)
+#define INLINE_NANOSLEEP1() do{struct timespec ns_t1 = {1,0}, ns_t2 = {0, 0}; __asm__ volatile ( "mov x8,#101\n\tmov x0,%0\n\tmov x1,%1\n\tsvc 0\n\t": :"r"(&ns_t1), "r"(&ns_t2):"x0", "x1", "x8", "memory", "cc");}while(0)
+#else
+#ifdef __NR_tgkill
+#define INLINE_RAISE(x) do{int raise_pid = getpid(), raise_tid=gettid(), raise_sig = (x);syscall(__NR_tgkill, raise_pid, raise_tid, x);}while(0)
 #else
 #define INLINE_RAISE(x) raise(x)
+#endif
 #define INLINE_NANOSLEEP1() do{struct timespec ns_t1 = {1,0}, ns_t2 = {0, 0}; nanosleep(&ns_t1, &ns_t2);}while(0)
 #endif
 #endif
