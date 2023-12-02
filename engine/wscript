@@ -56,7 +56,7 @@ def configure(conf):
 			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
 		conf.define('XASH_SDL', 2)
 		# then remove them to avoid them getting linked to shared objects
-		conf.env.LDFLAGS_SDL2.remove('-lstdc++') # remove libstdc++ linking from SDL2, we link it later
+		conf.env.LIB_SDL2.remove('stdc++') # remove libstdc++ linking from SDL2, we link it later
 		conf.env.LDFLAGS.remove('-lm')
 	elif conf.env.DEST_OS == 'psvita':
 		# allow the SDL2 sanity check to complete properly by linking in some deps missing from the pkg-config file
