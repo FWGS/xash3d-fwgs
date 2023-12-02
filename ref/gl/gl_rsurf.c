@@ -177,25 +177,7 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 		poly->verts[i][3] = s;
 		poly->verts[i][4] = t;
 
-		// for speed reasons
-		if( !FBitSet( warpface->flags, SURF_DRAWTURB ))
-		{
-			// lightmap texture coordinates
-			s = DotProduct( verts, warpinfo->lmvecs[0] ) + warpinfo->lmvecs[0][3];
-			s -= warpinfo->lightmapmins[0];
-			s += warpface->light_s * sample_size;
-			s += sample_size * 0.5f;
-			s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
-
-			t = DotProduct( verts, warpinfo->lmvecs[1] ) + warpinfo->lmvecs[1][3];
-			t -= warpinfo->lightmapmins[1];
-			t += warpface->light_t * sample_size;
-			t += sample_size * 0.5f;
-			t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
-
-			poly->verts[i][5] = s;
-			poly->verts[i][6] = t;
-		}
+		// lightmap texcoords for subdivided surfaces will be calculated later
 	}
 }
 
@@ -389,6 +371,53 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	}
 
 	poly->numverts = lnumverts;
+}
+
+/*
+================
+GL_BuildPolygonFromSurface
+================
+*/
+void GL_BuildLightmapWater( model_t *mod, msurface_t *fa )
+{
+	int		i, lnumverts;
+	mextrasurf_t	*info = fa->info;
+	float		sample_size;
+	float		s, t;
+	glpoly_t		*poly;
+
+	if( !mod || !fa->texinfo || !fa->texinfo->texture )
+		return; // bad polygon ?
+
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
+
+	for( poly = fa->polys; poly != NULL; poly = poly->next )
+	{
+		lnumverts = poly->numverts;
+
+		for( i = 0; i < lnumverts; i++ )
+		{
+			vec3_t vec;
+
+			VectorCopy( poly->verts[i], vec );
+
+			// lightmap texture coordinates
+			s = DotProduct( vec, info->lmvecs[0] ) + info->lmvecs[0][3];
+			s -= info->lightmapmins[0];
+			s += fa->light_s * sample_size;
+			s += sample_size * 0.5f;
+			s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
+
+			t = DotProduct( vec, info->lmvecs[1] ) + info->lmvecs[1][3];
+			t -= info->lightmapmins[1];
+			t += fa->light_t * sample_size;
+			t += sample_size * 0.5f;
+			t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
+
+			poly->verts[i][5] = s;
+			poly->verts[i][6] = t;
+		}
+	}
 }
 
 
@@ -850,14 +879,14 @@ DrawGLPolyChain
 Render lightmaps
 ================
 */
-void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
+void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset, int flags )
 {
 	qboolean	dynamic = true;
 
 	if( soffset == 0.0f && toffset == 0.0f )
 		dynamic = false;
 
-	for( ; p != NULL; p = p->chain )
+	for( ; p != NULL; p = FBitSet( flags, SURF_DRAWTURB ) ? p->next : p->chain )
 	{
 		float	*v;
 		int	i;
@@ -935,7 +964,8 @@ void R_BlendLightmaps( void )
 
 			for( surf = gl_lms.lightmap_surfaces[i]; surf != NULL; surf = surf->info->lightmapchain )
 			{
-				if( surf->polys ) DrawGLPolyChain( surf->polys, 0.0f, 0.0f );
+				if( surf->polys )
+					DrawGLPolyChain( surf->polys, 0.0f, 0.0f, surf->flags );
 			}
 		}
 	}
@@ -980,7 +1010,8 @@ void R_BlendLightmaps( void )
 					{
 						DrawGLPolyChain( drawsurf->polys,
 						( drawsurf->light_s - drawsurf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
-						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ));
+						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
+						drawsurf->flags );
 					}
 				}
 
@@ -1009,7 +1040,8 @@ void R_BlendLightmaps( void )
 			{
 				DrawGLPolyChain( surf->polys,
 				( surf->light_s - surf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
-				( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ));
+				( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
+				surf->flags );
 			}
 		}
 	}
@@ -1141,58 +1173,60 @@ void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 		// warp texture, no lightmaps
 		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
-		return;
-	}
-	else GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
-
-	if( t->fb_texturenum )
-	{
-		fa->info->lumachain = fullbright_surfaces[t->fb_texturenum];
-		fullbright_surfaces[t->fb_texturenum] = fa->info;
-		draw_fullbrights = true;
-	}
-
-	if( r_detailtextures.value )
-	{
-		if( glState.isFogEnabled )
-		{
-			// don't apply detail textures for windows in the fog
-			if( RI.currententity->curstate.rendermode != kRenderTransTexture )
-			{
-				if( t->dt_texturenum )
-				{
-					fa->info->detailchain = detail_surfaces[t->dt_texturenum];
-					detail_surfaces[t->dt_texturenum] = fa->info;
-				}
-				else
-				{
-					// draw stub detail texture for underwater surfaces
-					fa->info->detailchain = detail_surfaces[tr.grayTexture];
-					detail_surfaces[tr.grayTexture] = fa->info;
-				}
-				draw_details = true;
-			}
-		}
-		else if( t->dt_texturenum )
-		{
-			fa->info->detailchain = detail_surfaces[t->dt_texturenum];
-			detail_surfaces[t->dt_texturenum] = fa->info;
-			draw_details = true;
-		}
-	}
-
-	DrawGLPoly( fa->polys, 0.0f, 0.0f );
-
-	if( RI.currententity->curstate.rendermode == kRenderNormal )
-	{
-		// batch decals to draw later
-		if( tr.num_draw_decals < MAX_DECAL_SURFS && fa->pdecals )
-			tr.draw_decals[tr.num_draw_decals++] = fa;
 	}
 	else
 	{
-		// if rendermode != kRenderNormal draw decals sequentially
-		DrawSurfaceDecals( fa, true, (cull_type == CULL_BACKSIDE));
+		GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
+
+		if( t->fb_texturenum )
+		{
+			fa->info->lumachain = fullbright_surfaces[t->fb_texturenum];
+			fullbright_surfaces[t->fb_texturenum] = fa->info;
+			draw_fullbrights = true;
+		}
+
+		if( r_detailtextures.value )
+		{
+			if( glState.isFogEnabled )
+			{
+				// don't apply detail textures for windows in the fog
+				if( RI.currententity->curstate.rendermode != kRenderTransTexture )
+				{
+					if( t->dt_texturenum )
+					{
+						fa->info->detailchain = detail_surfaces[t->dt_texturenum];
+						detail_surfaces[t->dt_texturenum] = fa->info;
+					}
+					else
+					{
+						// draw stub detail texture for underwater surfaces
+						fa->info->detailchain = detail_surfaces[tr.grayTexture];
+						detail_surfaces[tr.grayTexture] = fa->info;
+					}
+					draw_details = true;
+				}
+			}
+			else if( t->dt_texturenum )
+			{
+				fa->info->detailchain = detail_surfaces[t->dt_texturenum];
+				detail_surfaces[t->dt_texturenum] = fa->info;
+				draw_details = true;
+			}
+		}
+
+		DrawGLPoly( fa->polys, 0.0f, 0.0f );
+
+		if( RI.currententity->curstate.rendermode == kRenderNormal )
+		{
+			// batch decals to draw later
+			if( tr.num_draw_decals < MAX_DECAL_SURFS && fa->pdecals )
+				tr.draw_decals[tr.num_draw_decals++] = fa;
+		}
+		else
+		{
+			// if rendermode != kRenderNormal draw decals sequentially
+			DrawSurfaceDecals( fa, true, (cull_type == CULL_BACKSIDE));
+		}
 	}
 
 	if( FBitSet( fa->flags, SURF_DRAWTILED ))
@@ -3602,9 +3636,8 @@ void GL_BuildLightmaps( void )
 			GL_CreateSurfaceLightmap( m->surfaces + j, m );
 
 			if( m->surfaces[j].flags & SURF_DRAWTURB )
-				continue;
-
-			GL_BuildPolygonFromSurface( m, m->surfaces + j );
+				GL_BuildLightmapWater( m, m->surfaces + j );
+			else GL_BuildPolygonFromSurface( m, m->surfaces + j );
 		}
 
 		// clearing visframe
