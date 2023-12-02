@@ -155,7 +155,7 @@ int Mod_CheckLump( const char *filename, const int lump, int *lumpsize );
 int Mod_ReadLump( const char *filename, const int lump, void **lumpdata, int *lumpsize );
 int Mod_SaveLump( const char *filename, const int lump, void *lumpdata, int lumpsize );
 mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node );
-int Mod_SampleSizeForFace( msurface_t *surf );
+int Mod_SampleSizeForFace( const msurface_t *surf );
 byte *Mod_GetPVSForPoint( const vec3_t p );
 void Mod_UnloadBrushModel( model_t *mod );
 void Mod_PrintWorldStats_f( void );

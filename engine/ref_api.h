@@ -307,7 +307,7 @@ typedef struct ref_api_s
 	qboolean (*CL_AddVisibleEntity)( cl_entity_t *ent, int entityType );
 
 	// brushes
-	int (*Mod_SampleSizeForFace)( struct msurface_s *surf );
+	int (*Mod_SampleSizeForFace)( const struct msurface_s *surf );
 	qboolean (*Mod_BoxVisible)( const vec3_t mins, const vec3_t maxs, const byte *visbits );
 	struct world_static_s *(*GetWorld)( void ); // returns &world
 	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node );
