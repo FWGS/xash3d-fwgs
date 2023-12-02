@@ -49,14 +49,14 @@ def configure(conf):
 		# re-enable undefined reference errors
 		conf.env.CXXFLAGS += ['-Wl,--no-undefined']
 		conf.env.CFLAGS += ['-Wl,--no-undefined']
-		# allow the SDL2 sanity check to complete properly by linking in libstdc++ and lm normally
-		conf.env.LDFLAGS += ['-lstdc++', '-lm']
+		# allow the SDL2 sanity check to complete properly by linking in lm normally
+		conf.env.LDFLAGS += ['-lm']
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:
 			conf.fatal('SDL2 not availiable! Install switch-sdl2!')
 		conf.define('XASH_SDL', 2)
 		# then remove them to avoid them getting linked to shared objects
-		conf.env.LDFLAGS.remove('-lstdc++')
+		conf.env.LDFLAGS_SDL2.remove('-lstdc++') # remove libstdc++ linking from SDL2, we link it later
 		conf.env.LDFLAGS.remove('-lm')
 	elif conf.env.DEST_OS == 'psvita':
 		# allow the SDL2 sanity check to complete properly by linking in some deps missing from the pkg-config file
