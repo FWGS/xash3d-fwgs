@@ -189,8 +189,7 @@ def build(bld):
 		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
 		# we can't do this right away because std::filesystem will complain about not having pathconf(),
 		# which we have defined in sys_nswitch.c
-		# HACKHACK: disable implicit linking with libstdc++ to make the hack above work when linking as C++ program
-		bld.env.LDFLAGS += ['-nostdlib++', '-v', '-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
+		bld.env.LDFLAGS += ['-v', '-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
 
 	if bld.env.DEST_OS == 'psvita':
 		libs += [ 'VRTLD' ]
