@@ -324,6 +324,9 @@ def configure(conf):
 
 			# disabled, flood
 			# '-Wdouble-promotion',
+
+			'-Wunused-variable',
+			'-Wunused-but-set-variable',
 		]
 
 		opt_cflags = [
