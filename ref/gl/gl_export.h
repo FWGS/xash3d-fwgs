@@ -892,6 +892,11 @@ typedef float GLmatrix[16];
 #define WGL_SAMPLE_BUFFERS_ARB		0x2041
 #define WGL_SAMPLES_ARB			0x2042
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
 #if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
 #define GL_FUNCTION( name ) name
 #elif defined( XASH_GL_STATIC ) && defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
@@ -1859,6 +1864,10 @@ APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsi
 #define pglGenVertexArrays glGenVertexArrays
 #define pglIsVertexArray glIsVertexArray
 #define pglSwapInterval glSwapInterval
+#endif
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
 #endif
 
 #endif//GL_EXPORT_H
