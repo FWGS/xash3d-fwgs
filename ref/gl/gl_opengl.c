@@ -913,13 +913,7 @@ void GL_InitExtensionsBigGL( void )
 
 	// gl4es may be used system-wide
 	if( Q_stristr( glConfig.renderer_string, "gl4es" ))
-	{
-		const char *vendor = (const char *)pglGetString( GL_VENDOR | 0x10000 );
-		const char *renderer = (const char *)pglGetString( GL_RENDERER | 0x10000 );
-		const char *version = (const char *)pglGetString( GL_VERSION | 0x10000 );
-		const char *extensions = (const char *)pglGetString( GL_EXTENSIONS | 0x10000 );
 		glConfig.wrapper = GLES_WRAPPER_GL4ES;
-	}
 
 	// multitexture
 	glConfig.max_texture_units = glConfig.max_texture_coords = glConfig.max_teximage_units = 1;
