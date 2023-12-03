@@ -23,6 +23,11 @@ GNU General Public License for more details.
 #include <sys/prctl.h>
 #include <setjmp.h>
 
+#ifndef PR_SET_PTRACER
+#define PR_SET_PTRACER 0x59616d61
+#define PR_SET_PTRACER_ANY ((unsigned long)-1)
+#endif
+
 #ifndef JNICALL
 #define JNICALL // a1ba: workaround for my IDE, where Java files are not included
 #define JNIEXPORT
@@ -249,6 +254,7 @@ DECLARE_JNI_INTERFACE( int, nativeInit, jobject array )
 	}
 	argv[argc] = NULL;
 	prctl(PR_SET_DUMPABLE, 1);
+	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
 
 	/* Init callbacks. */
 
@@ -605,6 +611,7 @@ DECLARE_JNI_INTERFACE( int, nativeTestWritePermission, jstring jPath )
 JNIEXPORT jint JNICALL JNI_OnLoad( JavaVM *vm, void *reserved )
 {
 	prctl(PR_SET_DUMPABLE, 1);
+	prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
 	return JNI_VERSION_1_6;
 }
 
