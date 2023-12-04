@@ -334,7 +334,7 @@ searchpath_t *FS_AddPak_Fullpath( const char *pakfile, int flags )
 {
 	searchpath_t *search;
 	pack_t *pak;
-	int i, errorcode = PAK_LOAD_COULDNT_OPEN;
+	int errorcode = PAK_LOAD_COULDNT_OPEN;
 
 	pak = FS_LoadPackPAK( pakfile, &errorcode );
 
