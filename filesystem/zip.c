@@ -129,6 +129,8 @@ struct zip_s
 	zipfile_t	*files;
 };
 
+// #define ENABLE_CRC_CHECK // known to be buggy because of possible libpublic crc32 bug, disabled
+
 #ifdef XASH_REDUCE_FD
 static void FS_EnsureOpenZip( zip_t *zip )
 {
@@ -423,12 +425,13 @@ FS_LoadZIPFile
 static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *sizeptr )
 {
 	zipfile_t *file;
-	int		index;
 	byte		*compressed_buffer = NULL, *decompressed_buffer = NULL;
 	int		zlib_result = 0;
-	dword		test_crc, final_crc;
 	z_stream	decompress_stream;
 	size_t      c;
+#ifdef ENABLE_CRC_CHECK
+	dword		test_crc, final_crc;
+#endif // ENABLE_CRC_CHECK
 
 	if( sizeptr ) *sizeptr = 0;
 
@@ -460,7 +463,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 			return NULL;
 		}
 
-#if 0
+#ifdef ENABLE_CRC_CHECK
 		CRC32_Init( &test_crc );
 		CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
 
@@ -472,7 +475,8 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 			Mem_Free( decompressed_buffer );
 			return NULL;
 		}
-#endif
+#endif // ENABLE_CRC_CHECK
+
 		if( sizeptr ) *sizeptr = file->size;
 
 		FS_EnsureOpenZip( NULL );
@@ -516,7 +520,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
 		{
 			Mem_Free( compressed_buffer ); // finaly free compressed buffer
-#if 0
+#if ENABLE_CRC_CHECK
 			CRC32_Init( &test_crc );
 			CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
 
