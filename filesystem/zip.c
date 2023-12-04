@@ -668,7 +668,7 @@ searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
 {
 	searchpath_t *search;
 	zip_t *zip;
-	int i, errorcode = ZIP_LOAD_COULDNT_OPEN;
+	int errorcode = ZIP_LOAD_COULDNT_OPEN;
 
 	zip = FS_LoadZip( zipfile, &errorcode );
 
