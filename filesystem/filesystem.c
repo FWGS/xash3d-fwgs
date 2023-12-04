@@ -1078,29 +1078,39 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo )
 		roGameInfoTime = FS_SysFileTime( gameinfo_ro );
 		rwGameInfoTime = FS_SysFileTime( gameinfo_path );
 
+		// if rodir's liblist.gam newer than rwdir's gameinfo.txt, then convert it
 		if( roLibListTime > rwGameInfoTime )
 		{
 			haveUpdate = FS_ConvertGameInfo( gamedir, gameinfo_path, liblist_ro );
 		}
+		// if rodir's gameinfo.txt newer than rwdir's gameinfo.txt, just copy the file
 		else if( roGameInfoTime > rwGameInfoTime )
 		{
-			fs_offset_t len;
-			char *afile_ro = (char *)FS_LoadDirectFile( gameinfo_ro, &len );
+			file_t *ro, *rw;
+			fs_offset_t ro_size;
 
-			if( afile_ro )
-			{
-				Con_DPrintf( "Copy rodir %s to rwdir %s\n", gameinfo_ro, gameinfo_path );
-				haveUpdate = true;
-				FS_WriteFile( gameinfo_path, afile_ro, len );
-				Mem_Free( afile_ro );
-			}
+			// read & write as binary to copy the exact file
+			ro = FS_SysOpen( gameinfo_ro, "rb" );
+			rw = FS_SysOpen( gameinfo_path, "wb" );
+
+			FS_Seek( ro, 0, SEEK_END );
+			ro_size = FS_Tell( ro );
+			FS_Seek( ro, 0, SEEK_SET );
+
+			FS_FileCopy( rw, ro, ro_size );
+
+			FS_Close( rw );
+			FS_Close( ro );
+
+			haveUpdate = true;
 		}
 
 		FS_AllowDirectPaths( false );
 	}
 
+	// do not update gameinfo.txt, if it was just copied from rodir's
 	// if user change liblist.gam update the gameinfo.txt
-	if( FS_FileTime( liblist_path, false ) > FS_FileTime( gameinfo_path, false ))
+	if( !haveUpdate && FS_FileTime( liblist_path, false ) > FS_FileTime( gameinfo_path, false ))
 		FS_ConvertGameInfo( gamedir, gameinfo_path, liblist_path );
 
 	// force to create gameinfo for specified game if missing
