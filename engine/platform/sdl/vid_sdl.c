@@ -654,9 +654,9 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 {
 	rgbdata_t *icon = NULL;
 	char iconpath[MAX_STRING];
+#if XASH_WIN32 // ICO support only for Win32
 	const char *localIcoPath;
 
-#if XASH_WIN32 // ICO support only for Win32
 	if(( localIcoPath = FS_GetDiskPath( GI->iconpath, true )))
 	{
 		HICON ico = (HICON)LoadImage( NULL, localIcoPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
