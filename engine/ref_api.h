@@ -37,6 +37,7 @@ GNU General Public License for more details.
 // 5. Removed GetSomethingByIndex calls, renderers are supposed to cache pointer values
 //    Removed previously unused calls
 //    Simplified remapping calls
+//    GetRefAPI is now expected to return REF_API_VERSION
 #define REF_API_VERSION 5
 
 

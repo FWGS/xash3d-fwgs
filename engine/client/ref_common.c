@@ -425,7 +425,7 @@ static qboolean R_LoadProgs( const char *name )
 	// make local copy of engfuncs to prevent overwrite it with user dll
 	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
 
-	if( !GetRefAPI( REF_API_VERSION, &ref.dllFuncs, &gpEngfuncs, &refState ))
+	if( GetRefAPI( REF_API_VERSION, &ref.dllFuncs, &gpEngfuncs, &refState ) != REF_API_VERSION )
 	{
 		COM_FreeLibrary( ref.hInstance );
 		Con_Reportf( "R_LoadProgs: can't init renderer API: wrong version\n" );
