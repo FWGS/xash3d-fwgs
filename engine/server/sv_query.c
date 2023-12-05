@@ -36,7 +36,7 @@ static void SV_SourceQuery_Details( netadr_t from )
 {
 	sizebuf_t buf;
 	char answer[2048];
-	int i, bot_count, client_count;
+	int bot_count, client_count;
 	int is_private = 0;
 
 	SV_GetPlayerCount( &client_count, &bot_count );
