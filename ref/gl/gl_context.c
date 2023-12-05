@@ -316,6 +316,11 @@ void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int ma
 		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
 }
 
+static void GAME_EXPORT R_Flush( unsigned int flags )
+{
+	// stub
+}
+
 qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
 {
 	qboolean ret = true;
@@ -380,6 +385,7 @@ ref_interface_t gReffuncs =
 	R_AddEntity,
 	CL_AddCustomBeam,
 	R_ProcessEntData,
+	R_Flush,
 
 	R_ShowTextures,
 
