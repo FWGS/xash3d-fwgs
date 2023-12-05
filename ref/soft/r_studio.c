@@ -2384,13 +2384,8 @@ R_StudioSetRemapColors
 */
 static void R_StudioSetRemapColors( int newTop, int newBottom )
 {
-	gEngfuncs.CL_AllocRemapInfo( RI.currententity, RI.currentmodel, newTop, newBottom );
-
-	if( gEngfuncs.CL_GetRemapInfoForEntity( RI.currententity ))
-	{
-		gEngfuncs.CL_UpdateRemapInfo( RI.currententity, newTop, newBottom );
+	if( gEngfuncs.CL_EntitySetRemapColors( RI.currententity, RI.currentmodel, newTop, newBottom ))
 		m_fDoRemap = true;
-	}
 }
 
 void R_StudioResetPlayerModels( void )
