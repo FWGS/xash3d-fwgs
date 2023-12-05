@@ -279,6 +279,11 @@ void GAME_EXPORT R_ProcessEntData( qboolean allocate, cl_entity_t *entities, uns
 	tr.max_entities = max_entities;
 }
 
+static void GAME_EXPORT R_Flush( unsigned int flags )
+{
+	// stub
+}
+
 // stubs
 
 void GAME_EXPORT GL_SetTexCoordArrayMode( uint mode )
@@ -426,6 +431,7 @@ ref_interface_t gReffuncs =
 	R_AddEntity,
 	CL_AddCustomBeam,
 	R_ProcessEntData,
+	R_Flush,
 
 	R_ShowTextures,
 
