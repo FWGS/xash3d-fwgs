@@ -202,7 +202,6 @@ SCR_PlayCinematic
 */
 qboolean SCR_PlayCinematic( const char *arg )
 {
-	string		path;
 	const char	*fullpath;
 
 	fullpath = FS_GetDiskPath( arg, false );
