@@ -447,6 +447,7 @@ typedef struct ref_interface_s
 	void (*GL_InitExtensions)( void );
 	void (*GL_ClearExtensions)( void );
 
+	// scene rendering
 	void (*R_BeginFrame)( qboolean clearScene );
 	void (*R_RenderScene)( void );
 	void (*R_EndFrame)( void );
@@ -461,7 +462,8 @@ typedef struct ref_interface_s
 
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
-	void		(*R_ProcessEntData)( qboolean allocate, cl_entity_t *entities, unsigned int max_entities );
+	void (*R_ProcessEntData)( qboolean allocate, cl_entity_t *entities, unsigned int max_entities );
+	void (*R_Flush)( unsigned int flush_flags );
 
 	// debug
 	void (*R_ShowTextures)( void );
