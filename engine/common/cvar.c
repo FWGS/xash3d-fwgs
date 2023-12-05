@@ -1136,8 +1136,6 @@ As Cvar_Set, but also flags it as glconfig
 */
 void Cvar_SetGL_f( void )
 {
-	convar_t *var;
-
 	if( Cmd_Argc() != 3 )
 	{
 		Con_Printf( S_USAGE "setgl <variable> <value>\n" );
