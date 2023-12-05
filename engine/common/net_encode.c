@@ -1087,7 +1087,6 @@ int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean playe
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
 	int		i, countBits;
-	int		numChanges = 0;
 
 	countBits = MAX_ENTITY_BITS + 2;
 
@@ -1121,7 +1120,7 @@ int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean playe
 
 		if( !Delta_CompareField( pField, from, to, timebase ))
 		{
-			// strings are handled difference
+			// strings are handled differently
 			if( FBitSet( pField->flags, DT_STRING ))
 				countBits += Q_strlen((char *)((byte *)to + pField->offset )) * 8;
 			else countBits += pField->bits;
