@@ -34,8 +34,9 @@ GNU General Public License for more details.
 // 2. FS functions are removed, instead we have full fs_api_t
 // 3. SlerpBones, CalcBonePosition/Quaternion calls were moved to libpublic/mathlib
 // 4. R_StudioEstimateFrame now has time argument
-// 5. Removed GetSomethingByIndex calls, renderers are supposed to cache pointer values.
+// 5. Removed GetSomethingByIndex calls, renderers are supposed to cache pointer values
 //    Removed previously unused calls
+//    Simplified remapping calls
 #define REF_API_VERSION 5
 
 
@@ -332,10 +333,8 @@ typedef struct ref_api_s
 	struct model_s **(*pfnGetModels)( void );
 
 	// remap
+	qboolean (*CL_EntitySetRemapColors)( cl_entity_t *e, model_t *mod, int top, int bottom );
 	struct remap_info_s *(*CL_GetRemapInfoForEntity)( cl_entity_t *e );
-	void (*CL_AllocRemapInfo)( cl_entity_t *entity, model_t *model, int topcolor, int bottomcolor );
-	void (*CL_FreeRemapInfo)( struct remap_info_s *info );
-	void (*CL_UpdateRemapInfo)( cl_entity_t *entity, int topcolor, int bottomcolor );
 
 	// utils
 	void  (*CL_ExtraUpdate)( void );

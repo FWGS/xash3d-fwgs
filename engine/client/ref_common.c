@@ -272,10 +272,8 @@ static ref_api_t gEngfuncs =
 	pfnMod_Extradata,
 	pfnGetModels,
 
+	CL_EntitySetRemapColors,
 	CL_GetRemapInfoForEntity,
-	CL_AllocRemapInfo,
-	CL_FreeRemapInfo,
-	CL_UpdateRemapInfo,
 
 	CL_ExtraUpdate,
 	Host_Error,
