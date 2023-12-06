@@ -52,7 +52,7 @@ struct tests_stats_s tests_stats;
 #endif
 
 CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in development-mode" );
-CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_CHEAT|FCVAR_FILTERABLE, "scale frame time" );
+CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_FILTERABLE, "scale frame time" );
 CVAR_DEFINE_AUTO( sys_ticrate, "100", 0, "framerate in dedicated mode" );
 
 static CVAR_DEFINE_AUTO( host_serverstate, "0", FCVAR_READ_ONLY, "displays current server state" );
