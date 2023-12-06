@@ -49,7 +49,7 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 {
 	particle_t	*p;
 	vec3_t		right, up;
-	color24		сolor;
+	color24		color;
 	int		alpha;
 	float		size;
 
@@ -85,15 +85,15 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			VectorScale( RI.cull_vup, size, up );
 
 			p->color = bound( 0, p->color, 255 );
-			сolor = tr.palette[p->color];
+			color = tr.palette[p->color];
 
 			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			pglColor4ub( gEngfuncs.LightToTexGamma( сolor.r ),
-				gEngfuncs.LightToTexGamma( сolor.g ),
-				gEngfuncs.LightToTexGamma( сolor.b ), alpha );
+			pglColor4ub( gEngfuncs.LightToTexGamma( color.r ),
+				gEngfuncs.LightToTexGamma( color.g ),
+				gEngfuncs.LightToTexGamma( color.b ), alpha );
 
 			pglTexCoord2f( 0.0f, 1.0f );
 			pglVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
