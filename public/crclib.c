@@ -438,7 +438,10 @@ uint COM_HashKey( const char *string, uint hashSize )
 	unsigned char i;
 
 	while(( i = *string++ ))
+	{
+		i = Q_tolower( i );
 		hashKey = ( hashKey << 5 ) + hashKey + ( i & 0xDF );
+	}
 
 	return hashKey & ( hashSize - 1 );
 }
