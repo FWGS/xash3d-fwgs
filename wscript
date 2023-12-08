@@ -103,7 +103,7 @@ REFDLLS = [
 ]
 
 def process_extra_projects_opts(ctx):
-	options, commands, envvars = ctx.parse_cmd_args()
+	options, commands, envvars = ctx.parse_cmd_args(allow_unknown = True)
 	projs = options.EXTRA_PROJECTS
 	if not projs:
 		return
