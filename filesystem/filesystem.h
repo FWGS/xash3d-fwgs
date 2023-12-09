@@ -210,8 +210,8 @@ typedef struct fs_interface_t
 	// memory
 	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
 	void  (*_Mem_FreePool)( poolhandle_t *poolptr, const char *filename, int fileline );
-	void *(*_Mem_Alloc)( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline );
-	void *(*_Mem_Realloc)( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
+	void *(*_Mem_Alloc)( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline ) ALLOC_CHECK( 2 );
+	void *(*_Mem_Realloc)( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline ) ALLOC_CHECK( 3 );
 	void  (*_Mem_Free)( void *data, const char *filename, int fileline );
 
 	// platform

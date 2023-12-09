@@ -229,7 +229,7 @@ typedef struct render_api_s
 	void		(*R_Reserved0)( void );
 
 	// static allocations
-	void		*(*pfnMemAlloc)( size_t cb, const char *filename, const int fileline );
+	void		*(*pfnMemAlloc)( size_t cb, const char *filename, const int fileline ) ALLOC_CHECK( 1 );
 	void		(*pfnMemFree)( void *mem, const char *filename, const int fileline );
 
  	// engine utils (not related with render API but placed here)

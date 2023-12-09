@@ -422,8 +422,8 @@ void Cmd_Escape( char *newCommand, const char *oldCommand, int len );
 // zone.c
 //
 void Memory_Init( void );
-void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline );
-void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline );
+void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline ) ALLOC_CHECK( 3 );
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline ) ALLOC_CHECK( 2 );
 poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline );
 void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline );
 void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline );
