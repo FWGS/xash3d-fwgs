@@ -2665,7 +2665,7 @@ void CL_UpdateFlashlight( cl_entity_t *ent )
 	// update flashlight endpos
 	dl = CL_AllocDlight( ent->index );
 #if 1
-	hit = CL_GetEntityByIndex( clgame.pmove->visents[trace.ent].info );
+	hit = CL_GetEntityByIndex( clgame.pmove->physents[trace.ent].info );
 	if( hit && hit->model && ( hit->model->type == mod_alias || hit->model->type == mod_studio ))
 		VectorCopy( hit->origin, dl->origin );
 	else VectorCopy( trace.endpos, dl->origin );
