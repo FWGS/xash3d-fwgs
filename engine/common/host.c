@@ -62,6 +62,7 @@ CVAR_DEFINE_AUTO( host_limitlocal, "0", 0, "apply cl_cmdrate and rate to loopbac
 CVAR_DEFINE( host_maxfps, "fps_max", "72", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "host fps upper limit" );
 static CVAR_DEFINE_AUTO( host_framerate, "0", FCVAR_FILTERABLE, "locks frame timing to this value in seconds" );
 static CVAR_DEFINE( host_sleeptime, "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
+static CVAR_DEFINE_AUTO( host_sleeptime_debug, "0", 0, "print sleeps between frames" );
 CVAR_DEFINE( con_gamemaps, "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
 
 void Sys_PrintUsage( void )
@@ -618,6 +619,84 @@ double Host_CalcFPS( void )
 	return fps;
 }
 
+static qboolean Host_Autosleep( double dt, double scale )
+{
+	double targetframetime, fps;
+	int sleep;
+
+	fps = Host_CalcFPS();
+
+	if( fps <= 0 )
+		return true;
+
+	// limit fps to withing tolerable range
+	fps = bound( MIN_FPS, fps, MAX_FPS );
+
+	if( Host_IsDedicated( ))
+		targetframetime = ( 1.0 / ( fps + 1.0 ));
+	else targetframetime = ( 1.0 / fps );
+
+	sleep = Host_CalcSleep();
+	if( sleep == 0 ) // no sleeps between frames, much simpler code
+	{
+		if( dt < targetframetime * scale )
+			return false;
+	}
+	else
+	{
+		static double timewindow; // allocate a time window for sleeps
+		static int counter; // for debug
+		static double realsleeptime;
+		const double sleeptime = sleep * 0.001;
+
+		if( dt < targetframetime * scale )
+		{
+			// if we have allocated time window, try to sleep
+			if( timewindow > realsleeptime )
+			{
+				// Sys_Sleep isn't guaranteed to sleep an exact amount of milliseconds
+				// so we measure the real sleep time and use it to decrease the window
+				double t1 = Sys_DoubleTime(), t2;
+				Sys_Sleep( sleep ); // in msec!
+				t2 = Sys_DoubleTime();
+				realsleeptime = t2 - t1;
+
+				timewindow -= realsleeptime;
+
+				if( host_sleeptime_debug.value )
+				{
+					counter++;
+
+					Con_NPrintf( counter, "%d: %.4f %.4f", counter, timewindow, realsleeptime );
+				}
+			}
+
+			return false;
+		}
+
+		// if we exhausted this time window, allocate a new one after new frame
+		if( timewindow <= realsleeptime )
+		{
+			double targetsleeptime = targetframetime - host.pureframetime * 2;
+
+			if( targetsleeptime > 0 )
+				timewindow = targetsleeptime;
+			else timewindow = 0;
+
+			realsleeptime = sleeptime; // reset in case CPU was too busy
+
+			if( host_sleeptime_debug.value )
+			{
+				counter = 0;
+
+				Con_NPrintf( 0, "tgt = %.4f, pft = %.4f, wnd = %.4f", targetframetime, host.pureframetime, timewindow );
+			}
+		}
+	}
+
+	return true;
+}
+
 /*
 ===================
 Host_FilterTime
@@ -628,55 +707,15 @@ Returns false if the time is too short to run a frame
 qboolean Host_FilterTime( float time )
 {
 	static double	oldtime;
-	double fps, scale = sys_timescale.value;
+	double dt;
+	double scale = sys_timescale.value;
 
 	host.realtime += time * scale;
-	fps = Host_CalcFPS();
+	dt = host.realtime - oldtime;
 
 	// clamp the fps in multiplayer games
-	if( fps != 0.0 )
-	{
-		static int sleeps;
-		double targetframetime;
-		int sleeptime = Host_CalcSleep();
-
-		// limit fps to withing tolerable range
-		fps = bound( MIN_FPS, fps, MAX_FPS );
-
-		if( Host_IsDedicated( ))
-			targetframetime = ( 1.0 / ( fps + 1.0 ));
-		else targetframetime = ( 1.0 / fps );
-
-		if(( host.realtime - oldtime ) < targetframetime * scale )
-		{
-			if( sleeptime > 0 && sleeps > 0 )
-			{
-				Sys_Sleep( sleeptime );
-				sleeps--;
-			}
-
-			return false;
-		}
-
-		if( sleeptime > 0 && sleeps <= 0 )
-		{
-			if( host.status == HOST_FRAME )
-			{
-				// give few sleeps this frame with small margin
-				double targetsleeptime = targetframetime - host.pureframetime * 2;
-
-				// don't sleep if we can't keep up with the framerate
-				if( targetsleeptime > 0 )
-					sleeps = targetsleeptime / ( sleeptime * 0.001 );
-				else sleeps = 0;
-			}
-			else
-			{
-				// always sleep at least once in minimized/nofocus state
-				sleeps = 1;
-			}
-		}
-	}
+	if( !Host_Autosleep( dt, scale ))
+		return false;
 
 	host.frametime = host.realtime - oldtime;
 	host.realframetime = bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME );
@@ -1181,6 +1220,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cvar_RegisterVariable( &host_maxfps );
 	Cvar_RegisterVariable( &host_framerate );
 	Cvar_RegisterVariable( &host_sleeptime );
+	Cvar_RegisterVariable( &host_sleeptime_debug );
 	Cvar_RegisterVariable( &host_gameloaded );
 	Cvar_RegisterVariable( &host_clientloaded );
 	Cvar_RegisterVariable( &host_limitlocal );
