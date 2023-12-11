@@ -87,6 +87,12 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 		return false;
 	}
 
+	if( header->levelCount == 0 )
+	{
+		Con_DPrintf( S_ERROR "%s: file has no mip levels\n", __FUNCTION__ );
+		return false;
+	}
+
 	if( header->pixelDepth > 1 )
 	{
 		Con_DPrintf( S_ERROR "%s: unsupported KTX2 pixelDepth %d\n", __FUNCTION__, header->pixelDepth );
