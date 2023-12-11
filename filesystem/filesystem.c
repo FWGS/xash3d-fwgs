@@ -1677,6 +1677,9 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 
 	if( file->handle < 0 )
 	{
+		if( errno != ENOENT )
+			Con_Printf( S_ERROR "%s: can't open file %s: %s\n", __func__, filepath, strerror( errno ));
+
 		Mem_Free( file );
 		return NULL;
 	}
