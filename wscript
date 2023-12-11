@@ -292,6 +292,7 @@ def configure(conf):
 			'-fdiagnostics-color=always',
 
 			# stable diagnostics, forced to error, sorted
+			'-Werror=alloc-size',
 			'-Werror=bool-compare',
 			'-Werror=bool-operation',
 			'-Werror=cast-align=strict',
@@ -321,6 +322,7 @@ def configure(conf):
 			'-Wmisleading-indentation',
 			'-Wstringop-overflow',
 			'-Wunintialized',
+			'-Walloc-zero',
 
 			# disabled, flood
 			# '-Wdouble-promotion',
