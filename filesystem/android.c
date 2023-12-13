@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #include "port.h"
 
-#if XASH_ANDROID
+#if XASH_ANDROID && XASH_SDL
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -85,11 +85,13 @@ static const char *Android_GetPackageName( qboolean engine )
 
 static void Android_ListDirectory( stringlist_t *list, const char *path, qboolean engine )
 {
+	int i;
+
 	jstring JStr = (*jni.env)->NewStringUTF( jni.env, path );
 	jobjectArray JNIArray = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAssetsList, engine, JStr );
 	int JNIArraySize = (*jni.env)->GetArrayLength( jni.env, JNIArray );
 
-	for( int i = 0; i < JNIArraySize; i++ )
+	for( i = 0; i < JNIArraySize; i++ )
 	{
 		jstring JNIStr = (*jni.env)->GetObjectArrayElement( jni.env, JNIArray, i );
 		const char *CStr = (*jni.env)->GetStringUTFChars( jni.env, JNIStr, NULL );
