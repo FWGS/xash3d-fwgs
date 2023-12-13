@@ -241,8 +241,9 @@ def configure(conf):
 		conf.options.GL4ES            = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
-		conf.options.SINGLE_BINARY    = True
-		conf.define('XASH_SDLMAIN', 1)
+		if conf.env.HAVE_SDL2:
+			conf.options.SINGLE_BINARY    = True
+			conf.define('XASH_SDLMAIN', 1)
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
