@@ -793,7 +793,7 @@ void VID_Init( void );
 void UI_SetActiveMenu( qboolean fActive );
 void UI_ShowConnectionWarning( void );
 void Cmd_Null_f( void );
-void Rcon_Print( const char *pMsg );
+void Rcon_Print( host_redirect_t *rd, const char *pMsg );
 qboolean COM_ParseVector( char **pfile, float *v, size_t size );
 void COM_NormalizeAngles( vec3_t angles );
 int COM_FileSize( const char *filename );

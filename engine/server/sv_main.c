@@ -1103,7 +1103,7 @@ void SV_Shutdown( const char *finalmsg )
 		Con_Printf( "%s", finalmsg );
 
 	// rcon will be disconnected
-	SV_EndRedirect();
+	SV_EndRedirect( &host.rd );
 
 	if( svs.clients )
 		SV_FinalMessage( finalmsg, false );
