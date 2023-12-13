@@ -302,6 +302,9 @@ class Android:
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
 			cflags += ['-fno-sized-deallocation']
 
+		if cxx and (self.is_clang() or self.is_host()):
+			cflags += [ '-Wno-dynamic-exception-spec', '-fno-rtti' ]
+
 		if self.is_clang() or self.is_host():
 			# stpcpy() isn't available in early Android versions
 			# disable it here so Clang won't use it
