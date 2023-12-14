@@ -440,9 +440,12 @@ static void WriteFrameInfo( FILE *fp, mstudioanim_t *anim, mstudioseqdesc_t *seq
 
 		if( bone->parent == -1 )
 		{
-			scale = frame / (float)( seqdesc->numframes - 1 );
+			if( seqdesc->numframes > 1 && frame > 0 )
+			{
+				scale = frame / (float)( seqdesc->numframes - 1 );
 
-			VectorMA( motion, scale, seqdesc->linearmovement, motion );
+				VectorMA( motion, scale, seqdesc->linearmovement, motion );
+			}
 
 			ProperBoneRotationZ( motion, 270.0f );
 		}
