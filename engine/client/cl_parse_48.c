@@ -457,13 +457,13 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_serverdata:
 			Cbuf_Execute(); // make sure any stuffed commands are done
-			CL_ParseServerData( msg, true );
+			CL_ParseServerData( msg, PROTOCOL_LEGACY_VERSION );
 			break;
 		case svc_lightstyle:
 			CL_ParseLightStyle( msg );
 			break;
 		case svc_updateuserinfo:
-			CL_UpdateUserinfo( msg, true );
+			CL_UpdateUserinfo( msg, PROTOCOL_LEGACY_VERSION );
 			break;
 		case svc_deltatable:
 			Delta_ParseTableField( msg );
@@ -493,7 +493,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message )
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnbaseline:
-			CL_ParseBaseline( msg, true );
+			CL_ParseBaseline( msg, PROTOCOL_LEGACY_VERSION );
 			break;
 		case svc_temp_entity:
 			CL_ParseTempEntity( msg );
@@ -689,7 +689,7 @@ void CL_LegacyPrecache_f( void )
 
 void CL_LegacyUpdateInfo( void )
 {
-	if( !cls.legacymode )
+	if( cls.legacymode == PROTO_LEGACY )
 		return;
 
 	if( cls.state != ca_active )
@@ -701,5 +701,5 @@ void CL_LegacyUpdateInfo( void )
 
 qboolean CL_LegacyMode( void )
 {
-	return cls.legacymode;
+	return cls.legacymode == PROTO_LEGACY;
 }

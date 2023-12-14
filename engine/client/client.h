@@ -270,6 +270,7 @@ typedef struct
 	model_t		*worldmodel;			// pointer to world
 
 	int lostpackets;					// count lost packets and show dialog in menu
+	uint worldmapCRC;
 } client_t;
 
 /*
@@ -300,6 +301,13 @@ typedef enum
 	CL_PAUSED,	// pause when active
 	CL_CHANGELEVEL,	// draw 'loading' during changelevel
 } scrstate_t;
+
+typedef enum
+{
+	PROTO_CURRENT = 0, // Xash3D 49
+	PROTO_LEGACY,  // Xash3D 48
+	PROTO_GOLDSRC, // GoldSrc 48
+} protocolstate_t;
 
 typedef struct
 {
@@ -624,7 +632,7 @@ typedef struct
 	uint32_t internetservers_query_len;
 
 	// legacy mode support
-	qboolean legacymode;				// one-way 48 protocol compatibility
+	protocolstate_t legacymode;
 	netadr_t legacyserver;
 	int extensions;
 
@@ -873,20 +881,22 @@ _inline cl_entity_t *CL_EDICT_NUM( int n )
 // cl_parse.c
 //
 void CL_ParseSetAngle( sizebuf_t *msg );
-void CL_ParseServerData( sizebuf_t *msg, qboolean legacy );
+void CL_ParseServerData( sizebuf_t *msg, int protocol );
 void CL_ParseLightStyle( sizebuf_t *msg );
-void CL_UpdateUserinfo( sizebuf_t *msg, qboolean legacy );
+void CL_UpdateUserinfo( sizebuf_t *msg, int protocol );
 void CL_ParseResource( sizebuf_t *msg );
 void CL_ParseClientData( sizebuf_t *msg );
 void CL_UpdateUserPings( sizebuf_t *msg );
 void CL_ParseParticles( sizebuf_t *msg );
 void CL_ParseRestoreSoundPacket( sizebuf_t *msg );
-void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy );
+void CL_ParseStaticEntity( sizebuf_t *msg );
+void CL_ParseBaseline( sizebuf_t *msg, int protocol );
 void CL_ParseSignon( sizebuf_t *msg );
 void CL_ParseRestore( sizebuf_t *msg );
 void CL_ParseStaticDecal( sizebuf_t *msg );
 void CL_ParseAddAngle( sizebuf_t *msg );
 void CL_RegisterUserMessage( sizebuf_t *msg );
+void CL_ParseResourceList( sizebuf_t *msg );
 void CL_ParseMovevars( sizebuf_t *msg );
 void CL_ParseResourceRequest( sizebuf_t *msg );
 void CL_ParseCustomization( sizebuf_t *msg );
@@ -895,14 +905,18 @@ void CL_ParseSoundFade( sizebuf_t *msg );
 void CL_ParseFileTransferFailed( sizebuf_t *msg );
 void CL_ParseHLTV( sizebuf_t *msg );
 void CL_ParseDirector( sizebuf_t *msg );
+void CL_ParseVoiceInit( sizebuf_t *msg );
+void CL_ParseVoiceData( sizebuf_t *msg );
 void CL_ParseResLocation( sizebuf_t *msg );
 void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext );
+void CL_ParseExec( sizebuf_t *msg );
 void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message );
 void CL_ParseTempEntity( sizebuf_t *msg );
 qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );
 qboolean CL_RequestMissingResources( void );
 void CL_RegisterResources ( sizebuf_t *msg );
 void CL_ParseViewEntity( sizebuf_t *msg );
+void CL_ParseSoundPacket( sizebuf_t *msg );
 void CL_ParseServerTime( sizebuf_t *msg );
 
 //
@@ -910,6 +924,11 @@ void CL_ParseServerTime( sizebuf_t *msg );
 //
 void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message );
 void CL_LegacyPrecache_f( void );
+
+//
+// cl_parse_gs.c
+//
+void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message );
 
 //
 // cl_scrn.c
@@ -979,6 +998,8 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message );
 //
 struct channel_s;
 struct rawchan_s;
+qboolean CL_ValidateDeltaPacket( uint oldpacket, frame_t *oldframe );
+int CL_UpdateOldEntNum( int oldindex, frame_t *oldframe, entity_state_t **oldent );
 int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta );
 qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType );
 void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );

@@ -223,7 +223,7 @@ void CL_SignonReply( void )
 	switch( cls.signon )
 	{
 	case 1:
-		CL_ServerCommand( true, "begin" );
+		CL_ServerCommand( true, cls.legacymode == PROTO_GOLDSRC ? "sendents" : "begin" );
 		if( host_developer.value >= DEV_EXTENDED )
 			Mem_PrintStats();
 		break;
@@ -674,7 +674,13 @@ void CL_WriteUsercmd( sizebuf_t *msg, int from, int to )
 	t = &cl.commands[to].cmd;
 
 	// write it into the buffer
-	MSG_WriteDeltaUsercmd( msg, f, t );
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		MSG_StartBitWriting( msg );
+		Delta_WriteGSFields( msg, DT_USERCMD_T, f, t, 0.0 );
+		MSG_EndBitWriting( msg );
+	}
+	else MSG_WriteDeltaUsercmd( msg, f, t );
 }
 
 /*
@@ -773,6 +779,9 @@ void CL_WritePacket( void )
 		// begin a client move command
 		MSG_BeginClientCmd( &buf, clc_move );
 
+		if( cls.legacymode == PROTO_GOLDSRC )
+			MSG_WriteByte( &buf, 0 );
+
 		// save the position for a checksum byte
 		key = MSG_GetRealBytesWritten( &buf );
 		MSG_WriteByte( &buf, 0 );
@@ -810,7 +819,15 @@ void CL_WritePacket( void )
 
 		// calculate a checksum over the move commands
 		size = MSG_GetRealBytesWritten( &buf ) - key - 1;
+		if( cls.legacymode == PROTO_GOLDSRC )
+		{
+			size = Q_min( size, 255 );
+			buf.pData[key - 1] = size;
+		}
 		buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
+
+		if( cls.legacymode == PROTO_GOLDSRC )
+			COM_Munge( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
 
 		// message we are constructing.
 		i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
@@ -1029,7 +1046,31 @@ void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 	}
 
-	if( cls.legacymode )
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		byte send_buf[MAX_PRINT_MSG];
+		byte steam_cert[512];
+		sizebuf_t send;
+
+		protinfo[0] = 0;
+
+		memset( steam_cert, 0, sizeof( steam_cert ));
+
+		Info_SetValueForKey( protinfo, "prot", "3", sizeof( protinfo )); // steam auth type
+		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
+		Info_SetValueForKey( protinfo, "cdkey", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sizeof( protinfo ));
+
+		Info_SetValueForStarKey( cls.userinfo, "*hltv", "0", sizeof( cls.userinfo ));
+
+		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
+		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
+		MSG_WriteStringf( &send, "connect %i %i \"%s\" \"%s\"\n",
+			PROTOCOL_GOLDSRC_VERSION_REAL, cls.challenge, protinfo, cls.userinfo );
+		MSG_WriteBytes( &send, steam_cert, sizeof( steam_cert ));
+
+		NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
+	}
+	else if( cls.legacymode == PROTO_LEGACY )
 	{
 		// set related userinfo keys
 		if( cl_dlmax.value >= 40000 || cl_dlmax.value < 100 )
@@ -1228,12 +1269,15 @@ CL_Connect_f
 void CL_Connect_f( void )
 {
 	string	server;
-	qboolean legacyconnect = false;
+	protocolstate_t protocol = PROTO_CURRENT;
 
 	// hidden hint to connect by using legacy protocol
 	if( Cmd_Argc() == 3 )
 	{
-		legacyconnect = !Q_strcmp( Cmd_Argv( 2 ), "legacy" );
+		if( !Q_strcmp( Cmd_Argv( 2 ), "legacy" ))
+			protocol = PROTO_LEGACY;
+		else if( !Q_strcmp( Cmd_Argv( 2 ), "goldsrc" ))
+			protocol = PROTO_GOLDSRC;
 	}
 	else if( Cmd_Argc() != 2 )
 	{
@@ -1255,7 +1299,7 @@ void CL_Connect_f( void )
 	Key_SetKeyDest( key_console );
 
 	cls.state = ca_connecting;
-	cls.legacymode = legacyconnect;
+	cls.legacymode = protocol;
 	Q_strncpy( cls.servername, server, sizeof( cls.servername ));
 	cls.connect_time = MAX_HEARTBEAT; // CL_CheckForResend() will fire immediately
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // guess a we can establish connection with maximum fragment size
@@ -1406,7 +1450,7 @@ int CL_GetSplitSize( void )
 	if( Host_IsDedicated() )
 		return 0;
 
-	if( !(cls.extensions & NET_EXT_SPLITSIZE) )
+	if( !FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 		return 1400;
 
 	splitsize = cl_dlmax.value;
@@ -1428,16 +1472,19 @@ void CL_Reconnect( qboolean setup_netchan )
 {
 	if( setup_netchan )
 	{
-		Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize );
+		uint flags = 0;
 
-		if( cls.legacymode )
+		if( cls.legacymode == PROTO_GOLDSRC )
 		{
-			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ) );
+			SetBits( flags, NETCHAN_USE_MUNGE | NETCHAN_USE_BZIP2 | NETCHAN_GOLDSRC );
+		}
+		else if( cls.legacymode == PROTO_LEGACY )
+		{
+			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ));
 
-			if( extensions & NET_LEGACY_EXT_SPLIT )
+			if( FBitSet( extensions, NET_LEGACY_EXT_SPLIT ))
 			{
-				// only enable incoming split for legacy mode
-				cls.netchan.split = true;
+				SetBits( flags, NETCHAN_USE_LEGACY_SPLIT );
 				Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax.value, 65536 );
 			}
 		}
@@ -1445,12 +1492,11 @@ void CL_Reconnect( qboolean setup_netchan )
 		{
 			cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
 
-			if( cls.extensions & NET_EXT_SPLITSIZE )
-			{
+			if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 				Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax.value );
-			}
 		}
 
+		Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize, flags );
 	}
 	else
 	{
@@ -1485,7 +1531,7 @@ This is also called on Host_Error, so it shouldn't cause any errors
 */
 void CL_Disconnect( void )
 {
-	cls.legacymode = false;
+	cls.legacymode = PROTO_CURRENT;
 
 	if( cls.state == ca_disconnected )
 		return;
@@ -1664,7 +1710,7 @@ void CL_Reconnect_f( void )
 
 	if( COM_CheckString( cls.servername ))
 	{
-		qboolean legacy = cls.legacymode;
+		protocolstate_t legacy = cls.legacymode;
 
 		if( cls.state >= ca_connected )
 			CL_Disconnect();
@@ -1956,7 +2002,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Con_Reportf( "CL_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), c );
 
 	// server connection
-	if( !Q_strcmp( c, "client_connect" ))
+	if( !Q_strcmp( c, "client_connect" ) || !Q_strcmp( c, S2C_CONNECTION ))
 	{
 		if( !CL_IsFromConnectingServer( from ))
 			return;
@@ -2074,7 +2120,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// ping from somewhere
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "ack" );
 	}
-	else if( !Q_strcmp( c, "challenge" ))
+	else if( !Q_strcmp( c, "challenge" ) || !Q_strcmp( c, S2C_CHALLENGE ))
 	{
 		// this message only used during connection
 		// it doesn't make sense after client_connect
@@ -2117,12 +2163,19 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			memset( &cls.legacyserver, 0, sizeof( cls.legacyserver ));
 		}
 	}
-	else if( !Q_strcmp( c, "errormsg" ))
+	else if( !Q_strcmp( c, "errormsg" ) || c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
 	{
+		const char *fmt = "%s";
+
 		if( !CL_IsFromConnectingServer( from ))
 			return;
 
 		args = MSG_ReadString( msg );
+		if( c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
+		{
+			fmt = "%s\n";
+			args++; // skip one byte
+		}
 
 		if( !Q_strcmp( args, "Server uses protocol version 48.\n" ))
 		{
@@ -2132,7 +2185,7 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		{
 			if( UI_IsVisible() )
 				UI_ShowMessageBox( va("^3Server message^7\n%s", args ) );
-			Msg( "%s", args );
+			Msg( fmt, args );
 		}
 	}
 	else if( !Q_strcmp( c, "updatemsg" ))
@@ -2286,8 +2339,13 @@ void CL_ReadNetMessage( void )
 		// run special handler for quake demos
 		if( cls.demoplayback == DEMO_QUAKE1 )
 			CL_ParseQuakeMessage( &net_message, true );
-		else if( cls.legacymode ) CL_ParseLegacyServerMessage( &net_message, true );
-		else CL_ParseServerMessage( &net_message, true );
+		else if( cls.legacymode == PROTO_LEGACY )
+			CL_ParseLegacyServerMessage( &net_message, true );
+		else if( cls.legacymode == PROTO_GOLDSRC )
+			CL_ParseGoldSrcServerMessage( &net_message, true );
+		else
+			CL_ParseServerMessage( &net_message, true );
+
 		cl.send_reply = true;
 	}
 
@@ -2301,7 +2359,11 @@ void CL_ReadNetMessage( void )
 		if( Netchan_CopyNormalFragments( &cls.netchan, &net_message, &curSize ))
 		{
 			MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
-			CL_ParseServerMessage( &net_message, false );
+
+			if( cls.legacymode == PROTO_GOLDSRC )
+				CL_ParseGoldSrcServerMessage( &net_message, false );
+			else
+				CL_ParseServerMessage( &net_message, false );
 		}
 
 		if( Netchan_CopyFileFragments( &cls.netchan, &net_message ))

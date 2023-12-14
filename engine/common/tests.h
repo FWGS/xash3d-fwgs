@@ -38,13 +38,15 @@ void Test_RunCvar( void );
 void Test_RunCon( void );
 void Test_RunVOX( void );
 void Test_RunIPFilter( void );
+void Test_RunMunge( void );
 
 #define TEST_LIST_0 \
 	Test_RunLibCommon(); \
 	Test_RunCommon(); \
 	Test_RunCmd(); \
 	Test_RunCvar(); \
-	Test_RunIPFilter();
+	Test_RunIPFilter(); \
+	Test_RunMunge();
 
 #define TEST_LIST_0_CLIENT \
 	Test_RunCon();

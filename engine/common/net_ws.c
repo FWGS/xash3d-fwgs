@@ -84,6 +84,13 @@ typedef struct
 	int		sequence_number;
 	short		packet_id;
 } SPLITPACKET;
+
+typedef struct
+{
+	int		net_id;
+	int		sequence_number;
+	unsigned char	packet_id;
+} SPLITPACKETGS;
 #pragma pack(pop)
 
 typedef struct
@@ -1357,28 +1364,40 @@ NET_GetLong
 receive long packet from network
 ==================
 */
-qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize )
+static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize, qboolean small_split )
 {
 	int		i, sequence_number, offset;
-	SPLITPACKET	*pHeader = (SPLITPACKET *)pData;
 	int		packet_number;
 	int		packet_count;
 	short		packet_id;
-	int body_size = splitsize - sizeof( SPLITPACKET );
+	size_t	header_size = small_split ? sizeof( SPLITPACKETGS ) : sizeof( SPLITPACKET );
+	SPLITPACKET	*pHeader = (SPLITPACKET *)pData;
+	SPLITPACKETGS	*pHeaderGS = (SPLITPACKETGS *)pData;
+	int body_size = splitsize - header_size;
 
 	if( body_size < 0 )
 		return false;
 
-	if( size < sizeof( SPLITPACKET ))
+	if( size < header_size )
 	{
 		Con_Printf( S_ERROR "invalid split packet length %i\n", size );
 		return false;
 	}
 
-	sequence_number = pHeader->sequence_number;
-	packet_id = pHeader->packet_id;
-	packet_count = ( packet_id & 0xFF );
-	packet_number = ( packet_id >> 8 );
+	if( small_split )
+	{
+		sequence_number = pHeaderGS->sequence_number;
+		packet_id = pHeaderGS->packet_id;
+		packet_count = ( packet_id & 0xF );
+		packet_number = ( packet_id >> 4 );
+	}
+	else
+	{
+		sequence_number = pHeader->sequence_number;
+		packet_id = pHeader->packet_id;
+		packet_count = ( packet_id & 0xFF );
+		packet_number = ( packet_id >> 8 );
+	}
 
 	if( packet_number >= NET_MAX_FRAGMENTS || packet_count > NET_MAX_FRAGMENTS )
 	{
@@ -1400,7 +1419,7 @@ qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize )
 			Con_Printf( "<-- Split packet restart %i count %i seq\n", net.split.split_count, sequence_number );
 	}
 
-	size -= sizeof( SPLITPACKET );
+	size -= header_size;
 
 	if( net.split_flags[packet_number] != sequence_number )
 	{
@@ -1419,7 +1438,7 @@ qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize )
 	}
 
 	offset = (packet_number * body_size);
-	memcpy( net.split.buffer + offset, pData + sizeof( SPLITPACKET ), size );
+	memcpy( net.split.buffer + offset, pData + header_size, size );
 
 	// have we received all of the pieces to the packet?
 	if( net.split.split_count <= 0 )
@@ -1488,7 +1507,7 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 				// check for split message
 				if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
 				{
-					return NET_GetLong( data, ret, length, CL_GetSplitSize( ));
+					return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_GoldSrcMode( ));
 				}
 #endif
 				// lag the packet, if needed

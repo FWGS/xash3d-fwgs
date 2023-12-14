@@ -73,7 +73,7 @@ GNU General Public License for more details.
 #define svc_director		51	// <variable sized>
 #define svc_voiceinit		52	// <see code>
 #define svc_voicedata		53	// [byte][short][...]
-#define svc_deltapacketbones		54	// [short][byte][...]
+// reserved
 // reserved
 #define svc_resourcelocation		56	// [string]
 #define svc_querycvarvalue		57	// [string]
@@ -278,22 +278,24 @@ GNU General Public License for more details.
 #define SU_WEAPON		(1<<14)
 
 extern const char	*svc_strings[svc_lastmsg+1];
+extern const char	*svc_legacy_strings[svc_lastmsg+1];
+extern const char	*svc_goldsrc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
 
 // FWGS extensions
 #define NET_EXT_SPLITSIZE (1U<<0) // set splitsize by cl_dlmax
 
 // legacy protocol definitons
-#define PROTOCOL_LEGACY_VERSION		48
-#define svc_legacy_modelindex		31	// [index][modelpath]
-#define svc_legacy_soundindex		28	// [index][soundpath]
-#define svc_legacy_eventindex		34	// [index][eventname]
-#define svc_legacy_ambientsound		29
-#define svc_legacy_chokecount 42		// old client specified count, new just sends svc_choke
-#define svc_legacy_event			27	// playback event queue
-#define svc_legacy_changing			3	// changelevel by server request
+#define PROTOCOL_LEGACY_VERSION     48
+#define svc_legacy_changing         svc_event // changelevel by server request
+#define svc_legacy_event            27        // playback event queue
+#define svc_legacy_soundindex       28        // [index][soundpath]
+#define svc_legacy_ambientsound     29
+#define svc_legacy_modelindex       svc_finale   // [index][modelpath]
+#define svc_legacy_eventindex       svc_cutscene // [index][eventname]
+#define svc_legacy_chokecount       svc_choke    // old client specified count, new just sends svc_choke
 
-#define clc_legacy_userinfo		6	// [[userinfo string]
+#define clc_legacy_userinfo         6	// [[userinfo string]
 
 #define SND_LEGACY_LARGE_INDEX		(1<<2)	// a send sound as short
 #define MAX_LEGACY_ENTITY_BITS		12
@@ -307,5 +309,41 @@ extern const char	*clc_strings[clc_lastmsg+1];
 
 // Master Server protocol
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
+
+// GoldSrc protocol definitions
+#define PROTOCOL_GOLDSRC_VERSION_REAL 48
+#define PROTOCOL_GOLDSRC_VERSION (PROTOCOL_GOLDSRC_VERSION_REAL | (BIT( 7 ))) // should be 48, only to differentiate it from PROTOCOL_LEGACY_VERSION
+
+#define svc_goldsrc_version           svc_changing
+#define svc_goldsrc_serverinfo        svc_serverdata
+#define svc_goldsrc_deltadescription  svc_deltatable
+#define svc_goldsrc_stopsound         svc_resource
+#define svc_goldsrc_damage            svc_restoresound
+#define svc_goldsrc_killedmonster     27
+#define svc_goldsrc_foundsecret       28
+#define svc_goldsrc_spawnstaticsound  29
+#define svc_goldsrc_decalname         svc_bspdecal
+#define svc_goldsrc_newusermsg        svc_usermessage
+#define svc_goldsrc_newmovevars       svc_deltamovevars
+#define svc_goldsrc_sendextrainfo     54
+#define svc_goldsrc_timescale         55
+#define svc_goldsrc_sendcvarvalue     svc_querycvarvalue
+#define svc_goldsrc_sendcvarvalue2    svc_querycvarvalue2
+
+#define clc_goldsrc_hltv              clc_requestcvarvalue  // 9
+#define clc_goldsrc_requestcvarvalue  clc_requestcvarvalue2 // 10
+#define clc_goldsrc_requestcvarvalue2 11
+#define clc_goldsrc_lastmsg           12
+
+#define S2C_REJECT_BADPASSWORD '8'
+#define S2C_REJECT             '9'
+#define S2C_CHALLENGE          "A00000000"
+#define S2C_CONNECTION         "B"
+
+#define MAX_GOLDSRC_RESOURCE_BITS 12
+#define MAX_GOLDSRC_ENTITY_BITS   11
+// #define MAX_GOLDSRC_EDICTS        BIT( MAX_ENTITY_BITS )
+#define MAX_GOLDSRC_EDICTS        ( BIT( MAX_ENTITY_BITS ) + ( MAX_CLIENTS * 15 ))
+#define LAST_GOLDSRC_EDICT        ( BIT( MAX_ENTITY_BITS ) - 1 )
 
 #endif//NET_PROTOCOL_H
