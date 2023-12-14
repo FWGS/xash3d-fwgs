@@ -1235,11 +1235,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 {
 	char	name[MAX_QPATH];
 	model_t	*mod;
-	int	i;
-
-	// use high indices for client sprites
-	// for GoldSrc bug-compatibility
-	const int start = type != SPR_HUDSPRITE ? MAX_CLIENT_SPRITES / 2 : 0;
+	int	i, start;
 
 	if( !COM_CheckString( filename ))
 	{
@@ -1250,7 +1246,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	Q_strncpy( name, filename, sizeof( name ));
 	COM_FixSlashes( name );
 
-	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
+	for( i = 0, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )
 	{
 		if( !Q_stricmp( mod->name, name ))
 		{
@@ -1267,8 +1263,15 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	}
 
 	// find a free model slot spot
-	for( i = 0, mod = clgame.sprites + start; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
-		if( !mod->name[0] ) break; // this is a valid spot
+	// use low indices only for HUD sprites
+	// for GoldSrc bug compatibility
+	start = type == SPR_HUDSPRITE ? 0 : MAX_CLIENT_SPRITES / 2;
+
+	for( i = 0, mod = &clgame.sprites[start]; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
+	{
+		if( !mod->name[0] )
+			break; // this is a valid spot
+	}
 
 	if( i == MAX_CLIENT_SPRITES / 2 )
 	{
