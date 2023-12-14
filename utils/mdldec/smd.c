@@ -123,19 +123,13 @@ ProperBoneRotationZ
 */
 static void ProperBoneRotationZ( vec_t *motion, float angle )
 {
-	float	c, s, x, y;
-	float	rot;
+	float	tmp, rot;
 
 	rot = DEG2RAD( angle );
 
-	s = sin( rot );
-	c = cos( rot );
-
-	x = motion[0];
-	y = motion[1];
-
-	motion[0] = c * x - s * y;
-	motion[1] = s * x + c * y;
+	tmp = motion[0];
+	motion[0] = motion[1];
+	motion[1] = -tmp;
 
 	motion[5] += rot;
 }
