@@ -113,6 +113,8 @@ typedef struct world_static_s
 	// tree visualization stuff
 	int		recursion_level;
 	int		max_recursion;
+
+	uint32_t version; // BSP version
 } world_static_t;
 
 #ifndef REF_DLL
