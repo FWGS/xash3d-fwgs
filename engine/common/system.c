@@ -402,7 +402,7 @@ void Sys_Warn( const char *format, ... )
 	Msg( "Sys_Warn: %s\n", text );
 
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
-		MSGBOX(text);
+		Platform_MessageBox( "Xash Warning", text, false );
 }
 
 /*
@@ -446,8 +446,8 @@ void Sys_Error( const char *error, ... )
 #if XASH_WIN32
 		Wcon_ShowConsole( false );
 #endif
-		MSGBOX( text );
 		Sys_Print( text );
+		Platform_MessageBox( "Xash Error", text, false );
 	}
 	else
 	{
