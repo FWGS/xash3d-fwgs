@@ -261,6 +261,7 @@ typedef enum
 	PARM_LOCAL_GAME        = -11,
 	PARM_NUMENTITIES       = -12, // local game only
 	PARM_NUMMODELS         = -13, // cl.nummodels
+	PARM_WORLD_VERSION     = -14,
 } ref_parm_e;
 
 typedef struct ref_api_s
