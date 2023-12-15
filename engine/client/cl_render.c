@@ -207,6 +207,8 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 			return pfnNumberOfEntities();
 		case PARM_NUMMODELS:
 			return cl.nummodels;
+		case PARM_WORLD_VERSION:
+			return world.version;
 		}
 	}
 	return 0;
