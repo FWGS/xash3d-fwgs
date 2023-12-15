@@ -795,7 +795,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 			Key_SetKeyDest( key_console );
 			Con_Printf( "Host_Error: %s", hosterror1 );
 		}
-		else MSGBOX2( hosterror1 );
+		else Platform_MessageBox( "Host Error", hosterror1, true );
 	}
 
 	// host is shutting down. don't invoke infinite loop

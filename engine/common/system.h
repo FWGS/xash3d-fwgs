@@ -30,9 +30,6 @@ extern "C" {
 #include "crtlib.h"
 #include "platform/platform.h"
 
-#define MSGBOX( x )	Platform_MessageBox( "Xash Error", (x), false )
-#define MSGBOX2( x )	Platform_MessageBox( "Host Error", (x), true )
-#define MSGBOX3( x )	Platform_MessageBox( "Host Recursive Error", (x), true )
 #define ASSERT( exp )	if(!( exp )) Sys_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 /*
