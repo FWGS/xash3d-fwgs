@@ -646,9 +646,12 @@ static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 	pic->numMips = Q_max( 1, pic->numMips );
 
 	// trying to determine texture type
+#ifndef XASH_GLES
 	if( pic->width > 1 && pic->height <= 1 )
 		tex->target = GL_TEXTURE_1D;
-	else if( FBitSet( pic->flags, IMAGE_CUBEMAP ))
+	else 
+#endif // just skip first condition
+	if( FBitSet( pic->flags, IMAGE_CUBEMAP ))
 		tex->target = GL_TEXTURE_CUBE_MAP_ARB;
 	else if( FBitSet( pic->flags, IMAGE_MULTILAYER ) && pic->depth >= 1 )
 		tex->target = GL_TEXTURE_2D_ARRAY_EXT;
