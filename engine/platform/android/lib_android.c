@@ -19,7 +19,7 @@ GNU General Public License for more details.
 #include "platform/android/lib_android.h"
 #include "platform/android/dlsym-weak.h" // Android < 5.0
 
-void *Android_GetServerLibrary( void )
+void *ANDROID_GetServerLibrary( void )
 {
 	return svgame.hInstance;
 }

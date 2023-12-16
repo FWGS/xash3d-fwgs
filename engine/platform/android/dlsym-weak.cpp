@@ -118,7 +118,7 @@ static Elf_Sym* dlsym_handle_lookup( soinfo* si, const char* name )
 {
 	return soinfo_elf_lookup( si, elfhash( name ), name );
 }
-
+#define XASH_ANDROID 1
 #include "lib_android.h"
 
 static int dladdr_fallback( const void *addr, Dl_info *info )
