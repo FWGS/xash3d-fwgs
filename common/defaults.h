@@ -181,6 +181,10 @@ Default build-depended cvar and constant values
 	#define XASH_INTERNAL_GAMELIBS
 #endif // XASH_ANDROID || XASH_IOS || XASH_EMSCRIPTEN
 
+#if XASH_ANDROID && XASH_SDL
+#define XASH_ANDROID_ASSETS 1
+#endif
+
 // Defaults
 #ifndef DEFAULT_TOUCH_ENABLE
 	#define DEFAULT_TOUCH_ENABLE "0"
