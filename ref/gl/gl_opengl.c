@@ -553,61 +553,70 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	for( func = funcs; func && func->name; func++ )
 	{
 		// functions are cleared before all the extensions are evaluated
-#ifndef XASH_GLES // arb on gles is last (TODO: separate search tables for GLES/CORE)
-		if(( *func->func = (void *)gEngfuncs.GL_GetProcAddress( func->name )) == NULL )
-#endif
-		{
-			string name;
-			char *end;
-			size_t i = 0;
+		string name;
+		char *end;
+		size_t i = 0;
+		qboolean first_try = true;
+		 // NULL means just func->name, but empty suffix cuts ARB suffix if present
 #ifdef XASH_GLES
-			const char *suffixes[] = { "", "EXT", "OES", "ARB" };
+		const char *suffixes[] = { "", "EXT", "OES", NULL, "ARB" };
 #else
-			const char *suffixes[] = { "", "EXT" };
+		const char *suffixes[] = { NULL, "", "EXT", "ARB" };
 #endif
 
-			// HACK: fix ARB names
-			Q_strncpy( name, func->name, sizeof( name ));
-			if(( end = Q_strstr( name, "ARB" )))
-			{
-				*end = '\0';
-			}
-			else // I need Q_strstrnul
-			{
-				end = name + Q_strlen( name );
-#ifndef XASH_GLES
-				i++; // skip empty suffix
-#endif
-			}
+		// Remove ARB suffix
+		Q_strncpy( name, func->name, sizeof( name ));
+		if(( end = Q_strstr( name, "ARB" )))
+		{
+			*end = '\0';
+		}
+		else // I need Q_strstrnul
+		{
+			end = name + Q_strlen( name );
+		}
 
-			for( ; i < sizeof( suffixes ) / sizeof( suffixes[0] ); i++ )
-			{
-				void *f;
+		for( ; i < sizeof( suffixes ) / sizeof( suffixes[0] ); i++ )
+		{
+			void *f;
+			const char *pname = name;
+			size_t name_len = end - pname;
+			const char *orig_suffix = func->name + name_len;
 
+			if( suffixes[i] )
+			{
+				// if suffix is original suffix, it's handled with NULL
+				if( orig_suffix[0] && !Q_strcmp( orig_suffix, suffixes[i] ))
+					continue;
 				Q_strncat( name, suffixes[i], sizeof( name ));
-
-				if(( f = gEngfuncs.GL_GetProcAddress( name )))
-				{
-					// GL_GetProcAddress prints errors about missing functions, so tell user that we found it with different name
-#ifdef XASH_GLES
-					if(i != 0)
-#endif
-					gEngfuncs.Con_Printf( S_NOTE "found %s\n", name );
-
-					*func->func = f;
-					break;
-				}
-				else
-				{
-					*end = '\0'; // cut suffix, try next
-				}
 			}
-
-			// not found...
-			if( i == sizeof( suffixes ) / sizeof( suffixes[0] ))
+			else
 			{
-				GL_SetExtension( r_ext, false );
+				// if original name does not have a suffix, it will be handled with empty suffix
+				if( !orig_suffix[0] )
+					continue;
+				pname = func->name;
 			}
+
+			if(( f = gEngfuncs.GL_GetProcAddress( pname )))
+			{
+				// if we already tried this function, notify about success after previous error from GL_GetProcAddress
+				if(!first_try)
+					gEngfuncs.Con_Printf( S_NOTE "found %s\n", pname );
+				first_try = false;
+
+				*func->func = f;
+				break;
+			}
+			else
+			{
+				*end = '\0'; // cut suffix, try next
+			}
+		}
+
+		// not found...
+		if( i == sizeof( suffixes ) / sizeof( suffixes[0] ))
+		{
+			GL_SetExtension( r_ext, false );
 		}
 	}
 #endif
