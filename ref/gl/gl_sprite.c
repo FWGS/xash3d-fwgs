@@ -144,7 +144,6 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	const dsprite_t		*pin;
 	const short		*numi = NULL;
 	const byte	*pframetype;
-	dframetype_t dframetype;
 	msprite_t		*psprite;
 	int		i;
 
@@ -203,6 +202,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	for( i = 0; i < mod->numframes; i++ )
 	{
 		frametype_t frametype;
+		dframetype_t dframetype;
 
 		memcpy( &dframetype, pframetype, sizeof( dframetype ));
 		frametype = dframetype.type;
