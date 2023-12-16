@@ -56,5 +56,4 @@ GNU General Public License for more details.
 #define LIB_WIN32 2
 #define LIB_STATIC 3
 
-
 #endif /* BACKENDS_H */
