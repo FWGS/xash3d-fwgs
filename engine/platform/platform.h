@@ -251,11 +251,11 @@ void VoiceCapture_Shutdown( void );
 qboolean VoiceCapture_Activate( qboolean activate );
 qboolean VoiceCapture_Lock( qboolean lock );
 
-#ifdef XASH_LINUX
+#if XASH_LINUX
 // this allows to make break in this line, not somewhere in libc
 // libc builds with -fomit-frame-pointer may just eat stack frame (hello, glibc), making this useless
 // calling syscalls directly allows to make break like if it was asm("int $3") on x86
-#ifdef __arm__
+#if XASH_ARM && !XASH_64BIT // arm (eabi)
 // this multi-line macro hides single line under it, multi-line macro will be expanded to single-line anyway
 #define INLINE_RAISE(x) do \
 	{ \
@@ -287,7 +287,7 @@ qboolean VoiceCapture_Lock( qboolean lock );
 			: "r0", "r1", "r7", "memory" \
 		); \
 	} while(0)
-#elif defined(__aarch64__)
+#elif XASH_ARM // aarch64
 #define INLINE_RAISE(x) do \
 	{ \
 		int raise_pid = getpid(); \
