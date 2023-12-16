@@ -324,7 +324,8 @@ DECLARE_JNI_INTERFACE( void, onNativeResize, jint width, jint height )
 	if( !width || !height )
 		return;
 
-	jni.width=width, jni.height=height;
+	jni.width = width;
+	jni.height = height;
 
 	// alloc update event to change screen size
 	event = Android_AllocEvent();

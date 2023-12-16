@@ -90,7 +90,8 @@ Resolution got from last resize event
 */
 static void Android_GetScreenRes( int *width, int *height )
 {
-	*width=jni.width, *height=jni.height;
+	*width = jni.width;
+	*height = jni.height;
 }
 
 /*
