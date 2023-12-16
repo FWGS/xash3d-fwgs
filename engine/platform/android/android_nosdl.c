@@ -667,14 +667,9 @@ Android_GetNativeObject
 */
 void *Android_GetNativeObject( const char *objName )
 {
-	static const char *availObjects[] = { "JNIEnv", "ActivityClass", NULL };
 	void *object = NULL;
 
-	if( !objName )
-	{
-		object = (void*)availObjects;
-	}
-	else if( !strcasecmp( objName, "JNIEnv" ) )
+	if( !strcasecmp( objName, "JNIEnv" ) )
 	{
 		object = (void*)jni.env;
 	}
