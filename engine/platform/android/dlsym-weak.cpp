@@ -119,14 +119,15 @@ static Elf_Sym* dlsym_handle_lookup( soinfo* si, const char* name )
 	return soinfo_elf_lookup( si, elfhash( name ), name );
 }
 
-extern "C" void *ANDROID_LoadLibrary( const char *dllname );
+#include "lib_android.h"
+
 static int dladdr_fallback( const void *addr, Dl_info *info )
 {
 	static soinfo *server_info;
 	Elf_Sym *sym;
 
 	if( !server_info )
-		server_info = ( soinfo* )ANDROID_LoadLibrary( "server" );
+		server_info = ( soinfo* )ANDROID_GetServerLibrary();
 	if( !server_info )
 		return 0;
 	//__android_log_print( ANDROID_LOG_ERROR, "dladdr_fb", "%p %p\n", addr, server_info );
