@@ -270,7 +270,7 @@ qboolean VoiceCapture_Lock( qboolean lock );
 			"svc 0\n\t" \
 			: \
 			:"r"(raise_pid), "r"(raise_tid), "r"(raise_sig) \
-			: "r0", "r1", "r2", "r7", "memory"
+			: "r0", "r1", "r2", "r7", "memory" \
 		); \
 	} while(0)
 #define INLINE_NANOSLEEP1() do \

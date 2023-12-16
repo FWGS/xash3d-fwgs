@@ -20,7 +20,7 @@ GNU General Public License for more details.
 #define Platform_POSIX_LoadLibrary( x ) ANDROID_LoadLibrary(( x ))
 #define Platform_POSIX_GetProcAddress( x, y ) ANDROID_GetProcAddress(( x ), ( y ))
 
-void *Android_GetServerLibrary( void );
+void *ANDROID_GetServerLibrary( void );
 void *ANDROID_LoadLibrary( const char *dllname );
 void *ANDROID_GetProcAddress( void *hInstance, const char *name );
 
