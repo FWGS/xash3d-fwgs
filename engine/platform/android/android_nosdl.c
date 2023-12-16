@@ -375,7 +375,7 @@ DECLARE_JNI_INTERFACE( void, nativeKey, jint down, jint code )
 	}
 	else
 	{
-		if( code >= ( sizeof( s_android_scantokey ) / sizeof( s_android_scantokey[0] ) ) )
+		if( code >= ARRAYSIZE( s_android_scantokey ))
 		{
 			Con_DPrintf( "nativeKey: unknown Android key %d\n", code );
 			return;
