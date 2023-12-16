@@ -45,7 +45,7 @@ static dllfunc_t android_funcs[] =
 	{ NULL, NULL }
 };
 #undef NW_FF
-dll_info_t android_info = { "libandroid.so", android_funcs, false };
+static dll_info_t android_info = { "libandroid.so", android_funcs, false };
 
 /*
 ========================

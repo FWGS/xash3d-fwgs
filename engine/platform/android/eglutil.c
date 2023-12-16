@@ -48,7 +48,7 @@ static dllfunc_t egl_funcs[] =
 	{ NULL, NULL }
 };
 #undef EGL_FF
-dll_info_t egl_info = { "libEGL.so", egl_funcs, false };
+static dll_info_t egl_info = { "libEGL.so", egl_funcs, false };
 
 struct eglstate_s eglstate;
 

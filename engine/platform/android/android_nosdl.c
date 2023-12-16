@@ -169,7 +169,7 @@ struct jnimethods_s jni;
 struct jnimouse_s   jnimouse;
 
 static jmp_buf crash_frame, restore_frame;
-char crash_text[1024];
+static char crash_text[1024];
 
 #define Android_Lock() pthread_mutex_lock(&events.mutex);
 #define Android_Unlock() pthread_mutex_unlock(&events.mutex);
