@@ -25,12 +25,15 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#if defined __ANDROID__ && !defined XASH_64BIT
+#include "build.h"
+#if !XASH_64BIT
 #include <string.h>
 #include <android/log.h>
 #include <dlfcn.h>
 #include "linker.h"
+extern "C" {
+#include "lib_android.h"
+}
 
 static Elf_Sym* soinfo_elf_lookup( soinfo* si, unsigned hash, const char* name )
 {
@@ -118,8 +121,6 @@ static Elf_Sym* dlsym_handle_lookup( soinfo* si, const char* name )
 {
 	return soinfo_elf_lookup( si, elfhash( name ), name );
 }
-#define XASH_ANDROID 1
-#include "lib_android.h"
 
 static int dladdr_fallback( const void *addr, Dl_info *info )
 {
