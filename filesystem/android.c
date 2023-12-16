@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 #include "port.h"
 
-#if XASH_ANDROID
+#if XASH_ANDROID_ASSETS
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -328,4 +328,4 @@ void FS_InitAndroid( void )
 	jni.getAssets = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getAssets", "(Z)Landroid/content/res/AssetManager;" );
 }
 
-#endif // XASH_ANDROID
+#endif // XASH_ANDROID_ASSETS
