@@ -33,7 +33,7 @@ GNU General Public License for more details.
 #define JNIEXPORT
 #endif
 
-convar_t *android_sleep;
+static CVAR_DEFINE_AUTO( android_sleep,  "1", FCVAR_ARCHIVE, "Enable sleep in background" );
 
 static const int s_android_scantokey[] =
 {
@@ -346,7 +346,7 @@ DECLARE_JNI_INTERFACE( void, nativeSetPause, jint pause )
 
 	// if pause enabled, hold engine by locking frame mutex.
 	// Engine will stop after event reading and will not continue untill unlock
-	if( android_sleep && android_sleep->value )
+	if( android_sleep.value )
 	{
 		if( pause )
 			pthread_mutex_lock( &events.framemutex );
@@ -358,7 +358,7 @@ DECLARE_JNI_INTERFACE( void, nativeSetPause, jint pause )
 DECLARE_JNI_INTERFACE( void, nativeUnPause )
 {
 	// UnPause engine before sending critical events
-	if( android_sleep && android_sleep->value )
+	if( android_sleep.value )
 			pthread_mutex_unlock( &events.framemutex );
 }
 
@@ -625,7 +625,7 @@ Initialize android-related cvars
 */
 void Android_Init( void )
 {
-	android_sleep = Cvar_Get( "android_sleep", "1", FCVAR_ARCHIVE, "Enable sleep in background" );
+	Cvar_RegisterVariable( &android_sleep );
 }
 
 void Android_Shutdown( void )
@@ -921,7 +921,7 @@ static void Android_ProcessEvents( void )
 			if( events.queue[i].arg )
 			{
 				SNDDMA_Activate( false );
-				Android_UpdateSurface( !android_sleep->value ? surface_dummy : surface_pause );
+				Android_UpdateSurface( !android_sleep.value ? surface_dummy : surface_pause );
 //				(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.toggleEGL, 0 );
 			}
 			(*jni.env)->CallStaticVoidMethod( jni.env, jni.bindcls, jni.notify );
@@ -1054,7 +1054,7 @@ void Platform_RunEvents( void )
 	Android_ProcessEvents();
 
 	// do not allow running frames while android_sleep is 1, but surface/context not restored
-	while( android_sleep->value && host.status == HOST_SLEEP )
+	while( android_sleep.value && host.status == HOST_SLEEP )
 	{
 		usleep( 20000 );
 		Android_ProcessEvents();

@@ -47,9 +47,6 @@ static dllfunc_t android_funcs[] =
 #undef NW_FF
 dll_info_t android_info = { "libandroid.so", android_funcs, false };
 
-
-convar_t *cv_vid_scale;
-convar_t *cv_vid_rotate;
 /*
 ========================
 Android_SwapInterval
@@ -204,8 +201,6 @@ qboolean  R_Init_Video( const int type )
 {
 	char buf[MAX_VA_STRING];
 	qboolean retval;
-	cv_vid_scale = Cvar_FindVar( "vid_scale" );
-	cv_vid_rotate = Cvar_FindVar( "vid_rotate" );
 
 	if( FS_FileExists( GI->iconpath, true ) )
 	{
@@ -361,7 +356,6 @@ qboolean VID_SetMode( void )
 rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	int render_w, render_h;
-	uint rotate = cv_vid_rotate->value;
 
 	Android_GetScreenRes(&width, &height);
 
@@ -370,23 +364,7 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_m
 
 	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height);
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, cv_vid_scale->value, cv_vid_scale->value ) )
-	{
-		if( rotate & 1 )
-		{
-			int swap = render_w;
-
-			render_w = render_h;
-			render_h = swap;
-		}
-
-		render_h /= cv_vid_scale->value;
-		render_w /= cv_vid_scale->value;
-	}
-	else
-	{
-		Con_Printf( S_WARN "failed to setup screen transform\n" );
-	}
+	VID_SetDisplayTransform( &render_w, &render_h );
 
 	R_SaveVideoMode( width, height, render_w, render_h, true );
 
