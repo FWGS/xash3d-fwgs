@@ -199,13 +199,13 @@ static int Android_GetGLAttribute( int eglAttr )
 
 qboolean  R_Init_Video( const int type )
 {
-	char buf[MAX_VA_STRING];
 	qboolean retval;
+	char buf[10]; // Sys_GetParmFromCmdLine
 
 	if( FS_FileExists( GI->iconpath, true ) )
 	{
-		Q_snprintf( buf, sizeof( buf ), "%s/%s/%s", COM_CheckStringEmpty( host.rodir ) ? host.rodir : host.rootdir, GI->gamefolder, GI->iconpath );
-		Android_SetIcon( buf );
+		// TODO: convert icon to some android-readable format and place
+		Android_SetIcon( FS_GetDiskPath( GI->iconpath, false ));
 	}
 
 	Android_SetTitle( GI->title );
