@@ -22,7 +22,6 @@ GNU General Public License for more details.
 #define VIDEO_FBDEV   3
 #define VIDEO_DOS     4
 
-
 // audio backends (XASH_SOUND)
 #define SOUND_NULL     0
 #define SOUND_SDL      1
@@ -48,7 +47,6 @@ GNU General Public License for more details.
 #define MSGBOX_ANDROID 2
 #define MSGBOX_WIN32   3
 #define MSGBOX_NSWITCH 4
-
 
 // library loading (XASH_LIB)
 #define LIB_NULL 0
