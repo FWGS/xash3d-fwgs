@@ -143,7 +143,6 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	const dsprite_t		*pin;
 	const short		*numi = NULL;
 	const byte	*pframetype;
-	dframetype_t dframetype;
 	msprite_t		*psprite;
 	int		i;
 
