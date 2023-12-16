@@ -72,7 +72,7 @@ const fs_archive_t g_archives[] =
 static const fs_archive_t g_directory_archive =
 { NULL, SEARCHPATH_PLAIN, FS_AddDir_Fullpath, false };
 
-#ifdef XASH_ANDROID
+#if XASH_ANDROID_ASSETS
 static const fs_archive_t g_android_archive =
 { NULL, SEARCHPATH_ANDROID_ASSETS, FS_AddAndroidAssets_Fullpath, false };
 #endif
@@ -406,7 +406,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 
 	stringlistfreecontents( &list );
 
-#ifdef XASH_ANDROID
+#if XASH_ANDROID_ASSETS
 	FS_AddArchive_Fullpath( &g_android_archive, dir, flags );
 #endif
 
@@ -1461,7 +1461,7 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 
 	FS_InitMemory();
 
-#ifdef XASH_ANDROID
+#if XASH_ANDROID_ASSETS
 	FS_InitAndroid();
 #endif
 
