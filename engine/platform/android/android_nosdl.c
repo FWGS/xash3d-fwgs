@@ -499,7 +499,7 @@ DECLARE_JNI_INTERFACE( void, nativeAxis, jint id, jbyte axis, jshort val )
 	event->axis.axis = axis;
 	event->axis.val = val;
 
-	__android_log_print(ANDROID_LOG_VERBOSE, "Xash", "axis %i %i", axis, val );
+	// __android_log_print(ANDROID_LOG_VERBOSE, "Xash", "axis %i %i", axis, val );
 	Android_PushEvent();
 }
 
@@ -510,7 +510,7 @@ DECLARE_JNI_INTERFACE( void, nativeJoyButton, jint id, jbyte button, jboolean do
 	event->arg = id;
 	event->button.button = button;
 	event->button.down = down;
-	__android_log_print(ANDROID_LOG_VERBOSE, "Xash", "button %i", button );
+	 //__android_log_print(ANDROID_LOG_VERBOSE, "Xash", "button %i", button );
 	Android_PushEvent();
 }
 
