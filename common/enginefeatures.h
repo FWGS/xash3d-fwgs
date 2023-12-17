@@ -27,4 +27,16 @@ GNU General Public License for more details.
 #define ENGINE_COMPUTE_STUDIO_LERP	(1<<7)	// enable MOVETYPE_STEP lerping back in engine
 #define ENGINE_LINEAR_GAMMA_SPACE	(1<<8)	// disable influence of gamma/brightness cvars to textures/lightmaps, for mods with custom renderer
 
+// adjust the mask when features will be added or removed
+#define ENGINE_FEATURES_MASK      \
+	( ENGINE_WRITE_LARGE_COORD    \
+	| ENGINE_QUAKE_COMPATIBLE     \
+	| ENGINE_LOAD_DELUXEDATA      \
+	| ENGINE_PHYSICS_PUSHER_EXT   \
+	| ENGINE_LARGE_LIGHTMAPS      \
+	| ENGINE_COMPENSATE_QUAKE_BUG \
+	| ENGINE_IMPROVED_LINETRACE   \
+	| ENGINE_COMPUTE_STUDIO_LERP  \
+	| ENGINE_LINEAR_GAMMA_SPACE   )
+
 #endif//FEATURES_H
