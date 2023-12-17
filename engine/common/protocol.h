@@ -305,6 +305,14 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define MAX_LEGACY_EDICTS (1 << MAX_LEGACY_ENTITY_BITS) // 4096 edicts
 #define MIN_LEGACY_EDICTS 30
 
+// legacy engine features that can be implemented through currently supported features
+#define ENGINE_LEGACY_FEATURES_MASK   \
+	( ENGINE_WRITE_LARGE_COORD    \
+	| ENGINE_LOAD_DELUXEDATA      \
+	| ENGINE_LARGE_LIGHTMAPS      \
+	| ENGINE_COMPENSATE_QUAKE_BUG \
+	| ENGINE_COMPUTE_STUDIO_LERP  )
+
 // Master Server protocol
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
 

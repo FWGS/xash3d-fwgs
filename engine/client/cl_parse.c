@@ -904,7 +904,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	background = MSG_ReadOneBit( msg );
 	Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
 	host.features = (uint)MSG_ReadLong( msg );
-	host.features &= ENGINE_FEATURES_MASK;
+	host.features &= legacy ? ENGINE_LEGACY_FEATURES_MASK : ENGINE_FEATURES_MASK;
 
 	if( !legacy )
 	{
