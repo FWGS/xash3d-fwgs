@@ -906,6 +906,9 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	host.features = (uint)MSG_ReadLong( msg );
 	host.features &= legacy ? ENGINE_LEGACY_FEATURES_MASK : ENGINE_FEATURES_MASK;
 
+	if( !Host_IsLocalGame( ))
+		Host_PrintEngineFeatures();
+
 	if( !legacy )
 	{
 		// receive the player hulls
