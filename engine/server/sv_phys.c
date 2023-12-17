@@ -2140,7 +2140,7 @@ qboolean SV_InitPhysicsAPI( void )
 			{
 				// grab common engine features (it will be shared across the network)
 				host.features = svgame.physFuncs.SV_CheckFeatures() & ENGINE_FEATURES_MASK;
-				Host_PrintEngineFeatures ();
+				Host_PrintEngineFeatures( host.features );
 			}
 			return true;
 		}
