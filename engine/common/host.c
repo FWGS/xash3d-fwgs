@@ -190,22 +190,27 @@ void Host_ShutdownServer( void )
 Host_PrintEngineFeatures
 ================
 */
-void Host_PrintEngineFeatures( void )
+void Host_PrintEngineFeatures( int features )
 {
-	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		Con_Reportf( "^3EXT:^7 big world support enabled\n" );
+	const char *features_str[] =
+	{
+		"Big World Support",
+		"Quake Compatibility",
+		"Deluxemap Support",
+		"Improved MOVETYPE_PUSH",
+		"Large Lightmaps",
+		"Stupid Quake Bug Compensation",
+		"Improved Trace Line",
+		"Studio MOVETYPE_STEP Lerping",
+		"Linear Gamma Space"
+	};
+	int i;
 
-	if( FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ))
-		Con_Reportf( "^3EXT:^7 deluxemap support enabled\n" );
-
-	if( FBitSet( host.features, ENGINE_PHYSICS_PUSHER_EXT ))
-		Con_Reportf( "^3EXT:^7 Improved MOVETYPE_PUSH is used\n" );
-
-	if( FBitSet( host.features, ENGINE_LARGE_LIGHTMAPS ))
-		Con_Reportf( "^3EXT:^7 Large lightmaps enabled\n" );
-
-	if( FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
-		Con_Reportf( "^3EXT:^7 Compensate quake bug enabled\n" );
+	for( i = 0; i < ARRAYSIZE( features_str ); i++ )
+	{
+		if( FBitSet( features, BIT( i )))
+			Con_Reportf( "^3EXT:^7 %s is enabled\n", features_str[i] );
+	}
 }
 
 /*

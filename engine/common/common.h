@@ -552,7 +552,7 @@ qboolean Host_IsLocalGame( void );
 qboolean Host_IsLocalClient( void );
 void Host_ShutdownServer( void );
 void Host_Error( const char *error, ... ) _format( 1 );
-void Host_PrintEngineFeatures( void );
+void Host_PrintEngineFeatures( int features );
 void Host_Frame( float time );
 void Host_InitDecals( void );
 void Host_Credits( void );
