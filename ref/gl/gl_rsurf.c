@@ -2348,11 +2348,14 @@ static void R_SetupVBOArrayDlight( vboarray_t *vbo, texture_t *texture )
 	}
 }
 
+#define SPARSE_DECALS_UPLOAD 0
 
-
-static void R_SetupVBOArrayDecalDlight( void )
+static void R_SetupVBOArrayDecalDlight( int decalcount )
 {
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
+#if !SPARSE_DECALS_UPLOAD
+	pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * DECAL_VERTS_MAX * decalcount, vbos.decal_dlight , GL_STREAM_DRAW_ARB );
+#endif
 	R_SetDecalMode( true );
 	// hack: fix decal dlights on gl_vbo_details == 2 (wrong state??)
 	/*if( mtst.details_enabled && mtst.tmu_dt != -1 )
@@ -2464,7 +2467,7 @@ static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface
 	if( RI.currententity->curstate.rendermode == kRenderTransAlpha )
 		pglDisable( GL_ALPHA_TEST );
 
-	R_SetupVBOArrayDecalDlight();
+	R_SetupVBOArrayDecalDlight( decalcount );
 
 	for( decalsurf = newsurf; ( decali < decalcount ) && (!surf ||( decalsurf != surf )); decalsurf = decalsurf->info->lightmapchain )
 	{
@@ -2502,8 +2505,10 @@ static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface
 
 	}
 
+#if SPARSE_DECALS_UPLOAD
 	if( vbos.decal_dlight_vbo )
 		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), NULL, GL_STREAM_DRAW_ARB );
+#endif
 
 	// restore states pointers for next dynamic lightmap
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
@@ -2550,11 +2555,17 @@ static void R_FlushDlights( vboarray_t *vbo, int min_index, int max_index, int d
 	pglDrawElements( GL_TRIANGLES, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
 }
 
-
 static void R_AddSurfaceDecalsDlight( msurface_t *surf, int *pdecalcount )
 {
 	decal_t *pdecal;
 	int decalcount = *pdecalcount;
+#if SPARSE_DECALS_UPLOAD
+	if( decalcount == 0 )
+	{
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), NULL, GL_STREAM_DRAW_ARB );
+	}
+#endif
 	for( pdecal = surf->pdecals; pdecal; pdecal = pdecal->pnext )
 	{
 		int decalindex = pdecal - &gDecalPool[0];
@@ -2587,11 +2598,13 @@ static void R_AddSurfaceDecalsDlight( msurface_t *surf, int *pdecalcount )
 				vbos.decal_dlight[decalcount * DECAL_VERTS_MAX + i].lm_tc[1] = vbos.decaldata->decalarray[decalindex * DECAL_VERTS_CUT + i].lm_tc[1] - ( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
 			}
 		}
+#if SPARSE_DECALS_UPLOAD
 		if( vbos.dlight_vbo )
 		{
 			pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
 			pglBufferSubDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * decalcount * DECAL_VERTS_MAX, sizeof( vbovertex_t )* numVerts, vbos.decal_dlight + decalcount * DECAL_VERTS_MAX );
 		}
+#endif
 
 		vbos.decal_numverts[decalcount] = numVerts;
 		decalcount++;
