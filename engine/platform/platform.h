@@ -91,6 +91,7 @@ void DOS_Shutdown( void );
 #if XASH_LINUX
 void Linux_Init( void );
 void Linux_Shutdown( void );
+void Linux_SetTimer( float time );
 #endif
 
 static inline void Platform_Init( void )
@@ -180,6 +181,13 @@ void Platform_SetClipboardText( const char *buffer );
 #if !XASH_SDL
 #define SDL_VERSION_ATLEAST( x, y, z ) 0
 #endif
+
+static void Platform_SetTimer( float time )
+{
+#if XASH_LINUX
+	Linux_SetTimer( time );
+#endif
+}
 
 /*
 ==============================================================================
