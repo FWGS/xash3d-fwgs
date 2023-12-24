@@ -549,5 +549,6 @@ void V_PostRender( void )
 
 	SCR_MakeScreenShot();
 	ref.dllFuncs.R_AllowFog( true );
+	Platform_SetTimer( 0.0f );
 	ref.dllFuncs.R_EndFrame();
 }

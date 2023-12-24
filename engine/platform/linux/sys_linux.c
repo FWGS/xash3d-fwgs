@@ -17,6 +17,10 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include <fcntl.h>
 #include <dlfcn.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <time.h>
+#include <unistd.h>
 #include "platform/platform.h"
 
 static void *g_hsystemd;
@@ -101,5 +105,46 @@ void Linux_Shutdown( void )
 	{
 		dlclose( g_hsystemd );
 		g_hsystemd = NULL;
+	}
+}
+
+static void Linux_TimerHandler( int sig, siginfo_t *si, void *uc )
+{
+	timer_t  *tidp = si->si_value.sival_ptr;
+	int overrun = timer_getoverrun( *tidp );
+	Con_Printf( "Frame too long (overrun %d)!\n", overrun );
+}
+
+#define DEBUG_TIMER_SIGNAL SIGRTMIN
+
+void Linux_SetTimer( float tm )
+{
+	static timer_t timerid;
+
+	if( !timerid && tm )
+	{
+		struct sigevent    sev = { 0 };
+		struct sigaction   sa = { 0 };
+
+		sa.sa_flags = SA_SIGINFO;
+		sa.sa_sigaction = Linux_TimerHandler;
+		sigaction( DEBUG_TIMER_SIGNAL, &sa, NULL );
+		// this path availiable in POSIX, but may signal wrong thread...
+		// sev.sigev_notify = SIGEV_SIGNAL;
+		sev.sigev_notify = SIGEV_THREAD_ID;
+		sev._sigev_un._tid  = gettid();
+		sev.sigev_signo = DEBUG_TIMER_SIGNAL;
+		sev.sigev_value.sival_ptr = &timerid;
+		timer_create( CLOCK_REALTIME, &sev, &timerid );
+	}
+
+	if( timerid )
+	{
+		struct itimerspec  its = {0};
+		its.it_value.tv_sec = tm;
+		its.it_value.tv_nsec = 1000000000ULL * fmod( tm, 1.0f );
+		its.it_interval.tv_sec = 0;
+		its.it_interval.tv_nsec = 0;
+		timer_settime( timerid, 0, &its, NULL );
 	}
 }
