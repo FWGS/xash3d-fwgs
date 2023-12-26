@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <ucontext.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 #include "platform/platform.h"
 
 static void *g_hsystemd;
