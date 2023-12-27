@@ -121,7 +121,7 @@ typedef uint64_t longtime_t;
 	#define likely(x)   (x)
 #endif
 
-#if defined( static_assert ) // C11 static_assert
+#if __STDC_VERSION__ >= 201112L || __cplusplus >= 201103L // C11 static_assert
 #define STATIC_ASSERT static_assert
 #else
 #define STATIC_ASSERT( x, y ) extern int _static_assert_##__LINE__[( x ) ? 1 : -1]
