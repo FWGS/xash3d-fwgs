@@ -37,8 +37,6 @@ def options(opt):
 def configure(conf):
 	# check for dedicated server build
 	if conf.options.DEDICATED:
-		if conf.env.DEST_OS == 'linux':
-			conf.check_cc(lib='rt')
 		conf.define('XASH_DEDICATED', 1)
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.STATIC = True
@@ -73,12 +71,9 @@ def configure(conf):
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
 		conf.check_cc( lib = 'asound' )
-		conf.check_cc( lib = 'rt' )
 	elif conf.options.SDL12:
 		conf.define('XASH_SDL', 12)
 		conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL2' )
-		if conf.env.DEST_OS == 'linux':
-			conf.check_cc( lib='rt' )
 		conf.env.HAVE_SDL2 = True
 	else:
 		conf.load('sdl2')
@@ -96,6 +91,9 @@ def configure(conf):
 
 	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
 		conf.check_pthreads()
+
+	if conf.env.DEST_OS == 'linux':
+		conf.check_cc(lib='rt')
 
 	if hasattr(conf.options, 'DLLEMU'):
 		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
