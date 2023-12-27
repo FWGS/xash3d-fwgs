@@ -1337,7 +1337,7 @@ static void R_AliasSetupTimings( void )
 	else
 	{
 		// menu stuff
-		g_alias.time = gpGlobals->realtime;
+		g_alias.time = gp_host->realtime;
 	}
 
 	m_fDoRemap = false;
