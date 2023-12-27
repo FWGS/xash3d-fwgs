@@ -1332,7 +1332,7 @@ static void R_AliasSetupTimings( void )
 	if( RI.drawWorld )
 	{
 		// synchronize with server time
-		g_alias.time = gpGlobals->time;
+		g_alias.time = gp_cl->time;
 	}
 	else
 	{
