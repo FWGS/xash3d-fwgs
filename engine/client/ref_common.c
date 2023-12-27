@@ -67,18 +67,8 @@ void GAME_EXPORT GL_FreeImage( const char *name )
 		 ref.dllFuncs.GL_FreeTexture( texnum );
 }
 
-void R_UpdateRefState( void )
-{
-	refState.time      = cl.time;
-	refState.oldtime   = cl.oldtime;
-	refState.realtime  = host.realtime;
-	refState.frametime = host.frametime;
-}
-
 void GL_RenderFrame( const ref_viewpass_t *rvp )
 {
-	R_UpdateRefState();
-
 	VectorCopy( rvp->vieworigin, refState.vieworg );
 	VectorCopy( rvp->viewangles, refState.viewangles );
 
@@ -88,11 +78,6 @@ void GL_RenderFrame( const ref_viewpass_t *rvp )
 static intptr_t pfnEngineGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
-}
-
-static world_static_t *pfnGetWorld( void )
-{
-	return &world;
 }
 
 static void pfnStudioEvent( const mstudioevent_t *event, const cl_entity_t *e )
@@ -122,16 +107,6 @@ static void *pfnMod_Extradata( int type, model_t *m )
 	default: Host_Error( "Mod_Extradata: unknown type %d\n", type );
 	}
 	return NULL;
-}
-
-static void pfnGetPredictedOrigin( vec3_t v )
-{
-	VectorCopy( cl.simorg, v );
-}
-
-static color24 *pfnCL_GetPaletteColor( void ) // clgame.palette[color]
-{
-	return clgame.palette;
 }
 
 static void pfnCL_GetScreenInfo( int *width, int *height ) // clgame.scrInfo, ptrs may be NULL
@@ -232,11 +207,6 @@ static qboolean R_Init_Video_( const int type )
 	return R_Init_Video( type );
 }
 
-static model_t **pfnGetModels( void )
-{
-	return cl.models;
-}
-
 static ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
@@ -271,14 +241,12 @@ static ref_api_t gEngfuncs =
 	Con_DrawString,
 	CL_DrawCenterPrint,
 
-	CL_GetViewModel,
 	R_BeamGetEntity,
 	CL_GetWaterEntity,
 	CL_AddVisibleEntity,
 
 	Mod_SampleSizeForFace,
 	Mod_BoxVisible,
-	pfnGetWorld,
 	Mod_PointInLeaf,
 	Mod_CreatePolygonsForHull,
 
@@ -295,7 +263,6 @@ static ref_api_t gEngfuncs =
 
 	Mod_ForName,
 	pfnMod_Extradata,
-	pfnGetModels,
 
 	CL_EntitySetRemapColors,
 	CL_GetRemapInfoForEntity,
@@ -306,8 +273,6 @@ static ref_api_t gEngfuncs =
 	COM_RandomFloat,
 	COM_RandomLong,
 	pfnRefGetScreenFade,
-	pfnGetPredictedOrigin,
-	pfnCL_GetPaletteColor,
 	pfnCL_GetScreenInfo,
 	pfnSetLocalLightLevel,
 	Sys_CheckParm,
@@ -357,7 +322,6 @@ static ref_api_t gEngfuncs =
 	PM_CL_TraceLine,
 	CL_VisTraceLine,
 	CL_TraceLine,
-	pfnGetMoveVars,
 
 	Image_AddCmdFlags,
 	Image_SetForceFlags,
