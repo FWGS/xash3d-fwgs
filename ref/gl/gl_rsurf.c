@@ -1724,6 +1724,9 @@ typedef unsigned int vboindex_t;
 #define GL_VBOINDEX_TYPE GL_UNSIGNED_INT
 #endif
 
+#define NEW_DLIGHTS
+
+
 // store indexes for each texture
 typedef struct vbotexture_s
 {
@@ -1785,7 +1788,11 @@ struct vbo_static_s
 
 	// separate areay for dlights (build during draw)
 	vboindex_t *dlight_index; // array
+#ifdef NEW_DLIGHTS
+	vbovertex_t *dlight_arr; // array
+#else
 	vec2_t *dlight_tc; // array
+#endif
 	unsigned int dlight_vbo;
 	vbovertex_t decal_dlight[MAX_RENDER_DECALS * DECAL_VERTS_MAX];
 	unsigned int decal_dlight_vbo;
@@ -2049,15 +2056,21 @@ void R_GenerateVBO( void )
 
 	// preallocate dlight arrays
 	vbos.dlight_index = Mem_Calloc( vbos.mempool, maxindex * sizeof( *vbos.dlight_index ) * 6 );
-
+#ifdef NEW_DLIGHTS
+	vbos.dlight_arr = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * (int)( vbos.arraylist->next ? VBOINDEX_MAX + 1 : vbos.arraylist->array_len + 1 ));
+#else
 	// select maximum possible length for dlight
 	vbos.dlight_tc = Mem_Calloc( vbos.mempool, sizeof( vec2_t ) * (int)( vbos.arraylist->next ? VBOINDEX_MAX + 1 : vbos.arraylist->array_len + 1 ));
-
+#endif
 	if( r_vbo_dlightmode.value )
 	{
 		pglGenBuffersARB( 1, &vbos.dlight_vbo );
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+#ifdef NEW_DLIGHTS
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * (int)( vbos.arraylist->next ? VBOINDEX_MAX + 1 : vbos.arraylist->array_len + 1 ), NULL, GL_STREAM_DRAW_ARB );
+#else
 		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t ) * (int)( vbos.arraylist->next ? VBOINDEX_MAX + 1 : vbos.arraylist->array_len + 1 ), NULL, GL_STREAM_DRAW_ARB );
+#endif
 		pglGenBuffersARB( 1, &vbos.decal_dlight_vbo );
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
 		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), NULL, GL_STREAM_DRAW_ARB );
@@ -2277,8 +2290,10 @@ void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean dra
 	{
 		// bind array
 		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
+#ifndef NEW_DLIGHTS
 		// dlights use same vertex array
 		if( vboarray.astate != VBO_ARRAY_DLIGHT )
+#endif
 		{
 
 			pglEnableClientState( GL_VERTEX_ARRAY );
@@ -2315,7 +2330,32 @@ void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean dra
 }
 
 
+#ifdef NEW_DLIGHTS
+static void R_SetupVBOArrayDlight( vboarray_t *vbo, texture_t *texture )
+{
+	if( vboarray.astate != VBO_ARRAY_DLIGHT )
+	{
+		char *arr_start = (char*)( vbos.dlight_vbo ? NULL : vbos.dlight_arr );
 
+		// bind array
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+		pglEnableClientState( GL_VERTEX_ARRAY );
+		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ), (void*)(arr_start + offsetof(vbovertex_t,pos)));
+
+		R_SetupVBOTexture( texture, vboarray.itexture );
+		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)(arr_start + offsetof(vbovertex_t, gl_tc )));
+		vboarray.tstate = VBO_TEXTURE_NONE;
+
+		GL_Bind( mtst.tmu_lm, tr.dlightTexture );
+		vboarray.lstate = VBO_LIGHTMAP_DYNAMIC;
+
+		// replace lightmap texcoord array by dlight array
+		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)(arr_start + offsetof(vbovertex_t, lm_tc )));
+
+		vboarray.astate = VBO_ARRAY_DLIGHT;
+	}
+}
+#else
 static void R_SetupVBOArrayDlight( vboarray_t *vbo, texture_t *texture )
 {
 
@@ -2347,14 +2387,15 @@ static void R_SetupVBOArrayDlight( vboarray_t *vbo, texture_t *texture )
 		vboarray.astate = VBO_ARRAY_DLIGHT;
 	}
 }
-
+#endif
 #define SPARSE_DECALS_UPLOAD 0
 
 static void R_SetupVBOArrayDecalDlight( int decalcount )
 {
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
 #if !SPARSE_DECALS_UPLOAD
-	pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * DECAL_VERTS_MAX * decalcount, vbos.decal_dlight , GL_STREAM_DRAW_ARB );
+	if( vbos.decal_dlight_vbo )
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * DECAL_VERTS_MAX * decalcount, vbos.decal_dlight , GL_STREAM_DRAW_ARB );
 #endif
 	R_SetDecalMode( true );
 	// hack: fix decal dlights on gl_vbo_details == 2 (wrong state??)
@@ -2382,7 +2423,6 @@ static void R_SetupVBOArrayDecalDlight( int decalcount )
 	vboarray.lstate = VBO_LIGHTMAP_DYNAMIC;
 }
 
-
 /*
 ===================
 R_AdditionalPasses
@@ -2408,11 +2448,11 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 		pglEnable( GL_BLEND );
 		pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL );
-
+#ifndef NEW_DLIGHTS
 		// when drawing dlights, we need to bind array and unbind it again
 		if( resetvbo )
 			pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
-
+#endif
 		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ), (void*)(offset + offsetof( vbovertex_t, gl_tc )));
 
 		// apply scale
@@ -2449,7 +2489,6 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 			R_SetupVBOArrayStatic( vbo, true, true );
 	}
 }
-
 
 #define MINIMIZE_UPLOAD
 #define DISCARD_DLIGHTS
@@ -2520,40 +2559,6 @@ static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface
 	R_SetDecalMode( false );
 }
 
-static void R_FlushDlights( vboarray_t *vbo, int min_index, int max_index, int dlightindex, vboindex_t *dlightarray )
-{
-	if( max_index == 0 )
-		return;
-	if( vbos.dlight_vbo )
-	{
-#ifndef MINIMIZE_UPLOAD
-		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
-		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
-#endif
-		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
-		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index* sizeof( vbovertex_t ) + offsetof(vbovertex_t,pos)) );
-		GL_SelectTexture( mtst.tmu_gl );
-		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
-		if( mtst.details_enabled && mtst.tmu_dt != -1 )
-		{
-			GL_SelectTexture( mtst.tmu_dt );
-			pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
-		}
-
-	}
-	//GL_SelectTexture( mtst.tmu_lm );
-	GL_Bind( mtst.tmu_lm, tr.dlightTexture );
-#ifdef DISCARD_DLIGHTS
-	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
-#endif
-	LM_UploadDynamicBlock();
-#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-	if( pglDrawRangeElements )
-		pglDrawRangeElements( GL_TRIANGLES, min_index, max_index, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
-	else
-#endif
-	pglDrawElements( GL_TRIANGLES, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
-}
 
 static void R_AddSurfaceDecalsDlight( msurface_t *surf, int *pdecalcount )
 {
@@ -2611,6 +2616,209 @@ static void R_AddSurfaceDecalsDlight( msurface_t *surf, int *pdecalcount )
 	}
 	*pdecalcount = decalcount;
 }
+
+
+#ifdef NEW_DLIGHTS
+static void R_FlushDlights( vboarray_t *vbo, int dlightindex, vboindex_t *dlightarray, unsigned int array_len )
+{
+	if( vbos.dlight_vbo )
+	{
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t )* array_len, vbos.dlight_arr, GL_STREAM_DRAW_ARB );
+		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,pos)));
+		GL_SelectTexture( mtst.tmu_gl );
+		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,gl_tc)));
+		if( mtst.details_enabled && mtst.tmu_dt != -1 )
+		{
+			GL_SelectTexture( mtst.tmu_dt );
+			pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,gl_tc)));
+		}
+
+	}
+	//GL_SelectTexture( mtst.tmu_lm );
+	GL_Bind( mtst.tmu_lm, tr.dlightTexture );
+#ifdef DISCARD_DLIGHTS
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+#endif
+	LM_UploadDynamicBlock();
+	if( vbos.dlight_vbo )
+	{
+		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,lm_tc)));
+	}
+#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
+	if( pglDrawRangeElements )
+		pglDrawRangeElements( GL_TRIANGLES, 0, array_len, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
+	else
+#endif
+	pglDrawElements( GL_TRIANGLES, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
+}
+
+
+static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *texture, int lightmap )
+{
+	// draw dlights and dlighted decals
+	if( vbotex->dlightchain )
+	{
+		vboindex_t *dlightarray = vbos.dlight_index; // preallocated array
+		unsigned int dlightindex = 0;
+		msurface_t *surf, *newsurf;
+		int decalcount = 0;
+		uint indexbase = 0;
+
+		R_SetupVBOArrayDlight( vbo, texture );
+
+		// clear the block
+		LM_InitBlock();
+
+
+		// accumulate indexes for every dlighted surface until dlight block full
+		for( surf = newsurf = vbotex->dlightchain; surf; surf = surf->info->lightmapchain )
+		{
+			int	smax, tmax;
+			byte	*base;
+			const uint surfindex = surf - WORLDMODEL->surfaces;
+			const int startindex = vbos.surfdata[surfindex].startindex;
+			uint index;
+			mextrasurf_t *info; // this stores current dlight offset
+			int sample_size;
+
+			info = surf->info;
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+			smax = ( info->lightextents[0] / sample_size ) + 1;
+			tmax = ( info->lightextents[1] / sample_size ) + 1;
+
+
+			// find space for this surface and get offsets
+			if( LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
+			{
+				base = gl_lms.lightmap_buffer;
+				base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
+
+				R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
+			}
+			else
+			{
+
+
+				// out of free block space. Draw all generated index array and clear it
+				// upload already generated block
+				R_FlushDlights( vbo, dlightindex, dlightarray, indexbase );
+				indexbase = 0;
+
+				R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, 0 );
+
+				// draw decals that lighted with this lightmap
+				if( decalcount )
+					R_DrawDlightedDecals( vbo, newsurf, surf, decalcount, texture );
+				decalcount = 0;
+				R_SetupVBOArrayDlight( vbo, texture );
+
+				// clear the block
+				LM_InitBlock();
+				dlightindex = 0;
+
+				// try upload the block now
+				if( !LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
+					gEngfuncs.Host_Error( "AllocBlock: full\n" );
+
+				base = gl_lms.lightmap_buffer;
+				base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
+
+				R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
+			}
+
+			// build index and texcoords arrays
+			vbos.dlight_arr[indexbase].lm_tc[0] = surf->polys->verts[0][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
+			vbos.dlight_arr[indexbase].lm_tc[1] = surf->polys->verts[0][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
+			vbos.dlight_arr[indexbase + 1].lm_tc[0] = surf->polys->verts[1][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
+			vbos.dlight_arr[indexbase + 1].lm_tc[1] = surf->polys->verts[1][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
+
+			// copy array from static
+			Vector2Copy( vbo->array[startindex].gl_tc, vbos.dlight_arr[indexbase].gl_tc );
+			VectorCopy( vbo->array[startindex].pos, vbos.dlight_arr[indexbase].pos );
+			Vector2Copy( vbo->array[startindex + 1].gl_tc, vbos.dlight_arr[indexbase + 1].gl_tc );
+			VectorCopy( vbo->array[startindex + 1].pos, vbos.dlight_arr[indexbase + 1].pos );
+
+			for( index = 2; index < surf->polys->numverts; index++ )
+			{
+				dlightarray[dlightindex++] = indexbase;
+				dlightarray[dlightindex++] = indexbase + index - 1;
+				dlightarray[dlightindex++] = indexbase + index;
+				vbos.dlight_arr[indexbase + index].lm_tc[0] = surf->polys->verts[index][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
+				vbos.dlight_arr[indexbase + index].lm_tc[1] = surf->polys->verts[index][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
+				Vector2Copy( vbo->array[startindex + index].gl_tc, vbos.dlight_arr[indexbase + index].gl_tc );
+				VectorCopy( vbo->array[startindex + index].pos, vbos.dlight_arr[indexbase + index].pos );
+			}
+
+			indexbase += index;
+			// if surface has decals, build decal array
+			R_AddSurfaceDecalsDlight( surf, &decalcount );
+			//info->dlight_s = info->dlight_t = 0;
+		}
+
+		if( dlightindex )
+		{
+			R_FlushDlights( vbo, dlightindex, dlightarray, indexbase );
+			R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, 0);
+
+			// draw remaining decals
+			if( decalcount )
+			{
+				R_DrawDlightedDecals( vbo, newsurf, NULL, decalcount, texture );
+			}
+		}
+
+		if( vbos.dlight_vbo )
+		{
+			// invalidate state to reset vertex array offset
+			vboarray.astate = VBO_ARRAY_NONE;
+			vboarray.tstate = VBO_TEXTURE_NONE;
+			vboarray.lstate = VBO_LIGHTMAP_NONE;
+		}
+		R_SetupVBOArrayStatic( vbo, true, true );
+		R_SetupVBOTexture( texture, vboarray.itexture );
+
+		// prepare to next frame
+		vbotex->dlightchain = NULL;
+	}
+}
+
+#else
+static void R_FlushDlights( vboarray_t *vbo, int min_index, int max_index, int dlightindex, vboindex_t *dlightarray )
+{
+	if( max_index == 0 )
+		return;
+	if( vbos.dlight_vbo )
+	{
+#ifndef MINIMIZE_UPLOAD
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vec2_t )* (max_index - min_index), vbos.dlight_tc + min_index, GL_STREAM_DRAW_ARB );
+#endif
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbo->glindex );
+		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index* sizeof( vbovertex_t ) + offsetof(vbovertex_t,pos)) );
+		GL_SelectTexture( mtst.tmu_gl );
+		pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
+		if( mtst.details_enabled && mtst.tmu_dt != -1 )
+		{
+			GL_SelectTexture( mtst.tmu_dt );
+			pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(min_index * sizeof( vbovertex_t ) + offsetof(vbovertex_t,gl_tc)) );
+		}
+
+	}
+	//GL_SelectTexture( mtst.tmu_lm );
+	GL_Bind( mtst.tmu_lm, tr.dlightTexture );
+#ifdef DISCARD_DLIGHTS
+	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, BLOCK_SIZE, BLOCK_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+#endif
+	LM_UploadDynamicBlock();
+#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
+	if( pglDrawRangeElements )
+		pglDrawRangeElements( GL_TRIANGLES, min_index, max_index, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
+	else
+#endif
+	pglDrawElements( GL_TRIANGLES, dlightindex, GL_VBOINDEX_TYPE, dlightarray );
+}
+
 
 
 static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *texture, int lightmap )
@@ -2777,8 +2985,7 @@ static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *
 		vbotex->dlightchain = NULL;
 	}
 }
-
-
+#endif
 
 /*
 =====================
