@@ -950,7 +950,7 @@ void R_RenderWorld (void)
 
 	// auto cycle the world frame for texture animation
 	RI.currententity = CL_GetEntityByIndex(0);
-	//RI.currententity->frame = (int)(gpGlobals->time*2);
+	//RI.currententity->frame = (int)(gp_cl->time*2);
 
 	VectorCopy (RI.vieworg, tr.modelorg);
 	RI.currentmodel = WORLDMODEL;
