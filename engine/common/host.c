@@ -1342,6 +1342,8 @@ Host_Shutdown
 */
 void EXPORT Host_Shutdown( void )
 {
+	qboolean error = host.status == HOST_ERR_FATAL;
+
 	if( host.shutdown_issued ) return;
 	host.shutdown_issued = true;
 
@@ -1349,7 +1351,7 @@ void EXPORT Host_Shutdown( void )
 	if( !host.change_game ) Q_strncpy( host.finalmsg, "Server shutdown", sizeof( host.finalmsg ));
 
 #if !XASH_DEDICATED
-	if( host.type == HOST_NORMAL && host.status != HOST_ERR_FATAL )
+	if( host.type == HOST_NORMAL && !error )
 		Host_WriteConfig();
 #endif
 
