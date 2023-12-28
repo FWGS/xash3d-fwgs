@@ -163,8 +163,8 @@ static void R_StudioSetupTimings( void )
 	if( RI.drawWorld )
 	{
 		// synchronize with server time
-		g_studio.time = gpGlobals->time;
-		g_studio.frametime = gpGlobals->time -   gpGlobals->oldtime;
+		g_studio.time = gp_cl->time;
+		g_studio.frametime = gp_cl->time -   gp_cl->oldtime;
 	}
 	else
 	{
@@ -413,8 +413,8 @@ pfnGetEngineTimes
 static void pfnGetEngineTimes( int *framecount, double *current, double *old )
 {
 	if( framecount ) *framecount = tr.realframecount;
-	if( current ) *current = gpGlobals->time;
-	if( old ) *old =   gpGlobals->oldtime;
+	if( current ) *current = gp_cl->time;
+	if( old ) *old =   gp_cl->oldtime;
 }
 
 /*
@@ -2516,7 +2516,7 @@ static void R_StudioClientEvents( void )
 
 		ClearBits( e->curstate.effects, EF_MUZZLEFLASH );
 		VectorCopy( e->attachment[0], el->origin );
-		el->die = gpGlobals->time + 0.05f;
+		el->die = gp_cl->time + 0.05f;
 		el->color.r = 255;
 		el->color.g = 192;
 		el->color.b = 64;

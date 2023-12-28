@@ -86,7 +86,7 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			p->color = bound( 0, p->color, 255 );
 			color = tr.palette[p->color];
 
-			alpha = 255 * (p->die - gpGlobals->time) * 16.0f;
+			alpha = 255 * (p->die - gp_cl->time) * 16.0f;
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
@@ -200,7 +200,7 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 
 	for( p = cl_active_tracers; p; p = p->next )
 	{
-		atten = (p->die - gpGlobals->time);
+		atten = (p->die - gp_cl->time);
 		if( atten > 0.1f ) atten = 0.1f;
 
 		VectorScale( p->vel, ( p->ramp * atten ), delta );
@@ -268,7 +268,7 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			p->vel[1] *= scale;
 			p->vel[2] -= gravity;
 
-			p->packedColor = 255 * (p->die - gpGlobals->time) * 2;
+			p->packedColor = 255 * (p->die - gp_cl->time) * 2;
 			if( p->packedColor > 255 ) p->packedColor = 255;
 		}
 		else if( p->type == pt_slowgrav )

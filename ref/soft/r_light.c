@@ -39,7 +39,7 @@ void GAME_EXPORT CL_RunLightStyles( void )
 {
 	int		i, k, flight, clight;
 	float		l, lerpfrac, backlerp;
-	float		frametime = (gpGlobals->time -   gpGlobals->oldtime);
+	float		frametime = (gp_cl->time -   gp_cl->oldtime);
 	float		scale;
 	lightstyle_t	*ls;
 
@@ -163,7 +163,7 @@ void R_PushDlights( void )
 	{
 		l = gEngfuncs.GetDynamicLight( i );
 
-		if( l->die < gpGlobals->time || !l->radius )
+		if( l->die < gp_cl->time || !l->radius )
 			continue;
 
 		//if( GL_FrustumCullSphere( &RI.frustum, l->origin, l->radius, 15 ))

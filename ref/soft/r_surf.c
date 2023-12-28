@@ -401,7 +401,7 @@ texture_t *R_TextureAnim( texture_t *b )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
+		reletive = (int)(gp_cl->time * speed) % base->anim_total;
 	}
 
 
@@ -455,7 +455,7 @@ texture_t *R_TextureAnimation( msurface_t *s )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
+		reletive = (int)(gp_cl->time * speed) % base->anim_total;
 	}
 
 	count = 0;
