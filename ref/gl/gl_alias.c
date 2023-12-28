@@ -765,7 +765,7 @@ similar to R_StudioDynamicLight
 */
 void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 {
-	movevars_t	*mv = gEngfuncs.pfnGetMoveVars();
+	movevars_t	*mv = tr.movevars;
 	vec3_t		lightDir, vecSrc, vecEnd;
 	vec3_t		origin, dist, finalLight;
 	float		add, radius, total;
