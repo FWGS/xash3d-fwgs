@@ -17,6 +17,8 @@ GNU General Public License for more details.
 
 ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
+ref_client_t  *gp_cl;
+ref_host_t    *gp_host;
 gl_globals_t tr;
 ref_speeds_t r_stats;
 poolhandle_t r_temppool;
@@ -563,6 +565,9 @@ int EXPORT GAME_EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t
 	memcpy( funcs, &gReffuncs, sizeof( ref_interface_t ));
 	memcpy( &gEngfuncs, engfuncs, sizeof( ref_api_t ));
 	gpGlobals = globals;
+
+	gp_cl = (ref_client_t *)ENGINE_GET_PARM( PARM_GET_CLIENT_PTR );
+	gp_host = (ref_host_t *)ENGINE_GET_PARM( PARM_GET_HOST_PTR );
 
 	return REF_API_VERSION;
 }

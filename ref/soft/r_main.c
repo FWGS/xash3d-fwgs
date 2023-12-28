@@ -1939,10 +1939,9 @@ qboolean GAME_EXPORT R_Init( void )
 	}
 
 	// see R_ProcessEntData for tr.entities initialization
-	tr.models = gEngfuncs.pfnGetModels();
-	tr.movevars = gEngfuncs.pfnGetMoveVars();
-	tr.palette = gEngfuncs.CL_GetPaletteColor();
-	tr.viewent = gEngfuncs.GetViewModel();
+	tr.movevars = (movevars_t *)ENGINE_GET_PARM( PARM_GET_MOVEVARS_PTR );
+	tr.palette = (color24 *)ENGINE_GET_PARM( PARM_GET_PALETTE_PTR );
+	tr.viewent = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
 
 	R_InitBlit( glblit );
 
