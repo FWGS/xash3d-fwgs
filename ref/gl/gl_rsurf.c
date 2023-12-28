@@ -3819,7 +3819,7 @@ void GL_BuildLightmaps( void )
 
 	// update the lightmap blocksize
 	if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_LARGE_LIGHTMAPS )
-		|| ENGINE_GET_PARM( PARM_WORLD_VERSION ) == QBSP2_VERSION )
+		|| tr.world->version == QBSP2_VERSION )
 		tr.block_size = BLOCK_SIZE_MAX;
 	else tr.block_size = BLOCK_SIZE_DEFAULT;
 
