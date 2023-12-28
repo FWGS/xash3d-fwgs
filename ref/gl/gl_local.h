@@ -258,7 +258,6 @@ typedef struct
 	struct world_static_s *world;
 	cl_entity_t *entities;
 	movevars_t *movevars;
-	model_t **models;
 	color24 *palette;
 	cl_entity_t *viewent;
 
@@ -725,6 +724,8 @@ extern glstate_t		glState;
 extern glwstate_t		glw_state;
 extern ref_api_t      gEngfuncs;
 extern ref_globals_t *gpGlobals;
+extern ref_client_t  *gp_cl;
+extern ref_host_t    *gp_host;
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( ( parm ), 0 )
@@ -739,10 +740,10 @@ static inline cl_entity_t *CL_GetEntityByIndex( int index )
 
 static inline model_t *CL_ModelHandle( int index )
 {
-	return tr.models[index];
+	return gp_cl->models[index];
 }
 
-#define WORLDMODEL (tr.models[1])
+#define WORLDMODEL (gp_cl->models[1])
 
 //
 // renderer cvars
