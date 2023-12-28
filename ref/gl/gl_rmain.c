@@ -339,8 +339,8 @@ void R_SetupFrustum( void )
 
 	if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ) && ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 	{
-		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97f + sin( gpGlobals->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
-		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03f - sin( gpGlobals->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97f + sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03f - sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
 	}
 
 	// build the transformation matrix for the given view angles
@@ -954,7 +954,7 @@ void R_RenderScene( void )
 
 	// frametime is valid only for normal pass
 	if( RP_NORMALPASS( ))
-		tr.frametime = gpGlobals->time -   gpGlobals->oldtime;
+		tr.frametime = gp_cl->time -   gp_cl->oldtime;
 	else tr.frametime = 0.0;
 
 	// begin a new frame
@@ -1181,16 +1181,16 @@ int CL_FxBlend( cl_entity_t *e )
 	switch( e->curstate.renderfx )
 	{
 	case kRenderFxPulseSlowWide:
-		blend = e->curstate.renderamt + 0x40 * sin( gpGlobals->time * 2 + offset );
+		blend = e->curstate.renderamt + 0x40 * sin( gp_cl->time * 2 + offset );
 		break;
 	case kRenderFxPulseFastWide:
-		blend = e->curstate.renderamt + 0x40 * sin( gpGlobals->time * 8 + offset );
+		blend = e->curstate.renderamt + 0x40 * sin( gp_cl->time * 8 + offset );
 		break;
 	case kRenderFxPulseSlow:
-		blend = e->curstate.renderamt + 0x10 * sin( gpGlobals->time * 2 + offset );
+		blend = e->curstate.renderamt + 0x10 * sin( gp_cl->time * 2 + offset );
 		break;
 	case kRenderFxPulseFast:
-		blend = e->curstate.renderamt + 0x10 * sin( gpGlobals->time * 8 + offset );
+		blend = e->curstate.renderamt + 0x10 * sin( gp_cl->time * 8 + offset );
 		break;
 	case kRenderFxFadeSlow:
 		if( RP_NORMALPASS( ))
@@ -1229,27 +1229,27 @@ int CL_FxBlend( cl_entity_t *e )
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxStrobeSlow:
-		blend = 20 * sin( gpGlobals->time * 4 + offset );
+		blend = 20 * sin( gp_cl->time * 4 + offset );
 		if( blend < 0 ) blend = 0;
 		else blend = e->curstate.renderamt;
 		break;
 	case kRenderFxStrobeFast:
-		blend = 20 * sin( gpGlobals->time * 16 + offset );
+		blend = 20 * sin( gp_cl->time * 16 + offset );
 		if( blend < 0 ) blend = 0;
 		else blend = e->curstate.renderamt;
 		break;
 	case kRenderFxStrobeFaster:
-		blend = 20 * sin( gpGlobals->time * 36 + offset );
+		blend = 20 * sin( gp_cl->time * 36 + offset );
 		if( blend < 0 ) blend = 0;
 		else blend = e->curstate.renderamt;
 		break;
 	case kRenderFxFlickerSlow:
-		blend = 20 * (sin( gpGlobals->time * 2 ) + sin( gpGlobals->time * 17 + offset ));
+		blend = 20 * (sin( gp_cl->time * 2 ) + sin( gp_cl->time * 17 + offset ));
 		if( blend < 0 ) blend = 0;
 		else blend = e->curstate.renderamt;
 		break;
 	case kRenderFxFlickerFast:
-		blend = 20 * (sin( gpGlobals->time * 16 ) + sin( gpGlobals->time * 23 + offset ));
+		blend = 20 * (sin( gp_cl->time * 16 ) + sin( gp_cl->time * 23 + offset ));
 		if( blend < 0 ) blend = 0;
 		else blend = e->curstate.renderamt;
 		break;

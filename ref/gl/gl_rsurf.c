@@ -408,7 +408,7 @@ texture_t *R_TextureAnim( texture_t *b )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
+		reletive = (int)(gp_cl->time * speed) % base->anim_total;
 	}
 
 
@@ -500,7 +500,7 @@ texture_t *R_TextureAnimation( msurface_t *s )
 			speed = 10;
 		else speed = 20;
 
-		reletive = (int)(gpGlobals->time * speed) % base->anim_total;
+		reletive = (int)(gp_cl->time * speed) % base->anim_total;
 	}
 
 	count = 0;
@@ -828,8 +828,8 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		flAngle = ( flConveyorSpeed >= 0 ) ? 180 : 0;
 
 		SinCos( flAngle * ( M_PI_F / 180.0f ), &sy, &cy );
-		sOffset = gpGlobals->time * cy * flRate;
-		tOffset = gpGlobals->time * sy * flRate;
+		sOffset = gp_cl->time * cy * flRate;
+		tOffset = gp_cl->time * sy * flRate;
 
 		// make sure that we are positive
 		if( sOffset < 0.0f ) sOffset += 1.0f + -(int)sOffset;
@@ -1601,7 +1601,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	{
 		l = gEngfuncs.GetDynamicLight( k );
 
-		if( l->die < gpGlobals->time || !l->radius )
+		if( l->die < gp_cl->time || !l->radius )
 			continue;
 
 		VectorCopy( l->origin, oldorigin ); // save lightorigin
