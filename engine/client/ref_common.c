@@ -18,6 +18,31 @@ CVAR_DEFINE_AUTO( r_showtree, "0", FCVAR_ARCHIVE, "build the graph of visible BS
 static CVAR_DEFINE_AUTO( r_refdll, "", FCVAR_RENDERINFO, "choose renderer implementation, if supported" );
 static CVAR_DEFINE_AUTO( r_refdll_loaded, "", FCVAR_READ_ONLY, "currently loaded renderer" );
 
+// there is no need to expose whole host and cl structs into the renderer
+// but we still need to update timings accurately as possible
+// this looks horrible but the only other option would be passing four
+// time pointers and then it's looks even worse with dereferences everywhere
+#define STATIC_OFFSET_CHECK( s1, s2, field, base, msg ) \
+	STATIC_ASSERT( offsetof( s1, field ) == offsetof( s2, field ) - offsetof( s2, base ), msg )
+#define REF_CLIENT_CHECK( field ) \
+	STATIC_OFFSET_CHECK( ref_client_t, client_t, field, time, "broken ref_client_t offset" ); \
+	STATIC_ASSERT_( szchk_##__LINE__, sizeof(((ref_client_t *)0)->field ) == sizeof( cl.field ), "broken ref_client_t size" )
+#define REF_HOST_CHECK( field ) \
+	STATIC_OFFSET_CHECK( ref_host_t, host_parm_t, field, realtime, "broken ref_client_t offset" ); \
+	STATIC_ASSERT_( szchk_##__LINE__, sizeof(((ref_host_t *)0)->field ) == sizeof( host.field ), "broken ref_client_t size" )
+
+REF_CLIENT_CHECK( time );
+REF_CLIENT_CHECK( oldtime );
+REF_CLIENT_CHECK( viewentity );
+REF_CLIENT_CHECK( playernum );
+REF_CLIENT_CHECK( maxclients );
+REF_CLIENT_CHECK( models );
+REF_CLIENT_CHECK( paused );
+REF_CLIENT_CHECK( simorg );
+REF_HOST_CHECK( realtime );
+REF_HOST_CHECK( frametime );
+REF_HOST_CHECK( features );
+
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
 	if( w ) *w = REF_GET_PARM( PARM_TEX_WIDTH, texnum );
