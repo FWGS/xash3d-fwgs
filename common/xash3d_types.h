@@ -121,10 +121,15 @@ typedef uint64_t longtime_t;
 	#define likely(x)   (x)
 #endif
 
-#if __STDC_VERSION__ >= 201112L || __cplusplus >= 201103L // C11 static_assert
-#define STATIC_ASSERT static_assert
+#if __STDC_VERSION >= 202311L || __cplusplus >= 201103L // C23 or C++ static_assert is a keyword
+	#define STATIC_ASSERT_ static_assert
+	#define STATIC_ASSERT  static_assert
+#elif __STDC_VERSION >= 201112L // in C11 it's _Static_assert
+	#define STATIC_ASSERT_ _Static_assert
+	#define STATIC_ASSERT  _Static_assert
 #else
-#define STATIC_ASSERT( x, y ) extern int _static_assert_##__LINE__[( x ) ? 1 : -1]
+	#define STATIC_ASSERT_( id, x, y ) extern int id[( x ) ? 1 : -1]
+	#define STATIC_ASSERT( x, y )      STATIC_ASSERT_( static_assert_##__LINE__, x, y )
 #endif
 
 #ifdef XASH_BIG_ENDIAN
