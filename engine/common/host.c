@@ -1349,7 +1349,7 @@ void EXPORT Host_Shutdown( void )
 	if( !host.change_game ) Q_strncpy( host.finalmsg, "Server shutdown", sizeof( host.finalmsg ));
 
 #if !XASH_DEDICATED
-	if( host.type == HOST_NORMAL )
+	if( host.type == HOST_NORMAL && host.status != HOST_ERR_FATAL )
 		Host_WriteConfig();
 #endif
 
