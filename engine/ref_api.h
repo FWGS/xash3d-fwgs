@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include "r_efx.h"
 #include "com_image.h"
 #include "filesystem.h"
+#include "common/protocol.h"
 
 // RefAPI changelog:
 // 1. Initial release
@@ -119,6 +120,26 @@ typedef struct ref_globals_s
 
 	int desktopBitsPixel;
 } ref_globals_t;
+
+typedef struct ref_client_s
+{
+	double   time;
+	double   oldtime;
+	int      viewentity;
+	int      playernum;
+	int      maxclients;
+	int      nummodels;
+	model_t *models[MAX_MODELS+1];
+	qboolean paused;
+	vec3_t   simorg;
+} ref_client_t;
+
+typedef struct ref_host_s
+{
+	double realtime;
+	double frametime;
+	int    features;
+} ref_host_t;
 
 enum
 {
@@ -262,6 +283,12 @@ typedef enum
 	PARM_NUMENTITIES       = -12, // local game only
 	PARM_NUMMODELS         = -13, // cl.nummodels
 	PARM_WORLD_VERSION     = -14,
+	PARM_GET_CLIENT_PTR    = -15, // ref_client_t
+	PARM_GET_HOST_PTR      = -16, // ref_host_t
+	PARM_GET_WORLD_PTR     = -17, // world
+	PARM_GET_MOVEVARS_PTR  = -18, // clgame.movevars
+	PARM_GET_PALETTE_PTR   = -19, // clgame.palette
+	PARM_GET_VIEWENT_PTR   = -20, // clgame.viewent
 } ref_parm_e;
 
 typedef struct ref_api_s
