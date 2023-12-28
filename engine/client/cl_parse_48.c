@@ -660,9 +660,6 @@ void CL_LegacyPrecache_f( void )
 	if( clgame.entities )
 		clgame.entities->model = cl.worldmodel;
 
-	// update the ref state.
-	R_UpdateRefState ();
-
 	// tell rendering system we have a new set of models.
 	ref.dllFuncs.R_NewMap ();
 
