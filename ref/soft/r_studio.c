@@ -169,8 +169,8 @@ static void R_StudioSetupTimings( void )
 	else
 	{
 		// menu stuff
-		g_studio.time = gpGlobals->realtime;
-		g_studio.frametime = gpGlobals->frametime;
+		g_studio.time = gp_host->realtime;
+		g_studio.frametime = gp_host->frametime;
 	}
 }
 
@@ -2532,7 +2532,7 @@ static void R_StudioClientEvents( void )
 		return;
 
 	end = R_StudioEstimateFrame( e, pseqdesc, g_studio.time );
-	start = end - e->curstate.framerate * gpGlobals->frametime * pseqdesc->fps;
+	start = end - e->curstate.framerate * gp_host->frametime * pseqdesc->fps;
 	pevent = (mstudioevent_t *)((byte *)m_pStudioHeader + pseqdesc->eventindex);
 
 	if( e->latched.sequencetime == e->curstate.animtime )
