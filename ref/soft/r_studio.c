@@ -3373,7 +3373,7 @@ void R_RunViewmodelEvents( void )
 
 	R_StudioSetupTimings();
 
-	gEngfuncs.GetPredictedOrigin( simorg );
+	VectorCopy( gp_cl->simorg, simorg );
 	for( i = 0; i < 4; i++ )
 		VectorCopy( simorg, RI.currententity->attachment[i] );
 	RI.currentmodel = RI.currententity->model;
