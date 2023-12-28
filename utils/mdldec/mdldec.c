@@ -385,7 +385,7 @@ static qboolean LoadMDL( const char *modelname )
 			}
 		}
 
-		if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
+		if( filesize < sizeof( studiohdr_t ) || filesize != texture_hdr->length )
 		{
 			fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", texturename );
 			return false;
@@ -427,7 +427,7 @@ static qboolean LoadMDL( const char *modelname )
 				return false;
 			}
 
-			if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
+			if( filesize < sizeof( studiohdr_t ) || filesize != anim_hdr[i]->length )
 			{
 				fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", seqgroupname );
 				return false;
