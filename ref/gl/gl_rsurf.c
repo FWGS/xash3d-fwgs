@@ -3774,7 +3774,7 @@ void GL_RebuildLightmaps( void )
 
 	LM_InitBlock();
 
-	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
+	for( i = 0; i < gp_cl->nummodels; i++ )
 	{
 		if(( m = CL_ModelHandle( i + 1 )) == NULL )
 			continue;
@@ -3839,7 +3839,7 @@ void GL_BuildLightmaps( void )
 
 	LM_InitBlock();
 
-	for( i = 0; i < ENGINE_GET_PARM( PARM_NUMMODELS ); i++ )
+	for( i = 0; i < gp_cl->nummodels; i++ )
 	{
 		if(( m = CL_ModelHandle( i + 1 )) == NULL )
 			continue;
