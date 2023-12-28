@@ -209,6 +209,18 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 			return cl.nummodels;
 		case PARM_WORLD_VERSION:
 			return world.version;
+		case PARM_GET_CLIENT_PTR:
+			return (intptr_t)&cl.time; // with the offset
+		case PARM_GET_HOST_PTR:
+			return (intptr_t)&host.realtime; // with the offset
+		case PARM_GET_WORLD_PTR:
+			return (intptr_t)&world;
+		case PARM_GET_MOVEVARS_PTR:
+			return (intptr_t)&clgame.movevars;
+		case PARM_GET_PALETTE_PTR:
+			return (intptr_t)&clgame.palette;
+		case PARM_GET_VIEWENT_PTR:
+			return (intptr_t)&clgame.viewent;
 		}
 	}
 	return 0;

@@ -302,8 +302,12 @@ typedef struct host_parm_s
 	int		argc;
 	char	**argv;
 
+	// ==== shared through RefAPI's ref_host_t
 	double		realtime;		// host.curtime
 	double		frametime;	// time between engine frames
+	uint		features;		// custom features that enables by mod-maker request
+	// ==== shared through RefAPI's ref_host_t
+
 	double		realframetime;	// for some system events, e.g. console animations
 
 	uint		framecount;	// global framecount
@@ -343,8 +347,6 @@ typedef struct host_parm_s
 	char		gamefolder[MAX_QPATH];	// it's a default gamefolder
 	poolhandle_t imagepool;	// imagelib mempool
 	poolhandle_t soundpool;	// soundlib mempool
-
-	uint		features;		// custom features that enables by mod-maker request
 
 	// for IN_MouseMove() easy access
 	int		window_center_x;

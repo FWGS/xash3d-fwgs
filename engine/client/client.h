@@ -174,6 +174,26 @@ typedef struct
 // at every server map change
 typedef struct
 {
+	// ==== shared through RefAPI's ref_client_t ====
+	double		time;			// this is the time value that the client
+						// is rendering at.  always <= cls.realtime
+						// a lerp point for other data
+	double		oldtime;			// previous cl.time, time-oldtime is used
+						// to decay light values and smooth step ups
+	int		viewentity;
+
+	// server state information
+	int		playernum;
+	int		maxclients;
+
+	int		nummodels;
+	model_t		*models[MAX_MODELS+1];		// precached models (plus sentinel slot)
+
+	qboolean	paused;
+
+	vec3_t		simorg;			// predicted origin
+	// ==== shared through RefAPI's ref_client_t ===
+
 	int		servercount;		// server identification for prespawns
 	int		validsequence;		// this is the sequence number of the last good
 						// world snapshot/update we got.  If this is 0, we can't
@@ -183,7 +203,6 @@ typedef struct
 
 	qboolean		video_prepped;		// false if on new level or new ref dll
 	qboolean		audio_prepped;		// false if on new level or new snd dll
-	qboolean		paused;
 
 	int		delta_sequence;		// acknowledged sequence number
 
@@ -205,11 +224,6 @@ typedef struct
 	runcmd_t		commands[MULTIPLAYER_BACKUP];		// each mesage will send several old cmds
 	local_state_t	predicted_frames[MULTIPLAYER_BACKUP];	// local client state
 
-	double		time;			// this is the time value that the client
-						// is rendering at.  always <= cls.realtime
-						// a lerp point for other data
-	double		oldtime;			// previous cl.time, time-oldtime is used
-						// to decay light values and smooth step ups
 	double		timedelta;		// floating delta between two updates
 
 	char		serverinfo[MAX_SERVERINFO_STRING];
@@ -223,7 +237,6 @@ typedef struct
 
 	// player final info
 	usercmd_t		*cmd;			// cl.commands[outgoing_sequence].cmd
-	int		viewentity;
 	vec3_t		viewangles;
 	vec3_t		viewheight;
 	vec3_t		punchangle;
@@ -236,13 +249,8 @@ typedef struct
 	float		addangletotal;
 	float		prevaddangletotal;
 
-	// predicted origin and velocity
-	vec3_t		simorg;
+	// predicted velocity
 	vec3_t		simvel;
-
-	// server state information
-	int		playernum;
-	int		maxclients;
 
 	entity_state_t	instanced_baseline[MAX_CUSTOM_BASELINES];
 	int		instanced_baseline_count;
@@ -251,8 +259,6 @@ typedef struct
 	char		event_precache[MAX_EVENTS][MAX_QPATH];
 	char		files_precache[MAX_CUSTOM][MAX_QPATH];
 	lightstyle_t	lightstyles[MAX_LIGHTSTYLES];
-	model_t		*models[MAX_MODELS+1];		// precached models (plus sentinel slot)
-	int		nummodels;
 	int		numfiles;
 
 	consistency_t	consistency_list[MAX_MODELS];
