@@ -864,9 +864,9 @@ void D_CalcGradients (msurface_t *pface)
 	{
 
 		if(pface->flags & SURF_DRAWTURB)
-			sadjust += 0x10000 * (-128 * ( (gpGlobals->time * 0.25f) - (int)(gpGlobals->time * 0.25f) ));
+			sadjust += 0x10000 * (-128 * ( (gp_cl->time * 0.25f) - (int)(gp_cl->time * 0.25f) ));
 		else
-			sadjust += 0x10000 * (-128 * ( (gpGlobals->time * 0.77f) - (int)(gpGlobals->time * 0.77f) ));
+			sadjust += 0x10000 * (-128 * ( (gp_cl->time * 0.77f) - (int)(gp_cl->time * 0.77f) ));
 		bbextents = ((pface->extents[0] << 16) >> miplevel) - 1;
 	}
 	else
