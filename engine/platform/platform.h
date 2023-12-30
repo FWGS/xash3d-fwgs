@@ -40,6 +40,7 @@ void Platform_SetStatus( const char *status );
 // legacy iOS port functions
 #if TARGET_OS_IOS
 const char *IOS_GetDocsDir( void );
+void IOS_LaunchDialog( void );
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX

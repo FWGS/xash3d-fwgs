@@ -110,7 +110,7 @@ def configure(conf):
 	conf.define_cond('XASH_ENGINE_TESTS', conf.env.ENGINE_TESTS)
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
-	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
+	conf.define_cond('XASH_ENABLE_MAIN', conf.env.DISABLE_LAUNCHER)
 	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', conf.options.NO_ASYNC_RESOLVE)
 	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
 	conf.define_cond('XASH_64BIT', conf.env.DEST_SIZEOF_VOID_P != 4)
