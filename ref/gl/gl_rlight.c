@@ -55,7 +55,7 @@ void CL_RunLightStyles( void )
 			continue;
 		}
 
-		if( !ENGINE_GET_PARM( PARAM_GAMEPAUSED ) && frametime <= 0.1f )
+		if( !gp_cl->paused && frametime <= 0.1f )
 			ls->time += frametime; // evaluate local time
 
 		flight = (int)Q_floor( ls->time * 10 );
