@@ -585,12 +585,12 @@ void R_StudioSetUpTransform( cl_entity_t *e )
 	VectorCopy( e->angles, angles );
 
 	// interpolate monsters position (moved into UpdateEntityFields by user request)
-	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_COMPUTE_STUDIO_LERP ))
+	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( gp_host->features, ENGINE_COMPUTE_STUDIO_LERP ))
 	{
 		R_StudioLerpMovement( e, g_studio.time, origin, angles );
 	}
 
-	if( !FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_COMPENSATE_QUAKE_BUG ))
+	if( !FBitSet( gp_host->features, ENGINE_COMPENSATE_QUAKE_BUG ))
 		angles[PITCH] = -angles[PITCH]; // stupid quake bug
 
 	// don't rotate clients, only aim
@@ -1356,7 +1356,7 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		msurface_t	*psurf = NULL;
 		pmtrace_t		trace;
 
-		if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_WRITE_LARGE_COORD ))
+		if( FBitSet( gp_host->features, ENGINE_WRITE_LARGE_COORD ))
 		{
 			vecEnd[0] = origin[0] - mv->skyvec_x * 65536.0f;
 			vecEnd[1] = origin[1] - mv->skyvec_y * 65536.0f;
@@ -3538,7 +3538,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	gEngfuncs.Image_SetMDLPointer((byte *)phdr + ptexture->index);
 	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
 
-	if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
+	if( FBitSet( gp_host->features, ENGINE_LOAD_DELUXEDATA ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
 		flags |= TF_KEEP_SOURCE; // Paranoia2 texture alpha-tracing
 
 	// build the texname
