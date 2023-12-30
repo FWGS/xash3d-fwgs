@@ -332,7 +332,7 @@ void R_AddSkyBoxSurface( msurface_t *fa )
 	float	*v;
 	int	i;
 
-	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) && fa->polys && !tr.fCustomSkybox )
+	if( FBitSet( tr.world->flags, FWORLD_SKYSPHERE ) && fa->polys && !FBitSet( tr.world->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
 		glpoly_t	*p = fa->polys;
 
@@ -376,7 +376,7 @@ void R_UnloadSkybox( void )
 	tr.skyboxbasenum = SKYBOX_BASE_NUM;	// set skybox base (to let some mods load hi-res skyboxes)
 
 	memset( tr.skyboxTextures, 0, sizeof( tr.skyboxTextures ));
-	tr.fCustomSkybox = false;
+	ClearBits( tr.world->flags, FWORLD_CUSTOM_SKYBOX );
 }
 
 /*
@@ -478,7 +478,7 @@ void R_SetupSky( const char *skyboxname )
 
 	if( i == 6 )
 	{
-		tr.fCustomSkybox = true;
+		SetBits( tr.world->flags, FWORLD_CUSTOM_SKYBOX );
 		gEngfuncs.Con_DPrintf( "done\n" );
 		return; // loaded
 	}

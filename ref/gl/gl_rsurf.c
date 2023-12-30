@@ -1300,7 +1300,7 @@ void R_DrawTextureChains( void )
 	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
-	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
+	if( FBitSet( tr.world->flags, FWORLD_SKYSPHERE ) && !FBitSet( tr.world->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
 		pglDisable( GL_TEXTURE_2D );
 		pglColor3f( 1.0f, 1.0f, 1.0f );
@@ -1310,7 +1310,7 @@ void R_DrawTextureChains( void )
 	for( s = skychain; s != NULL; s = s->texturechain )
 		R_AddSkyBoxSurface( s );
 
-	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) )
+	if( FBitSet( tr.world->flags, FWORLD_SKYSPHERE ) && !FBitSet( tr.world->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
 		pglEnable( GL_TEXTURE_2D );
 		if( skychain )
