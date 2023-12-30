@@ -801,7 +801,7 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 		msurface_t	*psurf = NULL;
 		pmtrace_t		trace;
 
-		if( FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_WRITE_LARGE_COORD ))
+		if( FBitSet( gp_host->features, ENGINE_WRITE_LARGE_COORD ))
 		{
 			vecEnd[0] = origin[0] - mv->skyvec_x * 65536.0f;
 			vecEnd[1] = origin[1] - mv->skyvec_y * 65536.0f;
@@ -1381,7 +1381,7 @@ void R_DrawAliasModel( cl_entity_t *e )
 
 	R_AliasLerpMovement( e );
 
-	if( !FBitSet( ENGINE_GET_PARM( PARM_FEATURES ), ENGINE_COMPENSATE_QUAKE_BUG ))
+	if( !FBitSet( gp_host->features, ENGINE_COMPENSATE_QUAKE_BUG ))
 		e->angles[PITCH] = -e->angles[PITCH]; // stupid quake bug
 
 	// don't rotate clients, only aim
