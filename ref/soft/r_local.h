@@ -289,7 +289,6 @@ typedef struct
 	// cull info
 	vec3_t		modelorg;		// relative to viewpoint
 
-	qboolean fCustomSkybox;
 	int sample_size;
 	uint sample_bits;
 	qboolean map_unload;
