@@ -142,8 +142,6 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 		return 1;
 #endif
 		return 0;
-	case PARM_SKY_SPHERE:
-		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
 	case PARAM_GAMEPAUSED:
 		return cl.paused;
 	case PARM_CLIENT_INGAME:

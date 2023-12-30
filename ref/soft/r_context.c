@@ -171,7 +171,7 @@ static int GL_RefGetParm( int parm, int arg )
 	case PARM_STENCIL_ACTIVE:
 		return 0; //glState.stencilEnabled;
 	case PARM_SKY_SPHERE:
-		return ENGINE_GET_PARM_( parm, arg ) && !tr.fCustomSkybox;
+		return 0; // ref_soft doesn't support sky sphere
 	default:
 		return ENGINE_GET_PARM_( parm, arg );
 	}
