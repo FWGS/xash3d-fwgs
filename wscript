@@ -78,7 +78,7 @@ SUBDIRS = [
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
-	Subproject('game_launch',           lambda x: not x.env.SINGLE_BINARY and x.env.DEST_OS != 'android'),
+	Subproject('game_launch',           lambda x: not x.env.DEDICATED and not x.env.DISABLE_LAUNCHER),
 
 	# disable only by external dependency presense
 	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS and not x.env.DEDICATED),
@@ -112,9 +112,6 @@ def options(opt):
 
 	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
 		help = 'engine default game directory [default: %default]')
-
-	grp.add_option('--single-binary', action = 'store_true', dest = 'SINGLE_BINARY', default = False,
-		help = 'build single "xash" binary (always enabled for dedicated) [default: %default]')
 
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
 		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %default]')
@@ -202,29 +199,23 @@ def configure(conf):
 		conf.options.GL4ES            = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
-		conf.options.SINGLE_BINARY    = True
 		conf.define('XASH_SDLMAIN', 1)
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
-		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
-	elif conf.env.DEST_OS == 'dos':
-		conf.options.SINGLE_BINARY = True
 	elif conf.env.DEST_OS == 'nswitch':
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = True
-		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.options.USE_STBTT        = True
 	elif conf.env.DEST_OS == 'psvita':
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = True
-		conf.options.SINGLE_BINARY    = True
 		conf.options.NO_ASYNC_RESOLVE = True
 		conf.options.USE_STBTT        = True
 		# we'll specify -fPIC by hand for shared libraries only
@@ -357,8 +348,10 @@ def configure(conf):
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
-	conf.env.SINGLE_BINARY = conf.options.SINGLE_BINARY or conf.env.DEDICATED
 	conf.env.SUPPORT_BSP2_FORMAT = conf.options.SUPPORT_BSP2_FORMAT
+
+	# disable game_launch compiling on platform where it's not needed
+	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos'] or conf.env.MAGX
 
 	if conf.env.SAILFISH == 'aurora':
 		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
