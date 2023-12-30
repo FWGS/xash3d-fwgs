@@ -236,7 +236,7 @@ static int GL_RefGetParm( int parm, int arg )
 	case PARM_STENCIL_ACTIVE:
 		return glState.stencilEnabled;
 	case PARM_SKY_SPHERE:
-		return ENGINE_GET_PARM_( parm, arg ) && !tr.fCustomSkybox;
+		return FBitSet( tr.world->flags, FWORLD_SKYSPHERE ) && !FBitSet( tr.world->flags, FWORLD_CUSTOM_SKYBOX );
 	default:
 		return ENGINE_GET_PARM_( parm, arg );
 	}
