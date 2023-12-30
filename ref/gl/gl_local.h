@@ -34,6 +34,7 @@ GNU General Public License for more details.
 #include "common/cvar.h"
 #include "gl_export.h"
 #include "wadfile.h"
+#include "common/mod_local.h"
 
 #if XASH_PSVITA
 int VGL_ShimInit( void );
@@ -252,10 +253,8 @@ typedef struct
 	// cull info
 	vec3_t		modelorg;		// relative to viewpoint
 
-	qboolean fCustomSkybox;
-
 	// get from engine
-	struct world_static_s *world;
+	world_static_t *world;
 	cl_entity_t *entities;
 	movevars_t *movevars;
 	color24 *palette;
