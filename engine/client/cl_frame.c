@@ -159,6 +159,13 @@ qboolean CL_EntityCustomLerp( cl_entity_t *e )
 	case MOVETYPE_FLY:
 	case MOVETYPE_COMPOUND:
 		return false;
+
+	// ABSOLUTELY STUPID HACK TO ALLOW MONSTERS
+	// INTERPOLATION IN GRAVGUNMOD COOP
+	// MUST BE REMOVED ONCE WE REMOVE 48 PROTO SUPPORT
+	case MOVETYPE_TOSS:
+		if( cls.legacymode && e->model && e->model->type == mod_studio )
+			return false;
 	}
 
 	return true;
@@ -1248,6 +1255,14 @@ void CL_LinkPacketEntities( frame_t *frame )
 					continue;
 			}
 			else if( ent->curstate.movetype == MOVETYPE_STEP && !NET_IsLocalAddress( cls.netchan.remote_address ))
+			{
+				if( !CL_InterpolateModel( ent ))
+					continue;
+			}
+			// ABSOLUTELY STUPID HACK TO ALLOW MONSTERS
+			// INTERPOLATION IN GRAVGUNMOD COOP
+			// MUST BE REMOVED ONCE WE REMOVE 48 PROTO SUPPORT
+			else if( cls.legacymode && ent->model->type == mod_studio && ent->curstate.movetype == MOVETYPE_TOSS )
 			{
 				if( !CL_InterpolateModel( ent ))
 					continue;
