@@ -54,17 +54,28 @@ Store another position into interpolation circular buffer
 */
 void CL_UpdatePositions( cl_entity_t *ent )
 {
-	position_history_t	*ph;
+	position_history_t	*ph, *prev;
+
+	prev = &ent->ph[ent->current_position];
 
 	ent->current_position = (ent->current_position + 1) & HISTORY_MASK;
 	ph = &ent->ph[ent->current_position];
 	VectorCopy( ent->curstate.origin, ph->origin );
 	VectorCopy( ent->curstate.angles, ph->angles );
 
-	if( ent->model && ent->model->type == mod_brush )
-		ph->animtime = ent->curstate.animtime;
-	else
-		ph->animtime = cl.time;
+	ph->animtime = ent->curstate.animtime;
+
+	// a1ba: for some reason, this sometimes still may happen
+	// at this time, I'm not sure whether this bug happens in delta readwrite code
+	// or server just decides to go backwards and really sends these values
+	if( ph->animtime < prev->animtime )
+	{
+		// try to deduce real animtime by looking up the difference between
+		// server messages (cl.mtime is never modified ny the interpolation code)
+		float diff = Q_max( 0, ent->curstate.msg_time - ent->prevstate.msg_time );
+
+		ph->animtime = prev->animtime + diff;
+	}
 }
 
 /*
@@ -496,9 +507,7 @@ int CL_InterpolateModel( cl_entity_t *e )
 		return 0;
 	}
 
-	// HACKHACK: workaround buggy position history animtime
-	// going backward sometimes
-	if( Q_equal( t2, t1 ) || t2 < t1 )
+	if( Q_equal( t2, t1 ))
 	{
 		VectorCopy( ph0->origin, e->origin );
 		VectorCopy( ph0->angles, e->angles );
