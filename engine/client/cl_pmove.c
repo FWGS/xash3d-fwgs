@@ -832,9 +832,9 @@ static void CL_SetupPMove( playermove_t *pmove, const local_state_t *from, const
 	// but we need to properly run prediction and avoid potential memory
 	// corruption
 	// either debug this, or remove when old protocol will be dropped!!!
-	if( cls.legacymode )
+	if( pmove->player_index < 0 )
 	{
-		if( pmove->player_index < 0 )
+		if( cls.legacymode )
 		{
 			pmove->player_index = bound( 0, cl.playernum, cl.maxclients - 1 );
 		}
