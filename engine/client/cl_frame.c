@@ -367,11 +367,10 @@ CL_FindInterpolationUpdates
 find two timestamps
 ==================
 */
-qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, float targettime, position_history_t **ph0, position_history_t **ph1 )
+static qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, double targettime, position_history_t **ph0, position_history_t **ph1 )
 {
 	qboolean	extrapolate = true;
 	uint		i, i0, i1, imod;
-	float	at;
 
 	imod = ent->current_position;
 	i0 = (imod - 0) & HISTORY_MASK;	// curpos (lerp end)
@@ -379,8 +378,10 @@ qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, float targettime, positi
 
 	for( i = 1; i < HISTORY_MAX - 1; i++ )
 	{
-		at = ent->ph[( imod - i ) & HISTORY_MASK].animtime;
-		if( at == 0.0f ) break;
+		double at = ent->ph[( imod - i ) & HISTORY_MASK].animtime;
+
+		if( at == 0.0f )
+			break;
 
 		if( targettime > at )
 		{
@@ -405,10 +406,10 @@ CL_PureOrigin
 non-local players interpolation
 ==================
 */
-void CL_PureOrigin( cl_entity_t *ent, float t, vec3_t outorigin, vec3_t outangles )
+static void CL_PureOrigin( cl_entity_t *ent, double t, vec3_t outorigin, vec3_t outangles )
 {
 	qboolean		extrapolate;
-	float		t1, t0, frac;
+	double		t1, t0, frac;
 	position_history_t	*ph0, *ph1;
 	vec3_t		delta;
 
@@ -421,7 +422,7 @@ void CL_PureOrigin( cl_entity_t *ent, float t, vec3_t outorigin, vec3_t outangle
 	t0 = ph0->animtime;
 	t1 = ph1->animtime;
 
-	if( t0 != 0.0f )
+	if( t0 != 0.0 )
 	{
 		vec4_t	q, q1, q2;
 
@@ -429,9 +430,9 @@ void CL_PureOrigin( cl_entity_t *ent, float t, vec3_t outorigin, vec3_t outangle
 
 		if( !Q_equal( t0, t1 ))
 			frac = ( t - t1 ) / ( t0 - t1 );
-		else frac = 1.0f;
+		else frac = 1.0;
 
-		frac = bound( 0.0f, frac, 1.2f );
+		frac = bound( 0.0, frac, 1.2 );
 
 		VectorMA( ph1->origin, frac, delta, outorigin );
 
@@ -455,11 +456,11 @@ CL_InterpolateModel
 non-players interpolation
 ==================
 */
-int CL_InterpolateModel( cl_entity_t *e )
+static int CL_InterpolateModel( cl_entity_t *e )
 {
 	position_history_t  *ph0 = NULL, *ph1 = NULL;
 	vec3_t		origin, angles, delta;
-	float		t, t1, t2, frac;
+	double		t, t1, t2, frac;
 	vec4_t		q, q1, q2;
 
 	VectorCopy( e->curstate.origin, e->origin );
@@ -545,7 +546,7 @@ interpolate non-local clients
 */
 void CL_ComputePlayerOrigin( cl_entity_t *ent )
 {
-	float	targettime;
+	double	targettime;
 	vec4_t	q, q1, q2;
 	vec3_t	origin;
 	vec3_t	angles;
