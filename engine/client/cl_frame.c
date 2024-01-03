@@ -408,13 +408,12 @@ non-local players interpolation
 */
 static void CL_PureOrigin( cl_entity_t *ent, double t, vec3_t outorigin, vec3_t outangles )
 {
-	qboolean		extrapolate;
 	double		t1, t0, frac;
 	position_history_t	*ph0, *ph1;
 	vec3_t		delta;
 
 	// NOTE: ph0 is next, ph1 is a prev
-	extrapolate = CL_FindInterpolationUpdates( ent, t, &ph0, &ph1 );
+	CL_FindInterpolationUpdates( ent, t, &ph0, &ph1 );
 
 	if ( !ph0 || !ph1 )
 		return;
