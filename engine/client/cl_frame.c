@@ -1238,13 +1238,23 @@ void CL_LinkPacketEntities( frame_t *frame )
 						VectorCopy( ent->curstate.origin, ent->latched.prevorigin );
 						VectorCopy( ent->curstate.angles, ent->latched.prevangles );
 
-						// disable step interpolation in client.dll
-						ent->curstate.movetype = MOVETYPE_NONE;
+						if( !FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP ))
+						{
+							// disable step interpolation in client.dll
+							ent->curstate.movetype = MOVETYPE_NONE;
+						}
 					}
 					else
 					{
-						// restore step interpolation in client.dll
-						ent->curstate.movetype = MOVETYPE_STEP;
+						if( FBitSet( host.features, ENGINE_COMPUTE_STUDIO_LERP ))
+						{
+							interpolate = true;
+						}
+						else
+						{
+							// restore step interpolation in client.dll
+							ent->curstate.movetype = MOVETYPE_STEP;
+						}
 					}
 #endif
 				}
