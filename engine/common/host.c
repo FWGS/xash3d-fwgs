@@ -237,6 +237,10 @@ void Host_ValidateEngineFeatures( uint32_t features )
 	// don't allow unsupported bits
 	features &= mask;
 
+	// force bits for some games
+	if( !Q_stricmp( GI->gamefolder, "cstrike" ) || !Q_stricmp( GI->gamefolder, "czero" ))
+		SetBits( features, ENGINE_STEP_POSHISTORY_LERP );
+
 	// print requested first
 	Host_PrintEngineFeatures( features );
 
