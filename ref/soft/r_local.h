@@ -686,11 +686,17 @@ DECLARE_ENGINE_SHARED_CVAR_LIST()
 //
 static inline cl_entity_t *CL_GetEntityByIndex( int index )
 {
+	if( unlikely( index < 0 || index >= tr.max_entities || !tr.entities ))
+		return NULL;
+
 	return &tr.entities[index];
 }
 
 static inline model_t *CL_ModelHandle( int index )
 {
+	if( unlikely( index < 0 || index >= gp_cl->nummodels ))
+		return NULL;
+
 	return gp_cl->models[index];
 }
 
