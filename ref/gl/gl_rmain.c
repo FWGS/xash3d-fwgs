@@ -61,7 +61,7 @@ R_OpaqueEntity
 Opaque entity can be brush or studio model but sprite
 ===============
 */
-static qboolean R_OpaqueEntity( cl_entity_t *ent )
+qboolean R_OpaqueEntity( cl_entity_t *ent )
 {
 	if( R_GetEntityRenderMode( ent ) == kRenderNormal )
 		return true;

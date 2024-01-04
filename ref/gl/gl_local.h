@@ -399,6 +399,7 @@ void R_TranslateForEntity( cl_entity_t *e );
 void R_RotateForEntity( cl_entity_t *e );
 void R_SetupGL( qboolean set_gl_state );
 void R_AllowFog( qboolean allowed );
+qboolean R_OpaqueEntity( cl_entity_t *ent );
 void R_SetupFrustum( void );
 void R_FindViewLeaf( void );
 void R_CheckGamma( void );
