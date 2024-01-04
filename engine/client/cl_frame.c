@@ -1287,6 +1287,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 				if( !CL_InterpolateModel( ent ))
 					continue;
 			}
+#if 0
 			// ABSOLUTELY STUPID HACK TO ALLOW MONSTERS
 			// INTERPOLATION IN GRAVGUNMOD COOP
 			// MUST BE REMOVED ONCE WE REMOVE 48 PROTO SUPPORT
@@ -1295,6 +1296,7 @@ void CL_LinkPacketEntities( frame_t *frame )
 				if( !CL_InterpolateModel( ent ))
 					continue;
 			}
+#endif
 			else
 			{
 				// no interpolation right now
