@@ -175,7 +175,7 @@ particle_t * GAME_EXPORT R_AllocParticle( void (*callback)( particle_t*, float )
 		return NULL;
 
 	// never alloc particles when we not in game
-//	if( tr.frametime == 0.0 ) return NULL;
+	if( cl_clientframetime() == 0.0 ) return NULL;
 
 	if( !cl_free_particles )
 	{
@@ -226,7 +226,7 @@ particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 		return NULL;
 
 	// never alloc particles when we not in game
-	//if( tr.frametime == 0.0 ) return NULL;
+	if( cl_clientframetime() == 0.0 ) return NULL;
 
 	if( !cl_free_particles )
 	{
