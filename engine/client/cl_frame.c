@@ -1228,7 +1228,13 @@ void CL_LinkPacketEntities( frame_t *frame )
 #else
 					if( ent->lastmove >= cl.time )
 					{
+						float at = ent->curstate.animtime;
+
 						CL_ResetLatchedVars( ent, true );
+
+						if( cl_fixmodelinterpolationartifacts.value )
+							ent->latched.prevanimtime = ent->curstate.animtime = at;
+
 						VectorCopy( ent->curstate.origin, ent->latched.prevorigin );
 						VectorCopy( ent->curstate.angles, ent->latched.prevangles );
 
