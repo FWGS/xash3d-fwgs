@@ -192,24 +192,29 @@ Host_PrintEngineFeatures
 */
 static void Host_PrintEngineFeatures( int features )
 {
-	const char *features_str[] =
+	struct
 	{
-		"Big World Support",
-		"Quake Compatibility",
-		"Deluxemap Support",
-		"Improved MOVETYPE_PUSH",
-		"Large Lightmaps",
-		"Stupid Quake Bug Compensation",
-		"Improved Trace Line",
-		"Studio MOVETYPE_STEP Lerping",
-		"Linear Gamma Space"
+		uint32_t mask;
+		const char *msg;
+	} features_str[] =
+	{
+	{ ENGINE_WRITE_LARGE_COORD, "Big World Support" },
+	{ ENGINE_QUAKE_COMPATIBLE, "Quake Compatibility" },
+	{ ENGINE_LOAD_DELUXEDATA, "Deluxemap Support" },
+	{ ENGINE_PHYSICS_PUSHER_EXT, "Improved MOVETYPE_PUSH" },
+	{ ENGINE_LARGE_LIGHTMAPS, "Large Lightmaps" },
+	{ ENGINE_COMPENSATE_QUAKE_BUG, "Stupid Quake Bug Compensation" },
+	{ ENGINE_IMPROVED_LINETRACE, "Improved Trace Line" },
+	{ ENGINE_COMPUTE_STUDIO_LERP, "Studio MOVETYPE_STEP Lerping" },
+	{ ENGINE_LINEAR_GAMMA_SPACE, "Linear Gamma Space" },
+	{ ENGINE_STEP_POSHISTORY_LERP, "MOVETYPE_STEP Position History Based Lerping" },
 	};
 	int i;
 
 	for( i = 0; i < ARRAYSIZE( features_str ); i++ )
 	{
-		if( FBitSet( features, BIT( i )))
-			Con_Reportf( "^3EXT:^7 %s is enabled\n", features_str[i] );
+		if( FBitSet( features, features_str[i].mask ))
+			Con_Reportf( "^3EXT:^7 %s is enabled\n", features_str[i].msg );
 	}
 }
 
