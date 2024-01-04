@@ -3293,7 +3293,7 @@ static int R_StudioDrawModel( int flags )
 R_StudioDrawModelInternal
 =================
 */
-void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
+static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 {
 	if( !RI.drawWorld )
 	{
@@ -3326,25 +3326,46 @@ void R_DrawStudioModel( cl_entity_t *e )
 	{
 		R_StudioDrawModelInternal( e, STUDIO_RENDER|STUDIO_EVENTS );
 	}
-	else
+	else if( e->curstate.movetype == MOVETYPE_FOLLOW && e->curstate.aiment > 0 )
 	{
-		if( e->curstate.movetype == MOVETYPE_FOLLOW && e->curstate.aiment > 0 )
-		{
-			cl_entity_t *parent = CL_GetEntityByIndex( e->curstate.aiment );
+		cl_entity_t *parent = CL_GetEntityByIndex( e->curstate.aiment ), **entities;
+		uint i, num_entities;
 
-			if( parent && parent->model && parent->model->type == mod_studio )
-			{
-				RI.currententity = parent;
-				R_StudioDrawModelInternal( RI.currententity, 0 );
-				VectorCopy( parent->curstate.origin, e->curstate.origin );
-				VectorCopy( parent->origin, e->origin );
-				RI.currententity = e;
-			}
+		if( !parent || !parent->model || parent->model->type != mod_studio )
+			return;
+
+		if( R_OpaqueEntity( parent ))
+		{
+			entities = tr.draw_list->solid_entities;
+			num_entities = tr.draw_list->num_solid_entities;
+		}
+		else
+		{
+			entities = tr.draw_list->trans_entities;
+			num_entities = tr.draw_list->num_solid_entities;
 		}
 
+		for( i = 0; i < num_entities; i++ )
+		{
+			if( (*entities)[i].index != e->curstate.aiment )
+				continue;
+
+			RI.currententity = &(*entities)[i];
+			R_StudioDrawModelInternal( RI.currententity, 0 );
+			VectorCopy( RI.currententity->curstate.origin, e->curstate.origin );
+			VectorCopy( RI.currententity->origin, e->origin );
+			RI.currententity = e;
+
+			R_StudioDrawModelInternal( e, STUDIO_RENDER|STUDIO_EVENTS );
+			break;
+		}
+	}
+	else
+	{
 		R_StudioDrawModelInternal( e, STUDIO_RENDER|STUDIO_EVENTS );
 	}
 }
+
 
 /*
 =================
