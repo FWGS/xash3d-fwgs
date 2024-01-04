@@ -241,7 +241,7 @@ void Host_ValidateEngineFeatures( uint32_t features )
 	Host_PrintEngineFeatures( features );
 
 	// now warn about incompatible bits
-	if( FBitSet( features, ENGINE_STEP_POSHISTORY_LERP|ENGINE_COMPUTE_STUDIO_LERP ))
+	if( FBitSet( features, ENGINE_STEP_POSHISTORY_LERP|ENGINE_COMPUTE_STUDIO_LERP ) == ENGINE_STEP_POSHISTORY_LERP|ENGINE_COMPUTE_STUDIO_LERP )
 		Con_Printf( S_WARN "%s: incompatible ENGINE_STEP_POSHISTORY_LERP and ENGINE_COMPUTE_STUDIO_LERP are enabled!\n", __func__ );
 
 	// finally set global variable
