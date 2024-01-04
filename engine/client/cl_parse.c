@@ -903,11 +903,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
 	background = MSG_ReadOneBit( msg );
 	Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
-	host.features = (uint)MSG_ReadLong( msg );
-	host.features &= legacy ? ENGINE_LEGACY_FEATURES_MASK : ENGINE_FEATURES_MASK;
-
-	if( !Host_IsLocalGame( ))
-		Host_PrintEngineFeatures( host.features );
+	Host_ValidateEngineFeatures( MSG_ReadDword( msg ));
 
 	if( !legacy )
 	{
