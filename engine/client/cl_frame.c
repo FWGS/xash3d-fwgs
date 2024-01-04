@@ -189,7 +189,7 @@ CL_ParametricMove
 check for parametrical moved entities
 ==================
 */
-qboolean CL_ParametricMove( cl_entity_t *ent )
+static qboolean CL_ParametricMove( cl_entity_t *ent )
 {
 	float	frac, dt, t;
 	vec3_t	delta;
@@ -1279,7 +1279,10 @@ void CL_LinkPacketEntities( frame_t *frame )
 				if ( !CL_InterpolateModel( ent ))
 					continue;
 			}
-			else if( ent->curstate.movetype == MOVETYPE_STEP && !NET_IsLocalAddress( cls.netchan.remote_address ))
+			// a1ba: in GoldSrc this is done for cstrike and czero
+			// but let modders use this as an engine feature
+			else if( FBitSet( host.features, ENGINE_STEP_POSHISTORY_LERP ) &&
+				ent->curstate.movetype == MOVETYPE_STEP && !NET_IsLocalAddress( cls.netchan.remote_address ))
 			{
 				if( !CL_InterpolateModel( ent ))
 					continue;
