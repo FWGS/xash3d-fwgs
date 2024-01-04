@@ -24,7 +24,7 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "input.h"
 
-#define STUDIO_INTERPOLATION_FIX
+// #define STUDIO_INTERPOLATION_FIX
 
 /*
 ==================
