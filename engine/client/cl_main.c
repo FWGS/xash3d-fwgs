@@ -607,10 +607,10 @@ void CL_CreateCmd( void )
 	// message we are constructing.
 	i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
 	pcmd = &cl.commands[i];
-	pcmd->processedfuncs = false;
 
 	if( !cls.demoplayback )
 	{
+		pcmd->processedfuncs = false;
 		pcmd->senttime = host.realtime;
 		memset( &pcmd->cmd, 0, sizeof( pcmd->cmd ));
 		pcmd->receivedtime = -1.0;
