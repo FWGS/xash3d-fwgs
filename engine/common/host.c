@@ -190,7 +190,7 @@ void Host_ShutdownServer( void )
 Host_PrintEngineFeatures
 ================
 */
-void Host_PrintEngineFeatures( int features )
+static void Host_PrintEngineFeatures( int features )
 {
 	const char *features_str[] =
 	{
@@ -211,6 +211,36 @@ void Host_PrintEngineFeatures( int features )
 		if( FBitSet( features, BIT( i )))
 			Con_Reportf( "^3EXT:^7 %s is enabled\n", features_str[i] );
 	}
+}
+
+/*
+==============
+Host_ValidateEngineFeatures
+
+validate features bits and set host.features
+==============
+*/
+void Host_ValidateEngineFeatures( uint32_t features )
+{
+	uint32_t mask = ENGINE_FEATURES_MASK;
+
+#if !HOST_DEDICATED
+	if( !Host_IsDedicated( ) && cls.legacymode )
+		mask = ENGINE_LEGACY_FEATURES_MASK;
+#endif
+
+	// don't allow unsupported bits
+	features &= mask;
+
+	// print requested first
+	Host_PrintEngineFeatures( features );
+
+	// now warn about incompatible bits
+	if( FBitSet( features, ENGINE_STEP_POSHISTORY_LERP|ENGINE_COMPUTE_STUDIO_LERP ))
+		Con_Printf( S_WARN "%s: incompatible ENGINE_STEP_POSHISTORY_LERP and ENGINE_COMPUTE_STUDIO_LERP are enabled!\n", __func__ );
+
+	// finally set global variable
+	host.features = features;
 }
 
 /*

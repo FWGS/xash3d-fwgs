@@ -2139,18 +2139,18 @@ qboolean SV_InitPhysicsAPI( void )
 			if( svgame.physFuncs.SV_CheckFeatures != NULL )
 			{
 				// grab common engine features (it will be shared across the network)
-				host.features = svgame.physFuncs.SV_CheckFeatures() & ENGINE_FEATURES_MASK;
-				Host_PrintEngineFeatures( host.features );
+				Host_ValidateEngineFeatures( svgame.physFuncs.SV_CheckFeatures( ));
 			}
 			return true;
 		}
 
 		// make sure what physic functions is cleared
 		memset( &svgame.physFuncs, 0, sizeof( svgame.physFuncs ));
-
+		Host_ValidateEngineFeatures( 0 );
 		return false; // just tell user about problems
 	}
 
 	// physic interface is missed
+	Host_ValidateEngineFeatures( 0 );
 	return true;
 }
