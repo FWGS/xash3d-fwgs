@@ -570,6 +570,9 @@ void CL_ReadDemoUserCmd( qboolean discard )
 		memset( &nullcmd, 0, sizeof( nullcmd ));
 		MSG_Init( &buf, "UserCmd", data, sizeof( data ));
 
+		// a1ba: I have no proper explanation why
+		cmdnumber++;
+
 		pcmd = &cl.commands[cmdnumber & CL_UPDATE_MASK];
 		pcmd->processedfuncs = false;
 		pcmd->senttime = 0.0f;
