@@ -2793,19 +2793,15 @@ void CL_AddModelEffects( cl_entity_t *ent )
 
 	if( FBitSet( ent->model->flags, STUDIO_GIB ))
 		R_RocketTrail( oldorigin, neworigin, 2 );
-
-	if( FBitSet( ent->model->flags, STUDIO_ZOMGIB ))
+	else if( FBitSet( ent->model->flags, STUDIO_ZOMGIB ))
 		R_RocketTrail( oldorigin, neworigin, 4 );
-
-	if( FBitSet( ent->model->flags, STUDIO_TRACER ))
+	else if( FBitSet( ent->model->flags, STUDIO_TRACER ))
 		R_RocketTrail( oldorigin, neworigin, 3 );
-
-	if( FBitSet( ent->model->flags, STUDIO_TRACER2 ))
+	else if( FBitSet( ent->model->flags, STUDIO_TRACER2 ))
 		R_RocketTrail( oldorigin, neworigin, 5 );
-
-	if( FBitSet( ent->model->flags, STUDIO_ROCKET ))
+	else if( FBitSet( ent->model->flags, STUDIO_ROCKET ))
 	{
-		dlight_t	*dl = CL_AllocDlight( ent->index );
+		dlight_t	*dl = CL_AllocDlight( ent->curstate.number );
 
 		dl->color.r = dl->color.g = dl->color.b = 200;
 		VectorCopy( ent->origin, dl->origin );
@@ -2819,11 +2815,9 @@ void CL_AddModelEffects( cl_entity_t *ent )
 
 		R_RocketTrail( oldorigin, neworigin, 0 );
 	}
-
-	if( FBitSet( ent->model->flags, STUDIO_GRENADE ))
+	else if( FBitSet( ent->model->flags, STUDIO_GRENADE ))
 		R_RocketTrail( oldorigin, neworigin, 1 );
-
-	if( FBitSet( ent->model->flags, STUDIO_TRACER3 ))
+	else if( FBitSet( ent->model->flags, STUDIO_TRACER3 ))
 		R_RocketTrail( oldorigin, neworigin, 6 );
 }
 
