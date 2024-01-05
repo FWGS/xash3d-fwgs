@@ -1287,6 +1287,26 @@ static qboolean FS_CheckForCrypt( const char *dllname )
 	return ( key == 0x12345678 ) ? true : false;
 }
 
+static int FS_StripIdiotRelativePath( const char *dllname, const char *gamefolder )
+{
+	string idiot_relpath;
+	int len;
+
+	if(( len = Q_snprintf( idiot_relpath, sizeof( idiot_relpath ), "../%s/", gamefolder )) >= 4 )
+	{
+		if( !Q_strnicmp( dllname, idiot_relpath, len ))
+			return len;
+
+		// try backslashes
+		idiot_relpath[1] = '\\';
+		idiot_relpath[len - 1] = '\\';
+		if( !Q_strnicmp( dllname, idiot_relpath, len ))
+			return len;
+	}
+
+	return 0;
+}
+
 /*
 ==================
 FS_FindLibrary
@@ -1306,9 +1326,16 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 
 	fs_ext_path = directpath;
 
-	// HACKHACK remove absoulte path to valve folder
-	if( !Q_strnicmp( dllname, "..\\valve\\", 9 ) || !Q_strnicmp( dllname, "../valve/", 9 ))
-		start += 9;
+	// HACKHACK remove relative path to game folder
+	if( !Q_strnicmp( dllname, "..", 2 ))
+	{
+		// some modders put relative path to themselves???
+		len = FS_StripIdiotRelativePath( dllname, GI->gamefolder );
+
+		if( len == 0 ) // or put relative path to Half-Life game libs
+			len = FS_StripIdiotRelativePath( dllname, "valve" );
+		start += len;
+	}
 
 	// replace all backward slashes
 	len = Q_strlen( dllname );
