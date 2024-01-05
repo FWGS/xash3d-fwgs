@@ -2624,7 +2624,7 @@ CL_UpdateFlashlight
 update client flashlight
 ================
 */
-void CL_UpdateFlashlight( cl_entity_t *ent )
+static void CL_UpdateFlashlight( cl_entity_t *ent )
 {
 	vec3_t		forward, view_ofs;
 	vec3_t		vecSrc, vecEnd;
@@ -2684,6 +2684,41 @@ void CL_UpdateFlashlight( cl_entity_t *ent )
 	dl->radius = 80;
 }
 
+static void R_EntityDimlight( cl_entity_t *ent, int key )
+{
+	dlight_t *dl = CL_AllocDlight( key );
+
+	VectorCopy( ent->origin, dl->origin );
+	dl->color.r = dl->color.g = dl->color.b = 100;
+	dl->radius = COM_RandomFloat( 200.0f, 231.0f );
+	dl->die = cl.time + 0.001;
+}
+
+static void R_EntityLight( cl_entity_t *ent, int key )
+{
+	dlight_t *dl = CL_AllocDlight( key );
+
+	VectorCopy( ent->origin, dl->origin );
+	dl->color.r = dl->color.g = dl->color.b = 100;
+	dl->radius = 200;
+	dl->die = cl.time + 0.001;
+
+	R_RocketFlare( ent->origin );
+}
+
+static void R_EntityBrightlight( cl_entity_t *ent, int key, int radius )
+{
+	dlight_t *dl = CL_AllocDlight( key );
+
+	VectorCopy( ent->origin, dl->origin );
+	dl->origin[2] += 16.0f;
+	dl->color.r = dl->color.g = dl->color.b = 250;
+	if( !radius )
+		dl->radius = COM_RandomFloat( 400.0f, 431.0f );
+	else dl->radius = 400;
+	dl->die = cl.time + 0.001;
+}
+
 /*
 ================
 CL_AddEntityEffects
@@ -2693,50 +2728,41 @@ apply various effects to entity origin or attachment
 */
 void CL_AddEntityEffects( cl_entity_t *ent )
 {
-	// yellow flies effect 'monster stuck in the wall'
-	if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ) && !RP_LOCALCLIENT( ent ))
-		R_EntityParticles( ent );
-
-	if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
+	// players have special set of effects, from CL_LinkPlayers
+	if( ent->player && ent->index != cl.viewentity )
 	{
-		if( ent->player && !Host_IsQuakeCompatible( ))
-		{
+		if( FBitSet( ent->curstate.effects, EF_BRIGHTLIGHT ))
+			R_EntityBrightlight( ent, ent->index /* 4 in GoldSrc */, 0 );
+
+		if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
+			R_EntityDimlight( ent, ent->index /* 4 in GoldSrc */ );
+	}
+	else if( RP_LOCALCLIENT( ent ))
+	{
+		// from CL_PlayerFlashlight
+		if( FBitSet( ent->curstate.effects, EF_BRIGHTLIGHT ))
+			R_EntityBrightlight( ent, ent->index /* 1 in GoldSrc */, 400 );
+		else if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
 			CL_UpdateFlashlight( ent );
-		}
-		else
-		{
-			dlight_t	*dl = CL_AllocDlight( ent->index );
-			dl->color.r = dl->color.g = dl->color.b = 100;
-			dl->radius = COM_RandomFloat( 200, 231 );
-			VectorCopy( ent->origin, dl->origin );
-			dl->die = cl.time + 0.001;
-		}
 	}
-
-	if( FBitSet( ent->curstate.effects, EF_BRIGHTLIGHT ))
+	else
 	{
-		dlight_t	*dl = CL_AllocDlight( ent->index );
-		dl->color.r = dl->color.g = dl->color.b = 250;
-		if( ent->player ) dl->radius = 400; // don't flickering
-		else dl->radius = COM_RandomFloat( 400, 431 );
-		VectorCopy( ent->origin, dl->origin );
-		dl->die = cl.time + 0.001;
-		dl->origin[2] += 16.0f;
-	}
+		// from CL_LinkPacketEntities
+		if( FBitSet( ent->curstate.effects, EF_BRIGHTFIELD ))
+			R_EntityParticles( ent );
 
-	// add light effect
-	if( FBitSet( ent->curstate.effects, EF_LIGHT ))
-	{
-		dlight_t	*dl = CL_AllocDlight( ent->index );
-		dl->color.r = dl->color.g = dl->color.b = 100;
-		VectorCopy( ent->origin, dl->origin );
-		R_RocketFlare( ent->origin );
-		dl->die = cl.time + 0.001;
-		dl->radius = 200;
+		if( FBitSet( ent->curstate.effects, EF_BRIGHTLIGHT ))
+			R_EntityBrightlight( ent, ent->index, 0 );
+
+		if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
+			R_EntityDimlight( ent, ent->index );
+
+		if( FBitSet( ent->curstate.effects, EF_LIGHT ))
+			R_EntityLight( ent, ent->curstate.number );
 	}
 
 	// studio models are handle muzzleflashes difference
-	if( FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ) && Mod_AliasExtradata( ent->model ))
+	if( FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ) && ent->model && ent->model->type == mod_alias )
 	{
 		dlight_t	*dl = CL_AllocDlight( ent->index );
 		vec3_t	fv;
