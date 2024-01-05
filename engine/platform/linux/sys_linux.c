@@ -13,7 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
+
 #include <time.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -24,6 +27,19 @@ GNU General Public License for more details.
 #include <unistd.h>
 #include <math.h>
 #include "platform/platform.h"
+#include <sys/types.h>
+
+#if defined(__GLIBC__) && (__GLIBC__ <= 2) && (__GLIBC_MINOR__ <= 30)
+// Library support was added in glibc 2.30.
+// Earlier glibc versions did not provide a wrapper for this system call,
+// necessitating the use of syscall(2).
+#include <sys/syscall.h>
+
+static pid_t gettid( void )
+{
+	return syscall( SYS_gettid );
+}
+#endif
 
 static void *g_hsystemd;
 static int (*g_pfn_sd_notify)( int unset_environment, const char *state );
