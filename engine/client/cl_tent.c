@@ -2765,15 +2765,11 @@ void CL_AddModelEffects( cl_entity_t *ent )
 	vec3_t	neworigin;
 	vec3_t	oldorigin;
 
-	if( !ent->model ) return;
+	if( !ent->model || ent->player )
+		return;
 
-	switch( ent->model->type )
-	{
-	case mod_alias:
-	case mod_studio:
-		break;
-	default:	return;
-	}
+	if( ent->model->type != mod_alias && ent->model->type != mod_studio )
+		return;
 
 	if( cls.demoplayback == DEMO_QUAKE1 )
 	{
