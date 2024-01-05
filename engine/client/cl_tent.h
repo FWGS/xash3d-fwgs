@@ -81,7 +81,6 @@ void R_DebugParticle( const vec3_t pos, byte r, byte g, byte b );
 void R_RicochetSound( const vec3_t pos );
 struct dlight_s *CL_AllocDlight( int key );
 struct dlight_s *CL_AllocElight( int key );
-void CL_UpdateFlashlight( cl_entity_t *pEnt );
 void CL_AddEntityEffects( cl_entity_t *ent );
 void CL_AddModelEffects( cl_entity_t *ent );
 void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags );
