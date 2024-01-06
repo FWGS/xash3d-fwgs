@@ -1001,6 +1001,15 @@ void R_GammaChanged( qboolean do_reset_gamma )
 	}
 }
 
+static void R_CheckGamma( void )
+{
+	if( FBitSet( gl_overbright.flags, FCVAR_CHANGED ))
+	{
+		R_GammaChanged( false );
+		ClearBits( gl_overbright.flags, FCVAR_CHANGED );
+	}
+}
+
 /*
 ===============
 R_BeginFrame
@@ -1015,6 +1024,8 @@ void R_BeginFrame( qboolean clearScene )
 	{
 		pglClear( GL_COLOR_BUFFER_BIT );
 	}
+
+	R_CheckGamma();
 
 	R_Set2DMode( true );
 
