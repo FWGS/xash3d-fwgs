@@ -178,25 +178,6 @@ static screenfade_t *pfnRefGetScreenFade( void )
 	return &clgame.fade;
 }
 
-/*
-===============
-R_DoResetGamma
-gamma will be reset for
-some type of screenshots
-===============
-*/
-static qboolean R_DoResetGamma( void )
-{
-	switch( cls.scrshot_action )
-	{
-	case scrshot_envshot:
-	case scrshot_skyshot:
-		return true;
-	default:
-		return false;
-	}
-}
-
 static qboolean R_Init_Video_( const int type )
 {
 	host.apply_opengl_config = true;
@@ -306,9 +287,11 @@ static ref_api_t gEngfuncs =
 	SW_LockBuffer,
 	SW_UnlockBuffer,
 
-	BuildGammaTable,
 	LightToTexGamma,
-	R_DoResetGamma,
+	LightToTexGammaEx,
+	TextureToGamma,
+	ScreenGammaTable,
+	LinearGammaTable,
 
 	CL_GetLightStyle,
 	CL_GetDynamicLight,

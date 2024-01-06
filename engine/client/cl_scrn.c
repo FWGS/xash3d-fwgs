@@ -292,6 +292,8 @@ void SCR_MakeScreenShot( void )
 		viewsize = cls.envshot_viewsize;
 	else viewsize = cl_envshot_size.value;
 
+	V_CheckGamma();
+
 	switch( cls.scrshot_action )
 	{
 	case scrshot_normal:

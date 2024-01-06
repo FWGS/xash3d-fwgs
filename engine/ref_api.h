@@ -42,7 +42,8 @@ GNU General Public License for more details.
 // 6. Removed timing from ref_globals_t.
 //    Renderers are supposed to migrate to ref_client_t/ref_host_t using PARM_GET_CLIENT_PTR and PARM_GET_HOST_PTR
 //    Removed functions to get internal engine structions. Use PARM_GET_*_PTR instead.
-#define REF_API_VERSION 6
+// 7. Gamma fixes.
+#define REF_API_VERSION 7
 
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP)
@@ -404,9 +405,11 @@ typedef struct ref_api_s
 	void (*SW_UnlockBuffer)( void );
 
 	// gamma
-	void (*BuildGammaTable)( float lightgamma, float brightness );
-	byte		(*LightToTexGamma)( byte color );	// software gamma support
-	qboolean	(*R_DoResetGamma)( void );
+	byte (*LightToTexGamma)( byte );	// software gamma support
+	uint (*LightToTexGammaEx)( uint );	// software gamma support
+	byte (*TextureToGamma)( byte );
+	uint (*ScreenGammaTable)( uint );
+	uint (*LinearGammaTable)( uint );
 
 	// renderapi
 	lightstyle_t*	(*GetLightStyle)( int number );
@@ -652,6 +655,8 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define ENGINE_SHARED_CVAR_LIST( f ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \
+	ENGINE_SHARED_CVAR_NAME( f, v_lightgamma, lightgamma ) \
+	ENGINE_SHARED_CVAR_NAME( f, v_direct, direct ) \
 	ENGINE_SHARED_CVAR( f, r_showtextures ) \
 	ENGINE_SHARED_CVAR( f, r_speeds ) \
 	ENGINE_SHARED_CVAR( f, r_fullbright ) \
