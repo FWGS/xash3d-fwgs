@@ -3412,9 +3412,7 @@ void R_GatherPlayerLight( void )
 	cl_entity_t	*view = tr.viewent;
 	colorVec		c;
 
-	tr.ignore_lightgamma = true;
 	c = R_LightPoint( view->origin );
-	tr.ignore_lightgamma = false;
 	gEngfuncs.SetLocalLightLevel( ( c.r + c.g + c.b ) / 3 );
 }
 
