@@ -560,8 +560,6 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	// use client vieworg
 	if( !vieworg ) vieworg = RI.vieworg;
 
-	R_CheckGamma();
-
 	for( i = 0; i < 6; i++ )
 	{
 		// go into 3d mode
