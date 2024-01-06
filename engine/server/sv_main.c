@@ -129,7 +129,6 @@ CVAR_DEFINE( public_server, "public", "0", 0, "change server type from private t
 CVAR_DEFINE_AUTO( sv_novis, "0", 0, "force to ignore server visibility" );			// disable server culling entities by vis
 CVAR_DEFINE( sv_pausable, "pausable", "1", FCVAR_SERVER, "allow players to pause or not" );
 static CVAR_DEFINE_AUTO( timeout, "125", FCVAR_SERVER, "connection timeout" );				// seconds without any message
-CVAR_DEFINE( sv_lighting_modulate, "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
 CVAR_DEFINE( sv_maxclients, "maxplayers", "1", FCVAR_LATCH, "server max capacity" );
 CVAR_DEFINE_AUTO( sv_check_errors, "0", FCVAR_ARCHIVE, "check edicts for errors" );
 CVAR_DEFINE_AUTO( sv_reconnect_limit, "3", FCVAR_ARCHIVE, "max reconnect attempts" );		// minimum seconds between connect messages
@@ -919,7 +918,6 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_maxclients );
 	Cvar_RegisterVariable( &sv_check_errors );
 	Cvar_RegisterVariable( &public_server );
-	Cvar_RegisterVariable( &sv_lighting_modulate );
 	Cvar_RegisterVariable( &sv_reconnect_limit );
 	Cvar_RegisterVariable( &sv_failuretime );
 	Cvar_RegisterVariable( &sv_unlag );
