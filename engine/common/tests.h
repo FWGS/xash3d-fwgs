@@ -38,6 +38,7 @@ void Test_RunCvar( void );
 void Test_RunCon( void );
 void Test_RunVOX( void );
 void Test_RunIPFilter( void );
+void Test_RunGamma( void );
 
 #define TEST_LIST_0 \
 	Test_RunLibCommon(); \
@@ -47,7 +48,8 @@ void Test_RunIPFilter( void );
 	Test_RunIPFilter();
 
 #define TEST_LIST_0_CLIENT \
-	Test_RunCon();
+	Test_RunCon(); \
+	Test_RunGamma();
 
 #define TEST_LIST_1 \
 	Test_RunImagelib();
