@@ -320,18 +320,10 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		{
 			uint	scale = tr.lightstylevalue[surf->styles[map]];
 
-			if( tr.ignore_lightgamma )
-			{
-				cv->r += lm->r * scale;
-				cv->g += lm->g * scale;
-				cv->b += lm->b * scale;
-			}
-			else
-			{
-				cv->r += gEngfuncs.LightToTexGamma( lm->r ) * scale;
-				cv->g += gEngfuncs.LightToTexGamma( lm->g ) * scale;
-				cv->b += gEngfuncs.LightToTexGamma( lm->b ) * scale;
-			}
+			cv->r += lm->r * scale;
+			cv->g += lm->g * scale;
+			cv->b += lm->b * scale;
+
 			lm += size; // skip to next lightmap
 
 			if( dm != NULL )
@@ -418,9 +410,10 @@ colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot,
 			{
 				if( lspot ) VectorCopy( g_trace_lightspot, lspot );
 				if( lvec ) VectorNormalize2( g_trace_lightvec, lvec );
-				light.r = Q_min(( cv.r >> 7 ), 255 );
-				light.g = Q_min(( cv.g >> 7 ), 255 );
-				light.b = Q_min(( cv.b >> 7 ), 255 );
+
+				light.r = Q_min(( cv.r >> 8 ), 255 );
+				light.g = Q_min(( cv.g >> 8 ), 255 );
+				light.b = Q_min(( cv.b >> 8 ), 255 );
 				last_fraction = g_trace_fraction;
 
 				if(( light.r + light.g + light.b ) != 0 )
