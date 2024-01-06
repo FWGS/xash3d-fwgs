@@ -987,31 +987,6 @@ void R_RenderScene( void )
 
 /*
 ===============
-R_CheckGamma
-===============
-*/
-void R_CheckGamma( void )
-{
-	if( gEngfuncs.R_DoResetGamma( ))
-	{
-		// paranoia cubemaps uses this
-		gEngfuncs.BuildGammaTable( 1.8f, 0.0f );
-
-		// paranoia cubemap rendering
-		if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
-			gEngfuncs.drawFuncs->GL_BuildLightmaps( );
-	}
-	else if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
-	{
-		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
-		glConfig.softwareGammaUpdate = true;
-		GL_RebuildLightmaps();
-		glConfig.softwareGammaUpdate = false;
-	}
-}
-
-/*
-===============
 R_BeginFrame
 ===============
 */
@@ -1024,8 +999,6 @@ void R_BeginFrame( qboolean clearScene )
 	{
 		pglClear( GL_COLOR_BUFFER_BIT );
 	}
-
-	R_CheckGamma();
 
 	R_Set2DMode( true );
 
