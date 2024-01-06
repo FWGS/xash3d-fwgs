@@ -418,6 +418,7 @@ ref_interface_t gReffuncs =
 	GL_InitExtensions,
 	GL_ClearExtensions,
 
+	R_GammaChanged,
 	R_BeginFrame,
 	R_RenderScene,
 	R_EndFrame,

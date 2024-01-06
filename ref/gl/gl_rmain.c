@@ -985,6 +985,22 @@ void R_RenderScene( void )
 	R_EndGL();
 }
 
+void R_GammaChanged( qboolean do_reset_gamma )
+{
+	if( do_reset_gamma )
+	{
+		// paranoia cubemap rendering
+		if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
+			gEngfuncs.drawFuncs->GL_BuildLightmaps( );
+	}
+	else
+	{
+		glConfig.softwareGammaUpdate = true;
+		GL_RebuildLightmaps();
+		glConfig.softwareGammaUpdate = false;
+	}
+}
+
 /*
 ===============
 R_BeginFrame

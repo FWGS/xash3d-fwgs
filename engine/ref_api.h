@@ -463,6 +463,7 @@ typedef struct ref_interface_s
 	void (*GL_ClearExtensions)( void );
 
 	// scene rendering
+	void (*R_GammaChanged)( qboolean do_reset_gamma );
 	void (*R_BeginFrame)( qboolean clearScene );
 	void (*R_RenderScene)( void );
 	void (*R_EndFrame)( void );
