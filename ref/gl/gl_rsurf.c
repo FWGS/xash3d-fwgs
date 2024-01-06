@@ -600,9 +600,9 @@ void R_AddDynamicLights( msurface_t *surf )
 
 				if( dist < minlight )
 				{
-					bl[0] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.r )) / 256;
-					bl[1] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.g )) / 256;
-					bl[2] += ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( dl->color.b )) / 256;
+					bl[0] += ((int)((rad - dist) * 256) * dl->color.r ) / 256;
+					bl[1] += ((int)((rad - dist) * 256) * dl->color.g ) / 256;
+					bl[2] += ((int)((rad - dist) * 256) * dl->color.b ) / 256;
 				}
 			}
 		}
@@ -742,11 +742,15 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	int		sample_size;
 	mextrasurf_t	*info = surf->info;
 	color24		*lm;
+	int lightscale;
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = ( info->lightextents[0] / sample_size ) + 1;
 	tmax = ( info->lightextents[1] / sample_size ) + 1;
 	size = smax * tmax;
+	if( gl_overbright->value )
+		lightscale = 256;
+	else lightscale = ( pow( 2.0f, 1.0f / v_lightgamma->value ) * 256 ) + 0.5;
 
 	lm = surf->samples;
 
@@ -759,9 +763,9 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 
 		for( i = 0, bl = r_blocklights; i < size; i++, bl += 3, lm++ )
 		{
-			bl[0] += gEngfuncs.LightToTexGamma( lm->r ) * scale;
-			bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
-			bl[2] += gEngfuncs.LightToTexGamma( lm->b ) * scale;
+			bl[0] += lm->r * scale;
+			bl[1] += lm->g * scale;
+			bl[2] += lm->b * scale;
 		}
 	}
 
@@ -777,9 +781,16 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	{
 		for( s = 0; s < smax; s++ )
 		{
-			dest[0] = Q_min((bl[0] >> 7), 255 );
-			dest[1] = Q_min((bl[1] >> 7), 255 );
-			dest[2] = Q_min((bl[2] >> 7), 255 );
+			int i;
+			for( i = 0; i < 3; i++ )
+			{
+				int t = bl[i] * lightscale >> 14;
+
+				if( t > 1023 )
+					t = 1023;
+
+				dest[i] = gEngfuncs.LightToTexGammaEx( t ) >> 2;
+			}
 			dest[3] = 255;
 
 			bl += 3;
@@ -944,7 +955,15 @@ void R_BlendLightmaps( void )
 	pglDepthFunc( GL_EQUAL );
 
 	pglDisable( GL_ALPHA_TEST );
-	pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
+	if( gl_overbright->value )
+	{
+		pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
+		pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
+	}
+	else
+	{
+		pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
+	}
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 	// render static lightmaps first
