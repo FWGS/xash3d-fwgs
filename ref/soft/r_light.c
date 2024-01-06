@@ -40,23 +40,23 @@ void GAME_EXPORT CL_RunLightStyles( void )
 	int		i, k, flight, clight;
 	float		l, lerpfrac, backlerp;
 	float		frametime = (gp_cl->time -   gp_cl->oldtime);
-	float		scale;
 	lightstyle_t	*ls;
 
-	if( !WORLDMODEL ) return;
+	if( !WORLDMODEL )
+		return;
 
-	scale = 1.0f;
+	if( !WORLDMODEL->lightdata )
+	{
+		for( i = 0; i < MAX_LIGHTSTYLES; i++ )
+			tr.lightstylevalue[i] = 256 * 256;
+		return;
+	}
 
 	// light animations
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
 	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
 		ls = gEngfuncs.GetLightStyle( i );
-		if( !WORLDMODEL->lightdata )
-		{
-			tr.lightstylevalue[i] = 256 * 256;
-			continue;
-		}
 
 		if( !gp_cl->paused && frametime <= 0.1f )
 			ls->time += frametime; // evaluate local time
@@ -68,18 +68,18 @@ void GAME_EXPORT CL_RunLightStyles( void )
 
 		if( !ls->length )
 		{
-			tr.lightstylevalue[i] = 256 * scale;
+			tr.lightstylevalue[i] = 256;
 			continue;
 		}
 		else if( ls->length == 1 )
 		{
 			// single length style so don't bother interpolating
-			tr.lightstylevalue[i] = ls->map[0] * 22 * scale;
+			tr.lightstylevalue[i] = ( ls->pattern[0] - 'a' ) * 22;
 			continue;
 		}
 		else if( !ls->interp ) // || !CVAR_TO_BOOL( cl_lightstyle_lerping ))
 		{
-			tr.lightstylevalue[i] = ls->map[flight%ls->length] * 22 * scale;
+			tr.lightstylevalue[i] = ( ls->pattern[flight%ls->length] - 'a' ) * 22;
 			continue;
 		}
 
@@ -92,7 +92,7 @@ void GAME_EXPORT CL_RunLightStyles( void )
 		k = ls->map[clight % ls->length];
 		l += (float)( k * 22.0f ) * lerpfrac;
 
-		tr.lightstylevalue[i] = (int)l * scale;
+		tr.lightstylevalue[i] = (int)l;
 	}
 }
 
