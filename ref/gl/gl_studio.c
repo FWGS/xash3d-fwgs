@@ -103,7 +103,7 @@ typedef struct
 	int		numlocallights;
 	int		lightage[MAXSTUDIOBONES];
 	dlight_t		*locallight[MAX_LOCALLIGHTS];
-	color24		locallightcolor[MAX_LOCALLIGHTS];
+	int		locallightcolor[MAX_LOCALLIGHTS][3];
 	vec4_t		lightpos[MAXSTUDIOVERTS][MAX_LOCALLIGHTS];
 	vec3_t		lightbonepos[MAXSTUDIOBONES][MAX_LOCALLIGHTS];
 	float		locallightR2[MAX_LOCALLIGHTS];
@@ -1381,13 +1381,13 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		{
 			VectorSet( lightDir, mv->skyvec_x, mv->skyvec_y, mv->skyvec_z );
 
-			light.r = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_r, 255 ));
-			light.g = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_g, 255 ));
-			light.b = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_b, 255 ));
+			light.r = mv->skycolor_r;
+			light.g = mv->skycolor_g;
+			light.b = mv->skycolor_b;
 		}
 	}
 
-	if(( light.r + light.g + light.b ) < 16 ) // TESTTEST
+	if(( light.r + light.g + light.b ) == 0 )
 	{
 		colorVec	gcolor;
 		float	grad[4];
@@ -1466,15 +1466,15 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 			VectorAdd( lightDir, dist, lightDir );
 
-			finalLight[0] += gEngfuncs.LightToTexGamma( dl->color.r ) * ( add / 256.0f ) * 2.0f;
-			finalLight[1] += gEngfuncs.LightToTexGamma( dl->color.g ) * ( add / 256.0f ) * 2.0f;
-			finalLight[2] += gEngfuncs.LightToTexGamma( dl->color.b ) * ( add / 256.0f ) * 2.0f;
+			finalLight[0] += dl->color.r * ( add / 256.0f );
+			finalLight[1] += dl->color.g * ( add / 256.0f );
+			finalLight[2] += dl->color.b * ( add / 256.0f );
 		}
 	}
 
 	if( FBitSet( ent->model->flags, STUDIO_AMBIENT_LIGHT ))
 		add = 0.6f;
-	else add = 0.9f;
+	else add = bound( 0.75f, v_direct->value, 1.0f );
 
 	VectorScale( lightDir, add, lightDir );
 
@@ -1568,9 +1568,9 @@ void R_StudioEntityLight( alight_t *lightinfo )
 
 			if( k != -1 )
 			{
-				g_studio.locallightcolor[k].r = gEngfuncs.LightToTexGamma( el->color.r );
-				g_studio.locallightcolor[k].g = gEngfuncs.LightToTexGamma( el->color.g );
-				g_studio.locallightcolor[k].b = gEngfuncs.LightToTexGamma( el->color.b );
+				g_studio.locallightcolor[k][0] = gEngfuncs.LinearGammaTable( el->color.r << 2 );
+				g_studio.locallightcolor[k][1] = gEngfuncs.LinearGammaTable( el->color.g << 2 );
+				g_studio.locallightcolor[k][2] = gEngfuncs.LinearGammaTable( el->color.b << 2 );
 				g_studio.locallightR2[k] = r2;
 				g_studio.locallight[k] = el;
 				lstrength[k] = minstrength;
@@ -1665,7 +1665,8 @@ void R_StudioLighting( float *lv, int bone, int flags, vec3_t normal )
 	}
 
 	illum = Q_min( illum, 255.0f );
-	*lv = illum * (1.0f / 255.0f);
+
+	*lv = gEngfuncs.LightToTexGammaEx( illum * 4 ) / 1023.0f;
 }
 
 /*
@@ -1685,7 +1686,7 @@ static void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, 
 		return;
 	}
 
-	VectorCopy( color, finalLight );
+	VectorSet( finalLight, 0, 0, 0 );
 
 	for( i = 0; i < g_studio.numlocallights; i++ )
 	{
@@ -1709,21 +1710,29 @@ static void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, 
 				else light[i][3] = 0.0001f;
 			}
 
-			temp = Q_min( r * light[i][3] / 255.0f, 1.0f );
+			temp = r * light[i][3];
 
-			localLight[0] = (float)g_studio.locallightcolor[i].r * temp;
-			localLight[1] = (float)g_studio.locallightcolor[i].g * temp;
-			localLight[2] = (float)g_studio.locallightcolor[i].b * temp;
-
+			VectorAddScalar( g_studio.locallightcolor[i], temp, localLight );
 			VectorAdd( finalLight, localLight, finalLight );
 		}
 	}
 
-	VectorScale( finalLight, 255.0f, finalLight );
+	if( !VectorIsNull( finalLight ))
+	{
+		for( i = 0; i < 3; i++ )
+		{
+			float c = finalLight[i] + gEngfuncs.LinearGammaTable( color[i] * 1023.0f );
 
-	out[0] = Q_min( (int)( finalLight[0] ), 255 );
-	out[1] = Q_min( (int)( finalLight[1] ), 255 );
-	out[2] = Q_min( (int)( finalLight[2] ), 255 );
+			if( c > 1023.0f )
+				out[i] = 255;
+			else
+				out[i] = gEngfuncs.ScreenGammaTable( c ) >> 2;
+		}
+	}
+	else
+	{
+		VectorScale( color, 255.0f, out );
+	}
 }
 
 static void R_StudioSetColorArray( short *ptricmds, vec3_t *pstudionorms, byte *color )
