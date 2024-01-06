@@ -238,7 +238,6 @@ typedef struct
 	int		realframecount;	// not including viewpasses
 	int		framecount;
 
-	qboolean		ignore_lightgamma;
 	qboolean		fCustomRendering;
 	qboolean		fResetVis;
 	qboolean		fFlipViewModel;
@@ -528,7 +527,6 @@ void GL_SetupAttributes( int safegl );
 void GL_OnContextCreated( void );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
-void VID_CheckChanges( void );
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 void GL_FreeImage( const char *name );
 qboolean VID_ScreenShot( const char *filename, int shot_type );
