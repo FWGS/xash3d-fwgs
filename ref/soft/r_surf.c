@@ -211,13 +211,9 @@ static void R_BuildLightMap( void )
 
 		for( i = 0, bl = blocklights; i < size; i++, bl += 1, lm++ )
 		{
-			bl[0] += gEngfuncs.LightToTexGamma( lm->r ) * scale;
-			bl[0] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
-			bl[0] += gEngfuncs.LightToTexGamma( lm->b ) * scale;
-
-			//printf("test\n");
-			//bl[1] += gEngfuncs.LightToTexGamma( lm->g ) * scale;
-			//bl[2] += gEngfuncs.LightToTexGamma( lm->b ) * scale;
+			bl[0] += lm->r * scale;
+			bl[1] += lm->g * scale;
+			bl[2] += lm->b * scale;
 		}
 	}
 
@@ -245,7 +241,10 @@ static void R_BuildLightMap( void )
 	// bound, invert, and shift
 		for (i=0 ; i<size ; i++)
 		{
-			t = (int)blocklights[i];
+			if( blocklights[i] < 65280 )
+				t = gEngfuncs.LightToTexGammaEx( blocklights[i] >> 6 ) << 6;
+			else t = (int)blocklights[i];
+
 			if (t < 0)
 				t = 0;
 			if( t > 65535 * 3 )
