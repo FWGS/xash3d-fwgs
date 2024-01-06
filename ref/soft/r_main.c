@@ -1643,28 +1643,6 @@ R_BeginFrame
 */
 void GAME_EXPORT R_BeginFrame( qboolean clearScene )
 {
-#if 0 // unused
-	if( R_DoResetGamma( ))
-	{
-		gEngfuncs.BuildGammaTable( 1.8f, 0.0f );
-		D_FlushCaches( );
-
-		// next frame will be restored gamma
-		SetBits( vid_brightness->flags, FCVAR_CHANGED );
-		SetBits( vid_gamma->flags, FCVAR_CHANGED );
-	}
-	else
-#endif
-	if( FBitSet( vid_gamma->flags, FCVAR_CHANGED ) || FBitSet( vid_brightness->flags, FCVAR_CHANGED ))
-	{
-		gEngfuncs.BuildGammaTable( vid_gamma->value, vid_brightness->value );
-
-		D_FlushCaches( );
-		// next frame will be restored gamma
-		ClearBits( vid_brightness->flags, FCVAR_CHANGED );
-		ClearBits( vid_gamma->flags, FCVAR_CHANGED );
-	}
-
 	R_Set2DMode( true );
 
 	// draw buffer stuff
