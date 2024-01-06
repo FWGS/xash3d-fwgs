@@ -1636,6 +1636,14 @@ qboolean R_DoResetGamma( void )
 #endif
 }
 
+void R_GammaChanged( qboolean do_reset_gamma )
+{
+	if( do_reset_gamma ) // unused
+		return;
+
+	D_FlushCaches( );
+}
+
 /*
 ===============
 R_BeginFrame
