@@ -1435,6 +1435,13 @@ void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 		}
 	}
 
+	if( ent->curstate.renderfx == kRenderFxLightMultiplier && ent->curstate.iuser4 != 10 )
+	{
+		light.r *= ent->curstate.iuser4 / 10.0f;
+		light.g *= ent->curstate.iuser4 / 10.0f;
+		light.b *= ent->curstate.iuser4 / 10.0f;
+	}
+
 	VectorSet( finalLight, light.r, light.g, light.b );
 	ent->cvFloorColor = light;
 
