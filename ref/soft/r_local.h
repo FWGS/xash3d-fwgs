@@ -66,7 +66,7 @@ extern poolhandle_t r_temppool;
 #define MAX_DRAW_STACK	2		// normal view and menu view
 
 #define SHADEDOT_QUANT 	16		// precalculated dot products for quantized angles
-#define SHADE_LAMBERT	1.495f
+#define SHADE_LAMBERT	1.4953241
 #define DEFAULT_ALPHATEST	0.0f
 
 // refparams
