@@ -678,7 +678,6 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 	ENGINE_SHARED_CVAR( f, r_sprite_lighting ) \
 	ENGINE_SHARED_CVAR( f, r_drawviewmodel ) \
 	ENGINE_SHARED_CVAR( f, r_glowshellfreq ) \
-	ENGINE_SHARED_CVAR( f, r_lighting_modulate ) \
 
 #define DECLARE_ENGINE_SHARED_CVAR_LIST() \
 	ENGINE_SHARED_CVAR_LIST( DECLARE_ENGINE_SHARED_CVAR )

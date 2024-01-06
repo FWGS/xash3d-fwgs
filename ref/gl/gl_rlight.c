@@ -42,7 +42,7 @@ void CL_RunLightStyles( void )
 
 	if( !WORLDMODEL ) return;
 
-	scale = r_lighting_modulate->value;
+	scale = 1.0f;
 
 	// light animations
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
