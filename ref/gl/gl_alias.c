@@ -822,9 +822,9 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 		{
 			VectorSet( lightDir, mv->skyvec_x, mv->skyvec_y, mv->skyvec_z );
 
-			light.r = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_r, 255 ));
-			light.g = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_g, 255 ));
-			light.b = gEngfuncs.LightToTexGamma( bound( 0, mv->skycolor_b, 255 ));
+			light.r = mv->skycolor_r;
+			light.g = mv->skycolor_g;
+			light.b = mv->skycolor_b;
 		}
 	}
 
@@ -907,9 +907,9 @@ void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 			VectorAdd( lightDir, dist, lightDir );
 
-			finalLight[0] += gEngfuncs.LightToTexGamma( dl->color.r ) * ( add / 256.0f ) * 2.0f;
-			finalLight[1] += gEngfuncs.LightToTexGamma( dl->color.g ) * ( add / 256.0f ) * 2.0f;
-			finalLight[2] += gEngfuncs.LightToTexGamma( dl->color.b ) * ( add / 256.0f ) * 2.0f;
+			finalLight[0] += dl->color.r * ( add / 256.0f );
+			finalLight[1] += dl->color.g * ( add / 256.0f );
+			finalLight[2] += dl->color.b * ( add / 256.0f );
 		}
 	}
 
@@ -991,9 +991,9 @@ void R_AliasLighting( float *lv, const vec3_t normal )
 			illum -= g_alias.shadelight * lightcos;
 	}
 
-	illum = Q_max( illum, 0.0f );
-	illum = Q_min( illum, 255.0f );
-	*lv = illum * (1.0f / 255.0f);
+	illum = bound( 0.0f, illum, 255.0f );
+
+	*lv = gEngfuncs.LightToTexGammaEx( illum * 4 ) / 1023.0f;
 }
 
 /*
