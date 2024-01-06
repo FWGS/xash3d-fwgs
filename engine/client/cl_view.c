@@ -347,6 +347,8 @@ qboolean V_PreRender( void )
 		return false;
 	}
 
+	V_CheckGamma();
+
 	ref.dllFuncs.R_BeginFrame( !cl.paused && ( cls.state == ca_active ));
 
 	GL_UpdateSwapInterval( );

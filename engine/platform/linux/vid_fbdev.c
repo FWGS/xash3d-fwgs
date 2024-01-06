@@ -51,8 +51,6 @@ qboolean  R_Init_Video( const int type )
 	string fbdev = DEFAULT_FBDEV;
 	fb.fd = -1;
 
-	VID_StartupGamma();
-
 	if( type != REF_SOFTWARE )
 		return false;
 

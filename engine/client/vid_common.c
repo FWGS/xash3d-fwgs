@@ -22,8 +22,6 @@ GNU General Public License for more details.
 
 static CVAR_DEFINE( window_width, "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen width" );
 static CVAR_DEFINE( window_height, "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
-static CVAR_DEFINE( vid_brightness, "brightness", "0.0", FCVAR_ARCHIVE, "brightness factor" );
-static CVAR_DEFINE( vid_gamma, "gamma", "2.5", FCVAR_ARCHIVE, "gamma amount" );
 static CVAR_DEFINE_AUTO( vid_mode, "0", FCVAR_RENDERINFO, "current video mode index (used only for storage)" );
 static CVAR_DEFINE_AUTO( vid_rotate, "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen rotation (0-3)" );
 static CVAR_DEFINE_AUTO( vid_scale, "1.0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "pixel scale" );
@@ -35,19 +33,6 @@ CVAR_DEFINE( window_xpos, "_window_xpos", "-1", FCVAR_RENDERINFO, "window positi
 CVAR_DEFINE( window_ypos, "_window_ypos", "-1", FCVAR_RENDERINFO, "window position by vertical" );
 
 glwstate_t	glw_state;
-
-/*
-=================
-VID_StartupGamma
-=================
-*/
-void VID_StartupGamma( void )
-{
-	BuildGammaTable( vid_gamma.value, vid_brightness.value );
-	Con_Reportf( "VID_StartupGamma: gamma %g brightness %g\n", vid_gamma.value, vid_brightness.value );
-	ClearBits( vid_brightness.flags, FCVAR_CHANGED );
-	ClearBits( vid_gamma.flags, FCVAR_CHANGED );
-}
 
 /*
 =================
@@ -224,8 +209,6 @@ void VID_Init( void )
 	Cvar_RegisterVariable( &vid_scale );
 	Cvar_RegisterVariable( &vid_fullscreen );
 	Cvar_RegisterVariable( &vid_maximized );
-	Cvar_RegisterVariable( &vid_brightness );
-	Cvar_RegisterVariable( &vid_gamma );
 	Cvar_RegisterVariable( &window_xpos );
 	Cvar_RegisterVariable( &window_ypos );
 
@@ -233,5 +216,6 @@ void VID_Init( void )
 	// but supported mode list is filled by backends, so numbers are not portable any more
 	Cmd_AddRestrictedCommand( "vid_setmode", VID_Mode_f, "display video mode" );
 
+	V_Init(); // init gamma
 	R_Init(); // init renderer
 }

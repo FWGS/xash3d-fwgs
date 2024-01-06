@@ -843,13 +843,10 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 					return false;
 				GL_SetupAttributes(); // re-choose attributes
 			}
-
-			VID_StartupGamma();
 		}
 
 		if( !GL_UpdateContext( ))
-		return false;
-
+			return false;
 	}
 
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
