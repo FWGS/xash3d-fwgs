@@ -91,9 +91,7 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			pglColor4ub( gEngfuncs.LightToTexGamma( color.r ),
-				gEngfuncs.LightToTexGamma( color.g ),
-				gEngfuncs.LightToTexGamma( color.b ), alpha );
+			pglColor4ub( color.r, color.g, color.b, alpha );
 
 			pglTexCoord2f( 0.0f, 1.0f );
 			pglVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
