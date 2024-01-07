@@ -247,4 +247,9 @@ void CL_HudMessage( const char *pMessage )
 
 }
 
+byte TextureToGamma( byte b )
+{
+	return b;
+}
+
 #endif // XASH_DEDICATED
