@@ -1748,6 +1748,16 @@ typedef struct vboarray_s
 	struct vboarray_s *next; // split by 65536 vertices
 } vboarray_t;
 
+typedef struct dlightstate_s
+{
+	msurface_t *dlightchain;
+	uint curindex;
+	//uint surfindex;
+	//vboarray_t *array;
+	//struct dlightstate_s *next;
+} dlightstate_t;
+
+
 // every surface is linked to vbo texture
 typedef struct vbosurfdata_s
 {
@@ -1794,6 +1804,7 @@ struct vbo_static_s
 	vec2_t *dlight_tc; // array
 #endif
 	unsigned int dlight_vbo;
+	dlightstate_t *dlights;
 	vbovertex_t decal_dlight[MAX_RENDER_DECALS * DECAL_VERTS_MAX];
 	unsigned int decal_dlight_vbo;
 	int decal_numverts[MAX_RENDER_DECALS * DECAL_VERTS_MAX];
@@ -1803,6 +1814,8 @@ struct vbo_static_s
 	int maxlightmap;
 	int mintexture;
 	int maxtexture;
+	int mindlight;
+	int maxdlight;
 
 	// never skip array splits
 	int minarraysplit_tex;
@@ -1897,12 +1910,15 @@ void R_GenerateVBO( void )
 	vbos.maxlightmap = 0;
 	vbos.mintexture = INT_MAX;
 	vbos.maxtexture = 0;
+	vbos.mindlight = INT_MAX;
+	vbos.maxdlight = 0;
 
 	vbos.textures = Mem_Calloc( vbos.mempool, numtextures * numlightmaps * sizeof( vbotexture_t ) );
 	vbos.surfdata = Mem_Calloc( vbos.mempool, WORLDMODEL->numsurfaces * sizeof( vbosurfdata_t ) );
 	vbos.arraylist = vbo = Mem_Calloc( vbos.mempool, sizeof( vboarray_t ) );
 	vbos.decaldata = Mem_Calloc( vbos.mempool, sizeof( vbodecaldata_t ) );
 	vbos.decaldata->lm = Mem_Calloc( vbos.mempool, sizeof( msurface_t* ) * numlightmaps );
+	vbos.dlights = Mem_Calloc( vbos.mempool, sizeof( dlightstate_t ) * numtextures );
 
 	// count array lengths
 	for( k = 0; k < numlightmaps; k++ )
@@ -1913,6 +1929,7 @@ void R_GenerateVBO( void )
 		{
 			int i;
 			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
+			//dlightstate_t *dl = vbos.dlights[j];
 
 			for( i = 0; i < numsurfaces; i++ )
 			{
@@ -2439,6 +2456,15 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 	if( r_detailtextures.value && r_vbo_detail.value == 1 && mtst.tmu_dt == -1 && tex->dt_texturenum )
 	{
 		gl_texture_t *glt = R_GetTexture( tex->gl_texturenum );
+		int array_len;
+
+		if( vbo )
+			array_len = vbo->array_len;
+		else
+		{
+			array_len = offset;
+			offset = 0;
+		}
 
 		GL_SelectTexture( XASH_TEXTURE1 );
 		pglDisable( GL_TEXTURE_2D );
@@ -2463,7 +2489,7 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 		// draw
 #if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
 		if( pglDrawRangeElements )
-			pglDrawRangeElements( GL_TRIANGLES, 0, vbo->array_len, indexlen, GL_VBOINDEX_TYPE, indexarray );
+			pglDrawRangeElements( GL_TRIANGLES, 0, array_len, indexlen, GL_VBOINDEX_TYPE, indexarray );
 		else
 #endif
 		pglDrawElements( GL_TRIANGLES, indexlen, GL_VBOINDEX_TYPE, indexarray );
@@ -2483,10 +2509,13 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 		vboarray.astate = VBO_ARRAY_NONE;
 		vboarray.tstate = VBO_TEXTURE_NONE;
 		vboarray.lstate = VBO_LIGHTMAP_NONE;
-		if( resetvbo )
-			R_SetupVBOArrayDlight( vbo, tex );
-		else
-			R_SetupVBOArrayStatic( vbo, true, true );
+		if( vbo )
+		{
+			if( resetvbo )
+				R_SetupVBOArrayDlight( vbo, tex );
+			else
+				R_SetupVBOArrayStatic( vbo, true, true );
+		}
 	}
 }
 
@@ -3194,7 +3223,79 @@ void R_ClearVBOState( qboolean drawlightmap, qboolean drawtextures )
 	mtst.lm = 0;
 }
 
-static void R_FlushAllDlights( int mintexture, int maxtexture, int startindex, vboindex_t *dlightarray, int array_len )
+static void R_DrawDlightedDecalsAll( int decalcount, int mintexture, int maxtexture )
+{
+	msurface_t *decalsurf;
+	decal_t *pdecal;
+	int decali = 0;
+
+	pglDepthMask( GL_FALSE );
+	pglEnable( GL_BLEND );
+	pglEnable( GL_POLYGON_OFFSET_FILL );
+	if( RI.currententity->curstate.rendermode == kRenderTransAlpha )
+		pglDisable( GL_ALPHA_TEST );
+
+	R_SetupVBOArrayDecalDlight( decalcount );
+
+	for( int j = mintexture; j < maxtexture; j++ )
+	{
+		dlightstate_t *dl = &vbos.dlights[j];
+
+		for( decalsurf = dl->dlightchain; ( decali < decalcount ) && decalsurf; decalsurf = decalsurf->info->lightmapchain )
+		{
+			for( pdecal = decalsurf->pdecals; pdecal; pdecal = pdecal->pnext )
+			{
+				gl_texture_t *glt;
+
+				if( !pdecal->texture )
+					continue;
+
+				glt = R_GetTexture( pdecal->texture );
+
+				GL_Bind( mtst.tmu_gl, pdecal->texture );
+
+				// normal HL decal with alpha-channel
+				if( glt->flags & TF_HAS_ALPHA )
+				{
+					// draw transparent decals with GL_MODULATE
+					if( glt->fogParams[3] > 230 )
+						pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+					else pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
+					pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+				}
+				else
+				{
+					// color decal like detail texture. Base color is 127 127 127
+					pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
+					pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
+				}
+
+				pglDrawArrays( GL_TRIANGLE_FAN, decali * DECAL_VERTS_MAX, vbos.decal_numverts[decali] );
+				decali++;
+			}
+			//newsurf = surf;
+
+		}
+		//dl->dlightchain = NULL;
+	}
+
+#if SPARSE_DECALS_UPLOAD
+	if( vbos.decal_dlight_vbo )
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbos.decal_dlight ), NULL, GL_STREAM_DRAW_ARB );
+#endif
+
+	// restore states pointers for next dynamic lightmap
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
+	pglDepthMask( GL_TRUE );
+	pglDisable( GL_BLEND );
+	pglDisable( GL_POLYGON_OFFSET_FILL );
+	if( RI.currententity->curstate.rendermode == kRenderTransAlpha )
+		pglEnable( GL_ALPHA_TEST );
+	R_SetDecalMode( false );
+}
+
+
+static void R_FlushAllDlights( int mintexture, int maxtexture, int startindex, vboindex_t *dlightarray, int array_len, int decalcount )
 {
 	int j;
 	int k;
@@ -3216,38 +3317,70 @@ static void R_FlushAllDlights( int mintexture, int maxtexture, int startindex, v
 
 	for( j = mintexture; j < maxtexture; j++ )
 	{
-		for( k = vbos.minlightmap; k < vbos.maxlightmap; k++ )
+		//for( k = vbos.minlightmap; k < vbos.maxlightmap; k++ )
 		{
-			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
-			texture_t *tex;
-
-			int indexcount = vbotex->curindex - startindex;
-			vbotex->curindex = 0;
-			if( indexcount <= 0 )
-				continue;
-			tex = R_TextureAnim( WORLDMODEL->textures[j] );
-
-			GL_Bind( mtst.tmu_gl, tex->gl_texturenum );
-			pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,gl_tc)));
-			if( mtst.details_enabled && mtst.tmu_dt != -1 )
+			//vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
+			dlightstate_t *dl = &vbos.dlights[j];
+			//do
 			{
-				GL_SelectTexture( mtst.tmu_dt );
+				texture_t *tex;
+
+				int indexcount = dl->curindex - startindex;
+				if( indexcount <= 0 )
+					continue;
+				tex = R_TextureAnim( WORLDMODEL->textures[j] );
+
+				GL_Bind( mtst.tmu_gl, tex->gl_texturenum );
 				pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,gl_tc)));
+				if( r_detailtextures.value && mtst.tmu_dt != -1 && tex->dt_texturenum )
+				{
+					GL_Bind( mtst.tmu_dt, tex->dt_texturenum );
+					//pglTexCoordPointer( 2, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,gl_tc)));
+					mtst.details_enabled = true;
+					mtst.glt = R_GetTexture( tex->gl_texturenum );
+					R_EnableDetail();
+				}
+				else R_DisableDetail();
+
+			#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
+				if( pglDrawRangeElements )
+					pglDrawRangeElements( GL_TRIANGLES, 0, array_len, indexcount, GL_VBOINDEX_TYPE, dlightarray + startindex );
+				else
+			#endif
+				pglDrawElements( GL_TRIANGLES, indexcount, GL_VBOINDEX_TYPE, dlightarray + startindex );
+				startindex += indexcount;
+				//vbotex = vbotex->next;
 			}
 
-		#if !defined XASH_NANOGL || defined XASH_WES && XASH_EMSCRIPTEN // WebGL need to know array sizes
-			if( pglDrawRangeElements )
-				pglDrawRangeElements( GL_TRIANGLES, 0, array_len, indexcount, GL_VBOINDEX_TYPE, dlightarray + startindex );
-			else
-		#endif
-			pglDrawElements( GL_TRIANGLES, indexcount, GL_VBOINDEX_TYPE, dlightarray + startindex );
+			//while( vbotex );
+		}
+	}
+
+	R_DrawDlightedDecalsAll( decalcount, mintexture, maxtexture );
+	startindex = 0;
+	if( vbos.dlight_vbo )
+	{
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.dlight_vbo );
+		pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ),  (void*)(offsetof(vbovertex_t,pos)));
+	}
+	for( j = mintexture; j < maxtexture; j++ )
+	{
+		dlightstate_t *dl = &vbos.dlights[j];
+		int indexcount = dl->curindex - startindex;
+
+		dl->dlightchain = NULL;
+		dl->curindex = 0;
+		if( indexcount >= 0 && r_detailtextures.value && r_vbo_detail.value == 1 && mtst.tmu_dt == -1 )
+		{
+			texture_t *tex = tex = R_TextureAnim( WORLDMODEL->textures[j] );
+			R_AdditionalPasses( NULL, indexcount, dlightarray + startindex, tex, true, array_len );
 			startindex += indexcount;
 		}
 	}
 }
 
 
-static void R_DrawVBODlightsAll( vboarray_t *vbo )
+static void R_DrawVBODlightsAll( void )
 {
 	vboindex_t *dlightarray = vbos.dlight_index; // preallocated array
 	int numtextures = WORLDMODEL->numtextures;
@@ -3255,6 +3388,7 @@ static void R_DrawVBODlightsAll( vboarray_t *vbo )
 	msurface_t *surf, *newsurf;
 	int decalcount = 0;
 	uint indexbase = 0;
+	uint starttexture = vbos.mindlight;
 	int j;
 	int k;
 
@@ -3263,123 +3397,123 @@ static void R_DrawVBODlightsAll( vboarray_t *vbo )
 	// clear the block
 	LM_InitBlock();
 
-	for( j = vbos.mintexture; j < vbos.maxtexture; j++ )
+	for( j = starttexture; j < vbos.maxdlight; j++ )
 	{
-		for( k = vbos.minlightmap; k < vbos.maxlightmap; k++ )
+		//for( k = vbos.minlightmap; k < vbos.maxlightmap; k++ )
 		{
-			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
+			//vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
+			dlightstate_t *dl = &vbos.dlights[j];
 
-			// accumulate indexes for every dlighted surface until dlight block full
-			for( surf = newsurf = vbotex->dlightchain; surf; surf = surf->info->lightmapchain )
-			{
-				int	smax, tmax;
-				byte	*base;
-				const uint surfindex = surf - WORLDMODEL->surfaces;
-				const int startindex = vbos.surfdata[surfindex].startindex;
-				uint index;
-				mextrasurf_t *info; // this stores current dlight offset
-				int sample_size;
+			//do
+			//{
+				//vboarray_t *vbo = vbotex->vboarray;
 
-				info = surf->info;
-				sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-				smax = ( info->lightextents[0] / sample_size ) + 1;
-				tmax = ( info->lightextents[1] / sample_size ) + 1;
-
-
-				// find space for this surface and get offsets
-				if( LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
+				// accumulate indexes for every dlighted surface until dlight block full
+				for( surf = newsurf = dl->dlightchain; surf; surf = surf->info->lightmapchain )
 				{
-					base = gl_lms.lightmap_buffer;
-					base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
+					int	smax, tmax;
+					byte	*base;
+					//const uint surfindex = surf - WORLDMODEL->surfaces;
+					//const int startindex = vbos.surfdata[surfindex].startindex;
+					uint index;
+					mextrasurf_t *info; // this stores current dlight offset
+					int sample_size;
 
-					R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
+					info = surf->info;
+					sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+					smax = ( info->lightextents[0] / sample_size ) + 1;
+					tmax = ( info->lightextents[1] / sample_size ) + 1;
+
+
+					// find space for this surface and get offsets
+					if( LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
+					{
+						base = gl_lms.lightmap_buffer;
+						base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
+
+						R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
+					}
+					else
+					{
+						//dl->dlightchain = NULL;
+						//dl->curindex = 0;
+						//gEngfuncs.Con_Reportf("full\n");
+						dl->curindex = dlightindex;
+						R_FlushAllDlights( starttexture, j + 1, 0, dlightarray, indexbase, decalcount );
+						dl->dlightchain = surf;
+						starttexture = j;
+						indexbase = 0;
+						decalcount = 0;
+						// clear the block
+						LM_InitBlock();
+						dlightindex = 0;
+
+						// try upload the block now
+						if( !LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
+							gEngfuncs.Host_Error( "AllocBlock: full\n" );
+
+						base = gl_lms.lightmap_buffer;
+						base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
+
+						R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
+					}
+
+					// build index and texcoords arrays
+					vbos.dlight_arr[indexbase].lm_tc[0] = surf->polys->verts[0][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
+					vbos.dlight_arr[indexbase].lm_tc[1] = surf->polys->verts[0][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
+					vbos.dlight_arr[indexbase + 1].lm_tc[0] = surf->polys->verts[1][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
+					vbos.dlight_arr[indexbase + 1].lm_tc[1] = surf->polys->verts[1][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
+					Vector2Copy( &surf->polys->verts[0][3], vbos.dlight_arr[indexbase].gl_tc );
+					Vector2Copy( &surf->polys->verts[1][3], vbos.dlight_arr[indexbase + 1].gl_tc );
+					VectorCopy( surf->polys->verts[0], vbos.dlight_arr[indexbase].pos );
+					VectorCopy( surf->polys->verts[1], vbos.dlight_arr[indexbase + 1].pos );
+					// copy array from static
+					//Vector2Copy( vbo->array[startindex].gl_tc, vbos.dlight_arr[indexbase].gl_tc );
+					//VectorCopy( vbo->array[startindex].pos, vbos.dlight_arr[indexbase].pos );
+					//Vector2Copy( vbo->array[startindex + 1].gl_tc, vbos.dlight_arr[indexbase + 1].gl_tc );
+					//VectorCopy( vbo->array[startindex + 1].pos, vbos.dlight_arr[indexbase + 1].pos );
+
+					for( index = 2; index < surf->polys->numverts; index++ )
+					{
+						dlightarray[dlightindex++] = indexbase;
+						dlightarray[dlightindex++] = indexbase + index - 1;
+						dlightarray[dlightindex++] = indexbase + index;
+						vbos.dlight_arr[indexbase + index].lm_tc[0] = surf->polys->verts[index][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
+						vbos.dlight_arr[indexbase + index].lm_tc[1] = surf->polys->verts[index][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
+						Vector2Copy( &surf->polys->verts[index][3], vbos.dlight_arr[indexbase + index].gl_tc );
+						VectorCopy( surf->polys->verts[index], vbos.dlight_arr[indexbase + index].pos );
+						//Vector2Copy( vbo->array[startindex + index].gl_tc, vbos.dlight_arr[indexbase + index].gl_tc );
+						//VectorCopy( vbo->array[startindex + index].pos, vbos.dlight_arr[indexbase + index].pos );
+					}
+
+					indexbase += index;
+					// if surface has decals, build decal array
+					R_AddSurfaceDecalsDlight( surf, &decalcount );
+					//info->dlight_s = info->dlight_t = 0;
 				}
-				else
-				{
-					vbotex->dlightchain = NULL;
-					gEngfuncs.Con_Reportf("full\n");
-					return;
-	#if 0
-					// out of free block space. Draw all generated index array and clear it
-					// upload already generated block
-					R_FlushDlights( vbo, dlightindex, dlightarray, indexbase );
-					indexbase = 0;
-
-					R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, 0 );
-
-					// draw decals that lighted with this lightmap
-					if( decalcount )
-						R_DrawDlightedDecals( vbo, newsurf, surf, decalcount, texture );
-					decalcount = 0;
-					R_SetupVBOArrayDlight( vbo, texture );
-
-					// clear the block
-					LM_InitBlock();
-					dlightindex = 0;
-
-					// try upload the block now
-					if( !LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
-						gEngfuncs.Host_Error( "AllocBlock: full\n" );
-
-					base = gl_lms.lightmap_buffer;
-					base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
-
-					R_BuildLightMap( surf, base, BLOCK_SIZE * 4, true );
-	#endif
-				}
-
-				// build index and texcoords arrays
-				vbos.dlight_arr[indexbase].lm_tc[0] = surf->polys->verts[0][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
-				vbos.dlight_arr[indexbase].lm_tc[1] = surf->polys->verts[0][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
-				vbos.dlight_arr[indexbase + 1].lm_tc[0] = surf->polys->verts[1][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
-				vbos.dlight_arr[indexbase + 1].lm_tc[1] = surf->polys->verts[1][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
-
-				// copy array from static
-				Vector2Copy( vbo->array[startindex].gl_tc, vbos.dlight_arr[indexbase].gl_tc );
-				VectorCopy( vbo->array[startindex].pos, vbos.dlight_arr[indexbase].pos );
-				Vector2Copy( vbo->array[startindex + 1].gl_tc, vbos.dlight_arr[indexbase + 1].gl_tc );
-				VectorCopy( vbo->array[startindex + 1].pos, vbos.dlight_arr[indexbase + 1].pos );
-
-				for( index = 2; index < surf->polys->numverts; index++ )
-				{
-					dlightarray[dlightindex++] = indexbase;
-					dlightarray[dlightindex++] = indexbase + index - 1;
-					dlightarray[dlightindex++] = indexbase + index;
-					vbos.dlight_arr[indexbase + index].lm_tc[0] = surf->polys->verts[index][5] - ( surf->light_s - info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE );
-					vbos.dlight_arr[indexbase + index].lm_tc[1] = surf->polys->verts[index][6] - ( surf->light_t - info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE );
-					Vector2Copy( vbo->array[startindex + index].gl_tc, vbos.dlight_arr[indexbase + index].gl_tc );
-					VectorCopy( vbo->array[startindex + index].pos, vbos.dlight_arr[indexbase + index].pos );
-				}
-
-				indexbase += index;
-				// if surface has decals, build decal array
-				//R_AddSurfaceDecalsDlight( surf, &decalcount );
-				//info->dlight_s = info->dlight_t = 0;
-			}
-			vbotex->dlightchain = NULL;
-			vbotex->curindex = dlightindex;
+			//dl->dlightchain = NULL;
+			dl->curindex = dlightindex;
+			//vbotex = vbotex->next;
+			//}
+			//while( vbotex );
 		}
 	}
 
-	if( dlightindex )
+	//if( dlightindex )
 	{
 		//R_FlushDlights( vbo, dlightindex, dlightarray, indexbase );
-		R_FlushAllDlights( vbos.mintexture, vbos.maxtexture, 0, dlightarray, indexbase );
+		R_FlushAllDlights( starttexture, vbos.maxtexture, 0, dlightarray, indexbase, decalcount );
 		//R_AdditionalPasses( vbo, dlightindex, dlightarray, texture, true, 0);
 
-		// draw remaining decals
-		if( decalcount )
-		{
-			//R_DrawDlightedDecals( vbo, newsurf, NULL, decalcount, NULL );
-		}
+
 	}
 
 	if( vbos.dlight_vbo )
 	{
 		// invalidate state to reset vertex array offset
-		//vboarray.astate = VBO_ARRAY_NONE;
-		//vboarray.tstate = VBO_TEXTURE_NONE;
-		//vboarray.lstate = VBO_LIGHTMAP_NONE;
+		vboarray.astate = VBO_ARRAY_DLIGHT;
+		vboarray.tstate = VBO_TEXTURE_DECAL;
+		vboarray.lstate = VBO_LIGHTMAP_DYNAMIC;
 	}
 }
 
@@ -3419,6 +3553,8 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 		vbos.maxtexture = vbos.maxarraysplit_tex;
 	if( vbos.maxtexture > numtextures )
 		vbos.maxtexture = numtextures;
+	if( vbos.maxdlight > numtextures )
+		vbos.maxdlight = numtextures;
 
 	for( k = vbos.minlightmap; k < vbos.maxlightmap; k++ )
 	{
@@ -3487,7 +3623,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 		if( !drawtextures || !drawlightmap )
 			vbos.decaldata->lm[k] = NULL;
 	}
-	R_DrawVBODlightsAll( vbo );
+	R_DrawVBODlightsAll();
 	// ASSERT( !vbo->next );
 	R_ClearVBOState( drawlightmap, drawtextures );
 
@@ -3497,6 +3633,8 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 	vbos.maxlightmap = 0;
 	vbos.mintexture = INT_MAX;
 	vbos.maxtexture = 0;
+	vbos.mindlight = INT_MAX;
+	vbos.maxdlight = 0;
 }
 
 /*
@@ -3634,8 +3772,13 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 		if( buildlightmap && R_CheckLightMap( surf ) )
 		{
 			// every vbotex has own lightmap chain (as we sorted if by textures to use multitexture)
-			surf->info->lightmapchain = vbotex->dlightchain;
-			vbotex->dlightchain = surf;
+			dlightstate_t *dl = &vbos.dlights[texturenum];
+			surf->info->lightmapchain = dl->dlightchain;
+			dl->dlightchain = surf;
+			if( vbos.maxdlight < texturenum + 1 )
+				vbos.maxdlight = texturenum + 1;
+			if( vbos.mindlight > texturenum )
+				vbos.mindlight = texturenum;
 		}
 		else
 		{
