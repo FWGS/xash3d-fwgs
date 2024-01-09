@@ -2191,9 +2191,20 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// serverlist got from masterserver
 		while( MSG_GetNumBitsLeft( msg ) > 8 )
 		{
-			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
+			uint8_t addr[16];
+
+			if( from.type6 == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
+			{
+				MSG_ReadBytes( msg, addr, sizeof( addr ));
+				NET_IP6BytesToNetadr( &servadr, addr );
+				servadr.type6 = NA_IP6;
+			}
+			else
+			{
+				MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
+				servadr.type = NA_IP;
+			}
 			servadr.port = MSG_ReadShort( msg );			// 2 bytes for Port
-			servadr.type = NA_IP;
 
 			// list is ends here
 			if( !servadr.port )
