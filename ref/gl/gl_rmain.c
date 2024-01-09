@@ -1003,11 +1003,22 @@ void R_GammaChanged( qboolean do_reset_gamma )
 
 static void R_CheckGamma( void )
 {
+	qboolean rebuild = false;
+
 	if( FBitSet( gl_overbright.flags, FCVAR_CHANGED ))
 	{
-		R_GammaChanged( false );
+		rebuild = true;
 		ClearBits( gl_overbright.flags, FCVAR_CHANGED );
 	}
+
+	if( gl_overbright.value && FBitSet( r_vbo.flags, FCVAR_CHANGED ))
+	{
+		rebuild = true;
+		ClearBits( r_vbo.flags, FCVAR_CHANGED );
+	}
+
+	if( rebuild )
+		R_GammaChanged( false );
 }
 
 /*
