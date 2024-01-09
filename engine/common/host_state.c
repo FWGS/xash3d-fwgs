@@ -57,6 +57,8 @@ void COM_NewGame( char const *pMapName )
 	GameState->landmarkName[0] = 0;
 	GameState->loadGame = false;
 	GameState->newGame = true;
+
+	SV_ShutdownGame(); // exit from current game
 }
 
 void COM_LoadLevel( char const *pMapName, qboolean background )
@@ -74,6 +76,8 @@ void COM_LoadLevel( char const *pMapName, qboolean background )
 	GameState->landmarkName[0] = 0;
 	GameState->loadGame = false;
 	GameState->newGame = false;
+
+	SV_ShutdownGame(); // exit from current game
 }
 
 void COM_LoadGame( char const *pMapName )
