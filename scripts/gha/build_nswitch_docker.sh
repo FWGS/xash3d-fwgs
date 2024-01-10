@@ -12,6 +12,8 @@ build_hlsdk()
 	./waf build install --destdir=../pkgtemp/xash3d || die
 }
 
+git config --global --add safe.directory '*'
+
 echo "Setting up environment..."
 
 # we can't actually download dkp-toolchain-vars even from here, so
