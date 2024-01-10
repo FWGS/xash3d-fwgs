@@ -240,6 +240,8 @@ CSO-like Xash3D-based mod, CSMoE - https://github.com/MoeMod/CSMoE
 ## Crack-Life: Campaign Mode
 Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/crack_life
 
+Reverse-engineered code: branch **clcampaign** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/clcampaign
+
 ## Escape from the Darkness
 malortie's recreation - https://github.com/malortie/hl-eftd
 
