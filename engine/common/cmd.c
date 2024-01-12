@@ -1191,13 +1191,16 @@ void Cmd_List_f( void )
 		match = Cmd_Argv( 1 );
 		matchlen = Q_strlen( match );
 	}
-
+	else
+	{
+		return;
+	}
 	for( cmd = cmd_functions; cmd; cmd = cmd->next )
 	{
 		if( cmd->name[0] == '@' )
 			continue;	// never show system cmds
 
-		if( match && !Q_strnicmpext( match, cmd->name, matchlen ))
+		if(!Q_strnicmpext( match, cmd->name, matchlen ))
 			continue;
 
 		Con_Printf( " %-*s ^3%s^7\n", 32, cmd->name, cmd->desc );
@@ -1206,6 +1209,59 @@ void Cmd_List_f( void )
 
 	Con_Printf( "%i commands\n", i );
 }
+
+/*
+============
+Cmd_Find_f
+============
+*/
+void Cmd_Find_f(void)
+{
+	cmd_t* cmd;
+	convar_t* cvar;
+	int	i = 0;
+	size_t	matchlen = 0;
+	const char* match = NULL;
+
+	if (Cmd_Argc() > 1)
+	{
+		match = Cmd_Argv(1);
+		matchlen = Q_strlen(match);
+	}
+	else
+	{
+		return;
+	}
+	Con_Printf("Searching for \"%s\"\n", match);
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+	{
+		if (cmd->name[0] == '@')
+			continue;	// never show system cmds
+
+		if (Q_strstr(cmd->name, match) == 0)
+			continue;
+
+		Con_Printf(" %-*s ^3%s^7\n", 32, cmd->name, cmd->desc);
+		i++;
+	}
+	for (cvar = (convar_t*)Cvar_GetList(); cvar; cvar = cvar->next)
+	{
+		if (cvar->name[0] == '@')
+			continue;	// never show system cmds
+
+		if (Q_strstr(cvar->name, match) == 0)
+			continue;
+
+		Msg("^3%s^7 \"%s\" (default: \"%s\") %s\n",
+			cvar->name, cvar->string,
+			(cvar->flags & FCVAR_EXTENDED) ? cvar->def_string : "",
+			(cvar->flags & FCVAR_EXTENDED) ? cvar->desc : "game cvar");
+		i++;
+	}
+
+	Con_Printf("%i commands\n", i);
+}
+
 
 /*
 ============
@@ -1400,6 +1456,7 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "echo", Cmd_Echo_f, "print a message to the console (useful in scripts)" );
 	Cmd_AddCommand( "wait", Cmd_Wait_f, "make script execution wait for some rendered frames" );
 	Cmd_AddCommand( "cmdlist", Cmd_List_f, "display all console commands beginning with the specified prefix" );
+	Cmd_AddCommand("find", Cmd_Find_f, "display all console commands containing the specified text");
 	Cmd_AddRestrictedCommand( "stuffcmds", Cmd_StuffCmds_f, "execute commandline parameters (must be present in .rc script)" );
 	Cmd_AddCommand( "apropos", Cmd_Apropos_f, "lists all console variables/commands/aliases containing the specified string in the name or description" );
 #if !XASH_DEDICATED
