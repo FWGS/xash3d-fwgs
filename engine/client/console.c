@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include "wadfile.h"
 #include "input.h"
 
-static CVAR_DEFINE_AUTO( scr_conspeed, "600", FCVAR_ARCHIVE, "console moving speed" );
+static CVAR_DEFINE_AUTO( scr_conspeed, "4000", FCVAR_ARCHIVE, "console moving speed" );
 static CVAR_DEFINE_AUTO( con_notifytime, "3", FCVAR_ARCHIVE, "notify time to live" );
 CVAR_DEFINE_AUTO( con_fontsize, "1", FCVAR_ARCHIVE, "console font number (0, 1 or 2)" );
 static CVAR_DEFINE_AUTO( con_charset, "cp1251", FCVAR_ARCHIVE, "console font charset (only cp1251 supported now)" );
@@ -254,18 +254,12 @@ void Con_ToggleConsole_f( void )
 
 	SCR_EndLoadingPlaque();
 
-	// show console only in game or by special call from menu
-	if( cls.state != ca_active || cls.key_dest == key_menu )
-		return;
-
 	Con_ClearTyping();
 	Con_ClearNotify();
 
 	if( cls.key_dest == key_console )
 	{
-		if( Cvar_VariableInteger( "sv_background" ) || Cvar_VariableInteger( "cl_background" ))
-			UI_SetActiveMenu( true );
-		else UI_SetActiveMenu( false );
+		UI_SetActiveMenu( cls.state != ca_active ); // We want to show the menu only when not in game.
 	}
 	else
 	{
