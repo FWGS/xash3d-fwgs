@@ -50,7 +50,7 @@ static net_gai_state_t NET_GetMasterHostByName( master_t *m )
 	if( res == NET_EAI_OK )
 		return res;
 
-	m->adr.type = NA_UNUSED;
+	m->adr.type = 0;
 	if( res == NET_EAI_NONAME )
 		Con_Reportf( "Can't resolve adr: %s\n", m->address );
 
@@ -266,7 +266,7 @@ static void NET_AddMaster( const char *addr, qboolean save )
 	master->sent = false;
 	master->save = save;
 	master->next = NULL;
-	master->adr.type = NA_UNUSED;
+	master->adr.type = 0;
 
 	// link in
 	if( last )
@@ -322,7 +322,7 @@ static void NET_ListMasters_f( void )
 	for( i = 1, list = ml.list; list; i++, list = list->next )
 	{
 		Msg( "%d\t%s", i, list->address );
-		if( list->adr.type != NA_UNUSED )
+		if( list->adr.type != 0 )
 			Msg( "\t%s\n", NET_AdrToString( list->adr ));
 		else Msg( "\n" );
 	}
