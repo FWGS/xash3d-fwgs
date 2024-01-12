@@ -80,6 +80,7 @@ static const delta_field_t pm_fields[] =
 { PHYS_DEF( spectatormaxspeed )	},
 { PHYS_DEF( accelerate )		},
 { PHYS_DEF( airaccelerate )		},
+{ PHYS_DEF( bunnyhop )		},
 { PHYS_DEF( wateraccelerate )		},
 { PHYS_DEF( friction )		},
 { PHYS_DEF( edgefriction )		},
@@ -836,6 +837,7 @@ void Delta_Init( void )
 	Delta_AddField( dt, "spectatormaxspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "accelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "airaccelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "bunnyhop", DT_BYTE, 1, 1.0f, 1.0f);
 	Delta_AddField( dt, "wateraccelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "friction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "edgefriction", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );

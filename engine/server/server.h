@@ -423,6 +423,7 @@ extern convar_t		sv_allow_upload;
 extern convar_t		sv_allow_download;
 extern convar_t		sv_airaccelerate;
 extern convar_t		sv_accelerate;
+extern convar_t		sv_bunnyhop;
 extern convar_t		sv_friction;
 extern convar_t		sv_edgefriction;
 extern convar_t		sv_gravity;
