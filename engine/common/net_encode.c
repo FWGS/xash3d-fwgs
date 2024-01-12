@@ -77,6 +77,7 @@ static const delta_field_t pm_fields[] =
 { PHYS_DEF( gravity )		},
 { PHYS_DEF( stopspeed )		},
 { PHYS_DEF( maxspeed )		},
+{ PHYS_DEF( noclipspeed )		},
 { PHYS_DEF( spectatormaxspeed )	},
 { PHYS_DEF( accelerate )		},
 { PHYS_DEF( airaccelerate )		},
@@ -834,6 +835,7 @@ void Delta_Init( void )
 	Delta_AddField( dt, "gravity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "stopspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "maxspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
+	Delta_AddField( dt, "noclipspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f ); // Why is this signed?
 	Delta_AddField( dt, "spectatormaxspeed", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "accelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 	Delta_AddField( dt, "airaccelerate", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );

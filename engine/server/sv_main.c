@@ -84,6 +84,7 @@ CVAR_DEFINE_AUTO( sv_spectatormaxspeed, "500", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "m
 CVAR_DEFINE_AUTO( sv_accelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed" );
 CVAR_DEFINE_AUTO( sv_airaccelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the air" );
 CVAR_DEFINE_AUTO( sv_bunnyhop, "0", FCVAR_MOVEVARS, "keep jumping when holding space (pogo stick)" );
+CVAR_DEFINE_AUTO( sv_noclipspeed, "5", FCVAR_MOVEVARS, "noclip speed multiplier" );
 CVAR_DEFINE_AUTO( sv_wateraccelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the water" );
 CVAR_DEFINE_AUTO( sv_friction, "4", FCVAR_MOVEVARS, "how fast you slow down" );
 CVAR_DEFINE( sv_edgefriction, "edgefriction", "2", FCVAR_MOVEVARS, "how much you slow down when nearing a ledge you might fall off" );
@@ -206,6 +207,7 @@ void SV_UpdateMovevars( qboolean initialize )
 	svgame.movevars.gravity = sv_gravity.value;
 	svgame.movevars.stopspeed = sv_stopspeed.value;
 	svgame.movevars.maxspeed = sv_maxspeed.value;
+	svgame.movevars.noclipspeed = sv_noclipspeed.value;
 	svgame.movevars.spectatormaxspeed = sv_spectatormaxspeed.value;
 	svgame.movevars.accelerate = sv_accelerate.value;
 	svgame.movevars.airaccelerate = sv_airaccelerate.value;
@@ -911,6 +913,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_rollspeed );
 	Cvar_RegisterVariable( &sv_airaccelerate );
 	Cvar_RegisterVariable( &sv_bunnyhop );
+	Cvar_RegisterVariable( &sv_noclipspeed );
 	Cvar_RegisterVariable( &sv_maxvelocity );
 	Cvar_RegisterVariable( &sv_gravity );
 	Cvar_RegisterVariable( &sv_maxspeed );
