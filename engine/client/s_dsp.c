@@ -834,7 +834,7 @@ DSP_ClearState
 */
 void DSP_ClearState( void )
 {
-	Cvar_SetValue( "room_type", 0.0f );
+	Cvar_DirectSet( &room_type, "0" );
 	SX_ReloadRoomFX();
 }
 
@@ -893,15 +893,15 @@ void CheckNewDspPresets( void )
 
 		cur = ptable + idsp_room;
 
-		Cvar_SetValue( "room_lp", cur->room_lp );
-		Cvar_SetValue( "room_mod", cur->room_mod );
-		Cvar_SetValue( "room_size", cur->room_size );
-		Cvar_SetValue( "room_refl", cur->room_refl );
-		Cvar_SetValue( "room_rvblp", cur->room_rvblp );
-		Cvar_SetValue( "room_delay", cur->room_delay );
-		Cvar_SetValue( "room_feedback", cur->room_feedback );
-		Cvar_SetValue( "room_dlylp", cur->room_dlylp );
-		Cvar_SetValue( "room_left", cur->room_left );
+		Cvar_DirectSetValue( &sxmod_lowpass, cur->room_lp );
+		Cvar_DirectSetValue( &sxmod_mod, cur->room_mod );
+		Cvar_DirectSetValue( &sxrvb_size, cur->room_size );
+		Cvar_DirectSetValue( &sxrvb_feedback, cur->room_refl );
+		Cvar_DirectSetValue( &sxrvb_lp, cur->room_rvblp );
+		Cvar_DirectSetValue( &sxdly_delay, cur->room_delay );
+		Cvar_DirectSetValue( &sxdly_feedback, cur->room_feedback );
+		Cvar_DirectSetValue( &sxdly_lp, cur->room_dlylp );
+		Cvar_DirectSetValue( &sxste_delay, cur->room_left );
 	}
 
 	room_typeprev = idsp_room;
@@ -930,7 +930,7 @@ static void SX_Profiling_f( void )
 
 	if( Cmd_Argc() > 1 )
 	{
-		Cvar_SetValue( "room_type", Q_atof( Cmd_Argv( 1 )));
+		Cvar_DirectSetValue( &room_type, Q_atof( Cmd_Argv( 1 )));
 		SX_ReloadRoomFX();
 		CheckNewDspPresets(); // we just need idsp_room immediately, for message below
 	}
@@ -948,7 +948,7 @@ static void SX_Profiling_f( void )
 
 	if( Cmd_Argc() > 1 )
 	{
-		Cvar_SetValue( "room_type", oldroom );
+		Cvar_DirectSetValue( &room_type, oldroom );
 		SX_ReloadRoomFX();
 		CheckNewDspPresets();
 	}
