@@ -999,7 +999,8 @@ void MIX_PaintChannels( int endtime )
 		MIX_UpsampleAllPaintbuffers( end, count );
 
 		// process all sounds with DSP
-		DSP_Process( idsp_room, MIX_GetPFrontFromIPaint( IROOMBUFFER ), count );
+		if( cls.key_dest != key_menu )
+			DSP_Process( MIX_GetPFrontFromIPaint( IROOMBUFFER ), count );
 
 		// add music or soundtrack from movie (no dsp)
 		MIX_MixPaintbuffers( IPAINTBUFFER, IROOMBUFFER, IPAINTBUFFER, count, S_GetMasterVolume() );

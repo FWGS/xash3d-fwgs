@@ -255,8 +255,7 @@ void S_InitSounds( void );
 void SX_Init( void );
 void SX_Free( void );
 void CheckNewDspPresets( void );
-void DSP_Process( int idsp, portable_samplepair_t *pbfront, int sampleCount );
-float DSP_GetGain( int idsp );
+void DSP_Process( portable_samplepair_t *pbfront, int sampleCount );
 void DSP_ClearState( void );
 
 qboolean S_Init( void );
