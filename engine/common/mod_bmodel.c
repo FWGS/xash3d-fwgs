@@ -2698,32 +2698,27 @@ static void Mod_LoadSurfaces2(model_t* mod, dbspmodel_t* bmod, dface2_t* faces)
 
 		tex = out->texinfo->texture;
 
-		if (tex)
-		{
+		if (!Q_strncmp(tex->name, "sky", 3))
+			SetBits(out->flags, SURF_DRAWSKY);
 
-			if (!Q_strncmp(tex->name, "sky", 3))
-				SetBits(out->flags, SURF_DRAWSKY);
+		if (Mod_LooksLikeWaterTexture(tex->name))
+			SetBits(out->flags, SURF_DRAWTURB);
 
-			if (Mod_LooksLikeWaterTexture(tex->name))
-				SetBits(out->flags, SURF_DRAWTURB);
+		if (!Q_strncmp(tex->name, "scroll", 6))
+			SetBits(out->flags, SURF_CONVEYOR);
 
-			if (!Q_strncmp(tex->name, "scroll", 6))
-				SetBits(out->flags, SURF_CONVEYOR);
+		if (FBitSet(out->texinfo->flags, TEX_SCROLL))
+			SetBits(out->flags, SURF_CONVEYOR);
 
-			if (FBitSet(out->texinfo->flags, TEX_SCROLL))
-				SetBits(out->flags, SURF_CONVEYOR);
+		// g-cont. added a combined conveyor-transparent
+		if (!Q_strncmp(tex->name, "{scroll", 7))
+			SetBits(out->flags, SURF_CONVEYOR | SURF_TRANSPARENT);
 
-			// g-cont. added a combined conveyor-transparent
-			if (!Q_strncmp(tex->name, "{scroll", 7))
-				SetBits(out->flags, SURF_CONVEYOR | SURF_TRANSPARENT);
+		if (tex->name[0] == '{')
+			SetBits(out->flags, SURF_TRANSPARENT);
 
-			if (tex->name[0] == '{')
-				SetBits(out->flags, SURF_TRANSPARENT);
-
-			if (FBitSet(out->texinfo->flags, TEX_SPECIAL))
-				SetBits(out->flags, SURF_DRAWTILED);
-
-		}
+		if (FBitSet(out->texinfo->flags, TEX_SPECIAL))
+			SetBits(out->flags, SURF_DRAWTILED);
 
 		//Mod_CalcSurfaceBounds(mod, out);
 		//Mod_CalcSurfaceExtents(mod, out);
@@ -3171,8 +3166,8 @@ static qboolean Mod_LoadBmodel2Lumps(model_t* mod, const byte* mod_base, qboolea
 	Mod_LoadVertexes(mod, bmod);
 	Mod_LoadEdges(mod, bmod);
 	Mod_LoadSurfEdges(mod, bmod);
-	Mod_LoadTexInfo2(mod, bmod, (dtexinfo2_t*)(mod_base + header->lumps[SRC_LUMP_TEXINFO].fileofs));
-	Mod_LoadSurfaces2(mod, bmod, (dface2_t*)(mod_base + header->lumps[SRC_LUMP_FACES].fileofs));
+	//Mod_LoadTexInfo2(mod, bmod, (dtexinfo2_t*)(mod_base + header->lumps[SRC_LUMP_TEXINFO].fileofs));
+	//Mod_LoadSurfaces2(mod, bmod, (dface2_t*)(mod_base + header->lumps[SRC_LUMP_FACES].fileofs));
 
 
 	return true;
