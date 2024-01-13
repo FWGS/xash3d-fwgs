@@ -58,9 +58,6 @@ typedef uint64_t longtime_t;
 
 #define BIT( n )		( 1U << ( n ))
 #define BIT64( n )		( 1ULL << ( n ))
-#define GAMMA		( 2.2f )		// Valve Software gamma
-#define INVGAMMA		( 1.0f / 2.2f )	// back to 1.0
-#define TEXGAMMA		( 0.9f )		// compensate dim textures
 #define SetBits( iBitVector, bits )	((iBitVector) = (iBitVector) | (bits))
 #define ClearBits( iBitVector, bits )	((iBitVector) = (iBitVector) & ~(bits))
 #define FBitSet( iBitVector, bit )	((iBitVector) & (bit))
