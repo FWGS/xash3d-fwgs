@@ -47,6 +47,7 @@ extern int SV_UPDATE_BACKUP;
 #define MAP_HAS_SPAWNPOINT	BIT( 1 )
 #define MAP_HAS_LANDMARK	BIT( 2 )
 #define MAP_INVALID_VERSION	BIT( 3 )
+#define MAP_SOURCE	BIT( 4 )
 
 #define SV_SPAWN_TIME	0.1
 

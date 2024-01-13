@@ -930,8 +930,15 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	SetBits( *flags, MAP_IS_EXIST );
 	memset( buf, 0, MAX_TOKEN );
 	FS_Read( f, buf, MAX_TOKEN );
-	header = (dheader_t *)buf;
 
+	if (*(int*)buf == VBSP_VERSION)
+	{
+		SetBits( *flags, MAP_SOURCE );
+		return 0;
+	}
+
+	header = (dheader_t *)buf;
+	
 	// check all the lumps and some other errors
 	if( !Mod_TestBmodelLumps( f, bspfilename, buf, (host_developer.value) ? false : true, &entities ))
 	{
