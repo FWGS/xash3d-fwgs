@@ -42,7 +42,7 @@ struct vdf_object
 
     char* conditional;
 };
-
+typedef struct vdf_object vdf_object_t;
 struct vdf_object* vdf_parse_buffer(const char*, size_t);
 struct vdf_object* vdf_parse_file(const char*);
 

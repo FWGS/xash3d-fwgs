@@ -6,6 +6,7 @@
 #include <ctype.h>
 
 #include "vdf.h"
+#include "../../filesystem/fscallback.h"
 
 #define CHAR_SPACE ' '
 #define CHAR_TAB '\t'
@@ -281,24 +282,25 @@ struct vdf_object* vdf_parse_file(const char* path)
     if (!path)
         return o;
 
-    FILE* fd = fopen(path, "r");
+	
+    file_t* fd = FS_Open(path, "r", true);
     if (!fd)
         return o;
 
-    fseek(fd, 0L, SEEK_END);
-    size_t file_size = ftell(fd);
-    rewind(fd);
+    FS_Seek(fd, 0L, SEEK_END);
+    size_t file_size = FS_Tell(fd);
+    FS_Seek(fd, 0L, SEEK_SET);
 
     if (file_size)
     {
         char* buffer = malloc(file_size);
-        fread(buffer, sizeof(*buffer), file_size, fd);
+        FS_Read(fd, buffer, file_size);
 
         o = vdf_parse_buffer(buffer, file_size);
         free(buffer);
     }
 
-    fclose(fd);
+    FS_Close(fd);
 
     return o;
 }

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include <math.h>
 #include "imagelib.h"
+#include "vdf/vdf.h"
 
 // global image variables
 imglib_t	image;
@@ -301,7 +302,20 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 	const loadpixformat_t *extfmt;
 	const cubepack_t	*cmap;
 
-	Q_strncpy( loadname, filename, sizeof( loadname ));
+	if (!Q_strcmp(ext, "vmt"))
+	{
+		vdf_object_t* vmt = vdf_parse_file(filename);
+		vdf_object_t* texturekey = vdf_object_index_array_str(vmt, "$basetexture");
+		if (!texturekey)
+			return NULL;
+		Q_strncpy(loadname,vdf_object_get_string(texturekey),sizeof(loadname));
+		vdf_free_object(vmt);
+	}
+	else
+	{
+		Q_strncpy(loadname, filename, sizeof(loadname));
+	}
+	
 	Image_Reset(); // clear old image
 
 	// we needs to compare file extension with list of supported formats
