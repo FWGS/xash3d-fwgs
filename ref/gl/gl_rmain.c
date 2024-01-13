@@ -1030,7 +1030,7 @@ void R_BeginFrame( qboolean clearScene )
 {
 	glConfig.softwareGammaUpdate = false;	// in case of possible fails
 
-	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW )) &&
+	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW ) || (RI.viewleaf && RI.viewleaf->contents == CONTENTS_SOLID)) &&
 		clearScene && ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_cinematic )
 	{
 		pglClear( GL_COLOR_BUFFER_BIT );
