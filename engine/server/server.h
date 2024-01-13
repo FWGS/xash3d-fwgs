@@ -573,7 +573,6 @@ void SV_GetPlayerCount( int *clients, int *bots );
 //
 // sv_cmds.c
 //
-void SV_Status_f( void );
 void SV_Newgame_f( void );
 void SV_InitHostCommands( void );
 

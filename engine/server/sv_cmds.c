@@ -633,54 +633,6 @@ void SV_EntPatch_f( void )
 	SV_WriteEntityPatch( mapname );
 }
 
-/*
-================
-SV_Status_f
-================
-*/
-void SV_Status_f( void )
-{
-	sv_client_t	*cl;
-	int		i;
-
-	if( !svs.clients || sv.background )
-	{
-		Con_Printf( "^3no server running.\n" );
-		return;
-	}
-
-	Con_Printf( "map: %s\n", sv.name );
-	Con_Printf( "num score ping    name            lastmsg address               port \n" );
-	Con_Printf( "--- ----- ------- --------------- ------- --------------------- ------\n" );
-
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-	{
-		int	j, l;
-		const char	*s;
-
-		if( !cl->state ) continue;
-
-		Con_Printf( "%3i ", i );
-		Con_Printf( "%5i ", (int)cl->edict->v.frags );
-
-		if( cl->state == cs_connected ) Con_Printf( "Connect" );
-		else if( cl->state == cs_zombie ) Con_Printf( "Zombie " );
-		else if( FBitSet( cl->flags, FCL_FAKECLIENT )) Con_Printf( "Bot   " );
-		else Con_Printf( "%7i ", SV_CalcPing( cl ));
-
-		Con_Printf( "%s", cl->name );
-		l = 24 - Q_strlen( cl->name );
-		for( j = 0; j < l; j++ ) Con_Printf( " " );
-		Con_Printf( "%g ", ( host.realtime - cl->netchan.last_received ));
-		s = NET_BaseAdrToString( cl->netchan.remote_address );
-		Con_Printf( "%s", s );
-		l = 22 - Q_strlen( s );
-		for( j = 0; j < l; j++ ) Con_Printf( " " );
-		Con_Printf( "%5i", cl->netchan.qport );
-		Con_Printf( "\n" );
-	}
-	Con_Printf( "\n" );
-}
 
 /*
 ==================
@@ -979,6 +931,7 @@ void SV_InitHostCommands( void )
 {
 	Cmd_AddRestrictedCommand( "map", SV_Map_f, "start new level" );
 	Cmd_AddCommand( "maps", SV_Maps_f, "list maps" );
+	
 
 	if( host.type == HOST_NORMAL )
 	{
@@ -1002,7 +955,6 @@ void SV_InitOperatorCommands( void )
 {
 	Cmd_AddCommand( "heartbeat", SV_Heartbeat_f, "send a heartbeat to the master server" );
 	Cmd_AddCommand( "kick", SV_Kick_f, "kick a player off the server by number or name" );
-	Cmd_AddCommand( "status", SV_Status_f, "print server status information" );
 	Cmd_AddCommand( "localinfo", SV_LocalInfo_f, "examine or change the localinfo string" );
 	Cmd_AddCommand( "serverinfo", SV_ServerInfo_f, "examine or change the serverinfo string" );
 	Cmd_AddCommand( "clientinfo", SV_ClientInfo_f, "print user infostring (player num required)" );
@@ -1040,7 +992,6 @@ void SV_KillOperatorCommands( void )
 {
 	Cmd_RemoveCommand( "heartbeat" );
 	Cmd_RemoveCommand( "kick" );
-	Cmd_RemoveCommand( "status" );
 	Cmd_RemoveCommand( "localinfo" );
 	Cmd_RemoveCommand( "serverinfo" );
 	Cmd_RemoveCommand( "clientinfo" );
