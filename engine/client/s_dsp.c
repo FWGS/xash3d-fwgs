@@ -334,7 +334,7 @@ DLY_MovePointer
 Checks overflow and moves pointer
 ============
 */
-_inline void DLY_MovePointer( dly_t *dly )
+static void DLY_MovePointer( dly_t *dly )
 {
 	if( ++dly->idelayinput >= dly->cdelaysamplesmax )
 		dly->idelayinput = 0;
@@ -807,13 +807,9 @@ DSP_Process
 (xash dsp interface)
 ===========
 */
-void DSP_Process( int idsp, portable_samplepair_t *pbfront, int sampleCount )
+void DSP_Process( portable_samplepair_t *pbfront, int sampleCount )
 {
-	if( dsp_off.value )
-		return;
-
-	// don't process DSP while in menu
-	if( cls.key_dest == key_menu || !sampleCount )
+	if( dsp_off.value || !sampleCount )
 		return;
 
 	// preset is already installed by CheckNewDspPresets
@@ -940,7 +936,7 @@ static void SX_Profiling_f( void )
 	start = Sys_DoubleTime();
 	for( calls = 10000; calls; calls-- )
 	{
-		DSP_Process( idsp_room, testbuffer, 512 );
+		DSP_Process( testbuffer, 512 );
 	}
 	end = Sys_DoubleTime();
 
