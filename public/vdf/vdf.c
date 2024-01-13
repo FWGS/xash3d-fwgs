@@ -212,6 +212,7 @@ struct vdf_object* vdf_parse_buffer(const char* buffer, size_t size)
             case CHAR_CLOSED_CURLY_BRACKET:
                 assert(!buf);
 
+
                 o = o->parent;
                 assert(o);
                 if (o->parent)
@@ -228,6 +229,11 @@ struct vdf_object* vdf_parse_buffer(const char* buffer, size_t size)
                     o->type = VDF_TYPE_NONE;
                     o->conditional = NULL;
                 }
+				else
+				{
+					root_object->type = VDF_TYPE_ARRAY;
+					return root_object;
+				}
 
                 break;
 

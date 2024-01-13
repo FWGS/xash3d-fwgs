@@ -1551,8 +1551,7 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 
 	// set some image flags
 	gEngfuncs.Image_SetForceFlags( picFlags );
-
-	pic = gEngfuncs.FS_LoadImage( name, buf, size );
+	pic = gEngfuncs.FS_LoadImage(name, buf, size);
 	if( !pic ) return 0; // couldn't loading image
 
 	// allocate the new one

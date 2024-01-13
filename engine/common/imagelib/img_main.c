@@ -301,13 +301,20 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 	int		i;
 	const loadpixformat_t *extfmt;
 	const cubepack_t	*cmap;
-
-	if (!Q_strcmp(ext, "vmt"))
+	if (!Q_strcmp(ext, "vmf"))
 	{
 		vdf_object_t* vmt = vdf_parse_file(filename);
+		if (!vmt)
+		{
+			Con_Printf("No vmt \"%\"!\n", filename);
+			return NULL;
+		}
 		vdf_object_t* texturekey = vdf_object_index_array_str(vmt, "$basetexture");
 		if (!texturekey)
+		{
+			Con_Printf("Bad vmt \"%\"!\n", filename);
 			return NULL;
+		}
 		Q_strncpy(loadname,vdf_object_get_string(texturekey),sizeof(loadname));
 		vdf_free_object(vmt);
 	}
