@@ -250,6 +250,7 @@ struct msurface_s
 	struct msurface_s	*texturechain;
 
 	mtexinfo_t	*texinfo;
+	
 
 	// lighting info
 	int		dlightframe;	// last frame the surface was checked by an animated light

@@ -31,6 +31,7 @@ BRUSH MODELS
 #define Q1BSP_VERSION	29	// quake1 regular version (beta is 28)
 #define HLBSP_VERSION	30	// half-life regular version
 #define QBSP2_VERSION	(('B' << 0) | ('S' << 8) | ('P' << 16) | ('2'<<24))
+#define VBSP_VERSION	(('V' << 0) | ('B' << 8) | ('S' << 16) | ('P'<<24))
 
 #define IDEXTRAHEADER	(('H'<<24)+('S'<<16)+('A'<<8)+'X') // little-endian "XASH"
 #define EXTRA_VERSION	4	// ver. 1 was occupied by old versions of XashXT, ver. 2 was occupied by old vesrions of P2:savior
@@ -116,6 +117,8 @@ BRUSH MODELS
 #define LUMP_MODELS			14		// internal submodels
 #define HEADER_LUMPS		15
 
+
+
 // extra lump ordering
 #define LUMP_LIGHTVECS		0	// deluxemap data
 #define LUMP_FACEINFO		1	// landscape and lightmap resolution info
@@ -150,6 +153,33 @@ enum
 	NUM_AMBIENTS,		// automatic ambient sounds
 };
 
+enum
+{
+	SRC_LUMP_ENTITIES = 0,
+	SRC_LUMP_PLANES,
+	SRC_LUMP_TEXDATA,
+	SRC_LUMP_VERTICES,
+	SRC_LUMP_VISIBILITY,
+	SRC_LUMP_BSPNODES,
+	SRC_LUMP_TEXINFO,
+	SRC_LUMP_FACES,
+	SRC_LUMP_LIGHTING,
+	SRC_LUMP_OCCLUSION,
+	SRC_LUMP_LEAFS,
+	SRC_LUMP_FACEIDS,
+	SRC_LUMP_EDGES,
+	SRC_LUMP_SURFEDGES,
+	SRC_LUMP_MODELS,
+	SRC_LUMP_WORLDLIGHTS,
+	SRC_LUMP_LEAFFACES,
+	SRC_LUMP_LEAFBRUSHES,
+	SRC_LUMP_BRUSHES,
+	SRC_LUMP_BRUSHSIDES,
+	SRC_LUMP_AREAS,
+	SRC_LUMP_AREAPORTALS,
+	SRC_LUMP_COUNT = 64
+};
+
 //
 // BSP File Structures
 //
@@ -165,6 +195,23 @@ typedef struct
 	int	version;
 	dlump_t	lumps[HEADER_LUMPS];
 } dheader_t;
+
+
+typedef struct
+{
+	int	fileofs;
+	int	filelen;
+	int ver;
+	char ident[4];
+} dlump2_t;
+
+typedef struct
+{
+	int	magic;
+	int version;
+	dlump2_t lumps[SRC_LUMP_COUNT];
+	int rev;
+} dheader2_t;
 
 typedef struct
 {
@@ -183,6 +230,16 @@ typedef struct
 	int	firstface;
 	int	numfaces;
 } dmodel_t;
+
+typedef struct
+{
+	vec3_t	mins;
+	vec3_t	maxs;
+	vec3_t	origin;			// for sounds or lights
+	int	headnode[MAX_MAP_HULLS];
+	int	firstface;
+	int	numfaces;
+} dmodel2_t;
 
 typedef struct
 {
@@ -274,6 +331,14 @@ typedef struct
 
 typedef struct
 {
+	float	vecs[2][4];		// texmatrix [s/t][xyz offset]
+	float	lightmapVecs[2][4];
+	int		flags;
+	int		faceinfo;			// -1 no face info otherwise dfaceinfo_t
+} dtexinfo2_t;
+
+typedef struct
+{
 	char		landname[16];	// name of decsription in mapname_land.txt
 	unsigned short	texture_step;	// default is 16, pixels\luxels ratio
 	unsigned short	max_extent;	// default is 16, subdivision step ((texture_step * max_extent) - texture_step)
@@ -310,6 +375,30 @@ typedef struct
 	byte	styles[LM_STYLES];
 	int	lightofs;			// start of [numstyles*surfsize] samples
 } dface_t;
+
+typedef struct
+{
+	word	planenum;
+	short	side;
+	byte onnode;
+	int	firstedge;		// we must support > 64k edges
+	short	numedges;
+	short	texinfo;
+	short dispinfo;
+	short surfaceFogVolumeID;
+
+	// lighting info
+	byte	styles[LM_STYLES];
+	int	lightofs;			// start of [numstyles*surfsize] samples
+	float area; // face area
+	int LightMapTextureMinsInLuxels[2]; // lighting
+	int LightMapTextureSizeInLuxels[2];
+	int origFace; // the face it was split from
+	word numPrims; // primitives
+	word firstPrimID;
+	uint smoothingGroups; // lightmap smoothing
+	
+} dface2_t;
 
 typedef struct
 {

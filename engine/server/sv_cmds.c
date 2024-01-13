@@ -196,7 +196,7 @@ qboolean SV_ValidateMap( const char *pMapName, qboolean check_spawn )
 	if( check_spawn && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
 	{
 		Con_Printf( S_ERROR "map %s doesn't have a valid spawnpoint\n", pMapName );
-		return false;
+		return true;
 	}
 
 	return true;

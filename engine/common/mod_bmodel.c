@@ -203,6 +203,7 @@ static mlumpinfo_t		srclumps[HEADER_LUMPS] =
 { LUMP_MODELS, 1, MAX_MAP_MODELS, sizeof( dmodel_t ), -1, "models", CHECK_OVERFLOW, (const void **)&srcmodel.submodels, &srcmodel.numsubmodels },
 };
 
+
 static mlumpinfo_t		extlumps[EXTRA_LUMPS] =
 {
 { LUMP_LIGHTVECS, 0, MAX_MAP_LIGHTING, sizeof( byte ), -1, "deluxmaps", USE_EXTRAHEADER, (const void **)&srcmodel.deluxdata, &srcmodel.deluxdatasize },
@@ -1745,6 +1746,63 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 
 /*
 =================
+Mod_LoadSubmodels
+=================
+*/
+static void Mod_LoadSubmodels2(model_t* mod, dmodel2_t* in, int numsubmodels, qboolean isworld)
+{
+	dmodel_t* out;
+	int	oldmaxfaces;
+	int	i, j;
+
+	// allocate extradata for each dmodel_t
+	out = Mem_Malloc(mod->mempool, numsubmodels * sizeof(*out));
+
+	mod->numsubmodels = numsubmodels;
+	mod->submodels = out;
+
+	if (isworld)
+		refState.max_surfaces = 0;
+	oldmaxfaces = refState.max_surfaces;
+
+	for (i = 0; i < numsubmodels; i++, in++, out++)
+	{
+		for (j = 0; j < 3; j++)
+		{
+			// reset empty bounds to prevent error
+			if (in->mins[j] == 999999.0f)
+				in->mins[j] = 0.0f;
+			if (in->maxs[j] == -999999.0f)
+				in->maxs[j] = 0.0f;
+
+			// spread the mins / maxs by a unit
+			out->mins[j] = in->mins[j] - 1.0f;
+			out->maxs[j] = in->maxs[j] + 1.0f;
+			out->origin[j] = in->origin[j];
+		}
+
+		for (j = 0; j < MAX_MAP_HULLS; j++)
+			out->headnode[j] = in->headnode[j];
+
+		out->visleafs = 0;
+		out->firstface = in->firstface;
+		out->numfaces = in->numfaces;
+
+		if (i == 0 && isworld)
+			continue; // skip the world to save mem
+		oldmaxfaces = Q_max(oldmaxfaces, out->numfaces);
+	}
+
+	// these array used to sort translucent faces in bmodels
+	if (oldmaxfaces > refState.max_surfaces)
+	{
+		refState.draw_surfaces = (sortedface_t*)Z_Realloc(refState.draw_surfaces, oldmaxfaces * sizeof(sortedface_t));
+		refState.max_surfaces = oldmaxfaces;
+	}
+}
+
+/*
+=================
 Mod_LoadEntities
 =================
 */
@@ -2396,6 +2454,52 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 
 /*
 =================
+Mod_LoadTexInfo
+=================
+*/
+static void Mod_LoadTexInfo2(model_t* mod, dbspmodel_t* bmod, dtexinfo2_t* in)
+{
+	mfaceinfo_t* fout, * faceinfo;
+	int		i, j, k, miptex;
+	dfaceinfo_t* fin;
+	mtexinfo_t* out;
+
+	// trying to load faceinfo
+	faceinfo = fout = Mem_Calloc(mod->mempool, bmod->numfaceinfo * sizeof(*fout));
+	fin = bmod->faceinfo;
+
+	for (i = 0; i < bmod->numfaceinfo; i++, fin++, fout++)
+	{
+		Q_strncpy(fout->landname, fin->landname, sizeof(fout->landname));
+		fout->texture_step = fin->texture_step;
+		fout->max_extent = fin->max_extent;
+		fout->groupid = fin->groupid;
+	}
+
+	mod->texinfo = out = Mem_Calloc(mod->mempool, bmod->numtexinfo * sizeof(*out));
+	mod->numtexinfo = bmod->numtexinfo;
+
+	for (i = 0; i < bmod->numtexinfo; i++, in++, out++)
+	{
+		for (j = 0; j < 2; j++)
+			for (k = 0; k < 4; k++)
+				out->vecs[j][k] = in->vecs[j][k];
+
+		miptex = 0;
+		if (miptex < 0 || miptex > mod->numtextures)
+			miptex = 0; // this is possible?
+		//out->texture = mod->textures[miptex];
+		Mod_CreateDefaultTexture(mod, &out->texture);
+		out->flags = in->flags;
+
+		// make sure what faceinfo is really exist
+		if (faceinfo != NULL && in->faceinfo != -1 && in->faceinfo < bmod->numfaceinfo)
+			out->faceinfo = &faceinfo[in->faceinfo];
+	}
+}
+
+/*
+=================
 Mod_LoadSurfaces
 =================
 */
@@ -2541,6 +2645,137 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		else Con_DPrintf( S_WARN "lighting invalid samplecount: %g, defaulting to %i\n", samples, bmod->lightmap_samples );
 	}
 }
+
+
+
+/*
+=================
+Mod_LoadSurfaces
+=================
+*/
+static void Mod_LoadSurfaces2(model_t* mod, dbspmodel_t* bmod, dface2_t* faces)
+{
+	int		test_lightsize = -1;
+	int		next_lightofs = -1;
+	int		prev_lightofs = -1;
+	int		i, j, lightofs;
+	mextrasurf_t* info;
+	msurface_t* out;
+
+	mod->surfaces = out = Mem_Calloc(mod->mempool, bmod->numsurfaces * sizeof(msurface_t));
+	info = Mem_Calloc(mod->mempool, bmod->numsurfaces * sizeof(mextrasurf_t));
+	mod->numsurfaces = bmod->numsurfaces;
+
+	// predict samplecount based on bspversion
+	bmod->lightmap_samples = 3;
+
+	for (i = 0; i < bmod->numsurfaces; i++, out++, info++)
+	{
+		texture_t* tex;
+
+		// setup crosslinks between two parts of msurface_t
+		out->info = info;
+		info->surf = out;
+
+		dface2_t* in = &faces[i];
+
+		if ((in->firstedge + in->numedges) > mod->numsurfedges)
+		{
+			Con_Reportf(S_ERROR "bad surface %i from %zu\n", i, bmod->numsurfaces);
+			continue;
+		}
+
+		out->firstedge = in->firstedge;
+		out->numedges = in->numedges;
+		if (in->side) SetBits(out->flags, SURF_PLANEBACK);
+		out->plane = mod->planes + in->planenum;
+		out->texinfo = mod->texinfo + in->texinfo;
+
+		for (j = 0; j < MAXLIGHTMAPS; j++)
+			out->styles[j] = in->styles[j];
+		lightofs = in->lightofs;
+		
+
+		tex = out->texinfo->texture;
+
+		if (!Q_strncmp(tex->name, "sky", 3))
+			SetBits(out->flags, SURF_DRAWSKY);
+
+		if (Mod_LooksLikeWaterTexture(tex->name))
+			SetBits(out->flags, SURF_DRAWTURB);
+
+		if (!Q_strncmp(tex->name, "scroll", 6))
+			SetBits(out->flags, SURF_CONVEYOR);
+
+		if (FBitSet(out->texinfo->flags, TEX_SCROLL))
+			SetBits(out->flags, SURF_CONVEYOR);
+
+		// g-cont. added a combined conveyor-transparent
+		if (!Q_strncmp(tex->name, "{scroll", 7))
+			SetBits(out->flags, SURF_CONVEYOR | SURF_TRANSPARENT);
+
+		if (tex->name[0] == '{')
+			SetBits(out->flags, SURF_TRANSPARENT);
+
+		if (FBitSet(out->texinfo->flags, TEX_SPECIAL))
+			SetBits(out->flags, SURF_DRAWTILED);
+
+		//Mod_CalcSurfaceBounds(mod, out);
+		//Mod_CalcSurfaceExtents(mod, out);
+		//Mod_CreateFaceBevels(mod, out);
+
+		// grab the second sample to detect colored lighting
+		if (test_lightsize > 0 && lightofs != -1)
+		{
+			if (lightofs > prev_lightofs && lightofs < next_lightofs)
+				next_lightofs = lightofs;
+		}
+
+		// grab the first sample to determine lightmap size
+		if (lightofs != -1 && test_lightsize == -1)
+		{
+			int	sample_size = Mod_SampleSizeForFace(out);
+			int	smax = (info->lightextents[0] / sample_size) + 1;
+			int	tmax = (info->lightextents[1] / sample_size) + 1;
+			int	lightstyles = 0;
+
+			test_lightsize = smax * tmax;
+			// count styles to right compute test_lightsize
+			for (j = 0; j < MAXLIGHTMAPS && out->styles[j] != 255; j++)
+				lightstyles++;
+
+			test_lightsize *= lightstyles;
+			prev_lightofs = lightofs;
+			next_lightofs = 99999999;
+		}
+
+#if !XASH_DEDICATED // TODO: Do we need subdivide on server?
+		if (FBitSet(out->flags, SURF_DRAWTURB) && !Host_IsDedicated())
+			ref.dllFuncs.GL_SubdivideSurface(mod, out); // cut up polygon for warps
+#endif
+	}
+
+	// now we have enough data to trying determine samplecount per lightmap pixel
+	if (test_lightsize > 0 && prev_lightofs != -1 && next_lightofs != -1 && next_lightofs != 99999999)
+	{
+		float	samples = (float)(next_lightofs - prev_lightofs) / (float)test_lightsize;
+
+		if (samples != (int)samples)
+		{
+			test_lightsize = (test_lightsize + 3) & ~3; // align datasize and try again
+			samples = (float)(next_lightofs - prev_lightofs) / (float)test_lightsize;
+		}
+
+		if (samples == 1 || samples == 3)
+		{
+			bmod->lightmap_samples = (int)samples;
+			Con_Reportf("lighting: %s\n", (bmod->lightmap_samples == 1) ? "monochrome" : "colored");
+			bmod->lightmap_samples = Q_max(bmod->lightmap_samples, 1); // avoid division by zero
+		}
+		else Con_DPrintf(S_WARN "lighting invalid samplecount: %g, defaulting to %i\n", samples, bmod->lightmap_samples);
+	}
+}
+
 
 /*
 =================
@@ -2891,6 +3126,53 @@ static int Mod_LumpLooksLikeEntities( const char *lump, const size_t lumplen )
 	return Q_memmem( lump, lumplen, "\"classname\"", sizeof( "\"classname\"" ) - 1 ) != NULL ? 1 : 0;
 }
 
+
+/*
+=================
+Mod_LoadBmodel2Lumps
+
+loading and processing bmodel, but the new engine
+=================
+*/
+static qboolean Mod_LoadBmodel2Lumps(model_t* mod, const byte* mod_base, qboolean isworld)
+{
+	const dheader2_t* header = (const dheader2_t*)mod_base;
+	dbspmodel_t* bmod = &srcmodel;
+	dmodel2_t* models2;
+	int models_count;
+	int i;
+	memset( bmod, 0, sizeof(dbspmodel_t) );
+
+	bmod->planes = (dplane_t*)(mod_base + header->lumps[SRC_LUMP_PLANES].fileofs);
+	bmod->numplanes = (size_t)(header->lumps[SRC_LUMP_PLANES].filelen) / sizeof(dplane_t);
+	bmod->vertexes = (dvertex_t*)(mod_base + header->lumps[SRC_LUMP_VERTICES].fileofs);
+	bmod->numvertexes = (size_t)(header->lumps[SRC_LUMP_VERTICES].filelen) / sizeof(dvertex_t);
+
+	bmod->edges = (dedge_t*)(mod_base + header->lumps[SRC_LUMP_EDGES].fileofs);
+	bmod->numedges = (size_t)(header->lumps[SRC_LUMP_EDGES].filelen) / sizeof(dedge_t);
+
+	bmod->surfedges = (dsurfedge_t*)(mod_base + header->lumps[SRC_LUMP_SURFEDGES].fileofs);
+	bmod->numsurfedges = (size_t)(header->lumps[SRC_LUMP_SURFEDGES].filelen) / sizeof(dsurfedge_t);
+
+	models2 = (dmodel2_t*)(mod_base + header->lumps[SRC_LUMP_MODELS].fileofs);
+	models_count = (header->lumps[SRC_LUMP_VERTICES].filelen) / sizeof(dmodel2_t);
+	bmod->numsurfaces = (header->lumps[SRC_LUMP_FACES].filelen) / sizeof(dface2_t);
+
+	bmod->numtexinfo = (header->lumps[SRC_LUMP_TEXINFO].filelen) / sizeof(dtexinfo2_t);
+	
+
+	Mod_LoadPlanes(mod, bmod);
+	Mod_LoadSubmodels2(mod, models2, models_count,bmod->isworld);
+	Mod_LoadVertexes(mod, bmod);
+	Mod_LoadEdges(mod, bmod);
+	Mod_LoadSurfEdges(mod, bmod);
+	//Mod_LoadTexInfo2(mod, bmod, (dtexinfo2_t*)(mod_base + header->lumps[SRC_LUMP_TEXINFO].fileofs));
+	//Mod_LoadSurfaces2(mod, bmod, (dface2_t*)(mod_base + header->lumps[SRC_LUMP_FACES].fileofs));
+
+
+	return true;
+}
+
 /*
 =================
 Mod_LoadBmodelLumps
@@ -3169,9 +3451,19 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 	mod->mempool = Mem_AllocPool( poolname );
 	mod->type = mod_brush;
 
-	// loading all the lumps into heap
-	if( !Mod_LoadBmodelLumps( mod, buffer, world.loading ))
-		return; // there were errors
+	const int* magic = (const dheader_t*)buffer;
+	if (*magic == VBSP_VERSION) // check for the first 4 bytes, header is different in source
+	{
+		if (!Mod_LoadBmodel2Lumps(mod, buffer, world.loading))
+			return;
+	}
+	else
+	{
+		// loading all the lumps into heap
+		if (!Mod_LoadBmodelLumps(mod, buffer, world.loading))
+			return; // there were errors
+	}
+	
 
 	if( world.loading ) worldmodel = mod;
 
