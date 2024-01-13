@@ -314,6 +314,7 @@ build-*
 *.files
 
 # Waf
+.depproj/*
 build_current
 *waf-*/
 *waf3-*/
@@ -337,3 +338,5 @@ enc_temp_folder/
 
 # KDevelop4
 *.kdev4
+
+*.lastbuildstate
