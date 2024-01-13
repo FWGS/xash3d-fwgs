@@ -563,6 +563,27 @@ void Cvar_RegisterVariable( convar_t *var )
 #endif
 }
 
+static qboolean Cvar_CanSet( const convar_t *cv )
+{
+	if( FBitSet( cv->flags, FCVAR_READ_ONLY ))
+	{
+		Con_Printf( "%s is read-only.\n", cv->name );
+		return false;
+	}
+
+	if( FBitSet( cv->flags, FCVAR_CHEAT ) && !host.allow_cheats )
+	{
+		Con_Printf( "%s is cheat protected.\n", cv->name );
+		return false;
+	}
+
+	// just tell user about deferred changes
+	if( FBitSet( cv->flags, FCVAR_LATCH ) && ( SV_Active() || CL_Active( )))
+		Con_Printf( "%s will be changed upon restarting.\n", cv->name );
+
+	return true;
+}
+
 /*
 ============
 Cvar_Set2
@@ -632,22 +653,9 @@ static convar_t *Cvar_Set2( const char *var_name, const char *value )
 		force = true;
 
 	if( !force )
-	{ 
-		if( FBitSet( var->flags, FCVAR_READ_ONLY ))
-		{
-			Con_Printf( "%s is read-only.\n", var->name );
+	{
+		if( !Cvar_CanSet( var ))
 			return var;
-		}
-
-		if( FBitSet( var->flags, FCVAR_CHEAT ) && !host.allow_cheats )
-		{
-			Con_Printf( "%s is cheat protected.\n", var->name );
-			return var;
-		}
-
-		// just tell user about deferred changes
-		if( FBitSet( var->flags, FCVAR_LATCH ) && ( SV_Active() || CL_Active( )))
-			Con_Printf( "%s will be changed upon restarting.\n", var->name );
 	}
 
 	pszValue = Cvar_ValidateString( var, value );
@@ -694,21 +702,8 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 			return; // how this possible?
 	}
 
-	if( FBitSet( var->flags, FCVAR_READ_ONLY ))
-	{
-		Con_Printf( "%s is read-only.\n", var->name );
+	if( !Cvar_CanSet( var ))
 		return;
-	}
-
-	if( FBitSet( var->flags, FCVAR_CHEAT ) && !host.allow_cheats )
-	{
-		Con_Printf( "%s is cheat protected.\n", var->name );
-		return;
-	}
-
-	// just tell user about deferred changes
-	if( FBitSet( var->flags, FCVAR_LATCH ) && ( SV_Active() || CL_Active( )))
-		Con_Printf( "%s will be changed upon restarting.\n", var->name );
 
 	// check value
 	if( !value )
