@@ -738,6 +738,24 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 
 /*
 ============
+Cvar_DirectSetValue
+
+functionally is the same as Cvar_SetValue but for direct cvar access
+============
+*/
+void Cvar_DirectSetValue( convar_t *var, float value )
+{
+	char	val[32];
+
+	if( fabs( value - (int)value ) < 0.000001 )
+		Q_snprintf( val, sizeof( val ), "%d", (int)value );
+	else Q_snprintf( val, sizeof( val ), "%f", value );
+
+	Cvar_DirectSet( var, val );
+}
+
+/*
+============
 Cvar_FullSet
 
 can set any protected cvars
