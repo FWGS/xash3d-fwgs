@@ -288,7 +288,7 @@ void Host_EndGame( qboolean abort, const char *message, ... )
 	va_end( argptr );
 
 	Con_Printf( "Host_EndGame: %s\n", string );
-
+	
 	SV_Shutdown( "\n" );
 #if !XASH_DEDICATED
 	CL_Disconnect();
@@ -298,7 +298,7 @@ void Host_EndGame( qboolean abort, const char *message, ... )
 #endif
 
 	// release all models
-	Mod_FreeAll();
+	//Mod_FreeAll();
 
 	if( abort ) Host_AbortCurrentFrame ();
 }

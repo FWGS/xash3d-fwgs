@@ -404,6 +404,7 @@ void R_FindViewLeaf( void );
 void R_PushScene( void );
 void R_PopScene( void );
 void R_DrawFog( void );
+void R_EndGameplay( void );
 int CL_FxBlend( cl_entity_t *e );
 
 //

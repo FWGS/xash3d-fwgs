@@ -2346,7 +2346,7 @@ static int GAME_EXPORT CL_FindModelIndex( const char *m )
 
 	if( !COM_CheckString( m ))
 		return 0;
-
+	
 	Q_strncpy( filepath, m, sizeof( filepath ));
 	COM_FixSlashes( filepath );
 

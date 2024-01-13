@@ -1492,6 +1492,8 @@ void CL_Disconnect( void )
 	if( cls.state == ca_disconnected )
 		return;
 
+	ref.dllFuncs.R_EndGameplay();
+
 	cls.connect_time = 0;
 	cls.changedemo = false;
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // reset fragment size
@@ -1525,8 +1527,8 @@ void CL_Disconnect( void )
 
 void CL_Disconnect_f( void )
 {
-	if( Host_IsLocalClient( ))
-		Host_EndGame( true, "disconnected from server\n" );
+	if (Host_IsLocalClient())
+		Host_EndGame(true, "disconnected from server\n");
 	else CL_Disconnect();
 }
 

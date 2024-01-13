@@ -1131,6 +1131,8 @@ void SV_Shutdown( const char *finalmsg )
 	// release all models
 	Mod_FreeAll();
 
+	
+
 	HPAK_FlushHostQueue();
 	Log_Printf( "Server shutdown\n" );
 	Log_Close();

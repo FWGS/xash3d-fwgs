@@ -638,6 +638,7 @@ void R_ClearAllDecals( void );
 byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( const float *mins, const float *maxs );
 void R_NewMap( void );
+void R_EndGameplay( void );
 void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 #if 0
 //

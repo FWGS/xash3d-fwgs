@@ -378,6 +378,7 @@ ref_interface_t gReffuncs =
 	R_EndFrame,
 	R_PushScene,
 	R_PopScene,
+	R_EndGameplay,
 	GL_BackendStartFrame,
 	GL_BackendEndFrame,
 

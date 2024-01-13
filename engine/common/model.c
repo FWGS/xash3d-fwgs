@@ -159,6 +159,7 @@ void Mod_FreeAll( void )
 #endif
 	for( i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );
+	
 	mod_numknown = 0;
 }
 

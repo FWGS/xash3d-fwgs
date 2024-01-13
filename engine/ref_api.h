@@ -472,6 +472,7 @@ typedef struct ref_interface_s
 	void (*R_EndFrame)( void );
 	void (*R_PushScene)( void );
 	void (*R_PopScene)( void );
+	void (*R_EndGameplay)( void );
 	void (*GL_BackendStartFrame)( void );
 	void (*GL_BackendEndFrame)( void );
 

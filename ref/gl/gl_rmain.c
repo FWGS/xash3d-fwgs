@@ -1029,7 +1029,6 @@ R_BeginFrame
 void R_BeginFrame( qboolean clearScene )
 {
 	glConfig.softwareGammaUpdate = false;	// in case of possible fails
-
 	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW ) || (RI.viewleaf && RI.viewleaf->contents == CONTENTS_SOLID)) &&
 		clearScene && ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_cinematic )
 	{
@@ -1129,6 +1128,11 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	R_RenderScene();
 
 	return;
+}
+
+void R_EndGameplay(void)
+{
+	RI.viewleaf = 0;
 }
 
 /*

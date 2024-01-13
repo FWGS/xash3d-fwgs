@@ -1547,6 +1547,11 @@ void R_MarkLeaves (void)
 #endif
 
 
+void GAME_EXPORT R_EndGameplay( void )
+{
+	RI.viewleaf = 0;
+}
+
 /*
 ================
 R_RenderScene
@@ -1643,6 +1648,7 @@ void R_GammaChanged( qboolean do_reset_gamma )
 
 	D_FlushCaches( );
 }
+
 
 /*
 ===============
