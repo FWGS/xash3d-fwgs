@@ -1334,12 +1334,14 @@ rgbdata_t *Image_LightGamma( rgbdata_t *pic )
 	if( pic->type != PF_RGBA_32 )
 		return pic;
 
+	#if !XASH_DEDICATED
 	for( i = 0; i < pic->width * pic->height; i++, in += 4 )
 	{
 		in[0] = LightToTexGamma( in[0] );
 		in[1] = LightToTexGamma( in[1] );
 		in[2] = LightToTexGamma( in[2] );
 	}
+	#endif
 
 	return pic;
 }
