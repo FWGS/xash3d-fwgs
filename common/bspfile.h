@@ -279,6 +279,18 @@ typedef struct
 	int	numfaces;			// counting both sides
 } dnode32_t;
 
+typedef struct
+{
+	int	planenum;
+	int	children[2];		// negative numbers are -(leafs + 1), not nodes
+	short	mins[3];			// for sphere culling
+	short	maxs[3];
+	word	firstface;
+	word	numfaces;			// counting both sides
+	short area;
+	short padding;
+} dnode2_t;
+
 // leaf 0 is the generic CONTENTS_SOLID leaf, used for all solid areas
 // all other leafs need visibility info
 typedef struct
@@ -294,6 +306,26 @@ typedef struct
 	// automatic ambient sounds
 	byte	ambient_level[NUM_AMBIENTS];	// ambient sound level (0 - 255)
 } dleaf_t;
+
+typedef struct
+{
+	int	contents;
+	short cluster;
+
+	short area : 9;
+	short flags : 7;
+
+	short	mins[3];			// for frustum culling
+	short	maxs[3];
+	word	firstleafface;
+	word	numleaffaces;
+	word	firstleafbrush;
+	word	numleafbrushes;
+	short	leafWaterDataID;
+
+	short	padding;
+} dleaf2_t;
+
 
 typedef struct
 {

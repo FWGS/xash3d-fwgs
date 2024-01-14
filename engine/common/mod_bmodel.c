@@ -2844,6 +2844,47 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 
 /*
 =================
+Mod_LoadNodes
+=================
+*/
+static void Mod_LoadNodes2(model_t* mod, dbspmodel_t* bmod, dnode2_t* innodes)
+{
+	mnode_t* out;
+	int	i, j, p;
+
+	mod->nodes = out = (mnode_t*)Mem_Calloc(mod->mempool, bmod->numnodes * sizeof(*out));
+	mod->numnodes = bmod->numnodes;
+
+	for (i = 0; i < mod->numnodes; i++, out++)
+	{
+		dnode2_t* in = &innodes[i];
+
+		for (j = 0; j < 3; j++)
+		{
+			out->minmaxs[j + 0] = in->mins[j];
+			out->minmaxs[j + 3] = in->maxs[j];
+		}
+
+		p = in->planenum;
+		out->plane = mod->planes + p;
+		out->firstsurface = in->firstface;
+		out->numsurfaces = in->numfaces;
+
+		for (j = 0; j < 2; j++)
+		{
+			p = in->children[j];
+			if (p >= 0) out->children[j] = mod->nodes + p;
+			else out->children[j] = (mnode_t*)(mod->leafs + (-1 - p));
+		}
+	}
+
+	// sets nodes and leafs
+	Mod_SetParent(mod->nodes, NULL);
+}
+
+
+/*
+=================
 Mod_LoadLeafs
 =================
 */
@@ -2943,6 +2984,91 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 	if( bmod->isworld && Mod_CheckWaterAlphaSupport( mod, bmod ))
 		SetBits( world.flags, FWORLD_WATERALPHA );
 }
+
+
+
+/*
+=================
+Mod_LoadLeafs
+=================
+*/
+static void Mod_LoadLeafs2(model_t* mod, dbspmodel_t* bmod, dleaf2_t* leafs)
+{
+	mleaf_t* out;
+	int	i, j, p;
+	int	visclusters = 0;
+
+	mod->leafs = out = (mleaf_t*)Mem_Calloc(mod->mempool, bmod->numleafs * sizeof(*out));
+	mod->numleafs = bmod->numleafs;
+
+	if (bmod->isworld)
+	{
+		visclusters = mod->submodels[0].visleafs;
+		world.visbytes = (visclusters + 7) >> 3;
+		world.fatbytes = (visclusters + 31) >> 3;
+		refState.visbytes = world.visbytes;
+	}
+
+	for (i = 0; i < bmod->numleafs; i++, out++)
+	{
+
+		dleaf2_t* in = &leafs[i];
+
+		for (j = 0; j < 3; j++)
+		{
+			out->minmaxs[j + 0] = in->mins[j];
+			out->minmaxs[j + 3] = in->maxs[j];
+		}
+
+		out->contents = in->contents;
+		p = -1;
+
+		for (j = 0; j < 4; j++)
+			out->ambient_sound_level[j] = 15;
+
+		out->firstmarksurface = mod->marksurfaces + in->firstleafface;
+		out->nummarksurfaces = in->numleaffaces;
+
+		if (bmod->isworld)
+		{
+			out->cluster = (i - 1); // solid leaf 0 has no visdata
+
+			if (out->cluster >= visclusters)
+				out->cluster = -1;
+
+			// ignore visofs errors on leaf 0 (solid)
+			if (p >= 0 && out->cluster >= 0 && mod->visdata)
+			{
+				if (p < bmod->visdatasize)
+					out->compressed_vis = mod->visdata + p;
+				else Con_Reportf(S_WARN "Mod_LoadLeafs: invalid visofs for leaf #%i\n", i);
+			}
+		}
+		else out->cluster = -1; // no visclusters on bmodels
+
+		if (p == -1) out->compressed_vis = NULL;
+		else out->compressed_vis = mod->visdata + p;
+
+		// gl underwater warp
+		if (out->contents != CONTENTS_EMPTY)
+		{
+			for (j = 0; j < out->nummarksurfaces; j++)
+			{
+				// mark underwater surfaces
+				SetBits(out->firstmarksurface[j]->flags, SURF_UNDERWATER);
+			}
+		}
+	}
+
+	if (bmod->isworld && mod->leafs[0].contents != CONTENTS_SOLID)
+		Host_Error("Mod_LoadLeafs: Map %s has leaf 0 is not CONTENTS_SOLID\n", mod->name);
+
+	// do some final things for world
+	if (bmod->isworld && Mod_CheckWaterAlphaSupport(mod, bmod))
+		SetBits(world.flags, FWORLD_WATERALPHA);
+}
+
+
 
 /*
 =================
@@ -3159,15 +3285,25 @@ static qboolean Mod_LoadBmodel2Lumps(model_t* mod, const byte* mod_base, qboolea
 	bmod->numsurfaces = (header->lumps[SRC_LUMP_FACES].filelen) / sizeof(dface2_t);
 
 	bmod->numtexinfo = (header->lumps[SRC_LUMP_TEXINFO].filelen) / sizeof(dtexinfo2_t);
-	
 
+	bmod->entdata = (byte*)(mod_base + header->lumps[SRC_LUMP_ENTITIES].fileofs);
+	bmod->entdatasize = header->lumps[SRC_LUMP_ENTITIES].filelen;
+
+	
+	bmod->numnodes = (header->lumps[SRC_LUMP_BSPNODES].filelen) / sizeof(dnode2_t);
+
+	bmod->numleafs = (header->lumps[SRC_LUMP_LEAFS].filelen) / sizeof(dleaf2_t);
+
+	Mod_LoadEntities(mod, bmod);
 	Mod_LoadPlanes(mod, bmod);
 	Mod_LoadSubmodels2(mod, models2, models_count,bmod->isworld);
 	Mod_LoadVertexes(mod, bmod);
 	Mod_LoadEdges(mod, bmod);
 	Mod_LoadSurfEdges(mod, bmod);
-	//Mod_LoadTexInfo2(mod, bmod, (dtexinfo2_t*)(mod_base + header->lumps[SRC_LUMP_TEXINFO].fileofs));
-	//Mod_LoadSurfaces2(mod, bmod, (dface2_t*)(mod_base + header->lumps[SRC_LUMP_FACES].fileofs));
+	Mod_LoadTexInfo2(mod, bmod, (dtexinfo2_t*)(mod_base + header->lumps[SRC_LUMP_TEXINFO].fileofs));
+	Mod_LoadSurfaces2(mod, bmod, (dface2_t*)(mod_base + header->lumps[SRC_LUMP_FACES].fileofs));
+	Mod_LoadLeafs2(mod,bmod, (dleaf2_t*)(mod_base + header->lumps[SRC_LUMP_BSPNODES].fileofs));
+	Mod_LoadNodes2(mod, bmod, (dnode2_t*)(mod_base + header->lumps[SRC_LUMP_BSPNODES].fileofs));
 
 
 	return true;
