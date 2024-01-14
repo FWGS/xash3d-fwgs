@@ -534,5 +534,14 @@ typedef struct
 #define MAX_EFRAGS		8192	// Arcane Dimensions required
 #define MAX_REQUESTS	64
 
+#if ! XASH_64BIT
+STATIC_ASSERT( sizeof( mextrasurf_t ) == 324, "mextrasurf_t unexpected size" );
+STATIC_ASSERT( sizeof( decal_t ) == 60, "decal_t unexpected size");
+STATIC_ASSERT( sizeof( mfaceinfo_t ) == 176, "mfaceinfo_t unexpected size");
+#else
+STATIC_ASSERT( sizeof( mextrasurf_t) == 496, "mextrasurf_t unexpected size");
+STATIC_ASSERT( sizeof( decal_t ) == 88, "decal_t unexpected size");
+STATIC_ASSERT( sizeof( mfaceinfo_t ) == 304, "mfaceinfo_t unexpected size");
+#endif
 
 #endif//COM_MODEL_H
