@@ -25,7 +25,7 @@ GNU General Public License for more details.
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
 #ifndef XASH_GAMEDIR
-#define XASH_GAMEDIR	"valve"
+#define XASH_GAMEDIR	"destination"
 #endif
 
 #if XASH_WIN32

@@ -43,6 +43,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "common/com_strings.h"
 #include "common/protocol.h"
+#include "vdf/vdf.h"
 
 #define FILE_COPY_SIZE		(1024 * 1024)
 
@@ -373,14 +374,14 @@ Sets fs_writepath, adds the directory to the head of the path,
 then loads and adds pak1.pak pak2.pak ...
 ================
 */
-void FS_AddGameDirectory( const char *dir, uint flags )
+__declspec(noinline) void FS_AddGameDirectory( const char *dir, uint flags )
 {
 	const fs_archive_t *archive;
 	stringlist_t list;
 	searchpath_t *search;
 	char fullpath[MAX_SYSPATH];
 	int i;
-
+	
 	stringlistinit( &list );
 	listdirectory( &list, dir );
 	stringlistsort( &list );
@@ -633,7 +634,7 @@ void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
 
 	// filesystem info
 	Q_strncpy( GameInfo->gamefolder, gamedir, sizeof( GameInfo->gamefolder ));
-	Q_strncpy( GameInfo->basedir, "valve", sizeof( GameInfo->basedir ));
+	Q_strncpy( GameInfo->basedir, "destination", sizeof( GameInfo->basedir ));
 	GameInfo->falldir[0] = 0;
 	Q_strncpy( GameInfo->startmap, "c0a0", sizeof( GameInfo->startmap ));
 	Q_strncpy( GameInfo->trainmap, "t0a0", sizeof( GameInfo->trainmap ));
@@ -1145,12 +1146,29 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	int i;
 	qboolean isGameDir = flags & FS_GAMEDIR_PATH;
 	char buf[MAX_VA_STRING];
+	vdf_object_t* gameinfo;
 
 	GI->added = true;
 
 	if( !COM_CheckString( dir ))
 		return;
 
+	FS_AllowDirectPaths(true);
+	Q_snprintf(buf, sizeof(buf), "%s/%s/gameinfo.txt", fs_rodir, dir);
+	gameinfo = vdf_parse_file(buf);
+	gameinfo = vdf_object_index_array_str(gameinfo, "FileSystem");
+	gameinfo = vdf_object_index_array_str(gameinfo, "SearchPaths");
+	int count = vdf_object_get_array_length(gameinfo);
+	for (i = 0; i < count; i++)
+	{
+		vdf_object_t* path = vdf_object_index_array(gameinfo, i);
+		FS_AllowDirectPaths(true);
+		Q_snprintf(buf, sizeof(buf), "%s/", vdf_object_get_string(path));
+		FS_AddGameDirectory(buf, flags);
+		FS_AllowDirectPaths(false);
+	}
+	
+	/*
 	// add the common game directory
 
 	// recursive gamedirs
@@ -1196,6 +1214,7 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 		Q_snprintf( buf, sizeof( buf ), "%s/custom/", dir );
 		FS_AddGameDirectory( buf, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
 	}
+	*/
 }
 
 /*
@@ -2961,7 +2980,7 @@ static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
 	return true;
 }
 
-fs_api_t g_api =
+fs_api_t g_fsapi =
 {
 	FS_InitStdio,
 	FS_ShutdownStdio,
@@ -3027,7 +3046,7 @@ int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_inte
 	if( engfuncs && !FS_InitInterface( version, engfuncs ))
 		return 0;
 
-	memcpy( api, &g_api, sizeof( *api ));
+	memcpy( api, &g_fsapi, sizeof( *api ));
 	*globals = &FI;
 
 	return FS_API_VERSION;

@@ -110,7 +110,7 @@ def options(opt):
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
 		help = 'build Xash Dedicated Server [default: %default]')
 
-	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
+	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'destination',
 		help = 'engine default game directory [default: %default]')
 
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,

@@ -16,7 +16,7 @@ def configure(conf):
 		conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
 
 def build(bld):
-	bld(name = 'filesystem_includes', export_includes = '.')
+	bld(name = 'filesystem_includes', export_includes = '. ../public')
 
 	libs = [ 'filesystem_includes', 'sdk_includes' ]
 
@@ -26,7 +26,7 @@ def build(bld):
 
 	bld.shlib(target = 'filesystem_stdio',
 		features = 'cxx seq',
-		source = bld.path.ant_glob(['*.c', '*.cpp']),
+		source = bld.path.ant_glob(['*.c', '*.cpp', '../public/*.c']),
 		use = libs,
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM)

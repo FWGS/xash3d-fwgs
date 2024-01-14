@@ -190,7 +190,7 @@ Default build-depended cvar and constant values
 #endif // DEFAULT_FULLSCREEN
 
 #ifndef DEFAULT_MAX_EDICTS
-	#define DEFAULT_MAX_EDICTS 1200 // was 900 before HL25
+	#define DEFAULT_MAX_EDICTS 4096 // was 900 before HL25
 #endif // DEFAULT_MAX_EDICTS
 
 #endif // DEFAULTS_H

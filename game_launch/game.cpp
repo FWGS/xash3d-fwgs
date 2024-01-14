@@ -46,7 +46,7 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 
 #define E_GAME	"XASH3D_GAME" // default env dir to start from
 #ifndef XASH_GAMEDIR
-#define XASH_GAMEDIR	"valve"
+#define XASH_GAMEDIR	"destination"
 #endif
 
 typedef void (*pfnChangeGame)( const char *progname );
