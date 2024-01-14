@@ -237,7 +237,7 @@ def build(bld):
 			app_name = 'xash3d-fwgs'
 		)
 	else:
-		if bld.env.SINGLE_BINARY:
+		if bld.env.DISABLE_LAUNCHER:
 			install_path = bld.env.BINDIR
 			program = 'cxxprogram' if is_cxx_link else 'cprogram'
 			if bld.env.STATIC:
