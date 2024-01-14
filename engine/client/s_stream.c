@@ -96,6 +96,7 @@ void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, int 
 
 	// open stream
 	s_bgTrack.stream = FS_OpenStream( introTrack );
+
 	Q_strncpy( s_bgTrack.current, introTrack, sizeof( s_bgTrack.current ));
 	memset( &musicfade, 0, sizeof( musicfade )); // clear any soundfade
 	s_bgTrack.source = cls.key_dest;
