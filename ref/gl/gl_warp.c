@@ -883,6 +883,10 @@ void R_InitRipples( void )
 	memset( pic.buffer, 0, pic.size );
 
 	g_ripple.rippletexturenum = GL_LoadTextureInternal( "*rippletex", &pic, TF_NOMIPMAP );
+
+	// need to set proper tex params for TF_NOMIPMAP texture,
+	// as during upload it fails TF_NEAREST check and gets blurry even with gl_texture_nearest 1
+	R_UpdateRippleTexParams(); 
 }
 
 static void R_SwapBufs( void )
