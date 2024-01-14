@@ -81,6 +81,27 @@ void SV_BroadcastPrintf( sv_client_t *ignore, const char *fmt, ... )
 	}
 }
 
+void SV_BroadcastCvarChanged(struct sv_client_s* ignore, const char* cmd, const char* value)
+{
+	sv_client_t* cl;
+	int	i;
+	if(sv.state == ss_active)
+	{
+		for (i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++)
+		{
+			if (FBitSet(cl->flags, FCL_FAKECLIENT))
+				continue;
+
+			if (cl == ignore || cl->state != cs_spawned)
+				continue;
+
+			MSG_BeginServerCmd(&cl->netchan.message, svc_cvarchanged);
+			MSG_WriteString(&cl->netchan.message, cmd);
+			MSG_WriteString(&cl->netchan.message, value);
+		}
+	}
+}
+
 /*
 =================
 SV_BroadcastCommand

@@ -168,22 +168,28 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 #endif
 	}
 
-	if( FBitSet( var->flags, FCVAR_SERVER ) && notify )
+	if( FBitSet( var->flags, FCVAR_SERVER ) )
 	{
-		if( !FBitSet( var->flags, FCVAR_UNLOGGED ))
+		if (notify)
 		{
-			if( FBitSet( var->flags, FCVAR_PROTECTED ))
+			if (!FBitSet(var->flags, FCVAR_UNLOGGED))
 			{
-				Log_Printf( "Server cvar \"%s\" = \"%s\"\n", var->name, "***PROTECTED***" );
-				SV_BroadcastPrintf( NULL, "\"%s\" changed to \"%s\"\n", var->name, "***PROTECTED***" );
-			}
-			else
-			{
-				Log_Printf( "Server cvar \"%s\" = \"%s\"\n", var->name, value );
-				SV_BroadcastPrintf( NULL, "\"%s\" changed to \"%s\"\n", var->name, value );
+				if (FBitSet(var->flags, FCVAR_PROTECTED))
+				{
+					Log_Printf("Server cvar \"%s\" = \"%s\"\n", var->name, "***PROTECTED***");
+					SV_BroadcastPrintf(NULL, "\"%s\" changed to \"%s\"\n", var->name, "***PROTECTED***");
+				}
+				else
+				{
+					Log_Printf("Server cvar \"%s\" = \"%s\"\n", var->name, value);
+					SV_BroadcastPrintf(NULL, "\"%s\" changed to \"%s\"\n", var->name, value);
+				}
 			}
 		}
+		SV_BroadcastCvarChanged(NULL, var->name, value);
 	}
+
+
 
 	return true;
 }
@@ -693,6 +699,7 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 		if( var != Cvar_FindVar( var->name ))
 			return; // how this possible?
 	}
+	
 
 	if( FBitSet( var->flags, FCVAR_READ_ONLY ))
 	{
@@ -703,6 +710,11 @@ void Cvar_DirectSet( convar_t *var, const char *value )
 	if( FBitSet( var->flags, FCVAR_CHEAT ) && !host.allow_cheats )
 	{
 		Con_Printf( "%s is cheat protected.\n", var->name );
+		return;
+	}
+	if (FBitSet(var->flags, FCVAR_SERVER) && !SV_Initialized())
+	{
+		Con_Printf("%s can only be set by the host.\n", var->name);
 		return;
 	}
 

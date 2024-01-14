@@ -87,6 +87,7 @@ const char *svc_strings[svc_lastmsg+1] =
 	"svc_querycvarvalue",
 	"svc_querycvarvalue2",
 	"svc_exec",
+	"svc_cvarchanged",
 };
 
 void MSG_InitMasks( void )

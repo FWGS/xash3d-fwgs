@@ -2068,6 +2068,22 @@ void CL_ParseExec( sizebuf_t *msg )
 
 /*
 ==============
+CL_ParseCvarChanged
+
+Server cvar changed
+==============
+*/
+void CL_ParseCvarChanged(sizebuf_t* msg)
+{
+	convar_t* cvar = Cvar_FindVar(MSG_ReadString(msg));
+	freestring(cvar->string);
+	cvar->string = copystring(MSG_ReadString(msg));
+	cvar->value = Q_atof(cvar->string);
+}
+
+
+/*
+==============
 CL_DispatchUserMessage
 
 Dispatch user message by engine request
@@ -2481,6 +2497,9 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_exec:
 			CL_ParseExec( msg );
+			break;
+		case svc_cvarchanged:
+			CL_ParseCvarChanged( msg );
 			break;
 		default:
 			CL_ParseUserMessage( msg, cmd );

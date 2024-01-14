@@ -79,7 +79,8 @@ GNU General Public License for more details.
 #define svc_querycvarvalue		57	// [string]
 #define svc_querycvarvalue2		58	// [string][int] (context)
 #define svc_exec				59	// [byte][...]
-#define svc_lastmsg			59	// start user messages at this point
+#define svc_cvarchanged			60	// [string][string]
+#define svc_lastmsg			60	// start user messages at this point
 
 // client to server
 #define clc_bad			0	// immediately drop client when received

@@ -719,6 +719,7 @@ void Log_Printf( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
 void SV_BroadcastPrintf( struct sv_client_s *ignore, const char *fmt, ... ) _format( 2 );
+void SV_BroadcastCvarChanged( struct sv_client_s *ignore, const char* cmd, const char* value );
 int R_CreateDecalList( struct decallist_s *pList );
 void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
