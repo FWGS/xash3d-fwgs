@@ -114,6 +114,8 @@
 #define EF_LIGHT			64	// rocket flare glow sprite
 #define EF_NODRAW			128	// don't draw entity
 
+#define EF_NOREFLECT		(1U<<24)	// Entity won't reflecting in mirrors
+#define EF_REFLECTONLY		(1U<<25)	// Entity will be drawing only in mirrors
 #define EF_WATERSIDES		(1U<<26)	// Do not remove sides for func_water entity
 #define EF_FULLBRIGHT		(1U<<27)	// Just get fullbright
 #define EF_NOSHADOW			(1U<<28)	// ignore shadow for this entity

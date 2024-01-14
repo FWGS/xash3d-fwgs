@@ -228,7 +228,9 @@ typedef struct mextrasurf_s
 	unsigned short	numverts;		// world->vertexes[]
 	int		firstvertex;	// fisrt look up in tr.tbn_vectors[], then acess to world->vertexes[]
 
-	intptr_t	reserved[32];	// just for future expansions or mod-makers
+	struct mextrasurf_s *mirrorchain; // engine-side mirrors, may be ignored in mods with custom renderers
+
+	intptr_t	reserved[31];	// just for future expansions or mod-makers
 } mextrasurf_t;
 
 struct msurface_s

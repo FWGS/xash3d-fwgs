@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #define ENGINE_COMPUTE_STUDIO_LERP	(1<<7)	// enable MOVETYPE_STEP lerping back in engine
 #define ENGINE_LINEAR_GAMMA_SPACE	(1<<8)	// disable influence of gamma/brightness cvars to textures/lightmaps, for mods with custom renderer
 
+#define ENGINE_ALLOW_MIRRORS		(1U<<30) // allow mirrors in engine renderer
 #define ENGINE_STEP_POSHISTORY_LERP (1U<<31) // enable MOVETYPE_STEP interpolation based on position history. Incompatible with ENGINE_COMPUTE_STUDIO_LERP!
 
 // adjust the mask when features will be added or removed
@@ -40,6 +41,7 @@ GNU General Public License for more details.
 	| ENGINE_IMPROVED_LINETRACE   \
 	| ENGINE_COMPUTE_STUDIO_LERP  \
 	| ENGINE_LINEAR_GAMMA_SPACE   \
+	| ENGINE_ALLOW_MIRRORS        \
 	| ENGINE_STEP_POSHISTORY_LERP )
 
 #endif//FEATURES_H
