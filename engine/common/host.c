@@ -954,7 +954,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	int		developer = DEFAULT_DEV;
 	const char *baseDir;
 	char ticrate[16];
-	int len;
+	int len, i;
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
@@ -1029,7 +1029,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 		progname++;
 
 	Q_strncpy( SI.exeName, progname, sizeof( SI.exeName ));
-	Q_strncpy( SI.basedirName, progname, sizeof( SI.exeName ));
+	Q_strncpy( SI.basedirName, progname, sizeof( SI.basedirName ));
 
 	if( Host_IsDedicated() )
 	{
@@ -1201,11 +1201,24 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	FS_LoadGameInfo( NULL );
 	Cvar_PostFSInit();
 
-	if( FS_FileExists( va( "%s.rc", SI.basedirName ), false ))
-		Q_strncpy( SI.rcName, SI.basedirName, sizeof( SI.rcName ));	// e.g. valve.rc
-	else Q_strncpy( SI.rcName, SI.exeName, sizeof( SI.rcName ));	// e.g. quake.rc
-
 	Q_strncpy( host.gamefolder, GI->gamefolder, sizeof( host.gamefolder ));
+
+	for( i = 0; i < 3; i++ )
+	{
+		const char *rcName;
+		switch( i )
+		{
+		case 0: rcName = SI.basedirName; break; // e.g. valve.rc
+		case 1: rcName = SI.exeName; break;     // e.g. quake.rc
+		case 2: rcName = host.gamefolder; break; // e.g. game.rc (ran from default launcher)
+		}
+
+		if( FS_FileExists( va( "%s.rc", rcName ), false ))
+		{
+			Q_strncpy( SI.rcName, rcName, sizeof( SI.rcName ));
+			break;
+		}
+	}
 
 	Image_CheckPaletteQ1 ();
 	Host_InitDecals ();	// reload decals
