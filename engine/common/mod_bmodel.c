@@ -2026,6 +2026,14 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 	return false;
 }
 
+static qboolean Mod_LooksLikeReflectiveTexture( const char *name )
+{
+	if( !Q_strcmp( name, "reflect1" ) || !Q_strncmp( name, "!reflect", 8 ))
+		return true;
+
+	return false;
+}
+
 static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 {
 #if !XASH_DEDICATED
@@ -2480,6 +2488,13 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		if( !Q_strncmp( tex->name, "{scroll", 7 ))
 			SetBits( out->flags, SURF_CONVEYOR|SURF_TRANSPARENT );
 
+		// some mods don't work with mirrors or make random surfaces reflective
+		if( FBitSet( host.features, ENGINE_ALLOW_MIRRORS ) && Mod_LooksLikeReflectiveTexture( tex->name ))
+		{
+			SetBits( world.flags, FWORLD_HAS_MIRRORS );
+			SetBits( out->flags, SURF_REFLECT );
+		}
+
 		if( tex->name[0] == '{' )
 			SetBits( out->flags, SURF_TRANSPARENT );
 
@@ -2697,6 +2712,9 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			{
 				// mark underwater surfaces
 				SetBits( out->firstmarksurface[j]->flags, SURF_UNDERWATER );
+
+				// underwater surfaces can't have reflection (performance)
+				ClearBits( out->firstmarksurface[j]->flags, SURF_REFLECT );
 			}
 		}
 	}
