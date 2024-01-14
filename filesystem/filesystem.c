@@ -374,7 +374,7 @@ Sets fs_writepath, adds the directory to the head of the path,
 then loads and adds pak1.pak pak2.pak ...
 ================
 */
-__declspec(noinline) void FS_AddGameDirectory( const char *dir, uint flags )
+void FS_AddGameDirectory( const char *dir, uint flags )
 {
 	const fs_archive_t *archive;
 	stringlist_t list;
