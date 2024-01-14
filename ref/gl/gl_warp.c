@@ -963,28 +963,29 @@ void R_AnimateRipples( void )
 	R_RunRipplesAnimation( g_ripple.oldbuf, g_ripple.curbuf );
 }
 
-void R_UploadRipples( texture_t *image )
+void R_UploadRipples( texture_t *image, qboolean is_mirror )
 {
 	gl_texture_t *glt;
 	uint32_t *pixels;
 	int wbits, wmask, wshft;
 	int y;
+	int tmu = is_mirror ? XASH_TEXTURE1 : XASH_TEXTURE0;
 
 	// discard unuseful textures
 	if( !r_ripple.value || image->width > RIPPLES_CACHEWIDTH || image->width != image->height )
 	{
-		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
+		GL_Bind( tmu, image->gl_texturenum );
 		return;
 	}
 
 	glt = R_GetTexture( image->gl_texturenum );
 	if( !glt || !glt->original || !glt->original->buffer || !FBitSet( glt->flags, TF_EXPAND_SOURCE ))
 	{
-		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
+		GL_Bind( tmu, image->gl_texturenum );
 		return;
 	}
 
-	GL_Bind( XASH_TEXTURE0, g_ripple.rippletexturenum );
+	GL_Bind( tmu, g_ripple.rippletexturenum );
 
 	// no updates this frame
 	if( !g_ripple.update && image->gl_texturenum == g_ripple.gl_texturenum )

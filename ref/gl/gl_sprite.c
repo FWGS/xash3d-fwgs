@@ -702,7 +702,7 @@ static qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 		vec3_t	v;
 
 		if( R_CullEntityInMirror( e ))
-			return;
+			return true;
 
 		TriWorldToScreen( origin, v );
 

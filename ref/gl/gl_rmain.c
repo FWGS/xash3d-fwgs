@@ -218,6 +218,7 @@ void R_ClearScene( void )
 	tr.draw_list->num_solid_entities = 0;
 	tr.draw_list->num_trans_entities = 0;
 	tr.draw_list->num_beam_entities = 0;
+	tr.draw_list->num_mirror_entities = 0;
 
 	// clear the scene befor start new frame
 	if( gEngfuncs.drawFuncs->R_ClearScene != NULL )
@@ -1127,6 +1128,14 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 		R_RunViewmodelEvents();
 
 	tr.realframecount++; // right called after viewmodel events
+
+	if( gl_allow_mirrors.value )
+	{
+		// render mirrors
+		R_FindMirrors();
+		R_DrawMirrors();
+	}
+
 	R_RenderScene();
 
 	return;

@@ -1142,7 +1142,7 @@ R_RenderBrushPoly
 */
 static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 {
-	qboolean	is_dynamic = false;
+	qboolean	is_dynamic = false, is_mirror = false;
 	int	maps;
 	texture_t	*t;
 
@@ -1153,15 +1153,46 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 	t = R_TextureAnimation( fa );
 
+	// set mirror texture
+	if( RP_NORMALPASS() && FBitSet( fa->flags, SURF_REFLECT ))
+	{
+		if( fa->info->mirrortexturenum )
+		{
+			GL_Bind( XASH_TEXTURE0, fa->info->mirrortexturenum );
+			is_mirror = true;
+
+			// reset just in case if mirror failed to render
+			fa->info->mirrortexturenum = 0;
+
+			// blend-in water
+			if( FBitSet( fa->flags, SURF_DRAWTURB ))
+			{
+				R_BeginDrawMirror( fa );
+				R_UploadRipples( t, true ); 
+				pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+
+				// warp texture, no lightmaps
+				EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
+
+				R_EndDrawMirror();
+				return;
+			}
+		}
+	}
+
 	if( FBitSet( fa->flags, SURF_DRAWTURB ))
 	{
-		R_UploadRipples( t );
+		R_UploadRipples( t, false );
 
 		// warp texture, no lightmaps
 		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
+
 		return;
 	}
-	else GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
+	else if( !is_mirror ) // already set up mirror texture
+	{
+		GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
+	}
 
 	if( t->fb_texturenum )
 	{
@@ -1199,7 +1230,9 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		}
 	}
 
+	if( is_mirror ) R_BeginDrawMirror( fa );
 	DrawGLPoly( fa->polys, 0.0f, 0.0f );
+	if( is_mirror ) R_EndDrawMirror();
 
 	if( RI.currententity->curstate.rendermode == kRenderNormal )
 	{
@@ -1212,6 +1245,10 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		// if rendermode != kRenderNormal draw decals sequentially
 		DrawSurfaceDecals( fa, true, (cull_type == CULL_BACKSIDE));
 	}
+
+	// NOTE: draw mirror through in mirror show dummy lightmapped texture
+	if( RP_NORMALPASS() && FBitSet( fa->flags, SURF_REFLECT ))
+		return; // no lightmaps for mirror
 
 	if( FBitSet( fa->flags, SURF_DRAWTILED ))
 		return; // no lightmaps anyway
@@ -1432,7 +1469,7 @@ void R_DrawWaterSurfaces( void )
 			continue;
 
 		// set modulate mode explicitly
-		R_UploadRipples( t );
+		R_UploadRipples( t, false );
 
 		for( ; s; s = s->texturechain )
 			EmitWaterPolys( s, false );
@@ -3824,7 +3861,14 @@ void GL_BuildLightmaps( void )
 		GL_FreeTexture( tr.lightmapTextures[i] );
 	}
 
+	for( i = 0; i < MAX_MIRRORS; i++ )
+	{
+		if( !tr.mirrorTextures[i] ) break;
+		GL_FreeTexture( tr.mirrorTextures[i] );
+	}
+
 	memset( tr.lightmapTextures, 0, sizeof( tr.lightmapTextures ));
+	memset( tr.mirrorTextures, 0, sizeof( tr.mirrorTextures ));
 	memset( &RI, 0, sizeof( RI ));
 
 	// update the lightmap blocksize
@@ -3839,6 +3883,8 @@ void GL_BuildLightmaps( void )
 	tr.modelviewIdentity = false;
 	tr.realframecount = 1;
 	nColinElim = 0;
+
+	tr.num_mirrors_used = 0;
 
 	// setup the texture for dlights
 	R_InitDlightTexture();

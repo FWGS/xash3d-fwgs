@@ -74,6 +74,8 @@ extern poolhandle_t r_temppool;
 #define SUBDIVIDE_SIZE	64
 #define MAX_DECAL_SURFS	4096
 #define MAX_DRAW_STACK	2		// normal view and menu view
+#define MAX_MIRRORS		32		// per frame
+#define MAX_MIRROR_ENTITIES MAX_VISIBLE_PACKET
 
 #define SHADEDOT_QUANT 	16		// precalculated dot products for quantized angles
 #define SHADE_LAMBERT	1.4953241
@@ -136,6 +138,13 @@ typedef struct gltexture_s
 	uint		hashValue;
 	struct gltexture_s	*nextHash;
 } gl_texture_t;
+
+// mirror entity
+typedef struct
+{
+	cl_entity_t *ent;
+	mextrasurf_t *chain;
+} gl_entity_t;
 
 typedef struct
 {
@@ -201,9 +210,11 @@ typedef struct
 	cl_entity_t	*solid_entities[MAX_VISIBLE_PACKET];	// opaque moving or alpha brushes
 	cl_entity_t	*trans_entities[MAX_VISIBLE_PACKET];	// translucent brushes
 	cl_entity_t	*beam_entities[MAX_VISIBLE_PACKET];
+	gl_entity_t	mirror_entities[MAX_MIRROR_ENTITIES]; // an entities that has mirror
 	uint		num_solid_entities;
 	uint		num_trans_entities;
 	uint		num_beam_entities;
+	uint		num_mirror_entities;
 } draw_list_t;
 
 typedef struct
@@ -219,6 +230,8 @@ typedef struct
 	int		dlightTexture;	// custom dlight texture
 	int		skyboxTextures[SKYBOX_MAX_SIDES];	// skybox sides
 	int		cinTexture;      	// cinematic texture
+	int		mirrorTextures[MAX_MIRRORS];
+	int		num_mirrors_used;
 
 	int		skytexturenum;	// this not a gl_texturenum!
 	int		skyboxbasenum;	// start with 5800
@@ -281,6 +294,8 @@ typedef struct
 	uint		c_client_ents;	// entities that moved to client
 	double		t_world_node;
 	double		t_world_draw;
+
+	uint		c_mirror_passes;
 } ref_speeds_t;
 
 extern ref_speeds_t		r_stats;
@@ -498,7 +513,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 void R_InitRipples( void );
 void R_ResetRipples( void );
 void R_AnimateRipples( void );
-void R_UploadRipples( texture_t *image );
+void R_UploadRipples( texture_t *image, qboolean is_mirror );
 
 //
 // gl_vgui.c
@@ -517,7 +532,13 @@ void VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr );
 void VGUI_GetTextureSizes( int *width, int *height );
 int VGUI_GenerateTexture( void );
 
-//#include "vid_common.h"
+//
+// gl_mirror.c
+//
+void R_BeginDrawMirror( msurface_t *fa );
+void R_EndDrawMirror( void );
+void R_DrawMirrors( void );
+void R_FindMirrors( void );
 
 //
 // renderer exports
@@ -768,6 +789,7 @@ extern convar_t	gl_test;		// cvar to testify new effects
 extern convar_t	gl_msaa;
 extern convar_t	gl_stencilbits;
 extern convar_t	gl_overbright;
+extern convar_t	gl_allow_mirrors;
 
 extern convar_t	r_lighting_extended;
 extern convar_t	r_lighting_ambient;

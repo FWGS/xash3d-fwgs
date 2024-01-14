@@ -111,6 +111,9 @@ void GL_BackendEndFrame( void )
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i tempents\n%3i viewbeams\n%3i particles",
 		r_stats.c_active_tents_count, r_stats.c_view_beams_count, r_stats.c_particle_count );
 		break;
+	case 6:
+		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i mirrors\n", r_stats.c_mirror_passes );
+		break;
 	}
 
 	memset( &r_stats, 0, sizeof( r_stats ));
