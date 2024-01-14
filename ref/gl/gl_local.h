@@ -84,8 +84,9 @@ extern poolhandle_t r_temppool;
 #define RP_ENVVIEW		BIT( 0 )	// used for cubemapshot
 #define RP_OLDVIEWLEAF	BIT( 1 )
 #define RP_CLIPPLANE	BIT( 2 )
+#define RP_MIRRORVIEW	BIT( 3 )	// lock pvs at vieworg
 
-#define RP_NONVIEWERREF	(RP_ENVVIEW)
+#define RP_NONVIEWERREF	(RP_ENVVIEW|RP_MIRRORVIEW)
 #define R_ModelOpaque( rm )	( rm == kRenderNormal )
 #define R_StaticEntity( ent )	( VectorIsNull( ent->origin ) && VectorIsNull( ent->angles ))
 #define RP_LOCALCLIENT( e )	((e) != NULL && (e)->index == ( gp_cl->playernum + 1 ) && e->player )
@@ -324,6 +325,7 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 //
 int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
 qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );
+qboolean R_CullEntityInMirror( cl_entity_t *e );
 int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags );
 
 //
@@ -541,7 +543,6 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 qboolean R_SpeedsMessage( char *out, size_t size );
 void R_SetupSky( const char *skyboxname );
-qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );
 int R_WorldToScreen( const vec3_t point, vec3_t screen );
 void R_ScreenToWorld( const vec3_t screen, vec3_t point );
 qboolean R_AddEntity( struct cl_entity_s *pRefEntity, int entityType );

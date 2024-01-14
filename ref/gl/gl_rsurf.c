@@ -1551,6 +1551,9 @@ void R_DrawBrushModel( cl_entity_t *e )
 	if( clmodel->surfaces != WORLDMODEL->surfaces )
 		allow_vbo = false;
 
+	if( R_CullEntityInMirror( e ))
+		return;
+
 	if( !VectorIsNull( e->angles ))
 	{
 		for( i = 0; i < 3; i++ )

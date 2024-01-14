@@ -36,6 +36,31 @@ qboolean R_CullBox( const vec3_t mins, const vec3_t maxs )
 }
 
 /*
+=================
+R_CullEntityInMirror
+
+decide whether entity should be reflected in mirror
+=================
+*/
+qboolean R_CullEntityInMirror( cl_entity_t *e )
+{
+	if( FBitSet( RI.params, RP_MIRRORVIEW ))
+	{
+		// cull this entity out of mirrors but not normal views
+		if( FBitSet( e->curstate.effects, EF_NOREFLECT ))
+			return true;
+	}
+	else
+	{
+		// cull this entity out of normal views but not mirrors
+		if( FBitSet( e->curstate.effects, EF_REFLECTONLY ))
+			return true;
+	}
+
+	return false;
+}
+
+/*
 =============
 R_CullModel
 =============
@@ -52,6 +77,9 @@ int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
 
 		return 1;
 	}
+
+	if( R_CullEntityInMirror( e ))
+		return 1;
 
 	if( R_CullBox( absmin, absmax ))
 		return 1;
@@ -98,7 +126,7 @@ int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags )
 		}
 		else dist = PlaneDiff( tr.modelorg, surf->plane );
 
-		if( glState.faceCull == GL_FRONT )
+		if( glState.faceCull == GL_FRONT || FBitSet( RI.params, RP_MIRRORVIEW ))
 		{
 			if( FBitSet( surf->flags, SURF_PLANEBACK ))
 			{

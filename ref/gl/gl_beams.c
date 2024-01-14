@@ -119,6 +119,10 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 	vec3_t	mins, maxs;
 	int	i;
 
+	// support for custom mirror management
+	if( RI.currentbeam && R_CullEntityInMirror( RI.currentbeam ))
+		return true;
+
 	for( i = 0; i < 3; i++ )
 	{
 		if( start[i] < end[i] )

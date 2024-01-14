@@ -701,6 +701,9 @@ static qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 		float	blend;
 		vec3_t	v;
 
+		if( R_CullEntityInMirror( e ))
+			return;
+
 		TriWorldToScreen( origin, v );
 
 		if( v[0] < RI.viewport[0] || v[0] > RI.viewport[0] + RI.viewport[2] )
