@@ -1156,6 +1156,11 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	FS_AllowDirectPaths(true);
 	Q_snprintf(buf, sizeof(buf), "%s/%s/gameinfo.txt", fs_rodir, dir);
 	gameinfo = vdf_parse_file(buf);
+	if (!gameinfo)
+	{
+		Sys_Error("Could not find gameinfo in \"%s\"", buf);
+		return;
+	}
 	gameinfo = vdf_object_index_array_str(gameinfo, "FileSystem");
 	gameinfo = vdf_object_index_array_str(gameinfo, "SearchPaths");
 	int count = vdf_object_get_array_length(gameinfo);
