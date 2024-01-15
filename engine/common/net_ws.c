@@ -2553,7 +2553,13 @@ void HTTP_Run( void )
 		{
 			dword mode;
 
-			curfile->socket = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+			// IPv6
+			if ( Q_strstr( curfile->server->host, ":" ))
+				curfile->socket = socket( AF_INET6, SOCK_STREAM, IPPROTO_TCP );
+
+			// IPv4
+			else
+				curfile->socket = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
 
 			// Now set non-blocking mode
 			// You may skip this if not supported by system,
@@ -2575,9 +2581,21 @@ void HTTP_Run( void )
 			if( fResolving )
 				continue;
 
-			Q_snprintf( hostport, sizeof( hostport ), "%s:%d", curfile->server->host, curfile->server->port );
+			// IPv6
+			if ( Q_strstr( curfile->server->host, ":" ))
+			{
+				Q_snprintf( hostport, sizeof( hostport ), "[%s]:%d", curfile->server->host, curfile->server->port );
 
-			res = NET_StringToSockaddr( hostport, &addr, true, AF_INET );
+				res = NET_StringToSockaddr( hostport, &addr, true, AF_INET6 );
+			}
+
+			// IPv4
+			else
+			{
+				Q_snprintf( hostport, sizeof( hostport ), "%s:%d", curfile->server->host, curfile->server->port );
+
+				res = NET_StringToSockaddr( hostport, &addr, true, AF_INET );
+			}
 
 			if( res == NET_EAI_AGAIN )
 			{
@@ -2788,13 +2806,15 @@ static httpserver_t *HTTP_ParseURL( const char *url )
 	{
 		url += 8;
 
-		while( *url && ( *url != ']' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
+		while( *url && ( *url != ']' ))
 		{
 			if( i > sizeof( server->host ))
 				return NULL;
 
 			server->host[i++] = *url++;
 		}
+
+		url++; // skip closing entity
 	}
 
 	// IPv4
