@@ -301,7 +301,7 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 	int		i;
 	const loadpixformat_t *extfmt;
 	const cubepack_t	*cmap;
-	if (!Q_strcmp(ext, "vmf"))
+	if (!Q_strcmp(ext, "vmt"))
 	{
 		vdf_object_t* vmt = vdf_parse_file(filename);
 		if (!vmt)
@@ -318,6 +318,11 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 		Q_strncpy(loadname,vdf_object_get_string(texturekey),sizeof(loadname));
 		vdf_free_object(vmt);
 	}
+	//else if (Q_strcmp(ext, "pal") && Q_strcmp(filename,"gfx/palette.lmp"))
+	//{
+	//	Q_strncpy(loadname, "destination/materials/concretefloor005a.vtf", sizeof(loadname));
+	//	ext = "vtf";
+	//}
 	else
 	{
 		Q_strncpy(loadname, filename, sizeof(loadname));

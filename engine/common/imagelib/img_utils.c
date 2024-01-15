@@ -106,6 +106,7 @@ static const loadpixformat_t load_game[] =
 { "%s%s.%s", "fnt", Image_LoadFNT, IL_HINT_HL },	// hl console font (fonts.wad etc)
 { "%s%s.%s", "pal", Image_LoadPAL, IL_HINT_NO },	// install studio\sprite palette
 { "%s%s.%s", "ktx2", Image_LoadKTX2, IL_HINT_NO },	// ktx2 for world and studio models
+{ "%s%s.%s", "vtf", Image_LoadVTF, IL_HINT_NO },	// ktx2 for world and studio models
 { NULL, NULL, NULL, IL_HINT_NO }
 };
 

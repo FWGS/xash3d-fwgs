@@ -67,15 +67,13 @@ static vpk_t* VPK_Open(const char* filename)
 	do
 	{
 		Q_snprintf(buf, sizeof(buf), "%s_%03d.vpk", vpk_prefix,amount);
-		if (!FS_FileExists(buf, false))
-		{
-			found = false;
-		}
+		found = FS_FileExists(buf, false);
 
+		Con_Printf("vpk: %s\n", buf);
 		++amount;
 	}
 	while (found);
-
+	
 
 	vpk->handles = (file_t**)Mem_Calloc(fs_mempool, sizeof(file_t*)*(amount+1));
 
