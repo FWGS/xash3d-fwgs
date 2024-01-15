@@ -30,6 +30,7 @@ static CVAR_DEFINE_AUTO( con_fontscale, "1.0", FCVAR_ARCHIVE, "scale font textur
 static CVAR_DEFINE_AUTO( con_fontnum, "-1", FCVAR_ARCHIVE, "console font number (0, 1 or 2), -1 for autoselect" );
 static CVAR_DEFINE_AUTO( con_color, "240 180 24", FCVAR_ARCHIVE, "set a custom console color" );
 static CVAR_DEFINE_AUTO( scr_drawversion, "1", FCVAR_ARCHIVE, "draw version in menu or screenshots, doesn't affect console" );
+static CVAR_DEFINE_AUTO( con_oldfont, "0", 0, "use legacy font from gfx.wad, might be missing or broken" );
 
 static int g_codepage = 0;
 static qboolean g_utf8 = false;
@@ -543,8 +544,7 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	if( font->valid )
 		return; // already loaded
 
-	// loading conchars
-	if( Sys_CheckParm( "-oldfont" ))
+	if( con_oldfont.value )
 	{
 		success = Con_LoadVariableWidthFont( "gfx/conchars.fnt", font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST );
 	}
@@ -842,6 +842,7 @@ void Con_Init( void )
 	Cvar_RegisterVariable( &con_fontnum );
 	Cvar_RegisterVariable( &con_color );
 	Cvar_RegisterVariable( &scr_drawversion );
+	Cvar_RegisterVariable( &con_oldfont );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -2117,10 +2118,7 @@ void Con_RunConsole( void )
 			con.vislines = con.showlines;
 	}
 
-	if( FBitSet( con_charset.flags,  FCVAR_CHANGED ) ||
-		FBitSet( con_fontscale.flags, FCVAR_CHANGED ) ||
-		FBitSet( con_fontnum.flags,   FCVAR_CHANGED ) ||
-		FBitSet( cl_charset.flags,    FCVAR_CHANGED ))
+	if( FBitSet( con_charset.flags|con_fontscale.flags|con_fontnum.flags|cl_charset.flags|con_oldfont.flags,  FCVAR_CHANGED ))
 	{
 		// update codepage parameters
 		if( !Q_stricmp( con_charset.string, "cp1251" ))
@@ -2146,6 +2144,7 @@ void Con_RunConsole( void )
 		ClearBits( con_fontnum.flags,   FCVAR_CHANGED );
 		ClearBits( con_fontscale.flags, FCVAR_CHANGED );
 		ClearBits( cl_charset.flags,    FCVAR_CHANGED );
+		ClearBits( con_oldfont.flags,   FCVAR_CHANGED );
 	}
 }
 
@@ -2190,6 +2189,9 @@ void Con_VidInit( void )
 		Con_LoadHistory( &con.history );
 		con.historyLoaded = true;
 	}
+
+	if( Sys_CheckParm( "-oldfont" ))
+		Cvar_DirectSet( &con_oldfont, "1" );
 
 	Con_LoadConchars();
 	Con_CheckResize();
