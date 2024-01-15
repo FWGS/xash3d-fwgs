@@ -541,6 +541,9 @@ static void R_CollectRendererNames( void )
 #if XASH_REF_SOFT_ENABLED
 		"soft",
 #endif
+#if XASH_REF_GL4_ENABLED
+		"gl4",
+#endif
 	};
 
 	// ordering is important here too!
@@ -563,6 +566,9 @@ static void R_CollectRendererNames( void )
 #endif
 #if XASH_REF_SOFT_ENABLED
 		"Software",
+#endif
+#if XASH_REF_GL4_ENABLED
+		"OpenGL4",
 #endif
 	};
 
