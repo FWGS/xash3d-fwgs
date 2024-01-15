@@ -26,7 +26,7 @@ def build(bld):
 
 	bld.shlib(target = 'filesystem_stdio',
 		features = 'cxx seq',
-		source = bld.path.ant_glob(['*.c', '*.cpp', '../public/*.c']),
+		source = bld.path.ant_glob(['*.c', '*.cpp', '../public/*.c', '../public/map/*.c', '../public/vdf/*.c']),
 		use = libs,
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM)

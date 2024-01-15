@@ -35,6 +35,7 @@ typedef struct dir_s dir_t;
 typedef struct zip_s zip_t;
 typedef struct pack_s pack_t;
 typedef struct wfile_s wfile_t;
+typedef struct vpk_s vpk_t;
 #if XASH_ANDROID
 typedef struct android_assets_s android_assets_t;
 // typedef struct android_saf_s android_saf_t;
@@ -67,7 +68,8 @@ enum
 	SEARCHPATH_WAD,
 	SEARCHPATH_ZIP,
 	SEARCHPATH_PK3DIR, // it's actually a plain directory but it must behave like a ZIP archive,
-	SEARCHPATH_ANDROID_ASSETS
+	SEARCHPATH_ANDROID_ASSETS,
+	SEARCHPATH_VPK
 };
 
 typedef struct stringlist_s
@@ -86,10 +88,11 @@ typedef struct searchpath_s
 
 	union
 	{
-		dir_t   *dir;
-		pack_t  *pack;
-		wfile_t *wad;
-		zip_t   *zip;
+		dir_t*		dir;
+		pack_t*		pack;
+		wfile_t*	wad;
+		zip_t*		zip;
+		vpk_t*		vpk;
 #if XASH_ANDROID
 		android_assets_t *assets;
 #endif
@@ -224,6 +227,11 @@ searchpath_t *FS_AddPak_Fullpath( const char *pakfile, int flags );
 // wad.c
 //
 searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags );
+
+//
+// vpk.c
+//
+searchpath_t* FS_AddVPK_Fullpath( const char* vpkfile, int flags );
 
 //
 // zip.c

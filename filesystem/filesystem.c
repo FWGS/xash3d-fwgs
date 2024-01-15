@@ -66,6 +66,7 @@ const fs_archive_t g_archives[] =
 { "pk3",    SEARCHPATH_ZIP,    FS_AddZip_Fullpath, true },
 { "pk3dir", SEARCHPATH_PK3DIR, FS_AddDir_Fullpath, true },
 { "wad",    SEARCHPATH_WAD,    FS_AddWad_Fullpath, false },
+{ "vpk",    SEARCHPATH_VPK,    FS_AddVPK_Fullpath, false },
 { NULL }, // end marker
 };
 
@@ -381,7 +382,15 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	searchpath_t *search;
 	char fullpath[MAX_SYSPATH];
 	int i;
-	
+	const char* ext;
+
+	ext = COM_FileExtension( dir );
+	if (!Q_strcmp(ext, "vpk"))
+	{
+		FS_AddVPK_Fullpath(dir, flags);
+		return;
+	}
+
 	stringlistinit( &list );
 	listdirectory( &list, dir );
 	stringlistsort( &list );
@@ -393,7 +402,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 
 		for( i = 0; i < list.numstrings; i++ )
 		{
-			const char *ext = COM_FileExtension( list.strings[i] );
+			ext = COM_FileExtension( list.strings[i] );
 
 			if( Q_stricmp( ext, archive->ext ))
 				continue;
@@ -1168,7 +1177,14 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	{
 		vdf_object_t* path = vdf_object_index_array(gameinfo, i);
 		FS_AllowDirectPaths(true);
-		Q_snprintf(buf, sizeof(buf), "%s/", vdf_object_get_string(path));
+		if (!COM_FileExtension(vdf_object_get_string(path))[0]) // check if it doesnt have an extension
+		{
+			Q_snprintf(buf, sizeof(buf), "%s/", vdf_object_get_string(path)); // probably a folder
+		}
+		else
+		{
+			Q_strncpy(buf, vdf_object_get_string(path), sizeof(buf));
+		}
 		FS_AddGameDirectory(buf, flags);
 		FS_AllowDirectPaths(false);
 	}
