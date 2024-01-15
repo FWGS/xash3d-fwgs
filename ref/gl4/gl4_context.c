@@ -399,7 +399,7 @@ byte *GAME_EXPORT Mod_GetCurrentVis( void )
 
 const char *R_GetConfigName( void )
 {
-	return "ref_soft"; // software specific cvars will go to ref_soft.cfg
+	return "ref_gl4"; // software specific cvars will go to ref_soft.cfg
 }
 
 static void* GAME_EXPORT R_GetProcAddress( const char *name )
