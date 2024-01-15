@@ -562,12 +562,14 @@ void SV_SendResources( sv_client_t *cl, sizebuf_t *msg )
 	MSG_WriteLong( msg, svs.spawncount );
 	MSG_WriteLong( msg, 0 );
 
-	if ( COM_CheckString( sv_downloadurl_ipv6.string ) && Q_strlen( sv_downloadurl_ipv6.string ) < 256 )
+	if ( cl->netchan.remote_address.type6 == NA_IP6 && // If remote is IPv6 - check for sv_downloadurl_ipv6 first #1559
+			 COM_CheckString( sv_downloadurl_ipv6.string ) && Q_strlen( sv_downloadurl_ipv6.string ) < 256 )
 	{
 		MSG_BeginServerCmd( msg, svc_resourcelocation );
 		MSG_WriteString( msg, sv_downloadurl_ipv6.string );
 	}
-	else if( COM_CheckString( sv_downloadurl.string ) && Q_strlen( sv_downloadurl.string ) < 256 )
+
+	else if ( COM_CheckString( sv_downloadurl.string ) && Q_strlen( sv_downloadurl.string ) < 256 )
 	{
 		MSG_BeginServerCmd( msg, svc_resourcelocation );
 		MSG_WriteString( msg, sv_downloadurl.string );
