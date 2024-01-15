@@ -2780,81 +2780,41 @@ HTTP_ParseURL
 */
 static httpserver_t *HTTP_ParseURL( const char *url )
 {
-	httpserver_t *server;
-	int i;
+	httpserver_t *server = Z_Calloc( sizeof( httpserver_t ));
+	int i = 0;
 
-	url = Q_strstr( url, "http://" );
-
-	if( !url )
-		return NULL;
-
-	url += 7;
-	server = Z_Calloc( sizeof( httpserver_t ));
-	i = 0;
-
-	while( *url && ( *url != ':' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
+	// IPv6
+	if( Q_strstr( url, "http://[" ) )
 	{
-		if( i > sizeof( server->host ))
-			return NULL;
+		url += 8;
 
-		server->host[i++] = *url++;
+		while( *url && ( *url != ']' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
+		{
+			if( i > sizeof( server->host ))
+				return NULL;
+
+			server->host[i++] = *url++;
+		}
 	}
 
-	server->host[i] = 0;
-
-	if( *url == ':' )
-	{
-		server->port = Q_atoi( ++url );
-
-		while( *url && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
-			url++;
-	}
+	// IPv4
 	else
-		server->port = 80;
-
-	i = 0;
-
-	while( *url && ( *url != '\r' ) && ( *url != '\n' ))
 	{
-		if( i > sizeof( server->path ))
+		if( Q_strstr( url, "http://" ) )
+		{
+			url += 7;
+
+			while( *url && ( *url != ':' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
+			{
+				if( i > sizeof( server->host ))
+					return NULL;
+
+				server->host[i++] = *url++;
+			}
+		}
+
+		else
 			return NULL;
-
-		server->path[i++] = *url++;
-	}
-
-	server->path[i] = 0;
-	server->next = NULL;
-	server->needfree = false;
-
-	return server;
-}
-
-
-/*
-==================
-HTTP_ParseURL_IPv6
-==================
-*/
-static httpserver_t *HTTP_ParseURL_IPv6( const char *url )
-{
-	httpserver_t *server;
-	int i;
-
-	url = Q_strstr( url, "http://[" );
-
-	if( !url )
-		return NULL;
-
-	url += 8;
-	server = Z_Calloc( sizeof( httpserver_t ));
-	i = 0;
-
-	while( *url && ( *url != ']' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
-	{
-		if( i > sizeof( server->host ))
-			return NULL;
-
-		server->host[i++] = *url++;
 	}
 
 	server->host[i] = 0;
@@ -2893,8 +2853,6 @@ HTTP_AddCustomServer
 */
 void HTTP_AddCustomServer( const char *url )
 {
-	// todo condition
-	// httpserver_t *server = HTTP_ParseURL_IPv6( url );
 	httpserver_t *server = HTTP_ParseURL( url );
 
 	if( !server )
@@ -3055,8 +3013,6 @@ void HTTP_Init( void )
 	{
 		while(( line = COM_ParseFile( line, token, sizeof( token ))))
 		{
-			// todo condition
-			// httpserver_t *server = HTTP_ParseURL_IPv6( token );
 			httpserver_t *server = HTTP_ParseURL( token );
 
 			if( !server )
