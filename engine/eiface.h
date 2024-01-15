@@ -177,6 +177,7 @@ typedef struct enginefuncs_s
 	edict_t*	(*pfnPEntityOfEntIndex)( int iEntIndex );
 	edict_t*	(*pfnFindEntityByVars)( struct entvars_s* pvars );
 	void*	(*pfnGetModelPtr)( edict_t* pEdict );
+	//void	(*pfnChangeTexturesInModel)( int modelindex, const char* path );
 	int	(*pfnRegUserMsg)( const char *pszName, int iSize );
 	void	(*pfnAnimationAutomove)( const edict_t* pEdict, float flTime );
 	void	(*pfnGetBonePosition)( const edict_t* pEdict, int iBone, float *rgflOrigin, float *rgflAngles );

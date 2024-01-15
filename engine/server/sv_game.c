@@ -3464,6 +3464,33 @@ static void *pfnGetModelPtr( edict_t *pEdict )
 
 /*
 =============
+pfnChangeTexturesInModel
+
+changes all textures in a brush model
+=============
+*/
+/*
+static void pfnChangeTexturesInModel(int modelindex, const char* path)
+{
+	model_t* mod;
+	model_t* mod2 = SV_ModelHandle(1);
+	mod = SV_ModelHandle(modelindex);
+	//printf("1: %x, 2: %x\n", mod2, mod);
+	for (int i = mod->firstmodelsurface; i < mod->firstmodelsurface+mod->nummodelsurfaces; i++)
+	{
+		texture_t* tex = (texture_t*)Mem_Calloc(mod2->mempool, sizeof(texture_t));
+		strncpy(tex->name,path,sizeof(tex->name));
+		tex->gl_texturenum = ref.dllFuncs.GL_LoadTexture(path, NULL, 0, 0);
+		tex->width = mod->surfaces[i].texinfo->texture->width;
+		tex->height = mod->surfaces[i].texinfo->texture->height;
+		mod->surfaces[i].texinfo->texture = tex;
+
+	}
+}
+*/
+
+/*
+=============
 SV_SendUserReg
 
 =============
@@ -4741,6 +4768,7 @@ static enginefuncs_t gEngfuncs =
 	pfnPEntityOfEntIndex,
 	pfnFindEntityByVars,
 	pfnGetModelPtr,
+	pfnChangeTexturesInModel,
 	pfnRegUserMsg,
 	pfnAnimationAutomove,
 	pfnGetBonePosition,

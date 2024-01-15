@@ -83,7 +83,7 @@ typedef struct
 
 typedef struct texture_s
 {
-	char		name[16];
+	char		name[256];
 	unsigned int	width, height;
 	int		gl_texturenum;
 	struct msurface_s	*texturechain;	// for gl_texsort drawing

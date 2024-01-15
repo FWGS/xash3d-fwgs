@@ -69,7 +69,7 @@ static vpk_t* VPK_Open(const char* filename)
 		Q_snprintf(buf, sizeof(buf), "%s_%03d.vpk", vpk_prefix,amount);
 		found = FS_FileExists(buf, false);
 
-		Con_Printf("vpk: %s\n", buf);
+		//Con_Printf("vpk: %s\n", buf);
 		++amount;
 	}
 	while (found);
@@ -115,7 +115,7 @@ static vpk_t* VPK_Open(const char* filename)
 				vpk_tempfilepos.file_num = vpk_entry.archive_index+1;
 				vpk_tempfilepos.file_len = vpk_entry.entry_length;
 				map_set(&vpk->file_positions, buf, vpk_tempfilepos);
-				Con_Printf("vpk file: %s @ %i\n", buf, vpk_tempfilepos.file_num);
+				//Con_Printf("vpk file: %s @ %i\n", buf, vpk_tempfilepos.file_num);
 			}
 		}
 	}
