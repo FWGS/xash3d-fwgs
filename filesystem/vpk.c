@@ -66,11 +66,12 @@ static vpk_t* VPK_Open(const char* filename)
 	}
 	do
 	{
-		Q_snprintf(buf, sizeof(buf), "%s_%03i.vpk", vpk_prefix,amount);
+		Q_snprintf(buf, sizeof(buf), "%s_%03d.vpk", vpk_prefix,amount);
 		if (!FS_FileExists(buf, false))
 		{
 			found = false;
 		}
+
 		++amount;
 	}
 	while (found);
@@ -81,9 +82,9 @@ static vpk_t* VPK_Open(const char* filename)
 	Q_snprintf(buf, sizeof(buf), "%s_dir.vpk", vpk_prefix);
 	vpk->handles[0] = FS_Open(buf, "rb", false);
 
-	for (int i = 1; i < amount; ++i)
+	for (int i = 1; i < amount+1; ++i)
 	{
-		Q_snprintf(buf, sizeof(buf), "%s_%03i.vpk", vpk_prefix,i-1);
+		Q_snprintf(buf, sizeof(buf), "%s_%03d.vpk", vpk_prefix,i-1);
 		vpk->handles[i] = FS_Open(buf, "rb", false);
 	}
 	FS_Read(vpk->handles[0], &vpk_header, sizeof(vpk_header));
@@ -113,10 +114,10 @@ static vpk_t* VPK_Open(const char* filename)
 
 				FS_Read(vpk->handles[0], &vpk_entry, 18);
 				vpk_tempfilepos.file_pos = vpk_entry.entry_offset;
-				vpk_tempfilepos.file_num = vpk_entry.archive_index;
+				vpk_tempfilepos.file_num = vpk_entry.archive_index+1;
 				vpk_tempfilepos.file_len = vpk_entry.entry_length;
 				map_set(&vpk->file_positions, buf, vpk_tempfilepos);
-				//Con_Printf("vpk file: %s\n", buf);
+				Con_Printf("vpk file: %s @ %i\n", buf, vpk_tempfilepos.file_num);
 			}
 		}
 	}
@@ -171,6 +172,7 @@ static byte* VPK_LoadFile(searchpath_t* search, const char* path, int pack_ind, 
 	buf = (byte*)Mem_Malloc(vpk->mempool,filepos->file_len);
 	FS_Seek(vpk->handles[filepos->file_num], filepos->file_pos, SEEK_SET);
 	FS_Read(vpk->handles[filepos->file_num], buf, filepos->file_len);
+	*lumpsizeptr = filepos->file_len;
 	return buf;
 }
 
@@ -187,6 +189,7 @@ static int VPK_FindFile(searchpath_t* search, const char* path, char* fixedname,
 	{
 		return -1;
 	}
+	strncpy(fixedname, path, len);
 	return 0;
 }
 
@@ -226,7 +229,7 @@ searchpath_t* FS_AddVPK_Fullpath(const char* vpkfile, int flags)
 	search->pfnFindFile = VPK_FindFile;
 	search->pfnSearch = VPK_Search;
 	search->pfnLoadFile = VPK_LoadFile;
-
+	
 	Con_Reportf("Adding vpk: %s\n", vpkfile);
 	return search;
 }

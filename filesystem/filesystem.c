@@ -384,16 +384,21 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	int i;
 	const char* ext;
 
+
+	
+
 	ext = COM_FileExtension( dir );
 	if (!Q_strcmp(ext, "vpk"))
 	{
-		FS_AddVPK_Fullpath(dir, flags);
+		search = FS_AddVPK_Fullpath(dir, FS_GAMEDIRONLY_SEARCH_FLAGS);
+		search->next = fs_searchpaths;
+		fs_searchpaths = search;
 		return;
 	}
 
-	stringlistinit( &list );
-	listdirectory( &list, dir );
-	stringlistsort( &list );
+	stringlistinit(&list);
+	listdirectory(&list, dir);
+	stringlistsort(&list);
 
 	for( archive = g_archives; archive->ext; archive++ )
 	{
@@ -1932,7 +1937,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	{
 		int pack_ind;
 
-		if( gamedironly & !FBitSet( search->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
+		if( gamedironly && !FBitSet( search->flags, FS_GAMEDIRONLY_SEARCH_FLAGS ))
 			continue;
 
 		pack_ind = search->pfnFindFile( search, name, fixedname, len );
