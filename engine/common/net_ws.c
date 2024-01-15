@@ -32,7 +32,6 @@ static const struct in6_addr in6addr_any;
 
 #define NET_USE_FRAGMENTS
 
-#define PORT_ANY			-1
 #define MAX_LOOPBACK		4
 #define MASK_LOOPBACK		(MAX_LOOPBACK - 1)
 
@@ -132,7 +131,7 @@ static CVAR_DEFINE_AUTO( net6_address, "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "c
 NET_ErrorString
 ====================
 */
-char *NET_ErrorString( void )
+static char *NET_ErrorString( void )
 {
 #if XASH_WIN32
 	int	err = WSANOTINITIALISED;
@@ -226,34 +225,17 @@ _inline qboolean NET_IsSocketValid( int socket )
 
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr )
 {
-#if XASH_LITTLE_ENDIAN
 	memcpy( ip6, adr->ip6, sizeof( adr->ip6 ));
-#elif XASH_BIG_ENDIAN
-	memcpy( ip6, adr->ip6_0, sizeof( adr->ip6_0 ));
-	memcpy( ip6 + sizeof( adr->ip6_0 ), adr->ip6_2, sizeof( adr->ip6_2 ));
-#endif
 }
 
 void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 )
 {
-#if XASH_LITTLE_ENDIAN
 	memcpy( adr->ip6, ip6, sizeof( adr->ip6 ));
-#elif XASH_BIG_ENDIAN
-	memcpy( adr->ip6_0, ip6, sizeof( adr->ip6_0 ));
-	memcpy( adr->ip6_2, ip6 + sizeof( adr->ip6_0 ), sizeof( adr->ip6_2 ));
-#endif
 }
 
-_inline int NET_NetadrIP6Compare( const netadr_t *a, const netadr_t *b )
+static int NET_NetadrIP6Compare( const netadr_t *a, const netadr_t *b )
 {
-#if XASH_LITTLE_ENDIAN
 	return memcmp( a->ip6, b->ip6, sizeof( a->ip6 ));
-#elif XASH_BIG_ENDIAN
-	int ret = memcmp( a->ip6_0, b->ip6_0, sizeof( a->ip6_0 ));
-	if( !ret )
-		return memcmp( a->ip6_2, b->ip6_2, sizeof( a->ip6_2 ));
-	return ret;
-#endif
 }
 
 /*

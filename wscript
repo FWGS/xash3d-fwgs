@@ -78,7 +78,7 @@ SUBDIRS = [
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
-	Subproject('game_launch',           lambda x: not x.env.DEDICATED and not x.env.DISABLE_LAUNCHER),
+	Subproject('game_launch',           lambda x: not x.env.DISABLE_LAUNCHER),
 
 	# disable only by external dependency presense
 	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS and not x.env.DEDICATED),
@@ -164,7 +164,7 @@ def configure(conf):
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx cmake gccdeps msvcdeps')
+	conf.load('xshlib xcompile compiler_c compiler_cxx cmake gccdeps')
 
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
@@ -351,7 +351,7 @@ def configure(conf):
 	conf.env.SUPPORT_BSP2_FORMAT = conf.options.SUPPORT_BSP2_FORMAT
 
 	# disable game_launch compiling on platform where it's not needed
-	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos'] or conf.env.MAGX
+	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos'] or conf.env.MAGX or conf.env.DEDICATED
 
 	if conf.env.SAILFISH == 'aurora':
 		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'

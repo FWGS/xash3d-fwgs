@@ -152,7 +152,7 @@ stream_t *FS_OpenStream( const char *filename )
 	string		path, loadname;
 	qboolean		anyformat = true;
 	const streamfmt_t	*format;
-	stream_t		*stream;
+	stream_t		*stream = NULL;
 
 	Sound_Reset(); // clear old streaminfo
 	Q_strncpy( loadname, filename, sizeof( loadname ));
@@ -188,9 +188,18 @@ stream_t *FS_OpenStream( const char *filename )
 		}
 	}
 
-	Con_Reportf( "FS_OpenStream: couldn't open \"%s\"\n", loadname );
+	// compatibility with original Xash3D, try media/ folder
+	if( Q_strncmp( filename, "media/", sizeof( "media/" ) - 1 ))
+	{
+		Q_snprintf( loadname, sizeof( loadname ), "media/%s", filename );
+		stream = FS_OpenStream( loadname );
+	}
+	else
+	{
+		Con_Reportf( "%s: couldn't open \"%s\" or \"%s\"\n", __func__, filename + 6, filename );
+	}
 
-	return NULL;
+	return stream;
 }
 
 /*

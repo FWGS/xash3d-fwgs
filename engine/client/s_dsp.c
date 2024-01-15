@@ -1,6 +1,7 @@
 /*
 s_dsp.c - digital signal processing algorithms for audio FX
 Copyright (C) 2009 Uncle Mike
+Copyright (C) 2016-2024 Alibek Omarov
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -333,7 +334,7 @@ DLY_MovePointer
 Checks overflow and moves pointer
 ============
 */
-_inline void DLY_MovePointer( dly_t *dly )
+static void DLY_MovePointer( dly_t *dly )
 {
 	if( ++dly->idelayinput >= dly->cdelaysamplesmax )
 		dly->idelayinput = 0;
@@ -806,13 +807,9 @@ DSP_Process
 (xash dsp interface)
 ===========
 */
-void DSP_Process( int idsp, portable_samplepair_t *pbfront, int sampleCount )
+void DSP_Process( portable_samplepair_t *pbfront, int sampleCount )
 {
-	if( dsp_off.value )
-		return;
-
-	// don't process DSP while in menu
-	if( cls.key_dest == key_menu || !sampleCount )
+	if( dsp_off.value || !sampleCount )
 		return;
 
 	// preset is already installed by CheckNewDspPresets
@@ -833,7 +830,7 @@ DSP_ClearState
 */
 void DSP_ClearState( void )
 {
-	Cvar_SetValue( "room_type", 0.0f );
+	Cvar_DirectSet( &room_type, "0" );
 	SX_ReloadRoomFX();
 }
 
@@ -892,15 +889,15 @@ void CheckNewDspPresets( void )
 
 		cur = ptable + idsp_room;
 
-		Cvar_SetValue( "room_lp", cur->room_lp );
-		Cvar_SetValue( "room_mod", cur->room_mod );
-		Cvar_SetValue( "room_size", cur->room_size );
-		Cvar_SetValue( "room_refl", cur->room_refl );
-		Cvar_SetValue( "room_rvblp", cur->room_rvblp );
-		Cvar_SetValue( "room_delay", cur->room_delay );
-		Cvar_SetValue( "room_feedback", cur->room_feedback );
-		Cvar_SetValue( "room_dlylp", cur->room_dlylp );
-		Cvar_SetValue( "room_left", cur->room_left );
+		Cvar_DirectSetValue( &sxmod_lowpass, cur->room_lp );
+		Cvar_DirectSetValue( &sxmod_mod, cur->room_mod );
+		Cvar_DirectSetValue( &sxrvb_size, cur->room_size );
+		Cvar_DirectSetValue( &sxrvb_feedback, cur->room_refl );
+		Cvar_DirectSetValue( &sxrvb_lp, cur->room_rvblp );
+		Cvar_DirectSetValue( &sxdly_delay, cur->room_delay );
+		Cvar_DirectSetValue( &sxdly_feedback, cur->room_feedback );
+		Cvar_DirectSetValue( &sxdly_lp, cur->room_dlylp );
+		Cvar_DirectSetValue( &sxste_delay, cur->room_left );
 	}
 
 	room_typeprev = idsp_room;
@@ -929,7 +926,7 @@ static void SX_Profiling_f( void )
 
 	if( Cmd_Argc() > 1 )
 	{
-		Cvar_SetValue( "room_type", Q_atof( Cmd_Argv( 1 )));
+		Cvar_DirectSetValue( &room_type, Q_atof( Cmd_Argv( 1 )));
 		SX_ReloadRoomFX();
 		CheckNewDspPresets(); // we just need idsp_room immediately, for message below
 	}
@@ -939,7 +936,7 @@ static void SX_Profiling_f( void )
 	start = Sys_DoubleTime();
 	for( calls = 10000; calls; calls-- )
 	{
-		DSP_Process( idsp_room, testbuffer, 512 );
+		DSP_Process( testbuffer, 512 );
 	}
 	end = Sys_DoubleTime();
 
@@ -947,7 +944,7 @@ static void SX_Profiling_f( void )
 
 	if( Cmd_Argc() > 1 )
 	{
-		Cvar_SetValue( "room_type", oldroom );
+		Cvar_DirectSetValue( &room_type, oldroom );
 		SX_ReloadRoomFX();
 		CheckNewDspPresets();
 	}

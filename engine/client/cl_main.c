@@ -2191,7 +2191,6 @@ void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// serverlist got from masterserver
 		while( MSG_GetNumBitsLeft( msg ) > 8 )
 		{
-
 			uint8_t addr[16];
 
 			if( from.type6 == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
