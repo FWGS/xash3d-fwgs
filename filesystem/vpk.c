@@ -77,7 +77,7 @@ static vpk_t* VPK_Open(const char* filename)
 	while (found);
 
 
-	vpk->handles = (file_t**)Mem_Calloc(fs_mempool, sizeof(file_t*)*amount);
+	vpk->handles = (file_t**)Mem_Calloc(fs_mempool, sizeof(file_t*)*(amount+1));
 
 	Q_snprintf(buf, sizeof(buf), "%s_dir.vpk", vpk_prefix);
 	vpk->handles[0] = FS_Open(buf, "rb", false);
@@ -195,7 +195,13 @@ static int VPK_FindFile(searchpath_t* search, const char* path, char* fixedname,
 
 static void VPK_Close(searchpath_t* search)
 {
-
+	Mem_FreePool(&search->vpk->mempool);
+	for (int i = 0; i < search->vpk->vpk_num; ++i)
+	{
+		FS_Close(search->vpk->handles[i]);
+	}
+	Mem_Free(search->vpk->handles);
+	Mem_Free(search->vpk);
 }
 
 /*
