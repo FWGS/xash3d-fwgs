@@ -53,6 +53,7 @@ CVAR_DEFINE( sv_allow_download, "sv_allowdownload", "1", FCVAR_SERVER, "allow do
 static CVAR_DEFINE_AUTO( sv_allow_dlfile, "1", 0, "compatibility cvar, does nothing" );
 CVAR_DEFINE_AUTO( sv_uploadmax, "0.5", FCVAR_SERVER, "max size to upload custom resources (500 kB as default)" );
 CVAR_DEFINE_AUTO( sv_downloadurl, "", FCVAR_PROTECTED, "location from which clients can download missing files" );
+CVAR_DEFINE_AUTO( sv_downloadurl_ipv6, "", FCVAR_PROTECTED, "IPv6 location from which clients can download missing files (higher priority)" );
 CVAR_DEFINE( sv_consistency, "mp_consistency", "1", FCVAR_SERVER, "enbale consistency check in multiplayer" );
 CVAR_DEFINE_AUTO( mp_logecho, "1", 0, "log multiplayer frags to server logfile" );
 CVAR_DEFINE_AUTO( mp_logfile, "1", 0, "log multiplayer frags to console" );
@@ -934,6 +935,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_instancedbaseline );
 	Cvar_RegisterVariable( &sv_consistency );
 	Cvar_RegisterVariable( &sv_downloadurl );
+	Cvar_RegisterVariable( &sv_downloadurl_ipv6 );
 	Cvar_RegisterVariable( &sv_novis );
 	Cvar_RegisterVariable( &sv_hostmap );
 	Cvar_DirectSet( &sv_hostmap, GI->startmap );

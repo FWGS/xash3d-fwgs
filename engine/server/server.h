@@ -414,6 +414,7 @@ extern convar_t		sv_maxupdaterate;
 extern convar_t		sv_minrate;
 extern convar_t		sv_maxrate;
 extern convar_t		sv_downloadurl;
+extern convar_t		sv_downloadurl_ipv6;
 extern convar_t		sv_newunit;
 extern convar_t		sv_clienttrace;
 extern convar_t		sv_failuretime;
