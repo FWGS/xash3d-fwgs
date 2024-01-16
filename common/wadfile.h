@@ -77,11 +77,19 @@ typedef struct lmp_s
 */
 typedef struct mip_s
 {
+	byte		nul;
 	char		name[256];
 	unsigned int	width;
 	unsigned int	height;
 	unsigned int	offsets[4];	// four mip maps stored
 } mip_t;
 
+typedef struct mip_old_s
+{
+	char		name[16];
+	unsigned int	width;
+	unsigned int	height;
+	unsigned int	offsets[4];	// four mip maps stored
+} mip_old_t;
 
 #endif//WADFILE_H

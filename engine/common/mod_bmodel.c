@@ -2206,12 +2206,14 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 {
 	texture_t *texture;
 	mip_t *mipTex;
+	mip_old_t *oldmipTex;
 
 	if( textureIndex < 0 || textureIndex >= mod->numtextures )
 		return;
+	
 
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
-
+	
 	if( !mipTex )
 	{
 		// No data for this texture.
@@ -2219,18 +2221,31 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 		Mod_CreateDefaultTexture( mod, &mod->textures[textureIndex] );
 		return;
 	}
-	Con_Printf("%s, %ix%i @ %x %x %x %x\n", mipTex->name, mipTex->width, mipTex->height,mipTex->offsets[0], mipTex->offsets[1], mipTex->offsets[2], mipTex->offsets[3]);
+	//Con_Printf("%s, %ix%i @ %x %x %x %x\n", mipTex->name, mipTex->width, mipTex->height,mipTex->offsets[0], mipTex->offsets[1], mipTex->offsets[2], mipTex->offsets[3]);
 	if( mipTex->name[0] == '\0' )
 		Q_snprintf( mipTex->name, sizeof( mipTex->name ), "miptex_%i", textureIndex );
 
 	texture = (texture_t *)Mem_Calloc( mod->mempool, sizeof( *texture ));
 	mod->textures[textureIndex] = texture;
 
-	// Ensure texture name is lowercase.
-	Q_strnlwr( mipTex->name, texture->name, sizeof( texture->name ));
+	if (mipTex->nul != 0)
+	{
+		oldmipTex = (mip_old_t*)mipTex;
+		// Ensure texture name is lowercase.
+		Q_strnlwr(oldmipTex->name, texture->name, sizeof(texture->name));
 
-	texture->width = mipTex->width;
-	texture->height = mipTex->height;
+		oldmipTex->width = mipTex->width;
+		oldmipTex->height = mipTex->height;
+	}
+	else
+	{
+		// Ensure texture name is lowercase.
+		Q_strnlwr(mipTex->name, texture->name, sizeof(texture->name));
+
+		texture->width = mipTex->width;
+		texture->height = mipTex->height;
+	}
+	
 
 	Mod_LoadTextureData( mod, bmod, textureIndex );
 }
