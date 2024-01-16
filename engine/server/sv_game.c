@@ -4768,7 +4768,7 @@ static enginefuncs_t gEngfuncs =
 	pfnPEntityOfEntIndex,
 	pfnFindEntityByVars,
 	pfnGetModelPtr,
-	pfnChangeTexturesInModel,
+	//pfnChangeTexturesInModel,
 	pfnRegUserMsg,
 	pfnAnimationAutomove,
 	pfnGetBonePosition,

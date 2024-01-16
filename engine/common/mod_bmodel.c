@@ -219,7 +219,7 @@ static mlumpinfo_t		extlumps[EXTRA_LUMPS] =
 ===============================================================================
 */
 
-static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
+static mip2_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 {
 	if( i < 0 || i >= bmod->textures->nummiptex )
 		return NULL;
@@ -227,7 +227,7 @@ static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 	if( bmod->textures->dataofs[i] == -1 )
 		return NULL;
 
-	return (mip_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
+	return (mip2_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
 }
 
 // Returns index of WAD that texture was found in, or -1 if not found.
@@ -2088,7 +2088,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 {
 #if !XASH_DEDICATED
 	texture_t *texture = NULL;
-	mip_t *mipTex = NULL;
+	mip2_t *mipTex = NULL;
 	qboolean usesCustomPalette = false;
 	uint32_t txFlags = 0;
 
