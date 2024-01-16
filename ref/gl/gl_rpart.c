@@ -190,6 +190,8 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	scale = 1.0 - (frametime * 0.9);
 	if( scale < 0.0f ) scale = 0.0f;
 
+	pglBegin( GL_QUADS );
+
 	for( p = cl_active_tracers; p; p = p->next )
 	{
 		atten = (p->die - gp_cl->time);
@@ -236,7 +238,6 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			color = gTracerColors[p->color];
 			pglColor4ub( color.r, color.g, color.b, p->packedColor );
 
-			pglBegin( GL_QUADS );
 				pglTexCoord2f( 0.0f, 0.8f );
 				pglVertex3fv( verts[2] );
 				pglTexCoord2f( 1.0f, 0.8f );
@@ -245,7 +246,6 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 				pglVertex3fv( verts[1] );
 				pglTexCoord2f( 0.0f, 0.0f );
 				pglVertex3fv( verts[0] );
-			pglEnd();
 		}
 
 		// evaluate position
@@ -265,6 +265,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 			p->vel[2] = gravity * 0.05f;
 		}
 	}
+	pglEnd();
 
 	pglDepthMask( GL_TRUE );
 }
