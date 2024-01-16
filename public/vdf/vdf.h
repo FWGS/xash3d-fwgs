@@ -13,7 +13,8 @@ enum vdf_data_type
     VDF_TYPE_NONE,
     VDF_TYPE_ARRAY,
     VDF_TYPE_STRING,
-    VDF_TYPE_INT
+    VDF_TYPE_INT,
+    VDF_TYPE_FLOAT
 };
 
 struct vdf_object;
@@ -30,6 +31,8 @@ union vdf_data {
     } data_string;
 
     int64_t data_int;
+
+	float data_float;
 };
 
 struct vdf_object

@@ -219,7 +219,7 @@ static mlumpinfo_t		extlumps[EXTRA_LUMPS] =
 ===============================================================================
 */
 
-static mip2_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
+static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 {
 	if( i < 0 || i >= bmod->textures->nummiptex )
 		return NULL;
@@ -227,7 +227,7 @@ static mip2_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 	if( bmod->textures->dataofs[i] == -1 )
 		return NULL;
 
-	return (mip2_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
+	return (mip_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
 }
 
 // Returns index of WAD that texture was found in, or -1 if not found.
@@ -2088,7 +2088,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 {
 #if !XASH_DEDICATED
 	texture_t *texture = NULL;
-	mip2_t *mipTex = NULL;
+	mip_t *mipTex = NULL;
 	qboolean usesCustomPalette = false;
 	uint32_t txFlags = 0;
 
@@ -2142,11 +2142,17 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// WAD failed, so use internal texture (if present)
 	if( mipTex->offsets[0] > 0 && texture->gl_texturenum == 0 )
 	{
-		char texName[64];
+		char texName[256];
 		const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
 
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex->name );
 		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, txFlags );
+	}
+	else
+	{
+		char texName[256];
+		Q_snprintf(texName, sizeof(texName), "materials/%s.vmt", strlwr(mipTex->name));
+		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture(texName, NULL,0,0);
 	}
 
 	// If texture is completely missed:
@@ -2213,7 +2219,7 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 		Mod_CreateDefaultTexture( mod, &mod->textures[textureIndex] );
 		return;
 	}
-
+	Con_Printf("%s, %ix%i @ %x %x %x %x\n", mipTex->name, mipTex->width, mipTex->height,mipTex->offsets[0], mipTex->offsets[1], mipTex->offsets[2], mipTex->offsets[3]);
 	if( mipTex->name[0] == '\0' )
 		Q_snprintf( mipTex->name, sizeof( mipTex->name ), "miptex_%i", textureIndex );
 

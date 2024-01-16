@@ -116,24 +116,62 @@ struct vdf_object* vdf_parse_buffer(const char* buffer, size_t size)
     {
         switch (*tail)
         {
+			case CHAR_NEWLINE:
+			case '\r':
+				if (buf && o->key)
+				{
+					goto EndOfValue;
+				}
+				else
+				{
+					break;
+				}
+			case '.':
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':
+				if (buf)
+					break;
             case CHAR_DOUBLE_QUOTE:
                 if (tail > buffer && *(tail-1) == CHAR_BACKSLASH)
                     break;
 
                 if (!buf)
                 {
-                    buf = tail+1;
+					if ((isdigit(*tail) || *tail == '.'))
+					{
+						buf = tail;
+					}
+					else
+					{
+						buf = tail + 1;
+					}
                 }
                 else if (o->key)
                 {
+					EndOfValue:
                     size_t len = tail - buf;
                     size_t digits = 0;
                     size_t chars = 0;
+					char isfloat = 0;
 
                     for (size_t i = 0; i < len; ++i)
                     {
                         if (isdigit(buf[i]))
                             digits++;
+
+						if (buf[i] == '.')
+						{
+							digits++;
+							isfloat = 1;
+						}
 
                         if (isalpha(buf[i]))
                             chars++;
@@ -141,7 +179,15 @@ struct vdf_object* vdf_parse_buffer(const char* buffer, size_t size)
 
                     if (len && digits == len)
                     {
-                        o->type = VDF_TYPE_INT;
+						if (isfloat)
+						{
+							o->type = VDF_TYPE_FLOAT;
+						}
+						else
+						{
+							o->type = VDF_TYPE_INT;
+
+						}
                     }
                     else
                     {
@@ -153,6 +199,10 @@ struct vdf_object* vdf_parse_buffer(const char* buffer, size_t size)
                         case VDF_TYPE_INT:
                             o->data.data_int = strtol(buf, NULL, 10);
                             break;
+
+						case VDF_TYPE_FLOAT:
+							o->data.data_float = strtof(buf, NULL);
+							break;
 
                         case VDF_TYPE_STRING:
                             o->data.data_string.len = len;
@@ -271,8 +321,6 @@ struct vdf_object* vdf_parse_buffer(const char* buffer, size_t size)
                     return NULL;
                 }
                 break;
-
-            case CHAR_NEWLINE:
             case CHAR_SPACE:
             case CHAR_TAB:
                 break;
@@ -287,26 +335,37 @@ struct vdf_object* vdf_parse_file(const char* path)
     struct vdf_object* o = NULL;
     if (!path)
         return o;
-
+	fs_offset_t file_size;
+	char* buffer;
 	
     file_t* fd = FS_Open(path, "r", true);
-    if (!fd)
-        return o;
-
-    FS_Seek(fd, 0L, SEEK_END);
-    size_t file_size = FS_Tell(fd);
-    FS_Seek(fd, 0L, SEEK_SET);
-
+	if (!fd)
+	{
+		buffer = (char*)FS_LoadFile(path, &file_size, true);
+	}
+	else
+	{
+		FS_Seek(fd, 0L, SEEK_END);
+		file_size = FS_Tell(fd);
+		FS_Seek(fd, 0L, SEEK_SET);
+	}
+        
+   
     if (file_size)
     {
-        char* buffer = malloc(file_size);
-        FS_Read(fd, buffer, file_size);
+		if (fd)
+		{
+			buffer = malloc(file_size);
+			FS_Read(fd, buffer, file_size);
+		}
 
         o = vdf_parse_buffer(buffer, file_size);
         free(buffer);
     }
-
-    FS_Close(fd);
+	if (fd)
+	{
+		FS_Close(fd);
+	}
 
     return o;
 }
