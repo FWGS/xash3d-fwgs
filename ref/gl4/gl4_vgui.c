@@ -137,23 +137,36 @@ void GAME_EXPORT VGUI_UploadTextureBlock( int id, int drawX, int drawY, const by
 		return;
 	}
 
-	//pglTexSubImage2D( GL_TEXTURE_2D, 0, drawX, drawY, blockWidth, blockHeight, GL_RGBA, GL_UNSIGNED_BYTE, rgba );
+	pglTexSubImage2D( GL_TEXTURE_2D, 0, drawX, drawY, blockWidth, blockHeight, GL_RGBA, GL_UNSIGNED_BYTE, rgba );
 	g_iBoundTexture = id;
 }
 
 void GAME_EXPORT VGUI_SetupDrawingRect( int *pColor )
 {
-
+	pglEnable( GL_BLEND );
+	pglDisable( GL_ALPHA_TEST );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	pglColor4ub( pColor[0], pColor[1], pColor[2], 255 - pColor[3] );
 }
 
 void GAME_EXPORT VGUI_SetupDrawingText( int *pColor )
 {
-
+	pglEnable( GL_BLEND );
+	pglEnable( GL_ALPHA_TEST );
+	pglAlphaFunc( GL_GREATER, 0.0f );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	pglColor4ub( pColor[0], pColor[1], pColor[2], 255 - pColor[3] );
 }
 
 void GAME_EXPORT VGUI_SetupDrawingImage( int *pColor )
 {
-
+	pglEnable( GL_BLEND );
+	pglEnable( GL_ALPHA_TEST );
+	pglAlphaFunc( GL_GREATER, 0.0f );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	pglColor4ub( pColor[0], pColor[1], pColor[2], 255 - pColor[3] );
 }
 
 void GAME_EXPORT VGUI_BindTexture( int id )
@@ -180,7 +193,7 @@ returns wide and tall for currently binded texture
 */
 void GAME_EXPORT VGUI_GetTextureSizes( int *width, int *height )
 {
-	image_t	*glt;
+	gl_texture_t	*glt;
 	int		texnum;
 
 	if( g_iBoundTexture )
@@ -201,7 +214,8 @@ disable texturemode for fill rectangle
 */
 void GAME_EXPORT VGUI_EnableTexture( qboolean enable )
 {
-
+	if( enable ) pglEnable( GL_TEXTURE_2D );
+	else pglDisable( GL_TEXTURE_2D );
 }
 
 /*
@@ -222,4 +236,18 @@ void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 	yscale = gpGlobals->height / (float)height;
 
 	ASSERT( ul != NULL && lr != NULL );
+
+	pglBegin( GL_QUADS );
+		pglTexCoord2f( ul->coord[0], ul->coord[1] );
+		pglVertex2f( ul->point[0] * xscale, ul->point[1] * yscale );
+
+		pglTexCoord2f( lr->coord[0], ul->coord[1] );
+		pglVertex2f( lr->point[0] * xscale, ul->point[1] * yscale );
+
+		pglTexCoord2f( lr->coord[0], lr->coord[1] );
+		pglVertex2f( lr->point[0] * xscale, lr->point[1] * yscale );
+
+		pglTexCoord2f( ul->coord[0], lr->coord[1] );
+		pglVertex2f( ul->point[0] * xscale, lr->point[1] * yscale );
+	pglEnd();
 }

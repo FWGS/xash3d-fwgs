@@ -45,7 +45,7 @@ CL_DrawParticles
 update particle color, position, free expired and draw it
 ================
 */
-void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize )
+void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize )
 {
 	particle_t	*p;
 	vec3_t		right, up;
@@ -56,14 +56,15 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	if( !cl_active_particles )
 		return;	// nothing to draw?
 
-	//pglEnable( GL_BLEND );
-	//pglDisable( GL_ALPHA_TEST );
-	//pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-	GL_SetRenderMode( kRenderTransAdd );
+	pglEnable( GL_BLEND );
+	pglDisable( GL_ALPHA_TEST );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	GL_Bind( XASH_TEXTURE0, tr.particleTexture );
-	//pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	//pglDepthMask( GL_FALSE );
+	pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	pglDepthMask( GL_FALSE );
+
+	pglBegin( GL_QUADS );
 
 	for( p = cl_active_particles; p; p = p->next )
 	{
@@ -90,30 +91,24 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			//TriColor4ub( gEngfuncs.LightToTexGamma( color.r ),
-			//	gEngfuncs.LightToTexGamma( color.g ),
-		//		gEngfuncs.LightToTexGamma( color.b ), alpha );
-			//TriBrightness( alpha / 255.0f );
-			_TriColor4f(1.0f*alpha/255/255*color.r,1.0f*alpha/255/255*color.g,1.0f*alpha/255/255* color.b,1.0f );
+			pglColor4ub( color.r, color.g, color.b, alpha );
 
-			TriBegin( TRI_QUADS );
-			TriTexCoord2f( 0.0f, 1.0f );
-			TriVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
-			TriTexCoord2f( 0.0f, 0.0f );
-			TriVertex3f( p->org[0] + right[0] + up[0], p->org[1] + right[1] + up[1], p->org[2] + right[2] + up[2] );
-			TriTexCoord2f( 1.0f, 0.0f );
-			TriVertex3f( p->org[0] + right[0] - up[0], p->org[1] + right[1] - up[1], p->org[2] + right[2] - up[2] );
-			TriTexCoord2f( 1.0f, 1.0f );
-			TriVertex3f( p->org[0] - right[0] - up[0], p->org[1] - right[1] - up[1], p->org[2] - right[2] - up[2] );
-			TriEnd();
+			pglTexCoord2f( 0.0f, 1.0f );
+			pglVertex3f( p->org[0] - right[0] + up[0], p->org[1] - right[1] + up[1], p->org[2] - right[2] + up[2] );
+			pglTexCoord2f( 0.0f, 0.0f );
+			pglVertex3f( p->org[0] + right[0] + up[0], p->org[1] + right[1] + up[1], p->org[2] + right[2] + up[2] );
+			pglTexCoord2f( 1.0f, 0.0f );
+			pglVertex3f( p->org[0] + right[0] - up[0], p->org[1] + right[1] - up[1], p->org[2] + right[2] - up[2] );
+			pglTexCoord2f( 1.0f, 1.0f );
+			pglVertex3f( p->org[0] - right[0] - up[0], p->org[1] - right[1] - up[1], p->org[2] - right[2] - up[2] );
 			r_stats.c_particle_count++;
 		}
 
 		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
 
-	TriEnd();
-	//pglDepthMask( GL_TRUE );
+	pglEnd();
+	pglDepthMask( GL_TRUE );
 }
 
 /*
@@ -127,8 +122,7 @@ static qboolean CL_CullTracer( particle_t *p, const vec3_t start, const vec3_t e
 {
 	vec3_t	mins, maxs;
 	int	i;
-	return false;
-/*
+
 	// compute the bounding box
 	for( i = 0; i < 3; i++ )
 	{
@@ -151,7 +145,7 @@ static qboolean CL_CullTracer( particle_t *p, const vec3_t start, const vec3_t e
 	}
 
 	// check bbox
-	return R_CullBox( mins, maxs );*/
+	return R_CullBox( mins, maxs );
 }
 
 /*
@@ -161,7 +155,7 @@ CL_DrawTracers
 update tracer color, position, free expired and draw it
 ================
 */
-void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
+void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 {
 	float		scale, atten, gravity;
 	vec3_t		screenLast, screen;
@@ -184,15 +178,13 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 	if( !cl_active_tracers )
 		return;	// nothing to draw?
 
-	GL_SetRenderMode( kRenderTransAdd );
-
 	if( !TriSpriteTexture( gEngfuncs.GetDefaultSprite( REF_DOT_SPRITE ), 0 ))
 		return;
 
-	//pglEnable( GL_BLEND );
-	//pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-	//pglDisable( GL_ALPHA_TEST );
-	//pglDepthMask( GL_FALSE );
+	pglEnable( GL_BLEND );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
+	pglDisable( GL_ALPHA_TEST );
+	pglDepthMask( GL_FALSE );
 
 	gravity = frametime * tr.movevars->gravity;
 	scale = 1.0 - (frametime * 0.9);
@@ -212,7 +204,6 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			vec3_t	verts[4], tmp2;
 			vec3_t	tmp, normal;
 			color24	color;
-			short alpha = p->packedColor;
 
 			// Transform point into screen space
 			TriWorldToScreen( start, screen );
@@ -243,20 +234,18 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			}
 
 			color = gTracerColors[p->color];
-			//TriColor4ub( color.r, color.g, color.b, p->packedColor );
-			_TriColor4f(1.0f*alpha/255/255*color.r,1.0f*alpha/255/255*color.g,1.0f*alpha/255/255* color.b,1.0f );
+			pglColor4ub( color.r, color.g, color.b, p->packedColor );
 
-
-			TriBegin( TRI_QUADS );
-				TriTexCoord2f( 0.0f, 0.8f );
-				TriVertex3fv( verts[2] );
-				TriTexCoord2f( 1.0f, 0.8f );
-				TriVertex3fv( verts[3] );
-				TriTexCoord2f( 1.0f, 0.0f );
-				TriVertex3fv( verts[1] );
-				TriTexCoord2f( 0.0f, 0.0f );
-				TriVertex3fv( verts[0] );
-			TriEnd();
+			pglBegin( GL_QUADS );
+				pglTexCoord2f( 0.0f, 0.8f );
+				pglVertex3fv( verts[2] );
+				pglTexCoord2f( 1.0f, 0.8f );
+				pglVertex3fv( verts[3] );
+				pglTexCoord2f( 1.0f, 0.0f );
+				pglVertex3fv( verts[1] );
+				pglTexCoord2f( 0.0f, 0.0f );
+				pglVertex3fv( verts[0] );
+			pglEnd();
 		}
 
 		// evaluate position
@@ -273,11 +262,11 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 		}
 		else if( p->type == pt_slowgrav )
 		{
-			p->vel[2] = gravity * 0.05;
+			p->vel[2] = gravity * 0.05f;
 		}
 	}
 
-	//pglDepthMask( GL_TRUE );
+	pglDepthMask( GL_TRUE );
 }
 
 /*
@@ -287,17 +276,14 @@ CL_DrawParticlesExternal
 allow to draw effects from custom renderer
 ===============
 */
-void GAME_EXPORT CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime )
+void CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean trans_pass, float frametime )
 {
 	ref_instance_t	oldRI = RI;
 
 	memcpy( &oldRI, &RI, sizeof( ref_instance_t ));
 	R_SetupRefParams( rvp );
 	R_SetupFrustum();
-//	R_SetupGL( false );	// don't touch GL-states
-
-	// setup PVS for frame
-	memcpy( RI.visbytes, tr.visbytes, gpGlobals->visbytes );
+	R_SetupGL( false );	// don't touch GL-states
 	tr.frametime = frametime;
 
 	gEngfuncs.CL_DrawEFX( frametime, trans_pass );

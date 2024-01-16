@@ -74,7 +74,7 @@ static void R_DecalUnlink( decal_t *pdecal )
 		else
 		{
 			tmp = pdecal->psurface->pdecals;
-			if( !tmp ) gEngfuncs.Host_Error( "D_DecalUnlink: bad decal list\n" );
+			if( !tmp ) gEngfuncs.Host_Error( "R_DecalUnlink: bad decal list\n" );
 
 			while( tmp->pnext )
 			{
@@ -204,8 +204,6 @@ void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t tex
 	float	*v;
 	int	i;
 
-	if( !surf->polys )
-		return;
 	for( i = 0, v = surf->polys->verts[0]; i < surf->polys->numverts; i++, v += VERTEXSIZE, verts += VERTEXSIZE )
 	{
 		VectorCopy( v, verts ); // copy model space coordinates
@@ -387,38 +385,21 @@ float *R_DecalVertsClip( decal_t *pDecal, msurface_t *surf, int texture, int *pV
 	// build the initial list of vertices from the surface verts.
 	R_SetupDecalVertsForMSurface( pDecal, surf, textureSpaceBasis, g_DecalClipVerts[0] );
 
-	if( !surf->polys )
-		return 0;
 	return R_DoDecalSHClip( g_DecalClipVerts[0], pDecal, surf->polys->numverts, pVertCount );
 }
 
 // Generate lighting coordinates at each vertex for decal vertices v[] on surface psurf
 static void R_DecalVertsLight( float *v, msurface_t *surf, int vertCount )
 {
-	float		s, t;
-	mtexinfo_t	*tex;
-	mextrasurf_t	*info = surf->info;
 	float		sample_size;
 	int		j;
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	tex = surf->texinfo;
 
 	for( j = 0; j < vertCount; j++, v += VERTEXSIZE )
 	{
 		// lightmap texture coordinates
-		s = DotProduct( v, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
-		s += surf->light_s * sample_size;
-		s += sample_size * 0.5f;
-		s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
-
-		t = DotProduct( v, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
-		t += surf->light_t * sample_size;
-		t += sample_size * 0.5f;
-		t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
-
-		v[5] = s;
-		v[6] = t;
+		R_LightmapCoord( v, surf, sample_size, &v[5] );
 	}
 }
 
@@ -518,7 +499,6 @@ glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t
 	float		*v;
 	int		i;
 
-	return NULL;
 	if( pdecal->polys )	// already created?
 		return pdecal->polys;
 
@@ -564,9 +544,6 @@ static void R_AddDecalToSurface( decal_t *pdecal, msurface_t *surf, decalinfo_t 
 		surf->pdecals = pdecal;
 	}
 
-	// force surface cache rebuild
-	surf->dlightframe = tr.framecount + 1;
-
 	// tag surface
 	pdecal->psurface = surf;
 
@@ -576,7 +553,7 @@ static void R_AddDecalToSurface( decal_t *pdecal, msurface_t *surf, decalinfo_t 
 
 	// alloc clipped poly for decal
 	R_DecalCreatePoly( decalinfo, pdecal, surf );
-	//R_AddDecalVBO( pdecal, surf );
+	R_AddDecalVBO( pdecal, surf );
 }
 
 static void R_DecalCreate( decalinfo_t *decalinfo, msurface_t *surf, float x, float y )
@@ -632,7 +609,7 @@ void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	{
 		// NOTE: we may have the decal on this surface that come from another level.
 		// check duplicate with same position and texture
-		while( decal != NULL && decal != decal->pnext )
+		while( decal != NULL )
 		{
 			if( VectorCompare( decal->position, decalinfo->m_Position ) && decal->texture == decalinfo->m_iTexture )
 				return; // decal already exists, don't place it again
@@ -702,9 +679,8 @@ static void R_DecalNodeSurfaces( model_t *model, mnode_t *node, decalinfo_t *dec
 		if( surf->flags & (SURF_DRAWTURB|SURF_DRAWSKY|SURF_CONVEYOR))
 			continue;
 
-		// we can implement alpha testing without stencil
-		//if( surf->flags & SURF_TRANSPARENT && !glState.stencilEnabled )
-			//continue;
+		if( surf->flags & SURF_TRANSPARENT && !glState.stencilEnabled )
+			continue;
 
 		R_DecalSurface( surf, decalinfo );
 	}
@@ -758,7 +734,7 @@ static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 }
 
 // Shoots a decal onto the surface of the BSP.  position is the center of the decal in world coords
-void GAME_EXPORT R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale )
+void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos, int flags, float scale )
 {
 	decalinfo_t	decalInfo;
 	cl_entity_t	*ent = NULL;
@@ -782,7 +758,7 @@ void GAME_EXPORT R_DecalShoot( int textureIndex, int entityIndex, int modelIndex
 	}
 	else if( modelIndex > 0 )
 		model = CL_ModelHandle( modelIndex );
-	else model = WORLDMODEL;
+	else model = CL_ModelHandle( 1 );
 
 	if( !model ) return;
 
@@ -851,7 +827,7 @@ void GAME_EXPORT R_DecalShoot( int textureIndex, int entityIndex, int modelIndex
 // Build the vertex list for a decal on a surface and clip it to the surface.
 // This is a template so it can work on world surfaces and dynamic displacement
 // triangles the same way.
-float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *outCount )
+float *R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *outCount )
 {
 	glpoly_t	*p = pDecal->polys;
 	int	i, count;
@@ -888,7 +864,6 @@ float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int te
 	return v;
 }
 
-#if 0
 void DrawSingleDecal( decal_t *pDecal, msurface_t *fa )
 {
 	float	*v;
@@ -937,10 +912,10 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 		if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 			GL_Cull( GL_NONE );
 
-		if( gl_polyoffset->value )
+		if( gl_polyoffset.value )
 		{
 			pglEnable( GL_POLYGON_OFFSET_FILL );
-			pglPolygonOffset( -1.0f, -gl_polyoffset->value );
+			pglPolygonOffset( -1.0f, -gl_polyoffset.value );
 		}
 	}
 
@@ -1030,7 +1005,7 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 				pglEnable( GL_ALPHA_TEST );
 		}
 
-		if( gl_polyoffset->value )
+		if( gl_polyoffset.value )
 			pglDisable( GL_POLYGON_OFFSET_FILL );
 
 		if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
@@ -1068,10 +1043,10 @@ void DrawDecalsBatch( void )
 	if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 		GL_Cull( GL_NONE );
 
-	if( gl_polyoffset->value )
+	if( gl_polyoffset.value )
 	{
 		pglEnable( GL_POLYGON_OFFSET_FILL );
-		pglPolygonOffset( -1.0f, -gl_polyoffset->value );
+		pglPolygonOffset( -1.0f, -gl_polyoffset.value );
 	}
 
 	for( i = 0; i < tr.num_draw_decals; i++ )
@@ -1086,7 +1061,7 @@ void DrawDecalsBatch( void )
 		pglDisable( GL_ALPHA_TEST );
 	}
 
-	if( gl_polyoffset->value )
+	if( gl_polyoffset.value )
 		pglDisable( GL_POLYGON_OFFSET_FILL );
 
 	if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
@@ -1094,7 +1069,7 @@ void DrawDecalsBatch( void )
 
 	tr.num_draw_decals = 0;
 }
-#endif
+
 /*
 =============================================================
 
@@ -1167,12 +1142,10 @@ static int DecalDepthCompare( const void *a, const void *b )
 // Input  : *pList -
 // Output : int
 //-----------------------------------------------------------------------------
-int GAME_EXPORT R_CreateDecalList( decallist_t *pList )
+int R_CreateDecalList( decallist_t *pList )
 {
 	int	total = 0;
 	int	i, depth;
-
-//	return 0; // crash on changelevel. API bug?
 
 	if( WORLDMODEL )
 	{
@@ -1225,7 +1198,7 @@ R_DecalRemoveAll
 remove all decals with specified texture
 ===============
 */
-void GAME_EXPORT R_DecalRemoveAll( int textureIndex )
+void R_DecalRemoveAll( int textureIndex )
 {
 	decal_t	*pdecal;
 	int	i;
@@ -1253,7 +1226,7 @@ R_EntityRemoveDecals
 remove all decals from specified entity
 ===============
 */
-void GAME_EXPORT R_EntityRemoveDecals( model_t *mod )
+void R_EntityRemoveDecals( model_t *mod )
 {
 	msurface_t	*psurf;
 	decal_t		*p;
@@ -1278,7 +1251,7 @@ remove all decals from anything
 used for full decals restart
 ===============
 */
-void GAME_EXPORT R_ClearAllDecals( void )
+void R_ClearAllDecals( void )
 {
 	decal_t	*pdecal;
 	int	i;

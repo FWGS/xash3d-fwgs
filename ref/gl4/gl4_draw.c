@@ -22,7 +22,7 @@ R_GetImageParms
 */
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
-	image_t	*glt;
+	gl_texture_t	*glt;
 
 	glt = R_GetTexture( texnum );
 	if( w ) *w = glt->srcWidth;
@@ -37,7 +37,7 @@ same as GetImageParms but used
 for sprite models
 =============
 */
-void GAME_EXPORT R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
+void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
 {
 	mspriteframe_t	*pFrame;
 
@@ -49,7 +49,7 @@ void GAME_EXPORT R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFr
 	if( numFrames ) *numFrames = pSprite->numframes;
 }
 
-int GAME_EXPORT R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
+int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 {
 	if( !m_pSpriteModel || m_pSpriteModel->type != mod_sprite || !m_pSpriteModel->cache.data )
 		return 0;
@@ -57,238 +57,28 @@ int GAME_EXPORT R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 	return R_GetSpriteFrame( m_pSpriteModel, frame, 0.0f )->gl_texturenum;
 }
 
-
-/*
-=============
-Draw_StretchPicImplementation
-=============
-*/
-void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic )
-{
-	pixel_t *source, *dest;
-	unsigned int				v, u, sv;
-	unsigned int				height;
-	unsigned int				f, fstep;
-	int				skip;
-	qboolean transparent = false;
-	pixel_t *buffer;
-
-	if( x < 0 )
-	{
-		s1 += (-x)*(s2-s1) / w;
-		x = 0;
-	}
-	if( x + w > vid.width )
-	{
-		s2 -= (x + w - vid.width) * (s2 - s1)/ w ;
-		w = vid.width - x;
-	}
-	if( y + h > vid.height )
-	{
-		t2 -= (y + h - vid.height) * (t2 - t1) / h;
-		h = vid.height - y;
-	}
-
-	if( !pic->pixels[0] || s1 >= s2 || t1 >= t2 )
-		return;
-
-	//gEngfuncs.Con_Printf ("pixels is %p\n", pic->pixels[0] );
-
-	height = h;
-	if (y < 0)
-	{
-		skip = -y;
-		height += y;
-		y = 0;
-	}
-	else
-		skip = 0;
-
-	dest = vid.buffer + y * vid.rowbytes + x;
-
-	if( pic->alpha_pixels )
-	{
-		buffer = pic->alpha_pixels;
-		transparent = true;
-	}
-	else
-		buffer = pic->pixels[0];
-
-
-	#pragma omp parallel for schedule(static)
-	for (v=0 ; v<height ; v++)
-	{
-		int alpha1 = vid.alpha;
-#ifdef	_OPENMP
-		pixel_t			*dest = vid.buffer + (y + v) * vid.rowbytes + x;
-#endif
-		sv = (skip + v)*(t2-t1)/h + t1;
-		source = buffer + sv*pic->width + s1;
-
-		{
-			f = 0;
-			fstep = ((s2-s1) << 16)/w;
-
-#if 0
-			for (u=0 ; u<w ; u+=4)
-			{
-				dest[u] = source[f>>16];
-				f += fstep;
-				dest[u+1] = source[f>>16];
-				f += fstep;
-				dest[u+2] = source[f>>16];
-				f += fstep;
-				dest[u+3] = source[f>>16];
-				f += fstep;
-			}
-#else
-			for (u=0 ; u<w ; u++)
-			{
-				pixel_t src = source[f>>16];
-				int alpha = alpha1;
-				f += fstep;
-
-				if( transparent )
-				{
-					alpha &= src >> ( 16 - 3 );
-					src = src << 3;
-				}
-
-				if( alpha == 0 )
-					continue;
-
-				if( vid.color != COLOR_WHITE )
-					src = vid.modmap[(src & 0xff00)|(vid.color>>8)] << 8 | (src & vid.color & 0xff) | ((src & 0xff) >> 3);
-
-				if( vid.rendermode == kRenderTransAdd)
-				{
-					pixel_t screen = dest[u];
-					dest[u] = vid.addmap[(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
-				}
-				else if( vid.rendermode == kRenderScreenFadeModulate )
-				{
-					pixel_t screen = dest[u];
-					dest[u] = BLEND_COLOR( screen, vid.color );
-				}
-				else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
-				{
-					pixel_t screen = dest[u]; //  | 0xff & screen & src ;
-					dest[u] = BLEND_ALPHA( alpha, src, screen );//vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
-				}
-				else
-					dest[u] = src;
-
-			}
-#endif
-		}
-		dest += vid.rowbytes;
-	}
-}
-
-
 /*
 =============
 R_DrawStretchPic
 =============
 */
-void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
+void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
-	image_t *pic = R_GetTexture(texnum);
-	int width = pic->width, height = pic->height;
-//	GL_Bind( XASH_TEXTURE0, texnum );
-	if( s2 > 1.0f || t2 > 1.0f )
-		return;
-	if( s1 < 0.0f || t1 < 0.0f )
-		return;
-	if( w < 1.0f || h < 1.0f )
-		return;
-	R_DrawStretchPicImplementation(x,y,w,h, width * s1, height * t1, width * s2, height * t2, pic);
-}
+	GL_Bind( XASH_TEXTURE0, texnum );
 
-void Draw_Fill (int x, int y, int w, int h)
-{
-	pixel_t *dest;
-	unsigned int				v, u;
-	unsigned int				height;
-	int				skip;
-	pixel_t src = vid.color;
-	int alpha = vid.alpha;
+	pglBegin( GL_QUADS );
+		pglTexCoord2f( s1, t1 );
+		pglVertex2f( x, y );
 
-	if( x < 0 )
-		x = 0;
+		pglTexCoord2f( s2, t1 );
+		pglVertex2f( x + w, y );
 
-	if( x + w > vid.width )
-		w = vid.width - x;
+		pglTexCoord2f( s2, t2 );
+		pglVertex2f( x + w, y + h );
 
-	if( w <= 0 )
-		return;
-
-	if( y + h > vid.height )
-		h = vid.height - y;
-
-	if( h <= 0 )
-		return;
-
-	height = h;
-	if( y < 0 )
-	{
-		if( h <= -y )
-			return;
-		skip = -y;
-		height += y;
-		y = 0;
-	}
-	else
-		skip = 0;
-
-	dest = vid.buffer + y * vid.rowbytes + x;
-
-	#pragma omp parallel for schedule(static)
-	for (v=0 ; v<height ; v++)
-	{
-#ifdef	_OPENMP
-		pixel_t			*dest = vid.buffer + (y + v) * vid.rowbytes + x;
-#endif
-
-		{
-
-#if 0
-			for (u=0 ; u<w ; u+=4)
-			{
-				dest[u] = source[f>>16];
-				f += fstep;
-				dest[u+1] = source[f>>16];
-				f += fstep;
-				dest[u+2] = source[f>>16];
-				f += fstep;
-				dest[u+3] = source[f>>16];
-				f += fstep;
-			}
-#else
-			for (u=0 ; u<w ; u++)
-			{
-				if( alpha == 0 )
-					continue;
-
-				if( vid.rendermode == kRenderTransAdd)
-				{
-					pixel_t screen = dest[u];
-					dest[u] = vid.addmap[(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
-				}
-				else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
-				{
-					pixel_t screen = dest[u]; //  | 0xff & screen & src ;
-					dest[u] = BLEND_ALPHA( alpha, src, screen);//vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
-
-				}
-				else
-					dest[u] = src;
-
-			}
-#endif
-		}
-		dest += vid.rowbytes;
-	}
+		pglTexCoord2f( s1, t2 );
+		pglVertex2f( x, y + h );
+	pglEnd();
 }
 
 /*
@@ -299,45 +89,29 @@ This repeats a 64*64 tile graphic to fill the screen around a sized down
 refresh window.
 =============
 */
-void GAME_EXPORT R_DrawTileClear( int texnum, int x, int y, int w, int h )
+void R_DrawTileClear( int texnum, int x, int y, int w, int h )
 {
-	int		tw, th, x2, i, j;
-	image_t	*pic;
-	pixel_t *psrc, *pdest;
+	float		tw, th;
+	gl_texture_t	*glt;
 
 	GL_SetRenderMode( kRenderNormal );
-	_TriColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 	GL_Bind( XASH_TEXTURE0, texnum );
 
-	pic = R_GetTexture( texnum );
+	glt = R_GetTexture( texnum );
+	tw = glt->srcWidth;
+	th = glt->srcHeight;
 
-	tw = pic->width;
-	th = pic->height;
-	if (x < 0)
-	{
-		w += x;
-		x = 0;
-	}
-	if (y < 0)
-	{
-		h += y;
-		y = 0;
-	}
-	if (x + w > vid.width)
-		w = vid.width - x;
-	if (y + h > vid.height)
-		h = vid.height - y;
-	if (w <= 0 || h <= 0)
-		return;
-
-	x2 = x + w;
-	pdest = vid.buffer + y*vid.rowbytes;
-	for (i=0 ; i<h ; i++, pdest += vid.rowbytes)
-	{
-		psrc = pic->pixels[0] + tw * ((i+y)&63);
-		for (j=x ; j<x2 ; j++)
-			pdest[j] = psrc[j&63];
-	}
+	pglBegin( GL_QUADS );
+		pglTexCoord2f( x / tw, y / th );
+		pglVertex2f( x, y );
+		pglTexCoord2f((x + w) / tw, y / th );
+		pglVertex2f( x + w, y );
+		pglTexCoord2f((x + w) / tw, (y + h) / th );
+		pglVertex2f( x + w, y + h );
+		pglTexCoord2f( x / tw, (y + h) / th );
+		pglVertex2f( x, y + h );
+	pglEnd ();
 }
 
 /*
@@ -345,19 +119,71 @@ void GAME_EXPORT R_DrawTileClear( int texnum, int x, int y, int w, int h )
 R_DrawStretchRaw
 =============
 */
-void GAME_EXPORT R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
+void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
 {
 	byte		*raw = NULL;
-	image_t	*tex;
+	gl_texture_t	*tex;
 
-	raw = (byte *)data;
+	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
+	{
+		int	width = 1, height = 1;
 
-	//pglDisable( GL_BLEND );
-	//pglDisable( GL_ALPHA_TEST );
-	//pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
+		// check the dimensions
+		width = NearestPOW( cols, true );
+		height = NearestPOW( rows, false );
+
+		if( cols != width || rows != height )
+		{
+			raw = GL_ResampleTexture( data, cols, rows, width, height, false );
+			cols = width;
+			rows = height;
+		}
+	}
+	else
+	{
+		raw = (byte *)data;
+	}
+
+	if( cols > glConfig.max_2d_texture_size )
+		gEngfuncs.Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", cols );
+	if( rows > glConfig.max_2d_texture_size )
+		gEngfuncs.Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", rows );
+
+	pglDisable( GL_BLEND );
+	pglDisable( GL_ALPHA_TEST );
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 
 	tex = R_GetTexture( tr.cinTexture );
 	GL_Bind( XASH_TEXTURE0, tr.cinTexture );
+
+	if( cols == tex->width && rows == tex->height )
+	{
+		if( dirty )
+		{
+			pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cols, rows, GL_BGRA, GL_UNSIGNED_BYTE, raw );
+		}
+	}
+	else
+	{
+		tex->size = cols * rows * 4;
+		tex->width = cols;
+		tex->height = rows;
+		if( dirty )
+		{
+			pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, cols, rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, raw );
+		}
+	}
+
+	pglBegin( GL_QUADS );
+	pglTexCoord2f( 0, 0 );
+	pglVertex2f( x, y );
+	pglTexCoord2f( 1, 0 );
+	pglVertex2f( x + w, y );
+	pglTexCoord2f( 1, 1 );
+	pglVertex2f( x + w, y + h );
+	pglTexCoord2f( 0, 1 );
+	pglVertex2f( x, y + h );
+	pglEnd();
 }
 
 /*
@@ -365,16 +191,46 @@ void GAME_EXPORT R_DrawStretchRaw( float x, float y, float w, float h, int cols,
 R_UploadStretchRaw
 =============
 */
-void GAME_EXPORT R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
+void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
 {
 	byte		*raw = NULL;
-	image_t	*tex;
-	raw = (byte *)data;
+	gl_texture_t	*tex;
+
+	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
+	{
+		// check the dimensions
+		width = NearestPOW( width, true );
+		height = NearestPOW( height, false );
+	}
+	else
+	{
+		width = bound( 128, width, glConfig.max_2d_texture_size );
+		height = bound( 128, height, glConfig.max_2d_texture_size );
+	}
+
+	if( cols != width || rows != height )
+	{
+		raw = GL_ResampleTexture( data, cols, rows, width, height, false );
+		cols = width;
+		rows = height;
+	}
+	else
+	{
+		raw = (byte *)data;
+	}
+
+	if( cols > glConfig.max_2d_texture_size )
+		gEngfuncs.Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", cols );
+	if( rows > glConfig.max_2d_texture_size )
+		gEngfuncs.Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", rows );
 
 	tex = R_GetTexture( texture );
 	GL_Bind( GL_KEEP_UNIT, texture );
 	tex->width = cols;
 	tex->height = rows;
+
+	pglTexImage2D( GL_TEXTURE_2D, 0, tex->format, cols, rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, raw );
+	GL_ApplyTextureParams( tex );
 }
 
 /*
@@ -382,17 +238,13 @@ void GAME_EXPORT R_UploadStretchRaw( int texture, int cols, int rows, int width,
 R_Set2DMode
 ===============
 */
-void GAME_EXPORT R_Set2DMode( qboolean enable )
+void R_Set2DMode( qboolean enable )
 {
-	vid.color = COLOR_WHITE;
-	vid.is2d = enable;
-	vid.alpha = 7;
-
 	if( enable )
 	{
-//		if( glState.in2DMode )
-	//		return;
-#if 0
+		if( glState.in2DMode )
+			return;
+
 		// set 2D virtual screen size
 		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
 		pglMatrixMode( GL_PROJECTION );
@@ -407,15 +259,13 @@ void GAME_EXPORT R_Set2DMode( qboolean enable )
 		pglDisable( GL_DEPTH_TEST );
 		pglEnable( GL_ALPHA_TEST );
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-#endif
 
-	//	glState.in2DMode = true;
+		glState.in2DMode = true;
 		RI.currententity = NULL;
 		RI.currentmodel = NULL;
 	}
 	else
 	{
-#if 0
 		pglDepthMask( GL_TRUE );
 		pglEnable( GL_DEPTH_TEST );
 		glState.in2DMode = false;
@@ -427,6 +277,5 @@ void GAME_EXPORT R_Set2DMode( qboolean enable )
 		GL_LoadMatrix( RI.worldviewMatrix );
 
 		GL_Cull( GL_FRONT );
-#endif
 	}
 }

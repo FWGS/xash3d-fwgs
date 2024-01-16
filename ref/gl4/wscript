@@ -8,6 +8,11 @@ import os
 top = '.'
 
 def options(opt):
+	grp = opt.add_option_group('ref_gl4 options')
+
+	grp.add_option('--enable-static-gl', action='store_true', dest='GL_STATIC', default=False,
+		help = 'enable direct linking to opengl [default: %default]')
+
 	# stub
 	return
 
@@ -16,24 +21,64 @@ def configure(conf):
 	if conf.options.DEDICATED:
 		return
 
-	if conf.options.SUPPORT_BSP2_FORMAT:
-		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
+	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
 
-	conf.env.append_unique('DEFINES', 'REF_DLL')
+	conf.env.GL_STATIC = conf.options.GL_STATIC
+	if conf.env.GL_STATIC:
+		conf.check(lib='GL4')
+
+	conf.define('REF_DLL', 1)
+	if conf.env.DEST_OS2 == 'android':
+		conf.check_cc(lib='log')
 
 def build(bld):
 	libs = [ 'engine_includes' ]
+	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
+	if bld.env.DEST_OS == 'psvita':
+		libs += [ 'sdk_includes', 'vgl_shim' ]
+	else:
+		libs += [ 'public', 'M' ]
 
-	libs += [ 'public', 'M' ]
+	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
+	includes = '.'
 
-	if bld.env.DEDICATED:
-		return
+	targets = {
+		'ref_gl4': {
+			'enable':  bld.env.GL,
+			'libs':    ['GL'] if bld.env.GL_STATIC else [],
+			'defines': ['XASH_GL_STATIC'] if bld.env.GL_STATIC else [],
+		},
+		'ref_gles1': {
+			'enable':  bld.env.NANOGL,
+			'libs':    ['DL', 'nanogl', 'LOG'],
+			'defines': ['XASH_NANOGL'],
+		},
+		'ref_gles2': {
+			'enable':  bld.env.GLWES,
+			'libs':    ['DL', 'gl-wes-v2', 'LOG'],
+			'defines': ['XASH_WES'],
+		},
+		'ref_gl4es': {
+			'enable':  bld.env.GL4ES,
+			'libs':    ['DL', 'gl4es', 'LOG'],
+			'defines': ['XASH_GL_STATIC', 'XASH_GL4ES'],
+		},
+		'ref_gles3compat': {
+			'enable':  bld.env.GLES3COMPAT,
+			'libs':    ['DL', 'gl4es', 'LOG'],
+			'defines': ['XASH_GLES3COMPAT'],
+		},
+	}
 
-	bld.shlib(source = bld.path.ant_glob(['*.c']),
-		target   = 'ref_gl4',
-		features = 'c',
-		includes = '.',
-		use      = libs,
-		install_path = bld.env.LIBDIR,
-		subsystem = bld.env.MSVC_SUBSYSTEM
-	)
+	for k,v in targets.items():
+		if not v['enable']:
+			continue
+
+		bld.shlib(source = source,
+			target = k,
+			features = 'c',
+			includes = includes,
+			use = libs + v['libs'],
+			defines = v['defines'],
+			install_path = bld.env.LIBDIR,
+			subsystem = bld.env.MSVC_SUBSYSTEM)

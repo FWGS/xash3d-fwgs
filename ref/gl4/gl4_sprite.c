@@ -152,7 +152,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	if( pin->version == SPRITE_VERSION_Q1 || pin->version == SPRITE_VERSION_32 )
 		numi = NULL;
 	else if( pin->version == SPRITE_VERSION_HL )
-		numi = (const short *)((const byte*)buffer + sizeof( dsprite_hl_t ));
+		numi = (const short *)(void *)((const byte*)buffer + sizeof( dsprite_hl_t ));
 
 	r_texFlags = texFlags;
 	sprite_version = pin->version;
@@ -164,7 +164,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		rgbdata_t	*pal;
 
 		pal = gEngfuncs.FS_LoadImage( "#id.pal", (byte *)&i, 768 );
-		pframetype = (const dframetype_t *)((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
+		pframetype = (const dframetype_t *)(void *)((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else if( *numi == 256 )
@@ -186,7 +186,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			break;
 		}
 
-		pframetype = (const dframetype_t *)(src + 768);
+		pframetype = (const dframetype_t *)(void *)(src + 768);
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else
@@ -242,7 +242,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	int		linedelta, numframes;
 	mspriteframe_t	*pspriteframe;
 	msprite_t		*psprite;
-	char			poolname[MAX_VA_STRING];
+	char		poolname[MAX_VA_STRING];
 
 	if( loaded ) *loaded = false;
 	Q_snprintf( texname, sizeof( texname ), "#%s", mod->name );
@@ -726,96 +726,27 @@ R_DrawSpriteQuad
 static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale )
 {
 	vec3_t	point;
-	image_t *image;
 
 	r_stats.c_sprite_polys++;
-	/*image = R_GetTexture(frame->gl_texturenum);
-	r_affinetridesc.pskin = image->pixels[0];
-	r_affinetridesc.skinwidth = image->width;
-	r_affinetridesc.skinheight = image->height;*/
 
-	TriBegin( TRI_QUADS );
-		TriTexCoord2f( 0.0f, 1.0f );
+	pglBegin( GL_QUADS );
+		pglTexCoord2f( 0.0f, 1.0f );
 		VectorMA( org, frame->down * scale, v_up, point );
 		VectorMA( point, frame->left * scale, v_right, point );
-		TriVertex3fv( point );
-		TriTexCoord2f( 0.0f, 0.0f );
+		pglVertex3fv( point );
+		pglTexCoord2f( 0.0f, 0.0f );
 		VectorMA( org, frame->up * scale, v_up, point );
 		VectorMA( point, frame->left * scale, v_right, point );
-		TriVertex3fv( point );
-		TriTexCoord2f( 1.0f, 0.0f );
+		pglVertex3fv( point );
+		pglTexCoord2f( 1.0f, 0.0f );
 		VectorMA( org, frame->up * scale, v_up, point );
 		VectorMA( point, frame->right * scale, v_right, point );
-		TriVertex3fv( point );
-				TriTexCoord2f( 1.0f, 1.0f );
+		pglVertex3fv( point );
+		pglTexCoord2f( 1.0f, 1.0f );
 		VectorMA( org, frame->down * scale, v_up, point );
 		VectorMA( point, frame->right * scale, v_right, point );
-		TriVertex3fv( point );
-	TriEnd();
-
-#if 0
-	image_t *pic = R_GetTexture(frame->gl_texturenum);
-	r_polydesc.pixels       = pic->pixels[0];
-	r_polydesc.pixel_width  = pic->width;
-	r_polydesc.pixel_height = pic->height;
-	r_polydesc.dist         = 0;
-
-	// generate the sprite's axes, completely parallel to the viewplane.
-	VectorCopy (v_up, r_polydesc.vup);
-	VectorCopy (v_right, r_polydesc.vright);
-	VectorCopy (vpn, r_polydesc.vpn);
-
-// build the sprite poster in worldspace
-	VectorScale (r_polydesc.vright,
-		frame->width - frame->origin_x, right);
-	VectorScale (r_polydesc.vup,
-		s_psprframe->height - s_psprframe->origin_y, up);
-	VectorScale (r_polydesc.vright,
-		-s_psprframe->origin_x, left);
-	VectorScale (r_polydesc.vup,
-		-s_psprframe->origin_y, down);
-
-	// invert UP vector for sprites
-	VectorInverse( r_polydesc.vup );
-
-	pverts = r_clip_verts[0];
-
-	pverts[0][0] = r_entorigin[0] + up[0] + left[0];
-	pverts[0][1] = r_entorigin[1] + up[1] + left[1];
-	pverts[0][2] = r_entorigin[2] + up[2] + left[2];
-	pverts[0][3] = 0;
-	pverts[0][4] = 0;
-
-	pverts[1][0] = r_entorigin[0] + up[0] + right[0];
-	pverts[1][1] = r_entorigin[1] + up[1] + right[1];
-	pverts[1][2] = r_entorigin[2] + up[2] + right[2];
-	pverts[1][3] = s_psprframe->width;
-	pverts[1][4] = 0;
-
-	pverts[2][0] = r_entorigin[0] + down[0] + right[0];
-	pverts[2][1] = r_entorigin[1] + down[1] + right[1];
-	pverts[2][2] = r_entorigin[2] + down[2] + right[2];
-	pverts[2][3] = s_psprframe->width;
-	pverts[2][4] = s_psprframe->height;
-
-	pverts[3][0] = r_entorigin[0] + down[0] + left[0];
-	pverts[3][1] = r_entorigin[1] + down[1] + left[1];
-	pverts[3][2] = r_entorigin[2] + down[2] + left[2];
-	pverts[3][3] = 0;
-	pverts[3][4] = s_psprframe->height;
-
-	r_polydesc.nump = 4;
-	r_polydesc.s_offset = ( r_polydesc.pixel_width  >> 1);
-	r_polydesc.t_offset = ( r_polydesc.pixel_height >> 1);
-	VectorCopy( modelorg, r_polydesc.viewer_position );
-
-	r_polydesc.stipple_parity = 1;
-	if ( currententity->flags & RF_TRANSLUCENT )
-		R_ClipAndDrawPoly ( currententity->alpha, false, true );
-	else
-		R_ClipAndDrawPoly ( 1.0F, false, true );
-	r_polydesc.stipple_parity = 0;
-#endif
+		pglVertex3fv( point );
+	pglEnd();
 }
 
 static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
@@ -881,7 +812,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	float		angle, dot, sr, cr;
 	float		lerp = 1.0f, ilerp, scale;
 	vec3_t		v_forward, v_right, v_up;
-	vec3_t		origin, color, color2;
+	vec3_t		origin, color, color2 = { 0.0f };
 
 	if( RI.params & RP_ENVVIEW )
 		return;
@@ -919,13 +850,12 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	if( e->curstate.rendermode == kRenderGlow || e->curstate.rendermode == kRenderTransAdd )
 		R_AllowFog( false );
 
-	GL_SetRenderMode( e->curstate.rendermode );
-#if 0
 	// select properly rendermode
 	switch( e->curstate.rendermode )
 	{
 	case kRenderTransAlpha:
 		pglDepthMask( GL_FALSE );
+		// fallthrough
 	case kRenderTransColor:
 	case kRenderTransTexture:
 		pglEnable( GL_BLEND );
@@ -933,6 +863,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	case kRenderGlow:
 		pglDisable( GL_DEPTH_TEST );
+		// fallthrough
 	case kRenderTransAdd:
 		pglEnable( GL_BLEND );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
@@ -947,7 +878,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// all sprites can have color
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 	pglEnable( GL_ALPHA_TEST );
-#endif
+
 	// NOTE: never pass sprites with rendercolor '0 0 0' it's a stupid Valve Hammer Editor bug
 	if( e->curstate.rendercolor.r || e->curstate.rendercolor.g || e->curstate.rendercolor.b )
 	{
@@ -970,7 +901,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color2[1] = (float)lightColor.g * ( 1.0f / 255.0f );
 		color2[2] = (float)lightColor.b * ( 1.0f / 255.0f );
 		// NOTE: sprites with 'lightmap' looks ugly when alpha func is GL_GREATER 0.0
-	//	pglAlphaFunc( GL_GREATER, 0.5f );
+		pglAlphaFunc( GL_GREATER, 0.5f );
 	}
 
 	if( R_SpriteAllowLerping( e, psprite ))
@@ -1019,13 +950,13 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	}
 
-	//if( psprite->facecull == SPR_CULL_NONE )
-		//GL_Cull( GL_NONE );
+	if( psprite->facecull == SPR_CULL_NONE )
+		GL_Cull( GL_NONE );
 
 	if( oldframe == frame )
 	{
 		// draw the single non-lerped frame
-		_TriColor4f( color[0], color[1], color[2], tr.blend );
+		pglColor4f( color[0], color[1], color[2], tr.blend );
 		GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
 		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 	}
@@ -1037,19 +968,19 @@ void R_DrawSpriteModel( cl_entity_t *e )
 
 		if( ilerp != 0.0f )
 		{
-			_TriColor4f( color[0], color[1], color[2], tr.blend * ilerp );
+			pglColor4f( color[0], color[1], color[2], tr.blend * ilerp );
 			GL_Bind( XASH_TEXTURE0, oldframe->gl_texturenum );
 			R_DrawSpriteQuad( oldframe, origin, v_right, v_up, scale );
 		}
 
 		if( lerp != 0.0f )
 		{
-			_TriColor4f( color[0], color[1], color[2], tr.blend * lerp );
+			pglColor4f( color[0], color[1], color[2], tr.blend * lerp );
 			GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
 			R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 		}
 	}
-#if 0
+
 	// draw the sprite 'lightmap' :-)
 	if( R_SpriteHasLightmap( e, psprite->texFormat ))
 	{
@@ -1083,5 +1014,4 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 		pglEnable( GL_DEPTH_TEST );
 	}
-#endif
 }

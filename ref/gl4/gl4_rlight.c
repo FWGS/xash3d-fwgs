@@ -19,9 +19,6 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "ref_params.h"
 
-//unused, need refactor
-unsigned		blocklights[10240];
-
 /*
 =============================================================================
 
@@ -35,11 +32,11 @@ CL_RunLightStyles
 
 ==================
 */
-void GAME_EXPORT CL_RunLightStyles( void )
+void CL_RunLightStyles( void )
 {
 	int		i, k, flight, clight;
 	float		l, lerpfrac, backlerp;
-	float		frametime = (gp_cl->time -   gp_cl->oldtime);
+	float		frametime = (gp_cl->time - gp_cl->oldtime);
 	lightstyle_t	*ls;
 
 	if( !WORLDMODEL )
@@ -77,7 +74,7 @@ void GAME_EXPORT CL_RunLightStyles( void )
 			tr.lightstylevalue[i] = ( ls->pattern[0] - 'a' ) * 22;
 			continue;
 		}
-		else if( !ls->interp ) // || !CVAR_TO_BOOL( cl_lightstyle_lerping ))
+		else if( !ls->interp || !cl_lightstyle_lerping->flags )
 		{
 			tr.lightstylevalue[i] = ( ls->pattern[flight%ls->length] - 'a' ) * 22;
 			continue;
@@ -131,10 +128,10 @@ void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
 		if( !BoundsAndSphereIntersect( surf->info->mins, surf->info->maxs, light->origin, light->radius ))
 			continue;	// no intersection
 
-		if( surf->dlightframe !=  tr.framecount )//tr.dlightframecount )
+		if( surf->dlightframe != tr.dlightframecount )
 		{
 			surf->dlightbits = 0;
-			surf->dlightframe = tr.framecount; //tr.dlightframecount;
+			surf->dlightframe = tr.dlightframecount;
 		}
 		surf->dlightbits |= bit;
 	}
@@ -166,8 +163,8 @@ void R_PushDlights( void )
 		if( l->die < gp_cl->time || !l->radius )
 			continue;
 
-		//if( GL_FrustumCullSphere( &RI.frustum, l->origin, l->radius, 15 ))
-			//continue;
+		if( GL_FrustumCullSphere( &RI.frustum, l->origin, l->radius, 15 ))
+			continue;
 
 		if( RI.currententity )
 			R_MarkLights( l, 1<<i, RI.currentmodel->nodes );
@@ -371,7 +368,7 @@ colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot,
 		last_fraction = 1.0f;
 
 		// get light from bmodels too
-		//if( CVAR_TO_BOOL( r_lighting_extended ))
+		if( r_lighting_extended.value )
 			maxEnts = MAX_PHYSENTS;
 
 		// check all the bsp-models
@@ -413,6 +410,7 @@ colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot,
 			{
 				if( lspot ) VectorCopy( g_trace_lightspot, lspot );
 				if( lvec ) VectorNormalize2( g_trace_lightvec, lvec );
+
 				light.r = Q_min(( cv.r >> 8 ), 255 );
 				light.g = Q_min(( cv.g >> 8 ), 255 );
 				light.b = Q_min(( cv.b >> 8 ), 255 );
@@ -439,13 +437,11 @@ R_LightVec
 check bspmodels to get light from
 =================
 */
-colorVec GAME_EXPORT R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
+colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
 {
 	colorVec	light = R_LightVecInternal( start, end, lspot, lvec );
 
-	//light.r = light.g = light.b = 255;
-
-	if( lspot != NULL && lvec != NULL ) // CVAR_TO_BOOL( r_lighting_extended ) &&
+	if( r_lighting_extended.value && lspot != NULL && lvec != NULL )
 	{
 		// trying to get light from ceiling (but ignore gradient analyze)
 		if(( light.r + light.g + light.b ) == 0 )
@@ -462,7 +458,7 @@ R_LightPoint
 light from floor
 =================
 */
-colorVec GAME_EXPORT R_LightPoint( const vec3_t p0 )
+colorVec R_LightPoint( const vec3_t p0 )
 {
 	vec3_t	p1;
 
