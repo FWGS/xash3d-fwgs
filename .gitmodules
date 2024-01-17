@@ -1,6 +1,6 @@
 [submodule "mainui"]
 	path = 3rdparty/mainui
-	url = https://github.com/FWGS/mainui_cpp
+	url = https://github.com/PROJECT-DESTINATION/mainui_cpp
 [submodule "ref_gl/nanogl"]
 	path = 3rdparty/nanogl
 	url = https://github.com/FWGS/nanogl
