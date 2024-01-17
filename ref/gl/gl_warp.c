@@ -684,14 +684,32 @@ void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
 	if( !glw_state.initialized )
 		return;
 
-	Q_snprintf( texname, sizeof( texname ), "%s%s.mip", ( mt->offsets[0] > 0 ) ? "#" : "", tx->name );
+	if (mt->nul != 0)
+	{
+		Q_snprintf(texname, sizeof(texname), "%s%s.mip", (mt->offsets[0] > 0) ? "#" : "", ((mip_old_t*)tx)->name);
+	}
+	else
+	{
+		Q_snprintf(texname, sizeof(texname), "%s%s.mip", (mt->offsets[0] > 0) ? "#" : "", tx->name);
+	}
+	
 
 	if( mt->offsets[0] > 0 )
 	{
-		int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
+		if (mt->nul != 0)
+		{
+			int	size = (int)sizeof(mip_old_t) + ((((mip_old_t*)tx)->width * ((mip_old_t*)tx)->height * 85) >> 6);
 
-		if( custom_palette ) size += sizeof( short ) + 768;
-		r_sky = gEngfuncs.FS_LoadImage( texname, (byte *)mt, size );
+			if (custom_palette) size += sizeof(short) + 768;
+			r_sky = gEngfuncs.FS_LoadImage(texname, (byte*)mt, size);
+		}
+		else
+		{
+			int	size = (int)sizeof(mip_old_t) + ((((mip_old_t*)tx)->width * ((mip_old_t*)tx)->height * 85) >> 6);
+
+			if (custom_palette) size += sizeof(short) + 768;
+			r_sky = gEngfuncs.FS_LoadImage(texname, (byte*)mt, size);
+		}
 	}
 	else
 	{

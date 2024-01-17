@@ -355,7 +355,7 @@ Image_LoadMIP
 */
 qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesize )
 {
-	mip_t	mip;
+	mip_old_t	mip;
 	qboolean	hl_texture;
 	byte	*fin, *pal;
 	int	ofs[4], rendermode;

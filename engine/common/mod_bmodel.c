@@ -262,6 +262,12 @@ static fs_offset_t Mod_CalculateMipTexSize( mip_t *mt, qboolean palette )
 	if( !mt )
 		return 0;
 
+	if (mt->nul != 0)
+	{
+		return sizeof(mip_old_t) + ((((mip_old_t*)mt)->width * ((mip_old_t*)mt)->height * 85) >> 6) +
+			(palette ? MIPTEX_CUSTOM_PALETTE_SIZE_BYTES : 0);
+	}
+
 	return sizeof( *mt ) + (( mt->width * mt->height * 85 ) >> 6 ) +
 		( palette ? MIPTEX_CUSTOM_PALETTE_SIZE_BYTES : 0 );
 }
@@ -2091,6 +2097,11 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	mip_t *mipTex = NULL;
 	qboolean usesCustomPalette = false;
 	uint32_t txFlags = 0;
+	char		m_name[256];
+	unsigned int	m_width;
+	unsigned int	m_height;
+	unsigned int	m_offsets[4];	// four mip maps stored
+
 
 	// Don't load texture data on dedicated server, as there is no renderer.
 	// FIXME: for ENGINE_IMPROVED_LINETRACE we need to load textures on server too
@@ -2100,18 +2111,32 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 
 	texture = mod->textures[textureIndex];
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
+	if (mipTex->nul != 0)
+	{ // old one
+		strncpy(m_name, ((mip_old_t*)mipTex)->name, 16);
+		m_width = ((mip_old_t*)mipTex)->width;
+		m_height = ((mip_old_t*)mipTex)->height;
+		memcpy(&m_offsets, &((mip_old_t*)mipTex)->offsets,sizeof(m_offsets));
+	}
+	else
+	{ // new one
+		strncpy(m_name, mipTex->name, sizeof(m_name));
+		m_width = mipTex->width;
+		m_height = mipTex->height;
+		memcpy(&m_offsets, &mipTex->offsets, sizeof(m_offsets));
+	}
 
-	if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && mipTex->name[0] == '{' )
+	if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && m_name[0] == '{')
 		SetBits( txFlags, TF_KEEP_SOURCE ); // Paranoia2 texture alpha-tracing
 
 	// check if this is water to keep the source texture and expand it to RGBA (so ripple effect works)
-	if( Mod_LooksLikeWaterTexture( mipTex->name ))
+	if( Mod_LooksLikeWaterTexture(m_name))
 		SetBits( txFlags, TF_KEEP_SOURCE | TF_EXPAND_SOURCE );
 
 	usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( mod, bmod, textureIndex );
 
 	// check for multi-layered sky texture (quake1 specific)
-	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
+	if( bmod->isworld && Q_strncmp(m_name, "sky", 3 ) == 0 && m_height != 0 && ( m_width / m_height ) == 2 )
 	{
 		ref.dllFuncs.R_InitSkyClouds( mipTex, texture, usesCustomPalette ); // load quake sky
 
@@ -2127,10 +2152,10 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// 2. Internal from map
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if(( r_wadtextures.value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 )
+	if(( r_wadtextures.value && bmod->wadlist.count > 0 ) || m_offsets[0] <= 0 )
 	{
 		char texpath[MAX_VA_STRING];
-		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, mipTex->name, texpath, sizeof( texpath ));
+		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, m_name, texpath, sizeof( texpath ));
 
 		if( wadIndex >= 0 )
 		{
@@ -2140,25 +2165,28 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	}
 
 	// WAD failed, so use internal texture (if present)
-	if( mipTex->offsets[0] > 0 && texture->gl_texturenum == 0 )
+	if (texture->gl_texturenum == 0)
 	{
-		char texName[256];
-		const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
+		if (m_offsets[0] > 0)
+		{
+			char texName[256];
+			const size_t size = Mod_CalculateMipTexSize(mipTex, usesCustomPalette);
 
-		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex->name );
-		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, txFlags );
-	}
-	else
-	{
-		char texName[256];
-		Q_snprintf(texName, sizeof(texName), "materials/%s.vmt", strlwr(mipTex->name));
-		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture(texName, NULL,0,0);
+			Q_snprintf(texName, sizeof(texName), "#%s:%s.mip", loadstat.name, m_name);
+			texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture(texName, (byte*)mipTex, size, txFlags);
+		}
+		else
+		{
+			char texName[256];
+			Q_snprintf(texName, sizeof(texName), "materials/%s.vmt", strlwr(m_name));
+			texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture(texName, NULL, 0, 0);
+		}
 	}
 
 	// If texture is completely missed:
 	if( texture->gl_texturenum == 0 )
 	{
-		Con_DPrintf( S_ERROR "Unable to find %s.mip\n", mipTex->name );
+		Con_DPrintf( S_ERROR "Unable to find %s.mip\n", m_name );
 		texture->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 	}
 
@@ -2166,9 +2194,9 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, texture->gl_texturenum ), TF_HAS_LUMA ))
 	{
 		char texName[64];
-		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
+		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, m_name );
 
-		if( mipTex->offsets[0] > 0 )
+		if(m_offsets[0] > 0 )
 		{
 			const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
 			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, TF_MAKELUMA );
@@ -2222,8 +2250,8 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 		return;
 	}
 	//Con_Printf("%s, %ix%i @ %x %x %x %x\n", mipTex->name, mipTex->width, mipTex->height,mipTex->offsets[0], mipTex->offsets[1], mipTex->offsets[2], mipTex->offsets[3]);
-	if( mipTex->name[0] == '\0' )
-		Q_snprintf( mipTex->name, sizeof( mipTex->name ), "miptex_%i", textureIndex );
+	if( mipTex->nul == '\0' && mipTex->name[0] == '\0')
+		Q_snprintf( ((mip_old_t*)mipTex)->name, sizeof( ((mip_old_t*)mipTex)->name ), "miptex_%i", textureIndex );
 
 	texture = (texture_t *)Mem_Calloc( mod->mempool, sizeof( *texture ));
 	mod->textures[textureIndex] = texture;
@@ -2234,8 +2262,8 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 		// Ensure texture name is lowercase.
 		Q_strnlwr(oldmipTex->name, texture->name, sizeof(texture->name));
 
-		oldmipTex->width = mipTex->width;
-		oldmipTex->height = mipTex->height;
+		texture->width = oldmipTex->width;
+		texture->height = oldmipTex->height;
 	}
 	else
 	{

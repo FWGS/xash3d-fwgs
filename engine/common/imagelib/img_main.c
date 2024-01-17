@@ -307,13 +307,13 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 		vdf_object_t* vmt = vdf_parse_file(filename);
 		if (!vmt)
 		{
-			Con_Printf("No vmt \"%\"!\n", filename);
+			Con_Printf("No vmt \"%s\"!\n", filename);
 			return NULL;
 		}
 		vdf_object_t* texturekey = vdf_object_index_array_str(vmt, "$basetexture");
 		if (!texturekey)
 		{
-			Con_Printf("Bad vmt \"%\"!\n", filename);
+			Con_Printf("Bad vmt \"%s\"!\n", filename);
 			return NULL;
 		}
 		Q_strncpy(buf, vdf_object_get_string(texturekey), sizeof(buf));
