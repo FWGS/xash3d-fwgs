@@ -25,10 +25,12 @@ GNU General Public License for more details.
 
 #if XASH_POSIX
 #include <unistd.h>
+#if !XASH_PS3
 #include <signal.h>
 
 #if !XASH_ANDROID
 #include <pwd.h>
+#endif
 #endif
 #endif
 
@@ -138,7 +140,7 @@ const char *Sys_GetCurrentUser( void )
 	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
 	if( COM_CheckStringEmpty( username ))
 		return username;
-#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH && !XASH_PS3
 	uid_t uid = geteuid();
 	struct passwd *pw = getpwuid( uid );
 

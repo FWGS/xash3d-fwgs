@@ -3040,7 +3040,7 @@ void SV_SetStringArrayMode( qboolean dynamic )
 #endif
 }
 
-#if XASH_64BIT && !XASH_WIN32 && !XASH_APPLE && !XASH_NSWITCH && !XASH_ANDROID
+#if XASH_64BIT && !XASH_WIN32 && !XASH_APPLE && !XASH_NSWITCH && !XASH_ANDROID && !XASH_PS3
 #define USE_MMAP
 #include <sys/mman.h>
 #endif
@@ -3055,6 +3055,7 @@ alloc string array somewhere if not (MAKE_STRING will not work. Always call ALLO
 this case need patched game dll with MAKE_STRING checking ptrdiff size
 ==================
 */
+
 static void SV_AllocStringPool( void )
 {
 #ifdef XASH_64BIT

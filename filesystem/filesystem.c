@@ -1243,6 +1243,8 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	*/
 }
 
+
+
 /*
 ================
 FS_Rescan
@@ -1255,7 +1257,7 @@ void FS_Rescan( void )
 	Con_Reportf( "FS_Rescan( %s )\n", GI->title );
 
 	FS_ClearSearchPath();
-
+#ifndef XASH_PS3
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
 	if( COM_CheckString( str ))
 		FS_MountArchive_Fullpath( str, extrasFlags );
@@ -1263,7 +1265,7 @@ void FS_Rescan( void )
 	str = getenv( "XASH3D_EXTRAS_PAK2" );
 	if( COM_CheckString( str ))
 		FS_MountArchive_Fullpath( str, extrasFlags );
-
+#endif
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
 		FS_AddGameHierarchy( GI->basedir, 0 );
 	if( Q_stricmp( GI->basedir, GI->falldir ) && Q_stricmp( GI->gamefolder, GI->falldir ))
@@ -1902,7 +1904,7 @@ int FS_SetCurrentDirectory( const char *path )
 		Sys_Error( "Changing directory to %s failed: %s\n", path, buf );
 		return false;
 	}
-#elif XASH_POSIX
+#elif XASH_POSIX && !XASH_PS3
 	if( chdir( path ) < 0 )
 	{
 		Sys_Error( "Changing directory to %s failed: %s\n", path, strerror( errno ));
@@ -3067,7 +3069,27 @@ fs_api_t g_fsapi =
 	FS_GetFullDiskPath,
 };
 
+#if __PS3__
+#include <cellstatus.h>
+#include <sys/prx.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+SYS_LIB_DECLARE(filesystem, SYS_LIB_AUTO_EXPORT);
+SYS_LIB_EXPORT(_filesystem_export_function, filesystem);
+
+SYS_MODULE_INFO(filesystem, 0, 1, 0);
+
+
+int _filesystem_export_function(void)
+{
+	return CELL_OK;
+}
+
+int GetFSAPI(int version, fs_api_t* api, fs_globals_t** globals, fs_interface_t* engfuncs)
+#else
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs )
+#endif
 {
 	if( engfuncs && !FS_InitInterface( version, engfuncs ))
 		return 0;

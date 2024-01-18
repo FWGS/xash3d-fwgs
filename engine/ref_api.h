@@ -260,8 +260,9 @@ typedef struct remap_info_s
 	short		bottomcolor;	// cached value
 	model_t		*model;		// for catch model changes
 } remap_info_t;
-
+#ifndef CVAR_H
 typedef struct convar_s convar_t;
+#endif
 struct con_nprint_s;
 struct engine_studio_api_s;
 struct r_studio_interface_s;

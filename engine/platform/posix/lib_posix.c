@@ -27,7 +27,9 @@ GNU General Public License for more details.
 #include "platform/android/lib_android.h"
 #include "platform/emscripten/lib_em.h"
 #include "platform/apple/lib_ios.h"
-
+#if XASH_PS3
+#include <sys/prx.h>
+#endif
 #ifdef XASH_DLL_LOADER // wine-based dll loader
 void * Loader_LoadLibrary (const char *name);
 void * Loader_GetProcAddress (void *hndl, const char *name);
@@ -107,7 +109,11 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 		// try to find by linker(LD_LIBRARY_PATH, DYLD_LIBRARY_PATH, LD_32_LIBRARY_PATH and so on...)
 		if( !pHandle )
 		{
+			#if !XASH_PS3
 			pHandle = dlopen( dllname, RTLD_NOW );
+			#else
+				pHandle = (void*)sys_prx_load_module(dllname,0,0);
+			#endif
 			if( pHandle )
 				return pHandle;
 
@@ -148,7 +154,11 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	else
 #endif
 	{
-		if( !( hInst->hInstance = dlopen( hInst->fullPath, RTLD_NOW ) ) )
+		#if !XASH_PS3
+			if( !( hInst->hInstance = dlopen( hInst->fullPath, RTLD_NOW ) ) )
+		#else
+			if( !( hInst->hInstance = (void*)sys_prx_load_module(hInst->fullPath,0,0) ) )
+		#endif
 		{
 			COM_PushLibraryError( dlerror() );
 			Mem_Free( hInst );

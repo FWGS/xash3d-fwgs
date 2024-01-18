@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include <stddef.h>
 #if XASH_POSIX
 #include <unistd.h>
-#if !XASH_PSVITA
+#if !XASH_PSVITA && !XASH_PS3
 #include <sys/ioctl.h>
 #endif
 #endif
@@ -46,12 +46,12 @@ enum
 	DIRENTRY_CASEINSENSITIVE = -2, // directory is already caseinsensitive, just copy whatever is left
 };
 
-typedef struct dir_s
+struct dir_s
 {
 	string name;
 	int numentries;
 	struct dir_s *entries; // sorted
-} dir_t;
+};
 
 static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 {

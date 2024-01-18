@@ -221,6 +221,13 @@ def configure(conf):
 		conf.options.USE_STBTT        = True
 		# we'll specify -fPIC by hand for shared libraries only
 		enforce_pic                   = False
+	elif conf.env.DEST_OS == 'ps3':
+		conf.options.NO_VGUI          = True
+		conf.options.GL               = False
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.options.USE_STBTT        = True
+		# we'll specify -fPIC by hand for shared libraries only
+		enforce_pic                   = False
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
@@ -271,9 +278,10 @@ def configure(conf):
 		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
 		conf.env.append_unique('CXXFLAGS', ['-Wno-attributes'])
 
-	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
-	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
-
+	if conf.env.DEST_OS != "ps3":
+		conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
+		conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
+	
 	conf.env.append_unique('CFLAGS', cflags)
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
@@ -369,18 +377,22 @@ def configure(conf):
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
 	conf.define_cond('XASH_ALL_SERVERS', conf.options.ALL_SERVERS)
-
-	# check if we can use C99 stdint
-	conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
-
-	# check if we can use alloca.h or malloc.h
-	if conf.check_cc(header_name='alloca.h', mandatory=False):
-		conf.define('ALLOCA_H', 'alloca.h')
-	elif conf.check_cc(header_name='malloc.h', mandatory=False):
-		conf.define('ALLOCA_H', 'malloc.h')
-	elif conf.check_cc(fragment = '''#include <stdlib.h>
-		int main(void) { alloca(1); }''', msg = 'Checking for alloca in stdlib.h'):
-		conf.define('ALLOCA_H', 'stdlib.h')
+	
+	if conf.env.DEST_OS != 'ps3':
+		# check if we can use C99 stdint
+		conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
+		
+		# check if we can use alloca.h or malloc.h
+		if conf.check_cc(header_name='alloca.h', mandatory=False):
+			conf.define('ALLOCA_H', 'alloca.h')
+		elif conf.check_cc(header_name='malloc.h', mandatory=False):
+			conf.define('ALLOCA_H', 'malloc.h')
+		elif conf.check_cc(fragment = '''#include <stdlib.h>
+			int main(void) { alloca(1); }''', msg = 'Checking for alloca in stdlib.h'):
+			conf.define('ALLOCA_H', 'stdlib.h')
+	else:
+		conf.define('STDINT_H','stdint.h')
+		conf.define('ALLOCA_H','alloca.h')
 
 	if conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
@@ -408,6 +420,8 @@ def configure(conf):
 		else:
 			for i in a:
 				conf.check_cc(lib = i)
+	elif conf.env.DEST_OS == 'ps3':
+		pass
 	else:
 		conf.check_cc(lib='dl', mandatory = False)
 		conf.check_cc(lib='m')

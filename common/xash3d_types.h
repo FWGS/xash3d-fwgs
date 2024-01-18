@@ -34,6 +34,12 @@ typedef uint32_t        poolhandle_t;
 typedef void*           poolhandle_t;
 #endif
 
+#if XASH_PS3
+#define _inline static inline
+typedef unsigned int size_t;
+#endif
+
+
 #undef true
 #undef false
 

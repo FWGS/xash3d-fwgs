@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 #include "menu_int.h"
 
+#if !XASH_PS3
 static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size )
 {
 	char *envPath;
@@ -67,8 +68,9 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 	}
 	return false;
 }
+#endif
 
-#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
+#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA && !XASH_PS3
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	char xdgOpen[128];
@@ -145,7 +147,7 @@ void Posix_Daemonize( void )
 	}
 
 }
-
+#if !XASH_PS3
 #if XASH_TIMER == TIMER_POSIX
 double Platform_DoubleTime( void )
 {
@@ -157,7 +159,16 @@ double Platform_DoubleTime( void )
 #endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
-
+#else
+#include <sys/sys_time.h>
+double Platform_DoubleTime( void )
+{
+	sys_time_sec_t sec;
+	sys_time_nsec_t nsec;
+	sys_time_get_current_time(&sec,&nsec);
+	return (double)sec + (double)nsec/1000000000.0;
+}
+#endif
 void Platform_Sleep( int msec )
 {
 	usleep( msec * 1000 );

@@ -46,6 +46,10 @@ GNU General Public License for more details.
 			#define VRTLD_LIBDL_COMPAT
 			#include <vrtld.h>
 			#define O_BINARY 0
+		#elif XASH_PS3
+			#define PRX_LIBDL_COMPAT
+			#include <sys/prx.h>
+			#define O_BINARY 0
 		#else
 			#include <dlfcn.h>
 			#define HAVE_DUP

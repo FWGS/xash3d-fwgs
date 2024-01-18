@@ -1,4 +1,4 @@
-// (‑●‑●)> dual licensed under the WTFPL v2 and MIT licenses
+﻿// (‑●‑●)> dual licensed under the WTFPL v2 and MIT licenses
 //   without any warranty.
 //   by Gregory Pakosz (@gpakosz)
 // https://github.com/gpakosz/whereami
@@ -839,6 +839,8 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
 {
   return -1;
 }
+
+#elif __PS3__
 
 #else
 

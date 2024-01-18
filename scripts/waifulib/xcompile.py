@@ -34,6 +34,8 @@ NSWITCH_ENVVARS = ['DEVKITPRO']
 
 PSVITA_ENVVARS = ['VITASDK']
 
+PS3_ENVVARS = ['SCE_PS3_ROOT']
+
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
@@ -498,6 +500,60 @@ class PSVita:
 		ldflags = []
 		return ldflags
 
+class PS3:
+	ctx          = None # waf context
+	arch         ='ppc'
+	ps3sdk_dir  = None
+
+	def __init__(self, ctx):
+		self.ctx = ctx
+
+		for i in PS3_ENVVARS:
+			self.ps3sdk_dir = os.getenv(i)
+			if self.ps3sdk_dir != None:
+				break
+		else:
+			ctx.fatal('Set %s environment variable pointing to the PS3 SDK directory!' %
+				' or '.join(PS3_ENVVARS))
+
+	def gen_toolchain_prefix(self):
+		return 'ppu-lv2-'
+
+	def gen_gcc_toolchain_path(self):
+		return os.path.join(self.ps3sdk_dir, 'host-win32','ppu','bin', self.gen_toolchain_prefix())
+
+	def cc(self):
+		return self.gen_gcc_toolchain_path() + 'gcc.exe'
+
+	def cxx(self):
+		return self.gen_gcc_toolchain_path() + 'g++.exe'
+
+	def strip(self):
+		return self.gen_gcc_toolchain_path() + 'strip.exe'
+
+	def ar(self):
+		return self.gen_gcc_toolchain_path() + 'ar.exe'
+
+	def cflags(self, cxx = False):
+		cflags = []
+		# arch flags
+		cflags += ['-D__PS3__','-D__GCC__']
+		# disable some bullshit
+		cflags += ['-fno-exceptions','-fno-rtti']
+		return cflags
+
+	# they go before object list
+	def linkflags(self):
+		linkflags = ['-mprx','-zgenentry','-zgenprx','-zgenstub','-lc','-lgcc','-lstdc++','-lcgc','-lfios']
+		# enforce no-short-enums again
+		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums','-fno-exceptions','--prx-with-runtime','--prx-fixup']
+		return linkflags
+
+	def ldflags(self):
+		ldflags = []
+		return ldflags
+
+
 def options(opt):
 	xc = opt.add_option_group('Cross compile options')
 	xc.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
@@ -512,6 +568,8 @@ def options(opt):
 		help='enable building for PlayStation Vita [default: %default]')
 	xc.add_option('--sailfish', action='store', dest='SAILFISH', default = None,
 		help='enable building for Sailfish/Aurora')
+	xc.add_option('--ps3', action='store', dest='PS3', default = False,
+		help='enable building for PlayStation 3 [default: %default]')
 
 def configure(conf):
 	if conf.options.ANDROID_OPTS:
@@ -592,11 +650,28 @@ def configure(conf):
 		conf.env.LIB_M = ['m']
 		conf.env.VRTLD = ['vrtld']
 		conf.env.DEST_OS = 'psvita'
+	elif conf.options.PS3:
+		conf.ps3 = ps3 = PS3(conf)
+		conf.environ['CC'] = ps3.cc()
+		conf.environ['CXX'] = ps3.cxx()
+		conf.environ['STRIP'] = ps3.strip()
+		conf.environ['AR'] = ps3.ar()
+		print(conf.environ['CC'])
+		conf.env.CFLAGS += ps3.cflags()
+		conf.env.CXXFLAGS += ps3.cflags(True)
+		conf.env.LINKFLAGS += ps3.linkflags()
+		conf.env.LDFLAGS += ps3.ldflags()
+		conf.env.DEST_OS = 'ps3'
+		conf.env.HAVE_M = True
+		conf.env.LIB_M = ['m']
+		conf.env.COMPILER_CXX = 'g++'
+		conf.env.COMPILER_CC = 'gcc'
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita' })
+	conf.env.PS3 = conf.options.PS3
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__PS3__' : 'ps3' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
@@ -629,17 +704,23 @@ compiler_cxx_configure = getattr(compiler_cxx, 'configure')
 compiler_c_configure = getattr(compiler_c, 'configure')
 
 def patch_compiler_cxx_configure(conf):
-	if not conf.env.MSVC_WINE:
-		compiler_cxx_configure(conf)
+	if not conf.env.PS3:
+		if not conf.env.MSVC_WINE:
+			compiler_cxx_configure(conf)
+		else:
+			conf.load('msvc', funs='no_autodetect')
 	else:
-		conf.load('msvc', funs='no_autodetect')
+		conf.load('g++')
 	post_compiler_cxx_configure(conf)
 
 def patch_compiler_c_configure(conf):
-	if not conf.env.MSVC_WINE:
-		compiler_c_configure(conf)
+	if not conf.env.PS3:
+		if not conf.env.MSVC_WINE:
+			compiler_c_configure(conf)
+		else:
+			conf.load('msvc', funs='no_autodetect')
 	else:
-		conf.load('msvc', funs='no_autodetect')
+		conf.load('gcc')
 	post_compiler_c_configure(conf)
 
 setattr(compiler_cxx, 'configure', patch_compiler_cxx_configure)

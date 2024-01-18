@@ -29,6 +29,11 @@ GNU General Public License for more details.
 #include "platform/psvita/net_psvita.h"
 static const struct in6_addr in6addr_any;
 #endif
+#if XASH_PS3
+struct sockaddr_storage {
+	word ss_family;
+};
+#endif
 
 #define NET_USE_FRAGMENTS
 
@@ -199,8 +204,10 @@ _inline socklen_t NET_SockAddrLen( const struct sockaddr_storage *addr )
 	{
 	case AF_INET:
 		return sizeof( struct sockaddr_in );
+#if !XASH_PS3
 	case AF_INET6:
 		return sizeof( struct sockaddr_in6 );
+#endif
 	default:
 		return sizeof( *addr ); // what the fuck is this?
 	}
@@ -277,6 +284,7 @@ static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 		((struct sockaddr_in *)s)->sin_port = a->port;
 		((struct sockaddr_in *)s)->sin_addr.s_addr = a->ip4;
 	}
+#if !XASH_PS3
 	else if( a->type6 == NA_IP6 )
 	{
 		struct in6_addr ip6;
@@ -302,6 +310,7 @@ static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 		memcpy(((struct sockaddr_in6 *)s)->sin6_addr.s6_addr, k_ipv6Bytes_LinkLocalAllNodes, sizeof( struct in6_addr ));
 		((struct sockaddr_in6 *)s)->sin6_port = a->port;
 	}
+#endif
 }
 
 /*
@@ -317,6 +326,7 @@ static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 		a->ip4 = ((struct sockaddr_in *)s)->sin_addr.s_addr;
 		a->port = ((struct sockaddr_in *)s)->sin_port;
 	}
+#if !XASH_PS3
 	else if( s->ss_family == AF_INET6 )
 	{
 		NET_IP6BytesToNetadr( a, ((struct sockaddr_in6 *)s)->sin6_addr.s6_addr );
@@ -328,7 +338,9 @@ static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 
 		a->port = ((struct sockaddr_in6 *)s)->sin6_port;
 	}
+#endif
 }
+
 
 /*
 ============
@@ -337,7 +349,7 @@ NET_GetHostByName
 */
 qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
-#if defined HAVE_GETADDRINFO
+#if defined HAVE_GETADDRINFO && !XASH_PS3
 	struct addrinfo *ai = NULL, *cur;
 	struct addrinfo hints;
 	qboolean ret = false;
@@ -492,7 +504,7 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 		return NET_EAI_NONAME;
 
 	memset( sadr, 0, sizeof( *sadr ));
-
+#if !XASH_PS3
 	// try to parse it as IPv6 first
 	if(( family == AF_UNSPEC || family == AF_INET6 ) && ParseIPv6Addr( s, ip6, &port, NULL ))
 	{
@@ -502,7 +514,7 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 
 		return NET_EAI_OK;
 	}
-
+#endif
 	Q_strncpy( copy, s, sizeof( copy ));
 
 	// strip off a trailing :port if present
@@ -592,12 +604,14 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 			((struct sockaddr_in *)sadr)->sin_addr =
 				((struct sockaddr_in*)&temp)->sin_addr;
 		}
+#if !XASH_PS3
 		else if( temp.ss_family == AF_INET6 )
 		{
 			memcpy(&((struct sockaddr_in6 *)sadr)->sin6_addr,
 				&((struct sockaddr_in6*)&temp)->sin6_addr,
 				sizeof( struct in6_addr ));
 		}
+#endif
 	}
 
 	return NET_EAI_OK;
@@ -1505,9 +1519,11 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 
 			switch( err )
 			{
+#if !XASH_PS3
 			case WSAEWOULDBLOCK:
 			case WSAECONNRESET:
 			case WSAECONNREFUSED:
+#endif
 			case WSAEMSGSIZE:
 			case WSAETIMEDOUT:
 				break;
@@ -1652,7 +1668,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 	if( NET_IsSocketError( ret ))
 	{
 		int err = WSAGetLastError();
-
+#if !XASH_PS3
 		// WSAEWOULDBLOCK is silent
 		if( err == WSAEWOULDBLOCK )
 			return;
@@ -1660,15 +1676,17 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 		// some PPP links don't allow broadcasts
 		if( err == WSAEADDRNOTAVAIL && ( to.type == NA_BROADCAST || to.type6 == NA_MULTICAST_IP6 ))
 			return;
-
+#endif
 		if( Host_IsDedicated( ))
 		{
 			Con_DPrintf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
+#if !XASH_PS3
 		else if( err == WSAEADDRNOTAVAIL || err == WSAENOBUFS )
 		{
 			Con_DPrintf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
 		}
+#endif
 		else
 		{
 			Con_Printf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
@@ -1687,6 +1705,44 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 	NET_SendPacketEx( sock, length, data, to, 0 );
 }
 
+#if XASH_PS3
+#define PF_UNSPEC       AF_UNSPEC
+#define PF_UNIX         AF_UNIX
+#define PF_INET         AF_INET
+#define PF_IMPLINK      AF_IMPLINK
+#define PF_PUP          AF_PUP
+#define PF_CHAOS        AF_CHAOS
+#define PF_NS           AF_NS
+#define PF_IPX          AF_IPX
+#define PF_ISO          AF_ISO
+#define PF_OSI          AF_OSI
+#define PF_ECMA         AF_ECMA
+#define PF_DATAKIT      AF_DATAKIT
+#define PF_CCITT        AF_CCITT
+#define PF_SNA          AF_SNA
+#define PF_DECnet       AF_DECnet
+#define PF_DLI          AF_DLI
+#define PF_LAT          AF_LAT
+#define PF_HYLINK       AF_HYLINK
+#define PF_APPLETALK    AF_APPLETALK
+#define PF_VOICEVIEW    AF_VOICEVIEW
+#define PF_FIREFOX      AF_FIREFOX
+#define PF_UNKNOWN1     AF_UNKNOWN1
+#define PF_BAN          AF_BAN
+
+#define PF_MAX          AF_MAX
+#endif
+
+#ifdef XASH_PS3
+#define ioctlsocket( s, cmd, pVal ) setsockopt( s, SOL_SOCKET, cmd, pVal, sizeof( *( pVal ) ) )
+#define FIONBIO SO_NBIO
+struct timeval {
+	long    tv_sec;         /* seconds */
+	long    tv_usec;        /* and microseconds */
+};
+#endif
+
+
 /*
 ====================
 NET_IPSocket
@@ -1699,15 +1755,18 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	uint		optval = 1;
 	dword		_true = 1;
 	int pfamily = PF_INET;
-
+#if !XASH_PS3
 	if( family == AF_INET6 )
 		pfamily = PF_INET6;
+#endif // !XASH_PS3
 
 	if( NET_IsSocketError(( net_socket = socket( pfamily, SOCK_DGRAM, IPPROTO_UDP ))))
 	{
 		err = WSAGetLastError();
+#if !XASH_PS3
 		if( err != WSAEAFNOSUPPORT )
 			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d socket: %s\n", port, NET_ErrorString( ));
+#endif
 		return INVALID_SOCKET;
 	}
 
@@ -1735,7 +1794,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	}
 
 	addr.ss_family = family;
-
+#if !XASH_PS3
 	if( family == AF_INET6 )
 	{
 		if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&_true, sizeof( _true ))))
@@ -1765,7 +1824,9 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 			return INVALID_SOCKET;
 		}
 	}
-	else if( family == AF_INET )
+	else
+#endif
+		if( family == AF_INET )
 	{
 		if( Sys_CheckParm( "-tos" ))
 		{
@@ -1775,8 +1836,10 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 			if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IP, IP_TOS, (const char *)&optval, sizeof( optval ))))
 			{
 				err = WSAGetLastError();
+#if !XASH_PS3
 				if( err != WSAENOPROTOOPT )
 					Con_Printf( S_WARN "NET_UDPSocket: port: %d  setsockopt IP_TOS: %s\n", port, NET_ErrorString( ));
+#endif
 				closesocket( net_socket );
 				return INVALID_SOCKET;
 			}
@@ -1874,6 +1937,9 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 
 	return;
 }
+#if XASH_PS3
+#define gethostname(...) (-1)
+#endif
 
 /*
 ================
@@ -1924,7 +1990,7 @@ void NET_GetLocalAddress( void )
 		}
 		else Con_DPrintf( S_ERROR "Could not get TCP/IPv4 address, Invalid hostname: '%s'\n", buff );
 	}
-
+#if !XASH_PS3
 	if( net.allow_ip6 )
 	{
 		// If we have changed the ip var from the command line, use that instead.
@@ -1947,6 +2013,7 @@ void NET_GetLocalAddress( void )
 		}
 		else Con_DPrintf( S_ERROR "Could not get TCP/IPv6 address, Invalid hostname: '%s'\n", buff );
 	}
+#endif
 }
 
 /*
@@ -2618,9 +2685,11 @@ void HTTP_Run( void )
 
 			if( res )
 			{
+#if !XASH_PS3
 				if( WSAGetLastError() == WSAEINPROGRESS || WSAGetLastError() == WSAEWOULDBLOCK ) // Should give EWOOLDBLOCK if try recv too soon
 					curfile->state = HTTP_CONNECTED;
 				else
+#endif
 				{
 					Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
 					HTTP_FreeFile( curfile, true ); // Cannot connect
@@ -2665,6 +2734,7 @@ void HTTP_Run( void )
 
 				if( res < 0 )
 				{
+#if !XASH_PS3
 					if( WSAGetLastError() != WSAEWOULDBLOCK && WSAGetLastError() != WSAENOTCONN )
 					{
 						Con_Printf( S_ERROR "failed to send request: %s\n", NET_ErrorString( ));
@@ -2672,6 +2742,7 @@ void HTTP_Run( void )
 						wait = true;
 						break;
 					}
+#endif
 					// blocking while waiting connection
 					// increase counter when blocking
 					curfile->blocktime += host.frametime;
@@ -2714,8 +2785,10 @@ void HTTP_Run( void )
 			HTTP_FreeFile( curfile, false ); // success
 			break;
 		}
+#if !XASH_PS3
 		else if(( WSAGetLastError( ) != WSAEWOULDBLOCK ) && ( WSAGetLastError( ) != WSAEINPROGRESS ))
 			Con_Reportf( "problem downloading %s:\n%s\n", curfile->path, NET_ErrorString( ));
+#endif
 		else
 			curfile->blocktime += host.frametime;
 

@@ -53,7 +53,7 @@ static LogData s_ld;
 
 char *Sys_Input( void )
 {
-#if XASH_USE_SELECT
+#if XASH_USE_SELECT && !XASH_PS3
 	if( Host_IsDedicated( ))
 	{
 		fd_set rfds;
@@ -279,7 +279,7 @@ static void Sys_PrintStdout( const char *logtime, const char *msg )
 	}
 #endif
 
-#elif !XASH_WIN32 // Wcon does the job
+#elif !XASH_WIN32 && !XASH_PS3// Wcon does the job
 	Sys_PrintLogfile( STDOUT_FILENO, logtime, msg, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
 #endif

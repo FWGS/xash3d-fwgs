@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#if !XASH_PSVITA
+#if !XASH_PSVITA && !XASH_PS3
 #include <sys/ioctl.h>
 #endif
 #include <sys/select.h>

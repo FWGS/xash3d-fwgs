@@ -67,6 +67,10 @@ def configure(conf):
 		# then remove them to avoid them getting linked to shared objects
 		for lib in extra_libs:
 			conf.env.LDFLAGS.remove(lib)
+	elif conf.env.DEST_OS == 'ps3':
+		conf.define('XASH_SDL', 12)
+		conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL2' )
+		conf.env.HAVE_SDL2 = True
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
