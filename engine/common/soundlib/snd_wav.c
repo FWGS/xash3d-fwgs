@@ -331,7 +331,8 @@ stream_t *Stream_OpenWAV( const char *filename )
 		return NULL;
 
 	// open
-	file = FS_Open( filename, "rb", false );
+	// h - hold mode
+	file = FS_Open( filename, "rbh", false );
 	if( !file ) return NULL;
 
 	// find "RIFF" chunk

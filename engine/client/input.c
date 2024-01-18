@@ -60,8 +60,10 @@ uint IN_CollectInputDevices( void )
 	if( !m_ignore.value ) // no way to check is mouse connected, so use cvar only
 		ret |= INPUT_DEVICE_MOUSE;
 
+#ifndef XASH_NO_TOUCH
 	if( touch_enable.value )
 		ret |= INPUT_DEVICE_TOUCH;
+#endif
 
 	if( Joy_IsActive() ) // connected or enabled
 		ret |= INPUT_DEVICE_JOYSTICK;
@@ -91,13 +93,17 @@ void IN_LockInputDevices( qboolean lock )
 	{
 		SetBits( m_ignore.flags, FCVAR_READ_ONLY );
 		SetBits( joy_enable.flags, FCVAR_READ_ONLY );
+#ifndef XASH_NO_TOUCH
 		SetBits( touch_enable.flags, FCVAR_READ_ONLY );
+#endif
 	}
 	else
 	{
 		ClearBits( m_ignore.flags, FCVAR_READ_ONLY );
 		ClearBits( joy_enable.flags, FCVAR_READ_ONLY );
+#ifndef XASH_NO_TOUCH
 		ClearBits( touch_enable.flags, FCVAR_READ_ONLY );
+#endif
 	}
 }
 
@@ -351,11 +357,14 @@ void IN_MouseEvent( int key, int down )
 	else ClearBits( in_mstate, BIT( key ));
 
 	// touch emulation overrides all input
+#if XASH_NO_TOUCH
 	if( touch_emulate.value )
 	{
 		Touch_KeyEvent( K_MOUSE1 + key, down );
 	}
-	else if( cls.key_dest == key_game )
+	else
+#endif
+	if( cls.key_dest == key_game )
 	{
 		// perform button actions
 		VGui_MouseEvent( K_MOUSE1 + key, down );
@@ -364,8 +373,7 @@ void IN_MouseEvent( int key, int down )
 		// client may override IN_MouseEvent
 		// but by default it calls back to Key_Event anyway
 		if( in_mouseactive )
-			clgame.dllFuncs.IN_MouseEvent( in_mstate );
-	}
+			clgame.dllFuncs.IN_MouseEvent( in_mstate );	}
 	else
 	{
 		// perform button actions

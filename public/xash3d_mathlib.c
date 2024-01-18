@@ -209,6 +209,30 @@ rsqrt
 */
 float rsqrt( float number )
 {
+#if XASH_PSP
+#if 0 /* experimental */
+	if( number == 0.0f ) return 0.0f;
+	return ( 1.0 / __builtin_allegrex_sqrt_s( number ));
+#else
+	float result;
+	__asm__ (
+		".set		push\n"				// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"mfc1		$8, %1\n"			// FPU->CPU
+		"mtv		$8, S000\n"			// CPU->VFPU S000 = number
+		"vzero.s	S001\n"				// S100 = 0
+		"vcmp.s		EZ,   S000\n"			// CC[0] = ( S000 == 0.0f )
+		"vrsq.s		S000, S000\n"			// S000 = 1.0 / sqrt( S000 )
+		"vcmovt.s	S000, S001, 0\n"		// if ( CC[0] ) S000 = S001
+		"sv.s		S000, %0\n"			// result = S000
+		".set		pop\n"				// restore assembler option
+		:	"=m"( result )
+		:	"f"( number )
+		:	"$8"
+	);
+	return result;
+#endif
+#else
 	int	i;
 	float	x, y;
 
@@ -222,6 +246,7 @@ float rsqrt( float number )
 	y = y * (1.5f - (x * y * y));	// first iteration
 
 	return y;
+#endif
 }
 
 /*
@@ -384,6 +409,7 @@ void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, v
 //
 // bounds operations
 //
+
 /*
 =================
 AddPointToBounds
@@ -485,6 +511,46 @@ AngleQuaternion
 */
 void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
 {
+#if XASH_PSP
+	vec4_t dst_angles;
+	if( studio )
+	{
+		dst_angles[0] = angles[PITCH];
+		dst_angles[1] = angles[YAW];
+		dst_angles[2] = angles[ROLL];
+	}
+	else
+	{
+		dst_angles[0] = DEG2RAD( angles[ROLL] );
+		dst_angles[1] = DEG2RAD( angles[PITCH] );
+		dst_angles[2] = DEG2RAD( angles[YAW] );
+	}
+
+	__asm__ (
+		".set		push\n"				// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"lv.q		C000, %1\n"			// C000 = [PITCH, YAW, ROLL]
+		"vcst.s		S010, VFPU_1_PI\n"		// S010 = VFPU_1_PI = 1 / PI
+		"vscl.t		C000, C000, S010\n"		// C000 = C000 * S010 = C000 * 0.5f * ( 2 / PI )
+		"vcos.t		C010, C000\n"			// C010 = cos( C000 * 0.5f )
+		"vsin.t		C000, C000\n"			// C000 = sin( C000 * 0.5f )
+		"vcrs.t		C020, C010, C010\n"		// C020 = ( cp*cy, cy*cr, cr*cp )
+		"vcrs.t		C030, C000, C000\n"		// C030 = ( sp*sy, sy*sr, sr*sp )
+		"vmul.s		S003, S020, S010\n"		// S003 = S020 * S010 = cp*cy*cr
+		"vmul.s		S013, S030, S000\n"		// S013 = S030 * S000 = sp*sy*sr
+		"vmul.t		C020, C020, C000\n"		// C020 = C020 * C000 = ( cp*cy*sr, cy*cr*sp, cr*cp*sy )
+		"vmul.t		C030, C030, C010\n"		// C030 = C030 * C010 = ( sp*sy*cr, sy*sr*cp, sr*sp*cy )
+		"vadd.s		S003, S003, S013\n"		// S003 = S003 + S013 = cp*cy*cr + cp*cy*cr
+		"vadd.t		C000, C020, C030[-X, Y, -Z]\n"
+								// S000 = S020 - C030 = cp*cy*sr - sp*sy*cr
+								// S001 = S021 + C031 = cy*cr*sp + sy*sr*cp
+								// S002 = S022 - C032 = cr*cp*sy - sr*sp*cy
+		"sv.q		C000, %0\n"			// *q   = C000
+		".set		pop\n"				// restore assembler option
+		: "=m"( *q )
+		: "m"( dst_angles )
+	);
+#else
 	float	sr, sp, sy, cr, cp, cy;
 
 	if( studio )
@@ -504,6 +570,7 @@ void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
 	q[1] = cr * sp * cy + sr * cp * sy; // Y
 	q[2] = cr * cp * sy - sr * sp * cy; // Z
 	q[3] = cr * cp * cy + sr * sp * sy; // W
+#endif
 }
 
 /*
@@ -527,6 +594,7 @@ make sure quaternions are within 180 degrees of one another,
 if not, reverse q
 ====================
 */
+#if !XASH_PSP
 void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
 {
 	// decide if one of the quaternions is backwards
@@ -615,9 +683,9 @@ void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt )
 	// 0.0 returns p, 1.0 return q.
 	// decide if one of the quaternions is backwards
 	QuaternionAlign( p, q, q2 );
-
 	QuaternionSlerpNoAlign( p, q2, t, qt );
 }
+#endif // XASH_PSP
 
 /*
 ==================
@@ -626,10 +694,11 @@ BoxOnPlaneSide
 Returns 1, 2, or 1 + 2
 ==================
 */
+#if !XASH_PSP
 int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 {
-	float	dist1, dist2;
 	int	sides = 0;
+	float	dist1, dist2;
 
 	// general case
 	switch( p->signbits )
@@ -679,6 +748,7 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 
 	return sides;
 }
+#endif // !XASH_PSP
 
 /*
 ====================

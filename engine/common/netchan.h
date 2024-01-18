@@ -86,7 +86,18 @@ GNU General Public License for more details.
 #define NETSPLIT_BACKUP 8
 #define NETSPLIT_BACKUP_MASK (NETSPLIT_BACKUP - 1)
 #define NETSPLIT_HEADER_SIZE 18
-
+#if XASH_PSP
+	#undef MULTIPLAYER_BACKUP
+	#undef SINGLEPLAYER_BACKUP
+	#undef NUM_PACKET_ENTITIES
+	#undef MAX_CUSTOM_BASELINES
+	#undef NET_MAX_FRAGMENT
+	#define MULTIPLAYER_BACKUP		16
+	#define SINGLEPLAYER_BACKUP		16
+	#define NUM_PACKET_ENTITIES		32
+	#define MAX_CUSTOM_BASELINES		8
+	#define NET_MAX_FRAGMENT		32768
+#else
 #if XASH_LOW_MEMORY == 2
 	#undef MULTIPLAYER_BACKUP
 	#undef SINGLEPLAYER_BACKUP
@@ -108,7 +119,7 @@ GNU General Public License for more details.
 	#define MAX_CUSTOM_BASELINES		8
 	#define NET_MAX_FRAGMENT		32768
 #endif
-
+#endif /* XASH_PSP */
 typedef struct netsplit_chain_packet_s
 {
 	// bool vector

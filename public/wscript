@@ -16,7 +16,7 @@ def configure(conf):
 
 def build(bld):
 	bld(name = 'sdk_includes', export_includes = '. ../common ../pm_shared ../engine')
-	bld.stlib(source   = bld.path.ant_glob('*.c'),
+	bld.stlib(source   = bld.path.ant_glob('*.c') + bld.path.ant_glob('*.S'),
 		target   = 'public',
 		features = 'c',
 		use      = 'sdk_includes',

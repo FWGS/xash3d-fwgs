@@ -151,17 +151,6 @@ void MSG_Clear( sizebuf_t *sb )
 	sb->bOverflow = false;
 }
 
-static qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
-{
-	if( sb->iCurBit + nBits > sb->nDataBits )
-		sb->bOverflow = true;
-	return sb->bOverflow;
-}
-
-qboolean MSG_CheckOverflow( sizebuf_t *sb )
-{
-	return MSG_Overflow( sb, 0 );
-}
 
 int MSG_SeekToBit( sizebuf_t *sb, int bitPos, int whence )
 {
@@ -191,17 +180,6 @@ int MSG_SeekToBit( sizebuf_t *sb, int bitPos, int whence )
 void MSG_SeekToByte( sizebuf_t *sb, int bytePos )
 {
 	sb->iCurBit = bytePos << 3;
-}
-
-void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
-{
-	if( !MSG_Overflow( sb, 1 ))
-	{
-		if( nValue ) sb->pData[sb->iCurBit>>3] |= BIT( sb->iCurBit & 7 );
-		else sb->pData[sb->iCurBit>>3] &= ~BIT( sb->iCurBit & 7 );
-
-		sb->iCurBit++;
-	}
 }
 
 void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )

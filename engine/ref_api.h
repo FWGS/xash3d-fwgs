@@ -446,6 +446,11 @@ typedef struct ref_api_s
 
 	// filesystem exports
 	fs_api_t	*fsapi;
+
+#if XASH_PSP
+	void	*(*P5Ram_Alloc)( size_t size, int clear );
+	void	(*P5Ram_Free)( void *ptr );
+#endif
 } ref_api_t;
 
 struct mip_s;

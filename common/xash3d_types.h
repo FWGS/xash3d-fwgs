@@ -21,12 +21,22 @@ typedef int		sound_t;
 typedef float		vec_t;
 typedef vec_t		vec2_t[2];
 typedef vec_t		vec3_t[3];
+#if XASH_PSP
+typedef vec_t		vec4_t[4] __attribute__( ( aligned( 16 ) ) );
+typedef vec_t		quat_t[4] __attribute__( ( aligned( 16 ) ) );
+#else
 typedef vec_t		vec4_t[4];
 typedef vec_t		quat_t[4];
+#endif
 typedef byte		rgba_t[4];	// unsigned byte colorpack
 typedef byte		rgb_t[3];		// unsigned byte colorpack
+#if XASH_PSP
+typedef vec_t		matrix3x4[3][4] __attribute__( ( aligned( 16 ) ) );
+typedef vec_t		matrix4x4[4][4] __attribute__( ( aligned( 16 ) ) );
+#else
 typedef vec_t		matrix3x4[3][4];
 typedef vec_t		matrix4x4[4][4];
+#endif
 
 #if XASH_64BIT
 typedef uint32_t        poolhandle_t;
@@ -194,12 +204,16 @@ typedef void *(*pfnCreateInterface_t)( const char *, int * );
 // config strings are a general means of communication from
 // the server to all connected clients.
 // each config string can be at most CS_SIZE characters.
+#if XASH_PSP
+#define MAX_QPATH 48
+#else
 #if XASH_LOW_MEMORY == 0
 #define MAX_QPATH		64	// max length of a game pathname
 #elif XASH_LOW_MEMORY == 2
 #define MAX_QPATH		32 // should be enough for singleplayer
 #elif XASH_LOW_MEMORY == 1
 #define MAX_QPATH 48
+#endif
 #endif
 #define MAX_OSPATH		260	// max length of a filesystem pathname
 #define CS_SIZE		64	// size of one config string

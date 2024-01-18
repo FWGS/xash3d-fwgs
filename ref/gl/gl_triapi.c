@@ -142,7 +142,6 @@ void _TriColor4ub( byte r, byte g, byte b, byte a )
 	pglColor4ub( r, g, b, a );
 }
 
-
 /*
 =============
 TriColor4ub
@@ -365,4 +364,3 @@ void TriBrightness( float brightness )
 
 	_TriColor4f( r, g, b, 1.0f );
 }
-

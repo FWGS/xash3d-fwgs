@@ -175,8 +175,26 @@ static inline float UintAsFloat( uint32_t u )
 
 static inline void SinCos( float radians, float *sine, float *cosine )
 {
+#if XASH_PSP
+	__asm__ (
+		".set		push\n"				// save assembler option
+		".set		noreorder\n"			// suppress reordering
+		"mfc1		$8, %2\n"			// FPU->CPU
+		"mtv		$8, S000\n"			// CPU->VFPU S000 = radians
+		"vcst.s		S001, VFPU_2_PI\n"		// S001 = VFPU_2_PI = 2 / PI
+		"vmul.s		S000, S000, S001\n"		// S000 = S000 * S001
+		"vrot.p		C002, S000, [s, c]\n"		// S002 = sin( radians ), S003 = cos( radians )
+		"sv.s		S002, %0\n"			// sine = S002
+		"sv.s		S003, %1\n"			// cosine = S003
+		".set		pop\n"				// restore assembler option
+		:	"=m"( *sine), "=m"( *cosine )
+		:	"f"( radians )
+		:	"$8"
+	);
+#else
 	*sine = sin(radians);
 	*cosine = cos(radians);
+#endif
 }
 
 float rsqrt( float number );

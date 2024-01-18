@@ -93,6 +93,23 @@ static const loadpixformat_t load_null[] =
 { NULL, NULL, NULL, IL_HINT_NO }
 };
 
+// a1ba: that's weird, better debug
+#if XASH_PSP
+static const loadpixformat_t load_game[] =
+{
+{ "%s%s.%s", "mip", Image_LoadMIP, IL_HINT_NO },	// hl textures from wad or buffer
+{ "%s%s.%s", "mdl", Image_LoadMDL, IL_HINT_HL },	// hl studio model skins
+{ "%s%s.%s", "spr", Image_LoadSPR, IL_HINT_HL },	// hl sprite frames
+{ "%s%s.%s", "lmp", Image_LoadLMP, IL_HINT_NO },	// hl menu images (cached.wad etc)
+{ "%s%s.%s", "fnt", Image_LoadFNT, IL_HINT_HL },	// hl console font (fonts.wad etc)
+{ "%s%s.%s", "pal", Image_LoadPAL, IL_HINT_NO },	// install studio\sprite palette
+{ "%s%s.%s", "dds", Image_LoadDDS, IL_HINT_NO },	// dds for world and studio models
+{ "%s%s.%s", "tga", Image_LoadTGA, IL_HINT_NO },	// hl vgui menus
+{ "%s%s.%s", "bmp", Image_LoadBMP, IL_HINT_NO },	// WON menu images
+{ "%s%s.%s", "png", Image_LoadPNG, IL_HINT_NO },	// NightFire 007 menus
+{ NULL, NULL, NULL, IL_HINT_NO }
+};
+#else
 static const loadpixformat_t load_game[] =
 {
 { "%s%s.%s", "dds", Image_LoadDDS, IL_HINT_NO },	// dds for world and studio models
@@ -108,7 +125,7 @@ static const loadpixformat_t load_game[] =
 { "%s%s.%s", "ktx2", Image_LoadKTX2, IL_HINT_NO },	// ktx2 for world and studio models
 { NULL, NULL, NULL, IL_HINT_NO }
 };
-
+#endif
 /*
 =============================================================================
 

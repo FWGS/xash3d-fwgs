@@ -141,6 +141,7 @@ typedef enum
 #define MAX_DECALS		256	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	32	// static entities that moved on the client when level is spawn
 #endif
+#endif
 
 #define GameState		(&host.game)
 
@@ -723,7 +724,6 @@ int R_CreateDecalList( struct decallist_s *pList );
 void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
-struct cl_entity_s *CL_GetEntityByIndex( int index );
 void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );

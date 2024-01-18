@@ -201,6 +201,19 @@ void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int textu
 // Build the initial list of vertices from the surface verts into the global array, 'verts'.
 void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t textureSpaceBasis[3], float *verts )
 {
+#if XASH_PSP
+	int	i;
+
+	if( !surf->polys )
+		return;
+	for( i = 0; i < surf->polys->numverts; i++, verts += VERTEXSIZE )
+	{
+		VectorCopy( surf->polys->verts[i].xyz, verts ); // copy model space coordinates
+		verts[3] = DotProduct( verts, textureSpaceBasis[0] ) - pDecal->dx + 0.5f;
+		verts[4] = DotProduct( verts, textureSpaceBasis[1] ) - pDecal->dy + 0.5f;
+		verts[5] = verts[6] = 0.0f;
+	}
+#else
 	float	*v;
 	int	i;
 
@@ -213,6 +226,7 @@ void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t tex
 		verts[4] = DotProduct( verts, textureSpaceBasis[1] ) - pDecal->dy + 0.5f;
 		verts[5] = verts[6] = 0.0f;
 	}
+#endif
 }
 
 // Figure out where the decal maps onto the surface.
@@ -524,7 +538,26 @@ glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t
 
 	v = R_DecalSetupVerts( pdecal, surf, pdecal->texture, &lnumverts );
 	if( !lnumverts ) return NULL;	// probably this never happens
+#if XASH_PSP
+	// allocate glpoly
+	// REFTODO: com_studiocache pool!
+	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + ( lnumverts * 2 - 1 ) * sizeof( gu_vert_t ));
+	poly->next = pdecal->polys;
+	poly->flags = surf->flags;
+	pdecal->polys = poly;
+	poly->numverts = lnumverts;
 
+	for( i = 0; i < lnumverts; i++, v += VERTEXSIZE )
+	{
+		poly->verts[i].uv[0] = v[3];
+		poly->verts[i].uv[1] = v[4];
+		VectorCopy( v, poly->verts[i].xyz );
+
+		poly->verts[i + lnumverts].uv[0] = v[5];
+		poly->verts[i + lnumverts].uv[1] = v[6];
+		VectorCopy( v, poly->verts[i + lnumverts].xyz );
+	}
+#else
 	// allocate glpoly
 	// REFTODO: com_studiocache pool!
 	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
@@ -541,7 +574,7 @@ glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t
 		poly->verts[i][5] = v[5];
 		poly->verts[i][6] = v[6];
 	}
-
+#endif
 	return poly;
 }
 
@@ -861,8 +894,18 @@ float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int te
 	{
 		v = g_DecalClipVerts[0];
 		count = p->numverts;
+#if XASH_PSP
+		// if we have mesh so skip clipping and just copy vertexes out (perf)
+		for( i = 0; i < count; i++, v += VERTEXSIZE )
+		{
+			VectorCopy( p->verts[i].xyz, v );
+			v[3] = p->verts[i].uv[0];
+			v[4] = p->verts[i].uv[1];
+			v[5] = p->verts[i + count].uv[0];
+			v[6] = p->verts[i + count].uv[1];
+		}
+#else
 		v2 = p->verts[0];
-
 		// if we have mesh so skip clipping and just copy vertexes out (perf)
 		for( i = 0; i < count; i++, v += VERTEXSIZE, v2 += VERTEXSIZE )
 		{
@@ -872,7 +915,7 @@ float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int te
 			v[5] = v2[5];
 			v[6] = v2[6];
 		}
-
+#endif
 		// restore pointer
 		v = g_DecalClipVerts[0];
 	}

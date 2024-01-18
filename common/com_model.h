@@ -127,6 +127,21 @@ typedef struct
 	int		flags;		// sky or slime, no lightmap or 256 subdivision
 } mtexinfo_t;
 
+#if XASH_PSP
+typedef struct
+{
+	float uv[2];
+	float xyz[3];
+}gu_vert_t;
+typedef struct glpoly_s
+{
+	struct glpoly_s	*next;
+	struct glpoly_s	*chain;
+	int				numverts;
+	int				flags;          		// for SURF_UNDERWATER
+	gu_vert_t		verts[1];				// variable sized (xyz s1t1 + lm(xyz s2t2))
+} glpoly_t;
+#else
 typedef struct glpoly_s
 {
 	struct glpoly_s	*next;
@@ -135,7 +150,7 @@ typedef struct glpoly_s
 	int		flags;          		// for SURF_UNDERWATER
 	float		verts[4][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
 } glpoly_t;
-
+#endif
 typedef struct mnode_s
 {
 // common with leaf

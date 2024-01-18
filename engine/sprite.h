@@ -65,6 +65,8 @@ typedef enum
 	SPR_CULL_NONE,			// oriented sprite will be draw back face too
 } facetype_t;
 
+#pragma pack(push, 1)
+
 // generic helper
 typedef struct
 {
@@ -132,5 +134,7 @@ typedef struct
 } dframetype_t;
 
 STATIC_ASSERT( sizeof( dframetype_t ) == 4, "invalid dframetype_t size" );
+
+#pragma pack(pop)
 
 #endif//SPRITE_H

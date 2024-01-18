@@ -24,7 +24,7 @@ Image_LoadTGA
 */
 qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesize )
 {
-	int	i, columns, rows, row_inc, row, col;
+	int	i, columns, rows, row_inc, row, col, bpp = 1;
 	byte	*buf_p, *pixbuf, *targa_rgba;
 	rgba_t	palette[256];
 	byte	red = 0, green = 0, blue = 0, alpha = 0;
@@ -32,6 +32,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	int	reflectivity[3] = { 0, 0, 0 };
 	qboolean	compressed;
 	tga_t	targa_header;
+	int	palIndex = 0;
 
 	if( filesize < sizeof( tga_t ))
 		return false;
@@ -54,8 +55,6 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 
 	// check for tga file
 	if( !Image_ValidSize( name )) return false;
-
-	image.type = PF_RGBA_32; // always exctracted to 32-bit buffer
 
 	if( targa_header.image_type == 1 || targa_header.image_type == 9 )
 	{
@@ -119,11 +118,35 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 			return false;
 		}
 	}
+	else
+	{
+		Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Type %i not supported\n", name, targa_header.image_type );
+		return false;
+	}
 
 	columns = targa_header.width;
 	rows = targa_header.height;
 
-	image.size = image.width * image.height * 4;
+	if( Image_CheckFlag( IL_KEEP_8BIT ) && ( targa_header.image_type == 1 || targa_header.image_type == 9 ))
+	{
+		pixbuf = image.palette = Mem_Malloc( host.imagepool, 1024 );
+		for( i = 0; i < targa_header.colormap_length; i++ )
+		{
+			*pixbuf++ = palette[i][0];
+			*pixbuf++ = palette[i][1];
+			*pixbuf++ = palette[i][2];
+			*pixbuf++ = palette[i][3];
+		}
+		image.type = PF_INDEXED_32;
+	}
+	else
+	{
+		image.palette = NULL;
+		image.type = PF_RGBA_32;
+		bpp = 4;
+	}
+
+	image.size = image.width * image.height * bpp;
 	targa_rgba = image.rgba = Mem_Malloc( host.imagepool, image.size );
 
 	// if bit 5 of attributes isn't set, the image has been stored from bottom to top
@@ -134,8 +157,8 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 	else
 	{
-		pixbuf = targa_rgba + ( rows - 1 ) * columns * 4;
-		row_inc = -columns * 4 * 2;
+		pixbuf = targa_rgba + ( rows - 1 ) * columns * bpp;
+		row_inc = -columns * bpp * 2;
 	}
 
 	compressed = ( targa_header.image_type == 9 || targa_header.image_type == 10 || targa_header.image_type == 11 );
@@ -161,13 +184,13 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 				case 1:
 				case 9:
 					// colormapped image
-					blue = *buf_p++;
-					if( blue < targa_header.colormap_length )
+					palIndex = *buf_p++;
+					if( palIndex < targa_header.colormap_length )
 					{
-						red = palette[blue][0];
-						green = palette[blue][1];
-						alpha = palette[blue][3];
-						blue = palette[blue][2];
+						red = palette[palIndex][0];
+						green = palette[palIndex][1];
+						blue = palette[palIndex][2];
+						alpha = palette[palIndex][3];
 						if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
 					}
 					break;
@@ -208,10 +231,18 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 			reflectivity[1] += green;
 			reflectivity[2] += blue;
 
-			*pixbuf++ = red;
-			*pixbuf++ = green;
-			*pixbuf++ = blue;
-			*pixbuf++ = alpha;
+			if( image.type == PF_INDEXED_32 || image.type == PF_INDEXED_24 )
+			{
+				*pixbuf++ = palIndex;
+			}
+			else
+			{
+				*pixbuf++ = red;
+				*pixbuf++ = green;
+				*pixbuf++ = blue;
+				*pixbuf++ = alpha;
+			}
+
 			if( ++col == columns )
 			{
 				// run spans across rows
@@ -223,6 +254,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	VectorDivide( reflectivity, ( image.width * image.height ), image.fogParams );
+	if( image.palette ) Image_GetPaletteBMP( image.palette );
 	image.depth = 1;
 
 	return true;

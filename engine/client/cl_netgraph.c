@@ -81,12 +81,12 @@ NetGraph_FillRGBA shortcut
 */
 static void NetGraph_DrawRect( wrect_t *rect, byte colors[4] )
 {
-	ref.dllFuncs.Color4ub( colors[0], colors[1], colors[2], colors[3] );	// color for this quad
+	gTriApi.Color4ub( colors[0], colors[1], colors[2], colors[3] );	// color for this quad
 
-	ref.dllFuncs.Vertex3f( rect->left, rect->top, 0 );
-	ref.dllFuncs.Vertex3f( rect->left + rect->right, rect->top, 0 );
-	ref.dllFuncs.Vertex3f( rect->left + rect->right, rect->top + rect->bottom, 0 );
-	ref.dllFuncs.Vertex3f( rect->left, rect->top + rect->bottom, 0 );
+	gTriApi.Vertex3f( rect->left, rect->top, 0 );
+	gTriApi.Vertex3f( rect->left + rect->right, rect->top, 0 );
+	gTriApi.Vertex3f( rect->left + rect->right, rect->top + rect->bottom, 0 );
+	gTriApi.Vertex3f( rect->left, rect->top + rect->bottom, 0 );
 }
 
 /*
@@ -691,7 +691,7 @@ void SCR_DrawNetGraph( void )
 
 		ref.dllFuncs.End();
 		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-		ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+		ref.dllFuncs.RenderMode( kRenderNormal );
 	}
 }
 

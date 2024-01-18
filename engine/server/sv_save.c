@@ -32,8 +32,11 @@ half-life implementation of saverestore system
 #define SAVEGAME_HEADER		(('V'<<24)+('A'<<16)+('S'<<8)+'J')	// little-endian "JSAV"
 #define SAVEGAME_VERSION		0x0071				// Version 0.71 GoldSrc compatible
 #define CLIENT_SAVEGAME_VERSION	0x0067				// Version 0.67
-
+#if XASH_PSP
+#define SAVE_HEAPSIZE		0x200000				// reserve 2Mb for now
+#else
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
+#endif
 #define SAVE_HASHSTRINGS		0xFFF				// 4095 unique strings
 
 // savedata headers
@@ -384,7 +387,13 @@ static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 	ENTITYTABLE	*pTable;
 	int		i;
 
+#if XASH_PSP
+	pSaveData->pTable = P5Ram_Alloc( sizeof( ENTITYTABLE ) * entityCount, 1 );
+	if( !pSaveData->pTable )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData->pTable) failed!", __FUNCTION__ );
+#else
 	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
+#endif
 	pSaveData->tableCount = entityCount;
 
 	// setup entitytable
@@ -700,8 +709,17 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 {
 	SAVERESTOREDATA	*pSaveData;
 
+#if XASH_PSP
+	pSaveData = P5Ram_Alloc( sizeof( SAVERESTOREDATA ) + size, 1 );
+	if( !pSaveData )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData) failed!", __FUNCTION__ );
+	pSaveData->pTokens = (char **)P5Ram_Alloc( tokenCount * sizeof( char* ), 1 );
+	if( !pSaveData->pTokens )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData->pTokens) failed!", __FUNCTION__ );
+#else
 	pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
 	pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
+#endif
 	pSaveData->tokenCount = tokenCount;
 
 	pSaveData->pBaseData = (char *)(pSaveData + 1); // skip the save structure);
@@ -750,20 +768,32 @@ static void SaveFinish( SAVERESTOREDATA *pSaveData )
 
 	if( pSaveData->pTokens )
 	{
+#if XASH_PSP
+		P5Ram_Free( pSaveData->pTokens );
+#else
 		Mem_Free( pSaveData->pTokens );
+#endif
 		pSaveData->pTokens = NULL;
 		pSaveData->tokenCount = 0;
 	}
 
 	if( pSaveData->pTable )
 	{
+#if XASH_PSP
+		P5Ram_Free( pSaveData->pTable );
+#else
 		Mem_Free( pSaveData->pTable );
+#endif
 		pSaveData->pTable = NULL;
 		pSaveData->tableCount = 0;
 	}
 
 	svgame.globals->pSaveData = NULL;
+#if XASH_PSP
+	P5Ram_Free( pSaveData );
+#else
 	Mem_Free( pSaveData );
+#endif
 }
 
 /*
@@ -2333,14 +2363,26 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		return 0;
 	}
 
+#if XASH_PSP
+	pSaveData = (char *)P5Ram_Alloc( size, 0 );
+	if( !pSaveData )
+		Host_Error( "%s: P5Ram_Alloc (pSaveData) failed!", __FUNCTION__ );
+#else
 	pSaveData = (char *)Mem_Malloc( host.mempool, size );
+#endif
 	FS_Read( f, pSaveData, size );
 	pData = pSaveData;
 
 	// allocate a table for the strings, and parse the table
 	if( tokenSize > 0 )
 	{
+#if XASH_PSP
+		pTokenList = P5Ram_Alloc( tokenCount * sizeof( char* ), 1 );
+		if( !pTokenList )
+			Host_Error( "%s: P5Ram_Alloc (pTokenList) failed!", __FUNCTION__ );
+#else
 		pTokenList = Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
+#endif
 
 		// make sure the token strings pointed to by the pToken hashtable.
 		for( i = 0; i < tokenCount; i++ )
@@ -2352,22 +2394,40 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	else pTokenList = NULL;
 
 	// short, short (size, index of field name)
+#if XASH_PSP /* FIX Unaligned access! */
+	short offpd;
+	memcpy(&offpd, pData, sizeof( short ) );
+	nFieldSize = offpd;
+	pData += sizeof( short );
+
+	memcpy(&offpd, pData, sizeof( short ));
+	pFieldName = pTokenList[offpd];
+#else	
 	nFieldSize = *(short *)pData;
 	pData += sizeof( short );
 	pFieldName = pTokenList[*(short *)pData];
-
+#endif
 	if( Q_stricmp( pFieldName, "GameHeader" ))
 	{
 		Q_strncpy( comment, "<missing GameHeader>", MAX_STRING );
+#if XASH_PSP
+		if( pTokenList ) P5Ram_Free( pTokenList );
+		if( pSaveData ) P5Ram_Free( pSaveData );
+#else
 		if( pTokenList ) Mem_Free( pTokenList );
 		if( pSaveData ) Mem_Free( pSaveData );
+#endif
 		FS_Close( f );
 		return 0;
 	}
 
 	// int (fieldcount)
 	pData += sizeof( short );
+#if XASH_PSP /* FIX Unaligned access! */
+	memcpy(&nNumberOfFields, pData, sizeof(int));
+#else
 	nNumberOfFields = (int)*pData;
+#endif	
 	pData += nFieldSize;
 
 	// each field is a short (size), short (index of name), binary string of "size" bytes (data)
@@ -2378,11 +2438,23 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		// Size
 		// szName
 		// Actual Data
+
+
+#if XASH_PSP /* FIX Unaligned access! */
+		memcpy(&offpd, pData, sizeof( short ) );
+		nFieldSize = offpd;
+		pData += sizeof( short );
+
+		memcpy(&offpd, pData, sizeof( short ));
+		pFieldName = pTokenList[offpd];
+		pData += sizeof( short );
+#else
 		nFieldSize = *(short *)pData;
 		pData += sizeof( short );
 
 		pFieldName = pTokenList[*(short *)pData];
 		pData += sizeof( short );
+#endif
 
 		size = Q_min( nFieldSize, MAX_STRING );
 
@@ -2400,8 +2472,13 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	}
 
 	// delete the string table we allocated
+#if XASH_PSP
+	if( pTokenList ) P5Ram_Free( pTokenList );
+	if( pSaveData ) P5Ram_Free( pSaveData );
+#else
 	if( pTokenList ) Mem_Free( pTokenList );
 	if( pSaveData ) Mem_Free( pSaveData );
+#endif
 	FS_Close( f );
 
 	// at least mapname should be filled

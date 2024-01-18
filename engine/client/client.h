@@ -370,7 +370,6 @@ typedef struct
 	// holds text color
 	rgba_t		textColor;
 	rgba_t		spriteColor;
-	vec4_t		triRGBA;
 
 	// crosshair members
 	const model_t	*pCrosshair;
@@ -839,7 +838,6 @@ void CL_ClearSpriteTextures( void );
 void CL_CenterPrint( const char *text, float y );
 void CL_TextMessageParse( byte *pMemFile, int fileSize );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
-model_t *CL_ModelHandle( int modelindex );
 void NetAPI_CancelAllRequests( void );
 cl_entity_t *CL_GetLocalPlayer( void );
 model_t *CL_LoadClientSprite( const char *filename );
@@ -861,19 +859,45 @@ void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int he
 void CL_DisableScissor( scissor_state_t *scissor );
 qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
 
-_inline cl_entity_t *CL_EDICT_NUM( int n )
+static inline cl_entity_t *CL_EDICT_NUM( int n )
 {
-	if( !clgame.entities )
+	if( unlikely( !clgame.entities )) // not in game yet
 	{
 		Host_Error( "CL_EDICT_NUM: clgame.entities is NULL\n");
 		return NULL;
 	}
 
-	if(( n >= 0 ) && ( n < clgame.maxEntities ))
-		return clgame.entities + n;
+	if( unlikely( n < 0 || n >= clgame.maxEntities ))
+	{
+		Host_Error( "CL_EDICT_NUM: bad number %i\n", n );
+		return NULL;
+	}
 
-	Host_Error( "CL_EDICT_NUM: bad number %i\n", n );
-	return NULL;
+	return &clgame.entities[n];
+}
+
+static inline cl_entity_t *CL_GetEntityByIndex( int n )
+{
+	if( unlikely( !clgame.entities )) // not in game yet
+		return NULL;
+
+	if( unlikely( n < 0 || n >= clgame.maxEntities ))
+		return NULL;
+
+	return &clgame.entities[n];
+}
+
+static inline model_t *CL_ModelHandle( int modelindex )
+{
+	if( unlikely( modelindex < 0 || modelindex >= MAX_MODELS ))
+		return NULL;
+
+	return cl.models[modelindex];
+}
+
+static inline qboolean CL_IsPlayerIndex( int idx )
+{
+	return ( idx >= 1 && idx <= cl.maxclients );
 }
 
 //
@@ -995,7 +1019,6 @@ void CL_ProcessPlayerState( int playerindex, entity_state_t *state );
 void CL_ComputePlayerOrigin( cl_entity_t *clent );
 void CL_ProcessPacket( frame_t *frame );
 void CL_MoveThirdpersonCamera( void );
-qboolean CL_IsPlayerIndex( int idx );
 void CL_SetIdealPitch( void );
 void CL_EmitEntities( void );
 
@@ -1189,5 +1212,6 @@ int Key_ToUpper( int key );
 void OSK_Draw( void );
 
 extern rgba_t g_color_table[8];
+extern triangleapi_t gTriApi;
 
 #endif//CLIENT_H

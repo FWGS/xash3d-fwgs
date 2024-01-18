@@ -12,8 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
 #include "soundlib.h"
+#if !XASH_PSP
 #include "libmpg/libmpg.h"
 
 #pragma pack( push, 1 )
@@ -455,3 +455,485 @@ void Stream_FreeMPG( stream_t *stream )
 
 	Mem_Free( stream );
 }
+
+#else // XASH_PSP
+#include "platform/psp/scemp3/pspmp3.h"
+
+/*
+=================================================================
+
+	PSP MPEG decoding
+
+=================================================================
+*/
+#define MP3_ID3V1_ID		"TAG"
+#define MP3_ID3V1_ID_SZ		3
+#define MP3_ID3V1_SZ		128
+
+#define MP3_ID3V2_ID		"ID3"
+#define MP3_ID3V2_ID_SZ		3
+#define MP3_ID3V2_SIZE_OFF	6
+#define MP3_ID3V2_SIZE_SZ	4
+#define MP3_ID3V2_HEADER_SZ	10
+
+#define	MP3_ERRORS_MAX		3
+
+#define PCM_WIDTH		2 // always 16-bit PCM
+#define PCM_CHANNELS		2 // always 2
+
+#define MP3_BUFFER_SIZE		( 128 * 1024 )
+#define PCM_BUFFER_SIZE		(( 1152 * PCM_WIDTH * PCM_CHANNELS ) * 2 ) // framesample * width * channels * 2(double buffer)
+
+typedef struct
+{
+	int	handle;
+	int	cachePos;
+	int	frameCount;
+	byte	*pcmTempPtr;
+} mp3_decoder_t;
+
+/*
+=================
+Sound_GetID3V2SizeMPG
+=================
+*/
+__inline int Sound_GetID3V2SizeMPG( const byte *tagSize )
+{
+	int	size;
+	byte	*sizePtr = (byte*)&size;
+
+	// 7 bit per byte, invert endian
+	sizePtr[0] = (( tagSize[3] >> 0 ) & 0x7F ) | (( tagSize[2] & 0x01 ) << 7 );
+	sizePtr[1] = (( tagSize[2] >> 1 ) & 0x3F ) | (( tagSize[1] & 0x03 ) << 6 );
+	sizePtr[2] = (( tagSize[1] >> 2 ) & 0x1F ) | (( tagSize[0] & 0x07 ) << 5 );
+	sizePtr[3] = (( tagSize[0] >> 3 ) & 0x0F );
+
+	return size;
+}
+
+#if 0
+/*
+=================
+Sound_FindHeadMPG
+=================
+*/
+fs_offset_t Sound_FindHeadMPG( const byte *buffer, fs_offset_t filesize )
+{
+	fs_offset_t	result;
+
+	result = 0;
+	if( filesize >= MP3_ID3V2_HEADER_SZ )
+	{
+		if( !memcmp( buffer, MP3_ID3V2_ID, MP3_ID3V2_ID_SZ ))
+			result = Sound_GetID3V2SizeMPG( &buffer[MP3_ID3V2_SIZE_OFF] ) + MP3_ID3V2_HEADER_SZ;
+	}
+	return result;
+}
+
+/*
+=================
+Sound_FindTailMPG
+=================
+*/
+fs_offset_t Sound_FindTailMPG( const byte *buffer, fs_offset_t filesize )
+{
+	fs_offset_t	result;
+
+	result = filesize;
+	if( filesize >= MP3_ID3V1_SZ )
+	{
+		if( !memcmp( &buffer[filesize - MP3_ID3V1_SZ], MP3_ID3V1_ID, MP3_ID3V1_ID_SZ ))
+			result -= MP3_ID3V1_SZ;
+	}
+	return result;
+}
+#endif
+
+qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesize )
+{
+#if 0
+	int		status;
+	int		handle;
+	size_t		bytesWrite = 0;
+	byte		out[PCM_BUFFER_SIZE] __attribute__((aligned(64)));
+	fs_offset_t	headOffset;
+	fs_offset_t	tailOffset;
+	fs_offset_t	contentSize;
+	int		frameSample;
+	uint		bps;
+	int		frameLen;
+	int		frameSize;
+	int		frameCount;
+
+	headOffset = Sound_FindHeadMPG( buffer, filesize );
+	tailOffset = Sound_FindTailMPG( buffer, filesize );
+	contentSize = tailOffset - headOffset;
+	// TODO: read Xing header
+
+	handle = sceMp3ReserveMp3Handle( NULL );
+	if ( handle < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceMp3ReserveMp3Handle returned 0x%08X\n", handle );
+		return false;
+	}
+
+	status = sceMp3LowLevelInit( handle, &buffer[headOffset] );
+	if ( status < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceMp3LowLevelInit returned 0x%08X\n", status );
+		return false;
+	}
+
+	frameSample = sceMp3GetMaxOutputSample( handle );
+	frameSize = (( frameSample / 8 ) * sceMp3GetBitRate( handle ) * 1000 ) / sceMp3GetSamplingRate( handle );
+	frameCount = contentSize / frameSize;
+
+	sound.channels = sceMp3GetMp3ChannelNum( handle );
+	sound.rate = sceMp3GetSamplingRate( handle );
+	sound.width = PCM_WIDTH; // always 16-bit PCM
+	sound.loopstart = -1;
+	sound.size = (frameCount * frameSample) * sound.channels * sound.width; // invalid for VBR
+/*
+	status = sceMp3LowLevelDecode(handle, &buffer[headOffset + mp3usedsize], &mp3usedsize, pcm, &pcmoutsize);
+	if(status < 0)
+	{
+		Con_DPrintf( S_ERROR "sceMp3LowLevelDecode returned 0x%08X\n", status);
+	}
+	sceMp3ReleaseMp3Handle( handle );
+*/
+	return true;
+#else
+	Con_DPrintf( S_ERROR "Sound_LoadMPG unimplemented function!\n");
+	return false;
+#endif
+}
+
+/*
+=================
+Stream_FindHeadMPG
+=================
+*/
+SceOff Stream_FindHeadMPG( file_t *file )
+{
+	SceOff	result;
+	byte	tagId[MP3_ID3V2_ID_SZ];
+	byte	tagSize[MP3_ID3V2_SIZE_SZ];
+
+	result = 0;
+
+	FS_Seek( file, 0, SEEK_SET );
+
+	if( FS_Read( file, tagId,  MP3_ID3V2_ID_SZ) < MP3_ID3V2_ID_SZ )
+	{
+		Con_DPrintf( S_ERROR "Sound_Mp3FindHead: ID3V2 ID read error\n");
+		return result;
+	}
+
+	if( !memcmp( tagId, MP3_ID3V2_ID, MP3_ID3V2_ID_SZ ))
+	{
+		FS_Seek( file, MP3_ID3V2_SIZE_OFF, SEEK_SET );
+		if( FS_Read( file, tagSize, MP3_ID3V2_SIZE_SZ ) < MP3_ID3V2_SIZE_SZ )
+			Con_DPrintf( S_ERROR "Sound_Mp3FindHead: ID3V2 SIZE read error\n");
+		else result = Sound_GetID3V2SizeMPG( tagSize ) + MP3_ID3V2_HEADER_SZ;
+	}
+
+	return result;
+}
+
+/*
+=================
+Stream_FindTailMPG
+=================
+*/
+SceOff Stream_FindTailMPG( file_t *file )
+{
+	SceOff	result;
+	byte	tagId[MP3_ID3V1_ID_SZ];
+
+	result = FS_FileLength( file );
+
+	FS_Seek( file, result - MP3_ID3V1_SZ, SEEK_SET );
+
+	if( FS_Read( file, tagId,  MP3_ID3V1_ID_SZ ) < MP3_ID3V1_ID_SZ )
+	{
+		Con_DPrintf( S_ERROR "Sound_Mp3FindTail: ID3V1 ID read error\n");
+		return result;
+	}
+
+	if( !memcmp( tagId, MP3_ID3V1_ID, MP3_ID3V1_ID_SZ ))
+		result -= MP3_ID3V1_SZ;
+
+	return result;
+}
+
+/*
+=================
+Stream_FillBufferMPG
+=================
+*/
+int Stream_FillBufferMPG( file_t *file, mp3_decoder_t *desc )
+{
+	int		status;
+	byte		*dstPtr;
+	int		dstSize;
+	int		dstPos;
+	fs_offset_t	readSize;
+
+	if( sceMp3CheckStreamDataNeeded( desc->handle ) <= 0 )
+		return 0;
+
+	// get Info on the stream (where to fill to, how much to fill, where to fill from)
+	status = sceMp3GetInfoToAddStreamData( desc->handle, &dstPtr, &dstSize, &dstPos );
+	if( status < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceMp3GetInfoToAddStreamData returned 0x%08X\n", status);
+		return status;
+	}
+
+	// seek file to position requested
+	if( desc->cachePos != dstPos )
+	{
+		FS_Seek( file, dstPos, SEEK_SET );
+		desc->cachePos = dstPos;
+	}
+
+	// read the amount of data
+	readSize = FS_Read( file, dstPtr, dstSize );
+	desc->cachePos += ( int )readSize;
+
+	// notify mp3 library about how much we really wrote to the stream buffer
+	status = sceMp3NotifyAddStreamData( desc->handle, ( int )readSize );
+	if ( status < 0 )
+		Con_DPrintf( S_ERROR "sceMp3NotifyAddStreamData returned 0x%08X\n", status);
+
+	return status;
+}
+
+/*
+=================
+Stream_OpenMPG
+=================
+*/
+stream_t *Stream_OpenMPG( const char *filename )
+{
+	stream_t	*stream;
+	mp3_decoder_t	*desc;
+	file_t		*file;
+	int		status;
+	void		*bufferBase;
+
+	file = FS_Open( filename, "rbh", false ); // hold mode
+	if( !file ) return NULL;
+
+	// at this point we have valid stream
+	stream = Mem_Calloc( host.soundpool, sizeof( stream_t ));
+	stream->file = file;
+	stream->pos = 0;
+
+	desc = Mem_Calloc( host.soundpool, sizeof( mp3_decoder_t ) + MP3_BUFFER_SIZE + PCM_BUFFER_SIZE + 63 );
+	bufferBase = (void *)(((( uintptr_t )desc + sizeof( mp3_decoder_t )) & (~( 64 - 1 ))) + 64 );
+
+	// reserve a mp3 handle
+	SceMp3InitArg mp3Init;
+	mp3Init.mp3StreamStart = Stream_FindHeadMPG( file );
+	mp3Init.mp3StreamEnd = Stream_FindTailMPG( file );
+	mp3Init.mp3Buf = bufferBase;
+	mp3Init.mp3BufSize = MP3_BUFFER_SIZE;
+	mp3Init.pcmBuf = (void *)(( uintptr_t )bufferBase + MP3_BUFFER_SIZE );
+	mp3Init.pcmBufSize = PCM_BUFFER_SIZE;
+
+	desc->cachePos = 0;
+	desc->pcmTempPtr = mp3Init.pcmBuf;
+	desc->handle = sceMp3ReserveMp3Handle( &mp3Init );
+	if ( desc->handle < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceMp3ReserveMp3Handle returned 0x%08X\n", desc->handle );
+		Mem_Free( stream );
+		Mem_Free( desc );
+		FS_Close( file );
+		return NULL;
+	}
+
+	// Fill the stream buffer with some data so that sceMp3Init has something to work with
+	if( Stream_FillBufferMPG( file, desc ) != 0 )
+	{
+		Mem_Free( stream );
+		Mem_Free( desc );
+		FS_Close( file );
+		return NULL;
+	}
+
+	status = sceMp3Init( desc->handle );
+	if ( status < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceMp3Init returned 0x%08X\n", status );
+		Mem_Free( stream );
+		Mem_Free( desc );
+		FS_Close( file );
+		return NULL;
+	}
+
+	desc->frameCount = sceMp3GetFrameNum( desc->handle );
+
+	stream->buffsize = 0; // how many samples left from previous frame
+	stream->channels = PCM_CHANNELS; // always 2 PCM channels
+	stream->rate = sceMp3GetSamplingRate( desc->handle );
+	stream->width = PCM_WIDTH; // always 16 bit PCM
+	stream->ptr = (void *)desc;
+	stream->type = WF_MPGDATA;
+
+	return stream;
+}
+
+/*
+=================
+Stream_ReadMPG
+
+assume stream is valid
+=================
+*/
+int Stream_ReadMPG( stream_t *stream, int needBytes, void *buffer )
+{
+	// buffer handling
+	int		bytesWritten = 0;
+	mp3_decoder_t	*desc;
+	int		errdec;
+
+	desc = ( mp3_decoder_t* )stream->ptr;
+
+	while(1)
+	{
+		byte	*data;
+		int	outsize;
+
+		if( !stream->buffsize )
+		{
+			// Check if we need to fill our stream buffer
+			if( Stream_FillBufferMPG( stream->file, desc ) != 0 )
+				return 0;
+
+			for( errdec = 0; errdec < MP3_ERRORS_MAX; errdec++ )
+			{
+				stream->pos = sceMp3Decode( desc->handle, (SceShort16**)&desc->pcmTempPtr );
+				if(( int )stream->pos >= 0 ) // decoding successful
+				{
+					break;
+				}
+				else if( stream->pos == 0x80671402 ) // next frame header
+				{
+					if( Stream_FillBufferMPG( stream->file, desc ) != 0 )
+						return 0;
+				}
+				else break;
+			}
+
+			if(( int )stream->pos < 0 )
+			{
+				if( stream->pos != 0x80671402 )
+					Con_DPrintf( S_ERROR "sceMp3Decode returned 0x%08X\n", stream->pos );
+				return 0; // ???
+			}
+		}
+
+		// check remaining size
+		if( bytesWritten + stream->pos > needBytes )
+			outsize = ( needBytes - bytesWritten );
+		else outsize = stream->pos;
+
+		// copy raw sample to output buffer
+		data = (byte *)buffer + bytesWritten;
+		memcpy( data, &desc->pcmTempPtr[stream->buffsize], outsize );
+		bytesWritten += outsize;
+		stream->pos -= outsize;
+		stream->buffsize += outsize;
+
+		// continue from this sample on a next call
+		if( bytesWritten >= needBytes )
+			return bytesWritten;
+
+		stream->buffsize = 0; // no bytes remaining
+	}
+
+	return 0;
+}
+
+/*
+=================
+Stream_SetPosMPG
+
+assume stream is valid
+=================
+*/
+int Stream_SetPosMPG( stream_t *stream, int newpos )
+{
+	mp3_decoder_t	*desc;
+	int		frame;
+	int		status;
+
+	desc = ( mp3_decoder_t* )stream->ptr;
+
+	// get frame num
+	frame = newpos / sceMp3GetMaxOutputSample( desc->handle ); // VBR?
+
+	if( frame < 1 || frame >= desc->frameCount - 1 )
+		return false;
+
+	status = sceMp3ResetPlayPositionByFrame( desc->handle, frame );
+	if( status < 0 )
+	{
+		Con_DPrintf( S_ERROR "sceMp3ResetPlayPositionByFrame returned 0x%08X\n", status );
+
+		// failed to seek for some reasons
+		return false;
+	}
+
+	// flush any previous data
+	stream->buffsize = 0;
+
+	return true;
+}
+
+/*
+=================
+Stream_GetPosMPG
+
+assume stream is valid
+=================
+*/
+int Stream_GetPosMPG( stream_t *stream )
+{
+	mp3_decoder_t	*desc;
+
+	desc = ( mp3_decoder_t * )stream->ptr;
+
+	return sceMp3GetSumDecodedSample( desc->handle );
+}
+
+/*
+=================
+Stream_FreeMPG
+
+assume stream is valid
+=================
+*/
+void Stream_FreeMPG( stream_t *stream )
+{
+	mp3_decoder_t	*desc;
+
+	desc = ( mp3_decoder_t * )stream->ptr;
+	if( desc )
+	{
+		sceMp3ReleaseMp3Handle( desc->handle );
+		Mem_Free( desc );
+		stream->ptr = NULL;
+	}
+
+	if( stream->file )
+	{
+		FS_Close( stream->file );
+		stream->file = NULL;
+	}
+
+	Mem_Free( stream );
+}
+#endif // XASH_PSP

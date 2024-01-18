@@ -1095,7 +1095,6 @@ int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean playe
 		if( from == NULL ) return 0;
 		return countBits;
 	}
-
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
 		dt = Delta_FindStructByIndex( DT_CUSTOM_ENTITY_STATE_T );
 	else if( player )
@@ -1793,7 +1792,6 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 		numChanges++;
 	}
 	else MSG_WriteOneBit( msg, 0 );
-
 	if( FBitSet( to->entityType, ENTITY_BEAM ))
 	{
 		dt = Delta_FindStructByIndex( DT_CUSTOM_ENTITY_STATE_T );
@@ -1806,7 +1804,6 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 	{
 		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 	}
-
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;
@@ -1924,7 +1921,6 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 	{
 		dt = Delta_FindStructByIndex( DT_ENTITY_STATE_T );
 	}
-
 	Assert( dt && dt->bInitialized );
 
 	pField = dt->pFields;

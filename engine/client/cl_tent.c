@@ -393,7 +393,7 @@ int CL_TempEntAddEntity( cl_entity_t *pEntity )
 	VectorAdd( pEntity->origin, pEntity->model->maxs, maxs );
 
 	// g-cont. just use PVS from previous frame
-	if( TriBoxInPVS( mins, maxs ))
+	if( Mod_BoxVisible( mins, maxs, ref.dllFuncs.Mod_GetCurrentVis( )))
 	{
 		VectorCopy( pEntity->angles, pEntity->curstate.angles );
 		VectorCopy( pEntity->origin, pEntity->curstate.origin );
@@ -1023,8 +1023,12 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 		count = (size[0] * size[1] + size[1] * size[2] + size[2] * size[0]) / (3 * SHARD_VOLUME * SHARD_VOLUME);
 	}
 
+#if XASH_PSP
+	if( count > 15 ) count = 15;
+#else
 	// limit to 100 pieces
 	if( count > 100 ) count = 100;
+#endif
 
 	for( i = 0; i < count; i++ )
 	{

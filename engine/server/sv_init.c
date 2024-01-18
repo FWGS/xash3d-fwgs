@@ -262,20 +262,6 @@ int GAME_EXPORT SV_GenericIndex( const char *filename )
 	return i;
 }
 
-/*
-================
-SV_ModelHandle
-
-get model by handle
-================
-*/
-model_t *GAME_EXPORT SV_ModelHandle( int modelindex )
-{
-	if( modelindex < 0 || modelindex >= MAX_MODELS )
-		return NULL;
-	return sv.models[modelindex];
-}
-
 static resourcetype_t SV_DetermineResourceType( const char *filename )
 {
 	if( !Q_strncmp( filename, DEFAULT_SOUNDPATH, sizeof( DEFAULT_SOUNDPATH ) - 1 ) && Sound_SupportedFileFormat( COM_FileExtension( filename )))

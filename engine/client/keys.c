@@ -515,7 +515,6 @@ void Key_Init( void )
 
 	Cvar_RegisterVariable( &osk_enable );
 	Cvar_RegisterVariable( &key_rotate );
-
 }
 
 /*
@@ -703,7 +702,11 @@ void GAME_EXPORT Key_Event( int key, int down )
 	VGui_KeyEvent( key, down );
 
 	// console key is hardcoded, so the user can never unbind it
+#if XASH_PSP
+	if( key == '`' || key == '~' || key == K_MODE_BUTTON )
+#else
 	if( key == '`' || key == '~' )
+#endif
 	{
 		// we are in typing mode, so don't switch to console
 		if( cls.key_dest == key_message || !down )
@@ -714,7 +717,11 @@ void GAME_EXPORT Key_Event( int key, int down )
 	}
 
 	// escape is always handled special
+#if XASH_PSP
+	if( ( key == K_ESCAPE || key == K_START_BUTTON ) && down )
+#else
 	if( key == K_ESCAPE && down )
+#endif
 	{
 		switch( cls.key_dest )
 		{
@@ -881,7 +888,11 @@ Normal keyboard characters, already shifted / capslocked / etc
 void CL_CharEvent( int key )
 {
 	// the console key should never be used as a char
+#if XASH_PSP
+	if( key == '`' || key == '~' || key == K_MODE_BUTTON ) return;
+#else
 	if( key == '`' || key == '~' ) return;
+#endif
 
 	if( cls.key_dest == key_console && !Con_Visible( ))
 	{
@@ -1006,7 +1017,11 @@ static qboolean OSK_KeyEvent( int key, int down )
 
 	if( osk.curbutton.val == 0 )
 	{
+#if XASH_PSP
+		if( key == K_ENTER || key == K_A_BUTTON )
+#else
 		if( key == K_ENTER )
+#endif
 		{
 			osk.curbutton.val = osk_keylayout[osk.curlayout][osk.curbutton.y][osk.curbutton.x];
 			return true;
@@ -1017,6 +1032,9 @@ static qboolean OSK_KeyEvent( int key, int down )
 
 	switch ( key )
 	{
+#if XASH_PSP
+	case K_A_BUTTON:
+#endif
 	case K_ENTER:
 		switch( osk.curbutton.val )
 		{

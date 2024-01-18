@@ -64,6 +64,19 @@ _inline int MSG_TellBit( sizebuf_t *sb ) { return sb->iCurBit; }
 _inline const char *MSG_GetName( sizebuf_t *sb ) { return sb->pDebugName; }
 qboolean MSG_CheckOverflow( sizebuf_t *sb );
 
+static inline qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
+{
+	if( sb->iCurBit + nBits > sb->nDataBits )
+		sb->bOverflow = true;
+	return sb->bOverflow;
+}
+
+static inline MSG_CheckOverflow( sizebuf_t *sb )
+{
+	return MSG_Overflow( sb, 0 );
+}
+
+
 #if XASH_BIG_ENDIAN
 #define MSG_BigShort( x ) ( x )
 #else
@@ -78,7 +91,16 @@ void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, in
 void MSG_Clear( sizebuf_t *sb );
 
 // Bit-write functions
-void MSG_WriteOneBit( sizebuf_t *sb, int nValue );
+static inline void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
+{
+	if( likely( !MSG_Overflow( sb, 1 )))
+	{
+		if( nValue ) sb->pData[sb->iCurBit>>3] |= BIT( sb->iCurBit & 7 );
+		else sb->pData[sb->iCurBit>>3] &= ~BIT( sb->iCurBit & 7 );
+
+		sb->iCurBit++;
+	}
+}
 void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits );
 void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits );
 void MSG_WriteBitLong( sizebuf_t *sb, uint data, int numbits, qboolean bSigned );

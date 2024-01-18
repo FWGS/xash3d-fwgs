@@ -38,6 +38,7 @@ void COM_PushLibraryError( const char *error )
 	Q_strncat( s_szLastError, error, sizeof( s_szLastError ) );
 }
 
+#if !XASH_PSP
 void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 {
 	char **funcs = NULL;
@@ -85,6 +86,7 @@ const char *COM_OffsetNameForFunction( void *function )
 	Con_Reportf( "COM_OffsetNameForFunction %s\n", sname );
 	return sname;
 }
+#endif
 
 dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 {
@@ -128,7 +130,7 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 
 static void COM_GenerateCommonLibraryName( const char *name, const char *ext, char *out, size_t size )
 {
-#if ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
+#if (( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86) || XASH_PSP
 	Q_snprintf( out, size, "%s.%s", name, ext );
 #elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE )
 	Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
@@ -191,6 +193,8 @@ static void COM_GenerateServerLibraryPath( char *out, size_t size )
 	Q_strncpy( out, GI->game_dll, size );
 #elif XASH_APPLE
 	Q_strncpy( out, GI->game_dll_osx, size );
+#elif XASH_PSP
+	Q_strncpy( out, GI->game_dll_psp, size );
 #else // XASH_LINUX
 	Q_strncpy( out, GI->game_dll_linux, size );
 #endif
@@ -203,6 +207,8 @@ static void COM_GenerateServerLibraryPath( char *out, size_t size )
 	Q_strncpy( dllpath, GI->game_dll, sizeof( dllpath ) );
 #elif XASH_APPLE
 	Q_strncpy( dllpath, GI->game_dll_osx, sizeof( dllpath ) );
+#elif XASH_PSP
+	Q_strncpy( dllpath, GI->game_dll_psp, sizeof( dllpath ) );
 #else // XASH_APPLE
 	Q_strncpy( dllpath, GI->game_dll_linux, sizeof( dllpath ) );
 #endif

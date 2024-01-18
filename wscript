@@ -75,6 +75,7 @@ SUBDIRS = [
 	Subproject('3rdparty/gl4es',        lambda x: not x.env.DEDICATED and x.env.GL4ES),
 	Subproject('ref/gl',                lambda x: not x.env.DEDICATED and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
 	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and not x.env.SUPPORT_BSP2_FORMAT and x.env.SOFT),
+	Subproject('ref/gu',                lambda x: not x.env.DEDICATED and x.env.DEST_OS == 'psp' and x.env.GU),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
@@ -100,6 +101,7 @@ REFDLLS = [
 	RefDll('gles2', False, 'GLWES'),
 	RefDll('gl4es', False),
 	RefDll('gles3compat', False),
+	RefDll('gu', False),
 ]
 
 def options(opt):
@@ -130,6 +132,9 @@ def options(opt):
 
 	grp.add_option('--disable-werror', action = 'store_true', dest = 'DISABLE_WERROR', default = False,
 		help = 'disable compilation abort on warning')
+
+	grp.add_option('--enable-profiling', action = 'store_true', dest = 'PROFILING', default = False,
+		help = 'enable building with GNU profiling tools')
 
 	grp.add_option('--enable-tests', action = 'store_true', dest = 'TESTS', default = False,
 		help = 'enable building standalone tests (does not enable engine tests!) [default: %default]')
@@ -166,11 +171,8 @@ def configure(conf):
 	# Load compilers early
 	conf.load('xshlib xcompile compiler_c compiler_cxx cmake gccdeps')
 
-	if conf.options.NSWITCH:
-		conf.load('nswitch')
-
-	if conf.options.PSVITA:
-		conf.load('psvita')
+	if conf.env.DEST_OS in ['nswitch', 'psvita', 'psp']:
+		conf.load(conf.env.DEST_OS) # load additional tools
 
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':
@@ -220,6 +222,26 @@ def configure(conf):
 		conf.options.USE_STBTT        = True
 		# we'll specify -fPIC by hand for shared libraries only
 		enforce_pic                   = False
+	elif conf.env.DEST_OS == 'psp':
+		conf.options.NO_VGUI          = True
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.options.LOW_MEMORY       = 2
+		conf.options.GL               = False
+		conf.options.STATIC           = True
+		enforce_pic = False
+
+		# set EBOOT.PBP generation parameters
+		conf.env.PSP_EBOOT_TITLE = 'Xash3D'
+		conf.env.PSP_EBOOT_SFO = 'PARAM.SFO'
+		conf.env.PSP_EBOOT_ICON = 'NULL'
+		conf.env.PSP_EBOOT_ICON1 = 'NULL'
+		conf.env.PSP_EBOOT_UNKPNG = 'NULL'
+		conf.env.PSP_EBOOT_PIC1 = 'NULL'
+		conf.env.PSP_EBOOT_SND0 = 'NULL'
+		conf.env.PSP_EBOOT_PSAR = 'NULL'
+
+		conf.env.SOFT = conf.env.PSP_RENDER_TYPE in ['SW', 'ALL']
+		conf.env.GU   = conf.env.PSP_RENDER_TYPE in ['HW', 'ALL']
 
 	if conf.env.STATIC_LINKING:
 		enforce_pic = False # PIC may break full static builds
@@ -351,7 +373,7 @@ def configure(conf):
 	conf.env.SUPPORT_BSP2_FORMAT = conf.options.SUPPORT_BSP2_FORMAT
 
 	# disable game_launch compiling on platform where it's not needed
-	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos'] or conf.env.MAGX or conf.env.DEDICATED
+	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos', 'psp'] or conf.env.MAGX or conf.env.DEDICATED
 
 	if conf.env.SAILFISH == 'aurora':
 		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
@@ -482,6 +504,7 @@ int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const
 				conf.env.HAVE_SYSTEM_OPUS = True
 
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
+	conf.define_cond('XASH_PROFILING', conf.options.PROFILING)
 
 	for i in SUBDIRS:
 		if not i.is_enabled(conf):

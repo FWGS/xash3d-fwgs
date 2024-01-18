@@ -54,7 +54,7 @@ extern int SV_UPDATE_BACKUP;
 #define GROUP_OP_AND	0
 #define GROUP_OP_NAND	1
 
-#ifdef NDEBUG
+#if defined( NDEBUG )
 #define SV_IsValidEdict( e )	( e && !e->free )
 #else
 #define SV_IsValidEdict( e )	SV_CheckEdict( e, __FILE__, __LINE__ )
@@ -509,7 +509,13 @@ qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multipla
 qboolean SV_InitGame( void );
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
-model_t *SV_ModelHandle( int modelindex );
+static inline model_t *GAME_EXPORT SV_ModelHandle( int modelindex )
+{
+	if( unlikely( modelindex < 0 || modelindex >= MAX_MODELS ))
+		return NULL;
+
+	return sv.models[modelindex];
+}
 void SV_DeactivateServer( void );
 
 //
@@ -648,9 +654,16 @@ void SV_RestartAmbientSounds( void );
 void SV_RestartDecals( void );
 void SV_RestartStaticEnts( void );
 int pfnDropToFloor( edict_t* e );
-edict_t *SV_EdictNum( int n );
 void SV_SetModel( edict_t *ent, const char *name );
 int pfnDecalIndex( const char *m );
+
+static inline edict_t *SV_EdictNum( int n )
+{
+	if( unlikely( n < 0 || n >= GI->max_edicts ))
+		return NULL;
+
+	return &svgame.edicts[n];
+}
 
 //
 // sv_log.c
