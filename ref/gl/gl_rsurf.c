@@ -859,14 +859,21 @@ void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
 		hasScale = true;
 
 	pglBegin( GL_POLYGON );
-
-	for( i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE )
+	if (hasScale)
 	{
-		if( hasScale )
-			pglTexCoord2f(( v[3] + sOffset ) * xScale, ( v[4] + tOffset ) * yScale );
-		else pglTexCoord2f( v[3] + sOffset, v[4] + tOffset );
-
-		pglVertex3fv( v );
+		for (i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE)
+		{
+			pglTexCoord2f((v[3] + sOffset) * xScale, (v[4] + tOffset) * yScale);
+			pglVertex3fv(v);
+		}
+	}
+	else
+	{
+		for (i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE)
+		{
+			pglTexCoord2f(v[3] + sOffset, v[4] + tOffset);
+			pglVertex3fv(v);
+		}
 	}
 
 	pglEnd();
