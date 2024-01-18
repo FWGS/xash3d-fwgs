@@ -160,6 +160,7 @@ def options(opt):
 		opt.add_subproject(i.name)
 
 def configure(conf):
+	#os.environ['WAF_NO_PREFORK'] = '1'
 	conf.load('fwgslib reconfigure compiler_optimizations')
 	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
 

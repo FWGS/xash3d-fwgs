@@ -41,7 +41,7 @@ typedef struct android_assets_s android_assets_t;
 // typedef struct android_saf_s android_saf_t;
 #endif
 
-#define FILE_BUFF_SIZE		(2048)
+#define FILE_BUFF_SIZE		(8192)
 
 struct file_s
 {

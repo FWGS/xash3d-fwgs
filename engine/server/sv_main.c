@@ -601,15 +601,17 @@ qboolean SV_RunGameFrame( void )
 {
 	sv.simulating = SV_IsSimulating();
 
-	if( !sv.simulating )
-		return true;
-
-	if( sv_fps.value != 0.0f )
+	if ( !sv.simulating )
 	{
-		double		fps = (1.0 / (double)( sv_fps.value - 0.01f )); // FP issues
+		return true;
+	}
+	
+	if (sv_fps.value != 0.0f)
+	{
+		double		fps = (1.0 / (double)(sv_fps.value - 0.01f)); // FP issues
 		int		numFrames = 0;
 
-		while( sv.time_residual >= fps )
+		while (sv.time_residual >= fps)
 		{
 			sv.frametime = fps;
 
@@ -628,7 +630,10 @@ qboolean SV_RunGameFrame( void )
 		sv.time += sv.frametime;
 		return true;
 	}
+
+	
 }
+
 
 static void SV_UpdateStatusLine( void )
 {

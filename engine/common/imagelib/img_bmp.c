@@ -17,6 +17,138 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "img_bmp.h"
 
+inline void LoadBMP1_inner(byte** buf_p, int* column, byte** pixbuf, int columns, int* reflectivity)
+{
+	int c, k;
+	byte red, green, blue,alpha;
+	alpha = *(*buf_p++);
+	column--;	// ingnore main iterations
+	for (c = 0, k = 128; c < 8; c++, k >>= 1)
+	{
+		red = green = blue = (!!(alpha & k) == 1 ? 0xFF : 0x00);
+		*(*pixbuf)++ = red;
+		*(*pixbuf)++ = green;
+		*(*pixbuf)++ = blue;
+		*(*pixbuf)++ = 0x00;
+		reflectivity[0] += red;
+		reflectivity[1] += green;
+		reflectivity[2] += blue;
+		if (++(*column) == columns)
+			break;
+	}
+}
+inline void LoadBMP4_inner(byte** buf_p,  int *column, byte* *pixbuf, int columns, qboolean load_qfont, rgba_t* palette, int* reflectivity)
+{
+	byte red, green, blue,alpha;
+	int palIndex;
+	alpha = *(*buf_p++);
+	palIndex = alpha >> 4;
+	if (load_qfont)
+	{
+		*(*pixbuf)++ = red = 255;
+		*(*pixbuf)++ = green = 255;
+		*(*pixbuf)++ = blue = 255;
+		*(*pixbuf)++ = palette[palIndex][2];
+	}
+	else
+	{
+		*(*pixbuf)++ = red = palette[palIndex][2];
+		*(*pixbuf)++ = green = palette[palIndex][1];
+		*(*pixbuf)++ = blue = palette[palIndex][0];
+		*(*pixbuf)++ = palette[palIndex][3];
+	}
+	reflectivity[0] += red;
+	reflectivity[1] += green;
+	reflectivity[2] += blue;
+	if (++(*column) == columns) return;
+	palIndex = alpha & 0x0F;
+	if (load_qfont)
+	{
+		*(*pixbuf)++ = red = 255;
+		*(*pixbuf)++ = green = 255;
+		*(*pixbuf)++ = blue = 255;
+		*(*pixbuf)++ = palette[palIndex][2];
+	}
+	else
+	{
+		*(*pixbuf)++ = red = palette[palIndex][2];
+		*(*pixbuf)++ = green = palette[palIndex][1];
+		*(*pixbuf)++ = blue = palette[palIndex][0];
+		*(*pixbuf)++ = palette[palIndex][3];
+	}
+	reflectivity[0] += red;
+	reflectivity[1] += green;
+	reflectivity[2] += blue;
+}
+inline void LoadBMP8_inner(byte* *buf_p,  byte* *pixbuf, rgba_t* palette, int* reflectivity)
+{
+	byte red, green, blue,alpha;
+	int palIndex;
+	palIndex = *(*buf_p++);
+	red = palette[palIndex][2];
+	green = palette[palIndex][1];
+	blue = palette[palIndex][0];
+	alpha = palette[palIndex][3];
+
+	if (Image_CheckFlag(IL_KEEP_8BIT))
+	{
+		*(*pixbuf)++ = palIndex;
+	}
+	else
+	{
+		*(*pixbuf)++ = red;
+		*(*pixbuf)++ = green;
+		*(*pixbuf)++ = blue;
+		*(*pixbuf)++ = alpha;
+	}
+	reflectivity[0] += red;
+	reflectivity[1] += green;
+	reflectivity[2] += blue;
+}
+inline void LoadBMP16_inner(byte* *buf_p, byte* *pixbuf, int* reflectivity)
+{
+	byte red, green, blue;
+	word shortPixel;
+	shortPixel = *(word*)(*buf_p), *buf_p += 2;
+	*(*pixbuf)++ = blue = (shortPixel & (31 << 10)) >> 7;
+	*(*pixbuf)++ = green = (shortPixel & (31 << 5)) >> 2;
+	*(*pixbuf)++ = red = (shortPixel & (31)) << 3;
+	*(*pixbuf)++ = 0xff;
+	reflectivity[0] += red;
+	reflectivity[1] += green;
+	reflectivity[2] += blue;
+}
+inline void LoadBMP24_inner(byte* *buf_p, byte* *pixbuf, int* reflectivity)
+{
+	byte red, green, blue;
+	blue = *(*buf_p)++;
+	green = *(*buf_p)++;
+	red = *(*buf_p)++;
+	*(*pixbuf)++ = red;
+	*(*pixbuf)++ = green;
+	*(*pixbuf)++ = blue;
+	*(*pixbuf)++ = 0xFF;
+	reflectivity[0] += red;
+	reflectivity[1] += green;
+	reflectivity[2] += blue;
+}
+inline void LoadBMP32_inner(byte* *buf_p, byte* *pixbuf, int* reflectivity)
+{
+	byte red, green, blue,alpha;
+	blue = *(*buf_p)++;
+	green = *(*buf_p)++;
+	red = *(*buf_p)++;
+	alpha = *(*buf_p)++;
+	*(*pixbuf)++ = red;
+	*(*pixbuf)++ = green;
+	*(*pixbuf)++ = blue;
+	*(*pixbuf)++ = alpha;
+	if (alpha != 255) image.flags |= IMAGE_HAS_ALPHA;
+	reflectivity[0] += red;
+	reflectivity[1] += green;
+	reflectivity[2] += blue;
+}
+
 /*
 =============
 Image_LoadBMP
@@ -193,127 +325,87 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	image.depth = 1;
 	image.size = image.width * image.height * bpp;
 	image.rgba = Mem_Malloc( host.imagepool, image.size );
-
-	for( row = rows - 1; row >= 0; row-- )
+	image.flags |= IMAGE_HAS_COLOR;
+	switch (bhdr.bitsPerPixel)
 	{
-		pixbuf = image.rgba + (row * columns * bpp);
-
-		for( column = 0; column < columns; column++ )
+	case 1:
+		image.flags &= ~IMAGE_HAS_COLOR;
+		for (row = rows - 1; row >= 0; row--)
 		{
-			byte	red, green, blue, alpha;
-			word	shortPixel;
-			int	c, k, palIndex;
+			pixbuf = image.rgba + (row * columns * bpp);
 
-			switch( bhdr.bitsPerPixel )
+			for (column = 0; column < columns; column++)
 			{
-			case 1:
-				alpha = *buf_p++;
-				column--;	// ingnore main iterations
-				for( c = 0, k = 128; c < 8; c++, k >>= 1 )
-				{
-					red = green = blue = (!!(alpha & k) == 1 ? 0xFF : 0x00);
-					*pixbuf++ = red;
-					*pixbuf++ = green;
-					*pixbuf++ = blue;
-					*pixbuf++ = 0x00;
-					if( ++column == columns )
-						break;
-				}
-				break;
-			case 4:
-				alpha = *buf_p++;
-				palIndex = alpha >> 4;
-				if( load_qfont )
-				{
-					*pixbuf++ = red = 255;
-					*pixbuf++ = green = 255;
-					*pixbuf++ = blue = 255;
-					*pixbuf++ = palette[palIndex][2];
-				}
-				else
-				{
-					*pixbuf++ = red = palette[palIndex][2];
-					*pixbuf++ = green = palette[palIndex][1];
-					*pixbuf++ = blue = palette[palIndex][0];
-					*pixbuf++ = palette[palIndex][3];
-				}
-				if( ++column == columns ) break;
-				palIndex = alpha & 0x0F;
-				if( load_qfont )
-				{
-					*pixbuf++ = red = 255;
-					*pixbuf++ = green = 255;
-					*pixbuf++ = blue = 255;
-					*pixbuf++ = palette[palIndex][2];
-				}
-				else
-				{
-					*pixbuf++ = red = palette[palIndex][2];
-					*pixbuf++ = green = palette[palIndex][1];
-					*pixbuf++ = blue = palette[palIndex][0];
-					*pixbuf++ = palette[palIndex][3];
-				}
-				break;
-			case 8:
-				palIndex = *buf_p++;
-				red = palette[palIndex][2];
-				green = palette[palIndex][1];
-				blue = palette[palIndex][0];
-				alpha = palette[palIndex][3];
-
-				if( Image_CheckFlag( IL_KEEP_8BIT ))
-				{
-					*pixbuf++ = palIndex;
-				}
-				else
-				{
-					*pixbuf++ = red;
-					*pixbuf++ = green;
-					*pixbuf++ = blue;
-					*pixbuf++ = alpha;
-				}
-				break;
-			case 16:
-				shortPixel = *(word *)buf_p, buf_p += 2;
-				*pixbuf++ = blue = (shortPixel & ( 31 << 10 )) >> 7;
-				*pixbuf++ = green = (shortPixel & ( 31 << 5 )) >> 2;
-				*pixbuf++ = red = (shortPixel & ( 31 )) << 3;
-				*pixbuf++ = 0xff;
-				break;
-			case 24:
-				blue = *buf_p++;
-				green = *buf_p++;
-				red = *buf_p++;
-				*pixbuf++ = red;
-				*pixbuf++ = green;
-				*pixbuf++ = blue;
-				*pixbuf++ = 0xFF;
-				break;
-			case 32:
-				blue = *buf_p++;
-				green = *buf_p++;
-				red = *buf_p++;
-				alpha = *buf_p++;
-				*pixbuf++ = red;
-				*pixbuf++ = green;
-				*pixbuf++ = blue;
-				*pixbuf++ = alpha;
-				if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
-				break;
-			default:
-				Mem_Free( image.palette );
-				Mem_Free( image.rgba );
-				return false;
+				LoadBMP1_inner(&buf_p, &column, &pixbuf, columns,reflectivity);
 			}
-
-			if( red != green || green != blue )
-				image.flags |= IMAGE_HAS_COLOR;
-
-			reflectivity[0] += red;
-			reflectivity[1] += green;
-			reflectivity[2] += blue;
+			buf_p += padSize;
 		}
-		buf_p += padSize;	// actual only for 4-bit bmps
+		break;
+	case 4:
+		for (row = rows - 1; row >= 0; row--)
+		{
+			pixbuf = image.rgba + (row * columns * bpp);
+
+			for (column = 0; column < columns; column++)
+			{
+				LoadBMP4_inner(&buf_p, &column, &pixbuf, columns, load_qfont,palette, reflectivity);
+			}
+			buf_p += padSize;
+		}
+		break;
+	case 8:
+		for (row = rows - 1; row >= 0; row--)
+		{
+			pixbuf = image.rgba + (row * columns * bpp);
+
+			for (column = 0; column < columns; column++)
+			{
+				LoadBMP8_inner(&buf_p, &pixbuf, palette, reflectivity);
+			}
+			buf_p += padSize;
+		}
+		break;
+	case 16:
+		for (row = rows - 1; row >= 0; row--)
+		{
+			pixbuf = image.rgba + (row * columns * bpp);
+
+			for (column = 0; column < columns; column++)
+			{
+				LoadBMP16_inner(&buf_p, &pixbuf, reflectivity);
+			}
+			buf_p += padSize;
+		}
+		break;
+	case 24:
+		for (row = rows - 1; row >= 0; row--)
+		{
+			pixbuf = image.rgba + (row * columns * bpp);
+
+			for (column = 0; column < columns; column++)
+			{
+				LoadBMP24_inner(&buf_p, &pixbuf, reflectivity);
+			}
+			buf_p += padSize;
+		}
+		break;
+	case 32:
+		for (row = rows - 1; row >= 0; row--)
+		{
+			pixbuf = image.rgba + (row * columns * bpp);
+
+			for (column = 0; column < columns; column++)
+			{
+				LoadBMP32_inner(&buf_p, &pixbuf, reflectivity);
+			}
+			buf_p += padSize;
+		}
+		break;
+	default:
+		Mem_Free(image.palette);
+		Mem_Free(image.rgba);
+		return false;
+		break;
 	}
 
 	VectorDivide( reflectivity, ( image.width * image.height ), image.fogParams );
