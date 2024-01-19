@@ -159,6 +159,7 @@ double Platform_DoubleTime( void )
 #endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
+#endif
 #else
 #include <sys/sys_time.h>
 double Platform_DoubleTime( void )
@@ -168,7 +169,6 @@ double Platform_DoubleTime( void )
 	sys_time_get_current_time(&sec,&nsec);
 	return (double)sec + (double)nsec/1000000000.0;
 }
-#endif
 #endif
 void Platform_Sleep( int msec )
 {
