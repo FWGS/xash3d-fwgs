@@ -1946,9 +1946,10 @@ void R_GenerateVBO( void )
 
 				if( vbo->array_len + surf->polys->numverts > VBOINDEX_MAX )
 				{
+					vbotex->vboarray = vbo;
 					// generate new array and new vbotexture node
 					vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
-					gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts, texture %d\n", vbo->array_len, j );
+					gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts, texture %d, lm %d\n", vbo->array_len, j, k );
 					vbo->next = Mem_Calloc( vbos.mempool, sizeof( vboarray_t ) );
 					vbo = vbo->next;
 					vbotex->next = Mem_Calloc( vbos.mempool, sizeof( vbotexture_t ) );
