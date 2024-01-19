@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 #include "studio.h"
+#include "studio2.h"
 #include "r_studioint.h"
 #include "library.h"
 #include "ref_common.h"
@@ -832,13 +833,45 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 	phdr = (studiohdr_t *)pin;
 	i = phdr->version;
 
-	if( i != STUDIO_VERSION )
+	if( i != STUDIO_VERSION && i != STUDIO_VERSION2)
 	{
-		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, STUDIO_VERSION );
+		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i or %i)\n", mod->name, i, STUDIO_VERSION, STUDIO_VERSION2 );
 		return NULL;
 	}
 
 	return (studiohdr_t *)buffer;
+}
+
+void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, const char* modelpath)
+{
+	string vvdpath;
+	byte* buf;
+	fs_offset_t length;
+	studiohdr_t* phdr;
+	strncpy(vvdpath, modelpath, sizeof(vvdpath));
+	COM_ReplaceExtension(vvdpath, ".vvd", 256);
+	buf = FS_LoadFile(vvdpath, &length, false);
+
+	if (!buf)
+	{
+		memset(mod, 0, sizeof(model_t));
+
+		Con_Printf(S_ERROR "Could not load model vertex data (\"%s\") from disk\n", vvdpath);
+
+		return;
+	}
+
+	studio_vvd_header* header = (studio_vvd_header*)buf;
+	studio_vvd_vertex* vertices = (studio_vvd_vertex*)(buf + header->vertex_table_start);
+	//Con_Printf("%i\n", header->num_lod_vertices[0]);
+	//phdr = (studiohdr_t*)mod->cache.data;
+	//int numvertices = header->num_lod_vertices[0];
+	//for (int i = 0; i < numvertices; i++)
+	//{
+	//	
+	//}
+	memset(mod, 0, sizeof(model_t));
+	Mem_Free(buf);
 }
 
 /*
@@ -846,7 +879,7 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 Mod_LoadStudioModel
 =================
 */
-void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
+void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded, const char* modelpath )
 {
 	char poolname[MAX_VA_STRING];
 	studiohdr_t	*phdr;
@@ -862,6 +895,11 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	if( !Host_IsDedicated() )
 	{
+		if (phdr->version == STUDIO_VERSION2)
+		{
+			Mod_LoadStudioModel2(mod, buffer, loaded, modelpath);
+			return;
+		}
 		if( phdr->numtextures == 0 )
 		{
 			studiohdr_t	*thdr;
