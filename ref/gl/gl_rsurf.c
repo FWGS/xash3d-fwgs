@@ -224,10 +224,9 @@ every render pass applies new fog layer, resulting in wrong fog color
 recalculate fog color for current pass count
 ===============================
 */
-
-void GL_SetupFogColorForSurfacesEx( int passes, float density )
+void GL_SetupFogColorForSurfacesEx( int passes, float density, qboolean blend_lightmaps )
 {
-	vec3_t	fogColor;
+	vec4_t	fogColor;
 	float	factor, div;
 
 	if( !glState.isFogEnabled )
@@ -244,6 +243,13 @@ void GL_SetupFogColorForSurfacesEx( int passes, float density )
 	fogColor[0] = pow( RI.fogColor[0] / div, ( 1.0f / factor ));
 	fogColor[1] = pow( RI.fogColor[1] / div, ( 1.0f / factor ));
 	fogColor[2] = pow( RI.fogColor[2] / div, ( 1.0f / factor ));
+	fogColor[3] = 1.0f; // ignored but GL_FOG_COLOR requires vec4_t
+
+	// because of enabled blending in R_BlendLightmaps, need to scale down fog color
+	// but only during lightmap blending & without VBO (it takes another route)
+	if( blend_lightmaps && gl_overbright.value )
+		VectorScale( fogColor, 0.5f, fogColor );
+
 	pglFogfv( GL_FOG_COLOR, fogColor );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity * density );
 }
@@ -251,7 +257,7 @@ void GL_SetupFogColorForSurfacesEx( int passes, float density )
 
 void GL_SetupFogColorForSurfaces( void )
 {
-	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f );
+	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f, false );
 }
 
 void GL_ResetFogColor( void )
@@ -944,7 +950,7 @@ void R_BlendLightmaps( void )
 	if( !R_HasLightmap() )
 		return;
 
-	GL_SetupFogColorForSurfaces ();
+	GL_SetupFogColorForSurfacesEx( r_detailtextures.value ? 3 : 2, 1.0f, true );
 
 	if( !r_lightmap->value )
 		pglEnable( GL_BLEND );
@@ -1122,7 +1128,7 @@ void R_RenderDetails( int passes )
 	if( !draw_details )
 		return;
 
-	GL_SetupFogColorForSurfacesEx( passes, passes == 2 ? 0.5f : 1.0f );
+	GL_SetupFogColorForSurfacesEx( passes, passes == 2 ? 0.5f : 1.0f, false );
 
 	pglEnable( GL_BLEND );
 	pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
@@ -3029,7 +3035,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 	if( !r_vbo.value )
 		return;
 
-	GL_SetupFogColorForSurfacesEx( 1, 0.5f );
+	GL_SetupFogColorForSurfacesEx( 1, 0.5f, false );
 
 	R_SetupVBOArrayStatic( vbo, drawlightmap, drawtextures );
 	mtst.skiptexture = !drawtextures;
