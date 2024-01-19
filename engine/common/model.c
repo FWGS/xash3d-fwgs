@@ -564,6 +564,19 @@ void *Mod_StudioExtradata( model_t *mod )
 }
 
 /*
+===============
+Mod_StudioExtradata
+
+===============
+*/
+void* Mod_Studio2Extradata(model_t* mod)
+{
+	if (mod && mod->type == mod_studio2)
+		return mod->cache.data;
+	return NULL;
+}
+
+/*
 ==================
 Mod_ValidateCRC
 

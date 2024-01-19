@@ -834,6 +834,9 @@ void R_DrawEntitiesOnList( void )
 		case mod_studio:
 			R_DrawStudioModel( RI.currententity );
 			break;
+		case mod_studio2:
+			R_DrawStudioModel2(RI.currententity);
+			break;
 		default:
 			break;
 		}

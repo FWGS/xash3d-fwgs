@@ -43,7 +43,8 @@ typedef enum
 	mod_brush,
 	mod_sprite,
 	mod_alias,
-	mod_studio
+	mod_studio,
+	mod_studio2
 } modtype_t;
 
 typedef struct mplane_s

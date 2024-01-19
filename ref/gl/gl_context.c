@@ -128,6 +128,8 @@ void Mod_UnloadTextures( model_t *mod )
 	case mod_sprite:
 		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
+	case mod_studio2:
+		break;
 	default:
 		ASSERT( 0 );
 		break;
@@ -143,6 +145,7 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 		switch( mod->type )
 		{
 			case mod_studio:
+			case mod_studio2:
 				// Mod_LoadStudioModel( mod, buf, loaded );
 				break;
 			case mod_sprite:

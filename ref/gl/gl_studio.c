@@ -12,15 +12,17 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
 #include "gl_local.h"
 #include "xash3d_mathlib.h"
 #include "const.h"
+#pragma message("stupid: " _CRT_STRINGIZE(XASH_SDL))
+
 #include "r_studioint.h"
 #include "triangleapi.h"
 #include "studio.h"
 #include "pm_local.h"
 #include "pmtrace.h"
+#include "studio2.h"
 
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
@@ -134,6 +136,9 @@ mstudiomodel_t		*m_pSubModel;
 mstudiobodyparts_t		*m_pBodyPart;
 player_info_t		*m_pPlayerInfo;
 studiohdr_t		*m_pStudioHeader;
+studiomdl2		*m_pStudioMdl2;
+studio_vtx_body_part		*m_pBodyPart2;
+studio_vtx_model	*m_pSubModel2;
 float			m_flGaitMovement;
 int			g_nTopColor, g_nBottomColor;	// remap colors
 int			g_nFaceFlags, g_nForceFaceFlags;
@@ -1304,6 +1309,31 @@ static void R_StudioSetupModel( int bodypart, void **ppbodypart, void **ppsubmod
 
 /*
 ===============
+pfnStudioSetupModel
+
+===============
+*/
+static void R_StudioSetupModel2(int bodypart, void** ppbodypart, void** ppsubmodel)
+{
+	//int	index;
+
+	if (bodypart > m_pStudioMdl2->vtx->num_body_parts)
+		bodypart = 0;
+
+	m_pBodyPart2 = (studio_vtx_body_part*)((byte*)m_pStudioMdl2->vtx + m_pStudioMdl2->vtx->body_part_offset) + bodypart;
+
+	//index = RI.currententity->curstate.body / m_pBodyPart->base;
+	//index = index % m_pBodyPart->nummodels;
+
+	m_pSubModel2 = (studio_vtx_model*)((byte*)m_pBodyPart2 + m_pBodyPart2->model_offset);// + index;
+
+	if (ppbodypart) *ppbodypart = m_pBodyPart2;
+	if (ppsubmodel) *ppsubmodel = m_pSubModel2;
+}
+
+
+/*
+===============
 R_StudioCheckBBox
 
 ===============
@@ -2233,6 +2263,24 @@ static void R_StudioDrawArrays( uint startverts, uint startelems )
 		pglDisableClientState( GL_COLOR_ARRAY );
 }
 
+static __declspec(noinline) void R_StudioDrawArrays2(word* indices, uint numtriangles)
+{
+	pglEnableClientState(GL_VERTEX_ARRAY);
+	pglVertexPointer(3, GL_FLOAT, 12, g_studio.arrayverts);
+
+	pglEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	pglTexCoordPointer(2, GL_FLOAT, 0, g_studio.arraycoord);
+
+	pglEnableClientState(GL_COLOR_ARRAY);
+	pglColorPointer(4, GL_UNSIGNED_BYTE, 0, g_studio.arraycolor);
+
+	pglDrawElements(GL_TRIANGLES, numtriangles, GL_UNSIGNED_SHORT, indices);
+
+	pglDisableClientState(GL_VERTEX_ARRAY);
+	pglDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	pglDisableClientState(GL_COLOR_ARRAY);
+}
+
 /*
 ===============
 R_StudioDrawPoints
@@ -2437,6 +2485,77 @@ static void R_StudioDrawPoints( void )
 		tr.blend = oldblend;
 	}
 }
+
+/*
+===============
+R_StudioDrawPoints2
+
+===============
+*/
+__declspec(noinline) static void R_StudioDrawPoints2(void)
+{
+	int		i, j, k, m_skinnum;
+	float		shellscale = 0.0f;
+	qboolean		need_sort = false;
+	vec3_t* pstudioverts;
+	vec3_t* pstudionorms;
+	studio_vtx_lod* plod;
+	studio_vtx_mesh* pmesh;
+	studio_vtx_strip_group* pstripgroups;
+	studio_vvd_vertex* pverts;
+	word* pindices;
+	float		lv_tmp;
+
+	if (!m_pStudioMdl2) return;
+
+
+	g_studio.numverts = g_studio.numelems = 0;
+	
+	//m_skinnum = RI.currententity->curstate.skin;
+	plod = (studio_vtx_lod*)((byte*)m_pSubModel2 + m_pSubModel2->lod_offset);
+	pmesh = (studio_vtx_mesh*)((byte*)plod + plod->mesh_offset);
+	pstripgroups = (studio_vtx_strip_group*)((byte*)pmesh + pmesh->strip_group_header_offset);
+	pverts = (studio_vvd_vertex*)((byte*)m_pStudioMdl2->vvd + m_pStudioMdl2->vvd->vertex_table_start);
+	for (int q = 0; q < m_pStudioMdl2->vvd->num_lod_vertices[0]; q++)
+	{
+		studio_vvd_vertex* vvdvertex = &pverts[q];
+		//g_studio.arrayverts[q][0] = vvdvertex->pos[0];
+		//g_studio.arrayverts[q][1] = vvdvertex->pos[1];
+		//g_studio.arrayverts[q][2] = vvdvertex->pos[2];
+		Matrix3x4_VectorTransform(g_studio.rotationmatrix, vvdvertex->pos, g_studio.arrayverts[q]);
+
+		g_studio.arraycoord[q][0] = vvdvertex->tex_coord[0];
+		g_studio.arraycoord[q][1] = vvdvertex->tex_coord[1];
+
+		g_studio.arraycolor[q][0] = 255;
+		g_studio.arraycolor[q][1] = 255;
+		g_studio.arraycolor[q][2] = 255;
+		g_studio.arraycolor[q][3] = 255;
+	}
+
+	for (j = 0; j < pmesh->num_strip_groups; j++)
+	{
+
+		pindices = (word*)((byte*)pstripgroups + pstripgroups[j].index_offset);
+		float	oldblend = tr.blend;
+		short* ptricmds;
+		float	s, t;
+
+		
+		s = 1.0f / 512.0f;
+		t = 1.0f / 512.0f;
+		
+		
+
+		R_StudioDrawArrays2(pindices, pstripgroups[j].num_indices);
+
+
+		r_stats.c_studio_polys += pmesh->num_strip_groups;
+		tr.blend = oldblend;
+	}
+}
+
+
 
 /*
 ===============
@@ -2842,6 +2961,12 @@ void R_StudioSetHeader( studiohdr_t *pheader )
 	m_fDoRemap = false;
 }
 
+void R_StudioSetHeader2(studiomdl2* pheader)
+{
+	m_pStudioMdl2 = pheader;
+	m_fDoRemap = false;
+}
+
 /*
 ===============
 R_StudioSetRenderModel
@@ -3138,6 +3263,30 @@ void R_StudioRenderFinal( void )
 
 	R_StudioRestoreRenderer();
 }
+
+void R_StudioRenderFinal2(void)
+{
+	int	i, rendermode;
+
+	//rendermode = R_StudioGetForceFaceFlags() ? kRenderTransAdd : RI.currententity->curstate.rendermode;
+	//R_StudioSetupRenderer(rendermode);
+	pglDisable(GL_BLEND);
+
+	pglTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	pglShadeModel(GL_FLAT);
+
+	for (i = 0; i < m_pStudioMdl2->vtx->num_body_parts; i++)
+	{
+		R_StudioSetupModel2(i, (void**)&m_pBodyPart2, (void**)&m_pSubModel2);
+
+		GL_StudioSetRenderMode(rendermode);
+		R_StudioDrawPoints2();
+		//GL_StudioDrawShadow();
+	}
+
+	R_StudioRestoreRenderer();
+}
+
 
 /*
 ====================
@@ -3558,6 +3707,62 @@ static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 			pStudioDraw->StudioDrawPlayer( flags, R_StudioGetPlayerState( e->index - 1 ));
 		else pStudioDraw->StudioDrawModel( flags );
 	}
+}
+
+void R_DrawStudioModel2(cl_entity_t* e)
+{
+	if(FBitSet(RI.params, RP_ENVVIEW))
+		return;
+
+	alight_t	lighting;
+	vec3_t	dir;
+
+	R_StudioSetHeader2((studiomdl2*)gEngfuncs.Mod_Extradata(mod_studio2, RI.currentmodel));
+
+	R_StudioSetUpTransform(RI.currententity);
+
+	// see if the bounding box lets us trivially reject, also sets
+	if (!R_StudioCheckBBox())
+		return;
+
+	r_stats.c_studio_models_drawn++;
+	g_studio.framecount++; // render data cache cookie
+
+	if (m_pStudioMdl2->vtx->num_body_parts == 0)
+		return;
+
+	//if (RI.currententity->curstate.movetype == MOVETYPE_FOLLOW)
+	//	R_StudioMergeBones(RI.currententity, RI.currentmodel);
+	//else R_StudioSetupBones(RI.currententity);
+
+	//R_StudioSaveBones();
+
+	//R_StudioCalcAttachments();
+	//R_StudioClientEvents();
+
+	// copy attachments into global entity array
+	//if (RI.currententity->index > 0)
+	//{
+	//	cl_entity_t* ent = CL_GetEntityByIndex(RI.currententity->index);
+	//	memcpy(ent->attachment, RI.currententity->attachment, sizeof(vec3_t) * 4);
+	//}
+
+
+	//lighting.plightvec = dir;
+	//R_StudioDynamicLight(RI.currententity, &lighting);
+
+	//R_StudioEntityLight(&lighting);
+
+	// model and frame independant
+	//R_StudioSetupLighting(&lighting);
+
+	// get remap colors
+	//g_nTopColor = RI.currententity->curstate.colormap & 0xFF;
+	//g_nBottomColor = (RI.currententity->curstate.colormap & 0xFF00) >> 8;
+
+	//R_StudioSetRemapColors(g_nTopColor, g_nBottomColor);
+	R_StudioRenderFinal2();
+
 }
 
 /*

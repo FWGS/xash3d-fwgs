@@ -844,25 +844,48 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 
 void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, const char* modelpath)
 {
-	string vvdpath;
-	byte* buf;
-	fs_offset_t length;
-	studiohdr_t* phdr;
-	strncpy(vvdpath, modelpath, sizeof(vvdpath));
-	COM_ReplaceExtension(vvdpath, ".vvd", 256);
-	buf = FS_LoadFile(vvdpath, &length, false);
+	string path;
+	byte* bufvvd, *bufvtx;
+	fs_offset_t vvdlen, vtxlen;
+	studiomdl2* smdl2;
+	strncpy(path, modelpath, sizeof(path));
+	COM_ReplaceExtension(path, ".vvd", 256);
+	bufvvd = FS_LoadFile(path, &vvdlen, false);
 
-	if (!buf)
+	if (!bufvvd)
 	{
 		memset(mod, 0, sizeof(model_t));
 
-		Con_Printf(S_ERROR "Could not load model vertex data (\"%s\") from disk\n", vvdpath);
+		Con_Printf(S_ERROR "Could not load model vertex data (\"%s\") from disk\n", path);
+
+		return;
+	}
+	COM_ReplaceExtension(path, ".dx90.vtx", 256);
+	bufvtx = FS_LoadFile(path, &vtxlen, false);
+	if (!bufvtx)
+	{
+		Mem_Free(bufvvd);
+		memset(mod, 0, sizeof(model_t));
+
+		Con_Printf(S_ERROR "Could not load model vertex data (\"%s\") from disk\n", path);
 
 		return;
 	}
 
-	studio_vvd_header* header = (studio_vvd_header*)buf;
-	studio_vvd_vertex* vertices = (studio_vvd_vertex*)(buf + header->vertex_table_start);
+	mod->type = mod_studio2;
+	studio_vvd_header* vvdheader = (studio_vvd_header*)Mem_Calloc(mod->mempool, vvdlen);
+	memcpy(vvdheader, bufvvd, vvdlen);
+
+	studio_vtx_header* vtxheader = (studio_vtx_header*)Mem_Calloc(mod->mempool, vtxlen);
+	memcpy(vtxheader, bufvtx, vtxlen);
+
+	mod->cache.data = Mem_Calloc(mod->mempool, sizeof(studiomdl2));
+	smdl2 = (studiomdl2*)mod->cache.data;
+	smdl2->vtx = vtxheader;
+	smdl2->vvd = vvdheader;
+	*loaded = true;
+	//
+	
 	//Con_Printf("%i\n", header->num_lod_vertices[0]);
 	//phdr = (studiohdr_t*)mod->cache.data;
 	//int numvertices = header->num_lod_vertices[0];
@@ -870,8 +893,8 @@ void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, co
 	//{
 	//	
 	//}
-	memset(mod, 0, sizeof(model_t));
-	Mem_Free(buf);
+	Mem_Free(bufvvd);
+	Mem_Free(bufvtx);
 }
 
 /*
