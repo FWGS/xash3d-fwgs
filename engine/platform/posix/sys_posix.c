@@ -169,6 +169,7 @@ double Platform_DoubleTime( void )
 	return (double)sec + (double)nsec/1000000000.0;
 }
 #endif
+#endif
 void Platform_Sleep( int msec )
 {
 	usleep( msec * 1000 );
