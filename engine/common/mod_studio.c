@@ -842,7 +842,7 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 	return (studiohdr_t *)buffer;
 }
 
-__declspec(noinline) void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, const char* modelpath, int length)
+void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, const char* modelpath, int length)
 {
 	string path;
 	byte* bufvvd, *bufvtx;

@@ -2267,7 +2267,7 @@ static void R_StudioDrawArrays( uint startverts, uint startelems )
 		pglDisableClientState( GL_COLOR_ARRAY );
 }
 
-static __declspec(noinline) void R_StudioDrawArrays2(word* indices, uint numtriangles)
+static void R_StudioDrawArrays2(word* indices, uint numtriangles)
 {
 	pglEnableClientState(GL_VERTEX_ARRAY);
 	pglVertexPointer(3, GL_FLOAT, 12, g_studio.arrayverts);
@@ -2498,7 +2498,7 @@ R_StudioDrawPoints2
 
 ===============
 */
-__declspec(noinline) static void R_StudioDrawPoints2(void)
+static void R_StudioDrawPoints2(void)
 {
 	int		i, j, k, l;
 	float		shellscale = 0.0f;
