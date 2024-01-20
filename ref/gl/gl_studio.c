@@ -138,7 +138,9 @@ player_info_t		*m_pPlayerInfo;
 studiohdr_t		*m_pStudioHeader;
 studiomdl2		*m_pStudioMdl2;
 studio_vtx_body_part		*m_pBodyPart2;
+studio_mdl_body_part		*m_pBodyPartMdl2;
 studio_vtx_model	*m_pSubModel2;
+studio_mdl_model	*m_pSubModelMdl2;
 float			m_flGaitMovement;
 int			g_nTopColor, g_nBottomColor;	// remap colors
 int			g_nFaceFlags, g_nForceFaceFlags;
@@ -1321,11 +1323,13 @@ static void R_StudioSetupModel2(int bodypart, void** ppbodypart, void** ppsubmod
 		bodypart = 0;
 
 	m_pBodyPart2 = (studio_vtx_body_part*)((byte*)m_pStudioMdl2->vtx + m_pStudioMdl2->vtx->body_part_offset) + bodypart;
+	m_pBodyPartMdl2 = (studio_mdl_body_part*)((byte*)m_pStudioMdl2->mdl + m_pStudioMdl2->mdl->body_part_offset) + bodypart;
 
 	//index = RI.currententity->curstate.body / m_pBodyPart->base;
 	//index = index % m_pBodyPart->nummodels;
 
 	m_pSubModel2 = (studio_vtx_model*)((byte*)m_pBodyPart2 + m_pBodyPart2->model_offset);// + index;
+	m_pSubModelMdl2 = (studio_mdl_model*)((byte*)m_pBodyPartMdl2 + m_pBodyPartMdl2->model_index);// + index;
 
 	if (ppbodypart) *ppbodypart = m_pBodyPart2;
 	if (ppsubmodel) *ppsubmodel = m_pSubModel2;
@@ -2486,6 +2490,8 @@ static void R_StudioDrawPoints( void )
 	}
 }
 
+static char notprinted = 1;
+
 /*
 ===============
 R_StudioDrawPoints2
@@ -2494,15 +2500,17 @@ R_StudioDrawPoints2
 */
 __declspec(noinline) static void R_StudioDrawPoints2(void)
 {
-	int		i, j, k, m_skinnum;
+	int		i, j, k, l;
 	float		shellscale = 0.0f;
 	qboolean		need_sort = false;
 	vec3_t* pstudioverts;
 	vec3_t* pstudionorms;
 	studio_vtx_lod* plod;
+	studio_mdl_mesh* pMdlMesh;
 	studio_vtx_mesh* pmesh;
 	studio_vtx_strip_group* pstripgroups;
-	studio_vvd_vertex* pverts;
+	studio_vertex* pverts;
+	studio_vtx_vertex* pvtxverts;
 	word* pindices;
 	float		lv_tmp;
 
@@ -2514,14 +2522,86 @@ __declspec(noinline) static void R_StudioDrawPoints2(void)
 	//m_skinnum = RI.currententity->curstate.skin;
 	plod = (studio_vtx_lod*)((byte*)m_pSubModel2 + m_pSubModel2->lod_offset);
 	pmesh = (studio_vtx_mesh*)((byte*)plod + plod->mesh_offset);
-	pstripgroups = (studio_vtx_strip_group*)((byte*)pmesh + pmesh->strip_group_header_offset);
-	pverts = (studio_vvd_vertex*)((byte*)m_pStudioMdl2->vvd + m_pStudioMdl2->vvd->vertex_table_start);
-	for (int q = 0; q < m_pStudioMdl2->vvd->num_lod_vertices[0]; q++)
+	//pmesh = m_pStudioMdl2->meshes;
+	pverts = (studio_vertex*)((byte*)m_pStudioMdl2->vvd + m_pStudioMdl2->vvd->vertex_table_start);
+	for (i = 0; i < m_pSubModelMdl2->num_meshes; i++)
 	{
-		studio_vvd_vertex* vvdvertex = &pverts[q];
-		//g_studio.arrayverts[q][0] = vvdvertex->pos[0];
-		//g_studio.arrayverts[q][1] = vvdvertex->pos[1];
-		//g_studio.arrayverts[q][2] = vvdvertex->pos[2];
+		pmesh = (studio_vtx_mesh*)((byte*)plod + plod->mesh_offset + i*9);
+		if (pmesh->num_strip_groups == 0)
+		{
+			continue;
+		}
+		pMdlMesh = (studio_mdl_mesh*)((byte*)m_pSubModelMdl2 + m_pSubModelMdl2->mesh_index + sizeof(studio_mdl_mesh)*i);
+		int vertex_start = pMdlMesh->vertex_offset;
+		//int vertex_start = 0;
+		int vertex_offset = 0;
+		for (j = 0; j < pmesh->num_strip_groups; j++)
+		{
+			pstripgroups = (studio_vtx_strip_group*)((byte*)pmesh + pmesh->strip_group_header_offset + 25*j);
+			k = 0;
+			pindices = (word*)((byte*)pstripgroups + pstripgroups->index_offset);
+			for (l = 0; l < pstripgroups->num_indices; l++)
+			{
+				//pvtxverts = (studio_vtx_vertex*)((byte*)&pstripgroups[j] + pstripgroups[j].vert_offset + 9 * l);
+				g_studio.arrayelems[k++] = pindices[l]; // pvtxverts->orig_mesh_vert_id;
+				if (notprinted)
+				{
+					gEngfuncs.Con_Printf("%i, ", g_studio.arrayelems[k - 1]);
+				}
+			}
+			if (notprinted)
+			{
+				gEngfuncs.Con_Printf("\n\n");
+			}
+			for (l = 0; l < pstripgroups->num_verts; l++)
+			{
+				pvtxverts = (studio_vtx_vertex*)((byte*)pstripgroups + pstripgroups->vert_offset + 9 * l);
+				studio_vertex* vvdvertex = &pverts[pvtxverts->orig_mesh_vert_id];
+				if (notprinted)
+				{
+					gEngfuncs.Con_Printf("%i [%f, %f, %f]\n ", l, pverts[l].pos[0], pverts[l].pos[1], pverts[l].pos[2] );
+				}
+				//studio_vertex* vvdvertex = &pverts[pindices[l] + vertex_offset];
+				Matrix3x4_VectorTransform(g_studio.rotationmatrix, vvdvertex->pos, g_studio.arrayverts[l]);
+
+				g_studio.arraycoord[l][0] = vvdvertex->tex_coord[0];
+				g_studio.arraycoord[l][1] = vvdvertex->tex_coord[1];
+
+				g_studio.arraycolor[l][0] = 255;
+				g_studio.arraycolor[l][1] = 255;
+				g_studio.arraycolor[l][2] = 255;
+				g_studio.arraycolor[l][3] = 255;
+			}
+			studio_vtx_strip* strips = (studio_vtx_strip*)((byte*)pstripgroups + pstripgroups->strip_offset);
+			for (l = 0; l < pstripgroups->num_strips; l++)
+			{
+ 				vertex_offset += strips[l].num_verts;
+			}
+			R_StudioDrawArrays2(g_studio.arrayelems, pstripgroups->num_verts);
+		}
+		notprinted = 0;
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	/*
+	for (int q = 0; q < pstripgroups[j].num_verts; q++)
+	{
+		pvtxverts = &((studio_vtx_vertex*)((byte*)pstripgroups + pstripgroups[j].vert_offset))[q];// + pstripgroups[j].num_verts * q);
+		studio_vertex* vvdvertex = &pverts[pvtxverts->orig_mesh_vert_id];
+
 		Matrix3x4_VectorTransform(g_studio.rotationmatrix, vvdvertex->pos, g_studio.arrayverts[q]);
 
 		g_studio.arraycoord[q][0] = vvdvertex->tex_coord[0];
@@ -2533,26 +2613,34 @@ __declspec(noinline) static void R_StudioDrawPoints2(void)
 		g_studio.arraycolor[q][3] = 255;
 	}
 
+	//word maxindex = 0;
 	for (j = 0; j < pmesh->num_strip_groups; j++)
 	{
-
-		pindices = (word*)((byte*)pstripgroups + pstripgroups[j].index_offset);
+		
+ 		pindices = (word*)((byte*)pstripgroups + pstripgroups[j].index_offset);
+		for (int b = 0; b < m_pStudioMdl2->vvd->num_lod_vertices[0]; b++) {
+			//pvtxverts = (studio_vtx_vertex*)((byte*)pstripgroups + pstripgroups[j].vert_offset + pstripgroups[j].num_verts * b);
+			//g_studio.arrayelems[b] = pvtxverts->orig_mesh_vert_id;
+			g_studio.arrayelems[b] = b;
+		}
 		float	oldblend = tr.blend;
 		short* ptricmds;
 		float	s, t;
 
-		
+
 		s = 1.0f / 512.0f;
 		t = 1.0f / 512.0f;
-		
-		
 
-		R_StudioDrawArrays2(pindices, pstripgroups[j].num_indices);
+
+
+		R_StudioDrawArrays2(g_studio.arrayelems, pstripgroups[j].num_indices);
 
 
 		r_stats.c_studio_polys += pmesh->num_strip_groups;
 		tr.blend = oldblend;
 	}
+	*/
+	//printf("%i\n", maxindex);
 }
 
 

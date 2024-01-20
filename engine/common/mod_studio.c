@@ -842,7 +842,7 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 	return (studiohdr_t *)buffer;
 }
 
-void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, const char* modelpath)
+__declspec(noinline) void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, const char* modelpath, int length)
 {
 	string path;
 	byte* bufvvd, *bufvtx;
@@ -875,14 +875,44 @@ void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, co
 	mod->type = mod_studio2;
 	studio_vvd_header* vvdheader = (studio_vvd_header*)Mem_Calloc(mod->mempool, vvdlen);
 	memcpy(vvdheader, bufvvd, vvdlen);
+	studio_vvd_fixup* fixup = (studio_vvd_fixup*)(bufvvd + vvdheader->fixup_table_start);
+	studio_vertex* vert = (studio_vertex*)((byte*)vvdheader + vvdheader->vertex_table_start);
+	studio_vertex* origvert = (studio_vertex*)((byte*)bufvvd + vvdheader->vertex_table_start);
+	//Con_Printf("215: [%f, %f, %f]\n", vert[215].pos[0], vert[215].pos[1], vert[215].pos[2]);
+	for (int i = 0; i < 1; i++)
+	{
+		int lodverts = 0;
+		for (int j = 0; j < vvdheader->num_fixups; j++)
+		{
+			if (fixup[j].lod >= i)
+			{
+				if (lodverts >= (vvdheader->tangent_table_start - vvdheader->vertex_table_start) / sizeof(studio_vertex))
+				{
+					Con_Printf("UH OH! %i > %i\n", lodverts, lodverts, (vvdheader->tangent_table_start - vvdheader->vertex_table_start) / sizeof(studio_vertex));
+					break;
+				}
+				studio_vertex* lodvert = &vert[lodverts];
+				memcpy(lodvert, &origvert[fixup[j].source_vertex_id], fixup[j].num_vertices*sizeof(studio_vertex));
+				lodverts += fixup[j].num_vertices;
+				//Con_Printf("215: [%f, %f, %f]\n", vert[215].pos[0], vert[215].pos[1], vert[215].pos[2]);
+			}
+		}
+	}
+
+
 
 	studio_vtx_header* vtxheader = (studio_vtx_header*)Mem_Calloc(mod->mempool, vtxlen);
 	memcpy(vtxheader, bufvtx, vtxlen);
+
+
+	studio_mdl_header* mdlheader = (studio_mdl_header*)Mem_Calloc(mod->mempool, length);
+	memcpy(mdlheader, buffer, length);
 
 	mod->cache.data = Mem_Calloc(mod->mempool, sizeof(studiomdl2));
 	smdl2 = (studiomdl2*)mod->cache.data;
 	smdl2->vtx = vtxheader;
 	smdl2->vvd = vvdheader;
+	smdl2->mdl = mdlheader;
 	*loaded = true;
 	//
 	
@@ -902,7 +932,7 @@ void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, co
 Mod_LoadStudioModel
 =================
 */
-void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded, const char* modelpath )
+void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded, const char* modelpath, int length)
 {
 	char poolname[MAX_VA_STRING];
 	studiohdr_t	*phdr;
@@ -920,7 +950,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded, co
 	{
 		if (phdr->version == STUDIO_VERSION2)
 		{
-			Mod_LoadStudioModel2(mod, buffer, loaded, modelpath);
+			Mod_LoadStudioModel2(mod, buffer, loaded, modelpath, length);
 			return;
 		}
 		if( phdr->numtextures == 0 )
