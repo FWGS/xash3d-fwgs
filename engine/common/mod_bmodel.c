@@ -3391,6 +3391,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 	switch( header->version )
 	{
 	case HLBSP_VERSION:
+	case PDBSP_VERSION:
 		if( extrahdr->id == IDEXTRAHEADER )
 		{
 			SetBits( flags, LUMP_BSP30EXT );

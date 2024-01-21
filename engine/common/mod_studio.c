@@ -254,9 +254,9 @@ hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t ang
 			return studio_hull;
 		}
 	}
-
+	
 	mod_studiohdr = Mod_StudioExtradata( model );
-	if( !mod_studiohdr ) return NULL; // probably not a studiomodel
+	if( model->type != mod_studio || !mod_studiohdr ) return NULL; // probably not a studiomodel
 
 	VectorCopy( angles, angles2 );
 
@@ -912,7 +912,8 @@ void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, co
 	smdl2->vtx = vtxheader;
 	smdl2->vvd = vvdheader;
 	smdl2->mdl = mdlheader;
-
+	VectorCopy(mdlheader->hull_min, mod->mins);
+	VectorCopy(mdlheader->hull_max, mod->maxs);
 	ref.dllFuncs.Mod_StudioLoadTextures2(mod, mdlheader);
 
 

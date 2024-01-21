@@ -32,6 +32,7 @@ BRUSH MODELS
 #define HLBSP_VERSION	30	// half-life regular version
 #define QBSP2_VERSION	(('B' << 0) | ('S' << 8) | ('P' << 16) | ('2'<<24))
 #define VBSP_VERSION	(('V' << 0) | ('B' << 8) | ('S' << 16) | ('P'<<24))
+#define PDBSP_VERSION	(('D' << 0) | ('B' << 8) | ('S' << 16) | ('P'<<24))	// project destination version
 
 #define IDEXTRAHEADER	(('H'<<24)+('S'<<16)+('A'<<8)+'X') // little-endian "XASH"
 #define EXTRA_VERSION	4	// ver. 1 was occupied by old versions of XashXT, ver. 2 was occupied by old vesrions of P2:savior

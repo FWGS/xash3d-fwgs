@@ -164,6 +164,9 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 			default: Q_strncpy( version_description, "Half-Life", sizeof( version_description )); break;
 			}
 			break;
+		case PDBSP_VERSION:
+			Q_strncpy(version_description, "Project Destination", sizeof(version_description));
+			break;
 		default:	Q_strncpy( version_description, "??", sizeof( version_description )); break;
 		}
 

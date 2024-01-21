@@ -304,6 +304,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		break;
 	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
+	case PDBSP_VERSION:
 	case QBSP2_VERSION:
 	case VBSP_VERSION:
 		Mod_LoadBrushModel( mod, buf, &loaded );
