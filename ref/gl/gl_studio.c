@@ -2267,7 +2267,7 @@ static void R_StudioDrawArrays( uint startverts, uint startelems )
 		pglDisableClientState( GL_COLOR_ARRAY );
 }
 
-static void R_StudioDrawArrays2(word* indices, uint numtriangles)
+static void R_StudioDrawArrays2(word* indices, uint numindices)
 {
 	pglEnableClientState(GL_VERTEX_ARRAY);
 	pglVertexPointer(3, GL_FLOAT, 12, g_studio.arrayverts);
@@ -2278,7 +2278,11 @@ static void R_StudioDrawArrays2(word* indices, uint numtriangles)
 	pglEnableClientState(GL_COLOR_ARRAY);
 	pglColorPointer(4, GL_UNSIGNED_BYTE, 0, g_studio.arraycolor);
 
-	pglDrawElements(GL_TRIANGLES, numtriangles, GL_UNSIGNED_SHORT, indices);
+	pglDisable(GL_CULL_FACE);
+	//pglPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	pglDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, indices);
+	//pglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	pglEnable(GL_CULL_FACE);
 
 	pglDisableClientState(GL_VERTEX_ARRAY);
 	pglDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -2490,8 +2494,6 @@ static void R_StudioDrawPoints( void )
 	}
 }
 
-static char notprinted = 1;
-
 /*
 ===============
 R_StudioDrawPoints2
@@ -2537,30 +2539,18 @@ static void R_StudioDrawPoints2(void)
 		int vertex_offset = 0;
 		for (j = 0; j < pmesh->num_strip_groups; j++)
 		{
-			pstripgroups = (studio_vtx_strip_group*)((byte*)pmesh + pmesh->strip_group_header_offset + 25*j);
+			pstripgroups = (studio_vtx_strip_group*)((byte*)pmesh + pmesh->strip_group_header_offset + 25 * j);
 			k = 0;
 			pindices = (word*)((byte*)pstripgroups + pstripgroups->index_offset);
 			for (l = 0; l < pstripgroups->num_indices; l++)
 			{
 				//pvtxverts = (studio_vtx_vertex*)((byte*)&pstripgroups[j] + pstripgroups[j].vert_offset + 9 * l);
 				g_studio.arrayelems[k++] = pindices[l]; // pvtxverts->orig_mesh_vert_id;
-				if (notprinted)
-				{
-					gEngfuncs.Con_Printf("%i, ", g_studio.arrayelems[k - 1]);
-				}
-			}
-			if (notprinted)
-			{
-				gEngfuncs.Con_Printf("\n\n");
 			}
 			for (l = 0; l < pstripgroups->num_verts; l++)
 			{
 				pvtxverts = (studio_vtx_vertex*)((byte*)pstripgroups + pstripgroups->vert_offset + 9 * l);
-				studio_vertex* vvdvertex = &pverts[pvtxverts->orig_mesh_vert_id];
-				if (notprinted)
-				{
-					gEngfuncs.Con_Printf("%i [%f, %f, %f]\n ", l, pverts[l].pos[0], pverts[l].pos[1], pverts[l].pos[2] );
-				}
+				studio_vertex* vvdvertex = &pverts[pvtxverts->orig_mesh_vert_id + pMdlMesh->vertex_offset];
 				//studio_vertex* vvdvertex = &pverts[pindices[l] + vertex_offset];
 				Matrix3x4_VectorTransform(g_studio.rotationmatrix, vvdvertex->pos, g_studio.arrayverts[l]);
 
@@ -2575,72 +2565,11 @@ static void R_StudioDrawPoints2(void)
 			studio_vtx_strip* strips = (studio_vtx_strip*)((byte*)pstripgroups + pstripgroups->strip_offset);
 			for (l = 0; l < pstripgroups->num_strips; l++)
 			{
- 				vertex_offset += strips[l].num_verts;
+				vertex_offset += strips[l].num_verts;
 			}
-			R_StudioDrawArrays2(g_studio.arrayelems, pstripgroups->num_verts);
+			R_StudioDrawArrays2(g_studio.arrayelems, pstripgroups->num_indices);
 		}
-		notprinted = 0;
 	}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	/*
-	for (int q = 0; q < pstripgroups[j].num_verts; q++)
-	{
-		pvtxverts = &((studio_vtx_vertex*)((byte*)pstripgroups + pstripgroups[j].vert_offset))[q];// + pstripgroups[j].num_verts * q);
-		studio_vertex* vvdvertex = &pverts[pvtxverts->orig_mesh_vert_id];
-
-		Matrix3x4_VectorTransform(g_studio.rotationmatrix, vvdvertex->pos, g_studio.arrayverts[q]);
-
-		g_studio.arraycoord[q][0] = vvdvertex->tex_coord[0];
-		g_studio.arraycoord[q][1] = vvdvertex->tex_coord[1];
-
-		g_studio.arraycolor[q][0] = 255;
-		g_studio.arraycolor[q][1] = 255;
-		g_studio.arraycolor[q][2] = 255;
-		g_studio.arraycolor[q][3] = 255;
-	}
-
-	//word maxindex = 0;
-	for (j = 0; j < pmesh->num_strip_groups; j++)
-	{
-		
- 		pindices = (word*)((byte*)pstripgroups + pstripgroups[j].index_offset);
-		for (int b = 0; b < m_pStudioMdl2->vvd->num_lod_vertices[0]; b++) {
-			//pvtxverts = (studio_vtx_vertex*)((byte*)pstripgroups + pstripgroups[j].vert_offset + pstripgroups[j].num_verts * b);
-			//g_studio.arrayelems[b] = pvtxverts->orig_mesh_vert_id;
-			g_studio.arrayelems[b] = b;
-		}
-		float	oldblend = tr.blend;
-		short* ptricmds;
-		float	s, t;
-
-
-		s = 1.0f / 512.0f;
-		t = 1.0f / 512.0f;
-
-
-
-		R_StudioDrawArrays2(g_studio.arrayelems, pstripgroups[j].num_indices);
-
-
-		r_stats.c_studio_polys += pmesh->num_strip_groups;
-		tr.blend = oldblend;
-	}
-	*/
-	//printf("%i\n", maxindex);
 }
 
 
