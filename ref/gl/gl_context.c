@@ -433,6 +433,7 @@ ref_interface_t gReffuncs =
 	Mod_LoadMapSprite,
 	Mod_ProcessRenderData,
 	Mod_StudioLoadTextures,
+	Mod_StudioLoadTextures2,
 
 	CL_DrawParticles,
 	CL_DrawTracers,

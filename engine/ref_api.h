@@ -537,6 +537,7 @@ typedef struct ref_interface_s
 	void (*Mod_LoadMapSprite)( struct model_s *mod, const void *buffer, size_t size, qboolean *loaded );
 	qboolean (*Mod_ProcessRenderData)( model_t *mod, qboolean create, const byte *buffer );
 	void (*Mod_StudioLoadTextures)( model_t *mod, void *data );
+	void (*Mod_StudioLoadTextures2)( model_t *mod, void *data );
 
 	// efx implementation
 	void (*CL_DrawParticles)( double frametime, particle_t *particles, float partsize );

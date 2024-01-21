@@ -313,6 +313,25 @@ typedef struct
 
 typedef struct
 {
+	dword name_index;
+	dword flags;
+	dword used;
+	union
+	{
+		struct
+		{
+			dword unused_A;
+			dword unused_B;
+			dword unused_C;
+			int unused[10];
+		} unused;
+		int texturenum;
+	} t;
+
+} studio_mdl_texture;
+
+typedef struct
+{
 	studio_mdl_header* mdl;
 	studio_vvd_header* vvd;
 	studio_vtx_header* vtx;

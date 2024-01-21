@@ -2279,9 +2279,7 @@ static void R_StudioDrawArrays2(word* indices, uint numindices)
 	pglColorPointer(4, GL_UNSIGNED_BYTE, 0, g_studio.arraycolor);
 
 	pglDisable(GL_CULL_FACE);
-	//pglPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	pglDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, indices);
-	//pglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	pglEnable(GL_CULL_FACE);
 
 	pglDisableClientState(GL_VERTEX_ARRAY);
@@ -2567,6 +2565,8 @@ static void R_StudioDrawPoints2(void)
 			{
 				vertex_offset += strips[l].num_verts;
 			}
+			studio_mdl_texture* ptexture = &(((studio_mdl_texture*)((byte*)m_pStudioMdl2->mdl + m_pStudioMdl2->mdl->texture_offset))[pMdlMesh->material]);
+			GL_Bind(XASH_TEXTURE0, ptexture->t.texturenum);
 			R_StudioDrawArrays2(g_studio.arrayelems, pstripgroups->num_indices);
 		}
 	}
@@ -4014,7 +4014,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 
 	if( FBitSet( gp_host->features, ENGINE_IMPROVED_LINETRACE ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
 		flags |= TF_KEEP_SOURCE; // Paranoia2 texture alpha-tracing
-
+	
 	// build the texname
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
 	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
@@ -4049,6 +4049,74 @@ void Mod_StudioLoadTextures( model_t *mod, void *data )
 	{
 		for( i = 0; i < phdr->numtextures; i++ )
 			R_StudioLoadTexture( mod, phdr, &ptexture[i] );
+	}
+}
+
+
+/*
+====================
+R_StudioLoadTexture2
+
+load source model texture with unique name
+====================
+*/
+static void R_StudioLoadTexture2(model_t* mod, studio_mdl_header* phdr, studio_mdl_texture* ptexture)
+{
+	size_t		size;
+	string		texname;
+	texture_t* tx = NULL;
+
+	const char* name = (const char*)((byte*)ptexture + ptexture->name_index);
+
+	//gEngfuncs.Con_Printf("%s\n", texname);
+	dword* texturedir_list = (dword*)((byte*)phdr + phdr->texturedir_offset);
+	for (int o = 0; o < phdr->texture_count; o++)
+	{
+		for (int i = 0; i < phdr->texturedir_count; i++)
+		{
+			char* texturedir = (char*)((byte*)phdr + texturedir_list[i]);
+			Q_snprintf(texname, sizeof(texname), "materials/%s%s.vmt", texturedir, name);
+			COM_FixSlashes(texname);
+			gEngfuncs.Con_Printf("%s\n", texname);
+			ptexture->t.texturenum = GL_LoadTexture(texname, NULL, 0, 0);
+			if (ptexture->t.texturenum)
+			{
+				break;
+			}
+		}
+	}
+
+
+	if (!ptexture->t.texturenum)
+	{
+		ptexture->t.texturenum = tr.defaultTexture;
+	}
+	else if (tx)
+	{
+		// duplicate texnum for easy acess
+		tx->gl_texturenum = ptexture->t.texturenum;
+	}
+}
+
+/*
+=================
+Mod_StudioLoadTextures2
+=================
+*/
+void Mod_StudioLoadTextures2(model_t* mod, void* data)
+{
+	studio_mdl_header* phdr = (studio_mdl_header*)data;
+	studio_mdl_texture* ptexture;
+	int		i;
+
+	if (!phdr)
+		return;
+
+	ptexture = (studio_mdl_texture*)(((byte*)phdr) + phdr->texture_offset);
+	if (phdr->texture_offset > 0 && phdr->texture_count <= MAXSTUDIOSKINS)
+	{
+		for (i = 0; i < phdr->texture_count; i++)
+			R_StudioLoadTexture2(mod, phdr, &ptexture[i]);
 	}
 }
 

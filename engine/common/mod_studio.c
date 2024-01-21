@@ -900,7 +900,6 @@ void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, co
 	}
 
 
-
 	studio_vtx_header* vtxheader = (studio_vtx_header*)Mem_Calloc(mod->mempool, vtxlen);
 	memcpy(vtxheader, bufvtx, vtxlen);
 
@@ -913,6 +912,11 @@ void Mod_LoadStudioModel2(model_t* mod, const void* buffer, qboolean* loaded, co
 	smdl2->vtx = vtxheader;
 	smdl2->vvd = vvdheader;
 	smdl2->mdl = mdlheader;
+
+	ref.dllFuncs.Mod_StudioLoadTextures2(mod, mdlheader);
+
+
+
 	*loaded = true;
 	//
 	

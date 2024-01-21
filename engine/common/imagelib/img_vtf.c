@@ -21,12 +21,14 @@ qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesiz
 	}
 	
 	image.depth = 1;
-	dword offset = 0;
-	for (int i = 0; i < header->mipmap_count-1; i++)
+	dword offset = image.width/4;
+	for (int i = header->mipmap_count-1; i > 0; i--)
 	{
-		offset += ((((image.width >> (header->mipmap_count - i - 1 )) + 3) >> 2) * (((image.height >> (header->mipmap_count - i - 1)) + 3) >> 2) * 8)+16;
+		int mipwidth = max(4,image.width >> i);
+		int mipheight = max(4,image.height >> i);
+		offset += ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 8;
+		//Con_Printf("%i %i %i %i\n", mipwidth, mipheight, ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 8, offset);
 	}
-	offset -= 16;
 	image.size = (((image.width + 3) >> 2) * ((image.height + 3) >> 2) * 8);
 	image.rgba = Mem_Malloc(host.imagepool, image.size);
 	memcpy(image.rgba, imgdata + offset, image.size);

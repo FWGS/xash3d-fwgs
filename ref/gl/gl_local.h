@@ -476,6 +476,7 @@ void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t an
 void R_StudioResetPlayerModels( void );
 void CL_InitStudioAPI( void );
 void Mod_StudioLoadTextures( model_t *mod, void *data );
+void Mod_StudioLoadTextures2( model_t *mod, void *data );
 void Mod_StudioUnloadTextures( void *data );
 
 //
