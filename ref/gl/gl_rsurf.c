@@ -2514,7 +2514,7 @@ static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface
 			GL_Bind( mtst.tmu_gl, pdecal->texture );
 
 			// normal HL decal with alpha-channel
-			if( glt->flags & TF_HAS_ALPHA )
+			if( glt->flags & TF_HAS_ALPHA && !(glt->flags & TF_NOALPHA) )
 			{
 				// draw transparent decals with GL_MODULATE
 				if( glt->fogParams[3] > 230 )
@@ -2938,7 +2938,7 @@ static void R_DrawStaticDecals( vboarray_t *vbo, qboolean drawlightmap, int ilig
 			GL_Bind( mtst.tmu_gl, pdecal->texture );
 
 			// normal HL decal with alpha-channel
-			if( glt->flags & TF_HAS_ALPHA )
+			if( glt->flags & TF_HAS_ALPHA && !(glt->flags & TF_NOALPHA))
 			{
 				// draw transparent decals with GL_MODULATE
 				if( glt->fogParams[3] > 230 )

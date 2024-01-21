@@ -107,7 +107,8 @@ typedef enum
 	TF_ARB_FLOAT	= (1<<26),	// float textures
 	TF_NOCOMPARE	= (1<<27),	// disable comparing for depth textures
 	TF_ARB_16BIT	= (1<<28),	// keep image as 16-bit (not 24)
-	TF_MULTISAMPLE	= (1<<29)	// multisampling texture
+	TF_MULTISAMPLE	= (1<<29),	// multisampling texture
+	TF_NOALPHA		= (1<<30)   // force opaque, set alpha to 255
 } texFlags_t;
 
 typedef enum

@@ -1799,7 +1799,7 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 	if( !FBitSet( flags, TF_LUMINANCE ) && !FBitSet( flags, TF_ALPHACONTRAST ))
 		SetBits( r_empty.flags, IMAGE_HAS_COLOR );
 
-	if( FBitSet( flags, TF_HAS_ALPHA ))
+	if( FBitSet( flags, TF_HAS_ALPHA ) && !FBitSet(flags,TF_NOALPHA))
 		SetBits( r_empty.flags, IMAGE_HAS_ALPHA );
 
 	if( FBitSet( flags, TF_CUBEMAP ))
@@ -1839,7 +1839,7 @@ int GL_CreateTextureArray( const char *name, int width, int height, int depth, c
 	if( !FBitSet( flags, TF_LUMINANCE ))
 		SetBits( r_empty.flags, IMAGE_HAS_COLOR );
 
-	if( FBitSet( flags, TF_HAS_ALPHA ))
+	if( FBitSet( flags, TF_HAS_ALPHA ) && !FBitSet(flags, TF_NOALPHA))
 		SetBits( r_empty.flags, IMAGE_HAS_ALPHA );
 
 	if( FBitSet( flags, TF_TEXTURE_3D ))

@@ -402,7 +402,7 @@ struct vdf_object* vdf_object_index_array_str(const struct vdf_object* o, const 
 	for (size_t i = 0; i < o->data.data_array.len; ++i)
 	{
 		struct vdf_object* k = o->data.data_array.data_value[i];
-		if (!strcmp(k->key, str))
+		if (!stricmp(k->key, str))
 			return k;
 	}
 	return NULL;
