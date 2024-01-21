@@ -25,16 +25,23 @@ qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesiz
 	image.flags = TF_NOALPHA;
 	image.depth = 1;
 	dword offset = 0;
-	Con_Printf("%s\n", name);
+	//Con_Printf("%s\n", name);
 	if (image.type == PF_DXT1)
 	{
-		offset = image.width / 4;
+		if (image.width == 256 && image.height == 256)
+		{
+			offset = 128;
+		}
+		else
+		{
+			offset = image.width / 4;
+		}
 		for (int i = header->mipmap_count - 1; i > 0; i--)
 		{
 			int mipwidth = max(4, image.width >> i);
 			int mipheight = max(4, image.height >> i);
 			offset += ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 8;
-			Con_Printf("%i %i %i %i\n", mipwidth, mipheight, ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 8, offset);
+			//Con_Printf("%i %i %i %i\n", mipwidth, mipheight, ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 8, offset);
 		}
 		image.size = (((image.width + 3) >> 2) * ((image.height + 3) >> 2) * 8);
 	}
@@ -46,7 +53,7 @@ qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesiz
 			int mipwidth = max(4, image.width >> i);
 			int mipheight = max(4, image.height >> i);
 			offset += ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 16;
-			Con_Printf("%i %i %i %i\n", mipwidth, mipheight, ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 16, offset);
+			//Con_Printf("%i %i %i %i\n", mipwidth, mipheight, ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 16, offset);
 		}
 		image.size = (((image.width + 3) >> 2) * ((image.height + 3) >> 2) * 16);
 	}
