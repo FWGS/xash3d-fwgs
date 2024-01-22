@@ -391,8 +391,11 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	if (!Q_strcmp(ext, "vpk"))
 	{
 		search = FS_AddVPK_Fullpath(dir, FS_GAMEDIRONLY_SEARCH_FLAGS);
-		search->next = fs_searchpaths;
-		fs_searchpaths = search;
+		if (search)
+		{
+			search->next = fs_searchpaths;
+			fs_searchpaths = search;
+		}
 		return;
 	}
 
