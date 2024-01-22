@@ -391,6 +391,18 @@ void Con_Reportf( const char *szFmt, ... )
 	Sys_Print( buffer );
 }
 
+void Warning(const char* szFmt, ...)
+{
+	static char	buffer[MAX_PRINT_MSG];
+	va_list		args;
+
+	va_start(args, szFmt);
+	Q_vsnprintf(buffer, sizeof(buffer), szFmt, args);
+	va_end(args);
+
+	DisplayWarning(buffer);
+}
+
 
 #if XASH_MESSAGEBOX == MSGBOX_STDERR
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )

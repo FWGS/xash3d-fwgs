@@ -2187,6 +2187,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	if( texture->gl_texturenum == 0 )
 	{
 		Con_DPrintf( S_ERROR "Unable to find %s.mip\n", m_name );
+		Warning("Unable to find/load texture \"%s\".\nIt is either invalid or missing.", m_name);
 		texture->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 	}
 

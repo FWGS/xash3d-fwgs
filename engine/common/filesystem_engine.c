@@ -55,6 +55,7 @@ static fs_interface_t fs_memfuncs =
 	Con_DPrintf,
 	Con_Reportf,
 	Sys_Error,
+	Warning,
 
 	_Mem_AllocPool,
 	_Mem_FreePool,

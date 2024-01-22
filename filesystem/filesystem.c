@@ -396,6 +396,10 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 			search->next = fs_searchpaths;
 			fs_searchpaths = search;
 		}
+		else
+		{
+			g_engfuncs._Warning("Could not find VPK \"%s\". Check your gameinfo.txt or include the vpk in the game files.", dir);
+		}
 		return;
 	}
 
@@ -2955,6 +2959,7 @@ fs_interface_t g_engfuncs =
 	_Con_Printf,
 	_Con_Printf,
 	_Sys_Error,
+	_Con_Printf,
 	_Mem_AllocPool,
 	_Mem_FreePool,
 	_Mem_Alloc,
@@ -2981,6 +2986,9 @@ static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
 
 	if( engfuncs->_Con_Reportf )
 		g_engfuncs._Con_Reportf = engfuncs->_Con_Reportf;
+
+	if (engfuncs->_Warning)
+		g_engfuncs._Warning = engfuncs->_Warning;
 
 	if( engfuncs->_Sys_Error )
 		g_engfuncs._Sys_Error = engfuncs->_Sys_Error;

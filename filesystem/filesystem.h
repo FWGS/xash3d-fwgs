@@ -207,6 +207,8 @@ typedef struct fs_interface_t
 
 	void    (*_Sys_Error)( const char *fmt, ... ) _format( 1 );
 
+	void	(*_Warning)(const char* fmt, ...) _format(1);
+
 	// memory
 	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
 	void  (*_Mem_FreePool)( poolhandle_t *poolptr, const char *filename, int fileline );

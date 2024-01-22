@@ -75,6 +75,14 @@ typedef struct
 	int		key_dest;
 } notify_t;
 
+typedef struct
+{
+	string		szWarning;
+	float		expire;
+	float		duration;
+	rgba_t		color;
+} warning_t;
+
 typedef struct con_lineinfo_s
 {
 	char		*start;
@@ -132,6 +140,8 @@ typedef struct
 
 	notify_t		notify[MAX_DBG_NOTIFY]; // for Con_NXPrintf
 	qboolean		draw_notify;	// true if we have NXPrint message
+	warning_t		warning[MAX_DBG_NOTIFY];
+	int				warning_index;
 
 	// console update
 	double		lastupdate;
@@ -1101,6 +1111,23 @@ void GAME_EXPORT UI_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 }
 
 /*
+================
+DisplayWarning
+
+Notification warning
+================
+*/
+void DisplayWarning(const char* message)
+{
+	strncpy(con.warning[con.warning_index].szWarning, message, sizeof(con.warning[con.warning_index].szWarning));
+	con.warning[con.warning_index].expire = host.realtime + 10.0;
+	con.warning[con.warning_index].duration = 10.0;
+
+	MakeRGBA(con.warning[con.warning_index].color,255,128,32,255);
+	con.warning_index = (con.warning_index + 1) % MAX_DBG_NOTIFY;
+}
+
+/*
 =============================================================================
 
 EDIT FIELDS
@@ -1733,6 +1760,64 @@ int Con_DrawDebugLines( void )
 	return count;
 }
 
+
+/*
+================
+Con_DrawWarnings
+
+Draw the epic warnings
+================
+*/
+__declspec(noinline) int Con_DrawWarnings(void)
+{
+	static byte white[4] = { 255,255,255,255 };
+	warning_t* warning = con.warning;
+	int	i, count = 0;
+	int	defaultX;
+	int	y = 20;
+	//int	fontTall;
+
+	if (!con.curFont || !con.curFont->valid)
+		return 0;
+
+	defaultX = refState.width / 4;
+	//fontTall = con.curFont->charHeight + 1;
+
+	for (i = 0; i < ARRAYSIZE(con.warning); i++, warning++)
+	{
+		int x, len,height;
+
+		if (host.realtime > warning->expire)
+			continue;
+
+		Con_DrawStringLen(warning->szWarning, &len, &height);
+		int width = Q_max(defaultX, len) + 10;
+		x = refState.width - width;
+
+		if (y + height+12 > refState.height - 20)
+			return count;
+
+		float percentage = (warning->expire - host.realtime) / warning->duration;
+		float offset = percentage * 2 - 1;
+		offset = offset * offset;
+		offset = offset * offset;
+		offset = offset * offset;
+		offset = offset * offset;
+		offset = offset * offset;
+		x += offset * width;
+		count++;
+		CL_FillRGBABlend(x - 4, y - 4, len + 8, height + 8, 0, 0, 0, 128);
+		CL_FillRectBlend(x - 4, y - 4, len + 8, height + 8, warning->color[0], warning->color[1], warning->color[2], warning->color[3]);
+		CL_FillRGBA(x - 4, y - 3, (len + 6) * percentage, 4, warning->color[0], warning->color[1], warning->color[2], warning->color[3]);
+		CL_DrawString(x, y, warning->szWarning, white, con.curFont, FONT_DRAW_UTF8);
+		offset = offset * offset;
+		offset = offset * offset;
+		y += (1-offset)*(height+12);
+	}
+
+	return count;
+}
+
 /*
 ================
 Con_DrawDebug
@@ -1771,6 +1856,7 @@ void Con_DrawDebug( void )
 		if( Con_DrawDebugLines() == 0 )
 			con.draw_notify = false;
 	}
+	Con_DrawWarnings();
 }
 
 /*

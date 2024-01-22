@@ -849,6 +849,8 @@ void SPR_AdjustSize( float *x, float *y, float *w, float *h );
 void SPR_AdjustTexCoords( float width, float height, float *s1, float *t1, float *s2, float *t2 );
 int CL_GetScreenInfo( SCREENINFO *pscrinfo );
 void CL_FillRGBA( int x, int y, int width, int height, int r, int g, int b, int a );
+void CL_FillRGBABlend( int x, int y, int width, int height, int r, int g, int b, int a );
+void CL_FillRectBlend( int x, int y, int width, int height, int r, int g, int b, int a );
 pmtrace_t *PM_CL_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe );
 const char *PM_CL_TraceTexture( int ground, float *vstart, float *vend );
 int PM_CL_PointContents( const float *p, int *truecontents );

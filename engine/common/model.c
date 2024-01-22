@@ -281,7 +281,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 
 		if( crash ) Host_Error( "Could not load model %s from disk\n", tempname );
 		else Con_Printf( S_ERROR "Could not load model %s from disk\n", tempname );
-
+		Warning("Could not load model %s from disk", tempname);
 		return NULL;
 	}
 

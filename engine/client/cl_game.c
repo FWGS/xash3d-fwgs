@@ -347,6 +347,8 @@ void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 	if( refState.width == clgame.scrInfo.iWidth && refState.height == clgame.scrInfo.iHeight )
 		return;
 
+	if (clgame.scrInfo.iWidth == 0)
+		return;
 	// scale for screen sizes
 	xscale = refState.width / (float)clgame.scrInfo.iWidth;
 	yscale = refState.height / (float)clgame.scrInfo.iHeight;
@@ -3004,7 +3006,7 @@ pfnFillRGBABlend
 
 =============
 */
-static void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
+void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a )
 {
 	float _x = x, _y = y, _w = w, _h = h;
 
@@ -3035,6 +3037,28 @@ static void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int
 	pglEnable( GL_TEXTURE_2D );
 	pglDisable( GL_BLEND );
 #endif
+}
+
+
+/*
+=============
+pfnFillRectBlend
+
+=============
+*/
+void GAME_EXPORT CL_FillRectBlend(int x, int y, int w, int h, int r, int g, int b, int a)
+{
+	float _x = (float)x, _y = (float)y, _w = (float)w, _h = (float)h;
+
+
+	r = bound(0, r, 255);
+	g = bound(0, g, 255);
+	b = bound(0, b, 255);
+	a = bound(0, a, 255);
+
+	SPR_AdjustSize(&_x, &_y, &_w, &_h);
+
+	ref.dllFuncs.FillRectBlend(_x, _y, _w, _h, r, g, b, a);
 }
 
 /*

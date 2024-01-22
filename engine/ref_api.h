@@ -316,6 +316,7 @@ typedef struct ref_api_s
 	void	(*Con_Printf)( const char *fmt, ... ) _format( 1 ); // typical console allowed messages
 	void	(*Con_DPrintf)( const char *fmt, ... ) _format( 1 ); // -dev 1
 	void	(*Con_Reportf)( const char *fmt, ... ) _format( 1 ); // -dev 2
+	void	(*Warning)( const char *fmt, ... ) _format( 1 );
 
 	// debug print
 	void	(*Con_NPrintf)( int pos, const char *fmt, ... ) _format( 2 );
@@ -502,6 +503,7 @@ typedef struct ref_interface_s
 	void (*R_DrawTileClear)( int texnum, int x, int y, int w, int h );
 	void (*FillRGBA)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
 	void (*FillRGBABlend)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
+	void (*FillRectBlend)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
 	int  (*WorldToScreen)( const vec3_t world, vec3_t screen );  // Returns 1 if it's z clipped
 
 	// screenshot, cubemapshot

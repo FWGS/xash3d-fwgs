@@ -215,6 +215,7 @@ static ref_api_t gEngfuncs =
 	Con_Printf,
 	Con_DPrintf,
 	Con_Reportf,
+	Warning,
 
 	Con_NPrintf,
 	Con_NXPrintf,
