@@ -78,7 +78,7 @@ typedef struct
 typedef struct
 {
 	string		szWarning;
-	float		expire;
+	float		start;
 	float		duration;
 	rgba_t		color;
 } warning_t;
@@ -1120,7 +1120,7 @@ Notification warning
 void DisplayWarning(const char* message)
 {
 	strncpy(con.warning[con.warning_index].szWarning, message, sizeof(con.warning[con.warning_index].szWarning));
-	con.warning[con.warning_index].expire = host.realtime + 10.0;
+	con.warning[con.warning_index].start = host.realtime;
 	con.warning[con.warning_index].duration = 10.0;
 
 	MakeRGBA(con.warning[con.warning_index].color,255,128,32,255);
@@ -1783,12 +1783,16 @@ __declspec(noinline) int Con_DrawWarnings(void)
 
 	defaultX = refState.width / 4;
 	//fontTall = con.curFont->charHeight + 1;
-
+	float barflash = sin(host.realtime * 8) * 0.5 + 0.5;
+	barflash *= barflash;
+	barflash *= barflash;
+	barflash *= barflash * 0.3;
+	barflash += 1.0;
 	for (i = 0; i < ARRAYSIZE(con.warning); i++, warning++)
 	{
 		int x, len,height;
 
-		if (host.realtime > warning->expire)
+		if (host.realtime > warning->start + warning->duration)
 			continue;
 
 		Con_DrawStringLen(warning->szWarning, &len, &height);
@@ -1798,7 +1802,7 @@ __declspec(noinline) int Con_DrawWarnings(void)
 		if (y + height+12 > refState.height - 20)
 			return count;
 
-		float percentage = (warning->expire - host.realtime) / warning->duration;
+		float percentage = (warning->start + warning->duration - host.realtime) / warning->duration;
 		float offset = percentage * 2 - 1;
 		offset = offset * offset;
 		offset = offset * offset;
@@ -1807,9 +1811,12 @@ __declspec(noinline) int Con_DrawWarnings(void)
 		offset = offset * offset;
 		x += offset * width;
 		count++;
-		CL_FillRGBABlend(x - 4, y - 4, len + 8, height + 8, 0, 0, 0, 128);
+		float flash = max(0,(warning->start + 0.5 - host.realtime)*4);
+		flash *= flash;
+		
+		CL_FillRGBABlend(x - 4, y - 4, len + 8, height + 8, warning->color[0]*flash, warning->color[1]*flash, warning->color[2]*flash, 128);
 		CL_FillRectBlend(x - 4, y - 4, len + 8, height + 8, warning->color[0], warning->color[1], warning->color[2], warning->color[3]);
-		CL_FillRGBA(x - 4, y - 3, (len + 6) * percentage, 4, warning->color[0], warning->color[1], warning->color[2], warning->color[3]);
+		CL_FillRGBA(x - 4, y - 3, (len + 6) * percentage, 4, warning->color[0]* barflash, warning->color[1] * barflash, warning->color[2] * barflash, warning->color[3]);
 		CL_DrawString(x, y, warning->szWarning, white, con.curFont, FONT_DRAW_UTF8);
 		offset = offset * offset;
 		offset = offset * offset;
