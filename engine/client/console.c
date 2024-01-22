@@ -1125,6 +1125,7 @@ void DisplayWarning(const char* message)
 
 	MakeRGBA(con.warning[con.warning_index].color,255,128,32,255);
 	con.warning_index = (con.warning_index + 1) % MAX_DBG_NOTIFY;
+	S_StartLocalSound("platform/resource/warning.wav", 1.0, true);
 }
 
 /*
