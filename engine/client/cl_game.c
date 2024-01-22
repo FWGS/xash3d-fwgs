@@ -3780,6 +3780,7 @@ static cl_enginefunc_t gEngfuncs =
 	Con_DPrintf,
 	Con_NPrintf,
 	Con_NXPrintf,
+	Warning,
 	pfnPhysInfo_ValueForKey,
 	pfnServerInfo_ValueForKey,
 	pfnGetClientMaxspeed,

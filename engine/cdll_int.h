@@ -178,6 +178,7 @@ typedef struct cl_enginefuncs_s
 	void	(*Con_DPrintf)( const char *fmt, ... );
 	void	(*Con_NPrintf)( int pos, const char *fmt, ... );
 	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... );
+	void	(*Warning)( const char *fmt, ... );
 
 	const char* (*PhysInfo_ValueForKey)( const char *key );
 	const char* (*ServerInfo_ValueForKey)( const char *key );
