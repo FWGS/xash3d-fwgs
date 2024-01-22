@@ -507,7 +507,7 @@ class PS3:
 
 	def __init__(self, ctx):
 		self.ctx = ctx
-
+		
 		for i in PS3_ENVVARS:
 			self.ps3sdk_dir = os.getenv(i)
 			if self.ps3sdk_dir != None:
@@ -515,6 +515,7 @@ class PS3:
 		else:
 			ctx.fatal('Set %s environment variable pointing to the PS3 SDK directory!' %
 				' or '.join(PS3_ENVVARS))
+		
 
 	def gen_toolchain_prefix(self):
 		return 'ppu-lv2-'
@@ -544,9 +545,9 @@ class PS3:
 
 	# they go before object list
 	def linkflags(self):
-		linkflags = ['-mprx','-zgenentry','-zgenprx','-zgenstub','-lc','-lgcc','-lstdc++','-lcgc','-lfios']
+		linkflags = ['-mprx','-zgenprx','-zgenstub','-lc','-lgcc','-lstdc++','-lcgc','-lfios']
 		# enforce no-short-enums again
-		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums','-fno-exceptions','--prx-with-runtime','--prx-fixup']
+		#linkflags += ['-no-enum-size-warning', '-fno-short-enums','-fno-exceptions']
 		return linkflags
 
 	def ldflags(self):
@@ -656,7 +657,6 @@ def configure(conf):
 		conf.environ['CXX'] = ps3.cxx()
 		conf.environ['STRIP'] = ps3.strip()
 		conf.environ['AR'] = ps3.ar()
-		print(conf.environ['CC'])
 		conf.env.CFLAGS += ps3.cflags()
 		conf.env.CXXFLAGS += ps3.cflags(True)
 		conf.env.LINKFLAGS += ps3.linkflags()
@@ -666,6 +666,13 @@ def configure(conf):
 		conf.env.LIB_M = ['m']
 		conf.env.COMPILER_CXX = 'g++'
 		conf.env.COMPILER_CC = 'gcc'
+		conf.env.cxxshlib_PATTERN = ".prx"
+		conf.env.cshlib_PATTERN = ".prx"
+		conf.env.cprogram_PATTERN = ".elf"
+		conf.env.cxxprogram_PATTERN = ".elf"
+		conf.environ["PATH"] += os.path.join(ps3.ps3sdk_dir, 'host-win32', 'bin')
+		
+		
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE

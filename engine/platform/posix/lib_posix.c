@@ -212,6 +212,7 @@ void *COM_FunctionFromName( void *hInstance, const char *pName )
 
 const char *COM_NameForFunction( void *hInstance, void *function )
 {
+#if !XASH_PS3
 #ifdef XASH_DLL_LOADER
 	void *wm;
 	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
@@ -228,6 +229,9 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 	}
 #ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
 	return COM_OffsetNameForFunction( function );
+#else
+	return NULL;
+#endif
 #else
 	return NULL;
 #endif

@@ -7,7 +7,7 @@ from waflib.Tools import waf_unit_test
 import sys
 import os
 
-VERSION = '0.991'
+VERSION = '0.0.8'
 APPNAME = 'destination'
 top = '.'
 default_prefix = '/' # Waf uses it to set default prefix
@@ -172,6 +172,9 @@ def configure(conf):
 
 	if conf.options.PSVITA:
 		conf.load('psvita')
+
+	if conf.options.PS3:
+		conf.load('ps3')
 
 	# HACKHACK: override msvc DEST_CPU value by something that we understand
 	if conf.env.DEST_CPU == 'amd64':

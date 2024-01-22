@@ -224,7 +224,8 @@ def build(bld):
 		libs += ['opus']
 
 	includes = ['server', 'client', 'client/vgui', '../public' ]
-
+	if bld.env.DEST_OS == 'ps3':
+		bld.env.SHLIB_MARKER = '-Wl,--start-group'
 	# Switch and PSVita have custom parameters
 	if bld.env.DEST_OS in ['nswitch', 'psvita']:
 		bld(source = source,
@@ -234,9 +235,21 @@ def build(bld):
 			use = libs,
 			install_path = None,
 			nro_install_path = bld.env.BINDIR,
+			prx_install_path = bld.env.BINDIR,
 			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
 			icon = 'platform/nswitch/icon.jpg',
 			sce_sys = 'platform/psvita/sce_sys',
+			title_id = 'XASH10000',
+			app_name = 'xash3d-fwgs'
+		)
+	elif bld.env.DEST_OS == 'ps3':
+		bld(source = source,
+			target = 'xash',
+			features = 'c cxxprogram_ps3',
+			includes = includes,
+			use = libs,
+			install_path = None,
+			prx_install_path = bld.env.BINDIR,
 			title_id = 'XASH10000',
 			app_name = 'xash3d-fwgs'
 		)

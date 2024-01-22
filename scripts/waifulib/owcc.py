@@ -99,6 +99,11 @@ def owcc_detect_platform(conf):
 	elif target in ['linux', '386']:
 		v.DEST_OS = 'linux'
 		v.DEST_BINFMT = 'elf'
+	elif target == 'ps3':
+		v.cprogram_PATTERN    = '%s.self'
+		v.cxxprogram_PATTERN    = '%s.self'
+		v.cshlib_PATTERN      = 'lib%s.sprx'
+		v.cxxshlib_PATTERN      = 'lib%s.sprx'
 	else:
 		v.DEST_OS = target
 		v.DEST_BINFMT = None

@@ -184,6 +184,23 @@ _inline int Sys_Start( void )
 }
 
 #if !XASH_WIN32
+#if XASH_PS3
+#include <cellstatus.h>
+#include <sys/prx.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+SYS_LIB_DECLARE(main, SYS_LIB_AUTO_EXPORT);
+SYS_LIB_EXPORT(_main_export_function, main);
+
+SYS_MODULE_INFO(main, 0, 1, 0);
+
+
+int _main_export_function(void)
+{
+	return CELL_OK;
+}
+#endif
 int main( int argc, char **argv )
 {
 	szArgc = argc;

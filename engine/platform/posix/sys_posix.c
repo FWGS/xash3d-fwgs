@@ -159,7 +159,7 @@ double Platform_DoubleTime( void )
 #endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
-#endif
+#endif // XASH_TIMER == TIMER_POSIX
 #else
 #include <sys/sys_time.h>
 double Platform_DoubleTime( void )
@@ -174,4 +174,4 @@ void Platform_Sleep( int msec )
 {
 	usleep( msec * 1000 );
 }
-#endif // XASH_TIMER == TIMER_POSIX
+

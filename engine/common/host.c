@@ -1236,6 +1236,23 @@ void Host_FreeCommon( void )
 	FS_Shutdown();
 }
 
+#if XASH_PS3
+#include <cellstatus.h>
+#include <sys/prx.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+SYS_LIB_DECLARE(engine, SYS_LIB_AUTO_EXPORT);
+SYS_LIB_EXPORT(_engine_export_function, engine);
+
+SYS_MODULE_INFO(engine, 0, 1, 0);
+
+
+int _engine_export_function(void)
+{
+	return CELL_OK;
+}
+#endif
 /*
 =================
 Host_Main
