@@ -357,6 +357,10 @@ def configure(conf):
 		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
 	elif conf.env.DEST_OS == 'darwin':
 		conf.env.DEFAULT_RPATH = '@loader_path'
+	elif conf.env.DEST_OS == 'openbsd':
+		# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
+		conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
+		conf.env.DEFAULT_RPATH = '$ORIGIN'
 	else:
 		conf.env.DEFAULT_RPATH = '$ORIGIN'
 
