@@ -372,9 +372,9 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 		bp = (void**)ucontext->uc_mcontext.mc_rbp;
 		sp = (void**)ucontext->uc_mcontext.mc_rsp;
 	#elif XASH_NETBSD
-		pc = (void*)ucontext->uc_mcontext.__gregs[REG_RIP];
-		bp = (void**)ucontext->uc_mcontext.__gregs[REG_RBP];
-		sp = (void**)ucontext->uc_mcontext.__gregs[REG_RSP];
+		pc = (void*)ucontext->uc_mcontext.__gregs[_REG_RIP];
+		bp = (void**)ucontext->uc_mcontext.__gregs[_REG_RBP];
+		sp = (void**)ucontext->uc_mcontext.__gregs[_REG_RSP];
 	#elif XASH_OPENBSD
 		pc = (void*)ucontext->sc_rip;
 		bp = (void**)ucontext->sc_rbp;
