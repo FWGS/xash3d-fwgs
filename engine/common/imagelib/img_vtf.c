@@ -5,7 +5,8 @@
 qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesize)
 {
 	VTFHeader_t* header = (VTFHeader_t*)buffer;
-	byte* imgdata = (byte*)(buffer + header->header_size);
+	byte* imgdata = (byte*)(buffer + header->header_size + header->lri_width*header->lri_height/2);
+	//Con_Printf("%x %x %x %i %i\n", header->high_res_image_format, header->mipmap_count, header->lri_format, header->lri_width, header->lri_height);
 	image.width = header->width;
 	image.height = header->height;
 	image.palette = NULL;
@@ -32,10 +33,9 @@ qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesiz
 		{
 			int mipwidth = max(4, image.width >> i);
 			int mipheight = max(4, image.height >> i);
-			offset += ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 8;
-			//Con_Printf("%i %i %i %i\n", mipwidth, mipheight, ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 8, offset);
+			offset += mipwidth * mipheight/2;
 		}
-		image.size = (((image.width + 3) >> 2) * ((image.height + 3) >> 2) * 8);
+		image.size = image.width * image.height/2;
 	}
 	else if (image.type == PF_DXT5)
 	{
@@ -43,10 +43,10 @@ qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesiz
 		{
 			int mipwidth = max(4, image.width >> i);
 			int mipheight = max(4, image.height >> i);
-			offset += ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 16;
+			offset += mipwidth * mipheight;
 			//Con_Printf("%i %i %i %i\n", mipwidth, mipheight, ((mipwidth + 3) >> 2) * ((mipheight + 3) >> 2) * 16, offset);
 		}
-		image.size = (((image.width + 3) >> 2) * ((image.height + 3) >> 2) * 16);
+		image.size = image.width*image.height;
 	}
 	image.rgba = Mem_Malloc(host.imagepool, image.size);
 	memcpy(image.rgba, imgdata + offset, image.size);

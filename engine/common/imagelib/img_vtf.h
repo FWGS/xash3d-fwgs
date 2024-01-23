@@ -83,7 +83,7 @@ enum CompiledVtfFlags
 	TEXTUREFLAGS_UNUSED_40000000 = 0x40000000,
 	TEXTUREFLAGS_UNUSED_80000000 = 0x80000000,
 };
-
+#pragma pack (push, 1)
 typedef struct VTFHeader_s
 {
 	char sig[4];
@@ -109,8 +109,8 @@ typedef struct VTFHeader_s
 
 	// lri - low res image
 	dword lri_format; 
-	dword lri_width;
-	dword lri_height;
+	byte lri_width;
+	byte lri_height;
 
 	word depth;
 
@@ -120,7 +120,7 @@ typedef struct VTFHeader_s
 	byte padding_d[8];
 
 } VTFHeader_t;
-
+#pragma pack(pop)
 typedef struct VTFResourceEntryInfo_s
 {
 	byte tag[3];
