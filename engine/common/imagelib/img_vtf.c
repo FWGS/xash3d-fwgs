@@ -28,14 +28,6 @@ qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesiz
 	//Con_Printf("%s\n", name);
 	if (image.type == PF_DXT1)
 	{
-		if (image.width == 256 && image.height == 256)
-		{
-			offset = 128;
-		}
-		else
-		{
-			offset = image.width / 4;
-		}
 		for (int i = header->mipmap_count - 1; i > 0; i--)
 		{
 			int mipwidth = max(4, image.width >> i);
@@ -47,7 +39,6 @@ qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesiz
 	}
 	else if (image.type == PF_DXT5)
 	{
-		offset = image.width / 4;
 		for (int i = header->mipmap_count - 1; i > 0; i--)
 		{
 			int mipwidth = max(4, image.width >> i);
