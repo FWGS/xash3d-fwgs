@@ -90,7 +90,7 @@ def configure(conf):
 		conf.define('XASH_NO_LIBDL',1)
 
 	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
-		conf.check_pthreads()
+		conf.check_pthreads(mode='c')
 
 	if conf.env.DEST_OS == 'linux':
 		conf.check_cc(lib='rt')
