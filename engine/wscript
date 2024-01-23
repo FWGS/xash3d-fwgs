@@ -126,7 +126,7 @@ def configure(conf):
 
 def build(bld):
 	# public includes for renderers and utils use
-	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
+	bld(name = 'engine_includes', export_includes = '. common common/imagelib common/vbsplib', use = 'filesystem_includes')
 
 	is_cxx_link = False
 	libs = [ 'engine_includes', 'public', 'dllemu' ]
@@ -135,6 +135,7 @@ def build(bld):
 	source = bld.path.ant_glob([
 		'common/*.c',
 		'common/imagelib/*.c',
+		'common/vbsplib/*.c',
 		'common/soundlib/*.c',
 		'common/soundlib/libmpg/*.c',
 		'server/*.c'])

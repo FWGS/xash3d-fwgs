@@ -3309,59 +3309,24 @@ static int Mod_LumpLooksLikeEntities( const char *lump, const size_t lumplen )
 
 /*
 =================
-Mod_LoadBmodel2Lumps
+Mod_LoadBmodelVBSPLumps
 
 loading and processing bmodel, but the new engine
 =================
 */
-static qboolean Mod_LoadBmodel2Lumps(model_t* mod, const byte* mod_base, qboolean isworld)
+static qboolean Mod_LoadBmodelVBSPLumps(model_t *mod, const byte *mod_base, qboolean isworld)
 {
-	const dheader2_t* header = (const dheader2_t*)mod_base;
-	dbspmodel_t* bmod = &srcmodel;
-	dmodel2_t* models2;
-	int models_count;
-	int i;
-	memset( bmod, 0, sizeof(dbspmodel_t) );
-
-	bmod->planes = (dplane_t*)(mod_base + header->lumps[SRC_LUMP_PLANES].fileofs);
-	bmod->numplanes = (size_t)(header->lumps[SRC_LUMP_PLANES].filelen) / sizeof(dplane_t);
-
-	bmod->vertexes = (dvertex_t*)(mod_base + header->lumps[SRC_LUMP_VERTICES].fileofs);
-	bmod->numvertexes = (size_t)(header->lumps[SRC_LUMP_VERTICES].filelen) / sizeof(dvertex_t);
-
-	bmod->edges = (dedge_t*)(mod_base + header->lumps[SRC_LUMP_EDGES].fileofs);
-	bmod->numedges = (size_t)(header->lumps[SRC_LUMP_EDGES].filelen) / sizeof(dedge_t);
-
-	bmod->surfedges = (dsurfedge_t*)(mod_base + header->lumps[SRC_LUMP_SURFEDGES].fileofs);
-	bmod->numsurfedges = (size_t)(header->lumps[SRC_LUMP_SURFEDGES].filelen) / sizeof(dsurfedge_t);
-
-	models2 = (dmodel2_t*)(mod_base + header->lumps[SRC_LUMP_MODELS].fileofs);
-	models_count = (header->lumps[SRC_LUMP_VERTICES].filelen) / sizeof(dmodel2_t);
-
-	bmod->numsurfaces = (header->lumps[SRC_LUMP_FACES].filelen) / sizeof(dface2_t);
-
-	bmod->numtexinfo = (header->lumps[SRC_LUMP_TEXINFO].filelen) / sizeof(dtexinfo2_t);
-
-	bmod->entdata = (byte*)(mod_base + header->lumps[SRC_LUMP_ENTITIES].fileofs);
-	bmod->entdatasize = header->lumps[SRC_LUMP_ENTITIES].filelen;
-	
-	bmod->numnodes = (header->lumps[SRC_LUMP_BSPNODES].filelen) / sizeof(dnode2_t);
-
-	bmod->numleafs = (header->lumps[SRC_LUMP_LEAFS].filelen) / sizeof(dleaf2_t);
-
-	Mod_LoadEntities(mod, bmod);
-	Mod_LoadPlanes(mod, bmod);
-	Mod_LoadSubmodels2(mod, models2, models_count,bmod->isworld);
-	Mod_LoadVertexes(mod, bmod);
-	Mod_LoadEdges(mod, bmod);
-	Mod_LoadSurfEdges(mod, bmod);
-	Mod_LoadTexInfo2(mod, bmod, (dtexinfo2_t*)(mod_base + header->lumps[SRC_LUMP_TEXINFO].fileofs));
-	Mod_LoadSurfaces2(mod, bmod, (dface2_t*)(mod_base + header->lumps[SRC_LUMP_FACES].fileofs));
-	Mod_LoadLeafs2(mod,bmod, (dleaf2_t*)(mod_base + header->lumps[SRC_LUMP_BSPNODES].fileofs));
-	Mod_LoadNodes2(mod, bmod, (dnode2_t*)(mod_base + header->lumps[SRC_LUMP_BSPNODES].fileofs));
+    vbsp_header_t *header = (vbsp_header_t *) mod_base;
+    if (header->ident != VBSP_VERSION || header->version<19)
+    {
+        return false;
+    }
+    vbsp_t *vbsp = mod->vbsp_data = Mem_Calloc(mod->mempool, sizeof(vbsp_t));
+    VBSPLib_loadBSP(vbsp, mod_base,mod);
 
 
-	return true;
+
+    return true;
 }
 
 /*
@@ -3646,7 +3611,7 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 	if (*magic == VBSP_VERSION) // check for the first 4 bytes, header is different in source
 	{
 		mod->type = mod_brush2;
-		if (!Mod_LoadBmodel2Lumps(mod, buffer, world.loading))
+		if (!Mod_LoadBmodelVBSPLumps(mod, buffer, world.loading))
 			return;
 	}
 	else

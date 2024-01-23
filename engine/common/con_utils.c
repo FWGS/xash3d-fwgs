@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "client.h"
 #include "const.h"
 #include "kbutton.h"
+#include "vbpslib.h"
 
 extern convar_t	con_gamemaps;
 
@@ -68,7 +69,7 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 		const char	*ext = COM_FileExtension( t->filenames[i] );
 		int		ver = -1, lumpofs = 0, lumplen = 0;
 		char		*ents = NULL, *pfile;
-		int		version = 0;
+		dword 		version = 0;
 		string	version_description;
 
 		if( Q_stricmp( ext, "bsp" )) continue;
@@ -88,7 +89,12 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 			FS_Read( f, buf, sizeof( buf ));
 			header = (dheader_t *)buf;
 			ver = header->version;
-
+            if(ver==VBSP_VERSION) // Source1 format
+            {
+                vbsp_header_t* vbsp_header = (vbsp_header_t *) buf;
+                version = vbsp_header->version;
+                Q_strncpy( message, "Valve BSP", sizeof( message ));
+            }
 			// check all the lumps and some other errors
 			if( Mod_TestBmodelLumps( f, t->filenames[i], buf, true, &entities ))
 			{
@@ -167,6 +173,13 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 		case PDBSP_VERSION:
 			Q_strncpy(version_description, "Project Destination", sizeof(version_description));
 			break;
+        case VBSP_VERSION:
+            switch( version )
+            {
+                case 19: Q_strncpy( version_description, "Source1 HL2", sizeof( version_description )); break;
+            }
+            break;
+
 		default:	Q_strncpy( version_description, "??", sizeof( version_description )); break;
 		}
 
