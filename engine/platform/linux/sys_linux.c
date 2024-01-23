@@ -150,7 +150,7 @@ void Linux_SetTimer( float tm )
 		// this path availiable in POSIX, but may signal wrong thread...
 		// sev.sigev_notify = SIGEV_SIGNAL;
 		sev.sigev_notify = SIGEV_THREAD_ID;
-		sev._sigev_un._tid  = gettid();
+		sev.sigev_notify_thread_id = gettid();
 		sev.sigev_signo = DEBUG_TIMER_SIGNAL;
 		sev.sigev_value.sival_ptr = &timerid;
 		timer_create( CLOCK_REALTIME, &sev, &timerid );
