@@ -1774,14 +1774,12 @@ __declspec(noinline) int Con_DrawWarnings(void)
 	static byte white[4] = { 255,255,255,255 };
 	warning_t* warning = con.warning;
 	int	i, count = 0;
-	int	defaultX;
 	int	y = 20;
 	//int	fontTall;
 
 	if (!con.curFont || !con.curFont->valid)
 		return 0;
 
-	defaultX = refState.width / 4;
 	//fontTall = con.curFont->charHeight + 1;
 	float barflash = sin(host.realtime * 8) * 0.5 + 0.5;
 	barflash *= barflash;
@@ -1796,7 +1794,7 @@ __declspec(noinline) int Con_DrawWarnings(void)
 			continue;
 
 		Con_DrawStringLen(warning->szWarning, &len, &height);
-		int width = Q_max(defaultX, len) + 10;
+		int width = len + 12;
 		x = refState.width - width;
 
 		if (y + height+12 > refState.height - 20)
