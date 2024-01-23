@@ -5,7 +5,7 @@
 #ifndef DESTINATION_VBPSLIB_H
 #define DESTINATION_VBPSLIB_H
 
-#include "xash3d_types.h"
+#include "const.h"
 #include "bspfile.h"
 
 enum LumpId
