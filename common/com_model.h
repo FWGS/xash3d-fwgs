@@ -41,6 +41,7 @@ typedef enum
 {
 	mod_bad = -1,
 	mod_brush,
+	mod_brush2,
 	mod_sprite,
 	mod_alias,
 	mod_studio,

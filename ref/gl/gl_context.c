@@ -160,6 +160,8 @@ void Mod_UnloadTextures( model_t *mod )
 		break;
 	case mod_studio2:
 		break;
+	case mod_brush2:
+		break;
 	default:
 		ASSERT( 0 );
 		break;
@@ -185,6 +187,7 @@ qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 				Mod_LoadAliasModel( mod, buf, &loaded );
 				break;
 			case mod_brush:
+			case mod_brush2:
 				// Mod_LoadBrushModel( mod, buf, loaded );
 				break;
 			default: gEngfuncs.Host_Error( "Mod_LoadModel: unsupported type %d\n", mod->type );

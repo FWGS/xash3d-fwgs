@@ -2734,6 +2734,10 @@ static void Mod_LoadSurfaces2(model_t* mod, dbspmodel_t* bmod, dface2_t* faces)
 			Con_Reportf(S_ERROR "bad surface %i from %zu\n", i, bmod->numsurfaces);
 			continue;
 		}
+		if (in->texinfo < 0)
+		{
+			continue;
+		}
 
 		out->firstedge = in->firstedge;
 		out->numedges = in->numedges;
@@ -3321,6 +3325,7 @@ static qboolean Mod_LoadBmodel2Lumps(model_t* mod, const byte* mod_base, qboolea
 
 	bmod->planes = (dplane_t*)(mod_base + header->lumps[SRC_LUMP_PLANES].fileofs);
 	bmod->numplanes = (size_t)(header->lumps[SRC_LUMP_PLANES].filelen) / sizeof(dplane_t);
+
 	bmod->vertexes = (dvertex_t*)(mod_base + header->lumps[SRC_LUMP_VERTICES].fileofs);
 	bmod->numvertexes = (size_t)(header->lumps[SRC_LUMP_VERTICES].filelen) / sizeof(dvertex_t);
 
@@ -3332,13 +3337,13 @@ static qboolean Mod_LoadBmodel2Lumps(model_t* mod, const byte* mod_base, qboolea
 
 	models2 = (dmodel2_t*)(mod_base + header->lumps[SRC_LUMP_MODELS].fileofs);
 	models_count = (header->lumps[SRC_LUMP_VERTICES].filelen) / sizeof(dmodel2_t);
+
 	bmod->numsurfaces = (header->lumps[SRC_LUMP_FACES].filelen) / sizeof(dface2_t);
 
 	bmod->numtexinfo = (header->lumps[SRC_LUMP_TEXINFO].filelen) / sizeof(dtexinfo2_t);
 
 	bmod->entdata = (byte*)(mod_base + header->lumps[SRC_LUMP_ENTITIES].fileofs);
 	bmod->entdatasize = header->lumps[SRC_LUMP_ENTITIES].filelen;
-
 	
 	bmod->numnodes = (header->lumps[SRC_LUMP_BSPNODES].filelen) / sizeof(dnode2_t);
 
@@ -3636,16 +3641,17 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 	if( loaded ) *loaded = false;
 
 	mod->mempool = Mem_AllocPool( poolname );
-	mod->type = mod_brush;
 
 	const int* magic = (const dheader_t*)buffer;
 	if (*magic == VBSP_VERSION) // check for the first 4 bytes, header is different in source
 	{
+		mod->type = mod_brush2;
 		if (!Mod_LoadBmodel2Lumps(mod, buffer, world.loading))
 			return;
 	}
 	else
 	{
+		mod->type = mod_brush;
 		// loading all the lumps into heap
 		if (!Mod_LoadBmodelLumps(mod, buffer, world.loading))
 			return; // there were errors
