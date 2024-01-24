@@ -3642,7 +3642,7 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	mod->mempool = Mem_AllocPool( poolname );
 
-	const int* magic = (const dheader_t*)buffer;
+	const int* magic = (const int*)buffer;
 	if (*magic == VBSP_VERSION) // check for the first 4 bytes, header is different in source
 	{
 		mod->type = mod_brush2;
