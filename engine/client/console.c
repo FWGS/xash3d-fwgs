@@ -1769,7 +1769,7 @@ Con_DrawWarnings
 Draw the epic warnings
 ================
 */
-__declspec(noinline) int Con_DrawWarnings(void)
+int Con_DrawWarnings(void)
 {
 	static byte white[4] = { 255,255,255,255 };
 	warning_t* warning = con.warning;
