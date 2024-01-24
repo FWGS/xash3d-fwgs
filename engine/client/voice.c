@@ -428,6 +428,9 @@ void Voice_Disconnect( void )
 			voice.players_status[i].talking_ack = false;
 		}
 	}
+
+	VoiceCapture_Shutdown();
+	voice.device_opened = false;
 }
 
 /*
@@ -588,48 +591,53 @@ Voice_Init
 Initialize the voice subsystem
 =========================
 */
-qboolean Voice_Init( const char *pszCodecName, int quality )
+qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 {
 	if( !voice_enable.value )
 		return false;
 
-	if( Q_strcmp( pszCodecName, VOICE_OPUS_CUSTOM_CODEC ))
-	{
-		Con_Printf( S_ERROR "Server requested unsupported codec: %s\n", pszCodecName );
-		return false;
-	}
-
 	// reinitialize only if codec parameters are different
-	if( !Q_strcmp( voice.codec, pszCodecName ) && voice.quality == quality )
-		return true;
-
-	Voice_Shutdown();
-
-	voice.autogain.block_size = 128;
-
-	if( !Voice_InitOpusDecoder( ))
+	if( Q_strcmp( pszCodecName, voice.codec ) || voice.quality != quality )
 	{
-		// no reason to init encoder and open audio device
-		// if we can't hear other players
-		Con_Printf( S_ERROR "Voice chat disabled.\n" );
 		Voice_Shutdown();
-		return false;
+
+		if( Q_strcmp( pszCodecName, VOICE_OPUS_CUSTOM_CODEC ))
+		{
+			Con_Printf( S_ERROR "Server requested unsupported codec: %s\n", pszCodecName );
+			return false;
+		}
+
+		voice.autogain.block_size = 128;
+
+		if( !Voice_InitOpusDecoder( ))
+		{
+			// no reason to init encoder and open audio device
+			// if we can't hear other players
+			Con_Printf( S_ERROR "Voice chat disabled.\n" );
+			Voice_Shutdown();
+			return false;
+		}
+
+		// we can hear others players, so it's fine to fail now
+		voice.initialized = true;
+		Q_strncpy( voice.codec, pszCodecName, sizeof( voice.codec ));
+
+		if( !Voice_InitOpusEncoder( quality ))
+		{
+			Con_Printf( S_WARN "Other players will not be able to hear you.\n" );
+			return false;
+		}
+
+		voice.quality = quality;
 	}
 
-	// we can hear others players, so it's fine to fail now
-	voice.initialized = true;
-	Q_strncpy( voice.codec, pszCodecName, sizeof( voice.codec ));
-
-	if( !Voice_InitOpusEncoder( quality ))
+	if( !preinit )
 	{
-		Con_Printf( S_WARN "Other players will not be able to hear you.\n" );
-		return false;
+		voice.device_opened = VoiceCapture_Init();
+
+		if( !voice.device_opened )
+			Con_Printf( S_WARN "No microphone is available.\n" );
 	}
-
-	voice.quality = quality;
-
-	if( !VoiceCapture_Init( ))
-		Con_Printf( S_WARN "No microphone is available.\n" );
 
 	return true;
 }
