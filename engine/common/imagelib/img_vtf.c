@@ -1,6 +1,9 @@
 #include "img_vtf.h"
 #include "imagelib.h"
 
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
 
 qboolean Image_LoadVTF(const char* name, const byte* buffer, fs_offset_t filesize)
 {
