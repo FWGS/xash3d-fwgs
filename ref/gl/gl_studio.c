@@ -4077,8 +4077,9 @@ static void R_StudioLoadTexture2(model_t* mod, studio_mdl_header* phdr, studio_m
 			char* texturedir = (char*)((byte*)phdr + texturedir_list[i]);
 			Q_snprintf(texname, sizeof(texname), "materials/%s%s.vmt", texturedir, name);
 			COM_FixSlashes(texname);
+			Q_strnlwr(texname, texname, sizeof(texname));
 			//gEngfuncs.Con_Printf("%s\n", texname);
-			ptexture->t.texturenum = GL_LoadTexture(strlwr(texname), NULL, 0, 0);
+			ptexture->t.texturenum = GL_LoadTexture(texname, NULL, 0, 0);
 			if (ptexture->t.texturenum)
 			{
 				break;

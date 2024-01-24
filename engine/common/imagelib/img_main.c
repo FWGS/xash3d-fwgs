@@ -316,9 +316,9 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 			Con_Printf("Bad vmt \"%s\"!\n", filename);
 			return NULL;
 		}
-		Q_strncpy(buf, vdf_object_get_string(texturekey), sizeof(buf));
+		Q_strnlwr(vdf_object_get_string(texturekey), buf, sizeof(buf));
 		COM_FixSlashes(buf);
-		Q_snprintf(loadname, sizeof(loadname),"materials/%s", strlwr(buf));
+		Q_snprintf(loadname, sizeof(loadname),"materials/%s", buf);
 		vdf_free_object(vmt);
 	}
 	//else if (Q_strcmp(ext, "pal") && Q_strcmp(filename,"gfx/palette.lmp"))
