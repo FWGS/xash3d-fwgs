@@ -3139,7 +3139,7 @@ void CL_Init( void )
 
 	VID_Init();	// init video
 	S_Init();	// init sound
-	Voice_Init( VOICE_DEFAULT_CODEC, 3 ); // init voice
+	Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
