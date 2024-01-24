@@ -280,7 +280,10 @@ def configure(conf):
 		# Do not warn us about bug in SDL_Audio headers
 		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
 		conf.env.append_unique('CXXFLAGS', ['-Wno-attributes'])
-
+		
+	if conf.env.COMPILER_CC == 'gcc':
+		conf.env.CFLAGS += ['-std=c11']
+	
 	if conf.env.DEST_OS != "ps3":
 		conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 		conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
