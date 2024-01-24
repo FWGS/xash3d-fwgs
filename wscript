@@ -280,7 +280,7 @@ def configure(conf):
 		# Do not warn us about bug in SDL_Audio headers
 		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
 		conf.env.append_unique('CXXFLAGS', ['-Wno-attributes'])
-
+	
 	if conf.env.DEST_OS != "ps3":
 		conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 		conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
@@ -335,7 +335,7 @@ def configure(conf):
 		]
 
 		opt_cflags = [
-			'-Werror=declaration-after-statement',
+			#'-Werror=declaration-after-statement',
 			'-Werror=enum-conversion',
 			'-Werror=implicit-int',
 			'-Werror=implicit-function-declaration',

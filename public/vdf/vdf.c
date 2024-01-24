@@ -394,6 +394,11 @@ struct vdf_object* vdf_object_index_array(const struct vdf_object* o, const size
 	return o->data.data_array.data_value[index];
 }
 
+#if XASH_WIN32
+#define strcasecmp stricmp
+#define strncasecmp strnicmp
+#endif // XASH_WIN32
+
 struct vdf_object* vdf_object_index_array_str(const struct vdf_object* o, const char* str)
 {
 	if (!o || !str || o->type != VDF_TYPE_ARRAY)
@@ -402,7 +407,7 @@ struct vdf_object* vdf_object_index_array_str(const struct vdf_object* o, const 
 	for (size_t i = 0; i < o->data.data_array.len; ++i)
 	{
 		struct vdf_object* k = o->data.data_array.data_value[i];
-		if (!stricmp(k->key, str))
+		if (!strcasecmp(k->key, str))
 			return k;
 	}
 	return NULL;

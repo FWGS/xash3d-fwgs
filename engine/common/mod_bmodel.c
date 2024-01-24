@@ -2178,7 +2178,9 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		else
 		{
 			char texName[256];
-			Q_snprintf(texName, sizeof(texName), "materials/%s.vmt", strlwr(m_name));
+			char m_name_lower[256];
+			Q_strnlwr(m_name, m_name_lower, sizeof(m_name_lower));
+			Q_snprintf(texName, sizeof(texName), "materials/%s.vmt", m_name_lower);
 			texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture(texName, NULL, 0, 0);
 		}
 	}
@@ -3607,7 +3609,7 @@ void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	mod->mempool = Mem_AllocPool( poolname );
 
-	const int* magic = (const dheader_t*)buffer;
+	const int* magic = (const int*)buffer;
 	if (*magic == VBSP_VERSION) // check for the first 4 bytes, header is different in source
 	{
 		mod->type = mod_brush2;

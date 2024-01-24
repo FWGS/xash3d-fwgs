@@ -32,6 +32,7 @@ int ReadString(file_t* file, char* out, int maxlen)
 			return len;
 		}
 	}
+	return maxlen;
 }
 
 static vpk_t* VPK_Open(const char* filename)

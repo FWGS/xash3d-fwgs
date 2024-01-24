@@ -1769,7 +1769,7 @@ Con_DrawWarnings
 Draw the epic warnings
 ================
 */
-__declspec(noinline) int Con_DrawWarnings(void)
+int Con_DrawWarnings(void)
 {
 	static byte white[4] = { 255,255,255,255 };
 	warning_t* warning = con.warning;
@@ -1809,7 +1809,7 @@ __declspec(noinline) int Con_DrawWarnings(void)
 		offset = offset * offset;
 		x += offset * width;
 		count++;
-		float flash = max(0,(warning->start + 0.5 - host.realtime)*4);
+		float flash = fmax(0,(warning->start + 0.5 - host.realtime)*4);
 		flash *= flash;
 		
 		CL_FillRGBABlend(x - 4, y - 4, len + 8, height + 8, warning->color[0]*flash, warning->color[1]*flash, warning->color[2]*flash, 128);
