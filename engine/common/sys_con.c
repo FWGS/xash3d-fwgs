@@ -393,6 +393,7 @@ void Con_Reportf( const char *szFmt, ... )
 
 void Warning(const char* szFmt, ...)
 {
+#ifndef XASH_DEDICATED
 	static char	buffer[MAX_PRINT_MSG];
 	va_list		args;
 
@@ -401,6 +402,7 @@ void Warning(const char* szFmt, ...)
 	va_end(args);
 
 	DisplayWarning(buffer);
+#endif
 }
 
 
