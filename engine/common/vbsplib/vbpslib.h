@@ -199,7 +199,7 @@ typedef struct
 } vbsp_dtexdata_t;
 
 typedef dword vbsp_texdata_stringtable_t;
-typedef char *vbsp_texdata_stringdata_t;
+typedef char vbsp_texdata_stringdata_t;
 
 typedef struct
 {
@@ -260,14 +260,15 @@ typedef struct
     vbsp_dtexdata_t *texture_data;
     dword texture_data_count;
 
-    vbsp_texdata_stringtable_t* string_indices;
-    dword string_indices_count;
+    vbsp_texdata_stringdata_t* tex_string_data;
+    dword tex_string_data_size;
 
-    vbsp_texdata_stringdata_t string_data;
-    dword string_data_size;
+    vbsp_texdata_stringtable_t *tex_string_table;
+    dword tex_string_table_size;
 
     vbsp_dvis_t* vis_info;
     dword vis_info_count;
+
 
 } vbsp_t;
 
