@@ -138,6 +138,7 @@ void *Mod_CacheCheck( struct cache_user_s *c );
 void Mod_LoadCacheFile( const char *path, struct cache_user_s *cu );
 void *Mod_AliasExtradata( model_t *mod );
 void *Mod_StudioExtradata( model_t *mod );
+void *Mod_Studio2Extradata( model_t *mod );
 model_t *Mod_FindName( const char *name, qboolean trackCRC );
 model_t *Mod_LoadModel( model_t *mod, qboolean crash );
 model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC );
