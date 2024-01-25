@@ -283,6 +283,12 @@ typedef enum
 	PARM_GET_MOVEVARS_PTR  = -13, // clgame.movevars
 	PARM_GET_PALETTE_PTR   = -14, // clgame.palette
 	PARM_GET_VIEWENT_PTR   = -15, // clgame.viewent
+
+	// implemented by ref_dll
+
+	// returns non-null integer if filtering is enabled for texture
+	// pass -1 to query global filtering settings
+	PARM_TEX_FILTERING     = -65536,
 } ref_parm_e;
 
 typedef struct ref_api_s
