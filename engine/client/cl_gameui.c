@@ -1092,6 +1092,11 @@ static int pfnDelete( const char *path )
 	return FS_Delete( path );
 }
 
+static void GAME_EXPORT pfnCon_DefaultColor( int r, int g, int b )
+{
+	Con_DefaultColor( r, g, b, true );
+}
+
 // engine callbacks
 static ui_enginefuncs_t gEngfuncs =
 {
@@ -1131,7 +1136,7 @@ static ui_enginefuncs_t gEngfuncs =
 	UI_DrawConsoleString,
 	UI_DrawSetTextColor,
 	Con_DrawStringLen,
-	Con_DefaultColor,
+	pfnCon_DefaultColor,
 	pfnGetPlayerModel,
 	pfnSetPlayerModel,
 	pfnClearScene,
