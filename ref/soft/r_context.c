@@ -101,7 +101,6 @@ qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const
 	return loaded;
 }
 
-
 static int GL_RefGetParm( int parm, int arg )
 {
 	image_t *glt;
@@ -172,6 +171,8 @@ static int GL_RefGetParm( int parm, int arg )
 		return 0; //glState.stencilEnabled;
 	case PARM_SKY_SPHERE:
 		return 0; // ref_soft doesn't support sky sphere
+	case PARM_TEX_FILTERING:
+		return 0; // ref_soft doesn't do filtering in general
 	default:
 		return ENGINE_GET_PARM_( parm, arg );
 	}
