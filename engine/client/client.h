@@ -1072,7 +1072,7 @@ int Con_UtfProcessChar( int in );
 int Con_UtfProcessCharForce( int in );
 int Con_UtfMoveLeft( char *str, int pos );
 int Con_UtfMoveRight( char *str, int pos, int length );
-void Con_DefaultColor( int r, int g, int b );
+void Con_DefaultColor( int r, int g, int b, qboolean gameui );
 void Con_InvalidateFonts( void );
 cl_font_t *Con_GetCurFont( void );
 cl_font_t *Con_GetFont( int num );
