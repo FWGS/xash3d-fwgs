@@ -91,7 +91,7 @@ void S_FadeClientVolume( float fadePercent, float fadeOutSeconds, float holdTime
 S_IsClient
 =================
 */
-qboolean S_IsClient( int entnum )
+static qboolean S_IsClient( int entnum )
 {
 	return ( entnum == s_listener.entnum );
 }
@@ -124,7 +124,7 @@ void S_FreeChannel( channel_t *ch )
 S_UpdateSoundFade
 =================
 */
-void S_UpdateSoundFade( void )
+static void S_UpdateSoundFade( void )
 {
 	float	f, totaltime, elapsed;
 
@@ -184,7 +184,7 @@ override any other sound playing on the same channel (see code comments below fo
 exceptions).
 =================
 */
-qboolean SND_FStreamIsPlaying( sfx_t *sfx )
+static qboolean SND_FStreamIsPlaying( sfx_t *sfx )
 {
 	int	ch_idx;
 
@@ -399,7 +399,7 @@ returns TRUE if sound was altered,
 returns FALSE if sound was not found (sound is not playing)
 =================
 */
-int S_AlterChannel( int entnum, int channel, sfx_t *sfx, int vol, int pitch, int flags )
+static int S_AlterChannel( int entnum, int channel, sfx_t *sfx, int vol, int pitch, int flags )
 {
 	channel_t	*ch;
 	int	i;
@@ -457,7 +457,7 @@ int S_AlterChannel( int entnum, int channel, sfx_t *sfx, int vol, int pitch, int
 S_SpatializeChannel
 =================
 */
-void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, float gain, float dot, float dist )
+static void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, float gain, float dot, float dist )
 {
 	float	lscale, rscale, scale;
 
@@ -480,7 +480,7 @@ void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, float g
 SND_Spatialize
 =================
 */
-void SND_Spatialize( channel_t *ch )
+static void SND_Spatialize( channel_t *ch )
 {
 	vec3_t	source_vec;
 	float	dist, dot, gain = 1.0f;
@@ -953,7 +953,7 @@ int S_GetCurrentDynamicSounds( soundlist_t *pout, int size )
 S_InitAmbientChannels
 ===================
 */
-void S_InitAmbientChannels( void )
+static void S_InitAmbientChannels( void )
 {
 	int	ambient_channel;
 	channel_t	*chan;
@@ -975,7 +975,7 @@ void S_InitAmbientChannels( void )
 S_UpdateAmbientSounds
 ===================
 */
-void S_UpdateAmbientSounds( void )
+static void S_UpdateAmbientSounds( void )
 {
 	mleaf_t	*leaf;
 	float	vol;
@@ -1407,7 +1407,7 @@ static void S_FreeRawChannels( void )
 S_ClearBuffer
 ==================
 */
-void S_ClearBuffer( void )
+static void S_ClearBuffer( void )
 {
 	S_ClearRawChannels();
 
@@ -1506,7 +1506,7 @@ static int S_GetSoundtime( void )
 }
 
 //=============================================================================
-void S_UpdateChannels( void )
+static void S_UpdateChannels( void )
 {
 	uint	endtime;
 	int	samps;
@@ -1695,7 +1695,7 @@ console functions
 
 ===============================================================================
 */
-void S_Play_f( void )
+static void S_Play_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
@@ -1706,7 +1706,7 @@ void S_Play_f( void )
 	S_StartLocalSound( Cmd_Argv( 1 ), VOL_NORM, false );
 }
 
-void S_Play2_f( void )
+static void S_Play2_f( void )
 {
 	int	i = 1;
 
@@ -1723,7 +1723,7 @@ void S_Play2_f( void )
 	}
 }
 
-void S_PlayVol_f( void )
+static void S_PlayVol_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
@@ -1749,7 +1749,7 @@ static void S_Say( const char *name, qboolean reliable )
 	S_StartLocalSound( sentence, 1.0f, reliable );
 }
 
-void S_Say_f( void )
+static void S_Say_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
@@ -1760,7 +1760,7 @@ void S_Say_f( void )
 	S_Say( Cmd_Argv( 1 ), false );
 }
 
-void S_SayReliable_f( void )
+static void S_SayReliable_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
@@ -1776,7 +1776,7 @@ void S_SayReliable_f( void )
 S_Music_f
 =================
 */
-void S_Music_f( void )
+static void S_Music_f( void )
 {
 	int	c = Cmd_Argc();
 
@@ -1840,7 +1840,7 @@ void S_Music_f( void )
 S_StopSound_f
 =================
 */
-void S_StopSound_f( void )
+static void S_StopSound_f( void )
 {
 	S_StopAllSounds( true );
 }
@@ -1850,7 +1850,7 @@ void S_StopSound_f( void )
 S_SoundFade_f
 =================
 */
-void S_SoundFade_f( void )
+static void S_SoundFade_f( void )
 {
 	int	c = Cmd_Argc();
 	float	fadeTime = 5.0f;
@@ -1884,7 +1884,7 @@ void S_SoundInfo_f( void )
 S_VoiceRecordStart_f
 =================
 */
-void S_VoiceRecordStart_f( void )
+static void S_VoiceRecordStart_f( void )
 {
 	if( cls.state != ca_active || cls.legacymode )
 		return;
@@ -1897,7 +1897,7 @@ void S_VoiceRecordStart_f( void )
 S_VoiceRecordStop_f
 =================
 */
-void S_VoiceRecordStop_f( void )
+static void S_VoiceRecordStop_f( void )
 {
 	if( cls.state != ca_active || !Voice_IsRecording() )
 		return;

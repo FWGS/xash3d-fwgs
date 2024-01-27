@@ -195,7 +195,7 @@ Cvar_ValidateString
 deal with userinfo etc
 ============
 */
-const char *Cvar_ValidateString( convar_t *var, const char *value )
+static const char *Cvar_ValidateString( convar_t *var, const char *value )
 {
 	const char	*pszValue;
 	static char	szNew[MAX_STRING];
@@ -278,7 +278,7 @@ Cvar_UnlinkVar
 unlink the variable
 ============
 */
-int Cvar_UnlinkVar( const char *var_name, int group )
+static int Cvar_UnlinkVar( const char *var_name, int group )
 {
 	int	count = 0;
 	convar_t	**prev;
@@ -1091,7 +1091,7 @@ Cvar_Toggle_f
 Toggles a cvar for easy single key binding
 ============
 */
-void Cvar_Toggle_f( void )
+static void Cvar_Toggle_f( void )
 {
 	int	v;
 
@@ -1114,7 +1114,7 @@ Allows setting and defining of arbitrary cvars from console, even if they
 weren't declared in C code.
 ============
 */
-void Cvar_Set_f( void )
+static void Cvar_Set_f( void )
 {
 	int	i, c, l = 0, len;
 	char	combined[MAX_CMD_TOKENS];
@@ -1147,7 +1147,7 @@ Cvar_SetGL_f
 As Cvar_Set, but also flags it as glconfig
 ============
 */
-void Cvar_SetGL_f( void )
+static void Cvar_SetGL_f( void )
 {
 	if( Cmd_Argc() != 3 )
 	{
@@ -1163,7 +1163,7 @@ void Cvar_SetGL_f( void )
 Cvar_Reset_f
 ============
 */
-void Cvar_Reset_f( void )
+static void Cvar_Reset_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
@@ -1179,7 +1179,7 @@ void Cvar_Reset_f( void )
 Cvar_List_f
 ============
 */
-void Cvar_List_f( void )
+static void Cvar_List_f( void )
 {
 	convar_t	*var;
 	const char	*match = NULL;

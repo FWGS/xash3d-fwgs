@@ -205,7 +205,7 @@ NetSplit_SendLong
 Send parts that are less or equal maxpacket
 ======================
 */
-void NetSplit_SendLong( netsrc_t sock, size_t length, void *data, netadr_t to, unsigned int maxpacket, unsigned int id)
+static void NetSplit_SendLong( netsrc_t sock, size_t length, void *data, netadr_t to, unsigned int maxpacket, unsigned int id)
 {
 	netsplit_packet_t packet = {0};
 	unsigned int part = maxpacket - NETSPLIT_HEADER_SIZE;
@@ -367,7 +367,7 @@ Netchan_UnlinkFragment
 
 ==============================
 */
-void Netchan_UnlinkFragment( fragbuf_t *buf, fragbuf_t **list )
+static void Netchan_UnlinkFragment( fragbuf_t *buf, fragbuf_t **list )
 {
 	fragbuf_t	*search;
 
@@ -405,7 +405,7 @@ Netchan_ClearFragbufs
 
 ==============================
 */
-void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
+static void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
 {
 	fragbuf_t	*buf, *n;
 
@@ -431,7 +431,7 @@ Netchan_ClearFragments
 
 ==============================
 */
-void Netchan_ClearFragments( netchan_t *chan )
+static void Netchan_ClearFragments( netchan_t *chan )
 {
 	fragbufwaiting_t	*wait, *next;
 	int		i;
@@ -539,7 +539,7 @@ Netchan_AllocFragbuf
 
 ==============================
 */
-fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
+static fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t	*buf;
 
@@ -556,7 +556,7 @@ Netchan_AddFragbufToTail
 
 ==============================
 */
-void Netchan_AddFragbufToTail( fragbufwaiting_t *wait, fragbuf_t *buf )
+static void Netchan_AddFragbufToTail( fragbufwaiting_t *wait, fragbuf_t *buf )
 {
 	fragbuf_t	*p;
 
@@ -579,7 +579,7 @@ Netchan_UpdateFlow
 
 ==============================
 */
-void Netchan_UpdateFlow( netchan_t *chan )
+static void Netchan_UpdateFlow( netchan_t *chan )
 {
 	float	faccumulatedtime = 0.0;
 	int	i, bytes = 0;
@@ -791,7 +791,7 @@ Netchan_FindBufferById
 
 ==============================
 */
-fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean allocate )
+static fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean allocate )
 {
 	fragbuf_t	*list = *pplist;
 	fragbuf_t	*pnewbuf;
@@ -821,7 +821,7 @@ Netchan_CheckForCompletion
 
 ==============================
 */
-void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers )
+static void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers )
 {
 	int	c, id;
 	int	size;
@@ -1287,7 +1287,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	return true;
 }
 
-qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag_message, uint *fragid, int *frag_offset, int *frag_length )
+static qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag_message, uint *fragid, int *frag_offset, int *frag_length )
 {
 	int	i, buffer, offset;
 	int	count, length;

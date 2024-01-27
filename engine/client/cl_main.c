@@ -178,7 +178,7 @@ finalize connection process and begin new frame
 with new cls.state
 ===============
 */
-void CL_CheckClientState( void )
+static void CL_CheckClientState( void )
 {
 	// first update is the pre-final signon stage
 	if(( cls.state == ca_connected || cls.state == ca_validate ) && ( cls.signon == SIGNONS ))
@@ -278,7 +278,7 @@ CL_DriftInterpolationAmount
 Drift interpolation value (this is used for server unlag system)
 ===============
 */
-int CL_DriftInterpolationAmount( int goal )
+static int CL_DriftInterpolationAmount( int goal )
 {
 	float	fgoal, maxmove, diff;
 	int	msec;
@@ -306,7 +306,7 @@ CL_ComputeClientInterpolationAmount
 Validate interpolation cvars, calc interpolation window
 ===============
 */
-void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
+static void CL_ComputeClientInterpolationAmount( usercmd_t *cmd )
 {
 	const float epsilon = 0.001f; // to avoid float invalid comparision
 	float min_interp;
@@ -352,7 +352,7 @@ CL_ComputePacketLoss
 
 =================
 */
-void CL_ComputePacketLoss( void )
+static void CL_ComputePacketLoss( void )
 {
 	int	i, frm;
 	frame_t	*frame;
@@ -397,7 +397,7 @@ void CL_UpdateFrameLerp( void )
 	cl.commands[(cls.netchan.outgoing_sequence - 1) & CL_UPDATE_MASK].frame_lerp = cl.lerpFrac;
 }
 
-void CL_FindInterpolatedAddAngle( float t, float *frac, pred_viewangle_t **prev, pred_viewangle_t **next )
+static void CL_FindInterpolatedAddAngle( float t, float *frac, pred_viewangle_t **prev, pred_viewangle_t **next )
 {
 	int	i, i0, i1, imod;
 	float	at;
@@ -439,7 +439,7 @@ void CL_FindInterpolatedAddAngle( float t, float *frac, pred_viewangle_t **prev,
 	*frac = bound( 0.0f, *frac, 1.0f );
 }
 
-void CL_ApplyAddAngle( void )
+static void CL_ApplyAddAngle( void )
 {
 	pred_viewangle_t	*prev = NULL, *next = NULL;
 	float		addangletotal = 0.0f;
@@ -475,7 +475,7 @@ CL_ProcessShowTexturesCmds
 navigate around texture atlas
 ===============
 */
-qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
+static qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 {
 	static int	oldbuttons;
 	int		changed;
@@ -504,7 +504,7 @@ CL_ProcessOverviewCmds
 Transform user movement into overview adjust
 ===============
 */
-qboolean CL_ProcessOverviewCmds( usercmd_t *cmd )
+static qboolean CL_ProcessOverviewCmds( usercmd_t *cmd )
 {
 	ref_overview_t	*ov = &clgame.overView;
 	int		sign = 1;
@@ -556,7 +556,7 @@ CL_UpdateClientData
 tell the client.dll about player origin, angles, fov, etc
 =================
 */
-void CL_UpdateClientData( void )
+static void CL_UpdateClientData( void )
 {
 	client_data_t	cdat;
 
@@ -583,7 +583,7 @@ void CL_UpdateClientData( void )
 CL_CreateCmd
 =================
 */
-void CL_CreateCmd( void )
+static void CL_CreateCmd( void )
 {
 	usercmd_t	nullcmd, *cmd;
 	runcmd_t		*pcmd;
@@ -687,7 +687,7 @@ Create and send the command packet to the server
 Including both the reliable commands and the usercmds
 ===================
 */
-void CL_WritePacket( void )
+static void CL_WritePacket( void )
 {
 	sizebuf_t		buf;
 	qboolean		send_command = false;
@@ -893,7 +893,7 @@ void CL_SendCommand( void )
 CL_BeginUpload_f
 ==================
 */
-void CL_BeginUpload_f( void )
+static void CL_BeginUpload_f( void )
 {
 	const char		*name;
 	resource_t	custResource;
@@ -990,7 +990,7 @@ We have gotten a challenge from the server, so try and
 connect.
 ======================
 */
-void CL_SendConnectPacket( void )
+static void CL_SendConnectPacket( void )
 {
 	char	protinfo[MAX_INFO_STRING];
 	const char	*qport;
@@ -1076,7 +1076,7 @@ CL_CheckForResend
 Resend a connect message if the last one has timed out
 =================
 */
-void CL_CheckForResend( void )
+static void CL_CheckForResend( void )
 {
 	netadr_t adr;
 	net_gai_state_t res;
@@ -1162,7 +1162,7 @@ void CL_CheckForResend( void )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
 }
 
-resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
+static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
 {
 	resource_t	*r = &cl.resourcelist[cl.num_resources];
 
@@ -1179,7 +1179,7 @@ resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qbo
 	return r;
 }
 
-void CL_CreateResourceList( void )
+static void CL_CreateResourceList( void )
 {
 	char szFileName[MAX_OSPATH];
 	byte		rgucMD5_hash[16];
@@ -1227,7 +1227,7 @@ CL_Connect_f
 
 ================
 */
-void CL_Connect_f( void )
+static void CL_Connect_f( void )
 {
 	string	server;
 	qboolean legacyconnect = false;
@@ -1274,7 +1274,7 @@ Send the rest of the command line over as
 an unconnected command.
 =====================
 */
-void CL_Rcon_f( void )
+static void CL_Rcon_f( void )
 {
 	char	message[1024];
 	netadr_t	to;
@@ -1381,7 +1381,7 @@ CL_SendDisconnectMessage
 Sends a disconnect message to the server
 =====================
 */
-void CL_SendDisconnectMessage( void )
+static void CL_SendDisconnectMessage( void )
 {
 	sizebuf_t	buf;
 	byte	data[32];
@@ -1426,7 +1426,7 @@ CL_Reconnect
 build a request to reconnect client
 =====================
 */
-void CL_Reconnect( qboolean setup_netchan )
+static void CL_Reconnect( qboolean setup_netchan )
 {
 	if( setup_netchan )
 	{
@@ -1553,7 +1553,7 @@ void CL_Crashed( void )
 CL_LocalServers_f
 =================
 */
-void CL_LocalServers_f( void )
+static void CL_LocalServers_f( void )
 {
 	netadr_t	adr;
 
@@ -1622,7 +1622,7 @@ static void CL_SendMasterServerScanRequest( void )
 CL_InternetServers_f
 =================
 */
-void CL_InternetServers_f( void )
+static void CL_InternetServers_f( void )
 {
 	qboolean nat = cl_nat.value != 0.0f;
 	uint32_t key;
@@ -1651,7 +1651,7 @@ CL_Reconnect_f
 The server is changing levels
 =================
 */
-void CL_Reconnect_f( void )
+static void CL_Reconnect_f( void )
 {
 	if( cls.state == ca_disconnected )
 		return;
@@ -1688,7 +1688,7 @@ CL_FixupColorStringsForInfoString
 all the keys and values must be ends with ^7
 =================
 */
-void CL_FixupColorStringsForInfoString( const char *in, char *out )
+static void CL_FixupColorStringsForInfoString( const char *in, char *out )
 {
 	qboolean	hasPrefix = false;
 	qboolean	endOfKeyVal = false;
@@ -1752,7 +1752,7 @@ CL_ParseStatusMessage
 Handle a reply from a info
 =================
 */
-void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
+static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 {
 	static char	infostring[MAX_INFO_STRING+8];
 	char		*s = MSG_ReadString( msg );
@@ -1801,7 +1801,7 @@ CL_ParseNETInfoMessage
 Handle a reply from a netinfo
 =================
 */
-void CL_ParseNETInfoMessage( netadr_t from, sizebuf_t *msg, const char *s )
+static void CL_ParseNETInfoMessage( netadr_t from, sizebuf_t *msg, const char *s )
 {
 	net_request_t	*nr;
 	static char	infostring[MAX_INFO_STRING+8];
@@ -1856,7 +1856,7 @@ CL_ProcessNetRequests
 check for timeouts
 =================
 */
-void CL_ProcessNetRequests( void )
+static void CL_ProcessNetRequests( void )
 {
 	net_request_t	*nr;
 	int		i;
@@ -1938,7 +1938,7 @@ CL_ConnectionlessPacket
 Responses to broadcasts, etc
 =================
 */
-void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
+static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 {
 	char	*args;
 	const char	*c;
@@ -2235,7 +2235,7 @@ CL_GetMessage
 Handles recording and playback of demos, on top of NET_ code
 ====================
 */
-int CL_GetMessage( byte *data, size_t *length )
+static int CL_GetMessage( byte *data, size_t *length )
 {
 	if( cls.demoplayback )
 	{
@@ -2254,7 +2254,7 @@ int CL_GetMessage( byte *data, size_t *length )
 CL_ReadNetMessage
 =================
 */
-void CL_ReadNetMessage( void )
+static void CL_ReadNetMessage( void )
 {
 	size_t	curSize;
 
@@ -2338,7 +2338,7 @@ Updates the local time and reads/handles messages
 on client net connection.
 =================
 */
-void CL_ReadPackets( void )
+static void CL_ReadPackets( void )
 {
 	// decide the simulation time
 	cl.oldtime = cl.time;
@@ -2402,7 +2402,7 @@ CL_CleanFileName
 Replace the displayed name for some resources
 ====================
 */
-const char *CL_CleanFileName( const char *filename )
+static const char *CL_CleanFileName( const char *filename )
 {
 	if( COM_CheckString( filename ) && filename[0] == '!' )
 		return "customization";
@@ -2418,7 +2418,7 @@ CL_RegisterCustomization
 register custom resource for player
 ====================
 */
-void CL_RegisterCustomization( resource_t *resource )
+static void CL_RegisterCustomization( resource_t *resource )
 {
 	qboolean		bFound = false;
 	customization_t	*pList;
@@ -2624,7 +2624,7 @@ void CL_ServerCommand( qboolean reliable, const char *fmt, ... )
 CL_SetInfo_f
 ==============
 */
-void CL_SetInfo_f( void )
+static void CL_SetInfo_f( void )
 {
 	convar_t	*var;
 
@@ -2664,7 +2664,7 @@ void CL_SetInfo_f( void )
 CL_Physinfo_f
 ==============
 */
-void CL_Physinfo_f( void )
+static void CL_Physinfo_f( void )
 {
 	Con_Printf( "Phys info settings:\n" );
 	Info_Print( cls.physinfo );
@@ -2819,7 +2819,7 @@ CL_FullServerinfo_f
 Sent by server when serverinfo changes
 ==================
 */
-void CL_FullServerinfo_f( void )
+static void CL_FullServerinfo_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
@@ -2837,7 +2837,7 @@ CL_Escape_f
 Escape to menu from game
 =================
 */
-void CL_Escape_f( void )
+static void CL_Escape_f( void )
 {
 	if( cls.key_dest == key_menu )
 		return;
@@ -2855,7 +2855,7 @@ void CL_Escape_f( void )
 CL_InitLocal
 =================
 */
-void CL_InitLocal( void )
+static void CL_InitLocal( void )
 {
 	cls.state = ca_disconnected;
 	cls.signon = 0;
@@ -3005,7 +3005,7 @@ slowly adjuct client clock
 to smooth lag effect
 ==================
 */
-void CL_AdjustClock( void )
+static void CL_AdjustClock( void )
 {
 	if( cl.timedelta == 0.0f || !cl_fixtimerate.value )
 		return;

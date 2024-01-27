@@ -56,7 +56,7 @@ SV_SendSingleResource
 hot precache on a flying
 ================
 */
-void SV_SendSingleResource( const char *name, resourcetype_t type, int index, byte flags )
+static void SV_SendSingleResource( const char *name, resourcetype_t type, int index, byte flags )
 {
 	resource_t	*pResource = &sv.resources[sv.num_resources];
 	int		nSize = 0;
@@ -284,7 +284,7 @@ static resourcetype_t SV_DetermineResourceType( const char *filename )
 		return t_generic;
 }
 
-void SV_ReadResourceList( const char *filename )
+static void SV_ReadResourceList( const char *filename )
 {
 	string token;
 	byte *afile;
@@ -334,7 +334,7 @@ SV_CreateGenericResources
 loads external resource list
 ================
 */
-void SV_CreateGenericResources( void )
+static void SV_CreateGenericResources( void )
 {
 	string	filename;
 
@@ -353,7 +353,7 @@ SV_CreateResourceList
 add resources to common list
 ================
 */
-void SV_CreateResourceList( void )
+static void SV_CreateResourceList( void )
 {
 	qboolean	ffirstsent = false;
 	int	i, nSize;
@@ -418,7 +418,7 @@ void SV_CreateResourceList( void )
 SV_WriteVoiceCodec
 ================
 */
-void SV_WriteVoiceCodec( sizebuf_t *msg )
+static void SV_WriteVoiceCodec( sizebuf_t *msg )
 {
 	MSG_BeginServerCmd( msg, svc_voiceinit );
 	MSG_WriteString( msg, VOICE_DEFAULT_CODEC );
@@ -436,7 +436,7 @@ baseline will be transmitted
 INTERNAL RESOURCE
 ================
 */
-void SV_CreateBaseline( void )
+static void SV_CreateBaseline( void )
 {
 	entity_state_t	nullstate, *base;
 	int		playermodel;
@@ -758,7 +758,7 @@ SV_SetupClients
 determine the game type and prepare clients
 ================
 */
-void SV_SetupClients( void )
+static void SV_SetupClients( void )
 {
 	qboolean	changed_maxclients = false;
 

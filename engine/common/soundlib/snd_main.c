@@ -18,7 +18,7 @@ GNU General Public License for more details.
 // global sound variables
 sndlib_t	sound;
 
-void Sound_Reset( void )
+static void Sound_Reset( void )
 {
 	// reset global variables
 	sound.width = sound.rate = 0;
@@ -30,7 +30,7 @@ void Sound_Reset( void )
 	sound.size = 0;
 }
 
-wavdata_t *SoundPack( void )
+static wavdata_t *SoundPack( void )
 {
 	wavdata_t	*pack = Mem_Calloc( host.soundpool, sizeof( wavdata_t ));
 
@@ -294,6 +294,7 @@ void FS_FreeStream( stream_t *stream )
 
 #if XASH_ENGINE_TESTS
 #define IMPLEMENT_SOUNDLIB_FUZZ_TARGET( export, target ) \
+int EXPORT export( const uint8_t *Data, size_t Size ); \
 int EXPORT export( const uint8_t *Data, size_t Size ) \
 { \
 	wavdata_t *wav; \

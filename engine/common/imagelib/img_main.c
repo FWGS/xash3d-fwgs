@@ -597,6 +597,7 @@ void Test_RunImagelib( void )
 }
 
 #define IMPLEMENT_IMAGELIB_FUZZ_TARGET( export, target ) \
+int export( const uint8_t *Data, size_t Size ); \
 int EXPORT export( const uint8_t *Data, size_t Size ) \
 { \
 	rgbdata_t *rgb; \

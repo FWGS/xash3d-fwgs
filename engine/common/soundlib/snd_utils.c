@@ -83,7 +83,7 @@ void Sound_Shutdown( void )
 	Mem_FreePool( &host.soundpool );
 }
 
-byte *Sound_Copy( size_t size )
+static byte *Sound_Copy( size_t size )
 {
 	byte	*out;
 
@@ -139,7 +139,7 @@ Sound_ResampleInternal
 We need convert sound to signed even if nothing to resample
 ================
 */
-qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, int outrate, int outwidth )
+static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, int outrate, int outwidth )
 {
 	double stepscale, j;
 	int	outcount;

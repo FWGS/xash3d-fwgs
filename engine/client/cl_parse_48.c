@@ -30,7 +30,7 @@ CL_ParseStaticEntity
 static client entity
 ==================
 */
-void CL_LegacyParseStaticEntity( sizebuf_t *msg )
+static void CL_LegacyParseStaticEntity( sizebuf_t *msg )
 {
 	int		i;
 	entity_state_t	state;
@@ -98,7 +98,7 @@ void CL_LegacyParseStaticEntity( sizebuf_t *msg )
 	R_AddEfrags( ent );	// add link
 }
 
-void CL_LegacyParseSoundPacket( sizebuf_t *msg, qboolean is_ambient )
+static void CL_LegacyParseSoundPacket( sizebuf_t *msg, qboolean is_ambient )
 {
 	vec3_t	pos;
 	int 	chan, sound;
@@ -167,7 +167,7 @@ CL_PrecacheSound
 prceache sound from server
 ================
 */
-void CL_LegacyPrecacheSound( sizebuf_t *msg )
+static void CL_LegacyPrecacheSound( sizebuf_t *msg )
 {
 	int	soundIndex;
 
@@ -184,7 +184,7 @@ void CL_LegacyPrecacheSound( sizebuf_t *msg )
 	cl.sound_index[soundIndex] = S_RegisterSound( cl.sound_precache[soundIndex] );
 }
 
-void CL_LegacyPrecacheModel( sizebuf_t *msg )
+static void CL_LegacyPrecacheModel( sizebuf_t *msg )
 {
 	int	modelIndex;
 	string model;
@@ -214,7 +214,7 @@ void CL_LegacyPrecacheModel( sizebuf_t *msg )
 	cl.nummodels = Q_max( cl.nummodels, modelIndex  );
 }
 
-void CL_LegacyPrecacheEvent( sizebuf_t *msg )
+static void CL_LegacyPrecacheEvent( sizebuf_t *msg )
 {
 	int	eventIndex;
 
@@ -242,7 +242,7 @@ CL_ParseResourceList
 
 ==============
 */
-void CL_LegacyParseResourceList( sizebuf_t *msg )
+static void CL_LegacyParseResourceList( sizebuf_t *msg )
 {
 	int	i = 0;
 	static struct

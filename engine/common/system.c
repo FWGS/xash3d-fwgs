@@ -362,7 +362,7 @@ Sys_WaitForQuit
 wait for 'Esc' key will be hit
 ================
 */
-void Sys_WaitForQuit( void )
+static void Sys_WaitForQuit( void )
 {
 #if XASH_WIN32
 	MSG	msg;

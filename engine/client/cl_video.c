@@ -68,7 +68,7 @@ qboolean SCR_NextMovie( void )
 	return true;
 }
 
-void SCR_CreateStartupVids( void )
+static void SCR_CreateStartupVids( void )
 {
 	file_t	*f;
 

@@ -984,7 +984,7 @@ pfnCheckGameDll
 
 =========
 */
-int GAME_EXPORT pfnCheckGameDll( void )
+static int GAME_EXPORT pfnCheckGameDll( void )
 {
 #ifdef XASH_INTERNAL_GAMELIBS
 	return true;

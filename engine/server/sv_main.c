@@ -156,7 +156,7 @@ SV_HasActivePlayers
 returns true if server have spawned players
 ================
 */
-qboolean SV_HasActivePlayers( void )
+static qboolean SV_HasActivePlayers( void )
 {
 	int	i;
 
@@ -244,7 +244,7 @@ void SV_UpdateMovevars( qboolean initialize )
 SV_CheckCmdTimes
 =================
 */
-void SV_CheckCmdTimes( void )
+static void SV_CheckCmdTimes( void )
 {
 	sv_client_t	*cl;
 	static double	lastreset = 0;
@@ -370,7 +370,7 @@ void SV_ProcessFile( sv_client_t *cl, const char *filename )
 SV_ReadPackets
 =================
 */
-void SV_ReadPackets( void )
+static void SV_ReadPackets( void )
 {
 	sv_client_t	*cl;
 	int		i, qport;
@@ -488,7 +488,7 @@ for a few seconds to make sure any final reliable message gets resent
 if necessary
 ==================
 */
-void SV_CheckTimeouts( void )
+static void SV_CheckTimeouts( void )
 {
 	sv_client_t	*cl;
 	double		droppoint;
@@ -593,7 +593,7 @@ qboolean SV_IsSimulating( void )
 SV_RunGameFrame
 =================
 */
-qboolean SV_RunGameFrame( void )
+static qboolean SV_RunGameFrame( void )
 {
 	sv.simulating = SV_IsSimulating();
 

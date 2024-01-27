@@ -32,7 +32,7 @@ CL_UserMsgStub
 Default stub for missed callbacks
 ===============
 */
-int CL_UserMsgStub( const char *pszName, int iSize, void *pbuf )
+static int CL_UserMsgStub( const char *pszName, int iSize, void *pbuf )
 {
 	return 1;
 }
@@ -58,7 +58,7 @@ CL_ParseSoundPacket
 
 ==================
 */
-void CL_ParseSoundPacket( sizebuf_t *msg )
+static void CL_ParseSoundPacket( sizebuf_t *msg )
 {
 	vec3_t	pos;
 	int 	chan, sound;
@@ -305,7 +305,7 @@ CL_ParseStaticEntity
 static client entity
 ==================
 */
-void CL_ParseStaticEntity( sizebuf_t *msg )
+static void CL_ParseStaticEntity( sizebuf_t *msg )
 {
 	int		i, newnum;
 	entity_state_t	from, to;
@@ -619,7 +619,7 @@ static void CL_StartResourceDownloading( const char *pszMessage, qboolean bCusto
 	CL_BatchResourceRequest( !bCustom );
 }
 
-customization_t *CL_PlayerHasCustomization( int nPlayerNum, resourcetype_t type )
+static customization_t *CL_PlayerHasCustomization( int nPlayerNum, resourcetype_t type )
 {
 	customization_t	*pList;
 
@@ -631,7 +631,7 @@ customization_t *CL_PlayerHasCustomization( int nPlayerNum, resourcetype_t type 
 	return NULL;
 }
 
-void CL_RemoveCustomization( int nPlayerNum, customization_t *pRemove )
+static void CL_RemoveCustomization( int nPlayerNum, customization_t *pRemove )
 {
 	customization_t	*pList;
 	customization_t	*pNext;
@@ -802,7 +802,7 @@ CL_CreateCustomizationList
 loading custom decal for self
 ==================
 */
-void CL_CreateCustomizationList( void )
+static void CL_CreateCustomizationList( void )
 {
 	resource_t	*pResource;
 	player_info_t	*pPlayer;
@@ -1494,7 +1494,7 @@ void CL_UpdateUserPings( sizebuf_t *msg )
 	}
 }
 
-void CL_SendConsistencyInfo( sizebuf_t *msg )
+static void CL_SendConsistencyInfo( sizebuf_t *msg )
 {
 	qboolean		user_changed_diskfile;
 	vec3_t		mins, maxs;
@@ -1671,7 +1671,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 	}
 }
 
-void CL_ParseConsistencyInfo( sizebuf_t *msg )
+static void CL_ParseConsistencyInfo( sizebuf_t *msg )
 {
 	int		lastcheck;
 	int		delta;
@@ -1736,7 +1736,7 @@ CL_ParseResourceList
 
 ==============
 */
-void CL_ParseResourceList( sizebuf_t *msg )
+static void CL_ParseResourceList( sizebuf_t *msg )
 {
 	resource_t	*pResource;
 	int		i, total;
@@ -1773,7 +1773,7 @@ CL_ParseVoiceInit
 
 ==================
 */
-void CL_ParseVoiceInit( sizebuf_t *msg )
+static void CL_ParseVoiceInit( sizebuf_t *msg )
 {
 	char *pszCodec = MSG_ReadString( msg );
 	int quality = MSG_ReadByte( msg );
@@ -1787,7 +1787,7 @@ CL_ParseVoiceData
 
 ==================
 */
-void CL_ParseVoiceData( sizebuf_t *msg )
+static void CL_ParseVoiceData( sizebuf_t *msg )
 {
 	int size, idx, frames;
 	byte received[8192];
@@ -1904,7 +1904,7 @@ CL_ParseScreenShake
 Set screen shake
 ==============
 */
-void CL_ParseScreenShake( sizebuf_t *msg )
+static void CL_ParseScreenShake( sizebuf_t *msg )
 {
 	float amplitude = (float)(word)MSG_ReadShort( msg ) * ( 1.0f / (float)( 1 << 12 ));
 	float duration  = (float)(word)MSG_ReadShort( msg ) * ( 1.0f / (float)( 1 << 12 ));
@@ -1927,7 +1927,7 @@ CL_ParseScreenFade
 Set screen fade
 ==============
 */
-void CL_ParseScreenFade( sizebuf_t *msg )
+static void CL_ParseScreenFade( sizebuf_t *msg )
 {
 	float		duration, holdTime;
 	screenfade_t	*sf = &clgame.fade;
@@ -2026,7 +2026,7 @@ CL_ParseExec
 Exec map/class specific configs
 ==============
 */
-void CL_ParseExec( sizebuf_t *msg )
+static void CL_ParseExec( sizebuf_t *msg )
 {
 	qboolean is_class;
 	int class_idx;

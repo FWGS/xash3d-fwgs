@@ -218,7 +218,7 @@ R_AllocTracer
 can return NULL if particles is out
 ================
 */
-particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
+static particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life )
 {
 	particle_t	*p;
 
@@ -300,7 +300,7 @@ R_BeamAlloc
 
 ==============
 */
-BEAM *R_BeamAlloc( void )
+static BEAM *R_BeamAlloc( void )
 {
 	BEAM	*pBeam;
 
@@ -323,7 +323,7 @@ R_BeamFree
 
 ==============
 */
-void R_BeamFree( BEAM *pBeam )
+static void R_BeamFree( BEAM *pBeam )
 {
 	// free particles that have died off.
 	R_FreeDeadParticles( &pBeam->particles );
@@ -605,7 +605,7 @@ CL_BeamAttemptToDie
 Check for expired beams
 ==============
 */
-qboolean CL_BeamAttemptToDie( BEAM *pBeam )
+static qboolean CL_BeamAttemptToDie( BEAM *pBeam )
 {
 	Assert( pBeam != NULL );
 
@@ -2040,7 +2040,7 @@ void CL_ReadPointFile_f( void )
 	else Con_Printf( "map %s has no leaks!\n", clgame.mapname );
 }
 
-void CL_FreeDeadBeams( void )
+static void CL_FreeDeadBeams( void )
 {
 	BEAM *pBeam, *pNext, *pPrev = NULL;
 	// draw temporary entity beams

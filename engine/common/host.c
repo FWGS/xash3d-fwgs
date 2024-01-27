@@ -65,7 +65,7 @@ static CVAR_DEFINE( host_sleeptime, "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTER
 static CVAR_DEFINE_AUTO( host_sleeptime_debug, "0", 0, "print sleeps between frames" );
 CVAR_DEFINE( con_gamemaps, "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
 
-void Sys_PrintUsage( void )
+static void Sys_PrintUsage( void )
 {
 	string version_str;
 	const char *usage_str;
@@ -366,7 +366,7 @@ Host_ChangeGame_f
 Change game modification
 =================
 */
-void Host_ChangeGame_f( void )
+static void Host_ChangeGame_f( void )
 {
 	int	i;
 
@@ -405,7 +405,7 @@ void Host_ChangeGame_f( void )
 Host_Exec_f
 ===============
 */
-void Host_Exec_f( void )
+static void Host_Exec_f( void )
 {
 	string cfgpath;
 	byte *f;
@@ -491,7 +491,7 @@ void Host_Exec_f( void )
 Host_MemStats_f
 ===============
 */
-void Host_MemStats_f( void )
+static void Host_MemStats_f( void )
 {
 	switch( Cmd_Argc( ))
 	{
@@ -509,7 +509,7 @@ void Host_MemStats_f( void )
 	}
 }
 
-void Host_Minimize_f( void )
+static void Host_Minimize_f( void )
 {
 #ifdef XASH_SDL
 	if( host.hWnd ) SDL_MinimizeWindow( host.hWnd );
@@ -548,7 +548,7 @@ qboolean Host_IsLocalClient( void )
 Host_RegisterDecal
 =================
 */
-qboolean Host_RegisterDecal( const char *name, int *count )
+static qboolean Host_RegisterDecal( const char *name, int *count )
 {
 	char	shortname[MAX_QPATH];
 	int	i;
@@ -613,7 +613,7 @@ Host_GetCommands
 Add them exactly as if they had been typed at the console
 ===================
 */
-void Host_GetCommands( void )
+static void Host_GetCommands( void )
 {
 	char	*cmd;
 
@@ -631,7 +631,7 @@ Host_CalcFPS
 compute actual FPS for various modes
 ===================
 */
-double Host_CalcFPS( void )
+static double Host_CalcFPS( void )
 {
 	double	fps = 0.0;
 
@@ -748,7 +748,7 @@ Host_FilterTime
 Returns false if the time is too short to run a frame
 ===================
 */
-qboolean Host_FilterTime( float time )
+static qboolean Host_FilterTime( float time )
 {
 	static double	oldtime;
 	double dt;
@@ -873,7 +873,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	Host_AbortCurrentFrame();
 }
 
-void Host_Error_f( void )
+static void Host_Error_f( void )
 {
 	const char *error = Cmd_Argv( 1 );
 
@@ -881,7 +881,7 @@ void Host_Error_f( void )
 	Host_Error( "%s\n", error );
 }
 
-void Sys_Error_f( void )
+static void Sys_Error_f( void )
 {
 	const char *error = Cmd_Argv( 1 );
 
@@ -904,7 +904,7 @@ static void Host_Crash_f( void )
 Host_Userconfigd_f
 =================
 */
-void Host_Userconfigd_f( void )
+static void Host_Userconfigd_f( void )
 {
 	search_t *t;
 	int i;
@@ -948,7 +948,7 @@ static void Host_RunTests( int stage )
 Host_InitCommon
 =================
 */
-void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame )
+static void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame )
 {
 	char		dev_level[4];
 	int		developer = DEFAULT_DEV;
@@ -1240,7 +1240,7 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 	Key_Init();
 }
 
-void Host_FreeCommon( void )
+static void Host_FreeCommon( void )
 {
 	Image_Shutdown();
 	Sound_Shutdown();
