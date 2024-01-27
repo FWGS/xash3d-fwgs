@@ -39,13 +39,6 @@ static vec3_t viewPoint[MAX_CLIENTS];
 typedef void (__cdecl *LINK_ENTITY_FUNC)( entvars_t *pev );
 typedef void (__stdcall *GIVEFNPTRSTODLL)( enginefuncs_t* engfuncs, globalvars_t *pGlobals );
 
-edict_t *SV_EdictNum( int n )
-{
-	if(( n >= 0 ) && ( n < GI->max_edicts ))
-		return svgame.edicts + n;
-	return NULL;
-}
-
 #ifndef NDEBUG
 qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 {

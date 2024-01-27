@@ -945,12 +945,12 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 		// filter movetypes to collide with
 		if( !SV_CanPushed( check ))
 			continue;
-
+#if !XASH_PSP
 		pusher->v.solid = SOLID_NOT;
 		block = SV_TestEntityPosition( check, pusher );
 		pusher->v.solid = oldsolid;
 		if( block ) continue;
-
+#endif
 		// if the entity is standing on the pusher, it will definately be moved
 		if( !( FBitSet( check->v.flags, FL_ONGROUND ) && check->v.groundentity == pusher ))
 		{
@@ -966,7 +966,12 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 			if( !SV_TestEntityPosition( check, NULL ))
 				continue;
 		}
-
+#if XASH_PSP
+		pusher->v.solid = SOLID_NOT;
+		block = SV_TestEntityPosition( check, pusher );
+		pusher->v.solid = oldsolid;
+		if( block ) continue;
+#endif
 		// remove the onground flag for non-players
 		if( check->v.movetype != MOVETYPE_WALK )
 			check->v.flags &= ~FL_ONGROUND;
@@ -1058,18 +1063,19 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 	for( e = 1; e < svgame.numEntities; e++ )
 	{
 		check = EDICT_NUM( e );
+
 		if( !SV_IsValidEdict( check ))
 			continue;
 
 		// filter movetypes to collide with
 		if( !SV_CanPushed( check ))
 			continue;
-
+#if !XASH_PSP
 		pusher->v.solid = SOLID_NOT;
 		block = SV_TestEntityPosition( check, pusher );
 		pusher->v.solid = oldsolid;
 		if( block ) continue;
-
+#endif
 		// if the entity is standing on the pusher, it will definately be moved
 		if( !(( check->v.flags & FL_ONGROUND ) && check->v.groundentity == pusher ))
 		{
@@ -1085,7 +1091,12 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 			if( !SV_TestEntityPosition( check, NULL ))
 				continue;
 		}
-
+#if XASH_PSP
+		pusher->v.solid = SOLID_NOT;
+		block = SV_TestEntityPosition( check, pusher );
+		pusher->v.solid = oldsolid;
+		if( block ) continue;
+#endif
 		// save original position of contacted entity
 		pushed_p->ent = check;
 		VectorCopy( check->v.origin, pushed_p->origin );
@@ -1101,7 +1112,7 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 		Matrix4x4_VectorITransform( start_l, org, temp );
 		Matrix4x4_VectorTransform( end_l, temp, org2 );
 		VectorSubtract( org2, org, lmove );
-
+		
 		// i can't clear FL_ONGROUND in all cases because many bad things may be happen
 		if( check->v.movetype != MOVETYPE_WALK )
 		{
@@ -1140,7 +1151,6 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 			return check;
 		}
 	}
-
 	return NULL;
 }
 

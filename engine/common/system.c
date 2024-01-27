@@ -44,6 +44,11 @@ GNU General Public License for more details.
 #include <vitasdk.h>
 #endif
 
+#if XASH_PSP
+#include <pspkernel.h>
+#include <psputility_sysparam.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
 
 #include "library.h"
@@ -144,6 +149,10 @@ const char *Sys_GetCurrentUser( void )
 
 	if( pw )
 		return pw->pw_name;
+#elif XASH_PSP
+	static string	s_userName;
+	if( sceUtilityGetSystemParamString( PSP_SYSTEMPARAM_ID_STRING_NICKNAME, s_userName, sizeof( s_userName )) == 0 )
+		return s_userName;
 #endif
 	return "Player";
 }
@@ -485,7 +494,12 @@ Sys_Quit
 void Sys_Quit( void )
 {
 	Host_Shutdown();
+#if XASH_PSP
+	sceKernelDelayThread( 50 * 1000 );
+	sceKernelExitGame();
+#else
 	exit( error_on_exit );
+#endif
 }
 
 /*

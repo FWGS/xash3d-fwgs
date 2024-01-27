@@ -73,6 +73,10 @@ This repository contains our fork of HLSDK and restored source code for some of 
 * Clone this repostory:
 `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
 
+#### PSP
+* Build pspsdk(GCC 9.3) from https://github.com/pspdev
+* Clone this repository: `git clone --recursive https://github.com/Crow-bar/xash3d-fwgs`.
+
 ### Building
 #### Windows (Visual Studio)
 0) Open command line
@@ -90,3 +94,20 @@ If compiling 32-bit on amd64, you may need to supply `export PKG_CONFIG_PATH=/us
 (You need to pass `-8` to compile 64-bit engine on 64-bit x86 processor)
 2) Compile: `./waf build`
 3) Install(optional): `./waf install --destdir=/path/to/any/output/directory`
+
+#### PSP
+0) Navigate to `xash3d-fwgs` directory.
+1) Examine which build options are available: `./waf --help`
+2) Configure build:
+   Normal: `./waf configure -T fast --psp=prx,660,HW --prefix=/path/to/any/output/directory`
+   Profiling: `./waf configure -T debug --psp=elf,660,HW --enable-profiling --prefix=/path/to/any/output/directory`
+3) Compile: `./waf build`
+4) Install(optional): `./waf install`
+
+
+## Running
+0) Copy libraries and main executable somewhere, if you're skipped installation stage.
+1) Copy game files to same directory
+2) Run `xash3d.exe`/`xash3d.sh`/`xash3d` depending on which platform you're using.
+
+For additional info, run Xash3D with `-help` command line key.

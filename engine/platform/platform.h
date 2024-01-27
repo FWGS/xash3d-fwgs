@@ -58,6 +58,15 @@ void SDLash_Init( void );
 void SDLash_Shutdown( void );
 #endif
 
+#if XASH_PSP
+void Platform_ReadCmd( const char *fname, int *argc, char **argv );
+SceUID Platform_LoadModule( const char *filename, int mpid, SceSize argsize, void *argp );
+int Platform_UnloadModule( SceUID modid, int *sce_code );
+
+#include "psp/p5ram_psp.h"
+#include "psp/fsh_psp.h"
+#endif
+
 #if XASH_ANDROID
 const char *Android_GetAndroidID( void );
 const char *Android_LoadID( void );

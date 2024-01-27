@@ -24,7 +24,9 @@ GNU General Public License for more details.
 		#include <sys/syslimits.h>
 		#define OS_LIB_EXT "dylib"
 		#define OPEN_COMMAND "open"
-	#else
+	#elif XASH_PSP
+		#define OS_LIB_EXT "prx"
+	#else		
 		#define OS_LIB_EXT "so"
 		#define OPEN_COMMAND "xdg-open"
 	#endif
@@ -52,6 +54,16 @@ GNU General Public License for more details.
 		#endif
 		#define O_TEXT 0
 		#define _mkdir( x ) mkdir( x, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
+	#endif
+
+	#if XASH_PSP
+		#include <unistd.h>
+		#include <pspiofilemgr.h>
+
+		#define O_BINARY 0
+		#define O_TEXT 0
+
+		#define _mkdir( x )			sceIoMkdir( x, FIO_S_IRWXU | FIO_S_IRWXG | FIO_S_IROTH | FIO_S_IXOTH )
 	#endif
 
 	typedef void* HANDLE;

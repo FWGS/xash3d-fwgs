@@ -67,6 +67,8 @@ def configure(conf):
 		# then remove them to avoid them getting linked to shared objects
 		for lib in extra_libs:
 			conf.env.LDFLAGS.remove(lib)
+	elif conf.env.DEST_OS == 'psp':
+		conf.define('XASH_NO_NETWORK', 1)
 	elif conf.options.FBDEV_SW:
 		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
 		# conf.define('XASH_FBDEV', 1)
@@ -87,7 +89,8 @@ def configure(conf):
 
 	if conf.options.STATIC:
 		conf.env.STATIC = True
-		conf.define('XASH_NO_LIBDL',1)
+		if conf.env.DEST_OS != 'psp':
+			conf.define('XASH_NO_LIBDL',1)
 
 	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
 		conf.check_pthreads(mode='c')
@@ -132,8 +135,11 @@ def build(bld):
 		'common/*.c',
 		'common/imagelib/*.c',
 		'common/soundlib/*.c',
-		'common/soundlib/libmpg/*.c',
 		'server/*.c'])
+
+	# PSP uses hw MP3 decoder
+	if bld.env.DEST_OS != 'psp':
+		source += bld.path.ant_glob(['common/soundlib/libmpg/*.c'])
 
 	if bld.env.ENGINE_TESTS:
 		source += bld.path.ant_glob(['tests/*.c'])
@@ -141,7 +147,7 @@ def build(bld):
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
 		source += bld.path.ant_glob(['platform/win32/*.c'])
-	elif bld.env.DEST_OS not in ['dos', 'nswitch', 'psvita']: #posix
+	elif bld.env.DEST_OS not in ['dos', 'nswitch', 'psvita', 'psp']: #posix
 		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
 		if not bld.env.STATIC:
 			libs += ['DL']
@@ -210,6 +216,10 @@ def build(bld):
 			'-lSceVshBridge_stub',
 			'-lSceKernelDmacMgr_stub'
 		]
+
+	if bld.env.DEST_OS == 'psp':
+		source += bld.path.ant_glob(['platform/psp/*.c'])
+		source += bld.path.ant_glob(['platform/psp/*/*.S'])
 
 	# add client files
 	if not bld.env.DEDICATED:

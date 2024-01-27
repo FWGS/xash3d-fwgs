@@ -1064,10 +1064,10 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 
 	// init host state machine
 	COM_InitHostState();
-
+#ifdef XASH_HASHED_VARS
 	// init hashed commands
 	BaseCmd_Init();
-
+#endif
 	// startup cmds and cvars subsystem
 	Cmd_Init();
 	Cvar_Init();
@@ -1110,6 +1110,8 @@ void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bCha
 			Sys_Error( "couldn't find xash3d data directory" );
 			host.rootdir[0] = 0;
 		}
+#elif XASH_PSP
+		COM_ExtractFilePath( argv[0], host.rootdir );
 #elif (XASH_SDL == 2) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
 		char *szBasePath = SDL_GetBasePath();
 		if( szBasePath )

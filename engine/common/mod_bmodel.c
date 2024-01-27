@@ -1735,12 +1735,16 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 		oldmaxfaces = Q_max( oldmaxfaces, out->numfaces );
 	}
 
+#if XASH_PSP
+	refState.max_surfaces = 0; // sorting disabled
+#else
 	// these array used to sort translucent faces in bmodels
 	if( oldmaxfaces > refState.max_surfaces )
 	{
 		refState.draw_surfaces = (sortedface_t *)Z_Realloc( refState.draw_surfaces, oldmaxfaces * sizeof( sortedface_t ));
 		refState.max_surfaces = oldmaxfaces;
 	}
+#endif
 }
 
 /*

@@ -101,8 +101,13 @@ typedef enum
 	TF_TEXTURE_3D	= (1<<20),	// this is GL_TEXTURE_3D
 	TF_ATLAS_PAGE	= (1<<21),	// bit who indicate lightmap page or deluxemap page
 	TF_ALPHACONTRAST	= (1<<22),	// special texture mode for A2C
+#if XASH_PSP
+	TF_IMG_SWIZZLED		= (1<<23),
+	TF_IMG_INVRAM		= (1<<24),
+#else
 // reserved
 // reserved
+#endif
 	TF_IMG_UPLOADED	= (1<<25),	// this is set for first time when called glTexImage, otherwise it will be call glTexSubImage
 	TF_ARB_FLOAT	= (1<<26),	// float textures
 	TF_NOCOMPARE	= (1<<27),	// disable comparing for depth textures

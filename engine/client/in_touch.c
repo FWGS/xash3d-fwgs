@@ -19,6 +19,24 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "mobility_int.h"
 
+#ifdef XASH_NO_TOUCH
+
+void Touch_WriteConfig( void ) {}
+void Touch_SetClientOnly( qboolean state ) {}
+void Touch_RemoveButton( const char *name ) {}
+void Touch_HideButtons( const char *name, byte hide ) {}
+void Touch_AddClientButton( const char *name, const char *texture, const char *command, float x1, float y1, float x2, float y2, byte *color, int round, float aspect, int flags ) {}
+void Touch_AddDefaultButton( const char *name, const char *texturefile, const char *command, float x1, float y1, float x2, float y2, byte *color, int round, float aspect, int flags ) {}
+void Touch_ResetDefaultButtons( void ){}
+void Touch_Init( void ) {}
+void Touch_Draw( void ) {}
+int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy ) { return 0; }
+void Touch_GetMove( float *forward, float *side, float *yaw, float *pitch ) {}
+void Touch_KeyEvent( int key, int down ) {}
+void Touch_Shutdown( void ) {}
+
+#else /* XASH_NO_TOUCH */
+
 typedef enum
 {
 	touch_command, // just tap a button
@@ -1529,7 +1547,6 @@ void Touch_Draw( void )
 		ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( touch.move_start_x + touch.side * width - GRID_X * touch_move_indicator.value ),
 						  TO_SCRN_Y( touch.move_start_y - touch.forward * height - GRID_Y * touch_move_indicator.value ),
 						  TO_SCRN_X( GRID_X * 2 * touch_move_indicator.value ), TO_SCRN_Y( GRID_Y * 2 * touch_move_indicator.value ), 0, 0, 1, 1, touch.joytexture );
-
 	}
 
 }
@@ -2191,3 +2208,5 @@ void Touch_Shutdown( void )
 	touch.initialized = false;
 	Mem_FreePool( &touch.mempool );
 }
+
+#endif /* XASH_NO_TOUCH */

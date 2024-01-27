@@ -74,7 +74,9 @@ struct stream_s
 
 	// current stream state
 	void		*ptr;	// internal decoder state
+#if !XASH_PSP
 	char		temp[OUTBUF_SIZE]; // mpeg decoder stuff
+#endif
 	size_t		pos;	// actual track position (or actual buffer remains)
 	int		buffsize;	// cached buffer size
 };

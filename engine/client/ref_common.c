@@ -323,6 +323,10 @@ static ref_api_t gEngfuncs =
 	&clgame.drawFuncs,
 
 	&g_fsapi,
+#if XASH_PSP
+	P5Ram_Alloc,
+	P5Ram_Free,
+#endif
 };
 
 static void R_UnloadProgs( void )
@@ -344,33 +348,8 @@ static void R_UnloadProgs( void )
 	memset( &ref.dllFuncs, 0, sizeof( ref.dllFuncs ));
 }
 
-static void CL_FillTriAPIFromRef( triangleapi_t *dst, const ref_interface_t *src )
-{
-	dst->version           = TRI_API_VERSION;
-	dst->Begin             = src->Begin;
-	dst->RenderMode        = TriRenderMode;
-	dst->End               = src->End;
-	dst->Color4f           = TriColor4f;
-	dst->Color4ub          = TriColor4ub;
-	dst->TexCoord2f        = src->TexCoord2f;
-	dst->Vertex3f          = src->Vertex3f;
-	dst->Vertex3fv         = src->Vertex3fv;
-	dst->Brightness        = TriBrightness;
-	dst->CullFace          = TriCullFace;
-	dst->SpriteTexture     = TriSpriteTexture;
-	dst->WorldToScreen     = TriWorldToScreen;
-	dst->Fog               = src->Fog;
-	dst->ScreenToWorld     = src->ScreenToWorld;
-	dst->GetMatrix         = src->GetMatrix;
-	dst->BoxInPVS          = TriBoxInPVS;
-	dst->LightAtPoint      = TriLightAtPoint;
-	dst->Color4fRendermode = TriColor4fRendermode;
-	dst->FogParams         = src->FogParams;
-}
-
 static qboolean R_LoadProgs( const char *name )
 {
-	extern triangleapi_t gTriApi;
 	static ref_api_t gpEngfuncs;
 	REFAPI GetRefAPI; // single export
 
@@ -415,11 +394,17 @@ static qboolean R_LoadProgs( const char *name )
 		return false;
 	}
 
+	// initialize TriAPI callbacks
+	if( !ref.dllFuncs.getTriAPI( TRI_API_VERSION, &gTriApi ))
+	{
+		COM_FreeLibrary( ref.hInstance );
+		Con_Reportf( "R_LoadProgs: can't init TriAPI Interface: wrong version, %i must be %i\n", gTriApi.version, TRI_API_VERSION );
+		ref.hInstance = NULL;
+		return false;
+	}
+
 	Cvar_FullSet( "host_refloaded", "1", FCVAR_READ_ONLY );
 	ref.initialized = true;
-
-	// initialize TriAPI callbacks
-	CL_FillTriAPIFromRef( &gTriApi, &ref.dllFuncs );
 
 	return true;
 }

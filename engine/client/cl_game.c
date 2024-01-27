@@ -98,41 +98,6 @@ static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc );
 
 /*
 ====================
-CL_GetEntityByIndex
-
-Render callback for studio models
-====================
-*/
-cl_entity_t *CL_GetEntityByIndex( int index )
-{
-	if( !clgame.entities ) // not in game yet
-		return NULL;
-
-	if( index < 0 || index >= clgame.maxEntities )
-		return NULL;
-
-	if( index == 0 )
-		return clgame.entities;
-
-	return CL_EDICT_NUM( index );
-}
-
-/*
-================
-CL_ModelHandle
-
-get model handle by index
-================
-*/
-model_t *CL_ModelHandle( int modelindex )
-{
-	if( modelindex < 0 || modelindex >= MAX_MODELS )
-		return NULL;
-	return cl.models[modelindex];
-}
-
-/*
-====================
 CL_IsThirdPerson
 
 returns true if thirdperson is enabled
@@ -943,7 +908,7 @@ void CL_DrawCrosshair( void )
 		VectorAdd( refState.viewangles, cl.crosshairangle, angles );
 		AngleVectors( angles, forward, NULL, NULL );
 		VectorAdd( refState.vieworg, forward, point );
-		ref.dllFuncs.WorldToScreen( point, screen );
+		gTriApi.WorldToScreen( point, screen );
 
 		x += ( clgame.viewport[2] >> 1 ) * screen[0] + 0.5f;
 		y += ( clgame.viewport[3] >> 1 ) * screen[1] + 0.5f;
@@ -1088,7 +1053,6 @@ void CL_ClearWorld( void )
 
 	world.max_recursion = 0;
 
-	clgame.ds.cullMode = TRI_FRONT;
 	clgame.numStatics = 0;
 }
 

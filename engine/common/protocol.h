@@ -177,6 +177,29 @@ GNU General Public License for more details.
 #define FRAGMENT_MAX_SIZE		64000		// maximal fragment size
 #define FRAGMENT_LOCAL_SIZE		FRAGMENT_MAX_SIZE	// local connection
 
+#if XASH_PSP
+
+#undef MAX_VISIBLE_PACKET
+#undef MAX_VISIBLE_PACKET_VIS_BYTES
+#undef MAX_EVENTS
+#undef MAX_SUPPORTED_MODELS
+#undef MAX_MODELS
+#undef MAX_SOUNDS
+#undef MAX_CUSTOM
+#undef MAX_RENDER_DECALS
+#undef MAX_RESOURCES
+
+#define MAX_VISIBLE_PACKET				256
+#define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
+#define MAX_EVENTS						256
+#define MAX_SUPPORTED_MODELS			512
+#define MAX_MODELS						MAX_SUPPORTED_MODELS
+#define MAX_SOUNDS						512
+#define MAX_CUSTOM						32
+#define MAX_RENDER_DECALS				256
+#define MAX_RESOURCES					(MAX_MODELS+MAX_SOUNDS+MAX_CUSTOM+MAX_EVENTS)
+
+#else
 #if XASH_LOW_MEMORY == 2
 #undef MAX_VISIBLE_PACKET
 #undef MAX_VISIBLE_PACKET_VIS_BYTES
@@ -215,7 +238,7 @@ GNU General Public License for more details.
 #define MAX_RENDER_DECALS	128
 #define MAX_RESOURCES		1024
 #endif
-
+#endif /* XASH_PSP */
 // Quake1 Protocol
 #define PROTOCOL_VERSION_QUAKE	15
 

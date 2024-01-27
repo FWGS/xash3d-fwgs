@@ -34,7 +34,13 @@ GNU General Public License for more details.
 
 static char        szGameDir[128]; // safe place to keep gamedir
 static int         szArgc;
+
+#if XASH_PSP
+#define MAX_NARGVS 50
+static char        *szArgv[MAX_NARGVS];
+#else
 static char        **szArgv;
+#endif
 
 static void Sys_ChangeGame( const char *progname )
 {
@@ -71,20 +77,23 @@ static int Sys_Start( void )
 #endif
 #elif XASH_IOS
 	IOS_LaunchDialog();
-#endif
+#elif XASH_PSP
 
 	return Host_Main( szArgc, szArgv, game, 0, Sys_ChangeGame );
 }
 
 int main( int argc, char **argv )
 {
-#if XASH_PSVITA
+#if XASH_PSP
+	Platform_ReadCmd( "start.cmd", &szArgc, szArgv );
+#elif XASH_PSVITA
 	// inject -dev -console into args if required
 	szArgc = PSVita_GetArgv( argc, argv, &szArgv );
 #else
 	szArgc = argc;
 	szArgv = argv;
 #endif // XASH_PSVITA
+
 	return Sys_Start();
 }
 #endif // XASH_ENABLE_MAIN

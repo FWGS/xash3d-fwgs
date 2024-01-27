@@ -492,4 +492,3 @@ void TriBrightness( float brightness )
 
 	_TriColor4f( r, g, b, 1.0f );
 }
-

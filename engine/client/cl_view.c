@@ -417,10 +417,10 @@ void R_DrawLeafNode( float x, float y, float scale )
 
 void R_DrawNodeConnection( float x, float y, float x2, float y2 )
 {
-	ref.dllFuncs.Begin( TRI_LINES );
-		ref.dllFuncs.Vertex3f( x, y, 0 );
-		ref.dllFuncs.Vertex3f( x2, y2, 0 );
-	ref.dllFuncs.End( );
+	gTriApi.Begin( TRI_LINES );
+		gTriApi.Vertex3f( x, y, 0 );
+		gTriApi.Vertex3f( x2, y2, 0 );
+	gTriApi.End( );
 }
 
 void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes, mleaf_t *viewleaf )
@@ -443,10 +443,10 @@ void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes, 
 		if( shownodes == 1 )
 		{
 			if( cl.worldmodel->leafs == leaf )
-				ref.dllFuncs.Color4f( 1.0f, 1.0f, 1.0f, 1.0f );
+				gTriApi.Color4f( 1.0f, 1.0f, 1.0f, 1.0f );
 			else if( viewleaf && viewleaf == leaf )
-				ref.dllFuncs.Color4f( 1.0f, 0.0f, 0.0f, 1.0f );
-			else ref.dllFuncs.Color4f( 0.0f, 1.0f, 0.0f, 1.0f );
+				gTriApi.Color4f( 1.0f, 0.0f, 0.0f, 1.0f );
+			else gTriApi.Color4f( 0.0f, 1.0f, 0.0f, 1.0f );
 			R_DrawLeafNode( x, y, scale );
 		}
 		world.recursion_level--;
@@ -455,7 +455,7 @@ void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int shownodes, 
 
 	if( shownodes == 1 )
 	{
-		ref.dllFuncs.Color4f( 0.0f, 0.0f, 1.0f, 1.0f );
+		gTriApi.Color4f( 0.0f, 0.0f, 1.0f, 1.0f );
 		R_DrawLeafNode( x, y, scale );
 	}
 	else if( shownodes == 2 )
@@ -487,7 +487,7 @@ void R_ShowTree( void )
 	//pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 	//pglLineWidth( 2.0f );
-	ref.dllFuncs.Color4f( 1, 0.7f, 0, 1.0f );
+	gTriApi.Color4f( 1, 0.7f, 0, 1.0f );
 	//pglDisable( GL_TEXTURE_2D );
 	R_ShowTree_r( cl.worldmodel->nodes, x, y, world.max_recursion * 3.5f, 2, viewleaf );
 	//pglEnable( GL_TEXTURE_2D );
