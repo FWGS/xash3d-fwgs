@@ -360,7 +360,7 @@ void VGL_ShimEndFrame( void )
 	vgl.end = vgl.begin = 0;
 }
 
-void VGL_Begin( GLenum prim )
+static void VGL_Begin( GLenum prim )
 {
 	int i;
 	vgl.prim = prim;
@@ -372,7 +372,7 @@ void VGL_Begin( GLenum prim )
 		glDisableVertexAttribArray( i );
 }
 
-void VGL_End( void )
+static void VGL_End( void )
 {
 	int i;
 	vgl_prog_t *prog;
@@ -380,7 +380,7 @@ void VGL_End( void )
 	GLint count = vgl.end - vgl.begin;
 
 	if ( !vgl.prim || !count )
-		goto _leave; // end without begin 
+		goto _leave; // end without begin
 
 	// enable alpha test and fog if needed
 	if ( alpha_test_state )
@@ -412,7 +412,7 @@ _leave:
 	vgl.cur_flags = 0;
 }
 
-void VGL_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
+static void VGL_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 {
 	GLfloat *p = vgl.attrbuf[VGL_ATTR_POS] + vgl.end * 3;
 	*p++ = x;
@@ -426,17 +426,17 @@ void VGL_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 	}
 }
 
-void VGL_Vertex2f( GLfloat x, GLfloat y )
+static void VGL_Vertex2f( GLfloat x, GLfloat y )
 {
 	VGL_Vertex3f( x, y, 0.f );
 }
 
-void VGL_Vertex3fv( const GLfloat *v )
+static void VGL_Vertex3fv( const GLfloat *v )
 {
 	VGL_Vertex3f( v[0], v[1], v[2] );
 }
 
-void VGL_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
+static void VGL_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 {
 	vgl.color[0] = r;
 	vgl.color[1] = g;
@@ -455,22 +455,22 @@ void VGL_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 	}
 }
 
-void VGL_Color3f( GLfloat r, GLfloat g, GLfloat b )
+static void VGL_Color3f( GLfloat r, GLfloat g, GLfloat b )
 {
 	VGL_Color4f( r, g, b, 1.f );
 }
 
-void VGL_Color4ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
+static void VGL_Color4ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
 {
 	VGL_Color4f( (GLfloat)r / 255.f, (GLfloat)g / 255.f, (GLfloat)b / 255.f, (GLfloat)a / 255.f );
 }
 
-void VGL_Color4ubv( const GLubyte *v )
+static void VGL_Color4ubv( const GLubyte *v )
 {
 	VGL_Color4ub( v[0], v[1], v[2], v[3] );
 }
 
-void VGL_TexCoord2f( GLfloat u, GLfloat v )
+static void VGL_TexCoord2f( GLfloat u, GLfloat v )
 {
 	// by spec glTexCoord always updates texunit 0
 	GLfloat *p = vgl.attrbuf[VGL_ATTR_TEXCOORD0] + vgl.end * 2;
@@ -479,7 +479,7 @@ void VGL_TexCoord2f( GLfloat u, GLfloat v )
 	*p++ = v;
 }
 
-void VGL_MultiTexCoord2f( GLenum tex, GLfloat u, GLfloat v )
+static void VGL_MultiTexCoord2f( GLenum tex, GLfloat u, GLfloat v )
 {
 	GLfloat *p;
 	// assume there can only be two
@@ -497,24 +497,24 @@ void VGL_MultiTexCoord2f( GLenum tex, GLfloat u, GLfloat v )
 	*p++ = v;
 }
 
-void VGL_Normal3fv( const GLfloat *v )
+static void VGL_Normal3fv( const GLfloat *v )
 {
 	/* this does not seem to be necessary */
 }
 
-void VGL_ShadeModel( GLenum unused )
+static void VGL_ShadeModel( GLenum unused )
 {
 	/* this doesn't do anything in vitaGL except spit errors in debug mode, so stub it out */
 }
 
-void VGL_AlphaFunc( GLenum mode, GLfloat ref )
+static void VGL_AlphaFunc( GLenum mode, GLfloat ref )
 {
 	vgl.alpharef = ref;
 	vgl.uchanged = GL_TRUE;
 	// mode is always GL_GREATER
 }
 
-void VGL_Fogf( GLenum param, GLfloat val )
+static void VGL_Fogf( GLenum param, GLfloat val )
 {
 	if ( param == GL_FOG_DENSITY )
 	{
@@ -523,7 +523,7 @@ void VGL_Fogf( GLenum param, GLfloat val )
 	}
 }
 
-void VGL_Fogfv( GLenum param, const GLfloat *val )
+static void VGL_Fogfv( GLenum param, const GLfloat *val )
 {
 	if ( param == GL_FOG_COLOR )
 	{
@@ -534,12 +534,12 @@ void VGL_Fogfv( GLenum param, const GLfloat *val )
 	}
 }
 
-void VGL_DrawBuffer( GLenum mode )
+static void VGL_DrawBuffer( GLenum mode )
 {
 	/* unsupported */
 }
 
-void VGL_Hint( GLenum hint, GLenum val )
+static void VGL_Hint( GLenum hint, GLenum val )
 {
 	/* none of the used hints are supported; stub to prevent errors */
 }
