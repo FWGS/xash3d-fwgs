@@ -627,7 +627,7 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	FS_Close( f );	// all done
 }
 
-void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
+static void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
 {
 	memset( GameInfo, 0, sizeof( *GameInfo ));
 
@@ -658,7 +658,7 @@ void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
 	GameInfo->max_particles  = 4096;
 }
 
-void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qboolean isGameInfo )
+static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qboolean isGameInfo )
 {
 	char *pfile = (char*) buf;
 	qboolean found_linux = false, found_osx = false;
@@ -919,7 +919,7 @@ void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qbool
 FS_CreateDefaultGameInfo
 ================
 */
-void FS_CreateDefaultGameInfo( const char *filename )
+static void FS_CreateDefaultGameInfo( const char *filename )
 {
 	gameinfo_t	defGI;
 
@@ -3022,6 +3022,7 @@ fs_api_t g_api =
 	FS_GetFullDiskPath,
 };
 
+int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs )
 {
 	if( engfuncs && !FS_InitInterface( version, engfuncs ))
