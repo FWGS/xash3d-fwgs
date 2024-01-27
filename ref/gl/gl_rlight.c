@@ -172,26 +172,6 @@ void R_PushDlights( void )
 }
 
 /*
-=============
-R_CountSurfaceDlights
-=============
-*/
-int R_CountSurfaceDlights( msurface_t *surf )
-{
-	int	i, numDlights = 0;
-
-	for( i = 0; i < MAX_DLIGHTS; i++ )
-	{
-		if(!( surf->dlightbits & BIT( i )))
-			continue;	// not lit by this light
-
-		numDlights++;
-	}
-
-	return numDlights;
-}
-
-/*
 =======================================================================
 
 	AMBIENT LIGHTING
