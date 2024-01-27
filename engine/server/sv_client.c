@@ -118,7 +118,7 @@ void SV_GetChallenge( netadr_t from )
 	Netchan_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, "challenge %i", svs.challenges[i].challenge );
 }
 
-int SV_GetFragmentSize( void *pcl, fragsize_t mode )
+static int SV_GetFragmentSize( void *pcl, fragsize_t mode )
 {
 	sv_client_t *cl = (sv_client_t*)pcl;
 	int	cl_frag_size;
@@ -191,7 +191,7 @@ for some reasons file can't be downloaded
 tell the client about this problem
 ================
 */
-void SV_FailDownload( sv_client_t *cl, const char *filename )
+static void SV_FailDownload( sv_client_t *cl, const char *filename )
 {
 	if( !COM_CheckString( filename ))
 		return;
@@ -207,7 +207,7 @@ SV_CheckChallenge
 Make sure connecting client is not spoofing
 ================
 */
-int SV_CheckChallenge( netadr_t from, int challenge )
+static int SV_CheckChallenge( netadr_t from, int challenge )
 {
 	int	i;
 
@@ -247,7 +247,7 @@ SV_CheckIPRestrictions
 Determine if client is outside appropriate address range
 ================
 */
-int SV_CheckIPRestrictions( netadr_t from )
+static int SV_CheckIPRestrictions( netadr_t from )
 {
 	if( sv_lan.value )
 	{
@@ -265,7 +265,7 @@ Get slot # and set client_t pointer for player, if possible
 We don't do this search on a "reconnect, we just reuse the slot
 ================
 */
-int SV_FindEmptySlot( netadr_t from, int *pslot, sv_client_t **ppClient )
+static int SV_FindEmptySlot( netadr_t from, int *pslot, sv_client_t **ppClient )
 {
 	sv_client_t	*cl;
 	int		i;
@@ -291,7 +291,7 @@ SV_ConnectClient
 A connection request that did not come from the master
 ==================
 */
-void SV_ConnectClient( netadr_t from )
+static void SV_ConnectClient( netadr_t from )
 {
 	char		userinfo[MAX_INFO_STRING];
 	char		protinfo[MAX_INFO_STRING];
@@ -831,7 +831,7 @@ SV_TestBandWidth
 
 ================
 */
-void SV_TestBandWidth( netadr_t from )
+static void SV_TestBandWidth( netadr_t from )
 {
 	const int version = Q_atoi( Cmd_Argv( 1 ));
 	const int packetsize = Q_atoi( Cmd_Argv( 2 ));
@@ -876,7 +876,7 @@ SV_Ack
 
 ================
 */
-void SV_Ack( netadr_t from )
+static void SV_Ack( netadr_t from )
 {
 	Con_Printf( "ping %s\n", NET_AdrToString( from ));
 }
@@ -889,7 +889,7 @@ Responds with short info for broadcast scans
 The second parameter should be the current protocol version number.
 ================
 */
-void SV_Info( netadr_t from, int protocolVersion )
+static void SV_Info( netadr_t from, int protocolVersion )
 {
 	char s[512];
 
@@ -947,7 +947,7 @@ SV_BuildNetAnswer
 Responds with long info for local and broadcast requests
 ================
 */
-void SV_BuildNetAnswer( netadr_t from )
+static void SV_BuildNetAnswer( netadr_t from )
 {
 	char	string[MAX_INFO_STRING];
 	int	version, context, type;
@@ -1043,7 +1043,7 @@ SV_Ping
 Just responds with an acknowledgement
 ================
 */
-void SV_Ping( netadr_t from )
+static void SV_Ping( netadr_t from )
 {
 	Netchan_OutOfBandPrint( NS_SERVER, from, "ack" );
 }
@@ -1053,7 +1053,7 @@ void SV_Ping( netadr_t from )
 Rcon_Validate
 ================
 */
-qboolean Rcon_Validate( void )
+static qboolean Rcon_Validate( void )
 {
 	if( !COM_CheckString( rcon_password.string ))
 		return false;
@@ -1156,7 +1156,7 @@ SV_EstablishTimeBase
 Finangles latency and the like.
 ===================
 */
-void SV_EstablishTimeBase( sv_client_t *cl, usercmd_t *cmds, int dropped, int numbackup, int numcmds )
+static void SV_EstablishTimeBase( sv_client_t *cl, usercmd_t *cmds, int dropped, int numbackup, int numcmds )
 {
 	double	runcmd_time = 0.0;
 	int	i, cmdnum = dropped;
@@ -1190,7 +1190,7 @@ SV_CalcClientTime
 compute latency for client
 ===================
 */
-float SV_CalcClientTime( sv_client_t *cl )
+static float SV_CalcClientTime( sv_client_t *cl )
 {
 	float	minping, maxping;
 	float	ping = 0.0f;
@@ -1389,7 +1389,7 @@ Called when a player connects to a server or respawns in
 a deathmatch.
 ============
 */
-void SV_PutClientInServer( sv_client_t *cl )
+static void SV_PutClientInServer( sv_client_t *cl )
 {
 	static byte    	msg_buf[MAX_INIT_MSG + 0x200];	// MAX_INIT_MSG + some space
 	edict_t		*ent = cl->edict;
@@ -1522,7 +1522,7 @@ SV_UpdateClientView
 Resend the client viewentity (used for demos)
 ============
 */
-void SV_UpdateClientView( sv_client_t *cl )
+static void SV_UpdateClientView( sv_client_t *cl )
 {
 	int	viewEnt;
 
@@ -3306,7 +3306,7 @@ SV_ParseResourceList
 Parse resource list
 ===================
 */
-void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
+static void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 {
 	int		totalsize;
 	resource_t	*resource;
@@ -3395,7 +3395,7 @@ SV_ParseCvarValue
 Parse a requested value from client cvar
 ===================
 */
-void SV_ParseCvarValue( sv_client_t *cl, sizebuf_t *msg )
+static void SV_ParseCvarValue( sv_client_t *cl, sizebuf_t *msg )
 {
 	const char *value = MSG_ReadString( msg );
 
@@ -3411,7 +3411,7 @@ SV_ParseCvarValue2
 Parse a requested value from client cvar
 ===================
 */
-void SV_ParseCvarValue2( sv_client_t *cl, sizebuf_t *msg )
+static void SV_ParseCvarValue2( sv_client_t *cl, sizebuf_t *msg )
 {
 	string	name, value;
 	int	requestID = MSG_ReadLong( msg );
@@ -3429,7 +3429,7 @@ void SV_ParseCvarValue2( sv_client_t *cl, sizebuf_t *msg )
 SV_ParseVoiceData
 ===================
 */
-void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
+static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 {
 	char received[4096];
 	sv_client_t	*cur;

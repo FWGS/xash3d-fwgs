@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "img_dds.h"
 
-qboolean Image_CheckDXT3Alpha( dds_t *hdr, byte *fin )
+static qboolean Image_CheckDXT3Alpha( dds_t *hdr, byte *fin )
 {
 	word	sAlpha;
 	byte	*alpha;
@@ -50,7 +50,7 @@ qboolean Image_CheckDXT3Alpha( dds_t *hdr, byte *fin )
 	return false;
 }
 
-qboolean Image_CheckDXT5Alpha( dds_t *hdr, byte *fin )
+static qboolean Image_CheckDXT5Alpha( dds_t *hdr, byte *fin )
 {
 	uint	bits, bitmask;
 	byte	*alphamask;
@@ -91,7 +91,7 @@ qboolean Image_CheckDXT5Alpha( dds_t *hdr, byte *fin )
 	return false;
 }
 
-void Image_DXTGetPixelFormat( dds_t *hdr, dds_header_dxt10_t *headerExt )
+static void Image_DXTGetPixelFormat( dds_t *hdr, dds_header_dxt10_t *headerExt )
 {
 	uint bits = hdr->dsPixelFormat.dwRGBBitCount;
 
@@ -215,7 +215,7 @@ void Image_DXTGetPixelFormat( dds_t *hdr, dds_header_dxt10_t *headerExt )
 		image.num_mips = hdr->dwMipMapCount; // get actual mip count
 }
 
-size_t Image_DXTCalcMipmapSize( dds_t *hdr )
+static size_t Image_DXTCalcMipmapSize( dds_t *hdr )
 {
 	size_t	buffsize = 0;
 	int	i, width, height;
@@ -231,7 +231,7 @@ size_t Image_DXTCalcMipmapSize( dds_t *hdr )
 	return buffsize;
 }
 
-uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
+static uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 {
 	size_t buffsize = 0;
 	int w = image.width;
@@ -269,7 +269,7 @@ uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 	return buffsize;
 }
 
-void Image_DXTAdjustVolume( dds_t *hdr )
+static void Image_DXTAdjustVolume( dds_t *hdr )
 {
 	if( hdr->dwDepth <= 1 )
 		return;

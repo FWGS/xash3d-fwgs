@@ -107,7 +107,7 @@ void IN_LockInputDevices( qboolean lock )
 IN_StartupMouse
 ===========
 */
-void IN_StartupMouse( void )
+static void IN_StartupMouse( void )
 {
 	Cvar_RegisterVariable( &m_ignore );
 
@@ -206,7 +206,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	}
 }
 
-void IN_CheckMouseState( qboolean active )
+static void IN_CheckMouseState( qboolean active )
 {
 	static qboolean s_bRawInput, s_bMouseGrab;
 
@@ -313,7 +313,7 @@ void IN_DeactivateMouse( void )
 IN_MouseMove
 ================
 */
-void IN_MouseMove( void )
+static void IN_MouseMove( void )
 {
 	int x, y;
 
@@ -588,7 +588,7 @@ void IN_EngineAppendMove( float frametime, void *cmd1, qboolean active )
 	}
 }
 
-void IN_Commands( void )
+static void IN_Commands( void )
 {
 #if XASH_USE_EVDEV
 	IN_EvdevFrame();

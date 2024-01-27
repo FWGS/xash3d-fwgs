@@ -317,7 +317,7 @@ static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 NET_GetHostByName
 ============
 */
-qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
+static qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
 #if defined HAVE_GETADDRINFO
 	struct addrinfo *ai = NULL, *cur;
@@ -372,7 +372,7 @@ static void NET_ResolveThread( void );
 #define detach_thread( x ) pthread_detach(x)
 #define mutex_t  pthread_mutex_t
 #define thread_t pthread_t
-void *NET_ThreadStart( void *unused )
+static void *NET_ThreadStart( void *unused )
 {
 	NET_ResolveThread();
 	return NULL;
@@ -1018,7 +1018,7 @@ idnewt
 192.246.40.70
 =============
 */
-qboolean NET_StringToAdrEx( const char *string, netadr_t *adr, int family )
+static qboolean NET_StringToAdrEx( const char *string, netadr_t *adr, int family )
 {
 	struct sockaddr_storage s;
 
@@ -1339,7 +1339,7 @@ NET_GetLong
 receive long packet from network
 ==================
 */
-qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize )
+static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize )
 {
 	int		i, sequence_number, offset;
 	SPLITPACKET	*pHeader = (SPLITPACKET *)pData;
@@ -1534,7 +1534,7 @@ NET_SendLong
 Fragment long packets, send short directly
 ==================
 */
-int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t len, int flags, const struct sockaddr_storage *to, size_t tolen, size_t splitsize )
+static int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t len, int flags, const struct sockaddr_storage *to, size_t tolen, size_t splitsize )
 {
 #ifdef NET_USE_FRAGMENTS
 	// do we need to break this packet up?
@@ -1864,7 +1864,7 @@ NET_GetLocalAddress
 Returns the servers' ip address as a string.
 ================
 */
-void NET_GetLocalAddress( void )
+static void NET_GetLocalAddress( void )
 {
 	char		hostname[512];
 	char		buff[512];

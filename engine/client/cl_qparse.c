@@ -414,7 +414,7 @@ If an entities model or origin changes from frame to frame, it must be
 relinked.  Other attributes can change without relinking.
 ==================
 */
-void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
+static void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 {
 	int		i, newnum, pack;
 	qboolean		forcelink;
@@ -565,7 +565,7 @@ CL_ParseQuakeParticles
 
 ==================
 */
-void CL_ParseQuakeParticle( sizebuf_t *msg )
+static void CL_ParseQuakeParticle( sizebuf_t *msg )
 {
 	int	count, color;
 	vec3_t	org, dir;
@@ -587,7 +587,7 @@ CL_ParseQuakeStaticSound
 
 ===================
 */
-void CL_ParseQuakeStaticSound( sizebuf_t *msg )
+static void CL_ParseQuakeStaticSound( sizebuf_t *msg )
 {
 	int	sound_num;
 	float 	vol, attn;
@@ -816,7 +816,7 @@ CL_QuakeStuffText
 
 ==================
 */
-void CL_QuakeStuffText( const char *text )
+static void CL_QuakeStuffText( const char *text )
 {
 	Q_strncat( cmd_buf, text, sizeof( cmd_buf ));
 
@@ -831,7 +831,7 @@ CL_QuakeExecStuff
 
 ==================
 */
-void CL_QuakeExecStuff( void )
+static void CL_QuakeExecStuff( void )
 {
 	char	*text = cmd_buf;
 	char	token[256];

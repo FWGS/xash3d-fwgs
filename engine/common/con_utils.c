@@ -314,7 +314,7 @@ Cmd_GetMusicList
 Prints or complete background track filename
 =====================================
 */
-qboolean Cmd_GetMusicList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetMusicList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -362,7 +362,7 @@ Cmd_GetSavesList
 Prints or complete savegame filename
 =====================================
 */
-qboolean Cmd_GetSavesList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetSavesList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -409,7 +409,7 @@ Cmd_GetConfigList
 Prints or complete .cfg filename
 =====================================
 */
-qboolean Cmd_GetConfigList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetConfigList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -456,7 +456,7 @@ Cmd_GetSoundList
 Prints or complete sound filename
 =====================================
 */
-qboolean Cmd_GetSoundList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetSoundList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -508,7 +508,7 @@ Cmd_GetItemsList
 Prints or complete item classname (weapons only)
 =====================================
 */
-qboolean Cmd_GetItemsList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetItemsList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -555,7 +555,7 @@ Cmd_GetKeysList
 Autocomplete for bind command
 =====================================
 */
-qboolean Cmd_GetKeysList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetKeysList( const char *s, char *completedname, int length )
 {
 	size_t i, numkeys;
 	string keys[256];
@@ -636,7 +636,7 @@ Cmd_GetCommandsList
 Autocomplete for bind command
 =====================================
 */
-qboolean Cmd_GetCommandsList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetCommandsList( const char *s, char *completedname, int length )
 {
 	size_t i;
 	string matchbuf;
@@ -701,7 +701,7 @@ Cmd_GetCustomList
 Prints or complete .HPK filenames
 =====================================
 */
-qboolean Cmd_GetCustomList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetCustomList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -747,7 +747,7 @@ Cmd_GetGameList
 Prints or complete gamedir name
 =====================================
 */
-qboolean Cmd_GetGamesList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetGamesList( const char *s, char *completedname, int length )
 {
 	int	i, numgamedirs;
 	string	gamedirs[MAX_MODS];
@@ -800,7 +800,7 @@ Cmd_GetCDList
 Prints or complete CD command name
 =====================================
 */
-qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 {
 	int i, numcdcommands;
 	string	cdcommands[8];
@@ -854,7 +854,7 @@ qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 	return true;
 }
 
-qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
+static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 {
 	qboolean	use_filter = false;
 	byte	buf[MAX_SYSPATH];
@@ -1345,13 +1345,13 @@ static void Cmd_WriteHelp(const char *name, const char *unused, const char *desc
 	if( length == 0 ) FS_Printf( f, "%s \"%s\"\n", name, desc );
 }
 
-void Cmd_WriteOpenGLVariables( file_t *f )
+static void Cmd_WriteOpenGLVariables( file_t *f )
 {
 	Cvar_LookupVars( FCVAR_GLCONFIG, NULL, f, (setpair_t)Cmd_WriteOpenGLCvar );
 }
 
 #if !XASH_DEDICATED
-void Host_FinalizeConfig( file_t *f, const char *config )
+static void Host_FinalizeConfig( file_t *f, const char *config )
 {
 	string backup, newcfg;
 

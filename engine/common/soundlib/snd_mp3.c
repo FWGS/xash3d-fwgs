@@ -186,6 +186,7 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 }
 
 #if XASH_ENGINE_TESTS
+int EXPORT Fuzz_Sound_ParseID3Tag( const uint8_t *Data, size_t Size );
 int EXPORT Fuzz_Sound_ParseID3Tag( const uint8_t *Data, size_t Size )
 {
 	memset( &sound, 0, sizeof( sound ));
@@ -294,7 +295,7 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesi
 FS_SeekEx
 =================
 */
-fs_offset_t FS_SeekEx( file_t *file, fs_offset_t offset, int whence )
+static fs_offset_t FS_SeekEx( file_t *file, fs_offset_t offset, int whence )
 {
 	return FS_Seek( file, offset, whence ) == -1 ? -1 : FS_Tell( file );
 }

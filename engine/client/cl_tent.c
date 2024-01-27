@@ -255,7 +255,7 @@ CL_PrepareTEnt
 set default values
 ==============
 */
-void CL_PrepareTEnt( TEMPENTITY *pTemp, model_t *pmodel )
+static void CL_PrepareTEnt( TEMPENTITY *pTemp, model_t *pmodel )
 {
 	int	frameCount = 0;
 	int	modelIndex = 0;
@@ -296,7 +296,7 @@ CL_TempEntPlaySound
 play collide sound
 ==============
 */
-void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
+static void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 {
 	float	fvol;
 	char	soundname[32];
@@ -380,7 +380,7 @@ CL_TEntAddEntity
 add entity to renderlist
 ==============
 */
-int CL_TempEntAddEntity( cl_entity_t *pEntity )
+static int CL_TempEntAddEntity( cl_entity_t *pEntity )
 {
 	vec3_t mins, maxs;
 
@@ -432,7 +432,7 @@ CL_TEntAddEntity
 free the first low priority tempent it finds.
 ==============
 */
-qboolean CL_FreeLowPriorityTempEnt( void )
+static qboolean CL_FreeLowPriorityTempEnt( void )
 {
 	TEMPENTITY	*pActive = cl_active_tents;
 	TEMPENTITY	*pPrev = NULL;
@@ -2414,7 +2414,7 @@ LIGHT STYLE MANAGEMENT
 CL_ClearLightStyles
 ================
 */
-void CL_ClearLightStyles( void )
+static void CL_ClearLightStyles( void )
 {
 	memset( cl.lightstyles, 0, sizeof( cl.lightstyles ));
 }
@@ -2472,7 +2472,7 @@ dlight_t	cl_elights[MAX_ELIGHTS];
 CL_ClearDlights
 ================
 */
-void CL_ClearDlights( void )
+static void CL_ClearDlights( void )
 {
 	memset( cl_dlights, 0, sizeof( cl_dlights ));
 	memset( cl_elights, 0, sizeof( cl_elights ));

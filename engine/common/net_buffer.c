@@ -188,7 +188,7 @@ int MSG_SeekToBit( sizebuf_t *sb, int bitPos, int whence )
 	return 0;
 }
 
-void MSG_SeekToByte( sizebuf_t *sb, int bytePos )
+static void MSG_SeekToByte( sizebuf_t *sb, int bytePos )
 {
 	sb->iCurBit = bytePos << 3;
 }

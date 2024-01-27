@@ -180,7 +180,7 @@ SV_FindBestBaseline
 trying to deltas with previous entities
 =============
 */
-int SV_FindBestBaseline( sv_client_t *cl, int index, entity_state_t **baseline, entity_state_t *to, client_frame_t *frame, qboolean player )
+static int SV_FindBestBaseline( sv_client_t *cl, int index, entity_state_t **baseline, entity_state_t *to, client_frame_t *frame, qboolean player )
 {
 	int	bestBitCount;
 	int	i, bitCount;
@@ -515,7 +515,7 @@ SV_EmitPings
 
 =============
 */
-void SV_EmitPings( sizebuf_t *msg )
+static void SV_EmitPings( sizebuf_t *msg )
 {
 	sv_client_t	*cl;
 	int		packet_loss;
@@ -547,7 +547,7 @@ SV_WriteClientdataToMessage
 
 ==================
 */
-void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
+static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 {
 	clientdata_t	nullcd;
 	clientdata_t	*from_cd, *to_cd;
@@ -634,7 +634,7 @@ SV_WriteEntitiesToClient
 
 ==================
 */
-void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
+static void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 {
 	client_frame_t	*frame;
 	entity_state_t	*state;
@@ -706,7 +706,7 @@ FRAME UPDATES
 SV_SendClientDatagram
 =======================
 */
-void SV_SendClientDatagram( sv_client_t *cl )
+static void SV_SendClientDatagram( sv_client_t *cl )
 {
 	byte	msg_buf[MAX_DATAGRAM];
 	sizebuf_t	msg;
@@ -752,7 +752,7 @@ void SV_SendClientDatagram( sv_client_t *cl )
 SV_UpdateUserInfo
 =======================
 */
-void SV_UpdateUserInfo( sv_client_t *cl )
+static void SV_UpdateUserInfo( sv_client_t *cl )
 {
 	SV_FullClientUpdate( cl, &sv.reliable_datagram );
 	ClearBits( cl->flags, FCL_RESEND_USERINFO );
@@ -764,7 +764,7 @@ void SV_UpdateUserInfo( sv_client_t *cl )
 SV_UpdateToReliableMessages
 =======================
 */
-void SV_UpdateToReliableMessages( void )
+static void SV_UpdateToReliableMessages( void )
 {
 	sv_client_t	*cl;
 	int		i;

@@ -1958,7 +1958,7 @@ SV_GetLightStyle
 needs to get correct working SV_LightPoint
 ==================
 */
-const char *GAME_EXPORT SV_GetLightStyle( int style )
+static const char *GAME_EXPORT SV_GetLightStyle( int style )
 {
 	if( style < 0 ) style = 0;
 	if( style >= MAX_LIGHTSTYLES )
