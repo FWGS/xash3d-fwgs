@@ -44,14 +44,6 @@ void GAME_EXPORT GL_Bind( int tmu, unsigned int texnum )
 {
 	image_t	*image;
 
-	extern void	(*d_pdrawspans)(void *);
-	extern void R_PolysetFillSpans8 ( void * );
-	extern void R_PolysetDrawSpansConstant8_33( void *pspanpackage);
-	extern void R_PolysetDrawSpansTextureBlended( void *pspanpackage);
-	extern void R_PolysetDrawSpansBlended( void *pspanpackage);
-	extern void R_PolysetDrawSpansAdditive( void *pspanpackage);
-	extern void R_PolysetDrawSpansGlow( void *pspanpackage);
-
 	image = &r_images[texnum];
 	//vid.rendermode = kRenderNormal;
 
@@ -359,7 +351,7 @@ GL_BoxFilter3x3
 box filter 3x3
 =================
 */
-void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
+static void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 {
 	int		r = 0, g = 0, b = 0, a = 0;
 	int		count = 0, acount = 0;
@@ -406,7 +398,7 @@ GL_ApplyFilter
 Apply box-filter to 1-bit alpha
 =================
 */
-byte *GL_ApplyFilter( const byte *source, int width, int height )
+static byte *GL_ApplyFilter( const byte *source, int width, int height )
 {
 	byte	*in = (byte *)source;
 	byte	*out = (byte *)source;
@@ -794,7 +786,7 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 GL_CheckTexName
 ================
 */
-qboolean GL_CheckTexName( const char *name )
+static qboolean GL_CheckTexName( const char *name )
 {
 	int len;
 

@@ -767,18 +767,13 @@ static image_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t 
 	return NULL;
 }
 
-extern void R_PolysetFillSpans8 ( void * );
-extern void R_PolysetDrawSpansConstant8_33( void *pspanpackage);
-extern void R_PolysetDrawSpans8_33( void *pspanpackage);
-
 /*
 =============
 R_DrawEntitiesOnList
 =============
 */
-void R_DrawEntitiesOnList( void )
+static void R_DrawEntitiesOnList( void )
 {
-	extern void	(*d_pdrawspans)(void *);
 	int	i;
 	//extern int d_aflatcolor;
 	//d_aflatcolor = 0;
@@ -994,7 +989,7 @@ int R_BmodelCheckBBox (float *minmaxs)
 R_FindTopNode
 ===================
 */
-mnode_t *R_FindTopnode (vec3_t mins, vec3_t maxs)
+static mnode_t *R_FindTopnode (vec3_t mins, vec3_t maxs)
 {
 		mplane_t        *splitplane;
 		int                     sides;
@@ -1096,7 +1091,7 @@ void RotatedBBox (vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t 
 R_DrawBEntitiesOnList
 =============
 */
-void R_DrawBEntitiesOnList (void)
+static void R_DrawBEntitiesOnList (void)
 {
 	int			i, clipflags;
 	vec3_t		oldorigin;
@@ -1382,7 +1377,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 R_EdgeDrawing
 ================
 */
-void R_EdgeDrawing (void)
+static void R_EdgeDrawing (void)
 {
 	edge_t	ledges[NUMSTACKEDGES +
 				((CACHE_SIZE - 1) / sizeof(edge_t)) + 1];
@@ -1511,7 +1506,7 @@ void R_MarkLeaves( void )
 R_MarkLeaves
 ===============
 */
-void R_MarkLeaves (void)
+static void R_MarkLeaves (void)
 {
 	byte	*vis;
 	mnode_t	*node;
@@ -1609,7 +1604,7 @@ gamma will be reset for
 some type of screenshots
 ===============
 */
-qboolean R_DoResetGamma( void )
+static qboolean R_DoResetGamma( void )
 {
 	// FIXME: this looks ugly. apply the backward gamma changes to the output image
 	return false;
@@ -1867,7 +1862,7 @@ void GAME_EXPORT R_NewMap (void)
 R_InitTurb
 ================
 */
-void R_InitTurb (void)
+static void R_InitTurb (void)
 {
 	int		i;
 

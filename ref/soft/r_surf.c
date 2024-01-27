@@ -374,7 +374,7 @@ R_TextureAnim
 Returns the proper texture for a given time and base texture, do not process random tiling
 ===============
 */
-texture_t *R_TextureAnim( texture_t *b )
+static texture_t *R_TextureAnim( texture_t *b )
 {
 	texture_t *base = b;
 	int	count, reletive;
@@ -424,7 +424,7 @@ R_TextureAnimation
 Returns the proper texture for a given time and surface
 ===============
 */
-texture_t *R_TextureAnimation( msurface_t *s )
+static texture_t *R_TextureAnimation( msurface_t *s )
 {
 	texture_t	*base = s->texinfo->texture;
 	int	count, reletive;
@@ -1024,7 +1024,7 @@ void D_FlushCaches( void )
 D_SCAlloc
 =================
 */
-surfcache_t     *D_SCAlloc (int width, int size)
+static surfcache_t     *D_SCAlloc (int width, int size)
 {
 	surfcache_t             *new;
 	qboolean                wrapped_this_time;
@@ -1105,8 +1105,7 @@ surfcache_t     *D_SCAlloc (int width, int size)
 }
 
 //=============================================================================
-void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] );
-void R_DrawSurfaceDecals( void )
+static void R_DrawSurfaceDecals( void )
 {
 	msurface_t *fa = r_drawsurf.surf;
 	decal_t *p;

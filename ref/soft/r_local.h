@@ -408,6 +408,7 @@ float *R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *o
 void R_EntityRemoveDecals( model_t *mod );
 //void DrawDecalsBatch( void );
 void R_ClearDecals( void );
+void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] );
 
 #if 0
 
@@ -589,6 +590,27 @@ void VGUI_UploadTextureBlock( int id, int drawX, int drawY, const byte *rgba, in
 void VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr );
 void VGUI_GetTextureSizes( int *width, int *height );
 int VGUI_GenerateTexture( void );
+
+//
+// r_polyse.c
+//
+// !!! if this is changed, it must be changed in asm_draw.h too !!!
+typedef struct {
+	void			*pdest;
+	short			*pz;
+	int				count;
+	pixel_t			*ptex;
+	int				sfrac, tfrac, light, zi;
+} spanpackage_t;
+
+extern void (*d_pdrawspans)( spanpackage_t * );
+void R_PolysetFillSpans8( spanpackage_t * );
+void R_PolysetDrawSpans8_33( spanpackage_t * );
+void R_PolysetDrawSpansConstant8_33( spanpackage_t *pspanpackage);
+void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage);
+void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage);
+void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage);
+void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage);
 
 //#include "vid_common.h"
 
@@ -1055,6 +1077,10 @@ void D_DrawSpans16 (espan_t *pspans);
 void D_DrawZSpans (espan_t *pspans);
 void Turbulent8 (espan_t *pspan);
 void NonTurbulent8 (espan_t *pspan);	//PGM
+void D_BlendSpans16( espan_t *pspan, int alpha );
+void D_AlphaSpans16( espan_t *pspan );
+void D_AddSpans16( espan_t *pspan );
+void TurbulentZ8( espan_t *pspan, int alpha );
 
 surfcache_t     *D_CacheSurface (msurface_t *surface, int miplevel);
 
