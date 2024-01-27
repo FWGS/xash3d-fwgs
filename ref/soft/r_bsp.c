@@ -51,7 +51,7 @@ static qboolean		makeclippededge;
 R_ConcatRotations
 ================
 */
-void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3])
+static void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3])
 {
 		out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] +
 								in1[0][2] * in2[2][0];
@@ -81,7 +81,7 @@ void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3])
 R_EntityRotate
 ================
 */
-void R_EntityRotate (vec3_t vec)
+static void R_EntityRotate (vec3_t vec)
 {
 	vec3_t	tvec;
 
@@ -348,7 +348,7 @@ void R_RecursiveClipBPoly (bedge_t *pedges, mnode_t *pnode, msurface_t *psurf)
 R_RecursiveClipBPoly
 ================
 */
-void R_RecursiveClipBPoly (bedge_t *pedges, mnode_t *pnode, msurface_t *psurf)
+static void R_RecursiveClipBPoly (bedge_t *pedges, mnode_t *pnode, msurface_t *psurf)
 {
 	bedge_t		*psideedges[2], *pnextedge, *ptedge;
 	int			i, side, lastside;
@@ -781,7 +781,7 @@ int r_leafkeys[MAX_MAP_LEAFS];
 R_RecursiveWorldNode
 ================
 */
-void R_RecursiveWorldNode (mnode_t *node, int clipflags)
+static void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 {
 	int			i, c, side, *pindex;
 	vec3_t		acceptpt, rejectpt;

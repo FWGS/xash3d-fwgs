@@ -61,7 +61,7 @@ void D_DrawTurbulent8Span (void)
 D_DrawTurbulent8Span
 =============
 */
-void D_DrawTurbulent8ZSpan (void)
+static void D_DrawTurbulent8ZSpan (void)
 {
 	int		sturb, tturb;
 
@@ -892,7 +892,7 @@ D_DrawSpans16
   FIXME: actually make this subdivide by 16 instead of 8!!!
 =============
 */
-void D_BlendSpans16 (espan_t *pspan, int alpha)
+void D_BlendSpans16( espan_t *pspan, int alpha )
 {
 	int				count, spancount;
 	pixel_t	*pbase, *pdest;

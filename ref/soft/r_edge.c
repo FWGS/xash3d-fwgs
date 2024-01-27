@@ -144,7 +144,7 @@ sentinel at the end (actually, this is the active edge table starting at
 edge_head.next).
 ==============
 */
-void R_InsertNewEdges (edge_t *edgestoadd, edge_t *edgelist)
+static void R_InsertNewEdges (edge_t *edgestoadd, edge_t *edgelist)
 {
 	edge_t	*next_edge;
 
@@ -192,7 +192,7 @@ addedge:
 R_RemoveEdges
 ==============
 */
-void R_RemoveEdges (edge_t *pedge)
+static void R_RemoveEdges (edge_t *pedge)
 {
 
 	do
@@ -212,7 +212,7 @@ void R_RemoveEdges (edge_t *pedge)
 R_StepActiveU
 ==============
 */
-void R_StepActiveU (edge_t *pedge)
+static void R_StepActiveU (edge_t *pedge)
 {
 	edge_t		*pnext_edge, *pwedge;
 
@@ -284,7 +284,7 @@ pushback:
 R_CleanupSpan
 ==============
 */
-void R_CleanupSpan (void)
+static void R_CleanupSpan (void)
 {
 	surf_t	*surf;
 	int		iu;
@@ -752,7 +752,7 @@ vec3_t			local_modelorg;
 D_MipLevelForScale
 =============
 */
-int D_MipLevelForScale (float scale)
+static int D_MipLevelForScale (float scale)
 {
 	int		lmiplevel;
 
@@ -779,7 +779,7 @@ D_FlatFillSurface
 Simple single color fill with no texture mapping
 ==============
 */
-void D_FlatFillSurface (surf_t *surf, int color)
+static void D_FlatFillSurface (surf_t *surf, int color)
 {
 	espan_t	*span;
 	pixel_t	*pdest;
@@ -801,7 +801,7 @@ void D_FlatFillSurface (surf_t *surf, int color)
 D_CalcGradients
 ==============
 */
-void D_CalcGradients (msurface_t *pface)
+static void D_CalcGradients (msurface_t *pface)
 {
 	mplane_t	*pplane;
 	float		mipscale;
@@ -888,7 +888,7 @@ D_BackgroundSurf
 The grey background filler seen when there is a hole in the map
 ==============
 */
-void D_BackgroundSurf (surf_t *s)
+static void D_BackgroundSurf (surf_t *s)
 {
 // set up a gradient for the background surface that places it
 // effectively at infinity distance from the viewpoint
@@ -905,7 +905,7 @@ void D_BackgroundSurf (surf_t *s)
 D_TurbulentSurf
 =================
 */
-void D_TurbulentSurf (surf_t *s)
+static void D_TurbulentSurf (surf_t *s)
 {
 	d_zistepu = s->d_zistepu;
 	d_zistepv = s->d_zistepv;
@@ -966,12 +966,6 @@ void D_TurbulentSurf (surf_t *s)
 }
 
 qboolean alphaspans;
-
-
-void D_AlphaSpans16 (espan_t *pspan);
-void D_AddSpans16 (espan_t *pspan);
-void D_BlendSpans16 (espan_t *pspan, int alpha );
-void TurbulentZ8 (espan_t *pspan, int alpha );
 /*
 ==============
 D_SolidSurf
@@ -979,7 +973,7 @@ D_SolidSurf
 Normal surface cached, texture mapped surface
 ==============
 */
-void D_AlphaSurf (surf_t *s)
+static void D_AlphaSurf (surf_t *s)
 {
 	int alpha;
 
@@ -1086,7 +1080,7 @@ D_SolidSurf
 Normal surface cached, texture mapped surface
 ==============
 */
-void D_SolidSurf (surf_t *s)
+static void D_SolidSurf (surf_t *s)
 {
 	d_zistepu = s->d_zistepu;
 	d_zistepv = s->d_zistepv;
@@ -1197,7 +1191,7 @@ D_DrawflatSurfaces
 To allow developers to see the polygon carving of the world
 =============
 */
-void D_DrawflatSurfaces (void)
+static void D_DrawflatSurfaces (void)
 {
 	surf_t			*s;
 

@@ -27,15 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define DPS_MAXSPANS			MAXHEIGHT+1
 									// 1 extra for spanpackage that marks end
 
-// !!! if this is changed, it must be changed in asm_draw.h too !!!
-typedef struct {
-	void			*pdest;
-	short			*pz;
-	int				count;
-	pixel_t			*ptex;
-	int				sfrac, tfrac, light, zi;
-} spanpackage_t;
-
 typedef struct {
 	int		isflattop;
 	int		numleftedges;
@@ -107,7 +98,7 @@ byte	*skinstart;
 
 void	(*d_pdrawspans)(spanpackage_t *pspanpackage);
 
-void R_PolysetStub (spanpackage_t *pspanpackage)
+static void R_PolysetStub (spanpackage_t *pspanpackage)
 {
 
 }
@@ -341,7 +332,7 @@ quotient must fit in 32 bits.
 FIXME: GET RID OF THIS! (FloorDivMod)
 ====================
 */
-void FloorDivMod (float numer, float denom, int *quotient,
+static void FloorDivMod (float numer, float denom, int *quotient,
 		int *rem)
 {
 	int		q, r;
@@ -394,7 +385,7 @@ void FloorDivMod (float numer, float denom, int *quotient,
 R_PolysetSetUpForLineScan
 ====================
 */
-void R_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
+static void R_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
 		fixed8_t endvertu, fixed8_t endvertv)
 {
 	float		dm, dn;
@@ -1334,7 +1325,7 @@ void R_PolysetDrawSpans8_66(spanpackage_t *pspanpackage)
 	} while (pspanpackage->count != -999999);
 }
 
-void R_PolysetDrawSpansConstant8_66( spanpackage_t *pspanpackage)
+static void R_PolysetDrawSpansConstant8_66( spanpackage_t *pspanpackage)
 {
 	int		lcount;
 	pixel_t	*lpdest;

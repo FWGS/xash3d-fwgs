@@ -459,7 +459,7 @@ NOTE: we using prevblending[0] and [1] for holds interval
 between frames where are we lerping
 ================
 */
-float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, mspriteframe_t **curframe )
+static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, mspriteframe_t **curframe )
 {
 	msprite_t		*psprite;
 	mspritegroup_t	*pspritegroup;
@@ -625,7 +625,7 @@ R_CullSpriteModel
 Cull sprite model by bbox
 ================
 */
-qboolean R_CullSpriteModel( cl_entity_t *e, vec3_t origin )
+static qboolean R_CullSpriteModel( cl_entity_t *e, vec3_t origin )
 {
 	vec3_t	sprite_mins, sprite_maxs;
 	float	scale = 1.0f;
@@ -689,7 +689,7 @@ R_SpriteOccluded
 Do occlusion test for glow-sprites
 ================
 */
-qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
+static qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 {
 	if( e->curstate.rendermode == kRenderGlow )
 	{

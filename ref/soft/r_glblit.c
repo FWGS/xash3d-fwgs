@@ -432,7 +432,7 @@ static int COUNT_BITS( uint mask )
 	return i;
 }
 
-void R_BuildScreenMap( void )
+static void R_BuildScreenMap( void )
 {
 	int i;
 	uint rshift = FIRST_BIT(swblit.rmask), gshift = FIRST_BIT(swblit.gmask), bshift = FIRST_BIT(swblit.bmask);
@@ -497,7 +497,7 @@ void R_BuildScreenMap( void )
 
 #define FOR_EACH_COLOR(x) 	for( r##x = 0; r##x < BIT(3); r##x++ ) for( g##x = 0; g##x < BIT(3); g##x++ ) for( b##x = 0; b##x < BIT(2); b##x++ )
 
-void R_BuildBlendMaps( void )
+static void R_BuildBlendMaps( void )
 {
 	unsigned int r1, g1, b1;
 	unsigned int r2, g2, b2;

@@ -65,7 +65,7 @@ static void GAME_EXPORT CL_FillRGBABlend( float _x, float _y, float _w, float _h
 }
 void Mod_UnloadTextures( model_t *mod );
 
-qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
+static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 {
 	qboolean loaded = true;
 
@@ -224,7 +224,7 @@ static const char * GAME_EXPORT GL_TextureName( unsigned int texnum )
 	return R_GetTexture( texnum )->name;
 }
 
-const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
+static const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
 {
 	rgbdata_t *pic = R_GetTexture( texnum )->original;
 
@@ -233,7 +233,7 @@ const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
 	return NULL;
 }
 
-void Mod_BrushUnloadTextures( model_t *mod )
+static void Mod_BrushUnloadTextures( model_t *mod )
 {
 	int i;
 
@@ -276,7 +276,7 @@ void Mod_UnloadTextures( model_t *mod )
 	}
 }
 
-void GAME_EXPORT R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
+static void GAME_EXPORT R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
 {
 	tr.entities = entities;
 	tr.max_entities = max_entities;
@@ -289,17 +289,17 @@ static void GAME_EXPORT R_Flush( unsigned int flags )
 
 // stubs
 
-void GAME_EXPORT GL_SetTexCoordArrayMode( uint mode )
+static void GAME_EXPORT GL_SetTexCoordArrayMode( uint mode )
 {
 
 }
 
-void GAME_EXPORT GL_BackendStartFrame( void )
+static void GAME_EXPORT GL_BackendStartFrame( void )
 {
 
 }
 
-void GAME_EXPORT GL_BackendEndFrame( void )
+static void GAME_EXPORT GL_BackendEndFrame( void )
 {
 
 }
@@ -312,12 +312,12 @@ void GAME_EXPORT GL_SetRenderMode(int mode)
 	/// maybe, setup block drawing function pointers here
 }
 
-void GAME_EXPORT R_ShowTextures( void )
+static void GAME_EXPORT R_ShowTextures( void )
 {
 	// textures undone too
 }
 
-void GAME_EXPORT R_ShowTree( void )
+static void GAME_EXPORT R_ShowTree( void )
 {
 	// do we really need this here???
 }
@@ -338,47 +338,47 @@ void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
 
 }
 
-void GAME_EXPORT GL_SubdivideSurface( model_t *mod, msurface_t *fa )
+static void GAME_EXPORT GL_SubdivideSurface( model_t *mod, msurface_t *fa )
 {
 
 }
 
-void GAME_EXPORT DrawSingleDecal(decal_t *pDecal, msurface_t *fa)
+static void GAME_EXPORT DrawSingleDecal(decal_t *pDecal, msurface_t *fa)
 {
 
 }
 
-void GAME_EXPORT GL_SelectTexture(int texture)
+static void GAME_EXPORT GL_SelectTexture(int texture)
 {
 
 }
 
-void GAME_EXPORT GL_LoadTexMatrixExt(const float *glmatrix)
+static void GAME_EXPORT GL_LoadTexMatrixExt(const float *glmatrix)
 {
 
 }
 
-void GAME_EXPORT GL_LoadIdentityTexMatrix( void )
+static void GAME_EXPORT GL_LoadIdentityTexMatrix( void )
 {
 
 }
 
-void GAME_EXPORT GL_CleanUpTextureUnits(int last)
+static void GAME_EXPORT GL_CleanUpTextureUnits(int last)
 {
 
 }
 
-void GAME_EXPORT GL_TexGen(unsigned int coord, unsigned int mode)
+static void GAME_EXPORT GL_TexGen(unsigned int coord, unsigned int mode)
 {
 
 }
 
-void GAME_EXPORT GL_TextureTarget(uint target)
+static void GAME_EXPORT GL_TextureTarget(uint target)
 {
 
 }
 
-void GAME_EXPORT GL_BuildLightmaps( void )
+static void GAME_EXPORT GL_BuildLightmaps( void )
 {
 	CL_RunLightStyles();
 }
@@ -398,7 +398,7 @@ byte *GAME_EXPORT Mod_GetCurrentVis( void )
 	return NULL;
 }
 
-const char *R_GetConfigName( void )
+static const char *R_GetConfigName( void )
 {
 	return "ref_soft"; // software specific cvars will go to ref_soft.cfg
 }
@@ -558,7 +558,8 @@ ref_interface_t gReffuncs =
 	VGUI_GenerateTexture,
 };
 
-int EXPORT GAME_EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
+int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
+int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
 {
 	if( version != REF_API_VERSION )
 		return 0;
