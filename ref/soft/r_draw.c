@@ -63,7 +63,7 @@ int GAME_EXPORT R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 Draw_StretchPicImplementation
 =============
 */
-void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic )
+static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic )
 {
 	pixel_t *source, *dest;
 	unsigned int				v, u, sv;

@@ -179,7 +179,7 @@ void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[
 	VectorNormalize2( surf->texinfo->vecs[1], textureSpaceBasis[1] );
 }
 
-void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
+static void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
 {
 	int	width, height;
 
@@ -199,7 +199,7 @@ void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int textu
 }
 
 // Build the initial list of vertices from the surface verts into the global array, 'verts'.
-void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t textureSpaceBasis[3], float *verts )
+static void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t textureSpaceBasis[3], float *verts )
 {
 	float	*v;
 	int	i;
@@ -216,7 +216,7 @@ void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t tex
 }
 
 // Figure out where the decal maps onto the surface.
-void R_SetupDecalClip( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
+static void R_SetupDecalClip( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
 {
 	R_SetupDecalTextureSpaceBasis( pDecal, surf, texture, textureSpaceBasis, decalWorldScale );
 
@@ -231,7 +231,7 @@ void R_SetupDecalClip( decal_t *pDecal, msurface_t *surf, int texture, vec3_t te
 // Clip polygon to decal in texture space
 // JAY: This code is lame, change it later.  It does way too much work per frame
 // It can be made to recursively call the clipping code and only copy the vertex list once
-int R_ClipInside( float *vert, int edge )
+static int R_ClipInside( float *vert, int edge )
 {
 	switch( edge )
 	{
@@ -255,7 +255,7 @@ int R_ClipInside( float *vert, int edge )
 	return 0;
 }
 
-void R_ClipIntersect( float *one, float *two, float *out, int edge )
+static void R_ClipIntersect( float *one, float *two, float *out, int edge )
 {
 	float	t;
 
@@ -356,7 +356,7 @@ static int SHClip( float *vert, int vertCount, float *out, int edge )
 	return outCount;
 }
 
-float *R_DoDecalSHClip( float *pInVerts, decal_t *pDecal, int nStartVerts, int *pVertCount )
+static float *R_DoDecalSHClip( float *pInVerts, decal_t *pDecal, int nStartVerts, int *pVertCount )
 {
 	float	*pOutVerts = g_DecalClipVerts[0];
 	int	outCount;
@@ -376,7 +376,7 @@ float *R_DoDecalSHClip( float *pInVerts, decal_t *pDecal, int nStartVerts, int *
 //-----------------------------------------------------------------------------
 // Generate clipped vertex list for decal pdecal projected onto polygon psurf
 //-----------------------------------------------------------------------------
-float *R_DecalVertsClip( decal_t *pDecal, msurface_t *surf, int texture, int *pVertCount )
+static float *R_DecalVertsClip( decal_t *pDecal, msurface_t *surf, int texture, int *pVertCount )
 {
 	float	decalWorldScale[2];
 	vec3_t	textureSpaceBasis[3];
@@ -511,7 +511,7 @@ R_DecalCreatePoly
 creates mesh for decal on first rendering
 ====================
 */
-glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
+static glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
 {
 	int		lnumverts;
 	glpoly_t	*poly;
@@ -618,7 +618,7 @@ static void R_DecalCreate( decalinfo_t *decalinfo, msurface_t *surf, float x, fl
 	R_AddDecalToSurface( pdecal, surf, decalinfo );
 }
 
-void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
+static void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 {
 	// get the texture associated with this surface
 	mtexinfo_t	*tex = surf->texinfo;

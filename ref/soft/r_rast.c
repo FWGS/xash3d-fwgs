@@ -215,7 +215,7 @@ void R_EmitSkyBox (void)
 R_EmitEdge
 ================
 */
-void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
+static void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 {
 	edge_t	*edge, *pcheck;
 	int		u_check;
@@ -413,7 +413,7 @@ void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 R_ClipEdge
 ================
 */
-void R_ClipEdge (mvertex_t *pv0, mvertex_t *pv1, clipplane_t *clip)
+static void R_ClipEdge (mvertex_t *pv0, mvertex_t *pv1, clipplane_t *clip)
 {
 	float		d0, d1, f;
 	mvertex_t	clipvert;
@@ -517,7 +517,7 @@ void R_ClipEdge (mvertex_t *pv0, mvertex_t *pv1, clipplane_t *clip)
 R_EmitCachedEdge
 ================
 */
-void R_EmitCachedEdge (void)
+static void R_EmitCachedEdge (void)
 {
 	edge_t		*pedge_t;
 

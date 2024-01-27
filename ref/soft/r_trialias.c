@@ -41,7 +41,7 @@ R_AliasCheckBBox
 #define BBOX_MUST_CLIP_Z    2
 #define BBOX_TRIVIAL_REJECT 8
 
-void VectorInverse (vec3_t v)
+static void VectorInverse (vec3_t v)
 {
 	v[0] = -v[0];
 	v[1] = -v[1];
