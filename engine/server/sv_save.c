@@ -768,33 +768,6 @@ static void SaveFinish( SAVERESTOREDATA *pSaveData )
 
 /*
 =============
-DumpHashStrings
-
-debug thing
-=============
-*/
-static void DumpHashStrings( SAVERESTOREDATA *pSaveData, const char *pMessage )
-{
-	int	i, count = 0;
-
-	if( pSaveData && pSaveData->pTokens )
-	{
-		Con_Printf( "%s\n", pMessage );
-
-		for( i = 0; i < pSaveData->tokenCount; i++ )
-		{
-			if( !pSaveData->pTokens[i] )
-				continue;
-
-			Con_Printf( "#%i %s\n", count, pSaveData->pTokens[i] );
-			count++;
-		}
-		Con_Printf( "total %i actual %i\n", pSaveData->tokenCount, count );
-	}
-}
-
-/*
-=============
 StoreHashTable
 
 write the stringtable into file
