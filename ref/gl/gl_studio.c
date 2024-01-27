@@ -261,7 +261,7 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 	return true; // visible
 }
 
-void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 result )
+static void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 result )
 {
 	float	flWeight0, flWeight1, flWeight2, flWeight3;
 	int	i, numbones = 0;
@@ -396,7 +396,7 @@ pfnGetPlayerState
 
 ===============
 */
-entity_state_t *R_StudioGetPlayerState( int index )
+static entity_state_t *R_StudioGetPlayerState( int index )
 {
 	if( !RI.drawWorld )
 		return &RI.currententity->curstate;
@@ -527,7 +527,7 @@ StudioPlayerBlend
 
 ====================
 */
-void R_StudioPlayerBlend( mstudioseqdesc_t *pseqdesc, int *pBlend, float *pPitch )
+static void R_StudioPlayerBlend( mstudioseqdesc_t *pseqdesc, int *pBlend, float *pPitch )
 {
 	// calc up/down pointing
 	*pBlend = (*pPitch * 3.0f);
@@ -588,7 +588,7 @@ StudioSetUpTransform
 
 ====================
 */
-void R_StudioSetUpTransform( cl_entity_t *e )
+static void R_StudioSetUpTransform( cl_entity_t *e )
 {
 	vec3_t	origin, angles;
 
@@ -660,7 +660,7 @@ StudioEstimateInterpolant
 
 ====================
 */
-float R_StudioEstimateInterpolant( cl_entity_t *e )
+static float R_StudioEstimateInterpolant( cl_entity_t *e )
 {
 	float	dadt = 1.0f;
 
@@ -679,7 +679,7 @@ StudioFxTransform
 
 ====================
 */
-void R_StudioFxTransform( cl_entity_t *ent, matrix3x4 transform )
+static void R_StudioFxTransform( cl_entity_t *ent, matrix3x4 transform )
 {
 	switch( ent->curstate.renderfx )
 	{
@@ -723,7 +723,7 @@ StudioCalcBoneAdj
 
 ====================
 */
-void R_StudioCalcBoneAdj( float dadt, float *adj, const byte *pcontroller1, const byte *pcontroller2, byte mouthopen )
+static void R_StudioCalcBoneAdj( float dadt, float *adj, const byte *pcontroller1, const byte *pcontroller2, byte mouthopen )
 {
 	mstudiobonecontroller_t	*pbonecontroller;
 	float			value = 0.0f;
@@ -788,7 +788,7 @@ StudioCalcRotations
 
 ====================
 */
-void R_StudioCalcRotations( cl_entity_t *e, float pos[][3], vec4_t *q, mstudioseqdesc_t *pseqdesc, mstudioanim_t *panim, float f )
+static void R_StudioCalcRotations( cl_entity_t *e, float pos[][3], vec4_t *q, mstudioseqdesc_t *pseqdesc, mstudioanim_t *panim, float f )
 {
 	int		i, frame;
 	float		adj[MAXSTUDIOCONTROLLERS];
@@ -835,7 +835,7 @@ StudioMergeBones
 
 ====================
 */
-void R_StudioMergeBones( cl_entity_t *e, model_t *m_pSubModel )
+static void R_StudioMergeBones( cl_entity_t *e, model_t *m_pSubModel )
 {
 	int		i, j;
 	mstudiobone_t	*pbones;
@@ -895,7 +895,7 @@ StudioSetupBones
 
 ====================
 */
-void R_StudioSetupBones( cl_entity_t *e )
+static void R_StudioSetupBones( cl_entity_t *e )
 {
 	float		f;
 	mstudiobone_t	*pbones;
@@ -1075,7 +1075,7 @@ StudioBuildNormalTable
 NOTE: m_pSubModel must be set
 ====================
 */
-void R_StudioBuildNormalTable( void )
+static void R_StudioBuildNormalTable( void )
 {
 	cl_entity_t	*e = RI.currententity;
 	mstudiomesh_t	*pmesh;
@@ -1126,7 +1126,7 @@ NOTE: m_pSubModel must be set
 g_studio.verts must be computed
 ====================
 */
-void R_StudioGenerateNormals( void )
+static void R_StudioGenerateNormals( void )
 {
 	int		v0, v1, v2;
 	vec3_t		e0, e1, norm;
@@ -1221,7 +1221,7 @@ StudioSetupChrome
 
 ====================
 */
-void R_StudioSetupChrome( float *pchrome, int bone, vec3_t normal )
+static void R_StudioSetupChrome( float *pchrome, int bone, vec3_t normal )
 {
 	float	n;
 
@@ -1322,7 +1322,7 @@ R_StudioDynamicLight
 
 ===============
 */
-void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
+static void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 {
 	movevars_t	*mv = tr.movevars;
 	vec3_t		lightDir, vecSrc, vecEnd;
@@ -1513,7 +1513,7 @@ pfnStudioEntityLight
 
 ===============
 */
-void R_StudioEntityLight( alight_t *lightinfo )
+static void R_StudioEntityLight( alight_t *lightinfo )
 {
 	int		lnum, i, j, k;
 	float		minstrength, dist2, f, r2;
@@ -1595,7 +1595,7 @@ R_StudioSetupLighting
 
 ===============
 */
-void R_StudioSetupLighting( alight_t *plight )
+static void R_StudioSetupLighting( alight_t *plight )
 {
 	float	scale = 1.0f;
 	int	i;
@@ -1625,7 +1625,7 @@ R_StudioLighting
 
 ===============
 */
-void R_StudioLighting( float *lv, int bone, int flags, vec3_t normal )
+static void R_StudioLighting( float *lv, int bone, int flags, vec3_t normal )
 {
 	float 	illum;
 
@@ -1764,7 +1764,7 @@ R_LightStrength
 
 ====================
 */
-void R_LightStrength( int bone, vec3_t localpos, vec4_t light[MAX_LOCALLIGHTS] )
+static void R_LightStrength( int bone, vec3_t localpos, vec4_t light[MAX_LOCALLIGHTS] )
 {
 	int	i;
 
@@ -1835,7 +1835,7 @@ mstudiotexture_t *R_StudioGetTexture( cl_entity_t *e )
 	return ptexture;
 }
 
-void R_StudioSetRenderamt( int iRenderamt )
+static void R_StudioSetRenderamt( int iRenderamt )
 {
 	if( !RI.currententity ) return;
 
@@ -1850,7 +1850,7 @@ R_StudioSetCullState
 sets true for enable backculling (for left-hand viewmodel)
 ===============
 */
-void R_StudioSetCullState( int iCull )
+static void R_StudioSetCullState( int iCull )
 {
 	// This function intentionally does nothing
 }
@@ -1862,7 +1862,7 @@ R_StudioRenderShadow
 just a prefab for render shadow
 ===============
 */
-void R_StudioRenderShadow( int iSprite, float *p1, float *p2, float *p3, float *p4 )
+static void R_StudioRenderShadow( int iSprite, float *p1, float *p2, float *p3, float *p4 )
 {
 	if( !p1 || !p2 || !p3 || !p4 )
 		return;
@@ -2814,7 +2814,7 @@ R_StudioGetForceFaceFlags
 
 ===============
 */
-int R_StudioGetForceFaceFlags( void )
+static int R_StudioGetForceFaceFlags( void )
 {
 	return g_nForceFaceFlags;
 }
@@ -2825,7 +2825,7 @@ R_StudioSetForceFaceFlags
 
 ===============
 */
-void R_StudioSetForceFaceFlags( int flags )
+static void R_StudioSetForceFaceFlags( int flags )
 {
 	g_nForceFaceFlags = flags;
 }
@@ -2836,7 +2836,7 @@ pfnStudioSetHeader
 
 ===============
 */
-void R_StudioSetHeader( studiohdr_t *pheader )
+static void R_StudioSetHeader( studiohdr_t *pheader )
 {
 	m_pStudioHeader = pheader;
 	m_fDoRemap = false;
@@ -2848,7 +2848,7 @@ R_StudioSetRenderModel
 
 ===============
 */
-void R_StudioSetRenderModel( model_t *model )
+static void R_StudioSetRenderModel( model_t *model )
 {
 	RI.currentmodel = model;
 }
@@ -2904,7 +2904,7 @@ R_StudioSetChromeOrigin
 
 ===============
 */
-void R_StudioSetChromeOrigin( void )
+static void R_StudioSetChromeOrigin( void )
 {
 	VectorCopy( RI.vieworg, g_studio.chrome_origin );
 }
@@ -2992,7 +2992,7 @@ GL_StudioSetRenderMode
 set rendermode for studiomodel
 ===============
 */
-void GL_StudioSetRenderMode( int rendermode )
+static void GL_StudioSetRenderMode( int rendermode )
 {
 	switch( rendermode )
 	{
@@ -3059,7 +3059,7 @@ StudioRenderFinal
 
 ====================
 */
-void R_StudioRenderFinal( void )
+static void R_StudioRenderFinal( void )
 {
 	int	i, rendermode;
 
@@ -3145,7 +3145,7 @@ StudioRenderModel
 
 ====================
 */
-void R_StudioRenderModel( void )
+static void R_StudioRenderModel( void )
 {
 	R_StudioSetChromeOrigin();
 	R_StudioSetForceFaceFlags( 0 );
@@ -3174,7 +3174,7 @@ StudioEstimateGait
 
 ====================
 */
-void R_StudioEstimateGait( entity_state_t *pplayer )
+static void R_StudioEstimateGait( entity_state_t *pplayer )
 {
 	vec3_t	est_velocity;
 	float	dt;
@@ -3230,7 +3230,7 @@ StudioProcessGait
 
 ====================
 */
-void R_StudioProcessGait( entity_state_t *pplayer )
+static void R_StudioProcessGait( entity_state_t *pplayer )
 {
 	mstudioseqdesc_t	*pseqdesc;
 	int		iBlend;

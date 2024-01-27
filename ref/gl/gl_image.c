@@ -883,7 +883,7 @@ GL_BoxFilter3x3
 box filter 3x3
 =================
 */
-void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
+static void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 {
 	int		r = 0, g = 0, b = 0, a = 0;
 	int		count = 0, acount = 0;
@@ -930,7 +930,7 @@ GL_ApplyFilter
 Apply box-filter to 1-bit alpha
 =================
 */
-byte *GL_ApplyFilter( const byte *source, int width, int height )
+static byte *GL_ApplyFilter( const byte *source, int width, int height )
 {
 	byte	*in = (byte *)source;
 	byte	*out = (byte *)source;
@@ -1355,7 +1355,7 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 GL_CheckTexName
 ================
 */
-qboolean GL_CheckTexName( const char *name )
+static qboolean GL_CheckTexName( const char *name )
 {
 	int len;
 

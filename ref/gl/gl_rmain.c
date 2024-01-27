@@ -807,7 +807,7 @@ void R_DrawFog( void )
 R_DrawEntitiesOnList
 =============
 */
-void R_DrawEntitiesOnList( void )
+static void R_DrawEntitiesOnList( void )
 {
 	int	i;
 

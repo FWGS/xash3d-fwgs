@@ -18,7 +18,7 @@ def build(bld):
 		target   = 'gl4es',
 		features = 'c',
 		includes = ['gl4es/src', 'gl4es/src/gl', 'gl4es/src/glx', 'gl4es/include'],
-		defines  = ['NOX11', 'NO_GBM', 'NO_INIT_CONSTRUCTOR', 'DEFAULT_ES=2', 'NOEGL', 'EXTERNAL_GETPROCADDRESS=GL4ES_GetProcAddress', 'NO_LOADER', 'STATICLIB'],
+		defines  = ['NOX11', 'NO_GBM', 'NO_INIT_CONSTRUCTOR', 'DEFAULT_ES=2', 'NOEGL', 'NO_LOADER', 'STATICLIB'],
 		cflags   = ['-w', '-fvisibility=hidden', '-std=gnu99'],
 		subsystem = bld.env.MSVC_SUBSYSTEM,
 		export_includes = '.')

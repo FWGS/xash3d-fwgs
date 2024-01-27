@@ -624,6 +624,7 @@ GL_GetProcAddress
 defined just for nanogl/glwes, so it don't link to SDL2 directly, nor use dlsym
 ==============
 */
+void GAME_EXPORT *GL_GetProcAddress( const char *name ); // keep defined for nanogl/wes
 void GAME_EXPORT *GL_GetProcAddress( const char *name )
 {
 	return gEngfuncs.GL_GetProcAddress( name );
@@ -715,7 +716,7 @@ static void GL_SetDefaults( void )
 R_RenderInfo_f
 =================
 */
-void R_RenderInfo_f( void )
+static void R_RenderInfo_f( void )
 {
 	gEngfuncs.Con_Printf( "\n" );
 	gEngfuncs.Con_Printf( "GL_VENDOR: %s\n", glConfig.vendor_string );
@@ -773,7 +774,7 @@ void R_RenderInfo_f( void )
 }
 
 #ifdef XASH_GLES
-void GL_InitExtensionsGLES( void )
+static void GL_InitExtensionsGLES( void )
 {
 	int extid;
 
@@ -891,7 +892,7 @@ void GL_InitExtensionsGLES( void )
 #endif
 }
 #else
-void GL_InitExtensionsBigGL( void )
+static void GL_InitExtensionsBigGL( void )
 {
 	// intialize wrapper type
 	glConfig.context = gEngfuncs.Sys_CheckParm( "-glcore" )? CONTEXT_TYPE_GL_CORE : CONTEXT_TYPE_GL;
@@ -1172,7 +1173,7 @@ void GL_ClearExtensions( void )
 GL_InitCommands
 =================
 */
-void GL_InitCommands( void )
+static void GL_InitCommands( void )
 {
 	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
 
@@ -1255,7 +1256,7 @@ static void R_CheckVBO( void )
 GL_RemoveCommands
 =================
 */
-void GL_RemoveCommands( void )
+static void GL_RemoveCommands( void )
 {
 	gEngfuncs.Cmd_RemoveCommand( "r_info" );
 }
@@ -1516,12 +1517,13 @@ void GL_SetupAttributes( int safegl )
 void wes_init( const char *gles2 );
 int nanoGL_Init( void );
 #ifdef XASH_GL4ES
-void GL4ES_GetMainFBSize( int *width, int *height )
+static void GL4ES_GetMainFBSize( int *width, int *height )
 {
 	*width = gpGlobals->width;
 	*height = gpGlobals->height;
 }
-void *GL4ES_GetProcAddress( const char *name )
+
+static void *GL4ES_GetProcAddress( const char *name )
 {
 	if( !Q_strcmp(name, "glShadeModel") )
 		// combined gles/gles2/gl implementation exports this, but it is invalid
