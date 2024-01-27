@@ -333,7 +333,8 @@ def configure(conf):
 			'-Werror=old-style-declaration',
 			'-Werror=old-style-definition',
 			'-Werror=strict-prototypes',
-			'-fnonconst-initializers' # owcc
+			'-fnonconst-initializers', # owcc
+			'-Wmissing-prototypes', # not an error yet
 		]
 
 		opt_cxxflags = [] # TODO:
