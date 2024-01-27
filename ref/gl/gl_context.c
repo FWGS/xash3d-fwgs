@@ -95,7 +95,7 @@ static void GAME_EXPORT CL_FillRGBABlend( float _x, float _y, float _w, float _h
 	pglDisable( GL_BLEND );
 }
 
-void Mod_BrushUnloadTextures( model_t *mod )
+static void Mod_BrushUnloadTextures( model_t *mod )
 {
 	int i;
 
@@ -110,7 +110,7 @@ void Mod_BrushUnloadTextures( model_t *mod )
 	}
 }
 
-void Mod_UnloadTextures( model_t *mod )
+static void Mod_UnloadTextures( model_t *mod )
 {
 	Assert( mod != NULL );
 
@@ -134,7 +134,7 @@ void Mod_UnloadTextures( model_t *mod )
 	}
 }
 
-qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
+static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 {
 	qboolean loaded = true;
 
@@ -309,7 +309,7 @@ static const char *GL_TextureName( unsigned int texnum )
 	return R_GetTexture( texnum )->name;
 }
 
-const byte *GL_TextureData( unsigned int texnum )
+static const byte *GL_TextureData( unsigned int texnum )
 {
 	rgbdata_t *pic = R_GetTexture( texnum )->original;
 
@@ -318,7 +318,7 @@ const byte *GL_TextureData( unsigned int texnum )
 	return NULL;
 }
 
-void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
+static void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
 {
 	if( !allocate )
 	{
@@ -344,7 +344,7 @@ static void GAME_EXPORT R_Flush( unsigned int flags )
 	// stub
 }
 
-qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
+static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
 {
 	qboolean ret = true;
 	if( rotate > 0 )
@@ -532,6 +532,7 @@ ref_interface_t gReffuncs =
 	VGUI_GenerateTexture,
 };
 
+int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
 int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
 {
 	if( version != REF_API_VERSION )

@@ -224,7 +224,7 @@ every render pass applies new fog layer, resulting in wrong fog color
 recalculate fog color for current pass count
 ===============================
 */
-void GL_SetupFogColorForSurfacesEx( int passes, float density, qboolean blend_lightmaps )
+static void GL_SetupFogColorForSurfacesEx( int passes, float density, qboolean blend_lightmaps )
 {
 	vec4_t	fogColor;
 	float	factor, div;
@@ -388,7 +388,7 @@ R_TextureAnim
 Returns the proper texture for a given time and base texture, do not process random tiling
 ===============
 */
-texture_t *R_TextureAnim( texture_t *b )
+static texture_t *R_TextureAnim( texture_t *b )
 {
 	texture_t *base = b;
 	int	count, reletive;
@@ -439,7 +439,7 @@ R_TextureRandomTiling
 Returns the proper texture for a given surface without animation
 ===============
 */
-texture_t *R_TextureRandomTiling( msurface_t *s )
+static texture_t *R_TextureRandomTiling( msurface_t *s )
 {
 	texture_t	*base = s->texinfo->texture;
 	int	count, reletive;
@@ -620,7 +620,7 @@ static void R_AddDynamicLights( msurface_t *surf )
 R_SetCacheState
 ================
 */
-void R_SetCacheState( msurface_t *surf )
+static void R_SetCacheState( msurface_t *surf )
 {
 	int	maps;
 
@@ -888,7 +888,7 @@ DrawGLPolyChain
 Render lightmaps
 ================
 */
-void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
+static void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
 {
 	qboolean	dynamic = true;
 
@@ -942,7 +942,7 @@ static qboolean R_HasLightmap( void )
 R_BlendLightmaps
 ================
 */
-void R_BlendLightmaps( void )
+static void R_BlendLightmaps( void )
 {
 	msurface_t	*surf, *newsurf = NULL;
 	int		i;
@@ -1075,7 +1075,7 @@ void R_BlendLightmaps( void )
 R_RenderFullbrights
 ================
 */
-void R_RenderFullbrights( void )
+static void R_RenderFullbrights( void )
 {
 	mextrasurf_t	*es, *p;
 	int		i;
@@ -1118,7 +1118,7 @@ void R_RenderFullbrights( void )
 R_RenderDetails
 ================
 */
-void R_RenderDetails( int passes )
+static void R_RenderDetails( int passes )
 {
 	gl_texture_t	*glt;
 	mextrasurf_t	*es, *p;
@@ -1176,7 +1176,7 @@ void R_RenderDetails( int passes )
 R_RenderBrushPoly
 ================
 */
-void R_RenderBrushPoly( msurface_t *fa, int cull_type )
+static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 {
 	qboolean	is_dynamic = false;
 	int	maps;
@@ -1309,7 +1309,7 @@ dynamic:
 R_DrawTextureChains
 ================
 */
-void R_DrawTextureChains( void )
+static void R_DrawTextureChains( void )
 {
 	int		i;
 	msurface_t	*s;
@@ -1514,7 +1514,7 @@ static int R_SurfaceCompare( const void *a, const void *b )
 	return 0;
 }
 
-void R_SetRenderMode( cl_entity_t *e )
+static void R_SetRenderMode( cl_entity_t *e )
 {
 	switch( e->curstate.rendermode )
 	{
@@ -2302,7 +2302,7 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 }
 
 
-void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean drawtextures )
+static void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean drawtextures )
 {
 	if( vboarray.astate != VBO_ARRAY_STATIC )
 	{
@@ -2866,7 +2866,7 @@ static void R_DrawLightmappedVBO( vboarray_t *vbo, vbotexture_t *vbotex, texture
 	vbotex->curindex = 0;
 }
 
-void R_SetupVBOArrayDecal( qboolean drawlightmap )
+static void R_SetupVBOArrayDecal( qboolean drawlightmap )
 {
 	// prepare for decal draw
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decaldata->decalvbo );
@@ -2889,7 +2889,7 @@ void R_SetupVBOArrayDecal( qboolean drawlightmap )
 
 }
 
-void R_SetupVBOArrayDecalDyn( qboolean drawlightmap, float *v )
+static void R_SetupVBOArrayDecalDyn( qboolean drawlightmap, float *v )
 {
 	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
 	pglVertexPointer( 3, GL_FLOAT, VERTEXSIZE * 4, v );
@@ -2986,7 +2986,7 @@ static void R_DrawStaticDecals( vboarray_t *vbo, qboolean drawlightmap, int ilig
 		pglEnable( GL_ALPHA_TEST );
 }
 
-void R_ClearVBOState( qboolean drawlightmap, qboolean drawtextures )
+static void R_ClearVBOState( qboolean drawlightmap, qboolean drawtextures )
 {
 	// restore states
 	R_DisableDetail();
@@ -3313,7 +3313,7 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 R_RecursiveWorldNode
 ================
 */
-void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
+static void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
 {
 	int		i, clipped;
 	msurface_t	*surf, **mark;
@@ -3407,7 +3407,7 @@ R_CullNodeTopView
 cull node by user rectangle (simple scissor)
 ================
 */
-qboolean R_CullNodeTopView( mnode_t *node )
+static qboolean R_CullNodeTopView( mnode_t *node )
 {
 	vec2_t	delta, size;
 	vec3_t	center, half;
@@ -3465,7 +3465,7 @@ static void R_DrawTopViewLeaf( mleaf_t *pleaf, uint clipflags )
 R_DrawWorldTopView
 ================
 */
-void R_DrawWorldTopView( mnode_t *node, uint clipflags )
+static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 {
 	int		i, c, clipped;
 	msurface_t	*surf;
@@ -3535,7 +3535,7 @@ void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 R_DrawTriangleOutlines
 =============
 */
-void R_DrawTriangleOutlines( void )
+static void R_DrawTriangleOutlines( void )
 {
 	int		i, j;
 	msurface_t	*surf;
@@ -3736,7 +3736,7 @@ void R_MarkLeaves( void )
 GL_CreateSurfaceLightmap
 ========================
 */
-void GL_CreateSurfaceLightmap( msurface_t *surf, model_t *loadmodel )
+static void GL_CreateSurfaceLightmap( msurface_t *surf, model_t *loadmodel )
 {
 	int		smax, tmax;
 	int		sample_size;
