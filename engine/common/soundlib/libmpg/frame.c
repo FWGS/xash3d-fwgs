@@ -393,7 +393,7 @@ void frame_exit( mpg123_handle_t *fr )
 	bc_cleanup( &fr->rdat.buffer );
 }
 
-int mpg123_framedata( mpg123_handle_t *mh, ulong *header, byte **bodydata, size_t *bodybytes )
+static int mpg123_framedata( mpg123_handle_t *mh, ulong *header, byte **bodydata, size_t *bodybytes )
 {
 	if( mh == NULL )
 		return MPG123_BAD_HANDLE;
@@ -512,7 +512,7 @@ mpg_off_t frame_index_find( mpg123_handle_t *fr, mpg_off_t want_frame, mpg_off_t
 	return gopos;
 }
 
-mpg_off_t frame_ins2outs( mpg123_handle_t *fr, mpg_off_t ins )
+static mpg_off_t frame_ins2outs( mpg123_handle_t *fr, mpg_off_t ins )
 {
 	mpg_off_t	outs = 0;
 

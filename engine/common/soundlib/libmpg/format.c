@@ -56,20 +56,20 @@ static int good_enc( const int enc )
 	return FALSE;
 }
 
-void mpg123_rates( const long **list, size_t *number )
+static void mpg123_rates( const long **list, size_t *number )
 {
 	if( number != NULL ) *number = sizeof( my_rates ) / sizeof( long );
 	if( list != NULL ) *list = my_rates;
 }
 
 // now that's a bit tricky... One build of the library knows only a subset of the encodings.
-void mpg123_encodings( const int **list, size_t *number )
+static void mpg123_encodings( const int **list, size_t *number )
 {
 	if( number != NULL ) *number = sizeof( good_encodings ) / sizeof( int );
 	if( list != NULL ) *list = good_encodings;
 }
 
-int mpg123_encsize( int encoding )
+static int mpg123_encsize( int encoding )
 {
 	return sizeof( short );
 }
@@ -364,7 +364,7 @@ int mpg123_format( mpg123_handle_t *mh, long rate, int channels, int encodings )
 	return r;
 }
 
-int mpg123_format_support( mpg123_handle_t *mh, long rate, int encoding )
+static int mpg123_format_support( mpg123_handle_t *mh, long rate, int encoding )
 {
 	if( mh == NULL )
 		return 0;
