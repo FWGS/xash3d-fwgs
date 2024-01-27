@@ -495,7 +495,7 @@ static void GL2_InitIncrementalBuffer( int i, GLuint size )
 }
 
 
-qboolean GL2_InitProgs( void )
+static qboolean GL2_InitProgs( void )
 {
 	static const GLuint precache_progs[] = {
 		BIT( GL2_ATTR_POS ),                                                                                // out = ucolor

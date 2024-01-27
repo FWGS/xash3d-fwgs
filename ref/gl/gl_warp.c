@@ -362,7 +362,7 @@ R_UnloadSkybox
 Unload previous skybox
 ==============
 */
-void R_UnloadSkybox( void )
+static void R_UnloadSkybox( void )
 {
 	int	i;
 
