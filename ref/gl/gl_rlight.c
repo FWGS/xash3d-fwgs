@@ -153,8 +153,12 @@ void R_PushDlights( void )
 	tr.dlightframecount = tr.framecount;
 
 	RI.currententity = CL_GetEntityByIndex( 0 );
-	if( RI.currententity )
-		RI.currentmodel = RI.currententity->model;
+
+	// no world -- no dlights
+	if( !RI.currententity )
+		return;
+
+	RI.currentmodel = RI.currententity->model;
 
 	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
 	{
@@ -166,8 +170,7 @@ void R_PushDlights( void )
 		if( GL_FrustumCullSphere( &RI.frustum, l->origin, l->radius, 15 ))
 			continue;
 
-		if( RI.currententity )
-			R_MarkLights( l, 1<<i, RI.currentmodel->nodes );
+		R_MarkLights( l, 1<<i, RI.currentmodel->nodes );
 	}
 }
 
