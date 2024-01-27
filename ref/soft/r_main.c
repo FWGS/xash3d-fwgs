@@ -1596,41 +1596,6 @@ void GAME_EXPORT R_RenderScene( void )
 //	R_EndGL();
 }
 
-/*
-===============
-R_DoResetGamma
-
-gamma will be reset for
-some type of screenshots
-===============
-*/
-static qboolean R_DoResetGamma( void )
-{
-	// FIXME: this looks ugly. apply the backward gamma changes to the output image
-	return false;
-#if 0
-	switch( cls.scrshot_action )
-	{
-	case scrshot_normal:
-		if( CL_IsDevOverviewMode( ))
-			return true;
-		return false;
-	case scrshot_snapshot:
-		if( CL_IsDevOverviewMode( ))
-			return true;
-		return false;
-	case scrshot_plaque:
-	case scrshot_savegame:
-	case scrshot_envshot:
-	case scrshot_skyshot:
-	case scrshot_mapshot:
-		return true;
-	default:
-		return false;
-	}
-#endif
-}
-
 void R_GammaChanged( qboolean do_reset_gamma )
 {
 	if( do_reset_gamma ) // unused

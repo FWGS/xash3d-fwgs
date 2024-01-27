@@ -317,11 +317,6 @@ static void GAME_EXPORT R_ShowTextures( void )
 	// textures undone too
 }
 
-static void GAME_EXPORT R_ShowTree( void )
-{
-	// do we really need this here???
-}
-
 void GAME_EXPORT R_SetupSky(const char *skyboxname)
 {
 
@@ -376,11 +371,6 @@ static void GAME_EXPORT GL_TexGen(unsigned int coord, unsigned int mode)
 static void GAME_EXPORT GL_TextureTarget(uint target)
 {
 
-}
-
-static void GAME_EXPORT GL_BuildLightmaps( void )
-{
-	CL_RunLightStyles();
 }
 
 void GAME_EXPORT Mod_SetOrthoBounds(const float *mins, const float *maxs)
