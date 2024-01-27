@@ -48,7 +48,7 @@ SampleMiptex
 fence texture testing
 =============
 */
-int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
+static int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
 {
 	mextrasurf_t	*info = surf->info;
 	mfacebevel_t	*fb = info->bevel;
@@ -221,7 +221,7 @@ PM_TestLine_r
 optimized trace for light gathering
 ==================
 */
-int PM_TestLine_r( model_t *mod, mnode_t *node, vec_t p1f, vec_t p2f, const vec3_t start, const vec3_t stop, linetrace_t *trace )
+static int PM_TestLine_r( model_t *mod, mnode_t *node, vec_t p1f, vec_t p2f, const vec3_t start, const vec3_t stop, linetrace_t *trace )
 {
 	float	front, back;
 	float	frac, midf;

@@ -121,7 +121,7 @@ void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean
 	GameState->newGame = false;
 }
 
-void Host_ShutdownGame( void )
+static void Host_ShutdownGame( void )
 {
 	SV_ShutdownGame();
 
@@ -137,7 +137,7 @@ void Host_ShutdownGame( void )
 	}
 }
 
-void Host_RunFrame( float time )
+static void Host_RunFrame( float time )
 {
 	// at this time, we don't need to get events from OS on dedicated
 #if !XASH_DEDICATED

@@ -252,7 +252,7 @@ Touch_DumpConfig
 Dump config to file
 =================
 */
-qboolean Touch_DumpConfig( const char *name, const char *profilename )
+static qboolean Touch_DumpConfig( const char *name, const char *profilename )
 {
 	file_t *f;
 	touch_button_t *button;

@@ -600,7 +600,7 @@ void SV_ShutdownFilter( void )
 
 #include "tests.h"
 
-void Test_StringToFilterAdr( void )
+static void Test_StringToFilterAdr( void )
 {
 	ipfilter_t f1;
 	int i;
@@ -669,7 +669,7 @@ void Test_StringToFilterAdr( void )
 	}
 }
 
-void Test_IPFilterIncludesIPFilter( void )
+static void Test_IPFilterIncludesIPFilter( void )
 {
 	qboolean ret;
 	const char *adrs[] =

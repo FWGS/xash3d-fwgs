@@ -52,7 +52,7 @@ CL_UpdatePositions
 Store another position into interpolation circular buffer
 ==================
 */
-void CL_UpdatePositions( cl_entity_t *ent )
+static void CL_UpdatePositions( cl_entity_t *ent )
 {
 	position_history_t	*ph, *prev;
 
@@ -85,7 +85,7 @@ CL_ResetPositions
 Interpolation init or reset after teleporting
 ==================
 */
-void CL_ResetPositions( cl_entity_t *ent )
+static void CL_ResetPositions( cl_entity_t *ent )
 {
 	position_history_t	store;
 
@@ -107,7 +107,7 @@ check for instant movement in case
 we don't want interpolate this
 ==================
 */
-qboolean CL_EntityTeleported( cl_entity_t *ent )
+static qboolean CL_EntityTeleported( cl_entity_t *ent )
 {
 	float	len, maxlen;
 	vec3_t	delta;
@@ -128,7 +128,7 @@ CL_CompareTimestamps
 round-off floating errors
 ==================
 */
-qboolean CL_CompareTimestamps( float t1, float t2 )
+static qboolean CL_CompareTimestamps( float t1, float t2 )
 {
 	int	iTime1 = t1 * 1000;
 	int	iTime2 = t2 * 1000;
@@ -143,7 +143,7 @@ CL_EntityIgnoreLerp
 some ents will be ignore lerping
 ==================
 */
-qboolean CL_EntityIgnoreLerp( cl_entity_t *e )
+static qboolean CL_EntityIgnoreLerp( cl_entity_t *e )
 {
 	if( cl_nointerp.value > 0.f )
 		return true;
@@ -160,7 +160,7 @@ CL_EntityCustomLerp
 
 ==================
 */
-qboolean CL_EntityCustomLerp( cl_entity_t *e )
+static qboolean CL_EntityCustomLerp( cl_entity_t *e )
 {
 	switch( e->curstate.movetype )
 	{
@@ -226,7 +226,7 @@ CL_UpdateLatchedVars
 
 ====================
 */
-void CL_UpdateLatchedVars( cl_entity_t *ent )
+static void CL_UpdateLatchedVars( cl_entity_t *ent )
 {
 	if( !ent->model || ( ent->model->type != mod_alias && ent->model->type != mod_studio ))
 		return; // below fields used only for alias and studio interpolation
@@ -321,7 +321,7 @@ CL_ProcessEntityUpdate
 apply changes since new frame received
 ==================
 */
-void CL_ProcessEntityUpdate( cl_entity_t *ent )
+static void CL_ProcessEntityUpdate( cl_entity_t *ent )
 {
 	qboolean	parametric;
 
@@ -605,7 +605,7 @@ reset latched state if this frame entity was teleported
 or just EF_NOINTERP was set
 =================
 */
-void CL_ResetLatchedState( int pnum, frame_t *frame, cl_entity_t *ent )
+static void CL_ResetLatchedState( int pnum, frame_t *frame, cl_entity_t *ent )
 {
 	if( CHECKVISBIT( frame->flags, pnum ))
 	{
@@ -695,7 +695,7 @@ CL_FlushEntityPacket
 Read and ignore whole entity packet.
 =================
 */
-void CL_FlushEntityPacket( sizebuf_t *msg )
+static void CL_FlushEntityPacket( sizebuf_t *msg )
 {
 	int		newnum;
 	entity_state_t	from, to;
@@ -725,7 +725,7 @@ CL_DeltaEntity
 processing delta update
 =================
 */
-void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t *old, qboolean has_update )
+static void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t *old, qboolean has_update )
 {
 	cl_entity_t	*ent;
 	entity_state_t	*state;
@@ -1057,7 +1057,7 @@ CL_LinkCustomEntity
 Add server beam to draw list
 =============
 */
-void CL_LinkCustomEntity( cl_entity_t *ent, entity_state_t *state )
+static void CL_LinkCustomEntity( cl_entity_t *ent, entity_state_t *state )
 {
 	ent->curstate.movetype = state->modelindex; // !!!
 
@@ -1080,7 +1080,7 @@ Create visible entities in the correct position
 for all current players
 =============
 */
-void CL_LinkPlayers( frame_t *frame )
+static void CL_LinkPlayers( frame_t *frame )
 {
 	entity_state_t	*state;
 	cl_entity_t	*ent;
@@ -1163,7 +1163,7 @@ CL_LinkPacketEntities
 
 ===============
 */
-void CL_LinkPacketEntities( frame_t *frame )
+static void CL_LinkPacketEntities( frame_t *frame )
 {
 	cl_entity_t	*ent;
 	entity_state_t	*state;

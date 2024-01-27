@@ -551,7 +551,7 @@ fill screen with specfied color
 can be modulated
 =============
 */
-void CL_DrawScreenFade( void )
+static void CL_DrawScreenFade( void )
 {
 	screenfade_t	*sf = &clgame.fade;
 	int		alpha;
@@ -767,7 +767,7 @@ CL_SoundFromIndex
 return soundname from index
 ====================
 */
-const char *CL_SoundFromIndex( int index )
+static const char *CL_SoundFromIndex( int index )
 {
 	sfx_t	*sfx = NULL;
 	int	hSound;
@@ -913,7 +913,7 @@ CL_DrawCrosshair
 Render crosshair
 ====================
 */
-void CL_DrawCrosshair( void )
+static void CL_DrawCrosshair( void )
 {
 	int	x, y, width, height;
 	float xscale, yscale;
@@ -1330,6 +1330,7 @@ pfnSPR_Load
 function exported for support GoldSrc Monitor utility
 =========
 */
+HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 HSPRITE EXPORT pfnSPR_Load( const char *szPicName )
 {
 	model_t	*spr;
@@ -1379,6 +1380,7 @@ pfnSPR_Frames
 function exported for support GoldSrc Monitor utility
 =========
 */
+int EXPORT pfnSPR_Frames( HSPRITE hPic );
 int EXPORT pfnSPR_Frames( HSPRITE hPic )
 {
 	int	numFrames = 0;

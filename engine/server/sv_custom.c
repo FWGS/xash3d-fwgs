@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
-void SV_CreateCustomizationList( sv_client_t *cl )
+static void SV_CreateCustomizationList( sv_client_t *cl )
 {
 	resource_t	*pResource;
 	customization_t	*pList, *pCust;
@@ -61,7 +61,7 @@ void SV_CreateCustomizationList( sv_client_t *cl )
 	}
 }
 
-qboolean SV_FileInConsistencyList( const char *filename, consistency_t **ppout )
+static qboolean SV_FileInConsistencyList( const char *filename, consistency_t **ppout )
 {
 	int	i;
 
@@ -246,7 +246,7 @@ void SV_TransferConsistencyInfo( void )
 	sv.num_consistency = total;
 }
 
-void SV_SendConsistencyList( sv_client_t *cl, sizebuf_t *msg )
+static void SV_SendConsistencyList( sv_client_t *cl, sizebuf_t *msg )
 {
 	int	i, lastcheck;
 	int	delta;
@@ -288,7 +288,7 @@ void SV_SendConsistencyList( sv_client_t *cl, sizebuf_t *msg )
 	MSG_WriteOneBit( msg, 0 );
 }
 
-qboolean SV_CheckFile( sizebuf_t *msg, const char *filename )
+static qboolean SV_CheckFile( sizebuf_t *msg, const char *filename )
 {
 	resource_t	p;
 
@@ -337,7 +337,7 @@ void SV_AddToResourceList( resource_t *pResource, resource_t *pList )
 	pList->pPrev = pResource;
 }
 
-void SV_SendCustomization( sv_client_t *cl, int playernum, resource_t *pResource )
+static void SV_SendCustomization( sv_client_t *cl, int playernum, resource_t *pResource )
 {
 	MSG_BeginServerCmd( &cl->netchan.message, svc_customization );
 	MSG_WriteByte( &cl->netchan.message, playernum );	// playernum
@@ -410,7 +410,7 @@ int SV_EstimateNeededResources( sv_client_t *cl )
 	return size;
 }
 
-void SV_Customization( sv_client_t *pClient, resource_t *pResource, qboolean bSkipPlayer )
+static void SV_Customization( sv_client_t *pClient, resource_t *pResource, qboolean bSkipPlayer )
 {
 	int		i, nPlayerNumber = -1;
 	sv_client_t	*cl;
@@ -435,7 +435,7 @@ void SV_Customization( sv_client_t *pClient, resource_t *pResource, qboolean bSk
 	}
 }
 
-void SV_PropagateCustomizations( sv_client_t *pHost )
+static void SV_PropagateCustomizations( sv_client_t *pHost )
 {
 	customization_t	*pCust;
 	resource_t	*pResource;
@@ -459,7 +459,7 @@ void SV_PropagateCustomizations( sv_client_t *pHost )
 	}
 }
 
-void SV_RegisterResources( sv_client_t *pHost )
+static void SV_RegisterResources( sv_client_t *pHost )
 {
 	resource_t	*pResource;
 
@@ -470,7 +470,7 @@ void SV_RegisterResources( sv_client_t *pHost )
 	}
 }
 
-qboolean SV_UploadComplete( sv_client_t *cl )
+static qboolean SV_UploadComplete( sv_client_t *cl )
 {
 	if( &cl->resourcesneeded != cl->resourcesneeded.pNext )
 		return false;

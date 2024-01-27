@@ -49,7 +49,7 @@ static SDL_AudioDeviceID in_dev = 0;
 static SDL_AudioFormat sdl_format;
 static char sdl_backend_name[32];
 
-void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
+static void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 {
 	const int size = dma.samples << 1;
 	int pos;
@@ -244,7 +244,7 @@ void SNDDMA_Activate( qboolean active )
 SDL_SoundInputCallback
 ===========
 */
-void SDL_SoundInputCallback( void *userdata, Uint8 *stream, int len )
+static void SDL_SoundInputCallback( void *userdata, Uint8 *stream, int len )
 {
 	int size = Q_min( len, sizeof( voice.input_buffer ) - voice.input_buffer_pos );
 

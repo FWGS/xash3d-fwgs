@@ -332,7 +332,7 @@ int Key_GetKey( const char *pBinding )
 Key_Unbind_f
 ===================
 */
-void Key_Unbind_f( void )
+static void Key_Unbind_f( void )
 {
 	int	b;
 
@@ -358,7 +358,7 @@ void Key_Unbind_f( void )
 Key_Unbindall_f
 ===================
 */
-void Key_Unbindall_f( void )
+static void Key_Unbindall_f( void )
 {
 	int	i;
 
@@ -378,7 +378,7 @@ void Key_Unbindall_f( void )
 Key_Reset_f
 ===================
 */
-void Key_Reset_f( void )
+static void Key_Reset_f( void )
 {
 	keyname_t	*kn;
 	int	i;
@@ -400,7 +400,7 @@ void Key_Reset_f( void )
 Key_Bind_f
 ===================
 */
-void Key_Bind_f( void )
+static void Key_Bind_f( void )
 {
 	char	cmd[1024];
 	int	i, c, b;
@@ -473,7 +473,7 @@ Key_Bindlist_f
 
 ============
 */
-void Key_Bindlist_f( void )
+static void Key_Bindlist_f( void )
 {
 	int	i;
 
@@ -523,7 +523,7 @@ void Key_Init( void )
 Key_AddKeyCommands
 ===================
 */
-void Key_AddKeyCommands( int key, const char *kb, qboolean down )
+static void Key_AddKeyCommands( int key, const char *kb, qboolean down )
 {
 	char	button[1024];
 	char	*buttonPtr;

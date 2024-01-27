@@ -252,7 +252,7 @@ VID_WriteOverviewScript
 Create overview script file
 ===============
 */
-void VID_WriteOverviewScript( void )
+static void VID_WriteOverviewScript( void )
 {
 	ref_overview_t	*ov = &clgame.overView;
 	string		filename;
@@ -344,7 +344,7 @@ void SCR_MakeScreenShot( void )
 SCR_DrawPlaque
 ================
 */
-void SCR_DrawPlaque( void )
+static void SCR_DrawPlaque( void )
 {
 	if(( cl_allow_levelshots.value && !cls.changelevel ) || cl.background )
 	{
@@ -675,7 +675,7 @@ SCR_SizeUp_f
 Keybinding command
 =================
 */
-void SCR_SizeUp_f( void )
+static void SCR_SizeUp_f( void )
 {
 	Cvar_SetValue( "viewsize", Q_min( scr_viewsize.value + 10, 120 ));
 }
@@ -688,7 +688,7 @@ SCR_SizeDown_f
 Keybinding command
 =================
 */
-void SCR_SizeDown_f( void )
+static void SCR_SizeDown_f( void )
 {
 	Cvar_SetValue( "viewsize", Q_max( scr_viewsize.value - 10, 30 ));
 }

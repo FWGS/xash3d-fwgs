@@ -429,7 +429,7 @@ qboolean SV_MoveTest( edict_t *ent, vec3_t move, qboolean relink )
 	}
 }
 
-qboolean SV_StepDirection( edict_t *ent, float yaw, float dist )
+static qboolean SV_StepDirection( edict_t *ent, float yaw, float dist )
 {
 	int	ret;
 	float	cSin, cCos;
@@ -445,7 +445,7 @@ qboolean SV_StepDirection( edict_t *ent, float yaw, float dist )
 	return ret;
 }
 
-qboolean SV_FlyDirection( edict_t *ent, vec3_t move )
+static qboolean SV_FlyDirection( edict_t *ent, vec3_t move )
 {
 	int	ret;
 
@@ -455,7 +455,7 @@ qboolean SV_FlyDirection( edict_t *ent, vec3_t move )
 	return ret;
 }
 
-void SV_NewChaseDir( edict_t *actor, vec3_t destination, float dist )
+static void SV_NewChaseDir( edict_t *actor, vec3_t destination, float dist )
 {
 	float	deltax, deltay;
 	float	tempdir, olddir, turnaround;

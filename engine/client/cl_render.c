@@ -126,7 +126,7 @@ CL_GenericHandle
 
 =============
 */
-const char *CL_GenericHandle( int fileindex )
+static const char *CL_GenericHandle( int fileindex )
 {
 	if( fileindex < 0 || fileindex >= MAX_CUSTOM )
 		return 0;

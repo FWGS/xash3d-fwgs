@@ -151,7 +151,7 @@ static void Con_SaveHistory( con_history_t *self );
 Con_Clear_f
 ================
 */
-void Con_Clear_f( void )
+static void Con_Clear_f( void )
 {
 	con.lines_count = 0;
 	con.backscroll = 0; // go to end
@@ -206,7 +206,7 @@ void Con_ClearNotify( void )
 Con_ClearTyping
 ================
 */
-void Con_ClearTyping( void )
+static void Con_ClearTyping( void )
 {
 	Con_ClearField( &con.input );
 	con.input.widthInChars = con.linewidth;
@@ -219,7 +219,7 @@ void Con_ClearTyping( void )
 Con_MessageMode_f
 ================
 */
-void Con_MessageMode_f( void )
+static void Con_MessageMode_f( void )
 {
 	g_messagemode_privileged = Cmd_CurrentCommandIsPrivileged();
 
@@ -235,7 +235,7 @@ void Con_MessageMode_f( void )
 Con_MessageMode2_f
 ================
 */
-void Con_MessageMode2_f( void )
+static void Con_MessageMode2_f( void )
 {
 	g_messagemode_privileged = Cmd_CurrentCommandIsPrivileged();
 
@@ -280,7 +280,7 @@ void Con_ToggleConsole_f( void )
 Con_SetTimes_f
 ================
 */
-void Con_SetTimes_f( void )
+static void Con_SetTimes_f( void )
 {
 	int	newtimes;
 
@@ -303,7 +303,7 @@ Notifies the console code about the current time
 went backwards)
 ================
 */
-void Con_FixTimes( void )
+static void Con_FixTimes( void )
 {
 	double	diff;
 	int	i;
@@ -324,7 +324,7 @@ Con_DeleteLine
 Deletes the first line from the console history.
 ================
 */
-void Con_DeleteLine( void )
+static void Con_DeleteLine( void )
 {
 	if( con.lines_count == 0 )
 		return;
@@ -339,7 +339,7 @@ Con_DeleteLastLine
 Deletes the last line from the console history.
 ================
 */
-void Con_DeleteLastLine( void )
+static void Con_DeleteLastLine( void )
 {
 	if( con.lines_count == 0 )
 		return;
@@ -398,7 +398,7 @@ Con_AddLine
 Appends a given string as a new line to the console.
 ================
 */
-void Con_AddLine( const char *line, int length, qboolean newline )
+static void Con_AddLine( const char *line, int length, qboolean newline )
 {
 	char		*putpos;
 	con_lineinfo_t	*p;
@@ -444,7 +444,7 @@ Con_CheckResize
 If the line width has changed, reformat the buffer.
 ================
 */
-void Con_CheckResize( void )
+static void Con_CheckResize( void )
 {
 	int	charWidth = 8;
 	int	i, width;
@@ -1143,7 +1143,7 @@ static void Field_Set( field_t *f, const char *string )
 Field_Paste
 ================
 */
-void Field_Paste( field_t *edit )
+static void Field_Paste( field_t *edit )
 {
 	char	*cbd;
 	int	i, pasteLen;
@@ -1179,7 +1179,7 @@ in-game talk, and menu fields
 Key events are used for non-printable characters, others are gotten from char events.
 =================
 */
-void Field_KeyDownEvent( field_t *edit, int key )
+static void Field_KeyDownEvent( field_t *edit, int key )
 {
 	int	len;
 
@@ -1311,7 +1311,7 @@ void Field_CharEvent( field_t *edit, int ch )
 Field_DrawInputLine
 ==================
 */
-void Field_DrawInputLine( int x, int y, field_t *edit )
+static void Field_DrawInputLine( int x, int y, field_t *edit )
 {
 	int	len, cursorChar;
 	int	drawLen;
@@ -1683,7 +1683,7 @@ Con_DrawInput
 The input line scrolls horizontally if typing goes beyond the right edge
 ================
 */
-void Con_DrawInput( int lines )
+static void Con_DrawInput( int lines )
 {
 	int	y;
 
@@ -1703,7 +1703,7 @@ Con_DrawDebugLines
 Custom debug messages
 ================
 */
-int Con_DrawDebugLines( void )
+static int Con_DrawDebugLines( void )
 {
 	notify_t *notify = con.notify;
 	int	i, count = 0;
@@ -1788,7 +1788,7 @@ Con_DrawNotify
 Draws the last few lines of output transparently over the game top
 ================
 */
-void Con_DrawNotify( void )
+static void Con_DrawNotify( void )
 {
 	double	time = cl.time;
 	int	i, x, y = 0;
@@ -1840,7 +1840,7 @@ If alpha is 0, the line is not drawn, but still wrapped and its height
 returned.
 ================
 */
-int Con_DrawConsoleLine( int y, int lineno )
+static int Con_DrawConsoleLine( int y, int lineno )
 {
 	con_lineinfo_t	*li = &CON_LINES( lineno );
 
@@ -1895,7 +1895,7 @@ Con_DrawConsole
 Draws the console with the solid background
 ================
 */
-void Con_DrawSolidConsole( int lines )
+static void Con_DrawSolidConsole( int lines )
 {
 	int	i, x, y;
 	float	fraction;

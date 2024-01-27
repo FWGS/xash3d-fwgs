@@ -40,7 +40,7 @@ CL_CalcPlayerVelocity
 compute velocity for a given client
 =============
 */
-void CL_CalcPlayerVelocity( int idx, vec3_t velocity )
+static void CL_CalcPlayerVelocity( int idx, vec3_t velocity )
 {
 	clientdata_t	*pcd;
 	vec3_t		delta;
@@ -78,7 +78,7 @@ CL_DescribeEvent
 
 =============
 */
-void CL_DescribeEvent( event_info_t *ei, int slot )
+static void CL_DescribeEvent( event_info_t *ei, int slot )
 {
 	int		idx = (slot & 63) * 2;
 	con_nprint_t	info;
@@ -202,7 +202,7 @@ CL_FireEvent
 
 =============
 */
-qboolean CL_FireEvent( event_info_t *ei, int slot )
+static qboolean CL_FireEvent( event_info_t *ei, int slot )
 {
 	cl_user_event_t	*ev;
 	const char	*name;
@@ -292,7 +292,7 @@ CL_FindEvent
 find first empty event
 =============
 */
-event_info_t *CL_FindEmptyEvent( void )
+static event_info_t *CL_FindEmptyEvent( void )
 {
 	int		i;
 	event_state_t	*es;
@@ -320,7 +320,7 @@ CL_FindEvent
 replace only unreliable events
 =============
 */
-event_info_t *CL_FindUnreliableEvent( void )
+static event_info_t *CL_FindUnreliableEvent( void )
 {
 	event_state_t	*es;
 	event_info_t	*ei;

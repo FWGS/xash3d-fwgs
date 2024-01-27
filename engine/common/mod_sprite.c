@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #if !XASH_DEDICATED
 #include "ref_common.h"
 #endif // XASH_DEDICATED
+#include "mod_local.h"
 
 
 /*
