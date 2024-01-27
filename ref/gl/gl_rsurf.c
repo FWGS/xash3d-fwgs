@@ -527,7 +527,7 @@ texture_t *R_TextureAnimation( msurface_t *s )
 R_AddDynamicLights
 ===============
 */
-void R_AddDynamicLights( msurface_t *surf )
+static void R_AddDynamicLights( msurface_t *surf )
 {
 	float		dist, rad, minlight;
 	int		lnum, s, t, sd, td, smax, tmax;
@@ -541,7 +541,7 @@ void R_AddDynamicLights( msurface_t *surf )
 	uint		*bl;
 
 	// no dlighted surfaces here
-	if( !R_CountSurfaceDlights( surf )) return;
+	if( !surf->dlightbits ) return;
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = (info->lightextents[0] / sample_size) + 1;
