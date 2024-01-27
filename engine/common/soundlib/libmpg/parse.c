@@ -68,7 +68,7 @@ void set_pointer( mpg123_handle_t *fr, long backstep )
 	fr->bitindex = 0;
 }
 
-int frame_bitrate( mpg123_handle_t *fr )
+static int frame_bitrate( mpg123_handle_t *fr )
 {
 	return tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index];
 }
@@ -643,7 +643,7 @@ static int forget_head_shift( mpg123_handle_t *fr, ulong *newheadp, int forget )
 // returns:  0: bad or just unparseable tag
 //           1: good, (possibly) new tag info
 //          <0: reader error (may need more data feed, try again)
-int parse_new_id3( mpg123_handle_t *fr, ulong first4bytes )
+static int parse_new_id3( mpg123_handle_t *fr, ulong first4bytes )
 {
 	byte	buf[6];
 	ulong	length=0;
