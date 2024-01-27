@@ -401,6 +401,7 @@ static texture_t *R_TextureAnim( texture_t *b )
 
 	if( !base->anim_total )
 		return base;
+
 	if( base->name[0] == '-' )
 	{
 		return b; // already tiled
@@ -430,44 +431,6 @@ static texture_t *R_TextureAnim( texture_t *b )
 
 	return base;
 }
-
-
-/*
-===============
-R_TextureRandomTiling
-
-Returns the proper texture for a given surface without animation
-===============
-*/
-static texture_t *R_TextureRandomTiling( msurface_t *s )
-{
-	texture_t	*base = s->texinfo->texture;
-	int	count, reletive;
-
-	if( !base->anim_total )
-		return base;
-
-	if( base->name[0] == '-' )
-	{
-		int	tx = (int)((s->texturemins[0] + (base->width << 16)) / base->width) % MOD_FRAMES;
-		int	ty = (int)((s->texturemins[1] + (base->height << 16)) / base->height) % MOD_FRAMES;
-
-		reletive = rtable[tx][ty] % base->anim_total;
-	}
-
-	count = 0;
-
-	while( base->anim_min > reletive || base->anim_max <= reletive )
-	{
-		base = base->anim_next;
-
-		if( !base || ++count > MOD_FRAMES )
-			return s->texinfo->texture;
-	}
-
-	return base;
-}
-
 
 /*
 ===============
