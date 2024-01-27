@@ -183,7 +183,7 @@ void Platform_SetClipboardText( const char *buffer );
 #define SDL_VERSION_ATLEAST( x, y, z ) 0
 #endif
 
-static void Platform_SetTimer( float time )
+static inline void Platform_SetTimer( float time )
 {
 #if XASH_LINUX
 	Linux_SetTimer( time );
