@@ -318,6 +318,7 @@ def configure(conf):
 			# disabled, flood
 			# '-Wdouble-promotion',
 
+			'-Wunused-function',
 			'-Wunused-variable',
 			'-Wunused-but-set-variable',
 		]
