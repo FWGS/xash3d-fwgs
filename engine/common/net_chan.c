@@ -199,44 +199,6 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 }
 
 /*
-======================
-NetSplit_SendLong
-
-Send parts that are less or equal maxpacket
-======================
-*/
-static void NetSplit_SendLong( netsrc_t sock, size_t length, void *data, netadr_t to, unsigned int maxpacket, unsigned int id)
-{
-	netsplit_packet_t packet = {0};
-	unsigned int part = maxpacket - NETSPLIT_HEADER_SIZE;
-
-	packet.signature = LittleLong(0xFFFFFFFE);
-	packet.id = LittleLong(id);
-	packet.length = LittleLong(length);
-	packet.part = LittleLong(part);
-	packet.count = ( length - 1 ) / part + 1;
-
-	//Con_Reportf( S_NOTE "NetSplit_SendLong: packet to %s, count %d, length %d\n", NET_AdrToString( to ), (int)packet.count, (int)packet.length );
-
-	while( packet.index < packet.count  )
-	{
-		unsigned int size = part;
-
-		if( size > length )
-			size = length;
-
-		length -= size;
-
-		memcpy( packet.data, (const byte*)data + packet.index * part, size );
-		//Con_Reportf( S_NOTE "NetSplit_SendLong: packet to %s, id %d, index %d\n", NET_AdrToString( to ), (int)packet.id, (int)packet.index );
-
-		NET_SendPacket( sock, size + NETSPLIT_HEADER_SIZE, &packet, to );
-		packet.index++;
-	}
-
-}
-
-/*
 ===============
 Netchan_Init
 ===============
