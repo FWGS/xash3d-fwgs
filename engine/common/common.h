@@ -388,7 +388,6 @@ void *FS_GetNativeObject( const char *obj );
 //
 // cmd.c
 //
-void Cbuf_Init( void );
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
 void Cbuf_AddTextf( const char *text, ... ) _format( 1 );
@@ -412,9 +411,6 @@ void Cmd_RemoveCommand( const char *cmd_name );
 qboolean Cmd_Exists( const char *cmd_name );
 void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback );
 int Cmd_ListMaps( search_t *t , char *lastmapname, size_t len );
-qboolean Cmd_GetMapList( const char *s, char *completedname, int length );
-qboolean Cmd_GetDemoList( const char *s, char *completedname, int length );
-qboolean Cmd_GetMovieList( const char *s, char *completedname, int length );
 void Cmd_TokenizeString( const char *text );
 void Cmd_ExecuteString( const char *text );
 void Cmd_ForwardToServer( void );
@@ -461,13 +457,12 @@ void FS_FreeImage( rgbdata_t *pack );
 extern const bpc_desc_t PFDesc[];	// image get pixelformat
 qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float reserved );
 void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int pal_size );
-void Image_PaletteTranslate( byte *palSrc, int top, int bottom, int pal_size );
 void Image_SetForceFlags( uint flags );	// set image force flags on loading
-size_t Image_DXTGetLinearSize( int type, int width, int height, int depth );
 qboolean Image_CustomPalette( void );
 void Image_ClearForceFlags( void );
 void Image_SetMDLPointer( byte *p );
 void Image_CheckPaletteQ1( void );
+
 /*
 ========================================================================
 
@@ -543,7 +538,6 @@ qboolean Host_IsQuakeCompatible( void );
 void EXPORT Host_Shutdown( void );
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 int Host_CompareFileTime( int ft1, int ft2 );
-void Host_NewInstance( const char *name, const char *finalmsg );
 void Host_EndGame( qboolean abort, const char *message, ... ) _format( 2 );
 void Host_AbortCurrentFrame( void ) NORETURN;
 void Host_WriteServerConfig( const char *name );
@@ -556,7 +550,6 @@ void Host_ShutdownServer( void );
 void Host_Error( const char *error, ... ) _format( 1 );
 void Host_ValidateEngineFeatures( uint32_t features );
 void Host_Frame( float time );
-void Host_InitDecals( void );
 void Host_Credits( void );
 
 //
@@ -600,7 +593,6 @@ void COM_HexConvert( const char *pszInput, int nInputLength, byte *pOutput );
 int COM_SaveFile( const char *filename, const void *data, int len );
 byte* COM_LoadFileForMe( const char *filename, int *pLength );
 qboolean COM_IsSafeFileToDownload( const char *filename );
-const char *COM_GetResourceTypeName( resourcetype_t restype );
 cvar_t *pfnCVarGetPointer( const char *szVarName );
 int pfnDrawConsoleString( int x, int y, char *string );
 void pfnDrawSetTextColor( float r, float g, float b );
@@ -608,7 +600,6 @@ void pfnDrawConsoleStringLen( const char *pText, int *length, int *height );
 void *Cache_Check( poolhandle_t mempool, struct cache_user_s *c );
 void COM_TrimSpace( const char *source, char *dest );
 void pfnGetModelBounds( model_t *mod, float *mins, float *maxs );
-void pfnCVarDirectSet( cvar_t *var, const char *szValue );
 int COM_CheckParm( char *parm, char **ppnext );
 void pfnGetGameDir( char *szGetGameDir );
 int pfnGetModelType( model_t *mod );
@@ -650,7 +641,6 @@ void pfnResetTutorMessageDecayData( void );
 //
 // con_utils.c
 //
-qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t bufsize );
 void Con_CompleteCommand( field_t *field );
 void Cmd_AutoComplete( char *complete_string );
 void Cmd_AutoCompleteClear( void );
@@ -706,24 +696,15 @@ void CL_LegacyUpdateInfo( void );
 void CL_CharEvent( int key );
 qboolean CL_DisableVisibility( void );
 byte *COM_LoadFile( const char *filename, int usehunk, int *pLength );
-int CL_GetDemoComment( const char *demoname, char *comment );
-void COM_AddAppDirectoryToSearchPath( const char *pszBaseDir, const char *appName );
-int COM_ExpandFilename( const char *fileName, char *nameOutBuffer, int nameOutBufferSize );
 struct cmd_s *Cmd_GetFirstFunctionHandle( void );
 struct cmd_s *Cmd_GetNextFunctionHandle( struct cmd_s *cmd );
 struct cmdalias_s *Cmd_AliasGetList( void );
 const char *Cmd_GetName( struct cmd_s *cmd );
-void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
-void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
 void Log_Printf( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
-qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
 void SV_BroadcastPrintf( struct sv_client_s *ignore, const char *fmt, ... ) _format( 2 );
-int R_CreateDecalList( struct decallist_s *pList );
-void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
-struct cl_entity_s *CL_GetEntityByIndex( int index );
 void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
@@ -732,17 +713,14 @@ void SV_DrawOrthoTriangles( void );
 double CL_GetDemoFramerate( void );
 qboolean UI_CreditsActive( void );
 void CL_StopPlayback( void );
-void CL_ExtraUpdate( void );
 int CL_GetMaxClients( void );
 int SV_GetMaxClients( void );
 qboolean CL_IsRecordDemo( void );
 qboolean CL_IsTimeDemo( void );
 qboolean CL_IsPlaybackDemo( void );
 qboolean SV_Initialized( void );
-qboolean CL_LoadProgs( const char *name );
 void CL_ProcessFile( qboolean successfully_received, const char *filename );
 int SV_GetSaveComment( const char *savename, char *comment );
-qboolean SV_NewGame( const char *mapName, qboolean loadGame );
 void SV_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
 void CL_ClipPMoveToEntity( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
 void SV_SysError( const char *error_string );
@@ -751,11 +729,9 @@ void SV_ExecLoadLevel( void );
 void SV_ExecLoadGame( void );
 void SV_ExecChangeLevel( void );
 void CL_WriteMessageHistory( void );
-void CL_SendCmd( void );
 void CL_Disconnect( void );
 void CL_ClearEdicts( void );
 void CL_Crashed( void );
-qboolean CL_NextDemo( void );
 char *SV_Serverinfo( void );
 void CL_Drop( void );
 void Con_Init( void );
@@ -780,7 +756,6 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 qboolean Info_IsValid( const char *s );
 void Info_WriteVars( file_t *f );
 void Info_Print( const char *s );
-void Cmd_WriteVariables( file_t *f );
 int Cmd_CheckMapsList( int fRefresh );
 void COM_SetRandomSeed( int lSeed );
 int COM_RandomLong( int lMin, int lMax );

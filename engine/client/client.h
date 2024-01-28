@@ -790,6 +790,7 @@ void CL_Demos_f( void );
 void CL_DeleteDemo_f( void );
 void CL_Record_f( void );
 void CL_Stop_f( void );
+int CL_GetDemoComment( const char *demoname, char *comment );
 
 //
 // cl_events.c
@@ -859,6 +860,7 @@ movevars_t *pfnGetMoveVars( void );
 void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int height );
 void CL_DisableScissor( scissor_state_t *scissor );
 qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
+struct cl_entity_s *CL_GetEntityByIndex( int index );
 
 _inline cl_entity_t *CL_EDICT_NUM( int n )
 {

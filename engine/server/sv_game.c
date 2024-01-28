@@ -4796,7 +4796,7 @@ static enginefuncs_t gEngfuncs =
 	Delta_UnsetFieldByIndex,
 	pfnSetGroupMask,
 	pfnCreateInstancedBaseline,
-	pfnCVarDirectSet,
+	(void*)Cvar_DirectSet,
 	pfnForceUnmodified,
 	pfnGetPlayerStats,
 	Cmd_AddServerCommand,

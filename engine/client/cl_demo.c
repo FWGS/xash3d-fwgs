@@ -107,6 +107,8 @@ struct
 	int		angle_position;
 } demo;
 
+static qboolean CL_NextDemo( void );
+
 /*
 ====================
 CL_StartupDemoHeader
@@ -1264,7 +1266,7 @@ CL_NextDemo
 Called when a demo finishes
 ==================
 */
-qboolean CL_NextDemo( void )
+static qboolean CL_NextDemo( void )
 {
 	char	str[MAX_QPATH];
 

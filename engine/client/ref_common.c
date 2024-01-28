@@ -109,6 +109,12 @@ static void *pfnMod_Extradata( int type, model_t *m )
 	return NULL;
 }
 
+static void CL_ExtraUpdate( void )
+{
+	clgame.dllFuncs.IN_Accumulate();
+	S_ExtraUpdate();
+}
+
 static void pfnCL_GetScreenInfo( int *width, int *height ) // clgame.scrInfo, ptrs may be NULL
 {
 	if( width ) *width = clgame.scrInfo.iWidth;

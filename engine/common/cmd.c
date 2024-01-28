@@ -53,7 +53,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 Cbuf_Init
 ============
 */
-void Cbuf_Init( void )
+static void Cbuf_Init( void )
 {
 	cmd_text.data = cmd_text_buf;
 	filteredcmd_text.data = filteredcmd_text_buf;

@@ -348,7 +348,7 @@ static int Host_CalcSleep( void )
 	return host_sleeptime.value;
 }
 
-void Host_NewInstance( const char *name, const char *finalmsg )
+static void Host_NewInstance( const char *name, const char *finalmsg )
 {
 	if( !pChangeGame ) return;
 
@@ -582,7 +582,7 @@ static qboolean Host_RegisterDecal( const char *name, int *count )
 Host_InitDecals
 =================
 */
-void Host_InitDecals( void )
+static void Host_InitDecals( void )
 {
 	int	i, num_decals = 0;
 	search_t	*t;

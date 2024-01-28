@@ -530,7 +530,7 @@ void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int 
 	}
 }
 
-void Image_PaletteTranslate( byte *palSrc, int top, int bottom, int pal_size )
+static void Image_PaletteTranslate( byte *palSrc, int top, int bottom, int pal_size )
 {
 	byte	dst[256], src[256];
 	int	i;

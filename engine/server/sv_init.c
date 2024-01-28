@@ -284,6 +284,21 @@ static resourcetype_t SV_DetermineResourceType( const char *filename )
 		return t_generic;
 }
 
+static const char *SV_GetResourceTypeName( resourcetype_t restype )
+{
+	switch( restype )
+	{
+		case t_decal: return "decal";
+		case t_eventscript: return "eventscript";
+		case t_generic: return "generic";
+		case t_model: return "model";
+		case t_skin: return "skin";
+		case t_sound: return "sound";
+		case t_world: return "world";
+		default: return "unknown";
+	}
+}
+
 static void SV_ReadResourceList( const char *filename )
 {
 	string token;
@@ -306,7 +321,7 @@ static void SV_ReadResourceList( const char *filename )
 
 		COM_FixSlashes( token );
 		restype = SV_DetermineResourceType( token );
-		Con_DPrintf( "  %s (%s)\n", token, COM_GetResourceTypeName( restype ));
+		Con_DPrintf( "  %s (%s)\n", token, SV_GetResourceTypeName( restype ));
 		switch( restype )
 		{
 			// TODO do we need to handle other resource types specifically too?
