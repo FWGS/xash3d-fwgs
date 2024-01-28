@@ -2673,6 +2673,48 @@ static model_t *pfnLoadMapSprite( const char *filename )
 
 /*
 =============
+COM_AddAppDirectoryToSearchPath
+
+=============
+*/
+static void GAME_EXPORT COM_AddAppDirectoryToSearchPath( const char *pszBaseDir, const char *appName )
+{
+	FS_AddGameHierarchy( pszBaseDir, FS_NOWRITE_PATH );
+}
+
+
+/*
+===========
+COM_ExpandFilename
+
+Finds the file in the search path, copies over the name with the full path name.
+This doesn't search in the pak file.
+===========
+*/
+static int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBuffer, int nameOutBufferSize )
+{
+	char		result[MAX_SYSPATH];
+
+	if( !COM_CheckString( fileName ) || !nameOutBuffer || nameOutBufferSize <= 0 )
+		return 0;
+
+	// filename examples:
+	// media\sierra.avi - D:\Xash3D\valve\media\sierra.avi
+	// models\barney.mdl - D:\Xash3D\bshift\models\barney.mdl
+	if( g_fsapi.GetFullDiskPath( result, sizeof( result ), fileName, false ))
+	{
+		// check for enough room
+		if( Q_strlen( result ) > nameOutBufferSize )
+			return 0;
+
+		Q_strncpy( nameOutBuffer, result, nameOutBufferSize );
+		return 1;
+	}
+	return 0;
+}
+
+/*
+=============
 PlayerInfo_ValueForKey
 
 =============

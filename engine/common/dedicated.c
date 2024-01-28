@@ -134,15 +134,6 @@ void Con_Init( void )
 
 }
 
-void R_ClearAllDecals( void )
-{
-
-}
-int R_CreateDecalList( struct decallist_s *pList )
-{
-	return 0;
-}
-
 void GAME_EXPORT S_StopSound(int entnum, int channel, const char *soundname)
 {
 

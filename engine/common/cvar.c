@@ -685,7 +685,7 @@ Cvar_DirectSet
 way to change value for many cvars
 ============
 */
-void Cvar_DirectSet( convar_t *var, const char *value )
+void GAME_EXPORT Cvar_DirectSet( convar_t *var, const char *value )
 {
 	const char	*pszValue;
 

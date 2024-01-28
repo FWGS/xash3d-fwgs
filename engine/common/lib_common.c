@@ -166,7 +166,7 @@ Some modders use _i?86 suffix in game library name
 So strip it to follow library naming for non-Intel CPUs
 ==============
 */
-static void COM_StripIntelSuffix( char *out )
+static inline void COM_StripIntelSuffix( char *out )
 {
 	char *suffix = Q_strrchr( out, '_' );
 

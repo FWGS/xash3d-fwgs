@@ -1492,9 +1492,3 @@ qboolean CL_GetMovieSpatialization( rawchan_t *ch )
 
 	return true;
 }
-
-void CL_ExtraUpdate( void )
-{
-	clgame.dllFuncs.IN_Accumulate();
-	S_ExtraUpdate();
-}

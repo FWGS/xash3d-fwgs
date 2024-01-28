@@ -184,7 +184,7 @@ Cmd_GetMapList
 Prints or complete map filename
 =====================================
 */
-qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetMapList( const char *s, char *completedname, int length )
 {
 	search_t *t;
 	string   matchbuf;
@@ -220,7 +220,7 @@ Cmd_GetDemoList
 Prints or complete demo filename
 =====================================
 */
-qboolean Cmd_GetDemoList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetDemoList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -267,7 +267,7 @@ Cmd_GetMovieList
 Prints or complete movie filename
 =====================================
 */
-qboolean Cmd_GetMovieList( const char *s, char *completedname, int length )
+static qboolean Cmd_GetMovieList( const char *s, char *completedname, int length )
 {
 	search_t		*t;
 	string		matchbuf;
@@ -754,10 +754,6 @@ static qboolean Cmd_GetGamesList( const char *s, char *completedname, int length
 	string	matchbuf;
 	int	len;
 
-	// stand-alone games doesn't have cmd "game"
-	if( !Cmd_Exists( "game" ))
-		return false;
-
 	// compare gamelist with current keyword
 	len = Q_strlen( s );
 
@@ -1061,7 +1057,7 @@ Autocomplete filename
 for various cmds
 ============
 */
-qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t bufsize )
+static qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t bufsize )
 {
 	autocomplete_list_t	*list;
 
