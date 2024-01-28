@@ -487,25 +487,16 @@ int SV_ModelIndex( const char *name );
 int SV_SoundIndex( const char *name );
 int SV_EventIndex( const char *name );
 int SV_GenericIndex( const char *name );
-int SV_CalcPacketLoss( sv_client_t *cl );
-void SV_ExecuteUserCommand (char *s);
 void SV_InitOperatorCommands( void );
 void SV_KillOperatorCommands( void );
 void SV_RemoteCommand( netadr_t from, sizebuf_t *msg );
-void SV_PrepWorldFrame( void );
-void SV_ProcessFile( sv_client_t *cl, const char *filename );
 void SV_SendResource( resource_t *pResource, sizebuf_t *msg );
-void SV_SendResourceList( sv_client_t *cl );
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg );
 qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
-void Host_SetServerState( int state );
-qboolean SV_IsSimulating( void );
-void SV_FreeClients( void );
 
 //
 // sv_init.c
 //
-qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
 qboolean SV_InitGame( void );
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
@@ -537,14 +528,11 @@ void SV_WaterMove( edict_t *ent );
 //
 void SV_SendClientMessages( void );
 void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
-void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 
 //
 // sv_client.c
 //
-char *SV_StatusString( void );
 void SV_RefreshUserinfo( void );
-void SV_GetChallenge( netadr_t from );
 void SV_TogglePause( const char *msg );
 qboolean SV_ShouldUpdatePing( sv_client_t *cl );
 const char *SV_GetClientIDString( sv_client_t *cl );
@@ -554,15 +542,12 @@ void SV_FullClientUpdate( sv_client_t *cl, sizebuf_t *msg );
 void SV_FullUpdateMovevars( sv_client_t *cl, sizebuf_t *msg );
 void SV_GetPlayerStats( sv_client_t *cl, int *ping, int *packet_loss );
 void SV_SendServerdata( sizebuf_t *msg, sv_client_t *cl );
-void SV_ClientThink( sv_client_t *cl, usercmd_t *cmd );
 void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg );
 void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg );
 edict_t *SV_FakeConnect( const char *netname );
-void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 void SV_BuildReconnect( sizebuf_t *msg );
 qboolean SV_IsPlayerIndex( int idx );
 int SV_CalcPing( sv_client_t *cl );
-void SV_InitClientMove( void );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( host_redirect_t *rd );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) _format( 2 );
@@ -571,8 +556,6 @@ void SV_GetPlayerCount( int *clients, int *bots );
 //
 // sv_cmds.c
 //
-void SV_Status_f( void );
-void SV_Newgame_f( void );
 void SV_InitHostCommands( void );
 
 //
@@ -594,7 +577,6 @@ void SV_RequestMissingResources( void );
 // sv_filter.c
 //
 void SV_InitFilter( void );
-void SV_ShutdownFilter( void );
 qboolean SV_CheckIP( netadr_t *adr );
 qboolean SV_CheckID( const char *id );
 
@@ -603,8 +585,6 @@ qboolean SV_CheckID( const char *id );
 //
 void SV_InactivateClients( void );
 int SV_FindBestBaselineForStatic( int index, entity_state_t **baseline, entity_state_t *to );
-void SV_WriteFrameToClient( sv_client_t *client, sizebuf_t *msg );
-void SV_BuildClientFrame( sv_client_t *client );
 void SV_SkipUpdates( void );
 
 //
@@ -677,6 +657,7 @@ void SV_ClearGameState( void );
 //
 // sv_pmove.c
 //
+void SV_InitClientMove( void );
 qboolean SV_PlayerIsFrozen( edict_t *pClient );
 void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed );
 
@@ -687,7 +668,6 @@ void SV_ClearWorld( void );
 void SV_UnlinkEdict( edict_t *ent );
 void SV_ClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, trace_t *trace );
 void SV_CustomClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, trace_t *trace );
-trace_t SV_TraceHull( edict_t *ent, int hullNum, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end );
 trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e, qboolean monsterclip );
 trace_t SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e );
 const char *SV_TraceTexture( edict_t *ent, const vec3_t start, const vec3_t end );

@@ -299,7 +299,7 @@ SV_ProcessFile
 process incoming file (customization)
 =================
 */
-void SV_ProcessFile( sv_client_t *cl, const char *filename )
+static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 {
 	customization_t	*pList;
 	resource_t	*resource;
@@ -541,7 +541,7 @@ This has to be done before the world logic, because
 player processing happens outside RunWorldFrame
 ================
 */
-void SV_PrepWorldFrame( void )
+static void SV_PrepWorldFrame( void )
 {
 	edict_t	*ent;
 	int	i;
@@ -563,7 +563,7 @@ void SV_PrepWorldFrame( void )
 SV_IsSimulating
 =================
 */
-qboolean SV_IsSimulating( void )
+static qboolean SV_IsSimulating( void )
 {
 	if( sv.background && SV_Active() && CL_Active())
 	{
@@ -710,17 +710,6 @@ void Host_ServerFrame( void )
 
 	// send a heartbeat to the master if needed
 	NET_MasterHeartbeat ();
-}
-
-/*
-==================
-Host_SetServerState
-==================
-*/
-void Host_SetServerState( int state )
-{
-	Cvar_FullSet( "host_serverstate", va( "%i", state ), FCVAR_READ_ONLY );
-	sv.state = state;
 }
 
 //============================================================================
@@ -1053,7 +1042,7 @@ SV_FreeClients
 release server clients
 ================
 */
-void SV_FreeClients( void )
+static void SV_FreeClients( void )
 {
 	if( svs.maxclients != 0 )
 	{

@@ -777,6 +777,7 @@ int COM_FileSize( const char *filename );
 void COM_FreeFile( void *buffer );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 char *va( const char *format, ... ) _format( 1 );
+qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
 
 // soundlib shared exports
 qboolean S_Init( void );

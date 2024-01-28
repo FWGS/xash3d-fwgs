@@ -43,6 +43,7 @@ typedef struct ucmd_s
 static int	g_userid = 1;
 
 static void SV_UserinfoChanged( sv_client_t *cl );
+static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 
 /*
 =================
@@ -84,7 +85,7 @@ flood the server with invalid connection IPs.  With a
 challenge, they must give a valid IP address.
 =================
 */
-void SV_GetChallenge( netadr_t from )
+static void SV_GetChallenge( netadr_t from )
 {
 	int	i, oldest = 0;
 	double	oldestTime;
@@ -3040,7 +3041,7 @@ ucmd_t enttoolscmds[] =
 SV_ExecuteUserCommand
 ==================
 */
-void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
+static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 {
 	ucmd_t	*u;
 
