@@ -188,11 +188,6 @@ int MSG_SeekToBit( sizebuf_t *sb, int bitPos, int whence )
 	return 0;
 }
 
-static void MSG_SeekToByte( sizebuf_t *sb, int bytePos )
-{
-	sb->iCurBit = bytePos << 3;
-}
-
 void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
 {
 	if( !MSG_Overflow( sb, 1 ))
