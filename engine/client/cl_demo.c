@@ -438,7 +438,7 @@ CL_StopRecord
 finish recording demo
 =================
 */
-void CL_StopRecord( void )
+static void CL_StopRecord( void )
 {
 	int	i, curpos;
 	float	stoptime;

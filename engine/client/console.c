@@ -140,8 +140,9 @@ typedef struct
 
 static console_t		con;
 
-void Con_ClearField( field_t *edit );
-void Field_CharEvent( field_t *edit, int ch );
+static void Con_ClearField( field_t *edit );
+static void Field_CharEvent( field_t *edit, int ch );
+static void Con_InvalidateFonts( void );
 
 static void Con_LoadHistory( con_history_t *self );
 static void Con_SaveHistory( con_history_t *self );
@@ -493,7 +494,7 @@ void Con_PageDown( int lines )
 Con_Top
 ================
 */
-void Con_Top( void )
+static void Con_Top( void )
 {
 	con.backscroll = CON_MAXLINES;
 }
@@ -1120,7 +1121,7 @@ EDIT FIELDS
 Con_ClearField
 ================
 */
-void Con_ClearField( field_t *edit )
+static void Con_ClearField( field_t *edit )
 {
 	memset( edit->buffer, 0, MAX_STRING );
 	edit->cursor = 0;
@@ -1250,7 +1251,7 @@ static void Field_KeyDownEvent( field_t *edit, int key )
 Field_CharEvent
 ==================
 */
-void Field_CharEvent( field_t *edit, int ch )
+static void Field_CharEvent( field_t *edit, int ch )
 {
 	int	len;
 

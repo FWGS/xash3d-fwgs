@@ -415,7 +415,7 @@ void SCR_EndLoadingPlaque( void )
 SCR_AddDirtyPoint
 =================
 */
-void SCR_AddDirtyPoint( int x, int y )
+static void SCR_AddDirtyPoint( int x, int y )
 {
 	if( x < scr_dirty.x1 ) scr_dirty.x1 = x;
 	if( x > scr_dirty.x2 ) scr_dirty.x2 = x;
@@ -602,7 +602,7 @@ SCR_InstallParticlePalette
 INTERNAL RESOURCE
 ================
 */
-void SCR_InstallParticlePalette( void )
+static void SCR_InstallParticlePalette( void )
 {
 	rgbdata_t	*pic;
 	int	i;

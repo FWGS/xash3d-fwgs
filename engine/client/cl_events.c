@@ -350,7 +350,7 @@ CL_QueueEvent
 
 =============
 */
-void CL_QueueEvent( int flags, int index, float delay, event_args_t *args )
+static void CL_QueueEvent( int flags, int index, float delay, event_args_t *args )
 {
 	event_info_t	*ei;
 

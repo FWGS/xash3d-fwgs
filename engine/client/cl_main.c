@@ -879,7 +879,7 @@ CL_SendCommand
 Called every frame to builds and sends a command packet to the server.
 =================
 */
-void CL_SendCommand( void )
+static void CL_SendCommand( void )
 {
 	// we create commands even if a demo is playing,
 	CL_CreateCmd();

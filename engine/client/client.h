@@ -737,8 +737,6 @@ void CL_ClearResourceLists( void );
 void CL_Parse_Debug( qboolean enable );
 void CL_Parse_RecordCommand( int cmd, int startoffset );
 void CL_ResetFrame( frame_t *frame );
-void CL_WriteMessageHistory( void );
-const char *CL_MsgInfo( int cmd );
 
 //
 // cl_efx.c
@@ -749,7 +747,6 @@ void CL_Particle( const vec3_t org, int color, float life, int zpos, int zvel );
 // cl_main.c
 //
 void CL_Init( void );
-void CL_SendCommand( void );
 void CL_Disconnect_f( void );
 void CL_ProcessFile( qboolean successfully_received, const char *filename );
 void CL_WriteUsercmd( sizebuf_t *msg, int from, int to );
@@ -758,7 +755,6 @@ qboolean CL_PrecacheResources( void );
 void CL_SetupOverviewParams( void );
 void CL_UpdateFrameLerp( void );
 int CL_IsDevOverviewMode( void );
-void CL_PingServers_f( void );
 void CL_SignonReply( void );
 void CL_ClearState( void );
 
@@ -776,8 +772,6 @@ void CL_CheckStartupDemos( void );
 void CL_WriteDemoJumpTime( void );
 void CL_CloseDemoHeader( void );
 void CL_DemoCompleted( void );
-void CL_StopPlayback( void );
-void CL_StopRecord( void );
 void CL_PlayDemo_f( void );
 void CL_TimeDemo_f( void );
 void CL_StartDemos_f( void );
@@ -793,12 +787,9 @@ int CL_GetDemoComment( const char *demoname, char *comment );
 void CL_ParseEvent( sizebuf_t *msg );
 void CL_ParseReliableEvent( sizebuf_t *msg );
 void CL_SetEventIndex( const char *szEvName, int ev_index );
-void CL_QueueEvent( int flags, int index, float delay, event_args_t *args );
 void CL_PlaybackEvent( int flags, const edict_t *pInvoker, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
 void CL_RegisterEvent( int lastnum, const char *szEvName, pfnEventHook func );
-void CL_BatchResourceRequest( qboolean initialize );
-int CL_EstimateNeededResources( void );
 void CL_ResetEvent( event_info_t *ei );
 word CL_EventIndex( const char *name );
 void CL_FireEvents( void );
@@ -822,10 +813,7 @@ int CL_DrawStringf( cl_font_t *font, float x, float y, rgba_t color, int flags, 
 //
 void CL_UnloadProgs( void );
 qboolean CL_LoadProgs( const char *name );
-void CL_ParseUserMessage( sizebuf_t *msg, int svc_num );
 void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize );
-void CL_ParseFinaleCutscene( sizebuf_t *msg, int level );
-void CL_ParseTextMessage( sizebuf_t *msg );
 void CL_DrawHUD( int state );
 void CL_InitEdicts( int maxclients );
 void CL_FreeEdicts( void );
@@ -843,12 +831,9 @@ model_t *CL_LoadModel( const char *modelname, int *index );
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags );
 void SPR_AdjustSize( float *x, float *y, float *w, float *h );
 int CL_GetScreenInfo( SCREENINFO *pscrinfo );
-void CL_FillRGBA( int x, int y, int width, int height, int r, int g, int b, int a );
 pmtrace_t *PM_CL_TraceLine( float *start, float *end, int flags, int usehull, int ignore_pe );
 const char *PM_CL_TraceTexture( int ground, float *vstart, float *vend );
 int PM_CL_PointContents( const float *p, int *truecontents );
-void CL_GetMousePosition( int *mx, int *my ); // TODO: move to input
-cl_entity_t* CL_GetViewModel( void );
 physent_t *pfnGetPhysent( int idx );
 struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
 movevars_t *pfnGetMoveVars( void );
@@ -907,6 +892,11 @@ qboolean CL_RequestMissingResources( void );
 void CL_RegisterResources ( sizebuf_t *msg );
 void CL_ParseViewEntity( sizebuf_t *msg );
 void CL_ParseServerTime( sizebuf_t *msg );
+void CL_ParseUserMessage( sizebuf_t *msg, int svc_num );
+void CL_ParseFinaleCutscene( sizebuf_t *msg, int level );
+void CL_ParseTextMessage( sizebuf_t *msg );
+void CL_BatchResourceRequest( qboolean initialize );
+int CL_EstimateNeededResources( void );
 
 //
 // cl_parse_48.c
@@ -920,8 +910,6 @@ void CL_LegacyPrecache_f( void );
 void SCR_VidInit( void );
 void SCR_TileClear( void );
 void SCR_DirtyScreen( void );
-void SCR_AddDirtyPoint( int x, int y );
-void SCR_InstallParticlePalette( void );
 void SCR_EndLoadingPlaque( void );
 void SCR_RegisterTextures( void );
 void SCR_LoadCreditsFont( void );
@@ -957,20 +945,17 @@ void CL_InitClientMove( void );
 void CL_PredictMovement( qboolean repredicting );
 void CL_CheckPredictionError( void );
 qboolean CL_IsPredicted( void );
-int CL_TruePointContents( const vec3_t p );
 int CL_WaterEntity( const float *rgflPos );
 cl_entity_t *CL_GetWaterEntity( const float *rgflPos );
-int CL_TestLine( const vec3_t start, const vec3_t end, int flags );
 pmtrace_t *CL_VisTraceLine( vec3_t start, vec3_t end, int flags );
 pmtrace_t CL_TraceLine( vec3_t start, vec3_t end, int flags );
-void CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs );
-void CL_PopTraceBounds( void );
 void CL_MoveSpectatorCamera( void );
 void CL_SetLastUpdate( void );
 void CL_RedoPrediction( void );
 void CL_PushPMStates( void );
 void CL_PopPMStates( void );
 void CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient );
+void CL_SetIdealPitch( void );
 
 //
 // cl_qparse.c
@@ -987,12 +972,10 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType );
 void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );
 qboolean CL_GetEntitySpatialization( struct channel_s *ch );
 qboolean CL_GetMovieSpatialization( struct rawchan_s *ch );
-void CL_ProcessPlayerState( int playerindex, entity_state_t *state );
 void CL_ComputePlayerOrigin( cl_entity_t *clent );
 void CL_ProcessPacket( frame_t *frame );
 void CL_MoveThirdpersonCamera( void );
 qboolean CL_IsPlayerIndex( int idx );
-void CL_SetIdealPitch( void );
 void CL_EmitEntities( void );
 
 //
@@ -1016,6 +999,7 @@ const ref_overview_t *GL_GetOverviewParms( void );
 //
 void R_StoreEfrags( efrag_t **ppefrag, int framecount );
 void R_AddEfrags( cl_entity_t *ent );
+
 //
 // cl_tent.c
 //
@@ -1026,7 +1010,6 @@ void CL_ClearEfrags( void );
 void CL_TestLights( void );
 void CL_FireCustomDecal( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags, float scale );
 void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags );
-void CL_PlayerDecal( int playerIndex, int textureIndex, int entityIndex, float *pos );
 void R_FreeDeadParticles( struct particle_s **ppparticles );
 void CL_AddClientResource( const char *filename, int type );
 void CL_AddClientResources( void );
@@ -1048,7 +1031,6 @@ void CL_ReadPointFile_f( void );
 void CL_DrawEFX( float time, qboolean fTrans );
 void CL_ThinkParticle( double frametime, particle_t *p );
 void CL_ReadLineFile_f( void );
-void CL_RunLightStyles( void );
 
 //
 // console.c
@@ -1069,26 +1051,22 @@ int Con_UtfProcessCharForce( int in );
 int Con_UtfMoveLeft( char *str, int pos );
 int Con_UtfMoveRight( char *str, int pos, int length );
 void Con_DefaultColor( int r, int g, int b, qboolean gameui );
-void Con_InvalidateFonts( void );
 cl_font_t *Con_GetCurFont( void );
 cl_font_t *Con_GetFont( int num );
 void Con_DrawCharacterLen( int number, int *width, int *height );
 int Con_DrawString( int x, int y, const char *string, rgba_t setColor ); // legacy, use cl_font.c
 void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height ); // legacy, use cl_font.c
 void Con_CharEvent( int key );
-void Con_RestoreFont( void );
 void Key_Console( int key );
 void Key_Message( int key );
 void Con_FastClose( void );
 void Con_Bottom( void );
-void Con_Top( void );
 void Con_PageDown( int lines );
 void Con_PageUp( int lines );
 
 //
 // s_main.c
 //
-void S_StreamRawSamples( int samples, int rate, int width, int channels, const byte *data );
 void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float synctime );
 void S_StartBackgroundTrack( const char *intro, const char *loop, int position, qboolean fullpath );
 void S_StopBackgroundTrack( void );
@@ -1135,11 +1113,6 @@ void UI_ConnectionProgress_Precache( void );
 void UI_ConnectionProgress_Connect( const char *server );
 void UI_ConnectionProgress_ChangeLevel( void );
 void UI_ConnectionProgress_ParseServerInfo( const char *server );
-void pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a );
-void pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc );
-void pfnPIC_DrawTrans( int x, int y, int width, int height, const wrect_t *prc );
-void pfnPIC_DrawHoles( int x, int y, int width, int height, const wrect_t *prc );
-void pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *prc );
 
 //
 // cl_mobile.c

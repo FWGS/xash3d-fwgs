@@ -87,6 +87,8 @@ const char *cl_explode_sounds[] =
 	"weapons/explode5.wav",
 };
 
+static void CL_PlayerDecal( int playerIndex, int textureIndex, int entityIndex, float *pos );
+
 /*
 ================
 CL_LoadClientSprites
@@ -2919,7 +2921,7 @@ CL_PlayerDecal
 spray custom colored decal (clan logo etc)
 ===============
 */
-void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, float *pos )
+static void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, float *pos )
 {
 	int		textureIndex = 0;
 	customization_t	*pCust = NULL;
