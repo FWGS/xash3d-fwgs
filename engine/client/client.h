@@ -705,7 +705,6 @@ extern convar_t cl_fixmodelinterpolationartifacts;
 //=============================================================================
 
 void CL_SetLightstyle( int style, const char* s, float f );
-void CL_RunLightStyles( void );
 void CL_DecayLights( void );
 dlight_t *CL_GetDynamicLight( int number );
 dlight_t *CL_GetEntityLight( int number );
@@ -716,12 +715,8 @@ dlight_t *CL_GetEntityLight( int number );
 // cl_cmds.c
 //
 void CL_Quit_f( void );
-void CL_ScreenShot_f( void );
-void CL_SnapShot_f( void );
+void CL_GenericShot_f( void );
 void CL_PlayCDTrack_f( void );
-void CL_EnvShot_f( void );
-void CL_SkyShot_f( void );
-void CL_SaveShot_f( void );
 void CL_LevelShot_f( void );
 void CL_SetSky_f( void );
 void SCR_Viewpos_f( void );
