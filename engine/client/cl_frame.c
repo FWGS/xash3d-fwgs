@@ -585,7 +585,7 @@ CL_ProcessPlayerState
 process player states after the new packet has received
 =================
 */
-void CL_ProcessPlayerState( int playerindex, entity_state_t *state )
+static void CL_ProcessPlayerState( int playerindex, entity_state_t *state )
 {
 	entity_state_t	*ps;
 

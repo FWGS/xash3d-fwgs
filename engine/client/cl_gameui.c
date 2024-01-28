@@ -542,7 +542,7 @@ pfnPIC_Set
 
 =========
 */
-void GAME_EXPORT pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a )
+static void GAME_EXPORT pfnPIC_Set( HIMAGE hPic, int r, int g, int b, int a )
 {
 	gameui.ds.gl_texturenum = hPic;
 	r = bound( 0, r, 255 );
@@ -558,7 +558,7 @@ pfnPIC_Draw
 
 =========
 */
-void GAME_EXPORT pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc )
+static void GAME_EXPORT pfnPIC_Draw( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	PIC_DrawGeneric( x, y, width, height, prc );
@@ -570,7 +570,7 @@ pfnPIC_DrawTrans
 
 =========
 */
-void GAME_EXPORT pfnPIC_DrawTrans( int x, int y, int width, int height, const wrect_t *prc )
+static void GAME_EXPORT pfnPIC_DrawTrans( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 	PIC_DrawGeneric( x, y, width, height, prc );
@@ -582,7 +582,7 @@ pfnPIC_DrawHoles
 
 =========
 */
-void GAME_EXPORT pfnPIC_DrawHoles( int x, int y, int width, int height, const wrect_t *prc )
+static void GAME_EXPORT pfnPIC_DrawHoles( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
 	PIC_DrawGeneric( x, y, width, height, prc );
@@ -594,7 +594,7 @@ pfnPIC_DrawAdditive
 
 =========
 */
-void GAME_EXPORT pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *prc )
+static void GAME_EXPORT pfnPIC_DrawAdditive( int x, int y, int width, int height, const wrect_t *prc )
 {
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 	PIC_DrawGeneric( x, y, width, height, prc );

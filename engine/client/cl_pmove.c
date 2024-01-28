@@ -55,31 +55,6 @@ void GAME_EXPORT CL_PopPMStates( void )
 }
 
 /*
-=============
-CL_PushTraceBounds
-
-=============
-*/
-void GAME_EXPORT CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs )
-{
-	hullnum = bound( 0, hullnum, 3 );
-	VectorCopy( mins, clgame.pmove->player_mins[hullnum] );
-	VectorCopy( maxs, clgame.pmove->player_maxs[hullnum] );
-}
-
-/*
-=============
-CL_PopTraceBounds
-
-=============
-*/
-void GAME_EXPORT CL_PopTraceBounds( void )
-{
-	memcpy( clgame.pmove->player_mins, host.player_mins, sizeof( host.player_mins ));
-	memcpy( clgame.pmove->player_maxs, host.player_maxs, sizeof( host.player_maxs ));
-}
-
-/*
 ===============
 CL_IsPredicted
 ===============
@@ -685,11 +660,6 @@ cl_entity_t *CL_GetWaterEntity( const float *rgflPos )
 	if( entnum <= 0 ) return NULL; // world or not water
 
 	return CL_GetEntityByIndex( entnum );
-}
-
-int GAME_EXPORT CL_TestLine( const vec3_t start, const vec3_t end, int flags )
-{
-	return PM_TestLineExt( clgame.pmove, clgame.pmove->physents, clgame.pmove->numphysent, start, end, flags );
 }
 
 static int GAME_EXPORT pfnTestPlayerPosition( float *pos, pmtrace_t *ptrace )
