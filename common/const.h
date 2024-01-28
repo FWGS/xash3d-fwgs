@@ -92,6 +92,7 @@
 #define SOLID_BSP			4	// bsp clip, touch on edge, block
 #define SOLID_CUSTOM		5	// call external callbacks for tracing
 #define SOLID_PORTAL		6	// borrowed from FTE
+#define SOLID_GIB			7	// do not block, only collide with solid brushes
 
 // edict->deadflag values
 #define DEAD_NO			0 	// alive

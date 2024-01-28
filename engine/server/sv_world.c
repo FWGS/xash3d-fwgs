@@ -1069,7 +1069,7 @@ static qboolean SV_ClipToEntity( edict_t *touch, moveclip_t *clip )
 			return true;
 	}
 
-	if( touch == clip->passedict || touch->v.solid == SOLID_NOT )
+	if( touch == clip->passedict || touch->v.solid == SOLID_NOT || touch->v.solid == SOLID_GIB )
 		return true;
 
 	if( touch->v.solid == SOLID_TRIGGER )
