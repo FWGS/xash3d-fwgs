@@ -28,6 +28,17 @@ server_static_t	svs;	// persistant server info
 svgame_static_t	svgame;	// persistant game info
 
 /*
+==================
+Host_SetServerState
+==================
+*/
+static void Host_SetServerState( int state )
+{
+	Cvar_FullSet( "host_serverstate", va( "%i", state ), FCVAR_READ_ONLY );
+	sv.state = state;
+}
+
+/*
 ================
 SV_AddResource
 

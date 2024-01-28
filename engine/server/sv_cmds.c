@@ -638,7 +638,7 @@ static void SV_EntPatch_f( void )
 SV_Status_f
 ================
 */
-void SV_Status_f( void )
+static void SV_Status_f( void )
 {
 	sv_client_t	*cl;
 	int		i;
