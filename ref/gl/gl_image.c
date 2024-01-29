@@ -131,7 +131,7 @@ qboolean GL_TextureFilteringEnabled( const gl_texture_t *tex )
 		if( FBitSet( tex->flags, TF_ATLAS_PAGE ))
 			return gl_lightmap_nearest.value == 0.0f;
 
-		if( FBitSet( tex->flags, TF_ALLOW_NEAREST_TOGGLE ))
+		if( FBitSet( tex->flags, TF_ALLOW_NEAREST ))
 			return gl_texture_nearest.value == 0.0f;
 
 		return true;
