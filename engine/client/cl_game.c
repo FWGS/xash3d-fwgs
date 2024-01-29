@@ -1641,6 +1641,7 @@ get actual screen info
 */
 int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
+	qboolean apply_scale_factor = false;
 	float scale_factor = hud_scale.value;
 
 	if( FBitSet( hud_fontscale.flags, FCVAR_CHANGED ))
@@ -1655,17 +1656,24 @@ int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 	clgame.scrInfo.iSize = sizeof( clgame.scrInfo );
 	clgame.scrInfo.iFlags = SCRINFO_SCREENFLASH;
 
-	if( scale_factor && scale_factor != 1.0f)
+	if( scale_factor && scale_factor != 1.0f )
+	{
+		float scaled_width = (float)refState.width / scale_factor;
+		if( scaled_width >= hud_scale_minimal_width.value )
+			apply_scale_factor = true;
+	}
+
+	if( apply_scale_factor )
 	{
 		clgame.scrInfo.iWidth = (float)refState.width / scale_factor;
 		clgame.scrInfo.iHeight = (float)refState.height / scale_factor;
-		clgame.scrInfo.iFlags |= SCRINFO_STRETCHED;
+		SetBits( clgame.scrInfo.iFlags, SCRINFO_STRETCHED );
 	}
 	else
 	{
 		clgame.scrInfo.iWidth = refState.width;
 		clgame.scrInfo.iHeight = refState.height;
-		clgame.scrInfo.iFlags &= ~SCRINFO_STRETCHED;
+		ClearBits( clgame.scrInfo.iFlags, SCRINFO_STRETCHED );
 	}
 
 	if( !pscrinfo ) return 0;
