@@ -364,6 +364,7 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
+qboolean GL_TextureFilteringEnabled( const gl_texture_t *tex );
 void GL_ApplyTextureParams( gl_texture_t *tex );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( GLenum texnum );

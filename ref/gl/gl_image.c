@@ -118,6 +118,28 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	glState.currentTexturesIndex[tmu] = texnum;
 }
 
+qboolean GL_TextureFilteringEnabled( const gl_texture_t *tex )
+{
+	if( FBitSet( tex->flags, TF_NEAREST ))
+		return false;
+
+	if( FBitSet( tex->flags, TF_DEPTHMAP ))
+		return true;
+
+	if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
+	{
+		if( FBitSet( tex->flags, TF_ATLAS_PAGE ))
+			return gl_lightmap_nearest.value == 0.0f;
+
+		if( FBitSet( tex->flags, TF_SKYSIDE ))
+			return gl_texture_nearest.value == 0.0f;
+
+		return true;
+	}
+
+	return gl_texture_nearest.value == 0.0f;
+}
+
 /*
 =================
 GL_ApplyTextureParams
@@ -149,7 +171,7 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 			pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_LUMINANCE );
 		else pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_INTENSITY );
 
-		if( FBitSet( tex->flags, TF_NEAREST ))
+		if( !GL_TextureFilteringEnabled( tex ))
 		{
 			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -166,7 +188,7 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 	}
 	else if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
 	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || ( IsLightMap( tex ) && gl_lightmap_nearest.value ) || ( tex->flags == TF_SKYSIDE && gl_texture_nearest.value ))
+		if( !GL_TextureFilteringEnabled( tex ))
 		{
 			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
@@ -179,7 +201,7 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 	}
 	else
 	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest.value )
+		if( !GL_TextureFilteringEnabled( tex ))
 		{
 			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
 			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
