@@ -496,7 +496,6 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 void R_InitRipples( void );
 void R_ResetRipples( void );
 void R_AnimateRipples( void );
-void R_UpdateRippleTexParams( void );
 void R_UploadRipples( texture_t *image );
 
 //
