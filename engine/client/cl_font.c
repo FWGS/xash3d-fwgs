@@ -60,7 +60,6 @@ qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float sc
 	font->type = FONT_FIXED;
 	font->valid = true;
 	font->scale = scale;
-	font->nearest = FBitSet( texFlags, TF_NEAREST );
 	font->rendermode = rendermode;
 	font->charHeight = Q_rint( font_width / 16 * scale );
 
@@ -107,7 +106,6 @@ qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float
 	font->type = FONT_VARIABLE;
 	font->valid = true;
 	font->scale = scale;
-	font->nearest = FBitSet( texFlags, TF_NEAREST );
 	font->rendermode = rendermode;
 	font->charHeight = Q_rint( src.rowheight * scale );
 
@@ -179,7 +177,7 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 		return font->charWidths[number];
 
 	rc = &font->fontRc[number];
-	if( font->nearest || font->scale <= 1.0f )
+	if( font->scale <= 1.0f || REF_GET_PARM( PARM_TEX_FILTERING, font->hFontTexture ))
 		half = 0;
 
 	s1 = ((float)rc->left + half ) / texw;
