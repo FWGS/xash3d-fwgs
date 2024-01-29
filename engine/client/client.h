@@ -343,7 +343,6 @@ typedef struct
 	int      charHeight;      // scaled height
 	int      type;            // fixed width font or variable
 	int      rendermode;      // default rendermode
-	qboolean	nearest;         // nearest filtering enabled
 	qboolean	valid;           // all rectangles are valid
 } cl_font_t;
 
