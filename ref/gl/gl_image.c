@@ -148,6 +148,7 @@ GL_ApplyTextureParams
 void GL_ApplyTextureParams( gl_texture_t *tex )
 {
 	vec4_t	border = { 0.0f, 0.0f, 0.0f, 1.0f };
+	qboolean nomipmap;
 
 	if( !glw_state.initialized )
 		return;
@@ -159,6 +160,18 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 		return;
 
 	// set texture filter
+	nomipmap = tex->numMips <= 1 || FBitSet( tex->flags, TF_NOMIPMAP|TF_DEPTHMAP );
+	if( !GL_TextureFilteringEnabled( tex ))
+	{
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_NEAREST : GL_NEAREST_MIPMAP_NEAREST );
+		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	}
+	else
+	{
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR );
+		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	}
+
 	if( FBitSet( tex->flags, TF_DEPTHMAP ))
 	{
 		if( !FBitSet( tex->flags, TF_NOCOMPARE ))
@@ -171,47 +184,12 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 			pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_LUMINANCE );
 		else pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_INTENSITY );
 
-		if( !GL_TextureFilteringEnabled( tex ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-
 		// allow max anisotropy as 1.0f on depth textures
 		if( GL_Support( GL_ANISOTROPY_EXT ))
 			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1.0f );
 	}
-	else if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
+	else if( !FBitSet( tex->flags, TF_NOMIPMAP ) && tex->numMips > 1 )
 	{
-		if( !GL_TextureFilteringEnabled( tex ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-	}
-	else
-	{
-		if( !GL_TextureFilteringEnabled( tex ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-
 		// set texture anisotropy if available
 		if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_ALPHACONTRAST ))
 			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy.value );
@@ -288,6 +266,7 @@ GL_UpdateTextureParams
 static void GL_UpdateTextureParams( int iTexture )
 {
 	gl_texture_t	*tex = &gl_textures[iTexture];
+	qboolean nomipmap;
 
 	Assert( tex != NULL );
 
