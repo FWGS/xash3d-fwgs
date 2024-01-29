@@ -882,11 +882,7 @@ void R_InitRipples( void )
 	pic.numMips = 1;
 	memset( pic.buffer, 0, pic.size );
 
-	g_ripple.rippletexturenum = GL_LoadTextureInternal( "*rippletex", &pic, TF_NOMIPMAP );
-
-	// need to set proper tex params for TF_NOMIPMAP texture,
-	// as during upload it fails TF_NEAREST check and gets blurry even with gl_texture_nearest 1
-	R_UpdateRippleTexParams(); 
+	g_ripple.rippletexturenum = GL_LoadTextureInternal( "*rippletex", &pic, TF_NOMIPMAP|TF_ALLOW_NEAREST_TOGGLE );
 }
 
 static void R_SwapBufs( void )
@@ -965,24 +961,6 @@ void R_AnimateRipples( void )
 	}
 
 	R_RunRipplesAnimation( g_ripple.oldbuf, g_ripple.curbuf );
-}
-
-void R_UpdateRippleTexParams( void )
-{
-	gl_texture_t *tex = R_GetTexture( g_ripple.rippletexturenum );
-
-	GL_Bind( XASH_TEXTURE0, g_ripple.rippletexturenum );
-
-	if( gl_texture_nearest.value )
-	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	}
-	else
-	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	}
 }
 
 void R_UploadRipples( texture_t *image )
