@@ -108,7 +108,7 @@ typedef enum
 	TF_NOCOMPARE	= (1<<27),	// disable comparing for depth textures
 	TF_ARB_16BIT	= (1<<28),	// keep image as 16-bit (not 24)
 	TF_MULTISAMPLE	= (1<<29),	// multisampling texture
-	TF_ALLOW_NEAREST_TOGGLE = (1<<30),	// allows toggling nearest filtering for TF_NOMIPMAP textures
+	TF_ALLOW_NEAREST = (1<<30),	// allows toggling nearest filtering for TF_NOMIPMAP textures
 } texFlags_t;
 
 typedef enum

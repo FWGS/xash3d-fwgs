@@ -882,7 +882,7 @@ void R_InitRipples( void )
 	pic.numMips = 1;
 	memset( pic.buffer, 0, pic.size );
 
-	g_ripple.rippletexturenum = GL_LoadTextureInternal( "*rippletex", &pic, TF_NOMIPMAP|TF_ALLOW_NEAREST_TOGGLE );
+	g_ripple.rippletexturenum = GL_LoadTextureInternal( "*rippletex", &pic, TF_NOMIPMAP|TF_ALLOW_NEAREST );
 }
 
 static void R_SwapBufs( void )
