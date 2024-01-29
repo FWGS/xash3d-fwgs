@@ -575,7 +575,7 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	{
 		// quake fixed font as fallback
 		// keep source to print directly into conback image
-		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, scale, kRenderTransTexture, TF_FONT|TF_KEEP_SOURCE ))
+		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST|TF_KEEP_SOURCE ))
 			Con_DPrintf( S_ERROR "failed to load console font\n" );
 	}
 }
