@@ -116,7 +116,7 @@ def process_extra_projects_conf(ctx):
 	ctx.env.EXTRA_PROJECTS = projs
 
 	for proj in projs.split(','):
-		tools_orig = ctx.tools.copy()
+		tools_orig = ctx.tools[:]
 		ctx.add_subproject(proj)
 		waifulib_path = os.path.join(proj, 'scripts', 'waifulib')
 		if os.path.isdir(waifulib_path):

@@ -34,6 +34,12 @@ NSWITCH_ENVVARS = ['DEVKITPRO']
 
 PSVITA_ENVVARS = ['VITASDK']
 
+def host_exe_suffix():
+	if sys.platform.startswith('win32') or sys.platform.startswith('cygwin'):
+		return '.exe'
+	return ''
+
+
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
@@ -209,25 +215,25 @@ class Android:
 
 	def cc(self):
 		if self.is_host():
-			s = 'clang'
+			s = 'clang' + host_exe_suffix()
 			environ = getattr(self.ctx, 'environ', os.environ)
 
 			if 'CC' in environ:
 				s = environ['CC']
 
 			return '%s --target=%s' % (s, self.ndk_triplet())  #%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
+		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc' + host_exe_suffix())
 
 	def cxx(self):
 		if self.is_host():
-			s = 'clang++'
+			s = 'clang++' + host_exe_suffix()
 			environ = getattr(self.ctx, 'environ', os.environ)
 
 			if 'CXX' in environ:
 				s = environ['CXX']
 
 			return '%s --target=%s' % (s, self.ndk_triplet()) #%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
+		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++' + host_exe_suffix())
 
 	def strip(self):
 		if self.is_host() and not self.ndk_binutils:
@@ -235,11 +241,11 @@ class Android:
 
 			if 'STRIP' in environ:
 				return environ['STRIP']
-			return 'llvm-strip'
+			return 'llvm-strip' + host_exe_suffix()
 
 		if self.ndk_rev >= 23:
-			return os.path.join(self.gen_binutils_path(), 'llvm-strip')
-		return os.path.join(self.gen_binutils_path(), 'strip')
+			return os.path.join(self.gen_binutils_path(), 'llvm-strip' + host_exe_suffix())
+		return os.path.join(self.gen_binutils_path(), 'strip' + host_exe_suffix())
 
 	def objcopy(self):
 		if self.is_host() and not self.ndk_binutils:
@@ -247,11 +253,23 @@ class Android:
 
 			if 'OBJCOPY' in environ:
 				return environ['OBJCOPY']
-			return 'llvm-objcopy'
+			return 'llvm-objcopy' + host_exe_suffix()
 
 		if self.ndk_rev >= 23:
-			return os.path.join(self.gen_binutils_path(), 'llvm-objcopy')
-		return os.path.join(self.gen_binutils_path(), 'objcopy')
+			return os.path.join(self.gen_binutils_path(), 'llvm-objcopy' + host_exe_suffix())
+		return os.path.join(self.gen_binutils_path(), 'objcopy' + host_exe_suffix())
+
+	def ar(self):
+		if self.is_host() and not self.ndk_binutils:
+			environ = getattr(self.ctx, 'environ', os.environ)
+
+			if 'AR' in environ:
+				return environ['AR']
+			return 'llvm-ar' + host_exe_suffix()
+
+		if self.ndk_rev >= 23:
+			return os.path.join(self.gen_binutils_path(), 'llvm-ar' + host_exe_suffix())
+		return os.path.join(self.gen_binutils_path(), 'ar' + host_exe_suffix())
 
 	def system_stl(self):
 		# TODO: proper STL support
@@ -563,10 +581,13 @@ def configure(conf):
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
 		conf.environ['OBJCOPY'] = android.objcopy()
+		conf.environ['AR'] = android.ar()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags(True)
 		conf.env.LINKFLAGS += android.linkflags()
 		conf.env.LDFLAGS += android.ldflags()
+		conf.options.check_cxx_compiler = conf.options.check_cxx_compiler or 'g++,clang++'
+		conf.options.check_c_compiler = conf.options.check_c_compiler or 'gcc,clang'
 
 		conf.env.HAVE_M = True
 		if android.is_hardfp():

@@ -1,0 +1,77 @@
+image: Visual Studio 2015
+build: off
+
+before_build:
+  - git submodule update --init --recursive --depth 1
+  - git clone https://github.com/FWGS/hlsdk-portable --depth 1
+  - git clone https://github.com/FWGS/xash3d-android-project -b android-legacy --depth 1
+  # setup NDK
+  - curl -fsS -o android-ndk-r10e-windows-x86_64.zip https://dl.google.com/android/repository/android-ndk-r10e-windows-x86_64.zip
+  - 7z x android-ndk-r10e-windows-x86_64.zip
+  # setup SDK
+  - mkdir android-sdk
+  - cd android-sdk
+  - mkdir build-tools
+  - cd build-tools
+  # build tools 19 seems to have good compatibility
+  - curl -fsS -o  android-4.4.2.zip https://dl-ssl.google.com/android/repository/build-tools_r19.1-windows.zip
+  - 7z x android-4.4.2.zip
+  - move android-4.4.2 19
+  - del android-4.4.2.zip
+  # sdk dx.bat seems to be broken java detection on appveyor, but java is in PATH already
+  # and i do not know how to escape "$*" in yaml+cmd, so use python
+  - python -c print('java\x20-jar\x20\x25APPVEYOR_BUILD_FOLDER\x25\\android-sdk\\build-tools\\19\\lib\\dx.jar\x20\x25\x2a')  > 19\dx.bat
+  - type 19\dx.bat
+  - cd ..
+  - mkdir platforms
+  - cd platforms
+  # platform 29 should be enough for now
+  - curl -fsS -o  android-10.zip https://dl-ssl.google.com/android/repository/platform-29_r05.zip
+  - 7z x android-10.zip
+  - move android-10 android-29
+  - del android-10.zip
+  - cd ..
+  # very many random build tools versions missing apksinger, maybe package it somewhere?
+  - curl -fsS -o apksigner.jar https://devel.data-in-motion.biz/repository/android/build-tools/27.0.1/apksigner.jar
+  - cd ..
+  # xz-utils only need for minidbg
+  - mkdir xz-utils
+  - cd xz-utils
+  - curl -fsS -o xz-5.2.3-windows.zip https://tukaani.org/xz/xz-5.2.3-windows.zip
+  - 7z x xz-5.2.3-windows.zip
+  - del xz-5.2.3-windows.zip
+  - cd ..
+  # what the hell with zip?
+  - curl -fsS -o zip300xn-x64_1.zip  ftp://ftp.info-zip.org/pub/infozip/win32/zip300xn-x64.zip
+  - 7z x zip300xn-x64_1.zip zip300xn-x64.zip
+  - del zip300xn-x64_1.zip
+  - 7z x zip300xn-x64.zip zip.exe
+  - del zip300xn-x64.zip
+
+build_script:
+  - set ANDROID_NDK_HOME=%APPVEYOR_BUILD_FOLDER%/android-ndk-r10e
+  - set ANDROID_SDK_HOME=%APPVEYOR_BUILD_FOLDER%/android-sdk
+  # appveyor seems to have 32-bit python, so autodetection fails
+  - set HOST_TOOLCHAIN=windows-x86_64
+  # check that our dx script works and java do not need to be detected separately
+  - set APKSIGNER=%APPVEYOR_BUILD_FOLDER%/apksigner.jar
+  - set XZ=%APPVEYOR_BUILD_FOLDER%/xz-utils/bin_x86-64/xz.exe
+  - android-sdk\build-tools\19\dx.bat --version
+  - python waf configure --enable-android-legacy --android aarch64,4.9,21 --disable-werror --extra-projects hlsdk-portable,xash3d-android-project ZIP=%APPVEYOR_BUILD_FOLDER%/zip.exe -T debug
+  - python waf -v
+
+on_failure:
+  - appveyor PushArtifact build/config.log
+  - 7z a c4che.7z build\c4che
+  - appveyor PushArtifact c4che.7z
+  - appveyor PushArtifact build/compile_commands.json
+  - appveyor PushArtifact build/xash3d-android-project/android/xashdroid.unaligned.noclasses.nojni.apk
+  - appveyor PushArtifact build/xash3d-android-project/android/xashdroid.unaligned.noclasses.apk
+  - appveyor PushArtifact build/xash3d-android-project/android/xashdroid.unaligned.apk
+  - appveyor PushArtifact build/xash3d-android-project/android/xashdroid.apk
+  
+
+artifacts:
+  - path: build\xash3d-android-project\android\xashdroid-signed.apk
+    name: xashdroid-legacy-aarch64-debug.apk
+  - path: build/compile_commands.json
