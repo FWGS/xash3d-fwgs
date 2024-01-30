@@ -815,6 +815,34 @@ void NET_MasterClear( void );
 void NET_MasterShutdown( void );
 qboolean NET_GetMaster( netadr_t from, uint *challenge, double *last_heartbeat );
 
+//
+// sounds.c
+//
+typedef enum soundlst_group_e
+{
+	BouncePlayerShell = 0,
+	BounceWeaponShell,
+	BounceConcrete,
+	BounceGlass,
+	BounceMetal,
+	BounceFlesh,
+	BounceWood,
+	Ricochet,
+	Explode,
+	PlayerWaterEnter,
+	PlayerWaterExit,
+	EntityWaterEnter,
+	EntityWaterExit,
+
+	SoundList_Groups // must be last
+} soundlst_group_t;
+
+int SoundList_Count( soundlst_group_t group );
+const char *SoundList_GetRandom( soundlst_group_t group );
+const char *SoundList_Get( soundlst_group_t group, int idx );
+void SoundList_Init( void );
+void SoundList_Shutdown( void );
+
 #ifdef REF_DLL
 #error "common.h in ref_dll"
 #endif

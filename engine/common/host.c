@@ -1310,6 +1310,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	HTTP_Init();
 	ID_Init();
+	SoundList_Init();
 
 	if( Host_IsDedicated() )
 	{
@@ -1412,6 +1413,7 @@ void EXPORT Host_Shutdown( void )
 	SV_ShutdownFilter();
 	CL_Shutdown();
 
+	SoundList_Shutdown();
 	Mod_Shutdown();
 	NET_Shutdown();
 	HTTP_Shutdown();
