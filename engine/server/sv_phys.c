@@ -1384,7 +1384,9 @@ static void SV_CheckWaterTransition( edict_t *ent )
 		if( ent->v.watertype == CONTENTS_EMPTY )
 		{
 			// just crossed into water
-			SV_StartSound( ent, CHAN_AUTO, "player/pl_wade1.wav", 1.0f, ATTN_NORM, 0, 100 );
+			const char *snd = SoundList_GetRandom( PlayerWaterEnter );
+			if( snd )
+				SV_StartSound( ent, CHAN_AUTO, snd, 1.0f, ATTN_NORM, 0, 100 );
 			ent->v.velocity[2] *= 0.5f;
 		}
 
@@ -1418,7 +1420,9 @@ static void SV_CheckWaterTransition( edict_t *ent )
 		if( ent->v.watertype != CONTENTS_EMPTY )
 		{
 			// just crossed into water
-			SV_StartSound( ent, CHAN_AUTO, "player/pl_wade2.wav", 1.0f, ATTN_NORM, 0, 100 );
+			const char *snd = SoundList_GetRandom( PlayerWaterExit );
+			if( snd )
+				SV_StartSound( ent, CHAN_AUTO, snd, 1.0f, ATTN_NORM, 0, 100 );
 		}
 		ent->v.watertype = CONTENTS_EMPTY;
 		ent->v.waterlevel = 0;
