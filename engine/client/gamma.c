@@ -82,9 +82,6 @@ static void BuildGammaTable( const float gamma, const float brightness, const fl
 
 static void V_ValidateGammaCvars( void )
 {
-	if( Host_IsLocalGame( ))
-		return;
-
 	if( v_gamma.value < 1.8f )
 		Cvar_DirectSet( &v_gamma, "1.8" );
 	else if( v_gamma.value > 3.0f )
