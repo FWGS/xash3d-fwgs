@@ -20,7 +20,7 @@ def build(bld):
 		target   = 'mdldec',
 		features = 'c cprogram',
 		includes = '.',
-		use      = 'engine_includes public M',
+		use      = 'engine_includes public M werror',
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.CONSOLE_SUBSYSTEM
 	)

@@ -125,7 +125,7 @@ def build(bld):
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
 	is_cxx_link = False
-	libs = [ 'engine_includes', 'public', 'dllemu' ]
+	libs = [ 'engine_includes', 'public', 'dllemu', 'werror' ]
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob([
