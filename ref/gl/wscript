@@ -65,7 +65,7 @@ def build(bld):
 		},
 		'ref_gles3compat': {
 			'enable':  bld.env.GLES3COMPAT,
-			'libs':    ['DL', 'gl4es', 'LOG'],
+			'libs':    [],
 			'defines': ['XASH_GLES3COMPAT'],
 		},
 	}
