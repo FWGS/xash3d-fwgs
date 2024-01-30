@@ -22,7 +22,7 @@ def configure(conf):
 	conf.env.append_unique('DEFINES', 'REF_DLL')
 
 def build(bld):
-	libs = [ 'engine_includes' ]
+	libs = [ 'engine_includes', 'werror' ]
 	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
 	if bld.env.DEST_OS == 'psvita':
 		libs += [ 'sdk_includes' ]

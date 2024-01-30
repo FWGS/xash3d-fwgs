@@ -12,7 +12,7 @@ def configure(conf):
 def build(bld):
 	source = bld.path.ant_glob( [ '*.c' ] )
 	includes = [ '.' ]
-	libs = [ 'engine_includes', 'sdk_includes' ]
+	libs = [ 'engine_includes', 'sdk_includes', 'werror' ]
 	bld.env.LDFLAGS += ['-fPIC']
 	bld.env.CFLAGS += ['-fPIC']
 	bld.stlib(

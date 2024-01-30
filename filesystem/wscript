@@ -18,7 +18,7 @@ def configure(conf):
 def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
 
-	libs = [ 'filesystem_includes', 'sdk_includes' ]
+	libs = [ 'filesystem_includes', 'sdk_includes', 'werror' ]
 
 	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
 	if bld.env.DEST_OS != 'psvita':

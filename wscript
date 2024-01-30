@@ -340,11 +340,8 @@ def configure(conf):
 
 		opt_cxxflags = [] # TODO:
 
-		cflags = conf.filter_cflags(opt_flags + opt_cflags, cflags)
-		cxxflags = conf.filter_cxxflags(opt_flags + opt_cxxflags, cxxflags)
-
-		conf.env.append_unique('CFLAGS', cflags)
-		conf.env.append_unique('CXXFLAGS', cxxflags)
+		conf.env.CFLAGS_werror = conf.filter_cflags(opt_flags + opt_cflags, cflags)
+		conf.env.CXXFLAGS_werror = conf.filter_cxxflags(opt_flags + opt_cxxflags, cxxflags)
 
 	conf.env.TESTS         = conf.options.TESTS
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
@@ -425,7 +422,7 @@ def configure(conf):
 		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
 			const float val = 2, val2 = 3;
 			int main(void){ return (int)(-asin(val) + cos(val2)); }''',
-			msg='Checking if tgmath.h is usable', mandatory=False, use='M')
+			msg='Checking if tgmath.h is usable', mandatory=False, use='M werror')
 		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
 	else:
 		conf.undefine('HAVE_TGMATH_H')
@@ -443,7 +440,7 @@ def configure(conf):
 int t2[(((64 * GB -1) % 671088649) == 268434537)
        && (((TB - (64 * GB -1) + 255) % 1792151290) == 305159546)? 1: -1];
 int main(void) { return 0; }''',
-		msg='Checking if _FILE_OFFSET_BITS can be defined to 64', mandatory=False)
+		msg='Checking if _FILE_OFFSET_BITS can be defined to 64', mandatory=False, use='werror')
 		if file_offset_bits_usable:
 			conf.define('_FILE_OFFSET_BITS', 64)
 		else: conf.undefine('_FILE_OFFSET_BITS')
@@ -455,9 +452,9 @@ int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
 int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 
 		def check_gnu_function(frag, msg, define):
-			if conf.check_cc(msg=msg, mandatory=False, fragment=frag):
+			if conf.check_cc(msg=msg, mandatory=False, fragment=frag, use='werror'):
 				conf.define(define, 1)
-			elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=frag, defines='_GNU_SOURCE=1'):
+			elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=frag, defines='_GNU_SOURCE=1', use='werror'):
 				conf.define(define, 1)
 				conf.define('_GNU_SOURCE', 1)
 		check_gnu_function(strcasestr_frag, 'Checking for strcasestr', 'HAVE_STRCASESTR')
@@ -484,7 +481,7 @@ int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
 			frag='''#include <opus_custom.h>
 int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const OpusCustomMode *)1, 1); }'''
 
-			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus', fragment=frag, mandatory=False):
+			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus werror', fragment=frag, mandatory=False):
 				conf.env.HAVE_SYSTEM_OPUS = True
 
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
