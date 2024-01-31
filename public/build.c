@@ -95,8 +95,6 @@ const char *Q_PlatformStringByID( const int platform )
 		return "win32";
 	case PLATFORM_ANDROID:
 		return "android";
-	case PLATFORM_LINUX_UNKNOWN:
-		return "linuxunkabi";
 	case PLATFORM_LINUX:
 		return "linux";
 	case PLATFORM_APPLE:
