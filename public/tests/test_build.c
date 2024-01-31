@@ -12,7 +12,6 @@ static struct
 {
 { PLATFORM_WIN32,         "win32" },
 { PLATFORM_ANDROID,       "android" },
-{ PLATFORM_LINUX_UNKNOWN, "linuxunkabi" },
 { PLATFORM_LINUX,         "linux" },
 { PLATFORM_APPLE,         "apple" },
 { PLATFORM_FREEBSD,       "freebsd" },
