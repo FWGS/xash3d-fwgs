@@ -1382,9 +1382,13 @@ void CL_UpdateUserinfo( sizebuf_t *msg, qboolean legacy )
 	if( slot >= MAX_CLIENTS )
 		Host_Error( "CL_ParseServerMessage: svc_updateuserinfo >= MAX_CLIENTS\n" );
 
+	player = &cl.players[slot];
+
 	if( !legacy )
 		id = MSG_ReadLong( msg );	// unique user ID
-	player = &cl.players[slot];
+	else
+		id = 0; // bogus
+
 	active = MSG_ReadOneBit( msg ) ? true : false;
 
 	if( active )
@@ -1406,6 +1410,10 @@ void CL_UpdateUserinfo( sizebuf_t *msg, qboolean legacy )
 
 		memset( player, 0, sizeof( *player ));
 	}
+
+	// in GoldSrc userinfo might be empty but userid is always sent as separate value
+	// thus avoids clean up even after client disconnect
+	player->userid = id;
 }
 
 /*
