@@ -106,7 +106,6 @@ static void V_ValidateGammaCvars( void )
 void V_CheckGamma( void )
 {
 	static qboolean dirty = false;
-	qboolean notify_refdll = false;
 
 	// because these cvars were defined as archive
 	// but wasn't doing anything useful
@@ -132,20 +131,25 @@ void V_CheckGamma( void )
 		V_ValidateGammaCvars();
 
 		dirty = false;
+
 		BuildGammaTable( v_gamma.value, v_brightness.value, v_texgamma.value, v_lightgamma.value );
 
 		// force refdll to recalculate lightmaps
-		notify_refdll = true;
+		if( ref.initialized )
+			ref.dllFuncs.R_GammaChanged( false );
+	}
+}
 
-		// unfortunately, recalculating textures isn't possible yet
+void V_CheckGammaEnd( void )
+{
+	// keep the flags until the end of frame so client.dll will catch these changes
+	if( FBitSet( v_texgamma.flags|v_lightgamma.flags|v_brightness.flags|v_gamma.flags, FCVAR_CHANGED ))
+	{
 		ClearBits( v_texgamma.flags, FCVAR_CHANGED );
 		ClearBits( v_lightgamma.flags, FCVAR_CHANGED );
 		ClearBits( v_brightness.flags, FCVAR_CHANGED );
 		ClearBits( v_gamma.flags, FCVAR_CHANGED );
 	}
-
-	if( notify_refdll && ref.initialized )
-		ref.dllFuncs.R_GammaChanged( false );
 }
 
 void V_Init( void )

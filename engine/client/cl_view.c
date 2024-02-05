@@ -553,4 +553,6 @@ void V_PostRender( void )
 	ref.dllFuncs.R_AllowFog( true );
 	Platform_SetTimer( 0.0f );
 	ref.dllFuncs.R_EndFrame();
+
+	V_CheckGammaEnd();
 }

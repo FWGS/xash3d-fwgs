@@ -795,6 +795,7 @@ uint ScreenGammaTable( uint );
 uint LinearGammaTable( uint );
 void V_Init( void );
 void V_CheckGamma( void );
+void V_CheckGammaEnd( void );
 
 //
 // identification.c
