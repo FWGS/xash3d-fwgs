@@ -288,6 +288,9 @@ void SCR_MakeScreenShot( void )
 	qboolean	iRet = false;
 	int	viewsize;
 
+	if( cls.scrshot_action == scrshot_inactive )
+		return;
+
 	if( cls.envshot_viewsize > 0 )
 		viewsize = cls.envshot_viewsize;
 	else viewsize = cl_envshot_size.value;
@@ -319,8 +322,6 @@ void SCR_MakeScreenShot( void )
 		if( iRet )
 			VID_WriteOverviewScript(); // store overview script too
 		break;
-	case scrshot_inactive:
-		return;
 	}
 
 	// report
