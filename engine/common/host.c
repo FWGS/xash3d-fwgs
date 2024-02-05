@@ -109,6 +109,7 @@ static void Sys_PrintUsage( void )
 	O("-clockwindow <cw>", "adjust clockwindow used to ignore client commands to prevent speed hacks")
 
 "\nGame options:\n"
+	O("-game <directory>", "set game directory to start engine with")
 	O("-dll <path>      ", "override server DLL path")
 #if !XASH_DEDICATED
 	O("-clientlib <path>", "override client DLL path")
