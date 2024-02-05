@@ -17,15 +17,24 @@ GNU General Public License for more details.
 #define COM_STRINGS_H
 
 // default colored message headers
-#define S_NOTE			"^2Note:^7 "
-#define S_WARN			"^3Warning:^7 "
-#define S_ERROR			"^1Error:^7 "
-#define S_USAGE			"Usage: "
-#define S_USAGE_INDENT  "       "
+#define S_BLACK   "^0"
+#define S_RED     "^1"
+#define S_GREEN   "^2"
+#define S_YELLOW  "^3"
+#define S_BLUE    "^4"
+#define S_CYAN    "^5"
+#define S_MAGENTA "^6"
+#define S_DEFAULT "^7"
 
-#define S_OPENGL_NOTE		"^2OpenGL Note:^7 "
-#define S_OPENGL_WARN		"^3OpenGL Warning:^7 "
-#define S_OPENGL_ERROR		"^3OpenGL Error:^7 "
+#define S_NOTE         S_GREEN  "Note: " S_DEFAULT
+#define S_WARN         S_YELLOW "Warning: " S_DEFAULT
+#define S_ERROR        S_RED    "Error: " S_DEFAULT
+#define S_USAGE        "Usage: "
+#define S_USAGE_INDENT "\t"
+
+#define S_OPENGL_NOTE  S_GREEN  "OpenGL Note: " S_DEFAULT
+#define S_OPENGL_WARN  S_YELLOW "OpenGL Warning: " S_DEFAULT
+#define S_OPENGL_ERROR S_RED    "OpenGL Error: " S_DEFAULT
 
 // end game final default message
 #define DEFAULT_ENDGAME_MESSAGE	"The End"
