@@ -105,7 +105,7 @@ const char *SoundList_GetRandom( enum soundlst_group_e group )
 	int count = SoundList_Count( group );
 	int idx = COM_RandomLong( 0, count - 1 );
 
-	Con_Printf( "%s: %s %d %d\n", __func__, soundlst_groups[group], count, idx );
+	// Con_Printf( "%s: %s %d %d\n", __func__, soundlst_groups[group], count, idx );
 
 	return SoundList_Get( group, idx );
 }
