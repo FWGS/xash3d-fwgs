@@ -2490,6 +2490,10 @@ static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qbo
 	return buf;
 }
 
+byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+{
+	return FS_LoadFile_( path, filesizeptr, gamedironly, false );
+}
 
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 {
@@ -3042,6 +3046,7 @@ fs_api_t g_api =
 	(void *)FS_MountArchive_Fullpath,
 
 	FS_GetFullDiskPath,
+	FS_LoadFileMalloc,
 };
 
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );
