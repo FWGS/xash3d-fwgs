@@ -611,7 +611,7 @@ qboolean R_Init( void )
 
 	// cvars that are expected to exist by client.dll
 	// refdll should just get pointer to them
-	Cvar_Get( "r_lighting_modulate", "1", 0, "compatibility cvar, does nothing" );
+	Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "compatibility cvar, does nothing" );
 	Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
 	Cvar_Get( "cl_himodels", "1", FCVAR_ARCHIVE, "draw high-resolution player models in multiplayer" );
 
