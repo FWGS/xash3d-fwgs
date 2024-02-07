@@ -2419,6 +2419,16 @@ static void FS_Purge( file_t *file )
 	file->ungetc = EOF;
 }
 
+static void *FS_CustomAlloc( size_t size )
+{
+	return Mem_Malloc( fs_mempool, size );
+}
+
+static void FS_CustomFree( void *data )
+{
+	return Mem_Free( data );
+}
+
 /*
 ============
 FS_LoadFile
@@ -2427,12 +2437,16 @@ Filename are relative to the xash directory.
 Always appends a 0 byte.
 ============
 */
-byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qboolean gamedironly, const qboolean custom_alloc )
 {
 	searchpath_t *search;
+	fs_offset_t	filesize;
 	file_t *file;
+	byte *buf;
 	char netpath[MAX_SYSPATH];
 	int pack_ind;
+	void *( *pfnAlloc )( size_t ) = custom_alloc ? FS_CustomAlloc : malloc;
+	void ( *pfnFree )( void * ) = custom_alloc ? FS_CustomFree : free;
 
 	// some mappers used leading '/' or '\' in path to models or sounds
 	if( path[0] == '/' || path[0] == '\\' )
@@ -2451,27 +2465,35 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 
 	// custom load file function for compressed files
 	if( search->pfnLoadFile )
-		return search->pfnLoadFile( search, netpath, pack_ind, filesizeptr );
+		return search->pfnLoadFile( search, netpath, pack_ind, filesizeptr, pfnAlloc, pfnFree );
 
 	file = search->pfnOpenFile( search, netpath, "rb", pack_ind );
 
-	if( file )
+	if( !file ) // TODO: indicate errors
+		return NULL;
+
+	filesize = file->real_length;
+	buf = (byte *)pfnAlloc( filesize + 1 );
+
+	if( unlikely( !buf )) // TODO: indicate errors
 	{
-		fs_offset_t	filesize = file->real_length;
-		byte *buf;
-
-		buf = (byte *)Mem_Malloc( fs_mempool, filesize + 1 );
-		buf[filesize] = '\0';
-		FS_Read( file, buf, filesize );
+		Con_Reportf( "%s: can't alloc %d bytes, no free memory\n", __func__, filesize + 1 );
 		FS_Close( file );
-
-		if( filesizeptr )
-			*filesizeptr = filesize;
-
-		return buf;
+		return NULL;
 	}
 
-	return NULL;
+	buf[filesize] = '\0';
+	FS_Read( file, buf, filesize );
+	FS_Close( file );
+	if( filesizeptr ) *filesizeptr = filesize;
+
+	return buf;
+}
+
+
+byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+{
+	return FS_LoadFile_( path, filesizeptr, gamedironly, g_engfuncs._Mem_Alloc != _Mem_Alloc );
 }
 
 qboolean CRC32_File( dword *crcvalue, const char *filename )

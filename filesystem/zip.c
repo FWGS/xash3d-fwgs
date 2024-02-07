@@ -422,7 +422,7 @@ FS_LoadZIPFile
 
 ===========
 */
-static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *sizeptr )
+static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *sizeptr, void *( *pfnAlloc )( size_t ), void ( *pfnFree )( void * ))
 {
 	zipfile_t *file;
 	byte		*compressed_buffer = NULL, *decompressed_buffer = NULL;
@@ -451,11 +451,16 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		return NULL;
 	}*/
 
+	decompressed_buffer = pfnAlloc( file->size + 1 );
+	if( unlikely( !decompressed_buffer ))
+	{
+		Con_Reportf( S_ERROR "%s: can't alloc %d bytes, no free memory\n", __func__, file->size + 1 );
+		return NULL;
+	}
+	decompressed_buffer[file->size] = '\0';
+
 	if( file->flags == ZIP_COMPRESSION_NO_COMPRESSION )
 	{
-		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
-		decompressed_buffer[file->size] = '\0';
-
 		c = read( search->zip->handle, decompressed_buffer, file->size );
 		if( c != file->size )
 		{
@@ -472,7 +477,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		if( final_crc != file->crc32 )
 		{
 			Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
-			Mem_Free( decompressed_buffer );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 #endif // ENABLE_CRC_CHECK
@@ -485,8 +490,6 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	else if( file->flags == ZIP_COMPRESSION_DEFLATED )
 	{
 		compressed_buffer = Mem_Malloc( fs_mempool, file->compressed_size + 1 );
-		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
-		decompressed_buffer[file->size] = '\0';
 
 		c = read( search->zip->handle, compressed_buffer, file->compressed_size );
 		if( c != file->compressed_size )
@@ -529,7 +532,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 			if( final_crc != file->crc32 )
 			{
 				Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
-				Mem_Free( decompressed_buffer );
+				pfnFree( decompressed_buffer );
 				return NULL;
 			}
 #endif
@@ -542,7 +545,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		{
 			Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d.\n", file->name, zlib_result );
 			Mem_Free( compressed_buffer );
-			Mem_Free( decompressed_buffer );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 
@@ -550,6 +553,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	else
 	{
 		Con_Reportf( S_ERROR "Zip_LoadFile: %s : file compressed with unknown algorithm.\n", file->name );
+		pfnFree( decompressed_buffer );
 		return NULL;
 	}
 

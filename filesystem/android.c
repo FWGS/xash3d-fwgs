@@ -233,7 +233,7 @@ static file_t *FS_OpenFile_AndroidAssets( searchpath_t *search, const char *file
 	return file;
 }
 
-static byte *FS_LoadAndroidAssetsFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *filesize )
+static byte *FS_LoadAndroidAssetsFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *filesize, void *( *pfnAlloc )( size_t ), void ( *pfnFree )( void * ))
 {
 	byte *buf;
 	off_t size;
@@ -247,18 +247,24 @@ static byte *FS_LoadAndroidAssetsFile( searchpath_t *search, const char *path, i
 
 	size = AAsset_getLength( asset );
 
-	buf = (byte *)Mem_Malloc( fs_mempool, size + 1 );
+	buf = (byte *)pfnAlloc( size + 1 );
+	if( unlikely( !buf ))
+	{
+		Con_Reportf( "%s: can't alloc %d bytes, no free memory\n", __func__, size + 1 );
+		AAsset_close( asset );
+		return NULL;
+	}
+
 	buf[size] = '\0';
 
 	if( AAsset_read( asset, buf, size ) < 0 )
 	{
-		Mem_Free( buf );
+		pfnFree( buf );
 		AAsset_close( asset );
 		return NULL;
 	}
 
 	AAsset_close( asset );
-
 	if( filesize ) *filesize = size;
 
 	return buf;
