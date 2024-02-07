@@ -453,6 +453,11 @@ static void SV_ConnectClient( netadr_t from )
 
 	// parse some info from the info strings (this can override cl_updaterate)
 	Q_strncpy( newcl->userinfo, userinfo, sizeof( newcl->userinfo ));
+	newcl->fullupdate_next_calltime = 0;
+	newcl->userinfo_next_changetime = 0;
+	newcl->userinfo_penalty = 0;
+	newcl->userinfo_change_attempts = 0;
+
 	SV_UserinfoChanged( newcl );
 	SV_ClearResourceLists( newcl );
 #if 0
