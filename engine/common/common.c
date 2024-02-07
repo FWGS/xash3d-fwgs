@@ -693,7 +693,7 @@ COM_LoadFileForMe
 byte *GAME_EXPORT COM_LoadFileForMe( const char *filename, int *pLength )
 {
 	string	name;
-	byte	*file, *pfile;
+	byte	*pfile;
 	fs_offset_t	iLength;
 
 	if( !COM_CheckString( filename ))
@@ -706,20 +706,8 @@ byte *GAME_EXPORT COM_LoadFileForMe( const char *filename, int *pLength )
 	Q_strncpy( name, filename, sizeof( name ));
 	COM_FixSlashes( name );
 
-	pfile = FS_LoadFile( name, &iLength, false );
+	pfile = g_fsapi.LoadFileMalloc( name, &iLength, false );
 	if( pLength ) *pLength = (int)iLength;
-
-	if( pfile )
-	{
-		file = malloc( iLength + 1 );
-		if( file != NULL )
-		{
-			memcpy( file, pfile, iLength );
-			file[iLength] = '\0';
-		}
-		Mem_Free( pfile );
-		pfile = file;
-	}
 
 	return pfile;
 }
