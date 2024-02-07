@@ -591,7 +591,7 @@ W_ReadLump
 reading lump into temp buffer
 ===========
 */
-static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *lumpsizeptr )
+static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *lumpsizeptr, void *( *pfnAlloc )( size_t ), void ( *pfnFree )( void * ))
 {
 	const wfile_t *wad = search->wad;
 	const dlumpinfo_t *lump = &wad->lumps[pack_ind];
@@ -613,19 +613,25 @@ static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, f
 		return NULL;
 	}
 
-	buf = (byte *)Mem_Malloc( wad->mempool, lump->disksize );
+	buf = (byte *)pfnAlloc( lump->disksize );
+	if( unlikely( !buf ))
+	{
+		Con_Reportf( S_ERROR "%s: can't alloc %d bytes, no free memory\n", __func__, lump->disksize );
+		FS_Seek( wad->handle, oldpos, SEEK_SET );
+		return NULL;
+	}
+
 	size = FS_Read( wad->handle, buf, lump->disksize );
+	FS_Seek( wad->handle, oldpos, SEEK_SET );
 
 	if( size < lump->disksize )
 	{
 		Con_Reportf( S_WARN "W_ReadLump: %s is probably corrupted\n", lump->name );
-		FS_Seek( wad->handle, oldpos, SEEK_SET );
-		Mem_Free( buf );
+		pfnFree( buf );
 		return NULL;
 	}
 
 	if( lumpsizeptr ) *lumpsizeptr = lump->disksize;
-	FS_Seek( wad->handle, oldpos, SEEK_SET );
 
 	return buf;
 }
