@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "su.xash.engine"
-    ndkVersion = "26.0.10792818"
+    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         applicationId = "su.xash"
@@ -101,17 +101,17 @@ android {
 }
 
 dependencies {
-    implementation("com.google.android.material:material:1.10.0")
+    implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.4")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.4")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
+    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
     implementation("androidx.cardview:cardview:1.0.0")
-    implementation("androidx.annotation:annotation:1.7.0")
-    implementation("androidx.fragment:fragment-ktx:1.6.1")
+    implementation("androidx.annotation:annotation:1.7.1")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
-    implementation("androidx.work:work-runtime-ktx:2.8.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 //    implementation "androidx.legacy:legacy-support-v4:1.0.0"
 
     implementation("com.madgag.spongycastle:prov:1.58.0.0")
