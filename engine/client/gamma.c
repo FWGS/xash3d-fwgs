@@ -21,6 +21,7 @@ GNU General Public License for more details.
 //-----------------------------------------------------------------------------
 // Gamma conversion support
 //-----------------------------------------------------------------------------
+static qboolean gamma_rebuilt;
 static byte	texgammatable[256];
 static uint	lightgammatable[1024];
 static uint	lineargammatable[1024];
@@ -131,6 +132,7 @@ void V_CheckGamma( void )
 		V_ValidateGammaCvars();
 
 		dirty = false;
+		gamma_rebuilt = true;
 
 		BuildGammaTable( v_gamma.value, v_brightness.value, v_texgamma.value, v_lightgamma.value );
 
@@ -142,6 +144,13 @@ void V_CheckGamma( void )
 
 void V_CheckGammaEnd( void )
 {
+	// don't reset changed flag if it was set during frame
+	// keep it for next frame
+	if( !gamma_rebuilt )
+		return;
+
+	gamma_rebuilt = false;
+
 	// keep the flags until the end of frame so client.dll will catch these changes
 	if( FBitSet( v_texgamma.flags|v_lightgamma.flags|v_brightness.flags|v_gamma.flags, FCVAR_CHANGED ))
 	{
