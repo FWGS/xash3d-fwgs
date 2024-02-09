@@ -573,15 +573,15 @@ void SCR_LoadCreditsFont( void )
 			"creditsfont_%s.fnt", Cvar_VariableString( "con_charset" )) > 0 )
 		{
 			if( FS_FileExists( charsetFnt, false ))
-				success = Con_LoadVariableWidthFont( charsetFnt, font, scale, kRenderTransAdd, TF_FONT );
+				success = Con_LoadVariableWidthFont( charsetFnt, font, scale, &hud_fontrender, TF_FONT );
 		}
 	}
 
 	if( !success )
-		success = Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, scale, kRenderTransAdd, TF_FONT );
+		success = Con_LoadVariableWidthFont( "gfx/creditsfont.fnt", font, scale, &hud_fontrender, TF_FONT );
 
 	if( !success )
-		success = Con_LoadFixedWidthFont( "gfx/conchars", font, scale, kRenderTransAdd, TF_FONT );
+		success = Con_LoadFixedWidthFont( "gfx/conchars", font, scale, &hud_fontrender, TF_FONT );
 
 	// copy font size for client.dll
 	if( success )

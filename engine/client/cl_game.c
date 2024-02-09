@@ -474,8 +474,7 @@ void CL_DrawCenterPrint( void )
 	pText = clgame.centerPrint.message;
 
 	CL_DrawCharacterLen( font, 0, NULL, &charHeight );
-
-	ref.dllFuncs.GL_SetRenderMode( font->rendermode );
+	CL_SetFontRendermode( font );
 	for( i = 0; i < clgame.centerPrint.lines; i++ )
 	{
 		lineLength = 0;

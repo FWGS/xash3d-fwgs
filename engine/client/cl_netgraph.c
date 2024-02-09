@@ -387,7 +387,7 @@ static void NetGraph_DrawTextFields( int x, int y, int w, wrect_t rect, int coun
 	// move rolling average
 	framerate = FRAMERATE_AVG_FRAC * host.frametime + ( 1.0f - FRAMERATE_AVG_FRAC ) * framerate;
 
-	ref.dllFuncs.GL_SetRenderMode( font->rendermode );
+	CL_SetFontRendermode( font );
 
 	if( framerate > 0.0f )
 	{

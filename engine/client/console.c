@@ -25,6 +25,7 @@ GNU General Public License for more details.
 static CVAR_DEFINE_AUTO( scr_conspeed, "600", FCVAR_ARCHIVE, "console moving speed" );
 static CVAR_DEFINE_AUTO( con_notifytime, "3", FCVAR_ARCHIVE, "notify time to live" );
 CVAR_DEFINE_AUTO( con_fontsize, "1", FCVAR_ARCHIVE, "console font number (0, 1 or 2)" );
+static CVAR_DEFINE_AUTO( con_fontrender, "2", FCVAR_ARCHIVE, "console font render mode (0: additive, 1: holes, 2: trans)" );
 static CVAR_DEFINE_AUTO( con_charset, "cp1251", FCVAR_ARCHIVE, "console font charset (only cp1251 supported now)" );
 static CVAR_DEFINE_AUTO( con_fontscale, "1.0", FCVAR_ARCHIVE, "scale font texture" );
 static CVAR_DEFINE_AUTO( con_fontnum, "-1", FCVAR_ARCHIVE, "console font number (0, 1 or 2), -1 for autoselect" );
@@ -547,7 +548,7 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 
 	if( con_oldfont.value )
 	{
-		success = Con_LoadVariableWidthFont( "gfx/conchars.fnt", font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST );
+		success = Con_LoadVariableWidthFont( "gfx/conchars.fnt", font, scale, &con_fontrender, TF_FONT|TF_NEAREST );
 	}
 	else
 	{
@@ -560,14 +561,14 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 			if( Q_snprintf( path, sizeof( path ),
 				"font%i_%s.fnt", fontNumber, Cvar_VariableString( "con_charset" )) > 0 )
 			{
-				success = Con_LoadVariableWidthFont( path, font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST );
+				success = Con_LoadVariableWidthFont( path, font, scale, &con_fontrender, TF_FONT|TF_NEAREST );
 			}
 		}
 
 		if( !success )
 		{
 			Q_snprintf( path, sizeof( path ), "fonts/font%i", fontNumber );
-			success = Con_LoadVariableWidthFont( path, font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST );
+			success = Con_LoadVariableWidthFont( path, font, scale, &con_fontrender, TF_FONT|TF_NEAREST );
 		}
 	}
 
@@ -575,7 +576,7 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	{
 		// quake fixed font as fallback
 		// keep source to print directly into conback image
-		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, scale, kRenderTransTexture, TF_FONT|TF_NEAREST|TF_KEEP_SOURCE ))
+		if( !Con_LoadFixedWidthFont( "gfx/conchars", font, scale, &con_fontrender, TF_FONT|TF_NEAREST|TF_KEEP_SOURCE ))
 			Con_DPrintf( S_ERROR "failed to load console font\n" );
 	}
 }
@@ -840,6 +841,7 @@ void Con_Init( void )
 	Cvar_RegisterVariable( &con_fontsize );
 	Cvar_RegisterVariable( &con_charset );
 	Cvar_RegisterVariable( &con_fontscale );
+	Cvar_RegisterVariable( &con_fontrender );
 	Cvar_RegisterVariable( &con_fontnum );
 	Cvar_RegisterVariable( &con_color );
 	Cvar_RegisterVariable( &scr_drawversion );
