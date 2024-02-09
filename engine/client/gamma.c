@@ -99,8 +99,8 @@ static void V_ValidateGammaCvars( void )
 
 	if( v_brightness.value < 0.0f )
 		Cvar_DirectSet( &v_brightness, "0" );
-	else if( v_brightness.value > 2.0f )
-		Cvar_DirectSet( &v_brightness, "2" );
+	else if( v_brightness.value > 3.0f )
+		Cvar_DirectSet( &v_brightness, "3" );
 }
 
 void V_CheckGamma( void )
