@@ -342,7 +342,7 @@ typedef struct
 	byte     charWidths[256]; // scaled widths
 	int      charHeight;      // scaled height
 	int      type;            // fixed width font or variable
-	int      rendermode;      // default rendermode
+	convar_t *rendermode;     // user-defined default rendermode
 	qboolean	valid;           // all rectangles are valid
 } cl_font_t;
 
@@ -681,6 +681,7 @@ extern convar_t	cl_draw_beams;
 extern convar_t	cl_clockreset;
 extern convar_t	cl_fixtimerate;
 extern convar_t	hud_fontscale;
+extern convar_t hud_fontrender;
 extern convar_t	hud_scale;
 extern convar_t hud_scale_minimal_width;
 extern convar_t	r_showtextures;
@@ -798,9 +799,10 @@ void CL_FireEvents( void );
 // cl_font.c
 //
 qboolean CL_FixedFont( cl_font_t *font );
-qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, int rendermode, uint texFlags );
-qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, int rendermode, uint texFlags );
+qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags );
+qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags );
 void CL_FreeFont( cl_font_t *font );
+void CL_SetFontRendermode( cl_font_t *font );
 int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *font, int flags );
 int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *font, int flags );
 void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height );
