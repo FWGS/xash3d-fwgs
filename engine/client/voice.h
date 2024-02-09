@@ -21,9 +21,9 @@ GNU General Public License for more details.
 #include "protocol.h" // MAX_CLIENTS
 #include "sound.h"
 
-typedef struct OpusCustomEncoder OpusCustomEncoder;
-typedef struct OpusCustomDecoder OpusCustomDecoder;
-typedef struct OpusCustomMode OpusCustomMode;
+struct OpusCustomEncoder;
+struct OpusCustomDecoder;
+struct OpusCustomMode;
 
 #define VOICE_LOOPBACK_INDEX (-2)
 #define VOICE_LOCALCLIENT_INDEX (-1)
@@ -60,9 +60,9 @@ typedef struct voice_state_s
 	voice_status_t players_status[MAX_CLIENTS];
 
 	// opus stuff
-	OpusCustomMode    *custom_mode;
-	OpusCustomEncoder *encoder;
-	OpusCustomDecoder *decoder;
+	struct OpusCustomMode    *custom_mode;
+	struct OpusCustomEncoder *encoder;
+	struct OpusCustomDecoder *decoder;
 
 	// audio info
 	uint width;

@@ -46,12 +46,12 @@ enum
 	DIRENTRY_CASEINSENSITIVE = -2, // directory is already caseinsensitive, just copy whatever is left
 };
 
-typedef struct dir_s
+struct dir_s
 {
 	string name;
 	int numentries;
 	struct dir_s *entries; // sorted
-} dir_t;
+};
 
 static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 {

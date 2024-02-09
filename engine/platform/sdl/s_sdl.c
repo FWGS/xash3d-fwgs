@@ -45,8 +45,9 @@ so it can unlock and free the data block after it has been played.
 =======================================================================
 */
 static int sdl_dev;
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 static SDL_AudioDeviceID in_dev = 0;
-static SDL_AudioFormat sdl_format;
+#endif
 static char sdl_backend_name[32];
 
 static void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
@@ -100,10 +101,12 @@ qboolean SNDDMA_Init( void )
 	SDL_AudioSpec desired, obtained;
 	int samplecount;
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	// even if we don't have PA
 	// we still can safely set env variables
 	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
 	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
+#endif
 
 	if( SDL_Init( SDL_INIT_AUDIO ))
 	{
@@ -147,8 +150,6 @@ qboolean SNDDMA_Init( void )
 	dma.samples         = samplecount * obtained.channels;
 	dma.buffer          = Z_Calloc( dma.samples * 2 );
 	dma.samplepos       = 0;
-
-	sdl_format = obtained.format;
 
 	Con_Printf( "Using SDL audio driver: %s @ %d Hz\n", SDL_GetCurrentAudioDriver( ), obtained.freq );
 	Q_snprintf( sdl_backend_name, sizeof( sdl_backend_name ), "SDL (%s)", SDL_GetCurrentAudioDriver( ));
@@ -263,6 +264,7 @@ VoiceCapture_Init
 */
 qboolean VoiceCapture_Init( void )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_AudioSpec wanted, spec;
 
 	if( !SDLash_IsAudioError( in_dev ))
@@ -270,7 +272,7 @@ qboolean VoiceCapture_Init( void )
 		VoiceCapture_Shutdown();
 	}
 
-	SDL_zero( wanted );
+	memset( &wanted, 0, sizeof( wanted ));
 	wanted.freq = voice.samplerate;
 	wanted.format = AUDIO_S16LSB;
 	wanted.channels = VOICE_PCM_CHANNELS;
@@ -284,9 +286,12 @@ qboolean VoiceCapture_Init( void )
 		Con_Printf( "VoiceCapture_Init: error creating capture device (%s)\n", SDL_GetError() );
 		return false;
 	}
-		
+
 	Con_Printf( S_NOTE "VoiceCapture_Init: capture device creation success (%i: %s)\n", in_dev, SDL_GetAudioDeviceName( in_dev, SDL_TRUE ) );
 	return true;
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return false;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -296,11 +301,15 @@ VoiceCapture_Activate
 */
 qboolean VoiceCapture_Activate( qboolean activate )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDLash_IsAudioError( in_dev ))
 		return false;
 
 	SDL_PauseAudioDevice( in_dev, activate ? SDL_FALSE : SDL_TRUE );
 	return true;
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return false;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -310,6 +319,7 @@ VoiceCapture_Lock
 */
 qboolean VoiceCapture_Lock( qboolean lock )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDLash_IsAudioError( in_dev ))
 		return false;
 
@@ -317,6 +327,9 @@ qboolean VoiceCapture_Lock( qboolean lock )
 	else SDL_UnlockAudioDevice( in_dev );
 
 	return true;
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return false;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -326,10 +339,14 @@ VoiceCapture_Shutdown
 */
 void VoiceCapture_Shutdown( void )
 {
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDLash_IsAudioError( in_dev ))
 		return;
 
 	SDL_CloseAudioDevice( in_dev );
+#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	return false;
+#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 #endif // XASH_SOUND == SOUND_SDL

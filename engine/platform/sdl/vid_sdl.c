@@ -699,7 +699,7 @@ static qboolean VID_CreateWindowWithSafeGL( const char *wndname, int xpos, int y
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, w, h, flags );
 #else
-		host.hWnd = sw.surf = SDL_SetVideoMode( width, height, 16, flags );
+		host.hWnd = sw.surf = SDL_SetVideoMode( w, h, 16, flags );
 #endif
 		// we have window, exit loop
 		if( host.hWnd )
@@ -732,12 +732,15 @@ VID_CreateWindow
 qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 {
 	string wndname;
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	qboolean maximized = vid_maximized.value != 0.0f;
-	Uint32 wndFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
 	int xpos, ypos;
+	Uint32 wndFlags;
+	qboolean maximized;
 
 	Q_strncpy( wndname, GI->title, sizeof( wndname ));
+
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+	maximized = vid_maximized.value != 0.0f;
+	SetBits( wndFlags, SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS );
 
 	if( vid_highdpi.value )
 		SetBits( wndFlags, SDL_WINDOW_ALLOW_HIGHDPI );
@@ -850,13 +853,14 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 	}
 
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	Uint32 flags = 0;
+	xpos = window_xpos.value;
+	ypos = window_ypos.value;
 
 	if( window_mode != WINDOW_MODE_WINDOWED )
-		SetBits( flags, SDL_FULLSCREEN|SDL_HWSURFACE );
+		SetBits( wndFlags, SDL_FULLSCREEN|SDL_HWSURFACE );
 
 	if( !glw_state.software )
-		SetBits( flags, SDL_OPENGL );
+		SetBits( wndFlags, SDL_OPENGL );
 
 	if( !VID_CreateWindowWithSafeGL( wndname, xpos, ypos, width, height, wndFlags ))
 		return false;
@@ -940,7 +944,7 @@ int GL_SetAttribute( int attr, int val )
 #ifdef SDL_HINT_OPENGL_ES_DRIVER
 		if( val == REF_GL_CONTEXT_PROFILE_ES )
 		{
-			SDL_SetHint(SDL_HINT_OPENGL_ES_DRIVER, "1");
+			SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
 			SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
 		}
 #endif // SDL_HINT_OPENGL_ES_DRIVER
@@ -1013,9 +1017,6 @@ qboolean R_Init_Video( const int type )
 	SDL_DisplayMode displayMode;
 	SDL_GetCurrentDisplayMode(0, &displayMode);
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
-#else
-	refState.desktopBitsPixel = 16;
-#endif
 
 #ifdef SDL_HINT_QTWAYLAND_WINDOW_FLAGS
 	SDL_SetHint( SDL_HINT_QTWAYLAND_WINDOW_FLAGS, "OverridesSystemGestures" );
@@ -1024,11 +1025,12 @@ qboolean R_Init_Video( const int type )
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
 #endif
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 ) && !XASH_WIN32
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
 	if( Sys_CheckParm( "-egl" ) )
 		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
+#else
+	refState.desktopBitsPixel = 16;
 #endif
 
 	// must be initialized before creating window

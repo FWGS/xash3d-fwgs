@@ -209,7 +209,9 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_MINUS: keynum = '-'; break;
 		case SDL_SCANCODE_TAB: keynum = K_TAB; break;
 		case SDL_SCANCODE_RETURN: keynum = K_ENTER; break;
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_AC_BACK:
+#endif
 		case SDL_SCANCODE_ESCAPE: keynum = K_ESCAPE; break;
 		case SDL_SCANCODE_SPACE: keynum = K_SPACE; break;
 		case SDL_SCANCODE_BACKSPACE: keynum = K_BACKSPACE; break;
@@ -259,9 +261,9 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 			break;
 		}
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_PAUSE: keynum = K_PAUSE; break;
 		case SDL_SCANCODE_SCROLLLOCK: keynum = K_SCROLLOCK; break;
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
 		// don't console spam on known functional buttons, not used in engine
 		case SDL_SCANCODE_MUTE:
@@ -305,8 +307,10 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 
 	if( button.state == SDL_RELEASED )
 		down = 0;
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	else if( button.clicks >= 2 )
 		down = 2; // special state for double-click in UI
+#endif
 	else
 		down = 1;
 
@@ -669,7 +673,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 		}
 #else
 	case SDL_VIDEORESIZE:
-		VID_SaveWindowSize( event->resize.w, event->resize.h );
+		VID_SaveWindowSize( event->resize.w, event->resize.h, false );
 		break;
 	case SDL_ACTIVEEVENT:
 		SDLash_ActiveEvent( event->active.gain );

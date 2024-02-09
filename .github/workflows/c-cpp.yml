@@ -32,10 +32,9 @@ jobs:
 #            targetos: android
 #            targetarch: 64
 
-#          - os: ubuntu-20.04
-#            targetos: motomagx
-#            targetarch: armv6
-
+          - os: ubuntu-20.04
+            targetos: motomagx
+            targetarch: armv6
           - os: ubuntu-latest
             targetos: nswitch
             targetarch: arm64

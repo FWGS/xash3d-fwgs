@@ -5,14 +5,13 @@
 
 cd $GITHUB_WORKSPACE || die
 
-mkdir -p Xash/valve/cl_dlls
-mkdir -p Xash/valve/dlls
+./waf configure -T fast --enable-magx build -v install --destdir=Xash/ --strip || die
 
 pushd hlsdk || die
-./waf configure -T fast --enable-magx --enable-simple-mod-hacks build install --destdir=../Xash || die
+./waf configure -T fast --enable-magx build -v install --destdir=../Xash --strip || die
+git checkout opfor
+./waf configure -T fast --enable-magx build -v install --destdir=../Xash --strip || die
 popd
-
-./waf configure -T fast --enable-magx build install --destdir=Xash/ || die
 
 cat > Xash/run.sh << 'EOF'
 mypath=${0%/*}
