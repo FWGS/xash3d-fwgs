@@ -37,6 +37,9 @@ CVAR_DEFINE( r_vbo_overbrightmode, "gl_vbo_overbrightmode", "0", FCVAR_ARCHIVE, 
 CVAR_DEFINE_AUTO( r_ripple, "0", FCVAR_GLCONFIG, "enable software-like water texture ripple simulation" );
 CVAR_DEFINE_AUTO( r_ripple_updatetime, "0.05", FCVAR_GLCONFIG, "how fast ripple simulation is" );
 CVAR_DEFINE_AUTO( r_ripple_spawntime, "0.1", FCVAR_GLCONFIG, "how fast new ripples spawn" );
+CVAR_DEFINE_AUTO( r_water_warp, "1", FCVAR_GLCONFIG, "set water warp style (0: disable, 1: sine waves, 2: constant scroll)" );
+CVAR_DEFINE_AUTO( r_water_warp_x, "6", FCVAR_GLCONFIG, "water warp scroll x axis speed" );
+CVAR_DEFINE_AUTO( r_water_warp_y, "6", FCVAR_GLCONFIG, "water warp scroll y axis speed" );
 
 
 DEFINE_ENGINE_SHARED_CVAR_LIST()
@@ -1192,6 +1195,9 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_ripple );
 	gEngfuncs.Cvar_RegisterVariable( &r_ripple_updatetime );
 	gEngfuncs.Cvar_RegisterVariable( &r_ripple_spawntime );
+	gEngfuncs.Cvar_RegisterVariable( &r_water_warp );
+	gEngfuncs.Cvar_RegisterVariable( &r_water_warp_x );
+	gEngfuncs.Cvar_RegisterVariable( &r_water_warp_y );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );

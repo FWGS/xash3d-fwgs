@@ -809,6 +809,9 @@ extern convar_t r_studio_drawelements;
 extern convar_t r_ripple;
 extern convar_t r_ripple_updatetime;
 extern convar_t r_ripple_spawntime;
+extern convar_t r_water_warp;
+extern convar_t r_water_warp_x;
+extern convar_t r_water_warp_y;
 
 //
 // engine shared convars

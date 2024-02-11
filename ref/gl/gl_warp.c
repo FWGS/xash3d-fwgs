@@ -781,7 +781,7 @@ Does a water warp on the pre-fragmented glpoly_t chain
 void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 {
 	float	*v, nv, waveHeight;
-	float	s, t, os, ot;
+	float	s, t, os, ot, warp_s, warp_t;
 	glpoly_t	*p;
 	int	i;
 
@@ -822,15 +822,29 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 			os = v[3];
 			ot = v[4];
 
-			if( !r_ripple.value )
+			switch((int)r_water_warp.value )
 			{
-				s = os + r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
-				t = ot + r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+			case 0:
+				warp_s = warp_t = 0;
+				break;
+			case 1:
+				warp_s = r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+				warp_t = r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+				break;
+			case 2:
+			default:
+				warp_s = gp_cl->time * r_water_warp_x.value;
+				warp_t = gp_cl->time * r_water_warp_y.value;
+				break;
 			}
-			else
+
+			s = os + warp_s;
+			t = ot + warp_t;
+
+			if( r_ripple.value )
 			{
-				s = os / g_ripple.texturescale;
-				t = ot / g_ripple.texturescale;
+				s /= g_ripple.texturescale;
+				t /= g_ripple.texturescale;
 			}
 
 			s *= ( 1.0f / SUBDIVIDE_SIZE );
