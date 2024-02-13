@@ -2187,6 +2187,8 @@ INTERNAL RESOURCE
 */
 void Con_VidInit( void )
 {
+	const uint flags = TF_IMAGE|TF_ALLOW_NEAREST;
+
 	if( !con.historyLoaded )
 	{
 		Con_LoadHistory( &con.history );
@@ -2206,28 +2208,28 @@ void Con_VidInit( void )
 	{
 		// trying to load truecolor image first
 		if( FS_FileExists( "gfx/shell/conback.bmp", false ) || FS_FileExists( "gfx/shell/conback.tga", false ))
-			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/conback", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/conback", NULL, 0, flags );
 
 		if( !con.background )
 		{
 			if( FS_FileExists( "cached/conback640", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback640", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback640", NULL, 0, flags );
 			else if( FS_FileExists( "cached/conback", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback", NULL, 0, flags );
 		}
 	}
 	else
 	{
 		// trying to load truecolor image first
 		if( FS_FileExists( "gfx/shell/loading.bmp", false ) || FS_FileExists( "gfx/shell/loading.tga", false ))
-			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/loading", NULL, 0, TF_IMAGE );
+			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/loading", NULL, 0, flags );
 
 		if( !con.background )
 		{
 			if( FS_FileExists( "cached/loading640", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading640", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading640", NULL, 0, flags );
 			else if( FS_FileExists( "cached/loading", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading", NULL, 0, TF_IMAGE );
+				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading", NULL, 0, flags );
 		}
 	}
 
