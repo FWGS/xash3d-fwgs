@@ -133,7 +133,7 @@ qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float
 
 	font->type = FONT_VARIABLE;
 	font->valid = true;
-	font->scale = scale;
+	font->scale = scale ? scale : 1.0f;
 	font->rendermode = rendermode;
 	font->charHeight = Q_rint( src.rowheight * scale );
 
@@ -205,7 +205,8 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 		return font->charWidths[number];
 
 	rc = &font->fontRc[number];
-	if( font->scale <= 1.0f || REF_GET_PARM( PARM_TEX_FILTERING, font->hFontTexture ))
+
+	if( font->scale <= 1.f || !REF_GET_PARM( PARM_TEX_FILTERING, font->hFontTexture ))
 		half = 0;
 
 	s1 = ((float)rc->left + half ) / texw;
