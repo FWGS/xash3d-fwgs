@@ -469,7 +469,8 @@ static void SV_CreateBaseline( void )
 	int		delta_type;
 	int		entnum;
 
-	SV_WriteVoiceCodec( &sv.signon );
+	if( svs.maxclients > 1 )
+		SV_WriteVoiceCodec( &sv.signon );
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		playermodel = SV_ModelIndex( DEFAULT_PLAYER_PATH_QUAKE );

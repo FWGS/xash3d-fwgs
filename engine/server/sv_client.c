@@ -3458,7 +3458,7 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 
 	MSG_ReadBytes( msg, received, size );
 
-	if( !sv_voiceenable.value )
+	if( !sv_voiceenable.value || svs.maxclients <= 1 )
 		return;
 
 	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
