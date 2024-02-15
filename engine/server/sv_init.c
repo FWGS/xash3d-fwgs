@@ -588,6 +588,7 @@ void SV_ActivateServer( int runPhysics )
 	byte		msg_buf[MAX_INIT_MSG];
 	sizebuf_t		msg;
 	sv_client_t	*cl;
+	const char	*cycle;
 
 	if( !svs.initialized )
 		return;
@@ -674,13 +675,10 @@ void SV_ActivateServer( int runPhysics )
 	if( sv.ignored_world_decals )
 		Con_Printf( S_WARN "%i static decals was rejected due buffer overflow\n", sv.ignored_world_decals );
 
-	if( svs.maxclients > 1 )
-	{
-		const char *cycle = Cvar_VariableString( "mapchangecfgfile" );
+	cycle = Cvar_VariableString( "mapchangecfgfile" );
 
-		if( COM_CheckString( cycle ))
-			Cbuf_AddTextf( "exec %s\n", cycle );
-	}
+	if( COM_CheckString( cycle ))
+		Cbuf_AddTextf( "exec %s\n", cycle );
 }
 
 /*
