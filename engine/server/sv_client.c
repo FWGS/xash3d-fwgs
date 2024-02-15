@@ -799,7 +799,7 @@ sv_client_t *SV_ClientById( int id )
 
 	ASSERT( id >= 0 );
 
-	for( i = 0, cl = svs.clients; i < svgame.globals->maxClients; i++, cl++ )
+	for( i = 0, cl = svs.clients; cl && i < svgame.globals->maxClients; i++, cl++ )
 	{
 		if( !cl->state )
 			continue;
@@ -819,7 +819,7 @@ sv_client_t *SV_ClientByName( const char *name )
 	if( !COM_CheckString( name ))
 		return NULL;
 
-	for( i = 0, cl = svs.clients; i < svgame.globals->maxClients; i++, cl++ )
+	for( i = 0, cl = svs.clients; cl && i < svgame.globals->maxClients; i++, cl++ )
 	{
 		if( !cl->state )
 			continue;
