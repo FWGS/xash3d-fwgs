@@ -24,14 +24,9 @@ jobs:
 #          - os: ubuntu-aarch64-20.04
 #            targetos: linux
 #            targetarch: aarch64
-
-#          - os: ubuntu-20.04
-#            targetos: android
-#            targetarch: 32
-#          - os: ubuntu-20.04
-#            targetos: android
-#            targetarch: 64
-
+          - os: ubuntu-20.04
+            targetos: android
+            targetarch: multiarch
 #          - os: ubuntu-20.04
 #            targetos: motomagx
 #            targetarch: armv6
@@ -51,7 +46,6 @@ jobs:
     env:
       SDL_VERSION: 2.28.5
       GH_CPU_ARCH: ${{ matrix.targetarch }}
-      ANDROID_SDK_TOOLS_VER: 4333796
     steps:
     - name: Checkout
       uses: actions/checkout@v3
