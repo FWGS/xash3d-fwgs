@@ -588,7 +588,6 @@ void SV_ActivateServer( int runPhysics )
 	byte		msg_buf[MAX_INIT_MSG];
 	sizebuf_t		msg;
 	sv_client_t	*cl;
-	const char	*cycle;
 
 	if( !svs.initialized )
 		return;
@@ -674,11 +673,6 @@ void SV_ActivateServer( int runPhysics )
 
 	if( sv.ignored_world_decals )
 		Con_Printf( S_WARN "%i static decals was rejected due buffer overflow\n", sv.ignored_world_decals );
-
-	cycle = Cvar_VariableString( "mapchangecfgfile" );
-
-	if( COM_CheckString( cycle ))
-		Cbuf_AddTextf( "exec %s\n", cycle );
 }
 
 /*
@@ -990,8 +984,9 @@ clients along with it.
 */
 qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean background )
 {
-	int	i, current_skill;
-	edict_t	*ent;
+	int		i, current_skill;
+	edict_t		*ent;
+	const char	*cycle;
 
 	SV_SetupClients();
 
@@ -1008,6 +1003,11 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	svs.timestart = Sys_DoubleTime();
 	svs.spawncount++; // any partially connected client will be restarted
+
+	cycle = Cvar_VariableString( "mapchangecfgfile" );
+
+	if( COM_CheckString( cycle ))
+		Cbuf_AddTextf( "exec %s\n", cycle );
 
 	// let's not have any servers with no name
 	if( !COM_CheckString( hostname.string ))
