@@ -691,6 +691,10 @@ deactivate server, free edicts, strings etc
 void SV_DeactivateServer( void )
 {
 	int	i;
+	const char	*cycle = Cvar_VariableString( "disconcfgfile" );
+
+	if( COM_CheckString( cycle ))
+		Cbuf_AddTextf( "exec %s\n", cycle );
 
 	if( !svs.initialized || sv.state == ss_dead )
 		return;

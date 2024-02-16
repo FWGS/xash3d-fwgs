@@ -75,7 +75,8 @@ CVAR_DEFINE_AUTO( skill, "1", 0, "skill level in singleplayer game" );
 CVAR_DEFINE_AUTO( temp1, "0", 0, "temporary cvar that used by some mods" );
 CVAR_DEFINE_AUTO( listipcfgfile, "listip.cfg", 0, "name of listip.cfg file" );
 CVAR_DEFINE_AUTO( mapchangecfgfile, "", 0, "name of map change configuration file" );
-CVAR_DEFINE_AUTO( _sv_override_scientist_mdl, "", 0, "override default scientist model (specially for HL25 Uplink maps)" );
+CVAR_DEFINE_AUTO( disconcfgfile, "", 0, "name of disconnect configuration file" );
+CVAR_DEFINE_AUTO( _sv_override_scientist_mdl, "", 0, "override default scientist model name (specially for HL25 Uplink maps)" );
 
 // physic-related variables
 CVAR_DEFINE_AUTO( sv_gravity, "800", FCVAR_MOVEVARS, "world gravity value" );
@@ -949,6 +950,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &bannedcfgfile );
 	Cvar_RegisterVariable( &listipcfgfile );
 	Cvar_RegisterVariable( &mapchangecfgfile );
+	Cvar_RegisterVariable( &disconcfgfile );
 	Cvar_RegisterVariable( &_sv_override_scientist_mdl );
 
 	Cvar_RegisterVariable( &sv_voiceenable );
