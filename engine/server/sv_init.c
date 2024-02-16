@@ -1009,6 +1009,8 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	if( COM_CheckString( cycle ))
 		Cbuf_AddTextf( "exec %s\n", cycle );
 
+	Cbuf_AddTextf( "exec maps/%s_load.cfg\n", mapname );
+
 	// let's not have any servers with no name
 	if( !COM_CheckString( hostname.string ))
 		Cvar_Set( "hostname", svgame.dllFuncs.pfnGetGameDescription ? svgame.dllFuncs.pfnGetGameDescription() : FS_Title( ));
