@@ -29,7 +29,6 @@ execute_process(
 		${PYTHON_EXECUTABLE} waf configure -vvv -T ${BUILD_TYPE} cmake
 		--check-c-compiler=${C_COMPILER_ID} --check-cxx-compiler=${CXX_COMPILER_ID}
 		-s "${CMAKE_CURRENT_SOURCE_DIR}/SDL" --skip-sdl2-sanity-check
-		--disable-werror --enable-gles3compat
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/xash3d-fwgs"
 )
 
@@ -37,10 +36,6 @@ if(CMAKE_SIZEOF_VOID_P MATCHES "8")
 	set(64BIT ON CACHE BOOL "" FORCE)
 endif()
 add_subdirectory("hlsdk-portable")
-
 add_subdirectory("SDL")
-
 add_subdirectory("xash3d-fwgs")
-
-set(XASH_SDK "${CMAKE_CURRENT_SOURCE_DIR}/xash3d-fwgs" CACHE BOOL "" FORCE)
 add_subdirectory("xash3d-fwgs/3rdparty/mainui")
