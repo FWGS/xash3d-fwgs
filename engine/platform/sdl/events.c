@@ -654,7 +654,9 @@ static void SDLash_EventFilter( SDL_Event *event )
 			SDLash_ActiveEvent( false );
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
+#ifndef XASH_MOBILE_PLATFORM
 			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
+#endif
 			{
 				SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
 				VID_SaveWindowSize( event->window.data1, event->window.data2,

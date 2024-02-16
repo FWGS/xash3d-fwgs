@@ -2102,7 +2102,11 @@ void Con_RunConsole( void )
 	{
 		if( cls.state < ca_active || cl.first_frame )
 			con.showlines = refState.height;	// full screen
+#if XASH_MOBILE_PLATFORM
+		else con.showlines = refState.height; // always fullscreen on mobile
+#else
 		else con.showlines = (refState.height >> 1);	// half screen
+#endif
 	}
 	else con.showlines = 0; // none visible
 
