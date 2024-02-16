@@ -690,6 +690,9 @@ void SV_DeactivateServer( void )
 	if( COM_CheckString( cycle ))
 		Cbuf_AddTextf( "exec %s\n", cycle );
 
+	if( COM_CheckStringEmpty( sv.name ))
+		Cbuf_AddTextf( "exec maps/%s_unload.cfg\n", sv.name );
+
 	if( !svs.initialized || sv.state == ss_dead )
 		return;
 
