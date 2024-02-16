@@ -2029,10 +2029,18 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	{
 		touch.move_finger = touch.resize_finger = touch.look_finger = -1;
 		// Hack for keyboard, hope it help
+		// a1ba: this is absolutely horrible
 		if( cls.key_dest == key_console || cls.key_dest == key_message )
 		{
-			if ( type == event_down ) // don't pop it again on event_up
+			static float x1 = 0.0f;
+			x1 += dx;
+
+			if( type == event_up ) // don't show keyboard on every tap
+			{
 				Key_EnableTextInput( true, true );
+				x1 = 0.0f;
+			}
+
 			if( cls.key_dest == key_console )
 			{
 				static float y1 = 0;
@@ -2054,6 +2062,13 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 			// exit of console area
 			if( type == event_down && x < 0.1f && y > 0.9f )
 				Cbuf_AddText( "escape\n" );
+
+			// swipe from edge to exit console/chat
+			if(( x > 0.8f && x1 < -0.1f ) || ( x < 0.2f && x1 > 0.1f ))
+			{
+				Cbuf_AddText( "escape\n" );
+				x1 = 0.0f;
+			}
 		}
 		UI_MouseMove( TO_SCRN_X(x), TO_SCRN_Y(y) );
 		//MsgDev( D_NOTE, "touch %d %d\n", TO_SCRN_X(x), TO_SCRN_Y(y) );
