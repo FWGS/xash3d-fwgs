@@ -1209,7 +1209,7 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className )
 
 		if( !SpawnEdict )
 		{
-			Con_Printf( S_ERROR "No spawn function for %s\n", STRING( className ));
+			Con_Printf( S_ERROR "No spawn function for \"%s\"\n", pszClassName );
 
 			// free entity immediately
 			SV_FreeEdict( ent );
