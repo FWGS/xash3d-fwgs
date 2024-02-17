@@ -29,7 +29,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	rgba_t	palette[256];
 	byte	red = 0, green = 0, blue = 0, alpha = 0;
 	int	readpixelcount, pixelcount;
-	int	reflectivity[3] = { 0, 0, 0 };
+	uint	reflectivity[3] = { 0, 0, 0 };
 	qboolean	compressed;
 	tga_t	targa_header;
 

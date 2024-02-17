@@ -28,7 +28,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	rgba_t	palette[256] = { 0 };
 	int	i, columns, column, rows, row, bpp = 1;
 	int	cbPalBytes = 0, padSize = 0, bps = 0;
-	int	reflectivity[3] = { 0, 0, 0 };
+	uint	reflectivity[3] = { 0, 0, 0 };
 	qboolean	load_qfont = false;
 	bmp_t	bhdr;
 	fs_offset_t estimatedSize;
