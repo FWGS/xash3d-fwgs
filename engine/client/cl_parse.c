@@ -2329,11 +2329,18 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_stufftext:
 			s = MSG_ReadString( msg );
+			if( cl_trace_stufftext.value )
+			{
+				size_t len = Q_strlen( s );
+				Con_Printf( "Stufftext: %s%c", s, len && s[len-1] == '\n' ? '\0' : '\n' );
+			}
+
 #ifdef HACKS_RELATED_HLMODS
 			// disable Cry Of Fear antisave protection
 			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
 				break; // too early
 #endif
+
 			Cbuf_AddFilteredText( s );
 			break;
 		case svc_setangle:
