@@ -16,7 +16,7 @@ class ziparchive(Task.Task):
 		return 'Creating'
 
 	def run(self):
-		outfile = self.outputs[0].path_from(self.outputs[0].ctx.launch_node())
+		outfile = self.outputs[0].abspath()
 		comp = zipfile.ZIP_STORED if self.compresslevel == 0 else zipfile.ZIP_DEFLATED
 
 		with zipfile.ZipFile(outfile, mode='w', compression=comp) as zf:
