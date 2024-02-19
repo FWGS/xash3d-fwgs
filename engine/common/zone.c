@@ -98,8 +98,14 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 	memheader_t *mem;
 	mempool_t   *pool;
 
-	if( size <= 0 ) return NULL;
-	if( !poolptr ) Sys_Error( "Mem_Alloc: pool == NULL (alloc at %s:%i)\n", filename, fileline );
+	if( size <= 0 )
+		return NULL;
+
+	if( !poolptr )
+	{
+		Sys_Error( "Mem_Alloc: pool == NULL (alloc at %s:%i)\n", filename, fileline );
+		return NULL;
+	}
 
 	pool = Mem_FindPool( poolptr );
 
@@ -108,7 +114,11 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 	// big allocations are not clumped
 	pool->realsize += sizeof( memheader_t ) + size + sizeof( size_t );
 	mem = (memheader_t *)Q_malloc( sizeof( memheader_t ) + size + sizeof( size_t ));
-	if( mem == NULL ) Sys_Error( "Mem_Alloc: out of memory (alloc at %s:%i)\n", filename, fileline );
+	if( mem == NULL )
+	{
+		Sys_Error( "Mem_Realloc: out of memory (alloc size %s at %s:%i)\n", Q_memprint( size ), filename, fileline );
+		return NULL;
+	}
 
 	mem->filename = filename;
 	mem->fileline = fileline;
@@ -187,29 +197,114 @@ void _Mem_Free( void *data, const char *filename, int fileline )
 	Mem_FreeBlock((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
 }
 
-void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clear, const char *filename, int fileline )
 {
-	memheader_t	*memhdr = NULL;
-	char		*nb;
+	memheader_t *mem;
+	mempool_t *pool, *oldpool;
+	size_t newsize, oldsize;
+	char *nb;
 
-	if( size <= 0 ) return memptr; // no need to reallocate
+	if( size <= 0 )
+		return data; // no need to reallocate
 
-	if( memptr )
+	if( !poolptr )
 	{
-		memhdr = (memheader_t *)((byte *)memptr - sizeof( memheader_t ));
-		if( size == memhdr->size ) return memptr;
+		Sys_Error( "Mem_Realloc: pool == NULL (alloc at %s:%i)\n", filename, fileline );
+		return NULL;
 	}
 
+	if( !data )
+		return _Mem_Alloc( poolptr, size, clear, filename, fileline );
+
+	mem = (memheader_t *)((byte *)data - sizeof( memheader_t ));
+
+	if( mem->sentinel1 != MEMHEADER_SENTINEL1 )
+	{
+		mem->filename = Mem_CheckFilename( mem->filename ); // make sure what we don't crash var_args
+		Sys_Error( "Mem_Realloc: trashed header sentinel 1 (alloc at %s:%i, realloc at %s:%i)\n", mem->filename, mem->fileline, filename, fileline );
+		return NULL;
+	}
+
+	if( *((byte *)mem + sizeof( memheader_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
+	{
+		mem->filename = Mem_CheckFilename( mem->filename ); // make sure what we don't crash var_args
+		Sys_Error( "Mem_Realloc: trashed header sentinel 2 (alloc at %s:%i, realloc at %s:%i)\n", mem->filename, mem->fileline, filename, fileline );
+		return NULL;
+	}
+
+	oldsize = mem->size;
+	oldpool = mem->pool;
+	if( size == oldsize )
+		return data;
+
+#if XASH_CUSTOM_SWAP
 	nb = _Mem_Alloc( poolptr, size, clear, filename, fileline );
 
-	if( memptr ) // first allocate?
+	newsize = mem->size < size ? mem->size : size; // upper data can be trucnated!
+	memcpy( nb, data, newsize );
+	_Mem_Free( data, filename, fileline ); // free unused old block
+
+	return nb;
+#else // XASH_CUSTOM_SWAP
+	pool = Mem_FindPool( poolptr );
+
+	mem = realloc( mem, sizeof( memheader_t ) + size + sizeof( size_t ));
+	if( mem == NULL )
 	{
-		size_t newsize = memhdr->size < size ? memhdr->size : size; // upper data can be trucnated!
-		memcpy( nb, memptr, newsize );
-		_Mem_Free( memptr, filename, fileline ); // free unused old block
+		Sys_Error( "Mem_Realloc: out of memory (alloc size %s at %s:%i)\n", Q_memprint( size ), filename, fileline );
+		return NULL;
 	}
 
-	return (void *)nb;
+	pool->totalsize -= oldsize;
+	pool->realsize  -= sizeof( memheader_t ) + oldsize + sizeof( size_t );
+	pool->totalsize += size;
+	pool->realsize  += sizeof( memheader_t ) + size + sizeof( size_t );
+
+	mem->filename = filename;
+	mem->fileline = fileline;
+	mem->size = size;
+
+	// if allocation was migrated from one pool to another
+	// (this is possible with original Mem_Realloc func)
+	if( oldpool != pool )
+	{
+		// unlink from old pool
+		if( mem->prev )
+			mem->prev->next = mem->next;
+		else pool->chain = mem->next;
+
+		if( mem->next )
+			mem->next->prev = mem->prev;
+
+		// attach to new
+		mem->next = pool->chain;
+		mem->prev = NULL;
+		pool->chain = mem;
+		if( mem->next )
+			mem->next->prev = mem;
+	}
+	else
+	{
+		// simply update pointers
+		if( mem->prev )
+			mem->prev->next = mem;
+		else pool->chain = mem;
+
+		if( mem->next )
+			mem->next->prev = mem;
+	}
+
+	mem->sentinel1 = MEMHEADER_SENTINEL1;
+	// we have to use only a single byte for this sentinel, because it may not be aligned
+	// and some platforms can't use unaligned accesses
+	*((byte *)mem + sizeof( memheader_t ) + mem->size ) = MEMHEADER_SENTINEL2;
+
+	// clear new memory
+	if( clear && size > oldsize )
+		memset((byte *)mem + sizeof( memheader_t ) + oldsize, 0, size - oldsize );
+
+	return (void *)((byte *)mem + sizeof( memheader_t ));
+#endif // XASH_CUSTOM_SWAP
 }
 
 poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
