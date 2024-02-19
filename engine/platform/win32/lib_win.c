@@ -356,13 +356,13 @@ static void ListMissingModules( dll_user_t *hInst )
 	byte *data;
 	char	buf[MAX_VA_STRING];
 
-	if ( !hInst ) return;
-	
-	data = FS_LoadFile( hInst->dllName, NULL, false );
-	if ( !data ) return;
+	if( !hInst || !g_fsapi.LoadFile ) return;
+
+	data = g_fsapi.LoadFile( hInst->dllName, NULL, false );
+	if( !data ) return;
 
 	importDesc = GetImportDescriptor( hInst->dllName, data, &peHeader );
-	if ( !importDesc )
+	if( !importDesc )
 	{
 		Mem_Free( data );
 		return;
