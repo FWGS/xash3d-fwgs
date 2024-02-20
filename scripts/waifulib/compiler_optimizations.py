@@ -116,6 +116,22 @@ POLLY_CFLAGS = {
 	# msvc sosat :(
 }
 
+PROFILE_GENERATE_CFLAGS = {
+	'gcc':   ['-fprofile-generate=xash3d-prof'],
+}
+
+PROFILE_GENERATE_LINKFLAGS = {
+	'gcc':   ['-fprofile-generate=xash3d-prof'],
+}
+
+PROFILE_USE_CFLAGS = {
+	'gcc':   ['-fprofile-use=%s'],
+}
+
+PROFILE_USE_LINKFLAGS = {
+	'gcc':   ['-fprofile-use=%s'],
+}
+
 def options(opt):
 	grp = opt.add_option_group('Compiler optimization options')
 
@@ -127,6 +143,12 @@ def options(opt):
 
 	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
 		help = 'enable polyhedral optimization if possible [default: %default]')
+
+	grp.add_option('--enable-profile', action = 'store_true', dest = 'PROFILE_GENERATE', default = False,
+		help = 'enable profile generating build (stored in xash3d-prof directory) [default: %default]')
+
+	grp.add_option('--use-profile', action = 'store', dest = 'PROFILE_USE', default = None,
+		help = 'use profile during build [default: %default]')
 
 def configure(conf):
 	conf.start_msg('Build type')
@@ -144,6 +166,8 @@ def configure(conf):
 
 	conf.msg('LTO build', 'yes' if conf.options.LTO else 'no')
 	conf.msg('PolyOpt build', 'yes' if conf.options.POLLY else 'no')
+	conf.msg('Generate profile', 'yes' if conf.options.PROFILE_GENERATE else 'no')
+	conf.msg('Use profile', conf.options.PROFILE_USE if not conf.options.PROFILE_GENERATE else 'no')
 
 	# -march=native should not be used
 	if conf.options.BUILD_TYPE.startswith('fast'):
@@ -173,6 +197,13 @@ def get_optimization_flags(conf):
 
 	if conf.options.POLLY:
 		cflags   += conf.get_flags_by_compiler(POLLY_CFLAGS, conf.env.COMPILER_CC)
+
+	if conf.options.PROFILE_GENERATE:
+		linkflags+= conf.get_flags_by_compiler(PROFILE_GENERATE_LINKFLAGS, conf.env.COMPILER_CC)
+		cflags   += conf.get_flags_by_compiler(PROFILE_GENERATE_CFLAGS, conf.env.COMPILER_CC)
+	elif conf.options.PROFILE_USE:
+		linkflags+= [conf.get_flags_by_compiler(PROFILE_USE_LINKFLAGS, conf.env.COMPILER_CC)[0] % conf.options.PROFILE_USE]
+		cflags   += [conf.get_flags_by_compiler(PROFILE_USE_CFLAGS, conf.env.COMPILER_CC)[0] % conf.options.PROFILE_USE]
 
 	if conf.env.DEST_OS == 'nswitch' and conf.options.BUILD_TYPE == 'debug':
 		# enable remote debugger
