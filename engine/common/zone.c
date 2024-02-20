@@ -251,6 +251,7 @@ void _Mem_Free( void *data, const char *filename, int fileline )
 void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	memheader_t *mem;
+	uintptr_t oldmem;
 	mempool_t *pool;
 	size_t oldsize;
 
@@ -288,16 +289,28 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 #else // XASH_CUSTOM_SWAP
 	pool = Mem_FindPool( poolptr );
 
+	oldmem = (uintptr_t)mem;
 	mem = realloc( mem, sizeof( memheader_t ) + size + sizeof( byte ));
+
 	if( mem == NULL )
 	{
 		Sys_Error( "Mem_Realloc: out of memory (alloc size %s at %s:%i)\n", Q_memprint( size ), filename, fileline );
 		return NULL;
 	}
 
-	Mem_PoolSubtract( pool, oldsize );
-	Mem_PoolAdd( pool, size );
+	// Con_Printf( S_NOTE "%s: mem %s oldmem, size before %zu now %zu (alloc at %s:%i)\n",
+	// __func__, (uintptr_t)mem != oldmem ? "!=" : "==", oldsize, size, filename, fileline );
+
 	Mem_InitAlloc( mem, size, filename, fileline );
+
+	if( size > oldsize )
+	{
+		Mem_PoolAdd( pool, size - oldsize );
+
+		if( clear )
+			memset((byte *)mem + sizeof( memheader_t ) + oldsize, 0, size - oldsize );
+	}
+	else Mem_PoolSubtract( pool, oldsize - size );
 
 	// if allocation was migrated from one pool to another
 	// (this is possible with original Mem_Realloc func)
@@ -306,16 +319,12 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 		Mem_PoolUnlinkAlloc( mem->pool, mem );
 		Mem_PoolLinkAlloc( pool, mem );
 	}
-	else
+	else if( oldmem != (uintptr_t)mem ) // just relink pointers
 	{
 		if( mem->next ) mem->next->prev = mem;
 		if( mem->prev ) mem->prev->next = mem;
 		else pool->chain = mem;
 	}
-
-	// clear new memory
-	if( clear && size > oldsize )
-		memset((byte *)mem + sizeof( memheader_t ) + oldsize, 0, size - oldsize );
 
 	return (void *)((byte *)mem + sizeof( memheader_t ));
 #endif // XASH_CUSTOM_SWAP
