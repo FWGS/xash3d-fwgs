@@ -1011,10 +1011,11 @@ static void R_CheckGamma( void )
 		ClearBits( gl_overbright.flags, FCVAR_CHANGED );
 	}
 
-	if( gl_overbright.value && FBitSet( r_vbo.flags, FCVAR_CHANGED ))
+	if( gl_overbright.value && ( FBitSet( r_vbo.flags, FCVAR_CHANGED ) || FBitSet( r_vbo_overbrightmode.flags, FCVAR_CHANGED ) ) )
 	{
 		rebuild = true;
 		ClearBits( r_vbo.flags, FCVAR_CHANGED );
+		ClearBits( r_vbo_overbrightmode.flags, FCVAR_CHANGED );
 	}
 
 	if( rebuild )

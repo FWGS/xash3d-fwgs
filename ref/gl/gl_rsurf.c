@@ -718,7 +718,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	tmax = ( info->lightextents[1] / sample_size ) + 1;
 	size = smax * tmax;
 	if( gl_overbright.value )
-		lightscale = r_vbo.value ? 171 : 256;
+		lightscale = (r_vbo.value && !r_vbo_overbrightmode.value) ? 171 : 256;
 	else lightscale = ( pow( 2.0f, 1.0f / v_lightgamma->value ) * 256 ) + 0.5;
 
 	lm = surf->samples;
@@ -2189,15 +2189,30 @@ static void R_SetLightmap( void )
 
 	if( gl_overbright.value )
 	{
-		// GLfloat color[4] = { 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f };
+		if( r_vbo_overbrightmode.value == 1 )
+		{
+			GLfloat color[4] = { 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f };
+			int tmu = glState.activeTMU;
+			GL_SelectTexture( tmu - 1 );
+			pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB );
+			pglTexEnvi( GL_TEXTURE_ENV, GL_COMBINE_RGB_ARB, GL_MODULATE );
+			pglTexEnvi( GL_TEXTURE_ENV, GL_SOURCE0_RGB_ARB, GL_CONSTANT_ARB );
+			pglTexEnvi( GL_TEXTURE_ENV, GL_OPERAND0_RGB_ARB, GL_SRC_COLOR );
+			pglTexEnvi( GL_TEXTURE_ENV, GL_OPERAND1_RGB_ARB, GL_SRC_COLOR );
+			pglTexEnvi( GL_TEXTURE_ENV, GL_OPERAND2_RGB_ARB, GL_SRC_COLOR );
+			pglTexEnvi( GL_TEXTURE_ENV, GL_SOURCE1_RGB_ARB, GL_TEXTURE );
+			// doesn't work here for some reason
+			pglTexEnvfv( GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, color );
+			GL_SelectTexture( tmu );
+		}
 
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB );
 		pglTexEnvi( GL_TEXTURE_ENV, GL_COMBINE_RGB_ARB, GL_MODULATE );
 		pglTexEnvi( GL_TEXTURE_ENV, GL_SOURCE0_RGB_ARB, GL_PREVIOUS_ARB );
 		pglTexEnvi( GL_TEXTURE_ENV, GL_SOURCE1_RGB_ARB, GL_TEXTURE );
+		pglTexEnvi( GL_TEXTURE_ENV, GL_COMBINE_ALPHA_ARB, GL_REPLACE );
+		pglTexEnvi( GL_TEXTURE_ENV, GL_SOURCE0_ALPHA_ARB, GL_PREVIOUS_ARB );
 		pglTexEnvi( GL_TEXTURE_ENV, GL_RGB_SCALE_ARB, 2 );
-		// doesn't work here for some reason
-		// pglTexEnvfv( GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, color );
 	}
 	else
 	{
