@@ -927,7 +927,8 @@ static void R_BlendLightmaps( void )
 	if( gl_overbright.value )
 	{
 		pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
-		pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
+		if(!( r_vbo.value && !r_vbo_overbrightmode.value ))
+			pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
 	}
 	else
 	{
