@@ -632,30 +632,23 @@ static void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir )
 	memset( GameInfo, 0, sizeof( *GameInfo ));
 
 	// filesystem info
-	Q_strncpy( GameInfo->gamefolder, gamedir, sizeof( GameInfo->gamefolder ));
-	Q_strncpy( GameInfo->basedir, "valve", sizeof( GameInfo->basedir ));
-	GameInfo->falldir[0] = 0;
-	Q_strncpy( GameInfo->startmap, "c0a0", sizeof( GameInfo->startmap ));
-	Q_strncpy( GameInfo->trainmap, "t0a0", sizeof( GameInfo->trainmap ));
 	Q_strncpy( GameInfo->title, "New Game", sizeof( GameInfo->title ));
-	GameInfo->version = 1.0f;
-
-	// .dll pathes
+	Q_strncpy( GameInfo->gamefolder, gamedir, sizeof( GameInfo->gamefolder ));
+	Q_strncpy( GameInfo->basedir, fs_basedir, sizeof( GameInfo->basedir ));
+	Q_strncpy( GameInfo->sp_entity, "info_player_start", sizeof( GameInfo->sp_entity ));
+	Q_strncpy( GameInfo->mp_entity, "info_player_deathmatch", sizeof( GameInfo->mp_entity ));
+	Q_strncpy( GameInfo->startmap, "newmap", sizeof( GameInfo->startmap ));
 	Q_strncpy( GameInfo->dll_path, "cl_dlls", sizeof( GameInfo->dll_path ));
 	Q_strncpy( GameInfo->game_dll, "dlls/hl.dll", sizeof( GameInfo->game_dll ));
 	Q_strncpy( GameInfo->game_dll_linux, "dlls/hl.so", sizeof( GameInfo->game_dll_linux ));
 	Q_strncpy( GameInfo->game_dll_osx, "dlls/hl.dylib", sizeof( GameInfo->game_dll_osx ));
-
-	// .ico path
 	Q_strncpy( GameInfo->iconpath, "game.ico", sizeof( GameInfo->iconpath ));
-
-	Q_strncpy( GameInfo->sp_entity, "info_player_start", sizeof( GameInfo->sp_entity ));
-	Q_strncpy( GameInfo->mp_entity, "info_player_deathmatch", sizeof( GameInfo->mp_entity ));
 
 	GameInfo->max_edicts     = DEFAULT_MAX_EDICTS; // default value if not specified
 	GameInfo->max_tents      = 500;
 	GameInfo->max_beams      = 128;
 	GameInfo->max_particles  = 4096;
+	GameInfo->version        = 1.0f;
 }
 
 static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qboolean isGameInfo )
