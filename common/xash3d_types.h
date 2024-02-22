@@ -86,8 +86,6 @@ typedef uint64_t longtime_t;
 	#define NORETURN __attribute__((noreturn))
 	#define NONNULL __attribute__((nonnull))
 	#define ALLOC_CHECK(x) __attribute__((alloc_size(x)))
-	#define FORCEINLINE inline __attribute__((always_inline))
-	#define NOINLINE __attribute__((noinline))
 #elif defined(_MSC_VER)
 	#define EXPORT          __declspec( dllexport )
 	#define GAME_EXPORT
@@ -95,8 +93,6 @@ typedef uint64_t longtime_t;
 	#define NORETURN
 	#define NONNULL
 	#define ALLOC_CHECK(x)
-	#define FORCEINLINE __forceinline
-	#define NOINLINE __declspec( noinline )
 #else
 	#define EXPORT
 	#define GAME_EXPORT
@@ -104,8 +100,6 @@ typedef uint64_t longtime_t;
 	#define NORETURN
 	#define NONNULL
 	#define ALLOC_CHECK(x)
-	#define FORCEINLINE
-	#define NOINLINE
 #endif
 
 #if ( __GNUC__ >= 3 )
