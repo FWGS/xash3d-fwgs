@@ -368,13 +368,12 @@ SV_NewGame_f
 */
 static void SV_NewGame_f( void )
 {
-	if( Cmd_Argc() != 1 )
-	{
+	if( Cmd_Argc() == 1 )
+		COM_NewGame( GI->startmap );
+	else if( Cmd_Argc() == 2 )
+		COM_NewGame( Cmd_Argv( 1 ));
+	else
 		Con_Printf( S_USAGE "newgame\n" );
-		return;
-	}
-
-	COM_NewGame( GI->startmap );
 }
 
 /*
