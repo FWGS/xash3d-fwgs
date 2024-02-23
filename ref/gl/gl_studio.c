@@ -32,8 +32,11 @@ typedef struct
 	model_t		*model;
 } player_model_t;
 
-// never gonna change, just shut up const warning
-cvar_t r_shadows = { (char *)"r_shadows", (char *)"0", 0 };
+// never gonna change you up, never gonna override you down
+// TODO: actually let client.dll override it
+CVAR_DEFINE_AUTO( r_shadows, "0", FCVAR_ARCHIVE, "drop ugly shadow" );
+CVAR_DEFINE_AUTO( r_shadow_alpha, "0.5", FCVAR_ARCHIVE, "ugly shadow opacity" );
+CVAR_DEFINE_AUTO( r_shadow_height, "0", FCVAR_ARCHIVE, "ugly shadow height" );
 
 static vec3_t hullcolor[8] =
 {
@@ -154,8 +157,12 @@ void R_StudioInit( void )
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 
-	// g-cont. cvar disabled by Valve
-//	gEngfuncs.Cvar_RegisterVariable( &r_shadows );
+	// a1ba: enabled since HL25
+	gEngfuncs.Cvar_RegisterVariable( &r_shadows );
+
+	// a1ba: TimeWarp cvars (TODO: move to client.dll)
+	gEngfuncs.Cvar_RegisterVariable( &r_shadow_alpha );
+	gEngfuncs.Cvar_RegisterVariable( &r_shadow_height );
 
 	g_studio.interpolate = true;
 	g_studio.framecount = 0;
@@ -2930,24 +2937,34 @@ R_StudioDrawPointsShadow
 static void R_StudioDrawPointsShadow( void )
 {
 	float		*av, height;
-	float		vec_x, vec_y;
 	mstudiomesh_t	*pmesh;
-	vec3_t		point;
 	int		i, k;
+	pmtrace_t	tr;
+	vec3_t		trEnd;
 
 	if( FBitSet( RI.currententity->curstate.effects, EF_NOSHADOW ))
+		return;
+
+	VectorCopy( RI.currententity->origin, trEnd );
+	trEnd[2] -= 4096;
+
+	tr = gEngfuncs.CL_TraceLine( RI.currententity->origin, trEnd, PM_STUDIO_IGNORE | PM_GLASS_IGNORE );
+
+	// didn't hit floor
+	if( tr.fraction >= 1.0f )
 		return;
 
 	if( glState.stencilEnabled )
 		pglEnable( GL_STENCIL_TEST );
 
-	height = g_studio.lightspot[2] + 1.0f;
-	vec_x = -g_studio.lightvec[0] * 8.0f;
-	vec_y = -g_studio.lightvec[1] * 8.0f;
+	height = r_shadow_height.value;
 
 	for( k = 0; k < m_pSubModel->nummesh; k++ )
 	{
 		short	*ptricmds;
+
+		if( FBitSet( g_studio.meshes[k].flags, STUDIO_NF_MASKED | STUDIO_NF_ADDITIVE | STUDIO_NF_FULLBRIGHT ))
+			continue;
 
 		pmesh = (mstudiomesh_t *)((byte *)m_pStudioHeader + m_pSubModel->meshindex) + k;
 		ptricmds = (short *)((byte *)m_pStudioHeader + pmesh->triindex);
@@ -2970,11 +2987,7 @@ static void R_StudioDrawPointsShadow( void )
 			for( ; i > 0; i--, ptricmds += 4 )
 			{
 				av = g_studio.verts[ptricmds[0]];
-				point[0] = av[0] - (vec_x * ( av[2] - g_studio.lightspot[2] ));
-				point[1] = av[1] - (vec_y * ( av[2] - g_studio.lightspot[2] ));
-				point[2] = g_studio.lightspot[2] + 1.0f;
-
-				pglVertex3fv( point );
+				pglVertex3f( av[0], av[1], tr.endpos[2] + height + 0.16f );
 			}
 
 			pglEnd();
@@ -3035,12 +3048,10 @@ static void GL_StudioDrawShadow( void )
 
 	if( r_shadows.value && g_studio.rendermode != kRenderTransAdd && !FBitSet( RI.currentmodel->flags, STUDIO_AMBIENT_LIGHT ))
 	{
-		float	color = 1.0f - (tr.blend * 0.5f);
-
 		pglDisable( GL_TEXTURE_2D );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 		pglEnable( GL_BLEND );
-		pglColor4f( 0.0f, 0.0f, 0.0f, 1.0f - color );
+		pglColor4f( 0.0f, 0.0f, 0.0f, ( tr.blend - 1 ) + r_shadow_alpha.value );
 
 		pglDepthFunc( GL_LESS );
 		R_StudioDrawPointsShadow();
