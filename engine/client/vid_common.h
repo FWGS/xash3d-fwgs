@@ -38,6 +38,8 @@ extern glwstate_t glw_state;
 extern convar_t	vid_fullscreen;
 extern convar_t vid_maximized;
 extern convar_t	vid_highdpi;
+extern convar_t window_width;
+extern convar_t window_height;
 extern convar_t window_xpos;
 extern convar_t window_ypos;
 extern convar_t	gl_msaa_samples;
