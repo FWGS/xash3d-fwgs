@@ -43,7 +43,18 @@ Platform_GetMousePos
 */
 void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
+    float factorX;
+    float factorY;
+    {
+        int w1, w2, h1, h2;
+        SDL_GL_GetDrawableSize( host.hWnd, &w1, &h1 );
+        SDL_GetWindowSize( host.hWnd, &w2, &h2 );
+        factorX = (float)w1 / w2;
+        factorY = (float)h1 / h2;
+    }
 	SDL_GetMouseState( x, y );
+    *x = *x * factorX;
+    *y = *y * factorY;
 }
 
 /*
