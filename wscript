@@ -197,7 +197,7 @@ def configure(conf):
 	if conf.env.DEST_OS == 'android':
 		conf.options.NO_VGUI          = True # skip vgui
 		conf.options.NANOGL           = True
-		conf.options.GLWES            = True
+		conf.options.GLWES            = False # deprecated
 		conf.options.GL4ES            = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
