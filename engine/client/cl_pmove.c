@@ -795,25 +795,14 @@ static void CL_SetupPMove( playermove_t *pmove, const local_state_t *from, const
 
 	pmove->player_index = ps->number - 1;
 
-	// a1ba: workaround bug on old protocol where the server refuse to send
-	// our local player in delta. cl.playernum, in theory, must be equal
-	// to our local player index anyway
+	// a1ba: workaround bug where the server refuse to send our local player in delta
+	// cl.playernum, in theory, must be equal to our local player index anyway
+	//
 	// this might not be a real solution, since everything else will be bogus
 	// but we need to properly run prediction and avoid potential memory
 	// corruption
-	// either debug this, or remove when old protocol will be dropped!!!
 	if( pmove->player_index < 0 )
-	{
-		if( cls.legacymode )
-		{
-			pmove->player_index = bound( 0, cl.playernum, cl.maxclients - 1 );
-		}
-		else
-		{
-			// if this happens, record a demo and send it to a1ba
-			Host_Error( "%s: ps->number == %d\n", __func__, ps->number );
-		}
-	}
+		pmove->player_index = bound( 0, cl.playernum, cl.maxclients - 1 );
 
 	pmove->multiplayer = (cl.maxclients > 1);
 	pmove->runfuncs = runfuncs;
