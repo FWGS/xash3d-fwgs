@@ -926,7 +926,7 @@ static void SV_GenerateTestPacket( void )
 		return;
 
 	// don't need in singleplayer with full client
-	if( svs.maxclients <= 1 && !Host_IsDedicated( ))
+	if( svs.maxclients <= 1 )
 		return;
 
 	file = FS_Open( "gfx.wad", "rb", false );
