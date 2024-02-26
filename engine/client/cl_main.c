@@ -28,7 +28,6 @@ GNU General Public License for more details.
 #define MAX_CMD_BUFFER		8000
 #define CONNECTION_PROBLEM_TIME	15.0	// 15 seconds
 #define CL_CONNECTION_RETRIES		10
-#define CL_TEST_RETRIES_NORESPONCE	3
 #define CL_TEST_RETRIES		5
 
 CVAR_DEFINE_AUTO( mp_decals, "300", FCVAR_ARCHIVE, "decals limit in multiplayer" );
@@ -1074,6 +1073,22 @@ static void CL_SendConnectPacket( void )
 
 /*
 =================
+CL_GetTestFragmentSize
+
+Returns bandwidth test fragment size
+=================
+*/
+static int CL_GetTestFragmentSize( void )
+{
+	const int fragmentSizes[CL_TEST_RETRIES] = { 64000, 32000, 10666, 5200, 1400 };
+	if( cls.connect_retry >= 0 && cls.connect_retry < CL_TEST_RETRIES )
+		return bound( FRAGMENT_MIN_SIZE, fragmentSizes[cls.connect_retry], FRAGMENT_MAX_SIZE );
+	else
+		return FRAGMENT_MIN_SIZE;
+}
+
+/*
+=================
 CL_CheckForResend
 
 Resend a connect message if the last one has timed out
@@ -1083,8 +1098,9 @@ static void CL_CheckForResend( void )
 {
 	netadr_t adr;
 	net_gai_state_t res;
+	float resendTime;
 	qboolean bandwidthTest;
-
+	
 	if( cls.internetservers_wait )
 		CL_SendMasterServerScanRequest();
 
@@ -1110,7 +1126,10 @@ static void CL_CheckForResend( void )
 	else if( cl_resend.value > CL_MAX_RESEND_TIME )
 		Cvar_SetValue( "cl_resend", CL_MAX_RESEND_TIME );
 
-	if(( host.realtime - cls.connect_time ) < cl_resend.value )
+	bandwidthTest = !cls.legacymode && cl_test_bandwidth.value && cls.connect_retry <= CL_TEST_RETRIES;
+	resendTime = bandwidthTest ? 1.0f : cl_resend.value;
+
+	if(( host.realtime - cls.connect_time ) < resendTime )
 		return;
 
 	res = NET_StringToAdrNB( cls.servername, &adr );
@@ -1137,10 +1156,11 @@ static void CL_CheckForResend( void )
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
-	if( cls.connect_retry == CL_TEST_RETRIES_NORESPONCE )
+	if( cls.connect_retry == CL_TEST_RETRIES )
 	{
 		// too many fails use default connection method
-		Con_Printf( "hi-speed connection is failed, use default method\n" );
+		Con_Printf( "Bandwidth test failed, fallback to default connecting method\n" );
+		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry + 1 );
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
 		Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 		cls.connect_time = host.realtime;
@@ -1148,16 +1168,15 @@ static void CL_CheckForResend( void )
 		return;
 	}
 
-	bandwidthTest = !cls.legacymode && cl_test_bandwidth.value;
 	cls.serveradr = adr;
-	cls.max_fragment_size = Q_min( FRAGMENT_MAX_SIZE, cls.max_fragment_size / (cls.connect_retry + 1));
+	cls.max_fragment_size = CL_GetTestFragmentSize();
 	cls.connect_time = host.realtime; // for retransmit requests
 	cls.connect_retry++;
 
 	if( bandwidthTest )
-		Con_Printf( "Connecting to %s... [retry #%i, max fragment size %i]\n", cls.servername, cls.connect_retry, cls.max_fragment_size );
+		Con_Printf( "Connecting to %s... (retry #%i, fragment size %i)\n", cls.servername, cls.connect_retry, cls.max_fragment_size );
 	else
-		Con_Printf( "Connecting to %s... [retry #%i]\n", cls.servername, cls.connect_retry );
+		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry );
 
 	if( bandwidthTest )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
