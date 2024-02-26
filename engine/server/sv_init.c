@@ -922,7 +922,7 @@ static void SV_GenerateTestPacket( void )
 	// testpacket already generated once, exit
 	// testpacket and lookup table takes ~300k of memory
 	// disable for low memory mode
-	if( svs.testpacket_buf || XASH_LOW_MEMORY >= 0 )
+	if( svs.testpacket_buf || XASH_LOW_MEMORY > 0 )
 		return;
 
 	// don't need in singleplayer with full client
