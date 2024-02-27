@@ -41,7 +41,7 @@ void Platform_Sleep( int msec )
 }
 #endif // XASH_TIMER == TIMER_WIN32
 
-qboolean Sys_DebuggerPresent( void )
+qboolean Platform_DebuggerPresent( void )
 {
 	return IsDebuggerPresent();
 }
