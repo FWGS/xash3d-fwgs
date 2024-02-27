@@ -34,8 +34,8 @@ double Platform_DoubleTime( void );
 void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
-qboolean Sys_DebuggerPresent( void ); // optional, see Sys_DebugBreak
 void Platform_SetStatus( const char *status );
+qboolean Platform_DebuggerPresent( void );
 
 // legacy iOS port functions
 #if TARGET_OS_IOS
@@ -139,6 +139,15 @@ static inline void Platform_Shutdown( void )
 
 #if XASH_SDL
 	SDLash_Shutdown( );
+#endif
+}
+
+static inline qboolean Sys_DebuggerPresent( void )
+{
+#if XASH_LINUX || XASH_WIN32
+	return Platform_DebuggerPresent();
+#else
+	return false;
 #endif
 }
 

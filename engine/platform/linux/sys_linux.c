@@ -52,7 +52,7 @@ static pid_t gettid( void )
 static void *g_hsystemd;
 static int (*g_pfn_sd_notify)( int unset_environment, const char *state );
 
-qboolean Sys_DebuggerPresent( void )
+qboolean Platform_DebuggerPresent( void )
 {
 	char buf[4096];
 	ssize_t num_read;
