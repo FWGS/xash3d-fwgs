@@ -601,6 +601,12 @@ void WriteQCScript( void )
 	fputs( "$scale 1.0\n", fp );
 	fputs( "\n", fp );
 
+	if( model_hdr->flags & STUDIO_HAS_BONEINFO )
+	{
+		if( model_hdr->flags & STUDIO_HAS_BONEWEIGHTS )
+			fputs( "$boneweights\n\n", fp );
+	}
+
 	WriteBodyGroupInfo( fp );
 
 	fprintf( fp, "$flags %u\n\n", model_hdr->flags &~( STUDIO_HAS_BONEINFO | STUDIO_HAS_BONEWEIGHTS ) );
@@ -611,10 +617,6 @@ void WriteQCScript( void )
 
 	WriteSkinFamilyInfo( fp );
 	WriteTextureRenderMode( fp );
-
-	if( model_hdr->flags & ( STUDIO_HAS_BONEINFO | STUDIO_HAS_BONEWEIGHTS ) )
-		fputs( "$boneweights\n\n", fp );
-
 	WriteAttachmentInfo( fp );
 
 	fprintf( fp, "$bbox %f %f %f", model_hdr->min[0], model_hdr->min[1], model_hdr->min[2] );
