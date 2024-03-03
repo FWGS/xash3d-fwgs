@@ -1045,7 +1045,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	// make cvars consistant
 	if( coop.value ) Cvar_SetValue( "deathmatch", 0 );
 	current_skill = Q_rint( skill.value );
+#if 0 // a1ba: don't limit the skill, it's limited in game rules anyway
 	current_skill = bound( 0, current_skill, 3 );
+#endif
 	Cvar_SetValue( "skill", (float)current_skill );
 
 	// enforce hpk_maxsize
