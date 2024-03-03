@@ -374,14 +374,8 @@ static void SDLash_ActiveEvent( int gain )
 	{
 		host.status = HOST_FRAME;
 		if( cls.key_dest == key_game )
-		{
 			IN_ActivateMouse( );
-		}
 
-		if( dma.initialized && snd_mute_losefocus.value )
-		{
-			SNDDMA_Activate( true );
-		}
 		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
 		if( vid_fullscreen.value == WINDOW_MODE_FULLSCREEN )
 			VID_SetMode();
@@ -397,14 +391,8 @@ static void SDLash_ActiveEvent( int gain )
 #endif
 		host.status = HOST_NOFOCUS;
 		if( cls.key_dest == key_game )
-		{
 			IN_DeactivateMouse();
-		}
 
-		if( dma.initialized && snd_mute_losefocus.value )
-		{
-			SNDDMA_Activate( false );
-		}
 		host.force_draw_version_time = host.realtime + 2.0;
 		VID_RestoreScreenResolution();
 	}
