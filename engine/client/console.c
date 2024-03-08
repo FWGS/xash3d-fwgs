@@ -1125,7 +1125,7 @@ Con_ClearField
 */
 static void Con_ClearField( field_t *edit )
 {
-	memset( edit->buffer, 0, MAX_STRING );
+	memset( edit->buffer, 0, sizeof( edit->buffer ));
 	edit->cursor = 0;
 	edit->scroll = 0;
 }
@@ -1444,36 +1444,49 @@ static void Con_HistoryAppend( con_history_t *self, field_t *from )
 
 static void Con_LoadHistory( con_history_t *self )
 {
-	const byte *aFile = FS_LoadFile( "console_history.txt", NULL, true );
-	const char *pLine, *pFile;
-	int i, len;
 	field_t *f;
+	file_t *fd;
+	int i;
 
-	if( !aFile )
+	fd = FS_Open( "console_history.txt", "rb", true );
+
+	if( !fd )
 		return;
 
-	for( pFile = pLine = (char *)aFile; *pFile; pFile++ )
+	while( !FS_Eof( fd ))
 	{
-		if( *pFile != '\n' )
+		f = &self->lines[self->next % CON_HISTORY];
+
+		Con_ClearField( f );
+		f->widthInChars = con.linewidth;
+
+		FS_Gets( fd, f->buffer, sizeof( f->buffer ));
+		f->cursor = Q_strlen( f->buffer );
+
+		// skip empty lines
+		if( f->cursor == 0 )
 			continue;
 
-		Con_ClearField( &self->lines[self->next] );
-
-		len = Q_min( pFile - pLine + 1, sizeof( f->buffer ));
-		f = &self->lines[self->next % CON_HISTORY];
-		f->widthInChars = con.linewidth;
-		f->cursor = len - 1;
-		Q_strncpy( f->buffer, pLine, len);
+		// skip repeating lines
+		if( self->next > 0 )
+		{
+			field_t *prev;
+			prev = &self->lines[(self->next - 1) % CON_HISTORY];
+			if( !Q_stricmp( prev->buffer, f->buffer ))
+				continue;
+		}
 
 		self->next++;
-
-		pLine = pFile + 1;
 	}
+
+	FS_Close( fd );
 
 	for( i = self->next; i < CON_HISTORY; i++ )
 	{
-		Con_ClearField( &self->lines[i] );
-		self->lines[i].widthInChars = con.linewidth;
+		f = &self->lines[i];
+
+		Con_ClearField( f );
+		f->widthInChars = con.linewidth;
 	}
 
 	self->line = self->next;
@@ -1491,7 +1504,7 @@ static void Con_SaveHistory( con_history_t *self )
 	if( historyStart < 0 )
 		historyStart = 0;
 
-	f = FS_Open( "console_history.txt", "w", true );
+	f = FS_Open( "console_history.txt", "wb", true );
 
 	for( i = historyStart; i < self->next; i++ )
 		FS_Printf( f, "%s\n", self->lines[i % CON_HISTORY].buffer );
