@@ -953,7 +953,7 @@ static void Cvar_SetGL( const char *name, const char *value )
 
 static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 {
-	const char *prefixes[] = { "cl_", "gl_", "m_", "r_", "hud_" };
+	const char *prefixes[] = { "cl_", "gl_", "m_", "r_", "hud_", "joy_" };
 	int i;
 
 	if( isPrivileged )
