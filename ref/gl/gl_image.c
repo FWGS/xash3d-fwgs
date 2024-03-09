@@ -1471,6 +1471,22 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 		prev = &cur->nextHash;
 	}
 
+	// invalidate texture units state cache
+	for( int i = 0; i < MAX_TEXTURE_UNITS; i++ )
+	{
+		if( glState.currentTextures[i] == tex->texnum )
+		{
+			if( glState.currentTextureTargets[i] != GL_NONE )
+			{
+				GL_SelectTexture( i );
+				pglDisable( glState.currentTextureTargets[i] );
+			}
+			glState.currentTextureTargets[i] = GL_NONE;
+			glState.currentTextures[i] = -1;
+			glState.currentTexturesIndex[i] = 0;
+		}
+	}
+
 	// release source
 	if( tex->original )
 		gEngfuncs.FS_FreeImage( tex->original );
