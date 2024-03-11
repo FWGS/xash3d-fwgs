@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "port.h"
+#include "defaults.h"
 
 #if XASH_ANDROID_ASSETS
 
