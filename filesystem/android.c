@@ -14,9 +14,8 @@ GNU General Public License for more details.
 */
 
 #include "port.h"
-#include "defaults.h"
 
-#if XASH_ANDROID_ASSETS
+#if XASH_ANDROID
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -277,6 +276,9 @@ searchpath_t *FS_AddAndroidAssets_Fullpath( const char *path, int flags )
 	android_assets_t *assets = NULL;
 	qboolean engine = true;
 
+	if( !jni.getPackageName || !jni.getCallingPackage || !jni.getAssetsList || !jni.getAssets )
+		return NULL;
+
 	if( FBitSet( flags, FS_STATIC_PATH | FS_CUSTOM_PATH ))
 		return NULL;
 
@@ -287,7 +289,7 @@ searchpath_t *FS_AddAndroidAssets_Fullpath( const char *path, int flags )
 
 	if( !assets )
 	{
-		Con_Reportf( S_ERROR "%s: unable to load Android assets \"%s\"\n", __FUNCTION__, Android_GetPackageName( engine ));
+		Con_Reportf( S_ERROR "%s: unable to load Android assets \"%s\"\n", __func__, Android_GetPackageName( engine ));
 		return NULL;
 	}
 
@@ -327,6 +329,9 @@ void FS_InitAndroid( void )
 	jni.getCallingPackage = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getCallingPackage", "()Ljava/lang/String;" );
 	jni.getAssetsList = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getAssetsList", "(ZLjava/lang/String;)[Ljava/lang/String;" );
 	jni.getAssets = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getAssets", "(Z)Landroid/content/res/AssetManager;" );
+
+	if( !jni.getPackageName || !jni.getCallingPackage || !jni.getAssetsList || !jni.getAssets )
+		Con_Reportf( S_WARN "%s: unable to find required JNI interface to load Android assets\n", __func__ );
 }
 
-#endif // XASH_ANDROID_ASSETS
+#endif // XASH_ANDROID
