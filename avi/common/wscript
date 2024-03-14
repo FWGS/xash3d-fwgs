@@ -1,0 +1,23 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+from waflib import Logs
+import os
+
+def options(opt):
+	return
+
+def configure(conf):
+	return
+
+def build(bld):
+	bld(name = 'avi_common_includes', export_includes = '.', use = 'engine_includes filesystem_includes')
+
+	bld.stlib(source = bld.path.ant_glob(['*.c']),
+		target   = 'avi_common',
+		features = 'c',
+		includes = '.',
+		use      = 'avi_common_includes public werror',
+		install_path = bld.env.LIBDIR,
+		subsystem = bld.env.MSVC_SUBSYSTEM
+	)

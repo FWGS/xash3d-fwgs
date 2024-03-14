@@ -69,6 +69,8 @@ SUBDIRS = [
 	Subproject('dllemu'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
+	Subproject('avi/common',            lambda x: not x.env.DEDICATED),
+	Subproject('avi/win32',             lambda x: not x.env.DEDICATED and x.env.DEST_OS == 'win32'),
 	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED and x.env.DEST_OS != 'android'),
 	Subproject('3rdparty/nanogl',       lambda x: not x.env.DEDICATED and x.env.NANOGL),
 	Subproject('3rdparty/gl-wes-v2',    lambda x: not x.env.DEDICATED and x.env.GLWES),
