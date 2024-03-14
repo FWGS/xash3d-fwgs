@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "vid_common.h"
 
 static void 	UI_UpdateUserinfo( void );
+static movie_state_t *cin_state;
 
 gameui_static_t	gameui;
 
@@ -67,8 +68,6 @@ void UI_MouseMove( int x, int y )
 
 void UI_SetActiveMenu( qboolean fActive )
 {
-	movie_state_t	*cin_state;
-
 	if( !gameui.hInstance )
 	{
 		if( !fActive )
@@ -82,8 +81,7 @@ void UI_SetActiveMenu( qboolean fActive )
 	if( !fActive )
 	{
 		// close logo when menu is shutdown
-		cin_state = AVI_GetState( CIN_LOGO );
-		AVI_CloseVideo( cin_state );
+		AVI_FreeVideo( &cin_state );
 	}
 }
 
@@ -300,12 +298,14 @@ static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, flo
 	qboolean		redraw = false;
 
 	if( !gameui.drawLogo ) return;
-	cin_state = AVI_GetState( CIN_LOGO );
 
 	if( !AVI_IsActive( cin_state ))
 	{
 		string		path;
 		const char	*fullpath;
+
+		if( cin_state )
+			AVI_FreeVideo( &cin_state );
 
 		// run cinematic if not
 		Q_snprintf( path, sizeof( path ), "media/%s", filename );
@@ -319,10 +319,10 @@ static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, flo
 			return;
 		}
 
-		AVI_OpenVideo( cin_state, fullpath, false, true );
+		cin_state = AVI_LoadVideo( fullpath, MOVIE_LOAD_QUIET );
 		if( !( AVI_GetVideoInfo( cin_state, &gameui.logo_xres, &gameui.logo_yres, &gameui.logo_length )))
 		{
-			AVI_CloseVideo( cin_state );
+			AVI_FreeVideo( &cin_state );
 			gameui.drawLogo = false;
 			return;
 		}
@@ -1234,6 +1234,7 @@ void UI_UnloadProgs( void )
 
 	Cvar_Unlink( FCVAR_GAMEUIDLL );
 	Cmd_Unlink( CMD_GAMEUIDLL );
+	AVI_FreeVideo( &cin_state );
 
 	COM_FreeLibrary( gameui.hInstance );
 	Mem_FreePool( &gameui.mempool );

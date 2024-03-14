@@ -142,7 +142,7 @@ void SCR_RunCinematic( void )
 	if( UI_IsVisible( ))
 	{
 		// these can happens when user set +menu_ option to cmdline
-		AVI_CloseVideo( cin_state );
+		AVI_FreeVideo( &cin_state );
 		cls.state = ca_disconnected;
 		Key_SetKeyDest( key_menu );
 		S_StopStreaming();
@@ -204,6 +204,9 @@ qboolean SCR_PlayCinematic( const char *arg )
 {
 	const char	*fullpath;
 
+	if( cin_state )
+		AVI_FreeVideo( &cin_state );
+
 	fullpath = FS_GetDiskPath( arg, false );
 
 	if( FS_FileExists( arg, false ) && !fullpath )
@@ -212,16 +215,19 @@ qboolean SCR_PlayCinematic( const char *arg )
 		return false;
 	}
 
-	AVI_OpenVideo( cin_state, fullpath, true, false );
+	cin_state = AVI_LoadVideo( fullpath, MOVIE_LOAD_AUDIO );
+
 	if( !AVI_IsActive( cin_state ))
 	{
-		AVI_CloseVideo( cin_state );
+		AVI_FreeVideo( &cin_state );
+		cin_state = NULL;
 		return false;
 	}
 
 	if( !( AVI_GetVideoInfo( cin_state, &xres, &yres, &video_duration ))) // couldn't open this at all.
 	{
-		AVI_CloseVideo( cin_state );
+		AVI_FreeVideo( &cin_state );
+		cin_state = NULL;
 		return false;
 	}
 
@@ -268,7 +274,7 @@ void SCR_StopCinematic( void )
 	if( cls.state != ca_cinematic )
 		return;
 
-	AVI_CloseVideo( cin_state );
+	AVI_FreeVideo( &cin_state );
 	S_StopStreaming();
 	cin_time = 0.0f;
 
@@ -286,7 +292,6 @@ SCR_InitCinematic
 void SCR_InitCinematic( void )
 {
 	AVI_Initailize ();
-	cin_state = AVI_GetState( CIN_MAIN );
 }
 
 /*
@@ -296,14 +301,7 @@ SCR_FreeCinematic
 */
 void SCR_FreeCinematic( void )
 {
-	movie_state_t	*cin_state;
-
 	// release videos
-	cin_state = AVI_GetState( CIN_LOGO );
-	AVI_CloseVideo( cin_state );
-
-	cin_state = AVI_GetState( CIN_MAIN );
-	AVI_CloseVideo( cin_state );
-
+	AVI_FreeVideo( &cin_state );
 	AVI_Shutdown();
 }
