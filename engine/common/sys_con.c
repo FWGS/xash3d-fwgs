@@ -153,6 +153,7 @@ void Sys_InitLog( void )
 		fprintf( s_ld.logfile, "=================================================================================\n" );
 		fprintf( s_ld.logfile, "\t%s (build %i commit %s (%s-%s)) started at %s\n", s_ld.title, Q_buildnum(), Q_buildcommit(), Q_buildos(), Q_buildarch(), Q_timestamp( TIME_FULL ) );
 		fprintf( s_ld.logfile, "=================================================================================\n" );
+		fflush( s_ld.logfile );
 	}
 }
 
