@@ -55,6 +55,7 @@ const char *Q_buildos( void );
 const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int endianness, const qboolean is64 );
 const char *Q_buildarch( void );
 const char *Q_buildcommit( void );
+const char *Q_buildbranch( void );
 
 //
 // crtlib.c

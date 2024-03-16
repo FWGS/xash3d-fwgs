@@ -253,3 +253,16 @@ const char *Q_buildcommit( void )
 #endif
 }
 
+/*
+=============
+Q_buildbranch
+
+Returns current branch name in VCS as string. For now it's just a stub.
+P.S: I don't know how to implement it from waf side, so a1ba, please do it :)
+=============
+*/
+const char *Q_buildbranch( void )
+{
+	return "branch";
+}
+
