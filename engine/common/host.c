@@ -1187,6 +1187,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Con_Printf( "^3BUGCOMP^7: GoldSrc bug-compatibility enabled\n" );
 	}
 
+	// print current developer level to simplify processing users feedback
+	if( developer > 0 ) {
+		Con_Printf( "Developer level: ^3%i\n", developer );
+	}
+
 	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
