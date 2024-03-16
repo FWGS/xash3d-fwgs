@@ -135,6 +135,8 @@ void Sys_InitLog( void )
 		mode = "a";
 	else mode = "w";
 
+	Q_strncpy( s_ld.title, "Xash3D FWGS", sizeof( s_ld.title ));
+
 	// create log if needed
 	if( s_ld.log_active )
 	{
