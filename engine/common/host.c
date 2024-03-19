@@ -92,8 +92,9 @@ static void Sys_PrintUsage( void )
 	O("-minidumps       ", "enable writing minidumps when game is crashed")
 #endif
 	O("-rodir <path>    ", "set read-only base directory")
-	O("-bugcomp         ", "enable precise bug compatibility. Will break games that don't require it")
-	O("                 ", "Refer to engine documentation for more info")
+	O("-bugcomp         ", "enable precise bug compatibility")
+	O("                 ", "will break games that don't require it")
+	O("                 ", "refer to engine documentation for more info")
 	O("-disablehelp     ", "disable this message")
 #if !XASH_DEDICATED
 	O("-dedicated       ", "run engine in dedicated mode")
@@ -106,7 +107,8 @@ static void Sys_PrintUsage( void )
 	O("-noip6           ", "disable IPv6")
 	O("-ip6 <ip>        ", "set IPv6 address")
 	O("-port6 <port>    ", "set IPv6 port")
-	O("-clockwindow <cw>", "adjust clockwindow used to ignore client commands to prevent speed hacks")
+	O("-clockwindow <cw>", "adjust clockwindow used to ignore client commands")
+	O("                 ", "to prevent speed hacks")
 
 "\nGame options:\n"
 	O("-game <directory>", "set game directory to start engine with")
