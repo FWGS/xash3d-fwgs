@@ -136,8 +136,8 @@ void Sys_InitLog( void )
 	else mode = "w";
 
 	if( Host_IsDedicated( ))
-		Q_snprintf( s_ld.title, sizeof( s_ld.title ), "XashDS %s", XASH_VERSION );
-	else Q_snprintf( s_ld.title, sizeof( s_ld.title ), "Xash3D FWGS %s", XASH_VERSION );
+		Q_strncpy( s_ld.title, XASH_DEDICATED_SERVER_NAME " " XASH_VERSION, sizeof( s_ld.title ));
+	else Q_strncpy( s_ld.title, XASH_ENGINE_NAME " " XASH_VERSION, sizeof( s_ld.title ));
 
 	// create log if needed
 	if( s_ld.log_active )
