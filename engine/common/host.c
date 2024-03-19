@@ -1376,7 +1376,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		host.status = HOST_FRAME;
 
 		if( GameState->nextstate == STATE_RUNFRAME )
+#if XASH_WIN32 // FIXME: implement autocomplete on *nix
 			Con_Printf( "Type 'map <mapname>' to start game... (TAB-autocomplete is working too)\n" );
+#else // !XASH_WIN32
+			Con_Printf( "Type 'map <mapname>' to start game...\n" );
+#endif // !XASH_WIN32
 
 		// execute server.cfg after commandline
 		// so we have a chance to set servercfgfile
