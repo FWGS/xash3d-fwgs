@@ -181,7 +181,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject gitversion clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake')
+	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake')
 
 	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
 	if conf.env.MSVC_TARGETS[0] == 'x86':
