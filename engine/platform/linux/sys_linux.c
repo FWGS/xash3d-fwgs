@@ -111,6 +111,11 @@ void Linux_Init( void )
 	if( !Host_IsDedicated( ))
 		return;
 
+	// manpage says sd_notify will send messages to socket in NOTIFY_SOCKET
+	// environment variable. Check if it's available.
+	if( getenv( "NOTIFY_SOCKET" ) == NULL )
+		return;
+
 	if(( g_hsystemd = dlopen( "libsystemd.so.0", RTLD_LAZY )) == NULL )
 		return;
 
