@@ -12,7 +12,9 @@ def options(opt):
 	return
 
 def configure(conf):
-	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'notset')
+	conf.load('gitversion')
+	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'unknown-commit')
+	conf.define('XASH_BUILD_BRANCH', conf.env.GIT_BRANCH  if conf.env.GIT_BRANCH  else 'unknown-branch')
 
 def build(bld):
 	bld(name = 'sdk_includes', export_includes = '. ../common ../pm_shared ../engine')
