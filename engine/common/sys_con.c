@@ -135,7 +135,9 @@ void Sys_InitLog( void )
 		mode = "a";
 	else mode = "w";
 
-	Q_strncpy( s_ld.title, "Xash3D FWGS", sizeof( s_ld.title ));
+	if( Host_IsDedicated( ))
+		Q_snprintf( s_ld.title, sizeof( s_ld.title ), "XashDS %s", XASH_VERSION );
+	else Q_snprintf( s_ld.title, sizeof( s_ld.title ), "Xash3D FWGS %s", XASH_VERSION );
 
 	// create log if needed
 	if( s_ld.log_active )
@@ -144,15 +146,17 @@ void Sys_InitLog( void )
 
 		if ( !s_ld.logfile )
 		{
-			Con_Reportf( S_ERROR  "Sys_InitLog: can't create log file %s: %s\n", s_ld.log_path, strerror( errno ) );
+			Con_Reportf( S_ERROR  "Sys_InitLog: can't create log file %s: %s\n", s_ld.log_path, strerror( errno ));
 			return;
 		}
 
 		s_ld.logfileno = fileno( s_ld.logfile );
 
-		fprintf( s_ld.logfile, "==========================================================================================================\n" );
-		fprintf( s_ld.logfile, "\t%s (build %i / commit %s-%s / %s / %s) started at %s\n", s_ld.title, Q_buildnum(), Q_buildcommit(), Q_buildbranch(), Q_buildos(), Q_buildarch(), Q_timestamp( TIME_FULL ));
-		fprintf( s_ld.logfile, "==========================================================================================================\n" );
+		// fit to 80 columns for easier read on standard terminal
+		fputs( "================================================================================\n", s_ld.logfile );
+		fprintf( s_ld.logfile, "%s (%i, %s, %s, %s-%s)\n", s_ld.title, Q_buildnum(), Q_buildcommit(), Q_buildbranch(), Q_buildos(), Q_buildarch());
+		fprintf( s_ld.logfile, "Game started at %s\n", Q_timestamp( TIME_FULL ));
+		fputs( "================================================================================\n", s_ld.logfile );
 		fflush( s_ld.logfile );
 	}
 }
@@ -180,12 +184,11 @@ void Sys_CloseLog( void )
 
 	if( s_ld.logfile )
 	{
-		fprintf( s_ld.logfile, "\n");
-		fprintf( s_ld.logfile, "=================================================================================");
-		if( host.change_game ) fprintf( s_ld.logfile, "\n\t%s (build %i) %s\n", s_ld.title, Q_buildnum(), event_name );
-		else fprintf( s_ld.logfile, "\n\t%s (build %i) %s at %s\n", s_ld.title, Q_buildnum(), event_name, Q_timestamp( TIME_FULL ));
-		fprintf( s_ld.logfile, "=================================================================================\n");
-
+		fputc( '\n', s_ld.logfile );
+		fputs( "================================================================================\n", s_ld.logfile );
+		fprintf( s_ld.logfile, "%s (%i, %s, %s, %s-%s)\n", s_ld.title, Q_buildnum(), Q_buildcommit(), Q_buildbranch(), Q_buildos(), Q_buildarch());
+		fprintf( s_ld.logfile, "Stopped with reason \"%s\" at %s\n", event_name, Q_timestamp( TIME_FULL ));
+		fputs( "================================================================================\n", s_ld.logfile );
 		fclose( s_ld.logfile );
 		s_ld.logfile = NULL;
 	}
