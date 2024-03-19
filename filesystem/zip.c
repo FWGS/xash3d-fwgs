@@ -701,7 +701,7 @@ searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
 	search->pfnSearch = FS_Search_ZIP;
 	search->pfnLoadFile = FS_LoadZIPFile;
 
-	Con_Reportf( "Adding zipfile: %s (%i files)\n", zipfile, zip->numfiles );
+	Con_Reportf( "Adding ZIP: %s (%i files)\n", zipfile, zip->numfiles );
 	return search;
 }
 
