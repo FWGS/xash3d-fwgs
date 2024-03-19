@@ -670,6 +670,6 @@ searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags )
 	search->pfnSearch = FS_Search_WAD;
 	search->pfnLoadFile = W_ReadLump;
 
-	Con_Reportf( "Adding wadfile: %s (%i files)\n", wadfile, wad->numlumps );
+	Con_Reportf( "Adding WAD: %s (%i files)\n", wadfile, wad->numlumps );
 	return search;
 }
