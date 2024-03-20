@@ -62,7 +62,7 @@ typedef struct voice_state_s
 	// opus stuff
 	OpusCustomMode    *custom_mode;
 	OpusCustomEncoder *encoder;
-	OpusCustomDecoder *decoder;
+	OpusCustomDecoder *decoders[MAX_CLIENTS];
 
 	// audio info
 	uint width;

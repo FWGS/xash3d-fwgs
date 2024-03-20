@@ -39,6 +39,25 @@ static void Voice_ApplyGainAdjust( int16_t *samples, int count );
 ===============================================================================
 */
 
+static qboolean Voice_InitCustomMode( void )
+{
+	int err = 0;
+
+	voice.width = sizeof( opus_int16 );
+	voice.samplerate = VOICE_OPUS_CUSTOM_SAMPLERATE;
+	voice.frame_size = VOICE_OPUS_CUSTOM_FRAME_SIZE;
+
+	voice.custom_mode = opus_custom_mode_create( SOUND_44k, voice.frame_size, &err );
+
+	if( !voice.custom_mode )
+	{
+		Con_Printf( S_ERROR "Can't create Opus Custom mode: %s\n", opus_strerror( err ));
+		return false;
+	}
+
+	return true;
+}
+
 /*
 =========================
 Voice_InitOpusDecoder
@@ -47,24 +66,17 @@ Voice_InitOpusDecoder
 */
 static qboolean Voice_InitOpusDecoder( void )
 {
-	int err;
+	int err = 0;
 
-	voice.width      = sizeof( opus_int16 );
-	voice.samplerate = VOICE_OPUS_CUSTOM_SAMPLERATE;
-	voice.frame_size = VOICE_OPUS_CUSTOM_FRAME_SIZE;
-
-	voice.custom_mode = opus_custom_mode_create( SOUND_44k, voice.frame_size, &err );
-	if( !voice.custom_mode )
+	for( int i = 0; i < cl.maxclients; i++ )
 	{
-		Con_Printf( S_ERROR "Can't create Opus Custom mode: %s\n", opus_strerror( err ));
-		return false;
-	}
+		voice.decoders[i] = opus_custom_decoder_create( voice.custom_mode, VOICE_PCM_CHANNELS, &err );
 
-	voice.decoder = opus_custom_decoder_create( voice.custom_mode, VOICE_PCM_CHANNELS, &err );
-	if( !voice.decoder )
-	{
-		Con_Printf( S_ERROR "Can't create Opus encoder: %s\n", opus_strerror( err ));
-		return false;
+		if( !voice.decoders[i] )
+		{
+			Con_Printf( S_ERROR "Can't create Opus decoder for %i: %s\n", i, opus_strerror( err ));
+			return false;
+		}
 	}
 
 	return true;
@@ -78,7 +90,7 @@ Voice_InitOpusEncoder
 */
 static qboolean Voice_InitOpusEncoder( int quality )
 {
-	int err;
+	int err = 0;
 
 	voice.encoder = opus_custom_encoder_create( voice.custom_mode, VOICE_PCM_CHANNELS, &err );
 	if( !voice.encoder )
@@ -117,10 +129,13 @@ Voice_ShutdownOpusDecoder
 */
 static void Voice_ShutdownOpusDecoder( void )
 {
-	if( voice.decoder )
+	for( int i = 0; i < MAX_CLIENTS; i++ )
 	{
-		opus_custom_decoder_destroy( voice.decoder );
-		voice.decoder = NULL;
+		if( !voice.decoders[i] )
+			continue;
+
+		opus_custom_decoder_destroy( voice.decoders[i] );
+		voice.decoders[i] = NULL;
 	}
 }
 
@@ -137,7 +152,10 @@ static void Voice_ShutdownOpusEncoder( void )
 		opus_custom_encoder_destroy( voice.encoder );
 		voice.encoder = NULL;
 	}
+}
 
+static void Voice_ShutdownCustomMode( void )
+{
 	if( voice.custom_mode )
 	{
 		opus_custom_mode_destroy( voice.custom_mode );
@@ -455,10 +473,11 @@ Received encoded voice data, decode it
 */
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
+	const int playernum = ent - 1;
 	int samples = 0;
 	int ofs = 0;
 
-	if( !voice.decoder )
+	if( playernum < 0 || playernum >= cl.maxclients || !voice.decoders[playernum] )
 		return;
 
 	// decode frame by frame
@@ -478,7 +497,7 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 		if( ofs + compressed_size > size )
 			break;
 
-		frame_samples = opus_custom_decode( voice.decoder, data + ofs, compressed_size,
+		frame_samples = opus_custom_decode( voice.decoders[playernum], data + ofs, compressed_size,
 			(opus_int16*)voice.decompress_buffer + samples, voice.frame_size );
 
 		ofs += compressed_size;
@@ -544,8 +563,9 @@ static void Voice_Shutdown( void )
 	int i;
 
 	Voice_RecordStop();
-	Voice_ShutdownOpusEncoder();
 	Voice_ShutdownOpusDecoder();
+	Voice_ShutdownOpusEncoder();
+	Voice_ShutdownCustomMode();
 	VoiceCapture_Shutdown();
 
 	if( voice.local.talking_ack )
@@ -609,11 +629,10 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 
 		voice.autogain.block_size = 128;
 
-		if( !Voice_InitOpusDecoder( ))
+		if( !Voice_InitCustomMode( ))
 		{
 			// no reason to init encoder and open audio device
 			// if we can't hear other players
-			Con_Printf( S_ERROR "Voice chat disabled.\n" );
 			Voice_Shutdown();
 			return false;
 		}
@@ -633,6 +652,16 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 
 	if( !preinit )
 	{
+		Voice_ShutdownOpusDecoder();
+		if( !Voice_InitOpusDecoder())
+		{
+			// no reason to init encoder and open audio device
+			// if we can't hear other players
+			Con_Printf( S_ERROR "Can't create decoders, voice chat is disabled.\n" );
+			Voice_Shutdown();
+			return false;
+		}
+
 		voice.device_opened = VoiceCapture_Init();
 
 		if( !voice.device_opened )
