@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 #include "platform/platform.h"
 
-#if !defined(XASH_DEDICATED)
+#if !defined(XASH_DEDICATED) && XASH_SDL
 
 #include "input.h"
 #include "client.h"

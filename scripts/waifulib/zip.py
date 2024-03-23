@@ -44,16 +44,16 @@ def create_zip_archive(self):
 	self.path.get_bld().mkdir()
 	target = self.path.get_bld().make_node(self.name)
 
-	tsk = self.create_task('ziparchive', files, target)
+	self.zip_task = self.create_task('ziparchive', files, target)
 
-	setattr(tsk, 'compresslevel', compresslevel)
-	setattr(tsk, 'relative_to', relative_to)
+	setattr(self.zip_task, 'compresslevel', compresslevel)
+	setattr(self.zip_task, 'relative_to', relative_to)
 
 	try:
 		inst_to = self.install_path
 		self.install_task = self.add_install_files(
 			install_to=inst_to, install_from=target,
-			chmod=Utils.O644, task=tsk)
+			chmod=Utils.O644, task=self.zip_task)
 
 	except AttributeError:
 		pass
