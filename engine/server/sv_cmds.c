@@ -1017,6 +1017,7 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "redirect", Rcon_Redirect_f, "force enable rcon redirection" );
 	Cmd_AddCommand( "logaddress", SV_SetLogAddress_f, "sets address and port for remote logging host" );
 	Cmd_AddCommand( "log", SV_ServerLog_f, "enables logging to file" );
+	Cmd_AddCommand( "str64stats", SV_PrintStr64Stats_f, "print engine pool string statistics" );
 
 	if( host.type == HOST_NORMAL )
 	{
@@ -1055,6 +1056,7 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "redirect" );
 	Cmd_RemoveCommand( "logaddress" );
 	Cmd_RemoveCommand( "log" );
+	Cmd_RemoveCommand( "str64stats" );
 
 	if( host.type == HOST_NORMAL )
 	{
