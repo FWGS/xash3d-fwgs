@@ -268,7 +268,6 @@ SV_SetModel
 void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 {
 	char	name[MAX_QPATH];
-	qboolean	found = false;
 	model_t	*mod;
 	int	i = 1;
 
@@ -864,7 +863,6 @@ void SV_WriteEntityPatch( const char *filename )
 	int		lumpofs = 0, lumplen = 0;
 	byte		buf[MAX_TOKEN]; // 1 kb
 	string		bspfilename;
-	dheader_t		*header;
 	dlump_t entities;
 	file_t		*f;
 
@@ -875,7 +873,6 @@ void SV_WriteEntityPatch( const char *filename )
 
 	memset( buf, 0, MAX_TOKEN );
 	FS_Read( f, buf, MAX_TOKEN );
-	header = (dheader_t *)buf;
 
 	// check all the lumps and some other errors
 	if( !Mod_TestBmodelLumps( f, bspfilename, buf, true, &entities ))
@@ -915,7 +912,6 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	int		lumpofs = 0, lumplen = 0;
 	byte		buf[MAX_TOKEN];
 	char		*ents = NULL;
-	dheader_t		*header;
 	dlump_t entities;
 	size_t		ft1, ft2;
 	file_t		*f;
@@ -930,7 +926,6 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	SetBits( *flags, MAP_IS_EXIST );
 	memset( buf, 0, MAX_TOKEN );
 	FS_Read( f, buf, MAX_TOKEN );
-	header = (dheader_t *)buf;
 
 	// check all the lumps and some other errors
 	if( !Mod_TestBmodelLumps( f, bspfilename, buf, (host_developer.value) ? false : true, &entities ))
@@ -3222,7 +3217,9 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 {
 	char *newString = NULL;
 	uint len;
+#ifdef XASH_64BIT
 	int cmp;
+#endif
 
 	if( svgame.physFuncs.pfnAllocString != NULL )
 	{
