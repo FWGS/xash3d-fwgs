@@ -1174,14 +1174,21 @@ static LINK_ENTITY_FUNC SV_GetEntityClass( const char *pszClassName )
 SV_AllocPrivateData
 
 allocate private data for a given edict
+
+if customentity is NULL, no "custom" entity EXPORT is being done
+if customentity is not NULL, will be set to true if "custom" export
+was used to create this entity
 ==============
 */
-static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className )
+static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean *customentity )
 {
 	const char	*pszClassName;
 	LINK_ENTITY_FUNC	SpawnEdict;
 
 	pszClassName = STRING( className );
+
+	if( customentity )
+		*customentity = false;
 
 	if( !ent )
 	{
@@ -1205,7 +1212,11 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className )
 		if( svgame.physFuncs.SV_CreateEntity && svgame.physFuncs.SV_CreateEntity( ent, pszClassName ) != -1 )
 			return ent;
 
-		SpawnEdict = SV_GetEntityClass( "custom" );
+		if( customentity )
+		{
+			SpawnEdict = SV_GetEntityClass( "custom" );
+			*customentity = SpawnEdict != NULL;
+		}
 
 		if( !SpawnEdict )
 		{
@@ -1216,8 +1227,6 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className )
 
 			return NULL;
 		}
-
-		SetBits( ent->v.flags, FL_CUSTOMENTITY ); // it's a custom entity but not a beam!
 	}
 
 	SpawnEdict( &ent->v );
@@ -1234,12 +1243,7 @@ create specified entity, alloc private data
 */
 edict_t* SV_CreateNamedEntity( edict_t *ent, string_t className )
 {
-	edict_t *ed = SV_AllocPrivateData( ent, className );
-
-	// for some reasons this flag should be immediately cleared
-	if( ed ) ClearBits( ed->v.flags, FL_CUSTOMENTITY );
-
-	return ed;
+	return SV_AllocPrivateData( ent, className, NULL );
 }
 
 /*
@@ -4820,6 +4824,15 @@ static enginefuncs_t gEngfuncs =
 	pfnPEntityOfEntIndexAllEntities,
 };
 
+static void SV_FreeKeyValueStrings( KeyValueData *kvd, int numpairs )
+{
+	for( int i = 0; i < numpairs; i++ )
+	{
+		Mem_Free( kvd[i].szKeyName );
+		Mem_Free( kvd[i].szValue );
+	}
+}
+
 /*
 ====================
 SV_ParseEdict
@@ -4831,36 +4844,34 @@ ed should be a properly initialized empty edict.
 static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 {
 	KeyValueData	pkvd[256]; // per one entity
-	qboolean		adjust_origin = false;
+	qboolean		adjust_origin = false, customentity;
 	int		i, numpairs = 0;
-	char		*classname = NULL;
-	char		token[2048];
-	vec3_t		origin;
+	const char	*classname = NULL;
 
 	// go through all the dictionary pairs
 	while( 1 )
 	{
 		string	keyname;
+		char	value[2048];
+		int len;
 
 		// parse key
-		if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
+		if(( *pfile = COM_ParseFile( *pfile, keyname, sizeof( keyname ))) == NULL )
 			Host_Error( "ED_ParseEdict: EOF without closing brace\n" );
-		if( token[0] == '}' ) break; // end of desc
 
-		Q_strncpy( keyname, token, sizeof( keyname ));
+		if( keyname[0] == '}' )
+			break; // end of desc
 
 		// parse value
-		if(( *pfile = COM_ParseFile( *pfile, token, sizeof( token ))) == NULL )
+		if(( *pfile = COM_ParseFile( *pfile, value, sizeof( value ))) == NULL )
 			Host_Error( "ED_ParseEdict: EOF without closing brace\n" );
 
-		if( token[0] == '}' )
+		if( value[0] == '}' )
 			Host_Error( "ED_ParseEdict: closing brace without data\n" );
 
-		// ignore attempts to set key ""
-		if( !keyname[0] ) continue;
-
+		// ignore attempts to set empty key or value
 		// "wad" field is already handled
-		if( !Q_strcmp( keyname, "wad" ))
+		if( !keyname[0] || !value[0] || !Q_strcmp( keyname, "wad" ))
 			continue;
 
 		// keynames with a leading underscore are used for
@@ -4868,57 +4879,83 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		if( FBitSet( world.flags, FWORLD_SKYSPHERE ) && keyname[0] == '_' )
 			continue;
 
-		// ignore attempts to set value ""
-		if( !token[0] ) continue;
+		// classname must be first
+		if( !Q_strcmp( keyname, "classname" ))
+		{
+			KeyValueData kvd = {
+				.szClassName = NULL,
+				.szKeyName = keyname,
+				.szValue = value,
+				.fHandled = false
+			};
+
+			// don't allow double classnames
+			if( classname != NULL )
+				continue;
+
+			svgame.dllFuncs.pfnKeyValue( ent, &kvd );
+
+			// ideally, all game dlls should handle classname.
+			// throw an error for now, improve the logic if it causes
+			// compatibility issues with Xash-based games
+			if( !kvd.fHandled )
+				Host_Error( "%s: game didn't handled \"%s\" classname\n", __func__,	value );
+
+			// this lets game dll override custom entity classname
+			// to something bogus that's exported in game dll
+			classname = STRING( ent->v.classname );
+			continue;
+		}
+
+		// GoldSrc removes trailing spaces
+		// but does this after sucking out classname
+		// which doesn't have similar check
+		for( len = Q_strlen( keyname ); len > 0 && keyname[len - 1] == ' '; len-- )
+			keyname[len - 1] = '\0';
 
 		// create keyvalue strings
 		pkvd[numpairs].szClassName = (char*)""; // unknown at this moment
 		pkvd[numpairs].szKeyName = copystring( keyname );
-		pkvd[numpairs].szValue = copystring( token );
+		pkvd[numpairs].szValue = copystring( value );
 		pkvd[numpairs].fHandled = false;
+		numpairs++;
 
-		if( !Q_strcmp( keyname, "classname" ) && classname == NULL )
-			classname = copystring( pkvd[numpairs].szValue );
-		if( ++numpairs >= 256 ) break;
+		if( numpairs > ARRAYSIZE( pkvd ))
+		{
+			if( classname )
+				Con_Printf( S_ERROR "%s: too many keyvalue pairs for %s!\n", __func__, classname );
+			else Con_Printf( S_ERROR "%s: too many keyvalue pairs!\n", __func__ );
+			break;
+		}
 	}
 
 	if( classname == NULL )
 	{
 		// release allocated strings
-		for( i = 0; i < numpairs; i++ )
-		{
-			Mem_Free( pkvd[i].szKeyName );
-			Mem_Free( pkvd[i].szValue );
-		}
+		SV_FreeKeyValueStrings( pkvd, numpairs );
 		return false;
 	}
 
-	ent = SV_AllocPrivateData( ent, ALLOC_STRING( classname ));
+	ent = SV_AllocPrivateData( ent, ent->v.classname, &customentity );
 
 	if( !SV_IsValidEdict( ent ) || FBitSet( ent->v.flags, FL_KILLME ))
 	{
 		// release allocated strings
-		for( i = 0; i < numpairs; i++ )
-		{
-			Mem_Free( pkvd[i].szKeyName );
-			Mem_Free( pkvd[i].szValue );
-		}
+		SV_FreeKeyValueStrings( pkvd, numpairs );
 		return false;
 	}
 
-	if( FBitSet( ent->v.flags, FL_CUSTOMENTITY ))
+	if( customentity )
 	{
-		if( numpairs < 256 )
-		{
-			pkvd[numpairs].szClassName = (char*)"custom";
-			pkvd[numpairs].szKeyName = (char*)"customclass";
-			pkvd[numpairs].szValue = classname;
-			pkvd[numpairs].fHandled = false;
-			numpairs++;
-		}
+		KeyValueData kvd = {
+			.szClassName = (char *)"custom",
+			.szKeyName = (char *)"customclass",
+			.szValue = (char *)classname,
+			.fHandled = false
+		};
 
-		// clear it now - no longer used
-		ClearBits( ent->v.flags, FL_CUSTOMENTITY );
+		svgame.dllFuncs.pfnKeyValue( ent, &kvd );
+		// no fHandled check, GoldSrc behavior
 	}
 
 #ifdef HACKS_RELATED_HLMODS
@@ -4932,6 +4969,14 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 	for( i = 0; i < numpairs; i++ )
 	{
+		char *keyname, *value;
+		char temp[MAX_VA_STRING];
+
+#if 0 // this is stupid bug in GoldSrc, disable
+		if( !Q_strcmp( pkvd[i].szValue, classname ))
+			continue;
+#endif
+
 		if( !Q_strcmp( pkvd[i].szKeyName, "angle" ))
 		{
 			float	flYawAngle = Q_atof( pkvd[i].szValue );
@@ -4942,8 +4987,6 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 			if( flYawAngle >= 0.0f )
 			{
-				char temp[MAX_VA_STRING];
-
 				Q_snprintf( temp, sizeof( temp ), "%g %g %g", ent->v.angles[0], flYawAngle, ent->v.angles[2] );
 				pkvd[i].szValue = copystring( temp );
 			}
@@ -4954,11 +4997,10 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			else pkvd[i].szValue = copystring( "0 0 0" ); // technically an error
 		}
 
-#ifdef HACKS_RELATED_HLMODS
 		if( adjust_origin && !Q_strcmp( pkvd[i].szKeyName, "origin" ))
 		{
-			char temp[MAX_VA_STRING];
-			char	*pstart = pkvd[i].szValue;
+			char   *pstart = pkvd[i].szValue;
+			vec3_t origin;
 
 			COM_ParseVector( &pstart, origin, 3 );
 			Mem_Free( pkvd[i].szValue );	// release old value, so we don't need these
@@ -4966,23 +5008,17 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			Q_snprintf( temp, sizeof( temp ), "%g %g %g", origin[0], origin[1], origin[2] - 16.0f );
 			pkvd[i].szValue = copystring( temp );
 		}
-#endif
-		if( !pkvd[i].fHandled )
-		{
-			pkvd[i].szClassName = classname;
-			svgame.dllFuncs.pfnKeyValue( ent, &pkvd[i] );
-		}
 
-		// no reason to keep this data
-		if( Mem_IsAllocatedExt( host.mempool, pkvd[i].szKeyName ))
-			Mem_Free( pkvd[i].szKeyName );
+		// do not leak memory if game overwritten these pointers
+		keyname = pkvd[i].szKeyName;
+		value = pkvd[i].szValue;
 
-		if( Mem_IsAllocatedExt( host.mempool, pkvd[i].szValue ))
-			Mem_Free( pkvd[i].szValue );
+		pkvd[i].szClassName = (char *)classname;
+		svgame.dllFuncs.pfnKeyValue( ent, &pkvd[i] );
+
+		Mem_Free( keyname );
+		Mem_Free( value );
 	}
-
-	if( Mem_IsAllocatedExt( host.mempool, classname ))
-		Mem_Free( classname );
 
 	return true;
 }
