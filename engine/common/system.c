@@ -53,7 +53,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "whereami.h"
 
-qboolean	error_on_exit = false;	// arg for exit();
+static int error_on_exit = 0;	// arg for exit();
 
 /*
 ================
@@ -430,7 +430,7 @@ void Sys_Error( const char *error, ... )
 	// make sure that console received last message
 	if( host.change_game ) Sys_Sleep( 200 );
 
-	error_on_exit = true;
+	error_on_exit = 1;
 	host.status = HOST_ERR_FATAL;
 	va_start( argptr, error );
 	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
