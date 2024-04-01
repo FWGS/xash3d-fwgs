@@ -1448,7 +1448,7 @@ pfnSPR_Draw
 */
 static void GAME_EXPORT pfnSPR_Draw( int frame, int x, int y, const wrect_t *prc )
 {
-	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransAlpha );
 	SPR_DrawGeneric( frame, x, y, -1, -1, prc );
 }
 
