@@ -963,13 +963,15 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 			LittleLongSW(pevent[j].unused);
 		}
 		
-		panim = (mstudioanim_t *)((byte *)phdr + pseqdesc[i].animindex);
-		for (int j = 0; j < pseqdesc[i].numblends; j++) {
-			for (int k = 0; k < phdr->numbones; k++) {
-				for (int l = 0; l < 6; l++) {
-					LittleShortSW(panim->offset[l]);
+		if (pseqdesc[i].seqgroup == 0) {
+			panim = (mstudioanim_t *)((byte *)phdr + pseqdesc[i].animindex);
+			for (int j = 0; j < pseqdesc[i].numblends; j++) {
+				for (int k = 0; k < phdr->numbones; k++) {
+					for (int l = 0; l < 6; l++) {
+						LittleShortSW(panim->offset[l]);
+					}
+					panim++;
 				}
-				panim++;
 			}
 		}
 	}
