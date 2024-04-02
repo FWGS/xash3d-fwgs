@@ -54,6 +54,9 @@ static const byte *R_SpriteLoadFrame( model_t *mod, const void *pin, mspritefram
 
 	memcpy( &pinframe, pin, sizeof( dspriteframe_t ));
 
+	LittleLongSW(pinframe.width);
+	LittleLongSW(pinframe.height);
+
 	if( sprite_version == SPRITE_VERSION_32 )
 		bytes = 4;
 
@@ -165,7 +168,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		pframetype = ((const byte *)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal );                                // palette installed, no reason to keep this data
 	}
-	else if( *numi <= 256 )
+	else if( LittleShort((*numi)) == 256 )
 	{
 		const byte	*src = (const byte *)(numi+1);
 		rgbdata_t	*pal;

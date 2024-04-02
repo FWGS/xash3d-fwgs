@@ -127,6 +127,16 @@ qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float
 	memcpy( &src, pfile, sizeof( src ));
 	Mem_Free( pfile );
 
+	LittleLongSW(src.width);
+	LittleLongSW(src.height);
+	LittleLongSW(src.rowcount);
+	LittleLongSW(src.rowheight);
+
+	for (int i = 0; i < NUM_GLYPHS; i++) {
+		LittleShortSW(src.fontinfo[i].startoffset);
+		LittleShortSW(src.fontinfo[i].charwidth);
+	}
+
 	font->hFontTexture = CL_LoadFontTexture( fontname, texFlags, &font_width );
 	if( !font->hFontTexture )
 		return false;

@@ -862,6 +862,7 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 	int         lumpofs = 0, lumplen = 0;
 	byte        buf[MAX_TOKEN] = { 0 };
 	char        *ents = NULL;
+	dheader_t	*header;
 	dlump_t     entities;
 	size_t      ft1, ft2;
 	file_t      *f;
@@ -877,6 +878,14 @@ static char *SV_ReadEntityScript( const char *filename, int *flags )
 
 	SetBits( *flags, MAP_IS_EXIST );
 	filelen = FS_Read( f, buf, sizeof( buf ));
+	header = (dheader_t *)buf;
+
+	LittleLongSW(header->version);
+
+	for (int i = 0; i < HEADER_LUMPS; i++) {
+		LittleLongSW(header->lumps[i].fileofs);
+		LittleLongSW(header->lumps[i].filelen);
+	}
 
 	// check all the lumps and some other errors
 	if( !Mod_TestBmodelLumps( f, bspfilename, buf, filelen, (host_developer.value) ? false : true, &entities ))
@@ -2685,6 +2694,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 			}
 
 			realsize = svgame.msg_realsize;
+			LittleShortSW(realsize);
 			memcpy( &sv.multicast.pData[svgame.msg_size_index], &realsize, sizeof( realsize ));
 		}
 	}
@@ -2718,6 +2728,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 		}
 
 		realsize = svgame.msg_realsize;
+		LittleShortSW(realsize);
 		memcpy( &sv.multicast.pData[svgame.msg_size_index], &realsize, sizeof( realsize ));
 	}
 	else

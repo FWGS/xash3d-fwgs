@@ -99,6 +99,16 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesi
 
 	memcpy( &font, buffer, sizeof( font ));
 
+	LittleLongSW(font.width);
+	LittleLongSW(font.height);
+	LittleLongSW(font.rowcount);
+	LittleLongSW(font.rowheight);
+
+	for (int i = 0; i < NUM_GLYPHS; i++) {
+		LittleShortSW(font.fontinfo[i].startoffset);
+		LittleShortSW(font.fontinfo[i].charwidth);
+	}
+
 	// last sixty four bytes - what the hell ????
 	size = sizeof( qfont_t ) - 4 + ( font.height * font.width * QCHAR_WIDTH ) + sizeof( short ) + 768 + 64;
 
@@ -120,7 +130,7 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesi
 
 	fin = buffer + sizeof( font ) - 4;
 	pal = fin + (image.width * image.height);
-	numcolors = *(short *)pal, pal += sizeof( short );
+	numcolors = LittleShort((*(short *)pal)), pal += sizeof( short );
 
 	if( numcolors == 768 || numcolors == 256 )
 	{
@@ -165,6 +175,10 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesi
 	int		flags;
 
 	pin = (mstudiotexture_t *)buffer;
+	// LittleLongSW(pin->flags);
+	// LittleLongSW(pin->width);
+	// LittleLongSW(pin->height);
+	// LittleLongSW(pin->index);
 	flags = pin->flags;
 
 	image.width = pin->width;
@@ -228,7 +242,13 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 	}
 
-	memcpy( &pin, buffer, sizeof( dspriteframe_t ));
+	memcpy( &pin, buffer, sizeof( dspriteframe_t ) );
+
+	LittleLongSW(pin.origin[0]);
+	LittleLongSW(pin.origin[1]);
+	LittleLongSW(pin.width);
+	LittleLongSW(pin.height);
+
 	image.width = pin.width;
 	image.height = pin.height;
 
@@ -303,6 +323,10 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		fin = (byte *)buffer;
 		memcpy( &lmp, fin, sizeof( lmp ));
+
+		LittleLongSW(lmp.width);
+		LittleLongSW(lmp.height);
+
 		image.width = lmp.width;
 		image.height = lmp.height;
 		rendermode = LUMP_NORMAL;
@@ -335,7 +359,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 			}
 		}
 		pal = fin + pixels;
-		numcolors = *(short *)pal;
+		numcolors = LittleShort((*(short *)pal));
 		if( numcolors != 256 ) pal = NULL; // corrupted lump ?
 		else pal += sizeof( short );
 	}
@@ -395,6 +419,14 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 
 	memcpy( &mip, buffer, sizeof( mip ));
+
+	LittleLongSW(mip.width);
+	LittleLongSW(mip.height);
+	LittleLongSW(mip.offsets[0]);
+	LittleLongSW(mip.offsets[1]);
+	LittleLongSW(mip.offsets[2]);
+	LittleLongSW(mip.offsets[3]);
+
 	image.width = mip.width;
 	image.height = mip.height;
 
@@ -409,7 +441,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		// half-life 1.0.0.1 mip version with palette
 		fin = (byte *)buffer + mip.offsets[0];
 		pal = (byte *)buffer + mip.offsets[0] + (((image.width * image.height) * 85)>>6);
-		numcolors = *(short *)pal;
+		numcolors = LittleShort((*(short *)pal));
 		if( numcolors != 256 ) pal = NULL; // corrupted mip ?
 		else pal += sizeof( short ); // skip colorsize
 

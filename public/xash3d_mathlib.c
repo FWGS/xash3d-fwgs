@@ -489,23 +489,23 @@ void R_StudioCalcBones( int frame, float s, const mstudiobone_t *pbone, const ms
 
 		if( panimvalue->num.valid > j )
 		{
-			v1[i] = panimvalue[j + 1].value;
+			v1[i] = LittleShort(panimvalue[j + 1].value);
 
 			if( panimvalue->num.valid > j + 1 )
-				v2[i] = panimvalue[j + 2].value;
+				v2[i] = LittleShort(panimvalue[j + 2].value);
 			else if( panimvalue->num.total > j + 1 )
 				v2[i] = v1[i];
 			else
-				v2[i] = panimvalue[panimvalue->num.valid + 2].value;
+				v2[i] = LittleShort(panimvalue[panimvalue->num.valid + 2].value);
 		}
 		else
 		{
-			v1[i] = panimvalue[panimvalue->num.valid].value;
+			v1[i] = LittleShort(panimvalue[panimvalue->num.valid].value);
 
 			if( panimvalue->num.total > j + 1 )
 				v2[i] = v1[i];
 			else
-				v2[i] = panimvalue[panimvalue->num.valid + 2].value;
+				v2[i] = LittleShort(panimvalue[panimvalue->num.valid + 2].value);
 		}
 
 		v1[i] = pbone->value[i] + v1[i] * pbone->scale[i] + fadj;
