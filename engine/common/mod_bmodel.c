@@ -502,7 +502,7 @@ static fs_offset_t Mod_CalculateMipTexSize( const mip_t *mt, qboolean palette )
 	if( !mt )
 		return 0;
 
-	return sizeof( *mt ) + (( mt->width * mt->height * 85 ) >> 6 ) +
+	return sizeof( *mt ) + (( LittleLong(mt->width) * LittleLong(mt->height) * 85 ) >> 6 ) +
 		( palette ? MIPTEX_CUSTOM_PALETTE_SIZE_BYTES : 0 );
 }
 
@@ -514,7 +514,7 @@ static qboolean Mod_CalcMipTexUsesCustomPalette( model_t *mod, dbspmodel_t *bmod
 
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
 
-	if( !mipTex || mipTex->offsets[0] <= 0 )
+	if( !mipTex || LittleLong(mipTex->offsets[0]) <= 0 )
 		return false;
 
 	// Calculate the size assuming we are not using a custom palette.
@@ -2637,7 +2637,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	const uint texture_force_flags = r_allow_wad3_luma.value ? IL_ALLOW_WAD3_LUMA : 0;
 
 	// check for multi-layered sky texture (quake1 specific)
-	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
+	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( LittleLong(mipTex->width) / LittleLong(mipTex->height) ) == 2 )
 	{
 		Mod_InitSkyClouds( mod, mipTex, texture, usesCustomPalette ); // load quake sky
 		return;
@@ -2794,8 +2794,8 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 	// Ensure texture name is lowercase.
 	Q_strnlwr( mipTex->name, texture->name, sizeof( texture->name ));
 
-	texture->width = mipTex->width;
-	texture->height = mipTex->height;
+	texture->width = LittleLong(mipTex->width);
+	texture->height = LittleLong(mipTex->height);
 
 	Mod_LoadTextureData( mod, bmod, textureIndex );
 }
@@ -2964,18 +2964,30 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 
 	lump = bmod->textures;
 
-	if( bmod->texdatasize < 1 || !lump || LittleLong(lump->nummiptex) < 1 )
+	LittleLongSW(lump->nummiptex);
+
+	if( bmod->texdatasize < 1 || !lump || lump->nummiptex < 1 )
 	{
 		// no textures
 		mod->textures = NULL;
 		return;
 	}
 
-	mod->textures = (texture_t **)Mem_Calloc( mod->mempool, LittleLong(lump->nummiptex) * sizeof( texture_t * ));
-	mod->numtextures = LittleLong(lump->nummiptex);
+	mod->textures = (texture_t **)Mem_Calloc( mod->mempool, lump->nummiptex * sizeof( texture_t * ));
+	mod->numtextures = lump->nummiptex;
 
-	for (int i = 0; i < LittleLong(lump->nummiptex); i++) {
+	for (int i = 0; i < lump->nummiptex; i++) {
+	// 	mip_t *mip;
 		LittleLongSW(lump->dataofs[i]);
+		
+	// 	mip = (mip_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
+		
+	// 	LittleLongSW(mip->height);
+	// 	LittleLongSW(mip->width);
+		
+	// 	for (int j = 0; j < 4; j++) {
+	// 		LittleLongSW(mip->offsets[j]);
+	// 	}
 	}
 
 	Mod_LoadAllTextures( mod, bmod );
