@@ -866,7 +866,7 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		return true; // exist
 
 	// setup mpfilter
-	size = Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
+	Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
 	t = FS_Search( "maps/*.bsp", false, onlyingamedir );
 
 	if( !t )
@@ -900,9 +900,9 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 
 		if( f )
 		{
-			int	num_spawnpoints = 0;
-			dheader_t	*header;
-			dlump_t entities;
+			qboolean  have_spawnpoints = false;
+			dheader_t *header;
+			dlump_t   entities;
 
 			memset( buf, 0, MAX_SYSPATH );
 			FS_Read( f, buf, MAX_SYSPATH );
@@ -943,7 +943,18 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 				while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 				{
 					if( token[0] == '}' && worldspawn )
+					{
 						worldspawn = false;
+
+						// if mod has mp_filter set up, then it's a mod that
+						// might not have valid mp_entity set in GI
+						// if mod is multiplayer only, assume all maps are valid
+						if( use_filter || GI->gamemode == GAME_MULTIPLAYER_ONLY )
+						{
+							have_spawnpoints = true;
+							break;
+						}
+					}
 					else if( !Q_strcmp( token, "message" ) && worldspawn )
 					{
 						// get the message contents
@@ -952,17 +963,23 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 					else if( !Q_strcmp( token, "classname" ))
 					{
 						pfile = COM_ParseFile( pfile, token, sizeof( token ));
-						if( !Q_strcmp( token, GI->mp_entity ) || use_filter )
-							num_spawnpoints++;
+
+						if( !Q_strcmp( token, GI->mp_entity ))
+						{
+							have_spawnpoints = true;
+							break;
+						}
 					}
-					if( num_spawnpoints ) break; // valid map
+
+					if( have_spawnpoints )
+						break; // valid map
 				}
 				Mem_Free( ents );
 			}
 
 			if( f ) FS_Close( f );
 
-			if( num_spawnpoints )
+			if( have_spawnpoints )
 			{
 				// format: mapname "maptitle"\n
 				Q_snprintf( result, sizeof( result ), "%s \"%s\"\n", mapname, message );
