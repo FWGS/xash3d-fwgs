@@ -534,7 +534,7 @@ classic change level
 */
 static void SV_ChangeLevel_f( void )
 {
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() < 2 ) // allow extra arguments, for compatibility
 	{
 		Con_Printf( S_USAGE "changelevel <mapname>\n" );
 		return;
@@ -552,13 +552,15 @@ smooth change level
 */
 static void SV_ChangeLevel2_f( void )
 {
-	if( Cmd_Argc() != 3 )
+	if( Cmd_Argc() < 2 ) // allow extra arguments, for compatibility
 	{
-		Con_Printf( S_USAGE "changelevel2 <mapname> <landmark>\n" );
+		Con_Printf( S_USAGE "changelevel2 <mapname> [landmark]\n" );
 		return;
 	}
 
-	SV_QueueChangeLevel( Cmd_Argv( 1 ), Cmd_Argv( 2 ));
+	if( Cmd_Argc() == 2 ) // with single argument, behaves like usual changelevel
+		SV_QueueChangeLevel( Cmd_Argv( 1 ), NULL );
+	else SV_QueueChangeLevel( Cmd_Argv( 1 ), Cmd_Argv( 2 ));
 }
 
 /*
