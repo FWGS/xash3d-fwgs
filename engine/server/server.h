@@ -43,10 +43,9 @@ extern int SV_UPDATE_BACKUP;
 #define SVF_MERGE_VISIBILITY	BIT( 1 )	// we are do portal pass
 
 // mapvalid flags
-#define MAP_IS_EXIST	BIT( 0 )
-#define MAP_HAS_SPAWNPOINT	BIT( 1 )
-#define MAP_HAS_LANDMARK	BIT( 2 )
-#define MAP_INVALID_VERSION	BIT( 3 )
+#define MAP_IS_EXIST        BIT( 0 )
+#define MAP_HAS_LANDMARK    BIT( 2 )
+#define MAP_INVALID_VERSION BIT( 3 )
 
 #define SV_SPAWN_TIME	0.1
 
@@ -615,7 +614,7 @@ void SV_SetStringArrayMode( qboolean dynamic );
 void SV_EmptyStringPool( void );
 void SV_PrintStr64Stats_f( void );
 sv_client_t *SV_ClientFromEdict( const edict_t *pEdict, qboolean spawned_only );
-uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name );
+uint SV_MapIsValid( const char *filename, const char *landmark_name );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 edict_t *SV_FindGlobalEntity( string_t classname, string_t globalname );
 qboolean SV_CreateStaticEntity( struct sizebuf_s *msg, int index );
