@@ -777,7 +777,6 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 {
 	uint	flags, smooth = false;
 	char	mapname[MAX_QPATH];
-	char	*spawn_entity;
 
 	// hold mapname to other place
 	Q_strncpy( mapname, level, sizeof( mapname ));
@@ -786,12 +785,7 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 	if( COM_CheckString( landname ))
 		smooth = true;
 
-	// determine spawn entity classname
-	if( svs.maxclients == 1 )
-		spawn_entity = GI->sp_entity;
-	else spawn_entity = GI->mp_entity;
-
-	flags = SV_MapIsValid( mapname, spawn_entity, landname );
+	flags = SV_MapIsValid( mapname, landname );
 
 	if( FBitSet( flags, MAP_INVALID_VERSION ))
 	{
@@ -823,15 +817,6 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 	{
 		Con_Printf( S_ERROR "can't changelevel with same map. Ignored.\n" );
 		return;
-	}
-
-	if( !smooth && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
-	{
-		if( sv_validate_changelevel.value )
-		{
-			Con_Printf( S_ERROR "changelevel: %s doesn't have a valid spawnpoint. Ignored.\n", mapname );
-			return;
-		}
 	}
 
 	// bad changelevel position invoke enables in one-way transition
@@ -972,7 +957,7 @@ SV_MapIsValid
 Validate map
 ==============
 */
-uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *landmark_name )
+uint SV_MapIsValid( const char *filename, const char *landmark_name )
 {
 	uint	flags = 0;
 	char	*pfile;
@@ -988,45 +973,27 @@ uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *
 
 		need_landmark = COM_CheckString( landmark_name );
 
-		// g-cont. in-dev mode we can entering on map even without "info_player_start"
-		if( !need_landmark && host_developer.value )
+		if( !need_landmark )
 		{
-			// not transition
 			Mem_Free( ents );
 
-			// skip spawnpoint checks in devmode
-			return (flags|MAP_HAS_SPAWNPOINT);
+			return flags;
 		}
 
 		pfile = ents;
 
 		while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 		{
-			if( !Q_strcmp( token, "classname" ))
-			{
-				// check classname for spawn entity
-				pfile = COM_ParseFile( pfile, check_name, sizeof( check_name ));
-				if( !Q_strcmp( spawn_entity, check_name ))
-				{
-					SetBits( flags, MAP_HAS_SPAWNPOINT );
-
-					// we already find landmark, stop the parsing
-					if( need_landmark && FBitSet( flags, MAP_HAS_LANDMARK ))
-						break;
-				}
-			}
-			else if( need_landmark && !Q_strcmp( token, "targetname" ))
+			if( !Q_strcmp( token, "targetname" ))
 			{
 				// check targetname for landmark entity
 				pfile = COM_ParseFile( pfile, check_name, sizeof( check_name ));
 
 				if( !Q_strcmp( landmark_name, check_name ))
 				{
+					// we found landmark, stop the parsing
 					SetBits( flags, MAP_HAS_LANDMARK );
-
-					// we already find spawnpoint, stop the parsing
-					if( FBitSet( flags, MAP_HAS_SPAWNPOINT ))
-						break;
+					break;
 				}
 			}
 		}
@@ -3740,9 +3707,9 @@ vaild map must contain one info_player_deatchmatch
 */
 int GAME_EXPORT pfnIsMapValid( char *filename )
 {
-	uint	flags = SV_MapIsValid( filename, GI->mp_entity, NULL );
+	uint	flags = SV_MapIsValid( filename, NULL );
 
-	if( FBitSet( flags, MAP_IS_EXIST ) && FBitSet( flags, MAP_HAS_SPAWNPOINT ))
+	if( FBitSet( flags, MAP_IS_EXIST ))
 		return true;
 	return false;
 }

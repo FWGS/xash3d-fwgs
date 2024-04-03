@@ -2110,7 +2110,7 @@ qboolean SV_LoadGame( const char *pPath )
 		if( validload )
 		{
 			// now check for map problems
-			flags = SV_MapIsValid( gameHeader.mapName, GI->sp_entity, NULL );
+			flags = SV_MapIsValid( gameHeader.mapName, NULL );
 
 			if( FBitSet( flags, MAP_INVALID_VERSION ))
 			{
@@ -2386,7 +2386,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 		uint		flags;
 
 		// now check for map problems
-		flags = SV_MapIsValid( mapName, GI->sp_entity, NULL );
+		flags = SV_MapIsValid( mapName, NULL );
 
 		if( FBitSet( flags, MAP_INVALID_VERSION ))
 		{

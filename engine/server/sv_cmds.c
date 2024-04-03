@@ -169,17 +169,11 @@ SV_ValidateMap
 check map for typically errors
 ==================
 */
-static qboolean SV_ValidateMap( const char *pMapName, qboolean check_spawn )
+static qboolean SV_ValidateMap( const char *pMapName )
 {
-	char	*spawn_entity;
 	int	flags;
 
-	// determine spawn entity classname
-	if( !check_spawn || (int)sv_maxclients.value <= 1 )
-		spawn_entity = GI->sp_entity;
-	else spawn_entity = GI->mp_entity;
-
-	flags = SV_MapIsValid( pMapName, spawn_entity, NULL );
+	flags = SV_MapIsValid( pMapName, NULL );
 
 	if( FBitSet( flags, MAP_INVALID_VERSION ))
 	{
@@ -190,12 +184,6 @@ static qboolean SV_ValidateMap( const char *pMapName, qboolean check_spawn )
 	if( !FBitSet( flags, MAP_IS_EXIST ))
 	{
 		Con_Printf( S_ERROR "map %s doesn't exist\n", pMapName );
-		return false;
-	}
-
-	if( check_spawn && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
-	{
-		Con_Printf( S_ERROR "map %s doesn't have a valid spawnpoint\n", pMapName );
 		return false;
 	}
 
@@ -224,7 +212,7 @@ static void SV_Map_f( void )
 	Q_strncpy( mapname, Cmd_Argv( 1 ), sizeof( mapname ));
 	COM_StripExtension( mapname );
 
-	if( !SV_ValidateMap( mapname, true ))
+	if( !SV_ValidateMap( mapname ))
 		return;
 
 	Cvar_DirectSet( &sv_hostmap, mapname );
@@ -296,7 +284,7 @@ static void SV_MapBackground_f( void )
 	Q_strncpy( mapname, Cmd_Argv( 1 ), sizeof( mapname ));
 	COM_StripExtension( mapname );
 
-	if( !SV_ValidateMap( mapname, false ))
+	if( !SV_ValidateMap( mapname ))
 		return;
 
 	// background map is always run as singleplayer
@@ -346,7 +334,7 @@ static void SV_NextMap_f( void )
 		Cvar_DirectSet( &sv_hostmap, nextmap );
 
 		// found current point, check for valid
-		if( SV_ValidateMap( nextmap, true ))
+		if( SV_ValidateMap( nextmap ))
 		{
 			// found and valid
 			COM_LoadLevel( nextmap, false );
