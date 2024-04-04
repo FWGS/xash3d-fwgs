@@ -320,6 +320,12 @@ public:
 			return nullptr;
 
 		state = new CSearchState( &searchHead, search );
+		if( !state )
+		{
+			Mem_Free( search );
+			return nullptr;
+		}
+
 		*handle = state->handle;
 		return state->search->filenames[0];
 	}
