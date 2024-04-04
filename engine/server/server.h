@@ -625,11 +625,17 @@ void SV_RestartAmbientSounds( void );
 void SV_RestartDecals( void );
 void SV_RestartStaticEnts( void );
 int pfnDropToFloor( edict_t* e );
-edict_t *SV_EdictNum( int n );
 void SV_SetModel( edict_t *ent, const char *name );
 int pfnDecalIndex( const char *m );
 void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
+
+static inline edict_t *SV_EdictNum( int n )
+{
+	if( likely( n >= 0 && n < GI->max_edicts ))
+		return &svgame.edicts[n];
+	return NULL;
+}
 
 //
 // sv_log.c
