@@ -390,7 +390,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		if( Q_strrchr( name, '{' ))
 		{
 			// NOTE: decals with 'blue base' can be interpret as colored decals
-			if( !Image_CheckFlag( IL_LOAD_DECAL ) || ( pal[765] == 0 && pal[766] == 0 && pal[767] == 255 ))
+			if( !Image_CheckFlag( IL_LOAD_DECAL ) || ( pal && pal[765] == 0 && pal[766] == 0 && pal[767] == 255 ))
 			{
 				SetBits( image.flags, IMAGE_ONEBIT_ALPHA );
 				rendermode = LUMP_MASKED;
@@ -488,37 +488,40 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	// check for half-life water texture
-	if( hl_texture && ( mip.name[0] == '!' || !Q_strnicmp( mip.name, "water", 5 )))
+	if( pal != NULL )
 	{
-		// grab the fog color
-		image.fogParams[0] = pal[3*3+0];
-		image.fogParams[1] = pal[3*3+1];
-		image.fogParams[2] = pal[3*3+2];
-
-		// grab the fog density
-		image.fogParams[3] = pal[4*3+0];
-	}
-	else if( hl_texture && ( rendermode == LUMP_GRADIENT ))
-	{
-		// grab the decal color
-		image.fogParams[0] = pal[255*3+0];
-		image.fogParams[1] = pal[255*3+1];
-		image.fogParams[2] = pal[255*3+2];
-
-		// calc the decal reflectivity
-		image.fogParams[3] = VectorAvg( image.fogParams );
-	}
-	else if( pal != NULL )
-	{
-		// calc texture reflectivity
-		for( i = 0; i < 256; i++ )
+		if( hl_texture && ( mip.name[0] == '!' || !Q_strnicmp( mip.name, "water", 5 )))
 		{
-			reflectivity[0] += pal[i*3+0];
-			reflectivity[1] += pal[i*3+1];
-			reflectivity[2] += pal[i*3+2];
-		}
+			// grab the fog color
+			image.fogParams[0] = pal[3*3+0];
+			image.fogParams[1] = pal[3*3+1];
+			image.fogParams[2] = pal[3*3+2];
 
-		VectorDivide( reflectivity, 256, image.fogParams );
+			// grab the fog density
+			image.fogParams[3] = pal[4*3+0];
+		}
+		else if( hl_texture && ( rendermode == LUMP_GRADIENT ))
+		{
+			// grab the decal color
+			image.fogParams[0] = pal[255*3+0];
+			image.fogParams[1] = pal[255*3+1];
+			image.fogParams[2] = pal[255*3+2];
+
+			// calc the decal reflectivity
+			image.fogParams[3] = VectorAvg( image.fogParams );
+		}
+		else
+		{
+			// calc texture reflectivity
+			for( i = 0; i < 256; i++ )
+			{
+				reflectivity[0] += pal[i*3+0];
+				reflectivity[1] += pal[i*3+1];
+				reflectivity[2] += pal[i*3+2];
+			}
+
+			VectorDivide( reflectivity, 256, image.fogParams );
+		}
 	}
 
 	image.type = PF_INDEXED_32;	// 32-bit palete
