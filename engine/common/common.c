@@ -390,6 +390,9 @@ byte *LZSS_Compress( byte *pInput, int inputLength, uint *pOutputSize )
 	byte		*pFinal = NULL;
 	lzss_state_t	state;
 
+	if( !pStart )
+		return NULL;
+
 	memset( &state, 0, sizeof( state ));
 	state.window_size = LZSS_WINDOW_SIZE;
 
