@@ -5099,8 +5099,6 @@ void SV_UnloadProgs( void )
 	/// SV_UnloadProgs will be disabled
 	//Mod_ClearUserData ();
 
-	SV_FreeStringPool();
-
 	if( svgame.dllFuncs2.pfnGameShutdown != NULL )
 		svgame.dllFuncs2.pfnGameShutdown ();
 
@@ -5120,6 +5118,8 @@ void SV_UnloadProgs( void )
 	// before pointers on them will be lost...
 	Cvar_Unlink( FCVAR_EXTDLL );
 	Cmd_Unlink( CMD_SERVERDLL );
+
+	SV_FreeStringPool();
 
 	Mod_ResetStudioAPI ();
 
