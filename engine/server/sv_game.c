@@ -2810,8 +2810,10 @@ standard path to register game variable
 static void GAME_EXPORT pfnCvar_RegisterServerVariable( cvar_t *variable )
 {
 	if( variable != NULL )
+	{
 		SetBits( variable->flags, FCVAR_EXTDLL );
-	Cvar_RegisterVariable( (convar_t *)variable );
+		Cvar_RegisterVariable( (convar_t *)variable );
+	}
 }
 
 /*
