@@ -1,17 +1,4 @@
 task:
-# Seems packages for it were removed from the mirrors
-#  name: freebsd-12-amd64
-#  freebsd_instance:
-#    image_family: freebsd-12-4
-#  setup_script:
-#    - pkg update
-#    - pkg install -y pkgconf git sdl2 python fontconfig opus
-#    - git submodule update --init --recursive
-#  test_script:
-#    - ./scripts/cirrus/build_freebsd.sh dedicated
-#    - ./scripts/cirrus/build_freebsd.sh full
-
-task:
   name: freebsd-13-amd64
   freebsd_instance:
     image_family: freebsd-13-2
@@ -26,7 +13,7 @@ task:
 task:
   name: freebsd-14-amd64
   freebsd_instance:
-    image_family: freebsd-14-0-snap
+    image_family: freebsd-14-0
   setup_script:
     - pkg update
     - pkg install -y pkgconf git sdl2 python fontconfig opus
