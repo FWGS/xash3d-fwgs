@@ -1690,7 +1690,7 @@ static qboolean SV_New_f( sv_client_t *cl )
 
 	// server info string
 	MSG_BeginServerCmd( &msg, svc_stufftext );
-	MSG_WriteStringf( &msg, "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
+	MSG_WriteStringf( &msg, "fullserverinfo \"%s\"\n", svs.serverinfo );
 
 	// collect the info about all the players and send to me
 	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
