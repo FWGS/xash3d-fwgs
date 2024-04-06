@@ -77,7 +77,7 @@ void Log_Open( void )
 
 	if( fp ) svs.log.file = fp;
 	Log_Printf( "Log file started (file \"%s\") (game \"%s\") (version \"%i/" XASH_VERSION "/%d\")\n",
-	szTestFile, Info_ValueForKey( SV_Serverinfo(), "*gamedir" ), PROTOCOL_VERSION, Q_buildnum() );
+	szTestFile, Info_ValueForKey( svs.serverinfo, "*gamedir" ), PROTOCOL_VERSION, Q_buildnum() );
 }
 
 void Log_Close( void )

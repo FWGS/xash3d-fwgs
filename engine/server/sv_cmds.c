@@ -753,7 +753,7 @@ static void SV_ServerInfo_f( void )
 	}
 
 	Info_SetValueForStarKey( svs.serverinfo, Cmd_Argv( 1 ), Cmd_Argv( 2 ), MAX_SERVERINFO_STRING );
-	SV_BroadcastCommand( "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
+	SV_BroadcastCommand( "fullserverinfo \"%s\"\n", svs.serverinfo );
 }
 
 /*

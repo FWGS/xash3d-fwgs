@@ -145,18 +145,6 @@ char *SV_Serverinfo( void )
 
 /*
 =============
-SV_LocalInfo
-
-get local infostring
-=============
-*/
-static char *SV_Localinfo( void )
-{
-	return svs.localinfo;
-}
-
-/*
-=============
 SV_AngleMod
 
 do modulo on entity angles
@@ -3838,11 +3826,11 @@ static char *GAME_EXPORT pfnGetInfoKeyBuffer( edict_t *e )
 
 	// NULL passes localinfo
 	if( !SV_IsValidEdict( e ))
-		return SV_Localinfo();
+		return svs.localinfo;
 
 	// world passes serverinfo
 	if( e == svgame.edicts )
-		return SV_Serverinfo();
+		return svs.serverinfo;
 
 	// userinfo for specified edict
 	if(( cl = SV_ClientFromEdict( e, false )) != NULL )

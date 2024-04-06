@@ -152,8 +152,10 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 		if ( Host_IsDedicated() )
 		{
 			// g-cont. this is a very strange behavior...
-			Info_SetValueForKey( SV_Serverinfo(), var->name, value, MAX_SERVERINFO_STRING ),
-			SV_BroadcastCommand( "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
+			char *info = SV_Serverinfo();
+
+			Info_SetValueForKey( info, var->name, value, MAX_SERVERINFO_STRING ),
+			SV_BroadcastCommand( "fullserverinfo \"%s\"\n", info );
 		}
 #if !XASH_DEDICATED
 		else
