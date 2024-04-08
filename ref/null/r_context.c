@@ -51,6 +51,7 @@ static void R_SimpleStubBool( qboolean )
 
 static qboolean R_Init( void )
 {
+	gEngfuncs.R_Init_Video( REF_SOFTWARE );
 	return true;
 }
 
@@ -178,7 +179,14 @@ static void GL_SubdivideSurface( model_t *mod, msurface_t *fa )
 
 static void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
 {
-	*frameWidth = *frameHeight = *numFrames = 0;
+	if( frameWidth )
+		*frameWidth	= 0;
+
+	if( frameHeight )
+		*frameHeight = 0;
+
+	if( numFrames )
+		*numFrames = 0;
 }
 
 static int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
@@ -194,7 +202,7 @@ static void Mod_LoadMapSprite( struct model_s *mod, const void *buffer, size_t s
 
 static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer )
 {
-	return false;
+	return true;
 }
 
 static void Mod_StudioLoadTextures( model_t *mod, void *data )
