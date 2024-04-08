@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #if HAVE_TGMATH_H
 #include <tgmath.h>
 #endif
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 #include "build.h"
 #include "xash3d_types.h"
@@ -177,6 +180,31 @@ static inline void SinCos( float radians, float *sine, float *cosine )
 {
 	*sine = sin(radians);
 	*cosine = cos(radians);
+}
+
+#define XASH_MATHLIB_INTRIN 1
+
+static inline uint32_t Q_bsr( uint32_t v )
+{
+#if XASH_MATHLIB_INTRIN && __GNUC__
+	if( v )
+		return 31 - __builtin_clz( v );
+	return 32;
+#elif XASH_MATHLIB_INTRIN && _MSC_VER
+	uint32_t idx;
+	if( _BitScanReverse( &idx, v ))
+		return idx;
+	return 32;
+#else
+	// NOTE: this is highly unoptimal, don't do this
+	if( v )
+	{
+		uint32_t i;
+		for( i = 0, v >>= 1; v; v >>= 1, i++ );
+		return i;
+	}
+	return 32;
+#endif
 }
 
 float rsqrt( float number );

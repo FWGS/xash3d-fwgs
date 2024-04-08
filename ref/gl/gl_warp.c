@@ -923,17 +923,6 @@ static void R_RunRipplesAnimation( const short *oldbuf, short *pbuf )
 	}
 }
 
-static int MostSignificantBit( unsigned int v )
-{
-#if __GNUC__
-	return 31 - __builtin_clz( v );
-#else
-	int i;
-	for( i = 0, v >>= 1; v; v >>= 1, i++ );
-	return i;
-#endif
-}
-
 void R_AnimateRipples( void )
 {
 	double frametime = gp_cl->time - g_ripple.time;
@@ -1002,7 +991,7 @@ void R_UploadRipples( texture_t *image )
 
 
 	pixels = (uint32_t *)glt->original->buffer;
-	wbits = MostSignificantBit( image->width );
+	wbits = Q_bsr( image->width );
 	wshft = 7 - wbits;
 	wmask = image->width - 1;
 
