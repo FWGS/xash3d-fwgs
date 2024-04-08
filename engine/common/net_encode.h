@@ -21,8 +21,8 @@ GNU General Public License for more details.
 enum
 {
 	CUSTOM_NONE = 0,
-	CUSTOM_SERVER_ENCODE,	// known as "gamedll"
-	CUSTOM_CLIENT_ENCODE,	// known as "client"
+	CUSTOM_SERVER_ENCODE, // known as "gamedll"
+	CUSTOM_CLIENT_ENCODE, // known as "client"
 };
 
 // don't change order!
@@ -36,39 +36,26 @@ enum
 // struct info (filled by engine)
 typedef struct
 {
-	const char	*name;
-	const int		offset;
-	const int		size;
+	const char *name;
+	const int   offset;
+	const int   size;
 } delta_field_t;
-
-// one field
-struct delta_s
-{
-	const char	*name;
-	int		offset;		// in bytes
-	int		size;		// used for bounds checking in DT_STRING
-	int		flags;		// DT_INTEGER, DT_FLOAT etc
-	float		multiplier;
-	float		post_multiplier;	// for DEFINE_DELTA_POST
-	int		bits;		// how many bits we send\receive
-	qboolean		bInactive;	// unsetted by user request
-};
 
 typedef void (*pfnDeltaEncode)( struct delta_s *pFields, const byte *from, const byte *to );
 
 typedef struct
 {
-	const char	*pName;
-	const delta_field_t	*pInfo;
-	const int		maxFields;	// maximum number of fields in struct
-	int		numFields;	// may be merged during initialization
-	delta_t		*pFields;
+	const char          *pName;
+	const delta_field_t *pInfo;
+	const int            maxFields; // maximum number of fields in struct
+	int                  numFields; // may be merged during initialization
+	delta_t             *pFields;
 
 	// added these for custom entity encode
-	int		customEncode;
-	char		funcName[32];
-	pfnDeltaEncode	userCallback;
-	qboolean		bInitialized;
+	int                  customEncode;
+	char                 funcName[32];
+	pfnDeltaEncode       userCallback;
+	qboolean             bInitialized;
 } delta_info_t;
 
 //
@@ -110,4 +97,4 @@ void MSG_WriteDeltaEntity( struct entity_state_s *from, struct entity_state_s *t
 qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, struct entity_state_s *from, struct entity_state_s *to, int num, int type, double timebase );
 int Delta_TestBaseline( struct entity_state_s *from, struct entity_state_s *to, qboolean player, double timebase );
 
-#endif//NET_ENCODE_H
+#endif // NET_ENCODE_H
