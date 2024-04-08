@@ -118,7 +118,7 @@ static void NET_AnnounceToMaster( master_t *m )
 	MSG_WriteBytes( &msg, "q\xFF", 2 );
 	MSG_WriteDword( &msg, m->heartbeat_challenge );
 
-	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &msg ), MSG_GetBuf( &msg ), m->adr );
+	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &msg ), MSG_GetData( &msg ), m->adr );
 
 	if( sv_verbose_heartbeats.value )
 	{

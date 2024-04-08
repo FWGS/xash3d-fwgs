@@ -109,85 +109,6 @@ void MSG_InitMasks( void )
 		ExtraMasks[maskBit] = (uint)BIT( maskBit ) - 1;
 }
 
-void MSG_InitExt( sizebuf_t *sb, const char *pDebugName, void *pData, int nBytes, int nMaxBits )
-{
-	MSG_StartWriting( sb, pData, nBytes, 0, nMaxBits );
-
-	sb->pDebugName = pDebugName;
-}
-
-void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, int nBits )
-{
-	// make sure it's dword aligned and padded.
-	Assert(((uint32_t)pData & 3 ) == 0 );
-
-	sb->pDebugName = "Unnamed";
-	sb->pData = (byte *)pData;
-
-	if( nBits == -1 )
-	{
-		sb->nDataBits = nBytes << 3;
-	}
-	else
-	{
-		Assert( nBits <= nBytes * 8 );
-		sb->nDataBits = nBits;
-	}
-
-	sb->iCurBit = iStartBit;
-	sb->bOverflow = false;
-}
-
-/*
-=======================
-MSG_Clear
-
-for clearing overflowed buffer
-=======================
-*/
-void MSG_Clear( sizebuf_t *sb )
-{
-	sb->iCurBit = 0;
-	sb->bOverflow = false;
-}
-
-static qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
-{
-	if( sb->iCurBit + nBits > sb->nDataBits )
-		sb->bOverflow = true;
-	return sb->bOverflow;
-}
-
-qboolean MSG_CheckOverflow( sizebuf_t *sb )
-{
-	return MSG_Overflow( sb, 0 );
-}
-
-int MSG_SeekToBit( sizebuf_t *sb, int bitPos, int whence )
-{
-	// compute the file offset
-	switch( whence )
-	{
-	case SEEK_CUR:
-		bitPos += sb->iCurBit;
-		break;
-	case SEEK_SET:
-		break;
-	case SEEK_END:
-		bitPos += sb->nDataBits;
-		break;
-	default:
-		return -1;
-	}
-
-	if( bitPos < 0 || bitPos > sb->nDataBits )
-		return -1;
-
-	sb->iCurBit = bitPos;
-
-	return 0;
-}
-
 void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
 {
 	if( !MSG_Overflow( sb, 1 ))
@@ -669,7 +590,7 @@ qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes )
 	return MSG_ReadBits( sb, pOut, nBytes << 3 );
 }
 
-char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
+static char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
 {
 	static char	string[4096];
 	int		l = 0, c;
@@ -693,6 +614,16 @@ char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
 	string[l] = 0; // terminator
 
 	return string;
+}
+
+char *MSG_ReadString( sizebuf_t *sb )
+{
+	return MSG_ReadStringExt( sb, false );
+}
+
+char *MSG_ReadStringLine( sizebuf_t *sb )
+{
+	return MSG_ReadStringExt( sb, true );
 }
 
 void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove )
