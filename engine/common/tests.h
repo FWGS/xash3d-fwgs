@@ -39,13 +39,15 @@ void Test_RunCon( void );
 void Test_RunVOX( void );
 void Test_RunIPFilter( void );
 void Test_RunGamma( void );
+void Test_RunDelta( void );
 
 #define TEST_LIST_0 \
 	Test_RunLibCommon(); \
 	Test_RunCommon(); \
 	Test_RunCmd(); \
 	Test_RunCvar(); \
-	Test_RunIPFilter();
+	Test_RunIPFilter(); \
+	Test_RunDelta();
 
 #define TEST_LIST_0_CLIENT \
 	Test_RunCon(); \
