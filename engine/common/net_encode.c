@@ -1079,15 +1079,15 @@ static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, doubl
 	{
 		val_a = *(float *)((byte *)from + pField->offset );
 		val_b = *(float *)((byte *)to + pField->offset );
-		fromF = Q_rint(( timebase - val_a ) * 100.0 );
-		toF = Q_rint(( timebase - val_b ) * 100.0 );
+		fromF = Q_rint( val_a * 100.0 );
+		toF = Q_rint( val_b * 100.0 );
 	}
 	else if( pField->flags & DT_TIMEWINDOW_BIG )
 	{
 		val_a = *(float *)((byte *)from + pField->offset );
 		val_b = *(float *)((byte *)to + pField->offset );
-		fromF = Q_rint(( timebase - val_a ) * pField->multiplier );
-		toF = Q_rint(( timebase - val_b ) * pField->multiplier );
+		fromF = Q_rint( val_a * pField->multiplier );
+		toF = Q_rint( val_b * pField->multiplier );
 	}
 	else if( pField->flags & DT_STRING )
 	{
