@@ -69,7 +69,6 @@ typedef struct memheader_s
 
 typedef struct mempool_s
 {
-	uint32_t		sentinel1;	// should always be MEMHEADER_SENTINEL1
 	struct memheader_s	*chain;		// chain of individual memory allocations
 	size_t		totalsize;	// total memory allocated in this pool (inside memheaders)
 	size_t		realsize;		// total memory allocated in this pool (actual malloc total)
@@ -77,7 +76,6 @@ typedef struct mempool_s
 	const char	*filename;	// file name and line where Mem_AllocPool was called
 	int		fileline;
 	char		name[64];		// name of the pool
-	uint32_t		sentinel2;	// should always be MEMHEADER_SENTINEL1
 } mempool_t;
 
 static mempool_t *poolchain = NULL; // critical stuff
@@ -166,23 +164,6 @@ static qboolean Mem_CheckAllocHeader( const char *func, const memheader_t *mem, 
 	{
 		memfilename = Mem_CheckFilename( mem->filename ); // make sure what we don't crash var_args
 		Sys_Error( "%s: trashed header sentinel 2 (alloc at %s:%i, check at %s:%i)\n", func, memfilename, mem->fileline, filename, fileline );
-		return false;
-	}
-
-	return true;
-}
-
-static qboolean Mem_CheckPool( const char *func, const mempool_t *pool, const char *filename, int fileline )
-{
-	if( pool->sentinel1 != MEMHEADER_SENTINEL1 )
-	{
-		Sys_Error( "%s: trashed pool sentinel 1 (allocpool at %s:%i, freepool at %s:%i)\n", func, pool->filename, pool->fileline, filename, fileline );
-		return false;
-	}
-
-	if( pool->sentinel2 != MEMHEADER_SENTINEL1 )
-	{
-		Sys_Error( "%s: trashed pool sentinel 2 (allocpool at %s:%i, freepool at %s:%i)\n", func, pool->filename, pool->fileline, filename, fileline );
 		return false;
 	}
 
@@ -332,8 +313,6 @@ static poolhandle_t Mem_InitPool( mempool_t *pool, const char *name, const char 
 	memset( pool, 0, sizeof( *pool ));
 
 	// fill header
-	pool->sentinel1 = MEMHEADER_SENTINEL1;
-	pool->sentinel2 = MEMHEADER_SENTINEL1;
 	pool->filename = filename;
 	pool->fileline = fileline;
 	pool->realsize = sizeof( mempool_t );
@@ -378,8 +357,6 @@ void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
 			return;
 		}
 
-		Mem_CheckPool( "Mem_FreePool", pool, filename, fileline );
-
 		// free memory owned by the pool
 		while( pool->chain )
 			Mem_FreeBlock( pool->chain, filename, fileline );
@@ -400,8 +377,6 @@ void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline )
 		Sys_Error( "Mem_EmptyPool: pool == NULL (emptypool at %s:%i)\n", filename, fileline );
 		return;
 	}
-
-	Mem_CheckPool( "Mem_FreePool", pool, filename, fileline );
 
 	// free memory owned by the pool
 	while( pool->chain ) Mem_FreeBlock( pool->chain, filename, fileline );
@@ -454,9 +429,6 @@ void _Mem_Check( const char *filename, int fileline )
 	memheader_t *mem;
 	mempool_t   *pool;
 	size_t i;
-
-	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
-		Mem_CheckPool( "Mem_CheckSentinels", pool, filename, fileline );
 
 	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
 		for( mem = pool->chain; mem; mem = mem->next )
