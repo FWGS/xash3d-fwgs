@@ -246,7 +246,7 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 	if( size <= 0 )
 		return data; // no need to reallocate
 
-	if( !poolptr )
+	if( unlikely( !poolptr ))
 	{
 		Sys_Error( "Mem_Realloc: pool == NULL (alloc at %s:%i)\n", filename, fileline );
 		return NULL;
@@ -259,6 +259,13 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 
 	if( !Mem_CheckAllocHeader( "Mem_Realloc", mem, filename, fileline ))
 		return NULL;
+
+	if( unlikely( mem->poolptr != poolptr ))
+	{
+		Sys_Error( "Mem_Realloc: pool migration is not allowed (alloc at %s:%i, realloc at %s:%i)\n",
+			Mem_CheckFilename( mem->filename ), mem->fileline, filename, fileline );
+		return NULL;
+	}
 
 	oldsize = mem->size;
 	if( size == oldsize )
@@ -289,16 +296,7 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 	}
 	else Mem_PoolSubtract( pool, oldsize - size );
 
-	// if allocation was migrated from one pool to another
-	// (this is possible with original Mem_Realloc func)
-	if( unlikely( mem->poolptr != poolptr ))
-	{
-		mempool_t *oldpool = Mem_FindPool( mem->poolptr );
-
-		Mem_PoolUnlinkAlloc( oldpool, mem );
-		Mem_PoolLinkAlloc( pool, mem );
-	}
-	else if( oldmem != (uintptr_t)mem ) // just relink pointers
+	if( oldmem != (uintptr_t)mem ) // just relink pointers
 	{
 		if( mem->next ) mem->next->prev = mem;
 		if( mem->prev ) mem->prev->next = mem;
