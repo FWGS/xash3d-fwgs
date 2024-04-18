@@ -28,11 +28,7 @@ typedef byte		rgb_t[3];		// unsigned byte colorpack
 typedef vec_t		matrix3x4[3][4];
 typedef vec_t		matrix4x4[4][4];
 
-#if XASH_64BIT
 typedef uint32_t        poolhandle_t;
-#else
-typedef void*           poolhandle_t;
-#endif
 
 #undef true
 #undef false
