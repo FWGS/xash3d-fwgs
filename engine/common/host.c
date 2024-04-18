@@ -941,6 +941,7 @@ static void Host_RunTests( int stage )
 		TEST_LIST_1_CLIENT;
 #endif
 		Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
+		error_on_exit = tests_stats.failed >= 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 		Sys_Quit();
 	}
 }

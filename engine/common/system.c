@@ -53,7 +53,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "whereami.h"
 
-static int error_on_exit = 0;	// arg for exit();
+int error_on_exit = 0;	// arg for exit();
 
 /*
 ================
