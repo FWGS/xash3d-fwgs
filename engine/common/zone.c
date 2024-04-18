@@ -25,9 +25,30 @@ GNU General Public License for more details.
 #include "platform/swap/swap.h"
 #define Q_malloc SWAP_Malloc
 #define Q_free SWAP_Free
+
+static void *Q_realloc( void *mem, size_t size )
+{
+	void *newmem;
+
+	if( mem && size == 0 )
+	{
+		Q_free( mem );
+		return NULL;
+	}
+
+	newmem = Q_malloc( size );
+	if( mem && newmem )
+	{
+		memcpy( newmem, mem, size );
+		Q_free( mem );
+	}
+
+	return newmem;
+}
 #else
 #define Q_malloc malloc
 #define Q_free free
+#define Q_realloc realloc
 #endif
 
 typedef struct memheader_s
@@ -276,21 +297,10 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 	if( size == oldsize )
 		return data;
 
-#if XASH_CUSTOM_SWAP
-	{
-		char *nb = _Mem_Alloc( poolptr, size, clear, filename, fileline );
-
-		size_t newsize = mem->size < size ? mem->size : size; // upper data can be trucnated!
-		memcpy( nb, data, newsize );
-		_Mem_Free( data, filename, fileline ); // free unused old block
-
-		return nb;
-	}
-#else // XASH_CUSTOM_SWAP
 	pool = Mem_FindPool( poolptr );
 
 	oldmem = (uintptr_t)mem;
-	mem = realloc( mem, sizeof( memheader_t ) + size + sizeof( byte ));
+	mem = Q_realloc( mem, sizeof( memheader_t ) + size + sizeof( byte ));
 
 	if( mem == NULL )
 	{
@@ -327,7 +337,6 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 	}
 
 	return (void *)((byte *)mem + sizeof( memheader_t ));
-#endif // XASH_CUSTOM_SWAP
 }
 
 poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
@@ -353,7 +362,7 @@ poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int filelin
 	Q_strncpy( pool->name, name, sizeof( pool->name ));
 	pool->next = poolchain;
 	poolchain = pool;
-	
+
 #if XASH_64BIT
 	pool->idx = ++lastidx;
 	return pool->idx;
