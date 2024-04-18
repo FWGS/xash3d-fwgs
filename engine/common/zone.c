@@ -178,11 +178,15 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 	if( size <= 0 )
 		return NULL;
 
-	if( !poolptr )
+	if( unlikely( !poolptr ))
 	{
 		Sys_Error( "%s: pool == NULL (alloc at %s:%i)\n", __func__, filename, fileline );
 		return NULL;
 	}
+
+	pool = Mem_FindPool( poolptr );
+	if( !pool )
+		return NULL;
 
 	mem = (memheader_t *)Q_malloc( sizeof( memheader_t ) + size + sizeof( byte ));
 	if( mem == NULL )
@@ -193,7 +197,6 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 
 	Mem_InitAlloc( mem, size, filename, fileline );
 
-	pool = Mem_FindPool( poolptr );
 	Mem_PoolAdd( pool, size );
 	Mem_PoolLinkAlloc( pool, mem );
 
@@ -211,6 +214,8 @@ static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline 
 		return;
 
 	pool = Mem_FindPool( mem->poolptr );
+	if( !pool )
+		return;
 
 	// unlink memheader from doubly linked list
 	if(( mem->prev ? mem->prev->next != mem : pool->chain != mem ) || ( mem->next && mem->next->prev != mem ))
@@ -369,12 +374,16 @@ void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
 
 void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline )
 {
-	mempool_t *pool = Mem_FindPool( poolptr );
-	if( !poolptr )
+	mempool_t *pool;
+	if( unlikely( !poolptr ))
 	{
 		Sys_Error( "Mem_EmptyPool: pool == NULL (emptypool at %s:%i)\n", filename, fileline );
 		return;
 	}
+
+	pool = Mem_FindPool( poolptr );
+	if( !pool )
+		return;
 
 	// free memory owned by the pool
 	while( pool->chain ) Mem_FreeBlock( pool->chain, filename, fileline );
