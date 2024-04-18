@@ -2130,8 +2130,8 @@ void Test_RunDelta( void )
 	Delta_AddField( dt, "dt_float_unsigned", DT_FLOAT, 24, 10000.0f, 0.1f );
 	Delta_AddField( dt, "dt_integer_signed", DT_INTEGER | DT_SIGNED, 24, 1.0f, 1.0f );
 	Delta_AddField( dt, "dt_integer_unsigned", DT_INTEGER, 24, 1.0f, 1.0f );
-	Delta_AddField( dt, "dt_short_signed", DT_SHORT | DT_SIGNED, 24, 2.0f, 1.0f );
-	Delta_AddField( dt, "dt_short_unsigned", DT_SHORT, 15, 1.0f, 1.0f );
+	Delta_AddField( dt, "dt_short_signed", DT_SHORT | DT_SIGNED, 16, 1.0f, 1.0f );
+	Delta_AddField( dt, "dt_short_unsigned", DT_SHORT, 15, 0.125f, 1.0f );
 	Delta_AddField( dt, "dt_byte_signed", DT_BYTE | DT_SIGNED, 6, 1.0f, 1.0f );
 	Delta_AddField( dt, "dt_byte_unsigned", DT_BYTE, 8, 1.0f, 1.0f );
 
@@ -2143,7 +2143,7 @@ void Test_RunDelta( void )
 	from.dt_float_unsigned = 1235.321f;
 	from.dt_integer_signed = -412784;
 	from.dt_integer_unsigned = 123453;
-	from.dt_short_signed = -12312;
+	from.dt_short_signed = -12343;
 	from.dt_short_unsigned = 32131;
 	from.dt_byte_signed = 16;
 	from.dt_byte_unsigned = 218;
@@ -2176,7 +2176,7 @@ void Test_RunDelta( void )
 	TASSERT_EQi( from.dt_integer_signed, to.dt_integer_signed );
 	TASSERT_EQi( from.dt_integer_unsigned, to.dt_integer_unsigned );
 	TASSERT_EQi( from.dt_short_signed, to.dt_short_signed );
-	TASSERT_EQi( from.dt_short_unsigned, to.dt_short_unsigned );
+	TASSERT(( from.dt_short_unsigned & ( 0xffff << 3 )) == to.dt_short_unsigned );
 	TASSERT_EQi( from.dt_byte_signed, to.dt_byte_signed );
 	TASSERT_EQi( from.dt_byte_unsigned, to.dt_byte_unsigned );
 
