@@ -1394,22 +1394,14 @@ static qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, vo
 	}
 	else if( pField->flags & DT_TIMEWINDOW_8 )
 	{
-		bSigned = true; // timewindow is always signed
-		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-		flTime = (timebase * 100.0 - (int)iValue) / 100.0;
-
+		iValue = MSG_ReadSBitLong( msg, pField->bits );
+		flTime = ( timebase * 100.0 - (int)iValue ) / 100.0;
 		*(float *)((byte *)to + pField->offset ) = flTime;
 	}
 	else if( pField->flags & DT_TIMEWINDOW_BIG )
 	{
-		bSigned = true; // timewindow is always signed
-		iValue = MSG_ReadBitLong( msg, pField->bits, bSigned );
-
-		if( !Q_equal( pField->multiplier, 1.0 ))
-			flTime = ( timebase * pField->multiplier - (int)iValue ) / pField->multiplier;
-		else
-			flTime = timebase - (int)iValue;
-
+		iValue = MSG_ReadSBitLong( msg, pField->bits );
+		flTime = ( timebase * pField->multiplier - (int)iValue ) / pField->multiplier;
 		*(float *)((byte *)to + pField->offset ) = flTime;
 	}
 	else if( pField->flags & DT_STRING )
