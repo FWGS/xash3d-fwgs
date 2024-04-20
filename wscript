@@ -279,7 +279,7 @@ def configure(conf):
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
 
-	if conf.env.COMPILER_CC != 'msvc' and not conf.options.DISABLE_WERROR:
+	if conf.env.COMPILER_CC != 'msvc':
 		opt_flags = [
 			# '-Wall', '-Wextra', '-Wpedantic',
 			'-fdiagnostics-color=always',
@@ -341,6 +341,11 @@ def configure(conf):
 		]
 
 		opt_cxxflags = [] # TODO:
+
+		if conf.options.DISABLE_WERROR:
+			opt_flags = []
+			opt_cflags = ['-Werror=implicit-function-declaration']
+			opt_cxxflags = []
 
 		conf.env.CFLAGS_werror = conf.filter_cflags(opt_flags + opt_cflags, cflags)
 		conf.env.CXXFLAGS_werror = conf.filter_cxxflags(opt_flags + opt_cxxflags, cxxflags)
