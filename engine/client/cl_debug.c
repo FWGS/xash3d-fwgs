@@ -50,7 +50,15 @@ const char *CL_MsgInfo( int cmd )
 	if( cmd >= 0 && cmd <= svc_lastmsg )
 	{
 		// get engine message name
-		Q_strncpy( sz, svc_strings[cmd], sizeof( sz ));
+		const char *svc_string = NULL;
+
+		if( cls.legacymode )
+			svc_string = svc_legacy_strings[cmd];
+
+		if( !svc_string )
+			svc_string = svc_strings[cmd];
+
+		Q_strncpy( sz, svc_string, sizeof( sz ));
 	}
 	else if( cmd > svc_lastmsg && cmd <= ( svc_lastmsg + MAX_USER_MESSAGES ))
 	{
