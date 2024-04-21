@@ -275,6 +275,10 @@ typedef enum bugcomp_e
 {
 	// reverts fix for pfnPEntityOfEntIndex for bug compatibility with GoldSrc
 	BUGCOMP_PENTITYOFENTINDEX_FLAG = BIT( 0 ),
+
+	// rewrites mod's attempts to write GoldSrc-specific messages into Xash protocol
+	// (new wrappers are added by request)
+	BUGCOMP_MESSAGE_REWRITE_FACILITY_FLAG = BIT( 1 ),
 } bugcomp_t;
 
 typedef struct host_parm_s

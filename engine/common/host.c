@@ -75,6 +75,7 @@ typedef struct feature_message_s
 static feature_message_t bugcomp_features[] =
 {
 { BUGCOMP_PENTITYOFENTINDEX_FLAG, "pfnPEntityOfEntIndex bugfix revert", "peoei" },
+{ BUGCOMP_MESSAGE_REWRITE_FACILITY_FLAG, "GoldSrc Message Rewrite Facility", "gsmrf" },
 };
 
 static feature_message_t engine_features[] =
