@@ -2501,6 +2501,70 @@ int GAME_EXPORT pfnDecalIndex( const char *m )
 	return -1;
 }
 
+static int SV_CanRewriteMessage( int msg_num )
+{
+	// feature is disabled
+	if( !FBitSet( host.bugcomp, BUGCOMP_MESSAGE_REWRITE_FACILITY_FLAG ))
+		return 0;
+
+	switch( msg_num )
+	{
+	case svc_goldsrc_spawnstaticsound:
+		return svc_sound;
+	}
+
+	return 0;
+}
+
+static qboolean SV_RewriteMessage( int msg_num )
+{
+	vec3_t origin;
+	const char *sample = NULL;
+	float vol, attn;
+	int ent, pitch, flags, idx;
+	int cmd;
+
+	// do nothing
+	if( !msg_num )
+		return true;
+
+	MSG_SeekToBit( &sv.multicast, svgame.msg_rewrite_pos, SEEK_SET );
+
+	cmd = MSG_ReadCmd( &sv.multicast, NS_SERVER );
+
+	// idiot check
+	if( unlikely( cmd != SV_CanRewriteMessage( msg_num )))
+		return false;
+
+	switch( msg_num )
+	{
+	case svc_goldsrc_spawnstaticsound:
+		MSG_ReadVec3Coord( &sv.multicast, origin );
+		idx   = MSG_ReadShort( &sv.multicast );
+		vol   = MSG_ReadByte( &sv.multicast );
+		attn  = MSG_ReadByte( &sv.multicast ) / 64.0f;
+		ent   = MSG_ReadShort( &sv.multicast );
+		pitch = MSG_ReadByte( &sv.multicast );
+		flags = MSG_ReadByte( &sv.multicast );
+
+		if( FBitSet( flags, SND_SENTENCE ))
+			sample = va( "!%i", idx );
+		else if( idx >= 0 && idx < MAX_SOUNDS )
+			sample = sv.sound_precache[idx];
+
+		if( !COM_CheckString( sample ))
+		{
+			Con_Printf( S_ERROR "%s: unrecognized sample in svc_spawnstaticsound, index %d, flags 0x%x\n", __func__, idx, flags );
+			return false;
+		}
+
+		MSG_SeekToBit( &sv.multicast, svgame.msg_rewrite_pos, SEEK_SET );
+		return SV_BuildSoundMsg( &sv.multicast, EDICT_NUM( ent ), CHAN_STATIC, sample, vol, attn, flags, pitch, origin );
+	}
+
+	return false;
+}
+
 /*
 =============
 pfnMessageBegin
@@ -2520,8 +2584,21 @@ static void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float 
 
 	if( msg_num <= svc_lastmsg )
 	{
-		svgame.msg_index = -msg_num; // this is a system message
-		svgame.msg_name = svc_strings[msg_num];
+		// check if we should rewrite this message into something else...
+		if( SV_CanRewriteMessage( msg_num ))
+		{
+			svgame.msg_index = -SV_CanRewriteMessage( msg_num );
+			svgame.msg_name = svc_goldsrc_strings[msg_num] ? svc_goldsrc_strings[msg_num] : svc_strings[msg_num];
+			svgame.msg_rewrite_index = msg_num;
+			svgame.msg_rewrite_pos = MSG_TellBit( &sv.multicast );
+		}
+		else
+		{
+			svgame.msg_index = -msg_num; // this is a system message
+			svgame.msg_name = svc_strings[msg_num];
+			svgame.msg_rewrite_index = 0;
+			svgame.msg_rewrite_pos = 0;
+		}
 
 		if( msg_num == svc_temp_entity )
 			iSize = -1; // temp entity have variable size
@@ -2596,6 +2673,25 @@ static void GAME_EXPORT pfnMessageEnd( void )
 		return;
 	}
 
+	if( svgame.msg_rewrite_index != 0 )
+	{
+		if( SV_RewriteMessage( svgame.msg_rewrite_index ))
+		{
+			if( MSG_CheckOverflow( &sv.multicast ))
+			{
+				Con_Printf( S_ERROR "MessageEnd: %s has overflow multicast buffer (post-rewrite)\n", name );
+				MSG_Clear( &sv.multicast );
+				return;
+			}
+		}
+		else
+		{
+			Con_Printf( S_ERROR "MessageEnd: failed to rewrite message %s\n", name );
+			MSG_Clear( &sv.multicast );
+			return;
+		}
+	}
+
 	// check for system message
 	if( svgame.msg_index < 0 )
 	{
@@ -2662,9 +2758,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 	// update some messages in case their was format was changed and we want to keep backward compatibility
 	if( svgame.msg_index < 0 )
 	{
-		int	svc_msg = abs( svgame.msg_index );
-
-		if(( svc_msg == svc_finale || svc_msg == svc_cutscene ) && svgame.msg_realsize == 0 )
+		if(( svgame.msg_index == -svc_finale || svgame.msg_index == -svc_cutscene ) && svgame.msg_realsize == 0 )
 			MSG_WriteChar( &sv.multicast, 0 ); // write null string
 	}
 
