@@ -482,7 +482,8 @@ extern convar_t		sv_aim;
 //
 void SV_FinalMessage( const char *message, qboolean reconnect );
 void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
-void SV_DropClient( sv_client_t *cl, qboolean crash );
+void SV_DropClient_( sv_client_t *cl, qboolean crash );
+#define SV_DropClient SV_DropClient_ // renamed to not confuse AMXModX
 void SV_UpdateMovevars( qboolean initialize );
 int SV_ModelIndex( const char *name );
 int SV_SoundIndex( const char *name );
