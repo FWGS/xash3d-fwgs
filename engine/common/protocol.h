@@ -278,6 +278,8 @@ GNU General Public License for more details.
 #define SU_WEAPON		(1<<14)
 
 extern const char	*svc_strings[svc_lastmsg+1];
+extern const char	*svc_legacy_strings[svc_lastmsg+1];
+extern const char	*svc_goldsrc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
 
 // FWGS extensions
@@ -315,5 +317,41 @@ extern const char	*clc_strings[clc_lastmsg+1];
 
 // Master Server protocol
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
+
+// GoldSrc protocol definitions
+#define PROTOCOL_GOLDSRC_VERSION_REAL 48
+#define PROTOCOL_GOLDSRC_VERSION (PROTOCOL_GOLDSRC_VERSION_REAL | (BIT( 7 ))) // should be 48, only to differentiate it from PROTOCOL_LEGACY_VERSION
+
+#define svc_goldsrc_version           svc_changing
+#define svc_goldsrc_serverinfo        svc_serverdata
+#define svc_goldsrc_deltadescription  svc_deltatable
+#define svc_goldsrc_stopsound         svc_resource
+#define svc_goldsrc_damage            svc_restoresound
+#define svc_goldsrc_killedmonster     27
+#define svc_goldsrc_foundsecret       28
+#define svc_goldsrc_spawnstaticsound  29
+#define svc_goldsrc_decalname         svc_bspdecal
+#define svc_goldsrc_newusermsg        svc_usermessage
+#define svc_goldsrc_newmovevars       svc_deltamovevars
+#define svc_goldsrc_sendextrainfo     54
+#define svc_goldsrc_timescale         55
+#define svc_goldsrc_sendcvarvalue     svc_querycvarvalue
+#define svc_goldsrc_sendcvarvalue2    svc_querycvarvalue2
+
+#define clc_goldsrc_hltv              clc_requestcvarvalue  // 9
+#define clc_goldsrc_requestcvarvalue  clc_requestcvarvalue2 // 10
+#define clc_goldsrc_requestcvarvalue2 11
+#define clc_goldsrc_lastmsg           12
+
+#define S2C_REJECT_BADPASSWORD '8'
+#define S2C_REJECT             '9'
+#define S2C_CHALLENGE          "A00000000"
+#define S2C_CONNECTION         "B"
+
+#define MAX_GOLDSRC_RESOURCE_BITS 12
+#define MAX_GOLDSRC_ENTITY_BITS   11
+// #define MAX_GOLDSRC_EDICTS        BIT( MAX_ENTITY_BITS )
+#define MAX_GOLDSRC_EDICTS        ( BIT( MAX_ENTITY_BITS ) + ( MAX_CLIENTS * 15 ))
+#define LAST_GOLDSRC_EDICT        ( BIT( MAX_ENTITY_BITS ) - 1 )
 
 #endif//NET_PROTOCOL_H
