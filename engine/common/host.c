@@ -65,6 +65,32 @@ static CVAR_DEFINE( host_sleeptime, "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTER
 static CVAR_DEFINE_AUTO( host_sleeptime_debug, "0", 0, "print sleeps between frames" );
 CVAR_DEFINE( con_gamemaps, "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
 
+typedef struct feature_message_s
+{
+	uint32_t mask;
+	const char *msg;
+	const char *arg;
+} feature_message_t;
+
+static feature_message_t bugcomp_features[] =
+{
+{ BUGCOMP_PENTITYOFENTINDEX_FLAG, "pfnPEntityOfEntIndex bugfix revert", "peoei" },
+};
+
+static feature_message_t engine_features[] =
+{
+{ ENGINE_WRITE_LARGE_COORD, "Big World Support" },
+{ ENGINE_QUAKE_COMPATIBLE, "Quake Compatibility" },
+{ ENGINE_LOAD_DELUXEDATA, "Deluxemap Support" },
+{ ENGINE_PHYSICS_PUSHER_EXT, "Improved MOVETYPE_PUSH" },
+{ ENGINE_LARGE_LIGHTMAPS, "Large Lightmaps" },
+{ ENGINE_COMPENSATE_QUAKE_BUG, "Stupid Quake Bug Compensation" },
+{ ENGINE_IMPROVED_LINETRACE, "Improved Trace Line" },
+{ ENGINE_COMPUTE_STUDIO_LERP, "Studio MOVETYPE_STEP Lerping" },
+{ ENGINE_LINEAR_GAMMA_SPACE, "Linear Gamma Space" },
+{ ENGINE_STEP_POSHISTORY_LERP, "MOVETYPE_STEP Position History Based Lerping" },
+};
+
 static void Sys_PrintUsage( void )
 {
 	string version_str;
@@ -92,7 +118,7 @@ static void Sys_PrintUsage( void )
 	O("-minidumps       ", "enable writing minidumps when game is crashed")
 #endif
 	O("-rodir <path>    ", "set read-only base directory")
-	O("-bugcomp         ", "enable precise bug compatibility")
+	O("-bugcomp [opts]  ", "enable precise bug compatibility")
 	O("                 ", "will break games that don't require it")
 	O("                 ", "refer to engine documentation for more info")
 	O("-disablehelp     ", "disable this message")
@@ -193,31 +219,14 @@ void Host_ShutdownServer( void )
 Host_PrintEngineFeatures
 ================
 */
-static void Host_PrintEngineFeatures( int features )
+static void Host_PrintFeatures( uint32_t flags,	const char *s, feature_message_t *features, size_t size )
 {
-	struct
-	{
-		uint32_t mask;
-		const char *msg;
-	} features_str[] =
-	{
-	{ ENGINE_WRITE_LARGE_COORD, "Big World Support" },
-	{ ENGINE_QUAKE_COMPATIBLE, "Quake Compatibility" },
-	{ ENGINE_LOAD_DELUXEDATA, "Deluxemap Support" },
-	{ ENGINE_PHYSICS_PUSHER_EXT, "Improved MOVETYPE_PUSH" },
-	{ ENGINE_LARGE_LIGHTMAPS, "Large Lightmaps" },
-	{ ENGINE_COMPENSATE_QUAKE_BUG, "Stupid Quake Bug Compensation" },
-	{ ENGINE_IMPROVED_LINETRACE, "Improved Trace Line" },
-	{ ENGINE_COMPUTE_STUDIO_LERP, "Studio MOVETYPE_STEP Lerping" },
-	{ ENGINE_LINEAR_GAMMA_SPACE, "Linear Gamma Space" },
-	{ ENGINE_STEP_POSHISTORY_LERP, "MOVETYPE_STEP Position History Based Lerping" },
-	};
-	int i;
+	size_t i;
 
-	for( i = 0; i < ARRAYSIZE( features_str ); i++ )
+	for( i = 0; i < size; i++ )
 	{
-		if( FBitSet( features, features_str[i].mask ))
-			Con_Reportf( "^3EXT:^7 %s is enabled\n", features_str[i].msg );
+		if( FBitSet( flags, features[i].mask ))
+			Con_Printf( "^3%s:^7 %s is enabled\n", s, features[i].msg );
 	}
 }
 
@@ -245,7 +254,7 @@ void Host_ValidateEngineFeatures( uint32_t features )
 		SetBits( features, ENGINE_STEP_POSHISTORY_LERP );
 
 	// print requested first
-	Host_PrintEngineFeatures( features );
+	Host_PrintFeatures( features, "EXT", engine_features, ARRAYSIZE( engine_features ));
 
 	// now warn about incompatible bits
 	if( FBitSet( features, ENGINE_STEP_POSHISTORY_LERP|ENGINE_COMPUTE_STUDIO_LERP ) == ( ENGINE_STEP_POSHISTORY_LERP|ENGINE_COMPUTE_STUDIO_LERP ))
@@ -947,6 +956,53 @@ static void Host_RunTests( int stage )
 }
 #endif
 
+static uint32_t Host_CheckBugcomp( void )
+{
+	uint32_t flags = 0;
+	string args, arg;
+	char *prev, *next;
+	size_t i;
+
+	if( !Sys_CheckParm( "-bugcomp" ))
+		return 0;
+
+	if( Sys_GetParmFromCmdLine( "-bugcomp", args ) && args[0] != '-' )
+	{
+		for( prev = args, next = Q_strchrnul( prev, '+' ); ; prev = next + 1, next = Q_strchrnul( prev, '+' ))
+		{
+			Q_strncpy( arg, prev, next - prev + 1 );
+			for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
+			{
+				if( !Q_stricmp( bugcomp_features[i].arg, arg ))
+				{
+					SetBits( flags, bugcomp_features[i].mask );
+					break;
+				}
+			}
+
+			if( i == ARRAYSIZE( bugcomp_features ))
+			{
+				Con_Printf( S_ERROR "Unknown bugcomp flag %s\n", arg );
+				Con_Printf( "Valid flags are:\n" );
+				for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
+					Con_Printf( "\t%s: %s\n", bugcomp_features[i].arg, bugcomp_features[i].msg );
+			}
+
+			if( !*next )
+				break;
+		}
+	}
+	else
+	{
+		// no argument specified -bugcomp just enables everything
+		flags = -1;
+	}
+
+	Host_PrintFeatures( flags, "BUGCOMP", bugcomp_features, ARRAYSIZE( bugcomp_features ));
+
+	return flags;
+}
+
 /*
 =================
 Host_InitCommon
@@ -1050,13 +1106,6 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	// member console allowing
 	host.allow_console_init = host.allow_console;
-
-	if( Sys_CheckParm( "-bugcomp" ))
-	{
-		// add argument check here when we add other levels
-		// of bugcompatibility
-		host.bugcomp = BUGCOMP_GOLDSRC;
-	}
 
 	// timeBeginPeriod( 1 ); // a1ba: Do we need this?
 
@@ -1184,16 +1233,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	Sys_InitLog();
 
-	// print bugcompatibility level here, after log was initialized
-	if( host.bugcomp == BUGCOMP_GOLDSRC )
-	{
-		Con_Printf( "^3BUGCOMP^7: GoldSrc bug-compatibility enabled\n" );
-	}
-
 	// print current developer level to simplify processing users feedback
-	if( developer > 0 ) {
+	if( developer > 0 )
 		Con_Printf( "Developer level: ^3%i\n", developer );
-	}
+
+	host.bugcomp = Host_CheckBugcomp();
 
 	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );

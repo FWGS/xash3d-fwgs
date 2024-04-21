@@ -273,12 +273,8 @@ typedef struct
 
 typedef enum bugcomp_e
 {
-	// default mode, we assume that user dlls are not relying on engine bugs
-	BUGCOMP_OFF,
-
-	// GoldSrc mode, user dlls are relying on GoldSrc specific bugs
-	// but fixing them may break regular Xash games
-	BUGCOMP_GOLDSRC,
+	// reverts fix for pfnPEntityOfEntIndex for bug compatibility with GoldSrc
+	BUGCOMP_PENTITYOFENTINDEX_FLAG = BIT( 0 ),
 } bugcomp_t;
 
 typedef struct host_parm_s
@@ -356,7 +352,7 @@ typedef struct host_parm_s
 	int		numdecals;
 
 	// bug compatibility level, for very "special" games
-	bugcomp_t bugcomp;
+	uint32_t bugcomp;
 
 	// measure time to first frame
 	double starttime;
