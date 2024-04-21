@@ -3344,12 +3344,10 @@ pfnPEntityOfEntIndex
 
 =============
 */
-static edict_t *pfnPEntityOfEntIndex( int iEntIndex )
+static edict_t *pfnPEntityOfEntIndexBroken( int iEntIndex )
 {
 	// have to be bug-compatible with GoldSrc in this function
-	if( host.bugcomp == BUGCOMP_GOLDSRC )
-		return SV_PEntityOfEntIndex( iEntIndex, false );
-	return SV_PEntityOfEntIndex( iEntIndex, true );
+	return SV_PEntityOfEntIndex( iEntIndex, false );
 }
 
 /*
@@ -4684,7 +4682,7 @@ static enginefuncs_t gEngfuncs =
 	pfnPEntityOfEntOffset,
 	pfnEntOffsetOfPEntity,
 	pfnIndexOfEdict,
-	pfnPEntityOfEntIndex,
+	pfnPEntityOfEntIndexAllEntities,
 	pfnFindEntityByVars,
 	pfnGetModelPtr,
 	pfnRegUserMsg,
@@ -5154,6 +5152,11 @@ qboolean SV_LoadProgs( const char *name )
 
 	// make sure what physic functions is cleared
 	memset( &svgame.physFuncs, 0, sizeof( svgame.physFuncs ));
+
+	// revert fix for pfnPEntityOfEntIndex to be compatible with GoldSrc
+	// games that rely on this bug
+	if( FBitSet( host.bugcomp, BUGCOMP_PENTITYOFENTINDEX_FLAG ))
+		gEngfuncs.pfnPEntityOfEntIndex = pfnPEntityOfEntIndexBroken;
 
 	// make local copy of engfuncs to prevent overwrite it with bots.dll
 	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
