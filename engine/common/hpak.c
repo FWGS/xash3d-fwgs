@@ -400,7 +400,8 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 	f = FS_Open( pakname, "rb", true );
 	if( !f )
 	{
-		Con_DPrintf( S_ERROR "Couldn't find %s.\n", pakname );
+		if( !quiet )
+			Con_DPrintf( S_ERROR "Couldn't find %s.\n", pakname );
 		return true;
 	}
 
