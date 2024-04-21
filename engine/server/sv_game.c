@@ -5170,7 +5170,7 @@ qboolean SV_LoadProgs( const char *name )
 		COM_FreeLibrary( svgame.hInstance );
 		Con_Printf( S_ERROR "SV_LoadProgs: failed to get address of GetEntityAPI proc\n" );
 		svgame.hInstance = NULL;
-		Mem_FreePool(&svgame.mempool);
+		Mem_FreePool( &svgame.mempool );
 		return false;
 	}
 
@@ -5181,7 +5181,7 @@ qboolean SV_LoadProgs( const char *name )
 		COM_FreeLibrary( svgame.hInstance );
 		Con_Printf( S_ERROR "SV_LoadProgs: failed to get address of GiveFnptrsToDll proc\n" );
 		svgame.hInstance = NULL;
-		Mem_FreePool(&svgame.mempool);
+		Mem_FreePool( &svgame.mempool );
 		return false;
 	}
 
@@ -5206,7 +5206,8 @@ qboolean SV_LoadProgs( const char *name )
 	{
 		if( !GetEntityAPI2( &svgame.dllFuncs, &version ))
 		{
-			Con_Printf( S_WARN "SV_LoadProgs: interface version %i should be %i\n", INTERFACE_VERSION, version );
+			if( INTERFACE_VERSION != version )
+				Con_Printf( S_WARN "SV_LoadProgs: interface version %i should be %i\n", INTERFACE_VERSION, version );
 
 			// fallback to old API
 			if( !GetEntityAPI( &svgame.dllFuncs, version ))
@@ -5214,9 +5215,10 @@ qboolean SV_LoadProgs( const char *name )
 				COM_FreeLibrary( svgame.hInstance );
 				Con_Printf( S_ERROR "SV_LoadProgs: couldn't get entity API\n" );
 				svgame.hInstance = NULL;
-				Mem_FreePool(&svgame.mempool);
+				Mem_FreePool( &svgame.mempool );
 				return false;
 			}
+			else Con_Reportf( "SV_LoadProgs: ^2initailized legacy EntityAPI ^7ver. %i\n", version );
 		}
 		else Con_Reportf( "SV_LoadProgs: ^2initailized extended EntityAPI ^7ver. %i\n", version );
 	}
@@ -5225,9 +5227,10 @@ qboolean SV_LoadProgs( const char *name )
 		COM_FreeLibrary( svgame.hInstance );
 		Con_Printf( S_ERROR "SV_LoadProgs: couldn't get entity API\n" );
 		svgame.hInstance = NULL;
-		Mem_FreePool(&svgame.mempool);
+		Mem_FreePool( &svgame.mempool );
 		return false;
 	}
+	else Con_Reportf( "SV_LoadProgs: ^2initailized legacy EntityAPI ^7ver. %i\n", version );
 
 	SV_InitOperatorCommands();
 	Mod_InitStudioAPI();
