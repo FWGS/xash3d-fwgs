@@ -341,15 +341,18 @@ void GAME_EXPORT Con_Printf( const char *szFmt, ... )
 {
 	static char	buffer[MAX_PRINT_MSG];
 	va_list		args;
+	qboolean add_newline;
 
 	if( !host.allow_console )
 		return;
 
 	va_start( args, szFmt );
-	Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args );
+	add_newline = Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args ) < 0;
 	va_end( args );
 
 	Sys_Print( buffer );
+	if( add_newline )
+		Sys_Print( "\n" );
 }
 
 /*
@@ -362,18 +365,21 @@ void GAME_EXPORT Con_DPrintf( const char *szFmt, ... )
 {
 	static char	buffer[MAX_PRINT_MSG];
 	va_list		args;
+	qboolean add_newline;
 
 	if( host_developer.value < DEV_NORMAL )
 		return;
 
 	va_start( args, szFmt );
-	Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args );
+	add_newline = Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args ) < 0;
 	va_end( args );
 
 	if( buffer[0] == '0' && buffer[1] == '\n' && buffer[2] == '\0' )
 		return; // hlrally spam
 
 	Sys_Print( buffer );
+	if( add_newline )
+		Sys_Print( "\n" );
 }
 
 /*
@@ -386,15 +392,18 @@ void Con_Reportf( const char *szFmt, ... )
 {
 	static char	buffer[MAX_PRINT_MSG];
 	va_list		args;
+	qboolean add_newline;
 
 	if( host_developer.value < DEV_EXTENDED )
 		return;
 
 	va_start( args, szFmt );
-	Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args );
+	add_newline = Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args ) < 0;
 	va_end( args );
 
 	Sys_Print( buffer );
+	if( add_newline )
+		Sys_Print( "\n" );
 }
 
 
