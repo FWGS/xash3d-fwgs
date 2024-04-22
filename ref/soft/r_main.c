@@ -150,7 +150,16 @@ qboolean R_OpaqueEntity( cl_entity_t *ent )
 	int rendermode = R_GetEntityRenderMode( ent );
 
 	if( rendermode == kRenderNormal )
-		return true;
+	{
+		switch( ent->curstate.renderfx )
+		{
+		case kRenderFxNone:
+		case kRenderFxDeadPlayer:
+		case kRenderFxLightMultiplier:
+		case kRenderFxExplode:
+			return true;
+		}
+	}
 
 	if( sw_notransbrushes.value && ent->model && ent->model->type == mod_brush && rendermode == kRenderTransTexture )
 		return true;
