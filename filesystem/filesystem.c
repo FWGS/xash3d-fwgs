@@ -1363,8 +1363,13 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 
 	if( index >= 0 && !dllInfo->encrypted && search )
 	{
-		Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ),
-			"%s%s", search->filename, dllInfo->shortPath );
+		// gamedll might resolve it's own path using dladdr()
+		// combine it with engine returned path to gamedir
+		// it might lead to double gamedir like this
+		// - valve/valve/dlls/hl.so
+		// instead of expected
+		// - valve/dlls/hl.so
+		Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s/%s%s", fs_rootdir, search->filename, dllInfo->shortPath );
 		dllInfo->custom_loader = false;	// we can loading from disk and use normal debugging
 	}
 	else
