@@ -157,7 +157,7 @@ static qboolean StreamFindNextChunk( file_t *file, const char *name, int *last_c
 		*last_chunk = FS_Tell( file ) + 8 + (( iff_chunk_len + 1 ) & ~1 );
 		FS_Read( file, chunkName, 4 );
 
-		if( !Q_strncmp( chunkName, name, 4 ))
+		if( IsFourCC( chunkName, name ))
 			return true;
 	}
 
@@ -183,7 +183,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	// find "RIFF" chunk
 	FindChunk( name, "RIFF" );
 
-	if( !( iff_dataPtr && !Q_strncmp( (const char *)iff_dataPtr + 8, "WAVE", 4 )))
+	if( !iff_dataPtr || !IsFourCC( iff_dataPtr + 8, "WAVE" ))
 	{
 		Con_DPrintf( S_ERROR "Sound_LoadWAV: %s missing 'RIFF/WAVE' chunks\n", name );
 		return false;
@@ -246,7 +246,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 
 		if( iff_dataPtr )
 		{
-			if( !Q_strncmp( (const char *)iff_dataPtr + 28, "mark", 4 ))
+			if( IsFourCC( iff_dataPtr + 28, "mark" ))
 			{
 				// this is not a proper parse, but it works with CoolEdit...
 				iff_dataPtr += 24;
@@ -362,7 +362,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	}
 
 	FS_Read( file, chunkName, 4 );
-	if( !Q_strncmp( chunkName, "WAVE", 4 ))
+	if( !IsFourCC( chunkName, "WAVE" ))
 	{
 		Con_DPrintf( S_ERROR "Stream_OpenWAV: %s missing WAVE chunk\n", filename );
 		FS_Close( file );
