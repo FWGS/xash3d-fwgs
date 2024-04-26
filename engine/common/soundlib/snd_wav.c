@@ -23,6 +23,11 @@ static const byte *iff_end;
 static const byte *iff_lastChunk;
 static int iff_chunkLen;
 
+static int IsFourCC( const byte *ptr, const byte *fourcc )
+{
+	return 0 == memcmp( ptr, fourcc, 4 );
+}
+
 /*
 =================
 GetLittleShort
@@ -86,7 +91,21 @@ static void FindNextChunk( const char *filename, const char *name )
 
 		if( iff_chunkLen > remaining )
 		{
-			Con_DPrintf( "%s: '%s' truncated by %i bytes\n", __func__, filename, iff_chunkLen - remaining );
+			// only print this warning if selected chunk is truncated
+			//
+			// otherwise this warning becomes misleading because some
+			// idiot programs like CoolEdit (i.e. Adobe Audition) don't always
+			// respect pad byte. The file isn't actually truncated, it just
+			// can't be reliably parsed as a whole
+
+			if( IsFourCC( iff_lastChunk, "RIFF" )
+				|| IsFourCC( iff_lastChunk, "fmt " )
+				|| IsFourCC( iff_lastChunk, "cue " )
+				|| IsFourCC( iff_lastChunk, "LIST" )
+				|| IsFourCC( iff_lastChunk, "data" ))
+			{
+				Con_DPrintf( "%s: '%s' truncated by %i bytes\n", __func__, filename, iff_chunkLen - remaining );
+			}
 			iff_chunkLen = remaining;
 		}
 
@@ -94,9 +113,9 @@ static void FindNextChunk( const char *filename, const char *name )
 		iff_dataPtr -= 8;
 
 		iff_lastChunk = iff_dataPtr + 8 + iff_chunkLen;
-		if ((iff_chunkLen&1) && remaining)
+		if(( iff_chunkLen & 1 ) && remaining )
 			iff_lastChunk++;
-		if (!Q_strncmp(iff_dataPtr, name, 4))
+		if( IsFourCC( iff_dataPtr, name ))
 			return;
 	}
 }
