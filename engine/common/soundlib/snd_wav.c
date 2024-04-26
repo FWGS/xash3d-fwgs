@@ -149,13 +149,16 @@ static qboolean StreamFindNextChunk( file_t *file, const char *name, int *last_c
 			return false;	// didn't find the chunk
 
 		FS_Seek( file, 4, SEEK_CUR );
-		FS_Read( file, &iff_chunk_len, sizeof( iff_chunk_len ));
+		if( FS_Read( file, &iff_chunk_len, sizeof( iff_chunk_len )) != sizeof( iff_chunk_len ))
+			return false;
+
 		if( iff_chunk_len < 0 )
 			return false;	// didn't find the chunk
 
 		FS_Seek( file, -8, SEEK_CUR );
 		*last_chunk = FS_Tell( file ) + 8 + (( iff_chunk_len + 1 ) & ~1 );
-		FS_Read( file, chunkName, 4 );
+		if( FS_Read( file, chunkName, sizeof( chunkName )) != sizeof( chunkName ))
+			return false;
 
 		if( IsFourCC( chunkName, name ))
 			return true;
@@ -361,7 +364,15 @@ stream_t *Stream_OpenWAV( const char *filename )
 		return NULL;
 	}
 
-	FS_Read( file, chunkName, 4 );
+	FS_Seek( file, 4, SEEK_CUR );
+
+	if( FS_Read( file, chunkName, 4 ) != 4 )
+	{
+		Con_DPrintf( S_ERROR "%s: %s missing WAVE chunk, truncated\n", filename );
+		FS_Close( file );
+		return false;
+	}
+
 	if( !IsFourCC( chunkName, "WAVE" ))
 	{
 		Con_DPrintf( S_ERROR "Stream_OpenWAV: %s missing WAVE chunk\n", filename );
@@ -370,7 +381,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	}
 
 	// get "fmt " chunk
-	iff_data = FS_Tell( file ) + 4;
+	iff_data = FS_Tell( file );
 	last_chunk = iff_data;
 	if( !StreamFindNextChunk( file, "fmt ", &last_chunk ))
 	{

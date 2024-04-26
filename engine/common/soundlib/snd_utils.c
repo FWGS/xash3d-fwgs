@@ -130,8 +130,6 @@ uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
 	return msecs;
 }
 
-#define drint( v ) (int)( v + 0.5 )
-
 /*
 ================
 Sound_ResampleInternal
