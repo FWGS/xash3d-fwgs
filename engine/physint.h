@@ -50,6 +50,10 @@ GNU General Public License for more details.
 #define LUMP_SAVE_NO_DATA		7
 #define LUMP_SAVE_CORRUPTED		8
 
+#ifndef ALLOC_CHECK
+#define ALLOC_CHECK( x )
+#endif
+
 typedef struct areanode_s
 {
 	int		axis;		// -1 = leaf node
