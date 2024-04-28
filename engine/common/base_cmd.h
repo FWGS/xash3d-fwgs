@@ -31,8 +31,6 @@ typedef enum base_command_type
 
 typedef void base_command_t;
 
-
-
 void BaseCmd_Init( void );
 base_command_t *BaseCmd_Find( base_command_type_e type, const char *name );
 void BaseCmd_FindAll( const char *name,
