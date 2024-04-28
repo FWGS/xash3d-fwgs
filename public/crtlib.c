@@ -253,13 +253,11 @@ float Q_atof( const char *str )
 
 void Q_atov( float *vec, const char *str, size_t siz )
 {
-	string	buffer;
-	char	*pstr, *pfront;
+	const char *pstr, *pfront;
 	int	j;
 
-	Q_strncpy( buffer, str, sizeof( buffer ));
 	memset( vec, 0, sizeof( vec_t ) * siz );
-	pstr = pfront = buffer;
+	pstr = pfront = str;
 
 	for( j = 0; j < siz; j++ )
 	{
