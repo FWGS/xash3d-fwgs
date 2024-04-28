@@ -392,10 +392,10 @@ typedef struct
 
 //=============================================================================
 
-extern	server_static_t	svs;			// persistant server info
-extern	server_t		sv;			// local server
-extern	svgame_static_t	svgame;			// persistant game info
-extern	areanode_t	sv_areanodes[];		// AABB dynamic tree
+extern server_static_t svs RENAME_SYMBOL( "svs_" ); // persistant server info
+extern server_t        sv RENAME_SYMBOL( "sv_" );   // local server
+extern svgame_static_t svgame;                      // persistant game info
+extern areanode_t      sv_areanodes[];              // AABB dynamic tree
 
 extern convar_t		mp_logecho;
 extern convar_t		mp_logfile;
@@ -480,7 +480,7 @@ extern convar_t		sv_aim;
 //
 void SV_FinalMessage( const char *message, qboolean reconnect );
 void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
-void SV_DropClient( sv_client_t *cl, qboolean crash );
+void SV_DropClient( sv_client_t *cl, qboolean crash ) RENAME_SYMBOL( "SV_DropClient_" );
 void SV_UpdateMovevars( qboolean initialize );
 int SV_ModelIndex( const char *name );
 int SV_SoundIndex( const char *name );
