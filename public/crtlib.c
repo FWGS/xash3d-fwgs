@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "const.h"
 #include <math.h>
 #include <stdarg.h>
-#include <ctype.h>
 #include <time.h>
 #include "stdio.h"
 #include "crtlib.h"
@@ -36,26 +35,6 @@ void Q_strnlwr( const char *in, char *out, size_t size_out )
 		size_out--;
 	}
 	*out = '\0';
-}
-
-qboolean Q_isdigit( const char *str )
-{
-	if( str && *str )
-	{
-		while( isdigit( *str )) str++;
-		if( !*str ) return true;
-	}
-	return false;
-}
-
-qboolean Q_isspace( const char *str )
-{
-	if( str && *str )
-	{
-		while( isspace( *str ) ) str++;
-		if( !*str ) return true;
-	}
-	return false;
 }
 
 size_t Q_colorstr( const char *string )
@@ -79,28 +58,6 @@ size_t Q_colorstr( const char *string )
 	}
 
 	return len;
-}
-
-char Q_toupper( const char in )
-{
-	char	out;
-
-	if( in >= 'a' && in <= 'z' )
-		out = in + 'A' - 'a';
-	else out = in;
-
-	return out;
-}
-
-char Q_tolower( const char in )
-{
-	char	out;
-
-	if( in >= 'A' && in <= 'Z' )
-		out = in + 'a' - 'A';
-	else out = in;
-
-	return out;
 }
 
 size_t Q_strncat( char *dst, const char *src, size_t size )

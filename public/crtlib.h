@@ -18,6 +18,7 @@ GNU General Public License for more details.
 
 #include <string.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "build.h"
 #include "xash3d_types.h"
 
@@ -63,11 +64,7 @@ const char *Q_buildbranch( void );
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 #define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 size_t Q_colorstr( const char *string );
-char Q_toupper( const char in );
-char Q_tolower( const char in );
 size_t Q_strncat( char *dst, const char *src, size_t siz );
-qboolean Q_isdigit( const char *str );
-qboolean Q_isspace( const char *str );
 int Q_atoi( const char *str );
 float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
@@ -102,6 +99,48 @@ char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int f
 #define COM_ParseFile( data, token, size ) COM_ParseFileSafe( data, token, size, 0, NULL, NULL )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
+
+static inline char Q_toupper( const char in )
+{
+	char	out;
+
+	if( in >= 'a' && in <= 'z' )
+		out = in + 'A' - 'a';
+	else out = in;
+
+	return out;
+}
+
+static inline char Q_tolower( const char in )
+{
+	char	out;
+
+	if( in >= 'A' && in <= 'Z' )
+		out = in + 'a' - 'A';
+	else out = in;
+
+	return out;
+}
+
+static inline qboolean Q_isdigit( const char *str )
+{
+	if( likely( str && *str ))
+	{
+		while( isdigit( *str )) str++;
+		if( !*str ) return true;
+	}
+	return false;
+}
+
+static inline qboolean Q_isspace( const char *str )
+{
+	if( likely( str && *str ))
+	{
+		while( isspace( *str ) ) str++;
+		if( !*str ) return true;
+	}
+	return false;
+}
 
 // libc implementations
 static inline int Q_strcmp( const char *s1, const char *s2 )
