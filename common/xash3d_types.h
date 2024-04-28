@@ -70,48 +70,48 @@ typedef uint64_t longtime_t;
 #define IsColorString( p )	( p && *( p ) == '^' && *(( p ) + 1) && *(( p ) + 1) >= '0' && *(( p ) + 1 ) <= '9' )
 #define ColorIndex( c )	((( c ) - '0' ) & 7 )
 
-#if defined(__GNUC__)
-	#ifdef __i386__
-		#define EXPORT __attribute__ ((visibility ("default"),force_align_arg_pointer))
-		#define GAME_EXPORT __attribute((force_align_arg_pointer))
+#if defined( __GNUC__ )
+	#if defined( __i386__ )
+		#define EXPORT         __attribute__(( visibility( "default" ), force_align_arg_pointer ))
+		#define GAME_EXPORT    __attribute(( force_align_arg_pointer ))
 	#else
-		#define EXPORT __attribute__ ((visibility ("default")))
+		#define EXPORT         __attribute__(( visibility ( "default" )))
 		#define GAME_EXPORT
 	#endif
-	#define _format(x) __attribute__((format(printf, x, x+1)))
-	#define NORETURN __attribute__((noreturn))
-	#define NONNULL __attribute__((nonnull))
-	#define ALLOC_CHECK(x) __attribute__((alloc_size(x)))
-#elif defined(_MSC_VER)
-	#define EXPORT          __declspec( dllexport )
-	#define GAME_EXPORT
-	#define _format(x)
-	#define NORETURN
-	#define NONNULL
-	#define ALLOC_CHECK(x)
+
+	#define NORETURN           __attribute__(( noreturn ))
+	#define NONNULL            __attribute__(( nonnull ))
+	#define _format( x )       __attribute__(( format( printf, x, x + 1 )))
+	#define ALLOC_CHECK( x )   __attribute__(( alloc_size( x )))
+	#define RENAME_SYMBOL( x ) asm( x )
 #else
-	#define EXPORT
+	#if defined( _MSC_VER )
+		#define EXPORT         __declspec( dllexport )
+	#else
+		#define EXPORT
+	#endif
 	#define GAME_EXPORT
-	#define _format(x)
 	#define NORETURN
 	#define NONNULL
-	#define ALLOC_CHECK(x)
+	#define _format( x )
+	#define ALLOC_CHECK( x )
+	#define RENAME_SYMBOL( x )
 #endif
 
 #if ( __GNUC__ >= 3 )
-	#define unlikely(x) __builtin_expect(x, 0)
-	#define likely(x)   __builtin_expect(x, 1)
+	#define unlikely( x )     __builtin_expect( x, 0 )
+	#define likely( x )       __builtin_expect( x, 1 )
 #elif defined( __has_builtin )
 	#if __has_builtin( __builtin_expect )
-		#define unlikely(x) __builtin_expect(x, 0)
-		#define likely(x)   __builtin_expect(x, 1)
+		#define unlikely( x ) __builtin_expect( x, 0 )
+		#define likely( x )   __builtin_expect( x, 1 )
 	#else
-		#define unlikely(x) (x)
-		#define likely(x)   (x)
+		#define unlikely( x ) ( x )
+		#define likely( x )   ( x )
 	#endif
 #else
-	#define unlikely(x) (x)
-	#define likely(x)   (x)
+	#define unlikely( x ) ( x )
+	#define likely( x )   ( x )
 #endif
 
 #if __STDC_VERSION__ >= 202311L || __cplusplus >= 201103L // C23 or C++ static_assert is a keyword
