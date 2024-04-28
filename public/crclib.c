@@ -434,7 +434,7 @@ returns hash key for string
 */
 uint COM_HashKey( const char *string, uint hashSize )
 {
-	int hashKey = 5381;
+	uint hashKey = 5381;
 	unsigned char i;
 
 	while(( i = *string++ ))
