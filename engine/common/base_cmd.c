@@ -19,13 +19,15 @@ GNU General Public License for more details.
 
 #define HASH_SIZE 128 // 128 * 4 * 4 == 2048 bytes
 
-typedef struct base_command_hashmap_s
+typedef struct base_command_hashmap_s base_command_hashmap_t;
+
+struct base_command_hashmap_s
 {
-	base_command_t          *basecmd; // base command: cvar, alias or command
-	const char              *name;    // key for searching
-	base_command_type_e     type;     // type for faster searching
-	struct base_command_hashmap_s *next;
-} base_command_hashmap_t;
+	base_command_t         *basecmd; // base command: cvar, alias or command
+	base_command_hashmap_t *next;
+	base_command_type_e     type;    // type for faster searching
+	char                    name[1]; // key for searching
+};
 
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
 
@@ -124,11 +126,12 @@ void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const ch
 {
 	base_command_hashmap_t *elem, *cur, *find;
 	uint hash = BaseCmd_HashKey( name );
+	size_t len = Q_strlen( name );
 
-	elem = Z_Malloc( sizeof( base_command_hashmap_t ) );
+	elem = Z_Malloc( sizeof( base_command_hashmap_t ) + len );
 	elem->basecmd = basecmd;
 	elem->type = type;
-	elem->name = name;
+	Q_strncpy( elem->name, name, len + 1 );
 
 	// link the variable in alphanumerical order
 	for( cur = NULL, find = hashed_cmds[hash];
