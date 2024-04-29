@@ -60,37 +60,6 @@ size_t Q_colorstr( const char *string )
 	return len;
 }
 
-size_t Q_strncat( char *dst, const char *src, size_t size )
-{
-	register char	*d = dst;
-	register const char	*s = src;
-	register size_t	n = size;
-	size_t		dlen;
-
-	if( !dst || !src || !size )
-		return 0;
-
-	// find the end of dst and adjust bytes left but don't go past end
-	while( n-- != 0 && *d != '\0' ) d++;
-	dlen = d - dst;
-	n = size - dlen;
-
-	if( n == 0 ) return( dlen + Q_strlen( s ));
-
-	while( *s != '\0' )
-	{
-		if( n != 1 )
-		{
-			*d++ = *s;
-			n--;
-		}
-		s++;
-	}
-
-	*d = '\0';
-	return( dlen + ( s - src )); // count does not include NULL
-}
-
 int Q_atoi( const char *str )
 {
 	int val = 0;
@@ -349,7 +318,7 @@ const char* Q_timestamp( int format )
 	return timestamp;
 }
 
-#if !defined( HAVE_STRCASESTR )
+#if !HAVE_STRCASESTR && !HAVE_STRISTR
 char *Q_stristr( const char *string, const char *string2 )
 {
 	int	c;

@@ -64,7 +64,6 @@ const char *Q_buildbranch( void );
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 #define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 size_t Q_colorstr( const char *string );
-size_t Q_strncat( char *dst, const char *src, size_t siz );
 int Q_atoi( const char *str );
 float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
@@ -142,91 +141,149 @@ static inline qboolean Q_isspace( const char *str )
 	return false;
 }
 
-// libc implementations
 static inline int Q_strcmp( const char *s1, const char *s2 )
 {
-	return unlikely(!s1) ?
-		( !s2 ? 0 : -1 ) :
-		( unlikely(!s2) ? 1 : strcmp( s1, s2 ));
+	if( likely( s1 && s2 ))
+		return strcmp( s1, s2 );
+	return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
 }
 
 static inline int Q_strncmp( const char *s1, const char *s2, size_t n )
 {
-	return unlikely(!s1) ?
-		( !s2 ? 0 : -1 ) :
-		( unlikely(!s2) ? 1 : strncmp( s1, s2, n ));
+	if( likely( s1 && s2 ))
+		return strncmp( s1, s2, n );
+	return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
 }
 
 static inline char *Q_strstr( const char *s1, const char *s2 )
 {
-	return unlikely( !s1 || !s2 ) ? NULL : (char*)strstr( s1, s2 );
+	if( likely( s1 && s2 ))
+		return (char *)strstr( s1, s2 );
+	return NULL;
 }
 
-// Q_strncpy is the same as strlcpy
-static inline size_t Q_strncpy( char *dst, const char *src, size_t siz )
+// libc extensions, be careful what to enable or what not
+static inline size_t Q_strncpy( char *dst, const char *src, size_t size )
 {
+#if HAVE_STRLCPY
+	if( unlikely( !dst || !src || !size ))
+		return 0;
+	return strlcpy( dst, src, size );
+#else
 	size_t len;
-
-	if( unlikely( !dst || !src || !siz ))
+	if( unlikely( !dst || !src || !size ))
 		return 0;
 
 	len = strlen( src );
-	if( len + 1 > siz ) // check if truncate
+	if( len + 1 > size ) // check if truncate
 	{
-		memcpy( dst, src, siz - 1 );
-		dst[siz - 1] = 0;
+		memcpy( dst, src, size - 1 );
+		dst[size - 1] = 0;
 	}
 	else memcpy( dst, src, len + 1 );
 
 	return len; // count does not include NULL
+#endif
 }
 
-// libc extensions, be careful
+static inline size_t Q_strncat( char *dst, const char *src, size_t size )
+{
+#if HAVE_STRLCAT
+	if( unlikely( !dst || !src || !size ))
+		return 0;
+	return strlcat( dst, src, size );
+#else
+	char *d = dst;
+	const char *s = src;
+	size_t n = size;
+	size_t dlen;
 
-#if XASH_WIN32
-#define strcasecmp stricmp
-#define strncasecmp strnicmp
-#endif // XASH_WIN32
+	if( unlikely( !dst || !src || !size ))
+		return 0;
 
+	// find the end of dst and adjust bytes left but don't go past end
+	while( n-- != 0 && *d != '\0' ) d++;
+	dlen = d - dst;
+	n = size - dlen;
+
+	if( n == 0 ) return( dlen + Q_strlen( s ));
+
+	while( *s != '\0' )
+	{
+		if( n != 1 )
+		{
+			*d++ = *s;
+			n--;
+		}
+		s++;
+	}
+
+	*d = '\0';
+	return( dlen + ( s - src )); // count does not include NULL
+#endif
+}
+
+#if HAVE_STRICMP || HAVE_STRCASECMP
 static inline int Q_stricmp( const char *s1, const char *s2 )
 {
-	return unlikely(!s1) ?
-		( !s2 ? 0 : -1 ) :
-		( unlikely(!s2) ? 1 : strcasecmp( s1, s2 ));
+	if( likely( s1 && s2 ))
+	{
+#if HAVE_STRICMP
+		return stricmp( s1, s2 );
+#elif HAVE_STRCASECMP
+		return strcasecmp( s1, s2 );
+#endif
+	}
+	return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
 }
+#else
+int Q_stricmp( const char *s1, const char *s2 );
+#endif
 
+#if HAVE_STRICMP || HAVE_STRCASECMP
 static inline int Q_strnicmp( const char *s1, const char *s2, size_t n )
 {
-	return unlikely(!s1) ?
-		( !s2 ? 0 : -1 ) :
-		( unlikely(!s2) ? 1 : strncasecmp( s1, s2, n ));
-}
-
-#if defined( HAVE_STRCASESTR )
-#if XASH_WIN32
-#define strcasestr stristr
+	if( likely( s1 && s2 ))
+	{
+#if HAVE_STRICMP
+		return strnicmp( s1, s2, n );
+#elif HAVE_STRCASECMP
+		return strncasecmp( s1, s2, n );
 #endif
+	}
+	return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
+}
+#else
+int Q_strnicmp( const char *s1, const char *s2, size_t n );
+#endif
+
+
+#if HAVE_STRISTR || HAVE_STRCASESTR
 static inline char *Q_stristr( const char *s1, const char *s2 )
 {
-	return unlikely( !s1 || !s2 ) ? NULL : (char *)strcasestr( s1, s2 );
-}
-#else // defined( HAVE_STRCASESTR )
-char *Q_stristr( const char *s1, const char *s2 );
-#endif // defined( HAVE_STRCASESTR )
+	if( likely( s1 && s2 ))
+#if HAVE_STRISTR
+		return (char *)stristr( s1, s2 );
+#elif HAVE_STRCASESTR
+		return (char *)strcasestr( s1, s2 );
+#endif
 
-#if defined( HAVE_STRCHRNUL )
+	return NULL;
+}
+#else // !HAVE_STRISTR && !HAVE_STRCASESTR
+char *Q_stristr( const char *s1, const char *s2 );
+#endif // !HAVE_STRISTR && !HAVE_STRCASESTR
+
+#if HAVE_STRCHRNUL
 #define Q_strchrnul strchrnul
-#else
+#else // !HAVE_STRCHRNUL
 static inline const char *Q_strchrnul( const char *s, int c )
 {
 	const char *p = Q_strchr( s, c );
-
-	if( p )
-		return p;
-
+	if( p ) return p;
 	return s + Q_strlen( s );
 }
-#endif
+#endif // !HAVE_STRCHRNUL
 
 #ifdef __cplusplus
 }
