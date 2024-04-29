@@ -3,7 +3,7 @@
 # a1batross, mittorn, 2018
 
 from waflib import Build, Context, Logs
-from waflib.Tools import waf_unit_test
+from waflib.Tools import waf_unit_test, c_tests
 import sys
 import os
 
@@ -379,18 +379,6 @@ def configure(conf):
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
 	conf.define_cond('XASH_ALL_SERVERS', conf.options.ALL_SERVERS)
 
-	# check if we can use C99 stdint
-	conf.define('STDINT_H', 'stdint.h' if conf.check_cc(header_name='stdint.h', mandatory=False) else 'pstdint.h')
-
-	# check if we can use alloca.h or malloc.h
-	if conf.check_cc(header_name='alloca.h', mandatory=False):
-		conf.define('ALLOCA_H', 'alloca.h')
-	elif conf.check_cc(header_name='malloc.h', mandatory=False):
-		conf.define('ALLOCA_H', 'malloc.h')
-	elif conf.check_cc(fragment = '''#include <stdlib.h>
-		int main(void) { alloca(1); }''', msg = 'Checking for alloca in stdlib.h'):
-		conf.define('ALLOCA_H', 'stdlib.h')
-
 	if conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
 		if conf.env.HAVE_SOLDER and conf.env.LIB_SOLDER and conf.options.BUILD_TYPE == 'debug':
@@ -422,50 +410,10 @@ def configure(conf):
 		conf.check_cc(lib='m')
 
 
-	# check if we can use C99 tgmath
-	if conf.check_cc(header_name='tgmath.h', mandatory=False):
-		if conf.env.COMPILER_CC == 'msvc':
-			conf.define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', 1)
-		tgmath_usable = conf.check_cc(fragment='''#include<tgmath.h>
-			const float val = 2, val2 = 3;
-			int main(void){ return (int)(-asin(val) + cos(val2)); }''',
-			msg='Checking if tgmath.h is usable', mandatory=False, use='M werror')
-		conf.define_cond('HAVE_TGMATH_H', tgmath_usable)
-	else:
-		conf.undefine('HAVE_TGMATH_H')
-
 	# set _FILE_OFFSET_BITS=64 for filesystems with 64-bit inodes
-	if conf.env.DEST_OS != 'win32' and conf.env.DEST_SIZEOF_VOID_P == 4:
-		# check was borrowed from libarchive source code
-		file_offset_bits_usable = conf.check_cc(fragment='''
-#define _FILE_OFFSET_BITS 64
-#include <sys/types.h>
-#define KB ((off_t)1024)
-#define MB ((off_t)1024 * KB)
-#define GB ((off_t)1024 * MB)
-#define TB ((off_t)1024 * GB)
-int t2[(((64 * GB -1) % 671088649) == 268434537)
-       && (((TB - (64 * GB -1) + 255) % 1792151290) == 305159546)? 1: -1];
-int main(void) { return 0; }''',
-		msg='Checking if _FILE_OFFSET_BITS can be defined to 64', mandatory=False, use='werror')
-		if file_offset_bits_usable:
-			conf.define('_FILE_OFFSET_BITS', 64)
-		else: conf.undefine('_FILE_OFFSET_BITS')
-
-	if conf.env.DEST_OS != 'win32':
-		strcasestr_frag = '''#include <string.h>
-int main(int argc, char **argv) { strcasestr(argv[1], argv[2]); return 0; }'''
-		strchrnul_frag  = '''#include <string.h>
-int main(int argc, char **argv) { strchrnul(argv[1], 'x'); return 0; }'''
-
-		def check_gnu_function(frag, msg, define):
-			if conf.check_cc(msg=msg, mandatory=False, fragment=frag, use='werror'):
-				conf.define(define, 1)
-			elif conf.check_cc(msg='... with _GNU_SOURCE?', mandatory=False, fragment=frag, defines='_GNU_SOURCE=1', use='werror'):
-				conf.define(define, 1)
-				conf.define('_GNU_SOURCE', 1)
-		check_gnu_function(strcasestr_frag, 'Checking for strcasestr', 'HAVE_STRCASESTR')
-		check_gnu_function(strchrnul_frag, 'Checking for strchrnul', 'HAVE_STRCHRNUL')
+	# must be set globally as it changes ABI
+	conf.check_large_file(compiler='c', fragment='''#include <unistd.h>
+int check[sizeof(off_t) >= 8 ? 1 : -1]; int main(void) { return 0; }''')
 
 	# indicate if we are packaging for Linux/BSD
 	conf.env.PACKAGING = conf.options.PACKAGING
