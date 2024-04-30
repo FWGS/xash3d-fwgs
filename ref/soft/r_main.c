@@ -57,8 +57,8 @@ int		r_screenwidth;
 int                     r_viewcluster, r_oldviewcluster;
 
 CVAR_DEFINE_AUTO( sw_clearcolor, "48999", 0, "screen clear color");
-CVAR_DEFINE_AUTO( sw_drawflat, "0", 0, "");
-CVAR_DEFINE_AUTO( sw_draworder, "0", 0, "");
+CVAR_DEFINE_AUTO( sw_drawflat, "0", FCVAR_CHEAT, "");
+CVAR_DEFINE_AUTO( sw_draworder, "0", FCVAR_CHEAT, "");
 CVAR_DEFINE_AUTO( sw_maxedges, "32", 0, "");
 static CVAR_DEFINE_AUTO( sw_maxsurfs, "0", 0, "");
 CVAR_DEFINE_AUTO( sw_mipscale, "1", FCVAR_GLCONFIG, "nothing");
