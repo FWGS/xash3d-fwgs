@@ -2,7 +2,7 @@
 # encoding: utf-8
 # a1batross, mittorn, 2018
 
-from waflib import Build, Context, Logs
+from waflib import Build, Context, Logs, Options, Configure
 from waflib.Tools import waf_unit_test
 import sys
 import os
@@ -69,7 +69,7 @@ SUBDIRS = [
 	Subproject('dllemu'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
-	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED and x.env.DEST_OS != 'android'),
+	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/nanogl',       lambda x: not x.env.DEDICATED and x.env.NANOGL),
 	Subproject('3rdparty/gl-wes-v2',    lambda x: not x.env.DEDICATED and x.env.GLWES),
 	Subproject('3rdparty/gl4es',        lambda x: not x.env.DEDICATED and x.env.GL4ES),
@@ -103,6 +103,42 @@ REFDLLS = [
 	RefDll('gles3compat', False),
 	RefDll('null', False),
 ]
+
+def process_extra_projects_opts(ctx):
+	options, commands, envvars = ctx.parse_cmd_args(allow_unknown = True)
+	projs = options.EXTRA_PROJECTS
+	if not projs:
+		return
+	for proj in projs.split(','):
+		ctx.add_subproject(proj)
+def process_extra_projects_conf(ctx):
+	projs = ctx.options.EXTRA_PROJECTS
+	if not projs:
+		return
+	ctx.env.EXTRA_PROJECTS = projs
+
+	for proj in projs.split(','):
+		tools_orig = ctx.tools.copy()
+		ctx.add_subproject(proj)
+		waifulib_path = os.path.join(proj, 'scripts', 'waifulib')
+		if os.path.isdir(waifulib_path):
+			for tool in ctx.tools:
+				if not tool in tools_orig:
+					if os.path.isfile(os.path.join(waifulib_path, tool['tool'] + '.py')):
+						tool['tooldir'] = [waifulib_path]
+						Logs.info('External tooldir set: ' + str(tool))
+
+
+def process_extra_projects_bld(ctx):
+	projs = ctx.env.EXTRA_PROJECTS
+	if not projs:
+		return
+	for proj in projs.split(','):
+		ctx.add_subproject(proj)
+
+
+
+
 
 def options(opt):
 	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject cmake')
@@ -154,12 +190,15 @@ def options(opt):
 
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
 		help = 'enable building libFuzzer runner [default: %default]' )
+	grp.add_option('--extra-projects', action = 'store', dest = 'EXTRA_PROJECTS', default = '', type = 'string',
+		help = 'add extra projects' )
 
 	for i in SUBDIRS:
 		if not i.is_exists(opt):
 			continue
 
 		opt.add_subproject(i.name)
+	process_extra_projects_opts(opt)
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
@@ -201,7 +240,8 @@ def configure(conf):
 		conf.options.GL4ES            = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
-		conf.define('XASH_SDLMAIN', 1)
+		if conf.env.HAVE_SDL2:
+			conf.define('XASH_SDLMAIN', 1)
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
@@ -498,6 +538,7 @@ int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const
 			continue
 
 		conf.add_subproject(i.name)
+	process_extra_projects_conf(conf)
 
 def build(bld):
 	# guard rails to not let install to root
@@ -520,3 +561,4 @@ def build(bld):
 	if bld.env.TESTS:
 		bld.add_post_fun(waf_unit_test.summary)
 		bld.add_post_fun(waf_unit_test.set_exit_code)
+	process_extra_projects_bld(bld)

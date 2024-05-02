@@ -32,6 +32,9 @@ def options(opt):
 	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
 		help = 'add LLVM libFuzzer [default: %default]' )
 
+	grp.add_option('--enable-android-legacy', action = 'store_true', dest = 'ANDROID_LEGACY', default = False,
+		help = 'allow build legacy android port without SDL (deprecated, need for renderers debug on ancient devices)')
+
 	opt.load('sdl2')
 
 def configure(conf):
@@ -75,6 +78,8 @@ def configure(conf):
 		conf.define('XASH_SDL', 12)
 		conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL2' )
 		conf.env.HAVE_SDL2 = True
+	elif conf.options.ANDROID_LEGACY:
+		pass #just test if it can build
 	else:
 		conf.load('sdl2')
 		if not conf.env.HAVE_SDL2:

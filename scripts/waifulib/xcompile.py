@@ -44,6 +44,7 @@ class Android:
 	ndk_rev        = 0
 	is_hardfloat   = False
 	clang          = False
+	ndk_binutils   = False
 
 	def __init__(self, ctx, arch, toolchain, api):
 		self.ctx = ctx
@@ -214,7 +215,7 @@ class Android:
 			if 'CC' in environ:
 				s = environ['CC']
 
-			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
+			return '%s --target=%s' % (s, self.ndk_triplet())  #%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
 
 	def cxx(self):
@@ -225,11 +226,11 @@ class Android:
 			if 'CXX' in environ:
 				s = environ['CXX']
 
-			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
+			return '%s --target=%s' % (s, self.ndk_triplet()) #%s%d' % (s, self.ndk_triplet(), self.api)
 		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
 
 	def strip(self):
-		if self.is_host():
+		if self.is_host() and not self.ndk_binutils:
 			environ = getattr(self.ctx, 'environ', os.environ)
 
 			if 'STRIP' in environ:
@@ -240,9 +241,22 @@ class Android:
 			return os.path.join(self.gen_binutils_path(), 'llvm-strip')
 		return os.path.join(self.gen_binutils_path(), 'strip')
 
+	def objcopy(self):
+		if self.is_host() and not self.ndk_binutils:
+			environ = getattr(self.ctx, 'environ', os.environ)
+
+			if 'OBJCOPY' in environ:
+				return environ['OBJCOPY']
+			return 'llvm-objcopy'
+
+		if self.ndk_rev >= 23:
+			return os.path.join(self.gen_binutils_path(), 'llvm-objcopy')
+		return os.path.join(self.gen_binutils_path(), 'objcopy')
+
 	def system_stl(self):
 		# TODO: proper STL support
-		return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'system', 'include'))
+		#return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'system', 'include')) broken with clang-15? TODO: check different ndk versions
+		return os.path.abspath(os.path.join(self.ndk_home, 'sources', 'cxx-stl', 'stlport', 'stlport'))
 
 	def libsysroot(self):
 		arch = self.arch
@@ -262,8 +276,15 @@ class Android:
 
 	def cflags(self, cxx = False):
 		cflags = []
+		android_from_none = False
+		if self.is_host() and self.is_arm() and self.is_hardfp():
+			# clang android target may change with ndk
+			# override target to none while compiling and
+			# add some android options manually
+			android_from_none = True
+			cflags += ['--target=arm-none-eabi']
 
-		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX:
+		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX and not android_from_none:
 			cflags += ['--sysroot=%s' % (self.sysroot())]
 		else:
 			if self.is_host():
@@ -273,13 +294,18 @@ class Android:
 				]
 
 		cflags += ['-I%s' % (self.system_stl())]
-		if not self.is_clang():
-			cflags += ['-DANDROID', '-D__ANDROID__']
+		if not self.is_clang() or android_from_none:
+			cflags += ['-DANDROID', '-D__ANDROID__=1']
+		if android_from_none:
+			cflags += [ '-D__linux__=1', '-fPIC'] # TODO: compare with linux target?
 
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
 			cflags += ['-fno-sized-deallocation']
 
-		if self.is_clang():
+		if cxx and (self.is_clang() or self.is_host()):
+			cflags += [ '-Wno-dynamic-exception-spec', '-fno-rtti' ]
+
+		if self.is_clang() or self.is_host():
 			# stpcpy() isn't available in early Android versions
 			# disable it here so Clang won't use it
 			if self.api < ANDROID_STPCPY_API_MIN:
@@ -291,7 +317,7 @@ class Android:
 				cflags += ['-mthumb', '-mfpu=neon', '-mcpu=cortex-a9']
 
 				if self.is_hardfp():
-					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK']
+					cflags += ['-D_NDK_MATH_NO_SOFTFP=1', '-mfloat-abi=hard', '-DLOAD_HARDFP', '-DSOFTFP_LINK', '-DGLES_SOFTFLOAT']
 
 					if self.is_host():
 						# Clang builtin redefine w/ different calling convention bug
@@ -316,15 +342,23 @@ class Android:
 		linkflags = []
 		if self.is_host():
 			linkflags += ['--gcc-toolchain=%s' % self.gen_gcc_toolchain_path()]
+			linkflags += ['--gcc-install-dir=%s/lib/gcc/%s/4.9/' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
+			if self.ndk_binutils:
+				linkflags += ['-fuse-ld=%s/bin/%s-ld.bfd' % (self.gen_gcc_toolchain_path(), self.ndk_triplet())]
+			else:
+				linkflags += ['-fuse-ld=lld']
+			linkflags += ['--unwindlib=none']
+			linkflags += ['--rtlib=libgcc']
 
 		if self.ndk_rev <= ANDROID_NDK_SYSROOT_FLAG_MAX:
 			linkflags += ['--sysroot=%s' % (self.sysroot())]
 		elif self.is_host():
 			linkflags += ['--sysroot=%s/sysroot' % (self.gen_gcc_toolchain_path())]
 
-		if self.is_clang() or self.is_host():
-			linkflags += ['-fuse-ld=lld']
-		else: linkflags += ['-no-canonical-prefixes']
+		#if self.is_clang() or self.is_host():
+		#	linkflags += ['-fuse-ld=lld']
+		#else:
+		linkflags += ['-no-canonical-prefixes']
 
 		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
 		return linkflags
@@ -528,6 +562,7 @@ def configure(conf):
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
+		conf.environ['OBJCOPY'] = android.objcopy()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags(True)
 		conf.env.LINKFLAGS += android.linkflags()
