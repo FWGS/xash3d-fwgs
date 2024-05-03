@@ -86,7 +86,6 @@ def configure(conf):
 	if conf.env.DEST_OS == 'win32':
 		conf.export_define('HAVE_STRNICMP')
 		conf.export_define('HAVE_STRICMP')
-		conf.export_define('HAVE_STRISTR')
 	else:
 		# TODO: multicheck for speed
 		def check_libc_extension(frag, msg, define):

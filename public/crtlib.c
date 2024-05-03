@@ -318,7 +318,7 @@ const char* Q_timestamp( int format )
 	return timestamp;
 }
 
-#if !HAVE_STRCASESTR && !HAVE_STRISTR
+#if !HAVE_STRCASESTR
 char *Q_stristr( const char *string, const char *string2 )
 {
 	int	c;
