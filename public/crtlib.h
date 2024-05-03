@@ -258,21 +258,16 @@ int Q_strnicmp( const char *s1, const char *s2, size_t n );
 #endif
 
 
-#if HAVE_STRISTR || HAVE_STRCASESTR
+#if HAVE_STRCASESTR
 static inline char *Q_stristr( const char *s1, const char *s2 )
 {
 	if( likely( s1 && s2 ))
-#if HAVE_STRISTR
-		return (char *)stristr( s1, s2 );
-#elif HAVE_STRCASESTR
 		return (char *)strcasestr( s1, s2 );
-#endif
-
 	return NULL;
 }
-#else // !HAVE_STRISTR && !HAVE_STRCASESTR
+#else // !HAVE_STRCASESTR
 char *Q_stristr( const char *s1, const char *s2 );
-#endif // !HAVE_STRISTR && !HAVE_STRCASESTR
+#endif // !HAVE_STRCASESTR
 
 #if HAVE_STRCHRNUL
 #define Q_strchrnul strchrnul
