@@ -419,7 +419,6 @@ def configure(conf):
 		conf.check_large_file(compiler = 'c', execute = False)
 
 	# indicate if we are packaging for Linux/BSD
-	conf.env.PACKAGING = conf.options.PACKAGING
 	if conf.options.PACKAGING:
 		conf.env.PREFIX = conf.options.prefix
 		if conf.env.SAILFISH == "aurora":
