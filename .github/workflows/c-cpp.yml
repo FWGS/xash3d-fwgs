@@ -44,7 +44,7 @@ jobs:
             targetos: win32
             targetarch: i386
     env:
-      SDL_VERSION: 2.28.5
+      SDL_VERSION: 2.30.3
       GH_CPU_ARCH: ${{ matrix.targetarch }}
     steps:
     - name: Checkout
