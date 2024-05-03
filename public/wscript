@@ -12,22 +12,22 @@ const float val = 2, val2 = 3;
 int main(void){ return (int)(-asin(val) + cos(val2)); }'''
 
 STRNCASECMP_TEST = '''#include <string.h>
-int main(int, char **argv) { return strncasecmp(argv[1], argv[2], 10); }'''
+int main(int argc, char **argv) { return strncasecmp(argv[1], argv[2], 10); }'''
 
 STRCASECMP_TEST = '''#include <string.h>
-int main(int, char **argv) { return strcasecmp(argv[1], argv[2]); }'''
+int main(int argc, char **argv) { return strcasecmp(argv[1], argv[2]); }'''
 
 STRCASESTR_TEST = '''#include <string.h>
-int main(int, char **argv) { argv[0] = strcasestr(argv[1], argv[2]); return 0; }'''
+int main(int argc, char **argv) { argv[0] = strcasestr(argv[1], argv[2]); return 0; }'''
 
 STRCHRNUL_TEST = '''#include <string.h>
-int main(int, char **argv) { argv[2] = strchrnul(argv[1], 'x'); return 0; }'''
+int main(int argc, char **argv) { argv[2] = strchrnul(argv[1], 'x'); return 0; }'''
 
 STRLCPY_TEST = '''#include <string.h>
-int main(int, char **argv) { return strlcpy(argv[1], argv[2], 10); }'''
+int main(int argc, char **argv) { return strlcpy(argv[1], argv[2], 10); }'''
 
 STRLCAT_TEST = '''#include <string.h>
-int main(int, char **argv) { return strlcat(argv[1], argv[2], 10); }'''
+int main(int argc, char **argv) { return strlcat(argv[1], argv[2], 10); }'''
 
 ALLOCA_TEST = '''#include <%s>
 int main(void) { alloca(1); return 0; }'''
