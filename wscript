@@ -415,7 +415,8 @@ def configure(conf):
 
 	# set _FILE_OFFSET_BITS=64 for filesystems with 64-bit inodes
 	# must be set globally as it changes ABI
-	conf.check_large_file(compiler = 'c', execute = False)
+	if conf.env.DEST_OS not in ['psvita']:
+		conf.check_large_file(compiler = 'c', execute = False)
 
 	# indicate if we are packaging for Linux/BSD
 	conf.env.PACKAGING = conf.options.PACKAGING
