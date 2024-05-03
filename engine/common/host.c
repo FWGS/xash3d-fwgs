@@ -967,7 +967,7 @@ static uint32_t Host_CheckBugcomp( void )
 	if( !Sys_CheckParm( "-bugcomp" ))
 		return 0;
 
-	if( Sys_GetParmFromCmdLine( "-bugcomp", args ) && args[0] != '-' )
+	if( Sys_GetParmFromCmdLine( "-bugcomp", args ) && isalpha( args[0] ))
 	{
 		for( prev = args, next = Q_strchrnul( prev, '+' ); ; prev = next + 1, next = Q_strchrnul( prev, '+' ))
 		{
