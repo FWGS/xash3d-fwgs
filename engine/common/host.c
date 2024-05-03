@@ -959,9 +959,9 @@ static void Host_RunTests( int stage )
 
 static uint32_t Host_CheckBugcomp( void )
 {
+	const char *prev, *next;
 	uint32_t flags = 0;
 	string args, arg;
-	char *prev, *next;
 	size_t i;
 
 	if( !Sys_CheckParm( "-bugcomp" ))
