@@ -14,6 +14,9 @@ default_prefix = '/' # Waf uses it to set default prefix
 
 Context.Context.line_just = 55 # should fit for everything on 80x26
 
+c_tests.LARGE_FRAGMENT='''#include <unistd.h>
+int check[sizeof(off_t) >= 8 ? 1 : -1]; int main(void) { return 0; }'''
+
 class Subproject:
 	def __init__(self, name, fnFilter = None):
 		self.name = name
@@ -412,8 +415,7 @@ def configure(conf):
 
 	# set _FILE_OFFSET_BITS=64 for filesystems with 64-bit inodes
 	# must be set globally as it changes ABI
-	conf.check_large_file(compiler='c', fragment='''#include <unistd.h>
-int check[sizeof(off_t) >= 8 ? 1 : -1]; int main(void) { return 0; }''')
+	conf.check_large_file(compiler = 'c', execute = False)
 
 	# indicate if we are packaging for Linux/BSD
 	conf.env.PACKAGING = conf.options.PACKAGING
