@@ -148,7 +148,6 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 #else
 	int keynum = key.keysym.sym;
 #endif
-	qboolean numLock = FBitSet( SDL_GetModState(), KMOD_NUM );
 
 #if XASH_ANDROID
 	if( keynum == SDL_SCANCODE_VOLUMEUP || keynum == SDL_SCANCODE_VOLUMEDOWN )
@@ -157,32 +156,39 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	}
 #endif
 
-	if( SDL_IsTextInputActive() && down && cls.key_dest != key_game )
+	if( SDL_IsTextInputActive( ))
 	{
-		if( FBitSet( SDL_GetModState(), KMOD_CTRL ))
+		// this is how engine understands ctrl+c, ctrl+v and other hotkeys
+		if( down && cls.key_dest != key_game )
 		{
-			if( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
+			if( FBitSet( SDL_GetModState(), KMOD_CTRL ))
 			{
-				keynum = keynum - SDL_SCANCODE_A + 1;
-				CL_CharEvent( keynum );
-			}
+				if( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
+				{
+					keynum = keynum - SDL_SCANCODE_A + 1;
+					CL_CharEvent( keynum );
+				}
 
-			return;
+				return;
+			}
 		}
 
-#if !SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+		// ignore printable keys, they are coming through SDL_TEXTINPUT
+		if(( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
+			|| ( keynum >= SDL_SCANCODE_1 && keynum <= SDL_SCANCODE_0 )
+			|| ( keynum >= SDL_SCANCODE_KP_1 && keynum <= SDL_SCANCODE_KP_0 ))
+			return;
+#else
 		if( keynum >= SDLK_KP0 && keynum <= SDLK_KP9 )
 			keynum -= SDLK_KP0 + '0';
 
-		if( isprint( keynum ) )
+		if( isprint( keynum ))
 		{
 			if( FBitSet( SDL_GetModState(), KMOD_SHIFT ))
-			{
 				keynum = Key_ToUpper( keynum );
-			}
 
 			CL_CharEvent( keynum );
-			return;
 		}
 #endif
 	}
@@ -198,6 +204,8 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	else DECLARE_KEY_RANGE( SDL_SCANCODE_F1, SDL_SCANCODE_F12, K_F1 )
 	else
 	{
+		qboolean numLock = FBitSet( SDL_GetModState(), KMOD_NUM );
+
 		switch( keynum )
 		{
 		case SDL_SCANCODE_GRAVE: keynum = '`'; break;
