@@ -245,6 +245,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		iff_dataPtr += 32;
 		sound.loopstart = GetLittleLong();
+		SetBits( sound.flags, SOUND_LOOPED );
 		FindNextChunk( name, "LIST" ); // if the next chunk is a LIST chunk, look for a cue length marker
 
 		if( iff_dataPtr )
@@ -259,7 +260,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 	else
 	{
-		sound.loopstart = -1;
+		sound.loopstart = 0;
 		sound.samples = 0;
 	}
 

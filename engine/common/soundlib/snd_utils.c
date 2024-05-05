@@ -154,7 +154,7 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, 
 	sound.tempbuffer = (byte *)Mem_Realloc( host.soundpool, sound.tempbuffer, sc->size );
 
 	sc->samples = outcount;
-	if( sc->loopStart != -1 )
+	if( FBitSet( sc->flags, SOUND_LOOPED ))
 		sc->loopStart = sc->loopStart / stepscale;
 
 	if( inrate == outrate )

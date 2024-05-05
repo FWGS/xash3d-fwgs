@@ -52,8 +52,11 @@ void S_SoundList_f( void )
 		{
 			totalSize += sc->size;
 
-			if( sc->loopStart >= 0 ) Con_Printf( "L" );
-			else Con_Printf( " " );
+			if( FBitSet( sc->flags, SOUND_LOOPED ))
+				Con_Printf( "L" );
+			else
+				Con_Printf( " " );
+
 			if( sfx->name[0] == '*' || !Q_strncmp( sfx->name, DEFAULT_SOUNDPATH, sizeof( DEFAULT_SOUNDPATH ) - 1 ))
 				Con_Printf( " (%2db) %s : %s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
 			else Con_Printf( " (%2db) %s : " DEFAULT_SOUNDPATH "%s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
@@ -110,7 +113,7 @@ static wavdata_t *S_CreateDefaultSound( void )
 
 	sc->width = 2;
 	sc->channels = 1;
-	sc->loopStart = -1;
+	sc->loopStart = 0;
 	sc->rate = SOUND_DMA_SPEED;
 	sc->samples = SOUND_DMA_SPEED;
 	sc->size = sc->samples * sc->width * sc->channels;

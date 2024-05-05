@@ -576,7 +576,7 @@ static void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate 
 				bZeroVolume = true;
 		}
 
-		if( !pSource || ( bZeroVolume && pSource->loopStart == -1 ))
+		if( !pSource || ( bZeroVolume && !FBitSet( pSource->flags, SOUND_LOOPED )))
 		{
 			if( !pSource )
 			{

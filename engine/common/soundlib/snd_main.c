@@ -216,7 +216,7 @@ wavdata_t *FS_StreamInfo( stream_t *stream )
 	if( !stream ) return NULL;
 
 	// fill structure
-	info.loopStart = -1;
+	info.loopStart = 0;
 	info.rate = stream->rate;
 	info.width = stream->width;
 	info.channels = stream->channels;
