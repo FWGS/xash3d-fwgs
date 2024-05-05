@@ -523,6 +523,7 @@ static void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate 
 	wavdata_t	*pSource;
 	int	i, sampleCount;
 	qboolean	bZeroVolume;
+	qboolean local = Host_IsLocalGame();
 
 	// mix each channel into paintbuffer
 	ch = channels;
@@ -549,7 +550,7 @@ static void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate 
 			{
 				// play, playvol
 			}
-			else if(( s_listener.inmenu || s_listener.paused ) && !ch->localsound )
+			else if(( s_listener.inmenu || s_listener.paused ) && !ch->localsound && local )
 			{
 				// play only local sounds, keep pause for other
 				continue;
