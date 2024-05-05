@@ -17,30 +17,56 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "client.h"
 
-#define IPAINTBUFFER	0
-#define IROOMBUFFER		1
-#define ISTREAMBUFFER	2
+enum
+{
+	IPAINTBUFFER = 0,
+	IROOMBUFFER,
+	ISTREAMBUFFER,
+	CPAINTBUFFERS,
+};
 
-#define FILTERTYPE_NONE	0
-#define FILTERTYPE_LINEAR	1
-#define FILTERTYPE_CUBIC	2
+enum
+{
+	FILTERTYPE_NONE = 0,
+	FILTERTYPE_LINEAR,
+	FILTERTYPE_CUBIC,
+};
 
 #define CCHANVOLUMES	2
 
-#define SND_SCALE_BITS	7
-#define SND_SCALE_SHIFT	(8 - SND_SCALE_BITS)
-#define SND_SCALE_LEVELS	(1 << SND_SCALE_BITS)
+#define SND_SCALE_BITS   7
+#define SND_SCALE_SHIFT  ( 8 - SND_SCALE_BITS )
+#define SND_SCALE_LEVELS ( 1 << SND_SCALE_BITS )
 
-portable_samplepair_t	*g_curpaintbuffer;
-portable_samplepair_t	streambuffer[(PAINTBUFFER_SIZE+1)];
-portable_samplepair_t	paintbuffer[(PAINTBUFFER_SIZE+1)];
-portable_samplepair_t	roombuffer[(PAINTBUFFER_SIZE+1)];
-portable_samplepair_t	facingbuffer[(PAINTBUFFER_SIZE+1)];
-portable_samplepair_t	temppaintbuffer[(PAINTBUFFER_SIZE+1)];
-paintbuffer_t		paintbuffers[CPAINTBUFFERS];
+// sound mixing buffer
+#define CPAINTFILTERMEM 3
+#define CPAINTFILTERS   4 // maximum number of consecutive upsample passes per paintbuffer
 
-int			snd_scaletable[SND_SCALE_LEVELS][256];
+// fixed point stuff for real-time resampling
+#define FIX_BITS             28
+#define FIX_SCALE			 ( 1 << FIX_BITS )
+#define FIX_MASK             (( 1 << FIX_BITS ) - 1 )
+#define FIX_FLOAT( a )       ((int)(( a ) * FIX_SCALE ))
+#define FIX( a )             (((int)( a )) << FIX_BITS )
+#define FIX_INTPART( a )     (((int)( a )) >> FIX_BITS )
+#define FIX_FRACPART( a )    (( a ) & FIX_MASK )
 
+typedef struct
+{
+	qboolean               factive; // if true, mix to this paintbuffer using flags
+	portable_samplepair_t *pbuf;    // front stereo mix buffer, for 2 or 4 channel mixing
+	int                    ifilter; // current filter memory buffer to use for upsampling pass
+	portable_samplepair_t  fltmem[CPAINTFILTERS][CPAINTFILTERMEM];
+} paintbuffer_t;
+
+static portable_samplepair_t *g_curpaintbuffer;
+static portable_samplepair_t  streambuffer[(PAINTBUFFER_SIZE+1)];
+static portable_samplepair_t  paintbuffer[(PAINTBUFFER_SIZE+1)];
+static portable_samplepair_t  roombuffer[(PAINTBUFFER_SIZE+1)];
+static portable_samplepair_t  temppaintbuffer[(PAINTBUFFER_SIZE+1)];
+static paintbuffer_t          paintbuffers[CPAINTBUFFERS];
+
+static int snd_scaletable[SND_SCALE_LEVELS][256];
 void S_InitScaletable( void )
 {
 	int	i, j;
@@ -67,7 +93,7 @@ static void S_TransferPaintBuffer( int endtime )
 	dword	*pbuf;
 
 	pbuf = (dword *)dma.buffer;
-	snd_p = (int *)PAINTBUFFER;
+	snd_p = (int *)g_curpaintbuffer;
 	lpaintedtime = paintedtime;
 	sampleMask = ((dma.samples >> 1) - 1);
 
@@ -568,6 +594,7 @@ static void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate 
 
 		// Don't mix sound data for sounds with zero volume. If it's a non-looping sound,
 		// just remove the sound when its volume goes to zero.
+
 		bZeroVolume = !ch->leftvol && !ch->rightvol;
 
 		if( !bZeroVolume )
@@ -838,6 +865,14 @@ static void MIX_MixPaintbuffers( int ibuf1, int ibuf2, int ibuf3, int count, flo
 	pbuf1 = paintbuffers[ibuf1].pbuf;
 	pbuf2 = paintbuffers[ibuf2].pbuf;
 	pbuf3 = paintbuffers[ibuf3].pbuf;
+
+	if( !gain )
+	{
+		// do not mix buf2 into buf3, just copy
+		if( pbuf1 != pbuf3 )
+			memcpy( pbuf3, pbuf1, sizeof( *pbuf1 ) * count );
+		return;
+	}
 
 	// destination buffer stereo - average n chans down to stereo
 
