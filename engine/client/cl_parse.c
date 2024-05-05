@@ -1877,8 +1877,12 @@ void CL_ParseHLTV( sizebuf_t *msg )
 		break;
 	case HLTV_LISTEN:
 		cls.signon = SIGNONS;
+#if 1
+		MSG_ReadString( msg );
+#else
 		NET_StringToAdr( MSG_ReadString( msg ), &cls.hltv_listen_address );
-//		NET_JoinGroup( cls.netchan.sock, cls.hltv_listen_address );
+		NET_JoinGroup( cls.netchan.sock, cls.hltv_listen_address );
+#endif
 		SCR_EndLoadingPlaque();
 		break;
 	default:

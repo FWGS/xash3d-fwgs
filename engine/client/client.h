@@ -539,12 +539,8 @@ typedef struct
 
 	poolhandle_t      mempool;			// client premamnent pool: edicts etc
 
-	netadr_t		hltv_listen_address;
-
 	int		signon;			// 0 to SIGNONS, for the signon sequence.
-	int		quakePort;		// a 16 bit value that allows quake servers
-						// to work around address translating routers
-						// g-cont. this port allow many copies of engine in multiplayer game
+
 	// connection information
 	char		servername[MAX_QPATH];	// name of server from original connect
 	double		connect_time;		// for connection retransmits
