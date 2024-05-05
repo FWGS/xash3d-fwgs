@@ -479,14 +479,6 @@ typedef enum
 	WF_TOTALCOUNT,	// must be last
 } sndformat_t;
 
-// soundlib global settings
-typedef enum
-{
-	SL_USE_LERPING	= BIT(0),		// lerping sounds during resample
-	SL_KEEP_8BIT	= BIT(1),		// don't expand 8bit sounds automatically up to 16 bit
-	SL_ALLOW_OVERWRITE	= BIT(2),		// allow to overwrite stored sounds
-} slFlags_t;
-
 // wavdata output flags
 typedef enum
 {
@@ -495,21 +487,20 @@ typedef enum
 	SOUND_STREAM	= BIT( 1 ),	// this is a streaminfo, not a real sound
 
 	// Sound_Process manipulation flags
-	SOUND_RESAMPLE	= BIT(12),	// resample sound to specified rate
-	SOUND_CONVERT16BIT	= BIT(13),	// change sound resolution from 8 bit to 16
+	SOUND_RESAMPLE	= BIT( 12 ),	// resample sound to specified rate
 } sndFlags_t;
 
 typedef struct
 {
-	word	rate;		// num samples per second (e.g. 11025 - 11 khz)
-	byte	width;		// resolution - bum bits divided by 8 (8 bit is 1, 16 bit is 2)
-	byte	channels;		// num channels (1 - mono, 2 - stereo)
-	int	loopStart;	// offset at this point sound will be looping while playing more than only once
-	int	samples;		// total samplecount in wav
-	uint	type;		// compression type
-	uint	flags;		// misc sound flags
-	byte	*buffer;		// sound buffer
-	size_t	size;		// for bounds checking
+	word    rate;      // num samples per second (e.g. 11025 - 11 khz)
+	byte    width;     // resolution - bum bits divided by 8 (8 bit is 1, 16 bit is 2)
+	byte    channels;  // num channels (1 - mono, 2 - stereo)
+	uint    loopStart; // offset at this point sound will be looping while playing more than only once
+	uint    samples;   // total samplecount in wav
+	uint    type;      // compression type
+	uint    flags;     // misc sound flags
+	byte   *buffer;    // sound buffer
+	size_t  size;      // for bounds checking
 } wavdata_t;
 
 //

@@ -27,7 +27,7 @@ int S_ConvertLoopedPosition( wavdata_t *pSource, int samplePosition, qboolean us
 	// convert to a position within the loop
 	// At the end of the loop, we return a short buffer, and subsequent call
 	// will loop back and get the rest of the buffer
-	if( pSource->loopStart >= 0 && samplePosition >= pSource->samples && use_loop )
+	if( FBitSet( pSource->flags, SOUND_LOOPED ) && samplePosition >= pSource->samples && use_loop )
 	{
 		// size of loop
 		int	loopSize = pSource->samples - pSource->loopStart;

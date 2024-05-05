@@ -328,7 +328,7 @@ channel_t *SND_PickDynamicChannel( int entnum, int channel, sfx_t *sfx, qboolean
 		// don't restart looping sounds for the same entity
 		wavdata_t	*sc = channels[first_to_die].sfx->cache;
 
-		if( sc && sc->loopStart != -1 )
+		if( sc && FBitSet( sc->flags, SOUND_LOOPED ))
 		{
 			channel_t	*ch = &channels[first_to_die];
 
@@ -503,7 +503,7 @@ static void SND_Spatialize( channel_t *ch )
 
 	pSource = ch->sfx->cache;
 
-	if( ch->use_loop && pSource && pSource->loopStart != -1 )
+	if( ch->use_loop && pSource && FBitSet( pSource->flags, SOUND_LOOPED ))
 		looping = true;
 
 	if( !ch->staticsound )
@@ -641,7 +641,7 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 	if( !target_chan->leftvol && !target_chan->rightvol )
 	{
 		// looping sounds don't use this optimization because they should stick around until they're killed.
-		if( !sfx->cache || sfx->cache->loopStart == -1 )
+		if( !sfx->cache || !FBitSet( sfx->cache->flags, SOUND_LOOPED ))
 		{
 			// if this is a streaming sound, play the whole thing.
 			if( chan != CHAN_STREAM )
@@ -893,7 +893,7 @@ int S_GetCurrentStaticSounds( soundlist_t *pout, int size )
 			VectorCopy( channels[i].origin, pout->origin );
 			pout->volume = (float)channels[i].master_vol / 255.0f;
 			pout->attenuation = channels[i].dist_mult * SND_CLIP_DISTANCE;
-			pout->looping = ( channels[i].use_loop && channels[i].sfx->cache->loopStart != -1 );
+			pout->looping = ( channels[i].use_loop && FBitSet( channels[i].sfx->cache->flags, SOUND_LOOPED ));
 			pout->pitch = channels[i].basePitch;
 			pout->channel = channels[i].entchannel;
 			pout->wordIndex = channels[i].wordIndex;
@@ -928,7 +928,7 @@ int S_GetCurrentDynamicSounds( soundlist_t *pout, int size )
 		if( !channels[i].sfx || !channels[i].sfx->name[0] || !Q_stricmp( channels[i].sfx->name, "*default" ))
 			continue;	// don't serialize default sounds
 
-		looped = ( channels[i].use_loop && channels[i].sfx->cache->loopStart != -1 );
+		looped = ( channels[i].use_loop && FBitSet( channels[i].sfx->cache->flags, SOUND_LOOPED ));
 
 		if( channels[i].entchannel == CHAN_STATIC && looped && !Host_IsQuakeCompatible())
 			continue;	// never serialize static looped sounds. It will be restoring in game code
