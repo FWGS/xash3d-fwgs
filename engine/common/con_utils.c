@@ -465,7 +465,7 @@ static qboolean Cmd_GetSoundList( const char *s, char *completedname, int length
 	t = FS_Search( va( "%s%s*.*", DEFAULT_SOUNDPATH, s ), true, false );
 	if( !t ) return false;
 
-	Q_strncpy( matchbuf, t->filenames[0] + sizeof( DEFAULT_SOUNDPATH ) - 1, MAX_STRING );
+	Q_strncpy( matchbuf, t->filenames[0] + sizeof( DEFAULT_SOUNDPATH ) - 1, sizeof( matchbuf ));
 	COM_StripExtension( matchbuf );
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
@@ -478,7 +478,7 @@ static qboolean Cmd_GetSoundList( const char *s, char *completedname, int length
 		if( Q_stricmp( ext, "wav" ) && Q_stricmp( ext, "mp3" ))
 			continue;
 
-		Q_strncpy( matchbuf, t->filenames[i] + sizeof( DEFAULT_SOUNDPATH ) - 1, MAX_STRING );
+		Q_strncpy( matchbuf, t->filenames[i] + sizeof( DEFAULT_SOUNDPATH ) - 1, sizeof( matchbuf ));
 		COM_StripExtension( matchbuf );
 		Con_Printf( "%16s\n", matchbuf );
 		numsounds++;
@@ -764,14 +764,14 @@ static qboolean Cmd_GetGamesList( const char *s, char *completedname, int length
 	}
 
 	if( !numgamedirs ) return false;
-	Q_strncpy( matchbuf, gamedirs[0], MAX_STRING );
+	Q_strncpy( matchbuf, gamedirs[0], sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( numgamedirs == 1 ) return true;
 
 	for( i = 0; i < numgamedirs; i++ )
 	{
-		Q_strncpy( matchbuf, gamedirs[i], MAX_STRING );
+		Q_strncpy( matchbuf, gamedirs[i], sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 	}
 
@@ -825,14 +825,14 @@ static qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 	}
 
 	if( !numcdcommands ) return false;
-	Q_strncpy( matchbuf, cdcommands[0], MAX_STRING );
+	Q_strncpy( matchbuf, cdcommands[0], sizeof( matchbuf ));
 	if( completedname && length )
 		Q_strncpy( completedname, matchbuf, length );
 	if( numcdcommands == 1 ) return true;
 
 	for( i = 0; i < numcdcommands; i++ )
 	{
-		Q_strncpy( matchbuf, cdcommands[i], MAX_STRING );
+		Q_strncpy( matchbuf, cdcommands[i], sizeof( matchbuf ));
 		Con_Printf( "%16s\n", matchbuf );
 	}
 
@@ -901,12 +901,10 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		if( f )
 		{
 			qboolean  have_spawnpoints = false;
-			dheader_t *header;
 			dlump_t   entities;
 
 			memset( buf, 0, MAX_SYSPATH );
 			FS_Read( f, buf, MAX_SYSPATH );
-			header = (dheader_t *)buf;
 
 			// check all the lumps and some other errors
 			if( !Mod_TestBmodelLumps( f, t->filenames[i], buf, true, &entities ))
@@ -937,7 +935,7 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 				char	token[MAX_TOKEN];
 				qboolean	worldspawn = true;
 
-				Q_strncpy( message, "No Title", MAX_STRING );
+				Q_strncpy( message, "No Title", sizeof( message ));
 				pfile = ents;
 
 				while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )

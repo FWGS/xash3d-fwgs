@@ -1823,8 +1823,8 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 			{
 				char	*pszWadFile;
 
-				Q_strncpy( wadstring, token, MAX_TOKEN - 2 );
-				wadstring[MAX_TOKEN - 2] = 0;
+				Q_strncpy( wadstring, token, sizeof( wadstring ) - 2 );
+				wadstring[sizeof( wadstring ) - 2] = 0;
 
 				if( !Q_strchr( wadstring, ';' ))
 					Q_strncat( wadstring, ";", sizeof( wadstring ));

@@ -262,7 +262,7 @@ static void NET_AddMaster( const char *addr, qboolean save )
 	}
 
 	master = Mem_Malloc( host.mempool, sizeof( master_t ) );
-	Q_strncpy( master->address, addr, MAX_STRING );
+	Q_strncpy( master->address, addr, sizeof( master->address ));
 	master->sent = false;
 	master->save = save;
 	master->next = NULL;

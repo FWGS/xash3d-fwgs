@@ -865,7 +865,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	}
 
 	recursive = true;
-	Q_strncpy( hosterror2, hosterror1, MAX_SYSPATH );
+	Q_strncpy( hosterror2, hosterror1, sizeof( hosterror2 ));
 	host.errorframe = host.framecount; // to avoid multply calls per frame
 	Q_snprintf( host.finalmsg, sizeof( host.finalmsg ), "Server crashed: %s", hosterror1 );
 

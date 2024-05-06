@@ -853,7 +853,7 @@ static void CL_SetupPMove( playermove_t *pmove, const local_state_t *from, const
 	VectorCopy( cd->vuser4, pmove->vuser4 );
 	pmove->cmd = *ucmd;	// copy current cmds
 
-	Q_strncpy( pmove->physinfo, cls.physinfo, MAX_INFO_STRING );
+	Q_strncpy( pmove->physinfo, cls.physinfo, sizeof( pmove->physinfo ));
 }
 
 static const void CL_FinishPMove( const playermove_t *pmove, local_state_t *to )

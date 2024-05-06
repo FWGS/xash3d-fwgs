@@ -417,7 +417,7 @@ static void SV_ConnectClient( netadr_t from )
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
 	newcl->extensions = extensions & (NET_EXT_SPLITSIZE);
-	Q_strncpy( newcl->useragent, protinfo, MAX_INFO_STRING );
+	Q_strncpy( newcl->useragent, protinfo, sizeof( newcl->useragent ));
 
 	// reset viewentities (from previous level)
 	memset( newcl->viewentity, 0, sizeof( newcl->viewentity ));

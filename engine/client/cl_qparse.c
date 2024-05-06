@@ -211,7 +211,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	clgame.maxEntities = GI->max_edicts;
 	clgame.maxEntities = bound( 600, clgame.maxEntities, MAX_EDICTS );
 	clgame.maxModels = MAX_MODELS;
-	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), MAX_STRING );
+	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
 
 	// Re-init hud video, especially if we changed game directories
 	clgame.dllFuncs.pfnVidInit();
