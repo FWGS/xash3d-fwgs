@@ -695,7 +695,7 @@ void Log_Printf( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
 void SV_BroadcastPrintf( struct sv_client_s *ignore, const char *fmt, ... ) _format( 2 );
 void CL_ClearStaticEntities( void );
-qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
+qboolean S_StreamGetCurrentState( char *currentTrack, size_t currentTrackSize, char *loopTrack, size_t loopTrackSize, int *position );
 void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
