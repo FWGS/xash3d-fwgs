@@ -20,12 +20,19 @@ extern poolhandle_t sndpool;
 
 #include "xash3d_mathlib.h"
 
+#define XASH_AUDIO_CD_QUALITY 1 // some platforms might need this
+
 // sound engine rate defines
+#if XASH_AUDIO_CD_QUALITY
 #define SOUND_11k       11025 // 11khz sample rate
-#define SOUND_16k       16000 // 16khz sample rate
 #define SOUND_22k       22050 // 22khz sample rate
-#define SOUND_32k       32000 // 32khz sample rate
 #define SOUND_44k       44100 // 44khz sample rate
+#else // XASH_AUDIO_CD_QUALITY
+#define SOUND_11k       12000 // 11khz sample rate
+#define SOUND_22k       24000 // 22khz sample rate
+#define SOUND_44k       48000 // 44khz sample rate
+#endif // XASH_AUDIO_CD_QUALITY
+
 #define SOUND_DMA_SPEED SOUND_44k // hardware playback rate
 
 // NOTE: clipped sound at 32760 to avoid overload

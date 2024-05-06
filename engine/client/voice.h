@@ -31,7 +31,7 @@ typedef struct OpusCustomMode OpusCustomMode;
 #define VOICE_PCM_CHANNELS 1 // always mono
 
 // never change these parameters when using opuscustom
-#define VOICE_OPUS_CUSTOM_SAMPLERATE SOUND_44k
+#define VOICE_OPUS_CUSTOM_SAMPLERATE 44100
 // must follow opus custom requirements
 // also be divisible with MAX_RAW_SAMPLES
 #define VOICE_OPUS_CUSTOM_FRAME_SIZE 1024
