@@ -158,7 +158,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		Sound_Process( &sc, SOUND_11k, sc->width, SOUND_RESAMPLE );
 	else if( sc->rate > SOUND_11k && sc->rate < SOUND_22k ) // some bad sounds
 		Sound_Process( &sc, SOUND_22k, sc->width, SOUND_RESAMPLE );
-	else if( sc->rate > SOUND_22k && sc->rate <= SOUND_32k ) // some bad sounds
+	else if( sc->rate > SOUND_22k && sc->rate < SOUND_44k ) // some bad sounds
 		Sound_Process( &sc, SOUND_44k, sc->width, SOUND_RESAMPLE );
 
 	sfx->cache = sc;
