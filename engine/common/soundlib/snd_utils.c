@@ -272,12 +272,13 @@ static qboolean Sound_ConvertDownsample( wavdata_t *sc, int inwidth, int outwidt
 	return false;
 }
 
-static qboolean Sound_ConvertUpsample( wavdata_t *sc, int inwidth, int outwidth, int outcount, double stepscale )
+static qboolean Sound_ConvertUpsample( wavdata_t *sc, int inwidth, int outwidth, int outcount, int incount, double stepscale )
 {
-	const int incount = ( outcount * stepscale ) - 1;
 	size_t i;
 	double j;
 	double frac;
+
+	incount--; // to not go past last sample while interpolating
 
 	if( inwidth == 1 )
 	{
@@ -449,7 +450,7 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, 
 	qboolean handled = false;
 	double stepscale;
 	double t1, t2;
-	int	outcount;
+	int	outcount, incount = sc->samples;
 
 	if( inrate == outrate && inwidth == outwidth )
 		return false;
@@ -496,7 +497,7 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, 
 	else if( inrate > outrate ) // fast case, usually downsample but is also ok for upsampling
 		handled = Sound_ConvertDownsample( sc, inwidth, outwidth, outcount, stepscale );
 	else // upsample case, w/ interpolation
-		handled = Sound_ConvertUpsample( sc, inwidth, outwidth, outcount, stepscale );
+		handled = Sound_ConvertUpsample( sc, inwidth, outwidth, outcount, incount, stepscale );
 
 	t2 = Sys_DoubleTime();
 
