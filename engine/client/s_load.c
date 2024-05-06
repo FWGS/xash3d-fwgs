@@ -221,7 +221,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 	sfx = &s_knownSfx[i];
 	memset( sfx, 0, sizeof( *sfx ));
 	if( pfInCache ) *pfInCache = false;
-	Q_strncpy( sfx->name, name, MAX_STRING );
+	Q_strncpy( sfx->name, name, sizeof( sfx->name ));
 	sfx->servercount = cl.servercount;
 	sfx->hashValue = COM_HashKey( sfx->name, MAX_SFX_HASH );
 
