@@ -121,6 +121,12 @@ POLLY_CFLAGS = {
 	# msvc sosat :(
 }
 
+OPENMP_CFLAGS = {
+	'gcc':   ['-fopenmp'],
+	'clang': ['-fopenmp'],
+	'msvc':  ['/openmp']
+}
+
 PROFILE_GENERATE_CFLAGS = {
 	'gcc':   ['-fprofile-generate=xash3d-prof'],
 }
@@ -149,6 +155,9 @@ def options(opt):
 	grp.add_option('--enable-poly-opt', action = 'store_true', dest = 'POLLY', default = False,
 		help = 'enable polyhedral optimization if possible [default: %default]')
 
+	grp.add_option('--enable-openmp', action = 'store_true', dest = 'OPENMP', default = False,
+		help = 'enable OpenMP extensions [default: %default]')
+
 	grp.add_option('--enable-profile', action = 'store_true', dest = 'PROFILE_GENERATE', default = False,
 		help = 'enable profile generating build (stored in xash3d-prof directory) [default: %default]')
 
@@ -171,6 +180,7 @@ def configure(conf):
 
 	conf.msg('LTO build', 'yes' if conf.options.LTO else 'no')
 	conf.msg('PolyOpt build', 'yes' if conf.options.POLLY else 'no')
+	conf.msg('OpenMP build', 'yes' if conf.options.OPENMP else 'no')
 	conf.msg('Generate profile', 'yes' if conf.options.PROFILE_GENERATE else 'no')
 	conf.msg('Use profile', conf.options.PROFILE_USE if not conf.options.PROFILE_GENERATE else 'no')
 
@@ -202,6 +212,9 @@ def get_optimization_flags(conf):
 
 	if conf.options.POLLY:
 		cflags   += conf.get_flags_by_compiler(POLLY_CFLAGS, conf.env.COMPILER_CC)
+
+	if conf.options.OPENMP:
+		cflags   += conf.get_flags_by_compiler(OPENMP_CFLAGS, conf.env.COMPILER_CC)
 
 	if conf.options.PROFILE_GENERATE:
 		linkflags+= conf.get_flags_by_compiler(PROFILE_GENERATE_LINKFLAGS, conf.env.COMPILER_CC)
