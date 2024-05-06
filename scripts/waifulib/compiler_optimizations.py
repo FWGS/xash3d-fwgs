@@ -127,6 +127,11 @@ OPENMP_CFLAGS = {
 	'msvc':  ['/openmp']
 }
 
+OPENMP_LINKFLAGS = {
+	'gcc':   ['-fopenmp'],
+	'clang': ['-fopenmp'],
+}
+
 PROFILE_GENERATE_CFLAGS = {
 	'gcc':   ['-fprofile-generate=xash3d-prof'],
 }
@@ -214,6 +219,7 @@ def get_optimization_flags(conf):
 		cflags   += conf.get_flags_by_compiler(POLLY_CFLAGS, conf.env.COMPILER_CC)
 
 	if conf.options.OPENMP:
+		linkflags+= conf.get_flags_by_compiler(OPENMP_LINKFLAGS, conf.env.COMPILER_CC)
 		cflags   += conf.get_flags_by_compiler(OPENMP_CFLAGS, conf.env.COMPILER_CC)
 
 	if conf.options.PROFILE_GENERATE:
