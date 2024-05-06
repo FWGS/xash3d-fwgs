@@ -666,7 +666,7 @@ void SV_RestartAmbientSounds( void )
 
 #if !XASH_DEDICATED // TODO: ???
 	// restart soundtrack
-	if( S_StreamGetCurrentState( curtrack, looptrack, &position ))
+	if( S_StreamGetCurrentState( curtrack, sizeof( curtrack ), looptrack, sizeof( looptrack ), &position ))
 	{
 		SV_StartMusic( curtrack, looptrack, position );
 	}

@@ -1202,7 +1202,7 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 		header.soundCount = S_GetCurrentDynamicSounds( soundInfo, MAX_CHANNELS );
 #if !XASH_DEDICATED
 		// music not reqiured to save position: it's just continue playing on a next level
-		S_StreamGetCurrentState( header.introTrack, header.mainTrack, &header.trackPosition );
+		S_StreamGetCurrentState( header.introTrack, sizeof( header.introTrack ), header.mainTrack, sizeof( header.mainTrack ), &header.trackPosition );
 #endif
 	}
 
