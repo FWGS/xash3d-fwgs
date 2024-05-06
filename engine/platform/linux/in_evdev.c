@@ -175,11 +175,13 @@ void Evdev_Autodetect_f( void )
 		if( evdev.devices >= MAX_EVDEV_DEVICES )
 			continue;
 
-		Q_snprintf( path, MAX_STRING, "/dev/input/%s", entry->d_name );
+		Q_snprintf( path, sizeof( path ), "/dev/input/%s", entry->d_name );
 
 		for( i = 0; i < evdev.devices; i++ )
-			if( !Q_strncmp( evdev.paths[i], path, MAX_STRING ) )
+		{
+			if( !Q_strncmp( evdev.paths[i], path, sizeof( evdev.paths[i] ))
 				goto next;
+		}
 
 		if( Q_strncmp( entry->d_name, "event", 5 ) )
 			continue;
@@ -220,7 +222,7 @@ void Evdev_Autodetect_f( void )
 		}
 		goto close;
 open:
-		Q_strncpy( evdev.paths[evdev.devices], path, MAX_STRING );
+		Q_strncpy( evdev.paths[evdev.devices], path, sizeof( evdev.paths[0] ));
 		evdev.fds[evdev.devices++] = fd;
 		Con_Printf( "Opened device %s\n", path );
 #if XASH_INPUT == INPUT_EVDEV
@@ -260,7 +262,7 @@ void Evdev_OpenDevice ( const char *path )
 
 	for( i = 0; i < evdev.devices; i++ )
 	{
-		if( !Q_strncmp( evdev.paths[i], path, MAX_STRING ) )
+		if( !Q_strncmp( evdev.paths[i], path, sizeof( evdev.paths[i] )))
 		{
 			Con_Printf( "device %s already open!\n", path );
 			return;
@@ -275,7 +277,7 @@ void Evdev_OpenDevice ( const char *path )
 	}
 	Con_Printf( "Input device #%d: %s opened sucessfully\n", evdev.devices, path );
 	evdev.fds[evdev.devices] = ret;
-	Q_strncpy( evdev.paths[evdev.devices++], path, MAX_STRING );
+	Q_strncpy( evdev.paths[evdev.devices++], path, sizeof( evdev.paths[0] ));
 
 #if XASH_INPUT == INPUT_EVDEV
 		if( Sys_CheckParm( "-grab" ) )
@@ -309,7 +311,7 @@ void Evdev_CloseDevice_f ( void )
 	if( Q_isdigit( arg ) )
 		i = Q_atoi( arg );
 	else for( i = 0; i < evdev.devices; i++ )
-		if( !Q_strncmp( evdev.paths[i], arg, MAX_STRING ) )
+		if( !Q_strncmp( evdev.paths[i], arg, sizeof( evdev.paths[i] )))
 			break;
 
 	if( i >= evdev.devices )
@@ -324,7 +326,7 @@ void Evdev_CloseDevice_f ( void )
 
 	for( ; i < evdev.devices; i++ )
 	{
-		Q_strncpy( evdev.paths[i], evdev.paths[i+1], MAX_STRING );
+		Q_strncpy( evdev.paths[i], evdev.paths[i+1], sizeof( evdev.paths[i] ));
 		evdev.fds[i] = evdev.fds[i+1];
 	}
 }

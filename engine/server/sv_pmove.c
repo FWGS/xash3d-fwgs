@@ -590,7 +590,7 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 	pmove->cmd = *ucmd;	// setup current cmds
 	pmove->runfuncs = true;
 
-	Q_strncpy( pmove->physinfo, physinfo, MAX_INFO_STRING );
+	Q_strncpy( pmove->physinfo, physinfo, sizeof( pmove->physinfo ));
 
 	// setup physents
 	pmove->numvisent = 0;

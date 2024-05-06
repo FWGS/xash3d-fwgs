@@ -380,7 +380,7 @@ S_InitSounds
 void S_InitSounds( void )
 {
 	// create unused 0-entry
-	Q_strncpy( s_knownSfx->name, "*default", MAX_QPATH );
+	Q_strncpy( s_knownSfx->name, "*default", sizeof( s_knownSfx->name ));
 	s_knownSfx->hashValue = COM_HashKey( s_knownSfx->name, MAX_SFX_HASH );
 	s_knownSfx->hashNext = s_sfxHashList[s_knownSfx->hashValue];
 	s_sfxHashList[s_knownSfx->hashValue] = s_knownSfx;

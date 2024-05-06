@@ -652,7 +652,7 @@ static void DirectoryCopy( const char *pPath, file_t *pFile )
 		fileSize = FS_FileLength( pCopy );
 
 		memset( szName, 0, sizeof( szName )); // clearing the string to prevent garbage in output file
-		Q_strncpy( szName, COM_FileWithoutPath( t->filenames[i] ), MAX_OSPATH );
+		Q_strncpy( szName, COM_FileWithoutPath( t->filenames[i] ), sizeof( szName ));
 		FS_Write( pFile, szName, MAX_OSPATH );
 		FS_Write( pFile, &fileSize, sizeof( int ));
 		FS_FileCopy( pFile, pCopy, fileSize );

@@ -690,7 +690,7 @@ static void SV_ConSay_f( void )
 	}
 
 	p = Cmd_Args();
-	Q_strncpy( text, *p == '"' ? p + 1 : p, MAX_SYSPATH );
+	Q_strncpy( text, *p == '"' ? p + 1 : p, sizeof( text ));
 
 	if( *p == '"' )
 	{

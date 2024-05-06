@@ -194,7 +194,7 @@ static void CL_LegacyPrecacheModel( sizebuf_t *msg )
 	if( modelIndex < 0 || modelIndex >= MAX_MODELS )
 		Host_Error( "CL_PrecacheModel: bad modelindex %i\n", modelIndex );
 
-	Q_strncpy( model, MSG_ReadString( msg ), MAX_STRING );
+	Q_strncpy( model, MSG_ReadString( msg ), sizeof( model ));
 	//Q_strncpy( cl.model_precache[modelIndex], BF_ReadString( msg ), sizeof( cl.model_precache[0] ));
 
 	// when we loading map all resources is precached sequentially
@@ -261,7 +261,7 @@ static void CL_LegacyParseResourceList( sizebuf_t *msg )
 	for( i = 0; i < reslist.rescount; i++ )
 	{
 		reslist.restype[i] = MSG_ReadWord( msg );
-		Q_strncpy( reslist.resnames[i], MSG_ReadString( msg ), MAX_QPATH );
+		Q_strncpy( reslist.resnames[i], MSG_ReadString( msg ), sizeof( reslist.resnames[i] ));
 	}
 
 	if( CL_IsPlaybackDemo() )

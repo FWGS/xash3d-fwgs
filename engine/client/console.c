@@ -1138,7 +1138,7 @@ Field_Set
 static void Field_Set( field_t *f, const char *string )
 {
 	f->scroll = 0;
-	f->cursor = Q_strncpy( f->buffer, string, MAX_STRING );
+	f->cursor = Q_strncpy( f->buffer, string, sizeof( f->buffer ));
 }
 
 /*

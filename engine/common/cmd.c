@@ -1015,7 +1015,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 					*ptoken++ = *text++;
 				*ptoken = 0;
 
-				len += Q_strncpy( pcmd, Cvar_VariableString( token ), MAX_CMD_LINE - len );
+				len += Q_strncpy( pcmd, Cvar_VariableString( token ), sizeof( token ) - len );
 				pcmd = command + len;
 
 				if( !*text ) break;
