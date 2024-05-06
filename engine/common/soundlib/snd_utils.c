@@ -14,6 +14,9 @@ GNU General Public License for more details.
 */
 
 #include "soundlib.h"
+#if XASH_SDL
+#include <SDL_audio.h>
+#endif // XASH_SDL
 
 /*
 =============================================================================
@@ -130,6 +133,309 @@ uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
 	return msecs;
 }
 
+static qboolean Sound_ConvertNoResample( wavdata_t *sc, int inwidth, int outwidth, int outcount )
+{
+	size_t i;
+
+	if( inwidth == 1 && outwidth == 2 ) // S8 to S16
+	{
+		for( i = 0; i < outcount * sc->channels; i++ )
+			((int16_t*)sound.tempbuffer)[i] = ((int8_t *)sc->buffer)[i] * 256;
+		return true;
+	}
+
+	if( inwidth == 2 && outwidth == 1 ) // S16 to S8
+	{
+		for( i = 0; i < outcount * sc->channels; i++ )
+			((int8_t*)sound.tempbuffer)[i] = ((int16_t *)sc->buffer)[i] / 256;
+		return true;
+	}
+
+	return false;
+}
+
+static qboolean Sound_ConvertDownsample( wavdata_t *sc, int inwidth, int outwidth, int outcount, double stepscale )
+{
+	size_t i;
+	double j;
+
+	if( inwidth == 1 && outwidth == 1 )
+	{
+		int8_t *data = (int8_t *)sc->buffer;
+
+		if( outwidth == 1 )
+		{
+			int8_t *outdata = (int8_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0];
+					outdata[i*2+1] = data[((int)j)*2+1];
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j];
+				}
+			}
+
+			return true;
+		}
+
+		if( outwidth == 2 )
+		{
+			int16_t *outdata = (int16_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0] * 256;
+					outdata[i*2+1] = data[((int)j)*2+1] * 256;
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j] * 256;
+				}
+			}
+
+			return true;
+		}
+	}
+
+	if( inwidth == 2 )
+	{
+		int16_t *data = (int16_t *)sc->buffer;
+
+		if( outwidth == 1 )
+		{
+			int8_t *outdata = (int8_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0] / 256;
+					outdata[i*2+1] = data[((int)j)*2+1] / 256;
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j] / 256;
+				}
+			}
+
+			return true;
+		}
+
+		if( outwidth == 2 )
+		{
+			int16_t *outdata = (int16_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0];
+					outdata[i*2+1] = data[((int)j)*2+1];
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j];
+				}
+			}
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static qboolean Sound_ConvertUpsample( wavdata_t *sc, int inwidth, int outwidth, int outcount, double stepscale )
+{
+	const int incount = ( outcount * stepscale ) - 1;
+	size_t i;
+	double j;
+	double frac;
+
+	if( inwidth == 1 )
+	{
+		int8_t *data = (int8_t *)sc->buffer;
+
+		if( outwidth == 1 )
+		{
+			int8_t *outdata = (int8_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0];
+					outdata[i*2+1] = data[((int)j)*2+1];
+					if( j != (int)j && j < incount )
+					{
+						frac = j - (int)j;
+						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
+						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
+					}
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j];
+					if( j != (int)j && j < incount )
+					{
+						frac = j - (int)j;
+						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
+					}
+				}
+			}
+
+			return true;
+		}
+
+		if( outwidth == 2 )
+		{
+			int16_t *outdata = (int16_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0] * 256;
+					outdata[i*2+1] = data[((int)j)*2+1] * 256;
+					if( j != (int)j && j < incount )
+					{
+						frac = ( j - (int)j ) * 256;
+						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
+						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
+					}
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j] * 256;
+					if( j != (int)j && j < incount )
+					{
+						frac = ( j - (int)j ) * 256;
+						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
+					}
+				}
+			}
+
+			return true;
+		}
+	}
+
+	if( inwidth == 2 )
+	{
+		int16_t *data = (int16_t *)sc->buffer;
+
+		if( outwidth == 1 )
+		{
+			int8_t *outdata = (int8_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0] / 256;
+					outdata[i*2+1] = data[((int)j)*2+1] / 256;
+					if( j != (int)j && j < incount )
+					{
+						frac = ( j - (int)j ) / 256;
+						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
+						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
+					}
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j] / 256;
+					if( j != (int)j && j < incount )
+					{
+						frac = ( j - (int)j ) / 256;
+						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
+					}
+				}
+			}
+
+			return true;
+		}
+
+		if( outwidth == 2 )
+		{
+			int16_t *outdata = (int16_t *)sound.tempbuffer;
+
+			if( sc->channels == 2 )
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i*2+0] = data[((int)j)*2+0];
+					outdata[i*2+1] = data[((int)j)*2+1];
+					if( j != (int)j && j < incount )
+					{
+						frac = j - (int)j;
+						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
+						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
+					}
+				}
+			}
+			else
+			{
+				for( i = 0; i < outcount; i++ )
+				{
+					j = stepscale * i;
+					outdata[i] = data[(int)j];
+					if( j != (int)j && j < incount )
+					{
+						frac = j - (int)j;
+						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
+					}
+				}
+			}
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /*
 ================
 Sound_ResampleInternal
@@ -139,125 +445,70 @@ We need convert sound to signed even if nothing to resample
 */
 static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, int outrate, int outwidth )
 {
-	double stepscale, j;
-	int	outcount;
-	int	i;
+	const size_t oldsize = sc->size;
 	qboolean handled = false;
+	double stepscale;
+	double t1, t2;
+	int	outcount;
 
 	if( inrate == outrate && inwidth == outwidth )
 		return false;
+
+	t1 = Sys_DoubleTime();
 
 	stepscale = (double)inrate / outrate;	// this is usually 0.5, 1, or 2
 	outcount = sc->samples / stepscale;
 	sc->size = outcount * outwidth * sc->channels;
 
-	sound.tempbuffer = (byte *)Mem_Realloc( host.soundpool, sound.tempbuffer, sc->size );
-
 	sc->samples = outcount;
 	if( FBitSet( sc->flags, SOUND_LOOPED ))
 		sc->loopStart = sc->loopStart / stepscale;
 
-	if( inrate == outrate )
+#if 0 && XASH_SDL // slow but somewhat accurate
 	{
-		if( inwidth == 1 && outwidth == 2 ) // S8 to S16
-		{
-			for( i = 0; i < outcount * sc->channels; i++ )
-				((int16_t*)sound.tempbuffer)[i] = ((int8_t *)sc->buffer)[i] * 256;
-			handled = true;
-		}
-		else if( inwidth == 2 && outwidth == 1 ) // S16 to S8
-		{
-			for( i = 0; i < outcount * sc->channels; i++ )
-				((int8_t*)sound.tempbuffer)[i] = ((int16_t *)sc->buffer)[i] / 256;
-			handled = true;
-		}
-	}
-	else // resample case
-	{
-		if( inwidth == 1 )
-		{
-			int8_t *data = (int8_t *)sc->buffer;
+		const SDL_AudioFormat infmt  = inwidth  == 1 ? AUDIO_S8 : AUDIO_S16;
+		const SDL_AudioFormat outfmt = outwidth == 1 ? AUDIO_S8 : AUDIO_S16;
+		SDL_AudioCVT cvt;
 
-			if( outwidth == 1 )
-			{
-				if( sc->channels == 2 )
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-					{
-						((int8_t*)sound.tempbuffer)[i*2+0] = data[((int)j)*2+0];
-						((int8_t*)sound.tempbuffer)[i*2+1] = data[((int)j)*2+1];
-					}
-				}
-				else
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-						((int8_t*)sound.tempbuffer)[i] = data[(int)j];
-				}
-				handled = true;
-			}
-			else if( outwidth == 2 )
-			{
-				if( sc->channels == 2 )
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-					{
-						((int16_t*)sound.tempbuffer)[i*2+0] = data[((int)j)*2+0] * 256;
-						((int16_t*)sound.tempbuffer)[i*2+1] = data[((int)j)*2+1] * 256;
-					}
-				}
-				else
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-						((int16_t*)sound.tempbuffer)[i] = data[(int)j] * 256;
-				}
-				handled = true;
-			}
-		}
-		else if( inwidth == 2 )
+		// SDL_AudioCVT does conversion in place, original buffer is used for it
+		if( SDL_BuildAudioCVT( &cvt, infmt, sc->channels, inrate, outfmt, sc->channels, outrate ) > 0 && cvt.needed )
 		{
-			int16_t *data = (int16_t *)sc->buffer;
+			sc->buffer = (byte *)Mem_Realloc( host.soundpool, sc->buffer, oldsize * cvt.len_mult );
+			cvt.len = oldsize;
+			cvt.buf = sc->buffer;
 
-			if( outwidth == 1 )
+			if( !SDL_ConvertAudio( &cvt ))
 			{
-				if( sc->channels == 2 )
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-					{
-						((int8_t*)sound.tempbuffer)[i*2+0] = data[((int)j)*2+0] / 256;
-						((int8_t*)sound.tempbuffer)[i*2+1] = data[((int)j)*2+1] / 256;
-					}
-				}
-				else
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-						((int8_t*)sound.tempbuffer)[i] = data[(int)j] / 256;
-				}
-				handled = true;
-			}
-			else if( outwidth == 2 )
-			{
-				if( sc->channels == 2 )
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-					{
-						((int16_t*)sound.tempbuffer)[i*2+0] = data[((int)j)*2+0];
-						((int16_t*)sound.tempbuffer)[i*2+1] = data[((int)j)*2+1];
-					}
-				}
-				else
-				{
-					for( i = 0, j = 0; i < outcount; i++, j += stepscale )
-						((int16_t*)sound.tempbuffer)[i] = data[(int)j];
-				}
-				handled = true;
+				t2 = Sys_DoubleTime();
+				Con_Reportf( "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs through SDL)\n", inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
+				sc->rate = outrate;
+				sc->width = outwidth;
+				return false; // HACKHACK: return false so Sound_Process won't reallocate buffer
 			}
 		}
 	}
+#endif
+
+	sound.tempbuffer = (byte *)Mem_Realloc( host.soundpool, sound.tempbuffer, sc->size );
+
+	if( inrate == outrate ) // no resampling, just copy data
+		handled = Sound_ConvertNoResample( sc, inwidth, outwidth, outcount );
+	else if( inrate > outrate ) // fast case, usually downsample but is also ok for upsampling
+		handled = Sound_ConvertDownsample( sc, inwidth, outwidth, outcount, stepscale );
+	else // upsample case, w/ interpolation
+		handled = Sound_ConvertUpsample( sc, inwidth, outwidth, outcount, stepscale );
+
+	t2 = Sys_DoubleTime();
 
 	if( handled )
-		Con_Reportf( "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz]\n", inwidth * 8, inrate, outwidth * 8, outrate );
+	{
+		if( t2 - t1 > 0.01f ) // critical, report to mod developer
+			Con_Printf( S_WARN "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
+		else
+			Con_Reportf( "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
+	}
 	else
-		Con_Reportf( S_ERROR "Sound_Resample: unsupported from [%d bit %d Hz] to [%d bit %d Hz]\n", inwidth * 8, inrate, outwidth * 8, outrate );
+		Con_Printf( S_ERROR "Sound_Resample: unsupported from [%d bit %d Hz] to [%d bit %d Hz]\n", inwidth * 8, inrate, outwidth * 8, outrate );
 
 	sc->rate = outrate;
 	sc->width = outwidth;
@@ -274,23 +525,20 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags )
 	if( !snd || !snd->buffer )
 		return false;
 
-	if(( flags & SOUND_RESAMPLE ) && ( width > 0 || rate > 0 ))
+	if( FBitSet( flags, SOUND_RESAMPLE ) && ( width > 0 || rate > 0 ))
 	{
-		if( Sound_ResampleInternal( snd, snd->rate, snd->width, rate, width ))
+		result = Sound_ResampleInternal( snd, snd->rate, snd->width, rate, width );
+
+		if( result )
 		{
 			Mem_Free( snd->buffer );		// free original image buffer
-			snd->buffer = Sound_Copy( snd->size );	// unzone buffer (don't touch image.tempbuffer)
-		}
-		else
-		{
-			// not resampled
-			result = false;
+			snd->buffer = Sound_Copy( snd->size );	// unzone buffer (don't touch sound.tempbuffer)
 		}
 	}
 
 	*wav = snd;
 
-	return false;
+	return result;
 }
 
 qboolean Sound_SupportedFileFormat( const char *fileext )
