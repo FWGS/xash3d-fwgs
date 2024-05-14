@@ -2137,6 +2137,10 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 		buffersize--;
 		file->ungetc = EOF;
 		done = 1;
+
+		// we had one byte in the buffer, it was ungetc'ed, so exit
+		if( buffersize == 0 )
+			return 1;
 	}
 	else done = 0;
 
