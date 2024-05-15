@@ -2125,7 +2125,7 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 {
 	fs_offset_t	done;
 	fs_offset_t	nb;
-	size_t	count;
+	fs_offset_t	count;
 
 	// nothing to copy
 	if( buffersize == 0 ) return 1;
@@ -2137,10 +2137,6 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 		buffersize--;
 		file->ungetc = EOF;
 		done = 1;
-
-		// we had one byte in the buffer, it was ungetc'ed, so exit
-		if( buffersize == 0 )
-			return 1;
 	}
 	else done = 0;
 
@@ -2148,12 +2144,13 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	if( file->buff_ind < file->buff_len )
 	{
 		count = file->buff_len - file->buff_ind;
+		count = ( buffersize > count ) ? count : (fs_offset_t)buffersize;
 
-		done += ( buffersize > count ) ? (fs_offset_t)count : (fs_offset_t)buffersize;
-		memcpy( buffer, &file->buff[file->buff_ind], done );
-		file->buff_ind += done;
+		done += count;
+		memcpy( buffer, &file->buff[file->buff_ind], count );
+		file->buff_ind += count;
 
-		buffersize -= done;
+		buffersize -= count;
 		if( buffersize == 0 )
 			return done;
 	}
@@ -2167,10 +2164,10 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	// if we have a lot of data to get, put them directly into "buffer"
 	if( buffersize > sizeof( file->buff ) / 2 )
 	{
-		if( count > buffersize )
-			count = buffersize;
+		if( count > (fs_offset_t)buffersize )
+			count = (fs_offset_t)buffersize;
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
-		nb = read( file->handle, (byte *)buffer + done, count );
+		nb = read( file->handle, &((byte *)buffer)[done], count );
 
 		if( nb > 0 )
 		{
@@ -2182,8 +2179,8 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 	}
 	else
 	{
-		if( count > sizeof( file->buff ))
-			count = sizeof( file->buff );
+		if( count > (fs_offset_t)sizeof( file->buff ))
+			count = (fs_offset_t)sizeof( file->buff );
 		lseek( file->handle, file->offset + file->position, SEEK_SET );
 		nb = read( file->handle, file->buff, count );
 
