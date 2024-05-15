@@ -1549,6 +1549,9 @@ void Key_Console( int key )
 		Con_Printf( ">%s\n", con.input.buffer );
 
 		// copy line to history buffer
+		// just in case, remove all CR and LF characters pushing it to the history
+		// not sure how they get even added in the first place
+		COM_RemoveLineFeed( con.input.buffer, sizeof( con.input.buffer ));
 		Con_HistoryAppend( &con.history, &con.input );
 
 		Con_ClearField( &con.input );
