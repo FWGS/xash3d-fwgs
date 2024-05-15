@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "qfont.h"
 #include "wadfile.h"
 #include "input.h"
+#include "utflib.h"
 
 static CVAR_DEFINE_AUTO( scr_conspeed, "600", FCVAR_ARCHIVE, "console moving speed" );
 static CVAR_DEFINE_AUTO( con_notifytime, "3", FCVAR_ARCHIVE, "notify time to live" );
@@ -610,19 +611,6 @@ static void Con_LoadConchars( void )
 	con.curFont = &con.chars[fontSize];
 }
 
-// CP1251 table
-
-int table_cp1251[64] = {
-	0x0402, 0x0403, 0x201A, 0x0453, 0x201E, 0x2026, 0x2020, 0x2021,
-	0x20AC, 0x2030, 0x0409, 0x2039, 0x040A, 0x040C, 0x040B, 0x040F,
-	0x0452, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
-	0x007F, 0x2122, 0x0459, 0x203A, 0x045A, 0x045C, 0x045B, 0x045F,
-	0x00A0, 0x040E, 0x045E, 0x0408, 0x00A4, 0x0490, 0x00A6, 0x00A7,
-	0x0401, 0x00A9, 0x0404, 0x00AB, 0x00AC, 0x00AD, 0x00AE, 0x0407,
-	0x00B0, 0x00B1, 0x0406, 0x0456, 0x0491, 0x00B5, 0x00B6, 0x00B7,
-	0x0451, 0x2116, 0x0454, 0x00BB, 0x0458, 0x0405, 0x0455, 0x0457
-};
-
 /*
 ============================
 Con_UtfProcessChar
@@ -632,83 +620,24 @@ Convert utf char to current font's single-byte encoding
 */
 int Con_UtfProcessCharForce( int in )
 {
-	static int m = -1, k = 0; //multibyte state
-	static int uc = 0; //unicode char
+	// TODO: get rid of global state where possible
+	static utfstate_t state = { 0 };
 
-	if( !in )
-	{
-		m = -1;
-		k = 0;
-		uc = 0;
-		return 0;
-	}
+	int ch = Q_DecodeUTF8( &state, in );
 
-	// Get character length
-	if(m == -1)
-	{
-		uc = 0;
-		if( in >= 0xF8 )
-			return 0;
-		else if( in >= 0xF0 )
-			uc = in & 0x07, m = 3;
-		else if( in >= 0xE0 )
-			uc = in & 0x0F, m = 2;
-		else if( in >= 0xC0 )
-			uc = in & 0x1F, m = 1;
-		else if( in <= 0x7F)
-			return in; //ascii
-		// return 0 if we need more chars to decode one
-		k=0;
-		return 0;
-	}
-	// get more chars
-	else if( k <= m )
-	{
-		uc <<= 6;
-		uc += in & 0x3F;
-		k++;
-	}
-	if( in > 0xBF || m < 0 )
-	{
-		m = -1;
-		return 0;
-	}
-	if( k == m )
-	{
-		k = m = -1;
-		if( g_codepage == 1251 )
-		{
-			// cp1251 now
-			if( uc >= 0x0410 && uc <= 0x042F )
-				return uc - 0x410 + 0xC0;
-			if( uc >= 0x0430 && uc <= 0x044F )
-				return uc - 0x430 + 0xE0;
-			else
-			{
-				int i;
-				for( i = 0; i < 64; i++ )
-					if( table_cp1251[i] == uc )
-						return i + 0x80;
-			}
-		}
-		else if( g_codepage == 1252 )
-		{
-			if( uc < 255 )
-				return uc;
-		}
+	if( g_codepage == 1251 )
+		return Q_UnicodeToCP1251( ch );
+	if( g_codepage == 1252 )
+		return Q_UnicodeToCP1252( ch );
 
-		// not implemented yet
-		return '?';
-	}
-	return 0;
+	return '?'; // not implemented yet
 }
 
 int GAME_EXPORT Con_UtfProcessChar( int in )
 {
 	if( !g_utf8 )
 		return in;
-	else
-		return Con_UtfProcessCharForce( in );
+	return Con_UtfProcessCharForce( in );
 }
 /*
 =================
@@ -719,16 +648,22 @@ get position of previous printful char
 */
 int Con_UtfMoveLeft( char *str, int pos )
 {
-	int i, k = 0;
-	// int j;
+	utfstate_t state = { 0 };
+	int k = 0;
+	int i;
+
 	if( !g_utf8 )
 		return pos - 1;
-	Con_UtfProcessChar( 0 );
-	if(pos == 1) return 0;
-	for( i = 0; i < pos-1; i++ )
-		if( Con_UtfProcessChar( (unsigned char)str[i] ) )
-			k = i+1;
-	Con_UtfProcessChar( 0 );
+
+	if( pos == 1 )
+		return 0;
+
+	for( i = 0; i < pos - 1; i++ )
+	{
+		if( Q_DecodeUTF8( &state, (byte)str[i] ))
+			k = i + 1;
+	}
+
 	return k;
 }
 
@@ -741,17 +676,19 @@ get next of previous printful char
 */
 int Con_UtfMoveRight( char *str, int pos, int length )
 {
+	utfstate_t state = { 0 };
 	int i;
+
 	if( !g_utf8 )
 		return pos + 1;
-	Con_UtfProcessChar( 0 );
+
 	for( i = pos; i <= length; i++ )
 	{
-		if( Con_UtfProcessChar( (unsigned char)str[i] ) )
-			return i+1;
+		if( Q_DecodeUTF8( &state, (byte)str[i] ))
+			return i + 1;
 	}
-	Con_UtfProcessChar( 0 );
-	return pos+1;
+
+	return pos + 1;
 }
 
 static void Con_DrawCharToConback( int num, const byte *conchars, byte *dest )
