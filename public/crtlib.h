@@ -86,7 +86,7 @@ void COM_ReplaceExtension( char *path, const char *extension, size_t size );
 void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
-void COM_RemoveLineFeed( char *str );
+void COM_RemoveLineFeed( char *str, size_t bufsize );
 void COM_FixSlashes( char *pname );
 void COM_PathSlashFix( char *path );
 char COM_Hex2Char( uint8_t hex );

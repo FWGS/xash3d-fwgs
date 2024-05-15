@@ -79,7 +79,7 @@ qboolean LoadActivityList( const char *appname )
 			return false;
 		}
 
-		COM_RemoveLineFeed( buf );
+		COM_RemoveLineFeed( buf, sizeof( buf ));
 
 		activity_names[activity_count - 1] = strdup( buf );
 

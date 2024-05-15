@@ -645,14 +645,14 @@ void COM_ReplaceExtension( char *path, const char *extension, size_t size )
 COM_RemoveLineFeed
 ============
 */
-void COM_RemoveLineFeed( char *str )
+void COM_RemoveLineFeed( char *str, size_t bufsize )
 {
-	while( *str != '\0' )
+	size_t i;
+
+	for( i = 0; i < bufsize && *str != '\0'; i++, str++ )
 	{
 		if( *str == '\r' || *str == '\n' )
 			*str = '\0';
-
-		++str;
 	}
 }
 
