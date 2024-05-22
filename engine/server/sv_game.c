@@ -4182,7 +4182,16 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 				continue;
 		}
 
-		if( FBitSet( flags, FEV_NOTHOST ) && cl == sv.current_client && FBitSet( cl->flags, FCL_LOCAL_WEAPONS ))
+		// a1ba: GoldSrc never cleans up host_client pointer (similar to sv.current_client)
+		// so it's always points at some client and in singleplayer this check always succeedes
+		// in Xash, however, sv.current_client might be reset and set to NULL
+		// this is especially dangerous when weapons play events in Think functions
+		//
+		// IMHO, it doesn't make sense to me to compare it against current client when we have
+		// invoker edict pointer but to preserve behaviour check for them both
+		//
+		// if it breaks some mods, probably sv.current_client semantics must be reworked to match GoldSrc
+		if( FBitSet( flags, FEV_NOTHOST ) && ( cl == sv.current_client || cl->edict == pInvoker ) && FBitSet( cl->flags, FCL_LOCAL_WEAPONS ))
 			continue;	// will be played on client side
 
 		if( FBitSet( flags, FEV_HOSTONLY ) && cl->edict != pInvoker )
