@@ -418,10 +418,8 @@ static void GAME_EXPORT pfnPlaybackEventFull( int flags, int clientindex, word e
 	ent = EDICT_NUM( clientindex + 1 );
 	if( !SV_IsValidEdict( ent )) return;
 
-	if( Host_IsDedicated() )
-		flags |= FEV_NOTHOST; // no local clients for dedicated server
-
-	SV_PlaybackEventFull( flags, ent, eventindex,
+	// GoldSrc always sets FEV_NOTHOST in PMove version of this function
+	SV_PlaybackEventFull( flags | FEV_NOTHOST, ent, eventindex,
 		delay, origin, angles,
 		fparam1, fparam2,
 		iparam1, iparam2,
