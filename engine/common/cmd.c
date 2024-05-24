@@ -949,7 +949,7 @@ static void Cmd_Else_f( void )
 
 static qboolean Cmd_ShouldAllowCommand( cmd_t *cmd, qboolean isPrivileged )
 {
-	const char *prefixes[] = { "cl_", "gl_", "r_", "m_", "hud_", "joy_" };
+	const char *prefixes[] = { "cl_", "gl_", "r_", "m_", "hud_", "joy_", "con_", "scr_" };
 	int i;
 
 	// always allow local commands
