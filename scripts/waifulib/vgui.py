@@ -17,10 +17,10 @@ def options(opt):
 	vgui_dev_path = os.path.join(opt.path.path_from(opt.root), 'vgui-dev')
 
 	grp.add_option('--vgui', action = 'store', dest = 'VGUI_DEV', default=vgui_dev_path,
-		help = 'path to vgui-dev repo [default: %default]')
+		help = 'path to vgui-dev repo [default: %(default)s]')
 
 	grp.add_option('--skip-vgui-sanity-check', action = 'store_false', dest = 'VGUI_SANITY_CHECK', default=True,
-		help = 'skip checking VGUI sanity [default: %default]' )
+		help = 'skip checking VGUI sanity [default: %(default)s]' )
 	return
 
 @conf

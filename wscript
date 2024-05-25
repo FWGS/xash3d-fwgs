@@ -53,7 +53,7 @@ class RefDll:
 
 		kw['dest'] = self.dest
 		kw['default'] = self.default
-		kw['help'] = '%s %s renderer [default: %%default]' % (act, self.name)
+		kw['help'] = '%s %s renderer [default: %%(default)s]' % (act, self.name)
 
 		opt.add_option(key, **kw)
 
@@ -113,31 +113,31 @@ def options(opt):
 	grp = opt.add_option_group('Common options')
 
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
-		help = 'build Xash Dedicated Server [default: %default]')
+		help = 'build Xash Dedicated Server [default: %(default)s]')
 
 	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
-		help = 'engine default game directory [default: %default]')
+		help = 'engine default game directory [default: %(default)s]')
 
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
-		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %default]')
+		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %(default)s]')
 
 	grp.add_option('-P', '--enable-packaging', action = 'store_true', dest = 'PACKAGING', default = False,
-		help = 'respect prefix option, useful for packaging for various operating systems [default: %default]')
+		help = 'respect prefix option, useful for packaging for various operating systems [default: %(default)s]')
 
 	grp.add_option('--enable-bundled-deps', action = 'store_true', dest = 'BUILD_BUNDLED_DEPS', default = False,
 		help = 'prefer to build bundled dependencies (like opus) instead of relying on system provided')
 
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
-		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %default]')
+		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %(default)s]')
 
-	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = 'int',
+	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = int,
 		help = 'enable low memory mode (only for devices have <128 ram)')
 
 	grp.add_option('--disable-werror', action = 'store_true', dest = 'DISABLE_WERROR', default = False,
 		help = 'disable compilation abort on warning')
 
 	grp.add_option('--enable-tests', action = 'store_true', dest = 'TESTS', default = False,
-		help = 'enable building standalone tests (does not enable engine tests!) [default: %default]')
+		help = 'enable building standalone tests (does not enable engine tests!) [default: %(default)s]')
 
 	# a1ba: special option for me
 	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
@@ -145,7 +145,7 @@ def options(opt):
 	grp = opt.add_option_group('Renderers options')
 
 	grp.add_option('--enable-all-renderers', action='store_true', dest='ALL_RENDERERS', default=False,
-		help = 'enable all renderers supported by Xash3D FWGS [default: %default]')
+		help = 'enable all renderers supported by Xash3D FWGS [default: %(default)s]')
 
 	for dll in REFDLLS:
 		dll.register_option(grp)
@@ -153,10 +153,10 @@ def options(opt):
 	grp = opt.add_option_group('Utilities options')
 
 	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
-		help = 'enable building various development utilities [default: %default]')
+		help = 'enable building various development utilities [default: %(default)s]')
 
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
-		help = 'enable building libFuzzer runner [default: %default]' )
+		help = 'enable building libFuzzer runner [default: %(default)s]' )
 
 	for i in SUBDIRS:
 		if not i.is_exists(opt):

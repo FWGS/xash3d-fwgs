@@ -12,7 +12,7 @@ def options(opt):
 	grp = opt.add_option_group('Game launcher options')
 
 	grp.add_option('--disable-menu-changegame', action = 'store_true', dest = 'DISABLE_MENU_CHANGEGAME', default = False,
-		help = 'disable changing the game from the menu [default: %default]')
+		help = 'disable changing the game from the menu [default: %(default)s]')
 
 def configure(conf):
 	if conf.env.DEST_OS == 'win32':

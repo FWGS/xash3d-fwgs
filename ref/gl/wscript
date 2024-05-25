@@ -11,7 +11,7 @@ def options(opt):
 	grp = opt.add_option_group('ref_gl options')
 
 	grp.add_option('--enable-static-gl', action='store_true', dest='GL_STATIC', default=False,
-		help = 'enable direct linking to opengl [default: %default]')
+		help = 'enable direct linking to opengl [default: %(default)s]')
 
 	# stub
 	return

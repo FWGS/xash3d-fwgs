@@ -21,16 +21,16 @@ def options(opt):
 		help = 'enable custom swap allocator. For devices with no swap support')
 
 	grp.add_option('--enable-legacy-sdl', action = 'store_true', dest = 'SDL12', default = False,
-		help = 'enable using SDL1.2 instead of SDL2(not recommended) [default: %default]')
+		help = 'enable using SDL1.2 instead of SDL2(not recommended) [default: %(default)s]')
 
 	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
-		help = 'build static binary(not recommended, --single-binary required) [default: %default]')
+		help = 'build static binary(not recommended, --single-binary required) [default: %(default)s]')
 
 	grp.add_option('--enable-engine-tests', action = 'store_true', dest = 'ENGINE_TESTS', default = False,
-		help = 'embed tests into the engine, jump into them by -runtests command line switch [default: %default]')
+		help = 'embed tests into the engine, jump into them by -runtests command line switch [default: %(default)s]')
 
 	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
-		help = 'add LLVM libFuzzer [default: %default]' )
+		help = 'add LLVM libFuzzer [default: %(default)s]' )
 
 	opt.load('sdl2')
 
