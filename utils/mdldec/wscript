@@ -7,7 +7,7 @@ def options(opt):
 	grp = opt.get_option_group('Utilities options')
 
 	grp.add_option('--disable-utils-mdldec', action = 'store_true', dest = 'DISABLE_UTILS_MDLDEC', default = False,
-                help = 'disable studio model decompiler utility [default: %default]')
+                help = 'disable studio model decompiler utility [default: %(default)s]')
 
 def configure(conf):
 	conf.env.DISABLE_UTILS_MDLDEC = conf.options.DISABLE_UTILS_MDLDEC

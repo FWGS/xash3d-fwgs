@@ -137,10 +137,8 @@ def options(opt):
 	:param opt: Options context from the *waf* build environment.
 	:type opt: waflib.Options.OptionsContext
 	'''
-	opt.add_option('--cmake', dest='cmake', default=False,
-				   action='store_true', help='select cmake for export/import actions')
-	opt.add_option('--clean', dest='clean', default=False,
-				   action='store_true', help='delete exported files')
+	opt.add_option('--cmake', dest='cmake', default=False, action='store_true', help='select cmake for export/import actions')
+	opt.add_option('--cmake-clean', dest='cmake_clean', default=False, action='store_true', help='delete exported cmake files')
 
 
 def configure(conf):
@@ -179,7 +177,7 @@ class CMakeContext(BuildContext):
 			pass
 
 		self.cmake = True
-		if self.options.clean:
+		if self.options.cmake_clean:
 			cleanup(self)
 		else:
 			export(self)
@@ -224,7 +222,7 @@ def cleanup(bld):
 	:param bld: a *waf* build instance from the top level *wscript*.
 	:type bld: waflib.Build.BuildContext
 	'''
-	if not bld.options.clean:
+	if not bld.options.cmake_clean:
 		return
 
 	loc = bld.path.relpath().replace('\\', '/')
