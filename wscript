@@ -108,7 +108,7 @@ REFDLLS = [
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs msvc subproject cmake')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs subproject cmake')
 
 	grp = opt.add_option_group('Common options')
 
