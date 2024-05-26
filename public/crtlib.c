@@ -274,6 +274,13 @@ const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *need
 	return NULL;
 }
 
+void Q_memor( byte *XASH_RESTRICT dst, const byte *XASH_RESTRICT src, size_t len )
+{
+	size_t i;
+	for( i = 0; i < len; i++ ) // msvc likes to optimize this loop form
+		dst[i] |= src[i];
+}
+
 const char* Q_timestamp( int format )
 {
 	static string	timestamp;
