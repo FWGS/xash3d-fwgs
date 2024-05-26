@@ -128,6 +128,14 @@ typedef uint64_t longtime_t;
 	#define STATIC_ASSERT( x, y ) STATIC_ASSERT_2( __LINE__, x, y )
 #endif
 
+#if !defined( __cplusplus ) && __STDC_VERSION__ >= 199101L // not C++ and C99 or newer
+	#define XASH_RESTRICT restrict
+#elif _MSC_VER || __GNUC__ || __clang__ // compiler-specific extensions
+	#define XASH_RESTRICT __restrict
+#else
+	#define XASH_RESTRICT // nothing
+#endif
+
 #ifdef XASH_BIG_ENDIAN
 #define LittleLong(x) (((int)(((x)&255)<<24)) + ((int)((((x)>>8)&255)<<16)) + ((int)(((x)>>16)&255)<<8) + (((x) >> 24)&255))
 #define LittleLongSW(x) (x = LittleLong(x) )
