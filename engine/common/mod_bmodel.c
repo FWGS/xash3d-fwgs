@@ -581,44 +581,47 @@ void Mod_PrintWorldStats_f( void )
 /*
 ===================
 Mod_DecompressPVS
+
+TODO: replace all Mod_DecompressPVS calls by this
+===================
+*/
+static void Mod_DecompressPVSTo( byte *const out, const byte *in, size_t visbytes )
+{
+	byte *dst = out;
+
+	if( !in ) // no visinfo, make all visible
+	{
+		memset( out, 0xFF, visbytes );
+		return;
+	}
+
+	while( dst < out + visbytes )
+	{
+		if( *in ) // uncompressed
+		{
+			*dst++ = *in++;
+		}
+		else // zero repeated `c` times
+		{
+			size_t c = in[1];
+			if( c > out + visbytes - dst )
+				c = out + visbytes - dst;
+
+			memset( dst, 0, c );
+			in += 2;
+			dst += c;
+		}
+	}
+}
+
+/*
+===================
+Mod_DecompressPVS
 ===================
 */
 static byte *Mod_DecompressPVS( const byte *in, int visbytes )
 {
-	byte	*out;
-	int	c;
-
-	out = g_visdata;
-
-	if( !in )
-	{
-		// no vis info, so make all visible
-		while( visbytes )
-		{
-			*out++ = 0xff;
-			visbytes--;
-		}
-		return g_visdata;
-	}
-
-	do
-	{
-		if( *in )
-		{
-			*out++ = *in++;
-			continue;
-		}
-
-		c = in[1];
-		in += 2;
-
-		while( c )
-		{
-			*out++ = 0;
-			c--;
-		}
-	} while( out - g_visdata < visbytes );
-
+	Mod_DecompressPVSTo( g_visdata, in, visbytes );
 	return g_visdata;
 }
 
