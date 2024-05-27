@@ -30,10 +30,8 @@ GNU General Public License for more details.
 static int GAME_EXPORT pfnModelIndex( const char *m );
 
 // fatpvs stuff
-static byte fatpvs[MAX_MAP_LEAFS/8];
-static byte fatphs[MAX_MAP_LEAFS/8];
-static byte clientpvs[MAX_MAP_LEAFS/8];	// for find client in PVS
-static vec3_t viewPoint[MAX_CLIENTS];
+static byte fatphs[(MAX_MAP_LEAFS+7)/8];
+static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 
 // exports
 typedef void (__cdecl *LINK_ENTITY_FUNC)( entvars_t *pev );
@@ -339,11 +337,12 @@ static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 	if( !mask ) return true; // GoldSrc rules
 
 	clientnum = cl - svs.clients;
-	VectorCopy( viewPoint[clientnum], vieworg );
 
 	// Invasion issues: wrong camera position received in ENGINE_SET_PVS
-	if( cl->pViewEntity && !VectorCompare( vieworg, cl->pViewEntity->v.origin ))
+	if( cl->pViewEntity )
 		VectorCopy( cl->pViewEntity->v.origin, vieworg );
+	else
+		VectorCopy( cl->edict->v.origin, vieworg );
 
 	leaf = Mod_PointInLeaf( vieworg, sv.worldmodel->nodes );
 
@@ -4278,43 +4277,16 @@ so we can't use a single PVS point
 */
 static byte *GAME_EXPORT pfnSetFatPVS( const float *org )
 {
-	qboolean	fullvis = false;
+	static byte fatpvs[(MAX_MAP_LEAFS+7)/8];
+	qboolean	fullvis = false, merge = false;
 
 	if( !sv.worldmodel->visdata || sv_novis.value || !org || CL_DisableVisibility( ))
 		fullvis = true;
 
-	// portals can't change viewpoint!
-	if( !FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
-	{
-		vec3_t	viewPos, offset;
-		qboolean client_active = pfnGetCurrentPlayer() != -1;
+	if( FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
+		merge = true;
 
-		// see code from client.cpp for understanding:
-		// org = pView->v.origin + pView->v.view_ofs;
-		// if ( pView->v.flags & FL_DUCKING )
-		// {
-		//	org = org + ( VEC_HULL_MIN - VEC_DUCK_HULL_MIN );
-		// }
-		// so we have unneeded duck calculations who have affect when player
-		// is ducked into water. Remove offset to restore right PVS position
-		if( client_active && FBitSet( sv.current_client->edict->v.flags, FL_DUCKING ))
-		{
-			VectorSubtract( svgame.pmove->player_mins[0], svgame.pmove->player_mins[1], offset );
-			VectorSubtract( org, offset, viewPos );
-		}
-		else VectorCopy( org, viewPos );
-
-		// build a new PVS frame
-		Mod_FatPVS( viewPos, FATPVS_RADIUS, fatpvs, world.fatbytes, false, fullvis );
-
-		if( client_active )
-			VectorCopy( viewPos, viewPoint[pfnGetCurrentPlayer()] );
-	}
-	else
-	{
-		// merge PVS
-		Mod_FatPVS( org, FATPVS_RADIUS, fatpvs, world.fatbytes, true, fullvis );
-	}
+	Mod_FatPVS( org, FATPVS_RADIUS, fatpvs, world.fatbytes, merge, fullvis );
 
 	return fatpvs;
 }
@@ -4329,40 +4301,15 @@ so we can't use a single PHS point
 */
 static byte *GAME_EXPORT pfnSetFatPAS( const float *org )
 {
-	qboolean	fullvis = false;
+	qboolean	fullvis = false, merge = false;
 
 	if( !sv.worldmodel->visdata || sv_novis.value || !org || CL_DisableVisibility( ))
 		fullvis = true;
 
-	// portals can't change viewpoint!
-	if( !FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
-	{
-		vec3_t	viewPos, offset;
-		qboolean client_active = pfnGetCurrentPlayer() != -1;
+	if( FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
+		merge = true;
 
-		// see code from client.cpp for understanding:
-		// org = pView->v.origin + pView->v.view_ofs;
-		// if ( pView->v.flags & FL_DUCKING )
-		// {
-		//	org = org + ( VEC_HULL_MIN - VEC_DUCK_HULL_MIN );
-		// }
-		// so we have unneeded duck calculations who have affect when player
-		// is ducked into water. Remove offset to restore right PVS position
-		if( client_active && FBitSet( sv.current_client->edict->v.flags, FL_DUCKING ))
-		{
-			VectorSubtract( svgame.pmove->player_mins[0], svgame.pmove->player_mins[1], offset );
-			VectorSubtract( org, offset, viewPos );
-		}
-		else VectorCopy( org, viewPos );
-
-		// build a new PHS frame
-		Mod_FatPVS( viewPos, FATPHS_RADIUS, fatphs, world.fatbytes, false, fullvis );
-	}
-	else
-	{
-		// merge PHS
-		Mod_FatPVS( org, FATPHS_RADIUS, fatphs, world.fatbytes, true, fullvis );
-	}
+	Mod_FatPVS( org, FATPHS_RADIUS, fatphs, world.fatbytes, merge, fullvis );
 
 	return fatphs;
 }
