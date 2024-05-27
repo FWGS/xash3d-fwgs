@@ -684,22 +684,11 @@ NOTE: can return NULL
 */
 byte *Mod_GetPVSForPoint( const vec3_t p )
 {
-	mnode_t	*node;
-	mleaf_t	*leaf = NULL;
+	mleaf_t	*leaf;
 
 	ASSERT( worldmodel != NULL );
 
-	node = worldmodel->nodes;
-
-	while( 1 )
-	{
-		if( node->contents < 0 )
-		{
-			leaf = (mleaf_t *)node;
-			break; // we found a leaf
-		}
-		node = node->children[PlaneDiff( p, node->plane ) <= 0];
-	}
+	leaf = Mod_PointInLeaf( p, worldmodel->nodes );
 
 	if( leaf && leaf->cluster >= 0 )
 		return Mod_DecompressPVS( leaf->compressed_vis, world.visbytes );
