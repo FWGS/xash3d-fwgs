@@ -421,7 +421,7 @@ static int SV_Multicast( int dest, const vec3_t origin, const edict_t *ent, qboo
 	case MSG_PAS:
 		if( origin == NULL ) return false;
 		// NOTE: GoldSource not using PHS for singleplayer
-		Mod_FatPVS( origin, FATPHS_RADIUS, fatphs, world.fatbytes, false, ( svs.maxclients == 1 ));
+		Mod_FatPVS( origin, FATPHS_RADIUS, fatphs, world.fatbytes, false, ( svs.maxclients == 1 ), true );
 		mask = fatphs; // using the FatPVS like a PHS
 		break;
 	case MSG_PVS_R:
@@ -4156,7 +4156,7 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 	// setup pvs cluster for invoker
 	if( !FBitSet( flags, FEV_GLOBAL ))
 	{
-		Mod_FatPVS( pvspoint, FATPHS_RADIUS, fatphs, world.fatbytes, false, ( svs.maxclients == 1 ));
+		Mod_FatPVS( pvspoint, FATPHS_RADIUS, fatphs, world.fatbytes, false, ( svs.maxclients == 1 ), true );
 		mask = fatphs; // using the FatPVS like a PHS
 	}
 
@@ -4286,7 +4286,7 @@ static byte *GAME_EXPORT pfnSetFatPVS( const float *org )
 	if( FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
 		merge = true;
 
-	Mod_FatPVS( org, FATPVS_RADIUS, fatpvs, world.fatbytes, merge, fullvis );
+	Mod_FatPVS( org, FATPVS_RADIUS, fatpvs, world.fatbytes, merge, fullvis, false );
 
 	return fatpvs;
 }
@@ -4309,7 +4309,7 @@ static byte *GAME_EXPORT pfnSetFatPAS( const float *org )
 	if( FBitSet( sv.hostflags, SVF_MERGE_VISIBILITY ))
 		merge = true;
 
-	Mod_FatPVS( org, FATPHS_RADIUS, fatphs, world.fatbytes, merge, fullvis );
+	Mod_FatPVS( org, FATPHS_RADIUS, fatphs, world.fatbytes, merge, fullvis, true );
 
 	return fatphs;
 }
