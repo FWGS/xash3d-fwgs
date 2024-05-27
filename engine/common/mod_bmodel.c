@@ -684,7 +684,7 @@ Mod_FatPVS_RecursiveBSPNode
 
 ==================
 */
-static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *visbuffer, int visbytes, mnode_t *node )
+static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *visbuffer, int visbytes, mnode_t *node, qboolean phs )
 {
 	int	i;
 
@@ -699,7 +699,7 @@ static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *v
 		else
 		{
 			// go down both sides
-			Mod_FatPVS_RecursiveBSPNode( org, radius, visbuffer, visbytes, node->children[0] );
+			Mod_FatPVS_RecursiveBSPNode( org, radius, visbuffer, visbytes, node->children[0], phs );
 			node = node->children[1];
 		}
 	}
@@ -709,8 +709,7 @@ static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *v
 	{
 		byte	*vis = Mod_DecompressPVS( ((mleaf_t *)node)->compressed_vis, world.visbytes );
 
-		for( i = 0; i < visbytes; i++ )
-			visbuffer[i] |= vis[i];
+		Q_memor( visbuffer, vis, visbytes );
 	}
 }
 
@@ -722,7 +721,7 @@ Calculates a PVS that is the inclusive or of all leafs
 within radius pixels of the given point.
 ==================
 */
-int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, qboolean merge, qboolean fullvis )
+int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, qboolean merge, qboolean fullvis, qboolean phs )
 {
 	int	bytes = world.visbytes;
 	mleaf_t	*leaf = NULL;
@@ -741,7 +740,7 @@ int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, q
 
 	if( !merge ) memset( visbuffer, 0x00, bytes );
 
-	Mod_FatPVS_RecursiveBSPNode( org, radius, visbuffer, bytes, worldmodel->nodes );
+	Mod_FatPVS_RecursiveBSPNode( org, radius, visbuffer, bytes, worldmodel->nodes, phs );
 
 	return bytes;
 }

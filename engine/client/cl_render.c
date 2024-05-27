@@ -20,7 +20,7 @@ GNU General Public License for more details.
 
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {
-	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis );
+	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis, false );
 }
 
 lightstyle_t *CL_GetLightStyle( int number )
