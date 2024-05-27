@@ -625,6 +625,34 @@ static byte *Mod_DecompressPVS( const byte *in, int visbytes )
 	return g_visdata;
 }
 
+static size_t Mod_CompressPVS( byte *out, const byte *in, size_t inbytes )
+{
+	size_t i;
+	byte *dst = out;
+
+	for( i = 0; i < inbytes; i++ )
+	{
+		size_t j = i + 1, rep = 1;
+
+		*dst++ = in[i];
+
+		// only compress zeros
+		if( in[i] )
+			continue;
+
+		for( ; j < inbytes && rep != 255; j++, rep++ )
+		{
+			if( in[j] )
+				break;
+		}
+
+		*dst++ = rep;
+		i = j - 1;
+	}
+
+	return dst - out;
+}
+
 /*
 ==================
 Mod_PointInLeaf
