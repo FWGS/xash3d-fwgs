@@ -28,7 +28,7 @@ GNU General Public License for more details.
 // REFTODO: rewrite in triapi
 void R_DrawWorldHull( void )
 {
-	hull_model_t	*hull = &tr.world->hull_models[0];
+	hull_model_t	*hull;
 	winding_t		*poly;
 	int		i;
 
@@ -41,6 +41,8 @@ void R_DrawWorldHull( void )
 
 	if( !r_showhull->value )
 		return;
+
+	hull = &tr.world->hull_models[0];
 
 	pglDisable( GL_TEXTURE_2D );
 

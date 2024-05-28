@@ -410,19 +410,10 @@ void R_EntityRemoveDecals( model_t *mod );
 void R_ClearDecals( void );
 void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] );
 
-#if 0
-
-//
-// gl_drawhulls.c
-//
-void R_DrawWorldHull( void );
-void R_DrawModelHull( void );
-#endif
-
 void GL_Bind( int tmu, unsigned int texnum );
 
 //
-// gl_draw.cM_PI
+// gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
 void R_DrawTileClear( int texnum, int x, int y, int w, int h );
