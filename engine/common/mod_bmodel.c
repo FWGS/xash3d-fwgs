@@ -3019,7 +3019,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 	{
 		world.version = bmod->version;
 #if !XASH_DEDICATED
-		Mod_InitDebugHulls( mod );	// FIXME: build hulls for separate bmodels (shells, medkits etc)
 		world.deluxedata = bmod->deluxedata_out;	// deluxemap data pointer
 		world.shadowdata = bmod->shadowdata_out;	// occlusion data pointer
 #endif // XASH_DEDICATED

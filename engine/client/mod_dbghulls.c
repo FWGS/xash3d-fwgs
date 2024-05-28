@@ -685,6 +685,9 @@ void Mod_CreatePolygonsForHull( int hullnum )
 	if( hullnum < 1 || hullnum > 3 )
 		return;
 
+	if( !world.num_hull_models )
+		Mod_InitDebugHulls( mod ); // FIXME: build hulls for separate bmodels (shells, medkits etc)
+
 	Con_Printf( "generating polygons for hull %u...\n", hullnum );
 	start = Sys_DoubleTime();
 
