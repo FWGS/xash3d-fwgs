@@ -811,15 +811,27 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 	decalInfo.m_Flags = flags;
 
 	R_GetDecalDimensions( textureIndex, &width, &height );
-	decalInfo.m_Size = width >> 1;
-	if(( height >> 1 ) > decalInfo.m_Size )
-		decalInfo.m_Size = height >> 1;
-
-	decalInfo.m_scale = bound( MIN_DECAL_SCALE, scale, MAX_DECAL_SCALE );
 
 	// compute the decal dimensions in world space
-	decalInfo.m_decalWidth = width / decalInfo.m_scale;
-	decalInfo.m_decalHeight = height / decalInfo.m_scale;
+	if( FBitSet( flags, FDECAL_CUSTOM ))
+	{
+		const int upperLimit = cl_logomaxdim->value;
+		if( width > upperLimit || height > upperLimit )
+		{
+			float coeff = (float)Q_max( width, height ) / upperLimit;
+			decalInfo.m_Size = Q_max( width, height ) / 2 / coeff;
+			decalInfo.m_scale = coeff;
+			decalInfo.m_decalWidth = width / coeff;
+			decalInfo.m_decalHeight = height / coeff;
+		}
+	}
+	else
+	{
+		decalInfo.m_Size = Q_max( width, height ) / 2;
+		decalInfo.m_scale = bound( MIN_DECAL_SCALE, scale, MAX_DECAL_SCALE );
+		decalInfo.m_decalWidth = width / decalInfo.m_scale;
+		decalInfo.m_decalHeight = height / decalInfo.m_scale;
+	}
 
 	R_DecalNode( model, &model->nodes[hull->firstclipnode], &decalInfo );
 }
