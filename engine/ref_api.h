@@ -675,6 +675,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 	ENGINE_SHARED_CVAR( f, gl_vsync ) \
 	ENGINE_SHARED_CVAR( f, gl_clear ) \
 	ENGINE_SHARED_CVAR( f, cl_himodels ) \
+	ENGINE_SHARED_CVAR( f, cl_logomaxdim ) \
 	ENGINE_SHARED_CVAR( f, cl_lightstyle_lerping ) \
 	ENGINE_SHARED_CVAR( f, tracerred ) \
 	ENGINE_SHARED_CVAR( f, tracergreen ) \
