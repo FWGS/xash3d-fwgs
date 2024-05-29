@@ -122,9 +122,9 @@ POLLY_CFLAGS = {
 }
 
 OPENMP_CFLAGS = {
-	'gcc':   ['-fopenmp'],
-	'clang': ['-fopenmp'],
-	'msvc':  ['/openmp']
+	'gcc':   ['-fopenmp', '-DHAVE_OPENMP=1'],
+	'clang': ['-fopenmp', '-DHAVE_OPENMP=1'],
+	'msvc':  ['/openmp', '/DHAVE_OPENMP=1']
 }
 
 OPENMP_LINKFLAGS = {
