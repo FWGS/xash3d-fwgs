@@ -24,6 +24,9 @@ GNU General Public License for more details.
 #include "client.h"
 #include "server.h"			// LUMP_ error codes
 #include "ref_common.h"
+#if defined( HAVE_OPENMP )
+#include <omp.h>
+#endif // HAVE_OPENMP
 
 #define MIPTEX_CUSTOM_PALETTE_SIZE_BYTES ( sizeof( int16_t ) + 768 )
 
@@ -625,7 +628,7 @@ static byte *Mod_DecompressPVS( const byte *in, int visbytes )
 	return g_visdata;
 }
 
-static size_t Mod_CompressPVS( byte *out, const byte *in, size_t inbytes )
+static size_t Mod_CompressPVS( byte *const out, const byte *in, size_t inbytes )
 {
 	size_t i;
 	byte *dst = out;
@@ -724,7 +727,17 @@ static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *v
 	// if this leaf is in a cluster, accumulate the vis bits
 	if(((mleaf_t *)node)->cluster >= 0 )
 	{
-		byte	*vis = Mod_DecompressPVS( ((mleaf_t *)node)->compressed_vis, world.visbytes );
+		byte *vis;
+
+		if( phs )
+		{
+			int i = ((mleaf_t *)node)->cluster + 1;
+			vis = Mod_DecompressPVS( &world.compressed_phs[world.phsofs[i]], world.visbytes );
+		}
+		else
+		{
+			vis = Mod_DecompressPVS( ((mleaf_t *)node)->compressed_vis, world.visbytes );
+		}
 
 		Q_memor( visbuffer, vis, visbytes );
 	}
@@ -750,6 +763,14 @@ int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, q
 
 	// enable full visibility for some reasons
 	if( fullvis || !worldmodel->visdata || !leaf || leaf->cluster < 0 )
+	{
+		memset( visbuffer, 0xFF, bytes );
+		return bytes;
+	}
+
+	// requested PHS but we don't have PHS for some reason
+	// enable full visibility
+	if( phs && !( world.compressed_phs && world.phsofs ))
 	{
 		memset( visbuffer, 0xFF, bytes );
 		return bytes;
@@ -2729,6 +2750,153 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 }
 
 /*
+===========
+Mod_CalcPHS
+
+To be called while loading world for multiplayer game server
+===========
+*/
+static void Mod_CalcPHS( model_t *mod )
+{
+	const qboolean vis_stats = host_developer.value >= DEV_EXTENDED;
+	const size_t rowbytes = ALIGN( world.visbytes, 4 ); // force align rows by 32-bit boundary
+	const size_t count = mod->numleafs + 1; // same as mod->submodels[0].visleafs + 1
+	double t1;
+	double t2;
+	size_t total_compressed_size = 0;
+	size_t hcount = 0;
+	size_t vcount = 0;
+	size_t i;
+	byte *uncompressed_pvs;
+	byte *uncompressed_phs;
+
+	if( !mod->visdata )
+		return;
+
+#if defined( HAVE_OPENMP )
+	Con_Reportf( "Building PHS in %d threads...\n", omp_get_max_threads( ));
+#else
+	Con_Reportf( "Building PHS...\n" );
+#endif
+
+	uncompressed_pvs = Mem_Calloc( mod->mempool, rowbytes * count * 2 );
+	uncompressed_phs = &uncompressed_pvs[rowbytes * count];
+
+	world.phsofs = Mem_Calloc( mod->mempool, sizeof( size_t ) * count );
+	world.compressed_phs = NULL;
+
+	t1 = Platform_DoubleTime();
+
+#pragma omp parallel
+	{
+		// uncompress pvs first
+#pragma omp for schedule( static, 256 ) // there might be thousands of leafs, split by 256
+		for( i = 0; i < count; i++ )
+			Mod_DecompressPVSTo( &uncompressed_pvs[rowbytes * i], mod->leafs[i].compressed_vis, world.visbytes );
+
+		// now create phs
+#pragma omp for schedule( static, 256 ) reduction( + : vcount, hcount )
+		for( i = 0; i < count; i++ )
+		{
+			const byte *scan = &uncompressed_pvs[rowbytes * i];
+			byte *dst = &uncompressed_phs[rowbytes * i]; // rowbytes, not rowwords!
+			size_t j;
+
+			memcpy( dst, scan, rowbytes );
+
+			for( j = 0; j < rowbytes; j++ )
+			{
+				size_t k;
+				uint bitbyte = scan[j];
+
+				if( bitbyte == 0 )
+					continue;
+
+				for( k = 0; k < 8; k++ )
+				{
+					size_t index;
+
+					if( !FBitSet( bitbyte, BIT( k )))
+						continue;
+
+					// OR this pvs row into the phs
+					// +1 because pvs is 1 based
+					index = (( j * 8 ) + k + 1 );
+					if( index >= count )
+						continue;
+
+					Q_memor( dst, &uncompressed_pvs[rowbytes * index], rowbytes );
+				}
+			}
+
+			if( vis_stats && i != 0 )
+			{
+				size_t j;
+
+				for( j = 0; j < count; j++ )
+				{
+					if( CHECKVISBIT( scan, j ))
+						vcount++;
+
+					if( CHECKVISBIT( dst, j ))
+						hcount++;
+				}
+			}
+		}
+	}
+
+	// since I can't predict at which spot compressed array
+	// should be put, this loop is single threaded
+	for( i = 0; i < count; i++ )
+	{
+		const byte *src = &uncompressed_phs[rowbytes * i];
+		byte temp_compressed_row[(MAX_MAP_LEAFS+1)/4]; // compression for this row might be ineffective
+		size_t compressed_size;
+
+		compressed_size = Mod_CompressPVS( temp_compressed_row, src, rowbytes );
+
+		world.compressed_phs = Mem_Realloc( mod->mempool, world.compressed_phs, total_compressed_size + compressed_size );
+		memcpy( &world.compressed_phs[total_compressed_size], temp_compressed_row, compressed_size );
+		world.phsofs[i]	= total_compressed_size;
+
+		total_compressed_size += compressed_size;
+	}
+
+	t2 = Platform_DoubleTime();
+
+	if( vis_stats )
+		Con_Reportf( "Average leaves visible / audible / total: %i / %i / %i\n", vcount / count, hcount / count, count );
+	Con_Reportf( "Uncompressed PHS size: %s\n", Q_memprint( rowbytes * count ));
+	Con_Reportf( "Compressed PHS size: %s\n", Q_memprint( total_compressed_size + sizeof( *world.phsofs ) * count ));
+	Con_Reportf( "PHS building time: %.2f ms\n", ( t2 - t1 ) * 1000.0f );
+
+	// TODO: rewrite this into a unit test
+	// NOTE: how to get GoldSrc fat PHS and PVS data
+	// start a multiplayer server with some op4_bootcamp (for example)
+	// attach to process with GDB:
+	// (gdb) p gPAS[0]
+	// $0 = (byte *) ...
+	// (gdb) p gPAS[gPVSRowBytes * (cl.worldmodel->numleafs + 1)]
+	// $1 = (byte *) ...
+	// (gdb) dump binary memory op4_bootcamp_gs.phs $0 $1
+	// (gdb) p gPVS[0]
+	// $2 = (byte *) ...
+	// (gdb) p gPVS[gPVSRowBytes * (cl.worldmodel->numleafs + 1)]
+	// $3 = (byte *) ...
+	// (gdb) dump binary memory op4_bootcamp_gs.pvs $0 $1
+	//
+	// NOTE: as of writing, uncompressed PVS and PHS data do match! hooray!
+	//
+	// FS_WriteFile( "op4_bootcamp.pvs", uncompressed_pvs, rowbytes * count );
+	// FS_WriteFile( "op4_bootcamp.phs", uncompressed_phs, rowbytes * count );
+
+	// release uncompressed data
+	Mem_Free( uncompressed_pvs );
+
+	// TODO: cache the PHS somewhere, it might take a long time on giant maps
+}
+
+/*
 =================
 Mod_LoadClipnodes
 =================
@@ -3022,6 +3190,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 		world.deluxedata = bmod->deluxedata_out;	// deluxemap data pointer
 		world.shadowdata = bmod->shadowdata_out;	// occlusion data pointer
 #endif // XASH_DEDICATED
+
+		if( SV_Active() && svs.maxclients > 1 )
+			Mod_CalcPHS( mod );
 	}
 
 	for( i = 0; i < bmod->wadlist.count; i++ )

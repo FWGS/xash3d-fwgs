@@ -117,6 +117,8 @@ void Mod_FreeModel( model_t *mod )
 
 		// data already freed by Mem_FreePool above
 		world.hull_models = NULL;
+		world.compressed_phs = NULL;
+		world.phsofs = NULL;
 	}
 
 	memset( mod, 0, sizeof( *mod ));
