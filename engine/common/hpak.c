@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 #define HPAK_MAX_ENTRIES	0x8000
 #define HPAK_ENTRY_MIN_SIZE	(512)
-#define HPAK_ENTRY_MAX_SIZE	(128 * 1024)
+#define HPAK_ENTRY_MAX_SIZE	(512 * 1024)
 
 typedef struct hash_pack_queue_s
 {
@@ -29,7 +29,7 @@ typedef struct hash_pack_queue_s
 	struct hash_pack_queue_s	*next;
 } hash_pack_queue_t;
 
-static CVAR_DEFINE_AUTO( hpk_maxsize, "4", FCVAR_ARCHIVE, "set limit by size for all HPK-files ( 0 - unlimited )" );
+static CVAR_DEFINE_AUTO( hpk_maxsize, "4", FCVAR_ARCHIVE, "set limit by size in megabytes for all HPK-files ( 0 - unlimited )" );
 static hash_pack_queue_t	*gp_hpak_queue = NULL;
 static hpak_header_t	hash_pack_header;
 static hpak_info_t	hash_pack_info;
