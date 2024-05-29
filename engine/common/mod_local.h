@@ -33,7 +33,7 @@ GNU General Public License for more details.
 
 #define REFPVS_RADIUS		2.0f	// radius for rendering
 #define FATPVS_RADIUS		8.0f	// FatPVS use radius smaller than the FatPHS
-#define FATPHS_RADIUS		16.0f
+#define FATPHS_RADIUS		8.0f	// see SV_AddToFatPAS in GoldSrc
 
 #define WORLD_INDEX			(1)	// world index is always 1
 
@@ -115,6 +115,10 @@ typedef struct world_static_s
 	int		max_recursion;
 
 	uint32_t version; // BSP version
+
+	// Potentially Hearable Set
+	byte   *compressed_phs;
+	size_t *phsofs;
 } world_static_t;
 
 #ifndef REF_DLL
