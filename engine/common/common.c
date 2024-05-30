@@ -25,16 +25,19 @@ GNU General Public License for more details.
 
 static const char *file_exts[] =
 {
-	"cfg",
-	"lst",
-	"exe",
-	"vbs",
-	"com",
-	"bat",
-	"dll",
-	"ini",
-	"log",
-	"sys",
+	// ban text files that don't make sense as resource
+	"cfg", "lst", "ini", "log",
+
+	// ban Windows code
+	"exe", "vbs", "com", "bat",
+	"dll", "sys", "ps1",
+
+	// ban common unix code
+	// NOTE: in unix anything can be executed as long it has access flag
+	"so", "sh", "dylib",
+
+	// ban mobile archives
+	"apk", "ipa",
 };
 
 #ifdef _DEBUG
