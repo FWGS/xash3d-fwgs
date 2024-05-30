@@ -2510,11 +2510,6 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 		return;
 	}
 
-	pfilename = filename;
-
-	if( !Q_strnicmp( filename, DEFAULT_SOUNDPATH, sound_len ))
-		pfilename += sound_len;
-
 	for( p = cl.resourcesneeded.pNext; p != &cl.resourcesneeded; p = p->pNext )
 	{
 		if( !Q_strnicmp( filename, "!MD5", 4 ))
@@ -2524,18 +2519,20 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 			if( !memcmp( p->rgucMD5_hash, rgucMD5_hash, 16 ))
 				break;
 		}
+		else if( p->type == t_sound )
+		{
+			const char *pfilename = filename;
+
+			if( !Q_strnicmp( filename, DEFAULT_SOUNDPATH, sound_len ))
+				pfilename += sound_len;
+
+			if( !Q_stricmp( p->szFileName, pfilename ))
+				break;
+		}
 		else
 		{
-			if( p->type == t_generic )
-			{
-				if( !Q_stricmp( p->szFileName, filename ))
+			if( !Q_stricmp( p->szFileName, filename ))
 					break;
-			}
-			else
-			{
-				if( !Q_stricmp( p->szFileName, pfilename ))
-					break;
-			}
 		}
 	}
 
@@ -2600,7 +2597,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 
 		if( cls.netchan.tempbuffer )
 		{
-			Con_Printf( "Received a decal %s, but didn't find it in resources needed list!\n", pfilename );
+			Con_Printf( "Received a decal %s, but didn't find it in resources needed list!\n", filename );
 			Mem_Free( cls.netchan.tempbuffer );
 		}
 
