@@ -900,7 +900,10 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 	if( !COM_CheckString( filename ))
 		return false;
 
-	if( !Q_strncmp( filename, "!MD5", 4 ))
+	ext = COM_FileExtension( lwrfilename );
+
+	// only allow extensionless files that start with !MD5
+	if( !Q_strncmp( filename, "!MD5", 4 ) && ext[0] == 0 )
 		return true;
 
 	Q_strnlwr( filename, lwrfilename, sizeof( lwrfilename ));
@@ -922,8 +925,6 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 
 	if( Q_strlen( first ) != 4 )
 		return false;
-
-	ext = COM_FileExtension( lwrfilename );
 
 	for( i = 0; i < ARRAYSIZE( file_exts ); i++ )
 	{
