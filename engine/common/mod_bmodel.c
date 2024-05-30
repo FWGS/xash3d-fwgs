@@ -3093,6 +3093,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 	char		wadvalue[2048];
 	size_t		len = 0;
 	int		i, ret, flags = 0;
+	qboolean wadlist_warn = false;
 
 	// always reset the intermediate struct
 	memset( bmod, 0, sizeof( dbspmodel_t ));
@@ -3197,15 +3198,27 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 
 	for( i = 0; i < bmod->wadlist.count; i++ )
 	{
+		string wadname;
+
 		if( !bmod->wadlist.wadusage[i] )
 			continue;
-		ret = Q_snprintf( &wadvalue[len], sizeof( wadvalue ), "%s.wad; ", bmod->wadlist.wadnames[i] );
-		if( ret == -1 )
+
+		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", bmod->wadlist.wadnames[i] );
+
+		// a1ba: automatically precache used wad files so client will download it
+		if( SV_Active( ))
+			SV_GenericIndex( wadname );
+
+		if( !wadlist_warn )
 		{
-			Con_DPrintf( S_WARN "Too many wad files for output!\n" );
-			break;
+			ret = Q_snprintf( &wadvalue[len], sizeof( wadvalue ), "%s; ", wadname );
+			if( ret == -1 )
+			{
+				Con_DPrintf( S_WARN "Too many wad files for output!\n" );
+				wadlist_warn = true;
+			}
+			len += ret;
 		}
-		len += ret;
 	}
 
 	if( COM_CheckString( wadvalue ))
