@@ -21,53 +21,6 @@ GNU General Public License for more details.
 #include "studio.h"
 
 /*
-===============================================================================
-
-	ENTITY LINKING
-
-===============================================================================
-*/
-/*
-===============
-ClearLink
-
-ClearLink is used for new headnodes
-===============
-*/
-void ClearLink( link_t *l )
-{
-	l->prev = l->next = l;
-}
-
-/*
-===============
-RemoveLink
-
-remove link from chain
-===============
-*/
-void RemoveLink( link_t *l )
-{
-	l->next->prev = l->prev;
-	l->prev->next = l->next;
-}
-
-/*
-===============
-InsertLinkBefore
-
-kept trigger and solid entities seperate
-===============
-*/
-void InsertLinkBefore( link_t *l, link_t *before )
-{
-	l->next = before;
-	l->prev = before->prev;
-	l->prev->next = l;
-	l->next->prev = l;
-}
-
-/*
 ==================
 World_MoveBounds
 ==================

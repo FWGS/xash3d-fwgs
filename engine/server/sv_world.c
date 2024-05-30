@@ -361,6 +361,53 @@ static hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, ve
 /*
 ===============================================================================
 
+	ENTITY LINKING
+
+===============================================================================
+*/
+/*
+===============
+ClearLink
+
+ClearLink is used for new headnodes
+===============
+*/
+static void ClearLink( link_t *l )
+{
+	l->prev = l->next = l;
+}
+
+/*
+===============
+RemoveLink
+
+remove link from chain
+===============
+*/
+static void RemoveLink( link_t *l )
+{
+	l->next->prev = l->prev;
+	l->prev->next = l->next;
+}
+
+/*
+===============
+InsertLinkBefore
+
+kept trigger and solid entities seperate
+===============
+*/
+static void InsertLinkBefore( link_t *l, link_t *before )
+{
+	l->next = before;
+	l->prev = before->prev;
+	l->prev->next = l;
+	l->next->prev = l;
+}
+
+/*
+===============================================================================
+
 ENTITY AREA CHECKING
 
 ===============================================================================
