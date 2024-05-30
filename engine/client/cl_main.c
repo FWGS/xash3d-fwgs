@@ -2690,9 +2690,31 @@ static void CL_Physinfo_f( void )
 	Con_Printf( "Total %i symbols\n", Q_strlen( cls.physinfo ));
 }
 
+static qboolean CL_ShouldRescanFilesystem( void )
+{
+	resource_t *res;
+
+	for( res = cl.resourcesonhand.pNext; res && res != &cl.resourcesonhand; res = res->pNext )
+	{
+		if( res->type == t_generic )
+		{
+			const char *ext = COM_FileExtension( res->szFileName );
+			// TODO: query supported archives format from fs_stdio
+			// TODO: query if was already opened
+			if( !Q_stricmp( ext, "wad" ) || !Q_stricmp( ext, "pk3" ) || !Q_stricmp( ext, "pak" ))
+				return true;
+		}
+	}
+	return false;
+}
+
 qboolean CL_PrecacheResources( void )
 {
 	resource_t	*pRes;
+
+	// if we downloaded new WAD files or any other archives they must be added to searchpath
+	if( CL_ShouldRescanFilesystem( ))
+		g_fsapi.Rescan();
 
 	// NOTE: world need to be loaded as first model
 	for( pRes = cl.resourcesonhand.pNext; pRes && pRes != &cl.resourcesonhand; pRes = pRes->pNext )
