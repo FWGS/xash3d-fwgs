@@ -1875,7 +1875,7 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 					COM_FixSlashes( pszWadFile );
 					COM_FileBase( pszWadFile, token, sizeof( token ));
 
-					// make sure what wad is really exist
+					// make sure that wad is really exist
 					if( FS_FileExists( va( "%s.wad", token ), false ))
 					{
 						int num = bmod->wadlist.count++;
@@ -2068,18 +2068,16 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 
 static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 {
-#if !XASH_DEDICATED
 	texture_t *texture = NULL;
 	mip_t *mipTex = NULL;
 	qboolean usesCustomPalette = false;
 	uint32_t txFlags = 0;
 
-	// Don't load texture data on dedicated server, as there is no renderer.
+	// don't load texture data on dedicated server, as there is no renderer.
+	// but count the wadusage for automatic precache
+	//
 	// FIXME: for ENGINE_IMPROVED_LINETRACE we need to load textures on server too
 	// but there is no facility for this yet
-	if( Host_IsDedicated( ))
-		return;
-
 	texture = mod->textures[textureIndex];
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
 
@@ -2095,10 +2093,15 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// check for multi-layered sky texture (quake1 specific)
 	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
 	{
-		ref.dllFuncs.R_InitSkyClouds( mipTex, texture, usesCustomPalette ); // load quake sky
+#if !XASH_DEDICATED
+		if( !Host_IsDedicated( ))
+		{
+			ref.dllFuncs.R_InitSkyClouds( mipTex, texture, usesCustomPalette ); // load quake sky
 
-		if( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) && R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ))
-			SetBits( world.flags, FWORLD_SKYSPHERE );
+			if( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) && R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ))
+				SetBits( world.flags, FWORLD_SKYSPHERE );
+		}
+#endif // !XASH_DEDICATED
 
 		// No texture to load in this case, so just exit.
 		return;
@@ -2116,10 +2119,17 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 
 		if( wadIndex >= 0 )
 		{
-			texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
+#if !XASH_DEDICATED
+			if( !Host_IsDedicated( ))
+				texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
+#endif // !XASH_DEDICATED
 			bmod->wadlist.wadusage[wadIndex]++;
 		}
 	}
+
+#if !XASH_DEDICATED
+	if( Host_IsDedicated( ))
+		return;
 
 	// WAD failed, so use internal texture (if present)
 	if( mipTex->offsets[0] > 0 && texture->gl_texturenum == 0 )
