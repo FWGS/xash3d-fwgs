@@ -2375,7 +2375,7 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 
 	if( curfile->header_size >= sizeof( buf ))
 	{
-		Con_Reportf( S_ERROR "Header too big, the size is %s\n", curfile->header_size );
+		Con_Reportf( S_ERROR "Header too big, the size is %d\n", curfile->header_size );
 		HTTP_FreeFile( curfile, true );
 		return false;
 	}
@@ -2394,8 +2394,6 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 			{
 				int cutheadersize = begin - curfile->buf + 4; // after that begin of data
 				char *content_length_line;
-
-				Con_Reportf( "HTTP: Got response!\n" );
 
 				if( !Q_strstr( curfile->buf, "200 OK" ))
 				{
@@ -2420,10 +2418,10 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 					content_length_line += sizeof( "Content-Length: " ) - 1;
 					size = Q_atoi( content_length_line );
 
-					Con_Reportf( "HTTP: File size is %d\n", size );
+					Con_Reportf( "HTTP: Got 200 OK! File size is %d\n", size );
 
 					if( ( curfile->size != -1 ) && ( curfile->size != size )) // check size if specified, not used
-						Con_Reportf( S_WARN "Server reports wrong file size!\n" );
+						Con_Reportf( S_WARN "Server reports wrong file size for %s!\n", curfile->path );
 
 					curfile->size = size;
 					curfile->header_size = 0;
@@ -2535,7 +2533,7 @@ void HTTP_Run( void )
 
 			if( !curfile->file )
 			{
-				Con_Printf( S_ERROR "cannot open %s!\n", name );
+				Con_Printf( S_ERROR "HTTP: cannot open %s!\n", name );
 				HTTP_FreeFile( curfile, true );
 				break;
 			}
