@@ -919,13 +919,20 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	int		remaining;
 	int		bufferid = 1;
 	fs_offset_t	filesize = 0;
-	char		compressedfilename[MAX_OSPATH];
 	int		compressedFileTime;
 	int		fileTime;
 	qboolean		firstfragment = true;
 	qboolean		bCompressed = false;
 	fragbufwaiting_t	*wait, *p;
 	fragbuf_t		*buf;
+	char		compressedfilename[sizeof( buf->filename ) + 5];
+
+	// shouldn't be critical, but just in case
+	if( Q_strlen( filename ) > sizeof( buf->filename ) - 1 )
+	{
+		Con_Printf( S_WARN "Unable to transfer %s due to path length overflow\n", filename );
+		return 0;
+	}
 	
 	if(( filesize = FS_FileSize( filename, false )) <= 0 )
 	{
@@ -937,8 +944,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 	else chunksize = FRAGMENT_MAX_SIZE; // fallback
 
-	Q_strncpy( compressedfilename, filename, sizeof( compressedfilename ));
-	COM_ReplaceExtension( compressedfilename, ".ztmp", sizeof( compressedfilename ));
+	Q_snprintf( compressedfilename, sizeof( compressedfilename ), "%s.ztmp", filename );
 	compressedFileTime = FS_FileTime( compressedfilename, false );
 	fileTime = FS_FileTime( filename, false );
 
@@ -1521,10 +1527,9 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 					if( pbuf->iscompressed )
 					{
-						char	compressedfilename[MAX_OSPATH];
+						char	compressedfilename[sizeof( pbuf->filename ) + 5];
 
-						Q_strncpy( compressedfilename, pbuf->filename, sizeof( compressedfilename ));
-						COM_ReplaceExtension( compressedfilename, ".ztmp", sizeof( compressedfilename ));
+						Q_snprintf( compressedfilename, sizeof( compressedfilename ), "%s.ztmp", pbuf->filename );
 						file = FS_Open( compressedfilename, "rb", false );
 					}
 					else file = FS_Open( pbuf->filename, "rb", false );
