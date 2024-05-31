@@ -87,7 +87,7 @@ int open_mpeg_stream( void *mpg, void *file, pfread f_read, pfseek f_seek, wavin
 
 	if( !mh || !sc ) return 0;
 
-	ret = mpg123_replace_reader_handle( mh, (void *)f_read, (void *)f_seek, NULL );
+	ret = mpg123_replace_reader_handle( mh, f_read, f_seek, NULL );
 	if( ret != MPG123_OK )
 		return 0;
 

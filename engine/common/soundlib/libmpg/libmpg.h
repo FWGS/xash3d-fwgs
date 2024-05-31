@@ -34,9 +34,15 @@ typedef struct
 	int	playtime;		// stream size in milliseconds
 } wavinfo_t;
 
+#ifdef _MSC_VER // a1ba: MSVC6 don't have ssize_t
+typedef long		mpg_ssize_t;
+#else
+typedef ssize_t		mpg_ssize_t;
+#endif
+
 // custom stdio
-typedef long (*pfread)( void *handle, void *buf, size_t count );
-typedef long (*pfseek)( void *handle, long offset, int whence );
+typedef mpg_ssize_t (*pfread)( void *handle, void *buf, size_t count );
+typedef fs_offset_t (*pfseek)( void *handle, fs_offset_t offset, int whence );
 
 extern void *create_decoder( int *error );
 extern int feed_mpeg_header( void *mpg, const byte *data, long bufsize, long streamsize, wavinfo_t *sc );
