@@ -229,7 +229,7 @@ typedef struct
 	char		serverinfo[MAX_SERVERINFO_STRING];
 	player_info_t	players[MAX_CLIENTS];	// collected info about all other players include himself
 	double		lastresourcecheck;
-	string		downloadUrl;
+	qboolean		http_download;
 	event_state_t	events;
 
 	// predicting stuff but not only...
