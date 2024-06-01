@@ -852,7 +852,7 @@ static void SV_TestBandWidth( netadr_t from )
 	}
 
 	// quickly reject invalid packets
-	if( !svs.testpacket_buf ||
+	if( !sv_allow_testpacket.value || !svs.testpacket_buf ||
 		( packetsize <= FRAGMENT_MIN_SIZE ) ||
 		( packetsize > FRAGMENT_MAX_SIZE ))
 	{
@@ -2035,7 +2035,7 @@ static qboolean SV_Kill_f( sv_client_t *cl )
 {
 	if( !SV_IsValidEdict( cl->edict ))
 		return true;
-	
+
 	if( cl->state != cs_spawned )
 	{
 		SV_ClientPrintf( cl, "Can't suicide - not connected!\n" );
@@ -2424,7 +2424,7 @@ static qboolean SV_EntList_f( sv_client_t *cl )
 
 		// filter by string
 		if( Cmd_Argc() > 1 )
-		{ 
+		{
 			if( !Q_stricmpext( Cmd_Argv( 1 ), STRING( ent->v.classname ) ) && !Q_stricmpext( Cmd_Argv( 1 ), STRING( ent->v.targetname ) ) )
 				continue;
 		}

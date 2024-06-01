@@ -475,6 +475,7 @@ extern convar_t		sv_fullupdate_penalty_time;
 extern convar_t		sv_log_outofband;
 extern convar_t		sv_allow_autoaim;
 extern convar_t		sv_aim;
+extern convar_t		sv_allow_testpacket;
 
 //===========================================================
 //
@@ -503,6 +504,7 @@ void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
 model_t *SV_ModelHandle( int modelindex );
 void SV_DeactivateServer( void );
+void SV_FreeTestPacket( void );
 
 //
 // sv_phys.c
