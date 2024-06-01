@@ -458,6 +458,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 	byte		data[MAX_INIT_MSG];
 	resource_t	*p, *n;
 	sizebuf_t		msg;
+	qboolean		done_downloading = true;
 
 	MSG_Init( &msg, "Resource Batch", data, sizeof( data ));
 
@@ -487,7 +488,10 @@ void CL_BatchResourceRequest( qboolean initialize )
 		case t_model:
 		case t_eventscript:
 			if( !CL_CheckFile( &msg, p ))
+			{
+				done_downloading = false;
 				break;
+			}
 			CL_MoveToOnHandList( p );
 			break;
 		case t_skin:
@@ -501,6 +505,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 					MSG_BeginClientCmd( &msg, clc_stringcmd );
 					MSG_WriteStringf( &msg, "dlfile !MD5%s", MD5_Print( p->rgucMD5_hash ));;
 					SetBits( p->ucFlags, RES_REQUESTED );
+					done_downloading = false;
 				}
 				break;
 			}
@@ -525,11 +530,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 
 	if( cls.state != ca_disconnected )
 	{
-		if( !cl.downloadUrl[0] && !MSG_GetNumBytesWritten( &msg ) && CL_PrecacheResources( ))
-		{
-			CL_RegisterResources( &msg );
-		}
-		if( cl.downloadUrl[0] && host.downloadcount == 0 &&  CL_PrecacheResources( ) )
+		if( done_downloading && CL_PrecacheResources( ))
 		{
 			CL_RegisterResources( &msg );
 		}
@@ -1840,13 +1841,10 @@ void CL_ParseResLocation( sizebuf_t *msg )
 		return;
 	}
 
-	while( ( data = COM_ParseFile( data, token, sizeof( token ) ) ) )
+	while(( data = COM_ParseFile( data, token, sizeof( token ))))
 	{
 		Con_Reportf( "Adding %s as download location\n", token );
-
-		if( !cl.downloadUrl[0] )
-			Q_strncpy( cl.downloadUrl, token, sizeof( token ) );
-
+		cl.http_download = true;
 		HTTP_AddCustomServer( token );
 	}
 }
