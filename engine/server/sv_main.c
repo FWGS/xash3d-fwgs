@@ -150,6 +150,8 @@ CVAR_DEFINE_AUTO( sv_userinfo_penalty_attempts, "4", FCVAR_ARCHIVE, "if max atte
 CVAR_DEFINE_AUTO( sv_fullupdate_penalty_time, "1", FCVAR_ARCHIVE, "allow fullupdate command only once in this timewindow (set 0 to disable)" );
 CVAR_DEFINE_AUTO( sv_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
 
+CVAR_DEFINE_AUTO( sv_allow_testpacket, "1", FCVAR_ARCHIVE, "allow generating and sending a big blob of data to test maximum packet size" );
+
 //============================================================================
 /*
 ================
@@ -973,6 +975,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_userinfo_penalty_attempts );
 	Cvar_RegisterVariable( &sv_fullupdate_penalty_time );
 	Cvar_RegisterVariable( &sv_log_outofband );
+	Cvar_RegisterVariable( &sv_allow_testpacket );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );
@@ -1114,6 +1117,9 @@ void SV_Shutdown( const char *finalmsg )
 
 	SV_FreeClients();
 	svs.maxclients = 0;
+
+	// release test packet blob
+	SV_FreeTestPacket();
 
 	// release all models
 	Mod_FreeAll();

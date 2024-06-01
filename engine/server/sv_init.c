@@ -906,6 +906,21 @@ qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multipla
 	return 1;
 }
 
+void SV_FreeTestPacket( void )
+{
+	if( svs.testpacket_buf )
+	{
+		Mem_Free( svs.testpacket_buf );
+		svs.testpacket_buf = NULL;
+	}
+
+	if( svs.testpacket_crcs )
+	{
+		Mem_Free( svs.testpacket_crcs );
+		svs.testpacket_crcs = NULL;
+	}
+}
+
 /*
 ================
 SV_GenerateTestPacket
@@ -917,7 +932,13 @@ static void SV_GenerateTestPacket( void )
 	uint32_t crc;
 	file_t *file;
 	byte *filepos;
-	int i, filesize;
+	int i;
+
+	if( !sv_allow_testpacket.value )
+	{
+		SV_FreeTestPacket();
+		return;
+	}
 
 	// testpacket already generated once, exit
 	// testpacket and lookup table takes ~300k of memory
