@@ -2776,7 +2776,7 @@ static void Mod_CalcPHS( model_t *mod )
 	size_t total_compressed_size = 0;
 	size_t hcount = 0;
 	size_t vcount = 0;
-	size_t i;
+	int i;
 	byte *uncompressed_pvs;
 	byte *uncompressed_phs;
 
