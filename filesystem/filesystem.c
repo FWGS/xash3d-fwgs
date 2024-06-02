@@ -2425,7 +2425,7 @@ static void *FS_CustomAlloc( size_t size )
 
 static void FS_CustomFree( void *data )
 {
-	return Mem_Free( data );
+	Mem_Free( data );
 }
 
 /*
