@@ -608,10 +608,12 @@ static void CL_CreateCmd( void )
 	cl.frametime_remainder += accurate_ms - ms; // accumulate rounding error each frame
 
 	// add a ms if error accumulates enough
-	if( cl.frametime_remainder > 1.0 )
+	if( cl.frametime_remainder >= 1.0 )
 	{
-		cl.frametime_remainder = 0.0;
-		ms++;
+		int ms2 = (int)cl.frametime_remainder;
+
+		ms += ms2;
+		cl.frametime_remainder -= ms2;
 	}
 
 	// ms can't be negative, rely on error accumulation only if FPS > 1000
