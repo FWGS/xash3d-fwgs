@@ -276,6 +276,8 @@ typedef struct
 	model_t		*worldmodel;			// pointer to world
 
 	int lostpackets;					// count lost packets and show dialog in menu
+
+	double frametime_remainder;
 } client_t;
 
 /*
