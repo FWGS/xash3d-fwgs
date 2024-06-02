@@ -587,20 +587,35 @@ CL_CreateCmd
 */
 static void CL_CreateCmd( void )
 {
-	usercmd_t	nullcmd, *cmd;
-	runcmd_t		*pcmd;
-	vec3_t		angles;
-	qboolean		active;
-	int		input_override;
-	int		i, ms;
+	usercmd_t nullcmd, *cmd;
+	runcmd_t  *pcmd;
+	qboolean  active;
+	double    accurate_ms;
+	vec3_t    angles;
+	int       input_override;
+	int       i, ms;
 
 	if( cls.state < ca_connected || cls.state == ca_cinematic )
 		return;
 
 	// store viewangles in case it's will be freeze
 	VectorCopy( cl.viewangles, angles );
-	ms = bound( 1, host.frametime * 1000, 255 );
 	input_override = 0;
+
+	// fix rounding error and framerate depending player move
+	accurate_ms = host.frametime * 1000;
+	ms = (int)accurate_ms;
+	cl.frametime_remainder += accurate_ms - ms; // accumulate rounding error each frame
+
+	// add a ms if error accumulates enough
+	if( cl.frametime_remainder > 1.0 )
+	{
+		cl.frametime_remainder = 0.0;
+		ms++;
+	}
+
+	// ms can't be negative, rely on error accumulation only if FPS > 1000
+	ms = Q_min( ms, 255 );
 
 	CL_SetSolidEntities();
 	CL_PushPMStates();
