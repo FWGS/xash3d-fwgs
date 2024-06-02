@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
+#include "cursor_type.h"
 
 #if XASH_SDL
 #include <SDL.h>
@@ -121,11 +122,6 @@ static void IN_StartupMouse( void )
 	if( Sys_CheckParm(  "-noenginemouse" )) return;
 
 	in_mouseinitialized = true;
-}
-
-void GAME_EXPORT IN_SetCursor( void *hCursor )
-{
-	// stub
 }
 
 /*
