@@ -1097,6 +1097,20 @@ static void GAME_EXPORT pfnCon_DefaultColor( int r, int g, int b )
 	Con_DefaultColor( r, g, b, true );
 }
 
+static void GAME_EXPORT pfnSetCursor( void *hCursor )
+{
+	uintptr_t cursor;
+
+	if( !gameui.use_extended_api )
+		return; // ignore original Xash menus
+
+	cursor = (uintptr_t)hCursor;
+	if( cursor < dc_user || cursor > dc_last )
+		return;
+
+	Platform_SetCursorType( cursor );
+}
+
 // engine callbacks
 static ui_enginefuncs_t gEngfuncs =
 {
@@ -1176,7 +1190,7 @@ static ui_enginefuncs_t gEngfuncs =
 	pfnHostEndGame,
 	COM_RandomFloat,
 	COM_RandomLong,
-	IN_SetCursor,
+	pfnSetCursor,
 	pfnIsMapValid,
 	GL_ProcessTexture,
 	COM_CompareFileTime,
@@ -1286,7 +1300,7 @@ qboolean UI_LoadProgs( void )
 	}
 
 
-	gameui.use_text_api = false;
+	gameui.use_extended_api = false;
 
 	// make local copy of engfuncs to prevent overwrite it with user dll
 	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
@@ -1313,7 +1327,7 @@ qboolean UI_LoadProgs( void )
 		if( GetExtAPI( MENU_EXTENDED_API_VERSION, &gameui.dllFuncs2, &gpExtendedfuncs ) )
 		{
 			Con_Reportf( "UI_LoadProgs: extended Menu API initialized\n" );
-			gameui.use_text_api = true;
+			gameui.use_extended_api = true;
 		}
 	}
 	else // otherwise, fallback to old and deprecated extensions
@@ -1325,7 +1339,7 @@ qboolean UI_LoadProgs( void )
 			if( GiveTextApi( &gpExtendedfuncs ) ) // they are binary compatible, so we can just pass extended funcs API to menu
 			{
 				Con_Reportf( "UI_LoadProgs: extended text API initialized\n" );
-				gameui.use_text_api = true;
+				gameui.use_extended_api = true;
 			}
 		}
 

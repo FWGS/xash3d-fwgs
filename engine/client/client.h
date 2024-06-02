@@ -520,7 +520,7 @@ typedef struct
 	int		logo_yres;
 	float		logo_length;
 
-	qboolean use_text_api;
+	qboolean use_extended_api;
 } gameui_static_t;
 
 typedef struct
