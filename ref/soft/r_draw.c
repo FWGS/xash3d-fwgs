@@ -66,10 +66,10 @@ Draw_StretchPicImplementation
 static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic )
 {
 	pixel_t *source, *dest;
-	unsigned int				v, u, sv;
+	unsigned int				u, sv;
 	unsigned int				height;
 	unsigned int				f, fstep;
-	int				skip;
+	int				skip, v;
 	qboolean transparent = false;
 	pixel_t *buffer;
 
@@ -212,9 +212,9 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 void Draw_Fill (int x, int y, int w, int h)
 {
 	pixel_t *dest;
-	unsigned int				v, u;
+	unsigned int				u;
 	unsigned int				height;
-	int				skip;
+	int				skip, v;
 	pixel_t src = vid.color;
 	int alpha = vid.alpha;
 
