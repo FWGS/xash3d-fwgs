@@ -844,7 +844,7 @@ static void CL_QuakeExecStuff( void )
 	while( 1 )
 	{
 		// skip whitespace up to a /n
-		while( *text && ((byte)*text) <= ' ' && *text != '\r' && *text != '\n' )
+		while( *text && ((byte)*text ) <= ' ' && *text != '\r' && *text != '\n' )
 			text++;
 
 		if( *text == '\n' || *text == '\r' )

@@ -640,7 +640,7 @@ void Cmd_TokenizeString( const char *text )
 	while( 1 )
 	{
 		// skip whitespace up to a /n
-		while( *text && *text <= ' ' && *text != '\r' && *text != '\n' )
+		while( *text && ((byte)*text ) <= ' ' && *text != '\r' && *text != '\n' )
 			text++;
 
 		if( *text == '\n' || *text == '\r' )
