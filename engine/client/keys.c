@@ -553,7 +553,7 @@ static void Key_AddKeyCommands( int key, const char *kb, qboolean down )
 			}
 
 			buttonPtr = button;
-			while(( kb[i] <= ' ' || kb[i] == ';' ) && kb[i] != 0 )
+			while((((byte)kb[i]) <= ' ' || kb[i] == ';' ) && kb[i] != 0 )
 				i++;
 		}
 

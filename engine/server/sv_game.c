@@ -256,7 +256,7 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 		return;
 	}
 
-	if( !modelname || modelname[0] <= ' ' )
+	if( !modelname || ((byte)modelname[0] ) <= ' ' )
 	{
 		Con_Printf( S_WARN "SV_SetModel: null name\n" );
 		return;
