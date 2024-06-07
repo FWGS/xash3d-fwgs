@@ -632,6 +632,9 @@ typedef struct
 	int extensions;
 
 	netadr_t serveradr;
+
+	// do we accept utf8 as input
+	qboolean accept_utf8;
 } client_static_t;
 
 #ifdef __cplusplus

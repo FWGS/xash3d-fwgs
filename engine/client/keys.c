@@ -1055,15 +1055,16 @@ static qboolean OSK_KeyEvent( int key, int down )
 					break;
 				}
 
-				ch = Con_UtfProcessChar((byte)osk.curbutton.val );
+				ch = (byte)osk.curbutton.val;
+
+				// do not pass UTF-8 sequence into the engine, convert it here
+				if( !cls.accept_utf8 )
+					ch = Con_UtfProcessCharForce( ch );
 
 				if( !ch )
 					break;
 
-				Con_CharEvent( ch );
-				if( cls.key_dest == key_menu )
-					UI_CharEvent ( ch );
-
+				CL_CharEvent( ch );
 				break;
 			}
 		}
@@ -1118,7 +1119,6 @@ static void OSK_EnableTextInput( qboolean enable, qboolean force )
 	{
 		osk.curlayout = 0;
 		osk.curbutton.val = osk_keylayout[osk.curlayout][osk.curbutton.y][osk.curbutton.x];
-
 	}
 }
 

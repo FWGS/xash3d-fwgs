@@ -357,13 +357,17 @@ SDLash_InputEvent
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 static void SDLash_InputEvent( SDL_TextInputEvent input )
 {
-	char *text;
+	const char *text;
+
 	VGui_ReportTextInput( input.text );
+
 	for( text = input.text; *text; text++ )
 	{
-		int ch;
+		int ch = (byte)*text;
 
-		ch = Con_UtfProcessChar((byte)*text );
+		// do not pass UTF-8 sequence into the engine, convert it here
+		if( !cls.accept_utf8 )
+			ch = Con_UtfProcessCharForce( ch );
 
 		if( !ch )
 			continue;
@@ -453,7 +457,7 @@ SDLash_EventFilter
 
 =============
 */
-static void SDLash_EventFilter( SDL_Event *event )
+static void SDLash_EventHandler( SDL_Event *event )
 {
 	switch ( event->type )
 	{
@@ -684,7 +688,7 @@ void Platform_RunEvents( void )
 	SDL_Event event;
 
 	while( !host.crashed && !host.shutdown_issued && SDL_PollEvent( &event ) )
-		SDLash_EventFilter( &event );
+		SDLash_EventHandler( &event );
 
 #if XASH_PSVITA
 	PSVita_InputUpdate();

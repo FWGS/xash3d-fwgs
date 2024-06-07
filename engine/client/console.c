@@ -35,7 +35,6 @@ static CVAR_DEFINE_AUTO( scr_drawversion, "1", FCVAR_ARCHIVE, "draw version in m
 static CVAR_DEFINE_AUTO( con_oldfont, "0", 0, "use legacy font from gfx.wad, might be missing or broken" );
 
 static int g_codepage = 0;
-static qboolean g_utf8 = false;
 
 static qboolean g_messagemode_privileged = true;
 
@@ -635,10 +634,13 @@ int Con_UtfProcessCharForce( int in )
 
 int GAME_EXPORT Con_UtfProcessChar( int in )
 {
-	if( !g_utf8 )
+	if( !cls.accept_utf8 ) // incoming character is not a UTF-8 sequence
 		return in;
+
+	// otherwise, decode it and convert to selected codepage
 	return Con_UtfProcessCharForce( in );
 }
+
 /*
 =================
 Con_UtfMoveLeft
@@ -652,7 +654,7 @@ int Con_UtfMoveLeft( char *str, int pos )
 	int k = 0;
 	int i;
 
-	if( !g_utf8 )
+	if( !cls.accept_utf8 ) // incoming character is not a UTF-8 sequence
 		return pos - 1;
 
 	if( pos == 1 )
@@ -679,7 +681,7 @@ int Con_UtfMoveRight( char *str, int pos, int length )
 	utfstate_t state = { 0 };
 	int i;
 
-	if( !g_utf8 )
+	if( !cls.accept_utf8 ) // incoming character is not a UTF-8 sequence
 		return pos + 1;
 
 	for( i = pos; i <= length; i++ )
@@ -2097,7 +2099,7 @@ void Con_RunConsole( void )
 			g_codepage = 1252;
 		}
 
-		g_utf8 = !Q_stricmp( cl_charset.string, "utf-8" );
+		cls.accept_utf8 = !Q_stricmp( cl_charset.string, "utf-8" );
 		Con_InvalidateFonts();
 		Con_LoadConchars();
 		ClearBits( con_charset.flags,   FCVAR_CHANGED );
