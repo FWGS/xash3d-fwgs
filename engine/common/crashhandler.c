@@ -129,6 +129,22 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 	stackframe.AddrBStore.Mode = AddrModeFlat;
 	stackframe.AddrStack.Offset = context.IntSp;
 	stackframe.AddrStack.Mode = AddrModeFlat;
+#elif _M_ARM
+	image = IMAGE_FILE_MACHINE_ARMNT;
+	stackframe.AddrPC.Offset = context.Pc;
+	stackframe.AddrPC.Mode = AddrModeFlat;
+	stackframe.AddrFrame.Offset = context.R11;
+	stackframe.AddrFrame.Mode = AddrModeFlat;
+	stackframe.AddrStack.Offset = context.Sp;
+	stackframe.AddrStack.Mode = AddrModeFlat;
+#elif _M_ARM64
+	image = IMAGE_FILE_MACHINE_ARM64;
+	stackframe.AddrPC.Offset = context.Pc;
+	stackframe.AddrPC.Mode = AddrModeFlat;
+	stackframe.AddrFrame.Offset = context.Fp;
+	stackframe.AddrFrame.Mode = AddrModeFlat;
+	stackframe.AddrStack.Offset = context.Sp;
+	stackframe.AddrStack.Mode = AddrModeFlat;	
 #elif
 #error
 #endif
