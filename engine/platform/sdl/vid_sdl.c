@@ -843,6 +843,8 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	Uint32 flags = 0;
 
+	Q_strncpy( wndname, GI->title, sizeof( wndname ));
+
 	if( window_mode != WINDOW_MODE_WINDOWED )
 		SetBits( flags, SDL_FULLSCREEN|SDL_HWSURFACE );
 
