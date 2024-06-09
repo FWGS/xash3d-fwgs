@@ -154,7 +154,8 @@ static const sx_preset_t rgsxpre_hlalpha052[] =
 static const sx_preset_t *ptable = rgsxpre;
 
 // cvars
-static CVAR_DEFINE_AUTO( dsp_off, "0",  FCVAR_ARCHIVE, "disable DSP processing" );
+static CVAR_DEFINE_AUTO( dsp_off, "0",  FCVAR_ARCHIVE, "disable DSP processing (deprecated)" );
+static CVAR_DEFINE_AUTO( room_off, "0", FCVAR_ARCHIVE, "disable DSP processing (GoldSrc compatible cvar)" );
 static CVAR_DEFINE_AUTO( dsp_coeff_table, "0", FCVAR_ARCHIVE, "select DSP coefficient table: 0 for release or 1 for alpha 0.52" );
 static CVAR_DEFINE_AUTO( room_type, "0",  0, "current room type preset" );
 
@@ -232,6 +233,7 @@ void SX_Init( void )
 	sxmod2cur = sxmod2 = 450 * ( idsp_dma_speed / SOUND_11k );
 
 	Cvar_RegisterVariable( &dsp_off );
+	Cvar_RegisterVariable( &room_off );
 	Cvar_RegisterVariable( &dsp_coeff_table );
 
 	Cvar_RegisterVariable( &roomwater_type );
@@ -809,7 +811,7 @@ DSP_Process
 */
 void DSP_Process( portable_samplepair_t *pbfront, int sampleCount )
 {
-	if( dsp_off.value || !sampleCount )
+	if( dsp_off.value || room_off.value || !sampleCount )
 		return;
 
 	// preset is already installed by CheckNewDspPresets
@@ -843,7 +845,7 @@ CheckNewDspPresets
 */
 void CheckNewDspPresets( void )
 {
-	if( dsp_off.value != 0.0f )
+	if( dsp_off.value || room_off.value )
 		return;
 
 	if( FBitSet( dsp_coeff_table.flags, FCVAR_CHANGED ))
