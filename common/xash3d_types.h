@@ -101,10 +101,17 @@ typedef uint64_t longtime_t;
 	#define RENAME_SYMBOL( x )
 #endif
 
-#if ( __GNUC__ >= 3 ) || ( defined( __has_builtin ) && __has_builtin( __builtin_expect ))
+#if __GNUC__ >= 3
 	#define unlikely( x )     __builtin_expect( x, 0 )
 	#define likely( x )       __builtin_expect( x, 1 )
-#else
+#elif defined( __has_builtin )
+	#if __has_builtin( __builtin_expect ) // this must be after defined() check
+		#define unlikely( x )     __builtin_expect( x, 0 )
+		#define likely( x )       __builtin_expect( x, 1 )
+	#endif
+#endif
+
+#if !defined( unlikely ) || !defined( likely )
 	#define unlikely( x ) ( x )
 	#define likely( x )   ( x )
 #endif
