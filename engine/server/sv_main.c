@@ -48,7 +48,7 @@ CVAR_DEFINE_AUTO( sv_proxies, "1", FCVAR_SERVER, "maximum count of allowed proxi
 CVAR_DEFINE_AUTO( sv_send_logos, "1", 0, "send custom decal logo to other players so they can view his too" );
 CVAR_DEFINE_AUTO( sv_send_resources, "1", 0, "allow to download missed resources for players" );
 CVAR_DEFINE_AUTO( sv_logbans, "0", 0, "print into the server log info about player bans" );
-CVAR_DEFINE_AUTO( sv_allow_upload, "1", FCVAR_SERVER, "allow uploading custom resources on a server" );
+CVAR_DEFINE( sv_allow_upload, "sv_allowupload", "1", FCVAR_SERVER, "allow uploading custom resources on a server" );
 CVAR_DEFINE( sv_allow_download, "sv_allowdownload", "1", FCVAR_SERVER, "allow downloading custom resources to the client" );
 static CVAR_DEFINE_AUTO( sv_allow_dlfile, "1", 0, "compatibility cvar, does nothing" );
 CVAR_DEFINE_AUTO( sv_uploadmax, "0.5", FCVAR_SERVER, "max size to upload custom resources (500 kB as default)" );
