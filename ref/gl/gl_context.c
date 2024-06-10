@@ -378,6 +378,28 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 	return ret;
 }
 
+static void GAME_EXPORT VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
+{
+	pglTexSubImage2D( GL_TEXTURE_2D, 0, drawX, drawY, blockWidth, blockHeight, GL_RGBA, GL_UNSIGNED_BYTE, rgba );
+}
+
+static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
+{
+	pglEnable( GL_BLEND );
+	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+	if( rect )
+	{
+		pglDisable( GL_ALPHA_TEST );
+	}
+	else
+	{
+		pglEnable( GL_ALPHA_TEST );
+		pglAlphaFunc( GL_GREATER, 0.0f );
+		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	}
+}
+
 static void* GAME_EXPORT R_GetProcAddress( const char *name )
 {
 #ifdef XASH_GL4ES
@@ -392,7 +414,7 @@ static const char *R_GetConfigName( void )
 	return "opengl";
 }
 
-ref_interface_t gReffuncs =
+static ref_interface_t gReffuncs =
 {
 	R_Init,
 	R_Shutdown,
@@ -527,19 +549,8 @@ ref_interface_t gReffuncs =
 	TriFogParams,
 	TriCullFace,
 
-	VGUI_DrawInit,
-	VGUI_DrawShutdown,
-	VGUI_SetupDrawingText,
-	VGUI_SetupDrawingRect,
-	VGUI_SetupDrawingImage,
-	VGUI_BindTexture,
-	VGUI_EnableTexture,
-	VGUI_CreateTexture,
-	VGUI_UploadTexture,
+	VGUI_SetupDrawing,
 	VGUI_UploadTextureBlock,
-	VGUI_DrawQuad,
-	VGUI_GetTextureSizes,
-	VGUI_GenerateTexture,
 };
 
 int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
