@@ -21,7 +21,6 @@ GNU General Public License for more details.
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
 #define TURBSCALE		( 256.0f / ( M_PI2 ))
 
-static const char* r_skyBoxSuffix[SKYBOX_MAX_SIDES] = { "rt", "bk", "lf", "ft", "up", "dn" };
 static const int r_skyTexOrder[SKYBOX_MAX_SIDES] = { 0, 2, 1, 3, 4, 5 };
 
 static const vec3_t skyclip[SKYBOX_MAX_SIDES] =
@@ -85,50 +84,6 @@ static struct
 	float texturescale; // not all textures are 128x128, scale the texcoords down
 } g_ripple;
 
-static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
-{
-	const char	*skybox_ext[3] = { "dds", "tga", "bmp" };
-	int		i, j, num_checked_sides;
-	char		sidename[MAX_VA_STRING];
-
-	// search for skybox images
-	for( i = 0; i < 3; i++ )
-	{
-		// check HL-style skyboxes
-		num_checked_sides = 0;
-		for( j = 0; j < SKYBOX_MAX_SIDES; j++ )
-		{
-			// build side name
-			Q_snprintf( sidename, sizeof( sidename ), "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( gEngfuncs.fsapi->FileExists( sidename, false ))
-			{
-				Q_strncpy( out[j], sidename, sizeof( out[j] ));
-				num_checked_sides++;
-			}
-		}
-
-		if( num_checked_sides == 6 )
-			return true; // image exists
-
-		// check Q1-style skyboxes
-		num_checked_sides = 0;
-		for( j = 0; j < SKYBOX_MAX_SIDES; j++ )
-		{
-			// build side name
-			Q_snprintf( sidename, sizeof( sidename ), "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( gEngfuncs.fsapi->FileExists( sidename, false ))
-			{
-				Q_strncpy( out[j], sidename, sizeof( out[j] ));
-				num_checked_sides++;
-			}
-		}
-
-		if( num_checked_sides == 6 )
-			return true; // images exists
-	}
-
-	return false;
-}
 
 static void DrawSkyPolygon( int nump, vec3_t vecs )
 {
@@ -362,7 +317,7 @@ R_UnloadSkybox
 Unload previous skybox
 ==============
 */
-static void R_UnloadSkybox( void )
+void R_UnloadSkybox( void )
 {
 	int	i;
 
@@ -424,67 +379,6 @@ void R_DrawSkyBox( void )
 		pglFogf( GL_FOG_DENSITY, RI.fogDensity );
 
 	R_LoadIdentity();
-}
-
-/*
-===============
-R_SetupSky
-===============
-*/
-void R_SetupSky( const char *skyboxname )
-{
-	char	loadname[MAX_STRING];
-	char	sidenames[6][MAX_STRING];
-	int	i, len;
-	qboolean result;
-
-	if( !COM_CheckString( skyboxname ))
-	{
-		R_UnloadSkybox();
-		return; // clear old skybox
-	}
-
-	Q_snprintf( loadname, sizeof( loadname ), "gfx/env/%s", skyboxname );
-	COM_StripExtension( loadname );
-
-	// kill the underline suffix to find them manually later
-	len = Q_strlen( loadname );
-
-	if( loadname[len - 1] == '_' )
-		loadname[len - 1] = '\0';
-	result = CheckSkybox( loadname, sidenames );
-
-	// to prevent infinite recursion if default skybox was missed
-	if( !result && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
-	{
-		gEngfuncs.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
-		R_SetupSky( "desert" ); // force to default
-		return;
-	}
-
-	// release old skybox
-	R_UnloadSkybox();
-	gEngfuncs.Con_DPrintf( "SKY:  " );
-
-	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
-	{
-		tr.skyboxTextures[i] = GL_LoadTexture( sidenames[i], NULL, 0, TF_CLAMP|TF_SKY );
-
-		if( !tr.skyboxTextures[i] )
-			break;
-
-		gEngfuncs.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
-	}
-
-	if( i == 6 )
-	{
-		SetBits( tr.world->flags, FWORLD_CUSTOM_SKYBOX );
-		gEngfuncs.Con_DPrintf( "done\n" );
-		return; // loaded
-	}
-
-	gEngfuncs.Con_DPrintf( "^2failed\n" );
-	R_UnloadSkybox();
 }
 
 //==============================================================================

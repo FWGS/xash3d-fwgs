@@ -317,9 +317,16 @@ static void GAME_EXPORT R_ShowTextures( void )
 	// textures undone too
 }
 
-void GAME_EXPORT R_SetupSky(const char *skyboxname)
+static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 {
+	int i;
 
+	// TODO: R_UnloadSkybox();
+	if( !skyboxTextures )
+		return;
+
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+		tr.skyboxTextures[i] = skyboxTextures;
 }
 
 qboolean GAME_EXPORT VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)

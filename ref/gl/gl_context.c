@@ -342,6 +342,24 @@ static void GAME_EXPORT R_SetSkyCloudsTextures( int solidskyTexture, int alphask
 	tr.alphaskyTexture = alphaskyTexture;
 }
 
+/*
+===============
+R_SetupSky
+===============
+*/
+static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
+{
+	int i;
+
+	R_UnloadSkybox();
+
+	if( !skyboxTextures )
+		return;
+
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+		tr.skyboxTextures[i] = skyboxTextures[i];
+}
+
 static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
 {
 	qboolean ret = true;

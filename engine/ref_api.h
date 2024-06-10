@@ -82,6 +82,8 @@ GNU General Public License for more details.
 // (probably will be expanded at some point)
 #define kRenderScreenFadeModulate 0x1000
 
+#define SKYBOX_MAX_SIDES 6 // a box can only have 6 sides
+
 typedef enum
 {
 	DEMO_INACTIVE = 0,
@@ -495,7 +497,7 @@ typedef struct ref_interface_s
 	const byte *(*R_GetTextureOriginalBuffer)( unsigned int idx ); // not always available
 	int (*GL_LoadTextureFromBuffer)( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 	void (*GL_ProcessTexture)( int texnum, float gamma, int topColor, int bottomColor );
-	void (*R_SetupSky)( const char *skyname );
+	void (*R_SetupSky)( int *skyboxTextures );
 
 	// 2D
 	void (*R_Set2DMode)( qboolean enable );

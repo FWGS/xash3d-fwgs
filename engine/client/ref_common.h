@@ -44,6 +44,8 @@ void R_GetTextureParms( int *w, int *h, int texnum );
 
 void GL_RenderFrame( const struct ref_viewpass_s *rvp );
 
+void R_SetupSky( const char *name );
+
 // common engine and renderer cvars
 extern convar_t r_decals;
 extern convar_t r_adjust_fov;
