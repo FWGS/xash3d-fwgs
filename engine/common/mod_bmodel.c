@@ -2066,6 +2066,118 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 	return false;
 }
 
+static void Mod_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
+{
+#if !XASH_DEDICATED
+	rgbdata_t	r_temp, *r_sky;
+	uint	*trans, *rgba;
+	uint	transpix;
+	int	r, g, b;
+	int	i, j, p;
+	char	texname[32];
+	int solidskyTexture, alphaskyTexture;
+
+	if( !ref.initialized )
+		return;
+
+	Q_snprintf( texname, sizeof( texname ), "%s%s.mip", ( mt->offsets[0] > 0 ) ? "#" : "", tx->name );
+
+	if( mt->offsets[0] > 0 )
+	{
+		size_t size = sizeof( mip_t ) + (( mt->width * mt->height * 85 ) >> 6 );
+
+		if( custom_palette )
+			size += sizeof( short ) + 768;
+
+		r_sky = FS_LoadImage( texname, (byte *)mt, size );
+	}
+	else
+	{
+		// okay loading it from wad
+		r_sky = FS_LoadImage( texname, NULL, 0 );
+	}
+
+	if( !r_sky || !r_sky->palette || r_sky->type != PF_INDEXED_32 || r_sky->height == 0 )
+	{
+		Con_Printf( S_ERROR "%s: unable to load sky texture %s\n", tx->name );
+
+		if( r_sky )
+			FS_FreeImage( r_sky );
+
+		return;
+	}
+
+	// make an average value for the back to avoid
+	// a fringe on the top level
+	trans = Mem_Malloc( host.mempool, r_sky->height * r_sky->height * sizeof( *trans ));
+	r = g = b = 0;
+
+	for( i = 0; i < r_sky->width >> 1; i++ )
+	{
+		for( j = 0; j < r_sky->height; j++ )
+		{
+			p = r_sky->buffer[i * r_sky->width + j + r_sky->height];
+			rgba = (uint *)r_sky->palette + p;
+			trans[(i * r_sky->height) + j] = *rgba;
+			r += ((byte *)rgba)[0];
+			g += ((byte *)rgba)[1];
+			b += ((byte *)rgba)[2];
+		}
+	}
+
+	((byte *)&transpix)[0] = r / ( r_sky->height * r_sky->height );
+	((byte *)&transpix)[1] = g / ( r_sky->height * r_sky->height );
+	((byte *)&transpix)[2] = b / ( r_sky->height * r_sky->height );
+	((byte *)&transpix)[3] = 0;
+
+	// build a temporary image
+	r_temp = *r_sky;
+	r_temp.width = r_sky->width >> 1;
+	r_temp.height = r_sky->height;
+	r_temp.type = PF_RGBA_32;
+	r_temp.flags = IMAGE_HAS_COLOR;
+	r_temp.size = r_temp.width * r_temp.height * 4;
+	r_temp.buffer = (byte *)trans;
+	r_temp.palette = NULL;
+
+	// load it in
+	solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP );
+
+	for( i = 0; i < r_sky->width >> 1; i++ )
+	{
+		for( j = 0; j < r_sky->height; j++ )
+		{
+			p = r_sky->buffer[i * r_sky->width + j];
+
+			if( p == 0 )
+			{
+				trans[(i * r_sky->height) + j] = transpix;
+			}
+			else
+			{
+				rgba = (uint *)r_sky->palette + p;
+				trans[(i * r_sky->height) + j] = *rgba;
+			}
+		}
+	}
+
+	r_temp.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
+
+	// load it in
+	alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP );
+
+	// clean up
+	FS_FreeImage( r_sky );
+	Mem_Free( trans );
+
+	// notify the renderer
+	ref.dllFuncs.R_SetSkyCloudsTextures( solidskyTexture, alphaskyTexture );
+
+	if( solidskyTexture && alphaskyTexture )
+		SetBits( world.flags, FWORLD_SKYSPHERE );
+#endif // !XASH_DEDICATED
+}
+
 static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 {
 	texture_t *texture = NULL;
@@ -2093,17 +2205,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// check for multi-layered sky texture (quake1 specific)
 	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
 	{
-#if !XASH_DEDICATED
-		if( !Host_IsDedicated( ))
-		{
-			ref.dllFuncs.R_InitSkyClouds( mipTex, texture, usesCustomPalette ); // load quake sky
-
-			if( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ) && R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ))
-				SetBits( world.flags, FWORLD_SKYSPHERE );
-		}
-#endif // !XASH_DEDICATED
-
-		// No texture to load in this case, so just exit.
+		Mod_InitSkyClouds( mipTex, texture, usesCustomPalette ); // load quake sky
 		return;
 	}
 
@@ -2376,8 +2478,8 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 	// release old sky layers first
 	if( !Host_IsDedicated() && bmod->isworld )
 	{
-		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_ALPHASKY_TEXTURE ));
-		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( REF_SOLIDSKY_TEXTURE ));
+		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( "alpha_sky" ));
+		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( "solid_sky" ));
 	}
 #endif
 

@@ -328,9 +328,10 @@ qboolean GAME_EXPORT VID_CubemapShot(const char *base, uint size, const float *v
 	return false;
 }
 
-void R_InitSkyClouds(mip_t *mt, texture_t *tx, qboolean custom_palette)
+static void GAME_EXPORT R_SetSkyCloudsTextures( int solidskyTexture, int alphaskyTexture )
 {
-
+	tr.solidskyTexture = solidskyTexture;
+	tr.alphaskyTexture = alphaskyTexture;
 }
 
 static void GAME_EXPORT GL_SubdivideSurface( model_t *mod, msurface_t *fa )
@@ -456,7 +457,7 @@ ref_interface_t gReffuncs =
 	R_StudioLerpMovement,
 	CL_InitStudioAPI,
 
-	R_InitSkyClouds,
+	R_SetSkyCloudsTextures,
 	GL_SubdivideSurface,
 	CL_RunLightStyles,
 

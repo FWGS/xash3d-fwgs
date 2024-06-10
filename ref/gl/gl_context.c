@@ -328,6 +328,20 @@ static void GAME_EXPORT R_Flush( unsigned int flags )
 	// stub
 }
 
+/*
+=============
+R_SetSkyCloudsTextures
+
+Quake sky cloud texture was processed by the engine,
+remember them for easier access during rendering
+==============
+*/
+static void GAME_EXPORT R_SetSkyCloudsTextures( int solidskyTexture, int alphaskyTexture )
+{
+	tr.solidskyTexture = solidskyTexture;
+	tr.alphaskyTexture = alphaskyTexture;
+}
+
 static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
 {
 	qboolean ret = true;
@@ -424,7 +438,7 @@ ref_interface_t gReffuncs =
 	R_StudioLerpMovement,
 	CL_InitStudioAPI,
 
-	R_InitSkyClouds,
+	R_SetSkyCloudsTextures,
 	GL_SubdivideSurface,
 	CL_RunLightStyles,
 
