@@ -65,10 +65,7 @@ Draw_StretchPicImplementation
 */
 static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t	*pic )
 {
-	pixel_t *source, *dest;
-	unsigned int				u, sv;
 	unsigned int				height;
-	unsigned int				f, fstep;
 	int				skip, v;
 	qboolean transparent = false;
 	pixel_t *buffer;
@@ -108,8 +105,6 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 	else
 		skip = 0;
 
-	dest = vid.buffer + y * vid.rowbytes + x;
-
 	if( pic->alpha_pixels )
 	{
 		buffer = pic->alpha_pixels;
@@ -119,73 +114,55 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 		buffer = pic->pixels[0];
 
 
-	#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 	for (v=0 ; v<height ; v++)
 	{
 		int alpha1 = vid.alpha;
-#ifdef	_OPENMP
 		pixel_t			*dest = vid.buffer + (y + v) * vid.rowbytes + x;
-#endif
-		sv = (skip + v)*(t2-t1)/h + t1;
-		source = buffer + sv*pic->width + s1;
+		uint sv = (skip + v)*(t2-t1)/h + t1;
+		uint u, f, fstep;
+		pixel_t *source = buffer + sv*pic->width + s1;
 
+		f = 0;
+		fstep = ((s2-s1) << 16)/w;
+
+		for (u=0 ; u<w ; u++)
 		{
-			f = 0;
-			fstep = ((s2-s1) << 16)/w;
+			pixel_t src = source[f>>16];
+			int alpha = alpha1;
+			f += fstep;
 
-#if 0
-			for (u=0 ; u<w ; u+=4)
+			if( transparent )
 			{
-				dest[u] = source[f>>16];
-				f += fstep;
-				dest[u+1] = source[f>>16];
-				f += fstep;
-				dest[u+2] = source[f>>16];
-				f += fstep;
-				dest[u+3] = source[f>>16];
-				f += fstep;
+				alpha &= src >> ( 16 - 3 );
+				src = src << 3;
 			}
-#else
-			for (u=0 ; u<w ; u++)
+
+			if( alpha == 0 )
+				continue;
+
+			if( vid.color != COLOR_WHITE )
+				src = vid.modmap[(src & 0xff00)|(vid.color>>8)] << 8 | (src & vid.color & 0xff) | ((src & 0xff) >> 3);
+
+			if( vid.rendermode == kRenderTransAdd)
 			{
-				pixel_t src = source[f>>16];
-				int alpha = alpha1;
-				f += fstep;
-
-				if( transparent )
-				{
-					alpha &= src >> ( 16 - 3 );
-					src = src << 3;
-				}
-
-				if( alpha == 0 )
-					continue;
-
-				if( vid.color != COLOR_WHITE )
-					src = vid.modmap[(src & 0xff00)|(vid.color>>8)] << 8 | (src & vid.color & 0xff) | ((src & 0xff) >> 3);
-
-				if( vid.rendermode == kRenderTransAdd)
-				{
-					pixel_t screen = dest[u];
-					dest[u] = vid.addmap[(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
-				}
-				else if( vid.rendermode == kRenderScreenFadeModulate )
-				{
-					pixel_t screen = dest[u];
-					dest[u] = BLEND_COLOR( screen, vid.color );
-				}
-				else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
-				{
-					pixel_t screen = dest[u]; //  | 0xff & screen & src ;
-					dest[u] = BLEND_ALPHA( alpha, src, screen );//vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
-				}
-				else
-					dest[u] = src;
-
+				pixel_t screen = dest[u];
+				dest[u] = vid.addmap[(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
 			}
-#endif
+			else if( vid.rendermode == kRenderScreenFadeModulate )
+			{
+				pixel_t screen = dest[u];
+				dest[u] = BLEND_COLOR( screen, vid.color );
+			}
+			else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
+			{
+				pixel_t screen = dest[u]; //  | 0xff & screen & src ;
+				dest[u] = BLEND_ALPHA( alpha, src, screen );//vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
+			}
+			else
+				dest[u] = src;
+
 		}
-		dest += vid.rowbytes;
 	}
 }
 
@@ -211,10 +188,8 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 
 void Draw_Fill (int x, int y, int w, int h)
 {
-	pixel_t *dest;
-	unsigned int				u;
-	unsigned int				height;
-	int				skip, v;
+	unsigned int height;
+	int v;
 	pixel_t src = vid.color;
 	int alpha = vid.alpha;
 
@@ -238,60 +213,34 @@ void Draw_Fill (int x, int y, int w, int h)
 	{
 		if( h <= -y )
 			return;
-		skip = -y;
 		height += y;
 		y = 0;
 	}
-	else
-		skip = 0;
 
-	dest = vid.buffer + y * vid.rowbytes + x;
-
-	#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 	for (v=0 ; v<height ; v++)
 	{
-#ifdef	_OPENMP
-		pixel_t			*dest = vid.buffer + (y + v) * vid.rowbytes + x;
-#endif
+		pixel_t *dest = vid.buffer + (y + v) * vid.rowbytes + x;
+		uint u;
 
+		for (u=0 ; u<w ; u++)
 		{
+			if( alpha == 0 )
+				continue;
 
-#if 0
-			for (u=0 ; u<w ; u+=4)
+			if( vid.rendermode == kRenderTransAdd)
 			{
-				dest[u] = source[f>>16];
-				f += fstep;
-				dest[u+1] = source[f>>16];
-				f += fstep;
-				dest[u+2] = source[f>>16];
-				f += fstep;
-				dest[u+3] = source[f>>16];
-				f += fstep;
+				pixel_t screen = dest[u];
+				dest[u] = vid.addmap[(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
 			}
-#else
-			for (u=0 ; u<w ; u++)
+			else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
 			{
-				if( alpha == 0 )
-					continue;
-
-				if( vid.rendermode == kRenderTransAdd)
-				{
-					pixel_t screen = dest[u];
-					dest[u] = vid.addmap[(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) | ((src & 0xff) >> 0);
-				}
-				else if( alpha < 7) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
-				{
-					pixel_t screen = dest[u]; //  | 0xff & screen & src ;
-					dest[u] = BLEND_ALPHA( alpha, src, screen);//vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
-
-				}
-				else
-					dest[u] = src;
-
+				pixel_t screen = dest[u]; //  | 0xff & screen & src ;
+				dest[u] = BLEND_ALPHA( alpha, src, screen);//vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
 			}
-#endif
+			else
+				dest[u] = src;
 		}
-		dest += vid.rowbytes;
 	}
 }
 
