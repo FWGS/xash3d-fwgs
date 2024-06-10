@@ -320,7 +320,7 @@ static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 		return;
 
 	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
-		tr.skyboxTextures[i] = skyboxTextures;
+		tr.skyboxTextures[i] = skyboxTextures[i];
 }
 
 qboolean GAME_EXPORT VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)
