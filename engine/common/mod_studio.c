@@ -780,7 +780,7 @@ extract texture filename from modelname
 */
 const char *Mod_StudioTexName( const char *modname )
 {
-	static char	texname[MAX_QPATH];
+	static char	texname[MAX_QPATH+1];
 
 	Q_strncpy( texname, modname, sizeof( texname ));
 	COM_StripExtension( texname );
