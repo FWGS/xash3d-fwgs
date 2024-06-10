@@ -235,8 +235,6 @@ static int GL_RefGetParm( int parm, int arg )
 		return glConfig.wrapper;
 	case PARM_STENCIL_ACTIVE:
 		return glState.stencilEnabled;
-	case PARM_SKY_SPHERE:
-		return FBitSet( tr.world->flags, FWORLD_SKYSPHERE ) && !FBitSet( tr.world->flags, FWORLD_CUSTOM_SKYBOX );
 	case PARM_TEX_FILTERING:
 		if( arg < 0 )
 			return gl_texture_nearest.value == 0.0f;
