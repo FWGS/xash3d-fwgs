@@ -841,6 +841,22 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 	return (studiohdr_t *)buffer;
 }
 
+static studiohdr_t *Mod_MaybeTruncateStudioTextureData( model_t *mod )
+{
+#if XASH_LOW_MEMORY
+	studiohdr_t *phdr = (studiohdr_t *)mod->cache.data;
+
+	mod->cache.data = Mem_Realloc( mod->mempool, mod->cache.data, phdr->texturedataindex );
+	phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
+	phdr->length = phdr->texturedataindex; // update model size
+
+	return phdr;
+#else
+	// NOTE: some mods potentially might require full studio model data
+	return (studiohdr_t *)mod->cache.data;
+#endif
+}
+
 /*
 =================
 Mod_LoadStudioModel
@@ -860,72 +876,57 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	phdr = R_StudioLoadHeader( mod, buffer );
 	if( !phdr ) return;	// bad model
 
-	if( !Host_IsDedicated() )
+	if( !Host_IsDedicated( ) && phdr->numtextures == 0 )
 	{
-		if( phdr->numtextures == 0 )
+		studiohdr_t *thdr;
+		void *buffer2;
+
+		buffer2 = FS_LoadFile( Mod_StudioTexName( mod->name ), NULL, false );
+		thdr = R_StudioLoadHeader( mod, buffer2 );
+
+		if( thdr != NULL )
 		{
-			studiohdr_t	*thdr;
-			byte		*in, *out;
-			void		*buffer2 = NULL;
-			size_t		size1, size2;
+			byte *in, *out;
+			size_t size1, size2;
 
-			buffer2 = FS_LoadFile( Mod_StudioTexName( mod->name ), NULL, false );
-			thdr = R_StudioLoadHeader( mod, buffer2 );
-
-			if( !thdr )
-			{
-				Con_Printf( S_WARN "Mod_LoadStudioModel: %s missing textures file\n", mod->name );
-				if( buffer2 ) Mem_Free( buffer2 );
-			}
-			else
-			{
-#if !XASH_DEDICATED
-				ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
-#endif
-
-				// give space for textures and skinrefs
-				size1 = thdr->numtextures * sizeof( mstudiotexture_t );
-				size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
-				mod->cache.data = Mem_Calloc( mod->mempool, phdr->length + size1 + size2 );
-				memcpy( mod->cache.data, buffer, phdr->length ); // copy main mdl buffer
-				phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
-				phdr->numskinfamilies = thdr->numskinfamilies;
-				phdr->numtextures = thdr->numtextures;
-				phdr->numskinref = thdr->numskinref;
-				phdr->textureindex = phdr->length;
-				phdr->skinindex = phdr->textureindex + size1;
-
-				in = (byte *)thdr + thdr->textureindex;
-				out = (byte *)phdr + phdr->textureindex;
-				memcpy( out, in, size1 + size2 );	// copy textures + skinrefs
-				phdr->length += size1 + size2;
-				Mem_Free( buffer2 ); // release T.mdl
-			}
-		}
-		else
-		{
-			// NOTE: don't modify source buffer because it's used for CRC computing
-			mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
-			memcpy( mod->cache.data, buffer, phdr->length );
+			// give space for textures and skinrefs
+			size1 = thdr->numtextures * sizeof( mstudiotexture_t );
+			size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
+			mod->cache.data = Mem_Calloc( mod->mempool, phdr->length + size1 + size2 );
+			memcpy( mod->cache.data, buffer, phdr->length ); // copy main mdl buffer
 			phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
-#if !XASH_DEDICATED
-			ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
-#endif
+			phdr->numskinfamilies = thdr->numskinfamilies;
+			phdr->numtextures = thdr->numtextures;
+			phdr->numskinref = thdr->numskinref;
+			phdr->textureindex = phdr->length;
+			phdr->skinindex = phdr->textureindex + size1;
 
-			// NOTE: we wan't keep raw textures in memory. just cutoff model pointer above texture base
-			mod->cache.data = Mem_Realloc( mod->mempool, mod->cache.data, phdr->texturedataindex );
-			phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
-			phdr->length = phdr->texturedataindex;	// update model size
+			in = (byte *)thdr + thdr->textureindex;
+			out = (byte *)phdr + phdr->textureindex;
+			memcpy( out, in, size1 + size2 );	// copy textures + skinrefs
+			phdr->length += size1 + size2;
 		}
+		else Con_Printf( S_WARN "%s: %s missing textures file\n", __func__, mod->name );
+
+		if( buffer2 )
+			Mem_Free( buffer2 ); // release T.mdl
 	}
 	else
 	{
-		// just copy model into memory
+		// NOTE: don't modify source buffer because it's used for CRC computing
 		mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
 		memcpy( mod->cache.data, buffer, phdr->length );
-
 		phdr = mod->cache.data;
 	}
+
+
+#if !XASH_DEDICATED
+	if( !Host_IsDedicated( ))
+		ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
+#endif
+
+	// NOTE: we may not want to keep raw textures in memory. just cutoff model pointer above texture base
+	phdr = Mod_MaybeTruncateStudioTextureData( mod );
 
 	// setup bounding box
 	if( !VectorCompare( vec3_origin, phdr->bbmin ))
