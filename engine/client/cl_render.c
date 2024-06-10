@@ -172,6 +172,10 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 		return refState.height;
 	case PARM_SKY_SPHERE:
 		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
+	case PARM_SURF_SAMPLESIZE:
+		if( arg >= 0 && arg < cl.worldmodel->numsurfaces )
+			return Mod_SampleSizeForFace( &cl.worldmodel->surfaces[arg] );
+		return LM_SAMPLE_SIZE;
 	default:
 		// indicates call from client.dll
 		if( checkRef )

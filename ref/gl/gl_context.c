@@ -225,10 +225,6 @@ static int GL_RefGetParm( int parm, int arg )
 		return GL_MaxTextureUnits();
 	case PARM_REBUILD_GAMMA:
 		return glConfig.softwareGammaUpdate;
-	case PARM_SURF_SAMPLESIZE:
-		if( arg >= 0 && arg < WORLDMODEL->numsurfaces )
-			return gEngfuncs.Mod_SampleSizeForFace( &WORLDMODEL->surfaces[arg] );
-		return LM_SAMPLE_SIZE;
 	case PARM_GL_CONTEXT_TYPE:
 		return glConfig.context;
 	case PARM_GLES_WRAPPER:
