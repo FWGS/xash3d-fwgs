@@ -1057,7 +1057,6 @@ int Con_UtfMoveRight( char *str, int pos, int length );
 void Con_DefaultColor( int r, int g, int b, qboolean gameui );
 cl_font_t *Con_GetCurFont( void );
 cl_font_t *Con_GetFont( int num );
-void Con_DrawCharacterLen( int number, int *width, int *height );
 int Con_DrawString( int x, int y, const char *string, rgba_t setColor ); // legacy, use cl_font.c
 void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height ); // legacy, use cl_font.c
 void Con_CharEvent( int key );

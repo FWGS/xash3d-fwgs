@@ -71,8 +71,6 @@ static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create
 
 	if( create )
 	{
-
-
 		switch( mod->type )
 		{
 			case mod_studio:
@@ -392,6 +390,14 @@ byte *GAME_EXPORT Mod_GetCurrentVis( void )
 	return NULL;
 }
 
+static void GAME_EXPORT VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
+{
+}
+
+static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
+{
+}
+
 static const char *R_GetConfigName( void )
 {
 	return "ref_soft"; // software specific cvars will go to ref_soft.cfg
@@ -402,7 +408,7 @@ static void* GAME_EXPORT R_GetProcAddress( const char *name )
 	return gEngfuncs.GL_GetProcAddress( name );
 }
 
-ref_interface_t gReffuncs =
+static ref_interface_t gReffuncs =
 {
 	R_Init,
 	R_Shutdown,
@@ -537,19 +543,8 @@ ref_interface_t gReffuncs =
 	TriFogParams,
 	TriCullFace,
 
-	VGUI_DrawInit,
-	VGUI_DrawShutdown,
-	VGUI_SetupDrawingText,
-	VGUI_SetupDrawingRect,
-	VGUI_SetupDrawingImage,
-	VGUI_BindTexture,
-	VGUI_EnableTexture,
-	VGUI_CreateTexture,
-	VGUI_UploadTexture,
+	VGUI_SetupDrawing,
 	VGUI_UploadTextureBlock,
-	VGUI_DrawQuad,
-	VGUI_GetTextureSizes,
-	VGUI_GenerateTexture,
 };
 
 int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
