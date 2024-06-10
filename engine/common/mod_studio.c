@@ -889,6 +889,11 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 			byte *in, *out;
 			size_t size1, size2;
 
+#if !XASH_DEDICATED
+			// TODO: Mod_StudioLoadTextures will crash if passed a merged studio model!
+			ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
+#endif
+
 			// give space for textures and skinrefs
 			size1 = thdr->numtextures * sizeof( mstudiotexture_t );
 			size2 = thdr->numskinfamilies * thdr->numskinref * sizeof( short );
@@ -917,13 +922,12 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 		mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
 		memcpy( mod->cache.data, buffer, phdr->length );
 		phdr = mod->cache.data;
-	}
-
 
 #if !XASH_DEDICATED
-	if( !Host_IsDedicated( ))
-		ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
+		if( !Host_IsDedicated( ))
+			ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 #endif
+	}
 
 	// NOTE: we may not want to keep raw textures in memory. just cutoff model pointer above texture base
 	phdr = Mod_MaybeTruncateStudioTextureData( mod );
