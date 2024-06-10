@@ -249,7 +249,7 @@ void CL_ParseMovevars( sizebuf_t *msg )
 
 	// update sky if changed
 	if( Q_strcmp( clgame.oldmovevars.skyName, clgame.movevars.skyName ) && cl.video_prepped )
-		ref.dllFuncs.R_SetupSky( clgame.movevars.skyName );
+		R_SetupSky( clgame.movevars.skyName );
 
 	memcpy( &clgame.oldmovevars, &clgame.movevars, sizeof( movevars_t ));
 	clgame.entities->curstate.scale = clgame.movevars.waveHeight;
@@ -1645,6 +1645,9 @@ void CL_RegisterResources( sizebuf_t *msg )
 			cl.audio_prepped = true;
 
 			CL_ClearWorld ();
+
+			// load skybox
+			R_SetupSky( clgame.movevars.skyName );
 
 			// tell rendering system we have a new set of models.
 			ref.dllFuncs.R_NewMap ();

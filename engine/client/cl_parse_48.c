@@ -664,6 +664,9 @@ void CL_LegacyPrecache_f( void )
 	if( clgame.entities )
 		clgame.entities->model = cl.worldmodel;
 
+	// load skybox
+	R_SetupSky( clgame.movevars.skyName );
+
 	// tell rendering system we have a new set of models.
 	ref.dllFuncs.R_NewMap ();
 

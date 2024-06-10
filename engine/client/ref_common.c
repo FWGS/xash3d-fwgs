@@ -8,6 +8,8 @@
 struct ref_state_s ref;
 ref_globals_t refState;
 
+static const char* r_skyBoxSuffix[SKYBOX_MAX_SIDES] = { "rt", "bk", "lf", "ft", "up", "dn" };
+
 CVAR_DEFINE_AUTO( gl_vsync, "0", FCVAR_ARCHIVE,  "enable vertical syncronization" );
 CVAR_DEFINE_AUTO( r_showtextures, "0", FCVAR_CHEAT, "show all uploaded textures" );
 CVAR_DEFINE_AUTO( r_adjust_fov, "1", FCVAR_ARCHIVE, "making FOV adjustment for wide-screens" );
@@ -49,13 +51,102 @@ void R_GetTextureParms( int *w, int *h, int texnum )
 	if( h ) *h = REF_GET_PARM( PARM_TEX_HEIGHT, texnum );
 }
 
-/*
-================
-GL_FreeImage
+static qboolean CheckSkybox( const char *name, char out[SKYBOX_MAX_SIDES][MAX_STRING] )
+{
+	static const char *skybox_ext[3] = { "dds", "tga", "bmp" };
+	static const char *skybox_delim[2] = { "", "_" }; // no space for HL style, underscore for Q1 style
+	int	i;
 
-Frees image by name
-================
-*/
+	// search for skybox images
+	for( i = 0; i <	ARRAYSIZE( skybox_ext ); i++ )
+	{
+		int j;
+
+		for( j = 0; j < ARRAYSIZE( skybox_delim ); j++ )
+		{
+			int k, num_checked_sides = 0;
+
+			for( k = 0; k < SKYBOX_MAX_SIDES; k++ )
+			{
+				char sidename[MAX_VA_STRING];
+
+				Q_snprintf( sidename, sizeof( sidename ), "%s%s%s.%s", name, skybox_delim[j], r_skyBoxSuffix[k], skybox_ext[i] );
+				if( g_fsapi.FileExists( sidename, false ))
+				{
+					Q_strncpy( out[k], sidename, sizeof( out[k] ));
+					num_checked_sides++;
+				}
+			}
+
+			if( num_checked_sides == SKYBOX_MAX_SIDES )
+				return true; // image exists
+		}
+	}
+
+	return false;
+}
+
+void R_SetupSky( const char *name )
+{
+	string loadname;
+	char sidenames[SKYBOX_MAX_SIDES][MAX_STRING];
+	int skyboxTextures[SKYBOX_MAX_SIDES] = { 0 };
+	int i, len;
+	qboolean result;
+
+	if( !COM_CheckString( name ))
+	{
+		ref.dllFuncs.R_SetupSky( NULL ); // unload skybox
+		return;
+	}
+
+	Q_snprintf( loadname, sizeof( loadname ), "gfx/env/%s", name );
+	COM_StripExtension( loadname );
+
+	// kill the underline suffix to find them manually later
+	len = Q_strlen( loadname );
+
+	if( loadname[len - 1] == '_' )
+		loadname[len - 1] = '\0';
+	result = CheckSkybox( loadname, sidenames );
+
+	// to prevent infinite recursion if default skybox was missed
+	if( !result && Q_stricmp( name, DEFAULT_SKYBOX_NAME ))
+	{
+		Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", name );
+		R_SetupSky( DEFAULT_SKYBOX_NAME ); // force to default
+		return;
+	}
+
+	ref.dllFuncs.R_SetupSky( NULL ); // unload skybox
+	Con_DPrintf( "SKY:  " );
+
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	{
+		skyboxTextures[i] = ref.dllFuncs.GL_LoadTexture( sidenames[i], NULL, 0, TF_CLAMP|TF_SKY );
+
+		if( !skyboxTextures[i] )
+			break;
+
+		Con_DPrintf( "%s%s%s", name, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
+	}
+
+	if( i == SKYBOX_MAX_SIDES )
+	{
+		SetBits( world.flags, FWORLD_CUSTOM_SKYBOX );
+		Con_DPrintf( "done\n" );
+		ref.dllFuncs.R_SetupSky( skyboxTextures );
+		return; // loaded
+	}
+
+	Con_DPrintf( "^2failed\n" );
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	{
+		if( skyboxTextures[i] )
+			ref.dllFuncs.GL_FreeTexture( skyboxTextures[i] );
+	}
+}
+
 void GAME_EXPORT GL_FreeImage( const char *name )
 {
 	int	texnum;

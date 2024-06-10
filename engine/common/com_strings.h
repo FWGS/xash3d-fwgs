@@ -62,7 +62,7 @@ GNU General Public License for more details.
 #define DEFAULT_SAVE_DIRECTORY	"save/"
 
 // fallback to this skybox
-#define DEFAULT_SKYBOX_PATH		"gfx/env/desert"
+#define DEFAULT_SKYBOX_NAME     "desert"
 
 // playlist for startup videos
 #define DEFAULT_VIDEOLIST_PATH	"media/StartupVids.txt"
