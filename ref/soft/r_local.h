@@ -556,7 +556,6 @@ void R_AliasInit( void );
 // gl_warp.c
 //
 
-void R_InitSkyClouds( mip_t *mt, struct texture_s *tx, qboolean custom_palette );
 void R_AddSkyBoxSurface( msurface_t *fa );
 void R_ClearSkyBox( void );
 void R_DrawSkyBox( void );
@@ -564,7 +563,6 @@ void R_DrawClouds( void );
 void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 #endif
 
-void GAME_EXPORT R_InitSkyClouds( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette );
 //
 // gl_vgui.c
 //

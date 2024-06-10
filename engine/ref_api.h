@@ -161,8 +161,6 @@ enum // r_speeds counters
 #define REF_WHITE_TEXTURE    "*white"
 #define REF_BLACK_TEXTURE    "*black"
 #define REF_PARTICLE_TEXTURE "*particle"
-#define REF_SOLIDSKY_TEXTURE "solid_sky"
-#define REF_ALPHASKY_TEXTURE "alpha_sky"
 
 typedef enum connstate_e
 {
@@ -528,7 +526,7 @@ typedef struct ref_interface_s
 	void (*CL_InitStudioAPI)( void );
 
 	// bmodel
-	void (*R_InitSkyClouds)( struct mip_s *mt, struct texture_s *tx, qboolean custom_palette );
+	void (*R_SetSkyCloudsTextures)( int solidskyTexture, int alphaskyTexture );
 	void (*GL_SubdivideSurface)( model_t *mod, msurface_t *fa );
 	void (*CL_RunLightStyles)( void );
 
