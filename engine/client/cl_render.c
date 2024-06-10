@@ -170,6 +170,8 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 		return refState.width;
 	case PARM_SCREEN_HEIGHT:
 		return refState.height;
+	case PARM_SKY_SPHERE:
+		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
 	default:
 		// indicates call from client.dll
 		if( checkRef )
