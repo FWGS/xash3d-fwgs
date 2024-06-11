@@ -17,8 +17,6 @@ GNU General Public License for more details.
 #include "hpak.h"
 
 #define HPAK_MAX_ENTRIES	0x8000
-#define HPAK_ENTRY_MIN_SIZE	(512)
-#define HPAK_ENTRY_MAX_SIZE	(128 * 1024)
 
 typedef struct hash_pack_queue_s
 {
@@ -29,7 +27,7 @@ typedef struct hash_pack_queue_s
 	struct hash_pack_queue_s	*next;
 } hash_pack_queue_t;
 
-static CVAR_DEFINE_AUTO( hpk_maxsize, "4", FCVAR_ARCHIVE, "set limit by size for all HPK-files ( 0 - unlimited )" );
+static CVAR_DEFINE_AUTO( hpk_maxsize, "8", FCVAR_ARCHIVE, "set limit by size for all HPK-files ( 0 - unlimited )" );
 static hash_pack_queue_t	*gp_hpak_queue = NULL;
 static hpak_header_t	hash_pack_header;
 static hpak_info_t	hash_pack_info;
@@ -517,7 +515,7 @@ void HPAK_CheckSize( const char *filename )
 	Q_strncpy( pakname, filename, sizeof( pakname ));
 	COM_ReplaceExtension( pakname, ".hpk", sizeof( pakname ));
 
-	if( FS_FileSize( pakname, false ) > ( maxsize * 1048576 ))
+	if( FS_FileSize( pakname, false ) > ( maxsize * 1024 * 1024 ))
 	{
 		Con_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize.value );
 		Log_Printf( "Server: Size of %s > %f MB, deleting.\n", filename, hpk_maxsize.value );
