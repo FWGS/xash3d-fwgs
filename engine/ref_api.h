@@ -43,8 +43,15 @@ GNU General Public License for more details.
 //    Renderers are supposed to migrate to ref_client_t/ref_host_t using PARM_GET_CLIENT_PTR and PARM_GET_HOST_PTR
 //    Removed functions to get internal engine structions. Use PARM_GET_*_PTR instead.
 // 7. Gamma fixes.
-#define REF_API_VERSION 7
-
+// 8. Moved common code to engine.
+//    Removed REF_{SOLID,ALPHA}SKY_TEXTURE. Replaced R_InitSkyClouds by R_SetSkyCloudsTextures.
+//    Skybox loading is now done at engine side.
+//    R_SetupSky callback accepts a pointer to an array of 6 integers representing box side textures.
+//    Restored texture replacement from old Xash3D.
+//    PARM_SKY_SPHERE and PARM_SURF_SAMPLESIZE are now handled at engine side.
+//    VGUI rendering code is mostly moved back to engine.
+//    Implemented texture replacement.
+#define REF_API_VERSION 8
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -288,7 +295,7 @@ typedef enum
 
 	// returns non-null integer if filtering is enabled for texture
 	// pass -1 to query global filtering settings
-	PARM_TEX_FILTERING     = -65536,
+	PARM_TEX_FILTERING     = -0x10000,
 } ref_parm_e;
 
 typedef struct ref_api_s
