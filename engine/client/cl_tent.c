@@ -2927,16 +2927,26 @@ static void CL_PlayerDecal( int playernum, int customIndex, int entityIndex, flo
 		{
 			if( !pCust->nUserData1 )
 			{
-				int sprayTextureIndex;
 				char decalname[MAX_VA_STRING];
+				int width, height;
 
 				Q_snprintf( decalname, sizeof( decalname ), "player%dlogo%d", playernum, customIndex );
-				sprayTextureIndex = ref.dllFuncs.GL_FindTexture( decalname );
-				if( sprayTextureIndex != 0 )
-				{
-					ref.dllFuncs.GL_FreeTexture( sprayTextureIndex );
-				}
+				textureIndex = ref.dllFuncs.GL_FindTexture( decalname );
+				if( textureIndex != 0 )
+					ref.dllFuncs.GL_FreeTexture( textureIndex );
+
 				pCust->nUserData1 = GL_LoadTextureInternal( decalname, pCust->pInfo, TF_DECAL );
+
+				width = REF_GET_PARM( PARM_TEX_WIDTH, pCust->nUserData1 );
+				height = REF_GET_PARM( PARM_TEX_HEIGHT, pCust->nUserData1 );
+
+				if( width > cl_logomaxdim.value || height > cl_logomaxdim.value )
+				{
+					double scale = cl_logomaxdim.value / Q_max( width, height );
+					width = round( width * scale );
+					height = round( height * scale );
+					ref.dllFuncs.R_OverrideTextureSourceSize( pCust->nUserData1, width, height ); // default custom decal from HL1
+				}
 			}
 			textureIndex = pCust->nUserData1;
 		}

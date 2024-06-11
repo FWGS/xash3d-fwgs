@@ -17,6 +17,9 @@ GNU General Public License for more details.
 
 #include "custom.h"
 
+#define HPAK_ENTRY_MIN_SIZE	(512)
+#define HPAK_ENTRY_MAX_SIZE	(256 * 1024)
+
 /*
 ========================================================================
 .HPK archive format	(Hash PAK - HPK)

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "custom.h"
 #include "ref_common.h"
+#include "hpak.h" // be aware of HPK limits
 
 static rgbdata_t *CustomDecal_LoadImage( const char *path, void *raw, int size )
 {
@@ -115,11 +116,11 @@ qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResou
 		{
 			if( !FBitSet( flags, FCUST_IGNOREINIT ))
 			{
-				if( pResource->nDownloadSize >= (1 * 1024) && pResource->nDownloadSize <= ( 128 * 1024 ))
+				if( pResource->nDownloadSize >= HPAK_ENTRY_MIN_SIZE && pResource->nDownloadSize <= HPAK_ENTRY_MAX_SIZE )
 				{
 					pCust->bTranslated = true;
 					pCust->nUserData1 = 0;
-					pCust->nUserData2 = 1;
+					pCust->nUserData2 = 7;
 
 					if( !FBitSet( flags, FCUST_WIPEDATA ))
 						pCust->pInfo = CustomDecal_LoadImage( pResource->szFileName, pCust->pBuffer, pCust->resource.nDownloadSize );

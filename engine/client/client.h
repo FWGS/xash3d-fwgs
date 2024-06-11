@@ -654,8 +654,7 @@ extern gameui_static_t	gameui;
 // cvars
 //
 extern convar_t	mp_decals;
-extern convar_t	cl_logofile;
-extern convar_t	cl_logocolor;
+extern convar_t	cl_logomaxdim;
 extern convar_t	cl_allow_download;
 extern convar_t	cl_allow_upload;
 extern convar_t	cl_download_ingame;
