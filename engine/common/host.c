@@ -63,6 +63,7 @@ CVAR_DEFINE( host_maxfps, "fps_max", "72", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "host
 static CVAR_DEFINE_AUTO( host_framerate, "0", FCVAR_FILTERABLE, "locks frame timing to this value in seconds" );
 static CVAR_DEFINE( host_sleeptime, "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
 static CVAR_DEFINE_AUTO( host_sleeptime_debug, "0", 0, "print sleeps between frames" );
+CVAR_DEFINE_AUTO( host_allow_materials, "0", FCVAR_LATCH|FCVAR_ARCHIVE, "allow texture replacements from materials/ folder" );
 CVAR_DEFINE( con_gamemaps, "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
 
 typedef struct feature_message_s
@@ -1327,6 +1328,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cmd_AddRestrictedCommand ( "crash", Host_Crash_f, "a way to force a bus error for development reasons");
 	}
 
+	Cvar_RegisterVariable( &host_allow_materials );
 	Cvar_RegisterVariable( &host_serverstate );
 	Cvar_RegisterVariable( &host_maxfps );
 	Cvar_RegisterVariable( &host_framerate );
@@ -1371,6 +1373,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #ifdef _WIN32
 		Wcon_InitConsoleCommands ();
 #endif
+
+		// disable texture replacements for dedicated
+		Cvar_FullSet( "host_allow_materials", "0", FCVAR_READ_ONLY );
 
 		Cmd_AddRestrictedCommand( "quit", Sys_Quit, "quit the game" );
 		Cmd_AddRestrictedCommand( "exit", Sys_Quit, "quit the game" );

@@ -400,6 +400,14 @@ static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
 	}
 }
 
+static void GAME_EXPORT R_OverrideTextureSourceSize( unsigned int texnum, uint srcWidth, uint srcHeight )
+{
+	gl_texture_t *tx = R_GetTexture( texnum );
+
+	tx->srcWidth = srcWidth;
+	tx->srcHeight = srcHeight;
+}
+
 static void* GAME_EXPORT R_GetProcAddress( const char *name )
 {
 #ifdef XASH_GL4ES
@@ -504,6 +512,7 @@ static ref_interface_t gReffuncs =
 	GL_LoadTextureArray,
 	GL_CreateTextureArray,
 	GL_FreeTexture,
+	R_OverrideTextureSourceSize,
 
 	DrawSingleDecal,
 	R_DecalSetupVerts,

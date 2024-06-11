@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <stdarg.h>
 #include "gl_local.h"
 #include "crclib.h"
 
@@ -2348,4 +2349,39 @@ void R_ShutdownImages( void )
 	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));
 	memset( gl_textures, 0, sizeof( gl_textures ));
 	gl_numTextures = 0;
+}
+
+void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath )
+{
+	if( host_allow_materials->value != 2.0f )
+		return;
+
+	if( gl_texturenum > 0 )
+		gEngfuncs.Con_Printf( "Looking for %s tex replacement..." S_GREEN "OK (%s)\n", modelname, foundpath );
+	else if( gl_texturenum < 0 )
+		gEngfuncs.Con_Printf( "Looking for %s tex replacement..." S_YELLOW "MISS (%s)\n", modelname, foundpath );
+	else
+		gEngfuncs.Con_Printf( "Looking for %s tex replacement..." S_RED "FAIL (%s)\n", modelname, foundpath );
+}
+
+qboolean R_SearchForTextureReplacement( char *out, size_t size, const char *modelname, const char *fmt, ... )
+{
+	va_list ap;
+	int ret;
+
+	va_start( ap, fmt );
+	ret = Q_vsnprintf( out,	size, fmt, ap );
+	va_end( ap );
+
+	if( ret < 0 )
+	{
+		R_TextureReplacementReport( modelname, -1, "overflow" );
+		return false;
+	}
+
+	if( gEngfuncs.fsapi->FileExists( out, false ))
+		return true;
+
+	R_TextureReplacementReport( modelname, -1, out );
+	return false;
 }

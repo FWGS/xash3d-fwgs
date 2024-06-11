@@ -67,8 +67,21 @@ static const byte *R_SpriteLoadFrame( model_t *mod, const void *pin, mspritefram
 	}
 	else
 	{
-		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
+		// partial HD-textures support
+		if( Mod_AllowMaterials( ))
+		{
+			if( R_SearchForTextureReplacement( texname, sizeof( texname ), sprite_name, "materials/%s/%s%i%i.tga", sprite_name, group_suffix, num / 10, num % 10 ))
+			{
+				gl_texturenum = GL_LoadTexture( texname, NULL, 0, r_texFlags );
+				R_TextureReplacementReport( sprite_name, gl_texturenum, texname );
+			}
+		}
+
+		if( gl_texturenum == 0 )
+		{
+			Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
+			gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
+		}
 	}
 
 	// setup frame description

@@ -561,6 +561,8 @@ static void *Mod_LoadAllSkins( model_t *mod, int numskins, daliasskintype_t *psk
 
 	size = m_pAliasHeader->skinwidth * m_pAliasHeader->skinheight;
 
+	// TODO: texture replacement support here
+
 	for( i = 0; i < numskins; i++ )
 	{
 		if( pskintype->type == ALIAS_SKIN_SINGLE )
