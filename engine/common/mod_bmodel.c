@@ -2066,7 +2066,39 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 	return false;
 }
 
-static void Mod_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
+static void Mod_TextureReplacementReport( const char *modelname, const char *texname, const char *type, int gl_texturenum, const char *foundpath )
+{
+	if( host_allow_materials.value != 2.0f )
+		return;
+
+	if( gl_texturenum > 0 ) // found and loaded successfully
+		Con_Printf( "Looking for %s:%s%s tex replacement..." S_GREEN "OK (%s)\n", modelname, texname, type, foundpath );
+	else if( gl_texturenum < 0 ) // not found
+		Con_Printf( "Looking for %s:%s%s tex replacement..." S_YELLOW "MISS (%s)\n", modelname, texname, type, foundpath );
+	else // found but not loaded
+		Con_Printf( "Looking for %s:%s%s tex replacement..." S_RED "FAIL (%s)\n", modelname, texname, type, foundpath );
+}
+
+static qboolean Mod_SearchForTextureReplacement( char *out, size_t size, const char *modelname, const char *texname, const char *type )
+{
+	const char *subdirs[] = { modelname, "common" };
+	int i;
+
+	for( i = 0; i < ARRAYSIZE( subdirs ); i++ )
+	{
+		if( Q_snprintf( out, size, "materials/%s/%s%s.tga", subdirs[i], texname, type ) < 0 )
+			continue; // truncated name
+
+		if( g_fsapi.FileExists( out, false ))
+			return true; // found, load it
+	}
+
+	Mod_TextureReplacementReport( modelname, texname, type, -1, "not found" );
+
+	return false;
+}
+
+static void Mod_InitSkyClouds( model_t *mod, mip_t *mt, texture_t *tx, qboolean custom_palette )
 {
 #if !XASH_DEDICATED
 	rgbdata_t	r_temp, *r_sky;
@@ -2074,11 +2106,46 @@ static void Mod_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette
 	uint	transpix;
 	int	r, g, b;
 	int	i, j, p;
-	char	texname[32];
-	int solidskyTexture, alphaskyTexture;
+	string	texname;
+	int solidskyTexture = 0, alphaskyTexture = 0;
 
 	if( !ref.initialized )
 		return;
+
+	if( Mod_AllowMaterials( ))
+	{
+		rgbdata_t *pic;
+
+		if( Mod_SearchForTextureReplacement( texname, sizeof( texname ), mod->name, mt->name, "_solid" ))
+		{
+			pic = FS_LoadImage( texname, NULL, 0 );
+			if( pic )
+			{
+				// need to do rename texture to properly cleanup these textures on reload
+				solidskyTexture = GL_LoadTextureInternal( "solid_sky", pic, TF_NOMIPMAP );
+				Mod_TextureReplacementReport( mod->name, mt->name, "_solid", solidskyTexture, texname );
+				FS_FreeImage( pic );
+			}
+		}
+
+		if( Mod_SearchForTextureReplacement( texname, sizeof( texname ), mod->name, mt->name, "_alpha" ))
+		{
+			pic = FS_LoadImage( texname, NULL, 0 );
+			if( pic )
+			{
+				alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", pic, TF_NOMIPMAP );
+				Mod_TextureReplacementReport( mod->name, mt->name, "_alpha", alphaskyTexture, texname );
+				FS_FreeImage( pic );
+			}
+		}
+
+		if( !solidskyTexture || !alphaskyTexture )
+		{
+			ref.dllFuncs.GL_FreeTexture( solidskyTexture );
+			ref.dllFuncs.GL_FreeTexture( alphaskyTexture );
+		}
+		else goto done; // replacements found, notify the renderer and exit
+	}
 
 	Q_snprintf( texname, sizeof( texname ), "%s%s.mip", ( mt->offsets[0] > 0 ) ? "#" : "", tx->name );
 
@@ -2170,6 +2237,14 @@ static void Mod_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette
 	FS_FreeImage( r_sky );
 	Mem_Free( trans );
 
+	if( !solidskyTexture || !alphaskyTexture )
+	{
+		ref.dllFuncs.GL_FreeTexture( solidskyTexture );
+		ref.dllFuncs.GL_FreeTexture( alphaskyTexture );
+		return;
+	}
+
+done:
 	// notify the renderer
 	ref.dllFuncs.R_SetSkyCloudsTextures( solidskyTexture, alphaskyTexture );
 
@@ -2184,6 +2259,9 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	mip_t *mipTex = NULL;
 	qboolean usesCustomPalette = false;
 	uint32_t txFlags = 0;
+	char texpath[MAX_VA_STRING];
+	char safemtname[16]; // only for external textures
+	qboolean load_external = false;
 
 	// don't load texture data on dedicated server, as there is no renderer.
 	// but count the wadusage for automatic precache
@@ -2192,6 +2270,14 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// but there is no facility for this yet
 	texture = mod->textures[textureIndex];
 	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
+	usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( mod, bmod, textureIndex );
+
+	// check for multi-layered sky texture (quake1 specific)
+	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
+	{
+		Mod_InitSkyClouds( mod, mipTex, texture, usesCustomPalette ); // load quake sky
+		return;
+	}
 
 	if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && mipTex->name[0] == '{' )
 		SetBits( txFlags, TF_KEEP_SOURCE ); // Paranoia2 texture alpha-tracing
@@ -2200,23 +2286,31 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	if( Mod_LooksLikeWaterTexture( mipTex->name ))
 		SetBits( txFlags, TF_KEEP_SOURCE | TF_EXPAND_SOURCE );
 
-	usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( mod, bmod, textureIndex );
+	// Texture loading order:
+	// 1. HQ from disk
+	// 2. From WAD
+	// 3. Internal from map
 
-	// check for multi-layered sky texture (quake1 specific)
-	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
+	texture->gl_texturenum = 0;
+	Q_strncpy( safemtname, mipTex->name, sizeof( safemtname ));
+	if( safemtname[0] == '*' )
+		safemtname[0] = '!'; // replace unexpected symbol
+
+	if( Mod_AllowMaterials( ))
 	{
-		Mod_InitSkyClouds( mipTex, texture, usesCustomPalette ); // load quake sky
-		return;
+#if !XASH_DEDICATED
+		if( Mod_SearchForTextureReplacement( texpath, sizeof( texpath ), mod->name, safemtname, "" ))
+		{
+			texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
+			load_external = texture->gl_texturenum != 0;
+			Mod_TextureReplacementReport( mod->name, safemtname, "", texture->gl_texturenum, texpath );
+		}
+#endif // !XASH_DEDICATED
 	}
 
-	// Texture loading order:
-	// 1. From WAD
-	// 2. Internal from map
-
 	// Try WAD texture (force while r_wadtextures is 1)
-	if(( r_wadtextures.value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 )
+	if( !texture->gl_texturenum && (( r_wadtextures.value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 ))
 	{
-		char texpath[MAX_VA_STRING];
 		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, mipTex->name, texpath, sizeof( texpath ));
 
 		if( wadIndex >= 0 )
@@ -2251,9 +2345,20 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	}
 
 	// Check for luma texture
-	if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, texture->gl_texturenum ), TF_HAS_LUMA ))
+	texture->fb_texturenum = 0;
+	if( load_external ) // external textures will not have TF_HAS_LUMA flag because it set only from WAD images loader
+	{
+		if( Mod_SearchForTextureReplacement( texpath, sizeof( texpath ), mod->name, safemtname, "_luma" ))
+		{
+			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, TF_MAKELUMA );
+			Mod_TextureReplacementReport( mod->name, safemtname, "_luma", texture->fb_texturenum, texpath );
+		}
+	}
+
+	if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, texture->gl_texturenum ), TF_HAS_LUMA ) && !texture->fb_texturenum )
 	{
 		char texName[64];
+
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
 
 		if( mipTex->offsets[0] > 0 )

@@ -1,5 +1,5 @@
 /*
-features.h - engine features that can be enabled by mod-maker request
+enginefeatures.h - engine features that can be enabled by mod-maker request
 Copyright (C) 2012 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #define ENGINE_COMPUTE_STUDIO_LERP	(1<<7)	// enable MOVETYPE_STEP lerping back in engine
 #define ENGINE_LINEAR_GAMMA_SPACE	(1<<8)	// disable influence of gamma/brightness cvars to textures/lightmaps, for mods with custom renderer
 
+#define ENGINE_DISABLE_HDTEXTURES   (1U<<30) // disable support of HD-textures in case custom renderer have separate way to load them
 #define ENGINE_STEP_POSHISTORY_LERP (1U<<31) // enable MOVETYPE_STEP interpolation based on position history. Incompatible with ENGINE_COMPUTE_STUDIO_LERP!
 
 // adjust the mask when features will be added or removed

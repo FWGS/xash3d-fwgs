@@ -2981,8 +2981,47 @@ int GAME_EXPORT CL_DecalIndex( int id )
 
 	if( cl.decal_index[id] == 0 )
 	{
+		int gl_texturenum = 0;
+
 		Image_SetForceFlags( IL_LOAD_DECAL );
-		cl.decal_index[id] = ref.dllFuncs.GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
+
+		if( Mod_AllowMaterials( ))
+		{
+			string decalname;
+
+			if( Q_snprintf( decalname, sizeof( decalname ), "materials/decals/%s.tga", host.draw_decals[id] ) > 0 )
+			{
+				if( g_fsapi.FileExists( decalname, false ))
+				{
+					gl_texturenum = ref.dllFuncs.GL_LoadTexture( decalname, NULL, 0, TF_DECAL );
+					if( host_allow_materials.value == 2.0f )
+						Con_Printf( "Looking for %s decal replacement...%s (%s)\n", host.draw_decals[id], gl_texturenum != 0 ? S_GREEN "OK" : S_RED "FAIL", decalname );
+				}
+				else if( host_allow_materials.value == 2.0f )
+					Con_Printf( "Looking for %s decal replacement..." S_YELLOW "MISS (%s)\n", host.draw_decals[id], decalname );
+			}
+			else if( host_allow_materials.value == 2.0f )
+				Con_Printf( "Looking for %s decal replacement..." S_YELLOW "MISS (overflow)\n", host.draw_decals[id] );
+
+			if( gl_texturenum )
+			{
+				byte *fin;
+
+				Q_snprintf( decalname, sizeof( decalname ), "decals.wad/%s", host.draw_decals[id] );
+
+				if(( fin = g_fsapi.LoadFile( decalname, NULL, false )) != NULL )
+				{
+					mip_t *mip = (mip_t *)fin;
+					ref.dllFuncs.R_OverrideTextureSourceSize( gl_texturenum, mip->width, mip->height );
+					Mem_Free( fin );
+				}
+			}
+		}
+
+		if( !gl_texturenum )
+			gl_texturenum = ref.dllFuncs.GL_LoadTexture( host.draw_decals[id], NULL, 0, TF_DECAL );
+
+		cl.decal_index[id] = gl_texturenum;
 		Image_ClearForceFlags();
 	}
 

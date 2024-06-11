@@ -3729,6 +3729,7 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	int		flags = 0;
 	char		texname[128], name[128], mdlname[128];
 	texture_t		*tx = NULL;
+	qboolean load_external = false;
 
 	if( ptexture->flags & STUDIO_NF_NORMALMAP )
 		flags |= (TF_NORMALMAP);
@@ -3787,17 +3788,31 @@ static void R_StudioLoadTexture( model_t *mod, studiohdr_t *phdr, mstudiotexture
 	if( FBitSet( ptexture->flags, STUDIO_NF_NOMIPS ))
 		SetBits( flags, TF_NOMIPMAP );
 
-	// NOTE: replace index with pointer to start of imagebuffer, ImageLib expected it
-	//ptexture->index = (int)((byte *)phdr) + ptexture->index;
-	gEngfuncs.Image_SetMDLPointer((byte *)phdr + ptexture->index);
-	size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
-
 	if( FBitSet( gp_host->features, ENGINE_IMPROVED_LINETRACE ) && FBitSet( ptexture->flags, STUDIO_NF_MASKED ))
 		flags |= TF_KEEP_SOURCE; // Paranoia2 texture alpha-tracing
 
-	// build the texname
-	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
-	ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
+	// NOTE: colormaps must have the palette for properly work. Ignore them
+	if( Mod_AllowMaterials( ) && !FBitSet( ptexture->flags, STUDIO_NF_COLORMAP ))
+	{
+		if( R_SearchForTextureReplacement( texname, sizeof( texname ), mdlname, "materials/%s/%s.tga", mdlname, name ))
+		{
+			int gl_texturenum = GL_LoadTexture( texname, NULL, 0, flags );
+			R_TextureReplacementReport( mdlname, gl_texturenum, texname );
+			if(( load_external = gl_texturenum != 0 ))
+				ptexture->index = gl_texturenum;
+		}
+	}
+
+	if( !load_external )
+	{
+		// NOTE: replace index with pointer to start of imagebuffer, ImageLib expected it
+		gEngfuncs.Image_SetMDLPointer((byte *)phdr + ptexture->index);
+		size = sizeof( mstudiotexture_t ) + ptexture->width * ptexture->height + 768;
+
+		// build the texname
+		Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
+		ptexture->index = GL_LoadTexture( texname, (byte *)ptexture, size, flags );
+	}
 
 	if( !ptexture->index )
 	{
