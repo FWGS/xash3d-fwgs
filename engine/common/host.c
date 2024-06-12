@@ -42,7 +42,6 @@ GNU General Public License for more details.
 
 pfnChangeGame	pChangeGame = NULL;
 host_parm_t		host;	// host parms
-sysinfo_t		SI;
 
 #ifdef XASH_ENGINE_TESTS
 struct tests_stats_s tests_stats;
@@ -90,7 +89,7 @@ static feature_message_t engine_features[] =
 { ENGINE_STEP_POSHISTORY_LERP, "MOVETYPE_STEP Position History Based Lerping" },
 };
 
-static void Sys_PrintUsage( void )
+static void Sys_PrintUsage( const char *exename )
 {
 	string version_str;
 	const char *usage_str;
@@ -98,10 +97,14 @@ static void Sys_PrintUsage( void )
 	Q_snprintf( version_str, sizeof( version_str ),
 		XASH_ENGINE_NAME " %i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 
-#if XASH_WIN32
-#define XASH_EXE "(xash).exe"
+#if XASH_MESSAGEBOX != MSGBOX_STDERR
+	#if XASH_WIN32
+		#define XASH_EXE "(xash).exe"
+	#else
+		#define XASH_EXE "(xash)"
+	#endif
 #else
-#define XASH_EXE "(xash)"
+	#define XASH_EXE "%s"
 #endif
 
 #define O( x, y ) "  "x"  "y"\n"
@@ -189,7 +192,8 @@ static void Sys_PrintUsage( void )
 #if XASH_MESSAGEBOX != MSGBOX_STDERR
 	Platform_MessageBox( version_str, usage_str, false );
 #else
-	fprintf( stderr, "%s\n%s", version_str, usage_str );
+	fprintf( stderr, "%s\n", version_str );
+	fprintf( stderr, usage_str, exename );
 #endif
 
 	Sys_Quit();
@@ -1002,27 +1006,42 @@ static uint32_t Host_CheckBugcomp( void )
 	return flags;
 }
 
+static void Host_DetermineExecutableName( char *out, size_t size )
+{
+#if XASH_WIN32
+	char temp[MAX_SYSPATH];
+
+	if( GetModuleFileName( NULL, temp, sizeof( temp )))
+		COM_FileBase( temp, out, size );
+#else
+	if( host.argc > 0 )
+		COM_FileBase( host.argv[0], out, size );
+	else
+		Q_strncpy( out, "xash", size );
+#endif
+}
+
 /*
 =================
 Host_InitCommon
 =================
 */
-static void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame )
+static void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame, char *exename, size_t exename_size )
 {
-	char		dev_level[4];
-	int		developer = DEFAULT_DEV;
-	char ticrate[16];
-	int i;
+	const char *basedir = progname[0] == '#' ? progname + 1 : progname;
+	char dev_level[4], ticrate[16];
+	int developer = DEFAULT_DEV;
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
 	// so we clear all cmd_args, but leave dbg states as well
 	Sys_ParseCommandLine( argc, argv );
+	Host_DetermineExecutableName( exename, exename_size );
 
 	if( !Sys_CheckParm( "-disablehelp" ))
 	{
 		if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ))
-			Sys_PrintUsage();
+			Sys_PrintUsage( exename );
 	}
 
 	if( !Sys_CheckParm( "-noch" ))
@@ -1033,17 +1052,17 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
+	host.type = HOST_DEDICATED; // predict state
+#ifndef XASH_DEDICATED
+	if( !Sys_CheckParm( "-dedicated" ))
+		host.type = HOST_NORMAL;
+#endif
 
 	Memory_Init(); // init memory subsystem
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
 	host.allow_console = DEFAULT_ALLOWCONSOLE;
-
-	// HACKHACK: Quake console is always allowed
-	// TODO: determine if we are running QWrap more reliable
-	if( !host.allow_console && ( Sys_CheckParm( "-console" ) || !Q_stricmp( SI.exeName, "quake" )))
-		host.allow_console = true;
 
 	if( Sys_CheckParm( "-dev" ))
 	{
@@ -1065,40 +1084,9 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	}
 #endif
 
-	host.con_showalways = true;
-
-#if XASH_DEDICATED
-	host.type = HOST_DEDICATED; // predict state
-#else
-	if( Sys_CheckParm("-dedicated") || progname[0] == '#' )
-	{
-		host.type = HOST_DEDICATED;
-	}
-	else
-	{
-		host.type = HOST_NORMAL;
-	}
-#endif
-
-	// set default gamedir
-	if( progname[0] == '#' )
-		progname++;
-
-	Q_strncpy( SI.exeName, progname, sizeof( SI.exeName ));
-	Q_strncpy( SI.basedirName, progname, sizeof( SI.basedirName ));
-
-	if( Host_IsDedicated() )
-	{
-		Sys_MergeCommandLine( );
-
+	// always enable console for Quake
+	if( !host.allow_console && ( Sys_CheckParm( "-console" ) || !Q_strnicmp( exename, "quake", 5 )))
 		host.allow_console = true;
-	}
-	else
-	{
-		// don't show console as default
-		if( developer <= DEV_NORMAL )
-			host.con_showalways = false;
-	}
 
 	// member console allowing
 	host.allow_console_init = host.allow_console;
@@ -1139,8 +1127,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Host_RunTests( 0 );
 #endif
 
-	Platform_Init();
-	FS_Init();
+	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED );
+	FS_Init( basedir );
 
 	Sys_InitLog();
 
@@ -1165,39 +1153,9 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	FS_LoadGameInfo( NULL );
 	Cvar_PostFSInit();
 
-	Q_strncpy( host.gamefolder, GI->gamefolder, sizeof( host.gamefolder ));
-
-	for( i = 0; i < 3; i++ )
-	{
-		const char *rcName;
-		switch( i )
-		{
-		case 0: rcName = SI.basedirName; break; // e.g. valve.rc
-		case 1: rcName = SI.exeName; break;     // e.g. quake.rc
-		case 2: rcName = host.gamefolder; break; // e.g. game.rc (ran from default launcher)
-		}
-
-		if( FS_FileExists( va( "%s.rc", rcName ), false ))
-		{
-			Q_strncpy( SI.rcName, rcName, sizeof( SI.rcName ));
-			break;
-		}
-	}
-
 	Image_CheckPaletteQ1 ();
 	Host_InitDecals ();	// reload decals
 
-	// DEPRECATED: by FWGS fork
-#if 0
-	if( GI->secure )
-	{
-		// clear all developer levels when game is protected
-		Cvar_DirectSet( &host_developer, "0" );
-		host.allow_console_init = false;
-		host.con_showalways = false;
-		host.allow_console = false;
-	}
-#endif
 	HPAK_Init();
 
 	IN_Init();
@@ -1221,13 +1179,13 @@ Host_Main
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
 	static double	oldtime, newtime;
-	string demoname;
+	string demoname, exename;
 
 	host.starttime = Sys_DoubleTime();
 
 	pChangeGame = func;	// may be NULL
 
-	Host_InitCommon( argc, argv, progname, bChangeGame );
+	Host_InitCommon( argc, argv, progname, bChangeGame, exename, sizeof( exename ));
 
 	// init commands and vars
 	if( host_developer.value >= DEV_EXTENDED )
@@ -1293,7 +1251,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	HPAK_CheckIntegrity( CUSTOM_RES_PATH );
 
+
 	host.errorframe = 0;
+
+	if( progname[0] == '#' )
+		progname++;
 
 	// post initializations
 	switch( host.type )
@@ -1303,8 +1265,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Wcon_ShowConsole( false ); // hide console
 #endif
 		// execute startup config and cmdline
-		Cbuf_AddTextf( "exec %s.rc\n", SI.rcName );
+		if( FS_FileExists( va( "%s.rc", progname ), false )) // e.g. valve.rc
+			Cbuf_AddTextf( "exec %s.rc", progname );
+		else if( FS_FileExists( va( "%s.rc", exename ), false )) // e.g. quake.rc
+			Cbuf_AddTextf( "exec %s.rc", exename );
+		else if( FS_FileExists( va( "%s.rc", GI->gamefolder ), false )) // e.g. game.rc (ran from default launcher)
+			Cbuf_AddTextf( "exec %s.rc", GI->gamefolder );
 		Cbuf_Execute();
+
 		if( !host.config_executed )
 		{
 			Cbuf_AddText( "exec config.cfg\n" );

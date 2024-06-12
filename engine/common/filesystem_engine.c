@@ -202,7 +202,7 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 FS_Init
 ================
 */
-void FS_Init( void )
+void FS_Init( const char *basedir )
 {
 	string gamedir;
 	char rodir[MAX_OSPATH], rootdir[MAX_OSPATH];
@@ -221,10 +221,10 @@ void FS_Init( void )
 	COM_StripDirectorySlash( rodir );
 
 	if( !Sys_GetParmFromCmdLine( "-game", gamedir ))
-		Q_strncpy( gamedir, SI.basedirName, sizeof( gamedir )); // gamedir == basedir
+		Q_strncpy( gamedir, basedir, sizeof( gamedir )); // gamedir == basedir
 
 	FS_LoadProgs();
-	if( !FS_InitStdio( true, rootdir, SI.basedirName, gamedir, rodir ))
+	if( !g_fsapi.InitStdio( true, rootdir, basedir, gamedir, rodir ))
 	{
 		Sys_Error( "Can't init filesystem_stdio!\n" );
 		return;
@@ -238,11 +238,11 @@ void FS_Init( void )
 	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 
-	if( !Sys_GetParmFromCmdLine( "-dll", SI.gamedll ))
-		SI.gamedll[0] = 0;
+	if( !Sys_GetParmFromCmdLine( "-dll", host.gamedll ))
+		host.gamedll[0] = 0;
 
-	if( !Sys_GetParmFromCmdLine( "-clientlib", SI.clientlib ))
-		SI.clientlib[0] = 0;
+	if( !Sys_GetParmFromCmdLine( "-clientlib", host.clientlib ))
+		host.clientlib[0] = 0;
 }
 
 /*
@@ -254,8 +254,6 @@ void FS_Shutdown( void )
 {
 	if( g_fsapi.ShutdownStdio )
 		g_fsapi.ShutdownStdio();
-
-	memset( &SI, 0, sizeof( sysinfo_t ));
 
 	FS_UnloadProgs();
 }

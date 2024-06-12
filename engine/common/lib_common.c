@@ -231,9 +231,9 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 		COM_GenerateClientLibraryPath( "menu", out, size );
 		break;
 	case LIBRARY_CLIENT:
-		if( SI.clientlib[0] )
+		if( COM_CheckStringEmpty( host.clientlib ))
 		{
-			Q_strncpy( out, SI.clientlib, size );
+			Q_strncpy( out, host.clientlib, size );
 		}
 		else
 		{
@@ -241,9 +241,9 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 		}
 		break;
 	case LIBRARY_SERVER:
-		if( SI.gamedll[0] )
+		if( COM_CheckStringEmpty( host.gamedll ))
 		{
-			Q_strncpy( out, SI.gamedll, size );
+			Q_strncpy( out, host.gamedll, size );
 		}
 		else
 		{
