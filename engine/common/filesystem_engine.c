@@ -257,7 +257,3 @@ void FS_Shutdown( void )
 
 	FS_UnloadProgs();
 }
-
-
-
-
