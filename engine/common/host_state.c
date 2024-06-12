@@ -137,7 +137,7 @@ static void Host_ShutdownGame( void )
 	}
 }
 
-static void Host_RunFrame( float time )
+static void Host_RunFrame( double time )
 {
 	// at this time, we don't need to get events from OS on dedicated
 #if !XASH_DEDICATED
@@ -168,7 +168,7 @@ static void Host_RunFrame( float time )
 	}
 }
 
-void COM_Frame( float time )
+void COM_Frame( double time )
 {
 	int	loopCount = 0;
 

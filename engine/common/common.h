@@ -523,7 +523,7 @@ qboolean Host_IsLocalClient( void );
 void Host_ShutdownServer( void );
 void Host_Error( const char *error, ... ) _format( 1 );
 void Host_ValidateEngineFeatures( uint32_t features );
-void Host_Frame( float time );
+void Host_Frame( double time );
 void Host_Credits( void );
 
 //
@@ -534,7 +534,7 @@ void COM_NewGame( char const *pMapName );
 void COM_LoadLevel( char const *pMapName, qboolean background );
 void COM_LoadGame( char const *pSaveFileName );
 void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean background );
-void COM_Frame( float time );
+void COM_Frame( double time );
 
 /*
 ==============================================================

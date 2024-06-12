@@ -763,7 +763,7 @@ Host_FilterTime
 Returns false if the time is too short to run a frame
 ===================
 */
-static qboolean Host_FilterTime( float time )
+static qboolean Host_FilterTime( double time )
 {
 	static double	oldtime;
 	double dt;
@@ -793,9 +793,9 @@ static qboolean Host_FilterTime( float time )
 Host_Frame
 =================
 */
-void Host_Frame( float time )
+void Host_Frame( double time )
 {
-	double t1, t2;
+	double t1;
 
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
@@ -813,11 +813,8 @@ void Host_Frame( float time )
 	Host_ClientFrame (); // client frame
 	HTTP_Run();			 // both server and client
 
-	t2 = Sys_DoubleTime();
-
-	host.pureframetime = t2 - t1;
-
 	host.framecount++;
+	host.pureframetime = Sys_DoubleTime() - t1;
 }
 
 /*
