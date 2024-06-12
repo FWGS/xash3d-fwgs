@@ -182,27 +182,6 @@ void Sys_ParseCommandLine( int argc, char** argv )
 }
 
 /*
-==================
-Sys_MergeCommandLine
-
-==================
-*/
-void Sys_MergeCommandLine( void )
-{
-	const char	*blank = "censored";
-	int		i;
-
-	if( !host.change_game ) return;
-
-	for( i = 0; i < host.argc; i++ )
-	{
-		// second call
-		if( Host_IsDedicated() && !Q_strnicmp( "+menu_", host.argv[i], 6 ))
-			host.argv[i] = (char *)blank;
-	}
-}
-
-/*
 ================
 Sys_CheckParm
 

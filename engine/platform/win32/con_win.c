@@ -497,7 +497,7 @@ Con_CreateConsole
 create win32 console
 ================
 */
-void Wcon_CreateConsole( void )
+void Wcon_CreateConsole( qboolean con_showalways )
 {
 	if( Sys_CheckParm( "-log" ))
 		s_wcd.log_active = true;
@@ -544,7 +544,7 @@ void Wcon_CreateConsole( void )
 		SetWindowPos( s_wcd.hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOREPOSITION | SWP_SHOWWINDOW );
 
 		// show console if needed
-		if( host.con_showalways )
+		if( con_showalways )
 		{
 			// make console visible
 			ShowWindow( s_wcd.hWnd, SW_SHOWDEFAULT );

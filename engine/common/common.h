@@ -182,15 +182,6 @@ GAMEINFO stuff
 internal shared gameinfo structure (readonly for engine parts)
 ========================================================================
 */
-typedef struct sysinfo_s
-{
-	string		exeName;		// exe.filename
-	string		rcName;		// .rc script name
-	string		basedirName;	// name of base directory
-	string		gamedll;
-	string		clientlib;
-} sysinfo_t;
-
 typedef enum
 {
 	HOST_INIT = 0,	// initalize operations
@@ -323,7 +314,6 @@ typedef struct host_parm_s
 	qboolean		key_overstrike;	// key overstrike mode
 	qboolean		stuffcmds_pending;	// should execute stuff commands
 	qboolean		allow_cheats;	// this host will allow cheating
-	qboolean		con_showalways;	// show console always (developer and dedicated)
 	qboolean		change_game;	// initialize when game is changed
 	qboolean		mouse_visible;	// vgui override cursor control (never change outside Platform_SetCursorType!)
 	qboolean		shutdown_issued;	// engine is shutting down
@@ -341,7 +331,6 @@ typedef struct host_parm_s
 	qboolean		movevars_changed;
 	qboolean		renderinfo_changed;
 
-	char		gamefolder[MAX_QPATH];	// it's a default gamefolder
 	poolhandle_t imagepool;	// imagelib mempool
 	poolhandle_t soundpool;	// soundlib mempool
 
@@ -357,10 +346,11 @@ typedef struct host_parm_s
 
 	// count of sleeps can be inserted between frames
 	double pureframetime;
+	string		gamedll;
+	string		clientlib;
 } host_parm_t;
 
 extern host_parm_t	host;
-extern sysinfo_t	SI;
 
 #define CMD_SERVERDLL	BIT( 0 )		// added by server.dll
 #define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
@@ -374,7 +364,7 @@ typedef void (*xcommand_t)( void );
 //
 // filesystem_engine.c
 //
-void FS_Init( void );
+void FS_Init( const char *basedir );
 void FS_Shutdown( void );
 void *FS_GetNativeObject( const char *obj );
 
