@@ -341,8 +341,6 @@ typedef struct host_parm_s
 	qboolean		movevars_changed;
 	qboolean		renderinfo_changed;
 
-	char		rootdir[MAX_OSPATH];	// member root directory
-	char		rodir[MAX_OSPATH];		// readonly root
 	char		gamefolder[MAX_QPATH];	// it's a default gamefolder
 	poolhandle_t imagepool;	// imagelib mempool
 	poolhandle_t soundpool;	// soundlib mempool
@@ -376,7 +374,6 @@ typedef void (*xcommand_t)( void );
 //
 // filesystem_engine.c
 //
-qboolean FS_LoadProgs( void );
 void FS_Init( void );
 void FS_Shutdown( void );
 void *FS_GetNativeObject( const char *obj );

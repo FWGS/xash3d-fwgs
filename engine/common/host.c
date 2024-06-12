@@ -18,8 +18,6 @@ GNU General Public License for more details.
 #include <SDL.h>
 #endif // XASH_SDL
 #include <stdarg.h>  // va_args
-#include <errno.h> // errno
-#include <string.h> // strerror
 #if !XASH_WIN32
 #include <unistd.h> // fork
 #include <sys/types.h>
@@ -29,7 +27,6 @@ GNU General Public License for more details.
 #if XASH_EMSCRIPTEN
 #include <emscripten/emscripten.h>
 #endif
-#include <errno.h>
 #include "common.h"
 #include "base_cmd.h"
 #include "client.h"
@@ -1014,24 +1011,21 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 {
 	char		dev_level[4];
 	int		developer = DEFAULT_DEV;
-	const char *baseDir;
 	char ticrate[16];
-	int len, i;
+	int i;
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
 	// so we clear all cmd_args, but leave dbg states as well
 	Sys_ParseCommandLine( argc, argv );
 
-	if( !Sys_CheckParm( "-disablehelp" ) )
+	if( !Sys_CheckParm( "-disablehelp" ))
 	{
-		 if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ) )
-		 {
+		if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ))
 			Sys_PrintUsage();
-		 }
 	}
 
-	if( !Sys_CheckParm( "-noch" ) )
+	if( !Sys_CheckParm( "-noch" ))
 		Sys_SetupCrashHandler();
 
 	host.enabledll = !Sys_CheckParm( "-nodll" );
@@ -1146,91 +1140,6 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 
 	Platform_Init();
-
-	baseDir = getenv( "XASH3D_BASEDIR" );
-
-	if( COM_CheckString( baseDir ) )
-	{
-		Q_strncpy( host.rootdir, baseDir, sizeof( host.rootdir ));
-	}
-	else
-	{
-#if TARGET_OS_IOS
-		Q_strncpy( host.rootdir, IOS_GetDocsDir(), sizeof( host.rootdir ));
-#elif XASH_ANDROID && XASH_SDL
-		Q_strncpy( host.rootdir, SDL_AndroidGetExternalStoragePath(), sizeof( host.rootdir ));
-#elif XASH_PSVITA
-		if ( !PSVita_GetBasePath( host.rootdir, sizeof( host.rootdir )))
-		{
-			Sys_Error( "couldn't find xash3d data directory" );
-			host.rootdir[0] = 0;
-		}
-#elif (XASH_SDL == 2) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
-		char *szBasePath = SDL_GetBasePath();
-		if( szBasePath )
-		{
-			Q_strncpy( host.rootdir, szBasePath, sizeof( host.rootdir ));
-			SDL_free( szBasePath );
-		}
-		else
-		{
-#if XASH_POSIX || XASH_WIN32
-			if( !getcwd( host.rootdir, sizeof( host.rootdir )))
-				Sys_Error( "couldn't determine current directory: %s, getcwd: %s", SDL_GetError(), strerror( errno ));
-#else
-			Sys_Error( "couldn't determine current directory: %s", SDL_GetError() );
-#endif
-		}
-#else
-		if( !getcwd( host.rootdir, sizeof( host.rootdir )))
-		{
-			Sys_Error( "couldn't determine current directory: %s", strerror( errno ) );
-			host.rootdir[0] = 0;
-		}
-#endif
-	}
-
-#if XASH_WIN32
-	COM_FixSlashes( host.rootdir );
-#endif
-
-	len = Q_strlen( host.rootdir );
-
-	if( len && host.rootdir[len - 1] == '/' )
-		host.rootdir[len - 1] = 0;
-
-	// get readonly root. The order is: check for arg, then env.
-	// if still not got it, rodir is disabled.
-	host.rodir[0] = '\0';
-	if( !Sys_GetParmFromCmdLine( "-rodir", host.rodir ))
-	{
-		char *roDir = getenv( "XASH3D_RODIR" );
-
-		if( COM_CheckString( roDir ))
-			Q_strncpy( host.rodir, roDir, sizeof( host.rodir ));
-	}
-
-#if XASH_WIN32
-	COM_FixSlashes( host.rootdir );
-#endif
-
-	len = Q_strlen( host.rodir );
-
-	if( len && host.rodir[len - 1] == '/' )
-		host.rodir[len - 1] = 0;
-
-	if( !COM_CheckStringEmpty( host.rootdir ))
-	{
-		Sys_Error( "Changing working directory failed (empty working directory)\n" );
-		return;
-	}
-
-	FS_LoadProgs();
-
-	// TODO: this function will cause engine to stop in case of fail
-	// when it will have an option to return string error, restore Sys_Error
-	FS_SetCurrentDirectory( host.rootdir );
-
 	FS_Init();
 
 	Sys_InitLog();
