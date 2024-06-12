@@ -866,6 +866,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
 	char poolname[MAX_VA_STRING];
 	studiohdr_t	*phdr;
+	qboolean textures_loaded = false;
 
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
 
@@ -874,8 +875,10 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	mod->type = mod_studio;
 
 	phdr = R_StudioLoadHeader( mod, buffer );
-	if( !phdr ) return;	// bad model
+	if( !phdr )
+		return;	// bad model
 
+#if !XASH_DEDICATED
 	if( !Host_IsDedicated( ) && phdr->numtextures == 0 )
 	{
 		studiohdr_t *thdr;
@@ -889,10 +892,9 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 			byte *in, *out;
 			size_t size1, size2;
 
-#if !XASH_DEDICATED
 			// TODO: Mod_StudioLoadTextures will crash if passed a merged studio model!
 			ref.dllFuncs.Mod_StudioLoadTextures( mod, thdr );
-#endif
+			textures_loaded = true;
 
 			// give space for textures and skinrefs
 			size1 = thdr->numtextures * sizeof( mstudiotexture_t );
@@ -916,7 +918,9 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 		if( buffer2 )
 			Mem_Free( buffer2 ); // release T.mdl
 	}
-	else
+#endif
+
+	if( !textures_loaded )
 	{
 		// NOTE: don't modify source buffer because it's used for CRC computing
 		mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
