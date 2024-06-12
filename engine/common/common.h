@@ -354,9 +354,6 @@ typedef struct host_parm_s
 	int		window_center_x;
 	int		window_center_y;
 
-	struct decallist_s	*decalList;	// used for keep decals, when renderer is restarted or changed
-	int		numdecals;
-
 	// bug compatibility level, for very "special" games
 	uint32_t bugcomp;
 

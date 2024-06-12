@@ -681,21 +681,21 @@ Write all the decals into demo
 */
 void SV_RestartDecals( void )
 {
-	decallist_t	*entry;
+	decallist_t	*list;
 	int		decalIndex;
 	int		modelIndex;
 	sizebuf_t		*msg;
-	int		i;
+	int		i, numdecals;
 
 	if( !SV_Active( )) return;
 
 	// g-cont. add space for studiodecals if present
-	host.decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
+	list = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
 #if !XASH_DEDICATED
 	if( !Host_IsDedicated() )
 	{
-		host.numdecals = ref.dllFuncs.R_CreateDecalList( host.decalList );
+		numdecals = ref.dllFuncs.R_CreateDecalList( list );
 
 		// remove decals from map
 		ref.dllFuncs.R_ClearAllDecals();
@@ -704,16 +704,16 @@ void SV_RestartDecals( void )
 #endif // XASH_DEDICATED
 	{
 		// we probably running a dedicated server
-		host.numdecals = 0;
+		numdecals = 0;
 	}
 
 	// write decals into reliable datagram
 	msg = SV_GetReliableDatagram();
 
 	// restore decals and write them into network message
-	for( i = 0; i < host.numdecals; i++ )
+	for( i = 0; i < numdecals; i++ )
 	{
-		entry = &host.decalList[i];
+		decallist_t *entry = &list[i];
 		modelIndex = SV_PEntityOfEntIndex( entry->entityIndex, true )->v.modelindex;
 
 		// game override
@@ -727,9 +727,7 @@ void SV_RestartDecals( void )
 			SV_CreateDecal( msg, entry->position, decalIndex, entry->entityIndex, modelIndex, entry->flags, entry->scale );
 	}
 
-	Z_Free( host.decalList );
-	host.decalList = NULL;
-	host.numdecals = 0;
+	Z_Free( list );
 }
 
 /*
