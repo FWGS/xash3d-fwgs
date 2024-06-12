@@ -116,7 +116,7 @@ qboolean CL_IsInGame( void )
 	if( host.type == HOST_DEDICATED )
 		return true; // always active for dedicated servers
 
-	if( cl.background || CL_GetMaxClients() > 1 )
+	if( cl.background || cl.maxclients > 1 )
 		return true; // always active for multiplayer or background map
 
 	return ( cls.key_dest == key_game ); // active if not menu or console

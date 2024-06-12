@@ -1217,10 +1217,10 @@ static qboolean Touch_IsVisible( touch_button_t *button )
 	if( FBitSet( button->flags, TOUCH_FL_HIDE ))
 		return false; // skip hidden
 
-	if( FBitSet( button->flags, TOUCH_FL_SP ) && CL_GetMaxClients() != 1 )
+	if( FBitSet( button->flags, TOUCH_FL_SP ) && cl.maxclients != 1 )
 		return false; // skip singleplayer(load, save) buttons in multiplayer
 
-	if( FBitSet( button->flags, TOUCH_FL_MP ) && CL_GetMaxClients() == 1 )
+	if( FBitSet( button->flags, TOUCH_FL_MP ) && cl.maxclients == 1 )
 		return false; // skip multiplayer buttons in singleplayer
 
 	return true;
