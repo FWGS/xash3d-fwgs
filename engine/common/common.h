@@ -276,78 +276,70 @@ typedef enum bugcomp_e
 
 typedef struct host_parm_s
 {
-	host_status_t	status;		// global host state
-	game_status_t	game;		// game manager
-	uint		type;		// running at
-	jmp_buf		abortframe;	// abort current frame
-	dword		errorframe;	// to prevent multiple host error
-	poolhandle_t mempool;		// static mempool for misc allocations
-	string		finalmsg;		// server shutdown final message
-	string		downloadfile;	// filename to be downloading
-	int		downloadcount;	// how many files remain to downloading
-	char		deferred_cmd[128];	// deferred commands
-	host_redirect_t	rd;		// remote console
+	// ==== shared through RefAPI's ref_host_t
+	double realtime;    // host.curtime
+	double frametime;   // time between engine frames
+	uint   features;    // custom features that enables by mod-maker request
+	// ==== shared through RefAPI's ref_host_t
+
+	host_status_t status;           // global host state
+	game_status_t game;             // game manager
+	uint          type;             // running at
+	poolhandle_t  mempool;          // static mempool for misc allocations
+	poolhandle_t  imagepool;        // imagelib mempool
+	poolhandle_t  soundpool;        // soundlib mempool
+	string        finalmsg;         // server shutdown final message
+	string        downloadfile;     // filename to be downloading
+	int           downloadcount;    // how many files remain to downloading
+	char          deferred_cmd[128];// deferred commands
+
+	host_redirect_t rd; // remote console
+
+	void   *hWnd;          // main window
 
 	// command line parms
-	int		argc;
-	char	**argv;
+	char **argv;
+	int	 argc;
 
-	// ==== shared through RefAPI's ref_host_t
-	double		realtime;		// host.curtime
-	double		frametime;	// time between engine frames
-	uint		features;		// custom features that enables by mod-maker request
-	// ==== shared through RefAPI's ref_host_t
+	uint     framecount;     // global framecount
+	uint     errorframe;     // to prevent multiple host error
+	uint32_t bugcomp; // bug compatibility level, for very "special" games
+	double   realframetime;  // for some system events, e.g. console animations
+	double   starttime;      // measure time to first frame
+	double   pureframetime;  // count of sleeps can be inserted between frames
+	double   force_draw_version_time;
 
-	double		realframetime;	// for some system events, e.g. console animations
+	char   draw_decals[MAX_DECALS][MAX_QPATH]; // list of unique decal indexes
+	vec3_t player_mins[MAX_MAP_HULLS];         // 4 hulls allowed
+	vec3_t player_maxs[MAX_MAP_HULLS];         // 4 hulls allowed
 
-	uint		framecount;	// global framecount
-
-	// list of unique decal indexes
-	char		draw_decals[MAX_DECALS][MAX_QPATH];
-
-	vec3_t		player_mins[MAX_MAP_HULLS];	// 4 hulls allowed
-	vec3_t		player_maxs[MAX_MAP_HULLS];	// 4 hulls allowed
-
-	void*			hWnd;		// main window
-	qboolean		allow_console;	// allow console in dev-mode or multiplayer game
-	qboolean		allow_console_init;	// initial value to allow the console
-	qboolean		key_overstrike;	// key overstrike mode
-	qboolean		stuffcmds_pending;	// should execute stuff commands
-	qboolean		allow_cheats;	// this host will allow cheating
-	qboolean		change_game;	// initialize when game is changed
-	qboolean		mouse_visible;	// vgui override cursor control (never change outside Platform_SetCursorType!)
-	qboolean		shutdown_issued;	// engine is shutting down
-	double			force_draw_version_time;
-	qboolean		apply_game_config;	// when true apply only to game cvars and ignore all other commands
-	qboolean		apply_opengl_config;// when true apply only to opengl cvars and ignore all other commands
-	qboolean		config_executed;	// a bit who indicated was config.cfg already executed e.g. from valve.rc
-	qboolean		crashed;		// set to true if crashed
-	qboolean		daemonized;
-	qboolean		enabledll;
-	qboolean		textmode;
+	qboolean allow_console;       // allow console in dev-mode or multiplayer game
+	qboolean allow_console_init;  // initial value to allow the console
+	qboolean key_overstrike;      // key overstrike mode
+	qboolean stuffcmds_pending;   // should execute stuff commands
+	qboolean allow_cheats;        // this host will allow cheating
+	qboolean change_game;         // initialize when game is changed
+	qboolean mouse_visible;       // vgui override cursor control (never change outside Platform_SetCursorType!)
+	qboolean shutdown_issued;     // engine is shutting down
+	qboolean apply_game_config;   // when true apply only to game cvars and ignore all other commands
+	qboolean apply_opengl_config; // when true apply only to opengl cvars and ignore all other commands
+	qboolean config_executed;     // a bit who indicated was config.cfg already executed e.g. from valve.rc
+	qboolean crashed;             // set to true if crashed
+#if XASH_DLL_LOADER
+	qboolean enabledll;
+#endif
+	qboolean textmode;
 
 	// some settings were changed and needs to global update
-	qboolean		userinfo_changed;
-	qboolean		movevars_changed;
-	qboolean		renderinfo_changed;
-
-	poolhandle_t imagepool;	// imagelib mempool
-	poolhandle_t soundpool;	// soundlib mempool
+	qboolean userinfo_changed;
+	qboolean movevars_changed;
+	qboolean renderinfo_changed;
 
 	// for IN_MouseMove() easy access
-	int		window_center_x;
-	int		window_center_y;
-
-	// bug compatibility level, for very "special" games
-	uint32_t bugcomp;
-
-	// measure time to first frame
-	double starttime;
-
-	// count of sleeps can be inserted between frames
-	double pureframetime;
-	string		gamedll;
-	string		clientlib;
+	int      window_center_x;
+	int      window_center_y;
+	string   gamedll;
+	string   clientlib;
 } host_parm_t;
 
 extern host_parm_t	host;

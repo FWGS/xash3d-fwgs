@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "common.h"
 #include "platform/platform.h"
 
+static jmp_buf g_abortframe;
+
 void COM_InitHostState( void )
 {
 	memset( GameState, 0, sizeof( game_status_t ));
@@ -168,11 +170,23 @@ static void Host_RunFrame( double time )
 	}
 }
 
+/*
+================
+Host_AbortCurrentFrame
+
+aborts the current host frame and goes on with the next one
+================
+*/
+void Host_AbortCurrentFrame( void )
+{
+	longjmp( g_abortframe, 1 );
+}
+
 void COM_Frame( double time )
 {
 	int	loopCount = 0;
 
-	if( setjmp( host.abortframe ))
+	if( setjmp( g_abortframe ))
 		return;
 
 	while( 1 )
