@@ -516,33 +516,6 @@ static void Host_Minimize_f( void )
 
 /*
 =================
-Host_IsLocalGame
-
-singleplayer game detect
-=================
-*/
-qboolean Host_IsLocalGame( void )
-{
-	if( SV_Active( ))
-	{
-		return ( SV_GetMaxClients() == 1 ) ? true : false;
-	}
-	else
-	{
-		return ( CL_GetMaxClients() == 1 ) ? true : false;
-	}
-}
-
-qboolean Host_IsLocalClient( void )
-{
-	// only the local client have the active server
-	if( CL_Initialized( ) && SV_Initialized( ))
-		return true;
-	return false;
-}
-
-/*
-=================
 Host_RegisterDecal
 =================
 */
