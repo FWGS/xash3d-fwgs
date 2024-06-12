@@ -510,8 +510,6 @@ void Host_WriteServerConfig( const char *name );
 void Host_WriteOpenGLConfig( void );
 void Host_WriteVideoConfig( void );
 void Host_WriteConfig( void );
-qboolean Host_IsLocalGame( void );
-qboolean Host_IsLocalClient( void );
 void Host_ShutdownServer( void );
 void Host_Error( const char *error, ... ) _format( 1 );
 void Host_ValidateEngineFeatures( uint32_t features );
@@ -744,6 +742,18 @@ void COM_FreeFile( void *buffer );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 char *va( const char *format, ... ) _format( 1 );
 qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
+
+static inline qboolean Host_IsLocalGame( void )
+{
+	if( SV_Active( ))
+		return SV_GetMaxClients() == 1 ? true : false;
+	return CL_GetMaxClients() == 1 ? true : false;
+}
+
+static inline qboolean Host_IsLocalClient( void )
+{
+	return CL_Initialized( ) && SV_Initialized( ) ? true : false;
+}
 
 // soundlib shared exports
 qboolean S_Init( void );
