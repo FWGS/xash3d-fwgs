@@ -414,7 +414,6 @@ static void Host_Exec_f( void )
 	byte *f;
 	char *txt;
 	fs_offset_t	len;
-	const char *arg;
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -422,7 +421,8 @@ static void Host_Exec_f( void )
 		return;
 	}
 
-	arg = Cmd_Argv( 1 );
+	Q_strncpy( cfgpath, Cmd_Argv( 1 ), sizeof( cfgpath ));
+	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath )); // append as default
 
 #ifndef XASH_DEDICATED
 	if( !Cmd_CurrentCommandIsPrivileged() )
@@ -442,7 +442,7 @@ static void Host_Exec_f( void )
 
 		for( i = 0; i < ARRAYSIZE( unprivilegedWhitelist ); i++ )
 		{
-			if( !Q_strcmp( arg, unprivilegedWhitelist[i] ))
+			if( !Q_strcmp( cfgpath, unprivilegedWhitelist[i] ))
 			{
 				allow = true;
 				break;
@@ -451,21 +451,15 @@ static void Host_Exec_f( void )
 
 		if( !allow )
 		{
-			Con_Printf( "exec %s: not privileged or in whitelist\n", arg );
+			Con_Printf( "exec %s: not privileged or in whitelist\n", cfgpath );
 			return;
 		}
 	}
 #endif // XASH_DEDICATED
 
-	if( !Q_stricmp( "game.cfg", arg ))
-	{
-		// don't execute game.cfg in singleplayer
-		if( SV_GetMaxClients() == 1 )
-			return;
-	}
-
-	Q_strncpy( cfgpath, arg, sizeof( cfgpath ));
-	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath )); // append as default
+	// don't execute game.cfg in singleplayer
+	if( SV_GetMaxClients() == 1 && !Q_stricmp( "game.cfg", cfgpath ))
+		return;
 
 	f = FS_LoadFile( cfgpath, &len, false );
 	if( !f )
@@ -474,17 +468,18 @@ static void Host_Exec_f( void )
 		return;
 	}
 
-	if( !Q_stricmp( "config.cfg", arg ))
+	if( !Q_stricmp( "config.cfg", cfgpath ))
 		host.config_executed = true;
 
 	// adds \n\0 at end of the file
 	txt = Z_Calloc( len + 2 );
 	memcpy( txt, f, len );
-	Q_strncat( txt, "\n", len + 2 );
+	txt[len] = '\n';
+	txt[len + 1] = '\0';
 	Mem_Free( f );
 
 	if( !host.apply_game_config )
-		Con_Printf( "execing %s\n", arg );
+		Con_Printf( "execing %s\n", Cmd_Argv( 1 ));
 	Cbuf_InsertText( txt );
 	Mem_Free( txt );
 }
