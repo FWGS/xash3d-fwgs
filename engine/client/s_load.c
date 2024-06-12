@@ -144,7 +144,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( Q_stricmp( sfx->name, "*default" ))
 	{
 		// load it from disk
-		if( s_warn_late_precache.value > 0 && CL_Active() )
+		if( s_warn_late_precache.value > 0 && cls.state == ca_active )
 			Con_Printf( S_WARN "S_LoadSound: late precache of %s\n", sfx->name );
 
 		if( sfx->name[0] == '*' )
