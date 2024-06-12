@@ -70,12 +70,6 @@ float S_GetMasterVolume( void )
 		return 0.0f;
 	}
 
-	if( s_listener.inmenu && !ui_renderworld.value && !Host_IsLocalGame( ))
-	{
-		// mute sounds in menu when it's not transparent and we're in multiplayer
-		return 0.0f;
-	}
-
 	if( !s_listener.inmenu && soundfade.percent != 0 )
 	{
 		scale = bound( 0.0f, soundfade.percent / 100.0f, 1.0f );
