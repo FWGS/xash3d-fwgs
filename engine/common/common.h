@@ -285,9 +285,6 @@ typedef enum bugcomp_e
 
 typedef struct host_parm_s
 {
-	HINSTANCE			hInst;
-	HANDLE				hMutex;
-
 	host_status_t	status;		// global host state
 	game_status_t	game;		// game manager
 	uint		type;		// running at

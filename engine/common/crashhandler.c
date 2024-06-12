@@ -325,7 +325,6 @@ void Sys_SetupCrashHandler( void )
 {
 	SetErrorMode( SEM_FAILCRITICALERRORS );	// no abort/retry/fail errors
 	oldFilter = SetUnhandledExceptionFilter( Sys_Crash );
-	host.hInst = GetModuleHandle( NULL );
 }
 
 void Sys_RestoreCrashHandler( void )

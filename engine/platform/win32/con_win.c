@@ -608,10 +608,6 @@ void Wcon_DestroyConsole( void )
 	}
 
 	FreeConsole();
-
-	// place it here in case Sys_Crash working properly
-	if( host.hMutex )
-		CloseHandle( host.hMutex );
 }
 
 /*
