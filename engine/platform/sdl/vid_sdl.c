@@ -654,6 +654,7 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 	char iconpath[MAX_STRING];
 #if XASH_WIN32 // ICO support only for Win32
 	const char *localIcoPath;
+	HINSTANCE hInst = GetModuleHandle( NULL );
 
 	if(( localIcoPath = FS_GetDiskPath( GI->iconpath, true )))
 	{
@@ -685,7 +686,7 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 	}
 
 #if XASH_WIN32 // ICO support only for Win32
-	WIN_SetWindowIcon( LoadIcon( host.hInst, MAKEINTRESOURCE( 101 )));
+	WIN_SetWindowIcon( LoadIcon( hInst, MAKEINTRESOURCE( 101 )));
 #endif
 }
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
