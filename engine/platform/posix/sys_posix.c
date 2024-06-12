@@ -96,8 +96,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 
 void Posix_Daemonize( void )
 {
-	// to be accessed later
-	if( ( host.daemonized = Sys_CheckParm( "-daemonize" ) ) )
+	if( Sys_CheckParm( "-daemonize" ))
 	{
 #if XASH_POSIX && defined(_POSIX_VERSION) && !defined(XASH_MOBILE_PLATFORM)
 		pid_t daemon;

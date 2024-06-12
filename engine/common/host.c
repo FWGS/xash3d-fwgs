@@ -319,18 +319,6 @@ void Host_EndGame( qboolean abort, const char *message, ... )
 }
 
 /*
-================
-Host_AbortCurrentFrame
-
-aborts the current host frame and goes on with the next one
-================
-*/
-void Host_AbortCurrentFrame( void )
-{
-	longjmp( host.abortframe, 1 );
-}
-
-/*
 ==================
 Host_CalcSleep
 ==================
@@ -1044,7 +1032,9 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	if( !Sys_CheckParm( "-noch" ))
 		Sys_SetupCrashHandler();
 
+#if XASH_DLL_LOADER
 	host.enabledll = !Sys_CheckParm( "-nodll" );
+#endif
 
 	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
 	host.config_executed = false;
