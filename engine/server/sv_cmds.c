@@ -489,7 +489,7 @@ static void SV_AutoSave_f( void )
 		return;
 	}
 
-	if( Cvar_VariableInteger( "sv_autosave" ) )
+	if( sv_autosave.value )
 		SV_SaveGame( "autosave" );
 }
 
