@@ -1992,7 +1992,6 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	const char	*c;
 	char	buf[MAX_SYSPATH];
 	int	len = sizeof( buf );
-	int	dataoffset = 0;
 	netadr_t	servadr;
 
 	MSG_Clear( msg );
@@ -2049,7 +2048,11 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( c, "print" ))
 	{
 		// print command from somewhere
-		Con_Printf( "%s", MSG_ReadString( msg ));
+		char *s = MSG_ReadString( msg );
+
+		Con_Printf( S_CYAN "r:" S_DEFAULT " %s", s );
+		if( !COM_CheckStringEmpty( s ) || s[Q_strlen( s ) - 1] != '\n' )
+			Con_Printf( "\n" );
 	}
 	else if( !Q_strcmp( c, "testpacket" ))
 	{
