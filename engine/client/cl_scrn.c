@@ -24,7 +24,7 @@ CVAR_DEFINE_AUTO( scr_centertime, "2.5", 0, "centerprint hold time" );
 CVAR_DEFINE_AUTO( scr_loading, "0", 0, "loading bar progress" );
 CVAR_DEFINE_AUTO( scr_download, "-1", 0, "downloading bar progress" );
 CVAR_DEFINE( scr_viewsize, "viewsize", "120", FCVAR_ARCHIVE, "screen size (quake only)" );
-CVAR_DEFINE_AUTO( cl_testlights, "0", 0, "test dynamic lights" );
+CVAR_DEFINE_AUTO( cl_testlights, "0", FCVAR_CHEAT, "test dynamic lights" );
 CVAR_DEFINE( cl_allow_levelshots, "allow_levelshots", "0", FCVAR_ARCHIVE, "allow engine to use indivdual levelshots instead of 'loading' image" );
 CVAR_DEFINE_AUTO( cl_levelshot_name, "*black", 0, "contains path to current levelshot" );
 static CVAR_DEFINE_AUTO( cl_envshot_size, "256", FCVAR_ARCHIVE, "envshot size of cube side" );
