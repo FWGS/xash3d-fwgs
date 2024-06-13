@@ -271,7 +271,7 @@ typedef struct sv_client_s
 =============================================================================
  a client can leave the server in one of four ways:
  dropping properly by quiting or disconnecting
- timing out if no valid messages are received for timeout.value seconds
+ timing out if no valid messages are received for sv_timeout.value seconds
  getting kicked off by the server operator
  a program error, like an overflowed reliable buffer
 =============================================================================
