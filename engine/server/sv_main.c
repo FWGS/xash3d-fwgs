@@ -41,7 +41,7 @@ CVAR_DEFINE_AUTO( sv_maxrate, "50000", FCVAR_SERVER, "max bandwidth rate allowed
 CVAR_DEFINE_AUTO( sv_logrelay, "0", FCVAR_ARCHIVE, "allow log messages from remote machines to be logged on this server" );
 CVAR_DEFINE_AUTO( sv_newunit, "0", 0, "clear level-saves from previous SP game chapter to help keep .sav file size as minimum" );
 CVAR_DEFINE_AUTO( sv_clienttrace, "1", FCVAR_SERVER, "0 = big box(Quake), 0.5 = halfsize, 1 = normal (100%), otherwise it's a scaling factor" );
-CVAR_DEFINE_AUTO( sv_timeout, "65", 0, "after this many seconds without a message from a client, the client is dropped" );
+static CVAR_DEFINE_AUTO( sv_timeout, "65", 0, "after this many seconds without a message from a client, the client is dropped" );
 CVAR_DEFINE_AUTO( sv_failuretime, "0.5", 0, "after this long without a packet from client, don't send any more until client starts sending again" );
 CVAR_DEFINE_AUTO( sv_password, "", FCVAR_SERVER|FCVAR_PROTECTED, "server password for entry into multiplayer games" );
 CVAR_DEFINE_AUTO( sv_proxies, "1", FCVAR_SERVER, "maximum count of allowed proxies for HLTV spectating" );
@@ -130,7 +130,6 @@ CVAR_DEFINE( public_server, "public", "0", 0, "change server type from private t
 
 CVAR_DEFINE_AUTO( sv_novis, "0", 0, "force to ignore server visibility" );			// disable server culling entities by vis
 CVAR_DEFINE( sv_pausable, "pausable", "1", FCVAR_SERVER, "allow players to pause or not" );
-static CVAR_DEFINE_AUTO( timeout, "125", FCVAR_SERVER, "connection timeout" );				// seconds without any message
 CVAR_DEFINE( sv_maxclients, "maxplayers", "1", FCVAR_LATCH, "server max capacity" );
 CVAR_DEFINE_AUTO( sv_check_errors, "0", FCVAR_ARCHIVE, "check edicts for errors" );
 CVAR_DEFINE_AUTO( sv_reconnect_limit, "3", FCVAR_ARCHIVE, "max reconnect attempts" );		// minimum seconds between connect messages
@@ -483,7 +482,7 @@ static void SV_ReadPackets( void )
 ==================
 SV_CheckTimeouts
 
-If a packet has not been received from a client for timeout.value
+If a packet has not been received from a client for sv_timeout.value
 seconds, drop the conneciton.  Server frames are used instead of
 realtime to avoid dropping the local client while debugging.
 
@@ -498,7 +497,7 @@ static void SV_CheckTimeouts( void )
 	double		droppoint;
 	int		i, numclients = 0;
 
-	droppoint = host.realtime - timeout.value;
+	droppoint = host.realtime - sv_timeout.value;
 
 	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
 	{
@@ -890,7 +889,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_stepsize );
 	Cvar_RegisterVariable( &sv_newunit );
 	Cvar_RegisterVariable( &hostname );
-	Cvar_RegisterVariable( &timeout );
+	Cvar_RegisterVariable( &sv_timeout );
 	Cvar_RegisterVariable( &sv_pausable );
 	Cvar_RegisterVariable( &sv_validate_changelevel );
 	Cvar_RegisterVariable( &sv_clienttrace );
