@@ -85,9 +85,9 @@ then a packet only needs to be delivered if there is something in the
 unacknowledged reliable
 */
 CVAR_DEFINE_AUTO( net_showpackets, "0", 0, "show network packets" );
-CVAR_DEFINE_AUTO( net_chokeloop, "0", 0, "apply bandwidth choke to loopback packets" );
-CVAR_DEFINE_AUTO( net_showdrop, "0", 0, "show packets that are dropped" );
-CVAR_DEFINE_AUTO( net_qport, "0", FCVAR_READ_ONLY, "current quake netport" );
+static CVAR_DEFINE_AUTO( net_chokeloop, "0", 0, "apply bandwidth choke to loopback packets" );
+static CVAR_DEFINE_AUTO( net_showdrop, "0", 0, "show packets that are dropped" );
+static CVAR_DEFINE_AUTO( net_qport, "0", FCVAR_READ_ONLY, "current quake netport" );
 
 int	net_drop;
 netadr_t	net_from;
@@ -1588,7 +1588,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 	// send the qport if we are a client
 	if( chan->sock == NS_CLIENT )
 	{
-		MSG_WriteWord( &send, Cvar_VariableInteger( "net_qport" ));
+		MSG_WriteWord( &send, (int)net_qport.value );
 	}
 
 	if( send_reliable && send_reliable_fragment )
