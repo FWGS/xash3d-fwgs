@@ -1446,7 +1446,15 @@ static void Con_SaveHistory( con_history_t *self )
 	f = FS_Open( "console_history.txt", "wb", true );
 
 	for( i = historyStart; i < self->next; i++ )
-		FS_Printf( f, "%s\n", self->lines[i % CON_HISTORY].buffer );
+	{
+		const char *s = self->lines[i % CON_HISTORY].buffer;
+
+		// HACKHACK: don't save lines that have something that looks like a password
+		if( Q_stristr( s, "password" ) || Q_stristr( s, "_pw" ))
+			continue;
+
+		FS_Printf( f, "%s\n", s );
+	}
 
 	FS_Close( f );
 }
