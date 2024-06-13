@@ -2376,7 +2376,7 @@ static int GAME_EXPORT CL_FindModelIndex( const char *m )
 	if( lasttimewarn < host.realtime )
 	{
 		// tell user about problem (but don't spam console)
-		Con_Printf( S_ERROR "Could not find index for model %s: not precached\n", filepath );
+		Con_DPrintf( S_ERROR "Could not find index for model %s: not precached\n", filepath );
 		lasttimewarn = host.realtime + 1.0f;
 	}
 
