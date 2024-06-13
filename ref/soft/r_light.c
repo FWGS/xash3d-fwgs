@@ -150,7 +150,6 @@ R_PushDlights
 */
 void R_PushDlights( void )
 {
-	dlight_t	*l;
 	int	i;
 
 	tr.dlightframecount = tr.framecount;
@@ -163,9 +162,9 @@ void R_PushDlights( void )
 
 	RI.currentmodel = RI.currententity->model;
 
-	for( i = 0; i < MAX_DLIGHTS; i++, l++ )
+	for( i = 0; i < MAX_DLIGHTS; i++ )
 	{
-		l = gEngfuncs.GetDynamicLight( i );
+		dlight_t *l = gEngfuncs.GetDynamicLight( i );
 
 		if( l->die < gp_cl->time || !l->radius )
 			continue;
