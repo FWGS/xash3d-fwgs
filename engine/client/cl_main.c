@@ -1270,16 +1270,28 @@ CL_Connect_f
 static void CL_Connect_f( void )
 {
 	string	server;
-	qboolean legacyconnect = false;
+	connprotocol_t proto = PROTO_CURRENT;
 
-	// hidden hint to connect by using legacy protocol
+	// hint to connect by using legacy protocol
 	if( Cmd_Argc() == 3 )
 	{
-		legacyconnect = !Q_strcmp( Cmd_Argv( 2 ), "legacy" );
+		const char *s = Cmd_Argv( 2 );
+
+		if( !Q_strcmp( s, "current" ) || !Q_strcmp( s, "49" ))
+			proto = PROTO_CURRENT;
+		else if( !Q_strcmp( s, "legacy" ) || !Q_strcmp( s, "48" ))
+			proto = PROTO_LEGACY;
+		else
+		{
+			// quake protocol only used for demos
+			// goldsrc protocol is not supported yet
+			Con_Printf( "Unknown protocol. Supported are: current, legacy\n" );
+			return;
+		}
 	}
 	else if( Cmd_Argc() != 2 )
 	{
-		Con_Printf( S_USAGE "connect <server>\n" );
+		Con_Printf( S_USAGE "connect <server> [protocol]\n" );
 		return;
 	}
 
@@ -1297,7 +1309,7 @@ static void CL_Connect_f( void )
 	Key_SetKeyDest( key_console );
 
 	cls.state = ca_connecting;
-	cls.legacymode = legacyconnect;
+	cls.legacymode = proto;
 	Q_strncpy( cls.servername, server, sizeof( cls.servername ));
 	cls.connect_time = MAX_HEARTBEAT; // CL_CheckForResend() will fire immediately
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // guess a we can establish connection with maximum fragment size
@@ -1527,7 +1539,7 @@ This is also called on Host_Error, so it shouldn't cause any errors
 */
 void CL_Disconnect( void )
 {
-	cls.legacymode = false;
+	cls.legacymode = PROTO_CURRENT;
 
 	if( cls.state == ca_disconnected )
 		return;
@@ -1714,7 +1726,7 @@ static void CL_Reconnect_f( void )
 
 	if( COM_CheckString( cls.servername ))
 	{
-		qboolean legacy = cls.legacymode;
+		connprotocol_t proto = cls.legacymode;
 
 		if( cls.state >= ca_connected )
 			CL_Disconnect();
@@ -1723,7 +1735,7 @@ static void CL_Reconnect_f( void )
 		cls.demonum = cls.movienum = -1;	// not in the demo loop now
 		cls.state = ca_connecting;
 		cls.signon = 0;
-		cls.legacymode = legacy; // don't change protocol
+		cls.legacymode = proto; // don't change protocol
 
 		Con_Printf( "reconnecting...\n" );
 	}
@@ -2163,30 +2175,21 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// a disconnect message from the server, which will happen if the server
 		// dropped the connection but it is still getting packets from us
 		CL_Disconnect_f();
-
-		if( NET_CompareAdr( from, cls.legacyserver ))
-		{
-			Cbuf_AddTextf( "connect %s legacy\n", NET_AdrToString( from ));
-			memset( &cls.legacyserver, 0, sizeof( cls.legacyserver ));
-		}
 	}
 	else if( !Q_strcmp( c, "errormsg" ))
 	{
+		char formatted_msg[MAX_VA_STRING];
+
 		if( !CL_IsFromConnectingServer( from ))
 			return;
 
 		args = MSG_ReadString( msg );
 
-		if( !Q_strcmp( args, "Server uses protocol version 48.\n" ))
-		{
-			cls.legacyserver = from;
-		}
-		else
-		{
-			if( UI_IsVisible() )
-				UI_ShowMessageBox( va("^3Server message^7\n%s", args ) );
-			Msg( "%s", args );
-		}
+		Q_snprintf( formatted_msg, sizeof( formatted_msg ), "^3Server message^7\n%s", args );
+
+		// in case we're in console or it's classic mainui which doesn't support messageboxes
+		if( !UI_IsVisible() || !UI_ShowMessageBox( formatted_msg ))
+			Msg( "%s\n", formatted_msg );
 	}
 	else if( !Q_strcmp( c, "updatemsg" ))
 	{

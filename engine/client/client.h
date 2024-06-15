@@ -309,6 +309,14 @@ typedef enum
 	CL_CHANGELEVEL,	// draw 'loading' during changelevel
 } scrstate_t;
 
+typedef enum
+{
+	PROTO_CURRENT = 0, // Xash3D 49
+	PROTO_LEGACY  = 1, // Xash3D 48
+	PROTO_QUAKE   = 2, // Quake 15
+	PROTO_GOLDSRC = 3, // GoldSrc 48
+} connprotocol_t;
+
 typedef struct
 {
 	char		name[32];
@@ -626,9 +634,8 @@ typedef struct
 	char     internetservers_query[512]; // cached query
 	uint32_t internetservers_query_len;
 
-	// legacy mode support
-	qboolean legacymode;				// one-way 48 protocol compatibility
-	netadr_t legacyserver;
+	// multiprotocol support
+	connprotocol_t legacymode;
 	int extensions;
 
 	netadr_t serveradr;
@@ -1102,7 +1109,7 @@ qboolean UI_MouseInRect( void );
 qboolean UI_IsVisible( void );
 void UI_ResetPing( void );
 void UI_ShowUpdateDialog( qboolean preferStore );
-void UI_ShowMessageBox( const char *text );
+qboolean UI_ShowMessageBox( const char *text );
 void UI_AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
 void UI_ConnectionProgress_Disconnect( void );
 void UI_ConnectionProgress_Download( const char *pszFileName, const char *pszServerName, const char *pszServerPath, int iCurrent, int iTotal, const char *comment );

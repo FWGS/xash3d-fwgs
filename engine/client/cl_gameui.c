@@ -216,12 +216,14 @@ UI_ShowConnectionWarning
 show message box
 =================
 */
-void UI_ShowMessageBox( const char *text )
+qboolean UI_ShowMessageBox( const char *text )
 {
 	if( gameui.dllFuncs2.pfnShowMessageBox )
 	{
 		gameui.dllFuncs2.pfnShowMessageBox( text );
+		return true;
 	}
+	return false;
 }
 
 void UI_ConnectionProgress_Disconnect( void )
