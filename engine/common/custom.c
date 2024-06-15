@@ -94,7 +94,7 @@ qboolean COM_CreateCustomization( customization_t *pListHead, resource_t *pResou
 
 	if( FBitSet( flags, FCUST_FROMHPAK ))
 	{
-		if( !HPAK_GetDataPointer( CUSTOM_RES_PATH, pResource, (byte **)&pCust->pBuffer, NULL ))
+		if( !HPAK_GetDataPointer( hpk_custom_file.string, pResource, (byte **)&pCust->pBuffer, NULL ))
 			bError = true;
 	}
 	else

@@ -28,6 +28,7 @@ typedef struct hash_pack_queue_s
 } hash_pack_queue_t;
 
 static CVAR_DEFINE( hpk_maxsize, "hpk_max_size", "64", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "set limit by size for all HPK-files in megabytes ( 0 - unlimited )" );
+CVAR_DEFINE_AUTO( hpk_custom_file, "custom.hpk", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "set custom path for players customizations cache file" );
 static hash_pack_queue_t	*gp_hpak_queue = NULL;
 static hpak_header_t	hash_pack_header;
 static hpak_info_t	hash_pack_info;
@@ -1106,6 +1107,7 @@ void HPAK_Init( void )
 	Cmd_AddRestrictedCommand( "hpkextract", HPAK_Extract_f, "extract all lumps from specified HPK-file" );
 	Cmd_AddRestrictedCommand( "hpk_maxsize", HPAK_MaxSize_f, "deprecation notice for hpk_maxsize" );
 	Cvar_RegisterVariable( &hpk_maxsize );
+	Cvar_RegisterVariable( &hpk_custom_file );
 
 	gp_hpak_queue = NULL;
 }

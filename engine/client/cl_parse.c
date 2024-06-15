@@ -498,7 +498,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 			CL_MoveToOnHandList( p );
 			break;
 		case t_decal:
-			if( !HPAK_GetDataPointer( CUSTOM_RES_PATH, p, NULL, NULL ))
+			if( !HPAK_GetDataPointer( hpk_custom_file.string, p, NULL, NULL ))
 			{
 				if( !FBitSet( p->ucFlags, RES_REQUESTED ))
 				{
@@ -722,7 +722,7 @@ void CL_ParseCustomization( sizebuf_t *msg )
 		}
 	}
 
-	if( HPAK_GetDataPointer( CUSTOM_RES_PATH, pRes, NULL, NULL ))
+	if( HPAK_GetDataPointer( hpk_custom_file.string, pRes, NULL, NULL ))
 	{
 		qboolean	bError = false;
 
@@ -854,7 +854,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	int	i;
 	uint32_t	mapCRC;
 
-	HPAK_CheckSize( CUSTOM_RES_PATH );
+	HPAK_CheckSize( hpk_custom_file.string );
 
 	Con_Reportf( "%s packet received.\n", legacy ? "Legacy serverdata" : "Serverdata" );
 

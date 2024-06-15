@@ -338,7 +338,7 @@ static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 		return;
 	}
 
-	HPAK_AddLump( true, CUSTOM_RES_PATH, resource, cl->netchan.tempbuffer, NULL );
+	HPAK_AddLump( true, hpk_custom_file.string, resource, cl->netchan.tempbuffer, NULL );
 	ClearBits( resource->ucFlags, RES_WASMISSING );
 	SV_MoveToOnHandList( cl, resource );
 

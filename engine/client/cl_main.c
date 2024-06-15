@@ -938,16 +938,16 @@ static void CL_BeginUpload_f( void )
 	memset( &custResource, 0, sizeof( custResource ));
 	COM_HexConvert( name + 4, 32, md5 );
 
-	if( HPAK_ResourceForHash( CUSTOM_RES_PATH, md5, &custResource ))
+	if( HPAK_ResourceForHash( hpk_custom_file.string, md5, &custResource ))
 	{
 		if( memcmp( md5, custResource.rgucMD5_hash, 16 ))
 		{
-			Con_Reportf( "Bogus data retrieved from %s, attempting to delete entry\n", CUSTOM_RES_PATH );
-			HPAK_RemoveLump( CUSTOM_RES_PATH, &custResource );
+			Con_Reportf( "Bogus data retrieved from %s, attempting to delete entry\n", hpk_custom_file.string );
+			HPAK_RemoveLump( hpk_custom_file.string, &custResource );
 			return;
 		}
 
-		if( HPAK_GetDataPointer( CUSTOM_RES_PATH, &custResource, &buf, &size ))
+		if( HPAK_GetDataPointer( hpk_custom_file.string, &custResource, &buf, &size ))
 		{
 			byte		md5[16];
 			MD5Context_t	ctx;
@@ -963,7 +963,7 @@ static void CL_BeginUpload_f( void )
 				Con_Reportf( "Purported:  %s\n", MD5_Print( custResource.rgucMD5_hash ) );
 				Con_Reportf( "Actual   :  %s\n", MD5_Print( md5 ) );
 				Con_Reportf( "Removing conflicting lump\n" );
-				HPAK_RemoveLump( CUSTOM_RES_PATH, &custResource );
+				HPAK_RemoveLump( hpk_custom_file.string, &custResource );
 				return;
 			}
 		}
@@ -1254,7 +1254,7 @@ static void CL_CreateResourceList( void )
 		{
 			SetBits( pNewResource->ucFlags, RES_CUSTOM );
 			memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
-			HPAK_AddLump( false, CUSTOM_RES_PATH, pNewResource, NULL, fp );
+			HPAK_AddLump( false, hpk_custom_file.string, pNewResource, NULL, fp );
 		}
 	}
 
@@ -2634,7 +2634,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 				{
 					if( p->ucFlags & RES_CUSTOM )
 					{
-						HPAK_AddLump( true, CUSTOM_RES_PATH, p, cls.netchan.tempbuffer, NULL );
+						HPAK_AddLump( true, hpk_custom_file.string, p, cls.netchan.tempbuffer, NULL );
 						CL_RegisterCustomization( p );
 					}
 				}

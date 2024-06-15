@@ -218,7 +218,7 @@ static void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
 
 	// fwd/side axis simulate hat movement
 	if( ( engineAxis == JOY_AXIS_SIDE || engineAxis == JOY_AXIS_FWD ) &&
-		( CL_IsInMenu() || CL_IsInConsole() ) )
+		( cls.key_dest == key_menu || cls.key_dest == key_console ))
 	{
 		int val = 0;
 

@@ -1197,9 +1197,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	}
 	else Cmd_AddRestrictedCommand( "minimize", Host_Minimize_f, "minimize main window to tray" );
 
-	HPAK_CheckIntegrity( CUSTOM_RES_PATH );
-
-
 	host.errorframe = 0;
 
 	if( progname[0] == '#' )
@@ -1263,6 +1260,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cbuf_AddTextf( "exec %s\n", Cvar_VariableString( "servercfgfile" ));
 		Cbuf_Execute();
 	}
+
+	// check after all configs were executed
+	HPAK_CheckIntegrity( hpk_custom_file.string );
 
 	// main window message loop
 	while( !host.crashed )
