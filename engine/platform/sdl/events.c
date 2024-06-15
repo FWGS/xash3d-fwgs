@@ -156,21 +156,18 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	}
 #endif
 
-	if( SDL_IsTextInputActive( ))
+	if( SDL_IsTextInputActive( ) && down )
 	{
 		// this is how engine understands ctrl+c, ctrl+v and other hotkeys
-		if( down && cls.key_dest != key_game )
+		if( cls.key_dest != key_game && FBitSet( SDL_GetModState(), KMOD_CTRL ))
 		{
-			if( FBitSet( SDL_GetModState(), KMOD_CTRL ))
+			if( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
 			{
-				if( keynum >= SDL_SCANCODE_A && keynum <= SDL_SCANCODE_Z )
-				{
-					keynum = keynum - SDL_SCANCODE_A + 1;
-					CL_CharEvent( keynum );
-				}
-
-				return;
+				keynum = keynum - SDL_SCANCODE_A + 1;
+				CL_CharEvent( keynum );
 			}
+
+			return;
 		}
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
