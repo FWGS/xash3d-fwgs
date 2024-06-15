@@ -325,13 +325,6 @@ Host_CalcSleep
 */
 static int Host_CalcSleep( void )
 {
-#ifndef XASH_DEDICATED
-	// never sleep in timedemo for benchmarking purposes
-	// also don't sleep with vsync for less lag
-	if( CL_IsTimeDemo( ) || gl_vsync.value )
-		return 0;
-#endif
-
 	if( Host_IsDedicated() )
 	{
 		// let the dedicated server some sleep
@@ -606,7 +599,7 @@ static double Host_CalcFPS( void )
 {
 	double	fps = 0.0;
 
-	if( Host_IsDedicated() )
+	if( Host_IsDedicated( ))
 	{
 		fps = sys_ticrate.value;
 	}
