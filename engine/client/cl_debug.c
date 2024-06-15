@@ -52,9 +52,23 @@ const char *CL_MsgInfo( int cmd )
 		// get engine message name
 		const char *svc_string = NULL;
 
-		if( cls.legacymode )
+		switch( cls.legacymode )
+		{
+		case PROTO_CURRENT:
+			svc_string = svc_strings[cmd];
+			break;
+		case PROTO_LEGACY:
 			svc_string = svc_legacy_strings[cmd];
+			break;
+		case PROTO_QUAKE:
+			svc_string = svc_quake_strings[cmd];
+			break;
+		case PROTO_GOLDSRC:
+			svc_string = svc_goldsrc_strings[cmd];
+			break;
+		}
 
+		// fall back to current protocol strings
 		if( !svc_string )
 			svc_string = svc_strings[cmd];
 
