@@ -775,7 +775,7 @@ static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
 	if( texFormat != SPR_ALPHTEST )
 		return false;
 
-	if( e->curstate.effects & EF_FULLBRIGHT )
+	if( FBitSet( e->curstate.effects, EF_FULLBRIGHT ))
 		return false;
 
 	if( e->curstate.renderamt <= 127 )
@@ -919,7 +919,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color2[1] = (float)lightColor.g * ( 1.0f / 255.0f );
 		color2[2] = (float)lightColor.b * ( 1.0f / 255.0f );
 		// NOTE: sprites with 'lightmap' looks ugly when alpha func is GL_GREATER 0.0
-		pglAlphaFunc( GL_GREATER, 0.5f );
+		// NOTE: make them easier to see with 0.3333, was 0.5 in original
+		pglAlphaFunc( GL_GREATER, 1.0f / 3.0f );
 	}
 
 	if( R_SpriteAllowLerping( e, psprite ))
