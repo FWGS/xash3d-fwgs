@@ -109,6 +109,40 @@ struct
 
 static qboolean CL_NextDemo( void );
 
+static int CL_GetDemoNetProtocol( connprotocol_t proto )
+{
+	switch( proto )
+	{
+	case PROTO_CURRENT:
+		return PROTOCOL_VERSION;
+	case PROTO_LEGACY:
+		return PROTOCOL_LEGACY_VERSION;
+	case PROTO_QUAKE:
+		return PROTOCOL_VERSION_QUAKE;
+	case PROTO_GOLDSRC:
+		return PROTOCOL_GOLDSRC_VERSION;
+	}
+
+	return PROTOCOL_VERSION;
+}
+
+static connprotocol_t CL_GetProtocolFromDemo( int net_protocol )
+{
+	switch( net_protocol )
+	{
+	case PROTOCOL_VERSION:
+		return PROTO_CURRENT;
+	case PROTOCOL_LEGACY_VERSION:
+		return PROTO_LEGACY;
+	case PROTOCOL_VERSION_QUAKE:
+		return PROTO_QUAKE;
+	case PROTOCOL_GOLDSRC_VERSION:
+		return PROTO_GOLDSRC;
+	}
+
+	return PROTO_CURRENT;
+}
+
 /*
 ====================
 CL_StartupDemoHeader
@@ -373,7 +407,7 @@ static void CL_WriteDemoHeader( const char *name )
 
 	demo.header.id = IDEMOHEADER;
 	demo.header.dem_protocol = DEMO_PROTOCOL;
-	demo.header.net_protocol = cls.legacymode ? PROTOCOL_LEGACY_VERSION : PROTOCOL_VERSION;
+	demo.header.net_protocol = CL_GetDemoNetProtocol( cls.legacymode );
 	demo.header.host_fps = host_maxfps.value ? bound( MIN_FPS, host_maxfps.value, MAX_FPS ) : MAX_FPS;
 	Q_strncpy( demo.header.mapname, clgame.mapname, sizeof( demo.header.mapname ));
 	Q_strncpy( demo.header.comment, clgame.maptitle, sizeof( demo.header.comment ));
@@ -1489,6 +1523,7 @@ void CL_PlayDemo_f( void )
 		}
 
 		if( neg ) cls.forcetrack = -cls.forcetrack;
+		cls.legacymode = PROTO_QUAKE;
 		CL_DemoStartPlayback( DEMO_QUAKE1 );
 		return; // quake demo is started
 	}
@@ -1542,11 +1577,11 @@ void CL_PlayDemo_f( void )
 
 	FS_Seek( cls.demofile, demo.entry->offset, SEEK_SET );
 
+	cls.legacymode = CL_GetProtocolFromDemo( demo.header.net_protocol );
 	CL_DemoStartPlayback( DEMO_XASH3D );
 
 	// g-cont. is this need?
 	Q_strncpy( cls.servername, demoname, sizeof( cls.servername ));
-	cls.legacymode = demo.header.net_protocol == PROTOCOL_LEGACY_VERSION;
 
 	// begin a playback demo
 }
