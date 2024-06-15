@@ -886,38 +886,21 @@ CL_ParseQuakeMessage
 
 ==================
 */
-void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
+void CL_ParseQuakeMessage( sizebuf_t *msg )
 {
 	int		cmd, param1, param2;
 	size_t		bufStart;
 	const char	*str;
 
-	cls.starting_count = MSG_GetNumBytesRead( msg );	// updates each frame
-	CL_Parse_Debug( true );			// begin parsing
-
 	// init excise buffer
 	MSG_Init( &msg_demo, "UserMsg", msg_buf, sizeof( msg_buf ));
-
-	if( normal_message )
-	{
-		// assume no entity/player update this packet
-		if( cls.state == ca_active )
-		{
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].valid = false;
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = false;
-		}
-		else
-		{
-			CL_ResetFrame( &cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK] );
-		}
-	}
 
 	// parse the message
 	while( 1 )
 	{
 		if( MSG_CheckOverflow( msg ))
 		{
-			Host_Error( "CL_ParseServerMessage: overflow!\n" );
+			Host_Error( "%s: overflow!\n", __func__ );
 			return;
 		}
 
@@ -1112,9 +1095,6 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		}
 	}
-
-	cl.frames[cl.parsecountmod].graphdata.msgbytes += MSG_GetNumBytesRead( msg ) - cls.starting_count;
-	CL_Parse_Debug( false ); // done
 
 	// now process packet.
 	CL_ProcessPacket( &cl.frames[cl.parsecountmod] );

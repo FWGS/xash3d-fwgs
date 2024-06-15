@@ -891,7 +891,7 @@ void CL_ParseHLTV( sizebuf_t *msg );
 void CL_ParseDirector( sizebuf_t *msg );
 void CL_ParseResLocation( sizebuf_t *msg );
 void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext );
-void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message );
+void CL_ParseServerMessage( sizebuf_t *msg );
 void CL_ParseTempEntity( sizebuf_t *msg );
 qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );
 qboolean CL_RequestMissingResources( void );
@@ -907,7 +907,7 @@ int CL_EstimateNeededResources( void );
 //
 // cl_parse_48.c
 //
-void CL_ParseLegacyServerMessage( sizebuf_t *msg, qboolean normal_message );
+void CL_ParseLegacyServerMessage( sizebuf_t *msg );
 void CL_LegacyPrecache_f( void );
 
 //
@@ -966,7 +966,7 @@ void CL_SetIdealPitch( void );
 //
 // cl_qparse.c
 //
-void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message );
+void CL_ParseQuakeMessage( sizebuf_t *msg );
 
 //
 // cl_frame.c
