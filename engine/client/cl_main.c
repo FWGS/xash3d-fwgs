@@ -2378,21 +2378,24 @@ static void CL_ReadNetMessage( void )
 		// can't be a valid sequenced packet
 		if( cls.state < ca_connected ) continue;
 
-		if( !cls.demoplayback && MSG_GetMaxBytes( &net_message ) < 8 )
+		if( !cls.demoplayback )
 		{
-			Con_Printf( S_WARN "CL_ReadPackets: %s:runt packet\n", NET_AdrToString( net_from ));
-			continue;
-		}
+			if( MSG_GetMaxBytes( &net_message ) < 8 )
+			{
+				Con_Printf( S_WARN "CL_ReadPackets: %s:runt packet\n", NET_AdrToString( net_from ));
+				continue;
+			}
 
-		// packet from server
-		if( !cls.demoplayback && !NET_CompareAdr( net_from, cls.netchan.remote_address ))
-		{
-			Con_DPrintf( S_ERROR "CL_ReadPackets: %s:sequenced packet without connection\n", NET_AdrToString( net_from ));
-			continue;
-		}
+			// packet from server
+			if( !NET_CompareAdr( net_from, cls.netchan.remote_address ))
+			{
+				Con_DPrintf( S_ERROR "CL_ReadPackets: %s:sequenced packet without connection\n", NET_AdrToString( net_from ));
+				continue;
+			}
 
-		if( !cls.demoplayback && !Netchan_Process( &cls.netchan, &net_message ))
-			continue;	// wasn't accepted for some reason
+			if( !Netchan_Process( &cls.netchan, &net_message ))
+				continue;	// wasn't accepted for some reason
+		}
 
 		if( cls.state == ca_active )
 		{
