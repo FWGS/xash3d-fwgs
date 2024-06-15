@@ -1700,9 +1700,6 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	qboolean	message_contains_fragments;
 	int	i, qport, statId;
 
-	if( !CL_IsPlaybackDemo() && !NET_CompareAdr( net_from, chan->remote_address ))
-		return false;
-
 	// get sequence numbers
 	MSG_Clear( msg );
 	sequence = MSG_ReadLong( msg );
