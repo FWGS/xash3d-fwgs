@@ -27,10 +27,15 @@ typedef struct hash_pack_queue_s
 	struct hash_pack_queue_s	*next;
 } hash_pack_queue_t;
 
-static CVAR_DEFINE_AUTO( hpk_maxsize, "8", FCVAR_ARCHIVE, "set limit by size for all HPK-files ( 0 - unlimited )" );
+static CVAR_DEFINE( hpk_maxsize, "hpk_max_size", "64", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "set limit by size for all HPK-files in megabytes ( 0 - unlimited )" );
 static hash_pack_queue_t	*gp_hpak_queue = NULL;
 static hpak_header_t	hash_pack_header;
 static hpak_info_t	hash_pack_info;
+
+static void HPAK_MaxSize_f( void )
+{
+	Con_Printf( S_ERROR "hpk_maxsize is deprecated, use hpk_max_size\n" );
+}
 
 static const char *HPAK_TypeFromIndex( int type )
 {
@@ -1099,6 +1104,7 @@ void HPAK_Init( void )
 	Cmd_AddRestrictedCommand( "hpkremove", HPAK_Remove_f, "remove specified file from HPK-file" );
 	Cmd_AddRestrictedCommand( "hpkval", HPAK_Validate_f, "validate specified HPK-file" );
 	Cmd_AddRestrictedCommand( "hpkextract", HPAK_Extract_f, "extract all lumps from specified HPK-file" );
+	Cmd_AddRestrictedCommand( "hpk_maxsize", HPAK_MaxSize_f, "deprecation notice for hpk_maxsize" );
 	Cvar_RegisterVariable( &hpk_maxsize );
 
 	gp_hpak_queue = NULL;
