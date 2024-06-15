@@ -1392,39 +1392,53 @@ GL_AllocTexture
 */
 static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 {
-	gl_texture_t	*tex;
-	uint		i;
+	const qboolean skyboxhack = FBitSet( flags, TF_SKYSIDE ) && glConfig.context != CONTEXT_TYPE_GL_CORE;
+	gl_texture_t *tex = NULL;
+	GLuint texnum = 1;
 
-	// find a free texture_t slot
-	for( i = 0, tex = gl_textures; i < gl_numTextures; i++, tex++ )
-		if( !tex->name[0] ) break;
-
-	if( i == gl_numTextures )
-	{
-		if( gl_numTextures == MAX_TEXTURES )
-			gEngfuncs.Host_Error( "GL_AllocTexture: MAX_TEXTURES limit exceeds\n" );
-		gl_numTextures++;
-	}
-
-	tex = &gl_textures[i];
-
-	// copy initial params
-	Q_strncpy( tex->name, name, sizeof( tex->name ));
-
-	if( FBitSet( flags, TF_SKYSIDE ) && glConfig.context != CONTEXT_TYPE_GL_CORE )
-		tex->texnum = tr.skyboxbasenum++;
-	else
+	if( !skyboxhack )
 	{
 		// keep generating new texture names to avoid collision with predefined skybox objects
 		do
 		{
-			pglGenTextures( 1, &tex->texnum );
+			pglGenTextures( 1, &texnum );
 		}
-		while( tex->texnum >= SKYBOX_BASE_NUM &&
-			tex->texnum <= SKYBOX_BASE_NUM + SKYBOX_MAX_SIDES );
+		while( texnum >= SKYBOX_BASE_NUM && texnum <= SKYBOX_BASE_NUM + SKYBOX_MAX_SIDES );
+	}
+	else texnum = tr.skyboxbasenum;
+
+	// try to match texture slot and texture handle because of buggy games
+	if( texnum >= MAX_TEXTURES || gl_textures[texnum].texnum != 0 )
+	{
+		// find a free texture_t slot
+		uint i;
+
+		for( i = 0; i < MAX_TEXTURES; i++ )
+		{
+			if( gl_textures[i].texnum )
+				continue;
+
+			tex = &gl_textures[i];
+			break;
+		}
+	}
+	else tex = &gl_textures[texnum];
+
+	if( tex == NULL )
+	{
+		gEngfuncs.Host_Error( "%s: MAX_TEXTURES limit exceeds\n", __func__ );
+		return NULL;
 	}
 
+	// copy initial params
+	Q_strncpy( tex->name, name, sizeof( tex->name ));
+	tex->texnum = texnum;
 	tex->flags = flags;
+
+	// increase counter
+	gl_numTextures = Q_max(( tex - gl_textures ) + 1, gl_numTextures );
+	if( skyboxhack )
+		tr.skyboxbasenum++;
 
 	// add to hash table
 	tex->hashValue = COM_HashKey( name, TEXTURES_HASH_SIZE );
