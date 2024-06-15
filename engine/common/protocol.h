@@ -279,6 +279,7 @@ GNU General Public License for more details.
 
 extern const char	*svc_strings[svc_lastmsg+1];
 extern const char	*svc_legacy_strings[svc_lastmsg+1];
+extern const char	*svc_quake_strings[svc_lastmsg+1];
 extern const char	*svc_goldsrc_strings[svc_lastmsg+1];
 extern const char	*clc_strings[clc_lastmsg+1];
 
