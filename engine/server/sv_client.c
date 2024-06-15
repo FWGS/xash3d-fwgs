@@ -2157,9 +2157,9 @@ static qboolean SV_DownloadFile_f( sv_client_t *cl )
 		memset( &custResource, 0, sizeof( custResource ) );
 		COM_HexConvert( name + 4, 32, md5 );
 
-		if( HPAK_ResourceForHash( CUSTOM_RES_PATH, md5, &custResource ))
+		if( HPAK_ResourceForHash( hpk_custom_file.string, md5, &custResource ))
 		{
-			if( HPAK_GetDataPointer( CUSTOM_RES_PATH, &custResource, &pbuf, &size ))
+			if( HPAK_GetDataPointer( hpk_custom_file.string, &custResource, &pbuf, &size ))
 			{
 				if( size )
 				{

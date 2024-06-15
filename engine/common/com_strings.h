@@ -39,9 +39,6 @@ GNU General Public License for more details.
 // end game final default message
 #define DEFAULT_ENDGAME_MESSAGE	"The End"
 
-// path to the hash-pak that contain custom player decals
-#define CUSTOM_RES_PATH		"custom.hpk"
-
 // path to default playermodel in GoldSrc
 #define DEFAULT_PLAYER_PATH_HALFLIFE	"models/player.mdl"
 
