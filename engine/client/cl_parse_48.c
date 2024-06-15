@@ -264,7 +264,7 @@ static void CL_LegacyParseResourceList( sizebuf_t *msg )
 		Q_strncpy( reslist.resnames[i], MSG_ReadString( msg ), sizeof( reslist.resnames[i] ));
 	}
 
-	if( CL_IsPlaybackDemo() )
+	if( cls.demoplayback )
 		return;
 
 	if( !cl_allow_download.value )
