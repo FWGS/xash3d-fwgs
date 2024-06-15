@@ -705,5 +705,5 @@ void CL_LegacyUpdateInfo( void )
 
 qboolean CL_LegacyMode( void )
 {
-	return cls.legacymode;
+	return cls.legacymode == PROTO_LEGACY;
 }
