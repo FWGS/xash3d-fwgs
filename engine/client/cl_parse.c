@@ -188,7 +188,7 @@ void CL_ParseServerTime( sizebuf_t *msg )
 	cl.mtime[1] = cl.mtime[0];
 	cl.mtime[0] = MSG_ReadFloat( msg );
 
-	if( cls.demoplayback == DEMO_QUAKE1 )
+	if( cls.legacymode == PROTO_QUAKE )
 		return; // don't mess the time
 
 	if( cl.maxclients == 1 )
@@ -2219,36 +2219,19 @@ CL_ParseServerMessage
 dispatch messages
 =====================
 */
-void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
+void CL_ParseServerMessage( sizebuf_t *msg )
 {
 	size_t		bufStart, playerbytes;
 	int		cmd, param1, param2;
 	int		old_background;
 	const char	*s;
 
-	cls.starting_count = MSG_GetNumBytesRead( msg );	// updates each frame
-	CL_Parse_Debug( true );			// begin parsing
-
-	if( normal_message )
-	{
-		// assume no entity/player update this packet
-		if( cls.state == ca_active )
-		{
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].valid = false;
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = false;
-		}
-		else
-		{
-			CL_ResetFrame( &cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK] );
-		}
-	}
-
 	// parse the message
 	while( 1 )
 	{
 		if( MSG_CheckOverflow( msg ))
 		{
-			Host_Error( "CL_ParseServerMessage: overflow!\n" );
+			Host_Error( "%s: overflow!\n", __func__ );
 			return;
 		}
 
@@ -2505,23 +2488,6 @@ void CL_ParseServerMessage( sizebuf_t *msg, qboolean normal_message )
 			CL_ParseUserMessage( msg, cmd );
 			cl.frames[cl.parsecountmod].graphdata.usr += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
-		}
-	}
-
-	cl.frames[cl.parsecountmod].graphdata.msgbytes += MSG_GetNumBytesRead( msg ) - cls.starting_count;
-	CL_Parse_Debug( false ); // done
-
-	// we don't know if it is ok to save a demo message until
-	// after we have parsed the frame
-	if( !cls.demoplayback )
-	{
-		if( cls.demorecording && !cls.demowaiting )
-		{
-			CL_WriteDemoMessage( false, cls.starting_count, msg );
-		}
-		else if( cls.state != ca_active )
-		{
-			CL_WriteDemoMessage( true, cls.starting_count, msg );
 		}
 	}
 }

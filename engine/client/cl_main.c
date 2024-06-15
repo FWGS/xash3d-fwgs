@@ -2303,6 +2303,32 @@ static int CL_GetMessage( byte *data, size_t *length )
 	return false;
 }
 
+static void CL_ParseNetMessage( sizebuf_t *msg, void (*parsefn)( sizebuf_t * ))
+{
+	cls.starting_count = MSG_GetNumBytesRead( msg ); // updates each frame
+	CL_Parse_Debug( true ); // begin parsing
+
+	parsefn( msg );
+
+	cl.frames[cl.parsecountmod].graphdata.msgbytes += MSG_GetNumBytesRead( msg ) - cls.starting_count;
+	CL_Parse_Debug( false ); // done
+
+	// we don't know if it is ok to save a demo message until
+	// after we have parsed the frame
+	if( !cls.demoplayback )
+	{
+		if( cls.demorecording && !cls.demowaiting )
+		{
+			CL_WriteDemoMessage( false, cls.starting_count, msg );
+		}
+		else if( cls.state != ca_active )
+		{
+			CL_WriteDemoMessage( true, cls.starting_count, msg );
+		}
+	}
+}
+
+
 /*
 =================
 CL_ReadNetMessage
@@ -2311,11 +2337,29 @@ CL_ReadNetMessage
 static void CL_ReadNetMessage( void )
 {
 	size_t	curSize;
+	void (*parsefn)( sizebuf_t *msg );
+
+	switch( cls.legacymode )
+	{
+	case PROTO_CURRENT:
+		parsefn = CL_ParseServerMessage;
+		break;
+	case PROTO_LEGACY:
+		parsefn = CL_ParseLegacyServerMessage;
+		break;
+	case PROTO_QUAKE:
+		parsefn = CL_ParseQuakeMessage;
+		break;
+	case PROTO_GOLDSRC:
+	default:
+		ASSERT( 0 );
+		return;
+	}
 
 	while( CL_GetMessage( net_message_buffer, &curSize ))
 	{
 		const int split_header = LittleLong( 0xFFFFFFFE );
-		if( cls.legacymode && !memcmp( &split_header, net_message_buffer, sizeof( split_header )))
+		if( cls.legacymode == PROTO_LEGACY && !memcmp( &split_header, net_message_buffer, sizeof( split_header )))
 		{
 			// Will rewrite existing packet by merged
 			if( !NetSplit_GetLong( &cls.netchan.netsplit, &net_from, net_message_buffer, &curSize ) )
@@ -2350,11 +2394,17 @@ static void CL_ReadNetMessage( void )
 		if( !cls.demoplayback && !Netchan_Process( &cls.netchan, &net_message ))
 			continue;	// wasn't accepted for some reason
 
-		// run special handler for quake demos
-		if( cls.demoplayback == DEMO_QUAKE1 )
-			CL_ParseQuakeMessage( &net_message, true );
-		else if( cls.legacymode ) CL_ParseLegacyServerMessage( &net_message, true );
-		else CL_ParseServerMessage( &net_message, true );
+		if( cls.state == ca_active )
+		{
+			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].valid = false;
+			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = false;
+		}
+		else
+		{
+			CL_ResetFrame( &cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK] );
+		}
+
+		CL_ParseNetMessage( &net_message, parsefn );
 		cl.send_reply = true;
 	}
 
@@ -2368,7 +2418,7 @@ static void CL_ReadNetMessage( void )
 		if( Netchan_CopyNormalFragments( &cls.netchan, &net_message, &curSize ))
 		{
 			MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
-			CL_ParseServerMessage( &net_message, false );
+			CL_ParseNetMessage( &net_message, parsefn );
 		}
 
 		if( Netchan_CopyFileFragments( &cls.netchan, &net_message ))
