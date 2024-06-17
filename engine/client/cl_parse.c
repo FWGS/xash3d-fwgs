@@ -1993,7 +1993,7 @@ Find the client cvar value
 and sent it back to the server
 ==============
 */
-void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext )
+void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t proto )
 {
 	const char *cvarName, *response;
 	convar_t *cvar;
@@ -2016,7 +2016,14 @@ void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext )
 		else
 			response = cvar->string;
 	}
-	else response = "Bad CVAR request";
+	else if( proto == PROTO_LEGACY )
+	{
+		response = "Not Found";
+	}
+	else
+	{
+		response = "Bad CVAR request";
+	}
 
 	if( ext )
 	{
@@ -2476,10 +2483,10 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseResLocation( msg );
 			break;
 		case svc_querycvarvalue:
-			CL_ParseCvarValue( msg, false );
+			CL_ParseCvarValue( msg, false, PROTO_CURRENT );
 			break;
 		case svc_querycvarvalue2:
-			CL_ParseCvarValue( msg, true );
+			CL_ParseCvarValue( msg, true, PROTO_CURRENT );
 			break;
 		case svc_exec:
 			CL_ParseExec( msg );
