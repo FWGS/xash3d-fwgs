@@ -890,7 +890,7 @@ void CL_ParseFileTransferFailed( sizebuf_t *msg );
 void CL_ParseHLTV( sizebuf_t *msg );
 void CL_ParseDirector( sizebuf_t *msg );
 void CL_ParseResLocation( sizebuf_t *msg );
-void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext );
+void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t proto );
 void CL_ParseServerMessage( sizebuf_t *msg );
 void CL_ParseTempEntity( sizebuf_t *msg );
 qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );
