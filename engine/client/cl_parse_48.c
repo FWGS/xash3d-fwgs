@@ -595,10 +595,10 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_ParseResLocation( msg );
 			break;
 		case svc_querycvarvalue:
-			CL_ParseCvarValue( msg, false );
+			CL_ParseCvarValue( msg, false, PROTO_LEGACY );
 			break;
 		case svc_querycvarvalue2:
-			CL_ParseCvarValue( msg, true );
+			CL_ParseCvarValue( msg, true, PROTO_LEGACY );
 			break;
 		default:
 			CL_ParseUserMessage( msg, cmd );
