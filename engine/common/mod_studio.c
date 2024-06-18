@@ -912,15 +912,11 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 			out = (byte *)phdr + phdr->textureindex;
 			memcpy( out, in, size1 + size2 );	// copy textures + skinrefs
 			phdr->length += size1 + size2;
+		}
+		else Con_Printf( S_WARN "%s: %s missing textures file\n", __func__, mod->name );
+
+		if( buffer2 )
 			Mem_Free( buffer2 ); // release T.mdl
-		}
-		else
-		{
-			Con_Printf( S_WARN "%s: %s missing textures file\n", __func__, mod->name );
-			if( buffer2 )
-				Mem_Free( buffer2 ); // release T.mdl
-			return;
-		}
 	}
 #endif
 
