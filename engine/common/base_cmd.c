@@ -162,7 +162,7 @@ void BaseCmd_Remove( base_command_type_e type, const char *name )
 
 	if( !i )
 	{
-		Con_Reportf( S_ERROR  "Couldn't find %s in buckets\n", name );
+		Con_Reportf( S_ERROR "%s: Couldn't find %s in buckets\n", __func__, name );
 		return;
 	}
 

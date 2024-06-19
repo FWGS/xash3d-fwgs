@@ -135,7 +135,7 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 	glpoly_t		*poly;
 
 	if( numverts > ( SUBDIVIDE_SIZE - 4 ))
-		gEngfuncs.Host_Error( "Mod_SubdividePolygon: too many vertexes on face ( %i )\n", numverts );
+		gEngfuncs.Host_Error( "%s: too many vertexes on face ( %i )\n", __func__, numverts );
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( warpface );
 	BoundPoly( numverts, verts, mins, maxs );
@@ -691,7 +691,7 @@ static void LM_UploadBlock( qboolean dynamic )
 		tr.lightmapTextures[i] = GL_LoadTextureInternal( lmName, &r_lightmap, TF_NOMIPMAP|TF_ATLAS_PAGE );
 
 		if( ++gl_lms.current_lightmap_texture == MAX_LIGHTMAPS )
-			gEngfuncs.Host_Error( "AllocBlock: full\n" );
+			gEngfuncs.Host_Error( "%s: full\n", __func__ );
 	}
 }
 
@@ -1914,7 +1914,7 @@ void R_GenerateVBO( void )
 					vbotex->vboarray = vbo;
 					// generate new array and new vbotexture node
 					vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
-					gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts, texture %d, lm %d\n", vbo->array_len, j, k );
+					gEngfuncs.Con_Printf( "%s: allocated array of %d verts, texture %d, lm %d\n", __func__, vbo->array_len, j, k );
 					vbo->next = Mem_Calloc( vbos.mempool, sizeof( vboarray_t ) );
 					vbo = vbo->next;
 					vbotex->next = Mem_Calloc( vbos.mempool, sizeof( vbotexture_t ) );
@@ -1942,7 +1942,7 @@ void R_GenerateVBO( void )
 
 	// allocate last array
 	vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
-	gEngfuncs.Con_Printf( "R_GenerateVBOs: allocated array of %d verts\n", vbo->array_len );
+	gEngfuncs.Con_Printf( "%s: allocated array of %d verts\n", __func__, vbo->array_len );
 
 	// switch to list begin
 	vbo = vbos.arraylist;
@@ -2723,7 +2723,7 @@ static void R_DrawVBODlights( vboarray_t *vbo, vbotexture_t *vbotex, texture_t *
 
 				// try upload the block now
 				if( !LM_AllocBlock( smax, tmax, &info->dlight_s, &info->dlight_t ))
-					gEngfuncs.Host_Error( "AllocBlock: full\n" );
+					gEngfuncs.Host_Error( "%s: full\n", __func__ );
 
 				base = gl_lms.lightmap_buffer;
 				base += ( info->dlight_t * BLOCK_SIZE + info->dlight_s ) * 4;
@@ -3738,7 +3738,7 @@ static void GL_CreateSurfaceLightmap( msurface_t *surf, model_t *loadmodel )
 		LM_InitBlock();
 
 		if( !LM_AllocBlock( smax, tmax, &surf->light_s, &surf->light_t ))
-			gEngfuncs.Host_Error( "AllocBlock: full\n" );
+			gEngfuncs.Host_Error( "%s: full\n", __func__ );
 	}
 
 	surf->lightmaptexturenum = gl_lms.current_lightmap_texture;

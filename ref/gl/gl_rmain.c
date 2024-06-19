@@ -959,7 +959,7 @@ R_SetupRefParams must be called right before
 void R_RenderScene( void )
 {
 	if( !WORLDMODEL && RI.drawWorld )
-		gEngfuncs.Host_Error( "R_RenderView: NULL worldmodel\n" );
+		gEngfuncs.Host_Error( "%s: NULL worldmodel\n", __func__ );
 
 	// frametime is valid only for normal pass
 	if( RP_NORMALPASS( ))

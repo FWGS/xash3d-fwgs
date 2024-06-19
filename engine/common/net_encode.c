@@ -510,13 +510,13 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName );
 	if( !pFieldInfo )
 	{
-		Con_DPrintf( S_ERROR "Delta_Add: couldn't find description for %s->%s\n", dt->pName, pName );
+		Con_DPrintf( S_ERROR "%s: couldn't find description for %s->%s\n", __func__, dt->pName, pName );
 		return false;
 	}
 
 	if( dt->numFields + 1 > dt->maxFields )
 	{
-		Con_DPrintf( S_WARN "Delta_Add: can't add %s->%s encoder list is full\n", dt->pName, pName );
+		Con_DPrintf( S_WARN "%s: can't add %s->%s encoder list is full\n", __func__, dt->pName, pName );
 		return false; // too many fields specified (duplicated ?)
 	}
 
@@ -587,7 +587,7 @@ void Delta_ParseTableField( sizebuf_t *msg )
 	tableIndex = MSG_ReadUBitLong( msg, 4 );
 	dt = Delta_FindStructByIndex( tableIndex );
 	if( !dt )
-		Host_Error( "Delta_ParseTableField: not initialized" );
+		Host_Error( "%s: not initialized", __func__ );
 
 	nameIndex = MSG_ReadUBitLong( msg, 8 );	// read field name index
 	if( ( nameIndex >= 0 && nameIndex < dt->maxFields ) )
@@ -597,7 +597,7 @@ void Delta_ParseTableField( sizebuf_t *msg )
 	else
 	{
 		ignore = true;
-		Con_Reportf( "Delta_ParseTableField: wrong nameIndex %d for table %s, ignoring\n", nameIndex,  dt->pName );
+		Con_Reportf( "%s: wrong nameIndex %d for table %s, ignoring\n", __func__, nameIndex,  dt->pName );
 	}
 
 	flags = MSG_ReadUBitLong( msg, 10 );
@@ -630,28 +630,28 @@ static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInf
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "(" ))
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: expected '(', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "%s: expected '(', found '%s' instead\n", __func__, token );
 		return false;
 	}
 
 	// read the variable name
 	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: missing field name\n" );
+		Con_DPrintf( S_ERROR "%s: missing field name\n", __func__ );
 		return false;
 	}
 
 	pFieldInfo = Delta_FindFieldInfo( pInfo, token );
 	if( !pFieldInfo )
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: unable to find field %s\n", token );
+		Con_DPrintf( S_ERROR "%s: unable to find field %s\n", __func__, token );
 		return false;
 	}
 
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "," ))
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "%s: expected ',', found '%s' instead\n", __func__, token );
 		return false;
 	}
 
@@ -692,14 +692,14 @@ static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInf
 
 	if( Q_strcmp( token, "," ))
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "%s: expected ',', found '%s' instead\n", __func__, token );
 		return false;
 	}
 
 	// read delta-bits
 	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: %s field bits argument is missing\n", pField->name );
+		Con_DPrintf( S_ERROR "%s: %s field bits argument is missing\n", __func__, pField->name );
 		return false;
 	}
 
@@ -708,14 +708,14 @@ static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInf
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "," ))
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "%s: expected ',', found '%s' instead\n", __func__, token );
 		return false;
 	}
 
 	// read delta-multiplier
 	if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: %s missing 'multiplier' argument\n", pField->name );
+		Con_DPrintf( S_ERROR "%s: %s missing 'multiplier' argument\n", __func__, pField->name );
 		return false;
 	}
 
@@ -726,14 +726,14 @@ static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInf
 		*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 		if( Q_strcmp( token, "," ))
 		{
-			Con_DPrintf( S_ERROR "Delta_ParseField: expected ',', found '%s' instead\n", token );
+			Con_DPrintf( S_ERROR "%s: expected ',', found '%s' instead\n", __func__, token );
 			return false;
 		}
 
 		// read delta-postmultiplier
 		if(( *delta_script = COM_ParseFile( *delta_script, token, sizeof( token ))) == NULL )
 		{
-			Con_DPrintf( S_ERROR "Delta_ParseField: %s missing 'post_multiply' argument\n", pField->name );
+			Con_DPrintf( S_ERROR "%s: %s missing 'post_multiply' argument\n", __func__, pField->name );
 			return false;
 		}
 
@@ -749,7 +749,7 @@ static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInf
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, ")" ))
 	{
-		Con_DPrintf( S_ERROR "Delta_ParseField: expected ')', found '%s' instead\n", token );
+		Con_DPrintf( S_ERROR "%s: expected ')', found '%s' instead\n", __func__, token );
 		return false;
 	}
 
@@ -823,7 +823,7 @@ static void Delta_InitFields( void )
 	delta_info_t	*dt;
 
 	afile = FS_LoadFile( DELTA_PATH, NULL, false );
-	if( !afile ) Sys_Error( "DELTA_Load: couldn't load file %s\n", DELTA_PATH );
+	if( !afile ) Sys_Error( "%s: couldn't load file %s\n", __func__, DELTA_PATH );
 
 	pfile = (char *)afile;
 
@@ -1801,7 +1801,7 @@ void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *
 	startBit = msg->iCurBit;
 
 	if( to->number < 0 || to->number >= GI->max_edicts )
-		Host_Error( "MSG_WriteDeltaEntity: Bad entity number: %i\n", to->number );
+		Host_Error( "%s: Bad entity number: %i\n", __func__, to->number );
 
 	MSG_WriteUBitLong( msg, to->number, MAX_ENTITY_BITS );
 	MSG_WriteUBitLong( msg, 0, 2 ); // alive
@@ -1882,7 +1882,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 	int		baseline_offset = 0;
 
 	if( number < 0 || number >= clgame.maxEntities )
-		Host_Error( "MSG_ReadDeltaEntity: bad delta entity number: %i\n", number );
+		Host_Error( "%s: bad delta entity number: %i\n", __func__, number );
 
 	fRemoveType = MSG_ReadUBitLong( msg, 2 );
 
@@ -1904,7 +1904,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state
 			return false;
 		}
 
-		Host_Error( "MSG_ReadDeltaEntity: unknown update type %i\n", fRemoveType );
+		Host_Error( "%s: unknown update type %i\n", __func__, fRemoveType );
 	}
 
 	if( !cls.legacymode )
@@ -2003,13 +2003,13 @@ void GAME_EXPORT Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc )
 
 	if( !dt || !dt->bInitialized )
 	{
-		Con_DPrintf( S_ERROR "Delta_AddEncoder: couldn't find delta with specified custom encode %s\n", name );
+		Con_DPrintf( S_ERROR "%s: couldn't find delta with specified custom encode %s\n", __func__, name );
 		return;
 	}
 
 	if( dt->customEncode == CUSTOM_NONE )
 	{
-		Con_DPrintf( S_ERROR "Delta_AddEncoder: %s not supposed for custom encoding\n", dt->pName );
+		Con_DPrintf( S_ERROR "%s: %s not supposed for custom encoding\n", __func__, dt->pName );
 		return;
 	}
 

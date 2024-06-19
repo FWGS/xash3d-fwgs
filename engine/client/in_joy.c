@@ -134,7 +134,7 @@ static void Joy_ProcessTrigger( const engineAxis_t engineAxis, short value )
 		trigThreshold = joy_lt_threshold.value;
 		break;
 	default:
-		Con_Reportf( S_ERROR  "Joy_ProcessTrigger: invalid axis = %i", engineAxis );
+		Con_Reportf( S_ERROR "%s: invalid axis = %i\n", __func__, engineAxis );
 		break;
 	}
 
@@ -205,7 +205,7 @@ static void Joy_ProcessStick( const engineAxis_t engineAxis, short value )
 	case JOY_AXIS_PITCH: deadzone = joy_pitch_deadzone.value; break;
 	case JOY_AXIS_YAW:   deadzone = joy_yaw_deadzone.value; break;
 	default:
-		Con_Reportf( S_ERROR  "Joy_ProcessStick: invalid axis = %i", engineAxis );
+		Con_Reportf( S_ERROR "%s: invalid axis = %i\n", __func__, engineAxis );
 		break;
 	}
 

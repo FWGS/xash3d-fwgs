@@ -86,7 +86,7 @@ static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create
 				// Mod_LoadBrushModel( mod, buf, loaded );
 				break;
 
-			default: gEngfuncs.Host_Error( "Mod_LoadModel: unsupported type %d\n", mod->type );
+			default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
 		}
 	}
 
@@ -266,7 +266,7 @@ void Mod_UnloadTextures( model_t *mod )
 	case mod_sprite:
 		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
-	default: gEngfuncs.Host_Error( "Mod_UnloadModel: unsupported type %d\n", mod->type );
+	default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
 	}
 }
 

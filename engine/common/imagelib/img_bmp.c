@@ -35,7 +35,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( filesize < sizeof( bhdr ))
 	{
-		Con_Reportf( S_ERROR "Image_LoadBMP: %s have incorrect file size %li should be greater than %li (header)\n", name, filesize, sizeof( bhdr ) );
+		Con_Reportf( S_ERROR "%s: %s have incorrect file size %li should be greater than %zu (header)\n", __func__, name, (long)filesize, sizeof( bhdr ));
 		return false;
 	}
 
@@ -49,13 +49,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( memcmp( bhdr.id, "BM", 2 ))
 	{
-		Con_DPrintf( S_ERROR "Image_LoadBMP: only Windows-style BMP files supported (%s)\n", name );
+		Con_DPrintf( S_ERROR "%s: only Windows-style BMP files supported (%s)\n", __func__, name );
 		return false;
 	}
 
 	if(!( bhdr.bitmapHeaderSize == 40 || bhdr.bitmapHeaderSize == 108 || bhdr.bitmapHeaderSize == 124 ))
 	{
-		Con_DPrintf( S_ERROR "Image_LoadBMP: %s have non-standard header size %i\n", name, bhdr.bitmapHeaderSize );
+		Con_DPrintf( S_ERROR "%s: %s have non-standard header size %i\n", __func__, name, bhdr.bitmapHeaderSize );
 		return false;
 	}
 
@@ -63,7 +63,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	if( bhdr.fileSize != filesize )
 	{
 		// Sweet Half-Life issues. splash.bmp have bogus filesize
-		Con_Reportf( S_WARN "Image_LoadBMP: %s have incorrect file size %li should be %i\n", name, filesize, bhdr.fileSize );
+		Con_Reportf( S_WARN "%s: %s have incorrect file size %li should be %i\n", __func__, name, (long)filesize, bhdr.fileSize );
 	}
 
 	// bogus compression?  Only non-compressed supported.
@@ -71,7 +71,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		if( bhdr.bitsPerPixel != 32 || bhdr.compression != BI_BITFIELDS )
 		{ 
-			Con_DPrintf( S_ERROR "Image_LoadBMP: only uncompressed BMP files supported (%s)\n", name );
+			Con_DPrintf( S_ERROR "%s: only uncompressed BMP files supported (%s)\n", __func__, name );
 			return false;
 		}
 	}
@@ -108,7 +108,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	estimatedSize = ( buf_p - buffer ) + cbPalBytes;
 	if( filesize < estimatedSize )
 	{
-		Con_Reportf( S_ERROR "Image_LoadBMP: %s have incorrect file size %li should be greater than %li (palette)\n", name, filesize, estimatedSize );
+		Con_Reportf( S_ERROR "%s: %s have incorrect file size %li should be greater than %li (palette)\n", __func__, name, (long)filesize, (long)estimatedSize );
 		return false;
 	}
 
@@ -186,7 +186,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 			image.palette = NULL;
 		}
 
-		Con_Reportf( S_ERROR "Image_LoadBMP: %s have incorrect file size %li should be greater than %li (pixels)\n", name, filesize, estimatedSize );
+		Con_Reportf( S_ERROR "%s: %s have incorrect file size %li should be greater than %li (pixels)\n", __func__, name, (long)filesize, (long)estimatedSize );
 		return false;
 	}
 

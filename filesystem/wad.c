@@ -319,7 +319,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( wad->handle == NULL )
 	{
-		Con_Reportf( S_ERROR "W_Open: couldn't open %s: %s\n", filename, strerror( errno ));
+		Con_Reportf( S_ERROR "%s: couldn't open %s: %s\n", __func__, filename, strerror( errno ));
 		if( error ) *error = WAD_LOAD_COULDNT_OPEN;
 		FS_CloseWAD( wad );
 		return NULL;
@@ -331,7 +331,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( FS_Read( wad->handle, &header, sizeof( dwadinfo_t )) != sizeof( dwadinfo_t ))
 	{
-		Con_Reportf( S_ERROR "W_Open: %s can't read header\n", filename );
+		Con_Reportf( S_ERROR "%s: %s can't read header\n", __func__, filename );
 		if( error ) *error = WAD_LOAD_BAD_HEADER;
 		FS_CloseWAD( wad );
 		return NULL;
@@ -339,7 +339,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( header.ident != IDWAD2HEADER && header.ident != IDWAD3HEADER )
 	{
-		Con_Reportf( S_ERROR "W_Open: %s is not a WAD2 or WAD3 file\n", filename );
+		Con_Reportf( S_ERROR "%s: %s is not a WAD2 or WAD3 file\n", __func__, filename );
 		if( error ) *error = WAD_LOAD_BAD_HEADER;
 		FS_CloseWAD( wad );
 		return NULL;
@@ -349,12 +349,12 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( lumpcount >= MAX_FILES_IN_WAD )
 	{
-		Con_Reportf( S_WARN "W_Open: %s is full (%i lumps)\n", filename, lumpcount );
+		Con_Reportf( S_WARN "%s: %s is full (%i lumps)\n", __func__, filename, lumpcount );
 		if( error ) *error = WAD_LOAD_TOO_MANY_FILES;
 	}
 	else if( lumpcount <= 0 )
 	{
-		Con_Reportf( S_ERROR "W_Open: %s has no lumps\n", filename );
+		Con_Reportf( S_ERROR "%s: %s has no lumps\n", __func__, filename );
 		if( error ) *error = WAD_LOAD_NO_FILES;
 		FS_CloseWAD( wad );
 		return NULL;
@@ -365,7 +365,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( FS_Seek( wad->handle, wad->infotableofs, SEEK_SET ) == -1 )
 	{
-		Con_Reportf( S_ERROR "W_Open: %s can't find lump allocation table\n", filename );
+		Con_Reportf( S_ERROR "%s: %s can't find lump allocation table\n", __func__, filename );
 		if( error ) *error = WAD_LOAD_BAD_FOLDERS;
 		FS_CloseWAD( wad );
 		return NULL;
@@ -378,7 +378,7 @@ static wfile_t *W_Open( const char *filename, int *error )
 
 	if( FS_Read( wad->handle, srclumps, lat_size ) != lat_size )
 	{
-		Con_Reportf( S_ERROR "W_ReadLumpTable: %s has corrupted lump allocation table\n", filename );
+		Con_Reportf( S_ERROR "%s: %s has corrupted lump allocation table\n", __func__, filename );
 		if( error ) *error = WAD_LOAD_CORRUPTED;
 		Mem_Free( srclumps );
 		FS_CloseWAD( wad );
@@ -608,7 +608,7 @@ static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, f
 
 	if( FS_Seek( wad->handle, lump->filepos, SEEK_SET ) == -1 )
 	{
-		Con_Reportf( S_ERROR "W_ReadLump: %s is corrupted\n", lump->name );
+		Con_Reportf( S_ERROR "%s: %s is corrupted\n", __func__, lump->name );
 		FS_Seek( wad->handle, oldpos, SEEK_SET );
 		return NULL;
 	}
@@ -626,7 +626,7 @@ static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, f
 
 	if( size < lump->disksize )
 	{
-		Con_Reportf( S_WARN "W_ReadLump: %s is probably corrupted\n", lump->name );
+		Con_Reportf( S_WARN "%s: %s is probably corrupted\n", __func__, lump->name );
 		pfnFree( buf );
 		return NULL;
 	}
@@ -652,7 +652,7 @@ searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags )
 	if( !wad )
 	{
 		if( errorcode != WAD_LOAD_NO_FILES )
-			Con_Reportf( S_ERROR "FS_AddWad_Fullpath: unable to load wad \"%s\"\n", wadfile );
+			Con_Reportf( S_ERROR "%s: unable to load wad \"%s\"\n", __func__, wadfile );
 		return NULL;
 	}
 

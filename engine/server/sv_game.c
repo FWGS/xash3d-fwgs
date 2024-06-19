@@ -252,13 +252,13 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 
 	if( !SV_IsValidEdict( ent ))
 	{
-		Con_Printf( S_WARN "SV_SetModel: invalid entity %s\n", SV_ClassName( ent ));
+		Con_Printf( S_WARN "%s: invalid entity %s\n", __func__, SV_ClassName( ent ));
 		return;
 	}
 
 	if( !modelname || ((byte)modelname[0] ) <= ' ' )
 	{
-		Con_Printf( S_WARN "SV_SetModel: null name\n" );
+		Con_Printf( S_WARN "%s: null name\n", __func__ );
 		return;
 	}
 
@@ -272,7 +272,7 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	if( i == 0 )
 	{
 		if( sv.state == ss_active )
-			Con_Printf( S_ERROR "SV_SetModel: failed to set model %s: world model cannot be changed\n", name );
+			Con_Printf( S_ERROR "%s: failed to set model %s: world model cannot be changed\n", __func__, name );
 		return;
 	}
 
@@ -445,7 +445,7 @@ static int SV_Multicast( int dest, const vec3_t origin, const edict_t *ent, qboo
 		specproxy = reliable = true;
 		break;
 	default:
-		Host_Error( "SV_Multicast: bad dest: %i\n", dest );
+		Host_Error( "%s: bad dest: %i\n", __func__, dest );
 		return 0;
 	}
 
@@ -1087,7 +1087,7 @@ edict_t *GAME_EXPORT SV_AllocEdict( void )
 	}
 
 	if( i >= GI->max_edicts )
-		Host_Error( "ED_AllocEdict: no free edicts (max is %d)\n", GI->max_edicts );
+		Host_Error( "%s: no free edicts (max is %d)\n", __func__, GI->max_edicts );
 
 	svgame.numEntities++;
 	e = EDICT_NUM( i );
@@ -1990,31 +1990,31 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 
 	if( vol < 0 || vol > 255 )
 	{
-		Con_Reportf( S_ERROR "SV_StartSound: volume = %i\n", vol );
+		Con_Reportf( S_ERROR "%s: volume = %i\n", __func__, vol );
 		vol = bound( 0, vol, 255 );
 	}
 
 	if( attn < 0.0f || attn > 4.0f )
 	{
-		Con_Reportf( S_ERROR "SV_StartSound: attenuation %g must be in range 0-4\n", attn );
+		Con_Reportf( S_ERROR "%s: attenuation %g must be in range 0-4\n", __func__, attn );
 		attn = bound( 0.0f, attn, 4.0f );
 	}
 
 	if( chan < 0 || chan > 7 )
 	{
-		Con_Reportf( S_ERROR "SV_StartSound: channel must be in range 0-7\n" );
+		Con_Reportf( S_ERROR "%s: channel must be in range 0-7\n", __func__ );
 		chan = bound( 0, chan, 7 );
 	}
 
 	if( pitch < 0 || pitch > 255 )
 	{
-		Con_Reportf( S_ERROR "SV_StartSound: pitch = %i\n", pitch );
+		Con_Reportf( S_ERROR "%s: pitch = %i\n", __func__, pitch );
 		pitch = bound( 0, pitch, 255 );
 	}
 
 	if( !COM_CheckString( sample ))
 	{
-		Con_Reportf( S_ERROR "SV_StartSound: passed NULL sample\n" );
+		Con_Reportf( S_ERROR "%s: passed NULL sample\n", __func__ );
 		return 0;
 	}
 
@@ -2048,7 +2048,7 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 
 		if( !sound_idx )
 		{
-			Con_Printf( S_ERROR "SV_StartSound: %s not precached (%d)\n", sample, sound_idx );
+			Con_Printf( S_ERROR "%s: %s not precached (%d)\n", __func__, sample, sound_idx );
 			return 0;
 		}
 	}
@@ -2469,7 +2469,7 @@ static void GAME_EXPORT pfnLightStyle( int style, const char* val )
 {
 	if( style < 0 ) style = 0;
 	if( style >= MAX_LIGHTSTYLES )
-		Host_Error( "SV_LightStyle: style: %i >= %d", style, MAX_LIGHTSTYLES );
+		Host_Error( "%s: style: %i >= %d", __func__, style, MAX_LIGHTSTYLES );
 	if( sv.loadgame ) return; // don't let the world overwrite our restored styles
 
 	SV_SetLightStyle( style, val, 0.0f ); // set correct style
@@ -2565,7 +2565,7 @@ static void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float 
 	int	i, iSize;
 
 	if( svgame.msg_started )
-		Host_Error( "MessageBegin: New message started when msg '%s' has not been sent yet\n", svgame.msg_name );
+		Host_Error( "%s: New message started when msg '%s' has not been sent yet\n", __func__, svgame.msg_name );
 	svgame.msg_started = true;
 
 	// check range
@@ -2605,7 +2605,7 @@ static void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float 
 
 		if( i == MAX_USER_MESSAGES )
 		{
-			Host_Error( "MessageBegin: tried to send unregistered message %i\n", msg_num );
+			Host_Error( "%s: tried to send unregistered message %i\n", __func__, msg_num );
 			return;
 		}
 
@@ -2637,7 +2637,7 @@ static void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float 
 		msg_num > svc_lastmsg &&
 		Q_strcmp( svgame.msg_name, "ReqState" );
 
-	if( svgame.msg_trace ) Con_Printf( "^3%s( %i, %s )\n", __FUNCTION__, msg_dest, svgame.msg_name );
+	if( svgame.msg_trace ) Con_Printf( "^3%s( %i, %s )\n", __func__, msg_dest, svgame.msg_name );
 }
 
 /*
@@ -2653,12 +2653,12 @@ static void GAME_EXPORT pfnMessageEnd( void )
 	word realsize;
 
 	if( svgame.msg_name ) name = svgame.msg_name;
-	if( !svgame.msg_started ) Host_Error( "MessageEnd: called with no active message\n" );
+	if( !svgame.msg_started ) Host_Error( "%s: called with no active message\n", __func__ );
 	svgame.msg_started = false;
 
 	if( MSG_CheckOverflow( &sv.multicast ))
 	{
-		Con_Printf( S_ERROR "MessageEnd: %s has overflow multicast buffer\n", name );
+		Con_Printf( S_ERROR "%s: %s has overflow multicast buffer\n", __func__, name );
 		MSG_Clear( &sv.multicast );
 		return;
 	}
@@ -2669,14 +2669,14 @@ static void GAME_EXPORT pfnMessageEnd( void )
 		{
 			if( MSG_CheckOverflow( &sv.multicast ))
 			{
-				Con_Printf( S_ERROR "MessageEnd: %s has overflow multicast buffer (post-rewrite)\n", name );
+				Con_Printf( S_ERROR "%s: %s has overflow multicast buffer (post-rewrite)\n", __func__, name );
 				MSG_Clear( &sv.multicast );
 				return;
 			}
 		}
 		else
 		{
-			Con_Printf( S_ERROR "MessageEnd: failed to rewrite message %s\n", name );
+			Con_Printf( S_ERROR "%s: failed to rewrite message %s\n", __func__, name );
 			MSG_Clear( &sv.multicast );
 			return;
 		}
@@ -2690,13 +2690,13 @@ static void GAME_EXPORT pfnMessageEnd( void )
 			// variable sized message
 			if( svgame.msg_realsize > MAX_USERMSG_LENGTH )
 			{
-				Con_Printf( S_ERROR "SV_Multicast: %s too long (more than %d bytes)\n", name, MAX_USERMSG_LENGTH );
+				Con_Printf( S_ERROR "%s: %s too long (more than %d bytes)\n", __func__, name, MAX_USERMSG_LENGTH );
 				MSG_Clear( &sv.multicast );
 				return;
 			}
 			else if( svgame.msg_realsize < 0 )
 			{
-				Con_Printf( S_ERROR "SV_Multicast: %s writes NULL message\n", name );
+				Con_Printf( S_ERROR "%s: %s writes NULL message\n", __func__, name );
 				MSG_Clear( &sv.multicast );
 				return;
 			}
@@ -2713,7 +2713,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 		// compare sizes
 		if( expsize != realsize )
 		{
-			Con_Printf( S_ERROR "SV_Multicast: %s expected %i bytes, it written %i. Ignored.\n", name, expsize, realsize );
+			Con_Printf( S_ERROR "%s: %s expected %i bytes, it written %i. Ignored.\n", __func__, name, expsize, realsize );
 			MSG_Clear( &sv.multicast );
 			return;
 		}
@@ -2723,13 +2723,13 @@ static void GAME_EXPORT pfnMessageEnd( void )
 		// variable sized message
 		if( svgame.msg_realsize > MAX_USERMSG_LENGTH )
 		{
-			Con_Printf( S_ERROR "SV_Multicast: %s too long (more than %d bytes)\n", name, MAX_USERMSG_LENGTH );
+			Con_Printf( S_ERROR "%s: %s too long (more than %d bytes)\n", __func__, name, MAX_USERMSG_LENGTH );
 			MSG_Clear( &sv.multicast );
 			return;
 		}
 		else if( svgame.msg_realsize < 0 )
 		{
-			Con_Printf( S_ERROR "SV_Multicast: %s writes NULL message\n", name );
+			Con_Printf( S_ERROR "%s: %s writes NULL message\n", __func__, name );
 			MSG_Clear( &sv.multicast );
 			return;
 		}
@@ -2740,7 +2740,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 	else
 	{
 		// this should never happen
-		Con_Printf( S_ERROR "SV_Multicast: %s have encountered error\n", name );
+		Con_Printf( S_ERROR "%s: %s have encountered error\n", __func__, name );
 		MSG_Clear( &sv.multicast );
 		return;
 	}
@@ -2757,7 +2757,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 
 	SV_Multicast( svgame.msg_dest, org, svgame.msg_ent, true, false );
 
-	if( svgame.msg_trace ) Con_Printf( "^3%s()\n", __FUNCTION__ );
+	if( svgame.msg_trace ) Con_Printf( "^3%s()\n", __func__ );
 }
 
 /*
@@ -2770,7 +2770,7 @@ static void GAME_EXPORT pfnWriteByte( int iValue )
 {
 	if( iValue == -1 ) iValue = 0xFF; // convert char to byte
 	MSG_WriteByte( &sv.multicast, (byte)iValue );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __func__, iValue );
 	svgame.msg_realsize++;
 }
 
@@ -2783,7 +2783,7 @@ pfnWriteChar
 static void GAME_EXPORT pfnWriteChar( int iValue )
 {
 	MSG_WriteChar( &sv.multicast, (signed char)iValue );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __func__, iValue );
 	svgame.msg_realsize++;
 }
 
@@ -2796,7 +2796,7 @@ pfnWriteShort
 static void GAME_EXPORT pfnWriteShort( int iValue )
 {
 	MSG_WriteShort( &sv.multicast, (short)iValue );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __func__, iValue );
 	svgame.msg_realsize += 2;
 }
 
@@ -2809,7 +2809,7 @@ pfnWriteLong
 static void GAME_EXPORT pfnWriteLong( int iValue )
 {
 	MSG_WriteLong( &sv.multicast, iValue );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __func__, iValue );
 	svgame.msg_realsize += 4;
 }
 
@@ -2825,7 +2825,7 @@ static void GAME_EXPORT pfnWriteAngle( float flValue )
 	int	iAngle = ((int)(( flValue ) * 256 / 360) & 255);
 
 	MSG_WriteChar( &sv.multicast, iAngle );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %f )\n", __FUNCTION__, flValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %f )\n", __func__, flValue );
 	svgame.msg_realsize += 1;
 }
 
@@ -2838,7 +2838,7 @@ pfnWriteCoord
 static void GAME_EXPORT pfnWriteCoord( float flValue )
 {
 	MSG_WriteCoord( &sv.multicast, flValue );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %f )\n", __FUNCTION__, flValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %f )\n", __func__, flValue );
 	svgame.msg_realsize += 2;
 }
 
@@ -2851,7 +2851,7 @@ pfnWriteString
 static void GAME_EXPORT pfnWriteString( const char *src )
 {
 	MSG_WriteString( &sv.multicast, src );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %s )\n", __FUNCTION__, src );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %s )\n", __func__, src );
 
 	// NOTE: some messages with constant string length can be marked as known sized
 	svgame.msg_realsize += Q_strlen( src ) + 1;
@@ -2866,9 +2866,9 @@ pfnWriteEntity
 static void GAME_EXPORT pfnWriteEntity( int iValue )
 {
 	if( iValue < 0 || iValue >= svgame.numEntities )
-		Host_Error( "MSG_WriteEntity: invalid entnumber %i\n", iValue );
+		Host_Error( "%s: invalid entnumber %i\n", __func__, iValue );
 	MSG_WriteShort( &sv.multicast, (short)iValue );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, iValue );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __func__, iValue );
 	svgame.msg_realsize += 2;
 }
 
@@ -3055,7 +3055,7 @@ this helps not to lose strings that belongs to static game part
 void SV_SetStringArrayMode( qboolean dynamic )
 {
 #ifdef XASH_64BIT
-	Con_Reportf( "SV_SetStringArrayMode(%d) %d\n", dynamic, str64.dynamic );
+	Con_Reportf( "%s(%d) %d\n", __func__, dynamic, str64.dynamic );
 
 	if( dynamic == str64.dynamic )
 		return;
@@ -3087,7 +3087,7 @@ static void SV_AllocStringPool( void )
 	void *ptr = NULL;
 	string lenstr;
 
-	Con_Reportf( "SV_AllocStringPool()\n" );
+	Con_Reportf( "%s()\n", __func__ );
 	if( Sys_GetParmFromCmdLine( "-str64alloc", lenstr ) )
 	{
 		str64.maxstringarray = Q_atoi( lenstr );
@@ -3143,17 +3143,17 @@ static void SV_AllocStringPool( void )
 
 		if( ptr )
 		{
-			Con_Reportf( "SV_AllocStringPool: Allocated string array near the server library: %p %p\n", base, ptr );
+			Con_Reportf( "%s: Allocated string array near the server library: %p %p\n", __func__, base, ptr );
 
 		}
 		else
 		{
-			Con_Reportf( "SV_AllocStringPool: Failed to allocate string array near the server library!\n" );
-			ptr = str64.staticstringarray = Mem_Calloc(host.mempool, str64.maxstringarray * 2);
+			Con_Reportf( "%s: Failed to allocate string array near the server library!\n", __func__ );
+			ptr = str64.staticstringarray = Mem_Calloc( host.mempool, str64.maxstringarray * 2 );
 		}
 	}
 #else
-	ptr = str64.staticstringarray = Mem_Calloc(host.mempool, str64.maxstringarray * 2);
+	ptr = str64.staticstringarray = Mem_Calloc( host.mempool, str64.maxstringarray * 2 );
 #endif
 
 	str64.pstringarray = ptr;
@@ -3170,7 +3170,7 @@ static void SV_AllocStringPool( void )
 static void SV_FreeStringPool( void )
 {
 #ifdef XASH_64BIT
-	Con_Reportf( "SV_FreeStringPool()\n" );
+	Con_Reportf( "%s()\n", __func__ );
 
 #ifdef USE_MMAP
 	if( str64.pstringarray != str64.staticstringarray )
@@ -3519,13 +3519,13 @@ static int GAME_EXPORT pfnRegUserMsg( const char *pszName, int iSize )
 
 	if( Q_strlen( pszName ) >= sizeof( svgame.msg[0].name ))
 	{
-		Con_Printf( S_ERROR "REG_USER_MSG: too long name %s\n", pszName );
+		Con_Printf( S_ERROR "%s: too long name %s\n", __func__, pszName );
 		return svc_bad; // force error
 	}
 
 	if( iSize > MAX_USERMSG_LENGTH )
 	{
-		Con_Printf( S_ERROR "REG_USER_MSG: %s has too big size %i\n", pszName, iSize );
+		Con_Printf( S_ERROR "%s: %s has too big size %i\n", __func__, pszName, iSize );
 		return svc_bad; // force error
 	}
 
@@ -3542,7 +3542,7 @@ static int GAME_EXPORT pfnRegUserMsg( const char *pszName, int iSize )
 
 	if( i == MAX_USER_MESSAGES )
 	{
-		Con_Printf( S_ERROR "REG_USER_MSG: user messages limit exceeded\n" );
+		Con_Printf( S_ERROR "%s: user messages limit exceeded\n", __func__ );
 		return svc_bad;
 	}
 
@@ -3709,7 +3709,7 @@ static void GAME_EXPORT pfnSetView( const edict_t *pClient, const edict_t *pView
 
 	if(( client = SV_ClientFromEdict( pClient, false )) == NULL )
 	{
-		Con_Printf( S_ERROR "PF_SetView_I: not a client!\n" );
+		Con_Printf( S_ERROR "%s: not a client!\n", __func__ );
 		return;
 	}
 
@@ -3978,7 +3978,7 @@ static const char *GAME_EXPORT pfnGetPhysicsKeyValue( const edict_t *pClient, co
 	// pfnUserInfoChanged passed
 	if(( cl = SV_ClientFromEdict( pClient, false )) == NULL )
 	{
-		Con_Printf( S_ERROR "GetPhysicsKeyValue: tried to a non-client!\n" );
+		Con_Printf( S_ERROR "%s: tried to a non-client!\n", __func__ );
 		return "";
 	}
 
@@ -3998,7 +3998,7 @@ static void GAME_EXPORT pfnSetPhysicsKeyValue( const edict_t *pClient, const cha
 	// pfnUserInfoChanged passed
 	if(( cl = SV_ClientFromEdict( pClient, false )) == NULL )
 	{
-		Con_Printf( S_ERROR "SetPhysicsKeyValue: tried to a non-client!\n" );
+		Con_Printf( S_ERROR "%s: tried to a non-client!\n", __func__ );
 		return;
 	}
 
@@ -4018,7 +4018,7 @@ static const char *GAME_EXPORT pfnGetPhysicsInfoString( const edict_t *pClient )
 	// pfnUserInfoChanged passed
 	if(( cl = SV_ClientFromEdict( pClient, false )) == NULL )
 	{
-		Con_Printf( S_ERROR "GetPhysicsInfoString: tried to a non-client!\n" );
+		Con_Printf( S_ERROR "%s: tried to a non-client!\n", __func__ );
 		return "";
 	}
 
@@ -4062,14 +4062,14 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 	// first check event for out of bounds
 	if( eventindex < 1 || eventindex >= MAX_EVENTS )
 	{
-		Con_Printf( S_ERROR "EV_Playback: invalid eventindex %i\n", eventindex );
+		Con_Printf( S_ERROR "%s: invalid eventindex %i\n", __func__, eventindex );
 		return;
 	}
 
 	// check event for precached
 	if( !COM_CheckString( sv.event_precache[eventindex] ))
 	{
-		Con_Printf( S_ERROR "EV_Playback: event %i was not precached\n", eventindex );
+		Con_Printf( S_ERROR "%s: event %i was not precached\n", __func__, eventindex );
 		return;
 	}
 
@@ -4580,7 +4580,7 @@ static void GAME_EXPORT pfnQueryClientCvarValue( const edict_t *player, const ch
 	{
 		if( svgame.dllFuncs2.pfnCvarValue )
 			svgame.dllFuncs2.pfnCvarValue( player, "Bad Player" );
-		Con_Printf( S_ERROR "QueryClientCvarValue: tried to send to a non-client!\n" );
+		Con_Printf( S_ERROR "%s: tried to send to a non-client!\n", __func__ );
 	}
 }
 
@@ -4608,7 +4608,7 @@ static void GAME_EXPORT pfnQueryClientCvarValue2( const edict_t *player, const c
 	{
 		if( svgame.dllFuncs2.pfnCvarValue2 )
 			svgame.dllFuncs2.pfnCvarValue2( player, requestID, cvarName, "Bad Player" );
-		Con_Printf( S_ERROR "QueryClientCvarValue: tried to send to a non-client!\n" );
+		Con_Printf( S_ERROR "%s: tried to send to a non-client!\n", __func__ );
 	}
 }
 
@@ -4845,17 +4845,17 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 		// parse key
 		if(( *pfile = COM_ParseFile( *pfile, keyname, sizeof( keyname ))) == NULL )
-			Host_Error( "ED_ParseEdict: EOF without closing brace\n" );
+			Host_Error( "%s: EOF without closing brace\n", __func__ );
 
 		if( keyname[0] == '}' )
 			break; // end of desc
 
 		// parse value
 		if(( *pfile = COM_ParseFile( *pfile, value, sizeof( value ))) == NULL )
-			Host_Error( "ED_ParseEdict: EOF without closing brace\n" );
+			Host_Error( "%s: EOF without closing brace\n", __func__ );
 
 		if( value[0] == '}' )
-			Host_Error( "ED_ParseEdict: closing brace without data\n" );
+			Host_Error( "%s: closing brace without data\n", __func__ );
 
 		// ignore attempts to set empty key or value
 		// "wad" field is already handled
@@ -5041,7 +5041,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
 		{
 			if( token[0] != '{' )
-				Host_Error( "ED_LoadFromFile: found %s when expecting {\n", token );
+				Host_Error( "%s: found %s when expecting {\n", __func__, token );
 
 			if( create_world )
 			{
@@ -5209,7 +5209,7 @@ qboolean SV_LoadProgs( const char *name )
 	if( !GetEntityAPI && !GetEntityAPI2 )
 	{
 		COM_FreeLibrary( svgame.hInstance );
-		Con_Printf( S_ERROR "SV_LoadProgs: failed to get address of GetEntityAPI proc\n" );
+		Con_Printf( S_ERROR "%s: failed to get address of GetEntityAPI proc\n", __func__ );
 		svgame.hInstance = NULL;
 		Mem_FreePool( &svgame.mempool );
 		return false;
@@ -5220,7 +5220,7 @@ qboolean SV_LoadProgs( const char *name )
 	if( !GiveFnptrsToDll )
 	{
 		COM_FreeLibrary( svgame.hInstance );
-		Con_Printf( S_ERROR "SV_LoadProgs: failed to get address of GiveFnptrsToDll proc\n" );
+		Con_Printf( S_ERROR "%s: failed to get address of GiveFnptrsToDll proc\n", __func__ );
 		svgame.hInstance = NULL;
 		Mem_FreePool( &svgame.mempool );
 		return false;
@@ -5236,7 +5236,7 @@ qboolean SV_LoadProgs( const char *name )
 		if( !GiveNewDllFuncs( &svgame.dllFuncs2, &version ))
 		{
 			if( version != NEW_DLL_FUNCTIONS_VERSION )
-				Con_Printf( S_WARN "SV_LoadProgs: new interface version %i should be %i\n", NEW_DLL_FUNCTIONS_VERSION, version );
+				Con_Printf( S_WARN "%s: new interface version %i should be %i\n", __func__, NEW_DLL_FUNCTIONS_VERSION, version );
 			memset( &svgame.dllFuncs2, 0, sizeof( svgame.dllFuncs2 ));
 		}
 	}
@@ -5248,37 +5248,37 @@ qboolean SV_LoadProgs( const char *name )
 		if( !GetEntityAPI2( &svgame.dllFuncs, &version ))
 		{
 			if( INTERFACE_VERSION != version )
-				Con_Printf( S_WARN "SV_LoadProgs: interface version %i should be %i\n", INTERFACE_VERSION, version );
+				Con_Printf( S_WARN "%s: interface version %i should be %i\n", __func__, INTERFACE_VERSION, version );
 
 			// fallback to old API
 			if( !GetEntityAPI( &svgame.dllFuncs, version ))
 			{
 				COM_FreeLibrary( svgame.hInstance );
-				Con_Printf( S_ERROR "SV_LoadProgs: couldn't get entity API\n" );
+				Con_Printf( S_ERROR "%s: couldn't get entity API\n", __func__ );
 				svgame.hInstance = NULL;
 				Mem_FreePool( &svgame.mempool );
 				return false;
 			}
-			else Con_Reportf( "SV_LoadProgs: ^2initailized legacy EntityAPI ^7ver. %i\n", version );
+			else Con_Reportf( "%s: ^2initailized legacy EntityAPI ^7ver. %i\n", __func__, version );
 		}
-		else Con_Reportf( "SV_LoadProgs: ^2initailized extended EntityAPI ^7ver. %i\n", version );
+		else Con_Reportf( "%s: ^2initailized extended EntityAPI ^7ver. %i\n", __func__, version );
 	}
 	else if( !GetEntityAPI( &svgame.dllFuncs, version ))
 	{
 		COM_FreeLibrary( svgame.hInstance );
-		Con_Printf( S_ERROR "SV_LoadProgs: couldn't get entity API\n" );
+		Con_Printf( S_ERROR "%s: couldn't get entity API\n", __func__ );
 		svgame.hInstance = NULL;
 		Mem_FreePool( &svgame.mempool );
 		return false;
 	}
-	else Con_Reportf( "SV_LoadProgs: ^2initailized legacy EntityAPI ^7ver. %i\n", version );
+	else Con_Reportf( "%s: ^2initailized legacy EntityAPI ^7ver. %i\n", __func__, version );
 
 	SV_InitOperatorCommands();
 	Mod_InitStudioAPI();
 
 	if( !SV_InitPhysicsAPI( ))
 	{
-		Con_Printf( S_WARN "SV_LoadProgs: couldn't get physics API\n" );
+		Con_Printf( S_WARN "%s: couldn't get physics API\n", __func__ );
 	}
 
 	// grab function SV_SaveGameComment

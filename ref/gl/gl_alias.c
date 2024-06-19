@@ -557,7 +557,7 @@ static void *Mod_LoadAllSkins( model_t *mod, int numskins, daliasskintype_t *psk
 	int	i, size;
 
 	if( numskins < 1 || numskins > MAX_SKINS )
-		gEngfuncs.Host_Error( "Mod_LoadAliasModel: Invalid # of skins: %d\n", numskins );
+		gEngfuncs.Host_Error( "%s: Invalid # of skins: %d\n", __func__, numskins );
 
 	size = m_pAliasHeader->skinwidth * m_pAliasHeader->skinheight;
 
@@ -1215,7 +1215,7 @@ static void R_SetupAliasFrame( cl_entity_t *e, aliashdr_t *paliashdr )
 	else if( newframe >= paliashdr->numframes )
 	{
 		if( newframe > paliashdr->numframes )
-			gEngfuncs.Con_Reportf( S_WARN "R_GetAliasFrame: no such frame %d (%s)\n", newframe, e->model->name );
+			gEngfuncs.Con_Reportf( S_WARN "%s: no such frame %d (%s)\n", __func__, newframe, e->model->name );
 		newframe = paliashdr->numframes - 1;
 	}
 

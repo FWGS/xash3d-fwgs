@@ -313,7 +313,7 @@ static qboolean Mod_NameImpliesTextureIsAnimated( texture_t *tex )
 	if( !( tex->name[1] >= '0' && tex->name[1] <= '9' ) &&
 		!( tex->name[1] >= 'a' && tex->name[1] <= 'j' ))
 	{
-		Con_Printf( S_ERROR "Mod_NameImpliesTextureIsAnimated: animating texture \"%s\" has invalid name\n", tex->name );
+		Con_Printf( S_ERROR "%s: animating texture \"%s\" has invalid name\n", __func__, tex->name );
 		return false;
 	}
 
@@ -942,7 +942,7 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( token[0] != '{' )
-			Host_Error( "Mod_FindModelOrigin: found %s when expecting {\n", token );
+			Host_Error( "%s: found %s when expecting {\n", __func__, token );
 
 		model_found = origin_found = false;
 		VectorClear( origin );
@@ -951,17 +951,17 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 		{
 			// parse key
 			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
-				Host_Error( "Mod_FindModelOrigin: EOF without closing brace\n" );
+				Host_Error( "%s: EOF without closing brace\n", __func__ );
 			if( token[0] == '}' ) break; // end of desc
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
 			// parse value
 			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
-				Host_Error( "Mod_FindModelOrigin: EOF without closing brace\n" );
+				Host_Error( "%s: EOF without closing brace\n", __func__ );
 
 			if( token[0] == '}' )
-				Host_Error( "Mod_FindModelOrigin: closing brace without data\n" );
+				Host_Error( "%s: closing brace without data\n", __func__ );
 
 			if( !Q_stricmp( keyname, "model" ) && !Q_stricmp( modelname, token ))
 				model_found = true;
@@ -1198,7 +1198,7 @@ static void Mod_CalcSurfaceExtents( model_t *mod, msurface_t *surf )
 		e = mod->surfedges[surf->firstedge + i];
 
 		if( e >= mod->numedges || e <= -mod->numedges )
-			Host_Error( "Mod_CalcSurfaceExtents: bad edge\n" );
+			Host_Error( "%s: bad edge\n", __func__ );
 
 		if( e >= 0 ) v = &mod->vertexes[mod->edges[e].v[0]];
 		else v = &mod->vertexes[mod->edges[-e].v[1]];
@@ -1267,7 +1267,7 @@ static void Mod_CalcSurfaceBounds( model_t *mod, msurface_t *surf )
 		e = mod->surfedges[surf->firstedge + i];
 
 		if( e >= mod->numedges || e <= -mod->numedges )
-			Host_Error( "Mod_CalcSurfaceBounds: bad edge\n" );
+			Host_Error( "%s: bad edge\n", __func__ );
 
 		if( e >= 0 ) v = &mod->vertexes[mod->edges[e].v[0]];
 		else v = &mod->vertexes[mod->edges[-e].v[1]];
@@ -1491,7 +1491,7 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, poolhandle_t mempool
 		VectorCopy( host.player_maxs[1], hull->clip_maxs );
 		break;
 	default:
-		Host_Error( "Mod_SetupHull: bad hull number %i\n", hullnum );
+		Host_Error( "%s: bad hull number %i\n", __func__, hullnum );
 		break;
 	}
 
@@ -1841,23 +1841,23 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( token[0] != '{' )
-			Host_Error( "Mod_LoadEntities: found %s when expecting {\n", token );
+			Host_Error( "%s: found %s when expecting {\n", __func__, token );
 
 		while( 1 )
 		{
 			// parse key
 			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
-				Host_Error( "Mod_LoadEntities: EOF without closing brace\n" );
+				Host_Error( "%s: EOF without closing brace\n", __func__ );
 			if( token[0] == '}' ) break; // end of desc
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
 			// parse value
 			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
-				Host_Error( "Mod_LoadEntities: EOF without closing brace\n" );
+				Host_Error( "%s: EOF without closing brace\n", __func__ );
 
 			if( token[0] == '}' )
-				Host_Error( "Mod_LoadEntities: closing brace without data\n" );
+				Host_Error( "%s: closing brace without data\n", __func__ );
 
 			if( !Q_stricmp( keyname, "wad" ))
 			{
@@ -2035,7 +2035,7 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 		for( i = 0; i < bmod->nummarkfaces; i++, in++ )
 		{
 			if( *in < 0 || *in >= mod->numsurfaces )
-				Host_Error( "Mod_LoadMarkFaces: bad surface number in '%s'\n", mod->name );
+				Host_Error( "%s: bad surface number in '%s'\n", __func__, mod->name );
 			out[i] = mod->surfaces + *in;
 		}
 	}
@@ -2046,7 +2046,7 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 		for( i = 0; i < bmod->nummarkfaces; i++, in++ )
 		{
 			if( *in < 0 || *in >= mod->numsurfaces )
-				Host_Error( "Mod_LoadMarkFaces: bad surface number in '%s'\n", mod->name );
+				Host_Error( "%s: bad surface number in '%s'\n", __func__, mod->name );
 			out[i] = mod->surfaces + *in;
 		}
 	}
@@ -2166,7 +2166,7 @@ static void Mod_InitSkyClouds( model_t *mod, mip_t *mt, texture_t *tx, qboolean 
 
 	if( !r_sky || !r_sky->palette || r_sky->type != PF_INDEXED_32 || r_sky->height == 0 )
 	{
-		Con_Printf( S_ERROR "%s: unable to load sky texture %s\n", tx->name );
+		Con_Printf( S_ERROR "%s: unable to load sky texture %s\n", __func__, tx->name );
 
 		if( r_sky )
 			FS_FreeImage( r_sky );
@@ -2520,7 +2520,8 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 
 		if( !tex )
 		{
-			Con_Printf( S_ERROR "Mod_SequenceAnimatedTexture: missing frame %i of animated texture \"%s\"\n",
+			Con_Printf( S_ERROR "%s: missing frame %i of animated texture \"%s\"\n",
+				__func__,
 				candidateIndex,
 				baseTexture->name );
 
@@ -2544,7 +2545,8 @@ static void Mod_SequenceAnimatedTexture( model_t *mod, int baseTextureIndex )
 
 		if( !tex )
 		{
-			Con_Printf( S_ERROR "Mod_SequenceAnimatedTexture: missing alternate frame %i of animated texture \"%s\"\n",
+			Con_Printf( S_ERROR "%s: missing alternate frame %i of animated texture \"%s\"\n",
+				__func__,
 				candidateIndex,
 				baseTexture->name );
 
@@ -2959,7 +2961,7 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 	}
 
 	if( bmod->isworld && mod->leafs[0].contents != CONTENTS_SOLID )
-		Host_Error( "Mod_LoadLeafs: Map %s has leaf 0 is not CONTENTS_SOLID\n", mod->name );
+		Host_Error( "%s: Map %s has leaf 0 is not CONTENTS_SOLID\n", __func__, mod->name );
 
 	// do some final things for world
 	if( bmod->isworld && Mod_CheckWaterAlphaSupport( mod, bmod ))
@@ -3180,7 +3182,7 @@ static void Mod_LoadLightVecs( model_t *mod, dbspmodel_t *bmod )
 	if( bmod->deluxdatasize != bmod->lightdatasize )
 	{
 		if( bmod->deluxdatasize > 0 )
-			Con_Printf( S_ERROR "Mod_LoadLightVecs: has mismatched size (%zu should be %zu)\n", bmod->deluxdatasize, bmod->lightdatasize );
+			Con_Printf( S_ERROR "%s: has mismatched size (%zu should be %zu)\n", __func__, bmod->deluxdatasize, bmod->lightdatasize );
 		else Mod_LoadDeluxemap( mod, bmod ); // old method
 		return;
 	}
@@ -3199,7 +3201,7 @@ static void Mod_LoadShadowmap( model_t *mod, dbspmodel_t *bmod )
 	if( bmod->shadowdatasize != ( bmod->lightdatasize / 3 ))
 	{
 		if( bmod->shadowdatasize > 0 )
-			Con_Printf( S_ERROR "Mod_LoadShadowmap: has mismatched size (%zu should be %zu)\n", bmod->shadowdatasize, bmod->lightdatasize / 3 );
+			Con_Printf( S_ERROR "%s: has mismatched size (%zu should be %zu)\n", __func__, bmod->shadowdatasize, bmod->lightdatasize / 3 );
 		return;
 	}
 
@@ -3241,7 +3243,7 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 		SetBits( mod->flags, MODEL_COLORED_LIGHTING );
 		break;
 	default:
-		Host_Error( "Mod_LoadLighting: bad lightmap sample count %i\n", bmod->lightmap_samples );
+		Host_Error( "%s: bad lightmap sample count %i\n", __func__, bmod->lightmap_samples );
 		break;
 	}
 
@@ -3560,13 +3562,13 @@ qboolean Mod_TestBmodelLumps( file_t *f, const char *name, const byte *mod_base,
 	if( loadstat.numerrors )
 	{
 		if( !FBitSet( flags, LUMP_SILENT ))
-			Con_Printf( "Mod_LoadWorld: %i error(s), %i warning(s)\n", loadstat.numerrors, loadstat.numwarnings );
+			Con_Printf( "%s: %i error(s), %i warning(s)\n", __func__, loadstat.numerrors, loadstat.numwarnings );
 		return false; // there were errors, we can't load this map
 	}
 	else if( loadstat.numwarnings )
 	{
 		if( !FBitSet( flags, LUMP_SILENT ))
-			Con_Printf( "Mod_LoadWorld: %i warning(s)\n", loadstat.numwarnings );
+			Con_Printf( "%s: %i warning(s)\n", __func__, loadstat.numwarnings );
 	}
 
 	return true;

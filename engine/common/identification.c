@@ -555,7 +555,7 @@ static uint ID_CheckRawId( bloomfilter_t filter )
 	}
 #endif
 #if 0
-	Msg( "ID_CheckRawId: %d\n", count );
+	Msg( "%s: %d\n", __func__, count );
 #endif
 	return count;
 }
@@ -575,7 +575,7 @@ static void ID_Check( void )
 	{
 		id = 0;
 #if 0
-		Msg( "ID_Check(): fail %d\n", weight );
+		Msg( "%s: fail %d\n", __func__, weight );
 #endif
 		return;
 	}
@@ -583,7 +583,7 @@ static void ID_Check( void )
 	if( ID_CheckRawId( id ) < mincount )
 		id = 0;
 #if 0
-	Msg( "ID_Check(): success %d\n", weight );
+	Msg( "%s: success %d\n", __func__, weight );
 #endif
 }
 

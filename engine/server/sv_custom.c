@@ -56,7 +56,7 @@ static void SV_CreateCustomizationList( sv_client_t *cl )
 		}
 		else
 		{
-			Con_Printf( S_WARN "SV_CreateCustomization list, ignoring dup. resource for player %s\n", cl->name );
+			Con_Printf( S_WARN "%s: ignoring dup. resource for player %s\n", __func__, cl->name );
 		}
 	}
 }
@@ -228,7 +228,7 @@ void SV_TransferConsistencyInfo( void )
 				break;
 			case force_model_samebounds:
 				if( !Mod_GetStudioBounds( filepath, mins, maxs ))
-					Host_Error( "Mod_GetStudioBounds: couldn't get bounds for %s\n", filepath );
+					Host_Error( "%s: couldn't get bounds for %s\n", __func__, filepath );
 				memcpy( &pResource->rguc_reserved[0x01], mins, sizeof( mins ));
 				memcpy( &pResource->rguc_reserved[0x0D], maxs, sizeof( maxs ));
 				pResource->rguc_reserved[0] = pc->check_type;

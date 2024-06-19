@@ -268,7 +268,7 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	if( !dll->name || !*dll->name )
 		return false; // nothing to load
 
-	Con_Reportf( "Sys_LoadLibrary: Loading %s", dll->name );
+	Con_Reportf( "%s: Loading %s", __func__, dll->name );
 
 	if( dll->fcts )
 	{
@@ -325,10 +325,10 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", dll->name );
+		Con_Reportf( "%s: hold %s for debugging\n", __func__, dll->name );
 		return false;
 	}
-	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", dll->name );
+	else Con_Reportf( "%s: Unloading %s\n", __func__, dll->name );
 
 	COM_FreeLibrary( dll->link );
 	dll->link = NULL;
@@ -380,7 +380,7 @@ void Sys_Warn( const char *format, ... )
 
 	Sys_DebugBreak();
 
-	Msg( "Sys_Warn: %s\n", text );
+	Msg( "%s: %s\n", __func__, text );
 
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
 		Platform_MessageBox( "Xash Warning", text, true );

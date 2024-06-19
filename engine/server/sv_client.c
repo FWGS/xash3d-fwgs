@@ -710,7 +710,7 @@ static void SV_FlushRedirect( netadr_t adr, int dest, char *buf )
 		MSG_WriteString( &sv.current_client->netchan.message, buf );
 		break;
 	case RD_NONE:
-		Con_Printf( S_ERROR "SV_FlushRedirect: %s: invalid destination\n", NET_AdrToString( adr ));
+		Con_Printf( S_ERROR "%s: %s: invalid destination\n", __func__, NET_AdrToString( adr ));
 		break;
 	}
 }
@@ -1004,7 +1004,7 @@ static void SV_BuildNetAnswer( netadr_t from )
 
 				if( ret == -1 )
 				{
-					Con_DPrintf( S_WARN "SV_BuildNetAnswer: NETAPI_REQUEST_PLAYERS: buffer overflow!\n" );
+					Con_DPrintf( S_WARN "%s: NETAPI_REQUEST_PLAYERS: buffer overflow!\n", __func__ );
 					break;
 				}
 
@@ -1792,8 +1792,8 @@ static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
 		// player changes userinfo too quick! ignore!
 		if( host.realtime < cl->userinfo_next_changetime )
 		{
-			Con_Reportf( "SV_ShouldUpdateUserinfo: ignore userinfo update for %s: penalty %f, attempts %i\n",
-				cl->name, cl->userinfo_penalty, cl->userinfo_change_attempts );
+			Con_Reportf( "%s: ignore userinfo update for %s: penalty %f, attempts %i\n",
+				__func__, cl->name, cl->userinfo_penalty, cl->userinfo_change_attempts );
 			allow = false;
 		}
 
@@ -1803,7 +1803,7 @@ static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
 	// they spammed too fast, increase penalty
 	if( cl->userinfo_change_attempts > sv_userinfo_penalty_attempts.value )
 	{
-		Con_Reportf( "SV_ShouldUpdateUserinfo: penalty set %f for %s\n",
+		Con_Reportf( "%s: penalty set %f for %s\n", __func__,
 			cl->userinfo_penalty, cl->name );
 		cl->userinfo_penalty *= sv_userinfo_penalty_multiplier.value;
 		cl->userinfo_change_attempts = 0;
@@ -3141,7 +3141,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	pcmd = Cmd_Argv( 0 );
 
 	if( sv_log_outofband.value )
-		Con_Reportf( "SV_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), pcmd );
+		Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), pcmd );
 
 	if( !Q_strcmp( pcmd, "ping" )) SV_Ping( from );
 	else if( !Q_strcmp( pcmd, "ack" )) SV_Ack( from );
@@ -3209,7 +3209,7 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 
 	if( totalcmds < 0 || totalcmds >= CMD_MASK )
 	{
-		Con_Reportf( S_ERROR "SV_ParseClientMove: %s sending too many commands %i\n", cl->name, totalcmds );
+		Con_Reportf( S_ERROR "%s: %s sending too many commands %i\n", __func__, cl->name, totalcmds );
 		SV_DropClient( cl, false );
 		return;
 	}
@@ -3232,7 +3232,7 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 
 	if( checksum2 != checksum1 )
 	{
-		Con_Reportf( S_ERROR "SV_UserMove: failed command checksum for %s (%d != %d)\n", cl->name, checksum2, checksum1 );
+		Con_Reportf( S_ERROR "%s: failed command checksum for %s (%d != %d)\n", __func__, cl->name, checksum2, checksum1 );
 		return;
 	}
 
@@ -3451,7 +3451,7 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 
 	if( size > sizeof( received ))
 	{
-		Con_DPrintf( "SV_ParseVoiceData: invalid incoming packet.\n" );
+		Con_DPrintf( "%s: invalid incoming packet.\n", __func__ );
 		SV_DropClient( cl, false );
 		return;
 	}

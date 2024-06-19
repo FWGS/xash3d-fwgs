@@ -131,7 +131,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 	LittleLongSW(packet->part);
 
 	p = &ns->packets[packet->id & NETSPLIT_BACKUP_MASK];
-	// Con_Reportf( S_NOTE "NetSplit_GetLong: packet from %s, id %d, index %d length %d\n", NET_AdrToString( *from ), (int)packet->id, (int)packet->index, (int)*length );
+	// Con_Reportf( S_NOTE "%s: packet from %s, id %d, index %d length %d\n", __func__, NET_AdrToString( *from ), (int)packet->id, (int)packet->index, (int)*length );
 
 	// no packets with this id received
 	if( packet->id != p->id )
@@ -140,7 +140,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 		if( p->received < p->count )
 		{
 			UI_ShowConnectionWarning();
-			Con_Reportf( S_WARN "NetSplit_GetLong: lost packet %d\n", p->id );
+			Con_Reportf( S_WARN "%s: lost packet %d\n", __func__, p->id );
 		}
 
 		p->id = packet->id;
@@ -152,7 +152,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 	// use bool vector to detect dup packets
 	if( p->recieved_v[packet->index >> 5 ] & ( 1 << ( packet->index & 31 ) ) )
 	{
-		Con_Reportf( S_WARN "NetSplit_GetLong: dup packet from %s\n", NET_AdrToString( *from ) );
+		Con_Reportf( S_WARN "%s: dup packet from %s\n", __func__, NET_AdrToString( *from ) );
 		return false;
 	}
 
@@ -164,13 +164,13 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 	// prevent overflow
 	if( packet->part * packet->index > NET_MAX_PAYLOAD )
 	{
-		Con_Reportf( S_WARN "NetSplit_GetLong: packet out fo bounds from %s (part %d index %d)\n", NET_AdrToString( *from ), packet->part, packet->index );
+		Con_Reportf( S_WARN "%s: packet out fo bounds from %s (part %d index %d)\n", __func__, NET_AdrToString( *from ), packet->part, packet->index );
 		return false;
 	}
 
 	if( packet->length > NET_MAX_PAYLOAD )
 	{
-		Con_Reportf( S_WARN "NetSplit_GetLong: packet out fo bounds from %s (length %d)\n", NET_AdrToString( *from ), packet->length );
+		Con_Reportf( S_WARN "%s: packet out fo bounds from %s (length %d)\n", __func__, NET_AdrToString( *from ), packet->length );
 		return false;
 	}
 
@@ -187,7 +187,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 		ns->total_received_uncompressed += len;
 		*length = len;
 
-		// Con_Reportf( S_NOTE "NetSplit_GetLong: packet from %s, id %d received %d length %d\n", NET_AdrToString( *from ), (int)packet->id, (int)p->received, (int)packet->length );
+		// Con_Reportf( S_NOTE "%s: packet from %s, id %d received %d length %d\n", __func__, NET_AdrToString( *from ), (int)packet->id, (int)p->received, (int)packet->length );
 		memcpy( data, p->data, len );
 		return true;
 	}
@@ -1624,7 +1624,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 		if( (( MSG_GetNumBytesWritten( &send ) + length ) >> 3) <= maxsize )
 			MSG_WriteBits( &send, data, length );
-		else Con_Printf( S_WARN "Netchan_Transmit: unreliable message overflow: %d\n", MSG_GetNumBytesWritten( &send ) );
+		else Con_Printf( S_WARN "%s: unreliable message overflow: %d\n", __func__, MSG_GetNumBytesWritten( &send ) );
 	}
 
 	// deal with packets that are too small for some networks

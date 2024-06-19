@@ -794,7 +794,7 @@ void GAME_EXPORT Cvar_Set( const char *var_name, const char *value )
 	if( !var_name )
 	{
 		// there is an error in C code if this happens
-		Con_Printf( "Cvar_Set: passed NULL variable name\n" );
+		Con_Printf( "%s: passed NULL variable name\n", __func__ );
 		return;
 	}
 
@@ -803,7 +803,7 @@ void GAME_EXPORT Cvar_Set( const char *var_name, const char *value )
 	if( !var )
 	{
 		// there is an error in C code if this happens
-		Con_Printf( "Cvar_Set: variable '%s' not found\n", var_name );
+		Con_Printf( "%s: variable '%s' not found\n", __func__, var_name );
 		return;
 	}
 
@@ -848,7 +848,7 @@ float GAME_EXPORT Cvar_VariableValue( const char *var_name )
 	if( !var_name )
 	{
 		// there is an error in C code if this happens
-		Con_Printf( "Cvar_VariableValue: passed NULL variable name\n" );
+		Con_Printf( "%s: passed NULL variable name\n", __func__ );
 		return 0.0f;
 	}
 
@@ -885,7 +885,7 @@ const char *Cvar_VariableString( const char *var_name )
 	if( !var_name )
 	{
 		// there is an error in C code if this happens
-		Con_Printf( "Cvar_VariableString: passed NULL variable name\n" );
+		Con_Printf( "%s: passed NULL variable name\n", __func__ );
 		return "";
 	}
 

@@ -328,7 +328,7 @@ static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 
 	if( resource == &cl->resourcesneeded )
 	{
-		Con_Printf( "SV_ProcessFile:  Unrequested decal\n" );
+		Con_Printf( "%s: Unrequested decal\n", __func__ );
 		return;
 	}
 

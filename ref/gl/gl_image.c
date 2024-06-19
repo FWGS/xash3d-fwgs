@@ -91,7 +91,7 @@ void GL_Bind( GLint tmu, GLenum texnum )
 	if( texnum <= 0 || texnum >= MAX_TEXTURES )
 	{
 		if( texnum != 0 )
-			gEngfuncs.Con_DPrintf( S_ERROR "GL_Bind: invalid texturenum %d\n", texnum );
+			gEngfuncs.Con_DPrintf( S_ERROR "%s: invalid texturenum %d\n", __func__, texnum );
 		texnum = tr.defaultTexture;
 	}
 	if( tmu != GL_KEEP_UNIT )
@@ -489,7 +489,7 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 		size = width * height * depth * 4;
 		break;
 	default:
-		gEngfuncs.Host_Error( "GL_CalcTextureSize: bad texture internal format (%u)\n", format );
+		gEngfuncs.Host_Error( "%s: bad texture internal format (%u)\n", __func__, format );
 		break;
 	}
 
@@ -1165,7 +1165,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	// make sure what target is correct
 	if( tex->target == GL_NONE )
 	{
-		gEngfuncs.Con_DPrintf( S_ERROR "GL_UploadTexture: %s is not supported by your hardware\n", tex->name );
+		gEngfuncs.Con_DPrintf( S_ERROR "%s: %s is not supported by your hardware\n", __func__, tex->name );
 		return false;
 	}
 
@@ -1173,7 +1173,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	{
 		if( !GL_Support( GL_ARB_TEXTURE_COMPRESSION_BPTC ))
 		{
-			gEngfuncs.Con_DPrintf( S_ERROR "GL_UploadTexture: BC6H/BC7 compression formats is not supported by your hardware\n" );
+			gEngfuncs.Con_DPrintf( S_ERROR "%s: BC6H/BC7 compression formats is not supported by your hardware\n", __func__ );
 			return false;
 		}
 	}
@@ -1189,7 +1189,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	if(( pic->width * pic->height ) & 3 )
 	{
 		// will be resampled, just tell me for debug targets
-		gEngfuncs.Con_Reportf( "GL_UploadTexture: %s s&3 [%d x %d]\n", tex->name, pic->width, pic->height );
+		gEngfuncs.Con_Reportf( "%s: %s s&3 [%d x %d]\n", __func__, tex->name, pic->width, pic->height );
 	}
 
 	buf = pic->buffer;
@@ -1208,7 +1208,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	{
 		// track the buffer bounds
 		if( buf != NULL && buf >= bufend )
-			gEngfuncs.Host_Error( "GL_UploadTexture: %s image buffer overflow\n", tex->name );
+			gEngfuncs.Host_Error( "%s: %s image buffer overflow\n", __func__, tex->name );
 
 		if( ImageCompressed( pic->type ))
 		{
@@ -1466,7 +1466,7 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 	// debug
 	if( !tex->name[0] )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_DeleteTexture: trying to free unnamed texture with texnum %i\n", tex->texnum );
+		gEngfuncs.Con_Printf( S_ERROR "%s: trying to free unnamed texture with texnum %i\n", __func__, tex->texnum );
 		return;
 	}
 
@@ -1657,20 +1657,20 @@ int GL_LoadTextureArray( const char **names, int flags )
 			// mixed mode: DXT + RGB
 			if( pic->type != src->type )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch image format for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch image format for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 
 			// different mipcount
 			if( pic->numMips != src->numMips )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch mip count for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch mip count for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 
 			if( pic->encode != src->encode )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch custom encoding for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch custom encoding for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 
@@ -1680,7 +1680,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 
 			if( pic->size != src->size )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch image size for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch image size for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 		}
@@ -1716,7 +1716,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 	// there were errors
 	if( !pic || ( pic->depth != numLayers ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: not all layers were loaded. Texture array is not created\n" );
+		gEngfuncs.Con_Printf( S_ERROR "%s: not all layers were loaded. Texture array is not created\n", __func__ );
 		if( pic ) gEngfuncs.FS_FreeImage( pic );
 		return 0;
 	}
@@ -1765,7 +1765,7 @@ int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 	if( update )
 	{
 		if( tex == NULL )
-			gEngfuncs.Host_Error( "GL_LoadTextureFromBuffer: couldn't find texture %s for update\n", name );
+			gEngfuncs.Host_Error( "%s: couldn't find texture %s for update\n", __func__, name );
 		SetBits( tex->flags, flags );
 	}
 	else
@@ -1935,19 +1935,19 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	}
 	else
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: bad operation for %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: bad operation for %s\n", __func__, image->name );
 		return;
 	}
 
 	if( !image->original )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: no input data for %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: no input data for %s\n", __func__, image->name );
 		return;
 	}
 
 	if( ImageCompressed( image->original->type ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: can't process compressed texture %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: can't process compressed texture %s\n", __func__, image->name );
 		return;
 	}
 

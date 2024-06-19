@@ -971,7 +971,7 @@ used by CS:CZ
 */
 void *GAME_EXPORT pfnSequenceGet( const char *fileName, const char *entryName )
 {
-	Msg( "Sequence_Get: file %s, entry %s\n", fileName, entryName );
+	Msg( "%s: file %s, entry %s\n", __func__, fileName, entryName );
 
 	return NULL;
 }
@@ -985,7 +985,7 @@ used by CS:CZ
 */
 void *GAME_EXPORT pfnSequencePickSentence( const char *groupName, int pickMethod, int *picked )
 {
-	Msg( "Sequence_PickSentence: group %s, pickMethod %i\n", groupName, pickMethod );
+	Msg( "%s: group %s, pickMethod %i\n", __func__, groupName, pickMethod );
 
 	return NULL;
 

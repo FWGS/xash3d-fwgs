@@ -333,7 +333,7 @@ void Touch_WriteConfig( void )
 	if( Sys_CheckParm( "-nowriteconfig" ) || !touch.configchanged || !touch.config_loaded )
 		return;
 
-	Con_DPrintf( "Touch_WriteConfig(): %s\n", touch_config_file.string );
+	Con_DPrintf( "%s: %s\n", __func__, touch_config_file.string );
 
 	Q_snprintf( newconfigfile, sizeof( newconfigfile ), "%s.new", touch_config_file.string );
 	Q_snprintf( oldconfigfile, sizeof( oldconfigfile ), "%s.bak", touch_config_file.string );
@@ -1064,7 +1064,7 @@ void Touch_Init( void )
 		return;
 	touch.mempool = Mem_AllocPool( "Touch" );
 	//touch.first = touch.last = NULL;
-	Con_Printf( "IN_TouchInit()\n");
+	Con_Printf( "%s()\n", __func__ );
 	touch.move_finger = touch.resize_finger = touch.look_finger = touch.wheel_finger = -1;
 	touch.state = state_none;
 	touch.showeditbuttons = true;
@@ -2163,8 +2163,7 @@ void Touch_KeyEvent( int key, int down )
 	x = xi / SCR_W;
 	y = yi / SCR_H;
 
-	Con_DPrintf( "event %d %.2f %.2f %.2f %.2f\n",
-		event, x, y, x - lx, y - ly );
+	// Con_DPrintf( "event %d %.2f %.2f %.2f %.2f\n", event, x, y, x - lx, y - ly );
 
 	IN_TouchEvent( event, finger, x, y, x - lx, y - ly );
 

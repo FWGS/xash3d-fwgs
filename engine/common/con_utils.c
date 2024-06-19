@@ -585,7 +585,7 @@ static qboolean Cmd_GetKeysList( const char *s, char *completedname, int length 
 		Con_Printf( "%16s\n", matchbuf );
 	}
 
-	Con_Printf( "\n^3 %lu keys found.\n", numkeys );
+	Con_Printf( "\n^3 %zu keys found.\n", numkeys );
 
 	if( completedname && length )
 	{
@@ -1395,7 +1395,7 @@ void Host_WriteConfig( void )
 	f = FS_Open( "config.cfg.new", "w", false );
 	if( f )
 	{
-		Con_Reportf( "Host_WriteConfig()\n" );
+		Con_Reportf( "%s()\n", __func__ );
 		FS_Printf( f, "//=======================================================================\n");
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\t\tconfig.cfg - archive of cvars\n" );
@@ -1478,7 +1478,7 @@ void Host_WriteOpenGLConfig( void )
 	f = FS_Open( va( "%s.new", name ), "w", false );
 	if( f )
 	{
-		Con_Reportf( "Host_WriteGLConfig()\n" );
+		Con_Reportf( "%s()\n", __func__ );
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\t    %s - archive of renderer implementation cvars\n", name );
@@ -1508,7 +1508,7 @@ void Host_WriteVideoConfig( void )
 	f = FS_Open( "video.cfg.new", "w", false );
 	if( f )
 	{
-		Con_Reportf( "Host_WriteVideoConfig()\n" );
+		Con_Reportf( "%s()\n", __func__ );
 		FS_Printf( f, "//=======================================================================\n" );
 		FS_Printf( f, "//\t\t\tCopyright XashXT Group & Flying With Gauss %s (C)\n", Q_timestamp( TIME_YEAR_ONLY ));
 		FS_Printf( f, "//\t\tvideo.cfg - archive of renderer variables\n");

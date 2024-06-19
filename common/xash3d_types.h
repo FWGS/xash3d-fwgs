@@ -168,8 +168,9 @@ _inline float LittleFloat( float f )
 #endif
 
 
-typedef unsigned int	dword;
-typedef unsigned int	uint;
+typedef unsigned int  dword;
+typedef unsigned int  uint;
+typedef unsigned long ulong;
 typedef char		string[MAX_STRING];
 typedef struct file_s	file_t;		// normal file
 typedef struct stream_s	stream_t;		// sound stream for background music playing

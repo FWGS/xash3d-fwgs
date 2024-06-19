@@ -1030,15 +1030,15 @@ static surfcache_t     *D_SCAlloc (int width, int size)
 	qboolean                wrapped_this_time;
 
 	if ((width < 0) )// || (width > 256))
-		gEngfuncs.Host_Error ("D_SCAlloc: bad cache width %d\n", width);
+		gEngfuncs.Host_Error ("%s: bad cache width %d\n", __func__, width);
 
 	if ((size <= 0) || (size > 0x10000000))
-		gEngfuncs.Host_Error ("D_SCAlloc: bad cache size %d\n", size);
+		gEngfuncs.Host_Error ("%s: bad cache size %d\n", __func__, size);
 
 	size = (int)&((surfcache_t *)0)->data[size];
 	size = (size + 3) & ~3;
 	if (size > sc_size)
-		gEngfuncs.Host_Error ("D_SCAlloc: %i > cache size of %i",size, sc_size);
+		gEngfuncs.Host_Error ("%s: %i > cache size of %i", __func__, size, sc_size);
 
 // if there is not size bytes after the rover, reset to the start
 	wrapped_this_time = false;
@@ -1062,7 +1062,7 @@ static surfcache_t     *D_SCAlloc (int width, int size)
 	// free another
 		sc_rover = sc_rover->next;
 		if (!sc_rover)
-			gEngfuncs.Host_Error ("D_SCAlloc: hit the end of memory");
+			gEngfuncs.Host_Error ("%s: hit the end of memory", __func__);
 		if (sc_rover->owner)
 			*sc_rover->owner = NULL;
 

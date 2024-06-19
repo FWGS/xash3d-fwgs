@@ -544,7 +544,7 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 				}
 				else // failed to create thread
 				{
-					Con_Reportf( S_ERROR "NET_StringToSockaddr: failed to create thread!\n");
+					Con_Reportf( S_ERROR "%s: failed to create thread!\n", __func__ );
 					nsthread.busy = false;
 				}
 			}
@@ -937,7 +937,7 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 		    return true;
 	}
 
-	Con_DPrintf( S_ERROR "NET_CompareAdr: bad address type\n" );
+	Con_DPrintf( S_ERROR "%s: bad address type\n", __func__ );
 	return false;
 }
 
@@ -1397,7 +1397,7 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 	}
 	else
 	{
-		Con_DPrintf( "NET_GetLong: Ignoring duplicated split packet %i of %i ( %i bytes )\n", packet_number + 1, packet_count, size );
+		Con_DPrintf( "%s: Ignoring duplicated split packet %i of %i ( %i bytes )\n", __func__, packet_number + 1, packet_count, size );
 	}
 
 	offset = (packet_number * body_size);
@@ -1478,7 +1478,7 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 			}
 			else
 			{
-				Con_Reportf( "NET_QueuePacket: oversize packet from %s\n", NET_AdrToString( *from ));
+				Con_Reportf( "%s: oversize packet from %s\n", __func__, NET_AdrToString( *from ));
 			}
 		}
 		else
@@ -1494,7 +1494,7 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 			case WSAETIMEDOUT:
 				break;
 			default:	// let's continue even after errors
-				Con_DPrintf( S_ERROR "NET_QueuePacket: %s from %s\n", NET_ErrorString(), NET_AdrToString( *from ));
+				Con_DPrintf( S_ERROR "%s: %s from %s\n", __func__, NET_ErrorString(), NET_AdrToString( *from ));
 				break;
 			}
 		}
@@ -1624,7 +1624,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 	}
 	else
 	{
-		Host_Error( "NET_SendPacket: bad address type %i (%i)\n", to.type, to.type6 );
+		Host_Error( "%s: bad address type %i (%i)\n", __func__, to.type, to.type6 );
 	}
 
 	NET_NetadrToSockadr( &to, &addr );
@@ -1645,15 +1645,15 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 
 		if( Host_IsDedicated( ))
 		{
-			Con_DPrintf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
+			Con_DPrintf( S_ERROR "%s: %s to %s\n", __func__, NET_ErrorString(), NET_AdrToString( to ));
 		}
 		else if( err == WSAEADDRNOTAVAIL || err == WSAENOBUFS )
 		{
-			Con_DPrintf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
+			Con_DPrintf( S_ERROR "%s: %s to %s\n", __func__, NET_ErrorString(), NET_AdrToString( to ));
 		}
 		else
 		{
-			Con_Printf( S_ERROR "NET_SendPacket: %s to %s\n", NET_ErrorString(), NET_AdrToString( to ));
+			Con_Printf( S_ERROR "%s: %s to %s\n", __func__, NET_ErrorString(), NET_AdrToString( to ));
 		}
 	}
 
@@ -1689,7 +1689,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	{
 		err = WSAGetLastError();
 		if( err != WSAEAFNOSUPPORT )
-			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d socket: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "%s: port: %d socket: %s\n", __func__, port, NET_ErrorString( ));
 		return INVALID_SOCKET;
 	}
 
@@ -1697,7 +1697,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	{
 		struct timeval timeout;
 
-		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d ioctl FIONBIO: %s\n", port, NET_ErrorString( ));
+		Con_DPrintf( S_WARN "%s: port: %d ioctl FIONBIO: %s\n", __func__, port, NET_ErrorString( ));
 		// try timeout instead of NBIO
 		timeout.tv_sec = timeout.tv_usec = 0;
 		setsockopt( net_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
@@ -1706,12 +1706,12 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	// make it broadcast capable
 	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ))))
 	{
-		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_BROADCAST: %s\n", port, NET_ErrorString( ));
+		Con_DPrintf( S_WARN "%s: port: %d setsockopt SO_BROADCAST: %s\n", __func__, port, NET_ErrorString( ));
 	}
 
 	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval ))))
 	{
-		Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt SO_REUSEADDR: %s\n", port, NET_ErrorString( ));
+		Con_DPrintf( S_WARN "%s: port: %d setsockopt SO_REUSEADDR: %s\n", __func__, port, NET_ErrorString( ));
 		closesocket( net_socket );
 		return INVALID_SOCKET;
 	}
@@ -1722,7 +1722,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 	{
 		if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&_true, sizeof( _true ))))
 		{
-			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d setsockopt IPV6_V6ONLY: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "%s: port: %d setsockopt IPV6_V6ONLY: %s\n", __func__, port, NET_ErrorString( ));
 			closesocket( net_socket );
 			return INVALID_SOCKET;
 		}
@@ -1730,7 +1730,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		if( Sys_CheckParm( "-loopback" ))
 		{
 			if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char *)&_true, sizeof( _true ))))
-				Con_DPrintf( S_WARN "NET_UDPSocket: port %d setsockopt IPV6_MULTICAST_LOOP: %s\n", port, NET_ErrorString( ));
+				Con_DPrintf( S_WARN "%s: port %d setsockopt IPV6_MULTICAST_LOOP: %s\n", __func__, port, NET_ErrorString( ));
 		}
 
 		if( COM_CheckStringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
@@ -1742,7 +1742,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 
 		if( NET_IsSocketError( bind( net_socket, (struct sockaddr *)&addr, sizeof( struct sockaddr_in6 ))))
 		{
-			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d bind6: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "%s: port: %d bind6: %s\n", __func__, port, NET_ErrorString( ));
 			closesocket( net_socket );
 			return INVALID_SOCKET;
 		}
@@ -1758,7 +1758,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 			{
 				err = WSAGetLastError();
 				if( err != WSAENOPROTOOPT )
-					Con_Printf( S_WARN "NET_UDPSocket: port: %d  setsockopt IP_TOS: %s\n", port, NET_ErrorString( ));
+					Con_Printf( S_WARN "%s: port: %d  setsockopt IP_TOS: %s\n", __func__, port, NET_ErrorString( ));
 				closesocket( net_socket );
 				return INVALID_SOCKET;
 			}
@@ -1767,7 +1767,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		if( Sys_CheckParm( "-loopback" ))
 		{
 		    if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&_true, sizeof( _true ))))
-			    Con_DPrintf( S_WARN "NET_UDPSocket: port %d setsockopt IP_MULTICAST_LOOP: %s\n", port, NET_ErrorString( ));
+				Con_DPrintf( S_WARN "%s: port %d setsockopt IP_MULTICAST_LOOP: %s\n", __func__, port, NET_ErrorString( ));
 		}
 
 		if( COM_CheckStringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
@@ -1779,7 +1779,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 
 		if( NET_IsSocketError( bind( net_socket, (struct sockaddr *)&addr, sizeof( struct sockaddr_in ))))
 		{
-			Con_DPrintf( S_WARN "NET_UDPSocket: port: %d bind: %s\n", port, NET_ErrorString( ));
+			Con_DPrintf( S_WARN "%s: port: %d bind: %s\n", __func__, port, NET_ErrorString( ));
 			closesocket( net_socket );
 			return INVALID_SOCKET;
 		}
@@ -1796,8 +1796,8 @@ NET_OpenIP
 static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_iface, int hostport, int clientport, int family )
 {
 	int port;
-	qboolean sv_nat = Cvar_VariableInteger("sv_nat");
-	qboolean cl_nat = Cvar_VariableInteger("cl_nat");
+	qboolean sv_nat = Cvar_VariableInteger( "sv_nat" );
+	qboolean cl_nat = Cvar_VariableInteger( "cl_nat" );
 
 	if( change_port && ( FBitSet( net_hostport.flags, FCVAR_CHANGED ) || sv_nat ))
 	{

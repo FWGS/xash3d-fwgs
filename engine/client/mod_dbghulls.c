@@ -74,7 +74,7 @@ static void free_winding( winding_t *w )
 {
 	// simple sentinel by Carmack
 	if( *(unsigned *)w == 0xDEADC0DE )
-		Host_Error( "free_winding: freed a freed winding\n" );
+		Host_Error( "%s: freed a freed winding\n", __func__ );
 	*(unsigned *)w = 0xDEADC0DE;
 	free( w );
 }
@@ -154,7 +154,7 @@ static winding_t *winding_for_plane( const mplane_t *p )
 		vup[0] = 1;
 		break;
 	default:
-		Host_Error( "BaseWindingForPlane: no axis found\n" );
+		Host_Error( "%s: no axis found\n", __func__ );
 		return NULL;
 	}
 

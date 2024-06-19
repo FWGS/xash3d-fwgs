@@ -409,7 +409,7 @@ static file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, cons
 	// compressed files handled in Zip_LoadFile
 	if( pfile->flags != ZIP_COMPRESSION_NO_COMPRESSION )
 	{
-		Con_Printf( S_ERROR "%s: can't open compressed file %s\n", __FUNCTION__, pfile->name );
+		Con_Printf( S_ERROR "%s: can't open compressed file %s\n", __func__, pfile->name );
 		return NULL;
 	}
 
@@ -447,14 +447,14 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 
 	if( header.signature != ZIP_HEADER_LF )
 	{
-		Con_Reportf( S_ERROR "Zip_LoadFile: %s signature error\n", file->name );
+		Con_Reportf( S_ERROR "%s: %s signature error\n", __func__, file->name );
 		return NULL;
 	}*/
 
 	decompressed_buffer = pfnAlloc( file->size + 1 );
 	if( unlikely( !decompressed_buffer ))
 	{
-		Con_Reportf( S_ERROR "%s: can't alloc %d bytes, no free memory\n", __func__, file->size + 1 );
+		Con_Reportf( S_ERROR "%s: can't alloc %li bytes, no free memory\n", __func__, (long)file->size + 1 );
 		return NULL;
 	}
 	decompressed_buffer[file->size] = '\0';
@@ -464,7 +464,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		c = read( search->zip->handle, decompressed_buffer, file->size );
 		if( c != file->size )
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s size doesn't match\n", file->name );
+			Con_Reportf( S_ERROR "%s: %s size doesn't match\n", __func__, file->name );
 			return NULL;
 		}
 
@@ -476,7 +476,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 
 		if( final_crc != file->crc32 )
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
+			Con_Reportf( S_ERROR "%s: %s file crc32 mismatch\n", __func__, file->name );
 			pfnFree( decompressed_buffer );
 			return NULL;
 		}
@@ -494,7 +494,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		c = read( search->zip->handle, compressed_buffer, file->compressed_size );
 		if( c != file->compressed_size )
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s compressed size doesn't match\n", file->name );
+			Con_Reportf( S_ERROR "%s: %s compressed size doesn't match\n", __func__, file->name );
 			return NULL;
 		}
 
@@ -511,7 +511,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 
 		if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
 		{
-			Con_Printf( S_ERROR "Zip_LoadFile: inflateInit2 failed\n" );
+			Con_Printf( S_ERROR "%s: inflateInit2 failed\n", __func__ );
 			Mem_Free( compressed_buffer );
 			Mem_Free( decompressed_buffer );
 			return NULL;
@@ -531,7 +531,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 
 			if( final_crc != file->crc32 )
 			{
-				Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
+				Con_Reportf( S_ERROR "%s: %s file crc32 mismatch\n", __func__, file->name );
 				pfnFree( decompressed_buffer );
 				return NULL;
 			}
@@ -543,7 +543,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		}
 		else
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d.\n", file->name, zlib_result );
+			Con_Reportf( S_ERROR "%s: %s: error while file decompressing. Zlib return code %d.\n", __func__, file->name, zlib_result );
 			Mem_Free( compressed_buffer );
 			pfnFree( decompressed_buffer );
 			return NULL;
@@ -552,7 +552,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	}
 	else
 	{
-		Con_Reportf( S_ERROR "Zip_LoadFile: %s : file compressed with unknown algorithm.\n", file->name );
+		Con_Reportf( S_ERROR "%s: %s: file compressed with unknown algorithm.\n", __func__, file->name );
 		pfnFree( decompressed_buffer );
 		return NULL;
 	}
@@ -683,7 +683,7 @@ searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
 	if( !zip )
 	{
 		if( errorcode != ZIP_LOAD_NO_FILES )
-			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
+			Con_Reportf( S_ERROR "%s: unable to load zip \"%s\"\n", __func__, zipfile );
 		return NULL;
 	}
 

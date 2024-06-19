@@ -281,11 +281,11 @@ qboolean VoiceCapture_Init( void )
 
 	if( SDLash_IsAudioError( in_dev ))
 	{
-		Con_Printf( "VoiceCapture_Init: error creating capture device (%s)\n", SDL_GetError() );
+		Con_Printf( "%s: error creating capture device (%s)\n", __func__, SDL_GetError() );
 		return false;
 	}
 		
-	Con_Printf( S_NOTE "VoiceCapture_Init: capture device creation success (%i: %s)\n", in_dev, SDL_GetAudioDeviceName( in_dev, SDL_TRUE ) );
+	Con_Printf( S_NOTE "%s: capture device creation success (%i: %s)\n", __func__, in_dev, SDL_GetAudioDeviceName( in_dev, SDL_TRUE ) );
 	return true;
 }
 

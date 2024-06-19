@@ -620,7 +620,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	// make sure what target is correct
 	if( tex->target == GL_NONE )
 	{
-		gEngfuncs.Con_DPrintf( S_ERROR "GL_UploadTexture: %s is not supported by your hardware\n", tex->name );
+		gEngfuncs.Con_DPrintf( S_ERROR "%s: %s is not supported by your hardware\n", __func__, tex->name );
 		return false;
 	}
 
@@ -635,7 +635,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	if(( pic->width * pic->height ) & 3 )
 	{
 		// will be resampled, just tell me for debug targets
-		gEngfuncs.Con_Reportf( "GL_UploadTexture: %s s&3 [%d x %d]\n", tex->name, pic->width, pic->height );
+		gEngfuncs.Con_Reportf( "%s: %s s&3 [%d x %d]\n", __func__, tex->name, pic->width, pic->height );
 	}
 
 	buf = pic->buffer;
@@ -653,7 +653,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	{
 		// track the buffer bounds
 		if( buf != NULL && buf >= bufend )
-			gEngfuncs.Host_Error( "GL_UploadTexture: %s image buffer overflow\n", tex->name );
+			gEngfuncs.Host_Error( "%s: %s image buffer overflow\n", __func__, tex->name );
 
 		if( ImageCompressed( pic->type ))
 		{
@@ -798,7 +798,7 @@ static qboolean GL_CheckTexName( const char *name )
 	// because multi-layered textures can exceed name string
 	if( len >= sizeof( r_images->name ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "LoadTexture: too long name %s (%d)\n", name, len);
+		gEngfuncs.Con_Printf( S_ERROR "%s: too long name %s (%d)\n", __func__, name, len);
 		return false;
 	}
 
@@ -844,7 +844,7 @@ static image_t *GL_AllocTexture( const char *name, texFlags_t flags )
 	if( i == r_numImages )
 	{
 		if( r_numImages == MAX_TEXTURES )
-			gEngfuncs.Host_Error( "GL_AllocTexture: MAX_TEXTURES limit exceeds\n" );
+			gEngfuncs.Host_Error( "%s: MAX_TEXTURES limit exceeds\n", __func__ );
 		r_numImages++;
 	}
 
@@ -883,7 +883,7 @@ static void GL_DeleteTexture( image_t *tex )
 	// debug
 	if( !tex->name[0] )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_DeleteTexture: trying to free unnamed texture\n");
+		gEngfuncs.Con_Printf( S_ERROR "%s: trying to free unnamed texture\n", __func__ );
 		return;
 	}
 
@@ -1027,7 +1027,7 @@ int GAME_EXPORT GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texF
 	if( update )
 	{
 		if( tex == NULL )
-			gEngfuncs.Host_Error( "GL_LoadTextureFromBuffer: couldn't find texture %s for update\n", name );
+			gEngfuncs.Host_Error( "%s: couldn't find texture %s for update\n", __func__, name );
 		SetBits( tex->flags, flags );
 	}
 	else
@@ -1160,19 +1160,19 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 	}
 	else
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: bad operation for %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: bad operation for %s\n", __func__, image->name );
 		return;
 	}
 
 	if( !image->original )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: no input data for %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: no input data for %s\n", __func__, image->name );
 		return;
 	}
 
 	if( ImageCompressed( image->original->type ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: can't process compressed texture %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: can't process compressed texture %s\n", __func__, image->name );
 		return;
 	}
 

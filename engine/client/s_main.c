@@ -382,7 +382,7 @@ channel_t *SND_PickStaticChannel( const vec3_t pos, sfx_t *sfx )
 		// no empty slots, alloc a new static sound channel
 		if( total_channels == MAX_CHANNELS )
 		{
-			Con_DPrintf( S_ERROR "S_PickStaticChannel: no free channels\n" );
+			Con_DPrintf( S_ERROR "%s: no free channels\n", __func__ );
 			return NULL;
 		}
 

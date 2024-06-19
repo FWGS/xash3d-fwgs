@@ -86,7 +86,7 @@ static void *Cbuf_GetSpace( cmdbuf_t *buf, int length )
 	if(( buf->cursize + length ) > buf->maxsize )
 	{
 		buf->cursize = 0;
-		Host_Error( "Cbuf_GetSpace: overflow\n" );
+		Host_Error( "%s: overflow\n", __func__ );
 	}
 
 	data = buf->data + buf->cursize;
@@ -156,7 +156,7 @@ static void Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text )
 
 	if(( buf->cursize + l ) >= buf->maxsize )
 	{
-		Con_Reportf( S_WARN "Cbuf_InsertText: overflow\n" );
+		Con_Reportf( S_WARN "%s: overflow\n", __func__ );
 	}
 	else
 	{
@@ -224,7 +224,7 @@ static void Cbuf_ExecuteCommandsFromBuffer( cmdbuf_t *buf, qboolean isPrivileged
 
 		if( i >= ( MAX_CMD_LINE - 1 ))
 		{
-			Con_DPrintf( S_ERROR "Cbuf_Execute: command string owerflow\n" );
+			Con_DPrintf( S_ERROR "%s: command string owerflow\n", __func__ );
 			line[0] = 0;
 		}
 		else
@@ -682,7 +682,7 @@ static int Cmd_AddCommandEx( const char *funcname, const char *cmd_name, xcomman
 
 	if( !COM_CheckString( cmd_name ))
 	{
-		Con_Reportf( S_ERROR  "%s: NULL name\n", funcname );
+		Con_Reportf( S_ERROR "%s: NULL name\n", funcname );
 		return 0;
 	}
 
@@ -728,7 +728,7 @@ Cmd_AddCommand
 */
 void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
 {
-	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, cmd_desc, 0 );
+	Cmd_AddCommandEx( __func__, cmd_name, function, cmd_desc, 0 );
 }
 
 
@@ -739,7 +739,7 @@ Cmd_AddRestrictedCommand
 */
 void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
 {
-	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, cmd_desc, CMD_PRIVILEGED );
+	Cmd_AddCommandEx( __func__, cmd_name, function, cmd_desc, CMD_PRIVILEGED );
 }
 
 /*
@@ -749,7 +749,7 @@ Cmd_AddServerCommand
 */
 void GAME_EXPORT Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
 {
-	Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "server command", CMD_SERVERDLL );
+	Cmd_AddCommandEx( __func__, cmd_name, function, "server command", CMD_SERVERDLL );
 }
 
 /*
@@ -767,7 +767,7 @@ int GAME_EXPORT Cmd_AddClientCommand( const char *cmd_name, xcommand_t function 
 		flags |= CMD_PRIVILEGED;
 	}
 
-	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "client command", flags );
+	return Cmd_AddCommandEx( __func__, cmd_name, function, "client command", flags );
 }
 
 /*
@@ -777,7 +777,7 @@ Cmd_AddGameUICommand
 */
 int GAME_EXPORT Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
 {
-	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, "gameui command", CMD_GAMEUIDLL );
+	return Cmd_AddCommandEx( __func__, cmd_name, function, "gameui command", CMD_GAMEUIDLL );
 }
 
 /*
@@ -787,7 +787,7 @@ Cmd_AddRefCommand
 */
 int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *description )
 {
-	return Cmd_AddCommandEx( __FUNCTION__, cmd_name, function, description, CMD_REFDLL );
+	return Cmd_AddCommandEx( __func__, cmd_name, function, description, CMD_REFDLL );
 }
 
 /*

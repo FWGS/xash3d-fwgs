@@ -1904,7 +1904,7 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 
 	// this will probably be fatal anyway
 	if( iSize > sizeof( pbuf ))
-		Con_Printf( S_ERROR "%s: Temp buffer overflow!\n", __FUNCTION__ );
+		Con_Printf( S_ERROR "%s: Temp buffer overflow!\n", __func__ );
 
 	// parse user message into buffer
 	MSG_ReadBytes( msg, pbuf, iSize );
@@ -2384,13 +2384,13 @@ void CL_ParseTempEntity( sizebuf_t *msg )
 		R_UserTracerParticle( pos, pos2, life, color, scale, 0, NULL );
 		break;
 	default:
-		Con_DPrintf( S_ERROR "ParseTempEntity: illegible TE message %i\n", type );
+		Con_DPrintf( S_ERROR "%s: illegible TE message %i\n", __func__, type );
 		break;
 	}
 
 	// throw warning
 	if( MSG_CheckOverflow( &buf ))
-		Con_DPrintf( S_WARN "ParseTempEntity: overflow TE message %i\n", type );
+		Con_DPrintf( S_WARN "%s: overflow TE message %i\n", __func__, type );
 }
 
 

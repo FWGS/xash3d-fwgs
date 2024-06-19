@@ -341,7 +341,7 @@ searchpath_t *FS_AddPak_Fullpath( const char *pakfile, int flags )
 	if( !pak )
 	{
 		if( errorcode != PAK_LOAD_NO_FILES )
-			Con_Reportf( S_ERROR "FS_AddPak_Fullpath: unable to load pak \"%s\"\n", pakfile );
+			Con_Reportf( S_ERROR "%s: unable to load pak \"%s\"\n", __func__, pakfile );
 		return NULL;
 	}
 

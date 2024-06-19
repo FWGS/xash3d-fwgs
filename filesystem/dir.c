@@ -275,7 +275,7 @@ static inline qboolean FS_AppendToPath( char *dst, size_t *pi, const size_t len,
 
 	if( i >= len )
 	{
-		Con_Printf( S_ERROR "FS_FixFileCase: overflow while searching %s (%s)\n", path, err );
+		Con_Printf( S_ERROR "%s: overflow while appending %s (%s)\n", __func__, path, err );
 		return false;
 	}
 	return true;

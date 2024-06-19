@@ -223,7 +223,7 @@ An svc_signonnum has been received, perform a client side setup
 void CL_SignonReply( void )
 {
 	// g-cont. my favorite message :-)
-	Con_Reportf( "CL_SignonReply: %i\n", cls.signon );
+	Con_Reportf( "%s: %i\n", __func__, cls.signon );
 
 	switch( cls.signon )
 	{
@@ -827,7 +827,7 @@ static void CL_WritePacket( void )
 			from = to;
 
 			if( MSG_CheckOverflow( &buf ))
-				Host_Error( "CL_WritePacket: overflowed command buffer (%i bytes)\n", MAX_CMD_BUFFER );
+				Host_Error( "%s: overflowed command buffer (%i bytes)\n", __func__, MAX_CMD_BUFFER );
 		}
 
 		// calculate a checksum over the move commands
@@ -852,7 +852,7 @@ static void CL_WritePacket( void )
 		}
 
 		if( MSG_CheckOverflow( &buf ))
-			Host_Error( "CL_WritePacket: overflowed command buffer (%i bytes)\n", MAX_CMD_BUFFER );
+			Host_Error( "%s: overflowed command buffer (%i bytes)\n", __func__, MAX_CMD_BUFFER );
 
 		// remember outgoing command that we are sending
 		cls.lastoutgoingcommand = cls.netchan.outgoing_sequence;
@@ -1019,7 +1019,7 @@ static void CL_SendConnectPacket( void )
 
 	if( !NET_StringToAdr( cls.servername, &adr ))
 	{
-		Con_Printf( "CL_SendConnectPacket: bad server address\n");
+		Con_Printf( "%s: bad server address\n", __func__ );
 		cls.connect_time = 0;
 		return;
 	}
@@ -1167,7 +1167,7 @@ static void CL_CheckForResend( void )
 	// only retry so many times before failure.
 	if( cls.connect_retry >= CL_CONNECTION_RETRIES )
 	{
-		Con_DPrintf( S_ERROR "CL_CheckForResend: couldn't connected\n" );
+		Con_DPrintf( S_ERROR "%s: couldn't connect\n", __func__ );
 		CL_Disconnect();
 		return;
 	}
@@ -2014,7 +2014,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Cmd_TokenizeString( args );
 	c = Cmd_Argv( 0 );
 
-	Con_Reportf( "CL_ConnectionlessPacket: %s : %s\n", NET_AdrToString( from ), c );
+	Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
 
 	// server connection
 	if( !Q_strcmp( c, "client_connect" ))
@@ -2382,14 +2382,14 @@ static void CL_ReadNetMessage( void )
 		{
 			if( MSG_GetMaxBytes( &net_message ) < 8 )
 			{
-				Con_Printf( S_WARN "CL_ReadPackets: %s:runt packet\n", NET_AdrToString( net_from ));
+				Con_Printf( S_WARN "%s: %s:runt packet\n", __func__, NET_AdrToString( net_from ));
 				continue;
 			}
 
 			// packet from server
 			if( !NET_CompareAdr( net_from, cls.netchan.remote_address ))
 			{
-				Con_DPrintf( S_ERROR "CL_ReadPackets: %s:sequenced packet without connection\n", NET_AdrToString( net_from ));
+				Con_DPrintf( S_ERROR "%s: %s:sequenced packet without connection\n", __func__, NET_AdrToString( net_from ));
 				continue;
 			}
 
@@ -3295,7 +3295,7 @@ CL_Shutdown
 */
 void CL_Shutdown( void )
 {
-	Con_Printf( "CL_Shutdown()\n" );
+	Con_Printf( "%s()\n", __func__ );
 
 	if( !host.crashed && cls.initialized )
 	{

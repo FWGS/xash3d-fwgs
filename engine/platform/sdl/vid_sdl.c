@@ -377,21 +377,21 @@ static void WIN_SetDPIAwareness( void )
 
 			if( hResult == S_OK )
 			{
-				Con_Reportf( "SetDPIAwareness: Success\n" );
+				Con_Reportf( "%s: Success\n", __func__ );
 				bSuccess = TRUE;
 			}
-			else if( hResult == E_INVALIDARG ) Con_Reportf( "SetDPIAwareness: Invalid argument\n" );
-			else if( hResult == E_ACCESSDENIED ) Con_Reportf( "SetDPIAwareness: Access Denied\n" );
+			else if( hResult == E_INVALIDARG ) Con_Reportf( "%s: Invalid argument\n", __func__ );
+			else if( hResult == E_ACCESSDENIED ) Con_Reportf( "%s: Access Denied\n", __func__ );
 		}
-		else Con_Reportf( "SetDPIAwareness: Can't get SetProcessDpiAwareness\n" );
+		else Con_Reportf( "%s: Can't get SetProcessDpiAwareness\n", __func__ );
 		FreeLibrary( hModule );
 	}
-	else Con_Reportf( "SetDPIAwareness: Can't load shcore.dll\n" );
+	else Con_Reportf( "%s: Can't load shcore.dll\n", __func__ );
 
 
 	if( !bSuccess )
 	{
-		Con_Reportf( "SetDPIAwareness: Trying SetProcessDPIAware...\n" );
+		Con_Reportf( "%s: Trying SetProcessDPIAware...\n", __func__ );
 
 		if( ( hModule = LoadLibrary( "user32.dll" ) ) )
 		{
@@ -402,15 +402,15 @@ static void WIN_SetDPIAwareness( void )
 
 				if( hResult )
 				{
-					Con_Reportf( "SetDPIAwareness: Success\n" );
+					Con_Reportf( "%s: Success\n", __func__ );
 					bSuccess = TRUE;
 				}
-				else Con_Reportf( "SetDPIAwareness: fail\n" );
+				else Con_Reportf( "%s: fail\n", __func__ );
 			}
-			else Con_Reportf( "SetDPIAwareness: Can't get SetProcessDPIAware\n" );
+			else Con_Reportf( "%s: Can't get SetProcessDPIAware\n", __func__ );
 			FreeLibrary( hModule );
 		}
-		else Con_Reportf( "SetDPIAwareness: Can't load user32.dll\n" );
+		else Con_Reportf( "%s: Can't load user32.dll\n", __func__ );
 	}
 }
 
@@ -472,7 +472,7 @@ void *GL_GetProcAddress( const char *name )
 
 	if( !func )
 	{
-		Con_Reportf( S_ERROR "GL_GetProcAddress failed for %s\n", name );
+		Con_Reportf( S_ERROR "%s failed for %s\n", __func__, name );
 	}
 
 	return func;
@@ -531,7 +531,7 @@ static qboolean GL_CreateContext( void )
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
 	{
-		Con_Reportf( S_ERROR "GL_CreateContext: %s\n", SDL_GetError());
+		Con_Reportf( S_ERROR "%s: %s\n", __func__, SDL_GetError( ));
 		return GL_DeleteContext();
 	}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
@@ -548,7 +548,7 @@ static qboolean GL_UpdateContext( void )
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ) < 0 )
 	{
-		Con_Reportf( S_ERROR "GL_UpdateContext: %s\n", SDL_GetError());
+		Con_Reportf( S_ERROR "%s: %s\n", __func__, SDL_GetError( ));
 		return GL_DeleteContext();
 	}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
@@ -704,7 +704,7 @@ static qboolean VID_CreateWindowWithSafeGL( const char *wndname, int xpos, int y
 		if( host.hWnd )
 			break;
 
-		Con_Reportf( S_ERROR "VID_CreateWindow: couldn't create '%s' with safegl level %d: %s\n", wndname, glw_state.safe, SDL_GetError());
+		Con_Reportf( S_ERROR "%s: couldn't create '%s' with safegl level %d: %s\n", __func__, wndname, glw_state.safe, SDL_GetError());
 
 		glw_state.safe++;
 
@@ -758,7 +758,7 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 		if( SDL_GetDisplayBounds( 0, &r ) < 0 )
 #endif
 		{
-			Con_Reportf( S_ERROR "VID_CreateWindow: SDL_GetDisplayBounds failed: %s\n", SDL_GetError( ));
+			Con_Reportf( S_ERROR "%s: SDL_GetDisplayBounds failed: %s\n", __func__, SDL_GetError( ));
 			xpos = SDL_WINDOWPOS_CENTERED;
 			ypos = SDL_WINDOWPOS_CENTERED;
 		}
@@ -1097,7 +1097,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 #endif
 
 	refState.fullScreen = window_mode != WINDOW_MODE_WINDOWED;
-	Con_Reportf( "R_ChangeDisplaySettings: Setting video mode to %dx%d %s\n", width, height, refState.fullScreen ? "fullscreen" : "windowed" );
+	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, width, height, refState.fullScreen ? "fullscreen" : "windowed" );
 
 	if( !host.hWnd )
 	{
@@ -1173,7 +1173,7 @@ qboolean VID_SetMode( void )
 	if( Q_strcmp( vid_fullscreen.string, DEFAULT_FULLSCREEN ))
 	{
 		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
-		Con_Reportf( S_ERROR  "VID_SetMode: windowed unavailable on this platform\n" );
+		Con_Reportf( S_ERROR "%s: windowed unavailable on this platform\n", __func__ );
 	}
 #endif
 
@@ -1196,22 +1196,22 @@ qboolean VID_SetMode( void )
 		if( err == rserr_invalid_fullscreen )
 		{
 			Cvar_DirectSet( &vid_fullscreen, "0" );
-			Con_Reportf( S_ERROR  "VID_SetMode: fullscreen unavailable in this mode\n" );
-			Sys_Warn("fullscreen unavailable in this mode!");
+			Con_Reportf( S_ERROR "%s: fullscreen unavailable in this mode\n", __func__ );
+			Sys_Warn( "fullscreen unavailable in this mode!" );
 			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, WINDOW_MODE_WINDOWED )) == rserr_ok )
 				return true;
 		}
 		else if( err == rserr_invalid_mode )
 		{
-			Con_Reportf( S_ERROR  "VID_SetMode: invalid mode\n" );
+			Con_Reportf( S_ERROR "%s: invalid mode\n", __func__ );
 			Sys_Warn( "invalid mode, engine will run in %dx%d", sdlState.prev_width, sdlState.prev_height );
 		}
 
 		// try setting it back to something safe
 		if(( err = R_ChangeDisplaySettings( sdlState.prev_width, sdlState.prev_height, WINDOW_MODE_WINDOWED )) != rserr_ok )
 		{
-			Con_Reportf( S_ERROR "VID_SetMode: could not revert to safe mode\n" );
-			Sys_Warn("could not revert to safe mode!");
+			Con_Reportf( S_ERROR "%s: could not revert to safe mode\n", __func__ );
+			Sys_Warn( "could not revert to safe mode!" );
 			return false;
 		}
 	}

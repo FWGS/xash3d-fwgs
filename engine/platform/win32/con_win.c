@@ -586,7 +586,7 @@ destroy win32 console
 void Wcon_DestroyConsole( void )
 {
 	// last text message into console or log
-	Con_Reportf( "Sys_FreeLibrary: Unloading xash.dll\n" );
+	Con_Reportf( "%s: Unloading xash.dll\n", __func__ );
 
 	Sys_CloseLog();
 

@@ -20,19 +20,19 @@ GNU General Public License for more details.
 
 void *dlsym(void *handle, const char *symbol )
 {
-	Con_DPrintf( "dlsym( %p, \"%s\" ): stub\n", handle, symbol );
+	Con_DPrintf( "%s( %p, \"%s\" ): stub\n", __func__, handle, symbol );
 	return NULL;
 }
 
 void *dlopen(const char *name, int flag )
 {
-	Con_DPrintf( "dlopen( \"%s\", %d ): stub\n", name, flag );
+	Con_DPrintf( "%s( \"%s\", %d ): stub\n", __func__, name, flag );
 	return NULL;
 }
 
 int dlclose(void *handle)
 {
-	Con_DPrintf( "dlsym( %p ): stub\n", handle );
+	Con_DPrintf( "%s( %p ): stub\n", __func__, handle );
 	return 0;
 }
 

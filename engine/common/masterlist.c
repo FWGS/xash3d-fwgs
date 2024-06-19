@@ -389,7 +389,7 @@ void NET_SaveMasters( void )
 
 	if( !f )
 	{
-		Con_Reportf( S_ERROR  "Couldn't write xashcomm.lst\n" );
+		Con_Reportf( S_ERROR "Couldn't write xashcomm.lst\n" );
 		return;
 	}
 

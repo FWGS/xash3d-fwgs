@@ -480,7 +480,7 @@ void GL_SetExtension( int r_ext, int enable )
 {
 	if( r_ext >= 0 && r_ext < GL_EXTCOUNT )
 		glConfig.extension[r_ext] = enable ? GL_TRUE : GL_FALSE;
-	else gEngfuncs.Con_Printf( S_ERROR "GL_SetExtension: invalid extension %d\n", r_ext );
+	else gEngfuncs.Con_Printf( S_ERROR "%s: invalid extension %d\n", __func__, r_ext );
 }
 
 /*
@@ -492,7 +492,7 @@ qboolean GL_Support( int r_ext )
 {
 	if( r_ext >= 0 && r_ext < GL_EXTCOUNT )
 		return glConfig.extension[r_ext] ? true : false;
-	gEngfuncs.Con_Printf( S_ERROR "GL_Support: invalid extension %d\n", r_ext );
+	gEngfuncs.Con_Printf( S_ERROR "%s: invalid extension %d\n", __func__, r_ext );
 
 	return false;
 }
@@ -522,7 +522,7 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 	char		desc[MAX_VA_STRING];
 	float glver = (float)glConfig.version_major + glConfig.version_minor / 10.0f;
 
-	gEngfuncs.Con_Reportf( "GL_CheckExtension: %s ", name );
+	gEngfuncs.Con_Reportf( "%s: %s ", __func__, name );
 	GL_SetExtension( r_ext, true );
 
 	if( cvarname )

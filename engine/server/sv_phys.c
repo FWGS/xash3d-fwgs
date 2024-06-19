@@ -1772,7 +1772,7 @@ static void SV_Physics_Entity( edict_t *ent )
 		SV_Physics_Pusher( ent );
 		break;
 	case MOVETYPE_WALK:
-		Host_Error( "SV_Physics: bad movetype %i\n", ent->v.movetype );
+		Host_Error( "%s: bad movetype %i\n", __func__, ent->v.movetype );
 		break;
 	}
 
@@ -1966,7 +1966,7 @@ static const char *GAME_EXPORT SV_GetLightStyle( int style )
 {
 	if( style < 0 ) style = 0;
 	if( style >= MAX_LIGHTSTYLES )
-		Host_Error( "SV_GetLightStyle: style: %i >= %d", style, MAX_LIGHTSTYLES );
+		Host_Error( "%s: style: %i >= %d", __func__, style, MAX_LIGHTSTYLES );
 
 	return sv.lightstyles[style].pattern;
 }
@@ -2046,7 +2046,7 @@ pfnWriteBytes
 static void GAME_EXPORT pfnWriteBytes( const byte *bytes, int count )
 {
 	MSG_WriteBytes( &sv.multicast, bytes, count );
-	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __FUNCTION__, count );
+	if( svgame.msg_trace ) Con_Printf( "\t^3%s( %i )\n", __func__, count );
 	svgame.msg_realsize += count;
 }
 
@@ -2141,7 +2141,7 @@ qboolean SV_InitPhysicsAPI( void )
 	{
 		if( pPhysIface( SV_PHYSICS_INTERFACE_VERSION, &gPhysicsAPI, &svgame.physFuncs ))
 		{
-			Con_Reportf( "SV_LoadProgs: ^2initailized extended PhysicAPI ^7ver. %i\n", SV_PHYSICS_INTERFACE_VERSION );
+			Con_Reportf( "%s: ^2initailized extended PhysicAPI ^7ver. %i\n", __func__, SV_PHYSICS_INTERFACE_VERSION );
 
 			if( svgame.physFuncs.SV_CheckFeatures != NULL )
 			{
