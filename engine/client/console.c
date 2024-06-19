@@ -2145,6 +2145,28 @@ void Con_CharEvent( int key )
 	}
 }
 
+static int Con_LoadSimpleConback( const char *name, int flags )
+{
+	const char *paths[] = {
+		"gfx/shell/%s.bmp",
+		"gfx/shell/%s.tga",
+		"cached/%s640",
+		"cached/%s",
+	};
+	size_t i;
+
+	for( i = 0; i < ARRAYSIZE( paths ); i++ )
+	{
+		string path;
+
+		Q_snprintf( path, sizeof( path ), paths[i], name );
+		if( g_fsapi.FileExists( path, false ))
+			return ref.dllFuncs.GL_LoadTexture( path, NULL, 0, flags );
+	}
+
+	return 0;
+}
+
 /*
 =========
 Con_VidInit
@@ -2167,38 +2189,12 @@ void Con_VidInit( void )
 
 	Con_LoadConchars();
 	Con_CheckResize();
+
 #if XASH_LOW_MEMORY
-	con.background = R_GetBuiltinTexture( REF_BLACK_TEXTURE );
+	con.background = R_GetBuiltinTexture( REF_GRAY_TEXTURE );
 #else
 	// loading console image
-	if( host.allow_console )
-	{
-		// trying to load truecolor image first
-		if( FS_FileExists( "gfx/shell/conback.bmp", false ) || FS_FileExists( "gfx/shell/conback.tga", false ))
-			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/conback", NULL, 0, flags );
-
-		if( !con.background )
-		{
-			if( FS_FileExists( "cached/conback640", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback640", NULL, 0, flags );
-			else if( FS_FileExists( "cached/conback", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/conback", NULL, 0, flags );
-		}
-	}
-	else
-	{
-		// trying to load truecolor image first
-		if( FS_FileExists( "gfx/shell/loading.bmp", false ) || FS_FileExists( "gfx/shell/loading.tga", false ))
-			con.background = ref.dllFuncs.GL_LoadTexture( "gfx/shell/loading", NULL, 0, flags );
-
-		if( !con.background )
-		{
-			if( FS_FileExists( "cached/loading640", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading640", NULL, 0, flags );
-			else if( FS_FileExists( "cached/loading", false ))
-				con.background = ref.dllFuncs.GL_LoadTexture( "cached/loading", NULL, 0, flags );
-		}
-	}
+	con.background = Con_LoadSimpleConback( host.allow_console ? "conback" : "loading", flags );
 
 	if( !con.background ) // last chance - quake conback image
 	{
