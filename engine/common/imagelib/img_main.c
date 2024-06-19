@@ -360,7 +360,7 @@ load_internal:
 	}
 
 	if( loadname[0] != '#' )
-		Con_Reportf( S_WARN "FS_LoadImage: couldn't load \"%s\"\n", loadname );
+		Con_Reportf( S_WARN "%s: couldn't load \"%s\"\n", __func__, loadname );
 
 	// clear any force flags
 	image.force_flags = 0;

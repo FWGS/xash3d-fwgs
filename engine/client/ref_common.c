@@ -182,7 +182,7 @@ static model_t *pfnGetDefaultSprite( enum ref_defaultsprite_e spr )
 	{
 	case REF_DOT_SPRITE: return cl_sprite_dot;
 	case REF_CHROME_SPRITE: return cl_sprite_shell;
-	default: Host_Error( "GetDefaultSprite: unknown sprite %d\n", spr );
+	default: Host_Error( "%s: unknown sprite %d\n", __func__, spr );
 	}
 	return NULL;
 }
@@ -195,7 +195,7 @@ static void *pfnMod_Extradata( int type, model_t *m )
 	case mod_studio: return Mod_StudioExtradata( m );
 	case mod_sprite: // fallthrough
 	case mod_brush: return NULL;
-	default: Host_Error( "Mod_Extradata: unknown type %d\n", type );
+	default: Host_Error( "%s: unknown type %d\n", __func__, type );
 	}
 	return NULL;
 }
@@ -477,7 +477,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( !(ref.hInstance = COM_LoadLibrary( name, false, true ) ))
 	{
 		FS_AllowDirectPaths( false );
-		Con_Reportf( "R_LoadProgs: can't load renderer library %s: %s\n", name, COM_GetLibraryError() );
+		Con_Reportf( "%s: can't load renderer library %s: %s\n", __func__, name, COM_GetLibraryError() );
 		return false;
 	}
 
@@ -486,7 +486,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( !( GetRefAPI = (REFAPI)COM_GetProcAddress( ref.hInstance, GET_REF_API )) )
 	{
 		COM_FreeLibrary( ref.hInstance );
-		Con_Reportf( "R_LoadProgs: can't find GetRefAPI entry point in %s\n", name );
+		Con_Reportf( "%s: can't find GetRefAPI entry point in %s\n", __func__, name );
 		ref.hInstance = NULL;
 		return false;
 	}
@@ -497,7 +497,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( GetRefAPI( REF_API_VERSION, &ref.dllFuncs, &gpEngfuncs, &refState ) != REF_API_VERSION )
 	{
 		COM_FreeLibrary( ref.hInstance );
-		Con_Reportf( "R_LoadProgs: can't init renderer API: wrong version\n" );
+		Con_Reportf( "%s: can't init renderer API: wrong version\n", __func__ );
 		ref.hInstance = NULL;
 		return false;
 	}
@@ -507,7 +507,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( !ref.dllFuncs.R_Init( ) )
 	{
 		COM_FreeLibrary( ref.hInstance );
-		Con_Reportf( "R_LoadProgs: can't init renderer!\n" ); //, ref.dllFuncs.R_GetInitError() );
+		Con_Reportf( "%s: can't init renderer!\n", __func__ ); //, ref.dllFuncs.R_GetInitError() );
 		ref.hInstance = NULL;
 		return false;
 	}

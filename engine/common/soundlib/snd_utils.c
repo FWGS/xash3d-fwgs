@@ -504,12 +504,12 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, 
 	if( handled )
 	{
 		if( t2 - t1 > 0.01f ) // critical, report to mod developer
-			Con_Printf( S_WARN "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
+			Con_Printf( S_WARN "%s: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", __func__, inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
 		else
-			Con_Reportf( "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
+			Con_Reportf( "%s: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", __func__, inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
 	}
 	else
-		Con_Printf( S_ERROR "Sound_Resample: unsupported from [%d bit %d Hz] to [%d bit %d Hz]\n", inwidth * 8, inrate, outwidth * 8, outrate );
+		Con_Printf( S_ERROR "%s: unsupported from [%d bit %d Hz] to [%d bit %d Hz]\n", __func__, inwidth * 8, inrate, outwidth * 8, outrate );
 
 	sc->rate = outrate;
 	sc->width = outwidth;

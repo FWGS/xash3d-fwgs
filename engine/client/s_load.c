@@ -145,7 +145,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	{
 		// load it from disk
 		if( s_warn_late_precache.value > 0 && cls.state == ca_active )
-			Con_Printf( S_WARN "S_LoadSound: late precache of %s\n", sfx->name );
+			Con_Printf( S_WARN "%s: late precache of %s\n", __func__, sfx->name );
 
 		if( sfx->name[0] == '*' )
 			sc = FS_LoadSound( sfx->name + 1, NULL, 0 );

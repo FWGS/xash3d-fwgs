@@ -417,7 +417,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	else if( frame >= psprite->numframes )
 	{
 		if( frame > psprite->numframes )
-			gEngfuncs.Con_Printf( S_WARN "R_GetSpriteFrame: no such frame %d (%s)\n", frame, pModel->name );
+			gEngfuncs.Con_Printf( S_WARN "%s: no such frame %d (%s)\n", __func__, frame, pModel->name );
 		frame = psprite->numframes - 1;
 	}
 
@@ -485,7 +485,7 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 	}
 	else if( frame >= psprite->numframes )
 	{
-		gEngfuncs.Con_Reportf( S_WARN "R_GetSpriteFrameInterpolant: no such frame %d (%s)\n", frame, ent->model->name );
+		gEngfuncs.Con_Reportf( S_WARN "%s: no such frame %d (%s)\n", __func__, frame, ent->model->name );
 		frame = psprite->numframes - 1;
 	}
 

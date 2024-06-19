@@ -289,7 +289,7 @@ table_error:
 	if( f ) FS_Close( f );
 	if( p_Names ) Mem_Free( p_Names );
 	FreeNameFuncGlobals( hInst );
-	Con_Printf( S_ERROR "LoadLibrary: %s\n", errorstring );
+	Con_Printf( S_ERROR "%s: %s\n", __func__, errorstring );
 
 	return false;
 }
@@ -318,28 +318,28 @@ static PIMAGE_IMPORT_DESCRIPTOR GetImportDescriptor( const char *name, byte *dat
 
 	if ( !data )
 	{
-		Con_Printf( S_ERROR "%s: couldn't load %s\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: couldn't load %s\n", __func__, name );
 		return NULL;
 	}
 
 	dosHeader = (PIMAGE_DOS_HEADER)data;
 	if ( dosHeader->e_magic != IMAGE_DOS_SIGNATURE )
 	{
-		Con_Printf( S_ERROR "%s: %s is not a valid executable file\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: %s is not a valid executable file\n", __func__, name );
 		return NULL;
 	}
 
 	peHeader = (PIMAGE_NT_HEADERS)( data + dosHeader->e_lfanew );
 	if ( peHeader->Signature != IMAGE_NT_SIGNATURE )
 	{
-		Con_Printf( S_ERROR "%s: %s is missing a PE header\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: %s is missing a PE header\n", __func__, name );
 		return NULL;
 	}
 
 	importDir = &peHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
 	if( importDir->Size <= 0 )
 	{
-		Con_Printf( S_ERROR "%s: %s has no dependencies\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: %s has no dependencies\n", __func__, name );
 		return NULL;
 	}
 
@@ -521,10 +521,10 @@ void COM_FreeLibrary( void *hInstance )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", hInst->dllName );
+		Con_Reportf( "%s: hold %s for debugging\n", __func__, hInst->dllName );
 		return;
 	}
-	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
+	else Con_Reportf( "%s: Unloading %s\n", __func__, hInst->dllName );
 
 #if XASH_X86
 	if( hInst->custom_loader )

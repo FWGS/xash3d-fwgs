@@ -78,49 +78,49 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 
 	if( image.type == PF_UNKNOWN )
 	{
-		Con_DPrintf( S_ERROR "%s: unsupported KTX2 format %d\n", __FUNCTION__, header->vkFormat );
+		Con_DPrintf( S_ERROR "%s: unsupported KTX2 format %d\n", __func__, header->vkFormat );
 		return false;
 	}
 
 	if( !Image_CheckFlag( IL_DDS_HARDWARE ) && ImageCompressed( image.type ))
 	{
-		Con_DPrintf( S_WARN "%s: has compressed format, but support is not advertized\n", __FUNCTION__ );
+		Con_DPrintf( S_WARN "%s: has compressed format, but support is not advertized\n", __func__ );
 		return false;
 	}
 
 	if( header->levelCount == 0 )
 	{
-		Con_DPrintf( S_ERROR "%s: file has no mip levels\n", __FUNCTION__ );
+		Con_DPrintf( S_ERROR "%s: file has no mip levels\n", __func__ );
 		return false;
 	}
 
 	if( header->pixelDepth > 1 )
 	{
-		Con_DPrintf( S_ERROR "%s: unsupported KTX2 pixelDepth %d\n", __FUNCTION__, header->pixelDepth );
+		Con_DPrintf( S_ERROR "%s: unsupported KTX2 pixelDepth %d\n", __func__, header->pixelDepth );
 		return false;
 	}
 
 	if( header->faceCount > 1 )
 	{
-		Con_DPrintf( S_ERROR "%s: unsupported KTX2 faceCount %d\n", __FUNCTION__, header->faceCount );
+		Con_DPrintf( S_ERROR "%s: unsupported KTX2 faceCount %d\n", __func__, header->faceCount );
 		return false;
 	}
 
 	if( header->layerCount > 1 )
 	{
-		Con_DPrintf( S_ERROR "%s: unsupported KTX2 layerCount %d\n", __FUNCTION__, header->layerCount );
+		Con_DPrintf( S_ERROR "%s: unsupported KTX2 layerCount %d\n", __func__, header->layerCount );
 		return false;
 	}
 
 	if( header->supercompressionScheme != 0 )
 	{
-		Con_DPrintf( S_ERROR "%s: unsupported KTX2 supercompressionScheme %d\n", __FUNCTION__, header->supercompressionScheme );
+		Con_DPrintf( S_ERROR "%s: unsupported KTX2 supercompressionScheme %d\n", __func__, header->supercompressionScheme );
 		return false;
 	}
 
 	if( header->levelCount * sizeof( ktx2_level_t ) + KTX2_LEVELS_OFFSET > filesize )
 	{
-		Con_DPrintf( S_ERROR "%s: file abruptly ends\n", __FUNCTION__ );
+		Con_DPrintf( S_ERROR "%s: file abruptly ends\n", __func__ );
 		return false;
 	}
 
@@ -138,7 +138,7 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 		if( mip_size != level.byteLength )
 		{
 			Con_DPrintf( S_ERROR "%s: mip=%d size mismatch read=%d, but computed=%d\n",
-				__FUNCTION__, mip, (int)level.byteLength, mip_size );
+				__func__, mip, (int)level.byteLength, mip_size );
 			return false;
 		}
 
@@ -175,7 +175,7 @@ qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t files
 
 	if( memcmp( buffer, KTX2_IDENTIFIER, KTX2_IDENTIFIER_SIZE ) != 0 )
 	{
-		Con_DPrintf( S_ERROR "%s: (%s) has invalid identifier\n", __FUNCTION__, name );
+		Con_DPrintf( S_ERROR "%s: (%s) has invalid identifier\n", __func__, name );
 		return false;
 	}
 
@@ -196,7 +196,7 @@ qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t files
 		// If KTX2 to imagelib conversion failed, try passing the file as raw data.
 		// This is useful for ref_vk which can directly support hundreds of formats which we don't convert to pixformat_t here
 
-		Con_DPrintf( S_WARN "%s: (%s) could not be converted to supported imagelib format, passing as raw KTX2 data\n", __FUNCTION__, name );
+		Con_DPrintf( S_WARN "%s: (%s) could not be converted to supported imagelib format, passing as raw KTX2 data\n", __func__, name );
 		// This is a catch-all for ref_vk, which can do this format directly and natively
 		image.type = PF_KTX2_RAW;
 

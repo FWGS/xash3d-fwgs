@@ -367,7 +367,7 @@ public:
 
 		if( i == nullptr )
 		{
-			Con_DPrintf( "FindClose: Can't find search state by handle %d\n", handle );
+			Con_DPrintf( "%s: Can't find search state by handle %d\n", __func__, handle );
 			return;
 		}
 

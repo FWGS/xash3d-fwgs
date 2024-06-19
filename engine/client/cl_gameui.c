@@ -494,7 +494,7 @@ static HIMAGE GAME_EXPORT pfnPIC_Load( const char *szPicName, const byte *image_
 
 	if( !COM_CheckString( szPicName ))
 	{
-		Con_Reportf( S_ERROR "CL_LoadImage: refusing to load image with empty name\n" );
+		Con_Reportf( S_ERROR "%s: refusing to load image with empty name\n", __func__ );
 		return 0;
 	}
 
@@ -1013,7 +1013,7 @@ pfnChangeInstance
 */
 static void GAME_EXPORT pfnChangeInstance( const char *newInstance, const char *szFinalMessage )
 {
-	Con_Reportf( S_ERROR "ChangeInstance menu call is deprecated!\n" );
+	Con_Reportf( S_ERROR "%s menu call is deprecated!\n", __func__ );
 }
 
 /*
@@ -1296,7 +1296,7 @@ qboolean UI_LoadProgs( void )
 	if(( GetMenuAPI = (MENUAPI)COM_GetProcAddress( gameui.hInstance, "GetMenuAPI" )) == NULL )
 	{
 		COM_FreeLibrary( gameui.hInstance );
-		Con_Reportf( "UI_LoadProgs: can't init menu API\n" );
+		Con_Reportf( "%s: can't init menu API\n", __func__ );
 		gameui.hInstance = NULL;
 		return false;
 	}
@@ -1312,7 +1312,7 @@ qboolean UI_LoadProgs( void )
 	if( !GetMenuAPI( &gameui.dllFuncs, &gpEngfuncs, gameui.globals ))
 	{
 		COM_FreeLibrary( gameui.hInstance );
-		Con_Reportf( "UI_LoadProgs: can't init menu API\n" );
+		Con_Reportf( "%s: can't init menu API\n", __func__ );
 		Mem_FreePool( &gameui.mempool );
 		gameui.hInstance = NULL;
 		return false;
@@ -1325,10 +1325,10 @@ qboolean UI_LoadProgs( void )
 	// try to initialize new extended API
 	if( ( GetExtAPI = (UIEXTENEDEDAPI)COM_GetProcAddress( gameui.hInstance, "GetExtAPI" ) ) )
 	{
-		Con_Reportf( "UI_LoadProgs: extended Menu API found\n" );
+		Con_Reportf( "%s: extended Menu API found\n", __func__ );
 		if( GetExtAPI( MENU_EXTENDED_API_VERSION, &gameui.dllFuncs2, &gpExtendedfuncs ) )
 		{
-			Con_Reportf( "UI_LoadProgs: extended Menu API initialized\n" );
+			Con_Reportf( "%s: extended Menu API initialized\n", __func__ );
 			gameui.use_extended_api = true;
 		}
 	}
@@ -1336,11 +1336,11 @@ qboolean UI_LoadProgs( void )
 	{
 		if( ( GiveTextApi = (UITEXTAPI)COM_GetProcAddress( gameui.hInstance, "GiveTextAPI" ) ) )
 		{
-			Con_Reportf( "UI_LoadProgs: extended text API found\n" );
+			Con_Reportf( "%s: extended text API found\n", __func__ );
 			Con_Reportf( S_WARN "Text API is deprecated! If you are mod developer, consider moving to Extended Menu API!\n" );
 			if( GiveTextApi( &gpExtendedfuncs ) ) // they are binary compatible, so we can just pass extended funcs API to menu
 			{
-				Con_Reportf( "UI_LoadProgs: extended text API initialized\n" );
+				Con_Reportf( "%s: extended text API initialized\n", __func__ );
 				gameui.use_extended_api = true;
 			}
 		}
@@ -1348,7 +1348,7 @@ qboolean UI_LoadProgs( void )
 		gameui.dllFuncs2.pfnAddTouchButtonToList = (ADDTOUCHBUTTONTOLIST)COM_GetProcAddress( gameui.hInstance, "AddTouchButtonToList" );
 		if( gameui.dllFuncs2.pfnAddTouchButtonToList )
 		{
-			Con_Reportf( "UI_LoadProgs: AddTouchButtonToList call found\n" );
+			Con_Reportf( "%s: AddTouchButtonToList call found\n", __func__ );
 			Con_Reportf( S_WARN "AddTouchButtonToList is deprecated! If you are mod developer, consider moving to Extended Menu API!\n" );
 		}
 	}

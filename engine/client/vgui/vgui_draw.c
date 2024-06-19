@@ -305,7 +305,7 @@ qboolean VGui_LoadProgs( HINSTANCE hInstance )
 		{
 			if( FS_FileExists( vguiloader, false ))
 				Con_Reportf( S_ERROR "Failed to load vgui_support library: %s\n", COM_GetLibraryError() );
-			else Con_Reportf( "vgui_support: not found\n" );
+			else Con_Reportf( "%s: not found\n", __func__ );
 
 			return false;
 		}
@@ -319,12 +319,12 @@ qboolean VGui_LoadProgs( HINSTANCE hInstance )
 		F( &vgui.dllFuncs );
 
 		vgui.initialized = vgui.dllFuncs.initialized = true;
-		Con_Reportf( "vgui_support: initialized legacy API in %s module\n", client ? "client" : "support" );
+		Con_Reportf( "%s: initialized legacy API in %s module\n", __func__, client ? "client" : "support" );
 
 		return true;
 	}
 
-	Con_Reportf( S_ERROR "Failed to find VGUI support API entry point in %s module\n", client ? "client" : "support" );
+	Con_Reportf( S_ERROR "%s: Failed to find VGUI support API entry point in %s module\n", __func__, client ? "client" : "support" );
 	return false;
 }
 

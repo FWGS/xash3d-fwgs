@@ -31,7 +31,7 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( filesize != 768 )
 	{
-		Con_DPrintf( S_ERROR "Image_LoadPAL: (%s) have invalid size (%ld should be %d)\n", name, filesize, 768 );
+		Con_DPrintf( S_ERROR "%s: (%s) have invalid size (%li should be %d)\n", __func__, name, (long)filesize, 768 );
 		return false;
 	}
 

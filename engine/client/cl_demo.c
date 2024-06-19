@@ -1623,7 +1623,7 @@ void CL_StartDemos_f( void )
 	c = Cmd_Argc() - 1;
 	if( c > MAX_DEMOS )
 	{
-		Con_DPrintf( S_WARN "Host_StartDemos: max %i demos in demoloop\n", MAX_DEMOS );
+		Con_DPrintf( S_WARN "%s: max %i demos in demoloop\n", __func__, MAX_DEMOS );
 		c = MAX_DEMOS;
 	}
 

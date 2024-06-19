@@ -1204,7 +1204,7 @@ void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 		player = CL_IsPlayerIndex( newnum );
 
 		if( newnum >= clgame.maxEntities )
-			Host_Error( "CL_AllocEdict: no free edicts\n" );
+			Host_Error( "%s: no free edicts\n", __func__ );
 
 		ent = CL_EDICT_NUM( newnum );
 		memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
@@ -1381,7 +1381,7 @@ void CL_UpdateUserinfo( sizebuf_t *msg, qboolean legacy )
 	slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
 
 	if( slot >= MAX_CLIENTS )
-		Host_Error( "CL_ParseServerMessage: svc_updateuserinfo >= MAX_CLIENTS\n" );
+		Host_Error( "%s: svc_updateuserinfo >= MAX_CLIENTS\n", __func__ );
 
 	player = &cl.players[slot];
 
@@ -1494,7 +1494,7 @@ void CL_UpdateUserPings( sizebuf_t *msg )
 		slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
 
 		if( slot >= MAX_CLIENTS )
-			Host_Error( "CL_ParseServerMessage: svc_pings > MAX_CLIENTS\n" );
+			Host_Error( "%s: svc_pings > MAX_CLIENTS\n", __func__ );
 
 		player = &cl.players[slot];
 		player->ping = MSG_ReadUBitLong( msg, 12 );
@@ -1722,7 +1722,7 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg )
 		}
 
 		if( cl.num_consistency >= MAX_MODELS )
-			Host_Error( "CL_CheckConsistency: MAX_MODELS limit exceeded (%d)\n", MAX_MODELS );
+			Host_Error( "%s: MAX_MODELS limit exceeded (%d)\n", __func__, MAX_MODELS );
 
 		pc = &cl.consistency_list[cl.num_consistency];
 		cl.num_consistency++;
@@ -2140,7 +2140,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 	if( svc_num <= svc_lastmsg || svc_num > ( MAX_USER_MESSAGES + svc_lastmsg ))
 	{
 		// out or range
-		Host_Error( "CL_ParseUserMessage: illegible server message %d\n", svc_num );
+		Host_Error( "%s: illegible server message %d\n", __func__, svc_num );
 		return;
 	}
 
@@ -2152,7 +2152,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 	}
 
 	if( i == MAX_USER_MESSAGES ) // probably unregistered
-		Host_Error( "CL_ParseUserMessage: illegible server message %d\n", svc_num );
+		Host_Error( "%s: illegible server message %d\n", __func__, svc_num );
 
 	// NOTE: some user messages handled into engine
 	if( !Q_strcmp( clgame.msg[i].name, "ScreenShake" ))
@@ -2178,7 +2178,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 
 	if( iSize >= MAX_USERMSG_LENGTH )
 	{
-		Msg("WTF??? %d %d\n", i, svc_num );
+		Con_Reportf( "%s: user message %s size limit hit (%d > %d)!\n", __func__, clgame.msg[i].name, iSize, MAX_USERMSG_LENGTH );
 		return;
 	}
 
@@ -2207,7 +2207,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 	}
 	else
 	{
-		Con_DPrintf( S_ERROR "UserMsg: No pfn %s %d\n", clgame.msg[i].name, clgame.msg[i].number );
+		Con_DPrintf( S_ERROR "%s: No pfn %s %d\n", __func__, clgame.msg[i].name, clgame.msg[i].number );
 		clgame.msg[i].func = CL_UserMsgStub; // throw warning only once
 	}
 }

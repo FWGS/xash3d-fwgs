@@ -261,7 +261,7 @@ static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 
 	if( len > nsize )
 	{
-		Con_Printf( "VOX_GetDirectory: invalid directory in: %s\n", psz );
+		Con_Printf( "%s: invalid directory in: %s\n", __func__, psz );
 		return NULL;
 	}
 
@@ -467,7 +467,7 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 
 	if( !psz )
 	{
-		Con_Printf( "VOX_LoadSound: no sentence named %s\n", pszin );
+		Con_Printf( "%s: no sentence named %s\n", __func__, pszin );
 		return;
 	}
 
@@ -475,13 +475,13 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 
 	if( !psz )
 	{
-		Con_Printf( "VOX_LoadSound: failed getting directory for %s\n", pszin );
+		Con_Printf( "%s: failed getting directory for %s\n", __func__, pszin );
 		return;
 	}
 
 	if( Q_strlen( psz ) >= sizeof( buffer ) )
 	{
-		Con_Printf( "VOX_LoadSound: sentence is too long %s", psz );
+		Con_Printf( "%s: sentence is too long %s", __func__, psz );
 		return;
 	}
 

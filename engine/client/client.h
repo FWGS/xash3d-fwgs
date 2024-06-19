@@ -852,14 +852,14 @@ _inline cl_entity_t *CL_EDICT_NUM( int n )
 {
 	if( !clgame.entities )
 	{
-		Host_Error( "CL_EDICT_NUM: clgame.entities is NULL\n");
+		Host_Error( "%s: clgame.entities is NULL\n", __func__ );
 		return NULL;
 	}
 
 	if(( n >= 0 ) && ( n < clgame.maxEntities ))
 		return clgame.entities + n;
 
-	Host_Error( "CL_EDICT_NUM: bad number %i\n", n );
+	Host_Error( "%s: bad number %i\n", __func__, n );
 	return NULL;
 }
 

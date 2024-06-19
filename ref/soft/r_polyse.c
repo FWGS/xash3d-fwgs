@@ -363,7 +363,7 @@ static void FloorDivMod (float numer, float denom, int *quotient,
 	{
 		int i;
 		d_pdrawspans = R_PolysetStub;
-		gEngfuncs.Con_Printf( S_ERROR "FloorDivMod: q overflow!\n" );
+		gEngfuncs.Con_Printf( S_ERROR "%s: q overflow!\n", __func__ );
 		q = 1;
 	}
 
@@ -371,7 +371,7 @@ static void FloorDivMod (float numer, float denom, int *quotient,
 	{
 		int i;
 		d_pdrawspans = R_PolysetStub;
-		gEngfuncs.Con_Printf( S_ERROR "FloorDivMod: r overflow!\n");
+		gEngfuncs.Con_Printf( S_ERROR "%s: r overflow!\n", __func__ );
 		r = 1;
 	}
 

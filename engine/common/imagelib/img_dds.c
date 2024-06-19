@@ -261,7 +261,7 @@ static uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 
 	if( filesize != buffsize ) // main check
 	{
-		Con_DPrintf( S_WARN "Image_LoadDDS: (%s) probably corrupted (%zu should be %lu)\n", name, buffsize, filesize );
+		Con_DPrintf( S_WARN "%s: (%s) probably corrupted (%zu should be %zu)\n", __func__, name, buffsize, filesize );
 		if( buffsize > filesize )
 			return false;
 	}
@@ -300,13 +300,13 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( header.dwSize != sizeof( header ) - sizeof( uint )) // size of the structure (minus MagicNum)
 	{
-		Con_DPrintf( S_ERROR "Image_LoadDDS: (%s) have corrupted header\n", name );
+		Con_DPrintf( S_ERROR "%s: (%s) have corrupted header\n", __func__, name );
 		return false;
 	}
 
 	if( header.dsPixelFormat.dwSize != sizeof( dds_pixf_t )) // size of the structure
 	{
-		Con_DPrintf( S_ERROR "Image_LoadDDS: (%s) have corrupt pixelformat header\n", name );
+		Con_DPrintf( S_ERROR "%s: (%s) have corrupt pixelformat header\n", __func__, name );
 		return false;
 	}
 
@@ -334,7 +334,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( image.type == PF_UNKNOWN )
 	{
-		Con_DPrintf( S_ERROR "Image_LoadDDS: (%s) has unrecognized type\n", name );
+		Con_DPrintf( S_ERROR "%s: (%s) has unrecognized type\n", __func__, name );
 		return false;
 	}
 

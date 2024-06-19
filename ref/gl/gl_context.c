@@ -154,7 +154,7 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 			case mod_brush:
 				// Mod_LoadBrushModel( mod, buf, loaded );
 				break;
-			default: gEngfuncs.Host_Error( "Mod_LoadModel: unsupported type %d\n", mod->type );
+			default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
 		}
 	}
 

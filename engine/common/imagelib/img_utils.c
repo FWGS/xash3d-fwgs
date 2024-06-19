@@ -1179,7 +1179,7 @@ byte *Image_FlipInternal( const byte *in, word *srcwidth, word *srcheight, int t
 	return image.tempbuffer;
 }
 
-static byte *Image_CreateLumaInternal( byte *fin, int width, int height, int type, int flags )
+static byte *Image_MakeLuma( byte *fin, int width, int height, int type, int flags )
 {
 	byte	*out;
 	int	i;
@@ -1197,7 +1197,7 @@ static byte *Image_CreateLumaInternal( byte *fin, int width, int height, int typ
 		break;
 	default:
 		// another formats does ugly result :(
-		Con_Printf( S_ERROR "Image_MakeLuma: unsupported format %s\n", PFDesc[type].name );
+		Con_Printf( S_ERROR "%s: unsupported format %s\n", __func__, PFDesc[type].name );
 		return (byte *)fin;
 	}
 
@@ -1396,7 +1396,7 @@ qboolean Image_Process(rgbdata_t **pix, int width, int height, uint flags, float
 
 	if( FBitSet( flags, IMAGE_MAKE_LUMA ))
 	{
-		out = Image_CreateLumaInternal( pic->buffer, pic->width, pic->height, pic->type, pic->flags );
+		out = Image_MakeLuma( pic->buffer, pic->width, pic->height, pic->type, pic->flags );
 		if( pic->buffer != out ) memcpy( pic->buffer, image.tempbuffer, pic->size );
 		ClearBits( pic->flags, IMAGE_HAS_LUMA );
 	}

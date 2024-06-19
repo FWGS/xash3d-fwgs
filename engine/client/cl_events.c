@@ -219,7 +219,7 @@ static qboolean CL_FireEvent( event_info_t *ei, int slot )
 		if( !ev )
 		{
 			idx = bound( 1, ei->index, ( MAX_EVENTS - 1 ));
-			Con_Reportf( S_ERROR "CL_FireEvent: %s not precached\n", cl.event_precache[idx] );
+			Con_Reportf( S_ERROR "%s: %s not precached\n", __func__, cl.event_precache[idx] );
 			break;
 		}
 
@@ -244,7 +244,7 @@ static qboolean CL_FireEvent( event_info_t *ei, int slot )
 				return true;
 			}
 
-			Con_Reportf( S_ERROR "CL_FireEvent: %s not hooked\n", name );
+			Con_Reportf( S_ERROR "%s: %s not hooked\n", __func__, name );
 			break;
 		}
 	}
@@ -497,14 +497,14 @@ void GAME_EXPORT CL_PlaybackEvent( int flags, const edict_t *pInvoker, word even
 	// first check event for out of bounds
 	if( eventindex < 1 || eventindex >= MAX_EVENTS )
 	{
-		Con_DPrintf( S_ERROR "CL_PlaybackEvent: invalid eventindex %i\n", eventindex );
+		Con_DPrintf( S_ERROR "%s: invalid eventindex %i\n", __func__, eventindex );
 		return;
 	}
 
 	// check event for precached
 	if( !CL_EventIndex( cl.event_precache[eventindex] ))
 	{
-		Con_DPrintf( S_ERROR "CL_PlaybackEvent: event %i was not precached\n", eventindex );
+		Con_DPrintf( S_ERROR "%s: event %i was not precached\n", __func__, eventindex );
 		return;
 	}
 

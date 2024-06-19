@@ -77,7 +77,7 @@ static void HPAK_AddToQueue( const char *name, resource_t *pResource, void *data
 
 	if( data != NULL ) memcpy( p->data, data, p->size );
 	else if( f != NULL ) FS_Read( f, p->data, p->size );
-	else Host_Error( "HPAK_AddToQueue: data == NULL.\n" );
+	else Host_Error( "%s: data == NULL.\n", __func__ );
 
 	p->next = gp_hpak_queue;
 	gp_hpak_queue = p;
@@ -120,7 +120,7 @@ static void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *p
 	fout = FS_Open( pakname, "wb", true );
 	if( !fout )
 	{
-		Con_DPrintf( S_ERROR "HPAK_CreatePak: can't write %s.\n", pakname );
+		Con_DPrintf( S_ERROR "%s: can't write %s.\n", __func__, pakname );
 		return;
 	}
 
@@ -149,7 +149,7 @@ static void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *p
 
 	if( memcmp( md5, pResource->rgucMD5_hash, 16 ))
 	{
-		Con_DPrintf( S_ERROR "HPAK_CreatePak: bad checksum for %s. Ignored\n", pakname );
+		Con_DPrintf( S_ERROR "%s: bad checksum for %s. Ignored\n", __func__, pakname );
 		return;
 	}
 
@@ -250,7 +250,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( memcmp( md5, pResource->rgucMD5_hash, 16 ))
 	{
-		Con_DPrintf( S_ERROR "HPAK_AddLump: bad checksum for %s. Ignored\n", pResource->szFileName );
+		Con_DPrintf( S_ERROR "%s: bad checksum for %s. Ignored\n", __func__, pResource->szFileName );
 		return;
 	}
 
@@ -279,7 +279,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( !file_dst )
 	{
-		Con_DPrintf( S_ERROR "HPAK_AddLump: couldn't open %s.\n", srcname );
+		Con_DPrintf( S_ERROR "%s: couldn't open %s.\n", __func__, srcname );
 		FS_Close( file_src );
 		return;
 	}
@@ -290,7 +290,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	if( hash_pack_header.version != IDHPAK_VERSION )
 	{
 		// we don't check the HPAK bit for some reason.
-		Con_DPrintf( S_ERROR "HPAK_AddLump: %s does not have a valid header.\n", srcname );
+		Con_DPrintf( S_ERROR "%s: %s does not have a valid header.\n", __func__, srcname );
 		FS_Close( file_src );
 		FS_Close( file_dst );
 		return;
@@ -305,7 +305,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( srcpak.count < 1 || srcpak.count > HPAK_MAX_ENTRIES )
 	{
-		Con_DPrintf( S_ERROR "HPAK_AddLump: %s contain too many lumps.\n", srcname );
+		Con_DPrintf( S_ERROR "%s: %s contain too many lumps.\n", __func__, srcname );
 		FS_Close( file_src );
 		FS_Close( file_dst );
 		return;
@@ -414,7 +414,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 	FS_Read( f, &hdr, sizeof( hdr ));
 	if( hdr.ident != IDHPAKHEADER || hdr.version != IDHPAK_VERSION )
 	{
-		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s does not have a valid HPAK header.\n", pakname );
+		Con_DPrintf( S_ERROR "%s: %s does not have a valid HPAK header.\n", __func__, pakname );
 		FS_Close( f );
 		if( delete ) FS_Delete( pakname );
 		return false;
@@ -425,7 +425,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 
 	if( num_lumps < 1 || num_lumps > HPAK_MAX_ENTRIES )
 	{
-		Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s has too many lumps %u.\n", pakname, num_lumps );
+		Con_DPrintf( S_ERROR "%s: %s has too many lumps %u.\n", __func__, pakname, num_lumps );
 		FS_Close( f );
 		if( delete ) FS_Delete( pakname );
 		return false;
@@ -443,7 +443,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 		if( dataDir[i].disksize < HPAK_ENTRY_MIN_SIZE || dataDir[i].disksize > HPAK_ENTRY_MAX_SIZE )
 		{
 			// odd max size
-			Con_DPrintf( S_ERROR "HPAK_ValidatePak: lump %i has invalid size %s\n", i, Q_pretifymem( dataDir[i].disksize, 2 ));
+			Con_DPrintf( S_ERROR "%s: lump %i has invalid size %s\n", __func__, i, Q_pretifymem( dataDir[i].disksize, 2 ));
 			Mem_Free( dataDir );
 			FS_Close( f );
 			if( delete ) FS_Delete( pakname );
@@ -471,7 +471,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 		{
 			if( quiet )
 			{
-				Con_DPrintf( S_ERROR "HPAK_ValidatePak: %s has invalid checksum.\n", pakname );
+				Con_DPrintf( S_ERROR "%s: %s has invalid checksum.\n", __func__, pakname );
 				Mem_Free( dataPak );
 				Mem_Free( dataDir );
 				FS_Close( f );
@@ -712,7 +712,7 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 
 	if( directory.count < 1 || directory.count > HPAK_MAX_ENTRIES )
 	{
-		Con_DPrintf( S_ERROR "HPAK_GetDataPointer: %s has too many lumps %u.\n", filename, directory.count );
+		Con_DPrintf( S_ERROR "%s: %s has too many lumps %u.\n", __func__, filename, directory.count );
 		FS_Close( f );
 		return false;
 	}

@@ -551,10 +551,6 @@ static void Host_InitDecals( void )
 	int	i, num_decals = 0;
 	search_t	*t;
 
-	// NOTE: only once resource without which engine can't continue work
-	if( !FS_FileExists( "gfx/conchars", false ))
-		Sys_Error( "W_LoadWadFile: couldn't load gfx.wad\n" );
-
 	memset( host.draw_decals, 0, sizeof( host.draw_decals ));
 
 	// lookup all the decals in decals.wad (basedir, gamedir, falldir)
@@ -567,7 +563,7 @@ static void Host_InitDecals( void )
 	}
 
 	if( t ) Mem_Free( t );
-	Con_Reportf( "InitDecals: %i decals\n", num_decals );
+	Con_Reportf( "%s: %i decals\n", __func__, num_decals );
 }
 
 /*
@@ -786,11 +782,11 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 
 	if( host.framecount < 3 )
 	{
-		Sys_Error( "Host_InitError: %s", hosterror1 );
+		Sys_Error( "%sInit: %s", __func__, hosterror1 );
 	}
 	else if( host.framecount == host.errorframe )
 	{
-		Sys_Error( "Host_MultiError: %s", hosterror2 );
+		Sys_Error( "%sMulti: %s", __func__, hosterror2 );
 	}
 	else
 	{
@@ -798,7 +794,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 		{
 			UI_SetActiveMenu( false );
 			Key_SetKeyDest( key_console );
-			Con_Printf( "Host_Error: %s", hosterror1 );
+			Con_Printf( "%s: %s", __func__, hosterror1 );
 		}
 		else Platform_MessageBox( "Host Error", hosterror1, true );
 	}
@@ -808,7 +804,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 
 	if( recursive )
 	{
-		Con_Printf( "Host_RecursiveError: %s", hosterror2 );
+		Con_Printf( "%sRecursive: %s", __func__, hosterror2 );
 		Sys_Error( "%s", hosterror1 );
 	}
 
@@ -1102,6 +1098,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Cvar_PostFSInit();
 
 	Image_CheckPaletteQ1 ();
+
+	// NOTE: only once resource without which engine can't continue work
+	if( !FS_FileExists( "gfx/conchars", false ))
+		Sys_Error( "%s: couldn't load gfx.wad\n", __func__ );
+
 	Host_InitDecals ();	// reload decals
 
 	HPAK_Init();

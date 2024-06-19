@@ -341,7 +341,7 @@ qboolean V_PreRender( void )
 	{
 		if(( host.realtime - cls.disable_screen ) > cl_timeout.value )
 		{
-			Con_Reportf( "V_PreRender: loading plaque timed out\n" );
+			Con_Reportf( "%s: loading plaque timed out\n", __func__ );
 			cls.disable_screen = 0.0f;
 		}
 		return false;
@@ -506,7 +506,6 @@ V_PostRender
 */
 void V_PostRender( void )
 {
-	static double	oldtime;
 	qboolean		draw_2d = false;
 
 	ref.dllFuncs.R_AllowFog( false );

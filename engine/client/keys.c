@@ -840,7 +840,7 @@ void GAME_EXPORT Key_SetKeyDest( int key_dest )
 		cls.key_dest = key_message;
 		break;
 	default:
-		Host_Error( "Key_SetKeyDest: wrong destination (%i)\n", key_dest );
+		Host_Error( "%s: wrong destination (%i)\n", __func__, key_dest );
 		break;
 	}
 }

@@ -270,7 +270,7 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 
 	if( status == GL_FALSE )
 	{
-		gEngfuncs.Con_Reportf( S_ERROR "GL2_GenerateShader( 0x%04x, 0x%x ): compile failed: %s\n", prog->flags, type, GL_PrintInfoLog( id, false ));
+		gEngfuncs.Con_Reportf( S_ERROR "%s( 0x%04x, 0x%x ): compile failed: %s\n", __func__, prog->flags, type, GL_PrintInfoLog( id, false ));
 
 		gEngfuncs.Con_DPrintf( "Shader text:\n%s\n\n", shader );
 		pglDeleteObjectARB( id );
@@ -301,13 +301,13 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 
 	if( i == MAX_PROGS )
 	{
-		gEngfuncs.Host_Error( "GL2_GetProg: Ran out of program slots for 0x%04x\n", flags );
+		gEngfuncs.Host_Error( "%s: Ran out of program slots for 0x%04x\n", __func__, flags );
 		return NULL;
 	}
 
 	// new prog; generate shaders
 
-	gEngfuncs.Con_DPrintf( S_NOTE "GL2_GetProg: Generating progs for 0x%04x\n", flags );
+	gEngfuncs.Con_DPrintf( S_NOTE "%s: Generating progs for 0x%04x\n", __func__, flags );
 	prog = &gl2wrap.progs[i];
 	prog->flags = flags;
 
@@ -354,7 +354,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 		pglGetObjectParameterivARB( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
 	if( status == GL_FALSE )
 	{
-		gEngfuncs.Con_Reportf( S_ERROR "GL2_GetProg: Failed linking progs for 0x%04x!\n%s\n", prog->flags, GL_PrintInfoLog( glprog, true ));
+		gEngfuncs.Con_Reportf( S_ERROR "%s: Failed linking progs for 0x%04x!\n%s\n", __func__, prog->flags, GL_PrintInfoLog( glprog, true ));
 		prog->flags = 0;
 		if( pglDeleteProgram )
 			pglDeleteProgram( glprog );
@@ -406,7 +406,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 		pglUseProgramObjectARB( gl2wrap.cur_prog->glprog );
 	prog->glprog = glprog;
 
-	gEngfuncs.Con_DPrintf( S_NOTE "GL2_GetProg: Generated progs for 0x%04x\n", flags );
+	gEngfuncs.Con_DPrintf( S_NOTE "%s: Generated progs for 0x%04x\n", __func__, flags );
 
 	return prog;
 }
@@ -648,7 +648,7 @@ int GL2_ShimInit( void )
 		pglBindVertexArray( 0 );
 	rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
 
-	gEngfuncs.Con_DPrintf( S_NOTE "GL2_ShimInit: %u bytes allocated for vertex buffer\n", total );
+	gEngfuncs.Con_DPrintf( S_NOTE "%s: %u bytes allocated for vertex buffer\n", __func__, total );
 
 	if( !GL2_InitProgs( ))
 	{
@@ -660,7 +660,7 @@ int GL2_ShimInit( void )
 			{
 				gl2wrap_config.version = 100;
 				if( !GL2_InitProgs( ))
-					gEngfuncs.Host_Error( "GL2_ShimInit: Failed to compile shaders!\n" );
+					gEngfuncs.Host_Error( "%s: Failed to compile shaders!\n", __func__ );
 			}
 		}
 	}
@@ -863,7 +863,7 @@ static void GL2_FlushPrims( void )
 	prog = GL2_SetProg( flags );
 	if( !prog )
 	{
-		gEngfuncs.Host_Error( "GL2_End: Could not find program for flags 0x%04x!\n", flags );
+		gEngfuncs.Host_Error( "%s: Could not find program for flags 0x%04x!\n", __func__, flags );
 		goto leave_label;
 	}
 

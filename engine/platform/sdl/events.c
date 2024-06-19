@@ -279,11 +279,11 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_UNKNOWN:
 		{
-			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown scancode\n" );
+			if( down ) Con_Reportf( "%s: Unknown scancode\n", __func__ );
 			return;
 		}
 		default:
-			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( keynum ), keynum );
+			if( down ) Con_Reportf( "%s: Unknown key: %s = %i\n", __func__, SDL_GetScancodeName( keynum ), keynum );
 			return;
 		}
 	}

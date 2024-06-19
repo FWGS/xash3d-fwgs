@@ -620,11 +620,11 @@ static void CL_ParseQuakeDamage( sizebuf_t *msg )
 
 /*
 ===================
-CL_ParseQuakeStaticEntity
+CL_ParseStaticEntity
 
 ===================
 */
-static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
+static void CL_ParseStaticEntity( sizebuf_t *msg )
 {
 	entity_state_t	state;
 	cl_entity_t	*ent;
@@ -646,7 +646,7 @@ static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 	i = clgame.numStatics;
 	if( i >= MAX_STATIC_ENTITIES )
 	{
-		Con_Printf( S_ERROR "CL_ParseStaticEntity: static entities limit exceeded!\n" );
+		Con_Printf( S_ERROR "%s: static entities limit exceeded!\n", __func__ );
 		return;
 	}
 
@@ -697,7 +697,7 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	newnum = MSG_ReadWord( msg ); // entnum
 
 	if( newnum >= clgame.maxEntities )
-		Host_Error( "CL_AllocEdict: no free edicts\n" );
+		Host_Error( "%s: no free edicts\n", __func__ );
 
 	// parse baseline
 	memset( &state, 0, sizeof( state ));
@@ -778,7 +778,7 @@ static void CL_ParseQuakeSignon( sizebuf_t *msg )
 	int	i = MSG_ReadByte( msg );
 
 	if( i == 3 ) cls.signon = SIGNONS - 1;
-	Con_Reportf( "CL_Signon: %d\n", i );
+	Con_Reportf( "%s: %d\n", __func__, i );
 }
 
 /*
@@ -1005,7 +1005,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			CL_ParseQuakeDamage( msg );
 			break;
 		case svc_spawnstatic:
-			CL_ParseQuakeStaticEntity( msg );
+			CL_ParseStaticEntity( msg );
 			break;
 		case svc_spawnbinary:
 			// never used in Quake
@@ -1091,7 +1091,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			}
 			break;
 		default:
-			Host_Error( "CL_ParseServerMessage: Illegible server message\n" );
+			Host_Error( "%s: Illegible server message\n", __func__ );
 			break;
 		}
 	}

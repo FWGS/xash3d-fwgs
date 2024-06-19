@@ -727,7 +727,7 @@ static void SV_ServerInfo_f( void )
 	{
 		Con_Printf( "Server info settings:\n" );
 		Info_Print( svs.serverinfo );
-		Con_Printf( "Total %lu symbols\n", Q_strlen( svs.serverinfo ));
+		Con_Printf( "Total %zu symbols\n", Q_strlen( svs.serverinfo ));
 		return;
 	}
 
@@ -769,7 +769,7 @@ static void SV_LocalInfo_f( void )
 	{
 		Con_Printf( "Local info settings:\n" );
 		Info_Print( svs.localinfo );
-		Con_Printf( "Total %lu symbols\n", Q_strlen( svs.localinfo ));
+		Con_Printf( "Total %zu symbols\n", Q_strlen( svs.localinfo ));
 		return;
 	}
 

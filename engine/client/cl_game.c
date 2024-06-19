@@ -231,7 +231,7 @@ static void CL_InitCDAudio( const char *filename )
 
 		if( ++c > MAX_CDTRACKS - 1 )
 		{
-			Con_Reportf( S_WARN "CD_Init: too many tracks %i in %s\n", MAX_CDTRACKS, filename );
+			Con_Reportf( S_WARN "%s: too many tracks %i in %s\n", __func__, MAX_CDTRACKS, filename );
 			break;
 		}
 	}
@@ -777,14 +777,14 @@ static const char *CL_SoundFromIndex( int index )
 
 	if( !hSound )
 	{
-		Con_DPrintf( S_ERROR "CL_SoundFromIndex: invalid sound index %i\n", index );
+		Con_DPrintf( S_ERROR "%s: invalid sound index %i\n", __func__, index );
 		return NULL;
 	}
 
 	sfx = S_GetSfxByHandle( hSound );
 	if( !sfx )
 	{
-		Con_DPrintf( S_ERROR "CL_SoundFromIndex: bad sfx for index %i\n", index );
+		Con_DPrintf( S_ERROR "%s: bad sfx for index %i\n", __func__, index );
 		return NULL;
 	}
 
@@ -1041,10 +1041,10 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 	int	i;
 
 	if( !pszName || !*pszName )
-		Host_Error( "CL_LinkUserMessage: bad message name\n" );
+		Host_Error( "%s: bad message name\n", __func__ );
 
 	if( svc_num <= svc_lastmsg )
-		Host_Error( "CL_LinkUserMessage: tried to hook a system message \"%s\"\n", svc_strings[svc_num] );
+		Host_Error( "%s: tried to hook a system message \"%s\"\n", __func__, svc_strings[svc_num] );
 
 	// see if already hooked
 	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
@@ -1061,7 +1061,7 @@ void CL_LinkUserMessage( char *pszName, const int svc_num, int iSize )
 
 	if( i == MAX_USER_MESSAGES )
 	{
-		Host_Error( "CL_LinkUserMessage: MAX_USER_MESSAGES hit!\n" );
+		Host_Error( "%s: MAX_USER_MESSAGES hit!\n", __func__ );
 		return;
 	}
 
@@ -1242,7 +1242,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 
 	if( !COM_CheckString( filename ))
 	{
-		Con_Reportf( S_ERROR "CL_LoadSpriteModel: bad name!\n" );
+		Con_Reportf( S_ERROR "%s: bad name!\n", __func__ );
 		return NULL;
 	}
 
@@ -1503,12 +1503,12 @@ static void GAME_EXPORT pfnSPR_DrawAdditive( int frame, int x, int y, const wrec
 
 /*
 =========
-pfnSPR_GetList
+SPR_GetList
 
 for parsing half-life scripts - hud.txt etc
 =========
 */
-static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
+static client_sprite_t *SPR_GetList( char *psz, int *piCount )
 {
 	cached_spritelist_t	*pEntry = &clgame.sprlist[0];
 	int		slot, index, numSprites = 0;
@@ -1534,7 +1534,7 @@ static client_sprite_t *pfnSPR_GetList( char *psz, int *piCount )
 
 	if( slot == MAX_CLIENT_SPRITES )
 	{
-		Con_Printf( S_ERROR "SPR_GetList: overflow cache!\n" );
+		Con_Printf( S_ERROR "%s: overflow cache!\n", __func__ );
 		return NULL;
 	}
 
@@ -1743,7 +1743,7 @@ static int GAME_EXPORT pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
 
 	if( i == MAX_USER_MESSAGES )
 	{
-		Host_Error( "HookUserMsg: MAX_USER_MESSAGES hit!\n" );
+		Host_Error( "%s: MAX_USER_MESSAGES hit!\n", __func__ );
 		return 0;
 	}
 
@@ -2293,7 +2293,7 @@ static void GAME_EXPORT pfnHookEvent( const char *filename, pfnEventHook pfn )
 
 		if( !Q_stricmp( name, ev->name ) && ev->func != NULL )
 		{
-			Con_Reportf( S_WARN "CL_HookEvent: %s already hooked!\n", name );
+			Con_Reportf( S_WARN "%s: %s already hooked!\n", __func__, name );
 			return;
 		}
 	}
@@ -3420,7 +3420,7 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 
 	if( !response )
 	{
-		Con_DPrintf( S_ERROR "Net_SendRequest: no callbcak specified for request with context %i!\n", context );
+		Con_DPrintf( S_ERROR "%s: no callbcak specified for request with context %i!\n", __func__, context );
 		return;
 	}
 
@@ -3808,7 +3808,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnSPR_DrawAdditive,
 	SPR_EnableScissor,
 	SPR_DisableScissor,
-	pfnSPR_GetList,
+	SPR_GetList,
 	CL_FillRGBA,
 	CL_GetScreenInfo,
 	pfnSetCrosshair,
@@ -4030,14 +4030,14 @@ qboolean CL_LoadProgs( const char *name )
 	// trying to get single export
 	if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "GetClientAPI" )) != NULL )
 	{
-		Con_Reportf( "CL_LoadProgs: found single callback export\n" );
+		Con_Reportf( "%s: found single callback export\n", __func__ );
 
 		// trying to fill interface now
 		GetClientAPI( &clgame.dllFuncs );
 	}
 	else if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "F" )) != NULL )
 	{
-		Con_Reportf( "CL_LoadProgs: found single callback export (secured client dlls)\n" );
+		Con_Reportf( "%s: found single callback export (secured client dlls)\n", __func__ );
 
 		// trying to fill interface now
 		CL_GetSecuredClientAPI( GetClientAPI );
@@ -4065,7 +4065,7 @@ qboolean CL_LoadProgs( const char *name )
 		// functions are cleared before all the extensions are evaluated
 		if(( *func->func = (void *)COM_GetProcAddress( clgame.hInstance, func->name )) == NULL )
 		{
-			Con_Reportf( "CL_LoadProgs: failed to get address of %s proc\n", func->name );
+			Con_Reportf( "%s: failed to get address of %s proc\n", __func__, func->name );
 
 			if( critical_exports )
 			{
@@ -4092,13 +4092,13 @@ qboolean CL_LoadProgs( const char *name )
 		// functions are cleared before all the extensions are evaluated
 		// NOTE: new exports can be missed without stop the engine
 		if(( *func->func = (void *)COM_GetProcAddress( clgame.hInstance, func->name )) == NULL )
-			Con_Reportf( "CL_LoadProgs: failed to get address of %s proc\n", func->name );
+			Con_Reportf( "%s: failed to get address of %s proc\n", __func__, func->name );
 	}
 
 	if( !clgame.dllFuncs.pfnInitialize( &gEngfuncs, CLDLL_INTERFACE_VERSION ))
 	{
 		COM_FreeLibrary( clgame.hInstance );
-		Con_Reportf( "CL_LoadProgs: can't init client API\n" );
+		Con_Reportf( "%s: can't init client API\n", __func__ );
 		clgame.hInstance = NULL;
 		return false;
 	}
@@ -4115,10 +4115,10 @@ qboolean CL_LoadProgs( const char *name )
 	CL_InitTempEnts ();
 
 	if( !R_InitRenderAPI())	// Xash3D extension
-		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get render API\n" );
+		Con_Reportf( S_WARN "%s: couldn't get render API\n", __func__ );
 
 	if( !Mobile_Init() ) // Xash3D FWGS extension: mobile interface
-		Con_Reportf( S_WARN "CL_LoadProgs: couldn't get mobility API\n" );
+		Con_Reportf( S_WARN "%s: couldn't get mobility API\n", __func__ );
 
 	CL_InitEdicts( cl.maxclients );		// initailize local player and world
 	CL_InitClientMove();	// initialize pm_shared

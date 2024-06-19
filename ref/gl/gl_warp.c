@@ -145,7 +145,7 @@ static void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 	int		i, j;
 
 	if( nump > MAX_CLIP_VERTS )
-		gEngfuncs.Host_Error( "ClipSkyPolygon: MAX_CLIP_VERTS\n" );
+		gEngfuncs.Host_Error( "%s: MAX_CLIP_VERTS\n", __func__ );
 loc1:
 	if( stage == 6 )
 	{

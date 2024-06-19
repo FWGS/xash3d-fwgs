@@ -543,7 +543,7 @@ void SCR_UpdateScreen( void )
 		SCR_DrawCinematic();
 		break;
 	default:
-		Host_Error( "SCR_UpdateScreen: bad cls.state\n" );
+		Host_Error( "%s: bad cls.state\n", __func__ );
 		break;
 	}
 

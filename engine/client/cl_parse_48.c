@@ -174,7 +174,7 @@ static void CL_LegacyPrecacheSound( sizebuf_t *msg )
 	soundIndex = MSG_ReadUBitLong( msg, MAX_SOUND_BITS );
 
 	if( soundIndex < 0 || soundIndex >= MAX_SOUNDS )
-		Host_Error( "CL_PrecacheSound: bad soundindex %i\n", soundIndex );
+		Host_Error( "%s: bad soundindex %i\n", __func__, soundIndex );
 
 	Q_strncpy( cl.sound_precache[soundIndex], MSG_ReadString( msg ), sizeof( cl.sound_precache[0] ));
 
@@ -192,7 +192,7 @@ static void CL_LegacyPrecacheModel( sizebuf_t *msg )
 	modelIndex = MSG_ReadUBitLong( msg, MAX_LEGACY_MODEL_BITS );
 
 	if( modelIndex < 0 || modelIndex >= MAX_MODELS )
-		Host_Error( "CL_PrecacheModel: bad modelindex %i\n", modelIndex );
+		Host_Error( "%s: bad modelindex %i\n", __func__, modelIndex );
 
 	Q_strncpy( model, MSG_ReadString( msg ), sizeof( model ));
 	//Q_strncpy( cl.model_precache[modelIndex], BF_ReadString( msg ), sizeof( cl.model_precache[0] ));
@@ -221,7 +221,7 @@ static void CL_LegacyPrecacheEvent( sizebuf_t *msg )
 	eventIndex = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
 	if( eventIndex < 0 || eventIndex >= MAX_EVENTS )
-		Host_Error( "CL_PrecacheEvent: bad eventindex %i\n", eventIndex );
+		Host_Error( "%s: bad eventindex %i\n", __func__, eventIndex );
 
 	Q_strncpy( cl.event_precache[eventIndex], MSG_ReadString( msg ), sizeof( cl.event_precache[0] ));
 
@@ -256,7 +256,7 @@ static void CL_LegacyParseResourceList( sizebuf_t *msg )
 	reslist.rescount = MSG_ReadWord( msg ) - 1;
 
 	if( reslist.rescount > MAX_LEGACY_RESOURCES )
-		Host_Error("MAX_RESOURCES reached\n");
+		Host_Error( "MAX_RESOURCES reached\n" );
 
 	for( i = 0; i < reslist.rescount; i++ )
 	{

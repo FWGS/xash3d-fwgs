@@ -94,7 +94,7 @@ static qboolean Sound_ParseID3Frame( const did3v2_frame_t *frame, const byte *bu
 			value_len = frame_length - (1 + key_len + 1);
 			if( value_len <= 0 || value_len >= sizeof( value ))
 			{
-				Con_Printf( S_ERROR "Sound_ParseID3Frame: invalid TXXX description, possibly broken file.\n" );
+				Con_Printf( S_ERROR "%s: invalid TXXX description, possibly broken file.\n", __func__ );
 				return false;
 			}
 
@@ -106,9 +106,9 @@ static qboolean Sound_ParseID3Frame( const did3v2_frame_t *frame, const byte *bu
 		else
 		{
 			if( buffer[0] == 0x01 || buffer[0] == 0x02 ) // UTF-16 with BOM
-				Con_Printf( S_ERROR "Sound_ParseID3Frame: UTF-16 encoding is unsupported. Use UTF-8 or ISO-8859!\n" );
+				Con_Printf( S_ERROR "%s: UTF-16 encoding is unsupported. Use UTF-8 or ISO-8859!\n", __func__ );
 			else
-				Con_Printf( S_ERROR "Sound_ParseID3Frame: unknown TXXX tag encoding %d, possibly broken file.\n", buffer[0] );
+				Con_Printf( S_ERROR "%s: unknown TXXX tag encoding %d, possibly broken file.\n", __func__, buffer[0] );
 			return false;
 		}
 	}
@@ -132,7 +132,7 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 	{
 		// old id3v1 header found
 		if( CHECK_IDENT( header->ident, 'T', 'A', 'G' ))
-			Con_Printf( S_ERROR "Sound_ParseID3Tag: ID3v1 is not supported! Convert to ID3v2.4!\n" );
+			Con_Printf( S_ERROR "%s: ID3v1 is not supported! Convert to ID3v2.4!\n", __func__ );
 
 		return true; // missing tag header is not an error
 	}
@@ -140,14 +140,14 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 	// support only latest id3 v2.4
 	if( header->major_ver != 4 || header->minor_ver == 0xff )
 	{
-		Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid ID3v2 tag version 2.%d.%d. Convert to ID3v2.4!\n", header->major_ver, header->minor_ver );
+		Con_Printf( S_ERROR "%s: invalid ID3v2 tag version 2.%d.%d. Convert to ID3v2.4!\n", __func__, header->major_ver, header->minor_ver );
 		return false;
 	}
 
 	tag_length = Sound_ParseSynchInteger( header->length );
 	if( tag_length > filesize - sizeof( *header ))
 	{
-		Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid tag length %u, possibly broken file.\n", tag_length );
+		Con_Printf( S_ERROR "%s: invalid tag length %u, possibly broken file.\n", __func__, tag_length );
 		return false;
 	}
 
@@ -159,7 +159,7 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 
 		if( ext_length > tag_length )
 		{
-			Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid extended header length %u, possibly broken file.\n", ext_length );
+			Con_Printf( S_ERROR "%s: invalid extended header length %u, possibly broken file.\n", __func__, ext_length );
 			return false;
 		}
 
@@ -173,7 +173,7 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 
 		if( frame_length > tag_length )
 		{
-			Con_Printf( S_ERROR "Sound_ParseID3Tag: invalid frame length %u, possibly broken file.\n", frame_length );
+			Con_Printf( S_ERROR "%s: invalid frame length %u, possibly broken file.\n", __func__, frame_length );
 			return false;
 		}
 
@@ -228,7 +228,7 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesi
 	// trying to read header
 	if( !feed_mpeg_header( mpeg, buffer, FRAME_SIZE, filesize, &sc ))
 	{
-		Con_DPrintf( S_ERROR "Sound_LoadMPG: failed to load (%s): %s\n", name, get_error( mpeg ));
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, name, get_error( mpeg ));
 		close_decoder( mpeg );
 		return false;
 	}
@@ -242,13 +242,13 @@ qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesi
 
 	if( !Sound_ParseID3Tag( buffer, filesize ))
 	{
-		Con_DPrintf( S_WARN "Sound_LoadMPG: (%s) failed to extract LOOP_START tag\n", name );
+		Con_DPrintf( S_WARN "%s: (%s) failed to extract LOOP_START tag\n", __func__, name );
 	}
 
 	if( !sound.size )
 	{
 		// bad mpeg file ?
-		Con_DPrintf( S_ERROR "Sound_LoadMPG: (%s) is probably corrupted\n", name );
+		Con_DPrintf( S_ERROR "%s: (%s) is probably corrupted\n", __func__, name );
 		close_decoder( mpeg );
 		return false;
 	}
@@ -325,7 +325,7 @@ stream_t *Stream_OpenMPG( const char *filename )
 	// couldn't create decoder
 	if(( mpeg = create_decoder( &ret )) == NULL )
 	{
-		Con_DPrintf( S_ERROR "Stream_OpenMPG: couldn't create decoder: %s\n", get_error( mpeg ) );
+		Con_DPrintf( S_ERROR "%s: couldn't create decoder: %s\n", __func__, get_error( mpeg ) );
 		Mem_Free( stream );
 		FS_Close( file );
 		return NULL;
@@ -336,7 +336,7 @@ stream_t *Stream_OpenMPG( const char *filename )
 	// trying to open stream and read header
 	if( !open_mpeg_stream( mpeg, file, FS_ReadMpg, FS_SeekMpg, &sc ))
 	{
-		Con_DPrintf( S_ERROR "Stream_OpenMPG: failed to load (%s): %s\n", filename, get_error( mpeg ));
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, filename, get_error( mpeg ));
 		close_decoder( mpeg );
 		Mem_Free( stream );
 		FS_Close( file );

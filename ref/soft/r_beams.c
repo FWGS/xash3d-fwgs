@@ -872,7 +872,7 @@ static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
 
 	if( !ent )
 	{
-		gEngfuncs.Con_DPrintf( S_ERROR "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
+		gEngfuncs.Con_DPrintf( S_ERROR "%s: invalid entity %i\n", __func__, BEAMENT_ENTITY( beamEnt ));
 		VectorClear( pt );
 		return false;
 	}

@@ -340,7 +340,7 @@ static void GAME_EXPORT pfnParticle( const float *origin, int color, float life,
 
 	if( !origin )
 	{
-		Con_Reportf( S_ERROR  "SV_StartParticle: NULL origin. Ignored\n" );
+		Con_Reportf( S_ERROR "%s: NULL origin. Ignored\n", __func__ );
 		return;
 	}
 
