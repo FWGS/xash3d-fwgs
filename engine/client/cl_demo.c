@@ -1577,8 +1577,10 @@ void CL_PlayDemo_f( void )
 
 	FS_Seek( cls.demofile, demo.entry->offset, SEEK_SET );
 
-	cls.legacymode = CL_GetProtocolFromDemo( demo.header.net_protocol );
 	CL_DemoStartPlayback( DEMO_XASH3D );
+
+	// must be after DemoStartPlayback, as CL_Disconnect_f resets the protocol
+	cls.legacymode = CL_GetProtocolFromDemo( demo.header.net_protocol );
 
 	// g-cont. is this need?
 	Q_strncpy( cls.servername, demoname, sizeof( cls.servername ));
