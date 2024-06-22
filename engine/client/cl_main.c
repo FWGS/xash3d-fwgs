@@ -2736,7 +2736,7 @@ static void CL_SetInfo_f( void )
 	{
 		Con_Printf( "User info settings:\n" );
 		Info_Print( cls.userinfo );
-		Con_Printf( "Total %i symbols\n", Q_strlen( cls.userinfo ));
+		Con_Printf( "Total %zu symbols\n", Q_strlen( cls.userinfo ));
 		return;
 	}
 
@@ -2772,7 +2772,7 @@ static void CL_Physinfo_f( void )
 {
 	Con_Printf( "Phys info settings:\n" );
 	Info_Print( cls.physinfo );
-	Con_Printf( "Total %i symbols\n", Q_strlen( cls.physinfo ));
+	Con_Printf( "Total %zu symbols\n", Q_strlen( cls.physinfo ));
 }
 
 static qboolean CL_ShouldRescanFilesystem( void )
