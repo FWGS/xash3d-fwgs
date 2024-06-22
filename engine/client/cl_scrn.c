@@ -32,6 +32,7 @@ CVAR_DEFINE_AUTO( v_dark, "0", 0, "starts level from dark screen" );
 static CVAR_DEFINE_AUTO( net_speeds, "0", FCVAR_ARCHIVE, "show network packets" );
 static CVAR_DEFINE_AUTO( cl_showfps, "0", FCVAR_ARCHIVE, "show client fps" );
 static CVAR_DEFINE_AUTO( cl_showpos, "0", FCVAR_ARCHIVE, "show local player position and velocity" );
+static CVAR_DEFINE_AUTO( cl_showents, "0", FCVAR_ARCHIVE | FCVAR_CHEAT, "show entities information (largely undone)" );
 
 typedef struct
 {
@@ -122,7 +123,7 @@ void SCR_DrawPos( void )
 	if( cls.state != ca_active || !cl_showpos.value || cl.background )
 		return;
 
-	ent = CL_GetLocalPlayer();
+	ent = CL_EDICT_NUM( cl.playernum + 1 );
 	speed = VectorLength( cl.simvel );
 
 	Q_snprintf( msg, MAX_SYSPATH,
@@ -138,6 +139,68 @@ void SCR_DrawPos( void )
 	MakeRGBA( color, 255, 255, 255, 255 );
 
 	Con_DrawString( refState.width / 2, 4, msg, color );
+}
+
+/*
+==============
+SCR_DrawEnts
+==============
+*/
+void SCR_DrawEnts( void )
+{
+	rgba_t color = { 255, 255, 255, 255 };
+	int i;
+
+	if( cls.state != ca_active || !cl_showents.value || ( cl.maxclients > 1 && !cls.demoplayback ))
+		return;
+
+	// this probably better hook CL_AddVisibleEntities
+	// as entities might get added by client.dll
+	for( i = 0; i < clgame.maxEntities; i++ )
+	{
+		const cl_entity_t *ent = &clgame.entities[i];
+		string msg;
+		vec3_t screen, pos;
+
+		if( ent->curstate.messagenum != cl.parsecount )
+			continue;
+
+		VectorCopy( ent->origin, pos );
+
+		if( ent->model != NULL )
+		{
+			vec3_t v;
+
+			// simple model type filter
+			if( cl_showents.value > 1 )
+			{
+				if( ent->model->type != (modtype_t)( cl_showents.value - 2 ))
+					continue;
+			}
+
+			VectorAverage( ent->model->mins, ent->model->maxs, v );
+			VectorAdd( pos, v, pos );
+		}
+
+		if( !ref.dllFuncs.WorldToScreen( pos, screen ))
+		{
+			Q_snprintf( msg, sizeof( msg ),
+				"entity %d\n"
+				"model %s\n"
+				"movetype %d\n",
+				ent->index,
+				ent->model ? ent->model->name : "(null)",
+				ent->curstate.movetype );
+
+			screen[0] =  0.5f * screen[0] * refState.width;
+			screen[1] = -0.5f * screen[1] * refState.height;
+			screen[0] += 0.5f * refState.width;
+			screen[1] += 0.5f * refState.height;
+
+
+			Con_DrawString( screen[0], screen[1], msg, color );
+		}
+	}
 }
 
 /*
@@ -753,6 +816,9 @@ void SCR_Init( void )
 	Cvar_RegisterVariable( &net_speeds );
 	Cvar_RegisterVariable( &cl_showfps );
 	Cvar_RegisterVariable( &cl_showpos );
+#ifdef _DEBUG
+	Cvar_RegisterVariable( &cl_showents );
+#endif // NDEBUG
 
 	// register our commands
 	Cmd_AddCommand( "skyname", CL_SetSky_f, "set new skybox by basename" );
