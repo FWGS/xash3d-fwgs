@@ -1548,7 +1548,7 @@ static qboolean Mod_LoadColoredLighting( model_t *mod, dbspmodel_t *bmod )
 
 	if( litdatasize != ( bmod->lightdatasize * 3 ))
 	{
-		Con_Printf( S_ERROR "%s has mismatched size (%llu should be %zu)\n", path, litdatasize, bmod->lightdatasize * 3 );
+		Con_Printf( S_ERROR "%s has mismatched size (%li should be %zu)\n", path, (long)litdatasize, bmod->lightdatasize * 3 );
 		Mem_Free( in );
 		return false;
 	}
@@ -1603,7 +1603,7 @@ static void Mod_LoadDeluxemap( model_t *mod, dbspmodel_t *bmod )
 
 	if( deluxdatasize != bmod->lightdatasize )
 	{
-		Con_Reportf( S_ERROR "%s has mismatched size (%llu should be %zu)\n", path, deluxdatasize, bmod->lightdatasize );
+		Con_Reportf( S_ERROR "%s has mismatched size (%li should be %zu)\n", path, (long)deluxdatasize, bmod->lightdatasize );
 		Mem_Free( in );
 		return;
 	}
@@ -3084,7 +3084,7 @@ static void Mod_CalcPHS( model_t *mod )
 	t2 = Platform_DoubleTime();
 
 	if( vis_stats )
-		Con_Reportf( "Average leaves visible / audible / total: %i / %i / %i\n", vcount / count, hcount / count, count );
+		Con_Reportf( "Average leaves visible / audible / total: %zu / %zu / %zu\n", vcount / count, hcount / count, count );
 	Con_Reportf( "Uncompressed PHS size: %s\n", Q_memprint( rowbytes * count ));
 	Con_Reportf( "Compressed PHS size: %s\n", Q_memprint( total_compressed_size + sizeof( *world.phsofs ) * count ));
 	Con_Reportf( "PHS building time: %.2f ms\n", ( t2 - t1 ) * 1000.0f );
