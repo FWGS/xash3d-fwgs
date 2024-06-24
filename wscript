@@ -293,7 +293,6 @@ def configure(conf):
 			'-Werror=bool-operation',
 			'-Werror=cast-align=strict',
 			'-Werror=duplicated-cond',
-			'-Werror=format=2',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
 			'-Werror=nonnull',
@@ -314,11 +313,12 @@ def configure(conf):
 			'-Werror=write-strings',
 
 			# unstable diagnostics, may cause false positives
+			'-Walloc-zero',
+			'-Wformat=2',
 			'-Winit-self',
 			'-Wmisleading-indentation',
 			'-Wstringop-overflow',
 			'-Wunintialized',
-			'-Walloc-zero',
 
 			# disabled, flood
 			# '-Wdouble-promotion',
