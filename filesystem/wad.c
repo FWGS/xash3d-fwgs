@@ -293,29 +293,9 @@ static wfile_t *W_Open( const char *filename, int *error )
 	dlumpinfo_t	*srclumps;
 	size_t		lat_size;
 	dwadinfo_t	header;
+	const char *basename = COM_FileWithoutPath( filename );
 
-	// NOTE: FS_Open is load wad file from the first pak in the list (while fs_ext_path is false)
-	if( fs_ext_path )
-	{
-		int ind;
-		searchpath_t *search = FS_FindFile( filename, &ind, NULL, 0, false );
-
-		// allow direct absolute paths
-		// TODO: catch them in FS_FindFile_DIR!
-		if( !search || ind < 0 )
-		{
-			wad->handle = FS_SysOpen( filename, "rb" );
-		}
-		else
-		{
-			wad->handle = search->pfnOpenFile( search, filename, "rb", ind );
-		}
-	}
-	else
-	{
-		const char *basename = COM_FileWithoutPath( filename );
-		wad->handle = FS_Open( basename, "rb", false );
-	}
+	wad->handle = FS_Open( basename, "rb", false );
 
 	if( wad->handle == NULL )
 	{

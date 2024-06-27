@@ -60,7 +60,7 @@ struct file_s
 #endif
 };
 
-enum
+typedef enum searchpathtype_e
 {
 	SEARCHPATH_PLAIN = 0,
 	SEARCHPATH_PAK,
@@ -68,7 +68,7 @@ enum
 	SEARCHPATH_ZIP,
 	SEARCHPATH_PK3DIR, // it's actually a plain directory but it must behave like a ZIP archive,
 	SEARCHPATH_ANDROID_ASSETS
-};
+} searchpathtype_t;
 
 typedef struct stringlist_s
 {
@@ -81,7 +81,7 @@ typedef struct stringlist_s
 typedef struct searchpath_s
 {
 	string  filename;
-	int     type;
+	searchpathtype_t     type;
 	int     flags;
 
 	union
