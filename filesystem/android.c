@@ -227,6 +227,7 @@ static file_t *FS_OpenFile_AndroidAssets( searchpath_t *search, const char *file
 
 	file->position = 0;
 	file->ungetc = EOF;
+	file->searchpath = search;
 
 	AAsset_close( assets );
 

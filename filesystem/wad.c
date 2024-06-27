@@ -415,7 +415,9 @@ FS_PrintInfo_WAD
 */
 static void FS_PrintInfo_WAD( searchpath_t *search, char *dst, size_t size )
 {
-	Q_snprintf( dst, size, "%s (%i files)", search->filename, search->wad->numlumps );
+	if( search->wad->handle->searchpath )
+		Q_snprintf( dst, size, "%s (%i files)" S_CYAN " from %s" S_DEFAULT, search->filename, search->wad->numlumps, search->wad->handle->searchpath->filename );
+	else Q_snprintf( dst, size, "%s (%i files)", search->filename, search->wad->numlumps );
 }
 
 /*
