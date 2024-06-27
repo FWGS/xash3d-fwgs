@@ -1325,15 +1325,8 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 		start += len;
 	}
 
-	// replace all backward slashes
-	len = Q_strlen( dllname );
-	for( i = 0; i < len; i++ )
-	{
-		if( dllname[i+start] == '\\' ) dllInfo->shortPath[i] = '/';
-		else dllInfo->shortPath[i] = Q_tolower( dllname[i+start] );
-	}
-	dllInfo->shortPath[i] = '\0';
-
+	Q_strnlwr( &dllname[start], dllInfo->shortPath, sizeof( dllInfo->shortPath )); // always in lower case (why?)
+	COM_FixSlashes( dllInfo->shortPath ); // replace all backward slashes
 	COM_DefaultExtension( dllInfo->shortPath, "."OS_LIB_EXT, sizeof( dllInfo->shortPath ));	// apply ext if forget
 
 	search = FS_FindFile( dllInfo->shortPath, &index, fixedname, sizeof( fixedname ), false );
@@ -1354,41 +1347,43 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 		Q_strncpy( dllInfo->shortPath, fixedname, sizeof( dllInfo->shortPath ));
 	}
 
-	dllInfo->encrypted = FS_CheckForCrypt( dllInfo->shortPath );
+	dllInfo->encrypted = dllInfo->custom_loader = false; // predict state
 
-	if( index >= 0 && !dllInfo->encrypted && search )
+	if( search && index >= 0 ) // when library is available through VFS
 	{
-		// gamedll might resolve it's own path using dladdr()
-		// combine it with engine returned path to gamedir
-		// it might lead to double gamedir like this
-		// - valve/valve/dlls/hl.so
-		// instead of expected
-		// - valve/dlls/hl.so
-		Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s/%s%s", fs_rootdir, search->filename, dllInfo->shortPath );
-		dllInfo->custom_loader = false;	// we can loading from disk and use normal debugging
-	}
-	else
-	{
-		// NOTE: if search is NULL let the OS found library himself
-		Q_strncpy( dllInfo->fullPath, dllInfo->shortPath, sizeof( dllInfo->fullPath ));
+		dllInfo->encrypted = FS_CheckForCrypt( dllInfo->shortPath );
 
-		if( search && search->type != SEARCHPATH_PLAIN )
+		if( search->type == SEARCHPATH_PLAIN ) // is it on the disk? (intentionally omit pk3dir here)
 		{
-#if XASH_WIN32 && XASH_X86 // a1ba: custom loader is non-portable (I just don't want to touch it)
-			Con_Printf( S_WARN "%s: loading libraries from packs is deprecated "
-				"and will be removed in the future\n", __func__ );
-			dllInfo->custom_loader = true;
-#else
-			Con_Printf( S_WARN "%s: loading libraries from packs is unsupported on "
-				"this platform\n", __func__ );
-			dllInfo->custom_loader = false;
-#endif
+			// NOTE: gamedll might resolve it's own path using dladdr() and expects absolute path
+			// NOTE: the only allowed case when searchpath is set by absolute path is the RoDir
+			// rather than figuring out whether path is absolute, just check if it matches 
+			if( !Q_strnicmp( search->filename, fs_rodir, Q_strlen( fs_rodir )))
+			{
+				Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s%s", search->filename, dllInfo->shortPath );
+			}
+			else
+			{
+				Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s/%s%s", fs_rootdir, search->filename, dllInfo->shortPath );
+			}
 		}
 		else
 		{
-			dllInfo->custom_loader = false;
+			Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s%s", search->filename, dllInfo->shortPath );
+#if XASH_WIN32 && XASH_X86 // a1ba: custom loader is non-portable (I just don't want to touch it)
+			Con_Printf( S_WARN "%s: loading libraries from archives is deprecated and will be removed in the future\n", __func__ );
+			dllInfo->custom_loader = true;
+#else
+			Con_Printf( S_WARN "%s: loading libraries from archives is unsupported on this platform\n", __func__ );
+#endif
 		}
 	}
+	else
+	{
+		// NOTE: if search is NULL let OS to find the library
+		Q_strncpy( dllInfo->fullPath, dllInfo->shortPath, sizeof( dllInfo->fullPath ));
+	}
+
 	FS_AllowDirectPaths( false ); // always reset direct paths
 
 	return true;

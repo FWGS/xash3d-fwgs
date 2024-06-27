@@ -123,8 +123,8 @@ typedef struct fs_dllinfo_t
 {
 	char fullPath[2048]; // absolute disk path
 	string shortPath; // vfs path
-	qboolean encrypted;
-	qboolean custom_loader;
+	qboolean encrypted; // do we need encrypted DLL loader?
+	qboolean custom_loader; // do we need memory DLL loader?
 } fs_dllinfo_t;
 
 typedef struct fs_globals_t
