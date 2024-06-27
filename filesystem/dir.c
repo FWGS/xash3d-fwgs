@@ -457,10 +457,14 @@ static int FS_FileTime_DIR( searchpath_t *search, const char *filename )
 
 static file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
+	file_t *f;
 	char path[MAX_SYSPATH];
 
 	Q_snprintf( path, sizeof( path ), "%s%s", search->filename, filename );
-	return FS_SysOpen( path, mode );
+	f = FS_SysOpen( path, mode );
+	f->searchpath = search;
+
+	return f;
 }
 
 void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags )

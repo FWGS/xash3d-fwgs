@@ -1162,13 +1162,13 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	if( COM_CheckStringEmpty( fs_rodir ) )
 	{
 		// append new flags to rodir, except FS_GAMEDIR_PATH and FS_CUSTOM_PATH
-		uint newFlags = FS_NOWRITE_PATH | (flags & (~FS_GAMEDIR_PATH|FS_CUSTOM_PATH));
+		uint new_flags = FS_NOWRITE_PATH | (flags & (~FS_GAMEDIR_PATH|FS_CUSTOM_PATH));
 		if( isGameDir )
-			newFlags |= FS_GAMERODIR_PATH;
+			SetBits( new_flags, FS_GAMERODIR_PATH );
 
 		FS_AllowDirectPaths( true );
 		Q_snprintf( buf, sizeof( buf ), "%s/%s/", fs_rodir, dir );
-		FS_AddGameDirectory( buf, newFlags );
+		FS_AddGameDirectory( buf, new_flags );
 		FS_AllowDirectPaths( false );
 	}
 
@@ -1226,7 +1226,7 @@ void FS_LoadGameInfo( const char *rootfolder )
 	int	i;
 
 	// lock uplevel of gamedir for read\write
-	fs_ext_path = false;
+	FS_AllowDirectPaths( false );
 
 	if( rootfolder ) Q_strncpy( fs_gamedir, rootfolder, sizeof( fs_gamedir ));
 	Con_Reportf( "%s( %s )\n", __func__, fs_gamedir );
@@ -1312,7 +1312,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	if( !COM_CheckString( dllname ))
 		return false;
 
-	fs_ext_path = directpath;
+	FS_AllowDirectPaths( directpath );
 
 	// HACKHACK remove relative path to game folder
 	if( !Q_strnicmp( dllname, "..", 2 ))
@@ -1344,7 +1344,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	}
 	else if( !directpath )
 	{
-		fs_ext_path = false;
+		FS_AllowDirectPaths( false );
 
 		// trying check also 'bin' folder for indirect paths
 		search = FS_FindFile( dllname, &index, fixedname, sizeof( fixedname ), false );
@@ -1389,7 +1389,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 			dllInfo->custom_loader = false;
 		}
 	}
-	fs_ext_path = false; // always reset direct paths
+	FS_AllowDirectPaths( false ); // always reset direct paths
 
 	return true;
 }
@@ -1704,7 +1704,7 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 		return NULL;
 	}
 
-
+	file->searchpath = NULL;
 	file->real_length = lseek( file->handle, 0, SEEK_END );
 
 	// uncomment do disable write
@@ -1730,15 +1730,22 @@ static int FS_DuplicateHandle( const char *filename, int handle, fs_offset_t pos
 }
 */
 
-file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_offset_t len )
+file_t *FS_OpenHandle( searchpath_t *searchpath, int handle, fs_offset_t offset, fs_offset_t len )
 {
 	file_t *file = (file_t *)Mem_Calloc( fs_mempool, sizeof( file_t ));
 #ifndef XASH_REDUCE_FD
 #ifdef HAVE_DUP
 	file->handle = dup( handle );
 #else
-	file->handle = open( syspath, O_RDONLY|O_BINARY );
+	file->handle = open( searchpath->filename, O_RDONLY|O_BINARY );
 #endif
+
+	if( file->handle < 0 )
+	{
+		Con_Printf( S_ERROR "%s: couldn't create fd for %s:0x%lx: %s\n", __func__, searchpath->filename, (long)offset, strerror( errno ));
+		Mem_Free( file );
+		return NULL;
+	}
 
 	if( lseek( file->handle, offset, SEEK_SET ) == -1 )
 	{
@@ -1757,6 +1764,7 @@ file_t *FS_OpenHandle( const char *syspath, int handle, fs_offset_t offset, fs_o
 	file->offset = offset;
 	file->position = 0;
 	file->ungetc = EOF;
+	file->searchpath = searchpath;
 
 	return file;
 }
@@ -2333,6 +2341,8 @@ int FS_Gets( file_t *file, char *string, size_t bufsize )
 FS_Seek
 
 Move the position index in a file
+NOTE: when porting code, check return value!
+NOTE: it's not compatible with lseek!
 ====================
 */
 int FS_Seek( file_t *file, fs_offset_t offset, int whence )
@@ -2911,6 +2921,14 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	stringlistfreecontents( &resultlist );
 
 	return search;
+}
+
+static const char *FS_ArchivePath( file_t *f )
+{
+	if( f->searchpath )
+		return f->searchpath->filename;
+
+	return "plain";
 }
 
 void FS_InitMemory( void )
