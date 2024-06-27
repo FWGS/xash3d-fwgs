@@ -387,9 +387,6 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 
 	for( archive = g_archives; archive->ext; archive++ )
 	{
-		if( archive->type == SEARCHPATH_WAD ) // HACKHACK: wads need direct paths but only in this function
-			FS_AllowDirectPaths( true );
-
 		for( i = 0; i < list.numstrings; i++ )
 		{
 			const char *ext = COM_FileExtension( list.strings[i] );
@@ -400,8 +397,6 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 			Q_snprintf( fullpath, sizeof( fullpath ), "%s%s", dir, list.strings[i] );
 			FS_AddArchive_Fullpath( archive, fullpath, flags );
 		}
-
-		FS_AllowDirectPaths( false );
 	}
 
 	stringlistfreecontents( &list );
