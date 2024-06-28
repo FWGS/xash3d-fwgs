@@ -286,16 +286,23 @@ W_Open
 open the wad for reading & writing
 ===========
 */
-static wfile_t *W_Open( const char *filename, int *error )
+static wfile_t *W_Open( const char *filename, int *error, uint flags )
 {
 	wfile_t		*wad = (wfile_t *)Mem_Calloc( fs_mempool, sizeof( wfile_t ));
 	int		i, lumpcount;
 	dlumpinfo_t	*srclumps;
 	size_t		lat_size;
 	dwadinfo_t	header;
-	const char *basename = COM_FileWithoutPath( filename );
 
-	wad->handle = FS_Open( basename, "rb", false );
+	if( FBitSet( flags, FS_LOAD_PACKED_WAD ))
+	{
+		const char *basename = COM_FileWithoutPath( filename );
+		wad->handle = FS_Open( basename, "rb", false );
+	}
+	else
+	{
+		wad->handle = FS_SysOpen( filename, "rb" );
+	}
 
 	if( wad->handle == NULL )
 	{
@@ -629,7 +636,7 @@ searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags )
 	wfile_t *wad;
 	int errorcode = WAD_LOAD_COULDNT_OPEN;
 
-	wad = W_Open( wadfile, &errorcode );
+	wad = W_Open( wadfile, &errorcode, flags );
 
 	if( !wad )
 	{
