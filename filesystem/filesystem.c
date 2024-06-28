@@ -333,7 +333,7 @@ searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const char *f
 			char fullpath[MAX_SYSPATH];
 
 			Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", file, list.strings[i] );
-			if(( wad = FS_AddWad_Fullpath( fullpath, flags )))
+			if(( wad = FS_AddWad_Fullpath( fullpath, flags | FS_LOAD_PACKED_WAD )))
 			{
 				wad->next = fs_searchpaths;
 				fs_searchpaths = wad;

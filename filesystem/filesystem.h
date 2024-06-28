@@ -45,6 +45,7 @@ enum
 	FS_GAMERODIR_PATH = BIT( 4 ), // gamedir but read-only
 
 	FS_SKIP_ARCHIVED_WADS = BIT( 5 ), // don't mount wads inside archives automatically
+	FS_LOAD_PACKED_WAD = BIT( 6 ), // this wad is packed inside other archive
 
 	FS_GAMEDIRONLY_SEARCH_FLAGS = FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH
 };
