@@ -17,6 +17,8 @@ build_sdl2()
 		export CFLAGS="-msse2 -march=i686 -m32 -ggdb -O2"
 		export LDFLAGS="-m32"
 	fi
+
+	# TODO: enable pipewire after we migrate from 20.04
 	./configure \
 		--disable-render \
 		--disable-haptic \
@@ -29,6 +31,7 @@ build_sdl2()
 		--disable-ime \
 		--disable-fcitx \
 		--enable-alsa-shared \
+		--enable-jack-shared \
 		--enable-pulseaudio-shared \
 		--enable-wayland-shared \
 		--enable-x11-shared \
