@@ -16,6 +16,7 @@ build_sdl2()
 	if [ "$ARCH" = "i386" ]; then
 		export CFLAGS="-msse2 -march=i686 -m32 -ggdb -O2"
 		export LDFLAGS="-m32"
+		export PKG_CONFIG_PATH="/usr/lib/i386-linux-gnu/pkgconfig"
 	fi
 
 	# TODO: enable pipewire after we migrate from 20.04
