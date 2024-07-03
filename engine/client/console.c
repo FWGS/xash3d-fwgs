@@ -847,7 +847,6 @@ void Con_Print( const char *txt )
 	static char	buf[MAX_PRINT_MSG];
 	qboolean		norefresh = false;
 	static int	lastlength = 0;
-	static qboolean	inupdate;
 	static int	bufpos = 0;
 	int		c, mask = 0;
 
