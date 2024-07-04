@@ -1,7 +1,6 @@
-#include <stdlib.h>
 #include "crtlib.h"
 
-int Test_Strcpycatcmp( void )
+static int Test_Strcpycatcmp( void )
 {
 	char buf[] = "meowmeowmeow", buf2[] = "barkbark";
 	char dst[64];
@@ -30,10 +29,50 @@ int Test_Strcpycatcmp( void )
 	return 0;
 }
 
+static int Test_Strnlwr( void )
+{
+	string s;
+
+	Q_strnlwr( "ASDFGKJ", s, sizeof( s ));
+
+	if( Q_strcmp( s, "asdfgkj" ))
+		return 1;
+
+	Q_strnlwr( "qwertyuiop", s, sizeof( s ));
+
+	if( Q_strcmp( s, "qwertyuiop" ))
+		return 2;
+
+	return 0;
+}
+
+static int Test_Colorstr( void )
+{
+	if( Q_colorstr( "^1color^2string" ) != 4 )
+		return 1;
+
+	if( Q_colorstr( "colorlessstring" ) != 0 )
+		return 2;
+
+	return 0;
+}
+
 int main( void )
 {
-	if( Test_Strcpycatcmp( ))
-		return EXIT_FAILURE;
+	int ret = Test_Strcpycatcmp();
 
-	return EXIT_SUCCESS;
+	if( ret > 0 )
+		return ret;
+
+	ret = Test_Strnlwr();
+
+	if( ret > 0 )
+		return ret + 16;
+
+	ret = Test_Colorstr();
+
+	if( ret > 0 )
+		return ret + 32;
+
+	return 0;
 }
