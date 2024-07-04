@@ -410,9 +410,9 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 {
 	static char	output[8][32];
 	static int	current;
-	float		onekb = 1024.0f;
-	float		onemb = onekb * onekb;
-	char		suffix[8];
+	const float onekb = 1024.0f;
+	const float onemb = onekb * onekb;
+	const char *suffix;
 	char		*out = output[current];
 	char		val[32], *i, *o, *dot;
 	int		pos;
@@ -423,14 +423,17 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 	if( value > onemb )
 	{
 		value /= onemb;
-		Q_strncpy( suffix, " Mb", sizeof( suffix ));
+		suffix = " Mb";
 	}
 	else if( value > onekb )
 	{
 		value /= onekb;
-		Q_strncpy( suffix, " Kb", sizeof( suffix ));
+		suffix = " Kb";
 	}
-	else Q_strncpy( suffix, " bytes", sizeof( suffix ));
+	else
+	{
+		suffix = " bytes";
+	}
 
 	// clamp to >= 0
 	digitsafterdecimal = Q_max( digitsafterdecimal, 0 );
