@@ -153,12 +153,8 @@ we record a demo on this level
 */
 void CL_StartupDemoHeader( void )
 {
-	if( cls.demoheader )
-	{
-		FS_Close( cls.demoheader );
-	}
+	CL_CloseDemoHeader();
 
-	// Note: this is replacing tmpfile()
 	cls.demoheader = FS_Open( "demoheader.tmp", "w+b", true );
 
 	if( !cls.demoheader )
@@ -427,6 +423,7 @@ static void CL_WriteDemoHeader( const char *name )
 
 	// finish off the startup info.
 	CL_WriteDemoCmdHeader( dem_stop, cls.demoheader );
+	FS_Flush( cls.demoheader );
 
 	// now copy the stuff we cached from the server.
 	copysize = savepos = FS_Tell( cls.demoheader );
