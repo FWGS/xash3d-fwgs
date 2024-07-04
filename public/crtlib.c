@@ -60,18 +60,46 @@ size_t Q_colorstr( const char *string )
 	return len;
 }
 
+static int Q_atoi_hex( int sign, const char *str )
+{
+	int c, val = 0;
+
+	str += 2;
+	while( 1 )
+	{
+		c = *str++;
+		if( c >= '0' && c <= '9' ) val = (val<<4) + c - '0';
+		else if( c >= 'a' && c <= 'f' ) val = (val<<4) + c - 'a' + 10;
+		else if( c >= 'A' && c <= 'F' ) val = (val<<4) + c - 'A' + 10;
+		else return val * sign;
+	}
+}
+
+static int Q_atoi_character( int sign, const char *str )
+{
+	return sign * str[1];
+}
+
+static const char *Q_atoi_strip_whitespace( const char *str )
+{
+	while( str && *str == ' ' )
+		str++;
+
+	return str;
+}
+
 int Q_atoi( const char *str )
 {
 	int val = 0;
 	int c, sign;
 
-	if( !str ) return 0;
+	if( !COM_CheckString( str ))
+		return 0;
 
-	// check for empty charachters in string
-	while( str && *str == ' ' )
-		str++;
+	str = Q_atoi_strip_whitespace( str );
 
-	if( !str ) return 0;
+	if( !COM_CheckString( str ))
+		return 0;
 
 	if( *str == '-' )
 	{
@@ -82,21 +110,11 @@ int Q_atoi( const char *str )
 
 	// check for hex
 	if( str[0] == '0' && ( str[1] == 'x' || str[1] == 'X' ))
-	{
-		str += 2;
-		while( 1 )
-		{
-			c = *str++;
-			if( c >= '0' && c <= '9' ) val = (val<<4) + c - '0';
-			else if( c >= 'a' && c <= 'f' ) val = (val<<4) + c - 'a' + 10;
-			else if( c >= 'A' && c <= 'F' ) val = (val<<4) + c - 'A' + 10;
-			else return val * sign;
-		}
-	}
+		return Q_atoi_hex( sign, str );
 
 	// check for character
 	if( str[0] == '\'' )
-		return sign * str[1];
+		return Q_atoi_character( sign, str );
 
 	// assume decimal
 	while( 1 )
@@ -114,13 +132,13 @@ float Q_atof( const char *str )
 	double	val = 0;
 	int	c, sign, decimal, total;
 
-	if( !str ) return 0.0f;
+	if( !COM_CheckString( str ))
+		return 0;
 
-	// check for empty charachters in string
-	while( str && *str == ' ' )
-		str++;
+	str = Q_atoi_strip_whitespace( str );
 
-	if( !str ) return 0.0f;
+	if( !COM_CheckString( str ))
+		return 0;
 
 	if( *str == '-' )
 	{
@@ -131,20 +149,11 @@ float Q_atof( const char *str )
 
 	// check for hex
 	if( str[0] == '0' && ( str[1] == 'x' || str[1] == 'X' ))
-	{
-		str += 2;
-		while( 1 )
-		{
-			c = *str++;
-			if( c >= '0' && c <= '9' ) val = (val * 16) + c - '0';
-			else if( c >= 'a' && c <= 'f' ) val = (val * 16) + c - 'a' + 10;
-			else if( c >= 'A' && c <= 'F' ) val = (val * 16) + c - 'A' + 10;
-			else return val * sign;
-		}
-	}
+		return Q_atoi_hex( sign, str );
 
 	// check for character
-	if( str[0] == '\'' ) return sign * str[1];
+	if( str[0] == '\'' )
+		return Q_atoi_character( sign, str );
 
 	// assume decimal
 	decimal = -1;
@@ -182,7 +191,7 @@ void Q_atov( float *vec, const char *str, size_t siz )
 	const char *pstr, *pfront;
 	int	j;
 
-	memset( vec, 0, sizeof( vec_t ) * siz );
+	memset( vec, 0, sizeof( *vec ) * siz );
 	pstr = pfront = str;
 
 	for( j = 0; j < siz; j++ )
@@ -395,9 +404,9 @@ int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... )
 
 void COM_StripColors( const char *in, char *out )
 {
-	while ( *in )
+	while( *in )
 	{
-		if ( IsColorString( in ) )
+		if( IsColorString( in ))
 			in += 2;
 		else *out++ = *in++;
 	}
