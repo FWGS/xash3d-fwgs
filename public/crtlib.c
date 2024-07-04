@@ -25,36 +25,29 @@ GNU General Public License for more details.
 
 void Q_strnlwr( const char *in, char *out, size_t size_out )
 {
-	if( size_out == 0 ) return;
+	size_t len, i;
 
-	while( *in && size_out > 1 )
-	{
-		if( *in >= 'A' && *in <= 'Z' )
-			*out++ = *in++ + 'a' - 'A';
-		else *out++ = *in++;
-		size_out--;
-	}
-	*out = '\0';
+	len = Q_strncpy( out, in, size_out );
+
+	for( i = 0; i < len; i++ )
+		out[i] = Q_tolower( out[i] );
 }
 
 size_t Q_colorstr( const char *string )
 {
-	size_t		len;
-	const char	*p;
+	const char *p = string;
+	size_t len = 0;
 
-	if( !string ) return 0;
+	if( !string )
+		return len;
 
-	len = 0;
-	p = string;
-	while( *p )
+	while(( p = Q_strchr( p, '^' )))
 	{
 		if( IsColorString( p ))
 		{
 			len += 2;
 			p += 2;
-			continue;
 		}
-		p++;
 	}
 
 	return len;
