@@ -939,6 +939,27 @@ void Con_Print( const char *txt )
 
 /*
 ================
+Con_NXPrintfv
+
+Draw a single debug line with specified height, color and time to live
+================
+*/
+static void Con_NXPrintfv( keydest_t key_dest, const con_nprint_t *info, const char *fmt, va_list va )
+{
+	if( info->index < 0 || info->index >= ARRAYSIZE( con.notify ))
+		return;
+
+	Q_vsnprintf( con.notify[info->index].szNotify, sizeof( con.notify[info->index].szNotify ), fmt, va );
+
+	// setup values
+	con.notify[info->index].key_dest = key_dest;
+	con.notify[info->index].expire = host.realtime + info->time_to_live;
+	MakeRGBA( con.notify[info->index].color, (byte)(info->color[0] * 255), (byte)(info->color[1] * 255), (byte)(info->color[2] * 255), 255 );
+	con.draw_notify = true;
+}
+
+/*
+================
 Con_NPrint
 
 Draw a single debug line with specified height
@@ -947,21 +968,16 @@ Draw a single debug line with specified height
 void GAME_EXPORT Con_NPrintf( int idx, const char *fmt, ... )
 {
 	va_list	args;
-
-	if( idx < 0 || idx >= MAX_DBG_NOTIFY )
-		return;
-
-	memset( con.notify[idx].szNotify, 0, MAX_STRING );
+	con_nprint_t info =
+	{
+		.index = idx,
+		.time_to_live = 4.0f,
+		.color = { 1.0f, 1.0f, 1.0f },
+	};
 
 	va_start( args, fmt );
-	Q_vsnprintf( con.notify[idx].szNotify, MAX_STRING, fmt, args );
+	Con_NXPrintfv( key_game, &info, fmt, args );
 	va_end( args );
-
-	// reset values
-	con.notify[idx].key_dest = key_game;
-	con.notify[idx].expire = host.realtime + 4.0f;
-	MakeRGBA( con.notify[idx].color, 255, 255, 255, 255 );
-	con.draw_notify = true;
 }
 
 /*
@@ -977,20 +993,9 @@ void GAME_EXPORT Con_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 
 	if( !info ) return;
 
-	if( info->index < 0 || info->index >= MAX_DBG_NOTIFY )
-		return;
-
-	memset( con.notify[info->index].szNotify, 0, MAX_STRING );
-
 	va_start( args, fmt );
-	Q_vsnprintf( con.notify[info->index].szNotify, MAX_STRING, fmt, args );
+	Con_NXPrintfv( key_game, info, fmt, args );
 	va_end( args );
-
-	// setup values
-	con.notify[info->index].key_dest = key_game;
-	con.notify[info->index].expire = host.realtime + info->time_to_live;
-	MakeRGBA( con.notify[info->index].color, (byte)(info->color[0] * 255), (byte)(info->color[1] * 255), (byte)(info->color[2] * 255), 255 );
-	con.draw_notify = true;
 }
 
 /*
@@ -1003,21 +1008,16 @@ Draw a single debug line with specified height (menu version)
 void GAME_EXPORT UI_NPrintf( int idx, const char *fmt, ... )
 {
 	va_list	args;
-
-	if( idx < 0 || idx >= MAX_DBG_NOTIFY )
-		return;
-
-	memset( con.notify[idx].szNotify, 0, MAX_STRING );
+	con_nprint_t info =
+	{
+		.index = idx,
+		.time_to_live = 4.0f,
+		.color = { 1.0f, 1.0f, 1.0f },
+	};
 
 	va_start( args, fmt );
-	Q_vsnprintf( con.notify[idx].szNotify, MAX_STRING, fmt, args );
+	Con_NXPrintfv( key_menu, &info, fmt, args );
 	va_end( args );
-
-	// reset values
-	con.notify[idx].key_dest = key_menu;
-	con.notify[idx].expire = host.realtime + 4.0f;
-	MakeRGBA( con.notify[idx].color, 255, 255, 255, 255 );
-	con.draw_notify = true;
 }
 
 /*
@@ -1033,20 +1033,9 @@ void GAME_EXPORT UI_NXPrintf( con_nprint_t *info, const char *fmt, ... )
 
 	if( !info ) return;
 
-	if( info->index < 0 || info->index >= MAX_DBG_NOTIFY )
-		return;
-
-	memset( con.notify[info->index].szNotify, 0, MAX_STRING );
-
 	va_start( args, fmt );
-	Q_vsnprintf( con.notify[info->index].szNotify, MAX_STRING, fmt, args );
+	Con_NXPrintfv( key_menu, info, fmt, args );
 	va_end( args );
-
-	// setup values
-	con.notify[info->index].key_dest = key_menu;
-	con.notify[info->index].expire = host.realtime + info->time_to_live;
-	MakeRGBA( con.notify[info->index].color, (byte)(info->color[0] * 255), (byte)(info->color[1] * 255), (byte)(info->color[2] * 255), 255 );
-	con.draw_notify = true;
 }
 
 /*
