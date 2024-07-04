@@ -2047,8 +2047,10 @@ int FS_Close( file_t *file )
 	FS_BackupFileName( file, NULL, 0 );
 
 	if( file->handle >= 0 )
+	{
 		if( close( file->handle ))
 			return EOF;
+	}
 
 	Mem_Free( file );
 	return 0;
@@ -2101,7 +2103,7 @@ fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize )
 	FS_Purge( file );
 
 	// write the buffer and update the position
-	result = write( file->handle, data, (fs_offset_t)datasize );
+	result = write( file->handle, data, datasize );
 	file->position = lseek( file->handle, 0, SEEK_CUR );
 
 	if( file->real_length < file->position )
