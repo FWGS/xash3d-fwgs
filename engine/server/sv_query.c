@@ -16,8 +16,8 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
-#define SOURCE_QUERY_INFO 'T'
-#define SOURCE_QUERY_DETAILS 'I'
+#define SOURCE_QUERY_DETAILS 'T'
+#define SOURCE_QUERY_DETAILS_RESPONSE 'I'
 
 #define SOURCE_QUERY_RULES 'V'
 #define SOURCE_QUERY_RULES_RESPONSE 'E'
@@ -46,8 +46,7 @@ static void SV_SourceQuery_Details( netadr_t from )
 
 	MSG_Init( &buf, "TSourceEngineQuery", answer, sizeof( answer ));
 
-	MSG_WriteLong( &buf, SOURCE_QUERY_CONNECTIONLESS );
-	MSG_WriteByte( &buf, SOURCE_QUERY_DETAILS );
+	MSG_WriteByte( &buf, SOURCE_QUERY_DETAILS_RESPONSE );
 	MSG_WriteByte( &buf, PROTOCOL_VERSION );
 
 	MSG_WriteString( &buf, hostname.string );
@@ -72,7 +71,7 @@ static void SV_SourceQuery_Details( netadr_t from )
 	MSG_WriteByte( &buf, GI->secure );
 	MSG_WriteString( &buf, XASH_VERSION );
 
-	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &buf ), MSG_GetData( &buf ), from );
+	Netchan_OutOfBand( NS_SERVER, from, MSG_GetNumBytesWritten( &buf ), MSG_GetData( &buf ));
 }
 
 /*
@@ -163,11 +162,9 @@ SV_SourceQuery_HandleConnnectionlessPacket
 */
 qboolean SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from )
 {
-	int request = c[0];
-
-	switch( request )
+	switch( c[0] )
 	{
-	case SOURCE_QUERY_INFO:
+	case SOURCE_QUERY_DETAILS:
 		SV_SourceQuery_Details( from );
 		return true;
 
