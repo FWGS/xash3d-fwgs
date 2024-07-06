@@ -47,6 +47,20 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 
 /*
 =================
+SV_HavePassword
+
+=================
+*/
+qboolean SV_HavePassword( void )
+{
+	if( COM_CheckStringEmpty( sv_password.string ) && Q_stricmp( sv_password.string, "none" ))
+		return true;
+
+	return false;
+}
+
+/*
+=================
 SV_GetPlayerCount
 
 =================
@@ -370,10 +384,13 @@ static void SV_ConnectClient( netadr_t from )
 	Q_strncpy( userinfo, s, sizeof( userinfo ));
 
 	// check connection password (don't verify local client)
-	if( !NET_IsLocalAddress( from ) && sv_password.string[0] && Q_stricmp( sv_password.string, Info_ValueForKey( userinfo, "password" )))
+	if( !NET_IsLocalAddress( from ) && SV_HavePassword( ))
 	{
-		SV_RejectConnection( from, "invalid password\n" );
-		return;
+		if( Q_stricmp( sv_password.string, Info_ValueForKey( userinfo, "password" )))
+		{
+			SV_RejectConnection( from, "invalid password\n" );
+			return;
+		}
 	}
 
 	// if there is already a slot for this ip, reuse it
@@ -915,7 +932,6 @@ static void SV_Info( netadr_t from, int protocolVersion )
 		int bots;
 		int remaining;
 		char temp[sizeof( s )];
-		qboolean have_password = COM_CheckStringEmpty( sv_password.string );
 
 		SV_GetPlayerCount( &count, &bots );
 
@@ -928,7 +944,7 @@ static void SV_Info( netadr_t from, int protocolVersion )
 		Info_SetValueForKeyf( s, "numcl", sizeof( s ), "%i", count );
 		Info_SetValueForKeyf( s, "maxcl", sizeof( s ), "%i", svs.maxclients );
 		Info_SetValueForKey( s, "gamedir", GI->gamefolder, sizeof( s ));
-		Info_SetValueForKey( s, "password", have_password ? "1" : "0", sizeof( s ));
+		Info_SetValueForKey( s, "password", SV_HavePassword() ? "1" : "0", sizeof( s ));
 
 		// write host last so we can try to cut off too long hostnames
 		// TODO: value size limit for infostrings
