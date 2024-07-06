@@ -2075,7 +2075,7 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 	MSG_WriteUBitLong( msg, chan, MAX_SND_CHAN_BITS );
 
 	if( FBitSet( flags, SND_VOLUME )) MSG_WriteByte( msg, vol );
-	if( FBitSet( flags, SND_ATTENUATION )) MSG_WriteByte( msg, attn * 64 );
+	if( FBitSet( flags, SND_ATTENUATION )) MSG_WriteByte( msg, Q_min( attn * 64, 255 ));
 	if( FBitSet( flags, SND_PITCH )) MSG_WriteByte( msg, pitch );
 
 	MSG_WriteUBitLong( msg, entityIndex, MAX_ENTITY_BITS );
