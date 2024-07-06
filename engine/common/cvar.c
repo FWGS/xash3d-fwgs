@@ -164,8 +164,7 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 				return false; // failed to change value
 
 			// time to update server copy of userinfo
-			CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", var->name, value );
-			CL_LegacyUpdateInfo();
+			CL_UpdateInfo( var->name, value );
 		}
 #endif
 	}
