@@ -2055,9 +2055,7 @@ int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample
 
 	spawn = FBitSet( flags, SND_RESTORE_POSITION ) ? false : true;
 
-	if( SV_IsValidEdict( ent ) && SV_IsValidEdict( ent->v.aiment ))
-		entityIndex = NUM_FOR_EDICT( ent->v.aiment );
-	else if( SV_IsValidEdict( ent ))
+	if( SV_IsValidEdict( ent ))
 		entityIndex = NUM_FOR_EDICT( ent );
 	else entityIndex = 0; // assume world
 
