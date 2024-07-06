@@ -468,6 +468,7 @@ extern convar_t		sv_log_outofband;
 extern convar_t		sv_allow_autoaim;
 extern convar_t		sv_aim;
 extern convar_t		sv_allow_testpacket;
+extern convar_t		sv_expose_player_list;
 
 //===========================================================
 //
