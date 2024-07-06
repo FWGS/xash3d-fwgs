@@ -289,8 +289,8 @@ static void SV_MapBackground_f( void )
 
 	// background map is always run as singleplayer
 	Cvar_FullSet( "maxplayers", "1", FCVAR_LATCH );
-	Cvar_FullSet( "deathmatch", "0", FCVAR_LATCH );
-	Cvar_FullSet( "coop", "0", FCVAR_LATCH );
+	Cvar_FullSet( "deathmatch", "0", FCVAR_LATCH|FCVAR_SERVER );
+	Cvar_FullSet( "coop", "0", FCVAR_LATCH|FCVAR_SERVER );
 
 	COM_LoadLevel( mapname, true );
 }

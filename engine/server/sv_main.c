@@ -33,7 +33,7 @@ CVAR_DEFINE_AUTO( rcon_enable, "1", FCVAR_PROTECTED, "enable accepting remote co
 // TODO: CVAR_DEFINE_AUTO( sv_filterban, "1", 0, "filter banned users" );
 CVAR_DEFINE_AUTO( sv_cheats, "0", FCVAR_SERVER, "allow cheats on server" );
 CVAR_DEFINE_AUTO( sv_instancedbaseline, "1", 0, "allow to use instanced baselines to saves network overhead" );
-// TODO: CVAR_DEFINE_AUTO( sv_contact, "", FCVAR_ARCHIVE|FCVAR_SERVER, "server techincal support contact address or web-page" );
+static CVAR_DEFINE_AUTO( sv_contact, "", FCVAR_ARCHIVE|FCVAR_SERVER, "server techincal support contact address or web-page" );
 CVAR_DEFINE_AUTO( sv_minupdaterate, "25.0", FCVAR_ARCHIVE, "minimal value for 'cl_updaterate' window" );
 CVAR_DEFINE_AUTO( sv_maxupdaterate, "60.0", FCVAR_ARCHIVE, "maximal value for 'cl_updaterate' window" );
 CVAR_DEFINE_AUTO( sv_minrate, "5000", FCVAR_SERVER, "min bandwidth rate allowed on server, 0 == unlimited" );
@@ -68,9 +68,9 @@ static CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer m
 static CVAR_DEFINE_AUTO( motdfile, "motd.txt", 0, "name of 'message of the day' file" );
 static CVAR_DEFINE_AUTO( logsdir, "logs", 0, "place to store multiplayer logs" );
 static CVAR_DEFINE_AUTO( bannedcfgfile, "banned.cfg", 0, "name of list of banned users" );
-CVAR_DEFINE_AUTO( deathmatch, "0", 0, "deathmatch mode in multiplayer game" );
-CVAR_DEFINE_AUTO( coop, "0", 0, "cooperative mode in multiplayer game" );
-CVAR_DEFINE_AUTO( teamplay, "0", 0, "team mode in multiplayer game" );
+CVAR_DEFINE_AUTO( deathmatch, "0", FCVAR_SERVER, "deathmatch mode in multiplayer game" );
+CVAR_DEFINE_AUTO( coop, "0", FCVAR_SERVER, "cooperative mode in multiplayer game" );
+static CVAR_DEFINE_AUTO( teamplay, "0", 0, "team mode in multiplayer game (Quake only)" );
 CVAR_DEFINE_AUTO( skill, "1", 0, "skill level in singleplayer game" );
 static CVAR_DEFINE_AUTO( temp1, "0", 0, "temporary cvar that used by some mods" );
 static CVAR_DEFINE_AUTO( listipcfgfile, "listip.cfg", 0, "name of listip.cfg file" );
@@ -79,22 +79,22 @@ static CVAR_DEFINE_AUTO( disconcfgfile, "", 0, "name of disconnect configuration
 static CVAR_DEFINE_AUTO( _sv_override_scientist_mdl, "", 0, "override default scientist model name (specially for HL25 Uplink maps)" );
 
 // physic-related variables
-CVAR_DEFINE_AUTO( sv_gravity, "800", FCVAR_MOVEVARS, "world gravity value" );
-CVAR_DEFINE_AUTO( sv_stopspeed, "100", FCVAR_MOVEVARS, "how fast you come to a complete stop" );
-static CVAR_DEFINE_AUTO( sv_maxspeed, "320", FCVAR_MOVEVARS, "maximum speed a player can accelerate to when on ground" );
+CVAR_DEFINE_AUTO( sv_gravity, "800", FCVAR_SERVER|FCVAR_MOVEVARS, "world gravity value" );
+CVAR_DEFINE_AUTO( sv_stopspeed, "100", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you come to a complete stop" );
+static CVAR_DEFINE_AUTO( sv_maxspeed, "320", FCVAR_SERVER|FCVAR_MOVEVARS, "maximum speed a player can accelerate to when on ground" );
 static CVAR_DEFINE_AUTO( sv_spectatormaxspeed, "500", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "maximum speed a spectator can accelerate in air" );
-static CVAR_DEFINE_AUTO( sv_accelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed" );
-static CVAR_DEFINE_AUTO( sv_airaccelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the air" );
-static CVAR_DEFINE_AUTO( sv_wateraccelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the water" );
-CVAR_DEFINE_AUTO( sv_friction, "4", FCVAR_MOVEVARS, "how fast you slow down" );
-static CVAR_DEFINE( sv_edgefriction, "edgefriction", "2", FCVAR_MOVEVARS, "how much you slow down when nearing a ledge you might fall off" );
-static CVAR_DEFINE_AUTO( sv_waterfriction, "1", FCVAR_MOVEVARS, "how fast you slow down in water" );
-static CVAR_DEFINE_AUTO( sv_bounce, "1", FCVAR_MOVEVARS, "bounce factor for entities with MOVETYPE_BOUNCE" );
-static CVAR_DEFINE_AUTO( sv_stepsize, "18", FCVAR_MOVEVARS, "how high you and NPS's can step up" );
+static CVAR_DEFINE_AUTO( sv_accelerate, "10", FCVAR_SERVER|FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed" );
+static CVAR_DEFINE_AUTO( sv_airaccelerate, "10", FCVAR_SERVER|FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the air" );
+static CVAR_DEFINE_AUTO( sv_wateraccelerate, "10", FCVAR_SERVER|FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the water" );
+CVAR_DEFINE_AUTO( sv_friction, "4", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you slow down" );
+static CVAR_DEFINE( sv_edgefriction, "edgefriction", "2", FCVAR_SERVER|FCVAR_MOVEVARS, "how much you slow down when nearing a ledge you might fall off" );
+static CVAR_DEFINE_AUTO( sv_waterfriction, "1", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you slow down in water" );
+static CVAR_DEFINE_AUTO( sv_bounce, "1", FCVAR_SERVER|FCVAR_MOVEVARS, "bounce factor for entities with MOVETYPE_BOUNCE" );
+static CVAR_DEFINE_AUTO( sv_stepsize, "18", FCVAR_SERVER|FCVAR_MOVEVARS, "how high you and NPS's can step up" );
 CVAR_DEFINE_AUTO( sv_maxvelocity, "2000", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "max velocity for all things in the world" );
-static CVAR_DEFINE_AUTO( sv_zmax, "4096", FCVAR_MOVEVARS|FCVAR_SPONLY, "maximum viewable distance" );
+static CVAR_DEFINE_AUTO( sv_zmax, "4096", FCVAR_SERVER|FCVAR_MOVEVARS|FCVAR_SPONLY, "maximum viewable distance" );
 CVAR_DEFINE_AUTO( sv_wateramp, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "world waveheight factor" );
-static CVAR_DEFINE( sv_footsteps, "mp_footsteps", "1", FCVAR_MOVEVARS, "world gravity value" );
+static CVAR_DEFINE( sv_footsteps, "mp_footsteps", "1", FCVAR_SERVER|FCVAR_MOVEVARS, "world gravity value" );
 CVAR_DEFINE_AUTO( sv_skyname, "desert", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skybox name (can be dynamically changed in-game)" );
 static CVAR_DEFINE_AUTO( sv_rollangle, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED|FCVAR_ARCHIVE, "how much to tilt the view when strafing" );
 static CVAR_DEFINE_AUTO( sv_rollspeed, "200", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "how much strafing is necessary to tilt the view" );
@@ -110,7 +110,7 @@ static CVAR_DEFINE_AUTO( showtriggers, "0", FCVAR_LATCH, "debug cvar shows trigg
 static CVAR_DEFINE_AUTO( sv_airmove, "1", FCVAR_SERVER, "obsolete, compatibility issues" );
 static CVAR_DEFINE_AUTO( sv_version, "", FCVAR_READ_ONLY, "engine version string" );
 CVAR_DEFINE_AUTO( hostname, "", FCVAR_PRINTABLEONLY, "name of current host" );
-static CVAR_DEFINE_AUTO( sv_fps, "0.0", FCVAR_SERVER, "server framerate" );
+static CVAR_DEFINE_AUTO( sv_fps, "0.0", 0, "server framerate" );
 
 // gore-related cvars
 static CVAR_DEFINE_AUTO( violence_hblood, "1", 0, "draw human blood" );
@@ -922,6 +922,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_uploadmax );
 	Cvar_RegisterVariable( &sv_version );
 	Cvar_RegisterVariable( &sv_instancedbaseline );
+	Cvar_RegisterVariable( &sv_contact );
 	Cvar_RegisterVariable( &sv_consistency );
 	Cvar_RegisterVariable( &sv_downloadurl );
 	Cvar_RegisterVariable( &sv_novis );
