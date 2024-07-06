@@ -2791,7 +2791,7 @@ static void GAME_EXPORT PlayerInfo_SetValueForKey( const char *key, const char *
 	else if( Info_SetValueForStarKey( cls.userinfo, key, value, MAX_INFO_STRING ))
 	{
 		// time to update server copy of userinfo
-		CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", key, value );
+		CL_UpdateInfo( key, value );
 	}
 }
 

@@ -657,18 +657,6 @@ void CL_LegacyPrecache_f( void )
 	cls.signon = SIGNONS;
 }
 
-void CL_LegacyUpdateInfo( void )
-{
-	if( !cls.legacymode )
-		return;
-
-	if( cls.state != ca_active )
-		return;
-
-	MSG_BeginClientCmd( &cls.netchan.message, clc_legacy_userinfo );
-	MSG_WriteString( &cls.netchan.message, cls.userinfo );
-}
-
 qboolean CL_LegacyMode( void )
 {
 	return cls.legacymode == PROTO_LEGACY;

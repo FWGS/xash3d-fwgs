@@ -671,6 +671,7 @@ void SV_BroadcastPrintf( struct sv_client_s *ignore, const char *fmt, ... ) _for
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, size_t currentTrackSize, char *loopTrack, size_t loopTrackSize, int *position );
 void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
+void CL_UpdateInfo( const char *key, const char *value );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
 void SV_DrawDebugTriangles( void );

@@ -2722,6 +2722,29 @@ void CL_ServerCommand( qboolean reliable, const char *fmt, ... )
 	}
 }
 
+/*
+===============
+CL_UpdateInfo
+
+tell server about changed userinfo
+===============
+*/
+void CL_UpdateInfo( const char *key, const char *value )
+{
+	if( !cls.legacymode )
+	{
+		CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", key, value );
+	}
+	else
+	{
+		if( cls.state != ca_active )
+			return;
+
+		MSG_BeginClientCmd( &cls.netchan.message, clc_legacy_userinfo );
+		MSG_WriteString( &cls.netchan.message, cls.userinfo );
+	}
+}
+
 //=============================================================================
 /*
 ==============
