@@ -129,7 +129,8 @@ static void SV_SourceQuery_Players( netadr_t from )
 	SV_GetPlayerCount( &client_count, &bot_count );
 	client_count += bot_count; // bots are counted as players in this reply
 
-	if( client_count <= 0 )
+	// respect players privacy
+	if( client_count <= 0 || !sv_expose_player_list.value || !COM_CheckStringEmpty( sv_password.string ))
 		return;
 
 	MSG_Init( &buf, "TSourceEngineQueryPlayers", answer, sizeof( answer ));
