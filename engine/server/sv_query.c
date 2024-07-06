@@ -37,12 +37,9 @@ static void SV_SourceQuery_Details( netadr_t from )
 	sizebuf_t buf;
 	char answer[2048];
 	int bot_count, client_count;
-	int is_private = 0;
 
 	SV_GetPlayerCount( &client_count, &bot_count );
 	client_count += bot_count; // bots are counted as players in this reply
-	if( COM_CheckStringEmpty( sv_password.string ) && Q_stricmp( sv_password.string, "none" ))
-		is_private = 1;
 
 	MSG_Init( &buf, "TSourceEngineQuery", answer, sizeof( answer ));
 
@@ -67,7 +64,10 @@ static void SV_SourceQuery_Details( netadr_t from )
 #else
 	MSG_WriteByte( &buf, 'l' );
 #endif
-	MSG_WriteByte( &buf, is_private );
+
+	if( SV_HavePassword( ))
+		MSG_WriteByte( &buf, 1 );
+	else MSG_WriteByte( &buf, 0 );
 	MSG_WriteByte( &buf, GI->secure );
 	MSG_WriteString( &buf, XASH_VERSION );
 
@@ -130,7 +130,7 @@ static void SV_SourceQuery_Players( netadr_t from )
 	client_count += bot_count; // bots are counted as players in this reply
 
 	// respect players privacy
-	if( client_count <= 0 || !sv_expose_player_list.value || !COM_CheckStringEmpty( sv_password.string ))
+	if( client_count <= 0 || !sv_expose_player_list.value || SV_HavePassword( ))
 		return;
 
 	MSG_Init( &buf, "TSourceEngineQueryPlayers", answer, sizeof( answer ));

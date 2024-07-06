@@ -548,6 +548,7 @@ void SV_UpdateServerInfo( void );
 void SV_EndRedirect( host_redirect_t *rd );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) _format( 2 );
 void SV_GetPlayerCount( int *clients, int *bots );
+qboolean SV_HavePassword( void );
 
 //
 // sv_cmds.c
