@@ -35,6 +35,7 @@ typedef void (*net_api_response_func_t) ( struct net_response_s *response );
 #define NET_ERROR_TIMEOUT			( 1<<0 )
 #define NET_ERROR_PROTO_UNSUPPORTED		( 1<<1 )
 #define NET_ERROR_UNDEFINED			( 1<<2 )
+#define NET_ERROR_FORBIDDEN			( 1<<3 ) // xash3d-fwgs extension
 
 typedef struct net_adrlist_s
 {
