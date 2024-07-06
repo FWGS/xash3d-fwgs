@@ -1880,6 +1880,8 @@ static void CL_ParseNETInfoMessage( netadr_t from, sizebuf_t *msg, const char *s
 		SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
 	else if( !Q_stricmp( val, "undefined" ))
 		SetBits( errorBits, NET_ERROR_UNDEFINED );
+	else if( !Q_stricmp( val, "forbidden" ))
+		SetBits( errorBits, NET_ERROR_FORBIDDEN );
 
 	CL_FixupColorStringsForInfoString( s, infostring );
 
