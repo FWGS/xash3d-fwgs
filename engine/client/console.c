@@ -2136,6 +2136,7 @@ void Con_CharEvent( int key )
 static int Con_LoadSimpleConback( const char *name, int flags )
 {
 	const char *paths[] = {
+		"gfx/shell/%s.dds",
 		"gfx/shell/%s.bmp",
 		"gfx/shell/%s.tga",
 		"cached/%s640",
@@ -2149,7 +2150,12 @@ static int Con_LoadSimpleConback( const char *name, int flags )
 
 		Q_snprintf( path, sizeof( path ), paths[i], name );
 		if( g_fsapi.FileExists( path, false ))
-			return ref.dllFuncs.GL_LoadTexture( path, NULL, 0, flags );
+		{
+			int gl_texturenum = ref.dllFuncs.GL_LoadTexture( path, NULL, 0, flags );
+
+			if( gl_texturenum )
+				return gl_texturenum;
+		}
 	}
 
 	return 0;
