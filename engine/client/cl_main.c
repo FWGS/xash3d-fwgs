@@ -1748,7 +1748,7 @@ CL_FixupColorStringsForInfoString
 all the keys and values must be ends with ^7
 =================
 */
-static void CL_FixupColorStringsForInfoString( const char *in, char *out )
+static void CL_FixupColorStringsForInfoString( const char *in, char *out, size_t len )
 {
 	qboolean	hasPrefix = false;
 	qboolean	endOfKeyVal = false;
@@ -1761,7 +1761,7 @@ static void CL_FixupColorStringsForInfoString( const char *in, char *out )
 		count++;
 	}
 
-	while( *in && count < MAX_INFO_STRING )
+	while( *in && count < len )
 	{
 		if( IsColorString( in ))
 			color = ColorIndex( *(in+1));
@@ -1832,7 +1832,7 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	CL_FixupColorStringsForInfoString( s, infostring );
+	CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
 	{
@@ -1864,7 +1864,7 @@ Handle a reply from a netinfo
 static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
 {
 	net_request_t	*nr = NULL;
-	static char	infostring[MAX_INFO_STRING+8];
+	static char	infostring[MAX_PRINT_MSG];
 	int		i, context, type;
 	int		errorBits = 0;
 	const char		*val;
@@ -1902,7 +1902,7 @@ static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
 		else if( !Q_stricmp( val, "forbidden" ))
 			SetBits( errorBits, NET_ERROR_FORBIDDEN );
 
-		CL_FixupColorStringsForInfoString( s, infostring );
+		CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
 	}
 
 	// setup the answer
