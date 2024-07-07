@@ -971,9 +971,13 @@ Responds with long info for local and broadcast requests
 */
 static void SV_BuildNetAnswer( netadr_t from )
 {
-	char	string[MAX_INFO_STRING];
-	int	version, context, type;
-	int	i, count = 0;
+	const cvar_t *cv;
+	char string[4096];
+	int  version;
+	int  context;
+	int  type;
+	int  count = 0;
+	int  i;
 
 	// ignore in single player
 	if( svs.maxclients == 1 || !svs.initialized )
@@ -983,79 +987,84 @@ static void SV_BuildNetAnswer( netadr_t from )
 	context = Q_atoi( Cmd_Argv( 2 ));
 	type = Q_atoi( Cmd_Argv( 3 ));
 
+	string[0] = 0;
+
 	if( version != PROTOCOL_VERSION )
 	{
-		// handle the unsupported protocol
-		string[0] = '\0';
-		Info_SetValueForKey( string, "neterror", "protocol", MAX_INFO_STRING );
-
 		// send error unsupported protocol
+		Info_SetValueForKey( string, "neterror", "protocol", sizeof( string ));
 		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
 		return;
 	}
 
-	if( type == NETAPI_REQUEST_PING )
+	switch( type )
 	{
-		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, "" );
-	}
-	else if( type == NETAPI_REQUEST_RULES )
-	{
-		// send serverinfo
-		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, svs.serverinfo );
-	}
-	else if( type == NETAPI_REQUEST_PLAYERS )
-	{
-		size_t len = 0;
+	case NETAPI_REQUEST_PING:
+		break;
+	case NETAPI_REQUEST_RULES:
+		for( cv = Cvar_GetList( ); cv; cv = cv->next )
+		{
+			if( !FBitSet( cv->flags, FCVAR_SERVER ))
+				continue;
 
-		string[0] = '\0';
+			if( FBitSet( cv->flags, FCVAR_PROTECTED ))
+			{
+				if( COM_CheckStringEmpty( cv->string ) && Q_stricmp( cv->string, "none" ))
+					Info_SetValueForKey( string, cv->name, "1", sizeof( string ));
+				else Info_SetValueForKey( string, cv->name, "0", sizeof( string ));
+			}
+			else Info_SetValueForKey( string, cv->name, cv->string, sizeof( string ));
 
+			count++;
+		}
+
+		Info_SetValueForKeyf( string, "rules", sizeof( string ), "%i", count );
+		break;
+	case NETAPI_REQUEST_PLAYERS:
+		if( !sv_expose_player_list.value || SV_HavePassword( ))
+		{
+			Info_SetValueForKey( string, "neterror", "forbidden", sizeof( string ));
+		}
+		else
+		{
+			for( i = 0; i < svs.maxclients; i++ )
+			{
+				const sv_client_t *cl = &svs.clients[i];
+
+				if( cl->state < cs_connected )
+					continue;
+
+				Info_SetValueForKey( string, va( "p%iname", count ), cl->name, sizeof( string ));
+				Info_SetValueForKeyf( string, va( "p%ifrags", count ), sizeof( string ), "%i", (int)cl->edict->v.frags );
+				Info_SetValueForKeyf( string, va( "p%itime", count ), sizeof( string ), "%f", host.realtime - cl->connection_started );
+
+				count++;
+			}
+
+			Info_SetValueForKeyf( string, "players", sizeof( string ), "%i", count );
+		}
+		break;
+	case NETAPI_REQUEST_DETAILS:
 		for( i = 0; i < svs.maxclients; i++ )
 		{
 			if( svs.clients[i].state >= cs_connected )
-			{
-				int ret;
-				edict_t *ed = svs.clients[i].edict;
-				float time = host.realtime - svs.clients[i].connection_started;
-				ret = Q_snprintf( &string[len], sizeof( string ) - len, "%c\\%s\\%i\\%f\\", count, svs.clients[i].name, (int)ed->v.frags, time );
-
-				if( ret == -1 )
-				{
-					Con_DPrintf( S_WARN "%s: NETAPI_REQUEST_PLAYERS: buffer overflow!\n", __func__ );
-					break;
-				}
-
-				len += ret;
 				count++;
-			}
 		}
 
-		// send playernames
-		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
-	}
-	else if( type == NETAPI_REQUEST_DETAILS )
-	{
-		for( i = 0; i < svs.maxclients; i++ )
-			if( svs.clients[i].state >= cs_connected )
-				count++;
-
-		string[0] = '\0';
-		Info_SetValueForKey( string, "hostname", hostname.string, MAX_INFO_STRING );
-		Info_SetValueForKey( string, "gamedir", GI->gamefolder, MAX_INFO_STRING );
-		Info_SetValueForKeyf( string, "current", MAX_INFO_STRING, "%i", count );
-		Info_SetValueForKeyf( string, "max", MAX_INFO_STRING, "%i", svs.maxclients );
-		Info_SetValueForKey( string, "map", sv.name, MAX_INFO_STRING );
-
-		// send serverinfo
-		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
-	}
-	else
-	{
-		string[0] = '\0';
-		Info_SetValueForKey( string, "neterror", "undefined", MAX_INFO_STRING );
-
+		// should match SV_SourceQuery_Details
+		Info_SetValueForKey( string, "hostname", hostname.string, sizeof( string ));
+		Info_SetValueForKey( string, "gamedir", GI->gamefolder, sizeof( string ));
+		Info_SetValueForKeyf( string, "current", sizeof( string ), "%i", count );
+		Info_SetValueForKeyf( string, "max", sizeof( string ), "%i", svs.maxclients );
+		Info_SetValueForKey( string, "map", sv.name, sizeof( string ));
+		break;
+	default:
 		// send error undefined request type
-		Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
+		Info_SetValueForKey( string, "neterror", "undefined", sizeof( string ));
+		break;
 	}
+
+	Netchan_OutOfBandPrint( NS_SERVER, from, "netinfo %i %i %s\n", context, type, string );
 }
 
 /*
