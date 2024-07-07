@@ -3467,7 +3467,7 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	nr->flags = flags;
 
 	// local servers request
-	Q_snprintf( req, sizeof( req ), "netinfo %i %i %i", PROTOCOL_VERSION, context, request );
+	Q_snprintf( req, sizeof( req ), "netinfo %i %i %i", FBitSet( flags, FNETAPI_LEGACY_PROTOCOL ) ? PROTOCOL_LEGACY_VERSION : PROTOCOL_VERSION, context, request );
 	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, "%s", req );
 }
 
