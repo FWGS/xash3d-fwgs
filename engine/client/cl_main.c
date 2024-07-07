@@ -1868,6 +1868,7 @@ static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
 	int		i, context, type;
 	int		errorBits = 0;
 	const char		*val;
+	size_t slen;
 
 	context = Q_atoi( Cmd_Argv( 1 ));
 	type = Q_atoi( Cmd_Argv( 2 ));
@@ -1886,23 +1887,45 @@ static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
 	if( nr == NULL )
 		return;
 
-	// find the infostring
-	while( *s != '\\' && *s )
-		s++;
+	// find the payload
+	s = Q_strchr( s, ' ' ); // skip netinfo
+	if( !s )
+		return;
 
-	if( s[0] == '\\' )
+	s = Q_strchr( s + 1, ' ' ); // skip challenge
+	if( !s )
+		return;
+
+	s = Q_strchr( s + 1, ' ' ); // skip type
+	if( s )
+		s++; // skip final whitespace
+	else if( type != NETAPI_REQUEST_PING ) // ping have no payload, and that's ok
+		return;
+
+	if( s )
 	{
-		// check for errors
-		val = Info_ValueForKey( s, "neterror" );
+		if( s[0] == '\\' )
+		{
+			// check for errors
+			val = Info_ValueForKey( s, "neterror" );
 
-		if( !Q_stricmp( val, "protocol" ))
-			SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
-		else if( !Q_stricmp( val, "undefined" ))
-			SetBits( errorBits, NET_ERROR_UNDEFINED );
-		else if( !Q_stricmp( val, "forbidden" ))
-			SetBits( errorBits, NET_ERROR_FORBIDDEN );
+			if( !Q_stricmp( val, "protocol" ))
+				SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
+			else if( !Q_stricmp( val, "undefined" ))
+				SetBits( errorBits, NET_ERROR_UNDEFINED );
+			else if( !Q_stricmp( val, "forbidden" ))
+				SetBits( errorBits, NET_ERROR_FORBIDDEN );
 
-		CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
+			CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
+		}
+		else
+		{
+			Q_strncpy( infostring, s, sizeof( infostring ));
+		}
+	}
+	else
+	{
+		infostring[0] = 0;
 	}
 
 	// setup the answer
