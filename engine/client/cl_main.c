@@ -1861,9 +1861,9 @@ CL_ParseNETInfoMessage
 Handle a reply from a netinfo
 =================
 */
-static void CL_ParseNETInfoMessage( netadr_t from, sizebuf_t *msg, const char *s )
+static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
 {
-	net_request_t	*nr;
+	net_request_t	*nr = NULL;
 	static char	infostring[MAX_INFO_STRING+8];
 	int		i, context, type;
 	int		errorBits = 0;
@@ -1871,44 +1871,54 @@ static void CL_ParseNETInfoMessage( netadr_t from, sizebuf_t *msg, const char *s
 
 	context = Q_atoi( Cmd_Argv( 1 ));
 	type = Q_atoi( Cmd_Argv( 2 ));
-	while( *s != '\\' ) s++; // fetching infostring
 
-	// check for errors
-	val = Info_ValueForKey( s, "neterror" );
-
-	if( !Q_stricmp( val, "protocol" ))
-		SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
-	else if( !Q_stricmp( val, "undefined" ))
-		SetBits( errorBits, NET_ERROR_UNDEFINED );
-	else if( !Q_stricmp( val, "forbidden" ))
-		SetBits( errorBits, NET_ERROR_FORBIDDEN );
-
-	CL_FixupColorStringsForInfoString( s, infostring );
-
-	// find a request with specified context
+	// find request with specified context and type
 	for( i = 0; i < MAX_REQUESTS; i++ )
 	{
-		nr = &clgame.net_requests[i];
-
-		if( nr->resp.context == context && nr->resp.type == type )
+		if( clgame.net_requests[i].resp.context == context && clgame.net_requests[i].resp.type == type )
 		{
-			// setup the answer
-			nr->resp.response = infostring;
-			nr->resp.remote_address = from;
-			nr->resp.error = NET_SUCCESS;
-			nr->resp.ping = host.realtime - nr->timesend;
-
-			if( nr->timeout <= host.realtime )
-				SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
-			SetBits( nr->resp.error, errorBits ); // misc error bits
-
-			nr->pfnFunc( &nr->resp );
-
-			if( !FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
-				memset( nr, 0, sizeof( *nr )); // done
-			return;
+			nr = &clgame.net_requests[i];
+			break;
 		}
 	}
+
+	// not found, ignore
+	if( nr == NULL )
+		return;
+
+	// find the infostring
+	while( *s != '\\' && *s )
+		s++;
+
+	if( s[0] == '\\' )
+	{
+		// check for errors
+		val = Info_ValueForKey( s, "neterror" );
+
+		if( !Q_stricmp( val, "protocol" ))
+			SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
+		else if( !Q_stricmp( val, "undefined" ))
+			SetBits( errorBits, NET_ERROR_UNDEFINED );
+		else if( !Q_stricmp( val, "forbidden" ))
+			SetBits( errorBits, NET_ERROR_FORBIDDEN );
+
+		CL_FixupColorStringsForInfoString( s, infostring );
+	}
+
+	// setup the answer
+	nr->resp.response = infostring;
+	nr->resp.remote_address = from;
+	nr->resp.error = NET_SUCCESS;
+	nr->resp.ping = host.realtime - nr->timesend;
+
+	if( nr->timeout <= host.realtime )
+		SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
+	SetBits( nr->resp.error, errorBits ); // misc error bits
+
+	nr->pfnFunc( &nr->resp );
+
+	if( !FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
+		memset( nr, 0, sizeof( *nr )); // done
 }
 
 /*
@@ -2041,7 +2051,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( c, "netinfo" ))
 	{
 		// server responding to a status broadcast
-		CL_ParseNETInfoMessage( from, msg, args );
+		CL_ParseNETInfoMessage( from, args );
 	}
 	else if( !Q_strcmp( c, "cmd" ))
 	{
