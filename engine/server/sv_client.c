@@ -532,10 +532,10 @@ edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 	userinfo[0] = '\0';
 
 	// setup fake client params
-	Info_SetValueForKey( userinfo, "name", netname, MAX_INFO_STRING );
-	Info_SetValueForKey( userinfo, "model", "gordon", MAX_INFO_STRING );
-	Info_SetValueForKey( userinfo, "topcolor", "1", MAX_INFO_STRING );
-	Info_SetValueForKey( userinfo, "bottomcolor", "1", MAX_INFO_STRING );
+	Info_SetValueForKey( userinfo, "name", netname, sizeof( userinfo ));
+	Info_SetValueForKey( userinfo, "model", "gordon", sizeof( userinfo ));
+	Info_SetValueForKey( userinfo, "topcolor", "1", sizeof( userinfo ));
+	Info_SetValueForKey( userinfo, "bottomcolor", "1", sizeof( userinfo ));
 
 	// build a new connection
 	// accept the new client

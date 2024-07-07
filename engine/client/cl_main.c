@@ -2781,7 +2781,7 @@ static void CL_SetInfo_f( void )
 	{
 		Cvar_DirectSet( var, Cmd_Argv( 2 ));
 	}
-	else if( Info_SetValueForKey( cls.userinfo, Cmd_Argv( 1 ), Cmd_Argv( 2 ), MAX_INFO_STRING ))
+	else if( Info_SetValueForKey( cls.userinfo, Cmd_Argv( 1 ), Cmd_Argv( 2 ), sizeof( cls.userinfo )))
 	{
 		// send update only on successfully changed userinfo
 		Cmd_ForwardToServer ();
