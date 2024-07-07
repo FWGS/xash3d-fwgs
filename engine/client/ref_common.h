@@ -54,6 +54,4 @@ extern convar_t gl_clear;
 qboolean R_Init( void );
 void R_Shutdown( void );
 
-extern triangleapi_t gTriApi;
-
 #endif // REF_COMMON_H

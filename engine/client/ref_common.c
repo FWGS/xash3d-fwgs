@@ -467,7 +467,6 @@ static void CL_FillTriAPIFromRef( triangleapi_t *dst, const ref_interface_t *src
 
 static qboolean R_LoadProgs( const char *name )
 {
-	extern triangleapi_t gTriApi;
 	static ref_api_t gpEngfuncs;
 	REFAPI GetRefAPI; // single export
 

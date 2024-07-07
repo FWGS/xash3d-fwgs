@@ -3772,7 +3772,7 @@ static demo_api_t gDemoApi =
 	Demo_WriteBuffer,
 };
 
-static net_api_t gNetApi =
+net_api_t gNetApi =
 {
 	NetAPI_InitNetworking,
 	NetAPI_Status,
