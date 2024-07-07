@@ -1164,5 +1164,7 @@ int Key_ToUpper( int key );
 void OSK_Draw( void );
 
 extern rgba_t g_color_table[8];
+extern triangleapi_t gTriApi;
+extern net_api_t gNetApi;
 
 #endif//CLIENT_H

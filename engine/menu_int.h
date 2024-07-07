@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "cvardef.h"
 #include "gameinfo.h"
 #include "wrect.h"
+#include "net_api.h"
 
 // a macro for mainui_cpp, indicating that mainui should be compiled for
 // Xash3D 1.0 interface
@@ -216,6 +217,7 @@ typedef struct ui_extendedfuncs_s {
 	const char *(*pfnAdrToString)( const struct netadr_s a );
 	int (*pfnCompareAdr)( const void *a, const void *b ); // netadr_t
 	void *(*pfnGetNativeObject)( const char *name );
+	struct net_api_s *pNetAPI;
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine

@@ -1237,6 +1237,7 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	NET_AdrToString,
 	NET_CompareAdrSort,
 	Sys_GetNativeObject,
+	&gNetApi,
 };
 
 void UI_UnloadProgs( void )
