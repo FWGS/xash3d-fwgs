@@ -3424,7 +3424,7 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 		return;
 	}
 
-	if( remote_address->type != NA_IPX && remote_address->type != NA_BROADCAST_IPX )
+	if( remote_address->type == NA_IPX || remote_address->type == NA_BROADCAST_IPX )
 		return; // IPX no longer support
 
 	if( request == NETAPI_REQUEST_SERVERLIST )
