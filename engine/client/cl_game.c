@@ -2788,7 +2788,7 @@ static void GAME_EXPORT PlayerInfo_SetValueForKey( const char *key, const char *
 	{
 		Cvar_DirectSet( var, value );
 	}
-	else if( Info_SetValueForStarKey( cls.userinfo, key, value, MAX_INFO_STRING ))
+	else if( Info_SetValueForStarKey( cls.userinfo, key, value, sizeof( cls.userinfo )))
 	{
 		// time to update server copy of userinfo
 		CL_UpdateInfo( key, value );
