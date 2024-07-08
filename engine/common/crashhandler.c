@@ -80,7 +80,7 @@ static int Sys_ModuleName( HANDLE process, char *name, void *address, int len )
 
 static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 {
-	char message[1024];
+	char message[8192]; // match *nix Sys_Crash
 	int len = 0;
 	size_t i;
 	HANDLE process = GetCurrentProcess();
@@ -148,6 +148,10 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 #elif
 #error
 #endif
+
+	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s, %s-%s)\n",
+		Q_buildnum(), Q_buildcommit(), Q_buildos(), Q_buildarch() );
+
 	len += Q_snprintf( message + len, 1024 - len, "Sys_Crash: address %p, code %p\n",
 		pInfo->ExceptionRecord->ExceptionAddress, (void*)pInfo->ExceptionRecord->ExceptionCode );
 	if( SymGetLineFromAddr64( process, (DWORD64)pInfo->ExceptionRecord->ExceptionAddress, &dline, &line ) )
@@ -274,6 +278,10 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 	{
 		// check to avoid recursive call
 		host.crashed = true;
+
+#ifdef XASH_SDL
+		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#endif // XASH_SDL
 
 #if DBGHELP
 		Sys_StackTrace( pInfo );
