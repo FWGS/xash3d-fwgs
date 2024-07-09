@@ -35,24 +35,24 @@ void *ANDROID_LoadLibrary( const char *dllname )
 			continue;
 
 		Q_snprintf( path, MAX_SYSPATH, "%s/lib%s."OS_LIB_EXT, libdir[i], dllname );
-		pHandle = dlopen( path, RTLD_LAZY );
+		pHandle = dlopen( path, RTLD_NOW );
 		if( pHandle )
 			return pHandle;
 
 		COM_PushLibraryError( dlerror() );
 	}
 
-	// HACKHACK: keep old behaviour for compability
+	// HACKHACK: keep old behaviour for compatibility
 	if( Q_strstr( dllname, "." OS_LIB_EXT ) || Q_strstr( dllname, "/" ))
 	{
-		pHandle = dlopen( dllname, RTLD_LAZY );
+		pHandle = dlopen( dllname, RTLD_NOW );
 		if( pHandle )
 			return pHandle;
 	}
 	else
 	{
 		Q_snprintf( path, MAX_SYSPATH, "lib%s."OS_LIB_EXT, dllname );
-		pHandle = dlopen( path, RTLD_LAZY );
+		pHandle = dlopen( path, RTLD_NOW );
 		if( pHandle )
 			return pHandle;
 	}
