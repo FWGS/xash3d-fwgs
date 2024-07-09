@@ -29,7 +29,7 @@ static DWORD GetOffsetByRVA( DWORD rva, PIMAGE_NT_HEADERS nt_header )
 	for( i = 0; i < nt_header->FileHeader.NumberOfSections; i++, sect_header++)
 	{
 		if( rva >= sect_header->VirtualAddress && rva < sect_header->VirtualAddress + sect_header->Misc.VirtualSize )
-			break;	
+			break;
 	}
 	return (rva - sect_header->VirtualAddress + sect_header->PointerToRawData);
 }
@@ -296,16 +296,18 @@ table_error:
 
 static const char *GetLastErrorAsString( void )
 {
+	const DWORD fm_flags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK;
 	DWORD errorcode;
+	wchar_t wide_errormessage[256];
 	static string errormessage;
 
 	errorcode = GetLastError();
-	if ( !errorcode ) return "";
-	
-	FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK,
-					NULL, errorcode, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
-					(LPSTR)&errormessage, sizeof( errormessage ), NULL );
-	
+	if ( !errorcode )
+		return "";
+
+	FormatMessageW( fm_flags, NULL, errorcode, 0, wide_errormessage, ARRAYSIZE( wide_errormessage ), NULL );
+	Q_UTF16ToUTF8( errormessage, sizeof( errormessage ), wide_errormessage, ARRAYSIZE( wide_errormessage ));
+
 	return errormessage;
 }
 
@@ -346,7 +348,7 @@ static PIMAGE_IMPORT_DESCRIPTOR GetImportDescriptor( const char *name, byte *dat
 	*peheader = peHeader;
 	importDesc = (PIMAGE_IMPORT_DESCRIPTOR)CALCULATE_ADDRESS( data, GetOffsetByRVA( importDir->VirtualAddress, peHeader ) );
 
-	return importDesc;	
+	return importDesc;
 }
 
 static void ListMissingModules( dll_user_t *hInst )
@@ -410,9 +412,9 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	{
 		COM_FreeLibrary( hInst );
 		Mem_Free( data );
-		return FALSE;	
+		return FALSE;
 	}
-	
+
 	for( ; !IsBadReadPtr( importDesc, sizeof( IMAGE_IMPORT_DESCRIPTOR ) ) && importDesc->Name; importDesc++ )
 	{
 		const char *importName = (const char *)CALCULATE_ADDRESS( data, GetOffsetByRVA( importDesc->Name, peHeader ) );
