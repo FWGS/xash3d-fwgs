@@ -1357,7 +1357,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 		{
 			// NOTE: gamedll might resolve it's own path using dladdr() and expects absolute path
 			// NOTE: the only allowed case when searchpath is set by absolute path is the RoDir
-			// rather than figuring out whether path is absolute, just check if it matches 
+			// rather than figuring out whether path is absolute, just check if it matches
 			if( !Q_strnicmp( search->filename, fs_rodir, Q_strlen( fs_rodir )))
 			{
 				Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s%s", search->filename, dllInfo->shortPath );
@@ -1845,10 +1845,13 @@ int FS_SetCurrentDirectory( const char *path )
 #if XASH_WIN32
 	if( !SetCurrentDirectoryW( FS_PathToWideChar( path )))
 	{
+		const DWORD fm_flags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK;
+		DWORD errorcode;
+		wchar_t wide_buf[1024];
 		char buf[1024];
-		FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-			NULL, GetLastError(), MAKELANGID( LANG_ENGLISH, SUBLANG_DEFAULT ),
-			buf, sizeof( buf ), NULL );
+
+		FormatMessageW( fm_flags, NULL, GetLastError(), 0, wide_buf, sizeof( wide_buf ) / sizeof( wide_buf[0] ), NULL );
+		Q_UTF16ToUTF8( buf, sizeof( buf ), wide_buf, sizeof( wide_buf ) / sizeof( wide_buf[0] ));
 
 		Sys_Error( "Changing directory to %s failed: %s\n", path, buf );
 		return false;
