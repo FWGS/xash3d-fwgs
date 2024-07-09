@@ -224,15 +224,19 @@ void FS_Init( const char *basedir )
 		Q_strncpy( gamedir, basedir, sizeof( gamedir )); // gamedir == basedir
 
 	FS_LoadProgs();
+
+	// TODO: this function will cause engine to stop in case of fail
+	// when it will have an option to return string error, restore Sys_Error
+	// FIXME: why do we call this function before InitStdio?
+	// because InitStdio immediately scans all available game directories
+	// and this better be reworked at some point
+	g_fsapi.SetCurrentDirectory( rootdir );
+
 	if( !g_fsapi.InitStdio( true, rootdir, basedir, gamedir, rodir ))
 	{
 		Sys_Error( "Can't init filesystem_stdio!\n" );
 		return;
 	}
-
-	// TODO: this function will cause engine to stop in case of fail
-	// when it will have an option to return string error, restore Sys_Error
-	g_fsapi.SetCurrentDirectory( rootdir );
 
 	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
