@@ -72,7 +72,7 @@
             android:alwaysRetainTaskState="true"
             android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation|touchscreen"
             android:exported="true"
-            android:launchMode="singleInstance"
+            android:launchMode="singleTask"
             android:preferMinimalPostProcessing="true"
             android:windowSoftInputMode="adjustResize"
             tools:targetApi="r">
