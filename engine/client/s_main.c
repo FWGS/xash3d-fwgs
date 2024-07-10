@@ -1602,7 +1602,7 @@ void SND_UpdateSound( void )
 	s_listener.frametime = (cl.time - cl.oldtime);
 	s_listener.waterlevel = cl.local.waterlevel;
 	s_listener.active = CL_IsInGame();
-	s_listener.inmenu = CL_IsInMenu();
+	s_listener.inmenu = cls.key_dest == key_menu;
 	s_listener.paused = cl.paused;
 
 	// update general area ambient sound sources

@@ -39,11 +39,6 @@ qboolean CL_IsInGame( void )
 	return true;	// always active for dedicated servers
 }
 
-qboolean CL_IsInMenu( void )
-{
-	return false;
-}
-
 qboolean CL_IsInConsole( void )
 {
 	return false;
