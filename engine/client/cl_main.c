@@ -122,11 +122,6 @@ qboolean CL_IsInGame( void )
 	return ( cls.key_dest == key_game ); // active if not menu or console
 }
 
-qboolean CL_IsInMenu( void )
-{
-	return ( cls.key_dest == key_menu );
-}
-
 qboolean CL_IsInConsole( void )
 {
 	return ( cls.key_dest == key_console );
@@ -1569,7 +1564,7 @@ void CL_Disconnect( void )
 	cls.signon = 0;
 
 	// back to menu in non-developer mode
-	if( host_developer.value || CL_IsInMenu( ))
+	if( host_developer.value || cls.key_dest == key_menu )
 		return;
 
 	UI_SetActiveMenu( true );
