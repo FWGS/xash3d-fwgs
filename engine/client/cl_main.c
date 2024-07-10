@@ -1450,20 +1450,18 @@ static void CL_SendDisconnectMessage( void )
 
 int CL_GetSplitSize( void )
 {
-	int splitsize;
+	int splitsize = (int)cl_dlmax.value;
 
-	if( Host_IsDedicated() )
-		return 0;
-
-	if( !(cls.extensions & NET_EXT_SPLITSIZE) )
+	if( !FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 		return 1400;
 
-	splitsize = cl_dlmax.value;
-
-	if( splitsize < FRAGMENT_MIN_SIZE || splitsize > FRAGMENT_MAX_SIZE )
+	if(( splitsize < FRAGMENT_MIN_SIZE ) || ( splitsize > FRAGMENT_MAX_SIZE ))
+	{
 		Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+		return FRAGMENT_DEFAULT_SIZE;
+	}
 
-	return cl_dlmax.value;
+	return (int)cl_dlmax.value;
 }
 
 /*
