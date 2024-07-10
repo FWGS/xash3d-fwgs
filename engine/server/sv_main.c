@@ -567,15 +567,15 @@ SV_IsSimulating
 */
 static qboolean SV_IsSimulating( void )
 {
+	if( Host_IsDedicated( ))
+		return true; // always active for dedicated servers
+
 	if( sv.background && SV_Active() && CL_Active())
 	{
 		if( CL_IsInConsole( ))
 			return false;
 		return true; // force simulating for background map
 	}
-
-	if( Host_IsDedicated() )
-		return true; // always active for dedicated servers
 
 	if( !SV_HasActivePlayers( ))
 		return false;
