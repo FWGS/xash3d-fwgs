@@ -244,7 +244,7 @@ void Host_ValidateEngineFeatures( uint32_t features )
 {
 	uint32_t mask = ENGINE_FEATURES_MASK;
 
-#if !HOST_DEDICATED
+#if !XASH_DEDICATED
 	if( !Host_IsDedicated( ) && cls.legacymode )
 		mask = ENGINE_LEGACY_FEATURES_MASK;
 #endif
@@ -325,7 +325,7 @@ Host_CalcSleep
 */
 static int Host_CalcSleep( void )
 {
-	if( Host_IsDedicated() )
+	if( Host_IsDedicated( ))
 	{
 		// let the dedicated server some sleep
 		return host_sleeptime.value;
@@ -1184,7 +1184,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	ID_Init();
 	SoundList_Init();
 
-	if( Host_IsDedicated() )
+	if( Host_IsDedicated( ))
 	{
 #ifdef _WIN32
 		Wcon_InitConsoleCommands ();
