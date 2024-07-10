@@ -60,6 +60,9 @@ void COM_NewGame( char const *pMapName )
 	GameState->loadGame = false;
 	GameState->newGame = true;
 
+	if( !SV_Active( ))
+		CL_Disconnect( ); // disconnect from current online game
+
 	SV_ShutdownGame(); // exit from current game
 }
 
@@ -79,6 +82,9 @@ void COM_LoadLevel( char const *pMapName, qboolean background )
 	GameState->loadGame = false;
 	GameState->newGame = false;
 
+	if( !SV_Active( ))
+		CL_Disconnect( ); // disconnect from current online game
+
 	SV_ShutdownGame(); // exit from current game
 }
 
@@ -95,6 +101,9 @@ void COM_LoadGame( char const *pMapName )
 	GameState->backgroundMap = false;
 	GameState->newGame = false;
 	GameState->loadGame = true;
+
+	if( !SV_Active( ))
+		CL_Disconnect( ); // disconnect from current online game
 }
 
 void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean background )
