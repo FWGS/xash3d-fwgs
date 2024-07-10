@@ -426,12 +426,8 @@ SCR_BeginLoadingPlaque
 */
 void SCR_BeginLoadingPlaque( qboolean is_background )
 {
-	float	oldclear = 0;;
 	S_StopAllSounds( true );
 	cl.audio_prepped = false;			// don't play ambients
-	cl.video_prepped = false;
-
-	oldclear = gl_clear.value;
 
 	if( cls.key_dest == key_menu && !cls.changedemo && !is_background )
 	{
@@ -446,13 +442,14 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 	if( cls.key_dest == key_console )
 		return;
 
-	gl_clear.value = 0.0f;
 	if( is_background ) IN_MouseSavePos( );
 	cls.draw_changelevel = !is_background;
 	SCR_UpdateScreen();
+
+	// set video_prepped after update screen, so engine can draw last remaining frame
+	cl.video_prepped = false;
 	cls.disable_screen = host.realtime;
 	cl.background = is_background;		// set right state before svc_serverdata is came
-	gl_clear.value = oldclear;
 
 //	SNDDMA_LockSound();
 }
