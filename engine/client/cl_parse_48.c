@@ -368,7 +368,9 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			{
 				int maxclients = cl.maxclients;
 
-				cls.changelevel = true;
+				// we can only changelevel in singleplayer
+				// and singleplayer always runs in current protocol
+				// cls.changelevel = true;
 				S_StopAllSounds( true );
 
 				Con_Printf( "Server changing, reconnecting\n" );
