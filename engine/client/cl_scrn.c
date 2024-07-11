@@ -408,7 +408,7 @@ void SCR_MakeScreenShot( void )
 SCR_DrawPlaque
 ================
 */
-static void SCR_DrawPlaque( void )
+static qboolean SCR_DrawPlaque( void )
 {
 	if(( cl_allow_levelshots.value && !cls.changelevel ) || cl.background )
 	{
@@ -416,7 +416,11 @@ static void SCR_DrawPlaque( void )
 		ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 		ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1, levelshot );
 		if( !cl.background ) CL_DrawHUD( CL_LOADING );
+
+		return true;
 	}
+
+	return false;
 }
 
 /*
@@ -500,7 +504,7 @@ void SCR_TileClear( void )
 	int	i, top, bottom, left, right;
 	dirty_t	clear;
 
-	if( scr_viewsize.value >= 120 )
+	if( likely( scr_viewsize.value >= 120 ))
 		return; // full screen rendering
 
 	// erase rect will be the union of the past three frames
@@ -578,6 +582,8 @@ text to the screen.
 */
 void SCR_UpdateScreen( void )
 {
+	qboolean screen_redraw = true; // assume screen has been redrawn
+
 	if( !V_PreRender( )) return;
 
 	switch( cls.state )
@@ -588,7 +594,7 @@ void SCR_UpdateScreen( void )
 	case ca_connecting:
 	case ca_connected:
 	case ca_validate:
-		SCR_DrawPlaque();
+		screen_redraw = SCR_DrawPlaque();
 		break;
 	case ca_active:
 		Con_RunConsole ();
@@ -602,7 +608,11 @@ void SCR_UpdateScreen( void )
 		break;
 	}
 
-	V_PostRender();
+	// during changelevel we might have a few frames when we have nothing to draw
+	// (assuming levelshots are off) and drawing 2d on top of nothing or cleared screen
+	// is ugly, specifically with Adreno and ImgTec GPUs
+	if( screen_redraw || !cls.changelevel || !cls.changedemo )
+		V_PostRender();
 }
 
 /*
