@@ -19,7 +19,22 @@
    - [List of XashXT-based mods](#list-of-xashxt-based-mods)
    - [List of maps for They Hunger](#list-of-maps-for-they-hunger)
    - [List of games and mods with custom gamedll](#list-of-games-and-mods-with-custom-gamedll)
-   - [List of mods for Counter Strike(Android only)](#list-of-mods-for-counter-strike)
+   - [List of mods for Counter Strike](#list-of-mods-for-counter-strike)
+   - [List of supported mods from mobile_hacks branch of HLSDK Portable by FWGS](#list-of-supported-mods-from-mobile_hacks-branch-of-hlsdk-portable-by-fwgs)
+
+# List of supported mods from mobile_hacks branch of HLSDK Portable by FWGS
+1. [Afraid of Monsters](https://www.moddb.com/mods/afraid-of-monsters/downloads/afraid-of-monsters-v1)
+2. [Big Lolly](https://www.moddb.com/mods/big-lolly)
+3. [Half-Life: Blue Shift](https://store.steampowered.com/app/130/HalfLife_Blue_Shift/)
+4. [Half-Secret](https://www.moddb.com/mods/half-secret)
+5. [Case Closed](https://www.moddb.com/mods/caseclosed)
+6. [Bloody Pizza - Vendetta](https://www.moddb.com/games/half-life/addons/bloody-pizza-vendetta)
+7. [Borderlands](https://www.moddb.com/games/half-life/addons/borderlands-v04)
+8. [Half-Life: Induction](https://www.moddb.com/mods/half-life-induction/downloads/half-life-induction-12)
+9. [Redemption/Absolute Redemption](https://www.moddb.com/mods/absolute-redemption)
+10. [Sewer beta](https://www.moddb.com/games/half-life/addons/sewer-beta)
+11. [Times of Troubles](https://www.moddb.com/mods/times-of-troubles)
+12. [Half-Life: Urbicide](https://www.moddb.com/mods/half-life-urbicide)
 
 # List of Half-Life-based mods
 Originally this list was written by *Qwertyus*(*Qortez*)
