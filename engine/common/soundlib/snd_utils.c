@@ -133,346 +133,275 @@ uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
 	return msecs;
 }
 
-static qboolean Sound_ConvertNoResample( wavdata_t *sc, int inwidth, int outwidth, int outcount )
+#define SOUND_FORMATCONVERT_BOILERPLATE( resamplemacro ) \
+	if( inwidth == 1 ) \
+	{ \
+		const int8_t *data = (const int8_t *)sc->buffer; \
+		if( outwidth == 1 ) \
+		{ \
+			int8_t *outdata = (int8_t *)sound.tempbuffer; \
+			resamplemacro( 1 ) \
+		} \
+		else if( outwidth == 2 ) \
+		{ \
+			int16_t *outdata = (int16_t *)sound.tempbuffer; \
+			resamplemacro( 256 ) \
+		} \
+		else \
+			return false; \
+	} \
+	else if( inwidth == 2 ) \
+	{ \
+		const int16_t *data = (const int16_t *)sc->buffer; \
+		if( outwidth == 1 ) \
+		{ \
+			int8_t *outdata = (int8_t *)sound.tempbuffer; \
+			resamplemacro( 1 / 256.0 ) \
+		} \
+		else if( outwidth == 2 ) \
+		{ \
+			int16_t *outdata = (int16_t *)sound.tempbuffer; \
+			resamplemacro( 1 ) \
+		} \
+		else \
+			return false; \
+	} \
+	else \
+		return false; \
+
+
+#define SOUND_CONVERTNORESAMPLE_BOILERPLATE( multiplier ) \
+	if( inchannels == 1 ) \
+	{ \
+		if( outchannels == 1 ) \
+		{ \
+			for( i = 0; i < outcount * outchannels; i++ ) \
+				outdata[i] = data[i] * ( multiplier ); \
+		} \
+		else if( outchannels == 2 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				outdata[i * 2 + 0] = data[i] * ( multiplier ); \
+				outdata[i * 2 + 1] = data[i] * ( multiplier ); \
+			} \
+		} \
+		else \
+			return false; \
+	} \
+	else if( inchannels == 2 ) \
+	{ \
+		if( outchannels == 1 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+				outdata[i] = ( data[i * 2 + 0] + data[i * 2 + 1] ) * ( multiplier ) / 2; \
+		} \
+		else if( outchannels == 2 ) \
+		{ \
+			for( i = 0; i < outcount * outchannels; i++ ) \
+				outdata[i] = data[i] * ( multiplier ); \
+		} \
+		else \
+			return false; \
+	} \
+	else \
+		return false; \
+
+#define SOUND_CONVERTDOWNSAMPLE_BOILERPLATE( multiplier ) \
+	if( inchannels == 1 ) \
+	{ \
+		if( outchannels == 1 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i; \
+				outdata[i] = data[(int)j] * ( multiplier ); \
+			} \
+		} \
+		else if( outchannels == 2 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i;\
+				outdata[i * 2 + 0] = data[(int)j] * ( multiplier ); \
+				outdata[i * 2 + 1] = data[(int)j] * ( multiplier ); \
+			} \
+		} \
+		else \
+			return false; \
+	} \
+	else if( inchannels == 2 ) \
+	{ \
+		if( outchannels == 1 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i; \
+				outdata[i] = ( data[((int)j) * 2 + 0] + data[((int)j) * 2 + 1] ) * ( multiplier ) / 2; \
+			} \
+		} \
+		else if( outchannels == 2 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i; \
+				outdata[i * 2 + 0] = data[((int)j) * 2 + 0] * ( multiplier ); \
+				outdata[i * 2 + 1] = data[((int)j) * 2 + 1] * ( multiplier ); \
+			} \
+		} \
+		else \
+			return false; \
+	} \
+	else \
+		return false; \
+
+
+#define SOUND_CONVERTUPSAMPLE_BOILERPLATE( multiplier ) \
+	if( inchannels == 1 ) \
+	{ \
+		if( outchannels == 1 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i; \
+				outdata[i] = data[(int)j] * ( multiplier ); \
+				if( j != (int)j && j < incount ) \
+				{ \
+					double frac = ( j - (int)j ) * ( multiplier ); \
+					outdata[i] += (data[(int)j+1] - data[(int)j]) * frac; \
+				} \
+			} \
+		} \
+		else if( outchannels == 2 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i; \
+				outdata[i * 2 + 0] = data[(int)j] * ( multiplier ); \
+				if( j != (int)j && j < incount ) \
+				{ \
+					double frac = ( j - (int)j ) * ( multiplier ); \
+					outdata[i * 2 + 0] += (data[(int)j+1] - data[(int)j]) * frac; \
+				} \
+				outdata[i * 2 + 1] = outdata[i * 2 + 0]; \
+			} \
+		} \
+		else \
+			return false; \
+	} \
+	else if( inchannels == 2 ) \
+	{ \
+		if( outchannels == 1 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i; \
+				outdata[i] = ( data[((int)j) * 2 + 0] + data[((int)j) * 2 + 1] ) * ( multiplier ) / 2; \
+				if( j != (int)j && j < incount ) \
+				{ \
+					double frac = ( j - (int)j ) * ( multiplier ) / 2; \
+					outdata[i] += (data[((int)j + 1 ) * 2 + 0] - data[((int)j) * 2 + 0]) * frac; \
+					outdata[i] += (data[((int)j + 1 ) * 2 + 1] - data[((int)j) * 2 + 1]) * frac; \
+				} \
+			} \
+		} \
+		else if( outchannels == 2 ) \
+		{ \
+			for( i = 0; i < outcount; i++ ) \
+			{ \
+				double j = stepscale * i; \
+				outdata[i*2+0] = data[((int)j)*2+0] * ( multiplier ); \
+				outdata[i*2+1] = data[((int)j)*2+1] * ( multiplier ); \
+				if( j != (int)j && j < incount ) \
+				{ \
+					double frac = ( j - (int)j ) * ( multiplier ); \
+					outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac; \
+					outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac; \
+				} \
+			} \
+		} \
+		else \
+			return false; \
+	} \
+	else \
+		return false; \
+
+static qboolean Sound_ConvertNoResample( wavdata_t *sc, int inwidth, int inchannels, int outwidth, int outchannels, int outcount )
 {
 	size_t i;
 
-	if( inwidth == 1 && outwidth == 2 ) // S8 to S16
-	{
-		for( i = 0; i < outcount * sc->channels; i++ )
-			((int16_t*)sound.tempbuffer)[i] = ((int8_t *)sc->buffer)[i] * 256;
-		return true;
-	}
+	// I could write a generic case here but I also want to make it easier for compiler
+	// to unroll these for-loops
 
-	if( inwidth == 2 && outwidth == 1 ) // S16 to S8
-	{
-		for( i = 0; i < outcount * sc->channels; i++ )
-			((int8_t*)sound.tempbuffer)[i] = ((int16_t *)sc->buffer)[i] / 256;
-		return true;
-	}
+	SOUND_FORMATCONVERT_BOILERPLATE( SOUND_CONVERTNORESAMPLE_BOILERPLATE )
 
-	return false;
+	return true;
 }
 
-static qboolean Sound_ConvertDownsample( wavdata_t *sc, int inwidth, int outwidth, int outcount, double stepscale )
+static qboolean Sound_ConvertDownsample( wavdata_t *sc, int inwidth, int inchannels, int outwidth, int outchannels, int outcount, double stepscale )
 {
 	size_t i;
-	double j;
 
-	if( inwidth == 1 && outwidth == 1 )
-	{
-		int8_t *data = (int8_t *)sc->buffer;
+	SOUND_FORMATCONVERT_BOILERPLATE( SOUND_CONVERTDOWNSAMPLE_BOILERPLATE )
 
-		if( outwidth == 1 )
-		{
-			int8_t *outdata = (int8_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0];
-					outdata[i*2+1] = data[((int)j)*2+1];
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j];
-				}
-			}
-
-			return true;
-		}
-
-		if( outwidth == 2 )
-		{
-			int16_t *outdata = (int16_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0] * 256;
-					outdata[i*2+1] = data[((int)j)*2+1] * 256;
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j] * 256;
-				}
-			}
-
-			return true;
-		}
-	}
-
-	if( inwidth == 2 )
-	{
-		int16_t *data = (int16_t *)sc->buffer;
-
-		if( outwidth == 1 )
-		{
-			int8_t *outdata = (int8_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0] / 256;
-					outdata[i*2+1] = data[((int)j)*2+1] / 256;
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j] / 256;
-				}
-			}
-
-			return true;
-		}
-
-		if( outwidth == 2 )
-		{
-			int16_t *outdata = (int16_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0];
-					outdata[i*2+1] = data[((int)j)*2+1];
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j];
-				}
-			}
-
-			return true;
-		}
-	}
-
-	return false;
+	return true;
 }
 
-static qboolean Sound_ConvertUpsample( wavdata_t *sc, int inwidth, int outwidth, int outcount, int incount, double stepscale )
+static qboolean Sound_ConvertUpsample( wavdata_t *sc, int inwidth, int inchannels, int incount, int outwidth, int outchannels, int outcount, double stepscale )
 {
 	size_t i;
-	double j;
-	double frac;
 
 	incount--; // to not go past last sample while interpolating
 
-	if( inwidth == 1 )
-	{
-		int8_t *data = (int8_t *)sc->buffer;
+	SOUND_FORMATCONVERT_BOILERPLATE( SOUND_CONVERTUPSAMPLE_BOILERPLATE )
 
-		if( outwidth == 1 )
-		{
-			int8_t *outdata = (int8_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0];
-					outdata[i*2+1] = data[((int)j)*2+1];
-					if( j != (int)j && j < incount )
-					{
-						frac = j - (int)j;
-						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
-						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
-					}
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j];
-					if( j != (int)j && j < incount )
-					{
-						frac = j - (int)j;
-						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
-					}
-				}
-			}
-
-			return true;
-		}
-
-		if( outwidth == 2 )
-		{
-			int16_t *outdata = (int16_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0] * 256;
-					outdata[i*2+1] = data[((int)j)*2+1] * 256;
-					if( j != (int)j && j < incount )
-					{
-						frac = ( j - (int)j ) * 256;
-						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
-						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
-					}
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j] * 256;
-					if( j != (int)j && j < incount )
-					{
-						frac = ( j - (int)j ) * 256;
-						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
-					}
-				}
-			}
-
-			return true;
-		}
-	}
-
-	if( inwidth == 2 )
-	{
-		int16_t *data = (int16_t *)sc->buffer;
-
-		if( outwidth == 1 )
-		{
-			int8_t *outdata = (int8_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0] / 256;
-					outdata[i*2+1] = data[((int)j)*2+1] / 256;
-					if( j != (int)j && j < incount )
-					{
-						frac = ( j - (int)j ) / 256;
-						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
-						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
-					}
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j] / 256;
-					if( j != (int)j && j < incount )
-					{
-						frac = ( j - (int)j ) / 256;
-						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
-					}
-				}
-			}
-
-			return true;
-		}
-
-		if( outwidth == 2 )
-		{
-			int16_t *outdata = (int16_t *)sound.tempbuffer;
-
-			if( sc->channels == 2 )
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i*2+0] = data[((int)j)*2+0];
-					outdata[i*2+1] = data[((int)j)*2+1];
-					if( j != (int)j && j < incount )
-					{
-						frac = j - (int)j;
-						outdata[i*2+0] += (data[((int)j+1)*2+0] - data[((int)j)*2+0]) * frac;
-						outdata[i*2+1] += (data[((int)j+1)*2+1] - data[((int)j)*2+1]) * frac;
-					}
-				}
-			}
-			else
-			{
-				for( i = 0; i < outcount; i++ )
-				{
-					j = stepscale * i;
-					outdata[i] = data[(int)j];
-					if( j != (int)j && j < incount )
-					{
-						frac = j - (int)j;
-						outdata[i] += (data[(int)j+1] - data[(int)j]) * frac;
-					}
-				}
-			}
-
-			return true;
-		}
-	}
-
-	return false;
+	return true;
 }
+
+#undef SOUND_FORMATCONVERT_BOILERPLATE
+#undef SOUND_CONVERTNORESAMPLE_BOILERPLATE
+#undef SOUND_CONVERTDOWNSAMPLE_BOILERPLATE
+#undef SOUND_CONVERTUPSAMPLE_BOILERPLATE
 
 /*
 ================
 Sound_ResampleInternal
 
-We need convert sound to signed even if nothing to resample
 ================
 */
-static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, int outrate, int outwidth )
+static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth, int outchannels )
 {
-	const size_t oldsize = sc->size;
+	const int inrate = sc->rate;
+	const int inwidth = sc->width;
+	const int inchannels = sc->channels;
+	const int incount = sc->samples;
 	qboolean handled = false;
 	double stepscale;
 	double t1, t2;
-	int	outcount, incount = sc->samples;
+	int	outcount;
 
-	if( inrate == outrate && inwidth == outwidth )
+	if( inrate == outrate && inwidth == outwidth && inchannels == outchannels )
 		return false;
 
 	t1 = Sys_DoubleTime();
 
 	stepscale = (double)inrate / outrate;	// this is usually 0.5, 1, or 2
 	outcount = sc->samples / stepscale;
-	sc->size = outcount * outwidth * sc->channels;
+	sc->size = outcount * outwidth * outchannels;
+	sc->channels = outchannels;
 
 	sc->samples = outcount;
 	if( FBitSet( sc->flags, SOUND_LOOPED ))
 		sc->loopStart = sc->loopStart / stepscale;
 
-#if 0 && XASH_SDL // slow but somewhat accurate
+#if 0 && XASH_SDL // slow but somewhat accurate (wasn't updated to channel manipulation!!!)
 	{
 		const SDL_AudioFormat infmt  = inwidth  == 1 ? AUDIO_S8 : AUDIO_S16;
 		const SDL_AudioFormat outfmt = outwidth == 1 ? AUDIO_S8 : AUDIO_S16;
 		SDL_AudioCVT cvt;
 
 		// SDL_AudioCVT does conversion in place, original buffer is used for it
-		if( SDL_BuildAudioCVT( &cvt, infmt, sc->channels, inrate, outfmt, sc->channels, outrate ) > 0 && cvt.needed )
+		if( SDL_BuildAudioCVT( &cvt, infmt, inchannels, inrate, outfmt, outchannels, outrate ) > 0 && cvt.needed )
 		{
 			sc->buffer = (byte *)Mem_Realloc( host.soundpool, sc->buffer, oldsize * cvt.len_mult );
 			cvt.len = oldsize;
@@ -493,23 +422,23 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, 
 	sound.tempbuffer = (byte *)Mem_Realloc( host.soundpool, sound.tempbuffer, sc->size );
 
 	if( inrate == outrate ) // no resampling, just copy data
-		handled = Sound_ConvertNoResample( sc, inwidth, outwidth, outcount );
+		handled = Sound_ConvertNoResample( sc, inwidth, inchannels, outwidth, outchannels, outcount );
 	else if( inrate > outrate ) // fast case, usually downsample but is also ok for upsampling
-		handled = Sound_ConvertDownsample( sc, inwidth, outwidth, outcount, stepscale );
+		handled = Sound_ConvertDownsample( sc, inwidth, inchannels, outwidth, outchannels, outcount, stepscale );
 	else // upsample case, w/ interpolation
-		handled = Sound_ConvertUpsample( sc, inwidth, outwidth, outcount, incount, stepscale );
+		handled = Sound_ConvertUpsample( sc, inwidth, inchannels, incount, outwidth, outchannels, outcount, stepscale );
 
 	t2 = Sys_DoubleTime();
 
 	if( handled )
 	{
 		if( t2 - t1 > 0.01f ) // critical, report to mod developer
-			Con_Printf( S_WARN "%s: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", __func__, inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
+			Con_Printf( S_WARN "%s: from [%d bit %d Hz %dch] to [%d bit %d Hz %dch] (took %.3fs)\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels, t2 - t1 );
 		else
-			Con_Reportf( "%s: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs)\n", __func__, inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
+			Con_Reportf( "%s: from [%d bit %d Hz %dch] to [%d bit %d Hz %dch] (took %.3fs)\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels, t2 - t1 );
 	}
 	else
-		Con_Printf( S_ERROR "%s: unsupported from [%d bit %d Hz] to [%d bit %d Hz]\n", __func__, inwidth * 8, inrate, outwidth * 8, outrate );
+		Con_Printf( S_ERROR "%s: unsupported from [%d bit %d Hz %dch] to [%d bit %d Hz %dch]\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels );
 
 	sc->rate = outrate;
 	sc->width = outwidth;
@@ -517,23 +446,23 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int inrate, int inwidth, 
 	return handled;
 }
 
-qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags )
+qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint flags )
 {
 	wavdata_t	*snd = *wav;
 	qboolean	result = true;
 
 	// check for buffers
-	if( !snd || !snd->buffer )
+	if( unlikely( !snd || !snd->buffer ))
 		return false;
 
-	if( FBitSet( flags, SOUND_RESAMPLE ) && ( width > 0 || rate > 0 ))
+	if( likely( FBitSet( flags, SOUND_RESAMPLE ) && ( width > 0 || rate > 0	|| channels > 0 )))
 	{
-		result = Sound_ResampleInternal( snd, snd->rate, snd->width, rate, width );
+		result = Sound_ResampleInternal( snd, rate, width, channels );
 
 		if( result )
 		{
 			Mem_Free( snd->buffer );		// free original image buffer
-			snd->buffer = Sound_Copy( snd->size );	// unzone buffer (don't touch sound.tempbuffer)
+			snd->buffer = Sound_Copy( snd->size );	// unzone buffer
 		}
 	}
 
