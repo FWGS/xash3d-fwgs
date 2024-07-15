@@ -492,7 +492,7 @@ int FS_ReadStream( stream_t *stream, int bytes, void *buffer );
 int FS_SetStreamPos( stream_t *stream, int newpos );
 int FS_GetStreamPos( stream_t *stream );
 void FS_FreeStream( stream_t *stream );
-qboolean Sound_Process( wavdata_t **wav, int rate, int width, uint flags );
+qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint flags );
 uint Sound_GetApproxWavePlayLen( const char *filepath );
 qboolean Sound_SupportedFileFormat( const char *fileext );
 
