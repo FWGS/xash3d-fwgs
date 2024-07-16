@@ -285,7 +285,7 @@ static qboolean R_Init_Video_( const int type )
 	return R_Init_Video( type );
 }
 
-static ref_api_t gEngfuncs =
+static const ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
 
