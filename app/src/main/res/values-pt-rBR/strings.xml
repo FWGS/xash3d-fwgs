@@ -1,5 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+<string name="app_name" translatable="false">Xash3D FWGS</string>
+    <string name="authority" translatable="false">su.xash.engine.documents</string>
     <string name="ok">Ok</string>
     <string name="cancel">Cancelar</string>
+    <string name="next">Próximo</string>
+    <string name="browse">Navegar</string>
+    <string name="install">Instalar</string>
+    <string name="library">Biblioteca</string>
+    <string name="steam_guard_code">Código do Steam Guard</string>
+    <string name="steam_login">Logar com Steam</string>
+    <string name="login">Logar</string>
+    <string name="username">Usuário</string>
+    <string name="password">Senha</string>
+    <string name="steam" translatable="false">Steam</string>
+    <string name="uninstall">Desinstalar</string>
+    <string name="dedicated_server">Dedicado</string>
+    <string name="error">Erro!</string>
+    <string name="setup">Configurar</string>
+    <string name="app_settings">Configurações</string>
+    <string name="game_settings">Configurações do jogo</string>
+    <string name="game_settings_command_line">Argumentos de linha de comando</string>
+    <string name="game_settings_volume_buttons">Usar botões de volume no jogo</string>
+    <string name="setup_welcome_title">Bem vindo ao Xash3D FWGS!</string>
+    <string name="setup_welcome_message">Agora, nós vamos guiá-lo durante o processo de instalação.</string>
+    <string name="setup_location_title">Games</string>
+    <string name="setup_location_message">Selecione a pasta onde seus jogos estão localizados.</string>
+    <string name="setup_location_empty">A pasta selecionada não contem nenhum jogo.</string>
+    <string name="setup_location_invalid">A pasta selecionada é invalida.</string>
+    <string name="preferences_package_name">Bibliotecas de pacotes</string>
+    <string name="preferences_separate_libraries">Bibliotecas de pacotes separados</string>
+    <string name="preferences_client_package">Pacotes de Cliente</string>
+    <string name="preferences_server_package">Pacotes de Servidor</string>
+    <string name="preferences_use_icons">Usar icones ao inves de imagens de fundo</string>
 </resources>
