@@ -174,8 +174,8 @@ byte *Image_Copy( size_t size )
 {
 	byte	*out;
 
-	out = Mem_Malloc( host.imagepool, size );
-	memcpy( out, image.tempbuffer, size );
+	out = Mem_Realloc( host.imagepool, image.tempbuffer, size );
+	image.tempbuffer = NULL;
 
 	return out;
 }
@@ -1374,20 +1374,20 @@ static qboolean Image_RemapInternal( rgbdata_t *pic, int topColor, int bottomCol
 	return true;
 }
 
-qboolean Image_Process(rgbdata_t **pix, int width, int height, uint flags, float reserved )
+qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float reserved )
 {
 	rgbdata_t	*pic = *pix;
 	qboolean	result = true;
 	byte	*out;
 
 	// check for buffers
-	if( !pic || !pic->buffer )
+	if( unlikely( !pic || !pic->buffer ))
 	{
 		image.force_flags = 0;
 		return false;
 	}
 
-	if( !flags )
+	if( unlikely( !flags ))
 	{
 		// clear any force flags
 		image.force_flags = 0;
@@ -1432,7 +1432,7 @@ qboolean Image_Process(rgbdata_t **pix, int width, int height, uint flags, float
 			pic->width = w, pic->height = h;
 			pic->size = w * h * PFDesc[pic->type].bpp;
 			Mem_Free( pic->buffer );		// free original image buffer
-			pic->buffer = Image_Copy( pic->size );	// unzone buffer (don't touch image.tempbuffer)
+			pic->buffer = Image_Copy( pic->size );	// unzone buffer
 		}
 		else
 		{
