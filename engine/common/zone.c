@@ -241,6 +241,21 @@ void _Mem_Free( void *data, const char *filename, int fileline )
 	Mem_FreeBlock((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
 }
 
+static void Mem_MigratePool( poolhandle_t newpoolptr, memheader_t *mem, const char *filename, int fileline )
+{
+	mempool_t *oldpool = Mem_FindPool( mem->poolptr );
+	mempool_t *newpool = Mem_FindPool( newpoolptr );
+
+	// dettach allocation from one pool and reattach it to new pool
+	// might be made into public function at some point
+
+	Mem_PoolUnlinkAlloc( oldpool, mem );
+	Mem_PoolSubtract( oldpool, mem->size );
+
+	Mem_PoolLinkAlloc( newpool, mem );
+	Mem_PoolAdd( newpool, mem->size );
+}
+
 void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	memheader_t *mem;
@@ -262,15 +277,12 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 
 	mem = (memheader_t *)((byte *)data - sizeof( memheader_t ));
 
-	if( !Mem_CheckAllocHeader( "Mem_Realloc", mem, filename, fileline ))
+	if( !Mem_CheckAllocHeader( __func__, mem, filename, fileline ))
 		return NULL;
 
-	if( unlikely( mem->poolptr != poolptr ))
-	{
-		Sys_Error( "%s: pool migration is not allowed (alloc at %s:%i, realloc at %s:%i)\n",
-			__func__, Mem_CheckFilename( mem->filename ), mem->fileline, filename, fileline );
-		return NULL;
-	}
+	// migrate pool if requested, even if no reallocation needed
+	if( mem->poolptr != poolptr )
+		Mem_MigratePool( poolptr, mem, filename, fileline );
 
 	oldsize = mem->size;
 	if( size == oldsize )
@@ -439,7 +451,7 @@ void _Mem_Check( const char *filename, int fileline )
 
 	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
 		for( mem = pool->chain; mem; mem = mem->next )
-			Mem_CheckAllocHeader( "Mem_CheckSentinels", mem, filename, fileline );
+			Mem_CheckAllocHeader( __func__, mem, filename, fileline );
 }
 
 void Mem_PrintStats( void )
