@@ -2082,7 +2082,7 @@ static const byte *GAME_EXPORT GL_TextureData( unsigned int texnum )
 #endif // XASH_DEDICATED
 }
 
-static server_physics_api_t gPhysicsAPI =
+static const server_physics_api_t gPhysicsAPI =
 {
 	SV_LinkEdict,
 	SV_GetServerTime,
