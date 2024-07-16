@@ -1114,7 +1114,7 @@ static void GAME_EXPORT pfnSetCursor( void *hCursor )
 }
 
 // engine callbacks
-static ui_enginefuncs_t gEngfuncs =
+static const ui_enginefuncs_t gEngfuncs =
 {
 	pfnPIC_Load,
 	GL_FreeImage,
