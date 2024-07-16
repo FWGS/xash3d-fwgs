@@ -3796,7 +3796,7 @@ static IVoiceTweak gVoiceApi =
 };
 
 // engine callbacks
-static cl_enginefunc_t gEngfuncs =
+static const cl_enginefunc_t gEngfuncs =
 {
 	pfnSPR_Load,
 	pfnSPR_Frames,
