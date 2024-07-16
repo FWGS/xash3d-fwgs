@@ -59,7 +59,7 @@ static void FS_Path_f_( void )
 	FS_Path_f();
 }
 
-static fs_interface_t fs_memfuncs =
+static const fs_interface_t fs_memfuncs =
 {
 	Con_Printf,
 	Con_DPrintf,
