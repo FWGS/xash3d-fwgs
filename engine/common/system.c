@@ -72,15 +72,28 @@ Sys_DebugBreak
 */
 void Sys_DebugBreak( void )
 {
+#if XASH_SDL
+	int was_grabbed = host.hWnd != NULL && SDL_GetWindowGrab( host.hWnd );
+#endif
+
+	if( !Sys_DebuggerPresent( ))
+		return;
+
+#if XASH_SDL
+	if( was_grabbed ) // so annoying...
+		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#endif // XASH_SDL
+
 #if _MSC_VER
-	if( Sys_DebuggerPresent( ))
-		__debugbreak();
+	__debugbreak();
 #else // !_MSC_VER
-	if( Sys_DebuggerPresent( ))
-	{
-		INLINE_RAISE( SIGINT );
-		INLINE_NANOSLEEP1(); // sometimes signal comes with delay, let it interrupt nanosleep
-	}
+	INLINE_RAISE( SIGINT );
+	INLINE_NANOSLEEP1(); // sometimes signal comes with delay, let it interrupt nanosleep
+#endif // !_MSC_VER
+
+#if XASH_SDL
+	if( was_grabbed )
+		SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
 #endif
 }
 
