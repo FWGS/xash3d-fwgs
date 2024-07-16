@@ -441,7 +441,7 @@ static void VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int
 	;
 }
 
-static ref_interface_t gReffuncs =
+static const ref_interface_t gReffuncs =
 {
 	.R_Init                = R_Init,
 	.R_Shutdown            = R_SimpleStub,
