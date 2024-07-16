@@ -2951,7 +2951,7 @@ fs_interface_t g_engfuncs =
 	Sys_GetNativeObject_stub
 };
 
-static qboolean FS_InitInterface( int version, fs_interface_t *engfuncs )
+static qboolean FS_InitInterface( int version, const fs_interface_t *engfuncs )
 {
 	// to be extended in future interface revisions
 	if( version != FS_API_VERSION )
