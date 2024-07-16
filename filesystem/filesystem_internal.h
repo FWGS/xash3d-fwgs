@@ -123,7 +123,7 @@ extern fs_interface_t g_engfuncs;
 extern qboolean      fs_ext_path;
 extern char          fs_rodir[MAX_SYSPATH];
 extern char          fs_rootdir[MAX_SYSPATH];
-extern fs_api_t      g_api;
+extern const fs_api_t     g_api;
 extern const fs_archive_t g_archives[];
 
 #define GI FI.GameInfo
