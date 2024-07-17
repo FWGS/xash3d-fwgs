@@ -293,6 +293,7 @@ def configure(conf):
 			'-Werror=bool-operation',
 			'-Werror=cast-align=strict',
 			'-Werror=duplicated-cond',
+			'-Werror=format-extra-args',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
 			'-Werror=nonnull',
