@@ -199,20 +199,20 @@ static void Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 {
 	static const char *q3ToAnsi[ 8 ] =
 	{
-		"\033[30m", // COLOR_BLACK
-		"\033[31m", // COLOR_RED
-		"\033[32m", // COLOR_GREEN
-		"\033[33m", // COLOR_YELLOW
-		"\033[34m", // COLOR_BLUE
-		"\033[36m", // COLOR_CYAN
-		"\033[35m", // COLOR_MAGENTA
+		"\033[1;30m", // COLOR_BLACK
+		"\033[1;31m", // COLOR_RED
+		"\033[1;32m", // COLOR_GREEN
+		"\033[1;33m", // COLOR_YELLOW
+		"\033[1;34m", // COLOR_BLUE
+		"\033[1;36m", // COLOR_CYAN
+		"\033[1;35m", // COLOR_MAGENTA
 		"\033[0m", // COLOR_WHITE
 	};
 	const char *esc = q3ToAnsi[c];
 
 	if( c == 7 )
 		write( fd, esc, 4 );
-	else write( fd, esc, 5 );
+	else write( fd, esc, 7 );
 }
 #else
 static void Sys_WriteEscapeSequenceForColorcode( int fd, int c ) {}
