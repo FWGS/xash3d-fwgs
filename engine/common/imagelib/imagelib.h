@@ -108,12 +108,13 @@ typedef struct imglib_s
 
 enum
 {
-	LUMP_NORMAL = 0,		// no alpha
-	LUMP_MASKED,		// 1-bit alpha channel masked texture
-	LUMP_GRADIENT,		// gradient image (decals)
-	LUMP_EXTENDED,		// bmp images have extened palette with alpha-channel
-	LUMP_HALFLIFE,		// get predefined half-life palette
-	LUMP_QUAKE1		// get predefined quake palette
+	LUMP_NORMAL = 0, // no alpha
+	LUMP_MASKED,     // 1-bit alpha channel masked texture
+	LUMP_GRADIENT,   // gradient image (decals)
+	LUMP_EXTENDED,   // bmp images have extened palette with alpha-channel
+	LUMP_HALFLIFE,   // get predefined half-life palette
+	LUMP_QUAKE1,     // get predefined quake palette
+	LUMP_TEXGAMMA,   // apply texgamma on top of palette, for half-life mips
 };
 
 enum
