@@ -636,12 +636,24 @@ and all particle trails (if this is a beamfollow)
 */
 void GAME_EXPORT R_BeamKill( int deadEntity )
 {
-	cl_entity_t	*pDeadEntity;
+	BEAM *beam;
 
-	pDeadEntity = R_BeamGetEntity( deadEntity );
-	if( !pDeadEntity ) return;
+	for( beam = cl_active_beams; beam; beam = beam->next )
+	{
+		if( FBitSet( beam->flags, FBEAM_STARTENTITY ) && beam->startEntity == deadEntity )
+		{
+			if( beam->type != TE_BEAMFOLLOW )
+				beam->die = cl.time;
 
-	CL_KillDeadBeams( pDeadEntity );
+			ClearBits( beam->flags, FBEAM_STARTENTITY );
+		}
+
+		if( FBitSet( beam->flags, FBEAM_ENDENTITY ) && beam->endEntity == deadEntity )
+		{
+			beam->die = cl.time;
+			ClearBits( beam->flags, FBEAM_ENDENTITY );
+		}
+	}
 }
 
 /*
