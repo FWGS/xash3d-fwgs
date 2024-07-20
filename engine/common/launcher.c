@@ -23,9 +23,8 @@ GNU General Public License for more details.
 #include "build.h"
 #include "common.h"
 
-#define E_GAME	"XASH3D_GAME" // default env dir to start from
 #ifndef XASH_GAMEDIR
-#define XASH_GAMEDIR	"valve"
+#define XASH_GAMEDIR "valve" // !!! Replace with your default (base) game directory !!!
 #endif
 
 #if XASH_WIN32
@@ -47,12 +46,7 @@ static void Sys_ChangeGame( const char *progname )
 
 static int Sys_Start( void )
 {
-	const char *game = getenv( E_GAME );
-
-	if( !game )
-		game = XASH_GAMEDIR;
-
-	Q_strncpy( szGameDir, game, sizeof( szGameDir ));
+	Q_strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ));
 
 #if XASH_EMSCRIPTEN
 #ifdef EMSCRIPTEN_LIB_FS
@@ -73,7 +67,7 @@ static int Sys_Start( void )
 	IOS_LaunchDialog();
 #endif
 
-	return Host_Main( szArgc, szArgv, game, 0, Sys_ChangeGame );
+	return Host_Main( szArgc, szArgv, szGameDir, 0, Sys_ChangeGame );
 }
 
 int main( int argc, char **argv )

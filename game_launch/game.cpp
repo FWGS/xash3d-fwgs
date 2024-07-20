@@ -44,9 +44,8 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #error // port me!
 #endif
 
-#define E_GAME	"XASH3D_GAME" // default env dir to start from
 #ifndef XASH_GAMEDIR
-#define XASH_GAMEDIR	"valve"
+#define XASH_GAMEDIR "valve" // !!! Replace with your default (base) game directory !!!
 #endif
 
 typedef void (*pfnChangeGame)( const char *progname );
@@ -151,7 +150,6 @@ _inline int Sys_Start( void )
 {
 	int ret;
 	pfnChangeGame changeGame = NULL;
-	const char *game = getenv( E_GAME );
 
 #if XASH_SAILFISH
 	const char *home = getenv( "HOME" );
@@ -166,10 +164,7 @@ _inline int Sys_Start( void )
 #endif // XASH_AURORAOS
 #endif // XASH_SAILFISH
 
-	if( !game )
-		game = XASH_GAMEDIR;
-
-	strncpy( szGameDir, game, sizeof( szGameDir ) - 1 );
+	strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ) - 1 );
 
 	Sys_LoadEngine();
 
