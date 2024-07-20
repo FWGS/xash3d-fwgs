@@ -71,6 +71,11 @@ void Android_Shutdown( void );
 #if XASH_WIN32
 void Wcon_CreateConsole( qboolean con_showalways );
 void Wcon_DestroyConsole( void );
+void Wcon_InitConsoleCommands( void );
+void Wcon_ShowConsole( qboolean show );
+void Wcon_DisableInput( void );
+char *Wcon_Input( void );
+void Wcon_WinPrint( const char *pMsg );
 #endif
 
 #if XASH_NSWITCH
