@@ -1369,9 +1369,9 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 		}
 		else
 		{
-			Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s%s", search->filename, dllInfo->shortPath );
+			Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s", dllInfo->shortPath );
 #if XASH_WIN32 && XASH_X86 // a1ba: custom loader is non-portable (I just don't want to touch it)
-			Con_Printf( S_WARN "%s: loading libraries from archives is deprecated and will be removed in the future\n", __func__ );
+			Con_Printf( S_WARN "%s: loading libraries from archives is non portable and might fail on other platforms\n", __func__ );
 			dllInfo->custom_loader = true;
 #else
 			Con_Printf( S_WARN "%s: loading libraries from archives is unsupported on this platform\n", __func__ );
