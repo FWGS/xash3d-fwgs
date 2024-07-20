@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #include "input.h"
 #include "platform/platform.h"
 
-static mobile_engfuncs_t *gMobileEngfuncs;
-
 static CVAR_DEFINE_AUTO( vibration_length, "1.0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "vibration length" );
 static CVAR_DEFINE_AUTO( vibration_enable, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "enable vibration" );
 
@@ -30,16 +28,8 @@ static float g_font_scale;
 
 static void pfnVibrate( float life, char flags )
 {
-	if( !vibration_enable.value )
+	if( !vibration_enable.value || life < 0.0f )
 		return;
-
-	if( life < 0.0f )
-	{
-		Con_Reportf( S_WARN "Negative vibrate time: %f\n", life );
-		return;
-	}
-
-	//Con_Reportf( "Vibrate: %f %d\n", life, flags );
 
 	// here goes platform-specific backends
 	Platform_Vibrate( life * vibration_length.value, flags );
@@ -53,7 +43,7 @@ static void Vibrate_f( void )
 		return;
 	}
 
-	pfnVibrate( Q_atof( Cmd_Argv(1) ), VIBRATE_NORMAL );
+	pfnVibrate( Q_atof( Cmd_Argv( 1 )), VIBRATE_NORMAL );
 }
 
 static void pfnEnableTextInput( int enable )
@@ -102,7 +92,7 @@ static char *pfnParseFileSafe( char *data, char *buf, const int size, unsigned i
 	return COM_ParseFileSafe( data, buf, size, flags, len, NULL );
 }
 
-static mobile_engfuncs_t gpMobileEngfuncs =
+static const mobile_engfuncs_t gMobileEngfuncs =
 {
 	MOBILITY_API_VERSION,
 	pfnVibrate,
@@ -122,21 +112,32 @@ static mobile_engfuncs_t gpMobileEngfuncs =
 
 qboolean Mobile_Init( void )
 {
-	qboolean success = false;
 	pfnMobilityInterface ExportToClient;
 
-	// find a mobility interface
-	ExportToClient = COM_GetProcAddress( clgame.hInstance, MOBILITY_CLIENT_EXPORT );
-	gMobileEngfuncs = &gpMobileEngfuncs;
-
-	if( ExportToClient && !ExportToClient( gMobileEngfuncs ) )
-		success = true;
-
-	Cmd_AddCommand( "vibrate", (xcommand_t)Vibrate_f, "Vibrate for specified time");
+	Cmd_AddCommand( "vibrate", Vibrate_f, "Vibrate for specified time");
 	Cvar_RegisterVariable( &vibration_length );
 	Cvar_RegisterVariable( &vibration_enable );
 
-	return success;
+	// find mobility interface
+	if(( ExportToClient = COM_GetProcAddress( clgame.hInstance, MOBILITY_CLIENT_EXPORT )))
+	{
+		static mobile_engfuncs_t mobile_engfuncs; // keep a copy, don't let user change engine pointers
+
+		memcpy( &mobile_engfuncs, &gMobileEngfuncs, sizeof( mobile_engfuncs ));
+
+		if( !ExportToClient( &mobile_engfuncs ))
+		{
+			Con_Reportf( "%s: ^2initailized extended MobilityAPI ^7ver. %i\n", __func__, MOBILITY_API_VERSION );
+			return true;
+		}
+
+		// make sure that mobile functions are cleared
+		memset( &mobile_engfuncs, 0, sizeof( mobile_engfuncs ));
+
+		return false; // just tell user about problems
+	}
+
+	return true; // mobile interface is missed
 }
 
 void Mobile_Shutdown( void )
