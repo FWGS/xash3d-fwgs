@@ -221,7 +221,13 @@ void FS_Init( const char *basedir )
 	COM_StripDirectorySlash( rodir );
 
 	if( !Sys_GetParmFromCmdLine( "-game", gamedir ))
-		Q_strncpy( gamedir, basedir, sizeof( gamedir )); // gamedir == basedir
+	{
+		char *env = getenv( "XASH3D_GAME" );
+		if( env )
+			Q_strncpy( gamedir, env, sizeof( gamedir ));
+		else
+			Q_strncpy( gamedir, basedir, sizeof( gamedir )); // gamedir == basedir
+	}
 
 	FS_LoadProgs();
 
