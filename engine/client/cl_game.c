@@ -1182,7 +1182,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 	if( type == SPR_CLIENT || type == SPR_HUDSPRITE )
 		SetBits( m_pSprite->flags, MODEL_CLIENT );
 
-	m_pSprite->numtexinfo = texFlags; // store texFlags into numtexinfo
+	m_pSprite->numtexinfo = texFlags; // store texFlags for renderer into numtexinfo
 
 	if( !FS_FileExists( szSpriteName, false ) )
 	{
@@ -1209,7 +1209,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		ref.dllFuncs.Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
 	else
 	{
-		Mod_LoadSpriteModel( m_pSprite, buf, &loaded, texFlags );
+		Mod_LoadSpriteModel( m_pSprite, buf, &loaded );
 		ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf );
 	}
 
