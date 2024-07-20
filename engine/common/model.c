@@ -300,7 +300,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		Mod_LoadStudioModel( mod, buf, &loaded );
 		break;
 	case IDSPRITEHEADER:
-		Mod_LoadSpriteModel( mod, buf, &loaded, 0 );
+		Mod_LoadSpriteModel( mod, buf, &loaded );
 		break;
 	case IDALIASHEADER:
 		// REFTODO: move server-related code here
@@ -310,7 +310,6 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	case HLBSP_VERSION:
 	case QBSP2_VERSION:
 		Mod_LoadBrushModel( mod, buf, &loaded );
-		// ref.dllFuncs.Mod_LoadModel( mod_brush, mod, buf, &loaded, 0 );
 		break;
 	default:
 		Mem_Free( buf );

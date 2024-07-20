@@ -194,7 +194,7 @@ void Mod_ClearStudioCache( void );
 //
 // mod_sprite.c
 //
-void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
+void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded );
 #endif
 
 #endif//MOD_LOCAL_H
