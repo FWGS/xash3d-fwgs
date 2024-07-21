@@ -89,7 +89,7 @@ SUBDIRS = [
 
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
-#	Subproject('utils/xar',        lambda x: x.env.ENABLE_UTILS),
+	Subproject('utils/xar',        lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
 	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
 
 	# enabled on PSVita only
@@ -154,6 +154,9 @@ def options(opt):
 
 	grp.add_option('--enable-utils', action = 'store_true', dest = 'ENABLE_UTILS', default = False,
 		help = 'enable building various development utilities [default: %(default)s]')
+
+	grp.add_option('--enable-xar', action = 'store_true', dest = 'ENABLE_XAR', default = False,
+		help = 'enable building Xash ARchiver (experimental) [default: %(default)s]')
 
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
 		help = 'enable building libFuzzer runner [default: %(default)s]' )
