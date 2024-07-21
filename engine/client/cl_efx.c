@@ -1106,9 +1106,7 @@ void GAME_EXPORT R_ParticleExplosion2( const vec3_t org, int colorStart, int col
 	int		colorMod = 0, packedColor;
 	particle_t	*p;
 
-	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-		packedColor = 255; // use old code for blob particles
-	else packedColor = 0;
+	packedColor = Host_IsQuakeCompatible( ) ? 255 : 0; // use old code for blob particles
 
 	for( i = 0; i < 512; i++ )
 	{
@@ -1141,9 +1139,7 @@ void GAME_EXPORT R_BlobExplosion( const vec3_t org )
 	particle_t	*p;
 	int		i, j, packedColor;
 
-	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-		packedColor = 255; // use old code for blob particles
-	else packedColor = 0;
+	packedColor = Host_IsQuakeCompatible( ) ? 255 : 0; // use old code for blob particles
 
 	for( i = 0; i < 1024; i++ )
 	{
