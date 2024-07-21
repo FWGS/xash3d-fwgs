@@ -1520,8 +1520,8 @@ void CL_PlayDemo_f( void )
 		}
 
 		if( neg ) cls.forcetrack = -cls.forcetrack;
-		cls.legacymode = PROTO_QUAKE;
 		CL_DemoStartPlayback( DEMO_QUAKE1 );
+		cls.legacymode = PROTO_QUAKE;
 		return; // quake demo is started
 	}
 
