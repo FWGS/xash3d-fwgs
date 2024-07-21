@@ -186,7 +186,7 @@ hull_t *PM_HullForBsp( physent_t *pe, playermove_t *pmove, float *offset )
 	Assert( hull != NULL );
 
 	// calculate an offset value to center the origin
-	VectorSubtract( hull->clip_mins, pmove->player_mins[pmove->usehull], offset );
+	VectorSubtract( hull->clip_mins, host.player_mins[pmove->usehull], offset );
 	VectorAdd( offset, pe->origin, offset );
 
 	return hull;
@@ -203,7 +203,7 @@ static hull_t *PM_HullForStudio( physent_t *pe, playermove_t *pmove, int *numhit
 {
 	vec3_t	size;
 
-	VectorSubtract( pmove->player_maxs[pmove->usehull], pmove->player_mins[pmove->usehull], size );
+	VectorSubtract( host.player_maxs[pmove->usehull], host.player_mins[pmove->usehull], size );
 	VectorScale( size, 0.5f, size );
 
 	return Mod_HullForStudio( pe->studiomodel, pe->frame, pe->sequence, pe->angles, pe->origin, size, pe->controller, pe->blending, numhitboxes, NULL );
@@ -379,8 +379,8 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 
 		if( pe->solid == SOLID_CUSTOM )
 		{
-			VectorCopy( pmove->player_mins[pmove->usehull], mins );
-			VectorCopy( pmove->player_maxs[pmove->usehull], maxs );
+			VectorCopy( host.player_mins[pmove->usehull], mins );
+			VectorCopy( host.player_maxs[pmove->usehull], maxs );
 			VectorClear( offset );
 		}
 		else if( pe->model )
@@ -401,8 +401,8 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 				}
 				else
 				{
-					VectorSubtract( pe->mins, pmove->player_maxs[pmove->usehull], mins );
-					VectorSubtract( pe->maxs, pmove->player_mins[pmove->usehull], maxs );
+					VectorSubtract( pe->mins, host.player_maxs[pmove->usehull], mins );
+					VectorSubtract( pe->maxs, host.player_mins[pmove->usehull], maxs );
 
 					hull = PM_HullForBox( mins, maxs );
 					VectorCopy( pe->origin, offset );
@@ -410,8 +410,8 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 			}
 			else
 			{
-				VectorSubtract( pe->mins, pmove->player_maxs[pmove->usehull], mins );
-				VectorSubtract( pe->maxs, pmove->player_mins[pmove->usehull], maxs );
+				VectorSubtract( pe->mins, host.player_maxs[pmove->usehull], mins );
+				VectorSubtract( pe->maxs, host.player_mins[pmove->usehull], maxs );
 
 				hull = PM_HullForBox( mins, maxs );
 				VectorCopy( pe->origin, offset );
@@ -442,7 +442,7 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 
 			if( transform_bbox )
 			{
-				World_TransformAABB( matrix, pmove->player_mins[pmove->usehull], pmove->player_maxs[pmove->usehull], mins, maxs );
+				World_TransformAABB( matrix, host.player_mins[pmove->usehull], host.player_maxs[pmove->usehull], mins, maxs );
 				VectorSubtract( hull->clip_mins, mins, offset );	// calc new local offset
 
 				for( j = 0; j < 3; j++ )
@@ -569,8 +569,8 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 
 		if( pe->solid == SOLID_CUSTOM )
 		{
-			VectorCopy( pmove->player_mins[pmove->usehull], mins );
-			VectorCopy( pmove->player_maxs[pmove->usehull], maxs );
+			VectorCopy( host.player_mins[pmove->usehull], mins );
+			VectorCopy( host.player_maxs[pmove->usehull], maxs );
 			VectorClear( offset );
 		}
 		else if( pe->model )
@@ -584,8 +584,8 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 		}
 		else
 		{
-			VectorSubtract( pe->mins, pmove->player_maxs[pmove->usehull], mins );
-			VectorSubtract( pe->maxs, pmove->player_mins[pmove->usehull], maxs );
+			VectorSubtract( pe->mins, host.player_maxs[pmove->usehull], mins );
+			VectorSubtract( pe->maxs, host.player_mins[pmove->usehull], maxs );
 
 			hull = PM_HullForBox( mins, maxs );
 			VectorCopy( pe->origin, offset );
@@ -611,7 +611,7 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 
 			if( transform_bbox )
 			{
-				World_TransformAABB( matrix, pmove->player_mins[pmove->usehull], pmove->player_maxs[pmove->usehull], mins, maxs );
+				World_TransformAABB( matrix, host.player_mins[pmove->usehull], host.player_maxs[pmove->usehull], mins, maxs );
 				VectorSubtract( hull->clip_mins, mins, offset );	// calc new local offset
 
 				for( j = 0; j < 3; j++ )
