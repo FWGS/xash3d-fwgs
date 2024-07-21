@@ -52,14 +52,9 @@ ALIAS MODEL DISPLAY LIST GENERATION
 */
 static qboolean	m_fDoRemap;
 static aliashdr_t	*m_pAliasHeader;
-static trivertex_t	*g_poseverts[MAXALIASFRAMES];
 static dtriangle_t	g_triangles[MAXALIASTRIS];
 static stvert_t	g_stverts[MAXALIASVERTS];
 static int	g_used[8192];
-
-// a pose is a single set of vertexes. a frame may be
-// an animating sequence of poses
-static int	g_posenum;
 
 // the command list holds counts and s/t values that are valid for
 // every frame
@@ -324,7 +319,7 @@ static void GL_MakeAliasModelDisplayLists( model_t *m )
 	for( i = 0; i < m_pAliasHeader->numposes; i++ )
 	{
 		for( j = 0; j < g_numorder; j++ )
-			*verts++ = g_poseverts[i][g_vertexorder[j]];
+			*verts++ = m_pAliasHeader->pposeverts[i][g_vertexorder[j]];
 	}
 }
 
@@ -335,85 +330,14 @@ ALIAS MODELS
 
 ==============================================================================
 */
-/*
-=================
-Mod_LoadAliasFrame
-=================
-*/
-static void *Mod_LoadAliasFrame( void *pin, maliasframedesc_t *frame )
-{
-	daliasframe_t	*pdaliasframe;
-	trivertex_t	*pinframe;
-	int		i;
 
-	pdaliasframe = (daliasframe_t *)pin;
-
-	Q_strncpy( frame->name, pdaliasframe->name, sizeof( frame->name ));
-	frame->firstpose = g_posenum;
-	frame->numposes = 1;
-
-	for( i = 0; i < 3; i++ )
-	{
-		frame->bboxmin.v[i] = pdaliasframe->bboxmin.v[i];
-		frame->bboxmax.v[i] = pdaliasframe->bboxmax.v[i];
-	}
-
-	pinframe = (trivertex_t *)(pdaliasframe + 1);
-
-	g_poseverts[g_posenum] = (trivertex_t *)pinframe;
-	pinframe += m_pAliasHeader->numverts;
-	g_posenum++;
-
-	return (void *)pinframe;
-}
-
-/*
-=================
-Mod_LoadAliasGroup
-=================
-*/
-static void *Mod_LoadAliasGroup( void *pin, maliasframedesc_t *frame )
-{
-	daliasgroup_t	*pingroup;
-	int		i, numframes;
-	daliasinterval_t	*pin_intervals;
-	void		*ptemp;
-
-	pingroup = (daliasgroup_t *)pin;
-	numframes = pingroup->numframes;
-
-	frame->firstpose = g_posenum;
-	frame->numposes = numframes;
-
-	for( i = 0; i < 3; i++ )
-	{
-		frame->bboxmin.v[i] = pingroup->bboxmin.v[i];
-		frame->bboxmax.v[i] = pingroup->bboxmax.v[i];
-	}
-
-	pin_intervals = (daliasinterval_t *)(pingroup + 1);
-
-	// all the intervals are always equal 0.1 so we don't care about them
-	frame->interval = pin_intervals->interval;
-	pin_intervals += numframes;
-	ptemp = (void *)pin_intervals;
-
-	for( i = 0; i < numframes; i++ )
-	{
-		g_poseverts[g_posenum] = (trivertex_t *)((daliasframe_t *)ptemp + 1);
-		ptemp = (trivertex_t *)((daliasframe_t *)ptemp + 1) + m_pAliasHeader->numverts;
-		g_posenum++;
-	}
-
-	return ptemp;
-}
 
 /*
 ===============
 Mod_CreateSkinData
 ===============
 */
-static rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int height )
+static rgbdata_t *Mod_CreateSkinData( model_t *mod, const byte *data, int width, int height )
 {
 	static rgbdata_t	skin;
 	char		name[MAX_QPATH];
@@ -426,7 +350,7 @@ static rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int h
 	skin.flags = IMAGE_HAS_COLOR|IMAGE_QUAKEPAL;
 	skin.encode = DXT_ENCODE_DEFAULT;
 	skin.numMips = 1;
-	skin.buffer = data;
+	skin.buffer = (byte *)data;
 	skin.palette = (byte *)tr.palette;
 	skin.size = width * height;
 
@@ -475,67 +399,68 @@ static rgbdata_t *Mod_CreateSkinData( model_t *mod, byte *data, int width, int h
 	return gEngfuncs.FS_CopyImage( &skin );
 }
 
-static void *Mod_LoadSingleSkin( model_t *loadmodel, daliasskintype_t *pskintype, int skinnum, int size )
+static const void *Mod_LoadSingleSkin( model_t *loadmodel, const daliasskintype_t *pskintype, int skinnum, int size )
 {
-	string	name, lumaname;
-	string	checkname;
-	rgbdata_t	*pic;
+	const byte *ptexture = (const byte *)&pskintype[1];
+	rgbdata_t *pic;
+	string name, lumaname, checkname;
 
 	Q_snprintf( name, sizeof( name ), "%s:frame%i", loadmodel->name, skinnum );
-	Q_snprintf( lumaname, sizeof( lumaname ), "%s:luma%i", loadmodel->name, skinnum );
 	Q_snprintf( checkname, sizeof( checkname ), "%s_%i.tga", loadmodel->name, skinnum );
 	if( !gEngfuncs.fsapi->FileExists( checkname, false ) || ( pic = gEngfuncs.FS_LoadImage( checkname, NULL, 0 )) == NULL )
-		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype + 1), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
+		pic = Mod_CreateSkinData( loadmodel, ptexture, m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 
 	m_pAliasHeader->gl_texturenum[skinnum][0] =
-	m_pAliasHeader->gl_texturenum[skinnum][1] =
-	m_pAliasHeader->gl_texturenum[skinnum][2] =
-	m_pAliasHeader->gl_texturenum[skinnum][3] = GL_LoadTextureInternal( name, pic, 0 );
+		m_pAliasHeader->gl_texturenum[skinnum][1] =
+		m_pAliasHeader->gl_texturenum[skinnum][2] =
+		m_pAliasHeader->gl_texturenum[skinnum][3] = GL_LoadTextureInternal( name, pic, 0 );
 	gEngfuncs.FS_FreeImage( pic );
 
-	if( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][0] )->flags & TF_HAS_LUMA )
+	if( FBitSet( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][0] )->flags, TF_HAS_LUMA ))
 	{
-		pic = Mod_CreateSkinData( NULL, (byte *)(pskintype + 1), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
+		Q_snprintf( lumaname, sizeof( lumaname ), "%s:luma%i", loadmodel->name, skinnum );
+
+		pic = Mod_CreateSkinData( NULL,	ptexture, m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 		m_pAliasHeader->fb_texturenum[skinnum][0] =
-		m_pAliasHeader->fb_texturenum[skinnum][1] =
-		m_pAliasHeader->fb_texturenum[skinnum][2] =
-		m_pAliasHeader->fb_texturenum[skinnum][3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA );
+			m_pAliasHeader->fb_texturenum[skinnum][1] =
+			m_pAliasHeader->fb_texturenum[skinnum][2] =
+			m_pAliasHeader->fb_texturenum[skinnum][3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA );
 		gEngfuncs.FS_FreeImage( pic );
 	}
 
-	return ((byte *)(pskintype + 1) + size);
+	return ptexture + size;
 }
 
-static void *Mod_LoadGroupSkin( model_t *loadmodel, daliasskintype_t *pskintype, int skinnum, int size )
+static const void *Mod_LoadGroupSkin( model_t *loadmodel, const daliasskintype_t *pskintype, int skinnum, int size )
 {
-	daliasskininterval_t	*pinskinintervals;
-	daliasskingroup_t		*pinskingroup;
-	string			name, lumaname;
-	rgbdata_t			*pic;
-	int			i, j;
+	const daliasskininterval_t *pinskinintervals;
+	const daliasskingroup_t *pinskingroup;
+	const byte *ptexture;
+	rgbdata_t *pic;
+	string name, lumaname;
+	int i, j;
 
 	// animating skin group.  yuck.
-	pskintype++;
-	pinskingroup = (daliasskingroup_t *)pskintype;
-	pinskinintervals = (daliasskininterval_t *)(pinskingroup + 1);
-	pskintype = (void *)(pinskinintervals + pinskingroup->numskins);
+	pinskingroup = (const daliasskingroup_t *)&pskintype[1];
+	pinskinintervals = (const daliasskininterval_t *)(&pinskingroup[1]);
+	ptexture = (const byte *)&pinskinintervals[pinskingroup->numskins];
 
 	for( i = 0; i < pinskingroup->numskins; i++ )
 	{
 		Q_snprintf( name, sizeof( name ), "%s_%i_%i", loadmodel->name, skinnum, i );
-		pic = Mod_CreateSkinData( loadmodel, (byte *)(pskintype), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
+		pic = Mod_CreateSkinData( loadmodel, ptexture, m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 		m_pAliasHeader->gl_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( name, pic, 0 );
 		gEngfuncs.FS_FreeImage( pic );
 
-		if( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][i & 3] )->flags & TF_HAS_LUMA )
+		if( FBitSet( R_GetTexture( m_pAliasHeader->gl_texturenum[skinnum][i & 3] )->flags, TF_HAS_LUMA ))
 		{
 			Q_snprintf( lumaname, sizeof( lumaname ), "%s_%i_%i_luma", loadmodel->name, skinnum, i );
-			pic = Mod_CreateSkinData( NULL, (byte *)(pskintype), m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
+			pic = Mod_CreateSkinData( NULL, ptexture, m_pAliasHeader->skinwidth, m_pAliasHeader->skinheight );
 			m_pAliasHeader->fb_texturenum[skinnum][i & 3] = GL_LoadTextureInternal( lumaname, pic, TF_MAKELUMA );
 			gEngfuncs.FS_FreeImage( pic );
 		}
 
-		pskintype = (daliasskintype_t *)((byte *)(pskintype) + size);
+		ptexture += size;
 	}
 
 	for( j = i; i < 4; i++ )
@@ -544,7 +469,7 @@ static void *Mod_LoadGroupSkin( model_t *loadmodel, daliasskintype_t *pskintype,
 		m_pAliasHeader->fb_texturenum[skinnum][i & 3] = m_pAliasHeader->fb_texturenum[skinnum][i - j];
 	}
 
-	return pskintype;
+	return ptexture;
 }
 
 /*
@@ -552,66 +477,25 @@ static void *Mod_LoadGroupSkin( model_t *loadmodel, daliasskintype_t *pskintype,
 Mod_LoadAllSkins
 ===============
 */
-static void *Mod_LoadAllSkins( model_t *mod, int numskins, daliasskintype_t *pskintype )
+static const void *Mod_LoadAllSkins( model_t *mod, int numskins, const daliasskintype_t *pskintype )
 {
 	int	i, size;
-
-	if( numskins < 1 || numskins > MAX_SKINS )
-		gEngfuncs.Host_Error( "%s: Invalid # of skins: %d\n", __func__, numskins );
 
 	size = m_pAliasHeader->skinwidth * m_pAliasHeader->skinheight;
 
 	// TODO: texture replacement support here
-
 	for( i = 0; i < numskins; i++ )
 	{
 		if( pskintype->type == ALIAS_SKIN_SINGLE )
-		{
-			pskintype = (daliasskintype_t *)Mod_LoadSingleSkin( mod, pskintype, i, size );
-		}
+			pskintype = Mod_LoadSingleSkin( mod, pskintype, i, size );
 		else
-		{
-			pskintype = (daliasskintype_t *)Mod_LoadGroupSkin( mod, pskintype, i, size );
-		}
+			pskintype = Mod_LoadGroupSkin( mod, pskintype, i, size );
 	}
 
-	return (void *)pskintype;
+	return pskintype;
 }
 
 //=========================================================================
-/*
-=================
-Mod_CalcAliasBounds
-=================
-*/
-static void Mod_CalcAliasBounds( model_t *mod )
-{
-	int	i, j, k;
-	float	radius;
-	float	dist;
-	vec3_t	v;
-
-	ClearBounds( mod->mins, mod->maxs );
-	radius = 0.0f;
-
-	// process verts
-	for( i = 0; i < m_pAliasHeader->numposes; i++ )
-	{
-		for( j = 0; j < m_pAliasHeader->numverts; j++ )
-		{
-			for( k = 0; k < 3; k++ )
-				v[k] = g_poseverts[i][j].v[k] * m_pAliasHeader->scale[k] + m_pAliasHeader->scale_origin[k];
-
-			AddPointToBounds( v, mod->mins, mod->maxs );
-			dist = DotProduct( v, v );
-
-			if( radius < dist )
-				radius = dist;
-		}
-	}
-
-	mod->radius = sqrt( radius );
-}
 
 /*
 =================
@@ -620,111 +504,34 @@ Mod_LoadAliasModel
 */
 void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
-	daliashdr_t	*pinmodel;
-	stvert_t		*pinstverts;
-	dtriangle_t	*pintriangles;
-	daliasframetype_t	*pframetype;
-	daliasskintype_t	*pskintype;
-	int		i, j, size;
-	char		poolname[MAX_VA_STRING];
+	const daliasskintype_t *pskintype;
+	const dtriangle_t *pintriangles;
+	const daliashdr_t *pinmodel;
+	const stvert_t *pinstverts;
 
 	if( loaded ) *loaded = false;
-	pinmodel = (daliashdr_t *)buffer;
-	i = pinmodel->version;
-
-	if( i != ALIAS_VERSION )
-	{
-		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, i, ALIAS_VERSION );
-		return;
-	}
-
-	if( pinmodel->numverts <= 0 || pinmodel->numtris <= 0 || pinmodel->numframes <= 0 )
-		return; // how to possible is make that?
-
-	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-	mod->mempool = Mem_AllocPool( poolname );
-
-	// allocate space for a working header, plus all the data except the frames,
-	// skin and group info
-	size = sizeof( aliashdr_t ) + (pinmodel->numframes - 1) * sizeof( maliasframedesc_t );
-
-	m_pAliasHeader = Mem_Calloc( mod->mempool, size );
-	mod->flags = pinmodel->flags;	// share effects flags
-
-	// endian-adjust and copy the data, starting with the alias model header
-	m_pAliasHeader->boundingradius = pinmodel->boundingradius;
-	m_pAliasHeader->numskins = pinmodel->numskins;
-	m_pAliasHeader->skinwidth = pinmodel->skinwidth;
-	m_pAliasHeader->skinheight = pinmodel->skinheight;
-	m_pAliasHeader->numverts = pinmodel->numverts;
-	m_pAliasHeader->numtris = pinmodel->numtris;
-	m_pAliasHeader->numframes = pinmodel->numframes;
-
-	if( m_pAliasHeader->numverts > MAXALIASVERTS )
-	{
-		gEngfuncs.Con_DPrintf( S_ERROR "model %s has too many vertices\n", mod->name );
-		return;
-	}
-
-	m_pAliasHeader->size = pinmodel->size;
-//	mod->synctype = pinmodel->synctype;
-	mod->numframes = m_pAliasHeader->numframes;
-
-	for( i = 0; i < 3; i++ )
-	{
-		m_pAliasHeader->scale[i] = pinmodel->scale[i];
-		m_pAliasHeader->scale_origin[i] = pinmodel->scale_origin[i];
-		m_pAliasHeader->eyeposition[i] = pinmodel->eyeposition[i];
-	}
+	pinmodel = (const daliashdr_t *)buffer;
+	m_pAliasHeader = mod->cache.data;
+	if( !m_pAliasHeader ) return;
 
 	// load the skins
-	pskintype = (daliasskintype_t *)&pinmodel[1];
+	pskintype = (const daliasskintype_t *)&pinmodel[1];
 	pskintype = Mod_LoadAllSkins( mod, m_pAliasHeader->numskins, pskintype );
 
 	// load base s and t vertices
-	pinstverts = (stvert_t *)pskintype;
-
-	for( i = 0; i < m_pAliasHeader->numverts; i++ )
-	{
-		g_stverts[i].onseam = pinstverts[i].onseam;
-		g_stverts[i].s = pinstverts[i].s;
-		g_stverts[i].t = pinstverts[i].t;
-	}
+	pinstverts = (const stvert_t *)pskintype;
+	memset( g_stverts, 0, sizeof( g_stverts ));
+	memcpy( g_stverts, pinstverts, sizeof( g_stverts[0] ) * m_pAliasHeader->numverts );
 
 	// load triangle lists
-	pintriangles = (dtriangle_t *)&pinstverts[m_pAliasHeader->numverts];
-
-	for( i = 0; i < m_pAliasHeader->numtris; i++ )
-	{
-		g_triangles[i].facesfront = pintriangles[i].facesfront;
-
-		for( j = 0; j < 3; j++ )
-			g_triangles[i].vertindex[j] = pintriangles[i].vertindex[j];
-	}
-
-	// load the frames
-	pframetype = (daliasframetype_t *)&pintriangles[m_pAliasHeader->numtris];
-	g_posenum = 0;
-
-	for( i = 0; i < m_pAliasHeader->numframes; i++ )
-	{
-		aliasframetype_t	frametype = pframetype->type;
-
-		if( frametype == ALIAS_SINGLE )
-			pframetype = (daliasframetype_t *)Mod_LoadAliasFrame( pframetype + 1, &m_pAliasHeader->frames[i] );
-		else pframetype = (daliasframetype_t *)Mod_LoadAliasGroup( pframetype + 1, &m_pAliasHeader->frames[i] );
-	}
-
-	m_pAliasHeader->numposes = g_posenum;
-
-	Mod_CalcAliasBounds( mod );
-	mod->type = mod_alias;
+	pintriangles = (const dtriangle_t *)&pinstverts[m_pAliasHeader->numverts];
+	memset( g_triangles, 0, sizeof( g_triangles ));
+	memcpy( g_triangles, pintriangles, sizeof( g_triangles[0] ) * m_pAliasHeader->numtris );
 
 	// build the draw lists
 	GL_MakeAliasModelDisplayLists( mod );
 
-	// move the complete, relocatable alias model to the cache
-	mod->cache.data = m_pAliasHeader;
+	m_pAliasHeader = NULL;
 
 	if( loaded ) *loaded = true;	// done
 }
