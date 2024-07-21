@@ -150,6 +150,11 @@ void Mod_NeedCRC( const char *name, qboolean needCRC );
 void Mod_FreeUnused( void );
 
 //
+// mod_alias.c
+//
+void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded );
+
+//
 // mod_bmodel.c
 //
 void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded );

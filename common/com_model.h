@@ -488,7 +488,8 @@ typedef struct
 	int		flags;
 	float		size;
 
-	int		reserved[8];		// VBO offsets
+	const trivertex_t **pposeverts; // only valid during loading, used to build GL mesh
+	intptr_t	reserved[7];		// VBO offsets
 
 	int		numposes;
 	int		poseverts;

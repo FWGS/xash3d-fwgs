@@ -303,8 +303,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		Mod_LoadSpriteModel( mod, buf, &loaded );
 		break;
 	case IDALIASHEADER:
-		// REFTODO: move server-related code here
-		loaded = true;
+		Mod_LoadAliasModel( mod, buf, &loaded );
 		break;
 	case Q1BSP_VERSION:
 	case HLBSP_VERSION:
@@ -317,6 +316,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		else Con_Printf( S_ERROR "%s has unknown format\n", tempname );
 		return NULL;
 	}
+
 	if( loaded )
 	{
 		if( world.loading )
@@ -336,6 +336,13 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 			loaded = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf );
 		}
 #endif
+	}
+
+	if( mod->type == mod_alias )
+	{
+		aliashdr_t *hdr = mod->cache.data;
+		if( hdr ) // clean up temporary pointer after passing the alias model to the renderer
+			hdr->pposeverts = NULL;
 	}
 
 	if( !loaded )
