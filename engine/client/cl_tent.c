@@ -2737,7 +2737,12 @@ void CL_AddEntityEffects( cl_entity_t *ent )
 		if( FBitSet( ent->curstate.effects, EF_BRIGHTLIGHT ))
 			R_EntityBrightlight( ent, ent->index /* 1 in GoldSrc */, 400 );
 		else if( FBitSet( ent->curstate.effects, EF_DIMLIGHT ))
-			CL_UpdateFlashlight( ent );
+		{
+			if( Host_IsQuakeCompatible( ))
+				R_EntityDimlight( ent, ent->index );
+			else
+				CL_UpdateFlashlight( ent );
+		}
 	}
 	else
 	{
