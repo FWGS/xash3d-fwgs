@@ -560,7 +560,19 @@ static void CL_DrawScreenFade( void )
 	if( !alpha )
 		return;
 
-	if( FBitSet( sf->fadeFlags, FFADE_MODULATE ))
+	if( !FBitSet( sf->fadeFlags, FFADE_MODULATE ))
+	{
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.Color4ub( sf->fader, sf->fadeg, sf->fadeb, alpha );
+	}
+	else if( Host_IsQuakeCompatible( ))
+	{
+		// Quake Wrapper and Quake Remake use FFADE_MODULATE for item pickups
+		// so hack the check here
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+		ref.dllFuncs.Color4ub( sf->fader, sf->fadeg, sf->fadeb, alpha );
+	}
+	else
 	{
 		ref.dllFuncs.GL_SetRenderMode( kRenderScreenFadeModulate );
 
@@ -569,11 +581,6 @@ static void CL_DrawScreenFade( void )
 			(uint16_t)( sf->fadeg * alpha + ( 255 - alpha ) * 255 ) >> 8,
 			(uint16_t)( sf->fadeb * alpha + ( 255 - alpha ) * 255 ) >> 8,
 			255 );
-	}
-	else
-	{
-		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.Color4ub( sf->fader, sf->fadeg, sf->fadeb, alpha );
 	}
 
 	ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1,
