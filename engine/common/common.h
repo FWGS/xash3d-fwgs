@@ -314,6 +314,11 @@ typedef struct host_parm_s
 	vec3_t player_mins[MAX_MAP_HULLS];         // 4 hulls allowed
 	vec3_t player_maxs[MAX_MAP_HULLS];         // 4 hulls allowed
 
+	// for CL_{Push,Pop}TraceBounds
+	vec3_t player_mins_backup[MAX_MAP_HULLS];
+	vec3_t player_maxs_backup[MAX_MAP_HULLS];
+	qboolean trace_bounds_pushed;
+
 	qboolean allow_console;       // allow console in dev-mode or multiplayer game
 	qboolean allow_console_init;  // initial value to allow the console
 	qboolean key_overstrike;      // key overstrike mode

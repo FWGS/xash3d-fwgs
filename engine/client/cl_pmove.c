@@ -544,8 +544,8 @@ void GAME_EXPORT CL_SetSolidPlayers( int playernum )
 		// some fields needs to be override from cls.predicted_players
 		VectorCopy( player->origin, pe->origin );
 		VectorCopy( player->angles, pe->angles );
-		VectorCopy( clgame.pmove->player_mins[player->usehull], pe->mins );
-		VectorCopy( clgame.pmove->player_maxs[player->usehull], pe->maxs );
+		VectorCopy( host.player_mins[player->usehull], pe->mins );
+		VectorCopy( host.player_maxs[player->usehull], pe->maxs );
 		pe->movetype = player->movetype;
 		pe->solid = player->solid;
 	}

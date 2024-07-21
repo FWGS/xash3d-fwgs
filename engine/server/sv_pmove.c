@@ -671,7 +671,7 @@ static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
 		clent->v.angles[YAW] = clent->v.v_angle[YAW];
 	}
 
-	SV_SetMinMaxSize( clent, pmove->player_mins[pmove->usehull], pmove->player_maxs[pmove->usehull], false );
+	SV_SetMinMaxSize( clent, host.player_mins[pmove->usehull], host.player_maxs[pmove->usehull], false );
 
 	// all next calls ignore footstep sounds
 	pmove->runfuncs = false;

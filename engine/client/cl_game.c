@@ -2435,8 +2435,8 @@ static void GAME_EXPORT pfnLocalPlayerBounds( int hull, float *mins, float *maxs
 {
 	if( hull >= 0 && hull < 4 )
 	{
-		if( mins ) VectorCopy( clgame.pmove->player_mins[hull], mins );
-		if( maxs ) VectorCopy( clgame.pmove->player_maxs[hull], maxs );
+		if( mins ) VectorCopy( host.player_mins[hull], mins );
+		if( maxs ) VectorCopy( host.player_maxs[hull], maxs );
 	}
 }
 
@@ -2504,9 +2504,17 @@ CL_PushTraceBounds
 */
 static void GAME_EXPORT CL_PushTraceBounds( int hullnum, const float *mins, const float *maxs )
 {
+	if( !host.trace_bounds_pushed )
+	{
+		memcpy( host.player_mins_backup, host.player_mins, sizeof( host.player_mins_backup ));
+		memcpy( host.player_maxs_backup, host.player_maxs, sizeof( host.player_maxs_backup ));
+
+		host.trace_bounds_pushed = true;
+	}
+
 	hullnum = bound( 0, hullnum, 3 );
-	VectorCopy( mins, clgame.pmove->player_mins[hullnum] );
-	VectorCopy( maxs, clgame.pmove->player_maxs[hullnum] );
+	VectorCopy( mins, host.player_mins[hullnum] );
+	VectorCopy( maxs, host.player_maxs[hullnum] );
 }
 
 /*
@@ -2517,8 +2525,15 @@ CL_PopTraceBounds
 */
 static void GAME_EXPORT CL_PopTraceBounds( void )
 {
-	memcpy( clgame.pmove->player_mins, host.player_mins, sizeof( host.player_mins ));
-	memcpy( clgame.pmove->player_maxs, host.player_maxs, sizeof( host.player_maxs ));
+	if( !host.trace_bounds_pushed )
+	{
+		Con_Reportf( S_ERROR "%s called without push!\n", __func__ );
+		return;
+	}
+
+	host.trace_bounds_pushed = false;
+	memcpy( host.player_mins, host.player_mins_backup, sizeof( host.player_mins ));
+	memcpy( host.player_maxs, host.player_maxs_backup, sizeof( host.player_maxs ));
 }
 
 /*
