@@ -132,9 +132,15 @@ qboolean Mobile_Init( void )
 		}
 
 		// make sure that mobile functions are cleared
+#if 1
+		// some SDKs define export as returning void, breaking the contract
+		// ignore result for now...
+		return true;
+#else
 		memset( &mobile_engfuncs, 0, sizeof( mobile_engfuncs ));
 
 		return false; // just tell user about problems
+#endif
 	}
 
 	return true; // mobile interface is missed
