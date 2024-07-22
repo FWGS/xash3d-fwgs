@@ -1078,7 +1078,16 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	// print current developer level to simplify processing users feedback
 	if( developer > 0 )
-		Con_Printf( "Developer level: ^3%i\n", developer );
+	{
+		int i;
+
+		Con_Printf( "Program args: " S_YELLOW );
+		for( i = 0; i < host.argc; i++ )
+			Con_Printf( "%s ", host.argv[i] );
+		Con_Printf( S_DEFAULT "\n" );
+
+		Con_Printf( "Developer level: " S_YELLOW "%i" S_DEFAULT "\n", developer );
+	}
 
 	host.bugcomp = Host_CheckBugcomp();
 
