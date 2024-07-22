@@ -3,7 +3,7 @@
 Name: %{_packagename}
 Summary: Xash3D FWGS
 Release: 1
-Version: 0.20
+Version: 0.21
 Group: Amusements/Games
 License: GPLv2
 BuildArch: %{_arch}
