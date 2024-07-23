@@ -21,7 +21,7 @@
     <string name="game_settings_volume_buttons">Usar botões de volume no jogo</string>
     <string name="setup_welcome_title">Bem vindo ao Xash3D FWGS!</string>
     <string name="setup_welcome_message">Agora, nós vamos guiá-lo durante o processo de instalação.</string>
-    <string name="setup_location_title">Games</string>
+    <string name="setup_location_title">Jogos</string>
     <string name="setup_location_message">Selecione a pasta onde seus jogos estão localizados.</string>
     <string name="setup_location_empty">A pasta selecionada não contem nenhum jogo.</string>
     <string name="setup_location_invalid">A pasta selecionada é invalida.</string>
@@ -29,5 +29,5 @@
     <string name="preferences_separate_libraries">Bibliotecas de pacotes separados</string>
     <string name="preferences_client_package">Pacotes de Cliente</string>
     <string name="preferences_server_package">Pacotes de Servidor</string>
-    <string name="preferences_use_icons">Usar icones ao inves de imagens de fundo</string>
+    <string name="preferences_use_icons">Usar ícones ao inves de imagens de fundo</string>
 </resources>
