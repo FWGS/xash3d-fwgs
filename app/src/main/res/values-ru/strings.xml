@@ -18,7 +18,7 @@
     <string name="app_settings">Настройки</string>
     <string name="game_settings">Настройки игры</string>
     <string name="game_settings_command_line">Аргументы командной строки</string>
-    <string name="game_settings_volume_buttons">Использовать кнопки громкости в игре</string>
+    <string name="game_settings_volume_buttons">Использовать кнопки громкости</string>
     <string name="setup_welcome_title">Добро пожаловать в Xash3D FWGS!</string>
     <string name="setup_welcome_message">Теперь мы ознакомим вас с процессом установки.</string>
     <string name="setup_location_title">Игры</string>
