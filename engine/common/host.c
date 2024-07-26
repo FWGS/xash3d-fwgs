@@ -1028,8 +1028,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	}
 #endif
 
-	// always enable console for Quake
-	if( !host.allow_console && ( Sys_CheckParm( "-console" ) || !Q_strnicmp( exename, "quake", 5 )))
+	// always enable console for Quake and dedicated
+	if( !host.allow_console && ( Host_IsDedicated() || Sys_CheckParm( "-console" ) || !Q_strnicmp( exename, "quake", 5 )))
 		host.allow_console = true;
 
 	// member console allowing
