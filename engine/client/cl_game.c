@@ -3305,7 +3305,7 @@ Heavy legacy of Quake...
 */
 void TriColor4fRendermode( float r, float g, float b, float a, int rendermode )
 {
-	if( clgame.ds.renderMode == kRenderTransAlpha )
+	if( rendermode == kRenderTransAlpha )
 	{
 		clgame.ds.triRGBA[3] = a / 255.0f;
 		ref.dllFuncs.Color4f( r, g, b, a );
