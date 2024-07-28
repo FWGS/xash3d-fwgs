@@ -3389,7 +3389,8 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 	if( flags & STUDIO_RENDER )
 	{
-		if( cl_himodels->value && RI.currentmodel != RI.currententity->model  )
+		// change body if it's a menu entity
+		if( cl_himodels->value && ( RI.currentmodel != RI.currententity->model || !RI.drawWorld ))
 		{
 			// show highest resolution multiplayer model
 			RI.currententity->curstate.body = 255;
