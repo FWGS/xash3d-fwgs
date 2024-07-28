@@ -923,7 +923,7 @@ static void S_MixUpsample( int sampleCount, int filtertype )
 static void MIX_MixRawSamplesBuffer( int end )
 {
 	portable_samplepair_t	*pbuf, *roombuf, *streambuf;
-	uint			i, j, stop;
+	uint i, j, stop;
 
 	roombuf = MIX_GetPFrontFromIPaint( IROOMBUFFER );
 	streambuf = MIX_GetPFrontFromIPaint( ISTREAMBUFFER );
@@ -956,7 +956,11 @@ static void MIX_MixRawSamplesBuffer( int end )
 		}
 
 		if( ch->entnum > 0 )
-			SND_MoveMouthRaw( ch, &ch->rawsamples[paintedtime & ( ch->max_samples - 1 )], stop - paintedtime );
+		{
+			int pos = paintedtime & ( ch->max_samples - 1 );
+
+			SND_MoveMouthRaw( ch, &ch->rawsamples[pos], bound( 0, ch->max_samples - pos, stop - paintedtime ));
+		}
 	}
 }
 
