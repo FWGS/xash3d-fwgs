@@ -50,7 +50,9 @@ static CVAR_DEFINE_AUTO( vgui_utf8, "0", FCVAR_ARCHIVE, "enable utf-8 support fo
 static void GAME_EXPORT VGUI_DrawInit( void )
 {
 	memset( vgui.textures, 0, sizeof( vgui.textures ));
+	memset( vgui.color, 0, sizeof( vgui.color ));
 	vgui.texture_id = vgui.bound_texture = 0;
+	vgui.enable_texture = true;
 }
 
 static void GAME_EXPORT VGUI_DrawShutdown( void )
