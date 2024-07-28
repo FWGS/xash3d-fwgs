@@ -87,11 +87,13 @@ CVAR_DEFINE_AUTO( cl_fixmodelinterpolationartifacts, "1", 0, "try to fix up mode
 //
 // userinfo
 //
-static CVAR_DEFINE_AUTO( name, "player", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_PRINTABLEONLY|FCVAR_FILTERABLE, "player name" );
+static char username[32];
+static CVAR_DEFINE_AUTO( name, username, FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_PRINTABLEONLY|FCVAR_FILTERABLE, "player name" );
 static CVAR_DEFINE_AUTO( model, "", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player model ('player' is a singleplayer model)" );
 static CVAR_DEFINE_AUTO( topcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player top color" );
 static CVAR_DEFINE_AUTO( bottomcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player bottom color" );
 CVAR_DEFINE_AUTO( rate, "3500", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
+
 
 client_t		cl;
 client_static_t	cls;
@@ -3074,8 +3076,9 @@ static void CL_InitLocal( void )
 
 	// userinfo
 	Cvar_RegisterVariable( &cl_nopred );
+	Q_strncpy( username, Sys_GetCurrentUser(), sizeof( username ));	// initialize before registering variable
 	Cvar_RegisterVariable( &name );
-	Cvar_DirectSet( &name, Sys_GetCurrentUser( ));
+	Cvar_Get( "ui_username", username, FCVAR_READ_ONLY|FCVAR_PRIVILEGED, "default user name" );
 	Cvar_RegisterVariable( &model );
 	Cvar_RegisterVariable( &cl_updaterate );
 	Cvar_RegisterVariable( &cl_dlmax );
