@@ -60,6 +60,7 @@ void TriRenderMode( int mode )
 		break;
 	case kRenderGlow:
 	case kRenderTransAdd:
+		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 		pglEnable( GL_BLEND );
 		pglDepthMask( GL_FALSE );
