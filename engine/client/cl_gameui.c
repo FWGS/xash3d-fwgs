@@ -25,6 +25,14 @@ static void 	UI_UpdateUserinfo( void );
 
 gameui_static_t	gameui;
 
+static void UI_ToggleAllowConsole_f( void )
+{
+	host.allow_console = host.allow_console_init = true;
+
+	if( gameui.globals )
+		gameui.globals->developer = true;
+}
+
 void UI_UpdateMenu( float realtime )
 {
 	if( !gameui.hInstance ) return;
@@ -1247,6 +1255,7 @@ void UI_UnloadProgs( void )
 	// deinitialize game
 	gameui.dllFuncs.pfnShutdown();
 
+	Cmd_RemoveCommand( "ui_allowconsole" );
 	Cvar_FullSet( "host_gameuiloaded", "0", FCVAR_READ_ONLY );
 
 	Cvar_Unlink( FCVAR_GAMEUIDLL );
@@ -1355,6 +1364,7 @@ qboolean UI_LoadProgs( void )
 	}
 
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );
+	Cmd_AddRestrictedCommand( "ui_allowconsole", UI_ToggleAllowConsole_f, "unlocks developer console" );
 
 	// setup gameinfo
 	for( i = 0; i < FI->numgames; i++ )
