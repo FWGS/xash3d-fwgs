@@ -58,7 +58,6 @@ typedef enum
 } touchEventType;
 
 extern convar_t touch_enable;
-extern convar_t touch_emulate;
 
 void Touch_Draw( void );
 void Touch_SetClientOnly( byte state );
@@ -74,6 +73,7 @@ void Touch_ResetDefaultButtons( void );
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy );
 void Touch_KeyEvent( int key, int down );
 qboolean Touch_WantVisibleCursor( void );
+qboolean Touch_Emulated( void );
 void Touch_NotifyResize( void );
 
 //

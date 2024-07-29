@@ -163,8 +163,8 @@ static CVAR_DEFINE_AUTO( touch_dpad_radius, "1.0", FCVAR_FILTERABLE, "dpad radiu
 static CVAR_DEFINE_AUTO( touch_joy_radius, "1.0", FCVAR_FILTERABLE, "joy radius multiplier" );
 static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
+static CVAR_DEFINE_AUTO( touch_emulate, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate touch with mouse" );
 CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
-CVAR_DEFINE_AUTO( touch_emulate, "0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "emulate touch with mouse" );
 
 // code looks smaller with it
 #define B(x) (button->x)
@@ -2122,7 +2122,7 @@ void Touch_KeyEvent( int key, int down )
 	float x, y;
 	int finger, xi, yi;
 
-	if( !touch_emulate.value )
+	if( !Touch_Emulated( ))
 	{
 		if( touch_enable.value )
 			return;
@@ -2174,6 +2174,11 @@ void Touch_KeyEvent( int key, int down )
 qboolean Touch_WantVisibleCursor( void )
 {
 	return ( touch_enable.value && touch_emulate.value ) || touch.clientonly;
+}
+
+qboolean Touch_Emulated( void )
+{
+	return touch_emulate.value || touch_in_menu.value;
 }
 
 void Touch_Shutdown( void )
