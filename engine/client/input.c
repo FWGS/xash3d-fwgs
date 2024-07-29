@@ -316,7 +316,7 @@ static void IN_MouseMove( void )
 	if( !in_mouseinitialized )
 		return;
 
-	if( touch_emulate.value )
+	if( Touch_Emulated( ))
 	{
 		// touch emulation overrides all input
 		Touch_KeyEvent( 0, 0 );
@@ -347,7 +347,7 @@ void IN_MouseEvent( int key, int down )
 	else ClearBits( in_mstate, BIT( key ));
 
 	// touch emulation overrides all input
-	if( touch_emulate.value )
+	if( Touch_Emulated( ))
 	{
 		Touch_KeyEvent( K_MOUSE1 + key, down );
 	}
