@@ -2282,7 +2282,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 
 	file->socket = -1;
 
-	Q_snprintf( incname, 256, "downloaded/%s.incomplete", file->path );
+	Q_snprintf( incname, sizeof( incname ), DEFAULT_DOWNLOADED_DIRECTORY "%s.incomplete", file->path );
 	if( error )
 	{
 		// Switch to next fastdl server if present
@@ -2308,7 +2308,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		// Success, rename and process file
 		char name[256];
 
-		Q_snprintf( name, 256, "downloaded/%s", file->path );
+		Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s", file->path );
 		FS_Rename( incname, name );
 
 		if( file->process )
@@ -2527,7 +2527,7 @@ void HTTP_Run( void )
 			}
 
 			Con_Reportf( "HTTP: Starting download %s from %s\n", curfile->path, curfile->server->host );
-			Q_snprintf( name, sizeof( name ), "downloaded/%s.incomplete", curfile->path );
+			Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s.incomplete", curfile->path );
 
 			curfile->file = FS_Open( name, "wb", true );
 
