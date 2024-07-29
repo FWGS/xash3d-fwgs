@@ -1168,7 +1168,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	if( filename[0] != '!' )
 	{
 		string temp_filename;
-		Q_snprintf( temp_filename, sizeof( temp_filename ), "downloaded/%s", filename );
+		Q_snprintf( temp_filename, sizeof( temp_filename ), DEFAULT_DOWNLOADED_DIRECTORY "%s", filename );
 		Q_strncpy( filename, temp_filename, sizeof( filename ));
 	}
 

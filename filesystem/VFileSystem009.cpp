@@ -58,7 +58,7 @@ static inline const char *IdToDir( char *dir, size_t size, const char *id )
 
 	if( !Q_strcmp( id, "GAMEDOWNLOAD" ))
 	{
-		Q_snprintf( dir, size, "%s/downloaded", GI->gamefolder );
+		Q_snprintf( dir, size, "%s/" DEFAULT_DOWNLOADED_DIRECTORY , GI->gamefolder );
 		return dir;
 	}
 

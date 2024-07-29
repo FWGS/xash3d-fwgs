@@ -52,11 +52,17 @@ GNU General Public License for more details.
 
 #define DEFAULT_EXTERNAL_PALETTE	"gfx/palette.pal"
 
-// path to folders where placed all sounds
+// path to sound files
 #define DEFAULT_SOUNDPATH		"sound/"
 
-// path store saved games
+// path to saved games
 #define DEFAULT_SAVE_DIRECTORY	"save/"
+
+// path to download games
+#define DEFAULT_DOWNLOADED_DIRECTORY "downloaded/"
+
+// path to user mod directory
+#define DEFAULT_CUSTOM_DIRECTORY "custom/"
 
 // fallback to this skybox
 #define DEFAULT_SKYBOX_NAME     "desert"

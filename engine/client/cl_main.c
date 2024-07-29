@@ -2594,7 +2594,6 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 {
 	int		sound_len = sizeof( DEFAULT_SOUNDPATH ) - 1;
 	byte		rgucMD5_hash[16];
-	const char	*pfilename;
 	resource_t	*p;
 
 	if( COM_CheckString( filename ) && successfully_received )
@@ -2602,10 +2601,10 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 		if( filename[0] != '!' )
 			Con_Printf( "processing %s\n", filename );
 
-		if( !Q_strnicmp( filename, "downloaded/", 11 ))
+		if( !Q_strnicmp( filename, DEFAULT_DOWNLOADED_DIRECTORY, sizeof( DEFAULT_DOWNLOADED_DIRECTORY ) - 1 ))
 		{
 			// skip "downloaded/" part to avoid mismatch with needed resources list
-			filename += 11; 
+			filename += sizeof( DEFAULT_DOWNLOADED_DIRECTORY ) - 1;
 		}
 	}
 	else if( !successfully_received )
