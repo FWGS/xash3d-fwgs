@@ -114,6 +114,7 @@ typedef struct fs_archive_s
 	int type;
 	FS_ADDARCHIVE_FULLPATH pfnAddArchive_Fullpath;
 	qboolean load_wads; // load wads from this archive
+	qboolean real_archive;
 } fs_archive_t;
 
 extern fs_globals_t  FI;

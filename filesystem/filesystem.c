@@ -61,10 +61,10 @@ static char			fs_gamedir[MAX_SYSPATH];	// game current directory
 // so raw WADs takes precedence over WADs included into PAKs and PK3s
 const fs_archive_t g_archives[] =
 {
-{ "pak",    SEARCHPATH_PAK,    FS_AddPak_Fullpath, true },
-{ "pk3",    SEARCHPATH_ZIP,    FS_AddZip_Fullpath, true },
-{ "pk3dir", SEARCHPATH_PK3DIR, FS_AddDir_Fullpath, true },
-{ "wad",    SEARCHPATH_WAD,    FS_AddWad_Fullpath, false },
+{ "pak",    SEARCHPATH_PAK,    FS_AddPak_Fullpath, true, true },
+{ "pk3",    SEARCHPATH_ZIP,    FS_AddZip_Fullpath, true, true },
+{ "pk3dir", SEARCHPATH_PK3DIR, FS_AddDir_Fullpath, true, false },
+{ "wad",    SEARCHPATH_WAD,    FS_AddWad_Fullpath, false, true },
 { NULL }, // end marker
 };
 
@@ -2653,19 +2653,9 @@ return NULL for file in pack
 const char *FS_GetDiskPath( const char *name, qboolean gamedironly )
 {
 	static char diskpath[MAX_SYSPATH];
-	char fullpath[MAX_SYSPATH];
-	searchpath_t	*search;
 
-	search = FS_FindFile( name, NULL, fullpath, sizeof( fullpath ), gamedironly );
-
-	if( search )
-	{
-		if( search->type != SEARCHPATH_PLAIN ) // file in pack or wad
-			return NULL;
-
-		Q_snprintf( diskpath, sizeof( diskpath ), "%s/%s", search->filename, fullpath );
+	if( FS_GetFullDiskPath( diskpath, sizeof( diskpath ), name, gamedironly ))
 		return diskpath;
-	}
 
 	return NULL;
 }
@@ -2687,7 +2677,7 @@ qboolean FS_GetFullDiskPath( char *buffer, size_t size, const char *name, qboole
 
 	if( search && search->type == SEARCHPATH_PLAIN )
 	{
-		Q_snprintf( buffer, size, "%s/%s", search->filename, temp );
+		Q_snprintf( buffer, size, "%s%s", search->filename, temp );
 		return true;
 	}
 
@@ -2931,6 +2921,25 @@ static const char *FS_ArchivePath( file_t *f )
 	return "plain";
 }
 
+static qboolean FS_IsArchiveExtensionSupported( const char *ext, uint flags )
+{
+	int i;
+
+	if( ext == NULL )
+		return false;
+
+	for( i = 0; i < ( sizeof( g_archives ) / sizeof( g_archives[0] )) - 1; i++ )
+	{
+		if( FBitSet( flags, IAES_ONLY_REAL_ARCHIVES ) && !g_archives[i].real_archive )
+			continue;
+
+		if( !Q_stricmp( ext, g_archives[i].ext ))
+			return true;
+	}
+
+	return false;
+}
+
 void FS_InitMemory( void )
 {
 	fs_mempool = Mem_AllocPool( "FileSystem Pool" );
@@ -3059,6 +3068,8 @@ const fs_api_t g_api =
 
 	FS_GetFullDiskPath,
 	FS_LoadFileMalloc,
+
+	FS_IsArchiveExtensionSupported,
 };
 
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );
