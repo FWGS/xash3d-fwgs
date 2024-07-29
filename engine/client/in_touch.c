@@ -767,14 +767,18 @@ static void Touch_ReloadConfig_f( void )
 	touch.state = state_none;
 	if( touch.edit )
 		touch.edit->finger = -1;
+
 	if( touch.selection )
 		touch.selection->finger = -1;
+
 	touch.edit = touch.selection = NULL;
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
-	if( FS_FileExists( touch_config_file.string, true ) )
-	{
+
+	if( touch_in_menu.value )
+		Cvar_DirectSet( &touch_in_menu, "0" );
+
+	if( FS_FileExists( touch_config_file.string, true ))
 		Cbuf_AddTextf( "exec \"%s\"\n", touch_config_file.string );
-	}
 	else
 	{
 		Touch_LoadDefaults_f();
@@ -1010,7 +1014,7 @@ static void Touch_DisableEdit_f( void )
 	{
 		Cvar_Set( "touch_in_menu", "0" );
 	}
-	else if( cls.key_dest ==  key_game )
+	else if( cls.key_dest == key_game )
 		Touch_WriteConfig();
 }
 
