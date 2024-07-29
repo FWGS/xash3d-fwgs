@@ -338,7 +338,7 @@ static void Con_Printfv( qboolean debug, const char *szFmt, va_list args )
 
 	add_newline = Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args ) < 0;
 
-	if( debug && Q_strcmp( buffer, "0\n" ))
+	if( debug && !Q_strcmp( buffer, "0\n" ))
 		return; // hlrally spam
 
 	Sys_Print( buffer );
