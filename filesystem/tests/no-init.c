@@ -57,6 +57,15 @@ static int TestNoInit( void )
 	p = g_fs.LoadDirectFile( "hehe", NULL );
 	if( p ) free( p );
 
+	if( !g_fs.IsArchiveExtensionSupported( "pk3", 0 )) return 0;
+	if( !g_fs.IsArchiveExtensionSupported( "wad", 0 )) return 0;
+	if( !g_fs.IsArchiveExtensionSupported( "pak", 0 )) return 0;
+	if( !g_fs.IsArchiveExtensionSupported( "pk3dir", 0 )) return 0;
+
+	if( !g_fs.IsArchiveExtensionSupported( "pk3", IAES_ONLY_REAL_ARCHIVES )) return 0;
+	if( g_fs.IsArchiveExtensionSupported( "pk3dir", IAES_ONLY_REAL_ARCHIVES )) return 0;
+	if( g_fs.IsArchiveExtensionSupported( "vpk", 0)) return 0;
+
 	g_fs.FileExists( "asdcv", 0 );
 	g_fs.FileTime( "zxcasdfd", 0 );
 	g_fs.FileSize( "asdqwe", 1 );

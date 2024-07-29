@@ -50,6 +50,13 @@ enum
 	FS_GAMEDIRONLY_SEARCH_FLAGS = FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH
 };
 
+// IsArchiveExtensionSupported flags
+enum
+{
+	// excludes directories and pk3dir, i.e. archives that cannot be represented as a single file
+	IAES_ONLY_REAL_ARCHIVES = BIT( 0 ),
+};
+
 typedef struct
 {
 	int	numfilenames;
@@ -135,8 +142,6 @@ typedef struct fs_globals_t
 	int		numgames;
 } fs_globals_t;
 
-typedef void (*fs_event_callback_t)( const char *path );
-
 typedef struct fs_api_t
 {
 	qboolean (*InitStdio)( qboolean unused_set_to_true, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
@@ -199,6 +204,9 @@ typedef struct fs_api_t
 
 	// like LoadFile but returns pointer that can be free'd using standard library function
 	byte *(*LoadFileMalloc)( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
+
+	// queries supported archive formats
+	qboolean (*IsArchiveExtensionSupported)( const char *ext, uint flags );
 } fs_api_t;
 
 typedef struct fs_interface_t
