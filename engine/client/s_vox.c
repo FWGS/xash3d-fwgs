@@ -96,7 +96,7 @@ static int S_TrimEnd( const wavdata_t *wav, int end )
 
 	if( width == 1 )
 	{
-		const int8_t *data = (const int8_t *)&wav->buffer[channels * width * end];
+		const int8_t *data = (const int8_t *)&wav->buffer[channels * width * ( end - 1 )];
 
 		for( i = 0; i < TRIM_SCAN_MAX && end > 0; i++ )
 		{
@@ -109,7 +109,7 @@ static int S_TrimEnd( const wavdata_t *wav, int end )
 	}
 	else if( width == 2 )
 	{
-		const int16_t *data = (const int16_t *)&wav->buffer[channels * width * end];
+		const int16_t *data = (const int16_t *)&wav->buffer[channels * width * ( end - 1 )];
 
 		for( i = 0; i < TRIM_SCAN_MAX && end > 0; i++ )
 		{
