@@ -95,8 +95,7 @@ static void CL_ResetPositions( cl_entity_t *ent )
 	ent->current_position = 1;
 
 	memset( ent->ph, 0, sizeof( position_history_t ) * HISTORY_MAX );
-	memcpy( &ent->ph[1], &store, sizeof( position_history_t ));
-	memcpy( &ent->ph[0], &store, sizeof( position_history_t ));
+	ent->ph[1] = ent->ph[0] = store;
 }
 
 /*
@@ -752,7 +751,7 @@ static void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_s
 
 	if( has_update )
 		alive = MSG_ReadDeltaEntity( msg, old, state, newnum, delta_type, cl.mtime[0] );
-	else memcpy( state, old, sizeof( entity_state_t ));
+	else *state = *old;
 
 	if( !alive )
 	{

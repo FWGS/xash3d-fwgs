@@ -123,7 +123,7 @@ qboolean Mobile_Init( void )
 	{
 		static mobile_engfuncs_t mobile_engfuncs; // keep a copy, don't let user change engine pointers
 
-		memcpy( &mobile_engfuncs, &gMobileEngfuncs, sizeof( mobile_engfuncs ));
+		mobile_engfuncs = gMobileEngfuncs;
 
 		if( !ExportToClient( &mobile_engfuncs ))
 		{

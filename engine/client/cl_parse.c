@@ -251,7 +251,7 @@ void CL_ParseMovevars( sizebuf_t *msg )
 	if( Q_strcmp( clgame.oldmovevars.skyName, clgame.movevars.skyName ) && cl.video_prepped )
 		R_SetupSky( clgame.movevars.skyName );
 
-	memcpy( &clgame.oldmovevars, &clgame.movevars, sizeof( movevars_t ));
+	clgame.oldmovevars = clgame.movevars;
 	clgame.entities->curstate.scale = clgame.movevars.waveHeight;
 
 	// keep features an actual!
@@ -1403,7 +1403,7 @@ void CL_UpdateUserinfo( sizebuf_t *msg, qboolean legacy )
 		if( !legacy )
 			MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ));
 
-		if( slot == cl.playernum ) memcpy( &gameui.playerinfo, player, sizeof( player_info_t ));
+		if( slot == cl.playernum ) gameui.playerinfo = *player;
 	}
 	else
 	{
