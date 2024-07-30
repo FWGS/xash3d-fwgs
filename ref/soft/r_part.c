@@ -291,7 +291,6 @@ void GAME_EXPORT CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean t
 {
 	ref_instance_t	oldRI = RI;
 
-	memcpy( &oldRI, &RI, sizeof( ref_instance_t ));
 	R_SetupRefParams( rvp );
 	R_SetupFrustum();
 //	R_SetupGL( false );	// don't touch GL-states
@@ -303,5 +302,5 @@ void GAME_EXPORT CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean t
 	gEngfuncs.CL_DrawEFX( frametime, trans_pass );
 
 	// restore internal state
-	memcpy( &RI, &oldRI, sizeof( ref_instance_t ));
+	RI = oldRI;
 }
