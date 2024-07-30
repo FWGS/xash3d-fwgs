@@ -328,7 +328,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	clgame.movevars.gravity = 800.0f;	// quake doesn't write gravity in demos
 	clgame.movevars.maxvelocity = 2000.0f;
 
-	memcpy( &clgame.oldmovevars, &clgame.movevars, sizeof( movevars_t ));
+	clgame.oldmovevars = clgame.movevars;
 }
 
 /*
@@ -715,8 +715,7 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	ent = CL_EDICT_NUM( newnum );
 	ent->index = newnum;
 	ent->player = CL_IsPlayerIndex( newnum );
-	memcpy( &ent->baseline, &state, sizeof( entity_state_t ));
-	memcpy( &ent->prevstate, &state, sizeof( entity_state_t ));
+	ent->prevstate = ent->baseline = state;
 }
 
 /*

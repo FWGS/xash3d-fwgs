@@ -1315,7 +1315,7 @@ qboolean UI_LoadProgs( void )
 	gameui.use_extended_api = false;
 
 	// make local copy of engfuncs to prevent overwrite it with user dll
-	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
+	gpEngfuncs = gEngfuncs;
 
 	gameui.mempool = Mem_AllocPool( "Menu Pool" );
 
@@ -1329,7 +1329,7 @@ qboolean UI_LoadProgs( void )
 	}
 
 	// make local copy of engfuncs to prevent overwrite it with user dll
-	memcpy( &gpExtendedfuncs, &gExtendedfuncs, sizeof( gExtendedfuncs ));
+	gpExtendedfuncs = gExtendedfuncs;
 	memset( &gameui.dllFuncs2, 0, sizeof( gameui.dllFuncs2 ));
 
 	// try to initialize new extended API

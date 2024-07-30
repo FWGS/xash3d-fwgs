@@ -282,7 +282,7 @@ qboolean VGui_LoadProgs( HINSTANCE hInstance )
 	void (*F)( vguiapi_t* );
 	qboolean client = hInstance != NULL;
 
-	memcpy( &vgui.dllFuncs, &gEngfuncs, sizeof( vgui.dllFuncs ));
+	vgui.dllFuncs = gEngfuncs;
 
 	// not loading interface from client.dll, load vgui_support.dll instead
 	if( !client )
@@ -373,7 +373,7 @@ void VGui_Shutdown( void )
 		COM_FreeLibrary( vgui.hInstance );
 
 	// drop pointers to now unloaded vgui_support
-	memcpy( &vgui.dllFuncs, &gEngfuncs, sizeof( vgui.dllFuncs ));
+	vgui.dllFuncs = gEngfuncs;
 	vgui.hInstance = NULL;
 }
 

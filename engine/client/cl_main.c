@@ -2670,7 +2670,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 				else
 				{
 					Con_Printf( "Downloaded %i bytes for purported %i byte file, ignoring download\n",
-					cls.netchan.tempbuffersize, p->nDownloadSize );
+						cls.netchan.tempbuffersize, p->nDownloadSize );
 				}
 
 				if( cls.netchan.tempbuffer )
