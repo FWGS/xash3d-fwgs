@@ -35,7 +35,7 @@ static void V_CalcViewRect( void )
 	int	sb_lines;
 	float	size;
 
-	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+	if( Host_IsQuakeCompatible( ))
 	{
 		// intermission is always full screen
 		if( cl.intermission ) size = 120.0f;
@@ -144,7 +144,9 @@ static void V_SetRefParams( ref_params_t *fd )
 	VectorCopy( cl.viewangles, fd->cl_viewangles );
 	fd->health = cl.local.health;
 	VectorCopy( cl.crosshairangle, fd->crosshairangle );
-	fd->viewsize = scr_viewsize.value;
+	if( Host_IsQuakeCompatible( ))
+		fd->viewsize = scr_viewsize.value;
+	else fd->viewsize = 120.0f;
 
 	VectorCopy( cl.punchangle, fd->punchangle );
 	fd->maxclients = cl.maxclients;
