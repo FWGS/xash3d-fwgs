@@ -5198,7 +5198,7 @@ qboolean SV_LoadProgs( const char *name )
 		gEngfuncs.pfnPEntityOfEntIndex = pfnPEntityOfEntIndexBroken;
 
 	// make local copy of engfuncs to prevent overwrite it with bots.dll
-	memcpy( &gpEngfuncs, &gEngfuncs, sizeof( gpEngfuncs ));
+	gpEngfuncs = gEngfuncs;
 
 	GetEntityAPI = (APIFUNCTION)COM_GetProcAddress( svgame.hInstance, "GetEntityAPI" );
 	GetEntityAPI2 = (APIFUNCTION2)COM_GetProcAddress( svgame.hInstance, "GetEntityAPI2" );
