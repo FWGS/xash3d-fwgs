@@ -563,8 +563,8 @@ int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, 
 		return 0;
 
 	// fill in our callbacks
-	memcpy( funcs, &gReffuncs, sizeof( ref_interface_t ));
-	memcpy( &gEngfuncs, engfuncs, sizeof( ref_api_t ));
+	*funcs = gReffuncs;
+	gEngfuncs = *engfuncs;
 	gpGlobals = globals;
 
 	gp_cl = (ref_client_t *)ENGINE_GET_PARM( PARM_GET_CLIENT_PTR );
