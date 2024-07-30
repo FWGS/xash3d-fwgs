@@ -1209,7 +1209,7 @@ static void NET_AddToLagged( netsrc_t sock, packetlag_t *list, packetlag_t *pack
 	packet->data = pStart;
 	packet->size = length;
 	packet->receivedtime = timestamp;
-	memcpy( &packet->from, from, sizeof( netadr_t ));
+	packet->from = *from;
 }
 
 /*
@@ -1321,7 +1321,7 @@ static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, 
 
 	// delivery packet from fake lag queue
 	memcpy( data, pPacket->data, pPacket->size );
-	memcpy( &net_from, &pPacket->from, sizeof( netadr_t ));
+	net_from = pPacket->from;
 	*length = pPacket->size;
 
 	if( pPacket->data )

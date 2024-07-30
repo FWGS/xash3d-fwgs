@@ -92,7 +92,7 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 	STACKFRAME64 stackframe;
 	DWORD image;
 
-	memcpy( &context, pInfo->ContextRecord, sizeof( CONTEXT ));
+	context = *pInfo->ContextRecord;
 
 	options = SymGetOptions();
 	options |= SYMOPT_DEBUG;
