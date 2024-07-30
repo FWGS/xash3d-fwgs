@@ -1091,19 +1091,19 @@ void Touch_Init( void )
 	Touch_AddDefaultButton( "jump", "touch_default/jump", "+jump", 0.880000, 0.227228, 1.000000, 0.454457, color, 2, 1, 0 );
 	Touch_AddDefaultButton( "attack", "touch_default/shoot", "+attack", 0.760000, 0.530200, 0.880000, 0.757428, color, 2, 1, 0 );
 	Touch_AddDefaultButton( "attack2", "touch_default/shoot_alt", "+attack2", 0.760000, 0.302971, 0.880000, 0.530200, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "loadquick", "touch_default/load", "loadquick", 0.680000, 0.000000, 0.760000, 0.151486, color, 2, 1, 16 );
-	Touch_AddDefaultButton( "savequick", "touch_default/save", "savequick", 0.760000, 0.000000, 0.840000, 0.151486, color, 2, 1, 16 );
-	Touch_AddDefaultButton( "messagemode", "touch_default/keyboard", "messagemode", 0.760000, 0.000000, 0.840000, 0.151486, color, 2, 1, 8 );
+	Touch_AddDefaultButton( "loadquick", "touch_default/load", "loadquick", 0.760000, 0.000000, 0.840000, 0.142222, color, 2, 1, 16 );
+	Touch_AddDefaultButton( "savequick", "touch_default/save", "savequick", 0.840000, 0.000000, 0.920000, 0.142222, color, 2, 1, 16 );
+	Touch_AddDefaultButton( "messagemode", "touch_default/keyboard", "messagemode", 0.840000, 0.000000, 0.920000, 0.142222, color, 2, 1, 8 );
 	Touch_AddDefaultButton( "reload", "touch_default/reload", "+reload", 0.000000, 0.302971, 0.120000, 0.530200, color, 2, 1, 0 );
 	Touch_AddDefaultButton( "flashlight", "touch_default/flash_light_filled", "impulse 100", 0.920000, 0.000000, 1.000000, 0.151486, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "scores", "touch_default/map", "+showscores", 0.680000, 0.000000, 0.760000, 0.151486, color, 2, 1, 8 );
+	Touch_AddDefaultButton( "scores", "touch_default/map", "+showscores", 0.760000, 0.000000, 0.840000, 0.142222, color, 2, 1, 8 );
 	Touch_AddDefaultButton( "show_numbers", "touch_default/show_weapons", "exec touch_default/numbers.cfg", 0.440000, 0.833171, 0.520000, 0.984656, color, 2, 1, 0 );
 	Touch_AddDefaultButton( "duck", "touch_default/crouch", "+duck", 0.880000, 0.757428, 1.000000, 0.984656, color, 2, 1, 0 );
 	Touch_AddDefaultButton( "tduck", "touch_default/tduck", ";+duck", 0.560000, 0.833171, 0.620000, 0.946785, color, 2, 1, 0 );
 	Touch_AddDefaultButton( "edit", "touch_default/settings", "touch_enableedit", 0.420000, 0.000000, 0.500000, 0.151486, color, 2, 1, 32 );
 	Touch_AddDefaultButton( "menu", "touch_default/menu", "escape", 0.000000, 0.833171, 0.080000, 0.984656, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "spray", "touch_default/spray", "impulse 201", 0.840000, 0.000000, 0.920000, 0.151486, color, 2, 1, 0 );
-	Touch_AddDefaultButton( "voicechat", "touch_default/microphone", "+voicerecord", 0.780000, 0.844444, 0.860000, 1.022222, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "spray", "touch_default/spray", "impulse 201", 0.680000, 0.000000, 0.760000, 0.142222, color, 2, 1, 8 );
+	Touch_AddDefaultButton( "voicechat", "touch_default/microphone", "+voicerecord", 0.780000, 0.817778, 0.860000, 0.960000, color, 2, 1, 8 );
 
 	Cmd_AddCommand( "touch_addbutton", Touch_AddButton_f, "add native touch button" );
 	Cmd_AddCommand( "touch_removebutton", IN_TouchRemoveButton_f, "remove native touch button" );
