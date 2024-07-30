@@ -1103,6 +1103,7 @@ void Touch_Init( void )
 	Touch_AddDefaultButton( "edit", "touch_default/settings", "touch_enableedit", 0.420000, 0.000000, 0.500000, 0.151486, color, 2, 1, 32 );
 	Touch_AddDefaultButton( "menu", "touch_default/menu", "escape", 0.000000, 0.833171, 0.080000, 0.984656, color, 2, 1, 0 );
 	Touch_AddDefaultButton( "spray", "touch_default/spray", "impulse 201", 0.840000, 0.000000, 0.920000, 0.151486, color, 2, 1, 0 );
+	Touch_AddDefaultButton( "voicechat", "touch_default/microphone", "+voicerecord", 0.780000, 0.844444, 0.860000, 1.022222, color, 2, 1, 0 );
 
 	Cmd_AddCommand( "touch_addbutton", Touch_AddButton_f, "add native touch button" );
 	Cmd_AddCommand( "touch_removebutton", IN_TouchRemoveButton_f, "remove native touch button" );
