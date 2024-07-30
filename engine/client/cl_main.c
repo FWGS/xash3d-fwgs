@@ -2830,19 +2830,26 @@ static void CL_Physinfo_f( void )
 static qboolean CL_ShouldRescanFilesystem( void )
 {
 	resource_t *res;
+	qboolean retval = false;
 
 	for( res = cl.resourcesonhand.pNext; res && res != &cl.resourcesonhand; res = res->pNext )
 	{
 		if( res->type == t_generic )
 		{
 			const char *ext = COM_FileExtension( res->szFileName );
-			// TODO: query supported archives format from fs_stdio
-			// TODO: query if was already opened
-			if( !Q_stricmp( ext, "wad" ) || !Q_stricmp( ext, "pk3" ) || !Q_stricmp( ext, "pak" ))
-				return true;
+
+			if( !g_fsapi.IsArchiveExtensionSupported( ext, IAES_ONLY_REAL_ARCHIVES ))
+				continue;
+
+			if( FBitSet( res->ucExtraFlags, RES_EXTRA_ARCHIVE_CHECKED ))
+				continue;
+
+			SetBits( res->ucExtraFlags, RES_EXTRA_ARCHIVE_CHECKED );
+			retval = true;
 		}
 	}
-	return false;
+
+	return retval;
 }
 
 qboolean CL_PrecacheResources( void )
