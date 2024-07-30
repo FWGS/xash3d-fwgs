@@ -1201,7 +1201,7 @@ void Con_CompleteCommand( field_t *field )
 
 	if( !con.matchCount ) return; // no matches
 
-	memcpy( &temp, con.completionField, sizeof( field_t ) );
+	temp = *con.completionField;
 
 	// autocomplete second arg
 	if( (Cmd_Argc() >= 2) || ((Cmd_Argc() == 1) && nextcmd) )
