@@ -76,12 +76,16 @@ typedef struct
 	int             infotableofs;
 } hpak_header_t;
 
+STATIC_ASSERT( sizeof( hpak_header_t ) == 12, "invalid hpak_header_t size" );
+
 typedef struct
 {
 	dresource_t     resource;
 	int             filepos;
 	int             disksize;
 } hpak_lump_t;
+
+STATIC_ASSERT( sizeof( hpak_lump_t ) == 144, "invalid hpak_lump_t size" );
 
 typedef struct
 {

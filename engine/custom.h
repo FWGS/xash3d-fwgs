@@ -90,4 +90,12 @@ typedef struct customization_s
 #define FCUST_WIPEDATA		( 1<<1 )
 #define FCUST_IGNOREINIT		( 1<<2 )
 
+#if !XASH_64BIT
+STATIC_ASSERT( sizeof( customization_t ) == 164, "invalid customization_t size, broken API" );
+STATIC_ASSERT( sizeof( resource_t ) == 136, "invalid resource_t size, broken API" );
+#else
+STATIC_ASSERT( sizeof( customization_t ) == 192, "invalid customization_t size, broken API" );
+STATIC_ASSERT( sizeof( resource_t ) == 144, "invalid resource_t size, broken API" );
+#endif
+
 #endif // CUSTOM_H
