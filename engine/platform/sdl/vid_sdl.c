@@ -1180,14 +1180,8 @@ qboolean VID_SetMode( void )
 	}
 #endif
 
-	if( !FBitSet( vid_fullscreen.flags, FCVAR_CHANGED ))
-		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
-	else
-		ClearBits( vid_fullscreen.flags, FCVAR_CHANGED );
-
-	SetBits( gl_vsync.flags, FCVAR_CHANGED );
-
 	window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
+	SetBits( gl_vsync.flags, FCVAR_CHANGED );
 
 	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, window_mode )) == rserr_ok )
 	{
