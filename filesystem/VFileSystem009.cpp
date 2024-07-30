@@ -531,9 +531,9 @@ extern "C" void EXPORT *CreateInterface( const char *interface, int *retval )
 
 	if( !Q_strcmp( interface, FS_API_CREATEINTERFACE_TAG ))
 	{
-		static fs_api_t copy = { 0 }; // return a copy, to disallow overriding
+		static fs_api_t copy; // return a copy, to disallow overriding
 
-		memcpy( &copy, &g_api, sizeof( copy ));
+		copy = g_api;
 
 		if( retval )
 			*retval = 0;

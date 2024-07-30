@@ -3078,7 +3078,7 @@ int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_inte
 	if( engfuncs && !FS_InitInterface( version, engfuncs ))
 		return 0;
 
-	memcpy( api, &g_api, sizeof( *api ));
+	*api = g_api;
 	*globals = &FI;
 
 	return FS_API_VERSION;
