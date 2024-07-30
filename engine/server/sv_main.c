@@ -236,7 +236,7 @@ void SV_UpdateMovevars( qboolean initialize )
 	if( initialize ) return; // too early
 
 	if( MSG_WriteDeltaMovevars( &sv.reliable_datagram, &svgame.oldmovevars, &svgame.movevars ))
-		memcpy( &svgame.oldmovevars, &svgame.movevars, sizeof( movevars_t )); // oldstate changed
+		svgame.oldmovevars = svgame.movevars; // oldstate changed
 
 	host.movevars_changed = false;
 }
