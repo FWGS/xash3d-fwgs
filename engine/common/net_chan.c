@@ -379,7 +379,6 @@ static void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
 	while( buf )
 	{
 		n = buf->next;
-		Mem_Free( buf->frag_message_buf );
 		Mem_Free( buf );
 		buf = n;
 	}
@@ -505,8 +504,7 @@ static fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t	*buf;
 
-	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ));
-	buf->frag_message_buf = (byte *)Mem_Calloc( net_mempool, fragment_size );
+	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ) + ( fragment_size - 1 ) );
 	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, fragment_size );
 
 	return buf;
@@ -520,7 +518,7 @@ Netchan_AddFragbufToTail
 */
 static void Netchan_AddFragbufToTail( fragbufwaiting_t *wait, fragbuf_t *buf )
 {
-	fragbuf_t	*p;
+	fragbuf_t *p;
 
 	buf->next = NULL;
 	wait->fragbufcount++;
