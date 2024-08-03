@@ -656,7 +656,7 @@ void CL_LegacyPrecache_f( void )
 	// Include server count in case server disconnects and changes level during d/l
 	MSG_BeginClientCmd( &cls.netchan.message, clc_stringcmd );
 	MSG_WriteStringf( &cls.netchan.message, "begin %i", spawncount );
-	cls.signon = SIGNONS;
+	cls.signon = SIGNONS - 1;
 }
 
 qboolean CL_LegacyMode( void )
