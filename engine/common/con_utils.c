@@ -1019,6 +1019,7 @@ autocomplete_list_t cmd_list[] =
 { "changelevel", 1, Cmd_GetMapList },
 { "playdemo", 1, Cmd_GetDemoList, },
 { "timedemo", 1, Cmd_GetDemoList, },
+{ "listdemo", 1, Cmd_GetDemoList, },
 { "playvol", 1, Cmd_GetSoundList },
 { "hpkval", 1, Cmd_GetCustomList },
 { "hpklist", 1, Cmd_GetCustomList },
