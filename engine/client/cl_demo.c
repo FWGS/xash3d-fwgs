@@ -79,7 +79,7 @@ typedef struct
 typedef struct
 {
 	demoentry_t	*entries;		// track entry info
-	int		numentries;	// number of tracks
+	int32_t		numentries;	// number of tracks
 } demodirectory_t;
 
 // add angles
@@ -1449,6 +1449,51 @@ void CL_Record_f( void )
 	CL_WriteDemoHeader( demopath );
 }
 
+static qboolean CL_ParseDemoHeader( const char *callee, const char *filename, file_t *f, demoheader_t *hdr, int32_t *numentries )
+{
+	if( FS_Read( f, hdr, sizeof( *hdr )) != sizeof( *hdr ) || hdr->id != IDEMOHEADER )
+	{
+		Con_Printf( S_ERROR "%s: %s is not in supported format or not a demo file\n", callee, filename );
+		return false;
+	}
+
+	// force null terminate strings
+	hdr->mapname[sizeof( hdr->mapname ) - 1] = 0;
+	hdr->comment[sizeof( hdr->comment ) - 1] = 0;
+	hdr->gamedir[sizeof( hdr->gamedir ) - 1] = 0;
+
+	if( hdr->dem_protocol != DEMO_PROTOCOL )
+	{
+		Con_Printf( S_ERROR "%s: demo protocol outdated (%i should be %i)\n",
+			callee, hdr->net_protocol, DEMO_PROTOCOL );
+		return false;
+	}
+
+	if( hdr->net_protocol != PROTOCOL_VERSION && hdr->net_protocol != PROTOCOL_LEGACY_VERSION )
+	{
+		Con_Printf( S_ERROR "%s: net protocol outdated (%i should be %i or %i)\n",
+			callee, hdr->net_protocol, PROTOCOL_VERSION, PROTOCOL_LEGACY_VERSION );
+		return false;
+	}
+
+	if( FS_Seek( f, hdr->directory_offset, SEEK_SET ) < 0
+		|| FS_Read( f, numentries, sizeof( *numentries )) != sizeof( *numentries ))
+	{
+		Con_Printf( S_ERROR "%s: can't find directory offset in %s, demo file corrupted\n",
+			callee, filename );
+		return false;
+	}
+
+	if(( *numentries < 1 ) || ( *numentries > 1024 ))
+	{
+		Con_Printf( S_ERROR "%s: demo have bogus # of directory entries: %i\n",
+			callee, *numentries );
+		return false;
+	}
+
+	return true;
+}
+
 /*
 ====================
 CL_PlayDemo_f
@@ -1469,9 +1514,7 @@ void CL_PlayDemo_f( void )
 	}
 
 	if( cls.demoplayback )
-	{
 		CL_StopPlayback();
-	}
 
 	if( cls.demorecording )
 	{
@@ -1526,47 +1569,27 @@ void CL_PlayDemo_f( void )
 	}
 
 	// read in the demo header
-	FS_Read( cls.demofile, &demo.header, sizeof( demoheader_t ));
-
-	if( demo.header.id != IDEMOHEADER )
+	if( !CL_ParseDemoHeader( Cmd_Argv( 0 ), filename, cls.demofile, &demo.header, &demo.directory.numentries ))
 	{
-		Con_Printf( S_ERROR "%s is not a demo file\n", demoname );
-		CL_DemoAborted();
-		return;
-	}
-
-	if( demo.header.dem_protocol != DEMO_PROTOCOL )
-	{
-		Con_Printf( S_ERROR "playdemo: demo protocol outdated (%i should be %i)\n", demo.header.dem_protocol, DEMO_PROTOCOL );
-		CL_DemoAborted();
-		return;
-	}
-
-	if( demo.header.net_protocol != PROTOCOL_VERSION &&
-		demo.header.net_protocol != PROTOCOL_LEGACY_VERSION )
-	{
-		Con_Printf( S_ERROR "playdemo: net protocol outdated (%i should be %i)\n", demo.header.net_protocol, PROTOCOL_VERSION );
-		CL_DemoAborted();
-		return;
-	}
-
-	// now read in the directory structure.
-	FS_Seek( cls.demofile, demo.header.directory_offset, SEEK_SET );
-	FS_Read( cls.demofile, &demo.directory.numentries, sizeof( int ));
-
-	if( demo.directory.numentries < 1 || demo.directory.numentries > 1024 )
-	{
-		Con_Printf( S_ERROR "demo had bogus # of directory entries: %i\n", demo.directory.numentries );
 		CL_DemoAborted();
 		return;
 	}
 
 	// allocate demo entries
-	demo.directory.entries = Mem_Malloc( cls.mempool, sizeof( demoentry_t ) * demo.directory.numentries );
+	demo.directory.entries = Mem_Malloc( cls.mempool, sizeof( *demo.directory.entries ) * demo.directory.numentries );
 
 	for( i = 0; i < demo.directory.numentries; i++ )
 	{
-		FS_Read( cls.demofile, &demo.directory.entries[i], sizeof( demoentry_t ));
+		demoentry_t *entry = &demo.directory.entries[i];
+
+		if( FS_Read( cls.demofile, entry, sizeof( *entry )) != sizeof( *entry ))
+		{
+			Con_Printf( S_ERROR "%s: demo entry %i of %s corrupted", Cmd_Argv( 0 ), i, filename );
+			CL_DemoAborted();
+			return;
+		}
+
+		entry->description[sizeof( entry->description ) - 1] = 0;
 	}
 
 	demo.entryIndex = 0;
@@ -1679,4 +1702,79 @@ void CL_Stop_f( void )
 	{
 		S_StopBackgroundTrack();
 	}
+}
+
+void CL_ListDemo_f( void )
+{
+	demoheader_t hdr;
+	int32_t num_entries;
+	file_t *f;
+	char filename[MAX_QPATH];
+	char demoname[MAX_QPATH];
+	int i;
+
+	if( Cmd_Argc() < 2 )
+	{
+		Con_Printf( S_USAGE "%s <demoname>\n", Cmd_Argv( 0 ));
+		return;
+	}
+
+	Q_strncpy( demoname, Cmd_Argv( 1 ), sizeof( demoname ));
+	COM_StripExtension( demoname );
+	Q_snprintf( filename, sizeof( filename ), "%s.dem", demoname );
+
+	f = FS_Open( filename, "rb", true );
+	if( !f )
+	{
+		Con_Printf( S_ERROR "couldn't open %s\n", filename );
+		return;
+	}
+
+	if( !CL_ParseDemoHeader( Cmd_Argv( 0 ), filename, f, &hdr, &num_entries ))
+	{
+		FS_Close( f );
+		return;
+	}
+
+	Con_Printf( "Demo contents for %s:\n"
+		"\tProtocol: %i net/%i demo\n"
+		"\tFPS: %g\n"
+		"\tMap: %s\n"
+		"\tComment: %s\n"
+		"\tGame: %s\n",
+		filename, hdr.net_protocol, hdr.dem_protocol, hdr.host_fps, hdr.mapname,
+		hdr.comment, hdr.gamedir );
+
+	for( i = 0; i < num_entries; i++ )
+	{
+		demoentry_t entry;
+
+		Con_Printf( "Demo entry #%i:\n", i );
+
+		if( FS_Read( f, &entry, sizeof( entry )) != sizeof( entry ))
+		{
+			Con_Printf( S_ERROR "can't read demo entry\n" );
+			FS_Close( f );
+			return;
+		}
+
+		entry.description[sizeof( entry.description ) - 1] = 0;
+
+		if( entry.entrytype == DEMO_STARTUP )
+		{
+			// startup entries don't have anything useful
+			Con_Printf( "\tEntry type: " S_YELLOW "startup" S_DEFAULT "\n" );
+		}
+		else
+		{
+			Con_Printf( "\tEntry type: " S_GREEN "normal" S_DEFAULT " (%i)\n"
+				"\tEntry playback time/frames: %.2f seconds/%i frames\n"
+				"\tEntry flags: 0x%x\n"
+				"\tEntry description: %s\n",
+				entry.entrytype, entry.playback_time, entry.playback_frames,
+				entry.flags, entry.description );
+		}
+	}
+
+	FS_Close( f );
 }

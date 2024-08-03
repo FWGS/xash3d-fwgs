@@ -784,6 +784,7 @@ void CL_Demos_f( void );
 void CL_DeleteDemo_f( void );
 void CL_Record_f( void );
 void CL_Stop_f( void );
+void CL_ListDemo_f( void );
 int CL_GetDemoComment( const char *demoname, char *comment );
 
 //

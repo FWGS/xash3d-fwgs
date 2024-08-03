@@ -3160,6 +3160,7 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("demos", CL_Demos_f, "restart looping demos defined by the last startdemos command" );
 	Cmd_AddCommand ("movie", CL_PlayVideo_f, "play a movie" );
 	Cmd_AddCommand ("stop", CL_Stop_f, "stop playing or recording a demo" );
+	Cmd_AddCommand( "listdemo", CL_ListDemo_f, "list demo entries" );
 	Cmd_AddCommand ("info", NULL, "collect info about local servers with specified protocol" );
 	Cmd_AddCommand ("escape", CL_Escape_f, "escape from game to menu" );
 	Cmd_AddCommand ("togglemenu", CL_Escape_f, "toggle between game and menu" );
