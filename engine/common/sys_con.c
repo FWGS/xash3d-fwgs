@@ -297,6 +297,7 @@ void Sys_PrintLog( const char *pMsg )
 	const struct tm	*crt_tm;
 	char logtime[32] = "";
 	static char lastchar;
+	size_t len;
 
 	time( &crt_time );
 	crt_tm = localtime( &crt_time );
@@ -307,10 +308,12 @@ void Sys_PrintLog( const char *pMsg )
 	// spew to stdout
 	Sys_PrintStdout( logtime, pMsg );
 
+	len = Q_strlen( pMsg );
+
 	if( !s_ld.logfile )
 	{
 		// save last char to detect when line was not ended
-		lastchar = pMsg[Q_strlen( pMsg ) - 1];
+		lastchar = len > 0 ? pMsg[len - 1] : 0;
 		return;
 	}
 
@@ -318,7 +321,7 @@ void Sys_PrintLog( const char *pMsg )
 		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S] ", crt_tm ); //full time
 	
 	// save last char to detect when line was not ended
-	lastchar = pMsg[Q_strlen( pMsg ) - 1];
+	lastchar = len > 0 ? pMsg[len - 1] : 0;
 
 	Sys_PrintLogfile( s_ld.logfileno, logtime, pMsg, false );
 	Sys_FlushLogfile();
