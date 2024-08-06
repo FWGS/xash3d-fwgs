@@ -694,3 +694,160 @@ void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove )
 	MSG_SeekToBit( sb, startbit, SEEK_SET );
 	sb->nDataBits -= bitstoremove;
 }
+
+#ifdef XASH_ENGINE_TESTS
+#include "tests.h"
+
+static const void *g_testbuf = "asdf\xba\xa1\xba\xa1\xed\xc8\x15\x7a";
+static const size_t g_testbuf_bits = (( 4 + 4 + 2 + 1 ) << 3 ) + 4;
+
+static void Test_Buffer_BitByte( void )
+{
+	TASSERT_EQi( BitByte( 0 ), 0 );
+	TASSERT_EQi( BitByte( 1 ), 1 );
+	TASSERT_EQi( BitByte( 8 ), 1 );
+	TASSERT_EQi( BitByte( 9 ), 2 );
+}
+
+static void Test_Buffer_Write( void )
+{
+	sizebuf_t sb;
+	char testdata[0x100] = { 0 };
+
+	MSG_Init( &sb, __func__, testdata, sizeof( testdata ));
+	TASSERT_EQi( sb.iCurBit, 0 );
+	TASSERT_EQi( sb.nDataBits, sizeof( testdata ) << 3 );
+	TASSERT_EQi( sb.pData, testdata );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	MSG_WriteBytes( &sb, "asdf", 4 );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 32 );
+
+	MSG_WriteDword( &sb, 0xa1baa1ba );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 64 );
+
+	MSG_WriteShort( &sb, -0x3713 );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 80 );
+
+	MSG_WriteOneBit( &sb, 1 );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 81 );
+
+	MSG_WriteOneBit( &sb, 0 );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 82 );
+
+	MSG_WriteOneBit( &sb, 1 );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 83 );
+
+	MSG_WriteOneBit( &sb, 0 );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 84 );
+
+	MSG_WriteByte( &sb, 0xa1 );
+	TASSERT_EQi( sb.bOverflow, false );
+	TASSERT_EQi( sb.iCurBit, 92 );
+
+	TASSERT_EQi( MSG_GetNumBitsWritten( &sb ), g_testbuf_bits );
+	TASSERT_EQi( MSG_GetNumBytesWritten( &sb ), BitByte( g_testbuf_bits ));
+	TASSERT_EQi( MSG_GetRealBytesWritten( &sb ), g_testbuf_bits >> 3 );
+
+	// if tests fails here on big endian, it's possible due to endian issues
+	TASSERT( !memcmp( sb.pData, g_testbuf, g_testbuf_bits >> 3 ));
+
+	// must check last 4 bits separately because we never care about uninitialized bits
+	MSG_SeekToBit( &sb, g_testbuf_bits & ~7, SEEK_SET );
+	TASSERT_EQi( sb.iCurBit, 88 );
+	TASSERT_EQi( MSG_ReadUBitLong( &sb, 4 ), 0xa );
+}
+
+static void Test_Buffer_Read( void )
+{
+	sizebuf_t sb;
+	char buf[4];
+
+	MSG_StartReading( &sb, (void *)g_testbuf, -1, 0, g_testbuf_bits );
+	TASSERT_EQi( sb.iCurBit, 0 );
+	TASSERT_EQi( sb.nDataBits, g_testbuf_bits );
+	TASSERT_EQi( sb.pData, g_testbuf );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	MSG_ReadBytes( &sb, buf, 4 );
+	TASSERT( !memcmp( buf, "asdf", 4 ));
+	TASSERT_EQi( sb.iCurBit, 32 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_ReadWord( &sb ), 0xa1ba );
+	TASSERT_EQi( sb.iCurBit, 48 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_ReadDword( &sb ), 0xc8eda1baU );
+	TASSERT_EQi( sb.iCurBit, 80 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_ReadOneBit( &sb ), 1 );
+	TASSERT_EQi( sb.iCurBit, 81 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_ReadOneBit( &sb ), 0 );
+	TASSERT_EQi( sb.iCurBit, 82 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_ReadOneBit( &sb ), 1 );
+	TASSERT_EQi( sb.iCurBit, 83 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_ReadOneBit( &sb ), 0 );
+	TASSERT_EQi( sb.iCurBit, 84 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_ReadByte( &sb ), 0xa1 );
+	TASSERT_EQi( sb.iCurBit, 92 );
+	TASSERT_EQi( sb.bOverflow, false );
+
+	TASSERT_EQi( MSG_Overflow( &sb, 1 ), true );
+	TASSERT_EQi( sb.bOverflow, true );
+}
+
+static void Test_Buffer_ExciseBits( void )
+{
+	sizebuf_t sb;
+	char testdata[0x100];
+
+	memcpy( testdata, g_testbuf, BitByte( g_testbuf_bits ));
+
+	MSG_StartWriting( &sb, testdata, 0, 0, g_testbuf_bits );
+	MSG_ExciseBits( &sb, 8, 28 );
+
+	TASSERT_EQi( MSG_CheckOverflow( &sb ), false );
+	TASSERT_EQi( MSG_GetMaxBits( &sb ), 64 );
+	TASSERT( !memcmp( MSG_GetData( &sb ), "a\x1b\xaa\x1b\xda\x8e\x5c\xa1", 8 ));
+
+	memcpy( testdata, g_testbuf, BitByte( g_testbuf_bits ));
+
+	MSG_StartWriting( &sb, testdata, 0, 0, g_testbuf_bits );
+	MSG_ExciseBits( &sb, 16, 32 );
+
+	TASSERT_EQi( MSG_CheckOverflow( &sb ), false );
+	TASSERT_EQi( MSG_GetMaxBits( &sb ), g_testbuf_bits - 32 );
+	TASSERT( !memcmp( MSG_GetData( &sb ), "as\xba\xa1\xed\xc8\x15", 7 ));
+
+	MSG_SeekToBit( &sb, 7 << 3, SEEK_SET );
+	TASSERT_EQi( MSG_ReadUBitLong( &sb, 4 ), 0xa );
+}
+
+void Test_RunBuffer( void )
+{
+	MSG_InitMasks();
+
+	TRUN( Test_Buffer_BitByte( ));
+	TRUN( Test_Buffer_Write( ));
+	TRUN( Test_Buffer_Read( ));
+	TRUN( Test_Buffer_ExciseBits( ));
+}
+
+#endif // XASH_ENGINE_TESTS
