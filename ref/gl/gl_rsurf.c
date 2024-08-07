@@ -1852,7 +1852,7 @@ void R_GenerateVBO( void )
 	int numsurfaces = world->numsurfaces;
 	int numtextures = world->numtextures;
 	int numlightmaps = gl_lms.current_lightmap_texture;
-	int k, len = 0;
+	int i, len = 0;
 	vboarray_t *vbo;
 	uint maxindex = 0;
 	double t1, t2, t3;
@@ -1890,31 +1890,33 @@ void R_GenerateVBO( void )
 	vbos.decaldata->lm = Mem_Calloc( vbos.mempool, sizeof( msurface_t* ) * numlightmaps );
 
 	// count array lengths
-	for( k = 0; k < numlightmaps; k++ )
+	for( i = 0; i < numsurfaces; i++ )
 	{
+		msurface_t *surf = &surfaces[i];
+		texture_t *surftex;
 		int j;
 
-		for( j = 0; j < numtextures; j++ )
-		{
-			int i;
-			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
+		if( FBitSet( surf->flags, SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ))
+			continue;
 
-			for( i = 0; i < numsurfaces; i++ )
+		surftex = R_TextureAnimation( surf );
+
+		for( j = 0;	j < numtextures; j++ )
+		{
+			int k;
+
+			if( surftex != world->textures[j] )
+				continue;
+
+			for( k = 0; k < numlightmaps; k++ )
 			{
-				msurface_t *surf = &surfaces[i];
+				vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
 
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
-					continue;
-
-				if( R_TextureAnimation( surf ) != world->textures[j] )
-					continue;
-
 				if( vbo->array_len + surf->polys->numverts > VBOINDEX_MAX )
 				{
-					vbotex->vboarray = vbo;
 					// generate new array and new vbotexture node
 					vbo->array = Mem_Calloc( vbos.mempool, sizeof( vbovertex_t ) * vbo->array_len );
 					gEngfuncs.Con_Printf( S_NOTE "%s: allocated array of %d verts, texture %d, lm %d\n", __func__, vbo->array_len, j, k );
@@ -1933,6 +1935,7 @@ void R_GenerateVBO( void )
 					if( vbos.maxarraysplit_lm < k + 1 )
 						vbos.maxarraysplit_lm = k + 1;
 				}
+
 				vbos.surfdata[i].vbotexture = vbotex;
 				vbos.surfdata[i].startindex = vbo->array_len;
 				vbos.surfdata[i].texturenum = j;
@@ -1953,35 +1956,41 @@ void R_GenerateVBO( void )
 	vbo = vbos.arraylist;
 
 	// fill and upload
-	for( k = 0; k < numlightmaps; k++ )
+	for( i = 0; i < numsurfaces; i++ )
 	{
+		msurface_t *surf = &surfaces[i];
+		texture_t *surftex;
 		int j;
 
-		for( j = 0; j < numtextures; j++ )
+		if( FBitSet( surf->flags, SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ))
+			continue;
+
+		surftex = R_TextureAnimation( surf );
+
+		for( j = 0;	j < numtextures; j++ )
 		{
-			int i;
-			vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
+			int k;
 
-			// preallocate index arrays
-			vbotex->indexarray = Mem_Calloc( vbos.mempool, sizeof( *vbotex->indexarray ) * 6 * vbotex->len );
-			vbotex->lightmaptexturenum = k;
+			if( surftex != world->textures[j] )
+				continue;
 
-			if( maxindex < vbotex->len )
-				maxindex = vbotex->len;
-
-			for( i = 0; i < numsurfaces; i++ )
+			for( k = 0; k < numlightmaps; k++ )
 			{
-				msurface_t *surf = &surfaces[i];
 				int l;
+				vbotexture_t *vbotex = &vbos.textures[k * numtextures + j];
 
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
-					continue;
+				// preallocate index arrays
+				if( !vbotex->indexarray )
+				{
+					vbotex->indexarray = Mem_Calloc( vbos.mempool, sizeof( *vbotex->indexarray ) * 6 * vbotex->len );
+					vbotex->lightmaptexturenum = k;
 
-				if( R_TextureAnimation( surf ) != world->textures[j] )
-					continue;
+					if( maxindex < vbotex->len )
+						maxindex = vbotex->len;
+				}
 
 				// switch to next array
 				if( len + surf->polys->numverts > VBOINDEX_MAX )
@@ -2026,7 +2035,6 @@ void R_GenerateVBO( void )
 				}
 
 				len += surf->polys->numverts;
-
 			}
 		}
 	}
