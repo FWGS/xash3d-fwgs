@@ -2571,31 +2571,43 @@ CL_DecayLights
 */
 void CL_DecayLights( void )
 {
-	dlight_t	*dl;
-	float	time;
+	const float time = cl.time;
+	const float dt = cl.time - cl.oldtime;
 	int	i;
 
-	time = cl.time - cl.oldtime;
-
-	for( i = 0, dl = cl_dlights; i < MAX_DLIGHTS; i++, dl++ )
+	for( i = 0; i < MAX_DLIGHTS; i++ )
 	{
-		if( !dl->radius ) continue;
+		dlight_t *dl = &cl_dlights[i];
 
-		dl->radius -= time * dl->decay;
-		if( dl->radius < 0 ) dl->radius = 0;
+		if( !dl->radius )
+			continue;
 
-		if( dl->die < cl.time || !dl->radius )
+		if( dl->die < time )
+		{
+			memset( dl, 0, sizeof( *dl ));
+			continue;
+		}
+
+		dl->radius -= dt * dl->decay;
+		if( dl->radius <= 0 )
 			memset( dl, 0, sizeof( *dl ));
 	}
 
-	for( i = 0, dl = cl_elights; i < MAX_ELIGHTS; i++, dl++ )
+	for( i = 0; i < MAX_ELIGHTS; i++ )
 	{
-		if( !dl->radius ) continue;
+		dlight_t *dl = &cl_elights[i];
 
-		dl->radius -= time * dl->decay;
-		if( dl->radius < 0 ) dl->radius = 0;
+		if( !dl->radius )
+			continue;
 
-		if( dl->die < cl.time || !dl->radius )
+		if( dl->die < time )
+		{
+			memset( dl, 0, sizeof( *dl ));
+			continue;
+		}
+
+		dl->radius -= dt * dl->decay;
+		if( dl->radius <= 0 )
 			memset( dl, 0, sizeof( *dl ));
 	}
 }
