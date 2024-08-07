@@ -1150,6 +1150,7 @@ show stats
 */
 static void CL_FinishTimeDemo( void )
 {
+	qboolean temp = host.allow_console;
 	int	frames;
 	double	time;
 
@@ -1160,7 +1161,9 @@ static void CL_FinishTimeDemo( void )
 	time = host.realtime - cls.td_starttime;
 	if( !time ) time = 1.0;
 
+	host.allow_console = true;
 	Con_Printf( "timedemo result: %i frames %5.3f seconds %5.3f fps\n", frames, time, frames / time );
+	host.allow_console = temp;
 
 	if( Sys_CheckParm( "-timedemo" ))
 		CL_Quit_f();
