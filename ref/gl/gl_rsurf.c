@@ -196,7 +196,7 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 		ClearBits( warpface->flags, SURF_DRAWTURB_QUADS );
 
 	// add a point in the center to help keep warp valid
-	poly = Mem_Calloc( loadmodel->mempool, sizeof( glpoly_t ) + (numverts - 4) * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Calloc( loadmodel->mempool, sizeof( glpoly_t ) + numverts * VERTEXSIZE * sizeof( float ));
 	poly->next = warpface->polys;
 	poly->flags = warpface->flags;
 	warpface->polys = poly;
@@ -328,7 +328,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	fa->polys = NULL;
 
 	// quake simple models (healthkits etc) need to be reconstructed their polys because LM coords has changed after the map change
-	poly = Mem_Realloc( mod->mempool, poly, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Realloc( mod->mempool, poly, sizeof( glpoly_t ) + lnumverts * VERTEXSIZE * sizeof( float ));
 	poly->next = fa->polys;
 	poly->flags = fa->flags;
 	fa->polys = poly;
