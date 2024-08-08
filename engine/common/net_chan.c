@@ -457,22 +457,21 @@ Netchan_OutOfBand
 Sends an out-of-band datagram
 ================
 */
-void Netchan_OutOfBand( int net_socket, netadr_t adr, int length, byte *data )
+void Netchan_OutOfBand( int net_socket, netadr_t adr, int len, byte *data )
 {
-	byte	send_buf[MAX_PRINT_MSG];
-	sizebuf_t	send;
+	byte buf[MAX_PRINT_MSG + 4] = { 0xff, 0xff, 0xff, 0xff };
 
 	if( CL_IsPlaybackDemo( ))
 		return;
 
-	// write the packet header
-	MSG_Init( &send, "SequencePacket", send_buf, sizeof( send_buf ));
+	if( len > sizeof( buf ) - 4 )
+	{
+		Host_Error( "%s: overflow!\n", __func__ );
+		return;
+	}
 
-	MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET ); // -1 sequence means out of band
-	MSG_WriteBytes( &send, data, length );
-
-	// send the datagram
-	NET_SendPacket( net_socket, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
+	memcpy( &buf[4], data, len );
+	NET_SendPacket( net_socket, len + 4, buf, adr );
 }
 
 /*
@@ -482,16 +481,26 @@ Netchan_OutOfBandPrint
 Sends a text message in an out-of-band datagram
 ================
 */
-void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, const char *format, ... )
+void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, const char *fmt, ... )
 {
-	char	string[MAX_PRINT_MSG];
-	va_list	argptr;
+	va_list	va;
+	byte buf[MAX_PRINT_MSG + 4] = { 0xff, 0xff, 0xff, 0xff };
+	int len;
 
-	va_start( argptr, format );
-	Q_vsnprintf( string, sizeof( string ) - 1, format, argptr );
-	va_end( argptr );
+	if( CL_IsPlaybackDemo( ))
+		return;
 
-	Netchan_OutOfBand( net_socket, adr, Q_strlen( string ), (byte *)string );
+	va_start( va, fmt );
+	len = Q_vsnprintf( &buf[4], sizeof( buf ) - 4, fmt, va );
+	va_end( va );
+
+	if( len < 0 )
+	{
+		Host_Error( "%s: snprintf overflow!\n", __func__ );
+		return;
+	}
+
+	NET_SendPacket( net_socket, len + 4, buf, adr );
 }
 
 /*
