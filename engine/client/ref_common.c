@@ -544,21 +544,19 @@ static void R_GetRendererName( char *dest, size_t size, const char *opt )
 {
 	if( !Q_strstr( opt, "." OS_LIB_EXT ))
 	{
-		const char *format;
-
 #ifdef XASH_INTERNAL_GAMELIBS
-		if( !Q_strcmp( opt, "ref_" ))
-			format = "%s";
-		else
-			format = "ref_%s";
+	#define FMT1 "%s"
+	#define FMT2 "ref_%s"
 #else
-		if( !Q_strcmp( opt, "ref_" ))
-			format = OS_LIB_PREFIX "%s." OS_LIB_EXT;
-		else
-			format = OS_LIB_PREFIX "ref_%s." OS_LIB_EXT;
+	#define FMT1 OS_LIB_PREFIX "%s." OS_LIB_EXT
+	#define FMT2 OS_LIB_PREFIX "ref_%s." OS_LIB_EXT
 #endif
-		Q_snprintf( dest, size, format, opt );
-
+		if( !Q_strncmp( opt, "ref_", 4 ))
+			Q_snprintf( dest, size, FMT1, opt );
+		else
+			Q_snprintf( dest, size, FMT2, opt );
+#undef FMT1
+#undef FMT2
 	}
 	else
 	{
