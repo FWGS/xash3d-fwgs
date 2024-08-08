@@ -125,7 +125,7 @@ struct zip_s
 {
 	file_t *handle;
 	int		numfiles;
-	zipfile_t files[1]; // flexible
+	zipfile_t files[]; // flexible
 };
 
 // #define ENABLE_CRC_CHECK // known to be buggy because of possible libpublic crc32 bug, disabled
@@ -285,7 +285,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	FS_Seek( zip->handle, header_eocd.central_directory_offset, SEEK_SET );
 
 	// Calc count of files in archive
-	zip = (zip_t *)Mem_Realloc( fs_mempool, zip, sizeof( *zip ) + sizeof( *info ) * ( header_eocd.total_central_directory_record - 1 ));
+	zip = (zip_t *)Mem_Realloc( fs_mempool, zip, sizeof( *zip ) + sizeof( *info ) * header_eocd.total_central_directory_record );
 	info = zip->files;
 
 	for( i = 0; i < header_eocd.total_central_directory_record; i++ )
