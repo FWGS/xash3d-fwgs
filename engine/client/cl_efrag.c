@@ -171,7 +171,7 @@ R_StoreEfrags
 */
 void R_StoreEfrags( efrag_t **ppefrag, int framecount )
 {
-	const efrag_t *pefrag;
+	efrag_t *pefrag;
 	cl_entity_t *pent;
 	model_t *clmodel;
 
