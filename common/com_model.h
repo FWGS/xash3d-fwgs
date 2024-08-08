@@ -127,13 +127,22 @@ typedef struct
 	int		flags;		// sky or slime, no lightmap or 256 subdivision
 } mtexinfo_t;
 
+// a1ba: changed size to avoid undefined behavior. Check your allocations if you take this header!
+// For example:
+//  before: malloc( sizeof( glpoly_t ) + ( numverts - 4 ) * VERTEXSIZE * sizeof( float ))
+//  after (C): malloc( sizeof( glpoly_t ) + numverts * VERTEXSIZE * sizeof( float ))
+//  after (C++): malloc( sizeof( glpoly_t ) + ( numverts - 1 ) * VERTEXSIZE * sizeof( float ))
 typedef struct glpoly_s
 {
 	struct glpoly_s	*next;
 	struct glpoly_s	*chain;
 	int		numverts;
 	int		flags;          		// for SURF_UNDERWATER
-	float		verts[4][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
+#ifdef __cplusplus
+	float	verts[1][VERTEXSIZE]; // variable sized (xyz s1t1 s2t2)
+#else
+	float	verts[][VERTEXSIZE]; // variable sized (xyz s1t1 s2t2)
+#endif
 } glpoly_t;
 
 typedef struct mnode_s
