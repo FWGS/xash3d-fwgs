@@ -69,7 +69,7 @@ struct pack_s
 {
 	file_t *handle;
 	int		numfiles;
-	dpackfile_t files[1]; // flexible
+	dpackfile_t files[]; // flexible
 };
 
 /*
@@ -150,7 +150,7 @@ static pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 		return NULL;
 	}
 
-	pack = (pack_t *)Mem_Calloc( fs_mempool, sizeof( pack_t ) + sizeof( dpackfile_t ) * ( numpackfiles - 1 ));
+	pack = (pack_t *)Mem_Calloc( fs_mempool, sizeof( pack_t ) + sizeof( dpackfile_t ) * numpackfiles );
 	FS_Seek( packhandle, header.dirofs, SEEK_SET );
 
 	if( header.dirlen != FS_Read( packhandle, (void *)pack->files, header.dirlen ))
