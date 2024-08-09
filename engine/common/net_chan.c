@@ -513,7 +513,7 @@ static fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t	*buf;
 
-	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ) + ( fragment_size - 1 ) );
+	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ) + fragment_size );
 	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, fragment_size );
 
 	return buf;

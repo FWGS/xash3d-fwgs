@@ -190,7 +190,7 @@ typedef struct fragbuf_s
 	char		filename[MAX_OSPATH];		// name of the file to save out on remote host
 	int		foffset;				// offset in file from which to read data
 	int		size;				// size of data to read at that offset
-	byte frag_message_buf[1]; // the actual data sits here (flexible)
+	byte frag_message_buf[]; // the actual data sits here (flexible)
 } fragbuf_t;
 
 // Waiting list of fragbuf chains

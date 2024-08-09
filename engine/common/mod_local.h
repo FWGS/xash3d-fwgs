@@ -74,7 +74,7 @@ typedef struct winding_s
 	struct winding_s	*pair;
 	hullnode_t	chain;
 	int		numpoints;
-	vec3_t		p[4];		// variable sized
+	vec3_t		p[];		// variable sized
 } winding_t;
 
 typedef struct

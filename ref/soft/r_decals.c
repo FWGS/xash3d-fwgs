@@ -527,7 +527,7 @@ static glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msu
 
 	// allocate glpoly
 	// REFTODO: com_studiocache pool!
-	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + lnumverts * VERTEXSIZE * sizeof( float ));
 	poly->next = pdecal->polys;
 	poly->flags = surf->flags;
 	pdecal->polys = poly;
