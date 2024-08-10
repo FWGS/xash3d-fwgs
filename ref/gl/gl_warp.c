@@ -283,13 +283,13 @@ R_AddSkyBoxSurface
 void R_AddSkyBoxSurface( msurface_t *fa )
 {
 	vec3_t	verts[MAX_CLIP_VERTS];
-	glpoly_t	*p;
+	glpoly2_t	*p;
 	float	*v;
 	int	i;
 
 	if( FBitSet( tr.world->flags, FWORLD_SKYSPHERE ) && fa->polys && !FBitSet( tr.world->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
-		glpoly_t	*p = fa->polys;
+		glpoly2_t	*p = fa->polys;
 
 		// draw the sky poly
 		pglBegin( GL_POLYGON );
@@ -569,7 +569,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 {
 	float	*v, nv, waveHeight;
 	float	s, t, os, ot;
-	glpoly_t	*p;
+	glpoly2_t	*p;
 	int	i;
 
 	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS ) && glConfig.context == CONTEXT_TYPE_GL;
