@@ -28,7 +28,7 @@ If you like Xash3D FWGS, consider supporting individual engine maintainers. By s
 1) Copy engine binaries to some directory.
 2) Copy `valve` directory from [Half-Life](https://store.steampowered.com/app/70/HalfLife/) to directory with engine binaries.
 If your CPU is NOT x86 compatible or you're running 64-bit version of the engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-portable).
-This repository contains our fork of HLSDK and restored source code for some of the mods. Not all of them, of course.
+This repository contains our fork of HLSDK and restored source code for Half-Life expansions and some mods.
 You still needed to copy `valve` directory as all game resources located there.
 3) Run the main executable (`xash3d.exe` or AppImage).
 
@@ -46,11 +46,11 @@ NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependenc
 
 ### Prerequisites
 
-If your CPU is x86 compatible, we are building 32-bit code by default. This was done to maintain compatibility with Steam releases of Half-Life and based on it's engine games.
+If your CPU is x86 compatible and you're on Windows or Linux, we are building 32-bit code by default. This was done to maintain compatibility with Steam releases of Half-Life and based on it's engine games.
 Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
 If your CPU is NOT x86 compatible or you decided build 64-bit version of engine, you may want to compile [Half-Life SDK](https://github.com/FWGS/hlsdk-portable).
-This repository contains our fork of HLSDK and restored source code for some of the mods. Not all of them, of course.
+This repository contains our fork of HLSDK and restored source code for Half-Life expansions and some mods.
 
 #### Windows (Visual Studio)
 * Install Visual Studio.
