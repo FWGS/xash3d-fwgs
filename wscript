@@ -119,7 +119,10 @@ def options(opt):
 		help = 'engine default (base) game directory [default: %(default)s]')
 
 	grp.add_option('-8', '--64bits', action = 'store_true', dest = 'ALLOW64', default = False,
-		help = 'allow targetting 64-bit engine(Linux/Windows/OSX x86 only) [default: %(default)s]')
+		help = 'allow targetting 64-bit engine(Linux/Windows only) [default: %(default)s]')
+
+	grp.add_option('-4', '--32bits', action = 'store_true', dest = 'FORCE32', default = False,
+		help = 'force targetting 32-bit engine, usually unneeded [default: %(default)s]')
 
 	grp.add_option('-P', '--enable-packaging', action = 'store_true', dest = 'PACKAGING', default = False,
 		help = 'respect prefix option, useful for packaging for various operating systems [default: %(default)s]')
@@ -234,14 +237,19 @@ def configure(conf):
 
 	conf.check_pic(enforce_pic)
 
-	# We restrict 64-bit builds ONLY for Win/Linux/OSX running on Intel architecture
+	# NOTE: We restrict 64-bit builds ONLY for Win/Linux running on Intel architecture
 	# Because compatibility with original GoldSrc
-	if conf.env.DEST_OS in ['win32', 'linux', 'darwin'] and conf.env.DEST_CPU == 'x86_64':
+	# NOTE: Since modern OSX (since Catalina) don't support 32-bit applications, there is no point
+	# to restrict them to 32-bit engine, despite GoldSrc is still officially supported.
+	# There is now `-4` (or `--32bits`) configure flag for those
+	# who want to specifically build engine for 32-bit
+	if conf.env.DEST_OS in ['win32', 'linux'] and conf.env.DEST_CPU == 'x86_64':
 		conf.env.BIT32_MANDATORY = not conf.options.ALLOW64
-		if conf.env.BIT32_MANDATORY:
-			Logs.info('WARNING: will build engine for 32-bit target')
 	else:
-		conf.env.BIT32_MANDATORY = False
+		conf.env.BIT32_MANDATORY = conf.options.FORCE32
+
+	if conf.env.BIT32_MANDATORY:
+		Logs.info('WARNING: will build engine for 32-bit target')
 
 	conf.load('force_32bit')
 
