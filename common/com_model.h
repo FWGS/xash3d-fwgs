@@ -132,10 +132,10 @@ typedef struct
 //  before: malloc( sizeof( glpoly_t ) + ( numverts - 4 ) * VERTEXSIZE * sizeof( float ))
 //  after (C): malloc( sizeof( glpoly_t ) + numverts * VERTEXSIZE * sizeof( float ))
 //  after (C++): malloc( sizeof( glpoly_t ) + ( numverts - 1 ) * VERTEXSIZE * sizeof( float ))
-typedef struct glpoly_s
+typedef struct glpoly2_s
 {
-	struct glpoly_s	*next;
-	struct glpoly_s	*chain;
+	struct glpoly2_s	*next;
+	struct glpoly2_s	*chain;
 	int		numverts;
 	int		flags;          		// for SURF_UNDERWATER
 #ifdef __cplusplus
@@ -143,7 +143,7 @@ typedef struct glpoly_s
 #else
 	float	verts[][VERTEXSIZE]; // variable sized (xyz s1t1 s2t2)
 #endif
-} glpoly_t;
+} glpoly2_t;
 
 typedef struct mnode_s
 {
@@ -182,7 +182,7 @@ struct decal_s
 	short		entityIndex;	// Entity this is attached to
 // Xash3D specific
 	vec3_t		position;		// location of the decal center in world space.
-	glpoly_t	*polys;		// precomputed decal vertices
+	glpoly2_t	*polys;		// precomputed decal vertices
 	intptr_t	reserved[4];	// just for future expansions or mod-makers
 };
 
@@ -255,7 +255,7 @@ struct msurface_s
 
 	int		light_s, light_t;	// gl lightmap coordinates
 
-	glpoly_t		*polys;		// multiple if warped
+	glpoly2_t		*polys;		// multiple if warped
 	struct msurface_s	*texturechain;
 
 	mtexinfo_t	*texinfo;

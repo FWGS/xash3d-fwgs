@@ -132,7 +132,7 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 	int		i, j, k, f, b;
 	float		sample_size;
 	vec3_t		mins, maxs;
-	glpoly_t		*poly;
+	glpoly2_t		*poly;
 
 	if( numverts > ( SUBDIVIDE_SIZE - 4 ))
 		gEngfuncs.Host_Error( "%s: too many vertexes on face ( %i )\n", __func__, numverts );
@@ -196,7 +196,7 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 		ClearBits( warpface->flags, SURF_DRAWTURB_QUADS );
 
 	// add a point in the center to help keep warp valid
-	poly = Mem_Calloc( loadmodel->mempool, sizeof( glpoly_t ) + numverts * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Calloc( loadmodel->mempool, sizeof( glpoly2_t ) + numverts * VERTEXSIZE * sizeof( float ));
 	poly->next = warpface->polys;
 	poly->flags = warpface->flags;
 	warpface->polys = poly;
@@ -302,7 +302,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	float		sample_size;
 	texture_t		*tex;
 	gl_texture_t	*glt;
-	glpoly_t		*poly;
+	glpoly2_t		*poly;
 
 	if( !mod || !fa->texinfo || !fa->texinfo->texture )
 		return; // bad polygon ?
@@ -328,7 +328,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	fa->polys = NULL;
 
 	// quake simple models (healthkits etc) need to be reconstructed their polys because LM coords has changed after the map change
-	poly = Mem_Realloc( mod->mempool, poly, sizeof( glpoly_t ) + lnumverts * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Realloc( mod->mempool, poly, sizeof( glpoly2_t ) + lnumverts * VERTEXSIZE * sizeof( float ));
 	poly->next = fa->polys;
 	poly->flags = fa->flags;
 	fa->polys = poly;
@@ -773,7 +773,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 DrawGLPoly
 ================
 */
-void DrawGLPoly( glpoly_t *p, float xScale, float yScale )
+void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 {
 	float		*v;
 	float		sOffset, sy;
@@ -851,7 +851,7 @@ DrawGLPolyChain
 Render lightmaps
 ================
 */
-static void DrawGLPolyChain( glpoly_t *p, float soffset, float toffset )
+static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset )
 {
 	qboolean	dynamic = true;
 
@@ -3527,7 +3527,7 @@ static void R_DrawTriangleOutlines( void )
 {
 	int		i, j;
 	msurface_t	*surf;
-	glpoly_t		*p;
+	glpoly2_t		*p;
 	float		*v;
 
 	if( !gl_wireframe.value )

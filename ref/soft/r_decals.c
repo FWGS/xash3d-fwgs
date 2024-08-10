@@ -511,10 +511,10 @@ R_DecalCreatePoly
 creates mesh for decal on first rendering
 ====================
 */
-static glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
+static glpoly2_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
 {
 	int		lnumverts;
-	glpoly_t	*poly;
+	glpoly2_t	*poly;
 	float		*v;
 	int		i;
 
@@ -527,7 +527,7 @@ static glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msu
 
 	// allocate glpoly
 	// REFTODO: com_studiocache pool!
-	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + lnumverts * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Calloc( r_temppool, sizeof( glpoly2_t ) + lnumverts * VERTEXSIZE * sizeof( float ));
 	poly->next = pdecal->polys;
 	poly->flags = surf->flags;
 	pdecal->polys = poly;
@@ -853,7 +853,7 @@ void GAME_EXPORT R_DecalShoot( int textureIndex, int entityIndex, int modelIndex
 // triangles the same way.
 float * GAME_EXPORT R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *outCount )
 {
-	glpoly_t	*p = pDecal->polys;
+	glpoly2_t	*p = pDecal->polys;
 	int	i, count;
 	float	*v, *v2;
 
