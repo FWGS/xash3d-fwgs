@@ -1173,7 +1173,7 @@ void R_DrawBrushModel(cl_entity_t *pent);
 //
 void R_InitCaches (void);
 void R_BlitScreen( void );
-void R_InitBlit( qboolean gl );
+qboolean R_InitBlit( qboolean gl );
 qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y );
 
 //

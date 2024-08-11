@@ -1898,7 +1898,11 @@ qboolean GAME_EXPORT R_Init( void )
 	tr.palette = (color24 *)ENGINE_GET_PARM( PARM_GET_PALETTE_PTR );
 	tr.viewent = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
 
-	R_InitBlit( glblit );
+	if( !R_InitBlit( glblit ))
+	{
+		gEngfuncs.R_Free_Video();
+		return false;
+	}
 
 	R_InitImages();
 	// init draw stack
