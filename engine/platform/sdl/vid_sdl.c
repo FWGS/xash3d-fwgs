@@ -126,7 +126,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 		// if it is failed, it is not possible to draw with SDL in REF_SOFTWARE mode
 		if( !sw.win )
 		{
-			Sys_Warn("failed to initialize software output, try enable sw_glblit");
+			Sys_Warn( "failed to initialize software output, try running with -glblit flag" );
 			return false;
 		}
 
