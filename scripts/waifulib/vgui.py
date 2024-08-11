@@ -28,7 +28,7 @@ def options(opt):
 
 @conf
 def check_vgui(conf):
-	if conf.env.DEST_CPU == 'x86' or (conf.env.DEST_CPU == 'x86_64' and not conf.options.ALLOW64):
+	if conf.env.DEST_CPU == 'x86' or (conf.env.DEST_CPU == 'x86_64' and conf.env.DEST_SIZEOF_VOID_P == 4):
 		vgui_dest_cpu = 'x86' # link with 32-bit binary when crosscompiling to 32-bit
 	else: vgui_dest_cpu = conf.env.DEST_CPU
 
