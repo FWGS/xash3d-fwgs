@@ -622,9 +622,9 @@ static void R_BuildBlendMaps( void )
 #endif
 }
 
-void R_AllocScreen( void );
+static qboolean R_AllocScreen( void );
 
-void R_InitBlit( qboolean glblit )
+qboolean R_InitBlit( qboolean glblit )
 {
 	R_BuildBlendMaps();
 
@@ -646,10 +646,11 @@ void R_InitBlit( qboolean glblit )
 		swblit.pUnlockBuffer = gEngfuncs.SW_UnlockBuffer;
 		swblit.pCreateBuffer = gEngfuncs.SW_CreateBuffer;
 	}
-	R_AllocScreen();
+
+	return R_AllocScreen();
 }
 
-void R_AllocScreen( void )
+static qboolean R_AllocScreen( void )
 {
 	int w, h;
 
@@ -661,12 +662,20 @@ void R_AllocScreen( void )
 	R_InitCaches();
 
 	if( swblit.rotate )
-		w = gpGlobals->height, h = gpGlobals->width;
+	{
+		w = gpGlobals->height;
+		h = gpGlobals->width;
+	}
 	else
-		h = gpGlobals->height, w = gpGlobals->width;
+	{
+		w = gpGlobals->width;
+		h = gpGlobals->height;
+	}
 
-	swblit.pCreateBuffer( w, h, &swblit.stride, &swblit.bpp,
-							   &swblit.rmask, &swblit.gmask, &swblit.bmask);
+	if( !swblit.pCreateBuffer( w, h, &swblit.stride, &swblit.bpp,
+		&swblit.rmask, &swblit.gmask, &swblit.bmask ))
+		return false;
+
 	R_BuildScreenMap();
 	vid.width = gpGlobals->width;
 	vid.height = gpGlobals->height;
@@ -674,10 +683,12 @@ void R_AllocScreen( void )
 	if( d_pzbuffer )
 		free( d_pzbuffer );
 	d_pzbuffer = malloc( vid.width*vid.height*2 + 64 );
+
 	if( vid.buffer )
 		free( vid.buffer );
-
 	vid.buffer = malloc( vid.width * vid.height*sizeof( pixel_t ) );
+
+	return true;
 }
 
 void R_BlitScreen( void )
