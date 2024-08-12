@@ -54,7 +54,7 @@ jobs:
       GH_CPU_ARCH: ${{ matrix.targetarch }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: recursive
     - name: Install dependencies
@@ -62,7 +62,7 @@ jobs:
     - name: Build engine
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
     - name: Upload engine (artifacts)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
