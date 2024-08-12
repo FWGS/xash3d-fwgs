@@ -78,16 +78,16 @@ jobs:
       options: --privileged
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: recursive
     - name: Build flatpak (Compat.i386)
-      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.1
+      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.3
       with:
         bundle: ${{ matrix.app }}.flatpak
         manifest-path: scripts/flatpak/${{ matrix.app }}.yml
     - name: Upload engine (artifacts)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
@@ -98,9 +98,7 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     steps:
     - name: Remove old release
-      run: |
-        cd $GITHUB_WORKSPACE
-        gh release delete -y --cleanup-tag ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
+      run: gh release delete -y --cleanup-tag -R $GITHUB_REPOSITORY ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
       env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Fetch artifacts
