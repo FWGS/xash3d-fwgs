@@ -53,7 +53,11 @@ echo "Building HLSDK..."
 pushd hlsdk-portable || die
 build_hlsdk mobile_hacks valve
 build_hlsdk opfor gearbox
-build_hlsdk bshift bshift
+popd
+
+# bshift can be used from mobile_hacks branch
+pushd pkgtemp/data/xash3d
+cp -v valve/dlls/hl_psvita_armv7hf.so bshift/dlls/bshift_psvita_armv7hf.so
 popd
 
 echo "Generating default config files..."

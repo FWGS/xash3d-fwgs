@@ -98,7 +98,8 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     steps:
     - name: Remove old release
-      run: gh release delete -y --cleanup-tag -R $GITHUB_REPOSITORY ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
+      run: |
+        gh release delete -y --cleanup-tag -R $GITHUB_REPOSITORY ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }} || true
       env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Fetch artifacts
