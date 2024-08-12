@@ -86,11 +86,6 @@ jobs:
       with:
         bundle: ${{ matrix.app }}.flatpak
         manifest-path: scripts/flatpak/${{ matrix.app }}.yml
-    - name: Upload engine (artifacts)
-      uses: actions/upload-artifact@v4
-      with:
-        name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
-        path: artifacts/*
   release:
     name: "Upload releases"
     runs-on: ubuntu-latest
@@ -109,10 +104,13 @@ jobs:
     - name: Repackage binaries and allow GitHub to process removed release for few seconds
       run: |
         pushd artifacts/
-        for i in artifact-* su.xash.Engine.*; do
+        echo "Found artifacts:"
+        ls -R .
+        for i in $(ls artifact-* su.xash.Engine.*); do
           mv "$i"/* .
           rm -rf "$i"
         done
+        echo "Repackaged artifacts:"
         ls -R .
         popd
         sleep 20s
