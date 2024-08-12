@@ -43,6 +43,12 @@ jobs:
           - os: windows-2019 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
             targetos: win32
             targetarch: i386
+          - os: macos-14 # in GitHub documentation, it's an ARM64 machine
+            targetos: apple
+            targetarch: arm64
+          - os: macos-12 # in GitHub documentation, it's an x86 machine
+            targetos: apple
+            targetarch: amd64
     env:
       SDL_VERSION: 2.30.3
       GH_CPU_ARCH: ${{ matrix.targetarch }}
