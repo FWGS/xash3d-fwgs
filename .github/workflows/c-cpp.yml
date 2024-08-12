@@ -67,14 +67,13 @@ jobs:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
   flatpak:
-    name: "Flatpak"
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - app: su.xash.Engine.Compat.i386
     container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-22.08
+      image: bilelmoussaoui/flatpak-github-actions:freedesktop-23.08
       options: --privileged
     steps:
     - name: Checkout
@@ -101,6 +100,7 @@ jobs:
           --yes \
           --cleanup-tag \
           --repo "$GITHUB_REPOSITORY" || true
+        sleep 20s
         gh run download "$GITHUB_RUN_ID" \
           --dir artifacts/ \
           --repo "$GITHUB_REPOSITORY"
@@ -119,5 +119,4 @@ jobs:
           --title "Xash3D FWGS Continuous ${{ github.ref_name }} Build" \
           --target $GITHUB_SHA \
           --repo "$GITHUB_REPOSITORY" \
-          --prerelease \
-          --generate-notes
+          --prerelease
