@@ -50,5 +50,9 @@ echo "Building HLSDK..."
 pushd hlsdk-portable || die
 build_hlsdk mobile_hacks valve
 build_hlsdk opfor gearbox
-build_hlsdk bshift bshift
+popd
+
+# bshift can be used from mobile_hacks branch
+pushd pkgtemp/xash3d
+cp -v valve/dlls/hl_nswitch_arm64.so bshift/dlls/bshift_nswitch_arm64.so
 popd
