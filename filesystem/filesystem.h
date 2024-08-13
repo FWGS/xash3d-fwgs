@@ -118,6 +118,7 @@ typedef struct gameinfo_s
 	// HL25 compatibility keys
 	qboolean hd_background;
 	qboolean animated_title;
+	char demomap[MAX_QPATH];
 } gameinfo_t;
 
 typedef enum
