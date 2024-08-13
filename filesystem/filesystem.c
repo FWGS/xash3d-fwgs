@@ -619,6 +619,9 @@ static void FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	FS_Printf( f, "internal_vgui_support\t\t%s\n", GameInfo->internal_vgui_support ? "1" : "0" );
 	FS_Printf( f, "render_picbutton_text\t\t%s\n", GameInfo->render_picbutton_text ? "1" : "0" );
 
+	if( COM_CheckStringEmpty( GameInfo->demomap ))
+		FS_Printf( f, "demomap\t\t\"%s\"\n", GameInfo->demomap );
+
 	FS_Close( f );	// all done
 }
 
@@ -879,7 +882,19 @@ static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, cons
 				pfile = COM_ParseFile( pfile, token, sizeof( token ));
 				GameInfo->autosave_aged_count = bound( 2, Q_atoi( token ), 99 );
 			}
+			else if( !Q_stricmp( token, "demomap" ))
+			{
+				pfile = COM_ParseFile( pfile, GameInfo->demomap, sizeof( GameInfo->demomap ));
+			}
 		}
+	}
+
+	// demomap only valid for gameinfo.txt but HL1 after 25th anniversary update
+	// comes with demo chapter. Set the demomap here.
+	if( !COM_CheckStringEmpty( GameInfo->demomap ))
+	{
+		if( !Q_stricmp( GameInfo->title, "Half-Life" )) // original check from GameUI
+			Q_strncpy( GameInfo->demomap, "hldemo1", sizeof( GameInfo->demomap ));
 	}
 
 	if( !found_linux || !found_osx )
