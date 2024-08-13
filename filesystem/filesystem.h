@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include "xash3d_types.h"
 #include "const.h"
 #include "com_model.h"
+#include "gameinfo.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -118,15 +119,9 @@ typedef struct gameinfo_s
 	// HL25 compatibility keys
 	qboolean hd_background;
 	qboolean animated_title;
+
 	char demomap[MAX_QPATH];
 } gameinfo_t;
-
-typedef enum
-{
-	GAME_NORMAL,
-	GAME_SINGLEPLAYER_ONLY,
-	GAME_MULTIPLAYER_ONLY
-} gametype_t;
 
 typedef struct fs_dllinfo_t
 {
