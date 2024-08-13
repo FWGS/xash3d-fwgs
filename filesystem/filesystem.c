@@ -912,9 +912,18 @@ static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, cons
 	}
 
 	// make sure what gamedir is really exist
+	// a1ba: why we are doing this???
 	Q_snprintf( token, sizeof( token ), "%s/%s", fs_rootdir, GameInfo->falldir );
 	if( !FS_SysFolderExists( token ))
-		GameInfo->falldir[0] = '\0';
+	{
+		if( COM_CheckStringEmpty( fs_rodir ))
+		{
+			Q_snprintf( token, sizeof( token ), "%s/%s", fs_rodir, GameInfo->falldir );
+			if( !FS_SysFolderExists( token ))
+				GameInfo->falldir[0] = 0;
+		}
+		else GameInfo->falldir[0] = 0;
+	}
 }
 
 /*
