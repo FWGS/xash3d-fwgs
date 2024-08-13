@@ -218,6 +218,10 @@ typedef struct ui_extendedfuncs_s {
 	int (*pfnCompareAdr)( const void *a, const void *b ); // netadr_t
 	void *(*pfnGetNativeObject)( const char *name );
 	struct net_api_s *pNetAPI;
+
+	// new mods info
+	gameinfo2_t *(*pfnGetGameInfo)( int gi_version ); // might return NULL if gi_version is unsupported
+	gameinfo2_t *(*pfnGetModInfo)( int gi_version, int mod_index ); // continiously call it until it returns null
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine

@@ -517,8 +517,9 @@ typedef struct
 	player_info_t	playerinfo;		// local playerinfo
 
 	gameui_draw_t	ds;			// draw2d stuff (menu images)
-	GAMEINFO		gameInfo;			// current gameInfo
-	GAMEINFO		*modsInfo[MAX_MODS];	// simplified gameInfo for MainUI
+	gameinfo2_t		gameInfo;	// current gameInfo
+	gameinfo2_t		*modsInfo;	// simplified gameInfo for MainUI, allocated by demand
+	GAMEINFO		**oldModsInfo;	// simplified gameInfo for older MainUI, allocated by demand
 
 	ui_globalvars_t	*globals;
 
