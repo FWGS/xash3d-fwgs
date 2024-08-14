@@ -2347,14 +2347,11 @@ static void CL_ParseNetMessage( sizebuf_t *msg, void (*parsefn)( sizebuf_t * ))
 	// after we have parsed the frame
 	if( !cls.demoplayback )
 	{
-		if( cls.demorecording && !cls.demowaiting )
-		{
-			CL_WriteDemoMessage( false, cls.starting_count, msg );
-		}
-		else if( cls.state != ca_active )
-		{
+		if( cls.state != ca_active )
 			CL_WriteDemoMessage( true, cls.starting_count, msg );
-		}
+
+		if( cls.demorecording && !cls.demowaiting )
+			CL_WriteDemoMessage( false, cls.starting_count, msg );
 	}
 }
 

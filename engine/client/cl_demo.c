@@ -327,10 +327,6 @@ void CL_WriteDemoMessage( qboolean startup, int start, sizebuf_t *msg )
 
 	if( !file ) return;
 
-	// past the start but not recording a demo.
-	if( !startup && !cls.demorecording )
-		return;
-
 	swlen = MSG_GetNumBytesWritten( msg ) - start;
 	if( swlen <= 0 ) return;
 
