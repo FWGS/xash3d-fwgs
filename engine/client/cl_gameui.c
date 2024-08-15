@@ -455,6 +455,15 @@ static void UI_ToOldGameInfo( GAMEINFO *out, const gameinfo2_t *in )
 	out->gamemode = in->gamemode;
 }
 
+static void UI_GetModsInfo( void )
+{
+	int i;
+
+	gameui.modsInfo = Mem_Calloc( gameui.mempool, sizeof( *gameui.modsInfo ) * FI->numgames );
+	for( i = 0; i < FI->numgames; i++ )
+		UI_ConvertGameInfo( &gameui.modsInfo[i], FI->games[i] );
+}
+
 /*
 ====================
 PIC_DrawGeneric
@@ -976,11 +985,14 @@ static GAMEINFO ** GAME_EXPORT pfnGetGamesList( int *numGames )
 	{
 		int i;
 
+		if( !gameui.modsInfo )
+			UI_GetModsInfo();
+
 		// first allocate array of pointers
-		gameui.oldModsInfo = Mem_Calloc( gameui.mempool, sizeof( void* ) * FI->numgames );
+		gameui.oldModsInfo = Mem_Calloc( gameui.mempool, sizeof( *gameui.oldModsInfo ) * FI->numgames );
 		for( i = 0; i < FI->numgames; i++ )
 		{
-			gameui.oldModsInfo[i] = Mem_Calloc( gameui.mempool, sizeof( GAMEINFO ));
+			gameui.oldModsInfo[i] = Mem_Calloc( gameui.mempool, sizeof( *gameui.oldModsInfo[i] ));
 			UI_ToOldGameInfo( gameui.oldModsInfo[i], &gameui.modsInfo[i] );
 		}
 	}
@@ -1282,6 +1294,9 @@ static gameinfo2_t *pfnGetModInfo( int gi_version, int i )
 	if( i < 0 || i >= FI->numgames )
 		return NULL;
 
+	if( !gameui.modsInfo )
+		UI_GetModsInfo();
+
 	if( gi_version != gameui.modsInfo[i].gi_version )
 		return NULL;
 
@@ -1422,11 +1437,6 @@ qboolean UI_LoadProgs( void )
 
 	Cvar_FullSet( "host_gameuiloaded", "1", FCVAR_READ_ONLY );
 	Cmd_AddRestrictedCommand( "ui_allowconsole", UI_ToggleAllowConsole_f, "unlocks developer console" );
-
-	// setup gameinfo
-	gameui.modsInfo = Mem_Calloc( gameui.mempool, sizeof( *gameui.modsInfo ) * FI->numgames );
-	for( i = 0; i < FI->numgames; i++ )
-		UI_ConvertGameInfo( &gameui.modsInfo[i], FI->games[i] );
 
 	UI_ConvertGameInfo( &gameui.gameInfo, FI->GameInfo ); // current gameinfo
 
