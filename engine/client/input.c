@@ -47,6 +47,8 @@ static CVAR_DEFINE_AUTO( cl_forwardspeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL
 static CVAR_DEFINE_AUTO( cl_backspeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default back move speed"  );
 static CVAR_DEFINE_AUTO( cl_sidespeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default side move speed"  );
 
+static CVAR_DEFINE_AUTO( m_grab_debug, "0", FCVAR_PRIVILEGED, "show debug messages on mouse state change" );
+
 /*
 ================
 IN_CollectInputDevices
@@ -116,6 +118,7 @@ static void IN_StartupMouse( void )
 	Cvar_RegisterVariable( &m_yaw );
 	Cvar_RegisterVariable( &look_filter );
 	Cvar_RegisterVariable( &m_rawinput );
+	Cvar_RegisterVariable( &m_grab_debug );
 
 	// You can use -nomouse argument to prevent using mouse from client
 	// -noenginemouse will disable all mouse input
@@ -202,68 +205,81 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	}
 }
 
+static void IN_SetRelativeMouseMode( qboolean set, qboolean verbose )
+{
+	static qboolean s_bRawInput;
+
+	if( set && !s_bRawInput )
+	{
+#if XASH_SDL == 2
+		SDL_GetRelativeMouseState( NULL, NULL );
+		SDL_SetRelativeMouseMode( SDL_TRUE );
+#endif
+		s_bRawInput = true;
+		if( verbose )
+			Con_Printf( "%s: true\n", __func__ );
+	}
+	else if( !set && s_bRawInput )
+	{
+#if XASH_SDL == 2
+		SDL_GetRelativeMouseState( NULL, NULL );
+		SDL_SetRelativeMouseMode( SDL_FALSE );
+#endif
+		s_bRawInput = false;
+		if( verbose )
+			Con_Printf( "%s: false\n", __func__ );
+	}
+}
+
+static void IN_SetMouseGrab( qboolean set, qboolean verbose )
+{
+	static qboolean s_bMouseGrab;
+
+	if( set && !s_bMouseGrab )
+	{
+#if XASH_SDL
+		SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
+#endif
+		s_bMouseGrab = true;
+		if( verbose )
+			Con_Printf( "%s: true\n", __func__ );
+	}
+	else if( !set && s_bMouseGrab )
+	{
+#if XASH_SDL
+		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#endif
+
+		s_bMouseGrab = false;
+		if( verbose )
+			Con_Printf( "%s: false\n", __func__ );
+	}
+}
+
 static void IN_CheckMouseState( qboolean active )
 {
-	static qboolean s_bRawInput, s_bMouseGrab;
+	qboolean use_raw_input, verbose;
 
 #if XASH_WIN32
-	qboolean useRawInput = ( m_rawinput.value && clgame.client_dll_uses_sdl ) || clgame.dllFuncs.pfnLookEvent != NULL;
+	use_raw_input = ( m_rawinput.value && clgame.client_dll_uses_sdl ) || clgame.dllFuncs.pfnLookEvent != NULL;
 #else
-	qboolean useRawInput = true; // always use SDL code
+	use_raw_input = true; // always use SDL code
 #endif
+
+	verbose = m_grab_debug.value ? true : false;
 
 	if( m_ignore.value )
-		return;
+		active = false;
 
-	if( active && useRawInput && !host.mouse_visible && cls.state == ca_active )
-	{
-		if( !s_bRawInput )
-		{
-#if XASH_SDL == 2
-			SDL_GetRelativeMouseState( NULL, NULL );
-			SDL_SetRelativeMouseMode( SDL_TRUE );
-#endif
-
-			// Con_Printf( "Enable relative mode\n" );
-			s_bRawInput = true;
-		}
-	}
+	if( active && use_raw_input && !host.mouse_visible && cls.state == ca_active )
+		IN_SetRelativeMouseMode( true, verbose );
 	else
-	{
-		if( s_bRawInput )
-		{
-#if XASH_SDL == 2
-			SDL_GetRelativeMouseState( NULL, NULL );
-			SDL_SetRelativeMouseMode( SDL_FALSE );
-#endif
-			// Con_Printf( "Disable relative mode\n" );
-			s_bRawInput = false;
-		}
-	}
+		IN_SetRelativeMouseMode( false, verbose );
 
 	if( active && !host.mouse_visible && cls.state == ca_active )
-	{
-		if( !s_bMouseGrab )
-		{
-#if XASH_SDL
-			SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
-#endif
-			// Con_Printf( "Enable grab\n" );
-			s_bMouseGrab = true;
-		}
-	}
+		IN_SetMouseGrab( true, verbose );
 	else
-	{
-		if( s_bMouseGrab )
-		{
-#if XASH_SDL
-			SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
-#endif
-
-			// Con_Printf( "Disable grab\n" );
-			s_bMouseGrab = false;
-		}
-	}
+		IN_SetMouseGrab( false, verbose );
 }
 
 /*
