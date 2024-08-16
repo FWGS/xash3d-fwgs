@@ -47,10 +47,13 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	if( sw.renderer )
 	{
 		unsigned int format = SDL_GetWindowPixelFormat( host.hWnd );
-		SDL_RenderSetLogicalSize(sw.renderer, refState.width, refState.height);
+		SDL_RenderSetLogicalSize( sw.renderer, refState.width, refState.height );
 
 		if( sw.tex )
+		{
 			SDL_DestroyTexture( sw.tex );
+			sw.tex = NULL;
+		}
 
 		// guess
 		if( format == SDL_PIXELFORMAT_UNKNOWN )
@@ -63,20 +66,16 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 		// we can only copy fast 16 or 32 bits
 		// SDL_Renderer does not allow zero-copy, so 24 bits will be ineffective
-		if( !( SDL_BYTESPERPIXEL(format) == 2 || SDL_BYTESPERPIXEL(format) == 4 ) )
+		if( SDL_BYTESPERPIXEL( format ) != 2 && SDL_BYTESPERPIXEL( format ) != 4 )
 			format = SDL_PIXELFORMAT_RGBA8888;
 
-		sw.tex = SDL_CreateTexture(sw.renderer, format,
-										SDL_TEXTUREACCESS_STREAMING,
-										width, height);
+		sw.tex = SDL_CreateTexture( sw.renderer, format, SDL_TEXTUREACCESS_STREAMING, width, height );
 
 		// fallback
 		if( !sw.tex && format != SDL_PIXELFORMAT_RGBA8888 )
 		{
 			format = SDL_PIXELFORMAT_RGBA8888;
-			sw.tex = SDL_CreateTexture(sw.renderer, format,
-											SDL_TEXTUREACCESS_STREAMING,
-											width, height);
+			sw.tex = SDL_CreateTexture( sw.renderer, format, SDL_TEXTUREACCESS_STREAMING, width, height );
 		}
 
 		if( !sw.tex )
@@ -89,25 +88,26 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 			void *pixels;
 			int pitch;
 
-			if( !SDL_LockTexture(sw.tex, NULL, &pixels, &pitch ) )
+			if( !SDL_LockTexture( sw.tex, NULL, &pixels, &pitch ))
 			{
 				int bits;
 				uint amask;
+
 				// lock successfull, release
-				SDL_UnlockTexture(sw.tex);
+				SDL_UnlockTexture( sw.tex );
 
 				// enough for building blitter tables
 				SDL_PixelFormatEnumToMasks( format, &bits, r, g, b, &amask );
-				*bpp = SDL_BYTESPERPIXEL(format);
+				*bpp = SDL_BYTESPERPIXEL( format );
 				*stride = pitch / *bpp;
 
 				return true;
 			}
 
 			// fallback to surf
-			SDL_DestroyTexture(sw.tex);
+			SDL_DestroyTexture( sw.tex );
 			sw.tex = NULL;
-			SDL_DestroyRenderer(sw.renderer);
+			SDL_DestroyRenderer( sw.renderer );
 			sw.renderer = NULL;
 		}
 	}
@@ -141,9 +141,10 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 		{
 			sw.surf = SDL_CreateRGBSurfaceWithFormat( 0, width, height, 16, SDL_PIXELFORMAT_RGB565 );
 			if( !sw.surf )
-				Sys_Error(SDL_GetError());
+				Sys_Error( "%s: %s", __func__, SDL_GetError( ));
 		}
 #endif
+		return true;
 	}
 
 	// we can't create ref_soft buffer
