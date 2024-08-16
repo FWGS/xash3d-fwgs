@@ -641,9 +641,17 @@ void VID_RestoreScreenResolution( void )
 	switch((window_mode_t)vid_fullscreen.value )
 	{
 	case WINDOW_MODE_WINDOWED:
+		// TODO: this line is from very old SDL video backend
+		// figure out why we need it, because in windowed mode we
+		// always have borders
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 		break;
-	default:
+	case WINDOW_MODE_BORDERLESS:
+		// in borderless fullscreen we don't change screen resolution, so no-op
+		break;
+	case WINDOW_MODE_FULLSCREEN:
+		// TODO: we might want to not minimize window if current desktop mode
+		// and window mode are the same
 		SDL_MinimizeWindow( host.hWnd );
 		SDL_SetWindowFullscreen( host.hWnd, 0 );
 		break;
