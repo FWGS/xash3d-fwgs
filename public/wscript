@@ -71,7 +71,11 @@ def configure(conf):
 	conf.env.DEFINES_export = list(conf.env.EXPORT_DEFINES_LIST)
 
 	# check platform-specific header name for alloca(3)
-	if conf.simple_check(ALLOCA_TEST % 'alloca.h', msg='alloca in alloca.h'):
+	if conf.env.DEST_OS == 'win32':
+		# don't waste time on Win32, it's documented to be always in malloc.h.
+		# (plus test can fail because alloca is underscore-prefixed, e.g. _alloca)
+		conf.export_define('ALLOCA_H', '<malloc.h>')
+	elif conf.simple_check(ALLOCA_TEST % 'alloca.h', msg='alloca in alloca.h'):
 		conf.export_define('ALLOCA_H', '<alloca.h>')
 	elif conf.simple_check(ALLOCA_TEST % 'malloc.h', msg='alloca in malloc.h'):
 		conf.export_define('ALLOCA_H', '<malloc.h>')
