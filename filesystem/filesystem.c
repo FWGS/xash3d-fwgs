@@ -21,15 +21,14 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <errno.h>
 #if XASH_WIN32
 #include <direct.h>
 #include <io.h>
 #elif XASH_DOS4GW
 #include <direct.h>
-#include <errno.h>
 #else
 #include <dirent.h>
-#include <errno.h>
 #endif
 #include <stdio.h>
 #include <stdarg.h>
