@@ -60,6 +60,8 @@ jobs:
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
     - name: Build engine
+      env:
+        FWGS_PFX_PASSWORD: ${{ secrets.FWGS_PFX_PASSWORD }}
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
     - name: Upload engine (artifacts)
       uses: actions/upload-artifact@v4
