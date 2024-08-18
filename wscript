@@ -172,7 +172,12 @@ def options(opt):
 
 def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
-	conf.env.MSVC_TARGETS = ['x86' if not conf.options.ALLOW64 else 'x64']
+	if conf.options.ALLOW64:
+		conf.env.MSVC_TARGETS = ['x64']
+	elif sys.maxsize > 2 ** 32:
+		conf.env.MSVC_TARGETS = ['amd64_x86', 'x86']
+	else:
+		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
 	conf.load('xshlib xcompile compiler_c compiler_cxx cmake gccdeps')
