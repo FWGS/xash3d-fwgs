@@ -5,13 +5,19 @@
 # Build engine
 cd $BUILDDIR
 
-if [ "$ARCH" = "amd64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
-	AMD64="-8"
+if [ "$ARCH" = "i386" ]; then
+	# use 64-bit compiler crosscompiling for 32-bit for faster compilation
+	CONFIGURE_FLAGS="--msvc_targets=amd64_x86"
+elif [ "$ARCH" = "amd64" ]; then
+	# we need enabling 64-bit target only on Intel-compatible CPUs
+	CONFIGURE_FLAGS="-8"
+else
+	die
 fi
 
 # NOTE: to build with other version use --msvc_version during configuration
 # NOTE: sometimes you may need to add WinSDK to %PATH%
-./waf.bat configure -s "SDL2_VC" -T release --enable-utils --enable-tests --enable-lto $AMD64 || die_configure
+./waf.bat configure -s "SDL2_VC" -T release --enable-utils --enable-tests --enable-lto $CONFIGURE_FLAGS || die_configure
 ./waf.bat build || die
 ./waf.bat install --destdir=. || die
 
