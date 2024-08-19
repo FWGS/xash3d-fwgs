@@ -67,7 +67,7 @@ GNU General Public License for more details.
 // skybox ordering
 enum
 {
-	SKYBOX_RIGHT	= 0,
+	SKYBOX_RIGHT	= 1,
 	SKYBOX_BACK,
 	SKYBOX_LEFT,
 	SKYBOX_FORWARD,
@@ -85,7 +85,7 @@ typedef enum
 // reserved
 	TF_RECTANGLE	= (1<<5),		// this is GL_TEXTURE_RECTANGLE
 	TF_CUBEMAP	= (1<<6),		// it's cubemap texture
-	TF_DEPTHMAP	= (1<<7),		// custom texture filter used
+	TF_DEPTHMAP	= (1<<9),		// custom texture filter used
 	TF_QUAKEPAL	= (1<<8),		// image has an quake1 palette
 	TF_LUMINANCE	= (1<<9),		// force image to grayscale
 	TF_SKYSIDE	= (1<<10),	// this is a part of skybox
@@ -163,7 +163,7 @@ typedef struct render_api_s
 {
 	// Get renderer info (doesn't changes engine state at all)
 	intptr_t	(*RenderGetParm)( int parm, int arg );	// generic
-	void		(*GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
+	void		(*GetDetailScaleForTexture#2)( int texture, float *xScale, float *yScale );
 	void		(*GetExtraParmsForTexture)( int texture, byte *red, byte *green, byte *blue, byte *alpha );
 	lightstyle_t*	(*GetLightStyle)( int number );
 	dlight_t*		(*GetDynamicLight)( int number );
