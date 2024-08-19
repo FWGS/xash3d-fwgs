@@ -751,7 +751,7 @@ qboolean R_Init( void )
 
 	if( !success )
 	{
-		Host_Error( "Can't initialize any renderer. Check your video drivers!\n" );
+		Sys_Error( "Can't initialize any renderer. Check your video drivers!\n" );
 		return false;
 	}
 
