@@ -25,8 +25,7 @@ typedef struct did3v2_header_s
 	uint8_t  flags;
 	uint32_t length; // size of extended header, padding and frames
 } did3v2_header_t;
-STATIC_ASSERT( sizeof( did3v2_header_t ) == 10,
-	"invalid did3v2_header_t size" );
+STATIC_CHECK_SIZEOF( did3v2_header_t, 10, 10 );
 
 typedef struct did3v2_extended_header_s
 {
@@ -34,8 +33,7 @@ typedef struct did3v2_extended_header_s
 	uint8_t  flags_length;
 	uint8_t  flags[1];
 } did3v2_extended_header_t;
-STATIC_ASSERT( sizeof( did3v2_extended_header_t ) == 6,
-	"invalid did3v2_extended_header_t size" );
+STATIC_CHECK_SIZEOF( did3v2_extended_header_t, 6, 6 );
 
 typedef struct did3v2_frame_s
 {
@@ -43,8 +41,7 @@ typedef struct did3v2_frame_s
 	uint32_t length;
 	uint8_t  flags[2];
 } did3v2_frame_t;
-STATIC_ASSERT( sizeof( did3v2_frame_t ) == 10,
-	"invalid did3v2_frame_t size" );
+STATIC_CHECK_SIZEOF( did3v2_frame_t, 10, 10 );
 #pragma pack( pop )
 
 typedef enum did3v2_header_flags_e

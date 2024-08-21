@@ -130,6 +130,15 @@ typedef uint64_t longtime_t;
 	#define STATIC_ASSERT( x, y ) STATIC_ASSERT_2( __LINE__, x, y )
 #endif
 
+// at least, statically check size of some public structures
+#if XASH_64BIT
+#define STATIC_CHECK_SIZEOF( type, size32, size64 ) \
+	STATIC_ASSERT( sizeof( type ) == size64, #type " unexpected size" )
+#else
+#define STATIC_CHECK_SIZEOF( type, size32, size64 ) \
+	STATIC_ASSERT( sizeof( type ) == size32, #type " unexpected size" )
+#endif
+
 #if !defined( __cplusplus ) && __STDC_VERSION__ >= 199101L // not C++ and C99 or newer
 	#define XASH_RESTRICT restrict
 #elif _MSC_VER || __GNUC__ || __clang__ // compiler-specific extensions

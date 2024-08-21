@@ -30,6 +30,6 @@ typedef struct
 	int		state;			// low bit is down state
 } kbutton_t;
 
-STATIC_ASSERT( sizeof( kbutton_t ) == 12, "kbutton_t isn't 12 bytes!" );
+STATIC_CHECK_SIZEOF( kbutton_t, 12, 12 );
 
 #endif // KBUTTON_H
