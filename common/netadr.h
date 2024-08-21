@@ -69,6 +69,6 @@ typedef struct netadr_s
 } netadr_t;
 #pragma pack( pop )
 
-STATIC_ASSERT( sizeof( netadr_t ) == 20, "netadr_t isn't 20 bytes!" );
+STATIC_CHECK_SIZEOF( netadr_t, 20, 20 );
 
 #endif // NET_ADR_H

@@ -67,7 +67,7 @@ typedef struct dresource_s
 } dresource_t;
 #pragma pack( pop )
 
-STATIC_ASSERT( sizeof( dresource_t ) == 136, "invalid dresource_t size, HPAKs won't be compatible (no custom logo in multiplayer!)" );
+STATIC_CHECK_SIZEOF( dresource_t, 136, 136 );
 
 typedef struct
 {
@@ -76,7 +76,7 @@ typedef struct
 	int             infotableofs;
 } hpak_header_t;
 
-STATIC_ASSERT( sizeof( hpak_header_t ) == 12, "invalid hpak_header_t size" );
+STATIC_CHECK_SIZEOF( hpak_header_t, 12, 12 );
 
 typedef struct
 {
@@ -85,7 +85,7 @@ typedef struct
 	int             disksize;
 } hpak_lump_t;
 
-STATIC_ASSERT( sizeof( hpak_lump_t ) == 144, "invalid hpak_lump_t size" );
+STATIC_CHECK_SIZEOF( hpak_lump_t, 144, 144 );
 
 typedef struct
 {
