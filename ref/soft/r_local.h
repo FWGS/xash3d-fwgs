@@ -30,7 +30,7 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "com_strings.h"
 #include "pm_movevars.h"
-#include "common/cvar.h"
+#include "cvardef.h"
 typedef struct mip_s mip_t;
 
 typedef	int	fixed8_t;
