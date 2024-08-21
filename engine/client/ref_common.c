@@ -678,7 +678,8 @@ static void R_CollectRendererNames( void )
 qboolean R_Init( void )
 {
 	qboolean success = false;
-	string requested;
+	string requested_cmdline;
+	string requested_cvar;
 
 	Cvar_RegisterVariable( &gl_vsync );
 	Cvar_RegisterVariable( &r_showtextures );
@@ -728,15 +729,16 @@ qboolean R_Init( void )
 	// 1. Command line `-ref` argument.
 	// 2. `ref_dll` cvar.
 	// 3. Detected renderers in `DEFAULT_RENDERERS` order.
-	requested[0] = 0;
+	requested_cmdline[0] = 0;
+	requested_cvar[0] = 0;
 
-	if( !success && Sys_GetParmFromCmdLine( "-ref", requested ))
-		success = R_LoadRenderer( requested );
+	if( Sys_GetParmFromCmdLine( "-ref", requested_cmdline ))
+		success = R_LoadRenderer( requested_cmdline );
 
-	if( !success && COM_CheckString( r_refdll.string ))
+	if( !success && COM_CheckString( r_refdll.string ) && Q_stricmp( requested_cmdline, r_refdll.string ))
 	{
-		Q_strncpy( requested, r_refdll.string, sizeof( requested ));
-		success = R_LoadRenderer( requested );
+		Q_strncpy( requested_cvar, r_refdll.string, sizeof( requested_cvar ));
+		success = R_LoadRenderer( requested_cvar );
 	}
 
 	if( !success )
@@ -746,7 +748,10 @@ qboolean R_Init( void )
 		for( i = 0; i < ref.numRenderers && !success; i++ )
 		{
 			// skip renderer that was requested but failed to load
-			if( !Q_strcmp( requested, ref.shortNames[i] ))
+			if( !Q_strcmp( requested_cmdline, ref.shortNames[i] ))
+				continue;
+
+			if( !Q_strcmp( requested_cvar, ref.shortNames[i] ))
 				continue;
 
 			success = R_LoadRenderer( ref.shortNames[i] );
