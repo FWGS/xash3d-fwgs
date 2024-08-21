@@ -171,6 +171,22 @@ static intptr_t pfnEngineGetParm( int parm, int arg )
 	return CL_RenderGetParm( parm, arg, false ); // prevent recursion
 }
 
+static cvar_t *pfnCvar_Get( const char *szName, const char *szValue, int flags, const char *description )
+{
+	return (cvar_t *)Cvar_Get( szName, szValue, flags | FCVAR_REFDLL, description );
+}
+
+static void pfnCvar_RegisterVariable( convar_t *var )
+{
+	SetBits( var->flags, FCVAR_REFDLL );
+	Cvar_RegisterVariable( var );
+}
+
+static void pfnCvar_FullSet( const char *var_name, const char *value, int flags )
+{
+	Cvar_FullSet( var_name, value, flags | FCVAR_REFDLL );
+}
+
 static void pfnStudioEvent( const mstudioevent_t *event, const cl_entity_t *e )
 {
 	clgame.dllFuncs.pfnStudioEvent( event, e );
@@ -289,14 +305,14 @@ static const ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
 
-	(void*)Cvar_Get,
+	pfnCvar_Get,
 	(void*)Cvar_FindVarExt,
 	Cvar_VariableValue,
 	Cvar_VariableString,
 	Cvar_SetValue,
 	Cvar_Set,
-	Cvar_RegisterVariable,
-	Cvar_FullSet,
+	pfnCvar_RegisterVariable,
+	pfnCvar_FullSet,
 
 	Cmd_AddRefCommand,
 	Cmd_RemoveCommand,
@@ -431,7 +447,7 @@ static void R_UnloadProgs( void )
 
 	Cvar_FullSet( "host_refloaded", "0", FCVAR_READ_ONLY );
 
-	Cvar_Unlink( FCVAR_RENDERINFO | FCVAR_GLCONFIG );
+	Cvar_Unlink( FCVAR_RENDERINFO | FCVAR_GLCONFIG | FCVAR_REFDLL );
 	Cmd_Unlink( CMD_REFDLL );
 
 	COM_FreeLibrary( ref.hInstance );
@@ -473,7 +489,7 @@ static qboolean R_LoadProgs( const char *name )
 	if( ref.hInstance ) R_UnloadProgs();
 
 	FS_AllowDirectPaths( true );
-	if( !(ref.hInstance = COM_LoadLibrary( name, false, true ) ))
+	if( !( ref.hInstance = COM_LoadLibrary( name, false, true )))
 	{
 		FS_AllowDirectPaths( false );
 		Con_Reportf( "%s: can't load renderer library %s: %s\n", __func__, name, COM_GetLibraryError() );
@@ -482,11 +498,9 @@ static qboolean R_LoadProgs( const char *name )
 
 	FS_AllowDirectPaths( false );
 
-	if( !( GetRefAPI = (REFAPI)COM_GetProcAddress( ref.hInstance, GET_REF_API )) )
+	if( !( GetRefAPI = (REFAPI)COM_GetProcAddress( ref.hInstance, GET_REF_API )))
 	{
-		COM_FreeLibrary( ref.hInstance );
 		Con_Reportf( "%s: can't find GetRefAPI entry point in %s\n", __func__, name );
-		ref.hInstance = NULL;
 		return false;
 	}
 
@@ -495,19 +509,15 @@ static qboolean R_LoadProgs( const char *name )
 
 	if( GetRefAPI( REF_API_VERSION, &ref.dllFuncs, &gpEngfuncs, &refState ) != REF_API_VERSION )
 	{
-		COM_FreeLibrary( ref.hInstance );
 		Con_Reportf( "%s: can't init renderer API: wrong version\n", __func__ );
-		ref.hInstance = NULL;
 		return false;
 	}
 
 	refState.developer = host_developer.value;
 
-	if( !ref.dllFuncs.R_Init( ) )
+	if( !ref.dllFuncs.R_Init( ))
 	{
-		COM_FreeLibrary( ref.hInstance );
 		Con_Reportf( "%s: can't init renderer!\n", __func__ ); //, ref.dllFuncs.R_GetInitError() );
-		ref.hInstance = NULL;
 		return false;
 	}
 
