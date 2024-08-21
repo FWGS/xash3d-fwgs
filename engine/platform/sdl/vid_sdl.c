@@ -1015,9 +1015,10 @@ qboolean R_Init_Video( const int type )
 {
 	string safe;
 	qboolean retval;
+
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_DisplayMode displayMode;
-	SDL_GetCurrentDisplayMode(0, &displayMode);
+	SDL_GetCurrentDisplayMode( 0, &displayMode );
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
 #else
 	refState.desktopBitsPixel = 16;
@@ -1095,7 +1096,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 
 	if( SDL_GetCurrentDisplayMode( 0, &displayMode ) < 0 )
 	{
-		Con_Printf( S_ERROR "SDL_GetCurrentDisplayMode: %s", SDL_GetError( ));
+		Con_Printf( S_ERROR "SDL_GetCurrentDisplayMode: %s\n", SDL_GetError( ));
 		return rserr_invalid_mode;
 	}
 
@@ -1239,10 +1240,6 @@ void R_Free_Video( void )
 	R_FreeVideoModes();
 
 	ref.dllFuncs.GL_ClearExtensions();
-
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_VideoQuit();
-#endif
 }
 
 #endif // XASH_DEDICATED
