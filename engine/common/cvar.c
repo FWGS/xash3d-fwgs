@@ -230,7 +230,7 @@ static const char *Cvar_ValidateString( convar_t *var, const char *value )
 		if( !COM_CheckStringEmpty( szNew ) ) Q_strncpy( szNew, "empty", sizeof( szNew ));
 	}
 
-	if( FBitSet( var->flags, FCVAR_NOEXTRAWHITEPACE ))
+	if( FBitSet( var->flags, FCVAR_NOEXTRAWHITESPACE ))
 	{
 		char	*szVal = szNew;
 		int	len = 0;

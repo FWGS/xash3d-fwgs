@@ -110,6 +110,8 @@ def configure(conf):
 		conf.env.append_unique('CFLAGS', '-fsanitize=fuzzer-no-link')
 		conf.env.append_unique('LINKFLAGS', '-fsanitize=fuzzer')
 
+	conf.define('ENGINE_DLL', 1)
+
 	conf.define_cond('XASH_ENGINE_TESTS', conf.env.ENGINE_TESTS)
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
