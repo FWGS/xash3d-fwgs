@@ -42,6 +42,7 @@ static gllightmapstate_t	gl_lms;
 static void LM_UploadBlock( qboolean dynamic );
 static qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmaps );
 static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
+static void R_RenderLightmap( msurface_t *fa );
 
 byte *Mod_GetCurrentVis( void )
 {
@@ -1159,9 +1160,7 @@ R_RenderBrushPoly
 */
 static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 {
-	qboolean	is_dynamic = false;
-	int	maps;
-	texture_t	*t;
+	texture_t *t;
 
 	r_stats.c_world_polys++;
 
@@ -1233,11 +1232,22 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 	if( FBitSet( fa->flags, SURF_DRAWTILED ))
 		return; // no lightmaps anyway
 
+	R_RenderLightmap( fa );
+}
+
+static void R_RenderLightmap( msurface_t *fa )
+{
+	qboolean is_dynamic;
+	int maps;
+
 	// check for lightmap modification
 	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
 	{
 		if( tr.lightstylevalue[fa->styles[maps]] != fa->cached_light[maps] )
-			goto dynamic;
+		{
+			is_dynamic = true;
+			break;
+		}
 	}
 
 	// dynamic this frame or dynamic previously
