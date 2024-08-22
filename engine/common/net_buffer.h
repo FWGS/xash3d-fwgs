@@ -173,7 +173,17 @@ void MSG_InitMasks( void );	// called once at startup engine
 void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove );
 
 // Bit-write functions
-void MSG_WriteOneBit( sizebuf_t *sb, int nValue );
+static inline void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
+{
+	if( !MSG_Overflow( sb, 1 ))
+	{
+		if( nValue ) sb->pData[sb->iCurBit>>3] |= BIT( sb->iCurBit & 7 );
+		else sb->pData[sb->iCurBit>>3] &= ~BIT( sb->iCurBit & 7 );
+
+		sb->iCurBit++;
+	}
+}
+
 NO_ASAN void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits );
 void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits );
 void MSG_WriteBitLong( sizebuf_t *sb, uint data, int numbits, qboolean bSigned );
