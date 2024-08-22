@@ -160,17 +160,6 @@ void MSG_InitMasks( void )
 		ExtraMasks[maskBit] = (uint)BIT( maskBit ) - 1;
 }
 
-void MSG_WriteOneBit( sizebuf_t *sb, int nValue )
-{
-	if( !MSG_Overflow( sb, 1 ))
-	{
-		if( nValue ) sb->pData[sb->iCurBit>>3] |= BIT( sb->iCurBit & 7 );
-		else sb->pData[sb->iCurBit>>3] &= ~BIT( sb->iCurBit & 7 );
-
-		sb->iCurBit++;
-	}
-}
-
 void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 {
 	Assert( numbits >= 0 && numbits <= 32 );
