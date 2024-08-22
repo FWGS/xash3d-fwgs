@@ -971,6 +971,8 @@ static qboolean R_HasLightmap( void )
 		switch( RI.currententity->curstate.rendermode )
 		{
 		case kRenderTransTexture:
+			return FBitSet( RI.currentmodel->flags, MODEL_LIQUID ) ? true : false;
+
 		case kRenderTransColor:
 		case kRenderTransAdd:
 		case kRenderGlow:
@@ -1000,21 +1002,29 @@ static void R_BlendLightmaps( void )
 		pglEnable( GL_BLEND );
 	else pglDisable( GL_BLEND );
 
-	// lightmapped solid surfaces
-	pglDepthMask( GL_FALSE );
-	pglDepthFunc( GL_EQUAL );
-
 	pglDisable( GL_ALPHA_TEST );
-	if( gl_overbright.value )
+
+	if( RI.currententity->curstate.rendermode == kRenderTransTexture )
 	{
-		pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
-		if(!( r_vbo.value && !r_vbo_overbrightmode.value ))
-			pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
+		pglBlendFunc( GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA );
 	}
 	else
 	{
-		pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
+		// lightmapped solid surfaces
+		pglDepthMask( GL_FALSE );
+		pglDepthFunc( GL_EQUAL );
+		if( gl_overbright.value )
+		{
+			pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
+			if(!( r_vbo.value && !r_vbo_overbrightmode.value ))
+				pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
+		}
+		else
+		{
+			pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
+		}
 	}
+
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 	// render static lightmaps first
