@@ -56,7 +56,7 @@ static const int vec_to_st[SKYBOX_MAX_SIDES][3] =
 };
 
 // speed up sin calculations
-static float r_turbsin[] =
+const float r_turbsin[] =
 {
 #include "warpsin.h"
 };

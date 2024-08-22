@@ -864,17 +864,80 @@ void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 
 /*
 ================
+EmitWaterLightPolys
+
+Render water lightmaps
+================
+*/
+static void EmitWaterLightPolys( glpoly2_t *p, float soffset, float toffset, qboolean reverse )
+{
+	extern const float r_turbsin[];
+	qboolean dynamic = soffset != 0.0f || toffset != 0.0f;
+	float waveHeight;
+
+	if( p->verts[0][2] >= RI.vieworg[2] )
+	{
+		waveHeight = -RI.currententity->curstate.scale;
+		reverse = !reverse;
+	}
+	else waveHeight = RI.currententity->curstate.scale;
+
+	for( ; p != NULL; p = p->next )
+	{
+		float	*v;
+		int	i;
+
+		if( reverse )
+			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
+		else v = p->verts[0];
+
+		pglBegin( GL_POLYGON );
+
+		for( i = 0; i < p->numverts; i++ )
+		{
+			float nv;
+
+			if( waveHeight )
+			{
+				nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = nv * waveHeight + v[2];
+			}
+			else nv = v[2];
+
+			if( !dynamic ) pglTexCoord2f( v[5], v[6] );
+			else pglTexCoord2f( v[5] - soffset, v[6] - toffset );
+			pglVertex3f( v[0], v[1], nv );
+
+			if( reverse )
+				v -= VERTEXSIZE;
+			else v += VERTEXSIZE;
+		}
+
+		pglEnd ();
+	}
+}
+
+/*
+================
 DrawGLPolyChain
 
 Render lightmaps
 ================
 */
-static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset )
+static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset, msurface_t *surf )
 {
-	qboolean	dynamic = true;
+	qboolean dynamic;
 
-	if( soffset == 0.0f && toffset == 0.0f )
-		dynamic = false;
+	if( FBitSet( surf->flags, SURF_DRAWTURB ))
+	{
+		// qboolean reverse = R_CullSurface( surf, &RI.frustum, RI.frustum.clipFlags ) == CULL_BACKSIDE;
+
+		EmitWaterLightPolys( p, soffset, toffset, false );
+		return;
+	}
+
+	dynamic = soffset != 0.0f || toffset != 0.0f;
 
 	for( ; p != NULL; p = p->chain )
 	{
@@ -963,7 +1026,7 @@ static void R_BlendLightmaps( void )
 
 			for( surf = gl_lms.lightmap_surfaces[i]; surf != NULL; surf = surf->info->lightmapchain )
 			{
-				if( surf->polys ) DrawGLPolyChain( surf->polys, 0.0f, 0.0f );
+				if( surf->polys ) DrawGLPolyChain( surf->polys, 0.0f, 0.0f, surf );
 			}
 		}
 	}
@@ -1008,7 +1071,8 @@ static void R_BlendLightmaps( void )
 					{
 						DrawGLPolyChain( drawsurf->polys,
 						( drawsurf->light_s - drawsurf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
-						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ));
+						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
+						drawsurf );
 					}
 				}
 
@@ -1037,7 +1101,8 @@ static void R_BlendLightmaps( void )
 			{
 				DrawGLPolyChain( surf->polys,
 				( surf->light_s - surf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
-				( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ));
+				( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
+				surf );
 			}
 		}
 	}
@@ -1173,8 +1238,13 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 	{
 		R_UploadRipples( t );
 
-		// warp texture, no lightmaps
+		// warp texture
 		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
+
+		// add lightmaps if requested
+		if( gl_litwater.value )
+			R_RenderLightmap( fa );
+
 		return;
 	}
 	else GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
@@ -1462,10 +1532,18 @@ void R_DrawWaterSurfaces( void )
 		R_UploadRipples( t );
 
 		for( ; s; s = s->texturechain )
+		{
 			EmitWaterPolys( s, false );
+
+			if( gl_litwater.value )
+				R_RenderLightmap( s );
+		}
 
 		t->texturechain = NULL;
 	}
+
+	GL_ResetFogColor();
+	R_BlendLightmaps();
 
 	pglDisable( GL_BLEND );
 	pglDepthMask( GL_TRUE );
