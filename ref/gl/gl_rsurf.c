@@ -206,12 +206,29 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 	{
 		VectorCopy( verts, poly->verts[i] );
 		R_TextureCoord( verts, warpface, &poly->verts[i][3] );
+		// lightmap texcoords for subdivided surfaces will be calculated later
+	}
+}
 
-		// for speed reasons
-		if( !FBitSet( warpface->flags, SURF_DRAWTURB ))
+static void GL_BuildLightmapWater( model_t *mod, msurface_t *fa )
+{
+	float sample_size;
+	glpoly2_t *poly;
+
+	if( !mod || !fa->texinfo || !fa->texinfo->texture )
+		return; // bad polygon?
+
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
+
+	for( poly = fa->polys; poly; poly = poly->next )
+	{
+		int i;
+
+		for( i = 0; i < poly->numverts; i++ )
 		{
-			// lightmap texture coordinates
-			R_LightmapCoord( verts, warpface, sample_size, &poly->verts[i][5] );
+			vec3_t vec;
+			VectorCopy( poly->verts[i], vec );
+			R_LightmapCoord( vec, fa, sample_size, &poly->verts[i][5] );
 		}
 	}
 }
@@ -3871,9 +3888,8 @@ void GL_BuildLightmaps( void )
 			GL_CreateSurfaceLightmap( m->surfaces + j, m );
 
 			if( m->surfaces[j].flags & SURF_DRAWTURB )
-				continue;
-
-			GL_BuildPolygonFromSurface( m, m->surfaces + j );
+				GL_BuildLightmapWater( m, m->surfaces + j );
+			else GL_BuildPolygonFromSurface( m, m->surfaces + j );
 		}
 
 		// clearing visframe
