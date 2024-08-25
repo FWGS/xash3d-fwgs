@@ -1825,8 +1825,16 @@ void R_DrawBrushModel( cl_entity_t *e )
 
 		if( cull_type == CULL_BACKSIDE )
 		{
-			if( !FBitSet( psurf->flags, SURF_DRAWTURB ) && !( psurf->pdecals && e->curstate.rendermode == kRenderTransTexture ))
-				continue;
+			if( FBitSet( psurf->flags, SURF_DRAWTURB ))
+			{
+				if( gl_litwater.value )
+					continue; // we don't want back faces when drawing lightmaps to avoid Z fighting
+			}
+			else
+			{
+				if( !( psurf->pdecals && e->curstate.rendermode == kRenderTransTexture ))
+					continue;
+			}
 		}
 
 		if( num_sorted < gpGlobals->max_surfaces )
@@ -2473,13 +2481,12 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 	}
 	else R_DisableDetail();
 
-	GL_Bind( mtst.tmu_gl, r_lightmap->value ?tr.whiteTexture:tex->gl_texturenum );
-	if(number)
+	GL_Bind( mtst.tmu_gl, r_lightmap->value ? tr.whiteTexture : tex->gl_texturenum );
+	if( number )
 		vboarray.itexture = number;
 
 	return tex;
 }
-
 
 static void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean drawtextures )
 {
@@ -2524,11 +2531,8 @@ static void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qbool
 	}
 }
 
-
-
 static void R_SetupVBOArrayDlight( vboarray_t *vbo, texture_t *texture )
 {
-
 	if( vboarray.astate != VBO_ARRAY_DLIGHT )
 	{
 		if( vboarray.astate == VBO_ARRAY_DECAL_DLIGHT )
@@ -2591,7 +2595,6 @@ static void R_SetupVBOArrayDecalDlight( int decalcount )
 	vboarray.tstate = VBO_TEXTURE_DECAL;
 	vboarray.lstate = VBO_LIGHTMAP_DYNAMIC;
 }
-
 
 /*
 ===================
@@ -2660,10 +2663,8 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 	}
 }
 
-
 #define MINIMIZE_UPLOAD
 #define DISCARD_DLIGHTS
-
 
 static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface_t *surf, int decalcount, texture_t *texture )
 {
