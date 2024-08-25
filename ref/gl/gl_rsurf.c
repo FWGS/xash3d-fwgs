@@ -17,6 +17,14 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "mod_local.h"
 
+// speed up sin calculations
+static const float r_turbsin[] =
+{
+#include "warpsin.h"
+};
+
+static const float TURBSCALE = 256.0f / ( M_PI2 );
+
 typedef struct
 {
 	int		allocated[BLOCK_SIZE_MAX];
@@ -303,7 +311,8 @@ void GL_SubdivideSurface( model_t *loadmodel, msurface_t *fa )
 	for( i = 0; i < fa->numedges; i++ )
 		R_GetEdgePosition( loadmodel, fa, i, verts[i] );
 
-	SetBits( fa->flags, SURF_DRAWTURB_QUADS ); // predict state
+	if( glConfig.context == CONTEXT_TYPE_GL )
+		SetBits( fa->flags, SURF_DRAWTURB_QUADS ); // predict state
 
 	// do subdivide
 	SubdividePolygon_r( loadmodel, fa, fa->numedges, verts[0] );
@@ -863,59 +872,134 @@ void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 }
 
 /*
+=============
+EmitWaterPolys
+
+Does a water warp on the pre-fragmented glpoly_t chain
+=============
+*/
+static void EmitWaterPolys( msurface_t *warp, qboolean reverse, float ripplescale )
+{
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
+	const int vertexstep = reverse ? -VERTEXSIZE : VERTEXSIZE;
+	glpoly2_t *p;
+	float waveHeight = RI.currententity->curstate.scale;
+
+	if( !warp->polys ) return;
+
+	// set the current waveheight
+	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
+		waveHeight = -waveHeight;
+
+	// reset fog color for nonlightmapped water
+	// TODO: don't do when water is lightmapped
+	GL_ResetFogColor();
+
+	if( useQuads )
+		pglBegin( GL_QUADS );
+
+	for( p = warp->polys; p; p = p->next )
+	{
+		float *v = p->verts[0];
+		int i;
+
+		if( reverse )
+			v += ( p->numverts - 1 ) * VERTEXSIZE;
+
+		if( !useQuads )
+			pglBegin( GL_POLYGON );
+
+		for( i = 0; i < p->numverts; i++, v += vertexstep )
+		{
+			float s, t, os = v[3], ot = v[4];
+
+			if( !r_ripple.value )
+			{
+				s = os + r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+				t = ot + r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+			}
+			else
+			{
+				s = os / ripplescale;
+				t = ot / ripplescale;
+			}
+
+			s *= ( 1.0f / SUBDIVIDE_SIZE );
+			t *= ( 1.0f / SUBDIVIDE_SIZE );
+
+			pglTexCoord2f( s, t );
+
+			if( waveHeight )
+			{
+				float nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = nv * waveHeight + v[2];
+
+				pglVertex3f( v[0], v[1], nv );
+			}
+			else pglVertex3fv( v );
+		}
+
+		if( !useQuads )
+			pglEnd();
+	}
+
+	if( useQuads )
+		pglEnd();
+
+	GL_SetupFogColorForSurfaces();
+}
+
+/*
 ================
 EmitWaterLightPolys
 
 Render water lightmaps
 ================
 */
-static void EmitWaterLightPolys( glpoly2_t *p, float soffset, float toffset, qboolean reverse )
+static void EmitWaterLightPolys( msurface_t *warp, float soffset, float toffset, qboolean dynamic )
 {
-	extern const float r_turbsin[];
-	qboolean dynamic = soffset != 0.0f || toffset != 0.0f;
-	float waveHeight;
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
+	glpoly2_t *p;
+	float waveHeight = RI.currententity->curstate.scale;
 
-	if( p->verts[0][2] >= RI.vieworg[2] )
+	// set the current waveheight
+	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
+		waveHeight = -waveHeight;
+
+	if( useQuads )
+		pglBegin( GL_QUADS );
+
+	for( p = warp->polys; p; p = p->next )
 	{
-		waveHeight = -RI.currententity->curstate.scale;
-		reverse = !reverse;
-	}
-	else waveHeight = RI.currententity->curstate.scale;
+		float	*v = p->verts[0];
+		int i;
 
-	for( ; p != NULL; p = p->next )
-	{
-		float	*v;
-		int	i;
+		if( !useQuads )
+			pglBegin( GL_POLYGON );
 
-		if( reverse )
-			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
-		else v = p->verts[0];
-
-		pglBegin( GL_POLYGON );
-
-		for( i = 0; i < p->numverts; i++ )
+		for( i = 0; i < p->numverts; i++, v += VERTEXSIZE )
 		{
-			float nv;
+			if( !dynamic ) pglTexCoord2f( v[5], v[6] );
+			else pglTexCoord2f( v[5] - soffset, v[6] - toffset );
 
 			if( waveHeight )
 			{
-				nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				float nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
 				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
 				nv = nv * waveHeight + v[2];
+
+				pglVertex3f( v[0], v[1], nv );
 			}
-			else nv = v[2];
-
-			if( !dynamic ) pglTexCoord2f( v[5], v[6] );
-			else pglTexCoord2f( v[5] - soffset, v[6] - toffset );
-			pglVertex3f( v[0], v[1], nv );
-
-			if( reverse )
-				v -= VERTEXSIZE;
-			else v += VERTEXSIZE;
+			else pglVertex3fv( v );
 		}
 
-		pglEnd ();
+		if( !useQuads )
+			pglEnd ();
 	}
+
+	if( useQuads )
+		pglEnd();
 }
 
 /*
@@ -927,17 +1011,13 @@ Render lightmaps
 */
 static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset, msurface_t *surf )
 {
-	qboolean dynamic;
+	qboolean dynamic = soffset != 0.0f || toffset != 0.0f;
 
 	if( FBitSet( surf->flags, SURF_DRAWTURB ))
 	{
-		// qboolean reverse = R_CullSurface( surf, &RI.frustum, RI.frustum.clipFlags ) == CULL_BACKSIDE;
-
-		EmitWaterLightPolys( p, soffset, toffset, false );
+		EmitWaterLightPolys( surf, soffset, toffset, dynamic );
 		return;
 	}
-
-	dynamic = soffset != 0.0f || toffset != 0.0f;
 
 	for( ; p != NULL; p = p->chain )
 	{
@@ -1240,10 +1320,10 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 	if( FBitSet( fa->flags, SURF_DRAWTURB ))
 	{
-		R_UploadRipples( t );
+		float ripplescale = R_UploadRipples( t );
 
 		// warp texture
-		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
+		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE), ripplescale );
 
 		// add lightmaps if requested
 		if( gl_litwater.value )
@@ -1523,6 +1603,8 @@ void R_DrawWaterSurfaces( void )
 
 	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
+		float ripplescale;
+
 		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
 
@@ -1533,11 +1615,11 @@ void R_DrawWaterSurfaces( void )
 			continue;
 
 		// set modulate mode explicitly
-		R_UploadRipples( t );
+		ripplescale = R_UploadRipples( t );
 
 		for( ; s; s = s->texturechain )
 		{
-			EmitWaterPolys( s, false );
+			EmitWaterPolys( s, false, ripplescale );
 
 			if( gl_litwater.value )
 				R_RenderLightmap( s );
