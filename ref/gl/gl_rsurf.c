@@ -1036,7 +1036,7 @@ static void R_BlendLightmaps( void )
 
 			for( surf = gl_lms.lightmap_surfaces[i]; surf != NULL; surf = surf->info->lightmapchain )
 			{
-				if( surf->polys ) DrawGLPolyChain( surf->polys, 0.0f, 0.0f, surf );
+				DrawGLPolyChain( surf->polys, 0.0f, 0.0f, surf );
 			}
 		}
 	}
@@ -1077,13 +1077,10 @@ static void R_BlendLightmaps( void )
 				// draw all surfaces that use this lightmap
 				for( drawsurf = newsurf; drawsurf != surf; drawsurf = drawsurf->info->lightmapchain )
 				{
-					if( drawsurf->polys )
-					{
-						DrawGLPolyChain( drawsurf->polys,
+					DrawGLPolyChain( drawsurf->polys,
 						( drawsurf->light_s - drawsurf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
 						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
 						drawsurf );
-					}
 				}
 
 				newsurf = drawsurf;
@@ -1107,13 +1104,10 @@ static void R_BlendLightmaps( void )
 
 		for( surf = newsurf; surf != NULL; surf = surf->info->lightmapchain )
 		{
-			if( surf->polys )
-			{
-				DrawGLPolyChain( surf->polys,
+			DrawGLPolyChain( surf->polys,
 				( surf->light_s - surf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
 				( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
 				surf );
-			}
 		}
 	}
 
@@ -1309,9 +1303,6 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		DrawSurfaceDecals( fa, true, (cull_type == CULL_BACKSIDE));
 	}
 
-	if( FBitSet( fa->flags, SURF_DRAWTILED ))
-		return; // no lightmaps anyway
-
 	R_RenderLightmap( fa );
 }
 
@@ -1319,6 +1310,9 @@ static void R_RenderLightmap( msurface_t *fa )
 {
 	qboolean is_dynamic;
 	int maps;
+
+	if( !fa->polys || FBitSet( fa->flags, SURF_DRAWTILED ))
+		return;
 
 	// check for lightmap modification
 	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
