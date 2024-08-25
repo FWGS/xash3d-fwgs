@@ -782,6 +782,14 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 			{
 				int t = bl[i] * lightscale >> 14;
 
+				// amp up water lightmap to avoid too dark water
+				// when the it wasn't properly lit by the level designer
+				if( FBitSet( surf->flags, SURF_DRAWTURB ))
+				{
+					t *= gl_litwater_scale.value;
+					t = Q_max( gl_litwater_minlight.value, t );
+				}
+
 				if( t > 1023 )
 					t = 1023;
 
@@ -1862,7 +1870,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	GL_ResetFogColor();
 	R_BlendLightmaps();
 	R_RenderFullbrights();
-	R_RenderDetails( allow_vbo? 2: 3 );
+	R_RenderDetails( allow_vbo ? 2 : 3 );
 
 	// restore fog here
 	if( e->curstate.rendermode == kRenderTransAdd )
