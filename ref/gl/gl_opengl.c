@@ -20,7 +20,7 @@ CVAR_DEFINE_AUTO( gl_test, "0", 0, "engine developer cvar for quick testing new 
 CVAR_DEFINE_AUTO( gl_msaa, "1", FCVAR_GLCONFIG, "enable or disable multisample anti-aliasing" );
 CVAR_DEFINE_AUTO( gl_stencilbits, "8", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "pixelformat stencil bits (0 - auto)" );
 CVAR_DEFINE_AUTO( gl_overbright, "1", FCVAR_GLCONFIG, "overbrights" );
-CVAR_DEFINE_AUTO( gl_litwater, "0", FCVAR_GLCONFIG, "enable lightmapped water" );
+CVAR_DEFINE_AUTO( gl_litwater_force, "0", FCVAR_GLCONFIG, "force enable lightmapped water, even if support not declared in the map" );
 CVAR_DEFINE_AUTO( gl_litwater_minlight, "192", FCVAR_GLCONFIG, "minimal light water receives, helps avoid too dark lightmapped water" );
 CVAR_DEFINE_AUTO( gl_litwater_scale, "1.5", FCVAR_GLCONFIG, "lightmapped water scale factor" );
 CVAR_DEFINE_AUTO( r_lighting_extended, "1", FCVAR_GLCONFIG, "allow to get lighting from world and bmodels" );
@@ -1210,7 +1210,7 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &gl_stencilbits );
 	gEngfuncs.Cvar_RegisterVariable( &gl_round_down );
 	gEngfuncs.Cvar_RegisterVariable( &gl_overbright );
-	gEngfuncs.Cvar_RegisterVariable( &gl_litwater );
+	gEngfuncs.Cvar_RegisterVariable( &gl_litwater_force );
 	gEngfuncs.Cvar_RegisterVariable( &gl_litwater_minlight );
 	gEngfuncs.Cvar_RegisterVariable( &gl_litwater_scale );
 

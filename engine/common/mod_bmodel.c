@@ -1897,7 +1897,10 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 			else if( !Q_stricmp( keyname, "generator" ) || !Q_stricmp( keyname, "_generator" ))
 				Q_strncpy( world.generator, token, sizeof( world.generator ));
 			else if( !Q_stricmp( keyname, "_litwater" ))
-				SetBits( world.flags, FWORLD_HAS_LITWATER );
+			{
+				if( Q_atoi( token ) != 0 )
+					SetBits( world.flags, FWORLD_HAS_LITWATER );
+			}
 			else if( !Q_stricmp( keyname, "_litwater_minlight" ))
 				world.litwater_minlight = Q_atoi( token );
 			else if( !Q_stricmp( keyname, "_litwater_scale" ))

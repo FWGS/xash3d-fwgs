@@ -1027,7 +1027,8 @@ static void R_CheckGamma( void )
 		ClearBits( r_vbo_overbrightmode.flags, FCVAR_CHANGED );
 	}
 
-	if( FBitSet( gl_litwater_scale.flags|gl_litwater_minlight.flags, FCVAR_CHANGED ))
+	// we only recalculate lightmap on the fly if map hasn't declared support for lightmapped water
+	if( !FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ) && FBitSet( gl_litwater_scale.flags|gl_litwater_minlight.flags, FCVAR_CHANGED ))
 	{
 		rebuild = true;
 		ClearBits( gl_litwater_scale.flags, FCVAR_CHANGED );

@@ -52,6 +52,42 @@ static qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmaps );
 static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
 static void R_RenderLightmap( msurface_t *fa );
 
+static qboolean Mod_HaveLightmappedWater( void )
+{
+	// if this flag set, it's level designer's job to ensure water has been properly lit
+	if( FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ))
+		return true;
+
+	// otherwise, check user preference, as some maps have lightmapped water
+	return gl_litwater_force.value ? true : false;
+}
+
+static int Mod_LightmappedWaterMinlight( void )
+{
+	if( FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ))
+	{
+		if( tr.world->litwater_minlight >= 0 )
+			return tr.world->litwater_minlight;
+
+		return 0;
+	}
+
+	return Q_max( (int)gl_litwater_minlight.value, 0 );
+}
+
+static float Mod_LightmappedWaterScale( void )
+{
+	if( FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ))
+	{
+		if( tr.world->litwater_scale >= 0.0f )
+			return tr.world->litwater_scale;
+
+		return 1.0f;
+	}
+
+	return gl_litwater_scale.value;
+}
+
 byte *Mod_GetCurrentVis( void )
 {
 	if( gEngfuncs.drawFuncs->Mod_GetCurrentVis && tr.fCustomRendering )
@@ -739,6 +775,8 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	mextrasurf_t	*info = surf->info;
 	color24		*lm;
 	int lightscale;
+	const int litwater_minlight = Mod_LightmappedWaterMinlight();
+	const float litwater_scale = Mod_LightmappedWaterScale();
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = ( info->lightextents[0] / sample_size ) + 1;
@@ -786,8 +824,9 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 				// when the it wasn't properly lit by the level designer
 				if( FBitSet( surf->flags, SURF_DRAWTURB ))
 				{
-					t *= gl_litwater_scale.value;
-					t = Q_max( gl_litwater_minlight.value, t );
+					float ft = t * litwater_scale;
+
+					t = Q_max( litwater_minlight, Q_rint( ft ));
 				}
 
 				if( t > 1023 )
@@ -1334,7 +1373,7 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE), ripplescale );
 
 		// add lightmaps if requested
-		if( gl_litwater.value )
+		if( Mod_HaveLightmappedWater( ))
 			R_RenderLightmap( fa );
 
 		return;
@@ -1629,7 +1668,7 @@ void R_DrawWaterSurfaces( void )
 		{
 			EmitWaterPolys( s, false, ripplescale );
 
-			if( gl_litwater.value )
+			if( Mod_HaveLightmappedWater( ))
 				R_RenderLightmap( s );
 		}
 
@@ -1835,7 +1874,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 		{
 			if( FBitSet( psurf->flags, SURF_DRAWTURB ))
 			{
-				if( gl_litwater.value )
+				if( Mod_HaveLightmappedWater( ))
 					continue; // we don't want back faces when drawing lightmaps to avoid Z fighting
 			}
 			else
