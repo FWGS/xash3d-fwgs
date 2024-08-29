@@ -27,7 +27,7 @@ WINSDK_LATEST=$(ls -1 "C:/Program Files (x86)/Windows Kits/10/bin" | grep -E '^1
 echo "Latest installed Windows SDK is $WINSDK_LATEST"
 
 "C:/Program Files (x86)/Windows Kits/10/bin/$WINSDK_LATEST/x64/signtool.exe" \
-	/f scripts/fwgs.pfx /fd SHA256 /p "$FWGS_PFX_PASSWORD" *.dll *.exe
+	sign //f scripts/fwgs.pfx //fd SHA256 //p "$FWGS_PFX_PASSWORD" *.dll *.exe
 
 if [ "$ARCH" = "i386" ]; then # VGUI is already signed
 	cp 3rdparty/vgui_support/vgui-dev/lib/win32_vc6/vgui.dll .
