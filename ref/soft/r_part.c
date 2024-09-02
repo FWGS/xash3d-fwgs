@@ -236,10 +236,9 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			VectorAdd( verts[0], delta, verts[2] );
 			VectorAdd( verts[1], delta, verts[3] );
 
-			if( p->color > sizeof( gTracerColors ) / sizeof( gTracerColors[0] ))
+			if( p->color < 0 || p->color > sizeof( gTracerColors ) / sizeof( gTracerColors[0] ))
 			{
-				gEngfuncs.Con_Printf( S_ERROR "UserTracer with color(%d) > %zu\n", p->color, sizeof( gTracerColors ) / sizeof( gTracerColors[0] ));
-				p->color = 0;
+				p->color = TRACER_COLORINDEX_DEFAULT;
 			}
 
 			color = gTracerColors[p->color];

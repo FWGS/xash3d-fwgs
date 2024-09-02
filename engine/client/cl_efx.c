@@ -250,7 +250,7 @@ static particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life
 	VectorCopy( vel, p->vel );
 	p->die = cl.time + life;
 	p->ramp = tracerlength.value;
-	p->color = 4; // select custom color
+	p->color = TRACER_COLORINDEX_DEFAULT; // select custom color
 	p->packedColor = 255; // alpha
 
 	return p;

@@ -56,6 +56,8 @@ color24 gTracerColors[] =
 };
 */
 
+#define TRACER_COLORINDEX_DEFAULT 4
+
 // Temporary entity array
 #define TENTPRIORITY_LOW	0
 #define TENTPRIORITY_HIGH	1
