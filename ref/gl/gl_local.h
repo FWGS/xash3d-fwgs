@@ -494,11 +494,10 @@ void R_ClearSkyBox( void );
 void R_DrawSkyBox( void );
 void R_DrawClouds( void );
 void R_UnloadSkybox( void );
-void EmitWaterPolys( msurface_t *warp, qboolean reverse );
 void R_InitRipples( void );
 void R_ResetRipples( void );
 void R_AnimateRipples( void );
-void R_UploadRipples( texture_t *image );
+float R_UploadRipples( texture_t *image );
 
 //#include "vid_common.h"
 
@@ -749,6 +748,9 @@ extern convar_t	gl_test;		// cvar to testify new effects
 extern convar_t	gl_msaa;
 extern convar_t	gl_stencilbits;
 extern convar_t	gl_overbright;
+extern convar_t	gl_litwater_force;
+extern convar_t	gl_litwater_minlight;
+extern convar_t	gl_litwater_scale;
 
 extern convar_t	r_lighting_extended;
 extern convar_t	r_lighting_ambient;

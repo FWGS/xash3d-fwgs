@@ -119,6 +119,10 @@ typedef struct world_static_s
 	// Potentially Hearable Set
 	byte   *compressed_phs;
 	size_t *phsofs;
+
+	// lightmapped water extra info
+	float litwater_scale;
+	int   litwater_minlight;
 } world_static_t;
 
 #ifndef REF_DLL

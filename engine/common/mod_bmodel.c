@@ -1677,9 +1677,10 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 			// mark models that have origin brushes
 			if( !VectorIsNull( bm->origin ))
 				SetBits( mod->flags, MODEL_HAS_ORIGIN );
+
 #ifdef HACKS_RELATED_HLMODS
 			// c2a1 doesn't have origin brush it's just placed at center of the level
-			if( !Q_stricmp( name, "maps/c2a1.bsp" ) && ( i == 11 ))
+			if( i == 11 && !Q_stricmp( name, "maps/c2a1.bsp" ))
 				SetBits( mod->flags, MODEL_HAS_ORIGIN );
 #endif
 		}
@@ -1835,6 +1836,8 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 	world.generator[0] = '\0';
 	world.compiler[0] = '\0';
 	world.message[0] = '\0';
+	world.litwater_minlight = -1;
+	world.litwater_scale = -1.0f;
 	bmod->wadlist.count = 0;
 
 	// parse all the wads for loading textures in right ordering
@@ -1893,6 +1896,15 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 				Q_strncpy( world.compiler, token, sizeof( world.compiler ));
 			else if( !Q_stricmp( keyname, "generator" ) || !Q_stricmp( keyname, "_generator" ))
 				Q_strncpy( world.generator, token, sizeof( world.generator ));
+			else if( !Q_stricmp( keyname, "_litwater" ))
+			{
+				if( Q_atoi( token ) != 0 )
+					SetBits( world.flags, FWORLD_HAS_LITWATER );
+			}
+			else if( !Q_stricmp( keyname, "_litwater_minlight" ))
+				world.litwater_minlight = Q_atoi( token );
+			else if( !Q_stricmp( keyname, "_litwater_scale" ))
+				world.litwater_scale = Q_atof( token );
 		}
 		return;	// all done
 	}

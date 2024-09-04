@@ -80,10 +80,11 @@ GNU General Public License for more details.
 #define MODEL_CLIENT		BIT( 30 )	// client sprite
 
 // goes into world.flags
-#define FWORLD_SKYSPHERE		BIT( 0 )
-#define FWORLD_CUSTOM_SKYBOX		BIT( 1 )
-#define FWORLD_WATERALPHA		BIT( 2 )
-#define FWORLD_HAS_DELUXEMAP		BIT( 3 )
+#define FWORLD_SKYSPHERE     BIT( 0 )
+#define FWORLD_CUSTOM_SKYBOX BIT( 1 )
+#define FWORLD_WATERALPHA    BIT( 2 )
+#define FWORLD_HAS_DELUXEMAP BIT( 3 )
+#define FWORLD_HAS_LITWATER  BIT( 4 )
 
 // special rendermode for screenfade modulate
 // (probably will be expanded at some point)

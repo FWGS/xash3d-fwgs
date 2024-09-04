@@ -19,7 +19,6 @@ GNU General Public License for more details.
 
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
-#define TURBSCALE		( 256.0f / ( M_PI2 ))
 
 static const int r_skyTexOrder[SKYBOX_MAX_SIDES] = { 0, 2, 1, 3, 4, 5 };
 
@@ -55,12 +54,6 @@ static const int vec_to_st[SKYBOX_MAX_SIDES][3] =
 { -2,  1, -3 }
 };
 
-// speed up sin calculations
-static float r_turbsin[] =
-{
-#include "warpsin.h"
-};
-
 #define RIPPLES_CACHEWIDTH_BITS 7
 #define RIPPLES_CACHEWIDTH ( 1 << RIPPLES_CACHEWIDTH_BITS )
 #define RIPPLES_CACHEWIDTH_MASK (( RIPPLES_CACHEWIDTH ) - 1 )
@@ -81,9 +74,7 @@ static struct
 	uint32_t texture[RIPPLES_TEXSIZE];
 	int gl_texturenum;
 	int rippletexturenum;
-	float texturescale; // not all textures are 128x128, scale the texcoords down
 } g_ripple;
-
 
 static void DrawSkyPolygon( int nump, vec3_t vecs )
 {
@@ -559,89 +550,6 @@ void R_DrawClouds( void )
 }
 
 /*
-=============
-EmitWaterPolys
-
-Does a water warp on the pre-fragmented glpoly_t chain
-=============
-*/
-void EmitWaterPolys( msurface_t *warp, qboolean reverse )
-{
-	float	*v, nv, waveHeight;
-	float	s, t, os, ot;
-	glpoly2_t	*p;
-	int	i;
-
-	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS ) && glConfig.context == CONTEXT_TYPE_GL;
-
-	if( !warp->polys ) return;
-
-	// set the current waveheight
-	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
-		waveHeight = -RI.currententity->curstate.scale;
-	else waveHeight = RI.currententity->curstate.scale;
-
-	// reset fog color for nonlightmapped water
-	GL_ResetFogColor();
-
-	if( useQuads )
-		pglBegin( GL_QUADS );
-
-	for( p = warp->polys; p; p = p->next )
-	{
-		if( reverse )
-			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
-		else v = p->verts[0];
-
-		if( !useQuads )
-			pglBegin( GL_POLYGON );
-
-		for( i = 0; i < p->numverts; i++ )
-		{
-			if( waveHeight )
-			{
-				nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
-				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
-				nv = nv * waveHeight + v[2];
-			}
-			else nv = v[2];
-
-			os = v[3];
-			ot = v[4];
-
-			if( !r_ripple.value )
-			{
-				s = os + r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
-				t = ot + r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
-			}
-			else
-			{
-				s = os / g_ripple.texturescale;
-				t = ot / g_ripple.texturescale;
-			}
-
-			s *= ( 1.0f / SUBDIVIDE_SIZE );
-			t *= ( 1.0f / SUBDIVIDE_SIZE );
-
-			pglTexCoord2f( s, t );
-			pglVertex3f( v[0], v[1], nv );
-
-			if( reverse )
-				v -= VERTEXSIZE;
-			else v += VERTEXSIZE;
-		}
-
-		if( !useQuads )
-			pglEnd();
-	}
-
-	if( useQuads )
-		pglEnd();
-
-	GL_SetupFogColorForSurfaces();
-}
-
-/*
 ============================================================
 
 	HALF-LIFE SOFTWARE WATER
@@ -750,43 +658,39 @@ void R_AnimateRipples( void )
 	R_RunRipplesAnimation( g_ripple.oldbuf, g_ripple.curbuf );
 }
 
-void R_UploadRipples( texture_t *image )
+float R_UploadRipples( texture_t *image )
 {
 	gl_texture_t *glt;
 	uint32_t *pixels;
 	int wbits, wmask, wshft;
 	int y;
+	float texturescale;
 
 	// discard unuseful textures
 	if( !r_ripple.value || image->width > RIPPLES_CACHEWIDTH || image->width != image->height )
 	{
 		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
-		return;
+		return 0.0f;
 	}
 
 	glt = R_GetTexture( image->gl_texturenum );
 	if( !glt || !glt->original || !glt->original->buffer || !FBitSet( glt->flags, TF_EXPAND_SOURCE ))
 	{
 		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
-		return;
+		return 0.0f;
 	}
 
 	GL_Bind( XASH_TEXTURE0, g_ripple.rippletexturenum );
 
+	if( r_ripple.value == 1.0f )
+		texturescale = Q_max( 1.0f, image->width / 64.0f );
+	else texturescale = 1.0f;
+
 	// no updates this frame
 	if( !g_ripple.update && image->gl_texturenum == g_ripple.gl_texturenum )
-		return;
+		return texturescale;
 
 	g_ripple.gl_texturenum = image->gl_texturenum;
-	if( r_ripple.value == 1.0f )
-	{
-		g_ripple.texturescale = Q_max( 1.0f, image->width / 64.0f );
-	}
-	else
-	{
-		g_ripple.texturescale = 1.0f;
-	}
-
 
 	pixels = (uint32_t *)glt->original->buffer;
 	wbits = MostSignificantBit( image->width );
@@ -813,4 +717,6 @@ void R_UploadRipples( texture_t *image )
 
 	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->width, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, g_ripple.texture );
+
+	return texturescale;
 }
