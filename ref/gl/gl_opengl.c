@@ -742,9 +742,7 @@ static void R_RenderInfo_f( void )
 			gEngfuncs.Con_Printf( "GL4ES_VERSION: %s\n", version );
 		if( extensions )
 			gEngfuncs.Con_Reportf( "GL4ES_EXTENSIONS: %s\n", extensions );
-
 	}
-
 
 	gEngfuncs.Con_Printf( "GL_MAX_TEXTURE_SIZE: %i\n", glConfig.max_2d_texture_size );
 
@@ -1149,6 +1147,10 @@ void GL_InitExtensions( void )
 	if( Q_strstr( glConfig.renderer_string, "gdi" ))
 		gEngfuncs.Cvar_SetValue( "gl_finish", 1 );
 #endif
+
+	// we do not want to write vbo code that does not use multitexture
+	if( !GL_Support( GL_ARB_VERTEX_BUFFER_OBJECT_EXT ) || !GL_Support( GL_ARB_MULTITEXTURE ) || glConfig.max_texture_units < 2 )
+		gEngfuncs.Cvar_FullSet( "gl_vbo", "0", FCVAR_READ_ONLY );
 
 	R_RenderInfo_f();
 

@@ -1859,13 +1859,6 @@ void R_GenerateVBO( void )
 
 	R_ClearVBO();
 
-	// we do not want to write vbo code that does not use multitexture
-	if( !GL_Support( GL_ARB_VERTEX_BUFFER_OBJECT_EXT ) || !GL_Support( GL_ARB_MULTITEXTURE ) || glConfig.max_texture_units < 2 )
-	{
-		gEngfuncs.Cvar_FullSet( "gl_vbo", "0", FCVAR_READ_ONLY );
-		return;
-	}
-
 	t1 = gEngfuncs.pfnTime();
 
 	// save in config if enabled manually
@@ -3028,7 +3021,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 
 	R_SetupVBOArrayStatic( vbo, drawlightmap, drawtextures );
 	mtst.skiptexture = !drawtextures;
-	mtst.tmu_dt = glConfig.max_texture_units > 2 && r_vbo_detail.value == 2? XASH_TEXTURE2:-1;
+	mtst.tmu_dt = glConfig.max_texture_units > 2 && r_vbo_detail.value == 2 ? XASH_TEXTURE2 : -1;
 
 	// setup limits
 	if( vbos.minlightmap > vbos.minarraysplit_lm )
