@@ -3000,25 +3000,6 @@ static void *GAME_EXPORT pfnPvEntPrivateData( edict_t *pEdict )
 }
 
 
-#ifdef XASH_64BIT
-static struct str64_s
-{
-	size_t maxstringarray;
-	qboolean allowdup;
-	char *staticstringarray;
-	char *pstringarray;
-	char *pstringarraystatic;
-	char *pstringbase;
-	char *poldstringbase;
-	char *plast;
-	qboolean dynamic;
-	size_t maxalloc;
-	size_t numdups;
-	size_t numoverflows;
-	size_t totalalloc;
-} str64;
-#endif
-
 /*
 ==================
 SV_EmptyStringPool
@@ -3028,17 +3009,7 @@ Free strings on server stop. Reset string pointer on 64 bits
 */
 void SV_EmptyStringPool( void )
 {
-#ifdef XASH_64BIT
-	if( str64.dynamic ) // switch only after array fill (more space for multiplayer games)
-		str64.pstringbase = str64.pstringarray;
-	else
-	{
-		str64.pstringbase = str64.poldstringbase = str64.pstringarraystatic;
-		str64.plast = str64.pstringbase + 1;
-	}
-#else
 	Mem_EmptyPool( svgame.stringspool );
-#endif
 }
 
 /*
@@ -3052,22 +3023,7 @@ this helps not to lose strings that belongs to static game part
 */
 void SV_SetStringArrayMode( qboolean dynamic )
 {
-#ifdef XASH_64BIT
-	Con_Reportf( "%s(%d) %d\n", __func__, dynamic, str64.dynamic );
-
-	if( dynamic == str64.dynamic )
-		return;
-
-	str64.dynamic = dynamic;
-
-	SV_EmptyStringPool();
-#endif
 }
-
-#if XASH_AMD64 && XASH_LINUX && !XASH_ANDROID
-#define USE_MMAP
-#include <sys/mman.h>
-#endif
 
 /*
 ==================
@@ -3081,104 +3037,13 @@ this case need patched game dll with MAKE_STRING checking ptrdiff size
 */
 static void SV_AllocStringPool( void )
 {
-#ifdef XASH_64BIT
-	void *ptr = NULL;
-	string lenstr;
-
-	Con_Reportf( "%s()\n", __func__ );
-	if( Sys_GetParmFromCmdLine( "-str64alloc", lenstr ) )
-	{
-		str64.maxstringarray = Q_atoi( lenstr );
-		if( str64.maxstringarray < 1024 || str64.maxstringarray >= INT_MAX )
-			str64.maxstringarray = 65536;
-	}
-	else str64.maxstringarray = 65536;
-	if( Sys_CheckParm( "-str64dup" ) )
-		str64.allowdup = true;
-
-#ifdef USE_MMAP
-	{
-		uint flags;
-		size_t pagesize = sysconf( _SC_PAGESIZE );
-		int arrlen = (str64.maxstringarray * 2) & ~(pagesize - 1);
-		void *base = svgame.dllFuncs.pfnGameInit;
-		void *start = svgame.hInstance - arrlen;
-
-#if defined(MAP_ANON)
-		flags = MAP_ANON | MAP_PRIVATE;
-#elif defined(MAP_ANONYMOUS)
-		flags = MAP_ANONYMOUS | MAP_PRIVATE;
-#endif
-
-		while( start - base > INT_MIN )
-		{
-			void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, flags, 0, 0 );
-			if( mapptr && mapptr != (void*)-1 && mapptr - base > INT_MIN && mapptr - base < INT_MAX )
-			{
-				ptr = mapptr;
-				break;
-			}
-			if( mapptr ) munmap( mapptr, arrlen );
-			start -= arrlen;
-		}
-
-		if( !ptr )
-		{
-			start = base;
-			while( start - base < INT_MAX )
-			{
-				void *mapptr = mmap((void*)((unsigned long)start & ~(pagesize - 1)), arrlen, PROT_READ | PROT_WRITE, flags, 0, 0 );
-				if( mapptr && mapptr != (void*)-1  && mapptr - base > INT_MIN && mapptr - base < INT_MAX )
-				{
-					ptr = mapptr;
-					break;
-				}
-				if( mapptr ) munmap( mapptr, arrlen );
-				start += arrlen;
-			}
-		}
-
-
-		if( ptr )
-		{
-			Con_Reportf( "%s: Allocated string array near the server library: %p %p\n", __func__, base, ptr );
-
-		}
-		else
-		{
-			Con_Reportf( "%s: Failed to allocate string array near the server library!\n", __func__ );
-			ptr = str64.staticstringarray = Mem_Calloc( host.mempool, str64.maxstringarray * 2 );
-		}
-	}
-#else
-	ptr = str64.staticstringarray = Mem_Calloc( host.mempool, str64.maxstringarray * 2 );
-#endif
-
-	str64.pstringarray = ptr;
-	str64.pstringarraystatic = (byte*)ptr + str64.maxstringarray;
-	str64.pstringbase = str64.poldstringbase = ptr;
-	str64.plast = (byte*)ptr + 1;
-	svgame.globals->pStringBase = ptr;
-#else
 	svgame.stringspool = Mem_AllocPool( "Server Strings" );
 	svgame.globals->pStringBase = "";
-#endif
 }
 
 static void SV_FreeStringPool( void )
 {
-#ifdef XASH_64BIT
-	Con_Reportf( "%s()\n", __func__ );
-
-#ifdef USE_MMAP
-	if( str64.pstringarray != str64.staticstringarray )
-		munmap( str64.pstringarray, (str64.maxstringarray * 2) & ~(sysconf( _SC_PAGESIZE ) - 1) );
-	else
-#endif
-		Mem_Free( str64.staticstringarray );
-#else
 	Mem_FreePool( &svgame.stringspool );
-#endif
 }
 
 /*
@@ -3249,9 +3114,6 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 {
 	char *newString = NULL;
 	uint len;
-#ifdef XASH_64BIT
-	int cmp;
-#endif
 
 	if( svgame.physFuncs.pfnAllocString != NULL )
 	{
@@ -3267,67 +3129,16 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 		return i;
 	}
 
-#ifdef XASH_64BIT
-	cmp = 1;
-
-	if( !str64.allowdup )
-	{
-		for( newString = str64.poldstringbase + 1;
-			newString < str64.plast && ( cmp = Q_strcmp( newString, szValue ) );
-			newString += Q_strlen( newString ) + 1 );
-	}
-
-	if( cmp )
-	{
-		uint len = SV_ProcessString( NULL, szValue );
-
-		if( str64.plast - str64.poldstringbase + len + 1 > str64.maxstringarray )
-		{
-			str64.plast = str64.pstringbase + 1;
-			str64.poldstringbase = str64.pstringbase;
-			str64.numoverflows++;
-		}
-
-		//MsgDev( D_NOTE, "SV_AllocString: %ld %s\n", str64.plast - svgame.globals->pStringBase, szValue );
-		SV_ProcessString( str64.plast, szValue );
-		str64.totalalloc += len;
-
-		newString = str64.plast;
-		str64.plast += len;
-	}
-	else
-	{
-		str64.numdups++;
-		//MsgDev( D_NOTE, "SV_AllocString: dup %ld %s\n", newString - svgame.globals->pStringBase, szValue );
-	}
-
-	if( newString - str64.pstringarray > str64.maxalloc )
-		str64.maxalloc = newString - str64.pstringarray;
-
-	return newString - svgame.globals->pStringBase;
-#else
 	len = SV_ProcessString( NULL, szValue );
 	newString = Mem_Malloc( svgame.stringspool, len );
 	SV_ProcessString( newString, szValue );
 
 	return newString - svgame.globals->pStringBase;
-#endif
 }
 
 void SV_PrintStr64Stats_f( void )
 {
-#ifdef XASH_64BIT
-	Con_Printf( "====================\n" );
-	Con_Printf( "64 bit string pool statistics\n" );
-	Con_Printf( "====================\n" );
-	Con_Printf( "string array size: %lu\n", str64.maxstringarray );
-	Con_Printf( "total alloc %lu\n", str64.totalalloc );
-	Con_Printf( "maximum array usage: %lu\n", str64.maxalloc );
-	Con_Printf( "overflow counter: %lu\n", str64.numoverflows );
-	Con_Printf( "dup string counter: %lu\n", str64.numdups );
-#else
 	Con_Printf( "Not implemented\n" );
-#endif
 }
 
 /*
@@ -3341,17 +3152,8 @@ string_t SV_MakeString( const char *szValue )
 {
 	if( svgame.physFuncs.pfnMakeString != NULL )
 		return svgame.physFuncs.pfnMakeString( szValue );
-#ifdef XASH_64BIT
-	{
-		long long ptrdiff = szValue - svgame.globals->pStringBase;
-		if( ptrdiff > INT_MAX || ptrdiff < INT_MIN )
-			return SV_AllocString(szValue);
-		else
-			return (int)ptrdiff;
-	}
-#else
+
 	return szValue - svgame.globals->pStringBase;
-#endif
 }
 
 /*
