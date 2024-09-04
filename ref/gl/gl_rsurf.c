@@ -1135,6 +1135,148 @@ static void R_RenderDetails( int passes )
 	GL_ResetFogColor();
 }
 
+static void R_RenderFullbrightForSurface( msurface_t *fa, texture_t *t )
+{
+	if( !t->fb_texturenum )
+		return;
+
+	fa->info->lumachain = fullbright_surfaces[t->fb_texturenum];
+	fullbright_surfaces[t->fb_texturenum] = fa->info;
+	draw_fullbrights = true;
+}
+
+static void R_RenderDetailsForSurface( msurface_t *fa, texture_t *t )
+{
+	if( !r_detailtextures.value )
+		return;
+
+	if( glState.isFogEnabled )
+	{
+		// don't apply detail textures for windows in the fog
+		if( RI.currententity->curstate.rendermode != kRenderTransTexture )
+		{
+			if( t->dt_texturenum )
+			{
+				fa->info->detailchain = detail_surfaces[t->dt_texturenum];
+				detail_surfaces[t->dt_texturenum] = fa->info;
+			}
+			else
+			{
+				// draw stub detail texture for underwater surfaces
+				fa->info->detailchain = detail_surfaces[tr.grayTexture];
+				detail_surfaces[tr.grayTexture] = fa->info;
+			}
+			draw_details = true;
+		}
+	}
+	else if( t->dt_texturenum )
+	{
+		fa->info->detailchain = detail_surfaces[t->dt_texturenum];
+		detail_surfaces[t->dt_texturenum] = fa->info;
+		draw_details = true;
+	}
+}
+
+static void R_RenderDecalsForSurface( msurface_t *fa, int cull_type )
+{
+	if( RI.currententity->curstate.rendermode == kRenderNormal )
+	{
+		// batch decals to draw later
+		if( tr.num_draw_decals < MAX_DECAL_SURFS && fa->pdecals )
+			tr.draw_decals[tr.num_draw_decals++] = fa;
+	}
+	else
+	{
+		// if rendermode != kRenderNormal draw decals sequentially
+		DrawSurfaceDecals( fa, true, (cull_type == CULL_BACKSIDE));
+	}
+}
+
+static qboolean R_CheckLightMap( msurface_t *fa )
+{
+	qboolean is_dynamic = false;
+	int maps;
+
+	// check for lightmap modification
+	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
+	{
+		if( tr.lightstylevalue[fa->styles[maps]] != fa->cached_light[maps] )
+			goto dynamic;
+	}
+
+	// dynamic this frame or dynamic previously
+	if( fa->dlightframe == tr.framecount )
+	{
+dynamic:
+		// NOTE: at this point we have only valid textures
+		if( r_dynamic->value )
+			is_dynamic = true;
+	}
+
+	if( is_dynamic )
+	{
+		const int style = fa->styles[maps];
+
+		if( maps < MAXLIGHTMAPS && ( style >= 32 || style == 0 || style == 20 ) && fa->dlightframe != tr.framecount )
+		{
+			byte		temp[132*132*4];
+			mextrasurf_t	*info = fa->info;
+			int		sample_size;
+			int		smax, tmax;
+
+			sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
+			smax = ( info->lightextents[0] / sample_size ) + 1;
+			tmax = ( info->lightextents[1] / sample_size ) + 1;
+
+			if( smax < 132 && tmax < 132 )
+				R_BuildLightMap( fa, temp, smax * 4, true );
+			else
+			{
+				smax = Q_min( smax, 132 );
+				tmax = Q_min( tmax, 132 );
+				memset( temp, 255, sizeof( temp ));
+				//Host_MapDesignError( "%s: bad surface extents: %d %d", __func__, fa->extents[0], fa->extents[1] );
+			}
+
+			R_SetCacheState( fa );
+
+#ifdef XASH_WES
+			GL_Bind( XASH_TEXTURE1, tr.lightmapTextures[fa->lightmaptexturenum] );
+			pglTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE );
+#else
+			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
+#endif
+
+			pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGBA, GL_UNSIGNED_BYTE, temp );
+
+#ifdef XASH_WES
+			GL_SelectTexture( XASH_TEXTURE0 );
+#endif
+		}
+		else
+			return true; // add to dynamic chain
+	}
+
+	return false; // updated
+}
+
+static void R_RenderLightmapForSurface( msurface_t *fa )
+{
+	if( !fa->polys || FBitSet( fa->flags, SURF_DRAWTILED ))
+		return;
+
+	if( R_CheckLightMap( fa ))
+	{
+		fa->info->lightmapchain = gl_lms.dynamic_surfaces;
+		gl_lms.dynamic_surfaces = fa;
+	}
+	else
+	{
+		fa->info->lightmapchain = gl_lms.lightmap_surfaces[fa->lightmaptexturenum];
+		gl_lms.lightmap_surfaces[fa->lightmaptexturenum] = fa;
+	}
+}
+
 /*
 ================
 R_RenderBrushPoly
@@ -1142,8 +1284,6 @@ R_RenderBrushPoly
 */
 static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 {
-	qboolean	is_dynamic = false;
-	int	maps;
 	texture_t	*t;
 
 	r_stats.c_world_polys++;
@@ -1163,109 +1303,11 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 	}
 	else GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
 
-	if( t->fb_texturenum )
-	{
-		fa->info->lumachain = fullbright_surfaces[t->fb_texturenum];
-		fullbright_surfaces[t->fb_texturenum] = fa->info;
-		draw_fullbrights = true;
-	}
-
-	if( r_detailtextures.value )
-	{
-		if( glState.isFogEnabled )
-		{
-			// don't apply detail textures for windows in the fog
-			if( RI.currententity->curstate.rendermode != kRenderTransTexture )
-			{
-				if( t->dt_texturenum )
-				{
-					fa->info->detailchain = detail_surfaces[t->dt_texturenum];
-					detail_surfaces[t->dt_texturenum] = fa->info;
-				}
-				else
-				{
-					// draw stub detail texture for underwater surfaces
-					fa->info->detailchain = detail_surfaces[tr.grayTexture];
-					detail_surfaces[tr.grayTexture] = fa->info;
-				}
-				draw_details = true;
-			}
-		}
-		else if( t->dt_texturenum )
-		{
-			fa->info->detailchain = detail_surfaces[t->dt_texturenum];
-			detail_surfaces[t->dt_texturenum] = fa->info;
-			draw_details = true;
-		}
-	}
-
+	R_RenderFullbrightForSurface( fa, t );
+	R_RenderDetailsForSurface( fa, t );
 	DrawGLPoly( fa->polys, 0.0f, 0.0f );
-
-	if( RI.currententity->curstate.rendermode == kRenderNormal )
-	{
-		// batch decals to draw later
-		if( tr.num_draw_decals < MAX_DECAL_SURFS && fa->pdecals )
-			tr.draw_decals[tr.num_draw_decals++] = fa;
-	}
-	else
-	{
-		// if rendermode != kRenderNormal draw decals sequentially
-		DrawSurfaceDecals( fa, true, (cull_type == CULL_BACKSIDE));
-	}
-
-	if( FBitSet( fa->flags, SURF_DRAWTILED ))
-		return; // no lightmaps anyway
-
-	// check for lightmap modification
-	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
-	{
-		if( tr.lightstylevalue[fa->styles[maps]] != fa->cached_light[maps] )
-			goto dynamic;
-	}
-
-	// dynamic this frame or dynamic previously
-	if( fa->dlightframe == tr.framecount )
-	{
-dynamic:
-		// NOTE: at this point we have only valid textures
-		if( r_dynamic->value ) is_dynamic = true;
-	}
-
-	if( is_dynamic )
-	{
-		if(( maps <  MAXLIGHTMAPS ) && ( fa->styles[maps] >= 32 || fa->styles[maps] == 0 || fa->styles[maps] == 20 ) && ( fa->dlightframe != tr.framecount ))
-		{
-			byte		temp[132*132*4];
-			mextrasurf_t	*info = fa->info;
-			int		sample_size;
-			int		smax, tmax;
-
-			sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
-			smax = ( info->lightextents[0] / sample_size ) + 1;
-			tmax = ( info->lightextents[1] / sample_size ) + 1;
-
-			R_BuildLightMap( fa, temp, smax * 4, true );
-			R_SetCacheState( fa );
-
-			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
-
-			pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax,
-			GL_RGBA, GL_UNSIGNED_BYTE, temp );
-
-			fa->info->lightmapchain = gl_lms.lightmap_surfaces[fa->lightmaptexturenum];
-			gl_lms.lightmap_surfaces[fa->lightmaptexturenum] = fa;
-		}
-		else
-		{
-			fa->info->lightmapchain = gl_lms.dynamic_surfaces;
-			gl_lms.dynamic_surfaces = fa;
-		}
-	}
-	else
-	{
-		fa->info->lightmapchain = gl_lms.lightmap_surfaces[fa->lightmaptexturenum];
-		gl_lms.lightmap_surfaces[fa->lightmaptexturenum] = fa;
-	}
+	R_RenderDecalsForSurface( fa, cull_type );
+	R_RenderLightmapForSurface( fa );
 }
 
 /*
@@ -3115,171 +3157,71 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 	vbos.maxtexture = 0;
 }
 
-/*
-================
-R_CheckLightMap
-
-update surface's lightmap if needed and return true if it is dynamic
-================
-*/
-static qboolean R_CheckLightMap( msurface_t *fa )
-{
-	int maps;
-	qboolean is_dynamic = false;
-
-	// check for lightmap modification
-	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
-	{
-		if( tr.lightstylevalue[fa->styles[maps]] != fa->cached_light[maps] )
-		{
-			is_dynamic = true;
-			break;
-		}
-	}
-
-	// already up to date
-	if( !is_dynamic && ( fa->dlightframe != tr.framecount ))
-		return false;
-
-	// build lightmap
-	if(( maps <  MAXLIGHTMAPS ) && ( fa->styles[maps] >= 32 || fa->styles[maps] == 0 ) && ( fa->dlightframe != tr.framecount ))
-	{
-		byte	temp[132*132*4];
-		int	smax, tmax;
-		int sample_size;
-		mextrasurf_t *info;
-
-		info = fa->info;
-		sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
-		smax = ( info->lightextents[0] / sample_size ) + 1;
-		tmax = ( info->lightextents[1] / sample_size ) + 1;
-
-		if( smax < 132 && tmax < 132 )
-		{
-			R_BuildLightMap( fa, temp, smax * 4, true );
-		}
-		else
-		{
-			smax = Q_min( smax, 132 );
-			tmax = Q_min( tmax, 132 );
-			//Host_MapDesignError( "R_RenderBrushPoly: bad surface extents: %d %d", fa->extents[0], fa->extents[1] );
-			memset( temp, 255, sizeof( temp ) );
-		}
-
-		R_SetCacheState( fa );
-#ifdef XASH_WES
-		GL_Bind( XASH_TEXTURE1, tr.lightmapTextures[fa->lightmaptexturenum] );
-
-		pglTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE );
-#else
-		GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
-#endif
-
-		pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax,
-		GL_RGBA, GL_UNSIGNED_BYTE, temp );
-#ifdef XASH_WES
-		GL_SelectTexture( XASH_TEXTURE0 );
-#endif
-	}
-	// add to dynamic chain
-	else
-		return true;
-
-	// updated
-	return false;
-}
-
 qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 {
-	if( r_vbo.value && vbos.surfdata[surf - WORLDMODEL->surfaces].vbotexture )
-	{
-		// find vbotexture_t assotiated with this surface
-		int idx = surf - WORLDMODEL->surfaces;
-		vbotexture_t *vbotex = vbos.surfdata[idx].vbotexture;
-		int texturenum = vbos.surfdata[idx].texturenum;
+	const int idx = surf - WORLDMODEL->surfaces;
+	vbotexture_t *vbotex;
+	int texturenum;
 
-		if( !surf->polys )
-			return true;
+	if( !r_vbo.value )
+		return false;
 
-		if( vbos.maxlightmap < surf->lightmaptexturenum + 1 )
-			vbos.maxlightmap = surf->lightmaptexturenum + 1;
-		if( vbos.minlightmap > surf->lightmaptexturenum )
-			vbos.minlightmap = surf->lightmaptexturenum;
-		if( vbos.maxtexture < texturenum + 1 )
-			vbos.maxtexture = texturenum + 1;
-		if( vbos.mintexture > texturenum )
-			vbos.mintexture = texturenum;
+	// find vbotexture_t assotiated with this surface
+	vbotex = vbos.surfdata[idx].vbotexture;
+	texturenum = vbos.surfdata[idx].texturenum;
 
-		buildlightmap &= !r_fullbright->value && !!WORLDMODEL->lightdata;
+	if( !vbotex )
+		return false;
 
-		/* draw details in regular way */
-		if( r_vbo_detail.value == 0 )
-		{
-			if( r_detailtextures.value && surf->texinfo && surf->texinfo  )
-			{
-				texture_t *t = surf->texinfo->texture;
-
-				if( glState.isFogEnabled )
-				{
-					// don't apply detail textures for windows in the fog
-					if( RI.currententity->curstate.rendermode != kRenderTransTexture )
-					{
-						if( t->dt_texturenum )
-						{
-							surf->info->detailchain = detail_surfaces[t->dt_texturenum];
-							detail_surfaces[t->dt_texturenum] = surf->info;
-						}
-						else
-						{
-							// draw stub detail texture for underwater surfaces
-							surf->info->detailchain = detail_surfaces[tr.grayTexture];
-							detail_surfaces[tr.grayTexture] = surf->info;
-						}
-						draw_details = true;
-					}
-				}
-				else if( t->dt_texturenum )
-				{
-					surf->info->detailchain = detail_surfaces[t->dt_texturenum];
-					detail_surfaces[t->dt_texturenum] = surf->info;
-					draw_details = true;
-				}
-			}
-		}
-
-		if( buildlightmap && R_CheckLightMap( surf ) )
-		{
-			// every vbotex has own lightmap chain (as we sorted if by textures to use multitexture)
-			surf->info->lightmapchain = vbotex->dlightchain;
-			vbotex->dlightchain = surf;
-		}
-		else
-		{
-			uint indexbase = vbos.surfdata[idx].startindex;
-			uint index;
-
-			// GL_TRIANGLE_FAN: 0 1 2 0 2 3 0 3 4 ...
-			for( index = indexbase + 2; index < indexbase + surf->polys->numverts; index++ )
-			{
-				vbotex->indexarray[vbotex->curindex++] = indexbase;
-				vbotex->indexarray[vbotex->curindex++] = index - 1;
-				vbotex->indexarray[vbotex->curindex++] = index;
-			}
-
-			// if surface has decals, add it to decal lightmapchain
-			if( surf->pdecals )
-			{
-				surf->info->lightmapchain = vbos.decaldata->lm[vbotex->lightmaptexturenum];
-				vbos.decaldata->lm[vbotex->lightmaptexturenum] = surf;
-			}
-		}
-
-		// now this path does not draw wapred surfaces, so count it as one poly
-		r_stats.c_world_polys++;
-
+	if( !surf->polys )
 		return true;
+
+	if( vbos.maxlightmap < surf->lightmaptexturenum + 1 )
+		vbos.maxlightmap = surf->lightmaptexturenum + 1;
+	if( vbos.minlightmap > surf->lightmaptexturenum )
+		vbos.minlightmap = surf->lightmaptexturenum;
+	if( vbos.maxtexture < texturenum + 1 )
+		vbos.maxtexture = texturenum + 1;
+	if( vbos.mintexture > texturenum )
+		vbos.mintexture = texturenum;
+
+	buildlightmap &= !r_fullbright->value && !!WORLDMODEL->lightdata;
+
+	// draw details in regular way
+	if( r_vbo_detail.value == 0 && surf->texinfo )
+		R_RenderDetailsForSurface( surf, surf->texinfo->texture );
+
+	if( buildlightmap && R_CheckLightMap( surf ))
+	{
+		// every vbotex has own lightmap chain (as we sorted if by textures to use multitexture)
+		surf->info->lightmapchain = vbotex->dlightchain;
+		vbotex->dlightchain = surf;
 	}
-	return false;
+	else
+	{
+		uint indexbase = vbos.surfdata[idx].startindex;
+		uint index;
+
+		// GL_TRIANGLE_FAN: 0 1 2 0 2 3 0 3 4 ...
+		for( index = indexbase + 2; index < indexbase + surf->polys->numverts; index++ )
+		{
+			vbotex->indexarray[vbotex->curindex++] = indexbase;
+			vbotex->indexarray[vbotex->curindex++] = index - 1;
+			vbotex->indexarray[vbotex->curindex++] = index;
+		}
+
+		// if surface has decals, add it to decal lightmapchain
+		if( surf->pdecals )
+		{
+			surf->info->lightmapchain = vbos.decaldata->lm[vbotex->lightmaptexturenum];
+			vbos.decaldata->lm[vbotex->lightmaptexturenum] = surf;
+		}
+	}
+
+	// now this path does not draw wapred surfaces, so count it as one poly
+	r_stats.c_world_polys++;
+
+	return true;
 }
 
 /*
