@@ -125,7 +125,7 @@ typedef struct enginefuncs_s
 	void	(*pfnAngleVectors)( const float *rgflVector, float *forward, float *right, float *up );
 	edict_t*	(*pfnCreateEntity)( void );
 	void	(*pfnRemoveEntity)( edict_t* e );
-	edict_t*	(*pfnCreateNamedEntity)( int className );
+	edict_t*	(*pfnCreateNamedEntity)( string_t className );
 	void	(*pfnMakeStatic)( edict_t *ent );
 	int	(*pfnEntIsOnFloor)( edict_t *e );
 	int	(*pfnDropToFloor)( edict_t* e );
@@ -168,8 +168,8 @@ typedef struct enginefuncs_s
 	void*	(*pfnPvAllocEntPrivateData)( edict_t *pEdict, long cb );
 	void*	(*pfnPvEntPrivateData)( edict_t *pEdict );
 	void	(*pfnFreeEntPrivateData)( edict_t *pEdict );
-	const char *(*pfnSzFromIndex)( int iString );
-	int	(*pfnAllocString)( const char *szValue );
+	const char *(*pfnSzFromIndex)( string_t iString );
+	string_t	(*pfnAllocString)( const char *szValue );
 	struct entvars_s *(*pfnGetVarsOfEnt)( edict_t *pEdict );
 	edict_t*	(*pfnPEntityOfEntOffset)( int iEntOffset );
 	int	(*pfnEntOffsetOfPEntity)( const edict_t *pEdict );
