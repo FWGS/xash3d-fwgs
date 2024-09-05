@@ -14,9 +14,6 @@
 ****/
 #ifndef CONST_H
 #define CONST_H
-
-#include <stddef.h> // ptrdiff_t
-
 //
 // Constants shared by the engine and dlls
 // This header file included by engine files and DLL files.
@@ -724,7 +721,7 @@ enum
 };
 
 typedef int		func_t;
-typedef ptrdiff_t	string_t;
+typedef int		string_t;
 
 typedef unsigned short	word;
 
