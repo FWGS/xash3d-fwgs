@@ -2030,24 +2030,35 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 
 	if( bmod->version == QBSP2_VERSION )
 	{
-		dmarkface32_t	*in = bmod->markfaces32;
+		const dmarkface32_t *in = bmod->markfaces32;
 
-		for( i = 0; i < bmod->nummarkfaces; i++, in++ )
+		for( i = 0; i < bmod->nummarkfaces; i++ )
 		{
-			if( *in < 0 || *in >= mod->numsurfaces )
-				Host_Error( "%s: bad surface number in '%s'\n", __func__, mod->name );
-			out[i] = mod->surfaces + *in;
+			if( in[i] < 0 || in[i] >= mod->numsurfaces )
+				Host_Error( "%s: bad surface number %i at %i (max %i) in '%s'\n", __func__, in[i], i, mod->numsurfaces, mod->name );
+			out[i] = mod->surfaces + in[i];
 		}
 	}
 	else
 	{
-		dmarkface_t	*in = bmod->markfaces;
+		const dmarkface_t *in = bmod->markfaces;
 
-		for( i = 0; i < bmod->nummarkfaces; i++, in++ )
+		for( i = 0; i < bmod->nummarkfaces; i++ )
 		{
-			if( *in < 0 || *in >= mod->numsurfaces )
-				Host_Error( "%s: bad surface number in '%s'\n", __func__, mod->name );
-			out[i] = mod->surfaces + *in;
+			// NOTE: some of the buggy compilers have written a broken BSP file
+			// with marksurface pointing at negative surface, for example darkf6.bsp
+			// and darkf26.bsp in darkfuture mod. GoldSrc straight up writes
+			// invalid pointer to a surface. Try to fix up these cases...
+			if( mod->numsurfaces <= INT16_MAX && (int16_t)in[i] < 0 )
+			{
+				Con_Printf( S_WARN "%s: fixing up bad surface number %i at %i (max %i) in '%s'\n", __func__, in[i], i, mod->numsurfaces, mod->name );
+				out[i] = mod->surfaces;
+				continue;
+			}
+
+			if( in[i] < 0 || in[i] >= mod->numsurfaces )
+				Host_Error( "%s: bad surface number %i at %i (max %i) in '%s'\n", __func__, in[i], i, mod->numsurfaces, mod->name );
+			out[i] = mod->surfaces + in[i];
 		}
 	}
 }
