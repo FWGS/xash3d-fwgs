@@ -273,6 +273,9 @@ typedef enum bugcomp_e
 	// rewrites mod's attempts to write GoldSrc-specific messages into Xash protocol
 	// (new wrappers are added by request)
 	BUGCOMP_MESSAGE_REWRITE_FACILITY_FLAG = BIT( 1 ),
+
+	// makes sound with no attenuation spatialized, like in GoldSrc
+	BUGCOMP_SPATIALIZE_SOUND_WITH_ATTN_NONE = BIT( 2 ),
 } bugcomp_t;
 
 typedef struct host_parm_s

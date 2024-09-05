@@ -524,8 +524,11 @@ static void SND_Spatialize( channel_t *ch )
 	dist = VectorNormalizeLength( source_vec );
 	dot = DotProduct( s_listener.right, source_vec );
 
-	// don't pan sounds with no attenuation
-	if( ch->dist_mult <= 0.0f ) dot = 0.0f;
+	if( !FBitSet( host.bugcomp, BUGCOMP_SPATIALIZE_SOUND_WITH_ATTN_NONE ))
+	{
+		// don't pan sounds with no attenuation
+		if( ch->dist_mult <= 0.0f ) dot = 0.0f;
+	}
 
 	// fill out channel volumes for single location
 	S_SpatializeChannel( &ch->leftvol, &ch->rightvol, ch->master_vol, gain, dot, dist * ch->dist_mult );
