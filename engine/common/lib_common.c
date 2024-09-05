@@ -126,14 +126,20 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 =============================================================================
 */
 
-static void COM_GenerateCommonLibraryName( const char *name, const char *ext, char *out, size_t size )
+static void COM_GenerateCommonLibraryName( const char *name, const char *ext, const char *suffix, char *out, size_t size )
 {
 #if ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
-	Q_snprintf( out, size, "%s.%s", name, ext );
+	if( suffix )
+		Q_snprintf( out, size, "%s_%s.%s", name, suffix, ext );
+	else Q_snprintf( out, size, "%s.%s", name, ext );
 #elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE )
-	Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
+	if( suffix )
+		Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildarch(), suffix, ext );
+	else Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
 #else
-	Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), ext );
+	if( suffix )
+		Q_snprintf( out, size, "%s_%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), suffix, ext );
+	else Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), ext );
 #endif
 }
 
@@ -154,7 +160,7 @@ static void COM_GenerateClientLibraryPath( const char *name, char *out, size_t s
 	// we don't have any library prefixes, so we can safely append dll_path here
 	Q_snprintf( dllpath, sizeof( dllpath ), "%s/%s", GI->dll_path, name );
 
-	COM_GenerateCommonLibraryName( dllpath, OS_LIB_EXT, out, size );
+	COM_GenerateCommonLibraryName( dllpath, OS_LIB_EXT, NULL, out, size );
 #endif
 }
 
@@ -211,7 +217,13 @@ static void COM_GenerateServerLibraryPath( char *out, size_t size )
 	COM_StripExtension( dllpath );
 	COM_StripIntelSuffix( dllpath );
 
-	COM_GenerateCommonLibraryName( dllpath, ext, out, size );
+#if XASH_ARCH_USES_ONLY_ABI2
+	COM_GenerateCommonLibraryName( dllpath, ext, NULL, out, size );
+#elif XASH_64BIT
+	COM_GenerateCommonLibraryName( dllpath, ext, "st64", out, size );
+#else
+	COM_GenerateCommonLibraryName( dllpath, ext, NULL, out, size );
+#endif
 #endif
 }
 
