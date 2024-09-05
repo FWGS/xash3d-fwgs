@@ -718,7 +718,7 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	tmax = ( info->lightextents[1] / sample_size ) + 1;
 	size = smax * tmax;
 	if( gl_overbright.value )
-		lightscale = (r_vbo.value && !r_vbo_overbrightmode.value) ? 171 : 256;
+		lightscale = ( R_HasEnabledVBO() && !r_vbo_overbrightmode.value) ? 171 : 256;
 	else lightscale = ( pow( 2.0f, 1.0f / v_lightgamma->value ) * 256 ) + 0.5;
 
 	lm = surf->samples;
@@ -927,7 +927,7 @@ static void R_BlendLightmaps( void )
 	if( gl_overbright.value )
 	{
 		pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
-		if(!( r_vbo.value && !r_vbo_overbrightmode.value ))
+		if(!( R_HasEnabledVBO() && !r_vbo_overbrightmode.value ))
 			pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
 	}
 	else
@@ -1583,7 +1583,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	model_t		*clmodel;
 	qboolean		rotated;
 	dlight_t		*l;
-	qboolean allow_vbo = r_vbo.value;
+	qboolean allow_vbo = R_HasEnabledVBO();
 
 	if( !RI.drawWorld ) return;
 
@@ -1833,6 +1833,10 @@ struct vbo_static_s
 	int maxarraysplit_tex;
 	int minarraysplit_lm;
 	int maxarraysplit_lm;
+
+	// cvar state potentially might be changed during frame
+	// so only enable VBO at the beginning of frame
+	qboolean enabled;
 } vbos;
 
 struct multitexturestate_s
@@ -1869,7 +1873,6 @@ enum lightmap_state_e
 	VBO_LIGHTMAP_DYNAMIC
 };
 
-
 static struct arraystate_s
 {
 	enum array_state_e astate;
@@ -1879,6 +1882,20 @@ static struct arraystate_s
 	qboolean decal_mode;
 } vboarray;
 
+qboolean R_HasGeneratedVBO( void )
+{
+	return vbos.mempool != 0;
+}
+
+void R_EnableVBO( qboolean enable )
+{
+	vbos.enabled = enable;
+}
+
+qboolean R_HasEnabledVBO( void )
+{
+	return vbos.enabled;
+}
 
 /*
 ===================
@@ -1890,22 +1907,23 @@ Allocate memory for arrays, fill it with vertex attribs and upload to GPU
 void R_GenerateVBO( void )
 {
 	model_t *world = WORLDMODEL;
-	msurface_t *surfaces = world->surfaces;
-	int numsurfaces = world->numsurfaces;
-	int numtextures = world->numtextures;
-	int numlightmaps = gl_lms.current_lightmap_texture;
+	msurface_t *surfaces;
+	int numsurfaces;
+	int numtextures;
+	const int numlightmaps = gl_lms.current_lightmap_texture;
 	int k, len = 0;
 	vboarray_t *vbo;
 	uint maxindex = 0;
 	double t1, t2, t3;
 
-	R_ClearVBO();
+	if( R_HasGeneratedVBO() || !world || !world->surfaces )
+		return;
 
 	t1 = gEngfuncs.pfnTime();
 
-	// save in config if enabled manually
-	if( r_vbo.value )
-		r_vbo.flags |= FCVAR_ARCHIVE;
+	surfaces = world->surfaces;
+	numsurfaces = world->numsurfaces;
+	numtextures = world->numtextures;
 
 	vbos.mempool = Mem_AllocPool("Render VBO Zone");
 
@@ -3056,7 +3074,7 @@ void R_DrawVBO( qboolean drawlightmap, qboolean drawtextures )
 	int k;
 	vboarray_t *vbo = vbos.arraylist;
 
-	if( !r_vbo.value )
+	if( !R_HasGeneratedVBO() || !R_HasEnabledVBO() )
 		return;
 
 	GL_SetupFogColorForSurfacesEx( 1, 0.5f, false );
@@ -3163,7 +3181,7 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 	vbotexture_t *vbotex;
 	int texturenum;
 
-	if( !r_vbo.value )
+	if( !R_HasGeneratedVBO() || !R_HasEnabledVBO( ))
 		return false;
 
 	// find vbotexture_t assotiated with this surface
@@ -3559,7 +3577,7 @@ void R_DrawWorld( void )
 		GL_ResetFogColor();
 		R_BlendLightmaps();
 		R_RenderFullbrights();
-		R_RenderDetails( r_vbo.value? 2 : 3 );
+		R_RenderDetails( R_HasEnabledVBO() ? 2 : 3 );
 
 		if( skychain )
 			R_DrawSkyBox();

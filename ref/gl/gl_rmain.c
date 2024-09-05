@@ -1010,21 +1010,32 @@ void R_GammaChanged( qboolean do_reset_gamma )
 	}
 }
 
-static void R_CheckGamma( void )
+static void R_CheckCvars( void )
 {
 	qboolean rebuild = false;
 
 	if( FBitSet( gl_overbright.flags, FCVAR_CHANGED ))
 	{
-		rebuild = true;
 		ClearBits( gl_overbright.flags, FCVAR_CHANGED );
+		rebuild = true;
 	}
 
-	if( gl_overbright.value && ( FBitSet( r_vbo.flags, FCVAR_CHANGED ) || FBitSet( r_vbo_overbrightmode.flags, FCVAR_CHANGED ) ) )
+	if( FBitSet( r_vbo.flags, FCVAR_CHANGED ))
 	{
-		rebuild = true;
 		ClearBits( r_vbo.flags, FCVAR_CHANGED );
+
+		R_EnableVBO( r_vbo.value ? true : false );
+		if( R_HasEnabledVBO( ))
+			R_GenerateVBO();
+
+		if( gl_overbright.value )
+			rebuild = true;
+	}
+
+	if( FBitSet( r_vbo_overbrightmode.flags, FCVAR_CHANGED ) && gl_overbright.value )
+	{
 		ClearBits( r_vbo_overbrightmode.flags, FCVAR_CHANGED );
+		rebuild = true;
 	}
 
 	if( rebuild )
@@ -1046,7 +1057,7 @@ void R_BeginFrame( qboolean clearScene )
 		pglClear( GL_COLOR_BUFFER_BIT );
 	}
 
-	R_CheckGamma();
+	R_CheckCvars();
 
 	R_Set2DMode( true );
 
