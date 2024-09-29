@@ -1873,7 +1873,7 @@ If the delta removes the entity, entity_state_t->number will be set to MAX_EDICT
 Can go from either a baseline or a previous packet_entity
 ==================
 */
-qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, entity_state_t *from, entity_state_t *to, int number, int delta_type, double timebase )
+qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity_state_t *to, int number, int delta_type, double timebase )
 {
 #if !XASH_DEDICATED
 	delta_info_t	*dt = NULL;
