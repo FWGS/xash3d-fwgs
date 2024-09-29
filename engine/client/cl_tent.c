@@ -1269,6 +1269,73 @@ void GAME_EXPORT R_Sprite_Smoke( TEMPENTITY *pTemp, float scale )
 	pTemp->entity.curstate.scale = scale;
 }
 
+static void R_Spray_Generic( const char *func, const vec3_t pos, const vec3_t dir, int modelIndex, int count, int speed, int spread, int rendermode, qboolean sprite_spray )
+{
+	model_t *mod = CL_ModelHandle( modelIndex );
+	float noise = spread / 100.0f;
+	float znoise = noise * 1.5f;
+	int i;
+
+	znoise = Q_min( 1.0f, znoise );
+
+	if( !mod )
+	{
+		Con_Reportf( "%s: No model %d!\n", func, modelIndex );
+		return;
+	}
+
+	for( i = 0; i < count; i++ )
+	{
+		TEMPENTITY *tent = CL_TempEntAlloc( pos, mod );
+		float rand_speed;
+		vec3_t noise_vec, vout;
+
+		if( !tent )
+			break;
+
+		tent->flags |= FTENT_SLOWGRAVITY;
+		tent->entity.curstate.rendermode = rendermode;
+		tent->entity.curstate.renderamt = 255;
+		tent->entity.baseline.renderamt = 255;
+		tent->entity.curstate.renderfx = kRenderFxNoDissipation;
+
+		noise_vec[0] = COM_RandomFloat( -noise, noise );
+		noise_vec[1] = COM_RandomFloat( -noise, noise );
+		noise_vec[2] = COM_RandomFloat( 0.0f, znoise );
+		rand_speed = COM_RandomFloat( speed * 0.8f, speed * 1.2f );
+
+		VectorAdd( dir, noise_vec, vout );
+		VectorScale( vout, rand_speed, tent->entity.baseline.origin );
+
+		if( sprite_spray ) // if TE_SPRITE_SPRAY
+		{
+			tent->flags |= FTENT_FADEOUT;
+			tent->fadeSpeed = 2.0f;
+
+			tent->entity.curstate.framerate = 0.5f;
+			tent->die = cl.time + 0.35;
+			tent->entity.curstate.frame = COM_RandomLong( 0, tent->frameMax ); // frameMax inclusive
+		}
+		else
+		{
+			tent->flags |= FTENT_SLOWGRAVITY;
+
+			if( tent->frameMax > 1 )
+			{
+				tent->flags |= FTENT_SPRANIMATE;
+				tent->entity.curstate.framerate = 10.0f;
+				tent->die = cl.time + tent->frameMax * 0.1;
+			}
+			else
+			{
+				tent->entity.curstate.framerate = 1.0f;
+				tent->die = cl.time + 0.35;
+			}
+			tent->entity.curstate.frame = 0.0f;
+		}
+	}
+}
+
 /*
 ===============
 R_Spray
@@ -1278,61 +1345,7 @@ Throws a shower of sprites or models
 */
 void GAME_EXPORT R_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int speed, int spread, int rendermode )
 {
-	TEMPENTITY	*pTemp;
-	float		noise;
-	float		znoise;
-	model_t		*pmodel;
-	int		i;
-
-	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
-	{
-		Con_Reportf( "No model %d!\n", modelIndex );
-		return;
-	}
-
-	noise = (float)spread / 100.0f;
-
-	// more vertical displacement
-	znoise = Q_min( 1.0f, noise * 1.5f );
-
-	for( i = 0; i < count; i++ )
-	{
-		pTemp = CL_TempEntAlloc( pos, pmodel );
-		if( !pTemp ) return;
-
-		pTemp->entity.curstate.rendermode = rendermode;
-		pTemp->entity.baseline.renderamt = pTemp->entity.curstate.renderamt = 255;
-		pTemp->entity.curstate.renderfx = kRenderFxNoDissipation;
-
-		if( rendermode != kRenderGlow )
-		{
-			// spray
-			pTemp->flags |= FTENT_COLLIDEWORLD | FTENT_SLOWGRAVITY;
-
-			if( pTemp->frameMax > 1 )
-			{
-				pTemp->flags |= FTENT_COLLIDEWORLD | FTENT_SLOWGRAVITY | FTENT_SPRANIMATE;
-				pTemp->die = cl.time + (pTemp->frameMax * 0.1f);
-				pTemp->entity.curstate.framerate = 10;
-			}
-			else pTemp->die = cl.time + 0.35f;
-		}
-		else
-		{
-			// sprite spray
-			pTemp->entity.curstate.frame = COM_RandomLong( 0, pTemp->frameMax );
-			pTemp->flags |= FTENT_FADEOUT | FTENT_SLOWGRAVITY;
-			pTemp->entity.curstate.framerate = 0.5;
-			pTemp->die = cl.time + 0.35f;
-			pTemp->fadeSpeed = 2.0;
-		}
-
-		// make the spittle fly the direction indicated, but mix in some noise.
-		pTemp->entity.baseline.origin[0] = dir[0] + COM_RandomFloat( -noise, noise );
-		pTemp->entity.baseline.origin[1] = dir[1] + COM_RandomFloat( -noise, noise );
-		pTemp->entity.baseline.origin[2] = dir[2] + COM_RandomFloat( 0, znoise );
-		VectorScale( pTemp->entity.baseline.origin, COM_RandomFloat(( speed * 0.8f ), ( speed * 1.2f )), pTemp->entity.baseline.origin );
-	}
+	R_Spray_Generic( __func__, pos, dir, modelIndex, count, speed, spread, rendermode, false );
 }
 
 /*
@@ -1344,7 +1357,7 @@ Spray of alpha sprites
 */
 void GAME_EXPORT R_Sprite_Spray( const vec3_t pos, const vec3_t dir, int modelIndex, int count, int speed, int spread )
 {
-	R_Spray( pos, dir, modelIndex, count, speed, spread, kRenderGlow );
+	R_Spray_Generic( __func__, pos, dir, modelIndex, count, speed, spread, kRenderTransAlpha, true );
 }
 
 /*
@@ -3113,4 +3126,3 @@ void CL_ClearEffects( void )
 	CL_ClearParticles ();
 	CL_ClearLightStyles ();
 }
-
