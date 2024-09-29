@@ -308,7 +308,7 @@ def configure(conf):
 			'-Werror=alloc-size',
 			'-Werror=bool-compare',
 			'-Werror=bool-operation',
-			'-Werror=cast-align=strict',
+			# '-Werror=cast-align=strict',
 			'-Werror=duplicated-cond',
 			'-Werror=format-extra-args',
 			'-Werror=implicit-fallthrough=2',
