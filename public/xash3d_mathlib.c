@@ -25,7 +25,6 @@ GNU General Public License for more details.
 
 static const word hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
 
-const vec3_t vec3_origin = { 0, 0, 0 };
 const int boxpnt[6][4] =
 {
 { 0, 4, 6, 2 }, // +X

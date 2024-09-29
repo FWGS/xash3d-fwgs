@@ -19,13 +19,6 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "xash3d_mathlib.h"
 
-const matrix3x4 m_matrix3x4_identity =
-{
-{ 1, 0, 0, 0 },	// PITCH	[forward], org[0]
-{ 0, 1, 0, 0 },	// YAW	[right]  , org[1]
-{ 0, 0, 1, 0 },	// ROLL	[up]     , org[2]
-};
-
 /*
 ========================================================================
 
@@ -224,14 +217,6 @@ void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const ve
 	VectorSubtract( worldCenter, worldExtents, absmin );
 	VectorAdd( worldCenter, worldExtents, absmax );
 }
-
-const matrix4x4 m_matrix4x4_identity =
-{
-{ 1, 0, 0, 0 },	// PITCH
-{ 0, 1, 0, 0 },	// YAW
-{ 0, 0, 1, 0 },	// ROLL
-{ 0, 0, 0, 1 },	// ORIGIN
-};
 
 /*
 ========================================================================
