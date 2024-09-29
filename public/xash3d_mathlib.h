@@ -23,74 +23,65 @@ GNU General Public License for more details.
 
 #include "build.h"
 #include "xash3d_types.h"
-#include "const.h"
-#include "com_model.h"
-#include "studio.h"
+
+/*
+===========================
+
+CONSTANTS AND HELPER MACROS
+
+===========================
+*/
 
 // euler angle order
-#define PITCH		0
-#define YAW		1
-#define ROLL		2
+#define PITCH 0
+#define YAW   1
+#define ROLL  2
 
 #ifndef M_PI
-#define M_PI		(double)3.14159265358979323846
+#define M_PI    (double)3.14159265358979323846
 #endif
 
-#ifndef M_PI2
-#define M_PI2		((double)(M_PI * 2))
-#endif
+#define M_PI2   ((double)(M_PI * 2))
+#define M_PI_F  ((float)(M_PI))
+#define M_PI2_F ((float)(M_PI2))
 
-#define M_PI_F		((float)(M_PI))
-#define M_PI2_F		((float)(M_PI2))
+#define RAD2DEG( x ) ((double)(x) * (double)(180.0 / M_PI))
+#define DEG2RAD( x ) ((double)(x) * (double)(M_PI / 180.0))
 
-#define RAD2DEG( x )	((double)(x) * (double)(180.0 / M_PI))
-#define DEG2RAD( x )	((double)(x) * (double)(M_PI / 180.0))
+#define NUMVERTEXNORMALS 162
 
-#define NUMVERTEXNORMALS	162
+#define BOGUS_RANGE ((vec_t)114032.64)	// world.size * 1.74
 
-#define BOGUS_RANGE		((vec_t)114032.64)	// world.size * 1.74
+#define SIDE_FRONT 0
+#define SIDE_BACK  1
+#define SIDE_ON    2
+#define SIDE_CROSS -2
 
-#define SIDE_FRONT		0
-#define SIDE_BACK		1
-#define SIDE_ON		2
-#define SIDE_CROSS		-2
+#define PLANE_X        0 // 0 - 2 are axial planes
+#define PLANE_Y        1 // 3 needs alternate calc
+#define PLANE_Z        2
+#define PLANE_NONAXIAL 3
 
-#define PLANE_X		0	// 0 - 2 are axial planes
-#define PLANE_Y		1	// 3 needs alternate calc
-#define PLANE_Z		2
-#define PLANE_NONAXIAL	3
+#define EQUAL_EPSILON 0.001f
+#define STOP_EPSILON  0.1f
+#define ON_EPSILON    0.1f
 
-#define EQUAL_EPSILON	0.001f
-#define STOP_EPSILON	0.1f
-#define ON_EPSILON		0.1f
+#define RAD_TO_STUDIO (32768.0 / M_PI)
+#define STUDIO_TO_RAD (M_PI / 32768.0)
 
-#define RAD_TO_STUDIO	(32768.0 / M_PI)
-#define STUDIO_TO_RAD	(M_PI / 32768.0)
+#define INV127F          ( 1.0f / 127.0f )
+#define INV255F          ( 1.0f / 255.0f )
+#define MAKE_SIGNED( x ) ((( x ) * INV127F ) - 1.0f )
 
-#define INV127F		( 1.0f / 127.0f )
-#define INV255F		( 1.0f / 255.0f )
-#define MAKE_SIGNED( x )	((( x ) * INV127F ) - 1.0f )
-
-#define Q_min( a, b )	(((a) < (b)) ? (a) : (b))
-#define Q_max( a, b )	(((a) > (b)) ? (a) : (b))
+#define Q_min( a, b ) (((a) < (b)) ? (a) : (b))
+#define Q_max( a, b ) (((a) > (b)) ? (a) : (b))
 #define Q_equal_e( a, b, e ) (((a) >= ((b) - (e))) && ((a) <= ((b) + (e))))
 #define Q_equal( a, b ) Q_equal_e( a, b, EQUAL_EPSILON )
-#define Q_recip( a )	((float)(1.0f / (float)(a)))
-#define Q_floor( a )	((float)(int)(a))
-#define Q_ceil( a )		((float)(int)((a) + 1))
-#define Q_round( x, y )	(floor( x / y + 0.5f ) * y )
-#define Q_rint(x)		((x) < 0.0f ? ((int)((x)-0.5f)) : ((int)((x)+0.5f)))
-
-#ifdef XASH_IRIX
-#undef isnan
-#endif
-#ifdef isnan // check for C99 isnan
-#define IS_NAN isnan
-#else
-#define IS_NAN(x)		(((*(int *)&x) & (255<<23)) == (255<<23))
-#endif
-
-#define ALIGN( x, a )	((( x ) + (( size_t )( a ) - 1 )) & ~(( size_t )( a ) - 1 ))
+#define Q_floor( a )    ((float)(int)(a))
+#define Q_ceil( a )     ((float)(int)((a) + 1))
+#define Q_round( x, y ) (floor( x / y + 0.5f ) * y )
+#define Q_rint(x)       ((x) < 0.0f ? ((int)((x)-0.5f)) : ((int)((x)+0.5f)))
+#define ALIGN( x, a )   ((( x ) + (( size_t )( a ) - 1 )) & ~(( size_t )( a ) - 1 ))
 
 #define VectorIsNAN(v) (IS_NAN(v[0]) || IS_NAN(v[1]) || IS_NAN(v[2]))
 #define DotProduct(x,y) ((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
@@ -141,9 +132,85 @@ GNU General Public License for more details.
 #define PlaneDiff(point,plane) (((plane)->type < 3 ? (point)[(plane)->type] : DotProduct((point), (plane)->normal)) - (plane)->dist)
 #define bound( min, num, max ) ((num) >= (min) ? ((num) < (max) ? (num) : (max)) : (min))
 
+/*
+===========================
+
+CONSTANTS GLOBALS
+
+===========================
+*/
+extern const vec3_t		vec3_origin;
+extern const int		boxpnt[6][4];
+extern const matrix3x4	m_matrix3x4_identity;
+extern const matrix4x4	m_matrix4x4_identity;
+extern const float		m_bytenormals[NUMVERTEXNORMALS][3];
+
+
+/*
+===========================
+
+MATH FUNCTIONS
+
+===========================
+*/
+typedef struct mplane_s mplane_t;
+typedef struct mstudiobone_s mstudiobone_t;
+typedef struct mstudioanim_s mstudioanim_t;
+
+float rsqrt( float number );
+uint16_t FloatToHalf( float v );
+float HalfToFloat( uint16_t h );
+void RoundUpHullSize( vec3_t size );
+void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up );
+void VectorAngles( const float *forward, float *angles );
+void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, vec3_t angles );
+void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, vec3_t out );
+qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared, const vec3_t vLinePt, const vec3_t vLineDir );
+void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt );
+void R_StudioCalcBoneQuaternion( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec4_t q );
+void R_StudioCalcBonePosition( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const vec3_t adj, vec3_t pos );
+int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
+#define BOX_ON_PLANE_SIDE( emins, emaxs, p )           \
+	((( p )->type < 3 ) ?                              \
+	(                                                  \
+		((p)->dist <= (emins)[(p)->type]) ? 1 :        \
+		(                                              \
+			((p)->dist >= (emaxs)[(p)->type] ) ? 2 : 3 \
+		)                                              \
+	) : BoxOnPlaneSide(( emins ), ( emaxs ), ( p )))
+
+//
+// matrixlib.c
+//
+#define Matrix3x4_LoadIdentity( mat )		Matrix3x4_Copy( mat, m_matrix3x4_identity )
+#define Matrix3x4_Copy( out, in )		memcpy( out, in, sizeof( matrix3x4 ))
+void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[3] );
+void Matrix3x4_VectorITransform( const matrix3x4 in, const float v[3], float out[3] );
+void Matrix3x4_VectorRotate( const matrix3x4 in, const float v[3], float out[3] );
+void Matrix3x4_VectorIRotate( const matrix3x4 in, const float v[3], float out[3] );
+void Matrix3x4_ConcatTransforms( matrix3x4 out, const matrix3x4 in1, const matrix3x4 in2 );
+void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec3_t origin );
+void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_t origin, float scale );
+void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const vec3_t maxs, vec3_t absmin, vec3_t absmax );
+void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out );
+
+#define Matrix4x4_LoadIdentity( mat )	Matrix4x4_Copy( mat, m_matrix4x4_identity )
+#define Matrix4x4_Copy( out, in )	memcpy( out, in, sizeof( matrix4x4 ))
+void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[3] );
+void Matrix4x4_VectorITransform( const matrix4x4 in, const float v[3], float out[3] );
+void Matrix4x4_VectorRotate( const matrix4x4 in, const float v[3], float out[3] );
+void Matrix4x4_VectorIRotate( const matrix4x4 in, const float v[3], float out[3] );
+void Matrix4x4_ConcatTransforms( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
+void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_t origin, float scale );
+void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, float d, vec3_t out, float *dist );
+void Matrix4x4_ConvertToEntity( const matrix4x4 in, vec3_t angles, vec3_t origin );
+void Matrix4x4_Invert_Simple( matrix4x4 out, const matrix4x4 in1 );
+qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 );
+
 // horrible cast but helps not breaking strict aliasing in mathlib
 // as union type punning should be fine in C but not in C++
 // so don't carry over this to C++ code
+#ifndef __cplusplus
 typedef union
 {
 	float fl;
@@ -176,28 +243,98 @@ static inline float UintAsFloat( uint32_t u )
 	bits.u = u;
 	return bits.fl;
 }
+#endif // __cplusplus
+
+// isnan implementation is broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
+#if defined( XASH_IRIX ) || !defined( isnan )
+static inline int IS_NAN( float x )
+{
+	int32_t i = FloatAsInt( x ); // only C
+	return i & ( 255 << 23 ) == ( 255 << 23 );
+}
+#else
+#define IS_NAN isnan
+#endif
+
+static inline float anglemod( float a )
+{
+	a = (360.0f / 65536) * ((int)(a*(65536/360.0f)) & 65535);
+	return a;
+}
 
 static inline void SinCos( float radians, float *sine, float *cosine )
 {
-	*sine = sin(radians);
-	*cosine = cos(radians);
+	*sine = sin( radians );
+	*cosine = cos( radians );
 }
 
-float rsqrt( float number );
-float anglemod( float a );
-word FloatToHalf( float v );
-float HalfToFloat( word h );
-void RoundUpHullSize( vec3_t size );
-int SignbitsForPlane( const vec3_t normal );
-int PlaneTypeForNormal( const vec3_t normal );
-int NearestPOW( int value, qboolean roundDown );
-float VectorNormalizeLength2( const vec3_t v, vec3_t out );
-qboolean VectorCompareEpsilon( const vec3_t vec1, const vec3_t vec2, vec_t epsilon );
-void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up );
-void VectorAngles( const float *forward, float *angles );
-void AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up );
-void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, vec3_t angles );
-void PlaneIntersect( const struct mplane_s *plane, const vec3_t p0, const vec3_t p1, vec3_t out );
+static inline int NearestPOW( int value, qboolean roundDown )
+{
+	int	n = 1;
+
+	if( value <= 0 ) return 1;
+	while( n < value ) n <<= 1;
+
+	if( roundDown )
+	{
+		if( n > value ) n >>= 1;
+	}
+	return n;
+}
+
+static inline qboolean VectorCompareEpsilon( const vec3_t vec1, const vec3_t vec2, vec_t epsilon )
+{
+	vec_t ax = fabs( vec1[0] - vec2[0] );
+	vec_t ay = fabs( vec1[1] - vec2[1] );
+	vec_t az = fabs( vec1[2] - vec2[2] );
+
+	return ( ax <= epsilon ) && ( ay <= epsilon ) && ( az <= epsilon ) ? true : false;
+}
+
+static inline float VectorNormalizeLength2( const vec3_t v, vec3_t out )
+{
+	float length = VectorLength( v );
+
+	if( length )
+	{
+		float ilength = 1.0f / length;
+		out[0] = v[0] * ilength;
+		out[1] = v[1] * ilength;
+		out[2] = v[2] * ilength;
+	}
+
+	return length;
+}
+
+static inline void GAME_EXPORT AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up )
+{
+	float	sr, sp, sy, cr, cp, cy;
+
+	SinCos( DEG2RAD( angles[YAW] ), &sy, &cy );
+	SinCos( DEG2RAD( angles[PITCH] ), &sp, &cp );
+	SinCos( DEG2RAD( angles[ROLL] ), &sr, &cr );
+
+	if( forward )
+	{
+		forward[0] = cp * cy;
+		forward[1] = cp * sy;
+		forward[2] = -sp;
+	}
+
+	if( right )
+	{
+		right[0] = (-1.0f * sr * sp * cy + -1.0f * cr * -sy );
+		right[1] = (-1.0f * sr * sp * sy + -1.0f * cr * cy );
+		right[2] = (-1.0f * sr * cp);
+	}
+
+	if( up )
+	{
+		up[0] = (cr * sp * cy + -sr * -sy );
+		up[1] = (cr * sp * sy + -sr * cy );
+		up[2] = (cr * cp);
+	}
+}
 
 static inline void ClearBounds( vec3_t mins, vec3_t maxs )
 {
@@ -224,20 +361,85 @@ static inline qboolean BoundsAndSphereIntersect( const vec3_t mins, const vec3_t
 	return true;
 }
 
-void AddPointToBounds( const vec3_t v, vec3_t mins, vec3_t maxs );
-qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared, const vec3_t vLinePt, const vec3_t vLineDir );
-float RadiusFromBounds( const vec3_t mins, const vec3_t maxs );
-void ExpandBounds( vec3_t mins, vec3_t maxs, float offset );
+static inline float RadiusFromBounds( const vec3_t mins, const vec3_t maxs )
+{
+	vec3_t corner;
+	int i;
 
-void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio );
-void QuaternionAngle( const vec4_t q, vec3_t angles );
-void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt );
+	for( i = 0; i < 3; i++ )
+	{
+		float a = fabs( mins[i] );
+		float b = fabs( maxs[i] );
+		corner[i] = Q_max( a, b );
+	}
 
-//
-// matrixlib.c
-//
-#define Matrix3x4_LoadIdentity( mat )		Matrix3x4_Copy( mat, m_matrix3x4_identity )
-#define Matrix3x4_Copy( out, in )		memcpy( out, in, sizeof( matrix3x4 ))
+	return VectorLength( corner );
+}
+
+static inline void AddPointToBounds( const vec3_t v, vec3_t mins, vec3_t maxs )
+{
+	int i;
+
+	for( i = 0; i < 3; i++ )
+	{
+		float val = v[i];
+		if( val < mins[i] ) mins[i] = val;
+		if( val > maxs[i] ) maxs[i] = val;
+	}
+}
+
+static inline void ExpandBounds( vec3_t mins, vec3_t maxs, float offset )
+{
+	mins[0] -= offset;
+	mins[1] -= offset;
+	mins[2] -= offset;
+	maxs[0] += offset;
+	maxs[1] += offset;
+	maxs[2] += offset;
+}
+
+static inline int SignbitsForPlane( const vec3_t normal )
+{
+	int	bits, i;
+
+	for( bits = i = 0; i < 3; i++ )
+		if( normal[i] < 0.0f ) bits |= 1<<i;
+	return bits;
+}
+
+static inline int PlaneTypeForNormal( const vec3_t normal )
+{
+	if( normal[0] == 1.0f )
+		return PLANE_X;
+	if( normal[1] == 1.0f )
+		return PLANE_Y;
+	if( normal[2] == 1.0f )
+		return PLANE_Z;
+	return PLANE_NONAXIAL;
+}
+
+static inline void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
+{
+	float	sr, sp, sy, cr, cp, cy;
+
+	if( studio )
+	{
+		SinCos( angles[ROLL] * 0.5f, &sy, &cy );
+		SinCos( angles[YAW] * 0.5f, &sp, &cp );
+		SinCos( angles[PITCH] * 0.5f, &sr, &cr );
+	}
+	else
+	{
+		SinCos( DEG2RAD( angles[YAW] ) * 0.5f, &sy, &cy );
+		SinCos( DEG2RAD( angles[PITCH] ) * 0.5f, &sp, &cp );
+		SinCos( DEG2RAD( angles[ROLL] ) * 0.5f, &sr, &cr );
+	}
+
+	q[0] = sr * cp * cy - cr * sp * sy; // X
+	q[1] = cr * sp * cy + sr * cp * sy; // Y
+	q[2] = cr * cp * sy - sr * sp * cy; // Z
+	q[3] = cr * cp * cy + sr * sp * sy; // W
+}
 
 static inline void Matrix3x4_SetOrigin( matrix3x4 out, float x, float y, float z )
 {
@@ -253,56 +455,23 @@ static inline void Matrix3x4_OriginFromMatrix( const matrix3x4 in, float *out )
 	out[2] = in[2][3];
 }
 
-void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[3] );
-void Matrix3x4_VectorITransform( const matrix3x4 in, const float v[3], float out[3] );
-void Matrix3x4_VectorRotate( const matrix3x4 in, const float v[3], float out[3] );
-void Matrix3x4_VectorIRotate( const matrix3x4 in, const float v[3], float out[3] );
-void Matrix3x4_ConcatTransforms( matrix3x4 out, const matrix3x4 in1, const matrix3x4 in2 );
-void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec3_t origin );
-void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_t origin, float scale );
-void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const vec3_t maxs, vec3_t absmin, vec3_t absmax );
-void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out );
+static inline void QuaternionAngle( const vec4_t q, vec3_t angles )
+{
+	matrix3x4	mat;
+	Matrix3x4_FromOriginQuat( mat, q, vec3_origin );
+	Matrix3x4_AnglesFromMatrix( mat, angles );
+}
 
-#define Matrix4x4_LoadIdentity( mat )	Matrix4x4_Copy( mat, m_matrix4x4_identity )
-#define Matrix4x4_Copy( out, in )	memcpy( out, in, sizeof( matrix4x4 ))
+static inline void R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], const vec4_t q2[], const float pos2[][3], float s )
+{
+	int	i;
+	s = bound( 0.0f, s, 1.0f );
 
-void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[3] );
-void Matrix4x4_VectorITransform( const matrix4x4 in, const float v[3], float out[3] );
-void Matrix4x4_VectorRotate( const matrix4x4 in, const float v[3], float out[3] );
-void Matrix4x4_VectorIRotate( const matrix4x4 in, const float v[3], float out[3] );
-void Matrix4x4_ConcatTransforms( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
-void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_t origin, float scale );
-void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, float d, vec3_t out, float *dist );
-void Matrix4x4_ConvertToEntity( const matrix4x4 in, vec3_t angles, vec3_t origin );
-void Matrix4x4_Invert_Simple( matrix4x4 out, const matrix4x4 in1 );
-qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 );
-
-void R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], const vec4_t q2[], const float pos2[][3], float s );
-void R_StudioCalcBoneQuaternion( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec4_t q );
-void R_StudioCalcBonePosition( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const vec3_t adj, vec3_t pos );
-
-int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
-#define BOX_ON_PLANE_SIDE( emins, emaxs, p )			\
-	((( p )->type < 3 ) ?				\
-	(						\
-		((p)->dist <= (emins)[(p)->type]) ?		\
-			1				\
-		:					\
-		(					\
-			((p)->dist >= (emaxs)[(p)->type]) ?	\
-				2			\
-			:				\
-				3			\
-		)					\
-	)						\
-	:						\
-		BoxOnPlaneSide(( emins ), ( emaxs ), ( p )))
-
-extern vec3_t		vec3_origin;
-extern int		boxpnt[6][4];
-extern const matrix3x4	m_matrix3x4_identity;
-extern const matrix4x4	m_matrix4x4_identity;
-extern const float		m_bytenormals[NUMVERTEXNORMALS][3];
+	for( i = 0; i < numbones; i++ )
+	{
+		QuaternionSlerp( q1[i], q2[i], s, q1[i] );
+		VectorLerp( pos1[i], s, pos2[i], pos1[i] );
+	}
+}
 
 #endif // XASH3D_MATHLIB_H
-
