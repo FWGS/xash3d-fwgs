@@ -112,6 +112,9 @@ typedef enum
 #include "con_nprint.h"
 #include "crclib.h"
 #include "ref_api.h"
+#define FSCALLBACK_OVERRIDE_OPEN
+#define FSCALLBACK_OVERRIDE_LOADFILE
+#define FSCALLBACK_OVERRIDE_MALLOC_LIKE
 #include "fscallback.h"
 
 // PERFORMANCE INFO
@@ -363,11 +366,48 @@ extern host_parm_t	host;
 typedef void (*xcommand_t)( void );
 
 //
+// zone.c
+//
+void Memory_Init( void );
+void _Mem_Free( void *data, const char *filename, int fileline );
+void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+	ALLOC_CHECK( 3 ) WARN_UNUSED_RESULT;
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
+	WARN_UNUSED_RESULT;
+void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline );
+void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline );
+void _Mem_Check( const char *filename, int fileline );
+qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
+void Mem_PrintList( size_t minallocationsize );
+void Mem_PrintStats( void );
+
+#define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_Realloc( pool, ptr, size ) _Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
+#define Mem_AllocPool( name ) _Mem_AllocPool( name, __FILE__, __LINE__ )
+#define Mem_FreePool( pool ) _Mem_FreePool( pool, __FILE__, __LINE__ )
+#define Mem_EmptyPool( pool ) _Mem_EmptyPool( pool, __FILE__, __LINE__ )
+#define Mem_IsAllocated( mem ) Mem_IsAllocatedExt( NULL, mem )
+#define Mem_Check() _Mem_Check( __FILE__, __LINE__ )
+
+//
 // filesystem_engine.c
 //
 void FS_Init( const char *basedir );
 void FS_Shutdown( void );
 void *FS_GetNativeObject( const char *obj );
+int FS_Close( file_t *file );
+search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
+	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
+	MALLOC_LIKE( FS_Close, 1 ) WARN_UNUSED_RESULT;
+byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
+	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 
 //
 // cmd.c
@@ -400,30 +440,6 @@ void Cmd_ExecuteString( const char *text );
 void Cmd_ForwardToServer( void );
 void Cmd_Escape( char *newCommand, const char *oldCommand, int len );
 
-//
-// zone.c
-//
-void Memory_Init( void );
-void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline ) ALLOC_CHECK( 3 );
-void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline ) ALLOC_CHECK( 2 );
-poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline );
-void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline );
-void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline );
-void _Mem_Free( void *data, const char *filename, int fileline );
-void _Mem_Check( const char *filename, int fileline );
-qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
-void Mem_PrintList( size_t minallocationsize );
-void Mem_PrintStats( void );
-
-#define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
-#define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
-#define Mem_Realloc( pool, ptr, size ) _Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
-#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
-#define Mem_AllocPool( name ) _Mem_AllocPool( name, __FILE__, __LINE__ )
-#define Mem_FreePool( pool ) _Mem_FreePool( pool, __FILE__, __LINE__ )
-#define Mem_EmptyPool( pool ) _Mem_EmptyPool( pool, __FILE__, __LINE__ )
-#define Mem_IsAllocated( mem ) Mem_IsAllocatedExt( NULL, mem )
-#define Mem_Check() _Mem_Check( __FILE__, __LINE__ )
 
 //
 // imagelib
@@ -434,10 +450,10 @@ void Image_Setup( void );
 void Image_Init( void );
 void Image_Shutdown( void );
 void Image_AddCmdFlags( uint flags );
-rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size );
-qboolean FS_SaveImage( const char *filename, rgbdata_t *pix );
-rgbdata_t *FS_CopyImage( rgbdata_t *in );
 void FS_FreeImage( rgbdata_t *pack );
+rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size ) MALLOC_LIKE( FS_FreeImage, 1 ) WARN_UNUSED_RESULT;
+qboolean FS_SaveImage( const char *filename, rgbdata_t *pix );
+rgbdata_t *FS_CopyImage( rgbdata_t *in ) MALLOC_LIKE( FS_FreeImage, 1 ) WARN_UNUSED_RESULT;
 extern const bpc_desc_t PFDesc[];	// image get pixelformat
 qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float reserved );
 void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int pal_size );
@@ -492,14 +508,14 @@ typedef struct
 //
 void Sound_Init( void );
 void Sound_Shutdown( void );
-wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size );
 void FS_FreeSound( wavdata_t *pack );
-stream_t *FS_OpenStream( const char *filename );
+void FS_FreeStream( stream_t *stream );
+wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size ) MALLOC_LIKE( FS_FreeSound, 1 ) WARN_UNUSED_RESULT;
+stream_t *FS_OpenStream( const char *filename ) MALLOC_LIKE( FS_FreeStream, 1 ) WARN_UNUSED_RESULT;
 wavdata_t *FS_StreamInfo( stream_t *stream );
 int FS_ReadStream( stream_t *stream, int bytes, void *buffer );
 int FS_SetStreamPos( stream_t *stream, int newpos );
 int FS_GetStreamPos( stream_t *stream );
-void FS_FreeStream( stream_t *stream );
 qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint flags );
 uint Sound_GetApproxWavePlayLen( const char *filepath );
 qboolean Sound_SupportedFileFormat( const char *fileext );
@@ -564,7 +580,7 @@ qboolean SV_Active( void );
 char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize );
 void COM_HexConvert( const char *pszInput, int nInputLength, byte *pOutput );
 int COM_SaveFile( const char *filename, const void *data, int len );
-byte* COM_LoadFileForMe( const char *filename, int *pLength );
+byte *COM_LoadFileForMe( const char *filename, int *pLength ) MALLOC_LIKE( free, 1 );
 qboolean COM_IsSafeFileToDownload( const char *filename );
 cvar_t *pfnCVarGetPointer( const char *szVarName );
 int pfnDrawConsoleString( int x, int y, char *string );
@@ -667,7 +683,7 @@ char *CL_Userinfo( void );
 void CL_LegacyUpdateInfo( void );
 void CL_CharEvent( int key );
 qboolean CL_DisableVisibility( void );
-byte *COM_LoadFile( const char *filename, int usehunk, int *pLength );
+byte *COM_LoadFile( const char *filename, int usehunk, int *pLength ) MALLOC_LIKE( free, 1 );
 struct cmd_s *Cmd_GetFirstFunctionHandle( void );
 struct cmd_s *Cmd_GetNextFunctionHandle( struct cmd_s *cmd );
 struct cmdalias_s *Cmd_AliasGetList( void );

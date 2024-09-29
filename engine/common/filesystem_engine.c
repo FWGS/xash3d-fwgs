@@ -27,6 +27,31 @@ fs_globals_t *FI;
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
+search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
+{
+	return g_fsapi.Search( pattern, caseinsensitive, gamedironly );
+}
+
+int FS_Close( file_t *file )
+{
+	return g_fsapi.Close( file );
+}
+
+file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
+{
+	return g_fsapi.Open( filepath, mode, gamedironly );
+}
+
+byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+{
+	return g_fsapi.LoadFile( path, filesizeptr, gamedironly );
+}
+
+byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
+{
+	return g_fsapi.LoadDirectFile( path, filesizeptr );
+}
+
 static void COM_StripDirectorySlash( char *pname )
 {
 	size_t len;
