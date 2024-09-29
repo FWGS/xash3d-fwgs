@@ -125,6 +125,16 @@ static void FS_BackupFileName( file_t *file, const char *path, uint options ) {}
 static void FS_InitMemory( void );
 static void FS_Purge( file_t* file );
 
+void _Mem_Free( void *data, const char *filename, int fileline )
+{
+	g_engfuncs._Mem_Free( data, filename, fileline );
+}
+
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return g_engfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
+}
+
 /*
 =============================================================================
 
@@ -1412,34 +1422,34 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	return true;
 }
 
-static poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
+static poolhandle_t Mem_AllocPoolStub( const char *name, const char *filename, int fileline )
 {
 	return (poolhandle_t)0xDEADC0DE;
 }
 
-static void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
+static void Mem_FreePoolStub( poolhandle_t *poolptr, const char *filename, int fileline )
 {
 	// stub
 }
 
-static void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+static void *Mem_AllocStub( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	void *ptr = malloc( size );
 	if( clear ) memset( ptr, 0, size );
 	return ptr;
 }
 
-static void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+static void *Mem_ReallocStub( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	return realloc( memptr, size );
 }
 
-static void _Mem_Free( void *data, const char *filename, int fileline )
+static void Mem_FreeStub( void *data, const char *filename, int fileline )
 {
 	free( data );
 }
 
-static void _Con_Printf( const char *fmt, ... )
+static void Con_PrintfStub( const char *fmt, ... )
 {
 	va_list ap;
 
@@ -1448,7 +1458,7 @@ static void _Con_Printf( const char *fmt, ... )
 	va_end( ap );
 }
 
-static void _Sys_Error( const char *fmt, ... )
+static void Sys_ErrorStub( const char *fmt, ... )
 {
 	va_list ap;
 
@@ -1459,7 +1469,7 @@ static void _Sys_Error( const char *fmt, ... )
 	exit( 1 );
 }
 
-static void *Sys_GetNativeObject_stub( const char *object )
+static void *Sys_GetNativeObjectStub( const char *object )
 {
 	return NULL;
 }
@@ -2524,7 +2534,7 @@ byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean ga
 
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 {
-	return FS_LoadFile_( path, filesizeptr, gamedironly, g_engfuncs._Mem_Alloc != _Mem_Alloc );
+	return FS_LoadFile_( path, filesizeptr, gamedironly, true );
 }
 
 qboolean CRC32_File( dword *crcvalue, const char *filename )
@@ -2936,14 +2946,6 @@ search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 	return search;
 }
 
-static const char *FS_ArchivePath( file_t *f )
-{
-	if( f->searchpath )
-		return f->searchpath->filename;
-
-	return "plain";
-}
-
 static qboolean FS_IsArchiveExtensionSupported( const char *ext, uint flags )
 {
 	int i;
@@ -2971,16 +2973,16 @@ void FS_InitMemory( void )
 
 fs_interface_t g_engfuncs =
 {
-	_Con_Printf,
-	_Con_Printf,
-	_Con_Printf,
-	_Sys_Error,
-	_Mem_AllocPool,
-	_Mem_FreePool,
-	_Mem_Alloc,
-	_Mem_Realloc,
-	_Mem_Free,
-	Sys_GetNativeObject_stub
+	Con_PrintfStub,
+	Con_PrintfStub,
+	Con_PrintfStub,
+	Sys_ErrorStub,
+	Mem_AllocPoolStub,
+	Mem_FreePoolStub,
+	Mem_AllocStub,
+	Mem_ReallocStub,
+	Mem_FreeStub,
+	Sys_GetNativeObjectStub,
 };
 
 static qboolean FS_InitInterface( int version, const fs_interface_t *engfuncs )
