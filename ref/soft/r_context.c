@@ -23,6 +23,17 @@ gl_globals_t tr;
 ref_speeds_t r_stats;
 poolhandle_t r_temppool;
 viddef_t vid;
+
+void _Mem_Free( void *data, const char *filename, int fileline )
+{
+	gEngfuncs._Mem_Free( data, filename, fileline );
+}
+
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
+}
+
 static void GAME_EXPORT R_ClearScreen( void )
 {
 
