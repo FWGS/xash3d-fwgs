@@ -388,7 +388,6 @@ void CL_ParseStaticDecal( sizebuf_t *msg )
 {
 	vec3_t		origin;
 	int		decalIndex, entityIndex, modelIndex;
-	cl_entity_t	*ent = NULL;
 	float		scale;
 	int		flags;
 
@@ -1181,17 +1180,16 @@ CL_ParseBaseline
 */
 void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 {
-	int		i, newnum;
-	entity_state_t	nullstate;
-	qboolean		player;
-	cl_entity_t	*ent;
+	const entity_state_t nullstate = { 0 };
 
 	Delta_InitClient ();	// finalize client delta's
 
-	memset( &nullstate, 0, sizeof( nullstate ));
-
 	while( 1 )
 	{
+		cl_entity_t *ent;
+		qboolean player;
+		int newnum;
+
 		if( legacy )
 		{
 			newnum = MSG_ReadWord( msg );
@@ -1207,10 +1205,10 @@ void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 			Host_Error( "%s: no free edicts\n", __func__ );
 
 		ent = CL_EDICT_NUM( newnum );
-		memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
+		ent->prevstate = nullstate;
 		ent->index = newnum;
 
-		MSG_ReadDeltaEntity( msg, &ent->prevstate, &ent->baseline, newnum, player, 1.0f );
+		MSG_ReadDeltaEntity( msg, &nullstate, &ent->baseline, newnum, player, 1.0f );
 
 		if( legacy )
 		{
@@ -1220,11 +1218,13 @@ void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 
 	if( !legacy )
 	{
+		int i;
+
 		cl.instanced_baseline_count = MSG_ReadUBitLong( msg, 6 );
 
 		for( i = 0; i < cl.instanced_baseline_count; i++ )
 		{
-			newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+			int newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
 			MSG_ReadDeltaEntity( msg, &nullstate, &cl.instanced_baseline[i], newnum, false, 1.0f );
 		}
 	}

@@ -107,7 +107,7 @@ void MSG_ReadClientData( sizebuf_t *msg, struct clientdata_s *from, struct clien
 void MSG_WriteWeaponData( sizebuf_t *msg, struct weapon_data_s *from, struct weapon_data_s *to, double timebase, int index );
 void MSG_ReadWeaponData( sizebuf_t *msg, struct weapon_data_s *from, struct weapon_data_s *to, double timebase );
 void MSG_WriteDeltaEntity( struct entity_state_s *from, struct entity_state_s *to, sizebuf_t *msg, qboolean force, int type, double timebase, int ofs );
-qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, struct entity_state_s *from, struct entity_state_s *to, int num, int type, double timebase );
+qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const struct entity_state_s *from, struct entity_state_s *to, int num, int type, double timebase );
 int Delta_TestBaseline( struct entity_state_s *from, struct entity_state_s *to, qboolean player, double timebase );
 
 #endif//NET_ENCODE_H
