@@ -299,7 +299,6 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 			if( error )
 				*error = ZIP_LOAD_BAD_HEADER;
 
-			Mem_Free( info );
 			FS_CloseZIP( zip );
 			return NULL;
 		}
@@ -316,7 +315,6 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 				if( error )
 					*error = ZIP_LOAD_CORRUPTED;
 
-				Mem_Free( info );
 				FS_CloseZIP( zip );
 				return NULL;
 			}
@@ -364,7 +362,6 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 			if( error )
 				*error = ZIP_LOAD_CORRUPTED;
 
-			Mem_Free( info );
 			FS_CloseZIP( zip );
 			return NULL;
 		}
