@@ -27,6 +27,16 @@ ref_globals_t *gpGlobals;
 ref_client_t  *gp_cl;
 ref_host_t    *gp_host;
 
+void _Mem_Free( void *data, const char *filename, int fileline )
+{
+	gEngfuncs._Mem_Free( data, filename, fileline );
+}
+
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
+}
+
 static void R_ClearScreen( void )
 {
 	pglClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
