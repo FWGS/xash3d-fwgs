@@ -139,11 +139,21 @@ CONSTANTS GLOBALS
 
 ===========================
 */
-extern const vec3_t		vec3_origin;
-extern const int		boxpnt[6][4];
-extern const matrix3x4	m_matrix3x4_identity;
-extern const matrix4x4	m_matrix4x4_identity;
-extern const float		m_bytenormals[NUMVERTEXNORMALS][3];
+// a1ba: we never return pointers to these globals
+// so help compiler optimize constants away
+#define vec3_origin ((vec3_t){ 0.0f, 0.0f, 0.0f })
+#define m_matrix3x4_identity ((matrix3x4) { \
+	{ 1.0f, 0.0f, 0.0f, 0.0f }, \
+	{ 0.0f, 1.0f, 0.0f, 0.0f }, \
+	{ 0.0f, 0.0f, 1.0f, 0.0f }} )
+#define m_matrix4x4_identity ((matrix4x4) { \
+	{ 1.0f, 0.0f, 0.0f, 0.0f }, \
+	{ 0.0f, 1.0f, 0.0f, 0.0f }, \
+	{ 0.0f, 0.0f, 1.0f, 0.0f }, \
+	{ 0.0f, 0.0f, 0.0f, 1.0f }} )
+
+extern const int       boxpnt[6][4];
+extern const float     m_bytenormals[NUMVERTEXNORMALS][3];
 
 
 /*
