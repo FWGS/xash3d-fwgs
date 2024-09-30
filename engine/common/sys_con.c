@@ -230,13 +230,20 @@ static void Sys_PrintLogfile( const int fd, const char *logtime, const char *msg
 
 		if( p == NULL )
 		{
-			write( fd, msg, Q_strlen( msg ));
+			if( write( fd, msg, Q_strlen( msg )) < 0 )
+			{
+				// don't call engine Msg, might cause recursion
+				fprintf( stderr, "%s: write failed: %s\n", __func__, strerror( errno ));
+			}
 			break;
 		}
 		else if( IsColorString( p ))
 		{
 			if( p != msg )
-				write( fd, msg, p - msg );
+			{
+				if( write( fd, msg, p - msg ) < 0 )
+					fprintf( stderr, "%s: write failed: %s\n", __func__, strerror( errno ));
+			}
 			msg = p + 2;
 
 			if( colorize )
@@ -244,7 +251,8 @@ static void Sys_PrintLogfile( const int fd, const char *logtime, const char *msg
 		}
 		else
 		{
-			write( fd, msg, p - msg + 1 );
+			if( write( fd, msg, p - msg + 1 ) < 0 )
+				fprintf( stderr, "%s: write failed: %s\n", __func__, strerror( errno ));
 			msg = p + 1;
 		}
 	}
