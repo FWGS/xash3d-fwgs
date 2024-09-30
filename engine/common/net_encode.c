@@ -988,7 +988,7 @@ compare fields by offsets
 assume from and to is valid
 =====================
 */
-static qboolean Delta_CompareField( delta_t *pField, void *from, void *to, double timebase )
+static qboolean Delta_CompareField( delta_t *pField, const void *from, const void *to )
 {
 	int		signbit = ( pField->flags & DT_SIGNED ) ? 1 : 0;
 	float	val_a, val_b;
@@ -1109,7 +1109,7 @@ Delta_TestBaseline
 compare baselines to find optimal
 =====================
 */
-int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean player, double timebase )
+int Delta_TestBaseline( const entity_state_t *from, const entity_state_t *to, qboolean player, double timebase )
 {
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
@@ -1145,7 +1145,7 @@ int Delta_TestBaseline( entity_state_t *from, entity_state_t *to, qboolean playe
 		// flag about field change (sets always)
 		countBits++;
 
-		if( !Delta_CompareField( pField, from, to, timebase ))
+		if( !Delta_CompareField( pField, from, to ))
 		{
 			// strings are handled differently
 			if( FBitSet( pField->flags, DT_STRING ))
@@ -1166,7 +1166,7 @@ write fields by offsets
 assume from and to is valid
 =====================
 */
-static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
+static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, const void *from, const void *to, double timebase )
 {
 	int		signbit = FBitSet( pField->flags, DT_SIGNED ) ? 1 : 0;
 	float		flValue, flAngle;
@@ -1174,7 +1174,7 @@ static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, void *from, v
 	int dt;
 	const char	*pStr;
 
-	if( Delta_CompareField( pField, from, to, timebase ))
+	if( Delta_CompareField( pField, from, to ))
 	{
 		MSG_WriteOneBit( msg, 0 );	// unchanged
 		return false;
@@ -1264,7 +1264,7 @@ Delta_CopyField
 
 ====================
 */
-static void Delta_CopyField( delta_t *pField, void *from, void *to, double timebase )
+static void Delta_CopyField( delta_t *pField, const void *from, void *to, double timebase )
 {
 	qboolean bSigned = FBitSet( pField->flags, DT_SIGNED );
 	uint8_t *to_field = (uint8_t *)to + pField->offset;
@@ -1313,7 +1313,7 @@ read fields by offsets
 assume 'from' and 'to' is valid
 =====================
 */
-static qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, void *from, void *to, double timebase )
+static qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, const void *from, void *to, double timebase )
 {
 	qboolean		bSigned = ( pField->flags & DT_SIGNED ) ? true : false;
 	float		flValue, flAngle, flTime;
@@ -1425,7 +1425,7 @@ usercmd_t communication
 MSG_WriteDeltaUsercmd
 =====================
 */
-void MSG_WriteDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to )
+void MSG_WriteDeltaUsercmd( sizebuf_t *msg, const usercmd_t *from, const usercmd_t *to )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1452,7 +1452,7 @@ void MSG_WriteDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to )
 MSG_ReadDeltaUsercmd
 =====================
 */
-void MSG_ReadDeltaUsercmd( sizebuf_t *msg, usercmd_t *from, usercmd_t *to )
+void MSG_ReadDeltaUsercmd( sizebuf_t *msg, const usercmd_t *from, usercmd_t *to )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1487,7 +1487,7 @@ event_args_t communication
 MSG_WriteDeltaEvent
 =====================
 */
-void MSG_WriteDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to )
+void MSG_WriteDeltaEvent( sizebuf_t *msg, const event_args_t *from, const event_args_t *to )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1514,7 +1514,7 @@ void MSG_WriteDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to )
 MSG_ReadDeltaEvent
 =====================
 */
-void MSG_ReadDeltaEvent( sizebuf_t *msg, event_args_t *from, event_args_t *to )
+void MSG_ReadDeltaEvent( sizebuf_t *msg, const event_args_t *from, event_args_t *to )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1542,7 +1542,7 @@ movevars_t communication
 
 =============================================================================
 */
-qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *to )
+qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, const movevars_t *from, const movevars_t *to )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1578,7 +1578,7 @@ qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *t
 	return true;
 }
 
-void MSG_ReadDeltaMovevars( sizebuf_t *msg, movevars_t *from, movevars_t *to )
+void MSG_ReadDeltaMovevars( sizebuf_t *msg, const movevars_t *from, movevars_t *to )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1614,7 +1614,7 @@ Writes current client data only for local client
 Other clients can grab the client state from entity_state_t
 ==================
 */
-void MSG_WriteClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, double timebase )
+void MSG_WriteClientData( sizebuf_t *msg, const clientdata_t *from, const clientdata_t *to, double timebase )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1654,7 +1654,7 @@ MSG_ReadClientData
 Read the clientdata
 ==================
 */
-void MSG_ReadClientData( sizebuf_t *msg, clientdata_t *from, clientdata_t *to, double timebase )
+void MSG_ReadClientData( sizebuf_t *msg, const clientdata_t *from, clientdata_t *to, double timebase )
 {
 #if !XASH_DEDICATED
 	delta_t		*pField;
@@ -1695,7 +1695,7 @@ Writes current client data only for local client
 Other clients can grab the client state from entity_state_t
 ==================
 */
-void MSG_WriteWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to, double timebase, int index )
+void MSG_WriteWeaponData( sizebuf_t *msg, const weapon_data_t *from, const weapon_data_t *to, double timebase, int index )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1734,7 +1734,7 @@ MSG_ReadWeaponData
 Read the clientdata
 ==================
 */
-void MSG_ReadWeaponData( sizebuf_t *msg, weapon_data_t *from, weapon_data_t *to, double timebase )
+void MSG_ReadWeaponData( sizebuf_t *msg, const weapon_data_t *from, weapon_data_t *to, double timebase )
 {
 	delta_t		*pField;
 	delta_info_t	*dt;
@@ -1771,7 +1771,7 @@ If force is not set, then nothing at all will be generated if the entity is
 identical, under the assumption that the in-order delta code will catch it.
 ==================
 */
-void MSG_WriteDeltaEntity( entity_state_t *from, entity_state_t *to, sizebuf_t *msg, qboolean force, int delta_type, double timebase, int baseline )
+void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to, sizebuf_t *msg, qboolean force, int delta_type, double timebase, int baseline )
 {
 	delta_info_t	*dt = NULL;
 	delta_t		*pField;
