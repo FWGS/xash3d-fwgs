@@ -30,13 +30,6 @@ GNU General Public License for more details.
 
 #define MIPTEX_CUSTOM_PALETTE_SIZE_BYTES ( sizeof( int16_t ) + 768 )
 
-typedef struct wadlist_s
-{
-	char			wadnames[MAX_MAP_WADS][32];
-	int			wadusage[MAX_MAP_WADS];
-	int			count;
-} wadlist_t;
-
 typedef struct leaflist_s
 {
 	int			count;
@@ -136,7 +129,6 @@ typedef struct
 	dclipnode32_t		*clipnodes_out;	// temporary 32-bit array to hold clipnodes
 
 	// misc stuff
-	wadlist_t			wadlist;
 	int			lightmap_samples;	// samples per lightmap (1 or 3)
 	int			version;		// model version
 	qboolean			isworld;
@@ -1835,7 +1827,7 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 	world.generator[0] = '\0';
 	world.compiler[0] = '\0';
 	world.message[0] = '\0';
-	bmod->wadlist.count = 0;
+	world.wadlist.count = 0;
 
 	// parse all the wads for loading textures in right ordering
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
@@ -1878,12 +1870,12 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 					// make sure that wad is really exist
 					if( FS_FileExists( va( "%s.wad", token ), false ))
 					{
-						int num = bmod->wadlist.count++;
-						Q_strncpy( bmod->wadlist.wadnames[num], token, sizeof( bmod->wadlist.wadnames[0] ));
-						bmod->wadlist.wadusage[num] = 0;
+						int num = world.wadlist.count++;
+						Q_strncpy( world.wadlist.wadnames[num], token, sizeof( world.wadlist.wadnames[0] ));
+						world.wadlist.wadusage[num] = 0;
 					}
 
-					if( bmod->wadlist.count >= MAX_MAP_WADS )
+					if( world.wadlist.count >= MAX_MAP_WADS )
 						break; // too many wads...
 				}
 			}
@@ -2320,9 +2312,9 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	}
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if( !texture->gl_texturenum && (( r_wadtextures.value && bmod->wadlist.count > 0 ) || mipTex->offsets[0] <= 0 ))
+	if( !texture->gl_texturenum && (( r_wadtextures.value && world.wadlist.count > 0 ) || mipTex->offsets[0] <= 0 ))
 	{
-		int wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, mipTex->name, texpath, sizeof( texpath ));
+		int wadIndex = Mod_FindTextureInWadList( &world.wadlist, mipTex->name, texpath, sizeof( texpath ));
 
 		if( wadIndex >= 0 )
 		{
@@ -2330,7 +2322,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 			if( !Host_IsDedicated( ))
 				texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
 #endif // !XASH_DEDICATED
-			bmod->wadlist.wadusage[wadIndex]++;
+			world.wadlist.wadusage[wadIndex]++;
 		}
 	}
 
@@ -2388,12 +2380,12 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 			// doesn't exist there. The original texture is already loaded, but cannot be modified.
 			// Instead, load the original texture again and convert it to luma.
 
-			wadIndex = Mod_FindTextureInWadList( &bmod->wadlist, texture->name, texpath, sizeof( texpath ));
+			wadIndex = Mod_FindTextureInWadList( &world.wadlist, texture->name, texpath, sizeof( texpath ));
 
 			if( wadIndex >= 0 )
 			{
 				src = FS_LoadFile( texpath, &srcSize, false );
-				bmod->wadlist.wadusage[wadIndex]++;
+				world.wadlist.wadusage[wadIndex]++;
 			}
 
 			// OK, loading it from wad or hi-res version
@@ -3426,18 +3418,14 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 			Mod_CalcPHS( mod );
 	}
 
-	for( i = 0; i < bmod->wadlist.count; i++ )
+	for( i = 0; i < world.wadlist.count; i++ )
 	{
 		string wadname;
 
-		if( !bmod->wadlist.wadusage[i] )
+		if( !world.wadlist.wadusage[i] )
 			continue;
 
-		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", bmod->wadlist.wadnames[i] );
-
-		// a1ba: automatically precache used wad files so client will download it
-		if( SV_Active( ))
-			SV_GenericIndex( wadname );
+		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", world.wadlist.wadnames[i] );
 
 		if( !wadlist_warn )
 		{

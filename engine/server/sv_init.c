@@ -363,6 +363,7 @@ loads external resource list
 static void SV_CreateGenericResources( void )
 {
 	string	filename;
+	int i;
 
 	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
 	COM_ReplaceExtension( filename, ".res", sizeof( filename ));
@@ -370,6 +371,16 @@ static void SV_CreateGenericResources( void )
 
 	SV_ReadResourceList( filename );
 	SV_ReadResourceList( "reslist.txt" );
+
+	for( i = 0; i < world.wadlist.count; i++ )
+	{
+		if( world.wadlist.wadusage[i] > 0 )
+		{
+			string wadname;
+			Q_snprintf( wadname, sizeof( wadname ), "%s.wad", world.wadlist.wadnames[i] );
+			SV_GenericIndex( wadname );
+		}
+	}
 }
 
 /*
