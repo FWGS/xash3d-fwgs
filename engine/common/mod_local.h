@@ -83,6 +83,12 @@ typedef struct
 	uint		num_polys;
 } hull_model_t;
 
+typedef struct wadlist_s
+{
+	char			wadnames[MAX_MAP_WADS][32];
+	int			wadusage[MAX_MAP_WADS];
+	int			count;
+} wadlist_t;
 
 typedef struct world_static_s
 {
@@ -119,6 +125,8 @@ typedef struct world_static_s
 	// Potentially Hearable Set
 	byte   *compressed_phs;
 	size_t *phsofs;
+
+	wadlist_t wadlist;
 } world_static_t;
 
 #ifndef REF_DLL
