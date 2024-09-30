@@ -2,7 +2,7 @@
 #include "crtlib.h"
 #include <stdio.h>
 
-int Test_ExtractFilePath( void )
+static int Test_ExtractFilePath( void )
 {
 	char dst[64];
 	const char *strings[] =
