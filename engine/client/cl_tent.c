@@ -1318,7 +1318,7 @@ static void R_Spray_Generic( const char *func, const vec3_t pos, const vec3_t di
 		}
 		else
 		{
-			tent->flags |= FTENT_SLOWGRAVITY;
+			tent->flags |= FTENT_COLLIDEWORLD;
 
 			if( tent->frameMax > 1 )
 			{
