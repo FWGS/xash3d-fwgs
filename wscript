@@ -311,6 +311,7 @@ def configure(conf):
 			# '-Werror=cast-align=strict',
 			'-Werror=duplicated-cond',
 			'-Werror=format-extra-args',
+			'-Werror=free-nonheap-object',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
 			'-Werror=nonnull',
@@ -335,6 +336,7 @@ def configure(conf):
 			'-Wformat=2',
 			'-Winit-self',
 			'-Wmisleading-indentation',
+			'-Wmismatched-dealloc',
 			'-Wstringop-overflow',
 			'-Wunintialized',
 
