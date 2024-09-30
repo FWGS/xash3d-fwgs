@@ -110,7 +110,7 @@ void Image_Reset( void )
 	image.size = 0;
 }
 
-static rgbdata_t *ImagePack( void )
+static MALLOC_LIKE( FS_FreeImage, 1 ) rgbdata_t *ImagePack( void )
 {
 	rgbdata_t	*pack;
 
@@ -547,7 +547,7 @@ static void Test_CheckImage( const char *name, rgbdata_t *rgb )
 	TASSERT( load->size == rgb->size )
 	TASSERT( memcmp(load->buffer, rgb->buffer, rgb->size ) == 0 )
 
-	Mem_Free( load );
+	FS_FreeImage( load );
 }
 
 void Test_RunImagelib( void )
