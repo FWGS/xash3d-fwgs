@@ -233,7 +233,6 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'psvita':
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = True
-		conf.options.NO_ASYNC_RESOLVE = True
 		conf.options.USE_STBTT        = True
 		# we'll specify -fPIC by hand for shared libraries only
 		enforce_pic                   = False
