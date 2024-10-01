@@ -30,6 +30,10 @@ GNU General Public License for more details.
 static const struct in6_addr in6addr_any;
 #endif
 
+#if XASH_SDL == 2
+#include <SDL_thread.h>
+#endif
+
 #define NET_USE_FRAGMENTS
 
 #define MAX_LOOPBACK		4
@@ -363,27 +367,44 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 #ifdef CAN_ASYNC_NS_RESOLVE
 static void NET_ResolveThread( void );
 
-#if !XASH_WIN32
+#if XASH_SDL == 2
+#define mutex_create( x )    (( x ) = SDL_CreateMutex() )
+#define mutex_destroy( x )   SDL_DestroyMutex(( x ))
+#define mutex_lock( x )      SDL_LockMutex(( x ))
+#define mutex_unlock( x )    SDL_UnlockMutex(( x ))
+#define create_thread( thread, pfn ) (( thread ) = SDL_CreateThread(( pfn ), "DNS resolver thread", NULL ))
+#define detach_thread( x )   SDL_DetachThread(( x ))
+typedef SDL_mutex *mutex_t;
+typedef SDL_Thread *thread_t;
+static int NET_ThreadStart( void *ununsed )
+{
+	NET_ResolveThread();
+	return 0;
+}
+#elif !XASH_WIN32
 #include <pthread.h>
-#define mutex_lock pthread_mutex_lock
-#define mutex_unlock pthread_mutex_unlock
-#define exit_thread( x ) pthread_exit(x)
-#define create_thread( pfn ) !pthread_create( &nsthread.thread, NULL, (pfn), NULL )
-#define detach_thread( x ) pthread_detach(x)
-#define mutex_t  pthread_mutex_t
-#define thread_t pthread_t
+#define mutex_create( x )     pthread_mutex_init( &( x ), NULL )
+#define mutex_destroy( x )    pthread_mutex_destroy( &( x ))
+#define mutex_lock( x )       pthread_mutex_lock( &( x ))
+#define mutex_unlock( x )     pthread_mutex_unlock( &( x ))
+#define create_thread( thread, pfn ) !pthread_create( &( thread ), NULL, ( pfn ), NULL )
+#define detach_thread( x )    pthread_detach( x )
+typedef pthread_mutex_t mutex_t;
+typedef pthread_t thread_t;
 static void *NET_ThreadStart( void *unused )
 {
 	NET_ResolveThread();
 	return NULL;
 }
 #else // WIN32
-#define mutex_lock EnterCriticalSection
-#define mutex_unlock LeaveCriticalSection
-#define detach_thread( x ) CloseHandle(x)
-#define create_thread( pfn ) ( nsthread.thread = CreateThread( NULL, 0, pfn, NULL, 0, NULL ))
-#define mutex_t  CRITICAL_SECTION
-#define thread_t HANDLE
+#define mutex_create( x )   InitializeCriticalSection( &( x ))
+#define mutex_destroy( x )  DeleteCriticalSection( &( x ))
+#define mutex_lock( x )     EnterCriticalSection( &( x ))
+#define mutex_unlock( x )   LeaveCriticalSection( &( x ))
+#define create_thread( thread, pfn ) (( thread ) = CreateThread( NULL, 0, ( pfn ), NULL, 0, NULL ))
+#define detach_thread( x )   CloseHandle(( x ))
+typedef CRITICAL_SECTION mutex_t;
+typedef HANDLE thread_t;
 DWORD WINAPI NET_ThreadStart( LPVOID unused )
 {
 	NET_ResolveThread();
@@ -400,27 +421,30 @@ DWORD WINAPI NET_ThreadStart( LPVOID unused )
 
 static struct nsthread_s
 {
-	mutex_t mutexns;
-	mutex_t mutexres;
+	mutex_t  mutexns;
+	mutex_t  mutexres;
 	thread_t thread;
-	int     result;
-	string  hostname;
-	int     family;
+	int      result;
+	string   hostname;
+	int      family;
 	struct sockaddr_storage addr;
 	qboolean busy;
-} nsthread
-#if !XASH_WIN32
-= { PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER }
-#endif
-;
+} nsthread;
 
 static void NET_InitializeCriticalSections( void )
 {
 	net.threads_initialized = true;
-#if XASH_WIN32
-	InitializeCriticalSection( &nsthread.mutexns );
-	InitializeCriticalSection( &nsthread.mutexres );
-#endif
+
+	mutex_create( nsthread.mutexns );
+	mutex_create( nsthread.mutexres );
+}
+
+static void NET_DeleteCriticalSections( void )
+{
+	net.threads_initialized = false;
+
+	mutex_destroy( nsthread.mutexns );
+	mutex_destroy( nsthread.mutexres );
 }
 
 void NET_ResolveThread( void )
@@ -440,12 +464,12 @@ void NET_ResolveThread( void )
 		RESOLVE_DBG( "[resolve thread] success\n" );
 	else
 		RESOLVE_DBG( "[resolve thread] failed\n" );
-	mutex_lock( &nsthread.mutexres );
+	mutex_lock( nsthread.mutexres );
 	nsthread.addr = addr;
 	nsthread.busy = false;
 	nsthread.result = res ? NET_EAI_OK : NET_EAI_NONAME;
 	RESOLVE_DBG( "[resolve thread] returning result\n" );
-	mutex_unlock( &nsthread.mutexres );
+	mutex_unlock( nsthread.mutexres );
 	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
 }
 #endif // CAN_ASYNC_NS_RESOLVE
@@ -510,11 +534,11 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 #ifdef CAN_ASYNC_NS_RESOLVE
 		if( net.threads_initialized && nonblocking )
 		{
-			mutex_lock( &nsthread.mutexres );
+			mutex_lock( nsthread.mutexres );
 
 			if( nsthread.busy )
 			{
-				mutex_unlock( &nsthread.mutexres );
+				mutex_unlock( nsthread.mutexres );
 				return NET_EAI_AGAIN;
 			}
 
@@ -535,9 +559,9 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 				Q_strncpy( nsthread.hostname, copy, sizeof( nsthread.hostname ));
 				nsthread.family = family;
 				nsthread.busy = true;
-				mutex_unlock( &nsthread.mutexres );
+				mutex_unlock( nsthread.mutexres );
 
-				if( create_thread( NET_ThreadStart ))
+				if( create_thread( nsthread.thread, NET_ThreadStart ))
 				{
 					asyncfailed = false;
 					return NET_EAI_AGAIN;
@@ -549,7 +573,7 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 				}
 			}
 
-			mutex_unlock( &nsthread.mutexres );
+			mutex_unlock( nsthread.mutexres );
 		}
 #endif // CAN_ASYNC_NS_RESOLVE
 
@@ -2167,6 +2191,11 @@ void NET_Shutdown( void )
 	NET_ClearLagData( true, true );
 
 	NET_Config( false, false );
+
+#ifdef CAN_ASYNC_NS_RESOLVE
+	NET_DeleteCriticalSections();
+#endif
+
 #if XASH_WIN32
 	WSACleanup();
 #endif
