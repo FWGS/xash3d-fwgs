@@ -228,7 +228,6 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'nswitch':
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = True
-		conf.options.NO_ASYNC_RESOLVE = True
 		conf.options.USE_STBTT        = True
 	elif conf.env.DEST_OS == 'psvita':
 		conf.options.NO_VGUI          = True
