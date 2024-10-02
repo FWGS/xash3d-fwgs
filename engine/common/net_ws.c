@@ -256,40 +256,27 @@ static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 
 	if( a->type == NA_BROADCAST )
 	{
-		((struct sockaddr_in *)s)->sin_family = AF_INET;
+		s->ss_family = AF_INET;
 		((struct sockaddr_in *)s)->sin_port = a->port;
 		((struct sockaddr_in *)s)->sin_addr.s_addr = INADDR_BROADCAST;
 	}
 	else if( a->type == NA_IP )
 	{
-		((struct sockaddr_in *)s)->sin_family = AF_INET;
+		s->ss_family = AF_INET;
 		((struct sockaddr_in *)s)->sin_port = a->port;
 		((struct sockaddr_in *)s)->sin_addr.s_addr = a->ip4;
 	}
 	else if( a->type6 == NA_IP6 )
 	{
-		struct in6_addr ip6;
-
-		NET_NetadrToIP6Bytes( ip6.s6_addr, a );
-
-		if( IN6_IS_ADDR_V4MAPPED( &ip6 ))
-		{
-			((struct sockaddr_in *)s)->sin_family = AF_INET;
-			((struct sockaddr_in *)s)->sin_addr.s_addr = *(uint32_t *)(ip6.s6_addr + 12);
-			((struct sockaddr_in *)s)->sin_port = a->port;
-		}
-		else
-		{
-			((struct sockaddr_in6 *)s)->sin6_family = AF_INET6;
-			memcpy( &((struct sockaddr_in6 *)s)->sin6_addr, &ip6, sizeof( struct in6_addr ));
-			((struct sockaddr_in6 *)s)->sin6_port = a->port;
-		}
+		s->ss_family = AF_INET6;
+		((struct sockaddr_in6 *)s)->sin6_port = a->port;
+		NET_NetadrToIP6Bytes(((struct sockaddr_in6 *)s)->sin6_addr.s6_addr, a );
 	}
 	else if( a->type6 == NA_MULTICAST_IP6 )
 	{
-		((struct sockaddr_in6 *)s)->sin6_family = AF_INET6;
-		memcpy(((struct sockaddr_in6 *)s)->sin6_addr.s6_addr, k_ipv6Bytes_LinkLocalAllNodes, sizeof( struct in6_addr ));
+		s->ss_family = AF_INET6;
 		((struct sockaddr_in6 *)s)->sin6_port = a->port;
+		memcpy(((struct sockaddr_in6 *)s)->sin6_addr.s6_addr, k_ipv6Bytes_LinkLocalAllNodes, sizeof( struct in6_addr ));
 	}
 }
 
@@ -308,13 +295,8 @@ static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 	}
 	else if( s->ss_family == AF_INET6 )
 	{
+		a->type6 = NA_IP6;
 		NET_IP6BytesToNetadr( a, ((struct sockaddr_in6 *)s)->sin6_addr.s6_addr );
-
-		if( IN6_IS_ADDR_V4MAPPED( &((struct sockaddr_in6 *)s)->sin6_addr ))
-			a->type = NA_IP;
-		else
-			a->type6 = NA_IP6;
-
 		a->port = ((struct sockaddr_in6 *)s)->sin6_port;
 	}
 }
