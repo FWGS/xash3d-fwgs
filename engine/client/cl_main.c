@@ -1147,7 +1147,7 @@ static void CL_CheckForResend( void )
 	if(( host.realtime - cls.connect_time ) < resendTime )
 		return;
 
-	res = NET_StringToAdrNB( cls.servername, &adr );
+	res = NET_StringToAdrNB( cls.servername, &adr, false );
 
 	if( res == NET_EAI_NONAME )
 	{
