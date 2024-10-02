@@ -587,16 +587,9 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 		sadr->ss_family = temp.ss_family;
 
 		if( temp.ss_family == AF_INET )
-		{
-			((struct sockaddr_in *)sadr)->sin_addr =
-				((struct sockaddr_in*)&temp)->sin_addr;
-		}
+			((struct sockaddr_in *)sadr)->sin_addr = ((struct sockaddr_in*)&temp)->sin_addr;
 		else if( temp.ss_family == AF_INET6 )
-		{
-			memcpy(&((struct sockaddr_in6 *)sadr)->sin6_addr,
-				&((struct sockaddr_in6*)&temp)->sin6_addr,
-				sizeof( struct in6_addr ));
-		}
+			((struct sockaddr_in6 *)sadr)->sin6_addr = ((struct sockaddr_in6*)&temp)->sin6_addr;
 	}
 
 	return NET_EAI_OK;
@@ -1753,7 +1746,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 
 		if( COM_CheckStringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
 			NET_StringToSockaddr( net_iface, &addr, false, AF_INET6 );
-		else memcpy(((struct sockaddr_in6 *)&addr)->sin6_addr.s6_addr, &in6addr_any, sizeof( struct in6_addr ));
+		else ((struct sockaddr_in6 *)&addr)->sin6_addr = in6addr_any;
 
 		if( port == PORT_ANY ) ((struct sockaddr_in6 *)&addr)->sin6_port = 0;
 		else ((struct sockaddr_in6 *)&addr)->sin6_port = htons((short)port);
