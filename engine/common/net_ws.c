@@ -18,16 +18,16 @@ GNU General Public License for more details.
 #include "netchan.h"
 #include "xash3d_mathlib.h"
 #include "ipv6text.h"
-#if XASH_WIN32
-#include "platform/win32/net.h"
-#elif defined XASH_NO_NETWORK
+
+#if XASH_NO_NETWORK
 #include "platform/stub/net_stub.h"
-#else
-#include "platform/posix/net.h"
-#endif
-#if XASH_PSVITA
+#elif XASH_WIN32
+#include "platform/win32/net.h"
+#elif XASH_PSVITA
 #include "platform/psvita/net_psvita.h"
 static const struct in6_addr in6addr_any;
+#else
+#include "platform/posix/net.h"
 #endif
 
 #if XASH_SDL == 2
@@ -329,6 +329,11 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 	struct addrinfo hints;
 	qboolean ret = false;
 
+#if XASH_NO_IPV6_RESOLVE
+	if( family == AF_INET6 )
+		return false;
+#endif
+
 	memset( &hints, 0, sizeof( hints ));
 	hints.ai_family = family;
 
@@ -351,6 +356,12 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 	return ret;
 #else
 	struct hostent *h;
+
+#if XASH_NO_IPV6_RESOLVE
+	if( family == AF_INET6 )
+		return false;
+#endif
+
 	if(!( h = gethostbyname( hostname )))
 		return false;
 

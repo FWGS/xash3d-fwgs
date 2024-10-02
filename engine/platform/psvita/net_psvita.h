@@ -18,8 +18,10 @@ GNU General Public License for more details.
 #define NET_PSVITA_H
 
 #include <vitasdk.h>
+#include "platform/posix/net.h"
 
 /* we're missing IPv6 support; define some trash */
+#define XASH_NO_IPV6_RESOLVE 1
 
 #ifndef IN6_IS_ADDR_V4MAPPED
 #define IN6_IS_ADDR_V4MAPPED( p ) ( 0 )
