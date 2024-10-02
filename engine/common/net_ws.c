@@ -119,6 +119,7 @@ static CVAR_DEFINE( net_ipclientport, "ip_clientport", "0", FCVAR_READ_ONLY, "ne
 static CVAR_DEFINE( net_clientport, "clientport", "0", FCVAR_READ_ONLY, "network default client port" );
 static CVAR_DEFINE( net_fakelag, "fakelag", "0", FCVAR_PRIVILEGED, "lag all incoming network data (including loopback) by xxx ms." );
 static CVAR_DEFINE( net_fakeloss, "fakeloss", "0", FCVAR_PRIVILEGED, "act like we dropped the packet this % of the time." );
+static CVAR_DEFINE_AUTO( net_resolve_debug, "0", FCVAR_PRIVILEGED, "print resolve thread debug messages" );
 CVAR_DEFINE( net_clockwindow, "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
 
 netadr_t			net_local;
@@ -413,11 +414,7 @@ DWORD WINAPI NET_ThreadStart( LPVOID unused )
 }
 #endif // !_WIN32
 
-#ifdef DEBUG_RESOLVE
-#define RESOLVE_DBG(x) Sys_PrintLog(x)
-#else
-#define RESOLVE_DBG(x)
-#endif //  DEBUG_RESOLVE
+#define RESOLVE_DBG( x ) do { if( net_resolve_debug.value ) Sys_PrintLog(( x )); } while( 0 )
 
 static struct nsthread_s
 {
@@ -441,10 +438,15 @@ static void NET_InitializeCriticalSections( void )
 
 static void NET_DeleteCriticalSections( void )
 {
-	net.threads_initialized = false;
+	if( net.threads_initialized )
+	{
+		mutex_destroy( nsthread.mutexns );
+		mutex_destroy( nsthread.mutexres );
 
-	mutex_destroy( nsthread.mutexns );
-	mutex_destroy( nsthread.mutexres );
+		net.threads_initialized = false;
+	}
+
+	memset( &nsthread, 0, sizeof( nsthread ));
 }
 
 void NET_ResolveThread( void )
@@ -2118,6 +2120,7 @@ void NET_Init( void )
 	Cvar_RegisterVariable( &net_clientport );
 	Cvar_RegisterVariable( &net_fakelag );
 	Cvar_RegisterVariable( &net_fakeloss );
+	Cvar_RegisterVariable( &net_resolve_debug );
 
 	Q_snprintf( cmd, sizeof( cmd ), "%i", PORT_SERVER );
 	Cvar_FullSet( "hostport", cmd, FCVAR_READ_ONLY );
