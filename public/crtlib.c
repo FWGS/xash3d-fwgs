@@ -288,7 +288,6 @@ const char* Q_timestamp( int format )
 	static string	timestamp;
 	time_t		crt_time;
 	const struct tm	*crt_tm;
-	string		timestring;
 
 	time( &crt_time );
 	crt_tm = localtime( &crt_time );
@@ -297,32 +296,30 @@ const char* Q_timestamp( int format )
 	{
 	case TIME_FULL:
 		// Build the full timestamp (ex: "Apr03 2007 [23:31.55]");
-		strftime( timestring, sizeof( timestring ), "%b%d %Y [%H:%M.%S]", crt_tm );
+		strftime( timestamp, sizeof( timestamp ), "%b%d %Y [%H:%M.%S]", crt_tm );
 		break;
 	case TIME_DATE_ONLY:
 		// Build the date stamp only (ex: "Apr03 2007");
-		strftime( timestring, sizeof( timestring ), "%b%d %Y", crt_tm );
+		strftime( timestamp, sizeof( timestamp ), "%b%d %Y", crt_tm );
 		break;
 	case TIME_TIME_ONLY:
 		// Build the time stamp only (ex: "23:31.55");
-		strftime( timestring, sizeof( timestring ), "%H:%M.%S", crt_tm );
+		strftime( timestamp, sizeof( timestamp ), "%H:%M.%S", crt_tm );
 		break;
 	case TIME_NO_SECONDS:
 		// Build the time stamp exclude seconds (ex: "13:46");
-		strftime( timestring, sizeof( timestring ), "%H:%M", crt_tm );
+		strftime( timestamp, sizeof( timestamp ), "%H:%M", crt_tm );
 		break;
 	case TIME_YEAR_ONLY:
 		// Build the date stamp year only (ex: "2006");
-		strftime( timestring, sizeof( timestring ), "%Y", crt_tm );
+		strftime( timestamp, sizeof( timestamp ), "%Y", crt_tm );
 		break;
 	case TIME_FILENAME:
 		// Build a timestamp that can use for filename (ex: "Nov2006-26 (19.14.28)");
-		strftime( timestring, sizeof( timestring ), "%b%Y-%d_%H.%M.%S", crt_tm );
+		strftime( timestamp, sizeof( timestamp ), "%b%Y-%d_%H.%M.%S", crt_tm );
 		break;
 	default: return NULL;
 	}
-
-	Q_strncpy( timestamp, timestring, sizeof( timestamp ));
 
 	return timestamp;
 }
