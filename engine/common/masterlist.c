@@ -21,6 +21,7 @@ typedef struct master_s
 	struct master_s *next;
 	qboolean sent; // TODO: get rid of this internal state
 	qboolean save;
+	qboolean v6only;
 	string address;
 	netadr_t adr; // temporary, rewritten after each send
 
@@ -45,7 +46,7 @@ NET_GetMasterHostByName
 */
 static net_gai_state_t NET_GetMasterHostByName( master_t *m )
 {
-	net_gai_state_t res = NET_StringToAdrNB( m->address, &m->adr );
+	net_gai_state_t res = NET_StringToAdrNB( m->address, &m->adr, m->v6only );
 
 	if( res == NET_EAI_OK )
 		return res;
@@ -251,7 +252,7 @@ NET_AddMaster
 Add master to the list
 ========================
 */
-static void NET_AddMaster( const char *addr, qboolean save )
+static void NET_AddMaster( const char *addr, qboolean save, qboolean v6only )
 {
 	master_t *master, *last;
 
@@ -261,10 +262,11 @@ static void NET_AddMaster( const char *addr, qboolean save )
 			return;
 	}
 
-	master = Mem_Malloc( host.mempool, sizeof( master_t ) );
+	master = Mem_Malloc( host.mempool, sizeof( *master ) );
 	Q_strncpy( master->address, addr, sizeof( master->address ));
 	master->sent = false;
 	master->save = save;
+	master->v6only = v6only;
 	master->next = NULL;
 	master->adr.type = 0;
 
@@ -283,7 +285,7 @@ static void NET_AddMaster_f( void )
 		return;
 	}
 
-	NET_AddMaster( Cmd_Argv( 1 ), true ); // save them into config
+	NET_AddMaster( Cmd_Argv( 1 ), true, false ); // save them into config
 	ml.modified = true; // save config
 }
 
@@ -316,15 +318,14 @@ static void NET_ListMasters_f( void )
 	master_t *list;
 	int i;
 
-	Msg( "Master servers\n=============\n" );
-
+	Con_Printf( "Master servers:\n" );
 
 	for( i = 1, list = ml.list; list; i++, list = list->next )
 	{
-		Msg( "%d\t%s", i, list->address );
+		Con_Printf( "%d\t%s", i, list->address );
 		if( list->adr.type != 0 )
-			Msg( "\t%s\n", NET_AdrToString( list->adr ));
-		else Msg( "\n" );
+			Con_Printf( "\t%s\n", NET_AdrToString( list->adr ));
+		else Con_Printf( "\n" );
 	}
 }
 
@@ -354,11 +355,15 @@ static void NET_LoadMasters( void )
 	// format: master <addr>\n
 	while( ( pfile = COM_ParseFile( pfile, token, sizeof( token ) ) ) )
 	{
-		if( !Q_strcmp( token, "master" ) ) // load addr
+		if( !Q_strcmp( token, "master" )) // load addr
 		{
 			pfile = COM_ParseFile( pfile, token, sizeof( token ) );
-
-			NET_AddMaster( token, true );
+			NET_AddMaster( token, true, false );
+		}
+		else if( !Q_strcmp( token, "master6" ))
+		{
+			pfile = COM_ParseFile( pfile, token, sizeof( token ) );
+			NET_AddMaster( token, true, true );
 		}
 	}
 
@@ -396,7 +401,7 @@ void NET_SaveMasters( void )
 	for( m = ml.list; m; m = m->next )
 	{
 		if( m->save )
-			FS_Printf( f, "master %s\n", m->address );
+			FS_Printf( f, "%s %s\n", m->v6only ? "master6" : "master", m->address );
 	}
 
 	FS_Close( f );
@@ -418,10 +423,10 @@ void NET_InitMasters( void )
 	Cvar_RegisterVariable( &sv_verbose_heartbeats );
 
 	// keep main master always there
-	NET_AddMaster( MASTERSERVER_ADR, false );
-	NET_AddMaster( "aaaa.mentality.rip:27010", false ); // IPv6-only
-	NET_AddMaster( "mentality.rip:27011", false ); // testing server, might be offline
-	NET_AddMaster( "aaaa.mentality.rip:27011", false ); // IPv6-only, testing server, might be offline
+	NET_AddMaster( MASTERSERVER_ADR, false, false );
+	NET_AddMaster( "aaaa.mentality.rip:27010", false, true ); // IPv6-only
+	NET_AddMaster( "mentality.rip:27011", false, false ); // testing server, might be offline
+	NET_AddMaster( "aaaa.mentality.rip:27011", false, true ); // IPv6-only, testing server, might be offline
 
 	NET_LoadMasters( );
 }

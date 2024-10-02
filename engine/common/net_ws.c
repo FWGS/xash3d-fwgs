@@ -1079,19 +1079,20 @@ qboolean NET_StringToAdr( const char *string, netadr_t *adr )
 	return NET_StringToAdrEx( string, adr, AF_UNSPEC );
 }
 
-net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr )
+net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr, qboolean v6only )
 {
 	struct sockaddr_storage s;
 	net_gai_state_t res;
 
 	memset( adr, 0, sizeof( netadr_t ));
+
 	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ))
 	{
 		adr->type = NA_LOOPBACK;
 		return NET_EAI_OK;
 	}
 
-	res = NET_StringToSockaddr( string, &s, true, AF_UNSPEC );
+	res = NET_StringToSockaddr( string, &s, true, v6only ? AF_INET6 : AF_UNSPEC );
 
 	if( res == NET_EAI_OK )
 		NET_SockadrToNetadr( &s, adr );
