@@ -131,6 +131,8 @@ static CVAR_DEFINE( net_ip6hostport, "ip6_hostport", "0", FCVAR_READ_ONLY, "netw
 static CVAR_DEFINE( net_ip6clientport, "ip6_clientport", "0", FCVAR_READ_ONLY, "network ip6 client port" );
 static CVAR_DEFINE_AUTO( net6_address, "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "contain local IPv6 address of current client" );
 
+static void NET_ClearLagData( qboolean bClient, qboolean bServer );
+
 /*
 ====================
 NET_ErrorString
@@ -197,7 +199,7 @@ static char *NET_ErrorString( void )
 #endif
 }
 
-_inline socklen_t NET_SockAddrLen( const struct sockaddr_storage *addr )
+static inline socklen_t NET_SockAddrLen( const struct sockaddr_storage *addr )
 {
 	switch ( addr->ss_family )
 	{
@@ -210,7 +212,7 @@ _inline socklen_t NET_SockAddrLen( const struct sockaddr_storage *addr )
 	}
 }
 
-_inline qboolean NET_IsSocketError( int retval )
+static inline qboolean NET_IsSocketError( int retval )
 {
 #if XASH_WIN32 || XASH_DOS4GW
 	return retval == SOCKET_ERROR ? true : false;
@@ -219,7 +221,7 @@ _inline qboolean NET_IsSocketError( int retval )
 #endif
 }
 
-_inline qboolean NET_IsSocketValid( int socket )
+static inline qboolean NET_IsSocketValid( int socket )
 {
 #if XASH_WIN32 || XASH_DOS4GW
 	return socket != INVALID_SOCKET;
@@ -460,7 +462,7 @@ static void NET_DeleteCriticalSections( void )
 	memset( &nsthread, 0, sizeof( nsthread ));
 }
 
-void NET_ResolveThread( void )
+static void NET_ResolveThread( void )
 {
 	struct sockaddr_storage addr;
 	qboolean res;
@@ -579,11 +581,9 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 					asyncfailed = false;
 					return NET_EAI_AGAIN;
 				}
-				else // failed to create thread
-				{
-					Con_Reportf( S_ERROR "%s: failed to create thread!\n", __func__ );
-					nsthread.busy = false;
-				}
+
+				Con_Reportf( S_ERROR "%s: failed to create thread!\n", __func__ );
+				nsthread.busy = false;
 			}
 
 			mutex_unlock( nsthread.mutexres );
@@ -591,9 +591,7 @@ static net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_stor
 #endif // CAN_ASYNC_NS_RESOLVE
 
 		if( asyncfailed )
-		{
 			ret = NET_GetHostByName( copy, family, &temp );
-		}
 
 		if( !ret )
 		{
@@ -2106,7 +2104,7 @@ NET_ClearLagData
 clear fakelag list
 ====================
 */
-void NET_ClearLagData( qboolean bClient, qboolean bServer )
+static void NET_ClearLagData( qboolean bClient, qboolean bServer )
 {
 	if( bClient ) NET_ClearLaggedList( &net.lagdata[NS_CLIENT] );
 	if( bServer ) NET_ClearLaggedList( &net.lagdata[NS_SERVER] );
