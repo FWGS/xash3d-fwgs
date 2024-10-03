@@ -643,12 +643,16 @@ Write ambient sounds into demo
 */
 void SV_RestartAmbientSounds( void )
 {
+	// TODO: we don't know sounds state on remote server
+	// as it's used only for demos, maybe this could be implemented on client side?
+#if !XASH_DEDICATED
 	soundlist_t	soundInfo[256];
 	string		curtrack, looptrack;
 	int		i, nSounds;
 	int		position;
 
-	if( !SV_Active( )) return;
+	if( !SV_Active( ) || Host_IsDedicated( ))
+		return;
 
 	nSounds = S_GetCurrentStaticSounds( soundInfo, 256 );
 
@@ -663,7 +667,6 @@ void SV_RestartAmbientSounds( void )
 		SV_StartSound( SV_PEntityOfEntIndex( si->entnum, true ), CHAN_STATIC, si->name, si->volume, si->attenuation, 0, si->pitch );
 	}
 
-#if !XASH_DEDICATED // TODO: ???
 	// restart soundtrack
 	if( S_StreamGetCurrentState( curtrack, sizeof( curtrack ), looptrack, sizeof( looptrack ), &position ))
 	{
