@@ -672,7 +672,7 @@ void SV_RestartAmbientSounds( void )
 	{
 		SV_StartMusic( curtrack, looptrack, position );
 	}
-#endif
+#endif // !XASH_DEDICATED
 }
 
 /*
@@ -684,31 +684,25 @@ Write all the decals into demo
 */
 void SV_RestartDecals( void )
 {
+	// TODO: similar to SV_RestartAmbientSounds, this is only used for demo recording
+	// and better be reimplemented on client side
+#if !XASH_DEDICATED
 	decallist_t	*list;
 	int		decalIndex;
 	int		modelIndex;
 	sizebuf_t		*msg;
 	int		i, numdecals;
 
-	if( !SV_Active( )) return;
+	if( !SV_Active( ) || Host_IsDedicated( ))
+		return;
 
 	// g-cont. add space for studiodecals if present
 	list = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
-#if !XASH_DEDICATED
-	if( !Host_IsDedicated() )
-	{
-		numdecals = ref.dllFuncs.R_CreateDecalList( list );
+	numdecals = ref.dllFuncs.R_CreateDecalList( list );
 
-		// remove decals from map
-		ref.dllFuncs.R_ClearAllDecals();
-	}
-	else
-#endif // XASH_DEDICATED
-	{
-		// we probably running a dedicated server
-		numdecals = 0;
-	}
+	// remove decals from map
+	ref.dllFuncs.R_ClearAllDecals();
 
 	// write decals into reliable datagram
 	msg = SV_GetReliableDatagram();
@@ -731,6 +725,7 @@ void SV_RestartDecals( void )
 	}
 
 	Z_Free( list );
+#endif // !XASH_DEDICATED
 }
 
 /*
