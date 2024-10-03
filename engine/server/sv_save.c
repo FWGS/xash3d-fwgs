@@ -1170,41 +1170,36 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	char		name[MAX_QPATH];
 	int		i, id, version;
 	char		*pTokenData;
-	decallist_t	*decalList;
-	SAVE_CLIENT	header;
+	decallist_t	*decalList = NULL;
+	SAVE_CLIENT	header = { 0 };
 	file_t		*pFile;
 
 	// clearing the saving buffer to reuse
 	SaveClear( pSaveData );
 
-	memset( &header, 0, sizeof( header ));
-
-	// g-cont. add space for studiodecals if present
-	decalList = (decallist_t *)Z_Calloc( sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
+	header.entityCount = sv.num_static_entities;
 
 	// initialize client header
 #if !XASH_DEDICATED
-	if( !Host_IsDedicated() )
+	if( !Host_IsDedicated( ))
 	{
-		header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
-	}
-	else
-#endif // XASH_DEDICATED
-	{
-		// we probably running a dedicated server
-		header.decalCount = 0;
-	}
-	header.entityCount = sv.num_static_entities;
+		// g-cont. add space for studiodecals if present
+		decalList = (decallist_t *)Mem_Calloc( host.mempool, sizeof( decallist_t ) * MAX_RENDER_DECALS * 2 );
 
-	if( !changelevel )
-	{
-	 	// sounds won't going across transition
-		header.soundCount = S_GetCurrentDynamicSounds( soundInfo, MAX_CHANNELS );
-#if !XASH_DEDICATED
-		// music not reqiured to save position: it's just continue playing on a next level
-		S_StreamGetCurrentState( header.introTrack, sizeof( header.introTrack ), header.mainTrack, sizeof( header.mainTrack ), &header.trackPosition );
-#endif
+		header.decalCount = ref.dllFuncs.R_CreateDecalList( decalList );
+
+		if( !changelevel ) // sounds won't going across transition
+		{
+			header.soundCount = S_GetCurrentDynamicSounds( soundInfo, MAX_CHANNELS );
+
+			// music not reqiured to save position: it's just continue playing on a next level
+			S_StreamGetCurrentState(
+				header.introTrack, sizeof( header.introTrack ),
+				header.mainTrack, sizeof( header.mainTrack ),
+				&header.trackPosition );
+		}
 	}
+#endif // XASH_DEDICATED
 
 	// save viewentity to allow camera works after save\restore
 	if( SV_IsValidEdict( cl->pViewEntity ) && cl->pViewEntity != cl->edict )
@@ -1217,7 +1212,7 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	svgame.dllFuncs.pfnSaveWriteFields( pSaveData, "ClientHeader", &header, gSaveClient, ARRAYSIZE( gSaveClient ));
 
 	// store decals
-	for( i = 0; i < header.decalCount; i++ )
+	for( i = 0; decalList != NULL && i < header.decalCount; i++ )
 	{
 		// NOTE: apply landmark offset only for brush entities without origin brushes
 		if( pSaveData->fUseLandmark && FBitSet( decalList[i].flags, FDECAL_USE_LANDMARK ))
@@ -1225,7 +1220,9 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 
 		svgame.dllFuncs.pfnSaveWriteFields( pSaveData, "DECALLIST", &decalList[i], gDecalEntry, ARRAYSIZE( gDecalEntry ));
 	}
-	Z_Free( decalList );
+
+	if( decalList )
+		Mem_Free( decalList );
 
 	// write client entities
 	for( i = 0; i < header.entityCount; i++ )

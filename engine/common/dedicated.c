@@ -134,11 +134,6 @@ void GAME_EXPORT S_StopSound(int entnum, int channel, const char *soundname)
 
 }
 
-int S_GetCurrentStaticSounds( soundlist_t *pout, int size )
-{
-	return 0;
-}
-
 int GAME_EXPORT CL_GetMaxClients( void )
 {
 	return 0;
