@@ -18,6 +18,18 @@ GNU General Public License for more details.
 
 #include "cvardef.h"
 
+// As some mods dynamically allocate cvars and free them without notifying the engine
+// let's construct a list of cvars that must be removed
+typedef struct pending_cvar_s
+{
+	struct pending_cvar_s *next;
+
+	convar_t *cv_cur; // preserve the data that might get freed
+	convar_t *cv_next;
+	qboolean  cv_allocated; // if it's allocated by us, it's safe to access cv_cur
+	char      cv_name[];
+} pending_cvar_t;
+
 cvar_t *Cvar_GetList( void );
 #define Cvar_FindVar( name )	Cvar_FindVarExt( name, 0 )
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
@@ -42,5 +54,8 @@ qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged );
 void Cvar_Init( void );
 void Cvar_PostFSInit( void );
 void Cvar_Unlink( int group );
+
+pending_cvar_t *Cvar_PrepareToUnlink( int group );
+void Cvar_UnlinkPendingCvars( pending_cvar_t *pending_cvars );
 
 #endif//CVAR_H
