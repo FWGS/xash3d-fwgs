@@ -5115,6 +5115,8 @@ void SV_SpawnEntities( const char *mapname )
 
 void SV_UnloadProgs( void )
 {
+	pending_cvar_t *pending_cvars_list;
+
 	if( !svgame.hInstance )
 		return;
 
@@ -5123,6 +5125,8 @@ void SV_UnloadProgs( void )
 	/// TODO: reenable this when
 	/// SV_UnloadProgs will be disabled
 	//Mod_ClearUserData ();
+
+	pending_cvars_list = Cvar_PrepareToUnlink( FCVAR_EXTDLL );
 
 	if( svgame.dllFuncs2.pfnGameShutdown != NULL )
 		svgame.dllFuncs2.pfnGameShutdown ();
@@ -5141,7 +5145,7 @@ void SV_UnloadProgs( void )
 
 	// must unlink all game cvars,
 	// before pointers on them will be lost...
-	Cvar_Unlink( FCVAR_EXTDLL );
+	Cvar_UnlinkPendingCvars( pending_cvars_list );
 	Cmd_Unlink( CMD_SERVERDLL );
 
 	SV_FreeStringPool();
