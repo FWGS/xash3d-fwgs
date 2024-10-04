@@ -70,15 +70,14 @@ find the specified variable by name
 */
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
 {
-	// TODO: ignore group for cvar
-#if defined(XASH_HASHED_VARS)
-	return (convar_t *)BaseCmd_Find( HM_CVAR, var_name );
-#else
-	convar_t	*var;
+	convar_t *var;
 
 	if( !var_name )
 		return NULL;
 
+#if defined(XASH_HASHED_VARS) // TODO: ignore_group
+	var = BaseCmd_Find( HM_CVAR, var_name );
+#else
 	for( var = cvar_vars; var; var = var->next )
 	{
 		if( ignore_group && FBitSet( ignore_group, var->flags ))
@@ -87,9 +86,13 @@ convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
 		if( !Q_stricmp( var_name, var->name ))
 			return var;
 	}
-
-	return NULL;
 #endif
+
+	// HACKHACK: HL25 compatibility
+	if( !var && !Q_stricmp( var_name, "gl_widescreen_yfov" ))
+		var = Cvar_FindVarExt( "r_adjust_fov", ignore_group );
+
+	return var;
 }
 
 /*
