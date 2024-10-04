@@ -252,18 +252,18 @@ static int CL_AdjustXPos( float x, int width, int totalWidth )
 
 	if( x == -1 )
 	{
-		xPos = ( refState.width - width ) * 0.5f;
+		xPos = ( clgame.scrInfo.iWidth - width ) * 0.5f;
 	}
 	else
 	{
 		if ( x < 0 )
-			xPos = (1.0f + x) * refState.width - totalWidth;	// Alight right
+			xPos = (1.0f + x) * clgame.scrInfo.iWidth - totalWidth;	// Alight right
 		else // align left
-			xPos = x * refState.width;
+			xPos = x * clgame.scrInfo.iWidth;
 	}
 
-	if( xPos + width > refState.width )
-		xPos = refState.width - width;
+	if( xPos + width > clgame.scrInfo.iWidth)
+		xPos = clgame.scrInfo.iWidth - width;
 	else if( xPos < 0 )
 		xPos = 0;
 
