@@ -283,19 +283,19 @@ static int CL_AdjustYPos( float y, int height )
 
 	if( y == -1 ) // centered?
 	{
-		yPos = ( refState.height - height ) * 0.5f;
+		yPos = (clgame.scrInfo.iHeight - height ) * 0.5f;
 	}
 	else
 	{
 		// Alight bottom?
 		if( y < 0 )
-			yPos = (1.0f + y) * refState.height - height; // Alight bottom
+			yPos = (1.0f + y) * clgame.scrInfo.iHeight - height; // Alight bottom
 		else // align top
-			yPos = y * refState.height;
+			yPos = y * clgame.scrInfo.iHeight;
 	}
 
-	if( yPos + height > refState.height )
-		yPos = refState.height - height;
+	if( yPos + height > clgame.scrInfo.iHeight)
+		yPos = clgame.scrInfo.iHeight - height;
 	else if( yPos < 0 )
 		yPos = 0;
 
