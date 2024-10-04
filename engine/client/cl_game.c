@@ -262,7 +262,7 @@ static int CL_AdjustXPos( float x, int width, int totalWidth )
 			xPos = x * clgame.scrInfo.iWidth;
 	}
 
-	if( xPos + width > clgame.scrInfo.iWidth)
+	if( xPos + width > clgame.scrInfo.iWidth )
 		xPos = clgame.scrInfo.iWidth - width;
 	else if( xPos < 0 )
 		xPos = 0;
@@ -283,7 +283,7 @@ static int CL_AdjustYPos( float y, int height )
 
 	if( y == -1 ) // centered?
 	{
-		yPos = (clgame.scrInfo.iHeight - height ) * 0.5f;
+		yPos = ( clgame.scrInfo.iHeight - height ) * 0.5f;
 	}
 	else
 	{
@@ -294,7 +294,7 @@ static int CL_AdjustYPos( float y, int height )
 			yPos = y * clgame.scrInfo.iHeight;
 	}
 
-	if( yPos + height > clgame.scrInfo.iHeight)
+	if( yPos + height > clgame.scrInfo.iHeight )
 		yPos = clgame.scrInfo.iHeight - height;
 	else if( yPos < 0 )
 		yPos = 0;
