@@ -40,6 +40,8 @@ GNU General Public License for more details.
 #define IDEMOHEADER		(('M'<<24)+('E'<<16)+('D'<<8)+'I') // little-endian "IDEM"
 #define DEMO_PROTOCOL	3
 
+#define PROTOCOL_GOLDSRC_VERSION_DEMO (PROTOCOL_GOLDSRC_VERSION | (BIT( 7 ))) // should be 48, only to differentiate it from PROTOCOL_LEGACY_VERSION
+
 const char *demo_cmd[dem_lastcmd+1] =
 {
 	"dem_unknown",
@@ -120,7 +122,7 @@ static int CL_GetDemoNetProtocol( connprotocol_t proto )
 	case PROTO_QUAKE:
 		return PROTOCOL_VERSION_QUAKE;
 	case PROTO_GOLDSRC:
-		return PROTOCOL_GOLDSRC_VERSION;
+		return PROTOCOL_GOLDSRC_VERSION_DEMO;
 	}
 
 	return PROTOCOL_VERSION;
@@ -136,7 +138,7 @@ static connprotocol_t CL_GetProtocolFromDemo( int net_protocol )
 		return PROTO_LEGACY;
 	case PROTOCOL_VERSION_QUAKE:
 		return PROTO_QUAKE;
-	case PROTOCOL_GOLDSRC_VERSION:
+	case PROTOCOL_GOLDSRC_VERSION_DEMO:
 		return PROTO_GOLDSRC;
 	}
 
