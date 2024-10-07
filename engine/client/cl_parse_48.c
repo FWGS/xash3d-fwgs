@@ -485,7 +485,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_ParseBaseline( msg, true );
 			break;
 		case svc_temp_entity:
-			CL_ParseTempEntity( msg );
+			CL_ParseTempEntity( msg, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.tentities += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_setpause:

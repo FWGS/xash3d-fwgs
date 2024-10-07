@@ -2382,7 +2382,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseBaseline( msg, false );
 			break;
 		case svc_temp_entity:
-			CL_ParseTempEntity( msg );
+			CL_ParseTempEntity( msg, PROTO_CURRENT );
 			cl.frames[cl.parsecountmod].graphdata.tentities += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_setpause:
