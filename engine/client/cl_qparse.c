@@ -626,7 +626,7 @@ CL_ParseStaticEntity
 
 ===================
 */
-static void CL_ParseStaticEntity( sizebuf_t *msg )
+static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 {
 	entity_state_t	state;
 	cl_entity_t	*ent;
@@ -1006,7 +1006,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			CL_ParseQuakeDamage( msg );
 			break;
 		case svc_spawnstatic:
-			CL_ParseStaticEntity( msg );
+			CL_ParseQuakeStaticEntity( msg );
 			break;
 		case svc_spawnbinary:
 			// never used in Quake

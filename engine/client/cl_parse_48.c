@@ -446,19 +446,19 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			break;
 		case svc_serverdata:
 			Cbuf_Execute(); // make sure any stuffed commands are done
-			CL_ParseServerData( msg, true );
+			CL_ParseServerData( msg, PROTO_LEGACY );
 			break;
 		case svc_lightstyle:
-			CL_ParseLightStyle( msg );
+			CL_ParseLightStyle( msg, PROTO_LEGACY );
 			break;
 		case svc_updateuserinfo:
-			CL_UpdateUserinfo( msg, true );
+			CL_UpdateUserinfo( msg, PROTO_LEGACY );
 			break;
 		case svc_deltatable:
 			Delta_ParseTableField( msg );
 			break;
 		case svc_clientdata:
-			CL_ParseClientData( msg );
+			CL_ParseClientData( msg, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.client += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_resource:
@@ -482,7 +482,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnbaseline:
-			CL_ParseBaseline( msg, true );
+			CL_ParseBaseline( msg, PROTO_LEGACY );
 			break;
 		case svc_temp_entity:
 			CL_ParseTempEntity( msg, PROTO_LEGACY );

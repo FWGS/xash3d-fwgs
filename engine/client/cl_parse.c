@@ -304,7 +304,7 @@ CL_ParseStaticEntity
 static client entity
 ==================
 */
-static void CL_ParseStaticEntity( sizebuf_t *msg )
+void CL_ParseStaticEntity( sizebuf_t *msg )
 {
 	int		i, newnum;
 	entity_state_t	from, to;
@@ -531,7 +531,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 	{
 		if( done_downloading && CL_PrecacheResources( ))
 		{
-			CL_RegisterResources( &msg );
+			CL_RegisterResources( &msg, cls.legacymode );
 		}
 
 		Netchan_CreateFragments( &cls.netchan, &msg );
@@ -845,7 +845,7 @@ void CL_ParseFileTransferFailed( sizebuf_t *msg )
 CL_ParseServerData
 ==================
 */
-void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
+void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 {
 	char	gamefolder[MAX_QPATH];
 	string	mapfile;
@@ -855,7 +855,18 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 
 	HPAK_CheckSize( hpk_custom_file.string );
 
-	Con_Reportf( "%s packet received.\n", legacy ? "Legacy serverdata" : "Serverdata" );
+	switch( proto )
+	{
+	case PROTO_LEGACY:
+		Con_Reportf( "Legacy serverdata packet received.\n" );
+		break;
+	case PROTO_GOLDSRC:
+		Con_Reportf( "GoldSrc serverdata packet received.\n" );
+		break;
+	default:
+		Con_Reportf( "Serverdata packet received.\n" );
+		break;
+	}
 
 	cls.timestart = Sys_DoubleTime();
 	cls.demowaiting = false;	// server is changed
@@ -872,7 +883,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 	// parse protocol version number
 	i = MSG_ReadLong( msg );
 
-	if( legacy )
+	if( proto == PROTO_LEGACY || proto == PROTO_GOLDSRC ) // GoldSrc protocol version is 48, same as Xash3D 48
 	{
 		if( i != PROTOCOL_LEGACY_VERSION )
 			Host_Error( "Server use invalid protocol (%i should be %i)\n", i, PROTOCOL_LEGACY_VERSION );
@@ -885,40 +896,64 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 
 	cl.servercount = MSG_ReadLong( msg );
 	cl.checksum = MSG_ReadLong( msg );
-	cl.playernum = MSG_ReadByte( msg );
-	cl.maxclients = MSG_ReadByte( msg );
-	clgame.maxEntities = MSG_ReadWord( msg );
-	if( legacy )
+	if( proto == PROTO_GOLDSRC )
 	{
-		clgame.maxEntities = bound( MIN_LEGACY_EDICTS, clgame.maxEntities, MAX_LEGACY_EDICTS );
+		byte clientdllmd5[16];
+		byte unused;
+
+		MSG_ReadBytes( msg, clientdllmd5, sizeof( clientdllmd5 ));
+		cl.maxclients = MSG_ReadByte( msg );
+		cl.playernum = MSG_ReadByte( msg );
+		unused = MSG_ReadByte( msg ); // coop flag
+		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
+		MSG_ReadString( msg ); // hostname
+		Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
+		MSG_ReadString( msg ); // mapcycle?????
+		unused = MSG_ReadByte( msg ); // vac secure
+
+		background = false;
+		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
+		clgame.maxEntities = bound( MIN_LEGACY_EDICTS, clgame.maxEntities, MAX_GOLDSRC_EDICTS );
 		clgame.maxModels = 512; // ???
+		Q_strncpy( clgame.maptitle, clgame.mapname, sizeof( clgame.maptitle ));
 	}
 	else
 	{
-		clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
-		clgame.maxModels = MSG_ReadWord( msg );
-	}
-	Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
-	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
-	background = MSG_ReadOneBit( msg );
-	Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
-	Host_ValidateEngineFeatures( MSG_ReadDword( msg ));
-
-	if( !legacy )
-	{
-		// receive the player hulls
-		for( i = 0; i < MAX_MAP_HULLS * 3; i++ )
+		cl.playernum = MSG_ReadByte( msg );
+		cl.maxclients = MSG_ReadByte( msg );
+		clgame.maxEntities = MSG_ReadWord( msg );
+		if( proto == PROTO_LEGACY )
 		{
-			host.player_mins[i/3][i%3] = MSG_ReadChar( msg );
-			host.player_maxs[i/3][i%3] = MSG_ReadChar( msg );
+			clgame.maxEntities = bound( MIN_LEGACY_EDICTS, clgame.maxEntities, MAX_LEGACY_EDICTS );
+			clgame.maxModels = 512; // ???
+		}
+		else
+		{
+			clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
+			clgame.maxModels = MSG_ReadWord( msg );
+		}
+		Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
+		Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
+		background = MSG_ReadOneBit( msg );
+		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
+		Host_ValidateEngineFeatures( MSG_ReadDword( msg ));
+
+		if( proto == PROTO_LEGACY )
+		{
+			// receive the player hulls
+			for( i = 0; i < MAX_MAP_HULLS * 3; i++ )
+			{
+				host.player_mins[i/3][i%3] = MSG_ReadChar( msg );
+				host.player_maxs[i/3][i%3] = MSG_ReadChar( msg );
+			}
 		}
 	}
 
 	Q_snprintf( mapfile, sizeof( mapfile ), "maps/%s.bsp", clgame.mapname );
-	if( CRC32_MapFile( &mapCRC, mapfile, cl.maxclients > 1 ))
+	if( CRC32_MapFile( &cl.worldmapCRC, mapfile, cl.maxclients > 1 ))
 	{
 		// validate map checksum
-		if( mapCRC != cl.checksum )
+		if( cl.worldmapCRC != cl.checksum )
 		{
 			Con_Printf( S_ERROR "Your map [%s] differs from the server's.\n", clgame.mapname );
 			CL_Disconnect_f(); // for local game, call EndGame
@@ -999,7 +1034,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 		COM_ClearCustomizationList( &cl.players[i].customdata, true );
 	CL_CreateCustomizationList();
 
-	if( !legacy )
+	if( proto != PROTO_LEGACY )
 	{
 		// request resources from server
 		CL_ServerCommand( true, "sendres %i\n", cl.servercount );
@@ -1017,7 +1052,7 @@ void CL_ParseServerData( sizebuf_t *msg, qboolean legacy )
 CL_ParseClientData
 ===================
 */
-void CL_ParseClientData( sizebuf_t *msg )
+void CL_ParseClientData( sizebuf_t *msg, connprotocol_t proto )
 {
 	float		parsecounttime;
 	int		i, j, command_ack;
@@ -1151,7 +1186,9 @@ void CL_ParseClientData( sizebuf_t *msg )
 		from_wd = nullwd;
 	}
 
-	MSG_ReadClientData( msg, from_cd, to_cd, cl.mtime[0] );
+	if( proto == PROTO_GOLDSRC )
+		Delta_ReadGSFields( msg, DT_CLIENTDATA_T, from_cd, to_cd, cl.mtime[0] );
+	else MSG_ReadClientData( msg, from_cd, to_cd, cl.mtime[0] );
 
 	for( i = 0; i < 64; i++ )
 	{
@@ -1159,9 +1196,11 @@ void CL_ParseClientData( sizebuf_t *msg )
 		if( !MSG_ReadOneBit( msg )) break;
 
 		// read the weapon idx
-		idx = MSG_ReadUBitLong( msg, cls.legacymode ? MAX_LEGACY_WEAPON_BITS : MAX_WEAPON_BITS );
+		idx = MSG_ReadUBitLong( msg, proto == PROTO_LEGACY ? MAX_LEGACY_WEAPON_BITS : MAX_WEAPON_BITS );
 
-		MSG_ReadWeaponData( msg, &from_wd[idx], &to_wd[idx], cl.mtime[0] );
+		if( proto == PROTO_GOLDSRC )
+			Delta_ReadGSFields( msg, DT_WEAPONDATA_T, &from_wd[idx], &to_wd[idx], cl.mtime[0] );
+		else MSG_ReadWeaponData( msg, &from_wd[idx], &to_wd[idx], cl.mtime[0] );
 	}
 
 	// make a local copy of physinfo
@@ -1178,11 +1217,14 @@ void CL_ParseClientData( sizebuf_t *msg )
 CL_ParseBaseline
 ==================
 */
-void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
+void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 {
 	const entity_state_t nullstate = { 0 };
 
 	Delta_InitClient ();	// finalize client delta's
+
+	if( proto == PROTO_GOLDSRC )
+		MSG_StartBitWriting( msg );
 
 	while( 1 )
 	{
@@ -1190,15 +1232,25 @@ void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 		qboolean player;
 		int newnum;
 
-		if( legacy )
+		if( proto == PROTO_LEGACY )
 		{
 			newnum = MSG_ReadWord( msg );
+		}
+		else if( proto == PROTO_GOLDSRC )
+		{
+			uint value = MSG_ReadWord( msg );
+
+			if( value == 0xffff ) break; // end of baselines
+
+			MSG_SeekToBit( msg, -16, SEEK_CUR );
+			newnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
 		}
 		else
 		{
 			newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
 			if( newnum == LAST_EDICT ) break; // end of baselines
 		}
+
 		player = CL_IsPlayerIndex( newnum );
 
 		if( newnum >= clgame.maxEntities )
@@ -1208,15 +1260,25 @@ void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 		ent->prevstate = nullstate;
 		ent->index = newnum;
 
-		MSG_ReadDeltaEntity( msg, &nullstate, &ent->baseline, newnum, player, 1.0f );
-
-		if( legacy )
+		if( proto == PROTO_GOLDSRC )
 		{
-			break; // only one baseline allowed in legacy protocol
+			int type = MSG_ReadUBitLong( msg, 2 );
+			int bits = MSG_GetNumBitsWritten( msg );
+			int delta_type;
+
+			if( player ) delta_type = DT_ENTITY_STATE_PLAYER_T;
+			else if( type != ENTITY_NORMAL ) delta_type = DT_CUSTOM_ENTITY_STATE_T;
+			else delta_type = DT_ENTITY_STATE_T;
+
+			Delta_ReadGSFields( msg, delta_type, &ent->prevstate, &ent->baseline, 1.0f );
 		}
+		else MSG_ReadDeltaEntity( msg, &nullstate, &ent->baseline, newnum, player, 1.0f );
+
+		if( proto == PROTO_LEGACY )
+			break; // only one baseline allowed in legacy protocol
 	}
 
-	if( !legacy )
+	if( proto != PROTO_LEGACY )
 	{
 		int i;
 
@@ -1224,10 +1286,18 @@ void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 
 		for( i = 0; i < cl.instanced_baseline_count; i++ )
 		{
-			int newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-			MSG_ReadDeltaEntity( msg, &nullstate, &cl.instanced_baseline[i], newnum, false, 1.0f );
+			if( proto == PROTO_GOLDSRC )
+				Delta_ReadGSFields( msg, DT_ENTITY_STATE_T, &nullstate, &cl.instanced_baseline[i], 1.0f );
+			else
+			{
+				int newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+				MSG_ReadDeltaEntity( msg, &nullstate, &cl.instanced_baseline[i], newnum, false, 1.0f );
+			}
 		}
 	}
+
+	if( proto == PROTO_GOLDSRC )
+		MSG_EndBitWriting( msg );
 }
 
 /*
@@ -1235,15 +1305,16 @@ void CL_ParseBaseline( sizebuf_t *msg, qboolean legacy )
 CL_ParseLightStyle
 ================
 */
-void CL_ParseLightStyle( sizebuf_t *msg )
+void CL_ParseLightStyle( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		style;
 	const char	*s;
-	float		f;
+	float		f = 0.0f;
 
 	style = MSG_ReadByte( msg );
 	s = MSG_ReadString( msg );
-	f = MSG_ReadFloat( msg );
+	if( proto != PROTO_GOLDSRC )
+		f = MSG_ReadFloat( msg );
 
 	CL_SetLightstyle( style, s, f );
 }
@@ -1372,25 +1443,35 @@ CL_UpdateUserinfo
 collect userinfo from all players
 ================
 */
-void CL_UpdateUserinfo( sizebuf_t *msg, qboolean legacy )
+void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		slot, id;
 	qboolean		active;
 	player_info_t	*player;
 
-	slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
+	if( proto == PROTO_GOLDSRC )
+	{
+		slot = MSG_ReadByte( msg );
+		id = MSG_ReadLong( msg );
+		active = true;
+	}
+	else if( proto == PROTO_LEGACY )
+	{
+		slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
+		id = 0; // bogus
+		active = MSG_ReadOneBit( msg ) ? true : false;
+	}
+	else
+	{
+		slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
+		id = MSG_ReadLong( msg );	// unique user ID
+		active = MSG_ReadOneBit( msg ) ? true : false;
+	}
 
 	if( slot >= MAX_CLIENTS )
 		Host_Error( "%s: svc_updateuserinfo >= MAX_CLIENTS\n", __func__ );
 
 	player = &cl.players[slot];
-
-	if( !legacy )
-		id = MSG_ReadLong( msg );	// unique user ID
-	else
-		id = 0; // bogus
-
-	active = MSG_ReadOneBit( msg ) ? true : false;
 
 	if( active )
 	{
@@ -1400,7 +1481,7 @@ void CL_UpdateUserinfo( sizebuf_t *msg, qboolean legacy )
 		player->topcolor = Q_atoi( Info_ValueForKey( player->userinfo, "topcolor" ));
 		player->bottomcolor = Q_atoi( Info_ValueForKey( player->userinfo, "bottomcolor" ));
 		player->spectator = Q_atoi( Info_ValueForKey( player->userinfo, "*hltv" ));
-		if( !legacy )
+		if( proto != PROTO_LEGACY )
 			MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ));
 
 		if( slot == cl.playernum ) gameui.playerinfo = *player;
@@ -1610,7 +1691,7 @@ CL_RegisterResources
 Clean up and move to next part of sequence.
 ==================
 */
-void CL_RegisterResources( sizebuf_t *msg )
+void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 {
 	model_t	*mod;
 	int	i;
@@ -1672,7 +1753,13 @@ void CL_RegisterResources( sizebuf_t *msg )
 			// done with all resources, issue prespawn command.
 			// Include server count in case server disconnects and changes level during d/l
 			MSG_BeginClientCmd( msg, clc_stringcmd );
-			MSG_WriteStringf( msg, "spawn %i", cl.servercount );
+			if( proto == PROTO_GOLDSRC )
+			{
+				int32_t crc = cl.worldmapCRC;
+				COM_Munge2((byte*)&crc, sizeof( crc ), ( 0xff - cl.servercount ) & 0xff );
+				MSG_WriteStringf( msg, "spawn %i %i", cl.servercount, crc );
+			}
+			else MSG_WriteStringf( msg, "spawn %i", cl.servercount );
 		}
 	}
 	else
@@ -1682,7 +1769,7 @@ void CL_RegisterResources( sizebuf_t *msg )
 	}
 }
 
-static void CL_ParseConsistencyInfo( sizebuf_t *msg )
+static void CL_ParseConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		lastcheck;
 	int		delta;
@@ -1710,7 +1797,7 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg )
 		isdelta = MSG_ReadOneBit( msg );
 
 		if( isdelta ) delta = MSG_ReadUBitLong( msg, 5 ) + lastcheck;
-		else delta = MSG_ReadUBitLong( msg, MAX_MODEL_BITS );
+		else delta = MSG_ReadUBitLong( msg, proto == PROTO_GOLDSRC ? MAX_GOLDSRC_MODEL_BITS : MAX_MODEL_BITS );
 
 		skip = delta - lastcheck;
 
@@ -1747,12 +1834,12 @@ CL_ParseResourceList
 
 ==============
 */
-static void CL_ParseResourceList( sizebuf_t *msg )
+void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 {
 	resource_t	*pResource;
 	int		i, total;
 
-	total = MSG_ReadUBitLong( msg, MAX_RESOURCE_BITS );
+	total = MSG_ReadUBitLong( msg, proto == PROTO_GOLDSRC ? MAX_GOLDSRC_RESOURCE_BITS : MAX_RESOURCE_BITS );
 
 	for( i = 0; i < total; i++ )
 	{
@@ -1761,7 +1848,7 @@ static void CL_ParseResourceList( sizebuf_t *msg )
 
 		Q_strncpy( pResource->szFileName, MSG_ReadString( msg ), sizeof( pResource->szFileName ));
 		pResource->nIndex = MSG_ReadUBitLong( msg, MAX_MODEL_BITS );
-		pResource->nDownloadSize = MSG_ReadSBitLong( msg, 24 );
+		pResource->nDownloadSize = MSG_ReadBitLong( msg, 24, proto != PROTO_GOLDSRC );
 		pResource->ucFlags = MSG_ReadUBitLong( msg, 3 ) & ~RES_WASMISSING;
 
 		if( FBitSet( pResource->ucFlags, RES_CUSTOM ))
@@ -1773,7 +1860,7 @@ static void CL_ParseResourceList( sizebuf_t *msg )
 		CL_AddToResourceList( pResource, &cl.resourcesneeded );
 	}
 
-	CL_ParseConsistencyInfo( msg );
+	CL_ParseConsistencyInfo( msg, proto );
 
 	CL_StartResourceDownloading( "Verifying and downloading resources...\n", false );
 }
@@ -1784,7 +1871,7 @@ CL_ParseVoiceInit
 
 ==================
 */
-static void CL_ParseVoiceInit( sizebuf_t *msg )
+void CL_ParseVoiceInit( sizebuf_t *msg )
 {
 	char *pszCodec = MSG_ReadString( msg );
 	int quality = MSG_ReadByte( msg );
@@ -1798,7 +1885,7 @@ CL_ParseVoiceData
 
 ==================
 */
-static void CL_ParseVoiceData( sizebuf_t *msg )
+void CL_ParseVoiceData( sizebuf_t *msg )
 {
 	int size, idx, frames;
 	byte received[8192];
@@ -2045,7 +2132,7 @@ CL_ParseExec
 Exec map/class specific configs
 ==============
 */
-static void CL_ParseExec( sizebuf_t *msg )
+void CL_ParseExec( sizebuf_t *msg )
 {
 	qboolean is_class;
 	int class_idx;
@@ -2343,19 +2430,19 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			break;
 		case svc_serverdata:
 			Cbuf_Execute(); // make sure any stuffed commands are done
-			CL_ParseServerData( msg, false );
+			CL_ParseServerData( msg, PROTO_CURRENT );
 			break;
 		case svc_lightstyle:
-			CL_ParseLightStyle( msg );
+			CL_ParseLightStyle( msg, PROTO_CURRENT );
 			break;
 		case svc_updateuserinfo:
-			CL_UpdateUserinfo( msg, false );
+			CL_UpdateUserinfo( msg, PROTO_CURRENT );
 			break;
 		case svc_deltatable:
 			Delta_ParseTableField( msg );
 			break;
 		case svc_clientdata:
-			CL_ParseClientData( msg );
+			CL_ParseClientData( msg, PROTO_CURRENT );
 			cl.frames[cl.parsecountmod].graphdata.client += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_resource:
@@ -2379,7 +2466,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnbaseline:
-			CL_ParseBaseline( msg, false );
+			CL_ParseBaseline( msg, PROTO_CURRENT );
 			break;
 		case svc_temp_entity:
 			CL_ParseTempEntity( msg, PROTO_CURRENT );
@@ -2446,7 +2533,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].receivedtime = -2.0;
 			break;
 		case svc_resourcelist:
-			CL_ParseResourceList( msg );
+			CL_ParseResourceList( msg, PROTO_CURRENT );
 			break;
 		case svc_deltamovevars:
 			CL_ParseMovevars( msg );
