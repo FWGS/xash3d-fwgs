@@ -41,6 +41,7 @@ void Test_RunIPFilter( void );
 void Test_RunGamma( void );
 void Test_RunDelta( void );
 void Test_RunBuffer( void );
+void Test_RunMunge( void );
 
 #define TEST_LIST_0 \
 	Test_RunLibCommon(); \
@@ -49,7 +50,8 @@ void Test_RunBuffer( void );
 	Test_RunCvar(); \
 	Test_RunIPFilter(); \
 	Test_RunBuffer(); \
-	Test_RunDelta();
+	Test_RunDelta(); \
+	Test_RunMunge();
 
 #define TEST_LIST_0_CLIENT \
 	Test_RunCon(); \
