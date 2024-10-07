@@ -171,6 +171,11 @@ int CL_IsDevOverviewMode( void )
 	return 0;
 }
 
+connprotocol_t CL_Protocol( void )
+{
+	return cls.legacymode;
+}
+
 /*
 ===============
 CL_CheckClientState
