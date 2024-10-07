@@ -708,7 +708,7 @@ static void CL_DemoStartPlayback( int mode )
 
 	demo.starttime = CL_GetDemoPlaybackClock(); // for determining whether to read another message
 
-	Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize );
+	Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize, 0 );
 
 	memset( demo.cmds, 0, sizeof( demo.cmds ));
 	demo.angle_position = 1;
