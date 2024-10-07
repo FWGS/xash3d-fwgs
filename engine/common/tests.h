@@ -49,7 +49,8 @@ void Test_RunBuffer( void );
 	Test_RunCvar(); \
 	Test_RunIPFilter(); \
 	Test_RunBuffer(); \
-	Test_RunDelta();
+	Test_RunDelta(); \
+	Test_RunMunge();
 
 #define TEST_LIST_0_CLIENT \
 	Test_RunCon(); \

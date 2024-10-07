@@ -818,6 +818,16 @@ void NET_MasterShutdown( void );
 qboolean NET_GetMaster( netadr_t from, uint *challenge, double *last_heartbeat );
 
 //
+// munge.c
+//
+void COM_Munge( byte *data, size_t len, int seq );
+void COM_UnMunge( byte *data, size_t len, int seq );
+void COM_Munge2( byte *data, size_t len, int seq );
+void COM_UnMunge2( byte *data, size_t len, int seq );
+void COM_Munge3( byte *data, size_t len, int seq );
+void COM_UnMunge3( byte *data, size_t len, int seq );
+
+//
 // sounds.c
 //
 typedef enum soundlst_group_e
