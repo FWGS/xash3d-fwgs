@@ -2705,7 +2705,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 			MSG_Init( &msg, "Resource Registration", msg_buf, sizeof( msg_buf ));
 
 			if( CL_PrecacheResources( ))
-				CL_RegisterResources( &msg );
+				CL_RegisterResources( &msg, cls.legacymode );
 
 			if( MSG_GetNumBytesWritten( &msg ) > 0 )
 			{
