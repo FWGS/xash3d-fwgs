@@ -658,8 +658,3 @@ void CL_LegacyPrecache_f( void )
 	MSG_WriteStringf( &cls.netchan.message, "begin %i", spawncount );
 	cls.signon = SIGNONS - 1;
 }
-
-qboolean CL_LegacyMode( void )
-{
-	return cls.legacymode == PROTO_LEGACY;
-}

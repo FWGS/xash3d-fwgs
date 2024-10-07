@@ -670,6 +670,15 @@ void HPAK_FlushHostQueue( void );
 #define INPUT_DEVICE_JOYSTICK (1<<2)
 #define INPUT_DEVICE_VR (1<<3)
 
+
+typedef enum connprotocol_e
+{
+	PROTO_CURRENT = 0, // Xash3D 49
+	PROTO_LEGACY, // Xash3D 48
+	PROTO_QUAKE, // Quake 15
+	PROTO_GOLDSRC, // GoldSrc 48
+} connprotocol_t;
+
 // shared calls
 struct physent_s;
 struct sv_client_s;
@@ -767,6 +776,15 @@ void COM_FreeFile( void *buffer );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 char *va( const char *format, ... ) _format( 1 );
 qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
+
+#if !XASH_DEDICATED
+connprotocol_t CL_Protocol( void );
+#else
+static inline connprotocol_t CL_Protocol( void )
+{
+	return PROTO_CURRENT;
+}
+#endif
 
 static inline qboolean Host_IsLocalGame( void )
 {
