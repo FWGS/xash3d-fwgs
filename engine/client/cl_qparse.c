@@ -431,7 +431,7 @@ static void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 		cls.signon = SIGNONS;
 
 		// Clear loading plaque.
-		CL_SignonReply ();
+		CL_SignonReply( PROTO_QUAKE );
 	}
 
 	// alloc next slot to store update

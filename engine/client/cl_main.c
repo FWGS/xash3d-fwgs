@@ -223,7 +223,7 @@ CL_SignonReply
 An svc_signonnum has been received, perform a client side setup
 =====================
 */
-void CL_SignonReply( void )
+void CL_SignonReply( connprotocol_t proto )
 {
 	// g-cont. my favorite message :-)
 	Con_Reportf( "%s: %i\n", __func__, cls.signon );
@@ -231,7 +231,7 @@ void CL_SignonReply( void )
 	switch( cls.signon )
 	{
 	case 1:
-		CL_ServerCommand( true, "begin" );
+		CL_ServerCommand( true, proto == PROTO_GOLDSRC ? "sendents" : "begin" );
 		if( host_developer.value >= DEV_EXTENDED )
 			Mem_PrintStats();
 		break;
@@ -699,7 +699,13 @@ void CL_WriteUsercmd( sizebuf_t *msg, int from, int to )
 	t = &cl.commands[to].cmd;
 
 	// write it into the buffer
-	MSG_WriteDeltaUsercmd( msg, f, t );
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		MSG_StartBitWriting( msg );
+		Delta_WriteGSFields( msg, DT_USERCMD_T, f, t, 0.0f );
+		MSG_EndBitWriting( msg );
+	}
+	else MSG_WriteDeltaUsercmd( msg, f, t );
 }
 
 /*
@@ -798,6 +804,9 @@ static void CL_WritePacket( void )
 		// begin a client move command
 		MSG_BeginClientCmd( &buf, clc_move );
 
+		if( cls.legacymode == PROTO_GOLDSRC )
+			MSG_WriteByte( &buf, 0 );
+
 		// save the position for a checksum byte
 		key = MSG_GetRealBytesWritten( &buf );
 		MSG_WriteByte( &buf, 0 );
@@ -835,7 +844,15 @@ static void CL_WritePacket( void )
 
 		// calculate a checksum over the move commands
 		size = MSG_GetRealBytesWritten( &buf ) - key - 1;
+		if( cls.legacymode == PROTO_GOLDSRC )
+		{
+			size = Q_min( size, 255 );
+			buf.pData[key - 1] = size;
+		}
 		buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
+
+		if( cls.legacymode == PROTO_GOLDSRC )
+			COM_Munge( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
 
 		// message we are constructing.
 		i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
@@ -1054,7 +1071,31 @@ static void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 	}
 
-	if( cls.legacymode )
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		byte send_buf[MAX_PRINT_MSG];
+		byte steam_cert[512];
+		sizebuf_t send;
+
+		protinfo[0] = 0;
+
+		memset( steam_cert, 0, sizeof( steam_cert ));
+
+		Info_SetValueForKey( protinfo, "prot", "3", sizeof( protinfo )); // steam auth type
+		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
+		Info_SetValueForKey( protinfo, "cdkey", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sizeof( protinfo ));
+
+		Info_SetValueForStarKey( cls.userinfo, "*hltv", "0", sizeof( cls.userinfo ));
+
+		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
+		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
+		MSG_WriteStringf( &send, "connect %i %i \"%s\" \"%s\"\n",
+			PROTOCOL_GOLDSRC_VERSION, cls.challenge, protinfo, cls.userinfo );
+		MSG_WriteBytes( &send, steam_cert, sizeof( steam_cert ));
+
+		NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
+	}
+	else if( cls.legacymode == PROTO_LEGACY )
 	{
 		// set related userinfo keys
 		if( cl_dlmax.value >= 40000 || cl_dlmax.value < 100 )
@@ -1280,15 +1321,16 @@ static void CL_Connect_f( void )
 	{
 		const char *s = Cmd_Argv( 2 );
 
-		if( !Q_strcmp( s, "current" ) || !Q_strcmp( s, "49" ))
+		if( !Q_stricmp( s, "current" ) || !Q_strcmp( s, "49" ))
 			proto = PROTO_CURRENT;
-		else if( !Q_strcmp( s, "legacy" ) || !Q_strcmp( s, "48" ))
+		else if( !Q_stricmp( s, "legacy" ) || !Q_strcmp( s, "48" ))
 			proto = PROTO_LEGACY;
+		else if( !Q_stricmp( s, "goldsrc" ) || !Q_strcmp( s, "gs" ))
+			proto = PROTO_GOLDSRC;
 		else
 		{
 			// quake protocol only used for demos
-			// goldsrc protocol is not supported yet
-			Con_Printf( "Unknown protocol. Supported are: current, legacy\n" );
+			Con_Printf( "Unknown protocol. Supported are: 49 (current), 48 (legacy), gs (goldsrc)\n" );
 			return;
 		}
 	}
@@ -2055,7 +2097,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
 
 	// server connection
-	if( !Q_strcmp( c, "client_connect" ))
+	if( !Q_strcmp( c, "client_connect" ) || !Q_strcmp( c, S2C_CONNECTION ))
 	{
 		if( !CL_IsFromConnectingServer( from ))
 			return;
@@ -2177,7 +2219,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// ping from somewhere
 		Netchan_OutOfBandPrint( NS_CLIENT, from, "ack" );
 	}
-	else if( !Q_strcmp( c, "challenge" ))
+	else if( !Q_strcmp( c, "challenge" ) || !Q_strcmp( c, S2C_CHALLENGE ))
 	{
 		// this message only used during connection
 		// it doesn't make sense after client_connect
@@ -2214,7 +2256,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// dropped the connection but it is still getting packets from us
 		CL_Disconnect_f();
 	}
-	else if( !Q_strcmp( c, "errormsg" ))
+	else if( !Q_strcmp( c, "errormsg" ) || c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
 	{
 		char formatted_msg[MAX_VA_STRING];
 
@@ -2222,6 +2264,8 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			return;
 
 		args = MSG_ReadString( msg );
+		if( c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
+			args++; // skip one byte
 
 		Q_snprintf( formatted_msg, sizeof( formatted_msg ), "^3Server message^7\n%s", args );
 
@@ -2386,6 +2430,8 @@ static void CL_ReadNetMessage( void )
 		parsefn = CL_ParseQuakeMessage;
 		break;
 	case PROTO_GOLDSRC:
+		parsefn = CL_ParseGoldSrcServerMessage;
+		break;
 	default:
 		ASSERT( 0 );
 		return;
