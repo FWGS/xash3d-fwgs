@@ -359,7 +359,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			Host_AbortCurrentFrame ();
 			break;
 		case svc_legacy_event:
-			CL_ParseEvent( msg );
+			CL_ParseEvent( msg, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_legacy_changing:
@@ -478,7 +478,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_LegacyParseStaticEntity( msg );
 			break;
 		case svc_event_reliable:
-			CL_ParseReliableEvent( msg );
+			CL_ParseReliableEvent( msg, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnbaseline:

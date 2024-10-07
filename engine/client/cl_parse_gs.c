@@ -585,7 +585,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_event:
 			MSG_StartBitWriting( msg );
-			CL_ParseEvent( msg );
+			CL_ParseEvent( msg, PROTO_GOLDSRC );
 			MSG_EndBitWriting( msg );
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
@@ -647,7 +647,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_event_reliable:
 			MSG_StartBitWriting( msg );
-			CL_ParseReliableEvent( msg );
+			CL_ParseReliableEvent( msg, PROTO_GOLDSRC );
 			MSG_EndBitWriting( msg );
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;

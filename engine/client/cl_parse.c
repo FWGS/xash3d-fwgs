@@ -2355,7 +2355,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			Host_AbortCurrentFrame ();
 			break;
 		case svc_event:
-			CL_ParseEvent( msg );
+			CL_ParseEvent( msg, PROTO_CURRENT );
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_changing:
@@ -2462,7 +2462,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseStaticEntity( msg );
 			break;
 		case svc_event_reliable:
-			CL_ParseReliableEvent( msg );
+			CL_ParseReliableEvent( msg, PROTO_CURRENT );
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnbaseline:
