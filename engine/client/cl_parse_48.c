@@ -492,7 +492,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			cl.paused = ( MSG_ReadOneBit( msg ) != 0 );
 			break;
 		case svc_signonnum:
-			CL_ParseSignon( msg );
+			CL_ParseSignon( msg, PROTO_LEGACY );
 			break;
 		case svc_centerprint:
 			CL_CenterPrint( MSG_ReadString( msg ), 0.25f );
@@ -538,12 +538,12 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_RegisterUserMessage( msg );
 			break;
 		case svc_packetentities:
-			playerbytes = CL_ParsePacketEntities( msg, false );
+			playerbytes = CL_ParsePacketEntities( msg, false, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.players += playerbytes;
 			cl.frames[cl.parsecountmod].graphdata.entities += MSG_GetNumBytesRead( msg ) - bufStart - playerbytes;
 			break;
 		case svc_deltapacketentities:
-			playerbytes = CL_ParsePacketEntities( msg, true );
+			playerbytes = CL_ParsePacketEntities( msg, true, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.players += playerbytes;
 			cl.frames[cl.parsecountmod].graphdata.entities += MSG_GetNumBytesRead( msg ) - bufStart - playerbytes;
 			break;
