@@ -309,14 +309,6 @@ typedef enum
 	CL_CHANGELEVEL,	// draw 'loading' during changelevel
 } scrstate_t;
 
-typedef enum
-{
-	PROTO_CURRENT = 0, // Xash3D 49
-	PROTO_LEGACY  = 1, // Xash3D 48
-	PROTO_QUAKE   = 2, // Quake 15
-	PROTO_GOLDSRC = 3, // GoldSrc 48
-} connprotocol_t;
-
 typedef struct
 {
 	char		name[32];

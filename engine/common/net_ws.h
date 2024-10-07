@@ -78,7 +78,6 @@ void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 );
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
 
 #if !XASH_DEDICATED
-qboolean CL_LegacyMode( void );
 int CL_GetSplitSize( void );
 #endif
 
