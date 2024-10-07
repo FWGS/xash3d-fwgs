@@ -754,7 +754,7 @@ qboolean CL_PrecacheResources( void );
 void CL_SetupOverviewParams( void );
 void CL_UpdateFrameLerp( void );
 int CL_IsDevOverviewMode( void );
-void CL_SignonReply( void );
+void CL_SignonReply( connprotocol_t proto );
 void CL_ClearState( void );
 
 //
@@ -871,7 +871,7 @@ void CL_UpdateUserPings( sizebuf_t *msg );
 void CL_ParseParticles( sizebuf_t *msg );
 void CL_ParseRestoreSoundPacket( sizebuf_t *msg );
 void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto );
-void CL_ParseSignon( sizebuf_t *msg );
+void CL_ParseSignon( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseRestore( sizebuf_t *msg );
 void CL_ParseStaticEntity( sizebuf_t *msg );
 void CL_ParseStaticDecal( sizebuf_t *msg );
@@ -913,7 +913,7 @@ void CL_LegacyPrecache_f( void );
 //
 // cl_parse_gs.c
 //
-void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message );
+void CL_ParseGoldSrcServerMessage( sizebuf_t *msg );
 
 //
 // cl_scrn.c
@@ -981,7 +981,7 @@ struct channel_s;
 struct rawchan_s;
 qboolean CL_ValidateDeltaPacket( uint oldpacket, frame_t *oldframe );
 int CL_UpdateOldEntNum( int oldindex, frame_t *oldframe, entity_state_t **oldent );
-int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta );
+int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto );
 qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType );
 void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );
 qboolean CL_GetEntitySpatialization( struct channel_s *ch );
