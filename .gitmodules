@@ -19,3 +19,6 @@
 [submodule "3rdparty/xash-extras"]
 	path = 3rdparty/extras/xash-extras
 	url = https://github.com/FWGS/xash-extras
+[submodule "3rdparty/bzip2/bzip2"]
+	path = 3rdparty/bzip2/bzip2
+	url = https://gitlab.com/bzip2/bzip2
