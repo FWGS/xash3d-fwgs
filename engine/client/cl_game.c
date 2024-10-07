@@ -1019,7 +1019,8 @@ void CL_DrawHUD( int state )
 		CL_DrawCrosshair ();
 		CL_DrawCenterPrint ();
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
-		CL_DrawLoadingOrPaused( cls.pauseIcon );
+		if( showpause.value )
+			CL_DrawLoadingOrPaused( cls.pauseIcon );
 		break;
 	case CL_LOADING:
 		CL_DrawLoadingOrPaused( cls.loadingBar );
