@@ -140,11 +140,7 @@ returns true if thirdperson is enabled
 */
 qboolean CL_IsThirdPerson( void )
 {
-	cl.local.thirdperson = clgame.dllFuncs.CL_IsThirdPerson();
-
-	if( cl.local.thirdperson )
-		return true;
-	return false;
+	return clgame.dllFuncs.CL_IsThirdPerson() ? true : false;
 }
 
 /*
