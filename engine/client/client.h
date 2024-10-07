@@ -911,6 +911,11 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg );
 void CL_LegacyPrecache_f( void );
 
 //
+// cl_parse_gs.c
+//
+void CL_ParseGoldSrcServerMessage( sizebuf_t *msg, qboolean normal_message );
+
+//
 // cl_scrn.c
 //
 void SCR_VidInit( void );
@@ -974,6 +979,8 @@ void CL_ParseQuakeMessage( sizebuf_t *msg );
 //
 struct channel_s;
 struct rawchan_s;
+qboolean CL_ValidateDeltaPacket( uint oldpacket, frame_t *oldframe );
+int CL_UpdateOldEntNum( int oldindex, frame_t *oldframe, entity_state_t **oldent );
 int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta );
 qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType );
 void CL_ResetLatchedVars( cl_entity_t *ent, qboolean full_reset );
