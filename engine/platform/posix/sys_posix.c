@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 #include "platform/platform.h"
 #include "menu_int.h"
 
@@ -143,6 +144,21 @@ void Posix_Daemonize( void )
 #endif
 	}
 
+}
+
+static void Posix_SigtermCallback( int signal )
+{
+	Sys_Quit();
+}
+
+void Posix_SetupSigtermHandling( void )
+{
+#if !XASH_PSVITA 
+	struct sigaction act = { 0 };
+	act.sa_handler = Posix_SigtermCallback;
+	act.sa_flags = 0;
+	sigaction( SIGTERM, &act, NULL );
+#endif
 }
 
 #if XASH_TIMER == TIMER_POSIX

@@ -1072,6 +1072,9 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Host_RunTests( 0 );
 #endif
 
+#if XASH_DEDICATED
+	Platform_SetupSigtermHandling();
+#endif
 	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED );
 	FS_Init( basedir );
 

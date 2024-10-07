@@ -51,6 +51,7 @@ void IOS_LaunchDialog( void );
 
 #if XASH_POSIX
 void Posix_Daemonize( void );
+void Posix_SetupSigtermHandling( void );
 #endif
 
 #if XASH_SDL
@@ -153,6 +154,13 @@ static inline qboolean Sys_DebuggerPresent( void )
 	return Platform_DebuggerPresent();
 #else
 	return false;
+#endif
+}
+
+static inline void Platform_SetupSigtermHandling( void )
+{
+#if XASH_POSIX
+	Posix_SetupSigtermHandling( );
 #endif
 }
 
