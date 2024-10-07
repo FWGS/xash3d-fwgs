@@ -30,6 +30,7 @@ GNU General Public License for more details.
 #define CL_CONNECTION_RETRIES		10
 #define CL_TEST_RETRIES		5
 
+CVAR_DEFINE_AUTO( showpause, "1", 0, "show pause logo when paused" );
 CVAR_DEFINE_AUTO( mp_decals, "300", FCVAR_ARCHIVE, "decals limit in multiplayer" );
 static CVAR_DEFINE_AUTO( dev_overview, "0", 0, "draw level in overview-mode" );
 static CVAR_DEFINE_AUTO( cl_resend, "6.0", 0, "time to resend connect" );
@@ -3046,6 +3047,7 @@ static void CL_InitLocal( void )
 	cl.resourcesneeded.pNext = cl.resourcesneeded.pPrev = &cl.resourcesneeded;
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;
 
+	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );
 	Cvar_RegisterVariable( &dev_overview );
 	Cvar_RegisterVariable( &cl_resend );
