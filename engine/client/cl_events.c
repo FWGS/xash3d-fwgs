@@ -380,7 +380,7 @@ CL_ParseReliableEvent
 
 =============
 */
-void CL_ParseReliableEvent( sizebuf_t *msg )
+void CL_ParseReliableEvent( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		event_index;
 	event_args_t	nullargs, args;
@@ -390,11 +390,19 @@ void CL_ParseReliableEvent( sizebuf_t *msg )
 
 	event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
-	if( MSG_ReadOneBit( msg ))
-		delay = (float)MSG_ReadWord( msg ) * (1.0f / 100.0f);
-
 	// reliable events not use delta-compression just null-compression
-	MSG_ReadDeltaEvent( msg, &nullargs, &args );
+	if( proto == PROTO_GOLDSRC )
+	{
+		Delta_ReadGSFields( msg, DT_EVENT_T, &nullargs, &args, 0.0f );
+		if( MSG_ReadOneBit( msg ))
+			delay = (float)MSG_ReadWord( msg ) * (1.0f / 100.0f);
+	}
+	else
+	{
+		if( MSG_ReadOneBit( msg ))
+			delay = (float)MSG_ReadWord( msg ) * (1.0f / 100.0f);
+		MSG_ReadDeltaEvent( msg, &nullargs, &args );
+	}
 
 	if( args.entindex > 0 && args.entindex <= cl.maxclients )
 		args.angles[PITCH] *= -3.0f;
@@ -409,7 +417,7 @@ CL_ParseEvent
 
 =============
 */
-void CL_ParseEvent( sizebuf_t *msg )
+void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		event_index;
 	int		i, num_events;
@@ -417,11 +425,18 @@ void CL_ParseEvent( sizebuf_t *msg )
 	event_args_t	nullargs, args;
 	entity_state_t	*state;
 	float		delay;
+	int		entity_bits;
 
 	memset( &nullargs, 0, sizeof( nullargs ));
 	memset( &args, 0, sizeof( args ));
 
 	num_events = MSG_ReadUBitLong( msg, 5 );
+
+	if( proto == PROTO_GOLDSRC )
+		entity_bits = MAX_GOLDSRC_ENTITY_BITS;
+	else if( proto == PROTO_LEGACY )
+		entity_bits = MAX_LEGACY_ENTITY_BITS;
+	else entity_bits = MAX_ENTITY_BITS;
 
 	// parse events queue
 	for( i = 0 ; i < num_events; i++ )
@@ -429,12 +444,14 @@ void CL_ParseEvent( sizebuf_t *msg )
 		event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
 		if( MSG_ReadOneBit( msg ))
-			packet_index = MSG_ReadUBitLong( msg, cls.legacymode ? MAX_LEGACY_ENTITY_BITS : MAX_ENTITY_BITS );
+			packet_index = MSG_ReadUBitLong( msg, entity_bits );
 		else packet_index = -1;
 
 		if( MSG_ReadOneBit( msg ))
 		{
-			MSG_ReadDeltaEvent( msg, &nullargs, &args );
+			if( proto == PROTO_GOLDSRC )
+				Delta_ReadGSFields( msg, DT_EVENT_T, &nullargs, &args, 0.0f );
+			else MSG_ReadDeltaEvent( msg, &nullargs, &args );
 		}
 
 		if( MSG_ReadOneBit( msg ))
