@@ -320,8 +320,7 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
 
 // GoldSrc protocol definitions
-#define PROTOCOL_GOLDSRC_VERSION_REAL 48
-#define PROTOCOL_GOLDSRC_VERSION (PROTOCOL_GOLDSRC_VERSION_REAL | (BIT( 7 ))) // should be 48, only to differentiate it from PROTOCOL_LEGACY_VERSION
+#define PROTOCOL_GOLDSRC_VERSION 48
 
 #define svc_goldsrc_version           svc_changing
 #define svc_goldsrc_serverinfo        svc_serverdata
