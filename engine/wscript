@@ -222,7 +222,7 @@ def build(bld):
 			'client/*.c',
 			'client/vgui/*.c',
 			'client/avi/*.c'])
-		libs += ['opus']
+		libs += ['opus', 'bzip2']
 
 	includes = ['server', 'client', 'client/vgui' ]
 

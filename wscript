@@ -79,6 +79,7 @@ SUBDIRS = [
 	Subproject('ref/gl',                lambda x: not x.env.DEDICATED and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
 	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and not x.env.SUPPORT_BSP2_FORMAT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: not x.env.DEDICATED and x.env.NULL),
+	Subproject('3rdparty/bzip2',        lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
 #	Subproject('3rdparty/freevgui',     lambda x: not x.env.DEDICATED),
@@ -458,6 +459,13 @@ int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const
 
 			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus werror', fragment=frag, mandatory=False):
 				conf.env.HAVE_SYSTEM_OPUS = True
+
+		# search for bzip2
+		BZIP2_CHECK='''#include <bzlib.h>
+int main(void) { return (int)BZ2_bzlibVersion(); }'''
+
+		if conf.check_cc(lib='bz2', fragment=BZIP2_CHECK, uselib_store='bzip2', mandatory=False):
+			conf.env.HAVE_SYSTEM_BZ2 = True
 
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 

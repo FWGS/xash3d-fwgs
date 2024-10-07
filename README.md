@@ -67,9 +67,9 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 `$ sudo dpkg --add-architecture i386`
 * Install development tools
   * For 32-bit engine on amd64: \
-    `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386 libopus-dev:i386`
+    `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386 libopus-dev:i386 libbz2-dev:i386`
   * For everything else: \
-    `$ sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev libopus-dev`
+    `$ sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev libopus-dev libbz2-dev`
 * Clone this repostory:
 `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
 
