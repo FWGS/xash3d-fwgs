@@ -784,8 +784,8 @@ int CL_GetDemoComment( const char *demoname, char *comment );
 //
 // cl_events.c
 //
-void CL_ParseEvent( sizebuf_t *msg );
-void CL_ParseReliableEvent( sizebuf_t *msg );
+void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto );
+void CL_ParseReliableEvent( sizebuf_t *msg, connprotocol_t proto );
 void CL_SetEventIndex( const char *szEvName, int ev_index );
 void CL_PlaybackEvent( int flags, const edict_t *pInvoker, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
