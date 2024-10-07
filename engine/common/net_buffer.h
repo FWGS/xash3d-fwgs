@@ -42,6 +42,9 @@ struct sizebuf_s
 	int         iCurBit;
 	int         nDataBits;
 	const char	*pDebugName; // buffer name (pointer to const name)
+
+	// to support GoldSrc broken signed integers
+	int iAlternateSign;
 };
 
 #define MSG_StartReading     MSG_StartWriting
@@ -71,6 +74,7 @@ static inline void MSG_InitExt( sizebuf_t *sb, const char *pDebugName, void *pDa
 		sb->nDataBits = nBits;
 
 	sb->pDebugName = pDebugName;
+	sb->iAlternateSign = 0;
 }
 
 static inline void MSG_StartWriting( sizebuf_t *sb, void *pData, int nBytes, int iStartBit, int nBits )
@@ -167,6 +171,25 @@ static inline qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
 	if( sb->iCurBit + nBits > sb->nDataBits )
 		sb->bOverflow = true;
 	return sb->bOverflow;
+}
+
+static inline void MSG_EndBitWriting( sizebuf_t *sb )
+{
+	sb->iAlternateSign--;
+
+	if( sb->iAlternateSign < 0 )
+	{
+		Con_Printf( "%s: non-even MSG_Start/EndBitWriting\n", __func__ );
+		sb->iAlternateSign = 0;
+	}
+
+	// we have native bit ops here, just pad to closest byte
+	MSG_SeekToBit( sb, MSG_GetNumBytesWritten( sb ) << 3, SEEK_SET );
+}
+
+static inline void MSG_StartBitWriting( sizebuf_t *sb )
+{
+	sb->iAlternateSign++;
 }
 
 void MSG_InitMasks( void );	// called once at startup engine
