@@ -129,7 +129,6 @@ typedef struct
 
 	// misc local info
 	qboolean		repredicting;	// repredicting in progress
-	qboolean		thirdperson;
 	qboolean		apply_effects;	// local player will not added but we should apply their effects: flashlight etc
 	float		idealpitch;
 	int		viewmodel;
