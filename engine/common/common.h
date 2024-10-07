@@ -689,7 +689,6 @@ qboolean CL_IsThirdPerson( void );
 qboolean CL_IsIntermission( void );
 qboolean CL_Initialized( void );
 char *CL_Userinfo( void );
-void CL_LegacyUpdateInfo( void );
 void CL_CharEvent( int key );
 qboolean CL_DisableVisibility( void );
 byte *COM_LoadFile( const char *filename, int usehunk, int *pLength ) MALLOC_LIKE( free, 1 );
