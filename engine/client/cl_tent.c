@@ -1916,16 +1916,16 @@ void CL_ParseTempEntity( sizebuf_t *msg, connprotocol_t proto )
 		else iSize = MSG_ReadWord( msg );
 
 		// this will probably be fatal anyway
-		if( iSize > sizeof( pbuf ))
+		if( iSize > sizeof( msg_data ))
 			Con_Printf( S_ERROR "%s: Temp buffer overflow!\n", __func__ );
 
 		// parse user message into buffer
-		MSG_ReadBytes( msg, pbuf, iSize );
+		MSG_ReadBytes( msg, msg_data, iSize );
 
 		// init a safe tempbuffer
-		MSG_Init( pbuf, "TempEntity", pbuf, iSize );
+		MSG_Init( &buf, "TempEntity", msg_data, iSize );
 
-		pbuf = pbuf;
+		pbuf = &buf;
 	}
 	else
 	{
