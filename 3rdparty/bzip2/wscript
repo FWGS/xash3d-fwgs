@@ -6,6 +6,7 @@ def options(opt):
 
 def configure(conf):
 	conf.define('_GNU_SOURCE', 1)
+	conf.define('BZ_NO_STDIO', 1)
 
 	if conf.env.DEST_OS == 'win32':
 		conf.define('BZ_LCCWIN32', 1)
@@ -25,7 +26,7 @@ def build(bld):
 		target = 'bzip2',
 #		use = 'bz_version.h',
 		features = 'c',
-		includes = ['bzip2/', '.'],
+		includes = ['.', 'bzip2/'],
 		subsystem = bld.env.MSVC_SUBSYSTEM,
 		export_includes = ['bzip2/']
 	)
