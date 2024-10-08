@@ -47,11 +47,12 @@ glconfig_t	glConfig;
 glstate_t	glState;
 glwstate_t	glw_state;
 
-#ifdef XASH_GL_STATIC
-#define GL_CALL( x ) #x, NULL
+#if XASH_GL_STATIC
+	#define GL_CALL( x ) #x, NULL
 #else
-#define GL_CALL( x ) #x, (void**)&p##x
+	#define GL_CALL( x ) #x, (void**)&p##x
 #endif
+
 static dllfunc_t opengl_110funcs[] =
 {
 	{ GL_CALL( glClearColor ) },
@@ -229,7 +230,7 @@ static dllfunc_t vbofuncs[] =
 	{ GL_CALL( glDeleteBuffersARB ) },
 	{ GL_CALL( glGenBuffersARB ) },
 	{ GL_CALL( glIsBufferARB ) },
-#ifndef XASH_GLES
+#if !XASH_GLES
 	{ GL_CALL( glMapBufferARB ) },
 	{ GL_CALL( glUnmapBufferARB ) },
 #endif
@@ -260,13 +261,12 @@ static dllfunc_t drawrangeelementsextfuncs[] =
 // mangling in gl2shim???
 // still need resolve some ext dynamicly, and mangling beginend wrappers will help only with LTO
 // anyway this will not work with gl-wes/nanogl, we do not link to libGLESv2, so skip this now
-#ifndef XASH_GL_STATIC
-
+#if !XASH_GL_STATIC
 static dllfunc_t mapbufferrangefuncs[] =
 {
 { GL_CALL( glMapBufferRange ) },
 { GL_CALL( glFlushMappedBufferRange ) },
-#ifdef XASH_GLES
+#if XASH_GLES
 { GL_CALL( glUnmapBufferARB ) },
 #endif
 { NULL, NULL }
@@ -283,7 +283,6 @@ static dllfunc_t bufferstoragefuncs[] =
 { GL_CALL( glBufferStorage ) },
 { NULL, NULL }
 };
-
 
 static dllfunc_t shaderobjectsfuncs[] =
 {
@@ -440,7 +439,7 @@ static dllfunc_t multitexturefuncs_es2[] =
 	{ NULL					, NULL }
 };
 
-#endif
+#endif // !XASH_GL_STATIC
 
 /*
 ========================
@@ -548,7 +547,7 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 		return false;
 	}
 
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 	// clear exports
 	for( func = funcs; func && func->name; func++ )
 		*func->func = NULL;
@@ -561,7 +560,7 @@ qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char
 			string name;
 			char *end;
 			size_t i = 0;
-#ifdef XASH_GLES
+#if XASH_GLES
 			const char *suffixes[] = { "", "EXT", "OES" };
 #else
 			const char *suffixes[] = { "", "EXT" };
@@ -772,24 +771,23 @@ static void R_RenderInfo_f( void )
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
 }
 
-#ifdef XASH_GLES
+#if XASH_GLES
 static void GL_InitExtensionsGLES( void )
 {
 	int extid;
 
 	// intialize wrapper type
-#ifdef XASH_NANOGL
+#if XASH_NANOGL
 	glConfig.context = CONTEXT_TYPE_GLES_1_X;
 	glConfig.wrapper = GLES_WRAPPER_NANOGL;
-#elif defined( XASH_WES )
+#elif XASH_WES
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_WES;
-#elif defined( XASH_GLES3COMPAT )
+#elif XASH_GLES3COMPAT
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_NONE;
 #else
-
-#error "unknown gles wrapper"
+	#error "unknown gles wrapper"
 #endif
 
 	glConfig.hardware_type = GLHW_GENERIC;
@@ -804,7 +802,7 @@ static void GL_InitExtensionsGLES( void )
 		case GL_ARB_MULTITEXTURE:
 			if( !GL_CheckExtension( "multitexture", multitexturefuncs, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0 ) && glConfig.wrapper == GLES_WRAPPER_NONE )
 			{
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 				if( !GL_CheckExtension( "multitexture_es1", multitexturefuncs_es, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 1.0 )
 						&& !GL_CheckExtension( "multitexture_es2", multitexturefuncs_es2, "gl_arb_multitexture", GL_ARB_MULTITEXTURE, 2.0 ))
 					break;
@@ -839,7 +837,7 @@ static void GL_InitExtensionsGLES( void )
 		case GL_ARB_TEXTURE_NPOT_EXT:
 			GL_CheckExtension( "GL_OES_texture_npot", NULL, "gl_texture_npot", extid, 0 );
 			break;
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 		case GL_SHADER_OBJECTS_EXT:
 			GL_CheckExtension( "ES2 Shaders", shaderobjectsfuncs_gles, "gl_shaderobjects", extid, 2.0 );
 			break;
@@ -886,7 +884,7 @@ static void GL_InitExtensionsGLES( void )
 			GL_SetExtension( extid, false );
 		}
 	}
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 	GL2_ShimInit();
 #endif
 }
@@ -979,7 +977,7 @@ static void GL_InitExtensionsBigGL( void )
 	GL_CheckExtension( "GL_ARB_vertex_buffer_object", vbofuncs, "gl_vertex_buffer_object", GL_ARB_VERTEX_BUFFER_OBJECT_EXT, 2.0 );
 	GL_CheckExtension( "GL_ARB_texture_multisample", multisampletexfuncs, "gl_texture_multisample", GL_TEXTURE_MULTISAMPLE, 0 );
 	GL_CheckExtension( "GL_ARB_texture_compression_bptc", NULL, "gl_texture_bptc_compression", GL_ARB_TEXTURE_COMPRESSION_BPTC, 0 );
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 	if( glConfig.context == CONTEXT_TYPE_GL_CORE )
 		GL_CheckExtension( "shader_objects", shaderobjectsfuncs_gles, "gl_shaderobjects", GL_SHADER_OBJECTS_EXT, 2.0 );
 	else
@@ -1017,7 +1015,7 @@ static void GL_InitExtensionsBigGL( void )
 		if( GL_CheckExtension( "glDrawRangeElementsEXT", drawrangeelementsextfuncs,
 			"gl_drawrangelements", GL_DRAW_RANGEELEMENTS_EXT, 0 ))
 		{
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 			pglDrawRangeElements = pglDrawRangeElementsEXT;
 #endif
 		}
@@ -1033,7 +1031,7 @@ static void GL_InitExtensionsBigGL( void )
 	// init our immediate mode override
 	VGL_ShimInit();
 #endif
-#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+#if !XASH_GLES && !XASH_GL_STATIC
 	if( gEngfuncs.Sys_CheckParm( "-gl2shim" ))
 		GL2_ShimInit();
 #endif
@@ -1076,7 +1074,7 @@ void GL_InitExtensions( void )
 		glConfig.version_major = major;
 		glConfig.version_minor = minor;
 	}
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 	if( !glConfig.extensions_string )
 	{
 		int n = 0;
@@ -1106,7 +1104,7 @@ void GL_InitExtensions( void )
 #endif
 	gEngfuncs.Con_Reportf( "^3Video^7: %s\n", glConfig.renderer_string );
 
-#ifdef XASH_GLES
+#if XASH_GLES
 	GL_InitExtensionsGLES();
 #else
 	GL_InitExtensionsBigGL();
@@ -1114,7 +1112,7 @@ void GL_InitExtensions( void )
 
 	pglGetIntegerv( GL_MAX_TEXTURE_SIZE, &glConfig.max_2d_texture_size );
 	if( glConfig.max_2d_texture_size <= 0 ) glConfig.max_2d_texture_size = 256;
-#ifndef XASH_GL4ES
+#if !XASH_GL4ES
 	// enable gldebug if allowed
 	if( GL_Support( GL_DEBUG_OUTPUT ))
 	{
@@ -1235,7 +1233,7 @@ static void R_CheckVBO( void )
 	if( glConfig.max_texture_units < 3 )
 		disable = true;
 
-#ifdef XASH_MOBILE_PLATFORM
+#if XASH_MOBILE_PLATFORM
 	// VideoCore4 drivers have a problem with mixing VBO and client arrays
 	// Disable it, as there is no suitable workaround here
 	if( Q_stristr( glConfig.renderer_string, "VideoCore IV" ) || Q_stristr( glConfig.renderer_string, "vc4" ) )
@@ -1323,13 +1321,13 @@ void R_Shutdown( void )
 
 	GL_RemoveCommands();
 	R_ShutdownImages();
-#if !defined(XASH_GLES) && !defined(XASH_GL_STATIC)
+#if !XASH_GLES && !XASH_GL_STATIC
 	GL2_ShimShutdown();
 #endif
 
 	Mem_FreePool( &r_temppool );
 
-#ifdef XASH_GL4ES
+#if XASH_GL4ES
 	close_gl4es();
 #endif // XASH_GL4ES
 
@@ -1388,17 +1386,18 @@ void GL_SetupAttributes( int safegl )
 	int context_flags = 0; // REFTODO!!!!!
 	int samples = 0;
 
-#ifdef XASH_GLES
+#if XASH_GLES
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_ES );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_EGL, 1 );
-#ifdef XASH_NANOGL
+#if XASH_NANOGL
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 1 );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 1 );
-#else
+#else // !XASH_NANOGL
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 2 );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MINOR_VERSION, 0 );
 #endif
-#elif defined XASH_GL4ES
+
+#elif XASH_GL4ES
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_PROFILE_MASK, REF_GL_CONTEXT_PROFILE_ES );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_EGL, 1 );
 	gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, 2 );
@@ -1520,7 +1519,7 @@ void GL_SetupAttributes( int safegl )
 
 void wes_init( const char *gles2 );
 int nanoGL_Init( void );
-#ifdef XASH_GL4ES
+#if XASH_GL4ES
 static void GL4ES_GetMainFBSize( int *width, int *height )
 {
 	*width = gpGlobals->width;
@@ -1534,12 +1533,12 @@ static void *GL4ES_GetProcAddress( const char *name )
 		return NULL;
 	return gEngfuncs.GL_GetProcAddress( name );
 }
-#endif
+#endif // XASH_GL4ES
 
 void GL_OnContextCreated( void )
 {
 	int colorBits[3];
-#ifdef XASH_NANOGL
+#if XASH_NANOGL
 	nanoGL_Init();
 #endif
 
@@ -1557,10 +1556,11 @@ void GL_OnContextCreated( void )
 	gEngfuncs.GL_GetAttribute( REF_GL_CONTEXT_MAJOR_VERSION, &glConfig.version_major );
 	gEngfuncs.GL_GetAttribute( REF_GL_CONTEXT_MINOR_VERSION, &glConfig.version_minor );
 
-#ifdef XASH_WES
+#if XASH_WES
 	wes_init( "" );
-#endif
-#ifdef XASH_GL4ES
+#endif // XASH_WES
+
+#if XASH_GL4ES
 	set_getprocaddress( GL4ES_GetProcAddress );
 	set_getmainfbsize( GL4ES_GetMainFBSize );
 	initialize_gl4es();
@@ -1569,5 +1569,5 @@ void GL_OnContextCreated( void )
 	pglHint( GL_BEGINEND_HINT_GL4ES, 1 );
 	// dxt unpacked to 16-bit looks ugly
 	pglHint( GL_AVOID16BITS_HINT_GL4ES, 1 );
-#endif
+#endif // XASH_GL4ES
 }
