@@ -898,18 +898,40 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 	char		lwrfilename[4096];
 	const char	*first, *last;
 	const char	*ext;
+	size_t	len;
 	int		i;
 
 	if( !COM_CheckString( filename ))
 		return false;
 
-	ext = COM_FileExtension( lwrfilename );
+	ext = COM_FileExtension( filename );
+	len = Q_strlen( filename );
 
 	// only allow extensionless files that start with !MD5
-	if( !Q_strncmp( filename, "!MD5", 4 ) && ext[0] == 0 )
+	if( !Q_strncmp( filename, "!MD5", 4 ))
+	{
+		if( COM_CheckStringEmpty( ext ))
+			return false;
+
+		len = Q_strlen( filename );
+
+		if( len != 36 )
+			return false;
+
+		for( i = 4; i < len; i++ )
+		{
+			if(( filename[i] >= '0' && filename[i] <= '9' ) ||
+				( filename[i] >= 'A' && filename[i] <= 'F' ))
+				continue;
+
+			return false;
+		}
+
 		return true;
+	}
 
 	Q_strnlwr( filename, lwrfilename, sizeof( lwrfilename ));
+	ext = COM_FileExtension( lwrfilename );
 
 	if( Q_strpbrk( lwrfilename, "\\:~" ) || Q_strstr( lwrfilename, ".." ) )
 		return false;
@@ -1042,28 +1064,13 @@ void GAME_EXPORT pfnResetTutorMessageDecayData( void )
 
 void Test_RunCommon( void )
 {
-	char *file = (char *)"q asdf \"qwerty\" \"f \\\"f\" meowmeow\n// comment \"stuff ignored\"\nbark";
-	int len;
-	char buf[5];
+	Msg( "Checking COM_IsSafeFileToDownload...\n" );
 
-	Msg( "Checking COM_ParseFile...\n" );
-
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
-	TASSERT( !Q_strcmp( buf, "q" ) && len == 1);
-
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
-	TASSERT( !Q_strcmp( buf, "asdf" ) && len == 4);
-
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
-	TASSERT( !Q_strcmp( buf, "qwer" ) && len == -1);
-
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
-	TASSERT( !Q_strcmp( buf, "f \"f" ) && len == 4);
-
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
-	TASSERT( !Q_strcmp( buf, "meow" ) && len == -1);
-
-	file = COM_ParseFileSafe( file, buf, sizeof( buf ), 0, &len, NULL );
-	TASSERT( !Q_strcmp( buf, "bark" ) && len == 4);
+	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD5AAB5E8B307672DA86FBD10AC302BC732" ), true );
+	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD56f1ffd8c96bd64c9c27955309f6ecfe6" ), false );
+	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD5AAB5E8B307672DA86FBD10AC302B.exe" ), false );
+	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD5/../../valve/resource/GameMenu.res" ), false );
+	TASSERT_EQi( COM_IsSafeFileToDownload( "not-a-virus-trust-me.bat" ), false );
+	TASSERT_EQi( COM_IsSafeFileToDownload( "a-texture.png" ), true );
 }
 #endif
