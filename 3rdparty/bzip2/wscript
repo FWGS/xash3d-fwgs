@@ -1,10 +1,6 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-BZIP_CHECK='''#include <bzlib.h>
-int main(void) { return BZ2_bzlibVersion() != NULL; }
-'''
-
 def options(opt):
 	pass
 
@@ -17,17 +13,17 @@ def configure(conf):
 		conf.define('BZ_UNIX', 1)
 
 def build(bld):
-	bld(
-		features = 'subst',
-		source = 'bzip2/bz_version.h.in',
-		target = 'bz_version.h',
-		BZ_VERSION='1.1.0-fwgs'
-	)
+#	bld(
+#		features = 'subst',
+#		source = 'bzip2/bz_version.h.in',
+#		target = 'bz_version.h',
+#		BZ_VERSION='1.1.0-fwgs'
+#	)
 
 	bld.stlib(
 		source = bld.path.ant_glob(['bzip2/*.c']),
 		target = 'bzip2',
-		use = 'bz_version.h',
+#		use = 'bz_version.h',
 		features = 'c',
 		includes = ['bzip2/', '.'],
 		subsystem = bld.env.MSVC_SUBSYSTEM,
