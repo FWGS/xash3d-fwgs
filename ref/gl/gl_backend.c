@@ -620,14 +620,16 @@ was there.  This is used to test for texture thrashing.
 */
 void R_ShowTextures( void )
 {
-	gl_texture_t	*image;
-	float		x, y, w, h;
-	int		total, start, end;
-	int		i, j, k, base_w, base_h;
-	rgba_t		color = { 192, 192, 192, 255 };
-	int		charHeight, numTries = 0;
+	float		w, h;
+	int		start;
+	int		i, k, base_w, base_h;
+	rgba_t		color = { 255, 255, 255, 255 };
+	int		charHeight;
 	static qboolean	showHelp = true;
-	string		shortname;
+	float	time;	//nc add
+	float	time_cubemap;	//nc add
+	float	cbm_cos, cbm_sin;	//nc add
+	int		per_page; //nc add
 
 	if( !r_showtextures->value )
 		return;
@@ -638,85 +640,108 @@ void R_ShowTextures( void )
 		showHelp = false;
 	}
 
-	GL_SetRenderMode( kRenderNormal );
 	pglClear( GL_COLOR_BUFFER_BIT );
-	pglFinish();
 
-	base_w = 8;	// textures view by horizontal
-	base_h = 6;	// textures view by vertical
+	w = 200;
+	h = 200;
 
-rebuild_page:
-	total = base_w * base_h;
-	start = total * (r_showtextures->value - 1);
-	end = total * r_showtextures->value;
-	if( end > MAX_TEXTURES ) end = MAX_TEXTURES;
-
-	w = gpGlobals->width / base_w;
-	h = gpGlobals->height / base_h;
+	time = gp_cl->time * 0.5f;
+	time -= floor( time );
+	time_cubemap = gp_cl->time * 0.25f;
+	time_cubemap -= floor( time_cubemap );
+	time_cubemap *= 6.2831853f;
+	SinCos( time_cubemap, &cbm_sin, &cbm_cos );
 
 	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
 
-	for( i = j = 0; i < MAX_TEXTURES; i++ )
-	{
-		image = R_GetTexture( i );
-		if( j == start ) break; // found start
-		if( pglIsTexture( image->texnum )) j++;
-	}
+	base_w = gpGlobals->width / w;
+	base_h = gpGlobals->height / ( h + charHeight * 2 );
+	per_page = base_w * base_h;
+	start = per_page * ( r_showtextures->value - 1 );
 
-	if( i == MAX_TEXTURES && r_showtextures->value != 1 )
-	{
-		// bad case, rewind to one and try again
-		gEngfuncs.Cvar_SetValue( "r_showtextures", Q_max( 1, r_showtextures->value - 1 ));
-		if( ++numTries < 2 ) goto rebuild_page;	// to prevent infinite loop
-	}
+	GL_SetRenderMode( kRenderTransTexture );	//nc changed from normal to trans, Con_DrawString does this anyway
 
-	for( k = 0; i < MAX_TEXTURES; i++ )
+	for( k = 0; k < per_page; k++ )
 	{
-		if( j == end ) break; // page is full
+		const gl_texture_t *image;
+		int textlen;
+		char text[MAX_VA_STRING];
+		string shortname;
+		float x, y;
+
+		i = k + start;
+		if ( i >= MAX_TEXTURES )
+			break;
 
 		image = R_GetTexture( i );
 		if( !pglIsTexture( image->texnum ))
 			continue;
 
-		x = k % base_w * w;
-		y = k / base_w * h;
+		x = k % base_w * gpGlobals->width / base_w;
+		y = k / base_w * gpGlobals->height / base_h;
 
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-		GL_Bind( XASH_TEXTURE0, i ); // NOTE: don't use image->texnum here, because skybox has a 'wrong' indexes
+		GL_Bind( XASH_TEXTURE0, image->texnum );
 
 		if( FBitSet( image->flags, TF_DEPTHMAP ) && !FBitSet( image->flags, TF_NOCOMPARE ))
 			pglTexParameteri( image->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE );
 
 		pglBegin( GL_QUADS );
-		pglTexCoord2f( 0, 0 );
-		pglVertex2f( x, y );
-		if( image->target == GL_TEXTURE_RECTANGLE_EXT )
+		if( image->target == GL_TEXTURE_CUBE_MAP_ARB )
+		{
+			pglTexCoord3f( 0.75 * cbm_cos - cbm_sin, 0.75 * cbm_sin + cbm_cos, 1.0 );
+			pglVertex2f( x, y );
+			pglTexCoord3f( 0.75 * cbm_cos + cbm_sin, 0.75 * cbm_sin - cbm_cos, 1.0 );
+			pglVertex2f( x + w, y );
+			pglTexCoord3f( 0.75 * cbm_cos + cbm_sin, 0.75 * cbm_sin - cbm_cos, -1.0 );
+			pglVertex2f( x + w, y + h );
+			pglTexCoord3f( 0.75 * cbm_cos - cbm_sin, 0.75 * cbm_sin + cbm_cos, -1.0 );
+			pglVertex2f( x, y + h );
+		}
+		else if( image->target == GL_TEXTURE_RECTANGLE_EXT )
+		{
+			pglTexCoord2f( 0, 0 );
+			pglVertex2f( x, y );
 			pglTexCoord2f( image->width, 0 );
-		else pglTexCoord2f( 1, 0 );
-		pglVertex2f( x + w, y );
-		if( image->target == GL_TEXTURE_RECTANGLE_EXT )
+			pglVertex2f( x + w, y );
 			pglTexCoord2f( image->width, image->height );
-		else pglTexCoord2f( 1, 1 );
-		pglVertex2f( x + w, y + h );
-		if( image->target == GL_TEXTURE_RECTANGLE_EXT )
+			pglVertex2f( x + w, y + h );
 			pglTexCoord2f( 0, image->height );
-		else pglTexCoord2f( 0, 1 );
-		pglVertex2f( x, y + h );
+			pglVertex2f( x, y + h );
+		}
+		else
+		{
+			pglTexCoord3f( 0, 0, time );
+			pglVertex2f( x, y );
+			pglTexCoord3f( 1, 0, time );
+			pglVertex2f( x + w, y );
+			pglTexCoord3f( 1, 1, time );
+			pglVertex2f( x + w, y + h );
+			pglTexCoord3f( 0, 1, time);
+			pglVertex2f( x, y + h );
+		}
 		pglEnd();
 
 		if( FBitSet( image->flags, TF_DEPTHMAP ) && !FBitSet( image->flags, TF_NOCOMPARE ))
 			pglTexParameteri( image->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_COMPARE_R_TO_TEXTURE_ARB );
 
 		COM_FileBase( image->name, shortname, sizeof( shortname ));
-		if( Q_strlen( shortname ) > 18 )
+		gEngfuncs.Con_DrawStringLen( shortname, &textlen, NULL );
+
+		if( textlen > w )
 		{
 			// cutoff too long names, it looks ugly
 			shortname[16] = '.';
 			shortname[17] = '.';
 			shortname[18] = '\0';
 		}
-		gEngfuncs.Con_DrawString( x + 1, y + h - charHeight, shortname, color );
-		j++, k++;
+
+		gEngfuncs.Con_DrawString( x + 1, y + h, shortname, color );
+		if( image->target == GL_TEXTURE_3D || image->target == GL_TEXTURE_2D_ARRAY_EXT )
+			Q_snprintf( text, sizeof( text ), "%ix%ix%i %s", image->width, image->height, image->depth, GL_TargetToString( image->target ));
+		else
+			Q_snprintf( text, sizeof( text ), "%ix%i %s", image->width, image->height, GL_TargetToString( image->target ));
+		gEngfuncs.Con_DrawString( x + 1, y + h + charHeight, text, color );
 	}
 
 	gEngfuncs.CL_DrawCenterPrint ();

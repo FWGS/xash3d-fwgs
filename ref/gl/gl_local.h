@@ -354,6 +354,7 @@ void R_DrawModelHull( void );
 //
 void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( GLenum texnum );
+const char *GL_TargetToString( GLenum target );
 #define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
@@ -677,8 +678,6 @@ typedef struct
 
 typedef struct
 {
-
-	int width, height;
 	int		activeTMU;
 	GLint		currentTextures[MAX_TEXTURE_UNITS];
 	GLint		currentTexturesIndex[MAX_TEXTURE_UNITS];
