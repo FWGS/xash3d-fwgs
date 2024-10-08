@@ -21,8 +21,10 @@ def build(bld):
 #		BZ_VERSION='1.1.0-fwgs'
 #	)
 
+	bz_sources = ['bzip2/blocksort.c', 'bzip2/huffman.c', 'bzip2/crctable.c', 'bzip2/randtable.c', 'bzip2/compress.c', 'bzip2/decompress.c', 'bzip2/bzlib.c']
+
 	bld.stlib(
-		source = bld.path.ant_glob(['bzip2/*.c']),
+		source = bz_sources,
 		target = 'bzip2',
 #		use = 'bz_version.h',
 		features = 'c',
