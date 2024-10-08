@@ -123,6 +123,7 @@ def build(bld):
 			'filebase': 'tests/test_filebase.c',
 			'efp': 'tests/test_efp.c',
 			'atoi': 'tests/test_atoi.c',
+			'parsefile': 'tests/test_parsefile.c',
 		}
 
 		for i in tests:
