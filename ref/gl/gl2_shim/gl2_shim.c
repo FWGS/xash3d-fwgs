@@ -32,7 +32,7 @@ Limitations:
 */
 
 #include "gl_local.h"
-#ifndef XASH_GL_STATIC
+#if !XASH_GL_STATIC
 #include "gl2_shim.h"
 
 #define MAX_SHADERLEN 4096
@@ -1328,7 +1328,7 @@ static void APIENTRY GL2_LoadMatrixf( const GLfloat *m )
 	gl2wrap_matrix.update = 0xFFFFFFFFFFFFFFFF;
 }
 
-#ifdef XASH_GLES
+#if XASH_GLES
 static void ( APIENTRY *_pglDepthRangef)( GLfloat zFar, GLfloat zNear );
 static void APIENTRY GL2_DepthRange( GLdouble zFar, GLdouble zNear )
 {

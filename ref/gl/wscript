@@ -46,27 +46,27 @@ def build(bld):
 		'ref_gl': {
 			'enable':  bld.env.GL,
 			'libs':    ['GL'] if bld.env.GL_STATIC else [],
-			'defines': ['XASH_GL_STATIC'] if bld.env.GL_STATIC else [],
+			'defines': ['XASH_GL_STATIC=1'] if bld.env.GL_STATIC else [],
 		},
 		'ref_gles1': {
 			'enable':  bld.env.NANOGL,
 			'libs':    ['DL', 'nanogl', 'LOG'],
-			'defines': ['XASH_NANOGL'],
+			'defines': ['XASH_NANOGL=1'],
 		},
 		'ref_gles2': {
 			'enable':  bld.env.GLWES,
 			'libs':    ['DL', 'gl-wes-v2', 'LOG'],
-			'defines': ['XASH_WES'],
+			'defines': ['XASH_WES=1'],
 		},
 		'ref_gl4es': {
 			'enable':  bld.env.GL4ES,
 			'libs':    ['DL', 'gl4es', 'LOG'],
-			'defines': ['XASH_GL_STATIC', 'XASH_GL4ES'],
+			'defines': ['XASH_GL_STATIC=1', 'XASH_GL4ES=1'],
 		},
 		'ref_gles3compat': {
 			'enable':  bld.env.GLES3COMPAT,
 			'libs':    [],
-			'defines': ['XASH_GLES3COMPAT'],
+			'defines': ['XASH_GLES3COMPAT=1'],
 		},
 	}
 

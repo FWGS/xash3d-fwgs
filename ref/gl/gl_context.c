@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "gl_export.h"
 
-#ifdef XASH_GL4ES
+#if XASH_GL4ES
 #include "gl4es/include/gl4esinit.h"
 #endif
 
@@ -420,7 +420,7 @@ static void GAME_EXPORT R_OverrideTextureSourceSize( unsigned int texnum, uint s
 
 static void* GAME_EXPORT R_GetProcAddress( const char *name )
 {
-#ifdef XASH_GL4ES
+#if XASH_GL4ES
 	return gl4es_GetProcAddress( name );
 #else // TODO: other wrappers
 	return gEngfuncs.GL_GetProcAddress( name );

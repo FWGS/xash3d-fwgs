@@ -20,20 +20,20 @@ GNU General Public License for more details.
 #endif
 
 #ifndef APIENTRY_LINKAGE
-#define APIENTRY_LINKAGE extern
+	#define APIENTRY_LINKAGE extern
 #endif
 
-#if defined XASH_NANOGL || defined XASH_WES || defined XASH_REGAL
-#define XASH_GLES
-#define XASH_GL_STATIC
-#define REF_GL_KEEP_MANGLED_FUNCTIONS
-#elif defined XASH_GLES3COMPAT
-#ifdef SOFTFP_LINK
-#undef APIENTRY
-#define APIENTRY __attribute__((pcs("aapcs")))
-#endif
-#define XASH_GLES
-#endif
+#if XASH_NANOGL || XASH_WES || XASH_REGAL
+	#define XASH_GLES 1
+	#define XASH_GL_STATIC 1
+	#define REF_GL_KEEP_MANGLED_FUNCTIONS 1
+#elif XASH_GLES3COMPAT
+	#ifdef SOFTFP_LINK
+		#undef APIENTRY
+		#define APIENTRY __attribute__((pcs("aapcs")))
+	#endif // SOFTFP_LINK
+	#define XASH_GLES 1
+#endif // XASH_GLES3COMPAT
 
 typedef uint GLenum;
 typedef byte GLboolean;
@@ -897,16 +897,16 @@ typedef float GLmatrix[16];
 #define WGL_SAMPLES_ARB			0x2042
 
 #ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
-#if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
-#define GL_FUNCTION( name ) name
-#elif defined( XASH_GL_STATIC ) && defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
-#define GL_FUNCTION( name ) APIENTRY p##name
+#if XASH_GL_STATIC && !REF_GL_KEEP_MANGLED_FUNCTIONS
+	#define GL_FUNCTION( name ) name
+#elif XASH_GL_STATIC && REF_GL_KEEP_MANGLED_FUNCTIONS
+	#define GL_FUNCTION( name ) APIENTRY p##name
 #else
-#define GL_FUNCTION( name ) (APIENTRY *p##name)
+	#define GL_FUNCTION( name ) (APIENTRY *p##name)
 #endif
 
 // helper opengl functions
@@ -1387,11 +1387,11 @@ APIENTRY_LINKAGE void GL_FUNCTION( glFlushMappedBufferRange )(GLenum target, GLs
 APIENTRY_LINKAGE void *GL_FUNCTION( glMapBufferRange )(GLenum target, GLsizei offset, GLsizei length, GLbitfield access);
 APIENTRY_LINKAGE void GL_FUNCTION( glDrawRangeElementsBaseVertex )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices, GLuint vertex );
 
-#if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES ))
+#if !XASH_GL_STATIC || ( !XASH_GLES && !XASH_GL4ES )
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 #endif /* !XASH_GLES && !XASH_GL4ES */
 
-#if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
+#if XASH_GL_STATIC && !REF_GL_KEEP_MANGLED_FUNCTIONS
 #define pglGetError glGetError
 #define pglGetString glGetString
 #define pglAccum glAccum
@@ -1857,7 +1857,7 @@ APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsi
 #endif
 
 #ifdef __GNUC__
-#pragma GCC diagnostic pop
+	#pragma GCC diagnostic pop
 #endif
 
 #endif//GL_EXPORT_H

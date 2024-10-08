@@ -688,7 +688,7 @@ void R_ShowTextures( void )
 
 		pglBegin( GL_QUADS );
 
-#if XASH_GLES
+#if XASH_NANOGL
 #undef pglTexCoord3f
 #define pglTexCoord3f( s, t, u ) pglTexCoord2f( s, t ) // not really correct but it requires nanogl rework
 #endif // XASH_GLES
