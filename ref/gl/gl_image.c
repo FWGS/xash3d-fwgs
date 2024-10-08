@@ -55,7 +55,7 @@ gl_texture_t *R_GetTexture( GLenum texnum )
 GL_TargetToString
 =================
 */
-static const char *GL_TargetToString( GLenum target )
+const char *GL_TargetToString( GLenum target )
 {
 	switch( target )
 	{
