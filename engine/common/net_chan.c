@@ -696,6 +696,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 
 	if( chan->use_bz2 && memcmp( MSG_GetData( msg ), "BZ2", 4 ))
 	{
+#if !XASH_DEDICATED
 		byte pbOut[0x10000];
 		uint uCompressedSize = MSG_GetNumBytesWritten( msg ) - 4;
 		if( !BZ2_bzBuffToBuffCompress( pbOut, &uCompressedSize, MSG_GetData( msg ), MSG_GetNumBytesWritten( msg ), 9, 0, 30 ))
@@ -705,6 +706,9 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 			memcpy( msg->pData + 4, pbOut, uCompressedSize );
 			MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
 		}
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
+#endif
 	}
 	else if( !chan->use_bz2 && !LZSS_IsCompressed( MSG_GetData( msg )))
 	{
@@ -1119,12 +1123,16 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 
 	if( chan->use_bz2 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ) )
 	{
+#if !XASH_DEDICATED
 		byte buf[0x10000];
 		uint uDecompressedLen = sizeof( buf );
 
 		BZ2_bzBuffToBuffDecompress( buf, &uDecompressedLen, MSG_GetData( msg ) + 4, MSG_GetNumBytesWritten( msg ) - 4, 1, 0 );
 		memcpy( msg->pData, buf, uDecompressedLen );
 		size = uDecompressedLen;
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
+#endif
 	}
 	else if( !chan->use_bz2 && LZSS_IsCompressed( MSG_GetData( msg )))
 	{
@@ -1263,18 +1271,19 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		p = n;
 	}
 
-	if( chan->gs_netchan && chan->use_bz2 )
+	if( chan->gs_netchan && chan->use_bz2 && !Q_stricmp( compressor, "bz2" ))
 	{
-		if( !Q_stricmp( compressor, "bz2" ))
-		{
-			byte *uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
+#if !XASH_DEDICATED
+		byte *uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
-			Con_DPrintf( "Decompressing file %s (%d -> %d bytes)\n", filename, nsize, uncompressedSize );
-			BZ2_bzBuffToBuffDecompress( uncompressedBuffer, &uncompressedSize, buffer, nsize, 1, 0 );
-			Mem_Free( buffer );
-			nsize = uncompressedSize;
-			buffer = uncompressedBuffer;
-		}
+		Con_DPrintf( "Decompressing file %s (%d -> %d bytes)\n", filename, nsize, uncompressedSize );
+		BZ2_bzBuffToBuffDecompress( uncompressedBuffer, &uncompressedSize, buffer, nsize, 1, 0 );
+		Mem_Free( buffer );
+		nsize = uncompressedSize;
+		buffer = uncompressedBuffer;
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
+#endif
 	}
 	else if( LZSS_IsCompressed( buffer ))
 	{
