@@ -621,8 +621,8 @@ was there.  This is used to test for texture thrashing.
 void R_ShowTextures( void )
 {
 	float		w, h;
-	int		start;
-	int		i, k, base_w, base_h;
+	int		start, k;
+	int base_w, base_h;
 	rgba_t		color = { 255, 255, 255, 255 };
 	int		charHeight;
 	static qboolean	showHelp = true;
@@ -630,6 +630,8 @@ void R_ShowTextures( void )
 	float	time_cubemap;	//nc add
 	float	cbm_cos, cbm_sin;	//nc add
 	int		per_page; //nc add
+	qboolean empty_page;
+	int skipped_empty_pages;
 
 	if( !r_showtextures->value )
 		return;
@@ -657,14 +659,52 @@ void R_ShowTextures( void )
 	base_w = gpGlobals->width / w;
 	base_h = gpGlobals->height / ( h + charHeight * 2 );
 	per_page = base_w * base_h;
-	start = per_page * ( r_showtextures->value - 1 );
+	start = per_page * ( r_showtextures->value - 1 ) + 1; // skip empty null texture
 
-	GL_SetRenderMode( kRenderTransTexture );	//nc changed from normal to trans, Con_DrawString does this anyway
+	GL_SetRenderMode( kRenderTransTexture );	// nc changed from normal to trans, Con_DrawString does this anyway
+
+	empty_page = true;
+	skipped_empty_pages = 0;
+	while( empty_page )
+	{
+		for( k = 0; k < per_page; k++ )
+		{
+			const gl_texture_t *image;
+			int i;
+
+			i = k + start;
+			if( i >= MAX_TEXTURES )
+			{
+				empty_page = false;
+				break;
+			}
+
+			image = R_GetTexture( i );
+			if( pglIsTexture( image->texnum ))
+			{
+				empty_page = false;
+				break;
+			}
+		}
+
+		if( empty_page )
+		{
+			start += per_page;
+			skipped_empty_pages++;
+		}
+	}
+
+	if( skipped_empty_pages > 0 )
+	{
+		char text[MAX_VA_STRING];
+		Q_snprintf( text, sizeof( text ), "%s: skipped %d empty texture pages", __func__, skipped_empty_pages );
+		gEngfuncs.CL_CenterPrint( text, 0.25f );
+	}
 
 	for( k = 0; k < per_page; k++ )
 	{
 		const gl_texture_t *image;
-		int textlen;
+		int textlen, i;
 		char text[MAX_VA_STRING];
 		string shortname;
 		float x, y;
@@ -748,6 +788,10 @@ void R_ShowTextures( void )
 		else
 			Q_snprintf( text, sizeof( text ), "%ix%i %s", image->width, image->height, GL_TargetToString( image->target ));
 		gEngfuncs.Con_DrawString( x + 1, y + h + charHeight, text, color );
+
+		Q_strncpy( text, Q_memprint( image->size ), sizeof( text ));
+		gEngfuncs.Con_DrawStringLen( text, &textlen, NULL );
+		gEngfuncs.Con_DrawString(( x + w ) - textlen - 1, y + h + charHeight, text, color );
 	}
 
 	gEngfuncs.CL_DrawCenterPrint ();
