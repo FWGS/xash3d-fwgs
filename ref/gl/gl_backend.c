@@ -687,6 +687,12 @@ void R_ShowTextures( void )
 			pglTexParameteri( image->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE );
 
 		pglBegin( GL_QUADS );
+
+#if XASH_GLES
+#undef pglTexCoord3f
+#define pglTexCoord3f( s, t, u ) pglTexCoord2f( s, t ) // not really correct but it requires nanogl rework
+#endif // XASH_GLES
+
 		if( image->target == GL_TEXTURE_CUBE_MAP_ARB )
 		{
 			pglTexCoord3f( 0.75 * cbm_cos - cbm_sin, 0.75 * cbm_sin + cbm_cos, 1.0 );
