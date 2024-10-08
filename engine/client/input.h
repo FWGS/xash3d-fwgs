@@ -25,6 +25,7 @@ INPUT
 */
 
 #include "keydefs.h"
+#include "usercmd.h"
 
 //
 // input.c
@@ -43,7 +44,7 @@ void IN_ToggleClientMouse( int newstate, int oldstate );
 
 uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );
-void IN_EngineAppendMove( float frametime, void *cmd, qboolean active );
+void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active );
 
 extern convar_t m_yaw;
 extern convar_t m_pitch;

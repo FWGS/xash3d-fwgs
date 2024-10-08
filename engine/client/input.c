@@ -569,10 +569,9 @@ IN_EngineAppendMove
 Called from cl_main.c after generating command in client
 ================
 */
-void IN_EngineAppendMove( float frametime, void *cmd1, qboolean active )
+void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
 {
 	float forward, side, pitch, yaw;
-	usercmd_t *cmd = cmd1;
 
 	if( clgame.dllFuncs.pfnLookEvent )
 		return;

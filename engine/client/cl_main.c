@@ -76,7 +76,7 @@ static CVAR_DEFINE_AUTO( cl_upmax, "1200", FCVAR_ARCHIVE, "max allowed incoming 
 
 CVAR_DEFINE_AUTO( cl_lw, "1", FCVAR_ARCHIVE|FCVAR_USERINFO, "enable client weapon predicting" );
 CVAR_DEFINE_AUTO( cl_charset, "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
-CVAR_DEFINE_AUTO( cl_trace_stufftext, "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable stufftext (server-to-client console commands) tracing (good for developers)" );
+CVAR_DEFINE_AUTO( cl_trace_stufftext, "0", FCVAR_ARCHIVE, "enable stufftext (server-to-client console commands) tracing (good for developers)" );
 CVAR_DEFINE_AUTO( cl_trace_messages, "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable message names tracing (good for developers)" );
 CVAR_DEFINE_AUTO( cl_trace_events, "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable events tracing (good for developers)" );
 static CVAR_DEFINE_AUTO( cl_nat, "0", 0, "show servers running under NAT" );
@@ -650,7 +650,7 @@ static void CL_CreateCmd( void )
 	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
 	Platform_PreCreateMove();
 	clgame.dllFuncs.CL_CreateMove( host.frametime, cmd, active );
-	IN_EngineAppendMove( host.frametime, cmd, active  );
+	IN_EngineAppendMove( host.frametime, cmd, active );
 
 	CL_PopPMStates();
 
