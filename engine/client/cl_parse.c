@@ -938,7 +938,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
 		Host_ValidateEngineFeatures( MSG_ReadDword( msg ));
 
-		if( proto == PROTO_LEGACY )
+		if( proto != PROTO_LEGACY )
 		{
 			// receive the player hulls
 			for( i = 0; i < MAX_MAP_HULLS * 3; i++ )
