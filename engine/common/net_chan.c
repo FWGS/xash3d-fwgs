@@ -104,6 +104,7 @@ const char *ns_strings[NS_COUNT] =
 	"Server",
 };
 
+#if !XASH_DEDICATED
 void bz_internal_error( int errcode );
 void bz_internal_error( int errcode )
 {
@@ -118,7 +119,7 @@ void bz_internal_error( int errcode )
 			"quality software.  Thanks.\n\n",
 			errcode, BZ2_bzlibVersion( ));
 
-   if (errcode == 1007) {
+	if (errcode == 1007) {
 		Con_Printf(
 			"\n*** A special note about internal error number 1007 ***\n"
 			"\n"
@@ -144,11 +145,11 @@ void bz_internal_error( int errcode )
 			"  problem -- without which I will be unable to investigate it.\n"
 			"\n"
 		);
-   }
+	}
 
 	Sys_Error( "bzip2/libbzip2: internal error number %d\n", errcode );
 }
-
+#endif // XASH_DEDICATED
 
 /*
 =================================
@@ -1008,7 +1009,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		Con_Printf( S_WARN "Unable to transfer %s due to path length overflow\n", filename );
 		return 0;
 	}
-	
+
 	if(( filesize = FS_FileSize( filename, false )) <= 0 )
 	{
 		Con_Printf( S_WARN "Unable to open %s for transfer\n", filename );
