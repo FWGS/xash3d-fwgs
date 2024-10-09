@@ -11,12 +11,12 @@ Xash3D FWGS is a heavily modified fork of an original [Xash3D Engine](https://ww
 If you like Xash3D FWGS, consider supporting individual engine maintainers. By supporting us, you help to continue developing this game engine further. The sponsorship links are available in [documentation](Documentation/donate.md).
 
 ## Fork features
-* Steam Half-Life (HLSDK 2.4) support.
+* Steam Half-Life (HLSDK 2.5) support.
 * Crossplatform and modern compilers support: supports Windows, Linux, BSD & Android on x86 & ARM and [many more](Documentation/ports.md).
-* Better multiplayer support: multiple master servers, headless dedicated server, voice chat and IPv6 support.
+* Better multiplayer: multiple master servers, headless dedicated server, voice chat, [GoldSrc protocol support](Documentation/goldsrc-protocol-support.md) and IPv6 support.
 * Multiple renderers support: OpenGL, GLESv1, GLESv2 and Software.
 * Advanced virtual filesystem: `.pk3` and `.pk3dir` support, compatibility with GoldSrc FS module, fast case-insensitivity emulation for crossplatform.
-* Mobility API: better game integration on mobile devices (vibration, touch controls)
+* Mobility API: better game integration on mobile devices (vibration, touch controls).
 * Different input methods: touch and gamepad in addition to mouse & keyboard.
 * TrueType font rendering, as a part of mainui_cpp.
 * External VGUI support module.
@@ -35,17 +35,16 @@ You still needed to copy `valve` directory as all game resources located there.
 For additional info, run Xash3D with `-help` command line key.
 
 ## Contributing
-* Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html
-* Issues are accepted in both English and Russian
+* Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html.
+* Issues are accepted in both English and Russian.
 * Before sending a PR, check if you followed our contribution guide in CONTRIBUTING.md file.
 
 ## Build instructions
-We are using Waf build system. If you have some Waf-related questions, I recommend you to read https://waf.io/book/
+We are using Waf build system. If you have some Waf-related questions, I recommend you to read [Waf Book](https://waf.io/book/).
 
 NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependencies we're using!
 
 ### Prerequisites
-
 If your CPU is x86 compatible and you're on Windows or Linux, we are building 32-bit code by default. This was done to maintain compatibility with Steam releases of Half-Life and based on it's engine games.
 Even if Xash3D FWGS does support targetting 64-bit, you can't load games without recompiling them from source code!
 
@@ -62,31 +61,39 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 #### GNU/Linux
 ##### Debian/Ubuntu
-* Enable i386 on your system, if you're compiling 32-bit engine on amd64. If not, skip this
+* For 32-bit engine on 64-bit x86 operating system:
+  * Enable i386 on your system: `$ sudo dpkg --add-architecture i386`.
+  * Install development tools: `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386 libopus-dev:i386 libbz2-dev:i386`.
+  * Set PKG_CONFIG_PATH environment variable to point at 32-bit libraries: `$ export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig`.
 
-`$ sudo dpkg --add-architecture i386`
-* Install development tools
-  * For 32-bit engine on amd64: \
-    `$ sudo apt install build-essential gcc-multilib g++-multilib python libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype6-dev:i386 libopus-dev:i386 libbz2-dev:i386`
-  * For everything else: \
-    `$ sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev libopus-dev libbz2-dev`
-* Clone this repostory:
-`$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`
+* For non-x86 systems:
+  * Install development tools: `$ sudo apt install build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev libopus-dev libbz2-dev`.
+
+* Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+
+##### RedHat/Fedora
+* For 32-bit engine on 64-bit x86 operating system:
+  * Install development tools: `$ sudo dnf install gcc gcc-c++ glibc-devel.i686 SDL2-devel.i686 opus-devel.i686 fontconfig-devel.i686 freetype-devel.i686 bzip2-devel.i686`.
+  * Set PKG_CONFIG_PATH environment variable to point at 32-bit libraries: `$ export PKG_CONFIG_PATH=/usr/lib/pkgconfig`.
+
+* For non-x86 systems:
+  * Install development tools: `$ sudo dnf install gcc gcc-c++ SDL2-devel opus-devel fontconfig-devel freetype-devel bzip2-devel`.
+
+* Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 
 ### Building
 #### Windows (Visual Studio)
-0) Open command line
+0) Open command line.
 1) Navigate to `xash3d-fwgs` directory.
-2) Carefully examine which build options are available: `waf --help`
-3) Configure build: `waf configure -T release --sdl2=c:/path/to/SDL2`
-4) Compile: `waf build`
-5) Install: `waf install --destdir=c:/path/to/any/output/directory`
+2) (optional) Examine which build options are available: `waf --help`.
+3) Configure build: `waf configure --sdl2=c:/path/to/SDL2`.
+4) Compile: `waf build`.
+5) Install: `waf install --destdir=c:/path/to/any/output/directory`.
 
 #### Linux
-If compiling 32-bit on amd64, you may need to supply `export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig` prior to running configure.
+If compiling 32-bit on amd64, make sure `PKG_CONFIG_PATH` from the previous step is set correctly, prior to running configure.
 
-0) Examine which build options are available: `./waf --help`
-1) Configure build: `./waf configure -T release`
-(You need to pass `-8` to compile 64-bit engine on 64-bit x86 processor)
-2) Compile: `./waf build`
-3) Install(optional): `./waf install --destdir=/path/to/any/output/directory`
+0) (optional) Examine which build options are available: `./waf --help`.
+1) Configure build: `./waf configure` (you need to pass `-8` to compile 64-bit engine on 64-bit x86 processor).
+2) Compile: `./waf build`.
+3) Install: `./waf install --destdir=/path/to/any/output/directory`.
