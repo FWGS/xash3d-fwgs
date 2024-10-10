@@ -744,13 +744,17 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 	{
 #if !XASH_DEDICATED
 		byte pbOut[0x10000];
+		uint uSourceSize = MSG_GetNumBytesWritten( msg );
 		uint uCompressedSize = MSG_GetNumBytesWritten( msg ) - 4;
-		if( !BZ2_bzBuffToBuffCompress( pbOut, &uCompressedSize, MSG_GetData( msg ), MSG_GetNumBytesWritten( msg ), 9, 0, 30 ))
+		if( !BZ2_bzBuffToBuffCompress( pbOut, &uCompressedSize, MSG_GetData( msg ), uSourceSize, 9, 0, 30 ))
 		{
-			Con_Reportf( "Compressing split packet with BZip2 (%d -> %d bytes)\n", MSG_GetNumBytesWritten( msg ), uCompressedSize );
-			memcpy( msg->pData, "BZ2", 4 );
-			memcpy( msg->pData + 4, pbOut, uCompressedSize );
-			MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
+			if( uCompressedSize < uSourceSize )
+			{
+				Con_Reportf( "Compressing split packet with BZip2 (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
+				memcpy( msg->pData, "BZ2", 4 );
+				memcpy( msg->pData + 4, pbOut, uCompressedSize );
+				MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
+			}
 		}
 #else
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
@@ -758,9 +762,9 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 	}
 	else if( !chan->use_bz2 && !LZSS_IsCompressed( MSG_GetData( msg )))
 	{
-		uint	uCompressedSize = 0;
-		uint	uSourceSize = MSG_GetNumBytesWritten( msg );
-		byte	*pbOut = LZSS_Compress( msg->pData, uSourceSize, &uCompressedSize );
+		uint uCompressedSize = 0;
+		uint uSourceSize = MSG_GetNumBytesWritten( msg );
+		byte *pbOut = LZSS_Compress( msg->pData, uSourceSize, &uCompressedSize );
 
 		if( pbOut && uCompressedSize > 0 && uCompressedSize < uSourceSize )
 		{
