@@ -670,8 +670,10 @@ void Delta_ParseTableField_GS( sizebuf_t *msg )
 
 		// patch our DT_SIGNED flag
 		if( FBitSet( to.fieldType, DT_SIGNED_GS ))
+		{
+			ClearBits( to.fieldType, DT_SIGNED_GS );
 			SetBits( to.fieldType, DT_SIGNED );
-
+		}
 		Delta_AddField( dt, to.fieldName, to.fieldType, to.significant_bits, to.premultiply, to.postmultiply );
 	}
 
