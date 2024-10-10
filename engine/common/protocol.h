@@ -347,7 +347,10 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define S2C_REJECT             '9'
 #define S2C_CHALLENGE          "A00000000"
 #define S2C_CONNECTION         "B"
+#define A2C_PRINT              'l'
 
+#define MAX_GOLDSRC_BACKUP_CMDS   8
+#define MAX_GOLDSRC_TOTAL_CMDS    16
 #define MAX_GOLDSRC_MODEL_BITS    10
 #define MAX_GOLDSRC_RESOURCE_BITS 12
 #define MAX_GOLDSRC_ENTITY_BITS   11
