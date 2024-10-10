@@ -627,7 +627,8 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 {
 	if( Q_strcmp( pszCodecName, VOICE_OPUS_CUSTOM_CODEC ))
 	{
-		Con_Printf( S_ERROR "Server requested unsupported codec: %s\n", pszCodecName );
+		if( COM_CheckStringEmpty( pszCodecName ))
+			Con_Printf( S_ERROR "Server requested unsupported codec: %s\n", pszCodecName );
 
 		// reset saved codec name, we won't enable voice for this connection
 		voice_codec_init[0] = 0;
