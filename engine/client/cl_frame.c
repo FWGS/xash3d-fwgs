@@ -174,7 +174,7 @@ static qboolean CL_EntityCustomLerp( cl_entity_t *e )
 	// INTERPOLATION IN GRAVGUNMOD COOP
 	// MUST BE REMOVED ONCE WE REMOVE 48 PROTO SUPPORT
 	case MOVETYPE_TOSS:
-		if( cls.legacymode && e->model && e->model->type == mod_studio )
+		if( cls.legacymode == PROTO_LEGACY && e->model && e->model->type == mod_studio )
 			return false;
 	}
 
@@ -1265,7 +1265,7 @@ static void CL_LinkPacketEntities( frame_t *frame )
 			// ABSOLUTELY STUPID HACK TO ALLOW MONSTERS
 			// INTERPOLATION IN GRAVGUNMOD COOP
 			// MUST BE REMOVED ONCE WE REMOVE 48 PROTO SUPPORT
-			else if( cls.legacymode && ent->model->type == mod_studio && ent->curstate.movetype == MOVETYPE_TOSS )
+			else if( cls.legacymode == PROTO_LEGACY && ent->model->type == mod_studio && ent->curstate.movetype == MOVETYPE_TOSS )
 			{
 				if( !CL_InterpolateModel( ent ))
 					continue;
