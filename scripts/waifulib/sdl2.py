@@ -71,7 +71,7 @@ def configure(conf):
 	if conf.options.SDL_PATH:
 		sdl2_configure_path(conf, conf.options.SDL_PATH, libname)
 	elif conf.env.DEST_OS == 'darwin':
-		sdl2_configure_path(conf, '/Library/Frameworks/%s.framework' % libname)
+		sdl2_configure_path(conf, '/Library/Frameworks/%s.framework' % libname, libname)
 	else:
 		try:
 			conf.check_cfg(package=libname.lower(), args='--cflags --libs',
