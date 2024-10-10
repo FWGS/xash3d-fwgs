@@ -93,6 +93,11 @@ def configure(conf):
 		conf.env.LIB_HAIKU = ['network']
 		conf.env.LIBPATH_HAIKU = ['/boot/system/lib']
 
+	if conf.env.DEST_OS == 'wasi':
+		conf.options.NO_ASYNC_RESOLVE = True
+		conf.env.append_unique('CFLAGS', '-mllvm')
+		conf.env.append_unique('CFLAGS', '-wasm-enable-sjlj')
+
 	if conf.options.STATIC:
 		conf.env.STATIC = True
 		conf.define('XASH_NO_LIBDL',1)
@@ -227,7 +232,8 @@ def build(bld):
 			'client/*.c',
 			'client/vgui/*.c',
 			'client/avi/*.c'])
-		libs += ['opus', 'bzip2']
+		is_cxx_link = True
+		libs += ['opus', 'bzip2', 'MultiEmulator']
 
 	includes = ['server', 'client', 'client/vgui' ]
 
