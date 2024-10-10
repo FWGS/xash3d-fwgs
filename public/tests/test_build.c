@@ -24,6 +24,7 @@ static struct
 { PLATFORM_IRIX,          "irix" },
 { PLATFORM_NSWITCH,       "nswitch" },
 { PLATFORM_PSVITA,        "psvita" },
+{ PLATFORM_WASI,          "wasi" },
 };
 
 static struct
@@ -39,6 +40,10 @@ static struct
 { ARCHITECTURE_X86, 0, -1, -1, "i386" },
 { ARCHITECTURE_E2K, 0, -1, -1, "e2k" },
 { ARCHITECTURE_JS, 0, -1, -1, "javascript" },
+
+// all possible WebAssembly names
+{ ARCHITECTURE_WASM, 0, -1, true, "wasm64" },
+{ ARCHITECTURE_WASM, 0, -1, false, "wasm32" },
 
 // all possible MIPS names
 { ARCHITECTURE_MIPS, 0, ENDIANNESS_BIG,    true,  "mips64" },
