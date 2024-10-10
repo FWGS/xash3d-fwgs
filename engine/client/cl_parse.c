@@ -2133,7 +2133,7 @@ and sent it back to the server
 */
 void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t proto )
 {
-	const char *cvarName, *response;
+	const char *cvarName, *response = NULL;
 	convar_t *cvar;
 	int requestID;
 
@@ -2141,26 +2141,36 @@ void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t
 		requestID = MSG_ReadLong( msg );
 
 	cvarName = MSG_ReadString( msg );
-	cvar = Cvar_FindVar( cvarName );
 
-	if( cvar )
+	if( proto == PROTO_GOLDSRC )
 	{
-		if( cvar->flags & FCVAR_PRIVILEGED )
-			response = "CVAR is privileged";
-		else if( cvar->flags & FCVAR_SERVER )
-			response = "CVAR is server-only";
-		else if( cvar->flags & FCVAR_PROTECTED )
-			response = "CVAR is protected";
+		if( !Q_stricmp( cvarName, "sv_version" ))
+			response = "1.1.2.2/Stdio,48,10211";
+	}
+
+	if( !response )
+	{
+		cvar = Cvar_FindVar( cvarName );
+
+		if( cvar )
+		{
+			if( cvar->flags & FCVAR_PRIVILEGED )
+				response = "CVAR is privileged";
+			else if( cvar->flags & FCVAR_SERVER )
+				response = "CVAR is server-only";
+			else if( cvar->flags & FCVAR_PROTECTED )
+				response = "CVAR is protected";
+			else
+				response = cvar->string;
+		}
+		else if( proto == PROTO_LEGACY )
+		{
+			response = "Not Found";
+		}
 		else
-			response = cvar->string;
-	}
-	else if( proto == PROTO_LEGACY )
-	{
-		response = "Not Found";
-	}
-	else
-	{
-		response = "Bad CVAR request";
+		{
+			response = "Bad CVAR request";
+		}
 	}
 
 	if( ext )
