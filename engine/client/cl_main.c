@@ -2164,6 +2164,14 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		Cbuf_AddText( args );
 		Cbuf_AddText( "\n" );
 	}
+	else if( c[0] == 'l' )
+	{
+		char *s = args + 1;
+
+		Con_Printf( S_CYAN "r:" S_DEFAULT " %s", s );
+		if( !COM_CheckStringEmpty( s ) || s[Q_strlen( s ) - 1] != '\n' )
+			Con_Printf( "\n" );
+	}
 	else if( !Q_strcmp( c, "print" ))
 	{
 		// print command from somewhere
