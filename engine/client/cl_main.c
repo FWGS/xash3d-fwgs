@@ -1035,6 +1035,22 @@ void CL_Drop( void )
 	CL_Disconnect();
 }
 
+static void CL_GetCDKey( char *protinfo, size_t protinfosize )
+{
+	byte hash[16] = { 0 };
+	MD5Context_t ctx = { 0 };
+	char key[64];
+	int keylength;
+
+	keylength = Q_snprintf( key, sizeof( key ), "%u", COM_RandomLong( 0, 0x7fffffff ));
+
+	MD5Init( &ctx );
+	MD5Update( &ctx, key, keylength );
+	MD5Final( hash, &ctx );
+
+	Info_SetValueForKey( protinfo, "cdkey", MD5_Print( hash ), protinfosize );
+}
+
 /*
 =======================
 CL_SendConnectPacket
@@ -1096,9 +1112,7 @@ static void CL_SendConnectPacket( void )
 
 		Info_SetValueForKey( protinfo, "prot", "3", sizeof( protinfo )); // steam auth type
 		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
-		Info_SetValueForKey( protinfo, "cdkey", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sizeof( protinfo ));
-
-		Info_SetValueForStarKey( cls.userinfo, "*hltv", "0", sizeof( cls.userinfo ));
+		CL_GetCDKey( protinfo, sizeof( protinfo ));
 
 		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
 		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
