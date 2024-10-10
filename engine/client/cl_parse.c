@@ -1587,7 +1587,7 @@ void CL_UpdateUserPings( sizebuf_t *msg )
 	}
 }
 
-static void CL_SendConsistencyInfo( sizebuf_t *msg )
+static void CL_SendConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 {
 	qboolean		user_changed_diskfile;
 	vec3_t		mins, maxs;
@@ -1595,16 +1595,24 @@ static void CL_SendConsistencyInfo( sizebuf_t *msg )
 	CRC32_t		crcFile;
 	byte		md5[16];
 	consistency_t	*pc;
-	int		i;
+	int		i, pos;
 
 	if( !cl.need_force_consistency_response )
 		return;
 	cl.need_force_consistency_response = false;
 
 	MSG_BeginClientCmd( msg, clc_fileconsistency );
+	pos = MSG_GetNumBytesWritten( msg );
+	if( proto == PROTO_GOLDSRC )
+	{
+		MSG_WriteShort( msg, 0 );
+		MSG_StartBitWriting( msg );
+	}
 
 	for( i = 0; i < cl.num_consistency; i++ )
 	{
+		qboolean have_file = true;
+
 		pc = &cl.consistency_list[i];
 
 		user_changed_diskfile = false;
@@ -1615,7 +1623,10 @@ static void CL_SendConsistencyInfo( sizebuf_t *msg )
 			Q_snprintf( filename, sizeof( filename ), DEFAULT_SOUNDPATH "%s", pc->filename );
 		else Q_strncpy( filename, pc->filename, sizeof( filename ));
 
-		if( Q_strstr( filename, "models/" ))
+		COM_FixSlashes( filename );
+		have_file = FS_FileExists( filename, false );
+
+		if( Q_strstr( filename, "models/" ) && have_file )
 		{
 			CRC32_Init( &crcFile );
 			CRC32_File( &crcFile, filename );
@@ -1634,12 +1645,37 @@ static void CL_SendConsistencyInfo( sizebuf_t *msg )
 				MSG_WriteUBitLong( msg, 0, 32 );
 			else MSG_WriteUBitLong( msg, pc->value, 32 );
 			break;
+
+		case force_model_specifybounds_if_avail:
+			if( have_file )
+			{
+				if( !Mod_GetStudioBounds( filename, mins, maxs ))
+					Host_Error( "unable to find %s\n", filename );
+
+				if( user_changed_diskfile )
+				{
+					VectorSet( mins, -9999.9f, -9999.9f, -9999.9f );
+					VectorSet( maxs, 9999.9f, 9999.9f, 9999.9f );
+				}
+			}
+			else
+			{
+				VectorSet( mins, -1.0f, -1.0f, -1.0f );
+				VectorCopy( mins, maxs );
+			}
+
+			MSG_WriteBytes( msg, mins, 12 );
+			MSG_WriteBytes( msg, maxs, 12 );
+			break;
 		case force_model_samebounds:
 		case force_model_specifybounds:
 			if( !Mod_GetStudioBounds( filename, mins, maxs ))
 				Host_Error( "unable to find %s\n", filename );
 			if( user_changed_diskfile )
-				ClearBounds( maxs, mins ); // g-cont. especially swapped
+			{
+				VectorSet( mins, -9999.9f, -9999.9f, -9999.9f );
+				VectorSet( maxs, 9999.9f, 9999.9f, 9999.9f );
+			}
 			MSG_WriteBytes( msg, mins, 12 );
 			MSG_WriteBytes( msg, maxs, 12 );
 			break;
@@ -1650,6 +1686,17 @@ static void CL_SendConsistencyInfo( sizebuf_t *msg )
 	}
 
 	MSG_WriteOneBit( msg, 0 );
+
+	if( proto == PROTO_GOLDSRC )
+	{
+		int len;
+		MSG_EndBitWriting( msg );
+
+		len = MSG_GetNumBytesWritten( msg ) - pos - 2;
+		*(short *)&msg->pData[pos] = len;
+
+		COM_Munge( &msg->pData[pos + 2], len, cl.servercount );
+	}
 }
 
 /*
@@ -1707,7 +1754,7 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 	}
 
 	if( !cls.demoplayback )
-		CL_SendConsistencyInfo( msg );
+		CL_SendConsistencyInfo( msg, proto );
 
 	// All done precaching.
 	cl.worldmodel = CL_ModelHandle( 1 ); // get world pointer
