@@ -1072,12 +1072,38 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 	Info_SetValueForKey( protinfo, "cdkey", key, protinfosize );
 }
 
-static void CL_WriteSteamTicket( sizebuf_t *send )
-{
-	size_t i;
+#include "multi_emulator.h"
+static CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
 
-	for( i = 0; i < 512 / sizeof( uint32_t ); i++ )
-		MSG_WriteLong( send, 0 );
+static void CL_WriteSteamTicket( sizebuf_t *buf )
+{
+	const char *s = ID_GetMD5();
+	uint32_t crc;
+	byte steam_cert[512];
+
+	CRC32_Init( &crc );
+	CRC32_ProcessBuffer( &crc, s, Q_strlen( s ));
+	crc = CRC32_Final( crc );
+	memset( steam_cert, 0, sizeof( steam_cert ));
+
+	if( !Q_stricmp( cl_ticket_generator.string, "revemu2013" ))
+		GenerateRevEmu2013( steam_cert, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "sc2009" ))
+		GenerateSC2009( steam_cert, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "oldrevemu" ))
+		GenerateOldRevEmu( steam_cert, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "steamemu" ))
+		GenerateSteamEmu( steam_cert, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "revemu" ))
+		GenerateRevEmu( steam_cert, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "setti" ))
+		GenerateSetti( steam_cert );
+	else if( !Q_stricmp( cl_ticket_generator.string, "avsmp" ))
+		GenerateAVSMP( steam_cert, crc, true );
+	else 
+		Con_Printf( "%s: unknown generator %s, supported are: revemu2003, sc2009, oldrevemu, steamemu, revemu, setti, avsmp\n", __func__, cl_ticket_generator.string );
+
+	MSG_WriteBytes( buf, steam_cert, sizeof( steam_cert ));
 }
 
 /*
@@ -1239,7 +1265,7 @@ static void CL_CheckForResend( void )
 	net_gai_state_t res;
 	float resendTime;
 	qboolean bandwidthTest;
-	
+
 	if( cls.internetservers_wait )
 		CL_SendMasterServerScanRequest();
 
@@ -1787,7 +1813,7 @@ static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, u
 
 	Q_snprintf( temp, sizeof( temp ), "%d", Q_buildnum() );
 	Info_SetValueForKey( info, "buildnum", temp, remaining );
-	
+
 	Q_snprintf( temp, sizeof( temp ), "%x", *key );
 	Info_SetValueForKey( info, "key", temp, remaining );
 
@@ -3209,6 +3235,8 @@ static void CL_InitLocal( void )
 
 	cl.resourcesneeded.pNext = cl.resourcesneeded.pPrev = &cl.resourcesneeded;
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;
+
+	Cvar_RegisterVariable( &cl_ticket_generator );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );
