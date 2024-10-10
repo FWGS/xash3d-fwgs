@@ -80,9 +80,14 @@ def configure(conf):
 		conf.env.HAVE_SDL2 = True
 	else:
 		conf.load('sdl2')
-		if not conf.env.HAVE_SDL2:
-			conf.fatal('SDL2 not available! If you want to build dedicated server, specify --dedicated')
-		conf.define('XASH_SDL', 2)
+		if conf.options.SDL3:
+			if not conf.env.HAVE_SDL3:
+				conf.fatal('SDL3 not available! If you want to build dedicated server, specify --dedicated')
+			conf.define('XASH_SDL', 3)
+		else:
+			if not conf.env.HAVE_SDL2:
+				conf.fatal('SDL2 not available! If you want to build dedicated server, specify --dedicated')
+			conf.define('XASH_SDL', 2)
 
 	if conf.env.DEST_OS == 'haiku':
 		conf.env.LIB_HAIKU = ['network']
@@ -172,8 +177,8 @@ def build(bld):
 		source += bld.path.ant_glob(['platform/misc/lib_static.c'])
 		is_cxx_link = True
 
-	if bld.env.HAVE_SDL2:
-		libs.append('SDL2')
+	if bld.env.HAVE_SDL2 or bld.env.HAVE_SDL3:
+		libs.append('SDL3' if bld.env.HAVE_SDL3 else 'SDL2')
 		source += bld.path.ant_glob(['platform/sdl/*.c'])
 
 	if bld.env.MAGX:
