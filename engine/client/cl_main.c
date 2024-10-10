@@ -1059,6 +1059,44 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 	Info_SetValueForKey( protinfo, "cdkey", key, protinfosize );
 }
 
+#include "multi_emulator.h"
+static CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
+
+static size_t CL_GenerateSteamTicket( byte *buf, size_t size )
+{
+	const char *s = ID_GetMD5();
+	uint32_t crc;
+
+	CRC32_Init( &crc );
+	CRC32_ProcessBuffer( &crc, s, Q_strlen( s ));
+	crc = CRC32_Final( crc );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "revemu2013" ))
+		return GenerateRevEmu2013( buf, crc );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "sc2009" ))
+		return GenerateSC2009( buf, crc );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "oldrevemu" ))
+		return GenerateOldRevEmu( buf, crc );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "steamemu" ))
+		return GenerateSteamEmu( buf, crc );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "revemu" ))
+		return GenerateRevEmu( buf, crc );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "setti" ))
+		return GenerateSetti( buf );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "avsmp" ))
+		return GenerateAVSMP( buf, crc, true );
+
+	Con_Printf( "%s: unknown generator %s, supported are: revemu2003, sc2009, oldrevemu, steamemu, revemu, setti, avsmp\n", __func__, cl_ticket_generator.string );
+	memset( buf, 0, size );
+	return size;
+}
+
 /*
 =======================
 CL_SendConnectPacket
@@ -1115,7 +1153,7 @@ static void CL_SendConnectPacket( void )
 
 	if( cls.legacymode == PROTO_GOLDSRC )
 	{
-		byte send_buf[MAX_PRINT_MSG];
+		byte send_buf[1024];
 		byte steam_cert[512];
 		string new_name;
 		const char *name;
@@ -1124,8 +1162,7 @@ static void CL_SendConnectPacket( void )
 
 		protinfo[0] = 0;
 
-		memset( steam_cert, 0, sizeof( steam_cert ));
-		steam_cert_len = sizeof( steam_cert );
+		steam_cert_len = CL_GenerateSteamTicket( steam_cert, sizeof( steam_cert ));
 
 		Info_SetValueForKey( protinfo, "prot", "3", sizeof( protinfo )); // steam auth type
 		Info_SetValueForKeyf( protinfo, "unique", sizeof( protinfo ), "%i", 0xffffffff );
@@ -1238,7 +1275,7 @@ static void CL_CheckForResend( void )
 	net_gai_state_t res;
 	float resendTime;
 	qboolean bandwidthTest;
-	
+
 	if( cls.internetservers_wait )
 		CL_SendMasterServerScanRequest();
 
@@ -1778,7 +1815,7 @@ static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, u
 
 	Q_snprintf( temp, sizeof( temp ), "%d", Q_buildnum() );
 	Info_SetValueForKey( info, "buildnum", temp, remaining );
-	
+
 	Q_snprintf( temp, sizeof( temp ), "%x", *key );
 	Info_SetValueForKey( info, "key", temp, remaining );
 
@@ -3194,6 +3231,8 @@ static void CL_InitLocal( void )
 
 	cl.resourcesneeded.pNext = cl.resourcesneeded.pPrev = &cl.resourcesneeded;
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;
+
+	Cvar_RegisterVariable( &cl_ticket_generator );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );
