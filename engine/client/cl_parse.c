@@ -904,10 +904,14 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		MSG_ReadBytes( msg, clientdllmd5, sizeof( clientdllmd5 ));
 		cl.maxclients = MSG_ReadByte( msg );
 		cl.playernum = MSG_ReadByte( msg );
+
+		COM_UnMunge3((byte *)&cl.checksum, sizeof( cl.checksum ), ( 0xff - cl.playernum ) & 0xff );
+
 		unused = MSG_ReadByte( msg ); // coop flag
 		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
 		MSG_ReadString( msg ); // hostname
-		Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
+		Q_strncpy( clgame.mapname, COM_FileWithoutPath( MSG_ReadString( msg )), sizeof( clgame.mapname ));
+		COM_StripExtension( clgame.mapname );
 		MSG_ReadString( msg ); // mapcycle?????
 		unused = MSG_ReadByte( msg ); // vac secure
 
