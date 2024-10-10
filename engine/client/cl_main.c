@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "vid_common.h"
 #include "pm_local.h"
+#include "multi_emulator.h"
 
 #define MAX_TOTAL_CMDS		32
 #define MAX_CMD_BUFFER		8000
@@ -94,6 +95,8 @@ static CVAR_DEFINE_AUTO( model, "", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABL
 static CVAR_DEFINE_AUTO( topcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player top color" );
 static CVAR_DEFINE_AUTO( bottomcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player bottom color" );
 CVAR_DEFINE_AUTO( rate, "3500", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
+
+static CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
 
 
 client_t		cl;
@@ -1074,10 +1077,49 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 
 static void CL_WriteSteamTicket( sizebuf_t *send )
 {
-	size_t i;
+	const char *s;
+	uint32_t crc;
+	char buf[512] = { 0 };
+	size_t i = sizeof( buf );
 
-	for( i = 0; i < 512 / sizeof( uint32_t ); i++ )
-		MSG_WriteLong( send, 0 );
+	if( !Q_strcmp( cl_ticket_generator.string, "null" ))
+	{
+		MSG_WriteBytes( send, buf, sizeof( buf ));
+		return;
+	}
+
+#if 0 // FIXME
+	if( !Q_strcmp( cl_ticket_generator.string, "steam" )
+	{
+		i = SteamBroker_InitiateGameConnection( buf, sizeof( buf ));
+		MSG_WriteBytes( send, buf, i );
+		return;
+	}
+#endif
+
+	s = ID_GetMD5();
+	CRC32_Init( &crc );
+	CRC32_ProcessBuffer( &crc, s, Q_strlen( s ));
+	crc = CRC32_Final( crc );
+
+	if( !Q_stricmp( cl_ticket_generator.string, "revemu2013" ))
+		i = GenerateRevEmu2013( buf, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "sc2009" ))
+		i = GenerateSC2009( buf, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "oldrevemu" ))
+		i = GenerateOldRevEmu( buf, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "steamemu" ))
+		i = GenerateSteamEmu( buf, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "revemu" ))
+		i = GenerateRevEmu( buf, crc );
+	else if( !Q_stricmp( cl_ticket_generator.string, "setti" ))
+		i = GenerateSetti( buf );
+	else if( !Q_stricmp( cl_ticket_generator.string, "avsmp" ))
+		i = GenerateAVSMP( buf, crc, true );
+	else
+		Con_Printf( "%s: unknown generator %s, supported are: null, revemu2003, sc2009, oldrevemu, steamemu, revemu, setti, avsmp\n", __func__, cl_ticket_generator.string );
+
+	MSG_WriteBytes( send, buf, i );
 }
 
 /*
@@ -1239,7 +1281,7 @@ static void CL_CheckForResend( void )
 	net_gai_state_t res;
 	float resendTime;
 	qboolean bandwidthTest;
-	
+
 	if( cls.internetservers_wait )
 		CL_SendMasterServerScanRequest();
 
@@ -1796,7 +1838,7 @@ static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, u
 
 	Q_snprintf( temp, sizeof( temp ), "%d", Q_buildnum() );
 	Info_SetValueForKey( info, "buildnum", temp, remaining );
-	
+
 	Q_snprintf( temp, sizeof( temp ), "%x", *key );
 	Info_SetValueForKey( info, "key", temp, remaining );
 
@@ -3348,6 +3390,8 @@ static void CL_InitLocal( void )
 
 	cl.resourcesneeded.pNext = cl.resourcesneeded.pPrev = &cl.resourcesneeded;
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;
+
+	Cvar_RegisterVariable( &cl_ticket_generator );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );
