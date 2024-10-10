@@ -41,6 +41,7 @@ GNU General Public License for more details.
 #define PLATFORM_IRIX       12
 #define PLATFORM_NSWITCH    13
 #define PLATFORM_PSVITA     14
+#define PLATFORM_WASI       15
 
 #if XASH_WIN32
 	#define XASH_PLATFORM PLATFORM_WIN32
@@ -70,6 +71,8 @@ GNU General Public License for more details.
 	#define XASH_PLATFORM PLATFORM_NSWITCH
 #elif XASH_PSVITA
 	#define XASH_PLATFORM PLATFORM_PSVITA
+#elif XASH_WASI
+	#define XASH_PLATFORM PLATFORM_WASI
 #else
 	#error
 #endif
@@ -87,6 +90,7 @@ GNU General Public License for more details.
 #define ARCHITECTURE_E2K     7
 #define ARCHITECTURE_RISCV   8
 #define ARCHITECTURE_PPC     9
+#define ARCHITECTURE_WASM  10
 
 #if XASH_AMD64
 	#define XASH_ARCHITECTURE ARCHITECTURE_AMD64
@@ -104,6 +108,8 @@ GNU General Public License for more details.
 	#define XASH_ARCHITECTURE ARCHITECTURE_RISCV
 #elif XASH_PPC
 	#define XASH_ARCHITECTURE ARCHITECTURE_PPC
+#elif XASH_WASM
+	#define XASH_ARCHITECTURE ARCHITECTURE_WASM
 #else
 	#error
 #endif

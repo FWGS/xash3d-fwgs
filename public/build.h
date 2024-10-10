@@ -85,6 +85,8 @@ Then you can use another oneliner to query all variables:
 #undef XASH_X86
 #undef XASH_NSWITCH
 #undef XASH_PSVITA
+#undef XASH_WASI
+#undef XASH_WASM
 
 //================================================================
 //
@@ -126,6 +128,8 @@ Then you can use another oneliner to query all variables:
 		#define XASH_NSWITCH 1
 	#elif defined __vita__
 		#define XASH_PSVITA 1
+	#elif defined __wasi__
+		#define XASH_WASI 1
 	#else
 		#error
 	#endif
@@ -234,6 +238,11 @@ Then you can use another oneliner to query all variables:
 	#else
 		#error "Unknown RISC-V float ABI"
 	#endif
+#elif defined __wasm__
+	#if defined __wasm64__
+		#define XASH_64BIT 1
+	#endif
+	#define XASH_WASM 1
 #else
 	#error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
