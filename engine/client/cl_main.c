@@ -680,21 +680,16 @@ static void CL_CreateCmd( void )
 
 void CL_WriteUsercmd( sizebuf_t *msg, int from, int to )
 {
-	usercmd_t	nullcmd;
+	const usercmd_t nullcmd = { 0 };
 	usercmd_t	*f, *t;
 
 	Assert( from == -1 || ( from >= 0 && from < MULTIPLAYER_BACKUP ));
 	Assert( to >= 0 && to < MULTIPLAYER_BACKUP );
 
 	if( from == -1 )
-	{
-		memset( &nullcmd, 0, sizeof( nullcmd ));
 		f = &nullcmd;
-	}
 	else
-	{
 		f = &cl.commands[from].cmd;
-	}
 
 	t = &cl.commands[to].cmd;
 
@@ -737,8 +732,15 @@ static void CL_WritePacket( void )
 	MSG_Init( &buf, "ClientData", data, sizeof( data ));
 
 	// Determine number of backup commands to send along
-	numbackup = bound( 0, cl_cmdbackup.value, cls.legacymode ? MAX_LEGACY_BACKUP_CMDS : MAX_BACKUP_COMMANDS );
-	if( cls.state == ca_connected ) numbackup = 0;
+	if( cls.legacymode == PROTO_GOLDSRC )
+		numbackup = bound( 0, cl_cmdbackup.value, MAX_GOLDSRC_BACKUP_CMDS );
+	else if( cls.legacymode == PROTO_LEGACY )
+		numbackup = bound( 0, cl_cmdbackup.value, MAX_LEGACY_BACKUP_CMDS );
+	else
+		numbackup = bound( 0, cl_cmdbackup.value, MAX_BACKUP_COMMANDS );
+
+	if( cls.state == ca_connected )
+		numbackup = 0;
 
 	// clamp cmdrate
 	if( cl_cmdrate.value < 10.0f )
@@ -805,14 +807,14 @@ static void CL_WritePacket( void )
 		MSG_BeginClientCmd( &buf, clc_move );
 
 		if( cls.legacymode == PROTO_GOLDSRC )
-			MSG_WriteByte( &buf, 0 );
+			MSG_WriteByte( &buf, 0 ); // length
 
 		// save the position for a checksum byte
 		key = MSG_GetRealBytesWritten( &buf );
 		MSG_WriteByte( &buf, 0 );
 
 		// write packet lossage percentation
-		MSG_WriteByte( &buf, cls.packet_loss );
+		MSG_WriteByte( &buf, bound( 0, (int)cls.packet_loss, 100 ) );
 
 		// say how many backups we'll be sending
 		MSG_WriteByte( &buf, numbackup );
@@ -821,8 +823,15 @@ static void CL_WritePacket( void )
 		newcmds = ( cls.netchan.outgoing_sequence - cls.lastoutgoingcommand );
 
 		// put an upper/lower bound on this
-		newcmds = bound( 0, newcmds, cls.legacymode ? MAX_LEGACY_TOTAL_CMDS: MAX_TOTAL_CMDS );
-		if( cls.state == ca_connected ) newcmds = 0;
+		if( cls.legacymode == PROTO_GOLDSRC )
+			newcmds = bound( 0, newcmds, MAX_GOLDSRC_TOTAL_CMDS );
+		else if( cls.legacymode == PROTO_LEGACY )
+			newcmds = bound( 0, newcmds, MAX_LEGACY_TOTAL_CMDS );
+		else
+			newcmds = bound( 0, newcmds, MAX_TOTAL_CMDS );
+
+		if( cls.state == ca_connected )
+			newcmds = 0;
 
 		MSG_WriteByte( &buf, newcmds );
 
@@ -843,16 +852,20 @@ static void CL_WritePacket( void )
 		}
 
 		// calculate a checksum over the move commands
-		size = MSG_GetRealBytesWritten( &buf ) - key - 1;
 		if( cls.legacymode == PROTO_GOLDSRC )
 		{
-			size = Q_min( size, 255 );
-			buf.pData[key - 1] = size;
-		}
-		buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
+			size = MSG_GetRealBytesWritten( &buf ) - key - 1;
 
-		if( cls.legacymode == PROTO_GOLDSRC )
-			COM_Munge( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
+			buf.pData[key - 1] = Q_min( size, 255 );
+			buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
+			COM_Munge( buf.pData + key + 1, Q_min( size, 255 ), cls.netchan.outgoing_sequence );
+		}
+		else
+		{
+			size = MSG_GetRealBytesWritten( &buf ) - key - 1;
+
+			buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
+		}
 
 		// message we are constructing.
 		i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
