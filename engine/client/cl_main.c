@@ -599,7 +599,7 @@ static void CL_CreateCmd( void )
 	int       input_override;
 	int       i, ms;
 
-	if( cls.state < ca_connected || cls.state == ca_cinematic )
+	if( cls.state <= ca_connected || cls.state == ca_cinematic )
 		return;
 
 	// store viewangles in case it's will be freeze
