@@ -886,7 +886,7 @@ void CL_ParseFileTransferFailed( sizebuf_t *msg );
 void CL_ParseHLTV( sizebuf_t *msg );
 void CL_ParseDirector( sizebuf_t *msg );
 void CL_ParseVoiceInit( sizebuf_t *msg );
-void CL_ParseVoiceData( sizebuf_t *msg );
+void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseResLocation( sizebuf_t *msg );
 void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t proto );
 void CL_ParseServerMessage( sizebuf_t *msg );
