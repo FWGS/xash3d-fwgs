@@ -1106,6 +1106,9 @@ static void CL_SendConnectPacket( void )
 	{
 		byte send_buf[MAX_PRINT_MSG];
 		byte steam_cert[512];
+		string new_name;
+		const char *name;
+		size_t steam_cert_len;
 		sizebuf_t send;
 
 		protinfo[0] = 0;
@@ -1117,6 +1120,13 @@ static void CL_SendConnectPacket( void )
 		Info_SetValueForKeyf( protinfo, "unique", sizeof( protinfo ), "%i", 0xffffffff );
 		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
 		CL_GetCDKey( protinfo, sizeof( protinfo ));
+
+		name = Info_ValueForKey( cls.userinfo, "name" );
+		if( Q_strnicmp( name, "[Xash3D]", 8 ))
+		{
+			Q_snprintf( new_name, sizeof( new_name ), "[Xash3D]%s", name );
+			Info_SetValueForKey( cls.userinfo, "name", new_name, sizeof( cls.userinfo ));
+		}
 
 		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
 		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
@@ -2863,9 +2873,17 @@ tell server about changed userinfo
 */
 void CL_UpdateInfo( const char *key, const char *value )
 {
-	if( !cls.legacymode )
+	if( cls.legacymode != PROTO_LEGACY )
 	{
-		CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", key, value );
+		if( cls.legacymode == PROTO_GOLDSRC && !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
+		{
+			// always prepend [Xash3D] on GoldSrc protocol :)
+			CL_ServerCommand( true, "setinfo \"%s\" \"[Xash3D]%s\"\n", key, value );
+		}
+		else
+		{
+			CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", key, value );
+		}
 	}
 	else
 	{
