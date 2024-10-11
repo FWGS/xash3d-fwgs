@@ -730,7 +730,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			CL_ParseVoiceInit( msg );
 			break;
 		case svc_voicedata:
-			CL_ParseVoiceData( msg );
+			CL_ParseVoiceData( msg, PROTO_GOLDSRC );
 			cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_resourcelocation:

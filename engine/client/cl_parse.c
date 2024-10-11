@@ -1940,15 +1940,29 @@ CL_ParseVoiceData
 
 ==================
 */
-void CL_ParseVoiceData( sizebuf_t *msg )
+void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 {
 	int size, idx, frames;
 	byte received[8192];
 
 	idx = MSG_ReadByte( msg ) + 1;
 
-	frames = MSG_ReadByte( msg );
+	if( proto == PROTO_GOLDSRC )
+	{
+		size = MSG_ReadShort( msg );
+		MSG_SeekToBit( msg, size << 3, SEEK_CUR ); // skip the entire buf, not supported yet
 
+#if 0 // shall we notify client.dll if nothing can be heard?
+		// must notify through as both local player and normal client
+		if( idx == cl.playernum + 1 )
+			Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
+
+		Voice_StatusAck( &voice.players_status[idx], idx );
+#endif
+		return;
+	}
+
+	frames = MSG_ReadByte( msg );
 	size = MSG_ReadShort( msg );
 	size = Q_min( size, sizeof( received ));
 
@@ -2632,7 +2646,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseVoiceInit( msg );
 			break;
 		case svc_voicedata:
-			CL_ParseVoiceData( msg );
+			CL_ParseVoiceData( msg, PROTO_CURRENT );
 			cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_resourcelocation:
