@@ -1872,7 +1872,11 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 		pc->value = 0;
 
 		if( pResource->type == t_model && memcmp( nullbuffer, pResource->rguc_reserved, 32 ))
+		{
+			if( proto == PROTO_GOLDSRC )
+				COM_UnMunge( pResource->rguc_reserved, sizeof( pResource->rguc_reserved ), cl.servercount );
 			pc->check_type = pResource->rguc_reserved[0];
+		}
 
 		skip_crc_change = pResource;
 		lastcheck = delta;
