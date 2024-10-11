@@ -553,6 +553,9 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			// this does nothing
 			break;
 		case svc_disconnect:
+			s = MSG_ReadString( msg );
+			if( COM_CheckStringEmpty( s ))
+				Con_Printf( "Server issued disconnect. Reason: %s\n", s );
 			CL_Drop ();
 			Host_AbortCurrentFrame ();
 			break;
