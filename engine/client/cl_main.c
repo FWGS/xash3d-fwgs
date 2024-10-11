@@ -1048,7 +1048,9 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 	MD5Update( &ctx, key, keylength );
 	MD5Final( hash, &ctx );
 
-	Info_SetValueForKey( protinfo, "cdkey", MD5_Print( hash ), protinfosize );
+	Q_strnlwr( MD5_Print( hash ), key, sizeof( key ));
+
+	Info_SetValueForKey( protinfo, "cdkey", key, protinfosize );
 }
 
 /*
@@ -1109,8 +1111,10 @@ static void CL_SendConnectPacket( void )
 		protinfo[0] = 0;
 
 		memset( steam_cert, 0, sizeof( steam_cert ));
+		steam_cert_len = sizeof( steam_cert );
 
 		Info_SetValueForKey( protinfo, "prot", "3", sizeof( protinfo )); // steam auth type
+		Info_SetValueForKeyf( protinfo, "unique", sizeof( protinfo ), "%i", 0xffffffff );
 		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
 		CL_GetCDKey( protinfo, sizeof( protinfo ));
 
@@ -1118,7 +1122,11 @@ static void CL_SendConnectPacket( void )
 		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
 		MSG_WriteStringf( &send, "connect %i %i \"%s\" \"%s\"\n",
 			PROTOCOL_GOLDSRC_VERSION, cls.challenge, protinfo, cls.userinfo );
-		MSG_WriteBytes( &send, steam_cert, sizeof( steam_cert ));
+		MSG_SeekToBit( &send, -8, SEEK_CUR ); // rewrite null terminator
+		MSG_WriteBytes( &send, steam_cert, steam_cert_len );
+
+		if( MSG_CheckOverflow( &send ))
+			Con_Printf( S_ERROR "%s: %s overflow!\n", __func__, MSG_GetName( &send ) );
 
 		NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
 	}
@@ -1174,6 +1182,14 @@ static int CL_GetTestFragmentSize( void )
 		return bound( FRAGMENT_MIN_SIZE, fragmentSizes[cls.connect_retry], FRAGMENT_MAX_SIZE );
 	else
 		return FRAGMENT_MIN_SIZE;
+}
+
+static void CL_SendGetChallenge( netadr_t to, connprotocol_t proto )
+{
+	if( proto == PROTO_GOLDSRC )
+		Netchan_OutOfBandPrint( NS_CLIENT, to, "getchallenge steam\n" );
+	else
+		Netchan_OutOfBandPrint( NS_CLIENT, to, "getchallenge\n" );
 }
 
 /*
@@ -1250,7 +1266,7 @@ static void CL_CheckForResend( void )
 		// too many fails use default connection method
 		Con_Printf( "Bandwidth test failed, fallback to default connecting method\n" );
 		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry + 1 );
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
+		CL_SendGetChallenge( adr, cls.legacymode );
 		Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 		cls.connect_time = host.realtime;
 		cls.connect_retry++;
@@ -1270,7 +1286,7 @@ static void CL_CheckForResend( void )
 	if( bandwidthTest )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
 	else
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "getchallenge\n" );
+		CL_SendGetChallenge( adr, cls.legacymode );
 }
 
 static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
@@ -2205,7 +2221,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			{
 				// too many fails use default connection method
 				Con_Printf( "hi-speed connection is failed, use default method\n" );
-				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
+				CL_SendGetChallenge( from, cls.legacymode );
 				Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 				cls.connect_time = host.realtime;
 				return;
@@ -2227,7 +2243,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			// packet was sucessfully delivered, adjust the fragment size and get challenge
 
 			Con_DPrintf( "CRC %x is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
-			Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
+			CL_SendGetChallenge( from, cls.legacymode );
 			Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
 			cls.connect_time = host.realtime;
 		}
@@ -2237,7 +2253,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			{
 				// too many fails use default connection method
 				Con_Printf( "hi-speed connection is failed, use default method\n" );
-				Netchan_OutOfBandPrint( NS_CLIENT, from, "getchallenge\n" );
+				CL_SendGetChallenge( from, cls.legacymode );
 				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 				cls.connect_time = host.realtime;
 				return;
