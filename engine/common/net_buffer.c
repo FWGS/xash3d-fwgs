@@ -213,25 +213,23 @@ void MSG_WriteSBitLong( sizebuf_t *sb, int data, int numbits )
 	// do we have a valid # of bits to encode with?
 	Assert( numbits >= 1 && numbits <= 32 );
 
-	if( data < 0 )
+	if( sb->iAlternateSign )
 	{
-		if( sb->iAlternateSign )
-			MSG_WriteOneBit( sb, 1 );
-
-		MSG_WriteUBitLong( sb, (uint)( 0x80000000 + data ), numbits - 1 );
-
-		if( !sb->iAlternateSign )
-			MSG_WriteOneBit( sb, 1 );
+		MSG_WriteOneBit( sb, data < 0 ? 1 : 0 );
+		MSG_WriteUBitLong( sb, (uint)abs( data ), numbits - 1 );
 	}
 	else
 	{
-		if( sb->iAlternateSign )
+		if( data < 0 )
+		{
+			MSG_WriteUBitLong( sb, (uint)( 0x80000000 + data ), numbits - 1 );
+			MSG_WriteOneBit( sb, 1 );
+		}
+		else
+		{
+			MSG_WriteUBitLong( sb, (uint)data, numbits - 1 );
 			MSG_WriteOneBit( sb, 0 );
-
-		MSG_WriteUBitLong( sb, (uint)data, numbits - 1 );
-
-		if( !sb->iAlternateSign )
-			MSG_WriteOneBit( sb, 0 );
+		}
 	}
 }
 
