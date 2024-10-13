@@ -94,8 +94,6 @@ void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str, size_t bufsize );
 void COM_FixSlashes( char *pname );
 void COM_PathSlashFix( char *path );
-char COM_Hex2Char( uint8_t hex );
-void COM_Hex2String( uint8_t hex, char *str );
 // return 0 on empty or null string, 1 otherwise
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 #define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )

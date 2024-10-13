@@ -19,8 +19,6 @@ GNU General Public License for more details.
 #include <stdlib.h>
 
 #define NUM_BYTES		256
-#define CRC32_INIT_VALUE	0xFFFFFFFFUL
-#define CRC32_XOR_VALUE	0xFFFFFFFFUL
 
 static const uint32_t crc32table[NUM_BYTES] =
 {
@@ -89,16 +87,6 @@ static const uint32_t crc32table[NUM_BYTES] =
 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
-
-void GAME_EXPORT CRC32_Init( uint32_t *pulCRC )
-{
-	*pulCRC = CRC32_INIT_VALUE;
-}
-
-uint32_t GAME_EXPORT CRC32_Final( uint32_t pulCRC )
-{
-	return pulCRC ^ CRC32_XOR_VALUE;
-}
 
 void GAME_EXPORT CRC32_ProcessByte( uint32_t *pulCRC, byte ch )
 {
@@ -184,24 +172,6 @@ byte CRC32_BlockSequence( byte *base, int length, int sequence )
 }
 
 void MD5Transform( uint buf[4], const uint in[16] );
-
-/*
-==================
-MD5Init
-
-Start MD5 accumulation.  Set bit count to 0 and buffer to mysterious initialization constants.
-==================
-*/
-void MD5Init( MD5Context_t *ctx )
-{
-	ctx->buf[0] = 0x67452301;
-	ctx->buf[1] = 0xefcdab89;
-	ctx->buf[2] = 0x98badcfe;
-	ctx->buf[3] = 0x10325476;
-
-	ctx->bits[0] = 0;
-	ctx->bits[1] = 0;
-}
 
 /*
 ===================
@@ -403,6 +373,33 @@ void MD5Transform( uint buf[4], const uint in[16] )
 	buf[1] += b;
 	buf[2] += c;
 	buf[3] += d;
+}
+
+/*
+============
+COM_Hex2Char
+============
+*/
+static char COM_Hex2Char( uint8_t hex )
+{
+	if( hex >= 0x0 && hex <= 0x9 )
+		hex += '0';
+	else if( hex >= 0xA && hex <= 0xF )
+		hex += '7';
+
+	return (char)hex;
+}
+
+/*
+============
+COM_Hex2String
+============
+*/
+static void COM_Hex2String( uint8_t hex, char *str )
+{
+	*str++ = COM_Hex2Char( hex >> 4 );
+	*str++ = COM_Hex2Char( hex & 0x0F );
+	*str = '\0';
 }
 
 /*

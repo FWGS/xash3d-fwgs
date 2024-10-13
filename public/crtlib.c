@@ -703,33 +703,6 @@ void COM_PathSlashFix( char *path )
 }
 
 /*
-============
-COM_Hex2Char
-============
-*/
-char COM_Hex2Char( uint8_t hex )
-{
-	if( hex >= 0x0 && hex <= 0x9 )
-		hex += '0';
-	else if( hex >= 0xA && hex <= 0xF )
-		hex += '7';
-
-	return (char)hex;
-}
-
-/*
-============
-COM_Hex2String
-============
-*/
-void COM_Hex2String( uint8_t hex, char *str )
-{
-	*str++ = COM_Hex2Char( hex >> 4 );
-	*str++ = COM_Hex2Char( hex & 0x0F );
-	*str = '\0';
-}
-
-/*
 ==============
 COM_IsSingleChar
 
