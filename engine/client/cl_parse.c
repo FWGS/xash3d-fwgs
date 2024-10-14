@@ -181,14 +181,14 @@ CL_ParseServerTime
 
 ==================
 */
-void CL_ParseServerTime( sizebuf_t *msg )
+void CL_ParseServerTime( sizebuf_t *msg, connprotocol_t proto )
 {
 	double	dt;
 
 	cl.mtime[1] = cl.mtime[0];
 	cl.mtime[0] = MSG_ReadFloat( msg );
 
-	if( cls.legacymode == PROTO_QUAKE )
+	if( proto == PROTO_QUAKE )
 		return; // don't mess the time
 
 	if( cl.maxclients == 1 )
@@ -2544,7 +2544,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_time:
-			CL_ParseServerTime( msg );
+			CL_ParseServerTime( msg, PROTO_CURRENT );
 			break;
 		case svc_print:
 			Con_Printf( "%s", MSG_ReadString( msg ));

@@ -950,7 +950,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			break;
 		case svc_time:
 			Cbuf_AddText( "\n" ); // new frame was started
-			CL_ParseServerTime( msg );
+			CL_ParseServerTime( msg, PROTO_QUAKE );
 			break;
 		case svc_print:
 			str = MSG_ReadString( msg );

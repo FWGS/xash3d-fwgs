@@ -896,7 +896,7 @@ qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );
 qboolean CL_RequestMissingResources( void );
 void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseViewEntity( sizebuf_t *msg );
-void CL_ParseServerTime( sizebuf_t *msg );
+void CL_ParseServerTime( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseUserMessage( sizebuf_t *msg, int svc_num, connprotocol_t proto );
 void CL_ParseFinaleCutscene( sizebuf_t *msg, int level );
 void CL_ParseTextMessage( sizebuf_t *msg );
