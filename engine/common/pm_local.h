@@ -21,12 +21,6 @@ GNU General Public License for more details.
 typedef int (*pfnIgnore)( physent_t *pe );	// custom trace filter
 
 //
-// pm_debug.c
-//
-void PM_ParticleLine( const vec3_t start, const vec3_t end, int pcolor, float life, float zvel );
-void PM_DrawBBox( const vec3_t mins, const vec3_t maxs, const vec3_t origin, int pcolor, float life );
-
-//
 // pm_trace.c
 //
 void Pmove_Init( void );
