@@ -35,17 +35,17 @@ TEMPENTS MANAGEMENT
 #define SHARD_VOLUME		12.0f	// on shard ever n^3 units
 #define MAX_MUZZLEFLASH		3
 
-TEMPENTITY	*cl_active_tents;
-TEMPENTITY	*cl_free_tents;
-TEMPENTITY	*cl_tempents = NULL;		// entities pool
+static TEMPENTITY *cl_active_tents;
+static TEMPENTITY *cl_free_tents;
+static TEMPENTITY *cl_tempents = NULL;		// entities pool
 
-model_t		*cl_sprite_muzzleflash[MAX_MUZZLEFLASH];	// muzzle flashes
-model_t		*cl_sprite_dot = NULL;
-model_t		*cl_sprite_ricochet = NULL;
-model_t		*cl_sprite_shell = NULL;
-model_t		*cl_sprite_glow = NULL;
+static model_t *cl_sprite_muzzleflash[MAX_MUZZLEFLASH];	// muzzle flashes
+static model_t *cl_sprite_ricochet = NULL;
+static model_t *cl_sprite_glow = NULL;
+model_t        *cl_sprite_dot = NULL;
+model_t        *cl_sprite_shell = NULL;
 
-const char *cl_default_sprites[] =
+static const char *const cl_default_sprites[] =
 {
 	// built-in sprites
 	"sprites/muzzleflash1.spr",
@@ -169,29 +169,13 @@ void CL_AddClientResources( void )
 #endif
 }
 
-
-/*
-================
-CL_InitTempents
-
-================
-*/
-void CL_InitTempEnts( void )
-{
-	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
-	CL_ClearTempEnts();
-
-	// load tempent sprites (glowshell, muzzleflashes etc)
-	CL_LoadClientSprites ();
-}
-
 /*
 ================
 CL_ClearTempEnts
 
 ================
 */
-void CL_ClearTempEnts( void )
+static void CL_ClearTempEnts( void )
 {
 	int	i;
 
@@ -206,6 +190,21 @@ void CL_ClearTempEnts( void )
 	cl_tempents[GI->max_tents-1].next = NULL;
 	cl_free_tents = cl_tempents;
 	cl_active_tents = NULL;
+}
+
+/*
+================
+CL_InitTempents
+
+================
+*/
+void CL_InitTempEnts( void )
+{
+	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
+	CL_ClearTempEnts();
+
+	// load tempent sprites (glowshell, muzzleflashes etc)
+	CL_LoadClientSprites ();
 }
 
 /*
@@ -444,11 +443,16 @@ alloc normal\low priority tempentity
 */
 TEMPENTITY *CL_TempEntAlloc( const vec3_t org, model_t *pmodel )
 {
+	static float cl_lasttimewarn;
 	TEMPENTITY	*pTemp;
 
 	if( !cl_free_tents )
 	{
-		Con_DPrintf( "Overflow %d temporary ents!\n", GI->max_tents );
+		if( cl_lasttimewarn < host.realtime )
+		{
+			Con_DPrintf( "Overflow %d temporary ents!\n", GI->max_tents );
+			cl_lasttimewarn = host.realtime + 1.0f;
+		}
 		return NULL;
 	}
 
