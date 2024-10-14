@@ -1409,14 +1409,14 @@ CL_RegisterUserMessage
 register new user message or update existing
 ================
 */
-void CL_RegisterUserMessage( sizebuf_t *msg )
+void CL_RegisterUserMessage( sizebuf_t *msg, connprotocol_t proto )
 {
-	char	*pszName;
+	char *pszName;
 	int	svc_num, size, bits;
 
 	svc_num = MSG_ReadByte( msg );
 
-	if( cls.legacymode )
+	if( proto == PROTO_LEGACY || proto == PROTO_GOLDSRC )
 	{
 		size = MSG_ReadByte( msg );
 		bits = 8;
@@ -1427,7 +1427,16 @@ void CL_RegisterUserMessage( sizebuf_t *msg )
 		bits = 16;
 	}
 
-	pszName = MSG_ReadString( msg );
+	if( proto == PROTO_GOLDSRC )
+	{
+		static char szName[17];
+
+		MSG_ReadBytes( msg, szName, sizeof( szName ) - 1 );
+		szName[16] = 0;
+
+		pszName = szName;
+	}
+	else pszName = MSG_ReadString( msg );
 
 	// important stuff
 	if( size == ( BIT( bits ) - 1 ) )
@@ -2298,7 +2307,7 @@ CL_ParseUserMessage
 handles all user messages
 ==============
 */
-void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
+void CL_ParseUserMessage( sizebuf_t *msg, int svc_num, connprotocol_t proto )
 {
 	byte	pbuf[MAX_USERMSG_LENGTH];
 	int	i, iSize;
@@ -2338,7 +2347,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num )
 	// message with variable sizes receive an actual size as first byte
 	if( iSize == -1 )
 	{
-		if( cls.legacymode )
+		if( proto == PROTO_GOLDSRC || proto == PROTO_LEGACY )
 			iSize = MSG_ReadByte( msg );
 		else iSize = MSG_ReadWord( msg );
 	}
@@ -2624,7 +2633,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseAddAngle( msg );
 			break;
 		case svc_usermessage:
-			CL_RegisterUserMessage( msg );
+			CL_RegisterUserMessage( msg, PROTO_CURRENT );
 			break;
 		case svc_packetentities:
 			playerbytes = CL_ParsePacketEntities( msg, false, PROTO_CURRENT );
@@ -2684,7 +2693,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseExec( msg );
 			break;
 		default:
-			CL_ParseUserMessage( msg, cmd );
+			CL_ParseUserMessage( msg, cmd, PROTO_CURRENT );
 			cl.frames[cl.parsecountmod].graphdata.usr += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		}

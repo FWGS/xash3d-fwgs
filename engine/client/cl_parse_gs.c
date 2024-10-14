@@ -89,22 +89,6 @@ static void CL_ParseNewMovevars( sizebuf_t *msg )
 	clgame.oldmovevars.features = clgame.movevars.features = host.features;
 }
 
-static void CL_ParseNewUserMsg( sizebuf_t *msg )
-{
-	int svc_num, size;
-	char s[16];
-
-	svc_num = MSG_ReadByte( msg );
-	size = MSG_ReadByte( msg );
-	MSG_ReadBytes( msg, s, sizeof( s ));
-
-	s[15] = 0;
-	if( size == 255 )
-		size = -1;
-
-	CL_LinkUserMessage( s, svc_num, size );
-}
-
 typedef struct delta_header_t
 {
 	qboolean remove : 1;
@@ -676,7 +660,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			CL_ParseAddAngle( msg );
 			break;
 		case svc_goldsrc_newusermsg:
-			CL_ParseNewUserMsg( msg );
+			CL_RegisterUserMessage( msg, PROTO_GOLDSRC );
 			break;
 		case svc_packetentities:
 			playerbytes = CL_ParsePacketEntitiesGS( msg, false );
@@ -741,7 +725,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			CL_ParseExec( msg );
 			break;
 		default:
-			CL_ParseUserMessage( msg, cmd );
+			CL_ParseUserMessage( msg, cmd, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.usr += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		}
