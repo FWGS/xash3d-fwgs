@@ -59,7 +59,7 @@ void GAME_EXPORT CL_PopPMStates( void )
 CL_IsPredicted
 ===============
 */
-qboolean CL_IsPredicted( void )
+static qboolean CL_IsPredicted( void )
 {
 	if( cl_nopred.value || cl.intermission )
 		return false;

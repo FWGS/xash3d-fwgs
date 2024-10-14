@@ -19,7 +19,7 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "net_api.h"
 
-const char *clc_strings[clc_lastmsg+1] =
+const char *const clc_strings[clc_lastmsg+1] =
 {
 	"clc_bad",
 	"clc_nop",
@@ -3035,7 +3035,7 @@ static qboolean SV_EntGetVars_f( sv_client_t *cl )
 	return true;
 }
 
-ucmd_t ucmds[] =
+static const ucmd_t ucmds[] =
 {
 { "new", SV_New_f },
 { "god", SV_Godmode_f },
@@ -3055,7 +3055,7 @@ ucmd_t ucmds[] =
 { NULL, NULL }
 };
 
-ucmd_t enttoolscmds[] =
+static const ucmd_t enttoolscmds[] =
 {
 { "ent_list", SV_EntList_f },
 { "ent_info", SV_EntInfo_f },

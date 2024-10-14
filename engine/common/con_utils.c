@@ -18,8 +18,6 @@ GNU General Public License for more details.
 #include "const.h"
 #include "kbutton.h"
 
-extern convar_t	con_gamemaps;
-
 #define CON_MAXCMDS		4096	// auto-complete intermediate list
 
 typedef struct autocomplete_list_s
@@ -1012,7 +1010,7 @@ int GAME_EXPORT Cmd_CheckMapsList( int fRefresh )
 	return Cmd_CheckMapsList_R( fRefresh, true );
 }
 
-autocomplete_list_t cmd_list[] =
+static const autocomplete_list_t cmd_list[] =
 {
 { "map_background", 1, Cmd_GetMapList },
 { "changelevel2", 1, Cmd_GetMapList },

@@ -956,7 +956,6 @@ void CL_SetSolidPlayers( int playernum );
 void CL_InitClientMove( void );
 void CL_PredictMovement( qboolean repredicting );
 void CL_CheckPredictionError( void );
-qboolean CL_IsPredicted( void );
 int CL_WaterEntity( const float *rgflPos );
 cl_entity_t *CL_GetWaterEntity( const float *rgflPos );
 pmtrace_t *CL_VisTraceLine( vec3_t start, vec3_t end, int flags );

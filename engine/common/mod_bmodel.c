@@ -198,7 +198,7 @@ static mlumpinfo_t		srclumps[HEADER_LUMPS] =
 { LUMP_MODELS, 1, MAX_MAP_MODELS, sizeof( dmodel_t ), -1, "models", CHECK_OVERFLOW, (const void **)&srcmodel.submodels, &srcmodel.numsubmodels },
 };
 
-static mlumpinfo_t		extlumps[EXTRA_LUMPS] =
+static const mlumpinfo_t		extlumps[EXTRA_LUMPS] =
 {
 { LUMP_LIGHTVECS, 0, MAX_MAP_LIGHTING, sizeof( byte ), -1, "deluxmaps", USE_EXTRAHEADER, (const void **)&srcmodel.deluxdata, &srcmodel.deluxdatasize },
 { LUMP_FACEINFO,  0, MAX_MAP_FACEINFO, sizeof( dfaceinfo_t ), -1, "faceinfos", CHECK_OVERFLOW|USE_EXTRAHEADER, (const void **)&srcmodel.faceinfo, &srcmodel.numfaceinfo },

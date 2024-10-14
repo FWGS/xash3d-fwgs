@@ -98,7 +98,7 @@ sizebuf_t	net_message;
 static poolhandle_t net_mempool;
 byte	net_message_buffer[NET_MAX_MESSAGE];
 
-const char *ns_strings[NS_COUNT] =
+static const char *const ns_strings[NS_COUNT] =
 {
 	"Client",
 	"Server",

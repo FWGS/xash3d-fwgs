@@ -82,7 +82,7 @@ typedef struct
 	float	time;
 } SAVE_LIGHTSTYLE;
 
-void (__cdecl *pfnSaveGameComment)( char *buffer, int max_length ) = NULL;
+static void (__cdecl *pfnSaveGameComment)( char *buffer, int max_length ) = NULL;
 
 static TYPEDESCRIPTION gGameHeader[] =
 {
@@ -218,7 +218,7 @@ static TYPEDESCRIPTION gTempEntvars[] =
 	DEFINE_ENTITY_GLOBAL_FIELD( globalname, FIELD_STRING ),
 };
 
-struct
+static const struct
 {
 	const char *mapname;
 	const char *titlename;
@@ -2185,6 +2185,19 @@ qboolean SV_SaveGame( const char *pName )
 	return SaveGameSlot( savename, comment );
 }
 
+static int SV_CompareFileTime( int ft1, int ft2 )
+{
+	if( ft1 < ft2 )
+	{
+		return -1;
+	}
+	else if( ft1 > ft2 )
+	{
+		return 1;
+	}
+	return 0;
+}
+
 /*
 ==================
 SV_GetLatestSave
@@ -2210,7 +2223,7 @@ const char *SV_GetLatestSave( void )
 		if( ft > 0 )
 		{
 			// should we use the matched?
-			if( !found || Host_CompareFileTime( newest, ft ) < 0 )
+			if( !found || SV_CompareFileTime( newest, ft ) < 0 )
 			{
 				Q_strncpy( savename, t->filenames[i], sizeof( savename ));
 				newest = ft;

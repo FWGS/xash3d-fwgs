@@ -25,7 +25,7 @@ GNU General Public License for more details.
 // gives a 33% speedup in WriteUBitLong.
 static uint32_t	BitWriteMasks[32][33];
 static uint32_t	ExtraMasks[32];
-const char *svc_strings[svc_lastmsg+1] =
+const char *const svc_strings[svc_lastmsg+1] =
 {
 	"svc_bad",
 	"svc_nop",
@@ -89,7 +89,7 @@ const char *svc_strings[svc_lastmsg+1] =
 	"svc_exec",
 };
 
-const char *svc_legacy_strings[svc_lastmsg+1] =
+const char *const svc_legacy_strings[svc_lastmsg+1] =
 {
 	[svc_legacy_changing] = "svc_legacy_changing",
 	[svc_legacy_ambientsound] = "svc_legacy_ambientsound",
@@ -100,7 +100,7 @@ const char *svc_legacy_strings[svc_lastmsg+1] =
 	[svc_legacy_chokecount] = "svc_legacy_chokecount",
 };
 
-const char *svc_goldsrc_strings[svc_lastmsg+1] =
+const char *const svc_goldsrc_strings[svc_lastmsg+1] =
 {
 	[svc_goldsrc_version] = "svc_goldsrc_version",
 	[svc_goldsrc_serverinfo] = "svc_goldsrc_serverinfo",
@@ -119,7 +119,7 @@ const char *svc_goldsrc_strings[svc_lastmsg+1] =
 	[svc_goldsrc_sendcvarvalue2] = "svc_goldsrc_sendcvarvalue2",
 };
 
-const char *svc_quake_strings[svc_lastmsg+1] =
+const char *const svc_quake_strings[svc_lastmsg+1] =
 {
 	[svc_updatestat] = "svc_quake_updatestat",
 	[svc_version] = "svc_quake_version",

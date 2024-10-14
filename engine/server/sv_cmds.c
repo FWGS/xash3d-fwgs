@@ -16,8 +16,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
-extern convar_t	con_gamemaps;
-
 /*
 =================
 SV_ClientPrintf

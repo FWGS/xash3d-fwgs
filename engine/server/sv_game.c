@@ -24,8 +24,6 @@ GNU General Public License for more details.
 #include "render_api.h"	// modelstate_t
 #include "ref_common.h" // decals
 
-#define ENTVARS_COUNT	ARRAYSIZE( gEntvarsDescription )
-
 // GameAPI functions declarations
 static int GAME_EXPORT pfnModelIndex( const char *m );
 
@@ -83,7 +81,7 @@ EntvarsDescription
 entavrs table for FindEntityByString
 =============
 */
-static TYPEDESCRIPTION gEntvarsDescription[] =
+static const TYPEDESCRIPTION gEntvarsDescription[] =
 {
 	DEFINE_ENTITY_FIELD( classname, FIELD_STRING ),
 	DEFINE_ENTITY_FIELD( globalname, FIELD_STRING ),
@@ -99,20 +97,6 @@ static TYPEDESCRIPTION gEntvarsDescription[] =
 	DEFINE_ENTITY_FIELD( noise2, FIELD_SOUNDNAME ),
 	DEFINE_ENTITY_FIELD( noise3, FIELD_SOUNDNAME ),
 };
-
-/*
-=============
-SV_GetEntvarsDescription
-
-entavrs table for FindEntityByString
-=============
-*/
-static TYPEDESCRIPTION *SV_GetEntvarsDescirption( int number )
-{
-	if( number < 0 || number >= ENTVARS_COUNT )
-		return NULL;
-	return &gEntvarsDescription[number];
-}
 
 /*
 =============
@@ -1506,8 +1490,8 @@ SV_FindEntityByString
 */
 static edict_t *GAME_EXPORT SV_FindEntityByString( edict_t *pStartEdict, const char *pszField, const char *pszValue )
 {
-	int		index = 0, e = 0;
-	TYPEDESCRIPTION	*desc = NULL;
+	int		i = 0, e = 0;
+	const TYPEDESCRIPTION	*desc = NULL;
 	edict_t		*ed;
 	const char	*t;
 
@@ -1516,10 +1500,13 @@ static edict_t *GAME_EXPORT SV_FindEntityByString( edict_t *pStartEdict, const c
 
 	if( pStartEdict ) e = NUM_FOR_EDICT( pStartEdict );
 
-	while(( desc = SV_GetEntvarsDescirption( index++ )) != NULL )
+	for( i = 0; i < ARRAYSIZE( gEntvarsDescription ); i++ )
 	{
-		if( !Q_strcmp( pszField, desc->fieldName ))
+		if( !Q_strcmp( pszField, gEntvarsDescription[i].fieldName ))
+		{
+			desc = &gEntvarsDescription[i];
 			break;
+		}
 	}
 
 	if( desc == NULL )

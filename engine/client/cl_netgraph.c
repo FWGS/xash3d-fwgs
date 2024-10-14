@@ -63,9 +63,9 @@ static byte netcolors[NETGRAPH_NET_COLORS+NETGRAPH_LERP_HEIGHT][4] =
 	// other will be generated through NetGraph_InitColors()
 };
 
-static byte sendcolor[4] = { 88, 29, 130, 255 };
-static byte holdcolor[4] = { 255, 0, 0, 200 };
-static byte extrap_base_color[4] = { 255, 255, 255, 255 };
+static const byte sendcolor[4] = { 88, 29, 130, 255 };
+static const byte holdcolor[4] = { 255, 0, 0, 200 };
+static const byte extrap_base_color[4] = { 255, 255, 255, 255 };
 static netbandwidthgraph_t	netstat_graph[NET_TIMINGS];
 static float		packet_loss;
 static float		packet_choke;
@@ -79,7 +79,7 @@ NetGraph_DrawRect
 NetGraph_FillRGBA shortcut
 ==========
 */
-static void NetGraph_DrawRect( wrect_t *rect, byte colors[4] )
+static void NetGraph_DrawRect( const wrect_t *rect, const byte colors[4] )
 {
 	ref.dllFuncs.Color4ub( colors[0], colors[1], colors[2], colors[3] );	// color for this quad
 

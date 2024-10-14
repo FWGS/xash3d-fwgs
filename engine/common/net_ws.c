@@ -146,7 +146,7 @@ static void NET_ClearLagData( qboolean bClient, qboolean bServer );
 NET_ErrorString
 ====================
 */
-static char *NET_ErrorString( void )
+static const char *NET_ErrorString( void )
 {
 #if XASH_WIN32
 	int	err = WSANOTINITIALISED;
