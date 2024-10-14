@@ -39,10 +39,11 @@ static const struct in6_addr in6addr_any;
 #define MAX_LOOPBACK		4
 #define MASK_LOOPBACK		(MAX_LOOPBACK - 1)
 
-#define MAX_ROUTEABLE_PACKET		1400
-#define SPLITPACKET_MIN_SIZE			508		// RFC 791: 576(min ip packet) - 60 (ip header) - 8 (udp header)
-#define SPLITPACKET_MAX_SIZE			64000
-#define NET_MAX_FRAGMENTS		( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )))
+#define MAX_ROUTEABLE_PACKET      1400
+#define SPLITPACKET_MIN_SIZE      508   // RFC 791: 576(min ip packet) - 60 (ip header) - 8 (udp header)
+#define SPLITPACKET_MAX_SIZE      64000
+#define NET_MAX_FRAGMENTS         ( NET_MAX_FRAGMENT / (SPLITPACKET_MIN_SIZE - sizeof( SPLITPACKET )))
+#define NET_MAX_GOLDSRC_FRAGMENTS 5 // magic number
 
 // ff02:1
 static const uint8_t k_ipv6Bytes_LinkLocalAllNodes[16] =
@@ -1365,6 +1366,7 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 	short		packet_id;
 	size_t header_size = proto == PROTO_GOLDSRC ? sizeof( SPLITPACKETGS ) : sizeof( SPLITPACKET );
 	int body_size = splitsize - header_size;
+	int max_splits;
 
 	if( body_size < 0 )
 		return false;
@@ -1383,6 +1385,8 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		packet_id = pHeader->packet_id;
 		packet_count = ( packet_id & 0xF );
 		packet_number = ( packet_id >> 4 );
+
+		max_splits = NET_MAX_GOLDSRC_FRAGMENTS;
 	}
 	else
 	{
@@ -1392,9 +1396,11 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		packet_id = pHeader->packet_id;
 		packet_count = ( packet_id & 0xFF );
 		packet_number = ( packet_id >> 8 );
+
+		max_splits = ARRAYSIZE( net.split_flags );
 	}
 
-	if( packet_number >= NET_MAX_FRAGMENTS || packet_count > NET_MAX_FRAGMENTS )
+	if( packet_number >= max_splits || packet_count > max_splits )
 	{
 		Con_Printf( S_ERROR "malformed packet number (%i/%i)\n", packet_number + 1, packet_count );
 		return false;
@@ -1407,7 +1413,7 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		net.split.total_size = 0;
 
 		// clear part's sequence
-		for( i = 0; i < NET_MAX_FRAGMENTS; i++ )
+		for( i = 0; i < ARRAYSIZE( net.split_flags ); i++ )
 			net.split_flags[i] = -1;
 
 		if( net_showpackets.value == 4.0f )
