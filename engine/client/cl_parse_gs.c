@@ -28,7 +28,18 @@ static void CL_ParseExtraInfo( sizebuf_t *msg )
 	string clientfallback;
 
 	Q_strncpy( clientfallback, MSG_ReadString( msg ), sizeof( clientfallback ));
-	Cvar_FullSet( "sv_cheats", MSG_ReadByte( msg ) ? "1" : "0", FCVAR_READ_ONLY | FCVAR_SERVER );
+	if( COM_CheckStringEmpty( clientfallback ))
+		Con_Reportf( S_ERROR "%s: TODO: add fallback directory %s!\n", __func__ );
+
+	if( MSG_ReadByte( msg ))
+	{
+		Cvar_FullSet( "sv_cheats", "1", FCVAR_READ_ONLY | FCVAR_SERVER );
+	}
+	else
+	{
+		Cvar_SetCheatState();
+		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
+	}
 }
 
 static void CL_ParseNewMovevars( sizebuf_t *msg )

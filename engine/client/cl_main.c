@@ -1092,14 +1092,19 @@ static void CL_SendConnectPacket( void )
 		input_devices = IN_CollectInputDevices();
 		IN_LockInputDevices( true );
 
-		Cvar_SetCheatState();
-		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
+		// GoldSrc doesn't need sv_cheats set to 0, it's handled by svc_goldsrc_sendextrainfo
+		// it also doesn't need useragent string
+		if( cls.legacymode != PROTO_GOLDSRC )
+		{
+			Cvar_SetCheatState();
+			Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
 
-		Info_SetValueForKeyf( protinfo, "d", sizeof( protinfo ),  "%d", input_devices );
-		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
-		Info_SetValueForKeyf( protinfo, "b", sizeof( protinfo ), "%d", Q_buildnum( ));
-		Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
-		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
+			Info_SetValueForKeyf( protinfo, "d", sizeof( protinfo ),  "%d", input_devices );
+			Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
+			Info_SetValueForKeyf( protinfo, "b", sizeof( protinfo ), "%d", Q_buildnum( ));
+			Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
+			Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
+		}
 	}
 
 	if( cls.legacymode == PROTO_GOLDSRC )
@@ -1121,6 +1126,10 @@ static void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
 		CL_GetCDKey( protinfo, sizeof( protinfo ));
 
+		// remove keys set for legacy protocol
+		Info_RemoveKey( cls.userinfo, "cl_maxpacket" );
+		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
+
 		name = Info_ValueForKey( cls.userinfo, "name" );
 		if( Q_strnicmp( name, "[Xash3D]", 8 ))
 		{
@@ -1139,9 +1148,13 @@ static void CL_SendConnectPacket( void )
 			Con_Printf( S_ERROR "%s: %s overflow!\n", __func__, MSG_GetName( &send ) );
 
 		NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
+		Con_Printf( "Trying to connect with GoldSrc 48 protocol\n" );
 	}
 	else if( cls.legacymode == PROTO_LEGACY )
 	{
+		// reset nickname from cvar value
+		Info_SetValueForKey( cls.userinfo, "name", name.string, sizeof( cls.userinfo ));
+
 		// set related userinfo keys
 		if( cl_dlmax.value >= 40000 || cl_dlmax.value < 100 )
 			Info_SetValueForKey( cls.userinfo, "cl_maxpacket", "1400", sizeof( cls.userinfo ) );
@@ -1155,15 +1168,19 @@ static void CL_SendConnectPacket( void )
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" %d \"%s\"\n",
 			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
-		Con_Printf( "Trying to connect by legacy protocol\n" );
+		Con_Printf( "Trying to connect with legacy protocol\n" );
 	}
 	else
 	{
 		int extensions = NET_EXT_SPLITSIZE;
 
+		// reset nickname from cvar value
+		Info_SetValueForKey( cls.userinfo, "name", name.string, sizeof( cls.userinfo ));
+
 		if( cl_dlmax.value > FRAGMENT_MAX_SIZE  || cl_dlmax.value < FRAGMENT_MIN_SIZE )
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 
+		// remove keys set for legacy protocol
 		Info_RemoveKey( cls.userinfo, "cl_maxpacket" );
 		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
 
@@ -1172,7 +1189,7 @@ static void CL_SendConnectPacket( void )
 		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions);
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
-		Con_Printf( "Trying to connect by modern protocol\n" );
+		Con_Printf( "Trying to connect with modern protocol\n" );
 	}
 
 	cls.timestart = Sys_DoubleTime();
@@ -2873,25 +2890,26 @@ tell server about changed userinfo
 */
 void CL_UpdateInfo( const char *key, const char *value )
 {
-	if( cls.legacymode != PROTO_LEGACY )
+	switch( cls.legacymode )
 	{
-		if( cls.legacymode == PROTO_GOLDSRC && !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
-		{
-			// always prepend [Xash3D] on GoldSrc protocol :)
-			CL_ServerCommand( true, "setinfo \"%s\" \"[Xash3D]%s\"\n", key, value );
-		}
-		else
-		{
-			CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", key, value );
-		}
-	}
-	else
-	{
+	case PROTO_LEGACY:
 		if( cls.state != ca_active )
-			return;
+			break;
 
 		MSG_BeginClientCmd( &cls.netchan.message, clc_legacy_userinfo );
 		MSG_WriteString( &cls.netchan.message, cls.userinfo );
+		break;
+	case PROTO_GOLDSRC:
+		if( !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
+		{
+			// always prepend [Xash3D] on GoldSrc protocol :)
+			CL_ServerCommand( true, "setinfo \"%s\" \"[Xash3D]%s\"\n", key, value );
+			break;
+		}
+		// intentional fallthrough
+	default:
+		CL_ServerCommand( true, "setinfo \"%s\" \"%s\"\n", key, value );
+		break;
 	}
 }
 
