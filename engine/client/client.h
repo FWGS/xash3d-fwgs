@@ -868,7 +868,7 @@ void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseResource( sizebuf_t *msg );
 void CL_ParseClientData( sizebuf_t *msg, connprotocol_t proto );
 void CL_UpdateUserPings( sizebuf_t *msg );
-void CL_ParseParticles( sizebuf_t *msg );
+void CL_ParseParticles( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseRestoreSoundPacket( sizebuf_t *msg );
 void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseSignon( sizebuf_t *msg, connprotocol_t proto );
