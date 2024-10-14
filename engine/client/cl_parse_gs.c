@@ -189,12 +189,13 @@ static void CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
 	}
 }
 
-static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t *from, qboolean has_update )
+static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t *frame, int newnum, const entity_state_t *from )
 {
 	cl_entity_t	*ent;
 	entity_state_t	*to;
 	qboolean newent = from == NULL;
 	int pack = frame->num_entities;
+	qboolean has_update = msg != NULL;
 
 	// alloc next slot to store update
 	to = &cls.packet_entities[cls.next_client_entities % cls.num_client_entities];
@@ -211,6 +212,8 @@ static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t
 	{
 		if( !newent )
 			CL_KillDeadBeams( ent );
+		else
+			Con_Printf( S_WARN "%s: entity remove on non-delta update (%d)\n", __func__, newnum );
 		return;
 	}
 
@@ -246,13 +249,13 @@ static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t
 	frame->num_entities++;
 }
 
-static void CL_CopyPacketEntity( frame_t *frame, int num, entity_state_t *from )
+static void CL_CopyPacketEntity( frame_t *frame, int num, const entity_state_t *from )
 {
 	delta_header_t fakehdr =
 	{
 		.custom = FBitSet( from->entityType, ENTITY_BEAM ) == ENTITY_BEAM,
 	};
-	CL_DeltaEntityGS( &fakehdr, NULL, frame, num, from, false );
+	CL_DeltaEntityGS( &fakehdr, NULL, frame, num, from );
 }
 
 static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
@@ -325,6 +328,9 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 
 		while( oldnum < newnum )
 		{
+			if( !delta )
+				Con_Printf( S_WARN "%s: old frame copy on non-delta update (%d < %d)\n", __func__, oldnum, newnum );
+
 			// one or more entities from the old packet are unchanged
 			CL_CopyPacketEntity( frame, oldnum, oldent );
 			oldnum = CL_UpdateOldEntNum( ++oldindex, oldframe, &oldent );
@@ -334,14 +340,17 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 
 		if( oldnum == newnum )
 		{
+			if( !delta )
+				Con_Printf( S_WARN "%s: delta entity on non-delta update (%d)\n", __func__, oldnum );
+
 			// from delta
-			CL_DeltaEntityGS( &hdr, msg, frame, newnum, oldent, true );
+			CL_DeltaEntityGS( &hdr, msg, frame, newnum, oldent );
 			oldnum = CL_UpdateOldEntNum( ++oldindex, oldframe, &oldent );
 		}
 		else if( oldnum > newnum )
 		{
 			// from baseline
-			CL_DeltaEntityGS( &hdr, msg, frame, newnum, NULL, true );
+			CL_DeltaEntityGS( &hdr, msg, frame, newnum, NULL );
 		}
 
 		if( player ) playerbytes += MSG_GetNumBytesRead( msg ) - bufstart;
@@ -369,13 +378,10 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 	CL_ProcessPacket( frame );
 	CL_SetSolidEntities();
 
-	// first update is the final signon stage where we actually receive an entity (i.e., the world at least)
+	// first update, received world, remove loading plaque
 	if( cls.signon == ( SIGNONS - 1 ))
 	{
-		// we are done with signon sequence.
 		cls.signon = SIGNONS;
-
-		// Clear loading plaque.
 		CL_SignonReply( PROTO_GOLDSRC );
 	}
 
