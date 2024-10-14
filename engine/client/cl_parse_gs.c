@@ -596,7 +596,6 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_goldsrc_serverinfo:
 			Cbuf_Execute(); // make sure any stuffed commands are done
 			CL_ParseServerData( msg, PROTO_GOLDSRC );
-			Delta_InitMeta();
 			break;
 		case svc_lightstyle:
 			CL_ParseLightStyle( msg, PROTO_GOLDSRC );

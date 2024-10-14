@@ -43,7 +43,6 @@ enum
 	DT_ENTITY_STATE_T,
 	DT_ENTITY_STATE_PLAYER_T,
 	DT_CUSTOM_ENTITY_STATE_T,
-	DT_GOLDSRC_DELTA_T,
 #if XASH_ENGINE_TESTS
 	DT_DELTA_TEST_STRUCT_T,
 #endif
@@ -104,7 +103,6 @@ typedef struct
 //
 void Delta_Init( void );
 void Delta_InitClient( void );
-void Delta_InitMeta( void );
 void Delta_Shutdown( void );
 void Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc );
 int Delta_FindField( delta_t *pFields, const char *fieldname );
