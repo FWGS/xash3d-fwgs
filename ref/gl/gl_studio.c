@@ -35,7 +35,7 @@ typedef struct
 // never gonna change, just shut up const warning
 cvar_t r_shadows = { (char *)"r_shadows", (char *)"0", 0 };
 
-static vec3_t hullcolor[8] =
+static const vec3_t hullcolor[8] =
 {
 { 1.0f, 1.0f, 1.0f },
 { 1.0f, 0.5f, 0.5f },
