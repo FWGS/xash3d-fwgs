@@ -769,12 +769,24 @@ void UI_ShowConnectionWarning( void );
 void Cmd_Null_f( void );
 void Rcon_Print( host_redirect_t *rd, const char *pMsg );
 qboolean COM_ParseVector( char **pfile, float *v, size_t size );
-void COM_NormalizeAngles( vec3_t angles );
 int COM_FileSize( const char *filename );
 void COM_FreeFile( void *buffer );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
 char *va( const char *format, ... ) _format( 1 );
 qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
+
+static inline void COM_NormalizeAngles( vec3_t angles )
+{
+	int i;
+
+	for( i = 0; i < 3; i++ )
+	{
+		if( angles[i] > 180.0f )
+			angles[i] -= 360.0f;
+		else if( angles[i] < -180.0f )
+			angles[i] += 360.0f;
+	}
+}
 
 #if !XASH_DEDICATED
 connprotocol_t CL_Protocol( void );

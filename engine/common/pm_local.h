@@ -24,7 +24,6 @@ typedef int (*pfnIgnore)( physent_t *pe );	// custom trace filter
 // pm_trace.c
 //
 void Pmove_Init( void );
-void PM_ClearPhysEnts( playermove_t *pmove );
 void PM_InitBoxHull( void );
 hull_t *PM_HullForBsp( physent_t *pe, playermove_t *pmove, float *offset );
 qboolean PM_RecursiveHullCheck( hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, pmtrace_t *trace );
@@ -40,7 +39,29 @@ struct msurface_s *PM_TraceSurfacePmove( playermove_t *pmove, int ground, float 
 const char *PM_TraceTexture( playermove_t *pmove, int ground, float *vstart, float *vend );
 int PM_PointContentsPmove( playermove_t *pmove, const float *p, int *truecontents );
 void PM_StuckTouch( playermove_t *pmove, int hitent, pmtrace_t *tr );
-void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent );
+
+static inline void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent )
+{
+	out->allsolid = in->allsolid;
+	out->startsolid = in->startsolid;
+	out->inopen = in->inopen;
+	out->inwater = in->inwater;
+	out->fraction = in->fraction;
+	out->plane.dist = in->plane.dist;
+	out->hitgroup = in->hitgroup;
+	out->ent = ent;
+
+	VectorCopy( in->endpos, out->endpos );
+	VectorCopy( in->plane.normal, out->plane.normal );
+}
+
+static inline void PM_ClearPhysEnts( playermove_t *pmove )
+{
+	pmove->nummoveent = 0;
+	pmove->numphysent = 0;
+	pmove->numvisent = 0;
+	pmove->numtouch = 0;
+}
 
 static inline void PM_InitTrace( trace_t *trace, const vec3_t end )
 {

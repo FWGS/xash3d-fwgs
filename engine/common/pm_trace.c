@@ -55,14 +55,6 @@ void Pmove_Init( void )
 	memcpy( host.player_maxs, pm_hullmaxs, sizeof( pm_hullmaxs ));
 }
 
-void PM_ClearPhysEnts( playermove_t *pmove )
-{
-	pmove->nummoveent = 0;
-	pmove->numphysent = 0;
-	pmove->numvisent = 0;
-	pmove->numtouch = 0;
-}
-
 /*
 ===================
 PM_InitBoxHull
@@ -115,21 +107,6 @@ static hull_t *PM_HullForBox( const vec3_t mins, const vec3_t maxs )
 	pm_boxplanes[5].dist = mins[2];
 
 	return &pm_boxhull;
-}
-
-void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent )
-{
-	out->allsolid = in->allsolid;
-	out->startsolid = in->startsolid;
-	out->inopen = in->inopen;
-	out->inwater = in->inwater;
-	out->fraction = in->fraction;
-	out->plane.dist = in->plane.dist;
-	out->hitgroup = in->hitgroup;
-	out->ent = ent;
-
-	VectorCopy( in->endpos, out->endpos );
-	VectorCopy( in->plane.normal, out->plane.normal );
 }
 
 /*
