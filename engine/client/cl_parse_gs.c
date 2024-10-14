@@ -636,7 +636,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			MSG_EndBitWriting( msg );
 			break;
 		case svc_setpause:
-			cl.paused = ( MSG_ReadOneBit( msg ) != 0 );
+			cl.paused = ( MSG_ReadByte( msg ) != 0 );
 			break;
 		case svc_signonnum:
 			CL_ParseSignon( msg, PROTO_GOLDSRC );
@@ -711,6 +711,12 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			break;
 		case svc_resourcelocation:
 			CL_ParseResLocation( msg );
+			break;
+		case svc_goldsrc_timescale:
+			// we can set sys_timescale to anything we want but in GoldSrc it's locked for
+			// HLTV and demoplayback. Do we really want to have it then if both are out of scope?
+			Con_Reportf( S_ERROR "%s: svc_goldsrc_timescale: implement me!\n", __func__ );
+			MSG_ReadFloat( msg );
 			break;
 		case svc_goldsrc_sendextrainfo:
 			CL_ParseExtraInfo( msg );
