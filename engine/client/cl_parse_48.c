@@ -509,7 +509,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_ParseAddAngle( msg );
 			break;
 		case svc_usermessage:
-			CL_RegisterUserMessage( msg );
+			CL_RegisterUserMessage( msg, PROTO_LEGACY );
 			break;
 		case svc_packetentities:
 			playerbytes = CL_ParsePacketEntities( msg, false, PROTO_LEGACY );
@@ -574,7 +574,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_ParseCvarValue( msg, true, PROTO_LEGACY );
 			break;
 		default:
-			CL_ParseUserMessage( msg, cmd );
+			CL_ParseUserMessage( msg, cmd, PROTO_LEGACY );
 			cl.frames[cl.parsecountmod].graphdata.usr += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		}
