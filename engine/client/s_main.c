@@ -1894,7 +1894,7 @@ S_VoiceRecordStart_f
 */
 static void S_VoiceRecordStart_f( void )
 {
-	if( cls.state != ca_active || cls.legacymode )
+	if( cls.state != ca_active )
 		return;
 	
 	Voice_RecordStart();

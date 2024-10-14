@@ -396,6 +396,9 @@ void Voice_RecordStart( void )
 {
 	Voice_RecordStop();
 
+	if( !voice.initialized )
+		return;
+
 	if( voice_inputfromfile.value )
 	{
 		voice.input_file = FS_LoadSound( "voice_input.wav", NULL, 0 );
@@ -415,7 +418,7 @@ void Voice_RecordStart( void )
 		}
 	}
 
-	if( !Voice_IsRecording() )
+	if( !Voice_IsRecording( ) && voice.device_opened )
 		voice.is_recording = VoiceCapture_Activate( true );
 
 	if( Voice_IsRecording() )
