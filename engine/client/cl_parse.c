@@ -850,7 +850,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	char	gamefolder[MAX_QPATH];
 	string	mapfile;
 	qboolean	background;
-	int	i;
+	int	i, required_version;
 	uint32_t	mapCRC;
 
 	HPAK_CheckSize( hpk_custom_file.string );
@@ -858,12 +858,15 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	switch( proto )
 	{
 	case PROTO_LEGACY:
+		required_version = PROTOCOL_LEGACY_VERSION;
 		Con_Reportf( "Legacy serverdata packet received.\n" );
 		break;
 	case PROTO_GOLDSRC:
+		required_version = PROTOCOL_GOLDSRC_VERSION;
 		Con_Reportf( "GoldSrc serverdata packet received.\n" );
 		break;
 	default:
+		required_version = PROTOCOL_VERSION;
 		Con_Reportf( "Serverdata packet received.\n" );
 		break;
 	}
@@ -882,38 +885,34 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 	// parse protocol version number
 	i = MSG_ReadLong( msg );
-
-	if( proto == PROTO_LEGACY || proto == PROTO_GOLDSRC ) // GoldSrc protocol version is 48, same as Xash3D 48
-	{
-		if( i != PROTOCOL_LEGACY_VERSION )
-			Host_Error( "Server use invalid protocol (%i should be %i)\n", i, PROTOCOL_LEGACY_VERSION );
-	}
-	else
-	{
-		if( i != PROTOCOL_VERSION )
-			Host_Error( "Server use invalid protocol (%i should be %i)\n", i, PROTOCOL_VERSION );
-	}
+	if( i != required_version ) // GoldSrc protocol version is 48, same as Xash3D 48
+		Host_Error( "Server use invalid protocol (%i should be %i)\n", i, required_version );
 
 	cl.servercount = MSG_ReadLong( msg );
 	cl.checksum = MSG_ReadLong( msg );
 	if( proto == PROTO_GOLDSRC )
 	{
 		byte clientdllmd5[16];
-		byte unused;
+		const char *s;
 
 		MSG_ReadBytes( msg, clientdllmd5, sizeof( clientdllmd5 ));
 		cl.maxclients = MSG_ReadByte( msg );
 		cl.playernum = MSG_ReadByte( msg );
-
 		COM_UnMunge3((byte *)&cl.checksum, sizeof( cl.checksum ), ( 0xff - cl.playernum ) & 0xff );
 
-		unused = MSG_ReadByte( msg ); // coop flag
+		MSG_SeekToBit( msg, sizeof( uint8_t ) << 3, SEEK_CUR ); // quake leftover, coop flag
+
 		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
-		MSG_ReadString( msg ); // hostname
+		Con_Printf( "Remote host: %s\n", MSG_ReadString( msg ));
 		Q_strncpy( clgame.mapname, COM_FileWithoutPath( MSG_ReadString( msg )), sizeof( clgame.mapname ));
 		COM_StripExtension( clgame.mapname );
-		MSG_ReadString( msg ); // mapcycle?????
-		unused = MSG_ReadByte( msg ); // vac secure
+
+		s = MSG_ReadString( msg );
+		if( COM_CheckStringEmpty( s ))
+			Con_Printf( "Server map cycle: %s\n", s ); // VALVEWHY?
+
+		if( MSG_ReadByte( msg ))
+			Con_Printf( "Uh, server says it's VAC2 secured.\n" );
 
 		background = false;
 		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
