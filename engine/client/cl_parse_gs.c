@@ -191,7 +191,6 @@ static void CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
 		if( MSG_ReadWord( msg ) != 0 )
 		{
 			MSG_SeekToBit( msg, -16, SEEK_CUR );
-
 			num = CL_ParseDeltaHeader( msg, false, num, &hdr );
 		}
 		else break;
@@ -204,8 +203,6 @@ static void CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
 
 		Delta_ReadGSFields( msg, CL_GetEntityDelta( &hdr, num ), &from, &to, cl.mtime[0] );
 	}
-
-	MSG_EndBitWriting( msg );
 }
 
 static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t *frame, int newnum, entity_state_t *from, qboolean has_update )
@@ -301,7 +298,9 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 
 		if( !CL_ValidateDeltaPacket( oldpacket, oldframe ))
 		{
+			MSG_StartBitWriting( msg );
 			CL_FlushEntityPacketGS( frame, msg );
+			MSG_EndBitWriting( msg );
 			return playerbytes;
 		}
 	}
@@ -648,8 +647,9 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnbaseline:
+			MSG_StartBitWriting( msg );
 			CL_ParseBaseline( msg, PROTO_GOLDSRC );
-			break;
+			MSG_EndBitWriting( msg );
 			break;
 		case svc_setpause:
 			cl.paused = ( MSG_ReadOneBit( msg ) != 0 );
