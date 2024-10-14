@@ -1321,7 +1321,6 @@ static qboolean Delta_WriteField( sizebuf_t *msg, delta_t *pField, const void *f
 	Delta_WriteField_( msg, pField, from, to, timebase );
 
 	return true;
-	return true;
 }
 
 /*
