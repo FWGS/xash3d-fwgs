@@ -1342,9 +1342,8 @@ otherwise see code SV_UpdateMovevars()
 */
 void SV_FullUpdateMovevars( sv_client_t *cl, sizebuf_t *msg )
 {
-	movevars_t	nullmovevars;
+	const movevars_t nullmovevars = { 0 };
 
-	memset( &nullmovevars, 0, sizeof( nullmovevars ));
 	MSG_WriteDeltaMovevars( msg, &nullmovevars, &svgame.movevars );
 }
 

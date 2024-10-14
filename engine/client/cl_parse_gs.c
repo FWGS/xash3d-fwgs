@@ -82,7 +82,7 @@ static void CL_ParseNewMovevars( sizebuf_t *msg )
 	if( Q_strcmp( clgame.oldmovevars.skyName, clgame.movevars.skyName ) && cl.video_prepped )
 		R_SetupSky( clgame.movevars.skyName );
 
-	memcpy( &clgame.oldmovevars, &clgame.movevars, sizeof( movevars_t ));
+	clgame.oldmovevars = clgame.movevars;
 	clgame.entities->curstate.scale = clgame.movevars.waveHeight;
 
 	// keep features an actual!
