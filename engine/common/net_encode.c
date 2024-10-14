@@ -376,11 +376,72 @@ static delta_info_t dt_info[] =
 [DT_ENTITY_STATE_T]        = { "entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
 [DT_ENTITY_STATE_PLAYER_T] = { "entity_state_player_t", ent_fields, NUM_FIELDS( ent_fields ) },
 [DT_CUSTOM_ENTITY_STATE_T] = { "custom_entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
-[DT_GOLDSRC_DELTA_T]       = { "goldsrc_delta_t", meta_fields, NUM_FIELDS( meta_fields ) },
 #if XASH_ENGINE_TESTS
 [DT_DELTA_TEST_STRUCT_T]   = { "delta_test_struct_t", test_fields, NUM_FIELDS( test_fields ) },
 #endif
 [DT_STRUCT_COUNT]          = { NULL },
+};
+
+// meta description is special, it cannot be overriden
+static const delta_info_t dt_goldsrc_meta =
+{
+	.pName = "goldsrc_delta_t",
+	.pInfo = meta_fields,
+	.maxFields = NUM_FIELDS( meta_fields ),
+	.numFields = NUM_FIELDS( meta_fields ),
+	.pFields = (delta_t[NUM_FIELDS( meta_fields )])
+	{
+		{
+			DESC_DEF( fieldType ),
+			.flags = DT_INTEGER,
+			.multiplier = 1.0f,
+			.post_multiplier = 1.0f,
+			.bits = 32,
+		},
+		{
+			DESC_DEF( fieldName ),
+			.flags = DT_STRING,
+			.multiplier = 1.0f,
+			.post_multiplier = 1.0f,
+			.bits = 1,
+		},
+		{
+			DESC_DEF( fieldOffset ),
+			.flags = DT_INTEGER,
+			.multiplier = 1.0f,
+			.post_multiplier = 1.0f,
+			.bits = 16,
+		},
+		{
+			DESC_DEF( fieldSize ),
+			.flags = DT_INTEGER,
+			.multiplier = 1.0f,
+			.post_multiplier = 1.0f,
+			.bits = 8,
+		},
+		{
+			DESC_DEF( significant_bits ),
+			.flags = DT_INTEGER,
+			.multiplier = 1.0f,
+			.post_multiplier = 1.0f,
+			.bits = 8,
+		},
+		{
+			DESC_DEF( premultiply ),
+			.flags = DT_FLOAT,
+			.multiplier = 4000.0f,
+			.post_multiplier = 1.0f,
+			.bits = 32,
+		},
+		{
+			DESC_DEF( postmultiply ),
+			.flags = DT_FLOAT,
+			.multiplier = 4000.0f,
+			.post_multiplier = 1.0f,
+			.bits = 32,
+		},
+	},
+	.bInitialized = true
 };
 
 static delta_info_t *Delta_FindStruct( const char *name )
@@ -618,66 +679,6 @@ void Delta_ParseTableField( sizebuf_t *msg )
 
 	// add field to table
 	Delta_AddField( dt, pName, flags, bits, mul, post_mul );
-}
-
-void Delta_InitMeta( void )
-{
-	delta_info_t *dt = Delta_FindStructByIndex( DT_GOLDSRC_DELTA_T );
-
-	if( dt->bInitialized )
-		return;
-
-	Delta_AddField( dt, "fieldType",        DT_INTEGER, 32, 1.0f, 1.0f );
-	Delta_AddField( dt, "fieldName",        DT_STRING,   1, 1.0f, 1.0f );
-	Delta_AddField( dt, "fieldOffset",      DT_INTEGER, 16, 1.0f, 1.0f );
-	Delta_AddField( dt, "fieldSize",        DT_INTEGER,  8, 1.0f, 1.0f );
-	Delta_AddField( dt, "significant_bits", DT_INTEGER,  8, 1.0f, 1.0f );
-	Delta_AddField( dt, "premultiply",      DT_FLOAT,   32, 4000.0f, 1.0f );
-	Delta_AddField( dt, "postmultiply",     DT_FLOAT,   32, 4000.0f, 1.0f );
-	dt->numFields = dt->maxFields;
-	dt->bInitialized = true;
-}
-
-void Delta_ParseTableField_GS( sizebuf_t *msg )
-{
-	const char *s = MSG_ReadString( msg );
-	delta_info_t *dt = Delta_FindStruct( s );
-	goldsrc_delta_t null = { 0 };
-	int i, num_fields;
-
-
-	// delta encoders it's already initialized on this machine (local game)
-	if( delta_init )
-	{
-		Delta_Shutdown();
-		Delta_InitMeta();
-	}
-
-	if( !dt )
-		Host_Error( "%s: not initialized", __func__ );
-
-	num_fields = MSG_ReadShort( msg );
-	if( num_fields > dt->maxFields )
-		Host_Error( "%s: numFields > maxFields", __func__ );
-
-	MSG_StartBitWriting( msg );
-
-	for( i = 0; i < num_fields; i++ )
-	{
-		goldsrc_delta_t to;
-
-		Delta_ReadGSFields( msg, DT_GOLDSRC_DELTA_T, &null, &to, 0.0f );
-
-		// patch our DT_SIGNED flag
-		if( FBitSet( to.fieldType, DT_SIGNED_GS ))
-		{
-			ClearBits( to.fieldType, DT_SIGNED_GS );
-			SetBits( to.fieldType, DT_SIGNED );
-		}
-		Delta_AddField( dt, to.fieldName, to.fieldType, to.significant_bits, to.premultiply, to.postmultiply );
-	}
-
-	MSG_EndBitWriting( msg );
 }
 
 static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delta_t *pField, qboolean bPost )
@@ -1483,9 +1484,8 @@ static qboolean Delta_ReadField( sizebuf_t *msg, delta_t *pField, const void *fr
 	return true;
 }
 
-void Delta_ReadGSFields( sizebuf_t *msg, int index, const void *from, void *to, double timebase )
+static void Delta_ParseGSFields( sizebuf_t *msg, const delta_info_t *dt, const void *from, void *to, double timebase )
 {
-	delta_info_t *dt = Delta_FindStructByIndex( index );
 	uint8_t bits[8] = { 0 };
 	delta_t *pField;
 	byte c;
@@ -1505,6 +1505,12 @@ void Delta_ReadGSFields( sizebuf_t *msg, int index, const void *from, void *to, 
 			Delta_ReadField_( msg, pField, to, timebase );
 		else Delta_CopyField( pField, from, to, timebase );
 	}
+}
+
+void Delta_ReadGSFields( sizebuf_t *msg, int index, const void *from, void *to, double timebase )
+{
+	const delta_info_t *dt = Delta_FindStructByIndex( index );
+	Delta_ParseGSFields( msg, dt, from, to, timebase );
 }
 
 void Delta_WriteGSFields( sizebuf_t *msg, int index, const void *from, const void *to, double timebase )
@@ -2103,6 +2109,44 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity
 #endif // XASH_DEDICATED
 	// message parsed
 	return true;
+}
+
+void Delta_ParseTableField_GS( sizebuf_t *msg )
+{
+	const char *s = MSG_ReadString( msg );
+	delta_info_t *dt = Delta_FindStruct( s );
+	goldsrc_delta_t null = { 0 };
+	int i, num_fields;
+
+	// delta encoders it's already initialized on this machine (local game)
+	if( delta_init )
+		Delta_Shutdown();
+
+	if( !dt )
+		Host_Error( "%s: not initialized", __func__ );
+
+	num_fields = MSG_ReadShort( msg );
+	if( num_fields > dt->maxFields )
+		Host_Error( "%s: numFields > maxFields", __func__ );
+
+	MSG_StartBitWriting( msg );
+
+	for( i = 0; i < num_fields; i++ )
+	{
+		goldsrc_delta_t to;
+
+		Delta_ParseGSFields( msg, &dt_goldsrc_meta, &null, &to, 0.0f );
+
+		// patch our DT_SIGNED flag
+		if( FBitSet( to.fieldType, DT_SIGNED_GS ))
+		{
+			ClearBits( to.fieldType, DT_SIGNED_GS );
+			SetBits( to.fieldType, DT_SIGNED );
+		}
+		Delta_AddField( dt, to.fieldName, to.fieldType, to.significant_bits, to.premultiply, to.postmultiply );
+	}
+
+	MSG_EndBitWriting( msg );
 }
 
 /*
