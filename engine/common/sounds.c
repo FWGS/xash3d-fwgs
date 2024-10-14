@@ -21,7 +21,7 @@ enum soundlst_type_e
 	SoundList_List
 };
 
-static const char *soundlst_groups[SoundList_Groups] =
+static const char *const soundlst_groups[SoundList_Groups] =
 {
 	"BouncePlayerShell",
 	"BounceWeaponShell",
@@ -46,7 +46,7 @@ typedef struct soundlst_s
 	int max; // the string count if type is group
 } soundlst_t;
 
-soundlst_t soundlst[SoundList_Groups];
+static soundlst_t soundlst[SoundList_Groups];
 
 static void SoundList_Print_f( void );
 static void SoundList_Free( soundlst_t *lst )

@@ -34,10 +34,10 @@ GNU General Public License for more details.
 #define MAX_TEXTCHANNELS	8		// must be power of two (GoldSrc uses 4 channels)
 #define TEXT_MSGNAME	"TextMessage%i"
 
-char			cl_textbuffer[MAX_TEXTCHANNELS][2048];
-client_textmessage_t	cl_textmessage[MAX_TEXTCHANNELS];
+static char cl_textbuffer[MAX_TEXTCHANNELS][2048];
+static client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS];
 
-static dllfunc_t cdll_exports[] =
+static const dllfunc_t cdll_exports[] =
 {
 { "Initialize", (void **)&clgame.dllFuncs.pfnInitialize },
 { "HUD_VidInit", (void **)&clgame.dllFuncs.pfnVidInit },
@@ -80,7 +80,7 @@ static dllfunc_t cdll_exports[] =
 };
 
 // optional exports
-static dllfunc_t cdll_new_exports[] = 	// allowed only in SDK 2.3 and higher
+static const dllfunc_t cdll_new_exports[] = 	// allowed only in SDK 2.3 and higher
 {
 { "HUD_GetStudioModelInterface", (void **)&clgame.dllFuncs.pfnGetStudioModelInterface },
 { "HUD_DirectorMessage", (void **)&clgame.dllFuncs.pfnDirectorMessage },

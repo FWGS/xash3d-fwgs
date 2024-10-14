@@ -40,7 +40,7 @@ GNU General Public License for more details.
 #include "render_api.h"	// decallist_t
 #include "tests.h"
 
-pfnChangeGame	pChangeGame = NULL;
+static pfnChangeGame	pChangeGame = NULL;
 host_parm_t		host;	// host parms
 
 #ifdef XASH_ENGINE_TESTS
@@ -49,8 +49,8 @@ struct tests_stats_s tests_stats;
 
 CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in development-mode" );
 CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_FILTERABLE, "scale frame time" );
-CVAR_DEFINE_AUTO( sys_ticrate, "100", FCVAR_SERVER, "framerate in dedicated mode" );
 
+static CVAR_DEFINE_AUTO( sys_ticrate, "100", FCVAR_SERVER, "framerate in dedicated mode" );
 static CVAR_DEFINE_AUTO( host_serverstate, "0", FCVAR_READ_ONLY, "displays current server state" );
 static CVAR_DEFINE_AUTO( host_gameloaded, "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 static CVAR_DEFINE_AUTO( host_clientloaded, "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
@@ -69,14 +69,14 @@ typedef struct feature_message_s
 	const char *arg;
 } feature_message_t;
 
-static feature_message_t bugcomp_features[] =
+static const feature_message_t bugcomp_features[] =
 {
 { BUGCOMP_PENTITYOFENTINDEX_FLAG, "pfnPEntityOfEntIndex bugfix revert", "peoei" },
 { BUGCOMP_MESSAGE_REWRITE_FACILITY_FLAG, "GoldSrc Message Rewrite Facility", "gsmrf" },
 { BUGCOMP_SPATIALIZE_SOUND_WITH_ATTN_NONE, "spatialize sounds with zero attenuation", "sp_attn_none" },
 };
 
-static feature_message_t engine_features[] =
+static const feature_message_t engine_features[] =
 {
 { ENGINE_WRITE_LARGE_COORD, "Big World Support" },
 { ENGINE_QUAKE_COMPATIBLE, "Quake Compatibility" },
@@ -200,19 +200,6 @@ static void Sys_PrintUsage( const char *exename )
 	Sys_Quit();
 }
 
-int Host_CompareFileTime( int ft1, int ft2 )
-{
-	if( ft1 < ft2 )
-	{
-		return -1;
-	}
-	else if( ft1 > ft2 )
-	{
-		return 1;
-	}
-	return 0;
-}
-
 void Host_ShutdownServer( void )
 {
 	SV_Shutdown( "Server was killed\n" );
@@ -223,7 +210,7 @@ void Host_ShutdownServer( void )
 Host_PrintEngineFeatures
 ================
 */
-static void Host_PrintFeatures( uint32_t flags,	const char *s, feature_message_t *features, size_t size )
+static void Host_PrintFeatures( uint32_t flags, const char *s, const feature_message_t *features, size_t size )
 {
 	size_t i;
 

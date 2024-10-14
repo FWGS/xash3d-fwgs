@@ -18,17 +18,17 @@ GNU General Public License for more details.
 #include "base_cmd.h"
 #include "eiface.h" // ARRAYSIZE
 
-convar_t	*cvar_vars = NULL; // head of list
+static convar_t	*cvar_vars = NULL; // head of list
 CVAR_DEFINE_AUTO( cmd_scripting, "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "enable simple condition checking and variable operations" );
 
-#ifdef HACKS_RELATED_HLMODS
 typedef struct cvar_filter_quirks_s
 {
 	const char *gamedir; // gamedir to enable for
 	const char *cvars; // list of cvars should be excluded from filter
 } cvar_filter_quirks_t;
 
-static cvar_filter_quirks_t cvar_filter_quirks[] =
+#ifdef HACKS_RELATED_HLMODS
+static const cvar_filter_quirks_t cvar_filter_quirks[] =
 {
 	// EXAMPLE:
 	//{
@@ -44,9 +44,9 @@ static cvar_filter_quirks_t cvar_filter_quirks[] =
 		"cl_dodmusic" // Day of Defeat Beta 1.3 cvar
 	},
 };
-
-static cvar_filter_quirks_t *cvar_active_filter_quirks = NULL;
 #endif
+
+static const cvar_filter_quirks_t *cvar_active_filter_quirks = NULL;
 
 CVAR_DEFINE_AUTO( cl_filterstuffcmd, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "filter commands coming from server" );
 
@@ -618,7 +618,7 @@ static convar_t *Cvar_Set2( const char *var_name, const char *value )
 		return Cvar_Get( var_name, value, FCVAR_USER_CREATED, NULL );
 	}
 	else
-	{	
+	{
 		if( !Cmd_CurrentCommandIsPrivileged( ))
 		{
 			if( FBitSet( var->flags, FCVAR_PRIVILEGED ))
@@ -974,7 +974,6 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	if( cl_filterstuffcmd.value <= 0.0f )
 		return true;
 
-#ifdef HACKS_RELATED_HLMODS
 	// check if game-specific filter exceptions should be applied
 	// TODO: for cmd exceptions, make generic function
 	if( cvar_active_filter_quirks )
@@ -1005,7 +1004,6 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 			}
 		}
 	}
-#endif
 
 	if( FBitSet( v->flags, FCVAR_FILTERABLE ))
 		return false;

@@ -25,8 +25,8 @@ typedef struct
 	byte		sended[MAX_EDICTS_BYTES];
 } sv_ents_t;
 
-int	c_fullsend;	// just a debug counter
-int	c_notsend;
+static int	c_fullsend;	// just a debug counter
+static int	c_notsend;
 
 /*
 =======================

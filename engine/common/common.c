@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #include "client.h"
 #include "library.h"
 
-static const char *file_exts[] =
+static const char *const file_exts[] =
 {
 	// ban text files that don't make sense as resource
 	"cfg", "lst", "ini", "log",
@@ -843,7 +843,7 @@ int GAME_EXPORT COM_CompareFileTime( const char *filename1, const char *filename
 		if( ft1 == -1 || ft2 == -1 )
 			return bRet;
 
-		*iCompare = Host_CompareFileTime( ft1,  ft2 );
+		*iCompare = ft1 < ft2 ? -1 : ( ft1 > ft2 ? 1 : 0 );
 		bRet = 1;
 	}
 

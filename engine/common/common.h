@@ -168,6 +168,7 @@ extern convar_t	sys_timescale;
 extern convar_t	cl_filterstuffcmd;
 extern convar_t	rcon_password;
 extern convar_t	hpk_custom_file;
+extern convar_t	con_gamemaps;
 
 #define Mod_AllowMaterials() ( host_allow_materials.value != 0.0f && !FBitSet( host.features, ENGINE_DISABLE_HDTEXTURES ))
 
@@ -528,7 +529,6 @@ typedef void( *pfnChangeGame )( const char *progname );
 qboolean Host_IsQuakeCompatible( void );
 void EXPORT Host_Shutdown( void );
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
-int Host_CompareFileTime( int ft1, int ft2 );
 void Host_EndGame( qboolean abort, const char *message, ... ) _format( 2 );
 void Host_AbortCurrentFrame( void ) NORETURN;
 void Host_WriteServerConfig( const char *name );
