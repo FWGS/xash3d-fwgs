@@ -3072,7 +3072,7 @@ SV_ExecuteUserCommand
 */
 static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 {
-	ucmd_t	*u;
+	const ucmd_t	*u;
 
 	Cmd_TokenizeString( s );
 

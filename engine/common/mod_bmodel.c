@@ -347,7 +347,7 @@ Mod_LoadLump
 generic loader
 =================
 */
-static void Mod_LoadLump( const byte *in, mlumpinfo_t *info, mlumpstat_t *stat, int flags )
+static void Mod_LoadLump( const byte *in, const mlumpinfo_t *info, mlumpstat_t *stat, int flags )
 {
 	int	version = ((dheader_t *)in)->version;
 	size_t	numelems, real_entrysize;

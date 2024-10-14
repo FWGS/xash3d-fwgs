@@ -1073,7 +1073,7 @@ for various cmds
 */
 static qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t bufsize )
 {
-	autocomplete_list_t	*list;
+	const autocomplete_list_t	*list;
 
 	for( list = cmd_list; list->name; list++ )
 	{
