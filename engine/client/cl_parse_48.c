@@ -586,7 +586,7 @@ void CL_LegacyPrecache_f( void )
 	int	spawncount, i;
 	model_t *mod;
 
-	if( !cls.legacymode )
+	if( cls.legacymode != PROTO_LEGACY )
 		return;
 
 	spawncount = Q_atoi( Cmd_Argv( 1 ));

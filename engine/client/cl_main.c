@@ -681,7 +681,8 @@ static void CL_CreateCmd( void )
 void CL_WriteUsercmd( sizebuf_t *msg, int from, int to )
 {
 	const usercmd_t nullcmd = { 0 };
-	usercmd_t	*f, *t;
+	const usercmd_t	*f;
+	usercmd_t *t;
 
 	Assert( from == -1 || ( from >= 0 && from < MULTIPLAYER_BACKUP ));
 	Assert( to >= 0 && to < MULTIPLAYER_BACKUP );
@@ -717,8 +718,8 @@ static void CL_WritePacket( void )
 	qboolean		send_command = false;
 	byte		data[MAX_CMD_BUFFER];
 	int		i, from, to, key, size;
-	int		numbackup = 2;
-	int		numcmds;
+	int		numbackup = 2, maxbackup;
+	int		numcmds, maxcmds;
 	int		newcmds;
 	int		cmdnumber;
 
@@ -732,25 +733,32 @@ static void CL_WritePacket( void )
 	MSG_Init( &buf, "ClientData", data, sizeof( data ));
 
 	// Determine number of backup commands to send along
-	if( cls.legacymode == PROTO_GOLDSRC )
-		numbackup = bound( 0, cl_cmdbackup.value, MAX_GOLDSRC_BACKUP_CMDS );
-	else if( cls.legacymode == PROTO_LEGACY )
-		numbackup = bound( 0, cl_cmdbackup.value, MAX_LEGACY_BACKUP_CMDS );
-	else
-		numbackup = bound( 0, cl_cmdbackup.value, MAX_BACKUP_COMMANDS );
+	switch( cls.legacymode )
+	{
+	case PROTO_GOLDSRC:
+		maxbackup = MAX_GOLDSRC_BACKUP_CMDS;
+		maxcmds = MAX_GOLDSRC_TOTAL_CMDS;
+		break;
+	case PROTO_LEGACY:
+		maxbackup = MAX_LEGACY_BACKUP_CMDS;
+		maxcmds = MAX_LEGACY_TOTAL_CMDS;
+		break;
+	default:
+		maxbackup = MAX_BACKUP_COMMANDS;
+		maxcmds = MAX_TOTAL_CMDS;
+		break;
+	}
+
+	numbackup = bound( 0, cl_cmdbackup.value, maxbackup );
 
 	if( cls.state == ca_connected )
 		numbackup = 0;
 
 	// clamp cmdrate
 	if( cl_cmdrate.value < 10.0f )
-	{
 		Cvar_DirectSet( &cl_cmdrate, "10" );
-	}
 	else if( cl_cmdrate.value > 100.0f )
-	{
 		Cvar_DirectSet( &cl_cmdrate, "100" );
-	}
 
 	// Check to see if we can actually send this command
 
@@ -823,12 +831,7 @@ static void CL_WritePacket( void )
 		newcmds = ( cls.netchan.outgoing_sequence - cls.lastoutgoingcommand );
 
 		// put an upper/lower bound on this
-		if( cls.legacymode == PROTO_GOLDSRC )
-			newcmds = bound( 0, newcmds, MAX_GOLDSRC_TOTAL_CMDS );
-		else if( cls.legacymode == PROTO_LEGACY )
-			newcmds = bound( 0, newcmds, MAX_LEGACY_TOTAL_CMDS );
-		else
-			newcmds = bound( 0, newcmds, MAX_TOTAL_CMDS );
+		newcmds = bound( 0, newcmds, maxcmds );
 
 		if( cls.state == ca_connected )
 			newcmds = 0;
@@ -1597,26 +1600,24 @@ static void CL_Reconnect( qboolean setup_netchan )
 	{
 		uint flags = 0;
 
-		if( cls.legacymode == PROTO_GOLDSRC )
+		switch( cls.legacymode )
 		{
+		case PROTO_GOLDSRC:
 			SetBits( flags, NETCHAN_USE_MUNGE | NETCHAN_USE_BZIP2 | NETCHAN_GOLDSRC );
-		}
-		else if( cls.legacymode == PROTO_LEGACY )
-		{
-			unsigned int extensions = Q_atoi( Cmd_Argv( 1 ) );
-
-			if( FBitSet( extensions, NET_LEGACY_EXT_SPLIT ))
+			break;
+		case PROTO_LEGACY:
+			if( FBitSet( Q_atoi( Cmd_Argv( 1 )), NET_LEGACY_EXT_SPLIT ))
 			{
 				SetBits( flags, NETCHAN_USE_LEGACY_SPLIT );
 				Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax.value, 65536 );
 			}
-		}
-		else
-		{
+			break;
+		default:
 			cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
 
 			if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 				Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax.value );
+			break;
 		}
 
 		Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize, flags );
@@ -2350,6 +2351,8 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		// in case we're in console or it's classic mainui which doesn't support messageboxes
 		if( !UI_IsVisible() || !UI_ShowMessageBox( formatted_msg ))
 			Msg( "%s\n", formatted_msg );
+
+		CL_Disconnect_f();
 	}
 	else if( !Q_strcmp( c, "updatemsg" ))
 	{
