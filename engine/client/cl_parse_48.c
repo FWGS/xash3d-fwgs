@@ -419,7 +419,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 
 			break;
 		case svc_time:
-			CL_ParseServerTime( msg );
+			CL_ParseServerTime( msg, PROTO_LEGACY );
 			break;
 		case svc_print:
 			Con_Printf( "%s", MSG_ReadString( msg ));

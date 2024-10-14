@@ -570,7 +570,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_time:
-			CL_ParseServerTime( msg );
+			CL_ParseServerTime( msg, PROTO_GOLDSRC );
 			break;
 		case svc_print:
 			Con_Printf( "%s", MSG_ReadString( msg ));
