@@ -1230,9 +1230,6 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 
 	Delta_InitClient ();	// finalize client delta's
 
-	if( proto == PROTO_GOLDSRC )
-		MSG_StartBitWriting( msg );
-
 	while( 1 )
 	{
 		cl_entity_t *ent;
@@ -1270,7 +1267,6 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 		if( proto == PROTO_GOLDSRC )
 		{
 			int type = MSG_ReadUBitLong( msg, 2 );
-			int bits = MSG_GetNumBitsWritten( msg );
 			int delta_type;
 
 			if( player ) delta_type = DT_ENTITY_STATE_PLAYER_T;
@@ -1278,6 +1274,7 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 			else delta_type = DT_ENTITY_STATE_T;
 
 			Delta_ReadGSFields( msg, delta_type, &ent->prevstate, &ent->baseline, 1.0f );
+			ent->baseline.entityType = type;
 		}
 		else MSG_ReadDeltaEntity( msg, &nullstate, &ent->baseline, newnum, player, 1.0f );
 
@@ -1302,9 +1299,6 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 			}
 		}
 	}
-
-	if( proto == PROTO_GOLDSRC )
-		MSG_EndBitWriting( msg );
 }
 
 /*
