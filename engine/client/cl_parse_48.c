@@ -469,8 +469,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_ParseParticles( msg );
 			break;
 		case svc_restoresound:
-			CL_ParseRestoreSoundPacket( msg );
-			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
+			Con_Printf( S_ERROR "%s: svc_restoresound: implement me!\n", __func__ );
 			break;
 		case svc_spawnstatic:
 			CL_LegacyParseStaticEntity( msg );
