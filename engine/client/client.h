@@ -1031,7 +1031,6 @@ void CL_InitParticles( void );
 void CL_ClearParticles( void );
 void CL_FreeParticles( void );
 void CL_InitTempEnts( void );
-void CL_ClearTempEnts( void );
 void CL_FreeTempEnts( void );
 void CL_TempEntUpdate( void );
 void CL_InitViewBeams( void );

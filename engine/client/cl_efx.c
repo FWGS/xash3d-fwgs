@@ -25,10 +25,10 @@ static CVAR_DEFINE_AUTO( tracerspeed, "6000", 0, "tracer speed" );
 static CVAR_DEFINE_AUTO( tracerlength, "0.8", 0, "tracer length factor" );
 static CVAR_DEFINE_AUTO( traceroffset, "30", 0, "tracer starting offset" );
 
-particle_t	*cl_active_particles;
-particle_t	*cl_active_tracers;
-particle_t	*cl_free_particles;
-particle_t	*cl_particles = NULL;	// particle pool
+static particle_t	*cl_active_particles;
+static particle_t	*cl_active_tracers;
+static particle_t	*cl_free_particles;
+static particle_t	*cl_particles = NULL;	// particle pool
 static vec3_t	cl_avelocities[NUMVERTEXNORMALS];
 static float	cl_lasttimewarn = 0.0f;
 
@@ -262,9 +262,9 @@ VIEWBEAMS MANAGEMENT
 
 ==============================================================
 */
-BEAM		*cl_active_beams;
-BEAM		*cl_free_beams;
-BEAM		*cl_viewbeams = NULL;		// beams pool
+static BEAM		*cl_active_beams;
+static BEAM		*cl_free_beams;
+static BEAM		*cl_viewbeams = NULL;		// beams pool
 
 
 /*
@@ -1762,25 +1762,6 @@ void GAME_EXPORT R_StreakSplash( const vec3_t pos, const vec3_t dir, int color, 
 		p->color = color;
 		p->ramp = 1.0f;
 	}
-}
-
-/*
-===============
-R_DebugParticle
-
-just for debug purposes
-===============
-*/
-void R_DebugParticle( const vec3_t pos, byte r, byte g, byte b )
-{
-	particle_t	*p;
-
-	p = R_AllocParticle( NULL );
-	if( !p ) return;
-
-	VectorCopy( pos, p->org );
-	p->color = R_LookupColor( r, g, b );
-	p->die = cl.time + 0.01f;
 }
 
 /*
