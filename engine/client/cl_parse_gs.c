@@ -636,7 +636,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			MSG_EndBitWriting( msg );
 			break;
 		case svc_particle:
-			CL_ParseParticles( msg );
+			CL_ParseParticles( msg, PROTO_GOLDSRC );
 			break;
 		case svc_spawnstatic:
 			// no-op

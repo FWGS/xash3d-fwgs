@@ -466,7 +466,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			CL_UpdateUserPings( msg );
 			break;
 		case svc_particle:
-			CL_ParseParticles( msg );
+			CL_ParseParticles( msg, PROTO_LEGACY );
 			break;
 		case svc_restoresound:
 			Con_Printf( S_ERROR "%s: svc_restoresound: implement me!\n", __func__ );

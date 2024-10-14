@@ -264,7 +264,7 @@ CL_ParseParticles
 
 ==================
 */
-void CL_ParseParticles( sizebuf_t *msg )
+void CL_ParseParticles( sizebuf_t *msg, connprotocol_t proto )
 {
 	vec3_t		org, dir;
 	int		i, count, color;
@@ -277,8 +277,12 @@ void CL_ParseParticles( sizebuf_t *msg )
 
 	count = MSG_ReadByte( msg );
 	color = MSG_ReadByte( msg );
-	if( count == 255 ) count = 1024;
-	life = MSG_ReadByte( msg ) * 0.125f;
+	if( count == 255 )
+		count = 1024;
+
+	if( proto == PROTO_GOLDSRC )
+		life = 0.0f;
+	else life = MSG_ReadByte( msg ) * 0.125f;
 
 	if( life != 0.0f && count == 1 )
 	{
@@ -2585,7 +2589,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_UpdateUserPings( msg );
 			break;
 		case svc_particle:
-			CL_ParseParticles( msg );
+			CL_ParseParticles( msg, PROTO_CURRENT );
 			break;
 		case svc_restoresound:
 			CL_ParseRestoreSoundPacket( msg );
