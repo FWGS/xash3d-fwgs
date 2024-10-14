@@ -33,7 +33,7 @@ typedef struct
 } player_model_t;
 
 // never gonna change, just shut up const warning
-cvar_t r_shadows = { (char *)"r_shadows", (char *)"0", 0 };
+CVAR_DEFINE_AUTO( r_shadows, "0", 0, "draw ugly shadows" );
 
 static const vec3_t hullcolor[8] =
 {
