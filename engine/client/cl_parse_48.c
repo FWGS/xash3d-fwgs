@@ -137,12 +137,7 @@ static void CL_LegacyParseSoundPacket( sizebuf_t *msg, qboolean is_ambient )
 	if( FBitSet( flags, SND_SENTENCE ))
 	{
 		char	sentenceName[32];
-
-		//if( FBitSet( flags, SND_SEQUENCE ))
-			//Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound + MAX_SOUNDS );
-		//else
 		Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound );
-
 		handle = S_RegisterSound( sentenceName );
 	}
 	else handle = cl.sound_index[sound];	// see precached sound
@@ -320,7 +315,7 @@ dispatch messages
 void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 {
 	size_t		bufStart, playerbytes;
-	int		cmd, param1, param2;
+	int		cmd;
 	int		old_background;
 	const char	*s;
 
@@ -344,6 +339,9 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
+
+		if( CL_ParseCommonDLLMessage( msg, PROTO_LEGACY, cmd, bufStart ))
+			continue;
 
 		// other commands
 		switch( cmd )
@@ -484,10 +482,6 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 		case svc_spawnbaseline:
 			CL_ParseBaseline( msg, PROTO_LEGACY );
 			break;
-		case svc_temp_entity:
-			CL_ParseTempEntity( msg, PROTO_LEGACY );
-			cl.frames[cl.parsecountmod].graphdata.tentities += MSG_GetNumBytesRead( msg ) - bufStart;
-			break;
 		case svc_setpause:
 			cl.paused = ( MSG_ReadOneBit( msg ) != 0 );
 			break;
@@ -497,21 +491,11 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 		case svc_centerprint:
 			CL_CenterPrint( MSG_ReadString( msg ), 0.25f );
 			break;
-		case svc_intermission:
-			cl.intermission = 1;
-			break;
 		case svc_legacy_modelindex:
 			CL_LegacyPrecacheModel( msg );
 			break;
 		case svc_legacy_soundindex:
 			CL_LegacyPrecacheSound( msg );
-			break;
-		case svc_cdtrack:
-			param1 = MSG_ReadByte( msg );
-			param1 = bound( 1, param1, MAX_CDTRACKS ); // tracknum
-			param2 = MSG_ReadByte( msg );
-			param2 = bound( 1, param2, MAX_CDTRACKS ); // loopnum
-			S_StartBackgroundTrack( clgame.cdtracks[param1-1], clgame.cdtracks[param2-1], 0, false );
 			break;
 		case svc_restore:
 			CL_ParseRestore( msg );
@@ -519,17 +503,8 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 		case svc_legacy_eventindex:
 			CL_LegacyPrecacheEvent(msg);
 			break;
-		case svc_weaponanim:
-			param1 = MSG_ReadByte( msg );	// iAnim
-			param2 = MSG_ReadByte( msg );	// body
-			CL_WeaponAnim( param1, param2 );
-			break;
 		case svc_bspdecal:
 			CL_ParseStaticDecal( msg );
-			break;
-		case svc_roomtype:
-			param1 = MSG_ReadShort( msg );
-			Cvar_SetValue( "room_type", param1 );
 			break;
 		case svc_addangle:
 			CL_ParseAddAngle( msg );
@@ -589,9 +564,6 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 			break;
 		case svc_hltv:
 			CL_ParseHLTV( msg );
-			break;
-		case svc_director:
-			CL_ParseDirector( msg );
 			break;
 		case svc_resourcelocation:
 			CL_ParseResLocation( msg );

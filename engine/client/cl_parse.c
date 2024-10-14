@@ -2388,6 +2388,54 @@ ACTION MESSAGES
 
 =====================================================================
 */
+
+/*
+============
+CL_ParseCommonDLLMessage
+
+parse a message which structure is enforced by DLL compatibility
+it should always be the same regardless of protocol used
+============
+*/
+qboolean CL_ParseCommonDLLMessage( sizebuf_t *msg, connprotocol_t proto, int svc_num, int startoffset )
+{
+	int param1, param2;
+
+	switch( svc_num )
+	{
+	case svc_temp_entity:
+		CL_ParseTempEntity( msg, proto ); // need protocol because message header differs
+		cl.frames[cl.parsecountmod].graphdata.tentities += MSG_GetNumBytesRead( msg ) - startoffset;
+		break;
+	case svc_intermission:
+		cl.intermission = 1;
+		break;
+	case svc_cdtrack:
+		param1 = MSG_ReadByte( msg );
+		param1 = bound( 1, param1, MAX_CDTRACKS ); // tracknum
+		param2 = MSG_ReadByte( msg );
+		param2 = bound( 1, param2, MAX_CDTRACKS ); // loopnum
+		S_StartBackgroundTrack( clgame.cdtracks[param1-1], clgame.cdtracks[param2-1], 0, false );
+		break;
+	case svc_weaponanim:
+		param1 = MSG_ReadByte( msg );	// iAnim
+		param2 = MSG_ReadByte( msg );	// body
+		CL_WeaponAnim( param1, param2 );
+		break;
+	case svc_roomtype:
+		param1 = MSG_ReadShort( msg );
+		Cvar_SetValue( "room_type", param1 );
+		break;
+	case svc_director:
+		CL_ParseDirector( msg );
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}
+
 /*
 =====================
 CL_ParseServerMessage
@@ -2398,7 +2446,7 @@ dispatch messages
 void CL_ParseServerMessage( sizebuf_t *msg )
 {
 	size_t		bufStart, playerbytes;
-	int		cmd, param1, param2;
+	int		cmd;
 	int		old_background;
 	const char	*s;
 
@@ -2422,6 +2470,9 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
+
+		if( CL_ParseCommonDLLMessage( msg, PROTO_CURRENT, cmd, bufStart ))
+			continue;
 
 		// other commands
 		switch( cmd )
@@ -2550,10 +2601,6 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 		case svc_spawnbaseline:
 			CL_ParseBaseline( msg, PROTO_CURRENT );
 			break;
-		case svc_temp_entity:
-			CL_ParseTempEntity( msg, PROTO_CURRENT );
-			cl.frames[cl.parsecountmod].graphdata.tentities += MSG_GetNumBytesRead( msg ) - bufStart;
-			break;
 		case svc_setpause:
 			cl.paused = ( MSG_ReadOneBit( msg ) != 0 );
 			break;
@@ -2563,18 +2610,8 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 		case svc_centerprint:
 			CL_CenterPrint( MSG_ReadString( msg ), 0.25f );
 			break;
-		case svc_intermission:
-			cl.intermission = 1;
-			break;
 		case svc_finale:
 			CL_ParseFinaleCutscene( msg, 2 );
-			break;
-		case svc_cdtrack:
-			param1 = MSG_ReadByte( msg );
-			param1 = bound( 1, param1, MAX_CDTRACKS ); // tracknum
-			param2 = MSG_ReadByte( msg );
-			param2 = bound( 1, param2, MAX_CDTRACKS ); // loopnum
-			S_StartBackgroundTrack( clgame.cdtracks[param1-1], clgame.cdtracks[param2-1], 0, false );
 			break;
 		case svc_restore:
 			CL_ParseRestore( msg );
@@ -2582,17 +2619,8 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 		case svc_cutscene:
 			CL_ParseFinaleCutscene( msg, 3 );
 			break;
-		case svc_weaponanim:
-			param1 = MSG_ReadByte( msg );	// iAnim
-			param2 = MSG_ReadByte( msg );	// body
-			CL_WeaponAnim( param1, param2 );
-			break;
 		case svc_bspdecal:
 			CL_ParseStaticDecal( msg );
-			break;
-		case svc_roomtype:
-			param1 = MSG_ReadShort( msg );
-			Cvar_SetValue( "room_type", param1 );
 			break;
 		case svc_addangle:
 			CL_ParseAddAngle( msg );
@@ -2637,9 +2665,6 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			break;
 		case svc_hltv:
 			CL_ParseHLTV( msg );
-			break;
-		case svc_director:
-			CL_ParseDirector( msg );
 			break;
 		case svc_voiceinit:
 			CL_ParseVoiceInit( msg );

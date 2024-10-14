@@ -530,7 +530,7 @@ dispatch messages
 void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 {
 	size_t		bufStart, playerbytes;
-	int		cmd, param1, param2;
+	int		cmd;
 	const char	*s;
 
 	// parse the message
@@ -553,6 +553,9 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
+
+		if( CL_ParseCommonDLLMessage( msg, PROTO_GOLDSRC, cmd, bufStart ))
+			continue;
 
 		// other commands
 		switch( cmd )
@@ -647,9 +650,6 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_spawnbaseline:
 			CL_ParseBaseline( msg, PROTO_GOLDSRC );
 			break;
-		case svc_temp_entity:
-			CL_ParseTempEntity( msg, PROTO_GOLDSRC );
-			cl.frames[cl.parsecountmod].graphdata.tentities += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_setpause:
 			cl.paused = ( MSG_ReadOneBit( msg ) != 0 );
@@ -663,33 +663,14 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_goldsrc_spawnstaticsound:
 			CL_ParseSpawnStaticSound( msg );
 			break;
-		case svc_intermission:
-			cl.intermission = 1;
-			break;
 		case svc_finale:
 			CL_ParseFinaleCutscene( msg, 2 );
-			break;
-		case svc_cdtrack:
-			param1 = MSG_ReadByte( msg );
-			param1 = bound( 1, param1, MAX_CDTRACKS ); // tracknum
-			param2 = MSG_ReadByte( msg );
-			param2 = bound( 1, param2, MAX_CDTRACKS ); // loopnum
-			S_StartBackgroundTrack( clgame.cdtracks[param1-1], clgame.cdtracks[param2-1], 0, false );
 			break;
 		case svc_restore:
 			CL_ParseRestore( msg );
 			break;
 		case svc_cutscene:
 			CL_ParseFinaleCutscene( msg, 3 );
-			break;
-		case svc_weaponanim:
-			param1 = MSG_ReadByte( msg );	// iAnim
-			param2 = MSG_ReadByte( msg );	// body
-			CL_WeaponAnim( param1, param2 );
-			break;
-		case svc_roomtype:
-			param1 = MSG_ReadShort( msg );
-			Cvar_SetValue( "room_type", param1 );
 			break;
 		case svc_addangle:
 			CL_ParseAddAngle( msg );
@@ -736,9 +717,6 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			break;
 		case svc_hltv:
 			CL_ParseHLTV( msg );
-			break;
-		case svc_director:
-			CL_ParseDirector( msg );
 			break;
 		case svc_voiceinit:
 			CL_ParseVoiceInit( msg );

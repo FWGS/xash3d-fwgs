@@ -890,6 +890,7 @@ void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto );
 void CL_ParseResLocation( sizebuf_t *msg );
 void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t proto );
 void CL_ParseServerMessage( sizebuf_t *msg );
+qboolean CL_ParseCommonDLLMessage( sizebuf_t *msg, connprotocol_t proto, int svc_num, int startoffset );
 void CL_ParseTempEntity( sizebuf_t *msg, connprotocol_t proto );
 qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf );
 qboolean CL_RequestMissingResources( void );
