@@ -87,10 +87,12 @@ such as during the connection stage while waiting for the client to load,
 then a packet only needs to be delivered if there is something in the
 unacknowledged reliable
 */
-CVAR_DEFINE_AUTO( net_showpackets, "0", 0, "show network packets" );
+CVAR_DEFINE_AUTO( net_showpackets, "0", FCVAR_PRIVILEGED, "show network packets" );
 static CVAR_DEFINE_AUTO( net_chokeloop, "0", 0, "apply bandwidth choke to loopback packets" );
 static CVAR_DEFINE_AUTO( net_showdrop, "0", 0, "show packets that are dropped" );
 static CVAR_DEFINE_AUTO( net_qport, "0", FCVAR_READ_ONLY, "current quake netport" );
+CVAR_DEFINE_AUTO( net_send_debug, "0", FCVAR_PRIVILEGED, "enable debugging output for outgoing messages" );
+CVAR_DEFINE_AUTO( net_recv_debug, "0", FCVAR_PRIVILEGED, "enable debugging output for incoming messages" );
 
 int	net_drop;
 netadr_t	net_from;
@@ -265,6 +267,8 @@ void Netchan_Init( void )
 	Cvar_RegisterVariable( &net_chokeloop );
 	Cvar_RegisterVariable( &net_showdrop );
 	Cvar_RegisterVariable( &net_qport );
+	Cvar_RegisterVariable( &net_send_debug );
+	Cvar_RegisterVariable( &net_recv_debug );
 	Cvar_FullSet( net_qport.name, buf, net_qport.flags );
 
 	net_mempool = Mem_AllocPool( "Network Pool" );
