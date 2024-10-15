@@ -791,7 +791,9 @@ void CL_ParseResourceRequest( sizebuf_t *msg )
 			MSG_WriteBytes( &sbuf, cl.resourcelist[i].rgucMD5_hash, 16 );
 	}
 
-	if( MSG_GetNumBytesWritten( &sbuf ) > 0 )
+	// a1ba: useless check? MSG_BeginClientCmd and MSG_WriteShort will always
+	// write to the buffer
+	// if( MSG_GetNumBytesWritten( &sbuf ) > 0 )
 	{
 		Netchan_CreateFragments( &cls.netchan, &sbuf );
 		Netchan_FragSend( &cls.netchan );
