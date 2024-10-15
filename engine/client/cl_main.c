@@ -1048,7 +1048,7 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 	char key[64];
 	int keylength;
 
-	keylength = Q_snprintf( key, sizeof( key ), "%u", COM_RandomLong( 0, 0x7fffffff ));
+	keylength = Q_snprintf( key, sizeof( key ), "%u", COM_RandomLong( 0, 0x7ffffffe ));
 
 	MD5Init( &ctx );
 	MD5Update( &ctx, key, keylength );
