@@ -727,6 +727,12 @@ static void CL_WritePacket( void )
 	if( cls.demoplayback || cls.state < ca_connected || cls.state == ca_cinematic )
 		return;
 
+	if( cls.state <= ca_validate )
+	{
+		Netchan_TransmitBits( &cls.netchan, 0, "" );
+		return;
+	}
+
 	CL_ComputePacketLoss ();
 
 	memset( data, 0, sizeof( data ));
@@ -750,9 +756,6 @@ static void CL_WritePacket( void )
 	}
 
 	numbackup = bound( 0, cl_cmdbackup.value, maxbackup );
-
-	if( cls.state == ca_connected )
-		numbackup = 0;
 
 	// clamp cmdrate
 	if( cl_cmdrate.value < 10.0f )
