@@ -93,7 +93,7 @@ GNU General Public License for more details.
 #define clc_voicedata		8
 #define clc_requestcvarvalue		9
 #define clc_requestcvarvalue2		10
-#define clc_lastmsg			10	// end client messages
+#define clc_lastmsg			11	// end client messages (11 is GoldSrc message)
 
 #define MAX_VISIBLE_PACKET_BITS	11	// 2048 visible entities per frame (hl1 has 256)
 #define MAX_VISIBLE_PACKET		(1<<MAX_VISIBLE_PACKET_BITS)
@@ -341,7 +341,7 @@ extern const char *const clc_strings[clc_lastmsg+1];
 #define clc_goldsrc_hltv              clc_requestcvarvalue  // 9
 #define clc_goldsrc_requestcvarvalue  clc_requestcvarvalue2 // 10
 #define clc_goldsrc_requestcvarvalue2 11
-#define clc_goldsrc_lastmsg           12
+#define clc_goldsrc_lastmsg           11
 
 #define S2C_REJECT_BADPASSWORD '8'
 #define S2C_REJECT             '9'

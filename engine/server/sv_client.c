@@ -27,11 +27,12 @@ const char *const clc_strings[clc_lastmsg+1] =
 	"clc_stringcmd",
 	"clc_delta",
 	"clc_resourcelist",
-	"clc_unused6",
+	"clc_legacy_userinfo",
 	"clc_fileconsistency",
 	"clc_voicedata",
-	"clc_cvarvalue",
-	"clc_cvarvalue2",
+	"clc_cvarvalue/clc_goldsrc_hltv",
+	"clc_cvarvalue2/clc_goldsrc_requestcvarvalue",
+	"clc_goldsrc_requestcvarvalue2",
 };
 
 typedef struct ucmd_s
