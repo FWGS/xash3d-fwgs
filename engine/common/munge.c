@@ -33,7 +33,7 @@ static const byte mungify_table3[] =
 	0x0A, 0x2D, 0x48, 0x0C,	0x4A, 0x12, 0xA9, 0xB5,
 };
 
-static int COM_SwapLong( int c )
+static uint COM_SwapLong( uint c )
 {
 	return ((( c >> 0  ) & 0xFF) << 24 ) +
 		   ((( c >> 8  ) & 0xFF) << 16 ) +
@@ -48,12 +48,12 @@ static void COM_GenericMunge( byte *data, const size_t len, const int seq, const
 
 	for( i = 0; i < mungelen; i++ )
 	{
-		uint *pc, c;
+		uint32_t c;
+		void *pc = &data[i * 4];
 		byte *p;
 		int j;
 
-		pc = (uint *)&data[i * 4];
-		c = *pc;
+		memcpy( &c, pc, sizeof( c ));
 		c ^= seq;
 		if( !reverse )
 			c = COM_SwapLong( c );
@@ -65,7 +65,7 @@ static void COM_GenericMunge( byte *data, const size_t len, const int seq, const
 		if( reverse )
 			c = COM_SwapLong( c );
 		c ^= ~seq;
-		*pc = c;
+		memcpy( pc, &c, sizeof( c ));
 	}
 }
 
