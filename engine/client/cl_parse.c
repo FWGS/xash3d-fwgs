@@ -1043,9 +1043,13 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		COM_ClearCustomizationList( &cl.players[i].customdata, true );
 	CL_CreateCustomizationList();
 
-	if( proto != PROTO_LEGACY )
+	// request resources from server
+	if( proto == PROTO_GOLDSRC )
 	{
-		// request resources from server
+		CL_ServerCommand( true, "sendres" );
+	}
+	else if( proto != PROTO_LEGACY )
+	{
 		CL_ServerCommand( true, "sendres %i\n", cl.servercount );
 	}
 
