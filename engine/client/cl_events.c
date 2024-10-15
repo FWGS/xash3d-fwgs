@@ -422,13 +422,11 @@ void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 	int		event_index;
 	int		i, num_events;
 	int		packet_index;
-	event_args_t	nullargs, args;
+	const event_args_t nullargs = { 0 };
+	event_args_t args = { 0 };
 	entity_state_t	*state;
 	float		delay;
 	int		entity_bits;
-
-	memset( &nullargs, 0, sizeof( nullargs ));
-	memset( &args, 0, sizeof( args ));
 
 	num_events = MSG_ReadUBitLong( msg, 5 );
 
@@ -444,15 +442,17 @@ void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 		event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
 		if( MSG_ReadOneBit( msg ))
-			packet_index = MSG_ReadUBitLong( msg, entity_bits );
-		else packet_index = -1;
-
-		if( MSG_ReadOneBit( msg ))
 		{
-			if( proto == PROTO_GOLDSRC )
-				Delta_ReadGSFields( msg, DT_EVENT_T, &nullargs, &args, 0.0f );
-			else MSG_ReadDeltaEvent( msg, &nullargs, &args );
+			packet_index = MSG_ReadUBitLong( msg, entity_bits );
+
+			if( MSG_ReadOneBit( msg ))
+			{
+				if( proto == PROTO_GOLDSRC )
+					Delta_ReadGSFields( msg, DT_EVENT_T, &nullargs, &args, 0.0f );
+				else MSG_ReadDeltaEvent( msg, &nullargs, &args );
+			}
 		}
+		else packet_index = -1;
 
 		if( MSG_ReadOneBit( msg ))
 			delay = (float)MSG_ReadWord( msg ) * (1.0f / 100.0f);
