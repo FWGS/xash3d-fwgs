@@ -1554,7 +1554,7 @@ CL_SendDisconnectMessage
 Sends a disconnect message to the server
 =====================
 */
-static void CL_SendDisconnectMessage( void )
+static void CL_SendDisconnectMessage( connprotocol_t proto )
 {
 	sizebuf_t	buf;
 	byte	data[32];
@@ -1563,7 +1563,9 @@ static void CL_SendDisconnectMessage( void )
 
 	MSG_Init( &buf, "LastMessage", data, sizeof( data ));
 	MSG_BeginClientCmd( &buf, clc_stringcmd );
-	MSG_WriteString( &buf, "disconnect" );
+	if( proto == PROTO_GOLDSRC )
+		MSG_WriteString( &buf, "dropclient\n" );
+	else MSG_WriteString( &buf, "disconnect" );
 
 	if( !cls.netchan.remote_address.type )
 		cls.netchan.remote_address.type = NA_LOOPBACK;
@@ -1658,8 +1660,6 @@ This is also called on Host_Error, so it shouldn't cause any errors
 */
 void CL_Disconnect( void )
 {
-	cls.legacymode = PROTO_CURRENT;
-
 	if( cls.state == ca_disconnected )
 		return;
 
@@ -1670,7 +1670,7 @@ void CL_Disconnect( void )
 	CL_Stop_f();
 
 	// send a disconnect message to the server
-	CL_SendDisconnectMessage();
+	CL_SendDisconnectMessage( cls.legacymode );
 	CL_ClearState ();
 
 	S_StopBackgroundTrack ();
@@ -1686,6 +1686,7 @@ void CL_Disconnect( void )
 	cls.set_lastdemo = false;
 	cls.connect_retry = 0;
 	cls.signon = 0;
+	cls.legacymode = PROTO_CURRENT;
 
 	// back to menu in non-developer mode
 	if( host_developer.value || cls.key_dest == key_menu )
@@ -1713,7 +1714,7 @@ void CL_Crashed( void )
 	CL_Stop_f(); // stop any demos
 
 	// send a disconnect message to the server
-	CL_SendDisconnectMessage();
+	CL_SendDisconnectMessage( cls.legacymode );
 
 	Host_WriteOpenGLConfig();
 	Host_WriteConfig();	// write config
