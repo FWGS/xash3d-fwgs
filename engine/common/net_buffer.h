@@ -184,7 +184,8 @@ static inline void MSG_EndBitWriting( sizebuf_t *sb )
 	}
 
 	// we have native bit ops here, just pad to closest byte
-	MSG_SeekToBit( sb, MSG_GetNumBytesWritten( sb ) << 3, SEEK_SET );
+	if(( sb->iCurBit & 7 ) != 0 )
+		MSG_SeekToBit( sb, 8 - ( sb->iCurBit & 7 ), SEEK_CUR );
 }
 
 static inline void MSG_StartBitWriting( sizebuf_t *sb )
