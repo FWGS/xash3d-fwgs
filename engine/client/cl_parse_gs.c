@@ -452,7 +452,9 @@ static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 
 	chan = MSG_ReadUBitLong( msg, 3 );
 	entnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
-	sound = MSG_ReadUBitLong( msg, FBitSet( flags, SND_LEGACY_LARGE_INDEX ) ? 16 : 8 );
+	if( FBitSet( flags, SND_LEGACY_LARGE_INDEX ))
+		sound = MSG_ReadWord( msg );
+	else sound = MSG_ReadByte( msg );
 	MSG_ReadGSBitVec3Coord( msg, pos );
 
 	if( FBitSet( flags, SND_PITCH ))
@@ -519,7 +521,7 @@ dispatch messages
 void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 {
 	size_t		bufStart, playerbytes;
-	int		cmd;
+	int		cmd, param1;
 	const char	*s;
 
 	// parse the message
@@ -553,6 +555,10 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			Host_Error( "svc_bad\n" );
 			break;
 		case svc_nop:
+		case svc_spawnstatic:
+		case svc_goldsrc_damage:
+		case svc_goldsrc_killedmonster:
+		case svc_goldsrc_foundsecret:
 			// this does nothing
 			break;
 		case svc_disconnect:
@@ -567,6 +573,11 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			CL_ParseEvent( msg, PROTO_GOLDSRC );
 			MSG_EndBitWriting( msg );
 			cl.frames[cl.parsecountmod].graphdata.event += MSG_GetNumBytesRead( msg ) - bufStart;
+			break;
+		case svc_goldsrc_version:
+			param1 = MSG_ReadLong( msg );
+			if( param1 != PROTOCOL_GOLDSRC_VERSION )
+				Host_Error( "Server use invalid protocol (%i should be %i)\n", param1, PROTOCOL_GOLDSRC_VERSION );
 			break;
 		case svc_setview:
 			CL_ParseViewEntity( msg );
@@ -618,6 +629,11 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			MSG_EndBitWriting( msg );
 			cl.frames[cl.parsecountmod].graphdata.client += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
+		case svc_goldsrc_stopsound:
+			param1 = MSG_ReadWord( msg );
+			S_StopSound( param1 >> 3, param1 & 7, NULL );
+			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
+			break;
 		case svc_pings:
 			MSG_StartBitWriting( msg );
 			CL_UpdateUserPings( msg );
@@ -625,9 +641,6 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			break;
 		case svc_particle:
 			CL_ParseParticles( msg, PROTO_GOLDSRC );
-			break;
-		case svc_spawnstatic:
-			// no-op
 			break;
 		case svc_event_reliable:
 			MSG_StartBitWriting( msg );
@@ -660,6 +673,11 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			break;
 		case svc_cutscene:
 			CL_ParseFinaleCutscene( msg, 3 );
+			break;
+		case svc_goldsrc_decalname:
+			param1 = MSG_ReadByte( msg );
+			s = MSG_ReadString( msg );
+			Q_strncpy( host.draw_decals[param1], s, sizeof( host.draw_decals[param1] ));
 			break;
 		case svc_addangle:
 			CL_ParseAddAngle( msg );
@@ -717,14 +735,14 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_resourcelocation:
 			CL_ParseResLocation( msg );
 			break;
+		case svc_goldsrc_sendextrainfo:
+			CL_ParseExtraInfo( msg );
+			break;
 		case svc_goldsrc_timescale:
 			// we can set sys_timescale to anything we want but in GoldSrc it's locked for
 			// HLTV and demoplayback. Do we really want to have it then if both are out of scope?
 			Con_Reportf( S_ERROR "%s: svc_goldsrc_timescale: implement me!\n", __func__ );
 			MSG_ReadFloat( msg );
-			break;
-		case svc_goldsrc_sendextrainfo:
-			CL_ParseExtraInfo( msg );
 			break;
 		case svc_goldsrc_sendcvarvalue:
 			CL_ParseCvarValue( msg, false, PROTO_GOLDSRC );
