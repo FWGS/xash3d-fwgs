@@ -17,8 +17,6 @@ GNU General Public License for more details.
 #include "protocol.h"
 #include "net_buffer.h"
 #include "xash3d_mathlib.h"
-//#define DEBUG_NET_MESSAGES_SEND
-//#define DEBUG_NET_MESSAGES_READ
 
 // precalculated bit masks for WriteUBitLong.
 // Using these tables instead of doing the calculations
@@ -323,28 +321,30 @@ void MSG_WriteVec3Angles( sizebuf_t *sb, const float *fa )
 
 void MSG_WriteCmdExt( sizebuf_t *sb, int cmd, netsrc_t type, const char *name )
 {
-#ifdef DEBUG_NET_MESSAGES_SEND
-	if( name != NULL )
+	if( unlikely( net_send_debug.value ))
 	{
-		// get custom name
-		Con_Printf( "^1sv^7 write: %s\n", name );
-	}
-	else if( type == NS_SERVER )
-	{
-		if( cmd >= 0 && cmd <= svc_lastmsg )
+		if( name != NULL )
 		{
-			// get engine message name
-			Con_Printf( "^1sv^7 write: %s\n", svc_strings[cmd] );
+			// get custom name
+			Con_Printf( "^1sv^7 (%d) write: %s\n", sb->iCurBit, name );
+		}
+		else if( type == NS_SERVER )
+		{
+			if( cmd >= 0 && cmd <= svc_lastmsg )
+			{
+				// get engine message name
+				Con_Printf( "^1sv^7 (%d) write: %s\n", sb->iCurBit, svc_strings[cmd] );
+			}
+		}
+		else if( type == NS_CLIENT )
+		{
+			if( cmd >= 0 && cmd <= clc_lastmsg )
+			{
+				Con_Printf( "^1cl^7 (%d) write: %s\n", sb->iCurBit, clc_strings[cmd] );
+			}
 		}
 	}
-	else if( type == NS_CLIENT )
-	{
-		if( cmd >= 0 && cmd <= clc_lastmsg )
-		{
-			Con_Printf( "^1cl^7 write: %s\n", clc_strings[cmd] );
-		}
-	}
-#endif
+
 	MSG_WriteUBitLong( sb, cmd, sizeof( uint8_t ) << 3 );
 }
 
@@ -570,16 +570,18 @@ int MSG_ReadCmd( sizebuf_t *sb, netsrc_t type )
 {
 	int	cmd = MSG_ReadUBitLong( sb, sizeof( uint8_t ) << 3 );
 
-#ifdef DEBUG_NET_MESSAGES_READ
-	if( type == NS_SERVER )
+	if( unlikely( net_recv_debug.value ))
 	{
-		Con_Printf( "^1cl^7 read: %s\n", CL_MsgInfo( cmd ));
+		if( type == NS_SERVER )
+		{
+			Con_Printf( "^1cl^7 read: %s\n", CL_MsgInfo( cmd ));
+		}
+		else if( cmd >= 0 && cmd <= clc_lastmsg )
+		{
+			Con_Printf( "^1sv^7 read: %s\n", clc_strings[cmd] );
+		}
 	}
-	else if( cmd >= 0 && cmd <= clc_lastmsg )
-	{
-		Con_Printf( "^1sv^7 read: %s\n", clc_strings[cmd] );
-	}
-#endif
+
 	return cmd;
 }
 
