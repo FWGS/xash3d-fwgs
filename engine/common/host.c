@@ -228,27 +228,8 @@ Host_ValidateEngineFeatures
 validate features bits and set host.features
 ==============
 */
-void Host_ValidateEngineFeatures( uint32_t features )
+void Host_ValidateEngineFeatures( uint32_t mask, uint32_t features )
 {
-	uint32_t mask = ENGINE_FEATURES_MASK;
-
-#if !XASH_DEDICATED
-	if( !Host_IsDedicated( ))
-	{
-		switch( cls.legacymode )
-		{
-		case PROTO_CURRENT:
-			break;
-		case PROTO_LEGACY:
-			mask = ENGINE_LEGACY_FEATURES_MASK;
-			break;
-		default:
-			mask = 0;
-			break;
-		}
-	}
-#endif
-
 	// don't allow unsupported bits
 	features &= mask;
 

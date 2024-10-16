@@ -560,7 +560,6 @@ typedef struct
 	byte		datagram_buf[MAX_DATAGRAM];
 
 	netchan_t		netchan;
-	int		challenge;		// from the server to use for connecting
 
 	float		packet_loss;
 	double		packet_loss_recalc_time;
@@ -748,8 +747,8 @@ void CL_Particle( const vec3_t org, int color, float life, int zpos, int zvel );
 void CL_Init( void );
 void CL_Disconnect_f( void );
 void CL_ProcessFile( qboolean successfully_received, const char *filename );
-void CL_WriteUsercmd( sizebuf_t *msg, int from, int to );
-int CL_GetFragmentSize( void *unused , fragsize_t mode );
+void CL_WriteUsercmd( connprotocol_t proto, sizebuf_t *msg, int from, int to );
+void CL_SetupNetchanForProtocol( connprotocol_t proto );
 qboolean CL_PrecacheResources( void );
 void CL_SetupOverviewParams( void );
 void CL_UpdateFrameLerp( void );

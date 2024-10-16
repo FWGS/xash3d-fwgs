@@ -537,7 +537,7 @@ void Host_WriteVideoConfig( void );
 void Host_WriteConfig( void );
 void Host_ShutdownServer( void );
 void Host_Error( const char *error, ... ) _format( 1 );
-void Host_ValidateEngineFeatures( uint32_t features );
+void Host_ValidateEngineFeatures( uint32_t mask, uint32_t features );
 void Host_Frame( double time );
 void Host_Credits( void );
 

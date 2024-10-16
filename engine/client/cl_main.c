@@ -202,23 +202,23 @@ static void CL_CheckClientState( void )
 	}
 }
 
-int CL_GetFragmentSize( void *unused, fragsize_t mode )
+static int CL_GetGoldSrcFragmentSize( void *unused, fragsize_t mode )
 {
-	if( cls.legacymode == PROTO_GOLDSRC )
+	switch( mode )
 	{
-		switch( mode )
-		{
-		case FRAGSIZE_SPLIT:
-			return 1200; // MAX_RELIABLE_PAYLOAD
-		case FRAGSIZE_UNRELIABLE:
-			return 1400; // MAX_ROUTABLE_PACKET
-		case FRAGSIZE_FRAG:
-			if( cls.state == ca_active )
-				return bound( 16, cl_dlmax.value, 1024 );
-			return 128;
-		}
+	case FRAGSIZE_SPLIT:
+		return 1200; // MAX_RELIABLE_PAYLOAD
+	case FRAGSIZE_UNRELIABLE:
+		return 1400; // MAX_ROUTABLE_PACKET
+	default:
+		if( cls.state == ca_active )
+			return bound( 16, cl_dlmax.value, 1024 );
+		return 128;
 	}
+}
 
+static int CL_GetFragmentSize( void *unused, fragsize_t mode )
+{
 	switch( mode )
 	{
 	case FRAGSIZE_SPLIT:
@@ -226,12 +226,10 @@ int CL_GetFragmentSize( void *unused, fragsize_t mode )
 	case FRAGSIZE_UNRELIABLE:
 		return NET_MAX_MESSAGE;
 	default:
-		break;
+		if( Netchan_IsLocal( &cls.netchan ))
+			return FRAGMENT_LOCAL_SIZE;
+		return cl_upmax.value;
 	}
-
-	if( Netchan_IsLocal( &cls.netchan ))
-		return FRAGMENT_LOCAL_SIZE;
-	return cl_upmax.value;
 }
 
 /*
@@ -696,7 +694,7 @@ static void CL_CreateCmd( void )
 	CL_PredictMovement( false );
 }
 
-void CL_WriteUsercmd( sizebuf_t *msg, int from, int to )
+void CL_WriteUsercmd( connprotocol_t proto, sizebuf_t *msg, int from, int to )
 {
 	const usercmd_t nullcmd = { 0 };
 	const usercmd_t	*f;
@@ -705,15 +703,11 @@ void CL_WriteUsercmd( sizebuf_t *msg, int from, int to )
 	Assert( from == -1 || ( from >= 0 && from < MULTIPLAYER_BACKUP ));
 	Assert( to >= 0 && to < MULTIPLAYER_BACKUP );
 
-	if( from == -1 )
-		f = &nullcmd;
-	else
-		f = &cl.commands[from].cmd;
-
+	f = from == -1 ? &nullcmd : &cl.commands[from].cmd;
 	t = &cl.commands[to].cmd;
 
 	// write it into the buffer
-	if( cls.legacymode == PROTO_GOLDSRC )
+	if( proto == PROTO_GOLDSRC )
 	{
 		MSG_StartBitWriting( msg );
 		Delta_WriteGSFields( msg, DT_USERCMD_T, f, t, 0.0f );
@@ -740,6 +734,7 @@ static void CL_WritePacket( void )
 	int		numcmds, maxcmds;
 	int		newcmds;
 	int		cmdnumber;
+	const connprotocol_t proto = cls.legacymode;
 
 	// don't send anything if playing back a demo
 	if( cls.demoplayback || cls.state < ca_connected || cls.state == ca_cinematic )
@@ -757,7 +752,7 @@ static void CL_WritePacket( void )
 	MSG_Init( &buf, "ClientData", data, sizeof( data ));
 
 	// Determine number of backup commands to send along
-	switch( cls.legacymode )
+	switch( proto )
 	{
 	case PROTO_GOLDSRC:
 		maxbackup = MAX_GOLDSRC_BACKUP_CMDS;
@@ -835,7 +830,7 @@ static void CL_WritePacket( void )
 		// begin a client move command
 		MSG_BeginClientCmd( &buf, clc_move );
 
-		if( cls.legacymode == PROTO_GOLDSRC )
+		if( proto == PROTO_GOLDSRC )
 			MSG_WriteByte( &buf, 0 ); // length
 
 		// save the position for a checksum byte
@@ -868,7 +863,7 @@ static void CL_WritePacket( void )
 			cmdnumber = ( cls.netchan.outgoing_sequence - i ) & CL_UPDATE_MASK;
 
 			to = cmdnumber;
-			CL_WriteUsercmd( &buf, from, to );
+			CL_WriteUsercmd( proto, &buf, from, to );
 			from = to;
 
 			if( MSG_CheckOverflow( &buf ))
@@ -876,7 +871,7 @@ static void CL_WritePacket( void )
 		}
 
 		// calculate a checksum over the move commands
-		if( cls.legacymode == PROTO_GOLDSRC )
+		if( proto == PROTO_GOLDSRC )
 		{
 			size = MSG_GetRealBytesWritten( &buf ) - key - 1;
 
@@ -1093,7 +1088,7 @@ We have gotten a challenge from the server, so try and
 connect.
 ======================
 */
-static void CL_SendConnectPacket( void )
+static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 {
 	char protinfo[MAX_INFO_STRING];
 	const char *key = ID_GetMD5();
@@ -1116,7 +1111,7 @@ static void CL_SendConnectPacket( void )
 
 	// GoldSrc doesn't need sv_cheats set to 0, it's handled by svc_goldsrc_sendextrainfo
 	// it also doesn't need useragent string
-	if( adr.type != NA_LOOPBACK && cls.legacymode != PROTO_GOLDSRC )
+	if( adr.type != NA_LOOPBACK && proto != PROTO_GOLDSRC )
 	{
 		Cvar_SetCheatState();
 		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
@@ -1128,7 +1123,7 @@ static void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 	}
 
-	if( cls.legacymode == PROTO_GOLDSRC )
+	if( proto == PROTO_GOLDSRC )
 	{
 		const char *name;
 		sizebuf_t send;
@@ -1150,7 +1145,7 @@ static void CL_SendConnectPacket( void )
 		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
 		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
 		MSG_WriteStringf( &send, "connect %i %i \"%s\" \"%s\"\n",
-			PROTOCOL_GOLDSRC_VERSION, cls.challenge, protinfo, cls.userinfo );
+			PROTOCOL_GOLDSRC_VERSION, challenge, protinfo, cls.userinfo );
 		MSG_SeekToBit( &send, -8, SEEK_CUR ); // rewrite null terminator
 		CL_WriteSteamTicket( &send );
 
@@ -1160,7 +1155,7 @@ static void CL_SendConnectPacket( void )
 		NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
 		Con_Printf( "Trying to connect with GoldSrc 48 protocol\n" );
 	}
-	else if( cls.legacymode == PROTO_LEGACY )
+	else if( proto == PROTO_LEGACY )
 	{
 		const char *dlmax;
 		int qport = Cvar_VariableInteger( "net_qport" );
@@ -1178,7 +1173,7 @@ static void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "i", key, sizeof( protinfo ));
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" %d \"%s\"\n",
-			PROTOCOL_LEGACY_VERSION, qport, cls.challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
+			PROTOCOL_LEGACY_VERSION, qport, challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
 		Con_Printf( "Trying to connect with legacy protocol\n" );
 	}
 	else
@@ -1200,7 +1195,7 @@ static void CL_SendConnectPacket( void )
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions);
 
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, cls.challenge, protinfo, cls.userinfo );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect with modern protocol\n" );
 	}
 
@@ -1223,12 +1218,12 @@ static int CL_GetTestFragmentSize( void )
 		return FRAGMENT_MIN_SIZE;
 }
 
-static void CL_SendGetChallenge( netadr_t to, connprotocol_t proto )
+static void CL_SendGetChallenge( netadr_t to )
 {
-	if( proto == PROTO_GOLDSRC )
-		Netchan_OutOfBandPrint( NS_CLIENT, to, "getchallenge steam\n" );
-	else
-		Netchan_OutOfBandPrint( NS_CLIENT, to, "getchallenge\n" );
+	// always send GoldSrc-styled getchallenge message
+	// Xash servers will ignore it but for GoldSrc it will help
+	// in auto-detection
+	Netchan_OutOfBandPrint( NS_CLIENT, to, "getchallenge steam\n" );
 }
 
 /*
@@ -1255,9 +1250,10 @@ static void CL_CheckForResend( void )
 		cls.state = ca_connecting;
 		Q_strncpy( cls.servername, "localhost", sizeof( cls.servername ));
 		cls.serveradr.type = NA_LOOPBACK;
+		cls.legacymode = PROTO_CURRENT;
 
 		// we don't need a challenge on the localhost
-		CL_SendConnectPacket();
+		CL_SendConnectPacket( PROTO_CURRENT, 0 );
 		return;
 	}
 
@@ -1305,7 +1301,7 @@ static void CL_CheckForResend( void )
 		// too many fails use default connection method
 		Con_Printf( "Bandwidth test failed, fallback to default connecting method\n" );
 		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry + 1 );
-		CL_SendGetChallenge( adr, cls.legacymode );
+		CL_SendGetChallenge( adr );
 		Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 		cls.connect_time = host.realtime;
 		cls.connect_retry++;
@@ -1325,7 +1321,7 @@ static void CL_CheckForResend( void )
 	if( bandwidthTest )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
 	else
-		CL_SendGetChallenge( adr, cls.legacymode );
+		CL_SendGetChallenge( adr );
 }
 
 static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
@@ -1598,6 +1594,35 @@ int CL_GetSplitSize( void )
 	return (int)cl_dlmax.value;
 }
 
+void CL_SetupNetchanForProtocol( connprotocol_t proto )
+{
+	int (*pfnBlockSize)( void *, fragsize_t ) = CL_GetFragmentSize;
+	uint flags = 0;
+
+	switch( proto )
+	{
+	case PROTO_GOLDSRC:
+		SetBits( flags, NETCHAN_USE_MUNGE | NETCHAN_USE_BZIP2 | NETCHAN_GOLDSRC );
+		pfnBlockSize = CL_GetGoldSrcFragmentSize;
+		break;
+	case PROTO_LEGACY:
+		if( FBitSet( Q_atoi( Cmd_Argv( 1 )), NET_LEGACY_EXT_SPLIT ))
+		{
+			SetBits( flags, NETCHAN_USE_LEGACY_SPLIT );
+			Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax.value, 65536 );
+		}
+		break;
+	default:
+		cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
+
+		if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
+			Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax.value );
+		break;
+	}
+
+	Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, pfnBlockSize, flags );
+}
+
 /*
 =====================
 CL_Reconnect
@@ -1609,29 +1634,7 @@ static void CL_Reconnect( qboolean setup_netchan )
 {
 	if( setup_netchan )
 	{
-		uint flags = 0;
-
-		switch( cls.legacymode )
-		{
-		case PROTO_GOLDSRC:
-			SetBits( flags, NETCHAN_USE_MUNGE | NETCHAN_USE_BZIP2 | NETCHAN_GOLDSRC );
-			break;
-		case PROTO_LEGACY:
-			if( FBitSet( Q_atoi( Cmd_Argv( 1 )), NET_LEGACY_EXT_SPLIT ))
-			{
-				SetBits( flags, NETCHAN_USE_LEGACY_SPLIT );
-				Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax.value, 65536 );
-			}
-			break;
-		default:
-			cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
-
-			if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
-				Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax.value );
-			break;
-		}
-
-		Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize, flags );
+		CL_SetupNetchanForProtocol( cls.legacymode );
 	}
 	else
 	{
@@ -2189,6 +2192,12 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			return;
 		}
 
+		if( cls.legacymode != PROTO_GOLDSRC && !Q_strcmp( c, S2C_CONNECTION ))
+		{
+			Con_DPrintf( S_ERROR "GoldSrc client connect received but wasn't expected, ignored\n");
+			return;
+		}
+
 		CL_Reconnect( true );
 		UI_SetActiveMenu( cl.background );
 	}
@@ -2259,7 +2268,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			{
 				// too many fails use default connection method
 				Con_Printf( "hi-speed connection is failed, use default method\n" );
-				CL_SendGetChallenge( from, cls.legacymode );
+				CL_SendGetChallenge( from );
 				Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 				cls.connect_time = host.realtime;
 				return;
@@ -2281,7 +2290,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			// packet was sucessfully delivered, adjust the fragment size and get challenge
 
 			Con_DPrintf( "CRC %x is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
-			CL_SendGetChallenge( from, cls.legacymode );
+			CL_SendGetChallenge( from );
 			Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
 			cls.connect_time = host.realtime;
 		}
@@ -2291,7 +2300,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			{
 				// too many fails use default connection method
 				Con_Printf( "hi-speed connection is failed, use default method\n" );
-				CL_SendGetChallenge( from, cls.legacymode );
+				CL_SendGetChallenge( from );
 				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 				cls.connect_time = host.realtime;
 				return;
@@ -2318,9 +2327,12 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		if( !CL_IsFromConnectingServer( from ))
 			return;
 
+		// try to autodetect protocol by challenge response
+		if( !Q_strcmp( c, S2C_CHALLENGE ))
+			cls.legacymode = PROTO_GOLDSRC;
+
 		// challenge from the server we are connecting to
-		cls.challenge = Q_atoi( Cmd_Argv( 1 ));
-		CL_SendConnectPacket();
+		CL_SendConnectPacket( cls.legacymode, Q_atoi( Cmd_Argv( 1 )));
 		return;
 	}
 	else if( !Q_strcmp( c, "echo" ))
@@ -2511,9 +2523,6 @@ static void CL_ReadNetMessage( void )
 
 	switch( cls.legacymode )
 	{
-	case PROTO_CURRENT:
-		parsefn = CL_ParseServerMessage;
-		break;
 	case PROTO_LEGACY:
 		parsefn = CL_ParseLegacyServerMessage;
 		break;
@@ -2524,8 +2533,8 @@ static void CL_ReadNetMessage( void )
 		parsefn = CL_ParseGoldSrcServerMessage;
 		break;
 	default:
-		ASSERT( 0 );
-		return;
+		parsefn = CL_ParseServerMessage;
+		break;
 	}
 
 	while( CL_GetMessage( net_message_buffer, &curSize ))
