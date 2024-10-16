@@ -3332,6 +3332,9 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
 	Cmd_AddCommand ("precache", CL_LegacyPrecache_f, "legacy server compatibility" );
 
+	Cmd_AddCommand( "richpresence_gamemode", Cmd_Null_f, "compatibility command, does nothing" );
+	Cmd_AddCommand( "richpresence_update", Cmd_Null_f, "compatibility command, does nothing" );
+
 }
 
 //============================================================================
