@@ -204,15 +204,33 @@ static void CL_CheckClientState( void )
 
 int CL_GetFragmentSize( void *unused, fragsize_t mode )
 {
-	if( mode == FRAGSIZE_SPLIT )
-		return 0;
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		switch( mode )
+		{
+		case FRAGSIZE_SPLIT:
+			return 1200; // MAX_RELIABLE_PAYLOAD
+		case FRAGSIZE_UNRELIABLE:
+			return 1400; // MAX_ROUTABLE_PACKET
+		case FRAGSIZE_FRAG:
+			if( cls.state == ca_active )
+				return bound( 16, cl_dlmax.value, 1024 );
+			return 128;
+		}
+	}
 
-	if( mode == FRAGSIZE_UNRELIABLE )
+	switch( mode )
+	{
+	case FRAGSIZE_SPLIT:
+		return 0;
+	case FRAGSIZE_UNRELIABLE:
 		return NET_MAX_MESSAGE;
+	default:
+		break;
+	}
 
 	if( Netchan_IsLocal( &cls.netchan ))
 		return FRAGMENT_LOCAL_SIZE;
-
 	return cl_upmax.value;
 }
 
