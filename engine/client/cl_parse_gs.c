@@ -29,7 +29,7 @@ static void CL_ParseExtraInfo( sizebuf_t *msg )
 
 	Q_strncpy( clientfallback, MSG_ReadString( msg ), sizeof( clientfallback ));
 	if( COM_CheckStringEmpty( clientfallback ))
-		Con_Reportf( S_ERROR "%s: TODO: add fallback directory %s!\n", __func__ );
+		Con_Reportf( S_ERROR "%s: TODO: add fallback directory %s!\n", __func__, clientfallback );
 
 	if( MSG_ReadByte( msg ))
 	{
