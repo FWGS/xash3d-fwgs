@@ -1992,7 +1992,7 @@ static qboolean SV_Noclip_f( sv_client_t *cl )
 {
 	edict_t	*pEntity = cl->edict;
 
-	if( !Cvar_VariableInteger( "sv_cheats" ) || sv.background )
+	if( sv.background || !Cvar_VariableInteger( "sv_cheats" ))
 		return true;
 
 	if( pEntity->v.movetype != MOVETYPE_NOCLIP )
@@ -2018,7 +2018,7 @@ static qboolean SV_Godmode_f( sv_client_t *cl )
 {
 	edict_t	*pEntity = cl->edict;
 
-	if( !Cvar_VariableInteger( "sv_cheats" ) || sv.background )
+	if( sv.background || !Cvar_VariableInteger( "sv_cheats" ))
 		return true;
 
 	pEntity->v.flags = pEntity->v.flags ^ FL_GODMODE;
@@ -2039,7 +2039,7 @@ static qboolean SV_Notarget_f( sv_client_t *cl )
 {
 	edict_t	*pEntity = cl->edict;
 
-	if( !Cvar_VariableInteger( "sv_cheats" ) || sv.background )
+	if( sv.background || !Cvar_VariableInteger( "sv_cheats" ))
 		return true;
 
 	pEntity->v.flags = pEntity->v.flags ^ FL_NOTARGET;

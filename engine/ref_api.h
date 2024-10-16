@@ -61,8 +61,6 @@ GNU General Public License for more details.
 #define FCONTEXT_CORE_PROFILE		BIT( 0 )
 #define FCONTEXT_DEBUG_ARB		BIT( 1 )
 
-#define FCVAR_READ_ONLY		(1<<17)	// cannot be set by user at all, and can't be requested by CvarGetPointer from game dlls
-
 // screenshot types
 #define VID_SCREENSHOT	0
 #define VID_LEVELSHOT	1
