@@ -146,7 +146,7 @@ void CL_PlayCDTrack_f( void )
 			if( paused ) Con_Printf( "Paused %s track %u\n", looped ? "looping" : "playing", track );
 			else Con_Printf( "Currently %s track %u\n", looped ? "looping" : "playing", track );
 		}
-		Con_Printf( "Volume is %f\n", Cvar_VariableValue( "MP3Volume" ));
+		Con_Printf( "Volume is %f\n", s_musicvolume.value );
 		return;
 	}
 	else Con_Printf( "%s: unknown command %s\n", Cmd_Argv( 0 ), command );

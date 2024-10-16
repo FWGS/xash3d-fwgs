@@ -285,7 +285,7 @@ void CL_WriteDemoUserCmd( int cmdnumber )
 
 	// write usercmd_t
 	MSG_Init( &buf, "UserCmd", data, sizeof( data ));
-	CL_WriteUsercmd( &buf, -1, cmdnumber );	// always no delta
+	CL_WriteUsercmd( PROTO_CURRENT, &buf, -1, cmdnumber ); // always no delta, always in current protocol
 
 	bytes = MSG_GetNumBytesWritten( &buf );
 
@@ -708,7 +708,7 @@ static void CL_DemoStartPlayback( int mode )
 
 	demo.starttime = CL_GetDemoPlaybackClock(); // for determining whether to read another message
 
-	Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, CL_GetFragmentSize, 0 );
+	CL_SetupNetchanForProtocol( cls.legacymode );
 
 	memset( demo.cmds, 0, sizeof( demo.cmds ));
 	demo.angle_position = 1;

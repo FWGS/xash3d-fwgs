@@ -925,9 +925,13 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		clgame.maxEntities = bound( MIN_LEGACY_EDICTS, clgame.maxEntities, MAX_GOLDSRC_EDICTS );
 		clgame.maxModels = 512; // ???
 		Q_strncpy( clgame.maptitle, clgame.mapname, sizeof( clgame.maptitle ));
+
+		Host_ValidateEngineFeatures( 0, 0 );
 	}
 	else
 	{
+		uint32_t mask;
+
 		cl.playernum = MSG_ReadByte( msg );
 		cl.maxclients = MSG_ReadByte( msg );
 		clgame.maxEntities = MSG_ReadWord( msg );
@@ -935,17 +939,19 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		{
 			clgame.maxEntities = bound( MIN_LEGACY_EDICTS, clgame.maxEntities, MAX_LEGACY_EDICTS );
 			clgame.maxModels = 512; // ???
+			mask = ENGINE_LEGACY_FEATURES_MASK;
 		}
 		else
 		{
 			clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
 			clgame.maxModels = MSG_ReadWord( msg );
+			mask = ENGINE_FEATURES_MASK;
 		}
 		Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
 		Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
 		background = MSG_ReadOneBit( msg );
 		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
-		Host_ValidateEngineFeatures( MSG_ReadDword( msg ));
+		Host_ValidateEngineFeatures( 0, MSG_ReadDword( msg ));
 
 		if( proto != PROTO_LEGACY )
 		{
