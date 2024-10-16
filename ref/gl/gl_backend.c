@@ -494,22 +494,10 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 		gEngfuncs.fsapi->AllowDirectPaths( true );
 		break;
 	case VID_LEVELSHOT:
-		flags |= IMAGE_RESAMPLE;
-		if( gpGlobals->wideScreen )
-		{
-			height = 480;
-			width = 800;
-		}
-		else
-		{
-			height = 480;
-			width = 640;
-		}
-		break;
 	case VID_MINISHOT:
 		flags |= IMAGE_RESAMPLE;
-		height = 200;
-		width = 320;
+		height = shot_type == VID_MINISHOT ? 200 : 480;
+		width = Q_rint( height * ((double)r_shot->width / r_shot->height ));
 		break;
 	case VID_MAPSHOT:
 		flags |= IMAGE_RESAMPLE|IMAGE_QUANTIZE;	// GoldSrc request overviews in 8-bit format
