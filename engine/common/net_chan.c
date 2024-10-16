@@ -324,6 +324,12 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 
 	memset( chan, 0, sizeof( *chan ));
 
+	if( pfnBlockSize == NULL )
+	{
+		Host_Error( "%s: pfnBlockSize == NULL", __func__ );
+		return;
+	}
+
 	chan->sock = sock;
 	chan->remote_address = adr;
 	chan->last_received = host.realtime;
@@ -738,9 +744,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 	if( MSG_GetNumBytesWritten( msg ) == 0 )
 		return;
 
-	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
-	else chunksize = FRAGMENT_MAX_SIZE; // fallback
+	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
 	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 
@@ -919,9 +923,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 
 	if( !size ) return;
 
-	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
-	else chunksize = FRAGMENT_MAX_SIZE; // fallback
+	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
 	if( !LZSS_IsCompressed( pbuf ))
 	{
@@ -1024,9 +1026,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		return 0;
 	}
 
-	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
-	else chunksize = FRAGMENT_MAX_SIZE; // fallback
+	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
 	Q_snprintf( compressedfilename, sizeof( compressedfilename ), "%s.ztmp", filename );
 	compressedFileTime = FS_FileTime( compressedfilename, false );
@@ -1559,12 +1559,9 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		// stall reliable payloads if sending from frag buffer
 		if( send_from_regular && ( send_from_frag[FRAG_NORMAL_STREAM] ))
 		{
-			int maxsize = MAX_RELIABLE_PAYLOAD;
+			int maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
 			send_from_regular = false;
 
-
-			if( chan->pfnBlockSize )
-				maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
 			if( maxsize == 0 )
 				maxsize = MAX_RELIABLE_PAYLOAD;
 
@@ -1746,9 +1743,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 	if( length )
 	{
-		int maxsize = NET_MAX_MESSAGE;
-		if( chan->pfnBlockSize )
-			maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_UNRELIABLE );
+		int maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_UNRELIABLE );
 
 		if( (( MSG_GetNumBytesWritten( &send ) + length ) >> 3) <= maxsize )
 			MSG_WriteBits( &send, data, length );
@@ -1782,9 +1777,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 	// send the datagram
 	if( !CL_IsPlaybackDemo( ))
 	{
-		int splitsize = 0;
-		if( chan->pfnBlockSize )
-			splitsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
+		int splitsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
 
 		if( chan->use_munge )
 			COM_Munge2( send.pData + 8, MSG_GetNumBytesWritten( &send ) - 8, (byte)( chan->outgoing_sequence - 1 ));
