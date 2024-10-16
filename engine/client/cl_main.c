@@ -1077,6 +1077,14 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 	Info_SetValueForKey( protinfo, "cdkey", key, protinfosize );
 }
 
+static void CL_WriteSteamTicket( sizebuf_t *send )
+{
+	size_t i;
+
+	for( i = 0; i < 512 / sizeof( uint32_t ); i++ )
+		MSG_WriteLong( send, 0 );
+}
+
 /*
 =======================
 CL_SendConnectPacket
@@ -1087,10 +1095,12 @@ connect.
 */
 static void CL_SendConnectPacket( void )
 {
-	char	protinfo[MAX_INFO_STRING];
-	const char	*qport;
-	const char	*key;
-	netadr_t	adr;
+	char protinfo[MAX_INFO_STRING];
+	const char *key = ID_GetMD5();
+	netadr_t adr = { 0 };
+	int input_devices;
+
+	protinfo[0] = 0;
 
 	if( !NET_StringToAdr( cls.servername, &adr ))
 	{
@@ -1100,50 +1110,29 @@ static void CL_SendConnectPacket( void )
 	}
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
-	qport = Cvar_VariableString( "net_qport" );
-	key = ID_GetMD5();
 
-	memset( protinfo, 0, sizeof( protinfo ));
+	input_devices = IN_CollectInputDevices();
+	IN_LockInputDevices( adr.type != NA_LOOPBACK ? true : false );
 
-	if( adr.type == NA_LOOPBACK )
+	// GoldSrc doesn't need sv_cheats set to 0, it's handled by svc_goldsrc_sendextrainfo
+	// it also doesn't need useragent string
+	if( adr.type != NA_LOOPBACK && cls.legacymode != PROTO_GOLDSRC )
 	{
-		IN_LockInputDevices( false );
-	}
-	else
-	{
-		int input_devices;
+		Cvar_SetCheatState();
+		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
 
-		input_devices = IN_CollectInputDevices();
-		IN_LockInputDevices( true );
-
-		// GoldSrc doesn't need sv_cheats set to 0, it's handled by svc_goldsrc_sendextrainfo
-		// it also doesn't need useragent string
-		if( cls.legacymode != PROTO_GOLDSRC )
-		{
-			Cvar_SetCheatState();
-			Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
-
-			Info_SetValueForKeyf( protinfo, "d", sizeof( protinfo ),  "%d", input_devices );
-			Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
-			Info_SetValueForKeyf( protinfo, "b", sizeof( protinfo ), "%d", Q_buildnum( ));
-			Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
-			Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
-		}
+		Info_SetValueForKeyf( protinfo, "d", sizeof( protinfo ),  "%d", input_devices );
+		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
+		Info_SetValueForKeyf( protinfo, "b", sizeof( protinfo ), "%d", Q_buildnum( ));
+		Info_SetValueForKey( protinfo, "o", Q_buildos(), sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "a", Q_buildarch(), sizeof( protinfo ) );
 	}
 
 	if( cls.legacymode == PROTO_GOLDSRC )
 	{
-		byte send_buf[MAX_PRINT_MSG];
-		byte steam_cert[512];
-		string new_name;
 		const char *name;
-		size_t steam_cert_len;
 		sizebuf_t send;
-
-		protinfo[0] = 0;
-
-		memset( steam_cert, 0, sizeof( steam_cert ));
-		steam_cert_len = sizeof( steam_cert );
+		byte send_buf[2048];
 
 		Info_SetValueForKey( protinfo, "prot", "3", sizeof( protinfo )); // steam auth type
 		Info_SetValueForKeyf( protinfo, "unique", sizeof( protinfo ), "%i", 0xffffffff );
@@ -1156,17 +1145,14 @@ static void CL_SendConnectPacket( void )
 
 		name = Info_ValueForKey( cls.userinfo, "name" );
 		if( Q_strnicmp( name, "[Xash3D]", 8 ))
-		{
-			Q_snprintf( new_name, sizeof( new_name ), "[Xash3D]%s", name );
-			Info_SetValueForKey( cls.userinfo, "name", new_name, sizeof( cls.userinfo ));
-		}
+			Info_SetValueForKeyf( cls.userinfo, "name", sizeof( cls.userinfo ), "[Xash3D]%s", name );
 
 		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
 		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
 		MSG_WriteStringf( &send, "connect %i %i \"%s\" \"%s\"\n",
 			PROTOCOL_GOLDSRC_VERSION, cls.challenge, protinfo, cls.userinfo );
 		MSG_SeekToBit( &send, -8, SEEK_CUR ); // rewrite null terminator
-		MSG_WriteBytes( &send, steam_cert, steam_cert_len );
+		CL_WriteSteamTicket( &send );
 
 		if( MSG_CheckOverflow( &send ))
 			Con_Printf( S_ERROR "%s: %s overflow!\n", __func__, MSG_GetName( &send ) );
@@ -1176,33 +1162,35 @@ static void CL_SendConnectPacket( void )
 	}
 	else if( cls.legacymode == PROTO_LEGACY )
 	{
+		const char *dlmax;
+		int qport = Cvar_VariableInteger( "net_qport" );
+
 		// reset nickname from cvar value
 		Info_SetValueForKey( cls.userinfo, "name", name.string, sizeof( cls.userinfo ));
 
 		// set related userinfo keys
-		if( cl_dlmax.value >= 40000 || cl_dlmax.value < 100 )
-			Info_SetValueForKey( cls.userinfo, "cl_maxpacket", "1400", sizeof( cls.userinfo ) );
-		else
-			Info_SetValueForKey( cls.userinfo, "cl_maxpacket", cl_dlmax.string, sizeof( cls.userinfo ) );
+		dlmax = ( cl_dlmax.value >= 100 && cl_dlmax.value < 40000 ) ? cl_dlmax.string : "1400";
+		Info_SetValueForKey( cls.userinfo, "cl_maxpacket", dlmax, sizeof( cls.userinfo ));
 
-		if( !*Info_ValueForKey( cls.userinfo,"cl_maxpayload") )
+		if( !COM_CheckStringEmpty( Info_ValueForKey( cls.userinfo, "cl_maxpayload" )))
 			Info_SetValueForKey( cls.userinfo, "cl_maxpayload", "1000", sizeof( cls.userinfo ) );
 
-		Info_SetValueForKey( protinfo, "i", key, sizeof( protinfo ) );
+		Info_SetValueForKey( protinfo, "i", key, sizeof( protinfo ));
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" %d \"%s\"\n",
-			PROTOCOL_LEGACY_VERSION, Q_atoi( qport ), cls.challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
+			PROTOCOL_LEGACY_VERSION, qport, cls.challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
 		Con_Printf( "Trying to connect with legacy protocol\n" );
 	}
 	else
 	{
+		const char *qport = Cvar_VariableString( "net_qport" );
 		int extensions = NET_EXT_SPLITSIZE;
 
 		// reset nickname from cvar value
 		Info_SetValueForKey( cls.userinfo, "name", name.string, sizeof( cls.userinfo ));
 
-		if( cl_dlmax.value > FRAGMENT_MAX_SIZE  || cl_dlmax.value < FRAGMENT_MIN_SIZE )
-			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+		if( cl_dlmax.value > FRAGMENT_MAX_SIZE || cl_dlmax.value < FRAGMENT_MIN_SIZE )
+			Cvar_DirectSetValue( &cl_dlmax, FRAGMENT_DEFAULT_SIZE );
 
 		// remove keys set for legacy protocol
 		Info_RemoveKey( cls.userinfo, "cl_maxpacket" );
