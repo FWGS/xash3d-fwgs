@@ -200,7 +200,7 @@ def configure(conf):
 	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake')
 
 	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
-	if conf.env.MSVC_TARGETS[0] == 'x86':
+	if conf.env.MSVC_TARGETS[0] == 'amd64_x86' or conf.env.MSVC_TARGETS[0] == 'x86':
 		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE,5.01'
 	else:
