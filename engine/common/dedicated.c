@@ -16,8 +16,38 @@ GNU General Public License for more details.
 #include "common.h"
 #include "xash3d_mathlib.h"
 #include "ref_api.h"
+#include "server.h"
 
 ref_globals_t refState;
+
+const char *CL_MsgInfo( int cmd )
+{
+	static string	sz;
+
+	Q_strncpy( sz, "???", sizeof( sz ));
+
+	if( cmd >= 0 && cmd <= svc_lastmsg )
+	{
+		// get engine message name
+		const char *svc_string = svc_strings[cmd];
+
+		Q_strncpy( sz, svc_string, sizeof( sz ));
+	}
+	else if( cmd > svc_lastmsg && cmd <= ( svc_lastmsg + MAX_USER_MESSAGES ))
+	{
+		int	i;
+
+		for( i = 0; i < MAX_USER_MESSAGES; i++ )
+		{
+			if( svgame.msg[i].number == cmd )
+			{
+				Q_strncpy( sz, svgame.msg[i].name, sizeof( sz ));
+				break;
+			}
+		}
+	}
+	return sz;
+}
 
 void CL_ProcessFile( qboolean successfully_received, const char *filename )
 {
