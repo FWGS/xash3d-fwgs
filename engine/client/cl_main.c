@@ -1144,7 +1144,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 
 		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
 		MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET );
-		MSG_WriteStringf( &send, "connect %i %i \"%s\" \"%s\"\n",
+		MSG_WriteStringf( &send, C2S_CONNECT" %i %i \"%s\" \"%s\"\n",
 			PROTOCOL_GOLDSRC_VERSION, challenge, protinfo, cls.userinfo );
 		MSG_SeekToBit( &send, -8, SEEK_CUR ); // rewrite null terminator
 		CL_WriteSteamTicket( &send );
@@ -1172,7 +1172,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 
 		Info_SetValueForKey( protinfo, "i", key, sizeof( protinfo ));
 
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i %i \"%s\" %d \"%s\"\n",
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_CONNECT" %i %i %i \"%s\" %d \"%s\"\n",
 			PROTOCOL_LEGACY_VERSION, qport, challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
 		Con_Printf( "Trying to connect with legacy protocol\n" );
 	}
@@ -1195,7 +1195,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions);
 
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "connect %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, challenge, protinfo, cls.userinfo );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_CONNECT" %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect with modern protocol\n" );
 	}
 
@@ -1223,7 +1223,7 @@ static void CL_SendGetChallenge( netadr_t to )
 	// always send GoldSrc-styled getchallenge message
 	// Xash servers will ignore it but for GoldSrc it will help
 	// in auto-detection
-	Netchan_OutOfBandPrint( NS_CLIENT, to, "getchallenge steam\n" );
+	Netchan_OutOfBandPrint( NS_CLIENT, to, C2S_GETCHALLENGE" steam\n" );
 }
 
 /*
@@ -1314,14 +1314,15 @@ static void CL_CheckForResend( void )
 	cls.connect_retry++;
 
 	if( bandwidthTest )
+	{
 		Con_Printf( "Connecting to %s... (retry #%i, fragment size %i)\n", cls.servername, cls.connect_retry, cls.max_fragment_size );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_BANDWIDTHTEST" %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
+	}
 	else
+	{
 		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry );
-
-	if( bandwidthTest )
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "bandwidth %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
-	else
 		CL_SendGetChallenge( adr );
+	}
 }
 
 static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
@@ -1470,7 +1471,7 @@ static void CL_Rcon_f( void )
 
 	NET_Config( true, false );	// allow remote
 
-	Q_strncat( message, "rcon ", sizeof( message ));
+	Q_strncat( message, C2S_RCON" ", sizeof( message ));
 	Q_strncat( message, rcon_password.string, sizeof( message ));
 	Q_strncat( message, " ", sizeof( message ) );
 
@@ -1746,10 +1747,10 @@ static void CL_LocalServers_f( void )
 	// send a broadcast packet
 	adr.type = NA_BROADCAST;
 	adr.port = MSG_BigShort( PORT_SERVER );
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", PROTOCOL_VERSION );
+	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
 
 	adr.type = NA_MULTICAST_IP6;
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, "info %i", PROTOCOL_VERSION );
+	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
 }
 
 /*
@@ -1951,7 +1952,7 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 
 	if( len >= magiclen && !Q_strcmp( s + len - magiclen, magic ))
 	{
-		Netchan_OutOfBandPrint( NS_CLIENT, from, "info %i", PROTOCOL_LEGACY_VERSION );
+		Netchan_OutOfBandPrint( NS_CLIENT, from, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
 		return;
 	}
 
@@ -2155,6 +2156,235 @@ static qboolean CL_IsFromConnectingServer( netadr_t from )
 		NET_CompareAdr( cls.serveradr, from );
 }
 
+static void CL_HandleTestPacket( netadr_t from, sizebuf_t *msg )
+{
+	byte	recv_buf[NET_MAX_FRAGMENT];
+	dword	crcValue;
+	int	realsize;
+	dword	crcValue2 = 0;
+
+	// this message only used during connection
+	// it doesn't make sense after client_connect
+	if( cls.state != ca_connecting )
+		return;
+
+	if( !CL_IsFromConnectingServer( from ))
+		return;
+
+	crcValue = MSG_ReadLong( msg );
+	realsize = MSG_GetMaxBytes( msg ) - MSG_GetNumBytesRead( msg );
+
+	if( cls.max_fragment_size != MSG_GetMaxBytes( msg ))
+	{
+		if( cls.connect_retry >= CL_TEST_RETRIES )
+		{
+			// too many fails use default connection method
+			Con_Printf( "hi-speed connection is failed, use default method\n" );
+			CL_SendGetChallenge( from );
+			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+			cls.connect_time = host.realtime;
+			return;
+		}
+
+		// if we waiting more than cl_timeout or packet was trashed
+		cls.connect_time = MAX_HEARTBEAT;
+		return; // just wait for a next responce
+	}
+
+	// reading test buffer
+	MSG_ReadBytes( msg, recv_buf, realsize );
+
+	// procssing the CRC
+	CRC32_ProcessBuffer( &crcValue2, recv_buf, realsize );
+
+	if( crcValue == crcValue2 )
+	{
+		// packet was sucessfully delivered, adjust the fragment size and get challenge
+
+		Con_DPrintf( "CRC %x is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
+		CL_SendGetChallenge( from );
+		Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
+		cls.connect_time = host.realtime;
+	}
+	else
+	{
+		if( cls.connect_retry >= CL_TEST_RETRIES )
+		{
+			// too many fails use default connection method
+			Con_Printf( "hi-speed connection is failed, use default method\n" );
+			CL_SendGetChallenge( from );
+			Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
+			cls.connect_time = host.realtime;
+			return;
+		}
+
+		Msg( "got testpacket, CRC mismatched 0x%08x should be 0x%08x, trying next fragment size %d\n", crcValue2, crcValue, cls.max_fragment_size >> 1 );
+
+		// trying the next size of packet
+		cls.connect_time = MAX_HEARTBEAT;
+	}
+}
+
+static void CL_ClientConnect( const char *c, netadr_t from, sizebuf_t *msg )
+{
+	if( !CL_IsFromConnectingServer( from ))
+		return;
+
+	if( cls.state == ca_connected )
+	{
+		Con_DPrintf( S_ERROR "dup connect received. ignored\n");
+		return;
+	}
+
+	if( cls.legacymode != PROTO_GOLDSRC && !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ))
+	{
+		Con_DPrintf( S_ERROR "GoldSrc client connect received but wasn't expected, ignored\n");
+		return;
+	}
+
+	CL_Reconnect( true );
+	UI_SetActiveMenu( cl.background );
+}
+
+static void CL_Print( const char *c, const char *args, netadr_t from, sizebuf_t *msg )
+{
+	const char *s;
+
+	s = c[0] == A2C_GOLDSRC_PRINT ? args + 1 : MSG_ReadString( msg );
+
+	if( !COM_CheckStringEmpty( s ))
+		return;
+
+	Con_Printf( "Remote message from %s:\n", NET_AdrToString( from ));
+	Con_Printf( "%s%c", s, s[Q_strlen( s ) - 1] != '\n' ? '\n' : '\0' );
+}
+
+static void CL_Challenge( const char *c, netadr_t from )
+{
+	if( cls.state != ca_connecting )
+		return;
+
+	if( !CL_IsFromConnectingServer( from ))
+		return;
+
+	// try to autodetect protocol by challenge response
+	if( !Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
+		cls.legacymode = PROTO_GOLDSRC;
+
+	// challenge from the server we are connecting to
+	CL_SendConnectPacket( cls.legacymode, Q_atoi( Cmd_Argv( 1 )));
+}
+
+static void CL_ErrorMsg( const char *c, const char *args, netadr_t from, sizebuf_t *msg )
+{
+	char formatted_msg[MAX_VA_STRING];
+
+	if( !CL_IsFromConnectingServer( from ))
+		return;
+
+	if( msg != NULL && !Q_strcmp( c, S2C_ERRORMSG ))
+	{
+		const char *s = MSG_ReadString( msg );
+		Q_snprintf( formatted_msg, sizeof( formatted_msg ), "^3Server message^7\n%s", s );
+	}
+	else if( c[0] == S2C_GOLDSRC_REJECT )
+	{
+		Q_snprintf( formatted_msg, sizeof( formatted_msg ), "^3Server message^7\n%s", args + 1 );
+	}
+	else if( c[0] == S2C_GOLDSRC_REJECT_BADPASSWORD )
+	{
+		if( !Q_strnicmp( &c[1], "BADPASSWORD", 11 ))
+			Q_snprintf( formatted_msg, sizeof( formatted_msg ), "^3Server message^7\n%s", args + 12 );
+		else
+			Q_snprintf( formatted_msg, sizeof( formatted_msg ), "^3Server message^7\n%s", args + 1 );
+	}
+
+	// in case we're in console or it's classic mainui which doesn't support messageboxes
+	if( !UI_IsVisible() || !UI_ShowMessageBox( formatted_msg ))
+		Msg( "%s\n", formatted_msg );
+
+	// don't disconnect, errormsg is a FWGS extension and
+	// always followed by disconnect message
+}
+
+static void CL_Reject( const char *c, const char *args, netadr_t from )
+{
+	// this message only used during connection
+	// it doesn't make sense after client_connect
+	if( cls.state != ca_connecting )
+		return;
+
+	if( !CL_IsFromConnectingServer( from ))
+		return;
+
+	CL_ErrorMsg( c, args, from, NULL );
+
+	// a disconnect message from the server, which will happen if the server
+	// dropped the connection but it is still getting packets from us
+	CL_Disconnect_f();
+}
+
+static void CL_ServerList( netadr_t from, sizebuf_t *msg )
+{
+	if( !NET_IsMasterAdr( from ))
+	{
+		Con_Printf( S_WARN "unexpected server list packet from %s\n", NET_AdrToString( from ));
+		return;
+	}
+
+	// check the extra header
+	if( MSG_ReadByte( msg ) == 0x7f )
+	{
+		uint32_t key = MSG_ReadDword( msg );
+
+		if( cls.internetservers_key != key )
+		{
+			Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
+			return;
+		}
+
+		MSG_ReadByte( msg ); // reserved byte
+	}
+	else
+	{
+		Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
+		return;
+	}
+
+	// serverlist got from masterserver
+	while( MSG_GetNumBitsLeft( msg ) > 8 )
+	{
+		uint8_t addr[16];
+		netadr_t	servadr;
+
+		if( from.type6 == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
+		{
+			MSG_ReadBytes( msg, addr, sizeof( addr ));
+			NET_IP6BytesToNetadr( &servadr, addr );
+			servadr.type6 = NA_IP6;
+		}
+		else
+		{
+			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
+			servadr.type = NA_IP;
+		}
+		servadr.port = MSG_ReadShort( msg );			// 2 bytes for Port
+
+		// list is ends here
+		if( !servadr.port )
+			break;
+
+		NET_Config( true, false ); // allow remote
+		Netchan_OutOfBandPrint( NS_CLIENT, servadr, A2A_INFO" %i", PROTOCOL_VERSION );
+	}
+
+	if( cls.internetservers_pending )
+	{
+		UI_ResetPing();
+		cls.internetservers_pending = false;
+	}
+}
+
 /*
 =================
 CL_ConnectionlessPacket
@@ -2166,9 +2396,6 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 {
 	char	*args;
 	const char	*c;
-	char	buf[MAX_SYSPATH];
-	int	len = sizeof( buf );
-	netadr_t	servadr;
 
 	MSG_Clear( msg );
 	MSG_ReadLong( msg ); // skip the -1
@@ -2181,290 +2408,70 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
 
 	// server connection
-	if( !Q_strcmp( c, "client_connect" ) || !Q_strcmp( c, S2C_CONNECTION ))
+	if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ) || !Q_strcmp( c, S2C_CONNECTION ))
 	{
-		if( !CL_IsFromConnectingServer( from ))
-			return;
+		CL_ClientConnect( c, from, msg );
+	}
+	else if( !Q_strcmp( c, A2A_INFO ))
+	{
+		CL_ParseStatusMessage( from, msg ); // server responding to a status broadcast
+	}
+	else if( !Q_strcmp( c, A2A_NETINFO ))
+	{
+		CL_ParseNETInfoMessage( from, args ); // server responding to a status broadcast
+	}
+	else if( c[0] == A2C_GOLDSRC_PRINT || !Q_strcmp( c, A2C_PRINT ))
+	{
+		CL_Print( c, args, from, msg );
+	}
+	else if( !Q_strcmp( c, S2C_BANDWIDTHTEST ))
+	{
+		CL_HandleTestPacket( from, msg );
+	}
+	else if( !Q_strcmp( c, A2A_PING ))
+	{
+		Netchan_OutOfBandPrint( NS_CLIENT, from, A2A_ACK );
+	}
+	else if( !Q_strcmp( c, A2A_GOLDSRC_PING ))
+	{
+		Netchan_OutOfBandPrint( NS_CLIENT, from, A2A_GOLDSRC_ACK );
+	}
+	else if( !Q_strcmp( c, A2A_ACK ) || !Q_strcmp( c, A2A_GOLDSRC_ACK ))
+	{
+		// no-op
+	}
+	else if( !Q_strcmp( c, S2C_CHALLENGE ) || !Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
+	{
+		CL_Challenge( c, from );
+	}
+	else if( !Q_strcmp( c, S2C_REJECT ) || c[0] == S2C_GOLDSRC_REJECT || c[0] == S2C_GOLDSRC_REJECT_BADPASSWORD )
+	{
+		CL_Reject( c, args, from );
+	}
+	else if( !Q_strcmp( c, S2C_ERRORMSG ))
+	{
+		CL_ErrorMsg( c, args, from, msg );
+	}
+	else if( !Q_strcmp( c, M2A_SERVERSLIST ))
+	{
+		CL_ServerList( from, msg );
+	}
+	else
+	{
+		char buf[MAX_SYSPATH];
+		int len = sizeof( buf );
 
-		if( cls.state == ca_connected )
+		if( clgame.dllFuncs.pfnConnectionlessPacket( &from, args, buf, &len ))
 		{
-			Con_DPrintf( S_ERROR "dup connect received. ignored\n");
-			return;
-		}
-
-		if( cls.legacymode != PROTO_GOLDSRC && !Q_strcmp( c, S2C_CONNECTION ))
-		{
-			Con_DPrintf( S_ERROR "GoldSrc client connect received but wasn't expected, ignored\n");
-			return;
-		}
-
-		CL_Reconnect( true );
-		UI_SetActiveMenu( cl.background );
-	}
-	else if( !Q_strcmp( c, "info" ))
-	{
-		// server responding to a status broadcast
-		CL_ParseStatusMessage( from, msg );
-	}
-	else if( !Q_strcmp( c, "netinfo" ))
-	{
-		// server responding to a status broadcast
-		CL_ParseNETInfoMessage( from, args );
-	}
-	else if( !Q_strcmp( c, "cmd" ))
-	{
-		// remote command from gui front end
-		if( !NET_IsLocalAddress( from ))
-		{
-			Con_Printf( "Command packet from remote host. Ignored.\n" );
-			return;
-		}
-
-#if XASH_SDL == 2
-		SDL_ShowWindow( host.hWnd );
-#endif
-		args = MSG_ReadString( msg );
-		Cbuf_AddText( args );
-		Cbuf_AddText( "\n" );
-	}
-	else if( c[0] == 'l' )
-	{
-		char *s = args + 1;
-
-		Con_Printf( S_CYAN "r:" S_DEFAULT " %s", s );
-		if( !COM_CheckStringEmpty( s ) || s[Q_strlen( s ) - 1] != '\n' )
-			Con_Printf( "\n" );
-	}
-	else if( !Q_strcmp( c, "print" ))
-	{
-		// print command from somewhere
-		char *s = MSG_ReadString( msg );
-
-		Con_Printf( S_CYAN "r:" S_DEFAULT " %s", s );
-		if( !COM_CheckStringEmpty( s ) || s[Q_strlen( s ) - 1] != '\n' )
-			Con_Printf( "\n" );
-	}
-	else if( !Q_strcmp( c, "testpacket" ))
-	{
-		byte	recv_buf[NET_MAX_FRAGMENT];
-		dword	crcValue;
-		int	realsize;
-		dword	crcValue2 = 0;
-
-		// this message only used during connection
-		// it doesn't make sense after client_connect
-		if( cls.state != ca_connecting )
-			return;
-
-		if( !CL_IsFromConnectingServer( from ))
-			return;
-
-		crcValue = MSG_ReadLong( msg );
-		realsize = MSG_GetMaxBytes( msg ) - MSG_GetNumBytesRead( msg );
-
-		if( cls.max_fragment_size != MSG_GetMaxBytes( msg ))
-		{
-			if( cls.connect_retry >= CL_TEST_RETRIES )
-			{
-				// too many fails use default connection method
-				Con_Printf( "hi-speed connection is failed, use default method\n" );
-				CL_SendGetChallenge( from );
-				Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
-				cls.connect_time = host.realtime;
-				return;
-			}
-
-			// if we waiting more than cl_timeout or packet was trashed
-			cls.connect_time = MAX_HEARTBEAT;
-			return; // just wait for a next responce
-		}
-
-		// reading test buffer
-		MSG_ReadBytes( msg, recv_buf, realsize );
-
-		// procssing the CRC
-		CRC32_ProcessBuffer( &crcValue2, recv_buf, realsize );
-
-		if( crcValue == crcValue2 )
-		{
-			// packet was sucessfully delivered, adjust the fragment size and get challenge
-
-			Con_DPrintf( "CRC %x is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
-			CL_SendGetChallenge( from );
-			Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
-			cls.connect_time = host.realtime;
+			// user out of band message (must be handled in SV_ConnectionlessPacket)
+			if( len > 0 )
+				Netchan_OutOfBand( NS_SERVER, from, len, (byte *)buf );
 		}
 		else
 		{
-			if( cls.connect_retry >= CL_TEST_RETRIES )
-			{
-				// too many fails use default connection method
-				Con_Printf( "hi-speed connection is failed, use default method\n" );
-				CL_SendGetChallenge( from );
-				Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
-				cls.connect_time = host.realtime;
-				return;
-			}
-
-			Msg( "got testpacket, CRC mismatched 0x%08x should be 0x%08x, trying next fragment size %d\n", crcValue2, crcValue, cls.max_fragment_size >> 1 );
-
-			// trying the next size of packet
-			cls.connect_time = MAX_HEARTBEAT;
+			Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
 		}
 	}
-	else if( !Q_strcmp( c, "ping" ))
-	{
-		// ping from somewhere
-		Netchan_OutOfBandPrint( NS_CLIENT, from, "ack" );
-	}
-	else if( !Q_strcmp( c, "challenge" ) || !Q_strcmp( c, S2C_CHALLENGE ))
-	{
-		// this message only used during connection
-		// it doesn't make sense after client_connect
-		if( cls.state != ca_connecting )
-			return;
-
-		if( !CL_IsFromConnectingServer( from ))
-			return;
-
-		// try to autodetect protocol by challenge response
-		if( !Q_strcmp( c, S2C_CHALLENGE ))
-			cls.legacymode = PROTO_GOLDSRC;
-
-		// challenge from the server we are connecting to
-		CL_SendConnectPacket( cls.legacymode, Q_atoi( Cmd_Argv( 1 )));
-		return;
-	}
-	else if( !Q_strcmp( c, "echo" ))
-	{
-		if( !CL_IsFromConnectingServer( from ))
-			return;
-
-		// echo request from server
-		Netchan_OutOfBandPrint( NS_CLIENT, from, "%s", Cmd_Argv( 1 ));
-	}
-	else if( !Q_strcmp( c, "disconnect" ))
-	{
-		// this message only used during connection
-		// it doesn't make sense after client_connect
-		if( cls.state != ca_connecting )
-			return;
-
-		if( !CL_IsFromConnectingServer( from ))
-			return;
-
-		// a disconnect message from the server, which will happen if the server
-		// dropped the connection but it is still getting packets from us
-		CL_Disconnect_f();
-	}
-	else if( !Q_strcmp( c, "errormsg" ) || c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
-	{
-		char formatted_msg[MAX_VA_STRING];
-
-		if( !CL_IsFromConnectingServer( from ))
-			return;
-
-		args = MSG_ReadString( msg );
-		if( c[0] == S2C_REJECT || c[0] == S2C_REJECT_BADPASSWORD )
-			args++; // skip one byte
-
-		Q_snprintf( formatted_msg, sizeof( formatted_msg ), "^3Server message^7\n%s", args );
-
-		// in case we're in console or it's classic mainui which doesn't support messageboxes
-		if( !UI_IsVisible() || !UI_ShowMessageBox( formatted_msg ))
-			Msg( "%s\n", formatted_msg );
-
-		CL_Disconnect_f();
-	}
-	else if( !Q_strcmp( c, "updatemsg" ))
-	{
-		// got an update message from master server
-		// show update dialog from menu
-		netadr_t adr;
-		qboolean preferStore = true;
-
-		if( !Q_strcmp( Cmd_Argv( 1 ), "nostore" ) )
-			preferStore = false;
-
-		// trust only hardcoded master server
-		if( NET_StringToAdr( MASTERSERVER_ADR, &adr ) )
-		{
-			if( NET_CompareAdr( from, adr ))
-			{
-				UI_ShowUpdateDialog( preferStore );
-			}
-		}
-		else
-		{
-			// in case we don't have master anymore
-			UI_ShowUpdateDialog( preferStore );
-		}
-	}
-	else if( !Q_strcmp( c, "f" ))
-	{
-		if( !NET_IsMasterAdr( from ))
-		{
-			Con_Printf( S_WARN "unexpected server list packet from %s\n", NET_AdrToString( from ));
-			return;
-		}
-
-		// check the extra header
-		if( MSG_ReadByte( msg ) == 0x7f )
-		{
-			uint32_t key = MSG_ReadDword( msg );
-
-			if( cls.internetservers_key != key )
-			{
-				Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
-				return;
-			}
-
-			MSG_ReadByte( msg ); // reserved byte
-		}
-		else
-		{
-			Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
-			return;
-		}
-
-		// serverlist got from masterserver
-		while( MSG_GetNumBitsLeft( msg ) > 8 )
-		{
-			uint8_t addr[16];
-
-			if( from.type6 == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
-			{
-				MSG_ReadBytes( msg, addr, sizeof( addr ));
-				NET_IP6BytesToNetadr( &servadr, addr );
-				servadr.type6 = NA_IP6;
-			}
-			else
-			{
-				MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
-				servadr.type = NA_IP;
-			}
-			servadr.port = MSG_ReadShort( msg );			// 2 bytes for Port
-
-			// list is ends here
-			if( !servadr.port )
-				break;
-
-			NET_Config( true, false ); // allow remote
-			Netchan_OutOfBandPrint( NS_CLIENT, servadr, "info %i", PROTOCOL_VERSION );
-		}
-
-		if( cls.internetservers_pending )
-		{
-			UI_ResetPing();
-			cls.internetservers_pending = false;
-		}
-	}
-	else if( clgame.dllFuncs.pfnConnectionlessPacket( &from, args, buf, &len ))
-	{
-		// user out of band message (must be handled in CL_ConnectionlessPacket)
-		if( len > 0 ) Netchan_OutOfBand( NS_SERVER, from, len, (byte *)buf );
-	}
-	else Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
 }
 
 /*

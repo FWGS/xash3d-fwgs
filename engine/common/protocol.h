@@ -343,12 +343,6 @@ extern const char *const clc_strings[clc_lastmsg+1];
 #define clc_goldsrc_requestcvarvalue2 11
 #define clc_goldsrc_lastmsg           11
 
-#define S2C_REJECT_BADPASSWORD '8'
-#define S2C_REJECT             '9'
-#define S2C_CHALLENGE          "A00000000"
-#define S2C_CONNECTION         "B"
-#define A2C_PRINT              'l'
-
 #define MAX_GOLDSRC_BACKUP_CMDS   8
 #define MAX_GOLDSRC_TOTAL_CMDS    16
 #define MAX_GOLDSRC_MODEL_BITS    10
@@ -357,5 +351,56 @@ extern const char *const clc_strings[clc_lastmsg+1];
 // #define MAX_GOLDSRC_EDICTS        BIT( MAX_ENTITY_BITS )
 #define MAX_GOLDSRC_EDICTS        ( BIT( MAX_ENTITY_BITS ) + ( MAX_CLIENTS * 15 ))
 #define LAST_GOLDSRC_EDICT        ( BIT( MAX_ENTITY_BITS ) - 1 )
+
+
+// from any to any (must be handled on both server and client)
+
+#define A2A_PING         "ping" // reply with A2A_ACK
+#define A2A_ACK          "ack" // no-op
+#define A2A_INFO         "info" // different format for client and server, see code
+#define A2A_NETINFO      "netinfo" // different format for client and server, see code
+#define A2A_GOLDSRC_PING "i" // reply with A2A_GOLDSRC_ACK
+#define A2A_GOLDSRC_ACK  "j" // no-op
+
+// from any to server
+#define A2S_GOLDSRC_INFO    'T'
+#define A2S_GOLDSRC_RULES   'V'
+#define A2S_GOLDSRC_PLAYERS 'U'
+
+// from server to any
+#define S2A_GOLDSRC_INFO    'I'
+#define S2A_GOLDSRC_RULES   'E'
+#define S2A_GOLDSRC_PLAYERS 'D'
+
+// from master to server
+#define M2S_CHALLENGE     "s"
+#define M2S_NAT_CONNECT   "c"
+
+// from server to master
+#define S2M_INFO          "0\n"
+
+// from client to server
+#define C2S_BANDWIDTHTEST "bandwidth"
+#define C2S_GETCHALLENGE  "getchallenge"
+#define C2S_CONNECT       "connect"
+#define C2S_RCON          "rcon"
+
+// from server to client
+#define S2C_BANDWIDTHTEST              "testpacket"
+#define S2C_CHALLENGE                  "challenge"
+#define S2C_CONNECTION                 "client_connect"
+#define S2C_ERRORMSG                   "errormsg"
+#define S2C_REJECT                     "disconnect"
+#define S2C_GOLDSRC_REJECT_BADPASSWORD '8'
+#define S2C_GOLDSRC_REJECT             '9'
+#define S2C_GOLDSRC_CHALLENGE          "A00000000"
+#define S2C_GOLDSRC_CONNECTION         "B"
+
+// from any to client
+#define A2C_PRINT           "print"
+#define A2C_GOLDSRC_PRINT   'l'
+
+// from master to client
+#define M2A_SERVERSLIST "f"
 
 #endif//NET_PROTOCOL_H

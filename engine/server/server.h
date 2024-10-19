@@ -683,6 +683,6 @@ int SV_LightForEntity( edict_t *pEdict );
 //
 // sv_query.c
 //
-qboolean SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from );
+void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from );
 
 #endif//SERVER_H

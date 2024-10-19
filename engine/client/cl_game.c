@@ -3485,7 +3485,7 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	nr->flags = flags;
 
 	// local servers request
-	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, "netinfo %i %i %i", FBitSet( flags, FNETAPI_LEGACY_PROTOCOL ) ? PROTOCOL_LEGACY_VERSION : PROTOCOL_VERSION, context, request );
+	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, A2A_NETINFO" %i %i %i", FBitSet( flags, FNETAPI_LEGACY_PROTOCOL ) ? PROTOCOL_LEGACY_VERSION : PROTOCOL_VERSION, context, request );
 }
 
 /*
