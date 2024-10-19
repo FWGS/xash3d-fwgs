@@ -1384,6 +1384,31 @@ static void CL_CreateResourceList( void )
 	FS_Close( fp );
 }
 
+static qboolean CL_StringToProtocol( const char *s, connprotocol_t *proto )
+{
+	if( !Q_stricmp( s, "current" ) || !Q_strcmp( s, "49" ))
+	{
+		*proto = PROTO_CURRENT;
+		return true;
+	}
+
+	if( !Q_stricmp( s, "legacy" ) || !Q_strcmp( s, "48" ))
+	{
+		*proto = PROTO_LEGACY;
+		return true;
+	}
+
+	if( !Q_stricmp( s, "goldsrc" ) || !Q_strcmp( s, "gs" ))
+	{
+		*proto = PROTO_GOLDSRC;
+		return true;
+	}
+
+	// quake protocol only used for demos
+	Con_Printf( "Unknown protocol. Supported are: 49 (current), 48 (legacy), gs (goldsrc)\n" );
+	return false;
+}
+
 /*
 ================
 CL_Connect_f
@@ -1396,24 +1421,7 @@ static void CL_Connect_f( void )
 	connprotocol_t proto = PROTO_CURRENT;
 
 	// hint to connect by using legacy protocol
-	if( Cmd_Argc() == 3 )
-	{
-		const char *s = Cmd_Argv( 2 );
-
-		if( !Q_stricmp( s, "current" ) || !Q_strcmp( s, "49" ))
-			proto = PROTO_CURRENT;
-		else if( !Q_stricmp( s, "legacy" ) || !Q_strcmp( s, "48" ))
-			proto = PROTO_LEGACY;
-		else if( !Q_stricmp( s, "goldsrc" ) || !Q_strcmp( s, "gs" ))
-			proto = PROTO_GOLDSRC;
-		else
-		{
-			// quake protocol only used for demos
-			Con_Printf( "Unknown protocol. Supported are: 49 (current), 48 (legacy), gs (goldsrc)\n" );
-			return;
-		}
-	}
-	else if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() == 3 && !CL_StringToProtocol( Cmd_Argv( 2 ), &proto ) && Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "connect <server> [protocol]\n" );
 		return;
@@ -1832,6 +1840,45 @@ static void CL_InternetServers_f( void )
 	NET_Config( true, true ); // allow remote
 
 	CL_SendMasterServerScanRequest();
+}
+
+static void CL_QueryServer_f( void )
+{
+	netadr_t adr;
+	connprotocol_t proto;
+
+	if( Cmd_Argc( ) != 3 )
+	{
+		Con_Printf( S_USAGE "queryserver <adr> <protocol>\n" );
+		return;
+	}
+
+	NET_Config( true, false );
+
+	if( !NET_StringToAdr( Cmd_Argv( 1 ), &adr ))
+	{
+		Con_Printf( S_ERROR "%s: can't parse %s", __func__, Cmd_Argv( 1 ));
+		return;
+	}
+
+	if( adr.port == 0 )
+		adr.port = PORT_SERVER;
+
+	if( !CL_StringToProtocol( Cmd_Argv( 2 ), &proto ))
+		return;
+
+	switch( proto )
+	{
+	case PROTO_GOLDSRC:
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, "%cSource Engine Query", A2S_GOLDSRC_INFO );
+		break;
+	case PROTO_LEGACY:
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
+		break;
+	case PROTO_CURRENT:
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+		break;
+	}
 }
 
 /*
@@ -3311,8 +3358,9 @@ static void CL_InitLocal( void )
 
 	// register our commands
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
-	Cmd_AddCommand ("localservers", CL_LocalServers_f, "collect info about local servers" );
-	Cmd_AddCommand ("internetservers", CL_InternetServers_f, "collect info about internet servers" );
+	Cmd_AddRestrictedCommand( "localservers", CL_LocalServers_f, "collect info about local servers" );
+	Cmd_AddRestrictedCommand( "internetservers", CL_InternetServers_f, "collect info about internet servers" );
+	Cmd_AddRestrictedCommand( "queryserver", CL_QueryServer_f, "query server info from console" );
 	Cmd_AddCommand ("cd", CL_PlayCDTrack_f, "Play cd-track (not real cd-player of course)" );
 	Cmd_AddCommand ("mp3", CL_PlayCDTrack_f, "Play mp3-track (based on virtual cd-player)" );
 	Cmd_AddCommand ("waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file");
