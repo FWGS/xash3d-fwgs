@@ -389,23 +389,7 @@ static void SV_ReadPackets( void )
 		// check for connectionless packet (0xffffffff) first
 		if( MSG_GetMaxBytes( &net_message ) >= 4 && *(int *)net_message.pData == -1 )
 		{
-			if( !svs.initialized )
-			{
-				char	*args;
-				const char *c;
-
-				MSG_Clear( &net_message  );
-				MSG_ReadLong( &net_message  );// skip the -1 marker
-
-				args = MSG_ReadStringLine( &net_message  );
-				Cmd_TokenizeString( args );
-				c = Cmd_Argv( 0 );
-
-				if( !Q_strcmp( c, "rcon" ))
-					SV_RemoteCommand( net_from, &net_message );
-			}
-			else SV_ConnectionlessPacket( net_from, &net_message );
-
+			SV_ConnectionlessPacket( net_from, &net_message );
 			continue;
 		}
 
@@ -730,7 +714,7 @@ Master will validate challenge and this server to public list
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
 	uint	challenge, challenge2, heartbeat_challenge;
-	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
+	char	s[MAX_INFO_STRING] = S2M_INFO; // skip 2 bytes of header
 	int	clients, bots;
 	double last_heartbeat;
 	const int len = sizeof( s );

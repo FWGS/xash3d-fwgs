@@ -973,7 +973,7 @@ static void SV_GenerateTestPacket( void )
 	// write packet base data
 	MSG_Init( &svs.testpacket, "BandWidthTest", svs.testpacket_buf, maxsize );
 	MSG_WriteLong( &svs.testpacket, -1 );
-	MSG_WriteString( &svs.testpacket, "testpacket" );
+	MSG_WriteString( &svs.testpacket, S2C_BANDWIDTHTEST );
 	svs.testpacket_crcpos = svs.testpacket.pData + MSG_GetNumBytesWritten( &svs.testpacket );
 	MSG_WriteDword( &svs.testpacket, 0 ); // to be changed by crc
 
