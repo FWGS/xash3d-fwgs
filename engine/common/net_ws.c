@@ -1019,16 +1019,6 @@ int NET_CompareAdrSort( const void *_a, const void *_b )
 }
 
 /*
-====================
-NET_IsLocalAddress
-====================
-*/
-qboolean NET_IsLocalAddress( netadr_t adr )
-{
-	return (adr.type == NA_LOOPBACK) ? true : false;
-}
-
-/*
 =============
 NET_StringToAdr
 

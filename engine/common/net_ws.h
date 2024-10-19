@@ -61,7 +61,6 @@ void NET_Sleep( int msec );
 qboolean NET_IsActive( void );
 qboolean NET_IsConfigured( void );
 void NET_Config( qboolean net_enable, qboolean changeport );
-qboolean NET_IsLocalAddress( netadr_t adr );
 const char *NET_AdrToString( const netadr_t a );
 const char *NET_BaseAdrToString( const netadr_t a );
 qboolean NET_IsReservedAdr( netadr_t a );
@@ -78,6 +77,11 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize );
 void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 );
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
+
+static inline qboolean NET_IsLocalAddress( netadr_t adr )
+{
+	return adr.type == NA_LOOPBACK ? true : false;
+}
 
 #if !XASH_DEDICATED
 int CL_GetSplitSize( void );
