@@ -953,7 +953,7 @@ static void SV_Info( netadr_t from, int protocolVersion )
 		if( remaining < 0 )
 		{
 			// should never happen?
-			Con_Printf( S_ERROR "SV_Info: infostring overflow!\n" );
+			Con_Printf( S_ERROR "%s: infostring overflow!\n", __func__ );
 			return;
 		}
 		Q_strncpy( temp, hostname.string, remaining );
