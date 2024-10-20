@@ -1991,10 +1991,10 @@ Handle a reply from a info
 */
 static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 {
-	static char	infostring[MAX_INFO_STRING+8];
+	static char	infostring[512+8];
 	char		*s = MSG_ReadString( msg );
 	int i;
-	const char *magic = ": wrong version\n";
+	const char *magic = ": wrong version\n", *p;
 	size_t len = Q_strlen( s ), magiclen = Q_strlen( magic );
 
 	if( len >= magiclen && !Q_strcmp( s + len - magiclen, magic ))
@@ -2017,9 +2017,18 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 		return; // unsupported proto
 	}
 
-	if( !COM_CheckString( Info_ValueForKey( infostring, "p" )))
+	Info_RemoveKey( infostring, "gs" ); // don't let servers pretend they're something else
+
+	p = Info_ValueForKey( infostring, "p" );
+	if( !COM_CheckStringEmpty( p ))
 	{
-		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ) );
+		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
+		Info_SetValueForKey( infostring, "p", "48", sizeof( infostring ));
+		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
+	}
+	else if( !Q_strcmp( p, "48" ))
+	{
+		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
 		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 	}
 	else
@@ -2029,6 +2038,78 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	}
 
 	UI_AddServerToList( from, infostring );
+}
+
+static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
+{
+	static char	s[512+8];
+	int p, numcl, maxcl, password, remaining;
+	string host, map, gamedir, version;
+	connprotocol_t proto;
+
+	// set to beginning but skip header
+	MSG_SeekToBit( msg, (sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+
+	p = MSG_ReadByte( msg );
+	Q_strncpy( host, MSG_ReadString( msg ), sizeof( host ));
+	Q_strncpy( map, MSG_ReadString( msg ), sizeof( map ));
+	Q_strncpy( gamedir, MSG_ReadString( msg ), sizeof( gamedir ));
+	MSG_ReadString( msg ); // game description
+	MSG_ReadShort( msg ); // app id
+	numcl = MSG_ReadByte( msg );
+	maxcl = MSG_ReadByte( msg );
+	MSG_ReadByte( msg ); // bots count
+	MSG_ReadByte( msg ); // dedicated
+	MSG_ReadByte( msg ); // operating system
+	password = MSG_ReadByte( msg );
+	Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
+
+	if( MSG_CheckOverflow( msg ))
+	{
+		Con_Printf( "%s: malfored info packet from %s\n", __func__, NET_AdrToString( from ));
+		return;
+	}
+
+	// time to figure out protocol
+	if( p == PROTOCOL_VERSION )
+		proto = PROTO_CURRENT;
+	else if( p == PROTOCOL_LEGACY_VERSION )
+	{
+		if( Q_stristr( version, "Stdio" ))
+			proto = PROTO_GOLDSRC;
+		else
+			proto = PROTO_LEGACY;
+	}
+	else
+	{
+		Con_Printf( "%s: unsupported protocol %d from %s\n", __func__, p, NET_AdrToString( from ));
+		return;
+	}
+
+	// now construct infostring for mainui
+	Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", proto == PROTO_CURRENT ? PROTOCOL_VERSION : PROTOCOL_LEGACY_VERSION );
+	Info_SetValueForKey( s, "gs", proto == PROTO_GOLDSRC ? "1" : "0", sizeof( s ));
+	Info_SetValueForKey( s, "map", map, sizeof( s ));
+	Info_SetValueForKey( s, "dm", "0", sizeof( s )); // obsolete keys
+	Info_SetValueForKey( s, "team", "0", sizeof( s ));
+	Info_SetValueForKey( s, "coop", "0", sizeof( s ));
+	Info_SetValueForKeyf( s, "numcl", sizeof( s ), "%i", numcl );
+	Info_SetValueForKeyf( s, "maxcl", sizeof( s ), "%i", maxcl );
+	Info_SetValueForKey( s, "gamedir", gamedir, sizeof( s ));
+	Info_SetValueForKey( s, "password", password ? "1" : "0", sizeof( s ));
+
+	// write host last so we can try to cut off too long hostnames
+	// TODO: value size limit for infostrings
+	remaining = sizeof( s ) - Q_strlen( s ) - sizeof( "\\host\\" ) - 1;
+	if( remaining < 0 )
+	{
+		// should never happen?
+		Con_Printf( S_ERROR "%s: infostring overflow!\n", __func__ );
+		return;
+	}
+	Info_SetValueForKey( s, "host", host, sizeof( s ));
+
+	UI_AddServerToList( from, s );
 }
 
 /*
@@ -2441,8 +2522,8 @@ Responses to broadcasts, etc
 */
 static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 {
-	char	*args;
-	const char	*c;
+	char *args;
+	const char *c;
 
 	MSG_Clear( msg );
 	MSG_ReadLong( msg ); // skip the -1
@@ -2462,6 +2543,10 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( c, A2A_INFO ))
 	{
 		CL_ParseStatusMessage( from, msg ); // server responding to a status broadcast
+	}
+	else if( c[0] == S2A_GOLDSRC_INFO )
+	{
+		CL_ParseGoldSrcStatusMessage( from, msg );
 	}
 	else if( !Q_strcmp( c, A2A_NETINFO ))
 	{
