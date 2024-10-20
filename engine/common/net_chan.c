@@ -1521,6 +1521,9 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		return;
 	}
 
+	if( chan->pfnBlockSize == NULL ) // not initialized
+		return;
+
 	// if the remote side dropped the last reliable message, resend it
 	send_reliable = false;
 
