@@ -28,8 +28,6 @@ public:
 	virtual void FinalDigest(char* pcDigest) = 0; 
 	//Reset current operation in order to prepare for a new one 
 	virtual void Reset() = 0; 
-	//Digesting a Full File 
-	void DigestFile(string const& rostrFileIn, char* pcDigest); 
  
 protected: 
 	enum { BLOCKSIZE=64 }; 
