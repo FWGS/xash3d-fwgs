@@ -698,7 +698,7 @@ void CL_ParseCustomization( sizebuf_t *msg )
 
 	if( !cl_allow_download.value )
 	{
-		Con_DPrintf( "Refusing new resource, cl_allow_download set to 0\n" );
+		Con_DPrintf( "Refusing new resource, cl_allowdownload set to 0\n" );
 		Mem_Free( pRes );
 		return;
 	}
