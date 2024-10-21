@@ -1079,12 +1079,12 @@ static void CL_WriteSteamTicket( sizebuf_t *send )
 {
 	const char *s;
 	uint32_t crc;
-	char buf[512] = { 0 };
+	char buf[768] = { 0 }; // setti and steamemu return 768
 	size_t i = sizeof( buf );
 
 	if( !Q_strcmp( cl_ticket_generator.string, "null" ))
 	{
-		MSG_WriteBytes( send, buf, sizeof( buf ));
+		MSG_WriteBytes( send, buf, 512 ); // specifically 512 bytes of zeros
 		return;
 	}
 
