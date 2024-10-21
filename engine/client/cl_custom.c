@@ -50,7 +50,7 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 
 	if( !cl_allow_download.value )
 	{
-		Con_Reportf( "Download refused, cl_allow_download is 0\n" );
+		Con_Reportf( "Download refused, cl_allowdownload is 0\n" );
 		return true;
 	}
 
