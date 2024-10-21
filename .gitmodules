@@ -22,3 +22,6 @@
 [submodule "3rdparty/bzip2/bzip2"]
 	path = 3rdparty/bzip2/bzip2
 	url = https://gitlab.com/bzip2/bzip2
+[submodule "3rdparty/MultiEmulator"]
+	path = 3rdparty/MultiEmulator
+	url = https://github.com/FWGS/MultiEmulator
