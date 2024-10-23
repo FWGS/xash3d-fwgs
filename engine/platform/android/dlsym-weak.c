@@ -31,42 +31,50 @@
 #include <android/log.h>
 #include "linker.h"
 
-static Elf_Sym* soinfo_elf_lookup(soinfo* si, unsigned hash, const char* name) {
-    Elf_Sym* symtab = si->symtab;
-    const char* strtab = si->strtab;
+static Elf_Sym *soinfo_elf_lookup( const soinfo *si, unsigned hash, const char *name )
+{
+	const Elf_Sym *symtab = si->symtab;
+	const char *strtab = si->strtab;
+	unsigned n;
 
 	if( si->nbucket == 0 )
 		return NULL;
 
-    for (unsigned n = si->bucket[hash % si->nbucket]; n != 0; n = si->chain[n]) {
-        Elf_Sym* s = symtab + n;
-        if (strcmp(strtab + s->st_name, name)) continue;
+	for( n = si->bucket[hash % si->nbucket]; n != 0; n = si->chain[n] )
+	{
+		const Elf_Sym *s = symtab + n;
 
-            /* only concern ourselves with global and weak symbol definitions */
-        switch (ELF_ST_BIND(s->st_info)) {
-        case STB_GLOBAL:
-        case STB_WEAK:
-            if (s->st_shndx == SHN_UNDEF) {
-                continue;
-            }
-            return s;
-        }
-    }
+		if( strcmp( strtab + s->st_name, name ))
+			continue;
 
-    return NULL;
+		/* only concern ourselves with global and weak symbol definitions */
+		switch( ELF_ST_BIND( s->st_info ))
+		{
+		case STB_GLOBAL:
+		case STB_WEAK:
+			if( s->st_shndx == SHN_UNDEF )
+				continue;
+			return s;
+		}
+	}
+
+	return NULL;
 }
 
-static unsigned elfhash(const char* _name) {
-    const unsigned char* name = (const unsigned char*) _name;
-    unsigned h = 0, g;
+static unsigned elfhash( const unsigned char *name )
+{
+	unsigned h = 0;
 
-    while(*name) {
-        h = (h << 4) + *name++;
-        g = h & 0xf0000000;
-        h ^= g;
-        h ^= g >> 24;
-    }
-    return h;
+	while( *name )
+	{
+		unsigned g;
+
+		h = ( h << 4 ) + *name++;
+		g = h & 0xf0000000;
+		h ^= g;
+		h ^= g >> 24;
+	}
+	return h;
 }
 
 /* This is used by dlsym(3).  It performs symbol lookup only within the
@@ -78,21 +86,20 @@ static unsigned elfhash(const char* _name) {
    Binary Interface) where in Chapter 5 it discuss resolving "Shared
    Object Dependencies" in breadth first search order.
  */
-static Elf_Sym* dlsym_handle_lookup(soinfo* si, const char* name) {
-    return soinfo_elf_lookup(si, elfhash(name), name);
+static Elf_Sym *dlsym_handle_lookup( const soinfo *si, const char *name )
+{
+	return soinfo_elf_lookup( si, elfhash((const unsigned char *)name ), name );
 }
 
-extern "C" void* dlsym_weak(void* handle, const char* symbol) {
+void *dlsym_weak( void *handle, const char *symbol )
+{
+	soinfo *found = (soinfo *)handle;
+	Elf_Sym *sym = dlsym_handle_lookup( found, symbol );
 
-  soinfo* found = NULL;
-  Elf_Sym* sym = NULL;
-  found = reinterpret_cast<soinfo*>(handle);
-  sym = dlsym_handle_lookup(found, symbol);
+	if( sym != NULL )
+		return (void*)( sym->st_value + found->base/*load_bias*/ );
 
-  if (sym != NULL) {
-    return reinterpret_cast<void*>(sym->st_value + found->base/*load_bias*/);
-  }
-  __android_log_print(ANDROID_LOG_ERROR, "dlsym-weak", "Failed when looking up %s\n", symbol);
-  return NULL;
+	__android_log_print( ANDROID_LOG_ERROR, "dlsym-weak", "Failed when looking up %s\n", symbol );
+	return NULL;
 }
 #endif
