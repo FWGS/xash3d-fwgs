@@ -5,6 +5,7 @@ packages:
 - freetype-dev
 - fontconfig-dev
 - opus-dev
+- bzip2-dev
 sources:
 - https://git.sr.ht/~a1batross/xash3d-fwgs
 tasks:

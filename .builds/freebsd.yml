@@ -6,6 +6,7 @@ packages:
 - print/freetype2
 - x11-fonts/fontconfig
 - audio/opus
+- archivers/bzip2
 sources:
 - https://git.sr.ht/~a1batross/xash3d-fwgs
 tasks:

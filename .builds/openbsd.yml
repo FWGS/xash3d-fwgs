@@ -3,6 +3,7 @@ packages:
 - python3
 - sdl2
 - opus
+- bzip2
 sources:
 - https://git.sr.ht/~a1batross/xash3d-fwgs
 tasks:
