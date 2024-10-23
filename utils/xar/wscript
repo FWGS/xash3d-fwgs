@@ -9,9 +9,8 @@ def configure(conf):
 	pass
 
 def build(bld):
-	bld(source   = bld.path.ant_glob('*.c'),
+	bld.program(source   = bld.path.ant_glob('*.c'),
 		target   = 'xar',
-		features = 'c cprogram',
 		includes = '.',
 		use      = 'public filesystem_includes werror',
 		rpath = bld.env.DEFAULT_RPATH,

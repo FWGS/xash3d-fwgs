@@ -14,6 +14,7 @@ def configure(conf):
 		conf.define('BZ_UNIX', 1)
 
 def build(bld):
+# doesn't work with CMake generator
 #	bld(
 #		features = 'subst',
 #		source = 'bzip2/bz_version.h.in',
@@ -27,7 +28,6 @@ def build(bld):
 		source = bz_sources,
 		target = 'bzip2',
 #		use = 'bz_version.h',
-		features = 'c',
 		includes = ['.', 'bzip2/'],
 		subsystem = bld.env.MSVC_SUBSYSTEM,
 		export_includes = ['bzip2/']

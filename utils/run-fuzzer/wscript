@@ -19,10 +19,9 @@ def add_runner_target(bld, lib, func):
 	source = bld.path.ant_glob('*.c')
 	includes = '.'
 
-	bld(
+	bld.program(
 		source   = source,
 		target   = 'run-fuzzer-' + func,
-		features = 'c cprogram',
 		includes = includes,
 		use      = 'DL werror',
 		defines  = ['FUNC="Fuzz_' + func + '"', 'LIB="' + lib + '"'],

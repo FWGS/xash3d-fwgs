@@ -34,7 +34,6 @@ def build(bld):
 
 	bld.shlib(source   = bld.path.ant_glob(['*.c']),
 		target   = 'ref_soft',
-		features = 'c',
 		includes = '.',
 		use      = libs,
 		install_path = bld.env.LIBDIR,

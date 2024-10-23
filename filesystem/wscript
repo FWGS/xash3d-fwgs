@@ -25,7 +25,7 @@ def build(bld):
 		libs += [ 'public', 'ANDROID' ]
 
 	bld.shlib(target = 'filesystem_stdio',
-		features = 'cxx seq',
+		features = 'seq',
 		source = bld.path.ant_glob(['*.c', '*.cpp']),
 		use = libs,
 		install_path = bld.env.LIBDIR,
