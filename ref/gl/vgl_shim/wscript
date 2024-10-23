@@ -10,15 +10,9 @@ def configure(conf):
 	conf.define('REF_DLL', 1)
 
 def build(bld):
-	source = bld.path.ant_glob( [ '*.c' ] )
-	includes = [ '.' ]
-	libs = [ 'engine_includes', 'sdk_includes', 'werror' ]
 	bld.env.LDFLAGS += ['-fPIC']
 	bld.env.CFLAGS += ['-fPIC']
-	bld.stlib(
-		source    = source,
-		target    = 'vgl_shim',
-		includes  = includes,
-		use       = libs,
-		subsystem = bld.env.MSVC_SUBSYSTEM
-	)
+	bld.stlib(source = bld.path.ant_glob('*.c'),
+		target = 'vgl_shim',
+		use = 'engine_includes sdk_includes werror',
+		includes = '.')
