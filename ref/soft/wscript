@@ -12,14 +12,8 @@ def options(opt):
 	return
 
 def configure(conf):
-	# check for dedicated server build
-	if conf.options.DEDICATED:
-		return
-
-	if conf.options.SUPPORT_BSP2_FORMAT:
-		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
-
-	conf.env.append_unique('DEFINES', 'REF_DLL')
+	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
+	conf.define('REF_DLL', 1)
 
 def build(bld):
 	libs = [ 'engine_includes', 'werror' ]
@@ -29,10 +23,7 @@ def build(bld):
 	else:
 		libs += [ 'public', 'M' ]
 
-	if bld.env.DEDICATED:
-		return
-
-	bld.shlib(source   = bld.path.ant_glob(['*.c']),
+	bld.shlib(source   = bld.path.ant_glob('*.c'),
 		target   = 'ref_soft',
 		includes = '.',
 		use      = libs,
