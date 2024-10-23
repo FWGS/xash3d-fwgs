@@ -235,41 +235,41 @@ def build(bld):
 		is_cxx_link = True
 		libs += ['opus', 'bzip2', 'MultiEmulator']
 
-	includes = ['server', 'client', 'client/vgui' ]
+	rpath = bld.env.DEFAULT_RPATH
 
 	# Switch and PSVita have custom parameters
 	if bld.env.DEST_OS in ['nswitch', 'psvita']:
-		bld(source = source,
-			target = 'xash',
-			features = 'c cxxprogram',
-			includes = includes,
-			use = libs,
-			install_path = None,
-			nro_install_path = bld.env.BINDIR,
-			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
-			icon = 'platform/nswitch/icon.jpg',
-			sce_sys = 'platform/psvita/sce_sys',
-			title_id = 'XASH10000',
-			app_name = 'xash3d-fwgs'
-		)
-	else:
-		# always build as shared library on Android
-		if bld.env.DISABLE_LAUNCHER and bld.env.DEST_OS != "android":
-			install_path = bld.env.BINDIR
-			program = 'cxxprogram' if is_cxx_link else 'cprogram'
-			if bld.env.STATIC:
-				program += '_static'
-			features = ['c', program]
+		rpath = None
+		install_path = None
+		features = 'cxx c cxxprogram cprogram'
+	# Always build as shared library on Android
+	elif bld.env.DISABLE_LAUNCHER and bld.env.DEST_OS != 'android':
+		install_path = bld.env.BINDIR
+		if bld.env.STATIC:
+			features = 'cxx c cxxprogram_static cprogram_static'
+		elif is_cxx_link:
+			features = 'cxx c cxxprogram cprogram'
 		else:
-			install_path = bld.env.LIBDIR
-			features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
+			features = 'c cprogram'
+	else:
+		install_path = bld.env.LIBDIR
+		if is_cxx_link:
+			features = 'cxx c cxxshlib cshlib'
+		else:
+			features = 'c cshlib'
 
-		bld(source   = source,
-			target   = 'xash',
-			features = features,
-			includes = includes,
-			use      = libs,
-			install_path = install_path,
-			subsystem = bld.env.MSVC_SUBSYSTEM,
-			rpath = bld.env.DEFAULT_RPATH,
-		)
+	bld(source = source,
+		target = 'xash',
+		features = features,
+		includes = 'server client client/vgui',
+		use = libs,
+		install_path = install_path,
+		nro_install_path = bld.env.BINDIR,
+		nacp = 'platform/nswitch/xash3d-fwgs.nacp',
+		icon = 'platform/nswitch/icon.jpg',
+		sce_sys = 'platform/psvita/sce_sys',
+		title_id = 'XASH10000',
+		app_name = 'xash3d-fwgs',
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		rpath = rpath,
+	)
