@@ -6,7 +6,7 @@ packages:
 - fontconfig
 - libopus
 - pkgconf
-- libbz2
+- bzip2
 sources:
 - https://git.sr.ht/~a1batross/xash3d-fwgs
 tasks:
