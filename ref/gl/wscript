@@ -76,7 +76,6 @@ def build(bld):
 
 		bld.shlib(source = source,
 			target = k,
-			features = 'c',
 			includes = includes,
 			use = libs + v['libs'],
 			defines = v['defines'],

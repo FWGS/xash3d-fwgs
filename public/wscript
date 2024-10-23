@@ -112,7 +112,6 @@ def build(bld):
 
 	bld.stlib(source   = bld.path.ant_glob('*.c'),
 		target   = 'public',
-		features = 'c',
 		use      = 'sdk_includes werror',
 		subsystem = bld.env.MSVC_SUBSYSTEM)
 

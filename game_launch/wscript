@@ -30,9 +30,8 @@ def build(bld):
 	if bld.env.DEST_OS == 'linux':
 		bld.env.LDFLAGS += ['-Wl,--no-as-needed', '-lm']
 
-	bld(source = source,
+	bld.program(source = source,
 		target   = 'xash3d', # hl.exe
-		features = 'c cxx cxxprogram',
 		use      = 'sdk_includes DL USER32 SHELL32 werror',
 		rpath    = bld.env.DEFAULT_RPATH,
 		install_path = bld.env.BINDIR,

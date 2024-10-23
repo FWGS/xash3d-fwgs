@@ -12,7 +12,6 @@ def build(bld):
 	bld.shlib(
 		source   = 'r_context.c',
 		target   = 'ref_null',
-		features = 'c',
 		defines  = 'REF_DLL',
 		use      = 'engine_includes sdk_includes werror',
 		install_path = bld.env.LIBDIR,
