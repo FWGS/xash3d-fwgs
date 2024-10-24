@@ -128,7 +128,6 @@ def configure(conf):
 	conf.define_cond('XASH_ENABLE_MAIN', conf.env.DISABLE_LAUNCHER)
 	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', conf.options.NO_ASYNC_RESOLVE)
 	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
-	conf.define_cond('XASH_64BIT', conf.env.DEST_SIZEOF_VOID_P != 4)
 	conf.define_cond('DBGHELP', conf.env.DEST_OS == 'win32')
 	conf.define_cond('PSAPI_VERSION', conf.env.DEST_OS == 'win32') # will be defined as 1
 

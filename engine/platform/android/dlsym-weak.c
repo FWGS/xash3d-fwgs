@@ -26,7 +26,8 @@
  * SUCH DAMAGE.
  */
 
-#if defined __ANDROID__ && !defined XASH_64BIT
+#include "build.h"
+#if XASH_ANDROID && !XASH_64BIT
 #include <string.h>
 #include <android/log.h>
 #include "linker.h"
@@ -102,4 +103,4 @@ void *dlsym_weak( void *handle, const char *symbol )
 	__android_log_print( ANDROID_LOG_ERROR, "dlsym-weak", "Failed when looking up %s\n", symbol );
 	return NULL;
 }
-#endif
+#endif // XASH_ANDROID && !XASH_64BIT

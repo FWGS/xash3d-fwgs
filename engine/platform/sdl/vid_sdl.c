@@ -674,7 +674,7 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 		if( ico && WIN_SetWindowIcon( ico ))
 			return;
 	}
-#endif // _WIN32 && !XASH_64BIT
+#endif // XASH_WIN32
 
 	Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
 	COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
