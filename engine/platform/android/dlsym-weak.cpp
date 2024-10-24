@@ -35,8 +35,8 @@
 static Elf_Sym *soinfo_elf_lookup( const soinfo *si, unsigned hash, const char *name )
 {
 	const Elf_Sym *symtab = si->symtab;
-	const char *strtab = si->strtab;
-	unsigned n;
+	const char    *strtab = si->strtab;
+	unsigned      n;
 
 	if( si->nbucket == 0 )
 		return NULL;
@@ -92,13 +92,13 @@ static Elf_Sym *dlsym_handle_lookup( const soinfo *si, const char *name )
 	return soinfo_elf_lookup( si, elfhash((const unsigned char *)name ), name );
 }
 
-void *dlsym_weak( void *handle, const char *symbol )
+extern "C" void *dlsym_weak( void *handle, const char *symbol )
 {
-	soinfo *found = (soinfo *)handle;
+	soinfo  *found = (soinfo *)handle;
 	Elf_Sym *sym = dlsym_handle_lookup( found, symbol );
 
 	if( sym != NULL )
-		return (void*)( sym->st_value + found->base/*load_bias*/ );
+		return (void *)( sym->st_value + found->base /*load_bias*/ );
 
 	__android_log_print( ANDROID_LOG_ERROR, "dlsym-weak", "Failed when looking up %s\n", symbol );
 	return NULL;

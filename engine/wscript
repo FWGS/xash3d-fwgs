@@ -191,7 +191,7 @@ def build(bld):
 
 	if bld.env.DEST_OS == 'android':
 		libs += ['LOG']
-		source += bld.path.ant_glob(['platform/android/*.c', 'platform/linux/*.c'])
+		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c', 'platform/linux/*.c'])
 
 	if bld.env.DEST_OS == 'nswitch':
 		libs += [ 'SOLDER' ]
