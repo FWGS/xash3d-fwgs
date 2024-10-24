@@ -247,6 +247,10 @@ Then you can use another oneliner to query all variables:
 	#error "Place your architecture name here! If this is a mistake, try to fix conditions above and report a bug"
 #endif
 
+#if !XASH_64BIT && ( defined( __LP64__ ) || defined( _LP64 ))
+#define XASH_64BIT 1
+#endif
+
 #if XASH_ARM == 8
 	#define XASH_ARMv8 1
 #elif XASH_ARM == 7

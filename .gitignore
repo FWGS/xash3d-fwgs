@@ -342,3 +342,6 @@ enc_temp_folder/
 
 # KDevelop4
 *.kdev4
+
+# ccls langauge server
+.ccls-*
