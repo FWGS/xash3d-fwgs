@@ -10,7 +10,7 @@ def configure(conf):
 	conf.define('REF_DLL', 1)
 
 def build(bld):
-	bld.env.LDFLAGS += ['-fPIC']
+	bld.env.CFLAGS_cstlib.remove('-fno-PIC')
 	bld.env.CFLAGS += ['-fPIC']
 	bld.stlib(source = bld.path.ant_glob('*.c'),
 		target = 'vgl_shim',
