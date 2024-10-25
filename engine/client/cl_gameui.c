@@ -1303,6 +1303,16 @@ static gameinfo2_t *pfnGetModInfo( int gi_version, int i )
 	return &gameui.modsInfo[i];
 }
 
+static int pfnIsCvarReadOnly( const char *name )
+{
+	convar_t *cv = Cvar_FindVar( name );
+
+	if( !cv )
+		return -1;
+
+	return FBitSet( cv->flags, FCVAR_READ_ONLY ) ? 1 : 0;
+}
+
 static ui_extendedfuncs_t gExtendedfuncs =
 {
 	pfnEnableTextInput,
@@ -1318,6 +1328,7 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	&gNetApi,
 	pfnGetGameInfo,
 	pfnGetModInfo,
+	pfnIsCvarReadOnly,
 };
 
 void UI_UnloadProgs( void )
