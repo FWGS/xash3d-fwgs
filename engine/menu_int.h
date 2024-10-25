@@ -222,6 +222,10 @@ typedef struct ui_extendedfuncs_s {
 	// new mods info
 	gameinfo2_t *(*pfnGetGameInfo)( int gi_version ); // might return NULL if gi_version is unsupported
 	gameinfo2_t *(*pfnGetModInfo)( int gi_version, int mod_index ); // continiously call it until it returns null
+
+	// returns 1 if cvar has read-only flag
+	// or -1 if cvar not found
+	int (*pfnIsCvarReadOnly)( const char *name );
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine
