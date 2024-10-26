@@ -295,7 +295,7 @@ static void CL_LegacyParseResourceList( sizebuf_t *msg )
 			continue;	// already exists
 
 		host.downloadcount++;
-		HTTP_AddDownload( path, -1, true );
+		HTTP_AddDownload( path, -1, true, NULL );
 	}
 
 	if( !host.downloadcount )

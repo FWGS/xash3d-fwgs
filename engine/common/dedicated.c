@@ -49,11 +49,6 @@ const char *CL_MsgInfo( int cmd )
 	return sz;
 }
 
-void CL_ProcessFile( qboolean successfully_received, const char *filename )
-{
-
-}
-
 int GAME_EXPORT CL_Active( void )
 {
 	return false;
