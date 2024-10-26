@@ -2259,9 +2259,11 @@ typedef struct httpfile_s
 	enum connectionstate state;
 	qboolean process;
 
+	string query_backup;
+
 	// query or response
-   char buf[MAX_HTTP_BUFFER_SIZE+1];
-   int header_size, query_length, bytes_sent;
+	char buf[MAX_HTTP_BUFFER_SIZE+1];
+	int header_size, query_length, bytes_sent;
 } httpfile_t;
 
 static struct http_static_s
@@ -2275,7 +2277,8 @@ static struct http_static_s
 static CVAR_DEFINE_AUTO( http_useragent, "", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "User-Agent string" );
 static CVAR_DEFINE_AUTO( http_autoremove, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "remove broken files" );
 static CVAR_DEFINE_AUTO( http_timeout, "45", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "timeout for http downloader" );
-static CVAR_DEFINE_AUTO( http_maxconnections, "4", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum http connection number" );
+static CVAR_DEFINE_AUTO( http_maxconnections, "2", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum http connection number" );
+static CVAR_DEFINE_AUTO( http_show_request_header, "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "show headers of the HTTP request" );
 
 /*
 ========================
@@ -2441,6 +2444,9 @@ static qboolean HTTP_ProcessStream( httpfile_t *curfile )
 						*begin = 0;
 
 					Con_Printf( S_ERROR "%s: bad response: %s\n", curfile->path, curfile->buf );
+
+					if( http_show_request_header.value )
+						Con_Printf( "Request headers: %s", curfile->query_backup );
 					HTTP_FreeFile( curfile, true );
 					return false;
 				}
@@ -2663,9 +2669,11 @@ void HTTP_Run( void )
 
 			curfile->query_length = Q_snprintf( curfile->buf, sizeof( curfile->buf ),
 				"GET %s%s HTTP/1.0\r\n"
-				"Host: %s\r\n"
-				"User-Agent: %s\r\n\r\n", curfile->server->path,
-				curfile->path, curfile->server->host, useragent );
+				"Host: %s:%d\r\n"
+				"User-Agent: %s\r\n"
+				"Accept: */*\r\n\r\n", curfile->server->path,
+				curfile->path, curfile->server->host, curfile->server->port, useragent );
+			Q_strncpy( curfile->query_backup, curfile->buf, sizeof( curfile->query_backup ));
 			curfile->header_size = 0;
 			curfile->bytes_sent = 0;
 			curfile->state = HTTP_REQUEST;
@@ -2850,12 +2858,14 @@ static httpserver_t *HTTP_ParseURL( const char *url )
 
 	while( *url && ( *url != '\r' ) && ( *url != '\n' ))
 	{
-		if( i > sizeof( server->path ))
+		if( i > sizeof( server->path ) - 1 )
 			return NULL;
 
 		server->path[i++] = *url++;
 	}
 
+	if( i == 0 || server->path[i-1] != '/' )
+		server->path[i++] = '/';
 	server->path[i] = 0;
 	server->next = NULL;
 	server->needfree = false;
@@ -3022,6 +3032,7 @@ void HTTP_Init( void )
 	Cvar_RegisterVariable( &http_autoremove );
 	Cvar_RegisterVariable( &http_timeout );
 	Cvar_RegisterVariable( &http_maxconnections );
+	Cvar_RegisterVariable( &http_show_request_header );
 
 	// Read servers from fastdl.txt
 	line = serverfile = (char *)FS_LoadFile( "fastdl.txt", 0, false );
