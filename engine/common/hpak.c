@@ -1055,7 +1055,7 @@ static void HPAK_Extract_f( void )
 		FS_Seek( f, entry->filepos, SEEK_SET );
 		FS_Read( f, pData, nDataSize );
 
-		Q_snprintf( szFileOut, sizeof( szFileOut ), "hpklmps\\lmp%04i.bmp", nCurrent );
+		Q_snprintf( szFileOut, sizeof( szFileOut ), "hpklmps/lmp%04i.bmp", nCurrent );
 		FS_WriteFile( szFileOut, pData, nDataSize );
 		if( pData ) Mem_Free( pData );
 	}
