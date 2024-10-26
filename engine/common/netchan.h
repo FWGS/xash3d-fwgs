@@ -306,7 +306,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg );
 void Netchan_CreateFragments( netchan_t *chan, sizebuf_t *msg );
 int Netchan_CreateFileFragments( netchan_t *chan, const char *filename );
 void Netchan_TransmitBits( netchan_t *chan, int lengthInBits, const byte *data );
-void Netchan_OutOfBand( int net_socket, netadr_t adr, int length, byte *data );
+void Netchan_OutOfBand( int net_socket, netadr_t adr, int length, const byte *data );
 void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, const char *format, ... ) _format( 3 );
 qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg );
 void Netchan_UpdateProgress( netchan_t *chan );

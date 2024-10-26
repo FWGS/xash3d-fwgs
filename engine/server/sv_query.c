@@ -173,11 +173,12 @@ SV_SourceQuery_HandleConnnectionlessPacket
 */
 void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from )
 {
-	switch( c[0] )
+	if( !Q_strcmp( c, A2S_GOLDSRC_INFO ))
 	{
-	case A2S_GOLDSRC_INFO:
 		SV_SourceQuery_Details( from );
-		break;
+	}
+	else switch( c[0] )
+	{
 	case A2S_GOLDSRC_RULES:
 		SV_SourceQuery_Rules( from );
 		break;

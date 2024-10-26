@@ -1916,7 +1916,7 @@ static void CL_QueryServer_f( void )
 	switch( proto )
 	{
 	case PROTO_GOLDSRC:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, "%cSource Engine Query", A2S_GOLDSRC_INFO );
+		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
 		break;
 	case PROTO_LEGACY:
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );

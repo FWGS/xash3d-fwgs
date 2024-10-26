@@ -363,7 +363,7 @@ extern const char *const clc_strings[clc_lastmsg+1];
 #define A2A_GOLDSRC_ACK  "j" // no-op
 
 // from any to server
-#define A2S_GOLDSRC_INFO    'T'
+#define A2S_GOLDSRC_INFO    "TSource Engine Query"
 #define A2S_GOLDSRC_RULES   'V'
 #define A2S_GOLDSRC_PLAYERS 'U'
 
