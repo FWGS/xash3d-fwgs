@@ -1506,9 +1506,9 @@ an unconnected command.
 */
 static void CL_Rcon_f( void )
 {
-	char	message[1024];
-	netadr_t	to;
-	string command;
+	char message[1024];
+	sizebuf_t msg;
+	netadr_t to;
 	int	i;
 
 	if( !COM_CheckString( rcon_password.string ))
@@ -1517,24 +1517,7 @@ static void CL_Rcon_f( void )
 		return;
 	}
 
-	message[0] = (char)255;
-	message[1] = (char)255;
-	message[2] = (char)255;
-	message[3] = (char)255;
-	message[4] = 0;
-
 	NET_Config( true, false );	// allow remote
-
-	Q_strncat( message, C2S_RCON" ", sizeof( message ));
-	Q_strncat( message, rcon_password.string, sizeof( message ));
-	Q_strncat( message, " ", sizeof( message ) );
-
-	for( i = 1; i < Cmd_Argc(); i++ )
-	{
-		Cmd_Escape( command, Cmd_Argv( i ), sizeof( command ));
-		Q_strncat( message, command, sizeof( message ));
-		Q_strncat( message, " ", sizeof( message ));
-	}
 
 	if( cls.state >= ca_connected )
 	{
@@ -1549,10 +1532,27 @@ static void CL_Rcon_f( void )
 		}
 
 		NET_StringToAdr( rcon_address.string, &to );
-		if( to.port == 0 ) to.port = MSG_BigShort( PORT_SERVER );
+		if( to.port == 0 )
+			to.port = MSG_BigShort( PORT_SERVER );
 	}
 
-	NET_SendPacket( NS_CLIENT, Q_strlen( message ) + 1, message, to );
+	MSG_Init( &msg, "RconMessage", message, sizeof( message ));
+	MSG_WriteLong( &msg, -1 );
+	MSG_WriteStringf( &msg, C2S_RCON" %s ", rcon_password.string );
+	MSG_SeekToBit( &msg, -8, SEEK_CUR );
+
+	for( i = 1; i < Cmd_Argc(); i++ )
+	{
+		string command;
+
+		Cmd_Escape( command, Cmd_Argv( i ), sizeof( command ));
+		MSG_WriteString( &msg, command );
+		MSG_SeekToBit( &msg, -8, SEEK_CUR );
+		MSG_WriteChar( &msg, ' ' );
+	}
+	MSG_WriteByte( &msg, 0 );
+
+	NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &msg ), MSG_GetData( &msg ), to );
 }
 
 

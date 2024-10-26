@@ -714,20 +714,18 @@ static void SV_BeginRedirect( host_redirect_t *rd, netadr_t adr, rdtype_t target
 
 static void SV_FlushRedirect( netadr_t adr, int dest, char *buf )
 {
-	if( sv.current_client && FBitSet( sv.current_client->flags, FCL_FAKECLIENT ))
-		return;
-
 	switch( dest )
 	{
 	case RD_PACKET:
 		Netchan_OutOfBandPrint( NS_SERVER, adr, A2C_PRINT"\n%s", buf );
 		break;
 	case RD_CLIENT:
-		if( !sv.current_client ) return; // client not set
+		if( !sv.current_client || !FBitSet( sv.current_client->flags, FCL_FAKECLIENT ))
+			return; // client not set
 		MSG_BeginServerCmd( &sv.current_client->netchan.message, svc_print );
 		MSG_WriteString( &sv.current_client->netchan.message, buf );
 		break;
-	case RD_NONE:
+	default:
 		Con_Printf( S_ERROR "%s: %s: invalid destination\n", __func__, NET_AdrToString( adr ));
 		break;
 	}
@@ -1109,10 +1107,7 @@ Redirect all printfs
 */
 void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 {
-	static char	outputbuf[2048];
 	const char	*adr;
-	char		remaining[1024];
-	char		*p = remaining;
 	int		i;
 
 	if( !rcon_enable.value || !COM_CheckStringEmpty( rcon_password.string ))
@@ -1125,7 +1120,9 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 
 	if( Rcon_Validate( ))
 	{
-		SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+		static char	outputbuf[2048];
+		char remaining[1024];
+		char *p = remaining;
 
 		remaining[0] = 0;
 		for( i = 2; i < Cmd_Argc(); i++ )
@@ -1134,8 +1131,9 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 			p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
 			p += Q_strncpy( p, "\" ", sizeof( remaining ) - ( p - remaining ));
 		}
-		Cmd_ExecuteString( remaining );
 
+		SV_BeginRedirect( &host.rd, from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+		Cmd_ExecuteString( remaining );
 		SV_EndRedirect( &host.rd );
 	}
 	else Con_Printf( S_ERROR "Bad rcon_password.\n" );
