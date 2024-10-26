@@ -1088,14 +1088,12 @@ static void CL_WriteSteamTicket( sizebuf_t *send )
 		return;
 	}
 
-#if 0 // FIXME
-	if( !Q_strcmp( cl_ticket_generator.string, "steam" )
-	{
-		i = SteamBroker_InitiateGameConnection( buf, sizeof( buf ));
-		MSG_WriteBytes( send, buf, i );
-		return;
-	}
-#endif
+	//if( !Q_strcmp( cl_ticket_generator.string, "steam" )
+	//{
+	//	i = SteamBroker_InitiateGameConnection( buf, sizeof( buf ));
+	//	MSG_WriteBytes( send, buf, i );
+	//	return;
+	//}
 
 	s = ID_GetMD5();
 	CRC32_Init( &crc );
@@ -1387,7 +1385,7 @@ static resource_t *CL_AddResource( resourcetype_t type, const char *name, int si
 static void CL_CreateResourceList( void )
 {
 	char szFileName[MAX_OSPATH];
-	byte		rgucMD5_hash[16];
+	byte rgucMD5_hash[16] = { 0 };
 	resource_t	*pNewResource;
 	int		nSize;
 	file_t		*fp;
@@ -1396,13 +1394,19 @@ static void CL_CreateResourceList( void )
 	cl.num_resources = 0;
 	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
 
-	// sanitize cvar value
-	if( Q_strcmp( cl_logoext.string, "bmp" ) &&
-		 Q_strcmp( cl_logoext.string, "png" ))
-		Cvar_DirectSet( &cl_logoext, "bmp" );
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		// TODO: actually repack remapped.bmp into a WAD for GoldSrc servers
+		Q_strncpy( szFileName, "tempdecal.wad", sizeof( szFileName ));
+	}
+	else
+	{
+		// sanitize cvar value
+		if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
+			Cvar_DirectSet( &cl_logoext, "bmp" );
 
-	Q_snprintf( szFileName, sizeof( szFileName ),
-		"logos/remapped.%s", cl_logoext.string );
+		Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.%s", cl_logoext.string );
+	}
 	fp = FS_Open( szFileName, "rb", true );
 
 	if( !fp )
