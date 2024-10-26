@@ -1440,7 +1440,7 @@ static qboolean CL_StringToProtocol( const char *s, connprotocol_t *proto )
 		return true;
 	}
 
-	if( !Q_stricmp( s, "goldsrc" ) || !Q_strcmp( s, "gs" ))
+	if( !Q_stricmp( s, "goldsrc" ) || !Q_stricmp( s, "gs" ))
 	{
 		*proto = PROTO_GOLDSRC;
 		return true;
