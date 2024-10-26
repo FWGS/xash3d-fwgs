@@ -338,7 +338,7 @@ void MSG_WriteCmdExt( sizebuf_t *sb, int cmd, netsrc_t type, const char *name )
 		}
 		else if( type == NS_CLIENT )
 		{
-			if( cmd >= 0 && cmd <= clc_lastmsg )
+			if( cmd >= 0 && cmd <= clc_lastmsg && cmd != clc_nop )
 			{
 				Con_Printf( "^1cl^7 (%d) write: %s\n", sb->iCurBit, clc_strings[cmd] );
 			}
@@ -574,7 +574,8 @@ int MSG_ReadCmd( sizebuf_t *sb, netsrc_t type )
 	{
 		if( type == NS_SERVER )
 		{
-			Con_Printf( "^1cl^7 read: %s\n", CL_MsgInfo( cmd ));
+			if( cmd != svc_nop )
+				Con_Printf( "^1cl^7 read: %s\n", CL_MsgInfo( cmd ));
 		}
 		else if( cmd >= 0 && cmd <= clc_lastmsg )
 		{
