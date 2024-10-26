@@ -743,7 +743,7 @@ static void CL_WritePacket( void )
 	if( cls.demoplayback || cls.state < ca_connected || cls.state == ca_cinematic )
 		return;
 
-	if( cls.state <= ca_validate )
+	if( cls.state <= ca_connected )
 	{
 		Netchan_TransmitBits( &cls.netchan, 0, "" );
 		return;
