@@ -74,7 +74,7 @@ qboolean CL_CheckFile( sizebuf_t *msg, resource_t *pResource )
 
 	if( cl.http_download )
 	{
-		HTTP_AddDownload( filepath, pResource->nDownloadSize, true );
+		HTTP_AddDownload( filepath, pResource->nDownloadSize, true, pResource );
 	}
 	else
 	{

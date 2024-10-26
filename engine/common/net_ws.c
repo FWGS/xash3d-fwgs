@@ -2258,6 +2258,7 @@ typedef struct httpfile_s
 	int id;
 	enum connectionstate state;
 	qboolean process;
+	resource_t *resource;
 
 	string query_backup;
 
@@ -2339,8 +2340,27 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 			Con_Printf( "cannot download %s from any server. "
 				"You may remove %s now\n", file->path, incname ); // Warn about trash file
 
+#if !XASH_DEDICATED
 		if( file->process )
-			CL_ProcessFile( false, file->path ); // Process file, increase counter
+		{
+			if( file->resource )
+			{
+				char buf[1024];
+				sizebuf_t msg;
+
+				MSG_Init( &msg, "DlFile", buf, sizeof( buf ));
+				MSG_BeginClientCmd( &msg, clc_stringcmd );
+				MSG_WriteStringf( &msg, "dlfile %s", file->path );
+
+				Netchan_CreateFragments( &cls.netchan, &msg );
+				Netchan_FragSend( &cls.netchan );
+			}
+			else
+			{
+				CL_ProcessFile( false, file->path ); // Process file, increase counter
+			}
+		}
+#endif // !XASH_DEDICATED
 	}
 	else
 	{
@@ -2350,10 +2370,14 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s", file->path );
 		FS_Rename( incname, name );
 
+#if !XASH_DEDICATED
 		if( file->process )
 			CL_ProcessFile( true, name );
 		else
+#endif
+		{
 			Con_Printf( "successfully downloaded %s, processing disabled!\n", name );
+		}
 	}
 
 	file->state = HTTP_FREE;
@@ -2765,12 +2789,13 @@ HTTP_AddDownload
 Add new download to end of queue
 ===================
 */
-void HTTP_AddDownload( const char *path, int size, qboolean process )
+void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t *res )
 {
 	httpfile_t *httpfile = Z_Calloc( sizeof( httpfile_t ));
 
 	Con_Reportf( "File %s queued to download\n", path );
 
+	httpfile->resource = res;
 	httpfile->size = size;
 	httpfile->downloaded = 0;
 	httpfile->socket = -1;
@@ -2812,7 +2837,7 @@ static void HTTP_Download_f( void )
 		return;
 	}
 
-	HTTP_AddDownload( Cmd_Argv( 1 ), -1, false );
+	HTTP_AddDownload( Cmd_Argv( 1 ), -1, false, NULL );
 }
 
 /*
