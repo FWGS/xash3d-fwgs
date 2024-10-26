@@ -1506,9 +1506,15 @@ void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
 		if( proto != PROTO_LEGACY )
 			MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ));
 
-		if( slot == cl.playernum ) gameui.playerinfo = *player;
+		if( proto == PROTO_GOLDSRC && ( !COM_CheckStringEmpty( player->userinfo ) || !COM_CheckStringEmpty( player->name )))
+			active = false;
+
+		if( active && slot == cl.playernum )
+			gameui.playerinfo = *player;
 	}
-	else
+
+
+	if( !active )
 	{
 		COM_ClearCustomizationList( &player->customdata, true );
 
