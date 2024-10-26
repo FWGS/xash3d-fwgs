@@ -520,7 +520,7 @@ Netchan_OutOfBand
 Sends an out-of-band datagram
 ================
 */
-void Netchan_OutOfBand( int net_socket, netadr_t adr, int len, byte *data )
+void Netchan_OutOfBand( int net_socket, netadr_t adr, int len, const byte *data )
 {
 	byte buf[MAX_PRINT_MSG + 4] = { 0xff, 0xff, 0xff, 0xff };
 
