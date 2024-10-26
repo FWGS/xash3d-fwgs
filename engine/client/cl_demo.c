@@ -1470,7 +1470,7 @@ static qboolean CL_ParseDemoHeader( const char *callee, const char *filename, fi
 		return false;
 	}
 
-	if( hdr->net_protocol != PROTOCOL_VERSION && hdr->net_protocol != PROTOCOL_LEGACY_VERSION )
+	if( hdr->net_protocol != PROTOCOL_VERSION && hdr->net_protocol != PROTOCOL_LEGACY_VERSION && hdr->net_protocol != PROTOCOL_GOLDSRC_VERSION_DEMO )
 	{
 		Con_Printf( S_ERROR "%s: net protocol outdated (%i should be %i or %i)\n",
 			callee, hdr->net_protocol, PROTOCOL_VERSION, PROTOCOL_LEGACY_VERSION );
