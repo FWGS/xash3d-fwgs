@@ -853,7 +853,6 @@ void SCR_Shutdown( void )
 {
 	if( !scr_init ) return;
 
-	Cmd_RemoveCommand( "timerefresh" );
 	Cmd_RemoveCommand( "skyname" );
 	Cmd_RemoveCommand( "viewpos" );
 	UI_SetActiveMenu( false );

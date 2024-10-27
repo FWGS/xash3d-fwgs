@@ -1261,6 +1261,7 @@ GL_RemoveCommands
 static void GL_RemoveCommands( void )
 {
 	gEngfuncs.Cmd_RemoveCommand( "r_info" );
+	gEngfuncs.Cmd_RemoveCommand( "timerefresh" );
 }
 
 /*
