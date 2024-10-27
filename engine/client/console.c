@@ -875,7 +875,6 @@ void Con_Print( const char *txt )
 			Con_DeleteLastLine();
 			cr_pending = 0;
 		}
-
 		c = *txt;
 
 		switch( c )
@@ -883,10 +882,13 @@ void Con_Print( const char *txt )
 		case '\0':
 			break;
 		case '\r':
-			Con_AddLine( buf, bufpos, true );
-			lastlength = CON_LINES_LAST().length;
-			cr_pending = 1;
-			bufpos = 0;
+			if( txt[1] != '\n' )
+			{
+				Con_AddLine( buf, bufpos, true );
+				lastlength = CON_LINES_LAST().length;
+				cr_pending = 1;
+				bufpos = 0;
+			}
 			break;
 		case '\n':
 			Con_AddLine( buf, bufpos, true );
@@ -894,6 +896,7 @@ void Con_Print( const char *txt )
 			bufpos = 0;
 			break;
 		default:
+
 			buf[bufpos++] = c | mask;
 			if(( bufpos >= sizeof( buf ) - 1 ) || bufpos >= ( con.linewidth - 1 ))
 			{
