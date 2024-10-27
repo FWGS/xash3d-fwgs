@@ -27,7 +27,7 @@ def build(bld):
 		'opus/celt/opus_custom_demo.c'
 	])
 	includes = ['opus/include/', 'opus/celt/', 'opus/silk/', 'opus/silk/float/']
-	defines = ['USE_ALLOCA', 'OPUS_BUILD', 'FLOAT_APPROX', 'PACKAGE_VERSION="1.5.2"', 'CUSTOM_MODES']
+	defines = ['USE_ALLOCA', 'OPUS_BUILD', 'FLOAT_APPROX', 'PACKAGE_VERSION="1.4.0"', 'CUSTOM_MODES']
 
 	bld.stlib(
 		source = sources,
