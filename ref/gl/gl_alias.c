@@ -21,8 +21,6 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "pmtrace.h"
 
-extern cvar_t r_shadows;
-
 typedef struct
 {
 	double		time;

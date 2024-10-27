@@ -1146,10 +1146,6 @@ void GL_InitExtensions( void )
 		gEngfuncs.Cvar_SetValue( "gl_finish", 1 );
 #endif
 
-	// we do not want to write vbo code that does not use multitexture
-	if( !GL_Support( GL_ARB_VERTEX_BUFFER_OBJECT_EXT ) || !GL_Support( GL_ARB_MULTITEXTURE ) || glConfig.max_texture_units < 2 )
-		gEngfuncs.Cvar_FullSet( "gl_vbo", "0", FCVAR_READ_ONLY );
-
 	R_RenderInfo_f();
 
 	tr.framecount = tr.visframecount = 1;
@@ -1191,6 +1187,11 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_ripple );
 	gEngfuncs.Cvar_RegisterVariable( &r_ripple_updatetime );
 	gEngfuncs.Cvar_RegisterVariable( &r_ripple_spawntime );
+	gEngfuncs.Cvar_RegisterVariable( &r_shadows );
+	gEngfuncs.Cvar_RegisterVariable( &r_vbo );
+	gEngfuncs.Cvar_RegisterVariable( &r_vbo_dlightmode );
+	gEngfuncs.Cvar_RegisterVariable( &r_vbo_overbrightmode );
+	gEngfuncs.Cvar_RegisterVariable( &r_vbo_detail );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );
@@ -1228,6 +1229,7 @@ register VBO cvars and get default value
 static void R_CheckVBO( void )
 {
 	qboolean disable = false;
+	int flags = 0;
 
 	// some bad GLES1 implementations breaks dlights completely
 	if( glConfig.max_texture_units < 3 )
@@ -1240,17 +1242,18 @@ static void R_CheckVBO( void )
 		disable = true;
 #endif
 
-	if( disable )
+	// we do not want to write vbo code that does not use multitexture
+	if( !GL_Support( GL_ARB_VERTEX_BUFFER_OBJECT_EXT ) || !GL_Support( GL_ARB_MULTITEXTURE ) || glConfig.max_texture_units < 2 )
 	{
-		r_vbo.flags = r_vbo_dlightmode.flags = 0;
-		r_vbo.string = "0";
-		r_vbo_dlightmode.string = "0";
+		flags = FCVAR_READ_ONLY;
+		disable = true;
 	}
 
-	gEngfuncs.Cvar_RegisterVariable( &r_vbo );
-	gEngfuncs.Cvar_RegisterVariable( &r_vbo_dlightmode );
-	gEngfuncs.Cvar_RegisterVariable( &r_vbo_overbrightmode );
-	gEngfuncs.Cvar_RegisterVariable( &r_vbo_detail );
+	if( disable )
+	{
+		gEngfuncs.Cvar_FullSet( r_vbo.name, "0", flags );
+		gEngfuncs.Cvar_FullSet( r_vbo_dlightmode.name, "0", flags );
+	}
 }
 
 /*
