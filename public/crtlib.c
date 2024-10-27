@@ -53,11 +53,13 @@ size_t Q_colorstr( const char *string )
 	return len;
 }
 
-static int Q_atoi_hex( int sign, const char *str )
+int Q_atoi_hex( int sign, const char *str )
 {
 	int c, val = 0;
 
-	str += 2;
+	if( str[0] == '0' && ( str[1] == 'x' || str[1] == 'X' ))
+		str += 2;
+
 	while( 1 )
 	{
 		c = *str++;
