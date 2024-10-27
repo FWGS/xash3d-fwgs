@@ -154,8 +154,6 @@ void R_StudioInit( void )
 
 	Matrix3x4_LoadIdentity( g_studio.rotationmatrix );
 
-	gEngfuncs.Cvar_RegisterVariable( &r_shadows );
-
 	g_studio.interpolate = true;
 	g_studio.framecount = 0;
 	m_fDoRemap = false;

@@ -767,6 +767,7 @@ extern convar_t	r_vbo_detail;
 extern convar_t	r_vbo_overbrightmode;
 extern convar_t r_studio_sort_textures;
 extern convar_t r_studio_drawelements;
+extern convar_t r_shadows;
 extern convar_t r_ripple;
 extern convar_t r_ripple_updatetime;
 extern convar_t r_ripple_spawntime;
