@@ -68,6 +68,7 @@ const char *Q_buildbranch( void );
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 #define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 size_t Q_colorstr( const char *string );
+int Q_atoi_hex( int sign, const char *str );
 int Q_atoi( const char *str );
 float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
