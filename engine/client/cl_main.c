@@ -3258,7 +3258,7 @@ qboolean CL_PrecacheResources( void )
 		switch( pRes->type )
 		{
 		case t_sound:
-			if( pRes->nIndex != -1 )
+			if( pRes->nIndex >= 0 && pRes->nIndex < ARRAYSIZE( cl.sound_precache ) && pRes->nIndex < ARRAYSIZE( cl.sound_index ))
 			{
 				if( FBitSet( pRes->ucFlags, RES_WASMISSING ))
 				{
@@ -3291,40 +3291,49 @@ qboolean CL_PrecacheResources( void )
 		case t_skin:
 			break;
 		case t_model:
-			cl.nummodels = Q_max( cl.nummodels, pRes->nIndex + 1 );
-			if( pRes->szFileName[0] != '*' )
+			if( pRes->nIndex >= 0 && pRes->nIndex < ARRAYSIZE( cl.models ))
 			{
-				if( pRes->nIndex != -1 )
+				cl.nummodels = Q_max( cl.nummodels, pRes->nIndex + 1 );
+				if( pRes->szFileName[0] != '*' )
 				{
-					cl.models[pRes->nIndex] = Mod_ForName( pRes->szFileName, false, true );
-
-					if( cl.models[pRes->nIndex] == NULL )
+					if( pRes->nIndex != -1 )
 					{
-						if( FBitSet( pRes->ucFlags, RES_FATALIFMISSING ))
+						cl.models[pRes->nIndex] = Mod_ForName( pRes->szFileName, false, true );
+
+						if( cl.models[pRes->nIndex] == NULL )
 						{
-							S_EndRegistration();
-							CL_Disconnect_f();
-							return false;
+							if( FBitSet( pRes->ucFlags, RES_FATALIFMISSING ))
+							{
+								S_EndRegistration();
+								CL_Disconnect_f();
+								return false;
+							}
 						}
 					}
-				}
-				else
-				{
-					CL_LoadClientSprite( pRes->szFileName );
+					else
+					{
+						CL_LoadClientSprite( pRes->szFileName );
+					}
 				}
 			}
 			break;
 		case t_decal:
-			if( !FBitSet( pRes->ucFlags, RES_CUSTOM ))
+			if( !FBitSet( pRes->ucFlags, RES_CUSTOM ) && pRes->nIndex >= 0 && pRes->nIndex < ARRAYSIZE( host.draw_decals ))
 				Q_strncpy( host.draw_decals[pRes->nIndex], pRes->szFileName, sizeof( host.draw_decals[0] ));
 			break;
 		case t_generic:
-			Q_strncpy( cl.files_precache[pRes->nIndex], pRes->szFileName, sizeof( cl.files_precache[0] ));
-			cl.numfiles = Q_max( cl.numfiles, pRes->nIndex + 1 );
+			if( pRes->nIndex >= 0 && pRes->nIndex < ARRAYSIZE( cl.files_precache ))
+			{
+				Q_strncpy( cl.files_precache[pRes->nIndex], pRes->szFileName, sizeof( cl.files_precache[0] ));
+				cl.numfiles = Q_max( cl.numfiles, pRes->nIndex + 1 );
+			}
 			break;
 		case t_eventscript:
-			Q_strncpy( cl.event_precache[pRes->nIndex], pRes->szFileName, sizeof( cl.event_precache[0] ));
-			CL_SetEventIndex( cl.event_precache[pRes->nIndex], pRes->nIndex );
+			if( pRes->nIndex >= 0 && pRes->nIndex < ARRAYSIZE( cl.event_precache ))
+			{
+				Q_strncpy( cl.event_precache[pRes->nIndex], pRes->szFileName, sizeof( cl.event_precache[0] ));
+				CL_SetEventIndex( cl.event_precache[pRes->nIndex], pRes->nIndex );
+			}
 			break;
 		default:
 			break;
