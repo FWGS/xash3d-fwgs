@@ -1776,7 +1776,7 @@ void GAME_EXPORT R_FireField( float *org, int radius, int modelIndex, int count,
 		else if( FBitSet( flags, TEFIRE_FLAG_ADDITIVE ))
 		{
 			pTemp->entity.curstate.rendermode = kRenderTransAdd;
-			pTemp->entity.curstate.renderamt = 80;
+			pTemp->entity.curstate.renderamt = 180;
 		}
 		else
 		{
