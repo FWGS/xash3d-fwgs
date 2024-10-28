@@ -23,7 +23,7 @@ static const byte *iff_end;
 static const byte *iff_lastChunk;
 static int iff_chunkLen;
 
-static int IsFourCC( const byte *ptr, const byte *fourcc )
+static int IsFourCC( const void *ptr, const void *fourcc )
 {
 	return 0 == memcmp( ptr, fourcc, 4 );
 }
