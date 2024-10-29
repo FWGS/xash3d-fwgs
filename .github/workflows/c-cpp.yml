@@ -75,7 +75,7 @@ jobs:
         include:
           - app: su.xash.Engine.Compat.i386
     container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-23.08
+      image: bilelmoussaoui/flatpak-github-actions:freedesktop-24.08
       options: --privileged
     steps:
     - name: Checkout
