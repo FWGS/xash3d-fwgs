@@ -1940,6 +1940,17 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	{
 		char netpath[MAX_SYSPATH], dirpath[MAX_SYSPATH];
 
+		// HACKHACK: when the code wants to access to root game directory
+		// it often uses ../ in conjunction with FS_AllowDirectPath
+		// it results in the access above the root game directory
+		// FS_Open with "write" flag doesn't have this problem because
+		// it looks up relative to fs_writepath
+		// the correct solution MIGHT be using fs_writepath instead of fs_rootdir here?
+		// but this need to be properly tested so as a temporary solution
+		// just strip ../
+		if( !Q_strncmp( name, "../", 3 ))
+			name += 3;
+
 		Q_snprintf( dirpath, sizeof( dirpath ), "%s/", fs_rootdir );
 		Q_snprintf( netpath, sizeof( netpath ), "%s%s", dirpath, name );
 
