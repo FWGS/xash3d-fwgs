@@ -591,6 +591,10 @@ static double Host_CalcFPS( void )
 		if( !gl_vsync.value )
 			fps = host_maxfps.value;
 	}
+	else if( !SV_Active() && CL_Protocol() == PROTO_GOLDSRC && cls.state != ca_disconnected && cls.state < ca_validate )
+	{
+		return 31.0;
+	}
 	else
 	{
 		if( !gl_vsync.value )
