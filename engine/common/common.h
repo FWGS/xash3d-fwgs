@@ -118,8 +118,9 @@ typedef enum
 #include "fscallback.h"
 
 // PERFORMANCE INFO
-#define MIN_FPS         20.0f		// host minimum fps value for maxfps.
-#define MAX_FPS         200.0f		// upper limit for maxfps.
+#define MIN_FPS         20.0f    // host minimum fps value for maxfps.
+#define MAX_FPS_SOFT    200.0f   // soft limit for maxfps.
+#define MAX_FPS_HARD    1000.0f  // multiplayer hard limit for maxfps.
 #define HOST_FPS		100.0f		// multiplayer games typical fps
 
 #define MAX_FRAMETIME	0.25f
@@ -164,6 +165,7 @@ extern convar_t	host_allow_materials;
 extern convar_t	host_developer;
 extern convar_t	host_limitlocal;
 extern convar_t	host_maxfps;
+extern convar_t	fps_override;
 extern convar_t	sys_timescale;
 extern convar_t	cl_filterstuffcmd;
 extern convar_t	rcon_password;

@@ -262,8 +262,8 @@ static void SV_CheckCmdTimes( void )
 		if( sv_fps.value < MIN_FPS )
 			Cvar_SetValue( "sv_fps", MIN_FPS );
 
-		if( sv_fps.value > MAX_FPS )
-			Cvar_SetValue( "sv_fps", MAX_FPS );
+		if( sv_fps.value > MAX_FPS_HARD )
+			Cvar_SetValue( "sv_fps", MAX_FPS_HARD );
 	}
 
 	if( Host_IsLocalGame( ))
