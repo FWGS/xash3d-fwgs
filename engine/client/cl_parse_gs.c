@@ -294,7 +294,6 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 	else
 	{
 		oldframe = NULL;
-		cl.send_reply = true;
 		cls.demowaiting = false;
 	}
 

@@ -789,12 +789,6 @@ static void CL_WritePacket( void )
 	if(( host.realtime >= cls.nextcmdtime ) && Netchan_CanPacket( &cls.netchan, true ))
 		send_command = true;
 
-	if( cl.send_reply )
-	{
-		cl.send_reply = false;
-		send_command = true;
-	}
-
 	// spectator is not sending cmds to server
 	if( cls.spectator && cls.state == ca_active && cl.delta_sequence == cl.validsequence )
 	{
@@ -2774,7 +2768,6 @@ static void CL_ReadNetMessage( void )
 		}
 
 		CL_ParseNetMessage( &net_message, parsefn );
-		cl.send_reply = true;
 	}
 
 	// build list of all solid entities per next frame (exclude clients)
