@@ -813,9 +813,7 @@ static void CL_WritePacket( void )
 	{
 		int	outgoing_sequence;
 
-		if( cl_cmdrate.value > 0 ) // clamped between 10 and 100 fps
-			cls.nextcmdtime = host.realtime + bound( 0.1f, ( 1.0f / cl_cmdrate.value ), 0.01f );
-		else cls.nextcmdtime = host.realtime; // always able to send right away
+		cls.nextcmdtime = host.realtime + ( 1.0f / cl_cmdrate.value );
 
 		if( cls.lastoutgoingcommand == -1 )
 		{
