@@ -211,7 +211,6 @@ typedef struct
 	int		last_command_ack;
 	int		last_incoming_sequence;
 
-	qboolean		send_reply;
 	qboolean		background;		// not real game, just a background
 	qboolean		first_frame;		// first rendering frame
 	qboolean		proxy_redirect;		// spectator stuff
