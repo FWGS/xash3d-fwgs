@@ -1674,7 +1674,10 @@ static void Touch_Motion( touchEventType type, int fingerID, float x, float y, f
 	if( fingerID == touch.look_finger )
 	{
 		if( touch.precision )
-			dx *= touch_precise_amount.value, dy *= touch_precise_amount.value;
+		{
+			dx *= touch_precise_amount.value;
+			dy *= touch_precise_amount.value;
+		}
 
 		if( touch_nonlinear_look.value )
 		{
@@ -1704,7 +1707,8 @@ static void Touch_Motion( touchEventType type, int fingerID, float x, float y, f
 			return;
 
 		// accumulate
-		touch.yaw -= dx * touch_yaw.value, touch.pitch += dy * touch_pitch.value;
+		touch.yaw -= dx * touch_yaw.value;
+		touch.pitch += dy * touch_pitch.value;
 	}
 }
 
