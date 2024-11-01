@@ -3194,9 +3194,15 @@ qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmap )
 
 	buildlightmap &= !r_fullbright->value && !!WORLDMODEL->lightdata;
 
-	// draw details in regular way
-	if( r_vbo_detail.value == 0 && surf->texinfo )
-		R_RenderDetailsForSurface( surf, surf->texinfo->texture );
+	if( surf->texinfo != NULL )
+	{
+		// fullbright textures are rare, no sense to build VBO for them
+		R_RenderFullbrightForSurface( surf, surf->texinfo->texture );
+
+		// draw details in regular way
+		if( r_vbo_detail.value )
+			R_RenderDetailsForSurface( surf, surf->texinfo->texture );
+	}
 
 	if( buildlightmap && R_CheckLightMap( surf ))
 	{
