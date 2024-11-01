@@ -240,6 +240,17 @@ typedef struct mextrasurf_s
 	intptr_t	reserved[32];	// just for future expansions or mod-makers
 } mextrasurf_t;
 
+#ifdef SUPPORT_HL25_EXTENDED_STRUCTS
+// additional struct at the end of msurface_t for HL25 compatibility
+typedef struct mdisplaylist_s
+{
+	unsigned int gl_displaylist;
+	int          rendermode;
+	float        scrolloffset;
+	int          renderDetailTexture;
+} mdisplaylist_t;
+#endif
+
 struct msurface_s
 {
 	int		visframe;		// should be drawn when node is crossed
@@ -272,6 +283,10 @@ struct msurface_s
 
 	color24		*samples;		// note: this is the actual lightmap data for this surface
 	decal_t		*pdecals;
+
+#ifdef SUPPORT_HL25_EXTENDED_STRUCTS
+	mdisplaylist_t displaylist;
+#endif
 };
 
 typedef struct hull_s
