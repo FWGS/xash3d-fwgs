@@ -135,6 +135,9 @@ def options(opt):
 	grp.add_option('--enable-bsp2', action = 'store_true', dest = 'SUPPORT_BSP2_FORMAT', default = False,
 		help = 'build engine and renderers with BSP2 map support(recommended for Quake, breaks compatibility!) [default: %(default)s]')
 
+	grp.add_option('--enable-hl25-extended-structs', action = 'store_true', dest = 'SUPPORT_HL25_EXTENDED_STRUCTS', default = False,
+		help = 'build engine and renderers with HL25 extended structs compatibility (might be required for some mods) [default: %(default)s]')
+
 	grp.add_option('--low-memory-mode', action = 'store', dest = 'LOW_MEMORY', default = 0, type = int,
 		help = 'enable low memory mode (only for devices have <128 ram)')
 
@@ -377,6 +380,7 @@ def configure(conf):
 	conf.env.DEDICATED     = conf.options.DEDICATED
 
 	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
+	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
 	# disable game_launch compiling on platform where it's not needed
 	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos'] or conf.env.MAGX or conf.env.DEDICATED or conf.env.STATIC_LINKING
