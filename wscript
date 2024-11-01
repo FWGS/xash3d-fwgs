@@ -375,7 +375,8 @@ def configure(conf):
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
-	conf.env.SUPPORT_BSP2_FORMAT = conf.options.SUPPORT_BSP2_FORMAT
+
+	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
 
 	# disable game_launch compiling on platform where it's not needed
 	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos'] or conf.env.MAGX or conf.env.DEDICATED or conf.env.STATIC_LINKING
