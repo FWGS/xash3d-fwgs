@@ -17,13 +17,10 @@ def options(opt):
 	return
 
 def configure(conf):
-	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
-
 	conf.env.GL_STATIC = conf.options.GL_STATIC
 	if conf.env.GL_STATIC:
 		conf.check(lib='GL')
 
-	conf.define('REF_DLL', 1)
 	if conf.env.DEST_OS2 == 'android':
 		conf.check_cc(lib='log')
 
@@ -74,6 +71,6 @@ def build(bld):
 			target = k,
 			includes = includes,
 			use = libs + v['libs'],
-			defines = v['defines'],
+			defines = v['defines'] + ['REF_DLL=1'],
 			install_path = bld.env.LIBDIR,
 			subsystem = bld.env.MSVC_SUBSYSTEM)

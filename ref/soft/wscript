@@ -8,12 +8,10 @@ import os
 top = '.'
 
 def options(opt):
-	# stub
 	return
 
 def configure(conf):
-	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
-	conf.define('REF_DLL', 1)
+	return
 
 def build(bld):
 	libs = [ 'engine_includes', 'werror' ]
@@ -26,6 +24,7 @@ def build(bld):
 	bld.shlib(source   = bld.path.ant_glob('*.c'),
 		target   = 'ref_soft',
 		includes = '.',
+		defines  = 'REF_DLL=1',
 		use      = libs,
 		install_path = bld.env.LIBDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM
