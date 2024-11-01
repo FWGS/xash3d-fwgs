@@ -176,7 +176,7 @@ def configure(conf):
 	conf.load('fwgslib reconfigure compiler_optimizations')
 	if conf.options.ALLOW64:
 		conf.env.MSVC_TARGETS = ['x64']
-	elif sys.maxsize > 2 ** 32:
+	elif sys.maxsize > 2 ** 32 and not conf.options.MSVC_WINE:
 		conf.env.MSVC_TARGETS = ['amd64_x86', 'x86']
 	else:
 		conf.env.MSVC_TARGETS = ['x86']
