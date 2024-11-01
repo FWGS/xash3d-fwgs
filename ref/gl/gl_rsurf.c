@@ -656,27 +656,16 @@ static void LM_UploadDynamicBlock( void )
 
 static void LM_UploadBlock( qboolean dynamic )
 {
-	int	i;
-
 	if( dynamic )
 	{
-		int	height = 0;
-
-		for( i = 0; i < BLOCK_SIZE; i++ )
-		{
-			if( gl_lms.allocated[i] > height )
-				height = gl_lms.allocated[i];
-		}
-
 		GL_Bind( XASH_TEXTURE0, tr.dlightTexture );
-		pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
+		LM_UploadDynamicBlock();
 	}
 	else
 	{
 		rgbdata_t	r_lightmap;
 		char	lmName[16];
-
-		i = gl_lms.current_lightmap_texture;
+		int i = gl_lms.current_lightmap_texture;
 
 		// upload static lightmaps only during loading
 		memset( &r_lightmap, 0, sizeof( r_lightmap ));
