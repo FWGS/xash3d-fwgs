@@ -34,10 +34,8 @@ CL_RunLightStyles
 */
 void CL_RunLightStyles( void )
 {
-	int		i, k, flight, clight;
-	float		l, lerpfrac, backlerp;
-	float		frametime = (gp_cl->time - gp_cl->oldtime);
-	lightstyle_t	*ls;
+	int i;
+	float frametime = (gp_cl->time - gp_cl->oldtime);
 
 	if( !WORLDMODEL )
 		return;
@@ -53,7 +51,9 @@ void CL_RunLightStyles( void )
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
 	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
-		ls = gEngfuncs.GetLightStyle( i );
+		int k, flight, clight;
+		float l, lerpfrac, backlerp;
+		lightstyle_t *ls = &tr.lightstyles[i];
 
 		if( !gp_cl->paused && frametime <= 0.1f )
 			ls->time += frametime; // evaluate local time
@@ -161,7 +161,7 @@ void R_PushDlights( void )
 
 	for( i = 0; i < MAX_DLIGHTS; i++ )
 	{
-		dlight_t *l = gEngfuncs.GetDynamicLight( i );
+		dlight_t *l = &tr.dlights[i];
 
 		if( l->die < gp_cl->time || !l->radius )
 			continue;
