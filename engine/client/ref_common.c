@@ -342,7 +342,8 @@ static const ref_api_t gEngfuncs =
 	Mod_SampleSizeForFace,
 	Mod_BoxVisible,
 	Mod_PointInLeaf,
-	Mod_CreatePolygonsForHull,
+	R_DrawWorldHull,
+	R_DrawModelHull,
 
 	R_StudioGetAnim,
 	pfnStudioEvent,

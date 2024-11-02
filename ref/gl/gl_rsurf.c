@@ -1745,7 +1745,12 @@ void R_DrawBrushModel( cl_entity_t *e )
 	pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 	pglDisable( GL_BLEND );
 	pglDepthMask( GL_TRUE );
-	R_DrawModelHull();	// draw before restore
+
+	pglPolygonOffset( 1.0f, 2.0f );
+	pglEnable( GL_POLYGON_OFFSET_FILL );
+	gEngfuncs.R_DrawModelHull( clmodel );	// draw before restore
+	pglDisable( GL_POLYGON_OFFSET_FILL );
+
 	R_LoadIdentity();	// restore worldmatrix
 }
 
@@ -3626,7 +3631,7 @@ void R_DrawWorld( void )
 
 	R_DrawTriangleOutlines ();
 
-	R_DrawWorldHull();
+	gEngfuncs.R_DrawWorldHull();
 }
 
 /*

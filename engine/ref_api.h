@@ -51,7 +51,9 @@ GNU General Public License for more details.
 //    PARM_SKY_SPHERE and PARM_SURF_SAMPLESIZE are now handled at engine side.
 //    VGUI rendering code is mostly moved back to engine.
 //    Implemented texture replacement.
-#define REF_API_VERSION 8
+// 9. Removed gamma functions. Renderer is supposed to get them through PARM_GET_*_PTR.
+//    Move hulls rendering back to engine
+#define REF_API_VERSION 9
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -344,7 +346,8 @@ typedef struct ref_api_s
 	int (*Mod_SampleSizeForFace)( const struct msurface_s *surf );
 	qboolean (*Mod_BoxVisible)( const vec3_t mins, const vec3_t maxs, const byte *visbits );
 	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node );
-	void (*Mod_CreatePolygonsForHull)( int hullnum );
+	void (*R_DrawWorldHull)( void );
+	void (*R_DrawModelHull)( model_t *mod );
 
 	// studio models
 	void *(*R_StudioGetAnim)( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
