@@ -478,7 +478,6 @@ static const ref_interface_t gReffuncs =
 	R_GetSpriteParms,
 	R_GetSpriteTexture,
 
-	Mod_LoadMapSprite,
 	Mod_ProcessRenderData,
 	Mod_StudioLoadTextures,
 

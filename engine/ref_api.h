@@ -55,7 +55,7 @@ GNU General Public License for more details.
 //    Move hulls rendering back to engine
 //    Removed lightstyle, dynamic and entity light functions. Renderer is supposed to get them through PARM_GET_*_PTR.
 //    CL_RunLightStyles now accepts lightstyles array.
-//    Removed R_DrawTileClear.
+//    Removed R_DrawTileClear and Mod_LoadMapSprite, as they're implemented on engine side
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
 #define REF_API_VERSION 9
 
@@ -550,7 +550,6 @@ typedef struct ref_interface_s
 
 	// model management
 	// flags ignored for everything except spritemodels
-	void (*Mod_LoadMapSprite)( struct model_s *mod, const void *buffer, size_t size, qboolean *loaded );
 	qboolean (*Mod_ProcessRenderData)( model_t *mod, qboolean create, const byte *buffer );
 	void (*Mod_StudioLoadTextures)( model_t *mod, void *data );
 
