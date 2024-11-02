@@ -33,15 +33,41 @@ static uint		r_blocklights[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*3];
 static mextrasurf_t		*fullbright_surfaces[MAX_TEXTURES];
 static mextrasurf_t		*detail_surfaces[MAX_TEXTURES];
 static int		rtable[MOD_FRAMES][MOD_FRAMES];
-static qboolean		draw_alpha_surfaces = false;
-static qboolean		draw_fullbrights = false;
-static qboolean		draw_details = false;
+
+typedef struct
+{
+	int first, last;
+} separate_pass_t;
+
+static separate_pass_t draw_wateralpha = { 0, -1 };
+static separate_pass_t draw_alpha_surfaces = { 0, -1 };
+static separate_pass_t draw_fullbrights = { 0, -1 };
+static separate_pass_t draw_details = { 0, -1 };
 static msurface_t		*skychain = NULL;
 static gllightmapstate_t	gl_lms;
 
 static void LM_UploadBlock( qboolean dynamic );
 static qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmaps );
 static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
+
+static inline void R_AddToSeparatePass( separate_pass_t *sp, int num )
+{
+	if( sp->first > num )
+		sp->first = num;
+
+	if( sp->last < num )
+		sp->last = num;
+}
+
+static inline void R_ResetSeparatePass( separate_pass_t *sp )
+{
+	sp->last = -1;
+}
+
+static inline qboolean R_SeparatePassActive( const separate_pass_t *sp )
+{
+	return sp->last >= 0 ? true : false;
+}
 
 byte *Mod_GetCurrentVis( void )
 {
@@ -1033,7 +1059,7 @@ static void R_RenderFullbrights( void )
 	mextrasurf_t	*es, *p;
 	int		i;
 
-	if( !draw_fullbrights )
+	if( !R_SeparatePassActive( &draw_fullbrights ))
 		return;
 
 	R_AllowFog( false );
@@ -1043,10 +1069,11 @@ static void R_RenderFullbrights( void )
 	pglBlendFunc( GL_ONE, GL_ONE );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
-	for( i = 1; i < MAX_TEXTURES; i++ )
+	for( i = draw_fullbrights.first; i <= draw_fullbrights.last; i++ )
 	{
 		es = fullbright_surfaces[i];
-		if( !es ) continue;
+		if( !es )
+			continue;
 
 		GL_Bind( XASH_TEXTURE0, i );
 
@@ -1062,7 +1089,7 @@ static void R_RenderFullbrights( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 
-	draw_fullbrights = false;
+	R_ResetSeparatePass( &draw_fullbrights );
 	R_AllowFog( true );
 }
 
@@ -1078,7 +1105,7 @@ static void R_RenderDetails( int passes )
 	msurface_t	*fa;
 	int		i;
 
-	if( !draw_details )
+	if( !R_SeparatePassActive( &draw_details ))
 		return;
 
 	GL_SetupFogColorForSurfacesEx( passes, passes == 2 ? 0.5f : 1.0f, false );
@@ -1095,10 +1122,11 @@ static void R_RenderDetails( int passes )
 		pglEnable( GL_POLYGON_OFFSET_FILL );
 	}
 
-	for( i = 1; i < MAX_TEXTURES; i++ )
+	for( i = draw_details.first; i <= draw_details.last; i++ )
 	{
 		es = detail_surfaces[i];
-		if( !es ) continue;
+		if( !es )
+			continue;
 
 		GL_Bind( XASH_TEXTURE0, i );
 
@@ -1118,7 +1146,7 @@ static void R_RenderDetails( int passes )
 	pglDepthFunc( GL_LEQUAL );
 	pglDisable( GL_POLYGON_OFFSET_FILL );
 
-	draw_details = false;
+	R_ResetSeparatePass( &draw_details );
 
 	// restore fog here
 	GL_ResetFogColor();
@@ -1131,7 +1159,7 @@ static void R_RenderFullbrightForSurface( msurface_t *fa, texture_t *t )
 
 	fa->info->lumachain = fullbright_surfaces[t->fb_texturenum];
 	fullbright_surfaces[t->fb_texturenum] = fa->info;
-	draw_fullbrights = true;
+	R_AddToSeparatePass( &draw_fullbrights, t->fb_texturenum );
 }
 
 static void R_RenderDetailsForSurface( msurface_t *fa, texture_t *t )
@@ -1144,25 +1172,19 @@ static void R_RenderDetailsForSurface( msurface_t *fa, texture_t *t )
 		// don't apply detail textures for windows in the fog
 		if( RI.currententity->curstate.rendermode != kRenderTransTexture )
 		{
-			if( t->dt_texturenum )
-			{
-				fa->info->detailchain = detail_surfaces[t->dt_texturenum];
-				detail_surfaces[t->dt_texturenum] = fa->info;
-			}
-			else
-			{
-				// draw stub detail texture for underwater surfaces
-				fa->info->detailchain = detail_surfaces[tr.grayTexture];
-				detail_surfaces[tr.grayTexture] = fa->info;
-			}
-			draw_details = true;
+			// draw stub detail texture for underwater surfaces
+			int texturenum = t->dt_texturenum ? t->dt_texturenum : tr.grayTexture;
+
+			fa->info->detailchain = detail_surfaces[texturenum];
+			detail_surfaces[texturenum] = fa->info;
+			R_AddToSeparatePass( &draw_details, texturenum );
 		}
 	}
 	else if( t->dt_texturenum )
 	{
 		fa->info->detailchain = detail_surfaces[t->dt_texturenum];
 		detail_surfaces[t->dt_texturenum] = fa->info;
-		draw_details = true;
+		R_AddToSeparatePass( &draw_details, t->dt_texturenum );
 	}
 }
 
@@ -1351,11 +1373,14 @@ static void R_DrawTextureChains( void )
 			continue;
 
 		if(( s->flags & SURF_DRAWTURB ) && tr.movevars->wateralpha < 1.0f )
+		{
+			R_AddToSeparatePass( &draw_wateralpha, i );
 			continue;	// draw translucent water later
+		}
 
 		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( s->flags, SURF_TRANSPARENT ))
 		{
-			draw_alpha_surfaces = true;
+			R_AddToSeparatePass( &draw_alpha_surfaces, i );
 			continue;	// draw transparent surfaces later
 		}
 
@@ -1376,7 +1401,7 @@ void R_DrawAlphaTextureChains( void )
 	msurface_t	*s;
 	texture_t		*t;
 
-	if( !draw_alpha_surfaces )
+	if( !R_SeparatePassActive( &draw_alpha_surfaces ))
 		return;
 
 	memset( gl_lms.lightmap_surfaces, 0, sizeof( gl_lms.lightmap_surfaces ));
@@ -1396,12 +1421,12 @@ void R_DrawAlphaTextureChains( void )
 	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 	RI.currententity->curstate.rendermode = kRenderTransAlpha;
-	draw_alpha_surfaces = false;
 
-	for( i = 0; i < WORLDMODEL->numtextures; i++ )
+	for( i = draw_alpha_surfaces.first; i <= draw_alpha_surfaces.last; i++ )
 	{
 		t = WORLDMODEL->textures[i];
-		if( !t ) continue;
+		if( !t )
+			continue;
 
 		s = t->texturechain;
 
@@ -1412,6 +1437,8 @@ void R_DrawAlphaTextureChains( void )
 			R_RenderBrushPoly( s, CULL_VISIBLE );
 		t->texturechain = NULL;
 	}
+
+	R_ResetSeparatePass( &draw_alpha_surfaces );
 
 	GL_ResetFogColor();
 	R_BlendLightmaps();
@@ -1434,7 +1461,7 @@ void R_DrawWaterSurfaces( void )
 		return;
 
 	// non-transparent water is already drawed
-	if( tr.movevars->wateralpha >= 1.0f )
+	if( !R_SeparatePassActive( &draw_wateralpha ))
 		return;
 
 	// restore worldmodel
@@ -1451,7 +1478,7 @@ void R_DrawWaterSurfaces( void )
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 	pglColor4f( 1.0f, 1.0f, 1.0f, tr.movevars->wateralpha );
 
-	for( i = 0; i < WORLDMODEL->numtextures; i++ )
+	for( i = draw_wateralpha.first; i <= draw_wateralpha.last; i++ )
 	{
 		t = WORLDMODEL->textures[i];
 		if( !t ) continue;
@@ -1470,6 +1497,8 @@ void R_DrawWaterSurfaces( void )
 
 		t->texturechain = NULL;
 	}
+
+	R_ResetSeparatePass( &draw_wateralpha );
 
 	pglDisable( GL_BLEND );
 	pglDepthMask( GL_TRUE );
