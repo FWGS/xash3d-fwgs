@@ -180,25 +180,15 @@ format in r_blocklights
 */
 static void R_BuildLightMap( void )
 {
-	int		smax, tmax;
-	uint		*bl, scale;
-	int		i, map, size, s, t;
-	int		sample_size;
-	msurface_t *surf = r_drawsurf.surf;
-	mextrasurf_t	*info = surf->info;
-	color24		*lm;
-	qboolean dynamic = 0;
+	int map, t, i;
+	const msurface_t *surf = r_drawsurf.surf;
+	const mextrasurf_t *info = surf->info;
+	const int sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+	int smax = ( info->lightextents[0] / sample_size ) + 1;
+	int tmax = ( info->lightextents[1] / sample_size ) + 1;
+	int size = smax * tmax;
 
-	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	smax = ( info->lightextents[0] / sample_size ) + 1;
-	tmax = ( info->lightextents[1] / sample_size ) + 1;
-
-	//smax = (surf->extents[0]>>4)+1;
-	//tmax = (surf->extents[1]>>4)+1;
-
-	size = smax * tmax;
-
-	if( surf->flags & SURF_CONVEYOR )
+	if( FBitSet( surf->flags, SURF_CONVEYOR ))
 	{
 		smax = ( info->lightextents[0] * 3 / sample_size ) + 1;
 		size = smax * tmax;
@@ -206,61 +196,44 @@ static void R_BuildLightMap( void )
 		return;
 	}
 
-	lm = surf->samples;
-
 	memset( blocklights, 0, sizeof( uint ) * size );
 
 	// add all the lightmaps
-	for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
+	for( map = 0; map < MAXLIGHTMAPS && surf->samples; map++ )
 	{
+		const color24 *lm = &surf->samples[map * size];
+		uint scale;
+		int i;
+
+		if( surf->styles[map] >= 255 )
+			break;
+
 		scale = tr.lightstylevalue[surf->styles[map]];
 
-		for( i = 0, bl = blocklights; i < size; i++, bl += 1, lm++ )
-		{
-			bl[0] += ( lm->r + lm->g + lm->b ) * scale;
-		}
+		for( i = 0; i < size; i++ )
+			blocklights[i] += ( lm[i].r + lm[i].g + lm[i].b ) * scale;
 	}
 
 	// add all the dynamic lights
 	if( surf->dlightframe == tr.framecount )
 		R_AddDynamicLights( surf );
 
-	// Put into texture format
-	//stride -= (smax << 2);
-	//bl = blocklights;
-
-	/*for( t = 0; t < tmax; t++, dest += stride )
-	{
-		for( s = 0; s < smax; s++ )
-		{
-			dest[0] = Q_min((bl[0] >> 7), 255 );
-			//dest[1] = Q_min((bl[1] >> 7), 255 );
-			//dest[2] = Q_min((bl[2] >> 7), 255 );
-			//dest[3] = 255;
-
-			bl += 3;
-			dest += 4;
-		}
-	}*/
 	// bound, invert, and shift
-		for (i=0 ; i<size ; i++)
-		{
-			if( blocklights[i] < 65280 )
-				t = gEngfuncs.LightToTexGammaEx( blocklights[i] >> 6 ) << 6;
-			else t = (int)blocklights[i];
+	for( i = 0; i < size; i++ )
+	{
+		if( blocklights[i] < 65280 )
+			t = gEngfuncs.LightToTexGammaEx( blocklights[i] >> 6 ) << 6;
+		else t = (int)blocklights[i];
 
-			if (t < 0)
-				t = 0;
-			if( t > 65535 * 3 )
-				t = 65535 * 3;
-			t = t / 2048 / 3;//(255*256 - t) >> (8 - VID_CBITS);
+		t = bound( 0, t, 65535 * 3 );
+		t = t / 2048 / 3;//(255*256 - t) >> (8 - VID_CBITS);
 
-			//if (t < (1 << 6))
-				//t = (1 << 6);
-			t = t << 8;
+		//if (t < (1 << 6))
+			//t = (1 << 6);
+		t = t << 8;
 
-			blocklights[i] = t;
-		}
+		blocklights[i] = t;
+	}
 }
 #else
 

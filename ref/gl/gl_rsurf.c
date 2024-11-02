@@ -729,38 +729,40 @@ Combine and scale multiple lightmaps into the floating
 format in r_blocklights
 =================
 */
-static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean dynamic )
+static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qboolean dynamic )
 {
-	int		smax, tmax;
-	uint		*bl, scale;
-	int		i, map, size, s, t;
-	int		sample_size;
-	mextrasurf_t	*info = surf->info;
-	color24		*lm;
+	int map, t;
+	const mextrasurf_t *info = surf->info;
 	int lightscale;
 
-	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	smax = ( info->lightextents[0] / sample_size ) + 1;
-	tmax = ( info->lightextents[1] / sample_size ) + 1;
-	size = smax * tmax;
+	const int sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+	const int smax = ( info->lightextents[0] / sample_size ) + 1;
+	const int tmax = ( info->lightextents[1] / sample_size ) + 1;
+	const int size = smax * tmax;
+
 	if( gl_overbright.value )
 		lightscale = ( R_HasEnabledVBO() && !r_vbo_overbrightmode.value) ? 171 : 256;
 	else lightscale = ( pow( 2.0f, 1.0f / v_lightgamma->value ) * 256 ) + 0.5;
 
-	lm = surf->samples;
-
 	memset( r_blocklights, 0, sizeof( uint ) * size * 3 );
 
 	// add all the lightmaps
-	for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255 && lm; map++ )
+	for( map = 0; map < MAXLIGHTMAPS && surf->samples; map++ )
 	{
+		const color24 *lm = &surf->samples[map * size];
+		uint scale;
+		int i;
+
+		if( surf->styles[map] >= 255 )
+			break;
+
 		scale = tr.lightstylevalue[surf->styles[map]];
 
-		for( i = 0, bl = r_blocklights; i < size; i++, bl += 3, lm++ )
+		for( i = 0; i < size; i++ )
 		{
-			bl[0] += lm->r * scale;
-			bl[1] += lm->g * scale;
-			bl[2] += lm->b * scale;
+			r_blocklights[i * 3 + 0] += lm[i].r * scale;
+			r_blocklights[i * 3 + 1] += lm[i].g * scale;
+			r_blocklights[i * 3 + 2] += lm[i].b * scale;
 		}
 	}
 
@@ -768,15 +770,16 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 	if( surf->dlightframe == tr.framecount && dynamic )
 		R_AddDynamicLights( surf );
 
-	// Put into texture format
-	stride -= (smax << 2);
-	bl = r_blocklights;
-
-	for( t = 0; t < tmax; t++, dest += stride )
+	for( t = 0; t < tmax; t++ )
 	{
+		int s;
+
 		for( s = 0; s < smax; s++ )
 		{
+			const uint *bl = &r_blocklights[(s + (t * smax)) * 3];
+			byte *dst = &dest[(t * stride) + (s * 4)];
 			int i;
+
 			for( i = 0; i < 3; i++ )
 			{
 				int t = bl[i] * lightscale >> 14;
@@ -784,12 +787,9 @@ static void R_BuildLightMap( msurface_t *surf, byte *dest, int stride, qboolean 
 				if( t > 1023 )
 					t = 1023;
 
-				dest[i] = gEngfuncs.LightToTexGammaEx( t ) >> 2;
+				dst[i] = gEngfuncs.LightToTexGammaEx( t ) >> 2;
 			}
-			dest[3] = 255;
-
-			bl += 3;
-			dest += 4;
+			dst[3] = 255;
 		}
 	}
 }
