@@ -191,7 +191,7 @@ static void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 	}
 	else
 	{
-		ref.dllFuncs.FillRGBABlend( x, y, w, h, vgui.color[0], vgui.color[1], vgui.color[2], vgui.color[3] );
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, x, y, w, h, vgui.color[0], vgui.color[1], vgui.color[2], vgui.color[3] );
 	}
 }
 
