@@ -217,9 +217,7 @@ static void R_BuildLightMap( void )
 
 		for( i = 0, bl = blocklights; i < size; i++, bl += 1, lm++ )
 		{
-			bl[0] += lm->r * scale;
-			bl[1] += lm->g * scale;
-			bl[2] += lm->b * scale;
+			bl[0] += ( lm->r + lm->g + lm->b ) * scale;
 		}
 	}
 
