@@ -191,17 +191,6 @@ byte LightToTexGamma( byte b )
 	return lightgammatable[b << 2] >> 2;
 }
 
-uint LightToTexGammaEx( uint b )
-{
-	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
-		return b;
-
-	if( unlikely( b >= ARRAYSIZE( lightgammatable )))
-		return 0;
-
-	return lightgammatable[b];
-}
-
 uint ScreenGammaTable( uint b )
 {
 	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))

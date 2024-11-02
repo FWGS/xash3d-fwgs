@@ -426,13 +426,6 @@ typedef struct ref_api_s
 	void *(*SW_LockBuffer)( void );
 	void (*SW_UnlockBuffer)( void );
 
-	// gamma
-	byte (*LightToTexGamma)( byte );	// software gamma support
-	uint (*LightToTexGammaEx)( uint );	// software gamma support
-	byte (*TextureToGamma)( byte );
-	uint (*ScreenGammaTable)( uint );
-	uint (*LinearGammaTable)( uint );
-
 	// renderapi
 	lightstyle_t*	(*GetLightStyle)( int number );
 	dlight_t*	(*GetDynamicLight)( int number );
