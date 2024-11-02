@@ -194,12 +194,6 @@ static int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 	return 0;
 }
 
-static void Mod_LoadMapSprite( struct model_s *mod, const void *buffer, size_t size, qboolean *loaded )
-{
-	*loaded = false;
-	return;
-}
-
 static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer )
 {
 	return true;
@@ -504,7 +498,6 @@ static const ref_interface_t gReffuncs =
 	.R_GetSpriteParms    = R_GetSpriteParms,
 	.R_GetSpriteTexture  = R_GetSpriteTexture,
 
-	.Mod_LoadMapSprite      = Mod_LoadMapSprite,
 	.Mod_ProcessRenderData  = Mod_ProcessRenderData,
 	.Mod_StudioLoadTextures = Mod_StudioLoadTextures,
 
