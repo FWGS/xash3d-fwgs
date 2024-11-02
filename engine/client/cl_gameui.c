@@ -679,10 +679,8 @@ static void GAME_EXPORT pfnFillRGBA( int x, int y, int width, int height, int r,
 	g = bound( 0, g, 255 );
 	b = bound( 0, b, 255 );
 	a = bound( 0, a, 255 );
-	ref.dllFuncs.Color4ub( r, g, b, a );
-	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, R_GetBuiltinTexture( REF_WHITE_TEXTURE ) );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, x, y, width, height, r, g, b, a );
 }
 
 /*

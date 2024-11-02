@@ -115,7 +115,7 @@ static void R_DrawStretchPic( float x, float y, float w, float h, float s1, floa
 	;
 }
 
-static void FillRGBA( float x, float y, float w, float h, int r, int g, int b, int a )
+static void FillRGBA( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a )
 {
 	;
 }
@@ -481,7 +481,6 @@ static const ref_interface_t gReffuncs =
 	.R_DrawStretchRaw = R_DrawStretchRaw,
 	.R_DrawStretchPic = R_DrawStretchPic,
 	.FillRGBA         = FillRGBA,
-	.FillRGBABlend    = FillRGBA,
 	.WorldToScreen    = WorldToScreen,
 
 	.VID_ScreenShot  = VID_ScreenShot,

@@ -1144,7 +1144,7 @@ static void OSK_DrawSymbolButton( int symb, float x, float y, float width, float
 		h = height * refState.height;
 
 	if( symb == osk.curbutton.val )
-		ref.dllFuncs.FillRGBABlend( x1, y1, w, h, 255, 160, 0, 100 );
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, x1, y1, w, h, 255, 160, 0, 100 );
 
 	if( !symb || symb == ' ' || (symb >= OSK_TAB && symb < OSK_SPECKEY_LAST ) )
 		return;
@@ -1191,7 +1191,7 @@ void OSK_Draw( void )
 		return;
 
 	// draw keyboard
-	ref.dllFuncs.FillRGBABlend( X_START * refState.width, Y_START * refState.height,
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, X_START * refState.width, Y_START * refState.height,
 					  X_STEP * MAX_OSK_ROWS * refState.width,
 					  Y_STEP * MAX_OSK_LINES * refState.height, 100, 100, 100, 100 );
 

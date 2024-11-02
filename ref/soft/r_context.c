@@ -55,25 +55,13 @@ CL_FillRGBA
 
 =============
 */
-static void GAME_EXPORT CL_FillRGBA( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
+static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _w, float _h, byte r, byte g, byte b, byte a )
 {
-	vid.rendermode = kRenderTransAdd;
+	vid.rendermode = rendermode;
 	_TriColor4ub(r,g,b,a);
 	Draw_Fill(_x,_y,_w,_h);
 }
 
-/*
-=============
-pfnFillRGBABlend
-
-=============
-*/
-static void GAME_EXPORT CL_FillRGBABlend( float _x, float _y, float _w, float _h, int r, int g, int b, int a )
-{
-	vid.rendermode = kRenderTransAlpha;
-	_TriColor4ub(r,g,b,a);
-	Draw_Fill(_x,_y,_w,_h);
-}
 void Mod_UnloadTextures( model_t *mod );
 
 static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
@@ -467,7 +455,6 @@ static const ref_interface_t gReffuncs =
 	R_DrawStretchRaw,
 	R_DrawStretchPic,
 	CL_FillRGBA,
-	CL_FillRGBABlend,
 	R_WorldToScreen,
 
 	VID_ScreenShot,
