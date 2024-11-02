@@ -196,7 +196,7 @@ uint LightToTexGammaEx( uint b )
 	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
 		return b;
 
-	if( unlikely( b > ARRAYSIZE( lightgammatable )))
+	if( unlikely( b >= ARRAYSIZE( lightgammatable )))
 		return 0;
 
 	return lightgammatable[b];
@@ -207,7 +207,7 @@ uint ScreenGammaTable( uint b )
 	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
 		return b;
 
-	if( unlikely( b > ARRAYSIZE( screengammatable )))
+	if( unlikely( b >= ARRAYSIZE( screengammatable )))
 		return 0;
 
 	return screengammatable[b];
@@ -218,7 +218,7 @@ uint LinearGammaTable( uint b )
 	if( FBitSet( host.features, ENGINE_LINEAR_GAMMA_SPACE ))
 		return b;
 
-	if( unlikely( b > ARRAYSIZE( lineargammatable )))
+	if( unlikely( b >= ARRAYSIZE( lineargammatable )))
 		return 0;
 	return lineargammatable[b];
 }
