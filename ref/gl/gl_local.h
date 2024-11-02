@@ -346,7 +346,6 @@ void R_ClearDecals( void );
 // gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
-void R_DrawTileClear( int texnum, int x, int y, int w, int h );
 void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
 
 //
