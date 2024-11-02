@@ -246,55 +246,6 @@ void Draw_Fill (int x, int y, int w, int h)
 
 /*
 =============
-Draw_TileClear
-
-This repeats a 64*64 tile graphic to fill the screen around a sized down
-refresh window.
-=============
-*/
-void GAME_EXPORT R_DrawTileClear( int texnum, int x, int y, int w, int h )
-{
-	int		tw, th, x2, i, j;
-	image_t	*pic;
-	pixel_t *psrc, *pdest;
-
-	GL_SetRenderMode( kRenderNormal );
-	_TriColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-	GL_Bind( XASH_TEXTURE0, texnum );
-
-	pic = R_GetTexture( texnum );
-
-	tw = pic->width;
-	th = pic->height;
-	if (x < 0)
-	{
-		w += x;
-		x = 0;
-	}
-	if (y < 0)
-	{
-		h += y;
-		y = 0;
-	}
-	if (x + w > vid.width)
-		w = vid.width - x;
-	if (y + h > vid.height)
-		h = vid.height - y;
-	if (w <= 0 || h <= 0)
-		return;
-
-	x2 = x + w;
-	pdest = vid.buffer + y*vid.rowbytes;
-	for (i=0 ; i<h ; i++, pdest += vid.rowbytes)
-	{
-		psrc = pic->pixels[0] + tw * ((i+y)&63);
-		for (j=x ; j<x2 ; j++)
-			pdest[j] = psrc[j&63];
-	}
-}
-
-/*
-=============
 R_DrawStretchRaw
 =============
 */

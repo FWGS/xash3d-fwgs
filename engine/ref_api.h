@@ -55,6 +55,7 @@ GNU General Public License for more details.
 //    Move hulls rendering back to engine
 //    Removed lightstyle, dynamic and entity light functions. Renderer is supposed to get them through PARM_GET_*_PTR.
 //    CL_RunLightStyles now accepts lightstyles array.
+//    Removed R_DrawTileClear.
 #define REF_API_VERSION 9
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
@@ -515,7 +516,6 @@ typedef struct ref_interface_s
 	void (*R_Set2DMode)( qboolean enable );
 	void (*R_DrawStretchRaw)( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 	void (*R_DrawStretchPic)( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
-	void (*R_DrawTileClear)( int texnum, int x, int y, int w, int h );
 	void (*FillRGBA)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
 	void (*FillRGBABlend)( float x, float y, float w, float h, int r, int g, int b, int a ); // in screen space
 	int  (*WorldToScreen)( const vec3_t world, vec3_t screen );  // Returns 1 if it's z clipped

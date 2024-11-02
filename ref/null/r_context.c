@@ -115,11 +115,6 @@ static void R_DrawStretchPic( float x, float y, float w, float h, float s1, floa
 	;
 }
 
-static void R_DrawTileClear( int texnum, int x, int y, int w, int h )
-{
-	;
-}
-
 static void FillRGBA( float x, float y, float w, float h, int r, int g, int b, int a )
 {
 	;
@@ -485,7 +480,6 @@ static const ref_interface_t gReffuncs =
 	.R_Set2DMode      = R_SimpleStubBool,
 	.R_DrawStretchRaw = R_DrawStretchRaw,
 	.R_DrawStretchPic = R_DrawStretchPic,
-	.R_DrawTileClear  = R_DrawTileClear,
 	.FillRGBA         = FillRGBA,
 	.FillRGBABlend    = FillRGBA,
 	.WorldToScreen    = WorldToScreen,
