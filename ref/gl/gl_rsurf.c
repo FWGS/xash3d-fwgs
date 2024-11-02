@@ -3779,7 +3779,7 @@ void GL_RebuildLightmaps( void )
 	gl_lms.current_lightmap_texture = 0;
 
 	// setup all the lightstyles
-	CL_RunLightStyles();
+	CL_RunLightStyles((lightstyle_t *)ENGINE_GET_PARM( PARM_GET_LIGHTSTYLES_PTR ));
 
 	LM_InitBlock();
 
@@ -3843,7 +3843,7 @@ void GL_BuildLightmaps( void )
 	R_InitDlightTexture();
 
 	// setup all the lightstyles
-	CL_RunLightStyles();
+	CL_RunLightStyles((lightstyle_t *)ENGINE_GET_PARM( PARM_GET_LIGHTSTYLES_PTR ));
 
 	LM_InitBlock();
 

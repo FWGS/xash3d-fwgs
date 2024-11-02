@@ -1360,7 +1360,7 @@ void CL_EmitEntities( void )
 		return;
 
 	// animate lightestyles
-	ref.dllFuncs.CL_RunLightStyles ();
+	ref.dllFuncs.CL_RunLightStyles( CL_GetLightStyle( 0 ));
 
 	// decay dynamic lights
 	CL_DecayLights ();

@@ -35,7 +35,7 @@ CL_RunLightStyles
 
 ==================
 */
-void CL_RunLightStyles( void )
+void CL_RunLightStyles( lightstyle_t *ls )
 {
 	int i;
 	float frametime = (gp_cl->time - gp_cl->oldtime);
@@ -56,40 +56,41 @@ void CL_RunLightStyles( void )
 	{
 		int k, flight, clight;
 		float l, lerpfrac, backlerp;
-		lightstyle_t *ls = &tr.lightstyles[i];
 
 		if( !gp_cl->paused && frametime <= 0.1f )
-			ls->time += frametime; // evaluate local time
+			ls[i].time += frametime; // evaluate local time
 
-		flight = (int)Q_floor( ls->time * 10 );
-		clight = (int)Q_ceil( ls->time * 10 );
-		lerpfrac = ( ls->time * 10 ) - flight;
-		backlerp = 1.0f - lerpfrac;
-
-		if( !ls->length )
+		if( !ls[i].length )
 		{
 			tr.lightstylevalue[i] = 256;
 			continue;
 		}
-		else if( ls->length == 1 )
+		else if( ls[i].length == 1 )
 		{
 			// single length style so don't bother interpolating
-			tr.lightstylevalue[i] = ( ls->pattern[0] - 'a' ) * 22;
+			tr.lightstylevalue[i] = ( ls[i].map[0] ) * 22;
 			continue;
 		}
-		else if( !ls->interp || !cl_lightstyle_lerping->flags )
+
+		flight = (int)Q_floor( ls[i].time * 10 );
+
+		if( !ls[i].interp || !cl_lightstyle_lerping->value )
 		{
-			tr.lightstylevalue[i] = ( ls->pattern[flight%ls->length] - 'a' ) * 22;
+			tr.lightstylevalue[i] = ls[i].map[flight%ls[i].length] * 22;
 			continue;
 		}
+
+		clight = (int)Q_ceil( ls[i].time * 10 );
+		lerpfrac = ( ls[i].time * 10 ) - flight;
+		backlerp = 1.0f - lerpfrac;
 
 		// interpolate animating light
 		// frame just gone
-		k = ls->map[flight % ls->length];
+		k = ls[i].map[flight % ls[i].length];
 		l = (float)( k * 22.0f ) * backlerp;
 
 		// upcoming frame
-		k = ls->map[clight % ls->length];
+		k = ls[i].map[clight % ls[i].length];
 		l += (float)( k * 22.0f ) * lerpfrac;
 
 		tr.lightstylevalue[i] = (int)l;
