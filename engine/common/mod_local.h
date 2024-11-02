@@ -182,8 +182,8 @@ void Mod_PrintWorldStats_f( void );
 //
 // mod_dbghulls.c
 //
-void Mod_InitDebugHulls( model_t *mod );
-void Mod_CreatePolygonsForHull( int hullnum );
+void R_DrawWorldHull( void );
+void R_DrawModelHull( model_t *mod );
 void Mod_ReleaseHullPolygons( void );
 
 //

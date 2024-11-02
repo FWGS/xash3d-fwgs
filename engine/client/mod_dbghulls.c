@@ -1,6 +1,8 @@
 /*
 mod_dbghulls.c - loading & handling world and brushmodels
 Copyright (C) 2016 Uncle Mike
+Copyright (C) 2005 Kevin Shanahan
+Copyright (C) 1996-1997 Id Software, Inc.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -659,7 +661,7 @@ static void make_hull_windings( hull_t *hull, hull_model_t *model )
 	Con_Reportf( "%i hull polys\n", model->num_polys );
 }
 
-void Mod_InitDebugHulls( model_t *loadmodel )
+static void Mod_InitDebugHulls( model_t *loadmodel )
 {
 	int	i;
 
@@ -675,14 +677,14 @@ void Mod_InitDebugHulls( model_t *loadmodel )
 	}
 }
 
-void Mod_CreatePolygonsForHull( int hullnum )
+static void Mod_CreatePolygonsForHull( int hullnum )
 {
 	model_t	*mod = cl.worldmodel;
 	double	start, end;
 	char	name[8];
 	int	i;
 
-	if( hullnum < 1 || hullnum > 3 )
+	if( hullnum < 0 || hullnum > 3 )
 		return;
 
 	if( !world.num_hull_models )
@@ -702,6 +704,59 @@ void Mod_CreatePolygonsForHull( int hullnum )
 	}
 	end = Sys_DoubleTime();
 	Con_Printf( "build time %.3f secs\n", end - start );
+}
+
+static void R_DrawHull( hull_model_t *hull )
+{
+	winding_t *poly;
+
+	ref.dllFuncs.GL_Bind( XASH_TEXTURE0, R_GetBuiltinTexture( REF_WHITE_TEXTURE ));
+	ref.dllFuncs.TriRenderMode( kRenderNormal );
+	list_for_each_entry( poly, &hull->polys, chain )
+	{
+		int i;
+
+		srand((unsigned int)poly );
+		ref.dllFuncs.Color4ub( rand() & 255, rand() & 255, rand() & 255, 255 );
+
+		ref.dllFuncs.Begin( TRI_POLYGON );
+		for( i = 0; i < poly->numpoints; i++ )
+			ref.dllFuncs.Vertex3fv( poly->p[i] );
+		ref.dllFuncs.End();
+	}
+}
+
+void R_DrawWorldHull( void )
+{
+	if( r_showhull.value <= 0.0f )
+		return;
+
+	if( FBitSet( r_showhull.flags, FCVAR_CHANGED ))
+	{
+		int val = r_showhull.value;
+		if( val > 3 ) val = 0;
+		Mod_CreatePolygonsForHull( val );
+		ClearBits( r_showhull.flags, FCVAR_CHANGED );
+	}
+
+	R_DrawHull( &world.hull_models[0] );
+}
+
+void R_DrawModelHull( model_t *mod )
+{
+	int i;
+
+	if( r_showhull.value <= 0.0f )
+		return;
+
+	if( !mod || mod->name[0] != '*' )
+		return;
+
+	i = atoi( mod->name + 1 );
+	if( i < 1 || i >= world.num_hull_models )
+		return;
+
+	R_DrawHull( &world.hull_models[i] );
 }
 
 void Mod_ReleaseHullPolygons( void )
