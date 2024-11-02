@@ -296,6 +296,10 @@ typedef enum
 	PARM_GET_SCREENGAMMATABLE_PTR = -18,
 	PARM_GET_LINEARGAMMATABLE_PTR = -19,
 
+	PARM_GET_LIGHTSTYLES_PTR = -20,
+	PARM_GET_DLIGHTS_PTR = -21,
+	PARM_GET_ELIGHTS_PTR = -22,
+
 	// implemented by ref_dll
 
 	// returns non-null integer if filtering is enabled for texture
