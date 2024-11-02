@@ -787,7 +787,7 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 				if( t > 1023 )
 					t = 1023;
 
-				dst[i] = gEngfuncs.LightToTexGammaEx( t ) >> 2;
+				dst[i] = LightToTexGamma( t ) >> 2;
 			}
 			dst[3] = 255;
 		}

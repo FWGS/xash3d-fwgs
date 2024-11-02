@@ -291,6 +291,11 @@ typedef enum
 	PARM_GET_PALETTE_PTR   = -14, // clgame.palette
 	PARM_GET_VIEWENT_PTR   = -15, // clgame.viewent
 
+	PARM_GET_TEXGAMMATABLE_PTR = -16,
+	PARM_GET_LIGHTGAMMATABLE_PTR = -17,
+	PARM_GET_SCREENGAMMATABLE_PTR = -18,
+	PARM_GET_LINEARGAMMATABLE_PTR = -19,
+
 	// implemented by ref_dll
 
 	// returns non-null integer if filtering is enabled for texture

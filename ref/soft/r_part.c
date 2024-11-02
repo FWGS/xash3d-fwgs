@@ -90,9 +90,9 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
-			//TriColor4ub( gEngfuncs.LightToTexGamma( color.r ),
-			//	gEngfuncs.LightToTexGamma( color.g ),
-		//		gEngfuncs.LightToTexGamma( color.b ), alpha );
+			//TriColor4ub( LightToTexGamma( color.r ),
+			//	LightToTexGamma( color.g ),
+		//		LightToTexGamma( color.b ), alpha );
 			//TriBrightness( alpha / 255.0f );
 			_TriColor4f(1.0f*alpha/255/255*color.r,1.0f*alpha/255/255*color.g,1.0f*alpha/255/255* color.b,1.0f );
 

@@ -1572,9 +1572,9 @@ static void R_StudioEntityLight( alight_t *lightinfo )
 
 			if( k != -1 )
 			{
-				g_studio.locallightcolor[k][0] = gEngfuncs.LinearGammaTable( el->color.r << 2 );
-				g_studio.locallightcolor[k][1] = gEngfuncs.LinearGammaTable( el->color.g << 2 );
-				g_studio.locallightcolor[k][2] = gEngfuncs.LinearGammaTable( el->color.b << 2 );
+				g_studio.locallightcolor[k][0] = LinearGammaTable( el->color.r << 2 );
+				g_studio.locallightcolor[k][1] = LinearGammaTable( el->color.g << 2 );
+				g_studio.locallightcolor[k][2] = LinearGammaTable( el->color.b << 2 );
 				g_studio.locallightR2[k] = r2;
 				g_studio.locallight[k] = el;
 				lstrength[k] = minstrength;
@@ -1670,7 +1670,7 @@ static void R_StudioLighting( float *lv, int bone, int flags, vec3_t normal )
 
 	illum = Q_min( illum, 255.0f );
 
-	*lv = gEngfuncs.LightToTexGammaEx( illum * 4 ) / 1023.0f;
+	*lv = LightToTexGamma( illum * 4 ) / 1023.0f;
 }
 
 /*
@@ -1725,12 +1725,12 @@ static void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, 
 	{
 		for( i = 0; i < 3; i++ )
 		{
-			float c = finalLight[i] + gEngfuncs.LinearGammaTable( color[i] * 1023.0f );
+			float c = finalLight[i] + LinearGammaTable( color[i] * 1023.0f );
 
 			if( c > 1023.0f )
 				out[i] = 255;
 			else
-				out[i] = gEngfuncs.ScreenGammaTable( c ) >> 2;
+				out[i] = ScreenGammaTable( c ) >> 2;
 		}
 	}
 	else

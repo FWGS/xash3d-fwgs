@@ -223,6 +223,23 @@ uint LinearGammaTable( uint b )
 	return lineargammatable[b];
 }
 
+intptr_t V_GetGammaPtr( int parm )
+{
+	switch( parm )
+	{
+	case PARM_GET_TEXGAMMATABLE_PTR:
+		return (intptr_t)texgammatable;
+	case PARM_GET_LIGHTGAMMATABLE_PTR:
+		return (intptr_t)lightgammatable;
+	case PARM_GET_SCREENGAMMATABLE_PTR:
+		return (intptr_t)screengammatable;
+	case PARM_GET_LINEARGAMMATABLE_PTR:
+		return (intptr_t)lineargammatable;
+	}
+
+	return 0;
+}
+
 #if XASH_ENGINE_TESTS
 #include "tests.h"
 

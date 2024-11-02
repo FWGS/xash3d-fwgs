@@ -215,6 +215,11 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 			return (intptr_t)&clgame.palette;
 		case PARM_GET_VIEWENT_PTR:
 			return (intptr_t)&clgame.viewent;
+		case PARM_GET_TEXGAMMATABLE_PTR:
+		case PARM_GET_LIGHTGAMMATABLE_PTR:
+		case PARM_GET_SCREENGAMMATABLE_PTR:
+		case PARM_GET_LINEARGAMMATABLE_PTR:
+			return V_GetGammaPtr( parm );
 		}
 	}
 	return 0;
