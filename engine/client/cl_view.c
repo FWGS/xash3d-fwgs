@@ -484,9 +484,7 @@ static void R_ShowTree( void )
 	world.recursion_level = 0;
 	viewleaf = Mod_PointInLeaf( refState.vieworg, cl.worldmodel->nodes );
 
-	//pglEnable( GL_BLEND );
-	//pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-	//pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	ref.dllFuncs.TriRenderMode( kRenderTransTexture );
 
 	//pglLineWidth( 2.0f );
 	ref.dllFuncs.Color4f( 1, 0.7f, 0, 1.0f );
