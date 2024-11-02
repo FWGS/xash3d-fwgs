@@ -494,6 +494,18 @@ void SCR_DirtyScreen( void )
 	SCR_AddDirtyPoint( refState.width - 1, refState.height - 1 );
 }
 
+static void R_DrawTileClear( int texnum, int x, int y, int w, int h, float tw, float th )
+{
+	float s1 = x / tw;
+	float t1 = y / th;
+	float s2 = ( x + w ) / tw;
+	float t2 = ( y + h ) / th;
+
+	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+	ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, texnum );
+}
+
 /*
 ================
 SCR_TileClear
@@ -503,6 +515,7 @@ void SCR_TileClear( void )
 {
 	int	i, top, bottom, left, right;
 	dirty_t	clear;
+	float tw, th;
 
 	if( likely( scr_viewsize.value >= 120 ))
 		return; // full screen rendering
@@ -539,11 +552,14 @@ void SCR_TileClear( void )
 	left = clgame.viewport[0];
 	right = left + clgame.viewport[2] - 1;
 
+	tw = REF_GET_PARM( PARM_TEX_SRC_WIDTH, cls.tileImage );
+	th = REF_GET_PARM( PARM_TEX_SRC_HEIGHT, cls.tileImage );
+
 	if( clear.y1 < top )
 	{
 		// clear above view screen
 		i = clear.y2 < top-1 ? clear.y2 : top - 1;
-		ref.dllFuncs.R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, clear.x2 - clear.x1 + 1, i - clear.y1 + 1 );
+		R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, clear.x2 - clear.x1 + 1, i - clear.y1 + 1, tw, th );
 		clear.y1 = top;
 	}
 
@@ -551,7 +567,7 @@ void SCR_TileClear( void )
 	{
 		// clear below view screen
 		i = clear.y1 > bottom + 1 ? clear.y1 : bottom + 1;
-		ref.dllFuncs.R_DrawTileClear( cls.tileImage, clear.x1, i, clear.x2 - clear.x1 + 1, clear.y2 - i + 1 );
+		R_DrawTileClear( cls.tileImage, clear.x1, i, clear.x2 - clear.x1 + 1, clear.y2 - i + 1, tw, th );
 		clear.y2 = bottom;
 	}
 
@@ -559,7 +575,7 @@ void SCR_TileClear( void )
 	{
 		// clear left of view screen
 		i = clear.x2 < left - 1 ? clear.x2 : left - 1;
-		ref.dllFuncs.R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, i - clear.x1 + 1, clear.y2 - clear.y1 + 1 );
+		R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, i - clear.x1 + 1, clear.y2 - clear.y1 + 1, tw, th );
 		clear.x1 = left;
 	}
 
@@ -567,7 +583,7 @@ void SCR_TileClear( void )
 	{
 		// clear left of view screen
 		i = clear.x1 > right + 1 ? clear.x1 : right + 1;
-		ref.dllFuncs.R_DrawTileClear( cls.tileImage, i, clear.y1, clear.x2 - i + 1, clear.y2 - clear.y1 + 1 );
+		R_DrawTileClear( cls.tileImage, i, clear.y1, clear.x2 - i + 1, clear.y2 - clear.y1 + 1, tw, th );
 		clear.x2 = right;
 	}
 }
