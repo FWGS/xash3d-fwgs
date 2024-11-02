@@ -1921,12 +1921,6 @@ S_Init
 */
 qboolean S_Init( void )
 {
-	if( Sys_CheckParm( "-nosound" ))
-	{
-		Con_Printf( "Audio: Disabled\n" );
-		return false;
-	}
-
 	Cvar_RegisterVariable( &s_volume );
 	Cvar_RegisterVariable( &s_musicvolume );
 	Cvar_RegisterVariable( &s_mixahead );
@@ -1939,6 +1933,12 @@ qboolean S_Init( void )
 	Cvar_RegisterVariable( &s_test );
 	Cvar_RegisterVariable( &s_samplecount );
 	Cvar_RegisterVariable( &s_warn_late_precache );
+
+	if( Sys_CheckParm( "-nosound" ))
+	{
+		Con_Printf( "Audio: Disabled\n" );
+		return false;
+	}
 
 	Cmd_AddCommand( "play", S_Play_f, "playing a specified sound file" );
 	Cmd_AddCommand( "play2", S_Play2_f, "playing a group of specified sound files" ); // nehahra stuff
