@@ -1449,7 +1449,7 @@ static void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
-		dl = gEngfuncs.GetDynamicLight( lnum );
+		dl = &tr.dlights[lnum];
 
 		if( dl->die < g_studio.time || !r_dynamic->value )
 			continue;
@@ -1532,7 +1532,7 @@ static void R_StudioEntityLight( alight_t *lightinfo )
 
 	for( lnum = 0; lnum < MAX_ELIGHTS; lnum++ )
 	{
-		el = gEngfuncs.GetEntityLight( lnum );
+		el = &tr.elights[lnum];
 
 		if( el->die < g_studio.time || el->radius <= 0.0f )
 			continue;

@@ -297,6 +297,9 @@ typedef struct
 	movevars_t *movevars;
 	color24 *palette;
 	cl_entity_t *viewent;
+	lightstyle_t *lightstyles;
+	dlight_t *dlights;
+	dlight_t *elights;
 	byte *texgammatable;
 	uint *lightgammatable;
 	uint *lineargammatable;
