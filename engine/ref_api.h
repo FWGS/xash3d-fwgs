@@ -53,6 +53,7 @@ GNU General Public License for more details.
 //    Implemented texture replacement.
 // 9. Removed gamma functions. Renderer is supposed to get them through PARM_GET_*_PTR.
 //    Move hulls rendering back to engine
+//    Removed lightstyle, dynamic and entity light functions. Renderer is supposed to get them through PARM_GET_*_PTR.
 #define REF_API_VERSION 9
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
@@ -431,9 +432,6 @@ typedef struct ref_api_s
 	void (*SW_UnlockBuffer)( void );
 
 	// renderapi
-	lightstyle_t*	(*GetLightStyle)( int number );
-	dlight_t*	(*GetDynamicLight)( int number );
-	dlight_t*	(*GetEntityLight)( int number );
 	int		(*R_FatPVS)( const float *org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
 	const struct ref_overview_s *( *GetOverviewParms )( void );
 	double		(*pfnTime)( void );				// Sys_DoubleTime

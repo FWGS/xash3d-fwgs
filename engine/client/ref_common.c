@@ -401,9 +401,6 @@ static const ref_api_t gEngfuncs =
 	SW_LockBuffer,
 	SW_UnlockBuffer,
 
-	CL_GetLightStyle,
-	CL_GetDynamicLight,
-	CL_GetEntityLight,
 	R_FatPVS,
 	GL_GetOverviewParms,
 	Sys_DoubleTime,
