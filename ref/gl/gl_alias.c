@@ -800,7 +800,7 @@ static void R_AliasLighting( float *lv, const vec3_t normal )
 
 	illum = bound( 0.0f, illum, 255.0f );
 
-	*lv = gEngfuncs.LightToTexGammaEx( illum * 4 ) / 1023.0f;
+	*lv = LightToTexGamma( illum * 4 ) / 1023.0f;
 }
 
 /*

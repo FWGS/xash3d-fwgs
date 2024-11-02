@@ -137,7 +137,7 @@ static void R_AddDynamicLights( const msurface_t *surf )
 		sl = DotProduct( impact, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
 		tl = DotProduct( impact, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
 
-		monolight = gEngfuncs.LightToTexGamma(( dl->color.r + dl->color.g + dl->color.b ) / 3 ) * 3;
+		monolight = LightToTexGamma(( dl->color.r + dl->color.g + dl->color.b ) / 3 * 4 ) * 3;
 
 		for( t = 0; t < tmax; t++ )
 		{
@@ -222,7 +222,7 @@ static void R_BuildLightMap( void )
 	for( i = 0; i < size; i++ )
 	{
 		if( blocklights[i] < 65280 )
-			t = gEngfuncs.LightToTexGammaEx( blocklights[i] >> 6 ) << 6;
+			t = LightToTexGamma( blocklights[i] >> 6 ) << 6;
 		else t = (int)blocklights[i];
 
 		t = bound( 0, t, 65535 * 3 );

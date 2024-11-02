@@ -297,6 +297,10 @@ typedef struct
 	movevars_t *movevars;
 	color24 *palette;
 	cl_entity_t *viewent;
+	byte *texgammatable;
+	uint *lightgammatable;
+	uint *lineargammatable;
+	uint *screengammatable;
 
 	uint max_entities;
 } gl_globals_t;
@@ -689,6 +693,35 @@ static inline model_t *CL_ModelHandle( int index )
 		return NULL;
 
 	return gp_cl->models[index];
+}
+
+static inline byte TextureToGamma( byte b )
+{
+	return !FBitSet( gp_host->features, ENGINE_LINEAR_GAMMA_SPACE ) ? tr.texgammatable[b] : b;
+}
+
+static inline uint LightToTexGamma( uint b )
+{
+	if( unlikely( b >= 1024 ))
+		return 0;
+
+	return !FBitSet( gp_host->features, ENGINE_LINEAR_GAMMA_SPACE ) ? tr.lightgammatable[b] : b;
+}
+
+static inline uint ScreenGammaTable( uint b )
+{
+	if( unlikely( b >= 1024 ))
+		return 0;
+
+	return !FBitSet( gp_host->features, ENGINE_LINEAR_GAMMA_SPACE ) ? tr.screengammatable[b] : b;
+}
+
+static inline uint LinearGammaTable( uint b )
+{
+	if( unlikely( b >= 1024 ))
+		return 0;
+
+	return !FBitSet( gp_host->features, ENGINE_LINEAR_GAMMA_SPACE ) ? tr.lineargammatable[b] : b;
 }
 
 #define WORLDMODEL (gp_cl->models[1])

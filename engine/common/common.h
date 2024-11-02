@@ -828,6 +828,7 @@ uint LinearGammaTable( uint );
 void V_Init( void );
 void V_CheckGamma( void );
 void V_CheckGammaEnd( void );
+intptr_t V_GetGammaPtr( int parm );
 
 //
 // identification.c
