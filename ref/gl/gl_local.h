@@ -257,7 +257,6 @@ typedef struct
 	movevars_t *movevars;
 	color24 *palette;
 	cl_entity_t *viewent;
-	lightstyle_t *lightstyles;
 	dlight_t *dlights;
 	dlight_t *elights;
 	byte *texgammatable;
@@ -388,9 +387,8 @@ void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const
 //
 // gl_rlight.c
 //
-void CL_RunLightStyles( void );
+void CL_RunLightStyles( lightstyle_t *ls );
 void R_PushDlights( void );
-void R_AnimateLight( void );
 void R_GetLightSpot( vec3_t lightspot );
 void R_MarkLights( dlight_t *light, int bit, mnode_t *node );
 colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );

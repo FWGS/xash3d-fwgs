@@ -454,9 +454,8 @@ int R_TexMemory( void );
 //
 // gl_rlight.c
 //
-void CL_RunLightStyles( void );
+void CL_RunLightStyles( lightstyle_t *ls );
 void R_PushDlights( void );
-void R_AnimateLight( void );
 void R_GetLightSpot( vec3_t lightspot );
 void R_MarkLights( dlight_t *light, int bit, mnode_t *node );
 colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );

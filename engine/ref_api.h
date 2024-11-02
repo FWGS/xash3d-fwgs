@@ -54,6 +54,7 @@ GNU General Public License for more details.
 // 9. Removed gamma functions. Renderer is supposed to get them through PARM_GET_*_PTR.
 //    Move hulls rendering back to engine
 //    Removed lightstyle, dynamic and entity light functions. Renderer is supposed to get them through PARM_GET_*_PTR.
+//    CL_RunLightStyles now accepts lightstyles array.
 #define REF_API_VERSION 9
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
@@ -541,7 +542,7 @@ typedef struct ref_interface_s
 	// bmodel
 	void (*R_SetSkyCloudsTextures)( int solidskyTexture, int alphaskyTexture );
 	void (*GL_SubdivideSurface)( model_t *mod, msurface_t *fa );
-	void (*CL_RunLightStyles)( void );
+	void (*CL_RunLightStyles)( lightstyle_t *ls );
 
 	// sprites
 	void (*R_GetSpriteParms)( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite );

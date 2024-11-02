@@ -177,6 +177,11 @@ static void GL_SubdivideSurface( model_t *mod, msurface_t *fa )
 	;
 }
 
+static void CL_RunLightStyles( lightstyle_t *ls )
+{
+
+}
+
 static void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
 {
 	if( frameWidth )
@@ -501,7 +506,7 @@ static const ref_interface_t gReffuncs =
 
 	.R_SetSkyCloudsTextures     = R_SetSkyCloudsTextures,
 	.GL_SubdivideSurface = GL_SubdivideSurface,
-	.CL_RunLightStyles   = R_SimpleStub,
+	.CL_RunLightStyles   = CL_RunLightStyles,
 
 	.R_GetSpriteParms    = R_GetSpriteParms,
 	.R_GetSpriteTexture  = R_GetSpriteTexture,
