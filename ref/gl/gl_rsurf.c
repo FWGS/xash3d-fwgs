@@ -553,7 +553,7 @@ static void R_AddDynamicLights( const msurface_t *surf )
 		if( !FBitSet( surf->dlightbits, BIT( lnum )))
 			continue;	// not lit by this light
 
-		dl = gEngfuncs.GetDynamicLight( lnum );
+		dl = &tr.dlights[lnum];
 
 		// transform light origin to local bmodel space
 		if( !tr.modelviewIdentity )
@@ -1659,7 +1659,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	// calculate dynamic lighting for bmodel
 	for( k = 0; k < MAX_DLIGHTS; k++ )
 	{
-		l = gEngfuncs.GetDynamicLight( k );
+		l = &tr.dlights[k];
 
 		if( l->die < gp_cl->time || !l->radius )
 			continue;

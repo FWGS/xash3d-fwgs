@@ -578,7 +578,6 @@ static void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 	float		add, radius, total;
 	colorVec		light;
 	uint		lnum;
-	dlight_t		*dl;
 
 	if( !plight || !ent )
 		return;
@@ -694,7 +693,7 @@ static void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
-		dl = gEngfuncs.GetDynamicLight( lnum );
+		const dlight_t *dl = &tr.dlights[lnum];
 
 		if( dl->die < g_alias.time || !r_dynamic->value )
 			continue;
