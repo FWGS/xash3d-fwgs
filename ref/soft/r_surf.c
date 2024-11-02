@@ -72,21 +72,17 @@ static void R_BuildLightMap( void );
 R_AddDynamicLights
 ===============
 */
-static void R_AddDynamicLights( msurface_t *surf )
+static void R_AddDynamicLights( const msurface_t *surf )
 {
-	float		dist, rad, minlight;
-	int		lnum, s, t, sd, td, smax, tmax;
-	float		sl, tl, sacc, tacc;
-	vec3_t		impact, origin_l;
-	mextrasurf_t	*info = surf->info;
-	int		sample_frac = 1.0;
-	float		sample_size;
-	mtexinfo_t	*tex;
-	dlight_t		*dl;
-	uint		*bl;
+	const mextrasurf_t *info = surf->info;
+	int lnum, smax, tmax;
+	int sample_frac = 1.0;
+	float sample_size;
+	mtexinfo_t *tex;
 
 	// no dlighted surfaces here
-	if( !surf->dlightbits ) return;
+	if( !surf->dlightbits )
+		return;
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	smax = (info->lightextents[0] / sample_size) + 1;
@@ -104,6 +100,12 @@ static void R_AddDynamicLights( msurface_t *surf )
 
 	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
+		dlight_t *dl;
+		vec3_t impact, origin_l;
+		float dist, rad, minlight;
+		float sl, tl;
+		int t, monolight;
+
 		if( !FBitSet( surf->dlightbits, BIT( lnum )))
 			continue;	// not lit by this light
 
@@ -112,8 +114,7 @@ static void R_AddDynamicLights( msurface_t *surf )
 		// transform light origin to local bmodel space
 		if( !tr.modelviewIdentity )
 			Matrix4x4_VectorITransform( RI.objectMatrix, dl->origin, origin_l );
-		else
-			VectorCopy( dl->origin, origin_l );
+		else VectorCopy( dl->origin, origin_l );
 
 		rad = dl->radius;
 		dist = PlaneDiff( origin_l, surf->plane );
@@ -135,28 +136,33 @@ static void R_AddDynamicLights( msurface_t *surf )
 
 		sl = DotProduct( impact, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
 		tl = DotProduct( impact, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
-		bl = blocklights;
 
-		for( t = 0, tacc = 0; t < tmax; t++, tacc += sample_size )
+		monolight = gEngfuncs.LightToTexGamma(( dl->color.r + dl->color.g + dl->color.b ) / 3 ) * 3;
+
+		for( t = 0; t < tmax; t++ )
 		{
-			td = (tl - tacc) * sample_frac;
-			if( td < 0 ) td = -td;
+			int td = (tl - sample_size * t) * sample_frac;
+			int s;
 
-			for( s = 0, sacc = 0; s < smax; s++, sacc += sample_size, bl += 1 )
+			if( td < 0 )
+				td = -td;
+
+			for( s = 0; s < smax; s++ )
 			{
-				sd = (sl - sacc) * sample_frac;
-				if( sd < 0 ) sd = -sd;
+				int sd = (sl - sample_size * s) * sample_frac;
+				float dist;
 
-				if( sd > td ) dist = sd + (td >> 1);
-				else dist = td + (sd >> 1);
+				if( sd < 0 )
+					sd = -sd;
+
+				if( sd > td )
+					dist = sd + (td >> 1);
+				else
+					dist = td + (sd >> 1);
 
 				if( dist < minlight )
 				{
-					//printf("dlight %f\n", dist);
-					//*(void**)0 = 0;
-					bl[0] +=  ((int)((rad - dist) * 256) * gEngfuncs.LightToTexGamma( (dl->color.r + dl->color.g + dl->color.b ) / 3) * 3) / 256;
-					//bl[1] += ((int)((rad - dist) * 256) * 2.5) / 256;
-					//bl[2] += ((int)((rad - dist) * 256) * 2.5) / 256;
+					blocklights[(s + (t * smax))] += ((int)((rad - dist) * 256) * monolight ) / 256;
 				}
 			}
 		}
