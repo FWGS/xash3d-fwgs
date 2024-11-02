@@ -1172,7 +1172,7 @@ static void R_DrawBEntitiesOnList (void)
 		// calculate dynamic lighting for bmodel
 		for( k = 0; k < MAX_DLIGHTS; k++ )
 		{
-			dlight_t *l = gEngfuncs.GetDynamicLight( k );
+			dlight_t *l = &tr.dlights[k];
 			vec3_t origin_l, oldorigin;
 
 			if( l->die < gp_cl->time || !l->radius )
@@ -1327,7 +1327,7 @@ void R_DrawBrushModel(cl_entity_t *pent)
 		// calculate dynamic lighting for bmodel
 		for( k = 0; k < MAX_DLIGHTS; k++ )
 		{
-			dlight_t *l = gEngfuncs.GetDynamicLight( k );
+			dlight_t *l = &tr.dlights[k];
 			vec3_t origin_l, oldorigin;
 
 			if( l->die < gp_cl->time || !l->radius )
@@ -1901,6 +1901,9 @@ qboolean GAME_EXPORT R_Init( void )
 	tr.lightgammatable = (uint *)ENGINE_GET_PARM( PARM_GET_LIGHTGAMMATABLE_PTR );
 	tr.screengammatable = (uint *)ENGINE_GET_PARM( PARM_GET_SCREENGAMMATABLE_PTR );
 	tr.lineargammatable = (uint *)ENGINE_GET_PARM( PARM_GET_LINEARGAMMATABLE_PTR );
+	tr.lightstyles = (lightstyle_t *)ENGINE_GET_PARM( PARM_GET_LIGHTSTYLES_PTR );
+	tr.dlights = (dlight_t *)ENGINE_GET_PARM( PARM_GET_DLIGHTS_PTR );
+	tr.elights = (dlight_t *)ENGINE_GET_PARM( PARM_GET_ELIGHTS_PTR );
 
 	if( !R_InitBlit( glblit ))
 	{
