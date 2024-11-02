@@ -822,7 +822,6 @@ void S_StopAllSounds( qboolean ambient );
 // gamma routines
 byte LightToTexGamma( byte b );
 byte TextureToGamma( byte );
-uint LightToTexGammaEx( uint );
 uint ScreenGammaTable( uint );
 uint LinearGammaTable( uint );
 void V_Init( void );

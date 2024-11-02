@@ -401,12 +401,6 @@ static const ref_api_t gEngfuncs =
 	SW_LockBuffer,
 	SW_UnlockBuffer,
 
-	LightToTexGamma,
-	LightToTexGammaEx,
-	TextureToGamma,
-	ScreenGammaTable,
-	LinearGammaTable,
-
 	CL_GetLightStyle,
 	CL_GetDynamicLight,
 	CL_GetEntityLight,
