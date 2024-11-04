@@ -2017,6 +2017,7 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 	int p, numcl, maxcl, password, remaining;
 	string host, map, gamedir, version;
 	connprotocol_t proto;
+	char *replace;
 
 	// set to beginning but skip header
 	MSG_SeekToBit( msg, (sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
@@ -2078,6 +2079,12 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 		Con_Printf( S_ERROR "%s: infostring overflow!\n", __func__ );
 		return;
 	}
+
+	while(( replace = Q_strpbrk( host, "\\\"" )))
+	{
+		*replace = ' '; // find a better replacement?
+	}
+
 	Info_SetValueForKey( s, "host", host, sizeof( s ));
 
 	UI_AddServerToList( from, s );
