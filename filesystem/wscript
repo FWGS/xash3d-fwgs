@@ -4,12 +4,8 @@ def options(opt):
 	pass
 
 def configure(conf):
-	nortti = {
-		'msvc': ['/GR-'],
-		'default': ['-fno-rtti', '-fno-exceptions']
-	}
-	conf.env.append_unique('CXXFLAGS', conf.get_flags_by_compiler(nortti, conf.env.COMPILER_CC))
-
+	if conf.env.COMPILER_CXX != 'msvc':
+		conf.env.append_unique('CXXFLAGS', ['-fno-exceptions'])
 	if conf.env.DEST_OS == 'android':
 		conf.check_cc(lib='android')
 	elif conf.env.cxxshlib_PATTERN.startswith('lib'): # remove lib prefix for other systems than Android
