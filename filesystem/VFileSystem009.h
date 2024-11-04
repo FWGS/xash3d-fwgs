@@ -40,7 +40,7 @@ public:
 	virtual ~IBaseInterface() {}
 };
 
-class IVFileSystem009 : public IBaseInterface {
+class IFileSystem : public IBaseInterface {
 public:
 	virtual void Mount() = 0; /* linkage=_ZN11IFileSystem5MountEv */
 
