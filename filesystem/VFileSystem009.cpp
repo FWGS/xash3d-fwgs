@@ -81,7 +81,7 @@ static inline void CopyAndFixSlashes( char *p, const char *in, size_t size )
 	COM_FixSlashes( p );
 }
 
-class CXashFS : public IVFileSystem009
+class CXashFS : public IFileSystem
 {
 private:
 	class CSearchState
