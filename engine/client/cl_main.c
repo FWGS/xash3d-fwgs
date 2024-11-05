@@ -25,11 +25,10 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "multi_emulator.h"
 
-#define MAX_TOTAL_CMDS		32
-#define MAX_CMD_BUFFER		8000
-#define CONNECTION_PROBLEM_TIME	15.0	// 15 seconds
-#define CL_CONNECTION_RETRIES		10
-#define CL_TEST_RETRIES		5
+#define MAX_CMD_BUFFER        8000
+#define CL_CONNECTION_TIMEOUT 15.0f
+#define CL_CONNECTION_RETRIES 10
+#define CL_TEST_RETRIES       5
 
 CVAR_DEFINE_AUTO( showpause, "1", 0, "show pause logo when paused" );
 CVAR_DEFINE_AUTO( mp_decals, "300", FCVAR_ARCHIVE, "decals limit in multiplayer" );
@@ -379,30 +378,20 @@ CL_ComputePacketLoss
 */
 static void CL_ComputePacketLoss( void )
 {
-	int	i, frm;
-	frame_t	*frame;
-	int	count = 0;
-	int	lost = 0;
+	int i, lost = 0;
 
 	if( host.realtime < cls.packet_loss_recalc_time )
 		return;
 
-	// recalc every second
 	cls.packet_loss_recalc_time = host.realtime + 1.0;
 
-	// compuate packet loss
 	for( i = cls.netchan.incoming_sequence - CL_UPDATE_BACKUP + 1; i <= cls.netchan.incoming_sequence; i++ )
 	{
-		frm = i;
-		frame = &cl.frames[frm & CL_UPDATE_MASK];
-
-		if( frame->receivedtime == -1.0 )
+		if( cl.frames[i & CL_UPDATE_MASK].receivedtime == -1.0 )
 			lost++;
-		count++;
 	}
 
-	if( count <= 0 ) cls.packet_loss = 0.0f;
-	else cls.packet_loss = ( 100.0f * (float)lost ) / (float)count;
+	cls.packet_loss = lost * 100.0f / (float)CL_UPDATE_BACKUP;
 }
 
 /*
@@ -504,13 +493,12 @@ static qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 {
 	static int	oldbuttons;
 	int		changed;
-	int		pressed, released;
+	int		released;
 
 	if( !r_showtextures.value || CL_IsDevOverviewMode( ))
 		return false;
 
 	changed = (oldbuttons ^ cmd->buttons);
-	pressed =  changed & cmd->buttons;
 	released = changed & (~cmd->buttons);
 
 	if( released & ( IN_RIGHT|IN_MOVERIGHT ))
@@ -729,14 +717,10 @@ Including both the reliable commands and the usercmds
 */
 static void CL_WritePacket( void )
 {
-	sizebuf_t		buf;
-	qboolean		send_command = false;
-	byte		data[MAX_CMD_BUFFER];
-	int		i, from, to, key, size;
-	int		numbackup = 2, maxbackup;
-	int		numcmds, maxcmds;
-	int		newcmds;
-	int		cmdnumber;
+	sizebuf_t buf;
+	byte data[MAX_CMD_BUFFER] = { 0 };
+	runcmd_t *pcmd;
+	int numbackup, maxbackup, maxcmds;
 	const connprotocol_t proto = cls.legacymode;
 
 	// don't send anything if playing back a demo
@@ -748,13 +732,12 @@ static void CL_WritePacket( void )
 		Netchan_TransmitBits( &cls.netchan, 0, "" );
 		return;
 	}
+	// cls.state can only be ca_validate or ca_active from here
 
-	CL_ComputePacketLoss ();
+	CL_ComputePacketLoss( );
 
-	memset( data, 0, sizeof( data ));
 	MSG_Init( &buf, "ClientData", data, sizeof( data ));
 
-	// Determine number of backup commands to send along
 	switch( proto )
 	{
 	case PROTO_GOLDSRC:
@@ -773,166 +756,116 @@ static void CL_WritePacket( void )
 
 	numbackup = bound( 0, cl_cmdbackup.value, maxbackup );
 
+	// allow extended usercmd limit
+	if( proto == PROTO_GOLDSRC && cls.build_num >= 5971 )
+		maxcmds = MAX_GOLDSRC_EXTENDED_TOTAL_CMDS - numbackup;
+
 	// clamp cmdrate
 	if( cl_cmdrate.value < 10.0f )
 		Cvar_DirectSet( &cl_cmdrate, "10" );
 	else if( cl_cmdrate.value > 100.0f )
 		Cvar_DirectSet( &cl_cmdrate, "100" );
 
-	// Check to see if we can actually send this command
+	// are we hltv spectator?
+	if( cls.spectator && cl.delta_sequence == cl.validsequence && ( !cls.demorecording || !cls.demowaiting ) && cls.nextcmdtime + 1.0f > host.realtime )
+		return;
 
-	// In single player, send commands as fast as possible
-	// Otherwise, only send when ready and when not choking bandwidth
-	if( cl.maxclients == 1 || ( NET_IsLocalAddress( cls.netchan.remote_address ) && !host_limitlocal.value ))
-		send_command = true;
+	// can send this command?
+	pcmd = &cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK];
 
-	if(( host.realtime >= cls.nextcmdtime ) && Netchan_CanPacket( &cls.netchan, true ))
-		send_command = true;
+	if( cl.maxclients == 1 || ( NET_IsLocalAddress( cls.netchan.remote_address ) && !host_limitlocal.value ) || ( host.realtime >= cls.nextcmdtime && Netchan_CanPacket( &cls.netchan, true )))
+		pcmd->heldback = false;
+	else pcmd->heldback = true;
 
-	// spectator is not sending cmds to server
-	if( cls.spectator && cls.state == ca_active && cl.delta_sequence == cl.validsequence )
+	// immediately add it to the demo, regardless if we send the message or not
+	if( cls.demorecording )
+		CL_WriteDemoUserCmd( cls.netchan.outgoing_sequence & CL_UPDATE_MASK );
+
+	if( !pcmd->heldback )
 	{
-		if( !( cls.demorecording && cls.demowaiting ) && cls.nextcmdtime + 1.0f > host.realtime )
-			return;
-	}
+		int newcmds, numcmds;
+		int from, i, key;
 
-	if(( cls.netchan.outgoing_sequence - cls.netchan.incoming_acknowledged ) >= CL_UPDATE_MASK )
-	{
-		if(( host.realtime - cls.netchan.last_received ) > CONNECTION_PROBLEM_TIME )
+		cls.nextcmdtime = host.realtime + ( 1.0f / cl_cmdrate.value );
+
+		if( cls.lastoutgoingcommand < 0 )
+			cls.lastoutgoingcommand = cls.netchan.outgoing_sequence;
+
+		newcmds = cls.netchan.outgoing_sequence - cls.lastoutgoingcommand;
+		newcmds = bound( 0, newcmds, maxcmds );
+		numcmds = newcmds + numbackup;
+
+		// goldsrc starts writing clc_move earlier but it doesn't make sense if it's not going to be sent
+		MSG_BeginClientCmd( &buf, clc_move );
+
+		if( proto == PROTO_GOLDSRC )
+			MSG_WriteByte( &buf, 0 ); // command length
+
+		key = MSG_GetRealBytesWritten( &buf );
+		MSG_WriteByte( &buf, 0 );
+
+		MSG_WriteByte( &buf, bound( 0, (int)cls.packet_loss, 100 ));
+		MSG_WriteByte( &buf, numbackup );
+		MSG_WriteByte( &buf, newcmds );
+
+		for( from = -1, i = numcmds - 1; i >= 0; i-- )
+		{
+			int to = ( cls.netchan.outgoing_sequence - i ) & CL_UPDATE_MASK;
+
+			CL_WriteUsercmd( proto, &buf, from, to );
+			from = to;
+		}
+
+		// finalize message
+		if( proto == PROTO_GOLDSRC )
+		{
+			int size = MSG_GetRealBytesWritten( &buf ) - key - 1;
+
+			buf.pData[key - 1] = Q_min( size, 255 );
+			buf.pData[key] = CRC32_BlockSequence( &buf.pData[key + 1], size, cls.netchan.outgoing_sequence );
+			COM_Munge( &buf.pData[key + 1], Q_min( size, 255 ), cls.netchan.outgoing_sequence );
+		}
+		else
+		{
+			int size = MSG_GetRealBytesWritten( &buf ) - key - 1;
+			buf.pData[key] = CRC32_BlockSequence( &buf.pData[key + 1], size, cls.netchan.outgoing_sequence );
+		}
+
+		// check if we're timing out
+		if( cls.netchan.outgoing_sequence - cls.netchan.incoming_acknowledged >= CL_UPDATE_MASK && host.realtime - cls.netchan.last_received >= CL_CONNECTION_TIMEOUT )
 		{
 			Con_NPrintf( 1, "^3Warning:^1 Connection Problem^7\n" );
 			Con_NPrintf( 2, "^1Auto-disconnect in %.1f seconds^7", cl_timeout.value - ( host.realtime - cls.netchan.last_received ));
 			cl.validsequence = 0;
 		}
-	}
 
-	if( cl_nodelta.value )
-		cl.validsequence = 0;
+		if( cl_nodelta.value )
+			cl.validsequence = 0;
 
-	if( send_command )
-	{
-		int	outgoing_sequence;
-
-		cls.nextcmdtime = host.realtime + ( 1.0f / cl_cmdrate.value );
-
-		if( cls.lastoutgoingcommand == -1 )
-		{
-			outgoing_sequence = cls.netchan.outgoing_sequence;
-			cls.lastoutgoingcommand = cls.netchan.outgoing_sequence;
-		}
-		else outgoing_sequence = cls.lastoutgoingcommand + 1;
-
-		// begin a client move command
-		MSG_BeginClientCmd( &buf, clc_move );
-
-		if( proto == PROTO_GOLDSRC )
-			MSG_WriteByte( &buf, 0 ); // length
-
-		// save the position for a checksum byte
-		key = MSG_GetRealBytesWritten( &buf );
-		MSG_WriteByte( &buf, 0 );
-
-		// write packet lossage percentation
-		MSG_WriteByte( &buf, bound( 0, (int)cls.packet_loss, 100 ) );
-
-		// say how many backups we'll be sending
-		MSG_WriteByte( &buf, numbackup );
-
-		// how many real commands have queued up
-		newcmds = ( cls.netchan.outgoing_sequence - cls.lastoutgoingcommand );
-
-		// put an upper/lower bound on this
-		newcmds = bound( 0, newcmds, maxcmds );
-
-		if( cls.state == ca_connected )
-			newcmds = 0;
-
-		MSG_WriteByte( &buf, newcmds );
-
-		numcmds = newcmds + numbackup;
-
-		from = -1;
-
-		for( i = numcmds - 1; i >= 0; i-- )
-		{
-			cmdnumber = ( cls.netchan.outgoing_sequence - i ) & CL_UPDATE_MASK;
-
-			to = cmdnumber;
-			CL_WriteUsercmd( proto, &buf, from, to );
-			from = to;
-
-			if( MSG_CheckOverflow( &buf ))
-				Host_Error( "%s: overflowed command buffer (%i bytes)\n", __func__, MAX_CMD_BUFFER );
-		}
-
-		// calculate a checksum over the move commands
-		if( proto == PROTO_GOLDSRC )
-		{
-			size = MSG_GetRealBytesWritten( &buf ) - key - 1;
-
-			buf.pData[key - 1] = Q_min( size, 255 );
-			buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
-			COM_Munge( buf.pData + key + 1, Q_min( size, 255 ), cls.netchan.outgoing_sequence );
-		}
-		else
-		{
-			size = MSG_GetRealBytesWritten( &buf ) - key - 1;
-
-			buf.pData[key] = CRC32_BlockSequence( buf.pData + key + 1, size, cls.netchan.outgoing_sequence );
-		}
-
-		// message we are constructing.
-		i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
-
-		// determine if we need to ask for a new set of delta's.
-		if( cl.validsequence && (cls.state == ca_active) && !( cls.demorecording && cls.demowaiting ))
+		if( cl.validsequence && ( !cls.demorecording || !cls.demowaiting ))
 		{
 			cl.delta_sequence = cl.validsequence;
-
 			MSG_BeginClientCmd( &buf, clc_delta );
-			MSG_WriteByte( &buf, cl.validsequence & 0xFF );
+			MSG_WriteByte( &buf, cl.validsequence & 0xff );
 		}
-		else
-		{
-			// request delta compression of entities
-			cl.delta_sequence = -1;
-		}
+		else cl.delta_sequence = -1;
 
-		if( MSG_CheckOverflow( &buf ))
-			Host_Error( "%s: overflowed command buffer (%i bytes)\n", __func__, MAX_CMD_BUFFER );
-
-		// remember outgoing command that we are sending
+		// command finished, remember last sent sequence id
 		cls.lastoutgoingcommand = cls.netchan.outgoing_sequence;
+		pcmd->sendsize = MSG_GetNumBytesWritten( &buf );
 
-		// update size counter for netgraph
-		cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK].sendsize = MSG_GetNumBytesWritten( &buf );
-		cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK].heldback = false;
-
-		// send voice data to the server
 		CL_AddVoiceToDatagram();
 
-		// composite the rest of the datagram..
+		// now add unreliable, if there is enough space
 		if( MSG_GetNumBitsWritten( &cls.datagram ) <= MSG_GetNumBitsLeft( &buf ))
 			MSG_WriteBits( &buf, MSG_GetData( &cls.datagram ), MSG_GetNumBitsWritten( &cls.datagram ));
 		MSG_Clear( &cls.datagram );
 
-		// deliver the message (or update reliable)
 		Netchan_TransmitBits( &cls.netchan, MSG_GetNumBitsWritten( &buf ), MSG_GetData( &buf ));
 	}
 	else
 	{
-		// mark command as held back so we'll send it next time
-		cl.commands[cls.netchan.outgoing_sequence & CL_UPDATE_MASK].heldback = true;
-
-		// increment sequence number so we can detect that we've held back packets.
 		cls.netchan.outgoing_sequence++;
-	}
-
-	if( cls.demorecording && numbackup > 0 )
-	{
-		// Back up one because we've incremented outgoing_sequence each frame by 1 unit
-		cmdnumber = ( cls.netchan.outgoing_sequence - 1 ) & CL_UPDATE_MASK;
-		CL_WriteDemoUserCmd( cmdnumber );
 	}
 
 	// update download/upload slider.
@@ -1294,9 +1227,9 @@ static void CL_CheckForResend( void )
 		return;
 
 	if( cl_resend.value < CL_MIN_RESEND_TIME )
-		Cvar_SetValue( "cl_resend", CL_MIN_RESEND_TIME );
+		Cvar_DirectSetValue( &cl_resend, CL_MIN_RESEND_TIME );
 	else if( cl_resend.value > CL_MAX_RESEND_TIME )
-		Cvar_SetValue( "cl_resend", CL_MAX_RESEND_TIME );
+		Cvar_DirectSetValue( &cl_resend, CL_MAX_RESEND_TIME );
 
 	bandwidthTest = cls.legacymode == PROTO_CURRENT && cl_test_bandwidth.value && cls.connect_retry <= CL_TEST_RETRIES;
 	resendTime = bandwidthTest ? 1.0f : cl_resend.value;
@@ -1334,7 +1267,7 @@ static void CL_CheckForResend( void )
 		Con_Printf( "Bandwidth test failed, fallback to default connecting method\n" );
 		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry + 1 );
 		CL_SendGetChallenge( adr );
-		Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
+		Cvar_DirectSetValue( &cl_dlmax, FRAGMENT_MIN_SIZE );
 		cls.connect_time = host.realtime;
 		cls.connect_retry++;
 		return;
@@ -2391,7 +2324,7 @@ static void CL_HandleTestPacket( netadr_t from, sizebuf_t *msg )
 	}
 }
 
-static void CL_ClientConnect( const char *c, netadr_t from, sizebuf_t *msg )
+static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from )
 {
 	if( !CL_IsFromConnectingServer( from ))
 		return;
@@ -2402,7 +2335,18 @@ static void CL_ClientConnect( const char *c, netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	if( cls.legacymode != PROTO_GOLDSRC && !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ))
+	if( proto == PROTO_GOLDSRC )
+	{
+		if( Q_strcmp( c, S2C_GOLDSRC_CONNECTION ))
+		{
+			Con_DPrintf( S_ERROR "GoldSrc client connect expected but wasn't received, ignored\n");
+			return;
+		}
+
+		if( Cmd_Argc() > 4 )
+			cls.build_num = Q_atoi( Cmd_Argv( 4 ));
+	}
+	else if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ))
 	{
 		Con_DPrintf( S_ERROR "GoldSrc client connect received but wasn't expected, ignored\n");
 		return;
@@ -2576,7 +2520,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	// server connection
 	if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ) || !Q_strcmp( c, S2C_CONNECTION ))
 	{
-		CL_ClientConnect( c, from, msg );
+		CL_ClientConnect( cls.legacymode, c, from );
 	}
 	else if( !Q_strcmp( c, A2A_INFO ))
 	{
@@ -3692,9 +3636,10 @@ void CL_Init( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
-	if( !CL_LoadProgs( libpath ) )
-		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError() );
+	if( !CL_LoadProgs( libpath ))
+		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
 
+	cls.build_num = 0;
 	cls.initialized = true;
 	cl.maxclients = 1; // allow to drawing player in menu
 	cls.olddemonum = -1;

@@ -633,6 +633,9 @@ typedef struct
 
 	// do we accept utf8 as input
 	qboolean accept_utf8;
+
+	// server's build number (might be zero)
+	int build_num;
 } client_static_t;
 
 #ifdef __cplusplus

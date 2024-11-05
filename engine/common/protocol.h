@@ -167,8 +167,9 @@ GNU General Public License for more details.
 #define GAME_TEAMPLAY		4
 
 // Max number of history commands to send ( 2 by default ) in case of dropped packets
-#define NUM_BACKUP_COMMAND_BITS	4
-#define MAX_BACKUP_COMMANDS		(1 << NUM_BACKUP_COMMAND_BITS)
+#define NUM_BACKUP_COMMAND_BITS 4
+#define MAX_BACKUP_COMMANDS     BIT( NUM_BACKUP_COMMAND_BITS )
+#define MAX_TOTAL_CMDS          32
 
 #define MAX_RESOURCES		(MAX_MODELS+MAX_SOUNDS+MAX_CUSTOM+MAX_EVENTS)
 #define MAX_RESOURCE_BITS		13	// 13 bits 8192 resource (4096 models + 2048 sounds + 1024 events + 1024 files)
@@ -345,6 +346,7 @@ extern const char *const clc_strings[clc_lastmsg+1];
 
 #define MAX_GOLDSRC_BACKUP_CMDS   8
 #define MAX_GOLDSRC_TOTAL_CMDS    16
+#define MAX_GOLDSRC_EXTENDED_TOTAL_CMDS 62
 #define MAX_GOLDSRC_MODEL_BITS    10
 #define MAX_GOLDSRC_RESOURCE_BITS 12
 #define MAX_GOLDSRC_ENTITY_BITS   11
