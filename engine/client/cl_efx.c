@@ -1494,8 +1494,6 @@ R_RocketTrail
 void GAME_EXPORT R_RocketTrail( vec3_t start, vec3_t end, int type )
 {
 	vec3_t		vec, right, up;
-	static int	tracercount;
-	float		s, c, x, y;
 	float		len, dec;
 	particle_t	*p;
 
@@ -1504,15 +1502,18 @@ void GAME_EXPORT R_RocketTrail( vec3_t start, vec3_t end, int type )
 
 	if( type == 7 )
 	{
+		dec = 1.0f;
 		VectorVectors( vec, right, up );
 	}
-
-	if( type < 128 )
+	else if( type < 128 )
 	{
 		dec = 3.0f;
 	}
 	else
 	{
+		// initialize if type will be 7 here
+		VectorVectors( vec, right, up );
+
 		dec = 1.0f;
 		type -= 128;
 	}
@@ -1521,67 +1522,65 @@ void GAME_EXPORT R_RocketTrail( vec3_t start, vec3_t end, int type )
 
 	while( len > 0 )
 	{
-		len -= dec;
-
 		p = R_AllocParticle( NULL );
-		if( !p ) return;
+		if( !p )
+			return;
 
+		len -= dec;
 		p->die = cl.time + 2.0f;
 
 		switch( type )
 		{
-		case 0:	// rocket trail
-			p->ramp = COM_RandomLong( 0, 3 );
+		case 0:
+		case 1:
+			p->ramp = COM_RandomLong( 0 + type * 2, 3 + type * 2 );
 			p->color = ramp3[(int)p->ramp];
 			p->type = pt_fire;
 			VectorAddScalar( start, COM_RandomFloat( -3.0f, 3.0f ), p->org );
 			break;
-		case 1:	// smoke smoke
-			p->ramp = COM_RandomLong( 2, 5 );
-			p->color = ramp3[(int)p->ramp];
-			p->type = pt_fire;
-			VectorAddScalar( start, COM_RandomFloat( -3.0f, 3.0f ), p->org );
-			break;
-		case 2:	// blood
-			p->type = pt_grav;
+		case 2:
 			p->color = COM_RandomLong( 67, 74 );
+			p->type = pt_grav;
 			VectorAddScalar( start, COM_RandomFloat( -3.0f, 3.0f ), p->org );
 			break;
 		case 3:
-		case 5:	// tracer
+		case 5:
+		{
+			static int	tracercount;
 			p->die = cl.time + 0.5f;
+			p->color = ( tracercount & 4 ) * 2;
 
-			if( type == 3 ) p->color = 52 + (( tracercount & 4 )<<1 );
-			else p->color = 230 + (( tracercount & 4 )<<1 );
+			if( type == 3 )
+				p->color += 52;
+			else
+				p->color += 230;
 
 			VectorCopy( start, p->org );
 			tracercount++;
 
-			if( FBitSet( tracercount, 1 ))
-			{
-				p->vel[0] = 30.0f *  vec[1];
-				p->vel[1] = 30.0f * -vec[0];
-			}
-			else
-			{
-				p->vel[0] = 30.0f * -vec[1];
-				p->vel[1] = 30.0f *  vec[0];
-			}
+			p->vel[0] = 30.0f * vec[1];
+			p->vel[1] = 30.0f * vec[0];
+			p->vel[tracercount & 1] = -p->vel[tracercount & 1];
 			break;
-		case 4:	// slight blood
-			p->type = pt_grav;
+		}
+		case 4:
 			p->color = COM_RandomLong( 67, 70 );
+			p->type = pt_grav;
 			VectorAddScalar( start, COM_RandomFloat( -3.0f, 3.0f ), p->org );
 			len -= 3.0f;
 			break;
-		case 6:	// voor trail
-			p->color = COM_RandomLong( 152, 155 );
-			p->die += 0.3f;
-			VectorAddScalar( start, COM_RandomFloat( -8.0f, 8.0f ), p->org );
+		case 6:
+			p->type = pt_fire;
+			p->ramp = COM_RandomLong( 0, 3 );
+			p->color = ramp3[(int)p->ramp];
+			VectorCopy( start, p->org );
 			break;
-		case 7:	// explosion tracer
-			x = COM_RandomLong( 0, 65535 );
-			y = COM_RandomLong( 8, 16 );
+		case 7:
+		{
+			float x = COM_RandomLong( 0, 65535 );
+			float y = COM_RandomLong( 8, 16 );
+			float s, c;
+
 			SinCos( x, &s, &c );
 			s *= y;
 			c *= y;
@@ -1589,13 +1588,16 @@ void GAME_EXPORT R_RocketTrail( vec3_t start, vec3_t end, int type )
 			VectorMAMAM( 1.0f, start, s, right, c, up, p->org );
 			VectorSubtract( start, p->org, p->vel );
 			VectorScale( p->vel, 2.0f, p->vel );
-			VectorMA( p->vel, COM_RandomFloat( 96.0f, 111.0f ), vec, p->vel );
+
+			x = COM_RandomFloat( 96.0f, 111.0f );
+			VectorMA( p->vel, x, vec, p->vel );
+
 			p->ramp = COM_RandomLong( 0, 3 );
 			p->color = ramp3[(int)p->ramp];
 			p->type = pt_explode2;
 			break;
+		}
 		default:
-			// just build line to show error
 			VectorCopy( start, p->org );
 			break;
 		}
