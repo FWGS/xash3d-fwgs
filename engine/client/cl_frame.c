@@ -392,8 +392,8 @@ static qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, double targettime
 		}
 	}
 
-	if( ph0 != NULL ) *ph0 = &ent->ph[i0];
-	if( ph1 != NULL ) *ph1 = &ent->ph[i1];
+	*ph0 = &ent->ph[i0];
+	*ph1 = &ent->ph[i1];
 
 	return extrapolate;
 }
@@ -413,9 +413,6 @@ static void CL_PureOrigin( cl_entity_t *ent, double t, vec3_t outorigin, vec3_t 
 
 	// NOTE: ph0 is next, ph1 is a prev
 	CL_FindInterpolationUpdates( ent, t, &ph0, &ph1 );
-
-	if ( !ph0 || !ph1 )
-		return;
 
 	t0 = ph0->animtime;
 	t1 = ph1->animtime;
@@ -489,9 +486,6 @@ static int CL_InterpolateModel( cl_entity_t *e )
 
 	t = cl.time - cl_interp.value;
 	CL_FindInterpolationUpdates( e, t, &ph0, &ph1 );
-
-	if( ph0 == NULL || ph1 == NULL )
-		return 0;
 
 	t1 = ph1->animtime;
 	t2 = ph0->animtime;
@@ -833,7 +827,6 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto
 	frame_t		*newframe, *oldframe;
 	int		oldindex, newnum, oldnum;
 	int		playerbytes = 0;
-	int		oldpacket;
 	int		bufStart;
 	entity_state_t	*oldent;
 	qboolean		player;
@@ -871,7 +864,6 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto
 	{
 		// this is a full update that we can start delta compressing from now
 		oldframe = NULL;
-		oldpacket = -1;		// delta too old or is initial message
 		cls.demowaiting = false;	// we can start recording now
 	}
 
