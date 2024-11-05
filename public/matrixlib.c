@@ -210,9 +210,9 @@ void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const ve
 	VectorSubtract( maxs, localCenter, localExtents );
 
 	Matrix3x4_VectorTransform( world, localCenter, worldCenter );
-	worldExtents[0] = DotProductAbs( localExtents, world[0] );	// auto-transposed!
-	worldExtents[1] = DotProductAbs( localExtents, world[1] );
-	worldExtents[2] = DotProductAbs( localExtents, world[2] );
+	worldExtents[0] = DotProductFabs( localExtents, world[0] );	// auto-transposed!
+	worldExtents[1] = DotProductFabs( localExtents, world[1] );
+	worldExtents[2] = DotProductFabs( localExtents, world[2] );
 
 	VectorSubtract( worldCenter, worldExtents, absmin );
 	VectorAdd( worldCenter, worldExtents, absmax );
