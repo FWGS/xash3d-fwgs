@@ -344,7 +344,7 @@ static void CL_CopyEntityToPhysEnt( physent_t *pe, entity_state_t *state, qboole
 	}
 
 	// rare case: not solid entities in vistrace
-	if( visent && VectorIsNull( pe->mins ))
+	if( visent && VectorIsNull( pe->mins ) && mod != NULL )
 	{
 		VectorCopy( mod->mins, pe->mins );
 		VectorCopy( mod->maxs, pe->maxs );
