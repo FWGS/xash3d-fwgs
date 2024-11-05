@@ -102,113 +102,6 @@ float	box_verts[8][3] = {
 
 // down, west, up, north, east, south
 // {"rt", "bk", "lf", "ft", "up", "dn"};
-#if 0
-/*
-================
-R_InitSkyBox
-
-================
-*/
-void R_InitSkyBox (void)
-{
-	int		i;
-	extern model_t *loadmodel;
-
-	r_skyfaces = loadmodel->surfaces + loadmodel->numsurfaces;
-	loadmodel->numsurfaces += 6;
-	r_skyverts = loadmodel->vertexes + loadmodel->numvertexes;
-	loadmodel->numvertexes += 8;
-	r_skyedges = loadmodel->edges + loadmodel->numedges;
-	loadmodel->numedges += 12;
-	r_skysurfedges = loadmodel->surfedges + loadmodel->numsurfedges;
-	loadmodel->numsurfedges += 24;
-	if (loadmodel->numsurfaces > MAX_MAP_FACES
-		|| loadmodel->numvertexes > MAX_MAP_VERTS
-		|| loadmodel->numedges > MAX_MAP_EDGES)
-		ri.Sys_Error (ERR_DROP, "InitSkyBox: map overflow");
-
-	memset (r_skyfaces, 0, 6*sizeof(*r_skyfaces));
-	for (i=0 ; i<6 ; i++)
-	{
-		r_skyplanes[i].normal[skybox_planes[i*2]] = 1;
-		r_skyplanes[i].dist = skybox_planes[i*2+1];
-
-		VectorCopy (box_vecs[i][0], r_skytexinfo[i].vecs[0]);
-		VectorCopy (box_vecs[i][1], r_skytexinfo[i].vecs[1]);
-
-		r_skyfaces[i].plane = &r_skyplanes[i];
-		r_skyfaces[i].numedges = 4;
-		r_skyfaces[i].flags = box_faces[i] | SURF_DRAWSKYBOX;
-		r_skyfaces[i].firstedge = loadmodel->numsurfedges-24+i*4;
-		r_skyfaces[i].texinfo = &r_skytexinfo[i];
-		r_skyfaces[i].texturemins[0] = -128;
-		r_skyfaces[i].texturemins[1] = -128;
-		r_skyfaces[i].extents[0] = 256;
-		r_skyfaces[i].extents[1] = 256;
-	}
-
-	for (i=0 ; i<24 ; i++)
-		if (box_surfedges[i] > 0)
-			r_skysurfedges[i] = loadmodel->numedges-13 + box_surfedges[i];
-		else
-			r_skysurfedges[i] = - (loadmodel->numedges-13 + -box_surfedges[i]);
-
-	for(i=0 ; i<12 ; i++)
-	{
-		r_skyedges[i].v[0] = loadmodel->numvertexes-9+box_edges[i*2+0];
-		r_skyedges[i].v[1] = loadmodel->numvertexes-9+box_edges[i*2+1];
-		r_skyedges[i].cachededgeoffset = 0;
-	}
-}
-
-/*
-================
-R_EmitSkyBox
-================
-*/
-void R_EmitSkyBox (void)
-{
-	int		i, j;
-	int		oldkey;
-
-	if (insubmodel)
-		return;		// submodels should never have skies
-	if (r_skyframe == r_framecount)
-		return;		// already set this frame
-
-	r_skyframe = r_framecount;
-
-	// set the eight fake vertexes
-	for (i=0 ; i<8 ; i++)
-		for (j=0 ; j<3 ; j++)
-			r_skyverts[i].position[j] = r_origin[j] + box_verts[i][j]*128;
-
-	// set the six fake planes
-	for (i=0 ; i<6 ; i++)
-		if (skybox_planes[i*2+1] > 0)
-			r_skyplanes[i].dist = r_origin[skybox_planes[i*2]]+128;
-		else
-			r_skyplanes[i].dist = r_origin[skybox_planes[i*2]]-128;
-
-	// fix texture offseets
-	for (i=0 ; i<6 ; i++)
-	{
-		r_skytexinfo[i].vecs[0][3] = -DotProduct (r_origin, r_skytexinfo[i].vecs[0]);
-		r_skytexinfo[i].vecs[1][3] = -DotProduct (r_origin, r_skytexinfo[i].vecs[1]);
-	}
-
-	// emit the six faces
-	oldkey = r_currentkey;
-	r_currentkey = 0x7ffffff0;
- 	for (i=0 ; i<6 ; i++)
-	{
-		R_RenderFace (r_skyfaces + i, 15);
-	}
-	r_currentkey = oldkey;		// bsp sorting order
-}
-
-#endif
-#if	!id386
 
 /*
 ================
@@ -508,9 +401,6 @@ static void R_ClipEdge (mvertex_t *pv0, mvertex_t *pv1, clipplane_t *clip)
 // add the edge
 	R_EmitEdge (pv0, pv1);
 }
-
-#endif	// !id386
-
 
 /*
 ================

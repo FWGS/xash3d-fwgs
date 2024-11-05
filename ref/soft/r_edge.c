@@ -21,22 +21,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "r_local.h"
 
-#ifndef id386
-void R_SurfacePatch (void)
-{
-}
-#endif
-
-
-#if 0
-the complex cases add new polys on most lines, so dont optimize for keeping them the same
-have multiple free span lists to try to get better coherence?
-low depth complexity -- 1 to 3 or so
-
-have a sentinal at both ends?
-#endif
-
-
 edge_t	*auxedges;
 edge_t	*r_edges, *edge_p, *edge_max;
 
@@ -131,9 +115,6 @@ void R_BeginEdgeFrame (void)
 	}
 }
 
-
-#if	!id386
-
 /*
 ==============
 R_InsertNewEdges
@@ -160,7 +141,6 @@ edgesearch:
 		if (edgelist->u >= edgestoadd->u)
 			goto addedge;
 		edgelist=edgelist->next;
-#if 1
 		if (edgelist->u >= edgestoadd->u)
 			goto addedge;
 		edgelist=edgelist->next;
@@ -170,7 +150,6 @@ edgesearch:
 		if (edgelist->u >= edgestoadd->u)
 			goto addedge;
 		edgelist=edgelist->next;
-#endif
 		goto edgesearch;
 
 	// insert edgestoadd before edgelist
@@ -181,11 +160,6 @@ addedge:
 		edgelist->prev = edgestoadd;
 	} while ((edgestoadd = next_edge) != NULL);
 }
-
-#endif	// !id386
-
-
-#if	!id386
 
 /*
 ==============
@@ -201,11 +175,6 @@ static void R_RemoveEdges (edge_t *pedge)
 		pedge->prev->next = pedge->next;
 	} while ((pedge = pedge->nextremove) != NULL);
 }
-
-#endif	// !id386
-
-
-#if	!id386
 
 /*
 ==============
@@ -275,9 +244,6 @@ pushback:
 			return;
 	}
 }
-
-#endif	// !id386
-
 
 /*
 ==============
@@ -430,9 +396,6 @@ void R_TrailingEdge (surf_t *surf, edge_t *edge)
 		surf->next->prev = surf->prev;
 	}
 }
-
-
-#if	!id386
 
 /*
 ==============
@@ -593,9 +556,6 @@ void R_GenerateSpans (void)
 	R_CleanupSpan ();
 }
 
-#endif	// !id386
-
-
 /*
 ==============
 R_GenerateSpansBackward
@@ -692,7 +652,6 @@ void R_ScanEdges (void)
 		{
 			R_InsertNewEdges (newedges[iv], edge_head.next);
 		}
-#if 1
 		(*pdrawfunc) ();
 
 	// flush the span list if we can't be sure we have enough spans left for
@@ -707,7 +666,6 @@ void R_ScanEdges (void)
 
 			span_p = basespan_p;
 		}
-#endif
 		if (removeedges[iv])
 			R_RemoveEdges (removeedges[iv]);
 
@@ -935,14 +893,10 @@ static void D_TurbulentSurf (surf_t *s)
 //============
 //PGM
 	// textures that aren't warping are just flowing. Use NonTurbulent8 instead
-#if 0
-	Turbulent8 (s->spans);
-#else
 	if(!(pface->flags & SURF_DRAWTURB))
 		NonTurbulent8 (s->spans);
 	else
 		Turbulent8 (s->spans);
-#endif
 //PGM
 //============
 
@@ -1001,38 +955,12 @@ static void D_AlphaSurf (surf_t *s)
 
 	if( !pface )
 		return;
-#if 1
 
 	if( pface->flags & SURF_CONVEYOR )
 		miplevel = 1;
 	else
 		miplevel = 0;
-#else
-	{
-		float dot;
-		float normal[3];
 
-		if ( s->insubmodel )
-		{
-			VectorCopy( pface->plane->normal, normal );
-//			TransformVector( pface->plane->normal, normal);
-			dot = DotProduct( normal, vpn );
-		}
-		else
-		{
-			VectorCopy( pface->plane->normal, normal );
-			dot = DotProduct( normal, vpn );
-		}
-
-		if ( pface->flags & SURF_PLANEBACK )
-			dot = -dot;
-
-		if ( dot > 0 )
-			printf( "blah" );
-
-		miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip * pface->texinfo->mipadjust);
-	}
-#endif
 	alpha = RI.currententity->curstate.renderamt * 7 / 255;
 	if( alpha <= 0 && RI.currententity->curstate.renderamt > 0 )
 		alpha = 1;
@@ -1121,41 +1049,15 @@ static void D_SolidSurf (surf_t *s)
 
 	if( !pface )
 		return;
-#if 1
+
 	if( pface->flags & SURF_CONVEYOR )
 		miplevel = 1;
 	else
 		miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip );
 	while( 1 << miplevel > gEngfuncs.Mod_SampleSizeForFace(pface))
 		miplevel--;
-#else
-	{
-		float dot;
-		float normal[3];
 
-		if ( s->insubmodel )
-		{
-			VectorCopy( pface->plane->normal, normal );
-//			TransformVector( pface->plane->normal, normal);
-			dot = DotProduct( normal, vpn );
-		}
-		else
-		{
-			VectorCopy( pface->plane->normal, normal );
-			dot = DotProduct( normal, vpn );
-		}
-
-		if ( pface->flags & SURF_PLANEBACK )
-			dot = -dot;
-
-		if ( dot > 0 )
-			printf( "blah" );
-
-		miplevel = D_MipLevelForScale(s->nearzi * scale_for_mip * pface->texinfo->mipadjust);
-	}
-#endif
-
-// FIXME: make this passed in to D_CacheSurface
+	// FIXME: make this passed in to D_CacheSurface
 	pcurrentcache = D_CacheSurface (pface, miplevel);
 
 	cacheblock = (pixel_t *)pcurrentcache->data;
@@ -1235,8 +1137,6 @@ void D_DrawSurfaces (void)
 			if (!s->spans)
 				continue;
 
-			//r_drawnpolycount++;
-#if 1
 			if( alphaspans )
 				D_AlphaSurf (s);
 			else if(s->flags & SURF_DRAWSKY)
@@ -1245,16 +1145,6 @@ void D_DrawSurfaces (void)
 				D_TurbulentSurf (s);
 			else
 				D_SolidSurf (s);
-#else
-			if (! (s->flags & (SURF_DRAWSKYBOX|SURF_DRAWBACKGROUND|SURF_DRAWTURB) ) )
-				D_SolidSurf (s);
-			else if (s->flags & SURF_DRAWSKYBOX)
-				D_SkySurf (s);
-			else if (s->flags & SURF_DRAWBACKGROUND)
-				D_BackgroundSurf (s);
-			else if (s->flags & SURF_DRAWTURB)
-				D_TurbulentSurf (s);
-#endif
 		}
 	}
 	else

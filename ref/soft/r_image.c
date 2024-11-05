@@ -576,16 +576,11 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		for(i = 0; i < height * width; i++ )
 		{
 				unsigned int r, g, b, major, minor;
-		#if 0
-				r = data[i * 4 + 0] * MASK(5-1) / 255;
-				g = data[i * 4 + 1] * MASK(6-1) / 255;
-				b = data[i * 4 + 2] * MASK(5-1) / 255;
-		#else
 				// seems to look better
 				r = data[i * 4 + 0] * BIT(5) / 256;
 				g = data[i * 4 + 1] * BIT(6) / 256;
 				b = data[i * 4 + 2] * BIT(5) / 256;
-		#endif
+
 				// 565 to 332
 				major = (((r >> 2) & MASK(3)) << 5) |( (( (g >> 3) & MASK(3)) << 2 )  )| (((b >> 3) & MASK(2)));
 
@@ -612,121 +607,6 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		//GL_CheckTexImageError( tex );
 	}
 
-#if 0
-
-
-	GL_SetTextureTarget( tex, pic ); // must be first
-
-	// make sure what target is correct
-	if( tex->target == GL_NONE )
-	{
-		gEngfuncs.Con_DPrintf( S_ERROR "%s: %s is not supported by your hardware\n", __func__, tex->name );
-		return false;
-	}
-
-	GL_SetTextureDimensions( tex, pic->width, pic->height, pic->depth );
-	GL_SetTextureFormat( tex, pic->type, pic->flags );
-
-	tex->fogParams[0] = pic->fogParams[0];
-	tex->fogParams[1] = pic->fogParams[1];
-	tex->fogParams[2] = pic->fogParams[2];
-	tex->fogParams[3] = pic->fogParams[3];
-
-	if(( pic->width * pic->height ) & 3 )
-	{
-		// will be resampled, just tell me for debug targets
-		gEngfuncs.Con_Reportf( "%s: %s s&3 [%d x %d]\n", __func__, tex->name, pic->width, pic->height );
-	}
-
-	buf = pic->buffer;
-	bufend = pic->buffer + pic->size; // total image size include all the layers, cube sides, mipmaps
-	offset = GL_CalcImageSize( pic->type, pic->width, pic->height, pic->depth );
-	texsize = GL_CalcTextureSize( tex->format, tex->width, tex->height, tex->depth );
-	normalMap = FBitSet( tex->flags, TF_NORMALMAP ) ? true : false;
-	numSides = FBitSet( pic->flags, IMAGE_CUBEMAP ) ? 6 : 1;
-
-	// uploading texture into video memory, change the binding
-	glState.currentTextures[glState.activeTMU] = tex->texnum;
-	pglBindTexture( tex->target, tex->texnum );
-
-	for( i = 0; i < numSides; i++ )
-	{
-		// track the buffer bounds
-		if( buf != NULL && buf >= bufend )
-			gEngfuncs.Host_Error( "%s: %s image buffer overflow\n", __func__, tex->name );
-
-		if( ImageCompressed( pic->type ))
-		{
-			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
-			{
-				width = Q_max( 1, ( tex->width >> j ));
-				height = Q_max( 1, ( tex->height >> j ));
-				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageCompressed( tex, i, j, width, height, tex->depth, size, buf );
-				tex->size += texsize;
-				buf += size; // move pointer
-				tex->numMips++;
-
-				GL_CheckTexImageError( tex );
-			}
-		}
-		else if( Q_max( 1, pic->numMips ) > 1 )	// not-compressed DDS
-		{
-			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
-			{
-				width = Q_max( 1, ( tex->width >> j ));
-				height = Q_max( 1, ( tex->height >> j ));
-				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, buf );
-				tex->size += texsize;
-				buf += size; // move pointer
-				tex->numMips++;
-
-				GL_CheckTexImageError( tex );
-
-			}
-		}
-		else // RGBA32
-		{
-			int mipCount = GL_CalcMipmapCount( tex, ( buf != NULL ));
-
-			// NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
-			if(( tex->depth == 1 ) && ( pic->width != tex->width ) || ( pic->height != tex->height ))
-				data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
-			else data = buf;
-
-			if( !ImageCompressed( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
-				data = GL_ApplyFilter( data, tex->width, tex->height );
-
-			// mips will be auto-generated if desired
-			for( j = 0; j < mipCount; j++ )
-			{
-				width = Q_max( 1, ( tex->width >> j ));
-				height = Q_max( 1, ( tex->height >> j ));
-				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
-				if( mipCount > 1 )
-					GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
-				tex->size += texsize;
-				tex->numMips++;
-
-				GL_CheckTexImageError( tex );
-			}
-
-			// move to next side
-			if( numSides > 1 && ( buf != NULL ))
-				buf += GL_CalcImageSize( pic->type, pic->width, pic->height, 1 );
-		}
-	}
-
-	SetBits( tex->flags, TF_IMG_UPLOADED ); // done
-	tex->numMips /= numSides;
-
-	return true;
-#endif
 	return true;
 }
 

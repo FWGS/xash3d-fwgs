@@ -112,27 +112,6 @@ static int R_RankForRenderMode( int rendermode )
 	}
 	return 0;
 }
-#if 0
-/*
-================
-R_GetEntityRenderMode
-
-check for texture flags
-================
-*/
-int R_GetEntityRenderMode( cl_entity_t *ent )
-{
-	int		i, opaque, trans;
-	mstudiotexture_t	*ptexture;
-	cl_entity_t	*oldent;
-	model_t		*model;
-	studiohdr_t	*phdr;
-
-	oldent = RI.currententity;
-	RI.currententity = ent;
-	return ent->curstate.rendermode;
-}
-#endif
 
 void GAME_EXPORT R_AllowFog( qboolean allowed )
 {
@@ -223,8 +202,6 @@ static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 	return 0;
 }
 
-#if 1
-
 /*
 ===============
 R_WorldToScreen
@@ -286,8 +263,6 @@ void GAME_EXPORT R_ScreenToWorld( const vec3_t screen, vec3_t point )
 	w = screen[0] * screenToWorld[3][0] + screen[1] * screenToWorld[3][1] + screen[2] * screenToWorld[3][2] + screenToWorld[3][3];
 	if( w != 0.0f ) VectorScale( point, ( 1.0f / w ), point );
 }
-
-#endif
 
 /*
 ===============
@@ -392,36 +367,6 @@ R_Clear
 */
 static void R_Clear( int bitMask )
 {
-	int	bits;
-#if 0
-	if( gEngfuncs.CL_IsDevOverviewMode( ))
-		pglClearColor( 0.0f, 1.0f, 0.0f, 1.0f ); // green background (Valve rules)
-	else pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
-
-	bits = GL_DEPTH_BUFFER_BIT;
-
-	if( glState.stencilEnabled )
-		bits |= GL_STENCIL_BUFFER_BIT;
-
-	bits &= bitMask;
-
-	pglClear( bits );
-
-	// change ordering for overview
-	if( RI.drawOrtho )
-	{
-		gldepthmin = 1.0f;
-		gldepthmax = 0.0f;
-	}
-	else
-	{
-		gldepthmin = 0.0f;
-		gldepthmax = 1.0f;
-	}
-
-	pglDepthFunc( GL_LEQUAL );
-	pglDepthRange( gldepthmin, gldepthmax );
-#endif
 	memset( vid.buffer, 0, vid.width * vid.height *2);
 }
 
@@ -445,30 +390,15 @@ R_SetupFrustum
 */
 void R_SetupFrustum( void )
 {
-#if 1
-	//ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
-
-	/*if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ) && ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-	{
-		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97 + sin( gp_cl->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
-		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03 - sin( gp_cl->time * 1.5 ) * 0.03 )) * 2 / (M_PI / 180.0);
-	}*/
-
 	// build the transformation matrix for the given view angles
 	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
 
-	//if( !r_lockfrustum->value )
 	{
 		VectorCopy( RI.vieworg, RI.cullorigin );
 		VectorCopy( RI.vforward, RI.cull_vforward );
 		VectorCopy( RI.vright, RI.cull_vright );
 		VectorCopy( RI.vup, RI.cull_vup );
 	}
-
-//	if( RI.drawOrtho )
-//		GL_FrustumInitOrtho( &RI.frustum, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
-//	else GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.fov_x, RI.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
-#endif
 }
 
 /*
@@ -478,7 +408,6 @@ R_SetupProjectionMatrix
 */
 static void R_SetupProjectionMatrix( matrix4x4 m )
 {
-#if 1
 	float	xMin, xMax, yMin, yMax, zNear, zFar;
 
 	if( RI.drawOrtho )
@@ -500,7 +429,6 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	xMin = -xMax;
 
 	Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
-#endif
 }
 
 /*
@@ -510,13 +438,11 @@ R_SetupModelviewMatrix
 */
 static void R_SetupModelviewMatrix( matrix4x4 m )
 {
-#if 1
 	Matrix4x4_CreateModelview( m );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
 	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] );
-#endif
 }
 
 /*
@@ -526,16 +452,6 @@ R_LoadIdentity
 */
 void R_LoadIdentity( void )
 {
-#if 0
-	if( tr.modelviewIdentity ) return;
-
-	Matrix4x4_LoadIdentity( RI.objectMatrix );
-	Matrix4x4_Copy( RI.modelviewMatrix, RI.worldviewMatrix );
-
-	pglMatrixMode( GL_MODELVIEW );
-	GL_LoadMatrix( RI.modelviewMatrix );
-	tr.modelviewIdentity = true;
-#endif
 }
 
 /*
@@ -545,25 +461,6 @@ R_RotateForEntity
 */
 void R_RotateForEntity( cl_entity_t *e )
 {
-#if 0
-	float	scale = 1.0f;
-
-	if( e == CL_GetEntityByIndex( 0 ) )
-	{
-		R_LoadIdentity();
-		return;
-	}
-
-	if( e->model->type != mod_brush && e->curstate.scale > 0.0f )
-		scale = e->curstate.scale;
-
-	Matrix4x4_CreateFromEntity( RI.objectMatrix, e->angles, e->origin, scale );
-	Matrix4x4_ConcatTransforms( RI.modelviewMatrix, RI.worldviewMatrix, RI.objectMatrix );
-
-	pglMatrixMode( GL_MODELVIEW );
-	GL_LoadMatrix( RI.modelviewMatrix );
-	tr.modelviewIdentity = false;
-#endif
 }
 
 /*
@@ -573,25 +470,6 @@ R_TranslateForEntity
 */
 void R_TranslateForEntity( cl_entity_t *e )
 {
-#if 0
-	float	scale = 1.0f;
-
-	if( e == CL_GetEntityByIndex( 0 ) )
-	{
-		R_LoadIdentity();
-		return;
-	}
-
-	if( e->model->type != mod_brush && e->curstate.scale > 0.0f )
-		scale = e->curstate.scale;
-
-	Matrix4x4_CreateFromEntity( RI.objectMatrix, vec3_origin, e->origin, scale );
-	Matrix4x4_ConcatTransforms( RI.modelviewMatrix, RI.worldviewMatrix, RI.objectMatrix );
-
-	pglMatrixMode( GL_MODELVIEW );
-	GL_LoadMatrix( RI.modelviewMatrix );
-	tr.modelviewIdentity = false;
-#endif
 }
 
 /*
@@ -631,79 +509,6 @@ static void R_SetupFrame( void )
 	// setup twice until globals fully refactored
 	R_SetupFrameQ();
 }
-#if 0
-
-/*
-=============
-R_SetupGL
-=============
-*/
-void R_SetupGL( qboolean set_gl_state )
-{
-	R_SetupModelviewMatrix( RI.worldviewMatrix );
-	R_SetupProjectionMatrix( RI.projectionMatrix );
-
-	Matrix4x4_Concat( RI.worldviewProjectionMatrix, RI.projectionMatrix, RI.worldviewMatrix );
-
-	if( !set_gl_state ) return;
-
-	if( RP_NORMALPASS( ))
-	{
-		int	x, x2, y, y2;
-
-		// set up viewport (main, playersetup)
-		x = floor( RI.viewport[0] * gpGlobals->width / gpGlobals->width );
-		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * gpGlobals->width / gpGlobals->width );
-		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
-		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
-
-		pglViewport( x, y2, x2 - x, y - y2 );
-	}
-	else
-	{
-		// envpass, mirrorpass
-		pglViewport( RI.viewport[0], RI.viewport[1], RI.viewport[2], RI.viewport[3] );
-	}
-
-	pglMatrixMode( GL_PROJECTION );
-	GL_LoadMatrix( RI.projectionMatrix );
-
-	pglMatrixMode( GL_MODELVIEW );
-	GL_LoadMatrix( RI.worldviewMatrix );
-
-	if( FBitSet( RI.params, RP_CLIPPLANE ))
-	{
-		GLdouble	clip[4];
-		mplane_t	*p = &RI.clipPlane;
-
-		clip[0] = p->normal[0];
-		clip[1] = p->normal[1];
-		clip[2] = p->normal[2];
-		clip[3] = -p->dist;
-
-		pglClipPlane( GL_CLIP_PLANE0, clip );
-		pglEnable( GL_CLIP_PLANE0 );
-	}
-
-	GL_Cull( GL_FRONT );
-
-	pglDisable( GL_BLEND );
-	pglDisable( GL_ALPHA_TEST );
-	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-}
-
-/*
-=============
-R_EndGL
-=============
-*/
-static void R_EndGL( void )
-{
-	if( RI.params & RP_CLIPPLANE )
-		pglDisable( GL_CLIP_PLANE0 );
-}
-
-#endif
 
 /*
 =============
@@ -812,39 +617,11 @@ static void R_DrawEntitiesOnList( void )
 		case mod_studio:
 			R_SetUpWorldTransform();
 			R_DrawStudioModel( RI.currententity );
-		#if 0
-			// gradient debug (for colormap testing)
-		{finalvert_t fv[3];
-			void R_AliasSetUpTransform (void);
-			extern void	(*d_pdrawspans)(void *);
-			extern void R_PolysetFillSpans8 ( void * );
-			d_pdrawspans = R_PolysetFillSpans8;
-			//RI.currententity = CL_GetEntityByIndex(0);
-			R_AliasSetUpTransform();
-			image_t *image = R_GetTexture(GL_LoadTexture("gfx/env/desertbk", NULL, 0, 0));
-			r_affinetridesc.pskin = image->pixels[0];
-			r_affinetridesc.skinwidth = image->width;
-			r_affinetridesc.skinheight = image->height;
-			R_SetupFinalVert( &fv[0], 0, -50, 50, 31 << 8, 0, 0);
-			R_SetupFinalVert( &fv[1], 0, 50, 50, 0 << 8, image->width, 0);
-			R_SetupFinalVert( &fv[2], 0, 0, 0, 0 << 8, image->width/2, image->height);
-			R_RenderTriangle( &fv[0], &fv[1], &fv[2] );
-		}
-#endif
-
-
 			break;
 		default:
 			break;
 		}
 	}
-
-//	GL_CheckForErrors();
-
-	// quake-specific feature
-//	R_DrawAlphaTextureChains();
-
-//	GL_CheckForErrors();
 
 	R_SetUpWorldTransform();
 	// draw sprites seperately, because of alpha blending
@@ -864,19 +641,14 @@ static void R_DrawEntitiesOnList( void )
 		}
 	}
 
-//	GL_CheckForErrors();
-
 	if( !RI.onlyClientDraw )
 	{
 		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 	}
 
-//	GL_CheckForErrors();
-
 	if( RI.drawWorld )
 		gEngfuncs.pfnDrawNormalTriangles();
 
-//	GL_CheckForErrors();
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 	// then draw translucent entities
 	for( i = 0; i < tr.draw_list->num_trans_entities && !RI.onlyClientDraw; i++ )
@@ -915,15 +687,10 @@ static void R_DrawEntitiesOnList( void )
 		}
 	}
 
-//	GL_CheckForErrors();
-
 	if( RI.drawWorld )
 	{
-	//	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 		gEngfuncs.pfnDrawTransparentTriangles ();
 	}
-
-//	GL_CheckForErrors();
 
 	if( !RI.onlyClientDraw )
 	{
@@ -932,21 +699,15 @@ static void R_DrawEntitiesOnList( void )
 		R_AllowFog( true );
 	}
 
-	//GL_CheckForErrors();
-
-//	pglDisable( GL_BLEND );	// Trinity Render issues
 	GL_SetRenderMode(kRenderNormal);
 	R_SetUpWorldTransform();
 	if( !RI.onlyClientDraw )
 		R_DrawViewModel();
 	gEngfuncs.CL_ExtraUpdate();
 
-	//GL_CheckForErrors();
 }
 
-#if 1
 qboolean insubmodel;
-
 
 /*
 =============
@@ -1110,7 +871,6 @@ static void R_DrawBEntitiesOnList (void)
 
 	VectorCopy (tr.modelorg, oldorigin);
 	insubmodel = true;
-	//r_dlightframecount = r_framecount;
 
 	for( i = 0; i < tr.draw_list->num_edge_entities && !RI.onlyClientDraw; i++ )
 	{
@@ -1121,22 +881,12 @@ static void R_DrawBEntitiesOnList (void)
 			continue;
 		if (RI.currentmodel->nummodelsurfaces == 0)
 			continue;	// clip brush only
-		//if ( currententity->flags & RF_BEAM )
-			//continue;
 		if (RI.currentmodel->type != mod_brush)
 			continue;
 	// see if the bounding box lets us trivially reject, also sets
 	// trivial accept status
 		RotatedBBox (RI.currentmodel->mins, RI.currentmodel->maxs,
 			RI.currententity->angles, mins, maxs);
-#if 0
-		mins[0] = mins[0] - 100;
-		mins[1] = mins[1] - 100;
-		mins[2] = mins[2] - 100;
-		maxs[0] = maxs[0] + 100;
-		maxs[1] = maxs[1] + 100;
-		maxs[2] = maxs[2] + 100;
-#endif
 		VectorAdd (mins, RI.currententity->origin, minmaxs);
 		VectorAdd (maxs, RI.currententity->origin, (minmaxs+3));
 
@@ -1157,18 +907,6 @@ static void R_DrawBEntitiesOnList (void)
 	// FIXME: stop transforming twice
 		R_RotateBmodel ();
 
-	// calculate dynamic lighting for bmodel
-		// this will reset RI.currententity, do we need this?
-		//R_PushDlights ();
-		/*if (clmodel->firstmodelsurface != 0)
-		{
-				for (k=0 ; k<r_refdef2.numDlights ; k++)
-				{
-						R_MarkLights (&r_refdef2.dlights[k], 1<<k,
-								clmodel->nodes + clmodel->firstnode);
-				}
-		}*/
-
 		// calculate dynamic lighting for bmodel
 		for( k = 0; k < MAX_DLIGHTS; k++ )
 		{
@@ -1183,14 +921,10 @@ static void R_DrawBEntitiesOnList (void)
 			Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
 			VectorCopy( origin_l, l->origin ); // move light in bmodel space
 			R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
-			VectorCopy( oldorigin, l->origin ); // restore lightorigin*/
-			//R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
+			VectorCopy( oldorigin, l->origin ); // restore lightorigin
 		}
 
-	//	RI.currentmodel = tr.draw_list->solid_entities[i]->model;
-	//	RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currententity->topnode = topnode;
-//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
 		if (topnode->contents >= 0)
 		{
 		// not a leaf; has to be clipped to the world BSP
@@ -1202,9 +936,6 @@ static void R_DrawBEntitiesOnList (void)
 		// falls entirely in one leaf, so we just put all the
 		// edges in the edge list and let 1/z sorting handle
 		// drawing order
-			//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
-
-
 			R_DrawSubmodelPolygons (RI.currentmodel, clipflags, topnode);
 		}
 		RI.currententity->topnode = NULL;
@@ -1269,28 +1000,17 @@ void R_DrawBrushModel(cl_entity_t *pent)
 
 	VectorCopy (tr.modelorg, oldorigin);
 	insubmodel = true;
-	//r_dlightframecount = r_framecount;
 
 		if (!RI.currentmodel)
 			return;
 		if (RI.currentmodel->nummodelsurfaces == 0)
 			return;	// clip brush only
-		//if ( currententity->flags & RF_BEAM )
-			//continue;
 		if (RI.currentmodel->type != mod_brush)
 			return;
 	// see if the bounding box lets us trivially reject, also sets
 	// trivial accept status
 		RotatedBBox (RI.currentmodel->mins, RI.currentmodel->maxs,
 			RI.currententity->angles, mins, maxs);
-#if 0
-		mins[0] = mins[0] - 100;
-		mins[1] = mins[1] - 100;
-		mins[2] = mins[2] - 100;
-		maxs[0] = maxs[0] + 100;
-		maxs[1] = maxs[1] + 100;
-		maxs[2] = maxs[2] + 100;
-#endif
 		VectorAdd (mins, RI.currententity->origin, minmaxs);
 		VectorAdd (maxs, RI.currententity->origin, (minmaxs+3));
 
@@ -1312,18 +1032,6 @@ void R_DrawBrushModel(cl_entity_t *pent)
 	// FIXME: stop transforming twice
 		R_RotateBmodel ();
 
-	// calculate dynamic lighting for bmodel
-		// this will reset RI.currententity, do we need this?
-		//R_PushDlights ();
-		/*if (clmodel->firstmodelsurface != 0)
-		{
-				for (k=0 ; k<r_refdef2.numDlights ; k++)
-				{
-						R_MarkLights (&r_refdef2.dlights[k], 1<<k,
-								clmodel->nodes + clmodel->firstnode);
-				}
-		}*/
-
 		// calculate dynamic lighting for bmodel
 		for( k = 0; k < MAX_DLIGHTS; k++ )
 		{
@@ -1340,13 +1048,9 @@ void R_DrawBrushModel(cl_entity_t *pent)
 			VectorCopy( origin_l, l->origin ); // move light in bmodel space
 			R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
 			VectorCopy( oldorigin, l->origin ); // restore lightorigin*/
-			//R_MarkLights( l, 1<<k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
 		}
 
-	//	RI.currentmodel = tr.draw_list->solid_entities[i]->model;
-	//	RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currententity->topnode = topnode;
-//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
 		if (topnode->contents >= 0)
 		{
 		// not a leaf; has to be clipped to the world BSP
@@ -1358,9 +1062,6 @@ void R_DrawBrushModel(cl_entity_t *pent)
 		// falls entirely in one leaf, so we just put all the
 		// edges in the edge list and let 1/z sorting handle
 		// drawing order
-			//ASSERT( RI.currentmodel == tr.draw_list->solid_entities[i]->model );
-
-
 			R_DrawSubmodelPolygons (RI.currentmodel, clipflags, topnode);
 		}
 		RI.currententity->topnode = NULL;
@@ -1378,8 +1079,6 @@ void R_DrawBrushModel(cl_entity_t *pent)
 	R_ScanEdges();
 	alphaspans = false;
 }
-
-#endif
 
 /*
 ================
@@ -1410,7 +1109,7 @@ static void R_EdgeDrawing (void)
 	{
 		surfaces =  (surf_t *)(((uintptr_t)&lsurfs + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 		surf_max = &surfaces[r_cnumsurfs];
-		
+
 		// surface 0 doesn't really exist; it's just a dummy because index 0
 		// is used to indicate no edge attached to surface
 
@@ -1431,85 +1130,6 @@ static void R_EdgeDrawing (void)
 	R_ScanEdges ();
 }
 
-#if 0
-/*
-===============
-R_MarkLeaves
-
-Mark the leaves and nodes that are in the PVS for the current leaf
-===============
-*/
-void R_MarkLeaves( void )
-{
-	qboolean	novis = false;
-	qboolean	force = false;
-	mleaf_t	*leaf = NULL;
-	mnode_t	*node;
-	vec3_t	test;
-	int	i;
-
-	if( !RI.drawWorld ) return;
-
-	/*if( FBitSet( r_novis->flags, FCVAR_CHANGED ) || tr.fResetVis )
-	{
-		// force recalc viewleaf
-		ClearBits( r_novis->flags, FCVAR_CHANGED );
-		tr.fResetVis = false;
-		RI.viewleaf = NULL;
-	}*/
-
-	VectorCopy( RI.pvsorigin, test );
-
-	if( RI.viewleaf != NULL )
-	{
-		// merge two leafs that can be a crossed-line contents
-		if( RI.viewleaf->contents == CONTENTS_EMPTY )
-		{
-			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
-			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
-		}
-		else
-		{
-			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
-			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
-		}
-
-		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
-			force = true;
-	}
-
-	if( RI.viewleaf == RI.oldviewleaf && RI.viewleaf != NULL && !force )
-		return;
-
-	// development aid to let you run around
-	// and see exactly where the pvs ends
-	//if( sw_lockpvs->value ) return;
-
-	RI.oldviewleaf = RI.viewleaf;
-	tr.visframecount++;
-
-	if( RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
-		novis = true;
-
-	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
-	if( force && !novis ) gEngfuncs.R_FatPVS( test, REFPVS_RADIUS, RI.visbytes, true, novis );
-
-	for( i = 0; i < WORLDMODEL->numleafs; i++ )
-	{
-		if( CHECKVISBIT( RI.visbytes, i ))
-		{
-			node = (mnode_t *)&WORLDMODEL->leafs[i+1];
-			do
-			{
-				if( node->visframe == tr.visframecount )
-					break;
-				node->visframe = tr.visframecount;
-				node = node->parent;
-			} while( node );
-		}
-	}
-}
-#else
 /*
 ===============
 R_MarkLeaves
@@ -1545,11 +1165,6 @@ static void R_MarkLeaves (void)
 		}
 	}
 }
-
-
-
-#endif
-
 
 /*
 ================

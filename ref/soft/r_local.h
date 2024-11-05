@@ -369,43 +369,12 @@ typedef struct image_s
 	struct image_s	*nextHash;
 } image_t;
 
-#if 0
-
-//
-// gl_backend.c
-//
-void GL_BackendStartFrame( void );
-void GL_BackendEndFrame( void );
-void GL_CleanUpTextureUnits( int last );
-void GL_Bind( int tmu, unsigned int texnum );
-void GL_LoadTexMatrixExt( const float *glmatrix );
-void GL_LoadMatrix( const matrix4x4 source );
-void GL_TexGen( unsigned int coord, unsigned int mode );
-void GL_SelectTexture( int texture );
-void GL_CleanupAllTextureUnits( void );
-void GL_LoadIdentityTexMatrix( void );
-void GL_DisableAllTexGens( void );
-void GL_SetRenderMode( int mode );
-void GL_TextureTarget( uint target );
-void GL_Cull( unsigned int cull );
-void R_ShowTextures( void );
-void R_ShowTree( void );
-void SCR_TimeRefresh_f( void );
-#endif
 //
 // gl_beams.c
 //
 void CL_DrawBeams( int fTrans, BEAM *active_beams );
 qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
-#if 0
-//
-// gl_cull.c
-//
-int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
-qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );
-qboolean R_CullSphere( const vec3_t centre, const float radius );
-//int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags );
-#endif
+
 //
 // gl_decals.c
 //
@@ -490,32 +459,7 @@ void Matrix4x4_CreateRotate( matrix4x4 out, float angle, float x, float y, float
 void Matrix4x4_CreateProjection(matrix4x4 out, float xMax, float xMin, float yMax, float yMin, float zNear, float zFar);
 void Matrix4x4_CreateOrtho(matrix4x4 m, float xLeft, float xRight, float yBottom, float yTop, float zNear, float zFar);
 void Matrix4x4_CreateModelview( matrix4x4 out );
-#if 0
-//
-// gl_rmisc.c
-//
-void R_ClearStaticEntities( void );
 
-//
-// gl_rsurf.c
-//
-void R_MarkLeaves( void );
-void R_DrawWorld( void );
-void R_DrawWaterSurfaces( void );
-void R_DrawBrushModel( cl_entity_t *e );
-void GL_SubdivideSurface( msurface_t *fa );
-void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa );
-void DrawGLPoly( glpoly2_t *p, float xScale, float yScale );
-texture_t *R_TextureAnimation( msurface_t *s );
-void GL_SetupFogColorForSurfaces( void );
-void R_DrawAlphaTextureChains( void );
-void GL_RebuildLightmaps( void );
-void GL_BuildLightmaps( void );
-void GL_ResetFogColor( void );
-void R_GenerateVBO();
-void R_ClearVBO();
-void R_AddDecalVBO( decal_t *pdecal, msurface_t *surf );
-#endif
 //
 // gl_rpart.c
 //
@@ -549,24 +493,6 @@ void R_StudioResetPlayerModels( void );
 void CL_InitStudioAPI( void );
 void Mod_StudioLoadTextures( model_t *mod, void *data );
 void Mod_StudioUnloadTextures( void *data );
-#if 0
-//
-// gl_alias.c
-//
-void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded );
-void R_DrawAliasModel( cl_entity_t *e );
-void R_AliasInit( void );
-
-//
-// gl_warp.c
-//
-
-void R_AddSkyBoxSurface( msurface_t *fa );
-void R_ClearSkyBox( void );
-void R_DrawSkyBox( void );
-void R_DrawClouds( void );
-void EmitWaterPolys( msurface_t *warp, qboolean reverse );
-#endif
 
 //
 // r_polyse.c
@@ -633,18 +559,7 @@ byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( const float *mins, const float *maxs );
 void R_NewMap( void );
 void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
-#if 0
-//
-// gl_opengl.c
-//
-#define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
-void GL_CheckForErrors_( const char *filename, const int fileline );
-const char *GL_ErrorString( int err );
-qboolean GL_Support( int r_ext );
-int GL_MaxTextureUnits( void );
-void GL_CheckExtension( const char *name, const dllfunc_t *funcs, const char *cvarname, int r_ext );
-void GL_SetExtension( int r_ext, int enable );
-#endif
+
 //
 // gl_triapi.c
 //
@@ -941,18 +856,7 @@ typedef struct
 	int                     surfheight;     // in mipmapped texels
 } drawsurf_t;
 
-
-#if 0
-typedef struct {
-	int                     ambientlight;
-	int                     shadelight;
-	float           *plightvec;
-} alight_t;
-
-#endif
-
 // clipped bmodel edges
-
 typedef struct bedge_s
 {
 	mvertex_t               *v[2];
@@ -1212,7 +1116,7 @@ qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int 
 //
 // r_edge.c
 //
-void R_SurfacePatch (void);
+static inline void R_SurfacePatch (void) { }
 void R_BeginEdgeFrame (void);
 void R_RenderWorld (void);
 void R_ScanEdges (void);
@@ -1269,7 +1173,6 @@ void R_SetUpWorldTransform (void);
 //
 #include "crtlib.h"
 #include "crclib.h"
-#if 1
 void _Mem_Free( void *data, const char *filename, int fileline );
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
@@ -1281,13 +1184,5 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 #define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
 #define Mem_EmptyPool( pool ) gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
-#else
-#define Mem_Malloc( pool, size ) malloc(size)
-#define Mem_Calloc( pool, size ) calloc(1,size)
-#define Mem_Realloc( pool, ptr, size ) realloc(ptr, size)
-#define Mem_Free( mem ) free(mem)
-#define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
-#define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
-#define Mem_EmptyPool( pool ) gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
-#endif
+
 #endif // GL_LOCAL_H

@@ -631,70 +631,6 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 		VectorMA( point, frame->right * scale, v_right, point );
 		TriVertex3fv( point );
 	TriEnd();
-
-#if 0
-	image_t *pic = R_GetTexture(frame->gl_texturenum);
-	r_polydesc.pixels       = pic->pixels[0];
-	r_polydesc.pixel_width  = pic->width;
-	r_polydesc.pixel_height = pic->height;
-	r_polydesc.dist         = 0;
-
-	// generate the sprite's axes, completely parallel to the viewplane.
-	VectorCopy (v_up, r_polydesc.vup);
-	VectorCopy (v_right, r_polydesc.vright);
-	VectorCopy (vpn, r_polydesc.vpn);
-
-// build the sprite poster in worldspace
-	VectorScale (r_polydesc.vright,
-		frame->width - frame->origin_x, right);
-	VectorScale (r_polydesc.vup,
-		s_psprframe->height - s_psprframe->origin_y, up);
-	VectorScale (r_polydesc.vright,
-		-s_psprframe->origin_x, left);
-	VectorScale (r_polydesc.vup,
-		-s_psprframe->origin_y, down);
-
-	// invert UP vector for sprites
-	VectorInverse( r_polydesc.vup );
-
-	pverts = r_clip_verts[0];
-
-	pverts[0][0] = r_entorigin[0] + up[0] + left[0];
-	pverts[0][1] = r_entorigin[1] + up[1] + left[1];
-	pverts[0][2] = r_entorigin[2] + up[2] + left[2];
-	pverts[0][3] = 0;
-	pverts[0][4] = 0;
-
-	pverts[1][0] = r_entorigin[0] + up[0] + right[0];
-	pverts[1][1] = r_entorigin[1] + up[1] + right[1];
-	pverts[1][2] = r_entorigin[2] + up[2] + right[2];
-	pverts[1][3] = s_psprframe->width;
-	pverts[1][4] = 0;
-
-	pverts[2][0] = r_entorigin[0] + down[0] + right[0];
-	pverts[2][1] = r_entorigin[1] + down[1] + right[1];
-	pverts[2][2] = r_entorigin[2] + down[2] + right[2];
-	pverts[2][3] = s_psprframe->width;
-	pverts[2][4] = s_psprframe->height;
-
-	pverts[3][0] = r_entorigin[0] + down[0] + left[0];
-	pverts[3][1] = r_entorigin[1] + down[1] + left[1];
-	pverts[3][2] = r_entorigin[2] + down[2] + left[2];
-	pverts[3][3] = 0;
-	pverts[3][4] = s_psprframe->height;
-
-	r_polydesc.nump = 4;
-	r_polydesc.s_offset = ( r_polydesc.pixel_width  >> 1);
-	r_polydesc.t_offset = ( r_polydesc.pixel_height >> 1);
-	VectorCopy( modelorg, r_polydesc.viewer_position );
-
-	r_polydesc.stipple_parity = 1;
-	if ( currententity->flags & RF_TRANSLUCENT )
-		R_ClipAndDrawPoly ( currententity->alpha, false, true );
-	else
-		R_ClipAndDrawPoly ( 1.0F, false, true );
-	r_polydesc.stipple_parity = 0;
-#endif
 }
 
 static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
@@ -799,34 +735,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		R_AllowFog( false );
 
 	GL_SetRenderMode( e->curstate.rendermode );
-#if 0
-	// select properly rendermode
-	switch( e->curstate.rendermode )
-	{
-	case kRenderTransAlpha:
-		pglDepthMask( GL_FALSE );
-	case kRenderTransColor:
-	case kRenderTransTexture:
-		pglEnable( GL_BLEND );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		break;
-	case kRenderGlow:
-		pglDisable( GL_DEPTH_TEST );
-	case kRenderTransAdd:
-		pglEnable( GL_BLEND );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-		pglDepthMask( GL_FALSE );
-		break;
-	case kRenderNormal:
-	default:
-		pglDisable( GL_BLEND );
-		break;
-	}
 
-	// all sprites can have color
-	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglEnable( GL_ALPHA_TEST );
-#endif
 	// NOTE: never pass sprites with rendercolor '0 0 0' it's a stupid Valve Hammer Editor bug
 	if( e->curstate.rendercolor.r || e->curstate.rendercolor.g || e->curstate.rendercolor.b )
 	{
@@ -928,39 +837,4 @@ void R_DrawSpriteModel( cl_entity_t *e )
 			R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 		}
 	}
-#if 0
-	// draw the sprite 'lightmap' :-)
-	if( R_SpriteHasLightmap( e, psprite->texFormat ))
-	{
-		if( !r_lightmap->value )
-			pglEnable( GL_BLEND );
-		else pglDisable( GL_BLEND );
-		pglDepthFunc( GL_EQUAL );
-		pglDisable( GL_ALPHA_TEST );
-		pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-
-		pglColor4f( color2[0], color2[1], color2[2], tr.blend );
-		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
-		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
-		pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
-		pglDepthFunc( GL_LEQUAL );
-	}
-
-	if( psprite->facecull == SPR_CULL_NONE )
-		GL_Cull( GL_FRONT );
-
-	pglDisable( GL_ALPHA_TEST );
-	pglDepthMask( GL_TRUE );
-
-	if( e->curstate.rendermode == kRenderGlow || e->curstate.rendermode == kRenderTransAdd )
-		R_AllowFog( true );
-
-	if( e->curstate.rendermode != kRenderNormal )
-	{
-		pglDisable( GL_BLEND );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-		pglEnable( GL_DEPTH_TEST );
-	}
-#endif
 }

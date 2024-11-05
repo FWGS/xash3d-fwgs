@@ -64,8 +64,6 @@ surfcache_t	*sc_rover, *sc_base;
 
 static int		rtable[MOD_FRAMES][MOD_FRAMES];
 
-#if 1
-
 static void R_BuildLightMap( void );
 /*
 ===============
@@ -235,99 +233,6 @@ static void R_BuildLightMap( void )
 		blocklights[i] = t;
 	}
 }
-#else
-
-/*
-===============
-R_BuildLightMap
-
-Combine and scale multiple lightmaps into the 8.8 format in blocklights
-===============
-*/
-void R_BuildLightMap (void)
-{
-	int			smax, tmax;
-	int			t;
-	int			i, size;
-	byte		*lightmap;
-	unsigned	scale;
-	int			maps;
-	msurface_t	*surf;
-
-	surf = r_drawsurf.surf;
-
-	//smax = (surf->extents[0]>>4)+1;
-	//tmax = (surf->extents[1]>>4)+1;
-	mextrasurf_t	*info = surf->info;
-	int sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	smax = ( info->lightextents[0] / sample_size ) + 1;
-	tmax = ( info->lightextents[1] / sample_size ) + 1;
-
-	size = smax*tmax;
-
-	if (r_fullbright->value )
-	{
-		for (i=0 ; i<size ; i++)
-			blocklights[i] = 0;
-		return;
-	}
-
-// clear to no light
-	for (i=0 ; i<size ; i++)
-		blocklights[i] = 0;
-
-
-// add all the lightmaps
-	lightmap = surf->samples;
-	if (lightmap)
-		for (maps = 0 ; maps < MAXLIGHTMAPS && surf->styles[maps] != 255 ;
-			 maps++)
-		{
-			scale = r_drawsurf.lightadj[maps];	// 8.8 fraction
-			for (i=0 ; i<size ; i++)
-			{
-				blocklights[i] += lightmap[i*3] * 2.5; // * scale;
-				blocklights[i] += lightmap[i*3+1] * 2.5; // * scale;
-				blocklights[i] += lightmap[i*3+2] * 2.5; // * scale;
-			}
-			lightmap += size;	// skip to next lightmap
-		}
-
-// add all the dynamic lights
-	//if (surf->dlightframe == r_framecount)
-		//R_AddDynamicLights ();
-
-// bound, invert, and shift
-	/*for (i=0 ; i<size ; i++)
-	{
-		t = (int)blocklights[i];
-		if (t < 0)
-			t = 0;
-		t = (255*256 - t) >> (8 - VID_CBITS);
-
-		if (t < (1 << 6))
-			t = (1 << 6);
-
-		blocklights[i] = t;
-	}*/
-	for (i=0 ; i<size ; i++)
-	{
-		t = (int)blocklights[i];
-		if (t < 0)
-			t = 0;
-		if( t > 767 )
-			t = 767;
-		t = t * 31 / 256/3;//(255*256 - t) >> (8 - VID_CBITS);
-
-		//if (t < (1 << 6))
-			//t = (1 << 6);
-		t = t << 8;
-
-		blocklights[i] = t;
-	}
-}
-
-#endif
 
 void GL_InitRandomTable( void )
 {
@@ -594,7 +499,6 @@ void R_DrawSurface (void)
 
 //=============================================================================
 
-#if	!id386
 #define BLEND_LM(pix, light) vid.colormap[(pix >> 3) | ((light & 0x1f00) << 5)] | ( pix & 7 );
 
 /*
@@ -920,12 +824,7 @@ void R_DrawSurfaceBlock8_mip3 (void)
 	}
 }
 
-#endif
-
-
 //============================================================================
-
-
 /*
 ================
 R_InitCaches

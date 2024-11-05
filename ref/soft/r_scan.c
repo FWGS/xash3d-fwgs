@@ -31,11 +31,6 @@ int				*r_turb_turb;
 static int				r_turb_spancount;
 int alpha;
 
-void D_DrawTurbulent8Span (void);
-
-
-#if	!id386
-
 /*
 =============
 D_DrawTurbulent8Span
@@ -54,7 +49,6 @@ void D_DrawTurbulent8Span (void)
 		r_turb_t += r_turb_tstep;
 	} while (--r_turb_spancount > 0);
 }
-
 
 /*
 =============
@@ -84,9 +78,6 @@ static void D_DrawTurbulent8ZSpan (void)
 		r_turb_t += r_turb_tstep;
 	} while (--r_turb_spancount > 0);
 }
-
-#endif	// !id386
-
 
 /*
 =============
@@ -219,7 +210,6 @@ void Turbulent8 (espan_t *pspan)
 
 	} while ((pspan = pspan->pnext) != NULL);
 }
-
 
 /*
 =============
@@ -502,9 +492,6 @@ void NonTurbulent8 (espan_t *pspan)
 }
 //PGM
 //====================
-
-
-#if	!id386
 
 int kernel[2][2][2] =
 {
@@ -1290,11 +1277,6 @@ void D_AddSpans16 (espan_t *pspan)
 	} while ((pspan = pspan->pnext) != NULL);
 }
 
-#endif
-
-
-#if	!id386
-
 /*
 =============
 D_DrawZSpans
@@ -1352,6 +1334,4 @@ void D_DrawZSpans (espan_t *pspan)
 
 	} while ((pspan = pspan->pnext) != NULL);
 }
-
-#endif
 
