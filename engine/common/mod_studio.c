@@ -24,17 +24,17 @@ typedef int (*STUDIOAPI)( int, sv_blending_interface_t**, server_studio_api_t*, 
 
 typedef struct mstudiocache_s
 {
-	float	frame;
-	int	sequence;
-	vec3_t	angles;
-	vec3_t	origin;
-	vec3_t	size;
-	byte	controller[4];
-	byte	blending[2];
-	model_t	*model;
-	uint	current_hull;
-	uint	current_plane;
-	uint	numhitboxes;
+	model_t *model;
+	float   frame;
+	int     sequence;
+	vec3_t  angles;
+	vec3_t  origin;
+	vec3_t  size;
+	byte    controller[4];
+	byte    blending[2];
+	uint    current_hull;
+	uint    current_plane;
+	uint    numhitboxes;
 } mstudiocache_t;
 
 #define STUDIO_CACHESIZE		16
