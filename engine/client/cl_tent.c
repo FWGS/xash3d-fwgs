@@ -570,23 +570,21 @@ Create a fizz effect
 void GAME_EXPORT R_FizzEffect( cl_entity_t *pent, int modelIndex, int density )
 {
 	TEMPENTITY	*pTemp;
-	int		i, width, depth, count;
+	int		i, width, depth;
 	float		angle, maxHeight, speed;
 	float		xspeed, yspeed, zspeed;
 	vec3_t		origin;
 	model_t		*mod;
 
-	if( !pent || pent->curstate.modelindex <= 0 )
+	if( !pent || !pent->model || !modelIndex )
 		return;
 
-	if(( mod = CL_ModelHandle( pent->curstate.modelindex )) == NULL )
+	if(( mod = CL_ModelHandle( modelIndex )) == NULL )
 		return;
 
-	count = density + 1;
-	density = count * 3 + 6;
-	maxHeight = mod->maxs[2] - mod->mins[2];
-	width = mod->maxs[0] - mod->mins[0];
-	depth = mod->maxs[1] - mod->mins[1];
+	maxHeight = pent->model->maxs[2] - pent->model->mins[2];
+	width = pent->model->maxs[0] - pent->model->mins[0];
+	depth = pent->model->maxs[1] - pent->model->mins[1];
 
 	speed = ( pent->curstate.rendercolor.r<<8 | pent->curstate.rendercolor.g );
 	if( pent->curstate.rendercolor.b )
@@ -598,12 +596,12 @@ void GAME_EXPORT R_FizzEffect( cl_entity_t *pent, int modelIndex, int density )
 	xspeed *= speed;
 	yspeed *= speed;
 
-	for( i = 0; i < count; i++ )
+	for( i = 0; i <= density; i++ )
 	{
 		origin[0] = mod->mins[0] + COM_RandomLong( 0, width - 1 );
 		origin[1] = mod->mins[1] + COM_RandomLong( 0, depth - 1 );
 		origin[2] = mod->mins[2];
-		pTemp = CL_TempEntAlloc( origin, CL_ModelHandle( modelIndex ));
+		pTemp = CL_TempEntAlloc( origin, mod );
 
 		if ( !pTemp ) return;
 
