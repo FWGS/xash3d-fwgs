@@ -1440,29 +1440,26 @@ void Touch_Draw( void )
 
 	Touch_InitConfig();
 
-
 	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
 
 	if( touch.state >= state_edit && touch_grid_enable.value )
 	{
 		float x;
+
 		if( touch_in_menu.value )
 			Touch_DrawTexture( 0, 0, 1, 1, touch.whitetexture, 32, 32, 32, 255 );
 		else
 			Touch_DrawTexture( 0, 0, 1, 1, touch.whitetexture, 0, 0, 0, 112 );
-		ref.dllFuncs.Color4ub( 0, 224, 224, 112 );
-		for( x = 0; x < 1 ; x += GRID_X )
-			ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X(x),
-				0,
-				1,
-				TO_SCRN_Y(1),
-				0, 0, 1, 1, touch.whitetexture );
-		for( x = 0; x < 1 ; x += GRID_Y )
-			ref.dllFuncs.R_DrawStretchPic( 0,
-				TO_SCRN_Y(x),
-				TO_SCRN_X(1),
-				1,
-				0, 0, 1, 1, touch.whitetexture );
+
+		for( x = 0.0f; x < 1.0f; x += GRID_X )
+		{
+			ref.dllFuncs.FillRGBA( kRenderTransTexture, TO_SCRN_X( x ), 0, 1, TO_SCRN_Y( 1 ), 0, 224, 224, 112 );
+		}
+
+		for( x = 0.0f; x < 1.0f; x += GRID_Y )
+		{
+			ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, TO_SCRN_Y( x ), TO_SCRN_X( 1 ), 1, 0, 224, 224, 112 );
+		}
 	}
 
 	Touch_DrawButtons( &touch.list_user );
