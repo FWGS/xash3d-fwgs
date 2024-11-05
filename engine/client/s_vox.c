@@ -204,7 +204,7 @@ void VOX_FreeWord( channel_t *ch )
 	ch->currentWord = NULL;
 	memset( &ch->pMixer, 0, sizeof( ch->pMixer ));
 
-	if( !word->sfx && !word->fKeepCached )
+	if( !word->sfx || word->fKeepCached )
 		return;
 
 	FS_FreeSound( word->sfx->cache );
