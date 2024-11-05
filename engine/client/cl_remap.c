@@ -134,7 +134,8 @@ static void CL_DuplicateTexture( cl_entity_t *entity, model_t *model, mstudiotex
 			break; // found
 	}
 
-	Assert( tx != NULL );
+	if( !tx )
+		return;
 
 	// backup original palette
 	pal = (byte *)(tx + 1) + (tx->width * tx->height);
@@ -175,7 +176,8 @@ static void CL_UpdateStudioTexture( cl_entity_t *entity, mstudiotexture_t *ptext
 
 	Q_snprintf( texname, sizeof( texname ), "#%s/%s.mdl", mdlname, name );
 	index = ref.dllFuncs.GL_FindTexture( texname );
-	if( !index ) return; // couldn't find texture
+	if( !index )
+		return; // couldn't find texture
 
 	// search for pixels
 	for( i = 0; i < entity->model->numtextures; i++ )
@@ -185,7 +187,8 @@ static void CL_UpdateStudioTexture( cl_entity_t *entity, mstudiotexture_t *ptext
 			break; // found
 	}
 
-	Assert( tx != NULL );
+	if( !tx )
+		return; // couldn't find texture
 
 	// backup original palette
 	pal = (byte *)(tx + 1) + (tx->width * tx->height);
