@@ -5236,7 +5236,7 @@ qboolean SV_LoadProgs( const char *name )
 				Con_Printf( S_WARN "%s: interface version %i should be %i\n", __func__, INTERFACE_VERSION, version );
 
 			// fallback to old API
-			if( !GetEntityAPI( &svgame.dllFuncs, version ))
+			if( GetEntityAPI && !GetEntityAPI( &svgame.dllFuncs, version ))
 			{
 				COM_FreeLibrary( svgame.hInstance );
 				Con_Printf( S_ERROR "%s: couldn't get entity API\n", __func__ );
@@ -5248,7 +5248,7 @@ qboolean SV_LoadProgs( const char *name )
 		}
 		else Con_Reportf( "%s: ^2initailized extended EntityAPI ^7ver. %i\n", __func__, version );
 	}
-	else if( !GetEntityAPI( &svgame.dllFuncs, version ))
+	else if( GetEntityAPI && !GetEntityAPI( &svgame.dllFuncs, version ))
 	{
 		COM_FreeLibrary( svgame.hInstance );
 		Con_Printf( S_ERROR "%s: couldn't get entity API\n", __func__ );
