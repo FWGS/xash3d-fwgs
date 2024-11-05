@@ -1746,10 +1746,20 @@ void R_DrawBrushModel( cl_entity_t *e )
 	pglDisable( GL_BLEND );
 	pglDepthMask( GL_TRUE );
 
-	pglPolygonOffset( 1.0f, 2.0f );
-	pglEnable( GL_POLYGON_OFFSET_FILL );
-	gEngfuncs.R_DrawModelHull( clmodel );	// draw before restore
-	pglDisable( GL_POLYGON_OFFSET_FILL );
+	if( r_showhull->value > 0.0f )
+	{
+		GLfloat factor, units;
+
+		pglGetFloatv( GL_POLYGON_OFFSET_FACTOR, &factor );
+		pglGetFloatv( GL_POLYGON_OFFSET_UNITS, &units );
+
+		pglPolygonOffset( 1.0f, 2.0f );
+		pglEnable( GL_POLYGON_OFFSET_FILL );
+		gEngfuncs.R_DrawModelHull( clmodel );	// draw before restore
+		pglDisable( GL_POLYGON_OFFSET_FILL );
+
+		pglPolygonOffset( factor, units );
+	}
 
 	R_LoadIdentity();	// restore worldmatrix
 }
