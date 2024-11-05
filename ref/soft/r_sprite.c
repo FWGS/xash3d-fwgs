@@ -19,13 +19,13 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "entity_types.h"
 
-#define GLARE_FALLOFF	19000.0f
+#define GLARE_FALLOFF 19000.0f
 
-char		sprite_name[MAX_QPATH];
-char		group_suffix[8];
-static uint	r_texFlags = 0;
-static int	sprite_version;
-float		sprite_radius;
+char        sprite_name[MAX_QPATH];
+char        group_suffix[8];
+static uint r_texFlags = 0;
+static int  sprite_version;
+float       sprite_radius;
 
 /*
 ====================
@@ -46,11 +46,11 @@ upload a single frame
 */
 static const byte *R_SpriteLoadFrame( model_t *mod, const void *pin, mspriteframe_t **ppframe, int num )
 {
-	dspriteframe_t	pinframe;
-	mspriteframe_t	*pspriteframe;
-	int		gl_texturenum = 0;
-	char		texname[128];
-	int		bytes = 1;
+	dspriteframe_t pinframe;
+	mspriteframe_t *pspriteframe;
+	int gl_texturenum = 0;
+	char           texname[128];
+	int bytes = 1;
 
 	memcpy( &pinframe, pin, sizeof( dspriteframe_t ));
 
@@ -80,7 +80,7 @@ static const byte *R_SpriteLoadFrame( model_t *mod, const void *pin, mspritefram
 	pspriteframe->gl_texturenum = gl_texturenum;
 	*ppframe = pspriteframe;
 
-	return ( const byte* )(( const byte* )pin + sizeof( dspriteframe_t ) + pinframe.width * pinframe.height * bytes );
+	return (const byte *)((const byte *)pin + sizeof( dspriteframe_t ) + pinframe.width * pinframe.height * bytes );
 }
 
 /*
@@ -92,22 +92,22 @@ upload a group frames
 */
 static const void *R_SpriteLoadGroup( model_t *mod, const void *pin, mspriteframe_t **ppframe, int framenum )
 {
-	const dspritegroup_t	*pingroup;
-	mspritegroup_t	*pspritegroup;
-	const dspriteinterval_t	*pin_intervals;
-	float		*poutintervals;
-	int		i, groupsize, numframes;
-	const void		*ptemp;
+	const dspritegroup_t    *pingroup;
+	mspritegroup_t          *pspritegroup;
+	const dspriteinterval_t *pin_intervals;
+	float      *poutintervals;
+	int        i, groupsize, numframes;
+	const void *ptemp;
 
 	pingroup = (const dspritegroup_t *)pin;
 	numframes = pingroup->numframes;
 
-	groupsize = sizeof( mspritegroup_t ) + (numframes - 1) * sizeof( pspritegroup->frames[0] );
+	groupsize = sizeof( mspritegroup_t ) + ( numframes - 1 ) * sizeof( pspritegroup->frames[0] );
 	pspritegroup = Mem_Calloc( mod->mempool, groupsize );
 	pspritegroup->numframes = numframes;
 
 	*ppframe = (mspriteframe_t *)pspritegroup;
-	pin_intervals = (const dspriteinterval_t *)(pingroup + 1);
+	pin_intervals = (const dspriteinterval_t *)( pingroup + 1 );
 	poutintervals = Mem_Calloc( mod->mempool, numframes * sizeof( float ));
 	pspritegroup->intervals = poutintervals;
 
@@ -138,11 +138,11 @@ load sprite model
 */
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags )
 {
-	const dsprite_t		*pin;
-	const short		*numi = NULL;
-	const byte	*pframetype;
-	msprite_t		*psprite;
-	int		i;
+	const dsprite_t *pin;
+	const short     *numi = NULL;
+	const byte      *pframetype;
+	msprite_t       *psprite;
+	int i;
 
 	pin = buffer;
 	psprite = mod->cache.data;
@@ -150,7 +150,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	if( pin->version == SPRITE_VERSION_Q1 || pin->version == SPRITE_VERSION_32 )
 		numi = NULL;
 	else if( pin->version == SPRITE_VERSION_HL )
-		numi = (const short *)((const byte*)buffer + sizeof( dsprite_hl_t ));
+		numi = (const short *)((const byte *)buffer + sizeof( dsprite_hl_t ));
 
 	r_texFlags = texFlags;
 	sprite_version = pin->version;
@@ -159,16 +159,16 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 
 	if( numi == NULL )
 	{
-		rgbdata_t	*pal;
+		rgbdata_t *pal;
 
 		pal = gEngfuncs.FS_LoadImage( "#id.pal", (byte *)&i, 768 );
-		pframetype = ((const byte*)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
-		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
+		pframetype = ((const byte *)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
+		gEngfuncs.FS_FreeImage( pal );                                // palette installed, no reason to keep this data
 	}
 	else if( *numi == 256 )
 	{
-		const byte	*src = (const byte *)(numi+1);
-		rgbdata_t	*pal;
+		const byte *src = (const byte *)( numi + 1 );
+		rgbdata_t  *pal;
 
 		// install palette
 		switch( psprite->texFormat )
@@ -184,7 +184,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			break;
 		}
 
-		pframetype = (const byte *)(src + 768);
+		pframetype = (const byte *)( src + 768 );
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else
@@ -198,7 +198,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 
 	for( i = 0; i < mod->numframes; i++ )
 	{
-		frametype_t frametype;
+		frametype_t  frametype;
 		dframetype_t dframetype;
 
 		memcpy( &dframetype, pframetype, sizeof( dframetype ));
@@ -220,10 +220,12 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			pframetype = R_SpriteLoadGroup( mod, pframetype + sizeof( dframetype_t ), &psprite->frames[i].frameptr, i );
 			break;
 		}
-		if( pframetype == NULL ) break; // technically an error
+		if( pframetype == NULL )
+			break;                  // technically an error
 	}
 
-	if( loaded ) *loaded = true;	// done
+	if( loaded )
+		*loaded = true;         // done
 }
 
 /*
@@ -235,10 +237,10 @@ release sprite model and frames
 */
 void Mod_SpriteUnloadTextures( void *data )
 {
-	msprite_t		*psprite;
-	mspritegroup_t	*pspritegroup;
-	mspriteframe_t	*pspriteframe;
-	int		i, j;
+	msprite_t      *psprite;
+	mspritegroup_t *pspritegroup;
+	mspriteframe_t *pspriteframe;
+	int i, j;
 
 	psprite = data;
 
@@ -275,12 +277,12 @@ assume pModel is valid
 */
 mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 {
-	msprite_t		*psprite;
-	mspritegroup_t	*pspritegroup;
-	mspriteframe_t	*pspriteframe = NULL;
-	float		*pintervals, fullinterval;
-	int		i, numframes;
-	float		targettime;
+	msprite_t      *psprite;
+	mspritegroup_t *pspritegroup;
+	mspriteframe_t *pspriteframe = NULL;
+	float          *pintervals, fullinterval;
+	int i, numframes;
+	float          targettime;
 
 	Assert( pModel != NULL );
 	psprite = pModel->cache.data;
@@ -305,13 +307,13 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
 		pintervals = pspritegroup->intervals;
 		numframes = pspritegroup->numframes;
-		fullinterval = pintervals[numframes-1];
+		fullinterval = pintervals[numframes - 1];
 
 		// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
 		// are positive, so we don't have to worry about division by zero
 		targettime = gp_cl->time - ((int)( gp_cl->time / fullinterval )) * fullinterval;
 
-		for( i = 0; i < (numframes - 1); i++ )
+		for( i = 0; i < ( numframes - 1 ); i++ )
 		{
 			if( pintervals[i] > targettime )
 				break;
@@ -320,7 +322,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	}
 	else if( psprite->frames[frame].type == FRAME_ANGLED )
 	{
-		int	angleframe = (int)(Q_rint(( RI.viewangles[1] - yaw + 45.0f ) / 360 * 8) - 4) & 7;
+		int angleframe = (int)( Q_rint(( RI.viewangles[1] - yaw + 45.0f ) / 360 * 8 ) - 4 ) & 7;
 
 		// e.g. doom-style sprite monsters
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
@@ -340,19 +342,19 @@ between frames where are we lerping
 */
 static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, mspriteframe_t **curframe )
 {
-	msprite_t		*psprite;
-	mspritegroup_t	*pspritegroup;
-	int		i, j, numframes, frame;
-	float		lerpFrac, time, jtime, jinterval;
-	float		*pintervals, fullinterval, targettime;
-	int		m_fDoInterp;
+	msprite_t      *psprite;
+	mspritegroup_t *pspritegroup;
+	int i, j, numframes, frame;
+	float          lerpFrac, time, jtime, jinterval;
+	float          *pintervals, fullinterval, targettime;
+	int m_fDoInterp;
 
 	psprite = ent->model->cache.data;
 	frame = (int)ent->curstate.frame;
 	lerpFrac = 1.0f;
 
 	// misc info
-	m_fDoInterp = (ent->curstate.effects & EF_NOINTERP) ? false : true;
+	m_fDoInterp = ( ent->curstate.effects & EF_NOINTERP ) ? false : true;
 
 	if( frame < 0 )
 	{
@@ -386,7 +388,8 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 					ent->latched.sequencetime = gp_cl->time;
 					lerpFrac = 0.0f;
 				}
-				else lerpFrac = (gp_cl->time - ent->latched.sequencetime) * 11.0f;
+				else
+					lerpFrac = ( gp_cl->time - ent->latched.sequencetime ) * 11.0f;
 			}
 			else
 			{
@@ -410,26 +413,28 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 		}
 
 		// get the interpolated frames
-		if( oldframe ) *oldframe = psprite->frames[ent->latched.prevblending[0]].frameptr;
-		if( curframe ) *curframe = psprite->frames[frame].frameptr;
+		if( oldframe )
+			*oldframe = psprite->frames[ent->latched.prevblending[0]].frameptr;
+		if( curframe )
+			*curframe = psprite->frames[frame].frameptr;
 	}
 	else if( psprite->frames[frame].type == FRAME_GROUP )
 	{
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
 		pintervals = pspritegroup->intervals;
 		numframes = pspritegroup->numframes;
-		fullinterval = pintervals[numframes-1];
+		fullinterval = pintervals[numframes - 1];
 		jinterval = pintervals[1] - pintervals[0];
 		time = gp_cl->time;
 		jtime = 0.0f;
 
 		// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
 		// are positive, so we don't have to worry about division by zero
-		targettime = time - ((int)(time / fullinterval)) * fullinterval;
+		targettime = time - ((int)( time / fullinterval )) * fullinterval;
 
 		// LordHavoc: since I can't measure the time properly when it loops from numframes - 1 to 0,
 		// i instead measure the time of the first frame, hoping it is consistent
-		for( i = 0, j = numframes - 1; i < (numframes - 1); i++ )
+		for( i = 0, j = numframes - 1; i < ( numframes - 1 ); i++ )
 		{
 			if( pintervals[i] > targettime )
 				break;
@@ -439,18 +444,21 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 		}
 
 		if( m_fDoInterp )
-			lerpFrac = (targettime - jtime) / jinterval;
-		else j = i; // no lerping
+			lerpFrac = ( targettime - jtime ) / jinterval;
+		else
+			j = i; // no lerping
 
 		// get the interpolated frames
-		if( oldframe ) *oldframe = pspritegroup->frames[j];
-		if( curframe ) *curframe = pspritegroup->frames[i];
+		if( oldframe )
+			*oldframe = pspritegroup->frames[j];
+		if( curframe )
+			*curframe = pspritegroup->frames[i];
 	}
 	else if( psprite->frames[frame].type == FRAME_ANGLED )
 	{
 		// e.g. doom-style sprite monsters
-		float	yaw = ent->angles[YAW];
-		int	angleframe = (int)(Q_rint(( RI.viewangles[1] - yaw + 45.0f ) / 360 * 8) - 4) & 7;
+		float yaw = ent->angles[YAW];
+		int   angleframe = (int)( Q_rint(( RI.viewangles[1] - yaw + 45.0f ) / 360 * 8 ) - 4 ) & 7;
 
 		if( m_fDoInterp )
 		{
@@ -472,7 +480,8 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 					ent->latched.sequencetime = gp_cl->time;
 					lerpFrac = 0.0f;
 				}
-				else lerpFrac = (gp_cl->time - ent->latched.sequencetime) * ent->curstate.framerate;
+				else
+					lerpFrac = ( gp_cl->time - ent->latched.sequencetime ) * ent->curstate.framerate;
 			}
 			else
 			{
@@ -488,10 +497,12 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 		}
 
 		pspritegroup = (mspritegroup_t *)psprite->frames[ent->latched.prevblending[0]].frameptr;
-		if( oldframe ) *oldframe = pspritegroup->frames[angleframe];
+		if( oldframe )
+			*oldframe = pspritegroup->frames[angleframe];
 
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
-		if( curframe ) *curframe = pspritegroup->frames[angleframe];
+		if( curframe )
+			*curframe = pspritegroup->frames[angleframe];
 	}
 
 	return lerpFrac;
@@ -506,8 +517,8 @@ Cull sprite model by bbox
 */
 static qboolean R_CullSpriteModel( cl_entity_t *e, vec3_t origin )
 {
-	vec3_t	sprite_mins, sprite_maxs;
-	float	scale = 1.0f;
+	vec3_t sprite_mins, sprite_maxs;
+	float  scale = 1.0f;
 
 	if( !e->model->cache.data )
 		return true;
@@ -536,16 +547,16 @@ Set sprite brightness factor
 */
 static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, float *pscale )
 {
-	float	dist, brightness;
-	vec3_t	glowDist;
-	pmtrace_t	*tr;
+	float     dist, brightness;
+	vec3_t    glowDist;
+	pmtrace_t *tr;
 
 	VectorSubtract( origin, RI.vieworg, glowDist );
 	dist = VectorLength( glowDist );
 
 	if( RP_NORMALPASS( ))
 	{
-		tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
+		tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : ( PM_GLASS_IGNORE | PM_STUDIO_IGNORE ));
 
 		if(( 1.0f - tr->fraction ) * dist > 8.0f )
 			return 0.0f;
@@ -572,8 +583,8 @@ static qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 {
 	if( e->curstate.rendermode == kRenderGlow )
 	{
-		float	blend;
-		vec3_t	v;
+		float  blend;
+		vec3_t v;
 
 		TriWorldToScreen( origin, v );
 
@@ -604,7 +615,7 @@ R_DrawSpriteQuad
 */
 static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale )
 {
-	vec3_t	point;
+	vec3_t  point;
 	image_t *image;
 
 	r_stats.c_sprite_polys++;
@@ -614,22 +625,22 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	r_affinetridesc.skinheight = image->height;*/
 
 	TriBegin( TRI_QUADS );
-		TriTexCoord2f( 0.0f, 1.0f );
-		VectorMA( org, frame->down * scale, v_up, point );
-		VectorMA( point, frame->left * scale, v_right, point );
-		TriVertex3fv( point );
-		TriTexCoord2f( 0.0f, 0.0f );
-		VectorMA( org, frame->up * scale, v_up, point );
-		VectorMA( point, frame->left * scale, v_right, point );
-		TriVertex3fv( point );
-		TriTexCoord2f( 1.0f, 0.0f );
-		VectorMA( org, frame->up * scale, v_up, point );
-		VectorMA( point, frame->right * scale, v_right, point );
-		TriVertex3fv( point );
-				TriTexCoord2f( 1.0f, 1.0f );
-		VectorMA( org, frame->down * scale, v_up, point );
-		VectorMA( point, frame->right * scale, v_right, point );
-		TriVertex3fv( point );
+	TriTexCoord2f( 0.0f, 1.0f );
+	VectorMA( org, frame->down * scale, v_up, point );
+	VectorMA( point, frame->left * scale, v_right, point );
+	TriVertex3fv( point );
+	TriTexCoord2f( 0.0f, 0.0f );
+	VectorMA( org, frame->up * scale, v_up, point );
+	VectorMA( point, frame->left * scale, v_right, point );
+	TriVertex3fv( point );
+	TriTexCoord2f( 1.0f, 0.0f );
+	VectorMA( org, frame->up * scale, v_up, point );
+	VectorMA( point, frame->right * scale, v_right, point );
+	TriVertex3fv( point );
+	TriTexCoord2f( 1.0f, 1.0f );
+	VectorMA( org, frame->down * scale, v_up, point );
+	VectorMA( point, frame->right * scale, v_right, point );
+	TriVertex3fv( point );
 	TriEnd();
 }
 
@@ -689,26 +700,26 @@ R_DrawSpriteModel
 */
 void R_DrawSpriteModel( cl_entity_t *e )
 {
-	mspriteframe_t	*frame, *oldframe;
-	msprite_t		*psprite;
-	model_t		*model;
-	int		i, type;
-	float		angle, dot, sr, cr;
-	float		lerp = 1.0f, ilerp, scale;
-	vec3_t		v_forward, v_right, v_up;
-	vec3_t		origin, color, color2;
+	mspriteframe_t *frame, *oldframe;
+	msprite_t      *psprite;
+	model_t        *model;
+	int i, type;
+	float          angle, dot, sr, cr;
+	float          lerp = 1.0f, ilerp, scale;
+	vec3_t         v_forward, v_right, v_up;
+	vec3_t         origin, color, color2;
 
 	if( RI.params & RP_ENVVIEW )
 		return;
 
 	model = e->model;
-	psprite = (msprite_t * )model->cache.data;
-	VectorCopy( e->origin, origin );	// set render origin
+	psprite = (msprite_t *)model->cache.data;
+	VectorCopy( e->origin, origin ); // set render origin
 
 	// do movewith
 	if( e->curstate.aiment > 0 && e->curstate.movetype == MOVETYPE_FOLLOW )
 	{
-		cl_entity_t	*parent;
+		cl_entity_t *parent;
 
 		parent = CL_GetEntityByIndex( e->curstate.aiment );
 
@@ -717,14 +728,16 @@ void R_DrawSpriteModel( cl_entity_t *e )
 			if( parent->model->type == mod_studio && e->curstate.body > 0 )
 			{
 				int num = bound( 1, e->curstate.body, MAXSTUDIOATTACHMENTS );
-				VectorCopy( parent->attachment[num-1], origin );
+				VectorCopy( parent->attachment[num - 1], origin );
 			}
-			else VectorCopy( parent->origin, origin );
+			else
+				VectorCopy( parent->origin, origin );
 		}
 	}
 
 	scale = e->curstate.scale;
-	if( !scale ) scale = 1.0f;
+	if( !scale )
+		scale = 1.0f;
 
 	if( R_SpriteOccluded( e, origin, &scale ))
 		return; // sprite culled
@@ -758,12 +771,13 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color2[1] = (float)lightColor.g * ( 1.0f / 255.0f );
 		color2[2] = (float)lightColor.b * ( 1.0f / 255.0f );
 		// NOTE: sprites with 'lightmap' looks ugly when alpha func is GL_GREATER 0.0
-	//	pglAlphaFunc( GL_GREATER, 0.5f );
+		//	pglAlphaFunc( GL_GREATER, 0.5f );
 	}
 
 	if( R_SpriteAllowLerping( e, psprite ))
 		lerp = R_GetSpriteFrameInterpolant( e, &oldframe, &frame );
-	else frame = oldframe = R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
+	else
+		frame = oldframe = R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
 
 	type = psprite->type;
 
@@ -775,28 +789,28 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	{
 	case SPR_ORIENTED:
 		AngleVectors( e->angles, v_forward, v_right, v_up );
-		VectorScale( v_forward, 0.01f, v_forward );	// to avoid z-fighting
+		VectorScale( v_forward, 0.01f, v_forward ); // to avoid z-fighting
 		VectorSubtract( origin, v_forward, origin );
 		break;
 	case SPR_FACING_UPRIGHT:
-		VectorSet( v_right, origin[1] - RI.vieworg[1], -(origin[0] - RI.vieworg[0]), 0.0f );
+		VectorSet( v_right, origin[1] - RI.vieworg[1], -( origin[0] - RI.vieworg[0] ), 0.0f );
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
 		VectorNormalize( v_right );
 		break;
 	case SPR_FWD_PARALLEL_UPRIGHT:
 		dot = RI.vforward[2];
-		if(( dot > 0.999848f ) || ( dot < -0.999848f ))	// cos(1 degree) = 0.999848
+		if(( dot > 0.999848f ) || ( dot < -0.999848f )) // cos(1 degree) = 0.999848
 			return; // invisible
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
 		VectorSet( v_right, RI.vforward[1], -RI.vforward[0], 0.0f );
 		VectorNormalize( v_right );
 		break;
 	case SPR_FWD_PARALLEL_ORIENTED:
-		angle = e->angles[ROLL] * (M_PI2 / 360.0f);
+		angle = e->angles[ROLL] * ( M_PI2 / 360.0f );
 		SinCos( angle, &sr, &cr );
 		for( i = 0; i < 3; i++ )
 		{
-			v_right[i] = (RI.vright[i] * cr + RI.vup[i] * sr);
+			v_right[i] = ( RI.vright[i] * cr + RI.vup[i] * sr );
 			v_up[i] = RI.vright[i] * -sr + RI.vup[i] * cr;
 		}
 		break;
@@ -807,8 +821,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	}
 
-	//if( psprite->facecull == SPR_CULL_NONE )
-		//GL_Cull( GL_NONE );
+	// if( psprite->facecull == SPR_CULL_NONE )
+	// GL_Cull( GL_NONE );
 
 	if( oldframe == frame )
 	{
