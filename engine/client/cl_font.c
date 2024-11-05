@@ -368,8 +368,11 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 		{
 			draw_len += font->charWidths[number];
 
-			if( draw_len > *width )
-				*width = draw_len;
+			if( width )
+			{
+				if( draw_len > *width )
+					*width = draw_len;
+			}
 		}
 
 		s++;
