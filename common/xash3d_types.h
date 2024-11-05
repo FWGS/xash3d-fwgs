@@ -115,6 +115,16 @@ typedef uint64_t longtime_t;
 	#define WARN_UNUSED_RESULT
 #endif
 
+#if defined( __has_feature )
+	#if __has_feature( address_sanitizer )
+		#define USE_ASAN 1
+	#endif // __has_feature
+#endif // defined( __has_feature )
+
+#if !defined( USE_ASAN ) && defined( __SANITIZE_ADDRESS__ )
+#define USE_ASAN 1
+#endif
+
 #if __GNUC__ >= 3
 	#define unlikely( x )     __builtin_expect( x, 0 )
 	#define likely( x )       __builtin_expect( x, 1 )

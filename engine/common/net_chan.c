@@ -768,7 +768,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
 #endif
 	}
-	else if( !chan->use_bz2 && !LZSS_IsCompressed( MSG_GetData( msg )))
+	else if( !chan->use_bz2 && !LZSS_IsCompressed( MSG_GetData( msg ), MSG_GetMaxBytes( msg )))
 	{
 		uint uCompressedSize = 0;
 		uint uSourceSize = MSG_GetNumBytesWritten( msg );
@@ -925,7 +925,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 
 	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
-	if( !LZSS_IsCompressed( pbuf ))
+	if( !LZSS_IsCompressed( pbuf, size ))
 	{
 		uint	uCompressedSize = 0;
 		byte	*pbOut = LZSS_Compress( pbuf, size, &uCompressedSize );
@@ -1188,14 +1188,14 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
 #endif
 	}
-	else if( !chan->use_bz2 && LZSS_IsCompressed( MSG_GetData( msg )))
+	else if( !chan->use_bz2 && LZSS_IsCompressed( MSG_GetData( msg ), size ))
 	{
-		uint	uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ));
+		uint	uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ), size );
 		byte	buf[NET_MAX_MESSAGE];
 
 		if( uDecompressedLen <= sizeof( buf ))
 		{
-			size = LZSS_Decompress( MSG_GetData( msg ), buf );
+			size = LZSS_Decompress( MSG_GetData( msg ), buf, size, sizeof( buf ));
 			memcpy( msg->pData, buf, size );
 		}
 		else
@@ -1339,14 +1339,14 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
 #endif
 	}
-	else if( LZSS_IsCompressed( buffer ))
+	else if( LZSS_IsCompressed( buffer, nsize + 1 ))
 	{
 		byte	*uncompressedBuffer;
 
-		uncompressedSize = LZSS_GetActualSize( buffer ) + 1;
+		uncompressedSize = LZSS_GetActualSize( buffer, nsize + 1 ) + 1;
 		uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
-		nsize = LZSS_Decompress( buffer, uncompressedBuffer );
+		nsize = LZSS_Decompress( buffer, uncompressedBuffer, nsize + 1, uncompressedSize );
 		Mem_Free( buffer );
 		buffer = uncompressedBuffer;
 	}
