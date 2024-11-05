@@ -2202,51 +2202,6 @@ R_StudioDrawHulls
 */
 static void R_StudioDrawHulls( void )
 {
-#if 0
-	float	alpha, lv;
-	int	i, j;
-
-	if( r_drawentities->value == 4 )
-		alpha = 0.5f;
-	else alpha = 1.0f;
-
-	GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
-	//pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-
-	for( i = 0; i < m_pStudioHeader->numhitboxes; i++ )
-	{
-		mstudiobbox_t	*pbbox = (mstudiobbox_t *)((byte *)m_pStudioHeader + m_pStudioHeader->hitboxindex);
-		vec3_t		tmp, p[8];
-
-		for( j = 0; j < 8; j++ )
-		{
-			tmp[0] = (j & 1) ? pbbox[i].bbmin[0] : pbbox[i].bbmax[0];
-			tmp[1] = (j & 2) ? pbbox[i].bbmin[1] : pbbox[i].bbmax[1];
-			tmp[2] = (j & 4) ? pbbox[i].bbmin[2] : pbbox[i].bbmax[2];
-
-			Matrix3x4_VectorTransform( g_studio.bonestransform[pbbox[i].bone], tmp, p[j] );
-		}
-
-		j = (pbbox[i].group % 8);
-
-		TriBegin( TRI_QUADS );
-		_TriColor4f( hullcolor[j][0], hullcolor[j][1], hullcolor[j][2], alpha );
-
-		for( j = 0; j < 6; j++ )
-		{
-			VectorClear( tmp );
-			tmp[j % 3] = (j < 3) ? 1.0f : -1.0f;
-			R_StudioLighting( &lv, pbbox[i].bone, 0, tmp );
-
-			TriBrightness( lv );
-			TriVertex3fv( p[boxpnt[j][0]] );
-			TriVertex3fv( p[boxpnt[j][1]] );
-			TriVertex3fv( p[boxpnt[j][2]] );
-			TriVertex3fv( p[boxpnt[j][3]] );
-		}
-		TriEnd();
-	}
-#endif
 }
 
 /*
@@ -2297,99 +2252,10 @@ R_StudioDrawBones
 */
 static void R_StudioDrawBones( void )
 {
-	mstudiobone_t	*pbones = (mstudiobone_t *) ((byte *)m_pStudioHeader + m_pStudioHeader->boneindex);
-	vec3_t		point;
-	int		i;
-#if 0
-	pglDisable( GL_TEXTURE_2D );
-
-	for( i = 0; i < m_pStudioHeader->numbones; i++ )
-	{
-		if( pbones[i].parent >= 0 )
-		{
-			pglPointSize( 3.0f );
-			pglColor3f( 1, 0.7f, 0 );
-			pglBegin( GL_LINES );
-
-			Matrix3x4_OriginFromMatrix( g_studio.bonestransform[pbones[i].parent], point );
-			pglVertex3fv( point );
-			Matrix3x4_OriginFromMatrix( g_studio.bonestransform[i], point );
-			pglVertex3fv( point );
-
-			pglEnd();
-
-			pglColor3f( 0, 0, 0.8f );
-			pglBegin( GL_POINTS );
-			if( pbones[pbones[i].parent].parent != -1 )
-			{
-				Matrix3x4_OriginFromMatrix( g_studio.bonestransform[pbones[i].parent], point );
-				pglVertex3fv( point );
-			}
-			Matrix3x4_OriginFromMatrix( g_studio.bonestransform[i], point );
-			pglVertex3fv( point );
-			pglEnd();
-		}
-		else
-		{
-			// draw parent bone node
-			pglPointSize( 5.0f );
-			pglColor3f( 0.8f, 0, 0 );
-			pglBegin( GL_POINTS );
-			Matrix3x4_OriginFromMatrix( g_studio.bonestransform[i], point );
-			pglVertex3fv( point );
-			pglEnd();
-		}
-	}
-
-	pglPointSize( 1.0f );
-	pglEnable( GL_TEXTURE_2D );
-#endif
 }
 
 static void R_StudioDrawAttachments( void )
 {
-	int	i;
-#if 0
-	pglDisable( GL_TEXTURE_2D );
-	pglDisable( GL_DEPTH_TEST );
-
-	for( i = 0; i < m_pStudioHeader->numattachments; i++ )
-	{
-		mstudioattachment_t	*pattachments;
-		vec3_t		v[4];
-
-		pattachments = (mstudioattachment_t *)((byte *)m_pStudioHeader + m_pStudioHeader->attachmentindex);
-		Matrix3x4_VectorTransform( g_studio.bonestransform[pattachments[i].bone], pattachments[i].org, v[0] );
-		Matrix3x4_VectorTransform( g_studio.bonestransform[pattachments[i].bone], pattachments[i].vectors[0], v[1] );
-		Matrix3x4_VectorTransform( g_studio.bonestransform[pattachments[i].bone], pattachments[i].vectors[1], v[2] );
-		Matrix3x4_VectorTransform( g_studio.bonestransform[pattachments[i].bone], pattachments[i].vectors[2], v[3] );
-
-		pglBegin( GL_LINES );
-		pglColor3f( 1, 0, 0 );
-		pglVertex3fv( v[0] );
-		pglColor3f( 1, 1, 1 );
-		pglVertex3fv (v[1] );
-		pglColor3f( 1, 0, 0 );
-		pglVertex3fv (v[0] );
-		pglColor3f( 1, 1, 1 );
-		pglVertex3fv (v[2] );
-		pglColor3f( 1, 0, 0 );
-		pglVertex3fv (v[0] );
-		pglColor3f( 1, 1, 1 );
-		pglVertex3fv( v[3] );
-		pglEnd();
-
-		pglPointSize( 5.0f );
-		pglColor3f( 0, 1, 0 );
-		pglBegin( GL_POINTS );
-		pglVertex3fv( v[0] );
-		pglEnd();
-		pglPointSize( 1.0f );
-	}
-
-	pglEnable( GL_TEXTURE_2D );
-	pglEnable( GL_DEPTH_TEST );
-#endif
 }
 
 /*
@@ -2627,10 +2493,6 @@ static void R_StudioSetupRenderer( int rendermode )
 	if( rendermode > kRenderTransAdd ) rendermode = 0;
 	g_studio.rendermode = bound( 0, rendermode, kRenderTransAdd );
 
-	//pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	//pglDisable( GL_ALPHA_TEST );
-	//pglShadeModel( GL_SMOOTH );
-
 	// a point to setup local to world transform for boneweighted models
 	if( phdr && FBitSet( phdr->flags, STUDIO_HAS_BONEINFO ))
 	{
@@ -2650,11 +2512,6 @@ R_StudioRestoreRenderer
 */
 static void R_StudioRestoreRenderer( void )
 {
-	//if( g_studio.rendermode != kRenderNormal )
-		//pglDisable( GL_BLEND );
-
-	//pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-	//pglShadeModel( GL_FLAT );
 	m_fDoRemap = false;
 }
 
@@ -2755,32 +2612,6 @@ set rendermode for studiomodel
 static void GL_StudioSetRenderMode( int rendermode )
 {
 	GL_SetRenderMode( rendermode );
-#if 0
-	switch( rendermode )
-	{
-	case kRenderNormal:
-		break;
-	case kRenderTransColor:
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglEnable( GL_BLEND );
-		break;
-	case kRenderTransAdd:
-		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglColor4f( tr.blend, tr.blend, tr.blend, 1.0f );
-		pglBlendFunc( GL_ONE, GL_ONE );
-		pglDepthMask( GL_FALSE );
-		pglEnable( GL_BLEND );
-		break;
-	default:
-		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglColor4f( 1.0f, 1.0f, 1.0f, tr.blend );
-		pglDepthMask( GL_TRUE );
-		pglEnable( GL_BLEND );
-		break;
-	}
-#endif
 }
 
 /*
@@ -2794,28 +2625,6 @@ studio shadows with some asm tricks
 */
 static void GL_StudioDrawShadow( void )
 {
-#if 0
-	pglDepthMask( GL_TRUE );
-
-	if( r_shadows.value && g_studio.rendermode != kRenderTransAdd && !FBitSet( RI.currentmodel->flags, STUDIO_AMBIENT_LIGHT ))
-	{
-		float	color = 1.0 - (tr.blend * 0.5);
-
-		pglDisable( GL_TEXTURE_2D );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglEnable( GL_BLEND );
-		pglColor4f( 0.0f, 0.0f, 0.0f, 1.0f - color );
-
-		pglDepthFunc( GL_LESS );
-		R_StudioDrawPointsShadow();
-		pglDepthFunc( GL_LEQUAL );
-
-		pglEnable( GL_TEXTURE_2D );
-		pglDisable( GL_BLEND );
-		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-		pglShadeModel( GL_SMOOTH );
-	}
-#endif
 }
 
 /*
@@ -2867,42 +2676,8 @@ static void R_StudioRenderFinal( void )
 	{
 		R_StudioDrawAttachments();
 	}
-#if 0
-	if( r_drawentities->value == 7 )
-	{
-		vec3_t	origin;
-
-		pglDisable( GL_TEXTURE_2D );
-		pglDisable( GL_DEPTH_TEST );
-
-		Matrix3x4_OriginFromMatrix( g_studio.rotationmatrix, origin );
-
-		pglBegin( GL_LINES );
-		pglColor3f( 1, 0.5, 0 );
-		pglVertex3fv( origin );
-		pglVertex3fv( g_studio.lightspot );
-		pglEnd();
-
-		pglBegin( GL_LINES );
-		pglColor3f( 0, 0.5, 1 );
-		VectorMA( g_studio.lightspot, -64.0f, g_studio.lightvec, origin );
-		pglVertex3fv( g_studio.lightspot );
-		pglVertex3fv( origin );
-		pglEnd();
-
-		pglPointSize( 5.0f );
-		pglColor3f( 1, 0, 0 );
-		pglBegin( GL_POINTS );
-		pglVertex3fv( g_studio.lightspot );
-		pglEnd();
-		pglPointSize( 1.0f );
-
-		pglEnable( GL_DEPTH_TEST );
-		pglEnable( GL_TEXTURE_2D );
-	}
 
 	R_StudioRestoreRenderer();
-#endif
 }
 
 /*

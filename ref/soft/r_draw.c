@@ -294,43 +294,7 @@ void GAME_EXPORT R_Set2DMode( qboolean enable )
 
 	if( enable )
 	{
-//		if( glState.in2DMode )
-	//		return;
-#if 0
-		// set 2D virtual screen size
-		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
-		pglMatrixMode( GL_PROJECTION );
-		pglLoadIdentity();
-		pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
-		pglMatrixMode( GL_MODELVIEW );
-		pglLoadIdentity();
-
-		GL_Cull( GL_NONE );
-
-		pglDepthMask( GL_FALSE );
-		pglDisable( GL_DEPTH_TEST );
-		pglEnable( GL_ALPHA_TEST );
-		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-#endif
-
-	//	glState.in2DMode = true;
 		RI.currententity = NULL;
 		RI.currentmodel = NULL;
-	}
-	else
-	{
-#if 0
-		pglDepthMask( GL_TRUE );
-		pglEnable( GL_DEPTH_TEST );
-		glState.in2DMode = false;
-
-		pglMatrixMode( GL_PROJECTION );
-		GL_LoadMatrix( RI.projectionMatrix );
-
-		pglMatrixMode( GL_MODELVIEW );
-		GL_LoadMatrix( RI.worldviewMatrix );
-
-		GL_Cull( GL_FRONT );
-#endif
 	}
 }

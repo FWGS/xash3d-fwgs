@@ -527,16 +527,6 @@ static void R_BuildBlendMaps( void )
 		b = b1 * b2 / MASK(2);
 
 		vid.modmap[index2|index1] =  r << (2 + 3) | g << 2 | b;
-#if 0
-		for( a = 0; a < 8; a++ )
-		{
-			r = r1 * (7 - a) / 7 + r2 * a / 7;
-			g = g1 * (7 - a) / 7 + g2 * a / 7;
-			b = b1 * (7 - a) / 7 + b2 * a / 7;
-			//if( b == 1 ) b = 0;
-			vid.alphamap[a << 16|index2|index1] =  r << (2 + 3) | g << 2 | b;
-		}
-#endif
 	}
 	for( i = 0; i < 8192; i++ )
 	{
@@ -569,7 +559,7 @@ static void R_BuildBlendMaps( void )
 			vid.colormap[index2|index1] =  major << 8 | (minor & 0xFF);
 		}
 	}
-#if 1
+
 	for( i = 0; i < 1024; i++ )
 	{
 		unsigned int r, g, b;
@@ -614,12 +604,10 @@ static void R_BuildBlendMaps( void )
 				minor = MOVE_BIT(r,1,5) | MOVE_BIT(r,0,2) | MOVE_BIT(g,2,7) | MOVE_BIT(g,1,4) | MOVE_BIT(g,0,1) | MOVE_BIT(b,2,6)| MOVE_BIT(b,1,3)|MOVE_BIT(b,0,0);
 				minor = minor & ~0x3f;
 
-
 				vid.alphamap[k << 18|index2|index1] =  major << 8 | (minor & 0xFF);
 			}
 		}
 	}
-#endif
 }
 
 static qboolean R_AllocScreen( void );

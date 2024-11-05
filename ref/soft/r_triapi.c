@@ -23,11 +23,11 @@ static struct
 	vec4_t		triRGBA;
 } ds;
 
-finalvert_t triv[3];
-int vertcount, n;
-int mode;
-short s,t;
-uint light;
+static finalvert_t triv[3];
+static int vertcount, n;
+static int mode;
+static short s, t;
+static uint light;
 
 /*
 ===============================================================
@@ -46,33 +46,6 @@ set rendermode
 void GAME_EXPORT TriRenderMode( int mode )
 {
 	ds.renderMode = vid.rendermode = mode;
-#if 0
-	switch( mode )
-	{
-	case kRenderNormal:
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglDisable( GL_BLEND );
-		pglDepthMask( GL_TRUE );
-		break;
-	case kRenderTransAlpha:
-		pglEnable( GL_BLEND );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		pglDepthMask( GL_FALSE );
-		break;
-	case kRenderTransColor:
-	case kRenderTransTexture:
-		pglEnable( GL_BLEND );
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-		break;
-	case kRenderGlow:
-	case kRenderTransAdd:
-		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
-		pglEnable( GL_BLEND );
-		pglDepthMask( GL_FALSE );
-		break;
-	}
-#endif
 }
 
 /*
@@ -84,38 +57,6 @@ begin triangle sequence
 */
 void GAME_EXPORT TriBegin( int mode1 )
 {
-#if 0
-	switch( mode )
-	{
-	case TRI_POINTS:
-		mode = GL_POINTS;
-		break;
-	case TRI_TRIANGLES:
-		mode = GL_TRIANGLES;
-		break;
-	case TRI_TRIANGLE_FAN:
-		mode = GL_TRIANGLE_FAN;
-		break;
-	case TRI_QUADS:
-		mode = GL_QUADS;
-		break;
-	case TRI_LINES:
-		mode = GL_LINES;
-		break;
-	case TRI_TRIANGLE_STRIP:
-		mode = GL_TRIANGLE_STRIP;
-		break;
-	case TRI_QUAD_STRIP:
-		mode = GL_QUAD_STRIP;
-		break;
-	case TRI_POLYGON:
-	default:
-		mode = GL_POLYGON;
-		break;
-	}
-
-	pglBegin( mode );
-#endif
 	if( mode1 == TRI_QUADS )
 		mode1 = TRI_TRIANGLE_FAN;
 	mode = mode1;
@@ -131,8 +72,6 @@ draw triangle sequence
 */
 void GAME_EXPORT TriEnd( void )
 {
-	//if( vertcount == 3 )
-	//pglEnd( );
 }
 
 /*
@@ -272,7 +211,6 @@ TriVertex3fv
 */
 void GAME_EXPORT TriVertex3fv( const float *v )
 {
-	//pglVertex3fv( v );
 	TriVertex3f( v[0], v[1], v[2] );
 }
 
@@ -322,29 +260,6 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 				R_RenderTriangle( &triv[2], &triv[1], &triv[0] );
 		}
 	}
-#if 0
-		if( mode == TRI_TRIANGLE_STRIP )
-		{
-			R_SetupFinalVert( &triv[vertcount], x, y, z, 0,s,t);
-			vertcount++;
-			if( vertcount == 3 )
-			{
-
-				R_RenderTriangle( triv );
-				finalvert_t fv = triv[0];
-
-				triv[0] = triv[2];
-				triv[2] = fv;
-				R_RenderTriangle( triv );
-				fv = triv[0];
-				triv[0] = triv[2];
-				triv[2] = fv;
-				triv[0] = triv[1];
-				triv[1] = triv[2];
-				vertcount = 2;
-			}
-		}
-#endif
 }
 
 /*
@@ -390,39 +305,6 @@ enables global fog on the level
 */
 void GAME_EXPORT TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
-#if 0
-	// overrided by internal fog
-	if( RI.fogEnabled ) return;
-	RI.fogCustom = bOn;
-
-	// check for invalid parms
-	if( flEnd <= flStart )
-	{
-		RI.fogCustom = false;
-		pglDisable( GL_FOG );
-		return;
-	}
-
-	if( RI.fogCustom )
-		pglEnable( GL_FOG );
-	else pglDisable( GL_FOG );
-
-	// copy fog params
-	RI.fogColor[0] = flFogColor[0] / 255.0f;
-	RI.fogColor[1] = flFogColor[1] / 255.0f;
-	RI.fogColor[2] = flFogColor[2] / 255.0f;
-	RI.fogStart = flStart;
-	RI.fogColor[3] = 1.0f;
-	RI.fogDensity = 0.0f;
-	RI.fogSkybox = true;
-	RI.fogEnd = flEnd;
-
-	pglFogi( GL_FOG_MODE, GL_LINEAR );
-	pglFogfv( GL_FOG_COLOR, RI.fogColor );
-	pglFogf( GL_FOG_START, RI.fogStart );
-	pglFogf( GL_FOG_END, RI.fogEnd );
-	pglHint( GL_FOG_HINT, GL_NICEST );
-#endif
 }
 
 /*
@@ -434,7 +316,6 @@ very strange export
 */
 void GAME_EXPORT TriGetMatrix( const int pname, float *matrix )
 {
-	//pglGetFloatv( pname, matrix );
 }
 
 /*
@@ -445,8 +326,6 @@ TriForParams
 */
 void GAME_EXPORT TriFogParams( float flDensity, int iFogSkybox )
 {
-	//RI.fogDensity = flDensity;
-	//RI.fogSkybox = iFogSkybox;
 }
 
 /*
@@ -457,21 +336,6 @@ TriCullFace
 */
 void GAME_EXPORT TriCullFace( TRICULLSTYLE mode )
 {
-#if 0
-	int glMode;
-
-	switch( mode )
-	{
-	case TRI_FRONT:
-		glMode = GL_FRONT;
-		break;
-	default:
-		glMode = GL_NONE;
-		break;
-	}
-
-	GL_Cull( mode );
-#endif
 }
 
 /*
@@ -483,13 +347,9 @@ void TriBrightness( float brightness )
 {
 	float	r, g, b;
 
-	//if( brightness < 0.5 )
-//		brightness = 1; //0.5;
-//ds.triRGBA[3] = 1;
 	r = ds.triRGBA[0] * ds.triRGBA[3] * brightness;
 	g = ds.triRGBA[1] * ds.triRGBA[3] * brightness;
 	b = ds.triRGBA[2] * ds.triRGBA[3] * brightness;
 
 	_TriColor4f( r, g, b, 1.0f );
 }
-
