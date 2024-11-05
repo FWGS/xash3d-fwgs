@@ -218,21 +218,32 @@ typedef struct
 	int		window_size;
 } lzss_state_t;
 
-qboolean LZSS_IsCompressed( const byte *source )
+qboolean LZSS_IsCompressed( const byte *source, size_t input_len )
 {
-	lzss_header_t	*phdr = (lzss_header_t *)source;
+	const lzss_header_t *phdr;
+
+	if( input_len <= sizeof( lzss_header_t ))
+		return 0;
+
+	phdr = (const lzss_header_t *)source;
 
 	if( phdr && phdr->id == LZSS_ID )
 		return true;
 	return false;
 }
 
-uint LZSS_GetActualSize( const byte *source )
+uint LZSS_GetActualSize( const byte *source, size_t input_len )
 {
-	lzss_header_t	*phdr = (lzss_header_t *)source;
+	const lzss_header_t *phdr;
+
+	if( input_len <= sizeof( lzss_header_t ))
+		return 0;
+
+	phdr = (const lzss_header_t *)source;
 
 	if( phdr && phdr->id == LZSS_ID )
 		return phdr->size;
+
 	return 0;
 }
 
@@ -356,6 +367,8 @@ static byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_
 		if( pOutput >= pEnd )
 		{
 			// compression is worse, abandon
+			state->hash_table = NULL;
+			state->hash_node = NULL;
 			return NULL;
 		}
 	}
@@ -364,6 +377,8 @@ static byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_
 	{
 		// unexpected failure
 		Assert( 0 );
+		state->hash_table = NULL;
+		state->hash_node = NULL;
 		return NULL;
 	}
 
@@ -389,15 +404,12 @@ static byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_
 
 byte *LZSS_Compress( byte *pInput, int inputLength, uint *pOutputSize )
 {
-	byte		*pStart = (byte *)malloc( inputLength );
-	byte		*pFinal = NULL;
-	lzss_state_t	state;
+	byte *pStart = (byte *)malloc( inputLength );
+	byte *pFinal = NULL;
+	lzss_state_t state = { .window_size = LZSS_WINDOW_SIZE };
 
 	if( !pStart )
 		return NULL;
-
-	memset( &state, 0, sizeof( state ));
-	state.window_size = LZSS_WINDOW_SIZE;
 
 	pFinal = LZSS_CompressNoAlloc( &state, pInput, inputLength, pStart, pOutputSize );
 
@@ -410,14 +422,21 @@ byte *LZSS_Compress( byte *pInput, int inputLength, uint *pOutputSize )
 	return pStart;
 }
 
-uint LZSS_Decompress( const byte *pInput, byte *pOutput )
+uint LZSS_Decompress( const byte *pInput, byte *pOutput, size_t input_len, size_t output_len )
 {
 	uint	totalBytes = 0;
 	int	getCmdByte = 0;
 	int	cmdByte = 0;
-	uint	actualSize = LZSS_GetActualSize( pInput );
+	uint	actualSize;
+	const byte *pInputEnd = pInput + input_len - 1; // thanks to nillerusr for the fix!
+	byte *pOrigOutput = pOutput;
 
-	if( !actualSize )
+	if( input_len <= sizeof( lzss_header_t ))
+		return 0;
+
+	actualSize = LZSS_GetActualSize( pInput, input_len );
+
+	if( !actualSize || actualSize > output_len )
 		return 0;
 
 	pInput += sizeof( lzss_header_t );
@@ -425,15 +444,24 @@ uint LZSS_Decompress( const byte *pInput, byte *pOutput )
 	while( 1 )
 	{
 		if( !getCmdByte )
+		{
+			if( pInput > pInputEnd )
+				return 0;
+
 			cmdByte = *pInput++;
+		}
 		getCmdByte = ( getCmdByte + 1 ) & 0x07;
 
 		if( cmdByte & 0x01 )
 		{
-			int	position = *pInput++ << LZSS_LOOKSHIFT;
+			int	position;
 			int	i, count;
 			byte	*pSource;
 
+			if( pInput > pInputEnd )
+				return 0;
+
+			position = *pInput++ << LZSS_LOOKSHIFT;
 			position |= ( *pInput >> LZSS_LOOKSHIFT );
 			count = ( *pInput++ & 0x0F ) + 1;
 
@@ -441,12 +469,19 @@ uint LZSS_Decompress( const byte *pInput, byte *pOutput )
 				break;
 
 			pSource = pOutput - position - 1;
+
+			if( totalBytes + count > output_len || pSource < pOrigOutput )
+				return 0;
+
 			for( i = 0; i < count; i++ )
 				*pOutput++ = *pSource++;
 			totalBytes += count;
 		}
 		else
 		{
+			if( totalBytes + 1 > output_len || pInput > pInputEnd )
+				return 0;
+
 			*pOutput++ = *pInput++;
 			totalBytes++;
 		}
@@ -1043,6 +1078,67 @@ void GAME_EXPORT pfnResetTutorMessageDecayData( void )
 
 #include "tests.h"
 
+#ifdef USE_ASAN
+#include <sanitizer/asan_interface.h>
+#endif
+
+static void Test_LZSS( void )
+{
+	char poison1[8192];
+	byte in[256];
+	char poison2[8192];
+	byte out[256];
+	char poison3[8192];
+
+	lzss_header_t *hdr = (lzss_header_t *)in;
+	uint result;
+
+	const byte compressed[] =
+	{
+		0x4c, 0x5a, 0x53, 0x53, 0x1a, 0x00, 0x00, 0x00, 0x00,
+		0x44, 0x6f, 0x20, 0x79, 0x6f, 0x75, 0x20, 0x6c, 0x00,
+		0x69, 0x6b, 0x65, 0x20, 0x77, 0x68, 0x61, 0x74, 0x41,
+		0x00, 0xd4, 0x73, 0x65, 0x65, 0x3f, 0x00, 0x00, 0x00,
+	};
+	const char decompressed[] = "Do you like what you see?";
+
+#ifdef USING_ASAN
+	ASAN_POISON_MEMORY_REGION( poison1, sizeof( poison1 ));
+	ASAN_POISON_MEMORY_REGION( poison2, sizeof( poison2 ));
+	ASAN_POISON_MEMORY_REGION( poison3, sizeof( poison3 ));
+#endif
+
+	hdr->size = sizeof( in ) - sizeof( *hdr );
+	hdr->id = LZSS_ID;
+
+	memset( in + sizeof( *hdr ), 0xff, sizeof( in ) - sizeof( *hdr ));
+	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
+	TASSERT_EQi( result, 0 );
+
+	memset( in + sizeof( *hdr ), 0x00, sizeof( in ) - sizeof( *hdr ));
+	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
+	TASSERT_EQi( result, 0 );
+
+	hdr->size = 1;
+	hdr->id = LZSS_ID;
+	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
+	TASSERT_EQi( result, 0 );
+
+	hdr->size = 999;
+	hdr->id = LZSS_ID;
+	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
+	TASSERT_EQi( result, 0 );
+
+	hdr->size = sizeof( in ) - sizeof( *hdr );
+	hdr->id = 0xa1ba;
+	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
+	TASSERT_EQi( result, 0 );
+
+	result = LZSS_Decompress( compressed, out, sizeof( compressed ), sizeof( out ));
+	TASSERT_EQi( result, 26 );
+	TASSERT_STR( out, decompressed );
+}
+
 void Test_RunCommon( void )
 {
 	Msg( "Checking COM_IsSafeFileToDownload...\n" );
@@ -1053,5 +1149,8 @@ void Test_RunCommon( void )
 	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD5/../../valve/resource/GameMenu.res" ), false );
 	TASSERT_EQi( COM_IsSafeFileToDownload( "not-a-virus-trust-me.bat" ), false );
 	TASSERT_EQi( COM_IsSafeFileToDownload( "a-texture.png" ), true );
+
+	Msg( "Checking LZSS_Decompress...\n" );
+	Test_LZSS();
 }
 #endif
