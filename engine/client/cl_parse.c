@@ -1870,6 +1870,12 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 	if( !cl.need_force_consistency_response )
 		return;
 
+	if( !pResource )
+	{
+		Host_Error( "%s: malformed consistency info packet (resources needed is NULL)\n", __func__ );
+		return;
+	}
+
 	skip_crc_change = NULL;
 	lastcheck = 0;
 
@@ -1887,6 +1893,12 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 			if( pResource != skip_crc_change && Q_strstr( pResource->szFileName, "models/" ))
 				Mod_NeedCRC( pResource->szFileName, false );
 			pResource = pResource->pNext;
+
+			if( !pResource )
+			{
+				Host_Error( "%s: malformed consistency info packet (last check %d, delta %d, position %d)\n", __func__, lastcheck, delta, i );
+				return;
+			}
 		}
 
 		if( cl.num_consistency >= MAX_MODELS )
