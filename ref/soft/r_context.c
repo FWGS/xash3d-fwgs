@@ -15,14 +15,14 @@ GNU General Public License for more details.
 
 #include "r_local.h"
 
-ref_api_t      gEngfuncs;
+ref_api_t     gEngfuncs;
 ref_globals_t *gpGlobals;
 ref_client_t  *gp_cl;
 ref_host_t    *gp_host;
-gl_globals_t tr;
-ref_speeds_t r_stats;
-poolhandle_t r_temppool;
-viddef_t vid;
+gl_globals_t  tr;
+ref_speeds_t  r_stats;
+poolhandle_t  r_temppool;
+viddef_t      vid;
 
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
@@ -58,8 +58,8 @@ CL_FillRGBA
 static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _w, float _h, byte r, byte g, byte b, byte a )
 {
 	vid.rendermode = rendermode;
-	_TriColor4ub(r,g,b,a);
-	Draw_Fill(_x,_y,_w,_h);
+	_TriColor4ub( r, g, b, a );
+	Draw_Fill( _x, _y, _w, _h );
 }
 
 void Mod_UnloadTextures( model_t *mod );
@@ -72,20 +72,20 @@ static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create
 	{
 		switch( mod->type )
 		{
-			case mod_studio:
-				 //Mod_LoadStudioModel( mod, buf, loaded );
-				break;
-			case mod_sprite:
-				Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
-				break;
-			case mod_alias:
-				//Mod_LoadAliasModel( mod, buf, &loaded );
-				break;
-			case mod_brush:
-				// Mod_LoadBrushModel( mod, buf, loaded );
-				break;
+		case mod_studio:
+			// Mod_LoadStudioModel( mod, buf, loaded );
+			break;
+		case mod_sprite:
+			Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
+			break;
+		case mod_alias:
+			// Mod_LoadAliasModel( mod, buf, &loaded );
+			break;
+		case mod_brush:
+			// Mod_LoadBrushModel( mod, buf, loaded );
+			break;
 
-			default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
+		default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
 		}
 	}
 
@@ -118,10 +118,10 @@ static int GL_RefGetParm( int parm, int arg )
 		return glt->srcHeight;
 	case PARM_TEX_GLFORMAT:
 		glt = R_GetTexture( arg );
-		return 0; //glt->format;
+		return 0; // glt->format;
 	case PARM_TEX_ENCODE:
 		glt = R_GetTexture( arg );
-		return 0; //glt->encode;
+		return 0; // glt->encode;
 	case PARM_TEX_MIPCOUNT:
 		glt = R_GetTexture( arg );
 		return glt->numMips;
@@ -132,36 +132,36 @@ static int GL_RefGetParm( int parm, int arg )
 		Assert( arg >= 0 && arg < 6 );
 		return tr.skyboxTextures[arg];
 	case PARM_TEX_SKYTEXNUM:
-		return 0; //tr.skytexturenum;
+		return 0; // tr.skytexturenum;
 	case PARM_TEX_LIGHTMAP:
 		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
 		return tr.lightmapTextures[arg];
 	case PARM_TEX_TARGET:
 		glt = R_GetTexture( arg );
-		return 0; //glt->target;
+		return 0; // glt->target;
 	case PARM_TEX_TEXNUM:
 		glt = R_GetTexture( arg );
-		return 0; //glt->texnum;
+		return 0; // glt->texnum;
 	case PARM_TEX_FLAGS:
 		glt = R_GetTexture( arg );
 		return glt->flags;
 	case PARM_TEX_MEMORY:
 		return R_TexMemory();
 	case PARM_ACTIVE_TMU:
-		return  0; //glState.activeTMU;
+		return 0; // glState.activeTMU;
 	case PARM_LIGHTSTYLEVALUE:
 		arg = bound( 0, arg, MAX_LIGHTSTYLES - 1 );
 		return tr.lightstylevalue[arg];
 	case PARM_MAX_IMAGE_UNITS:
-		return 0; //GL_MaxTextureUnits();
+		return 0; // GL_MaxTextureUnits();
 	case PARM_REBUILD_GAMMA:
 		return 0;
 	case PARM_GL_CONTEXT_TYPE:
-		return 0; //glConfig.context;
+		return 0; // glConfig.context;
 	case PARM_GLES_WRAPPER:
-		return 0; //glConfig.wrapper;
+		return 0; // glConfig.wrapper;
 	case PARM_STENCIL_ACTIVE:
-		return 0; //glState.stencilEnabled;
+		return 0; // glState.stencilEnabled;
 	case PARM_SKY_SPHERE:
 		return 0; // ref_soft doesn't support sky sphere
 	case PARM_TEX_FILTERING:
@@ -176,18 +176,24 @@ static void GAME_EXPORT R_GetDetailScaleForTexture( int texture, float *xScale, 
 {
 	image_t *glt = R_GetTexture( texture );
 
-	if( xScale ) *xScale = glt->xscale;
-	if( yScale ) *yScale = glt->yscale;
+	if( xScale )
+		*xScale = glt->xscale;
+	if( yScale )
+		*yScale = glt->yscale;
 }
 
 static void GAME_EXPORT R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
 {
 	image_t *glt = R_GetTexture( texture );
 
-	if( red ) *red = glt->fogParams[0];
-	if( green ) *green = glt->fogParams[1];
-	if( blue ) *blue = glt->fogParams[2];
-	if( density ) *density = glt->fogParams[3];
+	if( red )
+		*red = glt->fogParams[0];
+	if( green )
+		*green = glt->fogParams[1];
+	if( blue )
+		*blue = glt->fogParams[2];
+	if( density )
+		*density = glt->fogParams[3];
 }
 
 
@@ -231,33 +237,33 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 	int i;
 
 
-	gEngfuncs.Con_Printf("Unloading world\n");
+	gEngfuncs.Con_Printf( "Unloading world\n" );
 	tr.map_unload = true;
 
 	for( i = 0; i < mod->numtextures; i++ )
 	{
 		texture_t *tx = mod->textures[i];
 		if( !tx || tx->gl_texturenum == tr.defaultTexture )
-			continue;	// free slot
+			continue; // free slot
 
-		GL_FreeTexture( tx->gl_texturenum );	// main texture
-		GL_FreeTexture( tx->fb_texturenum );	// luma texture
+		GL_FreeTexture( tx->gl_texturenum ); // main texture
+		GL_FreeTexture( tx->fb_texturenum ); // luma texture
 	}
 }
 
 void Mod_UnloadTextures( model_t *mod )
 {
-	int		i, j;
+	int i, j;
 
 	Assert( mod != NULL );
 
 	switch( mod->type )
 	{
 	case mod_studio:
-		//Mod_StudioUnloadTextures( mod->cache.data );
+		// Mod_StudioUnloadTextures( mod->cache.data );
 		break;
 	case mod_alias:
-		//Mod_AliasUnloadTextures( mod->cache.data );
+		// Mod_AliasUnloadTextures( mod->cache.data );
 		break;
 	case mod_brush:
 		Mod_BrushUnloadTextures( mod );
@@ -298,7 +304,7 @@ static void GAME_EXPORT GL_BackendEndFrame( void )
 }
 
 
-void GAME_EXPORT GL_SetRenderMode(int mode)
+void GAME_EXPORT GL_SetRenderMode( int mode )
 {
 	vid.rendermode = mode;
 	/// TODO: table shading/blending???
@@ -322,7 +328,7 @@ static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 		tr.skyboxTextures[i] = skyboxTextures[i];
 }
 
-qboolean GAME_EXPORT VID_CubemapShot(const char *base, uint size, const float *vieworg, qboolean skyshot)
+qboolean GAME_EXPORT VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
 {
 	// cubemaps? in my softrender???
 	return false;
@@ -339,17 +345,17 @@ static void GAME_EXPORT GL_SubdivideSurface( model_t *mod, msurface_t *fa )
 
 }
 
-static void GAME_EXPORT DrawSingleDecal(decal_t *pDecal, msurface_t *fa)
+static void GAME_EXPORT DrawSingleDecal( decal_t *pDecal, msurface_t *fa )
 {
 
 }
 
-static void GAME_EXPORT GL_SelectTexture(int texture)
+static void GAME_EXPORT GL_SelectTexture( int texture )
 {
 
 }
 
-static void GAME_EXPORT GL_LoadTexMatrixExt(const float *glmatrix)
+static void GAME_EXPORT GL_LoadTexMatrixExt( const float *glmatrix )
 {
 
 }
@@ -359,27 +365,27 @@ static void GAME_EXPORT GL_LoadIdentityTexMatrix( void )
 
 }
 
-static void GAME_EXPORT GL_CleanUpTextureUnits(int last)
+static void GAME_EXPORT GL_CleanUpTextureUnits( int last )
 {
 
 }
 
-static void GAME_EXPORT GL_TexGen(unsigned int coord, unsigned int mode)
+static void GAME_EXPORT GL_TexGen( unsigned int coord, unsigned int mode )
 {
 
 }
 
-static void GAME_EXPORT GL_TextureTarget(uint target)
+static void GAME_EXPORT GL_TextureTarget( uint target )
 {
 
 }
 
-void GAME_EXPORT Mod_SetOrthoBounds(const float *mins, const float *maxs)
+void GAME_EXPORT Mod_SetOrthoBounds( const float *mins, const float *maxs )
 {
 
 }
 
-qboolean GAME_EXPORT R_SpeedsMessage(char *out, size_t size)
+qboolean GAME_EXPORT R_SpeedsMessage( char *out, size_t size )
 {
 	return false;
 }
@@ -410,7 +416,7 @@ static const char *R_GetConfigName( void )
 	return "ref_soft"; // software specific cvars will go to ref_soft.cfg
 }
 
-static void* GAME_EXPORT R_GetProcAddress( const char *name )
+static void * GAME_EXPORT R_GetProcAddress( const char *name )
 {
 	return gEngfuncs.GL_GetProcAddress( name );
 }
