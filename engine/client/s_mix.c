@@ -696,7 +696,8 @@ static void S_Interpolate2xCubic( portable_samplepair_t *pbuffer, portable_sampl
 //		c = (x1 - xm1) / 2;
 //		y [outpos] = (((a * finpos) + b) * finpos + c) * finpos + x0;
 
-	int i, upCount = count << 1;
+	int i;
+	const int upCount = Q_min( count << 1, PAINTBUFFER_SIZE );
 	int a, b, c;
 	int xm1, x0, x1, x2;
 	portable_samplepair_t *psamp0;
@@ -704,8 +705,6 @@ static void S_Interpolate2xCubic( portable_samplepair_t *pbuffer, portable_sampl
 	portable_samplepair_t *psamp2;
 	portable_samplepair_t *psamp3;
 	int outpos = 0;
-
-	Assert( upCount <= PAINTBUFFER_SIZE );
 
 	// pfiltermem holds 6 samples from previous buffer pass
 	// process 'count' samples
@@ -748,7 +747,8 @@ static void S_Interpolate2xCubic( portable_samplepair_t *pbuffer, portable_sampl
 		// write out interpolated sample, increment output counter
 		temppaintbuffer[outpos++].right = a/8 + b/4 + c/2 + x0;
 
-		Assert( outpos <= ( sizeof( temppaintbuffer ) / sizeof( temppaintbuffer[0] )));
+		if( outpos > ARRAYSIZE( temppaintbuffer ))
+			break;
 	}
 
 	Assert( cfltmem >= 3 );
@@ -759,8 +759,7 @@ static void S_Interpolate2xCubic( portable_samplepair_t *pbuffer, portable_sampl
 	pfiltermem[2] = pbuffer[upCount - 1];
 
 	// copy temppaintbuffer back into paintbuffer
-	for( i = 0; i < upCount; i++ )
-		pbuffer[i] = temppaintbuffer[i];
+	memcpy( pbuffer, temppaintbuffer, sizeof( *pbuffer ) * upCount );
 }
 
 // pass forward over passed in buffer and linearly interpolate all odd samples
