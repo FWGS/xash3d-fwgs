@@ -2653,8 +2653,11 @@ R_StudioSetupPlayerModel
 */
 static model_t *R_StudioSetupPlayerModel( int index )
 {
-	player_info_t	*info = gEngfuncs.pfnPlayerInfo( index );
-	player_model_t	*state;
+	player_info_t  *info = gEngfuncs.pfnPlayerInfo( index );
+	player_model_t *state;
+
+	if( index < 0 || index >= gp_cl->maxclients )
+		return NULL;
 
 	state = &g_studio.player_models[index];
 
@@ -2670,7 +2673,8 @@ static model_t *R_StudioSetupPlayerModel( int index )
 
 			if( gEngfuncs.fsapi->FileExists( state->modelname, false ))
 				state->model = gEngfuncs.Mod_ForName( state->modelname, false, true );
-			else state->model = NULL;
+			else
+				state->model = NULL;
 
 			if( !state->model )
 				state->model = RI.currententity->model;
@@ -2695,18 +2699,20 @@ check for texture flags
 */
 int R_GetEntityRenderMode( cl_entity_t *ent )
 {
-	int		i, opaque, trans;
-	mstudiotexture_t	*ptexture;
-	cl_entity_t	*oldent;
-	model_t		*model;
-	studiohdr_t	*phdr;
+	int              i, opaque, trans;
+	mstudiotexture_t *ptexture;
+	cl_entity_t      *oldent;
+	model_t          *model = NULL;
+	studiohdr_t      *phdr;
 
 	oldent = RI.currententity;
 	RI.currententity = ent;
 
 	if( ent->player ) // check it for real playermodel
 		model = R_StudioSetupPlayerModel( ent->curstate.number - 1 );
-	else model = ent->model;
+
+	if( !model )
+		model = ent->model;
 
 	RI.currententity = oldent;
 
