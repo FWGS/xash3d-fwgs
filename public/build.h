@@ -81,6 +81,7 @@ Then you can use another oneliner to query all variables:
 #undef XASH_RISCV_SINGLEFP
 #undef XASH_RISCV_SOFTFP
 #undef XASH_SERENITY
+#undef XASH_SUNOS
 #undef XASH_WIN32
 #undef XASH_X86
 #undef XASH_NSWITCH
@@ -130,6 +131,8 @@ Then you can use another oneliner to query all variables:
 		#define XASH_PSVITA 1
 	#elif defined __wasi__
 		#define XASH_WASI 1
+	#elif defined __sun__
+		#define XASH_SUNOS 1
 	#else
 		#error
 	#endif
