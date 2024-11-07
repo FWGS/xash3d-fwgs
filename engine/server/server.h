@@ -475,7 +475,7 @@ extern convar_t		sv_expose_player_list;
 // sv_main.c
 //
 void SV_FinalMessage( const char *message, qboolean reconnect );
-void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
+void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void SV_DropClient( sv_client_t *cl, qboolean crash ) RENAME_SYMBOL( "SV_DropClient_" );
 void SV_UpdateMovevars( qboolean initialize );
 int SV_ModelIndex( const char *name );
@@ -523,7 +523,7 @@ void SV_WaterMove( edict_t *ent );
 // sv_send.c
 //
 void SV_SendClientMessages( void );
-void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
+void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... ) FORMAT_CHECK( 2 );
 
 //
 // sv_client.c
@@ -546,7 +546,7 @@ qboolean SV_IsPlayerIndex( int idx );
 int SV_CalcPing( sv_client_t *cl );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( host_redirect_t *rd );
-void SV_RejectConnection( netadr_t from, const char *fmt, ... ) _format( 2 );
+void SV_RejectConnection( netadr_t from, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void SV_GetPlayerCount( int *clients, int *bots );
 qboolean SV_HavePassword( void );
 

@@ -80,7 +80,7 @@ const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *need
 void Q_memor( byte *XASH_RESTRICT dst, const byte *XASH_RESTRICT src, size_t len );
 const char *Q_timestamp( int format );
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
-int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
+int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) FORMAT_CHECK( 3 );
 #define Q_strpbrk strpbrk
 void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )

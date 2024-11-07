@@ -91,7 +91,7 @@ typedef uint64_t longtime_t;
 	#endif
 	#define NORETURN           __attribute__(( noreturn ))
 	#define NONNULL            __attribute__(( nonnull ))
-	#define _format( x )       __attribute__(( format( printf, x, x + 1 )))
+	#define FORMAT_CHECK( x )  __attribute__(( format( printf, x, x + 1 )))
 	#define ALLOC_CHECK( x )   __attribute__(( alloc_size( x )))
 	#define NO_ASAN            __attribute__(( no_sanitize( "address" )))
 	#define WARN_UNUSED_RESULT __attribute__(( warn_unused_result ))
@@ -107,7 +107,7 @@ typedef uint64_t longtime_t;
 	#define GAME_EXPORT
 	#define NORETURN
 	#define NONNULL
-	#define _format( x )
+	#define FORMAT_CHECK( x )
 	#define ALLOC_CHECK( x )
 	#define RENAME_SYMBOL( x )
 	#define MALLOC

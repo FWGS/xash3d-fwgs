@@ -380,7 +380,7 @@ void R_TextureList_f( void );
 void R_InitImages( void );
 void R_ShutdownImages( void );
 int GL_TexMemory( void );
-qboolean R_SearchForTextureReplacement( char *out, size_t size, const char *modelname, const char *fmt, ... ) _format( 4 );
+qboolean R_SearchForTextureReplacement( char *out, size_t size, const char *modelname, const char *fmt, ... ) FORMAT_CHECK( 4 );
 void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath );
 
 //
