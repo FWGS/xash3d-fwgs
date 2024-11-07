@@ -98,6 +98,9 @@ def configure(conf):
 		conf.env.append_unique('CFLAGS', '-mllvm')
 		conf.env.append_unique('CFLAGS', '-wasm-enable-sjlj')
 
+	if conf.env.DEST_OS == 'sunos':
+		conf.check_cc(lib='socket')
+
 	if conf.options.STATIC:
 		conf.env.STATIC = True
 		conf.define('XASH_NO_LIBDL',1)
@@ -222,6 +225,9 @@ def build(bld):
 			'-lSceVshBridge_stub',
 			'-lSceKernelDmacMgr_stub'
 		]
+
+	if bld.env.DEST_OS == 'sunos':
+		libs.append('SOCKET')
 
 	# add client files
 	if not bld.env.DEDICATED:
