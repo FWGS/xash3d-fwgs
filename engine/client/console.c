@@ -1718,7 +1718,7 @@ void Con_DrawDebug( void )
 			host.downloadcount, host.downloadfile, scr_download.value, Sys_DoubleTime() - timeStart );
 
 		Con_DrawStringLen( dlstring, &length, NULL );
-		length = Q_max( length, 500 );
+		length = Q_max( length, 300 );
 		x = refState.width - length * 1.05f;
 		y = con.curFont->charHeight * 1.05f;
 		Con_DrawString( x, y, dlstring, g_color_table[7] );
