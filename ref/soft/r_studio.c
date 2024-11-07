@@ -2353,6 +2353,9 @@ static model_t *R_StudioSetupPlayerModel( int index )
 	player_info_t  *info = gEngfuncs.pfnPlayerInfo( index );
 	player_model_t *state;
 
+	if( index < 0 || index >= gp_cl->maxclients )
+		return NULL;
+
 	state = &g_studio.player_models[index];
 
 	// g-cont: force for "dev-mode", non-local games and menu preview
@@ -2396,7 +2399,7 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 	int              i, opaque, trans;
 	mstudiotexture_t *ptexture;
 	cl_entity_t      *oldent;
-	model_t          *model;
+	model_t          *model = NULL;
 	studiohdr_t      *phdr;
 
 	oldent = RI.currententity;
@@ -2404,7 +2407,8 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 
 	if( ent->player ) // check it for real playermodel
 		model = R_StudioSetupPlayerModel( ent->curstate.number - 1 );
-	else
+
+	if( !model )
 		model = ent->model;
 
 	RI.currententity = oldent;
