@@ -78,7 +78,7 @@ qboolean Q_stricmpext( const char *pattern, const char *text );
 qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlen );
 const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen );
 void Q_memor( byte *XASH_RESTRICT dst, const byte *XASH_RESTRICT src, size_t len );
-const char *Q_timestamp( int format );
+const char *Q_timestamp( int format ) RETURNS_NONNULL;
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
 int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) FORMAT_CHECK( 3 );
 #define Q_strpbrk strpbrk
@@ -86,7 +86,7 @@ void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
 char *Q_pretifymem( float value, int digitsafterdecimal );
 void COM_FileBase( const char *in, char *out, size_t size );
-const char *COM_FileExtension( const char *in );
+const char *COM_FileExtension( const char *in ) RETURNS_NONNULL;
 void COM_DefaultExtension( char *path, const char *extension, size_t size );
 void COM_ReplaceExtension( char *path, const char *extension, size_t size );
 void COM_ExtractFilePath( const char *path, char *dest );
