@@ -268,7 +268,7 @@ static float CL_GetStudioEstimatedFrame( cl_entity_t *ent )
 	{
 		pstudiohdr = (studiohdr_t *)Mod_StudioExtradata( ent->model );
 
-		if( pstudiohdr )
+		if( pstudiohdr && pstudiohdr->numseq > 0 )
 		{
 			sequence = bound( 0, ent->curstate.sequence, pstudiohdr->numseq - 1 );
 			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
