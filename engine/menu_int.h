@@ -76,7 +76,7 @@ typedef struct ui_enginefuncs_s
 	// cvar handlers
 	cvar_t*	(*pfnRegisterVariable)( const char *szName, const char *szValue, int flags );
 	float	(*pfnGetCvarFloat)( const char *szName );
-	const char*	(*pfnGetCvarString)( const char *szName );
+	const char*	(*pfnGetCvarString)( const char *szName ) PFN_RETURNS_NONNULL;
 	void	(*pfnCvarSetString)( const char *szName, const char *szValue );
 	void	(*pfnCvarSetValue)( const char *szName, float flValue );
 
@@ -85,8 +85,8 @@ typedef struct ui_enginefuncs_s
 	void	(*pfnClientCmd)( int execute_now, const char *szCmdString );
 	void	(*pfnDelCommand)( const char *cmd_name );
 	int (*pfnCmdArgc)( void );
-	const char*	(*pfnCmdArgv)( int argc );
-	const char*	(*pfnCmd_Args)( void );
+	const char*	(*pfnCmdArgv)( int argc ) PFN_RETURNS_NONNULL;
+	const char*	(*pfnCmd_Args)( void ) PFN_RETURNS_NONNULL;
 
 	// debug messages (in-menu shows only notify)
 	void	(*Con_Printf)( const char *fmt, ... ) FORMAT_CHECK( 1 );
@@ -214,7 +214,7 @@ typedef struct ui_extendedfuncs_s {
 	char *(*pfnParseFile)( char *data, char *buf, const int size, unsigned int flags, int *len );
 
 	// network address funcs
-	const char *(*pfnAdrToString)( const struct netadr_s a );
+	const char *(*pfnAdrToString)( const struct netadr_s a ) PFN_RETURNS_NONNULL;
 	int (*pfnCompareAdr)( const void *a, const void *b ); // netadr_t
 	void *(*pfnGetNativeObject)( const char *name );
 	struct net_api_s *pNetAPI;

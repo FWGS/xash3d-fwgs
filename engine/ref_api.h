@@ -319,7 +319,7 @@ typedef struct ref_api_s
 	cvar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
 	cvar_t   *(*pfnGetCvarPointer)( const char *name, int ignore_flags );
 	float       (*pfnGetCvarFloat)( const char *szName );
-	const char *(*pfnGetCvarString)( const char *szName );
+	const char *(*pfnGetCvarString)( const char *szName ) PFN_RETURNS_NONNULL;
 	void        (*Cvar_SetValue)( const char *name, float value );
 	void        (*Cvar_Set)( const char *name, const char *value );
 	void (*Cvar_RegisterVariable)( convar_t *var );
@@ -329,8 +329,8 @@ typedef struct ref_api_s
 	int         (*Cmd_AddCommand)( const char *cmd_name, void (*function)(void), const char *description );
 	void        (*Cmd_RemoveCommand)( const char *cmd_name );
 	int         (*Cmd_Argc)( void );
-	const char *(*Cmd_Argv)( int arg );
-	const char *(*Cmd_Args)( void );
+	const char *(*Cmd_Argv)( int arg ) PFN_RETURNS_NONNULL;
+	const char *(*Cmd_Args)( void ) PFN_RETURNS_NONNULL;
 
 	// cbuf
 	void (*Cbuf_AddText)( const char *commands );

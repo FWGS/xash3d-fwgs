@@ -424,8 +424,8 @@ void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute (void);
 qboolean Cmd_CurrentCommandIsPrivileged( void );
 int Cmd_Argc( void );
-const char *Cmd_Args( void );
-const char *Cmd_Argv( int arg );
+const char *Cmd_Args( void ) RETURNS_NONNULL;
+const char *Cmd_Argv( int arg ) RETURNS_NONNULL;
 void Cmd_Init( void );
 void Cmd_Unlink( int group );
 void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
@@ -774,7 +774,7 @@ qboolean COM_ParseVector( char **pfile, float *v, size_t size );
 int COM_FileSize( const char *filename );
 void COM_FreeFile( void *buffer );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
-char *va( const char *format, ... ) FORMAT_CHECK( 1 );
+char *va( const char *format, ... ) FORMAT_CHECK( 1 ) RETURNS_NONNULL;
 qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer );
 
 static inline void COM_NormalizeAngles( vec3_t angles )

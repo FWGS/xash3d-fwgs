@@ -256,8 +256,8 @@ float MSG_ReadCoord( sizebuf_t *sb );
 float MSG_ReadFloat( sizebuf_t *sb );
 void MSG_ReadVec3Coord( sizebuf_t *sb, vec3_t fa );
 void MSG_ReadVec3Angles( sizebuf_t *sb, vec3_t fa );
-char *MSG_ReadString( sizebuf_t *sb );
-char *MSG_ReadStringLine( sizebuf_t *sb );
+char *MSG_ReadString( sizebuf_t *sb ) RETURNS_NONNULL;
+char *MSG_ReadStringLine( sizebuf_t *sb ) RETURNS_NONNULL;
 qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes );
 
 #endif//NET_BUFFER_H
