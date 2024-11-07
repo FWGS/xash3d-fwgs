@@ -320,7 +320,9 @@ const char* Q_timestamp( int format )
 		// Build a timestamp that can use for filename (ex: "Nov2006-26 (19.14.28)");
 		strftime( timestamp, sizeof( timestamp ), "%b%Y-%d_%H.%M.%S", crt_tm );
 		break;
-	default: return NULL;
+	default:
+		Q_snprintf( timestamp, sizeof( timestamp ), "%s: unknown format %d", __func__, format );
+		break;
 	}
 
 	return timestamp;
