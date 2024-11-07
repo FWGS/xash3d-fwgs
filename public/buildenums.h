@@ -42,6 +42,7 @@ GNU General Public License for more details.
 #define PLATFORM_NSWITCH    13
 #define PLATFORM_PSVITA     14
 #define PLATFORM_WASI       15
+#define PLATFORM_SUNOS      16
 
 #if XASH_WIN32
 	#define XASH_PLATFORM PLATFORM_WIN32
@@ -73,6 +74,8 @@ GNU General Public License for more details.
 	#define XASH_PLATFORM PLATFORM_PSVITA
 #elif XASH_WASI
 	#define XASH_PLATFORM PLATFORM_WASI
+#elif XASH_SUNOS
+	#define XASH_PLATFORM PLATFORM_SUNOS
 #else
 	#error
 #endif
