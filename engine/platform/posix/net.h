@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #if !XASH_PSVITA
 #include <sys/ioctl.h>
 #endif
+#if XASH_SUNOS // TODO: figure out if we need this header on other systems
+#include <sys/filio.h>
+#endif
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
