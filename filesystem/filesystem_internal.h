@@ -181,7 +181,7 @@ int FS_Gets( file_t *file, char *string, size_t bufsize );
 int FS_UnGetc( file_t *file, char c );
 int FS_Getc( file_t *file );
 int FS_VPrintf( file_t *file, const char *format, va_list ap );
-int FS_Printf( file_t *file, const char *format, ... ) _format( 2 );
+int FS_Printf( file_t *file, const char *format, ... ) FORMAT_CHECK( 2 );
 int FS_Print( file_t *file, const char *msg );
 fs_offset_t FS_FileLength( file_t *f );
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );

@@ -35,7 +35,7 @@ cvar_t *Cvar_GetList( void );
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
 void Cvar_RegisterVariable( convar_t *var );
 convar_t *Cvar_Get( const char *var_name, const char *value, int flags, const char *description );
-convar_t *Cvar_Getf( const char *var_name, int flags, const char *description, const char *format, ... ) _format( 4 );
+convar_t *Cvar_Getf( const char *var_name, int flags, const char *description, const char *format, ... ) FORMAT_CHECK( 4 );
 void Cvar_LookupVars( int checkbit, void *buffer, void *ptr, setpair_t callback );
 void Cvar_FullSet( const char *var_name, const char *value, int flags );
 void Cvar_DirectSet( convar_t *var, const char *value );

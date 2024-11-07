@@ -2384,7 +2384,7 @@ pfnClientCommand
 
 =========
 */
-void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... ) _format( 2 );
+void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... ) FORMAT_CHECK( 2 );
 void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... )
 {
 	sv_client_t	*cl;
@@ -2877,7 +2877,7 @@ pfnAlertMessage
 
 =============
 */
-static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... ) _format( 2 );
+static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... ) FORMAT_CHECK( 2 );
 static void GAME_EXPORT pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... )
 {
 	char	buffer[2048];

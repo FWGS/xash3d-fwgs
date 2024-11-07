@@ -170,7 +170,7 @@ typedef struct fs_api_t
 	int (*UnGetc)( file_t *file, char c );
 	int (*Getc)( file_t *file );
 	int (*VPrintf)( file_t *file, const char *format, va_list ap );
-	int (*Printf)( file_t *file, const char *format, ... ) _format( 2 );
+	int (*Printf)( file_t *file, const char *format, ... ) FORMAT_CHECK( 2 );
 	int (*Print)( file_t *file, const char *msg );
 	fs_offset_t (*FileLength)( file_t *f );
 	qboolean (*FileCopy)( file_t *pOutput, file_t *pInput, int fileSize );
@@ -208,11 +208,11 @@ typedef struct fs_api_t
 typedef struct fs_interface_t
 {
 	// logging
-	void    (*_Con_Printf)( const char *fmt, ... ) _format( 1 ); // typical console allowed messages
-	void    (*_Con_DPrintf)( const char *fmt, ... ) _format( 1 ); // -dev 1
-	void    (*_Con_Reportf)( const char *fmt, ... ) _format( 1 ); // -dev 2
+	void    (*_Con_Printf)( const char *fmt, ... ) FORMAT_CHECK( 1 ); // typical console allowed messages
+	void    (*_Con_DPrintf)( const char *fmt, ... ) FORMAT_CHECK( 1 ); // -dev 1
+	void    (*_Con_Reportf)( const char *fmt, ... ) FORMAT_CHECK( 1 ); // -dev 2
 
-	void    (*_Sys_Error)( const char *fmt, ... ) _format( 1 );
+	void    (*_Sys_Error)( const char *fmt, ... ) FORMAT_CHECK( 1 );
 
 	// memory
 	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
