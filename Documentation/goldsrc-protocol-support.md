@@ -6,9 +6,10 @@ For connecting to GoldSrc-based servers, use this command:
 connect ip:port gs
 ```
 
-But keep in mind, there are requirement for server to be able to accept connections from Xash3D-based clients: it should accept HLTV connections.
+But keep in mind, there are requirement for server to be able to accept connections from Xash3D-based clients: it should use Reunion or Dproto.
 Without this requirement, you will just get "Steam validation rejected" error on connecting.
 
 That is because proper authorization with Steam API is not implemented in engine yet (but we have plans on it).
 
-In case of ReHLDS with Reunion plugin, by default it rejects HLTV clients. But connections from HLTV can be easily enabled in `reunion.cfg` file.
+Also, we encountered that some GoldSrc-based servers are recognizing Xash3D clients as "fake clients" and banning/kicking them. Maybe this problem will be
+solved along with better compatibility with GoldSrc behavior, but may be not - we don't know logic behind this fake client checks.
