@@ -534,8 +534,8 @@ remove files with HTTP_FREE state from list
 static void HTTP_AutoClean( void )
 {
 	char buf[1024];
-	sizebuf_t msg;
 	httpfile_t *cur, **prev = &http.first_file;
+	sizebuf_t msg;
 
 	MSG_Init( &msg, "DlFile", buf, sizeof( buf ));
 
@@ -574,12 +574,14 @@ static void HTTP_AutoClean( void )
 		Mem_Free( cur );
 	}
 
+#if !XASH_DEDICATED
 	if( MSG_GetNumBytesWritten( &msg ) > 0 )
 	{
 		// it's expected to be on fragments channel
 		Netchan_CreateFragments( &cls.netchan, &msg );
 		Netchan_FragSend( &cls.netchan );
 	}
+#endif
 }
 
 static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
