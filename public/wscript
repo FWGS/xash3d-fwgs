@@ -56,11 +56,16 @@ def export_define(conf, define, value=1):
 def simple_check(conf, fragment, msg, mandatory=False, **kw):
 	return conf.check_cc(fragment=fragment, msg='Checking for %s' % msg, mandatory=mandatory, **kw)
 
+def options(opt):
+	opt.add_option('--validate-target', action='store', dest='VALIDATE_TARGET', default=None,
+		help='development option, needs --enable-tests flag')
+
 def configure(conf):
 	# private to libpublic
 	conf.load('gitversion')
 	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'unknown-commit')
 	conf.define('XASH_BUILD_BRANCH', conf.env.GIT_BRANCH  if conf.env.GIT_BRANCH  else 'unknown-branch')
+	conf.env.VALIDATE_TARGET = conf.options.VALIDATE_TARGET
 
 	# need to expose it for everyone using libpublic headers
 	conf.env.EXPORT_DEFINES_LIST = []
@@ -116,6 +121,15 @@ def build(bld):
 		subsystem = bld.env.MSVC_SUBSYSTEM)
 
 	if bld.env.TESTS:
+		if bld.env.VALIDATE_TARGET:
+			bld.program(features = 'test',
+				source = 'tests/test_validate_target.c',
+				target = 'validate_target',
+				use = 'public',
+				defines = 'VALIDATE_TARGET="%s"' % bld.env.VALIDATE_TARGET,
+				subsystem = bld.env.CONSOLE_SUBSYSTEM,
+				install_path = None)
+
 		tests = {
 			'strings': 'tests/test_strings.c',
 			'build': 'tests/test_build.c',
