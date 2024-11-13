@@ -3029,8 +3029,6 @@ void SV_EmptyStringPool( qboolean clear_stats )
 		str64.numdups = 0;
 		str64.numoverflows = 0;
 	}
-#else // !XASH_64BIT
-	Mem_EmptyPool( svgame.stringspool );
 #endif // !XASH_64BIT
 }
 
@@ -3153,9 +3151,10 @@ static void SV_AllocStringPool( void )
 	str64.plast = (byte*)ptr + 1;
 	svgame.globals->pStringBase = ptr;
 #else // !XASH_64BIT
-	svgame.stringspool = Mem_AllocPool( "Server Strings" );
 	svgame.globals->pStringBase = "";
 #endif // !XASH_64BIT
+
+	svgame.stringspool = Mem_AllocPool( "Server Strings" );
 }
 
 static void SV_FreeStringPool( void )
