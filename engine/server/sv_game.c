@@ -3009,15 +3009,25 @@ SV_EmptyStringPool
 Free strings on server stop. Reset string pointer on 64 bits
 ==================
 */
-void SV_EmptyStringPool( void )
+void SV_EmptyStringPool( qboolean clear_stats )
 {
 #if XASH_64BIT
 	if( str64.dynamic ) // switch only after array fill (more space for multiplayer games)
+	{
 		str64.pstringbase = str64.pstringarray;
+	}
 	else
 	{
 		str64.pstringbase = str64.poldstringbase = str64.pstringarraystatic;
 		str64.plast = str64.pstringbase + 1;
+	}
+
+	if( clear_stats )
+	{
+		str64.maxalloc = 0;
+		str64.totalalloc = 0;
+		str64.numdups = 0;
+		str64.numoverflows = 0;
 	}
 #else // !XASH_64BIT
 	Mem_EmptyPool( svgame.stringspool );
@@ -3043,7 +3053,7 @@ void SV_SetStringArrayMode( qboolean dynamic )
 
 	str64.dynamic = dynamic;
 
-	SV_EmptyStringPool();
+	SV_EmptyStringPool( false );
 #endif // !XASH_64BIT
 }
 
