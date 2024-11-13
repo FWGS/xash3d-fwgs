@@ -716,6 +716,7 @@ void SV_DeactivateServer( void )
 	PM_ClearPhysEnts( svgame.pmove );
 
 	SV_EmptyStringPool( true );
+	Mem_EmptyPool( svgame.stringspool );
 
 	for( i = 0; i < svs.maxclients; i++ )
 	{
