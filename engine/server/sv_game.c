@@ -3069,13 +3069,13 @@ static void SV_AllocStringPool( void )
 	string lenstr;
 
 	Con_Reportf( "%s()\n", __func__ );
-	if( Sys_GetParmFromCmdLine( "-str64alloc", lenstr ) )
+	if( Sys_GetParmFromCmdLine( "-str64alloc", lenstr ))
 	{
 		str64.maxstringarray = Q_atoi( lenstr );
 		if( str64.maxstringarray < 1024 || str64.maxstringarray >= INT_MAX )
-			str64.maxstringarray = 65536;
+			str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
 	}
-	else str64.maxstringarray = 65536;
+	else str64.maxstringarray = 65536 * Q_ceil( GI->max_edicts / 1024.0f );
 	if( Sys_CheckParm( "-str64dup" ) )
 		str64.allowdup = true;
 
