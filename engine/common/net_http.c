@@ -300,7 +300,7 @@ static int HTTP_FileConnect( httpfile_t *file )
 	if( res < 0 )
 	{
 		int err = WSAGetLastError();
-		if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS )
+		if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS && err != WSAEALREADY )
 		{
 			Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
 			HTTP_FreeFile( file, true );
