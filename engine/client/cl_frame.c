@@ -806,7 +806,13 @@ static void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_s
 		SETVISBIT( frame->flags, pack );
 
 		// release beams from previous entity
-		CL_KillDeadBeams( ent );
+
+		// a1ba: check that this entity number was never used on client
+		// as beams can be transferred before this entity was sent to client
+		// (for example, beam was sent over during beam entity spawn
+		// but referenced start point entity hasn't been sent over due to PVS)
+		if( ent->curstate.messagenum != 0 )
+			CL_KillDeadBeams( ent );
 	}
 
 	// add entity to packet
