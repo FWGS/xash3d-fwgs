@@ -424,9 +424,12 @@ void NET_InitMasters( void )
 
 	// keep main master always there
 	NET_AddMaster( MASTERSERVER_ADR, false, false );
-	NET_AddMaster( "aaaa.mentality.rip:27010", false, true ); // IPv6-only
 	NET_AddMaster( "mentality.rip:27011", false, false ); // testing server, might be offline
+	NET_AddMaster( "ms2.mentality.rip:27010", false, false ); // secondary master
+
+	NET_AddMaster( "aaaa.mentality.rip:27010", false, true ); // IPv6-only
 	NET_AddMaster( "aaaa.mentality.rip:27011", false, true ); // IPv6-only, testing server, might be offline
+	NET_AddMaster( "aaaa.ms2.mentality.rip:27010", false, false ); // secondary IPv6-only master
 
 	NET_LoadMasters( );
 }
