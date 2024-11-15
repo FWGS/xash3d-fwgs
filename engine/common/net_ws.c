@@ -863,7 +863,8 @@ qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 	if( a.type6 == NA_IP6 )
 	{
 		if( a.port == b.port && !NET_NetadrIP6Compare( &a, &b ))
-		    return true;
+			return true;
+		return false;
 	}
 
 	Con_DPrintf( S_ERROR "%s: bad address type\n", __func__ );
