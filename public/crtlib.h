@@ -276,11 +276,11 @@ char *Q_stristr( const char *s1, const char *s2 );
 #if HAVE_STRCHRNUL
 #define Q_strchrnul strchrnul
 #else // !HAVE_STRCHRNUL
-static inline const char *Q_strchrnul( const char *s, int c )
+static inline char *Q_strchrnul( const char *s, int c )
 {
-	const char *p = Q_strchr( s, c );
+	char *p = (char *)Q_strchr( s, c );
 	if( p ) return p;
-	return s + Q_strlen( s );
+	return (char *)s + Q_strlen( s );
 }
 #endif // !HAVE_STRCHRNUL
 
