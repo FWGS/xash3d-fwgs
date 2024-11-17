@@ -825,9 +825,7 @@ void CL_ClearSpriteTextures( void );
 void CL_CenterPrint( const char *text, float y );
 void CL_TextMessageParse( byte *pMemFile, int fileSize );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
-model_t *CL_ModelHandle( int modelindex );
 void NetAPI_CancelAllRequests( void );
-cl_entity_t *CL_GetLocalPlayer( void );
 model_t *CL_LoadClientSprite( const char *filename );
 model_t *CL_LoadModel( const char *modelname, int *index );
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags );
@@ -838,13 +836,11 @@ const char *PM_CL_TraceTexture( int ground, float *vstart, float *vend );
 int PM_CL_PointContents( const float *p, int *truecontents );
 physent_t *pfnGetPhysent( int idx );
 struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
-movevars_t *pfnGetMoveVars( void );
 void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int height );
 void CL_DisableScissor( scissor_state_t *scissor );
 qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
-struct cl_entity_s *CL_GetEntityByIndex( int index );
 
-_inline cl_entity_t *CL_EDICT_NUM( int n )
+static inline cl_entity_t *CL_EDICT_NUM( int n )
 {
 	if( !clgame.entities )
 	{
@@ -857,6 +853,40 @@ _inline cl_entity_t *CL_EDICT_NUM( int n )
 
 	Host_Error( "%s: bad number %i\n", __func__, n );
 	return NULL;
+}
+
+static inline cl_entity_t *CL_GetEntityByIndex( int index )
+{
+	if( !clgame.entities ) // not in game yet
+		return NULL;
+
+	if( index < 0 || index >= clgame.maxEntities )
+		return NULL;
+
+	if( index == 0 )
+		return clgame.entities;
+
+	return CL_EDICT_NUM( index );
+}
+
+static inline model_t *CL_ModelHandle( int modelindex )
+{
+	return modelindex >= 0 && modelindex < MAX_MODELS ? cl.models[modelindex] : NULL;
+}
+
+static inline qboolean CL_IsThirdPerson( void )
+{
+	return clgame.dllFuncs.CL_IsThirdPerson() ? true : false;
+}
+
+static inline cl_entity_t *CL_GetLocalPlayer( void )
+{
+	cl_entity_t	*player;
+
+	player = CL_EDICT_NUM( cl.playernum + 1 );
+	Assert( player != NULL );
+
+	return player;
 }
 
 //
@@ -989,8 +1019,12 @@ qboolean CL_GetMovieSpatialization( struct rawchan_s *ch );
 void CL_ComputePlayerOrigin( cl_entity_t *clent );
 void CL_ProcessPacket( frame_t *frame );
 void CL_MoveThirdpersonCamera( void );
-qboolean CL_IsPlayerIndex( int idx );
 void CL_EmitEntities( void );
+
+static inline qboolean CL_IsPlayerIndex( int idx )
+{
+	return idx >= 1 && idx <= cl.maxclients ? true : false;
+}
 
 //
 // cl_remap.c

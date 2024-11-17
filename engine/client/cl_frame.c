@@ -27,18 +27,6 @@ GNU General Public License for more details.
 // #define STUDIO_INTERPOLATION_FIX
 
 /*
-==================
-CL_IsPlayerIndex
-
-detect player entity
-==================
-*/
-qboolean CL_IsPlayerIndex( int idx )
-{
-	return ( idx >= 1 && idx <= cl.maxclients );
-}
-
-/*
 =========================================================================
 
 FRAME INTERPOLATION
