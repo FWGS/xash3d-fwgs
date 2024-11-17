@@ -878,8 +878,6 @@ Mod_FatPVS_RecursiveBSPNode
 */
 static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *visbuffer, int visbytes, mnode_t *node, qboolean phs )
 {
-	int	i;
-
 	while( node->contents >= 0 )
 	{
 		float d = PlaneDiff( org, node->plane );
@@ -1912,7 +1910,8 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 
 static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *userdata )
 {
-	string token;
+	const char *wad;
+	wadlist_t *wadlist = userdata;
 
 	*next = '\0';
 
@@ -1920,17 +1919,20 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 		return 0;
 
 	COM_FixSlashes( prev );
-	COM_FileBase( prev, token, sizeof( token ));
+	wad = COM_FileWithoutPath( prev );
+
+	if( Q_stricmp( COM_FileExtension( wad ), "wad" ))
+		return 0;
 
 	// make sure that wad is really exist
-	if( FS_FileExists( va( "%s.wad", token ), false ))
+	if( FS_FileExists( wad, false ))
 	{
-		int num = world.wadlist.count++;
-		Q_strncpy( world.wadlist.wadnames[num], token, sizeof( world.wadlist.wadnames[0] ));
-		world.wadlist.wadusage[num] = 0;
+		int num = wadlist->count++;
+		Q_strncpy( wadlist->wadnames[num], wad, sizeof( wadlist->wadnames[0] ));
+		wadlist->wadusage[num] = 0;
 	}
 
-	if( world.wadlist.count >= MAX_MAP_WADS )
+	if( wadlist->count >= ARRAYSIZE( wadlist->wadnames ))
 		return 1;
 
 	return 0;
@@ -2022,7 +2024,7 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 				Host_Error( "%s: closing brace without data\n", __func__ );
 
 			if( !Q_stricmp( keyname, "wad" ))
-				Q_splitstr( token, ';', NULL, Mod_LoadEntities_splitstr_handler );
+				Q_splitstr( token, ';', &world.wadlist, Mod_LoadEntities_splitstr_handler );
 			else if( !Q_stricmp( keyname, "message" ))
 				Q_strncpy( world.message, token, sizeof( world.message ));
 			else if( !Q_stricmp( keyname, "compiler" ) || !Q_stricmp( keyname, "_compiler" ))
