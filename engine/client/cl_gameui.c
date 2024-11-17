@@ -1249,7 +1249,7 @@ static const ui_enginefuncs_t gEngfuncs =
 	pfnSetCursor,
 	pfnIsMapValid,
 	GL_ProcessTexture,
-	COM_CompareFileTime,
+	pfnCompareFileTime,
 	VID_GetModeString,
 	(void*)COM_SaveFile,
 	pfnDelete

@@ -1699,7 +1699,7 @@ static qboolean Mod_LoadColoredLighting( model_t *mod, dbspmodel_t *bmod )
 	Q_snprintf( path, sizeof( path ), "maps/%s.lit", modelname );
 
 	// make sure what deluxemap is actual
-	if( !COM_CompareFileTime( path, mod->name, &iCompare ))
+	if( !pfnCompareFileTime( path, mod->name, &iCompare ))
 		return false;
 
 	if( iCompare < 0 ) // this may happens if level-designer used -onlyents key for hlcsg
@@ -1754,7 +1754,7 @@ static void Mod_LoadDeluxemap( model_t *mod, dbspmodel_t *bmod )
 	Q_snprintf( path, sizeof( path ), "maps/%s.dlit", modelname );
 
 	// make sure what deluxemap is actual
-	if( !COM_CompareFileTime( path, mod->name, &iCompare ))
+	if( !pfnCompareFileTime( path, mod->name, &iCompare ))
 		return;
 
 	if( iCompare < 0 ) // this may happens if level-designer used -onlyents key for hlcsg
