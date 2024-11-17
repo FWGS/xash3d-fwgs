@@ -2057,7 +2057,7 @@ void NET_Init( void )
 	}
 
 #if XASH_WIN32
-	if( WSAStartup( MAKEWORD( 1, 1 ), &net.winsockdata ))
+	if( WSAStartup( MAKEWORD( 2, 0 ), &net.winsockdata ))
 	{
 		Con_DPrintf( S_ERROR "network initialization failed.\n" );
 		return;
