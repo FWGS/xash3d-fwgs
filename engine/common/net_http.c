@@ -300,16 +300,25 @@ static int HTTP_FileConnect( httpfile_t *file )
 	if( res < 0 )
 	{
 		int err = WSAGetLastError();
-		if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS && err != WSAEALREADY )
+
+		switch( err )
 		{
+		case WSAEISCONN:
+			// we're connected, proceed
+			break;
+		case WSAEWOULDBLOCK:
+		case WSAEINPROGRESS:
+		case WSAEALREADY:
+			// add to the timeout
+			file->blocktime += host.frametime;
+			file->blockreason = "request send";
+			return 0;
+		default:
+			// error, exit
 			Con_Printf( S_ERROR "cannot connect to server: %s\n", NET_ErrorString( ));
 			HTTP_FreeFile( file, true );
 			return 0;
 		}
-
-		file->blocktime += host.frametime;
-		file->blockreason = "request send";
-		return 0;
 	}
 
 	file->blocktime = 0;
