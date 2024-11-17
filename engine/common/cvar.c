@@ -960,6 +960,16 @@ static void Cvar_SetGL( const char *name, const char *value )
 	Cvar_FullSet( name, value, FCVAR_GLCONFIG );
 }
 
+static int ShouldSetCvar_splitstr_handler( char *prev, char *next, void *userdata )
+{
+	size_t len = next - prev;
+
+	if( !Q_strnicmp( prev, userdata, len ))
+		return 1;
+
+	return 0;
+}
+
 static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 {
 	const char *prefixes[] = { "cl_", "gl_", "m_", "r_", "hud_", "joy_", "con_", "scr_" };
@@ -978,31 +988,8 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	// TODO: for cmd exceptions, make generic function
 	if( cvar_active_filter_quirks )
 	{
-		const char *cur, *next;
-
-		cur = cvar_active_filter_quirks->cvars;
-		next = Q_strchr( cur, ';' );
-
-		// TODO: implement Q_strchrnul
-		while( cur && *cur )
-		{
-			size_t len = next ? next - cur : Q_strlen( cur );
-
-			// found, quit
-			if( !Q_strnicmp( cur, v->name, len ))
-				return true;
-
-			if( next )
-			{
-				cur = next + 1;
-				next = Q_strchr( cur, ';' );
-			}
-			else
-			{
-				// stop
-				cur = NULL;
-			}
-		}
+		if( Q_splitstr((char *)cvar_active_filter_quirks->cvars, ';', v->name, ShouldSetCvar_splitstr_handler ))
+			return true;
 	}
 
 	if( FBitSet( v->flags, FCVAR_FILTERABLE ))
