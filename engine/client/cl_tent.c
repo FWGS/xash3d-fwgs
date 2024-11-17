@@ -777,25 +777,15 @@ Detach entity from player
 */
 void GAME_EXPORT R_KillAttachedTents( int client )
 {
-	int	i;
+	TEMPENTITY *tent;
 
 	if( client <= 0 || client > cl.maxclients )
 		return;
 
-	for( i = 0; i < GI->max_tents; i++ )
+	for( tent = cl_active_tents; tent; tent = tent->next )
 	{
-		TEMPENTITY *pTemp = &cl_tempents[i];
-
-		if( !FBitSet( pTemp->flags, FTENT_PLYRATTACHMENT ))
-			continue;
-
-		// this TEMPENTITY is player attached.
-		// if it is attached to this client, set it to die instantly.
-		if( pTemp->clientIndex == client )
-		{
-			// good enough, it will die on next tent update.
-			pTemp->die = cl.time;
-		}
+		if( FBitSet( tent->flags, FTENT_PLYRATTACHMENT ) && tent->clientIndex == client )
+			tent->die = cl.time;
 	}
 }
 
