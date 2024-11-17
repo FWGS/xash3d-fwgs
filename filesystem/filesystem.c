@@ -861,7 +861,7 @@ static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, cons
 			{
 				int	ambientNum = Q_atoi( token + 7 );
 
-				if( ambientNum < 0 || ambientNum > ( NUM_AMBIENTS - 1 ))
+				if( ambientNum < 0 || ambientNum >= NUM_AMBIENTS )
 					ambientNum = 0;
 				pfile = COM_ParseFile( pfile, GameInfo->ambientsound[ambientNum],
 					sizeof( GameInfo->ambientsound[ambientNum] ));
