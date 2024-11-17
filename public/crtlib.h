@@ -284,6 +284,34 @@ static inline const char *Q_strchrnul( const char *s, int c )
 }
 #endif // !HAVE_STRCHRNUL
 
+/*
+===========
+Q_splitstr
+
+splits strings by a character
+if handler returns nonzero value, exists with that value
+===========
+*/
+static inline int Q_splitstr( char *str, int delim, void *userdata,
+	int (*handler)( char *prev, char *next, void *userdata ))
+{
+	char *prev = str;
+	char *next = Q_strchrnul( prev, delim );
+	int ret = 0;
+
+	for( ; ; prev = next + 1, next = Q_strchrnul( prev, delim ))
+	{
+		int ch = *next; // save next value if it's modified by handler
+
+		ret = handler( prev, next, userdata );
+
+		if( !ch || ret != 0 )
+			break;
+	}
+
+	return ret;
+}
+
 #ifdef __cplusplus
 }
 #endif
