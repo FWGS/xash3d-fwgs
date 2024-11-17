@@ -840,30 +840,30 @@ cvar_t *GAME_EXPORT pfnCVarGetPointer( const char *szVarName )
 
 /*
 =============
-COM_CompareFileTime
+pfnCompareFileTime
 
 =============
 */
-int GAME_EXPORT COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare )
+int GAME_EXPORT pfnCompareFileTime( const char *path1, const char *path2, int *retval )
 {
-	int	bRet = 0;
+	int t1, t2;
+	*retval = 0;
 
-	*iCompare = 0;
+	if( !path1 || !path2 )
+		return 0;
 
-	if( filename1 && filename2 )
-	{
-		int ft1 = FS_FileTime( filename1, false );
-		int ft2 = FS_FileTime( filename2, false );
+	if(( t1 = g_fsapi.FileTime( path1, false )) == -1 )
+		return 0;
 
-		// one of files is missing
-		if( ft1 == -1 || ft2 == -1 )
-			return bRet;
+	if(( t2 = g_fsapi.FileTime( path2, false )) == -1 )
+		return 0;
 
-		*iCompare = ft1 < ft2 ? -1 : ( ft1 > ft2 ? 1 : 0 );
-		bRet = 1;
-	}
+	if( t1 < t2 )
+		*retval = -1;
+	else if( t1 > t2 )
+		*retval = 1;
 
-	return bRet;
+	return 1;
 }
 
 /*

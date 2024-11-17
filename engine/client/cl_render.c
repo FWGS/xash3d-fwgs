@@ -296,7 +296,7 @@ static render_api_t gRenderAPI =
 	R_Mem_Free,
 	pfnGetFilesList,
 	pfnFileBufferCRC32,
-	COM_CompareFileTime,
+	pfnCompareFileTime,
 	Host_Error,
 	(void*)CL_ModelHandle,
 	pfnTime,
