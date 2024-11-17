@@ -889,41 +889,47 @@ static void Host_RunTests( int stage )
 }
 #endif
 
+static int Host_CheckBugcomp_splitstr_handler( char *prev, char *next, void *userdata )
+{
+	size_t i;
+	uint32_t *flags = userdata;
+
+	*next = '\0';
+
+	if( !COM_CheckStringEmpty( prev ))
+		return 0;
+
+	for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
+	{
+		if( !Q_stricmp( bugcomp_features[i].arg, prev ))
+		{
+			SetBits( *flags, bugcomp_features[i].mask );
+			break;
+		}
+	}
+
+	if( i == ARRAYSIZE( bugcomp_features ))
+	{
+		Con_Printf( S_ERROR "Unknown bugcomp flag %s\n", prev );
+		Con_Printf( "Valid flags are:\n" );
+		for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
+			Con_Printf( "\t%s: %s\n", bugcomp_features[i].arg, bugcomp_features[i].msg );
+	}
+
+	return 0;
+}
+
 static uint32_t Host_CheckBugcomp( void )
 {
-	const char *prev, *next;
 	uint32_t flags = 0;
-	string args, arg;
-	size_t i;
+	string args;
 
 	if( !Sys_CheckParm( "-bugcomp" ))
 		return 0;
 
 	if( Sys_GetParmFromCmdLine( "-bugcomp", args ) && isalpha( args[0] ))
 	{
-		for( prev = args, next = Q_strchrnul( prev, '+' ); ; prev = next + 1, next = Q_strchrnul( prev, '+' ))
-		{
-			Q_strncpy( arg, prev, next - prev + 1 );
-			for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
-			{
-				if( !Q_stricmp( bugcomp_features[i].arg, arg ))
-				{
-					SetBits( flags, bugcomp_features[i].mask );
-					break;
-				}
-			}
-
-			if( i == ARRAYSIZE( bugcomp_features ))
-			{
-				Con_Printf( S_ERROR "Unknown bugcomp flag %s\n", arg );
-				Con_Printf( "Valid flags are:\n" );
-				for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
-					Con_Printf( "\t%s: %s\n", bugcomp_features[i].arg, bugcomp_features[i].msg );
-			}
-
-			if( !*next )
-				break;
-		}
+		Q_splitstr( args, '+', &flags, Host_CheckBugcomp_splitstr_handler );
 	}
 	else
 	{

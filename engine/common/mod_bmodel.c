@@ -1910,6 +1910,32 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 	}
 }
 
+static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *userdata )
+{
+	string token;
+
+	*next = '\0';
+
+	if( !COM_CheckStringEmpty( prev ))
+		return 0;
+
+	COM_FixSlashes( prev );
+	COM_FileBase( prev, token, sizeof( token ));
+
+	// make sure that wad is really exist
+	if( FS_FileExists( va( "%s.wad", token ), false ))
+	{
+		int num = world.wadlist.count++;
+		Q_strncpy( world.wadlist.wadnames[num], token, sizeof( world.wadlist.wadnames[0] ));
+		world.wadlist.wadusage[num] = 0;
+	}
+
+	if( world.wadlist.count >= MAX_MAP_WADS )
+		return 1;
+
+	return 0;
+}
+
 /*
 =================
 Mod_LoadEntities
@@ -1917,23 +1943,22 @@ Mod_LoadEntities
 */
 static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 {
-	byte	*entpatch = NULL;
-	char	token[MAX_TOKEN];
-	char	wadstring[MAX_TOKEN];
-	string	keyname;
-	char	*pfile;
+	byte   *entpatch = NULL;
+	char   token[MAX_TOKEN];
+	string keyname;
+	char   *pfile;
 
 	if( bmod->isworld )
 	{
-		char	entfilename[MAX_QPATH];
+		char        entfilename[MAX_QPATH];
 		fs_offset_t	entpatchsize;
-		size_t	ft1, ft2;
+		int         ft1, ft2;
 
-		// world is check for entfile too
+		// if world check for entfile too
 		Q_strncpy( entfilename, mod->name, sizeof( entfilename ));
 		COM_ReplaceExtension( entfilename, ".ent", sizeof( entfilename ));
 
-		// make sure what entity patch is never than bsp
+		// make sure that entity patch is never than bsp
 		ft1 = FS_FileTime( mod->name, false );
 		ft2 = FS_FileTime( entfilename, true );
 
@@ -1952,11 +1977,19 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 		}
 	}
 
-	// make sure what we really has terminator
-	mod->entities = Mem_Calloc( mod->mempool, bmod->entdatasize + 1 );
+	// make sure that we really have null terminator
+	mod->entities = Mem_Malloc( mod->mempool, bmod->entdatasize + 1 );
 	memcpy( mod->entities, bmod->entdata, bmod->entdatasize ); // moving to private model pool
-	if( entpatch ) Mem_Free( entpatch ); // release entpatch if present
-	if( !bmod->isworld ) return;
+	mod->entities[bmod->entdatasize] = 0;
+
+	if( entpatch )
+	{
+		Mem_Free( entpatch ); // release entpatch if present
+		entpatch = NULL;
+	}
+
+	if( !bmod->isworld )
+		return;
 
 	pfile = (char *)mod->entities;
 	world.generator[0] = '\0';
@@ -1975,7 +2008,9 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 			// parse key
 			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
 				Host_Error( "%s: EOF without closing brace\n", __func__ );
-			if( token[0] == '}' ) break; // end of desc
+
+			if( token[0] == '}' )
+				break; // end of desc
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
@@ -1987,33 +2022,7 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 				Host_Error( "%s: closing brace without data\n", __func__ );
 
 			if( !Q_stricmp( keyname, "wad" ))
-			{
-				char	*pszWadFile;
-
-				Q_strncpy( wadstring, token, sizeof( wadstring ) - 2 );
-				wadstring[sizeof( wadstring ) - 2] = 0;
-
-				if( !Q_strchr( wadstring, ';' ))
-					Q_strncat( wadstring, ";", sizeof( wadstring ));
-
-				// parse wad pathes
-				for( pszWadFile = strtok( wadstring, ";" ); pszWadFile != NULL; pszWadFile = strtok( NULL, ";" ))
-				{
-					COM_FixSlashes( pszWadFile );
-					COM_FileBase( pszWadFile, token, sizeof( token ));
-
-					// make sure that wad is really exist
-					if( FS_FileExists( va( "%s.wad", token ), false ))
-					{
-						int num = world.wadlist.count++;
-						Q_strncpy( world.wadlist.wadnames[num], token, sizeof( world.wadlist.wadnames[0] ));
-						world.wadlist.wadusage[num] = 0;
-					}
-
-					if( world.wadlist.count >= MAX_MAP_WADS )
-						break; // too many wads...
-				}
-			}
+				Q_splitstr( token, ';', NULL, Mod_LoadEntities_splitstr_handler );
 			else if( !Q_stricmp( keyname, "message" ))
 				Q_strncpy( world.message, token, sizeof( world.message ));
 			else if( !Q_stricmp( keyname, "compiler" ) || !Q_stricmp( keyname, "_compiler" ))
