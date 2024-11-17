@@ -48,20 +48,6 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 
 /*
 =================
-SV_HavePassword
-
-=================
-*/
-qboolean SV_HavePassword( void )
-{
-	if( COM_CheckStringEmpty( sv_password.string ) && Q_stricmp( sv_password.string, "none" ))
-		return true;
-
-	return false;
-}
-
-/*
-=================
 SV_GetPlayerCount
 
 =================
@@ -1371,19 +1357,6 @@ qboolean SV_ShouldUpdatePing( sv_client_t *cl )
 
 	// they are viewing the scoreboard.  Send them pings.
 	return FBitSet( cl->lastcmd.buttons, IN_SCORE ) ? true : false;
-}
-
-/*
-===================
-SV_IsPlayerIndex
-
-===================
-*/
-qboolean SV_IsPlayerIndex( int idx )
-{
-	if( idx > 0 && idx <= svs.maxclients )
-		return true;
-	return false;
 }
 
 /*
