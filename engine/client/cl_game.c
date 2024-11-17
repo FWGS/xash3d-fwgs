@@ -98,53 +98,6 @@ static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc );
 
 /*
 ====================
-CL_GetEntityByIndex
-
-Render callback for studio models
-====================
-*/
-cl_entity_t *CL_GetEntityByIndex( int index )
-{
-	if( !clgame.entities ) // not in game yet
-		return NULL;
-
-	if( index < 0 || index >= clgame.maxEntities )
-		return NULL;
-
-	if( index == 0 )
-		return clgame.entities;
-
-	return CL_EDICT_NUM( index );
-}
-
-/*
-================
-CL_ModelHandle
-
-get model handle by index
-================
-*/
-model_t *CL_ModelHandle( int modelindex )
-{
-	if( modelindex < 0 || modelindex >= MAX_MODELS )
-		return NULL;
-	return cl.models[modelindex];
-}
-
-/*
-====================
-CL_IsThirdPerson
-
-returns true if thirdperson is enabled
-====================
-*/
-qboolean CL_IsThirdPerson( void )
-{
-	return clgame.dllFuncs.CL_IsThirdPerson() ? true : false;
-}
-
-/*
-====================
 CL_CreatePlaylist
 
 Create a default valve playlist
@@ -731,23 +684,6 @@ void CL_ParseFinaleCutscene( sizebuf_t *msg, int level )
 		return; // no real text
 
 	CL_HudMessage( text->pName );
-}
-
-/*
-====================
-CL_GetLocalPlayer
-
-Render callback for studio models
-====================
-*/
-cl_entity_t *CL_GetLocalPlayer( void )
-{
-	cl_entity_t	*player;
-
-	player = CL_EDICT_NUM( cl.playernum + 1 );
-	Assert( player != NULL );
-
-	return player;
 }
 
 /*
@@ -2697,7 +2633,7 @@ pfnGetMovevars
 
 =============
 */
-movevars_t *pfnGetMoveVars( void )
+static movevars_t *pfnGetMoveVars( void )
 {
 	return &clgame.movevars;
 }

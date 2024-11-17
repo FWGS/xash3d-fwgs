@@ -687,7 +687,6 @@ struct sv_client_s;
 typedef struct sizebuf_s sizebuf_t;
 qboolean CL_IsInGame( void );
 qboolean CL_IsInConsole( void );
-qboolean CL_IsThirdPerson( void );
 qboolean CL_IsIntermission( void );
 qboolean CL_Initialized( void );
 char *CL_Userinfo( void );
