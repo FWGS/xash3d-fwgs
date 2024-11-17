@@ -2791,7 +2791,7 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 				out->vecs[j][k] = in->vecs[j][k];
 
 		miptex = in->miptex;
-		if( miptex < 0 || miptex > mod->numtextures )
+		if( miptex < 0 || miptex >= mod->numtextures )
 			miptex = 0; // this is possible?
 		out->texture = mod->textures[miptex];
 		out->flags = in->flags;
