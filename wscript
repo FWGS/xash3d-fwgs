@@ -128,6 +128,9 @@ REFDLLS = [
 def options(opt):
 	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs subproject cmake')
 
+	opt.add_option('--enable-wafcache', action = 'store_false', dest = 'enable_gccdeps', default = True,
+		help = 'enable usage of wafcache tool, disables gccdeps')
+
 	grp = opt.add_option_group('Common options')
 
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
@@ -204,6 +207,9 @@ def configure(conf):
 	if conf.options.MSVCDEPS:
 		conf.load('msvcdeps')
 
+	if not conf.options.enable_gccdeps:
+		conf.env.ENABLE_WAFCACHE = True
+
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
 
@@ -217,7 +223,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake force_32bit')
+	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit')
 
 	if conf.env.MSVC_TARGETS[0] == 'amd64_x86' or conf.env.MSVC_TARGETS[0] == 'x86':
 		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
@@ -503,6 +509,9 @@ int main(void) { return (int)BZ2_bzlibVersion(); }'''
 		conf.add_subproject(i.name)
 
 def build(bld):
+	if bld.env.ENABLE_WAFCACHE:
+		bld.load('wafcache')
+
 	# guard rails to not let install to root
 	if bld.is_install and not bld.options.PACKAGING and not bld.options.destdir:
 		bld.fatal('Set the install destination directory using --destdir option')
