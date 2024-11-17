@@ -684,7 +684,7 @@ static void Mod_CreatePolygonsForHull( int hullnum )
 	char	name[8];
 	int	i;
 
-	if( hullnum < 0 || hullnum > 3 )
+	if( hullnum < 0 || hullnum >= MAX_MAP_HULLS )
 		return;
 
 	if( !world.num_hull_models )

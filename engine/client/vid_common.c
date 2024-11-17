@@ -93,7 +93,7 @@ VID_GetModeString
 const char *VID_GetModeString( int vid_mode )
 {
 	vidmode_t *vidmode;
-	if( vid_mode < 0 || vid_mode > R_MaxVideoModes() )
+	if( vid_mode < 0 || vid_mode >= R_MaxVideoModes() )
 		return NULL;
 
 	if( !( vidmode = R_GetVideoMode( vid_mode ) ) )

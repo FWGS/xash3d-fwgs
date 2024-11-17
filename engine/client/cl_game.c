@@ -2422,7 +2422,7 @@ static void GAME_EXPORT pfnKillEvents( int entnum, const char *eventname )
 	if( eventIndex >= MAX_EVENTS )
 		return;
 
-	if( entnum < 0 || entnum > clgame.maxEntities )
+	if( entnum < 0 || entnum >= clgame.maxEntities )
 		return;
 
 	es = &cl.events;
