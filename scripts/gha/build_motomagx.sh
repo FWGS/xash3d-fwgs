@@ -12,7 +12,7 @@ pushd hlsdk || die
 ./waf configure -T fast --enable-magx --enable-simple-mod-hacks build install --destdir=../Xash || die
 popd
 
-./waf configure -T fast --enable-magx build install --destdir=Xash/ || die
+./waf configure -T fast --enable-magx --enable-wafcache build install --destdir=Xash/ || die
 
 cat > Xash/run.sh << 'EOF'
 mypath=${0%/*}

@@ -61,14 +61,14 @@ build_engine()
 	fi
 
 	if [ "$1" = "dedicated" ]; then
-		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -d || die_configure
+		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -d --enable-wafcache || die_configure
 	elif [ "$1" = "full" ]; then
-		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stb --enable-utils || die_configure
+		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stb --enable-utils --enable-wafcache || die_configure
 	else
 		die
 	fi
 
-	./waf build || die_configure
+	./waf build --zones=wafcache || die_configure
 }
 
 deploy_engine()

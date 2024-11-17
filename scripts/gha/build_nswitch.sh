@@ -11,7 +11,7 @@ mkdir -p artifacts/ || die
 
 echo "Running build script in Docker container..."
 
-docker run --name xash-build --rm -v `pwd`:`pwd` -w `pwd` devkitpro/devkita64:latest bash ./scripts/gha/build_nswitch_docker.sh || die
+docker run --name xash-build --rm -v `pwd`:`pwd` -v $HOME/.cache:$HOME/.cache -w `pwd` devkitpro/devkita64:latest bash ./scripts/gha/build_nswitch_docker.sh || die
 
 echo "Packaging artifacts..."
 

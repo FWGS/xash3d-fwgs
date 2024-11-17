@@ -6,8 +6,21 @@ jobs:
 #    steps:
 #    - name: Cleanup
 #      run: rm -rf .* || true
+  get_prev_runid:
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.do.outputs.value }}
+    steps:
+      - id: do
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          value=$(gh run -R ${{ github.repository }} list -b${{ github.ref_name }} -ssuccess -L1 --json databaseId -q'.[0].databaseId')
+          echo "Last run ID is $value"
+          echo "value=$value" >> "$GITHUB_OUTPUT"
   build:
     runs-on: ${{ matrix.os }}
+    needs: get_prev_runid
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -69,11 +82,19 @@ jobs:
       SDL_VERSION: 2.30.11
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GH_CROSSCOMPILING: ${{ matrix.cross }}
+      WAFCACHE: ${{ github.workspace }}/wafcache/
+      WAFCACHE_EVICT_MAX_BYTES: 1000000 # github only gives 10gb for the whole repository
+      WAFCACHE_STATS: 1 # enable statistics in build log
     steps:
     - name: Checkout
       uses: actions/checkout@v4
       with:
         submodules: recursive
+    - name: Restore cache
+      uses: actions/cache/restore@v4
+      with:
+        key: ${{ runner.os }}-${{ matrix.targetos }}-${{ matrix.targetarch }}-${{ needs.get_prev_runid.outputs.value }}
+        path: ${{ github.workspace }}/wafcache/
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
     - name: Build engine
@@ -85,6 +106,12 @@ jobs:
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
+    - name: Save cache
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ github.workspace }}/wafcache/
+        key: ${{ runner.os }}-${{ matrix.targetos }}-${{ matrix.targetarch }}-${{ github.run_id }}
+
   flatpak:
     runs-on: ubuntu-latest
     strategy:
