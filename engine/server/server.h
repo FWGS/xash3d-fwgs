@@ -542,13 +542,24 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg );
 void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg );
 edict_t *SV_FakeConnect( const char *netname );
 void SV_BuildReconnect( sizebuf_t *msg );
-qboolean SV_IsPlayerIndex( int idx );
 int SV_CalcPing( sv_client_t *cl );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( host_redirect_t *rd );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void SV_GetPlayerCount( int *clients, int *bots );
-qboolean SV_HavePassword( void );
+
+static inline qboolean SV_HavePassword( void )
+{
+	if( COM_CheckStringEmpty( sv_password.string ) && Q_stricmp( sv_password.string, "none" ))
+		return true;
+
+	return false;
+}
+
+static inline qboolean SV_IsPlayerIndex( int idx )
+{
+	return idx > 0 && idx <= svs.maxclients ? true : false;
+}
 
 //
 // sv_cmds.c
