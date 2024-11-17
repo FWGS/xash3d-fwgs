@@ -528,22 +528,16 @@ COM_FileExtension
 */
 const char *COM_FileExtension( const char *in )
 {
-	const char *separator, *backslash, *colon, *dot;
-
-	separator = Q_strrchr( in, '/' );
-	backslash = Q_strrchr( in, '\\' );
-
-	if( !separator || separator < backslash )
-		separator = backslash;
-
-	colon = Q_strrchr( in, ':' );
-
-	if( !separator || separator < colon )
-		separator = colon;
+	const char *dot;
 
 	dot = Q_strrchr( in, '.' );
 
-	if( dot == NULL || ( separator && ( dot < separator )))
+	// quickly exit if there is no dot at all
+	if( dot == NULL )
+		return "";
+
+	// if there are any of these special symbols after the dot, the file has no extension
+	if( Q_strpbrk( dot + 1, "\\/:" ))
 		return "";
 
 	return dot + 1;

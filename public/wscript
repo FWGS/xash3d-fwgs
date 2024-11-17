@@ -134,6 +134,7 @@ def build(bld):
 			'strings': 'tests/test_strings.c',
 			'build': 'tests/test_build.c',
 			'filebase': 'tests/test_filebase.c',
+			'fileext': 'tests/test_fileext.c',
 			'efp': 'tests/test_efp.c',
 			'atoi': 'tests/test_atoi.c',
 			'parsefile': 'tests/test_parsefile.c',
