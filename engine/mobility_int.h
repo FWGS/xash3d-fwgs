@@ -54,6 +54,7 @@ extern "C" {
 // flags for COM_ParseFileSafe
 #define PFILE_IGNOREBRACKET (1<<0)
 #define PFILE_HANDLECOLON   (1<<1)
+#define PFILE_IGNOREHASHCMT (1<<2)
 
 typedef struct mobile_engfuncs_s
 {
