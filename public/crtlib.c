@@ -758,8 +758,8 @@ skipwhite:
 		data++;
 	}
 
-	// skip // comments
-	if( c == '/' && data[1] == '/' )
+	// skip // or #, if requested, comments
+	if(( c == '/' && data[1] == '/' ) || ( c == '#' && FBitSet( flags, PFILE_IGNOREHASHCMT )))
 	{
 		while( *data && *data != '\n' )
 			data++;

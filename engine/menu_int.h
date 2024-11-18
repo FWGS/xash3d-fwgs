@@ -36,6 +36,7 @@ typedef int		HIMAGE;		// handle to a graphic
 // flags for COM_ParseFileSafe
 #define PFILE_IGNOREBRACKET (1<<0)
 #define PFILE_HANDLECOLON   (1<<1)
+#define PFILE_IGNOREHASHCMT (1<<2)
 
 typedef struct ui_globalvars_s
 {

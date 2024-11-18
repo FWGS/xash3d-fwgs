@@ -39,9 +39,11 @@ enum
 };
 
 // a1ba: not using BIT macro, so flags can be copypasted into
-// exported APIs headers and will get nice warning in case of changing values
+// exported APIs headers and will not get warning in case of changing values
 #define PFILE_IGNOREBRACKET (1<<0)
 #define PFILE_HANDLECOLON   (1<<1)
+#define PFILE_IGNOREHASHCMT (1<<2)
+
 #define PFILE_TOKEN_MAX_LENGTH 1024
 #define PFILE_FS_TOKEN_MAX_LENGTH 512
 
