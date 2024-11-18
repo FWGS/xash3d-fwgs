@@ -1929,6 +1929,7 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 	{
 		int num = wadlist->count++;
 		Q_strncpy( wadlist->wadnames[num], wad, sizeof( wadlist->wadnames[0] ));
+		COM_StripExtension( wadlist->wadnames[num] );
 		wadlist->wadusage[num] = 0;
 	}
 
