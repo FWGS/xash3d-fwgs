@@ -534,6 +534,7 @@ void V_PostRender( void )
 		SCR_DrawPos();
 		SCR_DrawEnts();
 		SCR_DrawNetGraph();
+		SCR_DrawUserCmd();
 		SV_DrawOrthoTriangles();
 		CL_DrawDemoRecording();
 		CL_DrawHUD( CL_CHANGELEVEL );
