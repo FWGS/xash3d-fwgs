@@ -1,0 +1,11 @@
+[Desktop Entry]
+Categories=Game;Shooter;
+Comment=Half-Life compatible game engine
+Exec=AppRun
+Icon=xash3d-fwgs
+Keywords=first;person;shooter;multiplayer;half-life;halflife;singleplayer;
+Name=Xash3D FWGS
+# Doesn't pass validation with old desktop-file-utils
+#PrefersNonDefaultGPU=true
+Terminal=false
+Type=Application

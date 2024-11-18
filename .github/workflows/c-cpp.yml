@@ -21,6 +21,22 @@ jobs:
           - os: ubuntu-20.04
             targetos: linux
             targetarch: i386
+          - os: ubuntu-20.04
+            targetos: linux
+            targetarch: arm64
+            cross: true
+          - os: ubuntu-20.04
+            targetos: linux
+            targetarch: armhf
+            cross: true
+          - os: ubuntu-20.04
+            targetos: linux
+            targetarch: riscv64
+            cross: true
+          - os: ubuntu-20.04
+            targetos: linux
+            targetarch: ppc64el
+            cross: true
 #          - os: ubuntu-aarch64-20.04
 #            targetos: linux
 #            targetarch: aarch64
@@ -52,6 +68,7 @@ jobs:
     env:
       SDL_VERSION: 2.30.3
       GH_CPU_ARCH: ${{ matrix.targetarch }}
+      GH_CROSSCOMPILING: ${{ matrix.cross }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
