@@ -2602,18 +2602,12 @@ CL_GetMessage
 Handles recording and playback of demos, on top of NET_ code
 ====================
 */
-static int CL_GetMessage( byte *data, size_t *length )
+static qboolean CL_GetMessage( byte *data, size_t *length )
 {
 	if( cls.demoplayback )
-	{
-		if( CL_DemoReadMessage( data, length ))
-			return true;
-		return false;
-	}
+		return CL_DemoReadMessage( data, length );
 
-	if( NET_GetPacket( NS_CLIENT, &net_from, data, length ))
-		return true;
-	return false;
+	return NET_GetPacket( NS_CLIENT, &net_from, data, length );
 }
 
 static void CL_ParseNetMessage( sizebuf_t *msg, void (*parsefn)( sizebuf_t * ))
