@@ -33,6 +33,7 @@ static CVAR_DEFINE_AUTO( net_speeds, "0", FCVAR_ARCHIVE, "show network packets" 
 static CVAR_DEFINE_AUTO( cl_showfps, "0", FCVAR_ARCHIVE, "show client fps" );
 static CVAR_DEFINE_AUTO( cl_showpos, "0", FCVAR_ARCHIVE, "show local player position and velocity" );
 static CVAR_DEFINE_AUTO( cl_showents, "0", FCVAR_ARCHIVE | FCVAR_CHEAT, "show entities information (largely undone)" );
+static CVAR_DEFINE_AUTO( cl_showcmd, "0", 0, "visualize usercmd button presses" );
 
 typedef struct
 {
@@ -197,10 +198,73 @@ void SCR_DrawEnts( void )
 			screen[0] += 0.5f * refState.width;
 			screen[1] += 0.5f * refState.height;
 
-
 			Con_DrawString( screen[0], screen[1], msg, color );
 		}
 	}
+}
+
+/*
+==============
+SCR_DrawUserCmd
+
+another debugging aids, shows pressed buttons
+==============
+*/
+void SCR_DrawUserCmd( void )
+{
+	runcmd_t *pcmd = &cl.commands[( cls.netchan.outgoing_sequence - 1 ) & CL_UPDATE_MASK];
+	struct
+	{
+		int mask;
+		const char *name;
+	} buttons[16] =
+	{
+	{ IN_ATTACK, "attack" },
+	{ IN_JUMP, "jump" },
+	{ IN_DUCK, "duck" },
+	{ IN_FORWARD, "forward" },
+	{ IN_BACK, "back" },
+	{ IN_USE, "use" },
+	{ IN_CANCEL, "cancel" },
+	{ IN_LEFT, "left" },
+	{ IN_RIGHT, "right" },
+	{ IN_MOVELEFT, "moveleft" },
+	{ IN_MOVERIGHT, "moveright" },
+	{ IN_ATTACK2, "attack2" },
+	{ IN_RUN, "run" },
+	{ IN_RELOAD, "reload" },
+	{ IN_ALT1, "alt1" },
+	{ IN_SCORE, "score" },
+	};
+	cl_font_t *font = Con_GetCurFont();
+	string msg;
+	int i, ypos = 100;
+
+	if( cls.state != ca_active || !cl_showcmd.value )
+		return;
+
+	for( i = 0; i < ARRAYSIZE( buttons ); i++ )
+	{
+		rgba_t rgba;
+
+		rgba[0] = FBitSet( pcmd->cmd.buttons, buttons[i].mask ) ? 0 : 255;
+		rgba[1] = FBitSet( pcmd->cmd.buttons, buttons[i].mask ) ? 255 : 0;
+		rgba[2] = 0;
+		rgba[3] = 255;
+
+		Con_DrawString( 100, ypos, buttons[i].name, rgba );
+
+		ypos += font->charHeight;
+	}
+
+	Q_snprintf( msg, sizeof( msg ),
+		"F/S/U: %g %g %g\n"
+		"impulse: %u\n"
+		"msec: %u",
+		pcmd->cmd.forwardmove, pcmd->cmd.sidemove, pcmd->cmd.upmove,
+		pcmd->cmd.impulse,
+		pcmd->cmd.msec );
+	Con_DrawString( 100, ypos, msg, g_color_table[7] );
 }
 
 /*
@@ -834,6 +898,7 @@ void SCR_Init( void )
 	Cvar_RegisterVariable( &net_speeds );
 	Cvar_RegisterVariable( &cl_showfps );
 	Cvar_RegisterVariable( &cl_showpos );
+	Cvar_RegisterVariable( &cl_showcmd );
 #ifdef _DEBUG
 	Cvar_RegisterVariable( &cl_showents );
 #endif // NDEBUG
