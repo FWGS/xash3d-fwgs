@@ -222,6 +222,25 @@ double CL_GetDemoFramerate( void )
 }
 
 /*
+=================
+CL_DemoAborted
+=================
+*/
+static void CL_DemoAborted( void )
+{
+	if( cls.demofile )
+		FS_Close( cls.demofile );
+	cls.demoplayback = false;
+	cls.changedemo = false;
+	cls.timedemo = false;
+	demo.framecount = 0;
+	cls.demofile = NULL;
+	cls.demonum = -1;
+
+	Cvar_DirectSet( &v_dark, "0" );
+}
+
+/*
 ====================
 CL_WriteDemoCmdHeader
 
@@ -593,6 +612,14 @@ static void CL_ReadDemoUserCmd( qboolean discard )
 	FS_Read( cls.demofile, &outgoing_sequence, sizeof( int ));
 	FS_Read( cls.demofile, &cmdnumber, sizeof( int ));
 	FS_Read( cls.demofile, &bytes, sizeof( short ));
+
+	if( bytes >= sizeof( data ))
+	{
+		Con_Printf( S_ERROR "%s: too large dem_usercmd (size %u seq %i)\n", __func__, bytes, outgoing_sequence );
+		CL_DemoAborted();
+		return;
+	}
+
 	FS_Read( cls.demofile, data, bytes );
 
 	if( !discard )
@@ -719,25 +746,6 @@ static void CL_DemoStartPlayback( int mode )
 	cls.lastoutgoingcommand = -1;
  	cls.nextcmdtime = host.realtime;
 	cl.last_command_ack = -1;
-}
-
-/*
-=================
-CL_DemoAborted
-=================
-*/
-static void CL_DemoAborted( void )
-{
-	if( cls.demofile )
-		FS_Close( cls.demofile );
-	cls.demoplayback = false;
-	cls.changedemo = false;
-	cls.timedemo = false;
-	demo.framecount = 0;
-	cls.demofile = NULL;
-	cls.demonum = -1;
-
-	Cvar_DirectSet( &v_dark, "0" );
 }
 
 /*
