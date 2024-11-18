@@ -59,10 +59,10 @@ jobs:
           - os: windows-2019 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
             targetos: win32
             targetarch: i386
-          - os: macos-14 # in GitHub documentation, it's an ARM64 machine
+          - os: macos-14 # arm64 as per github documentation
             targetos: apple
             targetarch: arm64
-          - os: macos-12 # in GitHub documentation, it's an x86 machine
+          - os: macos-13 # x86 as per github documentation (will they fix it before they deprecate this version?..)
             targetos: apple
             targetarch: amd64
     env:
