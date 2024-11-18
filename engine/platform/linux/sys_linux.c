@@ -26,31 +26,23 @@ GNU General Public License for more details.
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
+#include <sys/syscall.h>
 #include "platform/platform.h"
 #include <sys/types.h>
-
-#if defined( __GLIBC__ )
-#if ( __GLIBC__ <= 2 ) && ( __GLIBC_MINOR__ <= 30 )
-// Library support was added in glibc 2.30.
-// Earlier glibc versions did not provide a wrapper for this system call,
-// necessitating the use of syscall(2).
-#include <sys/syscall.h>
-
-static pid_t gettid( void )
-{
-	return syscall( SYS_gettid );
-}
-#endif // ( __GLIBC__ <= 2 ) && ( __GLIBC_MINOR__ <= 30 )
 
 // Glibc misses this macro in POSIX headers (bits/types/sigevent_t.h)
 // but it does present in Linux headers (asm-generic/siginfo.h) and musl
 #if !defined( sigev_notify_thread_id )
 #define sigev_notify_thread_id _sigev_un._tid
 #endif // !defined( sigev_notify_thread_id )
-#endif // defined(__GLIBC__)
 
 static void *g_hsystemd;
 static int (*g_pfn_sd_notify)( int unset_environment, const char *state );
+
+int Linux_GetProcessID( void )
+{
+	return syscall( __NR_gettid );
+}
 
 qboolean Platform_DebuggerPresent( void )
 {
@@ -163,7 +155,7 @@ void Linux_SetTimer( float tm )
 		// this path availiable in POSIX, but may signal wrong thread...
 		// sev.sigev_notify = SIGEV_SIGNAL;
 		sev.sigev_notify = SIGEV_THREAD_ID;
-		sev.sigev_notify_thread_id = gettid();
+		sev.sigev_notify_thread_id = Linux_GetProcessID();
 		sev.sigev_signo = DEBUG_TIMER_SIGNAL;
 		sev.sigev_value.sival_ptr = &timerid;
 		timer_create( CLOCK_REALTIME, &sev, &timerid );
