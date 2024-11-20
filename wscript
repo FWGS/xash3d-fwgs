@@ -303,6 +303,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC != 'msvc':
 		opt_flags = [
 			# '-Wall', '-Wextra', '-Wpedantic',
+			'-pipe',
 			'-fdiagnostics-color=always',
 
 			# stable diagnostics, forced to error, sorted
