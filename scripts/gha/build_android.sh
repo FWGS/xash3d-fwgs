@@ -16,7 +16,7 @@ $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
 	--ks-key-alias androiddebugkey \
 	--ks-pass pass:android \
 	--key-pass pass:android \
-	--out app-continuous-signed.apk app-continuous.apk || exit 1
+	--out app-continuous-signed.apk app-continuous-unsigned.apk || exit 1
 
 popd
 popd
