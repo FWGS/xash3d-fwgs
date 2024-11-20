@@ -307,10 +307,13 @@ class CMake(object):
 
 			flags = env.CFLAGS
 			if len(flags):
+				# remove -MMD flag from gccdeps.py as it's already inserted by CMake
+				flags = [f for f in flags if not f == '-MMD']
 				content += 'set(CMAKE_C_FLAGS "%s")\n' % (' '.join(flags))
 
 			flags = env.CXXFLAGS
 			if len(flags):
+				flags = [f for f in flags if not f == '-MMD']
 				content += 'set(CMAKE_CXX_FLAGS "%s")\n' % (' '.join(flags))
 
 		if len(self.tgens):
