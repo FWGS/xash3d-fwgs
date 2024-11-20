@@ -8,12 +8,18 @@ ANDROID_PLATFORM_VER="android-34"
 ANDROID_NDK_VER="26.3.11579264"
 
 echo "Download JDK 17"
-wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.7%2B7/OpenJDK17U-jdk_x64_linux_hotspot_17.0.7_7.tar.gz -qO- | tar -xzvf - || exit 1
+wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.7%2B7/OpenJDK17U-jdk_x64_linux_hotspot_17.0.7_7.tar.gz -qO- | tar -xzf - || exit 1
 export JAVA_HOME=$GITHUB_WORKSPACE/jdk-17.0.7+7
 export PATH=$PATH:$JAVA_HOME/bin
 
 echo "Download hlsdk-portable"
 git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-portable -b mobile_hacks 3rdparty/hlsdk-portable || exit 1
+
+echo "Download SDL"
+pushd 3rdparty
+wget https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz | tar -xzf -
+mv SDL2-$SDL_VERSION SDL
+popd
 
 echo "Download Android SDK"
 mkdir -p sdk || exit 1
