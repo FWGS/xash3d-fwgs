@@ -38,7 +38,7 @@ class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean =
         ctx.startActivity(Intent(ctx, XashActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("gamedir", basedir.name)
-            putExtra("argv", pref.getString("arguments", "-dev 2 -log"))
+            putExtra("argv", pref.getString("arguments", "-console -log"))
             putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
             //.putExtra("gamelibdir", getGameLibDir(context))
             //.putExtra("package", getPackageName()) }

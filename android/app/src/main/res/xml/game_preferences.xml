@@ -2,7 +2,7 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <EditTextPreference
-        app:defaultValue="-dev 2 -log"
+        app:defaultValue="-console -log"
         app:key="arguments"
         app:layout="@layout/edit_text_preference"
         app:title="@string/game_settings_command_line"

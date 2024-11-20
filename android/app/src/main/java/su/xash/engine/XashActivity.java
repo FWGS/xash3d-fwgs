@@ -132,7 +132,7 @@ public class XashActivity extends SDLActivity {
         }
 
         String argv = getIntent().getStringExtra("argv");
-        if (argv == null) argv = "-dev 2 -log";
+        if (argv == null) argv = "-console -log";
         return argv.split(" ");
     }
 }
