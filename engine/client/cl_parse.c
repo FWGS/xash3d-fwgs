@@ -951,7 +951,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
 		background = MSG_ReadOneBit( msg );
 		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
-		Host_ValidateEngineFeatures( 0, MSG_ReadDword( msg ));
+		Host_ValidateEngineFeatures( mask, MSG_ReadDword( msg ));
 
 		if( proto != PROTO_LEGACY )
 		{
