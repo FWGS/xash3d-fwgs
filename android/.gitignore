@@ -1,0 +1,14 @@
+.gradle/
+build/
+.externalNativeBuild
+.cxx/
+.idea/
+local.properties
+.project
+.classpath
+.gradle
+.settings
+release/
+*.hprof
+.vscode/
+*.bak
