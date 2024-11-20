@@ -18,7 +18,7 @@ git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-portable -b mobile
 echo "Download SDL"
 pushd 3rdparty
 wget https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz | tar -xzf -
-mv SDL2-$SDL_VERSION SDL
+mv SDL2-$SDL_VERSION 3rdparty/SDL
 popd
 
 echo "Download Android SDK"

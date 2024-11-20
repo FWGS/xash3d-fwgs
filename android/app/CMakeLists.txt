@@ -21,7 +21,7 @@ endif()
 
 if(CMAKE_SIZEOF_VOID_P MATCHES "8")
 	set(64BIT ON CACHE BOOL "" FORCE)
-	set(WAF_EXTRA_ARGS "-8")
+	set(WAF_EXTRA_ARGS "-8") # only required for x86 when testing this cmakelist under linux
 endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -36,7 +36,7 @@ execute_process(
 	COMMAND ${CMAKE_COMMAND} -E env
 	CC=${WAF_CC} CXX=${WAF_CXX}
 	AR=${CMAKE_AR} STRIP=${CMAKE_STRIP}
-	${PYTHON_EXECUTABLE} waf configure -vvv -T ${BUILD_TYPE} ${WAF_EXTRA_ARGS} cmake
+	${PYTHON_EXECUTABLE} waf configure -T ${BUILD_TYPE} ${WAF_EXTRA_ARGS} cmake
 	--check-c-compiler=${C_COMPILER_ID} --check-cxx-compiler=${CXX_COMPILER_ID}
 	-s "${ENGINE_SOURCE_DIR}/SDL" --skip-sdl2-sanity-check
 	WORKING_DIRECTORY "${ENGINE_SOURCE_DIR}"
