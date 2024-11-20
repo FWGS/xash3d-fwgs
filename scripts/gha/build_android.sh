@@ -23,4 +23,4 @@ popd
 
 mkdir -p artifacts/
 
-mv android/app/build/outputs/apk/debug/app-continuous-signed.apk artifacts/xash3d-fwgs-android.apk
+mv android/app/build/outputs/apk/continuous/app-continuous-signed.apk artifacts/xash3d-fwgs-android.apk
