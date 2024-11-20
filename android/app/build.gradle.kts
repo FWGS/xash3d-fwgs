@@ -31,7 +31,7 @@ android {
     externalNativeBuild {
         cmake {
             version = "3.22.1"
-            path = file("${project.projectDir}/src/main/cpp/CMakeLists.txt")
+            path = file("${project.projectDir}/CMakeLists.txt")
         }
     }
 
@@ -75,9 +75,9 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.srcDir("${project.projectDir}/src/main/cpp/xash3d-fwgs/3rdparty/extras/xash-extras")
+            assets.srcDir("${project.projectDir}/../../3rdparty/xash-extras")
             assets.srcDir("${project.projectDir}/../moddb")
-            java.srcDir("${project.projectDir}/src/main/cpp/SDL/android-project/app/src/main/java")
+            java.srcDir("${project.projectDir}/../../3rdparty/SDL/android-project/app/src/main/java")
         }
     }
 
