@@ -5,7 +5,6 @@ cd $GITHUB_WORKSPACE
 ANDROID_COMMANDLINE_TOOLS_VER="11076708"
 ANDROID_BUILD_TOOLS_VER="34.0.0"
 ANDROID_PLATFORM_VER="android-34"
-ANDROID_NDK_VER="26.3.11579264"
 
 echo "Download JDK 17"
 wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.7%2B7/OpenJDK17U-jdk_x64_linux_hotspot_17.0.7_7.tar.gz -qO- | tar -xzf - || exit 1
@@ -17,7 +16,7 @@ git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-portable -b mobile
 
 echo "Download SDL"
 pushd 3rdparty
-wget https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz | tar -xzf -
+wget https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz -qO- | tar -xzf - || exit 1
 mv SDL2-$SDL_VERSION 3rdparty/SDL
 popd
 
@@ -36,4 +35,4 @@ popd
 
 echo "Download all needed tools and Android NDK"
 yes | sdkmanager --licenses > /dev/null 2>/dev/null # who even reads licenses? :)
-sdkmanager --install build-tools\;${ANDROID_BUILD_TOOLS_VER} platform-tools platforms\;${ANDROID_PLATFORM_VER} ndk\;${ANDROID_NDK_VER}
+sdkmanager --install build-tools\;${ANDROID_BUILD_TOOLS_VER} platform-tools platforms\;${ANDROID_PLATFORM_VER}
