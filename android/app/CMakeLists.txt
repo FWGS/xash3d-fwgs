@@ -43,6 +43,17 @@ execute_process(
 )
 
 add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/hlsdk-portable" hlsdk-portable)
+
+# try to build minimal SDL. Enable features as we're gonna use them
+set(SDL_RENDER OFF)
+set(SDL_POWER OFF)
+set(SDL_VULKAN OFF)
+set(SDL_DISKAUDIO OFF)
+set(SDL_DUMMYAUDIO OFF)
+set(SDL_DUMMYVIDEO OFF)
+set(SDL_VULKAN OFF)
+set(SDL_OFFSCREEN OFF)
+set(SDL_STATIC OFF)
 add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/SDL" SDL)
 add_subdirectory("${ENGINE_SOURCE_DIR}/" xash3d-fwgs)
 add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/mainui" mainui)
