@@ -233,7 +233,7 @@ public:
 		return FS_FileTime( p, false );
 	}
 
-	long int GetFileModificationTime( const char *path )
+	long int GetFileModificationTime( const char *path ) override
 	{
 		// TODO: properly reverse-engineer this
 		FixupPath( p, path );
