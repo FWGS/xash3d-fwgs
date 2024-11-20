@@ -75,9 +75,8 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.srcDir("${project.projectDir}/../../3rdparty/xash-extras")
-            assets.srcDir("${project.projectDir}/../moddb")
-            java.srcDir("${project.projectDir}/../../3rdparty/SDL/android-project/app/src/main/java")
+            assets.srcDirs("../../3rdparty/extras/xash-extras", "../moddb")
+            java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
         }
     }
 
