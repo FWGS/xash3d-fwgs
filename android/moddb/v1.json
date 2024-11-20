@@ -1,0 +1,282 @@
+[
+	{
+		"name": "Counter-Strike",
+		"app_id": 10,
+		"gamedir": "cstrike",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Counter-Strike Base Content",
+				"depot_id": 11
+			},
+			{
+				"name": "Condition Zero Models",
+				"depot_id": 95
+			}
+		],
+		"package_name": "in.celest.xash3d.cs16client"
+	},
+	{
+		"name": "Half-Life",
+		"app_id": 70,
+		"gamedir": "valve",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Half-Life Base Content",
+				"depot_id": 71
+			},
+			{
+				"name": "Half-Life High Definition",
+				"depot_id": 96
+			}
+		],
+		"package_name": "su.xash.engine"
+	},
+	{
+		"name": "Half-Life: Opposing Force",
+		"app_id": 50,
+		"gamedir": "gearbox",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Opposing Force Base Content",
+				"depot_id": 51
+			},
+			{
+				"name": "Half-Life High Definition",
+				"depot_id": 96
+			}
+		]
+	},
+	{
+		"name": "Counter-Strike: Condition Zero",
+		"app_id": 80,
+		"gamedir": "czero",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Counter-Strike Base Content",
+				"depot_id": 11
+			},
+			{
+				"name": "Condition Zero Base Contentt",
+				"depot_id": 81
+			}
+		]
+	},
+	{
+		"name": "Half-Life: Blue Shift",
+		"app_id": 130,
+		"gamedir": "bshift",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Half-Life: Blue Shift",
+				"depot_id": 130
+			},
+			{
+				"name": "Half-Life High Definition",
+				"depot_id": 96
+			}
+		]
+	},
+	{
+		"name": "Half-Life: C.A.G.E.D.",
+		"app_id": 679990,
+		"gamedir": "caged_fgs",
+		"depots": [
+			{
+				"name": "Half-Life: Caged Content",
+				"depot_id": 679991
+			},
+			{
+				"name": "Half-Life: C.A.G.E.D. Pathnodes",
+				"depot_id": 679992
+			},
+			{
+				"name": "Half-Life: C.A.G.E.D. HOLIDAY NONE",
+				"depot_id": 679996
+			}
+		]
+	},
+	{
+		"name": "Day of Defeat",
+		"app_id": 30,
+		"gamedir": "dod",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Day of Defeat Base Content",
+				"depot_id": 31
+			}
+		]
+	},
+	{
+		"name": "Cry of Fear",
+		"app_id": 223710,
+		"gamedir": "cryoffear",
+		"depots": [
+			{
+				"name": "Cry of Fear Content",
+				"depot_id": 223711
+			}
+		]
+	},
+	{
+		"name": "Headcrab Frenzy!",
+		"app_id": 354900,
+		"gamedir": "hcfrenzy",
+		"depots": [
+			{
+				"name": "Headcrab Frenzy Common Content",
+				"depot_id": 354901
+			}
+		]
+	},
+	{
+		"name": "Team Fortress Classic",
+		"app_id": 20,
+		"gamedir": "tfc",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Team Fortress Classic Base Content",
+				"depot_id": 21
+			},
+			{
+				"name": "Half-Life High Definition",
+				"depot_id": 96
+			}
+		]
+	},
+	{
+		"name": "Base Defense",
+		"app_id": 632730,
+		"gamedir": "bdef",
+		"depots": [
+			{
+				"name": "Base Defense Content",
+				"depot_id": 632731
+			}
+		]
+	},
+	{
+		"name": "Ricochet",
+		"app_id": 60,
+		"gamedir": "ricochet",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Ricochet Base Content",
+				"depot_id": 61
+			}
+		]
+	},
+	{
+		"name": "Deathmatch Classic",
+		"app_id": 40,
+		"gamedir": "dmc",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Deathmatch Classic Base Content",
+				"depot_id": 41
+			}
+		]
+	},
+	{
+		"name": "Halfquake Trilogy",
+		"app_id": 644320,
+		"gamedir": "hqtrilogy",
+		"depots": [
+			{
+				"name": "Halfquake Trilogy Content",
+				"depot_id": 644321
+			}
+		]
+	},
+	{
+		"name": "Half-Rats: Parasomnia",
+		"app_id": 638360,
+		"gamedir": "hrp",
+		"depots": [
+			{
+				"name": "Parasomnia - Content",
+				"depot_id": 638361
+			},
+			{
+				"name": "Gold Source (Parasomnia) - Content",
+				"depot_id": 638364
+			}
+		]
+	},
+	{
+		"name": "Counter-Strike: Condition Zero Deleted Scenes",
+		"app_id": 100,
+		"gamedir": "czeror",
+		"depots": [
+			{
+				"name": "Base Goldsrc Shared Content",
+				"depot_id": 1
+			},
+			{
+				"name": "Counter-Strike Base Content",
+				"depot_id": 11
+			},
+			{
+				"name": "Condition Zero Deleted Scenes Base Content",
+				"depot_id": 101
+			}
+		]
+	},
+	{
+		"name": "Hard-Life",
+		"app_id": 850870,
+		"gamedir": "hardlife",
+		"depots": [
+			{
+				"name": "Hard-Life Content",
+				"depot_id": 850871
+			}
+		]
+	},
+	{
+		"name": "Half-Life Decay: Solo Mission DEMO",
+		"app_id": 1889470,
+		"gamedir": "decaysolodemo",
+		"depots": [
+			{
+				"name": "Half-Life Decay: Solo Mission Demo Content",
+				"depot_id": 1889471
+			}
+		]
+	}
+]

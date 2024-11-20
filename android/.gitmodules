@@ -1,0 +1,11 @@
+[submodule "hlsdk-portable"]
+	path = app/src/main/cpp/hlsdk-portable
+	url = https://github.com/FWGS/hlsdk-portable
+	branch = mobile_hacks
+[submodule "xash3d-fwgs"]
+	path = app/src/main/cpp/xash3d-fwgs
+	url = https://github.com/FWGS/xash3d-fwgs
+[submodule "SDL"]
+	path = app/src/main/cpp/SDL
+	url = https://github.com/libsdl-org/SDL
+	branch = release-2.24.1
