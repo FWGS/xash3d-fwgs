@@ -263,7 +263,7 @@ enables global fog on the level
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
 	// overrided by internal fog
-	if( RI.fogEnabled ) return;
+	if( RI.fogEnabled || !gl_fog.value ) return;
 	RI.fogCustom = bOn;
 
 	// check for invalid parms
