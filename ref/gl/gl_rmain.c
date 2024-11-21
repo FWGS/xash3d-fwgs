@@ -44,7 +44,7 @@ void R_AllowFog( qboolean allowed )
 {
 	if( allowed )
 	{
-		if( glState.isFogEnabled )
+		if( glState.isFogEnabled && gl_fog.value )
 			pglEnable( GL_FOG );
 	}
 	else
@@ -800,7 +800,8 @@ R_DrawFog
 */
 void R_DrawFog( void )
 {
-	if( !RI.fogEnabled ) return;
+	if( !RI.fogEnabled || !gl_fog.value )
+		return;
 
 	pglEnable( GL_FOG );
 	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
