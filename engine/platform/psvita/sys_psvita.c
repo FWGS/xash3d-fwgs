@@ -70,6 +70,7 @@ static const vrtld_export_t aux_exports[] =
 	VRTLD_EXPORT_SYMBOL( isalnum ),
 	VRTLD_EXPORT_SYMBOL( isalpha ),
 	VRTLD_EXPORT_SYMBOL( strchrnul ),
+	VRTLD_EXPORT_SYMBOL( strtok ),
 	VRTLD_EXPORT_SYMBOL( stpcpy ),
 	VRTLD_EXPORT_SYMBOL( rand ),
 	VRTLD_EXPORT_SYMBOL( srand ),
