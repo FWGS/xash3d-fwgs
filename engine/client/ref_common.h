@@ -36,11 +36,16 @@ extern struct ref_state_s ref;
 extern ref_globals_t refState;
 
 // handy API wrappers
-void R_GetTextureParms( int *w, int *h, int texnum );
 #define REF_GET_PARM( parm, arg ) ref.dllFuncs.RefGetParm( (parm), (arg) )
 #define GL_LoadTextureInternal( name, pic, flags ) ref.dllFuncs.GL_LoadTextureFromBuffer( (name), (pic), (flags), false )
 #define GL_UpdateTextureInternal( name, pic, flags ) ref.dllFuncs.GL_LoadTextureFromBuffer( (name), (pic), (flags), true )
 #define R_GetBuiltinTexture( name ) ref.dllFuncs.GL_LoadTexture( (name), 0, 0, 0 )
+
+static inline void R_GetTextureParms( int *w, int *h, int texnum )
+{
+	if( w ) *w = REF_GET_PARM( PARM_TEX_WIDTH, texnum );
+	if( h ) *h = REF_GET_PARM( PARM_TEX_HEIGHT, texnum );
+}
 
 void GL_RenderFrame( const struct ref_viewpass_s *rvp );
 
