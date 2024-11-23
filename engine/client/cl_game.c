@@ -952,7 +952,11 @@ void CL_DrawHUD( int state )
 		CL_DrawCenterPrint ();
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
 		if( showpause.value )
-			CL_DrawLoadingOrPaused( cls.pauseIcon );
+		{
+			if( !cls.pauseIcon )
+				cls.pauseIcon = SCR_LoadPauseIcon();
+			CL_DrawLoadingOrPaused( Q_max( 0, cls.pauseIcon ));
+		}
 		break;
 	case CL_LOADING:
 		CL_DrawLoadingOrPaused( cls.loadingBar );
