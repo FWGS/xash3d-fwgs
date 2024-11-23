@@ -45,12 +45,6 @@ REF_HOST_CHECK( realtime );
 REF_HOST_CHECK( frametime );
 REF_HOST_CHECK( features );
 
-void R_GetTextureParms( int *w, int *h, int texnum )
-{
-	if( w ) *w = REF_GET_PARM( PARM_TEX_WIDTH, texnum );
-	if( h ) *h = REF_GET_PARM( PARM_TEX_HEIGHT, texnum );
-}
-
 static qboolean CheckSkybox( const char *name, char out[SKYBOX_MAX_SIDES][MAX_STRING] )
 {
 	static const char *skybox_ext[3] = { "dds", "tga", "bmp" };
