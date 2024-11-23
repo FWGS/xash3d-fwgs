@@ -417,7 +417,7 @@ static int Mod_FindTextureInWadList( wadlist_t *list, const char *name, char *ds
 	{
 		char path[MAX_VA_STRING];
 
-		Q_snprintf( path, sizeof( path ), "%s.wad/%s.mip", list->wadnames[i], name );
+		Q_snprintf( path, sizeof( path ), "%s/%s.mip", list->wadnames[i], name );
 
 		if( FS_FileExists( path, false ))
 		{
@@ -1929,7 +1929,6 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 	{
 		int num = wadlist->count++;
 		Q_strncpy( wadlist->wadnames[num], wad, sizeof( wadlist->wadnames[0] ));
-		COM_StripExtension( wadlist->wadnames[num] );
 		wadlist->wadusage[num] = 0;
 	}
 
@@ -3569,16 +3568,12 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 
 	for( i = 0; i < world.wadlist.count; i++ )
 	{
-		string wadname;
-
 		if( !world.wadlist.wadusage[i] )
 			continue;
 
-		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", world.wadlist.wadnames[i] );
-
 		if( !wadlist_warn )
 		{
-			ret = Q_snprintf( &wadvalue[len], sizeof( wadvalue ), "%s; ", wadname );
+			ret = Q_snprintf( &wadvalue[len], sizeof( wadvalue ), "%s; ", world.wadlist.wadnames[i] );
 			if( ret == -1 )
 			{
 				Con_DPrintf( S_WARN "Too many wad files for output!\n" );

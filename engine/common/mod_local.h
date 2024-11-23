@@ -85,9 +85,9 @@ typedef struct
 
 typedef struct wadlist_s
 {
-	char			wadnames[MAX_MAP_WADS][32];
-	int			wadusage[MAX_MAP_WADS];
-	int			count;
+	char wadnames[MAX_MAP_WADS][36]; // including .wad extension
+	int  wadusage[MAX_MAP_WADS];
+	int  count;
 } wadlist_t;
 
 typedef struct world_static_s
