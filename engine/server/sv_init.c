@@ -376,9 +376,7 @@ static void SV_CreateGenericResources( void )
 	{
 		if( world.wadlist.wadusage[i] > 0 )
 		{
-			string wadname;
-			Q_snprintf( wadname, sizeof( wadname ), "%s.wad", world.wadlist.wadnames[i] );
-			SV_GenericIndex( wadname );
+			SV_GenericIndex( world.wadlist.wadnames[i] );
 		}
 	}
 }
