@@ -2477,45 +2477,19 @@ static void FS_CustomFree( void *data )
 	Mem_Free( data );
 }
 
-/*
-============
-FS_LoadFile
-
-Filename are relative to the xash directory.
-Always appends a 0 byte.
-============
-*/
-static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qboolean gamedironly, const qboolean custom_alloc )
+static byte *FS_LoadFileFromArchive( searchpath_t *sp, const char *path, int pack_ind, fs_offset_t *filesizeptr, const qboolean sys_malloc )
 {
-	searchpath_t *search;
 	fs_offset_t	filesize;
 	file_t *file;
 	byte *buf;
-	char netpath[MAX_SYSPATH];
-	int pack_ind;
-	void *( *pfnAlloc )( size_t ) = custom_alloc ? FS_CustomAlloc : malloc;
-	void ( *pfnFree )( void * ) = custom_alloc ? FS_CustomFree : free;
-
-	// some mappers used leading '/' or '\' in path to models or sounds
-	if( path[0] == '/' || path[0] == '\\' )
-		path++;
-
-	if( path[0] == '/' || path[0] == '\\' )
-		path++;
-
-	if( !fs_searchpaths || FS_CheckNastyPath( path ))
-		return NULL;
-
-	search = FS_FindFile( path, &pack_ind, netpath, sizeof( netpath ), gamedironly );
-
-	if( !search )
-		return NULL;
+	void *( *pfnAlloc )( size_t ) = sys_malloc ? malloc : FS_CustomAlloc;
+	void ( *pfnFree )( void * ) = sys_malloc ? free : FS_CustomFree;
 
 	// custom load file function for compressed files
-	if( search->pfnLoadFile )
-		return search->pfnLoadFile( search, netpath, pack_ind, filesizeptr, pfnAlloc, pfnFree );
+	if( sp->pfnLoadFile )
+		return sp->pfnLoadFile( sp, path, pack_ind, filesizeptr, pfnAlloc, pfnFree );
 
-	file = search->pfnOpenFile( search, netpath, "rb", pack_ind );
+	file = sp->pfnOpenFile( sp, path, "rb", pack_ind );
 
 	if( !file ) // TODO: indicate errors
 		return NULL;
@@ -2536,6 +2510,38 @@ static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qbo
 	if( filesizeptr ) *filesizeptr = filesize;
 
 	return buf;
+}
+
+/*
+============
+FS_LoadFile
+
+Filename are relative to the xash directory.
+Always appends a 0 byte.
+============
+*/
+static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qboolean gamedironly, const qboolean custom_alloc )
+{
+	searchpath_t *search;
+	char netpath[MAX_SYSPATH];
+	int pack_ind;
+
+	// some mappers used leading '/' or '\' in path to models or sounds
+	if( path[0] == '/' || path[0] == '\\' )
+		path++;
+
+	if( path[0] == '/' || path[0] == '\\' )
+		path++;
+
+	if( !fs_searchpaths || FS_CheckNastyPath( path ))
+		return NULL;
+
+	search = FS_FindFile( path, &pack_ind, netpath, sizeof( netpath ), gamedironly );
+
+	if( !search )
+		return NULL;
+
+	return FS_LoadFileFromArchive( search, netpath, pack_ind, filesizeptr, !custom_alloc );
 }
 
 byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
@@ -2976,6 +2982,29 @@ static qboolean FS_IsArchiveExtensionSupported( const char *ext, uint flags )
 	return false;
 }
 
+static searchpath_t *FS_GetArchiveByName( const char *name, searchpath_t *prev )
+{
+	searchpath_t *sp = prev ? prev->next : fs_searchpaths;
+
+	for( ; sp; sp = sp->next )
+	{
+		if( !Q_stricmp( COM_FileWithoutPath( sp->filename ), name ))
+			return sp;
+	}
+
+	return NULL;
+}
+
+static int FS_FindFileInArchive( searchpath_t *sp, const char *path, char *truepath, size_t len )
+{
+	return sp->pfnFindFile( sp, path, truepath, len );
+}
+
+static file_t *FS_OpenFileFromArchive( searchpath_t *sp, const char *path, const char *mode, int pack_ind )
+{
+	return sp->pfnOpenFile( sp, path, mode, pack_ind );
+}
+
 void FS_InitMemory( void )
 {
 	fs_mempool = Mem_AllocPool( "FileSystem Pool" );
@@ -3106,6 +3135,10 @@ const fs_api_t g_api =
 	FS_LoadFileMalloc,
 
 	FS_IsArchiveExtensionSupported,
+	FS_GetArchiveByName,
+	FS_FindFileInArchive,
+	FS_OpenFileFromArchive,
+	FS_LoadFileFromArchive,
 };
 
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );
