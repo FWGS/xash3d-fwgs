@@ -793,6 +793,18 @@ static void SCR_InstallParticlePalette( void )
 	}
 }
 
+int SCR_LoadPauseIcon( void )
+{
+	int texnum = 0;
+
+	if( FS_FileExists( "gfx/paused.lmp", false ))
+		texnum = ref.dllFuncs.GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE|TF_ALLOW_NEAREST );
+	else if( FS_FileExists( "gfx/pause.lmp", false ))
+		texnum = ref.dllFuncs.GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE|TF_ALLOW_NEAREST );
+
+	return texnum ? texnum : -1;
+}
+
 /*
 ================
 SCR_RegisterTextures
@@ -803,12 +815,6 @@ INTERNAL RESOURCE
 void SCR_RegisterTextures( void )
 {
 	// register gfx.wad images
-
-	if( FS_FileExists( "gfx/paused.lmp", false ))
-		cls.pauseIcon = ref.dllFuncs.GL_LoadTexture( "gfx/paused.lmp", NULL, 0, TF_IMAGE|TF_ALLOW_NEAREST );
-	else if( FS_FileExists( "gfx/pause.lmp", false ))
-		cls.pauseIcon = ref.dllFuncs.GL_LoadTexture( "gfx/pause.lmp", NULL, 0, TF_IMAGE|TF_ALLOW_NEAREST );
-
 	if( FS_FileExists( "gfx/lambda.lmp", false ))
 	{
 		if( cl_allow_levelshots.value )
