@@ -405,7 +405,7 @@ static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 }
 
 // Returns index of WAD that texture was found in, or -1 if not found.
-static int Mod_FindTextureInWadList( wadlist_t *list, const char *name, char *dst, size_t size )
+static int Mod_LoadTextureFromWadList( wadlist_t *list, const char *name, rgbdata_t **pic, char *texpath, size_t texpathlen )
 {
 	int i;
 
@@ -415,16 +415,38 @@ static int Mod_FindTextureInWadList( wadlist_t *list, const char *name, char *ds
 	// check wads in reverse order
 	for( i = list->count - 1; i >= 0; i-- )
 	{
-		char path[MAX_VA_STRING];
+		searchpath_t *sp = NULL;
 
-		Q_snprintf( path, sizeof( path ), "%s/%s.mip", list->wadnames[i], name );
-
-		if( FS_FileExists( path, false ))
+		while(( sp = g_fsapi.GetArchiveByName( list->wadnames[i], sp )))
 		{
-			if( dst && size > 0 )
-				Q_strncpy( dst, path, size );
+			fs_offset_t len;
+			byte *buf;
+			char file[MAX_VA_STRING];
+			int pack_ind;
 
-			return i;
+			Q_snprintf( file, sizeof( file ), "%s.mip", name );
+			pack_ind = g_fsapi.FindFileInArchive( sp, file, NULL, 0 );
+
+			if( pack_ind < 0 )
+				continue;
+
+			if( texpath != NULL )
+				Q_snprintf( texpath, texpathlen, "%s/%s.mip", list->wadnames[i], name );
+
+			if( pic == NULL )
+				return i; // dedicated server don't want to load the textures (why?)
+
+			if( !( buf = g_fsapi.LoadFileFromArchive( sp, file, pack_ind, &len, false )))
+			{
+				*pic = NULL;
+				return i; // corrupted file, don't ignore it
+			}
+
+			// tell imagelib to directly load this texture to save time
+			Q_snprintf( file, sizeof( file ), "#%s/%s.mip", list->wadnames[i], name );
+			*pic = FS_LoadImage( file, buf, len );
+			Mem_Free( buf );
+			return i; // if file is corrupted, it's fine, we want to tell the user about it
 		}
 	}
 
@@ -2460,13 +2482,17 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// Try WAD texture (force while r_wadtextures is 1)
 	if( !texture->gl_texturenum && (( r_wadtextures.value && world.wadlist.count > 0 ) || mipTex->offsets[0] <= 0 ))
 	{
-		int wadIndex = Mod_FindTextureInWadList( &world.wadlist, mipTex->name, texpath, sizeof( texpath ));
+		rgbdata_t *pic = NULL;
+		int wadIndex = Mod_LoadTextureFromWadList( &world.wadlist, mipTex->name, Host_IsDedicated() ? NULL : &pic, texpath, sizeof( texpath ));
 
 		if( wadIndex >= 0 )
 		{
 #if !XASH_DEDICATED
-			if( !Host_IsDedicated( ))
-				texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texpath, NULL, 0, txFlags );
+			if( !Host_IsDedicated( ) && pic != NULL )
+			{
+				texture->gl_texturenum = ref.dllFuncs.GL_LoadTextureFromBuffer( texpath, pic, txFlags, false );
+				FS_FreeImage( pic );
+			}
 #endif // !XASH_DEDICATED
 			world.wadlist.wadusage[wadIndex]++;
 		}
@@ -2517,28 +2543,21 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		}
 		else
 		{
-			char texpath[MAX_VA_STRING];
 			int wadIndex;
-			fs_offset_t srcSize = 0;
-			byte* src = NULL;
+			rgbdata_t *pic = NULL;
 
 			// NOTE: We can't load the _luma texture from the WAD as normal because it
 			// doesn't exist there. The original texture is already loaded, but cannot be modified.
 			// Instead, load the original texture again and convert it to luma.
+			wadIndex = Mod_LoadTextureFromWadList( &world.wadlist, texture->name, &pic, NULL, 0 );
 
-			wadIndex = Mod_FindTextureInWadList( &world.wadlist, texture->name, texpath, sizeof( texpath ));
-
-			if( wadIndex >= 0 )
+			if( wadIndex >= 0 && pic != NULL )
 			{
-				src = FS_LoadFile( texpath, &srcSize, false );
+				// OK, loading it from wad or hi-res(??) version
+				texture->fb_texturenum = ref.dllFuncs.GL_LoadTextureFromBuffer( texName, pic, TF_MAKELUMA, false );
+				FS_FreeImage( pic );
 				world.wadlist.wadusage[wadIndex]++;
 			}
-
-			// OK, loading it from wad or hi-res version
-			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texName, src, srcSize, TF_MAKELUMA );
-
-			if( src )
-				Mem_Free( src );
 		}
 	}
 #endif // !XASH_DEDICATED
