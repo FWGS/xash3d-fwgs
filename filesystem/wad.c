@@ -438,7 +438,7 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 	dlumpinfo_t	*lump;
 	signed char		type = W_TypeFromExt( path );
 	qboolean		anywadname = true;
-	string		wadname, wadfolder;
+	string		wadname;
 	string		shortname;
 
 	// quick reject by filetype
@@ -446,15 +446,12 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 		return -1;
 
 	COM_ExtractFilePath( path, wadname );
-	wadfolder[0] = '\0';
 
 	if( COM_CheckStringEmpty( wadname ))
 	{
 		string wadbasename;
 
 		COM_FileBase( wadname, wadbasename, sizeof( wadbasename ));
-
-		Q_strncpy( wadfolder, wadbasename, sizeof( wadfolder ));
 		Q_snprintf( wadname, sizeof( wadname ), "%s.wad", wadbasename );
 		anywadname = false;
 	}
