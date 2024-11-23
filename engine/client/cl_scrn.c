@@ -577,12 +577,23 @@ SCR_TileClear
 */
 void SCR_TileClear( void )
 {
-	int	i, top, bottom, left, right;
+	int	i, top, bottom, left, right, texnum;
 	dirty_t	clear;
 	float tw, th;
 
 	if( likely( scr_viewsize.value >= 120 ))
 		return; // full screen rendering
+
+	if( !cls.tileImage )
+	{
+		cls.tileImage = ref.dllFuncs.GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
+		if( !cls.tileImage )
+			cls.tileImage = -1;
+	}
+
+	if( cls.tileImage > 0 )
+		texnum = cls.tileImage;
+	else texnum = 0;
 
 	// erase rect will be the union of the past three frames
 	// so tripple buffering works properly
@@ -616,14 +627,14 @@ void SCR_TileClear( void )
 	left = clgame.viewport[0];
 	right = left + clgame.viewport[2] - 1;
 
-	tw = REF_GET_PARM( PARM_TEX_SRC_WIDTH, cls.tileImage );
-	th = REF_GET_PARM( PARM_TEX_SRC_HEIGHT, cls.tileImage );
+	tw = REF_GET_PARM( PARM_TEX_SRC_WIDTH, texnum );
+	th = REF_GET_PARM( PARM_TEX_SRC_HEIGHT, texnum );
 
 	if( clear.y1 < top )
 	{
 		// clear above view screen
 		i = clear.y2 < top-1 ? clear.y2 : top - 1;
-		R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, clear.x2 - clear.x1 + 1, i - clear.y1 + 1, tw, th );
+		R_DrawTileClear( texnum, clear.x1, clear.y1, clear.x2 - clear.x1 + 1, i - clear.y1 + 1, tw, th );
 		clear.y1 = top;
 	}
 
@@ -631,7 +642,7 @@ void SCR_TileClear( void )
 	{
 		// clear below view screen
 		i = clear.y1 > bottom + 1 ? clear.y1 : bottom + 1;
-		R_DrawTileClear( cls.tileImage, clear.x1, i, clear.x2 - clear.x1 + 1, clear.y2 - i + 1, tw, th );
+		R_DrawTileClear( texnum, clear.x1, i, clear.x2 - clear.x1 + 1, clear.y2 - i + 1, tw, th );
 		clear.y2 = bottom;
 	}
 
@@ -639,7 +650,7 @@ void SCR_TileClear( void )
 	{
 		// clear left of view screen
 		i = clear.x2 < left - 1 ? clear.x2 : left - 1;
-		R_DrawTileClear( cls.tileImage, clear.x1, clear.y1, i - clear.x1 + 1, clear.y2 - clear.y1 + 1, tw, th );
+		R_DrawTileClear( texnum, clear.x1, clear.y1, i - clear.x1 + 1, clear.y2 - clear.y1 + 1, tw, th );
 		clear.x1 = left;
 	}
 
@@ -647,7 +658,7 @@ void SCR_TileClear( void )
 	{
 		// clear left of view screen
 		i = clear.x1 > right + 1 ? clear.x1 : right + 1;
-		R_DrawTileClear( cls.tileImage, i, clear.y1, clear.x2 - i + 1, clear.y2 - clear.y1 + 1, tw, th );
+		R_DrawTileClear( texnum, i, clear.y1, clear.x2 - i + 1, clear.y2 - clear.y1 + 1, tw, th );
 		clear.x2 = right;
 	}
 }
@@ -811,7 +822,6 @@ void SCR_RegisterTextures( void )
 		else cls.loadingBar = ref.dllFuncs.GL_LoadTexture( "gfx/loading.lmp", NULL, 0, TF_IMAGE|TF_ALLOW_NEAREST );
 	}
 
-	cls.tileImage = ref.dllFuncs.GL_LoadTexture( "gfx/backtile.lmp", NULL, 0, TF_NOMIPMAP );
 }
 
 /*
