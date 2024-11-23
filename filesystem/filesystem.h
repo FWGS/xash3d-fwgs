@@ -51,6 +51,8 @@ enum
 	FS_GAMEDIRONLY_SEARCH_FLAGS = FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH
 };
 
+typedef struct searchpath_s searchpath_t;
+
 // IsArchiveExtensionSupported flags
 enum
 {
@@ -201,8 +203,26 @@ typedef struct fs_api_t
 	// like LoadFile but returns pointer that can be free'd using standard library function
 	byte *(*LoadFileMalloc)( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly );
 
-	// queries supported archive formats
+	// **** archive interface ****
+	// query supported formats
 	qboolean (*IsArchiveExtensionSupported)( const char *ext, uint flags );
+
+	// to speed up archive lookups, this function can be used to get the archive object by it's name
+	// because archive can share the name, you can call this function repeatedly to get all archives
+	searchpath_t *(*GetArchiveByName)( const char *name, searchpath_t *prev );
+
+	// return an index into the archive and a true path, if possible
+	int (*FindFileInArchive)( searchpath_t *sp, const char *path, char *outpath, size_t len );
+
+	// similarly to Open, opens file but from specified archive
+	// NOTE: for speed reasons, path is case-sensitive here!
+	// Use FindFileInArchive to retrieve real path from caseinsensitive FS emulation!
+	file_t *(*OpenFileFromArchive)( searchpath_t *, const char *path, const char *mode, int pack_ind );
+
+	// similarly to LoadFile, loads whole file into memory from specified archive
+	// NOTE: for speed reasons, path is case-sensitive here!
+	// Use FindFileInArchive to retrieve real path from caseinsensitive FS emulation!
+	byte *(*LoadFileFromArchive)( searchpath_t *sp, const char *path, int pack_ind, fs_offset_t *filesizeptr, const qboolean sys_malloc );
 } fs_api_t;
 
 typedef struct fs_interface_t
