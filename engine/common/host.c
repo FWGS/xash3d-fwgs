@@ -114,78 +114,84 @@ static void Sys_PrintUsage( const char *exename )
 	usage_str = S_USAGE XASH_EXE " [options] [+command] [+command2 arg] ...\n"
 
 "\nCommon options:\n"
-	O("-dev [level]     ", "set log verbosity 0-2")
-	O("-log             ", "write log to \"engine.log\"")
-	O("-nowriteconfig   ", "disable config save")
-	O("-noch            ", "disable crashhandler")
+	O("-dev [level]       ", "set log verbosity 0-2")
+	O("-log               ", "write log to \"engine.log\"")
+	O("-nowriteconfig     ", "disable config save")
+	O("-noch              ", "disable crashhandler")
 #if XASH_WIN32 // !!!!
-	O("-minidumps       ", "enable writing minidumps when game is crashed")
+	O("-minidumps         ", "enable writing minidumps when game is crashed")
 #endif
-	O("-rodir <path>    ", "set read-only base directory")
-	O("-bugcomp [opts]  ", "enable precise bug compatibility")
-	O("                 ", "will break games that don't require it")
-	O("                 ", "refer to engine documentation for more info")
-	O("-disablehelp     ", "disable this message")
+	O("-rodir <path>      ", "set read-only base directory")
+	O("-bugcomp [opts]    ", "enable precise bug compatibility")
+	O("                   ", "will break games that don't require it")
+	O("                   ", "refer to engine documentation for more info")
+	O("-disablehelp       ", "disable this message")
 #if !XASH_DEDICATED
-	O("-dedicated       ", "run engine in dedicated mode")
+	O("-dedicated         ", "run engine in dedicated mode")
 #endif
 
 "\nNetworking options:\n"
-	O("-noip            ", "disable IPv4")
-	O("-ip <ip>         ", "set IPv4 address")
-	O("-port <port>     ", "set IPv4 port")
-	O("-noip6           ", "disable IPv6")
-	O("-ip6 <ip>        ", "set IPv6 address")
-	O("-port6 <port>    ", "set IPv6 port")
-	O("-clockwindow <cw>", "adjust clockwindow used to ignore client commands")
-	O("                 ", "to prevent speed hacks")
+	O("-noip              ", "disable IPv4")
+	O("-ip <ip>           ", "set IPv4 address")
+	O("-port <port>       ", "set IPv4 port")
+#if !XASH_DEDICATED
+	O("-clientport <port> ", "set IPv4 client port")
+#endif
+	O("-noip6             ", "disable IPv6")
+	O("-ip6 <ip>          ", "set IPv6 address")
+	O("-port6 <port>      ", "set IPv6 port")
+#if !XASH_DEDICATED
+	O("-clientport6 <port>", "set IPv6 client port")
+#endif
+	O("-clockwindow <cw>  ", "adjust clockwindow used to ignore client commands")
+	O("                   ", "to prevent speed hacks")
 
 "\nGame options:\n"
-	O("-game <directory>", "set game directory to start engine with")
-	O("-dll <path>      ", "override server DLL path")
+	O("-game <directory>  ", "set game directory to start engine with")
+	O("-dll <path>        ", "override server DLL path")
 #if !XASH_DEDICATED
-	O("-clientlib <path>", "override client DLL path")
-	O("-console         ", "run engine with console enabled")
-	O("-toconsole       ", "run engine witn console open")
-	O("-oldfont         ", "enable unused Quake font in Half-Life")
-	O("-width <n>       ", "set window width")
-	O("-height <n>      ", "set window height")
-	O("-borderless      ", "run engine in fullscreen borderless mode")
-	O("-fullscreen      ", "run engine in fullscreen mode")
-	O("-windowed        ", "run engine in windowed mode")
-	O("-ref <name>      ", "use selected renderer dll")
-	O("-gldebug         ", "enable OpenGL debug log")
+	O("-clientlib <path>  ", "override client DLL path")
+	O("-console           ", "run engine with console enabled")
+	O("-toconsole         ", "run engine witn console open")
+	O("-oldfont           ", "enable unused Quake font in Half-Life")
+	O("-width <n>         ", "set window width")
+	O("-height <n>        ", "set window height")
+	O("-borderless        ", "run engine in fullscreen borderless mode")
+	O("-fullscreen        ", "run engine in fullscreen mode")
+	O("-windowed          ", "run engine in windowed mode")
+	O("-ref <name>        ", "use selected renderer dll")
+	O("-gldebug           ", "enable OpenGL debug log")
 #if XASH_WIN32
-	O("-noavi           ", "disable AVI support")
-	O("-nointro         ", "disable intro video")
+	O("-noavi             ", "disable AVI support")
+	O("-nointro           ", "disable intro video")
 #endif
-	O("-noenginejoy     ", "disable engine builtin joystick support")
-	O("-noenginemouse   ", "disable engine builtin mouse support")
-	O("-nosound         ", "disable sound output")
-	O("-timedemo        ", "run timedemo and exit")
+	O("-noenginejoy       ", "disable engine builtin joystick support")
+	O("-noenginemouse     ", "disable engine builtin mouse support")
+	O("-nosound           ", "disable sound output")
+	O("-timedemo          ", "run timedemo and exit")
 #endif
 
 "\nPlatform-specific options:\n"
 #if !XASH_MOBILE_PLATFORM
-	O("-daemonize       ", "run engine as a daemon")
+	O("-daemonize         ", "run engine as a daemon")
 #endif
 #if XASH_SDL == 2
-	O("-sdl_joy_old_api ","use SDL legacy joystick API")
-	O("-sdl_renderer <n>","use alternative SDL_Renderer for software")
+	O("-sdl_joy_old_api   ","use SDL legacy joystick API")
+	O("-sdl_renderer <n>  ","use alternative SDL_Renderer for software")
 #endif // XASH_SDL
 #if XASH_ANDROID && !XASH_SDL
-	O("-nativeegl       ","use native egl implementation. Use if screen does not update or black")
+	O("-nativeegl         ","use native egl implementation. Use if screen does not update or black")
 #endif // XASH_ANDROID
 #if XASH_DOS
-	O("-novesa          ","disable vesa")
+	O("-novesa            ","disable vesa")
 #endif // XASH_DOS
 #if XASH_VIDEO == VIDEO_FBDEV
-	O("-fbdev <path>    ","open selected framebuffer")
-	O("-ttygfx          ","set graphics mode in tty")
-	O("-doublebuffer    ","enable doublebuffering")
+	O("-fbdev <path>      ","open selected framebuffer")
+	O("-ttygfx            ","set graphics mode in tty")
+	O("-doublebuffer      ","enable doublebuffering")
 #endif // XASH_VIDEO == VIDEO_FBDEV
 #if XASH_SOUND == SOUND_ALSA
-	O("-alsadev <dev>   ","open selected ALSA device")
+	O("-alsadev <dev>     ","open selected ALSA device")
 #endif // XASH_SOUND == SOUND_ALSA
 	;
 #undef O
