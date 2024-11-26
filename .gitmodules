@@ -25,3 +25,6 @@
 [submodule "3rdparty/MultiEmulator"]
 	path = 3rdparty/MultiEmulator
 	url = https://github.com/FWGS/MultiEmulator
+[submodule "3rdparty/libogg/libogg"]
+	path = 3rdparty/libogg/libogg
+	url = https://gitlab.xiph.org/xiph/ogg.git
