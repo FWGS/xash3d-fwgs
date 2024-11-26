@@ -96,6 +96,7 @@ SUBDIRS = [
 	Subproject('3rdparty/bzip2',        lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
+	Subproject('3rdparty/libogg', 		lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/MultiEmulator',lambda x: not x.env.DEDICATED),
 #	Subproject('3rdparty/freevgui',     lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),

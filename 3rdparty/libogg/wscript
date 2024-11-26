@@ -1,0 +1,48 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+FRAGMENT_INTTYPES_H='''#include <inttypes.h>
+int main (int argc, char **argv) {
+	return 0;
+}'''
+
+FRAGMENT_SYS_TYPES_H='''#include <sys/types.h>
+int main (void) {
+    return 0;
+}'''
+
+FRAGMENT_STDINT_H='''#include <stdint.h>
+int main (void) {
+    return 0;
+}'''
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if not conf.path.find_dir('libogg') or not conf.path.find_dir('libogg/src'):
+		conf.fatal('Can\'t find libogg submodule. Run `git submodule update --init --recursive`.')
+		return
+
+	# Check for required headers
+	if conf.check_cc(fragment=FRAGMENT_INTTYPES_H, msg = 'Checking for inttypes.h header', mandatory = False):
+		conf.define('INCLUDE_INTTYPES_H', 1)
+	elif conf.check_cc(fragment=FRAGMENT_SYS_TYPES_H, msg = 'Checking for sys/types.h header', mandatory = False):
+		conf.define('INCLUDE_SYS_TYPES_H', 1)
+	elif conf.check_cc(fragmenmt=FRAGMENT_STDINT_H, msg = 'Checking for stdint.h header', mandatory = False):
+		conf.define('INCLUDE_STDINT_H', 1)
+
+
+def build(bld):
+	sources = bld.path.ant_glob([
+		'libogg/src/*.c'
+	])
+	includes = ['libogg/include/']
+
+	bld.stlib(
+		source = sources,
+		target = 'libogg',
+		features = 'c',
+		includes = includes,
+		export_includes = ['libogg/include/']
+	)
