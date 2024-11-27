@@ -23,6 +23,15 @@ def remove_implib_install(self):
 	if not getattr(self, 'install_path_implib', None):
 		self.install_path_implib = None
 
+@TaskGen.feature('cprogram', 'cxxprogram')
+@TaskGen.before_method('apply_flags_msvc')
+def apply_subsystem_msvc(self):
+	if getattr(self, 'subsystem', None):
+		return # have custom subsystem
+
+	if 'test' in self.features:
+		self.subsystem = self.env.CONSOLE_SUBSYSTEM
+
 class Subproject:
 	def __init__(self, name, fnFilter = None):
 		self.name = name
@@ -208,7 +217,6 @@ def configure(conf):
 
 	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake force_32bit')
 
-	# Force XP compatibility, all build targets should add subsystem=bld.env.MSVC_SUBSYSTEM
 	if conf.env.MSVC_TARGETS[0] == 'amd64_x86' or conf.env.MSVC_TARGETS[0] == 'x86':
 		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
 		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE,5.01'

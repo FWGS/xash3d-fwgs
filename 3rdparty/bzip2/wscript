@@ -29,6 +29,5 @@ def build(bld):
 		target = 'bzip2',
 #		use = 'bz_version.h',
 		includes = ['.', 'bzip2/'],
-		subsystem = bld.env.MSVC_SUBSYSTEM,
 		export_includes = ['bzip2/']
 	)
