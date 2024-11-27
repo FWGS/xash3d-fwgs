@@ -191,7 +191,7 @@ def configure(conf):
 		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx cmake gccdeps')
+	conf.load('xshlib xcompile compiler_c compiler_cxx gccdeps')
 
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
