@@ -26,6 +26,5 @@ def build(bld):
 		includes = '.',
 		defines  = 'REF_DLL=1',
 		use      = libs,
-		install_path = bld.env.LIBDIR,
-		subsystem = bld.env.MSVC_SUBSYSTEM
+		install_path = bld.env.LIBDIR
 	)

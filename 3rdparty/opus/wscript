@@ -64,6 +64,5 @@ def build(bld):
 		features = 'c',
 		includes = includes,
 		defines = defines,
-		subsystem = bld.env.MSVC_SUBSYSTEM,
 		export_includes = ['opus/include/']
 	)

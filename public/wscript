@@ -117,8 +117,7 @@ def build(bld):
 
 	bld.stlib(source   = bld.path.ant_glob('*.c'),
 		target   = 'public',
-		use      = 'sdk_includes werror',
-		subsystem = bld.env.MSVC_SUBSYSTEM)
+		use      = 'sdk_includes werror')
 
 	if bld.env.TESTS:
 		if bld.env.VALIDATE_TARGET:
@@ -127,7 +126,6 @@ def build(bld):
 				target = 'validate_target',
 				use = 'public',
 				defines = 'VALIDATE_TARGET="%s"' % bld.env.VALIDATE_TARGET,
-				subsystem = bld.env.CONSOLE_SUBSYSTEM,
 				install_path = None)
 
 		tests = {
@@ -145,5 +143,4 @@ def build(bld):
 				source = tests[i],
 				target = 'test_%s' % i,
 				use = 'public',
-				subsystem = bld.env.CONSOLE_SUBSYSTEM,
 				install_path = None)

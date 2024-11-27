@@ -273,6 +273,5 @@ def build(bld):
 		sce_sys = 'platform/psvita/sce_sys',
 		title_id = 'XASH10000',
 		app_name = 'xash3d-fwgs',
-		subsystem = bld.env.MSVC_SUBSYSTEM,
 		rpath = rpath,
 	)

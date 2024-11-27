@@ -24,8 +24,7 @@ def build(bld):
 		features = 'seq',
 		source = bld.path.ant_glob(['*.c', '*.cpp']),
 		use = libs,
-		install_path = bld.env.LIBDIR,
-		subsystem = bld.env.MSVC_SUBSYSTEM)
+		install_path = bld.env.LIBDIR)
 
 	if bld.env.TESTS:
 		# build in same module, so dynamic linking will work
@@ -42,5 +41,4 @@ def build(bld):
 				target = 'test_%s' % i,
 				use = libs + ['DL'],
 				rpath = bld.env.DEFAULT_RPATH,
-				subsystem = bld.env.CONSOLE_SUBSYSTEM,
 				install_path = None)
