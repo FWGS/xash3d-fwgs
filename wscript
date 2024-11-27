@@ -2,7 +2,7 @@
 # encoding: utf-8
 # a1batross, mittorn, 2018
 
-from waflib import Build, Context, Logs
+from waflib import Build, Context, Logs, TaskGen
 from waflib.Tools import waf_unit_test, c_tests
 import sys
 import os
@@ -16,6 +16,12 @@ Context.Context.line_just = 55 # should fit for everything on 80x26
 
 c_tests.LARGE_FRAGMENT='''#include <unistd.h>
 int check[sizeof(off_t) >= 8 ? 1 : -1]; int main(void) { return 0; }'''
+
+@TaskGen.feature('cshlib', 'cxxshlib', 'fcshlib')
+@TaskGen.before_method('apply_implib')
+def remove_implib_install(self):
+	if not getattr(self, 'install_path_implib', None):
+		self.install_path_implib = None
 
 class Subproject:
 	def __init__(self, name, fnFilter = None):
