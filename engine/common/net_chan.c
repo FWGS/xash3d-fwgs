@@ -761,7 +761,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 				Con_Reportf( "Compressing split packet with BZip2 (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
 				memcpy( msg->pData, "BZ2", 4 );
 				memcpy( msg->pData + 4, pbOut, uCompressedSize );
-				MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
+				MSG_SeekToBit( msg, ( uCompressedSize + 4 ) << 3, SEEK_SET );
 			}
 		}
 #else
