@@ -28,3 +28,6 @@
 [submodule "3rdparty/libogg/libogg"]
 	path = 3rdparty/libogg/libogg
 	url = https://gitlab.xiph.org/xiph/ogg.git
+[submodule "3rdparty/vorbis/vorbis-src"]
+	path = 3rdparty/vorbis/vorbis-src
+	url = https://gitlab.xiph.org/xiph/vorbis.git
