@@ -39,6 +39,8 @@ static const loadwavfmt_t load_game[] =
 { "%s%s.%s", "mp3", Sound_LoadMPG },
 { DEFAULT_SOUNDPATH "%s%s.%s", "ogg", Sound_LoadOggVorbis },
 { "%s%s.%s", "ogg", Sound_LoadOggVorbis },
+{ DEFAULT_SOUNDPATH "%s%s.%s", "opus", Sound_LoadOggOpus },
+{ "%s%s.%s", "opus", Sound_LoadOggOpus },
 { NULL, NULL, NULL }
 };
 
