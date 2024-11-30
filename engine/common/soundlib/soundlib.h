@@ -135,5 +135,10 @@ int Stream_ReadMPG( stream_t *stream, int bytes, void *buffer );
 int Stream_SetPosMPG( stream_t *stream, int newpos );
 int Stream_GetPosMPG( stream_t *stream );
 void Stream_FreeMPG( stream_t *stream );
+stream_t *Stream_OpenOggVorbis( const char *filename );
+int Stream_ReadOggVorbis( stream_t *stream, int bytes, void *buffer );
+int Stream_SetPosOggVorbis( stream_t *stream, int newpos );
+int Stream_GetPosOggVorbis( stream_t *stream );
+void Stream_FreeOggVorbis( stream_t *stream );
 
 #endif//SOUNDLIB_H
