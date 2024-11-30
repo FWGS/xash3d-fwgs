@@ -4631,6 +4631,23 @@ static int GAME_EXPORT pfnGetTimesTutorMessageShown( int mid )
 	return 0;
 }
 
+static void GAME_EXPORT pfnGetGameDir( char *out )
+{
+	char rootdir[MAX_SYSPATH];
+
+	if( !out )
+		return;
+
+	// in GoldSrc, it's a full path to game directory, limited by 256 characters
+	// however the full path might easily overflow that limitation
+	// here we check if it would overflow and just return game folder in that case
+	if( !g_fsapi.GetRootDirectory( rootdir, sizeof( rootdir ))
+		|| Q_snprintf( out, 256, "%s/%s", rootdir, GI->gamefolder ) < 0 )
+	{
+		Q_strncpy( out, GI->gamefolder, 256 );
+	}
+}
+
 // engine callbacks
 static enginefuncs_t gEngfuncs =
 {
