@@ -99,6 +99,7 @@ SUBDIRS = [
 	Subproject('3rdparty/libogg', 		lambda x: not x.env.DEDICATED),
     Subproject('3rdparty/vorbis/libvorbis', lambda x: not x.env.DEDICATED),
     Subproject('3rdparty/vorbis/libvorbisfile', lambda x: not x.env.DEDICATED),
+    Subproject('3rdparty/opusfile',		lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/MultiEmulator',lambda x: not x.env.DEDICATED),
 #	Subproject('3rdparty/freevgui',     lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
