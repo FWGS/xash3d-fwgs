@@ -236,7 +236,7 @@ def build(bld):
 			'client/vgui/*.c',
 			'client/avi/*.c'])
 		is_cxx_link = True
-		libs += ['opus', 'libvorbisfile', 'bzip2', 'MultiEmulator']
+		libs += ['opus', 'libvorbisfile', 'libopusfile', 'bzip2', 'MultiEmulator']
 
 	rpath = bld.env.DEFAULT_RPATH
 
