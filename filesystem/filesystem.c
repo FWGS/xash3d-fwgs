@@ -1906,6 +1906,24 @@ int FS_SetCurrentDirectory( const char *path )
 }
 
 /*
+==================
+FS_GetRootDirectory
+
+Returns writable root directory path
+==================
+*/
+qboolean FS_GetRootDirectory( char *path, size_t size )
+{
+	size_t dirlen = Q_strlen( fs_rootdir );
+
+	if( dirlen >= size ) // check for possible overflow
+		return false;
+
+	Q_strncpy( path, fs_rootdir, size );
+	return true;
+}
+
+/*
 ====================
 FS_FindFile
 
@@ -3139,6 +3157,8 @@ const fs_api_t g_api =
 	FS_FindFileInArchive,
 	FS_OpenFileFromArchive,
 	FS_LoadFileFromArchive,
+
+	FS_GetRootDirectory,
 };
 
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );

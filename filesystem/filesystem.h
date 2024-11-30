@@ -223,6 +223,9 @@ typedef struct fs_api_t
 	// NOTE: for speed reasons, path is case-sensitive here!
 	// Use FindFileInArchive to retrieve real path from caseinsensitive FS emulation!
 	byte *(*LoadFileFromArchive)( searchpath_t *sp, const char *path, int pack_ind, fs_offset_t *filesizeptr, const qboolean sys_malloc );
+
+	// gets current root directory, set by InitStdio
+	qboolean (*GetRootDirectory)( char *path, size_t size );
 } fs_api_t;
 
 typedef struct fs_interface_t

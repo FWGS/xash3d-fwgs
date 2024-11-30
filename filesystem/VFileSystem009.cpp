@@ -435,9 +435,7 @@ public:
 
 	bool GetCurrentDirectory( char *p, int size ) override
 	{
-		Q_strncpy( p, fs_rootdir, size );
-
-		return true;
+		return FS_GetRootDirectory( p, size );
 	}
 
 	void PrintOpenedFiles() override
