@@ -592,7 +592,6 @@ void *Cache_Check( poolhandle_t mempool, struct cache_user_s *c );
 void COM_TrimSpace( const char *source, char *dest );
 void pfnGetModelBounds( model_t *mod, float *mins, float *maxs );
 int COM_CheckParm( char *parm, char **ppnext );
-void pfnGetGameDir( char *szGetGameDir );
 int pfnGetModelType( model_t *mod );
 int pfnIsMapValid( char *filename );
 void Con_Reportf( const char *szFmt, ... ) FORMAT_CHECK( 1 );

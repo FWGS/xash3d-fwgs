@@ -897,18 +897,6 @@ float GAME_EXPORT pfnTime( void )
 	return (float)Sys_DoubleTime();
 }
 
-/*
-=============
-pfnGetGameDir
-
-=============
-*/
-void GAME_EXPORT pfnGetGameDir( char *szGetGameDir )
-{
-	if( !szGetGameDir ) return;
-	Q_strncpy( szGetGameDir, GI->gamefolder, sizeof( GI->gamefolder ));
-}
-
 qboolean COM_IsSafeFileToDownload( const char *filename )
 {
 	char		lwrfilename[4096];
