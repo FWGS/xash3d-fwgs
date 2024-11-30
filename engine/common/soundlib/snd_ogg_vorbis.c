@@ -1,5 +1,5 @@
 /*
-snd_ogg.c - loading and streaming of Ogg format with Vorbis/Opus codec
+snd_ogg_vorbis.c - loading and streaming of Ogg audio format with Vorbis codec
 Copyright (C) 2024 SNMetamorph
 
 This program is free software: you can redistribute it and/or modify
@@ -16,86 +16,17 @@ GNU General Public License for more details.
 #include "soundlib.h"
 #include "crtlib.h"
 #include "xash3d_mathlib.h"
-#include <ogg/ogg.h>
+#include "ogg_filestream.h"
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
-#include <opusfile.h>
 #include <string.h>
 #include <stdint.h>
-
-typedef struct ogg_filestream_s
-{
-	const char *name;
-	const byte *buffer;
-	size_t filesize;
-	size_t position;
-} ogg_filestream_t;
 
 typedef struct vorbis_streaming_ctx_s
 {
 	file_t *file;
 	OggVorbis_File vf;
 } vorbis_streaming_ctx_t;
-
-static void OggFilestream_Init( ogg_filestream_t *filestream, const char *name, const byte *buffer, size_t filesize )
-{
-	filestream->name = name;
-	filestream->buffer = buffer;
-	filestream->filesize = filesize;
-	filestream->position = 0;
-}
-
-static size_t OggFilestream_Read( void *ptr, size_t blockSize, size_t nmemb, void *datasource )
-{
-	ogg_filestream_t *filestream = (ogg_filestream_t*)datasource;
-	size_t remain = filestream->filesize - filestream->position;
-	size_t dataSize = blockSize * nmemb;
-
-	// reads as many blocks as fits in remaining memory
-	if( dataSize > remain )
-		dataSize = remain - remain % blockSize; 
-
-	memcpy( ptr, filestream->buffer + filestream->position, dataSize );
-	filestream->position += dataSize;
-	return dataSize / blockSize;
-}
-
-static int OggFilestream_Seek( void *datasource, int64_t offset, int whence )
-{
-	int64_t position;
-	ogg_filestream_t *filestream = (ogg_filestream_t*)datasource;
-
-	if( whence == SEEK_SET )
-		position = offset;
-	else if( whence == SEEK_CUR )
-		position = offset + filestream->position;
-	else if( whence == SEEK_END )
-		position = offset + filestream->filesize;
-	else
-		return -1;
-
-	if( position < 0 || position > filestream->filesize )
-		return -1;
-
-	filestream->position = position;
-	return 0;
-}
-
-static long OggFilestream_Tell( void *datasource )
-{
-	ogg_filestream_t *filestream = (ogg_filestream_t*)datasource;
-	return filestream->position;
-}
-
-static int OpusCallback_Read( void *datasource, byte *ptr, int nbytes )
-{
-	return OggFilestream_Read( ptr, 1, nbytes, datasource );
-}
-
-static opus_int64 OpusCallback_Tell( void *datasource )
-{
-	return OggFilestream_Tell( datasource );
-}
 
 static size_t FS_ReadOggVorbis( void *ptr, size_t blockSize, size_t nmemb, void *datasource )
 {
@@ -127,13 +58,6 @@ static const ov_callbacks ov_callbacks_fs = {
 	FS_SeekOggVorbis,
 	NULL,
 	FS_TellOggVorbis
-};
-
-static const OpusFileCallbacks op_callbacks_membuf = {
-	OpusCallback_Read,
-	OggFilestream_Seek,
-	OpusCallback_Tell,
-	NULL
 };
 
 /*
@@ -303,65 +227,4 @@ void Stream_FreeOggVorbis( stream_t *stream )
 	}
 
 	Mem_Free( stream );
-}
-
-/*
-=================================================================
-
-	Ogg Opus decompression
-
-=================================================================
-*/
-qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t filesize )
-{
-	long ret;
-	ogg_filestream_t file;
-	OggOpusFile *of;
-	const OpusHead *opusHead;
-	size_t written = 0;
-
-	if( !buffer )
-		return false;
-
-	OggFilestream_Init( &file, name, buffer, filesize );
-	of = op_open_callbacks( &file, &op_callbacks_membuf, NULL, 0, NULL );
-	if( !of ) {
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): file reading error\n", __func__, file.name );
-		return false;
-	}
-
-	opusHead = op_head( of, -1 );
-	if( opusHead->channel_count < 1 || opusHead->channel_count > 2 ) {
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): unsuppored channels count\n", __func__, file.name );
-		return false;
-	}
-
-	// according to OggOpus specification, sound always encoded at 48kHz sample rate
-	// but this isn't a problem, engine can do resampling 
-	sound.channels = opusHead->channel_count;
-	sound.rate = 48000;
-	sound.width = 2; // always 16-bit PCM
-	sound.type = WF_PCMDATA;
-	sound.flags = SOUND_RESAMPLE;
-	sound.samples = op_pcm_total( of, -1 );
-	sound.size = sound.samples * sound.width * sound.channels;
-	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size );
-
-	// skip undesired samples before playing sound
-	if( op_pcm_seek( of, opusHead->pre_skip ) < 0 ) {
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): pre-skip error\n", __func__, file.name );
-		return false;
-	}
-
-	while(( ret = op_read( of, (opus_int16*)(sound.wav + written), (sound.size - written) / sound.width, NULL )) != 0 )
-	{
-		if( ret < 0 ) {
-			Con_DPrintf( S_ERROR "%s: failed to load (%s): compressed data decoding error\n", __func__, file.name );
-			return false;
-		}
-		written += ret * sound.width * sound.channels;
-	}
-
-	op_free( of );
-	return true;
 }
