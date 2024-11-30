@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include <ogg/ogg.h>
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
+#include <opusfile.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -80,6 +81,16 @@ static long OggFilestream_Tell( void *datasource )
 	return filestream->position;
 }
 
+static int OpusCallback_Read( void *datasource, byte *ptr, int nbytes )
+{
+	return OggFilestream_Read( ptr, 1, nbytes, datasource );
+}
+
+static opus_int64 OpusCallback_Tell( void *datasource )
+{
+	return OggFilestream_Tell( datasource );
+}
+
 static const ov_callbacks ov_callbacks_membuf = {
 	OggFilestream_Read,
 	OggFilestream_Seek,
@@ -87,6 +98,20 @@ static const ov_callbacks ov_callbacks_membuf = {
 	OggFilestream_Tell
 };
 
+static const OpusFileCallbacks op_callbacks_membuf = {
+	OpusCallback_Read,
+	OggFilestream_Seek,
+	OpusCallback_Tell,
+	NULL
+};
+
+/*
+=================================================================
+
+	Ogg Vorbis decompression
+
+=================================================================
+*/
 qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	long ret;
@@ -118,16 +143,76 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 	sound.size = sound.samples * sound.width * sound.channels;
 	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size );
 
-	while(( ret = ov_read( &vorbisFile, (char*)sound.wav + written, sound.size, 0, sound.width, 1, &section )) != 0 )
+	while(( ret = ov_read( &vorbisFile, (char*)sound.wav + written, sound.size - written, 0, sound.width, 1, &section )) != 0 )
 	{
-		if( ret < 0 )
-		{
-			Con_DPrintf( S_ERROR "%s: failed to load (%s): error during Vorbis data decoding\n", __func__, file.name );
+		if( ret < 0 ) {
+			Con_DPrintf( S_ERROR "%s: failed to load (%s): compressed data decoding error\n", __func__, file.name );
 			return false;
 		}
 		written += ret;
 	}
 
 	ov_clear( &vorbisFile );
+	return true;
+}
+
+/*
+=================================================================
+
+	Ogg Opus decompression
+
+=================================================================
+*/
+qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t filesize )
+{
+	long ret;
+	ogg_filestream_t file;
+	OggOpusFile *of;
+	const OpusHead *opusHead;
+	size_t written = 0;
+
+	if( !buffer )
+		return false;
+
+	OggFilestream_Init( &file, name, buffer, filesize );
+	of = op_open_callbacks( &file, &op_callbacks_membuf, NULL, 0, NULL );
+	if( !of ) {
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): file reading error\n", __func__, file.name );
+		return false;
+	}
+
+	opusHead = op_head( of, -1 );
+	if( opusHead->channel_count < 1 || opusHead->channel_count > 2 ) {
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): unsuppored channels count\n", __func__, file.name );
+		return false;
+	}
+
+	// according to OggOpus specification, sound always encoded at 48kHz sample rate
+	// but this isn't a problem, engine can do resampling 
+	sound.channels = opusHead->channel_count;
+	sound.rate = 48000;
+	sound.width = 2; // always 16-bit PCM
+	sound.type = WF_PCMDATA;
+	sound.flags = SOUND_RESAMPLE;
+	sound.samples = op_pcm_total( of, -1 );
+	sound.size = sound.samples * sound.width * sound.channels;
+	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size );
+
+	// skip undesired samples before playing sound
+	if( op_pcm_seek( of, opusHead->pre_skip ) < 0 ) {
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): pre-skip error\n", __func__, file.name );
+		return false;
+	}
+
+	while(( ret = op_read( of, (opus_int16*)(sound.wav + written), (sound.size - written) / sound.width, NULL )) != 0 )
+	{
+		if( ret < 0 ) {
+			Con_DPrintf( S_ERROR "%s: failed to load (%s): compressed data decoding error\n", __func__, file.name );
+			return false;
+		}
+		written += ret * sound.width * sound.channels;
+	}
+
+	op_free( of );
 	return true;
 }
