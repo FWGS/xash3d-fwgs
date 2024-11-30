@@ -120,6 +120,7 @@ extern sndlib_t sound;
 qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Sound_LoadMPG( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t filesize );
 
 //
 // stream operate
