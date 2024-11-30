@@ -479,6 +479,7 @@ typedef enum
 	WF_UNKNOWN = 0,
 	WF_PCMDATA,
 	WF_MPGDATA,
+	WF_VORBISDATA,
 	WF_TOTALCOUNT,	// must be last
 } sndformat_t;
 
