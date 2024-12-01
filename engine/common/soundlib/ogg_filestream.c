@@ -17,14 +17,6 @@ GNU General Public License for more details.
 #include "soundlib.h"
 #include <string.h>
 
-void OggFilestream_Init( ogg_filestream_t *filestream, const char *name, const byte *buffer, size_t filesize )
-{
-	filestream->name = name;
-	filestream->buffer = buffer;
-	filestream->filesize = filesize;
-	filestream->position = 0;
-}
-
 size_t OggFilestream_Read( void *ptr, size_t blockSize, size_t nmemb, void *datasource )
 {
 	ogg_filestream_t *filestream = (ogg_filestream_t*)datasource;
