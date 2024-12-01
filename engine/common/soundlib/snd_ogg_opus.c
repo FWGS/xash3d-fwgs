@@ -91,9 +91,46 @@ static void Sound_ScanOpusComments( const OggOpusFile *of )
 	}
 }
 
+static const char* Opus_GetErrorDesc( int errorCode ) 
+{
+	switch (errorCode) 
+	{
+		case OP_FALSE:
+			return "request failed";
+		case OP_EOF:
+			return "end of file reached";
+		case OP_HOLE:
+			return "there was a hole in the stream";
+		case OP_EREAD:
+			return "read error occurred";
+		case OP_EFAULT:
+			return "fault issue occurred";
+		case OP_EIMPL:
+			return "feature not implemented";
+		case OP_EINVAL:
+			return "invalid argument";
+		case OP_ENOTFORMAT:
+			return "not a valid file format";
+		case OP_EBADHEADER:
+			return "bad header";
+		case OP_EVERSION:
+			return "version mismatch";
+		case OP_EBADPACKET:
+			return "bad packet";
+		case OP_EBADLINK:
+			return "bad link found";
+		case OP_ENOSEEK:
+			return "bitstream not seekable";
+		case OP_EBADTIMESTAMP:
+			return "invalid timestamp";
+		default:
+			return "unknown error";
+	}
+}
+
 qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t filesize )
 {
-	long ret;
+	int ret;
 	ogg_filestream_t file;
 	OggOpusFile *of;
 	const OpusHead *opusHead;
@@ -103,9 +140,9 @@ qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t fi
 		return false;
 
 	OggFilestream_Init( &file, name, buffer, filesize );
-	of = op_open_callbacks( &file, &op_callbacks_membuf, NULL, 0, NULL );
+	of = op_open_callbacks( &file, &op_callbacks_membuf, NULL, 0, &ret );
 	if( !of ) {
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): file reading error\n", __func__, file.name );
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, file.name, Opus_GetErrorDesc( ret ));
 		return false;
 	}
 
@@ -126,8 +163,8 @@ qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t fi
 	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size );
 	
 	// skip undesired samples before playing sound
-	if( op_pcm_seek( of, opusHead->pre_skip ) < 0 ) {
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): pre-skip error\n", __func__, file.name );
+	if(( ret = op_pcm_seek( of, opusHead->pre_skip )) < 0 ) {
+		Con_DPrintf( S_ERROR "%s: failed to pre-skip (%s): %s\n", __func__, file.name, Opus_GetErrorDesc( ret ));
 		return false;
 	}
 
@@ -137,7 +174,7 @@ qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t fi
 	while(( ret = op_read( of, (opus_int16*)(sound.wav + written), (sound.size - written) / sound.width, NULL )) != 0 )
 	{
 		if( ret < 0 ) {
-			Con_DPrintf( S_ERROR "%s: failed to load (%s): compressed data decoding error\n", __func__, file.name );
+			Con_DPrintf( S_ERROR "%s: failed to read (%s): %s\n", __func__, file.name, Opus_GetErrorDesc( ret ));
 			return false;
 		}
 		written += ret * sound.width * sound.channels;
@@ -149,6 +186,7 @@ qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t fi
 
 stream_t *Stream_OpenOggOpus( const char *filename )
 {
+	int ret;
 	stream_t *stream;
 	opus_streaming_ctx_t *ctx;
 	const OpusHead *opusHead;
@@ -164,10 +202,10 @@ stream_t *Stream_OpenOggOpus( const char *filename )
 	stream->file = ctx->file;
 	stream->pos = 0;
 
-	ctx->of = op_open_callbacks( ctx, &op_callbacks_fs, NULL, 0, NULL );
+	ctx->of = op_open_callbacks( ctx, &op_callbacks_fs, NULL, 0, &ret );
 	if( !ctx->of )
 	{
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): file openning error\n", __func__, filename );
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, filename, Opus_GetErrorDesc( ret ));
 		FS_Close( ctx->file );
 		Mem_Free( stream );
 		Mem_Free( ctx );
@@ -185,8 +223,8 @@ stream_t *Stream_OpenOggOpus( const char *filename )
 	}
 
 	// skip undesired samples before playing sound
-	if( op_pcm_seek( ctx->of, opusHead->pre_skip ) < 0 ) {
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): pre-skip error\n", __func__, filename );
+	if(( ret = op_pcm_seek( ctx->of, opusHead->pre_skip )) < 0 ) {
+		Con_DPrintf( S_ERROR "%s: failed to pre-skip (%s): %s\n", __func__, filename, Opus_GetErrorDesc( ret ));
 		op_free( ctx->of );
 		FS_Close( ctx->file );
 		Mem_Free( stream );
@@ -217,9 +255,13 @@ int Stream_ReadOggOpus( stream_t *stream, int needBytes, void *buffer )
 
 		if( !stream->buffsize )
 		{
-			if(( ret = op_read( ctx->of, (opus_int16*)stream->temp, OUTBUF_SIZE / stream->width, NULL )) <= 0 )
-				break; // there was EoF or error
-			stream->pos = ret * stream->width * stream->channels;
+			ret = op_read( ctx->of, (opus_int16*)stream->temp, OUTBUF_SIZE / stream->width, NULL );
+			if( ret == 0 )
+				break; // end of file
+			else if( ret < 0 )
+				Con_DPrintf( S_ERROR "%s: error during read: %s\n", __func__, Opus_GetErrorDesc( ret ));
+			else
+				stream->pos = ret * stream->width * stream->channels;
 		}
 
 		// check remaining size
@@ -246,11 +288,13 @@ int Stream_ReadOggOpus( stream_t *stream, int needBytes, void *buffer )
 
 int Stream_SetPosOggOpus( stream_t *stream, int newpos )
 {
+	int ret;
 	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)stream->ptr;
-	if( op_raw_seek( ctx->of, newpos ) == 0 ) {
+	if(( ret = op_raw_seek( ctx->of, newpos )) == 0 ) {
 		stream->buffsize = 0; // flush any previous data
 		return true;
 	}
+	Con_DPrintf( S_ERROR "%s: error during seek: %s\n", __func__, Opus_GetErrorDesc( ret ));
 	return false; // failed to seek
 }
 
