@@ -1,21 +1,6 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-FRAGMENT_INTTYPES_H='''#include <inttypes.h>
-int main (int argc, char **argv) {
-	return 0;
-}'''
-
-FRAGMENT_SYS_TYPES_H='''#include <sys/types.h>
-int main (void) {
-    return 0;
-}'''
-
-FRAGMENT_STDINT_H='''#include <stdint.h>
-int main (void) {
-    return 0;
-}'''
-
 def options(opt):
 	pass
 
@@ -25,11 +10,11 @@ def configure(conf):
 		return
 
 	# Check for required headers
-	if conf.check_cc(fragment=FRAGMENT_INTTYPES_H, msg = 'Checking for inttypes.h header', mandatory = False):
+	if conf.check_cc(header_name='inttypes.h', mandatory = False):
 		conf.define('INCLUDE_INTTYPES_H', 1)
-	elif conf.check_cc(fragment=FRAGMENT_SYS_TYPES_H, msg = 'Checking for sys/types.h header', mandatory = False):
+	elif conf.check_cc(header_name='sys/types.h', mandatory = False):
 		conf.define('INCLUDE_SYS_TYPES_H', 1)
-	elif conf.check_cc(fragmenmt=FRAGMENT_STDINT_H, msg = 'Checking for stdint.h header', mandatory = False):
+	elif conf.check_cc(header_name='stdint.h', mandatory = False):
 		conf.define('INCLUDE_STDINT_H', 1)
 
 
@@ -42,7 +27,6 @@ def build(bld):
 	bld.stlib(
 		source = sources,
 		target = 'libogg',
-		features = 'c',
 		includes = includes,
 		export_includes = ['libogg/include/']
 	)
