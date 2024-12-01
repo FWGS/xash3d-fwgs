@@ -84,11 +84,10 @@ SUBDIRS = [
 	Subproject('filesystem'),
 	Subproject('stub/server'),
 	Subproject('dllemu'),
-    Subproject('3rdparty/libogg'),
-    Subproject('3rdparty/vorbis/libvorbis'),
-    Subproject('3rdparty/vorbis/libvorbisfile'),
-    Subproject('3rdparty/opusfile'),
-    
+	Subproject('3rdparty/libogg'),
+	Subproject('3rdparty/vorbis'),
+	Subproject('3rdparty/opusfile'),
+
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED and x.env.DEST_OS != 'android'),
 	Subproject('3rdparty/nanogl',       lambda x: not x.env.DEDICATED and x.env.NANOGL),
