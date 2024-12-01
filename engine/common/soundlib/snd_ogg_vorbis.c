@@ -13,14 +13,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <string.h>
+#include <vorbis/codec.h>
+#include <vorbis/vorbisfile.h>
 #include "soundlib.h"
 #include "crtlib.h"
 #include "xash3d_mathlib.h"
 #include "ogg_filestream.h"
-#include <vorbis/codec.h>
-#include <vorbis/vorbisfile.h>
-#include <string.h>
-#include <stdint.h>
 
 typedef struct vorbis_streaming_ctx_s
 {
@@ -89,6 +88,7 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 	long ret;
 	int section;
 	size_t written = 0;
+	vorbis_info *info;
 	ogg_filestream_t file;
 	OggVorbis_File vorbisFile;
 	
@@ -101,7 +101,7 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 		return false;
 	}
 
-	vorbis_info *info = ov_info( &vorbisFile, -1 );
+	info = ov_info( &vorbisFile, -1 );
 	if( info->channels < 1 || info->channels > 2 ) {
 		Con_DPrintf( S_ERROR "%s: failed to load (%s): unsuppored channels count\n", __func__, file.name );
 		return false;
@@ -134,6 +134,7 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 stream_t *Stream_OpenOggVorbis( const char *filename )
 {
 	stream_t *stream;
+	vorbis_info *info;
 	vorbis_streaming_ctx_t *ctx;
 
 	ctx = (vorbis_streaming_ctx_t*)Mem_Calloc( host.soundpool, sizeof( vorbis_streaming_ctx_t ));
@@ -156,7 +157,7 @@ stream_t *Stream_OpenOggVorbis( const char *filename )
 		return NULL;
 	}
 
-	vorbis_info *info = ov_info( &ctx->vf, -1 );
+	info = ov_info( &ctx->vf, -1 );
 	if( info->channels < 1 || info->channels > 2 ) {
 		Con_DPrintf( S_ERROR "%s: failed to load (%s): unsuppored channels count\n", __func__, filename );
 		FS_Close( ctx->file );

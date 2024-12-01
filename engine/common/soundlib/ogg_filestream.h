@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #define OGG_FILESTREAM_H
 
 #include "xash3d_types.h"
-#include <stdint.h>
 
 typedef struct ogg_filestream_s
 {
@@ -27,9 +26,16 @@ typedef struct ogg_filestream_s
 	size_t position;
 } ogg_filestream_t;
 
-void OggFilestream_Init( ogg_filestream_t *filestream, const char *name, const byte *buffer, size_t filesize );
 size_t OggFilestream_Read( void *ptr, size_t blockSize, size_t nmemb, void *datasource );
 int OggFilestream_Seek( void *datasource, int64_t offset, int whence );
 long OggFilestream_Tell( void *datasource );
+
+static inline void OggFilestream_Init( ogg_filestream_t *filestream, const char *name, const byte *buffer, size_t filesize )
+{
+	filestream->name = name;
+	filestream->buffer = buffer;
+	filestream->filesize = filesize;
+	filestream->position = 0;
+}
 
 #endif // OGG_FILESTREAM_H

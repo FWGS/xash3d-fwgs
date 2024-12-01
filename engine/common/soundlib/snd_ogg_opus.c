@@ -13,12 +13,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <opusfile.h>
+#include <string.h>
 #include "soundlib.h"
 #include "crtlib.h"
 #include "ogg_filestream.h"
-#include <opusfile.h>
-#include <string.h>
-#include <stdint.h>
 
 typedef struct opus_streaming_ctx_s
 {
