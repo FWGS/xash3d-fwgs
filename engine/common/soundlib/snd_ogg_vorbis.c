@@ -66,6 +66,41 @@ static const ov_callbacks ov_callbacks_fs = {
 
 =================================================================
 */
+static const char* Vorbis_GetErrorDesc( int errorCode )
+{
+	switch( errorCode )
+	{
+		case OV_EOF:
+			return "end of file";
+		case OV_HOLE:
+			return "compressed data sync lost";
+		case OV_EBADHEADER:
+			return "invalid header";
+		case OV_EINVAL:
+			return "invalid argument";
+		case OV_ENOTVORBIS:
+			return "not a Vorbis data";
+		case OV_EBADLINK:
+			return "link corrupted";
+		case OV_EFAULT:
+			return "internal error";
+		case OV_EIMPL:
+			return "not implemented";
+		case OV_EBADPACKET:
+			return "invalid packet";
+		case OV_EVERSION:
+			return "version mismatch";
+		case OV_ENOSEEK:
+			return "bitstream not seekable";
+		case OV_ENOTAUDIO:
+			return "not an audio data";
+		case OV_EREAD:
+			return "read error";
+		default:
+			return "unknown error";
+	}
+}
+
 static void Sound_ScanVorbisComments( OggVorbis_File *vf )
 {
 	const char *value;
@@ -96,8 +131,8 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 		return false;
 
 	OggFilestream_Init( &file, name, buffer, filesize );
-	if( ov_open_callbacks( &file, &vorbisFile, NULL, 0, ov_callbacks_membuf ) < 0 ) {
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): file reading error\n", __func__, file.name );
+	if(( ret = ov_open_callbacks( &file, &vorbisFile, NULL, 0, ov_callbacks_membuf )) < 0 ) {
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, file.name, Vorbis_GetErrorDesc( ret ));
 		return false;
 	}
 
@@ -121,7 +156,7 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 	while(( ret = ov_read( &vorbisFile, (char*)sound.wav + written, sound.size - written, 0, sound.width, 1, &section )) != 0 )
 	{
 		if( ret < 0 ) {
-			Con_DPrintf( S_ERROR "%s: failed to load (%s): compressed data decoding error\n", __func__, file.name );
+			Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, file.name, Vorbis_GetErrorDesc( ret ));
 			return false;
 		}
 		written += ret;
@@ -133,6 +168,7 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 
 stream_t *Stream_OpenOggVorbis( const char *filename )
 {
+	int ret;
 	stream_t *stream;
 	vorbis_info *info;
 	vorbis_streaming_ctx_t *ctx;
@@ -148,9 +184,9 @@ stream_t *Stream_OpenOggVorbis( const char *filename )
 	stream->file = ctx->file;
 	stream->pos = 0;
 
-	if( ov_open_callbacks( ctx, &ctx->vf, NULL, 0, ov_callbacks_fs ) < 0 )
+	if(( ret = ov_open_callbacks( ctx, &ctx->vf, NULL, 0, ov_callbacks_fs )) < 0 )
 	{
-		Con_DPrintf( S_ERROR "%s: failed to load (%s): file openning error\n", __func__, filename );
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): %s\n", __func__, filename, Vorbis_GetErrorDesc( ret ));
 		FS_Close( ctx->file );
 		Mem_Free( stream );
 		Mem_Free( ctx );
@@ -189,8 +225,13 @@ int Stream_ReadOggVorbis( stream_t *stream, int needBytes, void *buffer )
 
 		if( !stream->buffsize )
 		{
-			if(( stream->pos = ov_read( &ctx->vf, (char*)stream->temp, OUTBUF_SIZE, 0, stream->width, 1, &section )) <= 0 )
-				break; // there was EoF or error
+			stream->pos = ov_read( &ctx->vf, (char*)stream->temp, OUTBUF_SIZE, 0, stream->width, 1, &section );
+			if( stream->pos == 0 ) {
+				break; // end of file
+			}
+			else if( stream->pos < 0 ) {
+				Con_DPrintf( S_ERROR "%s: error during read: %s\n", __func__, Vorbis_GetErrorDesc( stream->pos ));
+			}
 		}
 
 		// check remaining size
@@ -217,11 +258,13 @@ int Stream_ReadOggVorbis( stream_t *stream, int needBytes, void *buffer )
 
 int Stream_SetPosOggVorbis( stream_t *stream, int newpos )
 {
+	int ret;
 	vorbis_streaming_ctx_t *ctx = (vorbis_streaming_ctx_t*)stream->ptr;
-	if( ov_raw_seek_lap( &ctx->vf, newpos ) == 0 ) {
+	if(( ret = ov_raw_seek_lap( &ctx->vf, newpos )) == 0 ) {
 		stream->buffsize = 0; // flush any previous data
 		return true;
 	}
+	Con_DPrintf( S_ERROR "%s: error during seek: %s\n", __func__, Vorbis_GetErrorDesc( ret ));
 	return false; // failed to seek
 }
 
