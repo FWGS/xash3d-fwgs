@@ -20,6 +20,12 @@ GNU General Public License for more details.
 #include <string.h>
 #include <stdint.h>
 
+typedef struct opus_streaming_ctx_s
+{
+	file_t *file;
+	OggOpusFile *of;
+} opus_streaming_ctx_t;
+
 static int OpusCallback_Read( void *datasource, byte *ptr, int nbytes )
 {
 	return OggFilestream_Read( ptr, 1, nbytes, datasource );
@@ -30,6 +36,24 @@ static opus_int64 OpusCallback_Tell( void *datasource )
 	return OggFilestream_Tell( datasource );
 }
 
+static int FS_ReadOggOpus( void *datasource, byte *ptr, int nbytes )
+{
+	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)datasource;
+	return g_fsapi.Read( ctx->file, ptr, nbytes );
+}
+
+static int FS_SeekOggOpus( void *datasource, int64_t offset, int whence )
+{
+	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)datasource;
+	return g_fsapi.Seek( ctx->file, offset, whence );
+}
+
+static opus_int64 FS_TellOggOpus( void *datasource )
+{
+	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)datasource;
+	return g_fsapi.Tell( ctx->file );
+}
+
 static const OpusFileCallbacks op_callbacks_membuf = {
 	OpusCallback_Read,
 	OggFilestream_Seek,
@@ -37,10 +61,17 @@ static const OpusFileCallbacks op_callbacks_membuf = {
 	NULL
 };
 
+static const OpusFileCallbacks op_callbacks_fs = {
+	FS_ReadOggOpus,
+	FS_SeekOggOpus,
+	FS_TellOggOpus,
+	NULL
+};
+
 /*
 =================================================================
 
-	Ogg Opus decompression
+	Ogg Opus decompression & streaming
 
 =================================================================
 */
@@ -96,4 +127,136 @@ qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t fi
 
 	op_free( of );
 	return true;
+}
+
+stream_t *Stream_OpenOggOpus( const char *filename )
+{
+	stream_t *stream;
+	opus_streaming_ctx_t *ctx;
+	const OpusHead *opusHead;
+
+	ctx = (opus_streaming_ctx_t*)Mem_Calloc( host.soundpool, sizeof( opus_streaming_ctx_t ));
+	ctx->file = FS_Open( filename, "rb", false );
+	if( !ctx->file ) {
+		Mem_Free( ctx );
+		return NULL;
+	}
+
+	stream = (stream_t*)Mem_Calloc( host.soundpool, sizeof( stream_t ));
+	stream->file = ctx->file;
+	stream->pos = 0;
+
+	ctx->of = op_open_callbacks( ctx, &op_callbacks_fs, NULL, 0, NULL );
+	if( !ctx->of )
+	{
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): file openning error\n", __func__, filename );
+		FS_Close( ctx->file );
+		Mem_Free( stream );
+		Mem_Free( ctx );
+		return NULL;
+	}
+
+	opusHead = op_head( ctx->of, -1 );
+	if( opusHead->channel_count < 1 || opusHead->channel_count > 2 ) {
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): unsuppored channels count\n", __func__, filename );
+		op_free( ctx->of );
+		FS_Close( ctx->file );
+		Mem_Free( stream );
+		Mem_Free( ctx );
+		return NULL;
+	}
+
+	// skip undesired samples before playing sound
+	if( op_pcm_seek( ctx->of, opusHead->pre_skip ) < 0 ) {
+		Con_DPrintf( S_ERROR "%s: failed to load (%s): pre-skip error\n", __func__, filename );
+		op_free( ctx->of );
+		FS_Close( ctx->file );
+		Mem_Free( stream );
+		Mem_Free( ctx );
+		return NULL;
+	}
+
+	stream->buffsize = 0; // how many samples left from previous frame
+	stream->channels = opusHead->channel_count;
+	stream->rate = 48000; // that's fixed at 48kHz for Opus format
+	stream->width = 2;	// always 16 bit
+	stream->ptr = ctx;
+	stream->type = WF_OPUSDATA;
+
+	return stream;
+}
+
+int Stream_ReadOggOpus( stream_t *stream, int needBytes, void *buffer )
+{
+	int bytesWritten = 0;
+	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)stream->ptr;
+
+	while( 1 )
+	{
+		int ret;
+		byte *data;
+		int	outsize;
+
+		if( !stream->buffsize )
+		{
+			if(( ret = op_read( ctx->of, (opus_int16*)stream->temp, OUTBUF_SIZE / stream->width, NULL )) <= 0 )
+				break; // there was EoF or error
+			stream->pos = ret * stream->width * stream->channels;
+		}
+
+		// check remaining size
+		if( bytesWritten + stream->pos > needBytes )
+			outsize = ( needBytes - bytesWritten );
+		else outsize = stream->pos;
+
+		// copy raw sample to output buffer
+		data = (byte *)buffer + bytesWritten;
+		memcpy( data, &stream->temp[stream->buffsize], outsize );
+		bytesWritten += outsize;
+		stream->pos -= outsize;
+		stream->buffsize += outsize;
+
+		// continue from this sample on a next call
+		if( bytesWritten >= needBytes )
+			return bytesWritten;
+
+		stream->buffsize = 0; // no bytes remaining
+	}
+
+	return 0;
+}
+
+int Stream_SetPosOggOpus( stream_t *stream, int newpos )
+{
+	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)stream->ptr;
+	if( op_raw_seek( ctx->of, newpos ) == 0 ) {
+		stream->buffsize = 0; // flush any previous data
+		return true;
+	}
+	return false; // failed to seek
+}
+
+int Stream_GetPosOggOpus( stream_t *stream )
+{
+	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)stream->ptr;
+	return op_raw_tell( ctx->of );
+}
+
+void Stream_FreeOggOpus( stream_t *stream )
+{
+	if( stream->ptr )
+	{
+		opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t*)stream->ptr;
+		op_free( ctx->of );
+		Mem_Free( stream->ptr );
+		stream->ptr = NULL;
+	}
+
+	if( stream->file )
+	{
+		FS_Close( stream->file );
+		stream->file = NULL;
+	}
+
+	Mem_Free( stream );
 }

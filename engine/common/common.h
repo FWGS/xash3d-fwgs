@@ -480,6 +480,7 @@ typedef enum
 	WF_PCMDATA,
 	WF_MPGDATA,
 	WF_VORBISDATA,
+	WF_OPUSDATA,
 	WF_TOTALCOUNT,	// must be last
 } sndformat_t;
 
