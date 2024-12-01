@@ -67,6 +67,23 @@ static const ov_callbacks ov_callbacks_fs = {
 
 =================================================================
 */
+static void Sound_ScanVorbisComments( OggVorbis_File *vf )
+{
+	const char *value;
+	vorbis_comment *vc = ov_comment( vf, -1 );
+	if( vc )
+	{	
+		if(( value = vorbis_comment_query( vc, "LOOPSTART", 0 ))) {
+			sound.loopstart = Q_atoi( value );
+			SetBits( sound.flags, SOUND_LOOPED );
+		}
+		else if(( value = vorbis_comment_query( vc, "LOOP_START", 0 ))) {
+			sound.loopstart = Q_atoi( value );
+			SetBits( sound.flags, SOUND_LOOPED );
+		}
+	}
+}
+
 qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	long ret;
@@ -97,6 +114,9 @@ qboolean Sound_LoadOggVorbis( const char *name, const byte *buffer, fs_offset_t 
 	sound.samples = ov_pcm_total( &vorbisFile, -1 );
 	sound.size = sound.samples * sound.width * sound.channels;
 	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size );
+
+	SetBits( sound.flags, SOUND_RESAMPLE );
+	Sound_ScanVorbisComments( &vorbisFile );
 
 	while(( ret = ov_read( &vorbisFile, (char*)sound.wav + written, sound.size - written, 0, sound.width, 1, &section )) != 0 )
 	{
