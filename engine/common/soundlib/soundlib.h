@@ -140,5 +140,10 @@ int Stream_ReadOggVorbis( stream_t *stream, int bytes, void *buffer );
 int Stream_SetPosOggVorbis( stream_t *stream, int newpos );
 int Stream_GetPosOggVorbis( stream_t *stream );
 void Stream_FreeOggVorbis( stream_t *stream );
+stream_t *Stream_OpenOggOpus( const char *filename );
+int Stream_ReadOggOpus( stream_t *stream, int bytes, void *buffer );
+int Stream_SetPosOggOpus( stream_t *stream, int newpos );
+int Stream_GetPosOggOpus( stream_t *stream );
+void Stream_FreeOggOpus( stream_t *stream );
 
 #endif//SOUNDLIB_H
