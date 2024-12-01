@@ -84,7 +84,11 @@ SUBDIRS = [
 	Subproject('filesystem'),
 	Subproject('stub/server'),
 	Subproject('dllemu'),
-
+    Subproject('3rdparty/libogg'),
+    Subproject('3rdparty/vorbis/libvorbis'),
+    Subproject('3rdparty/vorbis/libvorbisfile'),
+    Subproject('3rdparty/opusfile'),
+    
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED and x.env.DEST_OS != 'android'),
 	Subproject('3rdparty/nanogl',       lambda x: not x.env.DEDICATED and x.env.NANOGL),
@@ -96,10 +100,6 @@ SUBDIRS = [
 	Subproject('3rdparty/bzip2',        lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
-	Subproject('3rdparty/libogg', 		lambda x: not x.env.DEDICATED),
-    Subproject('3rdparty/vorbis/libvorbis', lambda x: not x.env.DEDICATED),
-    Subproject('3rdparty/vorbis/libvorbisfile', lambda x: not x.env.DEDICATED),
-    Subproject('3rdparty/opusfile',		lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/MultiEmulator',lambda x: not x.env.DEDICATED),
 #	Subproject('3rdparty/freevgui',     lambda x: not x.env.DEDICATED),
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
@@ -107,7 +107,7 @@ SUBDIRS = [
 	Subproject('engine'), # keep latest for static linking
 
 	# disable only by external dependency presense
-	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS and not x.env.DEDICATED),
+	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS),
 
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
