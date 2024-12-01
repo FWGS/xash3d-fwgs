@@ -5172,13 +5172,7 @@ qboolean SV_LoadProgs( const char *name )
 	edict_t			*e;
 
 	if( svgame.hInstance )
-	{
-#if XASH_WIN32
-		SV_UnloadProgs();
-#else // XASH_WIN32
 		return true;
-#endif // XASH_WIN32
-	}
 
 	// fill it in
 	svgame.pmove = &gpMove;
