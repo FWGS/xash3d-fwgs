@@ -75,6 +75,23 @@ static const OpusFileCallbacks op_callbacks_fs = {
 
 =================================================================
 */
+static void Sound_ScanOpusComments( const OggOpusFile *of )
+{
+	const char *value;
+	const OpusTags *tags = op_tags( of, -1 );
+	if( tags )
+	{	
+		if(( value = opus_tags_query( tags, "LOOPSTART", 0 ))) {
+			sound.loopstart = Q_atoi( value );
+			SetBits( sound.flags, SOUND_LOOPED );
+		}
+		else if(( value = opus_tags_query( tags, "LOOP_START", 0 ))) {
+			sound.loopstart = Q_atoi( value );
+			SetBits( sound.flags, SOUND_LOOPED );
+		}
+	}
+}
+
 qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	long ret;
@@ -105,16 +122,18 @@ qboolean Sound_LoadOggOpus( const char *name, const byte *buffer, fs_offset_t fi
 	sound.rate = 48000;
 	sound.width = 2; // always 16-bit PCM
 	sound.type = WF_PCMDATA;
-	sound.flags = SOUND_RESAMPLE;
 	sound.samples = op_pcm_total( of, -1 );
 	sound.size = sound.samples * sound.width * sound.channels;
 	sound.wav = (byte *)Mem_Calloc( host.soundpool, sound.size );
-
+	
 	// skip undesired samples before playing sound
 	if( op_pcm_seek( of, opusHead->pre_skip ) < 0 ) {
 		Con_DPrintf( S_ERROR "%s: failed to load (%s): pre-skip error\n", __func__, file.name );
 		return false;
 	}
+
+	SetBits( sound.flags, SOUND_RESAMPLE );
+	Sound_ScanOpusComments( of );
 
 	while(( ret = op_read( of, (opus_int16*)(sound.wav + written), (sound.size - written) / sound.width, NULL )) != 0 )
 	{
