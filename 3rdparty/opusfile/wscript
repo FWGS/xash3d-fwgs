@@ -25,8 +25,7 @@ def build(bld):
 	bld.stlib(
 		source = sources,
 		target = 'libopusfile',
-		features = 'c',
 		includes = ['opusfile/include/'],
-        use = ['libogg', 'opus'],
+		use = ['libogg', 'opus'],
 		export_includes = ['opusfile/include/']
 	)
