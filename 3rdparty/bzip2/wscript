@@ -14,13 +14,14 @@ def configure(conf):
 		conf.define('BZ_UNIX', 1)
 
 def build(bld):
-	bld(features = 'subst', source = 'bzip2/bz_version.h.in', target = 'bzip2/bz_version.h', BZ_VERSION='1.1.0-fwgs')
+	bld(features = 'subst', source = 'bzip2/bz_version.h.in', target = 'bzip2/bz_version.h', BZ_VERSION='1.1.0-fwgs', name = 'bz_version')
 
 	bz_sources = ['bzip2/blocksort.c', 'bzip2/huffman.c', 'bzip2/crctable.c', 'bzip2/randtable.c', 'bzip2/compress.c', 'bzip2/decompress.c', 'bzip2/bzlib.c']
 
 	bld.stlib(
 		source = bz_sources,
 		target = 'bzip2',
+		use = 'bz_version',
 		includes = 'bzip2/',
 		export_includes = 'bzip2/'
 	)

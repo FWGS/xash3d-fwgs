@@ -31,6 +31,7 @@ def build(bld):
 
 	bld(
 		features = 'subst',
+		name = 'libogg_config_types',
 		source = 'libogg/include/ogg/config_types.h.in',
 		target = 'libogg/include/ogg/config_types.h',
 		INCLUDE_INTTYPES_H = bld.env.INCLUDE_INTTYPES_H,
@@ -47,6 +48,7 @@ def build(bld):
 	bld.stlib(
 		source = sources,
 		target = 'libogg',
+		use = 'libogg_config_types',
 		includes = ['libogg/include/'],
 		export_includes = ['libogg/include/']
 	)
