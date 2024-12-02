@@ -19,13 +19,13 @@ GNU General Public License for more details.
 
 size_t OggFilestream_Read( void *ptr, size_t blockSize, size_t nmemb, void *datasource )
 {
-	ogg_filestream_t *filestream = (ogg_filestream_t*)datasource;
+	ogg_filestream_t *filestream = (ogg_filestream_t *)datasource;
 	size_t remain = filestream->filesize - filestream->position;
 	size_t dataSize = blockSize * nmemb;
 
 	// reads as many blocks as fits in remaining memory
 	if( dataSize > remain )
-		dataSize = remain - remain % blockSize; 
+		dataSize = remain - remain % blockSize;
 
 	memcpy( ptr, filestream->buffer + filestream->position, dataSize );
 	filestream->position += dataSize;
@@ -35,7 +35,7 @@ size_t OggFilestream_Read( void *ptr, size_t blockSize, size_t nmemb, void *data
 int OggFilestream_Seek( void *datasource, int64_t offset, int whence )
 {
 	int64_t position;
-	ogg_filestream_t *filestream = (ogg_filestream_t*)datasource;
+	ogg_filestream_t *filestream = (ogg_filestream_t *)datasource;
 
 	if( whence == SEEK_SET )
 		position = offset;
@@ -55,6 +55,6 @@ int OggFilestream_Seek( void *datasource, int64_t offset, int whence )
 
 long OggFilestream_Tell( void *datasource )
 {
-	ogg_filestream_t *filestream = (ogg_filestream_t*)datasource;
+	ogg_filestream_t *filestream = (ogg_filestream_t *)datasource;
 	return filestream->position;
 }
