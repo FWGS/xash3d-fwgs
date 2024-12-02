@@ -480,8 +480,9 @@ def configure(conf):
 			if conf.check_cfg(package=i[0], uselib_store=i[1], args='--cflags --libs', mandatory=False):
 				conf.env['HAVE_SYSTEM_%s' % i[0].upper()] = True
 
-		# search for opus 1.4 or higher, it has fixes for custom modes
-		if conf.check_cfg(package='opus', uselib_store='opus', args='opus >= 1.4 --cflags --libs', mandatory=False):
+		# search for opus 1.4 only, it has fixes for custom modes
+		# 1.5 breaks custom modes: https://github.com/xiph/opus/issues/374
+		if conf.check_cfg(package='opus', uselib_store='opus', args='opus = 1.4 --cflags --libs', mandatory=False):
 			# now try to link with export that only exists with CUSTOM_MODES defined
 			frag='''#include <opus_custom.h>
 int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const OpusCustomMode *)1, 1); }'''
