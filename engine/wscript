@@ -148,7 +148,6 @@ def build(bld):
 		'common/*.c',
 		'common/imagelib/*.c',
 		'common/soundlib/*.c',
-		'common/soundlib/libmpg/*.c',
 		'server/*.c'])
 
 	if bld.env.ENGINE_TESTS:
@@ -234,7 +233,10 @@ def build(bld):
 		source += bld.path.ant_glob([
 			'client/*.c',
 			'client/vgui/*.c',
-			'client/avi/*.c'])
+			'client/avi/*.c',
+			'client/soundlib/*.c',
+			'client/soundlib/libmpg/*.c',
+		])
 		is_cxx_link = True
 		libs += ['bzip2', 'MultiEmulator']
 
@@ -264,7 +266,7 @@ def build(bld):
 	bld(source = source,
 		target = 'xash',
 		features = features,
-		includes = 'server client client/vgui',
+		includes = 'server client client/vgui common/soundlib',
 		use = libs,
 		install_path = install_path,
 		nro_install_path = bld.env.BINDIR,
