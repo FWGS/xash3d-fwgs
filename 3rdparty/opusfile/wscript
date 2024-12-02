@@ -14,6 +14,12 @@ def configure(conf):
 		conf.define('_CRT_SECURE_NO_DEPRECATE', 1)
 		conf.define('_CRT_NONSTDC_NO_DEPRECATE', 1)
 
+	if conf.env.DEST_OS == 'android':
+		# HACKHACK: set it to 32 here because opusfile can't be built on Android SDK < 24
+		# with _FILE_OFFSET_BITS 64 (which it sets automatically in src/internal.h)
+		# we are not (????) relying on this part of the API, so it should be harmless
+		conf.define('_FILE_OFFSET_BITS', 32)
+
 def build(bld):
 	sources = [
 		'opusfile/src/info.c',
