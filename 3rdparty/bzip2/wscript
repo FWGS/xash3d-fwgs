@@ -14,20 +14,13 @@ def configure(conf):
 		conf.define('BZ_UNIX', 1)
 
 def build(bld):
-# doesn't work with CMake generator
-#	bld(
-#		features = 'subst',
-#		source = 'bzip2/bz_version.h.in',
-#		target = 'bz_version.h',
-#		BZ_VERSION='1.1.0-fwgs'
-#	)
+	bld(features = 'subst', source = 'bzip2/bz_version.h.in', target = 'bzip2/bz_version.h', BZ_VERSION='1.1.0-fwgs')
 
 	bz_sources = ['bzip2/blocksort.c', 'bzip2/huffman.c', 'bzip2/crctable.c', 'bzip2/randtable.c', 'bzip2/compress.c', 'bzip2/decompress.c', 'bzip2/bzlib.c']
 
 	bld.stlib(
 		source = bz_sources,
 		target = 'bzip2',
-#		use = 'bz_version.h',
-		includes = ['.', 'bzip2/'],
-		export_includes = ['bzip2/']
+		includes = 'bzip2/',
+		export_includes = 'bzip2/'
 	)
