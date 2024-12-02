@@ -43,8 +43,8 @@ def build(bld):
 
 	bld.stlib(
 		source = sources,
-		target = 'libogg',
+		target = 'ogg',
 		use = 'libogg_config_types',
-		includes = ['libogg/include/'],
-		export_includes = ['libogg/include/']
+		includes = 'libogg/include/',
+		export_includes = 'libogg/include/'
 	)

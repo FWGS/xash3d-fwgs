@@ -22,7 +22,7 @@ def configure(conf):
 
 	if conf.check_cc(fragment=FRAGMENT_MEMORY_H, msg = 'Checking for memory.h header', mandatory = False):
 		conf.define('USE_MEMORY_H', 1)
-	
+
 	conf.check_cc(fragment=FRAGMENT_ALLOCA_H, msg = 'Checking for alloca in alloca.h header', mandatory = False)
 
 	if conf.env.COMPILER_CC == 'msvc':
@@ -54,22 +54,18 @@ def build(bld):
 		'vorbis-src/lib/bitrate.c'
 	]
 
-	libvorbisfile_sources = [
-		'vorbis-src/lib/vorbisfile.c'
-	]
-
 	bld.stlib(
 		source = libvorbis_sources,
-		target = 'libvorbis',
-		includes = ['vorbis-src/include/'],
-		use = ['libogg'],
-		export_includes = ['vorbis-src/include/']
+		target = 'vorbis',
+		includes = 'vorbis-src/include/',
+		use = 'ogg',
+		export_includes = 'vorbis-src/include/'
 	)
 
 	bld.stlib(
-		source = libvorbisfile_sources,
-		target = 'libvorbisfile',
-		includes = ['vorbis-src/include/'],
-		use = ['libvorbis'],
-		export_includes = ['vorbis-src/include/']
+		source = 'vorbis-src/lib/vorbisfile.c',
+		target = 'vorbisfile',
+		includes = 'vorbis-src/include/',
+		use = 'vorbis',
+		export_includes = 'vorbis-src/include/'
 	)

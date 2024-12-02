@@ -94,6 +94,10 @@ SUBDIRS = [
 	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and not x.env.SUPPORT_BSP2_FORMAT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: not x.env.DEDICATED and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_BZ2),
+	Subproject('3rdparty/opus',         lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_OPUS),
+	Subproject('3rdparty/libogg',       lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_OGG),
+	Subproject('3rdparty/vorbis',       lambda x: not x.env.DEDICATED and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
+	Subproject('3rdparty/opusfile',     lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_OPUSFILE),
 	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
 	Subproject('3rdparty/MultiEmulator',lambda x: not x.env.DEDICATED),
@@ -101,12 +105,6 @@ SUBDIRS = [
 	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
 	Subproject('game_launch',           lambda x: not x.env.DISABLE_LAUNCHER),
 	Subproject('engine'), # keep latest for static linking
-
-	# disable only by external dependency presense
-	Subproject('3rdparty/opus',     lambda x: not x.env.HAVE_SYSTEM_OPUS),
-	Subproject('3rdparty/libogg',   lambda x: not x.env.HAVE_SYSTEM_OGG),
-	Subproject('3rdparty/vorbis',   lambda x: not x.env.HAVE_SYSTEM_VORBIS and not x.env.HAVE_SYSTEM_VORBISFILE),
-	Subproject('3rdparty/opusfile', lambda x: not x.env.HAVE_SYSTEM_OPUSFILE),
 
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
@@ -472,13 +470,11 @@ def configure(conf):
 	else:
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
-	if not conf.options.BUILD_BUNDLED_DEPS:
-		for i in (('ogg', 'libogg'),
-			('opusfile', 'libopusfile'),
-			('vorbis', 'libvorbis'),
-			('vorbisfile', 'libvorbisfile')):
-			if conf.check_cfg(package=i[0], uselib_store=i[1], args='--cflags --libs', mandatory=False):
-				conf.env['HAVE_SYSTEM_%s' % i[0].upper()] = True
+	# dedicated server don't have external dependencies
+	if not conf.options.BUILD_BUNDLED_DEPS and not conf.options.DEDICATED:
+		for i in ('ogg','opusfile','vorbis','vorbisfile'):
+			if conf.check_cfg(package=i, uselib_store=i, args='--cflags --libs', mandatory=False):
+				conf.env['HAVE_SYSTEM_%s' % i.upper()] = True
 
 		# search for opus 1.4 only, it has fixes for custom modes
 		# 1.5 breaks custom modes: https://github.com/xiph/opus/issues/374
