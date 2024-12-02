@@ -30,8 +30,8 @@ def build(bld):
 
 	bld.stlib(
 		source = sources,
-		target = 'libopusfile',
-		includes = ['opusfile/include/'],
-		use = ['libogg', 'opus'],
-		export_includes = ['opusfile/include/']
+		target = 'opusfile',
+		includes = 'opusfile/include/',
+		use = 'ogg opus',
+		export_includes = 'opusfile/include/'
 	)
