@@ -298,9 +298,8 @@ class CMake(object):
 
 		content = ''
 		if is_top:
-			content += 'cmake_minimum_required(VERSION 2.8.12)\n'
-			content += 'project(%s)\n' % (getattr(Context.g_module,
-												  Context.APPNAME))
+			content += 'cmake_minimum_required(VERSION 3.5)\n'
+			content += 'project(%s)\n' % (getattr(Context.g_module, Context.APPNAME))
 			content += '\n'
 
 			env = self.bld.env
@@ -329,8 +328,7 @@ class CMake(object):
 		if len(self.cmakes):
 			content += '\n'
 			for cmake in self.cmakes:
-				content += 'add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/%s)\n' % (
-					cmake.get_location())
+				content += 'add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/%s)\n' % (cmake.get_location())
 
 		return content
 
@@ -368,7 +366,7 @@ class CMake(object):
 		if len(includes):
 			content += 'set(%s_INCLUDES' % (name.upper())
 			for include in includes:
-				content += '\n	%s' % include
+				content += '\n	${CMAKE_CURRENT_BINARY_DIR}/%s %s' % (include, include)
 			content += '\n)\n\n'
 			content += 'include_directories(${%s_INCLUDES})\n' % (name.upper())
 
@@ -381,8 +379,7 @@ class CMake(object):
 
 		if set(('cprogram', 'cxxprogram')) & set(tgen.features):
 			if tgen.env.DEST_OS == 'win32':
-				content += 'add_executable(%s WIN32 ${%s_SRC})\n' % (
-					name, name.upper())
+				content += 'add_executable(%s WIN32 ${%s_SRC})\n' % (name, name.upper())
 			else:
 				content += 'add_executable(%s ${%s_SRC})\n' % (name, name.upper())
 
