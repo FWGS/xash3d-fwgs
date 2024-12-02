@@ -21,6 +21,7 @@ If you like Xash3D FWGS, consider supporting individual engine maintainers. By s
 * TrueType font rendering, as a part of mainui_cpp.
 * External VGUI support module.
 * PNG & KTX2 image format support.
+* Ogg Vorbis (`.ogg`) & Ogg Opus (`.opus`) audio formats support.
 * [A set of small improvements](Documentation/), without broken compatibility.
 
 ## Installation & Running
