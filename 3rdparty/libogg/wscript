@@ -20,10 +20,6 @@ def configure(conf):
 	elif conf.check_cc(header_name='stdint.h', mandatory = False):
 		conf.env.INCLUDE_STDINT_H = 1
 
-	conf.define('INCLUDE_INTTYPES_H', conf.env.INCLUDE_INTTYPES_H)
-	conf.define('INCLUDE_SYS_TYPES_H', conf.env.INCLUDE_SYS_TYPES_H)
-	conf.define('INCLUDE_STDINT_H', conf.env.INCLUDE_STDINT_H)
-
 def build(bld):
 	sources = bld.path.ant_glob([
 		'libogg/src/*.c'
