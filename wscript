@@ -84,9 +84,6 @@ SUBDIRS = [
 	Subproject('filesystem'),
 	Subproject('stub/server'),
 	Subproject('dllemu'),
-	Subproject('3rdparty/libogg'),
-	Subproject('3rdparty/vorbis'),
-	Subproject('3rdparty/opusfile'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED and x.env.DEST_OS != 'android'),
@@ -106,7 +103,10 @@ SUBDIRS = [
 	Subproject('engine'), # keep latest for static linking
 
 	# disable only by external dependency presense
-	Subproject('3rdparty/opus', lambda x: not x.env.HAVE_SYSTEM_OPUS),
+	Subproject('3rdparty/opus',     lambda x: not x.env.HAVE_SYSTEM_OPUS),
+	Subproject('3rdparty/libogg',   lambda x: not x.env.HAVE_SYSTEM_OGG),
+	Subproject('3rdparty/vorbis',   lambda x: not x.env.HAVE_SYSTEM_VORBIS and not x.env.HAVE_SYSTEM_VORBISFILE),
+	Subproject('3rdparty/opusfile', lambda x: not x.env.HAVE_SYSTEM_OPUSFILE),
 
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
@@ -473,6 +473,13 @@ def configure(conf):
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
+		for i in (('ogg', 'libogg'),
+			('opusfile', 'libopusfile'),
+			('vorbis', 'libvorbis'),
+			('vorbisfile', 'libvorbisfile')):
+			if conf.check_cfg(package=i[0], uselib_store=i[1], args='--cflags --libs', mandatory=False):
+				conf.env['HAVE_SYSTEM_%s' % i[0].upper()] = True
+
 		# search for opus 1.4 or higher, it has fixes for custom modes
 		if conf.check_cfg(package='opus', uselib_store='opus', args='opus >= 1.4 --cflags --libs', mandatory=False):
 			# now try to link with export that only exists with CUSTOM_MODES defined
