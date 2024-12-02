@@ -22,8 +22,8 @@ typedef struct ogg_filestream_s
 {
 	const char *name;
 	const byte *buffer;
-	size_t filesize;
-	size_t position;
+	size_t     filesize;
+	size_t     position;
 } ogg_filestream_t;
 
 size_t OggFilestream_Read( void *ptr, size_t blockSize, size_t nmemb, void *datasource );
