@@ -657,18 +657,11 @@ void SCR_DrawNetGraph( void )
 
 	in_graph = clgame.dllFuncs.KB_Find( "in_graph" );
 
-	if( in_graph->state & 1 )
-	{
+	if( in_graph && in_graph->state & 1 )
 		graphtype = 2;
-	}
 	else if( net_graph.value != 0.0f )
-	{
 		graphtype = (int)net_graph.value;
-	}
-	else
-	{
-		return;
-	}
+	else return;
 
 	if( net_scale.value <= 0 )
 		Cvar_SetValue( "net_scale", 0.1f );
