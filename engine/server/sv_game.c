@@ -5135,7 +5135,6 @@ void SV_UnloadProgs( void )
 
 	// now we can unload cvars
 	Cvar_FullSet( "host_gameloaded", "0", FCVAR_READ_ONLY );
-	Cvar_FullSet( "sv_background", "0", FCVAR_READ_ONLY );
 
 	// free entity baselines
 	Z_Free( svs.static_entities );
