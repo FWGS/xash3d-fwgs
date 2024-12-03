@@ -1077,6 +1077,9 @@ void SV_Shutdown( const char *finalmsg )
 		return;
 	}
 
+	// don't forget to reset sv_background state
+	Cvar_FullSet( "sv_background", "0", FCVAR_READ_ONLY );
+
 	if( COM_CheckString( finalmsg ))
 		Con_Printf( "%s", finalmsg );
 
