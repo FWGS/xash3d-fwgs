@@ -119,7 +119,4 @@ void NSwitch_Init( void )
 void NSwitch_Shutdown( void )
 {
 	printf( "%s\n", __func__ );
-	// force deinit everything SDL-related to avoid issues with changing games
-	if ( SDL_WasInit( 0 ) )
-		SDL_Quit( );
 }
