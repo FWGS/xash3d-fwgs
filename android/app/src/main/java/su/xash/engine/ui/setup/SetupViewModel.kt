@@ -6,12 +6,8 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.work.Data
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import su.xash.engine.MainApplication
 import su.xash.engine.model.Game
-import su.xash.engine.workers.FileCopyWorker
 
 class SetupViewModel(application: Application) : AndroidViewModel(application) {
     val pageNumber: LiveData<Int> get() = _pageNumber

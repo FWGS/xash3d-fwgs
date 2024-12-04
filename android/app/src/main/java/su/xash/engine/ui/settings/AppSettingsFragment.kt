@@ -5,13 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Lifecycle
-import androidx.navigation.fragment.findNavController
-import su.xash.engine.R
-import su.xash.engine.adapters.GameAdapter
 import su.xash.engine.databinding.FragmentAppSettingsBinding
-import su.xash.engine.databinding.FragmentGameSettingsBinding
-import su.xash.engine.databinding.FragmentLibraryBinding
 
 class AppSettingsFragment : Fragment() {
     private var _binding: FragmentAppSettingsBinding? = null
