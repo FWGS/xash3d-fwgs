@@ -34,11 +34,6 @@ double Platform_DoubleTime( void )
 }
 #endif // XASH_TIMER == TIMER_SDL
 
-void SDLash_Sleep( int msec )
-{
-	SDL_Delay( msec );
-}
-
 #if XASH_MESSAGEBOX == MSGBOX_SDL
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {

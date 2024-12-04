@@ -51,13 +51,11 @@ void IOS_LaunchDialog( void );
 #if XASH_POSIX
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
-void Posix_Sleep( int msec );
 #endif
 
 #if XASH_SDL
 void SDLash_Init( void );
 void SDLash_Shutdown( void );
-void SDLash_Sleep( int msec );
 #endif
 
 #if XASH_ANDROID
@@ -78,7 +76,6 @@ void Wcon_ShowConsole( qboolean show );
 void Wcon_DisableInput( void );
 char *Wcon_Input( void );
 void Wcon_WinPrint( const char *pMsg );
-void Win32_Sleep( int msec );
 #endif
 
 #if XASH_NSWITCH
@@ -170,11 +167,11 @@ static inline void Platform_SetupSigtermHandling( void )
 static inline void Platform_Sleep( int msec )
 {
 #if XASH_TIMER == TIMER_SDL
-	SDLash_Sleep( msec );
+	SDL_Delay( msec );
 #elif XASH_TIMER == TIMER_POSIX
-	Posix_Sleep( msec );
+	usleep( msec * 1000 );
 #elif XASH_TIMER == TIMER_WIN32
-	Win32_Sleep( msec );
+	Sleep( msec );
 #else
 	// stub
 #endif

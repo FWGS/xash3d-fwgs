@@ -174,8 +174,3 @@ double Platform_DoubleTime( void )
 }
 #endif // XASH_TIMER == TIMER_POSIX
 
-void Posix_Sleep( int msec )
-{
-	usleep( msec * 1000 );
-}
-
