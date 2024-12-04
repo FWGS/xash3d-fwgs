@@ -108,6 +108,10 @@ class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean =
         }
 
         fun checkIfGamedir(file: DocumentFile): Boolean {
+            // exclude unfinished downloads
+            if (file.name?.startsWith('.') == true)
+                return false
+
             file.findFile("liblist.gam")?.let { return true }
             file.findFile("gameinfo.txt")?.let { return true }
             return false
