@@ -34,12 +34,12 @@ double Platform_DoubleTime( void )
 
 	return (double)( CurrentTime.QuadPart - g_ClockStart.QuadPart ) / (double)( g_PerformanceFrequency.QuadPart );
 }
+#endif // XASH_TIMER == TIMER_WIN32
 
-void Platform_Sleep( int msec )
+void Win32_Sleep( int msec )
 {
 	Sleep( msec );
 }
-#endif // XASH_TIMER == TIMER_WIN32
 
 qboolean Platform_DebuggerPresent( void )
 {

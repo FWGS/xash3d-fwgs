@@ -40,12 +40,8 @@ double Platform_DoubleTime( void )
 {
 	return 0.005*ticks;
 }
-
-void Platform_Sleep( int msec )
-{
-	//usleep( msec * 1000 );
-}
 #endif // XASH_TIMER == TIMER_DOS
+
 #define PIT_FREQUENCY  0x1234DDL
 #define frequency      140
 #define counter        PIT_FREQUENCY/frequency
