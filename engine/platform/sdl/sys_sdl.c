@@ -68,4 +68,6 @@ void SDLash_Init( void )
 void SDLash_Shutdown( void )
 {
 	SDLash_FreeCursors();
+
+	SDL_Quit();
 }
