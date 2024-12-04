@@ -2,17 +2,12 @@ package su.xash.engine.workers
 
 import android.content.Context
 import android.net.Uri
-import android.provider.DocumentsContract
-import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
-import androidx.work.Worker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import su.xash.engine.model.Game
-import java.io.FileInputStream
 
 const val KEY_FILE_URI = "KEY_FILE_URI"
 

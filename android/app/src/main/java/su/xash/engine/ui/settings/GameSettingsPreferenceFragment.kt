@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
-import su.xash.engine.BuildConfig
 import su.xash.engine.R
 import su.xash.engine.model.Game
 
