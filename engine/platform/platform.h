@@ -31,7 +31,6 @@ GNU General Public License for more details.
 ==============================================================================
 */
 double Platform_DoubleTime( void );
-void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
 void Platform_SetStatus( const char *status );
@@ -52,11 +51,13 @@ void IOS_LaunchDialog( void );
 #if XASH_POSIX
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
+void Posix_Sleep( int msec );
 #endif
 
 #if XASH_SDL
 void SDLash_Init( void );
 void SDLash_Shutdown( void );
+void SDLash_Sleep( int msec );
 #endif
 
 #if XASH_ANDROID
@@ -77,6 +78,7 @@ void Wcon_ShowConsole( qboolean show );
 void Wcon_DisableInput( void );
 char *Wcon_Input( void );
 void Wcon_WinPrint( const char *pMsg );
+void Win32_Sleep( int msec );
 #endif
 
 #if XASH_NSWITCH
@@ -162,6 +164,19 @@ static inline void Platform_SetupSigtermHandling( void )
 {
 #if XASH_POSIX
 	Posix_SetupSigtermHandling( );
+#endif
+}
+
+static inline void Platform_Sleep( int msec )
+{
+#if XASH_TIMER == TIMER_SDL
+	SDLash_Sleep( msec );
+#elif XASH_TIMER == TIMER_POSIX
+	Posix_Sleep( msec );
+#elif XASH_TIMER == TIMER_WIN32
+	Win32_Sleep( msec );
+#else
+	// stub
 #endif
 }
 

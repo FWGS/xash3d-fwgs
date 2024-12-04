@@ -119,22 +119,6 @@ char *Sys_GetClipboardData( void )
 
 /*
 ================
-Sys_Sleep
-
-freeze application for some time
-================
-*/
-void Sys_Sleep( int msec )
-{
-	if( !msec )
-		return;
-
-	msec = Q_min( msec, 1000 );
-	Platform_Sleep( msec );
-}
-
-/*
-================
 Sys_GetCurrentUser
 
 returns username for current profile
@@ -370,7 +354,7 @@ static void Sys_WaitForQuit( void )
 			TranslateMessage( &msg );
 			DispatchMessage( &msg );
 		}
-		else Sys_Sleep( 20 );
+		else Platform_Sleep( 20 );
 	}
 #endif
 }
@@ -420,7 +404,7 @@ void Sys_Error( const char *error, ... )
 		return; // don't multiple executes
 
 	// make sure that console received last message
-	if( host.change_game ) Sys_Sleep( 200 );
+	if( host.change_game ) Platform_Sleep( 200 );
 
 	error_on_exit = 1;
 	host.status = HOST_ERR_FATAL;

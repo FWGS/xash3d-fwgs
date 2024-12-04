@@ -32,12 +32,12 @@ double Platform_DoubleTime( void )
 	CurrentTime = SDL_GetPerformanceCounter();
 	return (double)( CurrentTime - g_ClockStart ) / (double)( g_PerformanceFrequency );
 }
+#endif // XASH_TIMER == TIMER_SDL
 
-void Platform_Sleep( int msec )
+void SDLash_Sleep( int msec )
 {
 	SDL_Delay( msec );
 }
-#endif // XASH_TIMER == TIMER_SDL
 
 #if XASH_MESSAGEBOX == MSGBOX_SDL
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )

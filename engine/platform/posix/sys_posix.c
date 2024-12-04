@@ -153,7 +153,7 @@ static void Posix_SigtermCallback( int signal )
 
 void Posix_SetupSigtermHandling( void )
 {
-#if !XASH_PSVITA 
+#if !XASH_PSVITA
 	struct sigaction act = { 0 };
 	act.sa_handler = Posix_SigtermCallback;
 	act.sa_flags = 0;
@@ -172,9 +172,10 @@ double Platform_DoubleTime( void )
 #endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
+#endif // XASH_TIMER == TIMER_POSIX
 
-void Platform_Sleep( int msec )
+void Posix_Sleep( int msec )
 {
 	usleep( msec * 1000 );
 }
-#endif // XASH_TIMER == TIMER_POSIX
+

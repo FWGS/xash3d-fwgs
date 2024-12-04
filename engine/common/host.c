@@ -652,10 +652,10 @@ static qboolean Host_Autosleep( double dt, double scale )
 			// if we have allocated time window, try to sleep
 			if( timewindow > realsleeptime )
 			{
-				// Sys_Sleep isn't guaranteed to sleep an exact amount of milliseconds
+				// Platform_Sleep isn't guaranteed to sleep an exact amount of milliseconds
 				// so we measure the real sleep time and use it to decrease the window
 				double t1 = Sys_DoubleTime(), t2;
-				Sys_Sleep( sleep ); // in msec!
+				Platform_Sleep( sleep ); // in msec!
 				t2 = Sys_DoubleTime();
 				realsleeptime = t2 - t1;
 
