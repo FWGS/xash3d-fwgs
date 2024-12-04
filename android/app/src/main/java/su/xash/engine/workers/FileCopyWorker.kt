@@ -41,6 +41,8 @@ class FileCopyWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             source.copyDirTo(applicationContext, this@FileCopyWorker, target)
 
             target.renameTo(gamedir)
+
+            setProgress(workDataOf(Progress to 1f))
         }
         return Result.success()
     }
