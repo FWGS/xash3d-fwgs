@@ -17,11 +17,12 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 	set(BUILD_TYPE "debug")
 else()
 	set(BUILD_TYPE "release")
+	list(APPEND WAF_EXTRA_ARGS --enable-poly-opt --enable-lto)
 endif()
 
 if(CMAKE_SIZEOF_VOID_P MATCHES "8")
 	set(64BIT ON CACHE BOOL "" FORCE)
-	set(WAF_EXTRA_ARGS "-8") # only required for x86 when testing this cmakelist under linux
+	list(APPEND WAF_EXTRA_ARGS -8) # only required for x86 when testing this cmakelist under linux
 endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
