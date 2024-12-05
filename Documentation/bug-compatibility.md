@@ -13,5 +13,6 @@ When `-bugcomp` is specified with argument, it interpreted as flags separated wi
 | Flag    | Description | Games that require this flag |
 | ------- | ----------- | ---------------------------- |
 | `peoei` | Reverts `pfnPEntityOfEntIndex` behavior to GoldSrc, where it returns NULL for last player due to incorrect player index comparison | * Counter-Strike: Condition Zero - Deleted Scenes |
-| `gsmrf` | Rewrites message at the moment when Game DLL attempts to write an internal engine message, usually specific to GoldSrc protocol. Right now only supports `svc_spawnstaticsound`, more messages added by request. | * MetaMod/AMXModX based mods |
+| `gsmrf` | Rewrites message at the moment when Game DLL attempts to write an internal engine message, usually specific to GoldSrc protocol.<br>Right now only supports `svc_spawnstaticsound`, more messages added by request. | * MetaMod/AMXModX based mods |
 | `sp_attn_none` | Makes sounds with attenuation zero spatialized, i.e. have a stereo effect. | Possibly, every game that was made for GoldSrc. |
+| `get_game_dir_full` | Makes server return full path in server's `pfnGetGameDir` API function | Mods targetting engine before HL 1.1.1.1, according to MetaMod [documentation](http://metamod.org/engine_notes.html#GetGameDir) |

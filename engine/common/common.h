@@ -282,6 +282,9 @@ typedef enum bugcomp_e
 
 	// makes sound with no attenuation spatialized, like in GoldSrc
 	BUGCOMP_SPATIALIZE_SOUND_WITH_ATTN_NONE = BIT( 2 ),
+
+	// returns full path to the game directory in server's pfnGetGameDir call
+	BUGCOMP_GET_GAME_DIR_FULL_PATH = BIT( 3 ),
 } bugcomp_t;
 
 typedef struct host_parm_s
