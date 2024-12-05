@@ -494,7 +494,7 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 
 	for( i = 0, j = 0; i < CVOXWORDMAX && rgpparseword[i]; i++ )
 	{
-		char pathbuffer[PATH_MAX];
+		char pathbuffer[MAX_SYSPATH];
 
 		if( !VOX_ParseWordParams( rgpparseword[i], &ch->words[j], i == 0 ))
 			continue;
