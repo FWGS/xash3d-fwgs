@@ -499,7 +499,7 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 		if( !VOX_ParseWordParams( rgpparseword[i], &ch->words[j], i == 0 ))
 			continue;
 
-		if( Q_snprintf( pathbuffer, sizeof( pathbuffer ), "%s%s.wav", szpath, rgpparseword[i] ) < 0 )
+		if( Q_snprintf( pathbuffer, sizeof( pathbuffer ), "%s%s", szpath, rgpparseword[i] ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: path to word in sentence %s is too long\n", __func__, pszin );
 			return;
