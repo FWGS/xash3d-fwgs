@@ -92,13 +92,17 @@ static const feature_message_t engine_features[] =
 { ENGINE_STEP_POSHISTORY_LERP, "MOVETYPE_STEP Position History Based Lerping" },
 };
 
+static void Sys_MakeVersionString( char *out, size_t len )
+{
+	Q_snprintf( out, len, XASH_ENGINE_NAME " %i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
+}
+
 static void Sys_PrintUsage( const char *exename )
 {
 	string version_str;
 	const char *usage_str;
 
-	Q_snprintf( version_str, sizeof( version_str ),
-		XASH_ENGINE_NAME " %i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
+	Sys_MakeVersionString( version_str, sizeof( version_str ));
 
 #if XASH_MESSAGEBOX != MSGBOX_STDERR
 	#if XASH_WIN32
@@ -109,7 +113,6 @@ static void Sys_PrintUsage( const char *exename )
 #else
 	#define XASH_EXE "%s"
 #endif
-
 #define O( x, y ) "  "x"  "y"\n"
 
 	usage_str = S_USAGE XASH_EXE " [options] [+command] [+command2 arg] ...\n"
@@ -196,6 +199,32 @@ static void Sys_PrintUsage( const char *exename )
 #endif // XASH_SOUND == SOUND_ALSA
 	;
 #undef O
+#undef XASH_EXE
+
+	// HACKHACK: pretty output in dedicated
+#if XASH_MESSAGEBOX != MSGBOX_STDERR
+	Platform_MessageBox( version_str, usage_str, false );
+#else
+	fprintf( stderr, "%s\n", version_str );
+	fprintf( stderr, usage_str, exename );
+#endif
+
+	Sys_Quit();
+}
+
+static void Sys_PrintBugcompUsage( const char *exename )
+{
+	string version_str;
+	char usage_str[4096];
+	char *p = usage_str;
+	int i;
+
+	Sys_MakeVersionString( version_str, sizeof( version_str ));
+
+	p += Q_snprintf( p, sizeof( usage_str ) - ( usage_str - p ), "Known bugcomp flags are:\n" );
+	for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
+		p += Q_snprintf( p, sizeof( usage_str ) - ( usage_str - p ), "   %s: %s\n", bugcomp_features[i].arg, bugcomp_features[i].msg );
+	p += Q_snprintf( p, sizeof( usage_str ) - ( usage_str - p ), "\nIt is possible to combine multiple flags with '+' characters.\nExample: -bugcomp flag1+flag2+flag3...\n" );
 
 	// HACKHACK: pretty output in dedicated
 #if XASH_MESSAGEBOX != MSGBOX_STDERR
@@ -983,8 +1012,13 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	if( !Sys_CheckParm( "-disablehelp" ))
 	{
+		string arg;
+
 		if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ))
 			Sys_PrintUsage( exename );
+
+		if( Sys_GetParmFromCmdLine( "-bugcomp", arg ) && !Q_stricmp( arg, "help" ))
+			Sys_PrintBugcompUsage( exename );
 	}
 
 	if( !Sys_CheckParm( "-noch" ))
