@@ -1391,7 +1391,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 			// NOTE: gamedll might resolve it's own path using dladdr() and expects absolute path
 			// NOTE: the only allowed case when searchpath is set by absolute path is the RoDir
 			// rather than figuring out whether path is absolute, just check if it matches
-			if( !Q_strnicmp( search->filename, fs_rodir, Q_strlen( fs_rodir )))
+			if( COM_CheckStringEmpty( fs_rodir ) && !Q_strnicmp( search->filename, fs_rodir, Q_strlen( fs_rodir )))
 			{
 				Q_snprintf( dllInfo->fullPath, sizeof( dllInfo->fullPath ), "%s%s", search->filename, dllInfo->shortPath );
 			}
