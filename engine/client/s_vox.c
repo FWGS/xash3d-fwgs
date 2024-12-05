@@ -458,22 +458,20 @@ static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword, qboolean fF
 
 void VOX_LoadSound( channel_t *ch, const char *pszin )
 {
-	char buffer[512], szpath[32], pathbuffer[64];
-	char *rgpparseword[CVOXWORDMAX];
+	char buffer[512] = { 0 }, szpath[32] = { 0 };
+	char *rgpparseword[CVOXWORDMAX] = { 0 };
 	const char *psz;
 	int i, j;
 
 	if( !pszin )
 		return;
 
-	memset( buffer, 0, sizeof( buffer ));
-	memset( rgpparseword, 0, sizeof( rgpparseword ));
-
 	psz = VOX_LookupString( pszin );
 
 	if( !psz )
 	{
-		Con_Printf( "%s: no sentence named %s\n", __func__, pszin );
+		// sometimes modders remove sentences but entities continue to use them, so it's a warning, not an error
+		Con_Printf( S_WARN "%s: no sentence named %s\n", __func__, pszin );
 		return;
 	}
 
@@ -481,26 +479,31 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 
 	if( !psz )
 	{
-		Con_Printf( "%s: failed getting directory for %s\n", __func__, pszin );
+		Con_Printf( S_ERROR "%s: failed getting directory for %s\n", __func__, pszin );
 		return;
 	}
 
 	if( Q_strlen( psz ) >= sizeof( buffer ) )
 	{
-		Con_Printf( "%s: sentence is too long %s", __func__, psz );
+		Con_Printf( S_ERROR "%s: sentence is too long %s\n", __func__, psz );
 		return;
 	}
 
 	Q_strncpy( buffer, psz, sizeof( buffer ));
 	VOX_ParseString( buffer, rgpparseword );
 
-	j = 0;
-	for( i = 0; rgpparseword[i]; i++ )
+	for( i = 0, j = 0; i < CVOXWORDMAX && rgpparseword[i]; i++ )
 	{
+		char pathbuffer[PATH_MAX];
+
 		if( !VOX_ParseWordParams( rgpparseword[i], &ch->words[j], i == 0 ))
 			continue;
 
-		Q_snprintf( pathbuffer, sizeof( pathbuffer ), "%s%s.wav", szpath, rgpparseword[i] );
+		if( Q_snprintf( pathbuffer, sizeof( pathbuffer ), "%s%s.wav", szpath, rgpparseword[i] ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: path to word in sentence %s is too long\n", __func__, pszin );
+			return;
+		}
 
 		ch->words[j].sfx = S_FindName( pathbuffer, &ch->words[j].fKeepCached );
 
