@@ -430,6 +430,7 @@ extern convar_t		sv_wateramp;
 extern convar_t		sv_voiceenable;
 extern convar_t		sv_voicequality;
 extern convar_t		sv_maxvelocity;
+extern convar_t		sv_stepsize;
 extern convar_t		sv_skyname;
 extern convar_t		sv_skycolor_r;
 extern convar_t		sv_skycolor_g;

@@ -90,7 +90,7 @@ CVAR_DEFINE_AUTO( sv_friction, "4", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you s
 static CVAR_DEFINE( sv_edgefriction, "edgefriction", "2", FCVAR_SERVER|FCVAR_MOVEVARS, "how much you slow down when nearing a ledge you might fall off" );
 static CVAR_DEFINE_AUTO( sv_waterfriction, "1", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you slow down in water" );
 static CVAR_DEFINE_AUTO( sv_bounce, "1", FCVAR_SERVER|FCVAR_MOVEVARS, "bounce factor for entities with MOVETYPE_BOUNCE" );
-static CVAR_DEFINE_AUTO( sv_stepsize, "18", FCVAR_SERVER|FCVAR_MOVEVARS, "how high you and NPS's can step up" );
+CVAR_DEFINE_AUTO( sv_stepsize, "18", FCVAR_SERVER|FCVAR_MOVEVARS, "how high you and NPC's can step up" );
 CVAR_DEFINE_AUTO( sv_maxvelocity, "2000", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "max velocity for all things in the world" );
 static CVAR_DEFINE_AUTO( sv_zmax, "4096", FCVAR_MOVEVARS|FCVAR_SPONLY, "maximum viewable distance" );
 CVAR_DEFINE_AUTO( sv_wateramp, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "world waveheight factor" );
