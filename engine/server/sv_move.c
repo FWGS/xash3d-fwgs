@@ -66,12 +66,12 @@ realcheck:
 	start[2] = mins[2];
 
 	if( !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-		start[2] += svgame.movevars.stepsize;
+		start[2] += sv_stepsize.value;
 
 	// the midpoint must be within 16 of the bottom
 	start[0] = stop[0] = (mins[0] + maxs[0]) * 0.5f;
 	start[1] = stop[1] = (mins[1] + maxs[1]) * 0.5f;
-	stop[2] = start[2] - 2.0f * svgame.movevars.stepsize;
+	stop[2] = start[2] - 2.0f * sv_stepsize.value;
 
 	if( iMode == WALKMOVE_WORLDONLY )
 		trace = SV_MoveNoEnts( start, vec3_origin, vec3_origin, stop, MOVE_NOMONSTERS, ent );
@@ -96,7 +96,7 @@ realcheck:
 
 			if( trace.fraction != 1.0f && trace.endpos[2] > bottom )
 				bottom = trace.endpos[2];
-			if( trace.fraction == 1.0f || mid - trace.endpos[2] > svgame.movevars.stepsize )
+			if( trace.fraction == 1.0f || mid - trace.endpos[2] > sv_stepsize.value )
 				return false;
 		}
 	}
@@ -283,7 +283,7 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 	}
 	else
 	{
-		dz = svgame.movevars.stepsize;
+		dz = sv_stepsize.value;
 		neworg[2] += dz;
 		VectorCopy( neworg, end );
 		end[2] -= dz * 2.0f;
@@ -348,7 +348,7 @@ qboolean SV_MoveTest( edict_t *ent, vec3_t move, qboolean relink )
 	VectorCopy( ent->v.origin, oldorg );
 	VectorAdd( ent->v.origin, move, neworg );
 
-	temp = svgame.movevars.stepsize;
+	temp = sv_stepsize.value;
 
 	neworg[2] += temp;
 	VectorCopy( neworg, end );

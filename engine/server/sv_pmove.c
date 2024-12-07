@@ -571,7 +571,7 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 	if( pmove->multiplayer ) pmove->onground = -1;
 	pmove->waterlevel = clent->v.waterlevel;
 	pmove->watertype = clent->v.watertype;
-	pmove->maxspeed = svgame.movevars.maxspeed;
+	pmove->maxspeed = svgame.movevars.maxspeed; // GoldSrc uses sv_maxspeed here?
 	pmove->clientmaxspeed = clent->v.maxspeed;
 	pmove->iuser1 = clent->v.iuser1;
 	pmove->iuser2 = clent->v.iuser2;

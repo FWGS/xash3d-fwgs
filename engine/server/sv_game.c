@@ -3813,8 +3813,12 @@ static void GAME_EXPORT pfnSetClientMaxspeed( const edict_t *pEdict, float fNewM
 	if(( cl = SV_ClientFromEdict( pEdict, false )) == NULL )
 		return;
 
+	// GoldSrc doesn't bound the value to the movevar here
 	fNewMaxspeed = bound( -svgame.movevars.maxspeed, fNewMaxspeed, svgame.movevars.maxspeed );
+
+	// There isn't any reference to "maxspd" anywhere except some commented-out code in SDK
 	Info_SetValueForKeyf( cl->physinfo, "maxspd", MAX_INFO_STRING, "%.f", fNewMaxspeed );
+
 	cl->edict->v.maxspeed = fNewMaxspeed;
 }
 

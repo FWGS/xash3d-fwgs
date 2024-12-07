@@ -1478,7 +1478,7 @@ trace_t SV_MoveToss( edict_t *tossent, edict_t *ignore )
 	VectorCopy( tossent->v.velocity, original_velocity );
 	VectorCopy( tossent->v.angles, original_angles );
 	VectorCopy( tossent->v.avelocity, original_avelocity );
-	gravity = tossent->v.gravity * svgame.movevars.gravity * 0.05f;
+	gravity = tossent->v.gravity * sv_gravity.value * 0.05f;
 
 	for( i = 0; i < 200; i++ )
 	{
