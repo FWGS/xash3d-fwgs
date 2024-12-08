@@ -607,11 +607,29 @@ movie_state_t *AVI_GetState( int num )
 
 qboolean AVI_Initailize( void )
 {
+	uint ver;
+
 	if( Sys_CheckParm( "-noavi" ))
 	{
 		Con_Printf( "AVI: Disabled\n" );
 		return false;
 	}
+
+	// print version we're compiled with and which version we're running with
+	ver = avutil_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVUTIL_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = avformat_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVFORMAT_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = avformat_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVCODEC_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = swscale_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBSWSCALE_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = swresample_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBSWRESAMPLE_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
 
 	avi_initialized = true;
 	return true;
