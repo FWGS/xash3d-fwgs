@@ -235,29 +235,15 @@ qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *dura
 	return true;
 }
 
-qboolean AVI_GetAudioInfo( movie_state_t *Avi, wavdata_t *snd_info )
+qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
 {
-	if( !Avi->active || Avi->audio_stream < 0 )
-		return false;
-
-	snd_info->rate = Avi->rate;
-	snd_info->channels = Avi->channels;
-	snd_info->width = av_get_bytes_per_sample( Avi->s_fmt );
-	snd_info->size = (size_t)snd_info->rate * snd_info->width * snd_info->channels;
-	snd_info->loopStart = 0;
-
-	return true;
+	return Avi ? Avi->active && Avi->audio_ctx : false;
 }
 
 // just let it compile, bruh!
 byte *AVI_GetVideoFrame( movie_state_t *Avi, int target )
 {
 	return Avi->dst;
-}
-
-int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int length )
-{
-	return 0;
 }
 
 static void AVI_StreamAudio( movie_state_t *Avi )
