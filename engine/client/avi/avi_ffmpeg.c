@@ -27,11 +27,7 @@ GNU General Public License for more details.
 
 struct movie_state_s
 {
-	qboolean active;
-	qboolean quiet;
-	qboolean have_texture;
-
-	// ffmpreg contexts
+	// ffmpeg contexts
 	AVFormatContext *fmt_ctx;
 	AVCodecContext *video_ctx;
 	AVCodecContext *audio_ctx;
@@ -44,30 +40,35 @@ struct movie_state_s
 	int64_t first_time;
 	int64_t last_time;
 
-	// video stream info
-	int video_stream, xres, yres;
+	// video stream
+	byte *dst;
 	double duration;
+	int video_stream;
+	int xres;
+	int yres;
+	int dst_linesize;
 	enum AVPixelFormat pix_fmt;
 
-	// audio stream info
-	int audio_stream, channels, rate;
-	enum AVSampleFormat s_fmt;
+	// rendering video parameters
+	int x, y, w, h; // passed to R_DrawStretchRaw
+	int texture; // passed to R_UploadStretchRaw
 
-	byte *dst;
-	int dst_linesize;
+	// audio stream
+	int audio_stream;
+	int channels;
+	int rate;
+	enum AVSampleFormat s_fmt;
 
 	byte *cached_audio;
 	size_t cached_audio_buf_len; // absolute size of cached_audio array
 	size_t cached_audio_len; // how many data in bytes we have in cached_audio array
 	size_t cached_audio_pos; // how far we've read into cached_audio array
 
-	// rendering video parameters
-	int x, y, w, h; // passed to R_DrawStretchRaw
-	int texture; // passed to R_UploadStretchRaw
-
 	// rendering audio parameters
-	int entnum;
-	int volume;
+	uint16_t entnum; // MAX_ENTITY_BITS is 13
+	byte volume;
+	byte active : 1;
+	byte quiet  : 1;
 };
 
 static qboolean avi_initialized;
@@ -81,6 +82,8 @@ qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 
 	while( parm != AVI_PARM_LAST )
 	{
+		int val;
+
 		switch( parm )
 		{
 		case AVI_RENDER_TEXNUM:
@@ -108,10 +111,12 @@ qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 			av_seek_frame( Avi->fmt_ctx, -1, 0, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_BACKWARD );
 			break;
 		case AVI_ENTNUM:
-			Avi->entnum = va_arg( va, int );
+			val = va_arg( va, int );
+			Avi->entnum = bound( 0, val, MAX_EDICTS );
 			break;
 		case AVI_VOLUME:
-			Avi->volume = va_arg( va, int );
+			val = va_arg( va, int );
+			Avi->volume = bound( 0, val, 255 );
 			break;
 		default:
 			ret = false;
@@ -119,7 +124,6 @@ qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 
 		parm = va_arg( va, enum movie_parms_e );
 	}
-
 
 	va_end( va );
 
