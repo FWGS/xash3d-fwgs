@@ -428,6 +428,9 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	if( Avi->active )
 		AVI_CloseVideo( Avi );
 
+	if( !filename || !avi_initialized )
+		return;
+
 	Avi->active = false;
 	Avi->quiet = quiet;
 	Avi->video_ctx = Avi->audio_ctx = NULL;
