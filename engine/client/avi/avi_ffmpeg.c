@@ -1,6 +1,8 @@
 /*
 avi_ffmpreg.c - playing AVI files (ffmpeg backend)
-Copyright (C) 2023 Alibek Omarov
+Copyright (C) FTEQW developers (for plugins/avplug/avdecode.c)
+Copyright (C) Sam Lantinga (for tests/testffmpeg.c)
+Copyright (C) 2023-2024 Alibek Omarov
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
