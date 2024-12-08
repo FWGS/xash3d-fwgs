@@ -265,7 +265,6 @@ void SND_ForceCloseMouth( int entnum );
 //
 // s_stream.c
 //
-void S_StreamSoundTrack( void );
 void S_StreamBackgroundTrack( void );
 void S_PrintBackgroundTrackState( void );
 void S_FadeMusicVolume( float fadePercent );

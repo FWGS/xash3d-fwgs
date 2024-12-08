@@ -24,9 +24,6 @@ AVI PLAYING
 =================================================================
 */
 
-static int		xres, yres;
-static float		video_duration;
-static wavdata_t		cin_audio;
 static movie_state_t	*cin_state;
 
 /*
@@ -203,13 +200,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 		return false;
 	}
 
-	if( !( AVI_GetVideoInfo( cin_state, &xres, &yres, &video_duration ))) // couldn't open this at all.
-	{
-		AVI_CloseVideo( cin_state );
-		return false;
-	}
-
-	if( AVI_GetAudioInfo( cin_state, &cin_audio ))
+	if( AVI_HaveAudioTrack( cin_state ))
 	{
 		// begin streaming
 		S_StopAllSounds( true );
@@ -229,23 +220,6 @@ qboolean SCR_PlayCinematic( const char *arg )
 	cls.signon = 0;
 
 	return true;
-}
-
-int SCR_GetAudioChunk( char *rawdata, int length )
-{
-	int	r;
-
-	r = AVI_GetAudioChunk( cin_state, rawdata, cin_audio.loopStart, length );
-	cin_audio.loopStart += r; // advance play position
-
-	return r;
-}
-
-wavdata_t *SCR_GetMovieInfo( void )
-{
-	if( AVI_IsActive( cin_state ))
-		return &cin_audio;
-	return NULL;
 }
 
 /*
