@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "platform/platform.h"
 
-#define SND_CLIP_DISTANCE		1000.0f
-
 dma_t		dma;
 poolhandle_t sndpool;
 static soundfade_t	soundfade;
@@ -1111,7 +1109,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 S_RawSamplesStereo
 ===================
 */
-static uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
+uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
 {
 	uint	fracstep, samplefrac;
 	uint	src, dst;
