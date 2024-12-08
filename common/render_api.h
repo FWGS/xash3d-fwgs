@@ -166,6 +166,8 @@ enum movie_parms_e
 	AVI_RENDER_W, // (int) sets texture or screen width
 	AVI_RENDER_H, // set to -1 to draw full screen
 	AVI_REWIND, // no argument, rewind playback to the beginning
+	AVI_ENTNUM, // (int) entity number, -1 for no spatialization
+	AVI_VOLUME, // (int) volume from 0 to 255
 };
 
 struct movie_state_s;

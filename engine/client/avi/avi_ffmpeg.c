@@ -62,6 +62,10 @@ struct movie_state_s
 	// rendering video parameters
 	int x, y, w, h; // passed to R_DrawStretchRaw
 	int texture; // passed to R_UploadStretchRaw
+
+	// rendering audio parameters
+	int entnum;
+	int volume;
 };
 
 static qboolean avi_initialized;
@@ -100,6 +104,12 @@ qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 			Avi->last_time = -1;
 			Avi->first_time = 0;
 			av_seek_frame( Avi->fmt_ctx, -1, 0, AVSEEK_FLAG_FRAME | AVSEEK_FLAG_BACKWARD );
+			break;
+		case AVI_ENTNUM:
+			Avi->entnum = va_arg( va, int );
+			break;
+		case AVI_VOLUME:
+			Avi->volume = va_arg( va, int );
 			break;
 		default:
 			ret = false;
@@ -234,18 +244,56 @@ byte *AVI_GetVideoFrame( movie_state_t *Avi, int target )
 
 int AVI_GetAudioChunk( movie_state_t *Avi, char *audiodata, int offset, int length )
 {
-	size_t copy = Q_min( length, Q_max( Avi->cached_audio_len - Avi->cached_audio_pos, 0 ));
+	return 0;
+}
 
-	if( !Avi->cached_audio )
-		return 0;
+static void AVI_StreamAudio( movie_state_t *Avi )
+{
+	int buffer_samples, file_samples, file_bytes;
+	rawchan_t *ch = NULL;
 
-	memcpy( audiodata, Avi->cached_audio + Avi->cached_audio_pos, copy );
+	if( !dma.initialized || !s_listener.streaming || s_listener.paused || !Avi->cached_audio )
+		return;
 
-	Avi->cached_audio_pos += copy;
+	ch = S_FindRawChannel( Avi->entnum, true );
 
-	// Con_Printf( "%s: requested audio chunk of size %d, giving %d\n", __func__, length, copy );
+	if( !ch )
+		return;
 
-	return copy;
+	if( ch->s_rawend < soundtime )
+		ch->s_rawend = soundtime;
+
+	while( ch->s_rawend < soundtime + ch->max_samples )
+	{
+		size_t copy;
+
+		buffer_samples = ch->max_samples - (ch->s_rawend - soundtime);
+
+		file_samples = buffer_samples * ((float)Avi->rate / SOUND_DMA_SPEED);
+		if( file_samples <= 1 ) return; // no more samples need
+
+		file_bytes = file_samples * av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels;
+
+		if( file_bytes > ch->max_samples )
+		{
+			file_bytes = ch->max_samples;
+			file_samples = file_bytes / ( av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels );
+		}
+
+		copy = Q_min( file_bytes, Q_max( Avi->cached_audio_len - Avi->cached_audio_pos, 0 ));
+
+		if( !copy )
+			break;
+
+		if( file_bytes > copy )
+		{
+			file_bytes = copy;
+			file_samples = file_bytes / ( av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels );
+		}
+
+		S_RawEntSamples( Avi->entnum, file_samples, Avi->rate, av_get_bytes_per_sample( Avi->s_fmt ), Avi->channels, Avi->cached_audio + Avi->cached_audio_pos, Avi->volume );
+		Avi->cached_audio_pos += copy;
+	}
 }
 
 static void AVI_HandleAudio( movie_state_t *Avi, const AVFrame *frame )
@@ -305,6 +353,8 @@ qboolean AVI_Think( movie_state_t *Avi )
 
 	if( !Avi->first_time )
 		Avi->first_time = curtime;
+
+	AVI_StreamAudio( Avi );
 
 	if( Avi->last_time > curtime )
 	{
@@ -396,7 +446,9 @@ qboolean AVI_Think( movie_state_t *Avi )
 	if( flushing && !decoded )
 		return false; // probably hit an EOF
 
-	Con_NPrintf( 1, "cached_audio_buf_len = %d\n", Avi->cached_audio_buf_len );
+	Con_NPrintf( 1, "cached_audio_buf_len = %d", Avi->cached_audio_buf_len );
+	Con_NPrintf( 2, "cached_audio_pos = %d\n", Avi->cached_audio_pos );
+	Con_NPrintf( 3, "cached_audio_len = %d\n", Avi->cached_audio_len );
 
 	return true;
 }
@@ -448,6 +500,8 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	Avi->yres     = Avi->video_ctx->height;
 	Avi->pix_fmt  = Avi->video_ctx->pix_fmt;
 	Avi->duration = Avi->fmt_ctx->duration / (double)AV_TIME_BASE;
+	Avi->entnum   = S_RAW_SOUND_SOUNDTRACK;
+	Avi->volume   = 255;
 
 	if(( ret = av_image_alloc( dst, dst_linesize, Avi->xres, Avi->yres, AV_PIX_FMT_BGRA, 1 )) < 0 )
 	{
@@ -467,8 +521,10 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		if( Avi->audio_stream < 0 )
 			return;
 
-		Avi->channels = Avi->audio_ctx->ch_layout.nb_channels;
-		Avi->s_fmt = AV_SAMPLE_FMT_S16;
+		Avi->channels = Q_min( Avi->audio_ctx->ch_layout.nb_channels, 2 );
+		if( Avi->audio_ctx->sample_fmt == AV_SAMPLE_FMT_U8 || Avi->audio_ctx->sample_fmt == AV_SAMPLE_FMT_U8P )
+			Avi->s_fmt = AV_SAMPLE_FMT_U8;
+		else Avi->s_fmt = AV_SAMPLE_FMT_S16;
 		Avi->rate = Avi->audio_ctx->sample_rate;
 
 		if(( ret = swr_alloc_set_opts2( &Avi->swr_ctx, &Avi->audio_ctx->ch_layout, Avi->s_fmt, Avi->rate,
