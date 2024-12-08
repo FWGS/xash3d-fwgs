@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "platform/platform.h"
 
-#define SND_CLIP_DISTANCE		1000.0f
-
 dma_t		dma;
 poolhandle_t sndpool;
 static soundfade_t	soundfade;
@@ -1111,7 +1109,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 S_RawSamplesStereo
 ===================
 */
-static uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
+uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
 {
 	uint	fracstep, samplefrac;
 	uint	src, dst;
@@ -1214,77 +1212,7 @@ S_PositionedRawSamples
 */
 void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float synctime )
 {
-	int	bufferSamples;
-	int	fileSamples;
-	byte	raw[MAX_RAW_SAMPLES];
-	float	duration = 0.0f;
-	int	r, fileBytes;
-	rawchan_t	*ch = NULL;
-
-	if( !dma.initialized || s_listener.paused || !CL_IsInGame( ))
-		return;
-
-	if( entnum < 0 || entnum >= GI->max_edicts )
-		return;
-
-	if( !( ch = S_FindRawChannel( entnum, true )))
-		return;
-
-	if( ch->sound_info.rate == 0 )
-	{
-		if( !AVI_GetAudioInfo( Avi, &ch->sound_info ))
-			return; // no audiotrack
-	}
-
-	ch->master_vol = bound( 0, fvol * 255, 255 );
-	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
-
-	// see how many samples should be copied into the raw buffer
-	if( ch->s_rawend < soundtime )
-		ch->s_rawend = soundtime;
-
-	// position is changed, synchronization is lost etc
-	if( fabs( ch->oldtime - synctime ) > s_mixahead.value )
-		ch->sound_info.loopStart = AVI_TimeToSoundPosition( Avi, synctime * 1000 );
-	ch->oldtime = synctime; // keep actual time
-
-	while( ch->s_rawend < soundtime + ch->max_samples )
-	{
-		wavdata_t	*info = &ch->sound_info;
-
-		bufferSamples = ch->max_samples - (ch->s_rawend - soundtime);
-
-		// decide how much data needs to be read from the file
-		fileSamples = bufferSamples * ((float)info->rate / SOUND_DMA_SPEED );
-		if( fileSamples <= 1 ) return; // no more samples need
-
-		// our max buffer size
-		fileBytes = fileSamples * ( info->width * info->channels );
-
-		if( fileBytes > sizeof( raw ))
-		{
-			fileBytes = sizeof( raw );
-			fileSamples = fileBytes / ( info->width * info->channels );
-		}
-
-		// read audio stream
-		r = AVI_GetAudioChunk( Avi, raw, info->loopStart, fileBytes );
-		info->loopStart += r; // advance play position
-
-		if( r < fileBytes )
-		{
-			fileBytes = r;
-			fileSamples = r / ( info->width * info->channels );
-		}
-
-		if( r > 0 )
-		{
-			// add to raw buffer
-			ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples,
-			fileSamples, info->rate, info->width, info->channels, raw );
-		}
-		else break; // no more samples for this frame
-	}
+	return; // stub, use AVI_SetParm and AVI_Think to stream AVI sound
 }
 
 /*
@@ -1690,7 +1618,6 @@ void SND_UpdateSound( void )
 	}
 
 	S_StreamBackgroundTrack ();
-	S_StreamSoundTrack ();
 
 	// mix some sound
 	S_UpdateChannels ();
