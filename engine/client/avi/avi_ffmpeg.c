@@ -67,7 +67,7 @@ struct movie_state_s
 static qboolean avi_initialized;
 static movie_state_t avi[2];
 
-qboolean AVI_SetParm( movie_state_t *Avi, int parm, ... )
+qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 {
 	qboolean ret = true;
 	va_list va;
