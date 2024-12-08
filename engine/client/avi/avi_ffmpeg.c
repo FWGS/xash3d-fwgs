@@ -35,7 +35,8 @@ struct movie_state_s
 	struct SwrContext *swr_ctx;
 
 	AVPacket *pkt;
-	AVFrame *frame;
+	AVFrame *aframe;
+	AVFrame *vframe;
 
 	int64_t first_time;
 	int64_t last_time;
@@ -72,6 +73,7 @@ struct movie_state_s
 };
 
 static qboolean avi_initialized;
+static poolhandle_t avi_mempool;
 static movie_state_t avi[2];
 
 qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
@@ -252,6 +254,10 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 	if( !ch )
 		return;
 
+	ch->master_vol = Avi->volume;
+	ch->dist_mult = (ATTN_NONE / SND_CLIP_DISTANCE);
+	ch->leftvol = ch->rightvol = Avi->volume;
+
 	if( ch->s_rawend < soundtime )
 		ch->s_rawend = soundtime;
 
@@ -283,7 +289,7 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 			file_samples = file_bytes / ( av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels );
 		}
 
-		S_RawEntSamples( Avi->entnum, file_samples, Avi->rate, av_get_bytes_per_sample( Avi->s_fmt ), Avi->channels, Avi->cached_audio + Avi->cached_audio_pos, Avi->volume );
+		ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, file_samples, Avi->rate, av_get_bytes_per_sample( Avi->s_fmt ), Avi->channels, Avi->cached_audio + Avi->cached_audio_pos );
 		Avi->cached_audio_pos += copy;
 	}
 }
@@ -300,30 +306,25 @@ static void AVI_HandleAudio( movie_state_t *Avi, const AVFrame *frame )
 	{
 		Avi->cached_audio_buf_len = len;
 		Avi->cached_audio_pos = 0;
-		Avi->cached_audio = Mem_Calloc( host.mempool, len );
-
-		outsamples = swr_convert( Avi->swr_ctx, &Avi->cached_audio, samples, (void *)frame->data, samples );
-		Avi->cached_audio_len = outsamples * av_get_bytes_per_sample( Avi->s_fmt ) * Avi->channels;
-
-		// Con_Printf( "%s: got audio chunk of size %d samples\n", __func__, outsamples );
-		return;
+		Avi->cached_audio_len = 0;
+		Avi->cached_audio = Mem_Malloc( avi_mempool, len );
 	}
-
-	if( Avi->cached_audio_pos )
+	else
 	{
-		// Con_Printf( "%s: erasing old data of size %d\n", __func__, Avi->cached_audio_pos );
+		if( Avi->cached_audio_pos )
+		{
+			// Con_Printf( "%s: erasing old data of size %d\n", __func__, Avi->cached_audio_pos );
+			Avi->cached_audio_len -= Avi->cached_audio_pos;
+			memmove( Avi->cached_audio, Avi->cached_audio + Avi->cached_audio_pos, Avi->cached_audio_len );
+			Avi->cached_audio_pos = 0;
+		}
 
-		Avi->cached_audio_len -= Avi->cached_audio_pos;
-		memmove( Avi->cached_audio, Avi->cached_audio + Avi->cached_audio_pos, Avi->cached_audio_len );
-		Avi->cached_audio_pos = 0;
-	}
-
-	if( len + Avi->cached_audio_len > Avi->cached_audio_buf_len )
-	{
-		// Con_Printf( "%s: resizing old buffer of size %d to size %d\n", __func__, Avi->cached_audio_buf_len, len + Avi->cached_audio_buf_len );
-
-		Avi->cached_audio_buf_len = len + Avi->cached_audio_len;
-		Avi->cached_audio = Mem_Realloc( host.mempool, Avi->cached_audio, Avi->cached_audio_buf_len );
+		if( len + Avi->cached_audio_len > Avi->cached_audio_buf_len )
+		{
+			// Con_Printf( "%s: resizing old buffer of size %d to size %d\n", __func__, Avi->cached_audio_buf_len, len + Avi->cached_audio_buf_len );
+			Avi->cached_audio_buf_len = len + Avi->cached_audio_len;
+			Avi->cached_audio = Mem_Realloc( avi_mempool, Avi->cached_audio, Avi->cached_audio_buf_len );
+		}
 	}
 
 	ptr = Avi->cached_audio + Avi->cached_audio_len;
@@ -335,112 +336,85 @@ static void AVI_HandleAudio( movie_state_t *Avi, const AVFrame *frame )
 
 qboolean AVI_Think( movie_state_t *Avi )
 {
-	int res;
 	qboolean decoded = false;
 	qboolean flushing = false;
 	qboolean redraw = false;
-	int64_t curtime;
+	int64_t curtime = host.realtime * Avi->video_ctx->pkt_timebase.den / Avi->video_ctx->pkt_timebase.num;
 
-	curtime = host.realtime * Avi->video_ctx->pkt_timebase.den / Avi->video_ctx->pkt_timebase.num;
-
-	if( !Avi->first_time )
+	if( !Avi->first_time ) // always remember at which timestamp we started playing
 		Avi->first_time = curtime;
 
-	AVI_StreamAudio( Avi );
+	Con_NPrintf( 1, "cached_audio_buf_len = %d", Avi->cached_audio_buf_len );
 
-	if( Avi->last_time > curtime )
+	while( 1 ) // try to get multiple decoded frames to keep up when we're running at low fps
 	{
-		// draw last still image
-		if( Avi->texture == 0 && Avi->have_texture )
-			ref.dllFuncs.R_DrawStretchRaw( Avi->x, Avi->y, Avi->w, Avi->h, Avi->xres, Avi->yres, Avi->dst, false );
+		int res;
 
-		return true; // we're still alive
-	}
+		AVI_StreamAudio( Avi ); // always flush audio buffers
 
-	res = av_read_frame( Avi->fmt_ctx, Avi->pkt );
+		if( Avi->last_time > curtime )
+			break;
 
-	if( res < 0 )
-	{
-		if( res != AVERROR_EOF )
-			AVI_SpewAvError( Avi->quiet, "av_read_frame", res );
+		if(( res = av_read_frame( Avi->fmt_ctx, Avi->pkt ) >= 0 ))
+		{
+			if( Avi->pkt->stream_index == Avi->audio_stream )
+			{
+				res = avcodec_send_packet( Avi->audio_ctx, Avi->pkt );
+				if( res < 0 )
+					AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (audio)", res );
+			}
+			else if( Avi->pkt->stream_index == Avi->video_stream )
+			{
+				res = avcodec_send_packet( Avi->video_ctx, Avi->pkt );
+				if( res < 0 )
+					AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (audio)", res );
+			}
+			av_packet_unref( Avi->pkt );
+		}
+		else
+		{
+			if( res != AVERROR_EOF )
+				AVI_SpewAvError( Avi->quiet, "av_read_frame", res );
+
+			if( Avi->audio_ctx )
+				avcodec_flush_buffers( Avi->audio_ctx );
+
+			avcodec_flush_buffers( Avi->video_ctx );
+			flushing = true;
+		}
 
 		if( Avi->audio_ctx )
-			avcodec_flush_buffers( Avi->audio_ctx );
-
-		avcodec_flush_buffers( Avi->video_ctx );
-		flushing = true;
-	}
-	else
-	{
-		if( Avi->pkt->stream_index == Avi->audio_stream )
 		{
-			res = avcodec_send_packet( Avi->audio_ctx, Avi->pkt );
-			if( res < 0 )
-				AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (audio)", res );
+			while( avcodec_receive_frame( Avi->audio_ctx, Avi->aframe ) == 0 )
+			{
+				AVI_HandleAudio( Avi, Avi->aframe );
+				decoded = true;
+			}
 		}
-		else if( Avi->pkt->stream_index == Avi->video_stream )
-		{
-			res = avcodec_send_packet( Avi->video_ctx, Avi->pkt );
-			if( res < 0 )
-				AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (audio)", res );
-		}
-		av_packet_unref( Avi->pkt );
-	}
 
-	if( Avi->audio_ctx )
-	{
-		while( avcodec_receive_frame( Avi->audio_ctx, Avi->frame ) >= 0 )
+		while( avcodec_receive_frame( Avi->video_ctx, Avi->vframe ) == 0 )
 		{
-			AVI_HandleAudio( Avi, Avi->frame );
+			sws_scale( Avi->sws_ctx, (void*)Avi->vframe->data, Avi->vframe->linesize, 0, Avi->video_ctx->height,
+				&Avi->dst, &Avi->dst_linesize );
 
+			Avi->last_time = Avi->first_time + Avi->vframe->best_effort_timestamp;
+			redraw = true;
 			decoded = true;
 		}
 	}
 
-	if( Avi->video_ctx )
+	if( Avi->texture == 0 )
 	{
-		while( avcodec_receive_frame( Avi->video_ctx, Avi->frame ) >= 0 )
-		{
-			Avi->sws_ctx = sws_getCachedContext( Avi->sws_ctx,
-				Avi->xres, Avi->yres, Avi->pix_fmt,
-				Avi->xres, Avi->yres, AV_PIX_FMT_BGRA, SWS_POINT, NULL, NULL, NULL );
+		int w = Avi->w >= 0 ? Avi->w : refState.width;
+		int h = Avi->h >= 0 ? Avi->h : refState.height;
 
-			sws_scale( Avi->sws_ctx, (void*)Avi->frame->data, Avi->frame->linesize, 0, Avi->video_ctx->height,
-				&Avi->dst, &Avi->dst_linesize );
-
-			Avi->last_time = Avi->first_time + Avi->frame->best_effort_timestamp;
-			Avi->have_texture = true;
-
-			redraw = true;
-		}
+		ref.dllFuncs.R_DrawStretchRaw( Avi->x, Avi->y, w, h, Avi->xres, Avi->yres, Avi->dst, redraw );
 	}
-
-	if( redraw )
-	{
-		if( Avi->texture == 0 )
-		{
-			int w, h;
-			w = Avi->w >= 0 ? Avi->w : refState.width;
-			h = Avi->h >= 0 ? Avi->h : refState.height;
-
-			ref.dllFuncs.R_DrawStretchRaw( Avi->x, Avi->y, w, h, Avi->xres, Avi->yres, Avi->dst, redraw );
-		}
-		else if( Avi->texture > 0 )
-		{
-			ref.dllFuncs.AVI_UploadRawFrame( Avi->texture, Avi->xres, Avi->yres, Avi->w, Avi->h, Avi->dst );
-		}
-		else
-		{
-			// no output
-		}
-	}
+	else if( redraw && Avi->texture > 0 )
+		ref.dllFuncs.AVI_UploadRawFrame( Avi->texture, Avi->xres, Avi->yres, Avi->w, Avi->h, Avi->dst );
 
 	if( flushing && !decoded )
 		return false; // probably hit an EOF
-
-	Con_NPrintf( 1, "cached_audio_buf_len = %d", Avi->cached_audio_buf_len );
-	Con_NPrintf( 2, "cached_audio_pos = %d\n", Avi->cached_audio_pos );
-	Con_NPrintf( 3, "cached_audio_len = %d\n", Avi->cached_audio_len );
 
 	return true;
 }
@@ -477,9 +451,9 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		return;
 	}
 
-	if( !( Avi->frame = av_frame_alloc( )))
+	if( !( Avi->vframe = av_frame_alloc( )))
 	{
-		AVI_SpewAvError( quiet, "av_frame_alloc", 0 );
+		AVI_SpewAvError( quiet, "av_frame_alloc (video)", 0 );
 		return;
 	}
 
@@ -495,7 +469,14 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	Avi->entnum   = S_RAW_SOUND_SOUNDTRACK;
 	Avi->volume   = 255;
 
-	if(( ret = av_image_alloc( dst, dst_linesize, Avi->xres, Avi->yres, AV_PIX_FMT_BGRA, 1 )) < 0 )
+	if( !( Avi->sws_ctx = sws_getContext( Avi->xres, Avi->yres, Avi->pix_fmt,
+		Avi->xres, Avi->yres, AV_PIX_FMT_BGR24, SWS_POINT, NULL, NULL, NULL )))
+	{
+		AVI_SpewAvError( quiet, "sws_getContext", 0 );
+		return;
+	}
+
+	if(( ret = av_image_alloc( dst, dst_linesize, Avi->xres, Avi->yres, AV_PIX_FMT_BGR24, 1 )) < 0 )
 	{
 		AVI_SpewAvError( quiet, "av_image_alloc", ret );
 		return;
@@ -503,10 +484,15 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 
 	Avi->dst = dst[0];
 	Avi->dst_linesize = dst_linesize[0];
-	Avi->active = true;
 
 	if( load_audio )
 	{
+		if( !( Avi->aframe = av_frame_alloc( )))
+		{
+			AVI_SpewAvError( quiet, "av_frame_alloc (audio)", 0 );
+			return;
+		}
+
 		Avi->audio_stream = AVI_OpenCodecContext( &Avi->audio_ctx, Avi->fmt_ctx, AVMEDIA_TYPE_AUDIO, quiet );
 
 		// audio stream was requested but it wasn't found
@@ -532,6 +518,8 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 			return;
 		}
 	}
+
+	Avi->active = true;
 }
 
 void AVI_CloseVideo( movie_state_t *Avi )
@@ -541,12 +529,17 @@ void AVI_CloseVideo( movie_state_t *Avi )
 		if( Avi->cached_audio )
 			Mem_Free( Avi->cached_audio );
 
-		av_free( Avi->dst );
-		av_frame_free( &Avi->frame );
-		av_packet_free( &Avi->pkt );
-		sws_freeContext( Avi->sws_ctx );
+		swr_free( &Avi->swr_ctx );
 		avcodec_free_context( &Avi->audio_ctx );
+		av_frame_free( &Avi->aframe );
+
+		av_free( Avi->dst );
+		sws_freeContext( Avi->sws_ctx );
 		avcodec_free_context( &Avi->video_ctx );
+		av_frame_free( &Avi->vframe );
+
+		av_packet_free( &Avi->pkt );
+
 		avformat_close_input( &Avi->fmt_ctx );
 	}
 
@@ -574,7 +567,7 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 		return NULL;
 	}
 
-	Avi = Mem_Calloc( cls.mempool, sizeof( movie_state_t ));
+	Avi = Mem_Calloc( avi_mempool, sizeof( movie_state_t ));
 	AVI_OpenVideo( Avi, fullpath, load_audio, false );
 
 	if( !AVI_IsActive( Avi ))
@@ -592,11 +585,10 @@ void AVI_FreeVideo( movie_state_t *Avi )
 	if( !Avi )
 		return;
 
-	if( Mem_IsAllocatedExt( cls.mempool, Avi ))
-	{
-		AVI_CloseVideo( Avi );
+	AVI_CloseVideo( Avi );
+
+	if( Mem_IsAllocatedExt( avi_mempool, Avi ))
 		Mem_Free( Avi );
-	}
 }
 
 qboolean AVI_IsActive( movie_state_t *Avi )
@@ -636,11 +628,13 @@ qboolean AVI_Initailize( void )
 	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBSWRESAMPLE_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
 
 	avi_initialized = true;
+	avi_mempool = Mem_AllocPool( "AVI Zone" );
 	return true;
 }
 
 void AVI_Shutdown( void )
 {
+	Mem_FreePool( &avi_mempool );
 	avi_initialized = false;
 }
 
