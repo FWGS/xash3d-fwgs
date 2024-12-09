@@ -208,14 +208,14 @@ typedef struct render_api_s
 	void		(*R_EntityRemoveDecals)( struct model_s *mod ); // remove all the decals from specified entity (BSP only)
 
 	// AVIkit support
-	void		*(*AVI_LoadVideo)( const char *filename, qboolean load_audio );
-	int		(*AVI_GetVideoInfo)( void *Avi, int *xres, int *yres, float *duration ); // a1ba: changed longs to int
-	int		(*AVI_GetVideoFrameNumber)( void *Avi, float time );
-	byte		*(*AVI_GetVideoFrame)( void *Avi, int frame );
+	struct movie_state_s *(*AVI_LoadVideo)( const char *filename, qboolean load_audio );
+	qboolean		(*AVI_GetVideoInfo)( struct movie_state_s *Avi, int *xres, int *yres, float *duration ); // a1ba: changed longs to int
+	int		(*AVI_GetVideoFrameNumber)( struct movie_state_s *Avi, float time );
+	byte		*(*AVI_GetVideoFrame)( struct movie_state_s *Avi, int frame );
 	void		(*AVI_UploadRawFrame)( int texture, int cols, int rows, int width, int height, const byte *data );
-	void		(*AVI_FreeVideo)( void *Avi );
-	int		(*AVI_IsActive)( void *Avi );
-	void		(*AVI_StreamSound)( void *Avi, int entnum, float fvol, float attn, float synctime );
+	void		(*AVI_FreeVideo)( struct movie_state_s *Avi );
+	qboolean		(*AVI_IsActive)( struct movie_state_s *Avi );
+	void		(*AVI_StreamSound)( struct movie_state_s *Avi, int entnum, float fvol, float attn, float synctime );
 	qboolean	(*AVI_Think)( struct movie_state_s *Avi );
 	qboolean	(*AVI_SetParm)( struct movie_state_s *Avi, enum movie_parms_e parm, ... );
 
