@@ -1210,7 +1210,7 @@ void S_RawSamples( uint samples, uint rate, word width, word channels, const byt
 S_PositionedRawSamples
 ===================
 */
-void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float synctime )
+void S_StreamAviSamples( movie_state_t *Avi, int entnum, float fvol, float attn, float synctime )
 {
 	return; // stub, use AVI_SetParm and AVI_Think to stream AVI sound
 }
