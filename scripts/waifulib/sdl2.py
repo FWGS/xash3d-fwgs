@@ -41,14 +41,14 @@ def sdl2_configure_path(conf, path, libname):
 
 	conf.env[HAVE] = 1
 	if conf.env.DEST_OS == 'darwin':
-		conf.env[INCLUDES] = [os.path.abspath(os.path.join(path, 'Headers'))]
+		conf.env[INCLUDES] = [os.path.join(path, 'Headers')]
 		conf.env[FRAMEWORKPATH] = [my_dirname(path)]
 		conf.env[FRAMEWORK] = [libname]
 		conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env[FRAMEWORK], conf.env[FRAMEWORKPATH], conf.env[INCLUDES]))
 	else:
 		conf.env[INCLUDES] = [
-			os.path.abspath(os.path.join(path, 'include')),
-			os.path.abspath(os.path.join(path, 'include/%s' % libname))
+			os.path.join(path, 'include'),
+			os.path.join(path, 'include/%s' % libname)
 		]
 		libpath = 'lib'
 		if conf.env.COMPILER_CC == 'msvc':
@@ -56,7 +56,7 @@ def sdl2_configure_path(conf, path, libname):
 				libpath = 'lib/x64'
 			else:
 				libpath = 'lib/' + conf.env.DEST_CPU
-		conf.env[LIBPATH] = [os.path.abspath(os.path.join(path, libpath))]
+		conf.env[LIBPATH] = [os.path.join(path, libpath)]
 		conf.env[LIB] = [libname]
 		conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env[LIB], conf.env[LIBPATH], conf.env[INCLUDES]))
 
