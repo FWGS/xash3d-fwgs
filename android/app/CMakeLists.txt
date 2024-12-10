@@ -39,7 +39,7 @@ execute_process(
 	AR=${CMAKE_AR} STRIP=${CMAKE_STRIP}
 	${PYTHON_EXECUTABLE} waf configure -T ${BUILD_TYPE} ${WAF_EXTRA_ARGS} cmake
 	--check-c-compiler=${C_COMPILER_ID} --check-cxx-compiler=${CXX_COMPILER_ID}
-	-s "${ENGINE_SOURCE_DIR}/SDL" --skip-sdl2-sanity-check --enable-bundled-deps
+	-s "${ENGINE_SOURCE_DIR}/3rdparty/SDL" --skip-sdl2-sanity-check --enable-bundled-deps
 	WORKING_DIRECTORY "${ENGINE_SOURCE_DIR}"
 )
 
