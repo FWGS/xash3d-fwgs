@@ -67,7 +67,9 @@ jobs:
             targetarch: amd64
     env:
       SDL_VERSION: 2.30.9
+      FFMPEG_VERSION: 7.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
+      GH_CPU_OS: ${{ matrix.targetos }}
       GH_CROSSCOMPILING: ${{ matrix.cross }}
     steps:
     - name: Checkout
