@@ -16,9 +16,13 @@ GNU General Public License for more details.
 */
 
 #include "defaults.h"
-#if XASH_AVI == AVI_FFMPEG
 #include "common.h"
 #include "client.h"
+
+static qboolean avi_initialized;
+static poolhandle_t avi_mempool;
+
+#if XASH_AVI == AVI_FFMPEG
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
@@ -73,10 +77,6 @@ struct movie_state_s
 	byte active : 1;
 	byte quiet  : 1;
 };
-
-static qboolean avi_initialized;
-static poolhandle_t avi_mempool;
-static movie_state_t avi[2];
 
 qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 {
@@ -585,6 +585,122 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	memset( Avi, 0, sizeof( *Avi ));
 }
 
+static void AVI_PrintFFmpegVersion( void )
+{
+	uint ver;
+
+	// print version we're compiled with and which version we're running with
+	ver = avutil_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVUTIL_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = avformat_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVFORMAT_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = avformat_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVCODEC_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = swscale_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBSWSCALE_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+
+	ver = swresample_version();
+	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBSWRESAMPLE_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
+}
+#else
+struct movie_state_s
+{
+	qboolean active;
+};
+
+int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
+{
+	return 0;
+}
+
+byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame )
+{
+	return NULL;
+}
+
+qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *duration )
+{
+	return false;
+}
+
+qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
+{
+	return false;
+}
+
+void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audio, int quiet )
+{
+	;
+}
+
+int AVI_TimeToSoundPosition( movie_state_t *Avi, int time )
+{
+	return 0;
+}
+
+void AVI_CloseVideo( movie_state_t *Avi )
+{
+	;
+}
+
+qboolean AVI_Think( movie_state_t *Avi )
+{
+	return false;
+}
+
+qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
+{
+	return false;
+}
+
+static void AVI_PrintFFmpegVersion( void )
+{
+
+}
+#endif // XASH_AVI == AVI_NULL
+
+static movie_state_t avi[2];
+movie_state_t *AVI_GetState( int num )
+{
+	return &avi[num];
+}
+
+qboolean AVI_IsActive( movie_state_t *Avi )
+{
+	return Avi ? Avi->active : false;
+}
+
+qboolean AVI_Initailize( void )
+{
+	if( XASH_AVI == AVI_NULL )
+	{
+		Con_Printf( "AVI: Not supported\n" );
+		return false;
+	}
+
+	if( Sys_CheckParm( "-noavi" ))
+	{
+		Con_Printf( "AVI: Disabled\n" );
+		return false;
+	}
+
+	AVI_PrintFFmpegVersion();
+
+	avi_initialized = true;
+	avi_mempool = Mem_AllocPool( "AVI Zone" );
+
+	return false;
+}
+
+void AVI_Shutdown( void )
+{
+	Mem_FreePool( &avi_mempool );
+	avi_initialized = XASH_AVI != AVI_NULL;
+}
+
 movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 {
 	movie_state_t	*Avi;
@@ -629,52 +745,3 @@ void AVI_FreeVideo( movie_state_t *Avi )
 	if( Mem_IsAllocatedExt( avi_mempool, Avi ))
 		Mem_Free( Avi );
 }
-
-qboolean AVI_IsActive( movie_state_t *Avi )
-{
-	return Avi ? Avi->active : false;
-}
-
-movie_state_t *AVI_GetState( int num )
-{
-	return &avi[num];
-}
-
-qboolean AVI_Initailize( void )
-{
-	uint ver;
-
-	if( Sys_CheckParm( "-noavi" ))
-	{
-		Con_Printf( "AVI: Disabled\n" );
-		return false;
-	}
-
-	// print version we're compiled with and which version we're running with
-	ver = avutil_version();
-	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVUTIL_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
-
-	ver = avformat_version();
-	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVFORMAT_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
-
-	ver = avformat_version();
-	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBAVCODEC_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
-
-	ver = swscale_version();
-	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBSWSCALE_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
-
-	ver = swresample_version();
-	Con_Reportf( "AVI: %s (runtime %d.%d.%d)\n", LIBSWRESAMPLE_IDENT, AV_VERSION_MAJOR( ver ), AV_VERSION_MINOR( ver ), AV_VERSION_MICRO( ver ));
-
-	avi_initialized = true;
-	avi_mempool = Mem_AllocPool( "AVI Zone" );
-	return true;
-}
-
-void AVI_Shutdown( void )
-{
-	Mem_FreePool( &avi_mempool );
-	avi_initialized = false;
-}
-
-#endif // XASH_AVI == AVI_NULL
