@@ -1193,20 +1193,6 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 
 /*
 ===================
-S_RawSamples
-===================
-*/
-void S_RawSamples( uint samples, uint rate, word width, word channels, const byte *data, int entnum )
-{
-	int	snd_vol = 128;
-
-	if( entnum < 0 ) snd_vol = 256; // bg track or movie track
-
-	S_RawEntSamples( entnum, samples, rate, width, channels, data, snd_vol );
-}
-
-/*
-===================
 S_FreeIdleRawChannels
 
 Free raw channel that have been idling for too long.

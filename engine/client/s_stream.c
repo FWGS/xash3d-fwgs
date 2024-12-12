@@ -241,7 +241,7 @@ void S_StreamBackgroundTrack( void )
 		if( r > 0 )
 		{
 			// add to raw buffer
-			S_RawSamples( fileSamples, info->rate, info->width, info->channels, raw, S_RAW_SOUND_BACKGROUNDTRACK );
+			S_RawEntSamples( S_RAW_SOUND_BACKGROUNDTRACK, fileSamples, info->rate, info->width, info->channels, raw, 255 );
 		}
 		else
 		{
