@@ -1593,17 +1593,23 @@ collect pings and packet lossage from clients
 */
 void CL_UpdateUserPings( sizebuf_t *msg )
 {
-	int		i, slot;
-	player_info_t	*player;
-
-	for( i = 0; i < MAX_CLIENTS; i++ )
+	// a1ba: there was a MAX_PLAYERS check but it doesn't make sense
+	// because pings message always ends by null bit
+	while( 1 )
 	{
-		if( !MSG_ReadOneBit( msg )) break; // end of message
+		int slot;
+		player_info_t *player;
+
+		if( !MSG_ReadOneBit( msg ))
+			break; // end of message
 
 		slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
 
-		if( slot >= MAX_CLIENTS )
+		if( unlikely( slot >= MAX_CLIENTS ))
+		{
 			Host_Error( "%s: svc_pings > MAX_CLIENTS\n", __func__ );
+			return;
+		}
 
 		player = &cl.players[slot];
 		player->ping = MSG_ReadUBitLong( msg, 12 );
