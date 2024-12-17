@@ -29,6 +29,10 @@ int main(int argc, char **argv) { return strlcpy(argv[1], argv[2], 10); }'''
 STRLCAT_TEST = '''#include <string.h>
 int main(int argc, char **argv) { return strlcat(argv[1], argv[2], 10); }'''
 
+STRNLEN_TEST = '''#include <string.h>
+int main(int argc, char **argv) { return (int)strnlen(argv[0], 10); }
+'''
+
 ALLOCA_TEST = '''#include <%s>
 int main(void) { alloca(1); return 0; }'''
 
@@ -106,6 +110,7 @@ def configure(conf):
 		check_libc_extension(STRCHRNUL_TEST, 'strchrnul', 'HAVE_STRCHRNUL')
 		check_libc_extension(STRLCPY_TEST, 'strlcpy', 'HAVE_STRLCPY')
 		check_libc_extension(STRLCAT_TEST, 'strlcat', 'HAVE_STRLCAT')
+		check_libc_extension(STRNLEN_TEST, 'strnlen', 'HAVE_STRNLEN')
 
 	# kill temporary uselib
 	del conf.env.DEFINES_export

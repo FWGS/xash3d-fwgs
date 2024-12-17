@@ -169,6 +169,16 @@ static inline char *Q_strstr( const char *s1, const char *s2 )
 }
 
 // libc extensions, be careful what to enable or what not
+static inline size_t Q_strnlen( const char *str, size_t size )
+{
+#if HAVE_STRNLEN
+	return strnlen( str, size );
+#else
+	const char *p = (const char *)memchr( str, 0, size );
+	return p ? p - str : size;
+#endif
+}
+
 static inline size_t Q_strncpy( char *dst, const char *src, size_t size )
 {
 	if( unlikely( !dst || !src || !size ))
