@@ -171,61 +171,60 @@ static inline char *Q_strstr( const char *s1, const char *s2 )
 // libc extensions, be careful what to enable or what not
 static inline size_t Q_strncpy( char *dst, const char *src, size_t size )
 {
-#if HAVE_STRLCPY
 	if( unlikely( !dst || !src || !size ))
 		return 0;
+#if HAVE_STRLCPY
 	return strlcpy( dst, src, size );
 #else
-	size_t len;
-	if( unlikely( !dst || !src || !size ))
-		return 0;
-
-	len = strlen( src );
-	if( len + 1 > size ) // check if truncate
 	{
-		memcpy( dst, src, size - 1 );
-		dst[size - 1] = 0;
-	}
-	else memcpy( dst, src, len + 1 );
+		size_t len;
 
-	return len; // count does not include NULL
+		len = strlen( src );
+		if( len + 1 > size ) // check if truncate
+		{
+			memcpy( dst, src, size - 1 );
+			dst[size - 1] = 0;
+		}
+		else memcpy( dst, src, len + 1 );
+
+		return len; // count does not include NULL
+	}
 #endif
 }
 
 static inline size_t Q_strncat( char *dst, const char *src, size_t size )
 {
-#if HAVE_STRLCAT
 	if( unlikely( !dst || !src || !size ))
 		return 0;
+#if HAVE_STRLCAT
 	return strlcat( dst, src, size );
 #else
-	char *d = dst;
-	const char *s = src;
-	size_t n = size;
-	size_t dlen;
-
-	if( unlikely( !dst || !src || !size ))
-		return 0;
-
-	// find the end of dst and adjust bytes left but don't go past end
-	while( n-- != 0 && *d != '\0' ) d++;
-	dlen = d - dst;
-	n = size - dlen;
-
-	if( n == 0 ) return( dlen + Q_strlen( s ));
-
-	while( *s != '\0' )
 	{
-		if( n != 1 )
-		{
-			*d++ = *s;
-			n--;
-		}
-		s++;
-	}
+		char *d = dst;
+		const char *s = src;
+		size_t n = size;
+		size_t dlen;
 
-	*d = '\0';
-	return( dlen + ( s - src )); // count does not include NULL
+		// find the end of dst and adjust bytes left but don't go past end
+		while( n-- != 0 && *d != '\0' ) d++;
+		dlen = d - dst;
+		n = size - dlen;
+
+		if( n == 0 ) return( dlen + Q_strlen( s ));
+
+		while( *s != '\0' )
+		{
+			if( n != 1 )
+			{
+				*d++ = *s;
+				n--;
+			}
+			s++;
+		}
+
+		*d = '\0';
+		return( dlen + ( s - src )); // count does not include NULL
+	}
 #endif
 }
 
