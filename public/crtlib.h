@@ -1,6 +1,7 @@
 /*
 crtlib.h - internal stdlib
 Copyright (C) 2011 Uncle Mike
+Copyright (C) Free Software Foundation, Inc
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
