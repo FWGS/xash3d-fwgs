@@ -141,15 +141,6 @@ CONSTANTS GLOBALS
 // a1ba: we never return pointers to these globals
 // so help compiler optimize constants away
 #define vec3_origin ((vec3_t){ 0.0f, 0.0f, 0.0f })
-#define m_matrix3x4_identity ((matrix3x4) { \
-	{ 1.0f, 0.0f, 0.0f, 0.0f }, \
-	{ 0.0f, 1.0f, 0.0f, 0.0f }, \
-	{ 0.0f, 0.0f, 1.0f, 0.0f }} )
-#define m_matrix4x4_identity ((matrix4x4) { \
-	{ 1.0f, 0.0f, 0.0f, 0.0f }, \
-	{ 0.0f, 1.0f, 0.0f, 0.0f }, \
-	{ 0.0f, 0.0f, 1.0f, 0.0f }, \
-	{ 0.0f, 0.0f, 0.0f, 1.0f }} )
 
 extern const int       boxpnt[6][4];
 extern const float     m_bytenormals[NUMVERTEXNORMALS][3];
@@ -191,7 +182,11 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
 //
 // matrixlib.c
 //
-#define Matrix3x4_LoadIdentity( mat )		Matrix3x4_Copy( mat, m_matrix3x4_identity )
+static inline void Matrix3x4_LoadIdentity( matrix3x4 m )
+{
+	memset( m, 0, sizeof( *m ));
+	m[0][0] = m[1][1] = m[2][2] = 1.0f;
+}
 #define Matrix3x4_Copy( out, in )		memcpy( out, in, sizeof( matrix3x4 ))
 void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[3] );
 void Matrix3x4_VectorITransform( const matrix3x4 in, const float v[3], float out[3] );
@@ -203,7 +198,11 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const vec3_t maxs, vec3_t absmin, vec3_t absmax );
 void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out );
 
-#define Matrix4x4_LoadIdentity( mat )	Matrix4x4_Copy( mat, m_matrix4x4_identity )
+static inline void Matrix4x4_LoadIdentity( matrix4x4 m )
+{
+	memset( m, 0, sizeof( *m ));
+	m[0][0] = m[1][1] = m[2][2] = m[3][3] = 1.0f;
+}
 #define Matrix4x4_Copy( out, in )	memcpy( out, in, sizeof( matrix4x4 ))
 void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[3] );
 void Matrix4x4_VectorITransform( const matrix4x4 in, const float v[3], float out[3] );
