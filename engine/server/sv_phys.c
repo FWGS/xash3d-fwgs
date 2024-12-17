@@ -1784,21 +1784,23 @@ static void SV_Physics_Entity( edict_t *ent )
 
 static void SV_RunLightStyles( void )
 {
-	int		i, ofs;
-	lightstyle_t	*ls;
-	float		scale;
-
-	scale = 1.0f;
+	int	i;
 
 	// run lightstyles animation
-	for( i = 0, ls = sv.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
+	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
+		lightstyle_t *ls = &sv.lightstyles[i];
+		int ofs;
+
 		ls->time += sv.frametime;
 		ofs = (ls->time * 10);
 
-		if( ls->length == 0 ) ls->value = scale; // disable this light
-		else if( ls->length == 1 ) ls->value = ( ls->map[0] / 12.0f ) * scale;
-		else ls->value = ( ls->map[ofs % ls->length] / 12.0f ) * scale;
+		if( ls->length == 0 )
+			ls->value = 1.0f; // disable this light
+		else if( ls->length == 1 )
+			ls->value = ls->map[0] / 12.0f;
+		else
+			ls->value = ls->map[ofs % ls->length] / 12.0f;
 	}
 }
 
