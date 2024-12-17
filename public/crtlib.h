@@ -187,12 +187,11 @@ static inline size_t Q_strncpy( char *dst, const char *src, size_t size )
 	return strlcpy( dst, src, size );
 #else
 	{
-		size_t len;
+		size_t len = strlen( src );
 
-		len = strlen( src );
-		if( len + 1 > size ) // check if truncate
+		if( len >= size ) // check if truncate
 		{
-			memcpy( dst, src, size - 1 );
+			memcpy( dst, src, size );
 			dst[size - 1] = 0;
 		}
 		else memcpy( dst, src, len + 1 );
@@ -210,30 +209,21 @@ static inline size_t Q_strncat( char *dst, const char *src, size_t size )
 	return strlcat( dst, src, size );
 #else
 	{
-		char *d = dst;
-		const char *s = src;
-		size_t n = size;
-		size_t dlen;
+		size_t slen = strlen( src );
+		size_t dlen = Q_strnlen( dst, size );
 
-		// find the end of dst and adjust bytes left but don't go past end
-		while( n-- != 0 && *d != '\0' ) d++;
-		dlen = d - dst;
-		n = size - dlen;
-
-		if( n == 0 ) return( dlen + Q_strlen( s ));
-
-		while( *s != '\0' )
+		if( dlen != size )
 		{
-			if( n != 1 )
-			{
-				*d++ = *s;
-				n--;
-			}
-			s++;
+			size_t copy = size - dlen - 1;
+
+			if( copy > slen )
+				copy = slen;
+
+			memcpy( &dst[dlen], src, copy );
+			dst[dlen + copy] = 0;
 		}
 
-		*d = '\0';
-		return( dlen + ( s - src )); // count does not include NULL
+		return dlen + slen;
 	}
 #endif
 }
