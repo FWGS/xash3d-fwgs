@@ -1508,23 +1508,16 @@ trace_t SV_MoveToss( edict_t *tossent, edict_t *ignore )
 ===============================================================================
 */
 
-static vec3_t	sv_pointColor;
-
 /*
 =================
 SV_RecursiveLightPoint
 =================
 */
-static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec3_t start, const vec3_t end )
+static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec3_t start, const vec3_t end, vec3_t point_color )
 {
-	float		front, back, scale, frac;
-	int		i, map, side, size;
-	float		ds, dt, s, t;
-	int		sample_size;
-	msurface_t	*surf;
-	mextrasurf_t	*info;
-	color24		*lm;
-	vec3_t		mid;
+	float front, back, frac;
+	int i, side;
+	vec3_t mid;
 
 	// didn't hit anything
 	if( !node || node->contents < 0 )
@@ -1536,27 +1529,28 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 
 	side = front < 0.0f;
 	if(( back < 0.0f ) == side )
-		return SV_RecursiveLightPoint( model, node->children[side], start, end );
+		return SV_RecursiveLightPoint( model, node->children[side], start, end, point_color );
 
 	frac = front / ( front - back );
 
 	VectorLerp( start, frac, end, mid );
 
 	// co down front side
-	if( SV_RecursiveLightPoint( model, node->children[side], start, mid ))
+	if( SV_RecursiveLightPoint( model, node->children[side], start, mid, point_color ))
 		return true; // hit something
 
 	if(( back < 0.0f ) == side )
-		return false;// didn't hit anything
+		return false; // didn't hit anything
 
 	// check for impact on this node
-	surf = model->surfaces + node->firstsurface;
-
-	for( i = 0; i < node->numsurfaces; i++, surf++ )
+	for( i = 0; i < node->numsurfaces; i++ )
 	{
-		int	smax, tmax;
-
-		info = surf->info;
+		const msurface_t *surf = &model->surfaces[node->firstsurface + i];
+		const mextrasurf_t *info = surf->info;
+		int smax, tmax, map, size;
+		int sample_size;
+		float ds, dt, s, t;
+		const color24 *lm;
 
 		if( FBitSet( surf->flags, SURF_DRAWTILED ))
 			continue;	// no lightmaps
@@ -1582,26 +1576,27 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 		ds /= sample_size;
 		dt /= sample_size;
 
-		VectorClear( sv_pointColor );
+		VectorClear( point_color );
 
 		lm = surf->samples + Q_rint( dt ) * smax + Q_rint( ds );
 		size = smax * tmax;
 
 		for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
 		{
-			scale = sv.lightstyles[surf->styles[map]].value;
+			float scale = sv.lightstyles[surf->styles[map]].value;
 
-			sv_pointColor[0] += lm->r * scale;
-			sv_pointColor[1] += lm->g * scale;
-			sv_pointColor[2] += lm->b * scale;
+			point_color[0] += lm->r * scale;
+			point_color[1] += lm->g * scale;
+			point_color[2] += lm->b * scale;
 
 			lm += size; // skip to next lightmap
 		}
+
 		return true;
 	}
 
 	// go down back side
-	return SV_RecursiveLightPoint( model, node->children[!side], mid, end );
+	return SV_RecursiveLightPoint( model, node->children[!side], mid, end, point_color );
 }
 
 /*
@@ -1615,10 +1610,8 @@ void SV_SetLightStyle( int style, const char* s, float f )
 {
 	int	j, k;
 
-	Q_strncpy( sv.lightstyles[style].pattern, s, sizeof( sv.lightstyles[0].pattern ));
+	j = Q_strncpy( sv.lightstyles[style].pattern, s, sizeof( sv.lightstyles[0].pattern ));
 	sv.lightstyles[style].time = f;
-
-	j = Q_strlen( s );
 	sv.lightstyles[style].length = j;
 
 	for( k = 0; k < j; k++ )
@@ -1642,12 +1635,16 @@ grab the ambient lighting color for current point
 */
 int SV_LightForEntity( edict_t *pEdict )
 {
-	vec3_t	start, end;
+	vec3_t point_color = { 1.0f, 1.0f, 1.0f };
+	vec3_t start, end;
+
+	if( !SV_IsValidEdict( pEdict ))
+		return -1;
 
 	if( FBitSet( pEdict->v.effects, EF_FULLBRIGHT ) || !sv.worldmodel->lightdata )
 		return 255;
 
-	// player has more precision light level that come from client-side
+	// player has more precise light level that come from client-side
 	if( FBitSet( pEdict->v.flags, FL_CLIENT ))
 		return pEdict->v.light_level;
 
@@ -1657,9 +1654,8 @@ int SV_LightForEntity( edict_t *pEdict )
 	if( FBitSet( pEdict->v.effects, EF_INVLIGHT ))
 		end[2] = start[2] + world.size[2];
 	else end[2] = start[2] - world.size[2];
-	VectorSet( sv_pointColor, 1.0f, 1.0f, 1.0f );
 
-	SV_RecursiveLightPoint( sv.worldmodel, sv.worldmodel->nodes, start, end );
+	SV_RecursiveLightPoint( sv.worldmodel, sv.worldmodel->nodes, start, end, point_color );
 
-	return VectorAvg( sv_pointColor );
+	return VectorAvg( point_color );
 }
