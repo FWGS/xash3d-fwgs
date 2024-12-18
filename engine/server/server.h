@@ -593,7 +593,7 @@ qboolean SV_CheckID( const char *id );
 // sv_frame.c
 //
 void SV_InactivateClients( void );
-int SV_FindBestBaselineForStatic( int index, entity_state_t **baseline, entity_state_t *to );
+int SV_FindBestBaseline( int index, entity_state_t **baseline, entity_state_t *to, client_frame_t *frame, qboolean player );
 void SV_SkipUpdates( void );
 
 //

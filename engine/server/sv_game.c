@@ -578,7 +578,7 @@ qboolean SV_CreateStaticEntity( sizebuf_t *msg, int index )
 	state->number = 0;
 
 	// trying to compress with previous delta's
-	offset = SV_FindBestBaselineForStatic( index, &baseline, state );
+	offset = SV_FindBestBaseline( index, &baseline, state, NULL, false );
 
 	MSG_BeginServerCmd( msg, svc_spawnstatic );
 	MSG_WriteDeltaEntity( baseline, state, msg, true, DELTA_STATIC, sv.time, offset );
