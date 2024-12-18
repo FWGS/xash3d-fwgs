@@ -628,11 +628,12 @@ CL_ParseStaticEntity
 */
 static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 {
-	entity_state_t	state;
+	entity_state_t state = { 0 };
 	cl_entity_t	*ent;
 	int		i;
 
-	memset( &state, 0, sizeof( state ));
+	if( !clgame.static_entities )
+		clgame.static_entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
 
 	state.modelindex = MSG_ReadByte( msg );
 	state.frame = MSG_ReadByte( msg );
