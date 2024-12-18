@@ -9,18 +9,28 @@ if [ "$ARCH" = "amd64" ]; then # we need enabling 64-bit target only on Intel-co
 	AMD64="-8"
 fi
 
+if [ -d "ffmpeg" ]; then
+	export PKGCONFIG="$PWD/pkgconf/bin/pkgconf.exe"
+	export PKG_CONFIG_PATH="$PWD/ffmpeg/lib/pkgconfig"
+	WAF_EXTRA_ARGS="--enable-ffmpeg"
+fi
+
 # NOTE: to build with other version use --msvc_version during configuration
 # NOTE: sometimes you may need to add WinSDK to %PATH%
-./waf.bat configure -s "SDL2_VC" -T release --enable-utils --enable-tests --enable-lto $AMD64 || die_configure
+./waf.bat configure -s "SDL2_VC" -T release --enable-utils --enable-tests --enable-lto $AMD64 $WAF_EXTRA_ARGS || die_configure
 ./waf.bat build || die
 ./waf.bat install --destdir=. || die
 
 if [ "$ARCH" = "i386" ]; then
-	cp SDL2_VC/lib/x86/SDL2.dll . # Install SDL2
+	cp -v SDL2_VC/lib/x86/SDL2.dll . # Install SDL2
 elif [ "$ARCH" = "amd64" ]; then
-	cp SDL2_VC/lib/x64/SDL2.dll .
+	cp -v SDL2_VC/lib/x64/SDL2.dll .
 else
 	die
+fi
+
+if [ -d "ffmpeg" ]; then
+	cp -v ffmpeg/bin/av* ffmpeg/bin/sw* .
 fi
 
 WINSDK_LATEST=$(ls -1 "C:/Program Files (x86)/Windows Kits/10/bin" | grep -E '^10' | sort -rV | head -n1)
