@@ -954,6 +954,22 @@ static void Rcon_Redirect_f( void )
 	Msg( "Redirection enabled for next %d lines\n", lines );
 }
 
+static void SV_ListMessages_f( void )
+{
+	int i;
+
+	Con_Printf( "num size name\n" );
+	for( i = 1; i < MAX_USER_MESSAGES; i++ )
+	{
+		if( !COM_CheckStringEmpty( svgame.msg[i].name ))
+			break;
+
+		Con_Printf( "%3d\t%3d\t%s\n", svgame.msg[i].number, svgame.msg[i].size, svgame.msg[i].name );
+	}
+
+	Con_Printf( "Total %i messages\n", i - 1 );
+}
+
 /*
 ==================
 SV_InitHostCommands
@@ -1006,6 +1022,7 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "logaddress", SV_SetLogAddress_f, "sets address and port for remote logging host" );
 	Cmd_AddCommand( "log", SV_ServerLog_f, "enables logging to file" );
 	Cmd_AddCommand( "str64stats", SV_PrintStr64Stats_f, "print engine pool string statistics" );
+	Cmd_AddCommand( "sv_list_messages", SV_ListMessages_f, "list registered user messages" );
 
 	if( host.type == HOST_NORMAL )
 	{
