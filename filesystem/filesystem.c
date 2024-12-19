@@ -16,6 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#define _GNU_SOURCE 1
+
 #include "build.h"
 #include <fcntl.h>
 #include <sys/types.h>
@@ -32,6 +34,9 @@ GNU General Public License for more details.
 #endif
 #include <stdio.h>
 #include <stdarg.h>
+#if HAVE_MEMFD_CREATE
+#include <sys/mman.h>
+#endif
 #include "port.h"
 #include "defaults.h"
 #include "const.h"
@@ -1666,9 +1671,10 @@ Internal function used to create a file_t and open the relevant non-packed file 
 */
 file_t *FS_SysOpen( const char *filepath, const char *mode )
 {
-	file_t	*file;
-	int	mod, opt;
-	uint	ind;
+	file_t *file;
+	int mod, opt, fd = -1;
+	qboolean memfile = false;
+	uint ind;
 
 	// Parse the mode string
 	switch( mode[0] )
@@ -1708,29 +1714,51 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 		}
 	}
 
-	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
-	file->filetime = FS_SysFileTime( filepath );
-	file->ungetc = EOF;
+	// the 'm' flag let's user to create temporary file in memory
+	// through so-called "anonymous files"
+	if( Q_strchr( mode, 'm' ))
+	{
+#if HAVE_MEMFD_CREATE
+#ifndef MFD_NOEXEC_SEAL
+#define MFD_NOEXEC_SEAL 8U
+#endif
+		fd = memfd_create( filepath, MFD_CLOEXEC | MFD_NOEXEC_SEAL );
 
+		// through fcntl() and MFD_ALLOW_SEALING we could enforce
+		// read-write flags but we don't really care about them yet
+		if( fd < 0 )
+			Con_Printf( S_ERROR "%s: can't create anonymous file %s: %s", __func__, filepath, strerror( errno ));
+		else memfile = true;
+#endif
+		// if it's unsupported, we can open it on disk
+	}
+
+	if( fd < 0 )
+	{
 #if XASH_WIN32
-	file->handle = _wopen( FS_PathToWideChar( filepath ), mod | opt, 0666 );
+		fd = _wopen( FS_PathToWideChar( filepath ), mod | opt, 0666 );
 #else
-	file->handle = open( filepath, mod|opt, 0666 );
+		fd = open( filepath, mod|opt, 0666 );
 #endif
+	}
 
-#if !XASH_WIN32
-	if( file->handle < 0 )
-		FS_BackupFileName( file, filepath, mod|opt );
-#endif
-
-	if( file->handle < 0 )
+	if( fd < 0 )
 	{
 		if( errno != ENOENT )
 			Con_Printf( S_ERROR "%s: can't open file %s: %s\n", __func__, filepath, strerror( errno ));
 
-		Mem_Free( file );
 		return NULL;
 	}
+
+	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
+	file->filetime = memfile ? 0 : FS_SysFileTime( filepath );
+	file->ungetc = EOF;
+	file->handle = fd;
+
+#if !XASH_WIN32
+	if( !memfile )
+		FS_BackupFileName( file, filepath, mod|opt );
+#endif
 
 	file->searchpath = NULL;
 	file->real_length = lseek( file->handle, 0, SEEK_END );

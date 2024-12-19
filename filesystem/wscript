@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+MEMFD_CREATE_TEST = '''#define _GNU_SOURCE
+#include <sys/mman.h>
+int main(int argc, char **argv) { return memfd_create(argv[0], 0); }'''
+
 def options(opt):
 	pass
 
@@ -10,6 +14,9 @@ def configure(conf):
 		conf.check_cc(lib='android')
 	elif conf.env.cxxshlib_PATTERN.startswith('lib'): # remove lib prefix for other systems than Android
 		conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
+
+	if conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
+		conf.define('HAVE_MEMFD_CREATE', 1)
 
 def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
