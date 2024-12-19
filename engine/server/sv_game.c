@@ -3512,7 +3512,7 @@ static int GAME_EXPORT pfnRegUserMsg( const char *pszName, int iSize )
 	{
 		// see if already registered
 		if( !Q_strcmp( svgame.msg[i].name, pszName ))
-			return svc_lastmsg + i; // offset
+			return svgame.msg[i].number;
 	}
 
 	if( i == MAX_USER_MESSAGES )
