@@ -1427,36 +1427,30 @@ register new user message or update existing
 void CL_RegisterUserMessage( sizebuf_t *msg, connprotocol_t proto )
 {
 	char *pszName;
-	int	svc_num, size, bits;
-
-	svc_num = MSG_ReadByte( msg );
+	char szName[17];
+	int size;
+	int svc_num = MSG_ReadByte( msg );
 
 	if( proto == PROTO_LEGACY || proto == PROTO_GOLDSRC )
 	{
 		size = MSG_ReadByte( msg );
-		bits = 8;
+		if( size == UINT8_MAX )
+			size = -1;
 	}
 	else
 	{
 		size = MSG_ReadWord( msg );
-		bits = 16;
+		if( size == UINT16_MAX )
+			size = -1;
 	}
 
 	if( proto == PROTO_GOLDSRC )
 	{
-		static char szName[17];
-
 		MSG_ReadBytes( msg, szName, sizeof( szName ) - 1 );
 		szName[16] = 0;
-
 		pszName = szName;
 	}
 	else pszName = MSG_ReadString( msg );
-
-	// important stuff
-	if( size == ( BIT( bits ) - 1 ) )
-		size = -1;
-	svc_num = bound( 0, svc_num, 255 );
 
 	CL_LinkUserMessage( pszName, svc_num, size );
 }
