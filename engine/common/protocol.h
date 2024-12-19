@@ -324,20 +324,14 @@ extern const char *const clc_strings[clc_lastmsg+1];
 #define PROTOCOL_GOLDSRC_VERSION 48
 
 #define svc_goldsrc_version           svc_changing
-#define svc_goldsrc_serverinfo        svc_serverdata
-#define svc_goldsrc_deltadescription  svc_deltatable
 #define svc_goldsrc_stopsound         svc_resource
 #define svc_goldsrc_damage            svc_restoresound
 #define svc_goldsrc_killedmonster     27
 #define svc_goldsrc_foundsecret       28
 #define svc_goldsrc_spawnstaticsound  29
 #define svc_goldsrc_decalname         svc_bspdecal
-#define svc_goldsrc_newusermsg        svc_usermessage
-#define svc_goldsrc_newmovevars       svc_deltamovevars
 #define svc_goldsrc_sendextrainfo     54
 #define svc_goldsrc_timescale         55
-#define svc_goldsrc_sendcvarvalue     svc_querycvarvalue
-#define svc_goldsrc_sendcvarvalue2    svc_querycvarvalue2
 
 #define clc_goldsrc_hltv              clc_requestcvarvalue  // 9
 #define clc_goldsrc_requestcvarvalue  clc_requestcvarvalue2 // 10

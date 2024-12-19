@@ -615,7 +615,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_setangle:
 			CL_ParseSetAngle( msg );
 			break;
-		case svc_goldsrc_serverinfo:
+		case svc_serverdata:
 			Cbuf_Execute(); // make sure any stuffed commands are done
 			CL_ParseServerData( msg, PROTO_GOLDSRC );
 			break;
@@ -625,7 +625,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_updateuserinfo:
 			CL_UpdateUserinfo( msg, PROTO_GOLDSRC );
 			break;
-		case svc_goldsrc_deltadescription:
+		case svc_deltatable:
 			Delta_ParseTableField_GS( msg );
 			break;
 		case svc_clientdata:
@@ -687,7 +687,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_addangle:
 			CL_ParseAddAngle( msg );
 			break;
-		case svc_goldsrc_newusermsg:
+		case svc_usermessage:
 			CL_RegisterUserMessage( msg, PROTO_GOLDSRC );
 			break;
 		case svc_packetentities:
@@ -709,7 +709,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			CL_ParseResourceList( msg, PROTO_GOLDSRC );
 			MSG_EndBitWriting( msg );
 			break;
-		case svc_goldsrc_newmovevars:
+		case svc_deltamovevars:
 			CL_ParseNewMovevars( msg );
 			break;
 		case svc_resourcerequest:
@@ -749,10 +749,10 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			Con_Reportf( S_ERROR "%s: svc_goldsrc_timescale: implement me!\n", __func__ );
 			MSG_ReadFloat( msg );
 			break;
-		case svc_goldsrc_sendcvarvalue:
+		case svc_querycvarvalue:
 			CL_ParseCvarValue( msg, false, PROTO_GOLDSRC );
 			break;
-		case svc_goldsrc_sendcvarvalue2:
+		case svc_querycvarvalue2:
 			CL_ParseCvarValue( msg, true, PROTO_GOLDSRC );
 			break;
 		case svc_exec:
