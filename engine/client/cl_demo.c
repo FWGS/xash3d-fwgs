@@ -157,7 +157,7 @@ void CL_StartupDemoHeader( void )
 {
 	CL_CloseDemoHeader();
 
-	cls.demoheader = FS_Open( "demoheader.tmp", "w+b", true );
+	cls.demoheader = FS_Open( "demoheader.tmp", "w+bm", true );
 
 	if( !cls.demoheader )
 	{
