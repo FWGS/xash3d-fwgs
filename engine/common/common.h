@@ -431,12 +431,23 @@ const char *Cmd_Args( void ) RETURNS_NONNULL;
 const char *Cmd_Argv( int arg ) RETURNS_NONNULL;
 void Cmd_Init( void );
 void Cmd_Unlink( int group );
-void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
-void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc );
-void Cmd_AddServerCommand( const char *cmd_name, xcommand_t function );
-int Cmd_AddClientCommand( const char *cmd_name, xcommand_t function );
-int Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function );
-int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *description );
+int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int iFlags, const char *funcname );
+
+static inline void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+{
+	Cmd_AddCommandEx( cmd_name, function, cmd_desc, 0, __func__ );
+}
+
+static inline void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+{
+	Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_PRIVILEGED, __func__ );
+}
+
+static inline void Cmd_AddFilteredCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+{
+	Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_PRIVILEGED, __func__ );
+}
+
 void Cmd_RemoveCommand( const char *cmd_name );
 qboolean Cmd_Exists( const char *cmd_name );
 void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback );

@@ -694,6 +694,11 @@ static cvar_t *GAME_EXPORT pfnCvar_RegisterGameUIVariable( const char *szName, c
 	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_GAMEUIDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_GAMEUIDLL ));
 }
 
+static int GAME_EXPORT Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
+{
+	return Cmd_AddCommandEx( cmd_name, function, "gameui command", CMD_GAMEUIDLL, __func__ );
+}
+
 /*
 =============
 pfnClientCmd

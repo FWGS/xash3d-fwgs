@@ -670,8 +670,7 @@ void Cmd_TokenizeString( const char *text )
 Cmd_AddCommandEx
 ============
 */
-static int Cmd_AddCommandEx( const char *funcname, const char *cmd_name, xcommand_t function,
-	const char *cmd_desc, int iFlags )
+int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int iFlags, const char *funcname )
 {
 	cmd_t	*cmd, *cur, *prev;
 
@@ -714,75 +713,6 @@ static int Cmd_AddCommandEx( const char *funcname, const char *cmd_name, xcomman
 #endif
 
 	return 1;
-}
-
-/*
-============
-Cmd_AddCommand
-============
-*/
-void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
-{
-	Cmd_AddCommandEx( __func__, cmd_name, function, cmd_desc, 0 );
-}
-
-
-/*
-============
-Cmd_AddRestrictedCommand
-============
-*/
-void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
-{
-	Cmd_AddCommandEx( __func__, cmd_name, function, cmd_desc, CMD_PRIVILEGED );
-}
-
-/*
-============
-Cmd_AddServerCommand
-============
-*/
-void GAME_EXPORT Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
-{
-	Cmd_AddCommandEx( __func__, cmd_name, function, "server command", CMD_SERVERDLL );
-}
-
-/*
-============
-Cmd_AddClientCommand
-============
-*/
-int GAME_EXPORT Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
-{
-	int flags = CMD_CLIENTDLL;
-
-	// a1ba: try to mitigate outdated client.dll vulnerabilities
-	if( !Q_stricmp( cmd_name, "motd_write" ))
-	{
-		flags |= CMD_PRIVILEGED;
-	}
-
-	return Cmd_AddCommandEx( __func__, cmd_name, function, "client command", flags );
-}
-
-/*
-============
-Cmd_AddGameUICommand
-============
-*/
-int GAME_EXPORT Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
-{
-	return Cmd_AddCommandEx( __func__, cmd_name, function, "gameui command", CMD_GAMEUIDLL );
-}
-
-/*
-============
-Cmd_AddRefCommand
-============
-*/
-int Cmd_AddRefCommand( const char *cmd_name, xcommand_t function, const char *description )
-{
-	return Cmd_AddCommandEx( __func__, cmd_name, function, description, CMD_REFDLL );
 }
 
 /*

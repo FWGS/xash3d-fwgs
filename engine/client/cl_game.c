@@ -1765,6 +1765,17 @@ static cvar_t *GAME_EXPORT pfnCvar_RegisterClientVariable( const char *szName, c
 	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_CLIENTDLL ));
 }
 
+static int GAME_EXPORT Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )
+{
+	int flags = CMD_CLIENTDLL;
+
+	// a1ba: try to mitigate outdated client.dll vulnerabilities
+	if( !Q_stricmp( cmd_name, "motd_write" ))
+		flags |= CMD_PRIVILEGED;
+
+	return Cmd_AddCommandEx( cmd_name, function, "client command", flags, __func__ );
+}
+
 /*
 =============
 pfnHookUserMsg
