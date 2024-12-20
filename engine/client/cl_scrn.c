@@ -124,7 +124,7 @@ void SCR_DrawPos( void )
 	if( cls.state != ca_active || !cl_showpos.value || cl.background )
 		return;
 
-	ent = CL_EDICT_NUM( cl.playernum + 1 );
+	ent = CL_GetLocalPlayer();
 	speed = VectorLength( cl.simvel );
 
 	Q_snprintf( msg, MAX_SYSPATH,

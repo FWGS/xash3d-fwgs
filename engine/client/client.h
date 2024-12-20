@@ -881,10 +881,12 @@ static inline qboolean CL_IsThirdPerson( void )
 
 static inline cl_entity_t *CL_GetLocalPlayer( void )
 {
-	cl_entity_t	*player;
+	cl_entity_t	*player = CL_GetEntityByIndex( cl.playernum + 1 );
 
-	player = CL_EDICT_NUM( cl.playernum + 1 );
-	Assert( player != NULL );
+	// HACKHACK: GoldSrc doesn't do this, but some mods actually check it for null pointer
+	// this is a lesser evil than changing semantics of HUD_VidInit and call it after entities are allocated
+	if( !player )
+		Con_Printf( S_WARN "%s: client entities are not initialized yet! Returning NULL...\n", __func__ );
 
 	return player;
 }
