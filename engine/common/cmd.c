@@ -263,10 +263,16 @@ Cbuf_Execute
 void Cbuf_Execute( void )
 {
 	Cbuf_ExecuteCommandsFromBuffer( &cmd_text, true, -1 );
-	// a1ba: unlimited commands for filtered buffer per frame
+
+	// a1ba: goldsrc limits unprivileged commands per frame to 1 here
 	// I don't see any sense in restricting that at this moment
 	// but in future we may limit this
-	Cbuf_ExecuteCommandsFromBuffer( &filteredcmd_text, false, -1 );
+
+	// a1ba: there is little to no sense limit privileged commands in
+	// local game, as client runs server code anyway
+	// do this for singleplayer only though, to make it easier to catch
+	// possible bugs during local multiplayer testing
+	Cbuf_ExecuteCommandsFromBuffer( &filteredcmd_text, SV_Active() && SV_GetMaxClients() == 1, -1 );
 }
 
 /*
