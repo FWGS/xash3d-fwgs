@@ -976,7 +976,7 @@ static void CL_ClearUserMessage( char *pszName, int svc_num )
 	int i;
 
 	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
-		if( ( clgame.msg[i].number == svc_num ) && Q_strcmp( clgame.msg[i].name, pszName ) )
+		if( ( clgame.msg[i].number == svc_num ) && Q_stricmp( clgame.msg[i].name, pszName ) )
 			clgame.msg[i].number = 0;
 }
 
