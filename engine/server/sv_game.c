@@ -4438,6 +4438,11 @@ static void GAME_EXPORT pfnGetPlayerStats( const edict_t *pClient, int *ping, in
 	if( ping ) *ping = cl->latency * 1000;
 }
 
+static void GAME_EXPORT Cmd_AddServerCommand( const char *cmd_name, xcommand_t function )
+{
+	Cmd_AddCommandEx( cmd_name, function, "server command", CMD_SERVERDLL, __func__ );
+}
+
 /*
 =============
 pfnForceUnmodified
