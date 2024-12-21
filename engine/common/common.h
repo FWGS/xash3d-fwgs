@@ -433,19 +433,19 @@ void Cmd_Init( void );
 void Cmd_Unlink( int group );
 int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int iFlags, const char *funcname );
 
-static inline void Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+static inline int Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
 {
-	Cmd_AddCommandEx( cmd_name, function, cmd_desc, 0, __func__ );
+	return Cmd_AddCommandEx( cmd_name, function, cmd_desc, 0, __func__ );
 }
 
-static inline void Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+static inline int Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
 {
-	Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_PRIVILEGED, __func__ );
+	return Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_PRIVILEGED, __func__ );
 }
 
-static inline void Cmd_AddFilteredCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+static inline int Cmd_AddFilteredCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
 {
-	Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_PRIVILEGED, __func__ );
+	return Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_FILTERABLE, __func__ );
 }
 
 void Cmd_RemoveCommand( const char *cmd_name );
