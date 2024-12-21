@@ -24,11 +24,6 @@ AVI PLAYING
 =================================================================
 */
 
-static int		xres, yres;
-static float		video_duration;
-static float		cin_time;
-static int		cin_frame;
-static wavdata_t		cin_audio;
 static movie_state_t	*cin_state;
 
 /*
@@ -88,7 +83,17 @@ void SCR_CheckStartupVids( void )
 	char *pfile;
 	string	token;
 
-	if( Sys_CheckParm( "-nointro" ) || host_developer.value || cls.demonum != -1 || GameState->nextstate != STATE_RUNFRAME )
+#if 0
+	if( host_developer.value )
+	{
+		// don't run movies where we in developer-mode
+		cls.movienum = -1;
+		CL_CheckStartupDemos();
+		return;
+	}
+#endif
+
+	if( Sys_CheckParm( "-nointro" ) || cls.demonum != -1 || GameState->nextstate != STATE_RUNFRAME )
 	{
 		// don't run movies where we in developer-mode
 		cls.movienum = -1;
@@ -147,23 +152,9 @@ void SCR_RunCinematic( void )
 		Key_SetKeyDest( key_menu );
 		S_StopStreaming();
 		cls.movienum = -1;
-		cin_time = 0.0f;
 		cls.signon = 0;
 		return;
 	}
-
-	// advances cinematic time (ignores maxfps and host_framerate settings)
-	cin_time += host.realframetime;
-
-	// stop the video after it finishes
-	if( cin_time > video_duration + 0.1f )
-	{
-		SCR_NextMovie( );
-		return;
-	}
-
-	// read the next frame
-	cin_frame = AVI_GetVideoFrameNumber( cin_state, cin_time );
 }
 
 /*
@@ -176,21 +167,11 @@ should be skipped
 */
 qboolean SCR_DrawCinematic( void )
 {
-	static int	last_frame = -1;
-	qboolean		redraw = false;
-	byte		*frame = NULL;
-
-	if( !ref.initialized || cin_time <= 0.0f )
+	if( !ref.initialized )
 		return false;
 
-	if( cin_frame != last_frame )
-	{
-		frame = AVI_GetVideoFrame( cin_state, cin_frame );
-		last_frame = cin_frame;
-		redraw = true;
-	}
-
-	ref.dllFuncs.R_DrawStretchRaw( 0, 0, refState.width, refState.height, xres, yres, frame, redraw );
+	if( !AVI_Think( cin_state ))
+		return SCR_NextMovie();
 
 	return true;
 }
@@ -219,43 +200,26 @@ qboolean SCR_PlayCinematic( const char *arg )
 		return false;
 	}
 
-	if( !( AVI_GetVideoInfo( cin_state, &xres, &yres, &video_duration ))) // couldn't open this at all.
-	{
-		AVI_CloseVideo( cin_state );
-		return false;
-	}
-
-	if( AVI_GetAudioInfo( cin_state, &cin_audio ))
+	if( AVI_HaveAudioTrack( cin_state ))
 	{
 		// begin streaming
 		S_StopAllSounds( true );
 		S_StartStreaming();
 	}
 
+	AVI_SetParm( cin_state,
+		AVI_RENDER_X, 0,
+		AVI_RENDER_Y, 0,
+		AVI_RENDER_W, -1,
+		AVI_RENDER_H, -1,
+		AVI_PARM_LAST );
+
 	UI_SetActiveMenu( false );
 	cls.state = ca_cinematic;
 	Con_FastClose();
-	cin_time = 0.0f;
 	cls.signon = 0;
 
 	return true;
-}
-
-int SCR_GetAudioChunk( char *rawdata, int length )
-{
-	int	r;
-
-	r = AVI_GetAudioChunk( cin_state, rawdata, cin_audio.loopStart, length );
-	cin_audio.loopStart += r; // advance play position
-
-	return r;
-}
-
-wavdata_t *SCR_GetMovieInfo( void )
-{
-	if( AVI_IsActive( cin_state ))
-		return &cin_audio;
-	return NULL;
 }
 
 /*
@@ -270,7 +234,6 @@ void SCR_StopCinematic( void )
 
 	AVI_CloseVideo( cin_state );
 	S_StopStreaming();
-	cin_time = 0.0f;
 
 	cls.state = ca_disconnected;
 	cls.signon = 0;

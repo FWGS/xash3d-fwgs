@@ -70,5 +70,9 @@ if [ -n "${APPIMAGETOOL[$GH_CPU_ARCH]}" ]; then
 	chmod +x appimagetool.AppImage
 fi
 
+FFMPEG_ARCHIVE=$(get_ffmpeg_archive)
+wget https://github.com/FWGS/FFmpeg-Builds/releases/download/latest/$FFMPEG_ARCHIVE.tar.xz -qO- | tar -xJf -
+mv $FFMPEG_ARCHIVE ffmpeg
+
 wget "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz" -qO- | tar -xzf -
 mv "SDL2-$SDL_VERSION" SDL2_src
