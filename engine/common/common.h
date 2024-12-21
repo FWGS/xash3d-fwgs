@@ -597,6 +597,7 @@ qboolean SV_Active( void );
 */
 char *COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char *pBuffer, int bufferSize );
 void COM_HexConvert( const char *pszInput, int nInputLength, byte *pOutput );
+byte COM_Nibble( char c );
 int COM_SaveFile( const char *filename, const void *data, int len );
 byte *COM_LoadFileForMe( const char *filename, int *pLength ) MALLOC_LIKE( free, 1 );
 qboolean COM_IsSafeFileToDownload( const char *filename );

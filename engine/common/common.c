@@ -612,7 +612,7 @@ COM_Nibble
 Returns the 4 bit nibble for a hex character
 ==================
 */
-static byte COM_Nibble( char c )
+byte COM_Nibble( char c )
 {
 	if(( c >= '0' ) && ( c <= '9' ))
 	{

@@ -2711,17 +2711,6 @@ static const char *pfnGetGameDirectory( void )
 
 /*
 =============
-Key_LookupBinding
-
-=============
-*/
-static const char *Key_LookupBinding( const char *pBinding )
-{
-	return Key_KeynumToString( Key_GetKey( pBinding ));
-}
-
-/*
-=============
 pfnGetLevelName
 
 =============

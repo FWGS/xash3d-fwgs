@@ -34,9 +34,9 @@ typedef struct keyname_s
 	const char	*binding;	// default bind
 } keyname_t;
 
-enginekey_t	keys[256];
+static enginekey_t	keys[256];
 
-keyname_t keynames[] =
+static const keyname_t keynames[] =
 {
 {"TAB",		K_TAB,		""		},
 {"ENTER",		K_ENTER,		""		},
@@ -139,7 +139,6 @@ keyname_t keynames[] =
 
 // raw semicolon seperates commands
 {"SEMICOLON",	';',		""		},
-{NULL,		0,		NULL		},
 };
 
 static void OSK_EnableTextInput( qboolean enable, qboolean force );
@@ -172,48 +171,25 @@ the K_* names are matched up.
 to be configured even if they don't have defined names.
 ===================
 */
-int Key_StringToKeynum( const char *str )
+static int Key_StringToKeynum( const char *str )
 {
-	keyname_t		*kn;
+	int i;
 
-	if( !str || !str[0] ) return -1;
-	if( !str[1] ) return str[0];
+	if( !str || !str[0] )
+		return -1;
+
+	if( !str[1] )
+		return str[0];
 
 	// check for hex code
 	if( str[0] == '0' && str[1] == 'x' && Q_strlen( str ) == 4 )
-	{
-		int	n1, n2;
-
-		n1 = str[2];
-		if( n1 >= '0' && n1 <= '9' )
-		{
-			n1 -= '0';
-		}
-		else if( n1 >= 'a' && n1 <= 'f' )
-		{
-			n1 = n1 - 'a' + 10;
-		}
-		else n1 = 0;
-
-		n2 = str[3];
-		if( n2 >= '0' && n2 <= '9' )
-		{
-			n2 -= '0';
-		}
-		else if( n2 >= 'a' && n2 <= 'f' )
-		{
-			n2 = n2 - 'a' + 10;
-		}
-		else n2 = 0;
-
-		return n1 * 16 + n2;
-	}
+		return COM_Nibble( str[2] ) << 4 | COM_Nibble( str[3] );
 
 	// scan for a text match
-	for( kn = keynames; kn->name; kn++ )
+	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
 	{
-		if( !Q_stricmp( str, kn->name ))
-			return kn->keynum;
+		if( !Q_stricmp( str, keynames[i].name ))
+			return keynames[i].keynum;
 	}
 
 	return -1;
@@ -229,12 +205,14 @@ given keynum.
 */
 const char *Key_KeynumToString( int keynum )
 {
-	keyname_t		*kn;
 	static char	tinystr[5];
 	int		i, j;
 
-	if ( keynum == -1 ) return "<KEY NOT FOUND>";
-	if ( keynum < 0 || keynum > 255 ) return "<OUT OF RANGE>";
+	if( keynum == -1 )
+		return "<KEY NOT FOUND>";
+
+	if( keynum < 0 || keynum > 255 )
+		return "<OUT OF RANGE>";
 
 	// check for printable ascii (don't use quote)
 	if( keynum > 32 && keynum < 127 && keynum != '"' && keynum != ';' && keynum != K_SCROLLOCK )
@@ -245,10 +223,10 @@ const char *Key_KeynumToString( int keynum )
 	}
 
 	// check for a key string
-	for( kn = keynames; kn->name; kn++ )
+	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
 	{
-		if( keynum == kn->keynum )
-			return kn->name;
+		if( keynum == keynames[i].keynum )
+			return keynames[i].name;
 	}
 
 	// make a hex string
@@ -301,7 +279,7 @@ const char *Key_GetBinding( int keynum )
 Key_GetKey
 ===================
 */
-int Key_GetKey( const char *pBinding )
+static int Key_GetKey( const char *pBinding )
 {
 	int		 i, len;
 	const char	*p;
@@ -325,6 +303,17 @@ int Key_GetKey( const char *pBinding )
 	}
 
 	return -1;
+}
+
+/*
+=============
+Key_LookupBinding
+
+=============
+*/
+const char *Key_LookupBinding( const char *pBinding )
+{
+	return Key_KeynumToString( Key_GetKey( pBinding ));
 }
 
 /*
@@ -380,7 +369,6 @@ Key_Reset_f
 */
 static void Key_Reset_f( void )
 {
-	keyname_t	*kn;
 	int	i;
 
 	// clear all keys first
@@ -391,8 +379,8 @@ static void Key_Reset_f( void )
 	}
 
 	// apply default values
-	for( kn = keynames; kn->name; kn++ )
-		Key_SetBinding( kn->keynum, kn->binding );
+	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
+		Key_SetBinding( keynames[i].keynum, keynames[i].binding );
 }
 
 /*
@@ -500,7 +488,7 @@ Key_Init
 */
 void Key_Init( void )
 {
-	keyname_t	*kn;
+	int i;
 
 	// register our functions
 	Cmd_AddRestrictedCommand( "bind", Key_Bind_f, "binds a command to the specified key in bindmap" );
@@ -511,7 +499,8 @@ void Key_Init( void )
 	Cmd_AddCommand( "makehelp", Key_EnumCmds_f, "write help.txt that contains all console cvars and cmds" );
 
 	// setup default binding. "unbindall" from config.cfg will be reset it
-	for( kn = keynames; kn->name; kn++ ) Key_SetBinding( kn->keynum, kn->binding );
+	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
+		Key_SetBinding( keynames[i].keynum, keynames[i].binding );
 
 	Cvar_RegisterVariable( &osk_enable );
 	Cvar_RegisterVariable( &key_rotate );
@@ -909,17 +898,16 @@ A helper function if platform input doesn't support text mode properly
 */
 int Key_ToUpper( int keynum )
 {
-	keynum = Q_toupper( keynum );
 	if( keynum == '-' )
-		keynum = '_';
+		return '_';
 	if( keynum == '=' )
-		keynum = '+';
+		return '+';
 	if( keynum == ';' )
-		keynum = ':';
+		return ':';
 	if( keynum == '\'' )
-		keynum = '"';
+		return '"';
 
-	return keynum;
+	return Q_toupper( keynum );
 }
 
 /* On-screen keyboard:
