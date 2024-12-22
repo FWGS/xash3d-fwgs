@@ -39,8 +39,6 @@ GNU General Public License for more details.
 #define DT_SIGNED		BIT( 8 )	// sign modificator
 #define DT_SIGNED_GS	BIT( 31 ) // GoldSrc-specific sign modificator
 
-#define NUM_FIELDS( x )	((sizeof( x ) / sizeof( x[0] )) - 1)
-
 // helper macroses
 #define ENTS_DEF( x )	#x, offsetof( entity_state_t, x ), sizeof( ((entity_state_t *)0)->x )
 #define UCMD_DEF( x )	#x, offsetof( usercmd_t, x ), sizeof( ((usercmd_t *)0)->x )
@@ -71,7 +69,6 @@ static const delta_field_t cmd_fields[] =
 { UCMD_DEF( impact_position[0] )	},
 { UCMD_DEF( impact_position[1] )	},
 { UCMD_DEF( impact_position[2] )	},
-{ NULL },
 };
 
 static const delta_field_t pm_fields[] =
@@ -107,7 +104,6 @@ static const delta_field_t pm_fields[] =
 { PHYS_DEF( skydir_y )		},
 { PHYS_DEF( skydir_z )		},
 { PHYS_DEF( skyangle )		},
-{ NULL },
 };
 
 static const delta_field_t ev_fields[] =
@@ -130,7 +126,6 @@ static const delta_field_t ev_fields[] =
 { EVNT_DEF( iparam2 )	},
 { EVNT_DEF( bparam1 )	},
 { EVNT_DEF( bparam2 )	},
-{ NULL },
 };
 
 static const delta_field_t wd_fields[] =
@@ -157,7 +152,6 @@ static const delta_field_t wd_fields[] =
 { WPDT_DEF( fuser2 )		},
 { WPDT_DEF( fuser3 )		},
 { WPDT_DEF( fuser4 )		},
-{ NULL },
 };
 
 static const delta_field_t cd_fields[] =
@@ -218,7 +212,6 @@ static const delta_field_t cd_fields[] =
 { CLDT_DEF( vuser4[0] )	},
 { CLDT_DEF( vuser4[1] )	},
 { CLDT_DEF( vuser4[2] )	},
-{ NULL },
 };
 
 static const delta_field_t ent_fields[] =
@@ -314,7 +307,6 @@ static const delta_field_t ent_fields[] =
 { ENTS_DEF( vuser4[0] )	},
 { ENTS_DEF( vuser4[1] )	},
 { ENTS_DEF( vuser4[2] )	},
-{ NULL },
 };
 
 static const delta_field_t meta_fields[] =
@@ -326,7 +318,6 @@ static const delta_field_t meta_fields[] =
 { DESC_DEF( significant_bits ), },
 { DESC_DEF( premultiply ), },
 { DESC_DEF( postmultiply ), },
-{ NULL },
 };
 
 #if XASH_ENGINE_TESTS
@@ -362,24 +353,22 @@ static const delta_field_t test_fields[] =
 { TEST_DEF( dt_short_unsigned ) },
 { TEST_DEF( dt_byte_signed ) },
 { TEST_DEF( dt_byte_unsigned ) },
-{ NULL },
 };
 #endif
 
 static delta_info_t dt_info[] =
 {
-[DT_EVENT_T]               = { "event_t", ev_fields, NUM_FIELDS( ev_fields ) },
-[DT_MOVEVARS_T]            = { "movevars_t", pm_fields, NUM_FIELDS( pm_fields ) },
-[DT_USERCMD_T]             = { "usercmd_t", cmd_fields, NUM_FIELDS( cmd_fields ) },
-[DT_CLIENTDATA_T]          = { "clientdata_t", cd_fields, NUM_FIELDS( cd_fields ) },
-[DT_WEAPONDATA_T]          = { "weapon_data_t", wd_fields, NUM_FIELDS( wd_fields ) },
-[DT_ENTITY_STATE_T]        = { "entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
-[DT_ENTITY_STATE_PLAYER_T] = { "entity_state_player_t", ent_fields, NUM_FIELDS( ent_fields ) },
-[DT_CUSTOM_ENTITY_STATE_T] = { "custom_entity_state_t", ent_fields, NUM_FIELDS( ent_fields ) },
+[DT_EVENT_T]               = { "event_t", ev_fields, ARRAYSIZE( ev_fields ) },
+[DT_MOVEVARS_T]            = { "movevars_t", pm_fields, ARRAYSIZE( pm_fields ) },
+[DT_USERCMD_T]             = { "usercmd_t", cmd_fields, ARRAYSIZE( cmd_fields ) },
+[DT_CLIENTDATA_T]          = { "clientdata_t", cd_fields, ARRAYSIZE( cd_fields ) },
+[DT_WEAPONDATA_T]          = { "weapon_data_t", wd_fields, ARRAYSIZE( wd_fields ) },
+[DT_ENTITY_STATE_T]        = { "entity_state_t", ent_fields, ARRAYSIZE( ent_fields ) },
+[DT_ENTITY_STATE_PLAYER_T] = { "entity_state_player_t", ent_fields, ARRAYSIZE( ent_fields ) },
+[DT_CUSTOM_ENTITY_STATE_T] = { "custom_entity_state_t", ent_fields, ARRAYSIZE( ent_fields ) },
 #if XASH_ENGINE_TESTS
-[DT_DELTA_TEST_STRUCT_T]   = { "delta_test_struct_t", test_fields, NUM_FIELDS( test_fields ) },
+[DT_DELTA_TEST_STRUCT_T]   = { "delta_test_struct_t", test_fields, ARRAYSIZE( test_fields ) },
 #endif
-[DT_STRUCT_COUNT]          = { NULL },
 };
 
 // meta description is special, it cannot be overriden
@@ -387,9 +376,9 @@ static const delta_info_t dt_goldsrc_meta =
 {
 	.pName = "goldsrc_delta_t",
 	.pInfo = meta_fields,
-	.maxFields = NUM_FIELDS( meta_fields ),
-	.numFields = NUM_FIELDS( meta_fields ),
-	.pFields = (delta_t[NUM_FIELDS( meta_fields )])
+	.maxFields = ARRAYSIZE( meta_fields ),
+	.numFields = ARRAYSIZE( meta_fields ),
+	.pFields = (delta_t[ARRAYSIZE( meta_fields )])
 	{
 		{
 			DESC_DEF( fieldType ),
@@ -451,7 +440,7 @@ static delta_info_t *Delta_FindStruct( const char *name )
 	if( !COM_CheckString( name ))
 		return NULL;
 
-	for( i = 0; i < NUM_FIELDS( dt_info ); i++ )
+	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( !Q_stricmp( dt_info[i].pName, name ))
 			return &dt_info[i];
@@ -465,7 +454,7 @@ static delta_info_t *Delta_FindStruct( const char *name )
 
 static int Delta_NumTables( void )
 {
-	return NUM_FIELDS( dt_info );
+	return ARRAYSIZE( dt_info );
 }
 
 static delta_info_t *Delta_FindStructByIndex( int index )
@@ -480,7 +469,7 @@ static delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
 	if( !COM_CheckString( encoderName ) )
 		return NULL;
 
-	for( i = 0; i < NUM_FIELDS( dt_info ); i++ )
+	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( !Q_stricmp( dt_info[i].funcName, encoderName ))
 			return &dt_info[i];
@@ -495,7 +484,7 @@ static delta_info_t *Delta_FindStructByDelta( const delta_t *pFields )
 
 	if( !pFields ) return NULL;
 
-	for( i = 0; i < NUM_FIELDS( dt_info ); i++ )
+	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( dt_info[i].pFields == pFields )
 			return &dt_info[i];
@@ -518,29 +507,32 @@ static void Delta_CustomEncode( delta_info_t *dt, const void *from, const void *
 		dt->userCallback( dt->pFields, from, to );
 }
 
-static delta_field_t *Delta_FindFieldInfo( const delta_field_t *pInfo, const char *fieldName )
+static const delta_field_t *Delta_FindFieldInfo( const delta_field_t *pInfo, const char *fieldName, int maxFields )
 {
+	int i;
+
 	if( !fieldName || !*fieldName )
 		return NULL;
 
-	for( ; pInfo->name; pInfo++ )
+	for( i = 0; i < maxFields; i++ )
 	{
-		if( !Q_strcmp( pInfo->name, fieldName ))
-			return (delta_field_t *)pInfo;
+		if( !Q_strcmp( pInfo[i].name, fieldName ))
+			return &pInfo[i];
 	}
+
 	return NULL;
 }
 
-static int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fieldName )
+static int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fieldName, int maxFields )
 {
 	int	i;
 
 	if( !fieldName || !*fieldName )
 		return -1;
 
-	for( i = 0; pInfo->name; i++, pInfo++ )
+	for( i = 0; i < maxFields; i++ )
 	{
-		if( !Q_strcmp( pInfo->name, fieldName ))
+		if( !Q_strcmp( pInfo[i].name, fieldName ))
 			return i;
 	}
 	return -1;
@@ -548,7 +540,7 @@ static int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fiel
 
 static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, int bits, float mul, float post_mul )
 {
-	delta_field_t	*pFieldInfo;
+	const delta_field_t *pFieldInfo;
 	delta_t		*pField;
 	int		i;
 
@@ -567,7 +559,7 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 	}
 
 	// find field description
-	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName );
+	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName, dt->maxFields );
 	if( !pFieldInfo )
 	{
 		Con_DPrintf( S_ERROR "%s: couldn't find description for %s->%s\n", __func__, dt->pName, pName );
@@ -610,7 +602,7 @@ static void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t
 	dt = Delta_FindStructByIndex( tableIndex );
 	Assert( dt && dt->bInitialized );
 
-	nameIndex = Delta_IndexForFieldInfo( dt->pInfo, pField->name );
+	nameIndex = Delta_IndexForFieldInfo( dt->pInfo, pField->name, dt->maxFields );
 	Assert( nameIndex >= 0 && nameIndex < dt->maxFields );
 
 	MSG_BeginServerCmd( msg, svc_deltatable );
@@ -681,10 +673,10 @@ void Delta_ParseTableField( sizebuf_t *msg )
 	Delta_AddField( dt, pName, flags, bits, mul, post_mul );
 }
 
-static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInfo, delta_t *pField, qboolean bPost )
+static qboolean Delta_ParseField( char **delta_script, const delta_info_t *dt, delta_t *pField, qboolean bPost )
 {
+	const delta_field_t *pFieldInfo;
 	string		token;
-	delta_field_t	*pFieldInfo;
 	char		*oldpos;
 
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
@@ -701,7 +693,7 @@ static qboolean Delta_ParseField( char **delta_script, const delta_field_t *pInf
 		return false;
 	}
 
-	pFieldInfo = Delta_FindFieldInfo( pInfo, token );
+	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, token, dt->maxFields );
 	if( !pFieldInfo )
 	{
 		Con_DPrintf( S_ERROR "%s: unable to find field %s\n", __func__, token );
@@ -825,13 +817,11 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 {
 	string		token;
 	delta_t		*pField;
-	const delta_field_t	*pInfo;
 
 	// allocate the delta-structures
 	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
 
 	pField = dt->pFields;
-	pInfo = dt->pInfo;
 	dt->numFields = 0;
 
 	// assume we have handled '{'
@@ -841,12 +831,12 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 
 		if( !Q_strcmp( token, "DEFINE_DELTA" ))
 		{
-			if( Delta_ParseField( delta_script, pInfo, &pField[dt->numFields], false ))
+			if( Delta_ParseField( delta_script, dt, &pField[dt->numFields], false ))
 				dt->numFields++;
 		}
 		else if( !Q_strcmp( token, "DEFINE_DELTA_POST" ))
 		{
-			if( Delta_ParseField( delta_script, pInfo, &pField[dt->numFields], true ))
+			if( Delta_ParseField( delta_script, dt, &pField[dt->numFields], true ))
 				dt->numFields++;
 		}
 		else if( token[0] == '}' )
@@ -963,7 +953,7 @@ void Delta_Init( void )
 	Delta_AddField( dt, "skyvec_z", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
 	Delta_AddField( dt, "wateralpha", DT_FLOAT|DT_SIGNED, 16, 32.0f, 1.0f );
 	Delta_AddField( dt, "fog_settings", DT_INTEGER, 32, 1.0f, 1.0f );
-	dt->numFields = NUM_FIELDS( pm_fields ) - 4;
+	dt->numFields = ARRAYSIZE( pm_fields ) - 4;
 
 	// now done
 	dt->bInitialized = true;
@@ -976,7 +966,7 @@ void Delta_InitClient( void )
 	// already initalized
 	if( delta_init ) return;
 
-	for( i = 0; i < NUM_FIELDS( dt_info ); i++ )
+	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( dt_info[i].numFields > 0 )
 		{
@@ -994,7 +984,7 @@ void Delta_Shutdown( void )
 
 	if( !delta_init ) return;
 
-	for( i = 0; i < NUM_FIELDS( dt_info ); i++ )
+	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		dt_info[i].numFields = 0;
 		dt_info[i].customEncode = CUSTOM_NONE;
