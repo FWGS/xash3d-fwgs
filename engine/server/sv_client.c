@@ -3022,7 +3022,6 @@ static const ucmd_t ucmds[] =
 { "disconnect", SV_Disconnect_f },
 { "userinfo", SV_UpdateUserinfo_f },
 { "_sv_build_info", SV_SendBuildInfo_f },
-{ NULL, NULL }
 };
 
 static const ucmd_t enttoolscmds[] =
@@ -3032,7 +3031,6 @@ static const ucmd_t enttoolscmds[] =
 { "ent_fire", SV_EntFire_f },
 { "ent_create", SV_EntCreate_f },
 { "ent_getvars", SV_EntGetVars_f },
-{ NULL, NULL }
 };
 
 /*
@@ -3042,25 +3040,30 @@ SV_ExecuteUserCommand
 */
 static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 {
-	const ucmd_t	*u;
+	int i;
 
 	Cmd_TokenizeString( s );
 
-	for( u = ucmds; u->name; u++ )
+	for( i = 0; i < ARRAYSIZE( ucmds ); i++ )
 	{
+		const ucmd_t *u = &ucmds[i];
 		if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
 		{
 			if( !u->func( cl ))
 				Con_Printf( "'%s' is not valid from the console\n", u->name );
-			else Con_Reportf( "ucmd->%s()\n", u->name );
-			break;
+			else
+				Con_Reportf( "ucmd->%s()\n", u->name );
+
+			return;
 		}
 	}
 
-	if( !u->name && sv_enttools_enable.value > 0.0f && !sv.background )
+	if( sv_enttools_enable.value > 0.0f && !sv.background )
 	{
-		for( u = enttoolscmds; u->name; u++ )
+		for( i = 0; i < ARRAYSIZE( enttoolscmds ); i++ )
 		{
+			const ucmd_t *u = &enttoolscmds[i];
+
 			if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
 			{
 				Con_Reportf( "enttools->%s(): %s\n", u->name, s );
@@ -3070,12 +3073,12 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 				if( u->func )
 					u->func( cl );
 
-				break;
+				return;
 			}
 		}
 	}
 
-	if( !u->name && sv.state == ss_active )
+	if( sv.state == ss_active )
 	{
 		qboolean fullupdate = !Q_strcmp( Cmd_Argv( 0 ), "fullupdate" );
 
