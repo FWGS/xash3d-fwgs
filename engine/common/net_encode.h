@@ -46,7 +46,6 @@ enum
 #if XASH_ENGINE_TESTS
 	DT_DELTA_TEST_STRUCT_T,
 #endif
-	DT_STRUCT_COUNT
 };
 
 // struct info (filled by engine)

@@ -1040,7 +1040,6 @@ static const autocomplete_list_t cmd_list[] =
 { "map", 1, Cmd_GetMapList },
 { "cd", 1, Cmd_GetCDList },
 { "mp3", 1, Cmd_GetCDList },
-{ NULL }, // termiantor
 };
 
 /*
@@ -1073,12 +1072,12 @@ for various cmds
 */
 static qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t bufsize )
 {
-	const autocomplete_list_t	*list;
+	int i;
 
-	for( list = cmd_list; list->name; list++ )
+	for( i = 0; i < ARRAYSIZE( cmd_list ); i++  )
 	{
-		if( list->arg == arg && Cmd_CheckName( list->name ))
-			return list->func( source, buffer, bufsize );
+		if( cmd_list[i].arg == arg && Cmd_CheckName( cmd_list[i].name ))
+			return cmd_list[i].func( source, buffer, bufsize );
 	}
 
 	return false;
