@@ -76,7 +76,6 @@ static const dllfunc_t cdll_exports[] =
 { "IN_ClearStates", (void **)&clgame.dllFuncs.IN_ClearStates },
 { "V_CalcRefdef", (void **)&clgame.dllFuncs.pfnCalcRefdef },
 { "KB_Find", (void **)&clgame.dllFuncs.KB_Find },
-{ NULL, NULL }
 };
 
 // optional exports
@@ -91,7 +90,6 @@ static const dllfunc_t cdll_new_exports[] = 	// allowed only in SDK 2.3 and high
 { "IN_ClientTouchEvent", (void **)&clgame.dllFuncs.pfnTouchEvent}, // Xash3D FWGS ext
 { "IN_ClientMoveEvent", (void **)&clgame.dllFuncs.pfnMoveEvent}, // Xash3D FWGS ext
 { "IN_ClientLookEvent", (void **)&clgame.dllFuncs.pfnLookEvent}, // Xash3D FWGS ext
-{ NULL, NULL }
 };
 
 static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc );
@@ -4007,9 +4005,10 @@ void CL_UnloadProgs( void )
 qboolean CL_LoadProgs( const char *name )
 {
 	static playermove_t		gpMove;
-	const dllfunc_t		*func;
-	CL_EXPORT_FUNCS		GetClientAPI; // single export
-	qboolean			critical_exports = true;
+	CL_EXPORT_FUNCS	GetClientAPI; // single export
+	qboolean valid_single_export = false;
+	qboolean missed_exports = false;
+	int i;
 
 	if( clgame.hInstance ) CL_UnloadProgs();
 
@@ -4063,8 +4062,8 @@ qboolean CL_LoadProgs( const char *name )
 	}
 
 	// clear exports
-	for( func = cdll_exports; func && func->name; func++ )
-		*func->func = NULL;
+	for( i = 0; i < ARRAYSIZE( cdll_exports ); i++ )
+		*(cdll_exports[i].func) = NULL;
 
 	// trying to get single export
 	if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "GetClientAPI" )) != NULL )
@@ -4082,56 +4081,59 @@ qboolean CL_LoadProgs( const char *name )
 		CL_GetSecuredClientAPI( GetClientAPI );
 	}
 
-	if ( GetClientAPI != NULL )
+	if( GetClientAPI != NULL )
 	{
 		// check critical functions again
-		for( func = cdll_exports; func && func->name; func++ )
+		for( i = 0; i < ARRAYSIZE( cdll_exports ); i++ )
 		{
-			if( func->func == NULL )
+			if( *(cdll_exports[i].func) == NULL )
 				break; // BAH critical function was missed
 		}
 
-		// because all the exports are loaded through function 'F"
-		if( !func || !func->name )
-			critical_exports = false;
+		// everything was loaded
+		if( i == ARRAYSIZE( cdll_exports ))
+			valid_single_export = true;
 	}
 
-	for( func = cdll_exports; func && func->name != NULL; func++ )
+	for( i = 0; i < ARRAYSIZE( cdll_exports ); i++ )
 	{
-		if( *func->func != NULL )
-			continue;	// already get through 'F'
+		if( *(cdll_exports[i].func) != NULL )
+			continue; // already gott through 'F' or 'GetClientAPI'
 
 		// functions are cleared before all the extensions are evaluated
-		if(( *func->func = (void *)COM_GetProcAddress( clgame.hInstance, func->name )) == NULL )
+		if(( *(cdll_exports[i].func) = (void *)COM_GetProcAddress( clgame.hInstance, cdll_exports[i].name )) == NULL )
 		{
-			Con_Reportf( "%s: failed to get address of %s proc\n", __func__, func->name );
+			Con_Reportf( S_ERROR "%s: failed to get address of %s proc\n", __func__, cdll_exports[i].name );
 
-			if( critical_exports )
-			{
-				COM_FreeLibrary( clgame.hInstance );
-				clgame.hInstance = NULL;
-				return false;
-			}
+			// print all not found exports at once, for debug
+			missed_exports = true;
 		}
 	}
 
-	// it may be loaded through 'GetClientAPI' so we don't need to clear them
-	if( critical_exports )
+	if( missed_exports )
 	{
-		// clear new exports
-		for( func = cdll_new_exports; func && func->name; func++ )
-			*func->func = NULL;
+		COM_FreeLibrary( clgame.hInstance );
+		clgame.hInstance = NULL;
+		return false;
 	}
 
-	for( func = cdll_new_exports; func && func->name != NULL; func++ )
+	// it may be loaded through 'GetClientAPI' so we don't need to clear them
+	if( !valid_single_export )
 	{
-		if( *func->func != NULL )
-			continue;	// already get through 'F'
+		// clear new exports
+		for( i = 0; i < ARRAYSIZE( cdll_new_exports ); i++ )
+			*(cdll_new_exports[i].func) = NULL;
+	}
+
+	for( i = 0; i < ARRAYSIZE( cdll_new_exports ); i++ )
+	{
+		if( *(cdll_new_exports[i].func) != NULL )
+			continue; // already gott through 'F' or 'GetClientAPI'
 
 		// functions are cleared before all the extensions are evaluated
 		// NOTE: new exports can be missed without stop the engine
-		if(( *func->func = (void *)COM_GetProcAddress( clgame.hInstance, func->name )) == NULL )
-			Con_Reportf( "%s: failed to get address of %s proc\n", __func__, func->name );
+		if(( *(cdll_new_exports[i].func) = (void *)COM_GetProcAddress( clgame.hInstance, cdll_new_exports[i].name )) == NULL )
+			Con_Reportf( S_WARN "%s: failed to get address of %s proc\n", __func__, cdll_new_exports[i].name );
 	}
 
 	if( !clgame.dllFuncs.pfnInitialize( &gEngfuncs, CLDLL_INTERFACE_VERSION ))
