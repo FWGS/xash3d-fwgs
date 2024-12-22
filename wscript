@@ -392,6 +392,7 @@ def configure(conf):
 
 	conf.env.TESTS         = conf.options.TESTS
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
+	conf.env.ENABLE_XAR    = conf.options.ENABLE_XAR
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
 

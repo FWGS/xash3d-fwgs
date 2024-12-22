@@ -79,7 +79,7 @@ static void FS_CreatePath( char *path )
 	}
 }
 
-void usage( const char *arg0 )
+static void usage( const char *arg0 )
 {
 	printf( "%s: <action> [option...] <file>\n", arg0 );
 	puts( "XAR is a simple frontend to Xash3D FWGS's filesystem_stdio library" );
