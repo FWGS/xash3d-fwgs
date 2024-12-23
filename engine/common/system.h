@@ -49,7 +49,6 @@ int Sys_CheckParm( const char *parm );
 void Sys_Warn( const char *format, ... ) FORMAT_CHECK( 1 );
 void Sys_Error( const char *error, ... ) FORMAT_CHECK( 1 );
 qboolean Sys_LoadLibrary( dll_info_t *dll );
-void* Sys_GetProcAddress( dll_info_t *dll, const char* name );
 qboolean Sys_FreeLibrary( dll_info_t *dll );
 void Sys_ParseCommandLine( int argc, char **argv );
 void Sys_SetupCrashHandler( void );
