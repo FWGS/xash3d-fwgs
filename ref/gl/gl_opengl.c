@@ -531,8 +531,7 @@ static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, siz
 
 #if !XASH_GL_STATIC
 	// clear exports
-	for( i = 0; i < num_funcs; i++ )
-		*(funcs[i].func) = NULL;
+	ClearExports( funcs, num_funcs );
 
 	for( i = 0; i < num_funcs; i++ )
 	{

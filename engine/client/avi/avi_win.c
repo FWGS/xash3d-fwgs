@@ -30,10 +30,9 @@ static dllfunc_t msvfw_funcs[] =
 { "DrawDibOpen", (void **) &pDrawDibOpen },
 { "DrawDibDraw", (void **) &pDrawDibDraw },
 { "DrawDibClose", (void **) &pDrawDibClose },
-{ NULL, NULL }
 };
 
-dll_info_t msvfw_dll = { "msvfw32.dll", msvfw_funcs, false };
+dll_info_t msvfw_dll = { "msvfw32.dll", msvfw_funcs, ARRAYSIZE( msvfw_funcs ), false };
 
 // msacm32.dll exports
 static MMRESULT (_stdcall *pacmStreamOpen)( LPHACMSTREAM, HACMDRIVER, LPWAVEFORMATEX, LPWAVEFORMATEX, LPWAVEFILTER, DWORD, DWORD, DWORD );
@@ -51,10 +50,9 @@ static dllfunc_t msacm_funcs[] =
 { "acmStreamConvert", (void **) &pacmStreamConvert },
 { "acmStreamSize", (void **) &pacmStreamSize },
 { "acmStreamClose", (void **) &pacmStreamClose },
-{ NULL, NULL }
 };
 
-dll_info_t msacm_dll = { "msacm32.dll", msacm_funcs, false };
+dll_info_t msacm_dll = { "msacm32.dll", msacm_funcs, ARRAYSIZE( msacm_funcs ), false };
 
 // avifil32.dll exports
 static int (_stdcall *pAVIStreamInfo)( PAVISTREAM pavi, AVISTREAMINFO *psi, LONG lSize );
@@ -88,10 +86,9 @@ static dllfunc_t avifile_funcs[] =
 { "AVIStreamRelease", (void **) &pAVIStreamRelease },
 { "AVIStreamStart", (void **) &pAVIStreamStart },
 { "AVIStreamTimeToSample", (void **) &pAVIStreamTimeToSample },
-{ NULL, NULL }
 };
 
-dll_info_t avifile_dll = { "avifil32.dll", avifile_funcs, false };
+dll_info_t avifile_dll = { "avifil32.dll", avifile_funcs, ARRAYSIZE( avifile_funcs ), false };
 
 typedef struct movie_state_s
 {

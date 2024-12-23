@@ -106,6 +106,12 @@ char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int f
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
 int matchpattern_with_separator( const char *in, const char *pattern, qboolean caseinsensitive, const char *separators, qboolean wildcard_least_one );
 
+//
+// dllhelpers.c
+//
+void ClearExports( const dllfunc_t *funcs, size_t num_funcs );
+qboolean ValidateExports( const dllfunc_t *funcs, size_t num_funcs );
+
 static inline char Q_toupper( const char in )
 {
 	char	out;

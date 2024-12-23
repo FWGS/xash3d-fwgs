@@ -255,7 +255,7 @@ void Sys_SendKeyEvents( void )
 //=======================================================================
 qboolean Sys_LoadLibrary( dll_info_t *dll )
 {
-	const dllfunc_t	*func;
+	size_t i;
 	string		errorstring;
 
 	// check errors
@@ -267,12 +267,8 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 
 	Con_Reportf( "%s: Loading %s", __func__, dll->name );
 
-	if( dll->fcts )
-	{
-		// lookup export table
-		for( func = dll->fcts; func && func->name != NULL; func++ )
-			*func->func = NULL;
-	}
+	if( dll->fcts ) // lookup export table
+		ClearExports( dll->fcts, dll->num_fcts );
 
 	if( !dll->link )
 		dll->link = COM_LoadLibrary( dll->name, false, true ); // environment pathes
@@ -285,9 +281,10 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	}
 
 	// Get the function adresses
-	for( func = dll->fcts; func && func->name != NULL; func++ )
+	for( i = 0; i < dll->num_fcts; i++ )
 	{
-		if( !( *func->func = Sys_GetProcAddress( dll, func->name )))
+		const dllfunc_t *func = &dll->fcts[i];
+		if( !( *func->func = COM_GetProcAddress( dll->link, func->name )))
 		{
 			Q_snprintf( errorstring, sizeof( errorstring ), "Sys_LoadLibrary: %s missing or invalid function (%s)\n", dll->name, func->name );
 			goto error;
@@ -300,17 +297,9 @@ error:
 	Con_Reportf( " - failed\n" );
 	Sys_FreeLibrary( dll ); // trying to free
 	if( dll->crash ) Sys_Error( "%s", errorstring );
-	else Con_Reportf( S_ERROR  "%s", errorstring );
+	else Con_Reportf( S_ERROR "%s", errorstring );
 
 	return false;
-}
-
-void* Sys_GetProcAddress( dll_info_t *dll, const char* name )
-{
-	if( !dll || !dll->link ) // invalid desc
-		return NULL;
-
-	return (void *)COM_GetProcAddress( dll->link, name );
 }
 
 qboolean Sys_FreeLibrary( dll_info_t *dll )
@@ -329,6 +318,8 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 
 	COM_FreeLibrary( dll->link );
 	dll->link = NULL;
+
+	ClearExports( dll->fcts, dll->num_fcts );
 
 	return true;
 }

@@ -4062,8 +4062,7 @@ qboolean CL_LoadProgs( const char *name )
 	}
 
 	// clear exports
-	for( i = 0; i < ARRAYSIZE( cdll_exports ); i++ )
-		*(cdll_exports[i].func) = NULL;
+	ClearExports( cdll_exports, ARRAYSIZE( cdll_exports ));
 
 	// trying to get single export
 	if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "GetClientAPI" )) != NULL )
@@ -4081,19 +4080,8 @@ qboolean CL_LoadProgs( const char *name )
 		CL_GetSecuredClientAPI( GetClientAPI );
 	}
 
-	if( GetClientAPI != NULL )
-	{
-		// check critical functions again
-		for( i = 0; i < ARRAYSIZE( cdll_exports ); i++ )
-		{
-			if( *(cdll_exports[i].func) == NULL )
-				break; // BAH critical function was missed
-		}
-
-		// everything was loaded
-		if( i == ARRAYSIZE( cdll_exports ))
-			valid_single_export = true;
-	}
+	if( GetClientAPI != NULL ) // check critical functions again
+		valid_single_export = ValidateExports( cdll_exports, ARRAYSIZE( cdll_exports ));
 
 	for( i = 0; i < ARRAYSIZE( cdll_exports ); i++ )
 	{
@@ -4119,11 +4107,7 @@ qboolean CL_LoadProgs( const char *name )
 
 	// it may be loaded through 'GetClientAPI' so we don't need to clear them
 	if( !valid_single_export )
-	{
-		// clear new exports
-		for( i = 0; i < ARRAYSIZE( cdll_new_exports ); i++ )
-			*(cdll_new_exports[i].func) = NULL;
-	}
+		ClearExports( cdll_new_exports, ARRAYSIZE( cdll_new_exports ));
 
 	for( i = 0; i < ARRAYSIZE( cdll_new_exports ); i++ )
 	{
