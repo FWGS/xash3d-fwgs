@@ -51,6 +51,7 @@ void IOS_LaunchDialog( void );
 #if XASH_POSIX
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
+char *Posix_Input( void );
 #endif
 
 #if XASH_SDL
@@ -238,6 +239,17 @@ static inline void Platform_SetTimer( float time )
 {
 #if XASH_LINUX
 	Linux_SetTimer( time );
+#endif
+}
+
+static inline char *Platform_Input( void )
+{
+#if XASH_WIN32
+	return Wcon_Input();
+#elif XASH_POSIX && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+	return Posix_Input();
+#else
+	return NULL;
 #endif
 }
 
