@@ -4019,36 +4019,19 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
 	clgame.entities = NULL;
 
-
 	// a1ba: we need to check if client.dll has direct dependency on SDL2
 	// and if so, disable relative mouse mode
 #if XASH_WIN32 && !XASH_64BIT
-	if( ( clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL2." OS_LIB_EXT, false ) ) )
-	{
-		Con_Printf( S_NOTE "%s uses SDL2 for mouse input\n", name );
-	}
-	else
-	{
-		Con_Printf( S_NOTE "%s uses Windows API for mouse input\n", name );
-	}
-#else
-	// this doesn't mean other platforms uses SDL2 in any case
-	// it just helps input code to stay platform-independent
-	clgame.client_dll_uses_sdl = true;
+	clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL2." OS_LIB_EXT, false );
+	Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, clgame.client_dll_uses_sdl ? "SDL2" : "Windows API" );
 #endif
 
 	// NOTE: important stuff!
-	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS
-	// during LoadLibrary
+	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS during LoadLibrary
 	if( !GI->internal_vgui_support && VGui_LoadProgs( NULL ))
-	{
 		VGui_Startup( refState.width, refState.height );
-	}
 	else
-	{
-		// we failed to load vgui_support, but let's probe client.dll for support anyway
-		GI->internal_vgui_support = true;
-	}
+		GI->internal_vgui_support = true; // we failed to load vgui_support, but let's probe client.dll for support anyway
 
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
 
@@ -4057,9 +4040,7 @@ qboolean CL_LoadProgs( const char *name )
 
 	// delayed vgui initialization for internal support
 	if( GI->internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
-	{
 		VGui_Startup( refState.width, refState.height );
-	}
 
 	// clear exports
 	ClearExports( cdll_exports, ARRAYSIZE( cdll_exports ));
