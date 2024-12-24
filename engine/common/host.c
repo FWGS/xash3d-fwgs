@@ -595,7 +595,7 @@ static void Host_GetCommands( void )
 {
 	char	*cmd;
 
-	while( ( cmd = Sys_Input() ) )
+	while( ( cmd = Platform_Input() ) )
 	{
 		Cbuf_AddText( cmd );
 		Cbuf_Execute();

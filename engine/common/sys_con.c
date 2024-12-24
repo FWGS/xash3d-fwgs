@@ -14,10 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#if XASH_WIN32
-#define STDOUT_FILENO 1
-#include <io.h>
-#elif XASH_ANDROID
+#if XASH_ANDROID
 #include <android/log.h>
 #endif
 #include <string.h>
@@ -29,16 +26,8 @@ GNU General Public License for more details.
 // do not waste precious CPU cycles on mobiles or low memory devices
 #if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
 #define XASH_COLORIZE_CONSOLE true
-// use with caution, running engine in Qt Creator may cause a freeze in read() call
-// I have never encountered this bug anywhere else, so still enable by default
-#define XASH_USE_SELECT 1
 #else
 #define XASH_COLORIZE_CONSOLE false
-#endif
-
-#if XASH_USE_SELECT
-// non-blocking console input
-#include <sys/select.h>
 #endif
 
 typedef struct {
@@ -50,41 +39,6 @@ typedef struct {
 } LogData;
 
 static LogData s_ld;
-
-char *Sys_Input( void )
-{
-#if XASH_USE_SELECT
-	if( Host_IsDedicated( ))
-	{
-		fd_set rfds;
-		static char line[1024];
-		static int len;
-		struct timeval tv;
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		FD_ZERO( &rfds );
-		FD_SET( 0, &rfds); // stdin
-		while( select( 1, &rfds, NULL, NULL, &tv ) > 0 )
-		{
-			if( read( 0, &line[len], 1 ) != 1 )
-				break;
-			if( line[len] == '\n' || len > 1022 )
-			{
-				line[ ++len ] = 0;
-				len = 0;
-				return line;
-			}
-			len++;
-			tv.tv_sec = 0;
-			tv.tv_usec = 0;
-		}
-	}
-#endif
-#if XASH_WIN32
-	return Wcon_Input();
-#endif
-	return NULL;
-}
 
 void Sys_DestroyConsole( void )
 {
