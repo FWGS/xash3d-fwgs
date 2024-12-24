@@ -22,12 +22,13 @@ GNU General Public License for more details.
 #if XASH_IRIX
 #include <sys/time.h>
 #endif
+#include "xash3d_mathlib.h"
 
 // do not waste precious CPU cycles on mobiles or low memory devices
 #if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
-#define XASH_COLORIZE_CONSOLE true
+#define XASH_COLORIZE_CONSOLE 1
 #else
-#define XASH_COLORIZE_CONSOLE false
+#define XASH_COLORIZE_CONSOLE 0
 #endif
 
 typedef struct {
@@ -148,8 +149,8 @@ void Sys_CloseLog( void )
 	}
 }
 
-#if XASH_COLORIZE_CONSOLE == true
-static void Sys_WriteEscapeSequenceForColorcode( int fd, int c )
+#if XASH_COLORIZE_CONSOLE
+static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 {
 	static const char *q3ToAnsi[ 8 ] =
 	{
@@ -164,19 +165,26 @@ static void Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 	};
 	const char *esc = q3ToAnsi[c];
 
-	if( c == 7 )
-		write( fd, esc, 4 );
-	else write( fd, esc, 7 );
+	return write( fd, esc, c == 7 ? 4 : 7 ) < 0 ? false : true;
 }
 #else
-static void Sys_WriteEscapeSequenceForColorcode( int fd, int c ) {}
+static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
+{
+	return true;
+}
 #endif
 
-static void Sys_PrintLogfile( const int fd, const char *logtime, const char *msg, const qboolean colorize )
+static void Sys_PrintLogfile( const int fd, const char *logtime, size_t logtime_len, const char *msg, const int colorize )
 {
 	const char *p = msg;
 
-	write( fd, logtime, Q_strlen( logtime ) );
+	if( logtime_len != 0 )
+	{
+		if( write( fd, logtime, logtime_len ) < 0 )
+		{
+			// not critical for us
+		}
+	}
 
 	while( p && *p )
 	{
@@ -216,7 +224,7 @@ static void Sys_PrintLogfile( const int fd, const char *logtime, const char *msg
 		Sys_WriteEscapeSequenceForColorcode( fd, 7 );
 }
 
-static void Sys_PrintStdout( const char *logtime, const char *msg )
+static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char *msg )
 {
 #if XASH_MOBILE_PLATFORM
 	static char buf[MAX_PRINT_MSG];
@@ -248,7 +256,7 @@ static void Sys_PrintStdout( const char *logtime, const char *msg )
 #endif
 
 #elif !XASH_WIN32 // Wcon does the job
-	Sys_PrintLogfile( STDOUT_FILENO, logtime, msg, XASH_COLORIZE_CONSOLE );
+	Sys_PrintLogfile( STDOUT_FILENO, logtime, logtime_len, msg, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
 #endif
 }
@@ -259,33 +267,44 @@ void Sys_PrintLog( const char *pMsg )
 	const struct tm	*crt_tm;
 	char logtime[32] = "";
 	static char lastchar;
-	size_t len;
+	qboolean print_time = true;
+	size_t len, logtime_len = 0;
 
-	time( &crt_time );
-	crt_tm = localtime( &crt_time );
+	if( !lastchar || lastchar == '\n' )
+	{
+		if( time( &crt_time ) >= 0 )
+		{
+			crt_tm = localtime( &crt_time );
+			if( crt_tm == NULL )
+				print_time = false;
+		}
+	}
+	else print_time = false;
 
-	if( !lastchar || lastchar == '\n')
-		strftime( logtime, sizeof( logtime ), "[%H:%M:%S] ", crt_tm ); //short time
+	if( print_time )
+	{
+		logtime_len = strftime( logtime, sizeof( logtime ), "[%H:%M:%S] ", crt_tm ); // short time
+		logtime_len = Q_min( logtime_len, sizeof( logtime ) - 1 ); // just in case
+	}
 
 	// spew to stdout
-	Sys_PrintStdout( logtime, pMsg );
+	Sys_PrintStdout( logtime, logtime_len, pMsg );
 
 	len = Q_strlen( pMsg );
 
-	if( !s_ld.logfile )
-	{
-		// save last char to detect when line was not ended
-		lastchar = len > 0 ? pMsg[len - 1] : 0;
-		return;
-	}
-
-	if( !lastchar || lastchar == '\n')
-		strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S] ", crt_tm ); //full time
-	
 	// save last char to detect when line was not ended
 	lastchar = len > 0 ? pMsg[len - 1] : 0;
 
-	Sys_PrintLogfile( s_ld.logfileno, logtime, pMsg, false );
+	if( !s_ld.logfile )
+		return;
+
+	if( print_time )
+	{
+		logtime_len = strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S] ", crt_tm ); //full time
+		logtime_len = Q_min( logtime_len, sizeof( logtime ) - 1 ); // just in case
+	}
+	
+	Sys_PrintLogfile( s_ld.logfileno, logtime, logtime_len, pMsg, false );
 	Sys_FlushLogfile();
 }
 
