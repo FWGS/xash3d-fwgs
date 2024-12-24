@@ -495,7 +495,9 @@ typedef struct
 
 	cl_entity_t	viewent;			// viewmodel
 
+#if XASH_WIN32
 	qboolean client_dll_uses_sdl;
+#endif
 } clgame_static_t;
 
 typedef struct
