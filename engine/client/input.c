@@ -633,7 +633,7 @@ Called every frame, even if not generating commands
 */
 void Host_InputFrame( void )
 {
-	Sys_SendKeyEvents ();
+	Platform_SendKeyEvents();
 
 	IN_Commands();
 

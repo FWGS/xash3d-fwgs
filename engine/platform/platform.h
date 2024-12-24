@@ -227,6 +227,14 @@ static inline void Platform_SetTimer( float time )
 #endif
 }
 
+#if XASH_WIN32
+void Platform_SendKeyEvents( void );
+#else
+static inline void Platform_SendKeyEvents( void )
+{
+}
+#endif
+
 /*
 ==============================================================================
 
