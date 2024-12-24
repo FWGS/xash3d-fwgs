@@ -234,22 +234,6 @@ qboolean Sys_GetIntFromCmdLine( const char* argName, int *out )
 	return true;
 }
 
-void Sys_SendKeyEvents( void )
-{
-#if XASH_WIN32
-	MSG	msg;
-
-	while( PeekMessage( &msg, NULL, 0, 0, PM_NOREMOVE ))
-	{
-		if( !GetMessage( &msg, NULL, 0, 0 ))
-			Sys_Quit ();
-
-		TranslateMessage( &msg );
-		DispatchMessage( &msg );
-	}
-#endif
-}
-
 //=======================================================================
 //			DLL'S MANAGER SYSTEM
 //=======================================================================
