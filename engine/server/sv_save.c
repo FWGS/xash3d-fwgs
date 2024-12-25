@@ -141,7 +141,8 @@ static TYPEDESCRIPTION gSaveClient[] =
 	DEFINE_ARRAY( SAVE_CLIENT, introTrack, FIELD_CHARACTER, 64 ),
 	DEFINE_ARRAY( SAVE_CLIENT, mainTrack, FIELD_CHARACTER, 64 ),
 	DEFINE_FIELD( SAVE_CLIENT, trackPosition, FIELD_INTEGER ),
-	DEFINE_FIELD( SAVE_CLIENT, viewentity, FIELD_SHORT ),
+	// mods based on HLU SDK disallow usage of FIELD_SHORT
+	DEFINE_ARRAY( SAVE_CLIENT, viewentity, FIELD_CHARACTER, sizeof( short )),
 	DEFINE_FIELD( SAVE_CLIENT, wateralpha, FIELD_FLOAT ),
 	DEFINE_FIELD( SAVE_CLIENT, wateramp, FIELD_FLOAT ),
 };
@@ -150,7 +151,8 @@ static TYPEDESCRIPTION gDecalEntry[] =
 {
 	DEFINE_FIELD( decallist_t, position, FIELD_VECTOR ),
 	DEFINE_ARRAY( decallist_t, name, FIELD_CHARACTER, 64 ),
-	DEFINE_FIELD( decallist_t, entityIndex, FIELD_SHORT ),
+	// mods based on HLU SDK disallow usage of FIELD_SHORT
+	DEFINE_ARRAY( decallist_t, entityIndex, FIELD_CHARACTER, sizeof( short )),
 	DEFINE_FIELD( decallist_t, depth, FIELD_CHARACTER ),
 	DEFINE_FIELD( decallist_t, flags, FIELD_CHARACTER ),
 	DEFINE_FIELD( decallist_t, scale, FIELD_FLOAT ),
@@ -158,6 +160,7 @@ static TYPEDESCRIPTION gDecalEntry[] =
 	DEFINE_ARRAY( decallist_t, studio_state, FIELD_CHARACTER, sizeof( modelstate_t )),
 };
 
+// Can use any FIELD type here because only Xash3D games will spawn static entities
 static TYPEDESCRIPTION gStaticEntry[] =
 {
 	DEFINE_FIELD( entity_state_t, messagenum, FIELD_MODELNAME ), // HACKHACK: store model into messagenum
@@ -200,7 +203,8 @@ static TYPEDESCRIPTION gStaticEntry[] =
 static TYPEDESCRIPTION gSoundEntry[] =
 {
 	DEFINE_ARRAY( soundlist_t, name, FIELD_CHARACTER, 64 ),
-	DEFINE_FIELD( soundlist_t, entnum, FIELD_SHORT ),
+	// mods based on HLU SDK disallow usage of FIELD_SHORT
+	DEFINE_ARRAY( soundlist_t, entnum, FIELD_CHARACTER, sizeof( short )),
 	DEFINE_FIELD( soundlist_t, origin, FIELD_VECTOR ),
 	DEFINE_FIELD( soundlist_t, volume, FIELD_FLOAT ),
 	DEFINE_FIELD( soundlist_t, attenuation, FIELD_FLOAT ),
