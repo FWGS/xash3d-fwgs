@@ -724,7 +724,7 @@ static void CL_DemoStartPlayback( int mode )
 	{
 		// NOTE: at this point demo is still valid
 		CL_Disconnect();
-		Host_ShutdownServer();
+		SV_Shutdown( "Server was killed due to demo playback start\n" );
 
 		Con_FastClose();
 		UI_SetActiveMenu( false );

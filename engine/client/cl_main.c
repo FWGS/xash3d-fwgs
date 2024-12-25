@@ -1401,7 +1401,8 @@ static void CL_Connect_f( void )
 	Q_strncpy( server, Cmd_Argv( 1 ), sizeof( server ));
 
 	// if running a local server, kill it and reissue
-	if( SV_Active( )) Host_ShutdownServer();
+	if( SV_Active( ))
+		SV_Shutdown( "Server was killed due to connection to remote server\n" );
 	NET_Config( true, !cl_nat.value ); // allow remote
 
 	Con_Printf( "server %s\n", server );

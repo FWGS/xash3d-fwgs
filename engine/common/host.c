@@ -237,11 +237,6 @@ static void Sys_PrintBugcompUsage( const char *exename )
 	Sys_Quit();
 }
 
-void Host_ShutdownServer( void )
-{
-	SV_Shutdown( "Server was killed\n" );
-}
-
 /*
 ================
 Host_PrintEngineFeatures
@@ -841,7 +836,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	COM_InitHostState();
 	Cbuf_Clear();
 
-	Host_ShutdownServer();
+	SV_Shutdown( "Server was killed due to an error\n" );
 	CL_Drop(); // drop clients
 
 	// recreate world if needs

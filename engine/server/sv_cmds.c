@@ -846,7 +846,7 @@ Kick everyone off, possibly in preparation for a new game
 */
 static void SV_KillServer_f( void )
 {
-	Host_ShutdownServer();
+	SV_Shutdown( "Server was killed due to shutdownserver command\n" );
 }
 
 /*
