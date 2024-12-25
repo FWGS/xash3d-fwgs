@@ -805,7 +805,8 @@ static void SV_SetupClients( void )
 	if( !changed_maxclients ) return; // nothing to change
 
 	// if clients count was changed we need to run full shutdown procedure
-	if( svs.maxclients ) Host_ShutdownServer();
+	if( svs.maxclients )
+		SV_Shutdown( "Server was killed due to maxclients change\n" );
 
 	// copy the actual value from cvar
 	svs.maxclients = (int)sv_maxclients.value;
