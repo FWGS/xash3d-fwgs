@@ -1944,7 +1944,8 @@ qboolean S_Init( void )
 	Cmd_AddCommand( "play2", S_Play2_f, "playing a group of specified sound files" ); // nehahra stuff
 	Cmd_AddCommand( "playvol", S_PlayVol_f, "playing a specified sound file with specified volume" );
 	Cmd_AddCommand( "stopsound", S_StopSound_f, "stop all sounds" );
-	Cmd_AddCommand( "music", S_Music_f, "starting a background track" );
+	// HLU SDK have command with the same name
+	Cmd_AddCommandWithFlags( "music", S_Music_f, "starting a background track", CMD_OVERRIDABLE );
 	Cmd_AddCommand( "soundlist", S_SoundList_f, "display loaded sounds" );
 	Cmd_AddCommand( "s_info", S_SoundInfo_f, "print sound system information" );
 	Cmd_AddCommand( "s_fade", S_SoundFade_f, "fade all sounds then stop all" );
@@ -1987,7 +1988,8 @@ void S_Shutdown( void )
 	Cmd_RemoveCommand( "play" );
 	Cmd_RemoveCommand( "playvol" );
 	Cmd_RemoveCommand( "stopsound" );
-	Cmd_RemoveCommand( "music" );
+	if( Cmd_Exists( "music" ))
+		Cmd_RemoveCommand( "music" );
 	Cmd_RemoveCommand( "soundlist" );
 	Cmd_RemoveCommand( "s_info" );
 	Cmd_RemoveCommand( "s_fade" );
