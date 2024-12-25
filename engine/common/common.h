@@ -362,12 +362,13 @@ typedef struct host_parm_s
 
 extern host_parm_t	host;
 
-#define CMD_SERVERDLL	BIT( 0 )		// added by server.dll
-#define CMD_CLIENTDLL	BIT( 1 )		// added by client.dll
-#define CMD_GAMEUIDLL	BIT( 2 )		// added by GameUI.dll
-#define CMD_PRIVILEGED	BIT( 3 )		// only available in privileged mode
-#define CMD_FILTERABLE  BIT( 4 )		// filtered in unprivileged mode if cl_filterstuffcmd is 1
-#define CMD_REFDLL	BIT( 5 )		// added by ref.dll
+#define CMD_SERVERDLL   BIT( 0 ) // added by server.dll
+#define CMD_CLIENTDLL   BIT( 1 ) // added by client.dll
+#define CMD_GAMEUIDLL   BIT( 2 ) // added by GameUI.dll
+#define CMD_PRIVILEGED  BIT( 3 ) // only available in privileged mode
+#define CMD_FILTERABLE  BIT( 4 ) // filtered in unprivileged mode if cl_filterstuffcmd is 1
+#define CMD_REFDLL      BIT( 5 ) // added by ref.dll
+#define CMD_OVERRIDABLE BIT( 6 ) // can be removed by DLLs if name matches
 
 typedef void (*xcommand_t)( void );
 
@@ -418,6 +419,7 @@ byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 //
 // cmd.c
 //
+typedef struct cmd_s cmd_t;
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
 void Cbuf_AddTextf( const char *text, ... ) FORMAT_CHECK( 1 );
@@ -431,7 +433,7 @@ const char *Cmd_Args( void ) RETURNS_NONNULL;
 const char *Cmd_Argv( int arg ) RETURNS_NONNULL;
 void Cmd_Init( void );
 void Cmd_Unlink( int group );
-int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int iFlags, const char *funcname );
+int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int flags, const char *funcname );
 
 static inline int Cmd_AddCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
 {
@@ -443,13 +445,13 @@ static inline int Cmd_AddRestrictedCommand( const char *cmd_name, xcommand_t fun
 	return Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_PRIVILEGED, __func__ );
 }
 
-static inline int Cmd_AddFilteredCommand( const char *cmd_name, xcommand_t function, const char *cmd_desc )
+static inline int Cmd_AddCommandWithFlags( const char *cmd_name, xcommand_t function, const char *cmd_desc, int flags )
 {
-	return Cmd_AddCommandEx( cmd_name, function, cmd_desc, CMD_FILTERABLE, __func__ );
+	return Cmd_AddCommandEx( cmd_name, function, cmd_desc, flags, __func__ );
 }
 
 void Cmd_RemoveCommand( const char *cmd_name );
-qboolean Cmd_Exists( const char *cmd_name );
+cmd_t *Cmd_Exists( const char *cmd_name );
 void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback );
 int Cmd_ListMaps( search_t *t , char *lastmapname, size_t len );
 void Cmd_TokenizeString( const char *text );
