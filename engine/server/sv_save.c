@@ -1606,6 +1606,10 @@ static int LoadGameState( char const *level, qboolean changelevel )
 	pSaveData = LoadSaveData( level );
 	if( !pSaveData ) return 0; // couldn't load the file
 
+	// must set mapname before calling into DLL
+	Q_strncpy( sv.name, level, sizeof( sv.name ));
+	svgame.globals->mapname = MAKE_STRING( sv.name );
+
 	ParseSaveTables( pSaveData, &header, true );
 	EntityPatchRead( pSaveData, level );
 
@@ -1613,8 +1617,6 @@ static int LoadGameState( char const *level, qboolean changelevel )
 	sv.loadgame = sv.paused = true;
 
 	Cvar_SetValue( "skill", header.skillLevel );
-	Q_strncpy( sv.name, header.mapName, sizeof( sv.name ));
-	svgame.globals->mapname = MAKE_STRING( sv.name );
 	Cvar_Set( "sv_skyname", header.skyName );
 
 	// restore sky parms
