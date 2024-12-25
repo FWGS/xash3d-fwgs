@@ -518,14 +518,14 @@ static void Cmd_UnAlias_f ( void )
 
 =============================================================================
 */
-typedef struct cmd_s
+struct cmd_s
 {
 	struct cmd_s	*next;
 	char		*name;
 	xcommand_t	function;
 	int		flags;
 	char		*desc;
-} cmd_t;
+};
 
 static int		cmd_argc;
 static const char	*cmd_args = NULL;
@@ -693,11 +693,28 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 		return 0;
 	}
 
-	// fail if the command already exists
-	if( Cmd_Exists( cmd_name ))
+	// fail if the command already exists and cannot be overriden
+	cmd = Cmd_Exists( cmd_name );
+	if( cmd )
 	{
-		Con_DPrintf( S_ERROR "%s: %s already defined\n", funcname, cmd_name );
-		return 0;
+		// some mods register commands that share the name with some engine's commands
+		// when they aren't critical to keep engine running, we can let mods to override them
+		// unfortunately, we lose original command this way
+		if( FBitSet( cmd->flags, CMD_OVERRIDABLE ))
+		{
+			Mem_Free( cmd->desc );
+			cmd->desc = copystring( cmd_desc );
+			cmd->function = function;
+			cmd->flags = iFlags;
+
+			Con_DPrintf( S_WARN "%s: %s already defined but is allowed to be overriden\n", funcname, cmd_name );
+			return 1;
+		}
+		else
+		{
+			Con_DPrintf( S_ERROR "%s: %s already defined\n", funcname, cmd_name );
+			return 0;
+		}
 	}
 
 	// use a small malloc to avoid zone fragmentation
@@ -789,19 +806,18 @@ void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback )
 Cmd_Exists
 ============
 */
-qboolean Cmd_Exists( const char *cmd_name )
+cmd_t *Cmd_Exists( const char *cmd_name )
 {
 #if defined(XASH_HASHED_VARS)
-	return BaseCmd_Find( HM_CMD, cmd_name ) != NULL;
+	return BaseCmd_Find( HM_CMD, cmd_name );
 #else
 	cmd_t	*cmd;
-
 	for( cmd = cmd_functions; cmd; cmd = cmd->next )
 	{
 		if( !Q_strcmp( cmd_name, cmd->name ))
-			return true;
+			return cmd;
 	}
-	return false;
+	return NULL;
 #endif
 }
 
