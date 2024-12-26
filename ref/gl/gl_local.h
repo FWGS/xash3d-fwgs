@@ -502,11 +502,11 @@ void R_ClearSkyBox( void );
 void R_DrawSkyBox( void );
 void R_DrawClouds( void );
 void R_UnloadSkybox( void );
-void EmitWaterPolys( msurface_t *warp, qboolean reverse );
+void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples );
 void R_InitRipples( void );
 void R_ResetRipples( void );
 void R_AnimateRipples( void );
-void R_UploadRipples( texture_t *image );
+qboolean R_UploadRipples( const texture_t *image );
 
 //#include "vid_common.h"
 
