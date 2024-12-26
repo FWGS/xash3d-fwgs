@@ -565,7 +565,7 @@ EmitWaterPolys
 Does a water warp on the pre-fragmented glpoly_t chain
 =============
 */
-void EmitWaterPolys( msurface_t *warp, qboolean reverse )
+void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples )
 {
 	float	*v, nv, waveHeight;
 	float	s, t, os, ot;
@@ -609,7 +609,7 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 			os = v[3];
 			ot = v[4];
 
-			if( !r_ripple.value )
+			if( !ripples )
 			{
 				s = os + r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
 				t = ot + r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
@@ -750,7 +750,7 @@ void R_AnimateRipples( void )
 	R_RunRipplesAnimation( g_ripple.oldbuf, g_ripple.curbuf );
 }
 
-void R_UploadRipples( texture_t *image )
+qboolean R_UploadRipples( const texture_t *image )
 {
 	gl_texture_t *glt;
 	uint32_t *pixels;
@@ -761,21 +761,21 @@ void R_UploadRipples( texture_t *image )
 	if( !r_ripple.value || image->width > RIPPLES_CACHEWIDTH || image->width != image->height )
 	{
 		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
-		return;
+		return false;
 	}
 
 	glt = R_GetTexture( image->gl_texturenum );
 	if( !glt || !glt->original || !glt->original->buffer || !FBitSet( glt->flags, TF_EXPAND_SOURCE ))
 	{
 		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
-		return;
+		return false;
 	}
 
 	GL_Bind( XASH_TEXTURE0, g_ripple.rippletexturenum );
 
 	// no updates this frame
 	if( !g_ripple.update && image->gl_texturenum == g_ripple.gl_texturenum )
-		return;
+		return true;
 
 	g_ripple.gl_texturenum = image->gl_texturenum;
 	if( r_ripple.value == 1.0f )
@@ -813,4 +813,6 @@ void R_UploadRipples( texture_t *image )
 
 	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, image->width, image->width, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, g_ripple.texture );
+
+	return true;
 }

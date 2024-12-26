@@ -1317,10 +1317,8 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 	if( FBitSet( fa->flags, SURF_DRAWTURB ))
 	{
-		R_UploadRipples( t );
-
 		// warp texture, no lightmaps
-		EmitWaterPolys( fa, (cull_type == CULL_BACKSIDE));
+		EmitWaterPolys( fa, cull_type == CULL_BACKSIDE, R_UploadRipples( t ));
 		return;
 	}
 	else GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
@@ -1500,11 +1498,8 @@ void R_DrawWaterSurfaces( void )
 		if( !FBitSet( s->flags, SURF_DRAWTURB ))
 			continue;
 
-		// set modulate mode explicitly
-		R_UploadRipples( t );
-
 		for( ; s; s = s->texturechain )
-			EmitWaterPolys( s, false );
+			EmitWaterPolys( s, false, R_UploadRipples( t ));
 
 		t->texturechain = NULL;
 	}
