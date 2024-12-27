@@ -37,11 +37,7 @@ static char        **szArgv;
 
 static void Sys_ChangeGame( const char *progname )
 {
-	// a1ba: may never be called within engine
-	// if platform supports execv() function
-	Q_strncpy( szGameDir, progname, sizeof( szGameDir ));
-	Host_Shutdown( );
-	exit( Host_Main( szArgc, szArgv, szGameDir, 1, &Sys_ChangeGame ) );
+	// stub
 }
 
 static int Sys_Start( void )
