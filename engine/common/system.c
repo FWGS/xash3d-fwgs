@@ -412,7 +412,7 @@ void Sys_Error( const char *error, ... )
 		Sys_WaitForQuit();
 	}
 
-	Sys_Quit();
+	Sys_Quit( "caught an error" );
 }
 
 #if XASH_EMSCRIPTEN
@@ -435,9 +435,9 @@ void my_exit(int ret)
 Sys_Quit
 ================
 */
-void Sys_Quit( void )
+void Sys_Quit( const char *reason )
 {
-	Host_Shutdown();
+	Host_ShutdownWithReason( reason );
 	exit( error_on_exit );
 }
 
@@ -540,7 +540,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 	// just restart the entire thing
 	printf( "envSetNextLoad exe: `%s`\n", exe );
 	printf( "envSetNextLoad argv:\n`%s`\n", newargs );
-	Host_Shutdown( );
+	Host_ShutdownWithReason( "changing game" );
 	envSetNextLoad( exe, newargs );
 	exit( 0 );
 #else
@@ -578,7 +578,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 #if XASH_PSVITA
 	// under normal circumstances it's always going to be the same path
 	exe = strdup( "app0:/eboot.bin" );
-	Host_Shutdown( );
+	Host_ShutdownWithReason( "changing game" );
 	sceAppMgrLoadExec( exe, newargs, NULL );
 #else
 	exelen = wai_getExecutablePath( NULL, 0, NULL );
@@ -586,7 +586,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 	wai_getExecutablePath( exe, exelen, NULL );
 	exe[exelen] = 0;
 
-	Host_Shutdown();
+	Host_ShutdownWithReason( "changing game" );
 
 	execv( exe, newargs );
 #endif

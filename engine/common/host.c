@@ -209,7 +209,7 @@ static void Sys_PrintUsage( const char *exename )
 	fprintf( stderr, usage_str, exename );
 #endif
 
-	Sys_Quit();
+	Sys_Quit( NULL );
 }
 
 static void Sys_PrintBugcompUsage( const char *exename )
@@ -234,7 +234,7 @@ static void Sys_PrintBugcompUsage( const char *exename )
 	fprintf( stderr, usage_str, exename );
 #endif
 
-	Sys_Quit();
+	Sys_Quit( NULL );
 }
 
 /*
@@ -915,7 +915,7 @@ static void Host_RunTests( int stage )
 #endif
 		Msg( "Done! %d passed, %d failed\n", tests_stats.passed, tests_stats.failed );
 		error_on_exit = tests_stats.failed > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-		Sys_Quit();
+		Sys_Quit( NULL );
 	}
 }
 #endif
@@ -1162,6 +1162,11 @@ static void Host_FreeCommon( void )
 	FS_Shutdown();
 }
 
+static void Sys_Quit_f( void )
+{
+	Sys_Quit( "command" );
+}
+
 /*
 =================
 Host_Main
@@ -1236,8 +1241,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		// disable texture replacements for dedicated
 		Cvar_FullSet( "host_allow_materials", "0", FCVAR_READ_ONLY );
 
-		Cmd_AddRestrictedCommand( "quit", Sys_Quit, "quit the game" );
-		Cmd_AddRestrictedCommand( "exit", Sys_Quit, "quit the game" );
+		Cmd_AddRestrictedCommand( "quit", Sys_Quit_f, "quit the game" );
+		Cmd_AddRestrictedCommand( "exit", Sys_Quit_f, "quit the game" );
 	}
 	else Cmd_AddRestrictedCommand( "minimize", Host_Minimize_f, "minimize main window to tray" );
 
@@ -1320,20 +1325,34 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	return 0;
 }
 
+void EXPORT Host_Shutdown( void );
+void EXPORT Host_Shutdown( void )
+{
+	Host_ShutdownWithReason( "launcher shutdown" );
+}
+
 /*
 =================
 Host_Shutdown
 =================
 */
-void EXPORT Host_Shutdown( void )
+void Host_ShutdownWithReason( const char *reason )
 {
 	qboolean error = host.status == HOST_ERR_FATAL;
 
-	if( host.shutdown_issued ) return;
+	if( host.shutdown_issued )
+		return;
+
 	host.shutdown_issued = true;
 
-	if( host.status != HOST_ERR_FATAL ) host.status = HOST_SHUTDOWN; // prepare host to normal shutdown
-	if( !host.change_game ) Q_strncpy( host.finalmsg, "Server shutdown", sizeof( host.finalmsg ));
+	if( reason != NULL )
+		Con_Printf( S_NOTE "Issuing host shutdown due to reason \"%s\"\n", reason );
+
+	if( host.status != HOST_ERR_FATAL )
+		host.status = HOST_SHUTDOWN; // prepare host to normal shutdown
+
+	if( !host.change_game )
+		Q_strncpy( host.finalmsg, "Server shutdown", sizeof( host.finalmsg ));
 
 #if !XASH_DEDICATED
 	if( host.type == HOST_NORMAL && !error )

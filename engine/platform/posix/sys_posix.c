@@ -148,7 +148,9 @@ void Posix_Daemonize( void )
 
 static void Posix_SigtermCallback( int signal )
 {
-	Sys_Quit();
+	string reason;
+	Con_Printf( reason, sizeof( reason ), "caught signal %d", signal );
+	Sys_Quit( reason );
 }
 
 void Posix_SetupSigtermHandling( void )

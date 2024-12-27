@@ -197,8 +197,7 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 		CL_Crashed();
 	host.status = HOST_CRASHED;
 
-
-	Sys_Quit();
+	Sys_Quit( "crashed" );
 }
 
 void Sys_SetupCrashHandler( void )
