@@ -385,10 +385,7 @@ void NET_SaveMasters( void )
 	master_t *m;
 
 	if( !ml.modified )
-	{
-		Con_Reportf( "Master server list not changed\n" );
 		return;
-	}
 
 	f = FS_Open( "xashcomm.lst", "w", true );
 

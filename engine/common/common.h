@@ -547,7 +547,7 @@ qboolean Sound_SupportedFileFormat( const char *fileext );
 typedef void( *pfnChangeGame )( const char *progname );
 
 qboolean Host_IsQuakeCompatible( void );
-void EXPORT Host_Shutdown( void );
+void Host_ShutdownWithReason( const char *reason );
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 void Host_EndGame( qboolean abort, const char *message, ... ) FORMAT_CHECK( 2 );
 void Host_AbortCurrentFrame( void ) NORETURN;
