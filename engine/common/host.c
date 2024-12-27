@@ -809,11 +809,11 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	}
 	else
 	{
+		Con_Printf( "%s: %s", __func__, hosterror1 );
 		if( host.allow_console )
 		{
 			UI_SetActiveMenu( false );
 			Key_SetKeyDest( key_console );
-			Con_Printf( "%s: %s", __func__, hosterror1 );
 		}
 		else Platform_MessageBox( "Host Error", hosterror1, true );
 	}
