@@ -253,14 +253,6 @@ static inline char *Platform_Input( void )
 #endif
 }
 
-#if XASH_WIN32
-void Platform_SendKeyEvents( void );
-#else
-static inline void Platform_SendKeyEvents( void )
-{
-}
-#endif
-
 /*
 ==============================================================================
 

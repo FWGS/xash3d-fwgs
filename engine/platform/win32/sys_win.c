@@ -56,17 +56,3 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 }
 #endif // XASH_MESSAGEBOX == MSGBOX_WIN32
 
-// I don't know why we need this or what this does
-void Platform_SendKeyEvents( void )
-{
-	MSG	msg;
-
-	while( PeekMessage( &msg, NULL, 0, 0, PM_NOREMOVE ))
-	{
-		if( !GetMessage( &msg, NULL, 0, 0 ))
-			Sys_Quit ();
-
-		TranslateMessage( &msg );
-		DispatchMessage( &msg );
-	}
-}
