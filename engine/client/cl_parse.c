@@ -1325,11 +1325,11 @@ void CL_ParseLightStyle( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		style;
 	const char	*s;
-	float		f = 0.0f;
+	float		f = cl.mtime[0];
 
 	style = MSG_ReadByte( msg );
 	s = MSG_ReadString( msg );
-	if( proto != PROTO_GOLDSRC )
+	if( proto != PROTO_GOLDSRC && proto != PROTO_QUAKE )
 		f = MSG_ReadFloat( msg );
 
 	CL_SetLightstyle( style, s, f );

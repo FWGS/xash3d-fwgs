@@ -970,9 +970,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			CL_ParseQuakeServerInfo( msg );
 			break;
 		case svc_lightstyle:
-			param1 = MSG_ReadByte( msg );
-			str = MSG_ReadString( msg );
-			CL_SetLightstyle( param1, str, cl.mtime[0] );
+			CL_ParseLightStyle( msg, PROTO_QUAKE );
 			break;
 		case svc_updatename:
 			param1 = MSG_ReadByte( msg );
