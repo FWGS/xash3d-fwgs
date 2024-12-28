@@ -17,8 +17,10 @@ fi
 
 if [ "$ARCH" = "i386" ]; then
 	cp SDL2_VC/lib/x86/SDL2.dll . # Install SDL2
+	cp SDL2_VC/lib/x86/SDL2.pdb .
 elif [ "$ARCH" = "amd64" ]; then
 	cp SDL2_VC/lib/x64/SDL2.dll .
+	cp SDL2_VC/lib/x64/SDL2.pdb .
 else
 	die
 fi
