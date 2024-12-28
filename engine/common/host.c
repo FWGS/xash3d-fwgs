@@ -418,8 +418,7 @@ static void Host_Exec_f( void )
 {
 	string cfgpath;
 	byte *f;
-	char *txt;
-	fs_offset_t	len;
+	fs_offset_t len;
 
 	if( Cmd_Argc() != 2 )
 	{
@@ -474,20 +473,29 @@ static void Host_Exec_f( void )
 		return;
 	}
 
+	// len is fs_offset_t, which can be larger than size_t
+	if( len >= SIZE_MAX )
+	{
+		Con_Reportf( "%s: %s is too long\n", __func__, Cmd_Argv( 1 ));
+		return;
+	}
+
 	if( !Q_stricmp( "config.cfg", cfgpath ))
 		host.config_executed = true;
 
-	// adds \n\0 at end of the file
-	txt = Z_Calloc( len + 2 );
-	memcpy( txt, f, len );
-	txt[len] = '\n';
-	txt[len + 1] = '\0';
-	Mem_Free( f );
-
 	if( !host.apply_game_config )
 		Con_Printf( "execing %s\n", Cmd_Argv( 1 ));
-	Cbuf_InsertText( txt );
-	Mem_Free( txt );
+
+	// adds \n at end of the file
+	// FS_LoadFile always null terminates
+	if( f[len - 1] != '\n' )
+	{
+		Cbuf_InsertTextLen( f, len, len + 1 );
+		Cbuf_InsertTextLen( "\n", 1, 1 );
+	}
+	else Cbuf_InsertTextLen( f, len, len );
+
+	Mem_Free( f );
 }
 
 /*

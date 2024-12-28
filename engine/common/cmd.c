@@ -142,28 +142,33 @@ void Cbuf_AddFilteredText( const char *text )
 Cbuf_InsertText
 
 Adds command text immediately after the current command
-Adds a \n to the text
 ============
 */
-static void Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text )
+static void Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text, size_t len, size_t requested_len )
 {
-	int	l = Q_strlen( text );
-
-	if(( buf->cursize + l ) >= buf->maxsize )
+	if(( buf->cursize + requested_len ) >= buf->maxsize )
 	{
 		Con_Reportf( S_WARN "%s: overflow\n", __func__ );
 	}
 	else
 	{
-		memmove( buf->data + l, buf->data, buf->cursize );
-		memcpy( buf->data, text, l );
-		buf->cursize += l;
+		memmove( buf->data + len, buf->data, buf->cursize );
+		memcpy( buf->data, text, len );
+		buf->cursize += len;
 	}
+}
+
+void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len )
+{
+	// sometimes we need to insert more data than we have
+	// but also prevent overflow
+	Cbuf_InsertTextToBuffer( &cmd_text, text, len, requested_len );
 }
 
 void Cbuf_InsertText( const char *text )
 {
-	Cbuf_InsertTextToBuffer( &cmd_text, text );
+	size_t l = Q_strlen( text );
+	Cbuf_InsertTextToBuffer( &cmd_text, text, l, l );
 }
 
 /*
@@ -1010,9 +1015,10 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 
 		if( a )
 		{
+			size_t len = Q_strlen( a->value );
 			Cbuf_InsertTextToBuffer(
 				isPrivileged ? &cmd_text : &filteredcmd_text,
-				a->value );
+				a->value, len, len );
 			return;
 		}
 	}
