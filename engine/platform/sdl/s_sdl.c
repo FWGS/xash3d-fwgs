@@ -99,13 +99,43 @@ qboolean SNDDMA_Init( void )
 {
 	SDL_AudioSpec desired, obtained;
 	int samplecount;
+	const char *driver = NULL;
+
+	// Modders often tend to use proprietary crappy solutions
+	// like FMOD to play music, sometimes even with versions outdated by a few decades!
+	//
+	// As these bullshit sound engines prefer to use DirectSound, we ask SDL2 to do
+	// the same. Why you might ask? If SDL2 uses another audio API, like WASAPI on
+	// more modern versions of Windows, it breaks the logic inside Windows, and the whole
+	// application could hang in WaitFor{Single,Multiple}Object function, either called by
+	// SDL2 if FMOD was shut down first, or deep in dsound.dll->fmod.dll if SDL2 audio
+	// was shut down first.
+	//
+	// I honestly don't know who is the real culprit here: FMOD, HL modders, Windows, SDL2
+	// or us.
+	//
+	// Also, fun note, GoldSrc seems doesn't use SDL2 for sound stuff at all, as nothing
+	// reference SDL audio functions there. It's probably has DirectSound backend, that's
+	// why modders never stumble upon this bug.
+#if XASH_WIN32
+	driver = "directsound";
+
+	if( SDL_getenv( "SDL_AUDIODRIVER" ))
+		driver = NULL; // let SDL2 and user decide
+
+	SDL_SetHint( SDL_HINT_AUDIODRIVER, driver );
+#endif // XASH_WIN32
 
 	// even if we don't have PA
 	// we still can safely set env variables
 	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
 	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
 
-	if( SDL_Init( SDL_INIT_AUDIO ))
+	// reinitialize SDL with our driver just in case
+	if( SDL_WasInit( SDL_INIT_AUDIO ))
+		SDL_QuitSubSystem( SDL_INIT_AUDIO );
+
+	if( SDL_InitSubSystem( SDL_INIT_AUDIO ))
 	{
 		Con_Reportf( S_ERROR "Audio: SDL: %s \n", SDL_GetError( ) );
 		return false;
@@ -212,7 +242,7 @@ void SNDDMA_Shutdown( void )
 	}
 
 #if !XASH_EMSCRIPTEN
-	if( SDL_WasInit( SDL_INIT_AUDIO ) )
+	if( SDL_WasInit( SDL_INIT_AUDIO ))
 		SDL_QuitSubSystem( SDL_INIT_AUDIO );
 #endif
 
