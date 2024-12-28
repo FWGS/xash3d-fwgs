@@ -425,6 +425,7 @@ void Cbuf_AddText( const char *text );
 void Cbuf_AddTextf( const char *text, ... ) FORMAT_CHECK( 1 );
 void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
+void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len );
 void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute (void);
 qboolean Cmd_CurrentCommandIsPrivileged( void );
