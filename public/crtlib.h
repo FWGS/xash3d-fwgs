@@ -96,7 +96,6 @@ void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str, size_t bufsize );
-void COM_FixSlashes( char *pname );
 void COM_PathSlashFix( char *path );
 // return 0 on empty or null string, 1 otherwise
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
@@ -318,6 +317,19 @@ static inline int Q_splitstr( char *str, int delim, void *userdata,
 	}
 
 	return ret;
+}
+
+/*
+============
+COM_FixSlashes
+
+Changes all '\' characters into '/' characters, in place.
+============
+*/
+static inline void COM_FixSlashes( char *pname )
+{
+	while(( pname = Q_strchr( pname, '\\' )))
+		*pname = '/';
 }
 
 #ifdef __cplusplus

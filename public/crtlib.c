@@ -665,21 +665,6 @@ void COM_RemoveLineFeed( char *str, size_t bufsize )
 
 /*
 ============
-COM_FixSlashes
-
-Changes all '\' characters into '/' characters, in place.
-============
-*/
-void COM_FixSlashes( char *pname )
-{
-	while(( pname = Q_strchr( pname, '\\' )))
-	{
-		*pname = '/';
-	}
-}
-
-/*
-============
 COM_PathSlashFix
 
 ensure directory path always ends on forward slash
