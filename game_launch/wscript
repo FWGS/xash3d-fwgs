@@ -18,7 +18,7 @@ def configure(conf):
 	if conf.env.DEST_OS == 'win32':
 		conf.load('winres')
 
-	conf.define_cond('XASH_DISABLE_MENU_CHANGEGAME', conf.options.DISABLE_MENU_CHANGEGAME)
+	conf.define('XASH_DISABLE_MENU_CHANGEGAME', conf.options.DISABLE_MENU_CHANGEGAME)
 
 def build(bld):
 	source = ['game.cpp']
