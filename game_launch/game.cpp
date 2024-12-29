@@ -171,7 +171,7 @@ _inline int Sys_Start( void )
 	if( Xash_Shutdown )
 		changeGame = Sys_ChangeGame;
 
-	ret = Xash_Main( szArgc, szArgv, szGameDir, 0, changeGame );
+	ret = Xash_Main( szArgc, szArgv, szGameDir, 0, XASH_DISABLE_MENU_CHANGEGAME ? NULL : changeGame );
 
 	Sys_UnloadEngine();
 
