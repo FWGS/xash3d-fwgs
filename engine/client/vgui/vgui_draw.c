@@ -25,19 +25,28 @@ GNU General Public License for more details.
 
 #define VGUI_MAX_TEXTURES 1024
 
+typedef struct vgui_reusable_texture_s
+{
+	int gl_texturenum;
+	byte hash[16];
+} vgui_reusable_texture_t;
+
 typedef struct vgui_static_s
 {
 	qboolean initialized;
 	VGUI_DefaultCursor cursor;
 	vguiapi_t dllFuncs;
 
-	int textures[VGUI_MAX_TEXTURES];
+	vgui_reusable_texture_t *textures;
 	int texture_id;
+	int max_textures;
 	int bound_texture;
 	byte color[4];
 	qboolean enable_texture;
 
 	HINSTANCE hInstance;
+
+	poolhandle_t mempool;
 
 	enum VGUI_KeyCode virtualKeyTrans[256];
 } vgui_static_t;
@@ -49,9 +58,16 @@ static CVAR_DEFINE_AUTO( vgui_utf8, "0", FCVAR_ARCHIVE, "enable utf-8 support fo
 
 static void GAME_EXPORT VGUI_DrawInit( void )
 {
-	memset( vgui.textures, 0, sizeof( vgui.textures ));
+	if( vgui.mempool )
+		Mem_EmptyPool( vgui.mempool );
+	else vgui.mempool = Mem_AllocPool( "VGui Support Pool" );
+
+	vgui.textures = NULL;
+
 	memset( vgui.color, 0, sizeof( vgui.color ));
-	vgui.texture_id = vgui.bound_texture = 0;
+	vgui.texture_id = 0;
+	vgui.bound_texture = 0;
+	vgui.max_textures = 0;
 	vgui.enable_texture = true;
 }
 
@@ -60,26 +76,77 @@ static void GAME_EXPORT VGUI_DrawShutdown( void )
 	int i;
 
 	for( i = 1; i < vgui.texture_id; i++ )
-		ref.dllFuncs.GL_FreeTexture( vgui.textures[i] );
+		ref.dllFuncs.GL_FreeTexture( vgui.textures[i].gl_texturenum );
+
+	Mem_FreePool( &vgui.mempool );
+	vgui.textures = NULL;
+
+	memset( vgui.color, 0, sizeof( vgui.color ));
+	vgui.texture_id = 0;
+	vgui.bound_texture = 0;
+	vgui.max_textures = 0;
 }
 
 static int GAME_EXPORT VGUI_GenerateTexture( void )
 {
-	if( ++vgui.texture_id >= VGUI_MAX_TEXTURES )
-		Host_Error( "%s: VGUI_MAX_TEXTURES limit exceeded\n", __func__ );
+	// allocate new
+	if( vgui.texture_id + 1 >= vgui.max_textures )
+	{
+		if( vgui.max_textures + VGUI_MAX_TEXTURES >= VGUI_MAX_TEXTURES * VGUI_MAX_TEXTURES )
+		{
+			// in theory it might look up texture that hasn't been bound for a while and
+			// reuse that but it will eventually overwrite some important textures anyway
+			Con_Printf( S_ERROR "%s: Refusing resizing VGUI textures array due to memory leak\n", __func__ );
+			return vgui.texture_id;
+		}
 
-	return vgui.texture_id;
+		vgui.max_textures += VGUI_MAX_TEXTURES;
+
+		// this potentially might leak memory if VGUI is used incorrectly!
+		// (like in Cry of Fear)
+		vgui.textures = Mem_Realloc( vgui.mempool, vgui.textures, sizeof( *vgui.textures ) * vgui.max_textures );
+
+		// warn mod developer
+		if( vgui.max_textures >= VGUI_MAX_TEXTURES * 4 )
+			Con_Printf( S_ERROR "%s: Potential memory leak in VGUI code is detected!\n", __func__ );
+	}
+
+	return ++vgui.texture_id;
 }
 
 static void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int width, int height )
 {
 	rgbdata_t r_image = { 0 };
 	char texName[32];
+	MD5Context_t ctx;
+	byte hash[16];
 
-	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
+	if( id <= 0 || id >= vgui.max_textures || width <= 0 || height <= 0 )
 	{
 		Con_DPrintf( S_ERROR "%s: bad texture %i. Ignored\n", __func__, id );
 		return;
+	}
+
+	// need to do this as some mods tend to upload same texture over and over
+	// exhausing engine-wide limit on textures and leaking vram
+	MD5Init( &ctx );
+	MD5Update( &ctx, buffer, width * height * 4 );
+	MD5Final( hash, &ctx );
+
+	// it's a new texture, try to find a copy
+	if( vgui.textures[id].gl_texturenum == 0 )
+	{
+		int i;
+
+		for( i = 1; i < vgui.texture_id; i++ )
+		{
+			if( vgui.textures[i].gl_texturenum != 0 && !memcmp( vgui.textures[i].hash, hash, sizeof( hash )))
+			{
+				// copy data to new texture id
+				vgui.textures[id] = vgui.textures[i];
+				return;
+			}
+		}
 	}
 
 	Q_snprintf( texName, sizeof( texName ), "*vgui%i", id );
@@ -91,7 +158,8 @@ static void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int widt
 	r_image.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 	r_image.buffer = (byte*)buffer;
 
-	vgui.textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE );
+	vgui.textures[id].gl_texturenum = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE );
+	memcpy( vgui.textures[id].hash, hash, sizeof( hash ));
 }
 
 static void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
@@ -109,10 +177,10 @@ static void GAME_EXPORT VGUI_UploadTextureBlock( int id, int drawX, int drawY, c
 
 static void GAME_EXPORT VGUI_BindTexture( int id )
 {
-	if( id <= 0 || id >= VGUI_MAX_TEXTURES || !vgui.textures[id] )
+	if( id <= 0 || id >= vgui.max_textures || !vgui.textures[id].gl_texturenum )
 		id = 1; // NOTE: same as bogus index 2700 in GoldSrc
 
-	ref.dllFuncs.GL_Bind( XASH_TEXTURE0, vgui.textures[id] );
+	ref.dllFuncs.GL_Bind( XASH_TEXTURE0, vgui.textures[id].gl_texturenum );
 	vgui.bound_texture = id;
 }
 
@@ -121,7 +189,7 @@ static void GAME_EXPORT VGUI_GetTextureSizes( int *w, int *h )
 	int texnum;
 
 	if( vgui.bound_texture )
-		texnum = vgui.textures[vgui.bound_texture];
+		texnum = vgui.textures[vgui.bound_texture].gl_texturenum;
 	else
 		texnum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 
@@ -164,7 +232,7 @@ static void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 		t2 = lr->coord[1];
 
 		ref.dllFuncs.Color4ub( vgui.color[0], vgui.color[1], vgui.color[2], vgui.color[3] );
-		ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, vgui.textures[vgui.bound_texture] );
+		ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, vgui.textures[vgui.bound_texture].gl_texturenum );
 	}
 	else
 	{
