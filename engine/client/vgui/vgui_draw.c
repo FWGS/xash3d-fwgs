@@ -96,38 +96,15 @@ static void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int widt
 
 static void GAME_EXPORT VGUI_CreateTexture( int id, int width, int height )
 {
-	rgbdata_t r_image = { 0 };
-	char texName[32];
+	// nothing uses it, it can be removed
+	Host_Error( "%s: deprecated\n", __func__ );
 
-	if( id <= 0 || id >= VGUI_MAX_TEXTURES )
-	{
-		Con_DPrintf( S_ERROR "%s: bad texture %i. Ignored\n", __func__, id );
-		return;
-	}
-
-	Q_snprintf( texName, sizeof( texName ), "*vgui%i", id );
-
-	r_image.width = width;
-	r_image.height = height;
-	r_image.type = PF_RGBA_32;
-	r_image.size = width * height * 4;
-	r_image.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
-	r_image.buffer = NULL;
-
-	vgui.textures[id] = GL_LoadTextureInternal( texName, &r_image, TF_IMAGE );
-	vgui.bound_texture = id;
 }
 
 static void GAME_EXPORT VGUI_UploadTextureBlock( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
 {
-	if( id <= 0 || id >= VGUI_MAX_TEXTURES || vgui.textures[id] == 0 )
-	{
-		Con_DPrintf( S_ERROR "%s: bad texture %i. Ignored\n", __func__, id );
-		return;
-	}
-
-	ref.dllFuncs.VGUI_UploadTextureBlock( drawX, drawY, rgba, blockWidth, blockHeight );
-	vgui.bound_texture = id;
+	// nothing uses it, it can be removed
+	Host_Error( "%s: deprecated\n", __func__ );
 }
 
 static void GAME_EXPORT VGUI_BindTexture( int id )
