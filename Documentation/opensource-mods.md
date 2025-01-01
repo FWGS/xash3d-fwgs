@@ -38,6 +38,9 @@ Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Ct
 ## Deathmatch Classic
 Available in Valve's Half-Life repository - https://github.com/ValveSoftware/halflife/tree/master/dmc
 
+## Earth Special Forces
+Alpha 2.0 - https://www.gamers-desire.de/details/2830
+
 ## ESHQ
 Official github repository - https://github.com/adslbarxatov/xash3d-for-ESHQ
 
