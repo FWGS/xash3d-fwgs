@@ -717,7 +717,7 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 		}
 		else
 		{
-			Con_DPrintf( S_ERROR "%s: %s already defined\n", funcname, cmd_name );
+			Con_DPrintf( "%s%s: %s already defined\n", cmd->function == function ? S_WARN : S_ERROR, funcname, cmd_name );
 			return 0;
 		}
 	}
