@@ -396,8 +396,12 @@ static void SDLash_ActiveEvent( int gain )
 		}
 #endif
 		host.status = HOST_NOFOCUS;
+
 		if( cls.key_dest == key_game )
+		{
+			Key_ClearStates();
 			IN_DeactivateMouse();
+		}
 
 		host.force_draw_version_time = host.realtime + 2.0;
 		VID_RestoreScreenResolution();
