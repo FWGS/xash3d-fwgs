@@ -856,17 +856,21 @@ void GAME_EXPORT Key_ClearStates( void )
 	int	i;
 
 	// don't clear keys during changelevel
-	if( cls.changelevel ) return;
+	if( cls.changelevel )
+		return;
 
 	for( i = 0; i < 256; i++ )
 	{
-		if( keys[i].down )
+		if( keys[i].down && i < K_MOUSE1 && i > K_MOUSE5 )
 			Key_Event( i, false );
 
 		keys[i].down = 0;
 		keys[i].repeats = 0;
 		keys[i].gamedown = 0;
 	}
+
+	for( i = K_MOUSE1; i < K_MOUSE5; i++ ) // from K_MOUSE1 to K_MOUSE5
+		IN_MouseEvent( i - K_MOUSE1, false );
 
 	if( clgame.hInstance )
 		clgame.dllFuncs.IN_ClearStates();
