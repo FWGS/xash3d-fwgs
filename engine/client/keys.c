@@ -743,18 +743,24 @@ void GAME_EXPORT Key_Event( int key, int down )
 
 	if( cls.key_dest == key_menu )
 	{
-		// only non printable keys passed
+		// classic Xash3D menus don't have an extension that tells engine
+		// to enable text input
 		if( !gameui.use_extended_api )
-			Key_EnableTextInput( true, false );
-		//pass printable chars for old menus
-		if( !gameui.use_extended_api && !host.textmode && down && ( key >= 32 ) && ( key <= 'z' ) )
 		{
-			if( Key_IsDown( K_SHIFT ) )
+			// we don't know if menu wants text input or not
+			// enable it unconditionally
+			Key_EnableTextInput( true, false );
+
+			// pass this key to the menu, if printable
+			if( !host.textmode && down && ( key >= 32 ) && ( key <= 'z' ))
 			{
-				key += 'A' - 'a';
+				if( Key_IsDown( K_SHIFT ))
+					key += 'A' - 'a';
+
+				UI_CharEvent( key );
 			}
-			UI_CharEvent( key );
 		}
+
 		UI_KeyEvent( key, down );
 		return;
 	}
