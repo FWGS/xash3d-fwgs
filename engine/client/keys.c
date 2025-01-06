@@ -40,7 +40,7 @@ static const keyname_t keynames[] =
 {
 {"TAB",		K_TAB,		""		},
 {"ENTER",		K_ENTER,		""		},
-{"ESCAPE",	K_ESCAPE, 	"escape"		}, // hardcoded
+{"ESCAPE",	K_ESCAPE, 	"cancelselect"		}, // hardcoded
 {"SPACE",		K_SPACE,		"+jump"		},
 {"BACKSPACE",	K_BACKSPACE,	""		},
 {"UPARROW",	K_UPARROW,	"+forward"	},
@@ -106,7 +106,7 @@ static const keyname_t keynames[] =
 {"Y_BUTTON", K_Y_BUTTON, "impulse 100"}, // Flashlight
 {"BACK",   K_BACK_BUTTON, "pause"}, // Menu
 {"MODE",   K_MODE_BUTTON, ""},
-{"START",  K_START_BUTTON, "escape"},
+{"START",  K_START_BUTTON, "cancelselect"},
 {"STICK1", K_LSTICK, "+speed"},
 {"STICK2", K_RSTICK, "+duck"},
 {"L1_BUTTON",  K_L1_BUTTON, "+duck"},
@@ -339,6 +339,12 @@ static void Key_Unbind_f( void )
 		return;
 	}
 
+	if( b == K_ESCAPE )
+	{
+		Con_Printf( "Can't unbind ESCAPE key\n" );
+		return;
+	}
+
 	Key_SetBinding( b, "" );
 }
 
@@ -358,8 +364,8 @@ static void Key_Unbindall_f( void )
 	}
 
 	// set some defaults
-	Key_SetBinding( K_ESCAPE, "escape" );
-	Key_SetBinding( K_START_BUTTON, "escape" );
+	Key_SetBinding( K_ESCAPE, "cancelselect" );
+	Key_SetBinding( K_START_BUTTON, "cancelselect" );
 }
 
 /*
