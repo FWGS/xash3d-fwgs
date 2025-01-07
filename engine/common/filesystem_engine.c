@@ -84,6 +84,11 @@ static void FS_Path_f_( void )
 	FS_Path_f();
 }
 
+static void FS_MakeGameInfo_f( void )
+{
+	g_fsapi.MakeGameInfo();
+}
+
 static const fs_interface_t fs_memfuncs =
 {
 	Con_Printf,
@@ -272,6 +277,7 @@ void FS_Init( const char *basedir )
 	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_make_gameinfo", FS_MakeGameInfo_f, "create gameinfo.txt for current running game" );
 
 	if( !Sys_GetParmFromCmdLine( "-dll", host.gamedll ))
 		host.gamedll[0] = 0;

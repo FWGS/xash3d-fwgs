@@ -134,7 +134,7 @@ static void FS_PopulateDirEntries( dir_t *dir, const char *path )
 	}
 
 	stringlistinit( &list );
-	listdirectory( &list, path );
+	listdirectory( &list, path, false );
 	if( !list.numstrings )
 	{
 		dir->numentries = DIRENTRY_EMPTY_DIRECTORY;
@@ -225,7 +225,7 @@ static int FS_MaybeUpdateDirEntries( dir_t *dir, const char *path, const char *e
 	int ret;
 
 	stringlistinit( &list );
-	listdirectory( &list, path );
+	listdirectory( &list, path, false );
 
 	if( list.numstrings == 0 ) // empty directory
 	{
@@ -421,7 +421,7 @@ static void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char 
 	}
 
 	stringlistinit( &dirlist );
-	listdirectory( &dirlist, netpath );
+	listdirectory( &dirlist, netpath, false );
 
 	Q_strncpy( temp, basepath, sizeof( temp ));
 
