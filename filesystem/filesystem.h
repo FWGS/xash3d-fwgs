@@ -123,6 +123,9 @@ typedef struct gameinfo_s
 	qboolean animated_title;
 
 	char demomap[MAX_QPATH];
+
+	qboolean rodir; // if true, parsed from rodir
+	int64_t mtime;
 } gameinfo_t;
 
 typedef struct fs_dllinfo_t
@@ -226,6 +229,8 @@ typedef struct fs_api_t
 
 	// gets current root directory, set by InitStdio
 	qboolean (*GetRootDirectory)( char *path, size_t size );
+
+	void (*MakeGameInfo)( void );
 } fs_api_t;
 
 typedef struct fs_interface_t
