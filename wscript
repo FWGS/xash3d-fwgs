@@ -395,6 +395,7 @@ def configure(conf):
 	conf.env.ENABLE_XAR    = conf.options.ENABLE_XAR
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
 	conf.env.DEDICATED     = conf.options.DEDICATED
+	conf.env.SUPPORT_BSP2_FORMAT = conf.options.SUPPORT_BSP2_FORMAT
 
 	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
