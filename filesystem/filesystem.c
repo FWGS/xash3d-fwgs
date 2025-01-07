@@ -261,9 +261,10 @@ void listdirectory( stringlist_t *list, const char *path, qboolean dirs_only )
 	// iterate through the directory
 	while(( entry = readdir( dir )))
 	{
-		// FIXME: this is a BSD extension, add check to wscript
+#if HAVE_DIRENT_D_TYPE
 		if( dirs_only && entry->d_type != DT_DIR && entry->d_type != DT_UNKNOWN )
 			continue;
+#endif
 
 		stringlistappend( list, entry->d_name );
 	}
