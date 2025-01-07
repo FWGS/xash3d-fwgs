@@ -85,6 +85,9 @@ These strings are specific to Xash3D FWGS.
 As Xash3D accidentally supports GoldSrc games, it also supports parsing liblist.gam.\
 Xash3D will use this file if gameinfo.txt is absent, or if its modification timestamp is older than liblist.gam.
 
+> [!NOTE]
+> Starting from January 2025, Xash3D FWGS doesn't automatically generate gameinfo.txt from liblist.gam. The key conversion table still remains but if you wish to use gameinfo.txt instead of liblist.gam, you can execute `fs_make_gameinfo` in console.
+
 For game creators who plan supporting only Xash3D, using this file is not recommended.
 
 The table below defines conversion rules from liblist.gam to gameinfo.txt. Some keys' interpretation does differ from `gameinfo.txt`, in this case a note will be left. If `liblist.gam` key isn't present in this table, it's ignored.
