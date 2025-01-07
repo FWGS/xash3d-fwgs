@@ -105,6 +105,8 @@ static pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	// TODO: use FS_Open to allow PK3 to be included into other archives
 	// Currently, it doesn't work with rodir due to FS_FindFile logic
+	// when it will use FS_Open, check that FS_CheckForQuakePak correctly
+	// detects Quake gamedirs in RoDir
 	packhandle = FS_SysOpen( packfile, "rb" );
 
 	if( packhandle == NULL )
@@ -363,4 +365,46 @@ searchpath_t *FS_AddPak_Fullpath( const char *pakfile, int flags )
 	Con_Reportf( "Adding PAK: %s (%i files)\n", pakfile, pak->numfiles );
 
 	return search;
+}
+
+/*
+================
+FS_CheckForQuakePak
+
+To generate fake gameinfo for Quake directory, we need to parse pak0.pak
+and find progs.dat in it
+================
+*/
+qboolean FS_CheckForQuakePak( const char *pakfile, const char *files[], size_t num_files )
+{
+	qboolean is_quake = false;
+	pack_t *pak;
+	int i;
+
+	pak = FS_LoadPackPAK( pakfile, NULL );
+	if( !pak )
+		return false;
+
+	for( i = 0; i < num_files; i++ )
+	{
+		int j;
+
+		for( j = 0; j < pak->numfiles; j++ )
+		{
+			if( Q_strchr( pak->files[j].name, '/' ))
+				continue; // exclude subdirectories
+
+			if( !Q_stricmp( pak->files[j].name, files[i] ))
+			{
+				is_quake = true;
+				break;
+			}
+		}
+
+		if( is_quake )
+			break;
+	}
+
+	Mem_Free( pak );
+	return is_quake;
 }
