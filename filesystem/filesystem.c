@@ -262,7 +262,7 @@ void listdirectory( stringlist_t *list, const char *path, qboolean dirs_only )
 	while(( entry = readdir( dir )))
 	{
 		// FIXME: this is a BSD extension, add check to wscript
-		if( dirs_only && entry->d_type != DT_DIR )
+		if( dirs_only && entry->d_type != DT_DIR && entry->d_type != DT_UNKNOWN )
 			continue;
 
 		stringlistappend( list, entry->d_name );
@@ -1517,10 +1517,8 @@ static void FS_ValidateDirectories( const char *path, qboolean *has_base_dir, qb
 
 	for( i = 0; i < dirs.numstrings; i++ )
 	{
-#if 0 // re-enable if target doesn't support filtering directories only (missing d_type in struct dirent)
 		if( !FS_SysFolderExists( dirs.strings[i] ))
 			continue;
-#endif
 
 		if( !Q_stricmp( fs_basedir, dirs.strings[i] ))
 			*has_base_dir = true;
@@ -1607,10 +1605,8 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
-#if 0 // re-enable if target doesn't support filtering directories only (missing d_type in struct dirent)
 			if( !FS_SysFolderExists( dirs.strings[i] ))
 				continue;
-#endif
 
 			if( FI.games[FI.numgames] == NULL )
 				FI.games[FI.numgames] = Mem_Malloc( fs_mempool, sizeof( *FI.games[FI.numgames] ));
@@ -1632,10 +1628,8 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 	{
 		int j;
 
-#if 0 // re-enable if target doesn't support filtering directories only (missing d_type in struct dirent)
 		if( !FS_SysFolderExists( dirs.strings[i] ))
 			continue;
-#endif
 
 		// update gameinfo from rwdir, if it's newer
 		// with rodir we should never create new gameinfos anymore,
