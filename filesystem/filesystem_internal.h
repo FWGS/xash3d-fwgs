@@ -230,6 +230,7 @@ qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size );
 //
 // pak.c
 //
+qboolean FS_CheckForQuakePak( const char *pakfile, const char *files[], size_t num_files );
 searchpath_t *FS_AddPak_Fullpath( const char *pakfile, int flags );
 
 //
