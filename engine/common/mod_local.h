@@ -135,6 +135,8 @@ extern poolhandle_t     com_studiocache;
 extern convar_t		mod_studiocache;
 extern convar_t		r_wadtextures;
 extern convar_t		r_showhull;
+extern const mclipnode16_t box_clipnodes16[6];
+extern const mclipnode32_t box_clipnodes32[6];
 
 //
 // model.c
