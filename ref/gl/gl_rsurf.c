@@ -126,7 +126,7 @@ static void R_GetEdgePosition( const model_t *mod, const msurface_t *fa, int i, 
 {
 	const int lindex = mod->surfedges[fa->firstedge + i];
 
-	if( tr.world->version == QBSP2_VERSION )
+	if( FBitSet( mod->flags, MODEL_QBSP2 ))
 	{
 		const medge32_t *pedges = mod->edges32;
 
@@ -3319,6 +3319,9 @@ static void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
 	mleaf_t		*pleaf;
 	int		c, side;
 	float		dot;
+	mnode_t *children[2];
+	int numsurfaces, firstsurface;
+
 loc0:
 	if( node->contents == CONTENTS_SOLID )
 		return; // hit a solid leaf
@@ -3373,10 +3376,14 @@ loc0:
 	side = (dot >= 0.0f) ? 0 : 1;
 
 	// recurse down the children, front side first
-	R_RecursiveWorldNode( node->children[side], clipflags );
+	node_children( children, node, WORLDMODEL );
+	R_RecursiveWorldNode( children[side], clipflags );
+
+	firstsurface = node_firstsurface( node, WORLDMODEL );
+	numsurfaces = node_numsurfaces( node, WORLDMODEL );
 
 	// draw stuff
-	for( c = node->numsurfaces, surf = WORLDMODEL->surfaces + node->firstsurface; c; c--, surf++ )
+	for( c = numsurfaces, surf = WORLDMODEL->surfaces + firstsurface; c; c--, surf++ )
 	{
 		if( R_CullSurface( surf, &RI.frustum, clipflags ))
 			continue;
@@ -3395,7 +3402,7 @@ loc0:
 	}
 
 	// recurse down the back side
-	node = node->children[!side];
+	node = children[!side];
 	goto loc0;
 }
 
@@ -3471,6 +3478,9 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 
 	do
 	{
+		mnode_t *children[2];
+		int numsurfaces, firstsurface;
+
 		if( node->contents == CONTENTS_SOLID )
 			return;	// hit a solid leaf
 
@@ -3504,7 +3514,10 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 		}
 
 		// draw stuff
-		for( c = node->numsurfaces, surf = WORLDMODEL->surfaces + node->firstsurface; c; c--, surf++ )
+		numsurfaces = node_numsurfaces( node, WORLDMODEL );
+		firstsurface = node_firstsurface( node, WORLDMODEL );
+
+		for( c = numsurfaces, surf = WORLDMODEL->surfaces + firstsurface; c; c--, surf++ )
 		{
 			// don't process the same surface twice
 			if( surf->visframe == tr.framecount )
@@ -3523,9 +3536,9 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 		}
 
 		// recurse down both children, we don't care the order...
-		R_DrawWorldTopView( node->children[0], clipflags );
-		node = node->children[1];
-
+		node_children( children, node, WORLDMODEL );
+		R_DrawWorldTopView( children[0], clipflags );
+		node = children[1];
 	} while( node );
 }
 

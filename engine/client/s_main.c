@@ -996,7 +996,7 @@ static void S_UpdateAmbientSounds( void )
 	// calc ambient sound levels
 	if( !cl.worldmodel ) return;
 
-	leaf = Mod_PointInLeaf( s_listener.origin, cl.worldmodel->nodes );
+	leaf = Mod_PointInLeaf( s_listener.origin, cl.worldmodel->nodes, cl.worldmodel );
 
 	if( !leaf || !s_ambient_level.value )
 	{

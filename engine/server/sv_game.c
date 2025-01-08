@@ -328,7 +328,7 @@ static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 	else
 		VectorCopy( cl->edict->v.origin, vieworg );
 
-	leaf = Mod_PointInLeaf( vieworg, sv.worldmodel->nodes );
+	leaf = Mod_PointInLeaf( vieworg, sv.worldmodel->nodes, sv.worldmodel );
 
 	if( CHECKVISBIT( mask, leaf->cluster ))
 		return true; // visible from player view or camera view
@@ -342,7 +342,7 @@ static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 			continue;
 
 		VectorAdd( view->v.origin, view->v.view_ofs, vieworg );
-		leaf = Mod_PointInLeaf( vieworg, sv.worldmodel->nodes );
+		leaf = Mod_PointInLeaf( vieworg, sv.worldmodel->nodes, sv.worldmodel );
 
 		if( CHECKVISBIT( mask, leaf->cluster ))
 			return true; // visible from portal camera view
@@ -1732,7 +1732,7 @@ static edict_t* GAME_EXPORT pfnFindClientInPVS( edict_t *pEdict )
 		VectorAdd( pEdict->v.origin, pEdict->v.view_ofs, view );
 	}
 
-	leaf = Mod_PointInLeaf( view, sv.worldmodel->nodes );
+	leaf = Mod_PointInLeaf( view, sv.worldmodel->nodes, sv.worldmodel );
 
 	if( CHECKVISBIT( clientpvs, leaf->cluster ))
 		return pClient; // client which currently in PVS
@@ -4293,6 +4293,35 @@ static byte *GAME_EXPORT pfnSetFatPAS( const float *org )
 
 /*
 =============
+Mod_HeadnodeVisible
+=============
+*/
+static qboolean Mod_HeadnodeVisible( model_t *mod, mnode_t *node, const byte *visbits, int *lastleaf )
+{
+	if( !node || node->contents == CONTENTS_SOLID )
+		return false;
+
+	if( node->contents < 0 )
+	{
+		if( !CHECKVISBIT( visbits, ((mleaf_t *)node)->cluster ))
+			return false;
+
+		if( lastleaf )
+			*lastleaf = ((mleaf_t *)node)->cluster;
+		return true;
+	}
+
+	if( Mod_HeadnodeVisible( mod, node_child( node, 0, mod ), visbits, lastleaf ))
+		return true;
+
+	if( Mod_HeadnodeVisible( mod, node_child( node, 1, mod ), visbits, lastleaf ))
+		return true;
+
+	return false;
+}
+
+/*
+=============
 pfnCheckVisibility
 
 =============
@@ -4333,7 +4362,7 @@ static int GAME_EXPORT pfnCheckVisibility( const edict_t *ent, byte *pset )
 		}
 
 		// too many leafs for individual check, go by headnode
-		if( !Mod_HeadnodeVisible( &sv.worldmodel->nodes[ent->headnode], pset, &leafnum ))
+		if( !Mod_HeadnodeVisible( sv.worldmodel, &sv.worldmodel->nodes[ent->headnode], pset, &leafnum ))
 			return 0;
 
 		((edict_t *)ent)->leafnums[ent->num_leafs] = leafnum;

@@ -127,8 +127,10 @@ static void R_SplitEntityOnNode( mnode_t *node )
 	}
 
 	// recurse down the contacted sides
-	if( sides & 1 ) R_SplitEntityOnNode( node->children[0] );
-	if( sides & 2 ) R_SplitEntityOnNode( node->children[1] );
+	if( sides & 1 )
+		R_SplitEntityOnNode( node_child( node, 0, cl.worldmodel ));
+	if( sides & 2 )
+		R_SplitEntityOnNode( node_child( node, 1, cl.worldmodel ));
 }
 
 /*

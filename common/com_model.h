@@ -159,13 +159,31 @@ typedef struct mnode_s
 
 // node specific
 	mplane_t		*plane;
-	struct mnode_s	*children[2];
-#ifdef SUPPORT_BSP2_FORMAT
-	int		firstsurface;
-	int		numsurfaces;
+
+#if !XASH_64BIT
+	union
+	{
+		struct mnode_s *children_[2];
+		struct
+		{
+			// the ordering is important
+			int child_0_leaf    : 1;
+			int child_0_off     : 23;
+			int firstsurface_1  : 8;
+			int child_1_leaf    : 1;
+			int child_1_off     : 23;
+			int numsurfaces_1   : 8;
+		};
+	};
+	unsigned short	firstsurface_0;
+	unsigned short	numsurfaces_0;
 #else
-	unsigned short	firstsurface;
-	unsigned short	numsurfaces;
+	// in 64-bit ABI this struct has 4 more bytes of padding, let's use it!
+	struct mnode_s	*children_[2];
+	unsigned short	firstsurface_0;
+	unsigned short	numsurfaces_0;
+	unsigned short	firstsurface_1;
+	unsigned short	numsurfaces_1;
 #endif
 } mnode_t;
 
@@ -206,7 +224,6 @@ typedef struct mleaf_s
 	int		nummarksurfaces;
 	int		cluster;		// helper to acess to uncompressed visdata
 	byte		ambient_sound_level[NUM_AMBIENTS];
-
 } mleaf_t;
 
 // surface extradata
@@ -566,16 +583,68 @@ typedef struct
 #define ANIM_CYCLE			2
 #define MOD_FRAMES			20
 
-
-
 #define MAX_DEMOS		32
 #define MAX_MOVIES		8
 #define MAX_CDTRACKS	32
 #define MAX_CLIENT_SPRITES	512	// SpriteTextures (0-256 hud, 256-512 client)
 #define MAX_REQUESTS	64
 
+STATIC_CHECK_SIZEOF( mnode_t, 52, 72 );
 STATIC_CHECK_SIZEOF( mextrasurf_t, 324, 496 );
 STATIC_CHECK_SIZEOF( decal_t, 60, 88 );
 STATIC_CHECK_SIZEOF( mfaceinfo_t, 176, 304 );
+
+// model flags (stored in model_t->flags)
+#define MODEL_QBSP2 BIT( 28 ) // uses 32-bit types
+
+// access functions
+static inline mnode_t *node_child( const mnode_t *n, int side, const model_t *mod )
+{
+#if !XASH_64BIT
+	if( unlikely( mod->flags & MODEL_QBSP2 )) // MODEL_QBSP2
+	{
+		if( side == 0 )
+		{
+			if( n->child_0_leaf )
+				return (mnode_t *)(mod->leafs + n->child_0_off);
+			else
+				return (mnode_t *)(mod->nodes + n->child_0_off);
+		}
+		else
+		{
+			if( n->child_1_leaf )
+				return (mnode_t *)(mod->leafs + n->child_1_off);
+			else
+				return (mnode_t *)(mod->nodes + n->child_1_off);
+		}
+	}
+
+	return n->children_[side];
+#else
+	return n->children_[side];
+#endif
+}
+
+static inline void node_children( mnode_t *children[2], const mnode_t *n, const model_t *mod )
+{
+	children[0] = node_child( n, 0, mod );
+	children[1] = node_child( n, 1, mod );
+}
+
+static inline int node_firstsurface( const mnode_t *n, const model_t *mod )
+{
+	if( mod->flags & MODEL_QBSP2 )
+		return n->firstsurface_0 + ( n->firstsurface_1 << 16 );
+	else
+		return n->firstsurface_0;
+}
+
+static inline int node_numsurfaces( const mnode_t *n, const model_t *mod )
+{
+	if( mod->flags & MODEL_QBSP2 )
+		return n->numsurfaces_0 + ( n->numsurfaces_1 << 16 );
+	else
+		return n->numsurfaces_0;
+}
 
 #endif//COM_MODEL_H

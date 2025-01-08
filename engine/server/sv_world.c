@@ -644,8 +644,10 @@ static void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 		*headnode = node - sv.worldmodel->nodes;
 
 	// recurse down the contacted sides
-	if( sides & 1 ) SV_FindTouchedLeafs( ent, node->children[0], headnode );
-	if( sides & 2 ) SV_FindTouchedLeafs( ent, node->children[1], headnode );
+	if( sides & 1 )
+		SV_FindTouchedLeafs( ent, node_child( node, 0, sv.worldmodel ), headnode );
+	if( sides & 2 )
+		SV_FindTouchedLeafs( ent, node_child( node, 1, sv.worldmodel ), headnode );
 }
 
 /*
@@ -1535,6 +1537,8 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 	float front, back, frac;
 	int i, side;
 	vec3_t mid;
+	mnode_t *children[2];
+	int numsurfaces, firstsurface;
 
 	// didn't hit anything
 	if( !node || node->contents < 0 )
@@ -1544,25 +1548,29 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 	front = PlaneDiff( start, node->plane );
 	back = PlaneDiff( end, node->plane );
 
+	node_children( children, node, model );
+
 	side = front < 0.0f;
 	if(( back < 0.0f ) == side )
-		return SV_RecursiveLightPoint( model, node->children[side], start, end, point_color );
+		return SV_RecursiveLightPoint( model, children[side], start, end, point_color );
 
 	frac = front / ( front - back );
 
 	VectorLerp( start, frac, end, mid );
 
 	// co down front side
-	if( SV_RecursiveLightPoint( model, node->children[side], start, mid, point_color ))
+	if( SV_RecursiveLightPoint( model, children[side], start, mid, point_color ))
 		return true; // hit something
 
 	if(( back < 0.0f ) == side )
 		return false; // didn't hit anything
 
 	// check for impact on this node
-	for( i = 0; i < node->numsurfaces; i++ )
+	numsurfaces = node_numsurfaces( node, model );
+	firstsurface = node_firstsurface( node, model );
+	for( i = 0; i < numsurfaces; i++ )
 	{
-		const msurface_t *surf = &model->surfaces[node->firstsurface + i];
+		const msurface_t *surf = &model->surfaces[firstsurface + i];
 		const mextrasurf_t *info = surf->info;
 		int smax, tmax, map, size;
 		int sample_size;
@@ -1613,7 +1621,7 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 	}
 
 	// go down back side
-	return SV_RecursiveLightPoint( model, node->children[!side], mid, end, point_color );
+	return SV_RecursiveLightPoint( model, children[!side], mid, end, point_color );
 }
 
 /*

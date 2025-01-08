@@ -856,7 +856,7 @@ Mod_PointInLeaf
 
 ==================
 */
-mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node )
+mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod )
 {
 	Assert( node != NULL );
 
@@ -864,7 +864,7 @@ mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node )
 	{
 		if( node->contents < 0 )
 			return (mleaf_t *)node;
-		node = node->children[PlaneDiff( p, node->plane ) <= 0];
+		node = node_child( node, PlaneDiff( p, node->plane ) <= 0, mod );
 	}
 
 	// never reached
@@ -885,7 +885,7 @@ byte *Mod_GetPVSForPoint( const vec3_t p )
 
 	ASSERT( worldmodel != NULL );
 
-	leaf = Mod_PointInLeaf( p, worldmodel->nodes );
+	leaf = Mod_PointInLeaf( p, worldmodel->nodes, worldmodel );
 
 	if( leaf && leaf->cluster >= 0 )
 		return Mod_DecompressPVS( leaf->compressed_vis, world.visbytes );
@@ -905,14 +905,14 @@ static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *v
 		float d = PlaneDiff( org, node->plane );
 
 		if( d > radius )
-			node = node->children[0];
+			node = node_child( node, 0, worldmodel );
 		else if( d < -radius )
-			node = node->children[1];
+			node = node_child( node, 1, worldmodel );
 		else
 		{
 			// go down both sides
-			Mod_FatPVS_RecursiveBSPNode( org, radius, visbuffer, visbytes, node->children[0], phs );
-			node = node->children[1];
+			Mod_FatPVS_RecursiveBSPNode( org, radius, visbuffer, visbytes, node_child( node, 0, worldmodel ), phs );
+			node = node_child( node, 1, worldmodel );
 		}
 	}
 
@@ -950,7 +950,7 @@ int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, q
 
 	ASSERT( worldmodel != NULL );
 
-	leaf = Mod_PointInLeaf( org, worldmodel->nodes );
+	leaf = Mod_PointInLeaf( org, worldmodel->nodes, worldmodel );
 	bytes = Q_min( bytes, visbytes );
 
 	// enable full visibility for some reasons
@@ -1009,20 +1009,16 @@ static void Mod_BoxLeafnums_r( leaflist_t *ll, mnode_t *node )
 		sides = BOX_ON_PLANE_SIDE( ll->mins, ll->maxs, node->plane );
 
 		if( sides == 1 )
-		{
-			node = node->children[0];
-		}
+			node = node_child( node, 0, worldmodel );
 		else if( sides == 2 )
-		{
-			node = node->children[1];
-		}
+			node = node_child( node, 1, worldmodel );
 		else
 		{
 			// go down both
 			if( ll->topnode == -1 )
 				ll->topnode = node - worldmodel->nodes;
-			Mod_BoxLeafnums_r( ll, node->children[0] );
-			node = node->children[1];
+			Mod_BoxLeafnums_r( ll, node_child( node, 0, worldmodel ));
+			node = node_child( node, 1, worldmodel );
 		}
 	}
 }
@@ -1076,35 +1072,6 @@ qboolean Mod_BoxVisible( const vec3_t mins, const vec3_t maxs, const byte *visbi
 		if( CHECKVISBIT( visbits, leafList[i] ))
 			return true;
 	}
-	return false;
-}
-
-/*
-=============
-Mod_HeadnodeVisible
-=============
-*/
-qboolean Mod_HeadnodeVisible( mnode_t *node, const byte *visbits, int *lastleaf )
-{
-	if( !node || node->contents == CONTENTS_SOLID )
-		return false;
-
-	if( node->contents < 0 )
-	{
-		if( !CHECKVISBIT( visbits, ((mleaf_t *)node)->cluster ))
-			return false;
-
-		if( lastleaf )
-			*lastleaf = ((mleaf_t *)node)->cluster;
-		return true;
-	}
-
-	if( Mod_HeadnodeVisible( node->children[0], visbits, lastleaf ))
-		return true;
-
-	if( Mod_HeadnodeVisible( node->children[1], visbits, lastleaf ))
-		return true;
-
 	return false;
 }
 
@@ -1562,13 +1529,15 @@ static void Mod_CreateFaceBevels( model_t *mod, msurface_t *surf, const dbspmode
 Mod_SetParent
 =================
 */
-static void Mod_SetParent( mnode_t *node, mnode_t *parent )
+static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 {
 	node->parent = parent;
 
-	if( node->contents < 0 ) return; // it's leaf
-	Mod_SetParent( node->children[0], node );
-	Mod_SetParent( node->children[1], node );
+	if( node->contents < 0 )
+		return; // it's leaf
+
+	Mod_SetParent( mod, node_child( node, 0, mod ), node );
+	Mod_SetParent( mod, node_child( node, 1, mod ), node );
 }
 
 /*
@@ -1686,11 +1655,12 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 
 			for( j = 0; j < 2; j++ )
 			{
-				mnode_t *child = in->children[j];
+				mnode_t *child = node_child( in, j, mod );
 
 				if( child->contents < 0 )
 					out->children[j] = child->contents;
-				else out->children[j] = child - mod->nodes;
+				else
+					out->children[j] = child - mod->nodes;
 			}
 		}
 	}
@@ -1709,11 +1679,12 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 
 			for( j = 0; j < 2; j++ )
 			{
-				mnode_t *child = in->children[j];
+				mnode_t *child = node_child( in, j, mod );
 
 				if( child->contents < 0 )
 					out->children[j] = child->contents;
-				else out->children[j] = child - mod->nodes;
+				else
+					out->children[j] = child - mod->nodes;
 			}
 		}
 	}
@@ -1848,6 +1819,7 @@ for embedded submodels
 static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 {
 	qboolean	colored = false;
+	qboolean	qbsp2 = false;
 	poolhandle_t mempool;
 	char	*ents;
 	dmodel_t 	*bm;
@@ -1858,6 +1830,9 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 	mempool = mod->mempool;
 	if( FBitSet( mod->flags, MODEL_COLORED_LIGHTING ))
 		colored = true;
+
+	if( FBitSet( mod->flags, MODEL_QBSP2 ))
+		qbsp2 = true;
 
 	mod->numframes = 2;	// regular and alternate animation
 
@@ -1892,6 +1867,7 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 
 		// this bit will be shared between all the submodels include worldmodel
 		if( colored ) SetBits( mod->flags, MODEL_COLORED_LIGHTING );
+		if( qbsp2 ) SetBits( mod->flags, MODEL_QBSP2 );
 
 		if( i != 0 )
 		{
@@ -3075,16 +3051,62 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 				out->minmaxs[j+3] = in->maxs[j];
 			}
 
+#if !XASH_64BIT
+			if( in->firstface >= BIT( 24 ))
+			{
+				Host_Error( "%s: face index limit exceeded on node %i\n", __func__, i );
+				return;
+			}
+
+			if( in->numfaces >= BIT( 24 ))
+			{
+				Host_Error( "%s: face count limit exceeded on node %i\n", __func__, i );
+				return;
+			}
+#endif
+
 			p = in->planenum;
 			out->plane = mod->planes + p;
-			out->firstsurface = in->firstface;
-			out->numsurfaces = in->numfaces;
+			out->firstsurface_0 = in->firstface & 0xFFFF;
+			out->numsurfaces_0  = in->numfaces  & 0xFFFF;
+
+			out->firstsurface_1 = in->firstface >> 16;
+			out->numsurfaces_1  = in->numfaces >> 16;
 
 			for( j = 0; j < 2; j++ )
 			{
 				p = in->children[j];
-				if( p >= 0 ) out->children[j] = mod->nodes + p;
-				else out->children[j] = (mnode_t *)(mod->leafs + ( -1 - p ));
+#if XASH_64BIT
+				if( p >= 0 ) out->children_[j] = mod->nodes + p;
+				else out->children_[j] = (mnode_t *)(mod->leafs + ( -1 - p ));
+#else
+				if( j == 0 )
+				{
+					if( p >= 0 )
+					{
+						out->child_0_leaf = 0;
+						out->child_0_off  = p;
+					}
+					else
+					{
+						out->child_0_leaf = 1;
+						out->child_0_off = -1 - p;
+					}
+				}
+				else
+				{
+					if( p >= 0 )
+					{
+						out->child_1_leaf = 0;
+						out->child_1_off  = p;
+					}
+					else
+					{
+						out->child_1_leaf = 1;
+						out->child_1_off = -1 - p;
+					}
+				}
+#endif
 			}
 		}
 		else
@@ -3099,20 +3121,20 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 
 			p = in->planenum;
 			out->plane = mod->planes + p;
-			out->firstsurface = in->firstface;
-			out->numsurfaces = in->numfaces;
+			out->firstsurface_0 = in->firstface;
+			out->numsurfaces_0 = in->numfaces;
 
 			for( j = 0; j < 2; j++ )
 			{
 				p = in->children[j];
-				if( p >= 0 ) out->children[j] = mod->nodes + p;
-				else out->children[j] = (mnode_t *)(mod->leafs + ( -1 - p ));
+				if( p >= 0 ) out->children_[j] = mod->nodes + p;
+				else out->children_[j] = (mnode_t *)(mod->leafs + ( -1 - p ));
 			}
 		}
 	}
 
 	// sets nodes and leafs
-	Mod_SetParent( mod->nodes, NULL );
+	Mod_SetParent( mod, mod->nodes, NULL );
 }
 
 /*
@@ -3601,6 +3623,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 		// everything else
 		srclumps[0].lumpnumber = LUMP_ENTITIES;
 		srclumps[1].lumpnumber = LUMP_PLANES;
+
+		if( header->version == QBSP2_VERSION )
+			SetBits( mod->flags, MODEL_QBSP2 );
 		break;
 	default:
 		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, header->version, HLBSP_VERSION );

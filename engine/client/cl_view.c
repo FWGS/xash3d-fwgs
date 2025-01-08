@@ -466,8 +466,8 @@ static void R_ShowTree_r( mnode_t *node, float x, float y, float scale, int show
 		R_DrawNodeConnection( x, y, x + scale, y + scale );
 	}
 
-	R_ShowTree_r( node->children[1], x - scale, y + scale, downScale, shownodes, viewleaf );
-	R_ShowTree_r( node->children[0], x + scale, y + scale, downScale, shownodes, viewleaf );
+	R_ShowTree_r( node_child( node, 1, cl.worldmodel ), x - scale, y + scale, downScale, shownodes, viewleaf );
+	R_ShowTree_r( node_child( node, 0, cl.worldmodel ), x + scale, y + scale, downScale, shownodes, viewleaf );
 
 	world.recursion_level--;
 }
@@ -482,7 +482,7 @@ static void R_ShowTree( void )
 		return;
 
 	world.recursion_level = 0;
-	viewleaf = Mod_PointInLeaf( refState.vieworg, cl.worldmodel->nodes );
+	viewleaf = Mod_PointInLeaf( refState.vieworg, cl.worldmodel->nodes, cl.worldmodel );
 
 	ref.dllFuncs.TriRenderMode( kRenderTransTexture );
 

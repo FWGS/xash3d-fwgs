@@ -300,6 +300,12 @@ static qboolean R_Init_Video_( const int type )
 	return R_Init_Video( type );
 }
 
+static mleaf_t *pfnMod_PointInLeaf( const vec3_t p, mnode_t *node )
+{
+	// FIXME: get rid of this on next RefAPI update
+	return Mod_PointInLeaf( p, node, cl.models[1] );
+}
+
 static const ref_api_t gEngfuncs =
 {
 	pfnEngineGetParm,
@@ -340,7 +346,7 @@ static const ref_api_t gEngfuncs =
 
 	Mod_SampleSizeForFace,
 	Mod_BoxVisible,
-	Mod_PointInLeaf,
+	pfnMod_PointInLeaf,
 	R_DrawWorldHull,
 	R_DrawModelHull,
 
