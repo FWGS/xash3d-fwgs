@@ -611,7 +611,7 @@ SV_FindTouchedLeafs
 
 ===============
 */
-static void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
+static void SV_FindTouchedLeafs( edict_t *ent, model_t *mod, mnode_t *node, int *headnode )
 {
 	int	sides;
 	mleaf_t	*leaf;
@@ -622,16 +622,19 @@ static void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 	// add an efrag if the node is a leaf
 	if( node->contents < 0 )
 	{
-		if( ent->num_leafs > ( MAX_ENT_LEAFS - 1 ))
+		if( ent->num_leafs > MAX_ENT_LEAFS( FBitSet( mod->flags, MODEL_QBSP2 )))
 		{
 			// continue counting leafs,
 			// so we know how many it's overrun
-			ent->num_leafs = (MAX_ENT_LEAFS + 1);
+			ent->num_leafs = (MAX_ENT_LEAFS( FBitSet( mod->flags, MODEL_QBSP2 )) + 1);
 		}
 		else
 		{
 			leaf = (mleaf_t *)node;
-			ent->leafnums[ent->num_leafs] = leaf->cluster;
+			if( FBitSet( mod->flags, MODEL_QBSP2 ))
+				ent->leafnums32[ent->num_leafs] = leaf->cluster;
+			else
+				ent->leafnums16[ent->num_leafs] = leaf->cluster;
 			ent->num_leafs++;
 		}
 		return;
@@ -641,13 +644,13 @@ static void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 	sides = BOX_ON_PLANE_SIDE( ent->v.absmin, ent->v.absmax, node->plane );
 
 	if(( sides == 3 ) && ( *headnode == -1 ))
-		*headnode = node - sv.worldmodel->nodes;
+		*headnode = node - mod->nodes;
 
 	// recurse down the contacted sides
 	if( sides & 1 )
-		SV_FindTouchedLeafs( ent, node_child( node, 0, sv.worldmodel ), headnode );
+		SV_FindTouchedLeafs( ent, mod, node_child( node, 0, mod ), headnode );
 	if( sides & 2 )
-		SV_FindTouchedLeafs( ent, node_child( node, 1, sv.worldmodel ), headnode );
+		SV_FindTouchedLeafs( ent, mod, node_child( node, 1, mod ), headnode );
 }
 
 /*
@@ -669,7 +672,7 @@ void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 
 	if( ent->v.movetype == MOVETYPE_FOLLOW && SV_IsValidEdict( ent->v.aiment ))
 	{
-		memcpy( ent->leafnums, ent->v.aiment->leafnums, sizeof( ent->leafnums ));
+		memcpy( ent->leafnums32, ent->v.aiment->leafnums32, sizeof( ent->leafnums32 ));
 		ent->num_leafs = ent->v.aiment->num_leafs;
 		ent->headnode = ent->v.aiment->headnode;
 	}
@@ -681,11 +684,11 @@ void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 		headnode = -1;
 
 		if( ent->v.modelindex )
-			SV_FindTouchedLeafs( ent, sv.worldmodel->nodes, &headnode );
+			SV_FindTouchedLeafs( ent, sv.worldmodel, sv.worldmodel->nodes, &headnode );
 
-		if( ent->num_leafs > MAX_ENT_LEAFS )
+		if( ent->num_leafs > MAX_ENT_LEAFS( FBitSet( sv.worldmodel->flags, MODEL_QBSP2 )))
 		{
-			memset( ent->leafnums, -1, sizeof( ent->leafnums ));
+			memset( ent->leafnums32, -1, sizeof( ent->leafnums32 ));
 			ent->num_leafs = 0;	// so we use headnode instead
 			ent->headnode = headnode;
 		}
