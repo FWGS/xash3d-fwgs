@@ -138,10 +138,7 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 	switch( parm )
 	{
 	case PARM_BSP2_SUPPORTED:
-#ifdef SUPPORT_BSP2_FORMAT
 		return 1;
-#endif
-		return 0;
 	case PARAM_GAMEPAUSED:
 		return cl.paused;
 	case PARM_CLIENT_INGAME:
