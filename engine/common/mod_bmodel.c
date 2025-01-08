@@ -3048,7 +3048,6 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		if( samples == 1 || samples == 3 )
 		{
 			bmod->lightmap_samples = (int)samples;
-			Con_Reportf( "lighting: %s\n", (bmod->lightmap_samples == 1) ? "monochrome" : "colored" );
 			bmod->lightmap_samples = Q_max( bmod->lightmap_samples, 1 ); // avoid division by zero
 		}
 		else Con_DPrintf( S_WARN "lighting invalid samplecount: %g, defaulting to %i\n", samples, bmod->lightmap_samples );
@@ -3544,6 +3543,8 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 		Host_Error( "%s: bad lightmap sample count %i\n", __func__, bmod->lightmap_samples );
 		break;
 	}
+
+	Con_Reportf( "lighting: %s\n", FBitSet( mod->flags, MODEL_COLORED_LIGHTING ) ? "colored" : "monochrome" );
 
 	// not supposed to be load ?
 	if( FBitSet( host.features, ENGINE_LOAD_DELUXEDATA ))
