@@ -1393,6 +1393,12 @@ void GAME_EXPORT R_NewMap( void )
 	R_ClearDecals(); // clear all level decals
 	R_StudioResetPlayerModels();
 
+	if( FBitSet( world->flags, MODEL_QBSP2 ))
+	{
+		gEngfuncs.Host_Error( "Sorry, ref_soft can't load maps in BSP2 format.\n" );
+		return;
+	}
+
 	r_cnumsurfs = sw_maxsurfs.value;
 
 	if( r_cnumsurfs <= MINSURFACES )

@@ -3594,13 +3594,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 	Q_strncpy( loadstat.name, mod->name, sizeof( loadstat.name ));
 	wadvalue[0] = '\0';
 
-#ifndef SUPPORT_BSP2_FORMAT
-	if( header->version == QBSP2_VERSION )
-	{
-		Con_Printf( S_ERROR DEFAULT_BSP_BUILD_ERROR, mod->name );
-		return false;
-	}
-#endif
 	switch( header->version )
 	{
 	case HLBSP_VERSION:
@@ -3765,15 +3758,6 @@ qboolean Mod_TestBmodelLumps( file_t *f, const char *name, const byte *mod_base,
 	Q_strncpy( loadstat.name, name, sizeof( loadstat.name ));
 	if( silent )
 		SetBits( flags, LUMP_SILENT );
-
-#ifndef SUPPORT_BSP2_FORMAT
-	if( header->version == QBSP2_VERSION )
-	{
-		if( !FBitSet( flags, LUMP_SILENT ))
-			Con_Printf( S_ERROR DEFAULT_BSP_BUILD_ERROR, name );
-		return false;
-	}
-#endif
 
 	switch( header->version )
 	{
