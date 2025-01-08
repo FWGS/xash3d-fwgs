@@ -67,6 +67,8 @@ extern int SV_UPDATE_BACKUP;
 #define MAX_PUSHED_ENTS	256
 #define MAX_VIEWENTS	128
 
+#define MAX_ENT_LEAFS( ext ) (( ext ) ? MAX_ENT_LEAFS_32 : MAX_ENT_LEAFS_16 )
+
 #define FCL_RESEND_USERINFO	BIT( 0 )
 #define FCL_RESEND_MOVEVARS	BIT( 1 )
 #define FCL_SKIP_NET_MESSAGE	BIT( 2 )

@@ -4329,6 +4329,7 @@ pfnCheckVisibility
 static int GAME_EXPORT pfnCheckVisibility( const edict_t *ent, byte *pset )
 {
 	int	i, leafnum;
+	qboolean large_leafs = FBitSet( sv.worldmodel->flags, MODEL_QBSP2 );
 
 	if( !SV_IsValidEdict( ent ))
 		return 0;
@@ -4344,17 +4345,28 @@ static int GAME_EXPORT pfnCheckVisibility( const edict_t *ent, byte *pset )
 		// check individual leafs
 		for( i = 0; i < ent->num_leafs; i++ )
 		{
-			if( CHECKVISBIT( pset, ent->leafnums[i] ))
-				return 1;	// visible passed by leaf
+			if( large_leafs )
+			{
+				if( CHECKVISBIT( pset, ent->leafnums32[i] ))
+					return 1;	// visible passed by leaf
+			}
+			else
+			{
+				if( CHECKVISBIT( pset, ent->leafnums16[i] ))
+					return 1;	// visible passed by leaf
+			}
 		}
 
 		return 0;
 	}
 	else
 	{
-		for( i = 0; i < MAX_ENT_LEAFS; i++ )
+		for( i = 0; i < MAX_ENT_LEAFS( large_leafs ); i++ )
 		{
-			leafnum = ent->leafnums[i];
+			if( large_leafs )
+				leafnum = ent->leafnums32[i];
+			else
+				leafnum = ent->leafnums16[i];
 			if( leafnum == -1 ) break;
 
 			if( CHECKVISBIT( pset, leafnum ))
@@ -4365,8 +4377,12 @@ static int GAME_EXPORT pfnCheckVisibility( const edict_t *ent, byte *pset )
 		if( !Mod_HeadnodeVisible( sv.worldmodel, &sv.worldmodel->nodes[ent->headnode], pset, &leafnum ))
 			return 0;
 
-		((edict_t *)ent)->leafnums[ent->num_leafs] = leafnum;
-		((edict_t *)ent)->num_leafs = (ent->num_leafs + 1) % MAX_ENT_LEAFS;
+		if( large_leafs )
+			((edict_t *)ent)->leafnums32[ent->num_leafs] = leafnum;
+		else
+			((edict_t *)ent)->leafnums16[ent->num_leafs] = leafnum;
+
+		((edict_t *)ent)->num_leafs = (ent->num_leafs + 1) % MAX_ENT_LEAFS( large_leafs );
 
 		return 2;	// visible passed by headnode
 	}
