@@ -1780,7 +1780,8 @@ static qboolean Mod_LoadLitfile( model_t *mod, const char *ext, size_t expected_
 	char        modelname[64], path[64];
 	int         iCompare;
 	fs_offset_t datasize;
-	byte        *in;
+	file_t      *f;
+	uint        hdr[2];
 
 	COM_FileBase( mod->name, modelname, sizeof( modelname ));
 	Q_snprintf( path, sizeof( path ), "maps/%s.%s", modelname, ext );
@@ -1791,31 +1792,15 @@ static qboolean Mod_LoadLitfile( model_t *mod, const char *ext, size_t expected_
 	if( iCompare < 0 ) // this may happens if level-designer used -onlyents key for hlcsg
 		Con_Printf( S_WARN "%s probably is out of date\n", path );
 
-	in = FS_LoadFile( path, &datasize, false );
+	f = FS_Open( path, "rb", false );
 
-	if( !in )
+	if( !f )
 	{
 		Con_Printf( S_ERROR "couldn't load %s\n", path );
 		return false;
 	}
 
-	if( datasize <= 8 ) // header + version
-	{
-		Con_Printf( S_ERROR "%s is too short\n", path );
-		goto cleanup_and_error;
-	}
-
-	if( LittleLong( ((uint *)in)[0] ) != IDDELUXEMAPHEADER )
-	{
-		Con_Printf( S_ERROR "%s is corrupted\n", path );
-		goto cleanup_and_error;
-	}
-
-	if( LittleLong( ((uint *)in)[1] ) != DELUXEMAP_VERSION )
-	{
-		Con_Printf( S_ERROR "has %s mismatched version (%u should be %u)\n", path, LittleLong( ((uint *)in)[1] ), DELUXEMAP_VERSION );
-		goto cleanup_and_error;
-	}
+	datasize = FS_FileLength( f );
 
 	// skip header bytes
 	datasize -= 8;
@@ -1826,14 +1811,33 @@ static qboolean Mod_LoadLitfile( model_t *mod, const char *ext, size_t expected_
 		goto cleanup_and_error;
 	}
 
+	if( FS_Read( f, hdr, sizeof( hdr )) != sizeof( hdr ))
+	{
+		Con_Printf( S_ERROR "failed reading header from %s\n", path );
+		goto cleanup_and_error;
+	}
+
+	if( LittleLong( hdr[0] ) != IDDELUXEMAPHEADER )
+	{
+		Con_Printf( S_ERROR "%s is corrupted\n", path );
+		goto cleanup_and_error;
+	}
+
+	if( LittleLong( hdr[1] ) != DELUXEMAP_VERSION )
+	{
+		Con_Printf( S_ERROR "has %s mismatched version (%u should be %u)\n", path, LittleLong( hdr[1] ), DELUXEMAP_VERSION );
+		goto cleanup_and_error;
+	}
+
 	*out = Mem_Malloc( mod->mempool, datasize );
-	memcpy( *out, in + 8, datasize );
 	*outsize = datasize;
-	Mem_Free( in );
+
+	FS_Read( f, *out, datasize );
+	FS_Close( f );
 	return true;
 
 cleanup_and_error:
-	Mem_Free( in );
+	FS_Close( f );
 	return false;
 }
 
