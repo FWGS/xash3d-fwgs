@@ -524,6 +524,7 @@ watertexture to grab fog values from it
 static image_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t *ignore, qboolean down )
 {
 	image_t *tex = NULL;
+	mnode_t *children[2];
 
 	// assure the initial node is not null
 	// we could check it here, but we would rather check it
@@ -561,18 +562,18 @@ static image_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t 
 
 	// this is a regular node
 	// traverse children
-	if( node->children[0] && ( node->children[0] != ignore ))
+	node_children( children, node, WORLDMODEL );
+
+	if( children[0] && ( children[0] != ignore ))
 	{
-		tex = R_RecursiveFindWaterTexture( node->children[0], node, true );
-		if( tex )
-			return tex;
+		tex = R_RecursiveFindWaterTexture( children[0], node, true );
+		if( tex ) return tex;
 	}
 
-	if( node->children[1] && ( node->children[1] != ignore ))
+	if( children[1] && ( children[1] != ignore ))
 	{
-		tex = R_RecursiveFindWaterTexture( node->children[1], node, true );
-		if( tex )
-			return tex;
+		tex = R_RecursiveFindWaterTexture( children[1], node, true );
+		if( tex )	return tex;
 	}
 
 	// for down recursion, return immediately
@@ -796,9 +797,9 @@ static mnode_t *R_FindTopnode( vec3_t mins, vec3_t maxs )
 
 		// not split yet; recurse down the contacted side
 		if( sides & 1 )
-			node = node->children[0];
+			node = node_child( node, 0, WORLDMODEL );
 		else
-			node = node->children[1];
+			node = node_child( node, 1, WORLDMODEL );
 	}
 }
 

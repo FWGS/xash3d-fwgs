@@ -175,7 +175,7 @@ void R_RotateBmodel( void )
 R_RecursiveClipBPoly
 ================
 */
-static void R_RecursiveClipBPoly( bedge_t *pedges, mnode_t *pnode, msurface_t *psurf )
+static void R_RecursiveClipBPoly( model_t *mod, bedge_t *pedges, mnode_t *pnode, msurface_t *psurf )
 {
 	bedge_t   *psideedges[2], *pnextedge, *ptedge;
 	int       i, side, lastside;
@@ -316,7 +316,7 @@ static void R_RecursiveClipBPoly( bedge_t *pedges, mnode_t *pnode, msurface_t *p
 		{
 			// draw if we've reached a non-solid leaf, done if all that's left is a
 			// solid leaf, and continue down the tree if it's not a leaf
-			pn = pnode->children[i];
+			pn = node_child( pnode, i, mod );
 
 			// we're done with this branch if the node or leaf isn't in the PVS
 			if( pn->visframe == tr.visframecount )
@@ -332,8 +332,7 @@ static void R_RecursiveClipBPoly( bedge_t *pedges, mnode_t *pnode, msurface_t *p
 				}
 				else
 				{
-					R_RecursiveClipBPoly( psideedges[i], pnode->children[i],
-							      psurf );
+					R_RecursiveClipBPoly( mod, psideedges[i], pn, psurf );
 				}
 			}
 		}
@@ -419,7 +418,7 @@ void R_DrawSolidClippedSubmodelPolygons( model_t *pmodel, mnode_t *topnode )
 		pbedge[j - 1].pnext = NULL; // mark end of edges
 
 		// if ( !( psurf->texinfo->flags & ( SURF_TRANS66 | SURF_TRANS33 ) ) )
-		R_RecursiveClipBPoly( pbedge, topnode, psurf );
+		R_RecursiveClipBPoly( pmodel, pbedge, topnode, psurf );
 		// else
 		//	R_RenderBmodelFace( pbedge, psurf );
 	}
@@ -566,6 +565,9 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 	}
 	else
 	{
+		mnode_t    *children[2];
+		int firstsurface;
+
 		// node is just a decision point, so go down the apropriate sides
 
 		// find which side of the node we are on
@@ -593,14 +595,16 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 			side = 1;
 
 		// recurse down the children, front side first
-		R_RecursiveWorldNode( node->children[side], clipflags );
+		node_children( children, node, WORLDMODEL );
+		R_RecursiveWorldNode( children[side], clipflags );
 
 		// draw stuff
-		c = node->numsurfaces;
+		c = node_numsurfaces( node, WORLDMODEL );
+		firstsurface = node_firstsurface( node, WORLDMODEL );
 
 		if( c )
 		{
-			surf = WORLDMODEL->surfaces + node->firstsurface;
+			surf = WORLDMODEL->surfaces + firstsurface;
 
 			if( dot < -BACKFACE_EPSILON )
 			{
@@ -636,7 +640,7 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 		}
 
 		// recurse down the back side
-		R_RecursiveWorldNode( node->children[!side], clipflags );
+		R_RecursiveWorldNode( children[!side], clipflags );
 	}
 }
 

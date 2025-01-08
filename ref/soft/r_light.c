@@ -104,44 +104,50 @@ R_MarkLights
 */
 void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
 {
-	float      dist;
-	msurface_t *surf;
-	int        i;
+	float		dist;
+	msurface_t	*surf;
+	int		i;
+	mnode_t *children[2];
+	int firstsurface, numsurfaces;
 
 	if( !node || node->contents < 0 )
 		return;
 
 	dist = PlaneDiff( light->origin, node->plane );
 
+	node_children( children, node, RI.currentmodel );
+	firstsurface = node_firstsurface( node, RI.currentmodel );
+	numsurfaces = node_numsurfaces( node, RI.currentmodel );
+
 	if( dist > light->radius )
 	{
-		R_MarkLights( light, bit, node->children[0] );
+		R_MarkLights( light, bit, children[0] );
 		return;
 	}
 	if( dist < -light->radius )
 	{
-		R_MarkLights( light, bit, node->children[1] );
+		R_MarkLights( light, bit, children[1] );
 		return;
 	}
 
 	// mark the polygons
-	surf = RI.currentmodel->surfaces + node->firstsurface;
+	surf = RI.currentmodel->surfaces + firstsurface;
 
-	for( i = 0; i < node->numsurfaces; i++, surf++ )
+	for( i = 0; i < numsurfaces; i++, surf++ )
 	{
 		if( !BoundsAndSphereIntersect( surf->info->mins, surf->info->maxs, light->origin, light->radius ))
-			continue; // no intersection
+			continue;	// no intersection
 
-		if( surf->dlightframe != tr.framecount ) // tr.dlightframecount )
+		if( surf->dlightframe != tr.dlightframecount )
 		{
 			surf->dlightbits = 0;
-			surf->dlightframe = tr.framecount; // tr.dlightframecount;
+			surf->dlightframe = tr.dlightframecount;
 		}
 		surf->dlightbits |= bit;
 	}
 
-	R_MarkLights( light, bit, node->children[0] );
-	R_MarkLights( light, bit, node->children[1] );
+	R_MarkLights( light, bit, children[0] );
+	R_MarkLights( light, bit, children[1] );
 }
 
 /*
@@ -205,6 +211,8 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	mtexinfo_t   *tex;
 	matrix3x4    tbn;
 	vec3_t       mid;
+	mnode_t *children[2];
+	int firstsurface, numsurfaces;
 
 	// didn't hit anything
 	if( !node || node->contents < 0 )
@@ -213,13 +221,17 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		return false;
 	}
 
+	node_children( children, node, model );
+	firstsurface = node_firstsurface( node, model );
+	numsurfaces = node_numsurfaces( node, model );
+
 	// calculate mid point
 	front = PlaneDiff( start, node->plane );
 	back = PlaneDiff( end, node->plane );
 
 	side = front < 0;
 	if(( back < 0 ) == side )
-		return R_RecursiveLightPoint( model, node->children[side], p1f, p2f, cv, start, end );
+		return R_RecursiveLightPoint( model, children[side], p1f, p2f, cv, start, end );
 
 	frac = front / ( front - back );
 
@@ -227,7 +239,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	midf = p1f + ( p2f - p1f ) * frac;
 
 	// co down front side
-	if( R_RecursiveLightPoint( model, node->children[side], p1f, midf, cv, start, mid ))
+	if( R_RecursiveLightPoint( model, children[side], p1f, midf, cv, start, mid ))
 		return true; // hit something
 
 	if(( back < 0 ) == side )
@@ -237,10 +249,10 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	}
 
 	// check for impact on this node
-	surf = model->surfaces + node->firstsurface;
+	surf = model->surfaces + firstsurface;
 	VectorCopy( mid, g_trace_lightspot );
 
-	for( i = 0; i < node->numsurfaces; i++, surf++ )
+	for( i = 0; i < numsurfaces; i++, surf++ )
 	{
 		int smax, tmax;
 
@@ -330,7 +342,7 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	}
 
 	// go down back side
-	return R_RecursiveLightPoint( model, node->children[!side], midf, p2f, cv, mid, end );
+	return R_RecursiveLightPoint( model, children[!side], midf, p2f, cv, mid, end );
 }
 
 /*
