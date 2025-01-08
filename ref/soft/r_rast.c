@@ -37,7 +37,7 @@ int             c_faceclip;                                             // numbe
 clipplane_t     *entity_clipplanes;
 clipplane_t     world_clipplanes[16];
 
-medge_t         *r_pedge;
+medge16_t       *r_pedge;
 
 qboolean        r_leftclipped, r_rightclipped;
 static qboolean makeleftedge, makerightedge;
@@ -68,7 +68,7 @@ msurface_t *r_skyfaces;
 mplane_t   r_skyplanes[6];
 mtexinfo_t r_skytexinfo[6];
 mvertex_t  *r_skyverts;
-medge_t    *r_skyedges;
+medge16_t  *r_skyedges;
 int        *r_skysurfedges;
 
 // I just copied this data from a box map...
@@ -438,7 +438,7 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 	mplane_t    *pplane;
 	float       distinv;
 	vec3_t      p_normal;
-	medge_t     *pedges, tedge;
+	medge16_t   *pedges, tedge;
 	clipplane_t *pclip;
 
 	// translucent surfaces are not drawn by the edge renderer
@@ -490,7 +490,7 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 	r_nearzi = 0;
 	r_nearzionly = false;
 	makeleftedge = makerightedge = false;
-	pedges = RI.currentmodel->edges;
+	pedges = RI.currentmodel->edges16;
 	r_lastvertvalid = false;
 
 	for( i = 0; i < fa->numedges; i++ )
@@ -560,7 +560,7 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 				else
 				{
 					// it's cached if the cached edge is valid and is owned
-					// by this medge_t
+					// by this medge16_t
 					if((((uintptr_t)edge_p - (uintptr_t)r_edges )
 					    > r_pedge->cachededgeoffset )
 					   && (((edge_t *)((uintptr_t)r_edges
@@ -651,7 +651,7 @@ void R_RenderBmodelFace( bedge_t *pedges, msurface_t *psurf )
 	mplane_t    *pplane;
 	float       distinv;
 	vec3_t      p_normal;
-	medge_t     tedge;
+	medge16_t   tedge;
 	clipplane_t *pclip;
 
 	/*if (psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
