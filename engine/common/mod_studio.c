@@ -50,10 +50,8 @@ static matrix3x4			studio_bones[MAXSTUDIOBONES];
 static uint			studio_hull_hitgroup[MAXSTUDIOBONES];
 static uint			cache_hull_hitgroup[MAXSTUDIOBONES];
 static mstudiocache_t		cache_studio[STUDIO_CACHESIZE];
-static mclipnode16_t			studio_clipnodes16[6];
-static mclipnode32_t			studio_clipnodes32[6];
-static mplane_t			studio_planes[768];
-static mplane_t			cache_planes[768];
+static mplane_t			studio_planes[MAXSTUDIOBONES * 6];
+static mplane_t			cache_planes[MAXSTUDIOBONES * 6];
 
 // current cache state
 static int			cache_current;
@@ -67,36 +65,14 @@ Mod_InitStudioHull
 */
 void Mod_InitStudioHull( void )
 {
-	int	i, side;
+	int	i;
 
 	if( studio_hull[0].planes != NULL )
 		return;	// already initailized
 
-	for( i = 0; i < 6; i++ )
-	{
-		studio_clipnodes16[i].planenum = i;
-		studio_clipnodes32[i].planenum = i;
-
-		side = i & 1;
-
-		studio_clipnodes16[i].children[side] = CONTENTS_EMPTY;
-		studio_clipnodes32[i].children[side] = CONTENTS_EMPTY;
-
-		if( i != 5 )
-		{
-			studio_clipnodes16[i].children[side^1] = i + 1;
-			studio_clipnodes32[i].children[side^1] = i + 1;
-		}
-		else
-		{
-			studio_clipnodes16[i].children[side^1] = CONTENTS_SOLID;
-			studio_clipnodes32[i].children[side^1] = CONTENTS_SOLID;
-		}
-	}
-
 	for( i = 0; i < MAXSTUDIOBONES; i++ )
 	{
-		studio_hull[i].clipnodes16 = studio_clipnodes16;
+		studio_hull[i].clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 		studio_hull[i].planes = &studio_planes[i*6];
 		studio_hull[i].firstclipnode = 0;
 		studio_hull[i].lastclipnode = 5;
@@ -283,9 +259,9 @@ hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t ang
 	for( i = j = 0; i < mod_studiohdr->numhitboxes; i++, j += 6 )
 	{
 		if( world.version == QBSP2_VERSION )
-			studio_hull[i].clipnodes32 = studio_clipnodes32;
+			studio_hull[i].clipnodes32 = (mclipnode32_t *)box_clipnodes32;
 		else
-			studio_hull[i].clipnodes16 = studio_clipnodes16;
+			studio_hull[i].clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 
 		if( bSkipShield && i == 21 )
 			continue;	// CS stuff

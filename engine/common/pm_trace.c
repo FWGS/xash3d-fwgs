@@ -25,8 +25,6 @@ GNU General Public License for more details.
 #define PM_AllowHitBoxTrace( model, hull ) ( model && model->type == mod_studio && ( FBitSet( model->flags, STUDIO_TRACE_HITBOX ) || hull == 2 ))
 
 static mplane_t	pm_boxplanes[6];
-static mclipnode16_t pm_boxclipnodes16[6];
-static mclipnode32_t pm_boxclipnodes32[6];
 static hull_t pm_boxhull;
 
 // default hullmins
@@ -66,34 +64,15 @@ can just be stored out and get a proper hull_t structure.
 */
 void PM_InitBoxHull( void )
 {
-	int	i, side;
+	int	i;
 
-	pm_boxhull.clipnodes16 = pm_boxclipnodes16;
+	pm_boxhull.clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 	pm_boxhull.planes = pm_boxplanes;
 	pm_boxhull.firstclipnode = 0;
 	pm_boxhull.lastclipnode = 5;
 
 	for( i = 0; i < 6; i++ )
 	{
-		pm_boxclipnodes16[i].planenum = i;
-		pm_boxclipnodes32[i].planenum = i;
-
-		side = i & 1;
-
-		pm_boxclipnodes16[i].children[side] = CONTENTS_EMPTY;
-		pm_boxclipnodes32[i].children[side] = CONTENTS_EMPTY;
-
-		if( i != 5 )
-		{
-			pm_boxclipnodes16[i].children[side^1] = i + 1;
-			pm_boxclipnodes32[i].children[side^1] = i + 1;
-		}
-		else
-		{
-			pm_boxclipnodes16[i].children[side^1] = CONTENTS_SOLID;
-			pm_boxclipnodes32[i].children[side^1] = i + 1;
-		}
-
 		pm_boxplanes[i].type = i>>1;
 		pm_boxplanes[i].normal[i>>1] = 1.0f;
 		pm_boxplanes[i].signbits = 0;
@@ -119,9 +98,9 @@ static hull_t *PM_HullForBox( const vec3_t mins, const vec3_t maxs )
 	pm_boxplanes[5].dist = mins[2];
 
 	if( world.version == QBSP2_VERSION )
-		pm_boxhull.clipnodes32 = pm_boxclipnodes32;
+		pm_boxhull.clipnodes32 = (mclipnode32_t *)box_clipnodes32;
 	else
-		pm_boxhull.clipnodes16 = pm_boxclipnodes16;
+		pm_boxhull.clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 
 	return &pm_boxhull;
 }

@@ -41,8 +41,6 @@ HULL BOXES
 */
 
 static hull_t        box_hull;
-static mclipnode16_t box_clipnodes16[6];
-static mclipnode32_t box_clipnodes32[6];
 static mplane_t      box_planes[6];
 
 /*
@@ -55,34 +53,15 @@ can just be stored out and get a proper hull_t structure.
 */
 static void SV_InitBoxHull( void )
 {
-	int	i, side;
+	int	i;
 
-	box_hull.clipnodes16 = box_clipnodes16;
+	box_hull.clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 	box_hull.planes = box_planes;
 	box_hull.firstclipnode = 0;
 	box_hull.lastclipnode = 5;
 
 	for( i = 0; i < 6; i++ )
 	{
-		box_clipnodes16[i].planenum = i;
-		box_clipnodes32[i].planenum = i;
-
-		side = i & 1;
-
-		box_clipnodes16[i].children[side] = CONTENTS_EMPTY;
-		box_clipnodes32[i].children[side] = CONTENTS_EMPTY;
-
-		if( i != 5 )
-		{
-			box_clipnodes16[i].children[side^1] = i + 1;
-			box_clipnodes32[i].children[side^1] = i + 1;
-		}
-		else
-		{
-			box_clipnodes16[i].children[side^1] = CONTENTS_SOLID;
-			box_clipnodes32[i].children[side^1] = CONTENTS_SOLID;
-		}
-
 		box_planes[i].type = i>>1;
 		box_planes[i].normal[i>>1] = 1;
 		box_planes[i].signbits = 0;
@@ -180,9 +159,9 @@ static hull_t *SV_HullForBox( const vec3_t mins, const vec3_t maxs )
 	box_planes[5].dist = mins[2];
 
 	if( world.version == QBSP2_VERSION )
-		box_hull.clipnodes32 = box_clipnodes32;
+		box_hull.clipnodes32 = (mclipnode32_t *)box_clipnodes32;
 	else
-		box_hull.clipnodes16 = box_clipnodes16;
+		box_hull.clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 
 	return &box_hull;
 }

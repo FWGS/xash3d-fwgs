@@ -385,6 +385,35 @@ static const mlumpinfo_t extlumps[EXTRA_LUMPS] =
 	},
 };
 
+#define BOX_CLIPNODES_INITIALIZER \
+	{ \
+		.planenum = 0, \
+		.children = { CONTENTS_EMPTY, 1 }, \
+	}, \
+	{ \
+		.planenum = 1, \
+		.children = { 2, CONTENTS_EMPTY }, \
+	}, \
+	{ \
+		.planenum = 2, \
+		.children = { CONTENTS_EMPTY, 3 }, \
+	}, \
+	{ \
+		.planenum = 3, \
+		.children = { 4, CONTENTS_EMPTY }, \
+	}, \
+	{ \
+		.planenum = 4, \
+		.children = { CONTENTS_EMPTY, 5 }, \
+	}, \
+	{ \
+		.planenum = 5, \
+		.children = { CONTENTS_SOLID, CONTENTS_EMPTY }, \
+	}, \
+
+const mclipnode16_t box_clipnodes16[6] = { BOX_CLIPNODES_INITIALIZER };
+const mclipnode32_t box_clipnodes32[6] = { BOX_CLIPNODES_INITIALIZER };
+
 /*
 ===============================================================================
 
