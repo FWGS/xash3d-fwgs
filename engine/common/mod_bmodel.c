@@ -1264,22 +1264,35 @@ Mod_GetFaceContents
 determine face contents by name
 ==================
 */
-static mvertex_t *Mod_GetVertexByNumber( model_t *mod, int surfedge )
+static mvertex_t *Mod_GetVertexByNumber( model_t *mod, int surfedge, const dbspmodel_t *bmod )
 {
-	int	lindex;
-	medge_t	*edge;
+	int	lindex = mod->surfedges[surfedge];
 
-	lindex = mod->surfedges[surfedge];
-
-	if( lindex > 0 )
+	if( bmod->version == QBSP2_VERSION )
 	{
-		edge = &mod->edges[lindex];
-		return &mod->vertexes[edge->v[0]];
+		if( lindex > 0 )
+		{
+			medge32_t *edge = &mod->edges32[lindex];
+			return &mod->vertexes[edge->v[0]];
+		}
+		else
+		{
+			medge32_t *edge = &mod->edges32[-lindex];
+			return &mod->vertexes[edge->v[1]];
+		}
 	}
 	else
 	{
-		edge = &mod->edges[-lindex];
-		return &mod->vertexes[edge->v[1]];
+		if( lindex > 0 )
+		{
+			medge16_t *edge = &mod->edges16[lindex];
+			return &mod->vertexes[edge->v[0]];
+		}
+		else
+		{
+			medge16_t *edge = &mod->edges16[-lindex];
+			return &mod->vertexes[edge->v[1]];
+		}
 	}
 }
 
@@ -1364,7 +1377,7 @@ Mod_CalcSurfaceExtents
 Fills in surf->texturemins[] and surf->extents[]
 =================
 */
-static void Mod_CalcSurfaceExtents( model_t *mod, msurface_t *surf )
+static void Mod_CalcSurfaceExtents( model_t *mod, msurface_t *surf, const dbspmodel_t *bmod )
 {
 	// this place is VERY critical to precision
 	// keep it as float, don't use double, because it causes issues with lightmap
@@ -1391,8 +1404,16 @@ static void Mod_CalcSurfaceExtents( model_t *mod, msurface_t *surf )
 		if( e >= mod->numedges || e <= -mod->numedges )
 			Host_Error( "%s: bad edge\n", __func__ );
 
-		if( e >= 0 ) v = &mod->vertexes[mod->edges[e].v[0]];
-		else v = &mod->vertexes[mod->edges[-e].v[1]];
+		if( bmod->version == QBSP2_VERSION )
+		{
+			if( e >= 0 ) v = &mod->vertexes[mod->edges32[e].v[0]];
+			else v = &mod->vertexes[mod->edges32[-e].v[1]];
+		}
+		else
+		{
+			if( e >= 0 ) v = &mod->vertexes[mod->edges16[e].v[0]];
+			else v = &mod->vertexes[mod->edges16[-e].v[1]];
+		}
 
 		for( j = 0; j < 2; j++ )
 		{
@@ -1446,7 +1467,7 @@ Mod_CalcSurfaceBounds
 fills in surf->mins and surf->maxs
 =================
 */
-static void Mod_CalcSurfaceBounds( model_t *mod, msurface_t *surf )
+static void Mod_CalcSurfaceBounds( model_t *mod, msurface_t *surf, const dbspmodel_t *bmod )
 {
 	int	i, e;
 	mvertex_t	*v;
@@ -1460,8 +1481,16 @@ static void Mod_CalcSurfaceBounds( model_t *mod, msurface_t *surf )
 		if( e >= mod->numedges || e <= -mod->numedges )
 			Host_Error( "%s: bad edge\n", __func__ );
 
-		if( e >= 0 ) v = &mod->vertexes[mod->edges[e].v[0]];
-		else v = &mod->vertexes[mod->edges[-e].v[1]];
+		if( bmod->version == QBSP2_VERSION )
+		{
+			if( e >= 0 ) v = &mod->vertexes[mod->edges32[e].v[0]];
+			else v = &mod->vertexes[mod->edges32[-e].v[1]];
+		}
+		else
+		{
+			if( e >= 0 ) v = &mod->vertexes[mod->edges16[e].v[0]];
+			else v = &mod->vertexes[mod->edges16[-e].v[1]];
+		}
 		AddPointToBounds( v->position, surf->info->mins, surf->info->maxs );
 	}
 
@@ -1473,7 +1502,7 @@ static void Mod_CalcSurfaceBounds( model_t *mod, msurface_t *surf )
 Mod_CreateFaceBevels
 =================
 */
-static void Mod_CreateFaceBevels( model_t *mod, msurface_t *surf )
+static void Mod_CreateFaceBevels( model_t *mod, msurface_t *surf, const dbspmodel_t *bmod )
 {
 	vec3_t		delta, edgevec;
 	byte		*facebevel;
@@ -1506,8 +1535,8 @@ static void Mod_CreateFaceBevels( model_t *mod, msurface_t *surf )
 	{
 		mplane_t	*dest = &fb->edges[i];
 
-		v0 = Mod_GetVertexByNumber( mod, surf->firstedge + i );
-		v1 = Mod_GetVertexByNumber( mod, surf->firstedge + (i + 1) % surf->numedges );
+		v0 = Mod_GetVertexByNumber( mod, surf->firstedge + i, bmod );
+		v1 = Mod_GetVertexByNumber( mod, surf->firstedge + (i + 1) % surf->numedges, bmod );
 		VectorSubtract( v1->position, v0->position, edgevec );
 		CrossProduct( faceNormal, edgevec, dest->normal );
 		VectorNormalize( dest->normal );
@@ -1521,7 +1550,7 @@ static void Mod_CreateFaceBevels( model_t *mod, msurface_t *surf )
 	// compute face radius
 	for( i = 0; i < surf->numedges; i++ )
 	{
-		v0 = Mod_GetVertexByNumber( mod, surf->firstedge + i );
+		v0 = Mod_GetVertexByNumber( mod, surf->firstedge + i, bmod );
 		VectorSubtract( v0->position, fb->origin, delta );
 		radius = DotProduct( delta, delta );
 		fb->radius = Q_max( radius, fb->radius );
@@ -2185,15 +2214,15 @@ Mod_LoadEdges
 */
 static void Mod_LoadEdges( model_t *mod, dbspmodel_t *bmod )
 {
-	medge_t	*out;
 	int	i;
 
-	mod->edges = out = Mem_Malloc( mod->mempool, bmod->numedges * sizeof( medge_t ));
 	mod->numedges = bmod->numedges;
 
 	if( bmod->version == QBSP2_VERSION )
 	{
-		dedge32_t	*in = (dedge32_t *)bmod->edges32;
+		dedge32_t *in = bmod->edges32;
+		medge32_t *out;
+		mod->edges32 = out = Mem_Malloc( mod->mempool, bmod->numedges * sizeof( *out ));
 
 		for( i = 0; i < bmod->numedges; i++, in++, out++ )
 		{
@@ -2203,7 +2232,9 @@ static void Mod_LoadEdges( model_t *mod, dbspmodel_t *bmod )
 	}
 	else
 	{
-		dedge_t	*in = (dedge_t *)bmod->edges;
+		dedge_t	*in = bmod->edges;
+		medge16_t *out;
+		mod->edges16 = out = Mem_Malloc( mod->mempool, bmod->numedges * sizeof( *out ));
 
 		for( i = 0; i < bmod->numedges; i++, in++, out++ )
 		{
@@ -2963,9 +2994,9 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		if( FBitSet( out->texinfo->flags, TEX_SPECIAL ))
 			SetBits( out->flags, SURF_DRAWTILED );
 
-		Mod_CalcSurfaceBounds( mod, out );
-		Mod_CalcSurfaceExtents( mod, out );
-		Mod_CreateFaceBevels( mod, out );
+		Mod_CalcSurfaceBounds( mod, out, bmod );
+		Mod_CalcSurfaceExtents( mod, out, bmod );
+		Mod_CreateFaceBevels( mod, out, bmod );
 
 		// grab the second sample to detect colored lighting
 		if( test_lightsize > 0 && lightofs != -1 )

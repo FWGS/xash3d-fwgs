@@ -125,12 +125,25 @@ static void R_TextureCoord( const vec3_t v, const msurface_t *surf, vec2_t coord
 static void R_GetEdgePosition( const model_t *mod, const msurface_t *fa, int i, vec3_t vec )
 {
 	const int lindex = mod->surfedges[fa->firstedge + i];
-	const medge_t *pedges = mod->edges;
 
-	if( lindex > 0 )
-		VectorCopy( mod->vertexes[pedges[lindex].v[0]].position, vec );
+	if( tr.world->version == QBSP2_VERSION )
+	{
+		const medge32_t *pedges = mod->edges32;
+
+		if( lindex > 0 )
+			VectorCopy( mod->vertexes[pedges[lindex].v[0]].position, vec );
+		else
+			VectorCopy( mod->vertexes[pedges[-lindex].v[1]].position, vec );
+	}
 	else
-		VectorCopy( mod->vertexes[pedges[-lindex].v[1]].position, vec );
+	{
+		const medge16_t *pedges = mod->edges16;
+
+		if( lindex > 0 )
+			VectorCopy( mod->vertexes[pedges[lindex].v[0]].position, vec );
+		else
+			VectorCopy( mod->vertexes[pedges[-lindex].v[1]].position, vec );
+	}
 }
 
 static void BoundPoly( int numverts, float *verts, vec3_t mins, vec3_t maxs )

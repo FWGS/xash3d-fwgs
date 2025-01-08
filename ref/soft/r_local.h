@@ -933,7 +933,7 @@ typedef struct edge_s
 	unsigned short surfs[2];
 	struct edge_s  *nextremove;
 	float          nearzi;
-	medge_t        *owner;
+	medge16_t      *owner;
 } edge_t;
 
 

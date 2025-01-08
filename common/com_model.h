@@ -73,15 +73,16 @@ typedef struct mclipnode16_s
 } mclipnode16_t;
 
 // size is matched but representation is not
-typedef struct
+typedef struct medge32_s
 {
-#ifdef SUPPORT_BSP2_FORMAT
 	unsigned int	v[2];
-#else
+} medge32_t;
+
+typedef struct medge16_s
+{
 	unsigned short	v[2];
 	unsigned int	cachededgeoffset;
-#endif
-} medge_t;
+} medge16_t;
 
 typedef struct texture_s
 {
@@ -347,7 +348,12 @@ typedef struct model_s
 	mvertex_t		*vertexes;
 
 	int		numedges;
-	medge_t		*edges;
+	union
+	{
+		medge16_t *edges16;
+		medge32_t *edges32;
+	};
+
 
 	int		numnodes;
 	mnode_t		*nodes;
