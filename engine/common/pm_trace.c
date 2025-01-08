@@ -25,8 +25,9 @@ GNU General Public License for more details.
 #define PM_AllowHitBoxTrace( model, hull ) ( model && model->type == mod_studio && ( FBitSet( model->flags, STUDIO_TRACE_HITBOX ) || hull == 2 ))
 
 static mplane_t	pm_boxplanes[6];
-static mclipnode_t	pm_boxclipnodes[6];
-static hull_t	pm_boxhull;
+static mclipnode16_t pm_boxclipnodes16[6];
+static mclipnode32_t pm_boxclipnodes32[6];
+static hull_t pm_boxhull;
 
 // default hullmins
 static const vec3_t pm_hullmins[MAX_MAP_HULLS] =
@@ -67,20 +68,31 @@ void PM_InitBoxHull( void )
 {
 	int	i, side;
 
-	pm_boxhull.clipnodes = pm_boxclipnodes;
+	pm_boxhull.clipnodes16 = pm_boxclipnodes16;
 	pm_boxhull.planes = pm_boxplanes;
 	pm_boxhull.firstclipnode = 0;
 	pm_boxhull.lastclipnode = 5;
 
 	for( i = 0; i < 6; i++ )
 	{
-		pm_boxclipnodes[i].planenum = i;
+		pm_boxclipnodes16[i].planenum = i;
+		pm_boxclipnodes32[i].planenum = i;
 
 		side = i & 1;
 
-		pm_boxclipnodes[i].children[side] = CONTENTS_EMPTY;
-		if( i != 5 ) pm_boxclipnodes[i].children[side^1] = i + 1;
-		else pm_boxclipnodes[i].children[side^1] = CONTENTS_SOLID;
+		pm_boxclipnodes16[i].children[side] = CONTENTS_EMPTY;
+		pm_boxclipnodes32[i].children[side] = CONTENTS_EMPTY;
+
+		if( i != 5 )
+		{
+			pm_boxclipnodes16[i].children[side^1] = i + 1;
+			pm_boxclipnodes32[i].children[side^1] = i + 1;
+		}
+		else
+		{
+			pm_boxclipnodes16[i].children[side^1] = CONTENTS_SOLID;
+			pm_boxclipnodes32[i].children[side^1] = i + 1;
+		}
 
 		pm_boxplanes[i].type = i>>1;
 		pm_boxplanes[i].normal[i>>1] = 1.0f;
@@ -106,6 +118,11 @@ static hull_t *PM_HullForBox( const vec3_t mins, const vec3_t maxs )
 	pm_boxplanes[4].dist = maxs[2];
 	pm_boxplanes[5].dist = mins[2];
 
+	if( world.version == QBSP2_VERSION )
+		pm_boxhull.clipnodes32 = pm_boxclipnodes32;
+	else
+		pm_boxhull.clipnodes16 = pm_boxclipnodes16;
+
 	return &pm_boxhull;
 }
 
@@ -122,10 +139,21 @@ int GAME_EXPORT PM_HullPointContents( hull_t *hull, int num, const vec3_t p )
 	if( !hull || !hull->planes )	// fantom bmodels?
 		return CONTENTS_NONE;
 
-	while( num >= 0 )
+	if( world.version == QBSP2_VERSION )
 	{
-		plane = &hull->planes[hull->clipnodes[num].planenum];
-		num = hull->clipnodes[num].children[PlaneDiff( p, plane ) < 0];
+		while( num >= 0 )
+		{
+			plane = &hull->planes[hull->clipnodes32[num].planenum];
+			num = hull->clipnodes32[num].children[PlaneDiff( p, plane ) < 0];
+		}
+	}
+	else
+	{
+		while( num >= 0 )
+		{
+			plane = &hull->planes[hull->clipnodes16[num].planenum];
+			num = hull->clipnodes16[num].children[PlaneDiff( p, plane ) < 0];
+		}
 	}
 	return num;
 }
@@ -193,7 +221,7 @@ PM_RecursiveHullCheck
 */
 qboolean PM_RecursiveHullCheck( hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, pmtrace_t *trace )
 {
-	mclipnode_t	*node;
+	int children[2];
 	mplane_t		*plane;
 	float		t1, t2;
 	float		frac, midf;
@@ -226,21 +254,31 @@ loc0:
 		Host_Error( "%s: bad node number %i\n", __func__, num );
 
 	// find the point distances
-	node = hull->clipnodes + num;
-	plane = hull->planes + node->planenum;
+	if( world.version == QBSP2_VERSION )
+	{
+		children[0] = hull->clipnodes32[num].children[0];
+		children[1] = hull->clipnodes32[num].children[1];
+		plane = hull->planes + hull->clipnodes32[num].planenum;
+	}
+	else
+	{
+		children[0] = hull->clipnodes16[num].children[0];
+		children[1] = hull->clipnodes16[num].children[1];
+		plane = hull->planes + hull->clipnodes16[num].planenum;
+	}
 
 	t1 = PlaneDiff( p1, plane );
 	t2 = PlaneDiff( p2, plane );
 
 	if( t1 >= 0.0f && t2 >= 0.0f )
 	{
-		num = node->children[0];
+		num = children[0];
 		goto loc0;
 	}
 
 	if( t1 < 0.0f && t2 < 0.0f )
 	{
-		num = node->children[1];
+		num = children[1];
 		goto loc0;
 	}
 
@@ -257,14 +295,14 @@ loc0:
 	VectorLerp( p1, frac, p2, mid );
 
 	// move up to the node
-	if( !PM_RecursiveHullCheck( hull, node->children[side], p1f, midf, p1, mid, trace ))
+	if( !PM_RecursiveHullCheck( hull, children[side], p1f, midf, p1, mid, trace ))
 		return false;
 
 	// this recursion can not be optimized because mid would need to be duplicated on a stack
-	if( PM_HullPointContents( hull, node->children[side^1], mid ) != CONTENTS_SOLID )
+	if( PM_HullPointContents( hull, children[side^1], mid ) != CONTENTS_SOLID )
 	{
 		// go past the node
-		return PM_RecursiveHullCheck( hull, node->children[side^1], midf, p2f, mid, p2, trace );
+		return PM_RecursiveHullCheck( hull, children[side^1], midf, p2f, mid, p2, trace );
 	}
 
 	// never got out of the solid area

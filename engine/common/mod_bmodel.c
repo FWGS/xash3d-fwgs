@@ -1547,7 +1547,7 @@ static void Mod_SetParent( mnode_t *node, mnode_t *parent )
 CountClipNodes_r
 ==================
 */
-static void CountClipNodes_r( mclipnode_t *src, hull_t *hull, int nodenum )
+static void CountClipNodes16_r( mclipnode16_t *src, hull_t *hull, int nodenum )
 {
 	// leaf?
 	if( nodenum < 0 ) return;
@@ -1556,16 +1556,11 @@ static void CountClipNodes_r( mclipnode_t *src, hull_t *hull, int nodenum )
 		Host_Error( "MAX_MAP_CLIPNODES limit exceeded\n" );
 	hull->lastclipnode++;
 
-	CountClipNodes_r( src, hull, src[nodenum].children[0] );
-	CountClipNodes_r( src, hull, src[nodenum].children[1] );
+	CountClipNodes16_r( src, hull, src[nodenum].children[0] );
+	CountClipNodes16_r( src, hull, src[nodenum].children[1] );
 }
 
-/*
-==================
-CountClipNodes32_r
-==================
-*/
-static void CountClipNodes32_r( dclipnode32_t *src, hull_t *hull, int nodenum )
+static void CountClipNodes32_r( mclipnode32_t *src, hull_t *hull, int nodenum )
 {
 	// leaf?
 	if( nodenum < 0 ) return;
@@ -1578,15 +1573,27 @@ static void CountClipNodes32_r( dclipnode32_t *src, hull_t *hull, int nodenum )
 	CountClipNodes32_r( src, hull, src[nodenum].children[1] );
 }
 
+static void CountDClipNodes_r( dclipnode32_t *src, hull_t *hull, int nodenum )
+{
+	// leaf?
+	if( nodenum < 0 ) return;
+
+	if( hull->lastclipnode == MAX_MAP_CLIPNODES )
+		Host_Error( "MAX_MAP_CLIPNODES limit exceeded\n" );
+	hull->lastclipnode++;
+
+	CountDClipNodes_r( src, hull, src[nodenum].children[0] );
+	CountDClipNodes_r( src, hull, src[nodenum].children[1] );
+}
+
 /*
 ==================
 RemapClipNodes_r
 ==================
 */
-static int RemapClipNodes_r( dclipnode32_t *srcnodes, hull_t *hull, int nodenum )
+static int RemapClipNodes_r( dbspmodel_t *bmod, dclipnode32_t *srcnodes, hull_t *hull, int nodenum )
 {
-	dclipnode32_t	*src;
-	mclipnode_t	*out;
+	dclipnode32_t *src;
 	int		i, c;
 
 	// leaf?
@@ -1599,13 +1606,22 @@ static int RemapClipNodes_r( dclipnode32_t *srcnodes, hull_t *hull, int nodenum 
 	src = srcnodes + nodenum;
 
 	c = hull->lastclipnode;
-	out = &hull->clipnodes[c];
 	hull->lastclipnode++;
 
-	out->planenum = src->planenum;
-
-	for( i = 0; i < 2; i++ )
-		out->children[i] = RemapClipNodes_r( srcnodes, hull, src->children[i] );
+	if( bmod->version == QBSP2_VERSION )
+	{
+		mclipnode32_t *out = &hull->clipnodes32[c];
+		out->planenum = src->planenum;
+		for( i = 0; i < 2; i++ )
+			out->children[i] = RemapClipNodes_r( bmod, srcnodes, hull, src->children[i] );
+	}
+	else
+	{
+		mclipnode16_t *out = &hull->clipnodes16[c];
+		out->planenum = src->planenum;
+		for( i = 0; i < 2; i++ )
+			out->children[i] = RemapClipNodes_r( bmod, srcnodes, hull, src->children[i] );
+	}
 
 	return c;
 }
@@ -1617,34 +1633,62 @@ Mod_MakeHull0
 Duplicate the drawing hull structure as a clipping hull
 =================
 */
-static void Mod_MakeHull0( model_t *mod )
+static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 {
-	mnode_t		*in, *child;
-	mclipnode_t	*out;
-	hull_t		*hull;
-	int		i, j;
-
-	hull = &mod->hulls[0];
-	hull->clipnodes = out = Mem_Malloc( mod->mempool, mod->numnodes * sizeof( *out ));
-	in = mod->nodes;
+	hull_t *hull = &mod->hulls[0];
+	int i;
 
 	hull->firstclipnode = 0;
 	hull->lastclipnode = mod->numnodes - 1;
 	hull->planes = mod->planes;
 
-	for( i = 0; i < mod->numnodes; i++, out++, in++ )
+	if( bmod->version == QBSP2_VERSION )
 	{
-		out->planenum = in->plane - mod->planes;
+		mclipnode32_t *out;
+		mnode_t *in = mod->nodes;
 
-		for( j = 0; j < 2; j++ )
+		hull->clipnodes32 = out = Mem_Malloc( mod->mempool, mod->numnodes * sizeof( *hull->clipnodes32 ));
+
+		for( i = 0; i < mod->numnodes; i++, out++, in++ )
 		{
-			child = in->children[j];
+			int j;
 
-			if( child->contents < 0 )
-				out->children[j] = child->contents;
-			else out->children[j] = child - mod->nodes;
+			out->planenum = in->plane - mod->planes;
+
+			for( j = 0; j < 2; j++ )
+			{
+				mnode_t *child = in->children[j];
+
+				if( child->contents < 0 )
+					out->children[j] = child->contents;
+				else out->children[j] = child - mod->nodes;
+			}
 		}
 	}
+	else
+	{
+		mclipnode16_t *out;
+		mnode_t *in = mod->nodes;
+
+		hull->clipnodes16 = out = Mem_Malloc( mod->mempool, mod->numnodes * sizeof( *hull->clipnodes16 ));
+
+		for( i = 0; i < mod->numnodes; i++, out++, in++ )
+		{
+			int j;
+
+			out->planenum = in->plane - mod->planes;
+
+			for( j = 0; j < 2; j++ )
+			{
+				mnode_t *child = in->children[j];
+
+				if( child->contents < 0 )
+					out->children[j] = child->contents;
+				else out->children[j] = child - mod->nodes;
+			}
+		}
+	}
+
 }
 
 /*
@@ -1688,15 +1732,18 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, poolhandle_t mempool
 	if( VectorIsNull( hull->clip_mins ) && VectorIsNull( hull->clip_maxs ))
 		return;	// no hull specified
 
-	CountClipNodes32_r( bmod->clipnodes_out, hull, headnode );
+	CountDClipNodes_r( bmod->clipnodes_out, hull, headnode );
 
 	// fit array to real count
-	hull->clipnodes = (mclipnode_t *)Mem_Malloc( mempool, sizeof( mclipnode_t ) * hull->lastclipnode );
+	if( bmod->version == QBSP2_VERSION )
+		hull->clipnodes32 = Mem_Malloc( mempool, sizeof( *hull->clipnodes32 ) * hull->lastclipnode );
+	else
+		hull->clipnodes16 = Mem_Malloc( mempool, sizeof( *hull->clipnodes16 ) * hull->lastclipnode );
+
 	hull->planes = mod->planes; // share planes
 	hull->lastclipnode = 0; // restart counting
 
-	// remap clipnodes to 16-bit indexes
-	RemapClipNodes_r( bmod->clipnodes_out, hull, headnode );
+	RemapClipNodes_r( bmod, bmod->clipnodes_out, hull, headnode ); // remap clipnodes to 16-bit indexes
 }
 
 static qboolean Mod_LoadLitfile( model_t *mod, const char *ext, size_t expected_size, color24 **out, size_t *outsize )
@@ -1795,7 +1842,10 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 		mod->hulls[0].lastclipnode = bm->headnode[0]; // need to be real count
 
 		// counting a real number of clipnodes per each submodel
-		CountClipNodes_r( mod->hulls[0].clipnodes, &mod->hulls[0], bm->headnode[0] );
+		if( bmod->version == QBSP2_VERSION )
+			CountClipNodes32_r( mod->hulls[0].clipnodes32, &mod->hulls[0], bm->headnode[0] );
+		else
+			CountClipNodes16_r( mod->hulls[0].clipnodes16, &mod->hulls[0], bm->headnode[0] );
 
 		// but hulls1-3 is build individually for a each given submodel
 		for( j = 1; j < MAX_MAP_HULLS; j++ )
@@ -3570,7 +3620,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, const byte *mod_base, qboolea
 	Mod_LoadClipnodes( mod, bmod );
 
 	// preform some post-initalization
-	Mod_MakeHull0( mod );
+	Mod_MakeHull0( mod, bmod );
 	Mod_SetupSubmodels( mod, bmod );
 
 	if( isworld )
