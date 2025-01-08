@@ -1,5 +1,5 @@
 #!/bin/bash
 
-curl http://libsdl.org/release/SDL2-devel-$SDL_VERSION-VC.zip -o SDL2.zip
+curl -L https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-devel-$SDL_VERSION-VC.zip -o SDL2.zip
 unzip -q SDL2.zip
 mv SDL2-$SDL_VERSION SDL2_VC
