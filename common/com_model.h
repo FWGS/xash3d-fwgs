@@ -60,15 +60,17 @@ typedef struct
 	vec3_t		position;
 } mvertex_t;
 
-typedef struct
+typedef struct mclipnode32_s
 {
-	int		planenum;
-#ifdef SUPPORT_BSP2_FORMAT
-	int		children[2];	// negative numbers are contents
-#else
-	short		children[2];	// negative numbers are contents
-#endif
-} mclipnode_t;
+	int planenum;
+	int children[2]; // negative numbers are contents
+} mclipnode32_t;
+
+typedef struct mclipnode16_s
+{
+	int   planenum;
+	short children[2];	// negative numbers are contents
+} mclipnode16_t;
 
 // size is matched but representation is not
 typedef struct
@@ -291,7 +293,11 @@ struct msurface_s
 
 typedef struct hull_s
 {
-	mclipnode_t	*clipnodes;
+	union
+	{
+		mclipnode16_t *clipnodes16;
+		mclipnode32_t *clipnodes32;
+	};
 	mplane_t		*planes;
 	int		firstclipnode;
 	int		lastclipnode;
@@ -356,7 +362,11 @@ typedef struct model_s
 	int		*surfedges;
 
 	int		numclipnodes;
-	mclipnode_t	*clipnodes;
+	union
+	{
+		mclipnode16_t *clipnodes16;
+		mclipnode32_t *clipnodes32;
+	};
 
 	int		nummarksurfaces;
 	msurface_t	**marksurfaces;

@@ -470,16 +470,16 @@ out_free:
  * This is a stack of the clipnodes we have traversed
  * "sides" indicates which side we went down each time
  */
-static mclipnode_t	*node_stack[MAX_CLIPNODE_DEPTH];
+static int	node_stack[MAX_CLIPNODE_DEPTH];
 static int	side_stack[MAX_CLIPNODE_DEPTH];
 static uint	node_stack_depth;
 
-static void push_node( mclipnode_t *node, int side )
+static void push_node( int nodenum, int side )
 {
 	if( node_stack_depth == MAX_CLIPNODE_DEPTH )
 		Host_Error( "node stack overflow\n" );
 
-	node_stack[node_stack_depth] = node;
+	node_stack[node_stack_depth] = nodenum;
 	side_stack[node_stack_depth] = side;
 	node_stack_depth++;
 }
@@ -502,22 +502,27 @@ static void free_hull_polys( hullnode_t *hull_polys )
 	}
 }
 
-static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys, hull_model_t *model );
+static void hull_windings_r( hull_t *hull, int nodenum, hullnode_t *polys, hull_model_t *model );
 
-static void do_hull_recursion( hull_t *hull, mclipnode_t *node, int side, hullnode_t *polys, hull_model_t *model )
+static void do_hull_recursion( hull_t *hull, int nodenum, int side, hullnode_t *polys, hull_model_t *model )
 {
 	winding_t	*w, *next;
+	int childnum;
 
-	if( node->children[side] >= 0 )
+	if( world.version == QBSP2_VERSION )
+		childnum = hull->clipnodes32[nodenum].children[side];
+	else
+		childnum = hull->clipnodes16[nodenum].children[side];
+
+	if( childnum >= 0 )
 	{
-		mclipnode_t *child = hull->clipnodes + node->children[side];
-		push_node( node, side );
-		hull_windings_r( hull, child, polys, model );
+		push_node( nodenum, side );
+		hull_windings_r( hull, childnum, polys, model );
 		pop_node();
 	}
 	else
 	{
-		switch( node->children[side] )
+		switch( childnum )
 		{
 		case CONTENTS_EMPTY:
 		case CONTENTS_WATER:
@@ -542,19 +547,24 @@ static void do_hull_recursion( hull_t *hull, mclipnode_t *node, int side, hullno
 			}
 			break;
 		default:
-			Host_Error( "bad contents: %i\n", node->children[side] );
+			Host_Error( "bad contents: %i\n", childnum );
 			break;
 		}
 	}
 }
 
-static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys, hull_model_t *model )
+static void hull_windings_r( hull_t *hull, int nodenum, hullnode_t *polys, hull_model_t *model )
 {
-	mplane_t		*plane = hull->planes + node->planenum;
+	mplane_t *plane;
 	hullnode_t	frontlist = LIST_HEAD_INIT( frontlist );
 	hullnode_t	backlist = LIST_HEAD_INIT( backlist );
 	winding_t		*w, *next, *front, *back;
 	int	i;
+
+	if( world.version == QBSP2_VERSION )
+		plane = hull->planes + hull->clipnodes32[nodenum].planenum;
+	else
+		plane = hull->planes + hull->clipnodes16[nodenum].planenum;
 
 	list_for_each_entry_safe( w, next, polys, chain )
 	{
@@ -601,7 +611,13 @@ static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys,
 
 	for( i = 0; w && i < node_stack_depth; i++ )
 	{
-		mplane_t *p = hull->planes + node_stack[i]->planenum;
+		mplane_t *p;
+
+		if( world.version == QBSP2_VERSION )
+			p = hull->planes + hull->clipnodes32[node_stack[i]].planenum;
+		else
+			p = hull->planes + hull->clipnodes16[node_stack[i]].planenum;
+
 		w = winding_clip( w, p, false, side_stack[i], 0.00001 );
 	}
 
@@ -625,8 +641,8 @@ static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys,
 		Con_Printf( S_WARN "new winding was clipped away!\n" );
 	}
 
-	do_hull_recursion( hull, node, 0, &frontlist, model );
-	do_hull_recursion( hull, node, 1, &backlist, model );
+	do_hull_recursion( hull, nodenum, 0, &frontlist, model );
+	do_hull_recursion( hull, nodenum, 1, &backlist, model );
 }
 
 static void remove_paired_polys( hull_model_t *model )
@@ -655,7 +671,7 @@ static void make_hull_windings( hull_t *hull, hull_model_t *model )
 
 	if( hull->planes != NULL )
 	{
-		hull_windings_r( hull, hull->clipnodes + hull->firstclipnode, &head, model );
+		hull_windings_r( hull, hull->firstclipnode, &head, model );
 		remove_paired_polys( model );
 	}
 	Con_Reportf( "%i hull polys\n", model->num_polys );
