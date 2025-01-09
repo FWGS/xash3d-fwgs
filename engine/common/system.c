@@ -529,7 +529,7 @@ but since engine will be unloaded during this call
 it explicitly doesn't use internal allocation or string copy utils
 ==================
 */
-qboolean Sys_NewInstance( const char *gamedir )
+qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 {
 #if XASH_NSWITCH
 	char newargs[4096];
@@ -540,7 +540,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 	// just restart the entire thing
 	printf( "envSetNextLoad exe: `%s`\n", exe );
 	printf( "envSetNextLoad argv:\n`%s`\n", newargs );
-	Host_ShutdownWithReason( "changing game" );
+	Host_ShutdownWithReason( finalmsg );
 	envSetNextLoad( exe, newargs );
 	exit( 0 );
 #else
@@ -578,7 +578,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 #if XASH_PSVITA
 	// under normal circumstances it's always going to be the same path
 	exe = strdup( "app0:/eboot.bin" );
-	Host_ShutdownWithReason( "changing game" );
+	Host_ShutdownWithReason( finalmsg );
 	sceAppMgrLoadExec( exe, newargs, NULL );
 #else
 	exelen = wai_getExecutablePath( NULL, 0, NULL );
@@ -586,7 +586,7 @@ qboolean Sys_NewInstance( const char *gamedir )
 	wai_getExecutablePath( exe, exelen, NULL );
 	exe[exelen] = 0;
 
-	Host_ShutdownWithReason( "changing game" );
+	Host_ShutdownWithReason( finalmsg );
 
 	execv( exe, newargs );
 #endif

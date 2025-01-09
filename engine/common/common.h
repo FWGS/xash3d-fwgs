@@ -301,7 +301,6 @@ typedef struct host_parm_s
 	poolhandle_t  mempool;          // static mempool for misc allocations
 	poolhandle_t  imagepool;        // imagelib mempool
 	poolhandle_t  soundpool;        // soundlib mempool
-	string        finalmsg;         // server shutdown final message
 	string        downloadfile;     // filename to be downloading
 	int           downloadcount;    // how many files remain to downloading
 	char          deferred_cmd[128];// deferred commands

@@ -588,7 +588,7 @@ void Wcon_DestroyConsole( void )
 	// last text message into console or log
 	Con_Reportf( "%s: Unloading xash.dll\n", __func__ );
 
-	Sys_CloseLog();
+	Sys_CloseLog( NULL );
 
 	if( !s_wcd.attached )
 	{ 
