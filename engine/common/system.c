@@ -420,6 +420,12 @@ void Sys_Error( const char *error, ... )
 _exit->_Exit->asm._exit->_exit
 As we do not need atexit(), just throw hidden exception
 */
+
+// Hey, you, making an Emscripten port!
+// What if we're not supposed to use exit() on Emscripten and instead we should
+// exit from the main() function? Would this fix this bug? Test this case, pls.
+#error "Read the comment above"
+
 #include <emscripten.h>
 #define exit my_exit
 void my_exit(int ret)
@@ -438,7 +444,11 @@ Sys_Quit
 void Sys_Quit( const char *reason )
 {
 	Host_ShutdownWithReason( reason );
+#if XASH_ANDROID
+	Host_ExitInMain();
+#else
 	exit( error_on_exit );
+#endif
 }
 
 /*
