@@ -31,6 +31,18 @@ public class XashActivity extends SDLActivity {
     }
 
     @Override
+    public void onDestroy()
+    {
+        super.onDestroy();
+
+        // Now that we don't exit from native code, we need to exit here, resetting
+        // application state (actually global variables that we don't cleanup on exit)
+        //
+        // When the issue with global variables will be resolved, remove that exit() call
+        System.exit(0);
+    }
+
+    @Override
     protected String[] getLibraries() {
         return new String[]{"SDL2", "xash"};
     }
