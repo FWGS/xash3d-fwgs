@@ -567,57 +567,54 @@ R_FizzEffect
 Create a fizz effect
 ==============
 */
-void GAME_EXPORT R_FizzEffect( cl_entity_t *pent, int modelIndex, int density )
+void GAME_EXPORT R_FizzEffect( cl_entity_t *ent, int modelIndex, int density )
 {
-	TEMPENTITY	*pTemp;
-	int		i, width, depth;
-	float		angle, maxHeight, speed;
-	float		xspeed, yspeed, zspeed;
-	vec3_t		origin;
-	model_t		*mod;
+	const float base_time = cl.time - 0.1f;
+	model_t	*mod = CL_ModelHandle( modelIndex );
+	vec3_t  volume, mins, maxs;
+	vec2_t  speed;
+	int     i;
 
-	if( !pent || !pent->model || !modelIndex )
+	if( !ent || !ent->model || !modelIndex || !mod )
 		return;
 
-	if(( mod = CL_ModelHandle( modelIndex )) == NULL )
-		return;
+	VectorCopy( ent->model->mins, mins );
+	VectorCopy( ent->model->maxs, maxs );
 
-	maxHeight = pent->model->maxs[2] - pent->model->mins[2];
-	width = pent->model->maxs[0] - pent->model->mins[0];
-	depth = pent->model->maxs[1] - pent->model->mins[1];
+	if( ent->angles[1] != 0.0f )
+	{
+		const float base_speed = ( ent->curstate.rendercolor.b ? -1.0f : 1.0f ) * ( ent->curstate.rendercolor.r * 256.0f + ent->curstate.rendercolor.g );
+		SinCos( DEG2RAD( ent->angles[1] ), &speed[1], &speed[0] );
+		speed[0] *= base_speed;
+		speed[1] *= base_speed;
+	}
+	else speed[0] = speed[1] = 0.0f;
 
-	speed = ( pent->curstate.rendercolor.r<<8 | pent->curstate.rendercolor.g );
-	if( pent->curstate.rendercolor.b )
-		speed = -speed;
-
-	angle = DEG2RAD( pent->angles[YAW] );
-	SinCos( angle, &yspeed, &xspeed );
-
-	xspeed *= speed;
-	yspeed *= speed;
+	VectorSubtract( maxs, mins, volume );
 
 	for( i = 0; i <= density; i++ )
 	{
-		origin[0] = mod->mins[0] + COM_RandomLong( 0, width - 1 );
-		origin[1] = mod->mins[1] + COM_RandomLong( 0, depth - 1 );
-		origin[2] = mod->mins[2];
-		pTemp = CL_TempEntAlloc( origin, mod );
+		TEMPENTITY *tent;
+		vec3_t origin;
 
-		if ( !pTemp ) return;
+		VectorCopy( mins, origin );
+		origin[0] += COM_RandomLong( 0, (int)volume[0] - 1 );
+		origin[1] += COM_RandomLong( 0, (int)volume[1] - 1 );
 
-		pTemp->flags |= FTENT_SINEWAVE;
+		if( !( tent = CL_TempEntAlloc( origin, mod )))
+			return;
 
-		pTemp->x = origin[0];
-		pTemp->y = origin[1];
+		tent->x = origin[0];
+		tent->y = origin[1];
+		tent->die = base_time;
+		tent->flags |= FTENT_SINEWAVE;
+		tent->entity.curstate.rendermode = kRenderTransAlpha;
+		Vector2Copy( speed, tent->entity.baseline.origin );
 
-		zspeed = COM_RandomLong( 80, 140 );
-		VectorSet( pTemp->entity.baseline.origin, xspeed, yspeed, zspeed );
-		pTemp->die = cl.time + ( maxHeight / zspeed ) - 0.1f;
-		pTemp->entity.curstate.frame = COM_RandomLong( 0, pTemp->frameMax );
-		// Set sprite scale
-		pTemp->entity.curstate.scale = 1.0f / COM_RandomFloat( 2.0f, 5.0f );
-		pTemp->entity.curstate.rendermode = kRenderTransAlpha;
-		pTemp->entity.curstate.renderamt = 255;
+		tent->entity.baseline.origin[2] = COM_RandomLong( 80, 140 );
+		tent->die += volume[2] / tent->entity.baseline.origin[2];
+		tent->entity.curstate.frame = COM_RandomLong( 0, tent->frameMax );
+		tent->entity.curstate.scale = 1.0f / COM_RandomFloat( 2.0f, 5.0f );
 	}
 }
 
