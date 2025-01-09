@@ -1855,7 +1855,7 @@ typedef struct vbodecaldata_s
 // gl_decals.c
 extern decal_t	gDecalPool[MAX_RENDER_DECALS];
 
-struct vbo_static_s
+static struct vbo_static_s
 {
 	// quickly free all allocations on map change
 	poolhandle_t mempool;
@@ -1891,7 +1891,7 @@ struct vbo_static_s
 	qboolean enabled;
 } vbos;
 
-struct multitexturestate_s
+static struct multitexturestate_s
 {
 	int tmu_gl; // texture tmu
 	int tmu_dt; // detail tmu
