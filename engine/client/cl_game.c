@@ -2408,9 +2408,8 @@ CL_FindModelIndex
 */
 static int GAME_EXPORT CL_FindModelIndex( const char *m )
 {
-	char		filepath[MAX_QPATH];
-	static float	lasttimewarn;
-	int		i;
+	char filepath[MAX_QPATH];
+	int  i;
 
 	if( !COM_CheckString( m ))
 		return 0;
@@ -2425,13 +2424,6 @@ static int GAME_EXPORT CL_FindModelIndex( const char *m )
 
 		if( !Q_stricmp( cl.models[i+1]->name, filepath ))
 			return i+1;
-	}
-
-	if( lasttimewarn < host.realtime )
-	{
-		// tell user about problem (but don't spam console)
-		Con_DPrintf( S_ERROR "Could not find index for model %s: not precached\n", filepath );
-		lasttimewarn = host.realtime + 1.0f;
 	}
 
 	return 0;
