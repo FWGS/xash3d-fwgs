@@ -43,6 +43,27 @@ GNU General Public License for more details.
 static pfnChangeGame	pChangeGame = NULL;
 host_parm_t		host;	// host parms
 
+#if XASH_ANDROID
+static jmp_buf return_from_main_buf;
+
+/*
+===============
+Host_ExitInMain
+
+On some platforms (e.g. Android) we can't exit with exit(3) as calling it would
+kill wrapper process (e.g. app_process) too early, before all resources would
+be freed, contexts released, files closed, etc, etc...
+
+To fix this, we create jmp_buf in Host_Main function, when jumping into with
+non-zero value will immediately return from it with `error_on_exit`.
+===============
+*/
+void Host_ExitInMain( void )
+{
+	longjmp( return_from_main_buf, 1 );
+}
+#endif // XASH_ANDROID
+
 #ifdef XASH_ENGINE_TESTS
 struct tests_stats_s tests_stats;
 #endif
@@ -1318,6 +1339,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	// check after all configs were executed
 	HPAK_CheckIntegrity( hpk_custom_file.string );
+
+#if XASH_ANDROID
+	if( setjmp( return_from_main_buf ))
+		return error_on_exit;
+#endif // XASH_ANDROID
 
 	// main window message loop
 	while( !host.crashed )
