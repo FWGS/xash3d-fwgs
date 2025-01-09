@@ -56,11 +56,8 @@ void Sys_DebugBreak( void );
 qboolean _Sys_GetParmFromCmdLine( const char *parm, char *out, size_t size );
 qboolean Sys_GetIntFromCmdLine( const char *parm, int *out );
 void Sys_Print( const char *pMsg );
-void Sys_PrintLog( const char *pMsg );
-void Sys_InitLog( void );
-void Sys_CloseLog( void );
 void Sys_Quit( const char *reason ) NORETURN;
-qboolean Sys_NewInstance( const char *gamedir );
+qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg );
 void *Sys_GetNativeObject( const char *obj );
 
 //
@@ -68,7 +65,7 @@ void *Sys_GetNativeObject( const char *obj );
 //
 char *Sys_Input( void );
 void Sys_DestroyConsole( void );
-void Sys_CloseLog( void );
+void Sys_CloseLog( const char *finalmsg );
 void Sys_InitLog( void );
 void Sys_PrintLog( const char *pMsg );
 int Sys_LogFileNo( void );

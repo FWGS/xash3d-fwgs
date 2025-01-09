@@ -116,37 +116,37 @@ void Sys_InitLog( void )
 	}
 }
 
-void Sys_CloseLog( void )
+void Sys_CloseLog( const char *finalmsg )
 {
-	char	event_name[64];
-
-	// continue logged
-	switch( host.status )
-	{
-	case HOST_CRASHED:
-		Q_strncpy( event_name, "crashed", sizeof( event_name ));
-		break;
-	case HOST_ERR_FATAL:
-		Q_strncpy( event_name, "stopped with error", sizeof( event_name ));
-		break;
-	default:
-		if( !host.change_game ) Q_strncpy( event_name, "stopped", sizeof( event_name ));
-		else Q_strncpy( event_name, host.finalmsg, sizeof( event_name ));
-		break;
-	}
-
 	Sys_FlushStdout(); // flush to stdout to ensure all data was written
 
-	if( s_ld.logfile )
+	if( !s_ld.logfile )
+		return;
+
+	// continue logged
+	if( !finalmsg )
 	{
-		fputc( '\n', s_ld.logfile );
-		fputs( "================================================================================\n", s_ld.logfile );
-		fprintf( s_ld.logfile, "%s (%i, %s, %s, %s-%s)\n", s_ld.title, Q_buildnum(), Q_buildcommit(), Q_buildbranch(), Q_buildos(), Q_buildarch());
-		fprintf( s_ld.logfile, "Stopped with reason \"%s\" at %s\n", event_name, Q_timestamp( TIME_FULL ));
-		fputs( "================================================================================\n", s_ld.logfile );
-		fclose( s_ld.logfile );
-		s_ld.logfile = NULL;
+		switch( host.status )
+		{
+		case HOST_CRASHED:
+			finalmsg = "crashed";
+			break;
+		case HOST_ERR_FATAL:
+			finalmsg = "stopped with error";
+			break;
+		default:
+			finalmsg = "stopped";
+			break;
+		}
 	}
+
+	fputc( '\n', s_ld.logfile );
+	fputs( "================================================================================\n", s_ld.logfile );
+	fprintf( s_ld.logfile, "%s (%i, %s, %s, %s-%s)\n", s_ld.title, Q_buildnum(), Q_buildcommit(), Q_buildbranch(), Q_buildos(), Q_buildarch());
+	fprintf( s_ld.logfile, "Stopped with reason \"%s\" at %s\n", finalmsg, Q_timestamp( TIME_FULL ));
+	fputs( "================================================================================\n", s_ld.logfile );
+	fclose( s_ld.logfile );
+	s_ld.logfile = NULL;
 }
 
 #if XASH_COLORIZE_CONSOLE

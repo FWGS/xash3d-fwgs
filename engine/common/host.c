@@ -362,9 +362,8 @@ static void Host_NewInstance( const char *name, const char *finalmsg )
 	if( !pChangeGame ) return;
 
 	host.change_game = true;
-	Q_strncpy( host.finalmsg, finalmsg, sizeof( host.finalmsg ));
 
-	if( !Sys_NewInstance( name ))
+	if( !Sys_NewInstance( name, finalmsg ))
 		pChangeGame( name ); // call from hl.exe
 }
 
@@ -838,7 +837,6 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	recursive = true;
 	Q_strncpy( hosterror2, hosterror1, sizeof( hosterror2 ));
 	host.errorframe = host.framecount; // to avoid multply calls per frame
-	Q_snprintf( host.finalmsg, sizeof( host.finalmsg ), "Server crashed: %s", hosterror1 );
 
 	// clearing cmd buffer to prevent execute any commands
 	COM_InitHostState();
@@ -1359,9 +1357,6 @@ void Host_ShutdownWithReason( const char *reason )
 	if( host.status != HOST_ERR_FATAL )
 		host.status = HOST_SHUTDOWN; // prepare host to normal shutdown
 
-	if( !host.change_game )
-		Q_strncpy( host.finalmsg, "Server shutdown", sizeof( host.finalmsg ));
-
 #if !XASH_DEDICATED
 	if( host.type == HOST_NORMAL && !error )
 		Host_WriteConfig();
@@ -1384,5 +1379,5 @@ void Host_ShutdownWithReason( const char *reason )
 
 	// restore filter
 	Sys_RestoreCrashHandler();
-	Sys_CloseLog();
+	Sys_CloseLog( reason );
 }
