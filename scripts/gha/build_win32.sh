@@ -11,7 +11,8 @@ fi
 
 # NOTE: to build with other version use --msvc_version during configuration
 # NOTE: sometimes you may need to add WinSDK to %PATH%
-./waf.bat configure -s "SDL2_VC" -T release --enable-utils --enable-tests --enable-lto $AMD64 || die_configure
+# NOTE: --enable-msvcdeps only used for CI builds, enabling it non-English versions of MSVC causes useless console spam
+./waf.bat configure -s "SDL2_VC" -T release --enable-utils --enable-tests --enable-lto --enable-msvcdeps $AMD64 || die_configure
 ./waf.bat build || die
 ./waf.bat install --destdir=. || die
 
