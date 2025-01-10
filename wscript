@@ -162,6 +162,7 @@ def options(opt):
 
 	# a1ba: special option for me
 	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
+	grp.add_option('--enable-msvcdeps', action='store_true', dest='MSVCDEPS', default=False, help='')
 
 	grp = opt.add_option_group('Renderers options')
 
@@ -199,6 +200,9 @@ def configure(conf):
 
 	# Load compilers early
 	conf.load('xshlib xcompile compiler_c compiler_cxx gccdeps')
+
+	if conf.options.MSVCDEPS:
+		conf.load('msvcdeps')
 
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
