@@ -67,8 +67,6 @@ def options(opt):
 def configure(conf):
 	# private to libpublic
 	conf.load('gitversion')
-	conf.define('XASH_BUILD_COMMIT', conf.env.GIT_VERSION if conf.env.GIT_VERSION else 'unknown-commit')
-	conf.define('XASH_BUILD_BRANCH', conf.env.GIT_BRANCH  if conf.env.GIT_BRANCH  else 'unknown-branch')
 	conf.env.VALIDATE_TARGET = conf.options.VALIDATE_TARGET
 
 	# need to expose it for everyone using libpublic headers
@@ -122,7 +120,8 @@ def build(bld):
 
 	bld.stlib(source   = bld.path.ant_glob('*.c'),
 		target   = 'public',
-		use      = 'sdk_includes werror')
+		use      = 'sdk_includes werror',
+		defines  = ['XASH_BUILD_COMMIT=\"%s\"' % bld.env.GIT_VERSION, 'XASH_BUILD_BRANCH=\"%s\"' % bld.env.GIT_BRANCH])
 
 	if bld.env.TESTS:
 		if bld.env.VALIDATE_TARGET:
