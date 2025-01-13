@@ -66,7 +66,10 @@ static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 		return true;
 
 	if( ioctl( fd, FS_IOC_GETFLAGS, &flags ) < 0 )
+	{
+		close( fd );
 		return true;
+	}
 
 	close( fd );
 
