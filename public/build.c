@@ -239,6 +239,3 @@ const char *Q_buildarch( void )
 	);
 }
 
-const char *g_buildcommit = XASH_BUILD_COMMIT;
-const char *g_buildbranch = XASH_BUILD_BRANCH;
-

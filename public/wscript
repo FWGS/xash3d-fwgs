@@ -118,10 +118,14 @@ def build(bld):
 		export_includes = '. ../common ../pm_shared ../engine',
 		export_defines = bld.env.EXPORT_DEFINES_LIST)
 
-	bld.stlib(source   = bld.path.ant_glob('*.c'),
-		target   = 'public',
-		use      = 'sdk_includes werror',
-		defines  = ['XASH_BUILD_COMMIT=\"%s\"' % bld.env.GIT_VERSION, 'XASH_BUILD_BRANCH=\"%s\"' % bld.env.GIT_BRANCH])
+	# build it separately to slightly improve rebuild times
+	bld.stlib(source = 'build_vcs.c',
+		target = 'build_vcs',
+		defines = ['XASH_BUILD_COMMIT=\"%s\"' % bld.env.GIT_VERSION, 'XASH_BUILD_BRANCH=\"%s\"' % bld.env.GIT_BRANCH])
+
+	bld.stlib(source = bld.path.ant_glob('*.c', excl='build_vcs.c'),
+		target = 'public',
+		use = 'sdk_includes werror build_vcs')
 
 	if bld.env.TESTS:
 		if bld.env.VALIDATE_TARGET:
