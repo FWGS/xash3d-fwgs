@@ -1761,8 +1761,8 @@ static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, u
 	// let master know about client version
 	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining );
 	Info_SetValueForKey( info, "nat", nat ? "1" : "0", remaining );
-	Info_SetValueForKey( info, "commit", Q_buildcommit(), remaining );
-	Info_SetValueForKey( info, "branch", Q_buildbranch(), remaining );
+	Info_SetValueForKey( info, "commit", g_buildcommit, remaining );
+	Info_SetValueForKey( info, "branch", g_buildbranch, remaining );
 	Info_SetValueForKey( info, "os", Q_buildos(), remaining );
 	Info_SetValueForKey( info, "arch", Q_buildarch(), remaining );
 
