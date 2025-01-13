@@ -239,29 +239,6 @@ const char *Q_buildarch( void )
 	);
 }
 
-/*
-=============
-Q_buildcommit
-
-Returns a short hash of current commit in VCS as string
-XASH_BUILD_COMMIT must be passed in quotes
-=============
-*/
-const char *Q_buildcommit( void )
-{
-	return XASH_BUILD_COMMIT;
-}
-
-/*
-=============
-Q_buildbranch
-
-Returns current branch name in VCS as string
-XASH_BUILD_BRANCH must be passed in quotes
-=============
-*/
-const char *Q_buildbranch( void )
-{
-	return XASH_BUILD_BRANCH;
-}
+const char *g_buildcommit = XASH_BUILD_COMMIT;
+const char *g_buildbranch = XASH_BUILD_BRANCH;
 
