@@ -57,6 +57,12 @@ static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 {
 #if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH
 	return false;
+#elif XASH_ANDROID
+	// on Android, doing code below causes crash in MediaProviderGoogle.apk!libfuse_jni.so
+	// which in turn makes vold (Android's Volume Daemon) to umount /storage/emulated/0
+	// and because you can't unmount a filesystem when there is file descriptors open
+	// it has no other choice but to terminate and then kill our program
+	return true;
 #elif XASH_LINUX && defined( FS_IOC_GETFLAGS )
 	int flags = 0;
 	int fd;
