@@ -624,11 +624,10 @@ static void CL_ReadDemoUserCmd( qboolean discard )
 
 	if( !discard )
 	{
-		usercmd_t		nullcmd;
+		const usercmd_t nullcmd = { 0 };
 		sizebuf_t		buf;
 		demoangle_t	*a;
 
-		memset( &nullcmd, 0, sizeof( nullcmd ));
 		MSG_Init( &buf, "UserCmd", data, sizeof( data ));
 
 		// a1ba: I have no proper explanation why

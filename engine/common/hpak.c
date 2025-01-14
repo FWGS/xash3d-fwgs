@@ -104,7 +104,7 @@ static void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *p
 	string		pakname;
 	byte		md5[16];
 	file_t		*fout;
-	MD5Context_t	ctx;
+	MD5Context_t	ctx = { 0 };
 
 	if( !COM_CheckString( filename ))
 		return;
@@ -125,7 +125,6 @@ static void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *p
 	}
 
 	// let's hash it.
-	memset( &ctx, 0, sizeof( MD5Context_t ));
 	MD5Init( &ctx );
 
 	if( pData == NULL )
@@ -214,7 +213,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	file_t		*file_src;
 	file_t		*file_dst;
 	byte		md5[16];
-	MD5Context_t	ctx;
+	MD5Context_t	ctx = { 0 };
 
 	if( pData == NULL && pFile == NULL )
 		return;
@@ -226,7 +225,6 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 	}
 
 	// hash it
-	memset( &ctx, 0, sizeof( MD5Context_t ));
 	MD5Init( &ctx );
 
 	if( !pData )
