@@ -3227,7 +3227,7 @@ each of the backup packets.
 static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 {
 	client_frame_t	*frame;
-	int		key, size, checksum1, checksum2;
+	int		key, checksum1;
 	int		i, numbackup, totalcmds, numcmds;
 	usercmd_t		nullcmd, *to, *from;
 	usercmd_t		cmds[CMD_BACKUP];
@@ -3270,14 +3270,17 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 	if( cl->state != cs_spawned )
 		return;
 
-	// if the checksum fails, ignore the rest of the packet
-	size = MSG_GetRealBytesRead( msg ) - key - 1;
-	checksum2 = CRC32_BlockSequence( msg->pData + key + 1, size, cl->netchan.incoming_sequence );
-
-	if( checksum2 != checksum1 )
+	if( !Host_IsLocalClient( ))
 	{
-		Con_Reportf( S_ERROR "%s: failed command checksum for %s (%d != %d)\n", __func__, cl->name, checksum2, checksum1 );
-		return;
+		// if the checksum fails, ignore the rest of the packet
+		int size = MSG_GetRealBytesRead( msg ) - key - 1;
+		int checksum2 = CRC32_BlockSequence( msg->pData + key + 1, size, cl->netchan.incoming_sequence );
+
+		if( checksum2 != checksum1 )
+		{
+			Con_Reportf( S_ERROR "%s: failed command checksum for %s (%d != %d)\n", __func__, cl->name, checksum2, checksum1 );
+			return;
+		}
 	}
 
 	cl->packet_loss = packet_loss;
