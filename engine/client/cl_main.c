@@ -147,11 +147,6 @@ qboolean CL_IsRecordDemo( void )
 	return cls.demorecording;
 }
 
-qboolean CL_IsTimeDemo( void )
-{
-	return cls.timedemo;
-}
-
 qboolean CL_DisableVisibility( void )
 {
 	return cls.envshot_disable_vis;
