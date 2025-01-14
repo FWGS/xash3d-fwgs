@@ -611,7 +611,7 @@ void GAME_EXPORT ID_SetCustomClientID( const char *id )
 
 void ID_Init( void )
 {
-	MD5Context_t hash = {0};
+	MD5Context_t hash = { 0 };
 	byte md5[16];
 	int i;
 

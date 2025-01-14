@@ -593,7 +593,7 @@ CL_CreateCmd
 */
 static void CL_CreateCmd( void )
 {
-	usercmd_t nullcmd, *cmd;
+	usercmd_t nullcmd = { 0 }, *cmd;
 	runcmd_t  *pcmd;
 	qboolean  active;
 	double    accurate_ms;
@@ -645,7 +645,6 @@ static void CL_CreateCmd( void )
 	}
 	else
 	{
-		memset( &nullcmd, 0, sizeof( nullcmd ));
 		cmd = &nullcmd;
 	}
 
