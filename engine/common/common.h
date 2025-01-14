@@ -711,6 +711,8 @@ typedef enum connprotocol_e
 struct physent_s;
 struct sv_client_s;
 typedef struct sizebuf_s sizebuf_t;
+int SV_GetMaxClients( void );
+
 #if !XASH_DEDICATED
 qboolean CL_Initialized( void );
 qboolean CL_IsInGame( void );
@@ -753,7 +755,6 @@ void SV_DrawDebugTriangles( void );
 void SV_DrawOrthoTriangles( void );
 double CL_GetDemoFramerate( void );
 void CL_StopPlayback( void );
-int SV_GetMaxClients( void );
 qboolean SV_Initialized( void );
 void CL_ProcessFile( qboolean successfully_received, const char *filename );
 int SV_GetSaveComment( const char *savename, char *comment );
