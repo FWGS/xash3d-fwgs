@@ -498,9 +498,23 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
 qboolean SV_InitGame( void );
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
-model_t *SV_ModelHandle( int modelindex );
 void SV_DeactivateServer( void );
 void SV_FreeTestPacket( void );
+
+/*
+================
+SV_ModelHandle
+
+get model by handle
+================
+*/
+static inline model_t *GAME_EXPORT SV_ModelHandle( int modelindex )
+{
+	if( modelindex < 0 || modelindex >= MAX_MODELS )
+		return NULL;
+	return sv.models[modelindex];
+}
+
 
 //
 // sv_phys.c
@@ -673,7 +687,6 @@ void SV_ClearGameState( void );
 // sv_pmove.c
 //
 void SV_InitClientMove( void );
-qboolean SV_PlayerIsFrozen( edict_t *pClient );
 void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed );
 
 //

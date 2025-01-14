@@ -23,19 +23,6 @@ GNU General Public License for more details.
 static qboolean has_update = false;
 static void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin );
 
-qboolean SV_PlayerIsFrozen( edict_t *pClient )
-{
-	if( sv_background_freeze.value && sv.background )
-		return true;
-
-	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-		return false;
-
-	if( FBitSet( pClient->v.flags, FL_FROZEN ))
-		return true;
-	return false;
-}
-
 void SV_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, pmtrace_t *tr )
 {
 	Assert( tr != NULL );
