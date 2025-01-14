@@ -2705,25 +2705,20 @@ qboolean CRC32_File( dword *crcvalue, const char *filename )
 qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] )
 {
 	file_t		*file;
-	byte		buffer[1024];
-	MD5Context_t	MD5_Hash;
-	int		bytes;
+	MD5Context_t	MD5_Hash = { 0 };
 
 	if(( file = FS_Open( pszFileName, "rb", false )) == NULL )
 		return false;
 
-	memset( &MD5_Hash, 0, sizeof( MD5Context_t ));
-
 	MD5Init( &MD5_Hash );
 
 	if( seed )
-	{
 		MD5Update( &MD5_Hash, (const byte *)seed, 16 );
-	}
 
 	while( 1 )
 	{
-		bytes = FS_Read( file, buffer, sizeof( buffer ));
+		byte buffer[1024];
+		int bytes = FS_Read( file, buffer, sizeof( buffer ));
 
 		if( bytes > 0 )
 			MD5Update( &MD5_Hash, buffer, bytes );
