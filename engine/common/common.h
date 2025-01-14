@@ -578,11 +578,19 @@ CLIENT / SERVER SYSTEMS
 
 ==============================================================
 */
+#if !XASH_DEDICATED
 void CL_Init( void );
 void CL_Shutdown( void );
 void Host_ClientBegin( void );
 void Host_ClientFrame( void );
 int CL_Active( void );
+#else
+static inline void CL_Init( void ) { }
+static inline void CL_Shutdown( void ) { }
+static inline void Host_ClientBegin( void ) { Cbuf_Execute(); }
+static inline void Host_ClientFrame( void ) { }
+static inline int CL_Active( void ) { return 0; }
+#endif
 
 void SV_Init( void );
 void SV_Shutdown( const char *finalmsg );
@@ -703,13 +711,30 @@ typedef enum connprotocol_e
 struct physent_s;
 struct sv_client_s;
 typedef struct sizebuf_s sizebuf_t;
+#if !XASH_DEDICATED
+qboolean CL_Initialized( void );
 qboolean CL_IsInGame( void );
 qboolean CL_IsInConsole( void );
 qboolean CL_IsIntermission( void );
-qboolean CL_Initialized( void );
+qboolean CL_DisableVisibility( void );
+qboolean CL_IsRecordDemo( void );
+qboolean CL_IsPlaybackDemo( void );
+qboolean UI_CreditsActive( void );
+int CL_GetMaxClients( void );
+#else
+static inline qboolean CL_Initialized( void ) { return false; }
+static inline qboolean CL_IsInGame( void ) { return false; }
+static inline qboolean CL_IsInConsole( void ) { return false; }
+static inline qboolean CL_IsIntermission( void ) { return false; }
+static inline qboolean CL_DisableVisibility( void ) { return false; }
+static inline qboolean CL_IsRecordDemo( void ) { return false; }
+static inline qboolean CL_IsPlaybackDemo( void ) { return false; }
+static inline qboolean UI_CreditsActive( void ) { return false; }
+static inline int CL_GetMaxClients( void ) { return SV_GetMaxClients(); }
+#endif
+
 char *CL_Userinfo( void );
 void CL_CharEvent( int key );
-qboolean CL_DisableVisibility( void );
 byte *COM_LoadFile( const char *filename, int usehunk, int *pLength ) MALLOC_LIKE( free, 1 );
 struct cmd_s *Cmd_GetFirstFunctionHandle( void );
 struct cmd_s *Cmd_GetNextFunctionHandle( struct cmd_s *cmd );
@@ -727,13 +752,8 @@ const char *CL_MsgInfo( int cmd );
 void SV_DrawDebugTriangles( void );
 void SV_DrawOrthoTriangles( void );
 double CL_GetDemoFramerate( void );
-qboolean UI_CreditsActive( void );
 void CL_StopPlayback( void );
-int CL_GetMaxClients( void );
 int SV_GetMaxClients( void );
-qboolean CL_IsRecordDemo( void );
-qboolean CL_IsTimeDemo( void );
-qboolean CL_IsPlaybackDemo( void );
 qboolean SV_Initialized( void );
 void CL_ProcessFile( qboolean successfully_received, const char *filename );
 int SV_GetSaveComment( const char *savename, char *comment );
