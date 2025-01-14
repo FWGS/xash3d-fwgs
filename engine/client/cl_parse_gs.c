@@ -534,7 +534,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 	{
 		if( MSG_CheckOverflow( msg ))
 		{
-			Host_Error( "CL_ParseServerMessage: overflow!\n" );
+			Host_Error( "%s: overflow!\n", __func__ );
 			return;
 		}
 
