@@ -113,11 +113,6 @@ void CL_Disconnect( void )
 
 }
 
-void CL_Shutdown( void )
-{
-
-}
-
 void R_ClearStaticEntities( void )
 {
 
