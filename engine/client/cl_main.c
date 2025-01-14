@@ -825,7 +825,7 @@ static void CL_WritePacket( void )
 			buf.pData[key] = CRC32_BlockSequence( &buf.pData[key + 1], size, cls.netchan.outgoing_sequence );
 			COM_Munge( &buf.pData[key + 1], Q_min( size, 255 ), cls.netchan.outgoing_sequence );
 		}
-		else
+		else if( !Host_IsLocalClient( ))
 		{
 			int size = MSG_GetRealBytesWritten( &buf ) - key - 1;
 			buf.pData[key] = CRC32_BlockSequence( &buf.pData[key + 1], size, cls.netchan.outgoing_sequence );
