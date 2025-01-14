@@ -477,7 +477,7 @@ static void SV_ConnectClient( netadr_t from )
 
 	// reset stats
 	newcl->next_checkpingtime = -1.0;
-	newcl->packet_loss = 0.0f;
+	newcl->packet_loss = 0;
 
 	// if this was the first client on the server, or the last client
 	// the server can hold, send a heartbeat to the master.
@@ -1170,7 +1170,7 @@ SV_EstablishTimeBase
 Finangles latency and the like.
 ===================
 */
-static void SV_EstablishTimeBase( sv_client_t *cl, usercmd_t *cmds, int dropped, int numbackup, int numcmds )
+static void SV_EstablishTimeBase( sv_client_t *cl, const usercmd_t *cmds, int dropped, int numbackup, int numcmds )
 {
 	double	runcmd_time = 0.0;
 	int	i, cmdnum = dropped;
@@ -3212,6 +3212,20 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 }
 
+static qboolean SV_PlayerIsFrozen( const edict_t *pClient )
+{
+	if( sv_background_freeze.value && sv.background )
+		return true;
+
+	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		return false;
+
+	if( FBitSet( pClient->v.flags, FL_FROZEN ))
+		return true;
+
+	return false;
+}
+
 /*
 ==================
 SV_ParseClientMove
@@ -3226,29 +3240,20 @@ each of the backup packets.
 */
 static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 {
-	client_frame_t	*frame;
-	int		key, checksum1;
-	int		i, numbackup, totalcmds, numcmds;
-	usercmd_t		nullcmd, *to, *from;
-	usercmd_t		cmds[CMD_BACKUP];
-	float		packet_loss;
-	edict_t		*player;
-	model_t		*model;
+	const usercmd_t	nullcmd = { 0 }, *from = &nullcmd; // first cmd are starting from null-compressed usercmd_t
+	client_frame_t  *frame = &cl->frames[cl->netchan.incoming_acknowledged & SV_UPDATE_MASK];
+	usercmd_t       cmds[CMD_BACKUP] = { 0 }, *to;
+	edict_t         *player = cl->edict;
+	model_t         *model;
 
-	player = cl->edict;
+	int key = MSG_GetRealBytesRead( msg );
+	int checksum1 = MSG_ReadByte( msg );
+	int packet_loss = MSG_ReadByte( msg );
+	int numbackup = MSG_ReadByte( msg );
+	int numcmds = MSG_ReadByte( msg );
+	int totalcmds = numcmds + numbackup;
+	int i;
 
-	frame = &cl->frames[cl->netchan.incoming_acknowledged & SV_UPDATE_MASK];
-	memset( &nullcmd, 0, sizeof( usercmd_t ));
-	memset( cmds, 0, sizeof( cmds ));
-
-	key = MSG_GetRealBytesRead( msg );
-	checksum1 = MSG_ReadByte( msg );
-	packet_loss = MSG_ReadByte( msg );
-
-	numbackup = MSG_ReadByte( msg );
-	numcmds = MSG_ReadByte( msg );
-
-	totalcmds = numcmds + numbackup;
 	net_drop -= (numcmds - 1);
 
 	if( totalcmds < 0 || totalcmds >= CMD_MASK )
@@ -3257,8 +3262,6 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 		SV_DropClient( cl, false );
 		return;
 	}
-
-	from = &nullcmd;	// first cmd are starting from null-compressed usercmd_t
 
 	for( i = totalcmds - 1; i >= 0; i-- )
 	{
