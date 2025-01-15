@@ -51,7 +51,7 @@ static const keyname_t keynames[] =
 {"CTRL",		K_CTRL,		"+attack"		},
 {"SHIFT",		K_SHIFT,		"+speed"		},
 {"CAPSLOCK",	K_CAPSLOCK,	""		},
-{"SCROLLOCK",	K_SCROLLOCK,	""		},
+{"SCROLLOCK",	K_SCROLLLOCK,	""		},
 {"F1",		K_F1,		"cmd help"	},
 {"F2",		K_F2,		"menu_savegame"	},
 {"F3",		K_F3,		"menu_loadgame"	},
@@ -215,7 +215,7 @@ const char *Key_KeynumToString( int keynum )
 		return "<OUT OF RANGE>";
 
 	// check for printable ascii (don't use quote)
-	if( keynum > 32 && keynum < 127 && keynum != '"' && keynum != ';' && keynum != K_SCROLLOCK )
+	if( keynum > 32 && keynum < 127 && keynum != '"' && keynum != ';' && keynum != K_SCROLLLOCK )
 	{
 		tinystr[0] = keynum;
 		tinystr[1] = 0;
