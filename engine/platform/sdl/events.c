@@ -265,7 +265,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			break;
 		}
 		case SDL_SCANCODE_PAUSE: keynum = K_PAUSE; break;
-		case SDL_SCANCODE_SCROLLLOCK: keynum = K_SCROLLOCK; break;
+		case SDL_SCANCODE_SCROLLLOCK: keynum = K_SCROLLLOCK; break;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		case SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
 		// don't console spam on known functional buttons, not used in engine
