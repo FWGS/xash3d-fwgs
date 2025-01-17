@@ -717,11 +717,20 @@ static void CL_WritePacket( void )
 	int numbackup, maxbackup, maxcmds;
 	const connprotocol_t proto = cls.legacymode;
 
+	// FIXME: on Xash protocol we don't send move commands until ca_active
+	// to prevent outgoing_command outrun incoming_acknowledged
+	// which is fatal for some buggy mods like TFC
+	//
+	// ... but GoldSrc don't have (real) ca_validate state, so we consider
+	// ca_validate the same as ca_active, otherwise we don't pass validation
+	// of server-side mods like ReAuthCheck
+	const connstate_t min_state = proto == PROTO_GOLDSRC ? ca_validate : ca_active;
+
 	// don't send anything if playing back a demo
 	if( cls.demoplayback || cls.state < ca_connected || cls.state == ca_cinematic )
 		return;
 
-	if( cls.state <= ca_connected )
+	if( cls.state < min_state )
 	{
 		Netchan_TransmitBits( &cls.netchan, 0, "" );
 		return;
