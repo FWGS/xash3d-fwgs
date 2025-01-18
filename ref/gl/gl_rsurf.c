@@ -478,7 +478,7 @@ R_TextureAnimation
 Returns the proper texture for a given time and surface
 ===============
 */
-texture_t *R_TextureAnimation( msurface_t *s )
+static texture_t *R_TextureAnimation( msurface_t *s )
 {
 	texture_t	*base = s->texinfo->texture;
 	int	count, reletive;
@@ -812,7 +812,7 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 DrawGLPoly
 ================
 */
-void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
+static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 {
 	float		*v;
 	float		sOffset, sy;
