@@ -1,10 +1,10 @@
 task:
   name: freebsd-14-amd64
   freebsd_instance:
-    image_family: freebsd-14-0
+    image_family: freebsd-14-2
   setup_script:
     - pkg update
-    - pkg install -y pkgconf git sdl2 python fontconfig opus
+    - pkg install -y pkgconf git sdl2 python fontconfig libvorbis opusfile bzip2
     - git submodule update --init --recursive
   test_script:
     - ./scripts/cirrus/build_freebsd.sh dedicated
@@ -16,7 +16,7 @@ task:
     image_family: freebsd-15-0-snap
   setup_script:
     - pkg update
-    - pkg install -y pkgconf git sdl2 python fontconfig opus
+    - pkg install -y pkgconf git sdl2 python fontconfig libvorbis opusfile bzip2
     - git submodule update --init --recursive
   test_script:
     - ./scripts/cirrus/build_freebsd.sh dedicated
