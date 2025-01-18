@@ -1189,6 +1189,7 @@ static void Cvar_List_f( void )
 	for( var = cvar_vars; var; var = var->next )
 	{
 		char value[MAX_VA_STRING];
+		char *p;
 
 		if( var->name[0] == '@' )
 			continue;	// never shows system cvars
@@ -1196,7 +1197,9 @@ static void Cvar_List_f( void )
 		if( match && !Q_strnicmpext( match, var->name, matchlen ))
 			continue;
 
-		if( Q_colorstr( var->string ))
+		p = Q_strchr( var->string, '^' );
+
+		if( IsColorString( p ))
 			Q_snprintf( value, sizeof( value ), "\"%s\"", var->string );
 		else Q_snprintf( value, sizeof( value ), "\"^2%s^7\"", var->string );
 

@@ -33,26 +33,6 @@ void Q_strnlwr( const char *in, char *out, size_t size_out )
 		out[i] = Q_tolower( out[i] );
 }
 
-size_t Q_colorstr( const char *string )
-{
-	const char *p = string;
-	size_t len = 0;
-
-	if( !string )
-		return len;
-
-	while(( p = Q_strchr( p, '^' )))
-	{
-		if( IsColorString( p ))
-		{
-			len += 2;
-			p += 2;
-		}
-	}
-
-	return len;
-}
-
 int Q_atoi_hex( int sign, const char *str )
 {
 	int c, val = 0;
