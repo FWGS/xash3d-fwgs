@@ -2359,7 +2359,7 @@ static qboolean Mod_SearchForTextureReplacement( char *out, size_t size, const c
 	return false;
 }
 
-static void Mod_InitSkyClouds( model_t *mod, mip_t *mt, texture_t *tx, qboolean custom_palette )
+static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qboolean custom_palette )
 {
 #if !XASH_DEDICATED
 	rgbdata_t	r_temp, *r_sky;
