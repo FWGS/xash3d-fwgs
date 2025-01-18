@@ -272,8 +272,6 @@ void Netchan_Init( void )
 	Cvar_FullSet( net_qport.name, buf, net_qport.flags );
 
 	net_mempool = Mem_AllocPool( "Network Pool" );
-
-	MSG_InitMasks();	// initialize bit-masks
 }
 
 void Netchan_Shutdown( void )

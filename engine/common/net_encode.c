@@ -2282,10 +2282,6 @@ void Test_RunDelta( void )
 	char buffer[4096] = { 0 };
 	const double timebase = 123.123;
 
-	// a1ba: netbuffer bitmasks are initialized in netchan for some reason
-	// initialize it ourselves just in case
-	MSG_InitMasks();	// initialize bit-masks
-
 	Delta_AddField( dt, "dt_string", DT_STRING, 1, 1.0f, 1.0f );
 	Delta_AddField( dt, "dt_timewindow_big", DT_TIMEWINDOW_BIG, 24, 1000.f, 1.0f );
 	Delta_AddField( dt, "dt_timewindow_8", DT_TIMEWINDOW_8, 8, 1.0f, 1.0f );
