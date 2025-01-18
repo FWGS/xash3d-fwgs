@@ -482,7 +482,7 @@ static int Mod_LoadTextureFromWadList( wadlist_t *list, const char *name, rgbdat
 	return -1;
 }
 
-static fs_offset_t Mod_CalculateMipTexSize( mip_t *mt, qboolean palette )
+static fs_offset_t Mod_CalculateMipTexSize( const mip_t *mt, qboolean palette )
 {
 	if( !mt )
 		return 0;
