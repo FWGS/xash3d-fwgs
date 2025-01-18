@@ -767,7 +767,7 @@ void CL_StartupDemoHeader( void );
 void CL_DrawDemoRecording( void );
 void CL_WriteDemoUserCmd( int cmdnumber );
 void CL_WriteDemoMessage( qboolean startup, int start, sizebuf_t *msg );
-void CL_WriteDemoUserMessage( const byte *buffer, size_t size );
+void CL_WriteDemoUserMessage( int size, byte *buffer );
 qboolean CL_DemoReadMessage( byte *buffer, size_t *length );
 void CL_DemoInterpolateAngles( void );
 void CL_CheckStartupDemos( void );

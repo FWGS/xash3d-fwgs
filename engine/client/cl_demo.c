@@ -373,7 +373,7 @@ CL_WriteDemoUserMessage
 Dumps the user message (demoaction)
 ====================
 */
-void CL_WriteDemoUserMessage( const byte *buffer, size_t size )
+void GAME_EXPORT CL_WriteDemoUserMessage( int size, byte *buffer )
 {
 	if( !cls.demorecording || cls.demowaiting )
 		return;
