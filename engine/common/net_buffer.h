@@ -193,7 +193,6 @@ static inline void MSG_StartBitWriting( sizebuf_t *sb )
 	sb->iAlternateSign++;
 }
 
-void MSG_InitMasks( void );	// called once at startup engine
 void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove );
 
 // Bit-write functions
