@@ -3350,28 +3350,6 @@ DemoApi implementation
 */
 /*
 =================
-Demo_IsRecording
-
-=================
-*/
-static int GAME_EXPORT Demo_IsRecording( void )
-{
-	return cls.demorecording;
-}
-
-/*
-=================
-Demo_IsPlayingback
-
-=================
-*/
-static int GAME_EXPORT Demo_IsPlayingback( void )
-{
-	return cls.demoplayback;
-}
-
-/*
-=================
 Demo_IsTimeDemo
 
 =================
@@ -3379,17 +3357,6 @@ Demo_IsTimeDemo
 static int GAME_EXPORT Demo_IsTimeDemo( void )
 {
 	return cls.timedemo;
-}
-
-/*
-=================
-Demo_WriteBuffer
-
-=================
-*/
-static void GAME_EXPORT Demo_WriteBuffer( int size, byte *buffer )
-{
-	CL_WriteDemoUserMessage( buffer, size );
 }
 
 /*
@@ -3575,17 +3542,6 @@ NetAPI_CompareAdr
 static int GAME_EXPORT NetAPI_CompareAdr( netadr_t *a, netadr_t *b )
 {
 	return NET_CompareAdr( *a, *b );
-}
-
-/*
-=================
-NetAPI_StringToAdr
-
-=================
-*/
-static int GAME_EXPORT NetAPI_StringToAdr( char *s, netadr_t *a )
-{
-	return NET_StringToAdr( s, a );
 }
 
 /*
@@ -3795,10 +3751,10 @@ static event_api_t gEventApi =
 
 static demo_api_t gDemoApi =
 {
-	Demo_IsRecording,
-	Demo_IsPlayingback,
+	(void *)CL_IsRecordDemo,
+	(void *)CL_IsPlaybackDemo,
 	Demo_IsTimeDemo,
-	Demo_WriteBuffer,
+	CL_WriteDemoUserMessage,
 };
 
 net_api_t gNetApi =
@@ -3810,8 +3766,8 @@ net_api_t gNetApi =
 	NetAPI_CancelAllRequests,
 	NetAPI_AdrToString,
 	NetAPI_CompareAdr,
-	NetAPI_StringToAdr,
-	NetAPI_ValueForKey,
+	(void *)NET_StringToAdr,
+	Info_ValueForKey,
 	NetAPI_RemoveKey,
 	NetAPI_SetValueForKey,
 };
