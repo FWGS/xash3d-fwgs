@@ -88,11 +88,13 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 	for( i = 0; i < mod->numtextures; i++ )
 	{
 		texture_t *tx = mod->textures[i];
-		if( !tx || tx->gl_texturenum == tr.defaultTexture )
+		if( !tx )
 			continue; // free slot
 
-		GL_FreeTexture( tx->gl_texturenum );    // main texture
-		GL_FreeTexture( tx->fb_texturenum );    // luma texture
+		if( tx->gl_texturenum != tr.defaultTexture )
+			GL_FreeTexture( tx->gl_texturenum ); // main texture
+		GL_FreeTexture( tx->fb_texturenum ); // luma texture
+		GL_FreeTexture( tx->dt_texturenum ); // detail texture
 	}
 }
 
