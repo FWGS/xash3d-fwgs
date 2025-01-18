@@ -2516,9 +2516,6 @@ done:
 
 static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 {
-	texture_t *texture = NULL;
-	mip_t *mipTex = NULL;
-	qboolean usesCustomPalette = false;
 	uint32_t txFlags = 0;
 	char texpath[MAX_VA_STRING];
 	char safemtname[16]; // only for external textures
@@ -2526,12 +2523,10 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 
 	// don't load texture data on dedicated server, as there is no renderer.
 	// but count the wadusage for automatic precache
-	//
-	// FIXME: for ENGINE_IMPROVED_LINETRACE we need to load textures on server too
-	// but there is no facility for this yet
-	texture = mod->textures[textureIndex];
-	mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
-	usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( mod, bmod, textureIndex );
+	texture_t *texture = mod->textures[textureIndex];
+	const mip_t *mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
+	const qboolean usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( mod, bmod, textureIndex );
+	const qboolean iswater = Mod_LooksLikeWaterTexture( mipTex->name );
 
 	// check for multi-layered sky texture (quake1 specific)
 	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
@@ -2540,11 +2535,13 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		return;
 	}
 
+	// FIXME: for ENGINE_IMPROVED_LINETRACE we need to load textures on server too
+	// but there is no facility for this yet
 	if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && mipTex->name[0] == '{' )
 		SetBits( txFlags, TF_KEEP_SOURCE ); // Paranoia2 texture alpha-tracing
 
 	// check if this is water to keep the source texture and expand it to RGBA (so ripple effect works)
-	if( Mod_LooksLikeWaterTexture( mipTex->name ))
+	if( iswater )
 		SetBits( txFlags, TF_KEEP_SOURCE | TF_EXPAND_SOURCE );
 
 	// Texture loading order:
@@ -2609,8 +2606,13 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		texture->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 	}
 
-	// Check for luma texture
 	texture->fb_texturenum = 0;
+
+	// Check for luma texture
+	// a1ba: ignore for water because fb_texturenum will be used to store ripple texture
+	if( iswater )
+		return;
+
 	if( load_external ) // external textures will not have TF_HAS_LUMA flag because it set only from WAD images loader
 	{
 		if( Mod_SearchForTextureReplacement( texpath, sizeof( texpath ), mod->name, safemtname, "_luma" ))
