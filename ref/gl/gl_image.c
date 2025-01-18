@@ -2338,7 +2338,6 @@ void R_InitImages( void )
 	// validate cvars
 	R_SetTextureParameters();
 	GL_CreateInternalTextures();
-	R_InitRipples();
 
 	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 }

@@ -79,8 +79,6 @@ static struct
 	qboolean update;
 
 	uint32_t texture[RIPPLES_TEXSIZE];
-	int gl_texturenum;
-	int rippletexturenum;
 } g_ripple;
 
 
@@ -655,22 +653,6 @@ void R_ResetRipples( void )
 	memset( g_ripple.buf, 0, sizeof( g_ripple.buf ));
 }
 
-void R_InitRipples( void )
-{
-	rgbdata_t pic = { 0 };
-
-	pic.width = pic.height = RIPPLES_CACHEWIDTH;
-	pic.depth = 1;
-	pic.flags = IMAGE_HAS_COLOR;
-	pic.buffer = (byte *)g_ripple.texture;
-	pic.type = PF_RGBA_32;
-	pic.size = sizeof( g_ripple.texture );
-	pic.numMips = 1;
-	memset( pic.buffer, 0, pic.size );
-
-	g_ripple.rippletexturenum = GL_LoadTextureInternal( "*rippletex", &pic, TF_NOMIPMAP|TF_ALLOW_NEAREST );
-}
-
 static void R_SwapBufs( void )
 {
 	short *tempbufp = g_ripple.curbuf;
@@ -738,7 +720,7 @@ void R_AnimateRipples( void )
 	R_RunRipplesAnimation( g_ripple.oldbuf, g_ripple.curbuf );
 }
 
-qboolean R_UploadRipples( const texture_t *image )
+qboolean R_UploadRipples( texture_t *image )
 {
 	const gl_texture_t *glt;
 	const uint32_t *pixels;
@@ -759,16 +741,6 @@ qboolean R_UploadRipples( const texture_t *image )
 		return false;
 	}
 
-	GL_Bind( XASH_TEXTURE0, g_ripple.rippletexturenum );
-
-	// no updates this frame
-	if( !g_ripple.update && image->gl_texturenum == g_ripple.gl_texturenum )
-		return true;
-
-	g_ripple.gl_texturenum = image->gl_texturenum;
-
-	size = r_ripple.value == 1.0f ? 64 : RIPPLES_CACHEWIDTH;
-
 	// try to preserve aspect ratio
 	width = height = RIPPLES_CACHEWIDTH; // always render at maximum size
 	if( image->width > image->height )
@@ -776,6 +748,32 @@ qboolean R_UploadRipples( const texture_t *image )
 	else if( image->width < image->height )
 		width = (float)image->width / image->height * height;
 
+	if( !image->fb_texturenum )
+	{
+		rgbdata_t pic = { 0 };
+		string name;
+		Q_snprintf( name, sizeof( name ), "*rippletex_%s", image->name );
+
+		pic.width = width;
+		pic.height = height;
+		pic.depth = 1;
+		pic.flags = IMAGE_HAS_COLOR;
+		pic.buffer = (byte *)g_ripple.texture;
+		pic.type = PF_RGBA_32;
+		pic.size = width * height * 4;
+		pic.numMips = 1;
+		memset( pic.buffer, 0, pic.size );
+
+		image->fb_texturenum = GL_LoadTextureInternal( name, &pic, TF_NOMIPMAP | TF_ALLOW_NEAREST );
+	}
+
+	GL_Bind( XASH_TEXTURE0, image->fb_texturenum );
+
+	// no updates this frame
+	if( !g_ripple.update )
+		return true;
+
+	size = r_ripple.value == 1.0f ? 64 : RIPPLES_CACHEWIDTH;
 	pixels = (const uint32_t *)glt->original->buffer;
 
 	for( y = 0; y < height; y++ )
