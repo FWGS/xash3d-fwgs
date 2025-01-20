@@ -80,6 +80,14 @@ static void SDLCALL SDLash_LogOutputFunction( void *userdata, int category, SDL_
 
 void SDLash_Init( void )
 {
+#if XASH_APPLE
+	char buf[MAX_VA_STRING];
+	char *path;
+	path = SDL_GetBasePath();
+	Q_snprintf( buf, sizeof( buf ), "%svalve/extras.pk3", path );
+	setenv("XASH3D_EXTRAS_PAK1", buf, true);
+#endif
+
 	SDL_LogSetOutputFunction( SDLash_LogOutputFunction, NULL );
 
 	if( host_developer.value >= 2 )

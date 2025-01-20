@@ -186,7 +186,11 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 	Sys_Error( "couldn't find Xash3D data directory" );
 	return false;
 #elif ( XASH_SDL == 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
+#if XASH_APPLE
+	path = SDL_GetPrefPath(NULL, "Xash3D");
+#else
 	path = SDL_GetBasePath();
+#endif
 	if( path != NULL )
 	{
 		Q_strncpy( out, path, size );
