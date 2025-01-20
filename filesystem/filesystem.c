@@ -49,6 +49,7 @@ GNU General Public License for more details.
 #include "common/protocol.h"
 
 #define FILE_COPY_SIZE		(1024 * 1024)
+#define SAVE_AGED_COUNT 2 // the default count of quick and auto saves
 
 fs_globals_t FI;
 qboolean      fs_ext_path = false;	// attempt to read\write from ./ or ../ pathes
@@ -628,13 +629,11 @@ static qboolean FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
 	if( GameInfo->noskills )
 		FS_Printf( f, "noskills\t\t\"%i\"\n", GameInfo->noskills );
 
-#define SAVE_AGED_COUNT 2 // the default count of quick and auto saves
 	if( GameInfo->quicksave_aged_count != SAVE_AGED_COUNT )
 		FS_Printf( f, "quicksave_aged_count\t\t%d\n", GameInfo->quicksave_aged_count );
 
 	if( GameInfo->autosave_aged_count != SAVE_AGED_COUNT )
 		FS_Printf( f, "autosave_aged_count\t\t%d\n", GameInfo->autosave_aged_count );
-#undef SAVE_AGED_COUNT
 
 	// HL25 compatibility
 	if( GameInfo->animated_title )
@@ -700,6 +699,9 @@ static void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir, qboolean
 	GameInfo->max_beams      = 128;
 	GameInfo->max_particles  = 4096;
 	GameInfo->version        = 1.0f;
+
+	GameInfo->quicksave_aged_count = SAVE_AGED_COUNT;
+	GameInfo->autosave_aged_count  = SAVE_AGED_COUNT;
 }
 
 static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, const qboolean isGameInfo )
