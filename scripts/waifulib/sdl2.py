@@ -23,6 +23,9 @@ def options(opt):
 	grp.add_option('--skip-sdl2-sanity-check', action='store_false', default = True, dest='SDL_SANITY_CHECK',
 		help = 'skip checking SDL sanity [default: %(default)s]')
 
+	grp.add_option('--sdl-use-pkgconfig', action='store_true', default = False, dest='SDL_USE_PKGCONFIG',
+		help = 'force use of pkg-config to find sdl [default: %(default)s]')
+
 def my_dirname(path):
 	# really dumb, will not work with /path/framework//, but still enough
 	if path[-1] == '/':
@@ -70,7 +73,7 @@ def configure(conf):
 
 	if conf.options.SDL_PATH:
 		sdl2_configure_path(conf, conf.options.SDL_PATH, libname)
-	elif conf.env.DEST_OS == 'darwin':
+	elif conf.env.DEST_OS == 'darwin' and conf.options.SDL_USE_PKGCONFIG == False:
 		sdl2_configure_path(conf, '/Library/Frameworks/%s.framework' % libname, libname)
 	else:
 		try:
