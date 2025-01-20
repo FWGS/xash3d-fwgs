@@ -1122,7 +1122,7 @@ static qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo, qbo
 	if( rodir )
 		Q_snprintf( gamedir_path, sizeof( gamedir_path ), "%s/%s", fs_rodir, gamedir );
 	else
-		Q_snprintf( gamedir_path, sizeof( gamedir_path ), "%s/%s", fs_rootdir, gamedir );
+		Q_snprintf( gamedir_path, sizeof( gamedir_path ), "%s", gamedir );
 
 	if( !FS_CheckForXashGameDir( gamedir_path ))
 	{
