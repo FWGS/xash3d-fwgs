@@ -3,46 +3,64 @@ import java.time.Month
 import java.time.temporal.ChronoUnit
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+	alias(libs.plugins.android.application)
+	alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "su.xash.engine"
-    ndkVersion = "28.0.13004108"
+	ndkVersion = "28.0.13004108"
+	compileSdk = 35
 
     defaultConfig {
-        applicationId = "su.xash"
-        applicationIdSuffix = "engine"
+        applicationId = "su.xash.engine"
         versionName = "0.21"
         versionCode = getBuildNum()
         minSdk = 21
-        targetSdk = 34
-        compileSdk = 34
-
-        externalNativeBuild {
-            cmake {
-                abiFilters("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-                arguments("-DANDROID_USE_LEGACY_TOOLCHAIN_FILE=OFF")
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            version = "3.22.1"
-            path = file("CMakeLists.txt")
-        }
+        targetSdk = 35
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+		sourceCompatibility = JavaVersion.VERSION_11
+		targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
+	kotlinOptions {
+		jvmTarget = "11"
+	}
+
+	externalNativeBuild {
+		cmake {
+			path = file("CMakeLists.txt")
+			version = "3.22.1"
+		}
+	}
+
+	buildFeatures {
+		viewBinding = true
+		buildConfig = true
+	}
+
+	lint {
+		abortOnError = false
+	}
+
+	androidResources {
+		noCompress += ""
+	}
+
+	sourceSets {
+		getByName("main") {
+			assets.srcDirs("../../3rdparty/extras/xash-extras")
+			java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
+		}
+	}
+
+	packaging {
+		jniLibs {
+			keepDebugSymbols.add("**/*.so")
+		}
+	}
 
     buildTypes {
         debug {
@@ -72,53 +90,19 @@ android {
             applicationIdSuffix = ".test"
         }
     }
-
-    sourceSets {
-        getByName("main") {
-            assets.srcDirs("../../3rdparty/extras/xash-extras", "../moddb")
-            java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
-        }
-    }
-
-    lint {
-        abortOnError = false
-    }
-
-    buildFeatures {
-        viewBinding = true
-        buildConfig = true
-    }
-
-    androidResources {
-        noCompress += ""
-    }
-
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-            keepDebugSymbols.add("**/*.so")
-        }
-    }
 }
 
 dependencies {
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
-    implementation("androidx.cardview:cardview:1.0.0")
-    implementation("androidx.annotation:annotation:1.7.1")
-    implementation("androidx.fragment:fragment-ktx:1.6.2")
-    implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
-//  implementation "androidx.legacy:legacy-support-v4:1.0.0"
+	implementation(libs.material)
 
-    implementation("com.madgag.spongycastle:prov:1.58.0.0")
-    implementation("in.dragonbra:javasteam:1.2.0")
+	implementation(libs.appcompat)
+	implementation(libs.navigation.runtime.ktx)
+	implementation(libs.navigation.fragment.ktx)
+	implementation(libs.navigation.ui.ktx)
+	implementation(libs.preference.ktx)
+	implementation(libs.swiperefreshlayout)
 
-    implementation("ch.acra:acra-http:5.11.2")
+    implementation(libs.acra.http)
 }
 
 fun getBuildNum(): Int {
