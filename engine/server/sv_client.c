@@ -2869,14 +2869,20 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 	// XashXT does not implement SV_CreateEntity, use saverestore export
 	if( !ent && svgame.physFuncs.pfnCreateEntitiesInRestoreList )
 	{
-		SAVERESTOREDATA data = { 0 };
-		ENTITYTABLE table = { 0 };
-		data.tableCount = 1;
-		data.pTable = &table;
-		table.classname = classname;
-		table.id = -1;
-		table.size = 1;
-		svgame.physFuncs.pfnCreateEntitiesInRestoreList( &data, 0, false );
+		ENTITYTABLE table = {
+			.classname = classname,
+			.id = -1,
+			.size = 1,
+			.flags = 1337,
+		};
+
+		SAVERESTOREDATA data = {
+			.tableCount = 1,
+			.pTable = &table
+		};
+
+		svgame.physFuncs.pfnCreateEntitiesInRestoreList( &data, table.flags, false );
+
 		ent = table.pent;
 	}
 
