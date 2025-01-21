@@ -530,7 +530,7 @@ struct cmd_s
 	char		*name;
 	xcommand_t	function;
 	int		flags;
-	char		*desc;
+	char		desc[];
 };
 
 static int		cmd_argc;
@@ -684,7 +684,8 @@ Cmd_AddCommandEx
 */
 int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int iFlags, const char *funcname )
 {
-	cmd_t	*cmd, *cur, *prev;
+	cmd_t  *cmd, *cur, *prev;
+	size_t desc_len;
 
 	if( !COM_CheckString( cmd_name ))
 	{
@@ -708,8 +709,8 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 		// unfortunately, we lose original command this way
 		if( FBitSet( cmd->flags, CMD_OVERRIDABLE ))
 		{
-			Mem_Free( cmd->desc );
-			cmd->desc = copystringpool( cmd_pool, cmd_desc );
+			desc_len = Q_strlen( cmd->desc );
+			Q_strncpy( cmd->desc, cmd_desc, desc_len );
 			cmd->function = function;
 			cmd->flags = iFlags;
 
@@ -724,9 +725,10 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	}
 
 	// use a small malloc to avoid zone fragmentation
-	cmd = Mem_Malloc( cmd_pool, sizeof( cmd_t ) );
+	desc_len = Q_strlen( cmd_desc );
+	cmd = Mem_Malloc( cmd_pool, sizeof( cmd_t ) + desc_len );
 	cmd->name = copystringpool( cmd_pool, cmd_name );
-	cmd->desc = copystringpool( cmd_pool, cmd_desc );
+	Q_strncpy( cmd->desc, cmd_desc, desc_len );
 	cmd->function = function;
 	cmd->flags = iFlags;
 
@@ -772,9 +774,6 @@ void GAME_EXPORT Cmd_RemoveCommand( const char *cmd_name )
 
 			if( cmd->name )
 				Mem_Free( cmd->name );
-
-			if( cmd->desc )
-				Mem_Free( cmd->desc );
 
 			Mem_Free( cmd );
 			return;
@@ -1203,7 +1202,6 @@ void Cmd_Unlink( int group )
 		*prev = cmd->next;
 
 		if( cmd->name ) Mem_Free( cmd->name );
-		if( cmd->desc ) Mem_Free( cmd->desc );
 
 		Mem_Free( cmd );
 		count++;
