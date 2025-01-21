@@ -4,15 +4,8 @@
     <string name="cancel">Cancelar</string>
     <string name="next">Próximo</string>
     <string name="browse">Navegar</string>
-    <string name="install">Instalar</string>
-    <string name="library">Biblioteca</string>
-    <string name="steam_guard_code">Código do Steam Guard</string>
-    <string name="steam_login">Logar com Steam</string>
-    <string name="login">Logar</string>
-    <string name="username">Usuário</string>
-    <string name="password">Senha</string>
-    <string name="uninstall">Desinstalar</string>
-    <string name="dedicated_server">Dedicado</string>
+	<string name="library">Biblioteca</string>
+	<string name="dedicated_server">Dedicado</string>
     <string name="error">Erro!</string>
     <string name="setup">Configurar</string>
     <string name="app_settings">Configurações</string>
