@@ -52,6 +52,7 @@ void Cvar_Reset( const char *var_name );
 void Cvar_SetCheatState( void );
 qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged );
 void Cvar_Init( void );
+void Cvar_Shutdown( void );
 void Cvar_PostFSInit( void );
 void Cvar_Unlink( int group );
 

@@ -1400,6 +1400,10 @@ void Host_ShutdownWithReason( const char *reason )
 	Host_FreeCommon();
 	Platform_Shutdown();
 
+	BaseCmd_Shutdown();
+	Cmd_Shutdown();
+	Cvar_Shutdown();
+
 	// must be last, console uses this
 	Mem_FreePool( &host.mempool );
 
