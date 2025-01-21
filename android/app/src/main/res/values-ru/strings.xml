@@ -4,15 +4,8 @@
     <string name="ok">ОК</string>
     <string name="next">Далее</string>
     <string name="browse">Обзор</string>
-    <string name="install">Установить</string>
-    <string name="library">Библиотека</string>
-    <string name="steam_guard_code">Код Steam Guard</string>
-    <string name="steam_login">Логин Steam</string>
-    <string name="login">Логин</string>
-    <string name="username">Имя пользователя</string>
-    <string name="password">Пароль</string>
-    <string name="uninstall">Удалить</string>
-    <string name="dedicated_server">Выделенный</string>
+	<string name="library">Библиотека</string>
+	<string name="dedicated_server">Выделенный</string>
     <string name="error">Ошибка!</string>
     <string name="setup">Установка</string>
     <string name="app_settings">Настройки</string>
