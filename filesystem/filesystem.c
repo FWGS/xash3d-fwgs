@@ -2224,6 +2224,12 @@ int FS_Close( file_t *file )
 			return EOF;
 	}
 
+	if( file->ztk )
+	{
+		inflateEnd( &file->ztk->zstream );
+		Mem_Free( file->ztk );
+	}
+
 	Mem_Free( file );
 	return 0;
 }
@@ -2329,7 +2335,93 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 
 	// NOTE: at this point, the read buffer is always empty
 
-	FS_EnsureOpenFile( file );
+	FS_EnsureOpenFile( file ); // FIXME: broken XASH_REDUCE_FD in case of compressed files!
+
+	if( FBitSet( file->flags, FILE_DEFLATED ))
+	{
+		// If the file is compressed, it's more complicated...
+		// We cycle through a few operations until we have read enough data
+		while( buffersize > 0 )
+		{
+			ztoolkit_t *ztk = file->ztk;
+			int error;
+
+			// NOTE: at this point, the read buffer is always empty
+
+			// If "input" is also empty, we need to refill it
+			if( ztk->in_ind == ztk->in_len )
+			{
+				// If we are at the end of the file
+				if( file->position == file->real_length )
+					return done;
+
+				count = (fs_offset_t)( ztk->comp_length - ztk->in_position );
+				if( count > (fs_offset_t)sizeof( ztk->input ))
+					count = (fs_offset_t)sizeof( ztk->input );
+				lseek( file->handle, file->offset + (fs_offset_t)ztk->in_position, SEEK_SET );
+				if( read( file->handle, ztk->input, count ) != count )
+				{
+					Con_Printf( "%s: unexpected end of file\n", __func__ );
+					break;
+				}
+
+				ztk->in_ind = 0;
+				ztk->in_len = count;
+				ztk->in_position += count;
+			}
+
+			ztk->zstream.next_in = &ztk->input[ztk->in_ind];
+			ztk->zstream.avail_in = (unsigned int)( ztk->in_len - ztk->in_ind );
+
+			// Now that we are sure we have compressed data available, we need to determine
+			// if it's better to inflate it in "file->buff" or directly in "buffer"
+
+			// Inflate the data in "file->buff"
+			if( buffersize < sizeof( file->buff ) / 2 )
+			{
+				ztk->zstream.next_out = file->buff;
+				ztk->zstream.avail_out = sizeof( file->buff );
+			}
+			else
+			{
+				ztk->zstream.next_out = &((unsigned char*)buffer)[done];
+				ztk->zstream.avail_out = (unsigned int)buffersize;
+			}
+
+			error = inflate( &ztk->zstream, Z_SYNC_FLUSH );
+			if( error != Z_OK && error != Z_STREAM_END )
+			{
+				Con_Printf( "%s: Can't inflate file (%d)\n", __func__, error );
+				break;
+			}
+			ztk->in_ind = ztk->in_len - ztk->zstream.avail_in;
+
+			if( buffersize < sizeof( file->buff ) / 2 )
+			{
+				file->buff_len = (fs_offset_t)sizeof( file->buff ) - ztk->zstream.avail_out;
+				file->position += file->buff_len;
+
+				// Copy the requested data in "buffer" (as much as we can)
+				count = (fs_offset_t)buffersize > file->buff_len ? file->buff_len : (fs_offset_t)buffersize;
+				memcpy( &((unsigned char*)buffer)[done], file->buff, count );
+				file->buff_ind = count;
+			}
+			else
+			{
+				count = (fs_offset_t)( buffersize - ztk->zstream.avail_out );
+				file->position += count;
+
+				// Purge cached data
+				FS_Purge( file );
+			}
+
+			done += count;
+			buffersize -= count;
+		}
+
+		return done;
+	}
+
 	// we must take care to not read after the end of the file
 	count = file->real_length - file->position;
 
@@ -2545,11 +2637,59 @@ int FS_Seek( file_t *file, fs_offset_t offset, int whence )
 	// Purge cached data
 	FS_Purge( file );
 
+	if( FBitSet( file->flags, FILE_DEFLATED ))
+	{
+		// Seeking in compressed files is more a hack than anything else,
+		// but we need to support it, so here we go.
+		ztoolkit_t *ztk = file->ztk;
+		unsigned char *buffer;
+		fs_offset_t buffersize;
+
+		// If we have to go back in the file, we need to restart from the beginning
+		if( offset <= file->position )
+		{
+			ztk->in_ind = 0;
+			ztk->in_len = 0;
+			ztk->in_position = 0;
+			file->position = 0;
+			if( lseek( file->handle, file->offset, SEEK_SET ) == -1 )
+				Con_Printf("IMPOSSIBLE: couldn't seek in already opened pk3 file.\n");
+
+			// Reset the Zlib stream
+			ztk->zstream.next_in = ztk->input;
+			ztk->zstream.avail_in = 0;
+			inflateReset( &ztk->zstream );
+		}
+
+		// We need a big buffer to force inflating into it directly
+		buffersize = 2 * sizeof( file->buff );
+		buffer = (unsigned char *)Mem_Malloc( fs_mempool, buffersize );
+
+		// Skip all data until we reach the requested offset
+		while( offset > ( file->position - file->buff_len + file->buff_ind ))
+		{
+			fs_offset_t diff = offset - ( file->position - file->buff_len + file->buff_ind );
+			fs_offset_t count;
+
+			count = ( diff > buffersize ) ? buffersize : diff;
+			if( FS_Read( file, buffer, count ) != count )
+			{
+				Mem_Free( buffer );
+				return -1;
+			}
+		}
+
+		Mem_Free( buffer );
+		return 0;
+	}
+
 	if( lseek( file->handle, file->offset + offset, SEEK_SET ) == -1 )
 		return -1;
 	file->position = offset;
 
 	return 0;
+
+
 }
 
 /*

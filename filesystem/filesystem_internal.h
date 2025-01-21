@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include "xash3d_types.h"
 #include "filesystem.h"
+#include "miniz.h"
 
 #if XASH_ANDROID
 #include <android/asset_manager.h>
@@ -40,6 +41,16 @@ typedef struct wfile_s wfile_t;
 typedef struct android_assets_s android_assets_t;
 
 #define FILE_BUFF_SIZE (2048)
+#define FILE_DEFLATED BIT( 0 )
+
+typedef struct ztoolkit_s
+{
+	z_stream zstream;
+	size_t   comp_length;
+	size_t   in_ind, in_len;
+	size_t   in_position;
+	byte     input[FILE_BUFF_SIZE];
+} ztoolkit_t;
 
 struct file_s
 {
@@ -50,7 +61,9 @@ struct file_s
 	fs_offset_t  real_length; // uncompressed file size (for files opened in "read" mode)
 	fs_offset_t  position;    // current position in the file
 	fs_offset_t  offset;      // offset into the package (0 if external file)
-	
+	uint32_t     flags;
+	ztoolkit_t   *ztk; // if not NULL, all read functions must go through decompression
+
 	// contents buffer
 	fs_offset_t buff_ind; // buffer current index
 	fs_offset_t buff_len; // buffer current length
