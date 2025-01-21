@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="App.Theme.SteamButton" parent="@style/Widget.Material3.Button">
-        <item name="android:background">@drawable/steam_button_gradient</item>
-        <item name="backgroundTint">@null</item>
-        <item name="android:textColor">#FFFFFF</item>
-    </style>
-
-    <style name="ShapeAppearance.App.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
-        <item name="cornerSize">4dp</item>
-    </style>
-
+	<style name="ShapeAppearance.App.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+		<item name="cornerSize">4dp</item>
+	</style>
 </resources>
