@@ -30,6 +30,7 @@ struct base_command_hashmap_s
 };
 
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
+static poolhandle_t basecmd_pool;
 
 #define BaseCmd_HashKey( x ) COM_HashKey( name, HASH_SIZE )
 
@@ -128,7 +129,7 @@ void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const ch
 	uint hash = BaseCmd_HashKey( name );
 	size_t len = Q_strlen( name );
 
-	elem = Z_Malloc( sizeof( base_command_hashmap_t ) + len );
+	elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len );
 	elem->basecmd = basecmd;
 	elem->type = type;
 	Q_strncpy( elem->name, name, len + 1 );
@@ -183,7 +184,13 @@ initialize base command hashmap system
 */
 void BaseCmd_Init( void )
 {
+	basecmd_pool = Mem_AllocPool( "BaseCmd" );
 	memset( hashed_cmds, 0, sizeof( hashed_cmds ) );
+}
+
+void BaseCmd_Shutdown( void )
+{
+	Mem_FreePool( &basecmd_pool );
 }
 
 /*

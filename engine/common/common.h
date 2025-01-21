@@ -432,6 +432,7 @@ int Cmd_Argc( void );
 const char *Cmd_Args( void ) RETURNS_NONNULL;
 const char *Cmd_Argv( int arg ) RETURNS_NONNULL;
 void Cmd_Init( void );
+void Cmd_Shutdown( void );
 void Cmd_Unlink( int group );
 int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int flags, const char *funcname );
 
@@ -628,6 +629,7 @@ int pfnNumberOfEntities( void );
 int pfnIsInGame( void );
 float pfnTime( void );
 #define copystring( s ) _copystring( host.mempool, s, __FILE__, __LINE__ )
+#define copystringpool( pool, s ) _copystring( pool, s, __FILE__, __LINE__ )
 #define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
 #define freestring( s ) if( s != NULL ) { Mem_Free( s ); s = NULL; }
 char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline );
