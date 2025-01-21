@@ -242,7 +242,7 @@ static byte *FS_LoadAndroidAssetsFile( searchpath_t *search, const char *path, i
 
 	if( filesize ) *filesize = 0;
 
-	asset = AAssetManager_open( search->assets->asset_manager, path, AASSET_MODE_RANDOM );
+	asset = AAssetManager_open( search->assets->asset_manager, path, AASSET_MODE_BUFFER );
 	if( !asset )
 		return NULL;
 
