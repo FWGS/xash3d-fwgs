@@ -10,26 +10,26 @@ import su.xash.engine.databinding.PageWelcomeBinding
 import su.xash.engine.ui.setup.SetupViewModel
 
 class WelcomePageFragment : Fragment() {
-    private var _binding: PageWelcomeBinding? = null
-    private val binding get() = _binding!!
-    private val setupViewModel: SetupViewModel by activityViewModels()
+	private var _binding: PageWelcomeBinding? = null
+	private val binding get() = _binding!!
+	private val setupViewModel: SetupViewModel by activityViewModels()
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View? {
-        _binding = PageWelcomeBinding.inflate(inflater, container, false)
-        return binding.root
-    }
+	override fun onCreateView(
+		inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+	): View? {
+		_binding = PageWelcomeBinding.inflate(inflater, container, false)
+		return binding.root
+	}
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        binding.pageButton.setOnClickListener {
-            setupViewModel.setPageNumber(1)
-        }
-        setupViewModel.setPageNumber(0)
-    }
+	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+		binding.pageButton.setOnClickListener {
+			setupViewModel.setPageNumber(1)
+		}
+		setupViewModel.setPageNumber(0)
+	}
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+	override fun onDestroyView() {
+		super.onDestroyView()
+		_binding = null
+	}
 }

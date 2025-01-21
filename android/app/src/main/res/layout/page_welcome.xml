@@ -1,51 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    xmlns:tools="http://schemas.android.com/tools">
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
 
-    <ImageView
-        android:id="@+id/pagePic"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="64dp"
-        android:layout_marginBottom="32dp"
-        android:src="@mipmap/ic_launcher"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/pageTitle"/>
+	<ImageView
+		android:id="@+id/pagePic"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_marginTop="64dp"
+		android:layout_marginBottom="32dp"
+		android:src="@mipmap/ic_launcher"
+		app:layout_constraintTop_toTopOf="parent"
+		app:layout_constraintBottom_toTopOf="@id/pageTitle" />
 
-    <TextView
-        android:id="@+id/pageTitle"
-        style="@style/TextAppearance.Material3.TitleLarge"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:gravity="center"
-        android:textStyle="bold"
-        android:paddingHorizontal="16dp"
-        android:text="@string/setup_welcome_title"
-        app:layout_constraintBottom_toTopOf="@id/pageMessage"
-        app:layout_constraintTop_toBottomOf="@id/pagePic" />
+	<TextView
+		android:id="@+id/pageTitle"
+		style="@style/TextAppearance.Material3.TitleLarge"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:gravity="center"
+		android:textStyle="bold"
+		android:paddingHorizontal="16dp"
+		android:text="@string/setup_welcome_title"
+		app:layout_constraintBottom_toTopOf="@id/pageMessage"
+		app:layout_constraintTop_toBottomOf="@id/pagePic" />
 
-    <TextView
-        android:id="@+id/pageMessage"
-        style="@style/TextAppearance.Material3.TitleMedium"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:gravity="center"
-        android:paddingHorizontal="16dp"
-        android:text="@string/setup_welcome_message"
-        app:layout_constraintBottom_toTopOf="@id/pageButton"
-        app:layout_constraintTop_toBottomOf="@id/pageTitle" />
+	<TextView
+		android:id="@+id/pageMessage"
+		style="@style/TextAppearance.Material3.TitleMedium"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:gravity="center"
+		android:paddingHorizontal="16dp"
+		android:text="@string/setup_welcome_message"
+		app:layout_constraintBottom_toTopOf="@id/pageButton"
+		app:layout_constraintTop_toBottomOf="@id/pageTitle" />
 
-    <Button
-        android:id="@+id/pageButton"
-        android:layout_width="240dp"
-        android:layout_marginBottom="128dp"
-        android:layout_height="wrap_content"
-        android:text="@string/next"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/pageMessage" />
+	<Button
+		android:id="@+id/pageButton"
+		android:layout_width="240dp"
+		android:layout_marginBottom="128dp"
+		android:layout_height="wrap_content"
+		android:text="@string/next"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@id/pageMessage" />
 </androidx.constraintlayout.widget.ConstraintLayout>
