@@ -130,7 +130,6 @@ typedef struct gltexture_s
 	float		xscale;
 	float		yscale;
 
-	int		servercount;
 	uint		hashValue;
 	struct gltexture_s	*nextHash;
 } gl_texture_t;
