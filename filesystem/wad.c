@@ -92,20 +92,19 @@ struct wfile_s
 
 typedef struct wadtype_s
 {
-	const char		*ext;
-	signed char		type;
+	char        ext[4];
+	signed char type;
 } wadtype_t;
 
 // associate extension with wad type
-static const wadtype_t wad_types[7] =
+static const wadtype_t wad_types[] =
 {
-{ "pal", TYP_PALETTE	}, // palette
-{ "dds", TYP_DDSTEX 	}, // DDS image
-{ "lmp", TYP_GFXPIC		}, // quake1, hl pic
-{ "fnt", TYP_QFONT		}, // hl qfonts
-{ "mip", TYP_MIPTEX		}, // hl/q1 mip
-{ "txt", TYP_SCRIPT		}, // scripts
-{ NULL,  TYP_NONE		}
+{ "pal", TYP_PALETTE }, // palette
+{ "dds", TYP_DDSTEX  }, // DDS image
+{ "lmp", TYP_GFXPIC  }, // quake1, hl pic
+{ "fnt", TYP_QFONT   }, // hl qfonts
+{ "mip", TYP_MIPTEX  }, // hl/q1 mip
+{ "txt", TYP_SCRIPT  }, // scripts
 };
 
 /*
@@ -117,18 +116,19 @@ Extracts file type from extension
 */
 static signed char W_TypeFromExt( const char *lumpname )
 {
-	const char	*ext = COM_FileExtension( lumpname );
-	const wadtype_t	*type;
+	const char *ext = COM_FileExtension( lumpname );
+	int i;
 
 	// we not known about filetype, so match only by filename
 	if( !Q_strcmp( ext, "*" ) || !COM_CheckStringEmpty( ext ))
 		return TYP_ANY;
 
-	for( type = wad_types; type->ext; type++ )
+	for( i = 0; i < sizeof( wad_types ) / sizeof( wad_types[0] ); i++ )
 	{
-		if( !Q_stricmp( ext, type->ext ))
-			return type->type;
+		if( !Q_stricmp( ext, wad_types[i].ext ))
+			return wad_types[i].type;
 	}
+
 	return TYP_NONE;
 }
 
@@ -141,17 +141,18 @@ Convert type to extension
 */
 static const char *W_ExtFromType( signed char lumptype )
 {
-	const wadtype_t	*type;
+	int i;
 
 	// we not known aboyt filetype, so match only by filename
 	if( lumptype == TYP_NONE || lumptype == TYP_ANY )
 		return "";
 
-	for( type = wad_types; type->ext; type++ )
+	for( i = 0; i < sizeof( wad_types ) / sizeof( wad_types[0] ); i++ )
 	{
-		if( lumptype == type->type )
-			return type->ext;
+		if( lumptype == wad_types[i].type )
+			return wad_types[i].ext;
 	}
+
 	return "";
 }
 
