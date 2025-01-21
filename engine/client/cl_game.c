@@ -556,7 +556,7 @@ static void CL_InitTitles( const char *filename )
 
 		Q_snprintf( name, sizeof( name ), TEXT_MSGNAME, i );
 
-		cl_textmessage[i].pName = _copystring( clgame.mempool, name, __FILE__, __LINE__ );
+		cl_textmessage[i].pName = copystringpool( clgame.mempool, name );
 		cl_textmessage[i].pMessage = cl_textbuffer[i];
 	}
 
@@ -3542,17 +3542,6 @@ NetAPI_CompareAdr
 static int GAME_EXPORT NetAPI_CompareAdr( netadr_t *a, netadr_t *b )
 {
 	return NET_CompareAdr( *a, *b );
-}
-
-/*
-=================
-NetAPI_ValueForKey
-
-=================
-*/
-static const char * GAME_EXPORT NetAPI_ValueForKey( const char *s, const char *key )
-{
-	return Info_ValueForKey( s, key );
 }
 
 /*
