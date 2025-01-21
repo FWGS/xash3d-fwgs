@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
    <color name="valve_red">#F74843</color>
-   <color name="steam_grey">#C5C3C0</color>
-   <color name="steam_background">#181A21</color>
-   <color name="steam_dark_grey">#32353C</color>
    <color name="hl_orange">#FB7E14</color>
    <color name="black">#000000</color>
    <color name="hl_dark_grey">#151515</color>
