@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "base_cmd.h"
 #include "cdll_int.h"
 
-#define HASH_SIZE 128 // 128 * 4 * 4 == 2048 bytes
+#define HASH_SIZE 64 // 64 * 4 * 4 == 1024 bytes
 
 typedef struct base_command_hashmap_s base_command_hashmap_t;
 
