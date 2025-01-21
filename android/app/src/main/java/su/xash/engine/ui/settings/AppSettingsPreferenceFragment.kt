@@ -5,8 +5,8 @@ import androidx.preference.PreferenceFragmentCompat
 import su.xash.engine.R
 
 class AppSettingsPreferenceFragment() : PreferenceFragmentCompat() {
-    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = "app_preferences";
-        setPreferencesFromResource(R.xml.app_preferences, rootKey);
-    }
+	override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+		preferenceManager.sharedPreferencesName = "app_preferences";
+		setPreferencesFromResource(R.xml.app_preferences, rootKey);
+	}
 }

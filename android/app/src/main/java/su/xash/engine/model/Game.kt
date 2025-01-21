@@ -12,111 +12,111 @@ import su.xash.engine.XashActivity
 
 
 class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean = true) {
-    private var iconName = "game.ico"
-    var title = "Unknown Game"
-    var icon: Bitmap? = null
-    var cover: Bitmap? = null
+	private var iconName = "game.ico"
+	var title = "Unknown Game"
+	var icon: Bitmap? = null
+	var cover: Bitmap? = null
 
-    private val pref = ctx.getSharedPreferences(basedir.name, Context.MODE_PRIVATE)
+	private val pref = ctx.getSharedPreferences(basedir.name, Context.MODE_PRIVATE)
 
-    init {
-        basedir.findFile("gameinfo.txt")?.let {
-            parseGameInfo(it)
-        } ?: basedir.findFile("liblist.gam")?.let { parseGameInfo(it) }
+	init {
+		basedir.findFile("gameinfo.txt")?.let {
+			parseGameInfo(it)
+		} ?: basedir.findFile("liblist.gam")?.let { parseGameInfo(it) }
 
-        basedir.findFile(iconName)
-            ?.let { icon = MediaStore.Images.Media.getBitmap(ctx.contentResolver, it.uri) }
+		basedir.findFile(iconName)
+			?.let { icon = MediaStore.Images.Media.getBitmap(ctx.contentResolver, it.uri) }
 
-        try {
-            cover = BackgroundBitmap.createBackground(ctx, basedir)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
+		try {
+			cover = BackgroundBitmap.createBackground(ctx, basedir)
+		} catch (e: Exception) {
+			e.printStackTrace()
+		}
+	}
 
-    fun startEngine(ctx: Context) {
-        ctx.startActivity(Intent(ctx, XashActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("gamedir", basedir.name)
-            putExtra("argv", pref.getString("arguments", "-console -log"))
-            putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
-            //.putExtra("gamelibdir", getGameLibDir(context))
-            //.putExtra("package", getPackageName()) }
-        })
-    }
+	fun startEngine(ctx: Context) {
+		ctx.startActivity(Intent(ctx, XashActivity::class.java).apply {
+			flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+			putExtra("gamedir", basedir.name)
+			putExtra("argv", pref.getString("arguments", "-console -log"))
+			putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
+			//.putExtra("gamelibdir", getGameLibDir(context))
+			//.putExtra("package", getPackageName()) }
+		})
+	}
 
-    private fun parseGameInfo(file: DocumentFile) {
-        ctx.contentResolver.openInputStream(file.uri).use { inputStream ->
-            inputStream?.bufferedReader().use { reader ->
-                reader?.forEachLine {
-                    val tokens = it.split("\\s+".toRegex(), limit = 2)
-                    if (tokens.size >= 2) {
-                        val k = tokens[0]
-                        val v = tokens[1].trim('"')
+	private fun parseGameInfo(file: DocumentFile) {
+		ctx.contentResolver.openInputStream(file.uri).use { inputStream ->
+			inputStream?.bufferedReader().use { reader ->
+				reader?.forEachLine {
+					val tokens = it.split("\\s+".toRegex(), limit = 2)
+					if (tokens.size >= 2) {
+						val k = tokens[0]
+						val v = tokens[1].trim('"')
 
-                        if (k == "title" || k == "game") title = v
-                        if (k == "icon") iconName = v
-                    }
-                }
-            }
-        }
-    }
+						if (k == "title" || k == "game") title = v
+						if (k == "icon") iconName = v
+					}
+				}
+			}
+		}
+	}
 
-    private fun getPackageName(): String? {
+	private fun getPackageName(): String? {
 //        return if (mDbEntry != null) {
 //            mDbEntry.getPackageName()
 //        } else null
-        return null
-    }
+		return null
+	}
 
-    private fun getGameLibDir(ctx: Context): String? {
-        val pkgName = getPackageName()
-        if (pkgName != null) {
-            val pkgInfo: PackageInfo = try {
-                ctx.packageManager.getPackageInfo(pkgName, 0)
-            } catch (e: PackageManager.NameNotFoundException) {
-                e.printStackTrace()
-                ctx.startActivity(
-                    Intent(
-                        Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkgName")
-                    ).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                )
-                return null
-            }
-            return pkgInfo.applicationInfo.nativeLibraryDir
-        }
-        return ctx.applicationInfo.nativeLibraryDir
-    }
+	private fun getGameLibDir(ctx: Context): String? {
+		val pkgName = getPackageName()
+		if (pkgName != null) {
+			val pkgInfo: PackageInfo = try {
+				ctx.packageManager.getPackageInfo(pkgName, 0)
+			} catch (e: PackageManager.NameNotFoundException) {
+				e.printStackTrace()
+				ctx.startActivity(
+					Intent(
+						Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkgName")
+					).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+				)
+				return null
+			}
+			return pkgInfo.applicationInfo.nativeLibraryDir
+		}
+		return ctx.applicationInfo.nativeLibraryDir
+	}
 
-    companion object {
-        fun getGames(ctx: Context, file: DocumentFile): List<Game> {
-            val games = mutableListOf<Game>()
+	companion object {
+		fun getGames(ctx: Context, file: DocumentFile): List<Game> {
+			val games = mutableListOf<Game>()
 
-            if (checkIfGamedir(file)) {
-                games.add(Game(ctx, file))
-            } else {
-                file.listFiles().forEach {
-                    if (it.isDirectory) {
-                        if (checkIfGamedir(it)) {
-                            games.add(Game(ctx, it))
-                        }
-                    }
-                }
-            }
+			if (checkIfGamedir(file)) {
+				games.add(Game(ctx, file))
+			} else {
+				file.listFiles().forEach {
+					if (it.isDirectory) {
+						if (checkIfGamedir(it)) {
+							games.add(Game(ctx, it))
+						}
+					}
+				}
+			}
 
-            return games
-        }
+			return games
+		}
 
-        fun checkIfGamedir(file: DocumentFile): Boolean {
-            // exclude unfinished downloads
-            if (file.name?.startsWith('.') == true)
-                return false
+		fun checkIfGamedir(file: DocumentFile): Boolean {
+			// exclude unfinished downloads
+			if (file.name?.startsWith('.') == true)
+				return false
 
-            file.findFile("liblist.gam")?.let { return true }
-            file.findFile("gameinfo.txt")?.let { return true }
-            return false
-        }
-    }
+			file.findFile("liblist.gam")?.let { return true }
+			file.findFile("gameinfo.txt")?.let { return true }
+			return false
+		}
+	}
 }
 
 //    Intent intent = new Intent("su.xash.engine.MOD");
