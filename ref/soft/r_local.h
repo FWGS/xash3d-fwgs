@@ -363,8 +363,6 @@ typedef struct image_s
 	pixel_t        *pixels[4];                              // mip levels
 	pixel_t        *alpha_pixels;                           // mip levels
 
-
-	int            servercount;
 	uint           hashValue;
 	struct image_s *nextHash;
 } image_t;
