@@ -249,32 +249,31 @@ release sprite model and frames
 */
 void Mod_SpriteUnloadTextures( void *data )
 {
-	msprite_t		*psprite;
-	mspritegroup_t	*pspritegroup;
-	mspriteframe_t	*pspriteframe;
-	int		i, j;
+	msprite_t *psprite = data;
+	int i;
 
-	psprite = data;
+	if( !data )
+		return;
 
-	if( psprite )
+	// release all textures
+	for( i = 0; i < psprite->numframes; i++ )
 	{
-		// release all textures
-		for( i = 0; i < psprite->numframes; i++ )
-		{
-			if( psprite->frames[i].type == SPR_SINGLE )
-			{
-				pspriteframe = psprite->frames[i].frameptr;
-				GL_FreeTexture( pspriteframe->gl_texturenum );
-			}
-			else
-			{
-				pspritegroup = (mspritegroup_t *)psprite->frames[i].frameptr;
+		if( !psprite->frames[i].frameptr )
+			continue;
 
-				for( j = 0; j < pspritegroup->numframes; j++ )
-				{
-					pspriteframe = pspritegroup->frames[i];
-					GL_FreeTexture( pspriteframe->gl_texturenum );
-				}
+		if( psprite->frames[i].type == SPR_SINGLE )
+		{
+			GL_FreeTexture( psprite->frames[i].frameptr->gl_texturenum );
+		}
+		else
+		{
+			mspritegroup_t *pspritegroup = (mspritegroup_t *)psprite->frames[i].frameptr;
+			int j;
+
+			for( j = 0; j < pspritegroup->numframes; j++ )
+			{
+				if( pspritegroup->frames[j] )
+					GL_FreeTexture( pspritegroup->frames[j]->gl_texturenum );
 			}
 		}
 	}
