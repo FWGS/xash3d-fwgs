@@ -233,6 +233,11 @@ static intptr_t pfnRenderGetParm( int parm, int arg )
 	return CL_RenderGetParm( parm, arg, true );
 }
 
+static void pfnAVI_StreamSound( void *avi, int entnum, float fvol, float attn, float synctime )
+{
+	return; // stub, use AVI_SetParm and AVI_Think to stream AVI sound
+}
+
 static render_api_t gRenderAPI =
 {
 	pfnRenderGetParm, // GL_RenderGetParm,
@@ -265,7 +270,7 @@ static render_api_t gRenderAPI =
 	NULL, // R_UploadStretchRaw,
 	(void*)AVI_FreeVideo,
 	(void*)AVI_IsActive,
-	S_StreamAviSamples,
+	(void*)pfnAVI_StreamSound,
 	NULL,
 	NULL,
 	NULL, // GL_Bind,
