@@ -89,16 +89,6 @@ void Sound_Shutdown( void )
 	Mem_FreePool( &host.soundpool );
 }
 
-static byte *Sound_Copy( size_t size )
-{
-	byte	*out;
-
-	out = Mem_Realloc( host.soundpool, sound.tempbuffer, size );
-	sound.tempbuffer = NULL;
-
-	return out;
-}
-
 uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
 {
 	string    name;
@@ -378,6 +368,7 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 	const int inwidth = sc->width;
 	const int inchannels = sc->channels;
 	const int incount = sc->samples;
+	const int insize = sc->size;
 	qboolean handled = false;
 	double stepscale;
 	double t1, t2;
@@ -431,22 +422,30 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 	else // upsample case, w/ interpolation
 		handled = Sound_ConvertUpsample( sc, inwidth, inchannels, incount, outwidth, outchannels, outcount, stepscale );
 
-	t2 = Sys_DoubleTime();
-
-	if( handled )
+	if( !handled )
 	{
-		if( t2 - t1 > 0.01f ) // critical, report to mod developer
-			Con_Printf( S_WARN "%s: from [%d bit %d Hz %dch] to [%d bit %d Hz %dch] (took %.3fs)\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels, t2 - t1 );
-		else
-			Con_Reportf( "%s: from [%d bit %d Hz %dch] to [%d bit %d Hz %dch] (took %.3fs)\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels, t2 - t1 );
-	}
-	else
+		// restore previously changed data
+		sc->rate = inrate;
+		sc->width = inwidth;
+		sc->channels = inchannels;
+		sc->samples = incount;
+		sc->size = insize;
+
 		Con_Printf( S_ERROR "%s: unsupported from [%d bit %d Hz %dch] to [%d bit %d Hz %dch]\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels );
 
+		return false;
+	}
+
+	t2 = Sys_DoubleTime();
 	sc->rate = outrate;
 	sc->width = outwidth;
 
-	return handled;
+	if( t2 - t1 > 0.01f ) // critical, report to mod developer
+		Con_Printf( S_WARN "%s: from [%d bit %d Hz %dch] to [%d bit %d Hz %dch] (took %.3fs)\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels, t2 - t1 );
+	else
+		Con_Reportf( "%s: from [%d bit %d Hz %dch] to [%d bit %d Hz %dch] (took %.3fs)\n", __func__, inwidth * 8, inrate, inchannels, outwidth * 8, outrate, outchannels, t2 - t1 );
+
+	return true;
 }
 
 qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint flags )
@@ -464,8 +463,11 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint
 
 		if( result )
 		{
-			Mem_Free( snd->buffer );		// free original image buffer
-			snd->buffer = Sound_Copy( snd->size );	// unzone buffer
+			snd = Mem_Realloc( host.soundpool, snd, sizeof( *snd ) + snd->size );
+			memcpy( snd->buffer, sound.tempbuffer, snd->size );
+
+			Mem_Free( sound.tempbuffer );
+			sound.tempbuffer = NULL;
 		}
 	}
 
