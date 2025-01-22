@@ -258,7 +258,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 {
 	char		tempname[MAX_QPATH];
 	fs_offset_t		length = 0;
-	qboolean		loaded;
+	qboolean		loaded, loaded2 = false;
 	byte		*buf;
 	model_info_t	*p;
 
@@ -328,12 +328,13 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 			{
 				// let the server.dll load custom data
 				svgame.physFuncs.Mod_ProcessUserData( mod, true, buf );
+				loaded2 = true;
 			}
 		}
 #if !XASH_DEDICATED
 		else
 		{
-			loaded = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf );
+			loaded2 = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf );
 		}
 #endif
 	}
@@ -345,7 +346,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 			hdr->pposeverts = NULL;
 	}
 
-	if( !loaded )
+	if( !loaded || !loaded2 )
 	{
 		Mod_FreeModel( mod );
 		Mem_Free( buf );
