@@ -505,11 +505,14 @@ static int HTTP_FileDecompress( httpfile_t *file )
 
 	if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
 	{
-		Mem_Free( data_in );
+		g_fsapi.WriteFile( name, data_out, decompressed_len );
+		HTTP_FreeFile( file, false );
 	}
+	else HTTP_FreeFile( file, true );
 
-	g_fsapi.WriteFile( name, data_out, decompressed_len );
-	HTTP_FreeFile( file, false );
+	Mem_Free( data_in );
+	Mem_Free( data_out );
+
 	return 1;
 }
 
