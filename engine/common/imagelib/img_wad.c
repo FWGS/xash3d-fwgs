@@ -28,11 +28,19 @@ Image_LoadPAL
 qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	int	rendermode = LUMP_NORMAL;
+	byte pal[768];
 
-	if( filesize != 768 )
+	if( filesize > sizeof( pal ))
 	{
-		Con_DPrintf( S_ERROR "%s: (%s) have invalid size (%li should be %d)\n", __func__, name, (long)filesize, 768 );
+		Con_DPrintf( S_ERROR "%s: (%s) have invalid size (%li should be less or equal than %d)\n", __func__, name, (long)filesize, sizeof( pal ));
 		return false;
+	}
+	else if( filesize < sizeof( pal ) && buffer != NULL )
+	{
+		// palette might be truncated, fill it with zeros
+		memset( pal, 0, sizeof( pal ));
+		memcpy( pal, buffer, filesize );
+		buffer = pal;
 	}
 
 	if( name[0] == '#' )
