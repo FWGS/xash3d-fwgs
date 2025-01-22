@@ -20,9 +20,9 @@ GNU General Public License for more details.
 #if XASH_TIMER == TIMER_SDL
 double Platform_DoubleTime( void )
 {
-	static longtime_t g_PerformanceFrequency;
-	static longtime_t g_ClockStart;
-	longtime_t CurrentTime;
+	static Uint64 g_PerformanceFrequency;
+	static Uint64 g_ClockStart;
+	Uint64 CurrentTime;
 
 	if( !g_PerformanceFrequency )
 	{

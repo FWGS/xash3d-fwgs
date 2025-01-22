@@ -171,6 +171,8 @@ typedef struct
 	int       source;   // may be game, menu, etc
 } bg_track_t;
 
+typedef int sound_t;
+
 //====================================================================
 
 #define MAX_DYNAMIC_CHANNELS (60 + NUM_AMBIENTS)

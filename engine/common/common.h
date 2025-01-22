@@ -108,14 +108,14 @@ typedef enum
 #include "com_model.h"
 #include "com_strings.h"
 #include "crtlib.h"
-#include "cvar.h"
-#include "con_nprint.h"
-#include "crclib.h"
-#include "ref_api.h"
 #define FSCALLBACK_OVERRIDE_OPEN
 #define FSCALLBACK_OVERRIDE_LOADFILE
 #define FSCALLBACK_OVERRIDE_MALLOC_LIKE
 #include "fscallback.h"
+#include "cvar.h"
+#include "con_nprint.h"
+#include "crclib.h"
+#include "ref_api.h"
 
 // PERFORMANCE INFO
 #define MIN_FPS         20.0f    // host minimum fps value for maxfps.
@@ -145,6 +145,11 @@ typedef enum
 #define MAX_DECALS		256	// touching TE_DECAL messages, etc
 #define MAX_STATIC_ENTITIES	32	// static entities that moved on the client when level is spawn
 #endif
+
+#define MAX_SERVERINFO_STRING 512  // server handles too many settings. expand to 1024?
+#define MAX_PRINT_MSG         8192 // how many symbols can handle single call of Con_Printf or Con_DPrintf
+#define MAX_TOKEN             2048 // parse token length
+#define MAX_USERMSG_LENGTH    2048 // don't modify it's relies on a client-side definitions
 
 #define GameState		(&host.game)
 
@@ -528,6 +533,7 @@ typedef struct
 //
 // soundlib
 //
+typedef struct stream_s stream_t;
 void Sound_Init( void );
 void Sound_Shutdown( void );
 void FS_FreeSound( wavdata_t *pack );
