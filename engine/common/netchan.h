@@ -214,6 +214,7 @@ typedef enum netchan_flags_e
 	NETCHAN_USE_MUNGE = BIT( 1 ),
 	NETCHAN_USE_BZIP2 = BIT( 2 ),
 	NETCHAN_GOLDSRC = BIT( 3 ),
+	NETCHAN_USE_LZSS = BIT( 4 ), // mutually exclusive with bzip2
 } netchan_flags_t;
 
 // Network Connection Channel
@@ -285,6 +286,7 @@ typedef struct netchan_s
 	qboolean	split;
 	qboolean	use_munge;
 	qboolean	use_bz2;
+	qboolean	use_lzss;
 	qboolean	gs_netchan;
 } netchan_t;
 
