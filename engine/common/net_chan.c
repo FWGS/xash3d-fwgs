@@ -341,6 +341,7 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 	chan->split = FBitSet( flags, NETCHAN_USE_LEGACY_SPLIT ) ? true : false;
 	chan->use_munge = FBitSet( flags, NETCHAN_USE_MUNGE ) ? true : false;
 	chan->use_bz2 = FBitSet( flags, NETCHAN_USE_BZIP2 ) ? true : false;
+	chan->use_lzss = FBitSet( flags, NETCHAN_USE_LZSS ) ? true : false;
 	chan->gs_netchan = FBitSet( flags, NETCHAN_GOLDSRC ) ? true : false;
 
 	MSG_Init( &chan->message, "NetData", chan->message_buf, sizeof( chan->message_buf ));
@@ -766,7 +767,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
 #endif
 	}
-	else if( !chan->use_bz2 && !LZSS_IsCompressed( MSG_GetData( msg ), MSG_GetMaxBytes( msg )))
+	else if( chan->use_lzss && !LZSS_IsCompressed( MSG_GetData( msg ), MSG_GetMaxBytes( msg )))
 	{
 		uint uCompressedSize = 0;
 		uint uSourceSize = MSG_GetNumBytesWritten( msg );
@@ -1173,7 +1174,7 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		p = n;
 	}
 
-	if( chan->use_bz2 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ) )
+	if( chan->use_bz2 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ))
 	{
 #if !XASH_DEDICATED
 		byte buf[0x10000];
@@ -1194,7 +1195,7 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
 #endif
 	}
-	else if( !chan->use_bz2 && LZSS_IsCompressed( MSG_GetData( msg ), size ))
+	else if( chan->use_lzss && LZSS_IsCompressed( MSG_GetData( msg ), size ))
 	{
 		uint	uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ), size );
 		byte	buf[NET_MAX_MESSAGE];
@@ -1345,7 +1346,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
 #endif
 	}
-	else if( LZSS_IsCompressed( buffer, nsize + 1 ))
+	else if( chan->use_lzss && LZSS_IsCompressed( buffer, nsize + 1 ))
 	{
 		byte	*uncompressedBuffer;
 
