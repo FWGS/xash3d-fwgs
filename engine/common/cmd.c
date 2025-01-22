@@ -709,7 +709,7 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 		// unfortunately, we lose original command this way
 		if( FBitSet( cmd->flags, CMD_OVERRIDABLE ))
 		{
-			desc_len = Q_strlen( cmd->desc );
+			desc_len = Q_strlen( cmd->desc ) + 1;
 			Q_strncpy( cmd->desc, cmd_desc, desc_len );
 			cmd->function = function;
 			cmd->flags = iFlags;
@@ -725,7 +725,7 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	}
 
 	// use a small malloc to avoid zone fragmentation
-	desc_len = Q_strlen( cmd_desc );
+	desc_len = Q_strlen( cmd_desc ) + 1;
 	cmd = Mem_Malloc( cmd_pool, sizeof( cmd_t ) + desc_len );
 	cmd->name = copystringpool( cmd_pool, cmd_name );
 	Q_strncpy( cmd->desc, cmd_desc, desc_len );

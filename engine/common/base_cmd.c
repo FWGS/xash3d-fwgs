@@ -26,7 +26,7 @@ struct base_command_hashmap_s
 	base_command_t         *basecmd; // base command: cvar, alias or command
 	base_command_hashmap_t *next;
 	base_command_type_e     type;    // type for faster searching
-	char                    name[1]; // key for searching
+	char                    name[]; // key for searching
 };
 
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
@@ -129,7 +129,7 @@ void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const ch
 	uint hash = BaseCmd_HashKey( name );
 	size_t len = Q_strlen( name );
 
-	elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len );
+	elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len + 1 );
 	elem->basecmd = basecmd;
 	elem->type = type;
 	Q_strncpy( elem->name, name, len + 1 );
