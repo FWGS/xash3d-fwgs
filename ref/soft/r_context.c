@@ -66,34 +66,33 @@ void Mod_UnloadTextures( model_t *mod );
 
 static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
 {
-	qboolean loaded = true;
-
-	if( create )
-	{
-		switch( mod->type )
-		{
-		case mod_studio:
-			// Mod_LoadStudioModel( mod, buf, loaded );
-			break;
-		case mod_sprite:
-			Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
-			break;
-		case mod_alias:
-			// Mod_LoadAliasModel( mod, buf, &loaded );
-			break;
-		case mod_brush:
-			// Mod_LoadBrushModel( mod, buf, loaded );
-			break;
-
-		default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
-		}
-	}
-
-	if( loaded && gEngfuncs.drawFuncs->Mod_ProcessUserData )
-		gEngfuncs.drawFuncs->Mod_ProcessUserData( mod, create, buf );
+	qboolean loaded = false;
 
 	if( !create )
+	{
+		if( gEngfuncs.drawFuncs->Mod_ProcessUserData )
+			gEngfuncs.drawFuncs->Mod_ProcessUserData( mod, false, buf );
 		Mod_UnloadTextures( mod );
+		return true;
+	}
+
+	switch( mod->type )
+	{
+	case mod_studio:
+	case mod_brush:
+	case mod_alias:
+		loaded = true;
+		break;
+	case mod_sprite:
+		Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
+		break;
+	default:
+		gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
+		return false;
+	}
+
+	if( gEngfuncs.drawFuncs->Mod_ProcessUserData )
+		gEngfuncs.drawFuncs->Mod_ProcessUserData( mod, true, buf );
 
 	return loaded;
 }
