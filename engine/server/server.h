@@ -66,6 +66,7 @@ extern int SV_UPDATE_BACKUP;
 
 #define MAX_PUSHED_ENTS	256
 #define MAX_VIEWENTS	128
+#define MAX_LOCALINFO_STRING	32768	// localinfo used on server and not sended to the clients
 
 #define MAX_ENT_LEAFS( ext ) (( ext ) ? MAX_ENT_LEAFS_32 : MAX_ENT_LEAFS_16 )
 

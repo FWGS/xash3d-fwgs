@@ -107,6 +107,12 @@ int matchpattern_with_separator( const char *in, const char *pattern, qboolean c
 //
 // dllhelpers.c
 //
+typedef struct dllfunc_s
+{
+	const char	*name;
+	void		**func;
+} dllfunc_t;
+
 void ClearExports( const dllfunc_t *funcs, size_t num_funcs );
 qboolean ValidateExports( const dllfunc_t *funcs, size_t num_funcs );
 

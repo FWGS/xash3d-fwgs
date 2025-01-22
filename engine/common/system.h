@@ -41,6 +41,15 @@ NOTE: never change this structure because all dll descriptions in xash code
 writes into struct by offsets not names
 ========================================================================
 */
+typedef struct dll_info_s
+{
+	const char      *name;	// name of library
+	const dllfunc_t *fcts;	// list of dll exports
+	const size_t    num_fcts;
+	qboolean        crash;	// crash if dll not found
+	void            *link;	// hinstance of loading library
+} dll_info_t;
+
 extern int error_on_exit;
 double Sys_DoubleTime( void );
 char *Sys_GetClipboardData( void );

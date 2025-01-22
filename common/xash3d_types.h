@@ -16,19 +16,17 @@
 #include STDINT_H
 #include <assert.h>
 
-typedef unsigned char byte;
-typedef int		sound_t;
-typedef float		vec_t;
-typedef vec_t		vec2_t[2];
-typedef vec_t		vec3_t[3];
-typedef vec_t		vec4_t[4];
-typedef vec_t		quat_t[4];
-typedef byte		rgba_t[4];	// unsigned byte colorpack
-typedef byte		rgb_t[3];		// unsigned byte colorpack
-typedef vec_t		matrix3x4[3][4];
-typedef vec_t		matrix4x4[4][4];
-
-typedef uint32_t        poolhandle_t;
+typedef uint8_t  byte;
+typedef float    vec_t;
+typedef vec_t    vec2_t[2];
+typedef vec_t    vec3_t[3];
+typedef vec_t    vec4_t[4];
+typedef vec_t    quat_t[4];
+typedef byte     rgba_t[4];	// unsigned byte colorpack
+typedef byte     rgb_t[3];		// unsigned byte colorpack
+typedef vec_t    matrix3x4[3][4];
+typedef vec_t    matrix4x4[4][4];
+typedef uint32_t poolhandle_t;
 
 #undef true
 #undef false
@@ -39,18 +37,10 @@ typedef enum { false, true }	qboolean;
 typedef int qboolean;
 #endif
 
-typedef uint64_t longtime_t;
-
-#define MAX_STRING		256	// generic string
-#define MAX_INFO_STRING	256	// infostrings are transmitted across network
-#define MAX_SERVERINFO_STRING	512	// server handles too many settings. expand to 1024?
-#define MAX_LOCALINFO_STRING	32768	// localinfo used on server and not sended to the clients
-#define MAX_SYSPATH		1024	// system filepath
-#define MAX_VA_STRING	1024	// string length returned by va()
-#define MAX_PRINT_MSG	8192	// how many symbols can handle single call of Con_Printf or Con_DPrintf
-#define MAX_TOKEN		2048	// parse token length
-#define MAX_MODS		512	// environment games that engine can keep visible
-#define MAX_USERMSG_LENGTH	2048	// don't modify it's relies on a client-side definitions
+#define MAX_STRING    256  // generic string
+#define MAX_VA_STRING 1024 // compatibility macro
+#define MAX_SYSPATH   1024 // system filepath
+#define MAX_MODS      512  // environment games that engine can keep visible
 
 #define BIT( n )		( 1U << ( n ))
 #define BIT64( n )		( 1ULL << ( n ))
@@ -209,35 +199,16 @@ _inline float LittleFloat( float f )
 #endif
 
 
-typedef unsigned int  dword;
-typedef unsigned int  uint;
-typedef unsigned long ulong;
-typedef char		string[MAX_STRING];
-typedef struct file_s	file_t;		// normal file
-typedef struct stream_s	stream_t;		// sound stream for background music playing
-typedef off_t fs_offset_t;
+typedef unsigned int dword;
+typedef unsigned int uint;
+typedef char         string[MAX_STRING];
+typedef off_t        fs_offset_t;
 #if XASH_WIN32
-typedef int fs_size_t; // return type of _read, _write funcs
+typedef int          fs_size_t; // return type of _read, _write funcs
 #else /* !XASH_WIN32 */
-typedef ssize_t fs_size_t;
+typedef ssize_t      fs_size_t;
 #endif /* !XASH_WIN32 */
 
-typedef struct dllfunc_s
-{
-	const char	*name;
-	void		**func;
-} dllfunc_t;
-
-typedef struct dll_info_s
-{
-	const char	*name;	// name of library
-	const dllfunc_t	*fcts;	// list of dll exports
-	const size_t num_fcts;
-	qboolean		crash;	// crash if dll not found
-	void		*link;	// hinstance of loading library
-} dll_info_t;
-
-typedef void (*setpair_t)( const char *key, const void *value, const void *buffer, void *numpairs );
 typedef void *(*pfnCreateInterface_t)( const char *, int * );
 
 // config strings are a general means of communication from
