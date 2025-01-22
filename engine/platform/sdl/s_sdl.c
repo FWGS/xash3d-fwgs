@@ -175,7 +175,7 @@ qboolean SNDDMA_Init( void )
 	if( !samplecount )
 		samplecount = 0x8000;
 	dma.samples         = samplecount * obtained.channels;
-	dma.buffer          = Z_Calloc( dma.samples * 2 );
+	dma.buffer          = Mem_Malloc( sndpool, dma.samples * 2 );
 	dma.samplepos       = 0;
 
 	sdl_format = obtained.format;
