@@ -107,17 +107,18 @@ S_CreateDefaultSound
 */
 static wavdata_t *S_CreateDefaultSound( void )
 {
-	wavdata_t	*sc;
+	wavdata_t *sc;
+	uint samples = SOUND_DMA_SPEED;
+	uint channels = 1;
+	uint width = 2;
+	size_t size = samples * width * channels;
 
-	sc = Mem_Calloc( sndpool, sizeof( wavdata_t ));
-
-	sc->width = 2;
-	sc->channels = 1;
-	sc->loopStart = 0;
+	sc = Mem_Calloc( sndpool, sizeof( wavdata_t ) + size );
+	sc->width = width;
+	sc->channels = channels;
 	sc->rate = SOUND_DMA_SPEED;
-	sc->samples = SOUND_DMA_SPEED;
-	sc->size = sc->samples * sc->width * sc->channels;
-	sc->buffer = Mem_Calloc( sndpool, sc->size );
+	sc->samples = samples;
+	sc->size = size;
 
 	return sc;
 }

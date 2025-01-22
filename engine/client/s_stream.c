@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "sound.h"
 #include "client.h"
+#include "soundlib.h"
 
 static bg_track_t		s_bgTrack;
 static musicfade_t		musicfade;	// controlled by game dlls
@@ -212,7 +213,7 @@ void S_StreamBackgroundTrack( void )
 
 	while( ch->s_rawend < soundtime + ch->max_samples )
 	{
-		wavdata_t	*info = FS_StreamInfo( s_bgTrack.stream );
+		const stream_t *info = s_bgTrack.stream;
 
 		bufferSamples = ch->max_samples - (ch->s_rawend - soundtime);
 

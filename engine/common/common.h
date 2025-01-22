@@ -514,15 +514,15 @@ typedef enum
 
 typedef struct
 {
-	word    rate;      // num samples per second (e.g. 11025 - 11 khz)
-	byte    width;     // resolution - bum bits divided by 8 (8 bit is 1, 16 bit is 2)
-	byte    channels;  // num channels (1 - mono, 2 - stereo)
+	size_t  size;      // for bounds checking
 	uint    loopStart; // offset at this point sound will be looping while playing more than only once
 	uint    samples;   // total samplecount in wav
 	uint    type;      // compression type
 	uint    flags;     // misc sound flags
-	byte   *buffer;    // sound buffer
-	size_t  size;      // for bounds checking
+	word    rate;      // num samples per second (e.g. 11025 - 11 khz)
+	byte    width;     // resolution - bum bits divided by 8 (8 bit is 1, 16 bit is 2)
+	byte    channels;  // num channels (1 - mono, 2 - stereo)
+	byte    buffer[];  // sound buffer
 } wavdata_t;
 
 //
@@ -534,7 +534,6 @@ void FS_FreeSound( wavdata_t *pack );
 void FS_FreeStream( stream_t *stream );
 wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size ) MALLOC_LIKE( FS_FreeSound, 1 ) WARN_UNUSED_RESULT;
 stream_t *FS_OpenStream( const char *filename ) MALLOC_LIKE( FS_FreeStream, 1 ) WARN_UNUSED_RESULT;
-wavdata_t *FS_StreamInfo( stream_t *stream );
 int FS_ReadStream( stream_t *stream, int bytes, void *buffer );
 int FS_SetStreamPos( stream_t *stream, int newpos );
 int FS_GetStreamPos( stream_t *stream );
