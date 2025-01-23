@@ -40,11 +40,11 @@
 Originally this list was written by *Qwertyus*(*Qortez*)
 
 To install these mods:
-- place mod folder in the same directory as your **valve** folder is located
-- xash3d-fwgs will automatically scan for mods on load
-- In the "Custom Game" menu, your mods will show
-- Select a mod, and then "Activate"
-- The application will restart with your mod loaded
+1. Place mod folder in the same directory as your **valve** folder is located
+2. xash3d-fwgs will automatically scan for mods on load
+3. In the "Custom Game" menu, your mods will show
+4. Select a mod, and then "Activate"
+5. The application will restart with your mod loaded
 
 Mods can also be launched directly by passing in the `-game` argument with the name of the folder your mod is in. For example, if my mod folder is named "uplink", then the command is `./xash3d -game uplink`.
 
