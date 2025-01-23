@@ -279,7 +279,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 
 	buf = FS_LoadFile( tempname, &length, false );
 
-	if( !buf )
+	if( !buf || length < sizeof( uint ))
 	{
 		memset( mod, 0, sizeof( model_t ));
 
@@ -611,3 +611,41 @@ void Mod_NeedCRC( const char *name, qboolean needCRC )
 	if( needCRC ) SetBits( p->flags, FCRC_SHOULD_CHECKSUM );
 	else ClearBits( p->flags, FCRC_SHOULD_CHECKSUM );
 }
+
+#if XASH_ENGINE_TESTS
+
+static const uint8_t *fuzz_data;
+static size_t fuzz_size;
+
+static byte *Fuzz_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+{
+	byte *buf = Mem_Malloc( host.mempool, fuzz_size );
+	memcpy( buf, fuzz_data, fuzz_size );
+	*filesizeptr = fuzz_size;
+	return buf;
+}
+
+int EXPORT Fuzz_Mod_LoadModel( const uint8_t *Data, size_t Size );
+int EXPORT Fuzz_Mod_LoadModel( const uint8_t *Data, size_t Size )
+{
+	model_t mod = { .name = "test", .needload = NL_NEEDS_LOADED };
+
+	Memory_Init();
+
+	host.type = HOST_DEDICATED;
+	host.mempool = Mem_AllocPool( "fuzzing pool" );
+	fuzz_data = Data;
+	fuzz_size = Size;
+	refState.draw_surfaces = NULL;
+
+	g_fsapi.LoadFile = Fuzz_LoadFile;
+
+	if( Mod_LoadModel( &mod, false ) && mod.mempool )
+		Mem_FreePool( &mod.mempool );
+
+	Mem_FreePool( &host.mempool );
+
+	return 0;
+}
+
+#endif // XASH_ENGINE_TESTS
