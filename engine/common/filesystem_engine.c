@@ -187,7 +187,7 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 	return false;
 #elif ( XASH_SDL == 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
 #if XASH_APPLE
-	path = SDL_GetPrefPath(NULL, "Xash3D");
+	path = SDL_GetPrefPath( NULL, XASH_ENGINE_NAME );
 #else
 	path = SDL_GetBasePath();
 #endif
