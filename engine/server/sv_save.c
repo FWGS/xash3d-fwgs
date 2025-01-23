@@ -2279,7 +2279,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 
 	if( tag == 0x0065 )
 	{
-		Q_strncpy( comment, "<old version Xash3D unsupported>", MAX_STRING );
+		Q_strncpy( comment, "<old version "XASH_ENGINE_NAME" unsupported>", MAX_STRING );
 		FS_Close( f );
 		return 0;
 	}
