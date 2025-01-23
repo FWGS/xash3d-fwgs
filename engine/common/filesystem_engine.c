@@ -183,7 +183,7 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 #elif XASH_PSVITA
 	if( PSVita_GetBasePath( out, size ))
 		return true;
-	Sys_Error( "couldn't find Xash3D data directory" );
+	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
 #elif ( XASH_SDL == 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
 #if XASH_APPLE
