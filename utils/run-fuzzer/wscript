@@ -37,3 +37,4 @@ def build(bld):
 	add_runner_target(bld, 'libxash.so', 'Image_LoadPNG')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadDDS')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadTGA')
+	add_runner_target(bld, 'libxash.so', 'Mod_LoadModel')
