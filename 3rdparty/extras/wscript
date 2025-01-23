@@ -25,5 +25,4 @@ def build(bld):
 		name = 'extras.pk3',
 		files = srcdir.ant_glob('**/*'),
 		relative_to = srcdir,
-		compresslevel = 0,
 		install_path = install_path)
