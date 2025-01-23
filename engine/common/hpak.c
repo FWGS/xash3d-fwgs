@@ -38,7 +38,7 @@ static void HPAK_MaxSize_f( void )
 	Con_Printf( S_ERROR "hpk_maxsize is deprecated, use hpk_max_size\n" );
 }
 
-static const char *HPAK_TypeFromIndex( int type )
+const char *COM_ResourceTypeFromIndex( int type )
 {
 	switch( type )
 	{
@@ -461,7 +461,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 
 		if( !quiet )
 		{
-			Con_Printf( "%i:      %s %s %s:   ", i, HPAK_TypeFromIndex( pRes->type ),
+			Con_Printf( "%i:      %s %s %s:   ", i, COM_ResourceTypeFromIndex( pRes->type ),
 				Q_pretifymem( pRes->nDownloadSize, 2 ), pRes->szFileName );
 		}
 
@@ -942,7 +942,7 @@ static void HPAK_List_f( void )
 	{
 		entry = &directory.entries[nCurrent];
 		COM_FileBase( entry->resource.szFileName, lumpname, sizeof( lumpname ));
-		type = HPAK_TypeFromIndex( entry->resource.type );
+		type = COM_ResourceTypeFromIndex( entry->resource.type );
 		size = Q_memprint( entry->resource.nDownloadSize );
 
 		Con_Printf( "%i: %10s %s %s\n  :  %s\n", nCurrent + 1, type, size, lumpname, MD5_Print( entry->resource.rgucMD5_hash ));
@@ -1037,7 +1037,7 @@ static void HPAK_Extract_f( void )
 			continue;
 
 		COM_FileBase( entry->resource.szFileName, lumpname, sizeof( lumpname ) );
-		type = HPAK_TypeFromIndex( entry->resource.type );
+		type = COM_ResourceTypeFromIndex( entry->resource.type );
 		size = Q_memprint( entry->resource.nDownloadSize );
 
 		Con_Printf( "Extracting %i: %10s %s %s\n", nCurrent + 1, type, size, lumpname );
