@@ -902,9 +902,10 @@ static void Touch_AddButton_f( void )
 	rgba_t color;
 	int argc = Cmd_Argc( );
 	touch_button_t *button = NULL;
-	const char *name, *texture, *command;
+	const char *name, *command;
 	float x1, y1, x2, y2;
 	qboolean privileged = Cmd_CurrentCommandIsPrivileged();
+	string texture;
 
 	if( argc < 4 )
 	{
@@ -913,8 +914,17 @@ static void Touch_AddButton_f( void )
 	}
 
 	name = Cmd_Argv( 1 );
-	texture = Cmd_Argv( 2 );
+	Q_strncpy( texture, Cmd_Argv( 2 ), sizeof( texture ));
 	command = Cmd_Argv( 3 );
+
+	// HACKHACK: old engine specifically used .tga for touch buttons
+	// and because new engine extras.pk3 don't have .tga textures
+	// (which instead were converted to .png) strip extension to let
+	// to let imagelib choose better format
+	//
+	// Remove this when old engine migration would be done
+	if( Q_stricmp( COM_FileExtension( texture ), "tga" ))
+		COM_StripExtension( texture );
 
 	if( argc < 8 )
 	{

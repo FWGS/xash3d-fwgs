@@ -143,6 +143,8 @@ typedef struct fs_globals_t
 	int		numgames;
 } fs_globals_t;
 
+typedef struct file_s file_t;
+
 typedef struct fs_api_t
 {
 	qboolean (*InitStdio)( qboolean unused_set_to_true, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );

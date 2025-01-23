@@ -868,7 +868,7 @@ void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded )
 	mod->type = mod_studio;
 
 	phdr = R_StudioLoadHeader( mod, buffer );
-	if( !phdr )
+	if( !phdr || phdr->length < sizeof( studiohdr_t )) // garbage value in length
 		return;	// bad model
 
 #if !XASH_DEDICATED

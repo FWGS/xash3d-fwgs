@@ -30,6 +30,8 @@ typedef struct pending_cvar_s
 	char      cv_name[];
 } pending_cvar_t;
 
+typedef void (*setpair_t)( const char *key, const void *value, const void *buffer, void *numpairs );
+
 cvar_t *Cvar_GetList( void );
 #define Cvar_FindVar( name )	Cvar_FindVarExt( name, 0 )
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
@@ -52,6 +54,7 @@ void Cvar_Reset( const char *var_name );
 void Cvar_SetCheatState( void );
 qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged );
 void Cvar_Init( void );
+void Cvar_Shutdown( void );
 void Cvar_PostFSInit( void );
 void Cvar_Unlink( int group );
 

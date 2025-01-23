@@ -557,7 +557,7 @@ static void VOX_ReadSentenceFile_( byte *buf, fs_offset_t size )
 			int index = cszrawsentences;
 			int size = strlen( name ) + strlen( value ) + 2;
 
-			rgpszrawsentence[index] = Mem_Malloc( host.mempool, size );
+			rgpszrawsentence[index] = Mem_Malloc( sndpool, size );
 			memcpy( rgpszrawsentence[index], name, size );
 			rgpszrawsentence[index][size - 1] = 0;
 			cszrawsentences++;

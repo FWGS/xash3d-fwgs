@@ -160,33 +160,47 @@ static int CL_GetEntityDelta( const struct delta_header_t *hdr, int entnum )
 	return DT_ENTITY_STATE_T;
 }
 
-static void CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
+static int CL_FlushEntityPacketGS( frame_t *frame, sizebuf_t *msg )
 {
+	int playerbytes = 0, numbase = 0;
+
 	frame->valid = false;
 	cl.validsequence = 0; // can't render a frame
 
 	// read it all but ignore it
 	while( 1 )
 	{
-		int num = 0;
+		int newnum, bufstart;
 		entity_state_t from = { 0 }, to;
 		delta_header_t hdr;
+		qboolean player;
 
 		if( MSG_ReadWord( msg ) != 0 )
 		{
 			MSG_SeekToBit( msg, -16, SEEK_CUR );
-			num = CL_ParseDeltaHeader( msg, false, num, &hdr );
+			numbase = newnum = CL_ParseDeltaHeader( msg, true, numbase, &hdr );
 		}
 		else break;
 
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "%s: overflow\n", __func__ );
 
+		player = CL_IsPlayerIndex( newnum );
+		bufstart = MSG_GetNumBytesRead( msg );
+
 		if( hdr.remove )
 			continue;
 
-		Delta_ReadGSFields( msg, CL_GetEntityDelta( &hdr, num ), &from, &to, cl.mtime[0] );
+		Delta_ReadGSFields( msg, CL_GetEntityDelta( &hdr, newnum ), &from, &to, cl.mtime[0] );
+
+		if( player )
+			playerbytes += MSG_GetNumBytesRead( msg ) - bufstart;
 	}
+
+	if( MSG_CheckOverflow( msg ))
+		Host_Error( "%s: overflow\n", __func__ );
+
+	return playerbytes;
 }
 
 static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t *frame, int newnum, const entity_state_t *from )
@@ -267,7 +281,7 @@ static void CL_CopyPacketEntity( frame_t *frame, int num, const entity_state_t *
 static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 {
 	frame_t *frame, *oldframe;
-	int oldindex, newnum, oldnum, numbase = 0;
+	int oldindex, oldnum, numbase = 0;
 	entity_state_t *oldent;
 	int count;
 	int playerbytes = 0;
@@ -314,7 +328,7 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 	// read it all but ignore it
 	while( 1 )
 	{
-		int bufstart;
+		int bufstart, newnum;
 		qboolean player;
 		delta_header_t hdr;
 		int val = MSG_ReadWord( msg );

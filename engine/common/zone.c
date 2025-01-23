@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 
-#define MEMHEADER_SENTINEL1	0xDEADF00DU
+#define MEMHEADER_SENTINEL1	0xA1BAU
 #define MEMHEADER_SENTINEL2	0xDFU
 
 #ifdef XASH_CUSTOM_SWAP
@@ -51,31 +51,29 @@ static void *Q_realloc( void *mem, size_t size )
 #define Q_realloc realloc
 #endif
 
+// keep this structure as compact as possible while keeping it aligned
+// on ILP32 it's 24 bytes, which is aligned to 8 byte boundary
+// on LP64 it's 40 bytes, which is also aligned to 8 byte boundary
 typedef struct memheader_s
 {
-	struct memheader_s	*next;		// next and previous memheaders in chain belonging to pool
-	struct memheader_s	*prev;
-	const char	*filename;	// file name and line where Mem_Alloc was called
-	size_t		size;		// size of the memory after the header (excluding header and sentinel2)
-	poolhandle_t	poolptr;		// pool this memheader belongs to
-	int		fileline;
-#if !XASH_64BIT
-	uint32_t		pad0; // doesn't have value, only to make Mem_Alloc return aligned addresses on ILP32
-#endif
-	uint32_t		sentinel1;	// should always be MEMHEADER_SENTINEL1
-
+	struct memheader_s *next, *prev; // next and previous memheaders in chain belonging to pool
+	const char         *filename;    // file name and line where Mem_Alloc was called
+	size_t             size;         // size of the memory after the header (excluding header and sentinel2)
+	poolhandle_t       poolptr;      // pool this memheader belongs to
+	uint16_t           fileline;
+	uint16_t           sentinel1;    // must be equal to MEMHEADER_SENTINEL1
 	// immediately followed by data, which is followed by a MEMHEADER_SENTINEL2 byte
 } memheader_t;
 
 typedef struct mempool_s
 {
-	struct memheader_s	*chain;		// chain of individual memory allocations
-	size_t		totalsize;	// total memory allocated in this pool (inside memheaders)
-	size_t		realsize;		// total memory allocated in this pool (actual malloc total)
-	size_t		lastchecksize;	// updated each time the pool is displayed by memlist
-	const char	*filename;	// file name and line where Mem_AllocPool was called
-	int		fileline;
-	char		name[64];		// name of the pool
+	struct memheader_s *chain;        // chain of individual memory allocations
+	size_t             totalsize;     // total memory allocated in this pool (inside memheaders)
+	size_t             realsize;      // total memory allocated in this pool (actual malloc total)
+	size_t             lastchecksize; // updated each time the pool is displayed by memlist
+	const char         *filename;     // file name and line where Mem_AllocPool was called
+	int                fileline;
+	char               name[64];      // name of the pool
 } mempool_t;
 
 static mempool_t *poolchain = NULL; // critical stuff
@@ -521,4 +519,5 @@ Memory_Init
 void Memory_Init( void )
 {
 	poolchain = NULL; // init mem chain
+	poolcount = 0;
 }

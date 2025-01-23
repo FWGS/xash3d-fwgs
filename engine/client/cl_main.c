@@ -1597,6 +1597,9 @@ void CL_SetupNetchanForProtocol( connprotocol_t proto )
 		}
 		break;
 	default:
+		if( !Host_IsLocalClient( ))
+			SetBits( flags, NETCHAN_USE_LZSS );
+
 		cls.extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
 
 		if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))

@@ -1119,7 +1119,7 @@ void Con_PageUp( int lines );
 //
 // s_main.c
 //
-void S_StreamAviSamples( void *Avi, int entnum, float fvol, float attn, float synctime );
+typedef int sound_t;
 void S_StartBackgroundTrack( const char *intro, const char *loop, int position, qboolean fullpath );
 void S_StopBackgroundTrack( void );
 void S_StreamSetPause( int pause );

@@ -305,6 +305,7 @@ static void SV_ConnectClient( netadr_t from )
 	int		challenge;
 	const char		*s;
 	int extensions;
+	uint netchan_flags = 0;
 
 	if( Cmd_Argc() < 5 )
 	{
@@ -431,7 +432,9 @@ static void SV_ConnectClient( netadr_t from )
 	newcl->listeners = -1;
 
 	// initailize netchan
-	Netchan_Setup( NS_SERVER, &newcl->netchan, from, qport, newcl, SV_GetFragmentSize, 0 );
+	if( !Host_IsLocalClient( ))
+		SetBits( netchan_flags, NETCHAN_USE_LZSS );
+	Netchan_Setup( NS_SERVER, &newcl->netchan, from, qport, newcl, SV_GetFragmentSize, netchan_flags );
 	MSG_Init( &newcl->datagram, "Datagram", newcl->datagram_buf, sizeof( newcl->datagram_buf )); // datagram buf
 
 	Q_strncpy( newcl->hashedcdkey, Info_ValueForKey( protinfo, "uuid" ), 32 );
@@ -449,8 +452,6 @@ static void SV_ConnectClient( netadr_t from )
 	newcl->cl_updaterate = 0.05;	// 20 fps as default
 	newcl->delta_sequence = -1;
 	newcl->flags = 0;
-
-
 
 	// reset any remaining events
 	memset( &newcl->events, 0, sizeof( newcl->events ));
@@ -2869,14 +2870,20 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 	// XashXT does not implement SV_CreateEntity, use saverestore export
 	if( !ent && svgame.physFuncs.pfnCreateEntitiesInRestoreList )
 	{
-		SAVERESTOREDATA data = { 0 };
-		ENTITYTABLE table = { 0 };
-		data.tableCount = 1;
-		data.pTable = &table;
-		table.classname = classname;
-		table.id = -1;
-		table.size = 1;
-		svgame.physFuncs.pfnCreateEntitiesInRestoreList( &data, 0, false );
+		ENTITYTABLE table = {
+			.classname = classname,
+			.id = -1,
+			.size = 1,
+			.flags = 1337,
+		};
+
+		SAVERESTOREDATA data = {
+			.tableCount = 1,
+			.pTable = &table
+		};
+
+		svgame.physFuncs.pfnCreateEntitiesInRestoreList( &data, table.flags, false );
+
 		ent = table.pent;
 	}
 

@@ -165,31 +165,32 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		pframetype = ((const byte *)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal );                                // palette installed, no reason to keep this data
 	}
-	else if( *numi == 256 )
+	else if( *numi <= 256 )
 	{
-		const byte *src = (const byte *)( numi + 1 );
-		rgbdata_t  *pal;
+		const byte	*src = (const byte *)(numi+1);
+		rgbdata_t	*pal;
+		size_t pal_bytes = *numi * 3;
 
 		// install palette
 		switch( psprite->texFormat )
 		{
 		case SPR_INDEXALPHA:
-			pal = gEngfuncs.FS_LoadImage( "#gradient.pal", src, 768 );
+			pal = gEngfuncs.FS_LoadImage( "#gradient.pal", src, pal_bytes );
 			break;
 		case SPR_ALPHTEST:
-			pal = gEngfuncs.FS_LoadImage( "#masked.pal", src, 768 );
+			pal = gEngfuncs.FS_LoadImage( "#masked.pal", src, pal_bytes );
 			break;
 		default:
-			pal = gEngfuncs.FS_LoadImage( "#normal.pal", src, 768 );
+			pal = gEngfuncs.FS_LoadImage( "#normal.pal", src, pal_bytes );
 			break;
 		}
 
-		pframetype = (const byte *)( src + 768 );
+		pframetype = (const byte *)(src + pal_bytes);
 		gEngfuncs.FS_FreeImage( pal ); // palette installed, no reason to keep this data
 	}
 	else
 	{
-		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be 256)\n", mod->name, *numi );
+		gEngfuncs.Con_DPrintf( S_ERROR "%s has wrong number of palette colors %i (should be less or equal than 256)\n", mod->name, *numi );
 		return;
 	}
 
@@ -237,32 +238,31 @@ release sprite model and frames
 */
 void Mod_SpriteUnloadTextures( void *data )
 {
-	msprite_t      *psprite;
-	mspritegroup_t *pspritegroup;
-	mspriteframe_t *pspriteframe;
-	int i, j;
+	msprite_t *psprite = data;
+	int i;
 
-	psprite = data;
+	if( !data )
+		return;
 
-	if( psprite )
+	// release all textures
+	for( i = 0; i < psprite->numframes; i++ )
 	{
-		// release all textures
-		for( i = 0; i < psprite->numframes; i++ )
-		{
-			if( psprite->frames[i].type == SPR_SINGLE )
-			{
-				pspriteframe = psprite->frames[i].frameptr;
-				GL_FreeTexture( pspriteframe->gl_texturenum );
-			}
-			else
-			{
-				pspritegroup = (mspritegroup_t *)psprite->frames[i].frameptr;
+		if( !psprite->frames[i].frameptr )
+			continue;
 
-				for( j = 0; j < pspritegroup->numframes; j++ )
-				{
-					pspriteframe = pspritegroup->frames[i];
-					GL_FreeTexture( pspriteframe->gl_texturenum );
-				}
+		if( psprite->frames[i].type == SPR_SINGLE )
+		{
+			GL_FreeTexture( psprite->frames[i].frameptr->gl_texturenum );
+		}
+		else
+		{
+			mspritegroup_t *pspritegroup = (mspritegroup_t *)psprite->frames[i].frameptr;
+			int j;
+
+			for( j = 0; j < pspritegroup->numframes; j++ )
+			{
+				if( pspritegroup->frames[j] )
+					GL_FreeTexture( pspritegroup->frames[j]->gl_texturenum );
 			}
 		}
 	}

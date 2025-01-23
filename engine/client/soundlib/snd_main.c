@@ -29,17 +29,20 @@ static void Sound_Reset( void )
 
 static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPack( void )
 {
-	wavdata_t	*pack = Mem_Calloc( host.soundpool, sizeof( wavdata_t ));
+	wavdata_t *pack = Mem_Malloc( host.soundpool, sizeof( *pack ) + sound.size );
 
-	pack->buffer = sound.wav;
-	pack->width = sound.width;
-	pack->rate = sound.rate;
-	pack->type = sound.type;
 	pack->size = sound.size;
 	pack->loopStart = sound.loopstart;
 	pack->samples = sound.samples;
-	pack->channels = sound.channels;
+	pack->type = sound.type;
 	pack->flags = sound.flags;
+	pack->rate = sound.rate;
+	pack->width = sound.width;
+	pack->channels = sound.channels;
+	memcpy( pack->buffer, sound.wav, sound.size );
+
+	Mem_Free( sound.wav );
+	sound.wav = NULL;
 
 	return pack;
 }
@@ -132,7 +135,6 @@ free WAV buffer
 void FS_FreeSound( wavdata_t *pack )
 {
 	if( !pack ) return;
-	if( pack->buffer ) Mem_Free( pack->buffer );
 	Mem_Free( pack );
 }
 
@@ -197,33 +199,6 @@ stream_t *FS_OpenStream( const char *filename )
 	}
 
 	return stream;
-}
-
-/*
-================
-FS_StreamInfo
-
-get basic stream info
-================
-*/
-wavdata_t *FS_StreamInfo( stream_t *stream )
-{
-	static wavdata_t	info;
-
-	if( !stream ) return NULL;
-
-	// fill structure
-	info.loopStart = 0;
-	info.rate = stream->rate;
-	info.width = stream->width;
-	info.channels = stream->channels;
-	info.flags = SOUND_STREAM;
-	info.size = stream->size;
-	info.buffer = NULL;
-	info.samples = 0;	// not actual for streams
-	info.type = stream->type;
-
-	return &info;
 }
 
 /*

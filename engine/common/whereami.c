@@ -68,7 +68,13 @@ extern "C" {
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
+#if (_MSC_VER >= 1900)
 #include <stdbool.h>
+#else
+#define bool int
+#define false 0
+#define true 1
+#endif
 
 static int WAI_PREFIX(getModulePath_)(HMODULE module, char* out, int capacity, int* dirname_length)
 {
@@ -243,6 +249,11 @@ int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length)
 #endif
 #endif
 
+#if !defined(WAI_STRINGIZE)
+#define WAI_STRINGIZE(s)
+#define WAI_STRINGIZE_(s) #s
+#endif
+
 #if defined(__ANDROID__) || defined(ANDROID)
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -265,20 +276,20 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
 
     for (;;)
     {
-      char buffer[PATH_MAX < 1024 ? 1024 : PATH_MAX];
-      uint64_t low, high;
+      char buffer[128 + PATH_MAX];
+      uintptr_t low, high;
       char perms[5];
       uint64_t offset;
-      uint32_t major, minor;
-      char path[PATH_MAX];
-      uint32_t inode;
+      uint32_t major, minor, inode;
+      char path[PATH_MAX + 1];
 
       if (!fgets(buffer, sizeof(buffer), maps))
         break;
 
-      if (sscanf(buffer, "%" PRIx64 "-%" PRIx64 " %s %" PRIx64 " %x:%x %u %s\n", &low, &high, perms, &offset, &major, &minor, &inode, path) == 8)
+      if (sscanf(buffer, "%" SCNxPTR "-%" SCNxPTR " %s %" SCNx64 " %x:%x %u %" WAI_STRINGIZE(PATH_MAX) "[^\n]\n", &low, &high, perms, &offset, &major, &minor, &inode, path) == 8)
       {
-        uint64_t addr = (uintptr_t)WAI_RETURN_ADDRESS();
+        void* _addr = WAI_RETURN_ADDRESS();
+        uintptr_t addr = (uintptr_t)_addr;
         if (low <= addr && addr <= high)
         {
           char* resolved;

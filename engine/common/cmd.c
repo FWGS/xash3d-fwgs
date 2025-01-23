@@ -46,6 +46,7 @@ static cmdalias_t *cmd_alias;
 static uint cmd_condition;
 static int  cmd_condlevel;
 static qboolean cmd_currentCommandIsPrivileged;
+static poolhandle_t cmd_pool;
 
 static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPrivileged );
 
@@ -432,7 +433,7 @@ static void Cmd_Alias_f( void )
 	{
 		if( !Q_strcmp( s, a->name ))
 		{
-			Z_Free( a->value );
+			Mem_Free( a->value );
 			break;
 		}
 	}
@@ -441,7 +442,7 @@ static void Cmd_Alias_f( void )
 	{
 		cmdalias_t	*cur, *prev;
 
-		a = Z_Malloc( sizeof( cmdalias_t ));
+		a = Mem_Malloc( cmd_pool, sizeof( cmdalias_t ));
 
 		Q_strncpy( a->name, s, sizeof( a->name ));
 
@@ -469,7 +470,7 @@ static void Cmd_Alias_f( void )
 	}
 
 	Q_strncat( cmd, "\n", sizeof( cmd ));
-	a->value = copystring( cmd );
+	a->value = copystringpool( cmd_pool, cmd );
 }
 
 /*
@@ -529,7 +530,7 @@ struct cmd_s
 	char		*name;
 	xcommand_t	function;
 	int		flags;
-	char		*desc;
+	char		desc[];
 };
 
 static int		cmd_argc;
@@ -636,7 +637,7 @@ void Cmd_TokenizeString( const char *text )
 
 	// clear the args from the last string
 	for( i = 0; i < cmd_argc; i++ )
-		Z_Free( cmd_argv[i] );
+		Mem_Free( cmd_argv[i] );
 
 	cmd_argc = 0; // clear previous args
 	cmd_args = NULL;
@@ -670,7 +671,7 @@ void Cmd_TokenizeString( const char *text )
 
 		if( cmd_argc < MAX_CMD_TOKENS )
 		{
-			cmd_argv[cmd_argc] = copystring( cmd_token );
+			cmd_argv[cmd_argc] = copystringpool( cmd_pool, cmd_token );
 			cmd_argc++;
 		}
 	}
@@ -683,7 +684,8 @@ Cmd_AddCommandEx
 */
 int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd_desc, int iFlags, const char *funcname )
 {
-	cmd_t	*cmd, *cur, *prev;
+	cmd_t  *cmd, *cur, *prev;
+	size_t desc_len;
 
 	if( !COM_CheckString( cmd_name ))
 	{
@@ -707,8 +709,8 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 		// unfortunately, we lose original command this way
 		if( FBitSet( cmd->flags, CMD_OVERRIDABLE ))
 		{
-			Mem_Free( cmd->desc );
-			cmd->desc = copystring( cmd_desc );
+			desc_len = Q_strlen( cmd->desc ) + 1;
+			Q_strncpy( cmd->desc, cmd_desc, desc_len );
 			cmd->function = function;
 			cmd->flags = iFlags;
 
@@ -723,9 +725,10 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	}
 
 	// use a small malloc to avoid zone fragmentation
-	cmd = Z_Malloc( sizeof( cmd_t ) );
-	cmd->name = copystring( cmd_name );
-	cmd->desc = copystring( cmd_desc );
+	desc_len = Q_strlen( cmd_desc ) + 1;
+	cmd = Mem_Malloc( cmd_pool, sizeof( cmd_t ) + desc_len );
+	cmd->name = copystringpool( cmd_pool, cmd_name );
+	Q_strncpy( cmd->desc, cmd_desc, desc_len );
 	cmd->function = function;
 	cmd->flags = iFlags;
 
@@ -771,9 +774,6 @@ void GAME_EXPORT Cmd_RemoveCommand( const char *cmd_name )
 
 			if( cmd->name )
 				Mem_Free( cmd->name );
-
-			if( cmd->desc )
-				Mem_Free( cmd->desc );
 
 			Mem_Free( cmd );
 			return;
@@ -1202,7 +1202,6 @@ void Cmd_Unlink( int group )
 		*prev = cmd->next;
 
 		if( cmd->name ) Mem_Free( cmd->name );
-		if( cmd->desc ) Mem_Free( cmd->desc );
 
 		Mem_Free( cmd );
 		count++;
@@ -1340,6 +1339,7 @@ Cmd_Init
 */
 void Cmd_Init( void )
 {
+	cmd_pool = Mem_AllocPool( "Console Commands" );
 	cmd_functions = NULL;
 	cmd_condition = 0;
 	cmd_alias = NULL;
@@ -1364,6 +1364,11 @@ void Cmd_Init( void )
 	Cmd_AddCommand( "basecmd_stats", BaseCmd_Stats_f, "print info about basecmd usage" );
 	Cmd_AddCommand( "basecmd_test", BaseCmd_Test_f, "test basecmd" );
 #endif
+}
+
+void Cmd_Shutdown( void )
+{
+	Mem_FreePool( &cmd_pool );
 }
 
 #if XASH_ENGINE_TESTS
