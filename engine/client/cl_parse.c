@@ -1614,6 +1614,23 @@ void CL_UpdateUserPings( sizebuf_t *msg )
 	}
 }
 
+static const char *CL_CheckTypeToString( int check_type )
+{
+	// renamed so they have same width and look better in console output
+	switch( check_type )
+	{
+	case force_exactfile:
+		return "exactfile";
+	case force_model_samebounds:
+		return "samebounds";
+	case force_model_specifybounds:
+		return "specbounds";
+	case force_model_specifybounds_if_avail:
+		return "specbounds2";
+	}
+	return "unknown";
+}
+
 static void CL_SendConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 {
 	qboolean		user_changed_diskfile;
@@ -1879,6 +1896,9 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 		return;
 	}
 
+	if( cl_trace_consistency.value )
+		Con_Printf( "Server wants consistency of the following resources:\n" );
+
 	skip_crc_change = NULL;
 	lastcheck = 0;
 
@@ -1910,7 +1930,7 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 		pc = &cl.consistency_list[cl.num_consistency];
 		cl.num_consistency++;
 
-		memset( pc, 0, sizeof( consistency_t ));
+		memset( pc, 0, sizeof( *pc ));
 		pc->filename = pResource->szFileName;
 		pc->issound = (pResource->type == t_sound);
 		pc->orig_index = delta;
@@ -1922,6 +1942,9 @@ static void CL_ParseConsistencyInfo( sizebuf_t *msg, connprotocol_t proto )
 				COM_UnMunge( pResource->rguc_reserved, sizeof( pResource->rguc_reserved ), cl.servercount );
 			pc->check_type = pResource->rguc_reserved[0];
 		}
+
+		if( cl_trace_consistency.value )
+			Con_Printf( "%s\t%s\t%s\n", COM_ResourceTypeFromIndex( pResource->type ), CL_CheckTypeToString( pc->check_type ), pc->filename );
 
 		skip_crc_change = pResource;
 		lastcheck = delta;

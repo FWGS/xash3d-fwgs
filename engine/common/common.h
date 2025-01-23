@@ -685,6 +685,7 @@ int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename );
 //
 // hpak.c
 //
+const char *COM_ResourceTypeFromIndex( int index );
 void HPAK_Init( void );
 qboolean HPAK_GetDataPointer( const char *filename, struct resource_s *pRes, byte **buffer, int *size );
 qboolean HPAK_ResourceForHash( const char *filename, byte *hash, struct resource_s *pRes );
