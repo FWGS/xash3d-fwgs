@@ -6,7 +6,7 @@ def options(opt):
 	pass
 
 def configure(conf):
-	if conf.options.BUILD_TYPE != 'sanitize':
+	if conf.options.BUILD_TYPE not in ['sanitize', 'asan']:
 		conf.fatal('useless without -T sanitize')
 
 	if conf.env.COMPILER_CC != 'clang':

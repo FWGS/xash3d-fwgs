@@ -30,7 +30,7 @@ compiler_optimizations.CFLAGS['gottagofast'] = {
 }
 '''
 
-VALID_BUILD_TYPES = ['fastnative', 'fast', 'humanrights', 'debug', 'sanitize', 'msan', 'none']
+VALID_BUILD_TYPES = ['fastnative', 'fast', 'humanrights', 'debug', 'sanitize', 'msan', 'asan', 'none']
 
 LINKFLAGS = {
 	'common': {
@@ -41,6 +41,11 @@ LINKFLAGS = {
 	'msan': {
 		'clang': ['-fsanitize=memory', '-pthread'],
 		'default': ['NO_MSAN_HERE']
+	},
+	'asan': {
+		'clang': ['-fsanitize=address', '-pthread'],
+		'gcc':   ['-fsanitize=address', '-pthread'],
+		'msvc': ['/SAFESEH:NO']
 	},
 	'sanitize': {
 		'clang': ['-fsanitize=undefined', '-fsanitize=address', '-pthread'],
@@ -94,6 +99,12 @@ CFLAGS = {
 	'msan': {
 		'clang':   ['-O2', '-g', '-fno-omit-frame-pointer', '-fsanitize=memory', '-pthread'],
 		'default': ['NO_MSAN_HERE']
+	},
+	'asan': {
+		'msvc':    ['/Od', '/RTC1', '/Zi', '/fsanitize=address'],
+		'gcc':     ['-Og', '-fsanitize=address', '-pthread'],
+		'clang':   ['-Og', '-fsanitize=address', '-pthread'],
+		'default': ['-O0']
 	},
 	'sanitize': {
 		'msvc':    ['/Od', '/RTC1', '/Zi', '/fsanitize=address'],
