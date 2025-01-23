@@ -8,6 +8,23 @@ import os
 
 top = '.'
 
+FFMPEG_CHECK_FRAGMENT='''
+#include <libswresample/swresample.h>
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+#include <libavutil/avutil.h>
+int main(int argc, char **argv)
+{
+	swresample_version();
+	avformat_version();
+	avcodec_version();
+	swscale_version();
+	avutil_version();
+	return 0;
+}
+'''
+
 def options(opt):
 	grp = opt.add_option_group('Engine options')
 
@@ -34,6 +51,9 @@ def options(opt):
 
 	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
 		help = '') # hidden option, does nothing
+
+	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
+		help = 'enable ffmpeg based movie playback')
 
 	opt.load('sdl2')
 
@@ -125,6 +145,20 @@ def configure(conf):
 
 	conf.define('ENGINE_DLL', 1)
 
+	if conf.options.FFMPEG:
+		# add ffmpeg libraries into single uselib package
+		conf.check_cfg(package='libswresample', uselib_store='SWRESAMPLE', args='--cflags --libs')
+		conf.check_cfg(package='libavformat', uselib_store='AVFORMAT', args='--cflags --libs')
+		conf.check_cfg(package='libavcodec', uselib_store='AVCODEC', args='--cflags --libs')
+		conf.check_cfg(package='libswscale', uselib_store='SWSCALE', args='--cflags --libs')
+		conf.check_cfg(package='libavutil', uselib_store='AVUTIL', args='--cflags --libs')
+
+		# validate ffmpeg libs installation
+		conf.check_cc(fragment=FFMPEG_CHECK_FRAGMENT, use='SWRESAMPLE AVCODEC AVFORMAT AVUTIL SWSCALE', msg='Checking for ffmpeg sanity')
+
+		conf.env.FFMPEG = True
+		conf.define('HAVE_FFMPEG', True)
+
 	conf.define_cond('XASH_ENGINE_TESTS', conf.env.ENGINE_TESTS)
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
@@ -184,6 +218,13 @@ def build(bld):
 	if bld.env.HAVE_SDL2 or bld.env.HAVE_SDL3:
 		libs.append('SDL3' if bld.env.HAVE_SDL3 else 'SDL2')
 		source += bld.path.ant_glob(['platform/sdl/*.c'])
+
+	if bld.get_define('HAVE_FFMPEG'):
+		libs.append('SWRESAMPLE')
+		libs.append('AVCODEC')
+		libs.append('AVFORMAT')
+		libs.append('AVUTIL')
+		libs.append('SWSCALE')
 
 	if bld.env.MAGX:
 		libs.append('MAGX')

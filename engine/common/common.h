@@ -784,8 +784,6 @@ void SCR_Init( void );
 void SCR_UpdateScreen( void );
 void SCR_BeginLoadingPlaque( qboolean is_background );
 void SCR_CheckStartupVids( void );
-int SCR_GetAudioChunk( char *rawdata, int length );
-wavdata_t *SCR_GetMovieInfo( void );
 void SCR_Shutdown( void );
 void Con_Print( const char *txt );
 void Con_NPrintf( int idx, const char *fmt, ... ) FORMAT_CHECK( 2 );
