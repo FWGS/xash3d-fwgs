@@ -169,6 +169,8 @@ enum movie_parms_e
 	AVI_ENTNUM, // (int) entity number, -1 for no spatialization
 	AVI_VOLUME, // (int) volume from 0 to 255
 	AVI_ATTN, // (float) attenuation value
+	AVI_PAUSE, // no argument, pauses playback
+	AVI_RESUME, // no argument, resumes playback
 };
 
 struct movie_state_s;

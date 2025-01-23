@@ -76,6 +76,7 @@ struct movie_state_s
 	byte volume;
 	byte active : 1;
 	byte quiet  : 1;
+	byte paused : 1;
 };
 
 qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
@@ -126,6 +127,12 @@ qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 		case AVI_ATTN:
 			fval = va_arg( va, double );
 			Avi->attn = Q_max( 0.0f, fval );
+			break;
+		case AVI_PAUSE:
+			Avi->paused = true;
+			break;
+		case AVI_RESUME:
+			Avi->paused = false;
 			break;
 		default:
 			ret = false;
@@ -253,7 +260,7 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 	int buffer_samples, file_samples, file_bytes;
 	rawchan_t *ch = NULL;
 
-	// keep the same semantics, when S_RAW_SOUND_SOUNDTRACK doesn't play if S_SetStream wasn't enabled
+	// keep the same semantics, when S_RAW_SOUND_SOUNDTRACK doesn't play if S_StartStreaming wasn't enabled
 	qboolean disable_stream = Avi->entnum == S_RAW_SOUND_SOUNDTRACK ? !s_listener.streaming : false;
 
 	if( !dma.initialized || disable_stream || s_listener.paused || !Avi->cached_audio )
@@ -354,6 +361,13 @@ qboolean AVI_Think( movie_state_t *Avi )
 	if( !Avi->first_time ) // always remember at which timestamp we started playing
 		Avi->first_time = curtime;
 
+	if( Avi->paused )
+	{
+		// FIXME: there might be a better way to do this
+		Avi->last_time = curtime;
+		return true;
+	}
+
 	Con_NPrintf( 1, "cached_audio_buf_len = %zu", Avi->cached_audio_buf_len );
 
 	while( 1 ) // try to get multiple decoded frames to keep up when we're running at low fps
@@ -380,7 +394,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 			{
 				res = avcodec_send_packet( Avi->video_ctx, Avi->pkt );
 				if( res < 0 )
-					AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (audio)", res );
+					AVI_SpewAvError( Avi->quiet, "avcodec_send_packet (video)", res );
 			}
 			av_packet_unref( Avi->pkt );
 		}
