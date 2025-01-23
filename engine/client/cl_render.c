@@ -233,7 +233,7 @@ static intptr_t pfnRenderGetParm( int parm, int arg )
 	return CL_RenderGetParm( parm, arg, true );
 }
 
-static void pfnAVI_StreamSound( void *avi, int entnum, float fvol, float attn, float synctime )
+static void pfnAVI_StreamSound( movie_state_t *avi, int entnum, float fvol, float attn, float synctime )
 {
 	return; // stub, use AVI_SetParm and AVI_Think to stream AVI sound
 }
@@ -263,16 +263,16 @@ static render_api_t gRenderAPI =
 	NULL, // DrawSingleDecal,
 	NULL, // R_DecalSetupVerts,
 	NULL, // R_EntityRemoveDecals,
-	(void*)AVI_LoadVideo,
-	(void*)AVI_GetVideoInfo,
-	(void*)AVI_GetVideoFrameNumber,
-	(void*)AVI_GetVideoFrame,
+	AVI_LoadVideo,
+	AVI_GetVideoInfo,
+	AVI_GetVideoFrameNumber,
+	AVI_GetVideoFrame,
 	NULL, // R_UploadStretchRaw,
-	(void*)AVI_FreeVideo,
-	(void*)AVI_IsActive,
-	(void*)pfnAVI_StreamSound,
-	NULL,
-	NULL,
+	AVI_FreeVideo,
+	AVI_IsActive,
+	pfnAVI_StreamSound,
+	AVI_Think,
+	AVI_SetParm,
 	NULL, // GL_Bind,
 	NULL, // GL_SelectTexture,
 	NULL, // GL_LoadTexMatrixExt,

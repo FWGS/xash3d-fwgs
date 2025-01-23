@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "platform/platform.h"
 
-#define SND_CLIP_DISTANCE		1000.0f
-
 dma_t		dma;
 poolhandle_t sndpool;
 static soundfade_t	soundfade;
@@ -1111,7 +1109,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 S_RawSamplesStereo
 ===================
 */
-static uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
+uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
 {
 	uint	fracstep, samplefrac;
 	uint	src, dst;
@@ -1191,20 +1189,6 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 	ch->dist_mult = (ATTN_NONE / SND_CLIP_DISTANCE);
 	ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data );
 	ch->leftvol = ch->rightvol = snd_vol;
-}
-
-/*
-===================
-S_RawSamples
-===================
-*/
-void S_RawSamples( uint samples, uint rate, word width, word channels, const byte *data, int entnum )
-{
-	int	snd_vol = 128;
-
-	if( entnum < 0 ) snd_vol = 256; // bg track or movie track
-
-	S_RawEntSamples( entnum, samples, rate, width, channels, data, snd_vol );
 }
 
 /*
@@ -1610,7 +1594,6 @@ void SND_UpdateSound( void )
 	}
 
 	S_StreamBackgroundTrack ();
-	S_StreamSoundTrack ();
 
 	// mix some sound
 	S_UpdateChannels ();
