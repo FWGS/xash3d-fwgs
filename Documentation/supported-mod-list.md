@@ -39,7 +39,7 @@
 # List of Half-Life-based mods
 Originally this list was written by *Qwertyus*(*Qortez*)
 
-To install these mods:
+To install and run these mods:
 1. Place mod folder in the same directory as your **valve** folder is located
 2. xash3d-fwgs will automatically scan for mods on load
 3. In the "Custom Game" menu, your mods will show
