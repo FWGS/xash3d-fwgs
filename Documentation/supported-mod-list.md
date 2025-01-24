@@ -142,7 +142,7 @@ For mappacks - place *.bsp files to **valve/maps** folder, *.wad files to **valv
 90. [Half-Life C.A.G.E.D.](https://store.steampowered.com/app/679990/HalfLife_Caged/) (set **-num edicts 4096** in command-line parameters for successful start)
 90. [Half-Life: Dreamcast v1.1](https://www.moddb.com/mods/half-life-dreamcast)
 91. [Half-Life: OPS](https://www.runthinkshootlive.com/posts/half-life-ops/) 
-92. [Half-Life: Uplink](https://www.halflifeuplink.com) (download [hlulsl-2.1.zip](https://www.halflifeuplink.com/pub/hlulsl/hlulsl-2.1.zip), extract, rename `src` to `uplink` and move to base mod directory)
+92. [Half-Life: Uplink](https://www.fileplanet.com/10360/10000/fileinfo/Half-Life:-UpLink-Demo)
 92. [Half-Quake](https://www.moddb.com/mods/halfquake-amen)
 93. [Half-Quake 2: Amen](https://www.moddb.com/mods/halfquake-amen)
 94. [Hard 2](https://www.runthinkshootlive.com/posts/hard-2/) (set **fps_max** to **60** to prevent a possible sticking of Barney on an elevator in the beginning of the mod)
