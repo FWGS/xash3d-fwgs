@@ -1,4 +1,4 @@
-/*
+﻿/*
 console.c - developer console
 Copyright (C) 2007 Uncle Mike
 
@@ -617,19 +617,87 @@ Con_UtfProcessChar
 Convert utf char to current font's single-byte encoding
 ============================
 */
+// int Con_UtfProcessCharForce( int in )
+// {
+// 	// TODO: get rid of global state where possible
+// 	static utfstate_t state = { 0 };
+
+// 	int ch = Q_DecodeUTF8( &state, in );
+
+// 	if( g_codepage == 1251 )
+// 		return Q_UnicodeToCP1251( ch );
+// 	if( g_codepage == 1252 )
+// 		return Q_UnicodeToCP1252( ch );
+
+// 	return '?'; // not implemented yet
+// }
 int Con_UtfProcessCharForce( int in )
 {
-	// TODO: get rid of global state where possible
-	static utfstate_t state = { 0 };
+	static int m = -1, k = 0; //multibyte state
+	static int uc = 0; //unicode char
 
-	int ch = Q_DecodeUTF8( &state, in );
+	if( !in )
+	{
+		m = -1;
+		k = 0;
+		uc = 0;
+		return 0;
+	}
 
-	if( g_codepage == 1251 )
-		return Q_UnicodeToCP1251( ch );
-	if( g_codepage == 1252 )
-		return Q_UnicodeToCP1252( ch );
+	// Get character length
+	if(m == -1)
+	{
+		uc = 0;
+		if( in >= 0xF8 )
+		{
+			return 0;
+		}
+		else if( in >= 0xF0 )
+		{
+			uc = in & 0x07;
+			m = 3;
+		}
+		else if( in >= 0xE0 )
+		{
+			uc = in & 0x0F;
+			m = 2;
+		}
+		else if( in >= 0xC0 )
+		{
+			uc = in & 0x1F;
+			m = 1;
+		}
+		else if( in <= 0x7F )
+		{
+			return in; // ascii
+		}
+		// return 0 if we need more chars to decode one
+		k = 0;
+		return 0;
+	}
+	// get more chars
+	else if( k <= m )
+	{
+		uc <<= 6;
+		uc += in & 0x3F;
+		k++;
+	}
+	if( in > 0xBF || m < 0 )
+	{
+		m = -1;
+		return 0;
+	}
 
-	return '?'; // not implemented yet
+	if( k == m )
+	{
+		k = m = -1;
+
+		return uc;
+
+		// not implemented yet
+		// return '?';
+	}
+	return 0;
 }
 
 int GAME_EXPORT Con_UtfProcessChar( int in )

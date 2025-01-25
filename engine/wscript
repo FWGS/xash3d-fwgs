@@ -149,6 +149,10 @@ def build(bld):
 		'common/soundlib/*.c',
 		'server/*.c'])
 
+    # bld.env.append_value('CFLAGS', bld.env['FREETYPE_CFLAGS'])
+	bld.env.append_value('LIBPATH', 'E:\\Work\\GoldSrc\\xash3d-fwgs\\engine\\client\\freetype2\\lib')
+	bld.env.append_value('LIB', ['freetype'])
+
 	if bld.env.ENGINE_TESTS:
 		source += bld.path.ant_glob(['tests/*.c'])
 
@@ -265,7 +269,7 @@ def build(bld):
 	bld(source = source,
 		target = 'xash',
 		features = features,
-		includes = 'server client client/vgui common/soundlib',
+		includes = 'server client client/vgui client/freetype2/include common/soundlib',
 		use = libs,
 		install_path = install_path,
 		nro_install_path = bld.env.BINDIR,
