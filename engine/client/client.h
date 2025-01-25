@@ -1209,6 +1209,13 @@ void Key_EnableTextInput( qboolean enable, qboolean force );
 int Key_ToUpper( int key );
 void OSK_Draw( void );
 
+//
+// identification.c
+//
+void ID_Init( void );
+const char *ID_GetMD5( void );
+void GAME_EXPORT ID_SetCustomClientID( const char *id );
+
 extern rgba_t g_color_table[8];
 extern triangleapi_t gTriApi;
 extern net_api_t gNetApi;

@@ -185,7 +185,7 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
 //
 static inline void Matrix3x4_LoadIdentity( matrix3x4 m )
 {
-	memset( m, 0, sizeof( *m ));
+	memset( m, 0, sizeof( matrix3x4 ));
 	m[0][0] = m[1][1] = m[2][2] = 1.0f;
 }
 #define Matrix3x4_Copy( out, in )		memcpy( out, in, sizeof( matrix3x4 ))
@@ -201,7 +201,7 @@ void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out );
 
 static inline void Matrix4x4_LoadIdentity( matrix4x4 m )
 {
-	memset( m, 0, sizeof( *m ));
+	memset( m, 0, sizeof( matrix4x4 ));
 	m[0][0] = m[1][1] = m[2][2] = m[3][3] = 1.0f;
 }
 #define Matrix4x4_Copy( out, in )	memcpy( out, in, sizeof( matrix4x4 ))
