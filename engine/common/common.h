@@ -876,13 +876,6 @@ void V_CheckGammaEnd( void );
 intptr_t V_GetGammaPtr( int parm );
 
 //
-// identification.c
-//
-void ID_Init( void );
-const char *ID_GetMD5( void );
-void GAME_EXPORT ID_SetCustomClientID( const char *id );
-
-//
 // masterlist.c
 //
 void NET_InitMasters( void );
