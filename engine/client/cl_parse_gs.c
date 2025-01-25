@@ -217,7 +217,7 @@ static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t
 	if(( newnum < 0 ) || ( newnum >= clgame.maxEntities ))
 	{
 		Con_DPrintf( S_ERROR "CL_DeltaEntity: invalid newnum: %d\n", newnum );
-		Host_Error( "%s: bad delta entity number: %i", __func__, newnum );
+		Host_Error( "%s: bad delta entity number: %i\n", __func__, newnum );
 		return;
 	}
 
