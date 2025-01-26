@@ -218,24 +218,24 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 	FT_Set_Pixel_Sizes(face, font->charHeight, font->charHeight);
 
     // used FT_LOAD_RENDER
-	if (FT_Load_Char(face, number, FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_NORMAL))
+	if (FT_Load_Char(face, number, FT_LOAD_RENDER))
 	{
 		return 0;
 	}
 
 	// may be dont need this
-	FT_Glyph sGlyph;
-	if (FT_Get_Glyph(face->glyph, &sGlyph)) return 0;
-	FT_Render_Glyph(face->glyph, FT_RENDER_MODE_LCD);
-	FT_Glyph_To_Bitmap(&sGlyph, ft_render_mode_normal, 0, 1);
-	FT_BitmapGlyph sBitmapGlyph = (FT_BitmapGlyph)sGlyph;
+	// FT_Glyph sGlyph;
+	// if (FT_Get_Glyph(face->glyph, &sGlyph)) return 0;
+	// FT_Render_Glyph(face->glyph, FT_RENDER_MODE_LCD);
+	// FT_Glyph_To_Bitmap(&sGlyph, ft_render_mode_normal, 0, 1);
+	// FT_BitmapGlyph sBitmapGlyph = (FT_BitmapGlyph)sGlyph;
 
 	Q_snprintf( texname, sizeof( texname ), "font_%i", number);
 
 	if( !( tex = ref.dllFuncs.GL_FindTexture( texname ) ) )
 	{
 		
-		FT_Bitmap bitmap = sBitmapGlyph->bitmap;
+		FT_Bitmap bitmap = face->glyph->bitmap;
 
 		if (!bitmap.width || !bitmap.rows)
 		{
