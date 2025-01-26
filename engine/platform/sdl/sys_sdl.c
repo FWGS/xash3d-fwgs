@@ -86,7 +86,7 @@ void SDLash_Init( const char *basedir )
 	{
 		char buf[MAX_VA_STRING];
 
-		Q_snprintf( buf, sizeof( buf ), "%s%s/extras.pk3", basedir, path );
+		Q_snprintf( buf, sizeof( buf ), "%s%s/extras.pk3", path, basedir );
 		setenv( "XASH3D_EXTRAS_PAK1", buf, true );
 	}
 #endif
