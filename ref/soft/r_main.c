@@ -1337,7 +1337,7 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 R_EndFrame
 ===============
 */
-void GAME_EXPORT R_EndFrame( void )
+void GAME_EXPORT R_EndFrame( qboolean screen_redrawn )
 {
 	// flush any remaining 2D bits
 	R_Set2DMode( false );

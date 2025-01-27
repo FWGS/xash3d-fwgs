@@ -57,7 +57,8 @@ GNU General Public License for more details.
 //    CL_RunLightStyles now accepts lightstyles array.
 //    Removed R_DrawTileClear and Mod_LoadMapSprite, as they're implemented on engine side
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
-#define REF_API_VERSION 9
+// 10. Engine now tells R_EndFrame whether screen has been redrawn completely to prevent garbage.
+#define REF_API_VERSION 10
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -490,7 +491,7 @@ typedef struct ref_interface_s
 	void (*R_GammaChanged)( qboolean do_reset_gamma );
 	void (*R_BeginFrame)( qboolean clearScene );
 	void (*R_RenderScene)( void );
-	void (*R_EndFrame)( void );
+	void (*R_EndFrame)( qboolean screen_redrawn );
 	void (*R_PushScene)( void );
 	void (*R_PopScene)( void );
 	void (*GL_BackendStartFrame)( void );

@@ -814,7 +814,7 @@ void SCR_TimeRefresh_f( void )
 			R_RenderScene();
 		}
 		pglFinish();
-		R_EndFrame();
+		R_EndFrame( true );
 	}
 	else
 	{
@@ -823,7 +823,7 @@ void SCR_TimeRefresh_f( void )
 			R_BeginFrame( true );
 			gpGlobals->viewangles[1] = i / 128.0f * 360.0f;
 			R_RenderScene();
-			R_EndFrame();
+			R_EndFrame( true );
 		}
 	}
 

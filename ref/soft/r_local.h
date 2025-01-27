@@ -532,7 +532,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 void R_GammaChanged( qboolean do_reset_gamma );
 void R_BeginFrame( qboolean clearScene );
 void R_RenderFrame( const struct ref_viewpass_s *vp );
-void R_EndFrame( void );
+void R_EndFrame( qboolean screen_redrawn );
 void R_ClearScene( void );
 void R_GetTextureParms( int *w, int *h, int texnum );
 void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int curFrame, const struct model_s *pSprite );

@@ -1161,7 +1161,7 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 R_EndFrame
 ===============
 */
-void R_EndFrame( void )
+void R_EndFrame( qboolean screen_redrawn )
 {
 #if XASH_PSVITA
 	VGL_ShimEndFrame();
@@ -1171,7 +1171,9 @@ void R_EndFrame( void )
 #endif
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
-	gEngfuncs.GL_SwapBuffers();
+
+	if( screen_redrawn )
+		gEngfuncs.GL_SwapBuffers();
 }
 
 /*

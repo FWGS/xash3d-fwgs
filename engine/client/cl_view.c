@@ -504,9 +504,22 @@ V_PostRender
 
 ==================
 */
-void V_PostRender( void )
+void V_PostRender( qboolean screen_redrawn )
 {
 	qboolean		draw_2d = false;
+
+	// when screen hasn't been redrawn, do not draw 2d and do not swap buffers
+	// to prevent garbage on screen with ImgTec and Adreno GPUs
+	//
+	// but still call R_EndFrame so renderer have a chance to reset it's internal state
+	// (required for ref_vk)
+	if( !screen_redrawn )
+	{
+		Platform_SetTimer( 0.0f );
+		ref.dllFuncs.R_EndFrame( false );
+		V_CheckGammaEnd();
+		return;
+	}
 
 	ref.dllFuncs.R_AllowFog( false );
 	ref.dllFuncs.R_Set2DMode( true );
@@ -553,7 +566,7 @@ void V_PostRender( void )
 	SCR_MakeScreenShot();
 	ref.dllFuncs.R_AllowFog( true );
 	Platform_SetTimer( 0.0f );
-	ref.dllFuncs.R_EndFrame();
+	ref.dllFuncs.R_EndFrame( true );
 
 	V_CheckGammaEnd();
 }

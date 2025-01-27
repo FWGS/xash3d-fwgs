@@ -699,11 +699,7 @@ void SCR_UpdateScreen( void )
 		break;
 	}
 
-	// during changelevel we might have a few frames when we have nothing to draw
-	// (assuming levelshots are off) and drawing 2d on top of nothing or cleared screen
-	// is ugly, specifically with Adreno and ImgTec GPUs
-	if( screen_redraw || !cls.changelevel || !cls.changedemo )
-		V_PostRender();
+	V_PostRender( screen_redraw || !cls.changelevel || !cls.changedemo );
 }
 
 /*
