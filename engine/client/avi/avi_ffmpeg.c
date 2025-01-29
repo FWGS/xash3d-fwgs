@@ -368,7 +368,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 		return true;
 	}
 
-	Con_NPrintf( 1, "cached_audio_buf_len = %zu", Avi->cached_audio_buf_len );
+	// Con_NPrintf( 1, "cached_audio_buf_len = %zu", Avi->cached_audio_buf_len );
 
 	while( 1 ) // try to get multiple decoded frames to keep up when we're running at low fps
 	{
