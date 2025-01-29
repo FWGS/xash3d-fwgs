@@ -448,6 +448,7 @@ FS_ClearSearchPath
 void FS_ClearSearchPath( void )
 {
 	searchpath_t *cur, **prev;
+	int i;
 
 	prev = &fs_searchpaths;
 
@@ -468,6 +469,12 @@ void FS_ClearSearchPath( void )
 		*prev = cur->next;
 		cur->pfnClose( cur );
 		Mem_Free( cur );
+	}
+
+	for( i = 0; i < FI.numgames; i++ )
+	{
+		if( FI.games[i] )
+			FI.games[i]->added = false;
 	}
 }
 
