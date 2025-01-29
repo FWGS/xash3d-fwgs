@@ -720,12 +720,32 @@ void R_AnimateRipples( void )
 	R_RunRipplesAnimation( g_ripple.oldbuf, g_ripple.curbuf );
 }
 
+static void R_GetRippleTextureSize( const texture_t *image, int *width, int *height )
+{
+	// try to preserve aspect ratio
+	if( image->width > image->height )
+	{
+		*width = RIPPLES_CACHEWIDTH;
+		*height = (float)image->height / image->width * RIPPLES_CACHEWIDTH;
+	}
+	else if( image->width < image->height )
+	{
+		*width = (float)image->width / image->height * RIPPLES_CACHEWIDTH;
+		*height = RIPPLES_CACHEWIDTH;
+	}
+	else
+	{
+		*width = *height = RIPPLES_CACHEWIDTH;
+	}
+}
+
 qboolean R_UploadRipples( texture_t *image )
 {
 	const gl_texture_t *glt;
 	const uint32_t *pixels;
 	int y;
 	int width, height, size;
+	qboolean update = g_ripple.update;
 
 	if( !r_ripple.value )
 	{
@@ -735,24 +755,19 @@ qboolean R_UploadRipples( texture_t *image )
 
 	// discard unuseful textures
 	glt = R_GetTexture( image->gl_texturenum );
-	if( !glt || !glt->original || !glt->original->buffer || !FBitSet( glt->flags, TF_EXPAND_SOURCE ))
+	if( !glt || !glt->original || !glt->original->buffer )
 	{
 		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
 		return false;
 	}
 
-	// try to preserve aspect ratio
-	width = height = RIPPLES_CACHEWIDTH; // always render at maximum size
-	if( image->width > image->height )
-		height = (float)image->height / image->width * width;
-	else if( image->width < image->height )
-		width = (float)image->width / image->height * height;
-
 	if( !image->fb_texturenum )
 	{
 		rgbdata_t pic = { 0 };
 		string name;
+
 		Q_snprintf( name, sizeof( name ), "*rippletex_%s", image->name );
+		R_GetRippleTextureSize( image, &width, &height );
 
 		pic.width = width;
 		pic.height = height;
@@ -765,13 +780,21 @@ qboolean R_UploadRipples( texture_t *image )
 		memset( pic.buffer, 0, pic.size );
 
 		image->fb_texturenum = GL_LoadTextureInternal( name, &pic, TF_NOMIPMAP | TF_ALLOW_NEAREST );
+
+		update = true;
+		image->dt_texturenum = ( tr.framecount - 1 ) & 0xFFFF;
 	}
 
 	GL_Bind( XASH_TEXTURE0, image->fb_texturenum );
 
 	// no updates this frame
-	if( !g_ripple.update )
+	if( !update || image->dt_texturenum == ( tr.framecount & 0xFFFF ))
 		return true;
+
+	// prevent rendering texture multiple times in frame
+	image->dt_texturenum = tr.framecount & 0xFFFF;
+
+	R_GetRippleTextureSize( image, &width, &height );
 
 	size = r_ripple.value == 1.0f ? 64 : RIPPLES_CACHEWIDTH;
 	pixels = (const uint32_t *)glt->original->buffer;
