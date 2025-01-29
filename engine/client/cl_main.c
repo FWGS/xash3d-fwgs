@@ -3666,6 +3666,8 @@ void CL_Init( void )
 	if( !CL_LoadProgs( libpath ))
 		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
 
+	ID_Init();
+
 	cls.build_num = 0;
 	cls.initialized = true;
 	cl.maxclients = 1; // allow to drawing player in menu

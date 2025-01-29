@@ -39,7 +39,14 @@
 # List of Half-Life-based mods
 Originally this list was written by *Qwertyus*(*Qortez*)
 
-To run mods from this category - place mod folder to folder where is **valve** folder located and launch xash3d fwgs with command-line parameter `-game <modfolder>`.
+To install and run these mods:
+1. Place mod folder in the same directory as your **valve** folder is located
+2. xash3d-fwgs will automatically scan for mods on load
+3. In the "Custom Game" menu, your mods will show
+4. Select a mod, and then "Activate"
+5. The application will restart with your mod loaded
+
+Mods can also be launched directly by passing in the `-game` argument with the name of the folder your mod is in. For example, if my mod folder is named "uplink", then the command is `./xash3d -game uplink`.
 
 For mappacks - place *.bsp files to **valve/maps** folder, *.wad files to **valve** and type **`map <mapname>`** cmd.
 ## The big singleplayer mods and mappacks

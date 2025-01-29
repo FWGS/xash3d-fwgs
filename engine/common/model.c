@@ -328,8 +328,8 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 			{
 				// let the server.dll load custom data
 				svgame.physFuncs.Mod_ProcessUserData( mod, true, buf );
-				loaded2 = true;
 			}
+			loaded2 = true;
 		}
 #if !XASH_DEDICATED
 		else

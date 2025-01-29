@@ -1256,7 +1256,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	CL_Init();
 
 	HTTP_Init();
-	ID_Init();
 	SoundList_Init();
 
 	if( Host_IsDedicated( ))

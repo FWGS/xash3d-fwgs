@@ -145,7 +145,7 @@ void Wcon_ShowConsole( qboolean show )
 
 void Wcon_DisableInput( void )
 {
-	if( host.type != HOST_DEDICATED )
+	if( host.type != HOST_DEDICATED || !s_wcd.hWnd )
 		return;
 
 	s_wcd.inputEnabled = false;
@@ -469,6 +469,9 @@ print into window console
 */
 void Wcon_WinPrint( const char *pMsg )
 {
+	if( !s_wcd.hWnd )
+		return;
+
 	int nLen;
 	if( s_wcd.consoleTextLen )
 	{
@@ -515,13 +518,18 @@ void Wcon_CreateConsole( qboolean con_showalways )
 	}
 
 	s_wcd.attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
-	if( s_wcd.attached ) {
+	if( s_wcd.attached )
+	{
 		GetConsoleTitle( &s_wcd.previousTitle, sizeof( s_wcd.previousTitle ));
 		s_wcd.previousCodePage = GetConsoleCP();
 		s_wcd.previousOutputCodePage = GetConsoleOutputCP();
 	}
-	else {
-		AllocConsole();
+	else
+	{
+		if( host.type != HOST_DEDICATED && host_developer.value == DEV_NONE )
+			return; // don't initialize console in case of regular game startup, it's useless anyway
+		else
+			AllocConsole();
 	}
 
 	SetConsoleTitle( s_wcd.title );
@@ -570,7 +578,7 @@ register console commands (dedicated only)
 */
 void Wcon_InitConsoleCommands( void )
 {
-	if( host.type != HOST_DEDICATED )
+	if( host.type != HOST_DEDICATED || !s_wcd.hWnd )
 		return;
 
 	Cmd_AddCommand( "clear", Wcon_Clear_f, "clear console history" );
@@ -623,7 +631,7 @@ char *Wcon_Input( void )
 	DWORD eventsCount;
 	static INPUT_RECORD events[1024];
 	
-	if( !s_wcd.inputEnabled )
+	if( !s_wcd.inputEnabled || !s_wcd.hWnd )
 		return NULL;
 
 	while( true )
@@ -666,7 +674,7 @@ set server status string in console
 */
 void Platform_SetStatus( const char *pStatus )
 {
-	if( s_wcd.attached )
+	if( s_wcd.attached || !s_wcd.hWnd )
 		return;
 
 	Q_strncpy( s_wcd.statusLine, pStatus, sizeof( s_wcd.statusLine ) - 1 );
