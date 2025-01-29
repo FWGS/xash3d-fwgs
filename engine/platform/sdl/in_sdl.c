@@ -224,6 +224,23 @@ static int SDLash_JoyInit_Old( int numjoy )
 }
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
+static void SDLash_GameControllerAddMappings( const char *name )
+{
+	fs_offset_t len = 0;
+	byte *p = FS_LoadFile( name, &len, false );
+
+	if( !p )
+		return;
+
+	if( len > 0 && len < INT32_MAX ) // function accepts int, SDL3 fixes this
+	{
+		SDL_RWops *rwops = SDL_RWFromConstMem( p, len );
+		SDL_GameControllerAddMappingsFromRW( rwops, true );
+	}
+
+	Mem_Free( p );
+}
+
 /*
 =============
 SDLash_JoyInit_New
@@ -242,7 +259,8 @@ static int SDLash_JoyInit_New( int numjoy )
 		return 0;
 	}
 
-	SDL_GameControllerAddMappingsFromFile( "controllermappings.txt" );
+	SDLash_GameControllerAddMappings( "gamecontrollerdb.txt" ); // shipped in extras.pk3
+	SDLash_GameControllerAddMappings( "controllermappings.txt" );
 
 	count = 0;
 	numJoysticks = SDL_NumJoysticks();
