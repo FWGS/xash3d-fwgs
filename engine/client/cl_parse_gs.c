@@ -91,11 +91,11 @@ static void CL_ParseNewMovevars( sizebuf_t *msg )
 
 typedef struct delta_header_t
 {
-	qboolean remove : 1;
-	qboolean custom : 1;
-	qboolean instanced : 1;
-	uint instanced_baseline_index : 6;
-	uint offset : 6;
+	qboolean remove;
+	qboolean custom;
+	qboolean instanced;
+	uint16_t instanced_baseline_index;
+	uint16_t offset;
 } delta_header_t;
 
 static int CL_ParseDeltaHeader( sizebuf_t *msg, qboolean delta, int oldnum, struct delta_header_t *hdr )
@@ -217,7 +217,7 @@ static void CL_DeltaEntityGS( const delta_header_t *hdr, sizebuf_t *msg, frame_t
 	if(( newnum < 0 ) || ( newnum >= clgame.maxEntities ))
 	{
 		Con_DPrintf( S_ERROR "CL_DeltaEntity: invalid newnum: %d\n", newnum );
-		Host_Error( "%s: bad delta entity number: %i", __func__, newnum );
+		Host_Error( "%s: bad delta entity number: %i\n", __func__, newnum );
 		return;
 	}
 

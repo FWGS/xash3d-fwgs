@@ -448,6 +448,7 @@ FS_ClearSearchPath
 void FS_ClearSearchPath( void )
 {
 	searchpath_t *cur, **prev;
+	int i;
 
 	prev = &fs_searchpaths;
 
@@ -468,6 +469,12 @@ void FS_ClearSearchPath( void )
 		*prev = cur->next;
 		cur->pfnClose( cur );
 		Mem_Free( cur );
+	}
+
+	for( i = 0; i < FI.numgames; i++ )
+	{
+		if( FI.games[i] )
+			FI.games[i]->added = false;
 	}
 }
 
@@ -1192,10 +1199,10 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	qboolean isGameDir = flags & FS_GAMEDIR_PATH;
 	char buf[MAX_VA_STRING];
 
-	GI->added = true;
-
 	if( !COM_CheckString( dir ))
 		return;
+
+	Con_Printf( "%s( %s )\n", __func__, dir );
 
 	// add the common game directory
 
@@ -1207,12 +1214,21 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 		{
 			dir = FI.games[i]->gamefolder; // fixup directory case
 
+			if( FI.games[i]->added ) // already added, refusing
+				break;
+
+			// don't add our game directory as base dir to prevent cyclic dependency
+			if( Q_stricmp( FI.games[i]->basedir, GI->gamefolder ))
+				break;
+
+			// don't add directory which basedir is equal to this gamefolder to prevent
+			// endless loop
+			if( Q_stricmp( FI.games[i]->basedir, FI.games[i]->gamefolder ))
+				break;
+
 			Con_Reportf( "%s: adding recursive basedir %s\n", __func__, FI.games[i]->basedir );
-			if( !FI.games[i]->added && Q_stricmp( FI.games[i]->gamefolder, FI.games[i]->basedir ))
-			{
-				FI.games[i]->added = true;
-				FS_AddGameHierarchy( FI.games[i]->basedir, flags & (~FS_GAMEDIR_PATH) );
-			}
+			FI.games[i]->added = true;
+			FS_AddGameHierarchy( FI.games[i]->basedir, flags & (~FS_GAMEDIR_PATH));
 			break;
 		}
 	}
@@ -1269,6 +1285,8 @@ void FS_Rescan( void )
 		FS_AddGameHierarchy( GI->basedir, 0 );
 	if( Q_stricmp( GI->basedir, GI->falldir ) && Q_stricmp( GI->gamefolder, GI->falldir ))
 		FS_AddGameHierarchy( GI->falldir, 0 );
+
+	GI->added = true;
 	FS_AddGameHierarchy( GI->gamefolder, FS_GAMEDIR_PATH );
 }
 
