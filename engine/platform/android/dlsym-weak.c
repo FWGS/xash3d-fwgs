@@ -32,7 +32,7 @@
 #include <android/log.h>
 #include "linker.h"
 
-static const Elf_Sym *soinfo_elf_lookup( const soinfo *si, unsigned hash, const char *name )
+static const Elf_Sym *soinfo_elf_lookup( const struct soinfo *si, unsigned hash, const char *name )
 {
 	const Elf_Sym *symtab = si->symtab;
 	const char    *strtab = si->strtab;
@@ -87,14 +87,14 @@ static unsigned elfhash( const unsigned char *name )
    Binary Interface) where in Chapter 5 it discuss resolving "Shared
    Object Dependencies" in breadth first search order.
  */
-static const Elf_Sym *dlsym_handle_lookup( const soinfo *si, const char *name )
+static const Elf_Sym *dlsym_handle_lookup( const struct soinfo *si, const char *name )
 {
 	return soinfo_elf_lookup( si, elfhash((const unsigned char *)name ), name );
 }
 
-extern "C" void *dlsym_weak( void *handle, const char *symbol )
+void *dlsym_weak( void *handle, const char *symbol )
 {
-	const soinfo  *found = (soinfo *)handle;
+	const struct soinfo *found = (struct soinfo *)handle;
 	const Elf_Sym *sym = dlsym_handle_lookup( found, symbol );
 
 	if( sym != NULL )
