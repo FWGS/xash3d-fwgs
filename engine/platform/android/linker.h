@@ -31,10 +31,8 @@
 
 #include <unistd.h>
 #include <sys/types.h>
-// #include <elf.h>
+#include <stdbool.h>
 #include <linux/elf.h>
-// #include <sys/exec_elf.h>
-// #include <link.h>
 
 // a1ba: we don't really need custom linker on Android 64, because
 // it's only intended to workaround bug which persist on Android < 4.4
@@ -69,8 +67,8 @@ struct link_map_t {
 	uintptr_t  l_addr;
 	char       *l_name;
 	uintptr_t  l_ld;
-	link_map_t *l_next;
-	link_map_t *l_prev;
+	struct link_map_t *l_next;
+	struct link_map_t *l_prev;
 };
 
 // Values for r_debug->state
@@ -85,7 +83,7 @@ enum {
 
 #define SOINFO_NAME_LEN 128
 
-typedef void (*linker_function_t)();
+typedef void (*linker_function_t)( void );
 
 // Android uses REL for 32-bit but only uses RELA for 64-bit.
 #if defined( __LP64__ )
@@ -93,7 +91,6 @@ typedef void (*linker_function_t)();
 #endif
 
 struct soinfo {
-public:
 	char           name[SOINFO_NAME_LEN];
 	const Elf_Phdr *phdr;
 	size_t         phnum;
@@ -112,7 +109,7 @@ public:
 	uint32_t       unused3; // DO NOT USE, maintained for compatibility
 #endif
 
-	soinfo         *next;
+	struct soinfo  *next;
 	unsigned       flags;
 
 	const char     *strtab;
@@ -164,8 +161,8 @@ public:
 	unsigned   mips_gotsym;
 #endif
 
-	size_t     ref_count;
-	link_map_t link_map;
+	size_t            ref_count;
+	struct link_map_t link_map;
 
 	bool       constructors_called;
 
@@ -177,14 +174,6 @@ public:
 	bool     has_text_relocations;
 #endif
 	bool     has_DT_SYMBOLIC;
-
-	void CallConstructors();
-	void CallDestructors();
-	void CallPreInitConstructors();
-
-private:
-	void CallArray( const char *array_name, linker_function_t *functions, size_t count, bool reverse );
-	void CallFunction( const char *function_name, linker_function_t function );
 };
 
 #endif
