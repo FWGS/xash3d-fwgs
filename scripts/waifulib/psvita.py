@@ -96,7 +96,7 @@ def apply_sfo(self):
 	self.sfo_task = self.create_task('mksfoex', in_nodes)
 	self.sfo_task.set_outputs(out_nodes)
 
-@TaskGen.feature('cxxprogram')
+@TaskGen.feature('cxxprogram', 'cprogram')
 @TaskGen.after_method('apply_sfo')
 def apply_vpk(self):
 	fselffile = self.fself_task.outputs[0]
