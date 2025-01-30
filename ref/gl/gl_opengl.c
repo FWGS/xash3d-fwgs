@@ -466,32 +466,6 @@ static void GL_SetExtension( int r_ext, int enable )
 
 /*
 =================
-GL_Support
-=================
-*/
-qboolean GL_Support( int r_ext )
-{
-	if( r_ext >= 0 && r_ext < GL_EXTCOUNT )
-		return glConfig.extension[r_ext] ? true : false;
-	gEngfuncs.Con_Printf( S_ERROR "%s: invalid extension %d\n", __func__, r_ext );
-
-	return false;
-}
-
-/*
-=================
-GL_MaxTextureUnits
-=================
-*/
-int GL_MaxTextureUnits( void )
-{
-	if( GL_Support( GL_SHADER_GLSL100_EXT ))
-		return Q_min( Q_max( glConfig.max_texture_coords, glConfig.max_teximage_units ), MAX_TEXTURE_UNITS );
-	return glConfig.max_texture_units;
-}
-
-/*
-=================
 GL_CheckExtension
 =================
 */
