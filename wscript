@@ -86,24 +86,24 @@ SUBDIRS = [
 	Subproject('dllemu'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
-	Subproject('3rdparty/extras',       lambda x: not x.env.DEDICATED and x.env.DEST_OS != 'android'),
-	Subproject('3rdparty/nanogl',       lambda x: not x.env.DEDICATED and x.env.NANOGL),
-	Subproject('3rdparty/gl-wes-v2',    lambda x: not x.env.DEDICATED and x.env.GLWES),
-	Subproject('3rdparty/gl4es',        lambda x: not x.env.DEDICATED and x.env.GL4ES),
-	Subproject('ref/gl',                lambda x: not x.env.DEDICATED and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
-	Subproject('ref/soft',              lambda x: not x.env.DEDICATED and x.env.SOFT),
-	Subproject('ref/null',              lambda x: not x.env.DEDICATED and x.env.NULL),
-	Subproject('3rdparty/bzip2',        lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_BZ2),
-	Subproject('3rdparty/opus',         lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_OPUS),
-	Subproject('3rdparty/libogg',       lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_OGG),
-	Subproject('3rdparty/vorbis',       lambda x: not x.env.DEDICATED and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
-	Subproject('3rdparty/opusfile',     lambda x: not x.env.DEDICATED and not x.env.HAVE_SYSTEM_OPUSFILE),
-	Subproject('3rdparty/mainui',       lambda x: not x.env.DEDICATED),
-	Subproject('3rdparty/vgui_support', lambda x: not x.env.DEDICATED),
-	Subproject('3rdparty/MultiEmulator',lambda x: not x.env.DEDICATED),
-#	Subproject('3rdparty/freevgui',     lambda x: not x.env.DEDICATED),
-	Subproject('stub/client',           lambda x: not x.env.DEDICATED),
-	Subproject('game_launch',           lambda x: not x.env.DISABLE_LAUNCHER),
+	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
+	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL),
+	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES),
+	Subproject('3rdparty/gl4es',        lambda x: x.env.CLIENT and x.env.GL4ES),
+	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
+	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
+	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
+	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
+	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
+	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
+	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
+	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
+	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT),
+	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
+	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
+#	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
+	Subproject('stub/client',           lambda x: x.env.CLIENT),
+	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
 	Subproject('engine'), # keep latest for static linking
 
 	# enabled optionally
@@ -131,7 +131,10 @@ def options(opt):
 	grp = opt.add_option_group('Common options')
 
 	grp.add_option('-d', '--dedicated', action = 'store_true', dest = 'DEDICATED', default = False,
-		help = 'build Xash Dedicated Server [default: %(default)s]')
+		help = 'only build Xash Dedicated Server [default: %(default)s]')
+
+	grp.add_option('--enable-dedicated', action = 'store_true', dest = 'ENABLE_DEDICATED', default = False,
+		help = 'enable building Xash Dedicated Server alongside client [default: %(default)s]')
 
 	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
 		help = 'engine default (base) game directory [default: %(default)s]')
@@ -395,12 +398,17 @@ def configure(conf):
 	conf.env.ENABLE_UTILS  = conf.options.ENABLE_UTILS
 	conf.env.ENABLE_XAR    = conf.options.ENABLE_XAR
 	conf.env.ENABLE_FUZZER = conf.options.ENABLE_FUZZER
-	conf.env.DEDICATED     = conf.options.DEDICATED
+
+	if not conf.options.DEDICATED:
+		conf.env.SERVER = conf.options.ENABLE_DEDICATED
+		conf.env.CLIENT = True
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
+	else:
+		conf.env.SERVER = True
+		conf.env.CLIENT = False
+		conf.env.LAUNCHER = False
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
-
-	# disable game_launch compiling on platform where it's not needed
-	conf.env.DISABLE_LAUNCHER = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'dos'] or conf.env.MAGX or conf.env.DEDICATED or conf.env.STATIC_LINKING
 
 	if conf.env.SAILFISH == 'aurora':
 		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
@@ -410,6 +418,8 @@ def configure(conf):
 		# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
 		conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
 		conf.env.DEFAULT_RPATH = '$ORIGIN'
+	elif conf.env.DEST_OS in ['nswitch', 'psvita']:
+		conf.env.DEFAULT_RPATH = None
 	else:
 		conf.env.DEFAULT_RPATH = '$ORIGIN'
 
