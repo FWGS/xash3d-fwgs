@@ -555,8 +555,6 @@ void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 #define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
 void GL_CheckForErrors_( const char *filename, const int fileline );
 const char *GL_ErrorString( int err );
-qboolean GL_Support( int r_ext );
-int GL_MaxTextureUnits( void );
 
 //
 // gl_triapi.c
@@ -754,6 +752,22 @@ static inline uint LinearGammaTable( uint b )
 		return 0;
 
 	return !FBitSet( gp_host->features, ENGINE_LINEAR_GAMMA_SPACE ) ? tr.lineargammatable[b] : b;
+}
+
+static inline qboolean GL_Support( int r_ext )
+{
+	if( r_ext >= 0 && r_ext < GL_EXTCOUNT )
+		return glConfig.extension[r_ext] ? true : false;
+	gEngfuncs.Con_Printf( S_ERROR "%s: invalid extension %d\n", __func__, r_ext );
+
+	return false;
+}
+
+static inline int GL_MaxTextureUnits( void )
+{
+	if( GL_Support( GL_SHADER_GLSL100_EXT ))
+		return Q_min( Q_max( glConfig.max_texture_coords, glConfig.max_teximage_units ), MAX_TEXTURE_UNITS );
+	return glConfig.max_texture_units;
 }
 
 #define WORLDMODEL (gp_cl->models[1])
