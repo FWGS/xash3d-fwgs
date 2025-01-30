@@ -247,8 +247,16 @@ static void MakeSkyVec( float s, float t, int axis )
 	s = (s + 1.0f) * 0.5f;
 	t = (t + 1.0f) * 0.5f;
 
-	s = bound( 1.0f / 512.0f, s, 511.0f / 512.0f );
-	t = bound( 1.0f / 512.0f, t, 511.0f / 512.0f );
+	if( GL_Support( GL_CLAMPTOEDGE_EXT ))
+	{
+		s = bound( 0.0f, s, 1.0f );
+		t = bound( 0.0f, t, 1.0f );
+	}
+	else
+	{
+		s = bound( 1.0f / 512.0f, s, 511.0f / 512.0f );
+		t = bound( 1.0f / 512.0f, t, 511.0f / 512.0f );
+	}
 
 	t = 1.0f - t;
 
