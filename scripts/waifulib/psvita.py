@@ -30,6 +30,8 @@ def configure(conf):
 	conf.find_program('vita-mksfoex', var='MKSFOEX')
 	conf.find_program('vita-pack-vpk', var='PACKVPK')
 
+	conf.env.SCESYS_ST = '-a%s=sce_sys'
+
 class mkvelf(Task.Task):
 	color = 'CYAN'
 	run_str = '${ELF_CREATE} -g ${YMLFILE} ${ELFFILE} ${TGT}'
@@ -45,7 +47,7 @@ class mksfoex(Task.Task):
 
 class mkvpk(Task.Task):
 	color = 'CYAN'
-	run_str = '${PACKVPK} -s ${SFOFILE} -b ${FSELFFILE} -a ${SCESYS}=sce_sys ${TGT}'
+	run_str = '${PACKVPK} -s ${SFOFILE} -b ${FSELFFILE} ${SCESYS_ST:SCESYS} ${TGT}'
 
 @TaskGen.feature('cxxprogram', 'cprogram')
 @TaskGen.after_method('apply_link')
@@ -107,7 +109,8 @@ def apply_vpk(self):
 	vpkfile = sfofile.change_ext('.vpk')
 	out_nodes = [vpkfile]
 
-	if scesysdir: self.env.SCESYS = str(scesysdir)
+	if scesysdir:
+		self.env.SCESYS = [str(scesysdir)]
 	self.env.VPKFILE = str(vpkfile)
 
 	self.vpk_task = self.create_task('mkvpk', in_nodes)
