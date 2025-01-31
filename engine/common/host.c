@@ -201,7 +201,6 @@ static void Sys_PrintUsage( const char *exename )
 	O("-daemonize         ", "run engine as a daemon")
 #endif
 #if XASH_SDL == 2
-	O("-sdl_joy_old_api   ","use SDL legacy joystick API")
 	O("-sdl_renderer <n>  ","use alternative SDL_Renderer for software")
 #endif // XASH_SDL
 #if XASH_ANDROID && !XASH_SDL

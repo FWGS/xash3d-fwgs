@@ -1,6 +1,6 @@
 /*
-vid_sdl.c - SDL input component
-Copyright (C) 2018 a1batross
+in_sdl.c - SDL input component
+Copyright (C) 2018-2025 a1batross
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -12,7 +12,6 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#if !XASH_DEDICATED
 #include <SDL.h>
 
 #include "common.h"
@@ -24,7 +23,6 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "vid_common.h"
 
-SDL_Joystick *g_joy = NULL;
 #if !SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
 #else
@@ -126,20 +124,6 @@ void Platform_SetClipboardText( const char *buffer )
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
-/*
-=============
-Platform_Vibrate
-
-=============
-*/
-void Platform_Vibrate( float time, char flags )
-{
-#if SDL_VERSION_ATLEAST( 2, 0, 9 )
-	if( g_joy )
-		SDL_JoystickRumble( g_joy, 0xFFFF, 0xFFFF, time * 1000.0f );
-#endif // SDL_VERSION_ATLEAST( 2, 0, 9 )
-}
-
 #if !XASH_PSVITA
 
 /*
@@ -156,138 +140,6 @@ void Platform_EnableTextInput( qboolean enable )
 }
 
 #endif // !XASH_PSVITA
-
-/*
-=============
-SDLash_JoyInit_Old
-
-=============
-*/
-static int SDLash_JoyInit_Old( int numjoy )
-{
-	int num;
-	int i;
-
-	Con_Reportf( "Joystick: SDL\n" );
-
-	if( SDL_WasInit( SDL_INIT_JOYSTICK ) != SDL_INIT_JOYSTICK &&
-		SDL_InitSubSystem( SDL_INIT_JOYSTICK ) )
-	{
-		Con_Reportf( "Failed to initialize SDL Joysitck: %s\n", SDL_GetError() );
-		return 0;
-	}
-
-	if( g_joy )
-	{
-		SDL_JoystickClose( g_joy );
-	}
-
-	num = SDL_NumJoysticks();
-
-	if( num > 0 )
-		Con_Reportf( "%i joysticks found:\n", num );
-	else
-	{
-		Con_Reportf( "No joystick found.\n" );
-		return 0;
-	}
-
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	for( i = 0; i < num; i++ )
-		Con_Reportf( "%i\t: %s\n", i, SDL_JoystickNameForIndex( i ) );
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-
-	Con_Reportf( "Pass +set joy_index N to command line, where N is number, to select active joystick\n" );
-
-	g_joy = SDL_JoystickOpen( numjoy );
-
-	if( !g_joy )
-	{
-		Con_Reportf( "Failed to select joystick: %s\n", SDL_GetError( ) );
-		return 0;
-	}
-
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	Con_Reportf( "Selected joystick: %s\n"
-		"\tAxes: %i\n"
-		"\tHats: %i\n"
-		"\tButtons: %i\n"
-		"\tBalls: %i\n",
-		SDL_JoystickName( g_joy ), SDL_JoystickNumAxes( g_joy ), SDL_JoystickNumHats( g_joy ),
-		SDL_JoystickNumButtons( g_joy ), SDL_JoystickNumBalls( g_joy ) );
-
-	SDL_GameControllerEventState( SDL_DISABLE );
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_JoystickEventState( SDL_ENABLE );
-
-	return num;
-}
-
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-static void SDLash_GameControllerAddMappings( const char *name )
-{
-	fs_offset_t len = 0;
-	byte *p = FS_LoadFile( name, &len, false );
-
-	if( !p )
-		return;
-
-	if( len > 0 && len < INT32_MAX ) // function accepts int, SDL3 fixes this
-	{
-		SDL_RWops *rwops = SDL_RWFromConstMem( p, len );
-		SDL_GameControllerAddMappingsFromRW( rwops, true );
-	}
-
-	Mem_Free( p );
-}
-
-/*
-=============
-SDLash_JoyInit_New
-
-=============
-*/
-static int SDLash_JoyInit_New( int numjoy )
-{
-	int count, numJoysticks, i;
-
-	Con_Reportf( "Joystick: SDL GameController API\n" );
-	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
-		SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ) )
-	{
-		Con_Reportf( "Failed to initialize SDL GameController API: %s\n", SDL_GetError() );
-		return 0;
-	}
-
-	SDLash_GameControllerAddMappings( "gamecontrollerdb.txt" ); // shipped in extras.pk3
-	SDLash_GameControllerAddMappings( "controllermappings.txt" );
-
-	count = 0;
-	numJoysticks = SDL_NumJoysticks();
-	for ( i = 0; i < numJoysticks; i++ )
-		if( SDL_IsGameController( i ) )
-			++count;
-
-	return count;
-}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-
-/*
-=============
-Platform_JoyInit
-
-=============
-*/
-int Platform_JoyInit( int numjoy )
-{
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	// SDL_Joystick is now an old API
-	// SDL_GameController is preferred
-	if( !Sys_CheckParm( "-sdl_joy_old_api" ) )
-		return SDLash_JoyInit_New(numjoy);
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	return SDLash_JoyInit_Old(numjoy);
-}
 
 /*
 ========================
@@ -436,5 +288,3 @@ key_modifier_t Platform_GetKeyModifiers( void )
 	return KeyModifier_None;
 #endif
 }
-
-#endif // XASH_DEDICATED
