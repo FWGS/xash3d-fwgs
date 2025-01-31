@@ -42,7 +42,7 @@ build_sdl2()
 	# let's enable everything we can
 	mkdir -p build || die
 	pushd build || die
-		cmake ../ -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$BUILDDIR"/SDL2_linux -DCMAKE_C_FLAGS=-O3 -DSDL_STATIC=OFF || die
+		cmake ../ -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$BUILDDIR"/SDL2_linux -DCMAKE_C_FLAGS=-O3 -DSDL_STATIC=OFF -DSDL_RENDER=OFF || die
 		ninja install -j$((N+1)) || die
 	popd || die
 }
