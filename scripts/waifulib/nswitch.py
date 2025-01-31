@@ -58,7 +58,7 @@ def apply_nro(self):
 	tsk = self.nro_task = self.create_task('elf2nro', nodes)
 	self.nro_task.set_outputs(nodes[0].change_ext('.nro'))
 
-	inst_to = getattr(self, 'nro_install_path', None)
+	inst_to = getattr(self, 'special_install_path', None)
 	if inst_to:
 		self.add_install_files(install_to=inst_to,
 			install_from=tsk.outputs[:], chmod=Utils.O755, task=tsk)

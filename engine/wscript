@@ -212,7 +212,7 @@ def build(bld):
 			use = libs,
 			defines = defines,
 			install_path = install_path,
-			nro_install_path = bld.env.BINDIR,
+			special_install_path = bld.env.BINDIR,
 			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
 			icon = 'platform/nswitch/icon.jpg',
 			sce_sys = 'platform/psvita/sce_sys',

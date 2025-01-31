@@ -113,5 +113,10 @@ def apply_vpk(self):
 		self.env.SCESYS = [str(scesysdir)]
 	self.env.VPKFILE = str(vpkfile)
 
-	self.vpk_task = self.create_task('mkvpk', in_nodes)
+	tsk = self.vpk_task = self.create_task('mkvpk', in_nodes)
 	self.vpk_task.set_outputs(out_nodes)
+
+	inst_to = getattr(self, 'special_install_path', None)
+	if inst_to:
+		self.add_install_files(install_to=inst_to,
+			install_from=tsk.outputs[:], chmod=Utils.O755, task=tsk)
