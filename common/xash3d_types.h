@@ -31,11 +31,11 @@ typedef uint32_t poolhandle_t;
 #undef true
 #undef false
 
-#ifndef __cplusplus
-typedef enum { false, true }	qboolean;
-#else
-typedef int qboolean;
+// true and false are keywords in C++ and C23
+#if !__cplusplus &&  __STDC_VERSION__ < 202311L
+enum { false, true };
 #endif
+typedef int qboolean;
 
 #define MAX_STRING    256  // generic string
 #define MAX_VA_STRING 1024 // compatibility macro
