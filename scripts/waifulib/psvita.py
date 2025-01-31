@@ -83,8 +83,8 @@ def apply_fself(self):
 def apply_sfo(self):
 	fselffile = self.fself_task.outputs[0]
 	in_nodes = [fselffile]
-	scetitleid = getattr(self, 'title_id', None)
-	sceappname = getattr(self, 'app_name', None)
+	scetitleid = getattr(self, 'title_id', 'TEST10000')
+	sceappname = getattr(self, 'app_name', 'test')
 
 	sfofile = fselffile.change_ext('.sfo')
 	out_nodes = [sfofile]
