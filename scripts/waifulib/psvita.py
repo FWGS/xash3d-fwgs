@@ -47,7 +47,7 @@ class mkvpk(Task.Task):
 	color = 'CYAN'
 	run_str = '${PACKVPK} -s ${SFOFILE} -b ${FSELFFILE} -a ${SCESYS}=sce_sys ${TGT}'
 
-@TaskGen.feature('cxxprogram')
+@TaskGen.feature('cxxprogram', 'cprogram')
 @TaskGen.after_method('apply_link')
 def apply_velf(self):
 	elffile = self.link_task.outputs[0]
@@ -64,7 +64,7 @@ def apply_velf(self):
 	self.velf_task = self.create_task('mkvelf', in_nodes)
 	self.velf_task.set_outputs(out_nodes)
 
-@TaskGen.feature('cxxprogram')
+@TaskGen.feature('cxxprogram', 'cprogram')
 @TaskGen.after_method('apply_velf')
 def apply_fself(self):
 	velffile = self.velf_task.outputs[0]
@@ -78,7 +78,7 @@ def apply_fself(self):
 	self.fself_task = self.create_task('mkfself', in_nodes)
 	self.fself_task.set_outputs(out_nodes)
 
-@TaskGen.feature('cxxprogram')
+@TaskGen.feature('cxxprogram', 'cprogram')
 @TaskGen.after_method('apply_fself')
 def apply_sfo(self):
 	fselffile = self.fself_task.outputs[0]
