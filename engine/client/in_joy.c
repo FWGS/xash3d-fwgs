@@ -60,6 +60,8 @@ static CVAR_DEFINE_AUTO( joy_yaw_deadzone, DEFAULT_JOY_DEADZONE, FCVAR_ARCHIVE |
 static CVAR_DEFINE_AUTO( joy_axis_binding, "sfpyrl", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "axis hardware id to engine inner axis binding, "
 	"s - side, f - forward, y - yaw, p - pitch, r - left trigger, l - right trigger" );
 CVAR_DEFINE_AUTO( joy_enable, "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable joystick" );
+static CVAR_DEFINE_AUTO( joy_have_gyro, "0", FCVAR_READ_ONLY, "tells whether current active gamepad has gyroscope or not" );
+static CVAR_DEFINE_AUTO( joy_calibrated, "0", FCVAR_READ_ONLY, "tells whether current active gamepad gyroscope has been calibrated or not" );
 
 /*
 ============
@@ -69,6 +71,29 @@ Joy_IsActive
 qboolean Joy_IsActive( void )
 {
 	return joy_enable.value;
+}
+
+/*
+===========
+Joy_SetCapabilities
+===========
+*/
+void Joy_SetCapabilities( qboolean have_gyro )
+{
+	Cvar_FullSet( joy_have_gyro.name, have_gyro ? "1" : "0", joy_have_gyro.flags );
+}
+
+/*
+===========
+Joy_SetCalibrationState
+===========
+*/
+void Joy_SetCalibrationState( joy_calibration_state_t state )
+{
+	if( (int)joy_calibrated.value == state )
+		return;
+
+	Cvar_FullSet( joy_calibrated.name, va( "%d", state ), joy_calibrated.flags );
 }
 
 /*
@@ -246,6 +271,18 @@ void Joy_AxisMotionEvent( engineAxis_t engineAxis, short value )
 
 /*
 =============
+Joy_GyroEvent
+
+Gyroscope events
+=============
+*/
+void Joy_GyroEvent( vec3_t data )
+{
+
+}
+
+/*
+=============
 Joy_FinalizeMove
 
 Append movement from axis. Called everyframe
@@ -284,6 +321,17 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 	*dyaw   += joy_yaw.value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
 }
 
+static void Joy_CalibrateGyro_f( void )
+{
+	if( !joy_have_gyro.value )
+	{
+		Con_Printf( "Current active gamepad doesn't have gyroscope\n" );
+		return;
+	}
+
+	Platform_CalibrateGamepadGyro();
+}
+
 /*
 =============
 Joy_Init
@@ -293,6 +341,8 @@ Main init procedure
 */
 void Joy_Init( void )
 {
+	Cmd_AddRestrictedCommand( "joy_calibrate_gyro", Joy_CalibrateGyro_f, "calibrate gamepad gyroscope. You must to put gamepad on stationary surface" );
+
 	Cvar_RegisterVariable( &joy_pitch );
 	Cvar_RegisterVariable( &joy_yaw );
 	Cvar_RegisterVariable( &joy_side );
@@ -313,6 +363,8 @@ void Joy_Init( void )
 
 	Cvar_RegisterVariable( &joy_axis_binding );
 
+	Cvar_RegisterVariable( &joy_have_gyro );
+	Cvar_RegisterVariable( &joy_calibrated );
 	Cvar_RegisterVariable( &joy_enable );
 
 	// renamed from -nojoy to -noenginejoy to not conflict with

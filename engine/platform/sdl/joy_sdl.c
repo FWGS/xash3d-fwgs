@@ -38,7 +38,6 @@ static const int g_button_mapping[] =
 };
 
 // Swap axis to follow default axis binding:
-// LeftX, LeftY, RightX, RightY, TriggerRight, TriggerLeft
 static const engineAxis_t g_axis_mapping[] =
 {
 	JOY_AXIS_SIDE, // SDL_CONTROLLER_AXIS_LEFTX,
@@ -53,6 +52,55 @@ static SDL_JoystickID g_current_gamepad_id = -1; // used to send rumble to
 static SDL_GameController *g_current_gamepad;
 static SDL_GameController **g_gamepads;
 static size_t g_num_gamepads;
+
+#define CALIBRATION_TIME 10.0f
+
+static struct
+{
+	float  time;
+	vec3_t data;
+	vec3_t calibrated_values;
+	int    samples;
+} gyrocal;
+
+static void SDLash_RestartCalibration( void )
+{
+	Joy_SetCalibrationState( JOY_NOT_CALIBRATED );
+
+	memset( &gyrocal, 0, sizeof( gyrocal ));
+
+	gyrocal.time = host.realtime + CALIBRATION_TIME;
+
+	Con_Printf( "Starting gyroscope calibration...\n" );
+}
+
+static void SDLash_FinalizeCalibration( void )
+{
+	float data_rate = 10.0f; // let's say we're polling at 10Hz?
+	int min_samples;
+
+#if SDL_VERSION_ATLEAST( 2, 0, 16 )
+	data_rate = SDL_GameControllerGetSensorDataRate( g_current_gamepad, SDL_SENSOR_GYRO );
+	if( !data_rate )
+		data_rate = 10.0f;
+#endif
+
+	min_samples = Q_rint( CALIBRATION_TIME * data_rate * 0.75f );
+
+	// we waited for few seconds and got too few samples
+	if( gyrocal.samples <= min_samples )
+	{
+		Joy_SetCalibrationState( JOY_FAILED_TO_CALIBRATE );
+		return;
+	}
+
+	VectorScale( gyrocal.data, 1.0f / gyrocal.samples, gyrocal.calibrated_values );
+	Joy_SetCalibrationState( JOY_CALIBRATED );
+
+	Con_Printf( "Calibration done. Result: %f %f %f\n", gyrocal.calibrated_values[0], gyrocal.calibrated_values[1], gyrocal.calibrated_values[2] );
+
+	gyrocal.time = 0.0f;
+}
 
 static void SDLash_GameControllerAddMappings( const char *name )
 {
@@ -73,8 +121,42 @@ static void SDLash_GameControllerAddMappings( const char *name )
 
 static void SDLash_SetActiveGameController( SDL_JoystickID id )
 {
+	SDL_GameController *oldgc;
+
+	if( g_current_gamepad_id == id )
+		return;
+
 	g_current_gamepad_id = id;
-	g_current_gamepad = SDL_GameControllerFromInstanceID( id );
+
+	oldgc = g_current_gamepad;
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+	SDL_GameControllerSetSensorEnabled( oldgc, SDL_SENSOR_GYRO, SDL_FALSE );
+#endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
+
+	if( id < 0 )
+	{
+		g_current_gamepad = NULL;
+		Joy_SetCapabilities( false );
+		Joy_SetCalibrationState( JOY_NOT_CALIBRATED );
+	}
+	else
+	{
+		qboolean have_gyro = false;
+
+		g_current_gamepad = SDL_GameControllerFromInstanceID( id );
+
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+		have_gyro = SDL_GameControllerHasSensor( g_current_gamepad, SDL_SENSOR_GYRO );
+
+		if( have_gyro )
+		{
+			SDL_GameControllerSetSensorEnabled( g_current_gamepad, SDL_SENSOR_GYRO, SDL_TRUE );
+			SDLash_RestartCalibration();
+		}
+#endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
+
+		Joy_SetCapabilities( have_gyro );
+	}
 }
 
 static void SDLash_GameControllerAdded( int device_index )
@@ -102,6 +184,8 @@ static void SDLash_GameControllerAdded( int device_index )
 		if( joy )
 			SDLash_SetActiveGameController( SDL_JoystickInstanceID( joy ));
 	}
+
+	Con_Printf( "Detected \"%s\" game controller.\nMapping string: %s\n", SDL_GameControllerName( gc ), SDL_GameControllerMapping( gc ));
 }
 
 static void SDLash_GameControllerRemoved( SDL_JoystickID id )
@@ -109,10 +193,7 @@ static void SDLash_GameControllerRemoved( SDL_JoystickID id )
 	size_t i;
 
 	if( id == g_current_gamepad_id )
-	{
-		g_current_gamepad_id = -1;
-		g_current_gamepad = NULL;
-	}
+		SDLash_SetActiveGameController( -1 );
 
 	// now close the device
 	for( i = 0; i < g_num_gamepads; i++ )
@@ -130,42 +211,38 @@ static void SDLash_GameControllerRemoved( SDL_JoystickID id )
 
 		if( SDL_JoystickInstanceID( joy ) == id )
 		{
+			Con_Printf( "Game controller \"%s\" was disconnected\n", SDL_GameControllerName( gc ));
+
 			SDL_GameControllerClose( gc );
 			g_gamepads[i] = NULL;
 		}
 	}
 }
 
-/*
-=============
-SDLash_JoyInit
-
-=============
-*/
-static int SDLash_JoyInit( void )
+static void SDLash_GameControllerSensorUpdate( SDL_ControllerSensorEvent sensor )
 {
-	int count, numJoysticks, i;
+	vec3_t data;
 
-	Con_Reportf( "Joystick: SDL GameController API\n" );
-	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
-		SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ))
+	if( sensor.which != g_current_gamepad_id )
+		return;
+
+	if( sensor.sensor != SDL_SENSOR_GYRO )
+		return;
+
+	if( gyrocal.time != 0.0f )
 	{
-		Con_Reportf( "Failed to initialize SDL GameController API: %s\n", SDL_GetError() );
-		return 0;
+		if( host.realtime > gyrocal.time )
+			SDLash_FinalizeCalibration();
+
+		VectorAdd( gyrocal.data, sensor.data, gyrocal.data );
+		gyrocal.samples++;
+
+		Joy_SetCalibrationState( JOY_CALIBRATING );
+		return;
 	}
 
-	SDLash_GameControllerAddMappings( "gamecontrollerdb.txt" ); // shipped in extras.pk3
-	SDLash_GameControllerAddMappings( "controllermappings.txt" );
-
-	count = 0;
-	numJoysticks = SDL_NumJoysticks();
-	for ( i = 0; i < numJoysticks; i++ )
-	{
-		if( SDL_IsGameController( i ))
-			++count;
-	}
-
-	return count;
+	VectorSubtract( sensor.data, gyrocal.calibrated_values, data );
+	Joy_GyroEvent( data );
 }
 
 void SDLash_HandleGameControllerEvent( SDL_Event *ev )
@@ -193,7 +270,17 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 	case SDL_CONTROLLERDEVICEADDED:
 		SDLash_GameControllerAdded( ev->cdevice.which );
 		break;
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+	case SDL_CONTROLLERSENSORUPDATE:
+		SDLash_GameControllerSensorUpdate( ev->csensor );
+		break;
+#endif
 	}
+}
+
+void Platform_CalibrateGamepadGyro( void )
+{
+	SDLash_RestartCalibration();
 }
 
 void Platform_Vibrate2( float time, int val1, int val2, uint flags )
@@ -235,7 +322,28 @@ Platform_JoyInit
 */
 int Platform_JoyInit( void )
 {
-	return SDLash_JoyInit();
+	int count, numJoysticks, i;
+
+	Con_Reportf( "Joystick: SDL GameController API\n" );
+	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
+		SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ))
+	{
+		Con_Reportf( "Failed to initialize SDL GameController API: %s\n", SDL_GetError( ));
+		return 0;
+	}
+
+	SDLash_GameControllerAddMappings( "gamecontrollerdb.txt" ); // shipped in extras.pk3
+	SDLash_GameControllerAddMappings( "controllermappings.txt" );
+
+	count = 0;
+	numJoysticks = SDL_NumJoysticks();
+	for ( i = 0; i < numJoysticks; i++ )
+	{
+		if( SDL_IsGameController( i ))
+			++count;
+	}
+
+	return count;
 }
 
 /*
@@ -247,6 +355,8 @@ Platform_JoyShutdown
 void Platform_JoyShutdown( void )
 {
 	size_t i;
+
+	SDLash_SetActiveGameController( -1 );
 
 	for( i = 0; i < g_num_gamepads; i++ )
 	{
@@ -260,9 +370,6 @@ void Platform_JoyShutdown( void )
 	Mem_Free( g_gamepads );
 	g_gamepads = NULL;
 	g_num_gamepads = 0;
-
-	g_current_gamepad = NULL;
-	g_current_gamepad_id = -1;
 
 	SDL_QuitSubSystem( SDL_INIT_GAMECONTROLLER );
 }

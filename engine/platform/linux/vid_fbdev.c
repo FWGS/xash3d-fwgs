@@ -285,15 +285,4 @@ void Platform_Vibrate( float life, char flags )
 {
 
 }
-
-int Platform_JoyInit( void )
-{
-	return 0;
-}
-
-void Platform_JoyShutdown( void )
-{
-
-}
-
 #endif

@@ -210,8 +210,27 @@ void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
 ==============================================================================
 */
 // Gamepad support
+#if XASH_SDL
 int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
 void Platform_JoyShutdown( void );
+void Platform_CalibrateGamepadGyro( void );
+#else
+static inline int Platform_JoyInit( void )
+{
+	return 0;
+}
+
+static inline void Platform_JoyShutdown( void )
+{
+
+}
+
+static inline void Platform_CalibrateGamepadGyro( void )
+{
+
+}
+#endif
+
 // Text input
 void Platform_EnableTextInput( qboolean enable );
 key_modifier_t Platform_GetKeyModifiers( void );
