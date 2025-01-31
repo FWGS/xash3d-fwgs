@@ -209,7 +209,8 @@ void Platform_Vibrate( float life, char flags );
 ==============================================================================
 */
 // Gamepad support
-int Platform_JoyInit( int numjoy ); // returns number of connected gamepads, negative if error
+int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
+void Platform_JoyShutdown( void );
 // Text input
 void Platform_EnableTextInput( qboolean enable );
 key_modifier_t Platform_GetKeyModifiers( void );

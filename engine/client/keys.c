@@ -1107,7 +1107,7 @@ static qboolean OSK_KeyEvent( int key, int down )
 
 /*
 =============
-Joy_EnableTextInput
+OSK_EnableTextInput
 
 Enables built-in IME
 =============

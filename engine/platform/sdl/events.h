@@ -28,14 +28,16 @@ void GL_InitExtensions( void );
 qboolean GL_DeleteContext( void );
 void VID_SaveWindowSize( int width, int height, qboolean maximized );
 
-// joystick events
-extern SDL_Joystick *g_joy;
-
 //
 // in_sdl.c
 //
 void SDLash_InitCursors( void );
 void SDLash_FreeCursors( void );
+
+//
+// joy_sdl.c
+//
+void SDLash_HandleGameControllerEvent( SDL_Event *ev );
 
 #endif // XASH_SDL
 #endif // KEYWRAPPER_H
