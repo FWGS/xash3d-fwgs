@@ -37,7 +37,7 @@ popd
 echo "Building SDL..."
 
 pushd SDL || die
-cmake -S. -Bbuild -DCMAKE_TOOLCHAIN_FILE=${VITASDK}/share/vita.toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DVIDEO_VITA_VGL=ON || die_configure
+cmake -S. -Bbuild -DCMAKE_TOOLCHAIN_FILE=${VITASDK}/share/vita.toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DVIDEO_VITA_VGL=ON -DSDL_RENDER=OFF  || die_configure
 cmake --build build -- -j2 || die
 cmake --install build || die
 popd
