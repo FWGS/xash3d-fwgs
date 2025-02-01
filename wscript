@@ -239,14 +239,12 @@ def configure(conf):
 		conf.options.GL4ES            = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
-		conf.define('XASH_SDLMAIN', 1)
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
 		conf.options.NO_ASYNC_RESOLVE = True
-		conf.define('XASH_SDLMAIN', 1)
 		enforce_pic = False
 	elif conf.env.DEST_OS == 'nswitch':
 		conf.options.NO_VGUI          = True

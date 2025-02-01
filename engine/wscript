@@ -194,7 +194,12 @@ def build(bld):
 			source += bld.path.ant_glob('client/**/*.c')
 			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
 
-		if not bld.env.LAUNCHER and bld.env.DEST_OS != 'android':
+		# Android port is linked differently
+		if bld.env.DEST_OS == 'android':
+			f = bld.shlib
+			install_path = bld.env.LIBDIR
+			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1']
+		elif not bld.env.LAUNCHER:
 			f = bld.program
 			install_path = bld.env.BINDIR
 			defines += ['XASH_ENABLE_MAIN=1']
