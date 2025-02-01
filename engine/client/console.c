@@ -622,7 +622,7 @@ int Con_UtfProcessCharForce( int in )
 	// TODO: get rid of global state where possible
 	static utfstate_t state = { 0 };
 
-	int ch = Q_DecodeUTF8( &state, in );
+	uint32_t ch = Q_DecodeUTF8( &state, in );
 
 	if( g_codepage == 1251 )
 		return Q_UnicodeToCP1251( ch );
@@ -2092,10 +2092,7 @@ void Con_RunConsole( void )
 		}
 		else
 		{
-			Con_Printf( S_WARN "Unknown charset %s, defaulting to cp1252", con_charset.string );
-
-			Cvar_DirectSet( &con_charset, "cp1252" );
-			g_codepage = 1252;
+			g_codepage = 0;
 		}
 
 		cls.accept_utf8 = !Q_stricmp( cl_charset.string, "utf-8" );
