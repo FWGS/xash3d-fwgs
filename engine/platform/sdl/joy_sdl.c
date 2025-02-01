@@ -196,6 +196,26 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 	}
 }
 
+void Platform_Vibrate2( float time, int val1, int val2, uint flags )
+{
+#if SDL_VERSION_ATLEAST( 2, 0, 9 )
+	SDL_GameController *gc = g_current_gamepad;
+	Uint32 ms;
+
+	if( g_current_gamepad_id < 0 || !gc )
+		return;
+
+	if( val1 < 0 )
+		val1 = COM_RandomLong( 0x7FFF, 0xFFFF );
+
+	if( val2 < 0 )
+		val2 = COM_RandomLong( 0x7FFF, 0xFFFF );
+
+	ms = (Uint32)ceil( time );
+	SDL_GameControllerRumble( gc, val1, val2, ms );
+#endif // SDL_VERSION_ATLEAST( 2, 0, 9 )
+}
+
 /*
 =============
 Platform_Vibrate
@@ -204,16 +224,7 @@ Platform_Vibrate
 */
 void Platform_Vibrate( float time, char flags )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 9 )
-	SDL_GameController *gc = g_current_gamepad;
-
-	if( g_current_gamepad_id < 0 || !gc )
-		return;
-
-	// a1ba: time is in milliseconds but might be not enough
-	// to spin up rumble
-	SDL_GameControllerRumble( gc, 0xFFFF, 0xFFFF, (int)floor( time ));
-#endif // SDL_VERSION_ATLEAST( 2, 0, 9 )
+	Platform_Vibrate2( time, -1, -1, flags );
 }
 
 /*
