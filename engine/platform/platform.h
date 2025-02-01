@@ -199,7 +199,8 @@ static inline void Sys_RestoreCrashHandler( void )
 
 ==============================================================================
 */
-void Platform_Vibrate( float life, char flags );
+void Platform_Vibrate( float life, char flags ); // left for compatibility
+void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
 
 /*
 ==============================================================================
