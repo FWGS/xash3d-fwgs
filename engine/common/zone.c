@@ -231,10 +231,7 @@ static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline 
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
 	if( data == NULL )
-	{
-		Sys_Error( "%s: data == NULL (called at %s:%i)\n", __func__, filename, fileline );
 		return;
-	}
 
 	Mem_FreeBlock((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
 }
