@@ -33,7 +33,7 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s, %s-%s)\n",
 					  Q_buildnum(), g_buildcommit, Q_buildos(), Q_buildarch() );
 
-#if !XASH_FREEBSD && !XASH_NETBSD && !XASH_OPENBSD
+#if !XASH_FREEBSD && !XASH_NETBSD && !XASH_OPENBSD && !XASH_APPLE // they don't have si_ptr
 	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p %p\n", signal, si->si_errno, si->si_code, si->si_addr, si->si_ptr );
 #else
 	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p\n", signal, si->si_errno, si->si_code, si->si_addr );
