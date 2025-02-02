@@ -192,7 +192,7 @@ static void APIENTRY GL2_BindTexture( GLenum tex, GLuint obj )
 static char *GL_PrintInfoLog( GLhandleARB object, qboolean program )
 {
 	static char	msg[8192];
-	int		maxLength = 0;
+	GLuint maxLength = 0;
 
 	if( program && pglGetProgramiv )
 		pglGetProgramiv( object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &maxLength );
@@ -282,8 +282,8 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 
 static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 {
-	int i, loc, status;
-	GLuint vp, fp, glprog;
+	int i, loc;
+	GLuint status = 0, vp, fp, glprog;
 	gl2wrap_prog_t *prog;
 
 	// try to find existing prog matching this feature set
@@ -352,6 +352,7 @@ static gl2wrap_prog_t *GL2_GetProg( const GLuint flags )
 		pglGetProgramiv( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
 	else
 		pglGetObjectParameterivARB( glprog, GL_OBJECT_LINK_STATUS_ARB, &status );
+
 	if( status == GL_FALSE )
 	{
 		gEngfuncs.Con_Reportf( S_ERROR "%s: Failed linking progs for 0x%04x!\n%s\n", __func__, prog->flags, GL_PrintInfoLog( glprog, true ));
