@@ -111,6 +111,8 @@ def configure(conf):
 	if hasattr(conf.options, 'DLLEMU'):
 		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
 
+	conf.check_cc(header_name='execinfo.h', mandatory=False, define_name='HAVE_EXECINFO')
+
 	conf.define('ENGINE_DLL', 1)
 	conf.define_cond('XASH_ENGINE_TESTS', conf.options.ENGINE_TESTS)
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
