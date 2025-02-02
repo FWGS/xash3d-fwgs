@@ -76,23 +76,14 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
 
-enum
+enum dev_level_e
 {
 	DEV_NONE = 0,
 	DEV_NORMAL,
 	DEV_EXTENDED
 };
 
-enum
-{
-	D_INFO = 1,	// "-dev 1", shows various system messages
-	D_WARN,		// "-dev 2", shows not critical system warnings
-	D_ERROR,		// "-dev 3", shows critical warnings
-	D_REPORT,		// "-dev 4", special case for game reports
-	D_NOTE		// "-dev 5", show system notifications for engine developers
-};
-
-typedef enum
+typedef enum instance_e
 {
 	HOST_NORMAL,	// listen server, singleplayer
 	HOST_DEDICATED,
@@ -194,7 +185,7 @@ GAMEINFO stuff
 internal shared gameinfo structure (readonly for engine parts)
 ========================================================================
 */
-typedef enum
+typedef enum host_status_e
 {
 	HOST_INIT = 0,	// initalize operations
 	HOST_FRAME,	// host running
@@ -205,7 +196,7 @@ typedef enum
 	HOST_CRASHED	// an exception handler called
 } host_status_t;
 
-typedef enum
+typedef enum host_state_e
 {
 	STATE_RUNFRAME = 0,
 	STATE_LOAD_LEVEL,
@@ -214,7 +205,7 @@ typedef enum
 	STATE_GAME_SHUTDOWN,
 } host_state_t;
 
-typedef struct
+typedef struct game_status_e
 {
 	host_state_t	curstate;
 	host_state_t	nextstate;
@@ -225,7 +216,7 @@ typedef struct
 	qboolean		newGame;		// unload the server.dll before start a new map
 } game_status_t;
 
-typedef enum
+typedef enum keydest_e
 {
 	key_console = 0,
 	key_game,
@@ -233,7 +224,7 @@ typedef enum
 	key_message
 } keydest_t;
 
-typedef enum
+typedef enum rdtype_e
 {
 	RD_NONE = 0,
 	RD_CLIENT,
@@ -243,7 +234,7 @@ typedef enum
 #include "net_ws.h"
 
 // console field
-typedef struct
+typedef struct field_e
 {
 	string		buffer;
 	int		cursor;
@@ -261,7 +252,7 @@ typedef struct host_redirect_s
 	int      lines;
 } host_redirect_t;
 
-typedef struct
+typedef struct soundlist_e
 {
 	char		name[MAX_QPATH];
 	short		entnum;
@@ -302,7 +293,7 @@ typedef struct host_parm_s
 
 	host_status_t status;           // global host state
 	game_status_t game;             // game manager
-	uint          type;             // running at
+	instance_t    type;             // running at
 	poolhandle_t  mempool;          // static mempool for misc allocations
 	poolhandle_t  imagepool;        // imagelib mempool
 	poolhandle_t  soundpool;        // soundlib mempool
@@ -496,7 +487,7 @@ internal sound format
 typically expanded to wav buffer
 ========================================================================
 */
-typedef enum
+typedef enum sndformat_e
 {
 	WF_UNKNOWN = 0,
 	WF_PCMDATA,
@@ -507,7 +498,7 @@ typedef enum
 } sndformat_t;
 
 // wavdata output flags
-typedef enum
+typedef enum sndFlags_e
 {
 	// wavdata->flags
 	SOUND_LOOPED	= BIT( 0 ),	// this is looped sound (contain cue markers)
@@ -517,7 +508,7 @@ typedef enum
 	SOUND_RESAMPLE	= BIT( 12 ),	// resample sound to specified rate
 } sndFlags_t;
 
-typedef struct
+typedef struct wavdata_s
 {
 	size_t  size;      // for bounds checking
 	uint    loopStart; // offset at this point sound will be looping while playing more than only once
