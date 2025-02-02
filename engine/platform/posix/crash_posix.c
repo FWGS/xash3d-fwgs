@@ -26,14 +26,17 @@ GNU General Public License for more details.
 #include <sys/mman.h>
 #include "library.h"
 
+void Sys_Crash( int signal, siginfo_t *si, void *context );
+static struct sigaction oldFilter;
+
+#if !HAVE_EXECINFO
+
 #define STACK_BACKTRACE_STR     "Stack backtrace:\n"
 #define STACK_DUMP_STR          "Stack dump:\n"
 
 #define STACK_BACKTRACE_STR_LEN ( sizeof( STACK_BACKTRACE_STR ) - 1 )
 #define STACK_DUMP_STR_LEN      ( sizeof( STACK_DUMP_STR ) - 1 )
 #define ALIGN( x, y ) (((uintptr_t) ( x ) + (( y ) - 1 )) & ~(( y ) - 1 ))
-
-static struct sigaction oldFilter;
 
 static int Sys_PrintFrame( char *buf, int len, int i, void *addr )
 {
@@ -53,7 +56,7 @@ static int Sys_PrintFrame( char *buf, int len, int i, void *addr )
 		return Q_snprintf( buf, len, "%2d: %p\n", i, addr ); // print only address
 }
 
-static void Sys_Crash( int signal, siginfo_t *si, void *context)
+void Sys_Crash( int signal, siginfo_t *si, void *context )
 {
 	void *pc = NULL, **bp = NULL, **sp = NULL; // this must be set for every OS!
 	char message[8192];
@@ -199,6 +202,8 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context)
 
 	Sys_Quit( "crashed" );
 }
+
+#endif // !HAVE_EXECINFO
 
 void Sys_SetupCrashHandler( void )
 {
