@@ -733,7 +733,7 @@ qboolean UI_CreditsActive( void );
 int CL_GetMaxClients( void );
 #else
 static inline qboolean CL_Initialized( void ) { return false; }
-static inline qboolean CL_IsInGame( void ) { return false; }
+static inline qboolean CL_IsInGame( void ) { return true; } // always true for dedicated
 static inline qboolean CL_IsInConsole( void ) { return false; }
 static inline qboolean CL_IsIntermission( void ) { return false; }
 static inline qboolean CL_DisableVisibility( void ) { return false; }
