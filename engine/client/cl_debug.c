@@ -198,3 +198,44 @@ void CL_WriteMessageHistory( void )
 	CL_WriteErrorMessage( old->starting_offset, msg );
 	cls_message_debug.parsing = false;
 }
+
+void CL_ReplayBufferDat_f( void )
+{
+	file_t *f = FS_Open( Cmd_Argv( 1 ), "rb", true );
+	sizebuf_t msg;
+	char buffer[NET_MAX_MESSAGE];
+	int starting_count, current_count, protocol;
+	fs_offset_t len;
+
+	if( !f )
+		return;
+
+	FS_Read( f, &starting_count, sizeof( starting_count ));
+	FS_Read( f, &current_count, sizeof( current_count ));
+	FS_Read( f, &protocol, sizeof( protocol ));
+
+	cls.legacymode = protocol;
+
+	len = FS_Read( f, buffer, sizeof( buffer ));
+	FS_Close( f );
+
+	MSG_Init( &msg, __func__, buffer, len );
+
+	Delta_Shutdown();
+	Delta_Init();
+
+	clgame.maxEntities = MAX_EDICTS;
+	clgame.entities = Mem_Calloc( clgame.mempool, sizeof( *clgame.entities ) * clgame.maxEntities );
+
+	// ad-hoc implement
+#if 0
+	{
+		const int message_pos = 12; // put real number here
+		MSG_SeekToBit( &msg, ( message_pos - 12 + 1 ) << 3, SEEK_SET );
+
+		CL_ParseYourMom( &msg, protocol );
+	}
+#endif
+
+	Sys_Quit( __func__ );
+}
