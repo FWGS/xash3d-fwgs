@@ -25,7 +25,7 @@ GNU General Public License for more details.
 
 static Font* g_currentFont;
 static Font g_Fonts[FONT_COUNT];
-static string g_FontsPath[FONT_COUNT] = {"gfx/fonts/tahoma.ttf", "gfx/fonts/SimSun_Regular.ttf"};
+static string g_FontsPath[FONT_COUNT] = {"gfx/fonts/tahoma.ttf", "gfx/fonts/FiraSans-Regular.ttf"};
 static int g_FontsSize[FONT_COUNT] = {14, 14};
 static rgba_t nullColor = { 255, 255, 255, 255 };
 
