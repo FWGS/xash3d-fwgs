@@ -60,6 +60,9 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 		write( logfd, syms[i], symlen );
 		write( logfd, &ch, 1 );
 
+		write( STDERR_FILENO, syms[i], symlen );
+		write( STDERR_FILENO, &ch, 1 );
+
 		len += Q_snprintf( message + len, sizeof( message ) - len, "%2d: %s\n", i, syms[i] );
 	}
 
