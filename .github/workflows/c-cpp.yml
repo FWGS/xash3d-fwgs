@@ -101,7 +101,7 @@ jobs:
       with:
         submodules: recursive
     - name: Build flatpak (Compat.i386)
-      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.3
+      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.3-fix
       with:
         bundle: ${{ matrix.app }}.flatpak
         manifest-path: scripts/flatpak/${{ matrix.app }}.yml
