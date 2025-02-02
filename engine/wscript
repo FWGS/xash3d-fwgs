@@ -9,6 +9,15 @@ from copy import copy
 
 top = '.'
 
+EXECINFO_TEST = '''#include <execinfo.h>
+int main(int argc, char **argv)
+{
+	backtrace(0, 0);
+	backtrace_symbols(0, 0);
+	return 0;
+}
+'''
+
 def options(opt):
 	grp = opt.add_option_group('Engine options')
 
@@ -111,7 +120,7 @@ def configure(conf):
 	if hasattr(conf.options, 'DLLEMU'):
 		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
 
-	conf.check_cc(header_name='execinfo.h', mandatory=False, define_name='HAVE_EXECINFO')
+	conf.check_cc(fragment=EXECINFO_TEST, msg='Checking for glibc backtrace()', mandatory=False, define_name='HAVE_EXECINFO')
 
 	conf.define('ENGINE_DLL', 1)
 	conf.define_cond('XASH_ENGINE_TESTS', conf.options.ENGINE_TESTS)
