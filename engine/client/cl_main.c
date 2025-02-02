@@ -3489,6 +3489,8 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("fullserverinfo", CL_FullServerinfo_f, "sent by server when serverinfo changes" );
 	Cmd_AddCommand ("upload", CL_BeginUpload_f, "uploading file to the server" );
 
+	Cmd_AddRestrictedCommand( "replaybufferdat", CL_ReplayBufferDat_f, "development and debugging tool" );
+
 	Cmd_AddRestrictedCommand ("quit", CL_Quit_f, "quit from game" );
 	Cmd_AddRestrictedCommand ("exit", CL_Quit_f, "quit from game" );
 

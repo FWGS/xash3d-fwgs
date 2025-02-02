@@ -737,6 +737,7 @@ void CL_ClearResourceLists( void );
 //
 // cl_debug.c
 //
+void CL_ReplayBufferDat_f( void );
 void CL_Parse_Debug( qboolean enable );
 void CL_Parse_RecordCommand( int cmd, int startoffset );
 void CL_ResetFrame( frame_t *frame );
