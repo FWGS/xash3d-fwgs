@@ -65,21 +65,21 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 * Only for 32-bit engine on 64-bit x86 operating system:
   * Enable i386 on your system: `$ sudo dpkg --add-architecture i386`.
   * Install `aptitude` ([why?](https://github.com/FWGS/xash3d-fwgs/issues/1828#issuecomment-2415131759)):  `$ sudo apt update && sudo apt upgrade && sudo apt install aptitude`
-  * Install development tools: `$ sudo aptitude --without-recommends install git build-essential gcc-multilib g++-multilib libsdl2-dev:i386 libfontconfig-dev:i386 libfreetype-dev:i386 libopus-dev:i386 libbz2-dev:i386`.
+  * Install development tools: `$ sudo aptitude --without-recommends install git build-essential gcc-multilib g++-multilib libsdl2-dev:i386 libfreetype-dev:i386 libopus-dev:i386 libbz2-dev:i386`.
   * Set PKG_CONFIG_PATH environment variable to point at 32-bit libraries: `$ export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig`.
 
 * For 64-bit engine on 64-bit x86 and other non-x86 systems:
-  * Install development tools: `$ sudo apt install git build-essential python libsdl2-dev libfontconfig-dev libfreetype6-dev libopus-dev libbz2-dev`.
+  * Install development tools: `$ sudo apt install git build-essential python libsdl2-dev libfreetype6-dev libopus-dev libbz2-dev`.
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 
 ##### RedHat/Fedora
 * Only for 32-bit engine on 64-bit x86 operating system:
-  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL2-devel.i686 opus-devel.i686 fontconfig-devel.i686 freetype-devel.i686 bzip2-devel.i686`.
+  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL2-devel.i686 opus-devel.i686 freetype-devel.i686 bzip2-devel.i686`.
   * Set PKG_CONFIG_PATH environment variable to point at 32-bit libraries: `$ export PKG_CONFIG_PATH=/usr/lib/pkgconfig`.
 
 * For 64-bit engine on 64-bit x86 and other non-x86 systems:
-  * Install development tools: `$ sudo dnf install git gcc gcc-c++ SDL2-devel opus-devel fontconfig-devel freetype-devel bzip2-devel`.
+  * Install development tools: `$ sudo dnf install git gcc gcc-c++ SDL2-devel opus-devel freetype-devel bzip2-devel`.
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 
