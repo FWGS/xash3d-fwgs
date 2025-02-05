@@ -3148,7 +3148,7 @@ qboolean CL_PrecacheResources( void )
 
 	// if we downloaded new WAD files or any other archives they must be added to searchpath
 	if( CL_ShouldRescanFilesystem( ))
-		g_fsapi.Rescan();
+		FS_Rescan_f();
 
 	// NOTE: world need to be loaded as first model
 	for( pRes = cl.resourcesonhand.pNext; pRes && pRes != &cl.resourcesonhand; pRes = pRes->pNext )

@@ -59,8 +59,9 @@ char          fs_rootdir[MAX_SYSPATH];
 searchpath_t *fs_writepath;
 
 static searchpath_t *fs_searchpaths = NULL;	// chain
-static char			fs_basedir[MAX_SYSPATH];	// base game directory
-static char			fs_gamedir[MAX_SYSPATH];	// game current directory
+static char fs_basedir[MAX_SYSPATH];	// base game directory
+static char fs_gamedir[MAX_SYSPATH];	// game current directory
+static string fs_language;
 
 // add archives in specific order PAK -> PK3 -> WAD
 // so raw WADs takes precedence over WADs included into PAKs and PK3s
@@ -1249,14 +1250,39 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 	if( isGameDir )
 	{
 		Q_snprintf( buf, sizeof( buf ), "%s/" DEFAULT_DOWNLOADED_DIRECTORY, dir );
-		FS_AddGameDirectory( buf, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+		FS_AddGameDirectory( buf, FS_NOWRITE_PATH|FS_CUSTOM_PATH );
 	}
 	Q_snprintf( buf, sizeof( buf ), "%s/", dir );
 	FS_AddGameDirectory( buf, flags );
+
+	if( FBitSet( flags, FS_MOUNT_HD ))
+	{
+		Q_snprintf( buf, sizeof( buf ), "%s_hd/", dir );
+		FS_AddGameDirectory( buf, flags|FS_NOWRITE_PATH|FS_CUSTOM_PATH );
+	}
+
+	if( FBitSet( flags, FS_MOUNT_ADDON ))
+	{
+		Q_snprintf( buf, sizeof( buf ), "%s_addon/", dir );
+		FS_AddGameDirectory( buf, flags|FS_NOWRITE_PATH|FS_CUSTOM_PATH );
+	}
+
+	if( FBitSet( flags, FS_MOUNT_LV ))
+	{
+		Q_snprintf( buf, sizeof( buf ), "%s_lv/", dir );
+		FS_AddGameDirectory( buf, flags|FS_NOWRITE_PATH|FS_CUSTOM_PATH );
+	}
+
+	if( FBitSet( flags, FS_MOUNT_L10N ) && COM_CheckStringEmpty( fs_language ) && Q_isalpha( fs_language ))
+	{
+		Q_snprintf( buf, sizeof( buf ), "%s_%s/", dir, fs_language );
+		FS_AddGameDirectory( buf, flags|FS_NOWRITE_PATH|FS_CUSTOM_PATH );
+	}
+
 	if( isGameDir )
 	{
 		Q_snprintf( buf, sizeof( buf ), "%s/" DEFAULT_CUSTOM_DIRECTORY, dir );
-		FS_AddGameDirectory( buf, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
+		FS_AddGameDirectory( buf, FS_NOWRITE_PATH|FS_CUSTOM_PATH );
 	}
 }
 
@@ -1265,29 +1291,35 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 FS_Rescan
 ================
 */
-void FS_Rescan( void )
+void FS_Rescan( uint32_t flags, const char *language )
 {
 	const char *str;
-	const int extrasFlags = FS_NOWRITE_PATH | FS_CUSTOM_PATH;
 	Con_Reportf( "%s( %s )\n", __func__, GI->title );
 
 	FS_ClearSearchPath();
 
+	flags &= FS_MOUNT_HD|FS_MOUNT_LV|FS_MOUNT_ADDON|FS_MOUNT_L10N;
+
+	if( FBitSet( flags, FS_MOUNT_L10N ))
+		Q_strncpy( fs_language, language, sizeof( fs_language ));
+	else
+		fs_language[0] = 0;
+
 	str = getenv( "XASH3D_EXTRAS_PAK1" );
 	if( COM_CheckString( str ))
-		FS_MountArchive_Fullpath( str, extrasFlags );
+		FS_MountArchive_Fullpath( str, FS_NOWRITE_PATH|FS_CUSTOM_PATH );
 
 	str = getenv( "XASH3D_EXTRAS_PAK2" );
 	if( COM_CheckString( str ))
-		FS_MountArchive_Fullpath( str, extrasFlags );
+		FS_MountArchive_Fullpath( str, FS_NOWRITE_PATH|FS_CUSTOM_PATH );
 
 	if( Q_stricmp( GI->basedir, GI->gamefolder ))
-		FS_AddGameHierarchy( GI->basedir, 0 );
+		FS_AddGameHierarchy( GI->basedir, flags );
 	if( Q_stricmp( GI->basedir, GI->falldir ) && Q_stricmp( GI->gamefolder, GI->falldir ))
-		FS_AddGameHierarchy( GI->falldir, 0 );
+		FS_AddGameHierarchy( GI->falldir, flags );
 
 	GI->added = true;
-	FS_AddGameHierarchy( GI->gamefolder, FS_GAMEDIR_PATH );
+	FS_AddGameHierarchy( GI->gamefolder, FS_GAMEDIR_PATH | flags );
 }
 
 /*
@@ -1332,7 +1364,7 @@ void FS_LoadGameInfo( const char *rootfolder )
 		FS_CreatePath( buf );
 	}
 
-	FS_Rescan(); // create new filesystem
+	FS_Rescan( 0, NULL ); // create new filesystem
 }
 
 /*
@@ -1575,6 +1607,7 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 	Q_strncpy( fs_gamedir, gamedir, sizeof( fs_gamedir ));
 	Q_strncpy( fs_basedir, basedir, sizeof( fs_basedir ));
 	Q_strncpy( fs_rodir, rodir, sizeof( fs_rodir ));
+	fs_language[0] = 0;
 
 	// validate user input
 	if( COM_CheckStringEmpty( fs_rodir ) && !Q_stricmp( fs_rodir, fs_rootdir ))
