@@ -2429,7 +2429,7 @@ void CL_SetLightstyle( int style, const char *s, float f )
 
 	if( unlikely( style < 0 || style >= MAX_LIGHTSTYLES ))
 	{
-		Con_Printf( S_WARN "%s: ignored invalid lightstyle id %d\n", style );
+		Con_Printf( S_WARN "%s: ignored invalid lightstyle id %d\n", __func__, style );
 		return;
 	}
 
