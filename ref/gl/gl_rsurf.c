@@ -3858,7 +3858,7 @@ void GL_BuildLightmaps( void )
 	memset( &RI, 0, sizeof( RI ));
 
 	// update the lightmap blocksize
-	if( FBitSet( gp_host->features, ENGINE_LARGE_LIGHTMAPS ) || tr.world->version == QBSP2_VERSION )
+	if( FBitSet( gp_host->features, ENGINE_LARGE_LIGHTMAPS ) || tr.world->version == QBSP2_VERSION || r_large_lightmaps.value )
 		tr.block_size = BLOCK_SIZE_MAX;
 	else tr.block_size = BLOCK_SIZE_DEFAULT;
 
