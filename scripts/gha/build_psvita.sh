@@ -15,6 +15,8 @@ build_hlsdk()
 export VITASDK=/usr/local/vitasdk
 export PATH=$VITASDK/bin:$PATH
 
+JOBS=$(($(nproc)+1))
+
 cd "$BUILDDIR" || die
 
 rm -rf artifacts build pkgtemp
@@ -24,13 +26,13 @@ mkdir -p artifacts/ || die
 
 echo "Building vitaGL..."
 
-make -C vitaGL NO_TEX_COMBINER=1 HAVE_UNFLIPPED_FBOS=1 HAVE_PTHREAD=1 MATH_SPEEDHACK=1 DRAW_SPEEDHACK=1 -j2 install || die
+make -C vitaGL NO_TEX_COMBINER=1 HAVE_UNFLIPPED_FBOS=1 HAVE_PTHREAD=1 MATH_SPEEDHACK=1 DRAW_SPEEDHACK=1 -j$JOBS install || die
 
 echo "Building vrtld..."
 
 pushd vita-rtld || die
 cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release || die_configure
-cmake --build build -- -j2 || die
+cmake --build build -- -j$JOBS || die
 cmake --install build || die
 popd
 
@@ -38,7 +40,7 @@ echo "Building SDL..."
 
 pushd SDL || die
 cmake -S. -Bbuild -DCMAKE_TOOLCHAIN_FILE=${VITASDK}/share/vita.toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DVIDEO_VITA_VGL=ON -DSDL_RENDER=OFF  || die_configure
-cmake --build build -- -j2 || die
+cmake --build build -- -j$JOBS || die
 cmake --install build || die
 popd
 
