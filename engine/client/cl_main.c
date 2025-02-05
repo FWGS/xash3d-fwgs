@@ -3139,6 +3139,9 @@ static qboolean CL_ShouldRescanFilesystem( void )
 		}
 	}
 
+	if( FBitSet( fs_mount_lv.flags|fs_mount_hd.flags|fs_mount_addon.flags|fs_mount_l10n.flags|ui_language.flags, FCVAR_CHANGED ))
+		retval = true;
+
 	return retval;
 }
 
