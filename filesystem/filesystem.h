@@ -48,6 +48,11 @@ enum
 	FS_SKIP_ARCHIVED_WADS = BIT( 5 ), // don't mount wads inside archives automatically
 	FS_LOAD_PACKED_WAD = BIT( 6 ), // this wad is packed inside other archive
 
+	FS_MOUNT_HD    = BIT( 7 ), // mount high definition content folder
+	FS_MOUNT_LV    = BIT( 8 ), // mount low violence content folder
+	FS_MOUNT_ADDON = BIT( 9 ), // mount addon folder
+	FS_MOUNT_L10N  = BIT( 10 ), // mount localization folder
+
 	FS_GAMEDIRONLY_SEARCH_FLAGS = FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH
 };
 
@@ -151,7 +156,7 @@ typedef struct fs_api_t
 	void (*ShutdownStdio)( void );
 
 	// search path utils
-	void (*Rescan)( void );
+	void (*Rescan)( uint32_t flags, const char *language );
 	void (*ClearSearchPath)( void );
 	void (*AllowDirectPaths)( qboolean enable );
 	void (*AddGameDirectory)( const char *dir, uint flags );

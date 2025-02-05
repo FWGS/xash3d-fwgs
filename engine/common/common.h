@@ -410,6 +410,7 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+void FS_Rescan_f( void );
 
 //
 // cmd.c

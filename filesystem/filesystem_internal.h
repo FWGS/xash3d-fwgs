@@ -167,7 +167,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 
 // search path utils
-void FS_Rescan( void );
+void FS_Rescan( uint32_t flags, const char *language );
 void FS_ClearSearchPath( void );
 void FS_AllowDirectPaths( qboolean enable );
 void FS_AddGameDirectory( const char *dir, uint flags );

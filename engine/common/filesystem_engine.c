@@ -69,9 +69,9 @@ void *FS_GetNativeObject( const char *obj )
 	return NULL;
 }
 
-static void FS_Rescan_f( void )
+void FS_Rescan_f( void )
 {
-	FS_Rescan();
+	FS_Rescan( 0, NULL );
 }
 
 static void FS_ClearPaths_f( void )
