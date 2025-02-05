@@ -306,21 +306,22 @@ void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 
 static void SPR_AdjustTexCoords( int texnum, float width, float height, float *s1, float *t1, float *s2, float *t2 )
 {
-	if( REF_GET_PARM( PARM_TEX_FILTERING, texnum ))
-	{
-		if( refState.width != clgame.scrInfo.iWidth )
-		{
-			// align to texel if scaling
-			*s1 += 0.5f;
-			*s2 -= 0.5f;
-		}
+	const qboolean filtering = REF_GET_PARM( PARM_TEX_FILTERING, texnum );
+	const int xremainder = refState.width % clgame.scrInfo.iWidth;
+	const int yremainder = refState.height % clgame.scrInfo.iHeight;
 
-		if( refState.height != clgame.scrInfo.iHeight )
-		{
-			// align to texel if scaling
-			*t1 += 0.5f;
-			*t2 -= 0.5f;
-		}
+	if(( filtering || xremainder ) && refState.width != clgame.scrInfo.iWidth )
+	{
+		// align to texel if scaling
+		*s1 += 0.5f;
+		*s2 -= 0.5f;
+	}
+
+	if(( filtering || yremainder ) && refState.height != clgame.scrInfo.iHeight )
+	{
+		// align to texel if scaling
+		*t1 += 0.5f;
+		*t2 -= 0.5f;
 	}
 
 	*s1 /= width;
