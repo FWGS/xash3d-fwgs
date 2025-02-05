@@ -138,24 +138,29 @@ static inline char Q_tolower( const char in )
 	return out;
 }
 
-static inline qboolean Q_isdigit( const char *str )
+static inline qboolean Q_istype( const char *str, int (*istype)( int c ))
 {
 	if( likely( str && *str ))
 	{
-		while( isdigit( *str )) str++;
+		while( istype( *str )) str++;
 		if( !*str ) return true;
 	}
 	return false;
 }
 
+static inline qboolean Q_isdigit( const char *str )
+{
+	return Q_istype( str, isdigit );
+}
+
+static inline qboolean Q_isalpha( const char *str )
+{
+	return Q_istype( str, isalpha );
+}
+
 static inline qboolean Q_isspace( const char *str )
 {
-	if( likely( str && *str ))
-	{
-		while( isspace( *str ) ) str++;
-		if( !*str ) return true;
-	}
-	return false;
+	return Q_istype( str, isspace );
 }
 
 static inline int Q_strcmp( const char *s1, const char *s2 )
