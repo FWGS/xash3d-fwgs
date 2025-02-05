@@ -1760,7 +1760,7 @@ static cvar_t *GAME_EXPORT pfnCvar_RegisterClientVariable( const char *szName, c
 		|| !Q_stricmp( szName, "sensitivity" ))
 		flags |= FCVAR_PRIVILEGED;
 
-	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_CLIENTDLL ));
+	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_CLIENTDLL, NULL );
 }
 
 static int GAME_EXPORT Cmd_AddClientCommand( const char *cmd_name, xcommand_t function )

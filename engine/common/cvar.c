@@ -103,15 +103,9 @@ Cvar_BuildAutoDescription
 build cvar auto description that based on the setup flags
 ============
 */
-const char *Cvar_BuildAutoDescription( const char *szName, int flags )
+static const char *Cvar_BuildAutoDescription( int flags )
 {
 	static char	desc[256];
-
-	if( FBitSet( flags, FCVAR_GLCONFIG ))
-	{
-		Q_snprintf( desc, sizeof( desc ), CVAR_GLCONFIG_DESCRIPTION, szName );
-		return desc;
-	}
 
 	desc[0] = '\0';
 
@@ -447,7 +441,7 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 			Cvar_DirectSet( var, value );
 		}
 
-		if( FBitSet( var->flags, FCVAR_ALLOCATED ) && Q_strcmp( var_desc, var->desc ))
+		if( FBitSet( var->flags, FCVAR_ALLOCATED ) && var_desc != NULL && Q_strcmp( var_desc, var->desc ))
 		{
 			if( !FBitSet( flags, FCVAR_GLCONFIG ))
 				Con_Reportf( "%s change description from %s to %s\n", var->name, var->desc, var_desc );
@@ -460,6 +454,10 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 	}
 
 	// allocate a new cvar
+
+	if( !var_desc )
+		var_desc = Cvar_BuildAutoDescription( flags );
+
 	var = Mem_Malloc( cvar_pool, sizeof( *var ));
 	var->name = copystringpool( cvar_pool, name );
 	var->string = copystringpool( cvar_pool, value );
@@ -1206,7 +1204,7 @@ static void Cvar_List_f( void )
 
 		if( FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))
 			Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, var->desc );
-		else Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, Cvar_BuildAutoDescription( var->name, var->flags ));
+		else Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, Cvar_BuildAutoDescription( var->flags ));
 
 		count++;
 	}

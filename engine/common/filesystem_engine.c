@@ -258,7 +258,8 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 
 void FS_CheckConfig( void )
 {
-	if( fs_mount_lv.value || fs_mount_hd.value || fs_mount_addon.value || fs_mount_l10n.value )
+	// only used to prevent rescan after reading config.cfg when user hasn't enabled any addon directories
+	if( fs_mount_lv.value || fs_mount_hd.value || fs_mount_addon.value || fs_mount_l10n.value || Q_stricmp( ui_language.string, "english" ))
 		FS_Rescan_f();
 }
 
@@ -318,6 +319,7 @@ void FS_Init( const char *basedir )
 	Cvar_RegisterVariable( &fs_mount_lv );
 	Cvar_RegisterVariable( &fs_mount_addon );
 	Cvar_RegisterVariable( &fs_mount_l10n );
+	Cvar_RegisterVariable( &ui_language );
 
 	if( !Sys_GetParmFromCmdLine( "-dll", host.gamedll ))
 		host.gamedll[0] = 0;
