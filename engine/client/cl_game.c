@@ -1698,7 +1698,12 @@ int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 	clgame.scrInfo.iSize = sizeof( clgame.scrInfo );
 	clgame.scrInfo.iFlags = SCRINFO_SCREENFLASH;
 
-	if( scale_factor && scale_factor != 1.0f )
+	if( hud_scale.value >= 320.0f && hud_scale.value >= hud_scale_minimal_width.value )
+	{
+		scale_factor = refState.width / hud_scale.value;
+		apply_scale_factor = true;
+	}
+	else if( scale_factor && scale_factor != 1.0f )
 	{
 		float scaled_width = (float)refState.width / scale_factor;
 		if( scaled_width >= hud_scale_minimal_width.value )
