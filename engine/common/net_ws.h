@@ -80,7 +80,7 @@ void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
 
 static inline qboolean NET_IsLocalAddress( netadr_t adr )
 {
-	return adr.type == NA_LOOPBACK ? true : false;
+	return NET_NetadrType( &adr ) == NA_LOOPBACK;
 }
 
 #if !XASH_DEDICATED

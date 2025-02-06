@@ -1063,6 +1063,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	const char *key = ID_GetMD5();
 	netadr_t adr = { 0 };
 	int input_devices;
+	netadrtype_t adrtype;
 
 	protinfo[0] = 0;
 
@@ -1073,14 +1074,16 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		return;
 	}
 
+	adrtype = NET_NetadrType( &adr );
+
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
 	input_devices = IN_CollectInputDevices();
-	IN_LockInputDevices( adr.type != NA_LOOPBACK ? true : false );
+	IN_LockInputDevices( adrtype != NA_LOOPBACK ? true : false );
 
 	// GoldSrc doesn't need sv_cheats set to 0, it's handled by svc_goldsrc_sendextrainfo
 	// it also doesn't need useragent string
-	if( adr.type != NA_LOOPBACK && proto != PROTO_GOLDSRC )
+	if( adrtype != NA_LOOPBACK && proto != PROTO_GOLDSRC )
 	{
 		Cvar_SetCheatState();
 		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
@@ -1218,7 +1221,7 @@ static void CL_CheckForResend( void )
 		cls.signon = 0;
 		cls.state = ca_connecting;
 		Q_strncpy( cls.servername, "localhost", sizeof( cls.servername ));
-		cls.serveradr.type = NA_LOOPBACK;
+		NET_NetadrSetType( &cls.serveradr, NA_LOOPBACK );
 		cls.legacymode = PROTO_CURRENT;
 
 		// we don't need a challenge on the localhost
@@ -1554,8 +1557,8 @@ static void CL_SendDisconnectMessage( connprotocol_t proto )
 		MSG_WriteString( &buf, "dropclient\n" );
 	else MSG_WriteString( &buf, "disconnect" );
 
-	if( !cls.netchan.remote_address.type )
-		cls.netchan.remote_address.type = NA_LOOPBACK;
+	if( NET_NetadrType( &cls.netchan.remote_address ) == NA_UNDEFINED )
+		NET_NetadrSetType( &cls.netchan.remote_address, NA_LOOPBACK );
 
 	// make sure message will be delivered
 	Netchan_TransmitBits( &cls.netchan, MSG_GetNumBitsWritten( &buf ), MSG_GetData( &buf ));
@@ -1724,19 +1727,17 @@ CL_LocalServers_f
 */
 static void CL_LocalServers_f( void )
 {
-	netadr_t	adr;
-
-	memset( &adr, 0, sizeof( adr ));
+	netadr_t adr = { 0 };
 
 	Con_Printf( "Scanning for servers on the local network area...\n" );
 	NET_Config( true, true ); // allow remote
 
 	// send a broadcast packet
-	adr.type = NA_BROADCAST;
+	NET_NetadrSetType( &adr, NA_BROADCAST );
 	adr.port = MSG_BigShort( PORT_SERVER );
 	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
 
-	adr.type = NA_MULTICAST_IP6;
+	NET_NetadrSetType( &adr, NA_MULTICAST_IP6 );
 	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
 }
 
@@ -2480,18 +2481,18 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 	while( MSG_GetNumBitsLeft( msg ) > 8 )
 	{
 		uint8_t addr[16];
-		netadr_t	servadr;
+		netadr_t servadr = { 0 };
 
-		if( from.type6 == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
+		if( NET_NetadrType( &from ) == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
 		{
 			MSG_ReadBytes( msg, addr, sizeof( addr ));
 			NET_IP6BytesToNetadr( &servadr, addr );
-			servadr.type6 = NA_IP6;
+			NET_NetadrSetType( &servadr, NA_IP6 );
 		}
 		else
 		{
 			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
-			servadr.type = NA_IP;
+			NET_NetadrSetType( &servadr, NA_IP );
 		}
 		servadr.port = MSG_ReadShort( msg );			// 2 bytes for Port
 

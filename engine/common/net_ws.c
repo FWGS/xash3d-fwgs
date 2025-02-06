@@ -151,17 +151,24 @@ static inline qboolean NET_IsSocketValid( int socket )
 
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr )
 {
-	memcpy( ip6, adr->ip6, sizeof( adr->ip6 ));
+	memcpy( &ip6[0], adr->ip6_0, 2 );
+	memcpy( &ip6[2], adr->ip6_1, 14 );
 }
 
 void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 )
 {
-	memcpy( adr->ip6, ip6, sizeof( adr->ip6 ));
+	memcpy( adr->ip6_0, &ip6[0], 2 );
+	memcpy( adr->ip6_1, &ip6[2], 14 );
 }
 
 static int NET_NetadrIP6Compare( const netadr_t *a, const netadr_t *b )
 {
-	return memcmp( a->ip6, b->ip6, sizeof( a->ip6 ));
+	uint8_t ip6_a[16], ip6_b[16];
+
+	NET_NetadrToIP6Bytes( ip6_a, a );
+	NET_NetadrToIP6Bytes( ip6_b, b );
+
+	return memcmp( ip6_a, ip6_b, sizeof( ip6_a ));
 }
 
 /*
@@ -171,27 +178,29 @@ NET_NetadrToSockadr
 */
 static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 {
+	netadrtype_t type = NET_NetadrType( a );
+
 	memset( s, 0, sizeof( *s ));
 
-	if( a->type == NA_BROADCAST )
+	if( type == NA_BROADCAST )
 	{
 		s->ss_family = AF_INET;
 		((struct sockaddr_in *)s)->sin_port = a->port;
 		((struct sockaddr_in *)s)->sin_addr.s_addr = INADDR_BROADCAST;
 	}
-	else if( a->type == NA_IP )
+	else if( type == NA_IP )
 	{
 		s->ss_family = AF_INET;
 		((struct sockaddr_in *)s)->sin_port = a->port;
 		((struct sockaddr_in *)s)->sin_addr.s_addr = a->ip4;
 	}
-	else if( a->type6 == NA_IP6 )
+	else if( type == NA_IP6 )
 	{
 		s->ss_family = AF_INET6;
 		((struct sockaddr_in6 *)s)->sin6_port = a->port;
 		NET_NetadrToIP6Bytes(((struct sockaddr_in6 *)s)->sin6_addr.s6_addr, a );
 	}
-	else if( a->type6 == NA_MULTICAST_IP6 )
+	else if( type == NA_MULTICAST_IP6 )
 	{
 		s->ss_family = AF_INET6;
 		((struct sockaddr_in6 *)s)->sin6_port = a->port;
@@ -208,13 +217,13 @@ static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 {
 	if( s->ss_family == AF_INET )
 	{
-		a->type = NA_IP;
+		NET_NetadrSetType( a, NA_IP );
 		a->ip4 = ((struct sockaddr_in *)s)->sin_addr.s_addr;
 		a->port = ((struct sockaddr_in *)s)->sin_port;
 	}
 	else if( s->ss_family == AF_INET6 )
 	{
-		a->type6 = NA_IP6;
+		NET_NetadrSetType( a, NA_IP6 );
 		NET_IP6BytesToNetadr( a, ((struct sockaddr_in6 *)s)->sin6_addr.s6_addr );
 		a->port = ((struct sockaddr_in6 *)s)->sin6_port;
 	}
@@ -549,8 +558,8 @@ qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
 	// try to parse as IPv6 first
 	if( ParseIPv6Addr( copy, ip6, NULL, NULL ))
 	{
+		NET_NetadrSetType( adr, NA_IP6 );
 		NET_IP6BytesToNetadr( adr, ip6 );
-		adr->type6 = NA_IP6;
 
 		if( !hasCIDR )
 			*prefixlen = 128;
@@ -620,7 +629,7 @@ qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
 			adr->ip4 = ntohl( mask );
 		}
 
-		adr->type = NA_IP;
+		NET_NetadrSetType( adr, NA_IP );
 	}
 
 	return true;
@@ -634,10 +643,11 @@ NET_AdrToString
 const char *NET_AdrToString( const netadr_t a )
 {
 	static char s[64];
+	netadrtype_t type = NET_NetadrType( &a );
 
-	if( a.type == NA_LOOPBACK )
+	if( type == NA_LOOPBACK )
 		return "loopback";
-	if( a.type6 == NA_IP6 || a.type6 == NA_MULTICAST_IP6 )
+	if( type == NA_IP6 || type == NA_MULTICAST_IP6 )
 	{
 		uint8_t ip6[16];
 
@@ -661,10 +671,11 @@ NET_BaseAdrToString
 const char *NET_BaseAdrToString( const netadr_t a )
 {
 	static char s[64];
+	netadrtype_t type = NET_NetadrType( &a );
 
-	if( a.type == NA_LOOPBACK )
+	if( type == NA_LOOPBACK )
 		return "loopback";
-	if( a.type6 == NA_IP6 || a.type6 == NA_MULTICAST_IP6 )
+	if( type == NA_IP6 || type == NA_MULTICAST_IP6 )
 	{
 		uint8_t ip6[16];
 
@@ -689,16 +700,19 @@ Compares without the port
 */
 qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b )
 {
-	if( a.type6 != b.type6 )
+	netadrtype_t type_a = NET_NetadrType( &a );
+	netadrtype_t type_b = NET_NetadrType( &b );
+
+	if( type_a != type_b )
 		return false;
 
-	if( a.type == NA_LOOPBACK )
+	if( type_a == NA_LOOPBACK )
 		return true;
 
-	if( a.type == NA_IP )
+	if( type_a == NA_IP )
 		return a.ip4 == b.ip4;
 
-	if( a.type6 == NA_IP6 )
+	if( type_a == NA_IP6 )
 	{
 		if( !NET_NetadrIP6Compare( &a, &b ))
 		    return true;
@@ -716,13 +730,16 @@ Compare local masks
 */
 qboolean NET_CompareClassBAdr( const netadr_t a, const netadr_t b )
 {
-	if( a.type6 != b.type6 )
+	netadrtype_t type_a = NET_NetadrType( &a );
+	netadrtype_t type_b = NET_NetadrType( &b );
+
+	if( type_a != type_b )
 		return false;
 
-	if( a.type == NA_LOOPBACK )
+	if( type_a == NA_LOOPBACK )
 		return true;
 
-	if( a.type == NA_IP )
+	if( type_a == NA_IP )
 	{
 		if( a.ip[0] == b.ip[0] && a.ip[1] == b.ip[1] )
 			return true;
@@ -746,10 +763,13 @@ Checks if adr is a part of subnet
 */
 qboolean NET_CompareAdrByMask( const netadr_t a, const netadr_t b, uint prefixlen )
 {
-	if( a.type6 != b.type6 || a.type == NA_LOOPBACK )
+	netadrtype_t type_a = NET_NetadrType( &a );
+	netadrtype_t type_b = NET_NetadrType( &b );
+
+	if( type_a != type_b || type_a == NA_LOOPBACK )
 		return false;
 
-	if( a.type == NA_IP )
+	if( type_a == NA_IP )
 	{
 		uint32_t ipa = htonl( a.ip4 );
 		uint32_t ipb = htonl( b.ip4 );
@@ -757,7 +777,7 @@ qboolean NET_CompareAdrByMask( const netadr_t a, const netadr_t b, uint prefixle
 		if(( ipa & (( 0xFFFFFFFFU ) << ( 32 - prefixlen ))) == ipb )
 			return true;
 	}
-	else if( a.type6 == NA_IP6 )
+	else if( type_a == NA_IP6 )
 	{
 		uint16_t a_[8], b_[8];
 		size_t check     = prefixlen / 16;
@@ -798,11 +818,13 @@ Check for reserved ip's
 */
 qboolean NET_IsReservedAdr( netadr_t a )
 {
-	if( a.type == NA_LOOPBACK )
+	netadrtype_t type_a = NET_NetadrType( &a );
+
+	if( type_a == NA_LOOPBACK )
 		return true;
 
 	// Following checks was imported from GameNetworkingSockets library
-	if( a.type == NA_IP )
+	if( type_a == NA_IP )
 	{
 		if(( a.ip[0] == 10 ) || // 10.x.x.x is reserved
 			( a.ip[0] == 127 ) || // 127.x.x.x
@@ -814,7 +836,7 @@ qboolean NET_IsReservedAdr( netadr_t a )
 		}
 	}
 
-	if( a.type6 == NA_IP6 )
+	if( type_a == NA_IP6 )
 	{
 		uint8_t ip6[16];
 
@@ -847,20 +869,23 @@ Compare full address
 */
 qboolean NET_CompareAdr( const netadr_t a, const netadr_t b )
 {
-	if( a.type6 != b.type6 )
+	netadrtype_t type_a = NET_NetadrType( &a );
+	netadrtype_t type_b = NET_NetadrType( &b );
+
+	if( type_a != type_b )
 		return false;
 
-	if( a.type == NA_LOOPBACK )
+	if( type_a == NA_LOOPBACK )
 		return true;
 
-	if( a.type == NA_IP )
+	if( type_a == NA_IP )
 	{
 		if( a.ip4 == b.ip4 && a.port == b.port )
 			return true;
 		return false;
 	}
 
-	if( a.type6 == NA_IP6 )
+	if( type_a == NA_IP6 )
 	{
 		if( a.port == b.port && !NET_NetadrIP6Compare( &a, &b ))
 			return true;
@@ -883,9 +908,13 @@ int NET_CompareAdrSort( const void *_a, const void *_b )
 {
 	const netadr_t *a = _a, *b = _b;
 	int porta, portb, portdiff, addrdiff;
+	netadrtype_t type_a, type_b;
 
-	if( a->type6 != b->type6 )
-		return bound( -1, (int)a->type6 - (int)b->type6, 1 );
+	type_a = NET_NetadrType( a );
+	type_b = NET_NetadrType( b );
+
+	if( type_a != type_b )
+		return bound( -1, (int)type_a - (int)type_b, 1 );
 
 	porta = ntohs( a->port );
 	portb = ntohs( b->port );
@@ -896,7 +925,7 @@ int NET_CompareAdrSort( const void *_a, const void *_b )
 	else
 		portdiff = 0;
 
-	switch( a->type6 )
+	switch( type_a )
 	{
 	case NA_IP6:
 		if(( addrdiff = NET_NetadrIP6Compare( a, b )))
@@ -904,14 +933,7 @@ int NET_CompareAdrSort( const void *_a, const void *_b )
 		// fallthrough
 	case NA_MULTICAST_IP6:
 		return portdiff;
-	}
 
-	// don't check for full type earlier, as it's value depends on v6 address
-	if( a->type != b->type )
-		return bound( -1, (int)a->type - (int)b->type, 1 );
-
-	switch( a->type )
-	{
 	case NA_IP:
 		if(( addrdiff = memcmp( a->ip, b->ip, sizeof( a->ipx ))))
 			return addrdiff;
@@ -946,7 +968,7 @@ static qboolean NET_StringToAdrEx( const char *string, netadr_t *adr, int family
 
 	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ))
 	{
-		adr->type = NA_LOOPBACK;
+		NET_NetadrSetType( adr, NA_LOOPBACK );
 		return true;
 	}
 
@@ -971,7 +993,7 @@ net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr, qboolean v
 
 	if( !Q_stricmp( string, "localhost" ) || !Q_stricmp( string, "loopback" ))
 	{
-		adr->type = NA_LOOPBACK;
+		NET_NetadrSetType( adr, NA_LOOPBACK );
 		return NET_EAI_OK;
 	}
 
@@ -1017,7 +1039,7 @@ static qboolean NET_GetLoopPacket( netsrc_t sock, netadr_t *from, byte *data, si
 	*length = loop->msgs[i].datalen;
 
 	memset( from, 0, sizeof( *from ));
-	from->type = NA_LOOPBACK;
+	NET_NetadrSetType( from, NA_LOOPBACK );
 
 	return true;
 }
@@ -1546,19 +1568,20 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 	int		ret;
 	struct sockaddr_storage	addr = { 0 };
 	SOCKET		net_socket = 0;
+	netadrtype_t type = NET_NetadrType( &to );
 
-	if( !net.initialized || to.type == NA_LOOPBACK )
+	if( !net.initialized || type == NA_LOOPBACK )
 	{
 		NET_SendLoopPacket( sock, length, data, to );
 		return;
 	}
-	else if( to.type == NA_BROADCAST || to.type == NA_IP )
+	else if( type == NA_BROADCAST || type == NA_IP )
 	{
 		net_socket = net.ip_sockets[sock];
 		if( !NET_IsSocketValid( net_socket ))
 			return;
 	}
-	else if( to.type6 == NA_MULTICAST_IP6 || to.type6 == NA_IP6 )
+	else if( type == NA_MULTICAST_IP6 || type == NA_IP6 )
 	{
 		net_socket = net.ip6_sockets[sock];
 		if( !NET_IsSocketValid( net_socket ))
@@ -1566,7 +1589,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 	}
 	else
 	{
-		Host_Error( "%s: bad address type %i (%i)\n", __func__, to.type, to.type6 );
+		Host_Error( "%s: bad address type %i (%i, %i)\n", __func__, to.type, to.ip6_0[0], to.ip6_0[1] );
 	}
 
 	NET_NetadrToSockadr( &to, &addr );
@@ -1582,7 +1605,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 			return;
 
 		// some PPP links don't allow broadcasts
-		if( err == WSAEADDRNOTAVAIL && ( to.type == NA_BROADCAST || to.type6 == NA_MULTICAST_IP6 ))
+		if( err == WSAEADDRNOTAVAIL && ( type == NA_BROADCAST || type == NA_MULTICAST_IP6 ))
 			return;
 
 		if( Host_IsDedicated( ))
