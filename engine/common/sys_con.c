@@ -80,7 +80,7 @@ void Sys_InitLog( void )
 {
 	const char	*mode;
 
-	if( Sys_CheckParm( "-log" ) && host.allow_console != 0 )
+	if( Sys_CheckParm( "-log" ))
 	{
 		s_ld.log_active = true;
 		Q_strncpy( s_ld.log_path, "engine.log", sizeof( s_ld.log_path ));
