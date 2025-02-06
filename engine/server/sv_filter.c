@@ -302,7 +302,7 @@ static int SV_FilterToString( char *dest, size_t size, qboolean config, ipfilter
 
 static qboolean SV_IPFilterIncludesIPFilter( ipfilter_t *a, ipfilter_t *b )
 {
-	if( a->adr.type6 != b->adr.type6 )
+	if( NET_NetadrType( &a->adr ) != NET_NetadrType( &b->adr ))
 		return false;
 
 	// can't include bigger subnet in small
@@ -359,7 +359,7 @@ qboolean SV_CheckIP( netadr_t *adr )
 		if( entry->endTime && host.realtime > entry->endTime )
 			continue; // expired
 
-		switch( entry->adr.type6 )
+		switch( NET_NetadrType( &entry->adr ))
 		{
 		case NA_IP:
 		case NA_IP6:
