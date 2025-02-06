@@ -339,6 +339,9 @@ int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list ar
 {
 	int	result;
 
+	if( unlikely( buffersize == 0 ))
+		return -1; // report as overflow
+
 #ifndef _MSC_VER
 	result = vsnprintf( buffer, buffersize, format, args );
 #else
