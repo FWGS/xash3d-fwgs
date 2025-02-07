@@ -180,8 +180,14 @@ int main( void )
 	if( Q_buildnum_date( "Apr 02 2015" ) != 1 )
 		return 201;
 
-	if( Q_buildnum_date( "Apr 17 2023" ) != 2938 )
+	if( Q_buildnum_date( "Apr 02 2015" ) != Q_buildnum_iso( "2015-04-02 21:19:10 +0300" ))
 		return 202;
+
+	if( Q_buildnum_date( "Apr 17 2023" ) != 2938 )
+		return 203;
+
+	if( Q_buildnum_date( "Apr 17 2023" ) != Q_buildnum_iso( "2023-04-17 21:19:10 +0300" ))
+		return 204;
 
 	return EXIT_SUCCESS;
 }
