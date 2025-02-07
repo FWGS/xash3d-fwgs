@@ -26,7 +26,6 @@ typedef struct
 	byte		lightmap_buffer[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*4];
 } gllightmapstate_t;
 
-static int		nColinElim; // stats
 static vec2_t		world_orthocenter;
 static vec2_t		world_orthohalf;
 static uint		r_blocklights[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*3];
@@ -335,16 +334,16 @@ void GL_SubdivideSurface( model_t *loadmodel, msurface_t *fa )
 GL_BuildPolygonFromSurface
 ================
 */
-void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
+static int GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 {
-	int		i, lnumverts;
+	int		i, lnumverts, nColinElim = 0;
 	float		sample_size;
 	texture_t		*tex;
 	gl_texture_t	*glt;
 	glpoly2_t		*poly;
 
 	if( !mod || !fa->texinfo || !fa->texinfo->texture )
-		return; // bad polygon ?
+		return nColinElim; // bad polygon ?
 
 	if( FBitSet( fa->flags, SURF_CONVEYOR ) && fa->texinfo->texture->gl_texturenum != 0 )
 	{
@@ -417,6 +416,7 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 	}
 
 	poly->numverts = lnumverts;
+	return nColinElim;
 }
 
 
@@ -3844,7 +3844,7 @@ with all the surfaces from all brush models
 */
 void GL_BuildLightmaps( void )
 {
-	int	i, j;
+	int	i, j, nColinElim = 0;
 	model_t	*m;
 
 	// release old lightmaps
@@ -3868,7 +3868,6 @@ void GL_BuildLightmaps( void )
 	gl_lms.current_lightmap_texture = 0;
 	tr.modelviewIdentity = false;
 	tr.realframecount = 1;
-	nColinElim = 0;
 
 	// setup the texture for dlights
 	R_InitDlightTexture();
@@ -3897,7 +3896,7 @@ void GL_BuildLightmaps( void )
 			if( m->surfaces[j].flags & SURF_DRAWTURB )
 				continue;
 
-			GL_BuildPolygonFromSurface( m, m->surfaces + j );
+			nColinElim += GL_BuildPolygonFromSurface( m, m->surfaces + j );
 		}
 
 		// clearing visframe
