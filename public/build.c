@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "buildenums.h"
 
-static const char *mon[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+static const char *const mon[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 static const char mond[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
 int Q_buildnum_date( const char *date )
@@ -80,8 +80,13 @@ int Q_buildnum( void )
 {
 	static int b = 0;
 
-	if( !b )
-		b = Q_buildnum_date( __DATE__ );
+	if( b ) return b;
+
+	if( COM_CheckString( g_buildcommit_date ))
+		b = Q_buildnum_iso( g_buildcommit_date );
+
+	if( b <= 0 )
+		b = Q_buildnum_date( g_build_date );
 
 	return b;
 }
