@@ -419,14 +419,21 @@ void NET_InitMasters( void )
 
 	Cvar_RegisterVariable( &sv_verbose_heartbeats );
 
-	// keep main master always there
-	NET_AddMaster( MASTERSERVER_ADR, false, false );
-	NET_AddMaster( "mentality.rip:27011", false, false ); // testing server, might be offline
-	NET_AddMaster( "ms2.mentality.rip:27010", false, false ); // secondary master
+	{ // IPv4-only
+		NET_AddMaster( "mentality.rip:27010", false, false );
+		NET_AddMaster( "ms2.mentality.rip:27010", false, false );
+		NET_AddMaster( "ms3.mentality.rip:27010", false, false );
+	}
 
-	NET_AddMaster( "aaaa.mentality.rip:27010", false, true ); // IPv6-only
-	NET_AddMaster( "aaaa.mentality.rip:27011", false, true ); // IPv6-only, testing server, might be offline
-	NET_AddMaster( "aaaa.ms2.mentality.rip:27010", false, false ); // secondary IPv6-only master
+	{ // IPv6-only
+		NET_AddMaster( "aaaa.mentality.rip:27010", false, true );
+		NET_AddMaster( "aaaa.ms2.mentality.rip:27010", false, true );
+	}
+
+	{ // testing servers, might be offline
+		NET_AddMaster( "mentality.rip:27011", false, false );
+		NET_AddMaster( "aaaa.mentality.rip:27011", false, true );
+	}
 
 	NET_LoadMasters( );
 }
