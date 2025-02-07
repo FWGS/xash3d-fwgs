@@ -99,13 +99,16 @@ void CL_RunLightStyles( lightstyle_t *ls )
 R_MarkLights
 =============
 */
-void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
+void R_MarkLights( const dlight_t *light, int bit, const mnode_t *node )
 {
-	float		dist;
-	msurface_t	*surf;
-	int		i;
+	const float virtual_radius = light->radius * Q_max( 1.0f, r_dlight_virtual_radius.value );
+	const float maxdist = light->radius * light->radius;
+	float dist;
+	int i;
 	mnode_t *children[2];
 	int firstsurface, numsurfaces;
+
+start:
 
 	if( !node || node->contents < 0 )
 		return;
@@ -113,34 +116,59 @@ void R_MarkLights( dlight_t *light, int bit, mnode_t *node )
 	dist = PlaneDiff( light->origin, node->plane );
 
 	node_children( children, node, RI.currentmodel );
-	firstsurface = node_firstsurface( node, RI.currentmodel );
-	numsurfaces = node_numsurfaces( node, RI.currentmodel );
 
-	if( dist > light->radius )
+	if( dist > virtual_radius )
 	{
-		R_MarkLights( light, bit, children[0] );
-		return;
+		node = children[0];
+		goto start;
 	}
-	if( dist < -light->radius )
+
+	if( dist < -virtual_radius )
 	{
-		R_MarkLights( light, bit, children[1] );
-		return;
+		node = children[1];
+		goto start;
 	}
 
 	// mark the polygons
-	surf = RI.currentmodel->surfaces + firstsurface;
+	firstsurface = node_firstsurface( node, RI.currentmodel );
+	numsurfaces = node_numsurfaces( node, RI.currentmodel );
 
-	for( i = 0; i < numsurfaces; i++, surf++ )
+	for( i = 0; i < numsurfaces; i++ )
 	{
-		if( !BoundsAndSphereIntersect( surf->info->mins, surf->info->maxs, light->origin, light->radius ))
-			continue;	// no intersection
+		vec3_t impact;
+		float s, t, l;
+		msurface_t *surf = &RI.currentmodel->surfaces[firstsurface + i];
+		const mextrasurf_t *info = surf->info;
+
+		if( surf->plane->type < 3 )
+		{
+			VectorCopy( light->origin, impact );
+			impact[surf->plane->type] -= dist;
+		}
+		else VectorMA( light->origin, -dist, surf->plane->normal, impact );
+
+		// a1ba: the fix was taken from JoeQuake, which traces back to FitzQuake,
+		// which attributes it to LadyHavoc (Darkplaces author)
+		// clamp center of light to corner and check brightness
+		l = DotProduct( impact, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
+		s = l + 0.5;
+		s = bound( 0, s, info->lightextents[0] );
+		s = l - s;
+
+		l = DotProduct( impact, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
+		t = l + 0.5;
+		t = bound( 0, t, info->lightextents[1] );
+		t = l - t;
+
+		if( s * s + t * t + dist * dist >= maxdist )
+			continue;
 
 		if( surf->dlightframe != tr.dlightframecount )
 		{
-			surf->dlightbits = 0;
+			surf->dlightbits = bit;
 			surf->dlightframe = tr.dlightframecount;
 		}
-		surf->dlightbits |= bit;
+		else surf->dlightbits |= bit;
 	}
 
 	R_MarkLights( light, bit, children[0] );
