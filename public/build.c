@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <stdio.h>
 #include "crtlib.h"
 #include "buildenums.h"
 
@@ -38,9 +39,31 @@ int Q_buildnum_date( const char *date )
 	b = d + (int)((y - 1) * 365.25f );
 
 	if((( y % 4 ) == 0 ) && m > 1 )
-	{
 		b += 1;
-	}
+	b -= 41728; // Apr 1 2015
+
+	return b;
+}
+
+int Q_buildnum_iso( const char *date )
+{
+	int y, m, d, b, i;
+
+	if( sscanf( date, "%d-%d-%d", &y, &m, &d ) != 3 || y <= 1900 || m <= 0 || d <= 0 )
+		return -1;
+
+	// fixup day and month
+	m--;
+	d--;
+
+	for( i = 0; i < m; i++ )
+		d += mond[i];
+
+	y -= 1900;
+	b = d + (int)((y - 1) * 365.25f );
+
+	if((( y % 4 ) == 0 ) && m > 1 )
+		b += 1;
 	b -= 41728; // Apr 1 2015
 
 	return b;
