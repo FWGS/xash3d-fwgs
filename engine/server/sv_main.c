@@ -189,24 +189,15 @@ void SV_UpdateMovevars( qboolean initialize )
 	if( !initialize && !host.movevars_changed )
 		return;
 
-	// NOTE: this breaks Natural Selection mod on ns_machina map that uses model as sky
-	// it sets the value to 4000000 that even exceeds the coord limit
-#if 0
-	// check range
-	if( sv_zmax.value < 256.0f ) Cvar_SetValue( "sv_zmax", 256.0f );
-
-	// clamp it right
-	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-	{
-		if( sv_zmax.value > 131070.0f )
-			Cvar_SetValue( "sv_zmax", 131070.0f );
-	}
-	else
-	{
-		if( sv_zmax.value > 32767.0f )
-			Cvar_SetValue( "sv_zmax", 32767.0f );
-	}
-#endif
+	// NOTE: Natural Selection mod on ns_machina map that uses model as sky
+	// it sets the value to 4000000 that even exceeds the coord limit, but
+	// it's fine until the value fits in "zmax" delta field
+	// However, some stupid mappers set an insane value like 999999999 which
+	// overflows delta. In this case, just clamp it to something bigger
+	if( sv_zmax.value < 256.0f )
+		Cvar_DirectSet( &sv_zmax, "256" );
+	else if( sv_zmax.value > 16777216.0f ) // 2^24
+		Cvar_DirectSet( &sv_zmax, "16777216" );
 
 	svgame.movevars.gravity = sv_gravity.value;
 	svgame.movevars.stopspeed = sv_stopspeed.value;
