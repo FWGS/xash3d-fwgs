@@ -81,6 +81,20 @@ static void CL_FillRGBA( int rendermode, float _x, float _y, float _w, float _h,
 	pglDisable( GL_BLEND );
 }
 
+static qboolean Mod_LooksLikeWaterTexture( const char *name )
+{
+	if(( name[0] == '*' && Q_stricmp( name, REF_DEFAULT_TEXTURE )) || name[0] == '!' )
+		return true;
+
+	if( !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+	{
+		if( !Q_strncmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
+			return true;
+	}
+
+	return false;
+}
+
 static void Mod_BrushUnloadTextures( model_t *mod )
 {
 	int i;
@@ -93,8 +107,12 @@ static void Mod_BrushUnloadTextures( model_t *mod )
 
 		if( tx->gl_texturenum != tr.defaultTexture )
 			GL_FreeTexture( tx->gl_texturenum ); // main texture
-		GL_FreeTexture( tx->fb_texturenum ); // luma texture
-		GL_FreeTexture( tx->dt_texturenum ); // detail texture
+
+		if( !Mod_LooksLikeWaterTexture( tx->name ))
+		{
+			GL_FreeTexture( tx->fb_texturenum ); // luma texture
+			GL_FreeTexture( tx->dt_texturenum ); // detail texture
+		}
 	}
 }
 
