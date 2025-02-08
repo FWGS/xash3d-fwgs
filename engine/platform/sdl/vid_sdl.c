@@ -824,7 +824,8 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 		else
 			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN_DESKTOP );
 		SetBits( wndFlags, SDL_WINDOW_BORDERLESS );
-		xpos = ypos = SDL_WINDOWPOS_UNDEFINED;
+			xpos = window_xpos.value;
+			ypos = window_ypos.value;
 	}
 
 	if( !VID_CreateWindowWithSafeGL( wndname, xpos, ypos, width, height, wndFlags ))
