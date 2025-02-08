@@ -257,7 +257,8 @@ static void R_InitVideoModes( void )
 {
 	char buf[MAX_VA_STRING];
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	int displayIndex = 0; // TODO: handle multiple displays somehow
+	SDL_Point point = { window_xpos.value, window_ypos.value };
+	int displayIndex = SDL_GetPointDisplayIndex( &point );
 	int i, modes;
 
 	num_vidmodes = 0;
