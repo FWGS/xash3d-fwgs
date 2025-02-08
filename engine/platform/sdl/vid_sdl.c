@@ -824,8 +824,16 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 		else
 			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN_DESKTOP );
 		SetBits( wndFlags, SDL_WINDOW_BORDERLESS );
+		if ( window_xpos.value < 0 || window_ypos.value < 0 )
+		{
+			xpos = SDL_WINDOWPOS_UNDEFINED;
+			ypos = SDL_WINDOWPOS_UNDEFINED;
+		}
+		else
+		{
 			xpos = window_xpos.value;
 			ypos = window_ypos.value;
+		}
 	}
 
 	if( !VID_CreateWindowWithSafeGL( wndname, xpos, ypos, width, height, wndFlags ))
@@ -1048,7 +1056,8 @@ qboolean R_Init_Video( const int type )
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_DisplayMode displayMode;
-	SDL_GetCurrentDisplayMode( 0, &displayMode );
+	SDL_Point point = { window_xpos.value, window_ypos.value };
+	SDL_GetCurrentDisplayMode( SDL_GetPointDisplayIndex( &point ), &displayMode );
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
 #else
 	refState.desktopBitsPixel = 16;
