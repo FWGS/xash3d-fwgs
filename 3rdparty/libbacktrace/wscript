@@ -148,8 +148,7 @@ def configure(conf):
 	conf.write_config_header('backtrace-supported.h')
 
 @TaskGen.feature('frandomseed')
-@TaskGen.after_method('process_source')
-@TaskGen.before_method('apply_link')
+@TaskGen.after_method('propagate_uselib_vars')
 def process_frandom_seed(ctx):
 	tasks = getattr(ctx, 'compiled_tasks', [])
 
