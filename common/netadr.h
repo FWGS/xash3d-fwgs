@@ -90,12 +90,12 @@ typedef struct netadr_s
 static inline netadrtype_t NET_NetadrType( const netadr_t *a )
 {
 	if( a->type == NA_IP6 || a->type == NA_MULTICAST_IP6 )
-		return a->type;
+		return (netadrtype_t)a->type;
 
 	if( a->ip6_0[0] || a->ip6_0[1] )
 		return NA_UNDEFINED;
 
-	return a->type;
+	return (netadrtype_t)a->type;
 }
 
 static inline void NET_NetadrSetType( netadr_t *a, netadrtype_t type )
