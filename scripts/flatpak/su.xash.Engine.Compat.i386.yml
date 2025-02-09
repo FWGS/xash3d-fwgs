@@ -59,6 +59,7 @@ x-compat-i386-opts: &compat-i386-opts
     CC: i686-unknown-linux-gnu-gcc
     CXX: i686-unknown-linux-gnu-g++
   libdir: /app/lib32
+  no-debuginfo: true # libbacktrace relies on this
 
 modules:
   - name: bundle-setup
