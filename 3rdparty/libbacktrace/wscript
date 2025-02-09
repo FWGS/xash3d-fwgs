@@ -132,9 +132,9 @@ def configure(conf):
 		{'fragment':FRAGMENT_LSTAT, 'msg': '...  lstat function', 'define_name':'HAVE_LSTAT', 'mandatory':False},
 		{'fragment':FRAGMENT_READLINK, 'msg': '...  readlink function', 'define_name':'HAVE_READLINK', 'mandatory':False},
 
-		{'lib':'lzma', 'define_name':'HAVE_LIBLZMA', 'uselib_store':'lzma', 'msg':'... lzma library', 'mandatory':False},
-		{'lib':'z', 'define_name':'HAVE_ZLIB', 'uselib_store':'z', 'msg':'... zlib library', 'mandatory':False},
-		{'lib':'zstd', 'define_name':'HAVE_ZSTD', 'uselib_store':'zstd', 'msg':'... zstd library', 'mandatory':False},
+#		{'lib':'lzma', 'define_name':'HAVE_LIBLZMA', 'uselib_store':'lzma', 'msg':'... lzma library', 'mandatory':False},
+#		{'lib':'z', 'define_name':'HAVE_ZLIB', 'uselib_store':'z', 'msg':'... zlib library', 'mandatory':False},
+#		{'lib':'zstd', 'define_name':'HAVE_ZSTD', 'uselib_store':'zstd', 'msg':'... zstd library', 'mandatory':False},
 		msg='Checking for in parallel'
 	)
 
