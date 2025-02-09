@@ -487,7 +487,10 @@ def configure(conf):
 	if not conf.options.BUILD_BUNDLED_DEPS:
 		frag='''#include <backtrace.h>
 #include <backtrace-supported.h>
-int main(int argc, char **argv) { return backtrace_create_state( argv[0], BACKTRACE_SUPPORTS_THREADS, 0, 0 ) != 0; }'''
+#if !BACKTRACE_SUPPORTS_THREADS
+#error
+#endif
+int main(int argc, char **argv) { return backtrace_create_state(argv[0], 1, 0, 0) != 0; }'''
 
 		conf.env.HAVE_SYSTEM_LIBBACKTRACE = conf.check_cc(lib='backtrace', fragment=frag, uselib_store='backtrace', mandatory=False)
 
