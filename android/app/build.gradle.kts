@@ -96,6 +96,7 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            keepDebugSymbols.add("**/*.so")
         }
     }
 }
@@ -112,7 +113,7 @@ dependencies {
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
-//    implementation "androidx.legacy:legacy-support-v4:1.0.0"
+//  implementation "androidx.legacy:legacy-support-v4:1.0.0"
 
     implementation("com.madgag.spongycastle:prov:1.58.0.0")
     implementation("in.dragonbra:javasteam:1.2.0")
