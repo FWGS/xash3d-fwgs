@@ -485,6 +485,12 @@ def configure(conf):
 			if conf.check_cfg(package=i, uselib_store=i, args='--cflags --libs', mandatory=False):
 				conf.env['HAVE_SYSTEM_%s' % i.upper()] = True
 
+			if conf.env.HAVE_SYSTEM_OPUSFILE:
+				frag='''#include <opusfile.h>
+int main(int argc, char **argv) { return opus_tagcompare(argv[0], argv[1]); }'''
+
+				conf.env.HAVE_SYSTEM_OPUSFILE = conf.check_cc(msg='Checking for libopusfile sanity', use='opusfile werror', fragment=frag, mandatory=False)
+
 		# search for opus 1.4 only, it has fixes for custom modes
 		# 1.5 breaks custom modes: https://github.com/xiph/opus/issues/374
 		if conf.check_cfg(package='opus', uselib_store='opus', args='opus = 1.4 --cflags --libs', mandatory=False):
