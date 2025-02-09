@@ -179,10 +179,10 @@ static inline void Platform_Sleep( int msec )
 }
 
 #if XASH_WIN32 || XASH_FREEBSD || XASH_NETBSD || XASH_OPENBSD || XASH_ANDROID || XASH_LINUX || XASH_APPLE
-void Sys_SetupCrashHandler( void );
+void Sys_SetupCrashHandler( const char *argv0 );
 void Sys_RestoreCrashHandler( void );
 #else
-static inline void Sys_SetupCrashHandler( void )
+static inline void Sys_SetupCrashHandler( const char *argv0 )
 {
 }
 

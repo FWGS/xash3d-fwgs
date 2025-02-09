@@ -318,7 +318,7 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
 
-void Sys_SetupCrashHandler( void )
+void Sys_SetupCrashHandler( const char *argv0 )
 {
 	SetErrorMode( SEM_FAILCRITICALERRORS );	// no abort/retry/fail errors
 	oldFilter = SetUnhandledExceptionFilter( Sys_Crash );

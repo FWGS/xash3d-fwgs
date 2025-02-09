@@ -45,16 +45,16 @@ static int Sys_PrintFrame( char *buf, int len, int i, void *addr )
 	if( len <= 0 )
 		return 0; // overflow
 
-		if( dladdr( addr, &dlinfo ))
-		{
-			if( dlinfo.dli_sname )
-				return Q_snprintf( buf, len, "%2d: %p <%s+%lu> (%s)\n", i, addr, dlinfo.dli_sname,
-								   (unsigned long)addr - (unsigned long)dlinfo.dli_saddr, dlinfo.dli_fname ); // print symbol, module and address
+	if( dladdr( addr, &dlinfo ))
+	{
+		if( dlinfo.dli_sname )
+			return Q_snprintf( buf, len, "%2d: %p <%s+%lu> (%s)\n", i, addr, dlinfo.dli_sname,
+				(unsigned long)addr - (unsigned long)dlinfo.dli_saddr, dlinfo.dli_fname ); // print symbol, module and address
 
-				return Q_snprintf( buf, len, "%2d: %p (%s)\n", i, addr, dlinfo.dli_fname ); // print module and address
-		}
+		return Q_snprintf( buf, len, "%2d: %p (%s)\n", i, addr, dlinfo.dli_fname ); // print module and address
+	}
 
-		return Q_snprintf( buf, len, "%2d: %p\n", i, addr ); // print only address
+	return Q_snprintf( buf, len, "%2d: %p\n", i, addr ); // print only address
 }
 
 void Sys_Crash( int signal, siginfo_t *si, void *context )
@@ -206,7 +206,7 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 
 #endif // !HAVE_EXECINFO
 
-void Sys_SetupCrashHandler( void )
+void Sys_SetupCrashHandler( const char *argv0 )
 {
 	struct sigaction act = { 0 };
 	act.sa_sigaction = Sys_Crash;

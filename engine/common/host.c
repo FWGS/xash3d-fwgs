@@ -1043,7 +1043,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	}
 
 	if( !Sys_CheckParm( "-noch" ))
-		Sys_SetupCrashHandler();
+		Sys_SetupCrashHandler( argv[0] );
 
 #if XASH_DLL_LOADER
 	host.enabledll = !Sys_CheckParm( "-nodll" );
