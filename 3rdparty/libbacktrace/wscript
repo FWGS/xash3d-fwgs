@@ -88,8 +88,6 @@ def configure(conf):
 	conf.define('__EXTENSIONS__', 1)
 	conf.define('_DARWIN_USE_64_BIT_INODE', 1)
 	conf.define('_LARGE_FILES', 1)
-	conf.define('_POSIX_SOURCE', 1)
-	conf.define('_POSIX_1_SOURCE', 1)
 	conf.check_large_file(compiler='c', execute=False, mandatory=False) # sets _FILE_OFFSET_BITS
 
 	conf.env.CFLAGS_EXTRAFLAGS = conf.filter_cflags(['-funwind-tables', '-g'], [])
@@ -178,7 +176,7 @@ def build(bld):
 
 	task = bld.stlib(
 		source = ['libbacktrace/' + i for i in sources],
-		target = 'libbacktrace',
+		target = 'backtrace',
 		features = 'frandomseed' if bld.env.HAVE_FRANDOM_SEED else '',
 		use = 'EXTRAFLAGS lzma z zstd',
 		includes = '. libbacktrace/',
