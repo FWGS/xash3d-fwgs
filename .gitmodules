@@ -34,3 +34,6 @@
 [submodule "3rdparty/opusfile/opusfile"]
 	path = 3rdparty/opusfile/opusfile
 	url = https://gitlab.xiph.org/xiph/opusfile.git
+[submodule "3rdparty/libbacktrace/libbacktrace"]
+	path = 3rdparty/libbacktrace/libbacktrace
+	url = https://github.com/ianlancetaylor/libbacktrace
