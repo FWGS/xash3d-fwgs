@@ -120,7 +120,6 @@ jobs:
           --yes \
           --cleanup-tag \
           --repo "$GITHUB_REPOSITORY" || true
-        sleep 20s
         gh run download "$GITHUB_RUN_ID" \
           --dir artifacts/ \
           --repo "$GITHUB_REPOSITORY"
