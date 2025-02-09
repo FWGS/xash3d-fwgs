@@ -481,6 +481,7 @@ static void SDLash_EventHandler( SDL_Event *event )
 		switch( event->window.event )
 		{
 		case SDL_WINDOWEVENT_MOVED:
+		{
 			char val[32];
 
 			Q_snprintf( val, sizeof( val ), "%d", event->window.data1 );
@@ -488,12 +489,11 @@ static void SDLash_EventHandler( SDL_Event *event )
 
 			Q_snprintf( val, sizeof( val ), "%d", event->window.data2 );
 			Cvar_DirectSet( &window_ypos, val );
-			
+
 			if ( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
-			{
 				Cvar_DirectSet( &vid_maximized, "0" );
-			}
 			break;
+		}
 		case SDL_WINDOWEVENT_MINIMIZED:
 			host.status = HOST_SLEEP;
 			Cvar_DirectSet( &vid_maximized, "0" );
