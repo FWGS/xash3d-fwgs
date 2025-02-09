@@ -62,10 +62,12 @@ def options(opt):
 def configure(conf):
 	# add unsupported platforms here
 	if conf.env.DEST_OS in ['nswitch', 'psvita', 'dos']:
+		conf.env.DISABLE_LIBBACKTRACE = True
 		return
 
 	# win32 has it's own dbghelp-based backtrace, that's why we ship PDBs
 	if conf.env.COMPILER_CC == 'msvc':
+		conf.env.DISABLE_LIBBACKTRACE = True
 		return
 
 	if not conf.path.find_dir('libbacktrace') or not conf.path.find_dir('libbacktrace/config'):
@@ -159,6 +161,9 @@ def process_frandom_seed(ctx):
 		task.env.CFLAGS += ['-frandom-seed=%s' % out.path_from(out.ctx.bldnode)]
 
 def build(bld):
+	if bld.env.DISABLE_LIBBACKTRACE:
+		return
+
 	# we specifically only want mmap-based allocators because calling malloc is not safe from signal handlers
 	sources = ['atomic.c', 'dwarf.c', 'fileline.c', 'posix.c', 'print.c', 'sort.c', 'state.c', 'backtrace.c', 'simple.c', 'mmap.c', 'mmapio.c']
 
