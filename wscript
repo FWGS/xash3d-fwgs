@@ -84,7 +84,7 @@ SUBDIRS = [
 	Subproject('filesystem'),
 	Subproject('stub/server'),
 	Subproject('dllemu'),
-	Subproject('3rdparty/libbacktrace'),
+	Subproject('3rdparty/libbacktrace', lambda x: not x.env.HAVE_SYSTEM_LIBBACKTRACE),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
@@ -484,34 +484,38 @@ def configure(conf):
 	else:
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
-	# dedicated server don't have external dependencies
-	if not conf.options.BUILD_BUNDLED_DEPS and not conf.options.DEDICATED:
-		for i in ('ogg','opusfile','vorbis','vorbisfile'):
-			if conf.check_cfg(package=i, uselib_store=i, args='--cflags --libs', mandatory=False):
-				conf.env['HAVE_SYSTEM_%s' % i.upper()] = True
+	if not conf.options.BUILD_BUNDLED_DEPS:
+		frag='''#include <backtrace.h>
+#include <backtrace-supported.h>
+int main(int argc, char **argv) { return backtrace_create_state( argv[0], BACKTRACE_SUPPORTS_THREADS, 0, 0 ) != 0; }'''
 
-			if conf.env.HAVE_SYSTEM_OPUSFILE:
-				frag='''#include <opusfile.h>
+		conf.env.HAVE_SYSTEM_LIBBACKTRACE = conf.check_cc(lib='backtrace', fragment=frag, uselib_store='backtrace', mandatory=False)
+
+		if conf.env.CLIENT:
+			for i in ('ogg','opusfile','vorbis','vorbisfile'):
+				if conf.check_cfg(package=i, uselib_store=i, args='--cflags --libs', mandatory=False):
+					conf.env['HAVE_SYSTEM_%s' % i.upper()] = True
+
+				if conf.env.HAVE_SYSTEM_OPUSFILE:
+					frag='''#include <opusfile.h>
 int main(int argc, char **argv) { return opus_tagcompare(argv[0], argv[1]); }'''
 
-				conf.env.HAVE_SYSTEM_OPUSFILE = conf.check_cc(msg='Checking for libopusfile sanity', use='opusfile werror', fragment=frag, mandatory=False)
+					conf.env.HAVE_SYSTEM_OPUSFILE = conf.check_cc(msg='Checking for libopusfile sanity', use='opusfile werror', fragment=frag, mandatory=False)
 
-		# search for opus 1.4 only, it has fixes for custom modes
-		# 1.5 breaks custom modes: https://github.com/xiph/opus/issues/374
-		if conf.check_cfg(package='opus', uselib_store='opus', args='opus = 1.4 --cflags --libs', mandatory=False):
-			# now try to link with export that only exists with CUSTOM_MODES defined
-			frag='''#include <opus_custom.h>
+			# search for opus 1.4 only, it has fixes for custom modes
+			# 1.5 breaks custom modes: https://github.com/xiph/opus/issues/374
+			if conf.check_cfg(package='opus', uselib_store='opus', args='opus = 1.4 --cflags --libs', mandatory=False):
+				# now try to link with export that only exists with CUSTOM_MODES defined
+				frag='''#include <opus_custom.h>
 int main(void) { return !opus_custom_encoder_init((OpusCustomEncoder *)1, (const OpusCustomMode *)1, 1); }'''
 
-			if conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus werror', fragment=frag, mandatory=False):
-				conf.env.HAVE_SYSTEM_OPUS = True
+				conf.env.HAVE_SYSTEM_OPUS = conf.check_cc(msg='Checking if opus supports custom modes', defines='CUSTOM_MODES=1', use='opus werror', fragment=frag, mandatory=False)
 
-		# search for bzip2
-		BZIP2_CHECK='''#include <bzlib.h>
+			# search for bzip2
+			BZIP2_CHECK='''#include <bzlib.h>
 int main(void) { return (int)BZ2_bzlibVersion(); }'''
 
-		if conf.check_cc(lib='bz2', fragment=BZIP2_CHECK, uselib_store='bzip2', mandatory=False):
-			conf.env.HAVE_SYSTEM_BZ2 = True
+			conf.env.HAVE_SYSTEM_BZ2 = conf.check_cc(lib='bz2', fragment=BZIP2_CHECK, uselib_store='bzip2', mandatory=False)
 
 	conf.define('XASH_LOW_MEMORY', conf.options.LOW_MEMORY)
 
