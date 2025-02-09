@@ -21,6 +21,8 @@ build_engine()
 		die
 	fi
 
+	cat build/config.log
+
 	./waf build || die
 }
 
