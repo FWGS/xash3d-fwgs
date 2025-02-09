@@ -125,9 +125,13 @@ void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context )
 
 	(void)context;
 
+	// flush buffers before writing directly to descriptors
+	fflush( stdout );
+	fflush( stderr );
+
 	// safe actions first, stack and memory may be corrupted
-	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s, %s-%s)\n",
-					  Q_buildnum(), g_buildcommit, Q_buildos(), Q_buildarch() );
+	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s-%s, %s-%s)\n",
+					  Q_buildnum(), g_buildcommit, g_buildbranch, Q_buildos(), Q_buildarch() );
 
 #if !XASH_FREEBSD && !XASH_NETBSD && !XASH_OPENBSD && !XASH_APPLE // they don't have si_ptr
 	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p %p\n", signal, si->si_errno, si->si_code, si->si_addr, si->si_ptr );
@@ -136,10 +140,6 @@ void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context )
 #endif
 
 	write( STDERR_FILENO, message, len );
-
-	// flush buffers before writing directly to descriptors
-	fflush( stdout );
-	fflush( stderr );
 
 	// now get log fd and write trace directly to log
 	logfd = Sys_LogFileNo();
