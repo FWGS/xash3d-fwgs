@@ -168,7 +168,7 @@ void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context )
 	Sys_Quit( "crashed" );
 }
 
-qboolean Sys_SetupLibbacktrace( void )
+qboolean Sys_SetupLibbacktrace( const char *argv0 )
 {
 	enable_libbacktrace = true;
 	g_bt_state = backtrace_create_state( argv0, true, Sys_BacktraceError, NULL );

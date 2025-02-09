@@ -29,7 +29,7 @@ GNU General Public License for more details.
 
 void Sys_Crash( int signal, siginfo_t *si, void *context );
 void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context );
-qboolean Sys_SetupLibbacktrace( void );
+qboolean Sys_SetupLibbacktrace( const char *argv0 );
 static struct sigaction oldFilter;
 
 #if !HAVE_EXECINFO && !HAVE_LIBBACKTRACE
@@ -212,7 +212,7 @@ void Sys_SetupCrashHandler( const char *argv0 )
 {
 	struct sigaction act = { 0 };
 #if HAVE_LIBBACKTRACE
-	if( Sys_SetupLibbacktrace())
+	if( Sys_SetupLibbacktrace( argv0 ))
 	{
 		act.sa_sigaction = Sys_CrashLibbacktrace;
 	}
