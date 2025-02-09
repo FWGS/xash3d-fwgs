@@ -274,9 +274,13 @@ def configure(conf):
 	else:
 		force_32bit = conf.options.FORCE32
 
+	# FIXME: move this whole logic to force_32bit.py, and ensure
+	# DEST_SIZEOF_VOID_P is always set
 	if force_32bit:
 		Logs.info('WARNING: will build engine for 32-bit target')
 		conf.force_32bit(True)
+	else:
+		conf.env.DEST_SIZEOF_VOID_P = 4 if conf.check_32bit() else 8
 
 	cflags, linkflags = conf.get_optimization_flags()
 	cxxflags = list(cflags) # optimization flags are common between C and C++ but we need a copy
