@@ -41,6 +41,7 @@ struct print_data
 	size_t message_size;
 	int len;
 	int idx;
+	int logfd;
 };
 
 static void Sys_AppendPrint( struct print_data *pd, const char *fmt, ... )
@@ -54,6 +55,14 @@ static void Sys_AppendPrint( struct print_data *pd, const char *fmt, ... )
 
 	if( len > 0 )
 	{
+		char ch = '\n';
+
+		write( pd->logfd, pd->message, len );
+		write( pd->logfd, &ch, 1 );
+
+		write( STDERR_FILENO, pd->message, len );
+		write( STDERR_FILENO, &ch, 1 );
+
 		pd->message += len;
 		pd->len += len;
 		pd->message_size -= len;
@@ -142,7 +151,7 @@ void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context )
 	write( STDERR_FILENO, message, len );
 
 	// now get log fd and write trace directly to log
-	logfd = Sys_LogFileNo();
+	pd.logfd = logfd = Sys_LogFileNo();
 	write( logfd, message, len );
 
 	pd.message = message + len;
