@@ -6,7 +6,7 @@ For connecting to GoldSrc-based servers, use this command:
 connect ip:port gs
 ```
 
-But keep in mind, there are requirement for server to be able to accept connections from Xash3D-based clients: it should use Reunion or Dproto.
+But keep in mind, there are requirement for server to be able to accept connections from Xash3D-based clients: it should use Reunion.
 Without this requirement, you will just get "Steam validation rejected" error on connecting.
 
 That is because proper authorization with Steam API is not implemented in engine yet (but we have plans on it).
