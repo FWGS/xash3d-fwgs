@@ -37,7 +37,7 @@ execute_process(
 	COMMAND ${CMAKE_COMMAND} -E env
 	CC=${WAF_CC} CXX=${WAF_CXX}
 	AR=${CMAKE_AR} STRIP=${CMAKE_STRIP}
-	${PYTHON_EXECUTABLE} waf configure -T ${BUILD_TYPE} ${WAF_EXTRA_ARGS} cmake
+	${PYTHON_EXECUTABLE} waf configure -T ${BUILD_TYPE} -o "${CMAKE_CURRENT_BINARY_DIR}/xash3d-fwgs" ${WAF_EXTRA_ARGS} cmake
 	--check-c-compiler=${C_COMPILER_ID} --check-cxx-compiler=${CXX_COMPILER_ID}
 	-s "${ENGINE_SOURCE_DIR}/SDL" --skip-sdl2-sanity-check --enable-bundled-deps
 	WORKING_DIRECTORY "${ENGINE_SOURCE_DIR}"
