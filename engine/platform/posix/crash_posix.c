@@ -28,9 +28,11 @@ GNU General Public License for more details.
 #include "library.h"
 
 void Sys_Crash( int signal, siginfo_t *si, void *context );
+void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context );
+qboolean Sys_SetupLibbacktrace( void );
 static struct sigaction oldFilter;
 
-#if !HAVE_EXECINFO
+#if !HAVE_EXECINFO && !HAVE_LIBBACKTRACE
 
 #define STACK_BACKTRACE_STR     "Stack backtrace:\n"
 #define STACK_DUMP_STR          "Stack dump:\n"
@@ -209,12 +211,22 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 void Sys_SetupCrashHandler( const char *argv0 )
 {
 	struct sigaction act = { 0 };
-	act.sa_sigaction = Sys_Crash;
+#if HAVE_LIBBACKTRACE
+	if( Sys_SetupLibbacktrace())
+	{
+		act.sa_sigaction = Sys_CrashLibbacktrace;
+	}
+	else
+#endif
+	{
+		act.sa_sigaction = Sys_Crash;
+	}
 	act.sa_flags = SA_SIGINFO | SA_ONSTACK;
 	sigaction( SIGSEGV, &act, &oldFilter );
 	sigaction( SIGABRT, &act, &oldFilter );
 	sigaction( SIGBUS,  &act, &oldFilter );
 	sigaction( SIGILL,  &act, &oldFilter );
+
 }
 
 void Sys_RestoreCrashHandler( void )

@@ -136,7 +136,7 @@ def build(bld):
 	# public includes for renderers and utils use
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
-	libs = ['engine_includes', 'public', 'dllemu', 'werror']
+	libs = ['engine_includes', 'public', 'dllemu', 'werror', 'libbacktrace']
 	includes = ['server', 'client', 'client/vgui', 'common/soundlib']
 
 	# basic build: dedicated only
