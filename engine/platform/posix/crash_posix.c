@@ -32,7 +32,7 @@ void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context );
 qboolean Sys_SetupLibbacktrace( const char *argv0 );
 static struct sigaction oldFilter;
 
-#if !HAVE_EXECINFO && !HAVE_LIBBACKTRACE
+#if !HAVE_EXECINFO
 
 #define STACK_BACKTRACE_STR     "Stack backtrace:\n"
 #define STACK_DUMP_STR          "Stack dump:\n"
