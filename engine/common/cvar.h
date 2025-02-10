@@ -44,6 +44,7 @@ void Cvar_DirectSet( convar_t *var, const char *value );
 void Cvar_DirectSetValue( convar_t *var, float value );
 void Cvar_Set( const char *var_name, const char *value );
 void Cvar_SetValue( const char *var_name, float value );
+const char *Cvar_BuildAutoDescription( const char *szName, int flags ) RETURNS_NONNULL;
 float Cvar_VariableValue( const char *var_name );
 int Cvar_VariableInteger( const char *var_name );
 const char *Cvar_VariableString( const char *var_name ) RETURNS_NONNULL;
