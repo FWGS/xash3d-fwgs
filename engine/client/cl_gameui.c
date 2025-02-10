@@ -691,7 +691,7 @@ pfnCvar_RegisterVariable
 */
 static cvar_t *GAME_EXPORT pfnCvar_RegisterGameUIVariable( const char *szName, const char *szValue, int flags )
 {
-	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_GAMEUIDLL, NULL );
+	return (cvar_t *)Cvar_Get( szName, szValue, flags|FCVAR_GAMEUIDLL, Cvar_BuildAutoDescription( szName, flags|FCVAR_GAMEUIDLL ));
 }
 
 static int GAME_EXPORT Cmd_AddGameUICommand( const char *cmd_name, xcommand_t function )
