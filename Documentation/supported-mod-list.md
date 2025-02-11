@@ -6,7 +6,6 @@
         - [Singleplayer mods or mappacks with a little incompatibilities](#singleplayer-mods-or-mappacks-with-a-little-incompatibilities)
         - [Singleplayer mods which has custom gamedll with minor changes and fully playable with vanilla Half-Life libraries](#singleplayer-mods-which-has-custom-gamedll-with-minor-changes-and-fully-playable-with-vanilla-half-life-libraries)
         - [Singleplayer mods with one map or single maps](#singleplayer-mods-with-one-map-or-single-maps)
-        - [Sets of single maps](#sets-of-single-maps)
    - [List of mappacks for Half-Life: Blue Shift](#list-of-mappacks-for-half-life-blue-shift)
    - [List of Cleaner's Adventures-based mods](#list-of-cleaners-adventures-based-mods)
    - [List of mods which based on Spirit of Half-Life](#list-of-mods-which-based-on-spirit-of-half-life)
@@ -17,7 +16,6 @@
    - [List of Opposing Force-based mods](#list-of-opposing-force-based-mods)
         - [The big singleplayer mods or mappacks](#the-big-singleplayer-mods-or-mappacks)
         - [Unfinished mods](#unfinished-mods)
-        - [Mods with a little incompatibilities](#mods-with-a-little-incompatibilities)
         - [Singleplayer mods with one map or single maps](#singleplayer-mods-with-one-map-or-single-maps-1)
    - [List of XashXT-based mods](#list-of-xashxt-based-mods)
    - [List of They Hunger-based mods](#list-of-they-hunger-based-mods)
@@ -150,8 +148,8 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 111. [Independence Day](https://www.runthinkshootlive.com/posts/independence-day/) (set **sv_validate_changelevel** to **0** to avoid a problem with incorrect level transitions)
 112. [Infestation](https://www.runthinkshootlive.com/posts/half-life-infestation/)
 113. [Infiltracja](https://unquenque.com/tenfour/)
-114. [Infinite Rift](https://www.moddb.com/mods/infinite-rift)
-115. [Instinct](https://www.moddb.com/mods/instinct)
+114. **[Infinite Rift](https://www.moddb.com/mods/infinite-rift)**
+115. **[Instinct](https://www.moddb.com/mods/instinct)**
 116. [Insurrection](https://www.runthinkshootlive.com/posts/insurrection/)
 117. [Irreality](https://www.moddb.com/mods/irreality)
 118. [Ispitatel](https://www.moddb.com/mods/ispitatel)
@@ -160,52 +158,52 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 121. [Krypton](https://www.runthinkshootlive.com/posts/krypton/) (there is one inner bug on the map with a rocket pad - the rocket can get stuck when you try to launch it)
 122. [Lands of Lore v2](https://www.moddb.com/mods/half-life-lands-of-lore)
 123. [Last-life](https://www.moddb.com/mods/hl-last-life)
-124. [Life's End](https://www.moddb.com/mods/lifes-end2)
+124. **[Life's End](https://www.moddb.com/mods/lifes-end2)**
 125. [Macky's Adventure](https://www.moddb.com/mods/mackys-adventure-expansion-set)
 126. [MadCrabs](https://www.runthinkshootlive.com/posts/mad-crabs-1/) (there are couple of potential scripting problems, but they seem to be inner problems of the mod, so if you stuck somewhere just try to replay your game from last autosave)
-127. [Marine Invasion: Episode 1 & 2 + Freak-Lager(OF map)](https://gamebanana.com/gamefiles/2537)
-128. [Mario Keys](https://www.moddb.com/mods/mario-keys)
+127. [Marine Invasion: Episode 1 & 2](https://gamebanana.com/gamefiles/2537)
+128. **[Mario Keys](https://www.moddb.com/mods/mario-keys)**
 129. [McBeth](https://www.runthinkshootlive.com/posts/mcbeth/)
 130. [Medieval World](https://www.moddb.com/mods/medieval-world)
 131. [Mel Soaring 2: Star Rancor](https://www.moddb.com/addons/mel-soaring-2-star-rancor)
-132. [MINIMICUS](https://twhl.info/vault.php?map=163)
+132. **[MINIMICUS](https://twhl.info/vault.php?map=163)**
 133. [Misantrophy](https://www.runthinkshootlive.com/posts/misanthropy/)
-134. [Mission Failed](https://www.moddb.com/mods/mission-failed)
+134. **[Mission Failed](https://www.moddb.com/mods/mission-failed)**
 135. [Mission MC Poker](https://www.moddb.com/mods/half-life-mission-mc-poker)
-136. [Mission of Mercy](https://www.runthinkshootlive.com/posts/mission-of-mercy/)
+136. **[Mission of Mercy](https://www.runthinkshootlive.com/posts/mission-of-mercy/)**
 137. [Mission to Kill](https://www.vossey.com/mod/Half-Life/Mision-to-kill-Part-1-et-2--i625.htm)
 138. [Mission to Kill 2](https://www.vossey.com/mod/Half-Life/Mision-to-kill-Part-1-et-2--i625.htm)
 139. [Mistaken Identity](https://www.runthinkshootlive.com/posts/mistaken-identity/)
 140. [Mistaken Identity 2](https://www.runthinkshootlive.com/posts/mistaken-identity-part-2/)
-141. [Moonwalker](https://www.moddb.com/mods/moonwalker)
+141. **[Moonwalker](https://www.moddb.com/mods/moonwalker)**
 142. [Mystery House v1.0](https://www.moddb.com/mods/mystery-house)
 143. [NewBlackMesaVille](https://www.runthinkshootlive.com/posts/newblackmesaville/)
 144. [Night Shooting](https://www.moddb.com/games/half-life/addons/night-shooting)
-145. [No Exit](https://www.moddb.com/mods/no-exit)
+145. **[No Exit](https://www.moddb.com/mods/no-exit)**
 146. [No-Life](https://www.fileplanet.com/120501/120000/fileinfo/No-Life)
-147. [Nuclear Power Plant](https://www.runthinkshootlive.com/posts/nuclear-power-plant/)
+147. **[Nuclear Power Plant](https://www.runthinkshootlive.com/posts/nuclear-power-plant/)**
 148. [Occupied Territory](https://www.moddb.com/games/half-life/addons/occupied-territory)
 149. [Office Commando](https://www.runthinkshootlive.com/posts/office-commando/)
-150. [Operacja Gargantua](https://www.runthinkshootlive.com/posts/operation-gargantua/)
-151. [Operacja Mirra](https://unquenque.com/tenfour/)
-152. [Operation Krautsalat v1.1](https://www.runthinkshootlive.com/posts/operation-krautsalat/) (there is a potential inner bug at third map - a door to the control room will not be opened, until all alien grunts leaved their cells, so don't kill any of them, which are still in cells)
-153. [Operation: Nova](https://www.moddb.com/mods/half-life-operation-nova) (there is an inner bug with an M60 machinegun on a map with Osprey: it can be activated and used if you are staying in front of it, not behind it)
+150. **[Operacja Gargantua](https://www.runthinkshootlive.com/posts/operation-gargantua/)**
+151. **[Operacja Mirra](https://unquenque.com/tenfour/)**
+152. **[Operation Krautsalat v1.1](https://www.runthinkshootlive.com/posts/operation-krautsalat/)** (there is a potential inner bug at third map - a door to the control room will not be opened, until all alien grunts leaved their cells, so don't kill any of them, which are still in cells)
+153. **[Operation: Nova](https://www.moddb.com/mods/half-life-operation-nova)** (there is an inner bug with an M60 machinegun on a map with Osprey: it can be activated and used if you are staying in front of it, not behind it)
 154. [Optimum Fear](https://www.fileplanet.com/7472/0/fileinfo/Optimum-Fear)
 155. [Outrun](https://www.moddb.com/mods/outrun)
 156. [Outwards (Day One)](https://web.archive.org/web/20161026104825/http://visgi.info/maps/)
 157. [Overhaul Pack](https://www.moddb.com/mods/half-life-overhaul-pack) (Just HD pack for Half-Life)
 158. [P.I.Z.D.E.C.](https://www.runthinkshootlive.com/posts/pizdec/)
 159. [pagoda](https://www.moddb.com/mods/pagoda1)
-160. [Peaces Like Us v1.0](https://www.runthinkshootlive.com/posts/peaces-like-us/) 
+160. **[Peaces Like Us v1.0](https://www.runthinkshootlive.com/posts/peaces-like-us/)**
 161. [Phobos IV](https://www.moddb.com/mods/phobos-iv)
 162. [Pimp My Car](https://www.runthinkshootlive.com/posts/pimp-my-car/) (there is an inner issue with incorrect responses of buttons on combination locks)
 163. [Point Blank – Stackdeath Complex](https://www.runthinkshootlive.com/posts/half-life-point-blank-stackdeath-complex/)
 164. [Prisoner Escaped](https://www.moddb.com/mods/prisoner-escaped-1-2)
-165. [Prisoner of Event](https://wp.vondur.net/?page_id=40)
+165. **[Prisoner of Event](https://wp.vondur.net/?page_id=40)**
 166. [Prisoner of War](https://www.runthinkshootlive.com/posts/prisoner-of-war/)
 167. [Project Quantum Leap](https://www.moddb.com/mods/project-quantum-leap)
 168. [Project VIP](https://www.pcosmos.ca/mods-hl/downloads/?mod=projectVIP)
-169. [Projekt Einstein](https://unquenque.com/tenfour/)
+169. **[Projekt Einstein](https://unquenque.com/tenfour/)**
 170. [Recon( Reconnaissance )](https://www.moddb.com/games/half-life/addons/reconnaissance)
 171. [Red Mesa](https://www.moddb.com/mods/red-mesa-1)
 172. [Red Mesa 2](https://www.moddb.com/mods/red-mesa-2)
@@ -218,7 +216,7 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 179. [Return 2](https://www.runthinkshootlive.com/posts/half-life-return-2/) (there is an inner problem in the first map with a moving of the second metal box, just keep pushing the box, until it begins to move)
 180. [Reviviscence](https://www.moddb.com/mods/reviviscence)
 181. [Road of Destiny](https://www.fileplanet.com/10393/10000/fileinfo/Road-of-Destiny)
-182. [Rooms: TWHL COOP Project( Rooms Half-Life or TWHL Rooms )](https://twhl.info/vault.php?map=5394) 
+182. **[Rooms: TWHL COOP Project( Rooms Half-Life or TWHL Rooms )](https://twhl.info/vault.php?map=5394)**
 183. [Run for Life](https://www.runthinkshootlive.com/posts/run-for-life/) (the "stolen" version of this mod with changed menu background also known as *Mad Escape*)
 184. [S.W.A.T.](https://www.moddb.com/mods/swat2)
 185. [Sabotage](https://www.runthinkshootlive.com/posts/sabotage-2/)
@@ -226,27 +224,27 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 187. [Sandscroll](https://gamebanana.com/maps/15988)
 188. [Saving Bob](https://www.runthinkshootlive.com/posts/saving-bob/)
 189. [Secret Base](https://www.runthinkshootlive.com/posts/secret-base/)
-190. [Secret Santa 2011 for Soup Miner](https://twhl.info/vault.php?map=5724)
+190. **[Secret Santa 2011 for Soup Miner](https://twhl.info/vault.php?map=5724)**
 191. [Secret Santa 2011 for Stojke](https://twhl.info/vault.php?map=5728)
 192. [Senses in Decay](https://www.moddb.com/mods/senses-in-decay)
 193. [Shift-Two v1.1](https://www.moddb.com/mods/shift-two1)
 194. [Sky Mesa](https://www.moddb.com/mods/sky-mesa)
 195. [Sleephorst v1.5](https://www.moddb.com/mods/sleephorst-v15)
 196. [Slimy Situation](https://www.moddb.com/mods/slimy-situation)
-197. [Smart Decoy](https://www.moddb.com/mods/smart-decoy)
-198. [Somewhere in Time](https://www.runthinkshootlive.com/posts/somewhere-in-time/) 
+197. **[Smart Decoy](https://www.moddb.com/mods/smart-decoy)**
+198. **[Somewhere in Time](https://www.runthinkshootlive.com/posts/somewhere-in-time/)**
 199. [Sooper2](https://www.runthinkshootlive.com/posts/sooper-2/) 
-200. [Split-Second](https://twhl.info/vault.php?map=4343)
-201. [Subhumanity](https://www.runthinkshootlive.com/posts/sub-humanity/)
+200. **[Split-Second](https://twhl.info/vault.php?map=4343)**
+201. **[Subhumanity](https://www.runthinkshootlive.com/posts/sub-humanity/)**
 202. Terminal Monstrosity (4 maps by Anthony Plant)
 203. [Terror Side](https://www.runthinkshootlive.com/posts/terror-side/) (set **sv_validate_changelevel** to **0** to avoid problem with level change between some maps)
 204. [Test Your Skill](https://www.moddb.com/games/half-life/addons/test-your-skill) 
 205. [The Challenger Deep](https://www.runthinkshootlive.com/posts/challenger-deep/)
-206. [The Challenger Deep 2](https://www.moddb.com/mods/the-challenger-deep-2)
+206. **[The Challenger Deep 2](https://www.moddb.com/mods/the-challenger-deep-2)**
 207. [The Evil Thing](https://www.moddb.com/mods/the-evil-thing)
 208. [The Evil World](https://www.moddb.com/mods/the-evil-world)
 209. [The Haunted Lab](https://www.runthinkshootlive.com/posts/the-haunted-lab/)
-210. [The Long Night](https://www.moddb.com/mods/the-long-night)
+210. **[The Long Night](https://www.moddb.com/mods/the-long-night)**
 211. [The Mansion](https://twhl.info/vault.php?map=2438)
 212. [The Night Things](https://twhl.info/vault.php?map=2439)
 213. [The Night Things 2: Woodstock Manor](https://twhl.info/vault.php?map=2706)
@@ -254,16 +252,16 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 215. [The Ropes](https://www.runthinkshootlive.com/posts/the-ropes/) (set **fps_max** to **60** to prevent a possible sticking of a barrel which you need to lift down with an elevator at the second map)
 216. [The Way Is Clear](https://www.runthinkshootlive.com/posts/the-way-is-clear/)
 217. [The Way Is Clear 2](https://www.runthinkshootlive.com/posts/the-way-is-clear-2/)
-218. [The World Machine](https://www.moddb.com/mods/half-life-the-world-machine)
-219. [The Xeno Project](https://www.moddb.com/mods/xeno-project-i-ii)
-220. [The Xeno Project 2](https://www.moddb.com/mods/xeno-project-i-ii)
+218. **[The World Machine](https://www.moddb.com/mods/half-life-the-world-machine)**
+219. **[The Xeno Project](https://www.moddb.com/mods/xeno-project-i-ii)**
+220. **[The Xeno Project 2](https://www.moddb.com/mods/xeno-project-i-ii)**
 221. [Then and Now](https://twhl.info/vault.php?map=6048)
 222. [They Live( Chungo )](https://www.runthinkshootlive.com/posts/they-live/)
 223. [Timefall](https://www.moddb.com/mods/hl-timefall)
-224. [Timeline](https://www.moddb.com/mods/timeline-series)
-225. [Timeline II: Iced Earth](https://www.moddb.com/mods/timeline-series)
-226. [Todesangst](https://www.moddb.com/mods/todesangst)
-227. [Tokami Island](https://www.fileplanet.com/110517/110000/fileinfo/Tokami-Island)
+224. **[Timeline](https://www.moddb.com/mods/timeline-series)**
+225. **[Timeline II: Iced Earth](https://www.moddb.com/mods/timeline-series)**
+226. **[Todesangst](https://www.moddb.com/mods/todesangst)**
+227. **[Tokami Island](https://www.fileplanet.com/110517/110000/fileinfo/Tokami-Island)**
 228. [Tower](https://hlperfectzone.narod.ru/mods.htm) (set **sv_validate_changelevel** to **0** to avoid a problem with incorrect level transitions)
 229. [Trespasser](https://www.moddb.com/mods/trespasser)
 230. [Try, Try Again](https://www.runthinkshootlive.com/posts/try-try-again/)
@@ -273,13 +271,13 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 234. [Typical Disaster](https://www.moddb.com/mods/typical-disaster)
 235. [Typical Disaster: The Lost Levels](https://www.runthinkshootlive.com/posts/typical-disaster-the-lost-levels/)
 236. [U-Life](https://www.moddb.com/mods/u-life)
-237. [Underground v2.0](https://www.moddb.com/mods/underground) (there is an inner crash bug on final titles: some text lines are too long and cannot be properly displayed)
+237. **[Underground v2.0](https://www.moddb.com/mods/underground)** (there is an inner crash bug on final titles: some text lines are too long and cannot be properly displayed)
 238. [Underground Territory](https://www.moddb.com/games/half-life/addons/underground-territory-part-1)
 239. [Undertime](https://twhl.info/vault.php?map=3906)
-240. [Uplink Addon v1.2](https://www.fileplanet.com/82828/80000/fileinfo/Half-Life-Uplink-Addon-1.2)
-241. [Uplink Lite](https://www.fileplanet.com/7482/0/fileinfo/Uplink-Lite) & [Uplink Lite Plus Demo](https://www.fileplanet.com/128970/120000/fileinfo/Uplink-Lite-Plus-Demo)
-242. [Uplinked](https://www.moddb.com/mods/uplinked)
-243. [USS Darkstar](https://www.moddb.com/mods/uss-darkstar)
+240. **[Uplink Addon v1.2](https://www.fileplanet.com/82828/80000/fileinfo/Half-Life-Uplink-Addon-1.2)**
+241. **[Uplink Lite](https://www.fileplanet.com/7482/0/fileinfo/Uplink-Lite)** & **[Uplink Lite Plus Demo](https://www.fileplanet.com/128970/120000/fileinfo/Uplink-Lite-Plus-Demo)**
+242. **[Uplinked](https://www.moddb.com/mods/uplinked)**
+243. **[USS Darkstar](https://www.moddb.com/mods/uss-darkstar)**
 244. [Vengeance](https://www.moddb.com/mods/half-life-vengeance)
 245. [Virtual Reality: The Real World](https://www.runthinkshootlive.com/posts/virtual-reality-the-real-world/)
 246. [VLOKAM](https://www.ceskemody.cz/mapy.php?lng=1&clanek=32&razeni_hra=1&pn=vlokam-1)
@@ -349,11 +347,11 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 2. [Cook The Headcrab Episodes 1 & 2](https://www.moddb.com/games/half-life/addons/cook-the-headcrab-episode-series)
 3. [Cook The Headcrab Episode 3](https://www.moddb.com/games/half-life/addons/cook-the-headcrab-episode-3)
 4. [Cook The Headcrab Episode 4](https://www.moddb.com/games/half-life/addons/cook-the-headcrab-episode-4)
-5. [DAV HL Pack 1](https://www.moddb.com/games/half-life/addons/dav-level-pack-1-hlarches-and-hlattack)
+5. **[DAV HL Pack 1](https://www.moddb.com/games/half-life/addons/dav-level-pack-1-hlarches-and-hlattack)**
 6. [Discoman v2.2](https://www.fileplanet.com/117675/110000/fileinfo/Discoman-Mod)
 7. [Dramatic Measures( Surprise! )](https://twhl.info/vault.php?map=5624)
-8. [Funny Map Pack 1](https://www.mediafire.com/file/4iis8uhfj1ct8sa/Funny_Map_Pack_1_by_Richman.zip)
-9. [Half-Life Shorts](https://twhl.info/vault.php?map=2845)
+8. **[Funny Map Pack 1](https://www.mediafire.com/file/4iis8uhfj1ct8sa/Funny_Map_Pack_1_by_Richman.zip)**
+9. **[Half-Life Shorts](https://twhl.info/vault.php?map=2845)**
 10. [Half-Starwars](https://www.pcosmos.ca/mods-hl/downloads/?mod=hlstarwars)
 11. [Japanese Episodes](https://www.runthinkshootlive.com/posts/japanese-episodes/)
 12. [K7 Trouble](https://www.moddb.com/games/half-life/addons/k7-trouble) (Remove string **secure 1** from **liblist.gam**)
@@ -364,8 +362,8 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 17. [The Mansion](https://twhl.info/competitions.php?results=14) by *Unbreakable*
 18. [TS_MF](https://www.runthinkshootlive.com/posts/ts_mf/)
 19. [TWHL Cubicles](https://twhl.info/vault.php?map=5499)
-20. [Valve ERC Contest #1 - The martyred pop machine](https://www.runthinkshootlive.com/posts/contest-1-maps/)
-21. [Valve ERC Contest #2 - Best train-ride sequence](https://www.runthinkshootlive.com/posts/contest-2-maps/)
+20. **[Valve ERC Contest #1 - The martyred pop machine](https://www.runthinkshootlive.com/posts/contest-1-maps/)**
+21. **[Valve ERC Contest #2 - Best train-ride sequence](https://www.runthinkshootlive.com/posts/contest-2-maps/)**
 22. [VOLCAN Beta 1.3](https://www.moddb.com/games/half-life/addons/volcan-beta13)
 23. [Woodpigeon's Map Pack](https://www.fileplanet.com/63729/60000/fileinfo/Woodpigeon's-Map-Pack)
 
@@ -382,7 +380,7 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 2. [DALEK unbidden](https://www.moddb.com/mods/dalek-unbidden)
 3. [Fight for Life](https://www.moddb.com/mods/fight-for-life)
 4. [Half-Life Baby v1.4](https://www.moddb.com/games/half-life/addons/half-life-baby) (it's an unfinished but playable mod; after installing of the mod open **liblist.gam** or **gameinfo.txt** file in the mod's folder and correct the line **gamedll "..\hlbaby\dlls\hl.dll"** for **gamedll "dlls\hl.dll"**, otherwise you'll not be able to start a game)
-5. [Lost in Black Mesa(first version without HLFX)](https://www.moddb.com/mods/hlfx-lost-in-black-mesa/downloads/lost-in-black-mesa-simple-version)
+5. **[Lost in Black Mesa(first version without HLFX)](https://www.moddb.com/mods/hlfx-lost-in-black-mesa/downloads/lost-in-black-mesa-simple-version)**
 6. [Soldier](https://www.moddb.com/mods/half-life-soldier)
 7. [Solo Operations](https://www.moddb.com/mods/solo-operations)
 8. [The Blood v1.1](https://hl.loess.ru/?mods=&search=The+Blood) (there are some inner bugs in the mod, but they don't interfere with a game progress)
@@ -394,10 +392,10 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 2. [5 More Ways to Die](https://twhl.info/vault.php?map=3575)
 3. [5 Ways to Die](https://twhl.info/vault.php?map=2984)
 4. [5 Worse Ways to Die](https://twhl.info/vault.php?map=4029)
-5. [A Bad Day](https://twhl.info/competitions.php?results=6)
+5. **[A Bad Day](https://twhl.info/competitions.php?results=6)**
 6. [A Disgruntled Christmas](https://www.fileplanet.com/7882/0/fileinfo/A-Disgruntled-Christmas)
 7. [Accidental Life Demo](https://www.runthinkshootlive.com/posts/accidental-life/)
-8. [Aftermath](https://www.fileplanet.com/112021/110000/fileinfo/Aftermath)
+8. **[Aftermath](https://www.fileplanet.com/112021/110000/fileinfo/Aftermath)**
 9. [Ali Meyer](https://gamebanana.com/maps/178855)
 10. [Alien](https://hl.loess.ru/?mods=&search=alien) (map by *Nicolas Gadenne*)
 11. [Alien Blast](https://www.fileplanet.com/136194/130000/fileinfo/Alien-Blast)
@@ -414,22 +412,22 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 22. BDMAP1 (MoP1.bsp - map by unknown author)
 23. [Beach Party](https://twhl.info/vault.php?map=5572)
 24. [Beastie](https://www.runthinkshootlive.com/posts/beastie/)
-25. [Black Mesa South](https://twhl.info/vault.php?map=5309) (there are few minor glitches, but they are inner flaws of the map and don't interfere with completing a game)
+25. **[Black Mesa South](https://twhl.info/vault.php?map=5309)** (there are few minor glitches, but they are inner flaws of the map and don't interfere with completing a game)
 26. [Black Mesa Storage Facility - Bay A2](https://www.fileplanet.com/7479/0/fileinfo/Black-Mesa-Storage-Facility---Bay-A2)
 27. [Black Mesa Xmas(A Black Mesa Christmas)](https://twhl.info/vault.php?map=4918)
 28. Blame the Scientists (map by Incy247)
 29. [Blood and Guts](https://www.runthinkshootlive.com/posts/blood-and-guts/)
-30. [Blood1](https://web.archive.org/web/20110512012317/http://www.richmans-maps.ch.vu/)
+30. **[Blood1](https://web.archive.org/web/20110512012317/http://www.richmans-maps.ch.vu/)**
 31. [Bhop](https://twhl.info/vault.php?map=5065)
 32. Bow (map by Daniel Will)
-33. [Breakout](https://www.runthinkshootlive.com/posts/breakout-by-benny-blanco/) (map for *Single Mapping Competition* by *BennyBlanco*)
+33. **[Breakout](https://www.runthinkshootlive.com/posts/breakout-by-benny-blanco/)** (map for *Single Mapping Competition* by *BennyBlanco*)
 34. [Breakout](https://hl.loess.ru/?mods=&search=Breakout) (map by *Mediocre MapGuy*)
 35. Bridge (map by Monkey)
 36. [Bullsuid Will Survive](https://www.moddb.com/games/half-life/addons/bullsuid-will-survive)
 37. [C2](https://www.runthinkshootlive.com/posts/c2/)
 38. [C3](https://www.runthinkshootlive.com/posts/c3/)
 39. [C5](https://www.runthinkshootlive.com/posts/c5/)
-40. [Caged](https://store.steampowered.com/app/679990/HalfLife_Caged/) 
+40. **[Caged](https://web.archive.org/web/20081226051021/http://www.caylegeorge.com/ld_history/cg_maps.htm)** 
 41. [Camera Puzzle](https://twhl.info/vault.php?map=740) (this map perfectly demonstrates an improved feature of Xash3D Engine - game is correctly saving and restoring 3rd person view for the player after loading a previously saved game)
 42. [CataXen](https://twhl.info/vault.php?map=3429)
 43. [Cause of Death](https://twhl.info/competitions.php?results=7)
@@ -455,7 +453,7 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 63. [Desert Strike](https://hl.loess.ru/?mod=267)
 64. [Devil Mesa](https://hosting.cecak.cz/forum-modifikace/hl1/index.php?text=mod&modifikace=dm)
 65. [Disco Party v1.1](https://twhl.info/vault.php?map=1004)
-66. [dissolution](https://twhl.info/vault.php?map=5494) (you need to have additional textures to play this map properly - **nw.wad** from [Nightwatch Texture Pack](https://www.moddb.com/games/half-life/addons/nightwatch-texture-pack) and **decals.wad** from Opposing Force)
+66. **[dissolution](https://twhl.info/vault.php?map=5494)** (you need to have additional textures to play this map properly - **nw.wad** from [Nightwatch Texture Pack](https://www.moddb.com/games/half-life/addons/nightwatch-texture-pack) and **decals.wad** from Opposing Force)
 67. [Doomed Demo](https://web.archive.org/web/20231010122104/http://www.snarkpit.net/index.php?s=maps&map=3351)
 68. [Dream1_ver3](https://twhl.info/vault.php?map=579), [Dream1_ver2](https://twhl.info/vault.php?map=371), [Dream1](https://twhl.info/vault.php?map=359)
 69. [Dressed to Kill](https://www.fileplanet.com/48578/40000/fileinfo/Dressed-to-kill)
@@ -464,16 +462,16 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 72. [eif_room](https://www.runthinkshootlive.com/posts/eif-room/)
 73. [eif_school](https://www.runthinkshootlive.com/posts/eif-school/)
 74. [Emissary](https://twhl.info/competitions.php?results=15)
-75. [En Route 66](https://www.moddb.com/mods/en-route-66)
+75. **[En Route 66](https://www.moddb.com/mods/en-route-66)**
 76. [Enclosed Space](https://twhl.info/vault.php?map=4496)
-77. [Endlevel Boss](https://twhl.info/vault.php?map=786)
+77. **[Endlevel Boss](https://twhl.info/vault.php?map=786)**
 78. [ES](https://csm.dev/threads/hl-smc-es.29017/) (map for *Single Mapping Competition* by *Flash*)
 79. [escape](https://twhl.info/vault.php?map=3632) by *killer1102* (there is a potential bug with a scientist, who should open a door for you, but it's an inner scripting problem of the map)
 80. [Escape from Black Mesa v1.44](https://twhl.info/vault.php?map=) (map from *TWHL* by *Satchmo*) (wrong link!)
 81. [Escape Off](https://hl.loess.ru/?mod=324) (a part of this map was used later in *Friendship 2.0* mod)
 82. [Evasion](https://www.fileplanet.com/53430/50000/fileinfo/Half-life-:-Evasion)
 83. [Evil Space](https://www.runthinkshootlive.com/posts/evil-space/)
-84. [Experimental Problems](https://www.runthinkshootlive.com/posts/experimental-problems/)
+84. **[Experimental Problems](https://www.runthinkshootlive.com/posts/experimental-problems/)**
 85. [Extinct Lifeform Hunt](https://www.fileplanet.com/13501/10000/fileinfo/Extinct-Lifeform-Hunt)
 86. [Facility](https://twhl.info/vault.php?map=5482)
 87. [Facility Escape](https://twhl.info/vault.php?map=3673)
@@ -502,8 +500,8 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 110. [Headcrab-BOSS](https://www.moddb.com/games/half-life/downloads/headcrab-boss)
 111. [HL Dance( Half-Dance )](https://twhl.info/vault.php?map=2991)
 112. [hl_egzekucja](https://gamebanana.com/maps/50132)
-113. [HLywood](https://twhl.info/vault.php?map=455)
-114. [Hnaii - Office Komplex](https://www.fileplanet.com/113757/110000/fileinfo/Hnaii---Office-Komplex)
+113. **[HLywood](https://twhl.info/vault.php?map=455)**
+114. **[Hnaii - Office Komplex](https://www.fileplanet.com/113757/110000/fileinfo/Hnaii---Office-Komplex)**
 115. [Hospital](https://gamebanana.com/maps/167446) (you need to edit **liblist.gam** file in the mod's folder - delete *gamedll & type* strings from it before you start to play)
 116. [Hostage](https://www.runthinkshootlive.com/posts/hostage-2/)
 117. [House](https://www.artpeter.net/Data/HalfLife/Hl.php)
@@ -514,8 +512,8 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 122. [Interactivity & Lots of Entities](https://twhl.info/vault.php?map=5744) (link dead!)
 123. [Interior](https://www.runthinkshootlive.com/posts/interior/)
 124. [Into the Frying Pan](https://www.runthinkshootlive.com/posts/into-the-frying-pan/)
-125. [Island Bombing](https://twhl.info/competitions.php?results=13)
-126. [Ivy](https://twhl.info/vault.php?map=4869)
+125. **[Island Bombing](https://twhl.info/competitions.php?results=13)**
+126. **[Ivy](https://twhl.info/vault.php?map=4869)**
 127. [Jump Program](https://hl.loess.ru/?mod=575)
 128. [Killer on the Run](https://www.runthinkshootlive.com/posts/killer-on-the-run/)
 129. [Killing House for Half-Life](https://www.runthinkshootlive.com/posts/killing-house/)
@@ -523,20 +521,20 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 131. [Kosovo II – The Second Day](htstp://www.moddb.com/games/half-life/addons/kosovo-2)
 132. [KotiteolliSuus](https://twhl.info/vault.php?map=533)
 133. [Kyo Half-Strike](https://csm.dev/threads/half-strike-rezultaty.36394/) (there are few error messages at start, which can be safely skipped; also the code in the beginning is 3141)
-134. [l33t Test 1: Conclusive Analysis](https://twhl.info/vault.php?map=3023)
+134. **[l33t Test 1: Conclusive Analysis](https://twhl.info/vault.php?map=3023)**
 135. [Lab](https://twhl.info/vault.php?map=1797)
-136. [Lambda Station](https://www.runthinkshootlive.com/posts/lambda-station/)
+136. **[Lambda Station](https://www.runthinkshootlive.com/posts/lambda-station/)**
 137. [LC](https://www.runthinkshootlive.com/posts/lc-by-sluxe/) (map for *Fast Level Design* competition by *Slux*)
-138. [LDSF( Laser Deployed Security Force )](https://twhl.info/competitions.php?results=4)
+138. **[LDSF( Laser Deployed Security Force )](https://twhl.info/competitions.php?results=4)**
 139. [Locked Up](https://www.fileplanet.com/8842/0/fileinfo/Locked-Up)
 140. [Looping Stage](https://web.archive.org/web/20041104030218/http://cariad.co.za/twhl/mapvault_map.php?id=1250)
 141. [Lord's Lair](https://www.fileplanet.com/7471/0/fileinfo/Lords-Lair)
 142. [Losspower](https://twhl.info/vault.php?map=3919)
-143. [Lost-World](https://gamebanana.com/maps/156214)
+143. **[Lost-World](https://gamebanana.com/maps/156214)**
 144. [Lounge](https://www.fileplanet.com/7461/0/fileinfo/The-Lounge)
 145. Matrixroom v0.7 (map by Joe Hunter)
 146. [MatrixTrainstation](https://twhl.info/vault.php?map=2531)
-147. [Maze01a](https://web.archive.org/web/20110512012317/http://www.richmans-maps.ch.vu/)
+147. **[Maze01a](https://web.archive.org/web/20110512012317/http://www.richmans-maps.ch.vu/)**
 148. [Meat, Blood, Gun](https://www.moddb.com/games/half-life/addons/meat-blood-gun) (there are 2 maps, but only first map is playable, in fact)
 149. [Merry Christmas to hlife_hotdog aka *Happy Holidays*](https://twhl.info/vault.php?map=5717) (to play the right map, enter map **happyholidays** into console, or edit *startmap* parameter in **liblist.gam** file inside mod's folder)
 150. Metro (map by unknown author)
@@ -545,41 +543,41 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 153. [Museum Lockdown](https://twhl.info/vault.php?map=2211)
 154. [My Backyard](https://twhl.info/vault.php?map=1796)
 155. [My Black Mesa](https://www.runthinkshootlive.com/posts/my-black-mesa/) (map for *Single Mapping Competition* by *Zanzer*)
-156. [Nameless](https://www.runthinkshootlive.com/posts/nameless/) (map for *Single Mapping Competition* by *AGRESSOR*)
-157. [Need for Energy(SP-Energy)](https://scrama.3dn.ru/load/2-1-0-2)
-158. [Nightmare: A horror map](https://twhl.info/vault.php?map=2106)
+156. **[Nameless](https://www.runthinkshootlive.com/posts/nameless/)** (map for *Single Mapping Competition* by *AGRESSOR*)
+157. **[Need for Energy(SP-Energy)](https://scrama.3dn.ru/load/2-1-0-2)**
+158. **[Nightmare: A horror map](https://twhl.info/vault.php?map=2106)**
 159. [Nightshift_FsC](https://twhl.info/vault.php?map=2561)
 160. [No Chance](https://gamebanana.com/maps/160536)
 161. [No Regret](https://www.runthinkshootlive.com/posts/no-regret/)
 162. [Nuclear Aftermath](https://web.archive.org/web/20170708121214/http://www.thewall.de/forum/thread/hl1-sp-48h-mapping-contest/64975.4.html) (map **48h_map1_pre** by *Bluthund*) (download link dead!)
 163. Nuclear Plant (map by SaCo)
-164. [Nuke](https://web.archive.org/web/20170708121214/http://www.thewall.de/forum/thread/hl1-sp-48h-mapping-contest/64975.4.html) (map **tmdnuke** by *the-middleman*) (download link dead!)
+164. **[Nuke](https://web.archive.org/web/20170708121214/http://www.thewall.de/forum/thread/hl1-sp-48h-mapping-contest/64975.4.html)** (map **tmdnuke** by *the-middleman*) (download link dead!)
 165. [Observatory](https://www.runthinkshootlive.com/posts/observatory/)
 166. [Ominous Reality: Part 1](https://twhl.info/vault.php?map=1328)
 167. [Operation Rainbow](https://twhl.info/vault.php?map=3068)
 168. [Operation Randomosity](https://www.moddb.com/games/half-life/addons/operation-randomosity)
-169. [Orb](https://twhl.info/competitions.php?results=20)
+169. **[Orb](https://twhl.info/competitions.php?results=20)**
 170. [Osprey Chopper Competition](https://twhl.info/competitions.php?results=1) (map by *Andy*)
 171. [Otage Beta v0.05](https://hl.loess.ru/?mods=&search=Otage)
 172. [Outpost](https://www.fileplanet.com/81860/80000/fileinfo/Outpost)
 173. [Oxidum](https://gamebanana.com/maps/162722) (the map is unfinished and after a dead-end there is another interesting place that you can reach only by using of **noclip**)
-174. [Pac-Man](https://twhl.info/competitions.php?results=29)
-175. [Parallax Beta](https://www.runthinkshootlive.com/posts/parallax/) (there are 2 maps, but only first map is playable, in fact)
+174. **[Pac-Man](https://twhl.info/competitions.php?results=29)**
+175. **[Parallax Beta](https://www.runthinkshootlive.com/posts/parallax/)** (there are 2 maps, but only first map is playable, in fact)
 176. [Postal](https://www.runthinkshootlive.com/posts/postal/)
 177. [Problems in Building 2](https://gamebanana.com/maps/166032)
 178. [Pulse: Demo #1](https://www.moddb.com/mods/pulse/downloads/pulse-demo-1)
 179. [Quake](https://www.runthinkshootlive.com/posts/quake/)
 180. [Quilted Thought Organ](https://www.runthinkshootlive.com/posts/quilited-thought-organ/)
-181. [Radix](https://unquenque.com/radix.html)  (this map is also a part of *Project Quantum Leap* mod)
+181. **[Radix](https://unquenque.com/radix.html)**  (this map is also a part of *Project Quantum Leap* mod)
 182. [Rat Hunt: Quarters](https://twhl.info/vault.php?map=5990) (there is only 1 little issue - rats counter messages do not displayed until all rats are eliminated)
 183. [Remember All](https://csm.dev/threads/hl-smc-remember_all.29029/)
 184. [Rescue](https://hl.loess.ru/?mods=&search=Rescue) by *SaCo* (there is an inner bug - once you have activated a scientist in the end of the map, you should run quickly from him to the door with a scanner, otherwise he gets stuck into you; so you have to kill all enemies before you activate him)
 185. [Rescue 2](https://www.moddb.com/games/half-life/addons/rescue-2) (map by *SaCo*)
 186. [Revamp](https://www.runthinkshootlive.com/posts/revamp/)
 187. [Rogat](https://www.runthinkshootlive.com/posts/rogat/)
-188. [Rooms](https://twhl.info/vault.php?map=24) (map by *ghost2*)
-189. [Ruled by Insanity](https://twhl.info/vault.php?map=3580)
-190. [Rube Goldberg](https://twhl.info/vault.php?map=5014) aka Entity Challenge 2(map by *Captain Terror*)
+188. **[Rooms](https://twhl.info/vault.php?map=24)** (map by *ghost2*)
+189. **[Ruled by Insanity](https://twhl.info/vault.php?map=3580)**
+190. **[Rube Goldberg](https://twhl.info/vault.php?map=5014)** aka Entity Challenge 2(map by *Captain Terror*)
 191. [Rube Goldberg Machine](https://twhl.info/vault.php?map=5006) (map by *TJB*)
 192. [Rum](https://www.runthinkshootlive.com/posts/rum/)
 193. [Rumble](https://hl.loess.ru/?mods=&search=Rumble)
@@ -596,7 +594,7 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 204. [Scramble](https://www.moddb.com/mods/scramble)
 205. Second (map by unknown author)
 206. [Seek and Destroy](https://www.fileplanet.com/13006/10000/fileinfo/Seek-and-Destroy)
-207. [SelfKill](https://www.moddb.com/games/half-life/addons/selfkill)
+207. **[SelfKill](https://www.moddb.com/games/half-life/addons/selfkill)**
 208. [SEMTEX](https://twhl.info/competitions.php?results=7) (map by *kol*)
 209. [Sepulcher](https://www.fileplanet.com/7478/0/fileinfo/Sepulcher)
 210. [Shootout Alpha 3](https://www.fileplanet.com/111687/110000/fileinfo/Shootout-ALPHA-3)
@@ -605,11 +603,11 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 213. [Smash Half-Life](https://www.runthinkshootlive.com/posts/smash/)
 214. [Snatch](https://jqbros.3dn.ru/load/1-1-0-9)
 215. [Soft Boiled](https://www.fileplanet.com/7475/0/fileinfo/Soft-Boiled)
-216. [Someplace Else](https://hylobatidae.org/minerva/parallax/someplace-else.html) (this map is also a part of *Project Quantum Leap* mod)
+216. **[Someplace Else](https://hylobatidae.org/minerva/parallax/someplace-else.html)** (this map is also a part of *Project Quantum Leap* mod)
 217. [Somewhere( Kasperg: Unique Map )](https://twhl.info/competitions.php?results=13)
 218. [Southeastern Lan Party](https://www.fileplanet.com/7476/0/fileinfo/Southeastern-Lan-Party)
-219. [sp_valley](https://gamebanana.com/maps/61099)
-220. [Space_Lasercore](https://twhl.info/vault.php?map=1938)
+219. **[sp_valley](https://gamebanana.com/maps/61099)**
+220. **[Space_Lasercore](https://twhl.info/vault.php?map=1938)**
 221. [Spearhead](https://twhl.info/vault.php?map=1018)
 222. [Spellbinder - The Summoning Tower v1.2](https://twhl.info/vault.php?map=1502)
 223. [Sproutch Mod!!!](https://www.runthinkshootlive.com/posts/sproutch/) (another variation of this map is [Bullsquids Pet](https://www.fileplanet.com/126221/120000/fileinfo/Bullsquids-Pet))
@@ -619,12 +617,12 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 227. [Storage Facility](https://hl.loess.ru/?mods=&search=Storage+Facility) (map by *T.J Brosnan*)
 228. [Strange Findings Part 1](https://twhl.info/vault.php?map=3617)
 229. [Subway - The Longest Fall](https://twhl.info/vault.php?map=3926) (you need to have additional textures to play this map properly: **opfor.wad** from *Opposing Force*, **specialists.wad** from *The Specialists*, **tfc2.wad** from *Team Fortress Classic* and **wanted.wad** from *Wanted!*)
-230. [Surfacerun](https://gamebanana.com/maps/156304)
+230. **[Surfacerun](https://gamebanana.com/maps/156304)**
 231. [SwirusMap (call it "Dream")](https://twhl.info/vault.php?map=1588)
 232. [Target Practice](https://twhl.info/vault.php?map=5460)
-233. [Technical Problems](https://www.runthinkshootlive.com/posts/technical-problems/)
+233. **[Technical Problems](https://www.runthinkshootlive.com/posts/technical-problems/)**
 234. [Teh Hammre](https://www.runthinkshootlive.com/posts/teh-hammre/)
-235. [Test Lab 16](https://twhl.info/competitions.php?results=17)
+235. **[Test Lab 16](https://twhl.info/competitions.php?results=17)**
 236. [Test Map](https://www.moddb.com/games/half-life/addons/test-map-update) (map by *NinjaBlack1337* aka *Guillermo_SPY*)
 237. [Test of Destruction](https://twhl.info/vault.php?map=3892)
 238. [The Abandon](http://half-life.ru/forum/showthread.php?threadid=14267) (link dead!)
@@ -632,7 +630,7 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 240. [The Crab Lab](https://twhl.info/vault.php?map=4105)
 241. [The Cupboard of Doom](https://www.moddb.com/mods/the-cupboard-of-doom)
 242. [The Desert of Doom](https://hl.loess.ru/?mod=265)
-243. [The Gloom](https://www.moddb.com/mods/the-gloom)
+243. **[The Gloom](https://www.moddb.com/mods/the-gloom)**
 244. [The History Can Be Changed](https://www.runthinkshootlive.com/posts/history-can-be-changed/) (you need to have additional textures to play this map properly - **opfor.wad** from *Opposing Force*)
 245. [The House Beta 0.1](https://gamebanana.com/maps/138258)
 246. [The Innocent Eternity](https://www.fileplanet.com/10027/10000/fileinfo/The-Innocent-Eternity) (there are 2 maps, but only first map is playable, in fact)
@@ -640,10 +638,10 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 248. [The Last Survivor](https://www.moddb.com/games/half-life/addons/the-last-survivor) (there is an issue with saved games in this map - they don't work properly after loading, but it's an inner flaw of the map, not an engine's bug)
 249. [The Leech Pits](https://www.runthinkshootlive.com/posts/the-leech-pit/)
 250. [The Origin of Symmetry](https://gamebanana.com/maps/56796)
-251. [The Plague](https://scrama.3dn.ru/load/2-1-0-31)
-252. [The Playtest](https://www.runthinkshootlive.com/posts/the-playtest/)
+251. **[The Plague](https://scrama.3dn.ru/load/2-1-0-31)**
+252. **[The Playtest](https://www.runthinkshootlive.com/posts/the-playtest/)**
 253. [The Poseidon Incident( USCM: Infestation Demo )](https://www.runthinkshootlive.com/posts/the-poseidon-incident/)
-254. [The Run](https://twhl.info/vault.php?map=4890)
+254. **[The Run](https://twhl.info/vault.php?map=4890)**
 255. [The Secret Mission](https://www.geocities.ws/rawrguilds/maps.html)
 256. [The Silo Station](https://www.fileplanet.com/7480/0/fileinfo/The-Silo-Station)
 257. [The Stupendous Quest of the Annoying Microwave](https://twhl.info/vault.php?map=5937)
@@ -661,13 +659,13 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 269. [TriggerHappy2.5](https://www.moddb.com/games/half-life/addons/trigger-happy-v25) 
 270. [Trouble](https://gamebanana.com/maps/166033)
 271. [Tunnels](https://twhl.info/vault.php?map=5350)
-272. [Twisted Hazard Course](https://www.fileplanet.com/52919/50000/fileinfo/Twisted-Hazard-Course)
+272. **[Twisted Hazard Course](https://www.fileplanet.com/52919/50000/fileinfo/Twisted-Hazard-Course)**
 273. [Two Towers](https://twhl.info/vault.php?map=2327)
 274. [Underground Facility](https://twhl.info/vault.php?map=1762)
 275. [Unnamed](https://twhl.info/competitions.php?results=20) by *rowleybob*
 276. [Urb's Challenge](https://twhl.info/vault.php?map=2677)
 277. [USAF](https://hl.loess.ru/?mod=1085)
-278. [USS Gaspra](http://biomech.itstudios.ru/gallery/uss_gaspra.htm) (download link dead!)
+278. **[USS Gaspra](http://biomech.itstudios.ru/gallery/uss_gaspra.htm)** (download link dead!)
 279. [USSL Blue Mesa](https://web.archive.org/web/20041109135949/http://cariad.co.za/twhl/mapvault_map.php?id=1402) (remove space from the end of the map's name before you play)
 280. [Valve Pressure Beta v2](https://www.fileplanet.com/87528/80000/fileinfo/Valve-Pressure---Single-Player-Map)
 281. [Vassy Compo](https://twhl.info/vault.php?map=771)
@@ -681,8 +679,8 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 289. [When the Army Came to the Office](https://www.runthinkshootlive.com/posts/when-the-army-came-to-the-office/)
 290. [WTF](https://www.runthinkshootlive.com/posts/wtf/)
 291. [WWE Bullsquid Royal Rumble](https://www.moddb.com/games/half-life/addons/wwe-bullsquid-royal-rumble)
-292. [Wybuchowka](https://www.runthinkshootlive.com/posts/wybuchowka/)
-293. [X-treme Violence](https://www.moddb.com/mods/x-treme-violence)
+292. **[Wybuchowka](https://www.runthinkshootlive.com/posts/wybuchowka/)**
+293. **[X-treme Violence](https://www.moddb.com/mods/x-treme-violence)**
 294. [XargoL's Entry for Vassy's Compo](https://twhl.info/vault.php?map=769)
 295. [Xen Again](https://www.fileplanet.com/9132/0/fileinfo/XEN-AGAIN)
 296. [Xen World](https://web.archive.org/web/20150926134355/http://www.lambda-force.org/load/0-0-0-481-20) (download link dead!)
@@ -693,22 +691,6 @@ Originally this list was written by @Qwertyus3D (*Qortez*)
 301. [Zone: Map 2 (Part 1)](https://www.moddb.com/mods/zone/downloads/zone-part-1)
 302. [Zone: Map 3 (Part 2)](https://www.moddb.com/mods/zone/downloads/zone-map-3)
 
-### Sets of single maps
-There are only map packs including some independent maps which are not really connected in one mod, so you should manually start via console every map and play it separately.
-
-1. [Cook The Headcrab Episodes 1 & 2](https://www.moddb.com/games/half-life/addons/cook-the-headcrab-episode-series)
-2. [Cook The Headcrab Episode 3](https://www.moddb.com/games/half-life/addons/cook-the-headcrab-episode-3) (with a bonus map inside)
-3. [Cook The Headcrab Episode 4](https://www.moddb.com/games/half-life/addons/cook-the-headcrab-episode-4) (with a bonus map inside)
-4. [DAV HL Pack 1](https://www.moddb.com/games/half-life/addons/dav-level-pack-1-hlarches-and-hlattack)
-5. [Funny Map Pack 1](https://web.archive.org/web/20110512012317/http://www.richmans-maps.ch.vu/)
-6. [Half-Life Shorts](https://twhl.info/vault/view/2845) (there are 5 maps, load them manually via console)
-7. [Japanese Episodes](https://www.moddb.com/games/half-life/addons/the-japanese-episodes)
-8. [Pillars of Pain: A Buddy & Kona Saga, aka PoP-BaKs](https://gamebanana.com/mods/490488)
-9. [TS_MF](https://gamebanana.com/mods/486595)
-10. [Valve ERC Contest #1](https://www.runthinkshootlive.com/posts/contest-1-maps/) - The martyred pop machine (10 maps by different authors)
-11. [Valve ERC Contest #2](https://www.runthinkshootlive.com/posts/contest-2-maps/) - Best train-ride sequence (3 maps by different authors)
-12. [Woodpigeon's Map Pack](https://www.fileplanet.com/archive/p-7481/Woodpigeon-s-Map-Pack)
-
 ## List of mappacks for Half-Life: Blue Shift
 To install - place *.bsp files to **bshift/custom/maps** folder, *.wad files to **bshift/custom** and type **`map <mapname>`** cmd in game.
 
@@ -717,7 +699,7 @@ To install - place *.bsp files to **bshift/custom/maps** folder, *.wad files to 
 ## List of Cleaner's Adventures-based mods
 To run this mods on specific platforms you may be need to compile libraries from **CAd** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable/tree/CAd).
 
-1. [Half-Life: Black Guard](https://www.moddb.com/mods/half-lifeblack-guard) - uses dlls copied from original Cleaner's Adventures.
+1. **[Half-Life: Black Guard](https://www.moddb.com/mods/half-lifeblack-guard)** - uses dlls copied from original Cleaner's Adventures.
 
 ## List of mods which based on Spirit of Half-Life
 Originally this list was written by @Qwertyus3D (*Qortez*)
@@ -728,11 +710,11 @@ To run this mods on specific platforms you may be need to compile libraries from
 
 ### Mods which based on vanilla Spirit of Half-Life 1.2 or older(Fully playable with SoHL 1.2 libraries)
 1. [Accidental Assassin](https://www.moddb.com/mods/accidental-assassin) (this mod has inner bugs; type **restart** if you stuck on changelevel)
-2. [Big Scientists](https://www.moddb.com/mods/big-scientists)
+2. **[Big Scientists](https://www.moddb.com/mods/big-scientists)**
 3. [Black Silla Assault DEMO v1.2](https://www.moddb.com/mods/black-silla-assault)
-4. [Blbej Den](https://www.moddb.com/mods/blbej-den)
+4. **[Blbej Den](https://www.moddb.com/mods/blbej-den)**
 5. [Cold Experiment v1](https://www.moddb.com/games/half-life/addons/cold-experiment) (you will need some files from SoHL to play it properly; download SoHL 1.2, extract files and copy following folders into **coldexv1** folder: cl_dlls, dlls, models, sprites)
-6. [Dead Sector v1.0a](https://www.moddb.com/mods/dead-sector)
+6. **[Dead Sector v1.0a](https://www.moddb.com/mods/dead-sector)**
 7. [Death Is Dead](https://www.moddb.com/games/half-life/addons/death-is-dead) (there is a fog-related inner bug at the first map)
 8. [Escape from Black Mesa Alpha](https://www.moddb.com/mods/escape-from-black-mesa)
 9. [ESCAPE: Trainingroom](https://www.moddb.com/mods/half-life-escape)
@@ -740,58 +722,58 @@ To run this mods on specific platforms you may be need to compile libraries from
 11. [Invasion 105 v2.0](https://www.moddb.com/mods/half-life-invasion-105)
 12. [Issues( Project Quantum Leap 2 )](https://www.moddb.com/mods/issues)
 13. [Mission Impracticable 2](https://www.moddb.com/mods/mission-impracticable-2)
-14. [Prison v2.1](https://www.moddb.com/mods/half-life-prison)
+14. **[Prison v2.1](https://www.moddb.com/mods/half-life-prison)**
 15. [Prize v1.1](https://www.moddb.com/mods/prize)
-16. [Radiation Alert: Episode 1 v1.1](https://www.moddb.com/mods/radiation-alert-episode-1)
+16. **[Radiation Alert: Episode 1 v1.1](https://www.moddb.com/mods/radiation-alert-episode-1)**
 17. [Run From Hell v1.1b](https://www.runthinkshootlive.com/posts/run-from-hell/) (there is an inner bug with underwater crates in the map **firstmap9** - they can't be broken, so you should use **noclip** to pass through them)
-18. [Santa's Revenge](https://twhl.info/vault.php?map=4332) (set **fps_max** to **60** to avoid an inner problem of the last map with final scripted sequence, otherwise the mod can not be finished properly)
+18. **[Santa's Revenge](https://twhl.info/vault.php?map=4332)** (set **fps_max** to **60** to avoid an inner problem of the last map with final scripted sequence, otherwise the mod can not be finished properly)
 19. [Sector 6](https://www.moddb.com/mods/sector-6/) 
 20. [Space Prisoner v1.1](https://www.moddb.com/games/half-life/addons/space-prisoner-v11) (after installing of the mod open **liblist.gam** or **gameinfo.txt** file in the mod's folder and correct the line **gamedll "..\prison\dlls\spirit.dll"** for **gamedll "dlls\spirit.dll"**, otherwise you'll not be able to start a game; there is also a scripting error on a third map of the mod, so you'll be forced to use **noclip** to pass around bugged place)
 21. [Terrorist Attack 2](https://www.moddb.com/games/half-life/addons/terrorist-attack-2)
-22. [Timeline III: The Heart of Darkness](https://www.moddb.com/mods/timeline-series)
+22. **[Timeline III: The Heart of Darkness](https://www.moddb.com/mods/timeline-series)**
 23. [Underground 2 Demo](https://www.moddb.com/games/half-life/addons/underground-2-demo)
 
 ### Mods which based on modified Spirit of Half-Life 1.2 or older(Partially playable with SoHL 1.2 libraries or not playable at all)
 1. [Black Death](https://www.moddb.com/mods/half-life-black-death)
 2. [Borderlands v0.4](https://www.moddb.com/games/half-life/addons/borderlands-v04)
-3. [Dark Territory](https://www.moddb.com/mods/dark-territory) (set **fps_max** to **60** to avoid an inner problem of the map **tau_jungle_02** with a scripted sequence, otherwise you can get a gamebreaking bug)
+3. **[Dark Territory](https://www.moddb.com/mods/dark-territory)** (set **fps_max** to **60** to avoid an inner problem of the map **tau_jungle_02** with a scripted sequence, otherwise you can get a gamebreaking bug)
 4. [Dead Way Alpha](https://csm.dev/threads/hl-dead-way-1-nostalgija.12381/)
 5. [Emergency](https://www.runthinkshootlive.com/posts/half-life-emergency/)
-6. [ESCAPE (final)](https://www.moddb.com/mods/half-life-escape) by *DMC Interactive*
-7. [ESCAPE 2](https://www.moddb.com/mods/half-life-escape) by *DMC Interactive*
+6. **[ESCAPE (final)](https://www.moddb.com/mods/half-life-escape)** by *DMC Interactive*
+7. **[ESCAPE 2](https://www.moddb.com/mods/half-life-escape)** by *DMC Interactive*
 8. [Force of Evil](https://www.moddb.com/mods/force-of-evil)
 9. [Friendship: Town of half-life.ru mappers v2.0](https://www.runthinkshootlive.com/posts/friendship/) (this mod has inner bugs)
 10. [Malevolence v1.4 Open Source Beta](https://www.moddb.com/mods/malevolence)
-11. [Portrait of Freeman v1.1](https://www.runthinkshootlive.com/posts/portrait-of-freeman/)
+11. **[Portrait of Freeman v1.1](https://www.runthinkshootlive.com/posts/portrait-of-freeman/)**
 12. [Project M.L.P v1.0](https://www.moddb.com/mods/project-mlp) (Remove **halflife.wad** from mod folder)
 13. [Snark Planet Demo](https://www.moddb.com/mods/snark-planet)
-14. [Survive in Catacombs](https://www.moddb.com/mods/survive-in-catacombs)
-15. [Survive in Catacombs 2: Fear (Bloodbath)](https://www.moddb.com/mods/survive-in-catacombs-2)
-16. [The Lost Hell](https://www.runthinkshootlive.com/posts/the-lost-hell/)
-17. [The Trap v1.50](https://www.moddb.com/mods/the-trap) (mod by *Reaktor*)
-18. [Ispitatel 4: Classic](https://www.moddb.com/mods/ispitatel-4-classic)
+14. **[Survive in Catacombs](https://www.moddb.com/mods/survive-in-catacombs)**
+15. **[Survive in Catacombs 2: Fear (Bloodbath)](https://www.moddb.com/mods/survive-in-catacombs-2)**
+16. **[The Lost Hell](https://www.runthinkshootlive.com/posts/the-lost-hell/)**
+17. **[The Trap v1.60](https://www.moddb.com/mods/the-trap) (mod by *Reaktor*)**
+18. **[Ispitatel 4: Classic](https://www.moddb.com/mods/ispitatel-4-classic)**
 19. [Half-Life 2: Classic Demo](https://www.moddb.com/mods/half-life-2-classic)
 
 ### Mods which based on Spirit of Half-Life 1.4/1.5/1.8(Fully playable with SoHL 1.8 libraries, partially playable with SoHL 1.2 libraries or not playable at all)
-1. [Before v1.0](https://www.moddb.com/mods/half-life-before)
+1. **[Before v1.1](https://www.moddb.com/mods/half-life-before)**
 2. [Christmas Life v1.0](https://www.moddb.com/mods/christmas-life) (initial mod works properly, but additional mappacks for this mod contain few maps that have some gameplay problems under Xash3D)
 3. [COLONY 42 Alpha](https://twhl.info/vault.php?map=6055)
 4. [Crazy Crabs Demo 1 & 2](https://www.moddb.com/mods/mad-crabs) 
 5. [Far Crab Demo v2](https://www.moddb.com/mods/far-crab)
 6. [Firefighter Demo v1.1](https://www.moddb.com/mods/firefighter-mod)
-7. [Halfquake 3: Sunrise](https://www.moddb.com/mods/halfquake-amen)
-8. [Prototype 98](https://www.moddb.com/mods/prototype-98) (set **fps_max** to **60**, otherwise you can get stuck in some places)
-9. [Reissues v1.1](https://www.moddb.com/mods/reissues)
-10. [Santa's Revenge 2: Xmas Meltdown](https://twhl.info/vault.php?map=4931)
-11. [Tactical Espionage Action v1.0](https://www.moddb.com/mods/tactical-espionage-action)
-12. [TWHL Tower Alpha](https://twhl.info/forums.php?thread=18670)
+7. **[Halfquake 3: Sunrise](https://www.moddb.com/mods/halfquake-amen)**
+8. **[Prototype 98](https://www.moddb.com/mods/prototype-98)** (set **fps_max** to **60**, otherwise you can get stuck in some places)
+9. **[Reissues v1.1](https://www.moddb.com/mods/reissues)**
+10. **[Santa's Revenge 2: Xmas Meltdown](https://twhl.info/vault.php?map=4931)**
+11. **[Tactical Espionage Action v1.1](https://www.moddb.com/mods/tactical-espionage-action)**
+12. **[TWHL Tower](https://www.moddb.com/mods/twhl-tower/downloads/twhl-tower-steam-xash3d)**
 
 ### Mods which based on Spirit of Half-Life 1.3/1.6/1.7/1.9(Fully playable with SoHL 1.9 libraries, partially playable with SoHL 1.2 libraries or not playable at all)
 1. [Chaos Theory unfinished](https://hlfx.ru/forum/showthread.php?threadid=1772)
 2. [Silent Zhildor Demo](https://www.runthinkshootlive.com/posts/silent-zhildor/)
 
 ## List of Opposing Force-based mods
-Originally this list was written by @Qwertyus (*Qortez*)
+Originally this list was written by @Qwertyus3D (*Qortez*)
 
 To install mods from this category - first of all place mod folder and **gearbox** folder from *Opposing Force* beside **valve** folder.
 
@@ -799,36 +781,39 @@ To run this mods on specific platforms you may be need to compile libraries from
 
 For mappacks - place *.bsp files to **gearbox/custom/maps** folder, *.wad files to **gearbox/custom** and type **`map <mapname>`** cmd in game.
 ### The big singleplayer mods or mappacks
-1. [Aron](https://csm.dev/threads/hl-aron.37791/)
-2. [A Soldiers Tale](https://www.moddb.com/mods/a-soldiers-tale)
+1. **[Aron](https://csm.dev/threads/hl-aron.37791/)**
+2. **[A Soldiers Tale](https://www.moddb.com/mods/a-soldiers-tale)**
 3. [Black Bag Operations](https://www.runthinkshootlive.com/posts/black-bag-operations/)
-4. [Bootleg Squadrog](https://www.moddb.com/mods/bootleg-squadrog) (there is an inner bug - don't save/load your game at the second map of the mod, otherwise a script that giving you weapons in the armory will not work)
+4. **[Bootleg Squadrog](https://www.moddb.com/mods/bootleg-squadrog)** (there is an inner bug - don't save/load your game at the second map of the mod, otherwise a script that giving you weapons in the armory will not work)
 5. [Camp Aign](https://twhl.info/vault.php?map=621)
 6. [Campaign: Part 1](https://www.runthinkshootlive.com/posts/campaign-part-1/)
-7. [Double Helix](https://www.runthinkshootlive.com/posts/double-helix/)
-8. [Fallback, Fire, and Ice](https://www.runthinkshootlive.com/posts/fallback-fire-and-ice/), plus simply Fallback (initial version of the mod with 5 maps)
-9. [Fallen Chopper](https://www.runthinkshootlive.com/posts/fallen-chopper/)
-10. [Focalpoint](https://www.moddb.com/mods/focalpoint)
-11. [Foothold](https://www.moddb.com/mods/foothold)
-12. [Ground Zero](https://web.archive.org/web/20231010064923/http://www.snarkpit.net/index.php?s=maps&map=3423) by *Necromancer*
-13. [Ground Zero 2: Fallout](https://www.moddb.com/mods/ground-zero-2-fallout) by *Derek 'Hellfire' McBurney* (there is a potential inner bug with unmovable barrel at the second map; you can break that barrel, but it very durable and has 9000 health points)
-14. [Intolerable Threat](https://www.moddb.com/mods/intolerable-threat)
-15. [Little Skyscraper of Horrors](https://www.moddb.com/mods/little-sky-scraper-of-horrors)
-16. [Mechanized Death: An Army of None](https://www.moddb.com/games/half-life-opposing-force/addons/mechanized-death-army-of-none)
-17. [Nuclear Winter](https://www.moddb.com/mods/nuclear-winter-opfor)
-18. [Opposing Force Aliens Addon](https://www.fileplanet.com/82829/80000/fileinfo/Half-Life:-Opposing-Force-Aliens-Addon-1.2)
-19. [Opposing Life2Life](https://www.moddb.com/games/half-life/addons/opposing-life2life-final-hd)
-20. [Realms](https://web.archive.org/web/20231009194345/http://snarkpit.net/index.php?s=maps&map=3483) by *Necromancer*
-21. [Shepard's Adventures](https://www.moddb.com/mods/shepards-adventures)
-22. [Snowy Rock](https://www.moddb.com/games/half-life-opposing-force/addons/snow-rock)
-23. [Space Disaster](https://www.runthinkshootlive.com/posts/space-disaster/)
-24. [The Alpha Unit](https://www.moddb.com/mods/na18509)
-25. [The Evasion](https://www.moddb.com/mods/the-evasion)
-26. [The Tower](https://www.moddb.com/mods/the-tower1)
-27. [The Xen Campaigns](https://www.moddb.com/mods/the-xen-campaigns)
-28. [Ultimate Attack](https://www.moddb.com/mods/half-life-ultimate-attack)
-29. [Under the Blackmoon](https://www.moddb.com/mods/under-the-black-moon)
-30. [Warzone](https://www.runthinkshootlive.com/posts/warzone/)
+7. **[Dark Operations](https://www.moddb.com/mods/op-dark-operations)**
+8. [Double Helix](https://www.runthinkshootlive.com/posts/double-helix/)
+9. **[Fallback, Fire, and Ice](https://www.runthinkshootlive.com/posts/fallback-fire-and-ice/)**, plus simply Fallback (initial version of the mod with 5 maps)
+10. [Fallen Chopper](https://www.runthinkshootlive.com/posts/fallen-chopper/)
+11. **[Focalpoint](https://www.moddb.com/mods/focalpoint)**
+12. [Foothold](https://www.moddb.com/mods/foothold)
+13. [Ground Zero](https://web.archive.org/web/20231010064923/http://www.snarkpit.net/index.php?s=maps&map=3423) by *Necromancer*
+14. **[Ground Zero 2: Fallout](https://www.moddb.com/mods/ground-zero-2-fallout)** by *Derek 'Hellfire' McBurney* (there is a potential inner bug with unmovable barrel at the second map; you can break that barrel, but it very durable and has 9000 health points)
+15. **[Intolerable Threat](https://www.moddb.com/mods/intolerable-threat)**
+16. **[Little Skyscraper of Horrors](https://www.moddb.com/mods/little-sky-scraper-of-horrors)**
+17. [Mechanized Death: An Army of None](https://www.moddb.com/games/half-life-opposing-force/addons/mechanized-death-army-of-none)
+18. **[Military Duty v1.0.1](https://www.moddb.com/mods/military-duty)**
+19. **[Nuclear Winter](https://www.moddb.com/mods/nuclear-winter-opfor)**
+20. [Opposing Force Aliens Addon](https://www.fileplanet.com/82829/80000/fileinfo/Half-Life:-Opposing-Force-Aliens-Addon-1.2)
+21. [Opposing Life2Life](https://www.moddb.com/games/half-life/addons/opposing-life2life-final-hd)
+22. [Realms](https://web.archive.org/web/20231009194345/http://snarkpit.net/index.php?s=maps&map=3483) by *Necromancer*
+23. **[Retaliation](https://www.moddb.com/mods/op-retaliation/downloads/retaliation1)**
+24. **[Shepard's Adventures](https://www.moddb.com/mods/shepards-adventures)**
+25. [Snowy Rock](https://www.moddb.com/games/half-life-opposing-force/addons/snow-rock)
+26. [Space Disaster](https://www.runthinkshootlive.com/posts/space-disaster/)
+27. **[The Alpha Unit](https://www.moddb.com/mods/na18509)**
+28. **[The Evasion](https://www.moddb.com/mods/the-evasion)**
+29. **[The Tower](https://www.moddb.com/mods/the-tower1)**
+30. [The Xen Campaigns](https://www.moddb.com/mods/the-xen-campaigns)
+31. **[Ultimate Attack](https://www.moddb.com/mods/half-life-ultimate-attack)**
+32. **[Under the Blackmoon](https://www.moddb.com/mods/under-the-black-moon)**
+33. [Warzone](https://www.runthinkshootlive.com/posts/warzone/)
 
 ### Unfinished mods
 1. [Black Op Mission](https://www.moddb.com/mods/black-op-mission)
@@ -837,23 +822,6 @@ For mappacks - place *.bsp files to **gearbox/custom/maps** folder, *.wad files 
 4. [Return to Black Mesa](https://web.archive.org/web/20160903151337/http://www.hl-rtbm.wbs.cz/) (download link dead!)
 5. [The Bounty Hunter](https://www.moddb.com/mods/half-life-the-bounty-hunter)
 6. [Xen Assault](https://www.moddb.com/mods/xen-assault) (there are inner bugs, which interfere with level change in introductury maps **p1vs1** and **xenmp**; you can just skip them and begin to play directly from the map **p1v1**)
-
-### Mods with a little incompatibilities
-There is a same critical issue in these mods - an unworking level transition from a first map to a second one
-
-To overcome the bug, follow these steps:
-
-1) start a second map of a mod - **op2** / **ret2** - manually via console
-
-2) step back to activate a level transition to the previous map
-
-3) type restart into console
-
-4) play with working transition!
-
-Mods:
-1. [Dark Operations](https://www.moddb.com/mods/op-dark-operations)
-2. [Retaliation](https://www.moddb.com/mods/op-retaliation/downloads/retaliation1)
 
 ### Singleplayer mods with one map or single maps
 1. [Alternate Points](https://twhl.info/vault.php?map=4499)
@@ -869,16 +837,17 @@ Mods:
 11. [Killing House for OF](https://www.runthinkshootlive.com/posts/scientist-rescue-aka-cqb/)
 12. [Klabautermann](https://www.runthinkshootlive.com/posts/klabautermann/) (though the map has some inner issues, it can be properly finished, just don't let the welder soldier die and don't press the fifth button until you mount a special gun in its' place)
 13. [Little Escape](https://www.runthinkshootlive.com/posts/little-escape/)
-14. [Madness 2](https://twhl.info/vault.php?map=1758)
-15. [Operation: Sandblast](https://unquenque.com/sandblast.html)
-16. [OpFor Postal](https://www.runthinkshootlive.com/posts/opfor-postal/)
-17. [Super Nova Space Station](https://www.runthinkshootlive.com/posts/supernova-space-station/)
-18. [The Red Area](https://www.runthinkshootlive.com/posts/the-red-area/)
-19. [Underhalls](https://twhl.info/vault.php?map=4070)
-20. [Without Doubts Beta](https://www.runthinkshootlive.com/posts/without-doubts/)
-21. [X-Abaddon](https://www.moddb.com/mods/red-alert-half-life-x-pantion/addons/x-abaddon)
-22. [You Die v2](https://www.runthinkshootlive.com/posts/you-die/)
-23. [Zombies](https://www.runthinkshootlive.com/posts/zombies/)
+14. [Marine Invasion: Freak-Lager](http://hl.gamebanana.com/gamefiles/2537)
+15. [Madness 2](https://twhl.info/vault.php?map=1758)
+16. **[Operation: Sandblast](https://unquenque.com/sandblast.html)**
+17. [OpFor Postal](https://www.runthinkshootlive.com/posts/opfor-postal/)
+18. [Super Nova Space Station](https://www.runthinkshootlive.com/posts/supernova-space-station/)
+19. [The Red Area](https://www.runthinkshootlive.com/posts/the-red-area/)
+20. [Underhalls](https://twhl.info/vault.php?map=4070)
+21. [Without Doubts Beta](https://www.runthinkshootlive.com/posts/without-doubts/)
+22. [X-Abaddon](https://www.moddb.com/mods/red-alert-half-life-x-pantion/addons/x-abaddon)
+23. [You Die v2](https://www.runthinkshootlive.com/posts/you-die/)
+24. [Zombies](https://www.runthinkshootlive.com/posts/zombies/)
 
 ## List of XashXT-based mods
 XashXT - SoHL-based extended toolkit for Xash3D mappers by *Unkle Mike*.
@@ -887,14 +856,14 @@ To install mods from this category - first of all place mod folder beside **valv
 
 Currently, you can try to run this mods under PrimeXT.
 
-1. [Meanwile in Russia demo(MIR)](https://www.moddb.com/games/mir)
+1. **[Meanwile in Russia demo(MIR)](https://www.moddb.com/games/mir)**
 2. Monorail Quest
 
 ## List of They Hunger-based mods
 To run this mods on specific platforms you may be need to compile libraries from **theyhunger** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
 ### The big singleplayers mods
-1. [They Hunger: Rebuild](https://www.moddb.com/mods/they-hungerrebuild) - This mod uses new **func_vehicle** entity and our **hlsdk-portable** libraries.
+1. **[They Hunger: Rebuild](https://www.moddb.com/mods/they-hungerrebuild)** - This mod uses new **func_vehicle** entity and our **hlsdk-portable** libraries.
 
 ### Single maps
 1. [Awful changes](https://yadi.sk/d/OE6SDqbkoLy6o) by *MSteam*
@@ -907,49 +876,49 @@ To run this mods on specific platforms you may be need to compile libraries from
 ## List of supported mods from mobile_hacks branch of HLSDK Portable by FWGS
 Currently, fresh Xash3D FWGS builds uses libraries from this branch, so you can play mods below out-of-the-box.
 
-1. [Afraid of Monsters](https://www.moddb.com/mods/afraid-of-monsters/downloads/afraid-of-monsters-v1)
-2. [Big Lolly](https://www.moddb.com/mods/big-lolly)
-3. [Half-Life: Blue Shift](https://store.steampowered.com/app/130/HalfLife_Blue_Shift/)
-4. [Half-Secret](https://www.moddb.com/mods/half-secret)
-5. [Case Closed](https://www.moddb.com/mods/caseclosed)
+1. **[Afraid of Monsters](https://www.moddb.com/mods/afraid-of-monsters/downloads/afraid-of-monsters-v1)**
+2. **[Big Lolly](https://www.moddb.com/mods/big-lolly)**
+3. **[Half-Life: Blue Shift](https://store.steampowered.com/app/130/HalfLife_Blue_Shift/)**
+4. **[Half-Secret](https://www.moddb.com/mods/half-secret)**
+5. **[Case Closed](https://www.moddb.com/mods/caseclosed)**
 6. [Bloody Pizza - Vendetta](https://www.moddb.com/games/half-life/addons/bloody-pizza-vendetta)
 7. [Borderlands](https://www.moddb.com/games/half-life/addons/borderlands-v04)
-8. [Half-Life: Induction](https://www.moddb.com/mods/half-life-induction/downloads/half-life-induction-12)
-9. [Redemption/Absolute Redemption](https://www.moddb.com/mods/absolute-redemption)
+8. **[Half-Life: Induction 1.2](https://www.moddb.com/mods/half-life-induction/downloads/half-life-induction-12)**
+9. **[Redemption/Absolute Redemption](https://www.moddb.com/mods/absolute-redemption)**
 10. [Sewer beta](https://www.moddb.com/games/half-life/addons/sewer-beta)
-11. [Times of Troubles](https://www.moddb.com/mods/times-of-troubles)
-12. [Half-Life: Urbicide](https://www.moddb.com/mods/half-life-urbicide)
+11. **[Times of Troubles](https://www.moddb.com/mods/times-of-troubles)**
+12. **[Half-Life: Urbicide](https://www.moddb.com/mods/half-life-urbicide)**
 
 ## List of games and mods with custom gamedll
 For mods from this category - first of all place mod folder beside **valve** folder.
 
-1. [Absolute Redemption](https://www.moddb.com/mods/absolute-redemption)
+1. **[Absolute Redemption](https://www.moddb.com/mods/absolute-redemption)**
 
 To run this mod on specific platforms you may be need to compile libraries from **redemption** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-2. [Adrenaline Gamer](https://www.moddb.com/mods/adrenaline-gamer)
+2. **[Adrenaline Gamer](https://www.moddb.com/mods/adrenaline-gamer)**
 
 On **x86 Linux** you can use *OpenAG* client by *YaLTeR*
 
 To run this mod on specific platforms you may be need to compile libraries from **aghl** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-3. [Afraid of Monsters](https://www.moddb.com/mods/afraid-of-monsters/downloads/afraid-of-monsters-v1)
+3. **[Afraid of Monsters](https://www.moddb.com/mods/afraid-of-monsters/downloads/afraid-of-monsters-v1)**
 
 To run this mod on specific platforms you may be need to compile libraries from **aom** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-4. [Afraid of Monsters: Director's Cut](https://www.moddb.com/mods/afraid-of-monsters-dc)
+4. **[Afraid of Monsters: Director's Cut](https://www.moddb.com/mods/afraid-of-monsters-dc)**
 
 To run this mod on specific platforms you may be need to compile libraries from **aomdc** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-5. [Azure Sheep](https://www.moddb.com/mods/azure-sheep)
+5. **[Azure Sheep](https://www.moddb.com/mods/azure-sheep)**
 
 To run this mod on specific platforms you may be need to compile libraries from **asheep** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-6. [Big Lolly](https://www.moddb.com/mods/big-lolly)
+6. **[Big Lolly](https://www.moddb.com/mods/big-lolly)**
 
 To run this mod on specific platforms you may be need to compile libraries from **biglolly** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-7. [Black OPS](https://www.moddb.com/mods/black-ops)
+7. **[Black OPS](https://www.moddb.com/mods/black-ops)**
 
 To run this mod on specific platforms you may be need to compile libraries from **blackops** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
@@ -961,27 +930,27 @@ To run this mod on specific platforms you may be need to compile libraries from 
 
 To run this mod on specific platforms you may be need to compile libraries from **caseclosed** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-10. [Bubblemod](https://web.archive.org/web/20130717133158/http://www.bubblemod.org/dl_default.php)
+10. **[Bubblemod](https://web.archive.org/web/20130717133158/http://www.bubblemod.org/dl_default.php)**
 
 This mod already has version for **x86 Linux**.
 
 To run this mod on specific platforms you may be need to compile libraries from **bubblemod** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-11. [Case Closed](https://www.moddb.com/mods/caseclosed)
+11. **[Case Closed](https://www.moddb.com/mods/caseclosed)**
 
 To run this mod on specific platforms you may be need to compile libraries from **caseclosed** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-12. [Cleaner's Adventures](https://www.moddb.com/mods/cleaners-adventures)
+12. **[Cleaner's Adventures](https://www.moddb.com/mods/cleaners-adventures)**
 
 To run this mod on specific platforms you may be need to compile libraries from **CAd** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-13. [Cold Ice Remastered](https://www.moddb.com/mods/cold-ice-remastered)
+13. **[Cold Ice Remastered](https://www.moddb.com/mods/cold-ice-remastered)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-14. [Counter Strike 1.6](https://store.steampowered.com/app/10/CounterStrike/)
+14. **[Counter Strike 1.6](https://store.steampowered.com/app/10/CounterStrike/)**
 
 On x86 you may be need to compile client part.
 
@@ -993,47 +962,47 @@ Client: https://github.com/Velaron/cs16-client/
 
 Server: https://github.com/rehlds/ReGameDLL_CS
 
-15. [Crack-Life: Campaign Mode](https://www.moddb.com/mods/crack-life)
+15. **[Crack-Life: Campaign Mode](https://www.moddb.com/mods/crack-life)**
 
 To run this mod on specific platforms you may be need to compile libraries from **clcampaign** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-16. [Deathmatch Classic](https://store.steampowered.com/app/40/Deathmatch_Classic/)
+16. **[Deathmatch Classic](https://store.steampowered.com/app/40/Deathmatch_Classic/)**
 
 Steam version already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **dmc** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-17. [Delta Particles](https://www.moddb.com/mods/half-life-delta)
+17. **[Delta Particles](https://www.moddb.com/mods/half-life-delta)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-18. [Escape from the Darkness](https://www.moddb.com/mods/escape-from-the-darkness)
+18. **[Escape from the Darkness](https://www.moddb.com/mods/escape-from-the-darkness)**
 
 To run this mod on specific platforms you may be need to compile libraries from **eftd** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-19. [Half-Life: Blue Shift](https://store.steampowered.com/app/130/HalfLife_Blue_Shift/)
+19. **[Half-Life: Blue Shift](https://store.steampowered.com/app/130/HalfLife_Blue_Shift/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **bshift** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-20. [Half-Life: Decay](https://www.moddb.com/mods/half-life-decay)
+20. **[Half-Life: Decay](https://www.moddb.com/mods/half-life-decay)**
 
 Currently, you can compile mod libraries for x86 Linux from **pc-decay2** branch [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
 Support for other platforms may be available later.
 
-21. [Half-Life: Echoes](https://www.moddb.com/mods/half-life-echoes)
+21. **[Half-Life: Echoes](https://www.moddb.com/mods/half-life-echoes)**
 
 To run this mod on specific platforms you may be need to compile libraries from **echoes** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-22. [Half-Life: Field Intensity](https://www.moddb.com/mods/field-intensity)
+22. **[Half-Life: Field Intensity](https://www.moddb.com/mods/field-intensity)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-23. Half-Life: Gravgun (unfinished) by *mittorn*, *a1batross* and *Solexid*
+23. **Half-Life: Gravgun** (unfinished) by *mittorn*, *a1batross* and *Solexid*
 
 *Support temporary abandoned*
 
@@ -1043,79 +1012,79 @@ Currently, MSVC is not supported, use MinGW if you need build for Windows.
 
 Mod files: [1](http://mittorn.fwgs.ru/coop-entpatches/), [2](http://mittorn.fwgs.ru/ggm/), [3](https://github.com/nillerusr/gravgun-extras).
 
-24. [Half-Life: Induction 1.2](https://www.moddb.com/mods/half-life-induction)
+24. **[Half-Life: Induction 1.2](https://www.moddb.com/mods/half-life-induction)**
 
 To run this mod on specific platforms you may be need to compile libraries from **induction_1.2** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-25. [Half-Life: Invasion](https://www.moddb.com/mods/half-life-invasion)
+25. **[Half-Life: Invasion](https://www.moddb.com/mods/half-life-invasion)**
 
 This mod supports x86 Linux.
 
 Support for other platforms may be available later.
 
-26. [Half-Life: Intense Force](https://www.moddb.com/downloads/intense-force)
+26. **[Half-Life: Intense Force](https://www.moddb.com/downloads/intense-force)**
 
 This mod already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **intense_force** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
 
-27. [Half-Life: Opposing Force](https://store.steampowered.com/app/50/HalfLife_Opposing_Force/)
+27. **[Half-Life: Opposing Force](https://store.steampowered.com/app/50/HalfLife_Opposing_Force/)**
 
 Steam version already supports x86 Linux.
 
 To run this mod on specific platforms you may be need to compile libraries from **opfor** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-28. [Half-Life: Quest mod](https://csm.dev/threads/half-life-the-quest-mod-isxodniki.38030/)
+28. **[Half-Life: Quest mod](https://csm.dev/threads/half-life-the-quest-mod-isxodniki.38030/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **sci** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-29. [Half-Life: TopDown](https://www.moddb.com/mods/half-life-top-downs)
+29. **[Half-Life: TopDown](https://www.moddb.com/mods/half-life-top-downs)**
 
 To run this mod on specific platforms you may be need to compile libraries from **topdown** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-30. [Half-Life: Urbicide](https://www.moddb.com/mods/half-life-urbicide)
+30. **[Half-Life: Urbicide](https://www.moddb.com/mods/half-life-urbicide)**
 
 To run this mod on specific platforms you may be need to compile libraries from **hl_urbicide** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-31. [Half-Life: Visitors](https://www.moddb.com/mods/half-life-visitors)
+31. **[Half-Life: Visitors](https://www.moddb.com/mods/half-life-visitors)**
 
 To run this mod on specific platforms you may be need to compile libraries from **visitors** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-32. [Half-Rats: Parasomnia](https://www.moddb.com/mods/half-rats-parasomnia/downloads/half-rats-parasomnia-v10b-steamlinux)
+32. **[Half-Rats: Parasomnia](https://www.moddb.com/mods/half-rats-parasomnia/downloads/half-rats-parasomnia-v10b-steamlinux)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-33. [Half-Screwed: Death and Rebirth](https://www.moddb.com/mods/half-screwed)
+33. **[Half-Screwed: Death and Rebirth](https://www.moddb.com/mods/half-screwed)**
 
 To run this mod on specific platforms you may be need to compile libraries from **half-screwed** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-34. [Half-Secret](https://www.moddb.com/mods/half-secret)
+34. **[Half-Secret](https://www.moddb.com/mods/half-secret)**
 
 To run this mod on specific platforms you may be need to compile libraries from **half-secret** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-35. [Natural Selection](https://www.moddb.com/mods/natural-selection)
+35. **[Natural Selection](https://www.moddb.com/mods/natural-selection)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-36. [Night at the Office](https://www.moddb.com/mods/night-at-the-office)
+36. **[Night at the Office](https://www.moddb.com/mods/night-at-the-office)**
 
 To run this mod on specific platforms you may be need to compile libraries from **noffice** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-37. [Paranoia](https://www.moddb.com/mods/paranoia)
+37. **[Paranoia](https://www.moddb.com/mods/paranoia)**
 
 *Support temporary abandoned*
 
 [Source code](https://github.com/FWGS/paranoia_toolkit).
 
-38. [Poke646](https://poke646.com/)
+38. **[Poke646](https://poke646.com/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **poke646** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-39. [Poke646: Vendetta](https://poke646.com/)
+39. **[Poke646: Vendetta](https://poke646.com/)**
 
 To run this mod on specific platforms you may be need to compile libraries from **poke646_vendetta** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
@@ -1123,25 +1092,25 @@ To run this mod on specific platforms you may be need to compile libraries from 
 
 [Source code](https://github.com/SNMetamorph/PrimeXT)
 
-41. [Quake Remake](https://www.moddb.com/games/quake-remake)
+41. **[Quake Remake](https://www.moddb.com/games/quake-remake)**
 
 *Support was fully abandoned due Quake Wrapper release.*
 
 [Actual source code](https://github.com/FWGS/quakeremake)
 
-42. [Rebellion](https://www.moddb.com/mods/rebellion1)
+42. **[Rebellion](https://www.moddb.com/mods/rebellion1)**
 
 To run this mod on specific platforms you may be need to compile libraries from **rebellion** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-43. [Residual Life](https://www.moddb.com/mods/hl-residual-life)
+43. **[Residual Life](https://www.moddb.com/mods/hl-residual-life)**
 
 To run this mod on specific platforms you may be need to compile libraries from **residual_point** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-44. [Residual Point](https://www.moddb.com/mods/hl-residual-point)
+44. **[Residual Point](https://www.moddb.com/mods/hl-residual-point)**
 
 To run this mod on specific platforms you may be need to compile libraries from **residual_point** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-45. [Ricochet](https://store.steampowered.com/app/60/Ricochet/)
+45. **[Ricochet](https://store.steampowered.com/app/60/Ricochet/)**
 
 This mod already supports x86 Linux.
 
@@ -1155,29 +1124,29 @@ To run this mod on specific platforms you may be need to compile libraries from 
 
 To run this mod on specific platforms you may be need to compile libraries from **sohl1.2** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-48. [Swiss Cheese Halloween](https://www.moddb.com/mods/half-life-halloween-mod)
+48. **[Swiss Cheese Halloween](https://www.moddb.com/mods/half-life-halloween-mod)**
 
 To run this mod on specific platforms you may be need to compile libraries from **halloween** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-49. [Team Fortress Classic](https://store.steampowered.com/app/20/Team_Fortress_Classic/)
+49. **[Team Fortress Classic](https://store.steampowered.com/app/20/Team_Fortress_Classic/)**
 
 This mod already supports x86 Linux.
 
 Currently, only source code of [client part](https://github.com/Velaron/tf15-client) is available.
 
-50. [The Gate](https://www.moddb.com/mods/the-gate)
+50. **[The Gate](https://www.moddb.com/mods/the-gate)**
 
 To run this mod on specific platforms you may be need to compile libraries from **thegate** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-51. [They Hunger: Trilogy](https://www.moddb.com/mods/they-hunger)
+51. **[They Hunger: Trilogy](https://www.moddb.com/mods/they-hunger)**
 
 To run this mod on specific platforms you may be need to compile libraries from **theyhunger** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-52. [ThreeWave CTF](https://www.moddb.com/games/deathmatch-classic/downloads/threewave-ctf)
+52. **[ThreeWave CTF](https://www.moddb.com/games/deathmatch-classic/downloads/threewave-ctf)**
 
 To run this mod on specific platforms you may be need to compile libraries from **dmc** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
-53. [Times of Troubles](https://www.moddb.com/mods/times-of-troubles)
+53. **[Times of Troubles](https://www.moddb.com/mods/times-of-troubles)**
 
 To run this mod on specific platforms you may be need to compile libraries from **tot** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
@@ -1187,13 +1156,13 @@ To run this mod on specific platforms you may be need to compile libraries from 
 
 [Source code](https://github.com/FWGS/XashXT-FWGS/)
 
-55. [X-Half-Life DeathMatch](https://www.moddb.com/mods/xdm)
+55. **[X-Half-Life DeathMatch](https://www.moddb.com/mods/xdm)**
 
 This mod already supports x86 Linux.
 
 Support for other platforms may be available later.
 
-56. [Xen-Warrior](https://www.moddb.com/mods/xen-warrior)
+56. **[Xen-Warrior](https://www.moddb.com/mods/xen-warrior)**
 
 To run this mod on specific platforms you may be need to compile libraries from **sohl1.2** branch of [hlsdk-portable](https://github.com/FWGS/hlsdk-portable).
 
@@ -1205,5 +1174,5 @@ To run this mod on specific platforms you may be need to compile libraries from 
 
 ## List of Counter Strike-based mods
 
-1. [CSMoE](https://github.com/MoeMod/CSMoE/releases) by *Chinese Xash3D FWGS Community* - uses custom Xash3D FWGS build.
+1. **[CSMoE](https://github.com/MoeMod/CSMoE/releases)** by *Chinese Xash3D FWGS Community* - uses custom Xash3D FWGS build.
 
