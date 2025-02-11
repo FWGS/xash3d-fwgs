@@ -460,7 +460,7 @@ void R_StudioCalcBones( int frame, float s, const mstudiobone_t *pbone, const ms
 
 	max = q != NULL ? 6 : 3;
 
-	for( ; i < max; i++ )
+	for( i = 0; i < max; i++ )
 	{
 		mstudioanimvalue_t *panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[i] );
 		int j = frame;
