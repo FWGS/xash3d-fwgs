@@ -70,6 +70,8 @@ void Android_Shutdown( void );
 #endif
 
 #if XASH_WIN32
+void Win32_Init( void );
+void Win32_Shutdown( void );
 void Wcon_CreateConsole( qboolean con_showalways );
 void Wcon_DestroyConsole( void );
 void Wcon_InitConsoleCommands( void );
@@ -124,6 +126,7 @@ static inline void Platform_Init( qboolean con_showalways, const char *basedir )
 #elif XASH_DOS
 	DOS_Init( );
 #elif XASH_WIN32
+	Win32_Init( );
 	Wcon_CreateConsole( con_showalways );
 #elif XASH_LINUX
 	Linux_Init( );
@@ -140,6 +143,7 @@ static inline void Platform_Shutdown( void )
 	DOS_Shutdown( );
 #elif XASH_WIN32
 	Wcon_DestroyConsole( );
+	Win32_Shutdown( );
 #elif XASH_LINUX
 	Linux_Shutdown( );
 #endif
@@ -175,6 +179,37 @@ static inline void Platform_Sleep( int msec )
 	Sleep( msec );
 #else
 	// stub
+#endif
+}
+
+static inline qboolean Platform_NanoSleep( int nsec )
+{
+	// SDL2 doesn't have nanosleep, so use low-level functions here
+	// When this code will be ported to SDL3, use SDL_DelayNS
+#if XASH_POSIX
+	struct timespec ts = {
+		.tv_sec = 0,
+		.tv_nsec = nsec, // just don't put large numbers here
+	};
+	return nanosleep( &ts, NULL ) == 0;
+#elif XASH_WIN32
+	extern HANDLE g_waitable_timer;
+	const LARGE_INTEGER ts = { -nsec };
+
+	if( !g_waitable_timer )
+		return false;
+
+	if( !SetWaitableTimer( g_waitable_timer, &ts, 0, NULL, NULL, FALSE ))
+	{
+		CloseHandle( g_waitable_timer );
+		g_waitable_timer = 0;
+		return false;
+	}
+
+	if( WaitForSingleObject( g_waitable_timer, 1000 ) != WAIT_OBJECT_0 )
+		return false;
+
+	return true;
 #endif
 }
 

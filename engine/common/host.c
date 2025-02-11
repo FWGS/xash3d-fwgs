@@ -698,17 +698,17 @@ static qboolean Host_Autosleep( double dt, double scale )
 		static double timewindow; // allocate a time window for sleeps
 		static int counter; // for debug
 		static double realsleeptime;
-		const double sleeptime = sleep * 0.001;
+		const double sleeptime = sleep * 0.000001;
 
 		if( dt < targetframetime * scale )
 		{
 			// if we have allocated time window, try to sleep
 			if( timewindow > realsleeptime )
 			{
-				// Platform_Sleep isn't guaranteed to sleep an exact amount of milliseconds
+				// Platform_Sleep isn't guaranteed to sleep an exact amount of microseconds
 				// so we measure the real sleep time and use it to decrease the window
 				double t1 = Sys_DoubleTime(), t2;
-				Platform_Sleep( sleep ); // in msec!
+				Platform_NanoSleep( sleep * 1000 ); // in usec!
 				t2 = Sys_DoubleTime();
 				realsleeptime = t2 - t1;
 

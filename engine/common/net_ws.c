@@ -1512,7 +1512,7 @@ static int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t 
 				total_sent += size;
 			len -= size;
 			packet_number++;
-			Platform_Sleep( 1 );
+			Platform_NanoSleep( 100 * 1000 );
 		}
 
 		return total_sent;
