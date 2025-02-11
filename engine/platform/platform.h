@@ -170,7 +170,11 @@ static inline void Platform_Sleep( int msec )
 #if XASH_TIMER == TIMER_SDL
 	SDL_Delay( msec );
 #elif XASH_TIMER == TIMER_POSIX
-	usleep( msec * 1000 );
+	const struct timespec tv = {
+		.tv_sec = msec / 1000,
+		.tv_nsec = (msec % 1000) * 1000000,
+	};
+	nanosleep( &tv, NULL );
 #elif XASH_TIMER == TIMER_WIN32
 	Sleep( msec );
 #else
