@@ -382,8 +382,7 @@ static void Mod_StudioCalcRotations( int boneused[], int numbones, const byte *p
 	for( j = numbones - 1; j >= 0; j-- )
 	{
 		i = boneused[j];
-		R_StudioCalcBoneQuaternion( frame, s, &pbone[i], &panim[i], adj, q[i] );
-		R_StudioCalcBonePosition( frame, s, &pbone[i], &panim[i], adj, pos[i] );
+		R_StudioCalcBones( frame, s, &pbone[i], &panim[i], adj, pos[i], q[i] );
 	}
 
 	if( pseqdesc->motiontype & STUDIO_X ) pos[pseqdesc->motionbone][0] = 0.0f;
@@ -724,7 +723,7 @@ void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean i
 		{
 			for( k = 0; k < pseqdesc->numframes; k++ )
 			{
-				R_StudioCalcBonePosition( k, 0, &pbones[j], panim, NULL, pos );
+				R_StudioCalcBones( k, 0, &pbones[i], panim, NULL, pos, NULL );
 				Mod_StudioBoundVertex( vert_mins, vert_maxs, &bone_count, pos );
 			}
 		}

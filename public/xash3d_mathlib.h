@@ -168,8 +168,8 @@ void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, v
 void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, vec3_t out );
 qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared, const vec3_t vLinePt, const vec3_t vLineDir );
 void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt );
-void R_StudioCalcBoneQuaternion( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec4_t q );
-void R_StudioCalcBonePosition( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const vec3_t adj, vec3_t pos );
+
+void R_StudioCalcBones( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec3_t pos, vec4_t q );
 int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
 #define BOX_ON_PLANE_SIDE( emins, emaxs, p )           \
 	((( p )->type < 3 ) ?                              \
