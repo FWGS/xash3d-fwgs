@@ -601,7 +601,7 @@ static void SV_FindTouchedLeafs( edict_t *ent, model_t *mod, mnode_t *node, int 
 	// add an efrag if the node is a leaf
 	if( node->contents < 0 )
 	{
-		if( ent->num_leafs > MAX_ENT_LEAFS( FBitSet( mod->flags, MODEL_QBSP2 )))
+		if( ent->num_leafs >= MAX_ENT_LEAFS( FBitSet( mod->flags, MODEL_QBSP2 )))
 		{
 			// continue counting leafs,
 			// so we know how many it's overrun
