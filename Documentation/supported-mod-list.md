@@ -1057,7 +1057,7 @@ Support for other platforms may be available later.
 
 This mod already supports x86 Linux.
 
-To run this mod on specific platforms you may be need to compile libraries from **https://github.com/FreeSlave/halflife-featureful/tree/intense_force** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
+To run this mod on specific platforms you may be need to compile libraries from **intense_force** branch of [halflife-featureful](https://github.com/FreeSlave/halflife-featureful).
 
 27. [Half-Life: Opposing Force](https://store.steampowered.com/app/50/HalfLife_Opposing_Force/)
 
