@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include "server.h"
 #include <shellapi.h>
 
+HANDLE g_waitable_timer;
+
 #if XASH_TIMER == TIMER_WIN32
 double Platform_DoubleTime( void )
 {
@@ -35,6 +37,33 @@ double Platform_DoubleTime( void )
 	return (double)( CurrentTime.QuadPart - g_ClockStart.QuadPart ) / (double)( g_PerformanceFrequency.QuadPart );
 }
 #endif // XASH_TIMER == TIMER_WIN32
+
+void Win32_Init( void )
+{
+	HMODULE hModule = LoadLibrary( "kernel32.dll" );
+
+	if( hModule )
+	{
+		HANDLE ( __stdcall *pfnCreateWaitableTimerExW)( LPSECURITY_ATTRIBUTES lpTimerAttributes, LPCWSTR lpTimerName, DWORD dwFlags, DWORD dwDesiredAccess );
+
+		if(( pfnCreateWaitableTimerExW = GetProcAddress( hModule, "CreateWaitableTimerExW" )))
+		{
+			// CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+			g_waitable_timer = pfnCreateWaitableTimerExW( NULL, NULL, 0x1 | 0x2, 0 );
+		}
+
+		FreeLibrary( "kernel32.dll" );
+	}
+
+	if( !g_waitable_timer )
+		g_waitable_timer = CreateWaitableTimer( NULL, TRUE, NULL );
+}
+
+void Win32_Shutdown( void )
+{
+	if( g_waitable_timer )
+		CloseHandle( g_waitable_timer );
+}
 
 qboolean Platform_DebuggerPresent( void )
 {
