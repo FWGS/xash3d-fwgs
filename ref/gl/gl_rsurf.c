@@ -2476,10 +2476,14 @@ static void R_SetupVBOArrayDlight( vboarray_t *vbo, texture_t *texture )
 
 static void R_SetupVBOArrayDecalDlight( int decalcount )
 {
-	pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
+	if( vbos.decal_dlight_vbo )
+	{
+		pglBindBufferARB( GL_ARRAY_BUFFER_ARB, vbos.decal_dlight_vbo );
 #if !SPARSE_DECALS_UPLOAD
-	pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * DECAL_VERTS_MAX * decalcount, vbos.decal_dlight , GL_STREAM_DRAW_ARB );
+		pglBufferDataARB( GL_ARRAY_BUFFER_ARB, sizeof( vbovertex_t ) * DECAL_VERTS_MAX * decalcount, vbos.decal_dlight, GL_STREAM_DRAW_ARB );
 #endif
+	}
+
 	R_SetDecalMode( true );
 	// hack: fix decal dlights on gl_vbo_details == 2 (wrong state??)
 	/*if( mtst.details_enabled && mtst.tmu_dt != -1 )
