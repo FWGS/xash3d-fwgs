@@ -84,7 +84,7 @@ SUBDIRS = [
 	Subproject('filesystem'),
 	Subproject('stub/server'),
 	Subproject('dllemu'),
-	Subproject('3rdparty/libbacktrace', lambda x: not x.env.HAVE_SYSTEM_LIBBACKTRACE),
+	Subproject('3rdparty/libbacktrace'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
@@ -485,14 +485,8 @@ def configure(conf):
 		conf.env.SHAREDIR = conf.env.LIBDIR = conf.env.BINDIR = conf.env.PREFIX
 
 	if not conf.options.BUILD_BUNDLED_DEPS:
-		frag='''#include <backtrace.h>
-#include <backtrace-supported.h>
-#if !BACKTRACE_SUPPORTS_THREADS
-#error
-#endif
-int main(int argc, char **argv) { return backtrace_create_state(argv[0], 1, 0, 0) != 0; }'''
-
-		conf.env.HAVE_SYSTEM_LIBBACKTRACE = conf.check_cc(lib='backtrace', fragment=frag, uselib_store='backtrace', mandatory=False)
+		# there was a check for system libbacktrace but we can't be sure if it supports fileline or not
+		# therefore, always build libbacktrace ourselves
 
 		if conf.env.CLIENT:
 			for i in ('ogg','opusfile','vorbis','vorbisfile'):
