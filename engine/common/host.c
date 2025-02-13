@@ -140,7 +140,8 @@ static void Sys_PrintUsage( const char *exename )
 
 "\nCommon options:\n"
 	O("-dev [level]       ", "set log verbosity 0-2")
-	O("-log               ", "write log to \"engine.log\"")
+	O("-log [file name]   ", "write log to \"engine.log\" or [file name] if specified")
+	O("-logtime           ", "enable writing timestamps to the log file")
 	O("-nowriteconfig     ", "disable config save")
 	O("-noch              ", "disable crashhandler")
 #if XASH_WIN32 // !!!!
