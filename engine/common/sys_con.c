@@ -81,7 +81,7 @@ void Sys_InitLog( void )
 
 	if( Sys_CheckParm( "-log" ))
 	{
-		if( !Sys_GetParmFromCmdLine( "-log", s_ld.log_path ))
+		if( !Sys_GetParmFromCmdLine( "-log", s_ld.log_path ) || s_ld.log_path[0] == '-' )
 			Q_strncpy( s_ld.log_path, "engine.log", sizeof( s_ld.log_path ));
 
 		COM_DefaultExtension( s_ld.log_path, ".log", sizeof( s_ld.log_path ));
