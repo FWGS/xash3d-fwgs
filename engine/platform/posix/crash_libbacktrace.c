@@ -158,8 +158,7 @@ void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context )
 	pd.message_size = sizeof( message ) - len;
 	pd.len = 0;
 
-	if( g_bt_state )
-		backtrace_full( g_bt_state, 0, Sys_BacktracePrintFull, Sys_BacktracePrintError, &pd );
+	backtrace_full( g_bt_state, 1, Sys_BacktracePrintFull, Sys_BacktracePrintError, &pd );
 
 	// put MessageBox as Sys_Error
 	Msg( "%s\n", message );
