@@ -49,10 +49,6 @@ typedef struct
 	qboolean	inputEnabled;
 	qboolean	consoleVisible;
 	qboolean	attached;
-
-	// log stuff
-	qboolean	log_active;
-	char		log_path[MAX_SYSPATH];
 } WinConData;
 
 static WinConData	s_wcd;
@@ -502,19 +498,13 @@ create win32 console
 */
 void Wcon_CreateConsole( qboolean con_showalways )
 {
-	if( Sys_CheckParm( "-log" ))
-		s_wcd.log_active = true;
-
 	if( host.type == HOST_NORMAL )
 	{
 		Q_strncpy( s_wcd.title, XASH_ENGINE_NAME " " XASH_VERSION, sizeof( s_wcd.title ));
-		Q_strncpy( s_wcd.log_path, "engine.log", sizeof( s_wcd.log_path ));
 	}
 	else // dedicated console
 	{
 		Q_strncpy( s_wcd.title, XASH_DEDICATED_SERVER_NAME " " XASH_VERSION, sizeof( s_wcd.title ));
-		Q_strncpy( s_wcd.log_path, "dedicated.log", sizeof( s_wcd.log_path ));
-		s_wcd.log_active = true; // always make log
 	}
 
 	s_wcd.attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
@@ -596,10 +586,8 @@ void Wcon_DestroyConsole( void )
 	// last text message into console or log
 	Con_Reportf( "%s: Unloading xash.dll\n", __func__ );
 
-	Sys_CloseLog( NULL );
-
 	if( !s_wcd.attached )
-	{ 
+	{
 		if( s_wcd.hWnd )
 		{
 			ShowWindow( s_wcd.hWnd, SW_HIDE );
