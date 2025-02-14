@@ -573,7 +573,7 @@ static void SV_Kick_f( void )
 	sv_client_t	*cl;
 	const char *param;
 
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() < 2 )
 	{
 		Con_Printf( S_USAGE "kick <#id|name> [reason]\n" );
 		return;
