@@ -2379,7 +2379,7 @@ void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... )
 	if( sv.state != ss_active )
 		return; // early out
 
-	if(( cl = SV_ClientFromEdict( pEdict, true )) == NULL )
+	if(( cl = SV_ClientFromEdict( pEdict, false )) == NULL )
 	{
 		Con_Printf( S_ERROR "stuffcmd: client is not spawned!\n" );
 		return;
@@ -4600,7 +4600,7 @@ static void GAME_EXPORT pfnQueryClientCvarValue( const edict_t *player, const ch
 	if( !COM_CheckString( cvarName ))
 		return;
 
-	if(( cl = SV_ClientFromEdict( player, true )) != NULL )
+	if(( cl = SV_ClientFromEdict( player, false )) != NULL )
 	{
 		MSG_BeginServerCmd( &cl->netchan.message, svc_querycvarvalue );
 		MSG_WriteString( &cl->netchan.message, cvarName );
@@ -4627,7 +4627,7 @@ static void GAME_EXPORT pfnQueryClientCvarValue2( const edict_t *player, const c
 	if( !COM_CheckString( cvarName ))
 		return;
 
-	if(( cl = SV_ClientFromEdict( player, true )) != NULL )
+	if(( cl = SV_ClientFromEdict( player, false )) != NULL )
 	{
 		MSG_BeginServerCmd( &cl->netchan.message, svc_querycvarvalue2 );
 		MSG_WriteLong( &cl->netchan.message, requestID );
