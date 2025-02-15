@@ -38,31 +38,63 @@ double Platform_DoubleTime( void )
 }
 #endif // XASH_TIMER == TIMER_WIN32
 
-void Win32_Init( void )
+void Win32_Init( qboolean con_showalways )
 {
 	HMODULE hModule = LoadLibrary( "kernel32.dll" );
-
 	if( hModule )
 	{
 		HANDLE ( __stdcall *pfnCreateWaitableTimerExW)( LPSECURITY_ATTRIBUTES lpTimerAttributes, LPCWSTR lpTimerName, DWORD dwFlags, DWORD dwDesiredAccess );
 
-		if(( pfnCreateWaitableTimerExW = GetProcAddress( hModule, "CreateWaitableTimerExW" )))
+		if(( pfnCreateWaitableTimerExW = (void *)GetProcAddress( hModule, "CreateWaitableTimerExW" )))
 		{
-			// CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
-			g_waitable_timer = pfnCreateWaitableTimerExW( NULL, NULL, 0x1 | 0x2, 0 );
+			g_waitable_timer = pfnCreateWaitableTimerExW(
+				NULL,
+				NULL,
+				0x1 /* CREATE_WAITABLE_TIMER_MANUAL_RESET */ | 0x2 /* CREATE_WAITABLE_TIMER_HIGH_RESOLUTION */,
+				0x0002 /* TIMER_MODIFY_STATE */ | SYNCHRONIZE | DELETE
+			);
 		}
 
-		FreeLibrary( "kernel32.dll" );
+		FreeLibrary( hModule );
 	}
 
+#if 0 // FIXME: creates object but doesn't wait for specific time for me on Windows 10, with the code above commented
 	if( !g_waitable_timer )
 		g_waitable_timer = CreateWaitableTimer( NULL, TRUE, NULL );
+#endif
+
+	Wcon_CreateConsole( con_showalways );
 }
 
 void Win32_Shutdown( void )
 {
+	Wcon_DestroyConsole( );
+
 	if( g_waitable_timer )
+	{
 		CloseHandle( g_waitable_timer );
+		g_waitable_timer = 0;
+	}
+}
+
+qboolean Win32_NanoSleep( int nsec )
+{
+	const LARGE_INTEGER ts = { -nsec };
+
+	if( !g_waitable_timer )
+		return false;
+
+	if( !SetWaitableTimer( g_waitable_timer, &ts, 0, NULL, NULL, FALSE ))
+	{
+		CloseHandle( g_waitable_timer );
+		g_waitable_timer = 0;
+		return false;
+	}
+
+	if( WaitForSingleObject( g_waitable_timer, Q_max( 1, nsec / 1000000 )) != WAIT_OBJECT_0 )
+		return false;
+
+	return true;
 }
 
 qboolean Platform_DebuggerPresent( void )
