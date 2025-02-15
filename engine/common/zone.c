@@ -65,6 +65,8 @@ typedef struct memheader_s
 	// immediately followed by data, which is followed by a MEMHEADER_SENTINEL2 byte
 } memheader_t;
 
+STATIC_CHECK_SIZEOF( memheader_t, 24, 40 );
+
 typedef struct mempool_s
 {
 	struct memheader_s *chain;        // chain of individual memory allocations
