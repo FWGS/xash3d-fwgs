@@ -723,39 +723,6 @@ qboolean NET_CompareBaseAdr( const netadr_t a, const netadr_t b )
 
 /*
 ====================
-NET_CompareClassBAdr
-
-Compare local masks
-====================
-*/
-qboolean NET_CompareClassBAdr( const netadr_t a, const netadr_t b )
-{
-	netadrtype_t type_a = NET_NetadrType( &a );
-	netadrtype_t type_b = NET_NetadrType( &b );
-
-	if( type_a != type_b )
-		return false;
-
-	if( type_a == NA_LOOPBACK )
-		return true;
-
-	if( type_a == NA_IP )
-	{
-		if( a.ip[0] == b.ip[0] && a.ip[1] == b.ip[1] )
-			return true;
-	}
-
-	// NOTE: we don't check for IPv6 here
-	// this check is very dumb and only used for LAN restriction
-	// Actual check is in IsReservedAdr
-
-	// for real mask compare use NET_CompareAdrByMask
-
-	return false;
-}
-
-/*
-====================
 NET_CompareAdrByMask
 
 Checks if adr is a part of subnet

@@ -253,7 +253,7 @@ static int SV_CheckIPRestrictions( netadr_t from )
 {
 	if( sv_lan.value )
 	{
-		if( !NET_CompareClassBAdr( from, net_local ) && !NET_IsReservedAdr( from ))
+		if( !NET_IsReservedAdr( from ))
 			return 0;
 	}
 	return 1;
@@ -267,23 +267,17 @@ Get slot # and set client_t pointer for player, if possible
 We don't do this search on a "reconnect, we just reuse the slot
 ================
 */
-static int SV_FindEmptySlot( netadr_t from, int *pslot, sv_client_t **ppClient )
+static sv_client_t *SV_FindEmptySlot( void )
 {
-	sv_client_t	*cl;
-	int		i;
+	int i;
 
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
-		if( cl->state == cs_free )
-		{
-			*ppClient = cl;
-			*pslot = i;
-			return 1;
-		}
+		if( svs.clients[i].state == cs_free )
+			return &svs.clients[i];
 	}
 
-	SV_RejectConnection( from, "server is full\n" );
-	return 0;
+	return NULL;
 }
 
 /*
@@ -295,15 +289,13 @@ A connection request that did not come from the master
 */
 static void SV_ConnectClient( netadr_t from )
 {
-	char		userinfo[MAX_INFO_STRING];
-	char		protinfo[MAX_INFO_STRING];
-	sv_client_t	*cl, *newcl = NULL;
-	qboolean		reconnect = false;
-	int		nClientSlot = 0;
-	int		qport, version;
-	int		i, count = 0;
-	int		challenge;
-	const char		*s;
+	char userinfo[MAX_INFO_STRING];
+	char protinfo[MAX_INFO_STRING];
+	sv_client_t *newcl = NULL;
+	int qport, version;
+	int i, count = 0;
+	int challenge;
+	const char *s;
 	int extensions;
 	uint netchan_flags = 0;
 
@@ -321,39 +313,6 @@ static void SV_ConnectClient( netadr_t from )
 		return;
 	}
 
-	challenge = Q_atoi( Cmd_Argv( 2 )); // get challenge
-
-	// see if the challenge is valid (local clients don't need to challenge)
-	if( !SV_CheckChallenge( from, challenge ))
-		return;
-
-	s = Cmd_Argv( 3 );	// protocol info
-
-	if( !Info_IsValid( s ))
-	{
-		SV_RejectConnection( from, "invalid protinfo in connect command\n" );
-		return;
-	}
-
-	Q_strncpy( protinfo, s, sizeof( protinfo ));
-
-	if( !SV_ProcessUserAgent( from, protinfo ) )
-	{
-		return;
-	}
-
-	// extract qport from protocol info
-	qport = Q_atoi( Info_ValueForKey( protinfo, "qport" ));
-
-	s = Info_ValueForKey( protinfo, "uuid" );
-	if( Q_strlen( s ) != 32 )
-	{
-		SV_RejectConnection( from, "invalid authentication certificate length\n" );
-		return;
-	}
-
-	extensions = Q_atoi( Info_ValueForKey( protinfo, "ext" ) );
-
 	// LAN servers restrict to class b IP addresses
 	if( !SV_CheckIPRestrictions( from ))
 	{
@@ -361,9 +320,37 @@ static void SV_ConnectClient( netadr_t from )
 		return;
 	}
 
+	challenge = Q_atoi( Cmd_Argv( 2 )); // get challenge
+
+	// see if the challenge is valid (local clients don't need to challenge)
+	if( !SV_CheckChallenge( from, challenge ))
+		return;
+
+	s = Cmd_Argv( 3 );
+	if( Q_strlen( s ) > sizeof( protinfo ) || !Info_IsValid( s ))
+	{
+		SV_RejectConnection( from, "invalid protinfo in connect command\n" );
+		return;
+	}
+
+	Q_strncpy( protinfo, s, sizeof( protinfo )); // protocol info
+
+	if( !SV_ProcessUserAgent( from, protinfo ))
+		return;
+
+	if( Q_strlen( Info_ValueForKey( protinfo, "uuid" )) != 32 )
+	{
+		SV_RejectConnection( from, "invalid authentication certificate length\n" );
+		return;
+	}
+
+	// extract qport from protocol info
+	qport = Q_atoi( Info_ValueForKey( protinfo, "qport" ));
+	extensions = Q_atoi( Info_ValueForKey( protinfo, "ext" ));
+
 	s = Cmd_Argv( 4 );	// user info
 
-	if( Q_strlen( s ) > MAX_INFO_STRING || !Info_IsValid( s ))
+	if( Q_strlen( s ) > sizeof( userinfo ) || !Info_IsValid( s ))
 	{
 		SV_RejectConnection( from, "invalid userinfo in connect command\n" );
 		return;
@@ -382,43 +369,43 @@ static void SV_ConnectClient( netadr_t from )
 	}
 
 	// if there is already a slot for this ip, reuse it
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
+		sv_client_t *cl = &svs.clients[i];
+
 		if( cl->state == cs_free || cl->state == cs_zombie )
 			continue;
 
 		if( NET_CompareBaseAdr( from, cl->netchan.remote_address ) && ( cl->netchan.qport == qport || from.port == cl->netchan.remote_address.port ))
 		{
-			reconnect = true;
 			newcl = cl;
+			Con_Reportf( S_NOTE "%s:reconnect\n", NET_AdrToString( from ));
 			break;
 		}
 	}
 
 	// A reconnecting client will re-use the slot found above when checking for reconnection.
 	// the slot will be wiped clean.
-	if( !reconnect )
+	if( !newcl )
 	{
 		// connect the client if there are empty slots.
-		if( !SV_FindEmptySlot( from, &nClientSlot, &newcl ))
-			return;
-	}
-	else
-	{
-		Con_Reportf( S_NOTE "%s:reconnect\n", NET_AdrToString( from ));
-	}
+		newcl = SV_FindEmptySlot();
 
-	// find a client slot
-	ASSERT( newcl != NULL );
+		if( !newcl )
+		{
+			SV_RejectConnection( from, "server is full\n" );
+			return;
+		}
+	}
 
 	// build a new connection
 	// accept the new client
 
 	sv.current_client = newcl;
-	newcl->edict = EDICT_NUM( (newcl - svs.clients) + 1 );
+	newcl->edict = EDICT_NUM(( newcl - svs.clients ) + 1 );
 	newcl->challenge = challenge; // save challenge for checksumming
-	if( newcl->frames ) Mem_Free( newcl->frames );
-	newcl->frames = (client_frame_t *)Z_Calloc( sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	newcl->frames = (client_frame_t *)Mem_Realloc( host.mempool, newcl->frames, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	memset( newcl->frames, 0, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
 	newcl->extensions = extensions & (NET_EXT_SPLITSIZE);
@@ -482,8 +469,11 @@ static void SV_ConnectClient( netadr_t from )
 
 	// if this was the first client on the server, or the last client
 	// the server can hold, send a heartbeat to the master.
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-		if( cl->state >= cs_connected ) count++;
+	for( i = 0; i < svs.maxclients; i++ )
+	{
+		if( svs.clients[i].state >= cs_connected )
+			count++;
+	}
 
 	Log_Printf( "\"%s<%i><%i><>\" connected, address \"%s\"\n", newcl->name, newcl->userid, i, NET_AdrToString( newcl->netchan.remote_address ));
 
