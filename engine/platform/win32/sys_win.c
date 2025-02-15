@@ -84,7 +84,7 @@ qboolean Win32_NanoSleep( int nsec )
 	if( !g_waitable_timer )
 		return false;
 
-	ts.QuadPart = { -nsec / 100 };
+	ts.QuadPart = -nsec / 100;
 
 	if( !SetWaitableTimer( g_waitable_timer, &ts, 0, NULL, NULL, FALSE ))
 	{
