@@ -115,6 +115,7 @@ static int SV_GetChallenge( netadr_t from, qboolean *error )
 		return 0;
 	default:
 		*error = true;
+		return 0;
 	}
 
 	MD5Update( &ctx, (byte *)svs.challenge_salt, sizeof( svs.challenge_salt ));
