@@ -86,38 +86,53 @@ flood the server with invalid connection IPs.  With a
 challenge, they must give a valid IP address.
 =================
 */
-static void SV_GetChallenge( netadr_t from )
+static int SV_GetChallenge( netadr_t from, qboolean *error )
 {
-	int	i, oldest = 0;
-	double	oldestTime;
+	const netadrtype_t type = NET_NetadrType( &from );
+	MD5Context_t ctx;
+	byte digest[16];
 
-	oldestTime = 0x7fffffff;
+	*error = false;
 
-	// see if we already have a challenge for this ip
-	for( i = 0; i < MAX_CHALLENGES; i++ )
+	MD5Init( &ctx );
+
+	switch( type )
 	{
-		if( !svs.challenges[i].connected && NET_CompareAdr( from, svs.challenges[i].adr ))
-			break;
-
-		if( svs.challenges[i].time < oldestTime )
-		{
-			oldestTime = svs.challenges[i].time;
-			oldest = i;
-		}
+	case NA_IP:
+		MD5Update( &ctx, from.ip, sizeof( from.ip ));
+		break;
+	case NA_IPX:
+		MD5Update( &ctx, from.ipx, sizeof( from.ipx ));
+		break;
+	case NA_IP6:
+	{
+		byte ip6[16];
+		NET_NetadrToIP6Bytes( ip6, &from );
+		MD5Update( &ctx, ip6, sizeof( ip6 ));
+		break;
+	}
+	case NA_LOOPBACK:
+		return 0;
+	default:
+		*error = true;
 	}
 
-	if( i == MAX_CHALLENGES )
-	{
-		// this is the first time this client has asked for a challenge
-		svs.challenges[oldest].challenge = (COM_RandomLong( 0, 0x7FFF ) << 16) | COM_RandomLong( 0, 0xFFFF );
-		svs.challenges[oldest].adr = from;
-		svs.challenges[oldest].time = host.realtime;
-		svs.challenges[oldest].connected = false;
-		i = oldest;
-	}
+	MD5Update( &ctx, (byte *)svs.challenge_salt, sizeof( svs.challenge_salt ));
+	MD5Final( digest, &ctx );
+
+	return digest[0] | digest[1] << 8 | digest[2] << 16 | digest[3] << 24;
+}
+
+static void SV_SendChallenge( netadr_t from )
+{
+	qboolean error = false;
+	int challenge = SV_GetChallenge( from, &error );
+
+	if( error )
+		return;
 
 	// send it back
-	Netchan_OutOfBandPrint( NS_SERVER, svs.challenges[i].adr, S2C_CHALLENGE" %i", svs.challenges[i].challenge );
+	Netchan_OutOfBandPrint( NS_SERVER, from, S2C_CHALLENGE" %i", challenge );
 }
 
 static int SV_GetFragmentSize( void *pcl, fragsize_t mode )
@@ -211,35 +226,16 @@ Make sure connecting client is not spoofing
 */
 static int SV_CheckChallenge( netadr_t from, int challenge )
 {
-	int	i;
+	qboolean error = false;
+	int challenge2 = SV_GetChallenge( from, &error );
 
-	// see if the challenge is valid
-	// don't care if it is a local address.
-	if( NET_IsLocalAddress( from ))
-		return 1;
-
-	for( i = 0; i < MAX_CHALLENGES; i++ )
-	{
-		if( NET_CompareAdr( from, svs.challenges[i].adr ))
-		{
-			if( challenge == svs.challenges[i].challenge )
-				break; // valid challenge
-#if 0
-			// g-cont. this breaks multiple connections from single machine
-			SV_RejectConnection( from, "bad challenge %i\n", challenge );
-			return 0;
-#endif
-		}
-	}
-
-	if( i == MAX_CHALLENGES )
+	if( error || challenge2 != challenge )
 	{
 		SV_RejectConnection( from, "no challenge for your address\n" );
-		return 0;
+		return false;
 	}
-	svs.challenges[i].connected = true;
 
-	return 1;
+	return true;
 }
 
 /*
@@ -844,7 +840,7 @@ static void SV_TestBandWidth( netadr_t from )
 		( packetsize > FRAGMENT_MAX_SIZE ))
 	{
 		// skip the test and just get challenge
-		SV_GetChallenge( from );
+		SV_SendChallenge( from );
 		return;
 	}
 
@@ -852,7 +848,7 @@ static void SV_TestBandWidth( netadr_t from )
 	ofs = packetsize - svs.testpacket_filepos - 1;
 	if(( ofs < 0 ) || ( ofs > svs.testpacket_filelen ))
 	{
-		SV_GetChallenge( from );
+		SV_SendChallenge( from );
 		return;
 	}
 
@@ -3166,7 +3162,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, C2S_GETCHALLENGE ))
 	{
-		SV_GetChallenge( from );
+		SV_SendChallenge( from );
 	}
 	else if( !Q_strcmp( pcmd, C2S_CONNECT ))
 	{
