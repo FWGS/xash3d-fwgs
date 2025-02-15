@@ -1898,13 +1898,10 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 
 	val = Info_ValueForKey( cl->userinfo, "cl_updaterate" );
 
-	if( COM_CheckString( val ) )
+	if( COM_CheckString( val ))
 	{
-		if( Q_atoi( val ) != 0 )
-		{
-			cl->cl_updaterate = 1.0 / bound( sv_minupdaterate.value, Q_atoi( val ), sv_maxupdaterate.value );
-		}
-		else cl->cl_updaterate = 0.0;
+		float rate = Q_atoi( val );
+		cl->cl_updaterate = 1.0 / bound( sv_minupdaterate.value, rate, sv_maxupdaterate.value );
 	}
 
 	// call prog code to allow overrides
