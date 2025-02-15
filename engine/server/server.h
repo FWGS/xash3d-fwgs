@@ -279,19 +279,6 @@ typedef struct sv_client_s
  a program error, like an overflowed reliable buffer
 =============================================================================
 */
-// MAX_CHALLENGES is made large to prevent a denial
-// of service attack that could cycle all of them
-// out before legitimate users connected
-#define MAX_CHALLENGES	1024
-
-typedef struct
-{
-	netadr_t		adr;
-	double		time;
-	int		challenge;
-	qboolean		connected;
-} challenge_t;
-
 typedef struct
 {
 	char		name[32];	// in GoldSrc max name length is 12
@@ -385,7 +372,7 @@ typedef struct
 	entity_state_t	*baselines;		// [GI->max_edicts]
 	entity_state_t	*static_entities;		// [MAX_STATIC_ENTITIES];
 
-	challenge_t	challenges[MAX_CHALLENGES];	// to prevent invalid IPs from connecting
+	uint32_t  challenge_salt[16]; // pregenerated random numbers for generating challenged based on IP's MD5 address
 
 	sizebuf_t testpacket;         // pregenerataed testpacket, only needs CRC32 patching
 	byte      *testpacket_buf;    // check for NULL if testpacket is available

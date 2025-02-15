@@ -1027,6 +1027,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	svs.timestart = Sys_DoubleTime();
 	svs.spawncount++; // any partially connected client will be restarted
 
+	for( i = 0; i < ARRAYSIZE( svs.challenge_salt ); i++ )
+		svs.challenge_salt[i] = COM_RandomLong( 0, 0x7FFFFFFE );
+
 	cycle = Cvar_VariableString( "mapchangecfgfile" );
 
 	if( COM_CheckString( cycle ))
