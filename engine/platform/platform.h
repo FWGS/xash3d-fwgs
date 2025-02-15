@@ -70,8 +70,9 @@ void Android_Shutdown( void );
 #endif
 
 #if XASH_WIN32
-void Win32_Init( void );
+void Win32_Init( qboolean con_showalways );
 void Win32_Shutdown( void );
+qboolean Win32_NanoSleep( int nsec );
 void Wcon_CreateConsole( qboolean con_showalways );
 void Wcon_DestroyConsole( void );
 void Wcon_InitConsoleCommands( void );
@@ -126,8 +127,7 @@ static inline void Platform_Init( qboolean con_showalways, const char *basedir )
 #elif XASH_DOS
 	DOS_Init( );
 #elif XASH_WIN32
-	Win32_Init( );
-	Wcon_CreateConsole( con_showalways );
+	Win32_Init( con_showalways );
 #elif XASH_LINUX
 	Linux_Init( );
 #endif
@@ -142,7 +142,6 @@ static inline void Platform_Shutdown( void )
 #elif XASH_DOS
 	DOS_Shutdown( );
 #elif XASH_WIN32
-	Wcon_DestroyConsole( );
 	Win32_Shutdown( );
 #elif XASH_LINUX
 	Linux_Shutdown( );
@@ -193,23 +192,9 @@ static inline qboolean Platform_NanoSleep( int nsec )
 	};
 	return nanosleep( &ts, NULL ) == 0;
 #elif XASH_WIN32
-	extern HANDLE g_waitable_timer;
-	const LARGE_INTEGER ts = { -nsec };
-
-	if( !g_waitable_timer )
-		return false;
-
-	if( !SetWaitableTimer( g_waitable_timer, &ts, 0, NULL, NULL, FALSE ))
-	{
-		CloseHandle( g_waitable_timer );
-		g_waitable_timer = 0;
-		return false;
-	}
-
-	if( WaitForSingleObject( g_waitable_timer, 1000 ) != WAIT_OBJECT_0 )
-		return false;
-
-	return true;
+	return Win32_NanoSleep( nsec );
+#else
+	return false;
 #endif
 }
 
