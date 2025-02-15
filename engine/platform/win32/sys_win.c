@@ -79,10 +79,12 @@ void Win32_Shutdown( void )
 
 qboolean Win32_NanoSleep( int nsec )
 {
-	const LARGE_INTEGER ts = { -nsec };
+	LARGE_INTEGER ts;
 
 	if( !g_waitable_timer )
 		return false;
+
+	ts.QuadPart = { -nsec / 100 };
 
 	if( !SetWaitableTimer( g_waitable_timer, &ts, 0, NULL, NULL, FALSE ))
 	{
