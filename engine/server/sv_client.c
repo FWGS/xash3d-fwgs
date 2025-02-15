@@ -1775,7 +1775,7 @@ static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
 	if( host.realtime < cl->userinfo_next_changetime + cl->userinfo_penalty * sv_userinfo_penalty_multiplier.value )
 	{
 		// player changes userinfo too quick! ignore!
-		if( host.realtime < cl->userinfo_next_changetime )
+		if( host.realtime < cl->userinfo_next_changetime && cl->userinfo_change_attempts > 0 )
 		{
 			Con_Reportf( "%s: ignore userinfo update for %s: penalty %f, attempts %i\n",
 				__func__, cl->name, cl->userinfo_penalty, cl->userinfo_change_attempts );
@@ -1786,15 +1786,15 @@ static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
 	}
 
 	// they spammed too fast, increase penalty
-	if( cl->userinfo_change_attempts > sv_userinfo_penalty_attempts.value )
+	if( cl->userinfo_change_attempts >= (int)sv_userinfo_penalty_attempts.value )
 	{
-		Con_Reportf( "%s: penalty set %f for %s\n", __func__,
-			cl->userinfo_penalty, cl->name );
 		cl->userinfo_penalty *= sv_userinfo_penalty_multiplier.value;
 		cl->userinfo_change_attempts = 0;
+
+		Con_Reportf( "%s: penalty set %f for %s\n", __func__, cl->userinfo_penalty, cl->name );
 	}
 
-	cl->userinfo_next_changetime = host.realtime + cl->userinfo_penalty;
+	cl->userinfo_next_changetime = host.realtime + cl->userinfo_penalty * sv_userinfo_penalty_multiplier.value;
 
 	return allow;
 }
