@@ -83,7 +83,10 @@ static void CL_ParseNewMovevars( sizebuf_t *msg )
 		R_SetupSky( clgame.movevars.skyName );
 
 	clgame.oldmovevars = clgame.movevars;
-	clgame.entities->curstate.scale = clgame.movevars.waveHeight;
+
+	// FIXME: set world wave height when entities will be allocated
+	if( clgame.entities )
+		clgame.entities->curstate.scale = clgame.movevars.waveHeight;
 
 	// keep features an actual!
 	clgame.oldmovevars.features = clgame.movevars.features = host.features;
