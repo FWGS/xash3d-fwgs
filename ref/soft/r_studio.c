@@ -835,7 +835,7 @@ static void R_StudioCalcRotations( cl_entity_t *e, float pos[][3], vec4_t *q, ms
 	R_StudioCalcBoneAdj( dadt, adj, e->curstate.controller, e->latched.prevcontroller, e->mouth.mouthopen );
 
 	for( i = 0; i < m_pStudioHeader->numbones; i++, pbone++, panim++ )
-		R_StudioCalcBones( frame, s, pbone, panim, adj, q[i], pos[i] );
+		R_StudioCalcBones( frame, s, pbone, panim, adj, pos[i], q[i] );
 
 	if( pseqdesc->motiontype & STUDIO_X )
 		pos[pseqdesc->motionbone][0] = 0.0f;
