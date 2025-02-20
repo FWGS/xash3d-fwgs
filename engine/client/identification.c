@@ -19,8 +19,8 @@ GNU General Public License for more details.
 #if !XASH_WIN32
 #include <dirent.h>
 #endif
+
 static char id_md5[33];
-static char id_customid[MAX_STRING];
 
 /*
 ==========================================================
@@ -590,23 +590,7 @@ static void ID_Check( void )
 
 const char *ID_GetMD5( void )
 {
-	if( id_customid[0] )
-		return id_customid;
 	return id_md5;
-}
-
-/*
-===============
-ID_SetCustomClientID
-
-===============
-*/
-void GAME_EXPORT ID_SetCustomClientID( const char *id )
-{
-	if( !id )
-		return;
-
-	Q_strncpy( id_customid, id, sizeof( id_customid  ) );
 }
 
 void ID_Init( void )
