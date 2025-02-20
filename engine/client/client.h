@@ -1215,7 +1215,6 @@ void OSK_Draw( void );
 //
 void ID_Init( void );
 const char *ID_GetMD5( void );
-void GAME_EXPORT ID_SetCustomClientID( const char *id );
 
 extern rgba_t g_color_table[8];
 extern triangleapi_t gTriApi;

@@ -92,6 +92,11 @@ static char *pfnParseFileSafe( char *data, char *buf, const int size, unsigned i
 	return COM_ParseFileSafe( data, buf, size, flags, len, NULL );
 }
 
+static void GAME_EXPORT pfnSetCustomClientID( const char *id )
+{
+	// deprecated
+}
+
 static const mobile_engfuncs_t gMobileEngfuncs =
 {
 	MOBILITY_API_VERSION,
@@ -106,7 +111,7 @@ static const mobile_engfuncs_t gMobileEngfuncs =
 	pfnDrawScaledCharacter,
 	Sys_Warn,
 	Sys_GetNativeObject,
-	ID_SetCustomClientID,
+	pfnSetCustomClientID,
 	pfnParseFileSafe
 };
 
