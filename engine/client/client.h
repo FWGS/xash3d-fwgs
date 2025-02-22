@@ -844,19 +844,21 @@ void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int he
 void CL_DisableScissor( scissor_state_t *scissor );
 qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
 
-static inline cl_entity_t *CL_EDICT_NUM( int n )
+static inline cl_entity_t *CL_EDICT_NUM( int index )
 {
-	if( !clgame.entities )
+	if( !clgame.entities ) // not in game yet
 	{
 		Host_Error( "%s: clgame.entities is NULL\n", __func__ );
 		return NULL;
 	}
 
-	if(( n >= 0 ) && ( n < clgame.maxEntities ))
-		return clgame.entities + n;
+	if( index < 0 || index >= clgame.maxEntities )
+	{
+		Host_Error( "%s: bad number %i\n", __func__, index );
+		return NULL;
+	}
 
-	Host_Error( "%s: bad number %i\n", __func__, n );
-	return NULL;
+	return clgame.entities + index;
 }
 
 static inline cl_entity_t *CL_GetEntityByIndex( int index )
@@ -867,10 +869,7 @@ static inline cl_entity_t *CL_GetEntityByIndex( int index )
 	if( index < 0 || index >= clgame.maxEntities )
 		return NULL;
 
-	if( index == 0 )
-		return clgame.entities;
-
-	return CL_EDICT_NUM( index );
+	return clgame.entities + index;
 }
 
 static inline model_t *CL_ModelHandle( int modelindex )
@@ -880,7 +879,7 @@ static inline model_t *CL_ModelHandle( int modelindex )
 
 static inline qboolean CL_IsThirdPerson( void )
 {
-	return clgame.dllFuncs.CL_IsThirdPerson() ? true : false;
+	return clgame.dllFuncs.CL_IsThirdPerson();
 }
 
 static inline cl_entity_t *CL_GetLocalPlayer( void )
