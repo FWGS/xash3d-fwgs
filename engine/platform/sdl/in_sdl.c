@@ -33,6 +33,12 @@ static struct
 } cursors;
 #endif
 
+static struct
+{
+	int x, y;
+	qboolean pushed;
+} in_visible_cursor_pos;
+
 /*
 =============
 Platform_GetMousePos
@@ -203,11 +209,6 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 {
 	qboolean visible;
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( !cursors.initialized )
-		return;
-#endif
-
 	switch( type )
 	{
 		case dc_user:
@@ -229,11 +230,28 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( host.mouse_visible )
 	{
-		SDL_SetCursor( cursors.cursors[type] );
+		if( cursors.initialized )
+			SDL_SetCursor( cursors.cursors[type] );
+
 		SDL_ShowCursor( true );
+
+		// restore the last mouse position
+		if( in_visible_cursor_pos.pushed )
+		{
+			SDL_WarpMouseInWindow( host.hWnd, in_visible_cursor_pos.x, in_visible_cursor_pos.y );
+			in_visible_cursor_pos.pushed = false;
+		}
 	}
 	else
 	{
+		// save last mouse position and warp it to the center
+		if( !in_visible_cursor_pos.pushed )
+		{
+			SDL_GetMouseState( &in_visible_cursor_pos.x, &in_visible_cursor_pos.y );
+			SDL_WarpMouseInWindow( host.hWnd, host.window_center_x, host.window_center_y );
+			in_visible_cursor_pos.pushed = true;
+		}
+
 		SDL_ShowCursor( false );
 	}
 #else
