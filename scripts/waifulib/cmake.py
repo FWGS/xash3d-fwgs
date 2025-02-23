@@ -212,6 +212,9 @@ def export(bld):
 				top.add_child(cmake)
 			cmakes[loc].add_tgen(tgen)
 
+			if getattr(tgen, 'cmake_skip_export', False):
+				cmakes[loc].skip = True
+
 	for cmake in cmakes.values():
 		cmake.export()
 
@@ -250,8 +253,12 @@ class CMake(object):
 		self.location = location
 		self.cmakes = []
 		self.tgens = []
+		self.skip = False
 
 	def export(self):
+		if self.skip:
+			return
+
 		content = self.get_content()
 		if not content:
 			return
@@ -384,7 +391,7 @@ class CMake(object):
 				content += 'add_executable(%s ${%s_SRC})\n' % (name, name.upper())
 
 		elif set(('cshlib', 'cxxshlib')) & set(tgen.features):
-			content += 'add_library(%s SHARED ${%s_SRC})\n\n' % (
+			content += 'add_library(%s MODULE ${%s_SRC})\n\n' % (
 				name, name.upper())
 
 		else:  # cstlib, cxxstlib or objects
@@ -404,6 +411,10 @@ class CMake(object):
 			content += '\n'
 			content += 'target_link_libraries(%s\n	%s)\n' % (name, '\n	'.join(libs))
 			content += '\n'
+
+		if set(('cshlib', 'cxxshlib', 'cprogram', 'cxxprogram')) & set(tgen.features):
+			content += 'install(TARGETS %s DESTINATION .)\n\n' % name
+			content += 'if(MSVC)\n	install(FILES $<TARGET_PDB_FILE:%s>\n		DESTINATION . OPTIONAL)\nendif()\n\n' % name
 
 		return content
 

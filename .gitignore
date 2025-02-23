@@ -345,3 +345,7 @@ enc_temp_folder/
 
 # ccls langauge server
 .ccls-*
+
+# JetBrains
+.idea/
+cmake-build-*
