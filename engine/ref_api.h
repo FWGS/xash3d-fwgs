@@ -348,7 +348,7 @@ typedef struct ref_api_s
 	void	(*Con_NXPrintf)( struct con_nprint_s *info, const char *fmt, ... ) FORMAT_CHECK( 2 );
 	void	(*CL_CenterPrint)( const char *s, float y );
 	void (*Con_DrawStringLen)( const char *pText, int *length, int *height );
-	int (*Con_DrawString)( int x, int y, const char *string, rgba_t setColor );
+	int (*Con_DrawString)( int x, int y, const char *string, const rgba_t setColor );
 	void	(*CL_DrawCenterPrint)( void );
 
 	// entity management

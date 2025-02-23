@@ -173,7 +173,7 @@ static int CL_CalcTabStop( const cl_font_t *font, int x )
 	return stop;
 }
 
-int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *font, int flags )
+int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_t *font, int flags )
 {
 	wrect_t *rc;
 	float w, h;
@@ -231,7 +231,7 @@ int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *fon
 	return font->charWidths[number];
 }
 
-int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *font, int flags )
+int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags )
 {
 	rgba_t current_color;
 	int draw_len = 0;
@@ -287,7 +287,7 @@ int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *fon
 	return draw_len;
 }
 
-int CL_DrawStringf( cl_font_t *font, float x, float y, rgba_t color, int flags, const char *fmt, ... )
+int CL_DrawStringf( cl_font_t *font, float x, float y, const rgba_t color, int flags, const char *fmt, ... )
 {
 	va_list va;
 	char buf[MAX_VA_STRING];
