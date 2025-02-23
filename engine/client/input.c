@@ -332,7 +332,7 @@ static void IN_MouseMove( void )
 	if( !in_mouseinitialized )
 		return;
 
-	if( Touch_Emulated( ))
+	if( Touch_WantVisibleCursor( ))
 	{
 		// touch emulation overrides all input
 		Touch_KeyEvent( 0, 0 );
@@ -363,7 +363,7 @@ void IN_MouseEvent( int key, int down )
 	else ClearBits( in_mstate, BIT( key ));
 
 	// touch emulation overrides all input
-	if( Touch_Emulated( ))
+	if( Touch_WantVisibleCursor( ))
 	{
 		Touch_KeyEvent( K_MOUSE1 + key, down );
 	}
