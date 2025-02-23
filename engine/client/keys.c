@@ -726,18 +726,8 @@ void GAME_EXPORT Key_Event( int key, int down )
 				return; // handled in client.dll
 			}
 			break;
-		case key_message:
-			Key_Message( key );
-			return;
-		case key_console:
-			if( cls.state == ca_active && !cl.background )
-				Key_SetKeyDest( key_game );
-			else UI_SetActiveMenu( true );
-			return;
-		case key_menu:
-			UI_KeyEvent( key, true );
-			return;
-		default:	return;
+		default:
+			break;
 		}
 	}
 
