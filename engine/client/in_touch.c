@@ -161,7 +161,7 @@ static CVAR_DEFINE_AUTO( touch_dpad_radius, "1.0", FCVAR_FILTERABLE, "dpad radiu
 static CVAR_DEFINE_AUTO( touch_joy_radius, "1.0", FCVAR_FILTERABLE, "joy radius multiplier" );
 static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
-static CVAR_DEFINE_AUTO( touch_emulate, "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
+static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
 CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
 
 // code looks smaller with it
@@ -536,9 +536,15 @@ void Touch_SetClientOnly( byte state )
 	touch.forward = touch.side = 0;
 
 	if( state )
+	{
+		Platform_SetCursorType( dc_arrow );
 		IN_DeactivateMouse();
+	}
 	else
+	{
+		Platform_SetCursorType( dc_none );
 		IN_ActivateMouse();
+	}
 }
 
 static void Touch_SetClientOnly_f( void )
@@ -2182,14 +2188,8 @@ void Touch_KeyEvent( int key, int down )
 	float x, y;
 	int finger, xi, yi;
 
-	if( !Touch_Emulated( ))
-	{
-		if( touch_enable.value )
-			return;
-
-		if( !touch.clientonly )
-			return;
-	}
+	if( !Touch_WantVisibleCursor( ))
+		return;
 
 	if( !key )
 	{
@@ -2214,10 +2214,6 @@ void Touch_KeyEvent( int key, int down )
 		}
 	}
 
-	// don't deactivate mouse in game
-	// checking a case when mouse and touchscreen
-	// can be used simultaneously
-	Platform_SetCursorType( dc_arrow );
 	Platform_GetMousePos( &xi, &yi );
 
 	x = xi / (float)refState.width;
@@ -2233,12 +2229,7 @@ void Touch_KeyEvent( int key, int down )
 
 qboolean Touch_WantVisibleCursor( void )
 {
-	return ( touch_enable.value && touch_emulate.value ) || touch.clientonly;
-}
-
-qboolean Touch_Emulated( void )
-{
-	return touch_emulate.value || touch_in_menu.value;
+	return ( touch_enable.value && touch_emulate.value ) || touch.clientonly || touch_in_menu.value;
 }
 
 void Touch_Shutdown( void )
