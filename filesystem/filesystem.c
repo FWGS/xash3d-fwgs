@@ -3119,6 +3119,10 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 	char oldname2[MAX_SYSPATH], newname2[MAX_SYSPATH], oldpath[MAX_SYSPATH], newpath[MAX_SYSPATH];
 	int ret;
 
+	// a1ba: disallow path traversal
+	if( FS_CheckNastyPath( oldname ) || FS_CheckNastyPath( newname ))
+		return false;
+
 	if( !fs_writepath )
 		return false;
 
@@ -3166,6 +3170,10 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 {
 	char path2[MAX_SYSPATH], real_path[MAX_SYSPATH];
 	int ret;
+
+	// a1ba: disallow path traversal
+	if( FS_CheckNastyPath( path ))
+		return false;
 
 	if( !fs_writepath || !COM_CheckString( path ))
 		return false;
