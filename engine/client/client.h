@@ -843,6 +843,7 @@ struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
 void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int height );
 void CL_DisableScissor( scissor_state_t *scissor );
 qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
+void CL_AdjustTexCoords( int texnum, float width, float height, float *s1, float *t1, float *s2, float *t2 );
 
 static inline cl_entity_t *CL_EDICT_NUM( int index )
 {

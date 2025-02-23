@@ -304,7 +304,7 @@ void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 	*h *= yscale;
 }
 
-static void SPR_AdjustTexCoords( int texnum, float width, float height, float *s1, float *t1, float *s2, float *t2 )
+void CL_AdjustTexCoords( int texnum, float width, float height, float *s1, float *t1, float *s2, float *t2 )
 {
 	const qboolean filtering = REF_GET_PARM( PARM_TEX_FILTERING, texnum );
 	const int xremainder = refState.width % clgame.scrInfo.iWidth;
@@ -371,7 +371,7 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 		t2 = rc.bottom;
 
 		// calc user-defined rectangle
-		SPR_AdjustTexCoords( texnum, width, height, &s1, &t1, &s2, &t2 );
+		CL_AdjustTexCoords( texnum, width, height, &s1, &t1, &s2, &t2 );
 		width = rc.right - rc.left;
 		height = rc.bottom - rc.top;
 	}

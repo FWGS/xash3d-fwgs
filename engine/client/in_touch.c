@@ -1324,10 +1324,12 @@ static float Touch_DrawCharacter( float x, float y, int number, float size )
 	R_GetTextureParms( &w, &h, cls.creditsFont.hFontTexture );
 	prc = &cls.creditsFont.fontRc[number];
 
-	s1 = prc->left / (float)w;
-	t1 = prc->top / (float)h;
-	s2 = prc->right / (float)w;
-	t2 = prc->bottom / (float)h;
+	s1 = prc->left;
+	t1 = prc->top;
+	s2 = prc->right;
+	t2 = prc->bottom;
+
+	CL_AdjustTexCoords( cls.creditsFont.hFontTexture, w, h, &s1, &t1, &s2, &t2 );
 
 	width = ( prc->right - prc->left ) / 1024.0f * size;
 	height = ( prc->bottom - prc->top ) / 1024.0f * size;
