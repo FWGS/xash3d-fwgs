@@ -807,11 +807,11 @@ qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float sc
 qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags );
 void CL_FreeFont( cl_font_t *font );
 void CL_SetFontRendermode( cl_font_t *font );
-int CL_DrawCharacter( float x, float y, int number, rgba_t color, cl_font_t *font, int flags );
-int CL_DrawString( float x, float y, const char *s, rgba_t color, cl_font_t *font, int flags );
+int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_t *font, int flags );
+int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags );
 void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height );
 void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, int flags );
-int CL_DrawStringf( cl_font_t *font, float x, float y, rgba_t color, int flags, const char *fmt, ... ) FORMAT_CHECK( 6 );
+int CL_DrawStringf( cl_font_t *font, float x, float y, const rgba_t color, int flags, const char *fmt, ... ) FORMAT_CHECK( 6 );
 
 
 //
@@ -1107,7 +1107,7 @@ int Con_UtfMoveRight( char *str, int pos, int length );
 void Con_DefaultColor( int r, int g, int b, qboolean gameui );
 cl_font_t *Con_GetCurFont( void );
 cl_font_t *Con_GetFont( int num );
-int Con_DrawString( int x, int y, const char *string, rgba_t setColor ); // legacy, use cl_font.c
+int Con_DrawString( int x, int y, const char *string, const rgba_t setColor ); // legacy, use cl_font.c
 void GAME_EXPORT Con_DrawStringLen( const char *pText, int *length, int *height ); // legacy, use cl_font.c
 void Con_CharEvent( int key );
 void Key_Console( int key );

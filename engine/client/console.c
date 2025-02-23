@@ -759,7 +759,7 @@ Con_DrawString
 client version of routine
 ====================
 */
-int Con_DrawString( int x, int y, const char *string, rgba_t setColor )
+int Con_DrawString( int x, int y, const char *string, const rgba_t setColor )
 {
 	return CL_DrawString( x, y, string, setColor, con.curFont, FONT_DRAW_UTF8 );
 }
