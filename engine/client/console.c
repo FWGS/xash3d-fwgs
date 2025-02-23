@@ -1467,6 +1467,16 @@ Handles history and console scrollback
 */
 void Key_Console( int key )
 {
+	// exit the console by pressing MINUS on NSwitch
+	// or both Back(Select)/Start buttons for everyone else
+	if( key == K_BACK_BUTTON || key == K_START_BUTTON || key == K_ESCAPE )
+	{
+		if( cls.state == ca_active && !cl.background )
+			Key_SetKeyDest( key_game );
+		else UI_SetActiveMenu( true );
+		return;
+	}
+
 	// ctrl-L clears screen
 	if( key == 'l' && Key_IsDown( K_CTRL ))
 	{
@@ -1572,16 +1582,6 @@ void Key_Console( int key )
 	if( key == K_Y_BUTTON )
 	{
 		Key_EnableTextInput( true, true );
-		return;
-	}
-
-	// exit the console by pressing MINUS on NSwitch
-	// or both Back(Select)/Start buttons for everyone else
-	if( key == K_BACK_BUTTON || key == K_START_BUTTON )
-	{
-		if( cls.state == ca_active && !cl.background )
-			Key_SetKeyDest( key_game );
-		else UI_SetActiveMenu( true );
 		return;
 	}
 
