@@ -468,7 +468,16 @@ def configure(conf):
 
 	# set _FILE_OFFSET_BITS=64 for filesystems with 64-bit inodes
 	# must be set globally as it changes ABI
-	if conf.env.DEST_OS not in ['psvita']:
+	if conf.env.DEST_OS == 'android' and conf.env.DEST_SIZEOF_VOID_P == 4:
+		# Android in 32-bit mode don't have good enough large file support
+		# with our native API level
+		# https://android.googlesource.com/platform/bionic/+/HEAD/docs/32-bit-abi.md
+		pass
+	elif conf.env.DEST_OS == 'psvita':
+		# PSVita don't have large file support at all
+		pass
+	else:
+		# try to guess how to support large files
 		conf.check_large_file(compiler = 'c', execute = False)
 
 	# indicate if we are packaging for Linux/BSD
