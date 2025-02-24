@@ -5,13 +5,13 @@ cmake_minimum_required(VERSION 3.6)
 project(XASH_ANDROID)
 
 # armeabi-v7a requires cpufeatures library
-include(AndroidNdkModules)
-android_ndk_import_module_cpufeatures()
+if(ANDROID)
+    include_directories(${ANDROID_NDK}/sources/android/cpufeatures)
+    add_library(cpufeatures ${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c)
+    target_link_libraries(cpufeatures dl)
+endif()
 
-find_package(PythonInterp 2.7 REQUIRED)
-
-get_filename_component(C_COMPILER_ID ${CMAKE_C_COMPILER} NAME_WE)
-get_filename_component(CXX_COMPILER_ID ${CMAKE_CXX_COMPILER} NAME_WE)
+include(FindPython)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 	set(BUILD_TYPE "debug")
@@ -20,30 +20,20 @@ else()
 	list(APPEND WAF_EXTRA_ARGS --enable-poly-opt --enable-lto)
 endif()
 
-if(CMAKE_SIZEOF_VOID_P MATCHES "8")
-	set(64BIT ON CACHE BOOL "" FORCE)
-	list(APPEND WAF_EXTRA_ARGS -8) # only required for x86 when testing this cmakelist under linux
+if(ANDROID_ABI STREQUAL "x86")
+    # HACKHACK: I don't know why but engine gets built as 64-bit binary here
+    list(APPEND WAF_EXTRA_ARGS -4)
 endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-set(WAF_CC "${CMAKE_C_COMPILER} --target=${CMAKE_C_COMPILER_TARGET}")
-set(WAF_CXX "${CMAKE_CXX_COMPILER} --target=${CMAKE_CXX_COMPILER_TARGET}")
 
 # not cleanest way to get upper directory
 set(ENGINE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../")
 
-execute_process(
-	COMMAND ${CMAKE_COMMAND} -E env
-	CC=${WAF_CC} CXX=${WAF_CXX}
-	AR=${CMAKE_AR} STRIP=${CMAKE_STRIP}
-	${PYTHON_EXECUTABLE} waf configure -T ${BUILD_TYPE} -o "${CMAKE_CURRENT_BINARY_DIR}/xash3d-fwgs" ${WAF_EXTRA_ARGS} cmake
-	--check-c-compiler=${C_COMPILER_ID} --check-cxx-compiler=${CXX_COMPILER_ID}
-	-s "${ENGINE_SOURCE_DIR}/SDL" --skip-sdl2-sanity-check --enable-bundled-deps
-	WORKING_DIRECTORY "${ENGINE_SOURCE_DIR}"
-)
-
-add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/hlsdk-portable" hlsdk-portable)
+set(WAF_CC "${CMAKE_C_COMPILER} --target=${CMAKE_C_COMPILER_TARGET}")
+set(WAF_CXX "${CMAKE_CXX_COMPILER} --target=${CMAKE_CXX_COMPILER_TARGET}")
+set(WAF ${Python_EXECUTABLE} ${ENGINE_SOURCE_DIR}waf -t ${ENGINE_SOURCE_DIR} -o ${CMAKE_CURRENT_BINARY_DIR}/xash3d-fwgs)
 
 # try to build minimal SDL. Enable features as we're gonna use them
 set(SDL_RENDER OFF)
@@ -56,5 +46,47 @@ set(SDL_VULKAN OFF)
 set(SDL_OFFSCREEN OFF)
 set(SDL_STATIC OFF)
 add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/SDL" SDL)
-add_subdirectory("${ENGINE_SOURCE_DIR}/" xash3d-fwgs)
-add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/mainui" mainui)
+
+include(ExternalProject)
+
+ExternalProject_Add(
+    Xash3DFWGS
+    SOURCE_DIR ${ENGINE_SOURCE_DIR}
+    INSTALL_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+    BUILD_IN_SOURCE TRUE
+    DEPENDS SDL2
+    BUILD_ALWAYS TRUE
+    LOG_CONFIGURE TRUE
+    LOG_BUILD TRUE
+    LOG_INSTALL TRUE
+
+    USES_TERMINAL_CONFIGURE TRUE
+    USES_TERMINAL_BUILD TRUE
+    USES_TERMINAL_INSTALL TRUE
+
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env
+        CC=${WAF_CC}
+        CXX=${WAF_CXX}
+        AR=${CMAKE_AR}
+        STRIP=${CMAKE_STRIP}
+        BUILD_CMAKE_LIBRARY_OUTPUT_DIRECTORY=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+        WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
+        ${WAF} configure -T ${BUILD_TYPE}
+        -s "${ENGINE_SOURCE_DIR}/3rdparty/SDL" --enable-bundled-deps
+
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env
+        WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
+        ${WAF} build -v
+
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E env
+        WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
+        ${WAF} install --destdir=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+)
+
+add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/hlsdk-portable" hlsdk-portable)
+
+# a1ba: without this, xash3d target will be ignored as nothing depends on it
+add_dependencies(client Xash3DFWGS)
+add_dependencies(server Xash3DFWGS)
+
+
