@@ -171,6 +171,18 @@ static void SDLash_GameControllerAdded( int device_index )
 		return;
 	}
 
+	// this "game controller" only exists on Android within emulator and tries to map
+	// keyboard events into game controller events, which as you can expect, doesn't
+	// work and I don't understand the intention here. When debugging Xash in Android
+	// Studio emulator, just enable hardware input passthrough.
+#if XASH_ANDROID
+	if( !Q_strcmp( SDL_GameControllerName( gc ), "qwerty2" ))
+	{
+		SDL_GameControllerClose( gc );
+		return;
+	}
+#endif // XASH_ANDROID
+
 	list = Mem_Realloc( host.mempool, g_gamepads, sizeof( *list ) * ( g_num_gamepads + 1 ));
 	list[g_num_gamepads++] = gc;
 
