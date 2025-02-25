@@ -6,9 +6,9 @@ project(XASH_ANDROID)
 
 # armeabi-v7a requires cpufeatures library
 if(ANDROID)
-    include_directories(${ANDROID_NDK}/sources/android/cpufeatures)
-    add_library(cpufeatures ${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c)
-    target_link_libraries(cpufeatures dl)
+	include_directories(${ANDROID_NDK}/sources/android/cpufeatures)
+	add_library(cpufeatures ${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c)
+	target_link_libraries(cpufeatures dl)
 endif()
 
 include(FindPython)
@@ -21,8 +21,8 @@ else()
 endif()
 
 if(ANDROID_ABI STREQUAL "x86")
-    # HACKHACK: I don't know why but engine gets built as 64-bit binary here
-    list(APPEND WAF_EXTRA_ARGS -4)
+	# HACKHACK: I don't know why but engine gets built as 64-bit binary here
+	list(APPEND WAF_EXTRA_ARGS -4)
 endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -50,37 +50,36 @@ add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/SDL" SDL)
 include(ExternalProject)
 
 ExternalProject_Add(
-    Xash3DFWGS
-    SOURCE_DIR ${ENGINE_SOURCE_DIR}
-    INSTALL_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-    BUILD_IN_SOURCE TRUE
-    DEPENDS SDL2
-    BUILD_ALWAYS TRUE
-    LOG_CONFIGURE TRUE
-    LOG_BUILD TRUE
-    LOG_INSTALL TRUE
+	Xash3DFWGS
+	SOURCE_DIR ${ENGINE_SOURCE_DIR}
+	INSTALL_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+	BUILD_IN_SOURCE TRUE
+	DEPENDS SDL2
+	BUILD_ALWAYS TRUE
+	LOG_CONFIGURE TRUE
+	LOG_BUILD TRUE
+	LOG_INSTALL TRUE
+	LOG_OUTPUT_ON_FAILURE TRUE
 
-    USES_TERMINAL_CONFIGURE TRUE
-    USES_TERMINAL_BUILD TRUE
-    USES_TERMINAL_INSTALL TRUE
+#	USES_TERMINAL_CONFIGURE TRUE
+#	USES_TERMINAL_BUILD TRUE
+#	USES_TERMINAL_INSTALL TRUE
 
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env
-        CC=${WAF_CC}
-        CXX=${WAF_CXX}
-        AR=${CMAKE_AR}
-        STRIP=${CMAKE_STRIP}
-        BUILD_CMAKE_LIBRARY_OUTPUT_DIRECTORY=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-        WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
-        ${WAF} configure -T ${BUILD_TYPE}
-        -s "${ENGINE_SOURCE_DIR}/3rdparty/SDL" --enable-bundled-deps
+	# NOTE: setting up WAFLOCK is important to avoid possible race conditions
+	CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env
+		ANDROID_NDK=${ANDROID_NDK}
+		BUILD_CMAKE_LIBRARY_OUTPUT_DIRECTORY=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+		WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
+		${WAF} configure -T ${BUILD_TYPE} --android=${ANDROID_ABI},,${CMAKE_SYSTEM_VERSION}
+		-s "${ENGINE_SOURCE_DIR}/3rdparty/SDL" --enable-bundled-deps
 
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env
-        WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
-        ${WAF} build -v
+	BUILD_COMMAND ${CMAKE_COMMAND} -E env
+		WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
+		${WAF} build -v
 
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env
-        WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
-        ${WAF} install --destdir=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+	INSTALL_COMMAND ${CMAKE_COMMAND} -E env
+		WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
+		${WAF} install --destdir=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
 )
 
 add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/hlsdk-portable" hlsdk-portable)
