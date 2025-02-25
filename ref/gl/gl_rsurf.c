@@ -1093,6 +1093,14 @@ static void R_RenderFullbrights( void )
 	pglBlendFunc( GL_ONE, GL_ONE );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
+	// if fullbright textures are drawn in separate pass from VBO they
+	// cause z-fighting, this is noticeable on `slide_waifufu.bsp` map
+	if( R_HasEnabledVBO() && gl_polyoffset.value )
+	{
+		pglEnable( GL_POLYGON_OFFSET_FILL );
+		pglPolygonOffset( -1.0f, -gl_polyoffset.value );
+	}
+
 	for( i = draw_fullbrights.first; i <= draw_fullbrights.last; i++ )
 	{
 		es = fullbright_surfaces[i];
@@ -1107,6 +1115,9 @@ static void R_RenderFullbrights( void )
 		fullbright_surfaces[i] = NULL;
 		es->lumachain = NULL;
 	}
+
+	if( R_HasEnabledVBO() && gl_polyoffset.value )
+		pglDisable( GL_POLYGON_OFFSET_FILL );
 
 	pglDisable( GL_BLEND );
 	pglDepthMask( GL_TRUE );
