@@ -111,8 +111,10 @@ static int Sys_BacktracePrintFull( void *data, uintptr_t pc, const char *filenam
 		module_name = dlinfo.dli_fname;
 	else module_name = NULL;
 
-	if( filename && lineno && function )
+	if( filename && lineno >= 0 && function )
 	{
+		filename = COM_FileWithoutPath( filename );
+
 		if( module_name )
 			Sys_AppendPrint( pd, "%2d: %s (%s:%d) (%s)\n", pd->idx++, function, filename, lineno, module_name );
 		else
