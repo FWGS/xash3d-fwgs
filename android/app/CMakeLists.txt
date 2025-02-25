@@ -49,6 +49,9 @@ add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/SDL" SDL)
 
 include(ExternalProject)
 
+# gradle passes backslashes to cmake, how does this even work for everybody else?
+string(REPLACE "\\" "/" CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+
 ExternalProject_Add(
 	Xash3DFWGS
 	SOURCE_DIR ${ENGINE_SOURCE_DIR}
@@ -60,6 +63,7 @@ ExternalProject_Add(
 	LOG_BUILD TRUE
 	LOG_INSTALL TRUE
 	LOG_OUTPUT_ON_FAILURE TRUE
+	LOG_MERGED_STDOUTERR TRUE
 
 #	USES_TERMINAL_CONFIGURE TRUE
 #	USES_TERMINAL_BUILD TRUE
