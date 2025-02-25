@@ -50,6 +50,7 @@ class Android:
 		self.api = api
 		self.toolchain = toolchain
 		self.arch = arch
+		self.exe = '.exe' if sys.platform.startswith('win32') or sys.platform.startswith('cygwin') else ''
 
 		for i in ANDROID_NDK_ENVVARS:
 			self.ndk_home = os.getenv(i)
@@ -196,10 +197,10 @@ class Android:
 
 	def gen_toolchain_path(self):
 		if self.is_clang():
-			triplet = '%s%d-' % (self.ndk_triplet(llvm_toolchain = True), self.api)
+			base = ''
 		else:
-			triplet = self.ndk_triplet() + '-'
-		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', triplet)
+			base = self.ndk_triplet() + '-'
+		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', base)
 
 	def gen_binutils_path(self):
 		if self.ndk_rev >= 23:
@@ -215,7 +216,11 @@ class Android:
 				s = environ['CC']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
+
+		if self.is_clang():
+			return '%s --target=%s%d' % (self.gen_toolchain_path() + 'clang' + self.exe, self.ndk_triplet(), self.api)
+
+		return self.gen_toolchain_path() + 'gcc'
 
 	def cxx(self):
 		if self.is_host():
@@ -226,19 +231,33 @@ class Android:
 				s = environ['CXX']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
+
+		if self.is_clang():
+			return '%s --target=%s%d' % (self.gen_toolchain_path() + 'clang++' + self.exe, self.ndk_triplet(), self.api)
+
+		return self.gen_toolchain_path() + 'g++'
 
 	def strip(self):
 		if self.is_host():
 			environ = getattr(self.ctx, 'environ', os.environ)
-
 			if 'STRIP' in environ:
 				return environ['STRIP']
 			return 'llvm-strip'
 
 		if self.ndk_rev >= 23:
-			return os.path.join(self.gen_binutils_path(), 'llvm-strip')
-		return os.path.join(self.gen_binutils_path(), 'strip')
+			return os.path.join(self.gen_binutils_path(), 'llvm-strip' + self.exe)
+		return os.path.join(self.gen_binutils_path(), 'strip' + self.exe)
+
+	def ar(self):
+		if self.is_host():
+			environ = getattr(self.ctx, 'environ', os.environ)
+			if 'AR' in environ:
+				return environ['AR']
+			return 'llvm-ar'
+
+		if self.ndk_rev >= 23:
+			return os.path.join(self.gen_binutils_path(), 'llvm-ar' + self.exe)
+		return os.path.join(self.gen_binutils_path(), 'ar' + self.exe)
 
 	def system_stl(self):
 		# TODO: proper STL support
@@ -528,13 +547,20 @@ def configure(conf):
 			conf.fatal('Unknown arch: %s. Supported: %r' % (values[0], ', '.join(valid_archs)))
 
 		conf.android = android = Android(conf, values[0], values[1], int(values[2]))
+
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
+		conf.environ['AR'] = android.ar()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags(True)
 		conf.env.LINKFLAGS += android.linkflags()
 		conf.env.LDFLAGS += android.ldflags()
+
+		from waflib.Tools.compiler_c import c_compiler
+		from waflib.Tools.compiler_cxx import cxx_compiler
+		c_compiler['win32'] = ['clang' if android.is_clang() or android.is_host() else 'gcc']
+		cxx_compiler['win32'] = ['clang++' if android.is_clang() or android.is_host() else 'gxx']
 
 		conf.env.HAVE_M = True
 		if android.is_hardfp():
