@@ -31,7 +31,7 @@ class GameAdapter(private val libraryViewModel: LibraryViewModel) :
 		}
 
 		override fun areContentsTheSame(oldItem: Game, newItem: Game): Boolean {
-			return oldItem.basedir.name == newItem.basedir.name && oldItem.installed == newItem.installed
+			return oldItem.basedir.name == newItem.basedir.name
 		}
 
 	}
@@ -52,13 +52,6 @@ class GameAdapter(private val libraryViewModel: LibraryViewModel) :
 					gameCover.setImageBitmap(game.cover)
 				} else {
 					gameCover.visibility = View.GONE
-				}
-
-				if (!game.installed) {
-					launchButton.visibility = View.GONE
-					settingsButton.visibility = View.GONE
-					progressIndicator.visibility = View.VISIBLE
-					return
 				}
 
 				settingsButton.setOnClickListener {

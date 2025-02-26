@@ -77,19 +77,6 @@
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content">
 
-				<com.google.android.material.progressindicator.CircularProgressIndicator
-					android:id="@+id/progressIndicator"
-					android:layout_width="wrap_content"
-					android:layout_height="wrap_content"
-					android:indeterminate="true"
-					android:padding="10dp"
-					android:visibility="gone"
-					app:indicatorSize="20dp"
-					app:layout_constraintBottom_toBottomOf="parent"
-					app:layout_constraintEnd_toEndOf="parent"
-					app:layout_constraintStart_toStartOf="parent"
-					app:layout_constraintTop_toTopOf="parent" />
-
 				<com.google.android.material.button.MaterialButton
 					android:id="@+id/launchButton"
 					style="@style/Widget.Material3.Button.IconButton"
