@@ -61,8 +61,8 @@ CFLAGS = {
 	'common': {
 		# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
 		'msvc':    ['/D_USING_V110_SDK71_', '/FS', '/Zc:threadSafeInit-', '/MT', '/MP', '/Zc:__cplusplus'],
-		'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden', '-fno-threadsafe-statics'],
-		'gcc':     ['-g', '-fvisibility=hidden'],
+		'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden', '-fno-threadsafe-statics', '-fasynchronous-unwind-tables'],
+		'gcc':     ['-g', '-fvisibility=hidden', '-fasynchronous-unwind-tables'],
 		'owcc':	   ['-fno-short-enum', '-ffloat-store', '-g3']
 	},
 	'fast': {
@@ -240,14 +240,19 @@ def get_optimization_flags(conf):
 		linkflags+= [conf.get_flags_by_compiler(PROFILE_USE_LINKFLAGS, conf.env.COMPILER_CC)[0] % conf.options.PROFILE_USE]
 		cflags   += [conf.get_flags_by_compiler(PROFILE_USE_CFLAGS, conf.env.COMPILER_CC)[0] % conf.options.PROFILE_USE]
 
-	if conf.env.DEST_OS == 'nswitch' and conf.options.BUILD_TYPE == 'debug':
-		# enable remote debugger
-		cflags.append('-DNSWITCH_DEBUG')
+	if conf.env.DEST_OS == 'nswitch':
+		if conf.options.BUILD_TYPE == 'debug':
+			# enable remote debugger
+			cflags.append('-DNSWITCH_DEBUG')
+		# this port don't have stack printing support
+		cflags.remove('-fasynchronous-unwind-tables')
 	elif conf.env.DEST_OS == 'psvita':
 		# this optimization is broken in vitasdk
 		cflags.append('-fno-optimize-sibling-calls')
 		# remove fvisibility to allow everything to be exported by default
 		cflags.remove('-fvisibility=hidden')
+		# this port don't have stack printing support
+		cflags.remove('-fasynchronous-unwind-tables')
 
 	if conf.env.COMPILER_CC != 'msvc' and conf.env.COMPILER_CC != 'owcc':
 		# HLSDK by default compiles with these options under Linux
