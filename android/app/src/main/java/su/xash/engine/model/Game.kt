@@ -5,13 +5,14 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
-import android.provider.MediaStore
-import androidx.documentfile.provider.DocumentFile
 import su.xash.engine.XashActivity
+import java.io.File
+import java.io.FileInputStream
 
 
-class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean = true) {
+class Game(val ctx: Context, val basedir: File) {
 	private var iconName = "game.ico"
 	var title = "Unknown Game"
 	var icon: Bitmap? = null
@@ -20,15 +21,21 @@ class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean =
 	private val pref = ctx.getSharedPreferences(basedir.name, Context.MODE_PRIVATE)
 
 	init {
-		basedir.findFile("gameinfo.txt")?.let {
-			parseGameInfo(it)
-		} ?: basedir.findFile("liblist.gam")?.let { parseGameInfo(it) }
+		val gameInfo = File(basedir, "gameinfo.txt")
+		if (gameInfo.exists()) {
+			parseGameInfo(gameInfo)
+		} else {
+			val libListGam = File(basedir, "liblist.gam")
+			if (libListGam.exists()) parseGameInfo(libListGam)
+		}
 
-		basedir.findFile(iconName)
-			?.let { icon = MediaStore.Images.Media.getBitmap(ctx.contentResolver, it.uri) }
+		val iconFile = File(basedir, iconName)
+		if (iconFile.exists()) {
+			icon = BitmapFactory.decodeFile(iconFile.path)
+		}
 
 		try {
-			cover = BackgroundBitmap.createBackground(ctx, basedir)
+			cover = BackgroundBitmap.createBackground(basedir)
 		} catch (e: Exception) {
 			e.printStackTrace()
 		}
@@ -40,15 +47,16 @@ class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean =
 			putExtra("gamedir", basedir.name)
 			putExtra("argv", pref.getString("arguments", "-console -log"))
 			putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
+			putExtra("basedir", basedir.parent)
 			//.putExtra("gamelibdir", getGameLibDir(context))
 			//.putExtra("package", getPackageName()) }
 		})
 	}
 
-	private fun parseGameInfo(file: DocumentFile) {
-		ctx.contentResolver.openInputStream(file.uri).use { inputStream ->
-			inputStream?.bufferedReader().use { reader ->
-				reader?.forEachLine {
+	private fun parseGameInfo(file: File) {
+		FileInputStream(file).use { inputStream ->
+			inputStream.bufferedReader().use { reader ->
+				reader.forEachLine {
 					val tokens = it.split("\\s+".toRegex(), limit = 2)
 					if (tokens.size >= 2) {
 						val k = tokens[0]
@@ -83,19 +91,19 @@ class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean =
 				)
 				return null
 			}
-			return pkgInfo.applicationInfo.nativeLibraryDir
+			return pkgInfo.applicationInfo?.nativeLibraryDir
 		}
 		return ctx.applicationInfo.nativeLibraryDir
 	}
 
 	companion object {
-		fun getGames(ctx: Context, file: DocumentFile): List<Game> {
+		fun getGames(ctx: Context, file: File): List<Game> {
 			val games = mutableListOf<Game>()
 
 			if (checkIfGamedir(file)) {
 				games.add(Game(ctx, file))
 			} else {
-				file.listFiles().forEach {
+				file.listFiles()?.forEach {
 					if (it.isDirectory) {
 						if (checkIfGamedir(it)) {
 							games.add(Game(ctx, it))
@@ -107,13 +115,10 @@ class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean =
 			return games
 		}
 
-		fun checkIfGamedir(file: DocumentFile): Boolean {
-			// exclude unfinished downloads
-			if (file.name?.startsWith('.') == true)
-				return false
+		fun checkIfGamedir(file: File): Boolean {
+			if (File(file, "liblist.gam").exists()) return true
+			if (File(file, "gameinfo.txt").exists()) return true
 
-			file.findFile("liblist.gam")?.let { return true }
-			file.findFile("gameinfo.txt")?.let { return true }
 			return false
 		}
 	}

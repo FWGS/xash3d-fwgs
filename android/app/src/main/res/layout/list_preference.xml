@@ -8,13 +8,13 @@
 		android:id="@android:id/title"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		app:layout_constraintTop_toTopOf="parent"
-		android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
+		android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+		app:layout_constraintTop_toTopOf="parent" />
 
 	<TextView
 		android:id="@android:id/summary"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		app:layout_constraintTop_toBottomOf="@android:id/title"
-		android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
+		android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+		app:layout_constraintTop_toBottomOf="@android:id/title" />
 </androidx.constraintlayout.widget.ConstraintLayout>

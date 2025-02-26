@@ -49,16 +49,16 @@ android {
 		noCompress += ""
 	}
 
+	packaging {
+		jniLibs {
+			keepDebugSymbols.add("**/*.so")
+		}
+	}
+
 	sourceSets {
 		getByName("main") {
 			assets.srcDirs("../../3rdparty/extras/xash-extras")
 			java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
-		}
-	}
-
-	packaging {
-		jniLibs {
-			keepDebugSymbols.add("**/*.so")
 		}
 	}
 
