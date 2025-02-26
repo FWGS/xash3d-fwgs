@@ -3196,10 +3196,8 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( len > 0 )
 				Netchan_OutOfBand( NS_SERVER, from, len, (byte*)buf );
 		}
-		else
-		{
+		else if( sv_log_outofband.value )
 			Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
-		}
 	}
 }
 
