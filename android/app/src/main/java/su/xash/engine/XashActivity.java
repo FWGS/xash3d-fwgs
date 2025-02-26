@@ -1,16 +1,21 @@
 package su.xash.engine;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.Settings.Secure;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
+
+import su.xash.engine.util.AndroidBug5497Workaround;
 
 public class XashActivity extends SDLActivity {
 	private boolean mUseVolumeKeys;
@@ -106,11 +111,7 @@ public class XashActivity extends SDLActivity {
 
 		int keyCode = event.getKeyCode();
 		if (!mUseVolumeKeys) {
-			if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
-				keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
-				keyCode == KeyEvent.KEYCODE_CAMERA ||
-				keyCode == KeyEvent.KEYCODE_ZOOM_IN ||
-				keyCode == KeyEvent.KEYCODE_ZOOM_OUT) {
+			if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_CAMERA || keyCode == KeyEvent.KEYCODE_ZOOM_IN || keyCode == KeyEvent.KEYCODE_ZOOM_OUT) {
 				return false;
 			}
 		}
@@ -130,6 +131,14 @@ public class XashActivity extends SDLActivity {
 
 		String pakfile = getIntent().getStringExtra("pakfile");
 		if (pakfile != null) nativeSetenv("XASH3D_EXTRAS_PAK2", pakfile);
+
+		String basedir = getIntent().getStringExtra("basedir");
+		if (basedir != null) {
+			nativeSetenv("XASH3D_BASEDIR", basedir);
+		} else {
+			String rootPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/xash";
+			nativeSetenv("XASH3D_BASEDIR", rootPath);
+		}
 
 		mUseVolumeKeys = getIntent().getBooleanExtra("usevolume", false);
 		mPackageName = getIntent().getStringExtra("package");
