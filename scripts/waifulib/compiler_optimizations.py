@@ -254,7 +254,7 @@ def get_optimization_flags(conf):
 		# this port don't have stack printing support
 		cflags.remove('-fasynchronous-unwind-tables')
 
-	if conf.env.COMPILER_CC != 'msvc' and conf.env.COMPILER_CC != 'owcc':
+	if conf.env.COMPILER_CC == 'gcc' or conf.env.COMPILER_CC == 'clang' and conf.env.DEST_OS not in ['android']:
 		# HLSDK by default compiles with these options under Linux
 		# no reason for us to not do the same
 
