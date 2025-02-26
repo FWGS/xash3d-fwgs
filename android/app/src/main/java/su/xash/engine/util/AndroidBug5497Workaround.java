@@ -1,4 +1,4 @@
-package su.xash.engine;
+package su.xash.engine.util;
 
 import android.app.Activity;
 import android.graphics.Rect;

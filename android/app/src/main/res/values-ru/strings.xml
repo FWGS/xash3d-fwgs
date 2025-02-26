@@ -1,23 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<string name="cancel">Отмена</string>
-	<string name="ok">ОК</string>
-	<string name="next">Далее</string>
-	<string name="browse">Обзор</string>
 	<string name="library">Библиотека</string>
 	<string name="dedicated_server">Выделенный</string>
-	<string name="error">Ошибка!</string>
-	<string name="setup">Установка</string>
 	<string name="app_settings">Настройки</string>
 	<string name="game_settings">Настройки игры</string>
 	<string name="game_settings_command_line">Аргументы командной строки</string>
 	<string name="game_settings_volume_buttons">Использовать кнопки громкости</string>
-	<string name="setup_welcome_title">Добро пожаловать в Xash3D FWGS!</string>
-	<string name="setup_welcome_message">Теперь мы ознакомим вас с процессом установки.</string>
-	<string name="setup_location_title">Игры</string>
-	<string name="setup_location_message">Выберите папку, в которой находятся ваши игры.</string>
-	<string name="setup_location_empty">Выбранный каталог не содержит ни одной игры.</string>
-	<string name="setup_location_invalid">Выбранный каталог недопустим.</string>
 	<string name="preferences_package_name">Пакет библиотек</string>
 	<string name="preferences_separate_libraries">Библиотеки из отдельных пакетов</string>
 	<string name="preferences_client_package">Пакет клиента</string>

@@ -1,29 +1,29 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22.1)
 
 # Only used to build Android project
 
-project(XASH_ANDROID)
+project(xash3d-fwgs-android)
 
 # armeabi-v7a requires cpufeatures library
-if(ANDROID)
-	include_directories(${ANDROID_NDK}/sources/android/cpufeatures)
-	add_library(cpufeatures ${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c)
-	target_link_libraries(cpufeatures dl)
-endif()
+if (ANDROID)
+    include_directories(${ANDROID_NDK}/sources/android/cpufeatures)
+    add_library(cpufeatures ${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c)
+    target_link_libraries(cpufeatures dl)
+endif ()
 
 include(FindPython)
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-	set(BUILD_TYPE "debug")
+    set(BUILD_TYPE "debug")
 else()
-	set(BUILD_TYPE "release")
-	list(APPEND WAF_EXTRA_ARGS --enable-poly-opt --enable-lto --enable-limited-debuginfo)
+    set(BUILD_TYPE "release")
+    list(APPEND WAF_EXTRA_ARGS --enable-poly-opt --enable-lto --enable-limited-debuginfo)
 endif()
 
-if(ANDROID_ABI STREQUAL "x86")
-	# HACKHACK: I don't know why but engine gets built as 64-bit binary here
-	list(APPEND WAF_EXTRA_ARGS -4)
-endif()
+if (ANDROID_ABI STREQUAL "x86")
+    # HACKHACK: I don't know why but engine gets built as 64-bit binary here
+    list(APPEND WAF_EXTRA_ARGS -4)
+endif ()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -36,15 +36,9 @@ set(WAF_CXX "${CMAKE_CXX_COMPILER} --target=${CMAKE_CXX_COMPILER_TARGET}")
 set(WAF ${Python_EXECUTABLE} ${ENGINE_SOURCE_DIR}waf -t ${ENGINE_SOURCE_DIR} -o ${CMAKE_CURRENT_BINARY_DIR}/xash3d-fwgs)
 
 # try to build minimal SDL. Enable features as we're gonna use them
-set(SDL_RENDER OFF)
-set(SDL_POWER OFF)
-set(SDL_VULKAN OFF)
-set(SDL_DISKAUDIO OFF)
-set(SDL_DUMMYAUDIO OFF)
-set(SDL_DUMMYVIDEO OFF)
-set(SDL_VULKAN OFF)
-set(SDL_OFFSCREEN OFF)
-set(SDL_STATIC OFF)
+foreach (X IN ITEMS SDL_RENDER SDL_POWER SDL_VULKAN SDL_DISKAUDIO SDL_DUMMYAUDIO SDL_DUMMYVIDEO SDL_VULKAN SDL_OFFSCREEN SDL_STATIC)
+    set(${X} OFF CACHE BOOL "" FORCE)
+endforeach ()
 add_subdirectory("${ENGINE_SOURCE_DIR}/3rdparty/SDL" SDL)
 
 include(ExternalProject)

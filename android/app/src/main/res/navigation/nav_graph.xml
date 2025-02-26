@@ -9,22 +9,11 @@
 		android:name="su.xash.engine.ui.library.LibraryFragment"
 		android:label="@string/library">
 		<action
-			android:id="@+id/action_libraryFragment_to_setupFragment"
-			app:destination="@id/setupFragment" />
-		<action
 			android:id="@+id/action_libraryFragment_to_gameSettingsFragment"
 			app:destination="@id/gameSettingsFragment" />
 		<action
 			android:id="@+id/action_libraryFragment_to_appSettingsFragment"
 			app:destination="@id/appSettingsFragment" />
-	</fragment>
-	<fragment
-		android:id="@+id/setupFragment"
-		android:name="su.xash.engine.ui.setup.SetupFragment"
-		android:label="@string/setup">
-		<action
-			android:id="@+id/action_setupFragment_to_libraryFragment"
-			app:destination="@id/libraryFragment" />
 	</fragment>
 	<fragment
 		android:id="@+id/gameSettingsFragment"
