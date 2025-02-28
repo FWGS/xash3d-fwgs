@@ -13,17 +13,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include <winnt.h>
-#include <dbghelp.h>
-#include <psapi.h>
-#include <time.h>
-
 #include "platform/platform.h"
 #include "input.h"
 
 #define DBGHELP 1 // we always enable dbghelp.dll on Windows targets
 
 #if DBGHELP
+#include <winnt.h>
+#include <dbghelp.h>
+#include <psapi.h>
+#include <time.h>
+
 #ifndef XASH_SDL
 typedef ULONG_PTR DWORD_PTR, *PDWORD_PTR;
 #endif
