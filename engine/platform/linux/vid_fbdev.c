@@ -161,17 +161,10 @@ void* GL_GetProcAddress( const char *name ) // RenderAPI requirement
 
 void GL_UpdateSwapInterval( void )
 {
-	// disable VSync while level is loading
-	if( cls.state < ca_active )
-	{
-		// setup fb vsync here
-		fb.vsync = false;
-		SetBits( gl_vsync.flags, FCVAR_CHANGED );
-	}
-	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
+	if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
 		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
-		fb.vsync = true;
+		fb.vsync = gl_vsync.value;
 	}
 }
 
