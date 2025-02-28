@@ -13,17 +13,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "platform/platform.h"
-
-#define DBGHELP 1 // we always enable dbghelp.dll on Windows targets
-
-#if DBGHELP
-
 #include <winnt.h>
 #include <dbghelp.h>
 #include <psapi.h>
 #include <time.h>
 
+#include "platform/platform.h"
+#include "input.h"
+
+#define DBGHELP 1 // we always enable dbghelp.dll on Windows targets
+
+#if DBGHELP
 #ifndef XASH_SDL
 typedef ULONG_PTR DWORD_PTR, *PDWORD_PTR;
 #endif
@@ -268,8 +268,8 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 		// check to avoid recursive call
 		host.crashed = true;
 
-#ifdef XASH_SDL
-		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#if !XASH_DEDICATED
+		IN_SetMouseGrab( false );
 #endif // XASH_SDL
 
 #if DBGHELP

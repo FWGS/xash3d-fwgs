@@ -205,9 +205,10 @@ void IN_ToggleClientMouse( int newstate, int oldstate )
 	}
 }
 
-static void IN_SetRelativeMouseMode( qboolean set, qboolean verbose )
+void IN_SetRelativeMouseMode( qboolean set )
 {
 	static qboolean s_bRawInput;
+	qboolean verbose = m_grab_debug.value ? true : false;
 
 	if( set && !s_bRawInput )
 	{
@@ -231,9 +232,10 @@ static void IN_SetRelativeMouseMode( qboolean set, qboolean verbose )
 	}
 }
 
-static void IN_SetMouseGrab( qboolean set, qboolean verbose )
+void IN_SetMouseGrab( qboolean set )
 {
 	static qboolean s_bMouseGrab;
+	qboolean verbose = m_grab_debug.value ? true : false;
 
 	if( set && !s_bMouseGrab )
 	{
@@ -258,7 +260,7 @@ static void IN_SetMouseGrab( qboolean set, qboolean verbose )
 
 static void IN_CheckMouseState( qboolean active )
 {
-	qboolean use_raw_input, verbose;
+	qboolean use_raw_input;
 
 #if XASH_WIN32
 	use_raw_input = ( m_rawinput.value && clgame.client_dll_uses_sdl ) || clgame.dllFuncs.pfnLookEvent != NULL;
@@ -266,20 +268,18 @@ static void IN_CheckMouseState( qboolean active )
 	use_raw_input = true; // always use SDL code
 #endif
 
-	verbose = m_grab_debug.value ? true : false;
-
 	if( m_ignore.value )
 		active = false;
 
 	if( active && use_raw_input && !host.mouse_visible && cls.state == ca_active )
-		IN_SetRelativeMouseMode( true, verbose );
+		IN_SetRelativeMouseMode( true );
 	else
-		IN_SetRelativeMouseMode( false, verbose );
+		IN_SetRelativeMouseMode( false );
 
 	if( active && !host.mouse_visible && cls.state == ca_active )
-		IN_SetMouseGrab( true, verbose );
+		IN_SetMouseGrab( true );
 	else
-		IN_SetMouseGrab( false, verbose );
+		IN_SetMouseGrab( false );
 }
 
 /*

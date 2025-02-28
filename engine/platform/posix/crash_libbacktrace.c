@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include <signal.h>
 #include "common.h"
 #include "backtrace.h"
-
+#include "input.h"
 
 static struct backtrace_state *g_bt_state;
 static qboolean enable_libbacktrace;
@@ -164,8 +164,8 @@ void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context )
 
 	// put MessageBox as Sys_Error
 	Msg( "%s\n", message );
-#ifdef XASH_SDL
-	SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#if !XASH_DEDICATED
+	IN_SetMouseGrab( false );
 #endif
 	host.crashed = true;
 	Platform_MessageBox( "Xash Error", message, false );
