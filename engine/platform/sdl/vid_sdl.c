@@ -488,14 +488,7 @@ GL_UpdateSwapInterval
 void GL_UpdateSwapInterval( void )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	// disable VSync while level is loading
-	if( cls.state < ca_active )
-	{
-		if( SDL_GL_GetSwapInterval() != 0 )
-			SDL_GL_SetSwapInterval( 0 );
-		SetBits( gl_vsync.flags, FCVAR_CHANGED );
-	}
-	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
+	if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
 		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
 
