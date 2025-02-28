@@ -2031,7 +2031,7 @@ void Con_DrawVersion( void )
 	int	start, height = refState.height;
 	string	curbuild;
 
-	if( !scr_drawversion.value || CL_IsDevOverviewMode() == 2 || net_graph.value )
+	if( !scr_drawversion.value )
 		return;
 
 	if( cls.key_dest == key_menu )
@@ -2042,6 +2042,9 @@ void Con_DrawVersion( void )
 	else
 	{
 		qboolean draw_version;
+
+		if( CL_IsDevOverviewMode() == 2 || net_graph.value )
+			return;
 
 		draw_version = cls.scrshot_action == scrshot_normal
 			|| cls.scrshot_action == scrshot_snapshot
