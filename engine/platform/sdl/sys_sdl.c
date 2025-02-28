@@ -32,6 +32,11 @@ double Platform_DoubleTime( void )
 	CurrentTime = SDL_GetPerformanceCounter();
 	return (double)( CurrentTime - g_ClockStart ) / (double)( g_PerformanceFrequency );
 }
+
+void Platform_Sleep( int msec )
+{
+	SDL_Delay( msec );
+}
 #endif // XASH_TIMER == TIMER_SDL
 
 #if XASH_MESSAGEBOX == MSGBOX_SDL
@@ -109,8 +114,11 @@ void SDLash_Init( const char *basedir )
 		host.type = HOST_DEDICATED;
 	}
 
-#if XASH_SDL == 2
-	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
+#if SDL_MAJOR_VERSION >= 2
+	SDL_SetHint( SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0" );
+	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
+	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
+
 	SDL_StopTextInput();
 #endif // XASH_SDL == 2
 

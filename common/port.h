@@ -86,8 +86,4 @@ GNU General Public License for more details.
 #include <string.h>
 #include <limits.h>
 
-#if defined XASH_SDL && !defined REF_DLL
-#include <SDL.h>
-#endif
-
 #endif // PORT_H

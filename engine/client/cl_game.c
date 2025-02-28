@@ -13,6 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#if XASH_SDL
+#include <SDL.h> // SDL_GetWindowPosition
+#endif // XASH_SDL
+
 #include "common.h"
 #include "client.h"
 #include "const.h"

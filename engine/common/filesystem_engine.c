@@ -16,6 +16,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#if XASH_SDL
+#include <SDL.h> // SDL_GetBasePath
+#endif
+
 #include <errno.h>
 #include "common.h"
 #include "library.h"

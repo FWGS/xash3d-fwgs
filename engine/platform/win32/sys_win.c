@@ -36,6 +36,11 @@ double Platform_DoubleTime( void )
 
 	return (double)( CurrentTime.QuadPart - g_ClockStart.QuadPart ) / (double)( g_PerformanceFrequency.QuadPart );
 }
+
+void Platform_Sleep( int msec )
+{
+	Sleep( msec );
+}
 #endif // XASH_TIMER == TIMER_WIN32
 
 void Win32_Init( qboolean con_showalways )

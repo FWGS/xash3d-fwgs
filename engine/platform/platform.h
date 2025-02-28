@@ -31,6 +31,7 @@ GNU General Public License for more details.
 ==============================================================================
 */
 double Platform_DoubleTime( void );
+void Platform_Sleep( int msec );
 void Platform_ShellExecute( const char *path, const char *parms );
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow );
 void Platform_SetStatus( const char *status );
@@ -165,19 +166,6 @@ static inline void Platform_SetupSigtermHandling( void )
 {
 #if XASH_POSIX
 	Posix_SetupSigtermHandling( );
-#endif
-}
-
-static inline void Platform_Sleep( int msec )
-{
-#if XASH_TIMER == TIMER_SDL
-	SDL_Delay( msec );
-#elif XASH_TIMER == TIMER_POSIX
-	usleep( msec * 1000 );
-#elif XASH_TIMER == TIMER_WIN32
-	Sleep( msec );
-#else
-	// stub
 #endif
 }
 

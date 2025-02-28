@@ -17,9 +17,10 @@ GNU General Public License for more details.
 // have backtrace() and backtrace_symbols() calls, which replace for us
 // platform-specific code
 #if HAVE_EXECINFO
-#include "common.h"
 #include <execinfo.h>
 #include <signal.h>
+#include "common.h"
+#include "input.h"
 
 void Sys_Crash( int signal, siginfo_t *si, void *context )
 {
@@ -70,8 +71,8 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 
 	// put MessageBox as Sys_Error
 	Msg( "%s\n", message );
-#ifdef XASH_SDL
-	SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#if !XASH_DEDICATED
+	IN_SetMouseGrab( false );
 #endif
 	host.crashed = true;
 	Platform_MessageBox( "Xash Error", message, false );

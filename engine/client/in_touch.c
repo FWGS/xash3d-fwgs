@@ -1180,14 +1180,6 @@ void Touch_Init( void )
 	Cvar_RegisterVariable( &touch_enable );
 	Cvar_RegisterVariable( &touch_emulate );
 
-	// TODO: touch platform
-#if SDL_VERSION_ATLEAST( 2, 0, 10 )
-	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
-	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
-#elif defined( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH )
-	SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );
-#endif
-
 	touch.initialized = true;
 }
 
