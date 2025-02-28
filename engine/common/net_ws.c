@@ -2027,6 +2027,7 @@ void NET_Init( void )
 	Cvar_RegisterVariable( &net_fakelag );
 	Cvar_RegisterVariable( &net_fakeloss );
 	Cvar_RegisterVariable( &net_resolve_debug );
+	Cvar_RegisterVariable( &net_clockwindow );
 
 	Q_snprintf( cmd, sizeof( cmd ), "%i", PORT_SERVER );
 	Cvar_FullSet( "hostport", cmd, FCVAR_READ_ONLY );
