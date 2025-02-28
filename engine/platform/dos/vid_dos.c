@@ -142,17 +142,10 @@ static qboolean vsync;
 
 void GL_UpdateSwapInterval( void )
 {
-	// disable VSync while level is loading
-	if( cls.state < ca_active )
+	if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
-		// setup vsync here
-		vsync = false;
-		SetBits( gl_vsync->flags, FCVAR_CHANGED );
-	}
-	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
-	{
-		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
-		vsync = true;
+		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
+		vsync = gl_vsync.value;
 	}
 }
 
