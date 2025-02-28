@@ -874,7 +874,7 @@ To run this mods on specific platforms you may be need to compile libraries from
 6. [They Hunger: Route666 Demo](https://yadi.sk/d/XKWCseAPohkG6) by *MadMapper*
 
 ## List of supported mods from mobile_hacks branch of HLSDK Portable by FWGS
-Currently, fresh Xash3D FWGS builds uses libraries from this branch, so you can play mods below out-of-the-box.
+Currently, fresh Xash3D FWGS builds for Android, PS Vita and Nintendo Switch uses libraries from this branch, so you can play mods below out-of-the-box.
 
 1. **[Afraid of Monsters](https://www.moddb.com/mods/afraid-of-monsters/downloads/afraid-of-monsters-v1)**
 2. **[Big Lolly](https://www.moddb.com/mods/big-lolly)**
