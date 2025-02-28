@@ -938,7 +938,7 @@ static void Touch_AddButton_f( void )
 	// to let imagelib choose better format
 	//
 	// Remove this when old engine migration would be done
-	if( Q_stricmp( COM_FileExtension( texture ), "tga" ))
+	if( !Q_stricmp( COM_FileExtension( texture ), "tga" ))
 		COM_StripExtension( texture );
 
 	if( Cmd_Argc( ) >= 8 )
