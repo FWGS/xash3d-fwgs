@@ -18,6 +18,10 @@ GNU General Public License for more details.
 
 #define DBGHELP 1 // we always enable dbghelp.dll on Windows targets
 
+#if XASH_SDL
+#include <SDL.h>
+#endif // XASH_SDL
+
 #if DBGHELP
 #include <winnt.h>
 #include <dbghelp.h>
