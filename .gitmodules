@@ -27,13 +27,13 @@
 	url = https://github.com/FWGS/MultiEmulator
 [submodule "3rdparty/libogg/libogg"]
 	path = 3rdparty/libogg/libogg
-	url = https://gitlab.xiph.org/xiph/ogg.git
+	url = https://github.com/xiph/ogg.git
 [submodule "3rdparty/vorbis/vorbis-src"]
 	path = 3rdparty/vorbis/vorbis-src
-	url = https://gitlab.xiph.org/xiph/vorbis.git
+	url = https://github.com/xiph/vorbis.git
 [submodule "3rdparty/opusfile/opusfile"]
 	path = 3rdparty/opusfile/opusfile
-	url = https://gitlab.xiph.org/xiph/opusfile.git
+	url = https://github.com/xiph/opusfile.git
 [submodule "3rdparty/libbacktrace/libbacktrace"]
 	path = 3rdparty/libbacktrace/libbacktrace
 	url = https://github.com/ianlancetaylor/libbacktrace
