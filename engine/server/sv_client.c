@@ -442,6 +442,9 @@ static void SV_ConnectClient( netadr_t from )
 
 	// parse some info from the info strings (this can override cl_updaterate)
 	Q_strncpy( newcl->userinfo, userinfo, sizeof( newcl->userinfo ));
+
+	newcl->ignorecmdtime_warns = 0;
+	newcl->ignorecmdtime_warned = false;
 	newcl->fullupdate_next_calltime = 0;
 	newcl->userinfo_next_changetime = 0;
 	newcl->userinfo_penalty = 0;
@@ -525,6 +528,14 @@ edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 
 	// parse some info from the info strings
 	Q_strncpy( cl->userinfo, userinfo, sizeof( cl->userinfo ));
+
+	cl->ignorecmdtime_warns = 0;
+	cl->ignorecmdtime_warned = false;
+	cl->fullupdate_next_calltime = 0;
+	cl->userinfo_next_changetime = 0;
+	cl->userinfo_penalty = 0;
+	cl->userinfo_change_attempts = 0;
+
 	SV_UserinfoChanged( cl );
 	SetBits( cl->flags, FCL_RESEND_USERINFO );
 	cl->next_sendinfotime = 0.0;
