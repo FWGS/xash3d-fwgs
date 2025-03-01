@@ -205,69 +205,62 @@ typedef struct
 
 typedef struct sv_client_s
 {
-	cl_state_t	state;
-	cl_upload_t	upstate;			// uploading state
-	char		name[32];			// extracted from userinfo, color string allowed
-	uint		flags;			// client flags, some info
-	CRC32_t		crcValue;
+	cl_state_t  state;
+	cl_upload_t upstate;    // uploading state
+	char        name[32];   // extracted from userinfo, color string allowed
+	uint        flags;      // client flags, some info
+	uint        extensions; // protocol extensions
 
-	char		userinfo[MAX_INFO_STRING];	// name, etc (received from client)
-	char		physinfo[MAX_INFO_STRING];	// set on server (transmit to client)
+	char hashedcdkey[34];            // MD5 hash is 32 hex #'s, plus trailing 0
+	char userinfo[MAX_INFO_STRING];  // name, etc (received from client)
+	char physinfo[MAX_INFO_STRING];  // set on server (transmit to client)
+	char useragent[MAX_INFO_STRING];
 
-	netchan_t		netchan;
-	int		chokecount;			// number of messages rate supressed
-	int		delta_sequence;		// -1 = no compression.
-
-	double		next_messagetime;		// time when we should send next world state update
-	double		next_checkpingtime;		// time to send all players pings to client
-	double		next_sendinfotime;		// time to send info about all players
-	double		cl_updaterate;		// client requested updaterate
-	double		timebase;			// client timebase
-	double		connection_started;
-
-	char		hashedcdkey[34];		// MD5 hash is 32 hex #'s, plus trailing 0
-
-	customization_t	customdata;		// player customization linked list
-	resource_t	resourcesonhand;
-	resource_t	resourcesneeded;		// <mapname.res> from client (server downloading)
-	usercmd_t		lastcmd;			// for filling in big drops
-
-	double		connecttime;
-	double		cmdtime;
-	double		ignorecmdtime;
-
-	int		packet_loss;
-	float		latency;
-
-	int		ignored_ents;		// if visibility list is full we should know how many entities will be ignored
-	edict_t		*edict;			// EDICT_NUM(clientnum+1)
-	edict_t		*pViewEntity;		// svc_setview member
-	edict_t		*viewentity[MAX_VIEWENTS];	// list of portal cameras in player PVS
-	int		num_viewents;		// num of portal cameras that can merge PVS
-
-	qboolean		m_bLoopback;		// Does this client want to hear his own voice?
-	uint		listeners;		// which other clients does this guy's voice stream go to?
-
-	// the datagram is written to by sound calls, prints, temp ents, etc.
-	// it can be harmlessly overflowed.
-	sizebuf_t		datagram;
-	byte		datagram_buf[MAX_DATAGRAM];
-
-	client_frame_t	*frames;			// updates can be delta'd from here
-	event_state_t	events;			// delta-updated events cycle
-
-	int		challenge;		// challenge of this user, randomly generated
-	int		userid;			// identifying number on server
-	int		extensions;
-	char		useragent[MAX_INFO_STRING];
+	byte ignorecmdtime_warned; // did we warn our server operator in the log for this batch of commands?
+	byte m_bLoopback;                // does this client want to hear his own voice?
+	uint listeners;   // which other clients does this guy's voice stream go to?
 
 	int ignorecmdtime_warns; // how many times client time was faster than server during this session
-	qboolean ignorecmdtime_warned; // did we warn our server operator in the log for this batch of commands?
+	int userid;              // identifying number on server
 
+	netchan_t netchan;
+	sizebuf_t datagram; // the datagram is written to by sound calls, prints, temp ents, etc.
+	byte      datagram_buf[MAX_DATAGRAM]; // it can be harmlessly overflowed.
+
+	int chokecount;     // number of messages rate supressed
+	int delta_sequence; // -1 = no compression.
+
+	double next_messagetime;   // time when we should send next world state update
+	double next_checkpingtime; // time to send all players pings to client
+	double next_sendinfotime;  // time to send info about all players
+	double cl_updaterate;      // client requested updaterate
+	double timebase;           // client timebase
+	double connection_started;
+
+	customization_t customdata;      // player customization linked list
+	resource_t      resourcesonhand;
+	resource_t      resourcesneeded; // <mapname.res> from client (server downloading)
+	usercmd_t       lastcmd;         // for filling in big drops
+
+	int    packet_loss;
+	double connecttime;
+	double cmdtime;
+	double ignorecmdtime;
+	float  latency;
+
+	int     ignored_ents; // if visibility list is full we should know how many entities will be ignored
+	edict_t *edict;       // EDICT_NUM(clientnum+1)
+	edict_t *pViewEntity; // svc_setview member
+	edict_t *viewentity[MAX_VIEWENTS]; // list of portal cameras in player PVS
+	int     num_viewents; // num of portal cameras that can merge PVS
+
+	int    userinfo_change_attempts;
 	double fullupdate_next_calltime;
 	double userinfo_next_changetime;
 	double userinfo_penalty;
-	int    userinfo_change_attempts;
+
+	client_frame_t *frames; // updates can be delta'd from here
+	event_state_t  events;  // delta-updated events cycle
 } sv_client_t;
 
 /*
