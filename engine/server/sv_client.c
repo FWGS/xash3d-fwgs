@@ -277,6 +277,25 @@ static sv_client_t *SV_FindEmptySlot( void )
 	return NULL;
 }
 
+static void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
+{
+	int i, count = 0;
+
+	// if this was the first client on the server, or the last client
+	// the server can hold, send a heartbeat to the master.
+	for( i = 0; i < svs.maxclients; i++ )
+	{
+		if( svs.clients[i].state >= cs_connected )
+			count++;
+	}
+
+	if( count == 1 || count == svs.maxclients )
+		NET_MasterClear();
+
+	Log_Printf( "\"%s<%i><%i><>\" connected, address \"%s\"\n",
+		cl->name, cl->userid, (int)( cl - svs.clients ), address );
+}
+
 /*
 ==================
 SV_ConnectClient
@@ -288,9 +307,10 @@ static void SV_ConnectClient( netadr_t from )
 {
 	char userinfo[MAX_INFO_STRING];
 	char protinfo[MAX_INFO_STRING];
+	client_frame_t *frames;
 	sv_client_t *newcl = NULL;
 	int qport, version;
-	int i, count = 0;
+	int i;
 	int challenge;
 	const char *s;
 	int extensions;
@@ -397,20 +417,20 @@ static void SV_ConnectClient( netadr_t from )
 
 	// build a new connection
 	// accept the new client
-
 	sv.current_client = newcl;
+	frames = Mem_Realloc( host.mempool, newcl->frames, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	memset( frames, 0, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	SV_ClearResourceLists( newcl );
+
+	memset( newcl, 0, sizeof( *newcl ));
+
 	newcl->edict = EDICT_NUM(( newcl - svs.clients ) + 1 );
-	newcl->challenge = challenge; // save challenge for checksumming
-	newcl->frames = (client_frame_t *)Mem_Realloc( host.mempool, newcl->frames, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
-	memset( newcl->frames, 0, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	newcl->frames = frames;
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;
-	newcl->extensions = extensions & (NET_EXT_SPLITSIZE);
+	newcl->extensions = FBitSet( extensions, NET_EXT_SPLITSIZE );
 	Q_strncpy( newcl->useragent, protinfo, sizeof( newcl->useragent ));
 
-	// reset viewentities (from previous level)
-	memset( newcl->viewentity, 0, sizeof( newcl->viewentity ));
-	newcl->num_viewents = 0;
 	// HACKHACK: can hear all players by default to avoid issues
 	// with server.dll without voice game manager
 	newcl->listeners = -1;
@@ -435,50 +455,18 @@ static void SV_ConnectClient( netadr_t from )
 	newcl->connection_started = host.realtime;
 	newcl->cl_updaterate = 0.05;	// 20 fps as default
 	newcl->delta_sequence = -1;
-	newcl->flags = 0;
-
-	// reset any remaining events
-	memset( &newcl->events, 0, sizeof( newcl->events ));
 
 	// parse some info from the info strings (this can override cl_updaterate)
 	Q_strncpy( newcl->userinfo, userinfo, sizeof( newcl->userinfo ));
 
-	newcl->ignorecmdtime_warns = 0;
-	newcl->ignorecmdtime_warned = false;
-	newcl->fullupdate_next_calltime = 0;
-	newcl->userinfo_next_changetime = 0;
-	newcl->userinfo_penalty = 0;
-	newcl->userinfo_change_attempts = 0;
-
 	SV_UserinfoChanged( newcl );
-	SV_ClearResourceLists( newcl );
-#if 0
-	memset( &newcl->resourcesneeded, 0, sizeof( resource_t ));
-	memset( &newcl->resourcesonhand, 0, sizeof( resource_t ));
-	newcl->resourcesneeded.pNext = newcl->resourcesneeded.pPrev = &newcl->resourcesneeded;
-	newcl->resourcesonhand.pNext = newcl->resourcesonhand.pPrev = &newcl->resourcesonhand;
-#endif
+
 	newcl->next_messagetime = host.realtime + newcl->cl_updaterate;
-	newcl->next_sendinfotime = 0.0;
-	newcl->ignored_ents = 0;
-	newcl->chokecount = 0;
 
 	// reset stats
 	newcl->next_checkpingtime = -1.0;
-	newcl->packet_loss = 0;
 
-	// if this was the first client on the server, or the last client
-	// the server can hold, send a heartbeat to the master.
-	for( i = 0; i < svs.maxclients; i++ )
-	{
-		if( svs.clients[i].state >= cs_connected )
-			count++;
-	}
-
-	Log_Printf( "\"%s<%i><%i><>\" connected, address \"%s\"\n", newcl->name, newcl->userid, i, NET_AdrToString( newcl->netchan.remote_address ));
-
-	if( count == 1 || count == svs.maxclients )
-		NET_MasterClear();
+	SV_MaybeNotifyPlayerCountChange( newcl, NET_AdrToString( newcl->netchan.remote_address ));
 }
 
 /*
@@ -490,24 +478,20 @@ A connection request that came from the game module
 */
 edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 {
-	char		userinfo[MAX_INFO_STRING];
-	int		i, count = 0;
-	sv_client_t	*cl;
-
-	if( !COM_CheckString( netname ))
-		netname = "Bot";
+	char userinfo[MAX_INFO_STRING];
+	int i, count = 0;
+	sv_client_t *cl;
 
 	// find a client slot
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-	{
-		if( cl->state == cs_free )
-			break;
-	}
+	cl = SV_FindEmptySlot();
 
-	if( i == svs.maxclients )
+	if( !cl )
 		return NULL; // server is full
 
 	userinfo[0] = '\0';
+
+	if( !COM_CheckString( netname ))
+		netname = "Bot";
 
 	// setup fake client params
 	Info_SetValueForKey( userinfo, "name", netname, sizeof( userinfo ));
@@ -518,42 +502,26 @@ edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 	// build a new connection
 	// accept the new client
 	sv.current_client = cl;
+	if( cl->frames )
+		Mem_Free( cl->frames );	// fakeclients doesn't have frames
+	SV_ClearResourceLists( cl );
 
-	if( cl->frames ) Mem_Free( cl->frames );	// fakeclients doesn't have frames
-	memset( cl, 0, sizeof( sv_client_t ));
+	memset( cl, 0, sizeof( *cl ));
 
-	cl->edict = EDICT_NUM( (cl - svs.clients) + 1 );
-	cl->userid = g_userid++;		// create unique userid
+	cl->state = cs_spawned;
+	cl->edict = EDICT_NUM(( cl - svs.clients ) + 1 );
+	cl->userid = g_userid++; // create unique userid
 	SetBits( cl->flags, FCL_FAKECLIENT );
 
 	// parse some info from the info strings
 	Q_strncpy( cl->userinfo, userinfo, sizeof( cl->userinfo ));
 
-	cl->ignorecmdtime_warns = 0;
-	cl->ignorecmdtime_warned = false;
-	cl->fullupdate_next_calltime = 0;
-	cl->userinfo_next_changetime = 0;
-	cl->userinfo_penalty = 0;
-	cl->userinfo_change_attempts = 0;
-
 	SV_UserinfoChanged( cl );
 	SetBits( cl->flags, FCL_RESEND_USERINFO );
-	cl->next_sendinfotime = 0.0;
-
-	// if this was the first client on the server, or the last client
-	// the server can hold, send a heartbeat to the master.
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-		if( cl->state >= cs_connected ) count++;
-	cl = sv.current_client;
-
-	Log_Printf( "\"%s<%i><%i><>\" connected, address \"local\"\n", cl->name, cl->userid, i );
-
 	SetBits( cl->edict->v.flags, FL_CLIENT|FL_FAKECLIENT );	// mark it as fakeclient
 	cl->connection_started = host.realtime;
-	cl->state = cs_spawned;
 
-	if( count == 1 || count == svs.maxclients )
-		NET_MasterClear();
+	SV_MaybeNotifyPlayerCountChange( cl, "local" );
 
 	return cl->edict;
 }
