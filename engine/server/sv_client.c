@@ -751,7 +751,7 @@ const char *SV_GetClientIDString( sv_client_t *cl )
 	if( sv_lan.value )
 		return "ID_LAN";
 
-	Q_snprintf( result, sizeof( result ), "ID_%s", MD5_Print( (byte *)cl->hashedcdkey ));
+	Q_snprintf( result, sizeof( result ), "ID_%s", cl->hashedcdkey );
 	return result;
 }
 
