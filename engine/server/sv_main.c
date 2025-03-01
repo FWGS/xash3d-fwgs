@@ -763,6 +763,31 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 {
 	const char *input_devices_str = Info_ValueForKey( useragent, "d" );
 	const char *id = Info_ValueForKey( useragent, "uuid" );
+	size_t len, i;
+
+	len = Q_strlen( id );
+	if( len != 32 )
+	{
+		SV_RejectConnection( from, "invalid authentication certificate\n" );
+		return false;
+	}
+
+	for( i = 0; i < len; i++ )
+	{
+		char c = id[i];
+
+		if( !isdigit( id[i] ) && !( c >= 'a' && c <= 'f' ))
+		{
+			SV_RejectConnection( from, "invalid authentication certificate\n" );
+			return false;
+		}
+	}
+
+	if( SV_CheckID( id ))
+	{
+		SV_RejectConnection( from, "You are banned!\n" );
+		return false;
+	}
 
 	if( !sv_allow_noinputdevices.value && ( !input_devices_str || !input_devices_str[0] ) )
 	{
@@ -792,17 +817,6 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 		if( !sv_allow_vr.value && ( input_devices & INPUT_DEVICE_VR) )
 		{
 			SV_RejectConnection( from, "This server does not allow VR\n" );
-			return false;
-		}
-	}
-
-	if( id )
-	{
-		qboolean banned = SV_CheckID( id );
-
-		if( banned )
-		{
-			SV_RejectConnection( from, "You are banned!\n" );
 			return false;
 		}
 	}

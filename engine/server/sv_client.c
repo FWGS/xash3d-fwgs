@@ -355,12 +355,6 @@ static void SV_ConnectClient( netadr_t from )
 	if( !SV_ProcessUserAgent( from, protinfo ))
 		return;
 
-	if( Q_strlen( Info_ValueForKey( protinfo, "uuid" )) != 32 )
-	{
-		SV_RejectConnection( from, "invalid authentication certificate length\n" );
-		return;
-	}
-
 	// extract qport from protocol info
 	qport = Q_atoi( Info_ValueForKey( protinfo, "qport" ));
 	extensions = Q_atoi( Info_ValueForKey( protinfo, "ext" ));
