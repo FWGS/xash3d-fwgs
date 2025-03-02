@@ -761,7 +761,7 @@ static void Touch_SetCommand_f( void )
 	{
 		touch_button_t *button = Touch_FindButtonNoPattern( &touch.list_user, Cmd_Argv( 1 ), Cmd_CurrentCommandIsPrivileged( ));
 
-		if( !button )
+		if( button )
 			Touch_SetCommand( button, Cmd_Argv( 2 ) );
 		else
 			Con_Printf( S_ERROR "no such button" );
