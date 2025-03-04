@@ -177,6 +177,9 @@ def options(opt):
 	grp.add_option('--enable-profile', action = 'store_true', dest = 'PROFILE_GENERATE', default = False,
 		help = 'enable profile generating build (stored in xash3d-prof directory) [default: %(default)s]')
 
+	grp.add_option('--enable-limited-debuginfo', action = 'store_true', dest = 'LIMITED_DEBUGINFO', default = False,
+		help = 'only save line debuginfo, useful for release builds [default: %(default)s]')
+
 	grp.add_option('--use-profile', action = 'store', dest = 'PROFILE_USE', default = None,
 		help = 'use profile during build [default: %(default)s]')
 
@@ -254,7 +257,14 @@ def get_optimization_flags(conf):
 		# this port don't have stack printing support
 		cflags.remove('-fasynchronous-unwind-tables')
 
-	if conf.env.COMPILER_CC == 'gcc' or conf.env.COMPILER_CC == 'clang' and conf.env.DEST_OS not in ['android']:
+	if conf.env.COMPILER_CC in ['gcc', 'clang'] and conf.options.LIMITED_DEBUGINFO:
+		# probably not a good idea to do this, but it should save space on Android builds especially
+		# that are never going to be run under debugger, but we still want that readable fileline
+		# info in backtraces
+		# might enable this for release/fast/fastnative builds in the future
+		cflags = ['-gline-tables-only' if flag.startswith('-g') else flag for flag in cflags]
+
+	if conf.env.COMPILER_CC in ['gcc', 'clang'] and conf.env.DEST_OS not in ['android']:
 		# HLSDK by default compiles with these options under Linux
 		# no reason for us to not do the same
 

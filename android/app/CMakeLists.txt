@@ -17,7 +17,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 	set(BUILD_TYPE "debug")
 else()
 	set(BUILD_TYPE "release")
-	list(APPEND WAF_EXTRA_ARGS --enable-poly-opt --enable-lto)
+	list(APPEND WAF_EXTRA_ARGS --enable-poly-opt --enable-lto --enable-limited-debuginfo)
 endif()
 
 if(ANDROID_ABI STREQUAL "x86")
@@ -75,7 +75,7 @@ ExternalProject_Add(
 		BUILD_CMAKE_LIBRARY_OUTPUT_DIRECTORY=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
 		WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
 		${WAF} configure -T ${BUILD_TYPE} --android=${ANDROID_ABI},,${CMAKE_SYSTEM_VERSION}
-		-s "${ENGINE_SOURCE_DIR}/3rdparty/SDL" --enable-bundled-deps
+		-s "${ENGINE_SOURCE_DIR}/3rdparty/SDL" --enable-bundled-deps ${WAF_EXTRA_ARGS}
 
 	BUILD_COMMAND ${CMAKE_COMMAND} -E env
 		WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
