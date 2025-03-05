@@ -13,8 +13,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#if XASH_SDL
-#include <SDL.h> // SDL_GetWindowPosition
+#if XASH_SDL // SDL_GetWindowPosition
+#if XASH_SDL == 3
+// Officially recommended method of using SDL3
+#include <SDL3/SDL.h>
+#else
+#include <SDL.h>
+#endif
 #endif // XASH_SDL
 
 #include "common.h"
@@ -2092,7 +2097,7 @@ static int GAME_EXPORT pfnGetWindowCenterX( void )
 	}
 #endif
 
-#if XASH_SDL == 2
+#if XASH_SDL == 2 || XASH_SDL == 3
 	SDL_GetWindowPosition( host.hWnd, &x, NULL );
 #endif
 
@@ -2117,7 +2122,7 @@ static int GAME_EXPORT pfnGetWindowCenterY( void )
 	}
 #endif
 
-#if XASH_SDL == 2
+#if XASH_SDL == 2 || XASH_SDL == 3
 	SDL_GetWindowPosition( host.hWnd, NULL, &y );
 #endif
 
@@ -3970,7 +3975,13 @@ qboolean CL_LoadProgs( const char *name )
 	// and if so, disable relative mouse mode
 #if XASH_WIN32 && !XASH_64BIT
 	clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL2." OS_LIB_EXT, false );
-	Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, clgame.client_dll_uses_sdl ? "SDL2" : "Windows API" );
+	if (clgame.client_dll_uses_sdl)
+		Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, "SDL2" );
+	else
+	{
+		clgame.client_dll_uses_sdl = COM_CheckLibraryDirectDependency( name, OS_LIB_PREFIX "SDL3." OS_LIB_EXT, false );
+		Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, clgame.client_dll_uses_sdl ? "SDL3" : "Windows API" );
+	}
 #endif
 
 	// NOTE: important stuff!

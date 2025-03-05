@@ -15,7 +15,11 @@ GNU General Public License for more details.
 
 #include "build.h"
 #ifdef XASH_SDL
+#if XASH_SDL == 3
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 #endif // XASH_SDL
 #include <stdarg.h>  // va_args
 #if !XASH_WIN32
@@ -201,7 +205,7 @@ static void Sys_PrintUsage( const char *exename )
 #if !XASH_MOBILE_PLATFORM
 	O("-daemonize         ", "run engine as a daemon")
 #endif
-#if XASH_SDL == 2
+#if XASH_SDL == 2 || XASH_SDL == 3
 	O("-sdl_renderer <n>  ","use alternative SDL_Renderer for software")
 #endif // XASH_SDL
 #if XASH_ANDROID && !XASH_SDL

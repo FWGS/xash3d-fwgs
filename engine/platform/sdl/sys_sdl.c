@@ -13,9 +13,21 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#if XASH_SDL == 3
+// Officially recommended method of using SDL3
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 #include "platform/platform.h"
 #include "events.h"
+
+#if SDL_MAJOR_VERSION >= 3
+// SDL3 moved to booleans, no more weird code with != 0 or < 0
+#define SDL_SUCCESS(expr) (expr)
+#else
+#define SDL_SUCCESS(expr) ((expr) == 0)
+#endif
 
 #if XASH_TIMER == TIMER_SDL
 double Platform_DoubleTime( void )
@@ -96,6 +108,16 @@ void SDLash_Init( const char *basedir )
 	}
 #endif
 
+#if SDL_MAJOR_VERSION >= 3 // Function renames
+	SDL_SetLogOutputFunction( SDLash_LogOutputFunction, NULL );
+
+	if( host_developer.value >= 2 )
+		SDL_SetLogPriorities( SDL_LOG_PRIORITY_VERBOSE );
+	else if( host_developer.value >= 1 )
+		SDL_SetLogPriorities( SDL_LOG_PRIORITY_WARN );
+	else
+		SDL_SetLogPriorities( SDL_LOG_PRIORITY_ERROR );
+#else
 	SDL_LogSetOutputFunction( SDLash_LogOutputFunction, NULL );
 
 	if( host_developer.value >= 2 )
@@ -104,22 +126,27 @@ void SDLash_Init( const char *basedir )
 		SDL_LogSetAllPriority( SDL_LOG_PRIORITY_WARN );
 	else
 		SDL_LogSetAllPriority( SDL_LOG_PRIORITY_ERROR );
+#endif
 
 #ifndef SDL_INIT_EVENTS
 #define SDL_INIT_EVENTS 0
 #endif
-	if( SDL_Init( SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
+#ifndef SDL_INIT_TIMER // No longer needed since SDL3
+#define SDL_INIT_TIMER 0
+#endif
+	if( !SDL_SUCCESS(SDL_Init( SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS )) )
 	{
 		Sys_Warn( "SDL_Init failed: %s", SDL_GetError() );
 		host.type = HOST_DEDICATED;
 	}
 
-#if SDL_MAJOR_VERSION >= 2
+#if SDL_MAJOR_VERSION == 2
 	SDL_SetHint( SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0" );
+	SDL_StopTextInput();
+#endif
+#if SDL_MAJOR_VERSION >= 2
 	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
 	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
-
-	SDL_StopTextInput();
 #endif // XASH_SDL == 2
 
 	SDLash_InitCursors();

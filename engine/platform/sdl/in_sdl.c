@@ -12,7 +12,12 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#if XASH_SDL == 3
+// Officially recommended method of using SDL3
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 
 #include "common.h"
 #include "keydefs.h"
@@ -35,7 +40,11 @@ static struct
 
 static struct
 {
+#if SDL_MAJOR_VERSION >= 3
+	float x, y;
+#else
 	int x, y;
+#endif
 	qboolean pushed;
 } in_visible_cursor_pos;
 
@@ -47,6 +56,12 @@ Platform_GetMousePos
 */
 void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
+#if SDL_MAJOR_VERSION >= 3
+	float m_x, m_y;
+	SDL_GetMouseState( &m_x, &m_y );
+	*x = m_x;
+	*y = m_y;
+#else
 	SDL_GetMouseState( x, y );
 
 	if( x && window_width.value && window_width.value != refState.width )
@@ -60,6 +75,7 @@ void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 		float factor = refState.height / window_height.value;
 		*y = *y * factor;
 	}
+#endif
 }
 
 /*
@@ -81,7 +97,11 @@ Platform_MouseMove
 */
 void Platform_MouseMove( float *x, float *y )
 {
+#if SDL_MAJOR_VERSION >= 3
+	float m_x, m_y;
+#else
 	int m_x, m_y;
+#endif
 	SDL_GetRelativeMouseState( &m_x, &m_y );
 	*x = (float)m_x;
 	*y = (float)m_y;
@@ -140,7 +160,9 @@ SDLash_EnableTextInput
 */
 void Platform_EnableTextInput( qboolean enable )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	enable ? SDL_StartTextInput(host.hWnd) : SDL_StopTextInput(host.hWnd);
+#elif SDL_VERSION_ATLEAST( 2, 0, 0 )
 	enable ? SDL_StartTextInput() : SDL_StopTextInput();
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
@@ -155,7 +177,26 @@ SDLash_InitCursors
 */
 void SDLash_InitCursors( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	if( cursors.initialized )
+		SDLash_FreeCursors();
+
+	// load up all default cursors
+	cursors.cursors[dc_none] = NULL;
+	cursors.cursors[dc_arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+	cursors.cursors[dc_ibeam] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
+	cursors.cursors[dc_hourglass] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+	cursors.cursors[dc_crosshair] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+	cursors.cursors[dc_up] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+	cursors.cursors[dc_sizenwse] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
+	cursors.cursors[dc_sizenesw] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
+	cursors.cursors[dc_sizewe] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
+	cursors.cursors[dc_sizens] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
+	cursors.cursors[dc_sizeall] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
+	cursors.cursors[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NOT_ALLOWED);
+	cursors.cursors[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+	cursors.initialized = true;
+#elif SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( cursors.initialized )
 		SDLash_FreeCursors();
 
@@ -191,7 +232,13 @@ void SDLash_FreeCursors( void )
 	for( ; i < ARRAYSIZE( cursors.cursors ); i++ )
 	{
 		if( cursors.cursors[i] )
+		{
+#if SDL_MAJOR_VERSION >= 3
+			SDL_DestroyCursor( cursors.cursors[i] );
+#else
 			SDL_FreeCursor( cursors.cursors[i] );
+#endif
+		}
 		cursors.cursors[i] = NULL;
 	}
 
@@ -233,7 +280,11 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 		if( cursors.initialized )
 			SDL_SetCursor( cursors.cursors[type] );
 
+#if SDL_MAJOR_VERSION >= 3
+		SDL_ShowCursor();
+#else
 		SDL_ShowCursor( true );
+#endif
 
 		// restore the last mouse position
 		if( in_visible_cursor_pos.pushed )
@@ -252,7 +303,11 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 			in_visible_cursor_pos.pushed = true;
 		}
 
+#if SDL_MAJOR_VERSION >= 3
+		SDL_HideCursor();
+#else
 		SDL_ShowCursor( false );
+#endif
 	}
 #else
 	if( host.mouse_visible )
@@ -275,30 +330,35 @@ Platform_GetKeyModifiers
 key_modifier_t Platform_GetKeyModifiers( void )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if SDL_MAJOR_VERSION >= 3
+#define SDL_KMOD(kmod) SDL_KMOD_##kmod
+#else
+#define SDL_KMOD(kmod) KMOD_##kmod
+#endif
 	SDL_Keymod modFlags;
 	key_modifier_t resultFlags;
 
 	resultFlags = KeyModifier_None;
 	modFlags = SDL_GetModState();
-	if( FBitSet( modFlags, KMOD_LCTRL ))
+	if( FBitSet( modFlags, SDL_KMOD(LCTRL) ))
 		SetBits( resultFlags, KeyModifier_LeftCtrl );
-	if( FBitSet( modFlags, KMOD_RCTRL ))
+	if( FBitSet( modFlags, SDL_KMOD(RCTRL) ))
 		SetBits( resultFlags, KeyModifier_RightCtrl );
-	if( FBitSet( modFlags, KMOD_RSHIFT ))
+	if( FBitSet( modFlags, SDL_KMOD(RSHIFT) ))
 		SetBits( resultFlags, KeyModifier_RightShift );
-	if( FBitSet( modFlags, KMOD_LSHIFT ))
+	if( FBitSet( modFlags, SDL_KMOD(LSHIFT) ))
 		SetBits( resultFlags, KeyModifier_LeftShift );
-	if( FBitSet( modFlags, KMOD_LALT ))
+	if( FBitSet( modFlags, SDL_KMOD(LALT) ))
 		SetBits( resultFlags, KeyModifier_LeftAlt );
-	if( FBitSet( modFlags, KMOD_RALT ))
+	if( FBitSet( modFlags, SDL_KMOD(RALT) ))
 		SetBits( resultFlags, KeyModifier_RightAlt );
-	if( FBitSet( modFlags, KMOD_NUM ))
+	if( FBitSet( modFlags, SDL_KMOD(NUM) ))
 		SetBits( resultFlags, KeyModifier_NumLock );
-	if( FBitSet( modFlags, KMOD_CAPS ))
+	if( FBitSet( modFlags, SDL_KMOD(CAPS) ))
 		SetBits( resultFlags, KeyModifier_CapsLock );
-	if( FBitSet( modFlags, KMOD_RGUI ))
+	if( FBitSet( modFlags, SDL_KMOD(RGUI) ))
 		SetBits( resultFlags, KeyModifier_RightSuper );
-	if( FBitSet( modFlags, KMOD_LGUI ))
+	if( FBitSet( modFlags, SDL_KMOD(LGUI) ))
 		SetBits( resultFlags, KeyModifier_LeftSuper );
 
 	return resultFlags;

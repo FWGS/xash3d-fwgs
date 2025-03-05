@@ -12,7 +12,13 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#if XASH_SDL == 3
+// Officially recommended method of using SDL3
+#define SDL_ENABLE_OLD_NAMES // To reduce ifdefs count, TODO(Er2): Remove old names support
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 #include "common.h"
@@ -20,6 +26,13 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "events.h"
+
+#if SDL_MAJOR_VERSION >= 3
+// SDL3 moved to booleans, no more weird code with != 0 or < 0
+#define SDL_SUCCESS(expr) (expr)
+#else
+#define SDL_SUCCESS(expr) ((expr) == 0)
+#endif
 
 static const int g_button_mapping[] =
 {
@@ -264,17 +277,31 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 	switch( ev->type )
 	{
 	case SDL_CONTROLLERAXISMOTION:
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+		SDLash_SetActiveGameController( ev->gaxis.which );
+		x = ev->gaxis.axis;
+		if( x >= 0 && x < ARRAYSIZE( g_axis_mapping ))
+			Joy_AxisMotionEvent( g_axis_mapping[x], ev->gaxis.value );
+#else
 		SDLash_SetActiveGameController( ev->caxis.which );
 		x = ev->caxis.axis;
 		if( x >= 0 && x < ARRAYSIZE( g_axis_mapping ))
 			Joy_AxisMotionEvent( g_axis_mapping[x], ev->caxis.value );
+#endif
 		break;
 	case SDL_CONTROLLERBUTTONDOWN:
 	case SDL_CONTROLLERBUTTONUP:
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+		SDLash_SetActiveGameController( ev->gbutton.which );
+		x = ev->gbutton.button;
+		if( x >= 0 && x < ARRAYSIZE( g_button_mapping ))
+			Key_Event( g_button_mapping[x], ev->gbutton.down );
+#else
 		SDLash_SetActiveGameController( ev->cbutton.which );
 		x = ev->cbutton.button;
 		if( x >= 0 && x < ARRAYSIZE( g_button_mapping ))
 			Key_Event( g_button_mapping[x], ev->cbutton.state );
+#endif
 		break;
 	case SDL_CONTROLLERDEVICEREMOVED:
 		SDLash_GameControllerRemoved( ev->cdevice.which );
@@ -282,7 +309,11 @@ void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 	case SDL_CONTROLLERDEVICEADDED:
 		SDLash_GameControllerAdded( ev->cdevice.which );
 		break;
-#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
+		SDLash_GameControllerSensorUpdate( ev->gsensor );
+		break;
+#elif SDL_VERSION_ATLEAST( 2, 0, 14 )
 	case SDL_CONTROLLERSENSORUPDATE:
 		SDLash_GameControllerSensorUpdate( ev->csensor );
 		break;
@@ -335,10 +366,13 @@ Platform_JoyInit
 int Platform_JoyInit( void )
 {
 	int count, numJoysticks, i;
+#if SDL_MAJOR_VERSION >= 3
+	SDL_JoystickID *joysticks;
+#endif
 
 	Con_Reportf( "Joystick: SDL GameController API\n" );
 	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
-		SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ))
+		!SDL_SUCCESS(SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER )))
 	{
 		Con_Reportf( "Failed to initialize SDL GameController API: %s\n", SDL_GetError( ));
 		return 0;
@@ -348,12 +382,22 @@ int Platform_JoyInit( void )
 	SDLash_GameControllerAddMappings( "controllermappings.txt" );
 
 	count = 0;
+#if SDL_MAJOR_VERSION >= 3
+	joysticks = SDL_GetJoysticks(&numJoysticks);
+	for ( i = 0; i < numJoysticks; i++ )
+	{
+		if( SDL_IsGamepad( i ))
+			++count;
+	}
+	SDL_free(joysticks);
+#else
 	numJoysticks = SDL_NumJoysticks();
 	for ( i = 0; i < numJoysticks; i++ )
 	{
 		if( SDL_IsGameController( i ))
 			++count;
 	}
+#endif
 
 	return count;
 }

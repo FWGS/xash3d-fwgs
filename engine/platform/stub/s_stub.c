@@ -30,7 +30,7 @@ so it can unlock and free the data block after it has been played.
 =======================================================================
 */
 
-dma_t			dma;
+//dma_t			dma;
 
 void S_Activate( qboolean active )
 {

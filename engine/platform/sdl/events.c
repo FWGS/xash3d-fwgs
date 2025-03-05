@@ -13,7 +13,13 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #if defined( XASH_SDL ) && !XASH_DEDICATED
+#if XASH_SDL == 3
+// Officially recommended method of using SDL3
+#define SDL_ENABLE_OLD_NAMES // To reduce ifdefs count, TODO(Er2): Remove old names support
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 #include <ctype.h>
 
 #include "common.h"
@@ -98,11 +104,16 @@ SDLash_KeyEvent
 */
 static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 {
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	bool down = key.down;
+	int keynum = key.scancode;
+#else
 	int down = key.state != SDL_RELEASED;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	int keynum = key.keysym.scancode;
 #else
 	int keynum = key.keysym.sym;
+#endif
 #endif
 
 #if XASH_ANDROID
@@ -112,7 +123,11 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	}
 #endif
 
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	if( SDL_IsTextInputActive(host.hWnd) && down )
+#else
 	if( SDL_IsTextInputActive( ) && down )
+#endif
 	{
 		// this is how engine understands ctrl+c, ctrl+v and other hotkeys
 		if( cls.key_dest != key_game && FBitSet( SDL_GetModState(), KMOD_CTRL ))
@@ -228,8 +243,10 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_MUTE:
 		case SDL_SCANCODE_VOLUMEUP:
 		case SDL_SCANCODE_VOLUMEDOWN:
+#if !SDL_VERSION_ATLEAST( 3, 2, 0 )
 		case SDL_SCANCODE_BRIGHTNESSDOWN:
 		case SDL_SCANCODE_BRIGHTNESSUP:
+#endif
 		case SDL_SCANCODE_SELECT:
 			return;
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
@@ -264,7 +281,11 @@ static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 		return;
 #endif
 
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	if( !button.down )
+#else
 	if( button.state == SDL_RELEASED )
+#endif
 		down = 0;
 	else if( button.clicks >= 2 )
 		down = 2; // special state for double-click in UI
@@ -366,7 +387,79 @@ static void SDLash_ActiveEvent( int gain )
 
 /*
 =============
-SDLash_EventFilter
+SDLash_WindowEventHandler
+
+=============
+*/
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+static void SDLash3D_WindowEventHandler( SDL_Event *event )
+{
+	if( event->window.windowID != SDL_GetWindowID( host.hWnd ) )
+		return;
+
+	if( host.status == HOST_SHUTDOWN || Host_IsDedicated() )
+		return; // no need to activate
+
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	switch( event->type )
+#else
+	switch( event->window.event )
+#endif
+	{
+	case SDL_WINDOWEVENT_MOVED:
+	{
+		char val[32];
+
+		Q_snprintf( val, sizeof( val ), "%d", event->window.data1 );
+		Cvar_DirectSet( &window_xpos, val );
+
+		Q_snprintf( val, sizeof( val ), "%d", event->window.data2 );
+		Cvar_DirectSet( &window_ypos, val );
+
+		if ( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
+			Cvar_DirectSet( &vid_maximized, "0" );
+		break;
+	}
+	case SDL_WINDOWEVENT_MINIMIZED:
+		host.status = HOST_SLEEP;
+		Cvar_DirectSet( &vid_maximized, "0" );
+		VID_RestoreScreenResolution( );
+		break;
+	case SDL_WINDOWEVENT_RESTORED:
+		host.status = HOST_FRAME;
+		host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
+		Cvar_DirectSet( &vid_maximized, "0" );
+		if( vid_fullscreen.value == WINDOW_MODE_FULLSCREEN )
+			VID_SetMode();
+		break;
+	case SDL_WINDOWEVENT_FOCUS_GAINED:
+		SDLash_ActiveEvent( true );
+		break;
+	case SDL_WINDOWEVENT_FOCUS_LOST:
+		SDLash_ActiveEvent( false );
+		break;
+	case SDL_WINDOWEVENT_RESIZED:
+#if !XASH_MOBILE_PLATFORM
+		if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
+#endif
+		{
+			SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
+			VID_SaveWindowSize( event->window.data1, event->window.data2,
+				FBitSet( SDL_GetWindowFlags( wnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
+		}
+		break;
+	case SDL_WINDOWEVENT_MAXIMIZED:
+		Cvar_DirectSet( &vid_maximized, "1" );
+		break;
+	default:
+		break;
+	}
+}
+#endif
+
+/*
+=============
+SDLash_EventHandler
 
 =============
 */
@@ -449,7 +542,11 @@ static void SDLash_EventHandler( SDL_Event *event )
 			dy /= (float)refState.height;
 		}
 
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+		IN_TouchEvent( type, event->tfinger.fingerID, x, y, dx, dy );
+#else
 		IN_TouchEvent( type, event->tfinger.fingerId, x, y, dx, dy );
+#endif
 		break;
 	}
 
@@ -471,63 +568,19 @@ static void SDLash_EventHandler( SDL_Event *event )
 		SDLash_HandleGameControllerEvent( event );
 		break;
 
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+	case SDL_EVENT_WINDOW_MOVED:
+	case SDL_EVENT_WINDOW_MINIMIZED:
+	case SDL_EVENT_WINDOW_RESTORED:
+	case SDL_EVENT_WINDOW_FOCUS_GAINED:
+	case SDL_EVENT_WINDOW_FOCUS_LOST:
+	case SDL_EVENT_WINDOW_RESIZED:
+	case SDL_EVENT_WINDOW_MAXIMIZED:
+#else
 	case SDL_WINDOWEVENT:
-		if( event->window.windowID != SDL_GetWindowID( host.hWnd ) )
-			return;
-
-		if( host.status == HOST_SHUTDOWN || Host_IsDedicated() )
-			break; // no need to activate
-
-		switch( event->window.event )
-		{
-		case SDL_WINDOWEVENT_MOVED:
-		{
-			char val[32];
-
-			Q_snprintf( val, sizeof( val ), "%d", event->window.data1 );
-			Cvar_DirectSet( &window_xpos, val );
-
-			Q_snprintf( val, sizeof( val ), "%d", event->window.data2 );
-			Cvar_DirectSet( &window_ypos, val );
-
-			if ( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
-				Cvar_DirectSet( &vid_maximized, "0" );
-			break;
-		}
-		case SDL_WINDOWEVENT_MINIMIZED:
-			host.status = HOST_SLEEP;
-			Cvar_DirectSet( &vid_maximized, "0" );
-			VID_RestoreScreenResolution( );
-			break;
-		case SDL_WINDOWEVENT_RESTORED:
-			host.status = HOST_FRAME;
-			host.force_draw_version_time = host.realtime + FORCE_DRAW_VERSION_TIME;
-			Cvar_DirectSet( &vid_maximized, "0" );
-			if( vid_fullscreen.value == WINDOW_MODE_FULLSCREEN )
-				VID_SetMode();
-			break;
-		case SDL_WINDOWEVENT_FOCUS_GAINED:
-			SDLash_ActiveEvent( true );
-			break;
-		case SDL_WINDOWEVENT_FOCUS_LOST:
-			SDLash_ActiveEvent( false );
-			break;
-		case SDL_WINDOWEVENT_RESIZED:
-#if !XASH_MOBILE_PLATFORM
-			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
 #endif
-			{
-				SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
-				VID_SaveWindowSize( event->window.data1, event->window.data2,
-					FBitSet( SDL_GetWindowFlags( wnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
-			}
-			break;
-		case SDL_WINDOWEVENT_MAXIMIZED:
-			Cvar_DirectSet( &vid_maximized, "1" );
-			break;
-		default:
-			break;
-		}
+		SDLash3D_WindowEventHandler(event);
+		break;
 #else
 	case SDL_VIDEORESIZE:
 		VID_SaveWindowSize( event->resize.w, event->resize.h );
@@ -570,7 +623,11 @@ void Platform_PreCreateMove( void )
 	if( m_ignore.value )
 	{
 		SDL_GetRelativeMouseState( NULL, NULL );
+#if SDL_VERSION_ATLEAST( 3, 2, 0 )
+		SDL_ShowCursor();
+#else
 		SDL_ShowCursor( SDL_TRUE );
+#endif
 	}
 }
 
