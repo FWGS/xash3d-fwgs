@@ -487,6 +487,10 @@ static int ID_CheckWMIC( bloomfilter_t value, const char *cmdline )
 char *IOS_GetUDID( void );
 #endif
 
+#if XASH_PSVITA
+int PSVita_GetPSID( char *buf, const size_t buflen );
+#endif
+
 static bloomfilter_t ID_GenerateRawId( void )
 {
 	bloomfilter_t value = 0;
@@ -514,6 +518,14 @@ static bloomfilter_t ID_GenerateRawId( void )
 #if XASH_IOS
 	{
 		value |= BloomFilter_ProcessStr(IOS_GetUDID());
+		count ++;
+	}
+#endif
+#if XASH_PSVITA
+	{
+		char data[16];
+		PSVita_GetPSID( data, sizeof( data ));
+		value |= BloomFilter_Process( data, sizeof( data ));
 		count ++;
 	}
 #endif
@@ -551,6 +563,15 @@ static uint ID_CheckRawId( bloomfilter_t filter )
 #if XASH_IOS
 	{
 		value = BloomFilter_ProcessStr(IOS_GetUDID());
+		count += (filter & value) == value;
+		value = 0;
+	}
+#endif
+#if XASH_PSVITA
+	{
+		char data[16];
+		PSVita_GetPSID( data, sizeof( data ));
+		value = BloomFilter_Process( data, sizeof( data ));
 		count += (filter & value) == value;
 		value = 0;
 	}
