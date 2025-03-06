@@ -173,7 +173,7 @@ def build(bld):
 		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
 		# also link in all the funky dependencies that aren't in SDL2's LDFLAGS
 		bld.env.LDFLAGS += ['-Wl,--whole-archive', '-lstdc++', '-lpthread', '-Wl,--no-whole-archive',
-			'-lm', '-lSceShaccCgExt', '-lkubridge_stub', '-ltaihen_stub', '-lSceShaccCg_stub', '-lSceKernelModulemgr_stub', '-lSceSblSsMgr_stub', '-lSceVshBridge_stub', '-lSceKernelDmacMgr_stub',
+			'-lm', '-lSceShaccCgExt', '-lkubridge_stub', '-ltaihen_stub', '-lSceShaccCg_stub', '-lSceKernelModulemgr_stub', '-lSceSblSsMgr_stub', '-lSceVshBridge_stub', '-lSceKernelDmacMgr_stub', '-lSceLibKernel_stub',
 		]
 	else: # POSIX
 		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
