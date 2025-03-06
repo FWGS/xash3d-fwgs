@@ -844,7 +844,16 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 
 		if( curfile->downloaded >= curfile->size )
 		{
-			HTTP_FreeFile( curfile, false ); // success
+			// chunked files are finalized in FileSaveReceivedData
+			if( curfile->compressed && !curfile->chunked )
+			{
+				curfile->pfn_process = HTTP_FileDecompress;
+				curfile->success = true;
+			}
+			else
+			{
+				HTTP_FreeFile( curfile, false ); // success
+			}
 			return 0;
 		}
 	}
