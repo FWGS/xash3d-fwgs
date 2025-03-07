@@ -1267,45 +1267,16 @@ static void Field_CharEvent( field_t *edit, int ch )
 Field_DrawInputLine
 ==================
 */
-static void Field_DrawInputLine( int x, int y, field_t *edit )
+static void Field_DrawInputLine( int x, int y, const field_t *edit )
 {
-	int	len, cursorChar;
-	int	drawLen;
-	int	prestep, curPos;
-	char	str[MAX_SYSPATH];
-	byte	*colorDefault;
+	int curPos;
+	char str[MAX_SYSPATH];
+	const byte *colorDefault = g_color_table[ColorIndex( COLOR_DEFAULT )];
+	const int prestep = bound( 0, edit->scroll, sizeof( edit->buffer ) - 1 );
+	const int drawLen = bound( 0, edit->widthInChars, sizeof( str ));
+	const int cursorCharPos = bound( 0, edit->cursor - prestep, sizeof( str ));
 
-	drawLen = edit->widthInChars;
-	len = Q_strlen( edit->buffer ) + 1;
-	colorDefault = g_color_table[ColorIndex( COLOR_DEFAULT )];
-
-	// guarantee that cursor will be visible
-	if( len <= drawLen )
-	{
-		prestep = 0;
-	}
-	else
-	{
-		if( edit->scroll + drawLen > len )
-		{
-			edit->scroll = len - drawLen;
-			if( edit->scroll < 0 ) edit->scroll = 0;
-		}
-
-		prestep = edit->scroll;
-	}
-
-	if( prestep + drawLen > len )
-		drawLen = len - prestep;
-
-	// extract <drawLen> characters from the field at <prestep>
-	drawLen = Q_min( drawLen, MAX_SYSPATH - 1 );
-
-	memcpy( str, edit->buffer + prestep, drawLen );
-	str[drawLen] = 0;
-
-	// save char for overstrike
-	cursorChar = str[edit->cursor - prestep];
+	Q_strncpy( str, edit->buffer + prestep, drawLen );
 
 	// draw it
 	CL_DrawString( x, y, str, colorDefault, con.curFont, FONT_DRAW_UTF8 );
@@ -1314,7 +1285,7 @@ static void Field_DrawInputLine( int x, int y, field_t *edit )
 	if((int)( host.realtime * 4 ) & 1 ) return; // off blink
 
 	// calc cursor position
-	str[edit->cursor - prestep] = 0;
+	str[cursorCharPos] = 0;
 	CL_DrawStringLen( con.curFont, str, &curPos, NULL, FONT_DRAW_UTF8 );
 
 	if( host.key_overstrike )
