@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Background Circle -->
+  <circle cx="60" cy="60" r="58" fill="#2d2d2a" stroke="#ff7800" stroke-width="2" />
+  
+  <!-- Gradient Overlay -->
+  <path d="M0 0 L120 120" fill="none" stroke="url(#gradient)" stroke-width="120" />
+  
+  <!-- Lambda Symbol -->
+  <text x="60" y="80" font-family="Rajdhani, sans-serif" font-size="60" font-weight="700" text-anchor="middle" fill="#ff7800" style="text-shadow: 0 0 10px rgba(255,120,0,0.6);">λ</text>
+  
+  <!-- Gradient Definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,120,0,0.2)" />
+      <stop offset="60%" stop-color="transparent" />
+    </linearGradient>
+  </defs>
+</svg>
