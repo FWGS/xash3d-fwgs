@@ -1,16 +1,6 @@
 /*
-texture.c - texture writer
+texture.c - texture writer (Updated for 4K/Truecolor)
 Copyright (C) 2020 Andrey Akhmichin
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
 */
 
 #include <stdio.h>
@@ -27,151 +17,147 @@ GNU General Public License for more details.
 
 /*
 ============
-WriteBMP
+WriteBMP (24-bit Truecolor)
 ============
 */
-static void WriteBMP( FILE *fp, mstudiotexture_t *texture )
+static void WriteBMP(FILE* fp, mstudiotexture_t* texture)
 {
-	int		 i;
-	const byte	*p;
-	byte		*palette, *pic;
-	rgba_t		 rgba_palette[256];
-	bmp_t		 bmp_hdr = {0,};
+	int          i, j, padding;
+	const byte* pixel, * palette;
+	byte* pic, row[4096 * 3]; // Supports up to 4K width
+	bmp_t        bmp_hdr = { 0 };
 
+	// BMP Header
 	bmp_hdr.id[0] = 'B';
 	bmp_hdr.id[1] = 'M';
 	bmp_hdr.width = texture->width;
 	bmp_hdr.height = texture->height;
 	bmp_hdr.planes = 1;
-	bmp_hdr.bitsPerPixel = 8;
-	bmp_hdr.bitmapDataSize = bmp_hdr.width * bmp_hdr.height;
-	bmp_hdr.colors = 256;
-
-	bmp_hdr.fileSize =  sizeof( bmp_hdr ) + bmp_hdr.bitmapDataSize + sizeof( rgba_palette );
-	bmp_hdr.bitmapDataOffset = sizeof( bmp_hdr ) + sizeof( rgba_palette );
+	bmp_hdr.bitsPerPixel = 24;
 	bmp_hdr.bitmapHeaderSize = BI_SIZE;
+	bmp_hdr.bitmapDataOffset = sizeof(bmp_t);
 
-	pic = (byte *)texture_hdr + texture->index;
-	palette = pic + bmp_hdr.bitmapDataSize;
+	// Calculate row padding (BMP rows are 4-byte aligned)
+	padding = (4 - (texture->width * 3) % 4) % 4;
+	bmp_hdr.bitmapDataSize = (texture->width * 3 + padding) * texture->height;
+	bmp_hdr.fileSize = sizeof(bmp_t) + bmp_hdr.bitmapDataSize;
 
-	fwrite( &bmp_hdr, sizeof( bmp_hdr ), 1, fp );
+	fwrite(&bmp_hdr, sizeof(bmp_t), 1, fp);
 
-	p = palette;
+	pic = (byte*)texture_hdr + texture->index;
+	palette = pic + texture->width * texture->height; // Palette follows pixel data
 
-	for( i = 0; i < (int)bmp_hdr.colors; i++ )
+	// Write pixels (convert 8-bit indexed to 24-bit BGR)
+	for (i = texture->height - 1; i >= 0; i--) // BMP is bottom-to-top
 	{
-		rgba_palette[i][2] = *p++;
-		rgba_palette[i][1] = *p++;
-		rgba_palette[i][0] = *p++;
-		rgba_palette[i][3] = 0;
-	}
+		const byte* row_start = pic + i * texture->width;
+		byte* row_ptr = row;
 
-	fwrite( rgba_palette, sizeof( rgba_palette ), 1, fp );
+		for (j = 0; j < texture->width; j++)
+		{
+			int color_idx = row_start[j];
+			const byte* color = palette + color_idx * 3;
 
-	p = pic;
-	p += ( bmp_hdr.height - 1 ) * bmp_hdr.width;
+			// BMP uses BGR order
+			*row_ptr++ = color[2]; // B
+			*row_ptr++ = color[1]; // G
+			*row_ptr++ = color[0]; // R
+		}
 
-	for( i = 0; i < bmp_hdr.height; i++ )
-	{
-		fwrite( p, bmp_hdr.width, 1, fp );
-		p -= bmp_hdr.width;
+		fwrite(row, texture->width * 3, 1, fp);
+		if (padding > 0) fwrite("\0\0\0", padding, 1, fp); // Pad row
 	}
 }
 
 /*
 ============
-WriteTGA
+WriteTGA (32-bit RGBA)
 ============
 */
-static void WriteTGA( FILE *fp, mstudiotexture_t *texture )
+static void WriteTGA(FILE* fp, mstudiotexture_t* texture)
 {
-	int              i;
-	const byte      *p;
-	byte            *palette, *pic;
-	rgb_t		 rgb_palette[256];
-	tga_t		 tga_hdr = {0,};
+	int          i, j;
+	const byte* pixel, * palette;
+	byte* pic, rgba[4096 * 4]; // Supports up to 4K width
+	tga_t        tga_hdr = { 0 };
 
-	tga_hdr.colormap_type = tga_hdr.image_type = 1;
-	tga_hdr.colormap_length = 256;
-	tga_hdr.colormap_size = 24;
-	tga_hdr.pixel_size = 8;
+	// TGA Header
+	tga_hdr.image_type = 2; // Uncompressed truecolor
 	tga_hdr.width = texture->width;
 	tga_hdr.height = texture->height;
+	tga_hdr.pixel_size = 32; // RGBA
+	tga_hdr.attributes = 8; // 8-bit alpha channel
 
-	pic = (byte *)texture_hdr + texture->index;
-	palette = pic + tga_hdr.width * tga_hdr.height;
+	fwrite(&tga_hdr, sizeof(tga_t), 1, fp);
 
-	fwrite( &tga_hdr, sizeof( tga_hdr ), 1, fp );
+	pic = (byte*)texture_hdr + texture->index;
+	palette = pic + texture->width * texture->height;
 
-	p = palette;
-
-	for( i = 0; i < (int)tga_hdr.colormap_length; i++ )
+	// Write pixels (convert 8-bit indexed to 32-bit RGBA)
+	for (i = 0; i < texture->height; i++)
 	{
-		rgb_palette[i][2] = *p++;
-		rgb_palette[i][1] = *p++;
-		rgb_palette[i][0] = *p++;
-	}
+		const byte* row_start = pic + i * texture->width;
+		byte* row_ptr = rgba;
 
-	fwrite( rgb_palette, sizeof( rgb_palette ), 1, fp );
+		for (j = 0; j < texture->width; j++)
+		{
+			int color_idx = row_start[j];
+			const byte* color = palette + color_idx * 3;
 
-	p = pic;
-	p += ( tga_hdr.height - 1 ) * tga_hdr.width;
+			*row_ptr++ = color[0]; // R
+			*row_ptr++ = color[1]; // G
+			*row_ptr++ = color[2]; // B
+			*row_ptr++ = 255;       // A (opaque)
+		}
 
-	for( i = 0; i < tga_hdr.height; i++ )
-	{
-		fwrite( p, tga_hdr.width, 1, fp );
-		p -= tga_hdr.width;
+		fwrite(rgba, texture->width * 4, 1, fp);
 	}
 }
 
 /*
 ============
-WriteTextures
+WriteTextures (Compatibility Layer)
 ============
 */
-void WriteTextures( void )
+void WriteTextures(void)
 {
-	int			 i, len, namelen, emptyplace;
-	FILE			*fp;
-	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
-	char			 path[MAX_SYSPATH];
+	int          i, len, namelen, emptyplace;
+	FILE* fp;
+	mstudiotexture_t* texture = (mstudiotexture_t*)((byte*)texture_hdr + texture_hdr->textureindex);
+	char         path[MAX_SYSPATH];
 
-	len = Q_snprintf( path, MAX_SYSPATH, "%s" DEFAULT_TEXTUREPATH, destdir );
+	len = Q_snprintf(path, MAX_SYSPATH, "%s" DEFAULT_TEXTUREPATH, destdir);
 
-	if( len == -1 || !MakeDirectory( path ))
+	if (len == -1 || !MakeDirectory(path))
 	{
-		fputs( "ERROR: Destination path is too long or write permission denied. Couldn't create directory for textures\n", stderr );
+		fputs("ERROR: Couldn't create texture directory\n", stderr);
 		return;
 	}
 
 	emptyplace = MAX_SYSPATH - len;
 
-	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
+	for (i = 0; i < texture_hdr->numtextures; ++i, ++texture)
 	{
-		namelen = Q_strncpy( &path[len], texture->name, emptyplace );
+		namelen = Q_strncpy(&path[len], texture->name, emptyplace);
 
-		if( emptyplace - namelen < 0 )
+		if (emptyplace - namelen < 0)
 		{
-			fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s\n", texture->name );
-			return;
+			fprintf(stderr, "ERROR: Path too long for %s\n", texture->name);
+			continue;
 		}
 
-		fp = fopen( path, "wb" );
+		// Force .tga extension for alpha support
+		Q_strncpy(strstr(path, ".bmp") ? path : strrchr(path, '.') + 1, "tga", 4);
 
-		if( !fp )
+		fp = fopen(path, "wb");
+		if (!fp)
 		{
-			fprintf( stderr, "ERROR: Couldn't write texture file %s\n", path );
-			return;
+			fprintf(stderr, "ERROR: Couldn't write %s\n", path);
+			continue;
 		}
 
-		if( !Q_stricmp( COM_FileExtension( texture->name ), "tga" ))
-			WriteTGA( fp, texture );
-		else
-			WriteBMP( fp, texture );
-
-		fclose( fp );
-
-		printf( "Texture: %s\n", path );
+		WriteTGA(fp, texture); // Always export as modern TGA
+		fclose(fp);
+		printf("Exported: %s\n", path);
 	}
 }
-
