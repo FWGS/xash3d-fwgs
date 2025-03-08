@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Goldgen Engine Official Website</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Global Styles */
+    :root {
+      --hl-orange: #ff7800;
+      --hl-orange-light: #ff9e40;
+      --hl-dark: #1a1a14;
+      --hl-gray: #2d2d2a;
+      --hl-light-gray: #3e3e3a;
+      --hl-blue: #527294;
+      --hl-cyan: #43c6db;
+      --hl-text: #e6e6e6;
+      --shadow: 0 4px 8px rgba(0,0,0,0.5);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: var(--hl-dark);
+      color: var(--hl-text);
+      line-height: 1.6;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4" viewBox="0 0 4 4"><path fill="%232d2d2a" d="M1 3h1v1H1V3zm2-2h1v1H3V1z"/></svg>');
+      background-attachment: fixed;
+    }
+    
+    a {
+      color: var(--hl-cyan);
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    
+    a:hover {
+      color: var(--hl-orange);
+    }
+    
+    /* Header Styles */
+    header {
+      background: linear-gradient(180deg, var(--hl-gray) 0%, var(--hl-dark) 100%);
+      border-bottom: 2px solid var(--hl-orange);
+      padding: 30px 20px;
+      text-align: center;
+      position: relative;
+    }
+    
+    .header-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 30px;
+      max-width: 1200px;
+      margin: 0 auto;
+      align-items: center;
+    }
+    
+    @media (min-width: 768px) {
+      .header-grid {
+        grid-template-columns: auto 1fr;
+        text-align: left;
+      }
+    }
+    
+    .logo-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    @media (min-width: 768px) {
+      .logo-container {
+        align-items: flex-start;
+      }
+    }
+    
+    .logo-badge {
+      background: var(--hl-gray);
+      border: 2px solid var(--hl-orange);
+      border-radius: 50%;
+      width: 120px;
+      height: 120px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .logo-badge::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(255,120,0,0.2) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    
+    .lambda {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 60px;
+      color: var(--hl-orange);
+      text-shadow: 0 0 10px rgba(255,120,0,0.6);
+    }
+    
+    header h1 {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 3em;
+      font-weight: 700;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--hl-orange);
+      position: relative;
+      display: inline-block;
+    }
+    
+    header h1::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -5px;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--hl-orange-light), transparent);
+    }
+    
+    header p {
+      font-size: 1.2em;
+      opacity: 0.8;
+      max-width: 600px;
+      margin: 15px auto 0;
+    }
+    
+    @media (min-width: 768px) {
+      header p {
+        margin: 15px 0 0;
+      }
+    }
+    
+    /* Navigation Styles */
+    nav {
+      background: var(--hl-gray);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      border-bottom: 1px solid var(--hl-orange);
+    }
+    
+    nav ul {
+      list-style: none;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    @media (min-width: 768px) {
+      nav ul {
+        flex-direction: row;
+        justify-content: center;
+      }
+    }
+    
+    nav li {
+      margin: 5px 0;
+      width: 100%;
+      text-align: center;
+    }
+    
+    @media (min-width: 768px) {
+      nav li {
+        margin: 0;
+        width: auto;
+      }
+    }
+    
+    nav a {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      font-size: 1.1em;
+      color: var(--hl-text);
+      display: block;
+      padding: 15px 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    nav a::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background: var(--hl-orange);
+      transition: all 0.3s ease;
+    }
+    
+    nav a:hover {
+      color: var(--hl-orange);
+      background-color: rgba(255, 120, 0, 0.1);
+    }
+    
+    nav a:hover::after {
+      width: 80%;
+      left: 10%;
+    }
+    
+    nav i {
+      margin-right: 5px;
+      color: var(--hl-orange);
+    }
+    
+    /* Main Content Styles */
+    main {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    
+    section {
+      background: var(--hl-gray);
+      padding: 30px;
+      margin-bottom: 40px;
+      border-radius: 4px;
+      border-left: 3px solid var(--hl-orange);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background: linear-gradient(135deg, transparent 50%, rgba(255,120,0,0.1) 50%);
+      pointer-events: none;
+    }
+    
+    section h2 {
+      font-family: 'Rajdhani', sans-serif;
+      color: var(--hl-orange);
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--hl-light-gray);
+      position: relative;
+    }
+    
+    section h2::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100px;
+      height: 1px;
+      background: var(--hl-orange);
+    }
+    
+    section h2 i {
+      margin-right: 10px;
+      background: var(--hl-orange);
+      color: var(--hl-dark);
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 0.8em;
+    }
+    
+    section h3 {
+      font-family: 'Rajdhani', sans-serif;
+      color: var(--hl-cyan);
+      margin: 25px 0 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+    }
+    
+    section h3 i {
+      margin-right: 10px;
+      color: var(--hl-orange);
+    }
+    
+    ul {
+      list-style: none;
+      margin: 20px 0;
+    }
+    
+    li {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: flex-start;
+      position: relative;
+      padding-left: 30px;
+    }
+    
+    li i {
+      position: absolute;
+      left: 0;
+      top: 4px;
+      color: var(--hl-orange);
+    }
+    
+    li strong {
+      color: var(--hl-cyan);
+      margin-right: 5px;
+    }
+    
+    blockquote {
+      background: var(--hl-light-gray);
+      padding: 20px 25px;
+      border-left: 5px solid var(--hl-orange);
+      margin: 20px 0;
+      font-style: italic;
+      border-radius: 0 4px 4px 0;
+      position: relative;
+    }
+    
+    blockquote::before {
+      content: '\201C';
+      font-size: 60px;
+      position: absolute;
+      left: 10px;
+      top: 0;
+      color: rgba(255, 120, 0, 0.3);
+      font-family: 'Georgia', serif;
+    }
+    
+    blockquote p strong {
+      color: var(--hl-orange);
+    }
+    
+    hr {
+      border: none;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--hl-light-gray), transparent);
+      margin: 40px 0;
+      position: relative;
+    }
+    
+    hr::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: calc(50% - 4px);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--hl-orange);
+      box-shadow: 0 0 10px var(--hl-orange);
+    }
+    
+    /* Code styling */
+    code {
+      font-family: 'Courier New', monospace;
+      background: rgba(67, 198, 219, 0.1);
+      color: var(--hl-cyan);
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+    
+    /* Footer Styles */
+    footer {
+      background: linear-gradient(0deg, var(--hl-gray) 0%, var(--hl-dark) 100%);
+      color: var(--hl-text);
+      text-align: center;
+      padding: 25px 10px;
+      font-size: 0.95em;
+      border-top: 2px solid var(--hl-orange);
+      position: relative;
+    }
+    
+    footer::before {
+      content: '';
+      position: absolute;
+      top: -5px;
+      left: calc(50% - 2.5px);
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--hl-orange);
+      box-shadow: 0 0 5px var(--hl-orange);
+    }
+    
+    footer a {
+      color: var(--hl-cyan);
+      font-weight: 700;
+      transition: color 0.3s ease;
+    }
+    
+    footer a:hover {
+      color: var(--hl-orange);
+    }
+    
+    .footer-lambda {
+      color: var(--hl-orange);
+      font-size: 1.2em;
+      margin: 0 5px;
+      vertical-align: middle;
+    }
+    
+    /* Responsive fixes */
+    @media (max-width: 600px) {
+      header h1 {
+        font-size: 2em;
+      }
+      
+      .logo-badge {
+        width: 100px;
+        height: 100px;
+      }
+      
+      .lambda {
+        font-size: 50px;
+      }
+      
+      section {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-grid">
+      <div class="logo-container">
+        <div class="logo-badge">
+          <span class="lambda">λ</span>
+        </div>
+      </div>
+      <div>
+        <h1>Goldgen Engine</h1>
+        <p>A next-generation GoldSource engine fork built for modern gaming while preserving classic gameplay.</p>
+      </div>
+    </div>
+  </header>
+  
+  <nav>
+    <ul>
+      <li><a href="#attribution"><i class="fas fa-info-circle"></i> Attribution</a></li>
+      <li><a href="#prototype"><i class="fas fa-cogs"></i> Prototype</a></li>
+      <li><a href="#qa"><i class="fas fa-question-circle"></i> Q&A</a></li>
+      <li><a href="#license"><i class="fas fa-file-alt"></i> License</a></li>
+    </ul>
+  </nav>
+  
+  <main>
+    <section id="attribution">
+      <h2><i class="fas fa-info-circle"></i> Attribution Details</h2>
+      <ul>
+        <li><i class="fas fa-heading"></i> <strong>Title of Work:</strong> Goldgen Engine</li>
+        <li><i class="fas fa-user"></i> <strong>Creator:</strong> Bogussa Ibrahim</li>
+        <li><i class="fas fa-link"></i> <strong>Link to Work:</strong> <a href="https://github.com/Ibra66f/Goldgen">GitHub Repository</a></li>
+        <li><i class="fas fa-user-circle"></i> <strong>Creator Profile:</strong> <a href="https://github.com/Ibra66f">Bogussa Ibrahim</a></li>
+        <li><i class="fas fa-calendar-alt"></i> <strong>Year of Creation:</strong> 2025</li>
+      </ul>
+      <blockquote>
+        <p><strong>Goldgen</strong> is a fork of the Xash3D FWGS engine, a reimplementation of the GoldSource game engine. Building on this foundation, Goldgen aims to enhance and modernize the GoldSource experience while maintaining compatibility with its classic games.<br>
+        If you find this project helpful, please credit me (Ibra) and the engine in your work.</p>
+      </blockquote>
+    </section>
+    
+    <hr>
+    
+    <section id="prototype">
+      <h2><i class="fas fa-cogs"></i> GoldSource Engine Enhancement Prototype</h2>
+      <p>A next-generation fork of the Xash3D FWGS engine, designed to enhance and modernize the GoldSource game engine with new features, optimizations, and potential support for advanced rendering techniques.</p>
+      <p>For more information on related technology, see:</p>
+      <ul>
+        <li><i class="fas fa-book"></i> <strong>GoldSrc Documentation:</strong> <a href="https://developer.valvesoftware.com/wiki/GoldSrc">GoldSrc on Valve Developer Community</a></li>
+        <li><i class="fas fa-code"></i> <strong>Xash3D FWGS:</strong> <a href="https://github.com/FWGS/xash3d-fwgs">Xash3D FWGS on GitHub</a></li>
+      </ul>
+    </section>
+    
+    <hr>
+    
+    <section id="qa">
+      <h2><i class="fas fa-question-circle"></i> Extended Q&A</h2>
+      <h3><i class="fas fa-info"></i> Q: What is this project?</h3>
+      <p><strong>A:</strong> Goldgen is a fork of the Xash3D FWGS engine, which reimplements the GoldSource game engine originally derived from Quake. It aims to improve upon its predecessor with modern enhancements while staying true to the GoldSource legacy.</p>
+      
+      <h3><i class="fas fa-search"></i> Q: How different is Goldgen from the original Xash3D FWGS?</h3>
+      <p><strong>A:</strong> Goldgen builds on Xash3D FWGS by introducing new features, performance optimizations, and potentially modern rendering capabilities, all while maintaining compatibility with GoldSource games like Half-Life.</p>
+      
+      <h3><i class="fas fa-laptop"></i> Q: Which operating systems are supported?</h3>
+      <p><strong>A:</strong> Goldgen supports Windows, Linux, and possibly other platforms inherited from Xash3D FWGS. Check the project's GitHub for the latest compatibility details, and contributions to expand OS support are welcome!</p>
+      
+      <h3><i class="fas fa-paint-brush"></i> Q: Will the engine support newer rendering APIs like Vulkan or DirectX 11+?</h3>
+      <p><strong>A:</strong> Goldgen plans to explore support for modern rendering APIs like Vulkan to boost performance and visual quality. These features are in development, and community input or contributions are encouraged.</p>
+      
+      <h3><i class="fas fa-hands-helping"></i> Q: How can I contribute?</h3>
+      <p><strong>A:</strong> We'd love your help! You can contribute by submitting pull requests, reporting bugs, or suggesting ideas. Please see the contribution guidelines on the Goldgen GitHub repository for more details.</p>
+      
+      <h3><i class="fas fa-book-open"></i> Q: Is there any official documentation on how to build this engine?</h3>
+      <p><strong>A:</strong> Build instructions and documentation are being developed and will soon be available in the <code>/Docs</code> directory of the repository. Watch for updates as the project progresses!</p>
+      
+      <h3><i class="fas fa-comments"></i> Q: I have more questions or want to discuss ideas. Where can I go?</h3>
+      <p><strong>A:</strong> Head over to the GitHub Issues and Discussions sections of the Goldgen repository. We're open to questions, feedback, and collaboration—feel free to reach out!</p>
+    </section>
+    
+    <hr>
+    
+    <section id="license">
+      <h2><i class="fas fa-file-alt"></i> License</h2>
+      <p>License Information: MIT License</p>
+      <p>© 2025 Bogussa Ibrahim</p>
+    </section>
+  </main>
+  
+  <footer>
+    <p>© 2025 Bogussa Ibrahim | <a href="https://github.com/Ibra66f/Goldgen">Goldgen Engine</a> | <span class="footer-lambda">λ</span> Powered by Passion</p>
+  </footer>
+</body>
+</html>
