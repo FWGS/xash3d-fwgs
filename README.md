@@ -168,13 +168,20 @@ Goldgen was created to build upon the solid foundation of Xash3D FWGS, leveragin
 
 - **Alpha Channel:**
   - Currently hardcoded to 255 (opaque). To support transparency, modify the palette loading logic.
-
+---
 
 <br>
 <br>
 <br>
 
 
+#### add dlls folder & Ai
+
+<br>
+<br>
+<br>
+
+---
 #### MenuStrings.cpp Update
 
 **Key Enhancements:**
