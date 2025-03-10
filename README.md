@@ -1,193 +1,139 @@
 
-
 # Goldgen Engine 🚀
 
-![engine](game-engine.png "a title")
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub release](https://img.shields.io/github/release/Ibra66f/Goldgen.svg)](https://github.com/Ibra66f/Goldgen/releases)
 
-**Attribution Details:**  
+![Goldgen Engine](game-engine.png "Goldgen Engine Screenshot")
+
+## Table of Contents
+- [Introduction](#introduction)
+- [Project Overview](#project-overview)
+- [Key Features](#key-features)
+- [Supported Operating Systems](#supported-operating-systems)
+- [Modern Rendering APIs](#modern-rendering-apis)
+- [Contribution Guidelines](#contribution-guidelines)
+- [Documentation & Build Instructions](#documentation--build-instructions)
+- [Changelog](#changelog)
+- [License](#license)
+
+## Introduction
+
+**Goldgen Engine** is a next-generation fork of the Xash3D FWGS engine, designed to modernize and enhance the classic GoldSource game engine. Building on a robust foundation, Goldgen aims to improve performance, add modern rendering capabilities, and maintain backward compatibility with legacy games.
+
+## Project Overview
+
 - **Title of Work:** Goldgen Engine  
-- **Creator:** Bogussa Ibrahim  
-- **Link to Work:** [https://github.com/Ibra66f/Goldgen](https://github.com/Ibra66f/Goldgen)  
-- **Creator Profile:** [https://github.com/Ibra66f](https://github.com/Ibra66f)  
-- **Year of Creation:** 2025  
+- **Creator:** [Bogussa Ibrahim](https://github.com/Ibra66f)  
+- **GitHub Repository:** [Goldgen](https://github.com/Ibra66f/Goldgen)  
+- **Year of Creation:** 2025
 
-> **Goldgen** is a fork of the Xash3D FWGS engine, a reimplementation of the GoldSource game engine. Building on this robust foundation, Goldgen aims to enhance and modernize the GoldSource experience while preserving compatibility with its classic games.  
-> If you find this project helpful, please credit me (Ibra) and the engine in your work. 🙏
+> **Goldgen** is a fork of the Xash3D FWGS engine, reimagined with modern enhancements while preserving compatibility with classic GoldSource titles. If you find this project useful, please credit the author and the engine in your work.
 
----
-
-## GoldSource Engine Enhancement Prototype 🎮
-
-A next-generation fork of the Xash3D FWGS engine, designed to enhance and modernize the GoldSource game engine with new features, optimizations, and potential support for advanced rendering techniques.
-
-For more information on related technology, see:  
-- [GoldSrc on Valve Developer Community](https://developer.valvesoftware.com/wiki/GoldSrc)  
+For additional context, check out:
+- [GoldSrc on Valve Developer Community](https://developer.valvesoftware.com/wiki/GoldSrc)
 - [Xash3D FWGS on GitHub](https://github.com/FWGS/xash3d-fwgs)
 
----
+## Key Features
 
-## Extended Q&A ❓
+### GoldSource Engine Enhancement Prototype 🎮
 
-### Q: What is this project? 🤔  
-**A:** Goldgen is a fork of the Xash3D FWGS engine, which reimplements the GoldSource game engine originally derived from Quake. It aims to improve upon its predecessor with modern enhancements while staying true to the GoldSource legacy.
+- **Modern Enhancements:**
+  - New features and performance optimizations.
+  - Future support for advanced rendering techniques like Vulkan.
 
----
-
-### Q: How different is Goldgen from the original Xash3D FWGS? 🔍  
-**A:** Goldgen builds on Xash3D FWGS by introducing new features, performance optimizations, and potentially modern rendering capabilities, all while maintaining compatibility with GoldSource games like Half-Life.
-
----
-
-### Q: Which operating systems are supported? 💻  
-**A:** Goldgen supports Windows, Linux, and possibly other platforms inherited from Xash3D FWGS. Check the project's GitHub for the latest compatibility details, and contributions to expand OS support are welcome!
-
----
-
-### Q: Will the engine support newer rendering APIs like Vulkan or DirectX 11+? 🎨  
-**A:** Goldgen plans to explore support for modern rendering APIs like Vulkan to boost performance and visual quality. These features are in development, and community input or contributions are encouraged.
-
----
-
-### Q: How can I contribute? 🤝  
-**A:** We’d love your help! You can contribute by submitting pull requests, reporting bugs, or suggesting ideas. Please see the contribution guidelines on the Goldgen GitHub repository for more details.
-
----
-
-### Q: Is there any official documentation on how to build this engine? 📚  
-**A:** Build instructions and documentation are being developed and will soon be available in the `/Docs` directory of the repository. Watch for updates as the project progresses!
-
----
-
-### Q: I have more questions or want to discuss ideas. Where can I go? 💬  
-**A:** Head over to the GitHub Issues and Discussions sections of the Goldgen repository. We’re open to questions, feedback, and collaboration—feel free to reach out!
-
----
-
-## Why Goldgen?  
-Goldgen was created to build upon the solid foundation of Xash3D FWGS, leveraging its compatibility with GoldSource games and its active community while introducing improvements tailored for modern use cases. This fork represents a step forward in keeping the GoldSource legacy alive and relevant.
-
----
-
-## Updates
-
-### 08 March 2025
-
-**Key Improvements & Compatibility:**
-
-- **4K Resolution Support:**
-  - Uses fixed-size buffers (`row[4096 * 3]`, `rgba[4096 * 4]`) to handle up to 4096-pixel widths.
-  - Maintains `int` for dimensions (supports 32-bit sizes).
+- **High-Resolution Support:**
+  - Fixed-size buffers (`row[4096 * 3]`, `rgba[4096 * 4]`) for up to 4096-pixel widths.
+  - Maintains 32-bit dimensions using `int`.
 
 - **Truecolor Output:**
-  - **BMP:** Converts 8-bit indexed textures to 24-bit BGR (palette expanded).
-  - **TGA:** Outputs 32-bit RGBA (alpha channel set to 255 for full opacity).
+  - **BMP:** Converts 8-bit indexed textures to 24-bit BGR.
+  - **TGA:** Outputs 32-bit RGBA (with an alpha channel set to 255 for full opacity).
 
 - **Backward Compatibility:**
-  - Retains palette-based source data handling (doesn’t break existing .MDL files).
-  - Forces `.tga` output for modern workflows while preserving legacy texture extraction logic.
+  - Retains palette-based source data handling, ensuring compatibility with legacy .MDL files.
+  - Default `.tga` output with an option to modify for BMP use.
 
-- **Xash3D Safety:**
-  - No changes to memory layout of `texture_hdr` or `mstudiotexture_t`.
-  - Uses engine’s Q_ functions (`Q_snprintf`, `Q_strncpy`) for path safety.
+- **Performance & Safety:**
+  - Utilizes stack-allocated buffers for speed; dynamic allocation for textures over 4K.
+  - Uses secure file operations (`Q_snprintf`, `Q_strncpy`) to ensure path safety.
 
-- **Usage:**
-  - Export Textures: Textures are saved as 32-bit `.tga` by default (supports alpha if later added).
-  - To use BMP, modify the `WriteTextures` function to retain `.bmp` extensions.
+### MenuStrings.cpp Update
 
-- **Performance:**
-  - Buffers are stack-allocated for speed. For textures >4K, switch to dynamic allocation.
+- **Memory Safety:**  
+  Implements RAII with `LocalizedString` and smart pointers for file buffers.
 
-- **Alpha Channel:**
-  - Currently hardcoded to 255 (opaque). To support transparency, modify the palette loading logic.
----
+- **Encoding Support:**  
+  Modular encoding detection with UTF-16LE to UTF-8 conversion and CP1251 integration.
 
-<br>
-<br>
-<br>
+- **Performance:**  
+  Employs an LRU caching strategy, bulk parsing via a state machine, and direct memory mapping.
+
+- **Error Handling & Compatibility:**  
+  Detects missing strings, falls back to English if needed, and preserves original string IDs and file formats.
+
+#### Example: Reloading Localization
+
+```cpp
+// Reload localization via console command
+void ReloadLocalization() {
+    UI_ShutdownLocalization(); // Clean up current localization resources
+    UI_InitLocalization();     // Reinitialize localization with updated settings
+}
+```
+
+## Supported Operating Systems
+
+Goldgen Engine currently supports:
+- **Windows**
+- **Linux**
+- Additional platforms may be supported through community contributions.
+
+## Modern Rendering APIs
+
+Goldgen is exploring support for modern rendering APIs to boost performance and visual quality:
+- **Vulkan:** Early file structure and support in development.
 
 
-#### add dlls folder & Ai
+Community input and contributions are welcomed to drive these enhancements.
 
-<br>
-<br>
-<br>
+## Contribution Guidelines
 
----
-#### MenuStrings.cpp Update
+We encourage community contributions. Here’s how you can help:
+- **Submit Pull Requests:** Add features, improve performance, or fix bugs.
+- **Report Issues:** Use the GitHub Issues section to report bugs or request enhancements.
+- **Discuss Ideas:** Join the GitHub Discussions to share feedback and brainstorm new features.
 
-**Key Enhancements:**
+For detailed contribution guidelines, please refer to the [CONTRIBUTING.md](https://github.com/Ibra66f/Goldgen/blob/main/CONTRIBUTING.md) file in the repository.
 
-- **Memory Safety:**
-  - Utilizes the RAII pattern with `LocalizedString`.
-  - Implements smart pointers for file buffers.
-  - Provides automatic cache cleanup.
+## Documentation & Build Instructions
 
-- **Encoding Support:**
-  - Modular encoding detection.
-  - UTF-16LE to UTF-8 conversion.
-  - CP1251 conversion table integration.
+- **Documentation:**  
+  Build instructions and additional documentation are being developed and will soon be available in the `/Docs` directory.
 
-- **Performance:**
-  - LRU caching strategy.
-  - Bulk parsing using a state machine.
-  - Direct memory mapping for faster file access.
+Stay updated as the project evolves!
 
-- **Compatibility:**
-  - Maintains original string IDs.
-  - Uses engine file operations.
-  - Preserves Xash3D console integration.
+## Changelog
 
-- **Error Handling:**
-  - Detects missing strings.
-  - Fallback to English if needed.
-  - Diagnostic logging for troubleshooting.
+### 10 March 2025
+- Added initial Vulkan file structure for early VK support.
 
-**Usage Examples:**
+### 08 March 2025
+- **4K Resolution Support:** Updated fixed-size buffers and truecolor output.
+- **Backward Compatibility:** Ensured legacy formats remain supported.
+- **Performance Enhancements:** Implemented stack-allocated buffers for improved speed.
+- **MenuStrings.cpp Enhancements:** Added memory safety improvements, encoding support, and diagnostic logging.
 
-- **Basic Localization in Code:**
+## License
 
-  ```cpp
-  // In menu code
-  EngFuncs::DrawText(L("#MAIN_QUIT"), x, y);
-  ```
-
-- **Reload Languages via Console Command:**
-
-  ```cpp
-  // Console command
-  void ReloadLocalization() {
-      UI_ShutdownLocalization();
-      UI_InitLocalization();
-  }
-  ```
-
-**Compatibility Notes:**
-
-- Retains original:
-  - `L()` macro behavior.
-  - String ID numbering.
-  - File formats (.txt, .lst) and CP1251 conversion requirements.
-  
-- Adds:
-  - UTF-8/UTF-16 support.
-  - Memory safety improvements.
-  - Better error recovery.
-  - Diagnostic tools.
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-Thank you for your interest in Goldgen Engine! 🎉
+Thank you for your interest in Goldgen Engine!  
+Created by **Bogussa Ibrahim (2025)
 
-**License Information:** MIT License
+For more details, visit the [GitHub Repository](https://github.com/Ibra66f/Goldgen).
 
-Created by 2025 Bogussa Ibrahim 🔗
 
 ---
-
-
-Thank you for your interest in Goldgen Engine! 🎉
-
-License Information: MIT License
-
-
-created by 2025 Bogussa Ibrahim 🔗
