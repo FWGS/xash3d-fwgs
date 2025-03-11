@@ -326,8 +326,12 @@ typedef struct
 	pfnEventHook	func;	// user-defined function
 } cl_user_event_t;
 
-#define FONT_FIXED      0
-#define FONT_VARIABLE   1
+enum
+{
+	FONT_FIXED,
+	FONT_VARIABLE,
+	FONT_TRUETYPE
+};
 
 #define FONT_DRAW_HUD      BIT( 0 ) // pass to drawing function to apply hud_scale
 #define FONT_DRAW_UTF8     BIT( 1 ) // call UtfProcessChar
@@ -807,11 +811,12 @@ qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float sc
 qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags );
 void CL_FreeFont( cl_font_t *font );
 void CL_SetFontRendermode( cl_font_t *font );
-int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_t *font, int flags );
-int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags );
-void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height );
-void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, int flags );
-int CL_DrawStringf( cl_font_t *font, float x, float y, const rgba_t color, int flags, const char *fmt, ... ) FORMAT_CHECK( 6 );
+int CL_DrawCharacter( float x, float y, uint32_t uc, const rgba_t color, const cl_font_t *font, int flags );
+void CL_DrawCharacterLen( const cl_font_t *font, uint32_t uc, int *width, int *height );
+
+int CL_DrawString( float x, float y, const char *s, const rgba_t color, const cl_font_t *font, int flags );
+int CL_DrawStringf( const cl_font_t *font, float x, float y, const rgba_t color, int flags, const char *fmt, ... ) FORMAT_CHECK( 6 );
+void CL_DrawStringLen( const cl_font_t *font, const char *s, int *width, int *height, int flags );
 
 
 //
@@ -1090,6 +1095,7 @@ void CL_ReadLineFile_f( void );
 // console.c
 //
 extern convar_t con_fontsize;
+extern int g_codepage;
 int Con_Visible( void );
 qboolean Con_FixedFont( void );
 void Con_VidInit( void );

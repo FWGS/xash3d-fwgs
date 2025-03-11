@@ -13,10 +13,12 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <ctype.h>
 #include "common.h"
 #include "filesystem.h"
 #include "client.h"
 #include "qfont.h"
+#include "utflib.h"
 
 qboolean CL_FixedFont( cl_font_t *font )
 {
@@ -173,31 +175,27 @@ static int CL_CalcTabStop( const cl_font_t *font, int x )
 	return stop;
 }
 
-int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_t *font, int flags )
+static int CL_DrawBitmapCharacter( float x, float y, uint32_t uc, const rgba_t color, const cl_font_t *font, int flags )
 {
 	wrect_t *rc;
 	float w, h;
 	float s1, t1, s2, t2, half = 0.5f;
 	int texw, texh;
+	uint32_t number;
 
-	if( !font || !font->valid || y < -font->charHeight )
+	// bitmap fonts need conversion. Do this and validate the result
+	if( g_codepage == 1251 )
+		number = Q_UnicodeToCP1251( uc );
+	else if( g_codepage == 1252 )
+		number = Q_UnicodeToCP1252( uc );
+	else
+		number = uc;
+
+	if( !number || number >= ARRAYSIZE( font->charWidths ))
 		return 0;
 
-	// check if printable
-	if( number <= 32 )
-	{
-		if( number == ' ' )
-			return font->charWidths[' '];
-		else if( number == '\t' )
-			return CL_CalcTabStop( font, x );
-		return 0;
-	}
-
-	if( FBitSet( flags, FONT_DRAW_UTF8 ))
-		number = Con_UtfProcessChar( number & 255 );
-	else number &= 255;
-
-	if( !number || !font->charWidths[number])
+	// start rendering
+	if( !font->charWidths[number] )
 		return 0;
 
 	R_GetTextureParms( &texw, &texh, font->hFontTexture );
@@ -231,29 +229,60 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 	return font->charWidths[number];
 }
 
-int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags )
+static int CL_DrawTrueTypeCharacter( float x, float y, uint32_t uc, const rgba_t color, cl_font_t *font, int flags )
+{
+	// stub
+	return 0;
+}
+
+int CL_DrawCharacter( float x, float y, uint32_t uc, const rgba_t color, const cl_font_t *font, int flags )
+{
+	if( !font || !font->valid || y < -font->charHeight )
+		return 0;
+
+	// check if printable
+	if( uc <= 32 )
+	{
+		if( uc == ' ' )
+			return font->charWidths[' '];
+		else if( uc == '\t' )
+			return CL_CalcTabStop( font, x );
+		return 0;
+	}
+
+	if( font->type == FONT_TRUETYPE )
+		return CL_DrawTrueTypeCharacter( x, y, uc, color, font, flags );
+
+	return CL_DrawBitmapCharacter( x, y, uc, color, font, flags );
+}
+
+int CL_DrawString( float x, float y, const char *s, const rgba_t color, const cl_font_t *font, int flags )
 {
 	rgba_t current_color;
 	int draw_len = 0;
+	utfstate_t utfstate = { 0 };
 
 	if( !font || !font->valid )
 		return 0;
-
-	if( FBitSet( flags, FONT_DRAW_UTF8 ))
-		Con_UtfProcessChar( 0 ); // clear utf state
 
 	if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ))
 		CL_SetFontRendermode( font );
 
 	Vector4Copy( color, current_color );
 
-	while( *s )
+	for( ; *s; s++ )
 	{
-		if( *s == '\n' )
-		{
-			s++;
+		uint32_t uc = (byte)*s;
 
-			if( !*s )
+		if( FBitSet( flags, FONT_DRAW_UTF8 ))
+			uc = Q_DecodeUTF8( &utfstate, uc );
+
+		if( !uc )
+			continue;
+
+		if( uc == '\n' )
+		{
+			if( !s[1] ) // ignore newline at end of string if next
 				break;
 
 			// some client functions ignore newlines
@@ -264,30 +293,29 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 			}
 
 			if( FBitSet( flags, FONT_DRAW_RESETCOLORONLF ))
-				 Vector4Copy( color, current_color );
+				Vector4Copy( color, current_color );
+
 			continue;
 		}
 
-		if( IsColorString( s ))
+		// check for colorstrings
+		if( uc == '^' && isdigit( s[1] ))
 		{
-			// don't copy alpha
 			if( !FBitSet( flags, FONT_DRAW_FORCECOL ))
-				VectorCopy( g_color_table[ColorIndex(*( s + 1 ))], current_color );
+				VectorCopy( g_color_table[ColorIndex( s[1] )], current_color );
 
-			s += 2;
+			s++;
 			continue;
 		}
 
 		// skip setting rendermode, it was changed for this string already
-		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, current_color, font, flags | FONT_DRAW_NORENDERMODE );
-
-		s++;
+		draw_len += CL_DrawCharacter( x + draw_len, y, uc, current_color, font, flags | FONT_DRAW_NORENDERMODE );
 	}
 
 	return draw_len;
 }
 
-int CL_DrawStringf( cl_font_t *font, float x, float y, const rgba_t color, int flags, const char *fmt, ... )
+int CL_DrawStringf( const cl_font_t *font, float x, float y, const rgba_t color, int flags, const char *fmt, ... )
 {
 	va_list va;
 	char buf[MAX_VA_STRING];
@@ -299,20 +327,63 @@ int CL_DrawStringf( cl_font_t *font, float x, float y, const rgba_t color, int f
 	return CL_DrawString( x, y, buf, color, font, flags );
 }
 
-void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height )
+static int CL_DrawBitmapCharacterLen( const cl_font_t *font, uint32_t uc )
 {
-	if( !font || !font->valid ) return;
-	if( width )
-	{
-		if( number == '\t' )
-			*width = CL_CalcTabStop( font, 0 ); // at least return max tabstop
-		else *width = font->charWidths[number & 255];
-	}
-	if( height ) *height = font->charHeight;
+	int number;
+
+	if( g_codepage == 1251 )
+		number = Q_UnicodeToCP1251( uc );
+	else if( g_codepage == 1252 )
+		number = Q_UnicodeToCP1252( uc );
+	else
+		number = uc;
+
+	if( !number || number >= ARRAYSIZE( font->charWidths ))
+		return 0;
+
+	return font->charWidths[number];
 }
 
-void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, int flags )
+static int CL_DrawTrueTypeCharacterLen( const cl_font_t *font, uint32_t uc )
 {
+	// stub
+	return 0;
+}
+
+void CL_DrawCharacterLen( const cl_font_t *font, uint32_t uc, int *width, int *height )
+{
+	if( !font || !font->valid )
+		return;
+
+	if( height )
+		*height = font->charHeight;
+
+	if( width )
+	{
+		// basically matches logic of CL_DrawCharacter
+		if( uc <= 32 )
+		{
+			if( uc == ' ' )
+				*width = font->charWidths[' '];
+			else if( uc == '\t' )
+				*width = CL_CalcTabStop( font, 0 ); // at least return max tabstop
+			else
+				*width = 0;
+		}
+		else if( font->type == FONT_TRUETYPE )
+		{
+			*width = CL_DrawTrueTypeCharacterLen( font, uc );
+		}
+		else
+		{
+			*width = CL_DrawBitmapCharacterLen( font, uc );
+		}
+	}
+}
+
+void CL_DrawStringLen( const cl_font_t *font, const char *s, int *width, int *height, int flags )
+{
+	utfstate_t utfstate = { 0 };
 	int draw_len = 0;
 
 	if( !font || !font->valid )
@@ -327,54 +398,45 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 	if( !COM_CheckString( s ))
 		return;
 
-	if( FBitSet( flags, FONT_DRAW_UTF8 ))
-		Con_UtfProcessChar( 0 ); // reset utf state
-
-	while( *s )
+	for( ; *s; s++ )
 	{
-		int number;
+		uint32_t uc = (byte)*s;
+		int char_width = 0;
 
-		if( *s == '\n' )
+		if( FBitSet( flags, FONT_DRAW_UTF8 ))
+			uc = Q_DecodeUTF8( &utfstate, uc );
+
+		if( !uc )
+			continue;
+
+		if( uc == '\n' )
 		{
 			// BUG: no check for end string here
 			// but high chances somebody's relying on this
-			s++;
 			draw_len = 0;
+
+			// some client functions ignore newlines
 			if( !FBitSet( flags, FONT_DRAW_NOLF ))
 			{
 				if( height )
 					*height += font->charHeight;
 			}
-			continue;
 		}
-		else if( *s == '\t' )
+
+		// check for colorstrings
+		if( uc == '^' && isdigit( s[1] ))
 		{
-			draw_len += CL_CalcTabStop( font, 0 ); // at least return max tabstop
 			s++;
 			continue;
 		}
 
-		if( IsColorString( s ))
+		CL_DrawCharacterLen( font, uc, &char_width, NULL );
+		draw_len += char_width;
+
+		if( width )
 		{
-			s += 2;
-			continue;
+			if( *width < draw_len )
+				*width = draw_len;
 		}
-
-		if( FBitSet( flags, FONT_DRAW_UTF8 ))
-			number = Con_UtfProcessChar( (byte)*s );
-		else number = (byte)*s;
-
-		if( number )
-		{
-			draw_len += font->charWidths[number];
-
-			if( width )
-			{
-				if( draw_len > *width )
-					*width = draw_len;
-			}
-		}
-
-		s++;
 	}
 }
