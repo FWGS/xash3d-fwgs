@@ -1324,10 +1324,21 @@ static int pfnIsCvarReadOnly( const char *name )
 	return FBitSet( cv->flags, FCVAR_READ_ONLY ) ? 1 : 0;
 }
 
+static int GAME_EXPORT pfnUtfProcessChar( int in )
+{
+	// compatibility export, deprecated, do not use
+
+	if( !cls.accept_utf8 ) // incoming character is not a UTF-8 sequence
+		return in;
+
+	// otherwise, decode it and convert to selected codepage
+	return Con_UtfProcessCharForce( in );
+}
+
 static ui_extendedfuncs_t gExtendedfuncs =
 {
 	pfnEnableTextInput,
-	Con_UtfProcessChar,
+	pfnUtfProcessChar,
 	Con_UtfMoveLeft,
 	Con_UtfMoveRight,
 	pfnGetRenderers,

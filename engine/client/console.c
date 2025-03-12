@@ -632,15 +632,6 @@ int Con_UtfProcessCharForce( int in )
 	return '?'; // not implemented yet
 }
 
-int GAME_EXPORT Con_UtfProcessChar( int in )
-{
-	if( !cls.accept_utf8 ) // incoming character is not a UTF-8 sequence
-		return in;
-
-	// otherwise, decode it and convert to selected codepage
-	return Con_UtfProcessCharForce( in );
-}
-
 /*
 =================
 Con_UtfMoveLeft
