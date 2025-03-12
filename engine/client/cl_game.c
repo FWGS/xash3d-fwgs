@@ -33,6 +33,7 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "sound.h"		// SND_STOP_LOOPING
 #include "platform/platform.h"
+#include "utflib.h"
 
 #define MAX_LINELENGTH	80
 #define MAX_TEXTCHANNELS	8		// must be power of two (GoldSrc uses 4 channels)
@@ -408,8 +409,10 @@ void CL_DrawCenterPrint( void )
 	char	*pText;
 	int	i, j, x, y;
 	int	width, lineLength;
-	byte	*colorDefault, line[MAX_LINELENGTH];
+	byte	*colorDefault;
+	uint32_t line[MAX_LINELENGTH];
 	int	charWidth, charHeight;
+	utfstate_t utfstate = { 0 };
 
 	if( !clgame.centerPrint.time )
 		return;
@@ -432,14 +435,19 @@ void CL_DrawCenterPrint( void )
 		lineLength = 0;
 		width = 0;
 
-		while( *pText && *pText != '\n' && lineLength < MAX_LINELENGTH )
+		for( ; *pText && *pText != '\n' && lineLength < MAX_LINELENGTH; pText++ )
 		{
 			byte c = *pText;
-			line[lineLength] = c;
-			CL_DrawCharacterLen( font, c, &charWidth, NULL );
+			uint32_t uc = Q_DecodeUTF8( &utfstate, c );
+
+			if( !uc )
+				continue;
+
+			line[lineLength] = uc;
+			CL_DrawCharacterLen( font, uc, &charWidth, NULL );
+
 			width += charWidth;
 			lineLength++;
-			pText++;
 		}
 
 		if( lineLength == MAX_LINELENGTH )
@@ -453,7 +461,7 @@ void CL_DrawCenterPrint( void )
 		for( j = 0; j < lineLength; j++ )
 		{
 			if( x >= 0 && y >= 0 && x <= refState.width )
-				x += CL_DrawCharacter( x, y, line[j], colorDefault, font, FONT_DRAW_UTF8 | FONT_DRAW_HUD | FONT_DRAW_NORENDERMODE );
+				x += CL_DrawCharacter( x, y, line[j], colorDefault, font, FONT_DRAW_HUD | FONT_DRAW_NORENDERMODE );
 		}
 		y += charHeight;
 	}
