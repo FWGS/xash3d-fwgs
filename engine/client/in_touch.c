@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "math.h"
 #include "vgui_draw.h"
 #include "mobility_int.h"
+#include "utflib.h"
 
 typedef enum
 {
@@ -1298,73 +1299,62 @@ static void IN_TouchCheckCoords( float *x1, float *y1, float *x2, float *y2  )
 	}
 }
 
-static float Touch_DrawCharacter( float x, float y, int number, float size )
+static void Touch_DrawText( float x1, float y1, float x2, float y2, const char *s, byte *color, float size )
 {
-	float s1, s2, t1, t2, width, height;
-	int w, h;
-	wrect_t *prc;
+	float minx, maxy, maxx;
+	const float scale = TO_SCRN_X( size / 1024.0f );
+	const float backup_scale = cls.creditsFont.scale;
+	utfstate_t utfstate = { 0 };
+	rgba_t current_color;
 
 	if( !cls.creditsFont.valid )
-		return 0;
+		return;
 
-	number &= 255;
-	number = Con_UtfProcessChar( number );
+	x1 = TO_SCRN_X( x1 );
+	y1 = TO_SCRN_Y( y1 );
+	x2 = TO_SCRN_X( x2 );
+	y2 = TO_SCRN_Y( y2 );
 
-	if( !number )
-		return 0;
-
-	R_GetTextureParms( &w, &h, cls.creditsFont.hFontTexture );
-	prc = &cls.creditsFont.fontRc[number];
-
-	s1 = prc->left / (float)w;
-	t1 = prc->top / (float)h;
-	s2 = prc->right / (float)w;
-	t2 = prc->bottom / (float)h;
-
-	width = ( prc->right - prc->left ) / 1024.0f * size;
-	height = ( prc->bottom - prc->top ) / 1024.0f * size;
-
-	ref.dllFuncs.R_DrawStretchPic( TO_SCRN_X( x ), TO_SCRN_Y( y ), TO_SCRN_X( width ), TO_SCRN_X( height ),
-		s1, t1, s2, t2, cls.creditsFont.hFontTexture );
-
-	return width;
-}
-
-static float Touch_DrawText( float x1, float y1, float x2, float y2, const char *s, byte *color, float size )
-{
-	float x = x1;
-	float maxy = y2;
-	float maxx;
-	float alpha = color[3] / 255.0f;
+	minx = x1;
+	maxy = y2;
 
 	if( x2 )
-		maxx = x2 - cls.creditsFont.charWidths['M'] / 1024.0f * size;
+		maxx = x2 - cls.creditsFont.charWidths['M'] * scale;
 	else
 		maxx = 1;
 
-	if( !cls.creditsFont.valid )
-		return GRID_X * 2;
-
-	Con_UtfProcessChar( 0 );
-	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+	cls.creditsFont.scale = scale;
 
 	// text is additive and alpha does not work
-	ref.dllFuncs.Color4ub( color[0] * alpha, color[1] * alpha, color[2] * alpha, 255 );
+	ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
+	VectorScale( color, color[3] / 255.0f, current_color );
+	current_color[3] = 255;
 
-	while( *s )
+	for( ; *s; s++ )
 	{
-		while( *s && ( *s != '\n' ) && ( *s != ';' ) && ( x1 < maxx ))
-			x1 += Touch_DrawCharacter( x1, y1, *s++, size );
-		y1 += cls.creditsFont.charHeight / 1024.f * size / Touch_AspectRatio();
+		int draw_len;
+		uint32_t uc = Q_DecodeUTF8( &utfstate, (byte)*s );
 
-		if( y1 >= maxy )
-			break;
+		if( !uc )
+			continue;
 
-		if( *s == '\n' || *s == ';' )
-			s++;
-		x1 = x;
+		if( uc == '\n' || uc == ';' || x1 >= maxx )
+		{
+			x1 = minx;
+			y1 += cls.creditsFont.charHeight * scale;
+
+			if( y1 >= maxy )
+				break;
+
+			continue;
+		}
+
+		// because we override font scale without changing charWidths, scale it ourselves
+		draw_len = CL_DrawCharacter( x1, y1, uc, current_color, &cls.creditsFont, FONT_DRAW_NORENDERMODE );
+		x1 += draw_len * scale;
 	}
-	return x1;
+
+	cls.creditsFont.scale = backup_scale;
 }
 
 static void Touch_DrawButtons( touchbuttonlist_t *list )
