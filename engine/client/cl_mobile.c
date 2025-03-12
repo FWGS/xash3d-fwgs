@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include "input.h"
 #include "platform/platform.h"
+#include "utflib.h"
 
 static CVAR_DEFINE_AUTO( vibration_length, "1.0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "vibration length" );
 static CVAR_DEFINE_AUTO( vibration_enable, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "enable vibration" );
@@ -58,7 +59,13 @@ static int pfnDrawScaledCharacter( int x, int y, int number, int r, int g, int b
 	int flags = FONT_DRAW_HUD;
 
 	if( hud_utf8.value )
-		SetBits( flags, FONT_DRAW_UTF8 );
+	{
+		static utfstate_t utfstate;
+		number = Q_DecodeUTF8( &utfstate, number );
+
+		if( !number )
+			return 0;
+	}
 
 	if( fabs( g_font_scale - scale ) > 0.1f ||
 		g_scaled_font.hFontTexture != cls.creditsFont.hFontTexture )

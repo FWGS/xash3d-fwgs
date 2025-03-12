@@ -1997,7 +1997,13 @@ static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g,
 	int flags = FONT_DRAW_HUD;
 
 	if( hud_utf8.value )
-		flags |= FONT_DRAW_UTF8;
+	{
+		static utfstate_t utfstate;
+		number = Q_DecodeUTF8( &utfstate, number );
+
+		if( !number )
+			return 0;
+	}
 
 	return CL_DrawCharacter( x, y, number, color, &cls.creditsFont, flags );
 }
