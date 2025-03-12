@@ -3060,12 +3060,8 @@ pfnDrawString
 */
 static int GAME_EXPORT pfnDrawString( int x, int y, const char *str, int r, int g, int b )
 {
-	rgba_t color = { r, g, b, 255 };
-	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
-
-	if( hud_utf8.value )
-		SetBits( flags, FONT_DRAW_UTF8 );
-
+	const rgba_t color = { r, g, b, 255 };
+	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF | FONT_DRAW_UTF8;
 	return CL_DrawString( x, y, str, color, &cls.creditsFont, flags );
 }
 
@@ -3077,12 +3073,9 @@ pfnDrawStringReverse
 */
 static int GAME_EXPORT pfnDrawStringReverse( int x, int y, const char *str, int r, int g, int b )
 {
-	rgba_t color = { r, g, b, 255 };
-	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF;
+	const rgba_t color = { r, g, b, 255 };
+	int flags = FONT_DRAW_HUD | FONT_DRAW_NOLF | FONT_DRAW_UTF8;
 	int width;
-
-	if( hud_utf8.value )
-		SetBits( flags, FONT_DRAW_UTF8 );
 
 	CL_DrawStringLen( &cls.creditsFont, str, &width, NULL, flags );
 
