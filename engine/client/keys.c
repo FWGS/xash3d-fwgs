@@ -957,6 +957,7 @@ enum
 	OSK_ENTER,
 	OSK_SPECKEY_LAST
 };
+
 static const char *osk_keylayout[][4] =
 {
 	{
@@ -973,7 +974,7 @@ static const char *osk_keylayout[][4] =
 	}
 };
 
-struct osk_s
+static struct osk_s
 {
 	qboolean enable;
 	int curlayout;
@@ -1006,7 +1007,6 @@ static qboolean OSK_KeyEvent( int key, int down )
 		}
 		return false;
 	}
-
 
 	switch ( key )
 	{
@@ -1049,10 +1049,6 @@ static qboolean OSK_KeyEvent( int key, int down )
 				}
 
 				ch = (byte)osk.curbutton.val;
-
-				// do not pass UTF-8 sequence into the engine, convert it here
-				if( !cls.accept_utf8 )
-					ch = Con_UtfProcessCharForce( ch );
 
 				if( !ch )
 					break;
@@ -1188,13 +1184,15 @@ void OSK_Draw( void )
 					  X_STEP * MAX_OSK_ROWS * refState.width,
 					  Y_STEP * MAX_OSK_LINES * refState.height, 100, 100, 100, 100 );
 
-	OSK_DrawSpecialButton( "-]",   X_START,               Y_START + Y_STEP * 2, X_STEP, Y_STEP );
-	OSK_DrawSpecialButton( "<-",  X_START + X_STEP * 12, Y_START + Y_STEP * 2, X_STEP, Y_STEP );
+	OSK_DrawSpecialButton( "-]", X_START,               Y_START + Y_STEP * 2, X_STEP, Y_STEP );
+	OSK_DrawSpecialButton( "<-", X_START + X_STEP * 12, Y_START + Y_STEP * 2, X_STEP, Y_STEP );
 
 	OSK_DrawSpecialButton( "sh", X_START,               Y_START + Y_STEP * 3, X_STEP, Y_STEP );
 	OSK_DrawSpecialButton( "en", X_START + X_STEP * 12, Y_START + Y_STEP * 3, X_STEP, Y_STEP );
 
-	for( y = Y_START,     j = 0; j < MAX_OSK_LINES; j++, y += Y_STEP )
+	for( y = Y_START, j = 0; j < MAX_OSK_LINES; j++, y += Y_STEP )
+	{
 		for( x = X_START, i = 0; i < MAX_OSK_ROWS;  i++, x += X_STEP )
 			OSK_DrawSymbolButton( curlayout[j][i], x, y, X_STEP, Y_STEP );
+	}
 }
