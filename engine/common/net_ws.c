@@ -121,7 +121,7 @@ static CVAR_DEFINE_AUTO( net_resolve_debug, "0", FCVAR_PRIVILEGED, "print resolv
 CVAR_DEFINE( net_clockwindow, "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
 
 netadr_t			net_local;
-netadr_t			net6_local;
+static netadr_t		net6_local;
 
 // cvars equivalents for IPv6
 static CVAR_DEFINE( net_ip6name, "ip6", "localhost", FCVAR_PRIVILEGED, "network ip6 address" );
