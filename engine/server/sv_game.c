@@ -3125,7 +3125,6 @@ static void SV_AllocStringPool( void )
 		if( ptr )
 		{
 			Con_Reportf( "%s: Allocated string array near the server library: %p %p\n", __func__, base, ptr );
-
 		}
 		else
 		{
@@ -3253,9 +3252,14 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 #if XASH_64BIT
 	if( !str64.allowdup )
 	{
-		for( dupe_string = str64.poldstringbase + 1;
-			dupe_string < str64.plast && ( found_dupe = !Q_strcmp( dupe_string, processed_string ));
-			dupe_string += Q_strlen( dupe_string ) + 1 );
+		for( dupe_string = str64.poldstringbase + 1; dupe_string < str64.plast; dupe_string += Q_strlen( dupe_string ) + 1 )
+		{
+			if( !Q_strcmp( dupe_string, processed_string ))
+			{
+				found_dupe = true;
+				break;
+			}
+		}
 	}
 
 	if( !found_dupe )
