@@ -333,7 +333,7 @@ def configure(conf):
 			'-Werror=bool-operation',
 			# '-Werror=cast-align=strict',
 			'-Werror=duplicated-cond',
-			'-Werror=format-extra-args',
+			'-Werror=format=2',
 			'-Werror=free-nonheap-object',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
@@ -356,7 +356,6 @@ def configure(conf):
 
 			# unstable diagnostics, may cause false positives
 			'-Walloc-zero',
-			'-Wformat=2',
 			'-Winit-self',
 			'-Wmisleading-indentation',
 			'-Wmismatched-dealloc',
