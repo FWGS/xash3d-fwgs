@@ -1031,8 +1031,8 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, GLint type, const void *data )
 {
 	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
-	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
-	GLenum	inFormat = gEngfuncs.Image_GetPFDesc(type)->glFormat;
+	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED ) && data != NULL;
+	GLenum	inFormat = gEngfuncs.Image_GetPFDesc( type )->glFormat;
 	GLint	dataType = GL_UNSIGNED_BYTE;
 	GLsizei	samplesCount = 0;
 
@@ -1064,7 +1064,7 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	else if( tex->target == GL_TEXTURE_2D_MULTISAMPLE )
 	{
 #if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES ))
-		samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat("gl_msaa_samples");
+		samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" );
 		switch (samplesCount)
 		{
 			case 2:
