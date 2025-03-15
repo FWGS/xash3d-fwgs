@@ -23,14 +23,12 @@ GNU General Public License for more details.
 
 typedef struct loadwavfmt_s
 {
-	const char *formatstring;
 	const char *ext;
 	qboolean (*loadfunc)( const char *name, const byte *buffer, fs_offset_t filesize );
 } loadwavfmt_t;
 
 typedef struct streamfmt_s
 {
-	const char *formatstring;
 	const char *ext;
 
 	stream_t *(*openfunc)( const char *filename );
