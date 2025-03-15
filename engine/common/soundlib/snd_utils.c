@@ -31,19 +31,15 @@ sndlib_t	sound;
 static const loadwavfmt_t load_game[] =
 {
 #ifndef XASH_DEDICATED
-{ DEFAULT_SOUNDPATH "%s%s.%s", "wav", Sound_LoadWAV },
-{ "%s%s.%s", "wav", Sound_LoadWAV },
-{ DEFAULT_SOUNDPATH "%s%s.%s", "mp3", Sound_LoadMPG },
-{ "%s%s.%s", "mp3", Sound_LoadMPG },
-{ DEFAULT_SOUNDPATH "%s%s.%s", "ogg", Sound_LoadOggVorbis },
-{ "%s%s.%s", "ogg", Sound_LoadOggVorbis },
-{ DEFAULT_SOUNDPATH "%s%s.%s", "opus", Sound_LoadOggOpus },
-{ "%s%s.%s", "opus", Sound_LoadOggOpus },
+{ "wav", Sound_LoadWAV },
+{ "mp3", Sound_LoadMPG },
+{ "ogg", Sound_LoadOggVorbis },
+{ "opus", Sound_LoadOggOpus },
 #else // we only need extensions
-{ NULL, "wav" },
-{ NULL, "mp3" },
-{ NULL, "ogg" },
-{ NULL, "opus" },
+{ "wav" },
+{ "mp3" },
+{ "ogg" },
+{ "opus" },
 #endif
 { NULL },
 };
@@ -58,15 +54,15 @@ static const loadwavfmt_t load_game[] =
 static const streamfmt_t stream_game[] =
 {
 #ifndef XASH_DEDICATED
-{ "%s%s.%s", "mp3", Stream_OpenMPG, Stream_ReadMPG, Stream_SetPosMPG, Stream_GetPosMPG, Stream_FreeMPG },
-{ "%s%s.%s", "wav", Stream_OpenWAV, Stream_ReadWAV, Stream_SetPosWAV, Stream_GetPosWAV, Stream_FreeWAV },
-{ "%s%s.%s", "ogg", Stream_OpenOggVorbis, Stream_ReadOggVorbis, Stream_SetPosOggVorbis, Stream_GetPosOggVorbis, Stream_FreeOggVorbis },
-{ "%s%s.%s", "opus", Stream_OpenOggOpus, Stream_ReadOggOpus, Stream_SetPosOggOpus, Stream_GetPosOggOpus, Stream_FreeOggOpus },
+{ "mp3", Stream_OpenMPG, Stream_ReadMPG, Stream_SetPosMPG, Stream_GetPosMPG, Stream_FreeMPG },
+{ "wav", Stream_OpenWAV, Stream_ReadWAV, Stream_SetPosWAV, Stream_GetPosWAV, Stream_FreeWAV },
+{ "ogg", Stream_OpenOggVorbis, Stream_ReadOggVorbis, Stream_SetPosOggVorbis, Stream_GetPosOggVorbis, Stream_FreeOggVorbis },
+{ "opus", Stream_OpenOggOpus, Stream_ReadOggOpus, Stream_SetPosOggOpus, Stream_GetPosOggOpus, Stream_FreeOggOpus },
 #else // we only need extensions
-{ NULL, "mp3" },
-{ NULL, "wav" },
-{ NULL, "ogg" },
-{ NULL, "opus" },
+{ "mp3" },
+{ "wav" },
+{ "ogg" },
+{ "opus" },
 #endif
 { NULL },
 };
@@ -481,7 +477,7 @@ qboolean Sound_SupportedFileFormat( const char *fileext )
 	const loadwavfmt_t *format;
 	if( COM_CheckStringEmpty( fileext ))
 	{
-		for( format = sound.loadformats; format && format->formatstring; format++ )
+		for( format = sound.loadformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( format->ext, fileext ))
 				return true;
