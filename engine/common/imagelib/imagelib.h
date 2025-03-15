@@ -45,7 +45,6 @@ typedef enum
 
 typedef struct loadformat_s
 {
-	const char *formatstring;
 	const char *ext;
 	qboolean (*loadfunc)( const char *name, const byte *buffer, fs_offset_t filesize );
 	image_hint_t hint;
@@ -53,7 +52,6 @@ typedef struct loadformat_s
 
 typedef struct saveformat_s
 {
-	const char *formatstring;
 	const char *ext;
 	qboolean (*savefunc)( const char *name, rgbdata_t *pix );
 } savepixformat_t;
