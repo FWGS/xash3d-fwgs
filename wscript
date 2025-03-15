@@ -350,7 +350,6 @@ def configure(conf):
 			'-Werror=string-compare',
 			'-Werror=tautological-compare',
 			'-Werror=use-after-free=3',
-			'-Werror=unsequenced', # clang's version of -Werror=sequence-point
 			'-Werror=vla',
 			'-Werror=write-strings',
 
@@ -369,6 +368,12 @@ def configure(conf):
 			'-Wunused-variable',
 			'-Wunused-but-set-variable',
 		]
+
+		if conf.env.COMPILER_CC == 'clang':
+			opt_flags += [
+				'-Werror=unsequenced', # clang's version of -Werror=sequence-point
+				'-Wno-error=format-nonliteral', # clang is kinda stupid about it
+			]
 
 		opt_cflags = [
 			'-Werror=declaration-after-statement',
