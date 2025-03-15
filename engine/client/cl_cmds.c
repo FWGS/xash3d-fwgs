@@ -153,19 +153,6 @@ void CL_PlayCDTrack_f( void )
 }
 
 /*
-==================
-CL_ScreenshotGetName
-==================
-*/
-static qboolean CL_ScreenshotGetName( const char *fmt, int lastnum, char *filename, size_t size )
-{
-	if( lastnum < 0 || lastnum > 9999 )
-		return false;
-
-	return Q_snprintf( filename, size, fmt, clgame.mapname, lastnum ) > 0;
-}
-
-/*
 ==============================================================================
 
 			SCREEN SHOTS
@@ -270,7 +257,6 @@ void CL_GenericShot_f( void )
 	case scrshot_normal:
 	case scrshot_snapshot:
 	{
-		const char *fmt;
 		string checkname;
 		int i;
 
@@ -282,15 +268,18 @@ void CL_GenericShot_f( void )
 		}
 
 		if( type == scrshot_snapshot )
-		{
-			fmt = "../%s_%04d.png";
 			FS_AllowDirectPaths( true );
-		}
-		else fmt = "scrshots/%s_shot%04d.png";
 
 		for( i = 0; i < 9999; i++ )
 		{
-			if( !CL_ScreenshotGetName( fmt, i, checkname, sizeof( checkname )))
+			int ret;
+
+			if( type == scrshot_snapshot )
+				ret = Q_snprintf( checkname, sizeof( checkname ), "../%s_%04d.png", clgame.mapname, i );
+			else
+				ret = Q_snprintf( checkname, sizeof( checkname ), "scrshots/%s_shot%04d.png", clgame.mapname, i );
+
+			if( ret <= 0 )
 			{
 				Con_Printf( S_ERROR "unable to write %s\n", argv0 );
 				FS_AllowDirectPaths( false );
