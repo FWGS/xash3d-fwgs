@@ -360,6 +360,7 @@ def configure(conf):
 			'-Wmismatched-dealloc',
 			'-Wstringop-overflow',
 			'-Wunintialized',
+			'-Wno-error=format-nonliteral',
 
 			# disabled, flood
 			# '-Wdouble-promotion',
@@ -372,7 +373,6 @@ def configure(conf):
 		if conf.env.COMPILER_CC == 'clang':
 			opt_flags += [
 				'-Werror=unsequenced', # clang's version of -Werror=sequence-point
-				'-Wno-error=format-nonliteral', # clang is kinda stupid about it
 			]
 
 		opt_cflags = [
