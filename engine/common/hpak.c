@@ -220,7 +220,7 @@ void HPAK_AddLump( qboolean bUseQueue, const char *name, resource_t *pResource, 
 
 	if( pResource->nDownloadSize < HPAK_ENTRY_MIN_SIZE || pResource->nDownloadSize > HPAK_ENTRY_MAX_SIZE )
 	{
-		Con_Printf( S_ERROR "%s: invalid size %s\n", name, Q_pretifymem( pResource->nDownloadSize, 2 ));
+		Con_Printf( S_ERROR "%s: invalid size %s\n", name, Q_memprint( pResource->nDownloadSize ));
 		return;
 	}
 
@@ -441,7 +441,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 		if( dataDir[i].disksize < HPAK_ENTRY_MIN_SIZE || dataDir[i].disksize > HPAK_ENTRY_MAX_SIZE )
 		{
 			// odd max size
-			Con_DPrintf( S_ERROR "%s: lump %i has invalid size %s\n", __func__, i, Q_pretifymem( dataDir[i].disksize, 2 ));
+			Con_DPrintf( S_ERROR "%s: lump %i has invalid size %s\n", __func__, i, Q_memprint( dataDir[i].disksize ));
 			Mem_Free( dataDir );
 			FS_Close( f );
 			if( delete ) FS_Delete( pakname );
@@ -462,7 +462,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 		if( !quiet )
 		{
 			Con_Printf( "%i:      %s %s %s:   ", i, COM_ResourceTypeFromIndex( pRes->type ),
-				Q_pretifymem( pRes->nDownloadSize, 2 ), pRes->szFileName );
+				Q_memprint( pRes->nDownloadSize ), pRes->szFileName );
 		}
 
 		if( memcmp( md5, pRes->rgucMD5_hash, 0x10 ))
