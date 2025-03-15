@@ -421,7 +421,7 @@ char *Q_pretifymem( float value, int digitsafterdecimal )
 
 	// if it's basically integral, don't do any decimals
 	if( fabs( value - (int)value ) < 0.00001f || digitsafterdecimal <= 0 )
-		Q_snprintf( val, sizeof( val ), "%i %s", (int)round( value ), suffix );
+		Q_snprintf( val, sizeof( val ), "%i %s", (int)Q_rint( value ), suffix );
 	else if( digitsafterdecimal >= 1 )
 		Q_snprintf( val, sizeof( val ), "%.*f %s", digitsafterdecimal, (double)value, suffix );
 
