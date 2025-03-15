@@ -211,7 +211,7 @@ static const loadpixformat_t *Image_GetLoadFormatForExtension( const char *ext )
 	if( !COM_CheckStringEmpty( ext ))
 		return NULL;
 
-	for( format = image.loadformats; format->formatstring; format++ )
+	for( format = image.loadformats; format->ext; format++ )
 	{
 		if( !Q_stricmp( ext, format->ext ))
 			return format;
@@ -237,7 +237,7 @@ static qboolean Image_ProbeLoadBuffer( const loadpixformat_t *fmt, const char *n
 	// bruteforce all loaders
 	if( !fmt )
 	{
-		for( fmt = image.loadformats; fmt->formatstring; fmt++ )
+		for( fmt = image.loadformats; fmt->ext; fmt++ )
 		{
 			if( Image_ProbeLoadBuffer_( fmt, name, buf, size, override_hint ))
 				 return true;
@@ -256,7 +256,7 @@ static qboolean Image_ProbeLoad_( const loadpixformat_t *fmt, const char *name, 
 	string path;
 	byte *f;
 
-	Q_snprintf( path, sizeof( path ), fmt->formatstring, name, suffix, fmt->ext );
+	Q_snprintf( path, sizeof( path ), "%s%s.%s", name, suffix, fmt->ext );
 	f = FS_LoadFile( path, &filesize, false );
 
 	if( f )
@@ -274,7 +274,7 @@ static qboolean Image_ProbeLoad( const loadpixformat_t *fmt, const char *name, c
 	if( !fmt )
 	{
 		// bruteforce all formats to allow implicit extension
-		for( fmt = image.loadformats; fmt->formatstring; fmt++ )
+		for( fmt = image.loadformats; fmt->ext; fmt++ )
 		{
 			if( Image_ProbeLoad_( fmt, name, suffix, override_hint ))
 				return true;
@@ -417,14 +417,13 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 		picBuffer = pix->buffer;
 
 		// save all sides seperately
-		for( format = image.saveformats; format && format->formatstring; format++ )
+		for( format = image.saveformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( ext, format->ext ))
 			{
 				for( i = 0; i < 6; i++ )
 				{
-					Q_snprintf( path, sizeof( path ),
-						format->formatstring, savename, box[i].suf, format->ext );
+					Q_snprintf( path, sizeof( path ), "%s%s.%s", savename, box[i].suf, format->ext );
 					if( !format->savefunc( path, pix )) break; // there were errors
 					pix->buffer += pix->size; // move pointer
 				}
@@ -442,12 +441,11 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 	}
 	else
 	{
-		for( format = image.saveformats; format && format->formatstring; format++ )
+		for( format = image.saveformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( ext, format->ext ))
 			{
-				Q_snprintf( path, sizeof( path ),
-					format->formatstring, savename, "", format->ext );
+				Q_snprintf( path, sizeof( path ), "%s.%s", savename, format->ext );
 				if( format->savefunc( path, pix ))
 				{
 					// clear any force flags
