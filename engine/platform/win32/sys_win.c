@@ -45,7 +45,7 @@ void Platform_Sleep( int msec )
 
 void Win32_Init( qboolean con_showalways )
 {
-	HMODULE hModule = LoadLibrary( "kernel32.dll" );
+	HMODULE hModule = LoadLibraryW( L"kernel32.dll" );
 	if( hModule )
 	{
 		HANDLE ( __stdcall *pfnCreateWaitableTimerExW)( LPSECURITY_ATTRIBUTES lpTimerAttributes, LPCWSTR lpTimerName, DWORD dwFlags, DWORD dwDesiredAccess );
@@ -114,13 +114,13 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
 		path = DEFAULT_UPDATE_PAGE;
 
-	ShellExecute( NULL, "open", path, parms, NULL, SW_SHOW );
+	ShellExecuteA( NULL, "open", path, parms, NULL, SW_SHOW );
 }
 
 #if XASH_MESSAGEBOX == MSGBOX_WIN32
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
-	MessageBox( parentMainWindow ? host.hWnd : NULL, message, title, MB_OK|MB_SETFOREGROUND|MB_ICONSTOP );
+	MessageBoxA( parentMainWindow ? host.hWnd : NULL, message, title, MB_OK|MB_SETFOREGROUND|MB_ICONSTOP );
 }
 #endif // XASH_MESSAGEBOX == MSGBOX_WIN32
 
