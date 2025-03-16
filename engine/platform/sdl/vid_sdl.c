@@ -370,7 +370,7 @@ static void WIN_SetDPIAwareness( void )
 	BOOL ( __stdcall *pSetProcessDPIAware )( void );
 	BOOL bSuccess = FALSE;
 
-	if( ( hModule = LoadLibrary( "shcore.dll" ) ) )
+	if( ( hModule = LoadLibraryW( L"shcore.dll" ) ) )
 	{
 		if( ( pSetProcessDpiAwareness = (void*)GetProcAddress( hModule, "SetProcessDpiAwareness" ) ) )
 		{
@@ -395,7 +395,7 @@ static void WIN_SetDPIAwareness( void )
 	{
 		Con_Reportf( "%s: Trying SetProcessDPIAware...\n", __func__ );
 
-		if( ( hModule = LoadLibrary( "user32.dll" ) ) )
+		if( ( hModule = LoadLibraryW( L"user32.dll" ) ) )
 		{
 			if( ( pSetProcessDPIAware = ( void* )GetProcAddress( hModule, "SetProcessDPIAware" ) ) )
 			{
