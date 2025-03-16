@@ -365,10 +365,10 @@ static int ID_GetKeyData( HKEY hRootKey, char *subKey, char *value, LPBYTE data,
 {
 	HKEY hKey;
 
-	if( RegOpenKeyEx( hRootKey, subKey, 0, KEY_QUERY_VALUE, &hKey ) != ERROR_SUCCESS )
+	if( RegOpenKeyExA( hRootKey, subKey, 0, KEY_QUERY_VALUE, &hKey ) != ERROR_SUCCESS )
 		return 0;
 
-	if( RegQueryValueEx( hKey, value, NULL, NULL, data, &cbData ) != ERROR_SUCCESS )
+	if( RegQueryValueExA( hKey, value, NULL, NULL, data, &cbData ) != ERROR_SUCCESS )
 	{
 		RegCloseKey( hKey );
 		return 0;
@@ -377,13 +377,14 @@ static int ID_GetKeyData( HKEY hRootKey, char *subKey, char *value, LPBYTE data,
 	RegCloseKey( hKey );
 	return 1;
 }
-static int ID_SetKeyData( HKEY hRootKey, char *subKey, DWORD dwType, char *value, LPBYTE data, DWORD cbData)
+
+static int ID_SetKeyData( HKEY hRootKey, char *subKey, DWORD dwType, char *value, LPBYTE data, DWORD cbData )
 {
 	HKEY hKey;
-	if( RegCreateKey( hRootKey, subKey, &hKey ) != ERROR_SUCCESS )
+	if( RegCreateKeyA( hRootKey, subKey, &hKey ) != ERROR_SUCCESS )
 		return 0;
 
-	if( RegSetValueEx( hKey, value, 0, dwType, data, cbData ) != ERROR_SUCCESS )
+	if( RegSetValueExA( hKey, value, 0, dwType, data, cbData ) != ERROR_SUCCESS )
 	{
 		RegCloseKey( hKey );
 		return 0;
