@@ -18,6 +18,14 @@ GNU General Public License for more details.
 #if XASH_LIB == LIB_WIN32
 #include "lib_win.h"
 
+static const wchar_t *FS_PathToWideChar( const char *path )
+{
+	static wchar_t pathBuffer[MAX_PATH];
+	MultiByteToWideChar( CP_UTF8, 0, path, -1, pathBuffer, MAX_PATH );
+	return pathBuffer;
+}
+
+
 static DWORD GetOffsetByRVA( DWORD rva, PIMAGE_NT_HEADERS nt_header )
 {
 	int i = 0;
@@ -375,7 +383,7 @@ static void ListMissingModules( dll_user_t *hInst )
 		HMODULE hMod;
 		const char *importName = (const char *)CALCULATE_ADDRESS( data, GetOffsetByRVA( importDesc->Name, peHeader ) );
 
-		hMod = LoadLibraryEx( importName, NULL, LOAD_LIBRARY_AS_DATAFILE );
+		hMod = LoadLibraryExW( FS_PathToWideChar( importName ), NULL, LOAD_LIBRARY_AS_DATAFILE );
 		if ( !hMod )
 		{
 			Q_snprintf( buf, sizeof( buf ), "%s not found!", importName );
@@ -470,7 +478,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	else
 #endif
 	{
-		hInst->hInstance = LoadLibrary( hInst->fullPath );
+		hInst->hInstance = LoadLibraryW( FS_PathToWideChar( hInst->fullPath ));
 	}
 
 	if( !hInst->hInstance )
