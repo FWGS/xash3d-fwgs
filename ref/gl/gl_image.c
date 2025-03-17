@@ -1392,7 +1392,7 @@ GL_AllocTexture
 */
 static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 {
-	const qboolean skyboxhack = FBitSet( flags, TF_SKYSIDE ) && glConfig.context != CONTEXT_TYPE_GL_CORE;
+	const qboolean skyboxhack = FBitSet( flags, TF_SKYSIDE ) && glConfig.context == CONTEXT_TYPE_GL;
 	gl_texture_t *tex = NULL;
 	GLuint texnum = 1;
 
