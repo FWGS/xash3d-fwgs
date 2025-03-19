@@ -33,4 +33,5 @@
     <string name="preferences_client_package">Client package</string>
     <string name="preferences_server_package">Server package</string>
     <string name="preferences_use_icons">Use icons instead of backgrounds</string>
+    <string name="library_fragment_no_file_manager">File manager is missing</string>
 </resources>

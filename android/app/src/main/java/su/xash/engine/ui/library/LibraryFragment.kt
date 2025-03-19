@@ -2,6 +2,7 @@ package su.xash.engine.ui.library
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -10,6 +11,7 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -73,11 +75,16 @@ class LibraryFragment : Fragment(), MenuProvider {
     override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
         when (menuItem.itemId) {
             R.id.action_browse -> {
-                startActivity(
-                    Intent(Intent.ACTION_VIEW).setDataAndType(
-                        null, "vnd.android.document/directory"
+                try {
+                    startActivity(
+                        Intent(Intent.ACTION_VIEW).setDataAndType(
+                            null, "vnd.android.document/directory"
+                        )
                     )
-                )
+                }
+                catch(e: ActivityNotFoundException) {
+                    Toast.makeText(getActivity(), R.string.library_fragment_no_file_manager, Toast.LENGTH_LONG).show()
+                }
             }
 
             R.id.action_install -> {
