@@ -540,7 +540,7 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg );
 void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg );
 edict_t *SV_FakeConnect( const char *netname );
 void SV_BuildReconnect( sizebuf_t *msg );
-int SV_CalcPing( sv_client_t *cl );
+int SV_CalcPing( const sv_client_t *cl );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( host_redirect_t *rd );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) FORMAT_CHECK( 2 );

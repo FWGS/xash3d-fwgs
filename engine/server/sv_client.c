@@ -1087,7 +1087,7 @@ SV_CalcPing
 recalc ping on current client
 ===================
 */
-int SV_CalcPing( sv_client_t *cl )
+int SV_CalcPing( const sv_client_t *cl )
 {
 	float		ping = 0;
 	int		i, count;
