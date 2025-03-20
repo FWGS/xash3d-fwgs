@@ -408,7 +408,8 @@ void CL_DrawCenterPrint( void )
 	char	*pText;
 	int	i, j, x, y;
 	int	width, lineLength;
-	byte	*colorDefault, line[MAX_LINELENGTH];
+	byte	*colorDefault;
+	int line[MAX_LINELENGTH];
 	int	charWidth, charHeight;
 
 	if( !clgame.centerPrint.time )
@@ -427,6 +428,7 @@ void CL_DrawCenterPrint( void )
 
 	CL_DrawCharacterLen( font, 0, NULL, &charHeight );
 	CL_SetFontRendermode( font );
+	Con_UtfProcessChar( 0 );
 	for( i = 0; i < clgame.centerPrint.lines; i++ )
 	{
 		lineLength = 0;
@@ -434,11 +436,14 @@ void CL_DrawCenterPrint( void )
 
 		while( *pText && *pText != '\n' && lineLength < MAX_LINELENGTH )
 		{
-			byte c = *pText;
-			line[lineLength] = c;
-			CL_DrawCharacterLen( font, c, &charWidth, NULL );
-			width += charWidth;
-			lineLength++;
+			int ch = Con_UtfProcessChar( (unsigned char)*pText );
+			if ( ch )
+			{
+				CL_DrawCharacterLen( font, ch, &charWidth, NULL );
+				line[lineLength] = ch;
+				width += charWidth;
+				lineLength++;
+			}
 			pText++;
 		}
 
@@ -1991,6 +1996,7 @@ static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g,
 	if( hud_utf8.value )
 		flags |= FONT_DRAW_UTF8;
 
+	//we should change game client dll to process utf8 characters, not process them here
 	return CL_DrawCharacter( x, y, number, color, &cls.creditsFont, flags );
 }
 
