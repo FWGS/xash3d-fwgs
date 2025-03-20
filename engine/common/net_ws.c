@@ -1791,12 +1791,12 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 
 /*
 ================
-NET_GetLocalAddress
+NET_DetermineLocalAddress
 
 Returns the servers' ip address as a string.
 ================
 */
-static void NET_GetLocalAddress( void )
+static void NET_DetermineLocalAddress( void )
 {
 	char		hostname[512];
 	char		buff[512];
@@ -1910,7 +1910,7 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 		// get our local address, if possible
 		if( bFirst )
 		{
-			NET_GetLocalAddress();
+			NET_DetermineLocalAddress();
 			bFirst = false;
 		}
 	}
@@ -2004,6 +2004,32 @@ static void NET_ClearLagData( qboolean bClient, qboolean bServer )
 {
 	if( bClient ) NET_ClearLaggedList( &net.lagdata[NS_CLIENT] );
 	if( bServer ) NET_ClearLaggedList( &net.lagdata[NS_SERVER] );
+}
+
+/*
+====================
+NET_GetLocalAddress
+
+get local server addresses
+====================
+*/
+void NET_GetLocalAddress( netadr_t *ip4, netadr_t *ip6 )
+{
+	if( ip4 )
+	{
+		if( net.allow_ip )
+			*ip4 = net_local;
+		else
+			memset( ip4, 0, sizeof( *ip4 ));
+	}
+
+	if( ip6 )
+	{
+		if( net.allow_ip6 )
+			*ip6 = net6_local;
+		else
+			memset( ip6, 0, sizeof( *ip6 ));
+	}
 }
 
 /*

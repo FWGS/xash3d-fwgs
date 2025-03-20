@@ -3410,7 +3410,7 @@ static void GAME_EXPORT NetAPI_Status( net_status_t *status )
 	status->latency = (connected) ? cl.frames[cl.parsecountmod].latency : 0.0;
 	status->remote_address = cls.netchan.remote_address;
 	status->packet_loss = packet_loss;
-	status->local_address = net_local;
+	NET_GetLocalAddress( &status->local_address, NULL ); // NetAPI doesn't know about IPv6
 	status->rate = rate.value;
 }
 
