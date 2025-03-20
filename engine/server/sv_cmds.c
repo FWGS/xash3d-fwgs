@@ -630,6 +630,12 @@ static void SV_Status_f( void )
 	sv_client_t	*cl;
 	int		i;
 
+	if( !svs.clients && CL_Active( ))
+	{
+		Cmd_ForwardToServer();
+		return;
+	}
+
 	if( !svs.clients || sv.background )
 	{
 		Con_Printf( "^3no server running.\n" );

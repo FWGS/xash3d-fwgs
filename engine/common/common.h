@@ -790,7 +790,7 @@ void Con_NPrintf( int idx, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void Con_NXPrintf( con_nprint_t *info, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void UI_NPrintf( int idx, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void UI_NXPrintf( con_nprint_t *info, const char *fmt, ... ) FORMAT_CHECK( 2 );
-const char *Info_ValueForKey( const char *s, const char *key );
+const char *Info_ValueForKey( const char *s, const char *key ) RETURNS_NONNULL NONNULL;
 void Info_RemovePrefixedKeys( char *start, char prefix );
 qboolean Info_RemoveKey( char *s, const char *key );
 qboolean Info_SetValueForKey( char *s, const char *key, const char *value, int maxsize );

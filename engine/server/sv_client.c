@@ -1884,20 +1884,6 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 
 /*
 ==================
-SV_UpdateUserinfo_f
-==================
-*/
-static qboolean SV_UpdateUserinfo_f( sv_client_t *cl )
-{
-	Q_strncpy( cl->userinfo, Cmd_Argv( 1 ), sizeof( cl->userinfo ));
-
-	if( cl->state >= cs_connected )
-		SetBits( cl->flags, FCL_RESEND_USERINFO ); // needs for update client info
-	return true;
-}
-
-/*
-==================
 SV_SetInfo_f
 ==================
 */
@@ -2185,6 +2171,83 @@ static qboolean SV_SendBuildInfo_f( sv_client_t *cl )
 {
 	SV_ClientPrintf( cl, "Server running " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s, %s-%s)\n",
 		Q_buildnum(), g_buildcommit, Q_buildos(), Q_buildarch() );
+	return true;
+}
+
+/*
+==================
+SV_ClientStatus_f
+==================
+*/
+static qboolean SV_ClientStatus_f( sv_client_t *cl )
+{
+	netadr_t ip4, ip6;
+	vec3_t origin = { 0 };
+	int clients, bots, i;
+
+	NET_GetLocalAddress( &ip4, &ip6 );
+	if( cl->edict )
+		VectorCopy( cl->edict->v.origin, origin );
+	SV_GetPlayerCount( &clients, &bots );
+
+	SV_ClientPrintf( cl,
+		"hostname: %s\n"
+		"version: %i/%s %d\n",
+		hostname.string,
+		PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
+
+	if( ip4.type == NA_IP )
+		SV_ClientPrintf( cl, "tcp/ip: %s\n", NET_AdrToString( ip4 ));
+	if( ip6.type == NA_IP6 )
+		SV_ClientPrintf( cl, "tcp/ipv6: %s\n", NET_AdrToString( ip4 ));
+
+	SV_ClientPrintf( cl,
+		"map:\t%s at %d x, %d y, %d z\n"
+		"players: %i active (%i max)\n"
+		"# score ping dev  playtime name\n",
+		sv.name, (int)origin[0], (int)origin[1], (int)origin[2],
+		clients, svs.maxclients );
+
+	for( i = 0; i < svs.maxclients; i++ )
+	{
+		const sv_client_t *pcl = &svs.clients[i];
+		int j = 0;
+		int input_devices;
+		const char *s;
+		char devices[8];
+
+		if( pcl->state != cs_spawned )
+			continue;
+
+		if( FBitSet( pcl->flags, FCL_FAKECLIENT ))
+			s = "Bot ";
+		else
+			s = va( "%i", SV_CalcPing( pcl ));
+
+		input_devices = Q_atoi( Info_ValueForKey( pcl->useragent, "d" ));
+
+		if( FBitSet( input_devices, INPUT_DEVICE_MOUSE ))
+			devices[j++] = 'm';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_TOUCH ))
+			devices[j++] = 't';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_JOYSTICK ))
+			devices[j++] = 'j';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_VR ))
+			devices[j++] = 'v';
+
+		if( j == 0 )
+			Q_strncpy( devices, "n/a", sizeof( devices ));
+		else
+			devices[j++] = 0;
+
+		SV_ClientPrintf( cl,
+			"%2i %5i %4s %4s %g %s\n",
+			i, (int)pcl->edict->v.frags, s, devices, host.realtime - pcl->netchan.connect_time, pcl->name );
+	}
+
 	return true;
 }
 
@@ -2969,32 +3032,33 @@ static qboolean SV_EntGetVars_f( sv_client_t *cl )
 	return true;
 }
 
+// keep it sorted
 static const ucmd_t ucmds[] =
 {
-{ "new", SV_New_f },
-{ "god", SV_Godmode_f },
-{ "kill", SV_Kill_f },
-{ "begin", SV_Begin_f },
-{ "spawn", SV_Spawn_f },
-{ "pause", SV_Pause_f },
-{ "noclip", SV_Noclip_f },
-{ "setinfo", SV_SetInfo_f },
-{ "sendres", SV_SendRes_f },
-{ "notarget", SV_Notarget_f },
-{ "info", SV_ShowServerinfo_f },
-{ "dlfile", SV_DownloadFile_f },
-{ "disconnect", SV_Disconnect_f },
-{ "userinfo", SV_UpdateUserinfo_f },
 { "_sv_build_info", SV_SendBuildInfo_f },
+{ "begin", SV_Begin_f },
+{ "disconnect", SV_Disconnect_f },
+{ "dlfile", SV_DownloadFile_f },
+{ "god", SV_Godmode_f },
+{ "info", SV_ShowServerinfo_f },
+{ "kill", SV_Kill_f },
+{ "new", SV_New_f },
+{ "noclip", SV_Noclip_f },
+{ "notarget", SV_Notarget_f },
+{ "pause", SV_Pause_f },
+{ "sendres", SV_SendRes_f },
+{ "setinfo", SV_SetInfo_f },
+{ "spawn", SV_Spawn_f },
+{ "status", SV_ClientStatus_f },
 };
 
 static const ucmd_t enttoolscmds[] =
 {
-{ "ent_list", SV_EntList_f },
-{ "ent_info", SV_EntInfo_f },
-{ "ent_fire", SV_EntFire_f },
 { "ent_create", SV_EntCreate_f },
+{ "ent_fire", SV_EntFire_f },
 { "ent_getvars", SV_EntGetVars_f },
+{ "ent_info", SV_EntInfo_f },
+{ "ent_list", SV_EntList_f },
 };
 
 /*
