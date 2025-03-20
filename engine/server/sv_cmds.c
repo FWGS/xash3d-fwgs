@@ -627,7 +627,6 @@ SV_Status_f
 */
 static void SV_Status_f( void )
 {
-	sv_client_t	*cl;
 	int		i;
 
 	if( !svs.clients && CL_Active( ))
@@ -643,34 +642,68 @@ static void SV_Status_f( void )
 	}
 
 	Con_Printf( "map: %s\n", sv.name );
-	Con_Printf( "num score ping    name            lastmsg address               port \n" );
-	Con_Printf( "--- ----- ------- --------------- ------- --------------------- ------\n" );
+	Con_Printf( "# score ping dev  lastmsg qport useragent\t\tname\t\taddress\n" );
 
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
-		int	j, l;
-		const char	*s;
+		const sv_client_t *cl = &svs.clients[i];
+		int j = 0;
+		const char *s;
+		char devices[8];
+		string version;
+		string os;
+		string arch;
+		int buildnum;
+		int input_devices;
 
-		if( !cl->state ) continue;
+		if( !cl->state )
+			continue;
 
-		Con_Printf( "%3i ", i );
-		Con_Printf( "%5i ", (int)cl->edict->v.frags );
+		if( cl->state == cs_connected )
+			s = "Cnct";
+		else if( cl->state == cs_zombie )
+			s = "Zmbi";
+		else if( FBitSet( cl->flags, FCL_FAKECLIENT ))
+			s = "Bot ";
+		else
+			s = va( "%i", SV_CalcPing( cl ));
 
-		if( cl->state == cs_connected ) Con_Printf( "Connect" );
-		else if( cl->state == cs_zombie ) Con_Printf( "Zombie " );
-		else if( FBitSet( cl->flags, FCL_FAKECLIENT )) Con_Printf( "Bot   " );
-		else Con_Printf( "%7i ", SV_CalcPing( cl ));
+		input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
 
-		Con_Printf( "%s", cl->name );
-		l = 24 - Q_strlen( cl->name );
-		for( j = 0; j < l; j++ ) Con_Printf( " " );
-		Con_Printf( "%g ", ( host.realtime - cl->netchan.last_received ));
-		s = NET_BaseAdrToString( cl->netchan.remote_address );
-		Con_Printf( "%s", s );
-		l = 22 - Q_strlen( s );
-		for( j = 0; j < l; j++ ) Con_Printf( " " );
-		Con_Printf( "%5i", cl->netchan.qport );
-		Con_Printf( "\n" );
+		if( FBitSet( input_devices, INPUT_DEVICE_MOUSE ))
+			devices[j++] = 'm';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_TOUCH ))
+			devices[j++] = 't';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_JOYSTICK ))
+			devices[j++] = 'j';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_VR ))
+			devices[j++] = 'v';
+
+		if( j == 0 )
+			Q_strncpy( devices, "n/a", sizeof( devices ));
+		else
+			devices[j++] = 0;
+
+		Q_strncpy( version, Info_ValueForKey( cl->useragent, "v" ), sizeof( version ));
+		Q_strncpy( os, Info_ValueForKey( cl->useragent, "o" ), sizeof( os ));
+		Q_strncpy( arch, Info_ValueForKey( cl->useragent, "a" ), sizeof( arch ));
+		buildnum = Q_atoi( Info_ValueForKey( cl->useragent, "b" ));
+
+		if( !COM_CheckStringEmpty( version ))
+			Q_strncpy( version, "n/a", sizeof( version ));
+		if( !COM_CheckStringEmpty( os ))
+			Q_strncpy( os, "n/a", sizeof( os ));
+		if( !COM_CheckStringEmpty( arch ))
+			Q_strncpy( arch, "n/a", sizeof( arch ));
+
+		Con_Printf( "%2i %5i %4s %4s %.5f %5i %s (%s-%s %i)\t%8s\t%8s\n",
+			i, (int)cl->edict->v.frags, s, devices, host.realtime - cl->netchan.last_received, cl->netchan.qport,
+			version, os, arch, buildnum,
+			cl->name, NET_BaseAdrToString( cl->netchan.remote_address ) );
+
 	}
 	Con_Printf( "\n" );
 }
