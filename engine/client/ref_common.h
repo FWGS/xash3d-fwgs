@@ -24,12 +24,12 @@ struct ref_state_s
 {
 	HINSTANCE       hInstance;
 	qboolean        initialized;
-	int             numRenderers;
+	int             num_renderers;
 	ref_interface_t dllFuncs;
 
 	// depends on build configuration
-	const char    **shortNames;
-	const char    **readableNames;
+	const char    **short_names;
+	const char    **long_names;
 };
 
 extern struct ref_state_s ref;
