@@ -75,18 +75,17 @@ static void TextureNameFix( void )
 	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ), *texture1;
 
 	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
+	{
 		ExtractFileName( texture->name, sizeof( texture->name ));
+
+		if( !IsValidName( texture->name ))
+			Q_snprintf( texture->name, sizeof( texture->name ), "MDLDEC_Texture%i.bmp", ++protected );
+	}
 
 	texture -= i;
 
 	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
 	{
-		if( !IsValidName( texture->name ))
-		{
-			Q_snprintf( texture->name, sizeof( texture->name ), "MDLDEC_Texture%i.bmp", ++protected );
-			continue;
-		}
-
 		counter = 0;
 
 		texture1 = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
@@ -124,23 +123,17 @@ BodypartNameFix
 */
 static void BodypartNameFix( void )
 {
-	int			 i, j, k, len, counter, protected = 0, protected_models = 0;
+	int			 i, j, k, l, len, counter, protected = 0, protected_models = 0;
 	qboolean		 hasduplicates = false;
-	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex );
+	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *)( (byte *)model_hdr + model_hdr->bodypartindex );
+	mstudiobodyparts_t	*bodypart1;
 	mstudiomodel_t		*model, *model1;
 
 	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
-		ExtractFileName( bodypart->name, sizeof( bodypart->name ));
-
-	bodypart -= i;
-
-	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
 	{
+		ExtractFileName( bodypart->name, sizeof( bodypart->name ));
 		if( !IsValidName( bodypart->name ))
-		{
 			Q_snprintf( bodypart->name, sizeof( bodypart->name ), "MDLDEC_Bodypart%i", ++protected );
-			continue;
-		}
 
 		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
@@ -148,38 +141,44 @@ static void BodypartNameFix( void )
 		{
 			ExtractFileName( model->name, sizeof( model->name ));
 			COM_StripExtension( model->name );
+			if( !IsValidName( model->name ))
+				Q_snprintf( model->name, sizeof( model->name ), "MDLDEC_Model%i", ++protected_models );
 		}
+	}
 
-		model -= j;
+	bodypart -= i;
+
+	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
+	{
+		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
 		for( j = 0; j < bodypart->nummodels; ++j, ++model )
 		{
-			if( !IsValidName( model->name ))
-			{
-				Q_snprintf( model->name, sizeof( model->name ), "MDLDEC_Model%i", ++protected_models );
-				continue;
-			}
-
 			counter = 0;
 
-			model1 = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
+			bodypart1 = (mstudiobodyparts_t *)( (byte *)model_hdr + model_hdr->bodypartindex );
 
-			for( k = 0; k < bodypart->nummodels; ++k, ++model1 )
+			for( k = 0; k < model_hdr->numbodyparts; ++k, ++bodypart1 )
 			{
-				if( k != j && !Q_strncmp( model1->name, model->name, sizeof( model1->name )))
+				model1 = (mstudiomodel_t *)( (byte *)model_hdr + bodypart1->modelindex );
+
+				for( l = 0; l < bodypart1->nummodels; ++l, ++model1 )
 				{
-					len = Q_snprintf( model1->name, sizeof( model1->name ), "%s_%i", model1->name, ++counter );
+					if( !( i==k && j==l ) && !Q_strncmp( model1->name, model->name, sizeof( model1->name )))
+					{
+						len = Q_snprintf( model1->name, sizeof( model1->name ), "%s_%i", model1->name, ++counter );
 
-					if( len == -1 )
-						Q_snprintf( model1->name, sizeof( model1->name ), "MDLDEC_Model%i_%i", k, counter );
+						if( len == -1 )
+							Q_snprintf( model1->name, sizeof( model1->name ), "MDLDEC_Model%i_%i", l, counter );
+					}
 				}
-			}
 
-			if( counter > 0 )
-			{
-				printf( "WARNING: Sequence name \"%s\" is repeated %i times.\n", model->name, counter );
+				if( counter > 0 )
+				{
+					printf( "WARNING: Model name \"%s\" is repeated %i times.\n", model->name, counter );
 
-				hasduplicates = true;
+					hasduplicates = true;
+				}
 			}
 		}
 	}
@@ -209,18 +208,14 @@ static void SequenceNameFix( void )
 	{
 		ExtractFileName( seqdesc->label, sizeof( seqdesc->label ));
 		COM_StripExtension( seqdesc->label );
+		if( !IsValidName( seqdesc->label ))
+			Q_snprintf( seqdesc->label, sizeof( seqdesc->label ), "MDLDEC_Sequence%i", ++protected );
 	}
 
 	seqdesc -= i;
 
 	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
-		if( !IsValidName( seqdesc->label ))
-		{
-			Q_snprintf( seqdesc->label, sizeof( seqdesc->label ), "MDLDEC_Sequence%i", ++protected );
-			continue;
-		}
-
 		counter = 0;
 
 		seqdesc1 = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
