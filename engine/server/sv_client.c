@@ -307,6 +307,7 @@ static void SV_ConnectClient( netadr_t from )
 {
 	char userinfo[MAX_INFO_STRING];
 	char protinfo[MAX_INFO_STRING];
+	char physinfo[MAX_INFO_STRING];
 	client_frame_t *frames;
 	sv_client_t *newcl = NULL;
 	int qport, version;
@@ -415,9 +416,12 @@ static void SV_ConnectClient( netadr_t from )
 	frames = Mem_Realloc( host.mempool, newcl->frames, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
 	memset( frames, 0, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
 	SV_ClearResourceLists( newcl );
+	memcpy( physinfo, newcl->physinfo, sizeof( physinfo ));
 
 	memset( newcl, 0, sizeof( *newcl ));
 
+	// a1ba: preserve physinfo as it's set by game logic, before client connect!
+	memcpy( newcl->physinfo, physinfo, sizeof( newcl->physinfo ));
 	newcl->edict = EDICT_NUM(( newcl - svs.clients ) + 1 );
 	newcl->frames = frames;
 	newcl->userid = g_userid++;	// create unique userid
