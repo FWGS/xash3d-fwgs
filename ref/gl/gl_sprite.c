@@ -891,6 +891,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 		pglAlphaFunc( GL_GREATER, DEFAULT_ALPHATEST );
 		pglDepthFunc( GL_LEQUAL );
+		pglDisable( GL_BLEND );
 	}
 
 	if( psprite->facecull == SPR_CULL_NONE )
