@@ -602,6 +602,7 @@ static int SV_FlyMove( edict_t *ent, float time, trace_t *steptrace )
 	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
 	VectorCopy( ent->v.velocity, original_velocity );
 	VectorCopy( ent->v.velocity, primal_velocity );
+	VectorClear( new_velocity );
 	numplanes = 0;
 
 	allFraction = 0.0f;
