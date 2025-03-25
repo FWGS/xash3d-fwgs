@@ -46,7 +46,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	short		p, a, b, c, pa, pb, pc;
 	byte		*buf_p, *pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL;
 	byte		*pallete = NULL, *trns = NULL;
-	uint	 	chunk_len, trns_len, plte_len, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
+	uint	 	chunk_len, trns_len = 0, plte_len = 0, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
 	uint		uncompressed_size, pixel_size, pixel_count, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha;
 	qboolean 	has_iend_chunk = false;
 	z_stream 	stream = {0};
