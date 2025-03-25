@@ -698,7 +698,7 @@ R_DrawSpriteModel
 */
 void R_DrawSpriteModel( cl_entity_t *e )
 {
-	mspriteframe_t	*frame, *oldframe;
+	mspriteframe_t	*frame = NULL, *oldframe = NULL;
 	msprite_t		*psprite;
 	model_t		*model;
 	int		i, type;
