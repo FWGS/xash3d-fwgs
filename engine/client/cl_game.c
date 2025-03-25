@@ -1688,7 +1688,7 @@ get actual screen info
 */
 int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 {
-	qboolean apply_scale_factor = false;
+	qboolean apply_scale_factor = false; // we don't want floating point inaccuracies
 	float scale_factor = hud_scale.value;
 
 	if( FBitSet( hud_fontscale.flags, FCVAR_CHANGED ))
@@ -1706,7 +1706,7 @@ int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 	if( hud_scale.value >= 320.0f && hud_scale.value >= hud_scale_minimal_width.value )
 	{
 		scale_factor = refState.width / hud_scale.value;
-		apply_scale_factor = true;
+		apply_scale_factor = scale_factor > 1.0f;
 	}
 	else if( scale_factor && scale_factor != 1.0f )
 	{
