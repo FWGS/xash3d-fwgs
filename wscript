@@ -337,6 +337,7 @@ def configure(conf):
 			'-Werror=free-nonheap-object',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
+			'-Werror=maybe-unintialized',
 			'-Werror=nonnull',
 			'-Werror=packed',
 			'-Werror=packed-not-aligned',
@@ -349,6 +350,7 @@ def configure(conf):
 			'-Werror=strict-aliasing',
 			'-Werror=string-compare',
 			'-Werror=tautological-compare',
+			'-Werror=uninitialized',
 			'-Werror=use-after-free=3',
 			'-Werror=vla',
 			'-Werror=write-strings',
@@ -359,7 +361,6 @@ def configure(conf):
 			'-Wmisleading-indentation',
 			'-Wmismatched-dealloc',
 			'-Wstringop-overflow',
-			'-Wunintialized',
 			'-Wno-error=format-nonliteral',
 
 			# disabled, flood
