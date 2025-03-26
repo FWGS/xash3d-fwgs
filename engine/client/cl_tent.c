@@ -955,7 +955,6 @@ void GAME_EXPORT R_BloodSprite( const vec3_t org, int colorIndex, int modelIndex
 				if( pTemp->entity.curstate.frame > 8.0f )
 					pTemp->entity.curstate.frame = pTemp->frameMax;
 
-				pTemp->entity.baseline.origin[2] += COM_RandomFloat( 4.0f, 16.0f ) * size;
 				pTemp->entity.angles[2] = COM_RandomFloat( 0.0f, 360.0f );
 				pTemp->bounceFactor	= 0.0f;
 			}
