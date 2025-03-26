@@ -24,7 +24,11 @@ GNU General Public License for more details.
 #endif
 
 #ifdef XASH_SDL
+#if XASH_SDL == 3
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 #endif
 
 #if XASH_POSIX
@@ -72,7 +76,9 @@ Sys_DebugBreak
 */
 void Sys_DebugBreak( void )
 {
-#if XASH_SDL
+#if XASH_SDL == 3
+	int was_grabbed = host.hWnd != NULL && SDL_GetWindowMouseGrab( host.hWnd );
+#elif XASH_SDL
 	int was_grabbed = host.hWnd != NULL && SDL_GetWindowGrab( host.hWnd );
 #endif
 
@@ -81,7 +87,13 @@ void Sys_DebugBreak( void )
 
 #if XASH_SDL
 	if( was_grabbed ) // so annoying...
+	{
+#if XASH_SDL == 3
+		SDL_SetWindowMouseGrab( host.hWnd, false );
+#else
 		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#endif
+	}
 #endif // XASH_SDL
 
 #if _MSC_VER
@@ -93,7 +105,13 @@ void Sys_DebugBreak( void )
 
 #if XASH_SDL
 	if( was_grabbed )
+	{
+#if XASH_SDL == 3
+		SDL_SetWindowMouseGrab( host.hWnd, true );
+#else
 		SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
+#endif
+	}
 #endif
 }
 
@@ -393,7 +411,7 @@ void Sys_Error( const char *error, ... )
 
 	if( !Host_IsDedicated() )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL == 2 || XASH_SDL == 3
 		if( host.hWnd ) SDL_HideWindow( host.hWnd );
 #endif
 #if XASH_WIN32
