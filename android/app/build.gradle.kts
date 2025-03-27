@@ -18,6 +18,10 @@ android {
 		versionCode = getBuildNum()
 		minSdk = 21
 		targetSdk = 35
+
+		ndk {
+			abiFilters.addAll(setOf("armeabi-v7a", "arm64-v8a"))
+		}
 	}
 
 	compileOptions {
@@ -62,16 +66,16 @@ android {
 		}
 	}
 
-    buildTypes {
-        debug {
-            isMinifyEnabled = false
-            isShrinkResources = false
-            isDebuggable = true
-            applicationIdSuffix = ".test"
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            )
-        }
+	buildTypes {
+		debug {
+			isMinifyEnabled = false
+			isShrinkResources = false
+			isDebuggable = true
+			applicationIdSuffix = ".test"
+			proguardFiles(
+				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+			)
+		}
 
 		release {
 			isMinifyEnabled = true
