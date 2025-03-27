@@ -68,7 +68,7 @@ ExternalProject_Add(
 		ANDROID_NDK=${ANDROID_NDK}
 		BUILD_CMAKE_LIBRARY_OUTPUT_DIRECTORY=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
 		WAFLOCK=.lock-waf_android_${ANDROID_ABI}_build
-		${WAF} configure -T ${BUILD_TYPE} --android=${ANDROID_ABI},,${CMAKE_SYSTEM_VERSION}
+		${WAF} configure -T ${BUILD_TYPE} --android=${ANDROID_ABI},,${ANDROID_PLATFORM_LEVEL}
 		-s "${ENGINE_SOURCE_DIR}/3rdparty/SDL" --enable-bundled-deps ${WAF_EXTRA_ARGS}
 
 	BUILD_COMMAND ${CMAKE_COMMAND} -E env
