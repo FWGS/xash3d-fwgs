@@ -2,11 +2,14 @@
 
 ### Prerequisites
 1. Make sure your PSVita is [set up to run homebrew applications](https://vita.hacks.guide/).
-2. Install [kubridge](https://github.com/TheOfficialFloW/kubridge/releases/) by copying `kubridge.suprx` to your taiHEN plugins folder (usually `ux0:/tai`) and add it to your `config.txt`, for example:
+2. Install [kubridge](https://github.com/TheOfficialFloW/kubridge/releases/). It is recommended to use kubridge version `0.1`, because other versions aren't tested, we don't know are they suitable or not.
+
+   Worth to notice, we got reports that automatic plugins management app EasyPlugin have issues with installing kubridge plugin, so it's better to install it manually: by copying `kubridge.suprx` to your taiHEN plugins folder (usually `ux0:/tai`, but could be `ur0:/tai`) and add it to your `config.txt`, for example:
    ```
    *KERNEL
    ux0:tai/kubridge.skprx
    ```
+
 3. Install `libshacccg.suprx` by following [this guide](https://cimmerian.gitbook.io/vita-troubleshooting-guide/shader-compiler/extract-libshacccg.suprx).
 
 ### Installation
