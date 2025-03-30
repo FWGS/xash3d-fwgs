@@ -227,7 +227,8 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 	int			 norm_index;
 	int			 bone_index;
 	int			 valid_bones;
-	float			 s, t, u, v;
+	int			 width, height;
+	float			 u, v;
 	byte			*vertbone;
 	vec3_t			*studioverts;
 	vec3_t			*studionorms;
@@ -235,16 +236,19 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 	float			 weights[MAXSTUDIOBONEWEIGHTS], oldweight, totalweight;
 	matrix3x4		 bonematrix[MAXSTUDIOBONEWEIGHTS], skinmatrix, *pskinmatrix;
 	mstudioboneweight_t	*studioboneweights;
+	char			 buffer[64];
 
 	vertbone    = ( (byte *)model_hdr + model->vertinfoindex );
 	studioverts = (vec3_t *)( (byte *)model_hdr + model->vertindex );
 	studionorms = (vec3_t *)( (byte *)model_hdr + model->normindex );
 	studioboneweights = (mstudioboneweight_t *)( (byte *)model_hdr + model->blendvertinfoindex );
 
-	s = 1.0f / texture->width;
-	t = 1.0f / texture->height;
+	Q_strncpy( buffer, texture->name, sizeof( buffer ));
 
-	fprintf( fp, "%s\n", texture->name );
+	// Many filesystems couldn't write files if "#" is first character in the name.
+	if( buffer[0] == '#' ) buffer[0] = 's';
+
+	fprintf( fp, "%s\n", buffer );
 
 	for( i = 0; i < 3; i++ )
 	{
@@ -293,10 +297,29 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 			u = HalfToFloat( triverts[index]->s );
 			v = -HalfToFloat( triverts[index]->t );
 		}
+		else if( texture->width == 1 || texture->height == 1 )
+		{
+			if( texture->name[0] == '#' )
+			{
+				Q_strncpy( buffer, &texture->name[1], 4 );
+				width = Q_atoi( buffer );
+
+				Q_strncpy( buffer, &texture->name[4], 4 );
+				height = Q_atoi( buffer );
+
+				u = (float)triverts[index]->s / width;
+				v = 1.0f - (float)triverts[index]->t / height;
+			}
+			else
+			{
+				u = (float)triverts[index]->s;
+				v = 1.0f - (float)triverts[index]->t;
+			}
+		}
 		else
 		{
-			u = ( triverts[index]->s + 1.0f ) * s;
-			v = 1.0f - triverts[index]->t * t;
+			u = (float)triverts[index]->s / ( texture->width - 1 );
+			v = 1.0f - (float)triverts[index]->t / ( texture->height - 1 );
 		}
 
 		fprintf( fp, "%3i %f %f %f %f %f %f %f %f",
