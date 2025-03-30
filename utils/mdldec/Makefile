@@ -11,8 +11,10 @@ SYS = $(shell $(CC) -dumpmachine)
 
 ifneq (, $(findstring mingw, $(SYS)))
 EXT = .exe
+CFLAGS += -DHAVE_STRICMP -DHAVE_STRNICMP
 else
 EXT =
+CFLAGS += -DHAVE_STRCASECMP -DHAVE_STRNCASECMP
 endif
 
 APP = $(MODULE)$(EXT)
