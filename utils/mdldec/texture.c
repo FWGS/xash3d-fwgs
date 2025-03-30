@@ -164,6 +164,9 @@ void WriteTextures( void )
 			return;
 		}
 
+		// Many filesystems couldn't write files if "#" is first character in the name.
+		if( texture->name[0] == '#' ) texture->name[0] = 's';
+
 		if( !Q_stricmp( COM_FileExtension( texture->name ), "tga" ))
 			WriteTGA( fp, texture );
 		else

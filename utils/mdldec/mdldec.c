@@ -78,7 +78,8 @@ static void TextureNameFix( void )
 	{
 		ExtractFileName( texture->name, sizeof( texture->name ));
 
-		if( !IsValidName( texture->name ))
+		if( !( ( ( texture->width == 1 || texture->height == 1 )
+		    && texture->name[0] == '#' ) || IsValidName( texture->name )))
 			Q_snprintf( texture->name, sizeof( texture->name ), "MDLDEC_Texture%i.bmp", ++protected );
 	}
 
