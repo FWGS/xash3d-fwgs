@@ -75,6 +75,7 @@ static const vrtld_export_t aux_exports[] =
 	VRTLD_EXPORT_SYMBOL( stpcpy ),
 	VRTLD_EXPORT_SYMBOL( rand ),
 	VRTLD_EXPORT_SYMBOL( srand ),
+	VRTLD_EXPORT_SYMBOL( rintf ),
 	VRTLD_EXPORT_SYMBOL( sceGxmMapMemory ), // needed by vgl_shim
 	VRTLD_EXPORT( "dlopen", vrtld_dlopen ),
 	VRTLD_EXPORT( "dlclose", vrtld_dlclose ),
