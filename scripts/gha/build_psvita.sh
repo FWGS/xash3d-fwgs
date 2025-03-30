@@ -81,7 +81,6 @@ echo 'bind DPAD_LEFT "invprev"'     >> config.cfg
 echo 'bind DPAD_RIGHT "invnext"'    >> config.cfg
 echo 'gl_vsync "1"'                 >> config.cfg
 echo 'sv_autosave "0"'              >> config.cfg
-echo 'voice_enable "0"'             >> config.cfg
 
 touch video.cfg
 echo 'fullscreen "1"' >> video.cfg
