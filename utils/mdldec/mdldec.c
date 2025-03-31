@@ -510,7 +510,7 @@ ShowVersion
 static void ShowVersion( void )
 {
 	LogPutS( "\nHalf-Life Studio Model Decompiler " APP_VERSION );
-	LogPutS( "Copyright Flying With Gauss 2020 (c) " );
+	LogPutS( "Copyright Flying With Gauss 2020-2025 (c) " );
 	LogPutS( "--------------------------------------------------" );
 }
 
