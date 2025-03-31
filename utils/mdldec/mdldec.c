@@ -550,6 +550,7 @@ int main( int argc, char *argv[] )
 		case 'u': globalsettings |= SETTINGS_UVSHIFTING; break;
 		case 'V': globalsettings |= SETTINGS_NOVALIDATION; break;
 		case 'h':
+		case '?':
 			globalsettings = 0;
 			ShowVersion();
 			ShowHelp( argv[0] );
