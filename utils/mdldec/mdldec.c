@@ -115,7 +115,7 @@ static void TextureNameFix( void )
 	}
 
 	if( protected )
-		LogPrintf( "WARNING: Gived name to %i protected texture(s).", protected );
+		LogPrintf( "WARNING: Gived name to %i protected texture%s.", protected, protected > 1 ? "s" : "" );
 
 	if( hasduplicates )
 		LogPutS( "WARNING: Added numeric suffix to repeated texture name(s)." );
@@ -189,10 +189,10 @@ static void BodypartNameFix( void )
 	}
 
 	if( protected )
-		LogPrintf( "WARNING: Gived name to %i protected bodypart(s).", protected );
+		LogPrintf( "WARNING: Gived name to %i protected bodypart%s.", protected, protected > 1 ? "s" : "" );
 
 	if( protected_models )
-		LogPrintf( "WARNING: Gived name to %i protected model(s).", protected_models );
+		LogPrintf( "WARNING: Gived name to %i protected model%s.", protected_models, protected_models > 1 ? "s" : "" );
 
 	if( hasduplicates )
 		LogPutS( "WARNING: Added numeric suffix to repeated bodypart name(s)." );
@@ -245,7 +245,7 @@ static void SequenceNameFix( void )
 	}
 
 	if( protected )
-		LogPrintf( "WARNING: Gived name to %i protected sequence(s).", protected );
+		LogPrintf( "WARNING: Gived name to %i protected sequence%s.", protected, protected > 1 ? "s" : "" );
 
 	if( hasduplicates )
 		LogPutS( "WARNING: Added numeric suffix to repeated sequence name(s)." );
@@ -270,7 +270,7 @@ static void BoneNameFix( void )
 	}
 
 	if( protected )
-		LogPrintf( "WARNING: Gived name to %i protected bone(s).", protected );
+		LogPrintf( "WARNING: Gived name to %i protected bone%s.", protected, protected > 1 ? "s" : "" );
 }
 
 /*
