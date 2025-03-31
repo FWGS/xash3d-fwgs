@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# As e2k builds for distro that's vastly different from Ubuntu/Debian and specially handles cross-compiling
+# keep it in separate script for now
+if [[ $GH_CPU_ARCH == e2k* ]]; then
+	exec bash scripts/gha/deps_linux-e2k.sh
+fi
+
 . scripts/lib.sh
 
 cd "$GITHUB_WORKSPACE" || exit 1
