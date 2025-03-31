@@ -91,8 +91,10 @@ typedef int qboolean;
 	#define NORETURN           __attribute__(( noreturn ))
 	#define NONNULL            __attribute__(( nonnull ))
 	#define RETURNS_NONNULL    __attribute__(( returns_nonnull ))
-	#if __clang__
-		#define PFN_RETURNS_NONNULL // clang has bugged returns_nonnull for functions pointers, it's ignored and generates a warning about objective-c? O_o
+	#if __clang__ || __MCST__
+		// clang has bugged returns_nonnull for functions pointers, it's ignored and generates a warning about objective-c? O_o
+		// lcc doesn't support it at all
+		#define PFN_RETURNS_NONNULL
 	#else
 		#define PFN_RETURNS_NONNULL RETURNS_NONNULL
 	#endif
