@@ -63,7 +63,7 @@ build_engine()
 	if [ "$1" = "dedicated" ]; then
 		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -d || die_configure
 	elif [ "$1" = "full" ]; then
-		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stb --enable-utils || die_configure
+		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stbtt --enable-utils || die_configure
 	else
 		die
 	fi
