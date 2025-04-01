@@ -26,7 +26,8 @@ SRC =	mdldec.c \
 	utils.c \
 	../../public/xash3d_mathlib.c \
 	../../public/matrixlib.c \
-	../../public/crtlib.c
+	../../public/crtlib.c \
+	../../public/getopt.c
 
 INCLUDE = -I. \
 	  -I../../common \
