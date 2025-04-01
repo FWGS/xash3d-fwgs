@@ -99,7 +99,8 @@ SUBDIRS = [
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
-	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT),
+	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and not x.env.TUI),
+	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
 	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
@@ -136,6 +137,9 @@ def options(opt):
 
 	grp.add_option('--enable-dedicated', action = 'store_true', dest = 'ENABLE_DEDICATED', default = False,
 		help = 'enable building Xash Dedicated Server alongside client [default: %(default)s]')
+
+	grp.add_option('--enable-tui', action = 'store_true', dest = 'ENABLE_TUI', default = False,
+		help = 'enable TUI main menu [default: %(default)s]')
 
 	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
 		help = 'engine default (base) game directory [default: %(default)s]')
@@ -414,6 +418,8 @@ def configure(conf):
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
 		conf.env.LAUNCHER = False
+
+	conf.env.TUI = conf.options.ENABLE_TUI
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
