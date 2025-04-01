@@ -13,4 +13,4 @@ enum
 	SETTINGS_SEPARATERESOURCES = BIT(4),
 };
 
-#endif // VERSION_H
+#endif // SETTINGS_H

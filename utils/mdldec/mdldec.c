@@ -17,7 +17,12 @@ GNU General Public License for more details.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include "build.h"
+#if !XASH_WIN32
+	#include <unistd.h>
+#else
+	#include "getopt.h"
+#endif
 #include "const.h"
 #include "com_model.h"
 #include "crtlib.h"
