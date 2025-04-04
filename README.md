@@ -33,6 +33,7 @@ If your CPU is NOT x86 compatible or you're running 64-bit version of the engine
 This repository contains our fork of HLSDK and restored source code for Half-Life expansions and some mods.
 You still needed to copy `valve` directory as all game resources located there.
 3) Run the main executable (`xash3d.exe` or AppImage).
+4) 4) For run in Android Studio you should clone [SDL](https://github.com/libsdl-org/SDL) sdl2 branch and [HLSDK-portable](https://github.com/FWGS/hlsdk-portalbe) mobile-hacks branch repositories to 3dr-party
 
 For additional info, run Xash3D with `-help` command line key.
 
