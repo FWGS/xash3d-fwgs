@@ -471,6 +471,9 @@ static file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, cons
 
 	Q_snprintf( path, sizeof( path ), "%s%s", search->filename, filename );
 	f = FS_SysOpen( path, mode );
+	if( !f )
+		return NULL;
+
 	f->searchpath = search;
 
 	return f;
