@@ -137,7 +137,7 @@ void WriteTextures( void )
 	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
 	char			 path[MAX_SYSPATH];
 
-	len = Q_snprintf( path, MAX_SYSPATH, ( globalsettings & SETTINGS_SEPARATERESOURCES ) ? "%s" DEFAULT_TEXTUREPATH : "%s", destdir );
+	len = Q_snprintf( path, MAX_SYSPATH, ( globalsettings & SETTINGS_SEPARATETEXTURESFOLDER ) ? "%s" TEXTUREPATH : "%s", destdir );
 
 	if( len == -1 || !MakeDirectory( path ))
 	{

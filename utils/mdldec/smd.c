@@ -591,7 +591,7 @@ static void WriteSequences( void )
 	char			 path[MAX_SYSPATH];
 	mstudioseqdesc_t	*seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
 
-	len = Q_snprintf( path, MAX_SYSPATH, ( globalsettings & SETTINGS_SEPARATERESOURCES ) ? "%s" DEFAULT_SEQUENCEPATH : "%s", destdir );
+	len = Q_snprintf( path, MAX_SYSPATH, ( globalsettings & SETTINGS_SEPARATEANIMSFOLDER ) ? "%s" SEQUENCEPATH : "%s", destdir );
 
 	if( len == -1 || !MakeDirectory( path ))
 	{
