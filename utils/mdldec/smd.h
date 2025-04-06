@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #ifndef SMD_H
 #define SMD_H
 
-#define DEFAULT_SEQUENCEPATH	"anims/"
+#define SEQUENCEPATH	"anims/"
 
 void	WriteSMD( void );
 
