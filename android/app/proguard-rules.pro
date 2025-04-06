@@ -109,3 +109,8 @@
     void hapticRun(int, float, int);
     void hapticStop(int);
 }
+
+# Unexpected reference to missing service class: META-INF/services/javax.annotation.processing.Processor.
+-dontwarn javax.annotation.processing.Processor
+-dontwarn javax.annotation.processing.AbstractProcessor
+-dontwarn javax.annotation.processing.SupportedOptions
