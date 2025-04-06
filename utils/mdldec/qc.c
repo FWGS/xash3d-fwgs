@@ -481,7 +481,7 @@ static void WriteSequenceInfo( FILE *fp )
 
 	seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
 
-	seq_path = ( globalsettings & SETTINGS_SEPARATERESOURCES ) ? DEFAULT_SEQUENCEPATH : "";
+	seq_path = ( globalsettings & SETTINGS_SEPARATEANIMSFOLDER ) ? SEQUENCEPATH : "";
 
 	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
@@ -607,8 +607,8 @@ void WriteQCScript( void )
 	fprintf( fp, "$modelname \"%s.mdl\"\n", modelfile );
 
 	fputs( "$cd \".\"\n", fp );
-	if( globalsettings & SETTINGS_SEPARATERESOURCES )
-		fputs( "$cdtexture \"./" DEFAULT_TEXTUREPATH "\"\n", fp );
+	if( globalsettings & SETTINGS_SEPARATETEXTURESFOLDER )
+		fputs( "$cdtexture \"./" TEXTUREPATH "\"\n", fp );
 	else fputs( "$cdtexture \"./\"\n", fp );
 	fputs( "$cliptotextures\n", fp );
 	fputs( "$scale 1.0\n", fp );
