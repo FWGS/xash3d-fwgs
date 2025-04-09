@@ -328,6 +328,9 @@ void FS_Init( const char *basedir )
 
 	if( !Sys_GetParmFromCmdLine( "-clientlib", host.clientlib ))
 		host.clientlib[0] = 0;
+
+	if( !Sys_GetParmFromCmdLine( "-menulib", host.menulib ))
+		host.menulib[0] = 0;
 }
 
 /*

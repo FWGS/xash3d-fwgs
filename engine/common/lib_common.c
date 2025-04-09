@@ -228,7 +228,14 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 	switch( eLibType )
 	{
 	case LIBRARY_GAMEUI:
-		COM_GenerateClientLibraryPath( "menu", out, size );
+		if( COM_CheckStringEmpty( host.menulib ))
+		{
+			Q_strncpy( out, host.menulib, size );
+		}
+		else
+		{
+			COM_GenerateClientLibraryPath( "menu", out, size );
+		}
 		break;
 	case LIBRARY_CLIENT:
 		if( COM_CheckStringEmpty( host.clientlib ))
