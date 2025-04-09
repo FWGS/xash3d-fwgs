@@ -358,6 +358,7 @@ typedef struct host_parm_s
 	int      window_center_y;
 	string   gamedll;
 	string   clientlib;
+	string   menulib;
 } host_parm_t;
 
 extern host_parm_t	host;

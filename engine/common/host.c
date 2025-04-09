@@ -177,6 +177,7 @@ static void Sys_PrintUsage( const char *exename )
 	O("-dll <path>        ", "override server DLL path")
 #if !XASH_DEDICATED
 	O("-clientlib <path>  ", "override client DLL path")
+	O("-menulib <path>    ", "override menu DLL path")
 	O("-console           ", "run engine with console enabled")
 	O("-toconsole         ", "run engine witn console open")
 	O("-oldfont           ", "enable unused Quake font in Half-Life")
