@@ -11,7 +11,7 @@ fi
 cd "$GITHUB_WORKSPACE" || exit 1
 
 # "booo, bash feature!", -- posix sh users, probably
-declare -A BASE_BUILD_PACKAGES SDL_BUILD_PACKAGES APPIMAGETOOL
+declare -A BASE_BUILD_PACKAGES SDL_BUILD_PACKAGES APPIMAGETOOL RUST_TARGET
 
 # bzip2 and opus are added from submodules, freetype replaced by stb_truetype in this build, so it's just compiler toolchain
 BASE_BUILD_PACKAGES[common]="desktop-file-utils"
@@ -46,6 +46,13 @@ APPIMAGETOOL[i386]=https://github.com/AppImage/appimagetool/releases/download/co
 # APPIMAGETOOL[arm64]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage
 # APPIMAGETOOL[armhf]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-armhf.AppImage
 
+RUST_TARGET[amd64]=x86_64-unknown-linux-gnu
+RUST_TARGET[i386]=i686-unknown-linux-gnu
+RUST_TARGET[arm64]=aarch64-unknown-linux-gnu
+RUST_TARGET[armhf]=thumbv7neon-unknown-linux-gnueabihf
+RUST_TARGET[riscv64]=riscv64gc-unknown-linux-gnu
+RUST_TARGET[ppc64el]=powerpc-unknown-linux-gnu
+
 regenerate_sources_list()
 {
 	# this is evil but to speed up update, specify all repositories manually
@@ -78,3 +85,5 @@ fi
 
 wget "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz" -qO- | tar -xzf -
 mv "SDL2-$SDL_VERSION" SDL2_src
+
+rustup target add ${RUST_TARGET[$GH_CPU_ARCH]}
