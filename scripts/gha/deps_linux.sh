@@ -51,7 +51,7 @@ RUST_TARGET[i386]=i686-unknown-linux-gnu
 RUST_TARGET[arm64]=aarch64-unknown-linux-gnu
 RUST_TARGET[armhf]=thumbv7neon-unknown-linux-gnueabihf
 RUST_TARGET[riscv64]=riscv64gc-unknown-linux-gnu
-RUST_TARGET[ppc64el]=powerpc-unknown-linux-gnu
+RUST_TARGET[ppc64el]=powerpc64le-unknown-linux-gnu
 
 regenerate_sources_list()
 {
