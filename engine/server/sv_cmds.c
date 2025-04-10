@@ -629,11 +629,13 @@ static void SV_Status_f( void )
 {
 	int		i;
 
+#if !XASH_DEDICATED
 	if( !svs.clients && CL_Active( ))
 	{
 		Cmd_ForwardToServer();
 		return;
 	}
+#endif // XASH_DEDICATED
 
 	if( !svs.clients || sv.background )
 	{
