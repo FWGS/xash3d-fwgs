@@ -59,7 +59,9 @@ regenerate_sources_list()
 	sudo rm /etc/apt/sources.list
 	sudo rm -rf /etc/apt/sources.list.d
 
-	for i in focal focal-updates focal-backports focal-security; do
+	codename=$(grep DISTRIB_CODENAME /etc/lsb-release | cut -d= -f2)
+
+	for i in "$codename" "$codename-updates" "$codename-backports" "$codename-security"; do
 		echo "deb [arch=$GH_CPU_ARCH] http://azure.ports.ubuntu.com/ubuntu-ports $i main universe" | sudo tee -a /etc/apt/sources.list
 		echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu $i main universe" | sudo tee -a /etc/apt/sources.list
 	done
@@ -86,4 +88,4 @@ fi
 wget "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz" -qO- | tar -xzf -
 mv "SDL2-$SDL_VERSION" SDL2_src
 
-rustup target add ${RUST_TARGET[$GH_CPU_ARCH]}
+rustup target add "${RUST_TARGET[$GH_CPU_ARCH]}"
