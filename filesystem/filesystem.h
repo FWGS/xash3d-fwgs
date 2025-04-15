@@ -159,7 +159,7 @@ typedef struct fs_api_t
 	int (*UnGetc)( file_t *file, char c );
 	int (*Getc)( file_t *file );
 	int (*VPrintf)( file_t *file, const char *format, va_list ap );
-	int (*Printf)( file_t *file, const char *format, ... ) _format( 2 );
+	int (*Printf)( file_t *file, const char *format, ... );
 	int (*Print)( file_t *file, const char *msg );
 	fs_offset_t (*FileLength)( file_t *f );
 	qboolean (*FileCopy)( file_t *pOutput, file_t *pInput, int fileSize );
@@ -192,11 +192,11 @@ typedef struct fs_api_t
 typedef struct fs_interface_t
 {
 	// logging
-	void    (*_Con_Printf)( const char *fmt, ... ) _format( 1 ); // typical console allowed messages
-	void    (*_Con_DPrintf)( const char *fmt, ... ) _format( 1 ); // -dev 1
-	void    (*_Con_Reportf)( const char *fmt, ... ) _format( 1 ); // -dev 2
+	void    (*_Con_Printf)( const char *fmt, ... ); // typical console allowed messages
+	void    (*_Con_DPrintf)( const char *fmt, ... ); // -dev 1
+	void    (*_Con_Reportf)( const char *fmt, ... ); // -dev 2
 
-	void    (*_Sys_Error)( const char *fmt, ... ) _format( 1 );
+	void    (*_Sys_Error)( const char *fmt, ... );
 
 	// memory
 	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
@@ -208,6 +208,8 @@ typedef struct fs_interface_t
 
 typedef int (*FSAPI)( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *interface );
 #define GET_FS_API "GetFSAPI"
+
+int EXPORT GetFSAPI(int version, fs_api_t* api, fs_globals_t** globals, fs_interface_t* engfuncs);
 
 #ifdef __cplusplus
 }

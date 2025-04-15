@@ -22,10 +22,12 @@ GNU General Public License for more details.
 #include "xash3d_types.h"
 #include "filesystem.h"
 
+/*
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+*/
 
 typedef struct dir_s dir_t;
 typedef struct zip_s zip_t;
@@ -93,21 +95,32 @@ typedef struct searchpath_s
 	byte   *(*pfnLoadFile)( struct searchpath_s *search, const char *path, int pack_ind, fs_offset_t *filesize );
 } searchpath_t;
 
-extern fs_globals_t  FI;
+namespace fs { extern fs_globals_t  FI; }
 extern searchpath_t *fs_searchpaths;
 extern searchpath_t *fs_writepath;
 extern poolhandle_t  fs_mempool;
-extern fs_interface_t g_engfuncs;
+namespace fs { extern fs_interface_t g_engfuncs; }
 extern qboolean      fs_ext_path;
 extern char          fs_rodir[MAX_SYSPATH];
 extern char          fs_rootdir[MAX_SYSPATH];
 extern fs_api_t      g_api;
 
-#define GI FI.GameInfo
+#define GI fs::FI.GameInfo
 
-#define Mem_Malloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
-#define Mem_Calloc( pool, size ) g_engfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
-#define Mem_Realloc( pool, ptr, size ) g_engfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+namespace fs
+{
+	struct ConversionPtr
+	{
+		void* ptr;
+
+		template<typename T>
+		operator T* () { return static_cast<T*>(ptr); }
+	};
+
+	inline ConversionPtr Mem_Malloc(poolhandle_t pool, size_t size) { return { g_engfuncs._Mem_Alloc(pool, size, false, __FILE__, __LINE__) }; }
+	inline ConversionPtr Mem_Calloc(poolhandle_t pool, size_t size) { return { g_engfuncs._Mem_Alloc(pool, size, true, __FILE__, __LINE__) }; }
+	inline ConversionPtr Mem_Realloc(poolhandle_t pool, void* ptr, size_t size) { return { g_engfuncs._Mem_Realloc(pool, ptr, size, true, __FILE__, __LINE__) }; }
+}
 #define Mem_Free( mem ) g_engfuncs._Mem_Free( mem, __FILE__, __LINE__ )
 #define Mem_AllocPool( name ) g_engfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool ) g_engfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
@@ -149,7 +162,7 @@ int FS_Gets( file_t *file, char *string, size_t bufsize );
 int FS_UnGetc( file_t *file, char c );
 int FS_Getc( file_t *file );
 int FS_VPrintf( file_t *file, const char *format, va_list ap );
-int FS_Printf( file_t *file, const char *format, ... ) _format( 2 );
+int FS_Printf( file_t *file, const char *format, ... );
 int FS_Print( file_t *file, const char *msg );
 fs_offset_t FS_FileLength( file_t *f );
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
@@ -211,8 +224,10 @@ searchpath_t *FS_AddDir_Fullpath( const char *path, qboolean *already_loaded, in
 qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t len, qboolean createpath );
 void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int flags );
 
+/*
 #ifdef __cplusplus
 }
 #endif
+*/
 
 #endif // FILESYSTEM_INTERNAL_H

@@ -20,15 +20,19 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#if XASH_POSIX
+#if XASH_POSIX | EMSCRIPTEN
 #include <unistd.h>
+#else
+#include <io.h>
 #endif
 #include <errno.h>
 #include <stddef.h>
 #include "port.h"
 #include "filesystem_internal.h"
 #include "crtlib.h"
-#include "common/com_strings.h"
+#include "com_strings.h"
+
+using namespace fs;
 
 /*
 ========================================================================
@@ -81,7 +85,7 @@ FS_SortPak
 */
 static int FS_SortPak( const void *_a, const void *_b )
 {
-	const dpackfile_t *a = _a, *b = _b;
+	const dpackfile_t *a = (dpackfile_t*)_a, *b = (dpackfile_t*)_b;
 
 	return Q_stricmp( a->name, b->name );
 }

@@ -16,12 +16,14 @@ GNU General Public License for more details.
 #include <stdio.h>
 #include <time.h>
 #include <stdarg.h>
-#include ALLOCA_H
+//#include ALLOCA_H
 #include "crtlib.h"
 #include "filesystem.h"
 #include "filesystem_internal.h"
 #include "VFileSystem009.h"
-#include "common/com_strings.h"
+#include "com_strings.h"//"common/com_strings.h"
+
+using namespace fs;
 
 #if __cplusplus < 201103L
 #define override

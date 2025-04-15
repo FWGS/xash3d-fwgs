@@ -17,7 +17,9 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#if XASH_POSIX
+#if !defined(EMSCRIPTEN) && !defined(LINUX)
+#include <io.h>
+#else
 #include <unistd.h>
 #endif
 #include <errno.h>
@@ -26,8 +28,10 @@ GNU General Public License for more details.
 #include "port.h"
 #include "filesystem_internal.h"
 #include "crtlib.h"
-#include "common/com_strings.h"
+#include "com_strings.h"
 #include "miniz.h"
+
+using namespace fs;
 
 #define ZIP_HEADER_LF      (('K'<<8)+('P')+(0x03<<16)+(0x04<<24))
 #define ZIP_HEADER_SPANNED ((0x08<<24)+(0x07<<16)+('K'<<8)+'P')

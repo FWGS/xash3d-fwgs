@@ -40,12 +40,14 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "filesystem_internal.h"
 #include "xash3d_mathlib.h"
-#include "common/com_strings.h"
-#include "common/protocol.h"
+#include "com_strings.h"
+#include "protocol.h"
+
+using namespace fs;
 
 #define FILE_COPY_SIZE		(1024 * 1024)
 
-fs_globals_t FI;
+fs_globals_t fs::FI;
 qboolean      fs_ext_path = false;	// attempt to read\write from ./ or ../ pathes
 poolhandle_t  fs_mempool;
 searchpath_t *fs_searchpaths = NULL;	// chain
@@ -1228,7 +1230,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	}
 	dllInfo->shortPath[i] = '\0';
 
-	COM_DefaultExtension( dllInfo->shortPath, "."OS_LIB_EXT, sizeof( dllInfo->shortPath ));	// apply ext if forget
+	COM_DefaultExtension( dllInfo->shortPath, (std::string(".") + OS_LIB_EXT).c_str(), sizeof( dllInfo->shortPath ));	// apply ext if forget
 
 	search = FS_FindFile( dllInfo->shortPath, &index, NULL, 0, false );
 
@@ -1277,6 +1279,7 @@ static qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dll
 	return true;
 }
 
+namespace fs { // REFORGED
 poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
 {
 	return (poolhandle_t)0xDEADC0DE;
@@ -1302,6 +1305,7 @@ void  _Mem_Free( void *data, const char *filename, int fileline )
 {
 	free( data );
 }
+} // REFORGED
 
 void _Con_Printf( const char *fmt, ... )
 {
@@ -1910,7 +1914,7 @@ int FS_Flush( file_t *file )
 	FS_Purge( file );
 
 	// sync
-#if XASH_POSIX
+#if XASH_POSIX | EMSCRIPTEN // REFORGED
 	if( fsync( file->handle ) < 0 )
 		return EOF;
 #else
@@ -2728,7 +2732,7 @@ void FS_InitMemory( void )
 	fs_searchpaths = NULL;
 }
 
-fs_interface_t g_engfuncs =
+fs_interface_t fs::g_engfuncs =
 {
 	_Con_Printf,
 	_Con_Printf,

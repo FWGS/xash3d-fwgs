@@ -37,7 +37,9 @@ GNU General Public License for more details.
 #include "filesystem_internal.h"
 #include "crtlib.h"
 #include "xash3d_mathlib.h"
-#include "common/com_strings.h"
+#include "com_strings.h"
+
+using namespace fs;
 
 enum
 {
@@ -78,8 +80,8 @@ static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 
 static int FS_SortDirEntries( const void *_a, const void *_b )
 {
-	const dir_t *a = _a;
-	const dir_t *b = _b;
+	const dir_t *a = (dir_t*)_a;
+	const dir_t *b = (dir_t*)_b;
 	return Q_stricmp( a->name, b->name );
 }
 

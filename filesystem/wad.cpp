@@ -27,8 +27,10 @@ GNU General Public License for more details.
 #include "port.h"
 #include "filesystem_internal.h"
 #include "crtlib.h"
-#include "common/com_strings.h"
+#include "com_strings.h"
 #include "wadfile.h"
+
+using namespace fs;
 
 /*
 ========================================================================
