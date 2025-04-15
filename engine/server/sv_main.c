@@ -42,6 +42,7 @@ CVAR_DEFINE_AUTO( sv_maxrate, "50000", FCVAR_SERVER, "max bandwidth rate allowed
 CVAR_DEFINE_AUTO( sv_newunit, "0", 0, "clear level-saves from previous SP game chapter to help keep .sav file size as minimum" );
 CVAR_DEFINE_AUTO( sv_clienttrace, "1", FCVAR_SERVER, "0 = big box(Quake), 0.5 = halfsize, 1 = normal (100%), otherwise it's a scaling factor" );
 static CVAR_DEFINE_AUTO( sv_timeout, "65", 0, "after this many seconds without a message from a client, the client is dropped" );
+static CVAR_DEFINE_AUTO( sv_connect_timeout, "15", 0, "after this many seconds without a message from a client, the client is dropped" );
 CVAR_DEFINE_AUTO( sv_failuretime, "0.5", 0, "after this long without a packet from client, don't send any more until client starts sending again" );
 CVAR_DEFINE_AUTO( sv_password, "", FCVAR_SERVER|FCVAR_PROTECTED, "server password for entry into multiplayer games" );
 // TODO: CVAR_DEFINE_AUTO( sv_proxies, "1", FCVAR_SERVER, "maximum count of allowed proxies for HLTV spectating" );
@@ -456,6 +457,18 @@ static void SV_ReadPackets( void )
 	sv.current_client = NULL;
 }
 
+static void SV_DropTimedOutClient( sv_client_t *cl, qboolean ban )
+{
+	SV_BroadcastPrintf( NULL, "%s timed out\n", cl->name );
+	SV_DropClient( cl, false );
+	cl->state = cs_free; // don't bother with zombie state
+
+	if( ban )
+	{
+		Cbuf_AddTextf( "addip 30 %s\n", NET_BaseAdrToString( cl->netchan.remote_address ));
+	}
+}
+
 /*
 ==================
 SV_CheckTimeouts
@@ -471,14 +484,14 @@ if necessary
 */
 static void SV_CheckTimeouts( void )
 {
-	sv_client_t	*cl;
-	double		droppoint;
-	int		i, numclients = 0;
+	int i, numclients = 0;
+	const double spawned_droppoint = host.realtime - sv_timeout.value;
+	const double connected_droppoint = host.realtime - sv_connect_timeout.value;
 
-	droppoint = host.realtime - sv_timeout.value;
-
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
+		sv_client_t *cl = &svs.clients[i];
+
 		if( cl->state >= cs_connected )
 		{
 			if( cl->edict && !FBitSet( cl->edict->v.flags, FL_SPECTATOR|FL_FAKECLIENT ))
@@ -489,21 +502,28 @@ static void SV_CheckTimeouts( void )
 		if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 			continue;
 
-		// FIXME: get rid of the zombie state
-		if( cl->state == cs_zombie )
+		switch( cl->state )
 		{
+		case cs_zombie:
+			// FIXME: get rid of the zombie state
 			cl->state = cs_free; // can now be reused
-			continue;
-		}
-
-		if(( cl->state == cs_connected || cl->state == cs_spawned ) && cl->netchan.last_received < droppoint )
-		{
+			break;
+		case cs_connected:
 			if( !NET_IsLocalAddress( cl->netchan.remote_address ))
 			{
-				SV_BroadcastPrintf( NULL, "%s timed out\n", cl->name );
-				SV_DropClient( cl, false );
-				cl->state = cs_free; // don't bother with zombie state
+				if( cl->connection_started < connected_droppoint )
+					SV_DropTimedOutClient( cl, true );
 			}
+			break;
+		case cs_spawned:
+			if( !NET_IsLocalAddress( cl->netchan.remote_address ))
+			{
+				if( cl->netchan.last_received < spawned_droppoint )
+					SV_DropTimedOutClient( cl, false );
+			}
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -882,6 +902,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_newunit );
 	Cvar_RegisterVariable( &hostname );
 	Cvar_RegisterVariable( &sv_timeout );
+	Cvar_RegisterVariable( &sv_connect_timeout );
 	Cvar_RegisterVariable( &sv_pausable );
 	Cvar_RegisterVariable( &sv_validate_changelevel );
 	Cvar_RegisterVariable( &sv_clienttrace );
