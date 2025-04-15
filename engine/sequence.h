@@ -6,6 +6,9 @@
 #ifndef _INCLUDE_SEQUENCE_H_
 #define _INCLUDE_SEQUENCE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef _DEF_BYTE_
 //typedef unsigned char byte;
@@ -199,5 +202,9 @@ void Sequence_OnLevelLoad( const char* mapName );
 sentenceEntry_s* Sequence_PickSentence( const char *groupName, int pickMethod, int *picked );
 void Sequence_Init( void );
 sentenceEntry_s *Sequence_GetSentenceByIndex( unsigned int index );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _INCLUDE_SEQUENCE_H_

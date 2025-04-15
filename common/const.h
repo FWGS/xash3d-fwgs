@@ -12,6 +12,9 @@
 *   without written permission from Valve LLC.
 *
 ****/
+#pragma once
+#include "xash3d_types.h"
+
 #ifndef CONST_H
 #define CONST_H
 //

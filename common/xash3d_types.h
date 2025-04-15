@@ -1,4 +1,5 @@
 // basic typedefs
+#pragma once
 #ifndef XASH_TYPES_H
 #define XASH_TYPES_H
 
@@ -60,8 +61,8 @@ typedef uint64_t longtime_t;
 #define GAMMA		( 2.2f )		// Valve Software gamma
 #define INVGAMMA		( 1.0f / 2.2f )	// back to 1.0
 #define TEXGAMMA		( 0.9f )		// compensate dim textures
-#define SetBits( iBitVector, bits )	((iBitVector) = (iBitVector) | (bits))
-#define ClearBits( iBitVector, bits )	((iBitVector) = (iBitVector) & ~(bits))
+#define SetBits( iBitVector, bits )	(*(uint32_t*)&(iBitVector) |= (uint32_t)(bits))
+#define ClearBits( iBitVector, bits )	(*(uint32_t*)&(iBitVector) = *(uint32_t*)&(iBitVector) & ~(uint32_t)(bits))
 #define FBitSet( iBitVector, bit )	((iBitVector) & (bit))
 
 #ifndef __cplusplus
@@ -84,17 +85,14 @@ typedef uint64_t longtime_t;
 		#define EXPORT __attribute__ ((visibility ("default")))
 		#define GAME_EXPORT
 	#endif
-	#define _format(x) __attribute__((format(printf, x, x+1)))
 	#define NORETURN __attribute__((noreturn))
 #elif defined(_MSC_VER)
 	#define EXPORT          __declspec( dllexport )
 	#define GAME_EXPORT
-	#define _format(x)
 	#define NORETURN
 #else
 	#define EXPORT
 	#define GAME_EXPORT
-	#define _format(x)
 	#define NORETURN
 #endif
 

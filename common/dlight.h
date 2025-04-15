@@ -12,6 +12,8 @@
 *   without written permission from Valve LLC.
 *
 ****/
+#pragma once
+#include "const.h"
 
 #ifndef DLIGHT_H
 #define DLIGHT_H
