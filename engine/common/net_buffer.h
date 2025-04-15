@@ -101,7 +101,7 @@ void MSG_WriteVec3Coord( sizebuf_t *sb, const float *fa );
 void MSG_WriteVec3Angles( sizebuf_t *sb, const float *fa );
 qboolean MSG_WriteBytes( sizebuf_t *sb, const void *pBuf, int nBytes );	// same as MSG_WriteData
 qboolean MSG_WriteString( sizebuf_t *sb, const char *pStr );		// returns false if it overflows the buffer.
-qboolean MSG_WriteStringf( sizebuf_t *sb, const char *format, ... ) _format( 2 );
+qboolean MSG_WriteStringf( sizebuf_t *sb, const char *format, ... );
 
 // helper functions
 _inline int MSG_GetNumBytesWritten( sizebuf_t *sb ) { return BitByte( sb->iCurBit ); }

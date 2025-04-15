@@ -16,6 +16,10 @@ GNU General Public License for more details.
 #ifndef NET_PROTOCOL_H
 #define NET_PROTOCOL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PROTOCOL_VERSION		49
 
 // server to client
@@ -307,5 +311,9 @@ extern const char	*clc_strings[clc_lastmsg+1];
 
 // Master Server protocol
 #define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif//NET_PROTOCOL_H

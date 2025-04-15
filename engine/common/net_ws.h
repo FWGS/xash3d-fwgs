@@ -16,6 +16,14 @@ GNU General Public License for more details.
 #ifndef NET_WS_H
 #define NET_WS_H
 
+namespace sky
+{
+	struct WebsocketDisconnected
+	{
+		int index;
+	};
+}
+
 typedef enum
 {
 	NS_CLIENT,
@@ -49,16 +57,23 @@ typedef enum
 
 
 #include "netadr.h"
+#include <optional>
+#include <string>
 
 extern convar_t	net_showpackets;
 extern convar_t	net_clockwindow;
+
+#ifdef XASH_WEBSOCKET
+bool NET_IsClientWebsocketConnected();
+#endif
 
 void NET_Init( void );
 void NET_Shutdown( void );
 void NET_Sleep( int msec );
 qboolean NET_IsActive( void );
 qboolean NET_IsConfigured( void );
-void NET_Config( qboolean net_enable, qboolean changeport );
+void NET_Config( qboolean net_enable, qboolean changeport, std::optional<std::string> server_addr = std::nullopt );
+uint16_t NET_GetServerLocalPort();
 qboolean NET_IsLocalAddress( netadr_t adr );
 const char *NET_AdrToString( const netadr_t a );
 const char *NET_BaseAdrToString( const netadr_t a );
@@ -77,6 +92,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 void NET_ClearLagData( qboolean bClient, qboolean bServer );
 void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 );
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
+void NET_DestroyClientWebsocket();
 
 #if !XASH_DEDICATED
 qboolean CL_LegacyMode( void );

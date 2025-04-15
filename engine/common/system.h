@@ -16,10 +16,6 @@ GNU General Public License for more details.
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "port.h"
 
 #include <setjmp.h>
@@ -50,8 +46,8 @@ double Sys_DoubleTime( void );
 char *Sys_GetClipboardData( void );
 const char *Sys_GetCurrentUser( void );
 int Sys_CheckParm( const char *parm );
-void Sys_Warn( const char *format, ... ) _format( 1 );
-void Sys_Error( const char *error, ... ) _format( 1 );
+void Sys_Warn( const char *format, ... );
+void Sys_Error( const char *error, ... );
 qboolean Sys_LoadLibrary( dll_info_t *dll );
 void* Sys_GetProcAddress( dll_info_t *dll, const char* name );
 qboolean Sys_FreeLibrary( dll_info_t *dll );
@@ -98,7 +94,4 @@ void Wcon_SetStatus( const char *pStatus );
 // text messages
 #define Msg	Con_Printf
 
-#ifdef __cplusplus
-}
-#endif
 #endif//SYSTEM_H

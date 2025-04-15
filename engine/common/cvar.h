@@ -30,14 +30,14 @@ typedef struct convar_s
 {
 	// this part shared with cvar_t
 	char		*name;
-	char		*string;
+	const char		*string;
 	int		flags;
 	float		value;
 	struct convar_s	*next;
 
 	// this part unique for convar_t
-	char		*desc;		// variable descrition info
-	char		*def_string;	// keep pointer to initial value
+	const char		*desc;		// variable descrition info
+	const char		*def_string;	// keep pointer to initial value
 } convar_t;
 
 // cvar internal flags
@@ -51,7 +51,7 @@ typedef struct convar_s
 #define FCVAR_USER_CREATED	(1<<23) // created by a set command (dll's used)
 
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc ) \
-	convar_t cv = { (char*)cvname, (char*)cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, (char*)cvdesc, NULL }
+	convar_t cv = { (char*)cvname, (char*)cvstr, cvflags, 0.0f, (convar_t *)CVAR_SENTINEL, (char*)cvdesc, NULL }
 
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc ) \
 	CVAR_DEFINE( cv, #cv, cvstr, cvflags, cvdesc )
@@ -62,7 +62,7 @@ cvar_t *Cvar_GetList( void );
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
 void Cvar_RegisterVariable( convar_t *var );
 convar_t *Cvar_Get( const char *var_name, const char *value, int flags, const char *description );
-convar_t *Cvar_Getf( const char *var_name, int flags, const char *description, const char *format, ... ) _format( 4 );
+convar_t *Cvar_Getf( const char *var_name, int flags, const char *description, const char *format, ... );
 void Cvar_LookupVars( int checkbit, void *buffer, void *ptr, setpair_t callback );
 void Cvar_FullSet( const char *var_name, const char *value, int flags );
 void Cvar_DirectSet( convar_t *var, const char *value );

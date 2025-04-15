@@ -121,7 +121,10 @@ extern poolhandle_t     com_studiocache;
 extern model_t		*loadmodel;
 extern convar_t		mod_studiocache;
 extern convar_t		r_wadtextures;
+namespace engine
+{
 extern convar_t		r_showhull;
+}
 
 //
 // model.c
@@ -189,7 +192,10 @@ void Mod_ClearStudioCache( void );
 //
 // mod_sprite.c
 //
+namespace engine
+{
 void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
+}
 #endif
 
 #endif//MOD_LOCAL_H

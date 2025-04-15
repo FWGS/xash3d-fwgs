@@ -16,10 +16,6 @@ GNU General Public License for more details.
 #ifndef COMMON_H
 #define COMMON_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
 ===================================================================================================================================
 Legend:
@@ -44,6 +40,7 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #include <stdio.h>
 #include <stdlib.h> // rand, adbs
 #include <stdarg.h> // va
+#include <string>
 
 #if !XASH_WIN32
 #include <stddef.h> // size_t
@@ -147,13 +144,16 @@ typedef enum
 #define FORCE_DRAW_VERSION_TIME 5.0 // draw version for 5 seconds
 
 #ifdef _DEBUG
-void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile, int szLine, const char* szMessage );
-#define Assert( f )		DBG_AssertFunction( f, #f, __FILE__, __LINE__, NULL )
+namespace engine { void DBG_AssertFunction(qboolean fExpr, const char* szExpr, const char* szFile, int szLine, const char* szMessage); }
+#define Assert( f )		engine::DBG_AssertFunction( f, #f, __FILE__, __LINE__, NULL )
 #else
 #define Assert( f )
 #endif
 
+namespace engine
+{
 extern convar_t	gl_vsync;
+}
 extern convar_t	scr_loading;
 extern convar_t	scr_download;
 extern convar_t	cmd_scripting;
@@ -372,7 +372,7 @@ typedef struct host_parm_s
 	qboolean		movevars_changed;
 	qboolean		renderinfo_changed;
 
-	char		rootdir[MAX_OSPATH];	// member root directory
+	std::string		rootdir;	// member root directory
 	char		rodir[MAX_OSPATH];		// readonly root
 	char		gamefolder[MAX_QPATH];	// it's a default gamefolder
 	poolhandle_t imagepool;	// imagelib mempool
@@ -422,7 +422,7 @@ void FS_Shutdown( void );
 void Cbuf_Init( void );
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
-void Cbuf_AddTextf( const char *text, ... ) _format( 1 );
+void Cbuf_AddTextf( const char *text, ... );
 void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
 void Cbuf_ExecStuffCmds( void );
@@ -466,9 +466,21 @@ qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
 void Mem_PrintList( size_t minallocationsize );
 void Mem_PrintStats( void );
 
-#define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
-#define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
-#define Mem_Realloc( pool, ptr, size ) _Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+namespace engine
+{
+	struct ConversionPtr
+	{
+		void* ptr;
+
+		template<typename T>
+		operator T* () { return static_cast<T*>(ptr); }
+	};
+
+	ConversionPtr Mem_Malloc(poolhandle_t pool, size_t size);
+	ConversionPtr Mem_Calloc(poolhandle_t pool, size_t size);
+	ConversionPtr Mem_Realloc(poolhandle_t pool, void* ptr, size_t size);
+}
+
 #define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
 #define Mem_AllocPool( name ) _Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool ) _Mem_FreePool( pool, __FILE__, __LINE__ )
@@ -575,7 +587,7 @@ void EXPORT Host_Shutdown( void );
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 int Host_CompareFileTime( int ft1, int ft2 );
 void Host_NewInstance( const char *name, const char *finalmsg );
-void Host_EndGame( qboolean abort, const char *message, ... ) _format( 2 );
+void Host_EndGame( qboolean abort, const char *message, ... );
 void Host_AbortCurrentFrame( void ) NORETURN;
 void Host_WriteServerConfig( const char *name );
 void Host_WriteOpenGLConfig( void );
@@ -584,7 +596,7 @@ void Host_WriteConfig( void );
 qboolean Host_IsLocalGame( void );
 qboolean Host_IsLocalClient( void );
 void Host_ShutdownServer( void );
-void Host_Error( const char *error, ... ) _format( 1 );
+void Host_Error( const char *error, ... );
 void Host_PrintEngineFeatures( void );
 void Host_Frame( float time );
 void Host_InitDecals( void );
@@ -649,15 +661,15 @@ void pfnGetGameDir( char *szGetGameDir );
 int pfnDecalIndex( const char *m );
 int pfnGetModelType( model_t *mod );
 int pfnIsMapValid( char *filename );
-void Con_Reportf( const char *szFmt, ... ) _format( 1 );
-void Con_DPrintf( const char *fmt, ... ) _format( 1 );
-void Con_Printf( const char *szFmt, ... ) _format( 1 );
+void Con_Reportf( const char *szFmt, ... );
+void Con_DPrintf( const char *fmt, ... );
+void Con_Printf( const char *szFmt, ... );
 int pfnNumberOfEntities( void );
 int pfnIsInGame( void );
 float pfnTime( void );
 #define copystring( s ) _copystring( host.mempool, s, __FILE__, __LINE__ )
 #define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
-#define freestring( s ) if( s != NULL ) { Mem_Free( s ); s = NULL; }
+#define freestring( s ) if( s != NULL ) { Mem_Free( (void*)s ); s = NULL; }
 char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline );
 
 // CS:CS engfuncs (stubs)
@@ -754,16 +766,16 @@ const char *Cmd_GetName( struct cmd_s *cmd );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 void SV_StartMusic( const char *curtrack, const char *looptrack, int position );
 void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
-void Log_Printf( const char *fmt, ... ) _format( 1 );
-void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
+void Log_Printf( const char *fmt, ... );
+void SV_BroadcastCommand( const char *fmt, ... );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
-void SV_BroadcastPrintf( struct sv_client_s *ignore, const char *fmt, ... ) _format( 2 );
+void SV_BroadcastPrintf( struct sv_client_s *ignore, const char *fmt, ... );
 int R_CreateDecalList( struct decallist_s *pList );
 void R_ClearAllDecals( void );
 void CL_ClearStaticEntities( void );
 qboolean S_StreamGetCurrentState( char *currentTrack, char *loopTrack, int *position );
 struct cl_entity_s *CL_GetEntityByIndex( int index );
-void CL_ServerCommand( qboolean reliable, const char *fmt, ... ) _format( 2 );
+void CL_ServerCommand( qboolean reliable, const char *fmt, ... );
 void CL_HudMessage( const char *pMessage );
 const char *CL_MsgInfo( int cmd );
 void SV_DrawDebugTriangles( void );
@@ -793,7 +805,11 @@ void SV_InitGameProgs( void );
 void SV_FreeGameProgs( void );
 void CL_WriteMessageHistory( void );
 void CL_SendCmd( void );
+#ifdef XASH_WEBSOCKET
+void CL_Disconnect( bool reconnect = false );
+#else
 void CL_Disconnect( void );
+#endif
 void CL_ClearEdicts( void );
 void CL_Crashed( void );
 qboolean CL_NextDemo( void );
@@ -808,15 +824,15 @@ int SCR_GetAudioChunk( char *rawdata, int length );
 wavdata_t *SCR_GetMovieInfo( void );
 void SCR_Shutdown( void );
 void Con_Print( const char *txt );
-void Con_NPrintf( int idx, const char *fmt, ... ) _format( 2 );
-void Con_NXPrintf( con_nprint_t *info, const char *fmt, ... ) _format( 2 );
-void UI_NPrintf( int idx, const char *fmt, ... ) _format( 2 );
-void UI_NXPrintf( con_nprint_t *info, const char *fmt, ... ) _format( 2 );
+void Con_NPrintf( int idx, const char *fmt, ... );
+void Con_NXPrintf( con_nprint_t *info, const char *fmt, ... );
+void UI_NPrintf( int idx, const char *fmt, ... );
+void UI_NXPrintf( con_nprint_t *info, const char *fmt, ... );
 const char *Info_ValueForKey( const char *s, const char *key );
 void Info_RemovePrefixedKeys( char *start, char prefix );
 qboolean Info_RemoveKey( char *s, const char *key );
 qboolean Info_SetValueForKey( char *s, const char *key, const char *value, int maxsize );
-qboolean Info_SetValueForKeyf( char *s, const char *key, int maxsize, const char *format, ... ) _format( 4 );
+qboolean Info_SetValueForKeyf( char *s, const char *key, int maxsize, const char *format, ... );
 qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, int maxsize );
 qboolean Info_IsValid( const char *s );
 void Info_WriteVars( file_t *f );
@@ -842,7 +858,7 @@ void COM_NormalizeAngles( vec3_t angles );
 int COM_FileSize( const char *filename );
 void COM_FreeFile( void *buffer );
 int COM_CompareFileTime( const char *filename1, const char *filename2, int *iCompare );
-char *va( const char *format, ... ) _format( 1 );
+char *va( const char *format, ... );
 
 // soundlib shared exports
 qboolean S_Init( void );
@@ -879,7 +895,4 @@ qboolean NET_GetMaster( netadr_t from, uint *challenge, double *last_heartbeat )
 #error "common.h in ref_dll"
 #endif
 
-#ifdef __cplusplus
-}
-#endif
 #endif//COMMON_H
