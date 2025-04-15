@@ -78,7 +78,7 @@ void Platform_UpdateStatusLine( void )
 #if XASH_MESSAGEBOX == MSGBOX_WIN32
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
-	MessageBox( parentMainWindow ? host.hWnd : NULL, message, title, MB_OK|MB_SETFOREGROUND|MB_ICONSTOP );
+	MessageBox( parentMainWindow ? (HWND)host.hWnd : NULL, message, title, MB_OK|MB_SETFOREGROUND|MB_ICONSTOP );
 }
 #endif // XASH_MESSAGEBOX == MSGBOX_WIN32
 

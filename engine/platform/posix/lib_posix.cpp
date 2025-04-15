@@ -1,22 +1,8 @@
-/*
-lib_posix.c - dynamic library code for POSIX systems
-Copyright (C) 2018 Flying With Gauss
-
-This program is free software: you can redistribute it and/sor modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
 #include "platform/platform.h"
-#if XASH_LIB == LIB_POSIX
+//#if XASH_LIB == LIB_POSIX
 #ifdef XASH_IRIX
 #include "platform/irix/dladdr.h"
 #endif
@@ -24,9 +10,10 @@ GNU General Public License for more details.
 #include "library.h"
 #include "filesystem.h"
 #include "server.h"
-#include "platform/android/lib_android.h"
+//#include "platform/android/lib_android.h"
 #include "platform/emscripten/lib_em.h"
-#include "platform/apple/lib_ios.h"
+//#include "platform/apple/lib_ios.h"
+#include <dlfcn.h>
 
 #ifdef XASH_DLL_LOADER // wine-based dll loader
 void * Loader_LoadLibrary (const char *name);
@@ -241,4 +228,4 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 #endif
 }
 
-#endif // _WIN32
+//#endif // _WIN32

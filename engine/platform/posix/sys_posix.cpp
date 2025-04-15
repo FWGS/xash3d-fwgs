@@ -1,18 +1,3 @@
-/*
-sys_win.c - posix system utils
-Copyright (C) 2019 a1batross
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
-
 #include <unistd.h> // fork
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -20,6 +5,7 @@ GNU General Public License for more details.
 #include <errno.h>
 #include "platform/platform.h"
 #include "menu_int.h"
+#include <string>
 
 static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size )
 {
@@ -68,7 +54,6 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 	return false;
 }
 
-#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	char xdgOpen[128];
@@ -89,17 +74,16 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	}
 	else
 	{
-		Con_Reportf( S_WARN "Could not find "OPEN_COMMAND" utility\n" );
+		Con_Reportf( (std::string(S_WARN) + "Could not find " + OPEN_COMMAND + " utility\n").c_str() );
 	}
 }
-#endif // XASH_ANDROID
 
 void Posix_Daemonize( void )
 {
 	// to be accessed later
 	if( ( host.daemonized = Sys_CheckParm( "-daemonize" ) ) )
 	{
-#if XASH_POSIX && defined(_POSIX_VERSION) && !defined(XASH_MOBILE_PLATFORM)
+#if XASH_POSIX && defined(_POSIX_VERSION)
 		pid_t daemon;
 
 		daemon = fork();
@@ -137,8 +121,6 @@ void Posix_Daemonize( void )
 
 			// fallthrough
 		}
-#elif defined(XASH_MOBILE_PLATFORM)
-		Sys_Error( "Can't run in background on mobile platforms!" );
 #else
 		Sys_Error( "Daemonize not supported on this platform!" );
 #endif
@@ -146,7 +128,7 @@ void Posix_Daemonize( void )
 
 }
 
-#if !XASH_SDL && !XASH_ANDROID
+#if !XASH_SDL
 
 void Platform_Init( void )
 {

@@ -20,6 +20,88 @@ GNU General Public License for more details.
 #include "input.h"
 #include "vid_common.h"
 #include "platform/sdl/events.h"
+#include <gl_export.h>
+#include <sky/sky.h>
+
+#ifdef WIN32
+#include <SDL_syswm.h>
+#endif
+
+using namespace engine;
+
+float gScale = 1.0f;
+
+class XashPlatformSystem : public Platform::System,
+	public sky::Listenable<Platform::Input::Mouse::MoveEvent>
+{
+public:
+	void onEvent(const Platform::Input::Mouse::MoveEvent& e)
+	{
+		mCursorPos = e.pos;
+	}
+
+public:
+	void process() override {}
+	void quit() override {}
+
+	bool isFinished() const override { return false; }
+
+	int getWidth() const override { return mWidth;  }
+	int getHeight() const override { return mHeight; }
+
+	float getScale() const override { return mScale; }
+	void setScale(float value) override { mScale = value; }
+
+	float getSafeAreaTopMargin() const override { return 0.0f; }
+	float getSafeAreaBottomMargin() const override { return 0.0f; }
+	float getSafeAreaLeftMargin() const override { return 0.0f; }
+	float getSafeAreaRightMargin() const override { return 0.0f; }
+
+	bool isKeyPressed(Platform::Input::Keyboard::Key key) const override { return false; }
+	bool isKeyPressed(Platform::Input::Mouse::Button key) const override { return false; }
+
+	void resize(int width, int height) override {}
+	void setTitle(const std::string& text) override {}
+	void hideCursor() override {}
+	void showCursor() override {}
+	void setCursorPos(int x, int y) override {}
+
+	std::optional<glm::ivec2> getCursorPos() const override { return mCursorPos; }
+
+	std::string getAppName() const override { return "appname"; }
+
+	void showVirtualKeyboard() override {}
+	void hideVirtualKeyboard() override {}
+	bool isVirtualKeyboardOpened() const override { return false; }
+
+	std::string getVirtualKeyboardText() const override { return ""; }
+	void setVirtualKeyboardText(const std::string& text) override {}
+
+	std::string getUUID() const override { return "uuid"; }
+
+	void* getNativeWindowHandle() const override { return mWindow; }
+
+	void haptic(HapticType hapticType) override {}
+
+	void initializeBilling(const ProductsMap& products) override {}
+	void purchase(const std::string& product) override {}
+
+	void setWidth(int value) { mWidth = value; }
+	void setHeight(int value) { mHeight = value; }
+	void setWindow(void* value) { mWindow = value; }
+
+	std::string getClipboardText() const override { return ""; }
+	void setClipboardText(const std::string& text) override {}
+
+	const std::vector<std::string>& getArguments() const override { return {}; }
+
+private:
+	int mWidth = 0;
+	int mHeight = 0;
+	float mScale = 1.0f;
+	void* mWindow = nullptr;
+	glm::ivec2 mCursorPos = { 0, 0 };
+};
 
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
@@ -48,7 +130,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	if( sw.renderer )
 	{
-		unsigned int format = SDL_GetWindowPixelFormat( host.hWnd );
+		unsigned int format = SDL_GetWindowPixelFormat( (SDL_Window*)host.hWnd );
 		SDL_RenderSetLogicalSize(sw.renderer, refState.width, refState.height);
 
 		if( sw.tex )
@@ -118,7 +200,7 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !sw.renderer )
 	{
-		sw.win = SDL_GetWindowSurface( host.hWnd );
+		sw.win = SDL_GetWindowSurface( (SDL_Window*)host.hWnd );
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	{
 		sw.win = SDL_GetVideoSurface();
@@ -166,7 +248,7 @@ void *SW_LockBuffer( void )
 	}
 
 	// ensure it not changed (do we really need this?)
-	sw.win = SDL_GetWindowSurface( host.hWnd );
+	sw.win = SDL_GetWindowSurface( (SDL_Window*)host.hWnd );
 	//if( !sw.win )
 		//SDL_GetWindowSurface( host.hWnd );
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
@@ -233,7 +315,7 @@ void SW_UnlockBuffer( void )
 	SDL_UnlockSurface( sw.win );
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_UpdateWindowSurface( host.hWnd );
+	SDL_UpdateWindowSurface( (SDL_Window*)host.hWnd );
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_Flip( host.hWnd );
 #endif
@@ -372,7 +454,7 @@ static void WIN_SetDPIAwareness( void )
 
 	if( ( hModule = LoadLibrary( "shcore.dll" ) ) )
 	{
-		if( ( pSetProcessDpiAwareness = (void*)GetProcAddress( hModule, "SetProcessDpiAwareness" ) ) )
+		if( ( pSetProcessDpiAwareness = (HRESULT(__stdcall*)(XASH_DPI_AWARENESS))(void*)GetProcAddress( hModule, "SetProcessDpiAwareness" ) ) )
 		{
 			// I hope SDL don't handle WM_DPICHANGED message
 			HRESULT hResult = pSetProcessDpiAwareness( XASH_SYSTEM_DPI_AWARE );
@@ -397,7 +479,7 @@ static void WIN_SetDPIAwareness( void )
 
 		if( ( hModule = LoadLibrary( "user32.dll" ) ) )
 		{
-			if( ( pSetProcessDPIAware = ( void* )GetProcAddress( hModule, "SetProcessDPIAware" ) ) )
+			if( ( pSetProcessDPIAware = (BOOL(__stdcall*)(void))( void* )GetProcAddress( hModule, "SetProcessDPIAware" ) ) )
 			{
 				// I hope SDL don't handle WM_DPICHANGED message
 				BOOL hResult = pSetProcessDPIAware();
@@ -454,15 +536,16 @@ void GL_UpdateSwapInterval( void )
 	// disable VSync while level is loading
 	if( cls.state < ca_active )
 	{
-		SDL_GL_SetSwapInterval( 0 );
+		skygfx::SetVsync(false);//SDL_GL_SetSwapInterval( 0 );
 		SetBits( gl_vsync.flags, FCVAR_CHANGED );
 	}
 	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
 		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
 
-		if( SDL_GL_SetSwapInterval( gl_vsync.value ) )
-			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
+		//if( SDL_GL_SetSwapInterval( gl_vsync.value ) )
+		//	Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ) );
+		skygfx::SetVsync((bool)(int)gl_vsync.value);
 	}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
@@ -477,12 +560,17 @@ always return false
 qboolean GL_DeleteContext( void )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
+/*
 	if( glw_state.context )
 	{
 		SDL_GL_DeleteContext(glw_state.context);
 		glw_state.context = NULL;
 	}
+*/
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+	sky::Locator<sky::Renderer>::Reset();
+	sky::Locator<XashPlatformSystem>::Reset();
+	sky::Locator<Platform::System>::Reset();
 	return false;
 }
 
@@ -494,11 +582,33 @@ GL_CreateContext
 static qboolean GL_CreateContext( void )
 {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
+	void* window = nullptr;
+#ifdef WIN32
+	SDL_SysWMinfo wmInfo;
+	SDL_VERSION(&wmInfo.version);
+	SDL_GetWindowWMInfo((SDL_Window*)host.hWnd, &wmInfo);
+	window = (void*)wmInfo.info.win.window;
+#elif EMSCRIPTEN
+	window = host.hWnd;
+#endif
+
+	auto platform = std::make_shared<XashPlatformSystem>();
+	platform->setWindow(window);
+	platform->setWidth(800);
+	platform->setHeight(600);
+
+	sky::Locator<Platform::System>::Set(platform);
+	sky::Locator<XashPlatformSystem>::Set(platform);
+	sky::Locator<sky::Renderer>::Init(imdraw::BackendType, imdraw::Adapter);
+
+	imdraw::Init();
+/*
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
 	{
 		Con_Reportf( S_ERROR "GL_CreateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
+*/
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return true;
 }
@@ -510,13 +620,15 @@ GL_UpdateContext
 */
 static qboolean GL_UpdateContext( void )
 {
+/*
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ))
+	if( SDL_GL_MakeCurrent( (SDL_Window*)host.hWnd, glw_state.context ))
 	{
 		Con_Reportf( S_ERROR "GL_UpdateContext: %s\n", SDL_GetError());
 		return GL_DeleteContext();
 	}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+*/
 	return true;
 }
 
@@ -526,13 +638,17 @@ void VID_SaveWindowSize( int width, int height )
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !glw_state.software )
-		SDL_GL_GetDrawableSize( host.hWnd, &render_w, &render_h );
+		SDL_GL_GetDrawableSize( (SDL_Window*)host.hWnd, &render_w, &render_h );
 	else
 		SDL_RenderSetLogicalSize( sw.renderer, width, height );
 #endif
 
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h );
+	sky::Emit(Platform::System::ResizeEvent{ render_w, render_h });
+	gScale = (float)render_w / (float)width;
+	sky::GetService<XashPlatformSystem>()->setWidth(render_w);
+	sky::GetService<XashPlatformSystem>()->setHeight(render_h);
 }
 
 static qboolean VID_SetScreenResolution( int width, int height )
@@ -558,15 +674,15 @@ static qboolean VID_SetScreenResolution( int width, int height )
 	if( got.w != want.w || got.h != want.h )
 		Con_Reportf( "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate);
 
-	if( SDL_SetWindowDisplayMode( host.hWnd, &got) == -1 )
+	if( SDL_SetWindowDisplayMode( (SDL_Window*)host.hWnd, &got) == -1 )
 		return false;
 
-	if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN) == -1 )
+	if( SDL_SetWindowFullscreen( (SDL_Window*)host.hWnd, SDL_WINDOW_FULLSCREEN) == -1 )
 		return false;
 
-	SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+	SDL_SetWindowBordered( (SDL_Window*)host.hWnd, SDL_FALSE );
 	//SDL_SetWindowPosition( host.hWnd, 0, 0 );
-	SDL_SetWindowSize( host.hWnd, got.w, got.h );
+	SDL_SetWindowSize( (SDL_Window*)host.hWnd, got.w, got.h );
 
 	VID_SaveWindowSize( got.w, got.h );
 #else
@@ -580,12 +696,12 @@ void VID_RestoreScreenResolution( void )
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !vid_fullscreen.value )
 	{
-		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
+		SDL_SetWindowBordered( (SDL_Window*)host.hWnd, SDL_TRUE );
 	}
 	else
 	{
-		SDL_MinimizeWindow( host.hWnd );
-		SDL_SetWindowFullscreen( host.hWnd, 0 );
+		SDL_MinimizeWindow( (SDL_Window*)host.hWnd );
+		SDL_SetWindowFullscreen( (SDL_Window*)host.hWnd, 0 );
 	}
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
@@ -599,7 +715,7 @@ static void WIN_SetWindowIcon( HICON ico )
 	if( !ico )
 		return;
 
-	if( SDL_GetWindowWMInfo( host.hWnd, &wminfo ) )
+	if( SDL_GetWindowWMInfo( (SDL_Window*)host.hWnd, &wminfo ) )
 	{
 		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_SMALL, (LONG_PTR)ico );
 		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_BIG, (LONG_PTR)ico );
@@ -663,6 +779,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 		wndFlags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED;
 		xpos = ypos = 0;
 	}
+/*
 
 	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
 	{
@@ -689,6 +806,9 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	{
 		return false;
 	}
+*/
+	host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, width, height, wndFlags );
+	assert(host.hWnd);
 
 	if( fullscreen )
 	{
@@ -732,7 +852,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 			if( surface )
 			{
-				SDL_SetWindowIcon( host.hWnd, surface );
+				SDL_SetWindowIcon((SDL_Window*)host.hWnd, surface );
 				SDL_FreeSurface( surface );
 				iconLoaded = true;
 			}
@@ -749,7 +869,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 	}
 #endif
 
-	SDL_ShowWindow( host.hWnd );
+	SDL_ShowWindow( (SDL_Window*)host.hWnd );
 
 	if( glw_state.software )
 	{
@@ -761,6 +881,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 
 		if( sdl_renderer >= -1 )
 		{
+/*
 			sw.renderer = SDL_CreateRenderer( host.hWnd, sdl_renderer, 0 );
 			if( !sw.renderer )
 				Con_Printf( S_ERROR "failed to create SDL renderer: %s\n", SDL_GetError() );
@@ -770,6 +891,7 @@ qboolean VID_CreateWindow( int width, int height, qboolean fullscreen )
 				SDL_GetRendererInfo( sw.renderer, &info );
 				Con_Printf( "SDL_Renderer %s initialized\n", info.name );
 			}
+*/
 		}
 	}
 	else
@@ -851,7 +973,7 @@ void VID_DestroyWindow( void )
 	if( host.hWnd )
 	{
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-		SDL_DestroyWindow ( host.hWnd );
+		SDL_DestroyWindow ( (SDL_Window*)host.hWnd );
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 		host.hWnd = NULL;
 	}
@@ -869,24 +991,30 @@ GL_SetupAttributes
 */
 static void GL_SetupAttributes( void )
 {
+/*
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_GL_ResetAttributes();
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	ref.dllFuncs.GL_SetupAttributes( glw_state.safe );
+*/
 }
 
 void GL_SwapBuffers( void )
 {
+/*
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_GL_SwapWindow( host.hWnd );
 #else // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_Flip( host.hWnd );
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+*/
+	RENDERER->present();
 }
 
 int GL_SetAttribute( int attr, int val )
 {
+/*
 	switch( attr )
 	{
 #define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_##name: return SDL_GL_SetAttribute( SDL_##name, val );
@@ -917,6 +1045,7 @@ int GL_SetAttribute( int attr, int val )
 #endif // SDL_HINT_OPENGL_ES_DRIVER
 		return SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, val );
 #endif
+
 #if SDL_VERSION_ATLEAST( 2, 0, 4 )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
 #endif
@@ -926,12 +1055,14 @@ int GL_SetAttribute( int attr, int val )
 #endif
 #undef MAP_REF_API_ATTRIBUTE_TO_SDL
 	}
+*/
 
 	return -1;
 }
 
 int GL_GetAttribute( int attr, int *val )
 {
+/*
 	switch( attr )
 	{
 #define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_##name: return SDL_GL_GetAttribute( SDL_##name, val );
@@ -963,6 +1094,7 @@ int GL_GetAttribute( int attr, int *val )
 #endif
 #undef MAP_REF_API_ATTRIBUTE_TO_SDL
 	}
+*/
 
 	return 0;
 }
@@ -1075,13 +1207,13 @@ rserr_t R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 	{
 		VID_RestoreScreenResolution();
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) )
+		if( SDL_SetWindowFullscreen( (SDL_Window*)host.hWnd, 0 ) )
 			return rserr_invalid_fullscreen;
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
-		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
+		SDL_SetWindowResizable( (SDL_Window*)host.hWnd, SDL_TRUE );
 #endif
-		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
-		SDL_SetWindowSize( host.hWnd, width, height );
+		SDL_SetWindowBordered( (SDL_Window*)host.hWnd, SDL_TRUE );
+		SDL_SetWindowSize( (SDL_Window*)host.hWnd, width, height );
 
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 		VID_SaveWindowSize( width, height );

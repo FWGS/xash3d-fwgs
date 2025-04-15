@@ -23,6 +23,10 @@ GNU General Public License for more details.
 #include "cursor_type.h"
 #include "key_modifiers.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
 ==============================================================================
 
@@ -177,5 +181,9 @@ qboolean VoiceCapture_Init( void );
 void VoiceCapture_Shutdown( void );
 qboolean VoiceCapture_Activate( qboolean activate );
 qboolean VoiceCapture_Lock( qboolean lock );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // PLATFORM_H

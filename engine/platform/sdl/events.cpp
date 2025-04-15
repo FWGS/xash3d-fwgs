@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "events.h"
 #include "sound.h"
 #include "vid_common.h"
+#include <sky/sky.h>
 
 #if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
 #define SDL_SCANCODE_A SDLK_a
@@ -269,7 +270,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 			return;
 		}
 		default:
-			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( keynum ), keynum );
+			if( down ) Con_Reportf( "SDLash_KeyEvent: Unknown key: %s = %i\n", SDL_GetScancodeName( (SDL_Scancode)keynum ), keynum );
 			return;
 		}
 	}
@@ -279,6 +280,31 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	Key_Event( keynum, down );
 }
 
+static void Sky_ButtonEvent(const SDL_Event& event)
+{
+	static const std::unordered_map<uint8_t, Platform::Input::Mouse::Button> ButtonMap = {
+		{ SDL_BUTTON_LEFT, Platform::Input::Mouse::Button::Left },
+		{ SDL_BUTTON_MIDDLE, Platform::Input::Mouse::Button::Middle },
+		{ SDL_BUTTON_RIGHT, Platform::Input::Mouse::Button::Right },
+	};
+
+	static const std::unordered_map<uint32_t, Platform::Input::Mouse::ButtonEvent::Type> TypeMap = {
+		{ SDL_MOUSEBUTTONDOWN, Platform::Input::Mouse::ButtonEvent::Type::Pressed },
+		{ SDL_MOUSEBUTTONUP, Platform::Input::Mouse::ButtonEvent::Type::Released }
+	};
+
+	if (!ButtonMap.contains(event.button.button))
+		return;
+
+	sky::Emit(Platform::Input::Mouse::ButtonEvent{
+		.type = TypeMap.at(event.type),
+		.button = ButtonMap.at(event.button.button),
+		.pos = {
+			(int)((float)event.button.x * gScale),//PLATFORM->getScale()),
+			(int)((float)event.button.y * gScale)//PLATFORM->getScale())
+		}
+	});
+}
 /*
 =============
 SDLash_MouseEvent
@@ -453,16 +479,118 @@ SDLash_EventFilter
 */
 static void SDLash_EventFilter( SDL_Event *event )
 {
+	using namespace Platform;
+
+	static const std::unordered_map<SDL_Keycode, Input::Keyboard::Key> KeyMap = {
+		{ SDLK_BACKSPACE, Input::Keyboard::Key::Backspace },
+		{ SDLK_TAB, Input::Keyboard::Key::Tab },
+		{ SDLK_RETURN, Input::Keyboard::Key::Enter },
+		{ SDLK_LSHIFT, Input::Keyboard::Key::LeftShift },
+		{ SDLK_RSHIFT, Input::Keyboard::Key::RightShift },
+		{ SDLK_LCTRL, Input::Keyboard::Key::LeftCtrl },
+		{ SDLK_RCTRL, Input::Keyboard::Key::RightCtrl },
+		{ SDLK_LALT, Input::Keyboard::Key::LeftAlt },
+		{ SDLK_RALT, Input::Keyboard::Key::RightAlt },
+		{ SDLK_PAUSE, Input::Keyboard::Key::Pause },
+		{ SDLK_CAPSLOCK, Input::Keyboard::Key::CapsLock },
+		{ SDLK_ESCAPE, Input::Keyboard::Key::Escape },
+		{ SDLK_SPACE, Input::Keyboard::Key::Space },
+		{ SDLK_PAGEUP, Input::Keyboard::Key::PageUp },
+		{ SDLK_PAGEDOWN, Input::Keyboard::Key::PageDown },
+		{ SDLK_END, Input::Keyboard::Key::End },
+		{ SDLK_HOME, Input::Keyboard::Key::Home },
+		{ SDLK_LEFT, Input::Keyboard::Key::Left },
+		{ SDLK_UP, Input::Keyboard::Key::Up },
+		{ SDLK_RIGHT, Input::Keyboard::Key::Right },
+		{ SDLK_DOWN, Input::Keyboard::Key::Down },
+		{ SDLK_PRINTSCREEN, Input::Keyboard::Key::PrintScreen },
+		{ SDLK_INSERT, Input::Keyboard::Key::Insert },
+		{ SDLK_DELETE, Input::Keyboard::Key::Delete },
+				
+		{ SDLK_a, Input::Keyboard::Key::A },
+		{ SDLK_b, Input::Keyboard::Key::B },
+		{ SDLK_c, Input::Keyboard::Key::C },
+		{ SDLK_d, Input::Keyboard::Key::D },
+		{ SDLK_e, Input::Keyboard::Key::E },
+		{ SDLK_f, Input::Keyboard::Key::F },
+		{ SDLK_g, Input::Keyboard::Key::G },
+		{ SDLK_h, Input::Keyboard::Key::H },
+		{ SDLK_i, Input::Keyboard::Key::I },
+		{ SDLK_j, Input::Keyboard::Key::J },
+		{ SDLK_k, Input::Keyboard::Key::K },
+		{ SDLK_l, Input::Keyboard::Key::L },
+		{ SDLK_m, Input::Keyboard::Key::M },
+		{ SDLK_n, Input::Keyboard::Key::N },
+		{ SDLK_o, Input::Keyboard::Key::O },
+		{ SDLK_p, Input::Keyboard::Key::P },
+		{ SDLK_q, Input::Keyboard::Key::Q },
+		{ SDLK_r, Input::Keyboard::Key::R },
+		{ SDLK_s, Input::Keyboard::Key::S },
+		{ SDLK_t, Input::Keyboard::Key::T },
+		{ SDLK_u, Input::Keyboard::Key::U },
+		{ SDLK_v, Input::Keyboard::Key::V },
+		{ SDLK_w, Input::Keyboard::Key::W },
+		{ SDLK_x, Input::Keyboard::Key::X },
+		{ SDLK_y, Input::Keyboard::Key::Y },
+		{ SDLK_z, Input::Keyboard::Key::Z },
+
+		{ SDLK_KP_0, Input::Keyboard::Key::NumPad0 },
+		{ SDLK_KP_1, Input::Keyboard::Key::NumPad1 },
+		{ SDLK_KP_2, Input::Keyboard::Key::NumPad2 },
+		{ SDLK_KP_3, Input::Keyboard::Key::NumPad3 },
+		{ SDLK_KP_4, Input::Keyboard::Key::NumPad4 },
+		{ SDLK_KP_5, Input::Keyboard::Key::NumPad5 },
+		{ SDLK_KP_6, Input::Keyboard::Key::NumPad6 },
+		{ SDLK_KP_7, Input::Keyboard::Key::NumPad7 },
+		{ SDLK_KP_8, Input::Keyboard::Key::NumPad8 },
+		{ SDLK_KP_9, Input::Keyboard::Key::NumPad9 },
+
+		{ SDLK_KP_MULTIPLY, Input::Keyboard::Key::Multiply },
+		{ SDLK_KP_PLUS, Input::Keyboard::Key::Add },
+		{ SDLK_KP_MINUS, Input::Keyboard::Key::Subtract },
+		{ SDLK_KP_DECIMAL, Input::Keyboard::Key::Decimal },
+		{ SDLK_KP_DIVIDE, Input::Keyboard::Key::Divide },
+
+		{ SDLK_F1, Input::Keyboard::Key::F1 },
+		{ SDLK_F2, Input::Keyboard::Key::F2 },
+		{ SDLK_F3, Input::Keyboard::Key::F3 },
+		{ SDLK_F4, Input::Keyboard::Key::F4 },
+		{ SDLK_F5, Input::Keyboard::Key::F5 },
+		{ SDLK_F6, Input::Keyboard::Key::F6 },
+		{ SDLK_F7, Input::Keyboard::Key::F7 },
+		{ SDLK_F8, Input::Keyboard::Key::F8 },
+		{ SDLK_F9, Input::Keyboard::Key::F9 },
+		{ SDLK_F10, Input::Keyboard::Key::F10 },
+		{ SDLK_F11, Input::Keyboard::Key::F11 },
+		{ SDLK_F12, Input::Keyboard::Key::F12 },
+
+		{ SDLK_BACKQUOTE, Input::Keyboard::Key::Tilde },
+	};
+
+	static const std::unordered_map<int, Input::Keyboard::Event::Type> TypeMap = {
+		{ SDL_KEYDOWN, Input::Keyboard::Event::Type::Pressed },
+		{ SDL_KEYUP, Input::Keyboard::Event::Type::Released }
+	};
+
 	switch ( event->type )
 	{
 	/* Mouse events */
 	case SDL_MOUSEMOTION:
 		if( host.mouse_visible )
 			SDL_GetRelativeMouseState( NULL, NULL );
+
+		sky::Emit(Platform::Input::Mouse::MoveEvent{
+			.pos = {
+				(int)((float)event->motion.x * gScale),
+				(int)((float)event->motion.y * gScale)
+			}
+		});
+
 		break;
 
 	case SDL_MOUSEBUTTONUP:
 	case SDL_MOUSEBUTTONDOWN:
+		Sky_ButtonEvent(*event);
 		SDLash_MouseEvent( event->button );
 		break;
 
@@ -470,6 +598,14 @@ static void SDLash_EventFilter( SDL_Event *event )
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
 		SDLash_KeyEvent( event->key );
+
+		if (KeyMap.contains(event->key.keysym.sym))
+		{
+			sky::Emit(Input::Keyboard::Event{
+				.type = TypeMap.at(event->type),
+				.key = KeyMap.at(event->key.keysym.sym)
+			});
+		}
 		break;
 
 	/* Joystick events */
@@ -498,10 +634,27 @@ static void SDLash_EventFilter( SDL_Event *event )
 		Sys_Quit();
 		break;
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-	case SDL_MOUSEWHEEL:
+	case SDL_MOUSEWHEEL: {
 		IN_MWheelEvent( event->wheel.y );
-		break;
 
+		int x = 0;
+		int y = 0;
+
+		SDL_GetMouseState(&x, &y);
+
+		sky::Emit(Input::Mouse::ScrollEvent{
+			.pos = {
+				(int)((float)x * gScale),
+				(int)((float)y * gScale)
+			},
+			.scroll = {
+				event->wheel.preciseX,
+				event->wheel.preciseY
+			}
+		});
+
+		break;
+	}
 	/* Touch events */
 	case SDL_FINGERDOWN:
 	case SDL_FINGERUP:
@@ -518,6 +671,36 @@ static void SDLash_EventFilter( SDL_Event *event )
 		else if( event->type == SDL_FINGERMOTION )
 			type = event_motion;
 		else break;
+
+		auto width = PLATFORM->getWidth();
+		auto height = PLATFORM->getHeight();
+
+		auto sky_pos = glm::ivec2{
+			(int)(width * event->tfinger.x),// * gScale),
+			(int)(height * event->tfinger.y)// * gScale)
+		};
+
+		if (type == event_down)
+		{
+			sky::Emit(Platform::Input::Touch::Event{
+				.type = Platform::Input::Touch::Event::Type::Begin,
+				.pos = sky_pos
+			});
+		}
+		else if (type == event_up)
+		{
+			sky::Emit(Platform::Input::Touch::Event{
+				.type = Platform::Input::Touch::Event::Type::End,
+				.pos = sky_pos
+			});
+		}
+		else if (type == event_motion)
+		{
+			sky::Emit(Platform::Input::Touch::Event{
+				.type = Platform::Input::Touch::Event::Type::Continue,
+				.pos = sky_pos
+			});
+		}
 
 		/*
 		SDL sends coordinates in [0..width],[0..height] values
@@ -559,6 +742,9 @@ static void SDLash_EventFilter( SDL_Event *event )
 	/* IME */
 	case SDL_TEXTINPUT:
 		SDLash_InputEvent( event->text );
+		sky::Emit(Platform::Input::Keyboard::CharEvent{
+			.codepoint = *(char32_t*)&event->text.text
+		});
 		break;
 
 	case SDL_JOYDEVICEADDED:
@@ -576,7 +762,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 
 		if( event->caxis.axis >= 0 && event->caxis.axis < ARRAYSIZE( SDLash_GameControllerAxisMapping ))
 		{
-			Joy_KnownAxisMotionEvent( SDLash_GameControllerAxisMapping[event->caxis.axis], event->caxis.value );
+			Joy_KnownAxisMotionEvent( (engineAxis_t)SDLash_GameControllerAxisMapping[event->caxis.axis], event->caxis.value );
 		}
 		break;
 	}
@@ -604,7 +790,7 @@ static void SDLash_EventFilter( SDL_Event *event )
 		break;
 
 	case SDL_WINDOWEVENT:
-		if( event->window.windowID != SDL_GetWindowID( host.hWnd ) )
+		if( event->window.windowID != SDL_GetWindowID( (SDL_Window*)host.hWnd ) )
 			return;
 
 		if( host.status == HOST_SHUTDOWN || Host_IsDedicated() )

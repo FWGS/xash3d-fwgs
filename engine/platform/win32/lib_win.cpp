@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #if XASH_LIB == LIB_WIN32
 #include "lib_win.h"
 
+using namespace engine;
+
 static DWORD GetOffsetByRVA( DWORD rva, PIMAGE_NT_HEADERS nt_header )
 {
 	int i = 0;
@@ -508,7 +510,7 @@ void *COM_GetProcAddress( void *hInstance, const char *name )
 	if( hInst->custom_loader )
 		return (void *)MemoryGetProcAddress( hInst->hInstance, name );
 #endif
-	return (void *)GetProcAddress( hInst->hInstance, name );
+	return (void *)GetProcAddress( (HMODULE)hInst->hInstance, name );
 }
 
 void COM_FreeLibrary( void *hInstance )
@@ -534,7 +536,7 @@ void COM_FreeLibrary( void *hInstance )
 	else
 #endif
 	{
-		FreeLibrary( hInst->hInstance );
+		FreeLibrary( (HMODULE)hInst->hInstance );
 	}
 
 	hInst->hInstance = NULL;

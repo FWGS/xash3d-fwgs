@@ -516,7 +516,7 @@ void Wcon_CreateConsole( void )
 
 	s_wcd.attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
 	if( s_wcd.attached ) {
-		GetConsoleTitle( &s_wcd.previousTitle, sizeof( s_wcd.previousTitle ));
+		GetConsoleTitle( (LPSTR)&s_wcd.previousTitle, sizeof( s_wcd.previousTitle ));
 		s_wcd.previousCodePage = GetConsoleCP();
 		s_wcd.previousOutputCodePage = GetConsoleOutputCP();
 	}
@@ -603,7 +603,7 @@ void Wcon_DestroyConsole( void )
 		// reverts title & code page for console window that was before starting Xash3D
 		SetConsoleCP( s_wcd.previousCodePage );
 		SetConsoleOutputCP( s_wcd.previousOutputCodePage );
-		SetConsoleTitle( &s_wcd.previousTitle );
+		SetConsoleTitle( (LPCSTR)&s_wcd.previousTitle );
 		Con_Printf( "Press Enter to continue...\n" );
 	}
 

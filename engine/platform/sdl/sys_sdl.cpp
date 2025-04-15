@@ -42,7 +42,7 @@ void Platform_Sleep( int msec )
 #if XASH_MESSAGEBOX == MSGBOX_SDL
 void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
 {
-	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, title, message, parentMainWindow ? host.hWnd : NULL );
+	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, title, message, parentMainWindow ? (SDL_Window*)host.hWnd : NULL );
 }
 #endif // XASH_MESSAGEBOX == MSGBOX_SDL
 void Posix_Daemonize( void );

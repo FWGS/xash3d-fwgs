@@ -1,25 +1,9 @@
-/*
-net.h - WinSock to BSD sockets wrap
-Copyright (C) 2022 a1batross
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
 #ifndef NET_H
 #define NET_H
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#if !XASH_PSVITA
 #include <sys/ioctl.h>
-#endif
 #include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -81,7 +65,7 @@ static int ioctl_stub( int d, unsigned long r, ... )
 	return 0;
 }
 #define ioctlsocket ioctl_stub
-#elif !XASH_PSVITA // XASH_EMSCRIPTEN
+#else // XASH_EMSCRIPTEN
 #define ioctlsocket ioctl
 #endif // XASH_EMSCRIPTEN
 #define closesocket close

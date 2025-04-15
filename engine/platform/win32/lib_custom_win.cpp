@@ -14,6 +14,8 @@ GNU General Public License for more details.
 */
 #include "common.h"
 
+using namespace engine;
+
 #if XASH_LIB == LIB_WIN32 && XASH_X86
 #include "lib_win.h"
 
@@ -274,7 +276,7 @@ static int BuildImportTable( MEMORYMODULE *module )
 				break;
 			}
 
-			module->modules = (void *)Mem_Realloc( host.mempool, module->modules, (module->numModules + 1) * (sizeof( void* )));
+			module->modules = Mem_Realloc( host.mempool, module->modules, (module->numModules + 1) * (sizeof( void* )));
 			module->modules[module->numModules++] = handle;
 
 			if( importDesc->OriginalFirstThunk )
@@ -427,7 +429,7 @@ void *MemoryLoadLibrary( const char *name )
 	result->headers->OptionalHeader.ImageBase = (DWORD)code;
 
 	// copy sections from DLL file block to new memory location
-	CopySections( data, old_header, result );
+	CopySections( (const byte*)data, old_header, result );
 
 	// adjust base address of imported data
 	locationDelta = (DWORD)(code - old_header->OptionalHeader.ImageBase);

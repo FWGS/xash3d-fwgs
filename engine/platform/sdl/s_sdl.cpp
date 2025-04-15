@@ -38,6 +38,8 @@ GNU General Public License for more details.
 #define SDLash_IsAudioError( x ) (( x ) == 0)
 #endif
 
+using namespace engine;
+
 /*
 =======================================================================
 Global variables. Must be visible to window-procedure function

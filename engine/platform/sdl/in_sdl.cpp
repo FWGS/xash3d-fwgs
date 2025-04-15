@@ -54,7 +54,7 @@ Platform_SetMousePos
 */
 void GAME_EXPORT Platform_SetMousePos( int x, int y )
 {
-	SDL_WarpMouseInWindow( host.hWnd, x, y );
+	SDL_WarpMouseInWindow( (SDL_Window*)host.hWnd, x, y );
 }
 
 /*
@@ -317,6 +317,9 @@ Platform_SetCursorType
 */
 void Platform_SetCursorType( VGUI_DefaultCursor type )
 {
+#ifdef EMSCRIPTEN
+	return;
+#endif
 	qboolean visible;
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
