@@ -15,17 +15,17 @@ jobs:
         include:
           # Linux build specifically want oldest Ubuntu as possible
           # to be crossdistribution compatible, otherwise use ubuntu-latest
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: amd64
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: i386
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: arm64
             cross: true
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: armhf
             cross: true
@@ -33,21 +33,21 @@ jobs:
             targetos: linux
             targetarch: riscv64
             cross: true
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: ppc64el
             cross: true
-#          - os: ubuntu-aarch64-20.04
+#          - os: ubuntu-aarch64-22.04
 #            targetos: linux
 #            targetarch: aarch64
           - os: ubuntu-latest
             targetos: linux
             targetarch: e2k-8c
             cross: true
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             targetos: android
             targetarch: multiarch
-#          - os: ubuntu-20.04
+#          - os: ubuntu-22.04
 #            targetos: motomagx
 #            targetarch: armv6
 
