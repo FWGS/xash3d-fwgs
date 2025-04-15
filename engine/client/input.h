@@ -30,9 +30,9 @@ INPUT
 // input.c
 //
 extern qboolean	in_mouseinitialized;
-void IN_Init( void );
+namespace engine { void IN_Init( void ); }
 void Host_InputFrame( void );
-void IN_Shutdown( void );
+namespace engine { void IN_Shutdown( void ); }
 void IN_MouseEvent( int key, int down );
 void IN_MWheelEvent( int direction );
 void IN_ActivateMouse( void );
@@ -46,8 +46,8 @@ uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );
 void IN_EngineAppendMove( float frametime, void *cmd, qboolean active );
 
-extern convar_t m_yaw;
-extern convar_t m_pitch;
+namespace engine { extern convar_t m_yaw; }
+namespace engine { extern convar_t m_pitch; }
 //
 // in_touch.c
 //
