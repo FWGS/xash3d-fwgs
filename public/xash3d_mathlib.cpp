@@ -1,17 +1,3 @@
-/*
-xash3d_mathlib.c - internal mathlib
-Copyright (C) 2010 Uncle Mike
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
 #include "port.h"
 #include "xash3d_types.h"
 #include "const.h"
@@ -22,7 +8,9 @@ GNU General Public License for more details.
 #define NUM_HULL_ROUNDS	ARRAYSIZE( hull_table )
 #define HULL_PRECISION	4
 
-vec3_t vec3_origin = { 0, 0, 0 };
+using namespace engine;
+
+vec3_t engine::vec3_origin = { 0, 0, 0 };
 
 static word hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
 
@@ -37,7 +25,7 @@ int boxpnt[6][4] =
 };
 
 // pre-quantized table normals from Quake1
-const float m_bytenormals[NUMVERTEXNORMALS][3] =
+const double m_bytenormals[NUMVERTEXNORMALS][3] =
 {
 #include "anorms.h"
 };
@@ -47,7 +35,7 @@ const float m_bytenormals[NUMVERTEXNORMALS][3] =
 anglemod
 =================
 */
-float anglemod( float a )
+float engine::anglemod( float a )
 {
 	a = (360.0f / 65536) * ((int)(a*(65536/360.0f)) & 65535);
 	return a;
@@ -132,7 +120,7 @@ void RoundUpHullSize( vec3_t size )
 				result = ( value - hull_table[j] );
 				if( result <= HULL_PRECISION )
 				{
-					result = -hull_table[j];
+					result = float(-hull_table[j]);
 					break;
 				}
 			}
@@ -263,8 +251,8 @@ void SinCos( float radians, float *sine, float *cosine )
 		fstp dword ptr [eax]
 	}
 #else
-	*sine = sin(radians);
-	*cosine = cos(radians);
+	*sine = sinf(radians);
+	*cosine = cosf(radians);
 #endif
 }
 
@@ -278,9 +266,9 @@ qboolean VectorCompareEpsilon( const vec3_t vec1, const vec3_t vec2, vec_t epsil
 {
 	vec_t	ax, ay, az;
 
-	ax = fabs( vec1[0] - vec2[0] );
-	ay = fabs( vec1[1] - vec2[1] );
-	az = fabs( vec1[2] - vec2[2] );
+	ax = fabsf( vec1[0] - vec2[0] );
+	ay = fabsf( vec1[1] - vec2[1] );
+	az = fabsf( vec1[2] - vec2[2] );
 
 	if(( ax <= epsilon ) && ( ay <= epsilon ) && ( az <= epsilon ))
 		return true;
@@ -292,7 +280,7 @@ float VectorNormalizeLength2( const vec3_t v, vec3_t out )
 	float	length, ilength;
 
 	length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
-	length = sqrt( length );
+	length = sqrtf( length );
 
 	if( length )
 	{
@@ -362,7 +350,7 @@ VectorAngles
 
 =================
 */
-void GAME_EXPORT VectorAngles( const float *forward, float *angles )
+void GAME_EXPORT engine::VectorAngles( const float *forward, float *angles )
 {
 	float	tmp, yaw, pitch;
 
@@ -382,11 +370,11 @@ void GAME_EXPORT VectorAngles( const float *forward, float *angles )
 	}
 	else
 	{
-		yaw = ( atan2( forward[1], forward[0] ) * 180 / M_PI_F );
+		yaw = ( atan2f( forward[1], forward[0] ) * 180 / M_PI_F );
 		if( yaw < 0 ) yaw += 360;
 
-		tmp = sqrt( forward[0] * forward[0] + forward[1] * forward[1] );
-		pitch = ( atan2( forward[2], tmp ) * 180 / M_PI_F );
+		tmp = sqrtf( forward[0] * forward[0] + forward[1] * forward[1] );
+		pitch = ( atan2f( forward[2], tmp ) * 180 / M_PI_F );
 		if( pitch < 0 ) pitch += 360;
 	}
 
@@ -403,8 +391,8 @@ void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, v
 {
 	float	pitch, cpitch, yaw, roll;
 
-	pitch = -asin( forward[2] );
-	cpitch = cos( pitch );
+	pitch = -asinf( forward[2] );
+	cpitch = cosf( pitch );
 
 	if( fabs( cpitch ) > EQUAL_EPSILON )	// gimball lock?
 	{
@@ -553,7 +541,7 @@ float RadiusFromBounds( const vec3_t mins, const vec3_t maxs )
 
 	for( i = 0; i < 3; i++ )
 	{
-		corner[i] = fabs( mins[i] ) > fabs( maxs[i] ) ? fabs( mins[i] ) : fabs( maxs[i] );
+		corner[i] = fabsf( mins[i] ) > fabsf( maxs[i] ) ? fabsf( mins[i] ) : fabsf( maxs[i] );
 	}
 	return VectorLength( corner );
 }
@@ -653,10 +641,10 @@ void QuaternionSlerpNoAlign( const vec4_t p, const vec4_t q, float t, vec4_t qt 
 	{
 		if(( 1.0f - cosom ) > 0.000001f )
 		{
-			omega = acos( cosom );
-			sinom = sin( omega );
-			sclp = sin( (1.0f - t) * omega) / sinom;
-			sclq = sin( t * omega ) / sinom;
+			omega = acosf( cosom );
+			sinom = sinf( omega );
+			sclp = sinf( (1.0f - t) * omega) / sinom;
+			sclq = sinf( t * omega ) / sinom;
 		}
 		else
 		{
@@ -675,8 +663,8 @@ void QuaternionSlerpNoAlign( const vec4_t p, const vec4_t q, float t, vec4_t qt 
 		qt[1] = q[0];
 		qt[2] = -q[3];
 		qt[3] = q[2];
-		sclp = sin(( 1.0f - t ) * ( 0.5f * M_PI_F ));
-		sclq = sin( t * ( 0.5f * M_PI_F ));
+		sclp = sinf(( 1.0f - t ) * ( 0.5f * M_PI_F ));
+		sclq = sinf( t * ( 0.5f * M_PI_F ));
 
 		for( i = 0; i < 3; i++ )
 		{

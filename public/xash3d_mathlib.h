@@ -1,18 +1,3 @@
-/*
-xash3d_mathlib.h - base math functions
-Copyright (C) 2007 Uncle Mike
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
-
 #ifndef XASH3D_MATHLIB_H
 #define XASH3D_MATHLIB_H
 
@@ -27,24 +12,28 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 
+#ifdef __cplusplus
+//extern "C" {
+#endif
+
 // euler angle order
 #define PITCH		0
 #define YAW		1
 #define ROLL		2
 
 #ifndef M_PI
-#define M_PI		(double)3.14159265358979323846
+#define M_PI		(float)3.14159265358979323846
 #endif
 
 #ifndef M_PI2
-#define M_PI2		((double)(M_PI * 2))
+#define M_PI2		((float)(M_PI * 2))
 #endif
 
 #define M_PI_F		((float)(M_PI))
 #define M_PI2_F		((float)(M_PI2))
 
-#define RAD2DEG( x )	((double)(x) * (double)(180.0 / M_PI))
-#define DEG2RAD( x )	((double)(x) * (double)(M_PI / 180.0))
+#define RAD2DEG( x )	((float)(x) * (float)(180.0 / M_PI))
+#define DEG2RAD( x )	((float)(x) * (float)(M_PI / 180.0))
 
 #define NUMVERTEXNORMALS	162
 
@@ -93,8 +82,9 @@ GNU General Public License for more details.
 
 #define VectorIsNAN(v) (IS_NAN(v[0]) || IS_NAN(v[1]) || IS_NAN(v[2]))
 #define DotProduct(x,y) ((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
-#define DotProductAbs(x,y) (abs((x)[0]*(y)[0])+abs((x)[1]*(y)[1])+abs((x)[2]*(y)[2]))
-#define DotProductFabs(x,y) (fabs((x)[0]*(y)[0])+fabs((x)[1]*(y)[1])+fabs((x)[2]*(y)[2]))
+//#define DotProductAbs(x,y) (abs((x)[0]*(y)[0])+abs((x)[1]*(y)[1])+abs((x)[2]*(y)[2]))
+#define DotProductFabs(x,y) (fabsf((x)[0]*(y)[0])+fabsf((x)[1]*(y)[1])+fabsf((x)[2]*(y)[2]))
+#define DotProductAbs(x,y) DotProductFabs(x,y)
 #define DotProductPrecise(x,y) ((double)(x)[0]*(double)(y)[0]+(double)(x)[1]*(double)(y)[1]+(double)(x)[2]*(double)(y)[2])
 #define CrossProduct(a,b,c) ((c)[0]=(a)[1]*(b)[2]-(a)[2]*(b)[1],(c)[1]=(a)[2]*(b)[0]-(a)[0]*(b)[2],(c)[2]=(a)[0]*(b)[1]-(a)[1]*(b)[0])
 #define Vector2Subtract(a,b,c) ((c)[0]=(a)[0]-(b)[0],(c)[1]=(a)[1]-(b)[1])
@@ -110,7 +100,7 @@ GNU General Public License for more details.
 #define VectorDivide( in, d, out ) VectorScale( in, (1.0f / (d)), out )
 #define VectorMax(a) ( Q_max((a)[0], Q_max((a)[1], (a)[2])) )
 #define VectorAvg(a) ( ((a)[0] + (a)[1] + (a)[2]) / 3 )
-#define VectorLength(a) ( sqrt( DotProduct( a, a )))
+#define VectorLength(a) ( sqrtf( DotProduct( a, a )))
 #define VectorLength2(a) (DotProduct( a, a ))
 #define VectorDistance(a, b) (sqrt( VectorDistance2( a, b )))
 #define VectorDistance2(a, b) (((a)[0] - (b)[0]) * ((a)[0] - (b)[0]) + ((a)[1] - (b)[1]) * ((a)[1] - (b)[1]) + ((a)[2] - (b)[2]) * ((a)[2] - (b)[2]))
@@ -174,7 +164,10 @@ static inline float UintAsFloat( uint32_t u )
 }
 
 float rsqrt( float number );
+namespace engine
+{
 float anglemod( float a );
+}
 word FloatToHalf( float v );
 float HalfToFloat( word h );
 void RoundUpHullSize( vec3_t size );
@@ -185,7 +178,10 @@ void SinCos( float radians, float *sine, float *cosine );
 float VectorNormalizeLength2( const vec3_t v, vec3_t out );
 qboolean VectorCompareEpsilon( const vec3_t vec1, const vec3_t vec2, vec_t epsilon );
 void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up );
+namespace engine
+{
 void VectorAngles( const float *forward, float *angles );
+}
 void AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up );
 void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, vec3_t angles );
 void PlaneIntersect( const struct mplane_s *plane, const vec3_t p0, const vec3_t p1, vec3_t out );
@@ -257,11 +253,18 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
 	:						\
 		BoxOnPlaneSide(( emins ), ( emaxs ), ( p )))
 
+namespace engine
+{
 extern vec3_t		vec3_origin;
+}
 extern int		boxpnt[6][4];
 extern const matrix3x4	m_matrix3x4_identity;
 extern const matrix4x4	m_matrix4x4_identity;
-extern const float		m_bytenormals[NUMVERTEXNORMALS][3];
+extern const double		m_bytenormals[NUMVERTEXNORMALS][3];
+
+#ifdef __cplusplus
+//}
+#endif
 
 #endif // XASH3D_MATHLIB_H
 

@@ -1,17 +1,3 @@
-/*
-build.h - compile-time build information
-Copyright (C) 2023 Alibek Omarov
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
 #pragma once
 #ifndef BUILDENUMS_H
 #define BUILDENUMS_H
@@ -30,7 +16,6 @@ GNU General Public License for more details.
 #define PLATFORM_WIN32      1
 #define PLATFORM_LINUX      2
 #define PLATFORM_FREEBSD    3
-#define PLATFORM_ANDROID    4
 #define PLATFORM_APPLE      5
 #define PLATFORM_NETBSD     6
 #define PLATFORM_OPENBSD    7
@@ -39,14 +24,10 @@ GNU General Public License for more details.
 #define PLATFORM_HAIKU      10
 #define PLATFORM_SERENITY   11
 #define PLATFORM_IRIX       12
-#define PLATFORM_NSWITCH    13
-#define PLATFORM_PSVITA     14
 #define PLATFORM_LINUX_UNKNOWN 15
 
 #if XASH_WIN32
 	#define XASH_PLATFORM PLATFORM_WIN32
-#elif XASH_ANDROID
-	#define XASH_PLATFORM PLATFORM_ANDROID
 #elif XASH_LINUX_UNKNOWN
 	#define XASH_PLATFORM PLATFORM_LINUX_UNKNOWN
 #elif XASH_LINUX
@@ -69,10 +50,6 @@ GNU General Public License for more details.
 	#define XASH_PLATFORM PLATFORM_SERENITY
 #elif XASH_IRIX
 	#define XASH_PLATFORM PLATFORM_IRIX
-#elif XASH_NSWITCH
-	#define XASH_PLATFORM PLATFORM_NSWITCH
-#elif XASH_PSVITA
-	#define XASH_PLATFORM PLATFORM_PSVITA
 #else
 	#error
 #endif

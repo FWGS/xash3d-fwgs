@@ -1,18 +1,3 @@
-/*
-crtlib.c - internal stdlib
-Copyright (C) 2011 Uncle Mike
-Copyright (c) QuakeSpasm contributors
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
 #include "port.h"
 #include "xash3d_types.h"
 #include "const.h"
@@ -56,6 +41,19 @@ qboolean Q_isspace( const char *str )
 		if( !*str ) return true;
 	}
 	return false;
+}
+
+size_t Q_strlen(const char* str)
+{
+	if (!str)
+		return 0;
+
+	return strlen(str);
+}
+
+size_t Q_strlen(const std::string& str)
+{
+	return str.size();
 }
 
 size_t Q_colorstr( const char *string )
@@ -105,9 +103,9 @@ char Q_tolower( const char in )
 
 size_t Q_strncat( char *dst, const char *src, size_t size )
 {
-	register char	*d = dst;
-	register const char	*s = src;
-	register size_t	n = size;
+	char	*d = dst;
+	const char	*s = src;
+	size_t	n = size;
 	size_t		dlen;
 
 	if( !dst || !src || !size )
@@ -134,11 +132,22 @@ size_t Q_strncat( char *dst, const char *src, size_t size )
 	return( dlen + ( s - src )); // count does not include NULL
 }
 
+const char* Q_strchrnul(const char* s, int c)
+{
+	const char* p = Q_strchr(s, c);
+
+	if (p)
+		return p;
+
+	return s + Q_strlen(s);
+}
+
+
 size_t Q_strncpy( char *dst, const char *src, size_t size )
 {
-	register char	*d = dst;
-	register const char	*s = src;
-	register size_t	n = size;
+	char	*d = dst;
+	const char	*s = src;
+	size_t	n = size;
 
 	if( !dst || !src || !size )
 		return 0;
@@ -161,6 +170,12 @@ size_t Q_strncpy( char *dst, const char *src, size_t size )
 		while( *s++ );
 	}
 	return ( s - src - 1 ); // count does not include NULL
+}
+
+size_t Q_strncpy(std::string& dst, const char* src, size_t siz)
+{
+	dst.resize(siz, 0);
+	return Q_strncpy((char*)dst.data(), src, siz);
 }
 
 int Q_atoi( const char *str )
@@ -242,12 +257,12 @@ float Q_atof( const char *str )
 			if( c >= '0' && c <= '9' ) val = (val * 16) + c - '0';
 			else if( c >= 'a' && c <= 'f' ) val = (val * 16) + c - 'a' + 10;
 			else if( c >= 'A' && c <= 'F' ) val = (val * 16) + c - 'A' + 10;
-			else return val * sign;
+			else return float(val * sign);
 		}
 	}
 
 	// check for character
-	if( str[0] == '\'' ) return sign * str[1];
+	if( str[0] == '\'' ) return float(sign * str[1]);
 
 	// assume decimal
 	decimal = -1;
@@ -269,7 +284,7 @@ float Q_atof( const char *str )
 	}
 
 	if( decimal == -1 )
-		return val * sign;
+		return float(val * sign);
 
 	while( total > decimal )
 	{
@@ -277,20 +292,19 @@ float Q_atof( const char *str )
 		total--;
 	}
 
-	return val * sign;
+	return float(val * sign);
 }
 
 void Q_atov( float *vec, const char *str, size_t siz )
 {
 	string	buffer;
 	char	*pstr, *pfront;
-	int	j;
 
 	Q_strncpy( buffer, str, sizeof( buffer ));
 	memset( vec, 0, sizeof( vec_t ) * siz );
 	pstr = pfront = buffer;
 
-	for( j = 0; j < siz; j++ )
+	for(size_t j = 0; j < siz; j++ )
 	{
 		vec[j] = Q_atof( pfront );
 
@@ -364,7 +378,7 @@ const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *need
 	const byte *i;
 
 	// quickly find first matching symbol
-	while( haystacklen && ( i = memchr( haystack, needle[0], haystacklen )))
+	while( haystacklen && ( i = (byte*)memchr( haystack, needle[0], haystacklen )))
 	{
 		if( !memcmp( i, needle, needlelen ))
 			return i;
@@ -470,7 +484,7 @@ int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list ar
 	}
 #endif
 
-	if( result >= buffersize )
+	if( result >= (int)buffersize )
 	{
 		buffer[buffersize - 1] = '\0';
 		return -1;
@@ -607,7 +621,7 @@ void COM_FileBase( const char *in, char *out, size_t size )
 	if( dot == NULL || dot < slash )
 		dot = s;
 
-	len = Q_min( size - 1, dot - slash );
+	len = Q_min( (int)size - 1, dot - slash );
 
 	memcpy( out, slash, len );
 	out[len] = 0;
@@ -774,6 +788,15 @@ void COM_FixSlashes( char *pname )
 	{
 		if( *pname == '\\' )
 			*pname = '/';
+	}
+}
+
+void COM_FixSlashes(std::string& str)
+{
+	for (auto& c : str)
+	{
+		if (c == '\\')
+			c = '/';
 	}
 }
 

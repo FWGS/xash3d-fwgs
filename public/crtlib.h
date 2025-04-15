@@ -1,23 +1,9 @@
-/*
-crtlib.h - internal stdlib
-Copyright (C) 2011 Uncle Mike
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
-
 #ifndef STDLIB_H
 #define STDLIB_H
 
-#include <string.h>
-#include <stdarg.h>
+#include <string>
+#include <cstdarg>
+#include <cstring>
 #include "build.h"
 #include "xash3d_types.h"
 
@@ -60,12 +46,10 @@ const char *Q_buildcommit( void );
 // crtlib.c
 //
 void Q_strnlwr( const char *in, char *out, size_t size_out );
-#define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 size_t Q_colorstr( const char *string );
 char Q_toupper( const char in );
 char Q_tolower( const char in );
 size_t Q_strncat( char *dst, const char *src, size_t siz );
-size_t Q_strncpy( char *dst, const char *src, size_t siz );
 qboolean Q_isdigit( const char *str );
 qboolean Q_isspace( const char *str );
 int Q_atoi( const char *str );
@@ -78,7 +62,7 @@ qboolean Q_strnicmpext( const char *pattern, const char *text, size_t minimumlen
 const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen );
 const char *Q_timestamp( int format );
 int Q_vsnprintf( char *buffer, size_t buffersize, const char *format, va_list args );
-int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... ) _format( 3 );
+int Q_snprintf( char *buffer, size_t buffersize, const char *format, ... );
 #define Q_strpbrk strpbrk
 void COM_StripColors( const char *in, char *out );
 #define Q_memprint( val ) Q_pretifymem( val, 2 )
@@ -91,7 +75,6 @@ void COM_ExtractFilePath( const char *path, char *dest );
 const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str );
-void COM_FixSlashes( char *pname );
 void COM_PathSlashFix( char *path );
 char COM_Hex2Char( uint8_t hex );
 void COM_Hex2String( uint8_t hex, char *str );
@@ -126,8 +109,8 @@ static inline char *Q_strstr( const char *s1, const char *s2 )
 // libc extensions, be careful
 
 #if XASH_WIN32
-#define strcasecmp stricmp
-#define strncasecmp strnicmp
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
 #endif // XASH_WIN32
 
 static inline int Q_stricmp( const char *s1, const char *s2 )
@@ -159,19 +142,20 @@ char *Q_stristr( const char *s1, const char *s2 );
 #if defined( HAVE_STRCHRNUL )
 #define Q_strchrnul strchrnul
 #else
-static inline const char *Q_strchrnul( const char *s, int c )
-{
-	const char *p = Q_strchr( s, c );
-
-	if( p )
-		return p;
-
-	return s + Q_strlen( s );
-}
+const char* Q_strchrnul(const char* s, int c);
 #endif
 
 #ifdef __cplusplus
 }
 #endif
+
+size_t Q_strncpy(char* dst, const char* src, size_t siz);
+size_t Q_strncpy(std::string& dst, const char* src, size_t siz);
+
+void COM_FixSlashes(char* pname);
+void COM_FixSlashes(std::string& str);
+
+size_t Q_strlen(const char* str);
+size_t Q_strlen(const std::string& str);
 
 #endif//STDLIB_H

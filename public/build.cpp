@@ -1,18 +1,3 @@
-/*
-build.c - returns a engine build number
-Copyright (C) 2010 Uncle Mike
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
-
 #include "crtlib.h"
 #include "buildenums.h"
 
@@ -93,8 +78,6 @@ const char *Q_PlatformStringByID( const int platform )
 	{
 	case PLATFORM_WIN32:
 		return "win32";
-	case PLATFORM_ANDROID:
-		return "android";
 	case PLATFORM_LINUX_UNKNOWN:
 		return "linuxunkabi";
 	case PLATFORM_LINUX:
@@ -117,10 +100,6 @@ const char *Q_PlatformStringByID( const int platform )
 		return "serenity";
 	case PLATFORM_IRIX:
 		return "irix";
-	case PLATFORM_NSWITCH:
-		return "nswitch";
-	case PLATFORM_PSVITA:
-		return "psvita";
 	}
 
 	assert( 0 );

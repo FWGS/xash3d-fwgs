@@ -1,18 +1,3 @@
-/*
-matrixlib.c - internal matrixlib
-Copyright (C) 2010 Uncle Mike
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-*/
-
 #include "port.h"
 #include "xash3d_types.h"
 #include "const.h"
@@ -99,7 +84,7 @@ void Matrix3x4_OriginFromMatrix( const matrix3x4 in, float *out )
 
 void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out )
 {
-	float xyDist = sqrt( in[0][0] * in[0][0] + in[1][0] * in[1][0] );
+	float xyDist = sqrtf( in[0][0] * in[0][0] + in[1][0] * in[1][0] );
 
 	if( xyDist > 0.001f )
 	{
@@ -403,7 +388,7 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 
 void Matrix4x4_ConvertToEntity( const matrix4x4 in, vec3_t angles, vec3_t origin )
 {
-	float xyDist = sqrt( in[0][0] * in[0][0] + in[1][0] * in[1][0] );
+	float xyDist = sqrtf( in[0][0] * in[0][0] + in[1][0] * in[1][0] );
 
 	// enough here to get angles?
 	if( xyDist > 0.001f )
@@ -426,7 +411,7 @@ void Matrix4x4_ConvertToEntity( const matrix4x4 in, vec3_t angles, vec3_t origin
 
 void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, float d, vec3_t out, float *dist )
 {
-	float	scale = sqrt( in[0][0] * in[0][0] + in[0][1] * in[0][1] + in[0][2] * in[0][2] );
+	float	scale = sqrtf( in[0][0] * in[0][0] + in[0][1] * in[0][1] + in[0][2] * in[0][2] );
 	float	iscale = 1.0f / scale;
 
 	out[0] = (normal[0] * in[0][0] + normal[1] * in[0][1] + normal[2] * in[0][2]) * iscale;

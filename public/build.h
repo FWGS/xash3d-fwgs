@@ -1,31 +1,3 @@
-/*
-build.h - compile-time build information
-
-This is free and unencumbered software released into the public domain.
-
-Anyone is free to copy, modify, publish, use, compile, sell, or
-distribute this software, either in source code form or as a compiled
-binary, for any purpose, commercial or non-commercial, and by any
-means.
-
-In jurisdictions that recognize copyright laws, the author or authors
-of this software dedicate any and all copyright interest in the
-software to the public domain. We make this dedication for the benefit
-of the public at large and to the detriment of our heirs and
-successors. We intend this dedication to be an overt act of
-relinquishment in perpetuity of all present and future rights to this
-software under copyright law.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-
-For more information, please refer to <http://unlicense.org/>
-*/
 #pragma once
 #ifndef BUILD_H
 #define BUILD_H
@@ -49,7 +21,6 @@ Then you can use another oneliner to query all variables:
 
 #undef XASH_64BIT
 #undef XASH_AMD64
-#undef XASH_ANDROID
 #undef XASH_APPLE
 #undef XASH_ARM
 #undef XASH_ARM_HARDFP
@@ -65,14 +36,12 @@ Then you can use another oneliner to query all variables:
 #undef XASH_EMSCRIPTEN
 #undef XASH_FREEBSD
 #undef XASH_HAIKU
-#undef XASH_IOS
 #undef XASH_IRIX
 #undef XASH_JS
 #undef XASH_LINUX
 #undef XASH_LINUX_UNKNOWN
 #undef XASH_LITTLE_ENDIAN
 #undef XASH_MIPS
-#undef XASH_MOBILE_PLATFORM
 #undef XASH_NETBSD
 #undef XASH_OPENBSD
 #undef XASH_POSIX
@@ -83,8 +52,6 @@ Then you can use another oneliner to query all variables:
 #undef XASH_SERENITY
 #undef XASH_WIN32
 #undef XASH_X86
-#undef XASH_NSWITCH
-#undef XASH_PSVITA
 
 //================================================================
 //
@@ -100,15 +67,11 @@ Then you can use another oneliner to query all variables:
 #else // POSIX compatible
 	#define XASH_POSIX 1
 	#if defined __linux__
-		#if defined __ANDROID__
-			#define XASH_ANDROID 1
-		#else
-			#include <features.h>
-			// if our system libc has features.h header
-			// try to detect it to not confuse other libcs with built with glibc game libraries
-			#if !defined __GLIBC__
-				#define XASH_LINUX_UNKNOWN 1
-			#endif
+		#include <features.h>
+		// if our system libc has features.h header
+		// try to detect it to not confuse other libcs with built with glibc game libraries
+		#if !defined __GLIBC__
+			#define XASH_LINUX_UNKNOWN 1
 		#endif
 		#define XASH_LINUX 1
 	#elif defined __FreeBSD__
@@ -126,20 +89,9 @@ Then you can use another oneliner to query all variables:
 	#elif defined __APPLE__
 		#include <TargetConditionals.h>
 		#define XASH_APPLE 1
-		#if TARGET_OS_IOS
-			#define XASH_IOS 1
-		#endif // TARGET_OS_IOS
-	#elif defined __SWITCH__
-		#define XASH_NSWITCH 1
-	#elif defined __vita__
-		#define XASH_PSVITA 1
 	#else
 		#error
 	#endif
-#endif
-
-#if XASH_ANDROID || defined XASH_IOS || defined XASH_NSWITCH || defined XASH_PSVITA
-	#define XASH_MOBILE_PLATFORM 1
 #endif
 
 //================================================================
@@ -176,8 +128,12 @@ Then you can use another oneliner to query all variables:
 //
 //================================================================
 #if defined __x86_64__ || defined _M_X64
+#ifdef LINUX
+	#define XASH_X86 1
+#else
 	#define XASH_64BIT 1
 	#define XASH_AMD64 1
+#endif
 #elif defined __i386__ || defined _X86_ || defined _M_IX86
 	#define XASH_X86 1
 #elif defined __aarch64__ || defined _M_ARM64
