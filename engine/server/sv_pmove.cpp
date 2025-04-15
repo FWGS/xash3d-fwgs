@@ -486,14 +486,14 @@ void SV_InitClientMove( void )
 	svgame.pmove->PM_StuckTouch = pfnStuckTouch;
 	svgame.pmove->PM_PointContents = pfnPointContents;
 	svgame.pmove->PM_TruePointContents = pfnTruePointContents;
-	svgame.pmove->PM_HullPointContents = (void*)PM_HullPointContents;
+	svgame.pmove->PM_HullPointContents = (int(__cdecl*)(hull_t*, int, float*))PM_HullPointContents;
 	svgame.pmove->PM_PlayerTrace = pfnPlayerTrace;
 	svgame.pmove->PM_TraceLine = pfnTraceLine;
 	svgame.pmove->RandomLong = COM_RandomLong;
 	svgame.pmove->RandomFloat = COM_RandomFloat;
 	svgame.pmove->PM_GetModelType = pfnGetModelType;
 	svgame.pmove->PM_GetModelBounds = pfnGetModelBounds;
-	svgame.pmove->PM_HullForBsp = (void*)pfnHullForBsp;
+	svgame.pmove->PM_HullForBsp = (void* (__cdecl*)(physent_t*, float*))pfnHullForBsp;
 	svgame.pmove->PM_TraceModel = pfnTraceModel;
 	svgame.pmove->COM_FileSize = COM_FileSize;
 	svgame.pmove->COM_LoadFile = COM_LoadFile;

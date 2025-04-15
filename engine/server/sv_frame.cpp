@@ -913,7 +913,7 @@ void SV_SendClientMessages( void )
 			// now that we were able to send, reset timer to point to next possible send time.
 			// check here also because sv_max/minupdaterate could been changed in runtime
 			updaterate_time = bound( 1.0 / sv_maxupdaterate.value, cl->cl_updaterate, 1.0 / sv_minupdaterate.value );
-			cl->next_messagetime   = host.realtime + sv.frametime + updaterate_time; 
+			cl->next_messagetime   = host.realtime + sv.frametime + updaterate_time;
 			ClearBits( cl->flags, FCL_SEND_NET_MESSAGE );
 
 			// NOTE: we should send frame even if server is not simulated to prevent overflow

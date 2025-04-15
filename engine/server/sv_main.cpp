@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include "server.h"
 #include "net_encode.h"
 #include "platform/platform.h"
+#include "sv_sky.h"
 
 // server cvars
 CVAR_DEFINE_AUTO( sv_lan, "0", 0, "server is a lan server ( no heartbeat, no authentication, no non-class C addresses, 9999.0 rate, etc." );
@@ -139,6 +140,91 @@ static CVAR_DEFINE_AUTO( sv_allow_mouse, "1", FCVAR_ARCHIVE, "allow connect with
 static CVAR_DEFINE_AUTO( sv_allow_touch, "1", FCVAR_ARCHIVE, "allow connect with touch controls" );
 static CVAR_DEFINE_AUTO( sv_allow_vr, "1", FCVAR_ARCHIVE, "allow connect from vr version" );
 static CVAR_DEFINE_AUTO( sv_allow_noinputdevices, "1", FCVAR_ARCHIVE, "allow connect from old versions without useragent" );
+
+class RoomClient : public Shared::NetworkingWS::Client,
+	public sky::Listenable<sky::FragEvent>
+{
+public:
+	RoomClient();
+	std::shared_ptr<Shared::NetworkingWS::Channel> createChannel();
+	void onEvent(const sky::FragEvent& e) override;
+};
+
+static std::string GetRoomMasterAddress()
+{
+	sky::Asset::AssetsFolder = ".";
+	auto asset = sky::Asset("settings.json");
+	auto json = Common::Helpers::LoadJsonFromAsset(asset);
+	std::string master_address = json["master_address"];
+	return master_address;
+}
+
+RoomClient::RoomClient() : Shared::NetworkingWS::Client(GetRoomMasterAddress())
+{
+}
+
+std::shared_ptr<Shared::NetworkingWS::Channel> RoomClient::createChannel()
+{
+	return std::make_shared<Shared::NetworkingWS::SimpleChannel>();
+}
+
+void RoomClient::onEvent(const sky::FragEvent& e)
+{
+	auto channel = std::static_pointer_cast<Shared::NetworkingWS::SimpleChannel>(getChannel());
+
+	if (channel == nullptr)
+		return;
+
+	channel->sendEvent("frag", {
+		{ "killer", e.killer_name },
+		{ "victim", e.victim_name },
+		{ "weapon", e.weapon },
+		{ "killer_is_bot", e.killer_is_bot },
+		{ "victim_is_bot", e.victim_is_bot }
+	});
+}
+
+std::optional<RoomClient> gRoomClient;
+
+static void Sky_SendHeartbeat()
+{
+	auto channel = std::static_pointer_cast<Shared::NetworkingWS::SimpleChannel>(gRoomClient->getChannel());
+
+	if (channel == nullptr)
+		return;
+
+	if (!svs.initialized)
+		return;
+
+	if (svs.maxclients == 1)
+		return;
+
+	std::vector<std::string> players;
+	std::vector<std::string> bots;
+
+	SV_GetPlayerNames(players, bots);
+
+	channel->sendEvent("heartbeat", {
+		{ "version", 1 },
+		{ "port", NET_GetServerLocalPort() },
+		{ "hostname", hostname.string },
+		{ "map", sv.name },
+		{ "clients", players.size() },
+		{ "bots", bots.size() },
+		{ "maxclients", svs.maxclients }
+	});
+}
+
+static void Sky_InitServer()
+{
+	gRoomClient.emplace();
+	Actions::Run(Actions::Collection::RepeatInfinite([] {
+		const auto Delay = 5.0f;
+		return Actions::Collection::Delayed(Delay, Actions::Collection::Execute([] {
+			Sky_SendHeartbeat();
+		}));
+	}));
+}
 
 //============================================================================
 /*
@@ -328,7 +414,7 @@ void SV_ProcessFile( sv_client_t *cl, const char *filename )
 		return;
 	}
 
-	HPAK_AddLump( true, CUSTOM_RES_PATH, resource, cl->netchan.tempbuffer, NULL );
+	HPAK_AddLump( true, CUSTOM_RES_PATH, resource, (byte*)cl->netchan.tempbuffer, NULL );
 	ClearBits( resource->ucFlags, RES_WASMISSING );
 	SV_MoveToOnHandList( cl, resource );
 
@@ -675,7 +761,7 @@ Host_SetServerState
 void Host_SetServerState( int state )
 {
 	Cvar_FullSet( "host_serverstate", va( "%i", state ), FCVAR_READ_ONLY );
-	sv.state = state;
+	sv.state = (sv_state_t)state;
 }
 
 //============================================================================
@@ -941,6 +1027,10 @@ void SV_Init( void )
 	SV_InitFilter();
 	SV_ClearGameState ();	// delete all temporary *.hl files
 	SV_InitGame();
+
+#ifdef XASH_DEDICATED
+	Sky_InitServer();
+#endif
 }
 
 /*

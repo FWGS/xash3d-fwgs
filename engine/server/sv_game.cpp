@@ -23,6 +23,46 @@ GNU General Public License for more details.
 #include "const.h"
 #include "render_api.h"	// modelstate_t
 #include "ref_common.h" // decals
+#include "sv_sky.h"
+
+using namespace engine;
+
+static void Sky_HookGmsg(const std::string& name, void* memory, size_t size)
+{
+	if (name == "DeathMsg")
+	{
+		auto msg = sky::BitBuffer();
+		msg.write(memory, size + 3);
+		msg.toStart();
+		auto msg_index = msg.read<uint8_t>();
+		auto _size = msg.read<uint16_t>();
+		assert(size == _size);
+		auto killer_index = msg.read<uint8_t>();
+		auto victim_index = msg.read<uint8_t>();
+		auto weapon = sky::bitbuffer_helpers::ReadString(msg);
+
+		if (killer_index == 0)
+			return;
+
+		if (killer_index == victim_index)
+			return;
+
+		auto killer = svs.clients + killer_index - 1;
+		auto victim = svs.clients + victim_index - 1;
+
+		bool killer_is_bot = FBitSet(killer->edict->v.flags, FL_FAKECLIENT);
+		bool victim_is_bot = FBitSet(victim->edict->v.flags, FL_FAKECLIENT);
+
+		sky::Emit(sky::FragEvent{
+			.killer_name = killer->name,
+			.victim_name = victim->name,
+			.weapon = weapon,
+			.killer_is_bot = killer_is_bot,
+			.victim_is_bot = victim_is_bot
+		});
+	}
+}
+
 
 #define ENTVARS_COUNT	ARRAYSIZE( gEntvarsDescription )
 
@@ -967,7 +1007,7 @@ uint SV_MapIsValid( const char *filename, const char *spawn_entity, const char *
 	char	*pfile;
 	char	*ents;
 
-	ents = SV_ReadEntityScript( filename, &flags );
+	ents = SV_ReadEntityScript( filename, (int*)&flags);
 
 	if( ents )
 	{
@@ -2463,7 +2503,7 @@ pfnClientCommand
 
 =========
 */
-void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... ) _format( 2 );
+void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... );
 void GAME_EXPORT pfnClientCommand( edict_t* pEdict, char* szFmt, ... )
 {
 	sv_client_t	*cl;
@@ -2730,6 +2770,7 @@ void GAME_EXPORT pfnMessageEnd( void )
 	if( !VectorIsNull( svgame.msg_org )) org = svgame.msg_org;
 	svgame.msg_dest = bound( MSG_BROADCAST, svgame.msg_dest, MSG_SPEC );
 
+	Sky_HookGmsg(svgame.msg_name, sv.multicast.pData, (size_t)svgame.msg_realsize);
 	SV_Multicast( svgame.msg_dest, org, svgame.msg_ent, true, false );
 
 	if( svgame.msg_trace ) Con_Printf( "^3%s()\n", __FUNCTION__ );
@@ -2866,7 +2907,7 @@ pfnAlertMessage
 
 =============
 */
-static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... ) _format( 2 );
+static void pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... );
 static void GAME_EXPORT pfnAlertMessage( ALERT_TYPE type, char *szFmt, ... )
 {
 	char	buffer[2048];
@@ -2920,7 +2961,7 @@ pfnEngineFprintf
 OBSOLETE, UNUSED
 =============
 */
-static void pfnEngineFprintf( FILE *pfile, char *szFmt, ... ) _format( 2 );
+static void pfnEngineFprintf( FILE *pfile, char *szFmt, ... );
 static void GAME_EXPORT pfnEngineFprintf( FILE *pfile, char *szFmt, ... )
 {
 }
@@ -4695,13 +4736,13 @@ static enginefuncs_t gEngfuncs =
 	pfnRegUserMsg,
 	pfnAnimationAutomove,
 	pfnGetBonePosition,
-	(void*)pfnFunctionFromName,
-	(void*)pfnNameForFunction,
+	(unsigned long(__cdecl*)(const char*))pfnFunctionFromName,
+	(const char* (__cdecl*)(unsigned long))pfnNameForFunction,
 	pfnClientPrintf,
 	pfnServerPrint,
 	Cmd_Args,
 	Cmd_Argv,
-	(void*)Cmd_Argc,
+	(int(__cdecl*)(void))Cmd_Argc,
 	pfnGetAttachment,
 	CRC32_Init,
 	CRC32_ProcessBuffer,
@@ -4735,7 +4776,7 @@ static enginefuncs_t gEngfuncs =
 	pfnIsDedicatedServer,
 	pfnCVarGetPointer,
 	pfnGetPlayerWONId,
-	(void*)Info_RemoveKey,
+	(void(__cdecl*)(char*, const char*))Info_RemoveKey,
 	pfnGetPhysicsKeyValue,
 	pfnSetPhysicsKeyValue,
 	pfnGetPhysicsInfoString,

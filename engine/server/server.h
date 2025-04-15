@@ -29,6 +29,9 @@ GNU General Public License for more details.
 #include "custom.h"
 #include "world.h"
 
+#include <vector>
+#include <string>
+
 //=============================================================================
 
 #define SV_UPDATE_MASK	(SV_UPDATE_BACKUP - 1)
@@ -461,7 +464,7 @@ extern convar_t		sv_maxclients;
 // sv_main.c
 //
 void SV_FinalMessage( const char *message, qboolean reconnect );
-void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
+void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... );
 void SV_DropClient( sv_client_t *cl, qboolean crash );
 void SV_UpdateMovevars( qboolean initialize );
 int SV_ModelIndex( const char *name );
@@ -522,8 +525,8 @@ void SV_WaterMove( edict_t *ent );
 // sv_send.c
 //
 void SV_SendClientMessages( void );
-void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... ) _format( 2 );
-void SV_BroadcastCommand( const char *fmt, ... ) _format( 1 );
+void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... );
+void SV_BroadcastCommand( const char *fmt, ... );
 
 //
 // sv_client.c
@@ -552,8 +555,9 @@ int SV_CalcPing( sv_client_t *cl );
 void SV_InitClientMove( void );
 void SV_UpdateServerInfo( void );
 void SV_EndRedirect( void );
-void SV_RejectConnection( netadr_t from, const char *fmt, ... ) _format( 2 );
+void SV_RejectConnection( netadr_t from, const char *fmt, ... );
 void SV_GetPlayerCount( int *clients, int *bots );
+void SV_GetPlayerNames(std::vector<std::string>& players, std::vector<std::string>& bots); // sky
 
 //
 // sv_cmds.c

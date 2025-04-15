@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "net_api.h"
 
+using namespace engine;
+
 const char *clc_strings[clc_lastmsg+1] =
 {
 	"clc_bad",
@@ -68,6 +70,28 @@ void SV_GetPlayerCount( int *players, int *bots )
 				(*players)++;
 		}
 
+	}
+}
+
+void SV_GetPlayerNames(std::vector<std::string>& players, std::vector<std::string>& bots)
+{
+	players.clear();
+	bots.clear();
+
+	if(!svs.clients)
+		return;
+
+	for(int i = 0; i < svs.maxclients; i++)
+	{
+		if (svs.clients[i].state < cs_connected)
+			continue;
+
+		std::string name = &svs.clients[i].name[0];
+
+		if (FBitSet(svs.clients[i].flags, FCL_FAKECLIENT))
+			bots.push_back(name);
+		else
+			players.push_back(name);
 	}
 }
 
@@ -682,7 +706,7 @@ void SV_BeginRedirect( netadr_t adr, rdtype_t target, char *buffer, size_t buffe
 	host.rd.target = target;
 	host.rd.buffer = buffer;
 	host.rd.buffersize = buffersize;
-	host.rd.flush = flush;
+	host.rd.flush = (void(__cdecl*)(netadr_t, rdtype_t, char*))flush;
 	host.rd.address = adr;
 	host.rd.buffer[0] = 0;
 	if( host.rd.lines == 0 )
@@ -718,7 +742,7 @@ void SV_EndRedirect( void )
 	if( host.rd.flush )
 		host.rd.flush( host.rd.address, host.rd.target, host.rd.buffer );
 
-	host.rd.target = 0;
+	host.rd.target = (rdtype_t)0;
 	host.rd.buffer = NULL;
 	host.rd.buffersize = 0;
 	host.rd.flush = NULL;
@@ -1088,7 +1112,7 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 
 	Con_Printf( "Rcon from %s:\n%s\n", NET_AdrToString( from ), MSG_GetData( msg ) + 4 );
 	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, NET_AdrToString( from ));
-	SV_BeginRedirect( from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, SV_FlushRedirect );
+	SV_BeginRedirect( from, RD_PACKET, outputbuf, sizeof( outputbuf ) - 16, (void*)SV_FlushRedirect );
 
 	if( Rcon_Validate( ))
 	{
@@ -1251,7 +1275,7 @@ Writes all update values to a bitbuf
 void SV_FullClientUpdate( sv_client_t *cl, sizebuf_t *msg )
 {
 	char		info[MAX_INFO_STRING];
-	char		digest[16];
+	byte		digest[16];
 	MD5Context_t	ctx;
 	int		i;
 
@@ -2071,31 +2095,13 @@ static qboolean SV_DownloadFile_f( sv_client_t *cl )
 	{
 		if( sv_send_resources.value )
 		{
-			int i;
-
-			// security: allow download only precached resources
-			for( i = 0; i < sv.num_resources; i++ )
-			{
-				const char *cmpname = name;
-
-				if( sv.resources[i].type == t_sound )
-					cmpname += sizeof( DEFAULT_SOUNDPATH ) - 1; // cut "sound/" off
-
-				if( !Q_strncmp( sv.resources[i].szFileName, cmpname, 64 ) )
-					break;
-			}
-
-			if( i == sv.num_resources )
-			{
-				SV_FailDownload( cl, name );
-				return true;
-			}
+			auto name_str = std::string(name);
 
 			// also check the model textures
-			if( !Q_stricmp( COM_FileExtension( name ), "mdl" ))
+			if (!Q_stricmp(COM_FileExtension(name), "mdl"))
 			{
-				if( FS_FileExists( Mod_StudioTexName( name ), false ) > 0 )
-					Netchan_CreateFileFragments( &cl->netchan, Mod_StudioTexName( name ));
+				if (FS_FileExists(Mod_StudioTexName(name), false) > 0)
+					Netchan_CreateFileFragments(&cl->netchan, Mod_StudioTexName(name));
 			}
 
 			if( Netchan_CreateFileFragments( &cl->netchan, name ))
@@ -3335,7 +3341,7 @@ void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 	{
 		resource = Z_Calloc( sizeof( resource_t ) );
 		Q_strncpy( resource->szFileName, MSG_ReadString( msg ), sizeof( resource->szFileName ));
-		resource->type = MSG_ReadByte( msg );
+		resource->type = (resourcetype_t)MSG_ReadByte( msg );
 		resource->nIndex = MSG_ReadShort( msg );
 		resource->nDownloadSize = MSG_ReadLong( msg );
 		resource->ucFlags = MSG_ReadByte( msg );

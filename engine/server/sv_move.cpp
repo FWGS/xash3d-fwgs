@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "const.h"
 #include "pm_defs.h"
 
+using namespace engine;
+
 #define MOVE_NORMAL		0	// normal move in the direction monster is facing
 #define MOVE_STRAFE		1	// moves in direction specified, no matter which way monster is facing
 

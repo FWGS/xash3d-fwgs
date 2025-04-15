@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include "triangleapi.h"
 #include "ref_common.h"
 
+using namespace engine;
+
 typedef int (*PHYSICAPI)( int, server_physics_api_t*, physics_interface_t* );
 #if !XASH_DEDICATED
 extern triangleapi_t gTriApi;
@@ -1995,7 +1997,7 @@ static server_physics_api_t gPhysicsAPI =
 	SV_LinkEdict,
 	SV_GetServerTime,
 	SV_GetFrameTime,
-	(void*)SV_ModelHandle,
+	(void* (__cdecl*)(int))SV_ModelHandle,
 	SV_GetHeadNode,
 	SV_ServerState,
 	Host_Error,
@@ -2022,7 +2024,7 @@ static server_physics_api_t gPhysicsAPI =
 	pfnPointContents,
 	SV_MoveNormal,
 	SV_MoveNoEnts,
-	(void*)SV_BoxInPVS,
+	(int(__cdecl*)(const float*,const float*,const float*))SV_BoxInPVS,
 	pfnWriteBytes,
 	Mod_CheckLump,
 	Mod_ReadLump,

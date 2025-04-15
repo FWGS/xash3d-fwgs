@@ -586,7 +586,7 @@ void SV_Kick_f( void )
 	sv_client_t	*cl;
 	const char *param;
 
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() < 2 )
 	{
 		Con_Printf( S_USAGE "kick <#id|name> [reason]\n" );
 		return;
@@ -594,9 +594,24 @@ void SV_Kick_f( void )
 
 	param = Cmd_Argv( 1 );
 
-	if( *param == '#' && Q_isdigit( param + 1 ) )
-		cl = SV_ClientById( Q_atoi( param + 1 ) );
-	else cl = SV_ClientByName( param );
+	if (Cmd_Argc() >= 3)
+	{
+		if (*param == '#')
+		{
+			auto param2 = Cmd_Argv(2);
+			if (Q_isdigit(param2))
+			{
+				cl = SV_ClientById(Q_atoi(param2));
+			}
+
+		}
+	}
+	else
+	{
+		if (*param == '#' && Q_isdigit(param + 1))
+			cl = SV_ClientById(Q_atoi(param + 1));
+		else cl = SV_ClientByName(param);
+	}
 
 	if( !cl )
 	{

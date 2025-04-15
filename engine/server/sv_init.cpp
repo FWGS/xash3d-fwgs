@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #include "voice.h"
 #include "pm_local.h"
 #include "sequence.h"
+#include <sky/sky.h>
+
+using namespace engine;
 
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
@@ -803,6 +806,22 @@ void SV_SetupClients( void )
 	NET_Config(( svs.maxclients > 1 ), true );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 	ClearBits( sv_maxclients.flags, FCVAR_CHANGED );
+
+	static auto cls_state_changed_listener = sky::Listener<sky::WebsocketDisconnected>([&](const sky::WebsocketDisconnected& e) {
+		int		i = 0;
+		sv_client_t* cl;
+
+		for (i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++)
+		{
+			if (cl->state < cs_connected)
+				continue;
+			
+			if (cl->netchan.remote_address.ip4 != e.index)
+				continue;
+
+			SV_DropClient(cl, false);
+		}
+	});
 }
 
 static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
@@ -1001,6 +1020,32 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		sv.models[i+1] = Mod_ForName( sv.model_precache[i+1], false, false );
 		SetBits( sv.model_precache_flags[i+1], RES_FATALIFMISSING );
 	}
+
+	// player models downloadng
+	/*auto addSvModel = [](int i, const std::string& name) {
+		Q_snprintf(sv.model_precache[i], sizeof(sv.model_precache[i]), name.c_str());
+		sv.models[i] = Mod_ForName(sv.model_precache[i], false, false);
+		SetBits(sv.model_precache_flags[i], RES_FATALIFMISSING);
+	};
+	
+	const auto PlayerModels = {
+		"barney",
+		"gina",
+		"gman",
+		"gordon",
+		"helmet",
+		"hgrunt",
+		"recon",
+		"robo",
+		"scientist",
+		"zombie"
+	};
+	
+	for (const auto& name : PlayerModels)
+	{
+		i++;
+		addSvModel(i, std::format("models/player/{}/{}.mdl", name, name));
+	}*/
 
 	// leave slots at start for clients only
 	for( i = 0; i < svs.maxclients; i++ )

@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
+using namespace engine;
 
 /*
 =============================================================================

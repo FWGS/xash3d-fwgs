@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "studio.h"
 
+using namespace engine;
+
 typedef struct moveclip_s
 {
 	vec3_t		boxmins, boxmaxs;	// enclose the test object along entire move
@@ -185,7 +187,7 @@ hull_t *SV_HullForBsp( edict_t *ent, const vec3_t mins, const vec3_t maxs, vec3_
 
 	if( svgame.physFuncs.SV_HullForBsp != NULL )
 	{
-		hull = svgame.physFuncs.SV_HullForBsp( ent, mins, maxs, offset );
+		hull = (hull_t*)svgame.physFuncs.SV_HullForBsp( ent, mins, maxs, offset );
 		if( hull ) return hull;
 	}
 
@@ -333,7 +335,7 @@ hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t of
 			vec3_t		angles;
 			int		iBlend;
 
-			pstudio = Mod_StudioExtradata( mod );
+			pstudio = (studiohdr_t*)Mod_StudioExtradata( mod );
 			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudio + pstudio->seqindex) + ent->v.sequence;
 			VectorCopy( ent->v.angles, angles );
 
