@@ -17,6 +17,8 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "const.h"
 
+using namespace imdraw;
+
 static struct
 {
 	int		renderMode;		// override kRenderMode from TriAPI
@@ -37,7 +39,7 @@ TriRenderMode
 set rendermode
 =============
 */
-void TriRenderMode( int mode )
+void ref_gl::TriRenderMode( int mode )
 {
 	ds.renderMode = mode;
 	switch( mode )
@@ -74,7 +76,7 @@ TriBegin
 begin triangle sequence
 =============
 */
-void TriBegin( int mode )
+void ref_gl::TriBegin( int mode )
 {
 	switch( mode )
 	{
@@ -115,7 +117,7 @@ TriEnd
 draw triangle sequence
 =============
 */
-void TriEnd( void )
+void ref_gl::TriEnd( void )
 {
 	pglEnd( );
 }
@@ -126,7 +128,7 @@ _TriColor4f
 
 =============
 */
-void _TriColor4f( float r, float g, float b, float a )
+void ref_gl::_TriColor4f( float r, float g, float b, float a )
 {
 	pglColor4f( r, g, b, a );
 }
@@ -137,7 +139,7 @@ _TriColor4f
 
 =============
 */
-void _TriColor4ub( byte r, byte g, byte b, byte a )
+void ref_gl::_TriColor4ub( byte r, byte g, byte b, byte a )
 {
 	pglColor4ub( r, g, b, a );
 }
@@ -149,7 +151,7 @@ TriColor4ub
 
 =============
 */
-void TriColor4ub( byte r, byte g, byte b, byte a )
+void ref_gl::TriColor4ub( byte r, byte g, byte b, byte a )
 {
 	ds.triRGBA[0] = r * (1.0f / 255.0f);
 	ds.triRGBA[1] = g * (1.0f / 255.0f);
@@ -164,7 +166,7 @@ void TriColor4ub( byte r, byte g, byte b, byte a )
 TriColor4f
 =================
 */
-void TriColor4f( float r, float g, float b, float a )
+void ref_gl::TriColor4f( float r, float g, float b, float a )
 {
 	if( ds.renderMode == kRenderTransAlpha )
 		TriColor4ub( r * 255.9f, g * 255.9f, b * 255.9f, a * 255.0f );
@@ -182,7 +184,7 @@ TriTexCoord2f
 
 =============
 */
-void TriTexCoord2f( float u, float v )
+void ref_gl::TriTexCoord2f( float u, float v )
 {
 	pglTexCoord2f( u, v );
 }
@@ -193,7 +195,7 @@ TriVertex3fv
 
 =============
 */
-void TriVertex3fv( const float *v )
+void ref_gl::TriVertex3fv( const float *v )
 {
 	pglVertex3fv( v );
 }
@@ -204,7 +206,7 @@ TriVertex3f
 
 =============
 */
-void TriVertex3f( float x, float y, float z )
+void ref_gl::TriVertex3f( float x, float y, float z )
 {
 	pglVertex3f( x, y, z );
 }
@@ -216,7 +218,7 @@ TriWorldToScreen
 convert world coordinates (x,y,z) into screen (x, y)
 =============
 */
-int TriWorldToScreen( const float *world, float *screen )
+int ref_gl::TriWorldToScreen( const float *world, float *screen )
 {
 	int	retval;
 
@@ -237,7 +239,7 @@ TriSpriteTexture
 bind current texture
 =============
 */
-int TriSpriteTexture( model_t *pSpriteModel, int frame )
+int ref_gl::TriSpriteTexture( model_t *pSpriteModel, int frame )
 {
 	int	gl_texturenum;
 
@@ -259,7 +261,7 @@ TriFog
 enables global fog on the level
 =============
 */
-void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
+void ref_gl::TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
 	// overrided by internal fog
 	if( RI.fogEnabled ) return;
@@ -310,7 +312,7 @@ TriGetMatrix
 very strange export
 =============
 */
-void TriGetMatrix( const int pname, float *matrix )
+void ref_gl::TriGetMatrix( const int pname, float *matrix )
 {
 	pglGetFloatv( pname, matrix );
 }
@@ -321,7 +323,7 @@ TriForParams
 
 =============
 */
-void TriFogParams( float flDensity, int iFogSkybox )
+void ref_gl::TriFogParams( float flDensity, int iFogSkybox )
 {
 	RI.fogDensity = flDensity;
 	RI.fogSkybox = iFogSkybox;
@@ -333,7 +335,7 @@ TriCullFace
 
 =============
 */
-void TriCullFace( TRICULLSTYLE mode )
+void ref_gl::TriCullFace( TRICULLSTYLE mode )
 {
 	int glMode;
 
@@ -355,7 +357,7 @@ void TriCullFace( TRICULLSTYLE mode )
 TriBrightness
 =============
 */
-void TriBrightness( float brightness )
+void ref_gl::TriBrightness( float brightness )
 {
 	float	r, g, b;
 

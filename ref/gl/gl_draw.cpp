@@ -15,6 +15,9 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 /*
 =============
 R_GetImageParms

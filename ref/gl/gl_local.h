@@ -118,7 +118,7 @@ typedef struct gltexture_s
 	GLuint		texnum;		// gl texture binding
 	GLint		format;		// uploaded format
 	GLint		encode;		// using GLSL decoder
-	texFlags_t	flags;
+	uint32_t	flags;
 
 	rgba_t		fogParams;	// some water textures
 					// contain info about underwater fog
@@ -347,8 +347,8 @@ void R_DrawModelHull( void );
 //
 void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( GLenum texnum );
-#define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
-#define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
+#define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, (texFlags_t)(flags), false )
+#define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, (texFlags_t)(flags), true )
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int GL_LoadTextureArray( const char **names, int flags );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
@@ -565,6 +565,8 @@ void GL_SetExtension( int r_ext, int enable );
 //
 // gl_triapi.c
 //
+namespace ref_gl
+{
 void TriRenderMode( int mode );
 void TriBegin( int mode );
 void TriEnd( void );
@@ -582,6 +584,7 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
 void TriFogParams( float flDensity, int iFogSkybox );
 void TriCullFace( TRICULLSTYLE mode );
+}
 
 /*
 =======================================================================
@@ -700,8 +703,8 @@ extern glconfig_t		glConfig;
 extern glstate_t		glState;
 // move to engine
 extern glwstate_t		glw_state;
-extern ref_api_t      gEngfuncs;
-extern ref_globals_t *gpGlobals;
+namespace ref_gl { extern ref_api_t      gEngfuncs; }
+namespace ref_gl { extern ref_globals_t *gpGlobals; }
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( ( parm ), 0 )
@@ -741,16 +744,29 @@ extern convar_t	r_vbo_dlightmode;
 //
 // engine shared convars
 //
+//#ifdef REF_DLL
 DECLARE_ENGINE_SHARED_CVAR_LIST()
+//#endif
 
 //
 // engine callbacks
 //
 #include "crtlib.h"
 
-#define Mem_Malloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
-#define Mem_Calloc( pool, size ) gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
-#define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+namespace ref_gl
+{
+	struct ConversionPtr
+	{
+		void* ptr;
+
+		template<typename T>
+		operator T* () { return static_cast<T*>(ptr); }
+	};
+}
+
+#define Mem_Malloc( pool, size ) ConversionPtr{ gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ ) }
+#define Mem_Calloc( pool, size ) ConversionPtr{ gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ ) }
+#define Mem_Realloc( pool, ptr, size ) ConversionPtr{ gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ ) }
 #define Mem_Free( mem ) gEngfuncs._Mem_Free( mem, __FILE__, __LINE__ )
 #define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )

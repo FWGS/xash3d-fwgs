@@ -16,6 +16,9 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "crclib.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
 
 static gl_texture_t		gl_textures[MAX_TEXTURES];
@@ -1187,7 +1190,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	}
 
 	GL_SetTextureDimensions( tex, pic->width, pic->height, pic->depth );
-	GL_SetTextureFormat( tex, pic->type, pic->flags );
+	GL_SetTextureFormat( tex, (pixformat_t)pic->type, pic->flags );
 
 	tex->fogParams[0] = pic->fogParams[0];
 	tex->fogParams[1] = pic->fogParams[1];
@@ -1202,7 +1205,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 	buf = pic->buffer;
 	bufend = pic->buffer + pic->size; // total image size include all the layers, cube sides, mipmaps
-	offset = GL_CalcImageSize( pic->type, pic->width, pic->height, pic->depth );
+	offset = GL_CalcImageSize( (pixformat_t)pic->type, pic->width, pic->height, pic->depth );
 	texsize = GL_CalcTextureSize( tex->format, tex->width, tex->height, tex->depth );
 	normalMap = FBitSet( tex->flags, TF_NORMALMAP ) ? true : false;
 	numSides = FBitSet( pic->flags, IMAGE_CUBEMAP ) ? 6 : 1;
@@ -1225,7 +1228,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				width = Q_max( 1, ( tex->width >> j ));
 				height = Q_max( 1, ( tex->height >> j ));
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
+				size = GL_CalcImageSize( (pixformat_t)pic->type, width, height, tex->depth );
 				GL_TextureImageDXT( tex, i, j, width, height, tex->depth, size, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
@@ -1241,7 +1244,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				width = Q_max( 1, ( tex->width >> j ));
 				height = Q_max( 1, ( tex->height >> j ));
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
+				size = GL_CalcImageSize( (pixformat_t)pic->type, width, height, tex->depth );
 				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
@@ -1269,7 +1272,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				width = Q_max( 1, ( tex->width >> j ));
 				height = Q_max( 1, ( tex->height >> j ));
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
+				size = GL_CalcImageSize( (pixformat_t)pic->type, width, height, tex->depth );
 				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
 				if( mipCount > 1 )
 					GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
@@ -1281,7 +1284,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 			// move to next side
 			if( numSides > 1 && ( buf != NULL ))
-				buf += GL_CalcImageSize( pic->type, pic->width, pic->height, 1 );
+				buf += GL_CalcImageSize( (pixformat_t)pic->type, pic->width, pic->height, 1 );
 		}
 	}
 
@@ -1464,6 +1467,10 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 		return;
 	}
 
+	std::string name = tex->name; // sky
+	if (name == "*white")
+		return;
+
 	// remove from hash table
 	prev = &gl_texturesHashTable[tex->hashValue];
 
@@ -1553,7 +1560,7 @@ int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags )
 	if( !pic ) return 0; // couldn't loading image
 
 	// allocate the new one
-	tex = GL_AllocTexture( name, flags );
+	tex = GL_AllocTexture( name, (texFlags_t)flags );
 	GL_ProcessImage( tex, pic );
 
 	if( !GL_UploadTexture( tex, pic ))
@@ -1679,7 +1686,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 		{
 			int width = Q_max( 1, ( pic->width >> j ));
 			int height = Q_max( 1, ( pic->height >> j ));
-			mipsize = GL_CalcImageSize( pic->type, width, height, 1 );
+			mipsize = GL_CalcImageSize( (pixformat_t)pic->type, width, height, 1 );
 			memcpy( pic->buffer + dstsize + mipsize * i, src->buffer + srcsize, mipsize );
 			dstsize += mipsize * numLayers;
 			srcsize += mipsize;
@@ -1704,7 +1711,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 	pic->size *= numLayers;
 
 	// allocate the new one
-	tex = GL_AllocTexture( name, flags );
+	tex = GL_AllocTexture( name, (texFlags_t)flags );
 	GL_ProcessImage( tex, pic );
 
 	if( !GL_UploadTexture( tex, pic ))

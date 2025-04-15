@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "ref_params.h"
 
+using namespace ref_gl;
+using namespace engine;
+
 /*
 =============================================================================
 

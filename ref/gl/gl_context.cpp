@@ -22,8 +22,11 @@ GNU General Public License for more details.
 #include "gl4es/include/gl4esinit.h"
 #endif
 
-ref_api_t      gEngfuncs;
-ref_globals_t *gpGlobals;
+ref_api_t      ref_gl::gEngfuncs;
+ref_globals_t *ref_gl::gpGlobals;
+
+using namespace ref_gl;
+using namespace imdraw;
 
 static void R_ClearScreen( void )
 {

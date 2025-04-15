@@ -15,6 +15,9 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 #define DECAL_OVERLAP_DISTANCE	2
 #define DECAL_DISTANCE		4	// too big values produce more clipped polygons
 #define MAX_DECALCLIPVERT		32	// produced vertexes of fragmented decal
@@ -617,7 +620,7 @@ void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	decal_t		*decal = surf->pdecals;
 	vec4_t		textureU, textureV;
 	float		s, t, w, h;
-	connstate_t state = ENGINE_GET_PARM( PARM_CONNSTATE );
+	connstate_t state = (connstate_t)ENGINE_GET_PARM( PARM_CONNSTATE );
 
 	// we in restore mode
 	if( state == ca_connected || state == ca_validate )

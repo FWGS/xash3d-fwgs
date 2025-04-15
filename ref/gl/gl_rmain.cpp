@@ -19,6 +19,55 @@ GNU General Public License for more details.
 #include "beamdef.h"
 #include "particledef.h"
 #include "entity_types.h"
+#include <sky/sky.h>
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+#endif
+#include <sky_client/sky_client.h>
+#include <sky_client/profile.h>
+#include <sky_client/achievements.h>
+
+using namespace ref_gl;
+using namespace imdraw;
+using namespace engine;
+
+static skygfx::Texture* GetSpriteTexture(const void* _sprite_model)
+{
+	auto sprite_model = (model_s*)_sprite_model;
+	int frame = 0;
+	int texnum = R_GetSpriteTexture(sprite_model, frame);
+	auto texture = R_GetTexture(texnum);
+	return imdraw::GetTextureByIndex(texture->texnum);
+}
+
+static bool IsFileExist(const std::string& filename)
+{
+	return gEngfuncs.fsapi->FileExists(filename.c_str(), 1);
+}
+
+static void Sky_BeginFrame()
+{
+	sky::vars::Api.Cbuf_AddText = gEngfuncs.Cbuf_AddText;
+	sky::vars::Api.GetSpriteTexture = GetSpriteTexture;
+	sky::vars::Api.IsFileExist = IsFileExist;
+	imdraw::BeginFrame();
+
+	static bool engine_inited = false;
+	if (!engine_inited)
+	{
+		engine_inited = true;
+		sky::InitEngine();
+	}
+
+	IMGUI_SYSTEM->begin();
+}
+
+static void Sky_EndFrame()
+{
+	imdraw::EndFrame();
+	sky::Frame();
+	IMGUI_SYSTEM->end();
+}
 
 #define IsLiquidContents( cnt )	( cnt == CONTENTS_WATER || cnt == CONTENTS_SLIME || cnt == CONTENTS_LAVA )
 
@@ -1014,6 +1063,7 @@ R_BeginFrame
 */
 void R_BeginFrame( qboolean clearScene )
 {
+	Sky_BeginFrame();
 	glConfig.softwareGammaUpdate = false;	// in case of possible fails
 
 	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW )) &&
@@ -1129,6 +1179,7 @@ void R_EndFrame( void )
 #endif
 	// flush any remaining 2D bits
 	R_Set2DMode( false );
+	Sky_EndFrame();
 	gEngfuncs.GL_SwapBuffers();
 }
 

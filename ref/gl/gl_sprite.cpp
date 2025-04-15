@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "entity_types.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 // it's a Valve default value for LoadMapSprite (probably must be power of two)
 #define MAPSPRITE_SIZE	128
 #define GLARE_FALLOFF	19000.0f
@@ -63,12 +66,12 @@ static const dframetype_t *R_SpriteLoadFrame( model_t *mod, const void *pin, msp
 	if( FBitSet( mod->flags, MODEL_CLIENT )) // it's a HUD sprite
 	{
 		Q_snprintf( texname, sizeof( texname ), "#HUD/%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
+		gl_texturenum = GL_LoadTexture( texname, (const byte*)pin, pinframe.width * pinframe.height * bytes, r_texFlags );
 	}
 	else
 	{
 		Q_snprintf( texname, sizeof( texname ), "#%s(%s:%i%i).spr", sprite_name, group_suffix, num / 10, num % 10 );
-		gl_texturenum = GL_LoadTexture( texname, pin, pinframe.width * pinframe.height * bytes, r_texFlags );
+		gl_texturenum = GL_LoadTexture( texname, (const byte*)pin, pinframe.width * pinframe.height * bytes, r_texFlags );
 	}
 
 	// setup frame description
@@ -146,8 +149,8 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 	msprite_t		*psprite;
 	int		i;
 
-	pin = buffer;
-	psprite = mod->cache.data;
+	pin = (const dsprite_t*)buffer;
+	psprite = (msprite_t*)mod->cache.data;
 
 	if( pin->version == SPRITE_VERSION_Q1 || pin->version == SPRITE_VERSION_32 )
 		numi = NULL;
@@ -200,7 +203,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 
 	for( i = 0; i < mod->numframes; i++ )
 	{
-		frametype_t frametype = pframetype->type;
+		frametype_t frametype = (frametype_t)pframetype->type;
 		psprite->frames[i].type = (spriteframetype_t)frametype;
 
 		switch( frametype )
@@ -247,7 +250,7 @@ void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qboolean 
 	if( loaded ) *loaded = false;
 	Q_snprintf( texname, sizeof( texname ), "#%s", mod->name );
 	gEngfuncs.Image_SetForceFlags( IL_OVERVIEW );
-	pix = gEngfuncs.FS_LoadImage( texname, buffer, size );
+	pix = gEngfuncs.FS_LoadImage( texname, (const byte*)buffer, size );
 	gEngfuncs.Image_ClearForceFlags();
 	if( !pix ) return;	// bad image or something else
 
@@ -361,7 +364,7 @@ void Mod_SpriteUnloadTextures( void *data )
 	mspriteframe_t	*pspriteframe;
 	int		i, j;
 
-	psprite = data;
+	psprite = (msprite_t*)data;
 
 	if( psprite )
 	{
@@ -404,7 +407,7 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 	float		targettime;
 
 	Assert( pModel != NULL );
-	psprite = pModel->cache.data;
+	psprite = (msprite_t*)pModel->cache.data;
 
 	if( frame < 0 )
 	{
@@ -468,7 +471,7 @@ float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, 
 	float		*pintervals, fullinterval, targettime;
 	int		m_fDoInterp;
 
-	psprite = ent->model->cache.data;
+	psprite = (msprite_t*)ent->model->cache.data;
 	frame = (int)ent->curstate.frame;
 	lerpFrac = 1.0f;
 

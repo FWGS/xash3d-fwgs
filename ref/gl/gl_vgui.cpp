@@ -16,6 +16,9 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 #define VGUI_MAX_TEXTURES	( MAX_TEXTURES / 2 )	// a half of total textures count
 
 static int	g_textures[VGUI_MAX_TEXTURES];

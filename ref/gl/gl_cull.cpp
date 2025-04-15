@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "entity_types.h"
 
+using namespace ref_gl;
+
 /*
 =============================================================
 

@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "screenfade.h"
 #include "cdll_int.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 static void R_ParseDetailTextures( const char *filename )
 {
 	byte *afile;

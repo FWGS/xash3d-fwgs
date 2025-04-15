@@ -23,6 +23,10 @@ GNU General Public License for more details.
 
 extern cvar_t r_shadows;
 
+using namespace ref_gl;
+using namespace imdraw;
+using namespace engine;
+
 typedef struct
 {
 	double		time;
@@ -521,7 +525,7 @@ void *Mod_LoadGroupSkin( daliasskintype_t *pskintype, int skinnum, int size )
 	pskintype++;
 	pinskingroup = (daliasskingroup_t *)pskintype;
 	pinskinintervals = (daliasskininterval_t *)(pinskingroup + 1);
-	pskintype = (void *)(pinskinintervals + pinskingroup->numskins);
+	pskintype = (daliasskintype_t *)(pinskinintervals + pinskingroup->numskins);
 
 	for( i = 0; i < pinskingroup->numskins; i++ )
 	{
@@ -680,7 +684,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	// load the skins
 	pskintype = (daliasskintype_t *)&pinmodel[1];
-	pskintype = Mod_LoadAllSkins( m_pAliasHeader->numskins, pskintype );
+	pskintype = (daliasskintype_t*)Mod_LoadAllSkins( m_pAliasHeader->numskins, pskintype );
 
 	// load base s and t vertices
 	pinstverts = (stvert_t *)pskintype;
@@ -709,7 +713,7 @@ void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded )
 
 	for( i = 0; i < m_pAliasHeader->numframes; i++ )
 	{
-		aliasframetype_t	frametype = pframetype->type;
+		aliasframetype_t	frametype = (aliasframetype_t)pframetype->type;
 
 		if( frametype == ALIAS_SINGLE )
 			pframetype = (daliasframetype_t *)Mod_LoadAliasFrame( pframetype + 1, &m_pAliasHeader->frames[i] );
@@ -735,7 +739,7 @@ void Mod_AliasUnloadTextures( void *data )
 	aliashdr_t	*palias;
 	int		i, j;
 
-	palias = data;
+	palias = (aliashdr_t*)data;
 	if( !palias ) return; // already freed
 
 	for( i = 0; i < MAX_SKINS; i++ )

@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "mod_local.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 typedef struct
 {
 	int		allocated[BLOCK_SIZE_MAX];
@@ -360,13 +363,13 @@ void GL_BuildPolygonFromSurface( model_t *mod, msurface_t *fa )
 		for( i = 0; i < lnumverts; i++ )
 		{
 			vec3_t	v1, v2;
-			float	*prev, *this, *next;
+			float	*prev, *this_, *next;
 
 			prev = poly->verts[(i + lnumverts - 1) % lnumverts];
 			next = poly->verts[(i + 1) % lnumverts];
-			this = poly->verts[i];
+			this_ = poly->verts[i];
 
-			VectorSubtract( this, prev, v1 );
+			VectorSubtract(this_, prev, v1 );
 			VectorNormalize( v1 );
 			VectorSubtract( next, prev, v2 );
 			VectorNormalize( v2 );

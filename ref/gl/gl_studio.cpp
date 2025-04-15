@@ -22,6 +22,10 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "pmtrace.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+using namespace engine;
+
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
 
@@ -123,7 +127,7 @@ typedef struct
 // studio-related cvars
 static CVAR_DEFINE_AUTO( r_studio_sort_textures, "0", FCVAR_GLCONFIG, "change draw order for additive meshes" );
 static cvar_t			*cl_righthand = NULL;
-static CVAR_DEFINE_AUTO( r_studio_drawelements, "1", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
+static CVAR_DEFINE_AUTO( r_studio_drawelements, "0", FCVAR_GLCONFIG, "use glDrawElements for studiomodels" );
 
 static r_studio_interface_t	*pStudioDraw;
 static studio_draw_state_t	g_studio;		// global studio state
@@ -464,7 +468,7 @@ pfnGetModelCounters
 static void pfnGetModelCounters( int **s, int **a )
 {
 	*s = &g_studio.framecount;
-	*a = &r_stats.c_studio_models_drawn;
+	*a = (int*)&r_stats.c_studio_models_drawn;
 }
 
 /*
@@ -855,7 +859,7 @@ void R_StudioMergeBones( cl_entity_t *e, model_t *m_pSubModel )
 
 	f = R_StudioEstimateFrame( e, pseqdesc, g_studio.time );
 
-	panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, m_pSubModel, pseqdesc );
+	panim = (mstudioanim_t*)gEngfuncs.R_StudioGetAnim( m_pStudioHeader, m_pSubModel, pseqdesc );
 	R_StudioCalcRotations( e, pos, q, pseqdesc, panim, f );
 	pbones = (mstudiobone_t *)((byte *)m_pStudioHeader + m_pStudioHeader->boneindex);
 
@@ -921,7 +925,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 
 	f = R_StudioEstimateFrame( e, pseqdesc, g_studio.time );
 
-	panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
+	panim = (mstudioanim_t*)gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 	R_StudioCalcRotations( e, pos, q, pseqdesc, panim, f );
 
 	if( pseqdesc->numblends > 1 )
@@ -961,7 +965,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 		float		s;
 
 		pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex) + e->latched.prevsequence;
-		panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
+		panim = (mstudioanim_t*)gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 
 		// clip prevframe
 		R_StudioCalcRotations( e, pos1b, q1b, pseqdesc, panim, e->latched.prevframe );
@@ -1011,7 +1015,7 @@ void R_StudioSetupBones( cl_entity_t *e )
 
 		pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex) + m_pPlayerInfo->gaitsequence;
 
-		panim = gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
+		panim = (mstudioanim_t*)gEngfuncs.R_StudioGetAnim( m_pStudioHeader, RI.currentmodel, pseqdesc );
 		R_StudioCalcRotations( e, pos2, q2, pseqdesc, panim, m_pPlayerInfo->gaitframe );
 
 		for( i = 0; i < m_pStudioHeader->numbones; i++ )
@@ -1809,7 +1813,7 @@ mstudiotexture_t *R_StudioGetTexture( cl_entity_t *e )
 	mstudiotexture_t	*ptexture;
 	studiohdr_t	*phdr, *thdr;
 
-	if(( phdr = gEngfuncs.Mod_Extradata( mod_studio, e->model )) == NULL )
+	if(( phdr = (studiohdr_t*)gEngfuncs.Mod_Extradata( mod_studio, e->model )) == NULL )
 		return NULL;
 
 	thdr = m_pStudioHeader;
@@ -2648,13 +2652,15 @@ static model_t *R_StudioSetupPlayerModel( int index )
 	{
 		if( Q_strcmp( state->name, info->model ))
 		{
-			Q_strncpy( state->name, info->model, sizeof( state->name ));
-			state->name[sizeof( state->name ) - 1] = 0;
-
 			Q_snprintf( state->modelname, sizeof( state->modelname ), "models/player/%s/%s.mdl", info->model, info->model );
 
 			if( gEngfuncs.fsapi->FileExists( state->modelname, false ))
-				state->model = gEngfuncs.Mod_ForName( state->modelname, false, true );
+			{
+				// sky: load correct model after downloading
+				state->model = gEngfuncs.Mod_ForName(state->modelname, false, true);
+				Q_strncpy(state->name, info->model, sizeof(state->name));
+				state->name[sizeof(state->name) - 1] = 0;
+			}
 			else state->model = NULL;
 
 			if( !state->model )
@@ -2695,7 +2701,7 @@ int R_GetEntityRenderMode( cl_entity_t *ent )
 
 	RI.currententity = oldent;
 
-	if(( phdr = gEngfuncs.Mod_Extradata( mod_studio, model )) == NULL )
+	if(( phdr = (studiohdr_t*)gEngfuncs.Mod_Extradata( mod_studio, model )) == NULL )
 	{
 		if( R_ModelOpaque( ent->curstate.rendermode ))
 		{
@@ -3301,7 +3307,12 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 	if( RI.currentmodel == NULL )
 		return 0;
 
-	R_StudioSetHeader((studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, RI.currentmodel ));
+	auto header = (studiohdr_t*)gEngfuncs.Mod_Extradata(mod_studio, RI.currentmodel);
+
+	if (header == NULL) // sky: do not draw model while not downloaded
+		return 0;
+
+	R_StudioSetHeader(header);
 
 	if( pplayer->gaitsequence )
 	{
@@ -3409,6 +3420,9 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 			model_t		*pweaponmodel = gEngfuncs.pfnGetModelByIndex( pplayer->weaponmodel );
 
 			m_pStudioHeader = (studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, pweaponmodel );
+
+			if (m_pStudioHeader == NULL) // sky: do not draw weapon while not downloaded
+				return 0;
 
 			R_StudioMergeBones( RI.currententity, pweaponmodel );
 			R_StudioSetupLighting( &lighting );
@@ -3893,13 +3907,13 @@ static engine_studio_api_t gStudioAPI =
 	R_StudioDrawHulls,
 	R_StudioDrawAbsBBox,
 	R_StudioDrawBones,
-	(void*)R_StudioSetupSkin,
+	(void(__cdecl*)(void*,int))R_StudioSetupSkin,
 	R_StudioSetRemapColors,
 	R_StudioSetupPlayerModel,
 	R_StudioClientEvents,
 	R_StudioGetForceFaceFlags,
 	R_StudioSetForceFaceFlags,
-	(void*)R_StudioSetHeader,
+	(void(__cdecl*)(void*))R_StudioSetHeader,
 	R_StudioSetRenderModel,
 	R_StudioSetupRenderer,
 	R_StudioRestoreRenderer,

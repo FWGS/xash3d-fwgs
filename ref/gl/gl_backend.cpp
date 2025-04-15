@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "xash3d_mathlib.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 char		r_speeds_msg[MAX_SYSPATH];
 ref_speeds_t	r_stats;	// r_speeds counters
 

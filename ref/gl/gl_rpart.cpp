@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "studio.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 static float gTracerSize[11] = { 1.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 static color24 gTracerColors[] =
 {

@@ -22,6 +22,9 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "studio.h"
 
+using namespace ref_gl;
+using namespace imdraw;
+
 #define NOISE_DIVISIONS	64	// don't touch - many tripmines cause the crash when it equal 128
 
 typedef struct

@@ -22,6 +22,9 @@ GNU General Public License for more details.
 const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
 static const int		r_skyTexOrder[6] = { 0, 2, 1, 3, 4, 5 };
 
+using namespace ref_gl;
+using namespace imdraw;
+
 static const vec3_t skyclip[6] =
 {
 {  1,  1,  0 },
@@ -67,22 +70,23 @@ static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
 	char		sidename[MAX_VA_STRING];
 
 	// search for skybox images
-	for( i = 0; i < 3; i++ )
+	//for( i = 0; i < 3; i++ )
 	{
 		// check HL-style skyboxes
 		num_checked_sides = 0;
 		for( j = 0; j < SKYBOX_MAX_SIDES; j++ )
 		{
 			// build side name
-			Q_snprintf( sidename, sizeof( sidename ), "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( gEngfuncs.fsapi->FileExists( sidename, false ))
+			Q_snprintf( sidename, sizeof( sidename ), "%s%s.%s", name, r_skyBoxSuffix[j], /*skybox_ext[i]*/"bmp");
+		//	if(gEngfuncs.fsapi->FileExists( sidename, false ))
 			{
 				Q_strncpy( out[j], sidename, sizeof( out[j] ));
 				num_checked_sides++;
 			}
 		}
 
-		if( num_checked_sides == 6 )
+		return true;
+		/*if( num_checked_sides == 6 )
 			return true; // image exists
 
 		// check Q1-style skyboxes
@@ -99,10 +103,10 @@ static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
 		}
 
 		if( num_checked_sides == 6 )
-			return true; // images exists
+			return true; // images exists*/
 	}
 
-	return false;
+	//return false;
 }
 
 void DrawSkyPolygon( int nump, vec3_t vecs )
@@ -451,8 +455,13 @@ void R_SetupSky( const char *skyboxname )
 	{
 		tr.skyboxTextures[i] = GL_LoadTexture( sidenames[i], NULL, 0, TF_CLAMP|TF_SKY );
 
-		if( !tr.skyboxTextures[i] )
-			break;
+		if (!tr.skyboxTextures[i])
+		{
+			sky::RequireResource(sidenames[i], [filename = std::string(sidenames[i]), texture_ptr = &tr.skyboxTextures[i]] {
+				*texture_ptr = GL_LoadTexture(filename.c_str(), NULL, 0, TF_CLAMP | TF_SKY);
+			});
+			continue;
+		}
 
 		gEngfuncs.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
 	}
