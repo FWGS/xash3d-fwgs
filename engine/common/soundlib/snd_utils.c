@@ -14,7 +14,9 @@ GNU General Public License for more details.
 */
 
 #include "soundlib.h"
-#if XASH_SDL
+#if XASH_SDL == 3
+#include <SDL3/SDL.h>
+#elif XASH_SDL
 #include <SDL_audio.h>
 #endif // XASH_SDL
 

@@ -20,7 +20,12 @@ GNU General Public License for more details.
 #include "cursor_type.h"
 
 #if XASH_SDL
+#if XASH_SDL == 3
+// Officially recommended method of using SDL3
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
+#endif
 #endif
 
 #include "platform/platform.h"
@@ -212,7 +217,10 @@ void IN_SetRelativeMouseMode( qboolean set )
 
 	if( set && !s_bRawInput )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL == 3
+		SDL_GetRelativeMouseState(NULL, NULL);
+		SDL_SetWindowRelativeMouseMode(host.hWnd, true);
+#elif XASH_SDL == 2
 		SDL_GetRelativeMouseState( NULL, NULL );
 		SDL_SetRelativeMouseMode( SDL_TRUE );
 #endif
@@ -222,7 +230,10 @@ void IN_SetRelativeMouseMode( qboolean set )
 	}
 	else if( !set && s_bRawInput )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL == 3
+		SDL_GetRelativeMouseState(NULL, NULL);
+		SDL_SetWindowRelativeMouseMode(host.hWnd, false);
+#elif XASH_SDL == 2
 		SDL_GetRelativeMouseState( NULL, NULL );
 		SDL_SetRelativeMouseMode( SDL_FALSE );
 #endif
@@ -240,7 +251,11 @@ void IN_SetMouseGrab( qboolean set )
 	if( set && !s_bMouseGrab )
 	{
 #if XASH_SDL
+#if XASH_SDL == 3
+		SDL_SetWindowMouseGrab( host.hWnd, true );
+#else
 		SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
+#endif
 #endif
 		s_bMouseGrab = true;
 		if( verbose )
@@ -249,7 +264,11 @@ void IN_SetMouseGrab( qboolean set )
 	else if( !set && s_bMouseGrab )
 	{
 #if XASH_SDL
+#if XASH_SDL == 3
+		SDL_SetWindowMouseGrab( host.hWnd, false );
+#else
 		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
+#endif
 #endif
 
 		s_bMouseGrab = false;
