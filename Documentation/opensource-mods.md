@@ -32,6 +32,9 @@ Version 1.9 mirrored on github - https://github.com/solidi/hl-mods/tree/master/c
 ## Cold Ice Ressurection
 Mirrored on github - https://github.com/solidi/hl-mods/tree/master/cir
 
+## Counter-Life
+Available on ModDB - https://www.moddb.com/mods/counter-life/downloads/cl-version-1-source-code
+
 ## Cthulhu
 Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Cthulhu-HLmod-SDK
 
