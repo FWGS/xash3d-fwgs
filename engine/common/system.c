@@ -126,6 +126,7 @@ returns username for current profile
 */
 const char *Sys_GetCurrentUser( void )
 {
+	// TODO: move to platform
 #if XASH_WIN32
 	static string	s_userName;
 	unsigned long size = sizeof( s_userName );
@@ -138,11 +139,15 @@ const char *Sys_GetCurrentUser( void )
 	if( COM_CheckStringEmpty( username ))
 		return username;
 #elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
-	uid_t uid = geteuid();
-	struct passwd *pw = getpwuid( uid );
+	static string username;
+	struct passwd *pw = getpwuid( geteuid( ));
 
-	if( pw )
-		return pw->pw_name;
+	// POSIX standard says pw _might_ point to static area, so let's make a copy
+	if( pw && COM_CheckString( pw->pw_name ))
+	{
+		Q_strncpy( username, pw->pw_name, sizeof( username ));
+		return username;
+	}
 #endif
 	return "Player";
 }
