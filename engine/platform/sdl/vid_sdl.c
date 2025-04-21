@@ -660,14 +660,25 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 	rgbdata_t *icon = NULL;
 	char iconpath[MAX_STRING];
 #if XASH_WIN32 // ICO support only for Win32
-	const char *localIcoPath;
-	HINSTANCE hInst = GetModuleHandle( NULL );
+	const char *disk_iconpath = FS_GetDiskPath( GI->iconpath, true );
 
-	if(( localIcoPath = FS_GetDiskPath( GI->iconpath, true )))
+	if( disk_iconpath )
 	{
-		HICON ico = (HICON)LoadImage( NULL, localIcoPath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
-		if( ico && WIN_SetWindowIcon( ico ))
-			return;
+		int len = MultiByteToWideChar( CP_UTF8, 0, disk_iconpath, -1, NULL, 0 );
+
+		if( len >= 0 )
+		{
+			wchar_t *path = malloc( len * sizeof( *path ));
+			HICON ico;
+
+			MultiByteToWideChar( CP_UTF8, 0, disk_iconpath, -1, path, len );
+			ico = (HICON)LoadImageW( NULL, path, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
+
+			free( path );
+
+			if( ico && WIN_SetWindowIcon( ico ))
+				return;
+		}
 	}
 #endif // XASH_WIN32
 
@@ -679,21 +690,20 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 	{
 		SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
 			icon->width, icon->height, 32, 4 * icon->width,
-			0x000000ff, 0x0000ff00, 0x00ff0000,	0xff000000 );
+			0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 );
+
+		FS_FreeImage( icon );
 
 		if( surface )
 		{
 			SDL_SetWindowIcon( host.hWnd, surface );
 			SDL_FreeSurface( surface );
-			FS_FreeImage( icon );
 			return;
 		}
-
-		FS_FreeImage( icon );
 	}
 
 #if XASH_WIN32 // ICO support only for Win32
-	WIN_SetWindowIcon( LoadIcon( hInst, MAKEINTRESOURCE( 101 )));
+	WIN_SetWindowIcon( LoadIcon( GetModuleHandle( NULL ), MAKEINTRESOURCE( 101 )));
 #endif
 }
 #endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
