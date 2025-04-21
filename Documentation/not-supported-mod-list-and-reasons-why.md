@@ -2,7 +2,7 @@
 
 |Name							|Version			|Why not working						|What was made for that
 |----							|-------			|---------------						|----------------------
-|Arrange Mod: Rebirth					|v150				|								|
+|Arrange Mod: Rebirth					|v150				|No idea yet.							|
 |Blue Shift						|The latest steam release	|Uses vgui2 library which xash3d does not support.		|Recreated source code here: https://github.com/FWGS/hlsdk-xash3d/tree/bshift.
 |Counter Strike						|1.6(The latest steam release)	|Uses vgui2 library which xash3d does not support.		|Some work on vgui2 support was made here: https://github.com/FWGS/xash3d/tree/vinterface. Recreated Client Source Code here: https://github.com/Velaron/cs16-client.
 |Counter Strike: Condition Zero				|The latest steam release	|Uses vgui2 library which xash3d does not support.		|Some work on vgui2 support was made here: https://github.com/FWGS/xash3d/tree/vinterface. Recreated Client Source Code here: https://github.com/Velaron/cs16-client.
