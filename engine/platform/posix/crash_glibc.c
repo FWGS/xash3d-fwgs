@@ -74,13 +74,12 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 #if !XASH_DEDICATED
 	IN_SetMouseGrab( false );
 #endif
-	host.crashed = true;
+	host.status = HOST_CRASHED;
 	Platform_MessageBox( "Xash Error", message, false );
 
 	// log saved, now we can try to save configs and close log correctly, it may crash
 	if( host.type == HOST_NORMAL )
 		CL_Crashed();
-	host.status = HOST_CRASHED;
 
 	Sys_Quit( "crashed" );
 }
