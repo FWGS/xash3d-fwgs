@@ -75,7 +75,7 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 	DWORD   dline = 0;
 	DWORD   options = SymGetOptions();
 	CONTEXT context = *pInfo->ContextRecord;
-	IMAGEHLP_LINE64 line;
+	IMAGEHLP_LINE64 line = { .SizeOfStruct = sizeof( IMAGEHLP_LINE64 ), };
 
 	SetBits( options, SYMOPT_DEBUG | SYMOPT_LOAD_LINES );
 	SymSetOptions( options );
