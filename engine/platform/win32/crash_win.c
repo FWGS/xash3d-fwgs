@@ -277,6 +277,24 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 #endif // XASH_SDL
 
 #if DBGHELP
+		if( Sys_CheckParm( "-minidumps" ))
+		{
+			int minidumpFlags = MiniDumpWithDataSegs |
+				MiniDumpWithCodeSegs |
+				MiniDumpWithHandleData |
+				MiniDumpWithFullMemory |
+				MiniDumpWithFullMemoryInfo |
+				MiniDumpWithIndirectlyReferencedMemory |
+				MiniDumpWithThreadInfo |
+				MiniDumpWithModuleHeaders;
+
+			if( !Sys_WriteMinidump( pInfo, (MINIDUMP_TYPE)minidumpFlags ))
+			{
+				// fallback method, create minidump with minimal info in it
+				Sys_WriteMinidump( pInfo, MiniDumpWithDataSegs );
+			}
+		}
+
 		Sys_StackTrace( pInfo );
 #else
 		Sys_Warn( "Sys_Crash: call %p at address %p", pInfo->ExceptionRecord->ExceptionAddress, pInfo->ExceptionRecord->ExceptionCode );
@@ -286,35 +304,15 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 			CL_Crashed(); // tell client about crash
 			else host.status = HOST_CRASHED;
 
-#if DBGHELP
-			if( Sys_CheckParm( "-minidumps" ))
-			{
-				int minidumpFlags = (
-					MiniDumpWithDataSegs |
-					MiniDumpWithCodeSegs |
-					MiniDumpWithHandleData |
-					MiniDumpWithFullMemory |
-					MiniDumpWithFullMemoryInfo |
-					MiniDumpWithIndirectlyReferencedMemory |
-					MiniDumpWithThreadInfo |
-					MiniDumpWithModuleHeaders);
+		if( host_developer.value <= 0 )
+		{
+			// no reason to call debugger in release build - just exit
+			Sys_Quit( "crashed" );
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
 
-				if( !Sys_WriteMinidump( pInfo, (MINIDUMP_TYPE)minidumpFlags )) {
-					// fallback method, create minidump with minimal info in it
-					Sys_WriteMinidump( pInfo, MiniDumpWithDataSegs );
-				}
-			}
-#endif
-
-			if( host_developer.value <= 0 )
-			{
-				// no reason to call debugger in release build - just exit
-				Sys_Quit( "crashed" );
-				return EXCEPTION_CONTINUE_EXECUTION;
-			}
-
-			// all other states keep unchanged to let debugger find bug
-			Sys_DestroyConsole();
+		// all other states keep unchanged to let debugger find bug
+		Sys_DestroyConsole();
 	}
 
 	if( oldFilter )
