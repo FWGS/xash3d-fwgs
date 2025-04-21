@@ -396,7 +396,7 @@ static int ID_SetKeyData( HKEY hRootKey, char *subKey, DWORD dwType, char *value
 
 #define BUFSIZE 4096
 
-static int ID_RunWMIC(char *buffer, const char *cmdline)
+static int ID_RunWMIC( char *buffer, const wchar_t *cmdline )
 {
 	HANDLE g_IN_Rd = NULL;
 	HANDLE g_IN_Wr = NULL;
@@ -404,75 +404,92 @@ static int ID_RunWMIC(char *buffer, const char *cmdline)
 	HANDLE g_OUT_Wr = NULL;
 	DWORD dwRead;
 	BOOL bSuccess = FALSE;
-	SECURITY_ATTRIBUTES saAttr;
+	wchar_t *cmdline_copy;
 
-	STARTUPINFO si = {0};
-
-	PROCESS_INFORMATION pi = {0};
-	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
-	saAttr.bInheritHandle = TRUE;
-	saAttr.lpSecurityDescriptor = NULL;
+	PROCESS_INFORMATION pi = { 0 };
+	SECURITY_ATTRIBUTES saAttr =
+	{
+		.nLength = sizeof( SECURITY_ATTRIBUTES ),
+		.bInheritHandle = TRUE,
+		.lpSecurityDescriptor = NULL,
+	};
 
 	CreatePipe( &g_IN_Rd, &g_IN_Wr, &saAttr, 0 );
 	CreatePipe( &g_OUT_Rd, &g_OUT_Wr, &saAttr, 0 );
 	SetHandleInformation( g_IN_Wr, HANDLE_FLAG_INHERIT, 0 );
 
-	si.cb = sizeof(STARTUPINFO);
-	si.dwFlags = STARTF_USESTDHANDLES;
-	si.hStdInput = g_IN_Rd;
-	si.hStdOutput = g_OUT_Wr;
-	si.hStdError = g_OUT_Wr;
-	si.wShowWindow = SW_HIDE;
-	si.dwFlags |= STARTF_USESTDHANDLES;
+	STARTUPINFO si =
+	{
+		.cb = sizeof( STARTUPINFO ),
+		.dwFlags = STARTF_USESTDHANDLES,
+		.hStdInput = g_IN_Rd,
+		.hStdOutput = g_OUT_Wr,
+		.hStdError = g_OUT_Wr,
+		.wShowWindow = SW_HIDE,
+		.dwFlags = STARTF_USESTDHANDLES,
+	};
 
-	CreateProcess( NULL, (char*)cmdline, NULL, NULL, true, CREATE_NO_WINDOW , NULL, NULL, &si, &pi );
+	cmdline_copy = malloc( wcslen( cmdline ) * sizeof( *cmdline_copy ));
 
-	CloseHandle( g_OUT_Wr );
-	CloseHandle( g_IN_Wr );
+	if( !CreateProcessW( NULL, cmdline_copy, NULL, NULL, true, CREATE_NO_WINDOW, NULL, NULL, &si, &pi ))
+		goto err;
 
 	WaitForSingleObject( pi.hProcess, 500 );
 
 	bSuccess = ReadFile( g_OUT_Rd, buffer, BUFSIZE, &dwRead, NULL );
 	buffer[BUFSIZE-1] = 0;
+
+	TerminateProcess( pi.hProcess, 0 );
+
+	CloseHandle( pi.hProcess );
+	CloseHandle( pi.hThread );
+
+err:
+	CloseHandle( g_IN_Wr );
+	CloseHandle( g_OUT_Wr );
 	CloseHandle( g_IN_Rd );
 	CloseHandle( g_OUT_Rd );
+
+	free( cmdline_copy );
 
 	return bSuccess;
 }
 
-static int ID_ProcessWMIC( bloomfilter_t *value, const char *cmdline )
+static int ID_ProcessWMIC( bloomfilter_t *value, const wchar_t *cmdline )
 {
 	char buffer[BUFSIZE], token[BUFSIZE], *pbuf;
 	int count = 0;
 
-	if( !ID_RunWMIC( buffer, cmdline ) )
+	if( !ID_RunWMIC( buffer, cmdline ))
 		return 0;
+
 	pbuf = COM_ParseFile( buffer, token, sizeof( token )); // Header
-	while( pbuf = COM_ParseFile( pbuf, token, sizeof( token ) ) )
+	while( pbuf = COM_ParseFile( pbuf, token, sizeof( token )))
 	{
-		if( !ID_VerifyHEX( token ) )
+		if( !ID_VerifyHEX( token ))
 			continue;
 
 		*value |= BloomFilter_ProcessStr( token );
-		count ++;
+		count++;
 	}
 
 	return count;
 }
 
-static int ID_CheckWMIC( bloomfilter_t value, const char *cmdline )
+static int ID_CheckWMIC( bloomfilter_t value, const wchar_t *cmdline )
 {
 	char buffer[BUFSIZE], token[BUFSIZE], *pbuf;
 	int count = 0;
 
-	if( !ID_RunWMIC( buffer, cmdline ) )
+	if( !ID_RunWMIC( buffer, cmdline ))
 		return 0;
+
 	pbuf = COM_ParseFile( buffer, token, sizeof( token )); // Header
-	while( pbuf = COM_ParseFile( pbuf, token, sizeof( token ) ) )
+	while( pbuf = COM_ParseFile( pbuf, token, sizeof( token )))
 	{
 		bloomfilter_t filter;
 
-		if( !ID_VerifyHEX( token ) )
+		if( !ID_VerifyHEX( token ))
 			continue;
 
 		filter = BloomFilter_ProcessStr( token );
@@ -513,8 +530,8 @@ static bloomfilter_t ID_GenerateRawId( void )
 	count += ID_ProcessNetDevices( &value );
 #endif
 #if XASH_WIN32
-	count += ID_ProcessWMIC( &value, "wmic path win32_physicalmedia get SerialNumber " );
-	count += ID_ProcessWMIC( &value, "wmic bios get serialnumber " );
+	count += ID_ProcessWMIC( &value, L"wmic path win32_physicalmedia get SerialNumber " );
+	count += ID_ProcessWMIC( &value, L"wmic bios get serialnumber " );
 #endif
 #if XASH_IOS
 	{
@@ -557,8 +574,8 @@ static uint ID_CheckRawId( bloomfilter_t filter )
 #endif
 
 #if XASH_WIN32
-	count += ID_CheckWMIC( filter, "wmic path win32_physicalmedia get SerialNumber" );
-	count += ID_CheckWMIC( filter, "wmic bios get serialnumber" );
+	count += ID_CheckWMIC( filter, L"wmic path win32_physicalmedia get SerialNumber" );
+	count += ID_CheckWMIC( filter, L"wmic bios get serialnumber" );
 #endif
 
 #if XASH_IOS
