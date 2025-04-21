@@ -251,7 +251,7 @@ static void LZSS_BuildHash( lzss_state_t *state, const byte *source )
 {
 	lzss_list_t	*list;
 	lzss_node_t	*node;
-	unsigned int	targetindex = (uint)source & ( state->window_size - 1 );
+	unsigned int	targetindex = (uintptr_t)source & ( state->window_size - 1 );
 
 	node = &state->hash_node[targetindex];
 

@@ -618,7 +618,7 @@ qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
 	int	nBitsLeft = nBits;
 
 	// get output dword-aligned.
-	while((( uint32_t )pOut & 3) != 0 && nBitsLeft >= 8 )
+	while((( uintptr_t )pOut & 3) != 0 && nBitsLeft >= 8 )
 	{
 		*pOut = (byte)MSG_ReadUBitLong( sb, 8 );
 		++pOut;
