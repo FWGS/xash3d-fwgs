@@ -195,7 +195,7 @@ static void Sys_StackTrace( PEXCEPTION_POINTERS pInfo )
 
 #if XASH_SDL == 2
 	if( host.type != HOST_DEDICATED ) // let system to restart server automaticly
-		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "Sys_Crash", message, host.hWnd );
+		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "Sys_Crash", message, NULL );
 #endif
 
 	Sys_PrintLog( message );
