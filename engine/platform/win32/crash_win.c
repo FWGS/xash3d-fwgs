@@ -270,7 +270,7 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 	if( host.status != HOST_CRASHED )
 	{
 		// check to avoid recursive call
-		host.crashed = true;
+		host.status = HOST_CRASHED;
 
 #if !XASH_DEDICATED
 		IN_SetMouseGrab( false );
@@ -302,7 +302,6 @@ static long _stdcall Sys_Crash( PEXCEPTION_POINTERS pInfo )
 
 		if( host.type == HOST_NORMAL )
 			CL_Crashed(); // tell client about crash
-			else host.status = HOST_CRASHED;
 
 		if( host_developer.value <= 0 )
 		{

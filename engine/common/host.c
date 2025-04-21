@@ -1355,7 +1355,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif // XASH_ANDROID
 
 	// main window message loop
-	while( !host.crashed )
+	while( host.status != HOST_CRASHED )
 	{
 		newtime = Sys_DoubleTime ();
 		COM_Frame( newtime - oldtime );

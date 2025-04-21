@@ -549,7 +549,7 @@ void Platform_RunEvents( void )
 {
 	SDL_Event event;
 
-	while( !host.crashed && !host.shutdown_issued && SDL_PollEvent( &event ) )
+	while( host.status != HOST_CRASHED && !host.shutdown_issued && SDL_PollEvent( &event ) )
 		SDLash_EventHandler( &event );
 
 #if XASH_PSVITA

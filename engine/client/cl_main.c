@@ -3677,7 +3677,7 @@ void CL_Shutdown( void )
 {
 	Con_Printf( "%s()\n", __func__ );
 
-	if( !host.crashed && cls.initialized )
+	if( host.status != HOST_CRASHED && cls.initialized )
 	{
 		Host_WriteOpenGLConfig ();
 		Host_WriteVideoConfig ();
