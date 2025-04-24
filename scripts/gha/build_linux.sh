@@ -106,7 +106,8 @@ build_dedicated_tarball()
 	cd "$BUILDDIR" || die
 	# FIXME: make an option for Waf to only install dedicated
 	mkdir -p "$DSDIR"
-	cp -v "$APPDIR"/xash "$APPDIR"/filesystem_stdio.so "$DSDIR"
+	cp -v "$APPDIR"/filesystem_stdio.so "$DSDIR"
+	mv -v "$APPDIR"/xash "$DSDIR"
 	tar -czvf "artifacts/$DSTARGZ" "$DSDIR"
 }
 
