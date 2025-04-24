@@ -323,6 +323,12 @@ void FS_InitAndroid( void )
 	jni.env = (JNIEnv *)Sys_GetNativeObject( "JNIEnv" );
 	jni.activity_class = Sys_GetNativeObject( "ActivityClass" );
 
+	if( !jni.env || !jni.activity_class )
+	{
+		Con_Reportf( S_WARN "%s: unable to get JNI env to load Android assets\n", __func__ );
+		return;
+	}
+
 	getContext = (*jni.env)->GetStaticMethodID( jni.env, jni.activity_class, "getContext", "()Landroid/content/Context;" );
 	jni.activity = (*jni.env)->CallStaticObjectMethod( jni.env, jni.activity_class, getContext );
 
@@ -332,7 +338,7 @@ void FS_InitAndroid( void )
 	jni.getAssets = (*jni.env)->GetMethodID( jni.env, jni.activity_class, "getAssets", "(Z)Landroid/content/res/AssetManager;" );
 
 	if( !jni.getPackageName || !jni.getCallingPackage || !jni.getAssetsList || !jni.getAssets )
-		Con_Reportf( S_WARN "%s: unable to find required JNI interface to load Android assets\n", __func__ );
+		Con_Reportf( S_WARN "%s: unable to find required JNI interfaces to load Android assets\n", __func__ );
 }
 
 #endif // XASH_ANDROID
