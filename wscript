@@ -456,7 +456,10 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'android':
 		conf.check_cc(lib='dl')
 		conf.check_cc(lib='log')
-		# LIB_M added in xcompile!
+		if not conf.options.ANDROID_OPTS:
+			# if we're compiling on device itself
+			conf.check_cc(lib='m')
+		# otherwise LIB_M is defined by xcompile (as it might be libm_hard, depending on NDK configuration)
 	elif conf.env.DEST_OS == 'win32':
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
