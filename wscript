@@ -454,6 +454,11 @@ def configure(conf):
 		conf.check_cc(lib='vrtld')
 		conf.check_cc(lib='m')
 	elif conf.env.DEST_OS == 'android':
+		# maybe there is some better check?
+		if conf.find_program('termux-info', mandatory=False):
+			conf.env.TERMUX = True
+			conf.define('__TERMUX__', 1)
+
 		conf.check_cc(lib='dl')
 		conf.check_cc(lib='log')
 		if not conf.options.ANDROID_OPTS:
