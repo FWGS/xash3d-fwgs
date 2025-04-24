@@ -66,13 +66,7 @@ build_engine()
 		ENABLE_TESTS="--enable-tests"
 	fi
 
-	if [ "$1" = "dedicated" ]; then
-		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -d || die_configure
-	elif [ "$1" = "full" ]; then
-		./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stbtt --enable-utils --enable-tui || die_configure
-	else
-		die
-	fi
+	./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stbtt --enable-utils --enable-tui --enable-dedicated || die_configure
 
 	./waf build || die_configure
 }
@@ -103,8 +97,6 @@ build_appimage()
 
 build_engine_tarball()
 {
-	deploy_engine
-
 	mv "$APPDIR" "$APPDIR2"
 	tar -czvf "artifacts/$APPTARGZ" "$APPDIR2"
 }
@@ -112,18 +104,19 @@ build_engine_tarball()
 build_dedicated_tarball()
 {
 	cd "$BUILDDIR" || die
-	./waf install --destdir="$DSDIR" || die
+	# FIXME: make an option for Waf to only install dedicated
+	mkdir -p "$DSDIR"
+	cp -v "$APPDIR"/xash "$APPDIR"/filesystem_stdio.so "$DSDIR"
 	tar -czvf "artifacts/$DSTARGZ" "$DSDIR"
 }
 
 mkdir -p artifacts/
 
 rm -rf build # clean-up build directory
-build_engine dedicated
-build_dedicated_tarball
-
 build_sdl2
-build_engine full # don't rebuild some common parts twice
+build_engine
+deploy_engine
+build_dedicated_tarball
 
 if [ -x appimagetool.AppImage ]; then
 	build_appimage
