@@ -122,24 +122,12 @@ typedef struct searchpath_s
 
 typedef searchpath_t *(*FS_ADDARCHIVE_FULLPATH)( const char *path, int flags );
 
-typedef struct fs_archive_s
-{
-	const char *ext;
-	int type;
-	FS_ADDARCHIVE_FULLPATH pfnAddArchive_Fullpath;
-	qboolean load_wads; // load wads from this archive
-	qboolean real_archive;
-} fs_archive_t;
-
 extern fs_globals_t  FI;
 extern searchpath_t *fs_writepath;
 extern poolhandle_t  fs_mempool;
 extern fs_interface_t g_engfuncs;
-extern qboolean      fs_ext_path;
-extern char          fs_rodir[MAX_SYSPATH];
 extern char          fs_rootdir[MAX_SYSPATH];
 extern const fs_api_t     g_api;
-extern const fs_archive_t g_archives[];
 
 #define GI FI.GameInfo
 
@@ -161,7 +149,7 @@ extern const fs_archive_t g_archives[];
 //
 qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
 void FS_ShutdownStdio( void );
-searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const char *file, int flags );
+searchpath_t *FS_MountArchive_Fullpath( const char *file, int flags );
 void _Mem_Free( void *data, const char *filename, int fileline );
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
