@@ -257,8 +257,12 @@ static void R_InitVideoModes( void )
 {
 	char buf[MAX_VA_STRING];
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
+#if SDL_VERSION_ATLEAST( 2, 24, 0 )
 	SDL_Point point = { window_xpos.value, window_ypos.value };
 	int displayIndex = SDL_GetPointDisplayIndex( &point );
+#else
+	int displayIndex = 0;
+#endif
 	int i, modes;
 
 	num_vidmodes = 0;
@@ -1060,8 +1064,14 @@ qboolean R_Init_Video( const int type )
 
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_DisplayMode displayMode;
+#if SDL_VERSION_ATLEAST( 2, 24, 0 )
 	SDL_Point point = { window_xpos.value, window_ypos.value };
-	SDL_GetCurrentDisplayMode( SDL_GetPointDisplayIndex( &point ), &displayMode );
+	int displayIndex = SDL_GetPointDisplayIndex( &point );
+#else
+	int displayIndex = 0;
+#endif
+
+	SDL_GetCurrentDisplayMode( displayIndex, &displayMode );
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
 #else
 	refState.desktopBitsPixel = 16;
