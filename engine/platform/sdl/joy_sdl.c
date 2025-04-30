@@ -121,17 +121,15 @@ static void SDLash_GameControllerAddMappings( const char *name )
 
 static void SDLash_SetActiveGameController( SDL_JoystickID id )
 {
-	SDL_GameController *oldgc;
-
 	if( g_current_gamepad_id == id )
 		return;
 
-	g_current_gamepad_id = id;
-
-	oldgc = g_current_gamepad;
 #if SDL_VERSION_ATLEAST( 2, 0, 14 )
-	SDL_GameControllerSetSensorEnabled( oldgc, SDL_SENSOR_GYRO, SDL_FALSE );
+	// going to change active controller, disable gyro events in old
+	SDL_GameControllerSetSensorEnabled( g_current_gamepad, SDL_SENSOR_GYRO, SDL_FALSE );
 #endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
+
+	g_current_gamepad_id = id;
 
 	if( id < 0 )
 	{
@@ -231,6 +229,7 @@ static void SDLash_GameControllerRemoved( SDL_JoystickID id )
 	}
 }
 
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
 static void SDLash_GameControllerSensorUpdate( SDL_ControllerSensorEvent sensor )
 {
 	vec3_t data;
@@ -256,6 +255,7 @@ static void SDLash_GameControllerSensorUpdate( SDL_ControllerSensorEvent sensor 
 	VectorSubtract( sensor.data, gyrocal.calibrated_values, data );
 	Joy_GyroEvent( data );
 }
+#endif
 
 void SDLash_HandleGameControllerEvent( SDL_Event *ev )
 {

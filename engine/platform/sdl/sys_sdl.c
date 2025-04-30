@@ -116,7 +116,10 @@ void SDLash_Init( const char *basedir )
 
 #if SDL_MAJOR_VERSION >= 2
 	SDL_SetHint( SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0" );
+
+#ifdef SDL_HINT_MOUSE_TOUCH_EVENTS
 	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
+#endif // SDL_HINT_MOUSE_TOUCH_EVENTS
 	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
 
 	SDL_StopTextInput();
