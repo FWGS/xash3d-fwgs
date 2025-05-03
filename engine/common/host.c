@@ -23,6 +23,11 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdbool.h>
+#include <VrBase.h>
+#include <VrRenderer.h>
+#include <VrInput.h>
+
 #endif
 #if XASH_EMSCRIPTEN
 #include <emscripten/emscripten.h>
@@ -787,6 +792,24 @@ Host_Frame
 */
 void Host_Frame( double time )
 {
+	//Prepare VR frame
+	static bool firstFrame = true;
+	engine_t* engine = VR_GetEngine();
+	if (firstFrame) {
+		VR_EnterVR(engine);
+		IN_VRInit(engine);
+		firstFrame = false;
+	}
+	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
+		VR_InitRenderer(engine, false);
+		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 1);
+		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, 5);
+		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
+	}
+	if (!VR_InitFrame(engine)) {
+		return;
+	}
+
 	double t1;
 
 	// decide the simulation time
@@ -801,8 +824,13 @@ void Host_Frame( double time )
 	Host_InputFrame ();  // input frame
 	Host_ClientBegin (); // begin client
 	Host_GetCommands (); // dedicated in
+
+	VR_BeginFrame(engine, 0);
 	Host_ServerFrame (); // server frame
 	Host_ClientFrame (); // client frame
+	VR_EndFrame(engine, 0);
+	VR_FinishFrame(engine);
+
 	HTTP_Run();			 // both server and client
 
 	host.framecount++;

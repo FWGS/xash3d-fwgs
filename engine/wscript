@@ -180,6 +180,10 @@ def build(bld):
 		if not bld.env.STATIC:
 			libs += ['DL']
 
+	# VR support
+	includes += ['vr', '../3rdparty/openxr/include']
+	source += bld.path.ant_glob(['vr/*.c'])
+
 	if bld.env.SERVER:
 		# TODO: avoid possible name collision when client is built without launcher
 		# but dedicated server is enabled. They're both called 'xash' in this case
@@ -209,7 +213,7 @@ def build(bld):
 		if bld.env.DEST_OS == 'android':
 			f = bld.shlib
 			install_path = bld.env.LIBDIR
-			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1']
+			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1', 'ANDROID=1']
 		elif not bld.env.LAUNCHER:
 			f = bld.program
 			install_path = bld.env.BINDIR
@@ -235,4 +239,6 @@ def build(bld):
 			title_id = 'XASH10000',
 			app_name = 'xash3d-fwgs',
 			rpath = bld.env.DEFAULT_RPATH,
+			lib=['GLESv3', 'EGL', 'openxr_loader'],
+			libpath=['../3rdparty/openxr/lib/android/arm64-v8a']
 		)

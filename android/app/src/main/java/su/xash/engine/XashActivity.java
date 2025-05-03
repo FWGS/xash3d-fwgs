@@ -2,7 +2,10 @@ package su.xash.engine;
 
 import android.annotation.SuppressLint;
 import android.content.pm.ActivityInfo;
+import android.app.Activity;
+import android.content.Intent;
 import android.content.res.AssetManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings.Secure;
@@ -13,6 +16,7 @@ import android.view.WindowManager;
 import org.libsdl.app.SDLActivity;
 
 public class XashActivity extends SDLActivity {
+    private static Activity activity;
     private boolean mUseVolumeKeys;
     private String mPackageName;
     private static final String TAG = "XashActivity";
@@ -20,6 +24,7 @@ public class XashActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        activity = this;
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -144,5 +149,17 @@ public class XashActivity extends SDLActivity {
         String argv = getIntent().getStringExtra("argv");
         if (argv == null) argv = "-console -log";
         return argv.split(" ");
+    }
+
+    public static int openURL(String url) {
+        try {
+            if (!url.startsWith("http://") && !url.startsWith("https://"))
+                url = "http://" + url;
+            activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return -1;
+        }
+        return 0;
     }
 }

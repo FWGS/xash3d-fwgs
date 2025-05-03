@@ -192,7 +192,7 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 	Q_strncpy( out, IOS_GetDocsDir(), size );
 	return true;
 #elif XASH_ANDROID && XASH_SDL
-	path = SDL_AndroidGetExternalStoragePath();
+	path = "/sdcard/xash"; //SDL_AndroidGetExternalStoragePath();
 	if( path != NULL )
 	{
 		Q_strncpy( out, path, size );
