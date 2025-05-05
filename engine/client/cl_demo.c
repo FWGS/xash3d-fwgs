@@ -642,9 +642,7 @@ static void CL_ReadDemoUserCmd( qboolean discard )
 		pcmd->sendsize = 1;
 
 		// always delta'ing from null
-		cl.cmd = &pcmd->cmd;
-
-		MSG_ReadDeltaUsercmd( &buf, &nullcmd, cl.cmd );
+		MSG_ReadDeltaUsercmd( &buf, &nullcmd, &pcmd->cmd );
 
 		// make sure what interp info contain angles from different frames
 		// or lerping will stop working
@@ -656,13 +654,16 @@ static void CL_ReadDemoUserCmd( qboolean discard )
 
 			// record update
 			a->starttime = demo.timestamp;
-			VectorCopy( cl.cmd->viewangles, a->viewangles );
+			VectorCopy( pcmd->cmd.viewangles, a->viewangles );
 			demo.lasttime = demo.timestamp;
 		}
 
 		// NOTE: we need to have the current outgoing sequence correct
 		// so we can do prediction correctly during playback
 		cls.netchan.outgoing_sequence = outgoing_sequence;
+
+		// save last usercmd
+		cl.cmd = pcmd->cmd;
 	}
 }
 
@@ -1145,8 +1146,7 @@ void CL_DemoInterpolateAngles( void )
 		QuaternionSlerp( q2, q1, frac, q );
 		QuaternionAngle( q, cl.viewangles );
 	}
-	else if( cl.cmd != NULL )
-		VectorCopy( cl.cmd->viewangles, cl.viewangles );
+	else VectorCopy( cl.cmd.viewangles, cl.viewangles );
 }
 
 /*

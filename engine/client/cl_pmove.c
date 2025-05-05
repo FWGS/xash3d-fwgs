@@ -973,7 +973,7 @@ void CL_MoveSpectatorCamera( void )
 
 	CL_SetUpPlayerPrediction( false, true );
 	CL_SetSolidPlayers( cl.playernum );
-	CL_RunUsercmd( &cls.spectator_state, &cls.spectator_state, cl.cmd, true, &time, (uint)( time * 100.0 ));
+	CL_RunUsercmd( &cls.spectator_state, &cls.spectator_state, &cl.cmd, true, &time, (uint)( time * 100.0 ));
 
 	VectorCopy( cls.spectator_state.client.velocity, cl.simvel );
 	VectorCopy( cls.spectator_state.client.origin, cl.simorg );
