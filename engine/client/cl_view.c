@@ -165,7 +165,7 @@ static void V_SetRefParams( ref_params_t *fd )
 
 	// get pointers to movement vars and user cmd
 	fd->movevars = &clgame.movevars;
-	fd->cmd = cl.cmd;
+	fd->cmd = &cl.cmd;
 
 	// setup viewport
 	fd->viewport[0] = clgame.viewport[0];

@@ -234,7 +234,7 @@ typedef struct
 	cl_local_data_t	local;
 
 	// player final info
-	usercmd_t		*cmd;			// cl.commands[outgoing_sequence].cmd
+	usercmd_t	cmd;			// cl.commands[outgoing_sequence].cmd
 	vec3_t		viewangles;
 	vec3_t		viewheight;
 	vec3_t		punchangle;

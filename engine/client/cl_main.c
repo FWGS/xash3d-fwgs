@@ -673,7 +673,7 @@ static void CL_CreateCmd( void )
 	}
 
 	// demo always have commands so don't overwrite them
-	if( !cls.demoplayback ) cl.cmd = &pcmd->cmd;
+	if( !cls.demoplayback ) cl.cmd = pcmd->cmd;
 
 	// predict all unacknowledged movements
 	CL_PredictMovement( false );
