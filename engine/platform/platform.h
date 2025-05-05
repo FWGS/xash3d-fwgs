@@ -256,6 +256,7 @@ void Platform_SetClipboardText( const char *buffer );
 
 #if XASH_SDL == 1
 #define SDL_SetWindowGrab( wnd, state ) SDL_WM_GrabInput( (state) ? SDL_GRAB_ON : SDL_GRAB_OFF )
+#define SDL_GetWindowGrab( wnd ) ( SDL_WM_GrabInput( SDL_GRAB_QUERY ) != SDL_GRAB_OFF )
 #define SDL_MinimizeWindow( wnd ) SDL_WM_IconifyWindow()
 #define SDL_IsTextInputActive() host.textmode
 #endif
