@@ -1,6 +1,6 @@
 /*
-events.c - SDL event system handlers
-Copyright (C) 2015-2017 a1batross
+host_sdl2.c - SDL event system handlers
+Copyright (C) 2015-2025 a1batross
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
-#include "events.h"
+#include "platform_sdl2.h"
 #include "sound.h"
 #include "vid_common.h"
 
