@@ -261,10 +261,6 @@ void Platform_SetClipboardText( const char *buffer );
 #define SDL_IsTextInputActive() host.textmode
 #endif
 
-#if !XASH_SDL
-#define SDL_VERSION_ATLEAST( x, y, z ) 0
-#endif
-
 static inline void Platform_SetTimer( float time )
 {
 #if XASH_LINUX
