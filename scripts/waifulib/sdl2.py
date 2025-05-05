@@ -13,6 +13,14 @@
 
 import os
 
+SDL_SANITY_FRAGMENT='''#define SDL_MAIN_HANDLED
+#include <%s>
+int main( void )
+{
+	SDL_Init( SDL_INIT_AUDIO );
+	return 0;
+}'''
+
 def options(opt):
 	grp = opt.add_option_group('SDL2/SDL3 options')
 	grp.add_option('-s', '--sdl2', action='store', dest = 'SDL_PATH', default = None,
@@ -97,18 +105,9 @@ def configure(conf):
 				conf.env[HAVE] = 0
 
 	if conf.env[HAVE] and conf.options.SDL_SANITY_CHECK:
-		try:
-			conf.check_cc(
-				fragment='''
-				#define SDL_MAIN_HANDLED
-				#include <SDL.h>
-				int main( void )
-				{
-					SDL_Init( SDL_INIT_EVENTS );
-					return 0;
-				}''',
-				msg	= 'Checking for %s sanity' % libname,
-				use = libname,
-				execute = False)
-		except conf.errors.ConfigurationError:
-			conf.env.HAVE_SDL2 = 0
+		if conf.options.SDL3:
+			fragment = SDL_SANITY_FRAGMENT % 'SDL3/SDL.h'
+		else:
+			fragment = SDL_SANITY_FRAGMENT % 'SDL.h'
+
+		conf.env[HAVE] = conf.check_cc(fragment=fragment, msg = 'Checking for %s sanity' % libname, use = libname, execute = False, mandatory = False)
