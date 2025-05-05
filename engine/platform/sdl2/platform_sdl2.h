@@ -1,5 +1,5 @@
 /*
-events.h - SDL backend internal header
+platform_sdl2.h - SDL backend internal header
 Copyright (C) 2015-2018 a1batross
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #define KEYWRAPPER_H
 #ifdef  XASH_SDL
 
-#include "platform/platform.h"
+#include "platform.h"
 
 // window management
 void VID_RestoreScreenResolution( void );

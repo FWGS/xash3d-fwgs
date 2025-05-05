@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include "platform/platform.h"
+#include "platform.h"
 #if XASH_SOUND == SOUND_SDL
 
 #include "sound.h"

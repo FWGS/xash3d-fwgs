@@ -19,7 +19,7 @@ GNU General Public License for more details.
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
-#include "events.h"
+#include "platform_sdl2.h"
 #include "sound.h"
 #include "vid_common.h"
 

@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "vid_common.h"
-#include "platform/sdl/events.h"
+#include "platform_sdl2.h"
 
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;

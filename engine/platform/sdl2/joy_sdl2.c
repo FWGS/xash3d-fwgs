@@ -19,7 +19,7 @@ GNU General Public License for more details.
 #include "keydefs.h"
 #include "input.h"
 #include "client.h"
-#include "events.h"
+#include "platform_sdl2.h"
 
 static const int g_button_mapping[] =
 {

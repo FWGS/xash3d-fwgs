@@ -14,8 +14,8 @@ GNU General Public License for more details.
 */
 
 #include <SDL.h>
-#include "platform/platform.h"
-#include "events.h"
+#include "platform.h"
+#include "platform_sdl2.h"
 
 #if XASH_TIMER == TIMER_SDL
 double Platform_DoubleTime( void )

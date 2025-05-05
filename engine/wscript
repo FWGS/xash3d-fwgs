@@ -30,8 +30,8 @@ def options(opt):
 	grp.add_option('--enable-custom-swap', action = 'store_true', dest = 'CUSTOM_SWAP', default = False,
 		help = 'enable custom swap allocator. For devices with no swap support')
 
-	grp.add_option('--enable-legacy-sdl', action = 'store_true', dest = 'SDL12', default = False,
-		help = 'enable using SDL1.2 instead of SDL2(not recommended) [default: %(default)s]')
+	grp.add_option('--use-sdl1', action = 'store_true', dest = 'SDL12', default = False,
+		help = 'enable using SDL1.2 instead of SDL2 (not supported or recommended) [default: %(default)s]')
 
 	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
 		help = 'build static binary(not recommended, --single-binary required) [default: %(default)s]')
@@ -103,9 +103,9 @@ def configure(conf):
 		elif conf.env.DEST_OS == 'linux' and conf.options.FBDEV_SW:
 			conf.check_cc(lib='asound')
 		elif conf.options.SDL12: # TODO: move to sdl2.py
-			conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL2')
-			conf.env.XASH_SDL = 12
-			conf.env.HAVE_SDL2 = True
+			conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL1')
+			conf.env.XASH_SDL = 1
+			conf.env.HAVE_SDL1 = True
 		else:
 			find_sdl(conf)
 
@@ -137,7 +137,7 @@ def build(bld):
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
 	libs = ['engine_includes', 'public', 'dllemu', 'werror', 'backtrace']
-	includes = ['server', 'client', 'client/vgui', 'common/soundlib']
+	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob(['common/*.c', 'common/imagelib/*.c', 'common/soundlib/*.c', 'server/*.c'])
@@ -196,8 +196,8 @@ def build(bld):
 	if bld.env.CLIENT:
 		defines = []
 		if bld.env.XASH_SDL:
-			libs += ['SDL3' if bld.env.HAVE_SDL3 else 'SDL2']
-			source += bld.path.ant_glob(['platform/sdl/*.c'])
+			libs += ['SDL%d' % bld.env.XASH_SDL]
+			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL])
 			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
 
 		# add client files
