@@ -12,7 +12,6 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#if !XASH_DEDICATED
 #include <SDL.h>
 #include "common.h"
 #include "client.h"
@@ -29,10 +28,8 @@ struct
 
 struct
 {
-#if SDL_VERSION_ATLEAST(2, 0, 0)
 	SDL_Renderer *renderer;
 	SDL_Texture *tex;
-#endif
 	int width, height;
 	SDL_Surface *surf;
 	SDL_Surface *win;
@@ -43,7 +40,6 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	sw.width = width;
 	sw.height = height;
 
-#if SDL_VERSION_ATLEAST(2, 0, 0)
 	if( sw.renderer )
 	{
 		unsigned int format = SDL_GetWindowPixelFormat( host.hWnd );
@@ -111,16 +107,10 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 			sw.renderer = NULL;
 		}
 	}
-#endif
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !sw.renderer )
 	{
 		sw.win = SDL_GetWindowSurface( host.hWnd );
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	{
-		sw.win = SDL_GetVideoSurface();
-#endif
 
 		// sdl will create renderer if hw framebuffer unavailiable, so cannot fallback here
 		// if it is failed, it is not possible to draw with SDL in REF_SOFTWARE mode
@@ -153,7 +143,6 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 void *SW_LockBuffer( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( sw.renderer )
 	{
 		void *pixels;
@@ -168,22 +157,17 @@ void *SW_LockBuffer( void )
 	sw.win = SDL_GetWindowSurface( host.hWnd );
 	//if( !sw.win )
 		//SDL_GetWindowSurface( host.hWnd );
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	sw.win = SDL_GetVideoSurface();
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	// prevent buffer overrun
 	if( !sw.win || sw.win->w < sw.width || sw.win->h < sw.height  )
 		return NULL;
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( sw.surf )
 	{
 		SDL_LockSurface( sw.surf );
 		return sw.surf->pixels;
 	}
 	else
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	{
 		// real window pixels (x11 shm region, dma buffer, etc)
 		// or SDL_Renderer texture if not supported
@@ -194,7 +178,6 @@ void *SW_LockBuffer( void )
 
 void SW_UnlockBuffer( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( sw.renderer )
 	{
 		SDL_Rect src, dst;
@@ -226,16 +209,11 @@ void SW_UnlockBuffer( void )
 		SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
 		return;
 	}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	// already blitted
 	SDL_UnlockSurface( sw.win );
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_UpdateWindowSurface( host.hWnd );
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_Flip( host.hWnd );
-#endif
 }
 
 int R_MaxVideoModes( void )
@@ -256,7 +234,6 @@ vidmode_t *R_GetVideoMode( int num )
 static void R_InitVideoModes( void )
 {
 	char buf[MAX_VA_STRING];
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 #if SDL_VERSION_ATLEAST( 2, 24, 0 )
 	SDL_Point point = { window_xpos.value, window_ypos.value };
 	int displayIndex = SDL_GetPointDisplayIndex( &point );
@@ -305,43 +282,6 @@ static void R_InitVideoModes( void )
 
 		num_vidmodes++;
 	}
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_Rect **modes;
-	int len = 0, i = 0, j;
-
-	modes = SDL_ListModes( NULL, SDL_FULLSCREEN );
-
-	if( !modes || modes == (void*)-1 )
-		return;
-
-	for( len = 0; modes[len]; len++ );
-
-	vidmodes = Mem_Malloc( host.mempool, len * sizeof( vidmode_t ) );
-
-	// from smallest to largest
-	for( ; i < len; i++ )
-	{
-		SDL_Rect *mode = modes[len - i - 1];
-
-		for( j = 0; j < num_vidmodes; j++ )
-		{
-			if( mode->w == vidmodes[j].width &&
-				mode->h == vidmodes[j].height )
-			{
-				break;
-			}
-		}
-		if( j != num_vidmodes )
-			continue;
-
-		vidmodes[num_vidmodes].width = mode->w;
-		vidmodes[num_vidmodes].height = mode->h;
-		Q_snprintf( buf, sizeof( buf ), "%ix%i", mode->w, mode->h );
-		vidmodes[num_vidmodes].desc = copystring( buf );
-
-		num_vidmodes++;
-	}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 }
 
@@ -491,7 +431,6 @@ GL_UpdateSwapInterval
 */
 void GL_UpdateSwapInterval( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
 		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
@@ -499,7 +438,6 @@ void GL_UpdateSwapInterval( void )
 		if( SDL_GL_SetSwapInterval( gl_vsync.value ) < 0 )
 			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ));
 	}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -511,13 +449,11 @@ always return false
 */
 qboolean GL_DeleteContext( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( glw_state.context )
 	{
 		SDL_GL_DeleteContext(glw_state.context);
 		glw_state.context = NULL;
 	}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return false;
 }
 
@@ -528,13 +464,11 @@ GL_CreateContext
 */
 static qboolean GL_CreateContext( void )
 {
-#if SDL_VERSION_ATLEAST(2, 0, 0)
 	if( ( glw_state.context = SDL_GL_CreateContext( host.hWnd ) ) == NULL)
 	{
 		Con_Reportf( S_ERROR "%s: %s\n", __func__, SDL_GetError( ));
 		return GL_DeleteContext();
 	}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return true;
 }
 
@@ -545,13 +479,11 @@ GL_UpdateContext
 */
 static qboolean GL_UpdateContext( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( SDL_GL_MakeCurrent( host.hWnd, glw_state.context ) < 0 )
 	{
 		Con_Reportf( S_ERROR "%s: %s\n", __func__, SDL_GetError( ));
 		return GL_DeleteContext();
 	}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	return true;
 }
 
@@ -559,12 +491,10 @@ void VID_SaveWindowSize( int width, int height, qboolean maximized )
 {
 	int render_w = width, render_h = height;
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( !glw_state.software )
 		SDL_GL_GetDrawableSize( host.hWnd, &render_w, &render_h );
 	else
 		SDL_RenderSetLogicalSize( sw.renderer, width, height );
-#endif
 
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
@@ -572,7 +502,6 @@ void VID_SaveWindowSize( int width, int height, qboolean maximized )
 
 static qboolean VID_SetScreenResolution( int width, int height, window_mode_t window_mode )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_DisplayMode got;
 	Uint32 wndFlags = 0;
 
@@ -625,9 +554,6 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 
 	SDL_SetWindowSize( host.hWnd, got.w, got.h );
 	VID_SaveWindowSize( got.w, got.h, true );
-#else
-	VID_SaveWindowSize( width, height, true );
-#endif
 	return true;
 }
 
@@ -636,7 +562,7 @@ void VID_RestoreScreenResolution( void )
 	// on mobile platform fullscreen is designed to be always on
 	// and code below minimizes our window if we're in full screen
 	// don't do that on mobile devices
-#if SDL_VERSION_ATLEAST( 2, 0, 0 ) && !XASH_MOBILE_PLATFORM
+#if !XASH_MOBILE_PLATFORM
 	switch((window_mode_t)vid_fullscreen.value )
 	{
 	case WINDOW_MODE_WINDOWED:
@@ -655,10 +581,9 @@ void VID_RestoreScreenResolution( void )
 		SDL_SetWindowFullscreen( host.hWnd, 0 );
 		break;
 	}
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
+#endif // !XASH_MOBILE_PLATFORM
 }
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 static void VID_SetWindowIcon( SDL_Window *hWnd )
 {
 	rgbdata_t *icon = NULL;
@@ -710,17 +635,13 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 	WIN_SetWindowIcon( LoadIcon( GetModuleHandle( NULL ), MAKEINTRESOURCE( 101 )));
 #endif
 }
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 static qboolean VID_CreateWindowWithSafeGL( const char *wndname, int xpos, int ypos, int w, int h, uint32_t flags )
 {
 	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
 	{
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, w, h, flags );
-#else
-		host.hWnd = sw.surf = SDL_SetVideoMode( width, height, 16, flags );
-#endif
+
 		// we have window, exit loop
 		if( host.hWnd )
 			break;
@@ -770,7 +691,6 @@ VID_CreateWindow
 qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 {
 	string wndname;
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	qboolean maximized = vid_maximized.value != 0.0f;
 	Uint32 wndFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
 	int xpos, ypos;
@@ -787,7 +707,7 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 	if( window_mode == WINDOW_MODE_WINDOWED )
 	{
 		SDL_Rect *display_rects = ( SDL_Rect * )malloc( num_displays * sizeof( SDL_Rect ));
-	
+
 		SetBits( wndFlags, SDL_WINDOW_RESIZABLE );
 		if( maximized )
 			SetBits( wndFlags, SDL_WINDOW_MAXIMIZED );
@@ -899,21 +819,6 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 			return false;
 	}
 
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	Uint32 flags = 0;
-
-	Q_strncpy( wndname, GI->title, sizeof( wndname ));
-
-	if( window_mode != WINDOW_MODE_WINDOWED )
-		SetBits( flags, SDL_FULLSCREEN|SDL_HWSURFACE );
-
-	if( !glw_state.software )
-		SetBits( flags, SDL_OPENGL );
-
-	if( !VID_CreateWindowWithSafeGL( wndname, xpos, ypos, width, height, wndFlags ))
-		return false;
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-
 	VID_SaveWindowSize( width, height, maximized );
 
 	return true;
@@ -931,9 +836,7 @@ void VID_DestroyWindow( void )
 	VID_RestoreScreenResolution();
 	if( host.hWnd )
 	{
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		SDL_DestroyWindow ( host.hWnd );
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 		host.hWnd = NULL;
 	}
 
@@ -950,20 +853,14 @@ GL_SetupAttributes
 */
 static void GL_SetupAttributes( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_GL_ResetAttributes();
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 	ref.dllFuncs.GL_SetupAttributes( glw_state.safe );
 }
 
 void GL_SwapBuffers( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_GL_SwapWindow( host.hWnd );
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	SDL_Flip( host.hWnd );
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 int GL_SetAttribute( int attr, int val )
@@ -981,7 +878,6 @@ int GL_SetAttribute( int attr, int val )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLEBUFFERS );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLESAMPLES );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ACCELERATED_VISUAL );
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MAJOR_VERSION );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MINOR_VERSION );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_EGL );
@@ -992,12 +888,11 @@ int GL_SetAttribute( int attr, int val )
 #ifdef SDL_HINT_OPENGL_ES_DRIVER
 		if( val == REF_GL_CONTEXT_PROFILE_ES )
 		{
-			SDL_SetHint(SDL_HINT_OPENGL_ES_DRIVER, "1");
+			SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
 			SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
 		}
 #endif // SDL_HINT_OPENGL_ES_DRIVER
 		return SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, val );
-#endif
 #if SDL_VERSION_ATLEAST( 2, 0, 4 )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
 #endif
@@ -1026,7 +921,6 @@ int GL_GetAttribute( int attr, int *val )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLEBUFFERS );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLESAMPLES );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ACCELERATED_VISUAL );
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MAJOR_VERSION );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MINOR_VERSION );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_EGL );
@@ -1034,7 +928,6 @@ int GL_GetAttribute( int attr, int *val )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_SHARE_WITH_CURRENT_CONTEXT );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_FRAMEBUFFER_SRGB_CAPABLE );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_PROFILE_MASK );
-#endif
 #if SDL_VERSION_ATLEAST( 2, 0, 4 )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
 #endif
@@ -1061,21 +954,16 @@ qboolean R_Init_Video( const int type )
 {
 	string safe;
 	qboolean retval;
-
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_DisplayMode displayMode;
 #if SDL_VERSION_ATLEAST( 2, 24, 0 )
 	SDL_Point point = { window_xpos.value, window_ypos.value };
 	int displayIndex = SDL_GetPointDisplayIndex( &point );
 #else
 	int displayIndex = 0;
+	SDL_GetCurrentDisplayMode( displayIndex, &displayMode );
 #endif
 
-	SDL_GetCurrentDisplayMode( displayIndex, &displayMode );
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
-#else
-	refState.desktopBitsPixel = 16;
-#endif
 
 #ifdef SDL_HINT_QTWAYLAND_WINDOW_FLAGS
 	SDL_SetHint( SDL_HINT_QTWAYLAND_WINDOW_FLAGS, "OverridesSystemGestures" );
@@ -1084,12 +972,12 @@ qboolean R_Init_Video( const int type )
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
 #endif
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 ) && !XASH_WIN32
+#if !XASH_WIN32
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
 	if( Sys_CheckParm( "-egl" ) )
 		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
-#endif
+#endif // !XASH_WIN32
 
 	// must be initialized before creating window
 #if XASH_WIN32
@@ -1144,7 +1032,6 @@ qboolean R_Init_Video( const int type )
 
 rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_DisplayMode displayMode;
 
 	if( SDL_GetCurrentDisplayMode( 0, &displayMode ) < 0 )
@@ -1160,7 +1047,6 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 		width = displayMode.w;
 		height = displayMode.h;
 	}
-#endif
 
 	refState.fullScreen = window_mode != WINDOW_MODE_WINDOWED;
 	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, width, height, refState.fullScreen ? "fullscreen" : "windowed" );
@@ -1179,7 +1065,6 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	{
 		VID_RestoreScreenResolution();
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
 		{
 			Con_Printf( S_ERROR "SDL_SetWindowFullscreen: %s", SDL_GetError( ));
@@ -1190,7 +1075,6 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 #endif
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 		SDL_SetWindowSize( host.hWnd, width, height );
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 
 		VID_SaveWindowSize( width, height, true );
 	}
@@ -1217,7 +1101,6 @@ qboolean VID_SetMode( void )
 	if( iScreenWidth < VID_MIN_WIDTH ||
 		iScreenHeight < VID_MIN_HEIGHT )	// trying to get resolution automatically by default
 	{
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 #if !defined( DEFAULT_MODE_WIDTH ) || !defined( DEFAULT_MODE_HEIGHT )
 		SDL_DisplayMode mode;
 
@@ -1229,10 +1112,6 @@ qboolean VID_SetMode( void )
 		iScreenWidth = DEFAULT_MODE_WIDTH;
 		iScreenHeight = DEFAULT_MODE_HEIGHT;
 #endif
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-		iScreenWidth = 320;
-		iScreenHeight = 240;
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 	}
 
 #if XASH_MOBILE_PLATFORM
@@ -1294,5 +1173,3 @@ void R_Free_Video( void )
 
 	ref.dllFuncs.GL_ClearExtensions();
 }
-
-#endif // XASH_DEDICATED

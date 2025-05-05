@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 #include <SDL.h>
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 #include "common.h"
 #include "keydefs.h"
 #include "input.h"
@@ -385,19 +384,3 @@ void Platform_JoyShutdown( void )
 
 	SDL_QuitSubSystem( SDL_INIT_GAMECONTROLLER );
 }
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-void Platform_Vibrate( float time, char flags )
-{
-
-}
-
-int Platform_JoyInit( void )
-{
-	return 0;
-}
-
-void Platform_JoyShutdown( void )
-{
-
-}
-#endif

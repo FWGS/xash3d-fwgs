@@ -23,15 +23,11 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "vid_common.h"
 
-#if !SDL_VERSION_ATLEAST( 2, 0, 0 )
-#define SDL_WarpMouseInWindow( win, x, y ) SDL_WarpMouse( ( x ), ( y ) )
-#else
 static struct
 {
 	qboolean initialized;
 	SDL_Cursor *cursors[dc_last];
 } cursors;
-#endif
 
 static struct
 {
@@ -95,7 +91,6 @@ Platform_GetClipobardText
 */
 int Platform_GetClipboardText( char *buffer, size_t size )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	int textLength;
 	char *sdlbuffer = SDL_GetClipboardText();
 
@@ -111,10 +106,6 @@ int Platform_GetClipboardText( char *buffer, size_t size )
 	}
 	SDL_free( sdlbuffer );
 	return textLength;
-#else // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	buffer[0] = 0;
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
-	return 0;
 }
 
 /*
@@ -125,9 +116,7 @@ Platform_SetClipobardText
 */
 void Platform_SetClipboardText( const char *buffer )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_SetClipboardText( buffer );
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 #if !XASH_PSVITA
@@ -140,9 +129,7 @@ SDLash_EnableTextInput
 */
 void Platform_EnableTextInput( qboolean enable )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	enable ? SDL_StartTextInput() : SDL_StopTextInput();
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 #endif // !XASH_PSVITA
@@ -155,7 +142,6 @@ SDLash_InitCursors
 */
 void SDLash_InitCursors( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( cursors.initialized )
 		SDLash_FreeCursors();
 
@@ -174,7 +160,6 @@ void SDLash_InitCursors( void )
 	cursors.cursors[dc_no] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
 	cursors.cursors[dc_hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
 	cursors.initialized = true;
-#endif
 }
 
 /*
@@ -185,7 +170,6 @@ SDLash_FreeCursors
 */
 void SDLash_FreeCursors( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	int i = 0;
 
 	for( ; i < ARRAYSIZE( cursors.cursors ); i++ )
@@ -196,7 +180,6 @@ void SDLash_FreeCursors( void )
 	}
 
 	cursors.initialized = false;
-#endif // SDL_VERSION_ATLEAST( 2, 0, 0 )
 }
 
 /*
@@ -227,7 +210,6 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 	host.mouse_visible = visible;
 	VGui_UpdateInternalCursorState( type );
 
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	if( host.mouse_visible )
 	{
 		if( cursors.initialized )
@@ -254,16 +236,6 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 
 		SDL_ShowCursor( false );
 	}
-#else
-	if( host.mouse_visible )
-	{
-		SDL_ShowCursor( true );
-	}
-	else
-	{
-		SDL_ShowCursor( false );
-	}
-#endif
 }
 
 /*
@@ -274,7 +246,6 @@ Platform_GetKeyModifiers
 */
 key_modifier_t Platform_GetKeyModifiers( void )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 0 )
 	SDL_Keymod modFlags;
 	key_modifier_t resultFlags;
 
@@ -302,7 +273,4 @@ key_modifier_t Platform_GetKeyModifiers( void )
 		SetBits( resultFlags, KeyModifier_LeftSuper );
 
 	return resultFlags;
-#else
-	return KeyModifier_None;
-#endif
 }

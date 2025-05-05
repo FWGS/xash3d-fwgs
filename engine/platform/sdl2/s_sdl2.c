@@ -26,17 +26,7 @@ GNU General Public License for more details.
 #define SAMPLE_16BIT_SHIFT 1
 #define SECONDARY_BUFFER_SIZE 0x10000
 
-#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
-#define SDL_GetCurrentAudioDriver() "legacysdl"
-#define SDL_OpenAudioDevice( a, b, c, d, e ) SDL_OpenAudio( ( c ), ( d ) )
-#define SDL_CloseAudioDevice( a ) SDL_CloseAudio()
-#define SDL_PauseAudioDevice( a, b ) SDL_PauseAudio( ( b ) )
-#define SDL_LockAudioDevice( x ) SDL_LockAudio()
-#define SDL_UnlockAudioDevice( x ) SDL_UnlockAudio()
-#define SDLash_IsAudioError( x ) (( x ) != 0)
-#else
 #define SDLash_IsAudioError( x ) (( x ) == 0)
-#endif
 
 /*
 =======================================================================
@@ -54,14 +44,6 @@ static void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 	const int size = dma.samples << 1;
 	int pos;
 	int wrapped;
-
-#if ! SDL_VERSION_ATLEAST( 2, 0, 0 )
-	if( !dma.buffer )
-	{
-		memset( stream, 0, len );
-		return;
-	}
-#endif
 
 	pos = dma.samplepos << 1;
 	if( pos >= size )
