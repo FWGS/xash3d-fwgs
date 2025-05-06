@@ -3081,13 +3081,12 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 
 	for( i = 0; i < ARRAYSIZE( ucmds ); i++ )
 	{
-		const ucmd_t *u = &ucmds[i];
-		if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
+		if( !Q_strcmp( Cmd_Argv( 0 ), ucmds[i].name ))
 		{
-			if( !u->func( cl ))
-				Con_Printf( "'%s' is not valid from the console\n", u->name );
+			if( !ucmds[i].func( cl ))
+				Con_Printf( "'%s' is not valid from the console\n", ucmds[i].name );
 			else
-				Con_Reportf( "ucmd->%s()\n", u->name );
+				Con_Reportf( "ucmd->%s()\n", ucmds[i].name );
 
 			return;
 		}
@@ -3101,17 +3100,12 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 		{
 			for( i = 0; i < ARRAYSIZE( enttoolscmds ); i++ )
 			{
-				const ucmd_t *u = &enttoolscmds[i];
-
-				if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
+				if( !Q_strcmp( Cmd_Argv( 0 ), enttoolscmds[i].name ))
 				{
-					Con_Reportf( "enttools->%s(): %s\n", u->name, s );
+					Con_Reportf( "enttools->%s(): %s\n", enttoolscmds[i].name, s );
 					Log_Printf( "\"%s<%i><%s><>\" performed: %s\n", Info_ValueForKey( cl->userinfo, "name" ),
-							cl->userid, SV_GetClientIDString( cl ), s );
-
-					if( u->func )
-						u->func( cl );
-
+						cl->userid, SV_GetClientIDString( cl ), s );
+					enttoolscmds[i].func( cl );
 					return;
 				}
 			}
