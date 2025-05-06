@@ -900,7 +900,7 @@ float GAME_EXPORT pfnTime( void )
 qboolean COM_IsSafeFileToDownload( const char *filename )
 {
 	char		lwrfilename[4096];
-	const char	*first, *last;
+	const char	*last;
 	const char	*ext;
 	size_t	len;
 	int		i;
@@ -934,25 +934,27 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 		return true;
 	}
 
+	for( i = 0; i < len; i++ )
+	{
+		if( !isprint( filename[i] ))
+			return false;
+	}
+
 	Q_strnlwr( filename, lwrfilename, sizeof( lwrfilename ));
 	ext = COM_FileExtension( lwrfilename );
 
-	if( Q_strpbrk( lwrfilename, "\\:~" ) || Q_strstr( lwrfilename, ".." ) )
+	if( Q_strpbrk( lwrfilename, "\\:~" ) || Q_strstr( lwrfilename, ".." ))
 		return false;
 
 	if( lwrfilename[0] == '/' )
 		return false;
 
-	first = Q_strchr( lwrfilename, '.' );
 	last = Q_strrchr( lwrfilename, '.' );
 
-	if( first == NULL || last == NULL )
+	if( last == NULL )
 		return false;
 
-	if( first != last )
-		return false;
-
-	if( Q_strlen( first ) != 4 )
+	if( Q_strlen( last ) != 4 )
 		return false;
 
 	for( i = 0; i < ARRAYSIZE( file_exts ); i++ )
@@ -1131,6 +1133,7 @@ void Test_RunCommon( void )
 {
 	Msg( "Checking COM_IsSafeFileToDownload...\n" );
 
+	TASSERT_EQi( COM_IsSafeFileToDownload( "models/bsg_props/[hl-lab.ru]bush.mdl" ), true );
 	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD5AAB5E8B307672DA86FBD10AC302BC732" ), true );
 	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD56f1ffd8c96bd64c9c27955309f6ecfe6" ), false );
 	TASSERT_EQi( COM_IsSafeFileToDownload( "!MD5AAB5E8B307672DA86FBD10AC302B.exe" ), false );
