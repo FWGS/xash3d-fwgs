@@ -3090,29 +3090,31 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 		}
 	}
 
-	if( sv_enttools_enable.value > 0.0f && !sv.background )
-	{
-		for( i = 0; i < ARRAYSIZE( enttoolscmds ); i++ )
-		{
-			const ucmd_t *u = &enttoolscmds[i];
-
-			if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
-			{
-				Con_Reportf( "enttools->%s(): %s\n", u->name, s );
-				Log_Printf( "\"%s<%i><%s><>\" performed: %s\n", Info_ValueForKey( cl->userinfo, "name" ),
-							cl->userid, SV_GetClientIDString( cl ), s );
-
-				if( u->func )
-					u->func( cl );
-
-				return;
-			}
-		}
-	}
-
 	if( sv.state == ss_active )
 	{
-		qboolean fullupdate = !Q_strcmp( Cmd_Argv( 0 ), "fullupdate" );
+		qboolean fullupdate;
+
+		if( cl->state == cs_spawned && sv_enttools_enable.value > 0.0f && !sv.background )
+		{
+			for( i = 0; i < ARRAYSIZE( enttoolscmds ); i++ )
+			{
+				const ucmd_t *u = &enttoolscmds[i];
+
+				if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
+				{
+					Con_Reportf( "enttools->%s(): %s\n", u->name, s );
+					Log_Printf( "\"%s<%i><%s><>\" performed: %s\n", Info_ValueForKey( cl->userinfo, "name" ),
+							cl->userid, SV_GetClientIDString( cl ), s );
+
+					if( u->func )
+						u->func( cl );
+
+					return;
+				}
+			}
+		}
+
+		fullupdate = !Q_strcmp( Cmd_Argv( 0 ), "fullupdate" );
 
 		if( fullupdate )
 		{
@@ -3542,7 +3544,7 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 
 	MSG_ReadBytes( msg, received, size );
 
-	if( !sv_voiceenable.value || svs.maxclients <= 1 )
+	if( !sv_voiceenable.value || svs.maxclients <= 1 || cl->state != cs_spawned )
 		return;
 
 	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
