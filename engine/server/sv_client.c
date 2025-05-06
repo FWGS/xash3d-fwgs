@@ -2176,6 +2176,9 @@ SV_SendBuildInfo_f
 */
 static qboolean SV_SendBuildInfo_f( sv_client_t *cl )
 {
+	if( cl->state != cs_spawned )
+		return false;
+
 	SV_ClientPrintf( cl, "Server running " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s, %s-%s)\n",
 		Q_buildnum(), g_buildcommit, Q_buildos(), Q_buildarch() );
 	return true;
@@ -2191,6 +2194,9 @@ static qboolean SV_ClientStatus_f( sv_client_t *cl )
 	netadr_t ip4, ip6;
 	vec3_t origin = { 0 };
 	int clients, bots, i;
+
+	if( cl->state != cs_connected )
+		return false;
 
 	NET_GetLocalAddress( &ip4, &ip6 );
 	if( cl->edict )
