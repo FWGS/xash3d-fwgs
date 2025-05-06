@@ -636,6 +636,9 @@ void SV_ActivateServer( int runPhysics )
 
 		Netchan_Clear( &cl->netchan );
 		cl->delta_sequence = -1;
+
+		// bump connect timeout
+		cl->connection_started = host.realtime;
 	}
 
 	// invoke to refresh all movevars
