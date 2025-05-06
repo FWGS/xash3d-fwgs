@@ -425,7 +425,7 @@ static void SV_ConnectClient( netadr_t from )
 	newcl->edict = EDICT_NUM(( newcl - svs.clients ) + 1 );
 	newcl->frames = frames;
 	newcl->userid = g_userid++;	// create unique userid
-	newcl->state = cs_connected;
+	newcl->state = cs_connected;	// now expect "spawn" command
 	newcl->extensions = FBitSet( extensions, NET_EXT_SPLITSIZE );
 	Q_strncpy( newcl->useragent, protinfo, sizeof( newcl->useragent ));
 
@@ -2139,6 +2139,8 @@ static qboolean SV_Spawn_f( sv_client_t *cl )
 
 	SV_PutClientInServer( cl );
 
+	cl->state = cs_spawning;
+
 	// if we are paused, tell the clients
 	if( sv.paused )
 	{
@@ -2156,7 +2158,8 @@ SV_Begin_f
 */
 static qboolean SV_Begin_f( sv_client_t *cl )
 {
-	if( cl->state != cs_connected )
+	// make sure client has passed connection process correctly
+	if( cl->state != cs_spawning )
 		return false;
 
 	// now client is spawned

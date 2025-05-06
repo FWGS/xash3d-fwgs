@@ -662,13 +662,15 @@ static void SV_Status_f( void )
 			continue;
 
 		if( cl->state == cs_connected )
-			s = "Cnct";
+			s = "Connect ";
+		else if( cl->state == cs_spawning )
+			s = "Spawning";
 		else if( cl->state == cs_zombie )
-			s = "Zmbi";
+			s = "Zombie  ";
 		else if( FBitSet( cl->flags, FCL_FAKECLIENT ))
-			s = "Bot ";
+			s = "Bot     ";
 		else
-			s = va( "%i", SV_CalcPing( cl ));
+			s = va( "%8i", SV_CalcPing( cl ));
 
 		input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
 

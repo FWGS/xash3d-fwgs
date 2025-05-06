@@ -94,6 +94,7 @@ typedef enum
 	cs_free = 0,	// can be reused for a new connection
 	cs_zombie,	// client has been disconnected, but don't reuse connection for a couple seconds
 	cs_connected,	// has been assigned to a sv_client_t, but not in game yet
+	cs_spawning,	// put in game, but not spawned yet
 	cs_spawned	// client is fully in game
 } cl_state_t;
 

@@ -509,6 +509,7 @@ static void SV_CheckTimeouts( void )
 			cl->state = cs_free; // can now be reused
 			break;
 		case cs_connected:
+		case cs_spawning:
 			if( !NET_IsLocalAddress( cl->netchan.remote_address ))
 			{
 				if( cl->connection_started < connected_droppoint )
