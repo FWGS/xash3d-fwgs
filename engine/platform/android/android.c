@@ -59,9 +59,12 @@ void Android_Init( void )
 	char* manufacturer = getenv("xr_manufacturer");
 	if (strcmp(manufacturer, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
 	} else {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
+		VR_SetPlatformFLag(VR_PLATFORM_VIEWPORT_UNCENTERED, true);
 	}
+	VR_SetPlatformFLag(VR_PLATFORM_VIEWPORT_SQUARE, true);
 
 	//Init VR
 	ovrJava java;

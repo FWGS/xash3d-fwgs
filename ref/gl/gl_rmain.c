@@ -26,6 +26,9 @@ GNU General Public License for more details.
 float		gldepthmin, gldepthmax;
 ref_instance_t	RI;
 
+
+#define VR_IPD 0.065f
+
 static int R_RankForRenderMode( int rendermode )
 {
 	switch( rendermode )
@@ -406,7 +409,11 @@ R_SetupModelviewMatrix
 static void R_SetupModelviewMatrix( matrix4x4 m )
 {
 	Matrix4x4_CreateModelview( m );
-	Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
+	Matrix4x4_ConcatTranslate(m, 0, gEngfuncs.pfnGetCvarFloat("vr_worldscale") * (VR_IPD / 2.0f) *
+											((gEngfuncs.pfnGetCvarFloat("vr_stereo_side") - 0.5f) * 2.0f), 0);
+	gEngfuncs.Cvar_SetValue("vr_player_pitch", RI.viewangles[0]);
+
+	Matrix4x4_ConcatRotate( m, -RI.viewangles[2] - gEngfuncs.pfnGetCvarFloat("vr_hmd_roll"), 1, 0, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
 	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] );

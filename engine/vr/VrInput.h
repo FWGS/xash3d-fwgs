@@ -33,4 +33,5 @@ void IN_VRInputFrame( engine_t* engine );
 uint32_t IN_VRGetButtonState( int controllerIndex );
 XrVector2f IN_VRGetJoystickState( int controllerIndex );
 XrPosef IN_VRGetPose( int controllerIndex );
+bool IN_VRIsActive( int controllerIndex );
 void INVR_Vibrate( float duration, int chan, float intensity );

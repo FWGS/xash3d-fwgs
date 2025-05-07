@@ -61,6 +61,7 @@ void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximiz
 		return;
 	}
 	VR_GetResolution(VR_GetEngine(), &render_w, &render_h);
+	VR_GetResolution(VR_GetEngine(), &w, &h);
 
 	host.window_center_x = w / 2;
 	host.window_center_y = h / 2;

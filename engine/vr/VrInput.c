@@ -29,6 +29,8 @@ int inputInitialized = 0;
 int in_vrEventTime = 0;
 double lastframetime = 0;
 
+bool lActive = false;
+bool rActive = false;
 uint32_t lButtons = 0;
 uint32_t rButtons = 0;
 XrActionStateVector2f moveJoystickState[2];
@@ -390,6 +392,10 @@ void IN_VRInputFrame( engine_t* engine ) {
 	if (moveJoystickState[1].currentState.y > 0.5) rButtons |= ovrButton_Up;
 	if (moveJoystickState[1].currentState.y < -0.5) rButtons |= ovrButton_Down;
 
+	//check if controller is active
+	lActive = moveJoystickState[0].isActive;
+	rActive = moveJoystickState[1].isActive;
+
 	lastframetime = in_vrEventTime;
 	in_vrEventTime = milliseconds( );
 }
@@ -417,4 +423,15 @@ XrPosef IN_VRGetPose( int controllerIndex ) {
 	XrSpace aimSpace[] = { leftControllerAimSpace, rightControllerAimSpace };
 	xrLocateSpace(aimSpace[controllerIndex], engine->appState.CurrentSpace, (XrTime)(engine->predictedDisplayTime), &loc);
 	return loc.pose;
+}
+
+bool IN_VRIsActive( int controllerIndex ) {
+	switch (controllerIndex) {
+		case 0:
+			return lActive;
+		case 1:
+			return rActive;
+		default:
+			return false;
+	}
 }

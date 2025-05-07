@@ -238,6 +238,12 @@ static void Sys_PrintUsage( const char *exename )
 	Sys_Quit( NULL );
 }
 
+CVAR_DEFINE_AUTO( vr_fov_zoom, "0", FCVAR_MOVEVARS, "Zoom of the field of view" );
+CVAR_DEFINE_AUTO( vr_hmd_roll, "0", FCVAR_MOVEVARS, "HMD roll angle" );
+CVAR_DEFINE_AUTO( vr_player_pitch, "0", FCVAR_MOVEVARS, "Pinch angle of the player" );
+CVAR_DEFINE_AUTO( vr_stereo_side, "0", FCVAR_MOVEVARS, "Eye being drawn" );
+CVAR_DEFINE_AUTO( vr_worldscale, "40", FCVAR_MOVEVARS, "Sets the world scale for stereo separation" );
+
 static void Sys_PrintBugcompUsage( const char *exename )
 {
 	string version_str;
@@ -806,6 +812,8 @@ void Host_Frame( double time )
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, 5);
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
 	}
+	bool gameMode = !host.mouse_visible && cls.state == ca_active && cls.key_dest == key_game;
+	VR_SetConfig(VR_CONFIG_MODE, gameMode ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_SCREEN);
 	if (!VR_InitFrame(engine)) {
 		return;
 	}
@@ -824,11 +832,16 @@ void Host_Frame( double time )
 	Host_InputFrame ();  // input frame
 	Host_ClientBegin (); // begin client
 	Host_GetCommands (); // dedicated in
-
-	VR_BeginFrame(engine, 0);
 	Host_ServerFrame (); // server frame
-	Host_ClientFrame (); // client frame
-	VR_EndFrame(engine, 0);
+
+	float roll = XrQuaternionf_ToEulerAngles(VR_GetView(0).orientation).z;
+	Cvar_SetValue("vr_hmd_roll", gameMode ? roll : 0);
+	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		Cvar_SetValue("vr_stereo_side", eye);
+		VR_BeginFrame(engine, eye);
+		Host_ClientFrame (); // client frame
+		VR_EndFrame(engine, eye);
+	}
 	VR_FinishFrame(engine);
 
 	HTTP_Run();			 // both server and client
@@ -1206,6 +1219,12 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	IN_Init();
 	Key_Init();
+
+	Cvar_RegisterVariable( &vr_fov_zoom );
+	Cvar_RegisterVariable( &vr_hmd_roll );
+	Cvar_RegisterVariable( &vr_player_pitch );
+	Cvar_RegisterVariable( &vr_stereo_side );
+	Cvar_RegisterVariable( &vr_worldscale );
 }
 
 static void Host_FreeCommon( void )

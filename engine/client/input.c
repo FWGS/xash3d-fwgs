@@ -625,6 +625,24 @@ static void IN_Commands( void )
 	IN_CheckMouseState( in_mouseactive );
 }
 
+void mapKey(int button, int currentButtons, int lastButtons, const char* action)
+{
+	bool down = currentButtons & button;
+	bool wasDown = lastButtons & button;
+	if (down && !wasDown) {
+		char command[256];
+		Q_snprintf( command, sizeof( command ), "%s\n", action );
+		Cbuf_AddText( command );
+	} else if (!down && wasDown && (action[0] == '+')) {
+		char command[256];
+		Q_snprintf( command, sizeof( command ), "%s\n", action );
+		command[0] = '-';
+		Cbuf_AddText( command );
+	}
+}
+
+extern bool sdl_keyboard_requested;
+
 /*
 ==================
 Host_InputFrame
@@ -653,23 +671,43 @@ void Host_InputFrame( void )
 	float touchY = supersampling > 0.1f ? my * supersampling : my;
 
 	// Show cursor
+	bool cursorActive = IN_VRIsActive(1);
 	VR_SetConfig(VR_CONFIG_MOUSE_X, touchX);
 	VR_SetConfig(VR_CONFIG_MOUSE_Y, height - touchY);
-	VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 8);
+	VR_SetConfig(VR_CONFIG_MOUSE_SIZE, cursorActive ? 8 : 0);
 
 	// Get event type
 	touchEventType t = event_motion;
-	bool down = IN_VRGetButtonState(1) & ovrButton_Trigger;
+	int rbuttons = IN_VRGetButtonState(1);
+	bool down = rbuttons & ovrButton_Trigger;
 	static bool lastDown = false;
-	if (down) {
+	if (down && !lastDown) {
 		t = event_down;
-	} else if (lastDown) {
+	} else if (!down && lastDown) {
 		t = event_up;
 	}
 	lastDown = down;
 
+	// Send the input event as a touch
+	static float initialTouchX = 0;
+	static float initialTouchY = 0;
+	touchX /= (float)refState.width;
+	touchY /= (float)refState.height;
+	bool gameMode = !host.mouse_visible && cls.state == ca_active && cls.key_dest == key_game;
+	if (!gameMode && cursorActive) {
+		IN_TouchEvent(t, 0, touchX, touchY, initialTouchX - touchX, initialTouchY - touchY);
+		if (t == event_up && sdl_keyboard_requested) {
+			IN_TouchEvent(event_motion, 0, touchX, touchY, initialTouchX - touchX, initialTouchY - touchY);
+			sdl_keyboard_requested = false;
+			SDL_StartTextInput();
+		}
+	}
+	initialTouchX = touchX;
+	initialTouchY = touchY;
+
 	// Escape key
-	bool escape = IN_VRGetButtonState(0) & ovrButton_Enter;
+	int lbuttons = IN_VRGetButtonState(0);
+	bool escape = lbuttons & ovrButton_Enter;
 	static bool lastEscape = false;
 	if (escape && !lastEscape) {
 		Key_Event(K_ESCAPE, true);
@@ -677,21 +715,61 @@ void Host_InputFrame( void )
 	}
 	lastEscape = escape;
 
-	// Send the input event as a touch
-	static float initialTouchX = 0;
-	static float initialTouchY = 0;
-	touchX /= (float)refState.width;
-	touchY /= (float)refState.height;
-	IN_TouchEvent(t, 0, touchX, touchY, initialTouchX - touchX, initialTouchY - touchY);
-	initialTouchX = touchX;
-	initialTouchY = touchY;
+	// In-game input
+	if( gameMode ) {
+		// Button mapping
+		static int lastlbuttons = 0;
+		mapKey(ovrButton_X, lbuttons, lastlbuttons, "drop");
+		mapKey(ovrButton_Y, lbuttons, lastlbuttons, "nightvision");
+		mapKey(ovrButton_Trigger, lbuttons, lastlbuttons, "+use");
+		mapKey(ovrButton_Trigger, lbuttons, lastlbuttons, "+speed");
+		mapKey(ovrButton_Joystick, lbuttons, lastlbuttons, "exec touch/cmd/cmd");
+		mapKey(ovrButton_GripTrigger, lbuttons, lastlbuttons, "buy");
+		lastlbuttons = lbuttons;
+		static int lastrbuttons = 0;
+		mapKey(ovrButton_A, rbuttons, lastrbuttons, "+duck");
+		mapKey(ovrButton_B, rbuttons, lastrbuttons, "+jump");
+		mapKey(ovrButton_Trigger, rbuttons, lastrbuttons, "+attack");
+		mapKey(ovrButton_Joystick, rbuttons, lastrbuttons, "+attack2");
+		mapKey(ovrButton_GripTrigger, rbuttons, lastrbuttons, "+reload");
+		lastrbuttons = rbuttons;
 
-	// Movement
-	if( cls.key_dest == key_game )
-	{
+		// Movement
 		XrVector2f left = IN_VRGetJoystickState(0);
-		XrVector2f right = IN_VRGetJoystickState(1);
-		clgame.dllFuncs.pfnLookEvent( -right.x, -right.y );
 		clgame.dllFuncs.pfnMoveEvent( left.y, left.x );
+		XrVector2f right = IN_VRGetJoystickState(1);
+		bool snapTurnDown = fabs(right.x) > 0.5;
+		static bool lastSnapTurnDown = false;
+		static float lastYaw = 0;
+		static float lastPitch = 0;
+		XrVector3f euler = XrQuaternionf_ToEulerAngles(VR_GetView(0).orientation);
+		euler.x /= 3.0f;
+		euler.y /= 3.0f;
+		float yaw = euler.y - lastYaw;
+		float pitch = euler.x - lastPitch;
+		float diff = lastPitch - Cvar_VariableValue("vr_player_pitch") / 3.0f;
+		if ((fabs(diff) > 1) && (Cvar_VariableValue("vr_fov_zoom") < 1.1f)) {
+			pitch += diff + 0.02f;
+		}
+		lastYaw = euler.y;
+		lastPitch = euler.x;
+		if (snapTurnDown && !lastSnapTurnDown) {
+			yaw += right.x > 0 ? -15 : 15;
+		}
+		lastSnapTurnDown = snapTurnDown;
+		clgame.dllFuncs.pfnLookEvent( yaw, pitch );
+
+		// Weapon switch
+		bool weaponChangeDown = fabs(right.y) > 0.5;
+		static bool lastWeaponChangeDown = false;
+		if (weaponChangeDown && !lastWeaponChangeDown) {
+			int b = right.y > 0 ? K_MWHEELUP : K_MWHEELDOWN;
+			Key_Event( b, true );
+			Key_Event( b, false );
+			Cbuf_AddText( "+attack\n" );
+		} else if (!weaponChangeDown && lastWeaponChangeDown) {
+			Cbuf_AddText( "-attack\n" );
+		}
+		lastWeaponChangeDown = weaponChangeDown;
 	}
 }

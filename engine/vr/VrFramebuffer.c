@@ -485,7 +485,9 @@ ovrRenderer
 */
 
 void ovrRenderer_Clear(ovrRenderer* renderer) {
-	ovrFramebuffer_Clear(&renderer->FrameBuffer);
+	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		ovrFramebuffer_Clear(&renderer->FrameBuffer[eye]);
+	}
 }
 
 void ovrRenderer_Create(
@@ -496,17 +498,24 @@ void ovrRenderer_Create(
 		int suggestedEyeTextureHeight,
 		int multisamples) {
 	// Create the frame buffers.
-	ovrFramebuffer_Create(
-			session,
-			&renderer->FrameBuffer,
-			useMultiview,
-			suggestedEyeTextureWidth,
-			suggestedEyeTextureHeight,
-			multisamples);
+	renderer->Multiview = useMultiview;
+	int count = renderer->Multiview ? 1 : ovrMaxNumEyes;
+	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		ovrFramebuffer_Create(
+				session,
+				&renderer->FrameBuffer[eye],
+				useMultiview,
+				suggestedEyeTextureWidth,
+				suggestedEyeTextureHeight,
+				multisamples);
+	}
 }
 
 void ovrRenderer_Destroy(ovrRenderer* renderer) {
-	ovrFramebuffer_Destroy(&renderer->FrameBuffer);
+	int count = renderer->Multiview ? 1 : ovrMaxNumEyes;
+	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		ovrFramebuffer_Destroy(&renderer->FrameBuffer[eye]);
+	}
 }
 
 void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int sx, int sy) {

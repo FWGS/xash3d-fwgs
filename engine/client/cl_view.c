@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <VrRenderer.h>
 #include "common.h"
 #include "client.h"
 #include "const.h"
@@ -276,6 +277,10 @@ static void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, 
 	*fov_x = V_CalcFov( &y, height, width );
 	if( *fov_x < x ) *fov_x = x;
 	else *fov_y = y;
+
+	*fov_x *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVX) / 90.0f;
+	*fov_y *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / 90.0f;
+	Cvar_SetValue("vr_fov_zoom", VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / *fov_y);
 }
 
 /*

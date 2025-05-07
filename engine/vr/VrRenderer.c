@@ -339,7 +339,8 @@ void VR_FinishFrame( engine_t* engine ) {
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 			int imageLayer = engine->appState.Renderer.Multiview ? eye : 0;
-			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[imageLayer];
+			int framebufferIndex = engine->appState.Renderer.Multiview ? 0 : eye;
+			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[vrMode == VR_MODE_MONO_6DOF ? 0 : framebufferIndex];
 			memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
 			projection_layer_elements[eye].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
 			projection_layer_elements[eye].pose = projections[eye].pose;
