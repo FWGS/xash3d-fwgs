@@ -534,7 +534,7 @@ static void ShowHelp( const char *app_name )
 	LogPutS( "\noptions:" );
 	LogPutS( "\t-a\tplace files with animations to separate directory." );
 	LogPutS( "\t-l\tdo not output logs." );
-	LogPutS( "\t-m\tuse only GoldSource-compatible motion types and ignore deprecated motion types with \"A\" prefix." );
+	LogPutS( "\t-m\tuse GoldSource-compatible motion types." );
 	LogPutS( "\t-t\tplace texture files to separate directory." );
 	LogPutS( "\t-u\tenable UV coords shifting for DoomMusic's and Sven-Coop's studio model compilers." );
 	LogPutS( "\t-V\tignore some validation checks for broken models." );

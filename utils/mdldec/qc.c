@@ -140,17 +140,37 @@ static void GetMotionTypeString( int type, char *str, size_t size, qboolean is_c
 		if( type & STUDIO_ZR )
 			Q_strncat( str, " ZR", size );
 
-		if( !( globalsettings & SETTINGS_LEGACYMOTION ))
+		if( type & STUDIO_LX )
+			Q_strncat( str, " LX", size );
+
+		if( type & STUDIO_LY )
+			Q_strncat( str, " LY", size );
+
+		if( type & STUDIO_LZ )
+			Q_strncat( str, " LZ", size );
+
+		if( globalsettings & SETTINGS_LEGACYMOTION )
 		{
-			if( type & STUDIO_LX )
-				Q_strncat( str, " LX", size );
+			if( type & STUDIO_LXR )
+				Q_strncat( str, " AX", size );
 
-			if( type & STUDIO_LY )
-				Q_strncat( str, " LY", size );
+			if( type & STUDIO_LYR )
+				Q_strncat( str, " AY", size );
 
-			if( type & STUDIO_LZ )
-				Q_strncat( str, " LZ", size );
+			if( type & STUDIO_LZR )
+				Q_strncat( str, " AZ", size );
 
+			if( type & STUDIO_LINEAR )
+				Q_strncat( str, " AXR", size );
+
+			if( type & STUDIO_QUADRATIC_MOTION )
+				Q_strncat( str, " AYR", size );
+
+			if( type & STUDIO_RESERVED )
+				Q_strncat( str, " AZR", size );
+		}
+		else
+		{
 			if( type & STUDIO_LXR )
 				Q_strncat( str, " LXR", size );
 
@@ -179,16 +199,29 @@ static void GetMotionTypeString( int type, char *str, size_t size, qboolean is_c
 	case STUDIO_XR:   p = "XR";   break;
 	case STUDIO_YR:   p = "YR";   break;
 	case STUDIO_ZR:   p = "ZR";   break;
+	case STUDIO_LX:   p = "LX";   break;
+	case STUDIO_LY:   p = "LY";   break;
+	case STUDIO_LZ:   p = "LZ";   break;
 	default: break;
 	}
 
-	if( !( globalsettings & SETTINGS_LEGACYMOTION ))
+	if( globalsettings & SETTINGS_LEGACYMOTION )
 	{
 		switch( type )
 		{
-		case STUDIO_LX:   p = "LX";   break;
-		case STUDIO_LY:   p = "LY";   break;
-		case STUDIO_LZ:   p = "LZ";   break;
+		case STUDIO_LXR:  p = "AX";  break;
+		case STUDIO_LYR:  p = "AY";  break;
+		case STUDIO_LZR:  p = "AZ";  break;
+		case STUDIO_LINEAR: p = "AXR"; break;
+		case STUDIO_QUADRATIC_MOTION: p = "AYR"; break;
+		case STUDIO_RESERVED: p = "AZR"; break;
+		default: break;
+		}
+	}
+	else
+	{
+		switch( type )
+		{
 		case STUDIO_LXR:  p = "LXR";  break;
 		case STUDIO_LYR:  p = "LYR";  break;
 		case STUDIO_LZR:  p = "LZR";  break;
