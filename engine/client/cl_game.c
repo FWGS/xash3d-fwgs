@@ -13,8 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#if XASH_SDL
-#include <SDL.h> // SDL_GetWindowPosition
+#if XASH_SDL == 2
+#include <SDL2/SDL.h> // SDL_GetWindowPosition
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h> // SDL_GetWindowPosition
 #endif // XASH_SDL
 
 #include "common.h"
@@ -2083,6 +2085,7 @@ GetWindowCenterX
 static int GAME_EXPORT pfnGetWindowCenterX( void )
 {
 	int x = 0;
+
 #if XASH_WIN32
 	if( m_ignore.value )
 	{
@@ -2092,7 +2095,7 @@ static int GAME_EXPORT pfnGetWindowCenterX( void )
 	}
 #endif
 
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 	SDL_GetWindowPosition( host.hWnd, &x, NULL );
 #endif
 
@@ -2108,6 +2111,7 @@ GetWindowCenterY
 static int GAME_EXPORT pfnGetWindowCenterY( void )
 {
 	int y = 0;
+
 #if XASH_WIN32
 	if( m_ignore.value )
 	{
@@ -2117,7 +2121,7 @@ static int GAME_EXPORT pfnGetWindowCenterY( void )
 	}
 #endif
 
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 	SDL_GetWindowPosition( host.hWnd, NULL, &y );
 #endif
 
