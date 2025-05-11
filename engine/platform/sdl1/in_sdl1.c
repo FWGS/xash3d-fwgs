@@ -96,17 +96,6 @@ void Platform_SetClipboardText( const char *buffer )
 }
 
 /*
-=============
-Platform_EnableTextInput
-
-=============
-*/
-void Platform_EnableTextInput( qboolean enable )
-{
-}
-
-
-/*
 ========================
 Platform_SetCursorType
 
@@ -162,15 +151,4 @@ Platform_SetMouseGrab
 void Platform_SetMouseGrab( qboolean enable )
 {
 	SDL_WM_GrabInput( enable ? SDL_GRAB_ON : SDL_GRAB_OFF );
-}
-
-/*
-========================
-Platform_GetKeyModifiers
-
-========================
-*/
-key_modifier_t Platform_GetKeyModifiers( void )
-{
-	return KeyModifier_None;
 }

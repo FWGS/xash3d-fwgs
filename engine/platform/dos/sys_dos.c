@@ -15,24 +15,11 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 #include <dos.h>
-void Platform_GetClipboardText( char *buffer, size_t size )
-{
-
-}
-
-void Platform_SetClipboardText( const char *buffer, size_t size )
-{
-
-}
-
-void Platform_Vibrate(float life, char flags)
-{
-
-}
 
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 }
+
 volatile int ticks=0;
 
 #if XASH_TIMER == TIMER_DOS

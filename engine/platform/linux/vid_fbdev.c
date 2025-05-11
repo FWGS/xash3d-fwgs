@@ -65,7 +65,7 @@ qboolean  R_Init_Video( const int type )
 
 	if( fb.fd < 0 )
 	{
-		Con_Printf( S_ERROR, "failed to open framebuffer device: %s\n", strerror(errno));
+		Con_Printf( S_ERROR "failed to open framebuffer device: %s\n", strerror(errno));
 	}
 
 	if( Sys_CheckParm( "-ttygfx" ) )
@@ -134,7 +134,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	Con_Reportf( "%s: forced resolution to %dx%d)\n", __func__, width, height );
 
 	VID_SetDisplayTransform( &render_w, &render_h );
-	R_SaveVideoMode( width, height, render_w, render_h );
+	R_SaveVideoMode( width, height, render_w, render_h, false );
 
 	return rserr_ok;
 }
@@ -246,41 +246,4 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	return true;
 }
 
-// unrelated stubs
-void Platform_GetClipboardText( char *buffer, size_t size )
-{
-
-}
-
-void Platform_SetClipboardText( const char *buffer, size_t size )
-{
-
-}
-
-void Platform_PreCreateMove( void )
-{
-
-}
-
-// will be implemented later
-void Platform_RunEvents( void )
-{
-
-}
-
-void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
-{
-	*x = *y = 0;
-}
-
-
-void GAME_EXPORT Platform_SetMousePos(int x, int y)
-{
-
-}
-
-void Platform_Vibrate( float life, char flags )
-{
-
-}
 #endif

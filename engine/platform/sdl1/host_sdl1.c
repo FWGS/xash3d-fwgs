@@ -98,7 +98,7 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 	int down = key.state != SDL_RELEASED;
 	int keynum = key.keysym.sym;
 
-	if( SDL_IsTextInputActive( ) && down )
+	if( host.textmode && down )
 	{
 		// this is how engine understands ctrl+c, ctrl+v and other hotkeys
 		if( cls.key_dest != key_game && FBitSet( SDL_GetModState(), KMOD_CTRL ))
