@@ -239,18 +239,15 @@ void IN_SetMouseGrab( qboolean set )
 
 	if( set && !s_bMouseGrab )
 	{
-#if XASH_SDL
-		SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
-#endif
+		Platform_SetMouseGrab( true );
+
 		s_bMouseGrab = true;
 		if( verbose )
 			Con_Printf( "%s: true\n", __func__ );
 	}
 	else if( !set && s_bMouseGrab )
 	{
-#if XASH_SDL
-		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
-#endif
+		Platform_SetMouseGrab( false );
 
 		s_bMouseGrab = false;
 		if( verbose )
