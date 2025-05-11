@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #if XASH_SDL == 2
-#include <SDL2/SDL.h> // SDL_GetWindowPosition
+#include <SDL.h> // SDL_GetWindowPosition
 #elif XASH_SDL == 3
 #include <SDL3/SDL.h> // SDL_GetWindowPosition
 #endif // XASH_SDL
