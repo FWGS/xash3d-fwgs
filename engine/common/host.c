@@ -14,9 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "build.h"
-#ifdef XASH_SDL
-#include <SDL.h>
-#endif // XASH_SDL
 #include <stdarg.h>  // va_args
 #if !XASH_WIN32
 #include <unistd.h> // fork
@@ -540,13 +537,6 @@ static void Host_MemStats_f( void )
 		Con_Printf( S_USAGE "memlist <all>\n" );
 		break;
 	}
-}
-
-static void Host_Minimize_f( void )
-{
-#ifdef XASH_SDL
-	if( host.hWnd ) SDL_MinimizeWindow( host.hWnd );
-#endif
 }
 
 /*
@@ -1279,7 +1269,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cmd_AddRestrictedCommand( "quit", Sys_Quit_f, "quit the game" );
 		Cmd_AddRestrictedCommand( "exit", Sys_Quit_f, "quit the game" );
 	}
-	else Cmd_AddRestrictedCommand( "minimize", Host_Minimize_f, "minimize main window to tray" );
+	else Cmd_AddRestrictedCommand( "minimize", Platform_Minimize_f, "minimize main window to tray" );
 
 	host.errorframe = 0;
 
