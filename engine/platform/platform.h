@@ -58,6 +58,7 @@ char *Posix_Input( void );
 #if XASH_SDL
 void SDLash_Init( const char *basedir );
 void SDLash_Shutdown( void );
+void SDLash_NanoSleep( int nsec );
 #endif
 
 #if XASH_ANDROID
@@ -171,9 +172,11 @@ static inline void Platform_SetupSigtermHandling( void )
 
 static inline qboolean Platform_NanoSleep( int nsec )
 {
+#if XASH_SDL == 3
+	SDLash_NanoSleep( nsec );
+	return true;
 	// SDL2 doesn't have nanosleep, so use low-level functions here
-	// When this code will be ported to SDL3, use SDL_DelayNS
-#if XASH_POSIX
+#elif XASH_POSIX
 	struct timespec ts = {
 		.tv_sec = 0,
 		.tv_nsec = nsec, // just don't put large numbers here
