@@ -179,7 +179,7 @@ void Evdev_Autodetect_f( void )
 
 		for( i = 0; i < evdev.devices; i++ )
 		{
-			if( !Q_strncmp( evdev.paths[i], path, sizeof( evdev.paths[i] ))
+			if( !Q_strncmp( evdev.paths[i], path, sizeof( evdev.paths[i] )))
 				goto next;
 		}
 

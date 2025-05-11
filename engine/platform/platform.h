@@ -207,8 +207,13 @@ static inline void Sys_RestoreCrashHandler( void )
 
 ==============================================================================
 */
+#if XASH_SDL >= 2
 void Platform_Vibrate( float life, char flags ); // left for compatibility
 void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
+#else
+static inline void Platform_Vibrate( float life, char flags ) {}
+static inline void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags ) {}
+#endif
 
 /*
 ==============================================================================
@@ -217,47 +222,58 @@ void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
 
 ==============================================================================
 */
-// Gamepad support
-#if XASH_SDL
-int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
-void Platform_JoyShutdown( void );
-void Platform_CalibrateGamepadGyro( void );
+#if XASH_SDL // only SDL based backends implements these functions
+void Platform_PreCreateMove( void );
+void GAME_EXPORT Platform_GetMousePos( int *x, int *y );
+void GAME_EXPORT Platform_SetMousePos( int x, int y );
+qboolean Platform_GetMouseGrab( void );
+void Platform_SetMouseGrab( qboolean enable );
+void Platform_SetCursorType( VGUI_DefaultCursor type );
+int Platform_GetClipboardText( char *buffer, size_t size );
+void Platform_SetClipboardText( const char *buffer );
 #else
-static inline int Platform_JoyInit( void )
+static inline void Platform_PreCreateMove( void ) { }
+static inline void GAME_EXPORT Platform_SetMousePos( int x, int y ) { }
+static inline void Platform_SetMouseGrab( qboolean enable ) { }
+static inline void Platform_SetCursorType( VGUI_DefaultCursor type ) { }
+static inline int Platform_GetClipboardText( char *buffer, size_t size ) { return 0; }
+static inline void Platform_SetClipboardText( const char *buffer ) { }
+static inline qboolean Platform_GetMouseGrab( void ) { return false; }
+static inline void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 {
-	return 0;
-}
-
-static inline void Platform_JoyShutdown( void )
-{
-
-}
-
-static inline void Platform_CalibrateGamepadGyro( void )
-{
-
+	if( x ) *x = 0;
+	if( y ) *y = 0;
 }
 #endif
 
-// Text input
-void Platform_EnableTextInput( qboolean enable );
-key_modifier_t Platform_GetKeyModifiers( void );
-// System events
+#if XASH_SDL || XASH_DOS
 void Platform_RunEvents( void );
-// Mouse
-void Platform_GetMousePos( int *x, int *y );
-void Platform_SetMousePos( int x, int y );
-void Platform_PreCreateMove( void );
 void Platform_MouseMove( float *x, float *y );
-void Platform_SetCursorType( VGUI_DefaultCursor type );
-qboolean Platform_GetMouseGrab( void );
-void Platform_SetMouseGrab( qboolean enable );
-// Clipboard
-int Platform_GetClipboardText( char *buffer, size_t size );
-void Platform_SetClipboardText( const char *buffer );
+#else
+static inline void Platform_RunEvents( void ) { }
+static inline void Platform_MouseMove( float *x, float *y )
+{
+	if( x ) *x = 0.0f;
+	if( y ) *y = 0.0f;
+}
+#endif
 
-#if XASH_SDL == 1
-#define SDL_IsTextInputActive() host.textmode
+#if XASH_SDL >= 2 || XASH_PSVITA || XASH_DOS || XASH_USE_EVDEV
+void Platform_EnableTextInput( qboolean enable );
+#else
+static inline void Platform_EnableTextInput( qboolean enable ) { }
+#endif
+
+#if XASH_SDL >= 2
+int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
+void Platform_JoyShutdown( void );
+void Platform_CalibrateGamepadGyro( void );
+key_modifier_t Platform_GetKeyModifiers( void );
+#else
+static inline int Platform_JoyInit( void ) { return 0; }
+static inline void Platform_JoyShutdown( void ) { }
+static inline void Platform_CalibrateGamepadGyro( void ) { }
+static inline key_modifier_t Platform_GetKeyModifiers( void ) { return KeyModifier_None; }
 #endif
 
 static inline void Platform_SetTimer( float time )
