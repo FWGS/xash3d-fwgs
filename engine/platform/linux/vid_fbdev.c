@@ -28,6 +28,11 @@ struct fb_s
 
 #define DEFAULT_FBDEV "/dev/fb0"
 
+void Platform_Minimize_f( void )
+{
+	// stub
+}
+
 /*
 ========================
 Android_SwapBuffers

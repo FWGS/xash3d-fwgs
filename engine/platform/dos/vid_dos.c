@@ -27,6 +27,11 @@ GNU General Public License for more details.
 #include <string.h>
 #include <stdlib.h>
 
+void Platform_Minimize_f( void )
+{
+	// stub
+}
+
 /*
 ========================
 Android_SwapBuffers

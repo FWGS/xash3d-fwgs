@@ -35,6 +35,12 @@ struct
 	SDL_Surface *win;
 } sw;
 
+void Platform_Minimize_f( void )
+{
+	if( host.hWnd )
+		SDL_MinimizeWindow( host.hWnd );
+}
+
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
 	sw.width = width;
