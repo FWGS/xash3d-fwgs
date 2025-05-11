@@ -16,8 +16,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#if XASH_SDL
-#include <SDL.h> // SDL_GetBasePath
+#if XASH_SDL == 2
+#include <SDL2/SDL.h> // SDL_GetBasePath
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h>
 #endif
 
 #include <errno.h>
@@ -209,7 +211,7 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 		return true;
 	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
-#elif ( XASH_SDL == 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
+#elif ( XASH_SDL >= 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
 	path = SDL_GetBasePath();
 
 #if XASH_APPLE

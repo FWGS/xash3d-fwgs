@@ -23,8 +23,10 @@ GNU General Public License for more details.
 #include <intrin.h>
 #endif
 
-#ifdef XASH_SDL
-#include <SDL.h>
+#if XASH_SDL == 2
+#include <SDL2/SDL.h>
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h>
 #endif
 
 #if XASH_POSIX

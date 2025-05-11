@@ -13,16 +13,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#if XASH_SDL == 2
+#include <SDL2/SDL.h>
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h>
+#endif
+
 #include "common.h"
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
 #include "cursor_type.h"
-
-#if XASH_SDL
-#include <SDL.h>
-#endif
-
 #include "platform/platform.h"
 
 void*		in_mousecursor;
@@ -212,20 +213,29 @@ void IN_SetRelativeMouseMode( qboolean set )
 
 	if( set && !s_bRawInput )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 		SDL_GetRelativeMouseState( NULL, NULL );
+#if XASH_SDL == 2
 		SDL_SetRelativeMouseMode( SDL_TRUE );
-#endif
+#else // XASH_SDL != 2
+		SDL_SetWindowRelativeMouseMode( host.hWnd, true );
+#endif // XASH_SDL != 2
+#endif // XASH_SDL >= 2
 		s_bRawInput = true;
 		if( verbose )
 			Con_Printf( "%s: true\n", __func__ );
 	}
 	else if( !set && s_bRawInput )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 		SDL_GetRelativeMouseState( NULL, NULL );
+#if XASH_SDL == 2
 		SDL_SetRelativeMouseMode( SDL_FALSE );
-#endif
+#else // XASH_SDL != 2
+		SDL_SetWindowRelativeMouseMode( host.hWnd, false );
+#endif // XASH_SDL != 2
+#endif // XASH_SDL >= 2
+
 		s_bRawInput = false;
 		if( verbose )
 			Con_Printf( "%s: false\n", __func__ );
