@@ -250,13 +250,13 @@ void Platform_SetMousePos( int x, int y );
 void Platform_PreCreateMove( void );
 void Platform_MouseMove( float *x, float *y );
 void Platform_SetCursorType( VGUI_DefaultCursor type );
+qboolean Platform_GetMouseGrab( void );
+void Platform_SetMouseGrab( qboolean enable );
 // Clipboard
 int Platform_GetClipboardText( char *buffer, size_t size );
 void Platform_SetClipboardText( const char *buffer );
 
 #if XASH_SDL == 1
-#define SDL_SetWindowGrab( wnd, state ) SDL_WM_GrabInput( (state) ? SDL_GRAB_ON : SDL_GRAB_OFF )
-#define SDL_GetWindowGrab( wnd ) ( SDL_WM_GrabInput( SDL_GRAB_QUERY ) != SDL_GRAB_OFF )
 #define SDL_IsTextInputActive() host.textmode
 #endif
 
@@ -311,7 +311,6 @@ void *SW_LockBuffer( void );
 void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 void Platform_Minimize_f( void );
-
 
 //
 // in_evdev.c

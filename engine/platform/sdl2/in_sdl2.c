@@ -240,6 +240,26 @@ void Platform_SetCursorType( VGUI_DefaultCursor type )
 
 /*
 ========================
+Platform_GetMouseGrab
+========================
+*/
+qboolean Platform_GetMouseGrab( void )
+{
+	return SDL_GetWindowGrab( host.hWnd );
+}
+
+/*
+========================
+Platform_SetMouseGrab
+========================
+*/
+void Platform_SetMouseGrab( qboolean enable )
+{
+	SDL_SetWindowGrab( host.hWnd, enable );
+}
+
+/*
+========================
 Platform_GetKeyModifiers
 
 ========================
