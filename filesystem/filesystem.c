@@ -357,7 +357,7 @@ void FS_CreatePath( char *path )
 			// create the directory
 			save = *ofs;
 			*ofs = 0;
-			_mkdir( path );
+			mkdir( path, 0755 );
 			*ofs = save;
 		}
 	}

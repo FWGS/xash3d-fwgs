@@ -434,7 +434,7 @@ As we do not need atexit(), just throw hidden exception
 // Hey, you, making an Emscripten port!
 // What if we're not supposed to use exit() on Emscripten and instead we should
 // exit from the main() function? Would this fix this bug? Test this case, pls.
-#error "Read the comment above"
+//#error "Read the comment above"
 
 #include <emscripten.h>
 #define exit my_exit
