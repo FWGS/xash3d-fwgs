@@ -2195,7 +2195,7 @@ static qboolean SV_ClientStatus_f( sv_client_t *cl )
 	vec3_t origin = { 0 };
 	int clients, bots, i;
 
-	if( cl->state != cs_connected )
+	if( cl->state != cs_spawned )
 		return false;
 
 	NET_GetLocalAddress( &ip4, &ip6 );
