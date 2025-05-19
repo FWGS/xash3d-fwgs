@@ -26,7 +26,7 @@ void *EMSCRIPTEN_LoadLibrary( const char *dllname )
 #ifdef EMSCRIPTEN_LIB_FS
 	char path[MAX_SYSPATH], buf[MAX_VA_STRING];
 	string prefix;
-	Q_strcpy(prefix, getenv( "LIBRARY_PREFIX" ) );
+	Q_strncpy(prefix, getenv( "LIBRARY_PREFIX" ), sizeof(prefix) );
 	Q_snprintf( path, MAX_SYSPATH, "%s%s%s",  prefix, dllname, getenv( "LIBRARY_SUFFIX" ) );
 	pHandle = dlopen( path, RTLD_LAZY );
 	if( !pHandle )
@@ -38,7 +38,7 @@ void *EMSCRIPTEN_LoadLibrary( const char *dllname )
 	return pHandle;
 #else
 	// get handle of preloaded library outside fs
-	return EM_ASM_INT( return DLFCN.loadedLibNames[Pointer_stringify($0)], (int)dllname );
+	return (void *)EM_ASM_PTR({ return DLFCN.loadedLibNames[Pointer_stringify($0)]; }, dllname);
 #endif
 }
 

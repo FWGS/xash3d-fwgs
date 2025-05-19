@@ -72,4 +72,6 @@ def build(bld):
 			includes = includes,
 			use = libs + v['libs'],
 			defines = v['defines'] + ['REF_DLL=1'],
+			cflags = ['-fPIC'],
+			linkflags = ['-s', 'SIDE_MODULE=1'],
 			install_path = bld.env.LIBDIR)

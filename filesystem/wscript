@@ -40,6 +40,8 @@ def build(bld):
 		libs += [ 'public', 'ANDROID' ]
 
 	bld.shlib(target = 'filesystem_stdio',
+		cflags = ['-O2'],
+		linkflags = ['-sSIDE_MODULE=1', '-sEXPORT_ALL=1'],
 		features = 'seq',
 		source = bld.path.ant_glob(['*.c', '*.cpp']),
 		use = libs,

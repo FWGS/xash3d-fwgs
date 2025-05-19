@@ -141,6 +141,7 @@ def build(bld):
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob(['common/*.c', 'common/imagelib/*.c', 'common/soundlib/*.c', 'server/*.c'])
+	source += bld.path.ant_glob('platform/emscripten/*.c')
 
 	# include platform-specific sources, this shall not fail if directory doesn't exist
 	source += bld.path.ant_glob('platform/%s/*.c' % bld.env.DEST_OS)
@@ -222,7 +223,11 @@ def build(bld):
 			install_path = None
 
 		f(source = source,
-			target = 'xash',
+			target = 'index.html',
+        	cflags=['-O2', '-s', 'MAIN_MODULE=1'],
+        	linkflags=['-s', 'MAIN_MODULE=1', '-s', 'ALLOW_MEMORY_GROWTH=1',         '-s', 'USE_WEBGL2=1',
+                                                                                     '-s', 'FULL_ES3=1',
+                                                                                     '-s', 'MAX_WEBGL_VERSION=2'],
 			includes = includes,
 			features = 'cxx c',
 			use = libs,

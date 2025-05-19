@@ -100,6 +100,7 @@ Then you can use another oneliner to query all variables:
 #elif defined __EMSCRIPTEN__
 	#define XASH_POSIX 1
 	#define XASH_EMSCRIPTEN 1
+	#define EMSCRIPTEN_LIB_FS 1
 #elif defined __WATCOMC__ && defined __DOS__
 	#define XASH_DOS4GW 1
 #else // POSIX compatible
