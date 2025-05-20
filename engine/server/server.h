@@ -492,7 +492,7 @@ get model by handle
 */
 static inline model_t *GAME_EXPORT SV_ModelHandle( int modelindex )
 {
-	if( modelindex < 0 || modelindex >= MAX_MODELS )
+	if( unlikely( modelindex < 0 || modelindex >= MAX_MODELS ))
 		return NULL;
 	return sv.models[modelindex];
 }
