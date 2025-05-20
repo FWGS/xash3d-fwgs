@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 from waflib import TaskGen
+from waflib.Tools.c_config import DEFKEYS
 
 FRAGMENT_ATOMIC='''int i;
 int main(void) {
@@ -137,6 +138,8 @@ def configure(conf):
 #		{'lib':'zstd', 'define_name':'HAVE_ZSTD', 'uselib_store':'zstd', 'msg':'... zstd library', 'mandatory':False},
 		msg='Checking for in parallel'
 	)
+
+	conf.env[DEFKEYS].sort()
 
 	conf.write_config_header()
 
