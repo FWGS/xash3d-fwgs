@@ -3454,7 +3454,7 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 			out->children[0] = (unsigned short)in->children[0];
 			out->children[1] = (unsigned short)in->children[1];
 
-			// Arguire QBSP 'broken' clipnodes
+			// aguirRe QBSP 'broken' clipnodes
 			if( out->children[0] >= bmod->numclipnodes )
 				out->children[0] -= 65536;
 			if( out->children[1] >= bmod->numclipnodes )
