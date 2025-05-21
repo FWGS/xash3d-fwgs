@@ -40,3 +40,6 @@
 [submodule "3rdparty/maintui"]
 	path = 3rdparty/maintui
 	url = https://github.com/numas13/xash3d-maintui.git
+[submodule "hlsdk-portable"]
+        path = hlsdk-portable
+        url = https://github.com/yohimik/hlsdk-portable.git

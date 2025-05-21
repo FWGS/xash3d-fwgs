@@ -43,7 +43,7 @@ static void Sys_ChangeGame( const char *progname )
 static int Sys_Start( void )
 {
 	Q_strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ));
-
+#if XASH_EMSCRIPTEN
 #if XASH_DEDICATED
 	// NodeJS support for debug
 	EM_ASM(try {
@@ -52,7 +52,9 @@ static int Sys_Start( void )
 		FS.chdir( '/xash' );
 	} catch( e ) { };);
 #endif
-
+#elif XASH_IOS
+	IOS_LaunchDialog();
+#endif
 	return Host_Main( szArgc, szArgv, szGameDir, 0, Sys_ChangeGame );
 }
 

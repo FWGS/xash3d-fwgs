@@ -5,6 +5,8 @@ Module.dynamicLibraries = [
 	// "ref_gl.so",
 	"ref_soft.so",
 	"menu",
+	"server.wasm",
+	"client.wasm",
 ]
 Module['INITIAL_MEMORY'] = 16777216 * 4
 Module['canvas'] = document.getElementById('canvas')
