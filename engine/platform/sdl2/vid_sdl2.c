@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include <SDL.h>
+#include <SDL_config.h>
 #include "common.h"
 #include "client.h"
 #include "vid_common.h"
@@ -1162,6 +1163,35 @@ qboolean VID_SetMode( void )
 	}
 
 	return true;
+}
+
+window_handle_t *R_GetWindowHandle( void )
+{
+	SDL_SysWMinfo wmInfo;
+    SDL_VERSION(&wmInfo.version);
+
+    if (SDL_GetWindowWMInfo(host.hWnd, &wmInfo) != SDL_TRUE) {
+        return NULL;
+    }
+
+	window_handle_t *handle = malloc( sizeof( window_handle_t ) );
+    #if defined(SDL_VIDEO_DRIVER_WINDOWS)
+        handle->type = REF_WINDOW_TYPE_WIN32;
+        handle->handle = (void*)wmInfo.info.win.window; // HWND
+    #elif defined(SDL_VIDEO_DRIVER_COCOA)
+        handle->type = REF_WINDOW_TYPE_MACOS;
+        handle->handle = (void*)wmInfo.info.cocoa.window; // NSWindow*
+    #elif defined(SDL_VIDEO_DRIVER_X11)
+        handle->type = REF_WINDOW_TYPE_X11;
+        handle->handle = (void*)(uintptr_t)wmInfo.info.x11.window; // X11 Window
+    #elif defined(SDL_VIDEO_DRIVER_WAYLAND)
+        handle->type = REF_WINDOW_TYPE_WAYLAND;
+        handle->handle = (void*)wmInfo.info.wl.surface; // wl_surface*
+    #else
+        return NULL;
+    #endif
+
+	return handle;
 }
 
 /*
