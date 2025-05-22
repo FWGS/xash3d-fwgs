@@ -513,9 +513,12 @@ qboolean VID_SetMode( void )
 	return true;
 }
 
-window_handle_t *R_GetWindowHandle( void )
+window_handle_t R_GetWindowHandle( void )
 {
-	return NULL;
+	window_handle_t handle;
+	handle.type = REF_WINDOW_TYPE_NONE;
+	handle.handle = NULL;
+	return handle;
 }
 
 /*
