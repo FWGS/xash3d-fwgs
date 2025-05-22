@@ -246,4 +246,9 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	return true;
 }
 
+window_handle_t *R_GetWindowHandle( void )
+{
+	return NULL;
+}
+
 #endif
