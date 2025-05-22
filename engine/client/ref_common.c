@@ -433,6 +433,8 @@ static const ref_api_t gEngfuncs =
 	&clgame.drawFuncs,
 
 	&g_fsapi,
+
+	R_GetWindowHandle,
 };
 
 static void R_UnloadProgs( void )
