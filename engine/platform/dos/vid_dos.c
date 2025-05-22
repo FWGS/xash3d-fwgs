@@ -543,12 +543,9 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	return true;
 }
 
-window_handle_t R_GetWindowHandle( void )
+qboolean R_GetWindowHandle( void **handle, int type )
 {
-	window_handle_t handle;
-	handle.type = REF_WINDOW_TYPE_NONE;
-	handle.handle = NULL;
-	return handle;
+	return FALSE;
 }
 
 #endif
