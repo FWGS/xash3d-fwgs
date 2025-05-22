@@ -57,7 +57,8 @@ GNU General Public License for more details.
 //    CL_RunLightStyles now accepts lightstyles array.
 //    Removed R_DrawTileClear and Mod_LoadMapSprite, as they're implemented on engine side
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
-#define REF_API_VERSION 9
+// 10. Added R_GetWindowHandle.
+#define REF_API_VERSION 10
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
