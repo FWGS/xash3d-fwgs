@@ -312,21 +312,6 @@ typedef enum
 	rserr_unknown
 } rserr_t;
 
-enum
-{
-	REF_WINDOW_TYPE_NONE = 0, // NULL
-	REF_WINDOW_TYPE_WIN32 = 1, // HWND
-	REF_WINDOW_TYPE_X11 = 2, // Display*
-	REF_WINDOW_TYPE_WAYLAND = 3, // wl_display*
-	REF_WINDOW_TYPE_MACOS = 4, // NSWindow*
-};
-
-typedef struct window_handle_s
-{
-	int type;
-	void* handle;
-} window_handle_t;
-
 struct vidmode_s;
 typedef enum window_mode_e window_mode_t;
 // Window
@@ -345,7 +330,7 @@ void *SW_LockBuffer( void );
 void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 void Platform_Minimize_f( void );
-window_handle_t R_GetWindowHandle( void );
+qboolean R_GetWindowHandle( void **handle, int type );
 
 //
 // in_evdev.c

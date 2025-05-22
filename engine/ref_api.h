@@ -58,7 +58,7 @@ GNU General Public License for more details.
 //    Removed R_DrawTileClear and Mod_LoadMapSprite, as they're implemented on engine side
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
 // 10. Added R_GetWindowHandle.
-#define REF_API_VERSION 10
+#define REF_API_VERSION 9
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -103,6 +103,15 @@ typedef enum
 	DEMO_XASH3D,
 	DEMO_QUAKE1
 } demo_mode;
+
+enum
+{
+	REF_WINDOW_TYPE_WIN32 = 1, // HWND
+	REF_WINDOW_TYPE_X11 = 2, // Display*
+	REF_WINDOW_TYPE_WAYLAND = 3, // wl_display*
+	REF_WINDOW_TYPE_MACOS = 4, // NSWindow*
+	REF_WINDOW_TYPE_SDL = 5, // SDL_Window*
+};
 
 typedef struct
 {
@@ -470,7 +479,7 @@ typedef struct ref_api_s
 	fs_api_t	*fsapi;
 
 	// for abstracting the engine's rendering
-	struct window_handle_t (*R_GetWindowHandle)( void );
+	qboolean (*R_GetWindowHandle)( void **handle, int type );
 } ref_api_t;
 
 struct mip_s;
