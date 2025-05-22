@@ -1165,36 +1165,52 @@ qboolean VID_SetMode( void )
 	return true;
 }
 
-window_handle_t R_GetWindowHandle( void )
+qboolean R_GetWindowHandle( void **handle, int type )
 {
-	window_handle_t handle;
-	handle.type = REF_WINDOW_TYPE_NONE;
-	handle.handle = NULL;
-
 	SDL_SysWMinfo wmInfo;
-    SDL_VERSION(&wmInfo.version);
+	SDL_VERSION( &wmInfo.version );
 
-    if (SDL_GetWindowWMInfo(host.hWnd, &wmInfo) != SDL_TRUE) {
-        return handle;
-    }
+	if ( SDL_GetWindowWMInfo( host.hWnd, &wmInfo ) != SDL_TRUE )
+	{
+		return FALSE;
+	}
 
-    #if defined(SDL_VIDEO_DRIVER_WINDOWS)
-        handle.type = REF_WINDOW_TYPE_WIN32;
-        handle.handle = (void*)wmInfo.info.win.window; // HWND
-    #elif defined(SDL_VIDEO_DRIVER_COCOA)
-        handle.type = REF_WINDOW_TYPE_MACOS;
-        handle.handle = (void*)wmInfo.info.cocoa.window; // NSWindow*
-    #elif defined(SDL_VIDEO_DRIVER_X11)
-        handle.type = REF_WINDOW_TYPE_X11;
-        handle.handle = (void*)(uintptr_t)wmInfo.info.x11.window; // X11 Window
-    #elif defined(SDL_VIDEO_DRIVER_WAYLAND)
-        handle.type = REF_WINDOW_TYPE_WAYLAND;
-        handle.handle = (void*)wmInfo.info.wl.surface; // wl_surface*
-    #else
-        return handle;
-    #endif
+	switch( type )
+	{
+		case REF_WINDOW_TYPE_WIN32:
+#ifdef SDL_VIDEO_DRIVER_WINDOWS
+			*handle = (void*)wmInfo.info.win.window; // HWND
+			return TRUE;
+#else
+			return FALSE;
+#endif
+		case REF_WINDOW_TYPE_MACOS:
+#ifdef SDL_VIDEO_DRIVER_COCOA
+			*handle = (void*)wmInfo.info.cocoa.window; // NSWindow*
+			return TRUE;
+#else
+			return FALSE;
+#endif
+		case REF_WINDOW_TYPE_X11:
+#ifdef SDL_VIDEO_DRIVER_X11
+			*handle = (void*)(uintptr_t)wmInfo.info.x11.window; // X11 Window
+			return TRUE;
+#else
+			return FALSE;
+#endif
+		case REF_WINDOW_TYPE_WAYLAND:
+#ifdef SDL_VIDEO_DRIVER_WAYLAND
+			*handle = (void*)wmInfo.info.wl.surface; // wl_surface*
+			return TRUE;
+#else
+			return FALSE;
+#endif
+		case REF_WINDOW_TYPE_SDL:
+			*handle = (void*)host.hWnd; // SDL_Window*
+			return TRUE;
+	}
 
-	return handle;
+	return FALSE;
 }
 
 /*
