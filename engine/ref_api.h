@@ -470,7 +470,7 @@ typedef struct ref_api_s
 	fs_api_t	*fsapi;
 
 	// for abstracting the engine's rendering
-	struct window_handle_t *(*R_GetWindowHandle)( void );
+	struct window_handle_t (*R_GetWindowHandle)( void );
 } ref_api_t;
 
 struct mip_s;

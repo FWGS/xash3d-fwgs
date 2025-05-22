@@ -1165,30 +1165,33 @@ qboolean VID_SetMode( void )
 	return true;
 }
 
-window_handle_t *R_GetWindowHandle( void )
+window_handle_t R_GetWindowHandle( void )
 {
+	window_handle_t handle;
+	handle.type = REF_WINDOW_TYPE_NONE;
+	handle.handle = NULL;
+
 	SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
 
     if (SDL_GetWindowWMInfo(host.hWnd, &wmInfo) != SDL_TRUE) {
-        return NULL;
+        return handle;
     }
 
-	window_handle_t *handle = malloc( sizeof( window_handle_t ) );
     #if defined(SDL_VIDEO_DRIVER_WINDOWS)
-        handle->type = REF_WINDOW_TYPE_WIN32;
-        handle->handle = (void*)wmInfo.info.win.window; // HWND
+        handle.type = REF_WINDOW_TYPE_WIN32;
+        handle.handle = (void*)wmInfo.info.win.window; // HWND
     #elif defined(SDL_VIDEO_DRIVER_COCOA)
-        handle->type = REF_WINDOW_TYPE_MACOS;
-        handle->handle = (void*)wmInfo.info.cocoa.window; // NSWindow*
+        handle.type = REF_WINDOW_TYPE_MACOS;
+        handle.handle = (void*)wmInfo.info.cocoa.window; // NSWindow*
     #elif defined(SDL_VIDEO_DRIVER_X11)
-        handle->type = REF_WINDOW_TYPE_X11;
-        handle->handle = (void*)(uintptr_t)wmInfo.info.x11.window; // X11 Window
+        handle.type = REF_WINDOW_TYPE_X11;
+        handle.handle = (void*)(uintptr_t)wmInfo.info.x11.window; // X11 Window
     #elif defined(SDL_VIDEO_DRIVER_WAYLAND)
-        handle->type = REF_WINDOW_TYPE_WAYLAND;
-        handle->handle = (void*)wmInfo.info.wl.surface; // wl_surface*
+        handle.type = REF_WINDOW_TYPE_WAYLAND;
+        handle.handle = (void*)wmInfo.info.wl.surface; // wl_surface*
     #else
-        return NULL;
+        return handle;
     #endif
 
 	return handle;
