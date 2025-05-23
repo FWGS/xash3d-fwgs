@@ -17,9 +17,6 @@ GNU General Public License for more details.
 #if XASH_SDLMAIN
 #include <SDL.h>
 #endif
-#if XASH_EMSCRIPTEN
-#include <emscripten.h>
-#endif
 #include "build.h"
 #include "common.h"
 

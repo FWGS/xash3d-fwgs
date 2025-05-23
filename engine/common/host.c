@@ -36,6 +36,8 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "render_api.h"	// decallist_t
 #include "tests.h"
+#include <emscripten.h>
+#include <emscripten/html5.h>
 
 static pfnChangeGame	pChangeGame = NULL;
 host_parm_t		host;	// host parms
@@ -1185,6 +1187,14 @@ static void Sys_Quit_f( void )
 	Sys_Quit( "command" );
 }
 
+static double oldtime, newtime;
+
+void main_loop(void) {
+	newtime = Sys_DoubleTime ();
+    COM_Frame( newtime - oldtime );
+    oldtime = newtime;
+}
+
 /*
 =================
 Host_Main
@@ -1192,7 +1202,6 @@ Host_Main
 */
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
-	static double	oldtime, newtime;
 	string demoname, exename;
 
 	host.starttime = Sys_DoubleTime();
@@ -1343,15 +1352,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
 #endif // XASH_ANDROID
-
-	// main window message loop
-	while( host.status != HOST_CRASHED )
-	{
-		newtime = Sys_DoubleTime ();
-		COM_Frame( newtime - oldtime );
-		oldtime = newtime;
-	}
-
+	emscripten_set_main_loop(main_loop, 0, 1);
 	// never reached
 	return 0;
 }

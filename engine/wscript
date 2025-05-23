@@ -224,9 +224,11 @@ def build(bld):
 
 		f(source = source,
 			target = 'index.html',
-        	cflags=['-O2', '-s', 'MAIN_MODULE=1'],
+        	cflags=['-O2', '-s', 'MAIN_MODULE=1', '-s', 'STACK_SIZE=104857600', '-s', 'INITIAL_MEMORY=262144000'],
         	linkflags=['-s', 'MAIN_MODULE=1',
         			   '-s', 'ALLOW_MEMORY_GROWTH=1',
+        			   '-s', 'STACK_SIZE=104857600',
+        			   '-s', 'INITIAL_MEMORY=262144000',
         			   #'-s', 'USE_WEBGL2=1',
                        #'-s', 'FULL_ES3=1',
                        #'-s', 'MAX_WEBGL_VERSION=2'
