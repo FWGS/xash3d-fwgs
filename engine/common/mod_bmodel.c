@@ -129,10 +129,10 @@ typedef struct
 	dclipnode32_t		*clipnodes_out;	// temporary 32-bit array to hold clipnodes
 
 	// misc stuff
-	int			lightmap_samples;	// samples per lightmap (1 or 3)
-	int			version;		// model version
-	qboolean			isworld;
-	qboolean			isbsp30ext;
+	int       lightmap_samples;	// samples per lightmap (1 or 3)
+	int       version;		// model version
+	qboolean  isworld;
+	qboolean  isbsp30ext;
 } dbspmodel_t;
 
 typedef struct
@@ -1579,8 +1579,8 @@ static void CountClipNodes16_r( mclipnode16_t *src, hull_t *hull, int nodenum )
 	// leaf?
 	if( nodenum < 0 ) return;
 
-	if( hull->lastclipnode == MAX_MAP_CLIPNODES )
-		Host_Error( "MAX_MAP_CLIPNODES limit exceeded\n" );
+	if( hull->lastclipnode == MAX_MAP_CLIPNODES_HLBSP )
+		Host_Error( "%s: MAX_MAP_CLIPNODES_HLBSP limit exceeded\n", __func__ );
 	hull->lastclipnode++;
 
 	CountClipNodes16_r( src, hull, src[nodenum].children[0] );
@@ -1592,25 +1592,25 @@ static void CountClipNodes32_r( mclipnode32_t *src, hull_t *hull, int nodenum )
 	// leaf?
 	if( nodenum < 0 ) return;
 
-	if( hull->lastclipnode == MAX_MAP_CLIPNODES )
-		Host_Error( "MAX_MAP_CLIPNODES limit exceeded\n" );
+	if( hull->lastclipnode == MAX_MAP_CLIPNODES_BSP2 )
+		Host_Error( "%s: MAX_MAP_CLIPNODES_BSP2 limit exceeded\n", __func__ );
 	hull->lastclipnode++;
 
 	CountClipNodes32_r( src, hull, src[nodenum].children[0] );
 	CountClipNodes32_r( src, hull, src[nodenum].children[1] );
 }
 
-static void CountDClipNodes_r( dclipnode32_t *src, hull_t *hull, int nodenum )
+static void CountDClipNodes_r( dclipnode32_t *src, hull_t *hull, int nodenum, const int max_clipnodes )
 {
 	// leaf?
 	if( nodenum < 0 ) return;
 
-	if( hull->lastclipnode == MAX_MAP_CLIPNODES )
-		Host_Error( "MAX_MAP_CLIPNODES limit exceeded\n" );
+	if( hull->lastclipnode == max_clipnodes )
+		Host_Error( "%s: MAX_MAP_CLIPNODES (%d) limit exceeded\n", __func__, max_clipnodes );
 	hull->lastclipnode++;
 
-	CountDClipNodes_r( src, hull, src[nodenum].children[0] );
-	CountDClipNodes_r( src, hull, src[nodenum].children[1] );
+	CountDClipNodes_r( src, hull, src[nodenum].children[0], max_clipnodes );
+	CountDClipNodes_r( src, hull, src[nodenum].children[1], max_clipnodes );
 }
 
 /*
@@ -1628,8 +1628,17 @@ static int RemapClipNodes_r( dbspmodel_t *bmod, dclipnode32_t *srcnodes, hull_t 
 		return nodenum;
 
 	// emit a clipnode
-	if( hull->lastclipnode == MAX_MAP_CLIPNODES )
-		Host_Error( "MAX_MAP_CLIPNODES limit exceeded\n" );
+	if( bmod->version == QBSP2_VERSION )
+	{
+		if( hull->lastclipnode == MAX_MAP_CLIPNODES_BSP2 )
+			Host_Error( "%s: MAX_MAP_CLIPNODES_BSP2 limit exceeded\n", __func__ );
+	}
+	else
+	{
+		if( hull->lastclipnode == MAX_MAP_CLIPNODES_HLBSP )
+			Host_Error( "%s: MAX_MAP_CLIPNODES_HLBSP limit exceeded\n", __func__ );
+	}
+
 	src = srcnodes + nodenum;
 
 	c = hull->lastclipnode;
@@ -1761,13 +1770,17 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, poolhandle_t mempool
 	if( VectorIsNull( hull->clip_mins ) && VectorIsNull( hull->clip_maxs ))
 		return;	// no hull specified
 
-	CountDClipNodes_r( bmod->clipnodes_out, hull, headnode );
-
 	// fit array to real count
 	if( bmod->version == QBSP2_VERSION )
+	{
+		CountDClipNodes_r( bmod->clipnodes_out, hull, headnode, MAX_MAP_CLIPNODES_BSP2 );
 		hull->clipnodes32 = Mem_Malloc( mempool, sizeof( *hull->clipnodes32 ) * hull->lastclipnode );
+	}
 	else
+	{
+		CountDClipNodes_r( bmod->clipnodes_out, hull, headnode, MAX_MAP_CLIPNODES_HLBSP );
 		hull->clipnodes16 = Mem_Malloc( mempool, sizeof( *hull->clipnodes16 ) * hull->lastclipnode );
+	}
 
 	hull->planes = mod->planes; // share planes
 	hull->lastclipnode = 0; // restart counting
