@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "vid_common.h"
 #include "platform_sdl2.h"
 
+// include it after because it breaks definitions in net_api.h wtf
+#include <SDL_syswm.h>
+
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
 static void GL_SetupAttributes( void );
@@ -367,14 +370,13 @@ static void WIN_SetDPIAwareness( void )
 	}
 }
 
-#include <SDL_syswm.h>
 static qboolean WIN_SetWindowIcon( HICON ico )
 {
 	SDL_SysWMinfo wminfo;
 
 	SDL_VERSION( &wminfo.version );
 
-	if( SDL_GetWindowWMInfo( host.hWnd, &wminfo ) == SDL_TRUE )
+	if( SDL_GetWindowWMInfo( host.hWnd, &wminfo ) == SDL_TRUE && wminfo.subsystem == SDL_SYSWM_WINDOWS )
 	{
 		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_SMALL, (LONG_PTR)ico );
 		SendMessage( wminfo.info.win.window, WM_SETICON, ICON_BIG, (LONG_PTR)ico );
@@ -1165,52 +1167,67 @@ qboolean VID_SetMode( void )
 	return true;
 }
 
-qboolean R_GetWindowHandle( void **handle, int type )
+ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 {
 	SDL_SysWMinfo wmInfo;
+
+	if( type == REF_WINDOW_TYPE_SDL )
+	{
+		if( handle )
+			*handle = (void *)host.hWnd;
+		return REF_WINDOW_TYPE_SDL;
+	}
+
 	SDL_VERSION( &wmInfo.version );
 
-	if ( SDL_GetWindowWMInfo( host.hWnd, &wmInfo ) != SDL_TRUE )
-	{
-		return FALSE;
-	}
+	if( SDL_GetWindowWMInfo( host.hWnd, &wmInfo ))
+		return REF_WINDOW_TYPE_NULL;
 
-	switch( type )
+	switch( wmInfo.subsystem )
 	{
-		case REF_WINDOW_TYPE_WIN32:
+	case SDL_SYSWM_WINDOWS:
+		if( !type || type == REF_WINDOW_TYPE_WIN32 )
+		{
 #ifdef SDL_VIDEO_DRIVER_WINDOWS
-			*handle = (void*)wmInfo.info.win.window; // HWND
-			return TRUE;
-#else
-			return FALSE;
-#endif
-		case REF_WINDOW_TYPE_MACOS:
-#ifdef SDL_VIDEO_DRIVER_COCOA
-			*handle = (void*)wmInfo.info.cocoa.window; // NSWindow*
-			return TRUE;
-#else
-			return FALSE;
-#endif
-		case REF_WINDOW_TYPE_X11:
+			if( handle )
+				*handle = (void *)wmInfo.info.win.window;
+			return REF_WINDOW_TYPE_WIN32;
+#endif // SDL_VIDEO_DRIVER_WINDOWS
+		}
+		break;
+	case SDL_SYSWM_X11:
+		if( !type || type == REF_WINDOW_TYPE_X11 )
+		{
 #ifdef SDL_VIDEO_DRIVER_X11
-			*handle = (void*)(uintptr_t)wmInfo.info.x11.window; // X11 Window
-			return TRUE;
-#else
-			return FALSE;
-#endif
-		case REF_WINDOW_TYPE_WAYLAND:
+			if( handle )
+				*handle = (void *)(uintptr_t)wmInfo.info.x11.window;
+			return REF_WINDOW_TYPE_X11;
+#endif // SDL_VIDEO_DRIVER_X11
+		}
+		break;
+	case SDL_SYSWM_COCOA:
+		if( !type || type == REF_WINDOW_TYPE_MACOS )
+		{
+#ifdef SDL_VIDEO_DRIVER_COCOA
+			if( handle )
+				*handle = (void *)wmInfo.info.cocoa.window;
+			return REF_WINDOW_TYPE_MACOS;
+#endif // SDL_VIDEO_DRIVER_COCOA
+		}
+		break;
+	case SDL_SYSWM_WAYLAND:
+		if( !type || type == REF_WINDOW_TYPE_WAYLAND )
+		{
 #ifdef SDL_VIDEO_DRIVER_WAYLAND
-			*handle = (void*)wmInfo.info.wl.surface; // wl_surface*
-			return TRUE;
-#else
-			return FALSE;
-#endif
-		case REF_WINDOW_TYPE_SDL:
-			*handle = (void*)host.hWnd; // SDL_Window*
-			return TRUE;
+			if( handle )
+				*handle = (void *)wmInfo.info.wl.surface;
+			return REF_WINDOW_TYPE_WAYLAND;
+#endif // SDL_VIDEO_DRIVER_WAYLAND
+		}
+		break;
 	}
 
-	return FALSE;
+	return REF_WINDOW_TYPE_NULL;
 }
 
 /*
