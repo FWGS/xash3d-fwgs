@@ -57,8 +57,8 @@ GNU General Public License for more details.
 //    CL_RunLightStyles now accepts lightstyles array.
 //    Removed R_DrawTileClear and Mod_LoadMapSprite, as they're implemented on engine side
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
-// 10. Added R_GetWindowHandle.
-#define REF_API_VERSION 9
+// 10. Added R_GetWindowHandle to retrieve platform-specific window object.
+#define REF_API_VERSION 10
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -104,14 +104,15 @@ typedef enum
 	DEMO_QUAKE1
 } demo_mode;
 
-enum
+typedef enum ref_window_type_e
 {
-	REF_WINDOW_TYPE_WIN32 = 1, // HWND
-	REF_WINDOW_TYPE_X11 = 2, // Display*
-	REF_WINDOW_TYPE_WAYLAND = 3, // wl_display*
-	REF_WINDOW_TYPE_MACOS = 4, // NSWindow*
-	REF_WINDOW_TYPE_SDL = 5, // SDL_Window*
-};
+	REF_WINDOW_TYPE_NULL = 0,
+	REF_WINDOW_TYPE_WIN32, // HWND
+	REF_WINDOW_TYPE_X11, // Display*
+	REF_WINDOW_TYPE_WAYLAND, // wl_display*
+	REF_WINDOW_TYPE_MACOS, // NSWindow*
+	REF_WINDOW_TYPE_SDL, // SDL_Window*
+} ref_window_type_t;
 
 typedef struct
 {
@@ -479,7 +480,7 @@ typedef struct ref_api_s
 	fs_api_t	*fsapi;
 
 	// for abstracting the engine's rendering
-	qboolean (*R_GetWindowHandle)( void **handle, int type );
+	ref_window_type_t (*R_GetWindowHandle)( void **handle, ref_window_type_t type );
 } ref_api_t;
 
 struct mip_s;
