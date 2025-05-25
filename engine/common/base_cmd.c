@@ -102,12 +102,14 @@ BaseCmd_Find
 Find every type of base command and write into arguments
 ============
 */
-void BaseCmd_FindAll( const char *name, base_command_t **cmd, base_command_t **alias, base_command_t **cvar )
+void BaseCmd_FindAll( const char *name, cmd_t **cmd, cmdalias_t **alias, convar_t **cvar )
 {
 	base_command_hashmap_t *base = BaseCmd_GetBucket( name );
 	base_command_hashmap_t *i = base;
 
-	*cmd = *alias = *cvar = NULL;
+	*cmd = NULL;
+	*alias = NULL;
+	*cvar = NULL;
 
 	for( ; i; i = i->next )
 	{
@@ -122,13 +124,13 @@ void BaseCmd_FindAll( const char *name, base_command_t **cmd, base_command_t **a
 		switch( i->type )
 		{
 		case HM_CMD:
-			*cmd = i->basecmd;
+			*cmd = (cmd_t *)i->basecmd;
 			break;
 		case HM_CMDALIAS:
-			*alias = i->basecmd;
+			*alias = (cmdalias_t *)i->basecmd;
 			break;
 		case HM_CVAR:
-			*cvar = i->basecmd;
+			*cvar = (convar_t *)i->basecmd;
 			break;
 		default:
 			break;

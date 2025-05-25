@@ -995,10 +995,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 	if( !Cmd_Argc( )) return; // no tokens
 
 #if defined(XASH_HASHED_VARS)
-	BaseCmd_FindAll( cmd_argv[0],
-		(base_command_t**)&cmd,
-		(base_command_t**)&a,
-		(base_command_t**)&cvar );
+	BaseCmd_FindAll( cmd_argv[0], &cmd, &a, &cvar );
 #endif
 
 	if( !host.apply_game_config )
