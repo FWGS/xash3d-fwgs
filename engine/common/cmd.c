@@ -526,51 +526,17 @@ static void Cmd_UnAlias_f ( void )
 */
 struct cmd_s
 {
-	struct cmd_s	*next;
-	char		*name;
-	xcommand_t	function;
-	int		flags;
-	char		desc[];
+	cmd_t      *next;
+	char       *name;
+	xcommand_t  function;
+	int         flags;
+	char        desc[];
 };
 
-static int		cmd_argc;
-static const char	*cmd_args = NULL;
-static char		*cmd_argv[MAX_CMD_TOKENS];
-static cmd_t		*cmd_functions;			// possible commands to execute
-
-/*
-============
-Cmd_Argc
-============
-*/
-int GAME_EXPORT Cmd_Argc( void )
-{
-	return cmd_argc;
-}
-
-/*
-============
-Cmd_Argv
-============
-*/
-const char *GAME_EXPORT Cmd_Argv( int arg )
-{
-	if((uint)arg >= cmd_argc )
-		return "";
-	return cmd_argv[arg];
-}
-
-/*
-============
-Cmd_Args
-============
-*/
-const char *GAME_EXPORT Cmd_Args( void )
-{
-	return cmd_args;
-}
-
-
+int           cmd_argc;
+const char   *cmd_args = NULL;
+char         *cmd_argv[MAX_CMD_TOKENS];
+static cmd_t *cmd_functions;			// possible commands to execute
 /*
 ===========================
 
@@ -578,8 +544,6 @@ Client exports
 
 ===========================
 */
-
-
 /*
 ============
 Cmd_AliasGetList
