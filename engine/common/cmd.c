@@ -1296,6 +1296,50 @@ void Cmd_Null_f( void )
 }
 
 /*
+=============
+Cmd_MakePrivileged_f
+=============
+*/
+static void Cmd_MakePrivileged_f( void )
+{
+	const char *s = Cmd_Argv( 1 );
+	convar_t *cv;
+	cmd_t *cmd;
+	cmdalias_t *alias;
+
+	if( Cmd_Argc( ) != 2 )
+	{
+		Con_Printf( S_USAGE "make_privileged <cvar or command>\n" );
+		return;
+	}
+
+#if defined( XASH_HASHED_VARS )
+	BaseCmd_FindAll( s, &cmd, &alias, &cv );
+#else
+	cmd = Cmd_Exists( s );
+	cv = Cvar_FindVar( s );
+#endif
+
+	if( !cv && !cmd )
+	{
+		Con_Printf( "Nothing was found.\n" );
+		return;
+	}
+
+	if( cv )
+	{
+		SetBits( cv->flags, FCVAR_PRIVILEGED );
+		Con_Printf( "Cvar %s set to be privileged\n", cv->name );
+	}
+
+	if( cmd )
+	{
+		SetBits( cmd->flags, CMD_PRIVILEGED );
+		Con_Printf( "Command %s set to be privileged\n", cmd->name );
+	}
+}
+
+/*
 ==========
 Cmd_Escape
 
@@ -1356,6 +1400,8 @@ void Cmd_Init( void )
 	Cmd_AddRestrictedCommand( "unalias", Cmd_UnAlias_f, "remove a script function" );
 	Cmd_AddRestrictedCommand( "if", Cmd_If_f, "compare and set condition bits" );
 	Cmd_AddRestrictedCommand( "else", Cmd_Else_f, "invert condition bit" );
+
+	Cmd_AddRestrictedCommand( "make_privileged", Cmd_MakePrivileged_f, "makes command or variable privileged (protected from access attempts from server)" );
 
 #if defined(XASH_HASHED_VARS)
 	Cmd_AddCommand( "basecmd_stats", BaseCmd_Stats_f, "print info about basecmd usage" );
