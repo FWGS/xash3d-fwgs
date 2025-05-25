@@ -422,6 +422,30 @@ void FS_CheckConfig( void );
 // cmd.c
 //
 typedef struct cmd_s cmd_t;
+
+static inline int GAME_EXPORT Cmd_Argc( void )
+{
+	extern int cmd_argc;
+	return cmd_argc;
+}
+
+static inline const char *GAME_EXPORT RETURNS_NONNULL Cmd_Argv( int arg )
+{
+	extern int cmd_argc;
+	extern char *cmd_argv[MAX_CMD_TOKENS];
+
+	if((uint)arg >= cmd_argc )
+		return "";
+	return cmd_argv[arg];
+}
+
+static inline const char *GAME_EXPORT RETURNS_NONNULL Cmd_Args( void )
+{
+	extern const char *cmd_args;
+
+	return cmd_args;
+}
+
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
 void Cbuf_AddTextf( const char *text, ... ) FORMAT_CHECK( 1 );
@@ -431,9 +455,6 @@ void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len );
 void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute (void);
 qboolean Cmd_CurrentCommandIsPrivileged( void );
-int Cmd_Argc( void );
-const char *Cmd_Args( void ) RETURNS_NONNULL;
-const char *Cmd_Argv( int arg ) RETURNS_NONNULL;
 void Cmd_Init( void );
 void Cmd_Shutdown( void );
 void Cmd_Unlink( int group );
