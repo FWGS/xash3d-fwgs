@@ -958,21 +958,20 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 
 	if( !Cmd_Argc( )) return; // no tokens
 
-#if defined(XASH_HASHED_VARS)
+#if defined( XASH_HASHED_VARS )
 	BaseCmd_FindAll( cmd_argv[0], &cmd, &a, &cvar );
 #endif
 
 	if( !host.apply_game_config )
 	{
+#if !defined( XASH_HASHED_VARS )
 		// check aliases
-		if( !a ) // if not found in basecmd
+		for( a = cmd_alias; a; a = a->next )
 		{
-			for( a = cmd_alias; a; a = a->next )
-			{
-				if( !Q_stricmp( cmd_argv[0], a->name ))
-					break;
-			}
+			if( !Q_stricmp( cmd_argv[0], a->name ))
+				break;
 		}
+#endif
 
 		if( a )
 		{
@@ -987,14 +986,13 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 	// special mode for restore game.dll archived cvars
 	if( !host.apply_game_config || !Q_strcmp( cmd_argv[0], "exec" ))
 	{
-		if( !cmd || !cmd->function ) // if not found in basecmd
+#if !defined( XASH_HASHED_VARS )
+		for( cmd = cmd_functions; cmd; cmd = cmd->next )
 		{
-			for( cmd = cmd_functions; cmd; cmd = cmd->next )
-			{
-				if( !Q_stricmp( cmd_argv[0], cmd->name ) && cmd->function )
-					break;
-			}
+			if( !Q_stricmp( cmd_argv[0], cmd->name ) && cmd->function )
+				break;
 		}
+#endif
 
 		// check functions
 		if( cmd && cmd->function )
