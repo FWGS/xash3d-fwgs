@@ -198,7 +198,7 @@ static int HTTP_FileQueue( httpfile_t *file )
 
 	if( !( file->file = FS_Open( name, "wb+", true )))
 	{
-		Con_Printf( S_ERROR "HTTP: cannot open %s!", name );
+		Con_Printf( S_ERROR "HTTP: cannot open %s!\n", name );
 		HTTP_FreeFile( file, true );
 		return 0;
 	}
