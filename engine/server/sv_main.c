@@ -733,13 +733,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 
 	if( !NET_GetMaster( from, &heartbeat_challenge, &last_heartbeat ))
 	{
-		Con_Printf( S_WARN "unexpected master server info query packet from %s\n", NET_AdrToString( from ));
-		return;
-	}
-
-	if( last_heartbeat + sv_master_response_timeout.value < host.realtime )
-	{
-		Con_Printf( S_WARN "unexpected master server info query packet (too late? try increasing sv_master_response_timeout value)\n");
+		Con_Reportf( S_WARN "unexpected master server info query packet from %s\n", NET_AdrToString( from ));
 		return;
 	}
 
@@ -748,7 +742,13 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 
 	if( challenge2 != heartbeat_challenge )
 	{
-		Con_Printf( S_WARN "unexpected master server info query packet (wrong challenge!)\n" );
+		Con_Reportf( S_WARN "unexpected master server info query packet (wrong challenge!)\n" );
+		return;
+	}
+
+	if( last_heartbeat + sv_master_response_timeout.value < host.realtime )
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet (too late? try increasing sv_master_response_timeout value)\n");
 		return;
 	}
 
