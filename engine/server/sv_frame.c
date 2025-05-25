@@ -707,7 +707,11 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	{
 		if( MSG_GetNumBytesWritten( &cl->datagram ) < MSG_GetNumBytesLeft( &msg ))
 			MSG_WriteBits( &msg, MSG_GetData( &cl->datagram ), MSG_GetNumBitsWritten( &cl->datagram ));
-		else Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow on msg\n", cl->name );
+		else if( host.realtime > cl->overflow_warn_time )
+		{
+			Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow on msg\n", cl->name );
+			cl->overflow_warn_time = host.realtime + 5.0f;
+		}
 	}
 
 	MSG_Clear( &cl->datagram );

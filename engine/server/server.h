@@ -260,6 +260,8 @@ typedef struct sv_client_s
 	double userinfo_next_changetime;
 	double userinfo_penalty;
 
+	double overflow_warn_time;
+
 	client_frame_t *frames; // updates can be delta'd from here
 	event_state_t  events;  // delta-updated events cycle
 } sv_client_t;
