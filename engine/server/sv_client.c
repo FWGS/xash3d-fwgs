@@ -3183,6 +3183,20 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
+	if( NET_IsMasterAdr( from ))
+	{
+		if( !Q_strcmp( pcmd, M2S_CHALLENGE ))
+		{
+			SV_AddToMaster( from, msg );
+		}
+		else if( !Q_strcmp( pcmd, M2S_NAT_CONNECT ))
+		{
+			SV_ConnectNatClient( from );
+		}
+
+		return;
+	}
+
 	if( !Q_strcmp( pcmd, A2S_GOLDSRC_INFO ) || pcmd[0] == A2S_GOLDSRC_PLAYERS || pcmd[0] == A2S_GOLDSRC_RULES )
 	{
 		SV_SourceQuery_HandleConnnectionlessPacket( pcmd, from );
@@ -3194,14 +3208,6 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, A2A_INFO ))
 	{
 		SV_Info( from, Q_atoi( Cmd_Argv( 1 )));
-	}
-	else if( !Q_strcmp( pcmd, M2S_CHALLENGE ))
-	{
-		SV_AddToMaster( from, msg );
-	}
-	else if( !Q_strcmp( pcmd, M2S_NAT_CONNECT ))
-	{
-		SV_ConnectNatClient( from );
 	}
 	else if( !Q_strcmp( pcmd, C2S_BANDWIDTHTEST ))
 	{
