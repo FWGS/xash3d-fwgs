@@ -181,7 +181,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			pal = gEngfuncs.FS_LoadImage( "#masked.pal", src, pal_bytes );
 			break;
 		default:
-			pal = gEngfuncs.FS_LoadImage( "#normal.pal", src, pal_bytes );
+			pal = gEngfuncs.FS_LoadImage( "#texgamma.pal", src, pal_bytes );
 			break;
 		}
 
