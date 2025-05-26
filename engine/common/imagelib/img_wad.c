@@ -187,7 +187,7 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesi
 			Image_GetPaletteLMP( pal, LUMP_MASKED );
 			image.flags |= IMAGE_HAS_ALPHA|IMAGE_ONEBIT_ALPHA;
 		}
-		else Image_GetPaletteLMP( fin + pixels, LUMP_NORMAL );
+		else Image_GetPaletteLMP( fin + pixels, LUMP_TEXGAMMA );
 	}
 	else
 	{
@@ -226,7 +226,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 	}
 
-	memcpy( &pin, buffer, sizeof(dspriteframe_t) );
+	memcpy( &pin, buffer, sizeof( dspriteframe_t ));
 	image.width = pin.width;
 	image.height = pin.height;
 
