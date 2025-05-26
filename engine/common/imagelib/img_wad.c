@@ -52,6 +52,8 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesi
 			rendermode = LUMP_MASKED;
 		else if( Q_stristr( name, "gradient" ))
 			rendermode = LUMP_GRADIENT;
+		else if( Q_stristr( name, "texgamma" ))
+			rendermode = LUMP_TEXGAMMA;
 		else if( Q_stristr( name, "valve" ))
 		{
 			rendermode = LUMP_HALFLIFE;
