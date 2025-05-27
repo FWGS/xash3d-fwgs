@@ -227,18 +227,16 @@ def configure(conf):
 
 	conf.load('msvs subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit')
 
+	conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
+	conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
+
+	# Windows XP compatibility
 	if conf.env.MSVC_TARGETS[0] == 'amd64_x86' or conf.env.MSVC_TARGETS[0] == 'x86':
-		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
-		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE,5.01'
-	else:
-		conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
-		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
+		conf.env.MSVC_SUBSYSTEM += ',5.01'
+		conf.env.CONSOLE_SUBSYSTEM += ',5.01'
 
-	enforce_pic = True # modern defaults
-
-	# modify options dictionary early
+	# Set default options for some platforms
 	if conf.env.DEST_OS == 'android':
-		conf.options.NO_VGUI          = True # skip vgui
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = False # deprecated
 		conf.options.GL4ES            = True
@@ -246,24 +244,12 @@ def configure(conf):
 		conf.options.GL               = False
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
-		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
 		enforce_pic = False
-	elif conf.env.DEST_OS == 'nswitch':
-		conf.options.NO_VGUI          = True
-		conf.options.GL               = True
-		conf.options.USE_STBTT        = True
-	elif conf.env.DEST_OS == 'psvita':
-		conf.options.NO_VGUI          = True
-		conf.options.GL               = True
-		conf.options.USE_STBTT        = True
-		# we'll specify -fPIC by hand for shared libraries only
-		enforce_pic                   = False
 
-	if conf.env.STATIC_LINKING:
-		enforce_pic = False # PIC may break full static builds
-
+	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
+	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
 	conf.check_pic(enforce_pic)
 
 	# NOTE: We restrict 64-bit builds ONLY for Win/Linux running on Intel architecture
