@@ -299,10 +299,12 @@ void VR_BeginFrame( engine_t* engine, int fboIndex ) {
 	// the new eye images will be displayed. The number of frames predicted ahead
 	// depends on the pipeline depth of the engine and the synthesis rate.
 	// The better the prediction, the less black will be pulled in at the edges.
-	XrFrameBeginInfo beginFrameDesc = {};
-	beginFrameDesc.type = XR_TYPE_FRAME_BEGIN_INFO;
-	beginFrameDesc.next = NULL;
-	OXR(xrBeginFrame(engine->appState.Session, &beginFrameDesc));
+	if (fboIndex == 0) {
+		XrFrameBeginInfo beginFrameDesc = {};
+		beginFrameDesc.type = XR_TYPE_FRAME_BEGIN_INFO;
+		beginFrameDesc.next = NULL;
+		OXR(xrBeginFrame(engine->appState.Session, &beginFrameDesc));
+	}
 
 	ovrFramebuffer_Acquire(&engine->appState.Renderer.FrameBuffer[fboIndex]);
 	ovrFramebuffer_SetCurrent(&engine->appState.Renderer.FrameBuffer[fboIndex]);

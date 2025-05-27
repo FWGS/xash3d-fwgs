@@ -656,6 +656,11 @@ void Host_InputFrame( void )
 
 	//IN_MouseMove();
 
+	// Do not allow touch controls in VR
+	if (Cvar_VariableValue("touch_enable") > 0) {
+		Cvar_SetValue( "touch_enable", 0 );
+	}
+
 	// VR get cursor position on screen
 	XrPosef pose = IN_VRGetPose(1);
 	XrVector3f angles = XrQuaternionf_ToEulerAngles(pose.orientation);
@@ -676,15 +681,29 @@ void Host_InputFrame( void )
 	VR_SetConfig(VR_CONFIG_MOUSE_Y, height - touchY);
 	VR_SetConfig(VR_CONFIG_MOUSE_SIZE, cursorActive ? 8 : 0);
 
+	// Deactivate temporary input when client restored focus
+	static struct timeval lastFocus;
+	if (host.status != HOST_NOFOCUS) {
+		gettimeofday(&lastFocus, NULL);
+	}
+	struct timeval currentTime;
+	gettimeofday(&currentTime, NULL);
+
 	// Get event type
 	touchEventType t = event_motion;
 	int rbuttons = IN_VRGetButtonState(1);
-	bool down = rbuttons & ovrButton_Trigger;
+	bool down = rbuttons & ovrButton_Trigger && (currentTime.tv_sec - lastFocus.tv_sec < 2);
+	bool gameMode = !host.mouse_visible && cls.state == ca_active && cls.key_dest == key_game;
+	static bool pressedInUI = false;
 	static bool lastDown = false;
 	if (down && !lastDown) {
 		t = event_down;
+		if (!gameMode) {
+			pressedInUI = true;
+		}
 	} else if (!down && lastDown) {
 		t = event_up;
+		pressedInUI = false;
 	}
 	lastDown = down;
 
@@ -693,13 +712,13 @@ void Host_InputFrame( void )
 	static float initialTouchY = 0;
 	touchX /= (float)refState.width;
 	touchY /= (float)refState.height;
-	bool gameMode = !host.mouse_visible && cls.state == ca_active && cls.key_dest == key_game;
 	if (!gameMode && cursorActive) {
 		IN_TouchEvent(t, 0, touchX, touchY, initialTouchX - touchX, initialTouchY - touchY);
 		if (t == event_up && sdl_keyboard_requested) {
 			IN_TouchEvent(event_motion, 0, touchX, touchY, initialTouchX - touchX, initialTouchY - touchY);
 			sdl_keyboard_requested = false;
 			SDL_StartTextInput();
+            Con_Printf("Lubos: Keyboard requested");
 		}
 	}
 	initialTouchX = touchX;
@@ -715,8 +734,16 @@ void Host_InputFrame( void )
 	}
 	lastEscape = escape;
 
+	// Do not pass button actions which started in UI
+	if (gameMode && pressedInUI) {
+		lbuttons = 0;
+		rbuttons = 0;
+	}
+
 	// In-game input
-	if( gameMode ) {
+	XrPosef hmd = VR_GetView(0);
+	static float hmdAltitude = 0;
+	if (gameMode) {
 		// Button mapping
 		static int lastlbuttons = 0;
 		mapKey(ovrButton_X, lbuttons, lastlbuttons, "drop");
@@ -735,41 +762,59 @@ void Host_InputFrame( void )
 		lastrbuttons = rbuttons;
 
 		// Movement
+		//Cvar_SetValue("vr_hmd_offset",  hmd.position.y - hmdAltitude);
+		static float lastHmdX = 0;
+		static float lastHmdY = 0;
+		XrVector3f euler = XrQuaternionf_ToEulerAngles(hmd.orientation);
+		float s = sin(ToRadians(euler.y));
+		float c = cos(ToRadians(euler.y));
 		XrVector2f left = IN_VRGetJoystickState(0);
+		if (fabs(left.x) < 0.5) left.x = 0;
+		if (fabs(left.y) < 0.5) left.y = 0;
+		hmd.position = XrVector3f_ScalarMultiply(hmd.position, Cvar_VariableValue("vr_worldscale"));
+		float hmdX = hmd.position.x * c - hmd.position.z * s;
+		float hmdY = hmd.position.x * s + hmd.position.z * c;
+		//left.x += hmdX - lastHmdX;
+		//left.y -= hmdY - lastHmdY;
+		lastHmdX = hmdX;
+		lastHmdY = hmdY;
 		clgame.dllFuncs.pfnMoveEvent( left.y, left.x );
+
+		// Rotation
 		XrVector2f right = IN_VRGetJoystickState(1);
-		bool snapTurnDown = fabs(right.x) > 0.5;
+		bool snapTurnDown = fabs(right.x) > 0.8;
 		static bool lastSnapTurnDown = false;
 		static float lastYaw = 0;
 		static float lastPitch = 0;
-		XrVector3f euler = XrQuaternionf_ToEulerAngles(VR_GetView(0).orientation);
-		euler.x /= 3.0f;
-		euler.y /= 3.0f;
 		float yaw = euler.y - lastYaw;
 		float pitch = euler.x - lastPitch;
-		float diff = lastPitch - Cvar_VariableValue("vr_player_pitch") / 3.0f;
+		float diff = lastPitch - Cvar_VariableValue("vr_player_pitch");
 		if ((fabs(diff) > 1) && (Cvar_VariableValue("vr_fov_zoom") < 1.1f)) {
 			pitch += diff + 0.02f;
 		}
 		lastYaw = euler.y;
 		lastPitch = euler.x;
 		if (snapTurnDown && !lastSnapTurnDown) {
-			yaw += right.x > 0 ? -15 : 15;
+			yaw += right.x > 0 ? -45 : 45;
 		}
 		lastSnapTurnDown = snapTurnDown;
 		clgame.dllFuncs.pfnLookEvent( yaw, pitch );
 
 		// Weapon switch
-		bool weaponChangeDown = fabs(right.y) > 0.5;
+		bool weaponChangeDown = fabs(right.y) > 0.8;
 		static bool lastWeaponChangeDown = false;
 		if (weaponChangeDown && !lastWeaponChangeDown) {
-			int b = right.y > 0 ? K_MWHEELUP : K_MWHEELDOWN;
-			Key_Event( b, true );
-			Key_Event( b, false );
+			Cbuf_AddText( right.y > 0 ? "invnext\n" : "invprev\n" );
 			Cbuf_AddText( "+attack\n" );
 		} else if (!weaponChangeDown && lastWeaponChangeDown) {
 			Cbuf_AddText( "-attack\n" );
 		}
 		lastWeaponChangeDown = weaponChangeDown;
+	} else {
+		// Measure player when not in game mode
+		hmdAltitude = hmd.position.y;
+
+		// Zero movement when inactive
+		clgame.dllFuncs.pfnMoveEvent( 0, 0 );
 	}
 }

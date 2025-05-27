@@ -1,5 +1,6 @@
 #include "VrInput.h"
 #include "VrMath.h"
+#include <string.h>
 
 //OpenXR
 XrPath leftHandPath;
@@ -26,51 +27,11 @@ XrSpace leftControllerAimSpace = XR_NULL_HANDLE;
 XrSpace rightControllerAimSpace = XR_NULL_HANDLE;
 int inputInitialized = 0;
 
-int in_vrEventTime = 0;
-double lastframetime = 0;
-
 bool lActive = false;
 bool rActive = false;
 uint32_t lButtons = 0;
 uint32_t rButtons = 0;
 XrActionStateVector2f moveJoystickState[2];
-
-#if !defined(_WIN32)
-#include <sys/time.h>
-#include <string.h>
-
-unsigned long sys_timeBase = 0;
-int milliseconds(void) {
-	struct timeval tp;
-
-	gettimeofday(&tp, NULL);
-
-	if (!sys_timeBase) {
-		sys_timeBase = tp.tv_sec;
-		return tp.tv_usec / 1000;
-	}
-
-	return (tp.tv_sec - sys_timeBase) * 1000 + tp.tv_usec / 1000;
-}
-#else
-
-static LARGE_INTEGER frequency;
-static double frequencyMult;
-static LARGE_INTEGER startTime;
-
-int milliseconds() {
-	if (frequency.QuadPart == 0) {
-		QueryPerformanceFrequency(&frequency);
-		QueryPerformanceCounter(&startTime);
-		frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
-	}
-	LARGE_INTEGER time;
-	QueryPerformanceCounter(&time);
-	double elapsed = static_cast<double>(time.QuadPart - startTime.QuadPart);
-	return (int)(elapsed * frequencyMult * 1000.0);
-}
-
-#endif
 
 void INVR_Vibrate( float duration, int channel, float intensity ) {
 	if (intensity > 0) {
@@ -395,9 +356,6 @@ void IN_VRInputFrame( engine_t* engine ) {
 	//check if controller is active
 	lActive = moveJoystickState[0].isActive;
 	rActive = moveJoystickState[1].isActive;
-
-	lastframetime = in_vrEventTime;
-	in_vrEventTime = milliseconds( );
 }
 
 

@@ -557,8 +557,11 @@ void V_PostRender( void )
 
 	SCR_MakeScreenShot();
 	ref.dllFuncs.R_AllowFog( true );
-	Platform_SetTimer( 0.0f );
-	ref.dllFuncs.R_EndFrame();
 
-	V_CheckGammaEnd();
+	qboolean leftEye = Cvar_VariableValue("vr_stereo_side") == 0;
+	if (!leftEye) {
+		Platform_SetTimer( 0.0f );
+		ref.dllFuncs.R_EndFrame();
+		V_CheckGammaEnd();
+	}
 }
