@@ -97,7 +97,7 @@ jobs:
         include:
           - app: su.xash.Engine.Compat.i386
     container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-24.08
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
       options: --privileged
     steps:
     - name: Checkout
@@ -105,7 +105,7 @@ jobs:
       with:
         submodules: recursive
     - name: Build flatpak (Compat.i386)
-      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.3-fix
+      uses: flatpak/flatpak-github-actions/flatpak-builder@v6
       with:
         bundle: ${{ matrix.app }}.flatpak
         manifest-path: scripts/flatpak/${{ matrix.app }}.yml
