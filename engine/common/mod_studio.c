@@ -429,9 +429,12 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 
 		buf = FS_LoadFile( filepath, &filesize, false );
 		if( !buf || !filesize ) Host_Error( "%s: can't load %s\n", __func__, filepath );
+		LittleLongSW((*(uint *)buf ));
 		if( IDSEQGRPHEADER != *(uint *)buf ) Host_Error( "%s: %s is corrupted\n", __func__, filepath );
 
 		Con_Printf( "loading: %s\n", filepath );
+
+		// TILES: we should probably swap this i think, haven't noticed any problems though
 
 		paSequences[pseqdesc->seqgroup].data = Mem_Calloc( com_studiocache, filesize );
 		memcpy( paSequences[pseqdesc->seqgroup].data, buf, filesize );

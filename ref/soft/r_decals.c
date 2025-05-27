@@ -428,7 +428,7 @@ static decal_t *R_DecalIntersect( decalinfo_t *decalinfo, msurface_t *surf, int 
 
 	pDecal = surf->pdecals;
 
-	while( pDecal )
+	while( pDecal && pDecal != pDecal->pnext )
 	{
 		texture = pDecal->texture;
 
@@ -540,7 +540,7 @@ static void R_AddDecalToSurface( decal_t *pdecal, msurface_t *surf, decalinfo_t 
 
 	if( pold )
 	{
-		while( pold->pnext )
+		while( pold->pnext && pold != pold->pnext )
 			pold = pold->pnext;
 		pold->pnext = pdecal;
 	}

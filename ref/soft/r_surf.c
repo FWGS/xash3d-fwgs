@@ -993,7 +993,7 @@ static void R_DrawSurfaceDecals( void )
 	msurface_t *fa = r_drawsurf.surf;
 	decal_t    *p;
 
-	for( p = fa->pdecals; p; p = p->pnext )
+	for( p = fa->pdecals; p && p != p->pnext; p = p->pnext )
 	{
 		pixel_t      *dest, *source;
 		vec4_t       textureU, textureV;
