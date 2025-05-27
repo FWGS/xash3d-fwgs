@@ -75,13 +75,8 @@ def configure(conf):
 		conf.fatal('Can\'t find libbacktrace submodule. Run `git submodule update --init --recursive`.')
 		return
 
-	if conf.env.DEST_SIZEOF_VOID_P == 8:
-		conf.define('BACKTRACE_ELF_SIZE', 64)
-		conf.define('BACKTRACE_XCOFF_SIZE', 64)
-	else:
-		conf.define('BACKTRACE_ELF_SIZE', 32)
-		conf.define('BACKTRACE_XCOFF_SIZE', 32)
-
+	conf.define('BACKTRACE_ELF_SIZE', 64 if conf.env.DEST_SIZEOF_VOID_P == 8 else 32)
+	conf.define('BACKTRACE_XCOFF_SIZE', 64 if conf.env.DEST_SIZEOF_VOID_P == 8 else 32)
 	conf.define('_ALL_SOURCE', 1)
 	conf.define('_GNU_SOURCE', 1)
 	conf.define('_POSIX_PTHREAD_SEMANTICS', 1)

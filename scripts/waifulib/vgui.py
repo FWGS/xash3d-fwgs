@@ -28,16 +28,12 @@ def options(opt):
 
 @conf
 def check_vgui(conf):
-	if conf.env.DEST_CPU == 'x86' or (conf.env.DEST_CPU == 'x86_64' and conf.env.DEST_SIZEOF_VOID_P == 4):
-		vgui_dest_cpu = 'x86' # link with 32-bit binary when crosscompiling to 32-bit
-	else: vgui_dest_cpu = conf.env.DEST_CPU
-
 	if not conf.options.ENABLE_UNSUPPORTED_VGUI:
 		conf.start_msg('Does this architecture support VGUI?')
 
-		if vgui_dest_cpu != 'x86':
+		if conf.env.DEST_CPU != 'x86':
 			conf.end_msg('no')
-			Logs.warn('vgui is not supported on this CPU: ' + str(vgui_dest_cpu))
+			Logs.warn('vgui is not supported on this CPU: ' + str(conf.env.DEST_CPU))
 			return False
 		else: conf.end_msg('yes')
 
@@ -64,25 +60,25 @@ def check_vgui(conf):
 	if conf.env.DEST_OS == 'win32':
 		conf.env.LIB_VGUI = ['vgui']
 		libpath = os.path.join(libpath, 'win32_vc6')
-		if vgui_dest_cpu != 'x86':
+		if conf.env.DEST_CPU != 'x86':
 			# for 32-bit x86 it's expected to be under win32_vc6
 			# for others, it's expected to be under win32_vc6 subdirectory matching CPU arch (x86_64 for 64-bit CPUs)
-			libpath = os.path.join(libpath, vgui_dest_cpu)
+			libpath = os.path.join(libpath, conf.env.DEST_CPU)
 		conf.env.LIBPATH_VGUI = [libpath]
 	elif conf.env.DEST_OS == 'linux':
 		conf.env.LIB_VGUI = [':vgui.so']
-		if vgui_dest_cpu != 'x86':
-			libpath = os.path.join(libpath, vgui_dest_cpu)
+		if conf.env.DEST_CPU != 'x86':
+			libpath = os.path.join(libpath, conf.env.DEST_CPU)
 		conf.env.LIBPATH_VGUI = [libpath]
 	elif conf.env.DEST_OS == 'darwin':
-		if vgui_dest_cpu != 'x86':
-			conf.env.LDFLAGS_VGUI = [os.path.join(libpath, vgui_dest_cpu, 'vgui.dylib')]
+		if conf.env.DEST_CPU != 'x86':
+			conf.env.LDFLAGS_VGUI = [os.path.join(libpath, conf.env.DEST_CPU, 'vgui.dylib')]
 		else:
 			conf.env.LDFLAGS_VGUI = [os.path.join(libpath, 'vgui.dylib')]
 	else:
 		# TODO: figure out what to do here
 		conf.env.LIB_VGUI = ['vgui']
-		conf.env.LIBPATH_VGUI = [os.path.join(libpath, conf.env.DEST_OS, vgui_dest_cpu)]
+		conf.env.LIBPATH_VGUI = [os.path.join(libpath, conf.env.DEST_OS, conf.env.DEST_CPU)]
 
 	conf.env.INCLUDES_VGUI = [os.path.abspath(os.path.join(vgui_dev, 'include'))]
 
