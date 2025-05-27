@@ -133,7 +133,6 @@ typedef struct
 	int       version;		// model version
 	qboolean  isworld;
 	qboolean  isbsp30ext;
-	qboolean  need_clipnode_remap; // try to fit 32-bit clipnodes into 16-bit types
 } dbspmodel_t;
 
 typedef struct
@@ -1735,9 +1734,19 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 Mod_SetupHull
 =================
 */
-static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hullnum, model_t *world )
+static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, poolhandle_t mempool, int headnode, int hullnum )
 {
-	hull_t *hull = &mod->hulls[hullnum];
+	hull_t	*hull = &mod->hulls[hullnum];
+
+	// assume no hull
+	hull->firstclipnode = hull->lastclipnode = 0;
+	hull->planes = NULL; // hull is missed
+
+	if(( headnode == -1 ) || ( hullnum != 1 && headnode == 0 ))
+		return; // hull missed
+
+	if( headnode >= mod->numclipnodes )
+		return;	// ZHLT weird empty hulls
 
 	switch( hullnum )
 	{
@@ -1761,74 +1770,16 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 	if( VectorIsNull( hull->clip_mins ) && VectorIsNull( hull->clip_maxs ))
 		return;	// no hull specified
 
-	// assume no hull
-	hull->firstclipnode = hull->lastclipnode = 0;
-	hull->planes = NULL; // hull is missed
-
-	if( headnode >= mod->numclipnodes )
-		return;	// ZHLT weird empty hulls
-
-	// take a simpler route if we don't need clipnodes remapping
-	if( !bmod->need_clipnode_remap )
-	{
-		hull->planes = mod->planes;
-
-		// some map "optimizers" (you know who you are!) put -1 here
-		hull->firstclipnode = Q_max( 0, headnode );
-		hull->lastclipnode = mod->numclipnodes - 1;
-
-		// only allocate clipnodes array for the base model, only for first hull
-		if( mod == world && hullnum == 1 )
-		{
-			int i;
-
-			if( bmod->version == QBSP2_VERSION )
-			{
-				hull->clipnodes32 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes32 ) * mod->numclipnodes );
-
-				for( i = 0; i < mod->numclipnodes; i++ )
-				{
-					hull->clipnodes32[i].planenum = bmod->clipnodes_out[i].planenum;
-					hull->clipnodes32[i].children[0] = bmod->clipnodes_out[i].children[0];
-					hull->clipnodes32[i].children[1] = bmod->clipnodes_out[i].children[1];
-				}
-			}
-			else
-			{
-				hull->clipnodes16 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes16 ) * mod->numclipnodes );
-
-				for( i = 0; i < mod->numclipnodes; i++ )
-				{
-					hull->clipnodes16[i].planenum = bmod->clipnodes_out[i].planenum;
-					hull->clipnodes16[i].children[0] = bmod->clipnodes_out[i].children[0];
-					hull->clipnodes16[i].children[1] = bmod->clipnodes_out[i].children[1];
-				}
-			}
-		}
-		else
-		{
-			if( bmod->version == QBSP2_VERSION )
-				hull->clipnodes32 = world->hulls[1].clipnodes32;
-			else
-				hull->clipnodes16 = world->hulls[1].clipnodes16;
-		}
-
-		return;
-	}
-
-	if(( headnode == -1 ) || ( hullnum != 1 && headnode == 0 ))
-		return; // hull missed
-
 	// fit array to real count
 	if( bmod->version == QBSP2_VERSION )
 	{
 		CountDClipNodes_r( bmod->clipnodes_out, hull, headnode, MAX_MAP_CLIPNODES_BSP2 );
-		hull->clipnodes32 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes32 ) * hull->lastclipnode );
+		hull->clipnodes32 = Mem_Malloc( mempool, sizeof( *hull->clipnodes32 ) * hull->lastclipnode );
 	}
 	else
 	{
 		CountDClipNodes_r( bmod->clipnodes_out, hull, headnode, MAX_MAP_CLIPNODES_HLBSP );
-		hull->clipnodes16 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes16 ) * hull->lastclipnode );
+		hull->clipnodes16 = Mem_Malloc( mempool, sizeof( *hull->clipnodes16 ) * hull->lastclipnode );
 	}
 
 	hull->planes = mod->planes; // share planes
@@ -1913,19 +1864,28 @@ for embedded submodels
 */
 static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 {
-	const qboolean colored = FBitSet( mod->flags, MODEL_COLORED_LIGHTING ) ? true : false;
-	const qboolean qbsp2 = FBitSet( mod->flags, MODEL_QBSP2 ) ? true : false;
+	qboolean	colored = false;
+	qboolean	qbsp2 = false;
+	poolhandle_t mempool;
+	char	*ents;
+	dmodel_t 	*bm;
 	const char *name = mod->name;
-	model_t *world = mod; // submodels might want to share hulls
-	int	i;
+	int	i, j;
+
+	ents = mod->entities;
+	mempool = mod->mempool;
+	if( FBitSet( mod->flags, MODEL_COLORED_LIGHTING ))
+		colored = true;
+
+	if( FBitSet( mod->flags, MODEL_QBSP2 ))
+		qbsp2 = true;
 
 	mod->numframes = 2;	// regular and alternate animation
 
 	// set up the submodels
 	for( i = 0; i < mod->numsubmodels; i++ )
 	{
-		dmodel_t *bm = &mod->submodels[i];
-		int j;
+		bm = &mod->submodels[i];
 
 		// hull 0 is just shared across all bmodels
 		mod->hulls[0].firstclipnode = bm->headnode[0];
@@ -1939,7 +1899,7 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 
 		// but hulls1-3 is build individually for a each given submodel
 		for( j = 1; j < MAX_MAP_HULLS; j++ )
-			Mod_SetupHull( bmod, mod, bm->headnode[j], j, world );
+			Mod_SetupHull( bmod, mod, mempool, bm->headnode[j], j );
 
 		mod->firstmodelsurface = bm->firstface;
 		mod->nummodelsurfaces = bm->numfaces;
@@ -1960,7 +1920,7 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 			char temp[MAX_VA_STRING];
 
 			Q_snprintf( temp, sizeof( temp ), "*%i", i );
-			Mod_FindModelOrigin( world->entities, temp, bm->origin );
+			Mod_FindModelOrigin( ents, temp, bm->origin );
 
 			// mark models that have origin brushes
 			if( !VectorIsNull( bm->origin ))
@@ -3487,12 +3447,7 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 
 	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->isbsp30ext && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
 	{
-		dclipnode32_t *in = bmod->clipnodes32;
-
-		// bsp30ext allows for extended total amount of clipnodes, but the limit is still 16-bit per submodel
-		// therefore we need to remap them
-		if( bmod->version == HLBSP_VERSION )
-			bmod->need_clipnode_remap = true;
+		dclipnode32_t	*in = bmod->clipnodes32;
 
 		for( i = 0; i < bmod->numclipnodes; i++, out++, in++ )
 		{
