@@ -133,7 +133,6 @@ typedef struct
 	int       version;		// model version
 	qboolean  isworld;
 	qboolean  isbsp30ext;
-	qboolean  need_clipnode_remap; // try to fit 32-bit clipnodes into 16-bit types
 } dbspmodel_t;
 
 typedef struct
@@ -1768,8 +1767,10 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 	if( headnode >= mod->numclipnodes )
 		return;	// ZHLT weird empty hulls
 
+	// bsp30ext allows for extended total amount of clipnodes, but the limit is still 16-bit per submodel
+	// therefore we need to remap them
 	// take a simpler route if we don't need clipnodes remapping
-	if( !bmod->need_clipnode_remap )
+	if( !bmod->isbsp30ext )
 	{
 		hull->planes = mod->planes;
 
@@ -3488,11 +3489,6 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->isbsp30ext && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
 	{
 		dclipnode32_t *in = bmod->clipnodes32;
-
-		// bsp30ext allows for extended total amount of clipnodes, but the limit is still 16-bit per submodel
-		// therefore we need to remap them
-		if( bmod->version == HLBSP_VERSION )
-			bmod->need_clipnode_remap = true;
 
 		for( i = 0; i < bmod->numclipnodes; i++, out++, in++ )
 		{
