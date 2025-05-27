@@ -128,7 +128,7 @@ REFDLLS = [
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs subproject cmake')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs subproject')
 
 	grp = opt.add_option_group('Common options')
 
@@ -225,7 +225,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake force_32bit')
+	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit')
 
 	if conf.env.MSVC_TARGETS[0] == 'amd64_x86' or conf.env.MSVC_TARGETS[0] == 'x86':
 		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
