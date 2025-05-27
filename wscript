@@ -249,7 +249,6 @@ def configure(conf):
 		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
-		conf.options.NO_ASYNC_RESOLVE = True
 		enforce_pic = False
 	elif conf.env.DEST_OS == 'nswitch':
 		conf.options.NO_VGUI          = True
