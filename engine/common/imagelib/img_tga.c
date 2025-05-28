@@ -268,8 +268,8 @@ qboolean Image_SaveTGA( const char *name, rgbdata_t *pix )
 	// prepare header
 	targa_header.id_length = sizeof( comment ) - 1; // tga comment length
 	targa_header.image_type = 2; // uncompressed type
-	targa_header.width = pix->width;
-	targa_header.height = pix->height;
+	targa_header.width = LittleShort(pix->width);
+	targa_header.height = LittleShort(pix->height);
 
 	if( pix->flags & IMAGE_HAS_ALPHA )
 	{
