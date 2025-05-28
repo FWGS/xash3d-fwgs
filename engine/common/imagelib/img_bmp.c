@@ -41,6 +41,22 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 
 	buf_p = (byte *)buffer;
 	memcpy( &bhdr, buf_p, sizeof( bmp_t ));
+
+	LittleLongSW(bhdr.fileSize);
+	LittleLongSW(bhdr.reserved0);
+	LittleLongSW(bhdr.bitmapDataOffset);
+	LittleLongSW(bhdr.bitmapHeaderSize);
+	LittleLongSW(bhdr.width);
+	LittleLongSW(bhdr.height);
+	LittleShortSW(bhdr.planes);
+	LittleShortSW(bhdr.bitsPerPixel);
+	LittleLongSW(bhdr.compression);
+	LittleLongSW(bhdr.bitmapDataSize);
+	LittleLongSW(bhdr.hRes);
+	LittleLongSW(bhdr.vRes);
+	LittleLongSW(bhdr.colors);
+	LittleLongSW(bhdr.importantColors);
+
 	buf_p += BI_FILE_HEADER_SIZE + bhdr.bitmapHeaderSize;
 
 	// bogus file header check
@@ -341,7 +357,7 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	dword		biTrueWidth;
 	int		pixel_size;
 	int		i, x, y;
-	bmp_t	hdr;
+	bmp_t	hdr, swapped_hdr;
 
 	if( FS_FileExists( name, false ) && !Image_CheckFlag( IL_ALLOW_OVERWRITE ) )
 		return false; // already existed
@@ -396,7 +412,23 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	hdr.colors = ( pixel_size == 1 ) ? 256 : 0;
 	hdr.importantColors = 0;
 
-	FS_Write( pfile, &hdr, sizeof( bmp_t ));
+	memcpy(&swapped_hdr, &hdr, sizeof(bmp_t));
+	LittleLongSW(swapped_hdr.fileSize);
+	LittleLongSW(swapped_hdr.reserved0);
+	LittleLongSW(swapped_hdr.bitmapDataOffset);
+	LittleLongSW(swapped_hdr.bitmapHeaderSize);
+	LittleLongSW(swapped_hdr.width);
+	LittleLongSW(swapped_hdr.height);
+	LittleShortSW(swapped_hdr.planes);
+	LittleShortSW(swapped_hdr.bitsPerPixel);
+	LittleLongSW(swapped_hdr.compression);
+	LittleLongSW(swapped_hdr.bitmapDataSize);
+	LittleLongSW(swapped_hdr.hRes);
+	LittleLongSW(swapped_hdr.vRes);
+	LittleLongSW(swapped_hdr.colors);
+	LittleLongSW(swapped_hdr.importantColors);
+
+	FS_Write( pfile, &swapped_hdr, sizeof( bmp_t ));
 
 	pbBmpBits = Mem_Malloc( host.imagepool, cbBmpBits );
 
