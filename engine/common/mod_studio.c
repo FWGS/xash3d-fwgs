@@ -833,8 +833,6 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 
 	if( !buffer ) return NULL;
 
-	printf("LoadHeader: %s\n", mod->name);
-
 	pin = (byte *)buffer;
 	phdr = (studiohdr_t *)pin;
 	LittleLongSW(phdr->ident);
@@ -922,7 +920,6 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, const void *buffer )
 		}
 	}
 
-	printf("numseq: %d\n", phdr->numseq);
 	for (int i = 0; i < phdr->numseq; i++) {
 		mstudioevent_t *pevent;
 		mstudioanim_t *panim;
