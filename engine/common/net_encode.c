@@ -742,6 +742,31 @@ static qboolean Delta_ParseField( char **delta_script, const delta_info_t *dt, d
 			pField->flags |= DT_SIGNED;
 	}
 
+	// validate the sizes declared by delta.lst
+	if (pField->size == 1 && !FBitSet(pField->flags, DT_BYTE|DT_STRING))
+	{
+		// should be DT_BYTE, save DT_SIGNED and clear everything else
+		qboolean bSigned = FBitSet( pField->flags, DT_SIGNED );
+		Con_DPrintf(S_WARN "%s: %s field type is incorrect, expected 'DT_BYTE'\n", __func__, pField->name);
+		pField->flags = DT_BYTE | (bSigned ? DT_SIGNED : 0);
+	}
+
+	if (pField->size == 2 && !FBitSet(pField->flags, DT_SHORT|DT_STRING))
+	{
+		// should be DT_SHORT, save DT_SIGNED and clear everything else
+		qboolean bSigned = FBitSet( pField->flags, DT_SIGNED );
+		Con_DPrintf(S_WARN "%s: %s field type is incorrect, expected 'DT_SHORT'\n", __func__, pField->name);
+		pField->flags = DT_SHORT | (bSigned ? DT_SIGNED : 0);
+	}
+
+	if (pField->size == 4 && !FBitSet(pField->flags, DT_INTEGER|DT_FLOAT|DT_ANGLE|DT_TIMEWINDOW_8|DT_TIMEWINDOW_BIG|DT_STRING))
+	{
+		// should be DT_INTEGER or another 4-byte type, save DT_SIGNED and clear everything else
+		qboolean bSigned = FBitSet( pField->flags, DT_SIGNED );
+		Con_DPrintf(S_WARN "%s: %s field type is incorrect, expected 'DT_INTEGER|DT_FLOAT|DT_ANGLE|DT_TIMEWINDOW_8|DT_TIMEWINDOW_BIG'\n", __func__, pField->name);
+		pField->flags = DT_INTEGER | (bSigned ? DT_SIGNED : 0);
+	}
+
 	if( Q_strcmp( token, "," ))
 	{
 		Con_DPrintf( S_ERROR "%s: expected ',', found '%s' instead\n", __func__, token );
