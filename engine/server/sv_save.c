@@ -1097,10 +1097,12 @@ static void EntityPatchRead( SAVERESTOREDATA *pSaveData, const char *level )
 
 	// patch count
 	FS_Read( pFile, &size, sizeof( int ));
+	LittleLongSW(size);
 
 	for( i = 0; i < size; i++ )
 	{
 		FS_Read( pFile, &entityId, sizeof( int ));
+		LittleLongSW(entityId);
 		pSaveData->pTable[entityId].flags = FENTTABLE_REMOVED;
 	}
 
