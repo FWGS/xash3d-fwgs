@@ -1714,6 +1714,56 @@ static void APIENTRY stub( void )
 	*((void **)&pgl ## name) = (void *)stub; \
 }
 
+#if XASH_EMSCRIPTEN
+static void GL2_PolygonMode( GLenum face, GLenum mode )
+{
+}
+
+static void GL2_PolygonOffset( GLfloat factor, GLfloat units )
+{
+}
+
+static void GL2_ShadeModel( GLenum mode )
+{
+}
+
+static void GL2_PointSize( GLfloat size )
+{
+}
+
+static void GL2_Normal3fv( const GLfloat *v )
+{
+}
+
+static void GL2_Hint( GLenum target, GLenum mode )
+{
+}
+
+static void GL2_Scalef( GLfloat x, GLfloat y, GLfloat z )
+{
+}
+
+static void GL2_Translatef( GLfloat x, GLfloat y, GLfloat z )
+{
+}
+
+static void GL2_TexEnvi( GLenum target, GLenum pname, GLint param )
+{
+}
+
+static void GL2_TexEnvf( GLenum target, GLenum pname, GLfloat param )
+{
+}
+
+static void GL2_Fogi( GLenum pname, GLint param )
+{
+}
+
+static void GL2_DrawBuffer( GLenum mode )
+{
+}
+#endif // XASH_EMSCRIPTEN
+
 void GL2_ShimInstall( void )
 {
 	GL2_OVERRIDE_PTR( Vertex2f )
@@ -1758,6 +1808,20 @@ void GL2_ShimInstall( void )
 		GL2_OVERRIDE_PTR_B( TexImage2D )
 		GL2_OVERRIDE_PTR_B( TexParameteri )
 	}
+#if XASH_EMSCRIPTEN
+	GL2_OVERRIDE_PTR( Normal3fv )
+	GL2_OVERRIDE_PTR( Hint )
+	GL2_OVERRIDE_PTR( Scalef )
+	GL2_OVERRIDE_PTR( Translatef )
+	GL2_OVERRIDE_PTR( TexEnvi )
+	GL2_OVERRIDE_PTR( TexEnvf )
+	GL2_OVERRIDE_PTR( Fogi )
+	GL2_OVERRIDE_PTR( ShadeModel )
+	GL2_OVERRIDE_PTR( PolygonMode )
+	GL2_OVERRIDE_PTR( PointSize )
+	GL2_OVERRIDE_PTR( PolygonOffset )
+	GL2_OVERRIDE_PTR( DrawBuffer )
+#endif // XASH_EMSCRIPTEN
 	GL2_OVERRIDE_PTR_B( IsEnabled )
 	GL2_OVERRIDE_PTR_B( DrawRangeElements )
 	GL2_OVERRIDE_PTR_B( DrawElements )

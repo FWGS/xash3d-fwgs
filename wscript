@@ -123,7 +123,7 @@ REFDLLS = [
 	RefDll('gles1', False, 'NANOGL'),
 	RefDll('gles2', False, 'GLWES'),
 	RefDll('gl4es', False),
-	RefDll('gles3compat', False),
+	RefDll('gles3compat', False, 'GLES3COMPAT'),
 	RefDll('null', False),
 ]
 
@@ -191,6 +191,9 @@ def options(opt):
 	grp.add_option('--enable-fuzzer', action = 'store_true', dest = 'ENABLE_FUZZER', default = False,
 		help = 'enable building libFuzzer runner [default: %(default)s]' )
 
+	grp.add_option('--enable-emscripten', action = 'store_true', dest = 'ENABLE_EMSCRIPTEN', default = False,
+		help = 'enable emscripten support [default: %(default)s]' )
+
 	for i in SUBDIRS:
 		if not i.is_exists(opt):
 			continue
@@ -251,6 +254,10 @@ def configure(conf):
 		conf.options.BUILD_BUNDLED_DEPS = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
+
+	if conf.options.ENABLE_EMSCRIPTEN:
+		conf.options.GLES3COMPAT	      = True
+		conf.options.GL                   = False
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
