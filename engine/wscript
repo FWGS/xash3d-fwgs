@@ -224,7 +224,7 @@ def build(bld):
 
 		f(source = source,
 			target = 'index.html',
-        	cflags=['-g', '-s', 'MAIN_MODULE=1', '-s', 'STACK_SIZE=419430400',
+        	cflags=['-g', '-fvisibility=hidden', '-s', 'MAIN_MODULE=1', '-s', 'STACK_SIZE=419430400',
         				'-s', 'SAFE_HEAP=1',
         				'-s', 'ASSERTIONS=2',
         				'-s', 'STACK_OVERFLOW_CHECK=2',
