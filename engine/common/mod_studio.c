@@ -420,6 +420,8 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 	if( !Mod_CacheCheck(( cache_user_t *)&( paSequences[pseqdesc->seqgroup] )))
 	{
 		string	filepath, modelname, modelpath;
+		mstudioanim_t *panim;
+		mstudioseqdesc_t *pseqdesc2 = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex);
 
 		COM_FileBase( m_pSubModel->name, modelname, sizeof( modelname ));
 		COM_ExtractFilePath( m_pSubModel->name, modelpath );
@@ -434,7 +436,21 @@ void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstud
 
 		Con_Printf( "loading: %s\n", filepath );
 
-		// TILES: we should probably swap this i think, haven't noticed any problems though
+		// all anim offsets in this seqgroup *must* be swapped, which is a bit evil
+
+		for (int i = 0; i < m_pStudioHeader->numseq; i++) {
+			if (pseqdesc2[i].seqgroup == pseqdesc->seqgroup) {
+				panim = (mstudioanim_t *)(buf + pseqdesc2[i].animindex);
+				for (int j = 0; j < pseqdesc2[i].numblends; j++) {
+					for (int k = 0; k < m_pStudioHeader->numbones; k++) {
+						for (int l = 0; l < 6; l++) {
+							LittleShortSW(panim->offset[l]);
+						}
+						panim++;
+					}
+				}
+			}
+		}
 
 		paSequences[pseqdesc->seqgroup].data = Mem_Calloc( com_studiocache, filesize );
 		memcpy( paSequences[pseqdesc->seqgroup].data, buf, filesize );
