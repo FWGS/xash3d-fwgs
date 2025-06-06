@@ -302,7 +302,7 @@ static void R_Clear( int bitMask )
 		pglClearColor( 0.0f, 1.0f, 0.0f, 1.0f ); // green background (Valve rules)
 	else pglClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
 
-	bits = GL_DEPTH_BUFFER_BIT;
+	bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 
 	if( glState.stencilEnabled )
 		bits |= GL_STENCIL_BUFFER_BIT;
@@ -358,6 +358,38 @@ void R_SetupFrustum( void )
 	// build the transformation matrix for the given view angles
 	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
 
+	// Use VR camera only when not zoomed
+	if (gEngfuncs.pfnGetCvarFloat("vr_fov_zoom") < 1.1f)
+	{
+		// Share player transform with the client
+		gEngfuncs.Cvar_SetValue("vr_player_dir_x", RI.vforward[0]);
+		gEngfuncs.Cvar_SetValue("vr_player_dir_y", RI.vforward[1]);
+		gEngfuncs.Cvar_SetValue("vr_player_dir_z", RI.vforward[2]);
+		gEngfuncs.Cvar_SetValue("vr_player_pos_x", RI.vieworg[0]);
+		gEngfuncs.Cvar_SetValue("vr_player_pos_y", RI.vieworg[1]);
+		gEngfuncs.Cvar_SetValue("vr_player_pos_z", RI.vieworg[2]);
+		gEngfuncs.Cvar_SetValue("vr_player_pitch", RI.viewangles[0]);
+		gEngfuncs.Cvar_SetValue("vr_player_yaw", RI.viewangles[1]);
+
+		// VR camera
+		RI.viewangles[0] = gEngfuncs.pfnGetCvarFloat("vr_hmd_pitch");
+		RI.viewangles[1] = gEngfuncs.pfnGetCvarFloat("vr_hmd_yaw");
+		RI.viewangles[2] = gEngfuncs.pfnGetCvarFloat("vr_hmd_roll");
+
+		// Update vectors to fix culling
+		float pitch = -DEG2RAD(RI.viewangles[0]);
+		float yaw = -DEG2RAD(RI.viewangles[1]);
+		RI.vforward[0] = cos(yaw) * cos(pitch);
+		RI.vforward[1] = -sin(yaw) * cos(pitch);
+		RI.vforward[2] = sin(pitch);
+		RI.vright[0] = sin(yaw) * cos(pitch);
+		RI.vright[1] = cos(yaw) * cos(pitch);
+		RI.vright[2] = sin(pitch);
+		CrossProduct(RI.vforward, RI.vright, RI.vup);
+	} else {
+		RI.viewangles[2] = gEngfuncs.pfnGetCvarFloat("vr_hmd_roll");
+	}
+
 	if( !r_lockfrustum.value )
 	{
 		VectorCopy( RI.vieworg, RI.cullorigin );
@@ -411,10 +443,9 @@ static void R_SetupModelviewMatrix( matrix4x4 m )
 	Matrix4x4_CreateModelview( m );
 	Matrix4x4_ConcatTranslate(m, 0, gEngfuncs.pfnGetCvarFloat("vr_worldscale") * (VR_IPD / 2.0f) *
 											((gEngfuncs.pfnGetCvarFloat("vr_stereo_side") - 0.5f) * 2.0f), 0);
-	gEngfuncs.Cvar_SetValue("vr_player_pitch", RI.viewangles[0]);
 
 	float offset = gEngfuncs.pfnGetCvarFloat("vr_hmd_offset") * gEngfuncs.pfnGetCvarFloat("vr_worldscale");
-	Matrix4x4_ConcatRotate( m, -RI.viewangles[2] - gEngfuncs.pfnGetCvarFloat("vr_hmd_roll"), 1, 0, 0 );
+	Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
 	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] - offset );

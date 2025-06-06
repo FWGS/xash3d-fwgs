@@ -47,6 +47,8 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 
 #if !XASH_WIN32
 #include <stddef.h> // size_t
+#include <stdbool.h>
+
 #else
 #include <sys/types.h> // off_t
 #endif
@@ -564,6 +566,18 @@ void Host_ValidateEngineFeatures( uint32_t mask, uint32_t features );
 void Host_Frame( double time );
 void Host_Credits( void );
 void Host_ExitInMain( void );
+
+void Host_VRInit( void );
+void Host_VRInput( void );
+void Host_VRButtonMap( int button, int currentButtons, int lastButtons, const char* action );
+void Host_VRButtonMapping( int lbuttons, int rbuttons );
+bool Host_VRConfig();
+void Host_VRCursor( bool cursorActive, float x, float y, vec2_t cursor );
+bool Host_VRMenuInput( bool cursorActive, bool gameMode, int lbuttons, int rbuttons, vec2_t cursor );
+void Host_VRMovement( float hmdAltitude, vec3_t hmdPosition, float thumbstickX, float thumbstickY, float yaw );
+void Host_VRRotations( bool zoomed, vec3_t hmdAngles, vec3_t weaponAngles, float thumbstickX );
+void Host_VRWeaponChange( float thumbstickY );
+void Host_VRWeaponCrosshair();
 
 //
 // host_state.c
