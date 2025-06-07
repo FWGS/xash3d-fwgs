@@ -140,10 +140,10 @@ static void SDLash_KeyEvent( SDL_KeyboardEvent key )
 		case SDL_SCANCODE_PAUSE: keynum = K_PAUSE; break;
 		case SDL_SCANCODE_SCROLLLOCK: keynum = K_SCROLLLOCK; break;
 		case SDL_SCANCODE_APPLICATION: keynum = K_WIN; break; // (compose key) ???
+		case SDL_SCANCODE_VOLUMEUP: keynum = K_AUX32; break;
+		case SDL_SCANCODE_VOLUMEDOWN: keynum = K_AUX31; break;
 		// don't console spam on known functional buttons, not used in engine
 		case SDL_SCANCODE_MUTE:
-		case SDL_SCANCODE_VOLUMEUP:
-		case SDL_SCANCODE_VOLUMEDOWN:
 		case SDL_SCANCODE_BRIGHTNESSDOWN:
 		case SDL_SCANCODE_BRIGHTNESSUP:
 		case SDL_SCANCODE_SELECT:
