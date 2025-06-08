@@ -1,60 +1,83 @@
-/***
-*
-*	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*
-*	This product contains software technology licensed from Id
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
-*	All Rights Reserved.
-*
-*   Use, distribution, and modification of this source code and/or resulting
-*   object code is restricted to non-commercial enhancements to products from
-*   Valve LLC.  All other use, distribution, or modification is prohibited
-*   without written permission from Valve LLC.
-*
-****/
+/*
+This is free and unencumbered software released into the public domain.
 
-#ifndef BEAMDEF_H
-#define BEAMDEF_H
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
 
-#define FBEAM_STARTENTITY		0x00000001
-#define FBEAM_ENDENTITY		0x00000002
-#define FBEAM_FADEIN		0x00000004
-#define FBEAM_FADEOUT		0x00000008
-#define FBEAM_SINENOISE		0x00000010
-#define FBEAM_SOLID			0x00000020
-#define FBEAM_SHADEIN		0x00000040
-#define FBEAM_SHADEOUT		0x00000080
-#define FBEAM_STARTVISIBLE		0x10000000 // Has this client actually seen this beam's start entity yet?
-#define FBEAM_ENDVISIBLE		0x20000000 // Has this client actually seen this beam's end entity yet?
-#define FBEAM_ISACTIVE		0x40000000
-#define FBEAM_FOREVER		0x80000000
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
 
-typedef struct beam_s BEAM;
-struct beam_s
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+*/
+
+#ifndef BEAM_DEF_H
+#define BEAM_DEF_H
+
+#include "xash3d_types.h"
+
+enum 
 {
-	BEAM		*next;
-	int		type;
-	int		flags;
-	vec3_t		source;
-	vec3_t		target;
-	vec3_t		delta;
-	float		t;		// 0 .. 1 over lifetime of beam
-	float		freq;
-	float		die;
-	float		width;
-	float		amplitude;
-	float		r, g, b;
-	float		brightness;
-	float		speed;
-	float		frameRate;
-	float		frame;
-	int		segments;
-	int		startEntity;
-	int		endEntity;
-	int		modelIndex;
-	int		frameCount;
-	struct model_s	*pFollowModel;
-	struct particle_s	*particles;
+    FBEAM_STARTENTITY = 1 << 0,
+    FBEAM_ENDENTITY = 1 << 1,
+    FBEAM_FADEIN = 1 << 2,
+    FBEAM_FADEOUT = 1<< 3,
+    FBEAM_SINENOISE	= 1 << 4,
+    FBEAM_SOLID	= 1 << 5,
+    FBEAM_SHADEIN = 1 << 6,
+    FBEAM_SHADEOUT = 1 << 7,
+    FBEAM_STARTVISIBLE = 1 << 28,
+    FBEAM_ENDVISIBLE = 1 << 29,
+    FBEAM_ISACTIVE = 1 << 30,
+    FBEAM_FOREVER = 1 << 31
 };
 
-#endif//BEAMDEF_H
+typedef struct beam_s BEAM;
+
+struct beam_s {
+	BEAM *                     next;                 /*     0     4 */
+	int                        type;                 /*     4     4 */
+	int                        flags;                /*     8     4 */
+	vec3_t                     source;               /*    12    12 */
+	vec3_t                     target;               /*    24    12 */
+	vec3_t                     delta;                /*    36    12 */
+	float                      t;                    /*    48     4 */
+	float                      freq;                 /*    52     4 */
+	float                      die;                  /*    56     4 */
+	float                      width;                /*    60     4 */
+	/* --- cacheline 1 boundary (64 bytes) --- */
+	float                      amplitude;            /*    64     4 */
+	float                      r;                    /*    68     4 */
+	float                      g;                    /*    72     4 */
+	float                      b;                    /*    76     4 */
+	float                      brightness;           /*    80     4 */
+	float                      speed;                /*    84     4 */
+	float                      frameRate;            /*    88     4 */
+	float                      frame;                /*    92     4 */
+	int                        segments;             /*    96     4 */
+	int                        startEntity;          /*   100     4 */
+	int                        endEntity;            /*   104     4 */
+	int                        modelIndex;           /*   108     4 */
+	int                        frameCount;           /*   112     4 */
+	struct model_s *           pFollowModel;         /*   116     4 */
+	struct particle_s *        particles;            /*   120     4 */
+
+	/* size: 124, cachelines: 2, members: 25 */
+	/* last cacheline: 60 bytes */
+};
+
+#endif
