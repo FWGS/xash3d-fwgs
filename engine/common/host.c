@@ -239,9 +239,10 @@ static void Sys_PrintUsage( const char *exename )
 	Sys_Quit( NULL );
 }
 
-CVAR_DEFINE_AUTO( vr_fov_zoom, "0", FCVAR_MOVEVARS, "Zoom of the field of view" );
+CVAR_DEFINE_AUTO( vr_camera_x, "0", FCVAR_MOVEVARS, "Offset x of the camera" );
+CVAR_DEFINE_AUTO( vr_camera_y, "0", FCVAR_MOVEVARS, "Offset y of the camera" );
+CVAR_DEFINE_AUTO( vr_camera_z, "0", FCVAR_MOVEVARS, "Offset z of the camera" );
 CVAR_DEFINE_AUTO( vr_gamemode, "0", FCVAR_MOVEVARS, "Are we in the 3D VR mode?" );
-CVAR_DEFINE_AUTO( vr_hmd_offset, "0", FCVAR_MOVEVARS, "HMD height" );
 CVAR_DEFINE_AUTO( vr_hmd_pitch, "0", FCVAR_MOVEVARS, "Camera pitch angle" );
 CVAR_DEFINE_AUTO( vr_hmd_yaw, "0", FCVAR_MOVEVARS, "Camera yaw angle" );
 CVAR_DEFINE_AUTO( vr_hmd_roll, "0", FCVAR_MOVEVARS, "Camera roll angle" );
@@ -254,9 +255,14 @@ CVAR_DEFINE_AUTO( vr_player_pos_z, "0", FCVAR_MOVEVARS, "Position z of the playe
 CVAR_DEFINE_AUTO( vr_player_pitch, "0", FCVAR_MOVEVARS, "Pinch angle of the player" );
 CVAR_DEFINE_AUTO( vr_player_yaw, "0", FCVAR_MOVEVARS, "Yaw angle of the player" );
 CVAR_DEFINE_AUTO( vr_stereo_side, "0", FCVAR_MOVEVARS, "Eye being drawn" );
-CVAR_DEFINE_AUTO( vr_worldscale, "40", FCVAR_MOVEVARS, "Sets the world scale for stereo separation" );
+CVAR_DEFINE_AUTO( vr_weapon_roll, "0", FCVAR_MOVEVARS, "Weapon roll angle" );
+CVAR_DEFINE_AUTO( vr_weapon_x, "0", FCVAR_MOVEVARS, "Weapon position x" );
+CVAR_DEFINE_AUTO( vr_weapon_y, "0", FCVAR_MOVEVARS, "Weapon position y" );
+CVAR_DEFINE_AUTO( vr_weapon_z, "0", FCVAR_MOVEVARS, "Weapon position z" );
+CVAR_DEFINE_AUTO( vr_worldscale, "30", FCVAR_MOVEVARS, "Sets the world scale for stereo separation" );
 CVAR_DEFINE_AUTO( vr_xhair_x, "0", FCVAR_MOVEVARS, "Cross-hair 2d position x" );
 CVAR_DEFINE_AUTO( vr_xhair_y, "0", FCVAR_MOVEVARS, "Cross-hair 2d position y" );
+CVAR_DEFINE_AUTO( vr_zoomed, "0", FCVAR_MOVEVARS, "Flag if the scene zoomed" );
 
 static void Sys_PrintBugcompUsage( const char *exename )
 {
@@ -828,7 +834,7 @@ void Host_Frame( double time )
 	}
 	bool gameMode = !host.mouse_visible && cls.state == ca_active && cls.key_dest == key_game;
 	VR_SetConfig(VR_CONFIG_MODE, gameMode ? VR_MODE_STEREO_6DOF : VR_MODE_MONO_SCREEN);
-	Cvar_SetValue("vr_gamemode", gameMode ? 1 : 0);
+	Cvar_LazySet("vr_gamemode", gameMode ? 1 : 0);
 
 	double t1;
 
@@ -1470,19 +1476,12 @@ void Host_ShutdownWithReason( const char *reason )
 	Sys_CloseLog( reason );
 }
 
-
-void Cvar_LazySet(const char* name, float targetValue) {
-	float currentValue = Cvar_VariableValue(name);
-	if (fabs(currentValue - targetValue) > 0.01f) {
-		Cvar_SetValue(name, targetValue);
-	}
-}
-
 void Host_VRInit( void )
 {
-	Cvar_RegisterVariable( &vr_fov_zoom );
+	Cvar_RegisterVariable( &vr_camera_x );
+	Cvar_RegisterVariable( &vr_camera_y );
+	Cvar_RegisterVariable( &vr_camera_z );
 	Cvar_RegisterVariable( &vr_gamemode );
-	Cvar_RegisterVariable( &vr_hmd_offset );
 	Cvar_RegisterVariable( &vr_hmd_pitch );
 	Cvar_RegisterVariable( &vr_hmd_yaw );
 	Cvar_RegisterVariable( &vr_hmd_roll );
@@ -1495,36 +1494,45 @@ void Host_VRInit( void )
 	Cvar_RegisterVariable( &vr_player_pitch );
 	Cvar_RegisterVariable( &vr_player_yaw );
 	Cvar_RegisterVariable( &vr_stereo_side );
+	Cvar_RegisterVariable( &vr_weapon_roll );
+	Cvar_RegisterVariable( &vr_weapon_x );
+	Cvar_RegisterVariable( &vr_weapon_y );
+	Cvar_RegisterVariable( &vr_weapon_z );
 	Cvar_RegisterVariable( &vr_worldscale );
 	Cvar_RegisterVariable( &vr_xhair_x );
 	Cvar_RegisterVariable( &vr_xhair_y );
+	Cvar_RegisterVariable( &vr_zoomed );
 }
 
 void Host_VRInput( void )
 {
 	// Get VR input
+	bool rightHanded = Cvar_VariableValue("cl_righthand") > 0;
+	int primaryController = rightHanded ? 1 : 0;
+	int secondaryController = rightHanded ? 0 : 1;
 	XrPosef hmd = VR_GetView(0);
-	XrPosef pose = IN_VRGetPose(1);
+	XrPosef pose = IN_VRGetPose(primaryController);
 	XrVector3f angles = XrQuaternionf_ToEulerAngles(pose.orientation);
-	bool cursorActive = IN_VRIsActive(1);
-	int lbuttons = IN_VRGetButtonState(0);
-	int rbuttons = IN_VRGetButtonState(1);
-	XrVector2f left = IN_VRGetJoystickState(0);
-	XrVector2f right = IN_VRGetJoystickState(1);
+	bool cursorActive = IN_VRIsActive(primaryController);
+	int lbuttons = IN_VRGetButtonState(secondaryController);
+	int rbuttons = IN_VRGetButtonState(primaryController);
+	XrVector2f left = IN_VRGetJoystickState(secondaryController);
+	XrVector2f right = IN_VRGetJoystickState(primaryController);
 
 	// Get euler angles
-	bool zoomed = Cvar_VariableValue("vr_fov_zoom") > 1.1f;
+	bool zoomed = Cvar_VariableValue("vr_zoomed") > 0;
 	XrVector3f euler = XrQuaternionf_ToEulerAngles(zoomed ? hmd.orientation : pose.orientation);
 	XrVector3f hmdEuler = XrQuaternionf_ToEulerAngles(hmd.orientation);
 	vec3_t hmdAngles = {hmdEuler.x, hmdEuler.y, hmdEuler.z};
 	vec3_t weaponAngles = {euler.x, euler.y, euler.z};
+	vec3_t weaponPosition = {pose.position.x, pose.position.y, pose.position.z};
 	vec3_t hmdPosition = {hmd.position.x, hmd.position.y, hmd.position.z};
 
 	// Menu control
 	vec2_t cursor = {};
 	bool gameMode = Host_VRConfig();
 	Host_VRCursor(cursorActive, angles.x, angles.y, cursor);
-	bool pressedInUI = Host_VRMenuInput(cursorActive, gameMode, lbuttons, rbuttons, cursor);
+	bool pressedInUI = Host_VRMenuInput(cursorActive, gameMode, !rightHanded, lbuttons, rbuttons, cursor);
 
 	// Do not pass button actions which started in UI
 	if (gameMode && pressedInUI) {
@@ -1535,11 +1543,11 @@ void Host_VRInput( void )
 	// In-game input
 	static float hmdAltitude = 0;
 	if (gameMode) {
-		Host_VRButtonMapping(lbuttons, rbuttons);
-		Host_VRMovement(hmdAltitude, hmdPosition, left.x, left.y, hmdAngles[YAW]);
-		Host_VRRotations(zoomed, hmdAngles, weaponAngles, right.x);
+		Host_VRButtonMapping(!rightHanded, lbuttons, rbuttons, left.x, left.y);
 		Host_VRWeaponChange(right.y);
 		Host_VRWeaponCrosshair();
+		Host_VRMovement(zoomed, hmdAltitude, hmdAngles, hmdPosition, weaponPosition);
+		Host_VRRotations(zoomed, hmdAngles, weaponAngles, right.x);
 	} else {
 		// Measure player when not in game mode
 		hmdAltitude = hmd.position.y;
@@ -1565,24 +1573,36 @@ void Host_VRButtonMap( int button, int currentButtons, int lastButtons, const ch
 	}
 }
 
-void Host_VRButtonMapping( int lbuttons, int rbuttons )
+void Host_VRButtonMapping( bool swapped, int lbuttons, int rbuttons, float thumbstickX, float thumbstickY )
 {
+	int leftPrimaryButton = swapped ? ovrButton_A : ovrButton_X;
+	int leftSecondaryButton = swapped ? ovrButton_B : ovrButton_Y;
+	int rightPrimaryButton = !swapped ? ovrButton_A : ovrButton_X;
+	int rightSecondaryButton = !swapped ? ovrButton_B : ovrButton_Y;
+
 	static int lastlbuttons = 0;
-	Host_VRButtonMap(ovrButton_X, lbuttons, lastlbuttons, "drop");
-	Host_VRButtonMap(ovrButton_Y, lbuttons, lastlbuttons, "impulse 201");
-	Host_VRButtonMap(ovrButton_Y, lbuttons, lastlbuttons, "nightvision");
+	Host_VRButtonMap(leftPrimaryButton, lbuttons, lastlbuttons, "drop");
+	Host_VRButtonMap(leftSecondaryButton, lbuttons, lastlbuttons, "impulse 201");
+	Host_VRButtonMap(leftSecondaryButton, lbuttons, lastlbuttons, "nightvision");
+	Host_VRButtonMap(leftSecondaryButton, lbuttons, lastlbuttons, "showscoreboard2 0.213333 0.835556 0.213333 0.835556 0 0 0 128");
+	Host_VRButtonMap(leftSecondaryButton, lastlbuttons, lbuttons, "hidescoreboard2");
 	Host_VRButtonMap(ovrButton_Trigger, lbuttons, lastlbuttons, "+use");
 	Host_VRButtonMap(ovrButton_Trigger, lbuttons, lastlbuttons, "buy");
 	Host_VRButtonMap(ovrButton_Joystick, lbuttons, lastlbuttons, "exec touch/cmd/cmd");
 	Host_VRButtonMap(ovrButton_GripTrigger, lbuttons, lastlbuttons, "+voicerecord");
 	lastlbuttons = lbuttons;
 	static int lastrbuttons = 0;
-	Host_VRButtonMap(ovrButton_A, rbuttons, lastrbuttons, "+duck");
-	Host_VRButtonMap(ovrButton_B, rbuttons, lastrbuttons, "+jump");
+	Host_VRButtonMap(rightPrimaryButton, rbuttons, lastrbuttons, "+duck");
+	Host_VRButtonMap(rightSecondaryButton, rbuttons, lastrbuttons, "+jump");
 	Host_VRButtonMap(ovrButton_Trigger, rbuttons, lastrbuttons, "+attack");
 	Host_VRButtonMap(ovrButton_Joystick, rbuttons, lastrbuttons, "+attack2");
 	Host_VRButtonMap(ovrButton_GripTrigger, rbuttons, lastrbuttons, "+reload");
 	lastrbuttons = rbuttons;
+
+	// Thumbstick movement
+	if (fabs(thumbstickX) < 0.15) thumbstickX = 0;
+	if (fabs(thumbstickY) < 0.15) thumbstickY = 0;
+	clgame.dllFuncs.pfnMoveEvent( thumbstickY, thumbstickX );
 }
 
 bool Host_VRConfig()
@@ -1624,7 +1644,7 @@ void Host_VRCursor( bool cursorActive, float x, float y, vec2_t cursor )
 
 extern bool sdl_keyboard_requested;
 
-bool Host_VRMenuInput( bool cursorActive, bool gameMode, int lbuttons, int rbuttons, vec2_t cursor )
+bool Host_VRMenuInput( bool cursorActive, bool gameMode, bool swapped, int lbuttons, int rbuttons, vec2_t cursor )
 {
 	// Deactivate temporary input when client restored focus
 	static struct timeval lastFocus;
@@ -1667,7 +1687,8 @@ bool Host_VRMenuInput( bool cursorActive, bool gameMode, int lbuttons, int rbutt
 	initialTouchY = cursor[1];
 
 	// Escape key
-	bool escape = lbuttons & ovrButton_Enter;
+	int buttons = swapped ? rbuttons : lbuttons;
+	bool escape = buttons & ovrButton_Enter;
 	static bool lastEscape = false;
 	if (escape && !lastEscape) {
 		Key_Event(K_ESCAPE, true);
@@ -1675,26 +1696,46 @@ bool Host_VRMenuInput( bool cursorActive, bool gameMode, int lbuttons, int rbutt
 	}
 	lastEscape = escape;
 
+	// Thumbstick close key
+	bool thumbstick = lbuttons & ovrButton_Joystick;
+	static bool lastThumbstick = false;
+	if (thumbstick && !lastThumbstick) {
+		Cbuf_AddText( "touch_setclientonly 0\n" );
+	}
+	lastThumbstick = thumbstick;
+
 	return pressedInUI;
 }
 
-void Host_VRMovement( float hmdAltitude, vec3_t hmdPosition, float thumbstickX, float thumbstickY, float yaw )
+void Host_VRMovement( bool zoomed, float hmdAltitude, vec3_t hmdAngles, vec3_t hmdPosition, vec3_t weaponPosition )
 {
-	//Cvar_SetValue("vr_hmd_offset",  hmdPosition[1] - hmdAltitude);
-	static float lastHmdX = 0;
-	static float lastHmdY = 0;
-	float s = sin(ToRadians(yaw));
-	float c = cos(ToRadians(yaw));
-	if (fabs(thumbstickX) < 0.15) thumbstickX = 0;
-	if (fabs(thumbstickY) < 0.15) thumbstickY = 0;
+	float yaw = DEG2RAD(hmdAngles[YAW]);
 	float scale = Cvar_VariableValue("vr_worldscale");
-	float hmdX = hmdPosition[0] * scale * c - hmdPosition[2] * scale * s;
-	float hmdY = hmdPosition[0] * scale * s + hmdPosition[2] * scale * c;
-	//left.x += hmdX - lastHmdX;
-	//left.y -= hmdY - lastHmdY;
-	lastHmdX = hmdX;
-	lastHmdY = hmdY;
-	clgame.dllFuncs.pfnMoveEvent( thumbstickY, thumbstickX );
+
+	// Recenter if player position changed way too much
+	vec3_t currentPosition;
+	static vec3_t lastPosition = {};
+	currentPosition[0] = Cvar_VariableValue("vr_player_pos_x");
+	currentPosition[1] = Cvar_VariableValue("vr_player_pos_y");
+	currentPosition[2] = Cvar_VariableValue("vr_player_pos_z");
+	if (VectorDistance(currentPosition, lastPosition) > scale) {
+		VR_Recenter(VR_GetEngine());
+	}
+	VectorCopy(currentPosition, lastPosition);
+
+	// Camera movement
+	float dx = hmdPosition[0] * scale;
+	float dz = hmdPosition[2] * scale;
+	Cvar_SetValue("vr_camera_x", zoomed ? 0 : dx * cos(yaw) - dz * sin(yaw));
+	Cvar_SetValue("vr_camera_y", zoomed ? 0 : dx * sin(yaw) + dz * cos(yaw));
+	Cvar_SetValue("vr_camera_z", zoomed ? 0 : (hmdPosition[1] - hmdAltitude) * scale);
+
+	// Weapon movement
+	dx = weaponPosition[0] * scale;
+	dz = weaponPosition[2] * scale;
+	Cvar_SetValue("vr_weapon_x", zoomed ? INT_MAX : dx * cos(yaw) - dz * sin(yaw));
+	Cvar_SetValue("vr_weapon_y", zoomed ? INT_MAX : dx * sin(yaw) + dz * cos(yaw));
+	Cvar_SetValue("vr_weapon_z", zoomed ? INT_MAX : (weaponPosition[1] - hmdAltitude) * scale);
 }
 
 void Host_VRRotations( bool zoomed, vec3_t hmdAngles, vec3_t weaponAngles, float thumbstickX )
@@ -1710,6 +1751,7 @@ void Host_VRRotations( bool zoomed, vec3_t hmdAngles, vec3_t weaponAngles, float
 	}
 	lastYaw = weaponAngles[YAW];
 	lastPitch = weaponAngles[PITCH];
+	Cvar_SetValue("vr_weapon_roll", weaponAngles[ROLL]);
 
 	// Snap turn
 	float snapTurnStep = 0;

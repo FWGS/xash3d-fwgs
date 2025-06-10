@@ -358,19 +358,19 @@ void R_SetupFrustum( void )
 	// build the transformation matrix for the given view angles
 	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
 
-	// Use VR camera only when not zoomed
-	if (gEngfuncs.pfnGetCvarFloat("vr_fov_zoom") < 1.1f)
-	{
-		// Share player transform with the client
-		gEngfuncs.Cvar_SetValue("vr_player_dir_x", RI.vforward[0]);
-		gEngfuncs.Cvar_SetValue("vr_player_dir_y", RI.vforward[1]);
-		gEngfuncs.Cvar_SetValue("vr_player_dir_z", RI.vforward[2]);
-		gEngfuncs.Cvar_SetValue("vr_player_pos_x", RI.vieworg[0]);
-		gEngfuncs.Cvar_SetValue("vr_player_pos_y", RI.vieworg[1]);
-		gEngfuncs.Cvar_SetValue("vr_player_pos_z", RI.vieworg[2]);
-		gEngfuncs.Cvar_SetValue("vr_player_pitch", RI.viewangles[0]);
-		gEngfuncs.Cvar_SetValue("vr_player_yaw", RI.viewangles[1]);
+	// Share player transform with the client
+	gEngfuncs.Cvar_SetValue("vr_player_dir_x", RI.vforward[0]);
+	gEngfuncs.Cvar_SetValue("vr_player_dir_y", RI.vforward[1]);
+	gEngfuncs.Cvar_SetValue("vr_player_dir_z", RI.vforward[2]);
+	gEngfuncs.Cvar_SetValue("vr_player_pos_x", RI.vieworg[0]);
+	gEngfuncs.Cvar_SetValue("vr_player_pos_y", RI.vieworg[1]);
+	gEngfuncs.Cvar_SetValue("vr_player_pos_z", RI.vieworg[2]);
+	gEngfuncs.Cvar_SetValue("vr_player_pitch", RI.viewangles[0]);
+	gEngfuncs.Cvar_SetValue("vr_player_yaw", RI.viewangles[1]);
 
+	// Use VR camera angles only when not zoomed
+	if (gEngfuncs.pfnGetCvarFloat("vr_zoomed") < 1)
+	{
 		// VR camera
 		RI.viewangles[0] = gEngfuncs.pfnGetCvarFloat("vr_hmd_pitch");
 		RI.viewangles[1] = gEngfuncs.pfnGetCvarFloat("vr_hmd_yaw");
@@ -388,6 +388,18 @@ void R_SetupFrustum( void )
 		CrossProduct(RI.vforward, RI.vright, RI.vup);
 	} else {
 		RI.viewangles[2] = gEngfuncs.pfnGetCvarFloat("vr_hmd_roll");
+	}
+
+	// Get camera offset
+	float dx = gEngfuncs.pfnGetCvarFloat("vr_camera_x");
+	float dy = gEngfuncs.pfnGetCvarFloat("vr_camera_y");
+	float dz = gEngfuncs.pfnGetCvarFloat("vr_camera_z");
+
+	// VR camera translation
+	for (int i = 0; i < 3; i++) {
+		RI.vieworg[i] -= RI.vright[i] * dx;
+		RI.vieworg[i] -= RI.vforward[i] * dy;
+		RI.vieworg[i] += RI.vup[i] * dz;
 	}
 
 	if( !r_lockfrustum.value )
@@ -444,11 +456,10 @@ static void R_SetupModelviewMatrix( matrix4x4 m )
 	Matrix4x4_ConcatTranslate(m, 0, gEngfuncs.pfnGetCvarFloat("vr_worldscale") * (VR_IPD / 2.0f) *
 											((gEngfuncs.pfnGetCvarFloat("vr_stereo_side") - 0.5f) * 2.0f), 0);
 
-	float offset = gEngfuncs.pfnGetCvarFloat("vr_hmd_offset") * gEngfuncs.pfnGetCvarFloat("vr_worldscale");
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
 	Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
-	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] - offset );
+	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] );
 }
 
 /*

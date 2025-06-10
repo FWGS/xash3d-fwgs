@@ -792,6 +792,20 @@ void Cvar_FullSet( const char *var_name, const char *value, int flags )
 
 /*
 ============
+Cvar_LazySet
+============
+*/
+void GAME_EXPORT Cvar_LazySet( const char *var_name, float targetValue )
+{
+	float currentValue = Cvar_VariableValue( var_name );
+	if( fabs( currentValue - targetValue ) > 0.01f )
+	{
+		Cvar_SetValue( var_name, targetValue );
+	}
+}
+
+/*
+============
 Cvar_Set
 ============
 */

@@ -48,6 +48,7 @@ float VR_GetConfigFloat( enum VRConfigFloat config );
 void VR_SetConfigFloat( enum VRConfigFloat config, float value );
 
 void VR_BindFramebuffer(engine_t *engine);
+void VR_Recenter(engine_t* engine);
 XrPosef VR_GetView(int eye);
 int VR_GetRefreshRate();
 void VR_SetRefreshRate(int refresh);

@@ -67,9 +67,9 @@ CVAR_DEFINE_AUTO( hud_fontrender, "0", FCVAR_ARCHIVE, "hud font render mode (0: 
 CVAR_DEFINE_AUTO( hud_scale, "0", FCVAR_ARCHIVE|FCVAR_LATCH, "scale hud at current resolution" );
 CVAR_DEFINE_AUTO( hud_scale_minimal_width, "640", FCVAR_ARCHIVE|FCVAR_LATCH, "if hud_scale results in a HUD virtual screen smaller than this value, it won't be applied" );
 CVAR_DEFINE_AUTO( cl_solid_players, "1", 0, "Make all players not solid (can't traceline them)" );
-CVAR_DEFINE_AUTO( cl_updaterate, "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
+CVAR_DEFINE_AUTO( cl_updaterate, "60", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
 CVAR_DEFINE_AUTO( cl_showevents, "0", FCVAR_ARCHIVE, "show events playback" );
-CVAR_DEFINE_AUTO( cl_cmdrate, "60", FCVAR_ARCHIVE, "Max number of command packets sent to server per second" );
+CVAR_DEFINE_AUTO( cl_cmdrate, "30", FCVAR_ARCHIVE, "Max number of command packets sent to server per second" );
 CVAR_DEFINE( cl_interp, "ex_interp", "0.1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "Interpolate object positions starting this many seconds in past" );
 CVAR_DEFINE_AUTO( cl_nointerp, "0", 0, "disable interpolation of entities and players" );
 static CVAR_DEFINE_AUTO( cl_dlmax, "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
@@ -95,7 +95,7 @@ static CVAR_DEFINE_AUTO( name, username, FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_PRIN
 static CVAR_DEFINE_AUTO( model, "", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player model ('player' is a singleplayer model)" );
 static CVAR_DEFINE_AUTO( topcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player top color" );
 static CVAR_DEFINE_AUTO( bottomcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player bottom color" );
-CVAR_DEFINE_AUTO( rate, "3500", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
+CVAR_DEFINE_AUTO( rate, "25000", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 
 static CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
 
