@@ -400,7 +400,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = False
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos'] and not conf.env.MAGX and not conf.env.STATIC_LINKING and not conf.options.ENABLE_EMSCRIPTEN
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False

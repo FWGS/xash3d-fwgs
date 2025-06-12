@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #endif
 #if XASH_EMSCRIPTEN
-#include <emscripten/html5.h>
+#include <emscripten/emscripten.h>
 #endif
 #include "common.h"
 #include "base_cmd.h"
@@ -1350,7 +1350,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
 #endif // XASH_ANDROID
-
+	// main window message loop
 #if XASH_EMSCRIPTEN
 	emscripten_set_main_loop(main_loop, 0, 1);
 #else
