@@ -357,7 +357,11 @@ void FS_CreatePath( char *path )
 			// create the directory
 			save = *ofs;
 			*ofs = 0;
+#if XASH_EMSCRIPTEN
 			mkdir( path, 0755 );
+#else
+			_mkdir( path );
+#endif // XASH_EMSCRIPTEN
 			*ofs = save;
 		}
 	}

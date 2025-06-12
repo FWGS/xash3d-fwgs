@@ -181,7 +181,6 @@ static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 static void Sys_PrintLogfile( const int fd, const char *logtime, size_t logtime_len, const char *msg, const int colorize )
 {
 	const char *p = msg;
-	return;
 
 	if( logtime_len != 0 )
 	{

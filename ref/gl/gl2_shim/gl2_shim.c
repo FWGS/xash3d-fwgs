@@ -32,6 +32,7 @@ Limitations:
 */
 
 #include "gl_local.h"
+#include "build.h"
 #if !XASH_GL_STATIC
 #include "gl2_shim.h"
 
@@ -1714,6 +1715,7 @@ static void APIENTRY stub( void )
 	*((void **)&pgl ## name) = (void *)stub; \
 }
 
+#if XASH_EMSCRIPTEN
 void GL2_PolygonMode(GLenum face, GLenum mode)
 {
 }
@@ -1761,6 +1763,7 @@ void GL2_Fogi(GLenum pname, GLint param)
 void GL2_DrawBuffer(GLenum mode)
 {
 }
+#endif // XASH_EMSCRIPTEN
 
 void GL2_ShimInstall( void )
 {
@@ -1806,6 +1809,7 @@ void GL2_ShimInstall( void )
 		GL2_OVERRIDE_PTR_B( TexImage2D )
 		GL2_OVERRIDE_PTR_B( TexParameteri )
 	}
+#if XASH_EMSCRIPTEN
 	GL2_OVERRIDE_PTR(Normal3fv)
 	GL2_OVERRIDE_PTR(Hint)
 	GL2_OVERRIDE_PTR(Scalef)
@@ -1818,6 +1822,7 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR(PointSize)
 	GL2_OVERRIDE_PTR(PolygonOffset)
 	GL2_OVERRIDE_PTR(DrawBuffer)
+#endif // XASH_EMSRIPTEN
 	GL2_OVERRIDE_PTR_B( IsEnabled )
 	GL2_OVERRIDE_PTR_B( DrawRangeElements )
 	GL2_OVERRIDE_PTR_B( DrawElements )

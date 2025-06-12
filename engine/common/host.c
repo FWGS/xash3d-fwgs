@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #endif
 #if XASH_EMSCRIPTEN
-#include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
 #endif
 #include "common.h"
 #include "base_cmd.h"
@@ -36,8 +36,6 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "render_api.h"	// decallist_t
 #include "tests.h"
-#include <emscripten.h>
-#include <emscripten/html5.h>
 
 static pfnChangeGame	pChangeGame = NULL;
 host_parm_t		host;	// host parms
@@ -1187,12 +1185,12 @@ static void Sys_Quit_f( void )
 	Sys_Quit( "command" );
 }
 
-static double oldtime, newtime;
+static double oldtimeloop, newtimeloop;
 
 void main_loop(void) {
-	newtime = Sys_DoubleTime ();
-    COM_Frame( newtime - oldtime );
-    oldtime = newtime;
+	newtimeloop = Sys_DoubleTime ();
+    COM_Frame( newtimeloop - oldtimeloop );
+    oldtimeloop = newtimeloop;
 }
 
 /*
@@ -1324,7 +1322,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( Sys_GetParmFromCmdLine( "-timedemo", demoname ))
 		Cbuf_AddTextf( "timedemo %s\n", demoname );
 
-	oldtime = Sys_DoubleTime() - 0.1;
+	oldtimeloop = Sys_DoubleTime() - 0.1;
 
 	if( Host_IsDedicated( ))
 	{
@@ -1352,7 +1350,15 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
 #endif // XASH_ANDROID
+
+#if XASH_EMSCRIPTEN
 	emscripten_set_main_loop(main_loop, 0, 1);
+#else
+	while( host.status != HOST_CRASHED )
+	{
+		main_loop();
+	}
+#endif
 	// never reached
 	return 0;
 }
