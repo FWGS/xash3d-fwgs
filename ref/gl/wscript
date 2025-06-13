@@ -72,4 +72,14 @@ def build(bld):
 			includes = includes,
 			use = libs + v['libs'],
 			defines = v['defines'] + ['REF_DLL=1'],
+			cflags = ['-fPIC',  '-g', '-s', 'ASSERTIONS=2'],
+			linkflags = [
+			 '-g',
+			 '-s', 'SIDE_MODULE=1',
+			 '-s', 'ASSERTIONS=2',
+			 '-s', 'USE_WEBGL2=1',
+			 '-s', 'FULL_ES3=1',
+			 '-s', 'MIN_WEBGL_VERSION=2',
+			 '-s', 'MAX_WEBGL_VERSION=2'
+			],
 			install_path = bld.env.LIBDIR)
