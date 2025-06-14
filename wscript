@@ -91,7 +91,7 @@ SUBDIRS = [
 	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL),
 	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES),
 	Subproject('3rdparty/gl4es',        lambda x: x.env.CLIENT and x.env.GL4ES),
-	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
+	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES or x.env.GLES3COMPAT)),
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
