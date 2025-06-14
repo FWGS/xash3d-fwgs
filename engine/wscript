@@ -73,6 +73,8 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'wasi':
 		have_async_resolve = False
 		conf.env.CFLAGS += ['-mllvm', '-wasm-enable-sjlj']
+	elif conf.env.DEST_OS == 'emscripten':
+		have_async_resolve = False
 	elif conf.env.DEST_OS == 'sunos':
 		conf.check_cc(lib='socket')
 	elif conf.env.DEST_OS == 'dos':
