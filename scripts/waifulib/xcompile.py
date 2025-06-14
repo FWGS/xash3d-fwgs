@@ -539,6 +539,8 @@ def options(opt):
 		help='enable building for PlayStation Vita [default: %(default)s]')
 	xc.add_option('--sailfish', action='store', dest='SAILFISH', default = None,
 		help='enable building for Sailfish/Aurora')
+	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
+		help='enable building for Emscripten')
 
 def configure(conf):
 	if conf.options.ANDROID_OPTS:
@@ -627,11 +629,21 @@ def configure(conf):
 		conf.env.LIB_M = ['m']
 		conf.env.VRTLD = ['vrtld']
 		conf.env.DEST_OS = 'psvita'
+	elif conf.options.EMSCRIPTEN:
+		# Emscripten compiler is just wrapper to clang
+		# But we need to setup platform modifiers, they all are contained inside c_emscripten.py for now
+		# In future, that could be upstreamed to waf itself and this wouldn't be needed
+		conf.environ['CC'] = 'emcc'
+		conf.environ['CXX'] = 'em++'
+		conf.environ['AR'] = 'emar'
+		conf.environ['STRIP'] = 'emstrip'
+		conf.environ['OBJCOPY'] = 'llvm-objcopy'
+		conf.load('c_emscripten')
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
