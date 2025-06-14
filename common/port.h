@@ -24,6 +24,9 @@ GNU General Public License for more details.
 		#include <sys/syslimits.h>
 		#define OS_LIB_EXT "dylib"
 		#define OPEN_COMMAND "open"
+	#elif XASH_EMSCRIPTEN
+		#define OS_LIB_EXT "wasm"
+		#define OPEN_COMMAND "???"
 	#else
 		#define OS_LIB_EXT "so"
 		#define OPEN_COMMAND "xdg-open"
