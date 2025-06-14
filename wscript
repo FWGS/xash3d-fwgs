@@ -247,6 +247,10 @@ def configure(conf):
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
 		enforce_pic = False
+	elif conf.env.DEST_OS == 'emscripten':
+		conf.options.BUILD_BUNDLED_DEPS = True
+		conf.options.GLES3COMPAT      = True
+		conf.options.GL               = False
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
@@ -393,7 +397,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
