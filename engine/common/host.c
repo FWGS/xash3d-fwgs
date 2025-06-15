@@ -1054,7 +1054,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
-	host.allow_console = DEFAULT_ALLOWCONSOLE;
+	host.allow_console = DEFAULT_ALLOWCONSOLE || DEFAULT_DEV > 0;
 
 	if( Sys_CheckParm( "-dev" ))
 	{
