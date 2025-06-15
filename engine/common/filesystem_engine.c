@@ -194,7 +194,10 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 		return true;
 	}
 
-#if TARGET_OS_IOS
+#if XASH_EMSCRIPTEN
+	Q_strncpy( out, "/rwdir", size );
+	return true;
+#elif TARGET_OS_IOS
 	Q_strncpy( out, IOS_GetDocsDir(), size );
 	return true;
 #elif XASH_ANDROID && XASH_SDL
@@ -258,6 +261,11 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 		Q_strncpy( out, env_rodir, size );
 		return true;
 	}
+
+#if XASH_EMSCRIPTEN
+	Q_strncpy( out, "/rodir", size );
+	return true;
+#endif
 
 	return false;
 }
