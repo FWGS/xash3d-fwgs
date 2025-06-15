@@ -426,23 +426,12 @@ void Sys_Error( const char *error, ... )
 }
 
 #if XASH_EMSCRIPTEN
-/* strange glitchy bug on emscripten
-_exit->_Exit->asm._exit->_exit
-As we do not need atexit(), just throw hidden exception
-*/
-
-// Hey, you, making an Emscripten port!
-// What if we're not supposed to use exit() on Emscripten and instead we should
-// exit from the main() function? Would this fix this bug? Test this case, pls.
-#error "Read the comment above"
-
 #include <emscripten.h>
 #define exit my_exit
-void my_exit(int ret)
+void my_exit( int ret )
 {
 	emscripten_cancel_main_loop();
-	printf("exit(%d)\n", ret);
-	EM_ASM(if(showElement)showElement('reload', true);throw 'SimulateInfiniteLoop');
+	emscripten_force_exit( ret );
 }
 #endif
 
