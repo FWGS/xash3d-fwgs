@@ -14,6 +14,21 @@ int main(int argc, char **argv)
 {
 	backtrace(0, 0);
 	backtrace_symbols(0, 0);
+}'''
+
+FFMPEG_CHECK_FRAGMENT='''
+#include <libswresample/swresample.h>
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+#include <libavutil/avutil.h>
+int main(int argc, char **argv)
+{
+	swresample_version();
+	avformat_version();
+	avcodec_version();
+	swscale_version();
+	avutil_version();
 	return 0;
 }
 '''
@@ -41,6 +56,9 @@ def options(opt):
 
 	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
 		help = '') # hidden option, does nothing
+
+	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
+		help = 'enable ffmpeg based movie playback')
 
 	opt.load('sdl2')
 
@@ -126,6 +144,21 @@ def configure(conf):
 
 	conf.define('ENGINE_DLL', 1)
 	conf.define_cond('XASH_ENGINE_TESTS', conf.options.ENGINE_TESTS)
+
+	if conf.options.FFMPEG:
+		# add ffmpeg libraries into single uselib package
+		conf.check_cfg(package='libswresample', uselib_store='SWRESAMPLE', args='--cflags --libs')
+		conf.check_cfg(package='libavformat', uselib_store='AVFORMAT', args='--cflags --libs')
+		conf.check_cfg(package='libavcodec', uselib_store='AVCODEC', args='--cflags --libs')
+		conf.check_cfg(package='libswscale', uselib_store='SWSCALE', args='--cflags --libs')
+		conf.check_cfg(package='libavutil', uselib_store='AVUTIL', args='--cflags --libs')
+
+		# validate ffmpeg libs installation
+		conf.check_cc(fragment=FFMPEG_CHECK_FRAGMENT, use='SWRESAMPLE AVCODEC AVFORMAT AVUTIL SWSCALE', msg='Checking for ffmpeg sanity')
+
+		conf.env.FFMPEG = True
+		conf.define('HAVE_FFMPEG', True)
+
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
 	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', not have_async_resolve)
@@ -201,6 +234,13 @@ def build(bld):
 			libs += ['SDL%d' % bld.env.XASH_SDL]
 			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL])
 			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
+
+		if bld.get_define('HAVE_FFMPEG'):
+			libs.append('SWRESAMPLE')
+			libs.append('AVCODEC')
+			libs.append('AVFORMAT')
+			libs.append('AVUTIL')
+			libs.append('SWSCALE')
 
 		# add client files
 		if not bld.env.DEDICATED:

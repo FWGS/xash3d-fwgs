@@ -24,7 +24,7 @@ for i in arm64 armhf riscv64 ppc64el; do
 	CROSS_COMPILE_CC[$i]=${ARCH_TRIPLET[$i]}-gcc
 	CROSS_COMPILE_CXX[$i]=${ARCH_TRIPLET[$i]}-g++
 done
-export PKG_CONFIG_PATH=${ARCH_TRIPLET[$GH_CPU_ARCH]}
+export PKG_CONFIG_PATH=$PWD/ffmpeg/lib/pkgconfig:${ARCH_TRIPLET[$GH_CPU_ARCH]}
 export CC=${CROSS_COMPILE_CC[$GH_CPU_ARCH]}
 export CXX=${CROSS_COMPILE_CXX[$GH_CPU_ARCH]}
 
@@ -59,14 +59,18 @@ build_engine()
 	cd "$BUILDDIR" || die
 
 	if [ "$ARCH" = "amd64" ]; then # we need enabling 64-bit target only on Intel-compatible CPUs
-		AMD64="-8"
+		WAF_EXTRA_ARGS="-8"
+	fi
+
+	if [ -d "ffmpeg" ]; then
+		WAF_EXTRA_ARGS+=" --enable-ffmpeg"
 	fi
 
 	if [ "$GH_CROSSCOMPILING" != "true" ]; then
-		ENABLE_TESTS="--enable-tests"
+		WAF_EXTRA_ARGS+=" --enable-tests"
 	fi
 
-	./waf configure $AMD64 $ENABLE_TESTS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stbtt --enable-utils --enable-tui --enable-dedicated || die_configure
+	./waf configure $WAF_EXTRA_ARGS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stbtt --enable-utils --enable-tui --enable-dedicated || die_configure
 
 	./waf build || die_configure
 }
@@ -75,9 +79,13 @@ deploy_engine()
 {
 	cd "$BUILDDIR" || die
 	./waf install --destdir="$APPDIR" || die
-	cp SDL2_linux/lib/libSDL2-2.0.so.0 "$APPDIR/"
+	cp -av SDL2_linux/lib/libSDL2-2.0.so.0 "$APPDIR/"
 	if [ "$GH_CPU_ARCH" = "i386" ]; then
-		cp 3rdparty/vgui_support/vgui-dev/lib/vgui.so "$APPDIR/"
+		cp -av 3rdparty/vgui_support/vgui-dev/lib/vgui.so "$APPDIR/"
+	fi
+
+	if [ -d "ffmpeg" ]; then
+		cp -av ffmpeg/lib/libav* ffmpeg/lib/libsw* "$APPDIR/"
 	fi
 }
 

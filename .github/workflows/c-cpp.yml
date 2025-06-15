@@ -70,8 +70,10 @@ jobs:
             targetos: apple
             targetarch: amd64
     env:
-      SDL_VERSION: 2.32.0
+      SDL_VERSION: 2.32.8
+      FFMPEG_VERSION: 7.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
+      GH_CPU_OS: ${{ matrix.targetos }}
       GH_CROSSCOMPILING: ${{ matrix.cross }}
     steps:
     - name: Checkout

@@ -78,7 +78,6 @@ SETUP BACKENDS DEFINITIONS
 		// usually only 10-20 fds availiable
 		#define XASH_REDUCE_FD
 	#endif
-
 #endif // XASH_DEDICATED
 
 //
@@ -103,6 +102,17 @@ SETUP BACKENDS DEFINITIONS
 	#else // !XASH_WIN32
 		#define XASH_TIMER TIMER_POSIX
 	#endif // !XASH_WIN32
+#endif
+
+//
+// determine movie playback backend
+//
+#ifndef XASH_AVI
+	#if HAVE_FFMPEG
+		#define XASH_AVI AVI_FFMPEG
+	#else
+		#define XASH_AVI AVI_NULL
+	#endif
 #endif
 
 #ifdef XASH_STATIC_LIBS
