@@ -1705,7 +1705,8 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 
 		for( i = 0; i < dirs.numstrings; i++ )
 		{
-			if( !FS_SysFolderExists( dirs.strings[i] ))
+			Q_snprintf( buf, sizeof( buf ), "%s/%s", fs_rodir, dirs.strings[i] );
+			if( !FS_SysFolderExists( buf ))
 				continue;
 
 			if( FI.games[FI.numgames] == NULL )
