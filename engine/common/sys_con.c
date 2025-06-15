@@ -25,7 +25,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 
 // do not waste precious CPU cycles on mobiles or low memory devices
-#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY
+#if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY && !XASH_EMSCRIPTEN
 #define XASH_COLORIZE_CONSOLE 1
 #else
 #define XASH_COLORIZE_CONSOLE 0
