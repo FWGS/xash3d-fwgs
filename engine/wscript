@@ -55,9 +55,6 @@ def options(opt):
 		help = 'add LLVM libFuzzer [default: %(default)s]' )
 
 	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
-		help = '') # hidden option, does nothing
-
-	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
 		help = 'enable ffmpeg based movie playback')
 
 	opt.load('sdl2')
