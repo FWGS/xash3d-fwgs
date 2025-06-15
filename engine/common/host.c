@@ -1185,6 +1185,14 @@ static void Sys_Quit_f( void )
 	Sys_Quit( "command" );
 }
 
+static double oldtimeloop, newtimeloop;
+
+void main_loop(void) {
+	newtimeloop = Sys_DoubleTime ();
+    COM_Frame( newtimeloop - oldtimeloop );
+    oldtimeloop = newtimeloop;
+}
+
 /*
 =================
 Host_Main
@@ -1192,7 +1200,6 @@ Host_Main
 */
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
-	static double	oldtime, newtime;
 	string demoname, exename;
 
 	host.starttime = Sys_DoubleTime();
@@ -1315,7 +1322,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( Sys_GetParmFromCmdLine( "-timedemo", demoname ))
 		Cbuf_AddTextf( "timedemo %s\n", demoname );
 
-	oldtime = Sys_DoubleTime() - 0.1;
+	oldtimeloop = Sys_DoubleTime() - 0.1;
 
 	if( Host_IsDedicated( ))
 	{
@@ -1343,15 +1350,15 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
 #endif // XASH_ANDROID
-
 	// main window message loop
+#if XASH_EMSCRIPTEN
+	emscripten_set_main_loop(main_loop, 0, 1);
+#else
 	while( host.status != HOST_CRASHED )
 	{
-		newtime = Sys_DoubleTime ();
-		COM_Frame( newtime - oldtime );
-		oldtime = newtime;
+		main_loop();
 	}
-
+#endif
 	// never reached
 	return 0;
 }

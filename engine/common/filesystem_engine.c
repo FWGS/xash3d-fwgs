@@ -25,6 +25,7 @@ GNU General Public License for more details.
 #include <errno.h>
 #include "common.h"
 #include "library.h"
+#include "build.h"
 #include "platform/platform.h"
 
 CVAR_DEFINE_AUTO( fs_mount_hd, "0", FCVAR_ARCHIVE|FCVAR_PRIVILEGED|FCVAR_LATCH, "mount high definition content folder" );
@@ -187,6 +188,10 @@ static qboolean FS_LoadProgs( void )
 static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 {
 	const char *path = getenv( "XASH3D_BASEDIR" );
+#if XASH_EMSCRIPTEN
+	Q_strncpy(out, "/xash", size);
+	return true;
+#endif
 
 	if( COM_CheckString( path ))
 	{
@@ -249,6 +254,10 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 {
 	const char *env_rodir = getenv( "XASH3D_RODIR" );
+#if XASH_EMSCRIPTEN
+	Q_strncpy(out, "/rodir", size);
+	return true;
+#endif
 
 	if( _Sys_GetParmFromCmdLine( "-rodir", out, size ))
 		return true;
