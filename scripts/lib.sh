@@ -25,7 +25,7 @@ get_ffmpeg_archive()
 		B="$GH_CPU_ARCH"
 	fi
 
-	FLAVOR=lgpl-shared
+	FLAVOR=lgpl-shared-minimal
 
 	echo "ffmpeg-n$FFMPEG_VERSION-latest-$A$B-$FLAVOR-$FFMPEG_VERSION"
 }
