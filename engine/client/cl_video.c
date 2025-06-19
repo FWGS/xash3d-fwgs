@@ -183,7 +183,9 @@ SCR_PlayCinematic
 */
 qboolean SCR_PlayCinematic( const char *arg )
 {
+	int x, y, w, h;
 	const char	*fullpath;
+	double video_ratio, screen_ratio, scale;
 
 	fullpath = FS_GetDiskPath( arg, false );
 
@@ -194,10 +196,32 @@ qboolean SCR_PlayCinematic( const char *arg )
 	}
 
 	AVI_OpenVideo( cin_state, fullpath, true, false );
-	if( !AVI_IsActive( cin_state ))
+	if( !AVI_IsActive( cin_state ) || !AVI_GetVideoInfo( cin_state, &w, &h, NULL ))
 	{
 		AVI_CloseVideo( cin_state );
 		return false;
+	}
+
+	video_ratio = (double)w / (double)h;
+	screen_ratio = (double)refState.width / (double)refState.height;
+
+	if( video_ratio < screen_ratio )
+		scale = (double)refState.height / (double)h;
+	else
+		scale = (double)refState.width / (double)w;
+
+	w = Q_rint( w * scale );
+	h = Q_rint( h * scale );
+
+	if( video_ratio < screen_ratio )
+	{
+		x = (refState.width - w) / 2.0;
+		y = 0;
+	}
+	else
+	{
+		x = 0;
+		y = (refState.height - h) / 2.0;
 	}
 
 	if( AVI_HaveAudioTrack( cin_state ))
@@ -208,10 +232,10 @@ qboolean SCR_PlayCinematic( const char *arg )
 	}
 
 	AVI_SetParm( cin_state,
-		AVI_RENDER_X, 0,
-		AVI_RENDER_Y, 0,
-		AVI_RENDER_W, -1,
-		AVI_RENDER_H, -1,
+		AVI_RENDER_X, x,
+		AVI_RENDER_Y, y,
+		AVI_RENDER_W, w,
+		AVI_RENDER_H, h,
 		AVI_PARM_LAST );
 
 	UI_SetActiveMenu( false );
