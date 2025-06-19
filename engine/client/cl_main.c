@@ -1815,7 +1815,7 @@ static void CL_QueryServer_f( void )
 
 	if( Cmd_Argc( ) != 3 )
 	{
-		Con_Printf( S_USAGE "queryserver <adr> <protocol>\n" );
+		Con_Printf( S_USAGE "ui_queryserver <adr> <protocol>\n" );
 		return;
 	}
 
@@ -3453,7 +3453,7 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
 	Cmd_AddRestrictedCommand( "localservers", CL_LocalServers_f, "collect info about local servers" );
 	Cmd_AddRestrictedCommand( "internetservers", CL_InternetServers_f, "collect info about internet servers" );
-	Cmd_AddRestrictedCommand( "queryserver", CL_QueryServer_f, "query server info from console" );
+	Cmd_AddRestrictedCommand( "ui_queryserver", CL_QueryServer_f, "query server info from console" );
 	Cmd_AddCommand ("cd", CL_PlayCDTrack_f, "Play cd-track (not real cd-player of course)" );
 	Cmd_AddCommand ("mp3", CL_PlayCDTrack_f, "Play mp3-track (based on virtual cd-player)" );
 	Cmd_AddCommand ("waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file");
