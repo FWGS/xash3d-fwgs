@@ -390,16 +390,22 @@ void R_SetupFrustum( void )
 		RI.viewangles[2] = gEngfuncs.pfnGetCvarFloat("vr_hmd_roll");
 	}
 
-	// Get camera offset
-	float dx = gEngfuncs.pfnGetCvarFloat("vr_camera_x");
-	float dy = gEngfuncs.pfnGetCvarFloat("vr_camera_y");
-	float dz = gEngfuncs.pfnGetCvarFloat("vr_camera_z");
-
 	// VR camera translation
-	for (int i = 0; i < 3; i++) {
-		RI.vieworg[i] -= RI.vright[i] * dx;
-		RI.vieworg[i] -= RI.vforward[i] * dy;
-		RI.vieworg[i] += RI.vup[i] * dz;
+	if (gEngfuncs.pfnGetCvarFloat("vr_6dof") > 0) {
+		vec3_t fwd = {RI.vforward[0], RI.vforward[1], 0.0f};
+		vec3_t right = {RI.vright[0], RI.vright[1], 0.0f};
+		VectorNormalize(fwd);
+		VectorNormalize(right);
+		float dx = gEngfuncs.pfnGetCvarFloat("vr_camera_x");
+		float dy = gEngfuncs.pfnGetCvarFloat("vr_camera_y");
+		float dz = gEngfuncs.pfnGetCvarFloat("vr_camera_z");
+		float offsetX = right[0] * dx + fwd[0] * dy;
+		float offsetY = right[1] * dx + fwd[1] * dy;
+		RI.vieworg[0] -= offsetX;
+		RI.vieworg[1] -= offsetY;
+		RI.vieworg[2] += dz;
+		gEngfuncs.Cvar_SetValue("vr_offset_x", offsetX);
+		gEngfuncs.Cvar_SetValue("vr_offset_y", offsetY);
 	}
 
 	if( !r_lockfrustum.value )
