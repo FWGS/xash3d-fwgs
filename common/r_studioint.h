@@ -39,7 +39,7 @@ typedef struct sv_blending_interface_s sv_blending_interface_t;
 struct engine_studio_api_s {
 	void *                     (*Mem_Calloc)(int, size_t); /*     0     4 */
 	void *                     (*Cache_Check)(struct cache_user_s *); /*     4     4 */
-	void                       (*LoadCacheFile)(char *, struct cache_user_s *); /*     8     4 */
+	void                       (*LoadCacheFile)(const char *, struct cache_user_s *); /*     8     4 */
 	struct model_s *           (*Mod_ForName)(const char  *, int); /*    12     4 */
 	void *                     (*Mod_Extradata)(struct model_s *); /*    16     4 */
 	struct model_s *           (*GetModelByIndex)(int); /*    20     4 */
@@ -93,7 +93,7 @@ struct engine_studio_api_s {
 struct server_studio_api_s {
 	void *                     (*Mem_Calloc)(int, size_t); /*     0     4 */
 	void *                     (*Cache_Check)(struct cache_user_s *); /*     4     4 */
-	void                       (*LoadCacheFile)(char *, struct cache_user_s *); /*     8     4 */
+	void                       (*LoadCacheFile)(const char *, struct cache_user_s *); /*     8     4 */
 	void *                     (*Mod_Extradata)(struct model_s *); /*    12     4 */
 
 	/* size: 16, cachelines: 1, members: 4 */
