@@ -128,9 +128,9 @@ Mirrored on github - https://github.com/nekonomicon/HeartOfEvil
 Official SourceForge repository - https://sourceforge.net/projects/icm-hl/
 
 ## Master Sword
-Official github repositiry of Master Sword Classic - https://github.com/BerntA/MasterSwordClassic
+Official github repository of Master Sword Classic - https://github.com/BerntA/MasterSwordClassic
 
-Official github repositiry of Master Sword Rebirth - https://github.com/MSRevive/MasterSwordRebirth
+Official github repository of Master Sword Rebirth - https://github.com/MSRevive/MasterSwordRebirth
 
 ## MechMod
 Official github repository - https://github.com/vermagav/mechmod
