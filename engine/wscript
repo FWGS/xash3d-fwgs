@@ -270,14 +270,9 @@ def build(bld):
 		linkflags = []
 
 		if bld.env.DEST_OS == 'emscripten':
-			linkflags = ['-sINITIAL_MEMORY=134217728', '-sALLOW_MEMORY_GROWTH=1', '-sSTACK_SIZE=16777216']
-
-			linkflags += ['-sASYNCIFY=1']
-
-			node = bld.srcnode.find_node('rodir')
-			if not node:
-				bld.fatal('Put game data into rodir folder in source tree root')
-			linkflags += ['--preload-file', '%s@/rodir' % node.path_from(bld.bldnode)]
+			linkflags = ['-sINITIAL_MEMORY=134217728', '-sALLOW_MEMORY_GROWTH=1', '-sSTACK_SIZE=16777216',
+						 '-sUSE_WEBGL2=1', '-sMIN_WEBGL_VERSION=2', '-sMAX_WEBGL_VERSION=2', '-sFULL_ES3=1',
+						 '-sEXIT_RUNTIME=1', '-sEXPORTED_RUNTIME_METHODS=["ccall", "cwrap"]', '-sSTACK_OVERFLOW_CHECK=2']
 
 		f(source = source,
 			target = 'xash',
