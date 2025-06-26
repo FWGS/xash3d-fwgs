@@ -1029,6 +1029,10 @@ static void CL_WriteSteamTicket( sizebuf_t *send )
 	crc = CRC32_Final( crc );
 	i = GenerateRevEmu2013( buf, s, crc );
 	MSG_WriteBytes( send, buf, i );
+
+	// RevEmu2013: pTicket[1] = revHash (low), pTicket[5] = 0x01100001 (high)
+	*(uint32_t*)cls.steamid = LittleLong( ((uint32_t*)buf)[1] );
+	*(uint32_t*)(cls.steamid + 4) = LittleLong( ((uint32_t*)buf)[5] );
 }
 
 /*

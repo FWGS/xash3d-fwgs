@@ -638,6 +638,7 @@ typedef struct
 
 	// server's build number (might be zero)
 	int build_num;
+	uint8_t steamid[8];
 } client_static_t;
 
 #ifdef __cplusplus
