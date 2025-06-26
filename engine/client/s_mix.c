@@ -22,6 +22,7 @@ enum
 	IPAINTBUFFER = 0,
 	IROOMBUFFER,
 	ISTREAMBUFFER,
+	IVOICEBUFFER,
 	CPAINTBUFFERS,
 };
 
@@ -63,6 +64,7 @@ static portable_samplepair_t *g_curpaintbuffer;
 static portable_samplepair_t  streambuffer[(PAINTBUFFER_SIZE+1)];
 static portable_samplepair_t  paintbuffer[(PAINTBUFFER_SIZE+1)];
 static portable_samplepair_t  roombuffer[(PAINTBUFFER_SIZE+1)];
+static portable_samplepair_t  voicebuffer[(PAINTBUFFER_SIZE+1)];
 static portable_samplepair_t  temppaintbuffer[(PAINTBUFFER_SIZE+1)];
 static paintbuffer_t          paintbuffers[CPAINTBUFFERS];
 
@@ -216,6 +218,7 @@ void MIX_InitAllPaintbuffers( void )
 	paintbuffers[IPAINTBUFFER].pbuf = paintbuffer;
 	paintbuffers[IROOMBUFFER].pbuf = roombuffer;
 	paintbuffers[ISTREAMBUFFER].pbuf = streambuffer;
+	paintbuffers[IVOICEBUFFER].pbuf = voicebuffer;
 
 	MIX_SetCurrentPaintbuffer( IPAINTBUFFER );
 }
@@ -921,11 +924,12 @@ static void S_MixUpsample( int sampleCount, int filtertype )
 
 static void MIX_MixRawSamplesBuffer( int end )
 {
-	portable_samplepair_t	*pbuf, *roombuf, *streambuf;
+	portable_samplepair_t	*pbuf, *roombuf, *streambuf, *voicebuf;
 	uint i, j, stop;
 
 	roombuf = MIX_GetPFrontFromIPaint( IROOMBUFFER );
 	streambuf = MIX_GetPFrontFromIPaint( ISTREAMBUFFER );
+	voicebuf = MIX_GetPFrontFromIPaint( IVOICEBUFFER );
 
 	if( s_listener.paused ) return;
 
@@ -935,6 +939,7 @@ static void MIX_MixRawSamplesBuffer( int end )
 		// copy from the streaming sound source
 		rawchan_t *ch = raw_channels[i];
 		qboolean stream;
+		qboolean is_voice;
 
 		if( !ch )
 			continue;
@@ -943,8 +948,18 @@ static void MIX_MixRawSamplesBuffer( int end )
 		if( !ch->leftvol && !ch->rightvol )
 			continue;
 
+		is_voice = (ch->entnum > 0 && ch->entnum <= MAX_CLIENTS) || 
+		           (ch->entnum == VOICE_LOOPBACK_INDEX) ||
+		           (ch->entnum == VOICE_LOCALCLIENT_INDEX);
+
 		stream = ch->entnum == S_RAW_SOUND_BACKGROUNDTRACK || CL_IsPlayerIndex( ch->entnum );
-		pbuf = stream ? streambuf : roombuf;
+		
+		if( is_voice )
+			pbuf = voicebuf;
+		else if( stream )
+			pbuf = streambuf;
+		else
+			pbuf = roombuf;
 
 		stop = (end < ch->s_rawend) ? end : ch->s_rawend;
 
@@ -1045,7 +1060,10 @@ void MIX_PaintChannels( int endtime )
 		MIX_MixPaintbuffers( IPAINTBUFFER, IROOMBUFFER, IPAINTBUFFER, count, S_GetMasterVolume() );
 
 		// add music or soundtrack from movie (no dsp)
-		MIX_MixPaintbuffers( IPAINTBUFFER, ISTREAMBUFFER, IPAINTBUFFER, count, S_GetMusicVolume() );
+		MIX_MixPaintbuffers( IPAINTBUFFER, ISTREAMBUFFER, IPAINTBUFFER, count, 1.0f );
+
+		// voice chat
+		MIX_MixPaintbuffers( IPAINTBUFFER, IVOICEBUFFER, IPAINTBUFFER, count, 1.0f );
 
 		// clip all values > 16 bit down to 16 bit
 		MIX_CompressPaintbuffer( IPAINTBUFFER, count );
