@@ -1352,6 +1352,17 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 	return false;
 }
 
+#include <emscripten/emscripten.h>
+
+typedef int (*recvfrom_callback_t)( int sockfd, byte *buf, int len, int flags, struct sockaddr *src_addr, socklen_t *addrlen );
+
+static recvfrom_callback_t recvfrom_callback = NULL;
+
+EMSCRIPTEN_KEEPALIVE
+void retgister_recvfrom_callback(recvfrom_callback_t cb) {
+	recvfrom_callback = cb;
+}
+
 /*
 ==================
 NET_QueuePacket
@@ -1369,7 +1380,7 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 
 	*length = 0;
 
-	for( protocol = 0; protocol < 2; protocol++ )
+	for( protocol = 0; protocol < 1; protocol++ )
 	{
 		switch( protocol )
 		{
@@ -1377,11 +1388,14 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 		case 1: net_socket = net.ip6_sockets[sock]; break;
 		}
 
-		if( !NET_IsSocketValid( net_socket ))
-			continue;
-
 		addr_len = sizeof( addr );
-		ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
+		if (recvfrom_callback) {
+			ret = recvfrom_callback( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
+		} else {
+			if( !NET_IsSocketValid( net_socket ))
+				continue;
+			ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
+		}
 
 		NET_SockadrToNetadr( &addr, from );
 
@@ -1425,7 +1439,7 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 			case WSAETIMEDOUT:
 				break;
 			default:	// let's continue even after errors
-				Con_DPrintf( S_ERROR "%s: %s from %s\n", __func__, NET_ErrorString(), NET_AdrToString( *from ));
+				//Con_DPrintf( S_ERROR "%s: %s from %s\n", __func__, NET_ErrorString(), NET_AdrToString( *from ));
 				break;
 			}
 		}
@@ -1457,6 +1471,16 @@ qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *lengt
 		return NET_QueuePacket( sock, from, data, length );
 	}
 }
+
+typedef void (*sendto_callback_t)( const void *message, size_t length, int flags );
+
+static sendto_callback_t sendto_callback = NULL;
+
+EMSCRIPTEN_KEEPALIVE
+void retgister_sendto_callback(sendto_callback_t cb) {
+	sendto_callback = cb;
+}
+
 
 /*
 ==================
@@ -1505,7 +1529,12 @@ static int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t 
 					packet_number + 1, packet_count, size, net.sequence_number, NET_AdrToString( adr ));
 			}
 
-			ret = sendto( net_socket, packet, size + sizeof( SPLITPACKET ), flags, (const struct sockaddr *)to, tolen );
+			if (sendto_callback) {
+				ret = 10;
+				sendto_callback( packet, size + sizeof( SPLITPACKET ), flags );
+			} else {
+				ret = sendto( net_socket, packet, size + sizeof( SPLITPACKET ), flags, (const struct sockaddr *)to, tolen );
+			}
 			if( ret < 0 ) return ret; // error
 
 			if( ret >= size )
@@ -1520,8 +1549,13 @@ static int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t 
 	else
 #endif
 	{
-		// no fragmenantion for client connection
-		return sendto( net_socket, buf, len, flags, (const struct sockaddr *)to, tolen );
+		if (sendto_callback) {
+			sendto_callback(buf, len, flags);
+			return 10;
+		} else {
+			// no fragmenantion for client connection
+			return sendto( net_socket, buf, len, flags, (const struct sockaddr *)to, tolen );
+		}
 	}
 }
 
@@ -1545,18 +1579,18 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 	else if( type == NA_BROADCAST || type == NA_IP )
 	{
 		net_socket = net.ip_sockets[sock];
-		if( !NET_IsSocketValid( net_socket ))
-			return;
+		//if( !NET_IsSocketValid( net_socket ))
+		//	return;
 	}
 	else if( type == NA_MULTICAST_IP6 || type == NA_IP6 )
 	{
 		net_socket = net.ip6_sockets[sock];
-		if( !NET_IsSocketValid( net_socket ))
-			return;
+		//if( !NET_IsSocketValid( net_socket ))
+		//	return;
 	}
 	else
 	{
-		Host_Error( "%s: bad address type %i (%i, %i)\n", __func__, to.type, to.ip6_0[0], to.ip6_0[1] );
+		//Host_Error( "%s: bad address type %i (%i, %i)\n", __func__, to.type, to.ip6_0[0], to.ip6_0[1] );
 	}
 
 	NET_NetadrToSockadr( &to, &addr );
@@ -1730,6 +1764,7 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 	int port;
 	qboolean sv_nat = Cvar_VariableInteger( "sv_nat" );
 	qboolean cl_nat = Cvar_VariableInteger( "cl_nat" );
+	return;
 
 	if( change_port && ( FBitSet( net_hostport.flags, FCVAR_CHANGED ) || sv_nat ))
 	{
@@ -1910,7 +1945,7 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 		// get our local address, if possible
 		if( bFirst )
 		{
-			NET_DetermineLocalAddress();
+			//NET_DetermineLocalAddress();
 			bFirst = false;
 		}
 	}
