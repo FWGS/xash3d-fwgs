@@ -56,6 +56,8 @@ static const byte *R_SpriteLoadFrame( model_t *mod, const void *pin, mspritefram
 
 	LittleLongSW(pinframe.width);
 	LittleLongSW(pinframe.height);
+	LittleLongSW(pinframe.origin[0]);
+	LittleLongSW(pinframe.origin[1]);
 
 	if( sprite_version == SPRITE_VERSION_32 )
 		bytes = 4;
