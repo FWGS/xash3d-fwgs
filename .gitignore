@@ -353,3 +353,4 @@ cmake-build-*
 # some Android-specific build stuff
 3rdparty/SDL
 3rdparty/hlsdk-portable
+!scripts/build-ninja.py
