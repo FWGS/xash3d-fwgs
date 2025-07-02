@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.LocalDateTime
 import java.time.Month
 import java.time.temporal.ChronoUnit
@@ -9,18 +10,35 @@ plugins {
 
 android {
 	namespace = "su.xash.engine"
-	ndkVersion = "28.0.13004108"
+	ndkVersion = "28.2.13676358"
 	compileSdk = 35
 
 	defaultConfig {
 		applicationId = "su.xash.engine"
-		versionName = "0.21"
+		versionName = "0.21-" + getGitHash()
 		versionCode = getBuildNum()
 		minSdk = 21
 		targetSdk = 35
 
-		ndk {
-			abiFilters.addAll(setOf("armeabi-v7a", "arm64-v8a"))
+		externalNativeBuild {
+			val engineRoot = projectDir.parentFile.parent
+
+			experimentalProperties["ninja.abiFilters"] = setOf("armeabi-v7a", "arm64-v8a")
+			experimentalProperties["ninja.path"] = File(engineRoot, "wscript").path
+			experimentalProperties["ninja.configure"] = "run-python"
+			experimentalProperties["ninja.arguments"] = setOf(
+				File(engineRoot, "scripts/configure-ninja.py").path,
+				engineRoot,
+				"--variant=\${ndk.variantName}",
+				"--abi=Android-\${ndk.abi}",
+				"--configuration-dir=\${ndk.buildRoot}",
+				"--ndk-version=\${ndk.moduleNdkVersion}",
+				"--min-sdk-version=\${ndk.minPlatform}",
+				"--ndk-root=${android.ndkDirectory}",
+				// shut up, fake options
+				"-p:Configuration=\${ndk.variantName}",
+				"-p:Platform=\${ndk.abi}"
+			)
 		}
 	}
 
@@ -29,14 +47,9 @@ android {
 		targetCompatibility = JavaVersion.VERSION_11
 	}
 
-	kotlinOptions {
-		jvmTarget = "11"
-	}
-
-	externalNativeBuild {
-		cmake {
-			path = file("CMakeLists.txt")
-			version = "3.22.1"
+	kotlin {
+		compilerOptions {
+			jvmTarget = JvmTarget.JVM_11
 		}
 	}
 
@@ -115,4 +128,10 @@ fun getBuildNum(): Int {
 	val qBuildNum = releaseDate.until(now, ChronoUnit.DAYS)
 	val minuteOfDay = now.hour * 60 + now.minute
 	return (qBuildNum * 10000 + minuteOfDay).toInt()
+}
+
+fun getGitHash(): String {
+	val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD").directory(project.rootDir)
+		.redirectErrorStream(true).start()
+	return process.inputStream.bufferedReader().readText().trim()
 }
