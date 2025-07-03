@@ -2011,7 +2011,7 @@ CL_ParseVoiceData
 void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 {
 	int size, idx, frames = 0;
-	byte received[8192];
+	byte received[VOICE_MAX_DATA_SIZE];
 
 	idx = MSG_ReadByte( msg ) + 1;
 
@@ -2021,7 +2021,7 @@ void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 	if( proto == PROTO_GOLDSRC )
 	{
 		size = MSG_ReadShort( msg );
-		if ( size > 4096 )
+		if ( size > VOICE_MAX_GS_DATA_SIZE )
 		{
 			Con_Printf( S_ERROR "Voice data size is too large: %d bytes (max: %d)\n", size, VOICE_MAX_GS_DATA_SIZE );
 			return;
@@ -2031,7 +2031,7 @@ void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 	{
 		frames = MSG_ReadByte( msg );
 		size = MSG_ReadShort( msg );
-		if (size > 8192 )
+		if (size > VOICE_MAX_DATA_SIZE )
 		{
 			Con_Printf( S_ERROR "Voice data size is too large: %d bytes (max: %d)\n", size, VOICE_MAX_DATA_SIZE );
 			return;
