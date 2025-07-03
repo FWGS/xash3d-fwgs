@@ -509,7 +509,7 @@ Get compressed voice data for GoldSrc mode
 */
 static uint Voice_GetGSCompressedData( byte *out, uint maxsize, uint *frames )
 {
-	uint ofs, size = 0;
+	uint ofs = 0, size = 0;
 	const uint      frame_size_samples = GS_DEFAULT_FRAME_SIZE;
 	const uint      frame_size_bytes = GS_DEFAULT_FRAME_SIZE * voice.width;
 	static uint16_t sequence = 0;
@@ -1124,7 +1124,11 @@ static void Voice_Shutdown( void )
 	voice.initialized = false;
 	voice.is_recording = false;
 	voice.device_opened = false;
+	voice.goldsrc = false;
 	voice.start_time = 0.0;
+	voice.samplerate = 0;
+	voice.frame_size = 0;
+	voice.width = 0;
 
 	voice.input_buffer_pos = 0;
 	voice.input_file_pos = 0;
@@ -1206,13 +1210,6 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 		// unsupported codec
 		Con_Printf( S_WARN "Server requested unsupported voice codec: %s\n", pszCodecName );
 		Voice_Shutdown();
-		voice.goldsrc = false;
-		voice.codec[0] = 0;
-		voice.quality = 0;
-		voice.samplerate = 0;
-		voice.frame_size = 0;
-		voice.width = 0;
-		voice.initialized = false;
 		return false;
 	}
 
