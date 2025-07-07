@@ -17,10 +17,125 @@ GNU General Public License for more details.
 #include "custom.h"
 #include "ref_common.h"
 #include "hpak.h" // be aware of HPK limits
+#include "wadfile.h"
+
+static rgbdata_t *CustomDecal_LoadHLWADSpray( const void *raw, int size )
+{
+	rgbdata_t *out;
+	int i, j;
+	const wad3header_t *hdr;
+	const wad3lump_t *lumps;
+	const unsigned char *mipdata;
+	mip_t mip;
+	uint32_t width, height, offset0, m0size, m1size, m2size, m3size;
+	const unsigned char *pixels;
+	const unsigned char *palette;
+	unsigned char grad_palette[256 * 3];
+	const unsigned char *use_palette;
+	int alpha_mode;
+	unsigned char frontR = 0, frontG = 0, frontB = 0;
+	float t;
+	byte idx;
+
+	if( !raw || size < 64 )
+		return NULL;
+
+	hdr = (const wad3header_t *)raw;
+
+	if( hdr->numlumps <= 0 || hdr->infotableofs <= 0 || hdr->infotableofs >= size )
+		return NULL;
+
+	lumps = (const wad3lump_t *)((const char *)raw + hdr->infotableofs );
+
+	for( i = 0; i < hdr->numlumps; ++i )
+	{
+		if( lumps[i].type == TYP_PALETTE || lumps[i].type == TYP_MIPTEX )
+		{
+			mipdata = (const unsigned char *)raw + lumps[i].filepos;
+
+			if( lumps[i].disksize < sizeof( mip_t ) + 2 + 768 )
+				continue;
+
+			memcpy( &mip, mipdata, sizeof( mip ));
+			width = mip.width;
+			height = mip.height;
+
+			if( width <= 0 || height <= 0 || width > 256 || height > 256 )
+				continue;
+
+			offset0 = mip.offsets[0];
+			if( offset0 == 0 || offset0 + width * height > lumps[i].disksize )
+				continue;
+
+			pixels = mipdata + offset0;
+			m0size = width * height;
+			m1size = m0size / 4;
+			m2size = m0size / 16;
+			m3size = m0size / 64;
+			palette = mipdata + 0x28 + m0size + m1size + m2size + m3size + 2;
+
+			out = Mem_Calloc( host.imagepool, sizeof( rgbdata_t ));
+			out->buffer = Mem_Malloc( host.imagepool, width * height * 4 );
+			out->width = width;
+			out->height = height;
+			out->flags = IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA;
+			out->type = PF_RGBA_32;
+			out->size = width * height * 4;
+			out->palette = NULL;
+
+			use_palette = palette;
+			alpha_mode = 0;
+
+			if( lumps[i].type == TYP_PALETTE )
+			{
+				// gradient palette
+				const unsigned char *frontColorPtr = palette + 255 * 3;
+				frontR = frontColorPtr[0];
+				frontG = frontColorPtr[1];
+				frontB = frontColorPtr[2];
+				for( j = 0; j < 256; ++j )
+				{
+					t = j / 255.0f;
+					grad_palette[j * 3 + 0] = (unsigned char)( frontR * t );
+					grad_palette[j * 3 + 1] = (unsigned char)( frontG * t );
+					grad_palette[j * 3 + 2] = (unsigned char)( frontB * t );
+				}
+				use_palette = grad_palette;
+				alpha_mode = 1; // gradient
+			}
+
+			for( j = 0; j < (int)(width * height); ++j )
+			{
+				idx = pixels[j];
+				out->buffer[j * 4 + 0] = use_palette[idx * 3 + 0];
+				out->buffer[j * 4 + 1] = use_palette[idx * 3 + 1];
+				out->buffer[j * 4 + 2] = use_palette[idx * 3 + 2];
+				if( alpha_mode == 1 )
+				{
+					out->buffer[j * 4 + 3] = idx; // soft transparency (0x40)
+				}
+				else
+				{
+					out->buffer[j * 4 + 3] = ( idx == 255 ) ? 0 : 255; // classic (0x43)
+				}
+			}
+			return out;
+		}
+	}
+	return NULL;
+}
 
 static rgbdata_t *CustomDecal_LoadImage( const char *path, void *raw, int size )
 {
 	const char *testname;
+	rgbdata_t *wadimg;
+
+	if( raw && size > 16 && memcmp( raw, "WAD3", 4 ) == 0 )
+	{
+		wadimg = CustomDecal_LoadHLWADSpray( raw, size );
+		if( wadimg )
+			return wadimg;
+	}
 
 	// this way we limit file types
 	if( !Q_stricmp( COM_FileExtension( path ), "png" ))

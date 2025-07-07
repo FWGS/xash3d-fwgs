@@ -83,4 +83,22 @@ typedef struct mip_s
 	unsigned int	offsets[4];	// four mip maps stored
 } mip_t;
 
+typedef struct
+{
+	char identification[4]; // "WAD3"
+	int  numlumps;
+	int  infotableofs;
+} wad3header_t;
+
+typedef struct
+{
+	int  filepos;
+	int  disksize;
+	int  size; // uncompressed
+	char type;
+	char compression;
+	char pad1, pad2;
+	char name[16];
+} wad3lump_t;
+
 #endif//WADFILE_H
