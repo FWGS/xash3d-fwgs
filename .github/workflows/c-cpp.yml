@@ -60,7 +60,7 @@ jobs:
           - os: windows-latest
             targetos: win32
             targetarch: amd64
-          - os: windows-2019 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
+          - os: windows-2022 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
             targetos: win32
             targetarch: i386
           - os: macos-14 # arm64 as per github documentation
