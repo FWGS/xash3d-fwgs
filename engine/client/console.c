@@ -84,10 +84,17 @@ typedef struct con_lineinfo_s
 	double		addtime;		// notify stuff
 } con_lineinfo_t;
 
+typedef struct history_line_s
+{
+	string buffer;
+	int    cursor;
+	int    scroll;
+} history_line_t;
+
 typedef struct con_history_s
 {
-	field_t lines[CON_HISTORY];
-	field_t backup;
+	history_line_t lines[CON_HISTORY];
+	history_line_t backup;
 	int     line; // the line being displayed from history buffer will be <= nextHistoryLine
 	int     next; // the last line in the history buffer, not masked
 } con_history_t;
@@ -465,9 +472,6 @@ static void Con_CheckResize( void )
 	con.backscroll = 0;
 
 	con.input.widthInChars = con.linewidth;
-
-	for( i = 0; i < CON_HISTORY; i++ )
-		con.history.lines[i].widthInChars = con.linewidth;
 }
 
 /*
@@ -1308,6 +1312,32 @@ CONSOLE HISTORY HANDLING
 */
 /*
 ===================
+Con_HistoryFromField
+
+===================
+*/
+static void Con_HistoryFromField( history_line_t *dst, const field_t *src )
+{
+	Q_strncpy( dst->buffer, src->buffer, sizeof( dst->buffer ));
+	dst->cursor = src->cursor;
+	dst->scroll = src->scroll;
+}
+
+/*
+===================
+Con_HistoryToField
+
+===================
+*/
+static void Con_HistoryToField( field_t *dst, const history_line_t *src )
+{
+	Q_strncpy( dst->buffer, src->buffer, sizeof( dst->buffer ));
+	dst->cursor = src->cursor;
+	dst->scroll = src->scroll;
+}
+
+/*
+===================
 Con_HistoryUp
 
 ===================
@@ -1315,12 +1345,12 @@ Con_HistoryUp
 static void Con_HistoryUp( con_history_t *self, field_t *in )
 {
 	if( self->line == self->next )
-		self->backup = *in;
+		Con_HistoryFromField( &self->backup, in );
 
 	if(( self->next - self->line ) < CON_HISTORY )
 		self->line = Q_max( 0, self->line - 1 );
 
-	*in = self->lines[self->line % CON_HISTORY];
+	Con_HistoryToField( in, &self->lines[self->line % CON_HISTORY] );
 }
 
 /*
@@ -1333,8 +1363,9 @@ static void Con_HistoryDown( con_history_t *self, field_t *in )
 {
 	self->line = Q_min( self->next, self->line + 1 );
 	if( self->line == self->next )
-		*in = self->backup;
-	else *in = self->lines[self->line % CON_HISTORY];
+		Con_HistoryToField( in, &self->backup );
+	else
+		Con_HistoryToField( in, &self->lines[self->line % CON_HISTORY] );
 }
 
 /*
@@ -1342,7 +1373,7 @@ static void Con_HistoryDown( con_history_t *self, field_t *in )
 Con_HistoryAppend
 ===================
 */
-static void Con_HistoryAppend( con_history_t *self, field_t *from )
+static void Con_HistoryAppend( con_history_t *self, const field_t *from )
 {
 	int prevLine = Q_max( 0, self->line - 1 );
 	const char *buf = from->buffer;
@@ -1363,13 +1394,12 @@ static void Con_HistoryAppend( con_history_t *self, field_t *from )
 	if( !Q_strcmp( from->buffer, self->lines[prevLine % CON_HISTORY].buffer ))
 		return;
 
-	self->lines[self->next % CON_HISTORY] = *from;
+	Con_HistoryFromField( &self->lines[self->next % CON_HISTORY], from );
 	self->line = ++self->next;
 }
 
 static void Con_LoadHistory( con_history_t *self )
 {
-	field_t *f;
 	file_t *fd;
 	int i;
 
@@ -1380,13 +1410,11 @@ static void Con_LoadHistory( con_history_t *self )
 
 	while( !FS_Eof( fd ))
 	{
-		f = &self->lines[self->next % CON_HISTORY];
-
-		Con_ClearField( f );
-		f->widthInChars = con.linewidth;
+		history_line_t *f = &self->lines[self->next % CON_HISTORY];
 
 		FS_Gets( fd, f->buffer, sizeof( f->buffer ));
 		f->cursor = Q_strlen( f->buffer );
+		f->scroll = 0;
 
 		// skip empty lines
 		if( f->cursor == 0 )
@@ -1395,8 +1423,7 @@ static void Con_LoadHistory( con_history_t *self )
 		// skip repeating lines
 		if( self->next > 0 )
 		{
-			field_t *prev;
-			prev = &self->lines[(self->next - 1) % CON_HISTORY];
+			const history_line_t *prev = &self->lines[(self->next - 1) % CON_HISTORY];
 			if( !Q_stricmp( prev->buffer, f->buffer ))
 				continue;
 		}
@@ -1408,10 +1435,9 @@ static void Con_LoadHistory( con_history_t *self )
 
 	for( i = self->next; i < CON_HISTORY; i++ )
 	{
-		f = &self->lines[i];
+		history_line_t *f = &self->lines[i];
 
-		Con_ClearField( f );
-		f->widthInChars = con.linewidth;
+		memset( f, 0, sizeof( *f ));
 	}
 
 	self->line = self->next;
