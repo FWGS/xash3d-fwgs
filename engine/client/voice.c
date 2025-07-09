@@ -658,7 +658,7 @@ static int Voice_ProcessGSData( int ent, const uint8_t *data, uint32_t size )
 
 	if( vpc_type == GS_VPC_VDATA_OPUS_PLC )
 	{
-		decoder = voice.gs_decoders[ent];
+		decoder = voice.gs_decoders[ent - 1];
 		if( !decoder )
 		{
 			Con_Printf( S_WARN "No decoder available for entity %d\n", ent );
@@ -982,7 +982,7 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 	if( ent == cl.playernum )
 		Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
 
-	Voice_StatusAck( &voice.players_status[ent], ent );
+	Voice_StatusAck( &voice.players_status[playernum], ent );
 
 	if( voice.goldsrc )
 	{
