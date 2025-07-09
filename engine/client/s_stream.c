@@ -242,7 +242,8 @@ void S_StreamBackgroundTrack( void )
 		if( r > 0 )
 		{
 			// add to raw buffer
-			S_RawEntSamples( S_RAW_SOUND_BACKGROUNDTRACK, fileSamples, info->rate, info->width, info->channels, raw, 255 );
+			int music_vol = (int)(255.0f * S_GetMusicVolume());
+			S_RawEntSamples( S_RAW_SOUND_BACKGROUNDTRACK, fileSamples, info->rate, info->width, info->channels, raw, music_vol );
 		}
 		else
 		{
