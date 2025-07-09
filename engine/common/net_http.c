@@ -51,6 +51,7 @@ typedef struct httpfile_s
 	file_t *file;
 	int socket;
 	int size;
+	int reported_size;
 	int downloaded;
 	int lastchecksize;
 	float checktime;
@@ -153,7 +154,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		else // autoremove disabled, keep file
 		{
 			// warn about trash file
-			Con_Printf( "no servers to download %s. You may remove %s now\n", file->path, incname );
+			Con_Printf( S_ERROR "no servers to download %s. You may remove %s now\n", file->path, incname );
 		}
 	}
 	else
@@ -623,7 +624,18 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 				}
 				else
 				{
-					HTTP_FreeFile( file, false ); // success
+					fs_offset_t filelen = FS_FileLength( file->file );
+
+					if( filelen != file->reported_size )
+					{
+						Con_Printf( S_ERROR "downloaded file %s size doesn't match reported size. Got %ld bytes, expected %d bytes\n", file->path, (long)filelen, file->reported_size );
+						HTTP_FreeFile( file, true );
+					}
+					else
+					{
+						HTTP_FreeFile( file, false ); // success
+					}
+
 					return 1;
 				}
 			}
@@ -947,6 +959,7 @@ void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t 
 
 	httpfile->resource = res;
 	httpfile->size = size;
+	httpfile->reported_size = size;
 	httpfile->socket = -1;
 	Q_strncpy( httpfile->path, path, sizeof( httpfile->path ));
 
