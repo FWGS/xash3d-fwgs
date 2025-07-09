@@ -1346,6 +1346,8 @@ static void Con_HistoryUp( con_history_t *self, field_t *in )
 {
 	if( self->line == self->next )
 		Con_HistoryFromField( &self->backup, in );
+	else
+		Con_HistoryFromField( &self->lines[self->line % CON_HISTORY], in );
 
 	if(( self->next - self->line ) < CON_HISTORY )
 		self->line = Q_max( 0, self->line - 1 );
@@ -1361,6 +1363,8 @@ Con_HistoryDown
 */
 static void Con_HistoryDown( con_history_t *self, field_t *in )
 {
+	Con_HistoryFromField( &self->lines[self->line % CON_HISTORY], in );
+
 	self->line = Q_min( self->next, self->line + 1 );
 	if( self->line == self->next )
 		Con_HistoryToField( in, &self->backup );
