@@ -97,6 +97,7 @@ static CVAR_DEFINE_AUTO( bottomcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FI
 CVAR_DEFINE_AUTO( rate, "25000", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 
 static CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
+static CVAR_DEFINE_AUTO( cl_advertise_engine_in_name, "1", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "add [Xash3D] to the nickname when connecting to GoldSrc servers" );
 
 client_t		cl;
 client_static_t	cls;
@@ -1097,7 +1098,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
 
 		name = Info_ValueForKey( cls.userinfo, "name" );
-		if( Q_strnicmp( name, "[Xash3D]", 8 ))
+		if( cl_advertise_engine_in_name.value && Q_strnicmp( name, "[Xash3D]", 8 ))
 			Info_SetValueForKeyf( cls.userinfo, "name", sizeof( cls.userinfo ), "[Xash3D]%s", name );
 
 		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
@@ -3042,9 +3043,8 @@ void CL_UpdateInfo( const char *key, const char *value )
 		MSG_WriteString( &cls.netchan.message, cls.userinfo );
 		break;
 	case PROTO_GOLDSRC:
-		if( !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
+		if( cl_advertise_engine_in_name.value && !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
 		{
-			// always prepend [Xash3D] on GoldSrc protocol :)
 			CL_ServerCommand( true, "setinfo \"%s\" \"[Xash3D]%s\"\n", key, value );
 			break;
 		}
@@ -3359,6 +3359,7 @@ static void CL_InitLocal( void )
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;
 
 	Cvar_RegisterVariable( &cl_ticket_generator );
+	Cvar_RegisterVariable( &cl_advertise_engine_in_name );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );
