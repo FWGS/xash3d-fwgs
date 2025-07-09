@@ -272,7 +272,8 @@ def build(bld):
 		if bld.env.DEST_OS == 'emscripten':
 			linkflags += ['-sINITIAL_MEMORY=134217728', '-sALLOW_MEMORY_GROWTH=1', '-sSTACK_SIZE=16777216',
 						 '-sUSE_WEBGL2=1', '-sMIN_WEBGL_VERSION=2', '-sMAX_WEBGL_VERSION=2', '-sFULL_ES3=1',
-						 '-sEXIT_RUNTIME=1', '-sEXPORTED_RUNTIME_METHODS=["ccall", "cwrap"]', '-sSTACK_OVERFLOW_CHECK=2']
+						 '-sEXIT_RUNTIME=1', '-sEXPORTED_RUNTIME_METHODS=["ccall", "cwrap"]', '-sSTACK_OVERFLOW_CHECK=2',
+						  '-sMODULARIZE=1', '-sEXPORT_NAME=Xash3D']
 
 		f(source = source,
 			target = 'xash',
