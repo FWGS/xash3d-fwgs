@@ -440,11 +440,6 @@ void my_exit( int ret )
 Sys_Quit
 ================
 */
-#ifdef XASH_EMSCRIPTEN
-#include <emscripten.h>
-
-EMSCRIPTEN_KEEPALIVE
-#endif //XASH_EMSCRIPTEN
 void Sys_Quit( const char *reason )
 {
 	Host_ShutdownWithReason( reason );
