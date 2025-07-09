@@ -342,6 +342,7 @@ void VoiceCapture_Shutdown( void )
 		return;
 
 	SDL_CloseAudioDevice( in_dev );
+	in_dev = 0;
 }
 
 #endif // XASH_SOUND == SOUND_SDL
