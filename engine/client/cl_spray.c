@@ -348,6 +348,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	qboolean   result = false;
 	rgbdata_t  *process_image = NULL;
 	byte       *indexed;
+	byte       *alpha_mask;
 	int pal_count;
 	int i, src_idx;
 	byte       r, g, b, a;
@@ -381,17 +382,37 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 		return false;
 	}
 
-	memcpy( palette, quant->palette, SPRAY_PALETTE_BYTES );
-	pal_count = SPRAY_PALETTE_SIZE;
-	for( ; pal_count < 255; ++pal_count )
+	// replace all 255 in buffer with 254
+	quant->palette[254 * 3 + 0] = quant->palette[255 * 3 + 0];
+	quant->palette[254 * 3 + 1] = quant->palette[255 * 3 + 1];
+	quant->palette[254 * 3 + 2] = quant->palette[255 * 3 + 2];
+	for( i = 0; i < width * height; ++i )
 	{
-		palette[pal_count * 3 + 0] = 0;
-		palette[pal_count * 3 + 1] = 0;
-		palette[pal_count * 3 + 2] = 0;
+		if( quant->buffer[i] == 255 )
+			quant->buffer[i] = 254;
 	}
-	palette[255 * 3 + 0] = 0;
-	palette[255 * 3 + 1] = 0;
-	palette[255 * 3 + 2] = 255;
+	// set palette[255] to transparent color
+	quant->palette[255 * 3 + 0] = 0;
+	quant->palette[255 * 3 + 1] = 0;
+	quant->palette[255 * 3 + 2] = 255;
+
+	// apply alpha mask to handle transparency properly
+	if( process_image->type == PF_RGBA_32 )
+	{
+		alpha_mask = Mem_Malloc( host.imagepool, width * height );
+		for( i = 0; i < width * height; ++i )
+		{
+			alpha_mask[i] = process_image->buffer[i * 4 + 3];
+		}
+		for( i = 0; i < width * height; ++i )
+		{
+			if( alpha_mask[i] < 128 )
+				quant->buffer[i] = 255;
+		}
+		Mem_Free( alpha_mask );
+	}
+
+	memcpy( palette, quant->palette, SPRAY_PALETTE_BYTES );
 
 	// replace transparent pixels with index 255
 	indexed = quant->buffer;
@@ -401,13 +422,8 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 		r = quant->palette[src_idx * 3 + 0];
 		g = quant->palette[src_idx * 3 + 1];
 		b = quant->palette[src_idx * 3 + 2];
-		if( process_image->type == PF_RGBA_32 )
-		{
-			a = process_image->buffer[i * 4 + 3];
-			if( a <= 128 )
-				indexed[i] = 255;
-		}
-		else if( r == 0 && g == 0 && b == 255 )
+		// for non-RGBA images, traditional transparent color (0,0,255)
+		if( process_image->type != PF_RGBA_32 && r == 0 && g == 0 && b == 255 )
 		{
 			indexed[i] = 255;
 		}
