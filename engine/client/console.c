@@ -1276,6 +1276,7 @@ static void Field_DrawInputLine( int x, int y, const field_t *edit )
 	const int drawLen = bound( 0, edit->widthInChars, sizeof( str ));
 	const int cursorCharPos = bound( 0, edit->cursor - prestep, sizeof( str ));
 
+	str[0] = 0;
 	Q_strncpy( str, edit->buffer + prestep, drawLen );
 
 	// draw it
