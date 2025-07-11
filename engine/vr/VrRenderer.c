@@ -9,6 +9,7 @@
 XrFovf fov;
 XrView* projections;
 bool initialized = false;
+bool recenterCalled = false;
 bool stageBoundsDirty = true;
 bool stageSupported = false;
 int vrConfig[VR_CONFIG_MAX] = {};
@@ -178,6 +179,13 @@ void VR_Recenter(engine_t* engine) {
 	// Update menu orientation
 	VR_SetConfigFloat(VR_CONFIG_MENU_YAW, 0.0f);
 	stageBoundsDirty = true;
+	recenterCalled = true;
+}
+
+bool VR_DidRecenter() {
+	bool output = recenterCalled;
+	recenterCalled = false;
+	return output;
 }
 
 void VR_InitRenderer( engine_t* engine, bool multiview ) {

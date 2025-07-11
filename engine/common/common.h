@@ -570,13 +570,15 @@ void Host_ExitInMain( void );
 void Host_VRInit( void );
 void Host_VRInput( void );
 void Host_VRButtonMap( int button, int currentButtons, int lastButtons, const char* action );
-void Host_VRButtonMapping( bool swapped, int lbuttons, int rbuttons, float thumbstickX, float thumbstickY );
+void Host_VRButtonMapping( bool swapped, int lbuttons, int rbuttons );
 bool Host_VRConfig();
 void Host_VRCursor( bool cursorActive, float x, float y, vec2_t cursor );
 void Host_VRCustomCommand( char* action );
 bool Host_VRMenuInput( bool cursorActive, bool gameMode, bool swapped, int lbuttons, int rbuttons, vec2_t cursor );
-void Host_VRMovement( bool zoomed, float hmdAltitude, vec3_t hmdAngles, vec3_t hmdPosition, vec3_t weaponAngles, vec3_t weaponPosition );
-void Host_VRRotations( bool zoomed, vec3_t hmdAngles, vec3_t weaponAngles, float thumbstickX, float thumbstickY );
+void Host_VREntityMovement( bool zoomed, vec3_t hmdAngles, vec3_t hmdPosition, vec3_t weaponPosition );
+void Host_VRPlayerMovement( vec3_t hmdAngles, vec3_t hmdPosition, vec3_t weaponAngles, float thumbstickX, float thumbstickY );
+void Host_VRRotations( bool zoomed, vec3_t hmdAngles, vec3_t hmdPosition, vec3_t weaponAngles, float thumbstickX, float thumbstickY );
+bool Host_VRWeaponCalibration( float thumbstickX, float thumbstickY );
 void Host_VRWeaponCrosshair();
 
 //
