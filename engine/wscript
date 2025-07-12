@@ -55,7 +55,10 @@ def options(opt):
 		help = 'add LLVM libFuzzer [default: %(default)s]' )
 
 	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
-		help = 'enable ffmpeg based movie playback')
+		help = 'enable ffmpeg based movie playback [default: %(default)s')
+
+	grp.add_option('--enable-ffmpeg-dlopen', action = 'store_true', dest = 'FFMPEG_DLOPEN', default = False,
+		help = 'load ffmpeg libraries in runtime [default: %(default)s]')
 
 	opt.load('sdl2')
 
@@ -143,18 +146,22 @@ def configure(conf):
 	conf.define_cond('XASH_ENGINE_TESTS', conf.options.ENGINE_TESTS)
 
 	if conf.options.FFMPEG:
+		pkgconf_args = '--cflags' if conf.options.FFMPEG_DLOPEN else '--cflags --libs'
+		features = 'c' if conf.options.FFMPEG_DLOPEN else 'c cprogram'
+
 		# add ffmpeg libraries into single uselib package
-		conf.check_cfg(package='libswresample', uselib_store='SWRESAMPLE', args='--cflags --libs')
-		conf.check_cfg(package='libavformat', uselib_store='AVFORMAT', args='--cflags --libs')
-		conf.check_cfg(package='libavcodec', uselib_store='AVCODEC', args='--cflags --libs')
-		conf.check_cfg(package='libswscale', uselib_store='SWSCALE', args='--cflags --libs')
-		conf.check_cfg(package='libavutil', uselib_store='AVUTIL', args='--cflags --libs')
+		conf.check_cfg(package='libswresample', uselib_store='SWRESAMPLE', args=pkgconf_args)
+		conf.check_cfg(package='libavformat', uselib_store='AVFORMAT', args=pkgconf_args)
+		conf.check_cfg(package='libavcodec', uselib_store='AVCODEC', args=pkgconf_args)
+		conf.check_cfg(package='libswscale', uselib_store='SWSCALE', args=pkgconf_args)
+		conf.check_cfg(package='libavutil', uselib_store='AVUTIL', args=pkgconf_args)
 
 		# validate ffmpeg libs installation
-		conf.check_cc(fragment=FFMPEG_CHECK_FRAGMENT, use='SWRESAMPLE AVCODEC AVFORMAT AVUTIL SWSCALE', msg='Checking for ffmpeg sanity')
+		conf.check(features=features, fragment=FFMPEG_CHECK_FRAGMENT, use='SWRESAMPLE AVCODEC AVFORMAT AVUTIL SWSCALE', msg='Checking for ffmpeg sanity')
 
 		conf.env.FFMPEG = True
 		conf.define('HAVE_FFMPEG', True)
+		conf.define_cond('XASH_FFMPEG_DLOPEN', conf.options.FFMPEG_DLOPEN)
 
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
