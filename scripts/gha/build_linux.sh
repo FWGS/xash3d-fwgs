@@ -63,7 +63,7 @@ build_engine()
 	fi
 
 	if [ -d "ffmpeg" ]; then
-		WAF_EXTRA_ARGS+=" --enable-ffmpeg"
+		WAF_EXTRA_ARGS+=" --enable-ffmpeg --enable-ffmpeg-dlopen"
 	fi
 
 	if [ "$GH_CROSSCOMPILING" != "true" ]; then

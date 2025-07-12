@@ -14,7 +14,7 @@ fi
 if [ -d "ffmpeg" ]; then
 	export PKGCONFIG="$PWD/pkgconf/bin/pkgconf.exe"
 	export PKG_CONFIG_PATH="$PWD/ffmpeg/lib/pkgconfig"
-	WAF_EXTRA_ARGS+=" --enable-ffmpeg"
+	WAF_EXTRA_ARGS+=" --enable-ffmpeg --enable-ffmpeg-dlopen"
 fi
 
 # NOTE: to build with other version use --msvc_version during configuration
