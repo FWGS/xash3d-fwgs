@@ -40,10 +40,10 @@ jobs:
 #          - os: ubuntu-aarch64-22.04
 #            targetos: linux
 #            targetarch: aarch64
-          - os: ubuntu-latest
-            targetos: linux
-            targetarch: e2k-8c
-            cross: true
+#          - os: ubuntu-latest
+#            targetos: linux
+#            targetarch: e2k-8c
+#            cross: true
           - os: ubuntu-latest
             targetos: android
             targetarch: multiarch
