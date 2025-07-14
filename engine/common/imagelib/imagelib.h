@@ -103,6 +103,7 @@ typedef struct imglib_s
 #define LUMP_MAXHEIGHT	1024
 #define PLDECAL_MAXWIDTH  768 // total of ~2mb uncompressed rgba data
 #define PLDECAL_MAXHEIGHT 768
+#define IMAGE_GRADIENT_DECAL (1<<10) // TYP_PALETTE lump in WAD
 
 enum
 {
@@ -142,6 +143,7 @@ void Image_SetPixelFormat( void );
 void Image_GetPaletteQ1( void );
 void Image_GetPaletteHL( void );
 size_t Image_ComputeSize( int type, int width, int height, int depth );
+void Image_GenerateMipmaps( const byte *source, int width, int height, byte *mip1, byte *mip2, byte *mip3 );
 
 //
 // formats load
@@ -157,6 +159,7 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesi
 qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesize );
 
 //
 // formats save
@@ -164,6 +167,7 @@ qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t files
 qboolean Image_SaveTGA( const char *name, rgbdata_t *pix );
 qboolean Image_SaveBMP( const char *name, rgbdata_t *pix );
 qboolean Image_SavePNG( const char *name, rgbdata_t *pix );
+qboolean Image_SaveWAD( const char *name, rgbdata_t *pix );
 
 //
 // img_quant.c
