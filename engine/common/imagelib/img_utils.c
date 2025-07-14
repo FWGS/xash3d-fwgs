@@ -99,6 +99,7 @@ static const loadpixformat_t load_game[] =
 { "bmp", Image_LoadBMP, IL_HINT_NO },   // WON menu images
 { "tga", Image_LoadTGA, IL_HINT_NO },   // hl vgui menus
 { "png", Image_LoadPNG, IL_HINT_NO },   // NightFire 007 menus
+{ "wad", Image_LoadWAD, IL_HINT_NO },   // hl wad files
 { "mip", Image_LoadMIP, IL_HINT_NO },   // hl textures from wad or buffer
 { "mdl", Image_LoadMDL, IL_HINT_HL },   // hl studio model skins
 { "spr", Image_LoadSPR, IL_HINT_HL },   // hl sprite frames
@@ -1493,4 +1494,36 @@ size_t Image_ComputeSize( int type, int width, int height, int depth )
 	}
 
 	return 0;
+}
+
+/*
+============
+Image_GenerateMipmaps
+============
+*/
+void Image_GenerateMipmaps( const byte *source, int width, int height, byte *mip1, byte *mip2, byte *mip3 )
+{
+	const int sizes[3][2] = {
+		{ width / 2, height / 2 },
+		{ width / 4, height / 4 },
+		{ width / 8, height / 8 }
+	};
+	byte      *mips[3] = { mip1, mip2, mip3 };
+	int m, mw, mh, step, y, x;
+
+	for( m = 0; m < 3; ++m )
+	{
+		if( !mips[m] )
+			continue;
+		mw = sizes[m][0];
+		mh = sizes[m][1];
+		step = 1 << ( m + 1 );
+		for( y = 0; y < mh; ++y )
+		{
+			for( x = 0; x < mw; ++x )
+			{
+				mips[m][y * mw + x] = source[( y * step ) * width + ( x * step )];
+			}
+		}
+	}
 }
