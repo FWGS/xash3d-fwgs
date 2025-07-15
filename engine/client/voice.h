@@ -89,7 +89,7 @@ typedef struct voice_state_s
 	double   start_time;
 
 	voice_status_t    local;
-	voice_status_t    players_status[MAX_CLIENTS];
+	voice_status_t    players_status[MAX_CLIENTS]; // do not access this directly, use Voice_GetPlayerStatus instead
 
 	// opus stuff
 	OpusCustomMode    *custom_mode;
