@@ -69,6 +69,24 @@ static qboolean Voice_IsOpusCustomMode( const char *codec )
 	return Q_strcmp( codec, VOICE_OPUS_CUSTOM_CODEC ) == 0;
 }
 
+
+/*
+=========================
+Voice_GetPlayerStatus
+
+Does proper entity index range checking and helps to avoid mess with off-by-one errors
+=========================
+*/
+static voice_status_t *Voice_GetPlayerStatus( int playerent )
+{
+	if ( playerent < 1 || playerent > MAX_CLIENTS )
+	{
+		Con_Printf( S_ERROR "%s: detected out-of-range player entity index\n", __func__ );
+		return NULL;
+	}
+	return &voice.players_status[playerent - 1];
+}
+
 /*
 =========================
 Voice_GetBitrateForQuality
@@ -933,12 +951,13 @@ void Voice_Disconnect( void )
 		voice.local.talking_ack = false;
 	}
 
-	for( i = 0; i < MAX_CLIENTS; i++ )
+	for( i = 1; i <= MAX_CLIENTS; i++ )
 	{
-		if( voice.players_status[i].talking_ack )
+		voice_status_t *status = Voice_GetPlayerStatus( i );
+		if( status->talking_ack )
 		{
 			Voice_Status( i, false );
-			voice.players_status[i].talking_ack = false;
+			status->talking_ack = false;
 		}
 	}
 
@@ -974,6 +993,7 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 	const int playernum = ent - 1;
 	int samples = 0;
 	int ofs = 0;
+	voice_status_t *status = NULL;
 
 	if( !voice.initialized || !voice_enable.value )
 		return;
@@ -982,7 +1002,8 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 	if( ent == cl.playernum )
 		Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
 
-	Voice_StatusAck( &voice.players_status[playernum], ent );
+	status = Voice_GetPlayerStatus( ent );
+	Voice_StatusAck( status, ent );
 
 	if( voice.goldsrc )
 	{
@@ -1115,9 +1136,10 @@ static void Voice_Shutdown( void )
 	if( voice.local.talking_ack )
 		Voice_Status( VOICE_LOOPBACK_INDEX, false );
 
-	for( i = 0; i < MAX_CLIENTS; i++ )
+	for( i = 1; i <= MAX_CLIENTS; i++ )
 	{
-		if( voice.players_status[i].talking_ack )
+		voice_status_t *status = Voice_GetPlayerStatus( i );
+		if( status->talking_ack )
 			Voice_Status( i, false );
 	}
 
@@ -1167,8 +1189,11 @@ void Voice_Idle( double frametime )
 	// update local player status first
 	Voice_StatusTimeout( &voice.local, VOICE_LOOPBACK_INDEX, frametime );
 
-	for( i = 0; i < MAX_CLIENTS; i++ )
-		Voice_StatusTimeout( &voice.players_status[i], i, frametime );
+	for( i = 1; i <= MAX_CLIENTS; i++ )
+	{
+		voice_status_t *status = Voice_GetPlayerStatus( i );
+		Voice_StatusTimeout( status, i, frametime );
+	}
 }
 
 /*
