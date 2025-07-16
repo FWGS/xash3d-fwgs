@@ -140,7 +140,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	if( !image )
 		return false;
 
-	if( is_bmp )
+	if( is_bmp && image->palette != NULL )
 	{
 		// copy bmp palette from rgba to rgb
 		for( i = 0; i < 256; ++i )
@@ -153,6 +153,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	}
 	else
 	{
+		is_bmp = false;
 		quant = Image_Quantize( image );
 		if( !quant || !quant->buffer || !quant->palette )
 			goto cleanup;
