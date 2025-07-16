@@ -1775,7 +1775,9 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 		hull->planes = mod->planes;
 
 		// some map "optimizers" (you know who you are!) put -1 here
-		hull->firstclipnode = Q_max( 0, headnode );
+		// ... and it's purposefully? encode CONTENTS_EMPTY sometimes
+		// but might cause out of bounds reads
+		hull->firstclipnode = headnode;
 		hull->lastclipnode = mod->numclipnodes - 1;
 
 		// only allocate clipnodes array for the base model, only for first hull
