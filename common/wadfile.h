@@ -35,6 +35,7 @@ infotable	dlumpinfo_t[dwadinfo_t->numlumps]
 
 #define IDWAD2HEADER	(('2'<<24)+('D'<<16)+('A'<<8)+'W')	// little-endian "WAD2" quake wads
 #define IDWAD3HEADER	(('3'<<24)+('D'<<16)+('A'<<8)+'W')	// little-endian "WAD3" half-life wads
+#define WAD3_NAMELEN	16
 
 // dlumpinfo_t->attribs
 #define ATTR_NONE		0	// allow to read-write
@@ -82,5 +83,38 @@ typedef struct mip_s
 	unsigned int	height;
 	unsigned int	offsets[4];	// four mip maps stored
 } mip_t;
+
+/*
+========================================================================
+
+.WAD header format	(half-Life textures)
+
+========================================================================
+*/
+typedef struct
+{
+	int		ident;		// should be WAD3
+	int		numlumps;		// num files
+	int		infotableofs;	// LUT offset
+} dwadinfo_t;
+
+/*
+========================================================================
+
+.WAD struct	(half-Life textures)
+
+========================================================================
+*/
+typedef struct
+{
+	int		filepos;		// file offset in WAD
+	int		disksize;		// compressed or uncompressed
+	int		size;		// uncompressed
+	signed char	type;		// TYP_*
+	signed char	attribs;		// file attribs
+	signed char	pad0;
+	signed char	pad1;
+	char		name[WAD3_NAMELEN];	// must be null terminated
+} dlumpinfo_t;
 
 #endif//WADFILE_H
