@@ -84,6 +84,15 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 
+#### Android (Windows/Linux/macOS)
+* Install [Android Studio](https://developer.android.com/studio) (or the command line tools).
+* Install [Python](https://python.org) (at least 2.7, latest is better).
+* Install [Git](https://git-scm.com/download/win).
+* Install [Ninja](https://ninja-build.org/).
+* Install [CMake](https://cmake.org/) (for some dependencies).
+
+* Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+
 ### Building
 #### Windows (Visual Studio)
 0) Open command line.
@@ -100,3 +109,6 @@ If compiling 32-bit on amd64, make sure `PKG_CONFIG_PATH` from the previous step
 1) Configure build: `./waf configure` (you need to pass `-8` to compile 64-bit engine on 64-bit x86 processor).
 2) Compile: `./waf build`.
 3) Install: `./waf install --destdir=/path/to/any/output/directory`.
+
+#### Android (Windows/Linux/macOS)
+You can just open the `android` folder in Android Studio and build from here, or use `gradlew` to build from command line.
