@@ -2,13 +2,14 @@
 
 cd $GITHUB_WORKSPACE
 
-ANDROID_COMMANDLINE_TOOLS_VER="11076708"
-ANDROID_BUILD_TOOLS_VER="34.0.0"
-ANDROID_PLATFORM_VER="android-34"
+ANDROID_COMMANDLINE_TOOLS_VER="13114758"
+ANDROID_BUILD_TOOLS_VER="36.0.0"
+ANDROID_PLATFORM_VER="android-35"
+ANDROID_NDK_VERSION="28.2.13676358"
 
 echo "Download JDK 17"
-wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.7%2B7/OpenJDK17U-jdk_x64_linux_hotspot_17.0.7_7.tar.gz -qO- | tar -xzf - || exit 1
-export JAVA_HOME=$GITHUB_WORKSPACE/jdk-17.0.7+7
+wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.15%2B6/OpenJDK17U-jdk_x64_linux_hotspot_17.0.15_6.tar.gz -qO- | tar -xzf - || exit 1
+export JAVA_HOME=$GITHUB_WORKSPACE/jdk-17.0.15+6
 export PATH=$PATH:$JAVA_HOME/bin
 
 echo "Download hlsdk-portable"
@@ -35,4 +36,4 @@ popd
 
 echo "Download all needed tools and Android NDK"
 yes | sdkmanager --licenses > /dev/null 2>/dev/null # who even reads licenses? :)
-sdkmanager --install build-tools\;${ANDROID_BUILD_TOOLS_VER} platform-tools platforms\;${ANDROID_PLATFORM_VER}
+sdkmanager --install build-tools\;${ANDROID_BUILD_TOOLS_VER} platform-tools platforms\;${ANDROID_PLATFORM_VER} ndk\;${ANDROID_NDK_VERSION}
