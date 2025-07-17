@@ -18,7 +18,7 @@ Initial Xash3D SDL2/Linux port author, Xash3D FWGS engine maintainer, creator of
 
 [cs16-client](https://github.com/Velaron/cs16-client) & [tf15-client](https://github.com/Velaron/tf15-client) maintainer and Xash3D FWGS [contributor](https://github.com/FWGS/xash3d-fwgs/commits?author=Velaron) (Android port, voice chat, etc).
 
-* [BuyMeACoffee page](https://www.buymeacoffee.com/velaron)
+* [Boosty page](https://boosty.to/velaron)
 
 ## [SNMetamorph](https://github.com/SNMetamorph)
 
