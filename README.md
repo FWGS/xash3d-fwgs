@@ -36,6 +36,11 @@ You still needed to copy `valve` directory as all game resources located there.
 
 For additional info, run Xash3D with `-help` command line key.
 
+### Android
+0) Install the APK file.
+1) Copy `valve` directory to a folder named `xash` in the Internal storage.
+2) Run games from within the app.
+
 ## Contributing
 * Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html.
 * Issues are accepted in both English and Russian.
