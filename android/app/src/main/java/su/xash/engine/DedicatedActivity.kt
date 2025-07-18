@@ -1,4 +1,3 @@
 package su.xash.engine
 
-class DedicatedActivity {
-}
+class DedicatedActivity {}
