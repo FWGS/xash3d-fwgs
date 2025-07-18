@@ -1,45 +1,42 @@
-/***
-*
-*	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*
-*	This product contains software technology licensed from Id
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
-*	All Rights Reserved.
-*
-*   Use, distribution, and modification of this source code and/or resulting
-*   object code is restricted to non-commercial enhancements to products from
-*   Valve LLC.  All other use, distribution, or modification is prohibited
-*   without written permission from Valve LLC.
-*
-****/
+/*
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+*/
 
 #ifndef EVENT_FLAGS_H
 #define EVENT_FLAGS_H
 
-// Skip local host for event send.
-#define FEV_NOTHOST		(1<<0)
+enum
+{
+	FEV_NOTHOST = 1 << 0,
+	FEV_RELIABLE = 1 << 1,
+	FEV_GLOBAL = 1 << 2,
+	FEV_UPDATE = 1 << 3,
+	FEV_HOSTONLY = 1 << 4,
+	FEV_SERVER = 1 << 5,
+	FEV_CLIENT = 1 << 6
+};
 
-// Send the event reliably.  You must specify the origin and angles and use
-// PLAYBACK_EVENT_FULL for this to work correctly on the server for anything
-// that depends on the event origin/angles.  I.e., the origin/angles are not
-// taken from the invoking edict for reliable events.
-#define FEV_RELIABLE	(1<<1)
-
-// Don't restrict to PAS/PVS, send this event to _everybody_ on the server ( useful for stopping CHAN_STATIC
-//  sounds started by client event when client is not in PVS anymore ( hwguy in TFC e.g. ).
-#define FEV_GLOBAL		(1<<2)
-
-// If this client already has one of these events in its queue, just update the event instead of sending it as a duplicate
-//
-#define FEV_UPDATE		(1<<3)
-
-// Only send to entity specified as the invoker
-#define FEV_HOSTONLY	(1<<4)
-
-// Only send if the event was created on the server.
-#define FEV_SERVER		(1<<5)
-
-// Only issue event client side ( from shared code )
-#define FEV_CLIENT		(1<<6)
-
-#endif//EVENT_FLAGS_H
+#endif
