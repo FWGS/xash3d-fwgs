@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include "sound.h"		// S_GetDynamicSounds
 #include "ref_common.h" // decals
 
+#if XASH_EMSCRIPTEN
+#include <emscripten.h>
+#endif
 /*
 ==============================================================================
 SAVE FILE
@@ -505,6 +508,9 @@ static void ClearSaveDir( void )
 		FS_Delete( t->filenames[i] );
 
 	Mem_Free( t );
+#if XASH_EMSCRIPTEN
+	EM_ASM({ Module.callbacks?.fsSyncRequired?.(UTF8ToString($0)) }, "delete");
+#endif
 }
 
 /*
@@ -597,6 +603,10 @@ static void AgeSaveList( const char *pName, int count )
 	// only delete from game directory, basedir is read-only
 	FS_Delete( newName );
 	FS_Delete( newShot );
+
+#if XASH_EMSCRIPTEN
+	EM_ASM({ Module.callbacks?.fsSyncRequired?.(UTF8ToString($0)) }, "delete");
+#endif
 
 #if !XASH_DEDICATED
 	// unloading the shot footprint
@@ -1738,7 +1748,9 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	DirectoryCopy( hlPath, pFile );
 	SaveFinish( pSaveData );
 	FS_Close( pFile );
-
+#if XASH_EMSCRIPTEN
+	EM_ASM({ Module.callbacks?.fsSyncRequired?.(UTF8ToString($0)) }, pSaveName);
+#endif
 	return true;
 }
 

@@ -18,6 +18,10 @@ GNU General Public License for more details.
 #include "const.h"
 #include "kbutton.h"
 
+#if XASH_EMSCRIPTEN
+#include <emscripten.h>
+#endif
+
 #define CON_MAXCMDS		4096	// auto-complete intermediate list
 
 typedef struct autocomplete_list_s
@@ -1465,6 +1469,9 @@ void Host_WriteConfig( void )
 	else Con_DPrintf( S_ERROR "Couldn't write config.cfg.\n" );
 
 	NET_SaveMasters();
+#if XASH_EMSCRIPTEN
+	EM_ASM({ Module.callbacks?.fsSyncRequired?.(UTF8ToString($0)) }, "config.cfg");
+#endif
 }
 
 /*

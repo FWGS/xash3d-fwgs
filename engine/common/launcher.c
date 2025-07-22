@@ -46,20 +46,6 @@ static int Sys_Start( void )
 {
 	Q_strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ));
 
-#if XASH_EMSCRIPTEN
-#if !XASH_DEDICATED
-	EM_ASM( try {
-		FS.mkdir( '/rwdir' );
-		FS.mount( IDBFS, { root: '.' }, '/rwdir' );
-	} catch( e ) { };);
-#else // XASH_DEDICATED
-	EM_ASM(try {
-		FS.mkdir( '/xash' );
-		FS.mount( NODEFS, { root: '.'}, '/xash' );
-	} catch( e ) { };);
-#endif // XASH_DEDICATED
-#endif // XASH_EMSCRIPTEN
-
 #if XASH_IOS
 	IOS_LaunchDialog();
 #endif // XASH_IOS

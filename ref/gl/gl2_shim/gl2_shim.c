@@ -229,6 +229,10 @@ static GLuint GL2_GenerateShader( gl2wrap_prog_t *prog, GLenum type )
 
 	Q_snprintf( shader, MAX_SHADERLEN, "#version %d%s\n", version, version >= 300 && version < 330 ? " es" : "" );
 
+#if XASH_EMSCRIPTEN
+	Q_strncat( shader, "precision highp float;\n", MAX_SHADERLEN );
+#endif
+
 	Q_snprintf( tmp, sizeof( tmp ), "#define VER %d\n", version );
 	Q_strncat( shader, tmp, MAX_SHADERLEN );
 
@@ -1748,12 +1752,6 @@ static void APIENTRY GL2_DrawBuffer(GLenum mode)
 {
 }
 
-#if XASH_EMSCRIPTEN
-static void GL2_PolygonOffset( GLfloat factor, GLfloat units )
-{
-}
-#endif // XASH_EMSCRIPTEN
-
 void GL2_ShimInstall( void )
 {
 	GL2_OVERRIDE_PTR( Vertex2f )
@@ -1798,9 +1796,6 @@ void GL2_ShimInstall( void )
 		GL2_OVERRIDE_PTR_B( TexImage2D )
 		GL2_OVERRIDE_PTR_B( TexParameteri )
 	}
-#if XASH_EMSCRIPTEN
-	GL2_OVERRIDE_PTR( PolygonOffset )
-#endif // XASH_EMSCRIPTEN
 	GL2_OVERRIDE_PTR_B( IsEnabled )
 	GL2_OVERRIDE_PTR_B( DrawRangeElements )
 	GL2_OVERRIDE_PTR_B( DrawElements )

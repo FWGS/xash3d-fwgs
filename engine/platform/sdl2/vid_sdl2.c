@@ -713,6 +713,10 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 	if( !glw_state.software )
 		SetBits( wndFlags, SDL_WINDOW_OPENGL );
 
+#if XASH_EMSCRIPTEN // chromium based browsers have a bug with dynamic alpha channel attribute update.
+	SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 0 );
+#endif
+
 	if( window_mode == WINDOW_MODE_WINDOWED )
 	{
 		SDL_Rect *display_rects = ( SDL_Rect * )malloc( num_displays * sizeof( SDL_Rect ));

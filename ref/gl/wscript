@@ -61,6 +61,11 @@ def build(bld):
 			'libs':    [],
 			'defines': ['XASH_GLES3COMPAT=1'],
 		},
+		'ref_webgl2': {
+			'enable':  bld.env.WEBGL2,
+			'libs':    ['DL', 'LOG'],
+			'defines': ['XASH_WEBGL=1', 'XASH_GLES=1'],
+		},
 	}
 
 	for k,v in targets.items():

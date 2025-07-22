@@ -27,6 +27,10 @@ GNU General Public License for more details.
 #include "platform/android/lib_android.h"
 #include "platform/apple/lib_ios.h"
 
+#if XASH_EMSCRIPTEN
+#include <emscripten.h>
+#endif
+
 #ifdef XASH_DLL_LOADER // wine-based dll loader
 void * Loader_LoadLibrary (const char *name);
 void * Loader_GetProcAddress (void *hndl, const char *name);
@@ -207,6 +211,19 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 #error ConvertMangledName
 		return Loader_GetFuncName_int(wm, function);
 	else
+#endif
+#if XASH_EMSCRIPTEN
+	// todo: consider if it worth to submit dladdr patch for emscripten,  but it will require writing tests ... doh
+	char *fn = EM_ASM_PTR({
+		const hInstance = $0;
+		const funcPtr = $1;
+		const funcJsRef = Module.getWasmTableEntry(funcPtr).name;
+		const exports = Object.entries(Module.LDSO.loadedLibsByHandle[hInstance].exports);
+		for (const [fn, { name }] of exports)
+			if (name === funcJsRef) return stringToNewUTF8(fn);
+		return 0; //NULL
+	}, hInstance, function);
+	return COM_GetPlatformNeutralName( fn );
 #endif
 	// NOTE: dladdr() is a glibc extension
 	{

@@ -743,6 +743,9 @@ static void GL_InitExtensionsGLES( void )
 #elif XASH_GLES3COMPAT
 	glConfig.context = CONTEXT_TYPE_GLES_2_X;
 	glConfig.wrapper = GLES_WRAPPER_NONE;
+#elif XASH_WEBGL
+	glConfig.context = CONTEXT_TYPE_GL_CORE;
+	glConfig.wrapper = GLES_WRAPPER_NONE;
 #else
 	#error "unknown gles wrapper"
 #endif

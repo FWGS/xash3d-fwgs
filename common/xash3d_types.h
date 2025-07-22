@@ -73,6 +73,9 @@ typedef int qboolean;
 	#if defined( __i386__ )
 		#define EXPORT         __attribute__(( visibility( "default" ), force_align_arg_pointer ))
 		#define GAME_EXPORT    __attribute__(( force_align_arg_pointer ))
+	#elif defined( XASH_EMSCRIPTEN )
+		#define EXPORT         __attribute__(( used )) // see EMSCRIPTE_KEEPALIVE
+		#define GAME_EXPORT
 	#else
 		#define EXPORT         __attribute__(( visibility ( "default" )))
 		#define GAME_EXPORT
