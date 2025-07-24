@@ -28,6 +28,7 @@ static void CL_AdjustSprayDimensions( int *width, int *height )
 		w = ((int)( h * aspect ) / 16 ) * 16;
 		if( w < 16 || w > *width )
 			continue;
+
 		if( w * h < SPRAY_MAX_SURFACE )
 		{
 			*width = w;
@@ -69,7 +70,7 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 		pix = image->buffer;
 		for( i = 0; i < image->width * image->height; i++, pix += bpp )
 		{
-			if( bpp == 4 && pix[3] <= 128 )
+			if( bpp == 4 && pix[3] <= SPRAY_ALPHA_THRESHOLD )
 			{
 				pix[0] = 0;
 				pix[1] = 0;
@@ -94,11 +95,13 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 			image->buffer, image->width, image->height,
 			*width, *height, image->type, &resampled
 			);
+
 		if( !resampled_buf )
 		{
 			FS_FreeImage( image );
 			return NULL;
 		}
+
 		scaled = Mem_Malloc( host.imagepool, sizeof( rgbdata_t ));
 		*scaled = *image;
 		scaled->width = *width;
@@ -106,12 +109,14 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 		scaled->size = *width * *height * (( image->type == PF_RGBA_32 ) ? 4 : ( image->type == PF_INDEXED_32 ? 1 : 3 ));
 		scaled->buffer = Mem_Malloc( host.imagepool, scaled->size );
 		memcpy( scaled->buffer, resampled_buf, scaled->size );
+
 		if( keep8bit && image->palette )
 		{
 			// copy 8-bit palette for resampled bmp
 			scaled->palette = Mem_Malloc( host.imagepool, 256 * 4 );
 			memcpy( scaled->palette, image->palette, 256 * 4 );
 		}
+
 		FS_FreeImage( image );
 		image = scaled;
 	}
@@ -122,16 +127,16 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 // converts an image to WAD3 spray or miptex format
 qboolean CL_ConvertImageToWAD3( const char *filename )
 {
-	const char *ext;
-	qboolean   is_bmp;
-	int       width = 0, height = 0;
-	int       i, idx;
-	byte      palette[SPRAY_PALETTE_BYTES];
-	byte      *indexed = NULL;
-	byte      *bmp_palette = NULL;
-	rgbdata_t *image = NULL;
-	rgbdata_t *quant = NULL;
-	rgbdata_t temp_image = {0};
+	const char	*ext;
+	qboolean	is_bmp, is_indexed_img;
+	int			width = 0, height = 0;
+	int			i, idx;
+	byte		palette[SPRAY_PALETTE_BYTES];
+	byte		*indexed = NULL;
+	byte		*bmp_palette = NULL;
+	rgbdata_t	*image = NULL;
+	rgbdata_t	*quant = NULL;
+	rgbdata_t	temp_image = {0};
 
 	ext = Q_strrchr( filename, '.' );
 	is_bmp = ( ext && !Q_stricmp( ext, ".bmp" ));
@@ -140,7 +145,8 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	if( !image )
 		return false;
 
-	if( is_bmp && image->palette != NULL )
+	is_indexed_img = is_bmp && image->palette != NULL;
+	if( is_indexed_img )
 	{
 		// copy bmp palette from rgba to rgb
 		for( i = 0; i < 256; ++i )
@@ -153,32 +159,37 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	}
 	else
 	{
-		is_bmp = false;
 		quant = Image_Quantize( image );
+
 		if( !quant || !quant->buffer || !quant->palette )
 			goto cleanup;
+
 		// remap palette index 255 to 254 to avoid transparency conflicts
 		for( i = 0; i < 3; ++i )
 			quant->palette[254 * 3 + i] = quant->palette[255 * 3 + i];
+
 		for( i = 0; i < width * height; ++i )
 		{
 			if( quant->buffer[i] == 255 )
 				quant->buffer[i] = 254;
 		}
+
 		// set index 255 for transparent pixels in rgba images
 		if( image->type == PF_RGBA_32 )
 		{
 			for( i = 0; i < width * height; ++i )
 			{
-				if( image->buffer[i * 4 + 3] < 128 )
+				if( image->buffer[i * 4 + 3] <= SPRAY_ALPHA_THRESHOLD )
 					quant->buffer[i] = 255;
 			}
 		}
+
 		quant->palette[255 * 3 + 0] = 0;
 		quant->palette[255 * 3 + 1] = 0;
 		quant->palette[255 * 3 + 2] = 255;
 		memcpy( palette, quant->palette, SPRAY_PALETTE_BYTES );
 		indexed = quant->buffer;
+
 		// ensure blue (0,0,255) is always transparent for non-rgba images
 		if( image->type != PF_RGBA_32 )
 		{
@@ -199,8 +210,10 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	temp_image.buffer = indexed;
 	temp_image.size = width * height;
 	temp_image.palette = palette;
-	if( is_bmp )
+
+	if( is_indexed_img )
 		temp_image.flags |= IMAGE_GRADIENT_DECAL;
+
 	return Image_SaveWAD( SPRAY_FILENAME, &temp_image );
 
 cleanup:
