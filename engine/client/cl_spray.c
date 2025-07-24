@@ -44,12 +44,13 @@ static void CL_AdjustSprayDimensions( int *width, int *height )
 // loads and prepares the image
 static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int *height, qboolean keep8bit )
 {
-	rgbdata_t *image = NULL;
-	rgbdata_t *scaled = NULL;
-	byte      *pix;
-	byte      *resampled_buf;
-	qboolean  resampled = false;
-	int bpp, i;
+	rgbdata_t	*image = NULL;
+	rgbdata_t	*scaled = NULL;
+	byte		*pix;
+	byte		*resampled_buf;
+	qboolean	resampled = false;
+	qboolean	indexed = false;
+	int			bpp, palette_size, i;
 
 	if( keep8bit )
 	{
@@ -61,28 +62,13 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 	{
 		image = FS_LoadImage( filename, NULL, 0 );
 	}
+
 	if( !image )
 		return NULL;
 
 	bpp = ( image->type == PF_RGBA_32 ) ? 4 : ( image->type == PF_INDEXED_32 ? 1 : 3 );
-	if( !keep8bit && ( bpp == 3 || bpp == 4 ))
-	{
-		pix = image->buffer;
-		for( i = 0; i < image->width * image->height; i++, pix += bpp )
-		{
-			if( bpp == 4 && pix[3] <= SPRAY_ALPHA_THRESHOLD )
-			{
-				pix[0] = 0;
-				pix[1] = 0;
-				pix[2] = 255;
-				pix[3] = 255;
-			}
-			else if( bpp == 3 && pix[0] == 0 && pix[1] == 0 && pix[2] == 255 )
-			{
-				pix[2] = 254;
-			}
-		}
-	}
+	indexed = ( image->type == PF_INDEXED_24 ) || ( image->type == PF_INDEXED_32 );
+	palette_size = 256 * ( image->type == PF_INDEXED_32 ? 4 : 3 );
 
 	*width = image->width;
 	*height = image->height;
@@ -106,15 +92,15 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 		*scaled = *image;
 		scaled->width = *width;
 		scaled->height = *height;
-		scaled->size = *width * *height * (( image->type == PF_RGBA_32 ) ? 4 : ( image->type == PF_INDEXED_32 ? 1 : 3 ));
+		scaled->size = *width * *height * (( image->type == PF_RGBA_32 ) ? 4 : ( indexed ? 1 : 3 ));
 		scaled->buffer = Mem_Malloc( host.imagepool, scaled->size );
 		memcpy( scaled->buffer, resampled_buf, scaled->size );
 
 		if( keep8bit && image->palette )
 		{
 			// copy 8-bit palette for resampled bmp
-			scaled->palette = Mem_Malloc( host.imagepool, 256 * 4 );
-			memcpy( scaled->palette, image->palette, 256 * 4 );
+			scaled->palette = Mem_Malloc( host.imagepool, palette_size );
+			memcpy( scaled->palette, image->palette, palette_size );
 		}
 
 		FS_FreeImage( image );
@@ -159,15 +145,16 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	}
 	else
 	{
-		quant = Image_Quantize( image );
+		quant = Mem_Malloc( host.imagepool, sizeof( rgbdata_t ));
+		*quant = *image;
+		quant->buffer = Mem_Malloc( host.imagepool, quant->size );
+		memcpy( quant->buffer, image->buffer, quant->size );
+		Image_Quantize( quant ); // it's so weird, it writes result to same structure as used for input data
 
 		if( !quant || !quant->buffer || !quant->palette )
 			goto cleanup;
-
+		
 		// remap palette index 255 to 254 to avoid transparency conflicts
-		for( i = 0; i < 3; ++i )
-			quant->palette[254 * 3 + i] = quant->palette[255 * 3 + i];
-
 		for( i = 0; i < width * height; ++i )
 		{
 			if( quant->buffer[i] == 255 )
@@ -179,7 +166,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 		{
 			for( i = 0; i < width * height; ++i )
 			{
-				if( image->buffer[i * 4 + 3] <= SPRAY_ALPHA_THRESHOLD )
+				if( image->buffer[i * 4 + 3] <= SPRAY_ALPHA_THRESHOLD ) 
 					quant->buffer[i] = 255;
 			}
 		}
@@ -189,19 +176,6 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 		quant->palette[255 * 3 + 2] = 255;
 		memcpy( palette, quant->palette, SPRAY_PALETTE_BYTES );
 		indexed = quant->buffer;
-
-		// ensure blue (0,0,255) is always transparent for non-rgba images
-		if( image->type != PF_RGBA_32 )
-		{
-			for( i = 0; i < width * height; ++i )
-			{
-				idx = indexed[i];
-				if( quant->palette[idx * 3 + 0] == 0
-				    && quant->palette[idx * 3 + 1] == 0
-				    && quant->palette[idx * 3 + 2] == 255 )
-					indexed[i] = 255;
-			}
-		}
 	}
 
 	temp_image.width = width;
@@ -219,5 +193,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 cleanup:
 	if( image )
 		FS_FreeImage( image );
+	if( quant )
+		FS_FreeImage( quant );
 	return false;
 }
