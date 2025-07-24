@@ -1051,6 +1051,11 @@ int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, q
 const ref_overview_t *GL_GetOverviewParms( void );
 
 //
+// cl_spray.c
+//
+qboolean CL_ConvertImageToWAD3( const char *filename );
+
+//
 // cl_efrag.c
 //
 void R_StoreEfrags( efrag_t **ppefrag, int framecount );
