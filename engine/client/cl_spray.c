@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
-#include "filesystem.h"
+#include "client.h"
 #include "imagelib.h"
 
 #define SPRAY_MAX_SURFACE		12228
@@ -47,33 +47,15 @@ static void CL_AdjustSprayDimensions( int *width, int *height )
 }
 
 // loads and prepares the image
-static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int *height, qboolean keep8bit )
+static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int *height )
 {
-	rgbdata_t	*image = NULL;
-	rgbdata_t	*scaled = NULL;
-	byte		*pix;
-	byte		*resampled_buf;
-	qboolean	resampled = false;
-	qboolean	indexed = false;
-	int			bpp, palette_size, i;
+	rgbdata_t *image = NULL;
 
-	if( keep8bit )
-	{
-		Image_SetForceFlags( IL_KEEP_8BIT );
-		image = FS_LoadImage( filename, NULL, 0 );
-		Image_SetForceFlags( 0 );
-	}
-	else
-	{
-		image = FS_LoadImage( filename, NULL, 0 );
-	}
+	Image_SetForceFlags( IL_KEEP_8BIT );
+	image = FS_LoadImage( filename, NULL, 0 );
 
 	if( !image )
 		return NULL;
-
-	bpp = ( image->type == PF_RGBA_32 ) ? 4 : ( image->type == PF_INDEXED_32 ? 1 : 3 );
-	indexed = ( image->type == PF_INDEXED_24 ) || ( image->type == PF_INDEXED_32 );
-	palette_size = 256 * ( image->type == PF_INDEXED_32 ? 4 : 3 );
 
 	*width = image->width;
 	*height = image->height;
@@ -81,8 +63,13 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 
 	if( *width != image->width || *height != image->height )
 	{
+		const int bpp = PFDesc[image->type].bpp;
+		const int palette_size = 256 * ( image->type == PF_INDEXED_32 ? 4 : 3 );
+		rgbdata_t *scaled;
+		qboolean resampled;
+
 		// resample image to fit spray size constraints
-		resampled_buf = Image_ResampleInternal(
+		byte *resampled_buf = Image_ResampleInternal(
 			image->buffer, image->width, image->height,
 			*width, *height, image->type, &resampled
 			);
@@ -93,15 +80,15 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 			return NULL;
 		}
 
-		scaled = Mem_Malloc( host.imagepool, sizeof( rgbdata_t ));
+		scaled = Mem_Malloc( host.imagepool, sizeof( *scaled ));
 		*scaled = *image;
 		scaled->width = *width;
 		scaled->height = *height;
-		scaled->size = *width * *height * (( image->type == PF_RGBA_32 ) ? 4 : ( indexed ? 1 : 3 ));
+		scaled->size = *width * *height * bpp;
 		scaled->buffer = Mem_Malloc( host.imagepool, scaled->size );
 		memcpy( scaled->buffer, resampled_buf, scaled->size );
 
-		if( keep8bit && image->palette )
+		if( image->palette )
 		{
 			// copy 8-bit palette for resampled bmp
 			scaled->palette = Mem_Malloc( host.imagepool, palette_size );
@@ -118,25 +105,20 @@ static rgbdata_t *CL_LoadAndPrepareImage( const char *filename, int *width, int 
 // converts an image to WAD3 spray or miptex format
 qboolean CL_ConvertImageToWAD3( const char *filename )
 {
-	const char	*ext;
-	qboolean	is_bmp, is_indexed_img;
+	qboolean	is_indexed_img;
 	int			width = 0, height = 0;
-	int			i, idx;
+	int			i;
 	byte		palette[SPRAY_PALETTE_BYTES];
 	byte		*indexed = NULL;
-	byte		*bmp_palette = NULL;
 	rgbdata_t	*image = NULL;
 	rgbdata_t	*quant = NULL;
 	rgbdata_t	temp_image = {0};
 
-	ext = Q_strrchr( filename, '.' );
-	is_bmp = ( ext && !Q_stricmp( ext, ".bmp" ));
-
-	image = CL_LoadAndPrepareImage( filename, &width, &height, is_bmp );
+	image = CL_LoadAndPrepareImage( filename, &width, &height );
 	if( !image )
 		return false;
 
-	is_indexed_img = is_bmp && image->palette != NULL;
+	is_indexed_img = image->palette != NULL;
 	if( is_indexed_img )
 	{
 		// copy bmp palette from rgba to rgb
@@ -150,7 +132,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	}
 	else
 	{
-		quant = Mem_Malloc( host.imagepool, sizeof( rgbdata_t ));
+		quant = Mem_Malloc( host.imagepool, sizeof( *quant ));
 		*quant = *image;
 		quant->buffer = Mem_Malloc( host.imagepool, quant->size );
 		memcpy( quant->buffer, image->buffer, quant->size );
@@ -158,20 +140,17 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 
 		if( !quant || !quant->buffer || !quant->palette )
 			goto cleanup;
-		
+
 		// remap palette index 255 to 254 to avoid transparency conflicts
 		for( i = 0; i < width * height; ++i )
 		{
 			if( quant->buffer[i] == 255 )
 				quant->buffer[i] = 254;
-		}
 
-		// set index 255 for transparent pixels in rgba images
-		if( image->type == PF_RGBA_32 )
-		{
-			for( i = 0; i < width * height; ++i )
+			// set index 255 for transparent pixels in rgba images
+			if( image->type == PF_RGBA_32 )
 			{
-				if( image->buffer[i * 4 + 3] <= SPRAY_ALPHA_THRESHOLD ) 
+				if( image->buffer[i * 4 + 3] <= SPRAY_ALPHA_THRESHOLD )
 					quant->buffer[i] = 255;
 			}
 		}
@@ -193,7 +172,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	if( is_indexed_img )
 		temp_image.flags |= IMAGE_GRADIENT_DECAL;
 
-	return Image_SaveWAD( SPRAY_FILENAME, &temp_image );
+	return FS_SaveImage( SPRAY_FILENAME, &temp_image );
 
 cleanup:
 	if( image )
