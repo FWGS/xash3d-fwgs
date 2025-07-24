@@ -141,14 +141,10 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 		if( !quant || !quant->buffer || !quant->palette )
 			goto cleanup;
 
-		// remap palette index 255 to 254 to avoid transparency conflicts
-		for( i = 0; i < width * height; ++i )
+		// set index 255 for transparent pixels in rgba images
+		if( image->type == PF_RGBA_32 )
 		{
-			if( quant->buffer[i] == 255 )
-				quant->buffer[i] = 254;
-
-			// set index 255 for transparent pixels in rgba images
-			if( image->type == PF_RGBA_32 )
+			for( i = 0; i < width * height; ++i )
 			{
 				if( image->buffer[i * 4 + 3] <= SPRAY_ALPHA_THRESHOLD )
 					quant->buffer[i] = 255;
