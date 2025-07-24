@@ -17,11 +17,11 @@ GNU General Public License for more details.
 #include "client.h"
 #include "imagelib.h"
 
-#define SPRAY_MAX_SURFACE		12228
-#define SPRAY_PALETTE_SIZE		256
-#define SPRAY_PALETTE_BYTES		( SPRAY_PALETTE_SIZE * 3 )
-#define SPRAY_ALPHA_THRESHOLD	254
-#define SPRAY_FILENAME			"tempdecal.wad"
+#define SPRAY_MAX_SURFACE     12228
+#define SPRAY_PALETTE_SIZE    256
+#define SPRAY_PALETTE_BYTES   ( SPRAY_PALETTE_SIZE * 3 )
+#define SPRAY_ALPHA_THRESHOLD ( SPRAY_PALETTE_SIZE / 2 )
+#define SPRAY_FILENAME        "tempdecal.wad"
 
 // adjusts spray dimensions
 static void CL_AdjustSprayDimensions( int *width, int *height )
