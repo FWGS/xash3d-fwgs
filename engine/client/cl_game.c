@@ -436,12 +436,15 @@ void CL_DrawCenterPrint( void )
 
 		while( *pText && *pText != '\n' && lineLength < MAX_LINELENGTH )
 		{
-			byte c = *pText;
-			line[lineLength] = c;
-			CL_DrawCharacterLen( font, c, &charWidth, NULL );
+			int number = Con_UtfProcessChar(( byte ) * pText );
+			pText++;
+			if( number == 0 )
+				continue;
+
+			line[lineLength] = number;
+			CL_DrawCharacterLen( font, number, &charWidth, NULL );
 			width += charWidth;
 			lineLength++;
-			pText++;
 		}
 
 		if( lineLength == MAX_LINELENGTH )
@@ -455,7 +458,7 @@ void CL_DrawCenterPrint( void )
 		for( j = 0; j < lineLength; j++ )
 		{
 			if( x >= 0 && y >= 0 && x <= refState.width )
-				x += CL_DrawCharacter( x, y, line[j], colorDefault, font, FONT_DRAW_UTF8 | FONT_DRAW_HUD | FONT_DRAW_NORENDERMODE );
+				x += CL_DrawCharacter( x, y, line[j], colorDefault, font, FONT_DRAW_HUD | FONT_DRAW_NORENDERMODE );
 		}
 		y += charHeight;
 	}
