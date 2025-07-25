@@ -17,6 +17,16 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "client.h"
 #include "qfont.h"
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_STATIC
+#include "cl_font.h"
+
+#define FONT_COUNT 2
+static Font g_Fonts[FONT_COUNT];
+static const char* g_FontsPath[FONT_COUNT] = { "gfx/fonts/tahoma.ttf", "gfx/fonts/FiraSans-Regular.ttf" };
+static int g_FontsSize[FONT_COUNT] = { 13, 13 };
+static rgba_t nullColor = { 0, 0, 0, 0 };
+static Font* g_currentFont;
 
 qboolean CL_FixedFont( cl_font_t *font )
 {
@@ -43,6 +53,19 @@ static int CL_LoadFontTexture( const char *fontname, uint texFlags, int *width )
 	}
 
 	*width = font_width;
+
+	for (int i = 0; i < FONT_COUNT; i++)
+	{
+		if (!Font_Init( &g_Fonts[i], g_FontsPath[i], g_FontsSize[i] ))
+		{
+			Con_Printf(S_ERROR"Unable to create font %s\n", g_FontsPath[i]);
+			continue;
+		}
+		Font_SetWidth(&g_Fonts[i], g_FontsSize[i]);
+		g_currentFont = &g_Fonts[i];
+		break;
+	}
+
 	return tex;
 }
 
@@ -175,66 +198,70 @@ static int CL_CalcTabStop( const cl_font_t *font, int x )
 
 int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_t *font, int flags )
 {
-	wrect_t *rc;
-	float w, h;
-	float s1, t1, s2, t2, half = 0.5f;
-	int texw, texh;
 
-	if( !font || !font->valid || y < -font->charHeight )
-		return 0;
+	return Font_DrawChar(font, color, x, y, number, flags);
+	
+	// wrect_t *rc;
+	// float w, h;
+	// float s1, t1, s2, t2, half = 0.5f;
+	// int texw, texh;
 
-	// check if printable
-	if( number <= 32 )
-	{
-		if( number == ' ' )
-			return font->charWidths[' '];
-		else if( number == '\t' )
-			return CL_CalcTabStop( font, x );
-		return 0;
-	}
+	// if( !font || !font->valid || y < -font->charHeight )
+	// 	return 0;
 
-	if( FBitSet( flags, FONT_DRAW_UTF8 ))
-		number = Con_UtfProcessChar( number & 255 );
-	else number &= 255;
+	// // check if printable
+	// if( number <= 32 )
+	// {
+	// 	if( number == ' ' )
+	// 		return font->charWidths[' '];
+	// 	else if( number == '\t' )
+	// 		return CL_CalcTabStop( font, x );
+	// 	return 0;
+	// }
 
-	if( !number || !font->charWidths[number])
-		return 0;
+	// if( FBitSet( flags, FONT_DRAW_UTF8 ))
+	// 	number = Con_UtfProcessChar( number & 255 );
+	// else number &= 255;
 
-	R_GetTextureParms( &texw, &texh, font->hFontTexture );
-	if( !texw || !texh )
-		return font->charWidths[number];
+	// if( !number || !font->charWidths[number])
+	// 	return 0;
 
-	rc = &font->fontRc[number];
+	// R_GetTextureParms( &texw, &texh, font->hFontTexture );
+	// if( !texw || !texh )
+	// 	return font->charWidths[number];
 
-	if( font->scale <= 1.f || !REF_GET_PARM( PARM_TEX_FILTERING, font->hFontTexture ))
-		half = 0;
+	// rc = &font->fontRc[number];
 
-	s1 = ((float)rc->left + half ) / texw;
-	t1 = ((float)rc->top + half ) / texh;
-	s2 = ((float)rc->right - half ) / texw;
-	t2 = ((float)rc->bottom - half ) / texh;
-	w = ( rc->right - rc->left ) * font->scale;
-	h = ( rc->bottom - rc->top ) * font->scale;
+	// if( font->scale <= 1.f || !REF_GET_PARM( PARM_TEX_FILTERING, font->hFontTexture ))
+	// 	half = 0;
 
-	if( FBitSet( flags, FONT_DRAW_HUD ))
-		SPR_AdjustSize( &x, &y, &w, &h );
+	// s1 = ((float)rc->left + half ) / texw;
+	// t1 = ((float)rc->top + half ) / texh;
+	// s2 = ((float)rc->right - half ) / texw;
+	// t2 = ((float)rc->bottom - half ) / texh;
+	// w = ( rc->right - rc->left ) * font->scale;
+	// h = ( rc->bottom - rc->top ) * font->scale;
 
-	if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ))
-		CL_SetFontRendermode( font );
+	// if( FBitSet( flags, FONT_DRAW_HUD ))
+	// 	SPR_AdjustSize( &x, &y, &w, &h );
 
-	// don't apply color to fixed fonts it's already colored
-	if( font->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, font->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
-		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
-	else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
-	ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, font->hFontTexture );
+	// if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ))
+	// 	CL_SetFontRendermode( font );
 
-	return font->charWidths[number];
+	// // don't apply color to fixed fonts it's already colored
+	// if( font->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, font->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
+	// 	ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
+	// else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
+	// ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, font->hFontTexture );
+
+	// return font->charWidths[number];
 }
 
 int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags )
 {
 	rgba_t current_color;
 	int draw_len = 0;
+	int ch = 0;
 
 	if( !font || !font->valid )
 		return 0;
@@ -246,6 +273,7 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 		CL_SetFontRendermode( font );
 
 	Vector4Copy( color, current_color );
+
 
 	while( *s )
 	{
@@ -278,8 +306,11 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 			continue;
 		}
 
+		ch = Con_UtfProcessChar( (unsigned char)*s );
+
 		// skip setting rendermode, it was changed for this string already
-		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, current_color, font, flags | FONT_DRAW_NORENDERMODE );
+		if( ch )
+			draw_len += CL_DrawCharacter( x + draw_len, y, ch, current_color, font, flags | FONT_DRAW_NORENDERMODE );
 
 		s++;
 	}
@@ -306,7 +337,7 @@ void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height )
 	{
 		if( number == '\t' )
 			*width = CL_CalcTabStop( font, 0 ); // at least return max tabstop
-		else *width = font->charWidths[number & 255];
+		else *width = Font_DrawChar(font, nullColor, 0, 0, number, 0);//font->charWidths[number & 255];
 	}
 	if( height ) *height = font->charHeight;
 }
@@ -366,7 +397,7 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 
 		if( number )
 		{
-			draw_len += font->charWidths[number];
+			draw_len += Font_DrawChar(font, nullColor, 0, 0, number, 0);//font->charWidths[number];
 
 			if( width )
 			{
@@ -377,4 +408,179 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 
 		s++;
 	}
+}
+
+/* Font Class */
+
+qboolean Font_Init(Font* self, const char* name, int tall)
+{
+	int len = 0;
+	int x0, y0, x1, y1;
+
+	if( !self )
+		return false;
+
+	self->m_bIsLoaded = false;
+
+	COM_FreeFile(self->m_pFontData);
+	self->m_pFontData = COM_LoadFileForMe( name, &len );
+	if (self->m_pFontData == NULL)
+		return false;
+
+	if (!stbtt_InitFont(&self->m_FontInfo, self->m_pFontData, 0))
+		return false;
+
+	self->scale = stbtt_ScaleForPixelHeightPrecision( &self->m_FontInfo, tall + 4 );
+
+	stbtt_GetFontVMetrics( &self->m_FontInfo, &self->m_iAscent, NULL, NULL );
+	self->m_iAscent = round( self->m_iAscent * self->scale );
+
+	stbtt_GetFontBoundingBox( &self->m_FontInfo, &x0, &y0, &x1, &y1 );
+	self->m_iHeight = round(( y1 - y0 ) * self->scale ); // maybe wrong!
+	self->m_iMaxCharWidth = round(( x1 - x0 ) * self->scale ); // maybe wrong!
+
+	self->m_bIsLoaded = true;
+
+	return true;
+}
+
+int Font_CheckCharExists(Font* self, int ch)
+{
+	for (int i = 0; i < self->m_iCharCount; i++)
+	{
+		if (Font_GetTexIndex(self, ch) == self->m_iBuffer[i])
+			return i;
+	}
+
+	return -1;
+}
+
+const int RGBA_Channels = 4; // RGBA Channels
+int Font_LoadChar(Font* self, int ch)
+{
+	byte *buf;
+
+	int id, bm_top, bm_left, bm_height, bm_width;
+	char texname[30];
+
+	int iCallBack = Font_CheckCharExists(self, ch);
+	if (iCallBack > -1) return iCallBack;
+
+	buf = stbtt_GetCodepointBitmap( &self->m_FontInfo, self->scale, self->scale, ch, &bm_width, &bm_height, &bm_left, &bm_top );
+
+	Q_snprintf( texname, sizeof( texname ), "font_%i", Font_GetTexIndex(self, ch));
+
+	if (!(id = ref.dllFuncs.GL_FindTexture(texname)))
+	{
+		byte *rgbData = malloc(bm_width * bm_height * RGBA_Channels);
+		if (!rgbData) return -1;
+
+		for (int i = 0; i < bm_width * bm_height; i++)
+		{
+			int rgbIndex = i * RGBA_Channels;
+			rgbData[rgbIndex + 0] = 255; // R
+			rgbData[rgbIndex + 1] = 255; // G
+			rgbData[rgbIndex + 2] = 255; // B
+			rgbData[rgbIndex + 3] = buf[i]; // A
+		}
+
+		id = ref.dllFuncs.GL_CreateTexture(texname, bm_width, bm_height, rgbData, TF_IMAGE | TF_HAS_ALPHA);
+
+		free(rgbData);
+	}
+	free(buf);
+
+	self->m_Char[self->m_iCharCount].m_iTexture = id;
+	self->m_Char[self->m_iCharCount].m_iWidth = bm_width;
+	self->m_Char[self->m_iCharCount].m_iHeight = bm_height;
+	self->m_Char[self->m_iCharCount].m_iXOff = bm_left;
+	self->m_Char[self->m_iCharCount].m_iYOff = bm_top;
+	self->m_Char[self->m_iCharCount].m_iChar = ch;
+	// Font_AddCharInToPage(self, &self->m_Char[self->m_iCharCount]);
+
+	self->m_iBuffer[self->m_iCharCount] = Font_GetTexIndex(self, ch);
+	return self->m_iCharCount++;
+}
+
+CHARINFO* Font_GetChar(Font* self, int ch)
+{
+	int CharIndex = Font_LoadChar(self, ch);
+	if (CharIndex == -1)
+		return NULL;
+	return &self->m_Char[CharIndex];
+}
+
+int Font_DrawChar(cl_font_t *font, rgba_t color, int x, int y, int number, int flags)
+{
+	CHARINFO* pCharInfo;
+	float new_x, new_y, new_w, new_h;
+
+	if (!g_currentFont->m_bIsLoaded || !stbtt_FindGlyphIndex( &g_currentFont->m_FontInfo, number ))
+	{
+		for (int i = 0; i < FONT_COUNT; i++)
+		{
+			if (!g_Fonts[i].m_bIsLoaded || !stbtt_FindGlyphIndex( &g_Fonts[i].m_FontInfo, number ))
+				continue;
+			else
+				break;
+		}
+		return 0;
+	}
+	// check if printable
+	if( number <= 32 )
+	{
+		if( number == ' ' )
+			return font->charWidths[' '];
+		else if( number == '\t' )
+			return CL_CalcTabStop( font, x );
+		return 0;
+	}
+
+	pCharInfo = Font_GetChar(g_currentFont, number);
+	if (pCharInfo == NULL)
+		return 0;
+
+	if (color == nullColor)
+		return (pCharInfo->m_iXOff + pCharInfo->m_iWidth) * font->scale;
+	
+	if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ))
+		CL_SetFontRendermode( font );
+
+	new_x = x;
+	new_y = y + (pCharInfo->m_iYOff + g_currentFont->m_iHeight) * font->scale;
+	new_w = pCharInfo->m_iWidth * font->scale;
+	new_h = pCharInfo->m_iHeight * font->scale;
+	if( FBitSet( flags, FONT_DRAW_HUD ))
+		SPR_AdjustSize( &new_x, &new_y, &new_w, &new_h );
+
+	if( font->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, font->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
+	{
+		//outline
+ 		ref.dllFuncs.Color4ub( 1, 1, 1, 128 );
+		ref.dllFuncs.R_DrawStretchPic( new_x + 2, new_y + 1, new_w, new_h, 0.0f, 0.0f, 1.0f, 1.0f, pCharInfo->m_iTexture);
+		//normal
+		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
+		ref.dllFuncs.R_DrawStretchPic(new_x, new_y, new_w, new_h, 0.0f, 0.0f, 1.0f, 1.0f, pCharInfo->m_iTexture);
+		//bold
+		ref.dllFuncs.R_DrawStretchPic(new_x + 1, new_y, new_w, new_h, 0.0f, 0.0f, 1.0f, 1.0f, pCharInfo->m_iTexture);
+
+	}
+	else
+	{
+ 		ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
+		ref.dllFuncs.R_DrawStretchPic( new_x + pCharInfo->m_iXOff, y + pCharInfo->m_iYOff, pCharInfo->m_iWidth, pCharInfo->m_iHeight, 0.0f, 0.0f, 1.0f, 1.0f, pCharInfo->m_iTexture);
+	}
+
+	return (pCharInfo->m_iXOff + pCharInfo->m_iWidth) * font->scale;
+	
+}
+
+void Font_SetWidth(Font* self, int iWidth)
+{
+	self->m_iWidth = self->m_iHeight = iWidth;
+}
+
+int Font_GetTexIndex(Font* self, int ch)
+{
+	return 65536 * self->m_iWidth + ch;
 }
