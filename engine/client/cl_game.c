@@ -295,7 +295,8 @@ void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 		return;
 
 	// In VR mode the graphics needs to be scaled down on the center to be visible
-	if (Cvar_VariableValue("vr_gamemode") > 0)
+	bool isNotFullscreen = (*x > 0) || (*y > 0) || (*w < clgame.scrInfo.iWidth) || (*h < clgame.scrInfo.iHeight);
+	if ((Cvar_VariableValue("vr_gamemode") > 0) && isNotFullscreen)
 	{
 		float scale = 0.25f;
 		float offset = (1 - scale) / 2.0f;

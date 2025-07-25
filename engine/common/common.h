@@ -569,7 +569,7 @@ void Host_ExitInMain( void );
 
 void Host_VRInit( void );
 void Host_VRInput( void );
-void Host_VRButtonMap( int button, int currentButtons, int lastButtons, const char* action );
+void Host_VRButtonMap( int button, int currentButtons, int lastButtons, const char* name, bool alt );
 void Host_VRButtonMapping( bool swapped, int lbuttons, int rbuttons );
 bool Host_VRConfig();
 void Host_VRCursor( bool cursorActive, float x, float y, vec2_t cursor );

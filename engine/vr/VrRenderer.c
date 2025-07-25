@@ -124,6 +124,10 @@ void VR_GetResolution(engine_t* engine, int *pWidth, int *pHeight) {
 	//Force square resolution
 	if (VR_GetPlatformFlag(VR_PLATFORM_VIEWPORT_SQUARE)) {
 		*pHeight = *pWidth;
+		float aspect = VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
+		if (aspect > 0) {
+			*pHeight /= aspect;
+		}
 	}
 }
 
