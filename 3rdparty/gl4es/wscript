@@ -15,7 +15,7 @@ def build(bld):
 	gl4es_srcdir = bld.path.find_node('gl4es/src')
 	cflags = []
 	if bld.env.COMPILER_CC != 'msvc':
-		cflags += ['-w', '-fvisibility=hidden', '-std=gnu99'],
+		cflags += ['-w', '-fvisibility=hidden', '-std=gnu99']
 	bld.stlib(source   = gl4es_srcdir.ant_glob(['gl/*.c', 'gl/*/*.c', 'glx/hardext.c']),
 		target   = 'gl4es',
 		includes = ['gl4es/src', 'gl4es/src/gl', 'gl4es/src/glx', 'gl4es/include'],
