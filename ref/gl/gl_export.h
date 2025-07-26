@@ -902,7 +902,7 @@ typedef float GLmatrix[16];
 #endif
 
 #if XASH_GL_STATIC && !REF_GL_KEEP_MANGLED_FUNCTIONS
-	#define GL_FUNCTION( name ) name
+	#define GL_FUNCTION( name ) APIENTRY name
 #elif XASH_GL_STATIC && REF_GL_KEEP_MANGLED_FUNCTIONS
 	#define GL_FUNCTION( name ) APIENTRY p##name
 #else

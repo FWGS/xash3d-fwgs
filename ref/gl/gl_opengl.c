@@ -1490,13 +1490,13 @@ void GL_SetupAttributes( int safegl )
 void wes_init( const char *gles2 );
 int nanoGL_Init( void );
 #if XASH_GL4ES
-static void GL4ES_GetMainFBSize( int *width, int *height )
+static void APIENTRY GL4ES_GetMainFBSize( int *width, int *height )
 {
 	*width = gpGlobals->width;
 	*height = gpGlobals->height;
 }
 
-static void *GL4ES_GetProcAddress( const char *name )
+static void * APIENTRY GL4ES_GetProcAddress( const char *name )
 {
 	if( !Q_strcmp(name, "glShadeModel") )
 		// combined gles/gles2/gl implementation exports this, but it is invalid
