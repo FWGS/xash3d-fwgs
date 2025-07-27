@@ -40,7 +40,6 @@ qboolean MakeDirectory( const char *path )
 			// with FS_CreatePath
 #if XASH_WIN32
 		        DWORD   dwFlags = GetFileAttributes( path );
-
 		        return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );
 #else
 		        struct stat buf;
@@ -63,6 +62,9 @@ MakeFullPath
 qboolean MakeFullPath( const char *path )
 {
 	char *p = (char *)path, tmp;
+
+	if( *p == '/' )
+		p++;
 
 	for( ; *p; )
 	{
