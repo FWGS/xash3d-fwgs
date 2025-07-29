@@ -132,7 +132,8 @@ def configure(conf):
 		)
 
 		for export in exports_list:
-			conf.export_define(export)
+			if conf.env[export]:
+				conf.export_define(export)
 
 	# kill temporary uselib
 	del conf.env.DEFINES_export
