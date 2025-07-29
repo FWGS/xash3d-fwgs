@@ -92,7 +92,10 @@ def configure(conf):
 		conf.env.HAVE_FRANDOM_SEED = True
 
 	def check_header(hdr):
-		return {'header_name':hdr, 'msg':'... %s header' % hdr, 'mandatory':False, 'id':hdr}
+		return {'header_name':hdr, 'msg':'... %s header' % hdr, 'mandatory':False, 'id':hdr, 'compiler': 'c'}
+
+	def check_frag(frag, msg, define, **kw):
+		return dict({'fragment': frag, 'msg':'... %s' % msg, 'mandatory': False, 'compiler': 'c'}, **kw)
 
 	conf.multicheck(
 		check_header('dlfcn.h'),
@@ -113,20 +116,20 @@ def configure(conf):
 		check_header('unistd.h'),
 		check_header('windows.h'),
 
-		{'fragment':FRAGMENT_ATOMIC, 'msg':'... __atomic extensions', 'define_name':'HAVE_ATOMIC_FUNCTIONS', 'mandatory':False},
-		{'fragment':FRAGMENT_SYNC, 'msg':'...  __sync extensions', 'define_name':'HAVE_SYNC_FUNCTIONS', 'mandatory':False},
-		{'fragment':FRAGMENT_GETPAGESIZE, 'msg':'...  getpagesize function', 'define_name':'HAVE_DECL_GETPAGESIZE', 'mandatory':False},
-		{'fragment':FRAGMENT_STRNLEN, 'msg':'...  strnlen function', 'define_name':'HAVE_DECL_STRNLEN', 'mandatory':False},
-		{'fragment':FRAGMENT_DL_ITERATE_PHDR % 'link.h', 'msg':'...  dl_iterate_phdr function in link.h', 'define_name':'HAVE_DL_ITERATE_PHDR', 'after_tests': ['link.h'], 'mandatory':False},
-		{'fragment':FRAGMENT_DL_ITERATE_PHDR % 'sys/link.h', 'msg':'...  dl_iterate_phdr function in sys/link.h', 'define_name':'HAVE_DL_ITERATE_PHDR', 'after_tests': ['sys/link.h'], 'mandatory':False},
-		{'fragment':FRAGMENT_FCNTL,'msg':'...  fnctl function', 'define_name':'HAVE_FCNTL', 'mandatory':False},
-		{'fragment':FRAGMENT_GETEXECNAME,'msg':'...  getexecname function','define_name':'HAVE_GETEXECNAME', 'mandatory':False},
-		{'fragment':FRAGMENT_GETIPINFO, 'msg':'...  _Unwind_GetIPInfo function', 'define_name':'HAVE_GETIPINFO', 'mandatory':False},
-		{'fragment':FRAGMENT_KERN_PROC % 'KERN_PROC', 'msg': '...  KERN_PROC and KERN_PROC_PATHNAME defines', 'define_name':'HAVE_KERN_PROC', 'mandatory':False},
-		{'fragment':FRAGMENT_KERN_PROC % 'KERN_PROC_ARGS', 'msg': '...  KERN_PROC_ARGS and KERN_PROC_PATHNAME defines', 'define_name':'HAVE_KERN_PROC_ARGS', 'mandatory':False},
-		{'fragment':FRAGMENT_LOADQUERY, 'msg': '...  loadquery function', 'define_name':'HAVE_LOADQUERY', 'mandatory':False},
-		{'fragment':FRAGMENT_LSTAT, 'msg': '...  lstat function', 'define_name':'HAVE_LSTAT', 'mandatory':False},
-		{'fragment':FRAGMENT_READLINK, 'msg': '...  readlink function', 'define_name':'HAVE_READLINK', 'mandatory':False},
+		check_frag(FRAGMENT_ATOMIC, '__atomic extensions', 'HAVE_ATOMIC_FUNCTIONS'),
+		check_frag(FRAGMENT_SYNC, ' __sync extensions', 'HAVE_SYNC_FUNCTIONS'),
+		check_frag(FRAGMENT_GETPAGESIZE, ' getpagesize function', 'HAVE_DECL_GETPAGESIZE'),
+		check_frag(FRAGMENT_STRNLEN, ' strnlen function', 'HAVE_DECL_STRNLEN'),
+		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'link.h', ' dl_iterate_phdr function in link.h', 'HAVE_DL_ITERATE_PHDR', after_tests=['link.h']),
+		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'sys/link.h', ' dl_iterate_phdr function in sys/link.h', 'HAVE_DL_ITERATE_PHDR', after_tests=['sys/link.h']),
+		check_frag(FRAGMENT_FCNTL, 'fnctl function', 'HAVE_FCNTL'),
+		check_frag(FRAGMENT_GETEXECNAME, 'getexecname function','HAVE_GETEXECNAME'),
+		check_frag(FRAGMENT_GETIPINFO, '_Unwind_GetIPInfo function', 'HAVE_GETIPINFO'),
+		check_frag(FRAGMENT_KERN_PROC % 'KERN_PROC', 'KERN_PROC and KERN_PROC_PATHNAME defines', 'HAVE_KERN_PROC'),
+		check_frag(FRAGMENT_KERN_PROC % 'KERN_PROC_ARGS', 'KERN_PROC_ARGS and KERN_PROC_PATHNAME defines', 'HAVE_KERN_PROC_ARGS'),
+		check_frag(FRAGMENT_LOADQUERY, 'loadquery function', 'HAVE_LOADQUERY'),
+		check_frag(FRAGMENT_LSTAT, 'lstat function', 'HAVE_LSTAT'),
+		check_frag(FRAGMENT_READLINK, 'readlink function', 'HAVE_READLINK'),
 
 #		{'lib':'lzma', 'define_name':'HAVE_LIBLZMA', 'uselib_store':'lzma', 'msg':'... lzma library', 'mandatory':False},
 #		{'lib':'z', 'define_name':'HAVE_ZLIB', 'uselib_store':'z', 'msg':'... zlib library', 'mandatory':False},
