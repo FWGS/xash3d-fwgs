@@ -1,5 +1,5 @@
 /*
-crashhandler.c - advanced crashhandler
+crash_posix.c - advanced crashhandler
 Copyright (C) 2016 Mittorn
 
 This program is free software: you can redistribute it and/or modify
@@ -27,100 +27,21 @@ GNU General Public License for more details.
 #include <sys/mman.h>
 #include "library.h"
 #include "input.h"
+#include "crash.h"
 
-void Sys_Crash( int signal, siginfo_t *si, void *context );
-void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context );
-qboolean Sys_SetupLibbacktrace( const char *argv0 );
+static qboolean have_libbacktrace = false;
+
 static struct sigaction oldFilter;
 
-#if !HAVE_EXECINFO
-
-#define STACK_BACKTRACE_STR     "Stack backtrace:\n"
-#define STACK_DUMP_STR          "Stack dump:\n"
-
-#define STACK_BACKTRACE_STR_LEN ( sizeof( STACK_BACKTRACE_STR ) - 1 )
-#define STACK_DUMP_STR_LEN      ( sizeof( STACK_DUMP_STR ) - 1 )
-#define ALIGN( x, y ) (((uintptr_t) ( x ) + (( y ) - 1 )) & ~(( y ) - 1 ))
-
-static int Sys_PrintFrame( char *buf, int len, int i, void *addr )
+static void Sys_Crash( int signal, siginfo_t *si, void *context )
 {
-	Dl_info dlinfo;
-	if( len <= 0 )
-		return 0; // overflow
-
-	if( dladdr( addr, &dlinfo ))
-	{
-		if( dlinfo.dli_sname )
-			return Q_snprintf( buf, len, "%2d: %p <%s+%lu> (%s)\n", i, addr, dlinfo.dli_sname,
-				(unsigned long)addr - (unsigned long)dlinfo.dli_saddr, dlinfo.dli_fname ); // print symbol, module and address
-
-		return Q_snprintf( buf, len, "%2d: %p (%s)\n", i, addr, dlinfo.dli_fname ); // print module and address
-	}
-
-	return Q_snprintf( buf, len, "%2d: %p\n", i, addr ); // print only address
-}
-
-void Sys_Crash( int signal, siginfo_t *si, void *context )
-{
-	void *pc = NULL, **bp = NULL, **sp = NULL; // this must be set for every OS!
 	char message[8192];
 	int len, logfd, i = 0;
-
-#if XASH_OPENBSD
-	struct sigcontext *ucontext = (struct sigcontext*)context;
-#else
-	ucontext_t *ucontext = (ucontext_t*)context;
-#endif
+	qboolean detailed_message = false;
 
 	// flush buffers before writing directly to descriptors
 	fflush( stdout );
 	fflush( stderr );
-
-#if XASH_AMD64
-#if XASH_FREEBSD
-	pc = (void*)ucontext->uc_mcontext.mc_rip;
-	bp = (void**)ucontext->uc_mcontext.mc_rbp;
-	sp = (void**)ucontext->uc_mcontext.mc_rsp;
-#elif XASH_NETBSD
-	pc = (void*)ucontext->uc_mcontext.__gregs[_REG_RIP];
-	bp = (void**)ucontext->uc_mcontext.__gregs[_REG_RBP];
-	sp = (void**)ucontext->uc_mcontext.__gregs[_REG_RSP];
-#elif XASH_OPENBSD
-	pc = (void*)ucontext->sc_rip;
-	bp = (void**)ucontext->sc_rbp;
-	sp = (void**)ucontext->sc_rsp;
-#else
-	pc = (void*)ucontext->uc_mcontext.gregs[REG_RIP];
-	bp = (void**)ucontext->uc_mcontext.gregs[REG_RBP];
-	sp = (void**)ucontext->uc_mcontext.gregs[REG_RSP];
-#endif
-#elif XASH_X86
-#if XASH_FREEBSD
-	pc = (void*)ucontext->uc_mcontext.mc_eip;
-	bp = (void**)ucontext->uc_mcontext.mc_ebp;
-	sp = (void**)ucontext->uc_mcontext.mc_esp;
-#elif XASH_NETBSD
-	pc = (void*)ucontext->uc_mcontext.__gregs[_REG_EIP];
-	bp = (void**)ucontext->uc_mcontext.__gregs[_REG_EBP];
-	sp = (void**)ucontext->uc_mcontext.__gregs[_REG_ESP];
-#elif XASH_OPENBSD
-	pc = (void*)ucontext->sc_eip;
-	bp = (void**)ucontext->sc_ebp;
-	sp = (void**)ucontext->sc_esp;
-#else
-	pc = (void*)ucontext->uc_mcontext.gregs[REG_EIP];
-	bp = (void**)ucontext->uc_mcontext.gregs[REG_EBP];
-	sp = (void**)ucontext->uc_mcontext.gregs[REG_ESP];
-#endif
-#elif XASH_ARM && XASH_64BIT
-	pc = (void*)ucontext->uc_mcontext.pc;
-	bp = (void*)ucontext->uc_mcontext.regs[29];
-	sp = (void*)ucontext->uc_mcontext.sp;
-#elif XASH_ARM
-	pc = (void*)ucontext->uc_mcontext.arm_pc;
-	bp = (void*)ucontext->uc_mcontext.arm_fp;
-	sp = (void*)ucontext->uc_mcontext.arm_sp;
-#endif
 
 	// safe actions first, stack and memory may be corrupted
 	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s-%s, %s-%s)\n",
@@ -138,58 +59,21 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 	logfd = Sys_LogFileNo();
 	write( logfd, message, len );
 
-	if( pc && bp && sp )
+#if HAVE_LIBBACKTRACE
+	if( have_libbacktrace && !detailed_message )
 	{
-		size_t pagesize = sysconf( _SC_PAGESIZE );
-
-		// try to print backtrace
-		write( STDERR_FILENO, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
-		write( logfd, STACK_BACKTRACE_STR, STACK_BACKTRACE_STR_LEN );
-		Q_strncpy( message + len, STACK_BACKTRACE_STR, sizeof( message ) - len );
-		len += STACK_BACKTRACE_STR_LEN;
-
-		// false on success, true on failure
-#define try_allow_read(pointer, pagesize) \
-		(( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ | PROT_WRITE | PROT_EXEC ) == -1 ) && \
-		( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ | PROT_EXEC ) == -1 ) && \
-		( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ | PROT_WRITE ) == -1 ) && \
-		( mprotect( (char *)ALIGN( (pointer), (pagesize) ), (pagesize), PROT_READ ) == -1 ))
-
-		do
-		{
-			int line = Sys_PrintFrame( message + len, sizeof( message ) - len, ++i, pc);
-			write( STDERR_FILENO, message + len, line );
-			write( logfd, message + len, line );
-			len += line;
-			//if( !dladdr(bp,0) ) break; // only when bp is in module
-			if( try_allow_read( bp, pagesize ) )
-				break;
-			if( try_allow_read( bp[0], pagesize ) )
-				break;
-			pc = bp[1];
-			bp = (void**)bp[0];
-		}
-		while( bp && i < 128 );
-
-		// try to print stack
-		write( STDERR_FILENO, STACK_DUMP_STR, STACK_DUMP_STR_LEN );
-		write( logfd, STACK_DUMP_STR, STACK_DUMP_STR_LEN );
-		Q_strncpy( message + len, STACK_DUMP_STR, sizeof( message ) - len );
-		len += STACK_DUMP_STR_LEN;
-
-		if( !try_allow_read( sp, pagesize ) )
-		{
-			for( i = 0; i < 32; i++ )
-			{
-				int line = Sys_PrintFrame( message + len, sizeof( message ) - len, i, sp[i] );
-				write( STDERR_FILENO, message + len, line );
-				write( logfd, message + len, line );
-				len += line;
-			}
-		}
-
-#undef try_allow_read
+		len = Sys_CrashDetailsLibbacktrace( logfd, message, len, sizeof( message ));
+		detailed_message = true;
 	}
+#endif // HAVE_LIBBACKTRACE
+
+#if HAVE_EXECINFO
+	if( !detailed_message )
+	{
+		len = Sys_CrashDetailsExecinfo( logfd, message, len, sizeof( message ));
+		detailed_message = true;
+	}
+#endif // HAVE_EXECINFO
 
 	// put MessageBox as Sys_Error
 	Msg( "%s\n", message );
@@ -206,22 +90,18 @@ void Sys_Crash( int signal, siginfo_t *si, void *context )
 	Sys_Quit( "crashed" );
 }
 
-#endif // !HAVE_EXECINFO
-
 void Sys_SetupCrashHandler( const char *argv0 )
 {
-	struct sigaction act = { 0 };
+	struct sigaction act =
+	{
+		.sa_sigaction = Sys_Crash,
+		.sa_flags = SA_SIGINFO | SA_ONSTACK,
+	};
+
 #if HAVE_LIBBACKTRACE
-	if( Sys_SetupLibbacktrace( argv0 ))
-	{
-		act.sa_sigaction = Sys_CrashLibbacktrace;
-	}
-	else
-#endif
-	{
-		act.sa_sigaction = Sys_Crash;
-	}
-	act.sa_flags = SA_SIGINFO | SA_ONSTACK;
+	have_libbacktrace = Sys_SetupLibbacktrace( argv0 );
+#endif // HAVE_LIBBACKTRACE
+
 	sigaction( SIGSEGV, &act, &oldFilter );
 	sigaction( SIGABRT, &act, &oldFilter );
 	sigaction( SIGBUS,  &act, &oldFilter );
