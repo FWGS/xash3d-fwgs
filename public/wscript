@@ -118,7 +118,7 @@ def configure(conf):
 
 		def check_libc_extension(frag, msg, define):
 			exports_list.append(define)
-			return {'fragment': frag, 'msg': 'Checking for ' + msg, 'define_name': define, 'mandatory': False, 'use': 'M werror export', 'features': 'cprogram'}
+			return {'fragment': frag, 'msg': 'Checking for ' + msg, 'define_name': define, 'mandatory': False, 'use': 'M werror export', 'compiler': 'c'}
 
 		conf.multicheck(
 			check_libc_extension(TGMATH_H_TEST, 'tgmath.h', 'HAVE_TGMATH_H'),
