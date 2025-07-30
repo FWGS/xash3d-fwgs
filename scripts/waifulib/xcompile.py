@@ -32,7 +32,7 @@ ANDROID_NDK_API_MIN = {
 	23: 16,
 	25: 19,
 	27: 19,
-	28: 19,
+	28: 21,
 } # minimal API level ndk revision supports
 
 ANDROID_STPCPY_API_MIN = 21 # stpcpy() introduced in SDK 21
