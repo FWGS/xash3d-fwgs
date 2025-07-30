@@ -133,7 +133,7 @@ Android_ShellExecute
 */
 void Platform_ShellExecute( const char *path, const char *parms )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+#if XASH_SDL
 	SDL_OpenURL( path );
-#endif
+#endif // XASH_SDL
 }
