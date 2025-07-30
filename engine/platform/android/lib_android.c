@@ -34,7 +34,7 @@ void *ANDROID_LoadLibrary( const char *dllname )
 		if( !libdir[i] )
 			continue;
 
-		Q_snprintf( path, MAX_SYSPATH, "%s/lib%s."OS_LIB_EXT, libdir[i], dllname );
+		Q_snprintf( path, MAX_SYSPATH, "%s/%s."OS_LIB_EXT, libdir[i], dllname );
 		pHandle = dlopen( path, RTLD_NOW );
 		if( pHandle )
 			return pHandle;
@@ -51,7 +51,7 @@ void *ANDROID_LoadLibrary( const char *dllname )
 	}
 	else
 	{
-		Q_snprintf( path, MAX_SYSPATH, "lib%s."OS_LIB_EXT, dllname );
+		Q_snprintf( path, MAX_SYSPATH, "%s."OS_LIB_EXT, dllname );
 		pHandle = dlopen( path, RTLD_NOW );
 		if( pHandle )
 			return pHandle;
