@@ -541,9 +541,22 @@ def options(opt):
 		help='enable building for Sailfish/Aurora')
 	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
 		help='enable building for Emscripten')
+	xc.add_option('--enable-cross-compile-env', action='store_true', dest='CROSS_COMPILE_ENV', default=None,
+		help='like Kbuild (Linux kernel buildsystem), set toolchain from CROSS_COMPILE variable [default: %(default)s]')
 
 def configure(conf):
-	if conf.options.ANDROID_OPTS:
+	if conf.options.CROSS_COMPILE_ENV:
+		try:
+			toolchain_path = conf.environ['CROSS_COMPILE']
+		except KeyError:
+			conf.fatal('Set CROSS_COMPILE environment variable to toolchain prefix (usually in form of path and triplet, ending with -)')
+
+		conf.environ['CC'] = toolchain_path + 'cc'
+		conf.environ['CXX'] = toolchain_path + 'c++'
+		conf.environ['STRIP'] = toolchain_path + 'strip'
+		conf.environ['OBJDUMP'] = toolchain_path + 'objdump'
+		conf.environ['AR'] = toolchain_path + 'ar'
+	elif conf.options.ANDROID_OPTS:
 		values = conf.options.ANDROID_OPTS.split(',')
 		if len(values) != 3:
 			conf.fatal('Invalid --android paramater value!')
