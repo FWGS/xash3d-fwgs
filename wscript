@@ -171,6 +171,7 @@ def options(opt):
 	# a1ba: special option for me
 	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
 	grp.add_option('--enable-msvcdeps', action='store_true', dest='MSVCDEPS', default=False, help='')
+	grp.add_option('--enable-wafcache', action='store_true', dest='WAFCACHE', default=False, help='')
 
 	grp = opt.add_option_group('Renderers options')
 
@@ -534,6 +535,9 @@ int main(void) { return (int)BZ2_bzlibVersion(); }'''
 		conf.add_subproject(i.name)
 
 def build(bld):
+	if bld.options.WAFCACHE:
+		bld.load('wafcache')
+
 	# guard rails to not let install to root
 	if bld.is_install and not bld.options.PACKAGING and not bld.options.destdir:
 		bld.fatal('Set the install destination directory using --destdir option')
