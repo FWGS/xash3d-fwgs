@@ -12,7 +12,7 @@ export JAVA_HOME=$GITHUB_WORKSPACE/jdk-17.0.7+7
 export PATH=$PATH:$JAVA_HOME/bin
 
 echo "Download hlsdk-portable"
-git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-portable -b mobile_hacks 3rdparty/hlsdk-portable || exit 1
+git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-portable -b android_library_naming 3rdparty/hlsdk-portable || exit 1
 
 echo "Download SDL"
 pushd 3rdparty
