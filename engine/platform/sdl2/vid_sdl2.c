@@ -894,6 +894,7 @@ int GL_SetAttribute( int attr, int val )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_SHARE_WITH_CURRENT_CONTEXT );
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_FRAMEBUFFER_SRGB_CAPABLE );
 	case REF_GL_CONTEXT_PROFILE_MASK:
+#if !XASH_WIN32
 #ifdef SDL_HINT_OPENGL_ES_DRIVER
 		if( val == REF_GL_CONTEXT_PROFILE_ES )
 		{
@@ -901,6 +902,7 @@ int GL_SetAttribute( int attr, int val )
 			SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
 		}
 #endif // SDL_HINT_OPENGL_ES_DRIVER
+#endif
 		return SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, val );
 #if SDL_VERSION_ATLEAST( 2, 0, 4 )
 		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
@@ -981,11 +983,14 @@ qboolean R_Init_Video( const int type )
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
 #endif
 
-#if !XASH_WIN32
+	if( Sys_CheckParm( "-egl" ) )
+#if XASH_WIN32
+		SDL_SetHint( "SDL_OPENGL_ES_DRIVER", "1" );
+#else
+		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
+
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
-	if( Sys_CheckParm( "-egl" ) )
-		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
 #endif // !XASH_WIN32
 
 	// must be initialized before creating window
