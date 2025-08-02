@@ -983,11 +983,14 @@ qboolean R_Init_Video( const int type )
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
 #endif
 
-#if !XASH_WIN32
+	if( Sys_CheckParm( "-egl" ) )
+#if XASH_WIN32
+		SDL_SetHint( "SDL_OPENGL_ES_DRIVER", "1" );
+#else
+		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
+
 	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
-	if( Sys_CheckParm( "-egl" ) )
-		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
 #endif // !XASH_WIN32
 
 	// must be initialized before creating window
