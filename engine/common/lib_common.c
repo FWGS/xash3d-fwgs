@@ -226,32 +226,29 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 	case LIBRARY_GAMEUI:
 		if( COM_CheckStringEmpty( host.menulib ))
 		{
-			Q_strncpy( out, host.menulib, size );
+			if( host.menulib[0] == '@' )
+				COM_GenerateClientLibraryPath( host.menulib + 1, out, size );
+			else Q_strncpy( out, host.menulib, size );
 		}
-		else
-		{
-			COM_GenerateClientLibraryPath( "menu", out, size );
-		}
+		else COM_GenerateClientLibraryPath( "menu", out, size );
 		break;
 	case LIBRARY_CLIENT:
 		if( COM_CheckStringEmpty( host.clientlib ))
 		{
-			Q_strncpy( out, host.clientlib, size );
+			if( host.clientlib[0] == '@' )
+				COM_GenerateClientLibraryPath( host.clientlib + 1, out, size );
+			else Q_strncpy( out, host.clientlib, size );
 		}
-		else
-		{
-			COM_GenerateClientLibraryPath( "client", out, size );
-		}
+		else COM_GenerateClientLibraryPath( "client", out, size );
 		break;
 	case LIBRARY_SERVER:
 		if( COM_CheckStringEmpty( host.gamedll ))
 		{
-			Q_strncpy( out, host.gamedll, size );
+			if( host.gamedll[0] == '@' )
+				COM_GenerateClientLibraryPath( host.gamedll + 1, out, size );
+			else Q_strncpy( out, host.gamedll, size );
 		}
-		else
-		{
-			COM_GenerateServerLibraryPath( out, size );
-		}
+		else COM_GenerateServerLibraryPath( out, size );
 		break;
 	default:
 		ASSERT( 0 );
