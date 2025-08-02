@@ -30,7 +30,7 @@ android {
 				File(engineRoot, "scripts/configure-ninja.py").path,
 				engineRoot,
 				"--variant=\${ndk.variantName}",
-				"--abi=Android-\${ndk.abi}",
+				"--abi=\${ndk.abi}",
 				"--configuration-dir=\${ndk.buildRoot}",
 				"--ndk-version=\${ndk.moduleNdkVersion}",
 				"--min-sdk-version=\${ndk.minPlatform}",
