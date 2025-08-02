@@ -64,13 +64,6 @@ def configure(conf):
 				conf.define('OPUS_ARM_MAY_HAVE_NEON_INTR', 1)
 				conf.define('OPUS_ARM_PRESUME_NEON', 1)
 	elif conf.env.DEST_CPU.startswith('x86'):
-		if conf.check(header_name='cpuid.h', mandatory=False):
-			conf.define('CPU_INFO_BY_C', 1)
-		else:
-			conf.define('CPU_INFO_BY_ASM', 1)
-
-		conf.define('OPUS_HAVE_RTCD', 1)
-
 		if conf.check(header_name='xmmintrin.h', mandatory = False):
 			if conf.env.COMPILER_CC != 'msvc':
 				conf.env.CFLAGS += ['-msse']
@@ -85,15 +78,24 @@ def configure(conf):
 			if conf.env.DEST_SIZEOF_VOID_P > 4:
 				conf.define('OPUS_X86_PRESUME_SSE2', 1)
 
-		if conf.check(header_name='smmintrin.h', mandatory = False):
-			if conf.env.COMPILER_CC != 'msvc':
-				conf.env.CFLAGS += ['-msse4.1']
-			conf.define('OPUS_X86_MAY_HAVE_SSE4_1', 1)
+		# on x86_64 we enable both SSE and SSE2, so RTCD can be disabled (it's actually doesn't even build with RTCD enabled)
+		if conf.env.DEST_SIZEOF_VOID_P == 4:
+			if conf.check(header_name='cpuid.h', mandatory=False):
+				conf.define('CPU_INFO_BY_C', 1)
+			else:
+				conf.define('CPU_INFO_BY_ASM', 1)
 
-		if conf.check(header_name='immintrin.h', mandatory = False):
-			if conf.env.COMPILER_CC != 'msvc':
-				conf.env.CFLAGS += ['-mavx']
-			conf.define('OPUS_X86_MAY_HAVE_AVX', 1)
+			conf.define('OPUS_HAVE_RTCD', 1)
+
+#		if conf.check(header_name='smmintrin.h', mandatory = False):
+#			if conf.env.COMPILER_CC != 'msvc':
+#				conf.env.CFLAGS += ['-msse4.1']
+#			conf.define('OPUS_X86_MAY_HAVE_SSE4_1', 1)
+
+#		if conf.check(header_name='immintrin.h', mandatory = False):
+#			if conf.env.COMPILER_CC != 'msvc':
+#				conf.env.CFLAGS += ['-mavx']
+#			conf.define('OPUS_X86_MAY_HAVE_AVX', 1)
 
 	# TODO: ARM/x86 intrinsics detection
 	# TODO: maybe call autotools/cmake/meson instead?
@@ -118,7 +120,12 @@ def build(bld):
 			sources += bld.path.ant_glob(['opus/silk/arm/*.c', 'opus/celt/arm/*.c'])
 			includes += ['opus/silk/arm', 'opus/celt/arm']
 	elif bld.env.DEST_CPU.startswith('x86'):
-		sources += bld.path.ant_glob(['opus/silk/x86/*.c', 'opus/celt/x86/*.c'])
+		sources += ['opus/silk/x86/x86_silk_map.c',
+			'opus/celt/x86/pitch_sse.c',
+			'opus/celt/x86/pitch_sse2.c',
+			'opus/celt/x86/vq_sse2.c',
+			'opus/celt/x86/x86_celt_map.c',
+			'opus/celt/x86/x86cpu.c']
 		includes += ['opus/silk/x86', 'opus/celt/x86']
 
 	defines = ['OPUS_BUILD', 'FLOAT_APPROX', 'PACKAGE_VERSION="1.4.0"', 'CUSTOM_MODES', 'ENABLE_HARDENING']
