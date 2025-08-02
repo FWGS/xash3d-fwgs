@@ -18,23 +18,26 @@ import subprocess
 import sys
 
 
-def run_cmake(path, libs, out):
-	cmake_exec = ["cmake", "--build", path]
-
+def run_cmake(bin_path, libs, inst_path):
+	cmake_exec = ["cmake", "--build", bin_path]
 	cmake_process = subprocess.Popen(cmake_exec)
 	cmake_process.communicate()
 
-	for lib in libs:
-		src = os.path.join(path, *lib.split("/"))
-		dest = os.path.join(out, lib.split("/")[-1])
+	if libs:
+		for lib in libs:
+			src = os.path.join(bin_path, *lib.split("/"))
+			dest = os.path.join(inst_path, lib.split("/")[-1])
 
-		dest_dir = os.path.dirname(dest)
+			dest_dir = os.path.dirname(dest)
 
-		if not os.path.exists(dest_dir):
-			os.makedirs(dest_dir)
+			if not os.path.exists(dest_dir):
+				os.makedirs(dest_dir)
 
-		shutil.copyfile(src, dest)
-
+			shutil.copyfile(src, dest)
+	else:
+		cmake_exec = ["cmake", "--install", bin_path, "--prefix", inst_path]
+		cmake_process = subprocess.Popen(cmake_exec)
+		cmake_process.communicate()
 
 def main():
 	parser = argparse.ArgumentParser()
@@ -57,23 +60,22 @@ def main():
 		waf_exec += ["--targets={}".format(args.targets)]
 	else:
 		# build SDL2 and hlsdk-portable with cmake
-		sdl_out_path = os.path.join(args.out_dir, "SDL")
-		hlsdk_out_path = os.path.join(args.out_dir, "hlsdk-portable")
+		sdl_bin_path = os.path.join(args.out_dir, "SDL")
+		hlsdk_bin_path = os.path.join(args.out_dir, "hlsdk-portable")
 
 		abi = args.waflock.replace(".lock-waf_android_", "").replace("_build", "")
-		dest_dir = os.path.join(args.top_dir, "android", "app", "src", "main", "jniLibs", abi)
+		inst_path = os.path.join(args.top_dir, "android", "app", "src", "main", "jniLibs", abi)
 
-		if not os.path.exists(dest_dir):
-			os.makedirs(dest_dir)
+		if not os.path.exists(inst_path):
+			os.makedirs(inst_path)
 
-		run_cmake(sdl_out_path, ["libSDL2.so"], dest_dir)
-		run_cmake(hlsdk_out_path, ["cl_dll/libclient.so", "dlls/libserver.so"], dest_dir)
+		run_cmake(sdl_bin_path, ["libSDL2.so"], inst_path)
+		run_cmake(hlsdk_bin_path, None, inst_path)
 
 	process = subprocess.Popen(waf_exec, env=env)
 	process.communicate()
 
-	sys.exit(0)
-
+	return 0
 
 if __name__ == "__main__":
-	main()
+	sys.exit(main())
