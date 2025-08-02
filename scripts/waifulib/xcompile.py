@@ -25,6 +25,7 @@ ANDROID_NDK_HARDFP_MAX = 11 # latest version that supports hardfp
 ANDROID_NDK_GCC_MAX = 17 # latest NDK that ships with GCC
 ANDROID_NDK_UNIFIED_SYSROOT_MIN = 15
 ANDROID_NDK_SYSROOT_FLAG_MAX = 19 # latest NDK that need --sysroot flag
+ANDROID_NDK_BUGGED_LINKER_MAX = 22
 ANDROID_NDK_API_MIN = {
 	10: 3,
 	19: 16,
@@ -354,6 +355,12 @@ class Android:
 		else: linkflags += ['-no-canonical-prefixes']
 
 		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
+
+		linkflags += ["-Wl,-z,max-page-size=16384"]
+
+		if self.ndk_rev <= ANDROID_NDK_BUGGED_LINKER_MAX:
+			linkflags += ["-Wl,-z,common-page-size=16384"]
+
 		return linkflags
 
 	def ldflags(self):
