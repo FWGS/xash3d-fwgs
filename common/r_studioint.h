@@ -1,154 +1,121 @@
-/***
-*
-*	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*
-*	This product contains software technology licensed from Id
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
-*	All Rights Reserved.
-*
-*   Use, distribution, and modification of this source code and/or resulting
-*   object code is restricted to non-commercial enhancements to products from
-*   Valve LLC.  All other use, distribution, or modification is prohibited
-*   without written permission from Valve LLC.
-*
-****/
+/*
+This is free and unencumbered software released into the public domain.
 
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
 
-#ifndef R_STUDIOINT_H
-#define R_STUDIOINT_H
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+*/
+
+#ifndef R_STUDIO_INTERFACE_H
+#define R_STUDIO_INTERFACE_H
+
+#define SV_BLENDING_INTERFACE_VERSION 1
 #define STUDIO_INTERFACE_VERSION 1
 
-typedef struct engine_studio_api_s
-{
-	// Allocate number*size bytes and zero it
-	void		*( *Mem_Calloc )( int number, size_t size );
-	// Check to see if pointer is in the cache
-	void		*( *Cache_Check )( struct cache_user_s *c );
-	// Load file into cache ( can be swapped out on demand )
-	void		( *LoadCacheFile )( const char *path, struct cache_user_s *cu );
-	// Retrieve model pointer for the named model
-	struct model_s	*( *Mod_ForName )( const char *name, int crash_if_missing );
-	// Retrieve pointer to studio model data block from a model
-	void		*( *Mod_Extradata )( struct model_s *mod );
-	// Retrieve indexed model from client side model precache list
-	struct model_s	*( *GetModelByIndex )( int index );
-	// Get entity that is set for rendering
-	struct cl_entity_s * ( *GetCurrentEntity )( void );
-	// Get referenced player_info_t
-	struct player_info_s *( *PlayerInfo )( int index );
-	// Get most recently received player state data from network system
-	struct entity_state_s *( *GetPlayerState )( int index );
-	// Get viewentity
-	struct cl_entity_s * ( *GetViewEntity )( void );
-	// Get current frame count, and last two timestampes on client
-	void		( *GetTimes )( int *framecount, double *current, double *old );
-	// Get a pointer to a cvar by name
-	struct cvar_s	*( *GetCvar )( const char *name );
-	// Get current render origin and view vectors ( up, right and vpn )
-	void		( *GetViewInfo )( float *origin, float *upv, float *rightv, float *vpnv );
-	// Get sprite model used for applying chrome effect
-	struct model_s	*( *GetChromeSprite )( void );
-	// Get model counters so we can incement instrumentation
-	void		( *GetModelCounters )( int **s, int **a );
-	// Get software scaling coefficients
-	void		( *GetAliasScale )( float *x, float *y );
+typedef struct engine_studio_api_s engine_studio_api_t;
+typedef struct server_studio_api_s server_studio_api_t;
+typedef struct r_studio_interface_s r_studio_interface_t;
+typedef struct sv_blending_interface_s sv_blending_interface_t;
 
-	// Get bone, light, alias, and rotation matrices
-	float		****( *StudioGetBoneTransform )( void );
-	float		****( *StudioGetLightTransform )( void );
-	float		***( *StudioGetAliasTransform )( void );
-	float		***( *StudioGetRotationMatrix )( void );
+struct engine_studio_api_s {
+	void *                     (*Mem_Calloc)(int, size_t); /*     0     4 */
+	void *                     (*Cache_Check)(struct cache_user_s *); /*     4     4 */
+	void                       (*LoadCacheFile)(const char *, struct cache_user_s *); /*     8     4 */
+	struct model_s *           (*Mod_ForName)(const char  *, int); /*    12     4 */
+	void *                     (*Mod_Extradata)(struct model_s *); /*    16     4 */
+	struct model_s *           (*GetModelByIndex)(int); /*    20     4 */
+	struct cl_entity_s *       (*GetCurrentEntity)(void); /*    24     4 */
+	struct player_info_s *     (*PlayerInfo)(int);   /*    28     4 */
+	struct entity_state_s *    (*GetPlayerState)(int); /*    32     4 */
+	struct cl_entity_s *       (*GetViewEntity)(void); /*    36     4 */
+	void                       (*GetTimes)(int *, double *, double *); /*    40     4 */
+	struct cvar_s *            (*GetCvar)(const char  *); /*    44     4 */
+	void                       (*GetViewInfo)(float *, float *, float *, float *); /*    48     4 */
+	struct model_s *           (*GetChromeSprite)(void); /*    52     4 */
+	void                       (*GetModelCounters)(int * *, int * *); /*    56     4 */
+	void                       (*GetAliasScale)(float *, float *); /*    60     4 */
+	/* --- cacheline 1 boundary (64 bytes) --- */
+	float * * * *              (*StudioGetBoneTransform)(void); /*    64     4 */
+	float * * * *              (*StudioGetLightTransform)(void); /*    68     4 */
+	float * * *                (*StudioGetAliasTransform)(void); /*    72     4 */
+	float * * *                (*StudioGetRotationMatrix)(void); /*    76     4 */
+	void                       (*StudioSetupModel)(int, void * *, void * *); /*    80     4 */
+	int                        (*StudioCheckBBox)(void); /*    84     4 */
+	void                       (*StudioDynamicLight)(struct cl_entity_s *, struct alight_s *); /*    88     4 */
+	void                       (*StudioEntityLight)(struct alight_s *); /*    92     4 */
+	void                       (*StudioSetupLighting)(struct alight_s *); /*    96     4 */
+	void                       (*StudioDrawPoints)(void); /*   100     4 */
+	void                       (*StudioDrawHulls)(void); /*   104     4 */
+	void                       (*StudioDrawAbsBBox)(void); /*   108     4 */
+	void                       (*StudioDrawBones)(void); /*   112     4 */
+	void                       (*StudioSetupSkin)(void *, int); /*   116     4 */
+	void                       (*StudioSetRemapColors)(int, int); /*   120     4 */
+	struct model_s *           (*SetupPlayerModel)(int); /*   124     4 */
+	/* --- cacheline 2 boundary (128 bytes) --- */
+	void                       (*StudioClientEvents)(void); /*   128     4 */
+	int                        (*GetForceFaceFlags)(void); /*   132     4 */
+	void                       (*SetForceFaceFlags)(int); /*   136     4 */
+	void                       (*StudioSetHeader)(void *); /*   140     4 */
+	void                       (*SetRenderModel)(struct model_s *); /*   144     4 */
+	void                       (*SetupRenderer)(int); /*   148     4 */
+	void                       (*RestoreRenderer)(void); /*   152     4 */
+	void                       (*SetChromeOrigin)(void); /*   156     4 */
+	int                        (*IsHardware)(void);  /*   160     4 */
+	void                       (*GL_StudioDrawShadow)(void); /*   164     4 */
+	void                       (*GL_SetRenderMode)(int); /*   168     4 */
+	void                       (*StudioSetRenderamt)(int); /*   172     4 */
+	void                       (*StudioSetCullState)(int); /*   176     4 */
+	void                       (*StudioRenderShadow)(int, float *, float *, float *, float *); /*   180     4 */
 
-	// Set up body part, and get submodel pointers
-	void		( *StudioSetupModel )( int bodypart, void **ppbodypart, void **ppsubmodel );
-	// Check if entity's bbox is in the view frustum
-	int		( *StudioCheckBBox )( void );
-	// Apply lighting effects to model
-	void		( *StudioDynamicLight )( struct cl_entity_s *ent, struct alight_s *plight );
-	void		( *StudioEntityLight )( struct alight_s *plight );
-	void		( *StudioSetupLighting )( struct alight_s *plighting );
+	/* size: 184, cachelines: 3, members: 46 */
+	/* last cacheline: 56 bytes */
+};
 
-	// Draw mesh vertices
-	void		( *StudioDrawPoints )( void );
+struct server_studio_api_s {
+	void *                     (*Mem_Calloc)(int, size_t); /*     0     4 */
+	void *                     (*Cache_Check)(struct cache_user_s *); /*     4     4 */
+	void                       (*LoadCacheFile)(const char *, struct cache_user_s *); /*     8     4 */
+	void *                     (*Mod_Extradata)(struct model_s *); /*    12     4 */
 
-	// Draw hulls around bones
-	void		( *StudioDrawHulls )( void );
-	// Draw bbox around studio models
-	void		( *StudioDrawAbsBBox )( void );
-	// Draws bones
-	void		( *StudioDrawBones )( void );
-	// Loads in appropriate texture for model
-	void		( *StudioSetupSkin )( void *ptexturehdr, int index );
-	// Sets up for remapped colors
-	void		( *StudioSetRemapColors )( int top, int bottom );
-	// Set's player model and returns model pointer
-	struct model_s	*( *SetupPlayerModel )( int index );
-	// Fires any events embedded in animation
-	void		( *StudioClientEvents )( void );
-	// Retrieve/set forced render effects flags
-	int		( *GetForceFaceFlags )( void );
-	void		( *SetForceFaceFlags )( int flags );
-	// Tell engine the value of the studio model header
-	void		( *StudioSetHeader )( void *header );
-	// Tell engine which model_t * is being renderered
-	void		( *SetRenderModel )( struct model_s *model );
+	/* size: 16, cachelines: 1, members: 4 */
+	/* last cacheline: 16 bytes */
+};
 
-	// Final state setup and restore for rendering
-	void		( *SetupRenderer )( int rendermode );
-	void		( *RestoreRenderer )( void );
+struct r_studio_interface_s {
+	int                        version;              /*     0     4 */
+	int                        (*StudioDrawModel)(int); /*     4     4 */
+	int                        (*StudioDrawPlayer)(int, struct entity_state_s *); /*     8     4 */
 
-	// Set render origin for applying chrome effect
-	void		( *SetChromeOrigin )( void );
+	/* size: 12, cachelines: 1, members: 3 */
+	/* last cacheline: 12 bytes */
+};
 
-	// True if using D3D/OpenGL
-	int		( *IsHardware )( void );
+struct sv_blending_interface_s {
+	int                        version;              /*     0     4 */
+	void                       (*SV_StudioSetupBones)(struct model_s *, float, int, const vec_t  *, const vec_t  *, const unsigned char  *, const unsigned char  *, int, const edict_t  *); /*     4     4 */
 
-	// Only called by hardware interface
-	void		( *GL_StudioDrawShadow )( void );
-	void		( *GL_SetRenderMode )( int mode );
+	/* size: 8, cachelines: 1, members: 2 */
+	/* last cacheline: 8 bytes */
+};
 
-	void		( *StudioSetRenderamt )( int iRenderamt );
-	void		( *StudioSetCullState )( int iCull );
-	void		( *StudioRenderShadow )( int iSprite, float *p1, float *p2, float *p3, float *p4 );
-} engine_studio_api_t;
+#endif
 
-typedef struct server_studio_api_s
-{
-	// Allocate number*size bytes and zero it
-	void		*( *Mem_Calloc )( int number, size_t size );
-	// Check to see if pointer is in the cache
-	void		*( *Cache_Check )( struct cache_user_s *c );
-	// Load file into cache ( can be swapped out on demand )
-	void		( *LoadCacheFile )( const char *path, struct cache_user_s *cu );
-	// Retrieve pointer to studio model data block from a model
-	void		*( *Mod_Extradata )( struct model_s *mod );
-} server_studio_api_t;
-
-// client blending
-typedef struct r_studio_interface_s
-{
-	int		version;
-	int		( *StudioDrawModel	)( int flags );
-	int		( *StudioDrawPlayer	)( int flags, struct entity_state_s *pplayer );
-} r_studio_interface_t;
-
-// server blending
-#define SV_BLENDING_INTERFACE_VERSION 1
-
-typedef struct sv_blending_interface_s
-{
-	int	version;
-
-	void	( *SV_StudioSetupBones )( struct model_s *pModel,
-					float frame,
-					int sequence,
-					const vec3_t angles,
-					const vec3_t origin,
-					const byte *pcontroller,
-					const byte *pblending,
-					int iBone,
-					const edict_t *pEdict );
-} sv_blending_interface_t;
-
-#endif//R_STUDIOINT_H
