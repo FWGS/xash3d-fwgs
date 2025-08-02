@@ -54,7 +54,7 @@ def main():
 
 	args, unknown = parser.parse_known_args()
 
-	abi = args.abi[8:]
+	abi = args.abi
 
 	cmake_build_type = "Debug" if args.variant in ["debug", "asan"] else "Release"
 	cmake_toolchain_path = os.path.join(args.ndk_root, "build", "cmake", "android.toolchain.cmake")
@@ -77,7 +77,7 @@ def main():
 	hlsdk_out_path = os.path.join(args.configuration_dir, "hlsdk-portable")
 
 	run_cmake(hlsdk_path, hlsdk_out_path, cmake_toolchain_path, abi, cmake_build_type, args.ndk_root,
-			  args.min_sdk_version)
+			  args.min_sdk_version, "-DANDROID_APK=ON")
 
 	# waf configure
 	waf_path = os.path.join(args.wscript_path, "waf")
@@ -101,8 +101,8 @@ def main():
 		f.write(os.path.join(out_path, "build.ninja"))
 
 	# required for Android Studio
-	sys.exit(0)
+	return 0
 
 
 if __name__ == "__main__":
-	main()
+	sys.exit(main())
