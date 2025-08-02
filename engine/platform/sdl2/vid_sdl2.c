@@ -969,8 +969,8 @@ qboolean R_Init_Video( const int type )
 	int displayIndex = SDL_GetPointDisplayIndex( &point );
 #else
 	int displayIndex = 0;
-	SDL_GetCurrentDisplayMode( displayIndex, &displayMode );
 #endif
+	SDL_GetCurrentDisplayMode( displayIndex, &displayMode );
 
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
 
