@@ -181,7 +181,10 @@ static inline qboolean Platform_NanoSleep( int nsec )
 		.tv_sec = 0,
 		.tv_nsec = nsec, // just don't put large numbers here
 	};
-	return nanosleep( &ts, NULL ) == 0;
+	int ret = nanosleep( &ts, NULL );
+	if( ret < 0 )
+		return errno == EINTR; // ignore EINTR error, it just means sleep was interrupted
+	return true;
 #elif XASH_WIN32
 	return Win32_NanoSleep( nsec );
 #else
