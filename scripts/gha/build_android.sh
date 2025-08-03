@@ -24,5 +24,5 @@ popd
 mkdir -p artifacts/
 
 mv android/app/build/outputs/apk/git/continuous/app-git-continuous-signed.apk artifacts/xash3d-fwgs-android.apk
-tar -cJvf artifacts/xash3d-fwgs-android-mappings.tar.zst -C android/app/build/outputs/mapping/git/continuous '.'
+tar -cJvf artifacts/xash3d-fwgs-android-mappings.tar.zst -C android/app/build/outputs/mapping/gitContinuous '.'
 
