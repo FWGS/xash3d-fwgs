@@ -7,22 +7,22 @@ export PATH=$PATH:$JAVA_HOME/bin:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$AN
 
 pushd android
 
-./gradlew assembleContinuous --no-daemon || exit 1
+./gradlew assembleGitContinuous --no-daemon || exit 1
 
-pushd app/build/outputs/apk/continuous
+pushd app/build/outputs/apk/git/continuous
 
 $ANDROID_HOME/build-tools/36.0.0/apksigner sign \
 	--ks $GITHUB_WORKSPACE/android/debug.keystore \
 	--ks-key-alias androiddebugkey \
 	--ks-pass pass:android \
 	--key-pass pass:android \
-	--out app-continuous-signed.apk app-continuous-unsigned.apk || exit 1
+	--out app-git-continuous-signed.apk app-git-continuous-unsigned.apk || exit 1
 
 popd
 popd
 
 mkdir -p artifacts/
 
-mv android/app/build/outputs/apk/continuous/app-continuous-signed.apk artifacts/xash3d-fwgs-android.apk
-tar -cJvf artifacts/xash3d-fwgs-android-mappings.tar.zst -C android/app/build/outputs/mapping/continuous '.'
+mv android/app/build/outputs/apk/git/continuous/app-git-continuous-signed.apk artifacts/xash3d-fwgs-android.apk
+tar -cJvf artifacts/xash3d-fwgs-android-mappings.tar.zst -C android/app/build/outputs/mapping/git/continuous '.'
 
