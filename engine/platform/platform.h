@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#include <errno.h>
 #include "common.h"
 #include "system.h"
 #include "defaults.h"
