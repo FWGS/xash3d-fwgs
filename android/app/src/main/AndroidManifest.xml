@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
 	android:allowAudioPlaybackCapture="true"
-	android:installLocation="preferExternal">
+	android:installLocation="preferExternal"
+	tools:targetApi="29">
 	<!-- OpenGL ES 1.1 -->
 	<uses-feature android:glEsVersion="0x00010000" />
 	<!-- Touchscreen support -->
@@ -28,12 +30,11 @@
 		android:required="false" />
 	<!-- Allow downloading to the external storage on Android 5.1 and older -->
 	<uses-permission
-		android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-		android:maxSdkVersion="22" />
-	<uses-permission
 		android:name="android.permission.READ_EXTERNAL_STORAGE"
-		android:maxSdkVersion="32" />
-	<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+		android:maxSdkVersion="29" />
+	<uses-permission
+		android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+		android:maxSdkVersion="29" />
 	<!-- Allow access to Bluetooth devices -->
 	<!-- Currently this is just for Steam Controller support and requires setting SDL_HINT_JOYSTICK_HIDAPI_STEAM -->
 	<uses-permission
@@ -56,10 +57,10 @@
 		android:icon="@mipmap/ic_launcher"
 		android:label="@string/app_name"
 		android:roundIcon="@mipmap/ic_launcher"
-		android:theme="@style/Theme.App"
+		android:theme="@style/Theme.AppCompat.NoActionBar"
 		android:usesCleartextTraffic="true">
 		<activity
-			android:name=".MainActivity"
+			android:name=".ui.MainActivity"
 			android:exported="true">
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
@@ -74,7 +75,8 @@
 			android:exported="true"
 			android:launchMode="singleTask"
 			android:preferMinimalPostProcessing="true"
-			android:windowSoftInputMode="adjustResize">
+			android:windowSoftInputMode="adjustResize"
+			tools:targetApi="30">
 			<intent-filter>
 				<action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
 			</intent-filter>

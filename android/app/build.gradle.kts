@@ -1,3 +1,4 @@
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.LocalDateTime
 import java.time.Month
@@ -6,19 +7,25 @@ import java.time.temporal.ChronoUnit
 plugins {
 	alias(libs.plugins.android.application)
 	alias(libs.plugins.kotlin.android)
+	alias(libs.plugins.compose.compiler)
+	alias(libs.plugins.google.services)
+	alias(libs.plugins.firebase.crashlytics)
+	alias(libs.plugins.kotlin.serialization)
+	alias(libs.plugins.hilt.android)
+	alias(libs.plugins.ksp)
 }
 
 android {
 	namespace = "su.xash.engine"
 	ndkVersion = "28.2.13676358"
-	compileSdk = 35
+	compileSdk = 36
 
 	defaultConfig {
 		applicationId = "su.xash.engine"
 		versionName = "0.21-" + getGitHash()
 		versionCode = getBuildNum()
-		minSdk = 21
-		targetSdk = 35
+		minSdk = 23
+		targetSdk = 36
 
 		externalNativeBuild {
 			val engineRoot = projectDir.parentFile.parent
@@ -42,6 +49,55 @@ android {
 		}
 	}
 
+	buildTypes {
+		debug {
+			isDebuggable = true
+			applicationIdSuffix = ".test"
+
+			proguardFiles(
+				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+			)
+		}
+
+		release {
+			isMinifyEnabled = true
+			isShrinkResources = true
+
+			proguardFiles(
+				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+			)
+
+			configure<CrashlyticsExtension> {
+				nativeSymbolUploadEnabled = true
+			}
+		}
+
+		create("asan") {
+			initWith(getByName("debug"))
+		}
+
+		create("continuous") {
+			initWith(getByName("release"))
+			applicationIdSuffix = ".test"
+		}
+	}
+
+	flavorDimensions += "version"
+
+	productFlavors {
+		create("googlePlay") {
+			dimension = "version"
+			applicationId = "in.celest.xash3d.hl"
+			buildConfigField("Boolean", "IS_GOOGLE_PLAY_BUILD", "true")
+		}
+
+		create("git") {
+			dimension = "version"
+			applicationId = "su.xash.engine"
+			buildConfigField("Boolean", "IS_GOOGLE_PLAY_BUILD", "false")
+		}
+	}
+
 	compileOptions {
 		sourceCompatibility = JavaVersion.VERSION_11
 		targetCompatibility = JavaVersion.VERSION_11
@@ -54,7 +110,7 @@ android {
 	}
 
 	buildFeatures {
-		viewBinding = true
+		compose = true
 		buildConfig = true
 	}
 
@@ -81,48 +137,26 @@ android {
 			java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
 		}
 	}
-
-	buildTypes {
-		debug {
-			isMinifyEnabled = false
-			isShrinkResources = false
-			isDebuggable = true
-			applicationIdSuffix = ".test"
-			proguardFiles(
-				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-			)
-		}
-
-		release {
-			isMinifyEnabled = true
-			isShrinkResources = true
-			proguardFiles(
-				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-			)
-		}
-
-		register("asan") {
-			initWith(getByName("debug"))
-		}
-
-		register("continuous") {
-			initWith(getByName("release"))
-			applicationIdSuffix = ".test"
-		}
-	}
 }
 
 dependencies {
-	implementation(libs.material)
-
+	implementation(platform(libs.compose.bom))
+	implementation(libs.material3)
+	implementation(libs.ui.tooling)
+	implementation(libs.activity.compose)
+	implementation(libs.navigation.compose)
+	ksp(libs.hilt.compiler)
+	implementation(libs.hilt.android)
 	implementation(libs.appcompat)
-	implementation(libs.navigation.runtime.ktx)
-	implementation(libs.navigation.fragment.ktx)
-	implementation(libs.navigation.ui.ktx)
-	implementation(libs.preference.ktx)
-	implementation(libs.swiperefreshlayout)
-
-	implementation(libs.acra.http)
+	implementation(libs.lifecycle.viewmodel.ktx)
+	implementation(libs.datastore.preferences)
+	implementation(libs.coil.compose)
+	implementation(libs.hilt.navigation.compose)
+	implementation(libs.accompanist.permissions)
+	implementation(libs.material.icons.extended)
+	implementation(platform(libs.firebase.bom))
+	implementation(libs.firebase.crashlytics.ndk)
+	implementation(libs.firebase.analytics)
 }
 
 fun getBuildNum(): Int {
