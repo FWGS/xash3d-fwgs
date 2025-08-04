@@ -138,7 +138,7 @@ static int FS_FileTime_AndroidAssets( searchpath_t *search, const char *filename
 	{
 		struct tm file_tm;
 
-		strptime( __DATE__ " "__TIME__, "%b %d %Y %H:%M:%S", &file_tm );
+		strptime( g_buildcommit_date, "%Y-%m-%d %H:%M:%S", &file_tm );
 		time = mktime( &file_tm );
 	}
 
