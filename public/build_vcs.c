@@ -16,4 +16,3 @@ GNU General Public License for more details.
 const char *g_buildcommit = XASH_BUILD_COMMIT;
 const char *g_buildbranch = XASH_BUILD_BRANCH;
 const char *g_buildcommit_date = XASH_BUILD_COMMIT_DATE;
-const char *g_build_date = __DATE__;
