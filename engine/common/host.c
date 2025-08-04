@@ -914,6 +914,13 @@ static void Host_Userconfigd_f( void )
 	Mem_Free( t );
 }
 
+#if !XASH_DEDICATED
+static void Host_WriteConfig_f( void )
+{
+	Host_WriteConfig();
+}
+#endif
+
 #if XASH_ENGINE_TESTS
 static void Host_RunTests( int stage )
 {
@@ -1145,6 +1152,10 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
+
+#if !XASH_DEDICATED
+	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig_f, "save current configuration" );
+#endif
 
 	Image_Init();
 	Sound_Init();
