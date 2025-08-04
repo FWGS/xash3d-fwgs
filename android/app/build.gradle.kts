@@ -23,7 +23,7 @@ android {
 		externalNativeBuild {
 			val engineRoot = projectDir.parentFile.parent
 
-			experimentalProperties["ninja.abiFilters"] = setOf("armeabi-v7a", "arm64-v8a")
+			experimentalProperties["ninja.abiFilters"] = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
 			experimentalProperties["ninja.path"] = File(engineRoot, "wscript").path
 			experimentalProperties["ninja.configure"] = "run-python"
 			experimentalProperties["ninja.arguments"] = setOf(
