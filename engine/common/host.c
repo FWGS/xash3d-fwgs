@@ -914,13 +914,6 @@ static void Host_Userconfigd_f( void )
 	Mem_Free( t );
 }
 
-#if !XASH_DEDICATED
-static void Host_WriteConfig_f( void )
-{
-	Host_WriteConfig();
-}
-#endif
-
 #if XASH_ENGINE_TESTS
 static void Host_RunTests( int stage )
 {
@@ -1154,7 +1147,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
 
 #if !XASH_DEDICATED
-	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig_f, "save current configuration" );
+	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
 #endif
 
 	Image_Init();
