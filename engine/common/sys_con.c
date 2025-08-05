@@ -238,7 +238,7 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 
 	// platform-specific output
 #if XASH_ANDROID && !XASH_DEDICATED
-	__android_log_write( ANDROID_LOG_DEBUG, "Xash", buf );
+	__android_log_write( ANDROID_LOG_INFO, "Xash", buf );
 #endif // XASH_ANDROID && !XASH_DEDICATED
 
 #if TARGET_OS_IOS
