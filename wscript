@@ -208,10 +208,15 @@ def configure(conf):
 		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx gccdeps')
+	conf.load('xshlib xcompile compiler_c compiler_cxx')
 
-	if conf.options.MSVCDEPS:
-		conf.load('msvcdeps')
+	if not conf.options.WAFCACHE:
+		conf.load('gccdeps')
+
+		if conf.options.MSVCDEPS:
+			conf.load('msvcdeps')
+
+	conf.env.WAFCACHE = conf.options.WAFCACHE
 
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
@@ -535,7 +540,7 @@ int main(void) { return (int)BZ2_bzlibVersion(); }'''
 		conf.add_subproject(i.name)
 
 def build(bld):
-	if bld.options.WAFCACHE:
+	if bld.env.WAFCACHE:
 		bld.load('wafcache')
 
 	# guard rails to not let install to root
