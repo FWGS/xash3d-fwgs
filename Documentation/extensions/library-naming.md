@@ -42,3 +42,6 @@ Issue #3: Some mods (like The Specialists, Tyrian, ...) already apply suffixes _
 Resolution: On x86 on **Win/Lin/Mac**, don't change anything. Otherwise, strip the _i?86 part and follow the usual scheme.
 
 See discussion: https://github.com/FWGS/xash3d-fwgs/issues/39
+
+Issue #4: When distributing game libraries on Android inside an APK, they couldn't be loaded.
+Resolution: Enable `useLegacyPackaging` option in build.gradle, when distributing games in APK. Always force game libraries to have `lib` prefix on Android, regardless if they are packaged in APK or not..
