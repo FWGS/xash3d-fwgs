@@ -62,13 +62,16 @@ android {
 		abortOnError = false
 	}
 
+/*
 	androidResources {
 		noCompress += ""
 	}
+*/
 
 	packaging {
 		jniLibs {
 			keepDebugSymbols.add("**/*.so")
+			useLegacyPackaging = true
 		}
 	}
 
