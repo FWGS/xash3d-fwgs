@@ -132,6 +132,8 @@ static void COM_GenerateCommonLibraryName( const char *name, const char *ext, ch
 	Q_snprintf( out, size, "%s.%s", name, ext );
 #elif XASH_WIN32 || ( XASH_LINUX && !XASH_ANDROID ) || XASH_APPLE
 	Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
+#elif XASH_ANDROID
+	Q_snprintf( out, size, "lib%s_android_%s.so", name, Q_buildarch() );
 #else
 	Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), ext );
 #endif
