@@ -80,4 +80,9 @@
 			</intent-filter>
 		</activity>
 	</application>
+	<queries>
+		<intent>
+			<action android:name="su.xash.engine.MOD" />
+		</intent>
+	</queries>
 </manifest>
