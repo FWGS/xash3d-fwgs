@@ -19,9 +19,10 @@ def configure(conf):
 	if conf.env.DEST_OS == 'android':
 		conf.check_cc(lib='android')
 
-	# remove lib prefix
-	if conf.env.cxxshlib_PATTERN.startswith('lib'):
-		conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
+	# remove lib prefix, except on Android which has issues unpacking libraries without prefix when debuggable=false
+	if conf.env.DEST_OS != 'android':
+		if conf.env.cxxshlib_PATTERN.startswith('lib'):
+			conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
 
 	if conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
 		conf.define('HAVE_MEMFD_CREATE', 1)
