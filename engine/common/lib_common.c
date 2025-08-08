@@ -132,8 +132,6 @@ static void COM_GenerateCommonLibraryName( const char *name, const char *ext, ch
 	Q_snprintf( out, size, "%s.%s", name, ext );
 #elif XASH_WIN32 || ( XASH_LINUX && !XASH_ANDROID ) || XASH_APPLE
 	Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
-#elif XASH_ANDROID
-	Q_snprintf( out, size, "lib%s_android_%s.so", name, Q_buildarch() );
 #else
 	Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), ext );
 #endif
@@ -153,8 +151,11 @@ static void COM_GenerateClientLibraryPath( const char *name, char *out, size_t s
 #else
 	string dllpath;
 
-	// we don't have any library prefixes, so we can safely append dll_path here
+#if XASH_ANDROID
+	Q_snprintf( dllpath, sizeof( dllpath ), "%s/lib%s", GI->dll_path, name );
+#else
 	Q_snprintf( dllpath, sizeof( dllpath ), "%s/%s", GI->dll_path, name );
+#endif
 
 	COM_GenerateCommonLibraryName( dllpath, OS_LIB_EXT, out, size );
 #endif
@@ -194,21 +195,34 @@ static void COM_GenerateServerLibraryPath( char *out, size_t size )
 #elif XASH_X86 && XASH_LINUX && !XASH_ANDROID
 	Q_strncpy( out, GI->game_dll_linux, size );
 #else
-	string dllpath;
-	const char *ext;
+	string temp, dir, dllpath, ext;
+	const char *dllname;
 
 #if XASH_WIN32
-	Q_strncpy( dllpath, GI->game_dll, sizeof( dllpath ) );
+	Q_strncpy( temp, GI->game_dll, sizeof( temp ));
 #elif XASH_APPLE
-	Q_strncpy( dllpath, GI->game_dll_osx, sizeof( dllpath ) );
+	Q_strncpy( temp, GI->game_dll_osx, sizeof( temp ));
 #else
-	Q_strncpy( dllpath, GI->game_dll_linux, sizeof( dllpath ) );
+	Q_strncpy( temp, GI->game_dll_linux, sizeof( temp ));
 #endif
 
-	ext = COM_FileExtension( dllpath );
-	COM_StripExtension( dllpath );
-	COM_StripIntelSuffix( dllpath );
+	// path to the dll directory
+	COM_ExtractFilePath( temp, dir );
 
+	// cleaned up dll name
+	Q_strncpy( ext, COM_FileExtension( temp ), sizeof( temp ));
+	COM_StripExtension( temp );
+	COM_StripIntelSuffix( temp );
+	dllname = COM_FileWithoutPath( temp );
+
+	// add `lib` prefix if required by platform
+#if XASH_ANDROID
+	Q_snprintf( dllpath, sizeof( dllpath ), "%s/lib%s", dir, dllname );
+#else
+	Q_snprintf( dllpath, sizeof( dllpath ), "%s/%s", dir, dllname );
+#endif
+
+	// and finally add platform suffix
 	COM_GenerateCommonLibraryName( dllpath, ext, out, size );
 #endif
 }
