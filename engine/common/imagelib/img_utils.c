@@ -99,6 +99,7 @@ static const loadpixformat_t load_game[] =
 { "bmp", Image_LoadBMP, IL_HINT_NO },   // WON menu images
 { "tga", Image_LoadTGA, IL_HINT_NO },   // hl vgui menus
 { "png", Image_LoadPNG, IL_HINT_NO },   // NightFire 007 menus
+{ "jpg", Image_LoadJPG, IL_HINT_NO },   // jpeg images
 { "wad", Image_LoadWAD, IL_HINT_NO },   // hl wad files
 { "mip", Image_LoadMIP, IL_HINT_NO },   // hl textures from wad or buffer
 { "mdl", Image_LoadMDL, IL_HINT_HL },   // hl studio model skins

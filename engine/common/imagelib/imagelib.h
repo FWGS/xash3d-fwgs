@@ -160,6 +160,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadJPG( const char *name, const byte *buffer, fs_offset_t filesize );
 
 //
 // formats save
