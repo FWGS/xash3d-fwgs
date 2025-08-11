@@ -41,7 +41,10 @@ void *ANDROID_LoadLibrary( const char *path )
 		handle = dlopen( fullpath, RTLD_NOW );
 
 		if( handle )
+		{
+			Con_Reportf( "%s: loading library %s successful\n", __func__, fullpath );
 			return handle;
+		}
 
 		COM_PushLibraryError( dlerror() );
 	}
@@ -49,7 +52,10 @@ void *ANDROID_LoadLibrary( const char *path )
 	// find in system search path, that includes our APK
 	handle = dlopen( name, RTLD_NOW );
 	if( handle )
+	{
+		Con_Reportf( "%s: loading library %s from LD_LIBRARY_PATH successful\n", __func__, name );
 		return handle;
+	}
 	COM_PushLibraryError( dlerror() );
 
 	return NULL;
