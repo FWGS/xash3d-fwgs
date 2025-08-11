@@ -130,6 +130,7 @@ static const savepixformat_t save_game[] =
 { "tga", Image_SaveTGA }, // tga screenshots
 { "bmp", Image_SaveBMP }, // bmp levelshots or screenshots
 { "png", Image_SavePNG }, // png screenshots
+{ "jpg", Image_SaveJPG }, // jpeg images
 { "wad", Image_SaveWAD }, // player logo in tempdecal.wad
 { NULL, NULL }
 };
