@@ -119,9 +119,9 @@ static void Image_IncrementLookupTime( void )
 	g_lookup_start = Sys_DoubleTime();
 }
 #else
-static void Image_ReportLookupsCount( const char * )
+static void Image_ReportLookupsCount( const char *name )
 {
-
+	(void)name;
 }
 static void Image_IncrementLookupTime( void )
 {
