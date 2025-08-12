@@ -57,7 +57,8 @@
 		android:label="@string/app_name"
 		android:roundIcon="@mipmap/ic_launcher"
 		android:theme="@style/Theme.App"
-		android:usesCleartextTraffic="true">
+		android:usesCleartextTraffic="true"
+		android:requestLegacyExternalStorage="true">
 		<activity
 			android:name=".MainActivity"
 			android:exported="true">
