@@ -1,6 +1,8 @@
 package su.xash.engine.ui.library
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -13,7 +15,8 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -24,6 +27,7 @@ import su.xash.engine.BuildConfig
 import su.xash.engine.R
 import su.xash.engine.adapters.GameAdapter
 import su.xash.engine.databinding.FragmentLibraryBinding
+
 
 class LibraryFragment : Fragment(), MenuProvider {
 	private var _binding: FragmentLibraryBinding? = null
@@ -38,23 +42,78 @@ class LibraryFragment : Fragment(), MenuProvider {
 			}
 		}
 
-	private fun checkStoragePermissions(): Boolean {
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-			MaterialAlertDialogBuilder(requireContext()).apply {
-				setTitle(R.string.file_access_required)
-				setMessage(R.string.file_access_message)
-				setPositiveButton(android.R.string.ok) { _, _ ->
-					startActivityForResult.launch(
-						Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).setData(
-							Uri.fromParts("package", BuildConfig.APPLICATION_ID, null)
-						)
-					)
-				}
-				setCancelable(false)
-				show()
-			}
+	private val requiredPermissions = arrayOf(
+		Manifest.permission.READ_EXTERNAL_STORAGE,
+		Manifest.permission.WRITE_EXTERNAL_STORAGE
+	)
 
-			return false
+	private val requestPermissionLauncher = registerForActivityResult(
+		ActivityResultContracts.RequestMultiplePermissions()
+	) { permissions ->
+		val granted = permissions.entries.all { it.value }
+		if (granted) {
+			libraryViewModel.reloadGames(requireContext())
+		} else {
+			checkStoragePermissions()
+		}
+	}
+
+	private fun checkStoragePermissions(): Boolean {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			if (!Environment.isExternalStorageManager())
+				MaterialAlertDialogBuilder(requireContext()).apply {
+					setTitle(R.string.file_access_required)
+					setMessage(R.string.file_access_message)
+					setPositiveButton(android.R.string.ok) { _, _ ->
+						startActivityForResult.launch(
+							Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).setData(
+								Uri.fromParts("package", BuildConfig.APPLICATION_ID, null)
+							)
+						)
+					}
+					setCancelable(false)
+					show()
+
+					return false
+				} else {
+				return true
+			}
+		} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			val permissionsNeeded = requiredPermissions.filter {
+				ContextCompat.checkSelfPermission(
+					requireContext(),
+					it
+				) != PackageManager.PERMISSION_GRANTED
+			}.toTypedArray()
+
+			if (!permissionsNeeded.isEmpty()) {
+				val showRationale = permissionsNeeded.any {
+					ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), it)
+				}
+
+				MaterialAlertDialogBuilder(requireContext()).apply {
+					setTitle(R.string.external_storage_required)
+					setMessage(R.string.external_storage_message)
+					setPositiveButton(android.R.string.ok) { _, _ ->
+						if (showRationale) {
+							requestPermissionLauncher.launch(permissionsNeeded)
+						} else {
+							val intent =
+								Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+									data =
+										Uri.fromParts("package", requireContext().packageName, null)
+								}
+							startActivity(intent)
+						}
+					}
+					setCancelable(false)
+					show()
+				}
+
+				return false
+			} else {
+				return true
+			}
 		} else {
 			return true
 		}
@@ -106,5 +165,13 @@ class LibraryFragment : Fragment(), MenuProvider {
 		}
 
 		return false
+	}
+
+	override fun onResume() {
+		super.onResume()
+
+		if (checkStoragePermissions()) {
+			libraryViewModel.reloadGames(requireContext())
+		}
 	}
 }
