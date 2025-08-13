@@ -530,6 +530,9 @@ static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *nam
 void Touch_SetClientOnly( byte state )
 {
 	// TODO: fix clash with vgui cursors
+	if( touch.clientonly == state )
+		return;
+
 	touch.clientonly = state;
 
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
