@@ -25,6 +25,7 @@ static struct
 { PLATFORM_NSWITCH,       "nswitch" },
 { PLATFORM_PSVITA,        "psvita" },
 { PLATFORM_WASI,          "wasi" },
+{ PLATFORM_HURD,          "hurd" },
 };
 
 static struct
