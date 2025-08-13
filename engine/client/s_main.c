@@ -1054,6 +1054,8 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 	size_t	raw_samples = 0;
 	rawchan_t	*ch;
 
+	if( !sndpool ) return NULL; // sound is not active
+
 	if( !entnum ) return NULL; // world is unused
 
 	// check for replacement sound, or find the best one to replace
