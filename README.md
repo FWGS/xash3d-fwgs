@@ -81,11 +81,11 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 ##### RedHat/Fedora
 * Only for 32-bit engine on 64-bit x86 operating system:
-  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL2-devel.i686 opus-devel.i686 freetype-devel.i686 bzip2-devel.i686 libvorbis-devel.i686 opusfile-devel.i686 libogg-devel.i686`.
+  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL3-devel.i686 sdl2-compat-devel.i686 opus-devel.i686 freetype-devel.i686 bzip2-devel.i686 libvorbis-devel.i686 opusfile-devel.i686 libogg-devel.i686`.
   * Set PKG_CONFIG_PATH environment variable to point at 32-bit libraries: `$ export PKG_CONFIG_PATH=/usr/lib/pkgconfig`.
 
 * For 64-bit engine on 64-bit x86 and other non-x86 systems:
-  * Install development tools: `$ sudo dnf install git gcc gcc-c++ SDL2-devel opus-devel freetype-devel bzip2-devel libvorbis-devel opusfile-devel libogg-devel`.
+  * Install development tools: `$ sudo dnf install git gcc gcc-c++ SDL3-devel sdl2-compat-devel opus-devel freetype-devel bzip2-devel libvorbis-devel opusfile-devel libogg-devel`.
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 
