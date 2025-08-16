@@ -251,6 +251,9 @@ Reverse-engineered code of server part by s1lentq - https://github.com/s1lentq/R
 ## Counter Strike Online
 CSO-like Xash3D-based mod, CSMoE - https://github.com/MoeMod/CSMoE
 
+## Crack-Life
+Reverse-engineered code: branch **cracklife** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/cracklife
+
 ## Crack-Life: Campaign Mode
 Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/crack_life
 
