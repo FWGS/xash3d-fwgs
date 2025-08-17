@@ -1124,14 +1124,6 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	if( gl_finish.value && RI.drawWorld )
 		pglFinish();
 
-	if( glConfig.max_multisamples > 1 && FBitSet( gl_msaa.flags, FCVAR_CHANGED ))
-	{
-		if( gl_msaa.value )
-			pglEnable( GL_MULTISAMPLE_ARB );
-		else pglDisable( GL_MULTISAMPLE_ARB );
-		ClearBits( gl_msaa.flags, FCVAR_CHANGED );
-	}
-
 	// completely override rendering
 	if( gEngfuncs.drawFuncs->GL_RenderFrame != NULL )
 	{
