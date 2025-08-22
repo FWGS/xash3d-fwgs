@@ -11,4 +11,10 @@
 	<string name="preferences_client_package">Пакет клиента</string>
 	<string name="preferences_server_package">Пакет сервера</string>
 	<string name="preferences_use_icons">Использовать иконки вместо фона</string>
+	<string name="game_data_location">Расположение игровых данных</string>
+	<string name="file_access_required">Требуется доступ ко всем файлам</string>
+	<string name="file_access_message">Для правильной работы приложения требуется доступ ко всем файлам.</string>
+	<string name="select_current_directory">Выбрать текущую директорию</string>
+	<string name="external_storage_required">Требуется доступ к внешнему хранилищу</string>
+	<string name="external_storage_message">Для правильной работы приложения требуется доступ к внешнему хранилищу.</string>
 </resources>
