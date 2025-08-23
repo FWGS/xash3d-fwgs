@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="app_name" translatable="false">Xash3D FWGS</string>
+	<string name="library">Librería</string>
+	<string name="dedicated_server">Dedicado</string>
+	<string name="app_settings">Ajustes</string>
+	<string name="game_settings">Ajustes del juego</string>
+	<string name="game_settings_command_line">Argumentos de la línea de comandos</string>
+	<string name="game_settings_volume_buttons">Usar botones de volumen en el juego</string>
+	<string name="preferences_package_name">Paquete de librerías</string>
+	<string name="preferences_separate_libraries">Librerías de paquetes separados</string>
+	<string name="preferences_client_package">Paquete de cliente</string>
+	<string name="preferences_server_package">Paquete de servidor</string>
+	<string name="preferences_use_icons">Usar iconos en lugar de fondos</string>
+	<string name="game_data_location">Ubicación de los datos del juego</string>
+	<string name="file_access_required">Se requiere acceso a todos los archivos</string>
+	<string name="file_access_message">Se requiere acceso a todos los archivos para que la aplicación funcione correctamente.</string>
+	<string name="select_current_directory">Seleccionar directorio actual</string>
+	<string name="external_storage_required">Se requiere acceso al almacenamiento externo</string>
+	<string name="external_storage_message">Se requiere acceso al almacenamiento externo para que la aplicación funcione correctamente.</string>
+</resources>
