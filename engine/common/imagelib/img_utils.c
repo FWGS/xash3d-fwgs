@@ -1509,21 +1509,25 @@ void Image_GenerateMipmaps( const byte *source, int width, int height, byte *mip
 		{ width / 4, height / 4 },
 		{ width / 8, height / 8 }
 	};
-	byte      *mips[3] = { mip1, mip2, mip3 };
-	int m, mw, mh, step, y, x;
+	byte *mipmaps[3] = { mip1, mip2, mip3 };
+	int m;
 
 	for( m = 0; m < 3; ++m )
 	{
-		if( !mips[m] )
+		int mw, mh, step, y;
+
+		if( !mipmaps[m] )
 			continue;
 		mw = sizes[m][0];
 		mh = sizes[m][1];
 		step = 1 << ( m + 1 );
 		for( y = 0; y < mh; ++y )
 		{
+			int x;
+
 			for( x = 0; x < mw; ++x )
 			{
-				mips[m][y * mw + x] = source[( y * step ) * width + ( x * step )];
+				mipmaps[m][y * mw + x] = source[( y * step ) * width + ( x * step )];
 			}
 		}
 	}
