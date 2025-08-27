@@ -35,7 +35,7 @@ void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float f
 void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yTop, float yBottom, float flZNear, float flZFar );
 
 // cull methods
-qboolean GL_FrustumCullBox( gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags );
-qboolean GL_FrustumCullSphere( gl_frustum_t *out, const vec3_t centre, float radius, int userClipFlags );
+qboolean GL_FrustumCullBox( const gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags );
+qboolean GL_FrustumCullSphere( const gl_frustum_t *out, const vec3_t centre, float radius, int userClipFlags );
 
 #endif//GL_FRUSTUM_H
