@@ -2436,7 +2436,7 @@ static int GAME_EXPORT CL_FindModelIndex( const char *m )
 	Q_strncpy( filepath, m, sizeof( filepath ));
 	COM_FixSlashes( filepath );
 
-	for( i = 0; i < cl.nummodels; i++ )
+	for( i = 0; i < ARRAYSIZE(cl.models); i++ )
 	{
 		if( !cl.models[i+1] )
 			continue;

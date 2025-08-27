@@ -3170,6 +3170,11 @@ qboolean CL_PrecacheResources( void )
 		break;
 	}
 
+	// Preload VR models
+	cl.models[MAX_MODELS + 1] = Mod_ForName("models/v_hand.mdl", true, true);
+	cl.models[MAX_MODELS + 2] = Mod_ForName("models/v_shield_r.mdl", true, true);
+	cl.models[MAX_MODELS + 3] = Mod_ForName("models/v_elite_l.mdl", true, true);
+
 	// then we set up all the world submodels
 	for( pRes = cl.resourcesonhand.pNext; pRes && pRes != &cl.resourcesonhand; pRes = pRes->pNext )
 	{

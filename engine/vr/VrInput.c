@@ -31,6 +31,7 @@ bool lActive = false;
 bool rActive = false;
 uint32_t lButtons = 0;
 uint32_t rButtons = 0;
+float deadZone = 0.5f;
 XrActionStateVector2f moveJoystickState[2];
 
 void INVR_Vibrate( float duration, int channel, float intensity ) {
@@ -344,14 +345,14 @@ void IN_VRInputFrame( engine_t* engine ) {
 	//thumbstick
 	moveJoystickState[0] = GetActionStateVector2(moveOnLeftJoystickAction);
 	moveJoystickState[1] = GetActionStateVector2(moveOnRightJoystickAction);
-	if (moveJoystickState[0].currentState.x > 0.5) lButtons |= ovrButton_Right;
-	if (moveJoystickState[0].currentState.x < -0.5) lButtons |= ovrButton_Left;
-	if (moveJoystickState[0].currentState.y > 0.5) lButtons |= ovrButton_Up;
-	if (moveJoystickState[0].currentState.y < -0.5) lButtons |= ovrButton_Down;
-	if (moveJoystickState[1].currentState.x > 0.5) rButtons |= ovrButton_Right;
-	if (moveJoystickState[1].currentState.x < -0.5) rButtons |= ovrButton_Left;
-	if (moveJoystickState[1].currentState.y > 0.5) rButtons |= ovrButton_Up;
-	if (moveJoystickState[1].currentState.y < -0.5) rButtons |= ovrButton_Down;
+	if (moveJoystickState[0].currentState.x > deadZone) lButtons |= ovrButton_Right;
+	if (moveJoystickState[0].currentState.x < -deadZone) lButtons |= ovrButton_Left;
+	if (moveJoystickState[0].currentState.y > deadZone) lButtons |= ovrButton_Up;
+	if (moveJoystickState[0].currentState.y < -deadZone) lButtons |= ovrButton_Down;
+	if (moveJoystickState[1].currentState.x > deadZone) rButtons |= ovrButton_Right;
+	if (moveJoystickState[1].currentState.x < -deadZone) rButtons |= ovrButton_Left;
+	if (moveJoystickState[1].currentState.y > deadZone) rButtons |= ovrButton_Up;
+	if (moveJoystickState[1].currentState.y < -deadZone) rButtons |= ovrButton_Down;
 
 	//check if controller is active
 	lActive = moveJoystickState[0].isActive;
@@ -392,4 +393,8 @@ bool IN_VRIsActive( int controllerIndex ) {
 		default:
 			return false;
 	}
+}
+
+void IN_VRSetDeadzone( float value ) {
+	deadZone = value;
 }

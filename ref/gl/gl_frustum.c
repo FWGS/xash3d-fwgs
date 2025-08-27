@@ -35,7 +35,8 @@ void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float f
 	vec3_t	normal, iforward;
 
 	// horizontal fov used for left and right planes
-	SinCos( DEG2RAD( flFovX ) * 0.5f, &xs, &xc );
+	float vrFovHack = 1.1f; //enlarge the clipping planes as the origin is not for left/right eye
+	SinCos( DEG2RAD( flFovX ) * 0.5f * vrFovHack, &xs, &xc );
 
 	// setup left plane
 	VectorMAM( xs, RI.cull_vforward, -xc, RI.cull_vright, normal );
@@ -46,7 +47,7 @@ void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float f
 	GL_FrustumSetPlane( out, FRUSTUM_RIGHT, normal, DotProduct( RI.cullorigin, normal ));
 
 	// vertical fov used for top and bottom planes
-	SinCos( DEG2RAD( flFovY ) * 0.5f, &xs, &xc );
+	SinCos( DEG2RAD( flFovY ) * 0.5f * vrFovHack, &xs, &xc );
 	VectorNegate( RI.cull_vforward, iforward );
 
 	// setup bottom plane

@@ -58,7 +58,11 @@ void Android_Init( void )
 
 	//Set VR platform flags
 	char* manufacturer = getenv("xr_manufacturer");
-	if (strcmp(manufacturer, "PICO") == 0) {
+	if (strcmp(manufacturer, "PLAY FOR DREAM") == 0) {
+		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
+	} else if (strcmp(manufacturer, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_REFRESH, true);
