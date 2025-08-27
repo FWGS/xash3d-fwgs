@@ -194,6 +194,13 @@ static void COM_GenerateServerLibraryPath( const char *alt_dllname, char *out, s
 	Q_strncpy( out, GI->game_dll_osx, size );
 #elif XASH_X86 && XASH_LINUX && !XASH_ANDROID
 	Q_strncpy( out, GI->game_dll_linux, size );
+	COM_StripExtension( out );
+
+	// GoldSrc actually strips everything after '_', causing issues for mods that have '_' in the DLL name on Linux
+	// e.g. delta_particles.so becomes delta.so. We're gonna be smarter and just drop the _i?86 if it matches...
+	// ... until somebody complains :)
+	COM_StripIntelSuffix( out );
+	COM_DefaultExtension( out, "." OS_LIB_EXT, size );
 #else
 	string temp, dir, dllpath, ext;
 	const char *dllname;
