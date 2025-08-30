@@ -79,7 +79,9 @@ deploy_engine()
 {
 	cd "$BUILDDIR" || die
 	./waf install --destdir="$APPDIR" || die
-	cp -av SDL2_linux/lib/libSDL2-2.0.so.0 "$APPDIR/"
+
+	cp -av SDL2_linux/lib/libSDL2.so SDL2_linux/lib/libSDL2-* "$APPDIR/"
+
 	if [ "$GH_CPU_ARCH" = "i386" ]; then
 		cp -av 3rdparty/vgui_support/vgui-dev/lib/vgui.so "$APPDIR/"
 	fi
