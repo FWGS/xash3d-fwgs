@@ -96,28 +96,14 @@ Get bitrate for given quality level
 */
 static int Voice_GetBitrateForQuality( int quality, qboolean goldsrc )
 {
-	if( goldsrc )
+	switch( quality )
 	{
-		switch( quality )
-		{
-		case 1: return 6000;   // 6 kbps
-		case 2: return 12000;  // 12 kbps
-		case 3: return 24000;  // 24 kbps
-		case 4: return 36000;  // 36 kbps
-		case 5: return 48000;  // 48 kbps
-		default: return 36000; // default
-		}
-	}
-	else
-	{
-		switch( quality )
-		{
-		case 1: return 6000;   // 6 kbps
-		case 2: return 12000;  // 12 kbps
-		case 4: return 64000;  // 64 kbps
-		case 5: return 96000;  // 96 kbps
-		default: return 36000; // default
-		}
+	case 1: return 6000;   // 6 kbps
+	case 2: return 12000;  // 12 kbps
+	case 3: return 24000;  // 24 kbps
+	case 4: return 36000;  // 36 kbps
+	case 5: return 48000;  // 48 kbps
+	default: return 36000; // default
 	}
 }
 
