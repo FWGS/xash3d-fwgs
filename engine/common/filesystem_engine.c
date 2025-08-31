@@ -132,6 +132,8 @@ void FS_SaveVFSConfig( void )
 		return;
 	}
 
+	Con_Printf( "%s()\n", __func__ );
+
 	f = FS_Open( "vfs.cfg.new", "w", true );
 	if( !f )
 	{
