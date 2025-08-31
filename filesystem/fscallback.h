@@ -42,9 +42,6 @@ extern fs_globals_t *FI;
 #define FS_SetCurrentDirectory (*g_fsapi.SetCurrentDirectory)
 #define FS_Path_f (*g_fsapi.Path_f)
 
-// gameinfo utils
-#define FS_LoadGameInfo (*g_fsapi.LoadGameInfo)
-
 // file ops
 #ifndef FSCALLBACK_OVERRIDE_MALLOC_LIKE
 #define FS_Open (*g_fsapi.Open)

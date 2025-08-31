@@ -1369,23 +1369,35 @@ void FS_Rescan( uint32_t flags, const char *language )
 }
 
 /*
+===============
+FS_Gamedir
+
+Allows engine to know game directory before gameinfo is initialized
+===============
+*/
+static const char *FS_Gamedir( void )
+{
+	if( GI )
+		return GI->gamefolder;
+
+	return fs_gamedir;
+}
+
+/*
 ================
 FS_LoadGameInfo
 
 can be passed null arg
 ================
 */
-void FS_LoadGameInfo( const char *rootfolder )
+static void FS_LoadGameInfo( uint32_t flags, const char *language )
 {
 	int	i;
 
 	// lock uplevel of gamedir for read\write
 	FS_AllowDirectPaths( false );
 
-	if( rootfolder )
-		Q_strncpy( fs_gamedir, rootfolder, sizeof( fs_gamedir ));
-
-	Con_Reportf( "%s( %s )\n", __func__, fs_gamedir );
+	Con_Reportf( "%s( %s, 0x%x, %s )\n", __func__, fs_gamedir, flags, language );
 
 	// clear any old paths
 	FS_ClearSearchPath();
@@ -1410,7 +1422,7 @@ void FS_LoadGameInfo( const char *rootfolder )
 		FS_CreatePath( buf );
 	}
 
-	FS_Rescan( 0, NULL ); // create new filesystem
+	FS_Rescan( flags, language ); // create new filesystem
 }
 
 /*
@@ -3461,6 +3473,7 @@ const fs_api_t g_api =
 	FS_Path_f,
 
 	// gameinfo utils
+	FS_Gamedir,
 	FS_LoadGameInfo,
 
 	// file ops

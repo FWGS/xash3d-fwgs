@@ -167,11 +167,6 @@ extern convar_t	cl_filterstuffcmd;
 extern convar_t	rcon_password;
 extern convar_t	hpk_custom_file;
 extern convar_t	con_gamemaps;
-extern convar_t fs_mount_lv;
-extern convar_t fs_mount_hd;
-extern convar_t fs_mount_addon;
-extern convar_t fs_mount_l10n;
-extern convar_t ui_language; // historically used for UI, but now controls mounted localization directory
 
 #define Mod_AllowMaterials() ( host_allow_materials.value != 0.0f && !FBitSet( host.features, ENGINE_DISABLE_HDTEXTURES ))
 
@@ -416,7 +411,8 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 void FS_Rescan_f( void );
-void FS_CheckConfig( void );
+void FS_LoadGameInfo( void );
+void FS_SaveVFSConfig( void );
 
 //
 // cmd.c
@@ -687,6 +683,8 @@ void pfnResetTutorMessageDecayData( void );
 void Con_CompleteCommand( field_t *field );
 void Cmd_AutoComplete( char *complete_string );
 void Cmd_AutoCompleteClear( void );
+void Host_InitializeConfig( file_t *f, const char *config, const char *description );
+void Host_FinalizeConfig( file_t *f, const char *config );
 
 //
 // custom.c

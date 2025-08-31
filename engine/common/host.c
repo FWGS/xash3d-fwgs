@@ -148,6 +148,7 @@ static void Sys_PrintUsage( const char *exename )
 	O("-bugcomp [opts]    ", "enable precise bug compatibility")
 	O("                   ", "will break games that don't require it")
 	O("                   ", "refer to engine documentation for more info")
+	O("-language <lang>   ", "mount localization game directory")
 	O("-disablehelp       ", "disable this message")
 #if !XASH_DEDICATED
 	O("-dedicated         ", "run engine in dedicated mode")
@@ -1158,7 +1159,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Host_RunTests( 1 );
 #endif
 
-	FS_LoadGameInfo( NULL );
+	FS_LoadGameInfo();
 	Cvar_PostFSInit();
 
 	Image_CheckPaletteQ1 ();
@@ -1322,7 +1323,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cmd_RemoveCommand( "setgl" );
 	Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
 	SCR_CheckStartupVids();	// must be last
-	FS_CheckConfig();
 
 	if( Sys_GetParmFromCmdLine( "-timedemo", demoname ))
 		Cbuf_AddTextf( "timedemo %s\n", demoname );
