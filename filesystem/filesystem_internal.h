@@ -166,9 +166,6 @@ int FS_SetCurrentDirectory( const char *path );
 qboolean FS_GetRootDirectory( char *path, size_t size );
 void FS_Path_f( void );
 
-// gameinfo utils
-void FS_LoadGameInfo( const char *rootfolder );
-
 // file ops
 int FS_Close( file_t *file );
 file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )

@@ -32,8 +32,8 @@ extern "C"
 {
 #endif // __cplusplus
 
-#define FS_API_VERSION 3 // not stable yet!
-#define FS_API_CREATEINTERFACE_TAG   "XashFileSystem002" // follow FS_API_VERSION!!!
+#define FS_API_VERSION 4 // not stable yet!
+#define FS_API_CREATEINTERFACE_TAG   "XashFileSystem004" // follow FS_API_VERSION!!!
 #define FILESYSTEM_INTERFACE_VERSION "VFileSystem009" // never change this!
 
 // search path flags
@@ -167,7 +167,8 @@ typedef struct fs_api_t
 	void (*Path_f)( void );
 
 	// gameinfo utils
-	void (*LoadGameInfo)( const char *rootfolder );
+	const char *(*Gamedir)( void );
+	void (*LoadGameInfo)( uint32_t flags, const char *language );
 
 	// file ops
 	file_t *(*Open)( const char *filepath, const char *mode, qboolean gamedironly );
