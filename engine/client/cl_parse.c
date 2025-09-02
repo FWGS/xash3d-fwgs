@@ -2018,10 +2018,14 @@ void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 	if ( idx <= 0 || idx > cl.maxclients )
 		return;
 
+	// must notify client.dll about server ack'ing our local client voice data
+	if( idx == cl.playernum + 1 )
+		Voice_LoopbackAck();
+
 	if( proto == PROTO_GOLDSRC )
 	{
 		size = MSG_ReadShort( msg );
-		if ( size > VOICE_MAX_GS_DATA_SIZE )
+		if( size > VOICE_MAX_GS_DATA_SIZE )
 		{
 			Con_Printf( S_ERROR "Voice data size is too large: %d bytes (max: %d)\n", size, VOICE_MAX_GS_DATA_SIZE );
 			return;
@@ -2031,7 +2035,7 @@ void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 	{
 		frames = MSG_ReadByte( msg );
 		size = MSG_ReadShort( msg );
-		if (size > VOICE_MAX_DATA_SIZE )
+		if( size > VOICE_MAX_DATA_SIZE )
 		{
 			Con_Printf( S_ERROR "Voice data size is too large: %d bytes (max: %d)\n", size, VOICE_MAX_DATA_SIZE );
 			return;
