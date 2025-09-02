@@ -130,6 +130,7 @@ void Voice_RecordStop( void );
 void Voice_RecordStart( void );
 void Voice_Disconnect( void );
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames );
+void Voice_StatusAck( voice_status_t *status, int playerIndex );
 void Voice_StartChannel( uint samples, byte *data, int entnum );
 
 #endif // VOICE_H

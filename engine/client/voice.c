@@ -79,7 +79,7 @@ Does proper entity index range checking and helps to avoid mess with off-by-one 
 */
 static voice_status_t *Voice_GetPlayerStatus( int playerent )
 {
-	if( playerent < 1 || playerent > MAX_CLIENTS )
+	if ( playerent < 1 || playerent > MAX_CLIENTS )
 	{
 		Con_Printf( S_ERROR "%s: detected out-of-range player entity index\n", __func__ );
 		return NULL;
@@ -832,9 +832,10 @@ Sends notification to user dll and
 zeroes timeouts for this client
 =========================
 */
-static void Voice_StatusAck( voice_status_t *status, int playerIndex )
+void Voice_StatusAck( voice_status_t *status, int playerIndex )
 {
-	Voice_Status( playerIndex, true );
+	if( !status->talking_ack )
+		Voice_Status( playerIndex, true );
 
 	status->talking_ack = true;
 	status->talking_timeout = 0.0;
