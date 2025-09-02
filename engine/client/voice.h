@@ -119,6 +119,8 @@ typedef struct voice_state_s
 
 extern voice_state_t voice;
 
+extern convar_t voice_loopback;
+
 void CL_AddVoiceToDatagram( void );
 void Voice_RegisterCvars( void );
 qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit );

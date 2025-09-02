@@ -984,7 +984,7 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 		return;
 
 	// must notify through as both local player and normal client
-	if( ent == ( cl.playernum + 1 ))
+	if( playernum == cl.playernum )
 		Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
 
 	status = Voice_GetPlayerStatus( ent );
@@ -1057,11 +1057,6 @@ void CL_AddVoiceToDatagram( void )
 			MSG_BeginClientCmd( &cls.datagram, clc_voicedata );
 			MSG_WriteShort( &cls.datagram, packet_size );
 			MSG_WriteBytes( &cls.datagram, voice.compress_buffer, packet_size );
-
-			if( voice_loopback.value && packet_size > 0 && frames > 0 )
-			{
-				Voice_AddIncomingData( cl.playernum + 1, voice.compress_buffer, packet_size, frames );
-			}
 		}
 		return;
 	}
