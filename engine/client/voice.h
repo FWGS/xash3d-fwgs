@@ -132,5 +132,6 @@ void Voice_Disconnect( void );
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames );
 void Voice_StatusAck( voice_status_t *status, int playerIndex );
 void Voice_StartChannel( uint samples, byte *data, int entnum );
+void Voice_LoopbackAck( void ); // sends -2 to client, gets disabled on timeout
 
 #endif // VOICE_H

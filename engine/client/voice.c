@@ -974,6 +974,18 @@ Voice_AddIncomingData
 Received encoded voice data, decode it
 =========================
 */
+void Voice_LoopbackAck( void )
+{
+	Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
+}
+
+/*
+=========================
+Voice_AddIncomingData
+
+Received encoded voice data, decode it
+=========================
+*/
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 {
 	const int playernum = ent - 1;
@@ -983,10 +995,6 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 
 	if( !voice.initialized || !voice_enable.value )
 		return;
-
-	// must notify through as both local player and normal client
-	if( playernum == cl.playernum )
-		Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
 
 	status = Voice_GetPlayerStatus( ent );
 	Voice_StatusAck( status, ent );
@@ -1173,6 +1181,10 @@ void Voice_Idle( double frametime )
 	for( i = 1; i <= MAX_CLIENTS; i++ )
 	{
 		voice_status_t *status = Voice_GetPlayerStatus( i );
+
+		// TODO: replace timeout logic with mixer channels. If mixer started playing back this player's
+		// voice channel, we must call VoiceStatus( true ) here and when it's done playing back, call VoiceStatus( false )
+		// Also, when it's done remove StatusAck from Voice_AddIncomingData!
 		Voice_StatusTimeout( status, i, frametime );
 	}
 }
