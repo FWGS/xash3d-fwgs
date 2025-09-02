@@ -3570,7 +3570,7 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 			if( cur->state < cs_connected )
 				continue;
 
-			if( !FBitSet( cur->listeners, BIT( client )))
+			if( !FBitSet( cl->listeners, BIT( i )))
 				continue;
 		}
 
