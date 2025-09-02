@@ -24,13 +24,15 @@ GNU General Public License for more details.
 
 voice_state_t voice = { 0 };
 
-CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "enable voice chat" );
+static CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "enable voice chat" );
 CVAR_DEFINE_AUTO( voice_loopback, "0", FCVAR_PRIVILEGED, "loopback voice back to the speaker" );
-CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "incoming voice volume scale" );
-CVAR_DEFINE_AUTO( voice_transmit_scale, "1.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "outcoming voice volume scale" );
-CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "automatic voice gain control (average)" );
-CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
-CVAR_DEFINE_AUTO( voice_inputfromfile, "0", FCVAR_PRIVILEGED, "input voice from voice_input.wav" );
+static CVAR_DEFINE_AUTO( voice_scale, "1.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "incoming voice volume scale" );
+static CVAR_DEFINE_AUTO( voice_transmit_scale, "1.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "outcoming voice volume scale" );
+static CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "automatic voice gain control (average)" );
+static CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
+static CVAR_DEFINE_AUTO( voice_inputfromfile, "0", FCVAR_PRIVILEGED, "input voice from voice_input.wav" );
+
+static void Voice_StartChannel( uint samples, byte *data, int entnum );
 
 /*
 ===============================================================================
@@ -67,24 +69,6 @@ Check if codec is Opus Custom mode
 static qboolean Voice_IsOpusCustomMode( const char *codec )
 {
 	return Q_strcmp( codec, VOICE_OPUS_CUSTOM_CODEC ) == 0;
-}
-
-
-/*
-=========================
-Voice_GetPlayerStatus
-
-Does proper entity index range checking and helps to avoid mess with off-by-one errors
-=========================
-*/
-static voice_status_t *Voice_GetPlayerStatus( int playerent )
-{
-	if ( playerent < 1 || playerent > MAX_CLIENTS )
-	{
-		Con_Printf( S_ERROR "%s: detected out-of-range player entity index\n", __func__ );
-		return NULL;
-	}
-	return &voice.players_status[playerent - 1];
 }
 
 /*
@@ -832,7 +816,7 @@ Sends notification to user dll and
 zeroes timeouts for this client
 =========================
 */
-void Voice_StatusAck( voice_status_t *status, int playerIndex )
+static void Voice_StatusAck( voice_status_t *status, int playerIndex )
 {
 	if( !status->talking_ack )
 		Voice_Status( playerIndex, true );
@@ -938,14 +922,7 @@ void Voice_Disconnect( void )
 	}
 
 	for( i = 1; i <= MAX_CLIENTS; i++ )
-	{
-		voice_status_t *status = Voice_GetPlayerStatus( i );
-		if( status->talking_ack )
-		{
-			Voice_Status( i, false );
-			status->talking_ack = false;
-		}
-	}
+		Voice_Status( i, false );
 
 	VoiceCapture_Shutdown();
 	voice.device_opened = false;
@@ -961,11 +938,25 @@ Voice_StartChannel
 Feed the decoded data to engine sound subsystem
 =========================
 */
-void Voice_StartChannel( uint samples, byte *data, int entnum )
+static void Voice_StartChannel( uint samples, byte *data, int entnum )
 {
 	SND_ForceInitMouth( entnum );
 	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, VOICE_PCM_CHANNELS, data, bound( 0, 255 * voice_scale.value, 255 ));
+	Voice_Status( entnum, true );
 }
+
+/*
+=========================
+Voice_StopChannel
+
+Called by mixer when channel idles
+=========================
+*/
+void Voice_StopChannel( int entnum )
+{
+	Voice_Status( entnum, false );
+}
+
 
 /*
 =========================
@@ -995,9 +986,6 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 
 	if( !voice.initialized || !voice_enable.value )
 		return;
-
-	status = Voice_GetPlayerStatus( ent );
-	Voice_StatusAck( status, ent );
 
 	if( voice.goldsrc )
 	{
@@ -1126,11 +1114,7 @@ static void Voice_Shutdown( void )
 		Voice_Status( VOICE_LOOPBACK_INDEX, false );
 
 	for( i = 1; i <= MAX_CLIENTS; i++ )
-	{
-		voice_status_t *status = Voice_GetPlayerStatus( i );
-		if( status->talking_ack )
-			Voice_Status( i, false );
-	}
+		Voice_Status( i, false );
 
 	voice.initialized = false;
 	voice.is_recording = false;
@@ -1147,7 +1131,6 @@ static void Voice_Shutdown( void )
 	memset( voice.compress_buffer, 0, sizeof( voice.compress_buffer ));
 	memset( voice.decompress_buffer, 0, sizeof( voice.decompress_buffer ));
 	memset( &voice.local, 0, sizeof( voice.local ));
-	memset( voice.players_status, 0, sizeof( voice.players_status ));
 	memset( &voice.autogain, 0, sizeof( voice.autogain ));
 }
 
@@ -1177,16 +1160,6 @@ void Voice_Idle( double frametime )
 
 	// update local player status first
 	Voice_StatusTimeout( &voice.local, VOICE_LOOPBACK_INDEX, frametime );
-
-	for( i = 1; i <= MAX_CLIENTS; i++ )
-	{
-		voice_status_t *status = Voice_GetPlayerStatus( i );
-
-		// TODO: replace timeout logic with mixer channels. If mixer started playing back this player's
-		// voice channel, we must call VoiceStatus( true ) here and when it's done playing back, call VoiceStatus( false )
-		// Also, when it's done remove StatusAck from Voice_AddIncomingData!
-		Voice_StatusTimeout( status, i, frametime );
-	}
 }
 
 /*

@@ -1212,9 +1212,14 @@ static void S_FreeIdleRawChannels( void )
 
 		if( ch->s_rawend >= paintedtime )
 			continue;
-		
-		if ( ch->entnum > 0 )
+
+		if( ch->entnum > 0 )
+		{
 			SND_ForceCloseMouth( ch->entnum );
+
+			if( ch->entnum <= MAX_CLIENTS )
+				Voice_StopChannel( ch->entnum );
+		}
 
 		if(( paintedtime - ch->s_rawend ) / SOUND_DMA_SPEED >= S_RAW_SOUND_IDLE_SEC )
 		{
@@ -1801,7 +1806,7 @@ static void S_VoiceRecordStart_f( void )
 {
 	if( cls.state != ca_active )
 		return;
-	
+
 	Voice_RecordStart();
 }
 
@@ -1814,7 +1819,7 @@ static void S_VoiceRecordStop_f( void )
 {
 	if( cls.state != ca_active || !Voice_IsRecording() )
 		return;
-	
+
 	CL_AddVoiceToDatagram();
 	Voice_RecordStop();
 }
