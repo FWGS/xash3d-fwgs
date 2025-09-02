@@ -984,7 +984,7 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 		return;
 
 	// must notify through as both local player and normal client
-	if( ent == cl.playernum )
+	if( ent == ( cl.playernum + 1 ))
 		Voice_StatusAck( &voice.local, VOICE_LOOPBACK_INDEX );
 
 	status = Voice_GetPlayerStatus( ent );
