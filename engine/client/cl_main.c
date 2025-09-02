@@ -789,6 +789,7 @@ static void CL_WritePacket( void )
 	{
 		int newcmds, numcmds;
 		int from, i, key;
+		int packet_loss = bound( 0, (int)cls.packet_loss, 100 );
 
 		cls.nextcmdtime = host.realtime + ( 1.0f / cl_cmdrate.value );
 
@@ -808,7 +809,10 @@ static void CL_WritePacket( void )
 		key = MSG_GetRealBytesWritten( &buf );
 		MSG_WriteByte( &buf, 0 );
 
-		MSG_WriteByte( &buf, bound( 0, (int)cls.packet_loss, 100 ));
+		if( proto == PROTO_GOLDSRC && voice_loopback.value )
+			SetBits( packet_loss, 7 ); // set 7-th bit to tell server that we want voice loopback
+
+		MSG_WriteByte( &buf, packet_loss );
 		MSG_WriteByte( &buf, numbackup );
 		MSG_WriteByte( &buf, newcmds );
 
