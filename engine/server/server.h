@@ -218,7 +218,6 @@ typedef struct sv_client_s
 	char useragent[MAX_INFO_STRING];
 
 	byte ignorecmdtime_warned; // did we warn our server operator in the log for this batch of commands?
-	byte m_bLoopback;                // does this client want to hear his own voice?
 	uint listeners;   // which other clients does this guy's voice stream go to?
 
 	int ignorecmdtime_warns; // how many times client time was faster than server during this session

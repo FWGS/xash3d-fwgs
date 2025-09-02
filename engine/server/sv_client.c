@@ -3540,16 +3540,12 @@ SV_ParseVoiceData
 static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 {
 	char received[4096];
-	sv_client_t	*cur;
-	int i, client;
-	uint length, size, frames;
+	int i;
 
-	cl->m_bLoopback = MSG_ReadByte( msg );
-
-	frames = MSG_ReadByte( msg );
-
-	size = MSG_ReadShort( msg );
-	client = cl - svs.clients;
+	const qboolean loopback = !!MSG_ReadByte( msg );
+	const uint frames = MSG_ReadByte( msg );
+	const uint size = MSG_ReadShort( msg );
+	const int client = cl - svs.clients;
 
 	if( size > sizeof( received ))
 	{
@@ -3563,9 +3559,13 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 	if( !sv_voiceenable.value || svs.maxclients <= 1 || cl->state != cs_spawned )
 		return;
 
-	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
-		if( cl != cur )
+		sv_client_t *cur = &svs.clients[i];
+		const qboolean local = cl == cur;
+		uint length = size;
+
+		if( !local )
 		{
 			if( cur->state < cs_connected )
 				continue;
@@ -3574,13 +3574,11 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 				continue;
 		}
 
-		length = size;
-
 		// 6 is a number of bytes for other parts of message
 		if( MSG_GetNumBytesLeft( &cur->datagram ) < length + 6 )
 			continue;
 
-		if( cl == cur && !cur->m_bLoopback )
+		if( cl == cur && !loopback )
 			length = 0;
 
 		MSG_BeginServerCmd( &cur->datagram, svc_voicedata );
