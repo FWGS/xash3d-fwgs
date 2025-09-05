@@ -17,8 +17,8 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "xash3d_mathlib.h"
 
-char		r_speeds_msg[MAX_SYSPATH];
-ref_speeds_t	r_stats;	// r_speeds counters
+static char r_speeds_msg[MAX_SYSPATH];
+ref_speeds_t r_stats; // r_speeds counters
 
 /*
 ===============
@@ -40,25 +40,6 @@ qboolean R_SpeedsMessage( char *out, size_t size )
 	Q_strncpy( out, r_speeds_msg, size );
 
 	return true;
-}
-
-/*
-==============
-R_Speeds_Printf
-
-helper to print into r_speeds message
-==============
-*/
-static void R_Speeds_Printf( const char *msg, ... )
-{
-	va_list	argptr;
-	char	text[2048];
-
-	va_start( argptr, msg );
-	Q_vsnprintf( text, sizeof( text ), msg, argptr );
-	va_end( argptr );
-
-	Q_strncat( r_speeds_msg, text, sizeof( r_speeds_msg ));
 }
 
 /*
@@ -87,8 +68,6 @@ void GL_BackendEndFrame( void )
 		curleaf = WORLDMODEL->leafs;
 	else curleaf = RI.viewleaf;
 
-	R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
-
 	switch( (int)r_speeds->value )
 	{
 	case 1:
@@ -96,8 +75,11 @@ void GL_BackendEndFrame( void )
 			r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
 		break;
 	case 2:
-		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs );
-		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
+		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ),
+			"Renderer: ^1Engine^7\n\n"
+			"visible leafs:\n%3i leafs\ncurrent leaf %3i\n",
+			"ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf",
+			r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs, r_stats.t_world_node, r_stats.t_world_draw );
 		break;
 	case 3:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i alias models drawn\n%3i studio models drawn\n%3i sprites drawn",
