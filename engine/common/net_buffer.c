@@ -189,6 +189,22 @@ static const uint32_t ExtraMasks[32] =
 	0x00ffffff, 0x01ffffff, 0x03ffffff, 0x07ffffff, 0x0fffffff, 0x1fffffff, 0x3fffffff, 0x7fffffff,
 };
 
+static const char *const clc_strings[clc_lastmsg+1] =
+{
+	"clc_bad",
+	"clc_nop",
+	"clc_move",
+	"clc_stringcmd",
+	"clc_delta",
+	"clc_resourcelist",
+	"clc_legacy_userinfo",
+	"clc_fileconsistency",
+	"clc_voicedata",
+	"clc_cvarvalue/clc_goldsrc_hltv",
+	"clc_cvarvalue2/clc_goldsrc_requestcvarvalue",
+	"clc_goldsrc_requestcvarvalue2",
+};
+
 const char *const svc_strings[svc_lastmsg+1] =
 {
 	"svc_bad",

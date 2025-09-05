@@ -19,22 +19,6 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "net_api.h"
 
-const char *const clc_strings[clc_lastmsg+1] =
-{
-	"clc_bad",
-	"clc_nop",
-	"clc_move",
-	"clc_stringcmd",
-	"clc_delta",
-	"clc_resourcelist",
-	"clc_legacy_userinfo",
-	"clc_fileconsistency",
-	"clc_voicedata",
-	"clc_cvarvalue/clc_goldsrc_hltv",
-	"clc_cvarvalue2/clc_goldsrc_requestcvarvalue",
-	"clc_goldsrc_requestcvarvalue2",
-};
-
 typedef struct ucmd_s
 {
 	const char	*name;
