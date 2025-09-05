@@ -77,7 +77,7 @@ void GL_BackendEndFrame( void )
 	case 2:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ),
 			"Renderer: ^1Engine^7\n\n"
-			"visible leafs:\n%3i leafs\ncurrent leaf %3i\n",
+			"visible leafs:\n%3i leafs\ncurrent leaf %3i\n"
 			"ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf",
 			r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs, r_stats.t_world_node, r_stats.t_world_draw );
 		break;
@@ -317,19 +317,19 @@ void GL_TexGen( GLenum coord, GLenum mode )
 
 	if( mode )
 	{
-		if( !( glState.genSTEnabled[tmu] & bit ))
+		if( !FBitSet( glState.genSTEnabled[tmu], bit ))
 		{
 			pglEnable( gen );
-			glState.genSTEnabled[tmu] |= bit;
+			SetBits( glState.genSTEnabled[tmu], bit );
 		}
 		pglTexGeni( coord, GL_TEXTURE_GEN_MODE, mode );
 	}
 	else
 	{
-		if( glState.genSTEnabled[tmu] & bit )
+		if( FBitSet( glState.genSTEnabled[tmu], bit ))
 		{
 			pglDisable( gen );
-			glState.genSTEnabled[tmu] &= ~bit;
+			ClearBits( glState.genSTEnabled[tmu], bit );
 		}
 	}
 }
@@ -348,15 +348,20 @@ void GL_SetTexCoordArrayMode( GLenum mode )
 		bit = 1;
 	else if( mode == GL_TEXTURE_CUBE_MAP_ARB )
 		bit = 2;
-	else bit = 0;
+	else
+		bit = 0;
 
 	if( cmode != bit )
 	{
-		if( cmode == 1 ) pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
-		else if( cmode == 2 ) pglDisable( GL_TEXTURE_CUBE_MAP_ARB );
+		if( cmode == 1 )
+			pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
+		else if( cmode == 2 )
+			pglDisable( GL_TEXTURE_CUBE_MAP_ARB );
 
-		if( bit == 1 ) pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
-		else if( bit == 2 ) pglEnable( GL_TEXTURE_CUBE_MAP_ARB );
+		if( bit == 1 )
+			pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
+		else if( bit == 2 )
+			pglEnable( GL_TEXTURE_CUBE_MAP_ARB );
 
 		glState.texCoordArrayMode[tmu] = bit;
 	}
@@ -429,7 +434,7 @@ typedef struct envmap_s
 	int	flags;
 } envmap_t;
 
-const envmap_t r_skyBoxInfo[6] =
+static const envmap_t r_skyBoxInfo[6] =
 {
 {{   0, 270, 180}, IMAGE_FLIP_X },
 {{   0,  90, 180}, IMAGE_FLIP_X },
@@ -439,7 +444,7 @@ const envmap_t r_skyBoxInfo[6] =
 {{   0, 180, 180}, IMAGE_FLIP_X },
 };
 
-const envmap_t r_envMapInfo[6] =
+static const envmap_t r_envMapInfo[6] =
 {
 {{  0,   0,  90}, 0 },
 {{  0, 180, -90}, 0 },
