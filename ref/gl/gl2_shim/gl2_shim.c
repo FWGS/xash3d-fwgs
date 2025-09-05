@@ -1401,7 +1401,7 @@ static unsigned int GL2_GetArrIdx( GLenum array )
 	case GL_COLOR_ARRAY:
 		return GL2_ATTR_COLOR;
 	case GL_TEXTURE_COORD_ARRAY:
-		ASSERT( gl2wrap_state.tmu < 2 );
+		Assert( gl2wrap_state.tmu < 2 );
 		return GL2_ATTR_TEXCOORD0 + gl2wrap_state.tmu;
 	}
 	return 0;
