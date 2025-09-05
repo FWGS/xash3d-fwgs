@@ -46,7 +46,7 @@ acess to array elem
 */
 gl_texture_t *R_GetTexture( GLenum texnum )
 {
-	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
+	Assert( texnum >= 0 && texnum < MAX_TEXTURES );
 	return &gl_textures[texnum];
 }
 
@@ -635,7 +635,7 @@ static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 #if !XASH_GLES
 	if( pic->width > 1 && pic->height <= 1 )
 		tex->target = GL_TEXTURE_1D;
-	else 
+	else
 #endif // just skip first condition
 	if( FBitSet( pic->flags, IMAGE_CUBEMAP ))
 		tex->target = GL_TEXTURE_CUBE_MAP_ARB;
@@ -1458,7 +1458,7 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 	gl_texture_t	**prev;
 	gl_texture_t	*cur;
 
-	ASSERT( tex != NULL );
+	Assert( tex != NULL );
 
 	// already freed?
 	if( !tex->texnum ) return;
