@@ -144,13 +144,14 @@ void GL_LoadIdentityTexMatrix( void )
 GL_SelectTexture
 =================
 */
-void GL_SelectTexture( GLint tmu )
+void GL_SelectTexture( int tmu )
 {
 	if( !GL_Support( GL_ARB_MULTITEXTURE ))
 		return;
 
 	// don't allow negative texture units
-	if( tmu < 0 ) return;
+	if( tmu < 0 )
+		return;
 
 	if( tmu >= GL_MaxTextureUnits( ))
 	{
@@ -170,6 +171,49 @@ void GL_SelectTexture( GLint tmu )
 		if( tmu < glConfig.max_texture_coords )
 			pglClientActiveTextureARB( tmu + GL_TEXTURE0_ARB );
 	}
+}
+
+/*
+=================
+GL_Bind
+=================
+*/
+void GL_Bind( int tmu, unsigned int texnum )
+{
+	const gl_texture_t *texture;
+	GLuint glTarget;
+
+	// missed or invalid texture?
+	if( texnum <= 0 || texnum >= MAX_TEXTURES )
+	{
+		if( texnum != 0 )
+			gEngfuncs.Con_DPrintf( S_ERROR "%s: invalid texturenum %d\n", __func__, texnum );
+		texnum = tr.defaultTexture;
+	}
+
+	if( tmu != GL_KEEP_UNIT )
+		GL_SelectTexture( tmu );
+	else tmu = glState.activeTMU;
+
+	texture = R_GetTexture( texnum );
+	glTarget = texture->target;
+
+	if( glTarget == GL_TEXTURE_2D_ARRAY_EXT )
+		glTarget = GL_TEXTURE_2D;
+
+	if( glState.currentTextureTargets[tmu] != glTarget )
+	{
+		GL_EnableTextureUnit( tmu, false );
+		glState.currentTextureTargets[tmu] = glTarget;
+		GL_EnableTextureUnit( tmu, true );
+	}
+
+	if( glState.currentTextures[tmu] == texture->texnum )
+		return;
+
+	pglBindTexture( texture->target, texture->texnum );
+	glState.currentTextures[tmu] = texture->texnum;
+	glState.currentTexturesIndex[tmu] = texnum;
 }
 
 /*
@@ -230,7 +274,7 @@ void GL_CleanupAllTextureUnits( void )
 GL_MultiTexCoord2f
 =================
 */
-void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t )
+void GL_MultiTexCoord2f( int tmu, GLfloat s, GLfloat t )
 {
 	if( !GL_Support( GL_ARB_MULTITEXTURE ))
 		return;
@@ -238,7 +282,7 @@ void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t )
 #ifndef XASH_GL_STATIC
 	if( pglMultiTexCoord2f != NULL )
 #endif
-		pglMultiTexCoord2f( texture + GL_TEXTURE0_ARB, s, t );
+		pglMultiTexCoord2f( tmu + GL_TEXTURE0_ARB, s, t );
 }
 
 /*
