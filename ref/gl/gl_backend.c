@@ -709,7 +709,7 @@ void R_ShowTextures( void )
 		y = k / base_w * gpGlobals->height / base_h;
 
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-		GL_Bind( XASH_TEXTURE0, image->texnum );
+		GL_Bind( XASH_TEXTURE0, i );
 
 		if( FBitSet( image->flags, TF_DEPTHMAP ) && !FBitSet( image->flags, TF_NOCOMPARE ))
 			pglTexParameteri( image->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE );
