@@ -42,7 +42,7 @@ CVAR_DEFINE_AUTO( sv_maxrate, "50000", FCVAR_SERVER, "max bandwidth rate allowed
 CVAR_DEFINE_AUTO( sv_newunit, "0", 0, "clear level-saves from previous SP game chapter to help keep .sav file size as minimum" );
 CVAR_DEFINE_AUTO( sv_clienttrace, "1", FCVAR_SERVER, "0 = big box(Quake), 0.5 = halfsize, 1 = normal (100%), otherwise it's a scaling factor" );
 static CVAR_DEFINE_AUTO( sv_timeout, "65", 0, "after this many seconds without a message from a client, the client is dropped" );
-static CVAR_DEFINE_AUTO( sv_connect_timeout, "15", 0, "after this many seconds without a message from a client, the client is dropped" );
+static CVAR_DEFINE_AUTO( sv_connect_timeout, "60", 0, "after this many seconds without a message from a client, the client is dropped" );
 CVAR_DEFINE_AUTO( sv_failuretime, "0.5", 0, "after this long without a packet from client, don't send any more until client starts sending again" );
 CVAR_DEFINE_AUTO( sv_password, "", FCVAR_SERVER|FCVAR_PROTECTED, "server password for entry into multiplayer games" );
 // TODO: CVAR_DEFINE_AUTO( sv_proxies, "1", FCVAR_SERVER, "maximum count of allowed proxies for HLTV spectating" );
