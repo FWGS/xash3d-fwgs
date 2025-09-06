@@ -79,7 +79,7 @@ void GL_BackendEndFrame( void )
 			"Renderer: ^1Engine^7\n\n"
 			"visible leafs:\n%3i leafs\ncurrent leaf %3i\n"
 			"ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf",
-			r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs, r_stats.t_world_node, r_stats.t_world_draw );
+			r_stats.c_world_leafs, (int)( curleaf - WORLDMODEL->leafs ), r_stats.t_world_node, r_stats.t_world_draw );
 		break;
 	case 3:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i alias models drawn\n%3i studio models drawn\n%3i sprites drawn",
