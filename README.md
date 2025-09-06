@@ -91,7 +91,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 #### Android (Windows/Linux/macOS)
 * Install [Android Studio](https://developer.android.com/studio) (or the command line tools).
-* Install [Python](https://python.org) (at least 2.7, latest is better).
+* Install latest [Python](https://python.org) version.
 * Install [Git](https://git-scm.com/download/win).
 * Install [Ninja](https://ninja-build.org/).
 * Install [CMake](https://cmake.org/) (for some dependencies).
