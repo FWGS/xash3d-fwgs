@@ -810,7 +810,7 @@ static void CL_WritePacket( void )
 		MSG_WriteByte( &buf, 0 );
 
 		if( proto == PROTO_GOLDSRC && voice_loopback.value )
-			SetBits( packet_loss, 7 ); // set 7-th bit to tell server that we want voice loopback
+			SetBits( packet_loss, BIT( 7 ) ); // set 7-th bit to tell server that we want voice loopback
 
 		MSG_WriteByte( &buf, packet_loss );
 		MSG_WriteByte( &buf, numbackup );
