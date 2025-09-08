@@ -1234,7 +1234,7 @@ static void CL_CheckForResend( void )
 		Cvar_DirectSetValue( &cl_resend, CL_MAX_RESEND_TIME );
 
 	bandwidthTest = cls.legacymode == PROTO_CURRENT && cl_test_bandwidth.value && cls.connect_retry <= CL_TEST_RETRIES;
-	resendTime = bandwidthTest ? 1.0f : cl_resend.value;
+	resendTime = bandwidthTest ? 2.0f : cl_resend.value;
 
 	if(( host.realtime - cls.connect_time ) < resendTime )
 		return;
