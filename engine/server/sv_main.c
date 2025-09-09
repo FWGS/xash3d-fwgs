@@ -43,6 +43,8 @@ CVAR_DEFINE_AUTO( sv_newunit, "0", 0, "clear level-saves from previous SP game c
 CVAR_DEFINE_AUTO( sv_clienttrace, "1", FCVAR_SERVER, "0 = big box(Quake), 0.5 = halfsize, 1 = normal (100%), otherwise it's a scaling factor" );
 static CVAR_DEFINE_AUTO( sv_timeout, "65", 0, "after this many seconds without a message from a client, the client is dropped" );
 static CVAR_DEFINE_AUTO( sv_connect_timeout, "60", 0, "after this many seconds without a message from a client, the client is dropped" );
+static CVAR_DEFINE_AUTO( sv_connect_timeout_ban, "1", 0, "whether automatically ban suspicious players stuck in connect loop" );
+static CVAR_DEFINE_AUTO( sv_connect_timeout_ban_time, "2", 0, "if suspicious player time out, for how long ban them" );
 CVAR_DEFINE_AUTO( sv_failuretime, "0.5", 0, "after this long without a packet from client, don't send any more until client starts sending again" );
 CVAR_DEFINE_AUTO( sv_password, "", FCVAR_SERVER|FCVAR_PROTECTED, "server password for entry into multiplayer games" );
 // TODO: CVAR_DEFINE_AUTO( sv_proxies, "1", FCVAR_SERVER, "maximum count of allowed proxies for HLTV spectating" );
@@ -465,7 +467,7 @@ static void SV_DropTimedOutClient( sv_client_t *cl, qboolean ban )
 
 	if( ban )
 	{
-		Cbuf_AddTextf( "addip 30 %s\n", NET_BaseAdrToString( cl->netchan.remote_address ));
+		Cbuf_AddTextf( "addip %g %s\n", sv_connect_timeout_ban_time.value, NET_BaseAdrToString( cl->netchan.remote_address ));
 	}
 }
 
@@ -513,7 +515,7 @@ static void SV_CheckTimeouts( void )
 			if( !NET_IsLocalAddress( cl->netchan.remote_address ))
 			{
 				if( cl->connection_started < connected_droppoint )
-					SV_DropTimedOutClient( cl, true );
+					SV_DropTimedOutClient( cl, sv_connect_timeout_ban.value > 0.0f );
 			}
 			break;
 		case cs_spawned:
