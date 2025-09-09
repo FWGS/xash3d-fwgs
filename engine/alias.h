@@ -16,6 +16,10 @@
 #ifndef ALIAS_H
 #define ALIAS_H
 
+#include "build.h"
+#include STDINT_H
+#include "synctype.h"
+
 /*
 ==============================================================================
 
@@ -39,16 +43,6 @@ Alias models are position independent, so the cache manager can move them.
 #define ALIAS_TRACER2		0x0040	// orange split trail + rotate
 #define ALIAS_TRACER3		0x0080	// purple trail
 
-// must match definition in sprite.h
-#ifndef SYNCTYPE_T
-#define SYNCTYPE_T
-typedef enum
-{
-	ST_SYNC = 0,
-	ST_RAND
-} synctype_t;
-#endif
-
 typedef enum
 {
 	ALIAS_SINGLE = 0,
@@ -63,35 +57,41 @@ typedef enum
 
 typedef struct
 {
-	int		ident;
-	int		version;
+	int32_t		ident;
+	int32_t		version;
 	vec3_t		scale;
 	vec3_t		scale_origin;
 	float		boundingradius;
 	vec3_t		eyeposition;
-	int		numskins;
-	int		skinwidth;
-	int		skinheight;
-	int		numverts;
-	int		numtris;
-	int		numframes;
-	synctype_t	synctype;
-	int		flags;
+	int32_t		numskins;
+	int32_t		skinwidth;
+	int32_t		skinheight;
+	int32_t		numverts;
+	int32_t		numtris;
+	int32_t		numframes;
+	uint32_t	synctype; // was synctype_t
+	int32_t		flags;
 	float		size;
 } daliashdr_t;
 
+STATIC_CHECK_SIZEOF( daliashdr_t, 84, 84 );
+
 typedef struct
 {
-	int		onseam;
-	int		s;
-	int		t;
+	int32_t		onseam;
+	int32_t		s;
+	int32_t		t;
 } stvert_t;
+
+STATIC_CHECK_SIZEOF( stvert_t, 12, 12 );
 
 typedef struct dtriangle_s
 {
-	int		facesfront;
-	int		vertindex[3];
+	int32_t		facesfront;
+	int32_t		vertindex[3];
 } dtriangle_t;
+
+STATIC_CHECK_SIZEOF( dtriangle_t, 16, 16 );
 
 #define DT_FACES_FRONT	0x0010
 #define ALIAS_ONSEAM	0x0020
@@ -103,36 +103,50 @@ typedef struct
 	char		name[16];	// frame name from grabbing
 } daliasframe_t;
 
+STATIC_CHECK_SIZEOF( daliasframe_t, 24, 24 );
+
 typedef struct
 {
-	int		numframes;
+	int32_t		numframes;
 	trivertex_t	bboxmin;	// lightnormal isn't used
 	trivertex_t	bboxmax;	// lightnormal isn't used
 } daliasgroup_t;
 
+STATIC_CHECK_SIZEOF( daliasgroup_t, 12, 12 );
+
 typedef struct
 {
-	int		numskins;
+	int32_t		numskins;
 } daliasskingroup_t;
+
+STATIC_CHECK_SIZEOF( daliasskingroup_t, 4, 4 );
 
 typedef struct
 {
 	float		interval;
 } daliasinterval_t;
 
+STATIC_CHECK_SIZEOF( daliasinterval_t, 4, 4 );
+
 typedef struct
 {
 	float		interval;
 } daliasskininterval_t;
 
-typedef struct
-{
-	aliasframetype_t	type;
-} daliasframetype_t;
+STATIC_CHECK_SIZEOF( daliasskininterval_t, 4, 4 );
 
 typedef struct
 {
-	aliasskintype_t	type;
+	uint32_t	type; // was aliasframetype_t
+} daliasframetype_t;
+
+STATIC_CHECK_SIZEOF( daliasframetype_t, 4, 4 );
+
+typedef struct
+{
+	uint32_t	type; // was aliasskintype_t
 } daliasskintype_t;
+
+STATIC_CHECK_SIZEOF( daliasskintype_t, 4, 4 );
 
 #endif//ALIAS_H

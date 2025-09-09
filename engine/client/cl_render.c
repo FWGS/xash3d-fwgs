@@ -20,7 +20,7 @@ GNU General Public License for more details.
 
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis )
 {
-	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis );
+	return Mod_FatPVS( org, radius, visbuffer, world.visbytes, merge, fullvis, false );
 }
 
 lightstyle_t *CL_GetLightStyle( int number )
@@ -126,7 +126,7 @@ CL_GenericHandle
 
 =============
 */
-const char *CL_GenericHandle( int fileindex )
+static const char *CL_GenericHandle( int fileindex )
 {
 	if( fileindex < 0 || fileindex >= MAX_CUSTOM )
 		return 0;
@@ -138,12 +138,7 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 	switch( parm )
 	{
 	case PARM_BSP2_SUPPORTED:
-#ifdef SUPPORT_BSP2_FORMAT
 		return 1;
-#endif
-		return 0;
-	case PARM_SKY_SPHERE:
-		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
 	case PARAM_GAMEPAUSED:
 		return cl.paused;
 	case PARM_CLIENT_INGAME:
@@ -164,6 +159,20 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 		return (intptr_t)world.deluxedata;
 	case PARM_SHADOWDATA:
 		return (intptr_t)world.shadowdata;
+	case PARM_FULLSCREEN:
+		return refState.fullScreen;
+	case PARM_WIDESCREEN:
+		return refState.wideScreen;
+	case PARM_SCREEN_WIDTH:
+		return refState.width;
+	case PARM_SCREEN_HEIGHT:
+		return refState.height;
+	case PARM_SKY_SPHERE:
+		return FBitSet( world.flags, FWORLD_SKYSPHERE ) && !FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX );
+	case PARM_SURF_SAMPLESIZE:
+		if( arg >= 0 && arg < cl.worldmodel->numsurfaces )
+			return Mod_SampleSizeForFace( &cl.worldmodel->surfaces[arg] );
+		return LM_SAMPLE_SIZE;
 	default:
 		// indicates call from client.dll
 		if( checkRef )
@@ -179,26 +188,41 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 			return CL_IsThirdPerson();
 		case PARM_QUAKE_COMPATIBLE:
 			return Host_IsQuakeCompatible();
-		case PARM_PLAYER_INDEX:
-			return cl.playernum + 1;
-		case PARM_VIEWENT_INDEX:
-			return cl.viewentity;
 		case PARM_CONNSTATE:
 			return (int)cls.state;
 		case PARM_PLAYING_DEMO:
 			return cls.demoplayback;
 		case PARM_WATER_LEVEL:
 			return cl.local.waterlevel;
-		case PARM_MAX_CLIENTS:
-			return cl.maxclients;
 		case PARM_LOCAL_HEALTH:
 			return cl.local.health;
 		case PARM_LOCAL_GAME:
 			return Host_IsLocalGame();
 		case PARM_NUMENTITIES:
 			return pfnNumberOfEntities();
-		case PARM_NUMMODELS:
-			return cl.nummodels;
+		case PARM_GET_CLIENT_PTR:
+			return (intptr_t)&cl.time; // with the offset
+		case PARM_GET_HOST_PTR:
+			return (intptr_t)&host.realtime; // with the offset
+		case PARM_GET_WORLD_PTR:
+			return (intptr_t)&world;
+		case PARM_GET_MOVEVARS_PTR:
+			return (intptr_t)&clgame.movevars;
+		case PARM_GET_PALETTE_PTR:
+			return (intptr_t)&clgame.palette;
+		case PARM_GET_VIEWENT_PTR:
+			return (intptr_t)&clgame.viewent;
+		case PARM_GET_TEXGAMMATABLE_PTR:
+		case PARM_GET_LIGHTGAMMATABLE_PTR:
+		case PARM_GET_SCREENGAMMATABLE_PTR:
+		case PARM_GET_LINEARGAMMATABLE_PTR:
+			return V_GetGammaPtr( parm );
+		case PARM_GET_LIGHTSTYLES_PTR:
+			return (intptr_t)CL_GetLightStyle( 0 );
+		case PARM_GET_DLIGHTS_PTR:
+			return (intptr_t)CL_GetDynamicLight( 0 );
+		case PARM_GET_ELIGHTS_PTR:
+			return (intptr_t)CL_GetEntityLight( 0 );
 		}
 	}
 	return 0;
@@ -207,6 +231,11 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 static intptr_t pfnRenderGetParm( int parm, int arg )
 {
 	return CL_RenderGetParm( parm, arg, true );
+}
+
+static void pfnAVI_StreamSound( movie_state_t *avi, int entnum, float fvol, float attn, float synctime )
+{
+	return; // stub, use AVI_SetParm and AVI_Think to stream AVI sound
 }
 
 static render_api_t gRenderAPI =
@@ -234,16 +263,16 @@ static render_api_t gRenderAPI =
 	NULL, // DrawSingleDecal,
 	NULL, // R_DecalSetupVerts,
 	NULL, // R_EntityRemoveDecals,
-	(void*)AVI_LoadVideo,
-	(void*)AVI_GetVideoInfo,
-	(void*)AVI_GetVideoFrameNumber,
-	(void*)AVI_GetVideoFrame,
+	AVI_LoadVideo,
+	AVI_GetVideoInfo,
+	AVI_GetVideoFrameNumber,
+	AVI_GetVideoFrame,
 	NULL, // R_UploadStretchRaw,
-	(void*)AVI_FreeVideo,
-	(void*)AVI_IsActive,
-	S_StreamAviSamples,
-	NULL,
-	NULL,
+	AVI_FreeVideo,
+	AVI_IsActive,
+	pfnAVI_StreamSound,
+	AVI_Think,
+	AVI_SetParm,
 	NULL, // GL_Bind,
 	NULL, // GL_SelectTexture,
 	NULL, // GL_LoadTexMatrixExt,
@@ -269,7 +298,7 @@ static render_api_t gRenderAPI =
 	R_Mem_Free,
 	pfnGetFilesList,
 	pfnFileBufferCRC32,
-	COM_CompareFileTime,
+	pfnCompareFileTime,
 	Host_Error,
 	(void*)CL_ModelHandle,
 	pfnTime,
@@ -331,7 +360,7 @@ qboolean R_InitRenderAPI( void )
 	{
 		if( clgame.dllFuncs.pfnGetRenderInterface( CL_RENDER_INTERFACE_VERSION, &gRenderAPI, &clgame.drawFuncs ))
 		{
-			Con_Reportf( "CL_LoadProgs: ^2initailized extended RenderAPI ^7ver. %i\n", CL_RENDER_INTERFACE_VERSION );
+			Con_Reportf( "%s: ^2initailized extended RenderAPI ^7ver. %i\n", __func__, CL_RENDER_INTERFACE_VERSION );
 			return true;
 		}
 

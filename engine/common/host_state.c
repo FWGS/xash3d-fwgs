@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "common.h"
 #include "platform/platform.h"
 
+static jmp_buf g_abortframe;
+
 void COM_InitHostState( void )
 {
 	memset( GameState, 0, sizeof( game_status_t ));
@@ -57,6 +59,11 @@ void COM_NewGame( char const *pMapName )
 	GameState->landmarkName[0] = 0;
 	GameState->loadGame = false;
 	GameState->newGame = true;
+
+	if( !SV_Active( ))
+		CL_Disconnect( ); // disconnect from current online game
+
+	SV_ShutdownGame(); // exit from current game
 }
 
 void COM_LoadLevel( char const *pMapName, qboolean background )
@@ -74,6 +81,11 @@ void COM_LoadLevel( char const *pMapName, qboolean background )
 	GameState->landmarkName[0] = 0;
 	GameState->loadGame = false;
 	GameState->newGame = false;
+
+	if( !SV_Active( ))
+		CL_Disconnect( ); // disconnect from current online game
+
+	SV_ShutdownGame(); // exit from current game
 }
 
 void COM_LoadGame( char const *pMapName )
@@ -89,6 +101,9 @@ void COM_LoadGame( char const *pMapName )
 	GameState->backgroundMap = false;
 	GameState->newGame = false;
 	GameState->loadGame = true;
+
+	if( !SV_Active( ))
+		CL_Disconnect( ); // disconnect from current online game
 }
 
 void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean background )
@@ -117,7 +132,7 @@ void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean
 	GameState->newGame = false;
 }
 
-void Host_ShutdownGame( void )
+static void Host_ShutdownGame( void )
 {
 	SV_ShutdownGame();
 
@@ -133,7 +148,7 @@ void Host_ShutdownGame( void )
 	}
 }
 
-void Host_RunFrame( float time )
+static void Host_RunFrame( double time )
 {
 	// at this time, we don't need to get events from OS on dedicated
 #if !XASH_DEDICATED
@@ -164,11 +179,23 @@ void Host_RunFrame( float time )
 	}
 }
 
-void COM_Frame( float time )
+/*
+================
+Host_AbortCurrentFrame
+
+aborts the current host frame and goes on with the next one
+================
+*/
+void Host_AbortCurrentFrame( void )
+{
+	longjmp( g_abortframe, 1 );
+}
+
+void COM_Frame( double time )
 {
 	int	loopCount = 0;
 
-	if( setjmp( host.abortframe ))
+	if( setjmp( g_abortframe ))
 		return;
 
 	while( 1 )

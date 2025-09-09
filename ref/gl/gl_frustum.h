@@ -33,20 +33,9 @@ typedef struct gl_frustum_s
 
 void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float flFovX, float flFovY );
 void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yTop, float yBottom, float flZNear, float flZFar );
-void GL_FrustumInitBox( gl_frustum_t *out, const vec3_t org, float radius ); // used for pointlights
-void GL_FrustumInitProjFromMatrix( gl_frustum_t *out, const matrix4x4 projection );
-void GL_FrustumSetPlane( gl_frustum_t *out, int side, const vec3_t vecNormal, float flDist );
-void GL_FrustumNormalizePlane( gl_frustum_t *out, int side );
-void GL_FrustumComputeBounds( gl_frustum_t *out, vec3_t mins, vec3_t maxs );
-void GL_FrustumComputeCorners( gl_frustum_t *out, vec3_t bbox[8] );
-void GL_FrustumDrawDebug( gl_frustum_t *out );
 
 // cull methods
-qboolean GL_FrustumCullBox( gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags );
-qboolean GL_FrustumCullSphere( gl_frustum_t *out, const vec3_t centre, float radius, int userClipFlags );
-
-// plane manipulating
-void GL_FrustumEnablePlane( gl_frustum_t *out, int side );
-void GL_FrustumDisablePlane( gl_frustum_t *out, int side );
+qboolean GL_FrustumCullBox( const gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags );
+qboolean GL_FrustumCullSphere( const gl_frustum_t *out, const vec3_t centre, float radius, int userClipFlags );
 
 #endif//GL_FRUSTUM_H

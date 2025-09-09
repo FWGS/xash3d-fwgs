@@ -83,39 +83,6 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 
 /*
 =============
-Draw_TileClear
-
-This repeats a 64*64 tile graphic to fill the screen around a sized down
-refresh window.
-=============
-*/
-void R_DrawTileClear( int texnum, int x, int y, int w, int h )
-{
-	float		tw, th;
-	gl_texture_t	*glt;
-
-	GL_SetRenderMode( kRenderNormal );
-	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-	GL_Bind( XASH_TEXTURE0, texnum );
-
-	glt = R_GetTexture( texnum );
-	tw = glt->srcWidth;
-	th = glt->srcHeight;
-
-	pglBegin( GL_QUADS );
-		pglTexCoord2f( x / tw, y / th );
-		pglVertex2f( x, y );
-		pglTexCoord2f((x + w) / tw, y / th );
-		pglVertex2f( x + w, y );
-		pglTexCoord2f((x + w) / tw, (y + h) / th );
-		pglVertex2f( x + w, y + h );
-		pglTexCoord2f( x / tw, (y + h) / th );
-		pglVertex2f( x, y + h );
-	pglEnd ();
-}
-
-/*
-=============
 R_DrawStretchRaw
 =============
 */
@@ -145,9 +112,9 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 	}
 
 	if( cols > glConfig.max_2d_texture_size )
-		gEngfuncs.Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", cols );
+		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, cols );
 	if( rows > glConfig.max_2d_texture_size )
-		gEngfuncs.Host_Error( "R_DrawStretchRaw: size %i exceeds hardware limits\n", rows );
+		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, rows );
 
 	pglDisable( GL_BLEND );
 	pglDisable( GL_ALPHA_TEST );
@@ -220,9 +187,9 @@ void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height,
 	}
 
 	if( cols > glConfig.max_2d_texture_size )
-		gEngfuncs.Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", cols );
+		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, cols );
 	if( rows > glConfig.max_2d_texture_size )
-		gEngfuncs.Host_Error( "R_UploadStretchRaw: size %i exceeds hardware limits\n", rows );
+		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, rows );
 
 	tex = R_GetTexture( texture );
 	GL_Bind( GL_KEEP_UNIT, texture );
@@ -260,6 +227,9 @@ void R_Set2DMode( qboolean enable )
 		pglEnable( GL_ALPHA_TEST );
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 
+		if( glConfig.max_multisamples > 1 && gl_msaa.value )
+			pglDisable( GL_MULTISAMPLE_ARB );
+
 		glState.in2DMode = true;
 		RI.currententity = NULL;
 		RI.currentmodel = NULL;
@@ -275,6 +245,13 @@ void R_Set2DMode( qboolean enable )
 
 		pglMatrixMode( GL_MODELVIEW );
 		GL_LoadMatrix( RI.worldviewMatrix );
+
+		if( glConfig.max_multisamples > 1 )
+		{
+			if( gl_msaa.value )
+				pglEnable( GL_MULTISAMPLE_ARB );
+			else pglDisable( GL_MULTISAMPLE_ARB );
+		}
 
 		GL_Cull( GL_FRONT );
 	}

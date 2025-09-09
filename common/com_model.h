@@ -60,26 +60,29 @@ typedef struct
 	vec3_t		position;
 } mvertex_t;
 
-typedef struct
+typedef struct mclipnode32_s
 {
-	int		planenum;
-#ifdef SUPPORT_BSP2_FORMAT
-	int		children[2];	// negative numbers are contents
-#else
-	short		children[2];	// negative numbers are contents
-#endif
-} mclipnode_t;
+	int planenum;
+	int children[2]; // negative numbers are contents
+} mclipnode32_t;
+
+typedef struct mclipnode16_s
+{
+	int   planenum;
+	short children[2];	// negative numbers are contents
+} mclipnode16_t;
 
 // size is matched but representation is not
-typedef struct
+typedef struct medge32_s
 {
-#ifdef SUPPORT_BSP2_FORMAT
 	unsigned int	v[2];
-#else
+} medge32_t;
+
+typedef struct medge16_s
+{
 	unsigned short	v[2];
 	unsigned int	cachededgeoffset;
-#endif
-} medge_t;
+} medge16_t;
 
 typedef struct texture_s
 {
@@ -105,7 +108,7 @@ typedef struct
 
 	vec3_t		mins, maxs;	// terrain bounds (fill by user)
 
-	int		reserved[32];	// just for future expansions or mod-makers
+	intptr_t	reserved[32];	// just for future expansions or mod-makers
 } mfaceinfo_t;
 
 typedef struct
@@ -127,14 +130,23 @@ typedef struct
 	int		flags;		// sky or slime, no lightmap or 256 subdivision
 } mtexinfo_t;
 
-typedef struct glpoly_s
+// a1ba: changed size to avoid undefined behavior. Check your allocations if you take this header!
+// For example:
+//  before: malloc( sizeof( glpoly_t ) + ( numverts - 4 ) * VERTEXSIZE * sizeof( float ))
+//  after (C): malloc( sizeof( glpoly_t ) + numverts * VERTEXSIZE * sizeof( float ))
+//  after (C++): malloc( sizeof( glpoly_t ) + ( numverts - 1 ) * VERTEXSIZE * sizeof( float ))
+typedef struct glpoly2_s
 {
-	struct glpoly_s	*next;
-	struct glpoly_s	*chain;
+	struct glpoly2_s	*next;
+	struct glpoly2_s	*chain;
 	int		numverts;
 	int		flags;          		// for SURF_UNDERWATER
-	float		verts[4][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
-} glpoly_t;
+#ifdef __cplusplus
+	float	verts[1][VERTEXSIZE]; // variable sized (xyz s1t1 s2t2)
+#else
+	float	verts[][VERTEXSIZE]; // variable sized (xyz s1t1 s2t2)
+#endif
+} glpoly2_t;
 
 typedef struct mnode_s
 {
@@ -147,13 +159,31 @@ typedef struct mnode_s
 
 // node specific
 	mplane_t		*plane;
-	struct mnode_s	*children[2];
-#ifdef SUPPORT_BSP2_FORMAT
-	int		firstsurface;
-	int		numsurfaces;
+
+#if !XASH_64BIT
+	union
+	{
+		struct mnode_s *children_[2];
+		struct
+		{
+			// the ordering is important
+			int child_0_leaf    : 1;
+			int child_0_off     : 23;
+			int firstsurface_1  : 8;
+			int child_1_leaf    : 1;
+			int child_1_off     : 23;
+			int numsurfaces_1   : 8;
+		};
+	};
+	unsigned short	firstsurface_0;
+	unsigned short	numsurfaces_0;
 #else
-	unsigned short	firstsurface;
-	unsigned short	numsurfaces;
+	// in 64-bit ABI this struct has 4 more bytes of padding, let's use it!
+	struct mnode_s	*children_[2];
+	unsigned short	firstsurface_0;
+	unsigned short	numsurfaces_0;
+	unsigned short	firstsurface_1;
+	unsigned short	numsurfaces_1;
 #endif
 } mnode_t;
 
@@ -173,8 +203,8 @@ struct decal_s
 	short		entityIndex;	// Entity this is attached to
 // Xash3D specific
 	vec3_t		position;		// location of the decal center in world space.
-	glpoly_t		*polys;		// precomputed decal vertices
-	int		reserved[4];	// just for future expansions or mod-makers
+	glpoly2_t	*polys;		// precomputed decal vertices
+	intptr_t	reserved[4];	// just for future expansions or mod-makers
 };
 
 typedef struct mleaf_s
@@ -194,7 +224,6 @@ typedef struct mleaf_s
 	int		nummarksurfaces;
 	int		cluster;		// helper to acess to uncompressed visdata
 	byte		ambient_sound_level[NUM_AMBIENTS];
-
 } mleaf_t;
 
 // surface extradata
@@ -228,8 +257,19 @@ typedef struct mextrasurf_s
 	unsigned short	numverts;		// world->vertexes[]
 	int		firstvertex;	// fisrt look up in tr.tbn_vectors[], then acess to world->vertexes[]
 
-	int		reserved[32];	// just for future expansions or mod-makers
+	intptr_t	reserved[32];	// just for future expansions or mod-makers
 } mextrasurf_t;
+
+#ifdef SUPPORT_HL25_EXTENDED_STRUCTS
+// additional struct at the end of msurface_t for HL25 compatibility
+typedef struct mdisplaylist_s
+{
+	unsigned int gl_displaylist;
+	int          rendermode;
+	float        scrolloffset;
+	int          renderDetailTexture;
+} mdisplaylist_t;
+#endif
 
 struct msurface_s
 {
@@ -246,7 +286,7 @@ struct msurface_s
 
 	int		light_s, light_t;	// gl lightmap coordinates
 
-	glpoly_t		*polys;		// multiple if warped
+	glpoly2_t		*polys;		// multiple if warped
 	struct msurface_s	*texturechain;
 
 	mtexinfo_t	*texinfo;
@@ -263,11 +303,19 @@ struct msurface_s
 
 	color24		*samples;		// note: this is the actual lightmap data for this surface
 	decal_t		*pdecals;
+
+#ifdef SUPPORT_HL25_EXTENDED_STRUCTS
+	mdisplaylist_t displaylist;
+#endif
 };
 
 typedef struct hull_s
 {
-	mclipnode_t	*clipnodes;
+	union
+	{
+		mclipnode16_t *clipnodes16;
+		mclipnode32_t *clipnodes32;
+	};
 	mplane_t		*planes;
 	int		firstclipnode;
 	int		lastclipnode;
@@ -317,7 +365,12 @@ typedef struct model_s
 	mvertex_t		*vertexes;
 
 	int		numedges;
-	medge_t		*edges;
+	union
+	{
+		medge16_t *edges16;
+		medge32_t *edges32;
+	};
+
 
 	int		numnodes;
 	mnode_t		*nodes;
@@ -332,7 +385,11 @@ typedef struct model_s
 	int		*surfedges;
 
 	int		numclipnodes;
-	mclipnode_t	*clipnodes;
+	union
+	{
+		mclipnode16_t *clipnodes16;
+		mclipnode32_t *clipnodes32;
+	};
 
 	int		nummarksurfaces;
 	msurface_t	**marksurfaces;
@@ -488,7 +545,8 @@ typedef struct
 	int		flags;
 	float		size;
 
-	int		reserved[8];		// VBO offsets
+	const trivertex_t **pposeverts; // only valid during loading, used to build GL mesh
+	intptr_t	reserved[7];		// VBO offsets
 
 	int		numposes;
 	int		poseverts;
@@ -525,14 +583,68 @@ typedef struct
 #define ANIM_CYCLE			2
 #define MOD_FRAMES			20
 
-
-
 #define MAX_DEMOS		32
 #define MAX_MOVIES		8
 #define MAX_CDTRACKS	32
 #define MAX_CLIENT_SPRITES	512	// SpriteTextures (0-256 hud, 256-512 client)
-#define MAX_EFRAGS		8192	// Arcane Dimensions required
 #define MAX_REQUESTS	64
 
+STATIC_CHECK_SIZEOF( mnode_t, 52, 72 );
+STATIC_CHECK_SIZEOF( mextrasurf_t, 324, 496 );
+STATIC_CHECK_SIZEOF( decal_t, 60, 88 );
+STATIC_CHECK_SIZEOF( mfaceinfo_t, 176, 304 );
+
+// model flags (stored in model_t->flags)
+#define MODEL_QBSP2 BIT( 28 ) // uses 32-bit types
+
+// access functions
+static inline mnode_t *node_child( const mnode_t *n, int side, const model_t *mod )
+{
+#if !XASH_64BIT
+	if( unlikely( mod->flags & MODEL_QBSP2 )) // MODEL_QBSP2
+	{
+		if( side == 0 )
+		{
+			if( n->child_0_leaf )
+				return (mnode_t *)(mod->leafs + n->child_0_off);
+			else
+				return (mnode_t *)(mod->nodes + n->child_0_off);
+		}
+		else
+		{
+			if( n->child_1_leaf )
+				return (mnode_t *)(mod->leafs + n->child_1_off);
+			else
+				return (mnode_t *)(mod->nodes + n->child_1_off);
+		}
+	}
+
+	return n->children_[side];
+#else
+	return n->children_[side];
+#endif
+}
+
+static inline void node_children( mnode_t *children[2], const mnode_t *n, const model_t *mod )
+{
+	children[0] = node_child( n, 0, mod );
+	children[1] = node_child( n, 1, mod );
+}
+
+static inline int node_firstsurface( const mnode_t *n, const model_t *mod )
+{
+	if( mod->flags & MODEL_QBSP2 )
+		return n->firstsurface_0 + ( n->firstsurface_1 << 16 );
+	else
+		return n->firstsurface_0;
+}
+
+static inline int node_numsurfaces( const mnode_t *n, const model_t *mod )
+{
+	if( mod->flags & MODEL_QBSP2 )
+		return n->numsurfaces_0 + ( n->numsurfaces_1 << 16 );
+	else
+		return n->numsurfaces_0;
+}
 
 #endif//COM_MODEL_H

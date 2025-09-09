@@ -107,7 +107,8 @@ typedef enum
 	TF_ARB_FLOAT	= (1<<26),	// float textures
 	TF_NOCOMPARE	= (1<<27),	// disable comparing for depth textures
 	TF_ARB_16BIT	= (1<<28),	// keep image as 16-bit (not 24)
-	TF_MULTISAMPLE	= (1<<29)	// multisampling texture
+	TF_MULTISAMPLE	= (1<<29),	// multisampling texture
+	TF_ALLOW_NEAREST = (1<<30),	// allows toggling nearest filtering for TF_NOMIPMAP textures
 } texFlags_t;
 
 typedef enum
@@ -156,6 +157,23 @@ typedef struct decallist_s
 	modelstate_t	studio_state;	// studio decals only
 } decallist_t;
 
+enum movie_parms_e
+{
+	AVI_PARM_LAST = 0, // marker for SetParm to end parse parsing arguments
+	AVI_RENDER_TEXNUM, // (int) sets texture to draw into, if 0 will draw to screen
+	AVI_RENDER_X, // (int) when set to screen, sets position where to draw
+	AVI_RENDER_Y,
+	AVI_RENDER_W, // (int) sets texture or screen width
+	AVI_RENDER_H, // set to -1 to draw full screen
+	AVI_REWIND, // no argument, rewind playback to the beginning
+	AVI_ENTNUM, // (int) entity number, -1 for no spatialization
+	AVI_VOLUME, // (int) volume from 0 to 255
+	AVI_ATTN, // (float) attenuation value
+	AVI_PAUSE, // no argument, pauses playback
+	AVI_RESUME, // no argument, resumes playback
+};
+
+struct movie_state_s;
 struct ref_viewpass_s;
 
 typedef struct render_api_s
@@ -192,16 +210,16 @@ typedef struct render_api_s
 	void		(*R_EntityRemoveDecals)( struct model_s *mod ); // remove all the decals from specified entity (BSP only)
 
 	// AVIkit support
-	void		*(*AVI_LoadVideo)( const char *filename, qboolean load_audio );
-	int		(*AVI_GetVideoInfo)( void *Avi, int *xres, int *yres, float *duration ); // a1ba: changed longs to int
-	int		(*AVI_GetVideoFrameNumber)( void *Avi, float time );
-	byte		*(*AVI_GetVideoFrame)( void *Avi, int frame );
+	struct movie_state_s *(*AVI_LoadVideo)( const char *filename, qboolean load_audio );
+	qboolean		(*AVI_GetVideoInfo)( struct movie_state_s *Avi, int *xres, int *yres, float *duration ); // a1ba: changed longs to int
+	int		(*AVI_GetVideoFrameNumber)( struct movie_state_s *Avi, float time );
+	byte		*(*AVI_GetVideoFrame)( struct movie_state_s *Avi, int frame );
 	void		(*AVI_UploadRawFrame)( int texture, int cols, int rows, int width, int height, const byte *data );
-	void		(*AVI_FreeVideo)( void *Avi );
-	int		(*AVI_IsActive)( void *Avi );
-	void		(*AVI_StreamSound)( void *Avi, int entnum, float fvol, float attn, float synctime );
-	void		(*AVI_Reserved0)( void );	// for potential interface expansion without broken compatibility
-	void		(*AVI_Reserved1)( void );
+	void		(*AVI_FreeVideo)( struct movie_state_s *Avi );
+	qboolean		(*AVI_IsActive)( struct movie_state_s *Avi );
+	void		(*AVI_StreamSound)( struct movie_state_s *Avi, int entnum, float fvol, float attn, float synctime );
+	qboolean	(*AVI_Think)( struct movie_state_s *Avi );
+	qboolean	(*AVI_SetParm)( struct movie_state_s *Avi, enum movie_parms_e parm, ... );
 
 	// glState related calls (must use this instead of normal gl-calls to prevent de-synchornize local states between engine and the client)
 	void		(*GL_Bind)( int tmu, unsigned int texnum );
@@ -229,7 +247,7 @@ typedef struct render_api_s
 	void		(*R_Reserved0)( void );
 
 	// static allocations
-	void		*(*pfnMemAlloc)( size_t cb, const char *filename, const int fileline );
+	void		*(*pfnMemAlloc)( size_t cb, const char *filename, const int fileline ) ALLOC_CHECK( 1 );
 	void		(*pfnMemFree)( void *mem, const char *filename, const int fileline );
 
  	// engine utils (not related with render API but placed here)

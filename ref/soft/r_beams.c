@@ -23,13 +23,13 @@ GNU General Public License for more details.
 #include "triangleapi.h"
 #include "studio.h"
 
-#define NOISE_DIVISIONS	64	// don't touch - many tripmines cause the crash when it equal 128
+#define NOISE_DIVISIONS 64 // don't touch - many tripmines cause the crash when it equal 128
 
 typedef struct
 {
-	vec3_t	pos;
-	float	texcoord;	// Y texture coordinate
-	float	width;
+	vec3_t pos;
+	float  texcoord;        // Y texture coordinate
+	float  width;
 } beamseg_t;
 
 /*
@@ -39,16 +39,17 @@ FRACTAL NOISE
 
 ==============================================================
 */
-static float	rgNoise[NOISE_DIVISIONS+1];	// global noise array
+static float rgNoise[NOISE_DIVISIONS + 1]; // global noise array
 
 // freq2 += step * 0.1;
 // Fractal noise generator, power of 2 wavelength
 static void FracNoise( float *noise, int divs )
 {
-	int	div2;
+	int div2;
 
 	div2 = divs >> 1;
-	if( divs < 2 ) return;
+	if( divs < 2 )
+		return;
 
 	// noise is normalized to +/- scale
 	noise[div2] = ( noise[0] + noise[divs] ) * 0.5f + divs * gEngfuncs.COM_RandomFloat( -0.125f, 0.125f );
@@ -62,9 +63,9 @@ static void FracNoise( float *noise, int divs )
 
 static void SineNoise( float *noise, int divs )
 {
-	float	freq = 0;
-	float	step = M_PI_F / (float)divs;
-	int	i;
+	float freq = 0;
+	float step = M_PI_F / (float)divs;
+	int   i;
 
 	for( i = 0; i < divs; i++ )
 	{
@@ -84,7 +85,7 @@ BEAM MATHLIB
 static void R_BeamComputePerpendicular( const vec3_t vecBeamDelta, vec3_t pPerp )
 {
 	// direction in worldspace of the center of the beam
-	vec3_t	vecBeamCenter;
+	vec3_t vecBeamCenter;
 
 	VectorNormalize2( vecBeamDelta, vecBeamCenter );
 	CrossProduct( RI.vforward, vecBeamCenter, pPerp );
@@ -94,7 +95,7 @@ static void R_BeamComputePerpendicular( const vec3_t vecBeamDelta, vec3_t pPerp 
 static void R_BeamComputeNormal( const vec3_t vStartPos, const vec3_t vNextPos, vec3_t pNormal )
 {
 	// vTangentY = line vector for beam
-	vec3_t	vTangentY, vDirToBeam;
+	vec3_t vTangentY, vDirToBeam;
 
 	VectorSubtract( vStartPos, vNextPos, vTangentY );
 
@@ -117,8 +118,8 @@ Cull the beam by bbox
 */
 qboolean GAME_EXPORT R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 {
-	vec3_t	mins, maxs;
-	int	i;
+	vec3_t mins, maxs;
+	int    i;
 	return false;
 /*
 	for( i = 0; i < 3; i++ )
@@ -193,14 +194,15 @@ general code for drawing beams
 */
 static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments, int flags )
 {
-	int	noiseIndex, noiseStep;
-	int	i, total_segs, segs_drawn;
-	float	div, length, fraction, factor;
-	float	flMaxWidth, vLast, vStep, brightness;
-	vec3_t	perp1, vLastNormal = { 0.0f };
-	beamseg_t	curSeg;
+	int       noiseIndex, noiseStep;
+	int       i, total_segs, segs_drawn;
+	float     div, length, fraction, factor;
+	float     flMaxWidth, vLast, vStep, brightness;
+	vec3_t    perp1, vLastNormal = { 0.0f };
+	beamseg_t curSeg;
 
-	if( segments < 2 ) return;
+	if( segments < 2 )
+		return;
 
 	length = VectorLength( delta );
 	flMaxWidth = width * 0.5f;
@@ -210,15 +212,16 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	{
 		// here, we have too many segments; we could get overlap... so lets have less segments
 		segments = (int)( length / ( flMaxWidth * 1.414f )) + 1.0f;
-		if( segments < 2 ) segments = 2;
+		if( segments < 2 )
+			segments = 2;
 	}
 
 	if( segments > NOISE_DIVISIONS )
 		segments = NOISE_DIVISIONS;
 
-	div = 1.0f / (segments - 1);
+	div = 1.0f / ( segments - 1 );
 	length *= 0.01f;
-	vStep = length * div;	// Texture length texels per space pixel
+	vStep = length * div; // Texture length texels per space pixel
 
 	// Scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
@@ -255,8 +258,8 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 	// specify all the segments.
 	for( i = 0; i < segments; i++ )
 	{
-		beamseg_t	nextSeg;
-		vec3_t	vPoint1, vPoint2;
+		beamseg_t nextSeg;
+		vec3_t    vPoint1, vPoint2;
 
 		Assert( noiseIndex < ( NOISE_DIVISIONS << 16 ));
 
@@ -267,17 +270,17 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 		// distort using noise
 		if( scale != 0 )
 		{
-			factor = rgNoise[noiseIndex>>16] * scale;
+			factor = rgNoise[noiseIndex >> 16] * scale;
 
 			if( FBitSet( flags, FBEAM_SINENOISE ))
 			{
-				float	s, c;
+				float s, c;
 
 				SinCos( fraction * M_PI_F * length + freq, &s, &c );
-				VectorMA( nextSeg.pos, (factor * s), RI.vup, nextSeg.pos );
+				VectorMA( nextSeg.pos, ( factor * s ), RI.vup, nextSeg.pos );
 
 				// rotate the noise along the perpendicluar axis a bit to keep the bolt from looking diagonal
-				VectorMA( nextSeg.pos, (factor * c), RI.vright, nextSeg.pos );
+				VectorMA( nextSeg.pos, ( factor * c ), RI.vright, nextSeg.pos );
 			}
 			else
 			{
@@ -289,11 +292,11 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 		nextSeg.width = width * 2.0f;
 		nextSeg.texcoord = vLast;
 
- 		if( segs_drawn > 0 )
+		if( segs_drawn > 0 )
 		{
 			// Get a vector that is perpendicular to us and perpendicular to the beam.
 			// This is used to fatten the beam.
-			vec3_t	vNormal, vAveNormal;
+			vec3_t vNormal, vAveNormal;
 
 			R_BeamComputeNormal( curSeg.pos, nextSeg.pos, vNormal );
 
@@ -313,16 +316,16 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 			// draw regular segment
 			VectorMA( curSeg.pos, ( curSeg.width * 0.5f ), vAveNormal, vPoint1 );
-			VectorMA( curSeg.pos, (-curSeg.width * 0.5f ), vAveNormal, vPoint2 );
+			VectorMA( curSeg.pos, ( -curSeg.width * 0.5f ), vAveNormal, vPoint2 );
 
 			TriTexCoord2f( 0.0f, curSeg.texcoord );
 			TriBrightness( brightness );
-			//pglNormal3fv( vAveNormal );
+			// pglNormal3fv( vAveNormal );
 			TriVertex3fv( vPoint1 );
 
 			TriTexCoord2f( 1.0f, curSeg.texcoord );
 			TriBrightness( brightness );
-			//pflNormal3fv( vAveNormal );
+			// pflNormal3fv( vAveNormal );
 			TriVertex3fv( vPoint2 );
 		}
 
@@ -331,8 +334,10 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 
 		if( FBitSet( flags, FBEAM_SHADEIN ) && FBitSet( flags, FBEAM_SHADEOUT ))
 		{
-			if( fraction < 0.5f ) brightness = fraction;
-			else brightness = ( 1.0f - fraction );
+			if( fraction < 0.5f )
+				brightness = fraction;
+			else
+				brightness = ( 1.0f - fraction );
 		}
 		else if( FBitSet( flags, FBEAM_SHADEIN ))
 		{
@@ -343,21 +348,21 @@ static void R_DrawSegs( vec3_t source, vec3_t delta, float width, float scale, f
 			brightness = 1.0f - fraction;
 		}
 
- 		if( segs_drawn == total_segs )
+		if( segs_drawn == total_segs )
 		{
 			// draw the last segment
 			VectorMA( curSeg.pos, ( curSeg.width * 0.5f ), vLastNormal, vPoint1 );
-			VectorMA( curSeg.pos, (-curSeg.width * 0.5f ), vLastNormal, vPoint2 );
+			VectorMA( curSeg.pos, ( -curSeg.width * 0.5f ), vLastNormal, vPoint2 );
 
 			// specify the points.
 			TriTexCoord2f( 0.0f, curSeg.texcoord );
 			TriBrightness( brightness );
-			//pglNormal3fv( vLastNormal );
+			// pglNormal3fv( vLastNormal );
 			TriVertex3fv( vPoint1 );
 
 			TriTexCoord2f( 1.0f, curSeg.texcoord );
 			TriBrightness( brightness );
-			//pglNormal3fv( vLastNormal );
+			// pglNormal3fv( vLastNormal );
 			TriVertex3fv( vPoint2 );
 		}
 
@@ -373,11 +378,11 @@ R_DrawTorus
 Draw beamtours
 ================
 */
-void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
+static void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
 {
-	int	i, noiseIndex, noiseStep;
-	float	div, length, fraction, factor, vLast, vStep;
-	vec3_t	last1, last2, point, screen, screenLast, tmp, normal;
+	int    i, noiseIndex, noiseStep;
+	float  div, length, fraction, factor, vLast, vStep;
+	vec3_t last1, last2, point, screen, screenLast, tmp, normal;
 
 	if( segments < 2 )
 		return;
@@ -386,9 +391,10 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 		segments = NOISE_DIVISIONS;
 
 	length = VectorLength( delta ) * 0.01f;
-	if( length < 0.5f ) length = 0.5f; // don't lose all of the noise/texture on short beams
+	if( length < 0.5f )
+		length = 0.5f;             // don't lose all of the noise/texture on short beams
 
-	div = 1.0f / (segments - 1);
+	div = 1.0f / ( segments - 1 );
 
 	vStep = length * div; // Texture length texels per space pixel
 
@@ -402,7 +408,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 
 	for( i = 0; i < segments; i++ )
 	{
-		float	s, c;
+		float s, c;
 
 		fraction = i * div;
 		SinCos( fraction * M_PI2, &s, &c );
@@ -416,11 +422,11 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 		{
 			if(( noiseIndex >> 16 ) < NOISE_DIVISIONS )
 			{
-				factor = rgNoise[noiseIndex>>16] * scale;
+				factor = rgNoise[noiseIndex >> 16] * scale;
 				VectorMA( point, factor, RI.vup, point );
 
 				// rotate the noise along the perpendicluar axis a bit to keep the bolt from looking diagonal
-				factor = rgNoise[noiseIndex>>16] * scale * cos( fraction * M_PI_F * 3 + freq );
+				factor = rgNoise[noiseIndex >> 16] * scale * cos( fraction *M_PI_F * 3 + freq );
 				VectorMA( point, factor, RI.vright, point );
 			}
 		}
@@ -436,7 +442,7 @@ void R_DrawTorus( vec3_t source, vec3_t delta, float width, float scale, float f
 			// we don't need Z, we're in screen space
 			tmp[2] = 0;
 			VectorNormalize( tmp );
-			VectorScale( RI.vup, -tmp[0], normal );	// Build point along noraml line (normal is -y, x)
+			VectorScale( RI.vup, -tmp[0], normal ); // Build point along noraml line (normal is -y, x)
 			VectorMA( normal, tmp[1], RI.vright, normal );
 
 			// Make a wide line
@@ -462,24 +468,25 @@ R_DrawDisk
 Draw beamdisk
 ================
 */
-void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
+static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
 {
-	float	div, length, fraction;
-	float	w, vLast, vStep;
-	vec3_t	point;
-	int	i;
+	float  div, length, fraction;
+	float  w, vLast, vStep;
+	vec3_t point;
+	int    i;
 
 	if( segments < 2 )
 		return;
 
-	if( segments > NOISE_DIVISIONS )		// UNDONE: Allow more segments?
+	if( segments > NOISE_DIVISIONS )                // UNDONE: Allow more segments?
 		segments = NOISE_DIVISIONS;
 
 	length = VectorLength( delta ) * 0.01f;
-	if( length < 0.5f ) length = 0.5f;	// don't lose all of the noise/texture on short beams
+	if( length < 0.5f )
+		length = 0.5f;                  // don't lose all of the noise/texture on short beams
 
-	div = 1.0f / (segments - 1);
-	vStep = length * div;		// Texture length texels per space pixel
+	div = 1.0f / ( segments - 1 );
+	vStep = length * div; // Texture length texels per space pixel
 
 	// scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
@@ -491,7 +498,7 @@ void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float fr
 	// NOTE: we must force the degenerate triangles to be on the edge
 	for( i = 0; i < segments; i++ )
 	{
-		float	s, c;
+		float s, c;
 
 		fraction = i * div;
 		VectorCopy( source, point );
@@ -509,7 +516,7 @@ void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float fr
 		TriTexCoord2f( 0.0f, vLast );
 		TriVertex3fv( point );
 
-		vLast += vStep;	// advance texture scroll (v axis only)
+		vLast += vStep; // advance texture scroll (v axis only)
 	}
 }
 
@@ -520,12 +527,12 @@ R_DrawCylinder
 Draw beam cylinder
 ================
 */
-void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
+static void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
 {
-	float	div, length, fraction;
-	float	vLast, vStep;
-	vec3_t	point;
-	int	i;
+	float  div, length, fraction;
+	float  vLast, vStep;
+	vec3_t point;
+	int    i;
 
 	if( segments < 2 )
 		return;
@@ -534,18 +541,19 @@ void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, floa
 		segments = NOISE_DIVISIONS;
 
 	length = VectorLength( delta ) * 0.01f;
-	if( length < 0.5f ) length = 0.5f;	// don't lose all of the noise/texture on short beams
+	if( length < 0.5f )
+		length = 0.5f;                  // don't lose all of the noise/texture on short beams
 
-	div = 1.0f / (segments - 1);
-	vStep = length * div;		// texture length texels per space pixel
+	div = 1.0f / ( segments - 1 );
+	vStep = length * div; // texture length texels per space pixel
 
 	// Scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1 );
 	scale = scale * length;
 
-	for ( i = 0; i < segments; i++ )
+	for( i = 0; i < segments; i++ )
 	{
-		float	s, c;
+		float s, c;
 
 		fraction = i * div;
 		SinCos( fraction * M_PI2, &s, &c );
@@ -566,7 +574,7 @@ void R_DrawCylinder( vec3_t source, vec3_t delta, float width, float scale, floa
 		TriTexCoord2f( 0, vLast );
 		TriVertex3fv( point );
 
-		vLast += vStep;	// Advance texture scroll (v axis only)
+		vLast += vStep; // Advance texture scroll (v axis only)
 	}
 }
 
@@ -577,12 +585,12 @@ R_DrawBeamFollow
 drawi followed beam
 ==============
 */
-void R_DrawBeamFollow( BEAM *pbeam, float frametime )
+static void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 {
-	particle_t	*pnew, *particles;
-	float		fraction, div, vLast, vStep, saved_fraction;
-	vec3_t		last1, last2, tmp, screen, saved_last2;
-	vec3_t		delta, screenLast, normal;
+	particle_t *pnew, *particles;
+	float      fraction, div, vLast, vStep, saved_fraction;
+	vec3_t     last1, last2, tmp, screen, saved_last2;
+	vec3_t     delta, screenLast, normal;
 
 	gEngfuncs.R_FreeDeadParticles( &pbeam->particles );
 
@@ -611,7 +619,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	if( pnew )
 	{
 		VectorCopy( pbeam->source, pnew->org );
-		pnew->die = gpGlobals->time + pbeam->amplitude;
+		pnew->die = gp_cl->time + pbeam->amplitude;
 		VectorClear( pnew->vel );
 
 		pnew->next = particles;
@@ -620,7 +628,8 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	}
 
 	// nothing to draw
-	if( !particles ) return;
+	if( !particles )
+		return;
 
 	if( !pnew && div != 0 )
 	{
@@ -650,7 +659,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	VectorNormalize( tmp );
 
 	// Build point along noraml line (normal is -y, x)
-	VectorScale( RI.vup, tmp[0], normal );	// Build point along normal line (normal is -y, x)
+	VectorScale( RI.vup, tmp[0], normal ); // Build point along normal line (normal is -y, x)
 	VectorMA( normal, tmp[1], RI.vright, normal );
 
 	// Make a wide line
@@ -658,7 +667,7 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 	VectorMA( delta, -pbeam->width, normal, last2 );
 
 	div = 1.0f / pbeam->amplitude;
-	fraction = ( pbeam->die - gpGlobals->time ) * div;
+	fraction = ( pbeam->die - gp_cl->time ) * div;
 
 	vLast = 0.0f;
 	vStep = 1.0f;
@@ -683,18 +692,18 @@ void R_DrawBeamFollow( BEAM *pbeam, float frametime )
 		// we don't need Z, we're in screen space
 		tmp[2] = 0;
 		VectorNormalize( tmp );
-		VectorScale( RI.vup, tmp[0], normal );	// Build point along noraml line (normal is -y, x)
+		VectorScale( RI.vup, tmp[0], normal ); // Build point along noraml line (normal is -y, x)
 		VectorMA( normal, tmp[1], RI.vright, normal );
 
 		// Make a wide line
 		VectorMA( particles->org, pbeam->width, normal, last1 );
 		VectorMA( particles->org, -pbeam->width, normal, last2 );
 
-		vLast += vStep;	// Advance texture scroll (v axis only)
+		vLast += vStep; // Advance texture scroll (v axis only)
 
 		if( particles->next != NULL )
 		{
-			fraction = (particles->die - gpGlobals->time) * div;
+			fraction = ( particles->die - gp_cl->time ) * div;
 		}
 		else
 		{
@@ -737,13 +746,13 @@ R_DrawRing
 Draw beamring
 ================
 */
-void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, float freq, float speed, int segments )
+static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, float freq, float speed, int segments )
 {
-	int	i, j, noiseIndex, noiseStep;
-	float	div, length, fraction, factor, vLast, vStep;
-	vec3_t	last1, last2, point, screen, screenLast;
-	vec3_t	tmp, normal, center, xaxis, yaxis;
-	float	radius, x, y, scale;
+	int    i, j, noiseIndex, noiseStep;
+	float  div, length, fraction, factor, vLast, vStep;
+	vec3_t last1, last2, point, screen, screenLast;
+	vec3_t tmp, normal, center, xaxis, yaxis;
+	float  radius, x, y, scale;
 
 	if( segments < 2 )
 		return;
@@ -755,11 +764,12 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		segments = NOISE_DIVISIONS * 8;
 
 	length = VectorLength( delta ) * 0.01f * M_PI_F;
-	if( length < 0.5f ) length = 0.5f;		// Don't lose all of the noise/texture on short beams
+	if( length < 0.5f )
+		length = 0.5f;                          // Don't lose all of the noise/texture on short beams
 
 	div = 1.0f / ( segments - 1 );
 
-	vStep = length * div / 8.0f;			// texture length texels per space pixel
+	vStep = length * div / 8.0f; // texture length texels per space pixel
 
 	// Scroll speed 3.5 -- initial texture position, scrolls 3.5/sec (1.0 is entire texture)
 	vLast = fmod( freq * speed, 1.0f );
@@ -779,14 +789,14 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 	// --------------------------------
 	// Compute box center +/- radius
 	VectorSet( last1, radius, radius, scale );
-	VectorAdd( center, last1, tmp );		// maxs
-	VectorSubtract( center, last1, screen );	// mins
+	VectorAdd( center, last1, tmp );         // maxs
+	VectorSubtract( center, last1, screen ); // mins
 
 	if( !WORLDMODEL )
 		return;
 
 	// is that box in PVS && frustum?
-	if( !gEngfuncs.Mod_BoxVisible( screen, tmp, Mod_GetCurrentVis( ))  ) //|| R_CullBox( screen, tmp ))
+	if( !gEngfuncs.Mod_BoxVisible( screen, tmp, Mod_GetCurrentVis( ))) // || R_CullBox( screen, tmp ))
 	{
 		return;
 	}
@@ -805,11 +815,11 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 		VectorMAMAM( x, xaxis, y, yaxis, 1.0f, center, point );
 
 		// distort using noise
-		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
+		factor = rgNoise[( noiseIndex >> 16 ) & ( NOISE_DIVISIONS - 1 )] * scale;
 		VectorMA( point, factor, RI.vup, point );
 
 		// Rotate the noise along the perpendicluar axis a bit to keep the bolt from looking diagonal
-		factor = rgNoise[(noiseIndex >> 16) & (NOISE_DIVISIONS - 1)] * scale;
+		factor = rgNoise[( noiseIndex >> 16 ) & ( NOISE_DIVISIONS - 1 )] * scale;
 		factor *= cos( fraction * M_PI_F * 24 + freq );
 		VectorMA( point, factor, RI.vright, point );
 
@@ -833,7 +843,7 @@ void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, floa
 			VectorMA( point, width, normal, last1 );
 			VectorMA( point, -width, normal, last2 );
 
-			vLast += vStep;	// Advance texture scroll (v axis only)
+			vLast += vStep; // Advance texture scroll (v axis only)
 			TriTexCoord2f( 1.0f, vLast );
 			TriVertex3fv( last2 );
 			TriTexCoord2f( 0.0f, vLast );
@@ -861,18 +871,19 @@ compute attachment point for beam
 */
 static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
 {
-	cl_entity_t	*ent;
-	int		attach;
+	cl_entity_t *ent;
+	int         attach;
 
 	ent = gEngfuncs.R_BeamGetEntity( beamEnt );
 
 	if( beamEnt < 0 )
 		attach = BEAMENT_ATTACHMENT( -beamEnt );
-	else attach = BEAMENT_ATTACHMENT( beamEnt );
+	else
+		attach = BEAMENT_ATTACHMENT( beamEnt );
 
 	if( !ent )
 	{
-		gEngfuncs.Con_DPrintf( S_ERROR "R_BeamComputePoint: invalid entity %i\n", BEAMENT_ENTITY( beamEnt ));
+		gEngfuncs.Con_DPrintf( S_ERROR "%s: invalid entity %i\n", __func__, BEAMENT_ENTITY( beamEnt ));
 		VectorClear( pt );
 		return false;
 	}
@@ -880,13 +891,10 @@ static qboolean R_BeamComputePoint( int beamEnt, vec3_t pt )
 	// get attachment
 	if( attach > 0 )
 		VectorCopy( ent->attachment[attach - 1], pt );
-	else if( ent->index == ENGINE_GET_PARM( PARM_PLAYER_INDEX ) )
-	{
-		vec3_t simorg;
-		gEngfuncs.GetPredictedOrigin( simorg );
-		VectorCopy( simorg, pt );
-	}
-	else VectorCopy( ent->origin, pt );
+	else if( ent->index == ( gp_cl->playernum + 1 ))
+		VectorCopy( gp_cl->simorg, pt );
+	else
+		VectorCopy( ent->origin, pt );
 
 	return true;
 }
@@ -898,7 +906,7 @@ R_BeamRecomputeEndpoints
 Recomputes beam endpoints..
 ==============
 */
-qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
+static qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
 {
 	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY ))
 	{
@@ -929,7 +937,7 @@ qboolean R_BeamRecomputeEndpoints( BEAM *pbeam )
 		else if( !FBitSet( pbeam->flags, FBEAM_FOREVER ))
 		{
 			ClearBits( pbeam->flags, FBEAM_ENDENTITY );
-			pbeam->die = gpGlobals->time;
+			pbeam->die = gp_cl->time;
 			return false;
 		}
 		else
@@ -951,18 +959,18 @@ R_BeamDraw
 Update beam vars and draw it
 ==============
 */
-void R_BeamDraw( BEAM *pbeam, float frametime )
+static void R_BeamDraw( BEAM *pbeam, float frametime )
 {
-	model_t	*model;
-	vec3_t	delta;
+	model_t *model;
+	vec3_t  delta;
 
-	model = gEngfuncs.pfnGetModelByIndex( pbeam->modelIndex );
+	model = CL_ModelHandle( pbeam->modelIndex );
 	SetBits( pbeam->flags, FBEAM_ISACTIVE );
 
 	if( !model || model->type != mod_sprite )
 	{
 		pbeam->flags &= ~FBEAM_ISACTIVE; // force to ignore
-		pbeam->die = gpGlobals->time;
+		pbeam->die = gp_cl->time;
 		return;
 	}
 
@@ -980,11 +988,12 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 	{
 		if( FBitSet( pbeam->flags, FBEAM_SINENOISE ))
 			SineNoise( rgNoise, NOISE_DIVISIONS );
-		else FracNoise( rgNoise, NOISE_DIVISIONS );
+		else
+			FracNoise( rgNoise, NOISE_DIVISIONS );
 	}
 
 	// update end points
-	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY|FBEAM_ENDENTITY ))
+	if( FBitSet( pbeam->flags, FBEAM_STARTENTITY | FBEAM_ENDENTITY ))
 	{
 		// makes sure attachment[0] + attachment[1] are valid
 		if( !R_BeamRecomputeEndpoints( pbeam ))
@@ -1002,7 +1011,8 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 
 		if( pbeam->amplitude >= 0.50f )
 			pbeam->segments = VectorLength( pbeam->delta ) * 0.25f + 3.0f; // one per 4 pixels
-		else pbeam->segments = VectorLength( pbeam->delta ) * 0.075f + 3.0f; // one per 16 pixels
+		else
+			pbeam->segments = VectorLength( pbeam->delta ) * 0.075f + 3.0f; // one per 16 pixels
 	}
 
 	if( pbeam->type == TE_BEAMPOINTS && R_BeamCull( pbeam->source, pbeam->target, 0 ))
@@ -1017,16 +1027,17 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		return;
 	}
 
-	if( pbeam->flags & ( FBEAM_FADEIN|FBEAM_FADEOUT ))
+	if( pbeam->flags & ( FBEAM_FADEIN | FBEAM_FADEOUT ))
 	{
 		// update life cycle
-		pbeam->t = pbeam->freq + ( pbeam->die - gpGlobals->time );
-		if( pbeam->t != 0.0f ) pbeam->t = 1.0f - pbeam->freq / pbeam->t;
+		pbeam->t = pbeam->freq + ( pbeam->die - gp_cl->time );
+		if( pbeam->t != 0.0f )
+			pbeam->t = 1.0f - pbeam->freq / pbeam->t;
 	}
 
 	if( pbeam->type == TE_BEAMHOSE )
 	{
-		float	flDot;
+		float flDot;
 
 		VectorSubtract( pbeam->target, pbeam->source, delta );
 		VectorNormalize( delta );
@@ -1040,9 +1051,9 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		}
 		else
 		{
-			float	flFade = pow( flDot, 10 );
-			vec3_t	localDir, vecProjection, tmp;
-			float	flDistance;
+			float  flFade = pow( flDot, 10 );
+			vec3_t localDir, vecProjection, tmp;
+			float  flDistance;
 
 			// fade the beam if the player's not looking at the source
 			VectorSubtract( RI.vieworg, pbeam->source, localDir );
@@ -1054,8 +1065,10 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 			if( flDistance > 30 )
 			{
 				flDistance = 1.0f - (( flDistance - 30.0f ) / 64.0f );
-				if( flDistance <= 0 ) flFade = 0;
-				else flFade *= pow( flDistance, 3 );
+				if( flDistance <= 0 )
+					flFade = 0;
+				else
+					flFade *= pow( flDistance, 3 );
 			}
 
 			if( flFade < ( 1.0f / 255.0f ))
@@ -1068,7 +1081,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 
 	TriRenderMode( FBitSet( pbeam->flags, FBEAM_SOLID ) ? kRenderNormal : kRenderTransAdd );
 
-	if( !TriSpriteTexture( model, (int)(pbeam->frame + pbeam->frameRate * gpGlobals->time) % pbeam->frameCount ))
+	if( !TriSpriteTexture( model, (int)( pbeam->frame + pbeam->frameRate * gp_cl->time ) % pbeam->frameCount ))
 	{
 		ClearBits( pbeam->flags, FBEAM_ISACTIVE );
 		return;
@@ -1076,7 +1089,7 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 
 	if( pbeam->type == TE_BEAMFOLLOW )
 	{
-		cl_entity_t	*pStart;
+		cl_entity_t *pStart;
 
 		// XASH SPECIFIC: get brightness from head entity
 		pStart = gEngfuncs.R_BeamGetEntity( pbeam->startEntity );
@@ -1088,24 +1101,25 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		TriColor4f( pbeam->r, pbeam->g, pbeam->b, pbeam->t * pbeam->brightness );
 	else if( FBitSet( pbeam->flags, FBEAM_FADEOUT ))
 		TriColor4f( pbeam->r, pbeam->g, pbeam->b, ( 1.0f - pbeam->t ) * pbeam->brightness );
-	else TriColor4f( pbeam->r, pbeam->g, pbeam->b, pbeam->brightness );
+	else
+		TriColor4f( pbeam->r, pbeam->g, pbeam->b, pbeam->brightness );
 
 	switch( pbeam->type )
 	{
 	case TE_BEAMTORUS:
-		//GL_Cull( GL_NONE );
+		// GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
 		R_DrawTorus( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
 		break;
 	case TE_BEAMDISK:
-		//GL_Cull( GL_NONE );
+		// GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
 		R_DrawDisk( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
 		break;
 	case TE_BEAMCYLINDER:
-		//GL_Cull( GL_NONE );
+		// GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
 		R_DrawCylinder( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
@@ -1122,14 +1136,14 @@ void R_BeamDraw( BEAM *pbeam, float frametime )
 		TriEnd();
 		break;
 	case TE_BEAMRING:
-		//GL_Cull( GL_NONE );
+		// GL_Cull( GL_NONE );
 		TriBegin( TRI_TRIANGLE_STRIP );
 		R_DrawRing( pbeam->source, pbeam->delta, pbeam->width, pbeam->amplitude, pbeam->freq, pbeam->speed, pbeam->segments );
 		TriEnd();
 		break;
 	}
 
-	//GL_Cull( GL_FRONT );
+	// GL_Cull( GL_FRONT );
 	r_stats.c_view_beams_count++;
 }
 
@@ -1159,9 +1173,10 @@ passed through this
 */
 static void R_BeamSetup( BEAM *pbeam, vec3_t start, vec3_t end, int modelIndex, float life, float width, float amplitude, float brightness, float speed )
 {
-	model_t	*sprite = gEngfuncs.pfnGetModelByIndex( modelIndex );
+	model_t *sprite = CL_ModelHandle( modelIndex );
 
-	if( !sprite ) return;
+	if( !sprite )
+		return;
 
 	pbeam->type = BEAM_POINTS;
 	pbeam->modelIndex = modelIndex;
@@ -1173,16 +1188,17 @@ static void R_BeamSetup( BEAM *pbeam, vec3_t start, vec3_t end, int modelIndex, 
 	VectorCopy( end, pbeam->target );
 	VectorSubtract( end, start, pbeam->delta );
 
-	pbeam->freq = speed * gpGlobals->time;
-	pbeam->die = life + gpGlobals->time;
+	pbeam->freq = speed * gp_cl->time;
+	pbeam->die = life + gp_cl->time;
 	pbeam->amplitude = amplitude;
 	pbeam->brightness = brightness;
 	pbeam->width = width;
 	pbeam->speed = speed;
 
 	if( amplitude >= 0.50f )
-		pbeam->segments = VectorLength( pbeam->delta ) * 0.25f + 3.0f;	// one per 4 pixels
-	else pbeam->segments = VectorLength( pbeam->delta ) * 0.075f + 3.0f;		// one per 16 pixels
+		pbeam->segments = VectorLength( pbeam->delta ) * 0.25f + 3.0f; // one per 4 pixels
+	else
+		pbeam->segments = VectorLength( pbeam->delta ) * 0.075f + 3.0f;         // one per 16 pixels
 
 	pbeam->pFollowModel = NULL;
 	pbeam->flags = 0;
@@ -1197,26 +1213,26 @@ R_BeamDrawCustomEntity
 initialize beam from server entity
 ==============
 */
-void R_BeamDrawCustomEntity( cl_entity_t *ent )
+static void R_BeamDrawCustomEntity( cl_entity_t *ent )
 {
-	BEAM	beam;
-	float	amp = ent->curstate.body / 100.0f;
-	float	blend = CL_FxBlend( ent ) / 255.0f;
-	float	r, g, b;
-	int	beamFlags;
+	BEAM  beam;
+	float amp = ent->curstate.body / 100.0f;
+	float blend = CL_FxBlend( ent ) / 255.0f;
+	float r, g, b;
+	int   beamFlags;
 
 	r = ent->curstate.rendercolor.r / 255.0f;
 	g = ent->curstate.rendercolor.g / 255.0f;
 	b = ent->curstate.rendercolor.b / 255.0f;
 
-	R_BeamSetup( &beam, ent->origin, ent->angles, ent->curstate.modelindex, 0, ent->curstate.scale, amp, blend, ent->curstate.animtime );
+	R_BeamSetup( &beam, ent->origin, ent->curstate.angles, ent->curstate.modelindex, 0, ent->curstate.scale, amp, blend, ent->curstate.animtime );
 	R_BeamSetAttributes( &beam, r, g, b, ent->curstate.framerate, ent->curstate.frame );
 	beam.pFollowModel = NULL;
 
 	switch( ent->curstate.rendermode & 0x0F )
 	{
 	case BEAM_ENTPOINT:
-		beam.type	= TE_BEAMPOINTS;
+		beam.type = TE_BEAMPOINTS;
 		if( ent->curstate.sequence )
 		{
 			SetBits( beam.flags, FBEAM_STARTENTITY );
@@ -1229,13 +1245,13 @@ void R_BeamDrawCustomEntity( cl_entity_t *ent )
 		}
 		break;
 	case BEAM_ENTS:
-		beam.type	= TE_BEAMPOINTS;
+		beam.type = TE_BEAMPOINTS;
 		SetBits( beam.flags, FBEAM_STARTENTITY | FBEAM_ENDENTITY );
 		beam.startEntity = ent->curstate.sequence;
 		beam.endEntity = ent->curstate.skin;
 		break;
 	case BEAM_HOSE:
-		beam.type	= TE_BEAMHOSE;
+		beam.type = TE_BEAMHOSE;
 		break;
 	case BEAM_POINTS:
 		// already set up
@@ -1270,11 +1286,11 @@ draw beam loop
 */
 void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 {
-	BEAM	*pBeam;
-	int	i, flags;
+	BEAM *pBeam;
+	int  i, flags;
 
-	//pglShadeModel( GL_SMOOTH );
-	//pglDepthMask( fTrans ? GL_FALSE : GL_TRUE );
+	// pglShadeModel( GL_SMOOTH );
+	// pglDepthMask( fTrans ? GL_FALSE : GL_TRUE );
 
 	// server beams don't allocate beam chains
 	// all params are stored in cl_entity_t
@@ -1304,9 +1320,9 @@ void GAME_EXPORT CL_DrawBeams( int fTrans, BEAM *active_beams )
 		if( !fTrans && !FBitSet( pBeam->flags, FBEAM_SOLID ))
 			continue;
 
-		R_BeamDraw( pBeam, gpGlobals->time -   gpGlobals->oldtime );
+		R_BeamDraw( pBeam, gp_cl->time - gp_cl->oldtime );
 	}
 
-	//pglShadeModel( GL_FLAT );
-	//pglDepthMask( GL_TRUE );
+	// pglShadeModel( GL_FLAT );
+	// pglDepthMask( GL_TRUE );
 }

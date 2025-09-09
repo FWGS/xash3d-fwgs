@@ -46,14 +46,13 @@ static void R_ParseDetailTextures( const char *filename )
 			// NOTE: COM_ParseFile handled some symbols seperately
 			// this code will be fix it
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
-			Q_strncat( texname, "{", sizeof( texname ));
-			Q_strncat( texname, token, sizeof( texname ));
+			Q_snprintf( texname, sizeof( texname ), "{%s", token );
 		}
 		else Q_strncpy( texname, token, sizeof( texname ));
 
 		// read detailtexture name
 		pfile = COM_ParseFile( pfile, token, sizeof( token ));
-		Q_strncat( detail_texname, token, sizeof( detail_texname ));
+		Q_strncpy( detail_texname, token, sizeof( detail_texname ));
 
 		// trying the scales or '{'
 		pfile = COM_ParseFile( pfile, token, sizeof( token ));
@@ -86,7 +85,7 @@ static void R_ParseDetailTextures( const char *filename )
 			if( Q_stricmp( tex->name, texname ))
 				continue;
 
-			tex->dt_texturenum = GL_LoadTexture( detail_path, NULL, 0, TF_FORCE_COLOR );
+			tex->dt_texturenum = GL_LoadTexture( detail_path, NULL, 0, TF_FORCE_COLOR|TF_NOFLIP_TGA );
 
 			// texture is loaded
 			if( tex->dt_texturenum )
@@ -114,43 +113,15 @@ void R_NewMap( void )
 	R_StudioResetPlayerModels();
 
 	// upload detailtextures
-	if( CVAR_TO_BOOL( r_detailtextures ))
+	if( r_detailtextures.value )
 	{
 		string	mapname, filepath;
 
 		Q_strncpy( mapname, WORLDMODEL->name, sizeof( mapname ));
 		COM_StripExtension( mapname );
-		Q_sprintf( filepath, "%s_detail.txt", mapname );
+		Q_snprintf( filepath, sizeof( filepath ), "%s_detail.txt", mapname );
 
 		R_ParseDetailTextures( filepath );
-	}
-
-	if( gEngfuncs.pfnGetCvarFloat( "v_dark" ))
-	{
-		screenfade_t		*sf = gEngfuncs.GetScreenFade();
-		float			fadetime = 5.0f;
-		client_textmessage_t	*title;
-
-		title = gEngfuncs.pfnTextMessageGet( "GAMETITLE" );
-		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-			fadetime = 1.0f;
-
-		if( title )
-		{
-			// get settings from titles.txt
-			sf->fadeEnd = title->holdtime + title->fadeout;
-			sf->fadeReset = title->fadeout;
-		}
-		else sf->fadeEnd = sf->fadeReset = fadetime;
-
-		sf->fadeFlags = FFADE_IN;
-		sf->fader = sf->fadeg = sf->fadeb = 0;
-		sf->fadealpha = 255;
-		sf->fadeSpeed = (float)sf->fadealpha / sf->fadeReset;
-		sf->fadeReset += gpGlobals->time;
-		sf->fadeEnd += sf->fadeReset;
-
-		gEngfuncs.Cvar_SetValue( "v_dark", 0.0f );
 	}
 
 	// clear out efrags in case the level hasn't been reloaded
@@ -175,10 +146,12 @@ void R_NewMap( void )
  		tx->texturechain = NULL;
 	}
 
-	R_SetupSky( MOVEVARS->skyName );
-
 	GL_BuildLightmaps ();
-	R_GenerateVBO();
+
+	R_ClearVBO();
+	if( R_HasEnabledVBO( ))
+		R_GenerateVBO();
+	R_ResetRipples();
 
 	if( gEngfuncs.drawFuncs->R_NewMap != NULL )
 		gEngfuncs.drawFuncs->R_NewMap();

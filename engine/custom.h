@@ -53,6 +53,10 @@ typedef struct resourceinfo_s
 #define RES_ALWAYS		(1<<5)	// Download always even if available on client
 #define RES_CHECKFILE	(1<<7)	// Check file on client
 
+// this archive was already mounted after rescan
+// only makes sense for archives and on client
+#define RES_EXTRA_ARCHIVE_CHECKED BIT( 0 )
+
 typedef struct resource_s
 {
 	char			szFileName[64];	// File name to download/precache.
@@ -67,6 +71,7 @@ typedef struct resource_s
 						// if it's a custom resource.
 
 	unsigned char		rguc_reserved[32];	// For future expansion
+	unsigned short		ucExtraFlags; // fwgs extension, doesn't change the size of struct because of compiler padding
 	struct resource_s		*pNext;		// Next in chain.
 	struct resource_s		*pPrev;
 } resource_t;
@@ -89,5 +94,8 @@ typedef struct customization_s
 #define FCUST_FROMHPAK		( 1<<0 )
 #define FCUST_WIPEDATA		( 1<<1 )
 #define FCUST_IGNOREINIT		( 1<<2 )
+
+STATIC_CHECK_SIZEOF( customization_t, 164, 192 );
+STATIC_CHECK_SIZEOF( resource_t, 136, 144 );
 
 #endif // CUSTOM_H

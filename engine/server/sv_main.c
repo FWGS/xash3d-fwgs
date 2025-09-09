@@ -18,38 +18,40 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "platform/platform.h"
 
-#define HEARTBEAT_SECONDS	((sv_nat.value > 0.0f) ? 60.0f : 300.0f)  	// 1 or 5 minutes
-
 // server cvars
 CVAR_DEFINE_AUTO( sv_lan, "0", 0, "server is a lan server ( no heartbeat, no authentication, no non-class C addresses, 9999.0 rate, etc." );
 CVAR_DEFINE_AUTO( sv_lan_rate, "20000.0", 0, "rate for lan server" );
 CVAR_DEFINE_AUTO( sv_nat, "0", 0, "enable NAT bypass for this server" );
 CVAR_DEFINE_AUTO( sv_aim, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "auto aiming option" );
+CVAR_DEFINE_AUTO( sv_allow_autoaim, "0", FCVAR_ARCHIVE|FCVAR_SERVER, "auto aiming option (for HL25 compatibility)" );
 CVAR_DEFINE_AUTO( sv_unlag, "1", 0, "allow lag compensation on server-side" );
 CVAR_DEFINE_AUTO( sv_maxunlag, "0.5", 0, "max latency value which can be interpolated (by default ping should not exceed 500 units)" );
 CVAR_DEFINE_AUTO( sv_unlagpush, "0.0", 0, "interpolation bias for unlag time" );
 CVAR_DEFINE_AUTO( sv_unlagsamples, "1", 0, "max samples to interpolate" );
-CVAR_DEFINE_AUTO( rcon_password, "", 0, "remote connect password" );
-CVAR_DEFINE_AUTO( sv_filterban, "1", 0, "filter banned users" );
+CVAR_DEFINE_AUTO( rcon_password, "", FCVAR_PROTECTED | FCVAR_PRIVILEGED, "remote connect password" );
+CVAR_DEFINE_AUTO( rcon_enable, "1", FCVAR_PROTECTED, "enable accepting remote commands on server" );
+// TODO: CVAR_DEFINE_AUTO( sv_filterban, "1", 0, "filter banned users" );
 CVAR_DEFINE_AUTO( sv_cheats, "0", FCVAR_SERVER, "allow cheats on server" );
 CVAR_DEFINE_AUTO( sv_instancedbaseline, "1", 0, "allow to use instanced baselines to saves network overhead" );
-CVAR_DEFINE_AUTO( sv_contact, "", FCVAR_ARCHIVE|FCVAR_SERVER, "server techincal support contact address or web-page" );
+static CVAR_DEFINE_AUTO( sv_contact, "", FCVAR_ARCHIVE|FCVAR_SERVER, "server techincal support contact address or web-page" );
 CVAR_DEFINE_AUTO( sv_minupdaterate, "25.0", FCVAR_ARCHIVE, "minimal value for 'cl_updaterate' window" );
 CVAR_DEFINE_AUTO( sv_maxupdaterate, "60.0", FCVAR_ARCHIVE, "maximal value for 'cl_updaterate' window" );
 CVAR_DEFINE_AUTO( sv_minrate, "5000", FCVAR_SERVER, "min bandwidth rate allowed on server, 0 == unlimited" );
 CVAR_DEFINE_AUTO( sv_maxrate, "50000", FCVAR_SERVER, "max bandwidth rate allowed on server, 0 == unlimited" );
-CVAR_DEFINE_AUTO( sv_logrelay, "0", FCVAR_ARCHIVE, "allow log messages from remote machines to be logged on this server" );
+// TODO: CVAR_DEFINE_AUTO( sv_logrelay, "0", FCVAR_ARCHIVE, "allow log messages from remote machines to be logged on this server" );
 CVAR_DEFINE_AUTO( sv_newunit, "0", 0, "clear level-saves from previous SP game chapter to help keep .sav file size as minimum" );
 CVAR_DEFINE_AUTO( sv_clienttrace, "1", FCVAR_SERVER, "0 = big box(Quake), 0.5 = halfsize, 1 = normal (100%), otherwise it's a scaling factor" );
-CVAR_DEFINE_AUTO( sv_timeout, "65", 0, "after this many seconds without a message from a client, the client is dropped" );
+static CVAR_DEFINE_AUTO( sv_timeout, "65", 0, "after this many seconds without a message from a client, the client is dropped" );
+static CVAR_DEFINE_AUTO( sv_connect_timeout, "60", 0, "after this many seconds without a message from a client, the client is dropped" );
 CVAR_DEFINE_AUTO( sv_failuretime, "0.5", 0, "after this long without a packet from client, don't send any more until client starts sending again" );
 CVAR_DEFINE_AUTO( sv_password, "", FCVAR_SERVER|FCVAR_PROTECTED, "server password for entry into multiplayer games" );
-CVAR_DEFINE_AUTO( sv_proxies, "1", FCVAR_SERVER, "maximum count of allowed proxies for HLTV spectating" );
+// TODO: CVAR_DEFINE_AUTO( sv_proxies, "1", FCVAR_SERVER, "maximum count of allowed proxies for HLTV spectating" );
 CVAR_DEFINE_AUTO( sv_send_logos, "1", 0, "send custom decal logo to other players so they can view his too" );
 CVAR_DEFINE_AUTO( sv_send_resources, "1", 0, "allow to download missed resources for players" );
-CVAR_DEFINE_AUTO( sv_logbans, "0", 0, "print into the server log info about player bans" );
-CVAR_DEFINE_AUTO( sv_allow_upload, "1", FCVAR_SERVER, "allow uploading custom resources on a server" );
-CVAR_DEFINE_AUTO( sv_allow_download, "1", FCVAR_SERVER, "allow downloading custom resources to the client" );
+// TODO: CVAR_DEFINE_AUTO( sv_logbans, "0", 0, "print into the server log info about player bans" );
+CVAR_DEFINE( sv_allow_upload, "sv_allowupload", "1", FCVAR_SERVER, "allow uploading custom resources on a server" );
+CVAR_DEFINE( sv_allow_download, "sv_allowdownload", "1", FCVAR_SERVER, "allow downloading custom resources to the client" );
+static CVAR_DEFINE_AUTO( sv_allow_dlfile, "1", 0, "compatibility cvar, does nothing" );
 CVAR_DEFINE_AUTO( sv_uploadmax, "0.5", FCVAR_SERVER, "max size to upload custom resources (500 kB as default)" );
 CVAR_DEFINE_AUTO( sv_downloadurl, "", FCVAR_PROTECTED, "location from which clients can download missing files" );
 CVAR_DEFINE( sv_consistency, "mp_consistency", "1", FCVAR_SERVER, "enbale consistency check in multiplayer" );
@@ -58,40 +60,45 @@ CVAR_DEFINE_AUTO( mp_logfile, "1", 0, "log multiplayer frags to console" );
 CVAR_DEFINE_AUTO( sv_log_singleplayer, "0", FCVAR_ARCHIVE, "allows logging in singleplayer games" );
 CVAR_DEFINE_AUTO( sv_log_onefile, "0", FCVAR_ARCHIVE, "logs server information to only one file" );
 CVAR_DEFINE_AUTO( sv_trace_messages, "0", FCVAR_LATCH, "enable server usermessages tracing (good for developers)" );
+CVAR_DEFINE_AUTO( sv_master_response_timeout, "4", FCVAR_ARCHIVE, "master server heartbeat response timeout in seconds" );
+CVAR_DEFINE_AUTO( sv_autosave, "1", FCVAR_ARCHIVE|FCVAR_SERVER|FCVAR_PRIVILEGED, "enable autosaving" );
+CVAR_DEFINE_AUTO( sv_speedhack_kick, "10", FCVAR_ARCHIVE, "number of speedhack warns before automatic kick (0 to disable)" );
 
 // game-related cvars
-CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer map cycle configuration file" );
-CVAR_DEFINE_AUTO( motdfile, "motd.txt", 0, "name of 'message of the day' file" );
-CVAR_DEFINE_AUTO( logsdir, "logs", 0, "place to store multiplayer logs" );
-CVAR_DEFINE_AUTO( bannedcfgfile, "banned.cfg", 0, "name of list of banned users" );
-CVAR_DEFINE_AUTO( deathmatch, "0", 0, "deathmatch mode in multiplayer game" );
-CVAR_DEFINE_AUTO( coop, "0", 0, "cooperative mode in multiplayer game" );
-CVAR_DEFINE_AUTO( teamplay, "0", 0, "team mode in multiplayer game" );
+static CVAR_DEFINE_AUTO( mapcyclefile, "mapcycle.txt", 0, "name of multiplayer map cycle configuration file" );
+static CVAR_DEFINE_AUTO( motdfile, "motd.txt", 0, "name of 'message of the day' file" );
+static CVAR_DEFINE_AUTO( logsdir, "logs", 0, "place to store multiplayer logs" );
+static CVAR_DEFINE_AUTO( bannedcfgfile, "banned.cfg", 0, "name of list of banned users" );
+CVAR_DEFINE_AUTO( deathmatch, "0", FCVAR_SERVER, "deathmatch mode in multiplayer game" );
+CVAR_DEFINE_AUTO( coop, "0", FCVAR_SERVER, "cooperative mode in multiplayer game" );
+static CVAR_DEFINE_AUTO( teamplay, "0", 0, "team mode in multiplayer game (Quake only)" );
 CVAR_DEFINE_AUTO( skill, "1", 0, "skill level in singleplayer game" );
-CVAR_DEFINE_AUTO( temp1, "0", 0, "temporary cvar that used by some mods" );
-CVAR_DEFINE_AUTO( listipcfgfile, "listip.cfg", 0, "name of listip.cfg file" );
-CVAR_DEFINE_AUTO( mapchangecfgfile, "", 0, "name of map change configuration file" );
+static CVAR_DEFINE_AUTO( temp1, "0", 0, "temporary cvar that used by some mods" );
+static CVAR_DEFINE_AUTO( listipcfgfile, "listip.cfg", 0, "name of listip.cfg file" );
+static CVAR_DEFINE_AUTO( mapchangecfgfile, "", 0, "name of map change configuration file" );
+static CVAR_DEFINE_AUTO( disconcfgfile, "", 0, "name of disconnect configuration file" );
+static CVAR_DEFINE_AUTO( _sv_override_scientist_mdl, "", 0, "override default scientist model name (specially for HL25 Uplink maps)" );
 
 // physic-related variables
-CVAR_DEFINE_AUTO( sv_gravity, "800", FCVAR_MOVEVARS, "world gravity value" );
-CVAR_DEFINE_AUTO( sv_stopspeed, "100", FCVAR_MOVEVARS, "how fast you come to a complete stop" );
-CVAR_DEFINE_AUTO( sv_maxspeed, "320", FCVAR_MOVEVARS, "maximum speed a player can accelerate to when on ground" );
-CVAR_DEFINE_AUTO( sv_spectatormaxspeed, "500", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "maximum speed a spectator can accelerate in air" );
-CVAR_DEFINE_AUTO( sv_accelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed" );
-CVAR_DEFINE_AUTO( sv_airaccelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the air" );
-CVAR_DEFINE_AUTO( sv_wateraccelerate, "10", FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the water" );
-CVAR_DEFINE_AUTO( sv_friction, "4", FCVAR_MOVEVARS, "how fast you slow down" );
-CVAR_DEFINE( sv_edgefriction, "edgefriction", "2", FCVAR_MOVEVARS, "how much you slow down when nearing a ledge you might fall off" );
-CVAR_DEFINE_AUTO( sv_waterfriction, "1", FCVAR_MOVEVARS, "how fast you slow down in water" );
-CVAR_DEFINE_AUTO( sv_bounce, "1", FCVAR_MOVEVARS, "bounce factor for entities with MOVETYPE_BOUNCE" );
-CVAR_DEFINE_AUTO( sv_stepsize, "18", FCVAR_MOVEVARS, "how high you and NPS's can step up" );
+CVAR_DEFINE_AUTO( sv_gravity, "800", FCVAR_SERVER|FCVAR_MOVEVARS, "world gravity value" );
+CVAR_DEFINE_AUTO( sv_stopspeed, "100", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you come to a complete stop" );
+static CVAR_DEFINE_AUTO( sv_maxspeed, "320", FCVAR_SERVER|FCVAR_MOVEVARS, "maximum speed a player can accelerate to when on ground" );
+static CVAR_DEFINE_AUTO( sv_spectatormaxspeed, "500", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "maximum speed a spectator can accelerate in air" );
+static CVAR_DEFINE_AUTO( sv_accelerate, "10", FCVAR_SERVER|FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed" );
+static CVAR_DEFINE_AUTO( sv_airaccelerate, "10", FCVAR_SERVER|FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the air" );
+static CVAR_DEFINE_AUTO( sv_wateraccelerate, "10", FCVAR_SERVER|FCVAR_MOVEVARS, "rate at which a player accelerates to sv_maxspeed while in the water" );
+CVAR_DEFINE_AUTO( sv_friction, "4", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you slow down" );
+static CVAR_DEFINE( sv_edgefriction, "edgefriction", "2", FCVAR_SERVER|FCVAR_MOVEVARS, "how much you slow down when nearing a ledge you might fall off" );
+static CVAR_DEFINE_AUTO( sv_waterfriction, "1", FCVAR_SERVER|FCVAR_MOVEVARS, "how fast you slow down in water" );
+static CVAR_DEFINE_AUTO( sv_bounce, "1", FCVAR_SERVER|FCVAR_MOVEVARS, "bounce factor for entities with MOVETYPE_BOUNCE" );
+CVAR_DEFINE_AUTO( sv_stepsize, "18", FCVAR_SERVER|FCVAR_MOVEVARS, "how high you and NPC's can step up" );
 CVAR_DEFINE_AUTO( sv_maxvelocity, "2000", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "max velocity for all things in the world" );
-CVAR_DEFINE_AUTO( sv_zmax, "4096", FCVAR_MOVEVARS|FCVAR_SPONLY, "maximum viewable distance" );
+static CVAR_DEFINE_AUTO( sv_zmax, "4096", FCVAR_MOVEVARS|FCVAR_SPONLY, "maximum viewable distance" );
 CVAR_DEFINE_AUTO( sv_wateramp, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "world waveheight factor" );
-CVAR_DEFINE( sv_footsteps, "mp_footsteps", "1", FCVAR_MOVEVARS, "world gravity value" );
+static CVAR_DEFINE( sv_footsteps, "mp_footsteps", "1", FCVAR_SERVER|FCVAR_MOVEVARS, "play foot steps for players" );
 CVAR_DEFINE_AUTO( sv_skyname, "desert", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skybox name (can be dynamically changed in-game)" );
-CVAR_DEFINE_AUTO( sv_rollangle, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED|FCVAR_ARCHIVE, "how much to tilt the view when strafing" );
-CVAR_DEFINE_AUTO( sv_rollspeed, "200", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "how much strafing is necessary to tilt the view" );
+static CVAR_DEFINE_AUTO( sv_rollangle, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED|FCVAR_ARCHIVE, "how much to tilt the view when strafing" );
+static CVAR_DEFINE_AUTO( sv_rollspeed, "200", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "how much strafing is necessary to tilt the view" );
 CVAR_DEFINE_AUTO( sv_skycolor_r, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight red component value" );
 CVAR_DEFINE_AUTO( sv_skycolor_g, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight green component value" );
 CVAR_DEFINE_AUTO( sv_skycolor_b, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight blue component value" );
@@ -100,41 +107,49 @@ CVAR_DEFINE_AUTO( sv_skyvec_y, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight dir
 CVAR_DEFINE_AUTO( sv_skyvec_z, "0", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "skylight direction by z-axis" );
 CVAR_DEFINE_AUTO( sv_wateralpha, "1", FCVAR_MOVEVARS|FCVAR_UNLOGGED, "world surfaces water transparency factor. 1.0 - solid, 0.0 - fully transparent" );
 CVAR_DEFINE_AUTO( sv_background_freeze, "1", FCVAR_ARCHIVE, "freeze player movement on background maps (e.g. to prevent falling)" );
-CVAR_DEFINE_AUTO( showtriggers, "0", FCVAR_LATCH, "debug cvar shows triggers" );
-CVAR_DEFINE_AUTO( sv_airmove, "1", FCVAR_SERVER, "obsolete, compatibility issues" );
-CVAR_DEFINE_AUTO( sv_version, "", FCVAR_READ_ONLY, "engine version string" );
-CVAR_DEFINE_AUTO( hostname, "", FCVAR_SERVER|FCVAR_PRINTABLEONLY, "name of current host" );
-CVAR_DEFINE_AUTO( sv_fps, "0.0", FCVAR_SERVER, "server framerate" );
+static CVAR_DEFINE_AUTO( showtriggers, "0", FCVAR_LATCH|FCVAR_TEMPORARY, "debug cvar shows triggers" );
+static CVAR_DEFINE_AUTO( sv_airmove, "1", FCVAR_SERVER, "obsolete, compatibility issues" );
+static CVAR_DEFINE_AUTO( sv_version, "", FCVAR_READ_ONLY, "engine version string" );
+CVAR_DEFINE_AUTO( hostname, "", FCVAR_PRINTABLEONLY, "name of current host" );
+static CVAR_DEFINE_AUTO( sv_fps, "0.0", 0, "server framerate" );
 
 // gore-related cvars
-CVAR_DEFINE_AUTO( violence_hblood, "1", 0, "draw human blood" );
-CVAR_DEFINE_AUTO( violence_ablood, "1", 0, "draw alien blood" );
-CVAR_DEFINE_AUTO( violence_hgibs, "1", 0, "show human gib entities" );
-CVAR_DEFINE_AUTO( violence_agibs, "1", 0, "show alien gib entities" );
+static CVAR_DEFINE_AUTO( violence_hblood, "1", 0, "draw human blood" );
+static CVAR_DEFINE_AUTO( violence_ablood, "1", 0, "draw alien blood" );
+static CVAR_DEFINE_AUTO( violence_hgibs, "1", 0, "show human gib entities" );
+static CVAR_DEFINE_AUTO( violence_agibs, "1", 0, "show alien gib entities" );
 
 // voice chat
 CVAR_DEFINE_AUTO( sv_voiceenable, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "enable voice support" );
-CVAR_DEFINE_AUTO( sv_voicequality, "3", FCVAR_ARCHIVE|FCVAR_SERVER, "voice chat quality level, from 0 to 5, higher is better" );
+CVAR_DEFINE_AUTO( sv_voicequality, "3", FCVAR_ARCHIVE, "voice chat quality level, from 0 to 5, higher is better" );
 
-convar_t	*sv_novis;			// disable server culling entities by vis
-convar_t	*sv_pausable;
-convar_t	*timeout;				// seconds without any message
-convar_t	*sv_lighting_modulate;
-convar_t	*sv_maxclients;
-convar_t	*sv_check_errors;
-convar_t	*public_server;			// should heartbeats be sent
-convar_t	*sv_reconnect_limit;		// minimum seconds between connect messages
-convar_t	*sv_validate_changelevel;
-convar_t	*sv_sendvelocity;
-convar_t	*sv_hostmap;
+// enttools
+CVAR_DEFINE_AUTO( sv_enttools_enable, "0", FCVAR_ARCHIVE|FCVAR_PROTECTED, "enable powerful and dangerous entity tools" );
+CVAR_DEFINE_AUTO( sv_enttools_maxfire, "5", FCVAR_ARCHIVE|FCVAR_PROTECTED, "limit ent_fire actions count to prevent flooding" );
 
-convar_t	*sv_allow_noinputdevices;
-convar_t	*sv_allow_touch;
-convar_t	*sv_allow_mouse;
-convar_t	*sv_allow_joystick;
-convar_t	*sv_allow_vr;
+CVAR_DEFINE( public_server, "public", "0", 0, "change server type from private to public" );
 
-void Master_Shutdown( void );
+CVAR_DEFINE_AUTO( sv_novis, "0", 0, "force to ignore server visibility" );			// disable server culling entities by vis
+CVAR_DEFINE( sv_pausable, "pausable", "1", 0, "allow players to pause or not" );
+CVAR_DEFINE( sv_maxclients, "maxplayers", "1", FCVAR_LATCH, "server max capacity" );
+CVAR_DEFINE_AUTO( sv_check_errors, "0", FCVAR_ARCHIVE, "check edicts for errors" );
+CVAR_DEFINE_AUTO( sv_validate_changelevel, "0", 0, "test change level for level-designer errors" );
+CVAR_DEFINE( sv_hostmap, "hostmap", "", 0, "keep name of last entered map" );
+
+static CVAR_DEFINE_AUTO( sv_allow_joystick, "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
+static CVAR_DEFINE_AUTO( sv_allow_mouse, "1", FCVAR_ARCHIVE, "allow connect with mouse" );
+static CVAR_DEFINE_AUTO( sv_allow_touch, "1", FCVAR_ARCHIVE, "allow connect with touch controls" );
+static CVAR_DEFINE_AUTO( sv_allow_vr, "1", FCVAR_ARCHIVE, "allow connect from vr version" );
+static CVAR_DEFINE_AUTO( sv_allow_noinputdevices, "1", FCVAR_ARCHIVE, "allow connect from old versions without useragent" );
+
+CVAR_DEFINE_AUTO( sv_userinfo_enable_penalty, "1", FCVAR_ARCHIVE, "enable penalty time for too fast userinfo updates(name, model, etc)" );
+CVAR_DEFINE_AUTO( sv_userinfo_penalty_time, "0.3", FCVAR_ARCHIVE, "initial penalty time" );
+CVAR_DEFINE_AUTO( sv_userinfo_penalty_multiplier, "2", FCVAR_ARCHIVE, "penalty time multiplier" );
+CVAR_DEFINE_AUTO( sv_userinfo_penalty_attempts, "4", FCVAR_ARCHIVE, "if max attempts count was exceeded, penalty time will be increased" );
+CVAR_DEFINE_AUTO( sv_fullupdate_penalty_time, "1", FCVAR_ARCHIVE, "allow fullupdate command only once in this timewindow (set 0 to disable)" );
+CVAR_DEFINE_AUTO( sv_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
+CVAR_DEFINE_AUTO( sv_allow_testpacket, "1", FCVAR_ARCHIVE, "allow generating and sending a big blob of data to test maximum packet size" );
+CVAR_DEFINE_AUTO( sv_expose_player_list, "1", FCVAR_ARCHIVE, "expose player list through packets that don't require connection" );
 
 //============================================================================
 /*
@@ -144,7 +159,7 @@ SV_HasActivePlayers
 returns true if server have spawned players
 ================
 */
-qboolean SV_HasActivePlayers( void )
+static qboolean SV_HasActivePlayers( void )
 {
 	int	i;
 
@@ -157,41 +172,6 @@ qboolean SV_HasActivePlayers( void )
 			return true;
 	}
 	return false;
-}
-
-/*
-================
-SV_GetConnectedClientsCount
-
-returns connected clients count (and optionally bots count)
-================
-*/
-int SV_GetConnectedClientsCount(int *bots)
-{
-	int index;
-	int	clients;
-
-	clients = 0;
-	if( svs.clients )
-	{
-		if( bots )
-			*bots = 0;
-
-		for( index = 0; index < svs.maxclients; index++ )
-		{
-			if( svs.clients[index].state >= cs_connected )
-			{
-				if( FBitSet( svs.clients[index].flags, FCL_FAKECLIENT ))
-				{
-					if( bots )
-						(*bots)++;
-				}
-				else
-					clients++;
-			}
-		}
-	}
-	return clients;
 }
 
 /*
@@ -210,20 +190,15 @@ void SV_UpdateMovevars( qboolean initialize )
 	if( !initialize && !host.movevars_changed )
 		return;
 
-	// check range
-	if( sv_zmax.value < 256.0f ) Cvar_SetValue( "sv_zmax", 256.0f );
-
-	// clamp it right
-	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-	{
-		if( sv_zmax.value > 131070.0f )
-			Cvar_SetValue( "sv_zmax", 131070.0f );
-	}
-	else
-	{
-		if( sv_zmax.value > 32767.0f )
-			Cvar_SetValue( "sv_zmax", 32767.0f );
-	}
+	// NOTE: Natural Selection mod on ns_machina map that uses model as sky
+	// it sets the value to 4000000 that even exceeds the coord limit, but
+	// it's fine until the value fits in "zmax" delta field
+	// However, some stupid mappers set an insane value like 999999999 which
+	// overflows delta. In this case, just clamp it to something bigger
+	if( sv_zmax.value < 256.0f )
+		Cvar_DirectSet( &sv_zmax, "256" );
+	else if( sv_zmax.value > 16777216.0f ) // 2^24
+		Cvar_DirectSet( &sv_zmax, "16777216" );
 
 	svgame.movevars.gravity = sv_gravity.value;
 	svgame.movevars.stopspeed = sv_stopspeed.value;
@@ -257,7 +232,7 @@ void SV_UpdateMovevars( qboolean initialize )
 	if( initialize ) return; // too early
 
 	if( MSG_WriteDeltaMovevars( &sv.reliable_datagram, &svgame.oldmovevars, &svgame.movevars ))
-		memcpy( &svgame.oldmovevars, &svgame.movevars, sizeof( movevars_t )); // oldstate changed
+		svgame.oldmovevars = svgame.movevars; // oldstate changed
 
 	host.movevars_changed = false;
 }
@@ -267,7 +242,7 @@ void SV_UpdateMovevars( qboolean initialize )
 SV_CheckCmdTimes
 =================
 */
-void SV_CheckCmdTimes( void )
+static void SV_CheckCmdTimes( void )
 {
 	sv_client_t	*cl;
 	static double	lastreset = 0;
@@ -279,8 +254,8 @@ void SV_CheckCmdTimes( void )
 		if( sv_fps.value < MIN_FPS )
 			Cvar_SetValue( "sv_fps", MIN_FPS );
 
-		if( sv_fps.value > MAX_FPS )
-			Cvar_SetValue( "sv_fps", MAX_FPS );
+		if( sv_fps.value > MAX_FPS_HARD )
+			Cvar_SetValue( "sv_fps", MAX_FPS_HARD );
 	}
 
 	if( Host_IsLocalGame( ))
@@ -303,12 +278,12 @@ void SV_CheckCmdTimes( void )
 
 		diff = cl->connecttime + cl->cmdtime - host.realtime;
 
-		if( diff > net_clockwindow->value )
+		if( diff > net_clockwindow.value )
 		{
-			cl->ignorecmdtime = net_clockwindow->value + host.realtime;
+			cl->ignorecmdtime = net_clockwindow.value + host.realtime;
 			cl->cmdtime = host.realtime - cl->connecttime;
 		}
-		else if( diff < -net_clockwindow->value )
+		else if( diff < -net_clockwindow.value )
 		{
 			cl->cmdtime = host.realtime - cl->connecttime;
 		}
@@ -322,7 +297,7 @@ SV_ProcessFile
 process incoming file (customization)
 =================
 */
-void SV_ProcessFile( sv_client_t *cl, const char *filename )
+static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 {
 	customization_t	*pList;
 	resource_t	*resource;
@@ -349,7 +324,7 @@ void SV_ProcessFile( sv_client_t *cl, const char *filename )
 
 	if( resource == &cl->resourcesneeded )
 	{
-		Con_Printf( "SV_ProcessFile:  Unrequested decal\n" );
+		Con_Printf( "%s: Unrequested decal\n", __func__ );
 		return;
 	}
 
@@ -359,7 +334,7 @@ void SV_ProcessFile( sv_client_t *cl, const char *filename )
 		return;
 	}
 
-	HPAK_AddLump( true, CUSTOM_RES_PATH, resource, cl->netchan.tempbuffer, NULL );
+	HPAK_AddLump( true, hpk_custom_file.string, resource, cl->netchan.tempbuffer, NULL );
 	ClearBits( resource->ucFlags, RES_WASMISSING );
 	SV_MoveToOnHandList( cl, resource );
 
@@ -393,7 +368,7 @@ void SV_ProcessFile( sv_client_t *cl, const char *filename )
 SV_ReadPackets
 =================
 */
-void SV_ReadPackets( void )
+static void SV_ReadPackets( void )
 {
 	sv_client_t	*cl;
 	int		i, qport;
@@ -406,23 +381,7 @@ void SV_ReadPackets( void )
 		// check for connectionless packet (0xffffffff) first
 		if( MSG_GetMaxBytes( &net_message ) >= 4 && *(int *)net_message.pData == -1 )
 		{
-			if( !svs.initialized )
-			{
-				char	*args;
-				const char *c;
-
-				MSG_Clear( &net_message  );
-				MSG_ReadLong( &net_message  );// skip the -1 marker
-
-				args = MSG_ReadStringLine( &net_message  );
-				Cmd_TokenizeString( args );
-				c = Cmd_Argv( 0 );
-
-				if( !Q_strcmp( c, "rcon" ))
-					SV_RemoteCommand( net_from, &net_message );
-			}
-			else SV_ConnectionlessPacket( net_from, &net_message );
-
+			SV_ConnectionlessPacket( net_from, &net_message );
 			continue;
 		}
 
@@ -452,7 +411,7 @@ void SV_ReadPackets( void )
 
 			if( Netchan_Process( &cl->netchan, &net_message ))
 			{
-				if(( svs.maxclients == 1 && !host_limitlocal->value ) || ( cl->state != cs_spawned ))
+				if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
 					SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
 
 				// this is a valid, sequenced packet, so process it
@@ -471,7 +430,7 @@ void SV_ReadPackets( void )
 				{
 					MSG_Init( &net_message, "ClientPacket", net_message_buffer, curSize );
 
-					if(( svs.maxclients == 1 && !host_limitlocal->value ) || ( cl->state != cs_spawned ))
+					if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
 						SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
 
 					// this is a valid, sequenced packet, so process it
@@ -498,11 +457,23 @@ void SV_ReadPackets( void )
 	sv.current_client = NULL;
 }
 
+static void SV_DropTimedOutClient( sv_client_t *cl, qboolean ban )
+{
+	SV_BroadcastPrintf( NULL, "%s timed out\n", cl->name );
+	SV_DropClient( cl, false );
+	cl->state = cs_free; // don't bother with zombie state
+
+	if( ban )
+	{
+		Cbuf_AddTextf( "addip 30 %s\n", NET_BaseAdrToString( cl->netchan.remote_address ));
+	}
+}
+
 /*
 ==================
 SV_CheckTimeouts
 
-If a packet has not been received from a client for timeout->value
+If a packet has not been received from a client for sv_timeout.value
 seconds, drop the conneciton.  Server frames are used instead of
 realtime to avoid dropping the local client while debugging.
 
@@ -511,16 +482,16 @@ for a few seconds to make sure any final reliable message gets resent
 if necessary
 ==================
 */
-void SV_CheckTimeouts( void )
+static void SV_CheckTimeouts( void )
 {
-	sv_client_t	*cl;
-	double		droppoint;
-	int		i, numclients = 0;
+	int i, numclients = 0;
+	const double spawned_droppoint = host.realtime - sv_timeout.value;
+	const double connected_droppoint = host.realtime - sv_connect_timeout.value;
 
-	droppoint = host.realtime - timeout->value;
-
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
+		sv_client_t *cl = &svs.clients[i];
+
 		if( cl->state >= cs_connected )
 		{
 			if( cl->edict && !FBitSet( cl->edict->v.flags, FL_SPECTATOR|FL_FAKECLIENT ))
@@ -531,21 +502,29 @@ void SV_CheckTimeouts( void )
 		if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 			continue;
 
-		// FIXME: get rid of the zombie state
-		if( cl->state == cs_zombie )
+		switch( cl->state )
 		{
+		case cs_zombie:
+			// FIXME: get rid of the zombie state
 			cl->state = cs_free; // can now be reused
-			continue;
-		}
-
-		if(( cl->state == cs_connected || cl->state == cs_spawned ) && cl->netchan.last_received < droppoint )
-		{
+			break;
+		case cs_connected:
+		case cs_spawning:
 			if( !NET_IsLocalAddress( cl->netchan.remote_address ))
 			{
-				SV_BroadcastPrintf( NULL, "%s timed out\n", cl->name );
-				SV_DropClient( cl, false );
-				cl->state = cs_free; // don't bother with zombie state
+				if( cl->connection_started < connected_droppoint )
+					SV_DropTimedOutClient( cl, true );
 			}
+			break;
+		case cs_spawned:
+			if( !NET_IsLocalAddress( cl->netchan.remote_address ))
+			{
+				if( cl->netchan.last_received < spawned_droppoint )
+					SV_DropTimedOutClient( cl, false );
+			}
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -564,7 +543,7 @@ This has to be done before the world logic, because
 player processing happens outside RunWorldFrame
 ================
 */
-void SV_PrepWorldFrame( void )
+static void SV_PrepWorldFrame( void )
 {
 	edict_t	*ent;
 	int	i;
@@ -586,17 +565,17 @@ void SV_PrepWorldFrame( void )
 SV_IsSimulating
 =================
 */
-qboolean SV_IsSimulating( void )
+static qboolean SV_IsSimulating( void )
 {
+	if( Host_IsDedicated( ))
+		return true; // always active for dedicated servers
+
 	if( sv.background && SV_Active() && CL_Active())
 	{
 		if( CL_IsInConsole( ))
 			return false;
 		return true; // force simulating for background map
 	}
-
-	if( Host_IsDedicated() )
-		return true; // always active for dedicated servers
 
 	if( !SV_HasActivePlayers( ))
 		return false;
@@ -616,7 +595,7 @@ qboolean SV_IsSimulating( void )
 SV_RunGameFrame
 =================
 */
-qboolean SV_RunGameFrame( void )
+static qboolean SV_RunGameFrame( void )
 {
 	sv.simulating = SV_IsSimulating();
 
@@ -649,6 +628,43 @@ qboolean SV_RunGameFrame( void )
 	}
 }
 
+static void SV_UpdateStatusLine( void )
+{
+#if XASH_PLATFORM_HAVE_STATUS
+	static double lasttime;
+	string status;
+
+	if( !Host_IsDedicated( ))
+		return;
+
+	// update only every 1/2 seconds
+	if(( host.realtime - lasttime ) < 0.5f )
+		return;
+
+	if( sv.state == ss_active )
+	{
+		int clients, bots;
+		SV_GetPlayerCount( &clients, &bots );
+
+		Q_snprintf( status, sizeof( status ),
+			"%.1f fps %2i/%2i on %16s",
+			1.f / sv.frametime,
+			clients, svs.maxclients, host.game.levelName );
+	}
+	else if( sv.state == ss_loading )
+		Q_strncpy( status, "Loading level", sizeof( status ));
+	else if( !svs.initialized )
+		Q_strncpy( status, "Server is not loaded", sizeof( status ));
+	// FIXME: unreachable branch
+	// else if( host.status == HOST_SHUTDOWN )
+	//	Q_strncpy( status, "Shutting down...", sizeof( status ));
+	else Q_strncpy( status, "Unknown status", sizeof( status ));
+
+	Platform_SetStatus( status );
+	lasttime = host.realtime;
+#endif // XASH_PLATFORM_HAVE_STATUS
+}
+
 /*
 ==================
 Host_ServerFrame
@@ -657,6 +673,9 @@ Host_ServerFrame
 */
 void Host_ServerFrame( void )
 {
+	// update dedicated server status line in console
+	SV_UpdateStatusLine ();
+
 	// if server is not active, do nothing
 	if( !svs.initialized ) return;
 
@@ -691,76 +710,11 @@ void Host_ServerFrame( void )
 	// clear edict flags for next frame
 	SV_PrepWorldFrame ();
 
-	// update dedicated server status line in console
-	Platform_UpdateStatusLine ();
-
 	// send a heartbeat to the master if needed
-	Master_Heartbeat ();
-}
-
-/*
-==================
-Host_SetServerState
-==================
-*/
-void Host_SetServerState( int state )
-{
-	Cvar_FullSet( "host_serverstate", va( "%i", state ), FCVAR_READ_ONLY );
-	sv.state = state;
+	NET_MasterHeartbeat ();
 }
 
 //============================================================================
-
-/*
-=================
-Master_Add
-=================
-*/
-void Master_Add( void )
-{
-	NET_Config( true, false ); // allow remote
-	if( NET_SendToMasters( NS_SERVER, 2, "q\xFF" ))
-		svs.last_heartbeat = MAX_HEARTBEAT;
-}
-
-/*
-================
-Master_Heartbeat
-
-Send a message to the master every few minutes to
-let it know we are alive, and log information
-================
-*/
-void Master_Heartbeat( void )
-{
-	if( !public_server->value || svs.maxclients == 1 )
-		return; // only public servers send heartbeats
-
-	// check for time wraparound
-	if( svs.last_heartbeat > host.realtime )
-		svs.last_heartbeat = host.realtime;
-
-	if(( host.realtime - svs.last_heartbeat ) < HEARTBEAT_SECONDS )
-		return; // not time to send yet
-
-	svs.last_heartbeat = host.realtime;
-
-	Master_Add();
-}
-
-/*
-=================
-Master_Shutdown
-
-Informs all masters that this server is going down
-=================
-*/
-void Master_Shutdown( void )
-{
-	NET_Config( true, false ); // allow remote
-	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A" ));
-}
-
 /*
 =================
 SV_AddToMaster
@@ -771,25 +725,39 @@ Master will validate challenge and this server to public list
 */
 void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 {
-	uint	challenge;
-	char	s[MAX_INFO_STRING] = "0\n"; // skip 2 bytes of header
-	int	clients = 0, bots = 0;
-	int	len = sizeof( s );
+	uint	challenge, challenge2, heartbeat_challenge;
+	char	s[MAX_INFO_STRING] = S2M_INFO; // skip 2 bytes of header
+	int	clients, bots;
+	double last_heartbeat;
+	const int len = sizeof( s );
 
-	if( !NET_IsMasterAdr( from ))
+	if( !NET_GetMaster( from, &heartbeat_challenge, &last_heartbeat ))
 	{
-		Con_Printf( S_WARN "unexpected master server info query packet from %s\n", NET_AdrToString( from ));
+		Con_Reportf( S_WARN "unexpected master server info query packet from %s\n", NET_AdrToString( from ));
 		return;
 	}
 
-	clients = SV_GetConnectedClientsCount( &bots );
-	challenge = MSG_ReadUBitLong( msg, sizeof( uint ) << 3 );
+	challenge = MSG_ReadDword( msg );
+	challenge2 = MSG_ReadDword( msg );
 
-	Info_SetValueForKey( s, "protocol", va( "%d", PROTOCOL_VERSION ), len ); // protocol version
-	Info_SetValueForKey( s, "challenge", va( "%u", challenge ), len ); // challenge number
-	Info_SetValueForKey( s, "players", va( "%d", clients ), len ); // current player number, without bots
-	Info_SetValueForKey( s, "max", va( "%d", svs.maxclients ), len ); // max_players
-	Info_SetValueForKey( s, "bots", va( "%d", bots ), len ); // bot count
+	if( challenge2 != heartbeat_challenge )
+	{
+		Con_Reportf( S_WARN "unexpected master server info query packet (wrong challenge!)\n" );
+		return;
+	}
+
+	if( last_heartbeat + sv_master_response_timeout.value < host.realtime )
+	{
+		Con_Printf( S_WARN "unexpected master server info query packet (too late? try increasing sv_master_response_timeout value)\n");
+		return;
+	}
+
+	SV_GetPlayerCount( &clients, &bots );
+	Info_SetValueForKeyf( s, "protocol", len, "%d", PROTOCOL_VERSION ); // protocol version
+	Info_SetValueForKeyf( s, "challenge", len, "%u", challenge ); // challenge number
+	Info_SetValueForKeyf( s, "players", len, "%d", clients ); // current player number, without bots
+	Info_SetValueForKeyf( s, "max", len, "%d", svs.maxclients ); // max_players
+	Info_SetValueForKeyf( s, "bots", len, "%d", bots ); // bot count
 	Info_SetValueForKey( s, "gamedir", GI->gamefolder, len ); // gamedir
 	Info_SetValueForKey( s, "map", sv.name, len ); // current map
 	Info_SetValueForKey( s, "type", (Host_IsDedicated()) ? "d" : "l", len ); // dedicated or local
@@ -797,10 +765,10 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "os", "w", len ); // Windows
 	Info_SetValueForKey( s, "secure", "0", len ); // server anti-cheat
 	Info_SetValueForKey( s, "lan", "0", len ); // LAN servers doesn't send info to master
-	Info_SetValueForKey( s, "version", va( "%s", XASH_VERSION ), len ); // server region. 255 -- all regions
+	Info_SetValueForKey( s, "version", XASH_VERSION, len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "region", "255", len ); // server region. 255 -- all regions
 	Info_SetValueForKey( s, "product", GI->gamefolder, len ); // product? Where is the difference with gamedir?
-	Info_SetValueForKey( s, "nat", sv_nat.string, sizeof(s) ); // Server running under NAT, use reverse connection
+	Info_SetValueForKey( s, "nat", sv_nat.string, len ); // Server running under NAT, use reverse connection
 
 	NET_SendPacket( NS_SERVER, Q_strlen( s ), s, from );
 }
@@ -816,8 +784,33 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 {
 	const char *input_devices_str = Info_ValueForKey( useragent, "d" );
 	const char *id = Info_ValueForKey( useragent, "uuid" );
+	size_t len, i;
 
-	if( !sv_allow_noinputdevices->value && ( !input_devices_str || !input_devices_str[0] ) )
+	len = Q_strlen( id );
+	if( len != 32 )
+	{
+		SV_RejectConnection( from, "invalid authentication certificate\n" );
+		return false;
+	}
+
+	for( i = 0; i < len; i++ )
+	{
+		char c = id[i];
+
+		if( !isdigit( id[i] ) && !( c >= 'a' && c <= 'f' ))
+		{
+			SV_RejectConnection( from, "invalid authentication certificate\n" );
+			return false;
+		}
+	}
+
+	if( SV_CheckID( id ))
+	{
+		SV_RejectConnection( from, "You are banned!\n" );
+		return false;
+	}
+
+	if( !sv_allow_noinputdevices.value && ( !input_devices_str || !input_devices_str[0] ) )
 	{
 		SV_RejectConnection( from, "This server does not allow\nconnect without input devices list.\nPlease update your engine.\n" );
 		return false;
@@ -827,35 +820,24 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 	{
 		int input_devices = Q_atoi( input_devices_str );
 
-		if( !sv_allow_touch->value && ( input_devices & INPUT_DEVICE_TOUCH ) )
+		if( !sv_allow_touch.value && ( input_devices & INPUT_DEVICE_TOUCH ) )
 		{
 			SV_RejectConnection( from, "This server does not allow touch\nDisable it (touch_enable 0)\nto play on this server\n" );
 			return false;
 		}
-		if( !sv_allow_mouse->value && ( input_devices & INPUT_DEVICE_MOUSE) )
+		if( !sv_allow_mouse.value && ( input_devices & INPUT_DEVICE_MOUSE) )
 		{
 			SV_RejectConnection( from, "This server does not allow mouse\nDisable it(m_ignore 1)\nto play on this server\n" );
 			return false;
 		}
-		if( !sv_allow_joystick->value && ( input_devices & INPUT_DEVICE_JOYSTICK) )
+		if( !sv_allow_joystick.value && ( input_devices & INPUT_DEVICE_JOYSTICK) )
 		{
 			SV_RejectConnection( from, "This server does not allow joystick\nDisable it(joy_enable 0)\nto play on this server\n" );
 			return false;
 		}
-		if( !sv_allow_vr->value && ( input_devices & INPUT_DEVICE_VR) )
+		if( !sv_allow_vr.value && ( input_devices & INPUT_DEVICE_VR) )
 		{
 			SV_RejectConnection( from, "This server does not allow VR\n" );
-			return false;
-		}
-	}
-
-	if( id )
-	{
-		qboolean banned = SV_CheckID( id );
-
-		if( banned )
-		{
-			SV_RejectConnection( from, "You are banned!\n" );
 			return false;
 		}
 	}
@@ -878,7 +860,7 @@ void SV_Init( void )
 
 	SV_InitHostCommands();
 
-	Cvar_Get( "protocol", va( "%i", PROTOCOL_VERSION ), FCVAR_READ_ONLY, "displays server protocol version" );
+	Cvar_Getf( "protocol", FCVAR_READ_ONLY, "displays server protocol version", "%i", PROTOCOL_VERSION );
 	Cvar_Get( "suitvolume", "0.25", FCVAR_ARCHIVE, "HEV suit volume" );
 	Cvar_Get( "sv_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	Cvar_Get( "gamedir", GI->gamefolder, FCVAR_READ_ONLY, "game folder" );
@@ -908,6 +890,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_fps );
 	Cvar_RegisterVariable( &showtriggers );
 	Cvar_RegisterVariable( &sv_aim );
+	Cvar_RegisterVariable( &sv_allow_autoaim );
 	Cvar_RegisterVariable( &deathmatch );
 	Cvar_RegisterVariable( &coop );
 	Cvar_RegisterVariable( &teamplay );
@@ -915,12 +898,14 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &temp1 );
 
 	Cvar_RegisterVariable( &rcon_password );
+	Cvar_RegisterVariable( &rcon_enable );
 	Cvar_RegisterVariable( &sv_stepsize );
 	Cvar_RegisterVariable( &sv_newunit );
 	Cvar_RegisterVariable( &hostname );
-	timeout = Cvar_Get( "timeout", "125", FCVAR_SERVER, "connection timeout" );
-	sv_pausable = Cvar_Get( "pausable", "1", FCVAR_SERVER, "allow players to pause or not" );
-	sv_validate_changelevel = Cvar_Get( "sv_validate_changelevel", "0", 0, "test change level for level-designer errors" );
+	Cvar_RegisterVariable( &sv_timeout );
+	Cvar_RegisterVariable( &sv_connect_timeout );
+	Cvar_RegisterVariable( &sv_pausable );
+	Cvar_RegisterVariable( &sv_validate_changelevel );
 	Cvar_RegisterVariable( &sv_clienttrace );
 	Cvar_RegisterVariable( &sv_bounce );
 	Cvar_RegisterVariable( &sv_spectatormaxspeed );
@@ -936,11 +921,9 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_friction );
 	Cvar_RegisterVariable( &sv_edgefriction );
 	Cvar_RegisterVariable( &sv_stopspeed );
-	sv_maxclients = Cvar_Get( "maxplayers", "1", FCVAR_LATCH, "server max capacity" );
-	sv_check_errors = Cvar_Get( "sv_check_errors", "0", FCVAR_ARCHIVE, "check edicts for errors" );
-	public_server = Cvar_Get ("public", "0", 0, "change server type from private to public" );
-	sv_lighting_modulate = Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "lightstyles modulate scale" );
-	sv_reconnect_limit = Cvar_Get ("sv_reconnect_limit", "3", FCVAR_ARCHIVE, "max reconnect attempts" );
+	Cvar_RegisterVariable( &sv_maxclients );
+	Cvar_RegisterVariable( &sv_check_errors );
+	Cvar_RegisterVariable( &public_server );
 	Cvar_RegisterVariable( &sv_failuretime );
 	Cvar_RegisterVariable( &sv_unlag );
 	Cvar_RegisterVariable( &sv_maxunlag );
@@ -948,15 +931,18 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_unlagsamples );
 	Cvar_RegisterVariable( &sv_allow_upload );
 	Cvar_RegisterVariable( &sv_allow_download );
+	Cvar_RegisterVariable( &sv_allow_dlfile );
 	Cvar_RegisterVariable( &sv_send_logos );
 	Cvar_RegisterVariable( &sv_send_resources );
 	Cvar_RegisterVariable( &sv_uploadmax );
 	Cvar_RegisterVariable( &sv_version );
 	Cvar_RegisterVariable( &sv_instancedbaseline );
+	Cvar_RegisterVariable( &sv_contact );
 	Cvar_RegisterVariable( &sv_consistency );
 	Cvar_RegisterVariable( &sv_downloadurl );
-	sv_novis = Cvar_Get( "sv_novis", "0", 0, "force to ignore server visibility" );
-	sv_hostmap = Cvar_Get( "hostmap", GI->startmap, 0, "keep name of last entered map" );
+	Cvar_RegisterVariable( &sv_novis );
+	Cvar_RegisterVariable( &sv_hostmap );
+	Cvar_DirectSet( &sv_hostmap, GI->startmap );
 	Cvar_RegisterVariable( &sv_password );
 	Cvar_RegisterVariable( &sv_lan );
 	Cvar_RegisterVariable( &sv_nat );
@@ -968,8 +954,10 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &mp_logfile );
 	Cvar_RegisterVariable( &sv_log_onefile );
 	Cvar_RegisterVariable( &sv_log_singleplayer );
+	Cvar_RegisterVariable( &sv_master_response_timeout );
 
 	Cvar_RegisterVariable( &sv_background_freeze );
+	Cvar_RegisterVariable( &sv_autosave );
 
 	Cvar_RegisterVariable( &mapcyclefile );
 	Cvar_RegisterVariable( &motdfile );
@@ -977,24 +965,39 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &bannedcfgfile );
 	Cvar_RegisterVariable( &listipcfgfile );
 	Cvar_RegisterVariable( &mapchangecfgfile );
+	Cvar_RegisterVariable( &disconcfgfile );
+	Cvar_RegisterVariable( &_sv_override_scientist_mdl );
 
 	Cvar_RegisterVariable( &sv_voiceenable );
 	Cvar_RegisterVariable( &sv_voicequality );
 	Cvar_RegisterVariable( &sv_trace_messages );
+	Cvar_RegisterVariable( &sv_enttools_enable );
+	Cvar_RegisterVariable( &sv_enttools_maxfire );
 
-	sv_allow_joystick = Cvar_Get( "sv_allow_joystick", "1", FCVAR_ARCHIVE, "allow connect with joystick enabled" );
-	sv_allow_mouse = Cvar_Get( "sv_allow_mouse", "1", FCVAR_ARCHIVE, "allow connect with mouse" );
-	sv_allow_touch = Cvar_Get( "sv_allow_touch", "1", FCVAR_ARCHIVE, "allow connect with touch controls" );
-	sv_allow_vr = Cvar_Get( "sv_allow_vr", "1", FCVAR_ARCHIVE, "allow connect from vr version" );
-	sv_allow_noinputdevices = Cvar_Get( "sv_allow_noinputdevices", "1", FCVAR_ARCHIVE, "allow connect from old versions without useragent" );
+	Cvar_RegisterVariable( &sv_speedhack_kick );
+
+	Cvar_RegisterVariable( &sv_allow_joystick );
+	Cvar_RegisterVariable( &sv_allow_mouse );
+	Cvar_RegisterVariable( &sv_allow_touch );
+	Cvar_RegisterVariable( &sv_allow_vr );
+	Cvar_RegisterVariable( &sv_allow_noinputdevices );
+
+	Cvar_RegisterVariable( &sv_userinfo_enable_penalty );
+	Cvar_RegisterVariable( &sv_userinfo_penalty_time );
+	Cvar_RegisterVariable( &sv_userinfo_penalty_multiplier );
+	Cvar_RegisterVariable( &sv_userinfo_penalty_attempts );
+	Cvar_RegisterVariable( &sv_fullupdate_penalty_time );
+	Cvar_RegisterVariable( &sv_log_outofband );
+	Cvar_RegisterVariable( &sv_allow_testpacket );
+	Cvar_RegisterVariable( &sv_expose_player_list );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );
 
 	MSG_Init( &net_message, "NetMessage", net_message_buffer, sizeof( net_message_buffer ));
 
-	Q_snprintf( versionString, sizeof( versionString ), "%s: %s-%s(%s-%s),%i,%i",
-		XASH_ENGINE_NAME, XASH_VERSION, Q_buildcommit(), Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
+	Q_snprintf( versionString, sizeof( versionString ), XASH_ENGINE_NAME ": " XASH_VERSION "-%s(%s-%s),%i,%i",
+		g_buildcommit, Q_buildos(), Q_buildarch(), PROTOCOL_VERSION, Q_buildnum() );
 
 	Cvar_FullSet( "sv_version", versionString, FCVAR_READ_ONLY );
 
@@ -1060,7 +1063,7 @@ SV_FreeClients
 release server clients
 ================
 */
-void SV_FreeClients( void )
+static void SV_FreeClients( void )
 {
 	if( svs.maxclients != 0 )
 	{
@@ -1098,24 +1101,26 @@ void SV_Shutdown( const char *finalmsg )
 		if( CL_IsPlaybackDemo( ))
 			CL_Drop();
 
-		SV_UnloadProgs ();
 		return;
 	}
+
+	// don't forget to reset sv_background state
+	Cvar_FullSet( "sv_background", "0", FCVAR_READ_ONLY );
 
 	if( COM_CheckString( finalmsg ))
 		Con_Printf( "%s", finalmsg );
 
 	// rcon will be disconnected
-	SV_EndRedirect();
+	SV_EndRedirect( &host.rd );
 
 	if( svs.clients )
 		SV_FinalMessage( finalmsg, false );
 
-	if( public_server->value && svs.maxclients != 1 )
-		Master_Shutdown();
+	if( public_server.value && svs.maxclients != 1 )
+		NET_MasterShutdown();
 
 	NET_Config( false, false );
-	SV_UnloadProgs ();
+	SV_DeactivateServer();
 	CL_Drop();
 
 	// free current level
@@ -1123,6 +1128,9 @@ void SV_Shutdown( const char *finalmsg )
 
 	SV_FreeClients();
 	svs.maxclients = 0;
+
+	// release test packet blob
+	SV_FreeTestPacket();
 
 	// release all models
 	Mod_FreeAll();

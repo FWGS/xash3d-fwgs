@@ -2,23 +2,178 @@
 # encoding: utf-8
 # mittorn, 2018
 
-from waflib import Logs
+from waflib import Logs, Configure
+from waflib.extras import gitversion
 import os
 
 top = '.'
+
+TGMATH_H_TEST = '''#include <tgmath.h>
+const float val = 2, val2 = 3;
+int main(void){ return (int)(-asin(val) + cos(val2)); }'''
+
+STRNCASECMP_TEST = '''#include <string.h>
+int main(int argc, char **argv) { return strncasecmp(argv[1], argv[2], 10); }'''
+
+STRCASECMP_TEST = '''#include <string.h>
+int main(int argc, char **argv) { return strcasecmp(argv[1], argv[2]); }'''
+
+STRCASESTR_TEST = '''#include <string.h>
+int main(int argc, char **argv) { argv[0] = strcasestr(argv[1], argv[2]); return 0; }'''
+
+STRCHRNUL_TEST = '''#include <string.h>
+int main(int argc, char **argv) { argv[2] = strchrnul(argv[1], 'x'); return 0; }'''
+
+STRLCPY_TEST = '''#include <string.h>
+int main(int argc, char **argv) { return strlcpy(argv[1], argv[2], 10); }'''
+
+STRLCAT_TEST = '''#include <string.h>
+int main(int argc, char **argv) { return strlcat(argv[1], argv[2], 10); }'''
+
+STRNLEN_TEST = '''#include <string.h>
+int main(int argc, char **argv) { return (int)strnlen(argv[0], 10); }
+'''
+
+ALLOCA_TEST = '''#include <%s>
+int main(void) { alloca(1); return 0; }'''
+
+HEADER_TEST = '''#include <%s>
+int main(void) { return 0; }
+'''
 
 def options(opt):
 	# stub
 	return
 
+def header_frag(header_name):
+	return '#include <%s>' % header_name + EMPTY_PROGRAM
+
+@Configure.conf
+def export_define(conf, define, value=1):
+	if not value:
+		return
+	if value is True:
+		value = 1 # so python won't define it as string True
+
+	conf.env.EXPORT_DEFINES_LIST += ['%s=%s' % (define, value)]
+
+@Configure.conf
+def simple_check(conf, fragment, msg, mandatory=False, **kw):
+	return conf.check_cc(fragment=fragment, msg='Checking for %s' % msg, mandatory=mandatory, **kw)
+
+@Configure.conf
+def get_git_commit_date(conf):
+	node = conf.srcnode.find_node('.git')
+
+	if not node:
+		Logs.debug('can\'t find .git in conf.srcnode')
+		return None
+
+	return gitversion.run_git(conf, ['log', '-1', '--format=%ci'])
+
+def options(opt):
+	opt.add_option('--validate-target', action='store', dest='VALIDATE_TARGET', default=None,
+		help='development option, needs --enable-tests flag')
+
 def configure(conf):
-	# stub
-	return
+	# private to libpublic
+	conf.load('gitversion')
+
+	conf.start_msg('Git commit date')
+	conf.env.GIT_COMMIT_DATE = conf.get_git_commit_date()
+	conf.end_msg(conf.env.GIT_COMMIT_DATE)
+
+	conf.env.VALIDATE_TARGET = conf.options.VALIDATE_TARGET
+
+	# need to expose it for everyone using libpublic headers
+	conf.env.EXPORT_DEFINES_LIST = []
+	conf.export_define('_CRT_SILENCE_NONCONFORMING_TGMATH_H', conf.env.COMPILER_CC == 'msvc')
+	conf.export_define('_GNU_SOURCE', conf.env.DEST_OS != 'win32')
+
+	# create temporary uselib that just enables extensions
+	conf.env.DEFINES_export = list(conf.env.EXPORT_DEFINES_LIST)
+
+	# check platform-specific header name for alloca(3)
+	if conf.env.DEST_OS == 'win32':
+		# don't waste time on Win32, it's documented to be always in malloc.h.
+		# (plus test can fail because alloca is underscore-prefixed, e.g. _alloca)
+		conf.export_define('ALLOCA_H', '<malloc.h>')
+	elif conf.simple_check(ALLOCA_TEST % 'alloca.h', msg='alloca in alloca.h'):
+		conf.export_define('ALLOCA_H', '<alloca.h>')
+	elif conf.simple_check(ALLOCA_TEST % 'malloc.h', msg='alloca in malloc.h'):
+		conf.export_define('ALLOCA_H', '<malloc.h>')
+	elif conf.simple_check(ALLOCA_TEST % 'stdlib.h', msg='alloca in stdlib.h'):
+		conf.export_define('ALLOCA_H', '<stdlib.h>')
+
+	conf.export_define('STDINT_H', '<stdint.h>' if conf.simple_check(HEADER_TEST % 'stdint.h', 'stdint.h') else '<pstdint.h>')
+
+	# save some time on Windows, msvc is too slow
+	# these calls must be available with both msvc and mingw
+	if conf.env.DEST_OS == 'win32':
+		conf.export_define('HAVE_TGMATH_H', conf.simple_check(TGMATH_H_TEST, 'tgmath.h', use='M werror export'))
+		conf.export_define('HAVE_STRNICMP')
+		conf.export_define('HAVE_STRICMP')
+	else:
+		exports_list = []
+
+		def check_libc_extension(frag, msg, define):
+			exports_list.append(define)
+			return {'fragment': frag, 'msg': 'Checking for ' + msg, 'define_name': define, 'mandatory': False, 'use': 'M werror export', 'compiler': 'c'}
+
+		conf.multicheck(
+			check_libc_extension(TGMATH_H_TEST, 'tgmath.h', 'HAVE_TGMATH_H'),
+			check_libc_extension(STRNCASECMP_TEST, 'strncasecmp', 'HAVE_STRNCASECMP'),
+			check_libc_extension(STRCASECMP_TEST, 'strcasecmp', 'HAVE_STRCASECMP'),
+			check_libc_extension(STRCASESTR_TEST, 'strcasestr', 'HAVE_STRCASESTR'),
+			check_libc_extension(STRCHRNUL_TEST, 'strchrnul', 'HAVE_STRCHRNUL'),
+			check_libc_extension(STRLCPY_TEST, 'strlcpy', 'HAVE_STRLCPY'),
+			check_libc_extension(STRLCAT_TEST, 'strlcat', 'HAVE_STRLCAT'),
+			check_libc_extension(STRNLEN_TEST, 'strnlen', 'HAVE_STRNLEN'),
+		)
+
+		for export in exports_list:
+			if conf.env[export]:
+				conf.export_define(export)
+
+	# kill temporary uselib
+	del conf.env.DEFINES_export
 
 def build(bld):
-	bld(name = 'sdk_includes', export_includes = '. ../common ../pm_shared ../engine')
-	bld.stlib(source   = bld.path.ant_glob('*.c'),
-		target   = 'public',
-		features = 'c',
-		use      = 'sdk_includes',
-		subsystem = bld.env.MSVC_SUBSYSTEM)
+	bld(name = 'sdk_includes',
+		export_includes = '. ../common ../pm_shared ../engine',
+		export_defines = bld.env.EXPORT_DEFINES_LIST)
+
+	# build it separately to slightly improve rebuild times
+	bld.stlib(source = 'build_vcs.c',
+		target = 'build_vcs',
+		defines = ['XASH_BUILD_COMMIT=\"%s\"' % bld.env.GIT_VERSION, 'XASH_BUILD_BRANCH=\"%s\"' % bld.env.GIT_BRANCH, 'XASH_BUILD_COMMIT_DATE=\"%s\"' % bld.env.GIT_COMMIT_DATE])
+
+	bld.stlib(source = bld.path.ant_glob('*.c', excl='build_vcs.c'),
+		target = 'public',
+		use = 'sdk_includes werror build_vcs')
+
+	if bld.env.TESTS:
+		if bld.env.VALIDATE_TARGET:
+			bld.program(features = 'test',
+				source = 'tests/test_validate_target.c',
+				target = 'validate_target',
+				use = 'public',
+				defines = 'VALIDATE_TARGET="%s"' % bld.env.VALIDATE_TARGET,
+				install_path = None)
+
+		tests = {
+			'strings': 'tests/test_strings.c',
+			'build': 'tests/test_build.c',
+			'filebase': 'tests/test_filebase.c',
+			'fileext': 'tests/test_fileext.c',
+			'efp': 'tests/test_efp.c',
+			'atoi': 'tests/test_atoi.c',
+			'parsefile': 'tests/test_parsefile.c',
+		}
+
+		for i in tests:
+			bld.program(features = 'test',
+				source = tests[i],
+				target = 'test_%s' % i,
+				use = 'public',
+				install_path = None)

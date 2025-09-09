@@ -20,14 +20,20 @@ GNU General Public License for more details.
 #endif
 
 #ifndef APIENTRY_LINKAGE
-#define APIENTRY_LINKAGE extern
+	#define APIENTRY_LINKAGE extern
 #endif
 
-#if defined XASH_NANOGL || defined XASH_WES || defined XASH_REGAL
-#define XASH_GLES
-#define XASH_GL_STATIC
-#define REF_GL_KEEP_MANGLED_FUNCTIONS
-#endif
+#if XASH_NANOGL || XASH_WES || XASH_REGAL
+	#define XASH_GLES 1
+	#define XASH_GL_STATIC 1
+	#define REF_GL_KEEP_MANGLED_FUNCTIONS 1
+#elif XASH_GLES3COMPAT
+	#ifdef SOFTFP_LINK
+		#undef APIENTRY
+		#define APIENTRY __attribute__((pcs("aapcs")))
+	#endif // SOFTFP_LINK
+	#define XASH_GLES 1
+#endif // XASH_GLES3COMPAT
 
 typedef uint GLenum;
 typedef byte GLboolean;
@@ -811,6 +817,19 @@ typedef float GLmatrix[16];
 #define GL_DEBUG_SEVERITY_MEDIUM_ARB		0x9147
 #define GL_DEBUG_SEVERITY_LOW_ARB		0x9148
 
+// GL Core additions
+#define GL_NUM_EXTENSIONS                 0x821D
+#define GL_MAP_WRITE_BIT 0x0002
+#define GL_MAP_COHERENT_BIT 0x0080
+#define GL_MAP_PERSISTENT_BIT 0x0040
+#define GL_MAP_UNSYNCHRONIZED_BIT 0x0020
+#define GL_MAP_INVALIDATE_BUFFER_BIT 0x0008
+#define GL_MAP_INVALIDATE_RANGE_BIT 0x0004
+#define GL_MAP_FLUSH_EXPLICIT_BIT 0x0010
+
+#define GL_MAJOR_VERSION 0x821B
+#define GL_MINOR_VERSION 0x821C
+
 #define WGL_CONTEXT_MAJOR_VERSION_ARB		0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB		0x2092
 #define WGL_CONTEXT_LAYER_PLANE_ARB		0x2093
@@ -877,17 +896,23 @@ typedef float GLmatrix[16];
 #define WGL_SAMPLE_BUFFERS_ARB		0x2041
 #define WGL_SAMPLES_ARB			0x2042
 
-#if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
-#define GL_FUNCTION( name ) name
-#elif defined( XASH_GL_STATIC ) && defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
-#define GL_FUNCTION( name ) APIENTRY p##name
+#ifdef __GNUC__
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
+#if XASH_GL_STATIC && !REF_GL_KEEP_MANGLED_FUNCTIONS
+	#define GL_FUNCTION( name ) APIENTRY name
+#elif XASH_GL_STATIC && REF_GL_KEEP_MANGLED_FUNCTIONS
+	#define GL_FUNCTION( name ) APIENTRY p##name
 #else
-#define GL_FUNCTION( name ) (APIENTRY *p##name)
+	#define GL_FUNCTION( name ) (APIENTRY *p##name)
 #endif
 
 // helper opengl functions
 APIENTRY_LINKAGE GLenum GL_FUNCTION( glGetError )(void);
 APIENTRY_LINKAGE const GLubyte * GL_FUNCTION( glGetString )(GLenum name);
+APIENTRY_LINKAGE const GLubyte * GL_FUNCTION( glGetStringi )(GLenum name, GLint i);
 
 // base gl functions
 APIENTRY_LINKAGE void GL_FUNCTION( glAccum )(GLenum op, GLfloat value);
@@ -1229,12 +1254,6 @@ APIENTRY_LINKAGE void GL_FUNCTION( glClientActiveTextureARB )( GLenum );
 APIENTRY_LINKAGE void GL_FUNCTION( glGetCompressedTexImage )( GLenum target, GLint lod, const GLvoid* data );
 APIENTRY_LINKAGE void GL_FUNCTION( glDrawRangeElements )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
 APIENTRY_LINKAGE void GL_FUNCTION( glDrawRangeElementsEXT )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices );
-APIENTRY_LINKAGE void GL_FUNCTION( glDrawElements )(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices);
-APIENTRY_LINKAGE void GL_FUNCTION( glVertexPointer )(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr);
-APIENTRY_LINKAGE void GL_FUNCTION( glNormalPointer )(GLenum type, GLsizei stride, const GLvoid *ptr);
-APIENTRY_LINKAGE void GL_FUNCTION( glColorPointer )(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr);
-APIENTRY_LINKAGE void GL_FUNCTION( glTexCoordPointer )(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr);
-APIENTRY_LINKAGE void GL_FUNCTION( glArrayElement )(GLint i);
 APIENTRY_LINKAGE void GL_FUNCTION( glMultiTexCoord1f) (GLenum, GLfloat);
 APIENTRY_LINKAGE void GL_FUNCTION( glMultiTexCoord2f) (GLenum, GLfloat, GLfloat);
 APIENTRY_LINKAGE void GL_FUNCTION( glMultiTexCoord3f) (GLenum, GLfloat, GLfloat, GLfloat);
@@ -1292,7 +1311,6 @@ APIENTRY_LINKAGE void GL_FUNCTION( glGetActiveUniformARB )(GLhandleARB programOb
 APIENTRY_LINKAGE void GL_FUNCTION( glGetUniformfvARB )(GLhandleARB programObj, GLint location, GLfloat *params);
 APIENTRY_LINKAGE void GL_FUNCTION( glGetUniformivARB )(GLhandleARB programObj, GLint location, GLint *params);
 APIENTRY_LINKAGE void GL_FUNCTION( glGetShaderSourceARB )(GLhandleARB obj, GLsizei maxLength, GLsizei *length, GLcharARB *source);
-APIENTRY_LINKAGE void GL_FUNCTION( glPolygonStipple )(const GLubyte *mask);
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage3D )( GLenum target, GLint level, GLenum internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid *pixels );
 APIENTRY_LINKAGE void GL_FUNCTION( glTexSubImage3D )( GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid *pixels );
 APIENTRY_LINKAGE void GL_FUNCTION( glCopyTexSubImage3D )( GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height );
@@ -1358,11 +1376,22 @@ APIENTRY_LINKAGE void GL_FUNCTION( glGenVertexArrays )( GLsizei n, const GLuint 
 APIENTRY_LINKAGE GLboolean GL_FUNCTION( glIsVertexArray )( GLuint array );
 APIENTRY_LINKAGE void GL_FUNCTION( glSwapInterval ) ( int interval );
 
-#if !defined( XASH_GLES ) && !defined( XASH_GL4ES )
+// arb shaders change in core
+APIENTRY_LINKAGE void GL_FUNCTION( glDeleteProgram )(GLuint program);
+APIENTRY_LINKAGE void GL_FUNCTION( glGetProgramiv )(GLuint program, GLenum e, GLuint *v);
+APIENTRY_LINKAGE void GL_FUNCTION( glGetProgramInfoLog )(GLhandleARB obj, GLsizei maxLength, GLsizei *length, GLcharARB *infoLog);
+
+// gl2shim deps
+APIENTRY_LINKAGE void GL_FUNCTION( glBufferStorage )( GLenum target,  GLsizei size, const GLvoid * data, GLbitfield flags);
+APIENTRY_LINKAGE void GL_FUNCTION( glFlushMappedBufferRange )(GLenum target, GLsizei offset, GLsizei length);
+APIENTRY_LINKAGE void *GL_FUNCTION( glMapBufferRange )(GLenum target, GLsizei offset, GLsizei length, GLbitfield access);
+APIENTRY_LINKAGE void GL_FUNCTION( glDrawRangeElementsBaseVertex )( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices, GLuint vertex );
+
+#if !XASH_GL_STATIC || ( !XASH_GLES && !XASH_GL4ES )
 APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 #endif /* !XASH_GLES && !XASH_GL4ES */
 
-#if defined( XASH_GL_STATIC ) && !defined( REF_GL_KEEP_MANGLED_FUNCTIONS )
+#if XASH_GL_STATIC && !REF_GL_KEEP_MANGLED_FUNCTIONS
 #define pglGetError glGetError
 #define pglGetString glGetString
 #define pglAccum glAccum
@@ -1705,12 +1734,6 @@ APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsi
 #define pglGetCompressedTexImage glGetCompressedTexImage
 #define pglDrawRangeElements glDrawRangeElements
 #define pglDrawRangeElementsEXT glDrawRangeElementsEXT
-#define pglDrawElements glDrawElements
-#define pglVertexPointer glVertexPointer
-#define pglNormalPointer glNormalPointer
-#define pglColorPointer glColorPointer
-#define pglTexCoordPointer glTexCoordPointer
-#define pglArrayElement glArrayElement
 #define pglMultiTexCoord1f glMultiTexCoord1f
 #define pglMultiTexCoord2f glMultiTexCoord2f
 #define pglMultiTexCoord3f glMultiTexCoord3f
@@ -1768,7 +1791,6 @@ APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsi
 #define pglGetUniformfvARB glGetUniformfvARB
 #define pglGetUniformivARB glGetUniformivARB
 #define pglGetShaderSourceARB glGetShaderSourceARB
-#define pglPolygonStipple glPolygonStipple
 #define pglTexImage3D glTexImage3D
 #define pglTexSubImage3D glTexSubImage3D
 #define pglCopyTexSubImage3D glCopyTexSubImage3D
@@ -1832,6 +1854,10 @@ APIENTRY_LINKAGE void GL_FUNCTION( glTexImage2DMultisample )(GLenum target, GLsi
 #define pglGenVertexArrays glGenVertexArrays
 #define pglIsVertexArray glIsVertexArray
 #define pglSwapInterval glSwapInterval
+#endif
+
+#ifdef __GNUC__
+	#pragma GCC diagnostic pop
 #endif
 
 #endif//GL_EXPORT_H

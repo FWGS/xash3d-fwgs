@@ -1,25 +1,28 @@
 #!/bin/bash
 
-export ANDROID_SDK_HOME=$GITHUB_WORKSPACE/sdk
-export ANDROID_NDK_HOME=$ANDROID_SDK_HOME/ndk-bundle
+unset ANDROID_SDK_ROOT
+export JAVA_HOME=$GITHUB_WORKSPACE/jdk-17.0.15+6
+export ANDROID_HOME=$GITHUB_WORKSPACE/sdk
+export PATH=$PATH:$JAVA_HOME/bin:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin
 
 pushd android
-if [[ "$GH_CPU_ARCH" == "32" ]]; then
-	export ARCHS="armeabi armeabi-v7a x86"
-elif [[ "$GH_CPU_ARCH" == "64" ]]; then
-	export ARCHS="aarch64 x86_64"
-elif [[ "$GH_CPU_ARCH" == "32&64" ]]; then
-	export ARCHS="armeabi armeabi-v7a x86 aarch64 x86_64"
-fi
 
-sh compile.sh release
+./gradlew assembleContinuous --no-daemon || exit 1
 
+pushd app/build/outputs/apk/continuous
+
+$ANDROID_HOME/build-tools/36.0.0/apksigner sign \
+	--ks $GITHUB_WORKSPACE/android/debug.keystore \
+	--ks-key-alias androiddebugkey \
+	--ks-pass pass:android \
+	--key-pass pass:android \
+	--out app-continuous-signed.apk app-continuous-unsigned.apk || exit 1
+
+popd
 popd
 
 mkdir -p artifacts/
 
-if [[ "$GH_CPU_ARCH" == "64" ]]; then
-	mv android/xashdroid.apk artifacts/xashdroid-64.apk
-else
-	mv android/xashdroid.apk artifacts/xashdroid-32.apk
-fi
+mv android/app/build/outputs/apk/continuous/app-continuous-signed.apk artifacts/xash3d-fwgs-android.apk
+tar -cJvf artifacts/xash3d-fwgs-android-mappings.tar.zst -C android/app/build/outputs/mapping/continuous '.'
+

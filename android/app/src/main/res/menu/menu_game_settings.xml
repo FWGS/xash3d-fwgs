@@ -1,0 +1,9 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+	<item
+		android:id="@+id/action_dedicated"
+		android:icon="@drawable/ic_baseline_terminal_24"
+		android:title="@string/dedicated_server"
+		android:visible="false"
+		app:showAsAction="always|withText" />
+</menu>

@@ -216,6 +216,7 @@ typedef struct playermove_s
 	pmtrace_t		(*PM_PlayerTraceEx) (float *start, float *end, int traceFlags, int (*pfnIgnore)( physent_t *pe ));
 	int		(*PM_TestPlayerPositionEx) (float *pos, pmtrace_t *ptrace, int (*pfnIgnore)( physent_t *pe ));
 	struct pmtrace_s	*(*PM_TraceLineEx)( float *start, float *end, int flags, int usehulll, int (*pfnIgnore)( physent_t *pe ));
-	struct msurface_s	*(*PM_TraceSurface)( int ground, float *vstart, float *vend );
+
+	struct msurface_s	*(*PM_TraceSurface)( int ground, float *vstart, float *vend ); // Xash3D-specific
 } playermove_t;
 #endif//PM_DEFS_H

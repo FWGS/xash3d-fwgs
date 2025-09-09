@@ -184,7 +184,7 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	dma.buffer = Z_Malloc( samples * 2 );  //allocate pcm frame buffer
+	dma.buffer = Mem_Calloc( sndpool, samples * 2 );  //allocate pcm frame buffer
 	dma.samplepos = 0;
 	dma.samples = samples;
 	dma.format.width = 2;

@@ -11,8 +11,10 @@ SYS = $(shell $(CC) -dumpmachine)
 
 ifneq (, $(findstring mingw, $(SYS)))
 EXT = .exe
+CFLAGS += -DHAVE_STRICMP -DHAVE_STRNICMP
 else
 EXT =
+CFLAGS += -DHAVE_STRCASECMP -DHAVE_STRNCASECMP
 endif
 
 APP = $(MODULE)$(EXT)
@@ -24,7 +26,8 @@ SRC =	mdldec.c \
 	utils.c \
 	../../public/xash3d_mathlib.c \
 	../../public/matrixlib.c \
-	../../public/crtlib.c
+	../../public/crtlib.c \
+	../../public/getopt.c
 
 INCLUDE = -I. \
 	  -I../../common \

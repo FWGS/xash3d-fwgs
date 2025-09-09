@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <stdarg.h>
 #include "gl_local.h"
 #include "crclib.h"
 
@@ -43,9 +44,9 @@ R_GetTexture
 acess to array elem
 =================
 */
-gl_texture_t *R_GetTexture( GLenum texnum )
+gl_texture_t *R_GetTexture( unsigned int texnum )
 {
-	ASSERT( texnum >= 0 && texnum < MAX_TEXTURES );
+	Assert( texnum < MAX_TEXTURES );
 	return &gl_textures[texnum];
 }
 
@@ -54,7 +55,7 @@ gl_texture_t *R_GetTexture( GLenum texnum )
 GL_TargetToString
 =================
 */
-static const char *GL_TargetToString( GLenum target )
+const char *GL_TargetToString( GLenum target )
 {
 	switch( target )
 	{
@@ -76,46 +77,26 @@ static const char *GL_TargetToString( GLenum target )
 	return "??";
 }
 
-/*
-=================
-GL_Bind
-=================
-*/
-void GL_Bind( GLint tmu, GLenum texnum )
+qboolean GL_TextureFilteringEnabled( const gl_texture_t *tex )
 {
-	gl_texture_t	*texture;
-	GLuint		glTarget;
+	if( FBitSet( tex->flags, TF_NEAREST ))
+		return false;
 
-	// missed or invalid texture?
-	if( texnum <= 0 || texnum >= MAX_TEXTURES )
+	if( FBitSet( tex->flags, TF_DEPTHMAP ))
+		return true;
+
+	if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
 	{
-		if( texnum != 0 )
-			gEngfuncs.Con_DPrintf( S_ERROR "GL_Bind: invalid texturenum %d\n", texnum );
-		texnum = tr.defaultTexture;
-	}
-	if( tmu != GL_KEEP_UNIT )
-		GL_SelectTexture( tmu );
-	else tmu = glState.activeTMU;
+		if( FBitSet( tex->flags, TF_ATLAS_PAGE ))
+			return gl_lightmap_nearest.value == 0.0f;
 
-	texture = &gl_textures[texnum];
-	glTarget = texture->target;
+		if( FBitSet( tex->flags, TF_ALLOW_NEAREST ))
+			return gl_texture_nearest.value == 0.0f;
 
-	if( glTarget == GL_TEXTURE_2D_ARRAY_EXT )
-		glTarget = GL_TEXTURE_2D;
-
-	if( glState.currentTextureTargets[tmu] != glTarget )
-	{
-		if( glState.currentTextureTargets[tmu] != GL_NONE )
-			pglDisable( glState.currentTextureTargets[tmu] );
-		glState.currentTextureTargets[tmu] = glTarget;
-		pglEnable( glState.currentTextureTargets[tmu] );
+		return true;
 	}
 
-	if( glState.currentTextures[tmu] == texture->texnum )
-		return;
-
-	pglBindTexture( texture->target, texture->texnum );
-	glState.currentTextures[tmu] = texture->texnum;
+	return gl_texture_nearest.value == 0.0f;
 }
 
 /*
@@ -126,6 +107,7 @@ GL_ApplyTextureParams
 void GL_ApplyTextureParams( gl_texture_t *tex )
 {
 	vec4_t	border = { 0.0f, 0.0f, 0.0f, 1.0f };
+	qboolean nomipmap;
 
 	if( !glw_state.initialized )
 		return;
@@ -137,6 +119,18 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 		return;
 
 	// set texture filter
+	nomipmap = tex->numMips <= 1 || FBitSet( tex->flags, TF_NOMIPMAP|TF_DEPTHMAP );
+	if( !GL_TextureFilteringEnabled( tex ))
+	{
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_NEAREST : GL_NEAREST_MIPMAP_NEAREST );
+		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	}
+	else
+	{
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR );
+		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	}
+
 	if( FBitSet( tex->flags, TF_DEPTHMAP ))
 	{
 		if( !FBitSet( tex->flags, TF_NOCOMPARE ))
@@ -149,54 +143,19 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 			pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_LUMINANCE );
 		else pglTexParameteri( tex->target, GL_DEPTH_TEXTURE_MODE_ARB, GL_INTENSITY );
 
-		if( FBitSet( tex->flags, TF_NEAREST ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-
 		// allow max anisotropy as 1.0f on depth textures
 		if( GL_Support( GL_ANISOTROPY_EXT ))
 			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1.0f );
 	}
-	else if( FBitSet( tex->flags, TF_NOMIPMAP ) || tex->numMips <= 1 )
+	else if( !FBitSet( tex->flags, TF_NOMIPMAP ) && tex->numMips > 1 )
 	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || ( IsLightMap( tex ) && gl_lightmap_nearest->value ))
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-	}
-	else
-	{
-		if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest->value )
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-
 		// set texture anisotropy if available
 		if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_ALPHACONTRAST ))
-			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
+			pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy.value );
 
 		// set texture LOD bias if available
 		if( GL_Support( GL_TEXTURE_LOD_BIAS ) && ( tex->numMips > 1 ))
-			pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias->value );
+			pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias.value );
 	}
 
 	// check if border is not supported
@@ -266,6 +225,7 @@ GL_UpdateTextureParams
 static void GL_UpdateTextureParams( int iTexture )
 {
 	gl_texture_t	*tex = &gl_textures[iTexture];
+	qboolean nomipmap;
 
 	Assert( tex != NULL );
 
@@ -275,36 +235,22 @@ static void GL_UpdateTextureParams( int iTexture )
 
 	// set texture anisotropy if available
 	if( GL_Support( GL_ANISOTROPY_EXT ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP|TF_ALPHACONTRAST ))
-		pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy->value );
+		pglTexParameterf( tex->target, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy.value );
 
 	// set texture LOD bias if available
 	if( GL_Support( GL_TEXTURE_LOD_BIAS ) && ( tex->numMips > 1 ) && !FBitSet( tex->flags, TF_DEPTHMAP ))
-		pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias->value );
+		pglTexParameterf( tex->target, GL_TEXTURE_LOD_BIAS_EXT, gl_texture_lodbias.value );
 
-	if( IsLightMap( tex ))
+	nomipmap = tex->numMips <= 1 || FBitSet( tex->flags, TF_NOMIPMAP|TF_DEPTHMAP );
+
+	if( !GL_TextureFilteringEnabled( tex ))
 	{
-		if( gl_lightmap_nearest->value )
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-		}
-		else
-		{
-			pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-			pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		}
-	}
-
-	if( tex->numMips <= 1 ) return;
-
-	if( FBitSet( tex->flags, TF_NEAREST ) || gl_texture_nearest->value )
-	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST );
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_NEAREST : GL_NEAREST_MIPMAP_NEAREST );
 		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	}
 	else
 	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR );
 		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 	}
 }
@@ -320,24 +266,24 @@ void R_SetTextureParameters( void )
 
 	if( GL_Support( GL_ANISOTROPY_EXT ))
 	{
-		if( gl_texture_anisotropy->value > glConfig.max_texture_anisotropy )
+		if( gl_texture_anisotropy.value > glConfig.max_texture_anisotropy )
 			gEngfuncs.Cvar_SetValue( "gl_anisotropy", glConfig.max_texture_anisotropy );
-		else if( gl_texture_anisotropy->value < 1.0f )
+		else if( gl_texture_anisotropy.value < 1.0f )
 			gEngfuncs.Cvar_SetValue( "gl_anisotropy", 1.0f );
 	}
 
 	if( GL_Support( GL_TEXTURE_LOD_BIAS ))
 	{
-		if( gl_texture_lodbias->value < -glConfig.max_texture_lod_bias )
+		if( gl_texture_lodbias.value < -glConfig.max_texture_lod_bias )
 			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", -glConfig.max_texture_lod_bias );
-		else if( gl_texture_lodbias->value > glConfig.max_texture_lod_bias )
+		else if( gl_texture_lodbias.value > glConfig.max_texture_lod_bias )
 			gEngfuncs.Cvar_SetValue( "gl_texture_lodbias", glConfig.max_texture_lod_bias );
 	}
 
-	ClearBits( gl_texture_anisotropy->flags, FCVAR_CHANGED );
-	ClearBits( gl_texture_lodbias->flags, FCVAR_CHANGED );
-	ClearBits( gl_texture_nearest->flags, FCVAR_CHANGED );
-	ClearBits( gl_lightmap_nearest->flags, FCVAR_CHANGED );
+	ClearBits( gl_texture_anisotropy.flags, FCVAR_CHANGED );
+	ClearBits( gl_texture_lodbias.flags, FCVAR_CHANGED );
+	ClearBits( gl_texture_nearest.flags, FCVAR_CHANGED );
+	ClearBits( gl_lightmap_nearest.flags, FCVAR_CHANGED );
 
 	// change all the existing mipmapped texture objects
 	for( i = 0; i < gl_numTextures; i++ )
@@ -388,7 +334,8 @@ static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int d
 	case PF_DXT5:
 	case PF_BC6H_SIGNED:
 	case PF_BC6H_UNSIGNED:
-	case PF_BC7:
+	case PF_BC7_UNORM:
+	case PF_BC7_SRGB:
 	case PF_ATI2:
 		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
 		break;
@@ -500,7 +447,7 @@ static size_t GL_CalcTextureSize( GLenum format, int width, int height, int dept
 		size = width * height * depth * 4;
 		break;
 	default:
-		gEngfuncs.Host_Error( "GL_CalcTextureSize: bad texture internal format (%u)\n", format );
+		gEngfuncs.Host_Error( "%s: bad texture internal format (%u)\n", __func__, format );
 		break;
 	}
 
@@ -576,7 +523,7 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{
-		int	step = (int)gl_round_down->value;
+		int	step = (int)gl_round_down.value;
 		int	scaled_width, scaled_height;
 
 		for( scaled_width = 1; scaled_width < width; scaled_width <<= 1 );
@@ -643,9 +590,12 @@ static void GL_SetTextureTarget( gl_texture_t *tex, rgbdata_t *pic )
 	pic->numMips = Q_max( 1, pic->numMips );
 
 	// trying to determine texture type
+#if !XASH_GLES
 	if( pic->width > 1 && pic->height <= 1 )
 		tex->target = GL_TEXTURE_1D;
-	else if( FBitSet( pic->flags, IMAGE_CUBEMAP ))
+	else
+#endif // just skip first condition
+	if( FBitSet( pic->flags, IMAGE_CUBEMAP ))
 		tex->target = GL_TEXTURE_CUBE_MAP_ARB;
 	else if( FBitSet( pic->flags, IMAGE_MULTILAYER ) && pic->depth >= 1 )
 		tex->target = GL_TEXTURE_2D_ARRAY_EXT;
@@ -694,7 +644,7 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 
 	Assert( tex != NULL );
 
-	if( ImageDXT( format ))
+	if( ImageCompressed( format ))
 	{
 		switch( format )
 		{
@@ -703,7 +653,8 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		case PF_DXT5: tex->format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; break;
 		case PF_BC6H_SIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_ARB; break;
 		case PF_BC6H_UNSIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB; break;
-		case PF_BC7: tex->format = GL_COMPRESSED_RGBA_BPTC_UNORM_ARB; break;
+		case PF_BC7_SRGB:
+		case PF_BC7_UNORM: tex->format = GL_COMPRESSED_RGBA_BPTC_UNORM_ARB; break;
 		case PF_ATI2:
 			if( glConfig.hardware_type == GLHW_RADEON )
 				tex->format = GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI;
@@ -879,7 +830,7 @@ GL_BoxFilter3x3
 box filter 3x3
 =================
 */
-void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
+static void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 {
 	int		r = 0, g = 0, b = 0, a = 0;
 	int		count = 0, acount = 0;
@@ -926,7 +877,7 @@ GL_ApplyFilter
 Apply box-filter to 1-bit alpha
 =================
 */
-byte *GL_ApplyFilter( const byte *source, int width, int height )
+static byte *GL_ApplyFilter( const byte *source, int width, int height )
 {
 	byte	*in = (byte *)source;
 	byte	*out = (byte *)source;
@@ -1038,8 +989,8 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, GLint type, const void *data )
 {
 	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
-	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
-	GLenum	inFormat = gEngfuncs.Image_GetPFDesc(type)->glFormat;
+	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED ) && data != NULL;
+	GLenum	inFormat = gEngfuncs.Image_GetPFDesc( type )->glFormat;
 	GLint	dataType = GL_UNSIGNED_BYTE;
 	GLsizei	samplesCount = 0;
 
@@ -1070,8 +1021,8 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	}
 	else if( tex->target == GL_TEXTURE_2D_MULTISAMPLE )
 	{
-#if !defined( XASH_GLES ) && !defined( XASH_GL4ES )
-		samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat("gl_msaa_samples");
+#if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES ))
+		samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" );
 		switch (samplesCount)
 		{
 			case 2:
@@ -1083,9 +1034,9 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 				samplesCount = 1;
 		}
 		pglTexImage2DMultisample( tex->target, samplesCount, tex->format, width, height, GL_TRUE );
-#else /* !XASH_GLES && !XASH_GL4ES */
+#else /* !XASH_GL_STATIC !XASH_GLES && !XASH_GL4ES */
 		gEngfuncs.Con_Printf( S_ERROR "GLES renderer don't support GL_TEXTURE_2D_MULTISAMPLE!\n" );
-#endif /* !XASH_GLES && !XASH_GL4ES */
+#endif /* !XASH_GL_STATIC !XASH_GLES && !XASH_GL4ES */
 	}
 	else // 2D or RECT
 	{
@@ -1094,14 +1045,14 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	}
 }
 
-static void GL_TextureImageDXT( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, size_t size, const void *data )
+static void GL_TextureImageCompressed( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, size_t size, const void *data )
 {
 	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
 	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
 
 	Assert( tex != NULL );
 
-#ifndef XASH_GLES
+#if !XASH_GLES
 	if( tex->target == GL_TEXTURE_1D )
 	{
 		if( subImage ) pglCompressedTexSubImage1DARB( tex->target, level, 0, width, tex->format, size, data );
@@ -1139,7 +1090,7 @@ static void GL_CheckTexImageError( gl_texture_t *tex )
 	Assert( tex != NULL );
 
 	// catch possible errors
-	if( CVAR_TO_BOOL( gl_check_errors ) && ( err = pglGetError()) != GL_NO_ERROR )
+	if( gl_check_errors.value && ( err = pglGetError()) != GL_NO_ERROR )
 		gEngfuncs.Con_Printf( S_OPENGL_ERROR "%s while uploading %s [%s]\n", GL_ErrorString( err ), tex->name, GL_TargetToString( tex->target ));
 }
 
@@ -1172,15 +1123,15 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	// make sure what target is correct
 	if( tex->target == GL_NONE )
 	{
-		gEngfuncs.Con_DPrintf( S_ERROR "GL_UploadTexture: %s is not supported by your hardware\n", tex->name );
+		gEngfuncs.Con_DPrintf( S_ERROR "%s: %s is not supported by your hardware\n", __func__, tex->name );
 		return false;
 	}
 
-	if( pic->type == PF_BC6H_SIGNED || pic->type == PF_BC6H_UNSIGNED || pic->type == PF_BC7 )
+	if( pic->type == PF_BC6H_SIGNED || pic->type == PF_BC6H_UNSIGNED || pic->type == PF_BC7_UNORM || pic->type == PF_BC7_SRGB )
 	{
 		if( !GL_Support( GL_ARB_TEXTURE_COMPRESSION_BPTC ))
 		{
-			gEngfuncs.Con_DPrintf( S_ERROR "GL_UploadTexture: BC6H/BC7 compression formats is not supported by your hardware\n" );
+			gEngfuncs.Con_DPrintf( S_ERROR "%s: BC6H/BC7 compression formats is not supported by your hardware\n", __func__ );
 			return false;
 		}
 	}
@@ -1196,7 +1147,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	if(( pic->width * pic->height ) & 3 )
 	{
 		// will be resampled, just tell me for debug targets
-		gEngfuncs.Con_Reportf( "GL_UploadTexture: %s s&3 [%d x %d]\n", tex->name, pic->width, pic->height );
+		gEngfuncs.Con_Reportf( "%s: %s s&3 [%d x %d]\n", __func__, tex->name, pic->width, pic->height );
 	}
 
 	buf = pic->buffer;
@@ -1208,15 +1159,16 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 	// uploading texture into video memory, change the binding
 	glState.currentTextures[glState.activeTMU] = tex->texnum;
+	glState.currentTexturesIndex[glState.activeTMU] = tex - gl_textures;
 	pglBindTexture( tex->target, tex->texnum );
 
 	for( i = 0; i < numSides; i++ )
 	{
 		// track the buffer bounds
 		if( buf != NULL && buf >= bufend )
-			gEngfuncs.Host_Error( "GL_UploadTexture: %s image buffer overflow\n", tex->name );
+			gEngfuncs.Host_Error( "%s: %s image buffer overflow\n", __func__, tex->name );
 
-		if( ImageDXT( pic->type ))
+		if( ImageCompressed( pic->type ))
 		{
 			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 			{
@@ -1224,7 +1176,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				height = Q_max( 1, ( tex->height >> j ));
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
 				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageDXT( tex, i, j, width, height, tex->depth, size, buf );
+				GL_TextureImageCompressed( tex, i, j, width, height, tex->depth, size, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
 				tex->numMips++;
@@ -1258,7 +1210,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
 			else data = buf;
 
-			if( !ImageDXT( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
+			if( !ImageCompressed( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
 				data = GL_ApplyFilter( data, tex->width, tex->height );
 
 			// mips will be auto-generated if desired
@@ -1306,7 +1258,7 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 
 	tex->encode = pic->encode; // share encode method
 
-	if( ImageDXT( pic->type ))
+	if( ImageCompressed( pic->type ))
 	{
 		if( !pic->numMips )
 			tex->flags |= TF_NOMIPMAP; // disable mipmapping by user request
@@ -1350,7 +1302,7 @@ static void GL_ProcessImage( gl_texture_t *tex, rgbdata_t *pic )
 GL_CheckTexName
 ================
 */
-qboolean GL_CheckTexName( const char *name )
+static qboolean GL_CheckTexName( const char *name )
 {
 	int len;
 
@@ -1398,28 +1350,53 @@ GL_AllocTexture
 */
 static gl_texture_t *GL_AllocTexture( const char *name, texFlags_t flags )
 {
-	gl_texture_t	*tex;
-	uint		i;
+	const qboolean skyboxhack = FBitSet( flags, TF_SKYSIDE ) && glConfig.context == CONTEXT_TYPE_GL;
+	gl_texture_t *tex = NULL;
+	GLuint texnum = 1;
 
-	// find a free texture_t slot
-	for( i = 0, tex = gl_textures; i < gl_numTextures; i++, tex++ )
-		if( !tex->name[0] ) break;
-
-	if( i == gl_numTextures )
+	if( !skyboxhack )
 	{
-		if( gl_numTextures == MAX_TEXTURES )
-			gEngfuncs.Host_Error( "GL_AllocTexture: MAX_TEXTURES limit exceeds\n" );
-		gl_numTextures++;
+		// keep generating new texture names to avoid collision with predefined skybox objects
+		do
+		{
+			pglGenTextures( 1, &texnum );
+		}
+		while( texnum >= SKYBOX_BASE_NUM && texnum <= SKYBOX_BASE_NUM + SKYBOX_MAX_SIDES );
 	}
+	else texnum = tr.skyboxbasenum;
 
-	tex = &gl_textures[i];
+	// try to match texture slot and texture handle because of buggy games
+	if( texnum >= MAX_TEXTURES || gl_textures[texnum].texnum != 0 )
+	{
+		// find a free texture_t slot
+		uint i;
+
+		for( i = 0; i < MAX_TEXTURES; i++ )
+		{
+			if( gl_textures[i].texnum )
+				continue;
+
+			tex = &gl_textures[i];
+			break;
+		}
+	}
+	else tex = &gl_textures[texnum];
+
+	if( tex == NULL )
+	{
+		gEngfuncs.Host_Error( "%s: MAX_TEXTURES limit exceeds\n", __func__ );
+		return NULL;
+	}
 
 	// copy initial params
 	Q_strncpy( tex->name, name, sizeof( tex->name ));
-	if( FBitSet( flags, TF_SKYSIDE ))
-		tex->texnum = tr.skyboxbasenum++;
-	else tex->texnum = i; // texnum is used for fast acess into gl_textures array too
+	tex->texnum = texnum;
 	tex->flags = flags;
+
+	// increase counter
+	gl_numTextures = Q_max(( tex - gl_textures ) + 1, gl_numTextures );
+	if( skyboxhack )
+		tr.skyboxbasenum++;
 
 	// add to hash table
 	tex->hashValue = COM_HashKey( name, TEXTURES_HASH_SIZE );
@@ -1439,7 +1416,7 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 	gl_texture_t	**prev;
 	gl_texture_t	*cur;
 
-	ASSERT( tex != NULL );
+	Assert( tex != NULL );
 
 	// already freed?
 	if( !tex->texnum ) return;
@@ -1447,7 +1424,7 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 	// debug
 	if( !tex->name[0] )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_DeleteTexture: trying to free unnamed texture with texnum %i\n", tex->texnum );
+		gEngfuncs.Con_Printf( S_ERROR "%s: trying to free unnamed texture with texnum %i\n", __func__, tex->texnum );
 		return;
 	}
 
@@ -1465,6 +1442,22 @@ static void GL_DeleteTexture( gl_texture_t *tex )
 			break;
 		}
 		prev = &cur->nextHash;
+	}
+
+	// invalidate texture units state cache
+	for( int i = 0; i < MAX_TEXTURE_UNITS; i++ )
+	{
+		if( glState.currentTextures[i] == tex->texnum )
+		{
+			if( glState.currentTextureTargets[i] != GL_NONE )
+			{
+				GL_SelectTexture( i );
+				pglDisable( glState.currentTextureTargets[i] );
+			}
+			glState.currentTextureTargets[i] = GL_NONE;
+			glState.currentTextures[i] = -1;
+			glState.currentTexturesIndex[i] = 0;
+		}
 	}
 
 	// release source
@@ -1570,6 +1563,8 @@ int GL_LoadTextureArray( const char **names, int flags )
 	uint		picFlags = 0;
 	char		name[256];
 	gl_texture_t	*tex;
+	size_t		len = 0;
+	int		ret = 0;
 	uint		i, j;
 
 	if( !names || !names[0] || !glw_state.initialized )
@@ -1583,14 +1578,22 @@ int GL_LoadTextureArray( const char **names, int flags )
 	if( numLayers <= 0 ) return 0;
 
 	// create complexname from layer names
-	for( i = 0; i < numLayers; i++ )
+	for( i = 0; i < numLayers - 1; i++ )
 	{
-		COM_FileBase( names[i], basename );
-		Q_strncat( name, basename, sizeof( name ) );
-		if( i != ( numLayers - 1 )) Q_strncat( name, "|", sizeof( name ));
+		COM_FileBase( names[i], basename, sizeof( basename ));
+		ret = Q_snprintf( &name[len], sizeof( name ) - len, "%s|", basename );
+
+		if( ret == -1 )
+			return 0;
+
+		len += ret;
 	}
 
-	Q_strncat( name, va( "[%i]", numLayers ), sizeof( name ));
+	COM_FileBase( names[i], basename, sizeof( basename ));
+	ret = Q_snprintf( &name[len], sizeof( name ) - len, "%s[%i]", basename, numLayers );
+
+	if( ret == -1 )
+		return 0;
 
 	if( !GL_CheckTexName( name ))
 		return 0;
@@ -1612,20 +1615,20 @@ int GL_LoadTextureArray( const char **names, int flags )
 			// mixed mode: DXT + RGB
 			if( pic->type != src->type )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch image format for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch image format for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 
 			// different mipcount
 			if( pic->numMips != src->numMips )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch mip count for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch mip count for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 
 			if( pic->encode != src->encode )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch custom encoding for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch custom encoding for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 
@@ -1635,18 +1638,18 @@ int GL_LoadTextureArray( const char **names, int flags )
 
 			if( pic->size != src->size )
 			{
-				gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: mismatch image size for %s and %s\n", names[0], names[i] );
+				gEngfuncs.Con_Printf( S_ERROR "%s: mismatch image size for %s and %s\n", __func__, names[0], names[i] );
 				break;
 			}
 		}
 		else
 		{
 			// create new image
-			pic = Mem_Malloc( gEngfuncs.Image_GetPool(), sizeof( rgbdata_t ));
+			pic = Mem_Malloc( r_temppool, sizeof( rgbdata_t ));
 			memcpy( pic, src, sizeof( rgbdata_t ));
 
 			// expand pic buffer for all layers
-			pic->buffer = Mem_Malloc( gEngfuncs.Image_GetPool(), pic->size * numLayers );
+			pic->buffer = Mem_Malloc( r_temppool, pic->size * numLayers );
 			pic->depth = 0;
 		}
 
@@ -1671,7 +1674,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 	// there were errors
 	if( !pic || ( pic->depth != numLayers ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_LoadTextureArray: not all layers were loaded. Texture array is not created\n" );
+		gEngfuncs.Con_Printf( S_ERROR "%s: not all layers were loaded. Texture array is not created\n", __func__ );
 		if( pic ) gEngfuncs.FS_FreeImage( pic );
 		return 0;
 	}
@@ -1720,7 +1723,7 @@ int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags
 	if( update )
 	{
 		if( tex == NULL )
-			gEngfuncs.Host_Error( "GL_LoadTextureFromBuffer: couldn't find texture %s for update\n", name );
+			gEngfuncs.Host_Error( "%s: couldn't find texture %s for update\n", __func__, name );
 		SetBits( tex->flags, flags );
 	}
 	else
@@ -1856,10 +1859,11 @@ int GL_FindTexture( const char *name )
 GL_FreeTexture
 ================
 */
-void GL_FreeTexture( GLenum texnum )
+void GL_FreeTexture( unsigned int texnum )
 {
 	// number 0 it's already freed
-	if( texnum <= 0 ) return;
+	if( texnum == 0 || texnum >= MAX_TEXTURES )
+		return;
 
 	GL_DeleteTexture( &gl_textures[texnum] );
 }
@@ -1890,19 +1894,19 @@ void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor )
 	}
 	else
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: bad operation for %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: bad operation for %s\n", __func__, image->name );
 		return;
 	}
 
 	if( !image->original )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: no input data for %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: no input data for %s\n", __func__, image->name );
 		return;
 	}
 
-	if( ImageDXT( image->original->type ))
+	if( ImageCompressed( image->original->type ))
 	{
-		gEngfuncs.Con_Printf( S_ERROR "GL_ProcessTexture: can't process compressed texture %s\n", image->name );
+		gEngfuncs.Con_Printf( S_ERROR "%s: can't process compressed texture %s\n", __func__, image->name );
 		return;
 	}
 
@@ -1981,19 +1985,20 @@ R_InitDlightTexture
 */
 void R_InitDlightTexture( void )
 {
-	rgbdata_t	r_image;
+	rgbdata_t r_image =
+	{
+		.width = BLOCK_SIZE,
+		.height = BLOCK_SIZE,
+		.type = PF_RGBA_32,
+		.flags = IMAGE_HAS_COLOR,
+		.size = r_image.width * r_image.height * 4
+	};
+	qboolean update = false;
 
 	if( tr.dlightTexture != 0 )
-		return; // already initialized
+		update = true;
 
-	memset( &r_image, 0, sizeof( r_image ));
-	r_image.width = BLOCK_SIZE;
-	r_image.height = BLOCK_SIZE;
-	r_image.flags = IMAGE_HAS_COLOR;
-	r_image.type = PF_RGBA_32;
-	r_image.size = r_image.width * r_image.height * 4;
-
-	tr.dlightTexture = GL_LoadTextureInternal( "*dlight", &r_image, TF_NOMIPMAP|TF_CLAMP|TF_ATLAS_PAGE );
+	tr.dlightTexture = GL_LoadTextureFromBuffer( "*dlight", &r_image, TF_NOMIPMAP|TF_CLAMP|TF_ATLAS_PAGE, update );
 }
 
 /*
@@ -2317,4 +2322,39 @@ void R_ShutdownImages( void )
 	memset( gl_texturesHashTable, 0, sizeof( gl_texturesHashTable ));
 	memset( gl_textures, 0, sizeof( gl_textures ));
 	gl_numTextures = 0;
+}
+
+void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath )
+{
+	if( host_allow_materials->value != 2.0f )
+		return;
+
+	if( gl_texturenum > 0 )
+		gEngfuncs.Con_Printf( "Looking for %s tex replacement..." S_GREEN "OK (%s)\n", modelname, foundpath );
+	else if( gl_texturenum < 0 )
+		gEngfuncs.Con_Printf( "Looking for %s tex replacement..." S_YELLOW "MISS (%s)\n", modelname, foundpath );
+	else
+		gEngfuncs.Con_Printf( "Looking for %s tex replacement..." S_RED "FAIL (%s)\n", modelname, foundpath );
+}
+
+qboolean R_SearchForTextureReplacement( char *out, size_t size, const char *modelname, const char *fmt, ... )
+{
+	va_list ap;
+	int ret;
+
+	va_start( ap, fmt );
+	ret = Q_vsnprintf( out,	size, fmt, ap );
+	va_end( ap );
+
+	if( ret < 0 )
+	{
+		R_TextureReplacementReport( modelname, -1, "overflow" );
+		return false;
+	}
+
+	if( gEngfuncs.fsapi->FileExists( out, false ))
+		return true;
+
+	R_TextureReplacementReport( modelname, -1, out );
+	return false;
 }

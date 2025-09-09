@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#include "client.h"
 #include "sound.h"
 
 // during registration it is possible to have more sounds
@@ -28,7 +29,6 @@ static sfx_t	s_knownSfx[MAX_SFX];
 static sfx_t	*s_sfxHashList[MAX_SFX_HASH];
 static string	s_sentenceImmediateName;	// keep dummy sentence name
 qboolean		s_registering = false;
-int		s_registration_sequence = 0;
 
 /*
 =================
@@ -52,9 +52,12 @@ void S_SoundList_f( void )
 		{
 			totalSize += sc->size;
 
-			if( sc->loopStart >= 0 ) Con_Printf( "L" );
-			else Con_Printf( " " );
-			if( sfx->name[0] == '*' )
+			if( FBitSet( sc->flags, SOUND_LOOPED ))
+				Con_Printf( "L" );
+			else
+				Con_Printf( " " );
+
+			if( sfx->name[0] == '*' || !Q_strncmp( sfx->name, DEFAULT_SOUNDPATH, sizeof( DEFAULT_SOUNDPATH ) - 1 ))
 				Con_Printf( " (%2db) %s : %s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
 			else Con_Printf( " (%2db) %s : " DEFAULT_SOUNDPATH "%s\n", sc->width * 8, Q_memprint( sc->size ), sfx->name );
 			totalSfx++;
@@ -104,17 +107,18 @@ S_CreateDefaultSound
 */
 static wavdata_t *S_CreateDefaultSound( void )
 {
-	wavdata_t	*sc;
+	wavdata_t *sc;
+	uint samples = SOUND_DMA_SPEED;
+	uint channels = 1;
+	uint width = 2;
+	size_t size = samples * width * channels;
 
-	sc = Mem_Calloc( sndpool, sizeof( wavdata_t ));
-
-	sc->width = 2;
-	sc->channels = 1;
-	sc->loopStart = -1;
+	sc = Mem_Calloc( sndpool, sizeof( wavdata_t ) + size );
+	sc->width = width;
+	sc->channels = channels;
 	sc->rate = SOUND_DMA_SPEED;
-	sc->samples = SOUND_DMA_SPEED;
-	sc->size = sc->samples * sc->width * sc->channels;
-	sc->buffer = Mem_Calloc( sndpool, sc->size );
+	sc->samples = samples;
+	sc->size = size;
 
 	return sc;
 }
@@ -141,8 +145,8 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( Q_stricmp( sfx->name, "*default" ))
 	{
 		// load it from disk
-		if( s_warn_late_precache.value > 0 && CL_Active() )
-			Con_Printf( S_WARN "S_LoadSound: late precache of %s\n", sfx->name );
+		if( s_warn_late_precache.value > 0 && cls.state == ca_active )
+			Con_Printf( S_WARN "%s: late precache of %s\n", __func__, sfx->name );
 
 		if( sfx->name[0] == '*' )
 			sc = FS_LoadSound( sfx->name + 1, NULL, 0 );
@@ -152,11 +156,11 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( !sc ) sc = S_CreateDefaultSound();
 
 	if( sc->rate < SOUND_11k ) // some bad sounds
-		Sound_Process( &sc, SOUND_11k, sc->width, SOUND_RESAMPLE );
+		Sound_Process( &sc, SOUND_11k, sc->width, sc->channels, SOUND_RESAMPLE );
 	else if( sc->rate > SOUND_11k && sc->rate < SOUND_22k ) // some bad sounds
-		Sound_Process( &sc, SOUND_22k, sc->width, SOUND_RESAMPLE );
-	else if( sc->rate > SOUND_22k && sc->rate <= SOUND_32k ) // some bad sounds
-		Sound_Process( &sc, SOUND_44k, sc->width, SOUND_RESAMPLE );
+		Sound_Process( &sc, SOUND_22k, sc->width, sc->channels, SOUND_RESAMPLE );
+	else if( sc->rate > SOUND_22k && sc->rate != SOUND_44k ) // some bad sounds
+		Sound_Process( &sc, SOUND_44k, sc->width, sc->channels, SOUND_RESAMPLE );
 
 	sfx->cache = sc;
 
@@ -199,7 +203,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 				*pfInCache = ( sfx->cache != NULL ) ? true : false;
 			}
 			// prolonge registration
-			sfx->servercount = s_registration_sequence;
+			sfx->servercount = cl.servercount;
 			return sfx;
 		}
 	}
@@ -218,8 +222,8 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 	sfx = &s_knownSfx[i];
 	memset( sfx, 0, sizeof( *sfx ));
 	if( pfInCache ) *pfInCache = false;
-	Q_strncpy( sfx->name, name, MAX_STRING );
-	sfx->servercount = s_registration_sequence;
+	Q_strncpy( sfx->name, name, sizeof( sfx->name ));
+	sfx->servercount = cl.servercount;
 	sfx->hashValue = COM_HashKey( sfx->name, MAX_SFX_HASH );
 
 	// link it in
@@ -273,7 +277,6 @@ void S_BeginRegistration( void )
 {
 	int	i;
 
-	s_registration_sequence++;
 	snd_ambient = false;
 
 	// check for automatic ambient sounds
@@ -309,7 +312,7 @@ void S_EndRegistration( void )
 		if( !sfx->name[0] || !Q_stricmp( sfx->name, "*default" ))
 			continue; // don't release default sound
 
-		if( sfx->servercount != s_registration_sequence )
+		if( sfx->servercount != cl.servercount )
 			S_FreeSound( sfx ); // don't need this sound
 	}
 
@@ -349,7 +352,7 @@ sound_t S_RegisterSound( const char *name )
 	sfx = S_FindName( name, NULL );
 	if( !sfx ) return -1;
 
-	sfx->servercount = s_registration_sequence;
+	sfx->servercount = cl.servercount;
 	if( !s_registering ) S_LoadSound( sfx );
 
 	return sfx - s_knownSfx;
@@ -378,7 +381,7 @@ S_InitSounds
 void S_InitSounds( void )
 {
 	// create unused 0-entry
-	Q_strncpy( s_knownSfx->name, "*default", MAX_QPATH );
+	Q_strncpy( s_knownSfx->name, "*default", sizeof( s_knownSfx->name ));
 	s_knownSfx->hashValue = COM_HashKey( s_knownSfx->name, MAX_SFX_HASH );
 	s_knownSfx->hashNext = s_sfxHashList[s_knownSfx->hashValue];
 	s_sfxHashList[s_knownSfx->hashValue] = s_knownSfx;

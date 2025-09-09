@@ -170,9 +170,9 @@ typedef struct  vguiapi_s
 	void	(*SetupDrawingImage)( int *pColor );
 	void	(*BindTexture)( int id );
 	void	(*EnableTexture)( qboolean enable );
-	void	(*CreateTexture)( int id, int width, int height );
+	void	(*Reserved0)( int id, int width, int height );
 	void	(*UploadTexture)( int id, const char *buffer, int width, int height );
-	void	(*UploadTextureBlock)( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
+	void	(*Reserved1)( int id, int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
 	void	(*DrawQuad)( const vpoint_t *ul, const vpoint_t *lr );
 	void	(*GetTextureSizes)( int *width, int *height );
 	int		(*GenerateTexture)( void );
@@ -180,7 +180,7 @@ typedef struct  vguiapi_s
 	void	(*CursorSelect)( VGUI_DefaultCursor cursor );
 	byte		(*GetColor)( int i, int j );
 	qboolean	(*IsInGame)( void );
-	void	(*Unused)( void );
+	void	(*EnableTextInput)( qboolean enable, qboolean force );
 	void	(*GetCursorPos)( int *x, int *y );
 	int		(*ProcessUtfChar)( int ch );
 	int		(*GetClipboardText)( char *buffer, size_t bufferSize );

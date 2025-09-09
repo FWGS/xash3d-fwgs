@@ -1,0 +1,19 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# a1batross, mittorn, 2018
+
+def options(opt):
+	pass
+
+def configure(conf):
+	pass
+
+def build(bld):
+	bld.program(source   = bld.path.ant_glob('*.c'),
+		target   = 'xar',
+		includes = '.',
+		use      = 'public filesystem_includes werror',
+		rpath = bld.env.DEFAULT_RPATH,
+		install_path = bld.env.BINDIR,
+		subsystem = bld.env.CONSOLE_SUBSYSTEM
+	)

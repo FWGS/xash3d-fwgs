@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+	<Preference
+		app:key="game_path"
+		app:layout="@layout/edit_text_preference"
+		app:title="@string/game_data_location"
+		android:summary="/storage/emulated/0/xash" />
+
+	<SwitchPreferenceCompat
+		app:key="use_icons"
+		app:layout="@layout/switch_preference"
+		app:title="@string/preferences_use_icons" />
+</PreferenceScreen>

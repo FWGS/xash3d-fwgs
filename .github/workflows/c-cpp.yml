@@ -13,60 +13,135 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-18.04
+          # Linux build specifically want oldest Ubuntu as possible
+          # to be crossdistribution compatible, otherwise use ubuntu-latest
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: amd64
-          - os: ubuntu-18.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: i386
-#          - os: ubuntu-aarch64-20.04
+          - os: ubuntu-22.04
+            targetos: linux
+            targetarch: arm64
+            cross: true
+          - os: ubuntu-22.04
+            targetos: linux
+            targetarch: armhf
+            cross: true
+          - os: ubuntu-24.04 # riscv64 would benefit from having latest compilers
+            targetos: linux
+            targetarch: riscv64
+            cross: true
+          - os: ubuntu-22.04
+            targetos: linux
+            targetarch: ppc64el
+            cross: true
+#          - os: ubuntu-aarch64-22.04
 #            targetos: linux
 #            targetarch: aarch64
-
-          - os: ubuntu-18.04
+#          - os: ubuntu-latest
+#            targetos: linux
+#            targetarch: e2k-8c
+#            cross: true
+          - os: ubuntu-latest
             targetos: android
-            targetarch: 32
-          - os: ubuntu-18.04
-            targetos: android
-            targetarch: 64
+            targetarch: multiarch
+#          - os: ubuntu-22.04
+#            targetos: motomagx
+#            targetarch: armv6
 
-          - os: ubuntu-18.04
-            targetos: motomagx
-            targetarch: armv6
-
+          - os: ubuntu-latest
+            targetos: nswitch
+            targetarch: arm64
+          - os: ubuntu-latest
+            targetos: psvita
+            targetarch: armv7hf
           - os: windows-latest
             targetos: win32
             targetarch: amd64
-          - os: windows-latest
+          - os: windows-2022 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
             targetos: win32
             targetarch: i386
+          - os: macos-14 # arm64 as per github documentation
+            targetos: apple
+            targetarch: arm64
+          - os: macos-13 # x86 as per github documentation (will they fix it before they deprecate this version?..)
+            targetos: apple
+            targetarch: amd64
     env:
-      SDL_VERSION: 2.0.14
+      SDL_VERSION: 2.32.8
+      FFMPEG_VERSION: 7.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      ANDROID_SDK_TOOLS_VER: 4333796
-      UPLOADTOOL_ISPRERELEASE: true
+      GH_CPU_OS: ${{ matrix.targetos }}
+      GH_CROSSCOMPILING: ${{ matrix.cross }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         submodules: recursive
-    - name: Checkout xash-extras
-      uses: actions/checkout@v2
-      with:
-        repository: FWGS/xash-extras
-        path: xash-extras
-
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
-
     - name: Build engine
+      env:
+        FWGS_PFX_PASSWORD: ${{ secrets.FWGS_PFX_PASSWORD }}
       run: bash scripts/gha/build_${{ matrix.targetos }}.sh
-
-    - name: Upload engine (prereleases)
-      run: bash scripts/continious_upload.sh artifacts/*
     - name: Upload engine (artifacts)
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
         path: artifacts/*
+  flatpak:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        include:
+          - app: su.xash.Engine.Compat.i386
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      options: --privileged
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Build flatpak (Compat.i386)
+      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.5
+      with:
+        bundle: ${{ matrix.app }}.flatpak
+        manifest-path: scripts/flatpak/${{ matrix.app }}.yml
+  release:
+    name: "Upload releases"
+    runs-on: ubuntu-latest
+    needs: [build, flatpak]
+    if: ${{ github.event_name == 'push' }}
+    steps:
+    - name: Remove old release, fetch artifacts, repackage binaries and upload new release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_TAG: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
+      run: |
+        gh release delete "$RELEASE_TAG" \
+          --yes \
+          --cleanup-tag \
+          --repo "$GITHUB_REPOSITORY" || true
+        gh run download "$GITHUB_RUN_ID" \
+          --dir artifacts/ \
+          --repo "$GITHUB_REPOSITORY"
+        pushd artifacts/
+        echo "Found artifacts:"
+        ls
+        for i in $(find -mindepth 1 -maxdepth 1 -type d); do
+          mv "$i"/* .
+          rm -rf "$i"
+        done
+        echo "Repackaged artifacts:"
+        ls -R
+        popd
+        sleep 20s
+        gh release create "$RELEASE_TAG" artifacts/* \
+          --title "Xash3D FWGS Continuous ${{ github.ref_name }} Build" \
+          --target $GITHUB_SHA \
+          --repo "$GITHUB_REPOSITORY" \
+          --prerelease

@@ -1,38 +1,39 @@
 #!/bin/bash
 
-echo "Download HLSDK"
-
 cd $GITHUB_WORKSPACE
-git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-xash3d -b mobile_hacks hlsdk || exit 1
 
-echo "Download and unpack Android SDK"
+ANDROID_COMMANDLINE_TOOLS_VER="13114758"
+ANDROID_BUILD_TOOLS_VER="36.0.0"
+ANDROID_PLATFORM_VER="android-35"
+ANDROID_NDK_VERSION="28.2.13676358"
+
+echo "Download JDK 17"
+wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.15%2B6/OpenJDK17U-jdk_x64_linux_hotspot_17.0.15_6.tar.gz -qO- | tar -xzf - || exit 1
+export JAVA_HOME=$GITHUB_WORKSPACE/jdk-17.0.15+6
+export PATH=$PATH:$JAVA_HOME/bin
+
+echo "Download hlsdk-portable"
+git clone --depth 1 --recursive https://github.com/FWGS/hlsdk-portable -b mobile_hacks 3rdparty/hlsdk-portable || exit 1
+
+echo "Download SDL"
+pushd 3rdparty
+wget https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz -qO- | tar -xzf - || exit 1
+mv SDL2-$SDL_VERSION SDL
+popd
+
+echo "Download Android SDK"
 mkdir -p sdk || exit 1
 pushd sdk
-wget https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip -qO sdk.zip > /dev/null || exit 1
+wget https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_COMMANDLINE_TOOLS_VER}_latest.zip -qO sdk.zip || exit 1
 unzip -q sdk.zip || exit 1
+mv cmdline-tools tools
+mkdir -p cmdline-tools
+mv tools cmdline-tools/tools
+unset ANDROID_SDK_ROOT
+export ANDROID_HOME=$GITHUB_WORKSPACE/sdk
+export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin
 popd
 
-echo "Download all needed tools and NDK"
-yes | sdk/tools/bin/sdkmanager --licenses > /dev/null 2>/dev/null # who even reads licenses? :)
-sdk/tools/bin/sdkmanager --install build-tools\;29.0.1 platform-tools platforms\;android-29 > /dev/null 2>/dev/null
-wget https://dl.google.com/android/repository/android-ndk-r25-linux.zip -qO ndk.zip > /dev/null || exit 1
-unzip -q ndk.zip || exit 1
-mv android-ndk-r25 sdk/ndk-bundle || exit 1
-
-echo "Download Xash3D FWGS Android source"
-git clone --depth 1 https://github.com/FWGS/xash3d-android-project -b waf android || exit 1
-pushd android
-
-mv xash3d-fwgs xash3d-fwgs-sub
-ln -s $GITHUB_WORKSPACE xash3d-fwgs
-echo "Installed Xash3D FWGS source symlink"
-
-mv hlsdk-xash3d hlsdk-xash3d-sub
-ln -s $GITHUB_WORKSPACE/hlsdk hlsdk-xash3d
-echo "Installed HLSDK source symlink"
-
-mv xash-extras xash-extras-sub
-ln -s $GITHUB_WORKSPACE/xash-extras xash-extras
-echo "Installed xash-extras symlink"
-
-popd
+echo "Download all needed tools and Android NDK"
+yes | sdkmanager --licenses > /dev/null 2>/dev/null # who even reads licenses? :)
+sdkmanager --install build-tools\;${ANDROID_BUILD_TOOLS_VER} platform-tools platforms\;${ANDROID_PLATFORM_VER} ndk\;${ANDROID_NDK_VERSION}

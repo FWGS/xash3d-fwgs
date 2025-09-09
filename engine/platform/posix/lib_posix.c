@@ -12,16 +12,19 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include "platform/platform.h"
 #if XASH_LIB == LIB_POSIX
-#include <dlfcn.h>
+#ifdef XASH_IRIX
+#include "platform/irix/dladdr.h"
+#endif
 #include "common.h"
 #include "library.h"
 #include "filesystem.h"
 #include "server.h"
 #include "platform/android/lib_android.h"
-#include "platform/emscripten/lib_em.h"
 #include "platform/apple/lib_ios.h"
 
 #ifdef XASH_DLL_LOADER // wine-based dll loader
@@ -41,19 +44,19 @@ const char * Loader_GetFuncName_int( void *wm , void *func);
 
 void *dlsym(void *handle, const char *symbol )
 {
-	Con_DPrintf( "dlsym( %p, \"%s\" ): stub\n", handle, symbol );
+	Con_DPrintf( "%s( %p, \"%s\" ): stub\n", __func__, handle, symbol );
 	return NULL;
 }
 
 void *dlopen(const char *name, int flag )
 {
-	Con_DPrintf( "dlopen( \"%s\", %d ): stub\n", name, flag );
+	Con_DPrintf( "%s( \"%s\", %d ): stub\n", __func__, name, flag );
 	return NULL;
 }
 
 int dlclose(void *handle)
 {
-	Con_DPrintf( "dlsym( %p ): stub\n", handle );
+	Con_DPrintf( "%s( %p ): stub\n", __func__, handle );
 	return 0;
 }
 
@@ -78,6 +81,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 {
 	dll_user_t *hInst = NULL;
 	void *pHandle = NULL;
+	char buf[MAX_VA_STRING];
 
 	COM_ResetLibraryError();
 
@@ -106,7 +110,8 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 			if( pHandle )
 				return pHandle;
 
-			COM_PushLibraryError( va( "Failed to find library %s", dllname ));
+			Q_snprintf( buf, sizeof( buf ), "Failed to find library %s", dllname );
+			COM_PushLibraryError( buf );
 			COM_PushLibraryError( dlerror() );
 			return NULL;
 		}
@@ -114,7 +119,8 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 	if( hInst->custom_loader )
 	{
-		COM_PushLibraryError( va( "Custom library loader is not available. Extract library %s and fix gameinfo.txt!", hInst->fullPath ));
+		Q_snprintf( buf, sizeof( buf ), "Custom library loader is not available. Extract library %s and fix gameinfo.txt!", hInst->fullPath );
+		COM_PushLibraryError( buf );
 		Mem_Free( hInst );
 		return NULL;
 	}
@@ -124,14 +130,16 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	{
 		if( hInst->encrypted )
 		{
-			COM_PushLibraryError( va( "Library %s is encrypted. Cannot load", hInst->shortPath ) );
+			Q_snprintf( buf, sizeof( buf ), "Library %s is encrypted. Cannot load", hInst->shortPath );
+			COM_PushLibraryError( buf );
 			Mem_Free( hInst );
 			return NULL;
 		}
 
 		if( !( hInst->hInstance = Loader_LoadLibrary( hInst->fullPath ) ) )
 		{
-			COM_PushLibraryError( va( "Failed to load DLL with DLL loader: %s", hInst->shortPath ) );
+			Q_snprintf( buf, sizeof( buf ), "Failed to load DLL with DLL loader: %s", hInst->shortPath );
+			COM_PushLibraryError( buf );
 			Mem_Free( hInst );
 			return NULL;
 		}
@@ -191,24 +199,6 @@ void *COM_FunctionFromName( void *hInstance, const char *pName )
 	return COM_GetProcAddress( hInstance, pName );
 }
 
-#ifdef XASH_DYNAMIC_DLADDR
-static int d_dladdr( void *sym, Dl_info *info )
-{
-	static int (*dladdr_real) ( void *sym, Dl_info *info );
-
-	if( !dladdr_real )
-		dladdr_real = dlsym( (void*)(size_t)(-1), "dladdr" );
-
-	memset( info, 0, sizeof( *info ) );
-
-	if( !dladdr_real )
-		return -1;
-
-	return dladdr_real(  sym, info );
-}
-#define dladdr d_dladdr
-#endif
-
 const char *COM_NameForFunction( void *hInstance, void *function )
 {
 #ifdef XASH_DLL_LOADER
@@ -221,8 +211,8 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 	// NOTE: dladdr() is a glibc extension
 	{
 		Dl_info info = {0};
-		dladdr( (void*)function, &info );
-		if( info.dli_sname )
+		int ret = dladdr( (void*)function, &info );
+		if( ret && info.dli_sname )
 			return COM_GetPlatformNeutralName( info.dli_sname );
 	}
 #ifdef XASH_ALLOW_SAVERESTORE_OFFSETS

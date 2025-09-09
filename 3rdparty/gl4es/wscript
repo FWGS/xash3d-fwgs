@@ -13,12 +13,12 @@ def configure(conf):
 
 def build(bld):
 	gl4es_srcdir = bld.path.find_node('gl4es/src')
-
+	cflags = []
+	if bld.env.COMPILER_CC != 'msvc':
+		cflags += ['-w', '-fvisibility=hidden', '-std=gnu99']
 	bld.stlib(source   = gl4es_srcdir.ant_glob(['gl/*.c', 'gl/*/*.c', 'glx/hardext.c']),
 		target   = 'gl4es',
-		features = 'c',
 		includes = ['gl4es/src', 'gl4es/src/gl', 'gl4es/src/glx', 'gl4es/include'],
-		defines  = ['NOX11', 'NO_GBM', 'NO_INIT_CONSTRUCTOR', 'DEFAULT_ES=2', 'NOEGL', 'EXTERNAL_GETPROCADDRESS=GL4ES_GetProcAddress', 'NO_LOADER', 'STATICLIB'],
-		cflags   = ['-w', '-fvisibility=hidden', '-std=gnu99'],
-		subsystem = bld.env.MSVC_SUBSYSTEM,
+		defines  = ['NOX11', 'NO_GBM', 'NO_INIT_CONSTRUCTOR', 'DEFAULT_ES=2', 'NOEGL', 'NO_LOADER', 'STATICLIB'],
+		cflags   = cflags,
 		export_includes = '.')

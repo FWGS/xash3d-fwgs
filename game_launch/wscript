@@ -12,29 +12,28 @@ def options(opt):
 	grp = opt.add_option_group('Game launcher options')
 
 	grp.add_option('--disable-menu-changegame', action = 'store_true', dest = 'DISABLE_MENU_CHANGEGAME', default = False,
-		help = 'disable changing the game from the menu [default: %default]')
+		help = 'disable changing the game from the menu [default: %(default)s]')
 
 def configure(conf):
 	if conf.env.DEST_OS == 'win32':
 		conf.load('winres')
 
-	conf.define_cond('XASH_DISABLE_MENU_CHANGEGAME', conf.options.DISABLE_MENU_CHANGEGAME)
+	conf.define('XASH_DISABLE_MENU_CHANGEGAME', conf.options.DISABLE_MENU_CHANGEGAME)
 
 def build(bld):
-	libs = ['sdk_includes']
 	source = ['game.cpp']
 
-	if bld.env.DEST_OS != 'win32':
-		libs += [ 'DL' ]
-	else:
-		libs += ['USER32', 'SHELL32']
+	if bld.env.DEST_OS == 'win32':
 		source += ['game.rc']
 
-	bld(source = source,
+	# Half-Life 25th anniversary update doesn't have server library explicitly linked to libm
+	if bld.env.DEST_OS == 'linux':
+		bld.env.LDFLAGS += ['-Wl,--no-as-needed', '-lm']
+
+	bld.program(source = source,
 		target   = 'xash3d', # hl.exe
-		features = 'c cxx cxxprogram',
-		use      = libs,
-		rpath    = '$ORIGIN',
+		use      = 'sdk_includes DL USER32 SHELL32 werror',
+		rpath    = bld.env.DEFAULT_RPATH,
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)

@@ -11,52 +11,55 @@ def options(opt):
 	grp = opt.add_option_group('ref_gl options')
 
 	grp.add_option('--enable-static-gl', action='store_true', dest='GL_STATIC', default=False,
-		help = 'enable direct linking to opengl [default: %default]')
+		help = 'enable direct linking to opengl [default: %(default)s]')
 
 	# stub
 	return
 
 def configure(conf):
-	# check for dedicated server build
-	if conf.options.DEDICATED:
-		return
-
-	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
-
 	conf.env.GL_STATIC = conf.options.GL_STATIC
 	if conf.env.GL_STATIC:
 		conf.check(lib='GL')
 
-	conf.define('REF_DLL', 1)
 	if conf.env.DEST_OS2 == 'android':
 		conf.check_cc(lib='log')
 
 def build(bld):
-	libs = [ 'engine_includes', 'public', 'M' ]
+	libs = [ 'engine_includes', 'werror' ]
+	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
+	if bld.env.DEST_OS == 'psvita':
+		libs += [ 'sdk_includes', 'vgl_shim' ]
+	else:
+		libs += [ 'public', 'M' ]
 
-	source = bld.path.ant_glob(['*.c'])
+	source = bld.path.ant_glob(['*.c', 'gl2_shim/*.c'])
 	includes = '.'
 
 	targets = {
 		'ref_gl': {
 			'enable':  bld.env.GL,
 			'libs':    ['GL'] if bld.env.GL_STATIC else [],
-			'defines': ['XASH_GL_STATIC'] if bld.env.GL_STATIC else [],
+			'defines': ['XASH_GL_STATIC=1'] if bld.env.GL_STATIC else [],
 		},
 		'ref_gles1': {
 			'enable':  bld.env.NANOGL,
-			'libs':    ['DL', 'nanogl'],
-			'defines': ['XASH_NANOGL'],
+			'libs':    ['DL', 'nanogl', 'LOG'],
+			'defines': ['XASH_NANOGL=1'],
 		},
 		'ref_gles2': {
 			'enable':  bld.env.GLWES,
-			'libs':    ['DL', 'gl-wes-v2'],
-			'defines': ['XASH_WES'],
+			'libs':    ['DL', 'gl-wes-v2', 'LOG'],
+			'defines': ['XASH_WES=1'],
 		},
 		'ref_gl4es': {
 			'enable':  bld.env.GL4ES,
 			'libs':    ['DL', 'gl4es', 'LOG'],
-			'defines': ['XASH_GL_STATIC', 'XASH_GL4ES'],
+			'defines': ['XASH_GL_STATIC=1', 'XASH_GL4ES=1'],
+		},
+		'ref_gles3compat': {
+			'enable':  bld.env.GLES3COMPAT,
+			'libs':    [],
+			'defines': ['XASH_GLES3COMPAT=1'],
 		},
 	}
 
@@ -66,9 +69,7 @@ def build(bld):
 
 		bld.shlib(source = source,
 			target = k,
-			features = 'c',
 			includes = includes,
 			use = libs + v['libs'],
-			defines = v['defines'],
-			install_path = bld.env.LIBDIR,
-			subsystem = bld.env.MSVC_SUBSYSTEM)
+			defines = v['defines'] + ['REF_DLL=1'],
+			install_path = bld.env.LIBDIR)

@@ -27,6 +27,11 @@ GNU General Public License for more details.
 #include <string.h>
 #include <stdlib.h>
 
+void Platform_Minimize_f( void )
+{
+	// stub
+}
+
 /*
 ========================
 Android_SwapBuffers
@@ -47,8 +52,6 @@ static void DOS_GetScreenRes( int *x, int *y )
 qboolean  R_Init_Video( const int type )
 {
 	qboolean retval;
-
-	VID_StartupGamma();
 
 	if( type != REF_SOFTWARE )
 		return false; /// glide???
@@ -76,12 +79,12 @@ void R_Free_Video( void )
 
 qboolean VID_SetMode( void )
 {
-	R_ChangeDisplaySettings( 0, 0, false ); // width and height are ignored anyway
+	R_ChangeDisplaySettings( 0, 0, WINDOW_MODE_FULLSCREEN ); // width and height are ignored anyway
 
 	return true;
 }
 
-rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
+rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	int render_w, render_h;
 	uint rotate = vid_rotate->value;
@@ -91,7 +94,7 @@ rserr_t   R_ChangeDisplaySettings( int width, int height, qboolean fullscreen )
 	render_w = width;
 	render_h = height;
 
-	Con_Reportf( "R_ChangeDisplaySettings: forced resolution to %dx%d)\n", width, height );
+	Con_Reportf( "%s: forced resolution to %dx%d)\n", __func__, width, height );
 
 	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale->value, vid_scale->value ) )
 	{
@@ -144,17 +147,10 @@ static qboolean vsync;
 
 void GL_UpdateSwapInterval( void )
 {
-	// disable VSync while level is loading
-	if( cls.state < ca_active )
+	if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
-		// setup vsync here
-		vsync = false;
-		SetBits( gl_vsync->flags, FCVAR_CHANGED );
-	}
-	else if( FBitSet( gl_vsync->flags, FCVAR_CHANGED ))
-	{
-		ClearBits( gl_vsync->flags, FCVAR_CHANGED );
-		vsync = true;
+		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
+		vsync = gl_vsync.value;
 	}
 }
 
@@ -545,6 +541,11 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	}
 
 	return true;
+}
+
+ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
+{
+	return REF_WINDOW_TYPE_NULL;
 }
 
 #endif

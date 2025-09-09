@@ -189,7 +189,7 @@ Searches the string for the given
 key and returns the associated value, or an empty string.
 ===============
 */
-const char *Info_ValueForKey( const char *s, const char *key )
+const char *GAME_EXPORT Info_ValueForKey( const char *s, const char *key )
 {
 	char	pkey[MAX_KV_SIZE];
 	static	char value[4][MAX_KV_SIZE]; // use two buffers so compares work without stomping on each other
@@ -277,7 +277,9 @@ qboolean GAME_EXPORT Info_RemoveKey( char *s, const char *key )
 
 		if( !Q_strncmp( key, pkey, cmpsize ))
 		{
-			Q_strcpy( start, s ); // remove this part
+			size_t size = Q_strlen( s ) + 1;
+
+			memmove( start, s, size ); // remove this part
 			return true;
 		}
 
@@ -331,7 +333,7 @@ void Info_RemovePrefixedKeys( char *start, char prefix )
 	}
 }
 
-qboolean Info_IsKeyImportant( const char *key )
+static qboolean Info_IsKeyImportant( const char *key )
 {
 	if( key[0] == '*' )
 		return true;
@@ -356,7 +358,7 @@ qboolean Info_IsKeyImportant( const char *key )
 	return false;
 }
 
-char *Info_FindLargestKey( char *s )
+static char *Info_FindLargestKey( char *s )
 {
 	char	key[MAX_KV_SIZE];
 	char	value[MAX_KV_SIZE];
@@ -496,3 +498,16 @@ qboolean Info_SetValueForKey( char *s, const char *key, const char *value, int m
 
 	return Info_SetValueForStarKey( s, key, value, maxsize );
 }
+
+qboolean Info_SetValueForKeyf( char *s, const char *key, int maxsize, const char *format, ... )
+{
+	char value[MAX_VA_STRING];
+	va_list args;
+
+	va_start( args, format );
+	Q_vsnprintf( value, sizeof( value ), format, args );
+	va_end( args );
+
+	return Info_SetValueForKey( s, key, value, maxsize );
+}
+

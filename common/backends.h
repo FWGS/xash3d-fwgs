@@ -18,27 +18,17 @@ GNU General Public License for more details.
 // video backends (XASH_VIDEO)
 #define VIDEO_NULL    0
 #define VIDEO_SDL     1
-#define VIDEO_ANDROID 2
 #define VIDEO_FBDEV   3
 #define VIDEO_DOS     4
-
 
 // audio backends (XASH_SOUND)
 #define SOUND_NULL     0
 #define SOUND_SDL      1
-#define SOUND_OPENSLES 2
 #define SOUND_ALSA     3
-
-// crash handler (XASH_CRASHHANDLER)
-#define CRASHHANDLER_NULL     0
-#define CRASHHANDLER_UCONTEXT 1
-#define CRASHHANDLER_DBGHELP  2
-#define CRASHHANDLER_WIN32    3
 
 // input (XASH_INPUT)
 #define INPUT_NULL    0
 #define INPUT_SDL     1
-#define INPUT_ANDROID 2
 #define INPUT_EVDEV   3
 
 // timer (XASH_TIMER)
@@ -51,9 +41,8 @@ GNU General Public License for more details.
 // messageboxes (XASH_MESSAGEBOX)
 #define MSGBOX_STDERR  0
 #define MSGBOX_SDL     1
-#define MSGBOX_ANDROID 2
 #define MSGBOX_WIN32   3
-
+#define MSGBOX_NSWITCH 4
 
 // library loading (XASH_LIB)
 #define LIB_NULL 0
@@ -61,5 +50,8 @@ GNU General Public License for more details.
 #define LIB_WIN32 2
 #define LIB_STATIC 3
 
+// movies (XASH_AVI)
+#define AVI_NULL   0
+#define AVI_FFMPEG 1
 
 #endif /* BACKENDS_H */

@@ -1,0 +1,31 @@
+image: debian/sid
+arch: amd64
+packages:
+- build-essential
+- python-is-python3
+- libsdl2-dev
+- libfreetype-dev
+- libfontconfig-dev
+- libopus-dev
+- libbz2-dev
+sources:
+- https://git.sr.ht/~a1batross/xash3d-fwgs
+tasks:
+- client: |
+    cd xash3d-fwgs
+    ./waf configure -8 --enable-tests --enable-engine-tests build install --destdir=bin
+- server: |
+    cd xash3d-fwgs
+    ./waf configure --reconfigure --dedicated build install --destdir=bin
+- run-tests: |
+    cd xash3d-fwgs/bin
+    export SDL_VIDEODRIVER=wayland
+    ./xash3d -runtests
+    ./xash -runtests
+    rm -rf valve/gameinfo.txt test_*
+- package: |
+    cd xash3d-fwgs/bin
+    tar -cjvf xash3d-fwgs-debian-arm64.tar.bz2 *
+artifacts:
+- xash3d-fwgs/bin/xash3d-fwgs-debian-arm64.tar.bz2
+

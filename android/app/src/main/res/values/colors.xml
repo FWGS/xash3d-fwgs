@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<color name="valve_red">#F74843</color>
+	<color name="hl_orange">#FB7E14</color>
+	<color name="black">#000000</color>
+	<color name="hl_dark_grey">#151515</color>
+	<color name="hl_grey">#292929</color>
+</resources>
+

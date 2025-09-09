@@ -1,0 +1,9 @@
+#!/usr/sgug/bin/bash
+
+# Build path
+export LD_LIBRARYN32_PATH=$PWD/filesystem:$LD_LIBRARYN32_PATH
+
+# Install path
+export LD_LIBRARYN32_PATH=$PWD:$LD_LIBRARYN32_PATH
+
+exec $PWD/build/engine/xash

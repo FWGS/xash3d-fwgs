@@ -19,44 +19,43 @@ GNU General Public License for more details.
 #include "platform/android/lib_android.h"
 #include "platform/android/dlsym-weak.h" // Android < 5.0
 
-void *ANDROID_LoadLibrary( const char *dllname )
+void *ANDROID_LoadLibrary( const char *path )
 {
-	char path[MAX_SYSPATH];
-	const char *libdir[2];
-	int i;
-	void *pHandle = NULL;
+	const char *libdir[2], *name = COM_FileWithoutPath( path );
+	char fullpath[MAX_SYSPATH];
+	void *handle;
 
-	libdir[0] = getenv("XASH3D_GAMELIBDIR");
-	libdir[1] = getenv("XASH3D_ENGLIBDIR");
+	libdir[0] = getenv( "XASH3D_GAMELIBDIR" ); // TODO: remove this once distributing games from APKs will be deprecated
+	libdir[1] = NULL; // TODO: put here data directory where libraries will be downloaded to
 
-	for( i = 0; i < 2; i++ )
+	for( int i = 0; i < ARRAYSIZE( libdir ); i++ )
 	{
+		// this is an APK directory, get base path
+		const char *p = i == 0 ? name : path;
+
 		if( !libdir[i] )
 			continue;
 
-		Q_snprintf( path, MAX_SYSPATH, "%s/lib%s."OS_LIB_EXT, libdir[i], dllname );
-		pHandle = dlopen( path, RTLD_LAZY );
-		if( pHandle )
-			return pHandle;
+		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", libdir[i], p );
+
+		handle = dlopen( fullpath, RTLD_NOW );
+
+		if( handle )
+		{
+			Con_Reportf( "%s: loading library %s successful\n", __func__, fullpath );
+			return handle;
+		}
 
 		COM_PushLibraryError( dlerror() );
 	}
 
-	// HACKHACK: keep old behaviour for compability
-	if( Q_strstr( dllname, "." OS_LIB_EXT ) || Q_strstr( dllname, PATH_SPLITTER ))
+	// find in system search path, that includes our APK
+	handle = dlopen( name, RTLD_NOW );
+	if( handle )
 	{
-		pHandle = dlopen( dllname, RTLD_LAZY );
-		if( pHandle )
-			return pHandle;
+		Con_Reportf( "%s: loading library %s from LD_LIBRARY_PATH successful\n", __func__, name );
+		return handle;
 	}
-	else
-	{
-		Q_snprintf( path, MAX_SYSPATH, "lib%s."OS_LIB_EXT, dllname );
-		pHandle = dlopen( path, RTLD_LAZY );
-		if( pHandle )
-			return pHandle;
-	}
-
 	COM_PushLibraryError( dlerror() );
 
 	return NULL;

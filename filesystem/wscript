@@ -1,24 +1,63 @@
 #!/usr/bin/env python
 
+MEMFD_CREATE_TEST = '''#define _GNU_SOURCE
+#include <sys/mman.h>
+int main(int argc, char **argv) { return memfd_create(argv[0], 0); }'''
+
+DIRENT_D_TYPE_TEST = '''#define _GNU_SOURCE
+#include <dirent.h>
+int main(int argc, char **argv) { struct dirent entry; entry.d_type = DT_DIR; return 0; }
+'''
+
 def options(opt):
 	pass
 
 def configure(conf):
-	nortti = {
-		'msvc': ['/GR-'],
-		'default': ['-fno-rtti', '-fno-exceptions']
-	}
-	conf.env.append_unique('CXXFLAGS', conf.get_flags_by_compiler(nortti, conf.env.COMPILER_CC))
+	if conf.env.COMPILER_CXX != 'msvc':
+		conf.env.append_unique('CXXFLAGS', ['-fno-exceptions'])
 
+	if conf.env.DEST_OS == 'android':
+		conf.check_cc(lib='android')
+
+	# remove lib prefix, except on Android which has issues unpacking libraries without prefix when debuggable=false
 	if conf.env.DEST_OS != 'android':
 		if conf.env.cxxshlib_PATTERN.startswith('lib'):
 			conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
 
+	if conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
+		conf.define('HAVE_MEMFD_CREATE', 1)
+
+	if conf.check_cc(fragment=DIRENT_D_TYPE_TEST, msg='Checking for d_type field in struct dirent', mandatory=False):
+		conf.define('HAVE_DIRENT_D_TYPE', 1)
+
 def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
+
+	libs = [ 'filesystem_includes', 'sdk_includes', 'werror' ]
+
+	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
+	if bld.env.DEST_OS != 'psvita':
+		libs += [ 'public', 'ANDROID' ]
+
 	bld.shlib(target = 'filesystem_stdio',
-		features = 'cxx',
+		features = 'seq',
 		source = bld.path.ant_glob(['*.c', '*.cpp']),
-		use = 'filesystem_includes public',
-		install_path = bld.env.LIBDIR,
-		subsystem = bld.env.MSVC_SUBSYSTEM)
+		use = libs,
+		install_path = bld.env.LIBDIR)
+
+	if bld.env.TESTS:
+		# build in same module, so dynamic linking will work
+		# for now (until we turn libpublic to shared module lol)
+		tests = {
+			'interface' : 'tests/interface.cpp',
+			'caseinsensitive' : 'tests/caseinsensitive.c',
+			'no-init': 'tests/no-init.c'
+		}
+
+		for i in tests:
+			bld.program(features = 'test seq',
+				source = tests[i],
+				target = 'test_%s' % i,
+				use = libs + ['DL'],
+				rpath = bld.env.DEFAULT_RPATH,
+				install_path = None)

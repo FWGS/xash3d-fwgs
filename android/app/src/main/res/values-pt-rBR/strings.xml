@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="library">Biblioteca</string>
+	<string name="dedicated_server">Dedicado</string>
+	<string name="app_settings">Configurações</string>
+	<string name="game_settings">Configurações do jogo</string>
+	<string name="game_settings_command_line">Argumentos de linha de comando</string>
+	<string name="game_settings_volume_buttons">Usar botões de volume no jogo</string>
+	<string name="preferences_package_name">Pacote de bibliotecas</string>
+	<string name="preferences_separate_libraries">Bibliotecas de pacotes separados</string>
+	<string name="preferences_client_package">Pacote do cliente</string>
+	<string name="preferences_server_package">Pacote do servidor</string>
+	<string name="preferences_use_icons">Usar ícones em vez de fundos</string>
+	<string name="game_data_location">Local dos dados do jogo</string>
+	<string name="file_access_required">Acesso a todos os arquivos necessário</string>
+	<string name="file_access_message">É necessário acesso a todos os arquivos para que o aplicativo funcione corretamente.</string>
+	<string name="select_current_directory">Selecionar diretório atual</string>
+	<string name="external_storage_required">Acesso ao armazenamento externo necessário</string>
+	<string name="external_storage_message">É necessário acesso ao armazenamento externo para que o aplicativo funcione corretamente.</string>
+</resources>

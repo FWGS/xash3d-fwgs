@@ -40,16 +40,16 @@ set rendermode
 void TriRenderMode( int mode )
 {
 	ds.renderMode = mode;
+	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+
 	switch( mode )
 	{
 	case kRenderNormal:
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 		pglDisable( GL_BLEND );
 		pglDepthMask( GL_TRUE );
 		break;
 	case kRenderTransAlpha:
 		pglEnable( GL_BLEND );
-		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 		pglDepthMask( GL_FALSE );
 		break;
@@ -244,7 +244,7 @@ int TriSpriteTexture( model_t *pSpriteModel, int frame )
 	if(( gl_texturenum = R_GetSpriteTexture( pSpriteModel, frame )) == 0 )
 		return 0;
 
-	if( gl_texturenum <= 0 || gl_texturenum > MAX_TEXTURES )
+	if( gl_texturenum <= 0 || gl_texturenum >= MAX_TEXTURES )
 		gl_texturenum = tr.defaultTexture;
 
 	GL_Bind( XASH_TEXTURE0, gl_texturenum );
@@ -262,7 +262,7 @@ enables global fog on the level
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 {
 	// overrided by internal fog
-	if( RI.fogEnabled ) return;
+	if( RI.fogEnabled || !gl_fog.value ) return;
 	RI.fogCustom = bOn;
 
 	// check for invalid parms
@@ -281,13 +281,22 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	RI.fogColor[0] = flFogColor[0] / 255.0f;
 	RI.fogColor[1] = flFogColor[1] / 255.0f;
 	RI.fogColor[2] = flFogColor[2] / 255.0f;
-	RI.fogStart = flStart;
 	RI.fogColor[3] = 1.0f;
-	RI.fogDensity = 0.0f;
-	RI.fogSkybox = true;
+
+	RI.fogStart = flStart;
 	RI.fogEnd = flEnd;
 
-	pglFogi( GL_FOG_MODE, GL_LINEAR );
+	if( RI.fogDensity > 0.0f )
+	{
+		pglFogi( GL_FOG_MODE, GL_EXP2 );
+		pglFogf( GL_FOG_DENSITY, RI.fogDensity );
+	}
+	else
+	{
+		pglFogi( GL_FOG_MODE, GL_LINEAR );
+		RI.fogSkybox = true;
+	}
+
 	pglFogfv( GL_FOG_COLOR, RI.fogColor );
 	pglFogf( GL_FOG_START, RI.fogStart );
 	pglFogf( GL_FOG_END, RI.fogEnd );

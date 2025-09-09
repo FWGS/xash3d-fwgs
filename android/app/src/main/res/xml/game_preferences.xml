@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+	<EditTextPreference
+		app:defaultValue="-console -log"
+		app:key="arguments"
+		app:layout="@layout/edit_text_preference"
+		app:title="@string/game_settings_command_line"
+		app:useSimpleSummaryProvider="true" />
+
+	<SwitchPreferenceCompat
+		app:key="use_volume_buttons"
+		app:layout="@layout/switch_preference"
+		app:title="@string/game_settings_volume_buttons" />
+
+	<SwitchPreferenceCompat
+		app:key="separate_libraries"
+		app:layout="@layout/switch_preference"
+		app:title="@string/preferences_separate_libraries"
+		app:isPreferenceVisible="false" />
+
+	<ListPreference
+		app:key="package_name"
+		app:layout="@layout/list_preference"
+		app:title="@string/preferences_package_name"
+		app:useSimpleSummaryProvider="true"
+		app:isPreferenceVisible="false" />
+
+	<ListPreference
+		app:key="client_package"
+		app:layout="@layout/list_preference"
+		app:title="@string/preferences_client_package"
+		app:useSimpleSummaryProvider="true"
+		app:isPreferenceVisible="false" />
+
+	<ListPreference
+		app:key="server_package"
+		app:layout="@layout/list_preference"
+		app:title="@string/preferences_server_package"
+		app:useSimpleSummaryProvider="true"
+		app:isPreferenceVisible="false" />
+</PreferenceScreen>

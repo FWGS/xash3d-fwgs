@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #if !XASH_DEDICATED
 #include "ref_common.h"
 #endif // XASH_DEDICATED
+#include "mod_local.h"
 
 
 /*
@@ -29,12 +30,13 @@ Mod_LoadSpriteModel
 load sprite model
 ====================
 */
-void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags )
+void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded )
 {
 	dsprite_q1_t	*pinq1;
 	dsprite_hl_t	*pinhl;
 	dsprite_t		*pin;
 	msprite_t		*psprite;
+	char		poolname[MAX_VA_STRING];
 	int		i, size;
 
 	if( loaded ) *loaded = false;
@@ -54,7 +56,8 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		return;
 	}
 
-	mod->mempool = Mem_AllocPool( va( "^2%s^7", mod->name ));
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
+	mod->mempool = Mem_AllocPool( poolname );
 
 	if( i == SPRITE_VERSION_Q1 || i == SPRITE_VERSION_32 )
 	{

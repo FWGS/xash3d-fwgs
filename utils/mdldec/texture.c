@@ -20,7 +20,10 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "studio.h"
 #include "img_bmp.h"
+#include "img_tga.h"
 #include "mdldec.h"
+#include "utils.h"
+#include "settings.h"
 #include "texture.h"
 
 /*
@@ -28,37 +31,13 @@ GNU General Public License for more details.
 WriteBMP
 ============
 */
-static void WriteBMP( mstudiotexture_t *texture )
+static void WriteBMP( FILE *fp, mstudiotexture_t *texture )
 {
-	int		 i, len;
-	FILE		*fp;
+	int		 i;
 	const byte	*p;
-	byte		*palette, *pic, *buf;
-	char		 filename[MAX_SYSPATH], texturename[64];
+	byte		*palette, *pic;
 	rgba_t		 rgba_palette[256];
 	bmp_t		 bmp_hdr = {0,};
-	size_t		 texture_size;
-
-	COM_FileBase( texture->name, texturename );
-	len = Q_snprintf( filename, MAX_SYSPATH, "%s%s.bmp", destdir, texturename );
-
-	if( len == -1 )
-	{
-		fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.bmp\n", texturename );
-		return;
-	}
-
-	fp = fopen( filename, "wb" );
-
-	if( !fp )
-	{
-		fprintf( stderr, "ERROR: Can't write texture file %s\n", filename );
-		return;
-	}
-
-	texture_size = texture->height * texture->width;
-	pic = (byte *)texture_hdr + texture->index;
-	palette = pic + texture_size;
 
 	bmp_hdr.id[0] = 'B';
 	bmp_hdr.id[1] = 'M';
@@ -66,12 +45,15 @@ static void WriteBMP( mstudiotexture_t *texture )
 	bmp_hdr.height = texture->height;
 	bmp_hdr.planes = 1;
 	bmp_hdr.bitsPerPixel = 8;
-	bmp_hdr.bitmapDataSize = texture_size;
+	bmp_hdr.bitmapDataSize = bmp_hdr.width * bmp_hdr.height;
 	bmp_hdr.colors = 256;
 
-	bmp_hdr.fileSize =  sizeof( bmp_hdr ) + texture_size + sizeof( rgba_palette );
+	bmp_hdr.fileSize =  sizeof( bmp_hdr ) + bmp_hdr.bitmapDataSize + sizeof( rgba_palette );
 	bmp_hdr.bitmapDataOffset = sizeof( bmp_hdr ) + sizeof( rgba_palette );
 	bmp_hdr.bitmapHeaderSize = BI_SIZE;
+
+	pic = (byte *)texture_hdr + texture->index;
+	palette = pic + bmp_hdr.bitmapDataSize;
 
 	fwrite( &bmp_hdr, sizeof( bmp_hdr ), 1, fp );
 
@@ -87,24 +69,60 @@ static void WriteBMP( mstudiotexture_t *texture )
 
 	fwrite( rgba_palette, sizeof( rgba_palette ), 1, fp );
 
-	buf = malloc( texture_size );
-
 	p = pic;
 	p += ( bmp_hdr.height - 1 ) * bmp_hdr.width;
 
 	for( i = 0; i < bmp_hdr.height; i++ )
 	{
-		memcpy( buf + bmp_hdr.width * i, p, bmp_hdr.width );
+		fwrite( p, bmp_hdr.width, 1, fp );
 		p -= bmp_hdr.width;
 	}
+}
 
-	fwrite( buf, texture_size, 1, fp );
+/*
+============
+WriteTGA
+============
+*/
+static void WriteTGA( FILE *fp, mstudiotexture_t *texture )
+{
+	int              i;
+	const byte      *p;
+	byte            *palette, *pic;
+	rgb_t		 rgb_palette[256];
+	tga_t		 tga_hdr = {0,};
 
-	fclose( fp );
+	tga_hdr.colormap_type = tga_hdr.image_type = 1;
+	tga_hdr.colormap_length = 256;
+	tga_hdr.colormap_size = 24;
+	tga_hdr.pixel_size = 8;
+	tga_hdr.width = texture->width;
+	tga_hdr.height = texture->height;
 
-	free( buf );
+	pic = (byte *)texture_hdr + texture->index;
+	palette = pic + tga_hdr.width * tga_hdr.height;
 
-	printf( "Texture: %s\n", filename );
+	fwrite( &tga_hdr, sizeof( tga_hdr ), 1, fp );
+
+	p = palette;
+
+	for( i = 0; i < (int)tga_hdr.colormap_length; i++ )
+	{
+		rgb_palette[i][2] = *p++;
+		rgb_palette[i][1] = *p++;
+		rgb_palette[i][0] = *p++;
+	}
+
+	fwrite( rgb_palette, sizeof( rgb_palette ), 1, fp );
+
+	p = pic;
+	p += ( tga_hdr.height - 1 ) * tga_hdr.width;
+
+	for( i = 0; i < tga_hdr.height; i++ )
+	{
+		fwrite( p, tga_hdr.width, 1, fp );
+		p -= tga_hdr.width;
+	}
 }
 
 /*
@@ -114,14 +132,50 @@ WriteTextures
 */
 void WriteTextures( void )
 {
-	int			 i;
-	mstudiotexture_t	*texture;
+	int			 i, len, namelen, emptyplace;
+	FILE			*fp;
+	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
+	char			 path[MAX_SYSPATH];
 
-	for( i = 0; i < texture_hdr->numtextures; i++ )
+	len = Q_snprintf( path, MAX_SYSPATH, ( globalsettings & SETTINGS_SEPARATETEXTURESFOLDER ) ? "%s" TEXTUREPATH : "%s", destdir );
+
+	if( len == -1 || !MakeDirectory( path ))
 	{
-		texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ) + i;
+		LogPutS( "ERROR: Destination path is too long or write permission denied. Couldn't create directory for textures." );
+		return;
+	}
 
-		WriteBMP( texture );
+	emptyplace = MAX_SYSPATH - len;
+
+	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
+	{
+		namelen = Q_strncpy( &path[len], texture->name, emptyplace );
+
+		if( emptyplace - namelen < 0 )
+		{
+			LogPrintf( "ERROR: Destination path is too long. Couldn't write %s.", texture->name );
+			return;
+		}
+
+		fp = fopen( path, "wb" );
+
+		if( !fp )
+		{
+			LogPrintf( "ERROR: Couldn't write texture file %s.", path );
+			return;
+		}
+
+		// Many filesystems couldn't write files if "#" is first character in the name.
+		if( texture->name[0] == '#' ) texture->name[0] = 's';
+
+		if( !Q_stricmp( COM_FileExtension( texture->name ), "tga" ))
+			WriteTGA( fp, texture );
+		else
+			WriteBMP( fp, texture );
+
+		fclose( fp );
+
+		LogPrintf( "Texture: %s.", path );
 	}
 }
 

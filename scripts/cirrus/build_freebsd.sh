@@ -2,25 +2,12 @@
 
 . scripts/lib.sh
 
-if [ "$1" = "dedicated" ]; then
-	APP=xashds
-else # elif [ "$1" = "full" ]; then
-	APP=xash3d-fwgs
-fi
-
 build_engine()
 {
 	# Build engine
 	cd "$CIRRUS_WORKING_DIR" || die
 
-	if [ "$APP" = "xashds" ]; then
-		./waf configure -T release -d || die
-	elif [ "$APP" = "xash3d-fwgs" ]; then
-		./waf configure -T release --enable-stb --enable-utils --enable-gl4es --enable-gles1 --enable-gles2 || die
-	else
-		die
-	fi
-
+	./waf configure --enable-utils --enable-all-renderers --enable-tests --enable-dedicated || die_configure
 	./waf build || die
 }
 

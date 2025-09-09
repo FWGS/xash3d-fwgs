@@ -25,7 +25,7 @@ typedef enum
 	T_COUNT
 } cvartype_t;
 
-const char *cvartypes[] = { NULL, "BOOL", "NUMBER", "LIST", "STRING" };
+static const char *const cvartypes[] = { NULL, "BOOL", "NUMBER", "LIST", "STRING" };
 
 typedef struct parserstate_s
 {
@@ -52,7 +52,7 @@ CSCR_ExpectString
 Return true if next token is pExpext and skip it
 ===================
 */
-qboolean CSCR_ExpectString( parserstate_t *ps, const char *pExpect, qboolean skip, qboolean error )
+static qboolean CSCR_ExpectString( parserstate_t *ps, const char *pExpect, qboolean skip, qboolean error )
 {
 	char	*tmp = COM_ParseFile( ps->buf, ps->token, sizeof( ps->token ));
 
@@ -75,7 +75,7 @@ CSCR_ParseType
 Determine script variable type
 ===================
 */
-cvartype_t CSCR_ParseType( parserstate_t *ps )
+static cvartype_t CSCR_ParseType( parserstate_t *ps )
 {
 	int	i;
 
@@ -96,7 +96,7 @@ cvartype_t CSCR_ParseType( parserstate_t *ps )
 CSCR_ParseSingleCvar
 =========================
 */
-qboolean CSCR_ParseSingleCvar( parserstate_t *ps, scrvardef_t *result )
+static qboolean CSCR_ParseSingleCvar( parserstate_t *ps, scrvardef_t *result )
 {
 	// read the name
 	ps->buf = COM_ParseFile( ps->buf, result->name, sizeof( result->name ));
@@ -170,7 +170,7 @@ CSCR_ParseHeader
 Check version and seek to first cvar name
 ======================
 */
-qboolean CSCR_ParseHeader( parserstate_t *ps )
+static qboolean CSCR_ParseHeader( parserstate_t *ps )
 {
 	if( !CSCR_ExpectString( ps, "VERSION", false, true ))
 		return false;

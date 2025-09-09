@@ -29,7 +29,10 @@ WIN32 CONSOLE
 
 typedef struct
 {
-	char		title[64];
+	string		title;
+	string		previousTitle;
+	UINT		previousCodePage;
+	UINT		previousOutputCodePage;
 	HWND		hWnd;
 	HANDLE		hInput;
 	HANDLE		hOutput;
@@ -45,10 +48,7 @@ typedef struct
 	string		lineBuffer[COMMAND_HISTORY];
 	qboolean	inputEnabled;
 	qboolean	consoleVisible;
-
-	// log stuff
-	qboolean	log_active;
-	char		log_path[MAX_SYSPATH];
+	qboolean	attached;
 } WinConData;
 
 static WinConData	s_wcd;
@@ -129,7 +129,7 @@ static void Wcon_PrintInternal( const char *msg, int length )
 
 void Wcon_ShowConsole( qboolean show )
 {
-	if( !s_wcd.hWnd || show == s_wcd.consoleVisible )
+	if( !s_wcd.hWnd || show == s_wcd.consoleVisible || s_wcd.attached )
 		return;
 
 	s_wcd.consoleVisible = show;
@@ -141,7 +141,7 @@ void Wcon_ShowConsole( qboolean show )
 
 void Wcon_DisableInput( void )
 {
-	if( host.type != HOST_DEDICATED )
+	if( host.type != HOST_DEDICATED || !s_wcd.hWnd )
 		return;
 
 	s_wcd.inputEnabled = false;
@@ -465,6 +465,9 @@ print into window console
 */
 void Wcon_WinPrint( const char *pMsg )
 {
+	if( !s_wcd.hWnd )
+		return;
+
 	int nLen;
 	if( s_wcd.consoleTextLen )
 	{
@@ -482,7 +485,8 @@ void Wcon_WinPrint( const char *pMsg )
 		Wcon_PrintInternal( s_wcd.consoleText, s_wcd.consoleTextLen );
 	}
 
-	Wcon_UpdateStatusLine();
+	if( !s_wcd.attached ) 
+		Wcon_UpdateStatusLine();
 }
 
 /*
@@ -492,24 +496,32 @@ Con_CreateConsole
 create win32 console
 ================
 */
-void Wcon_CreateConsole( void )
+void Wcon_CreateConsole( qboolean con_showalways )
 {
-	if( Sys_CheckParm( "-log" ))
-		s_wcd.log_active = true;
-
 	if( host.type == HOST_NORMAL )
 	{
-		Q_strncpy( s_wcd.title, va( "Xash3D %s", XASH_VERSION ), sizeof( s_wcd.title ));
-		Q_strncpy( s_wcd.log_path, "engine.log", sizeof( s_wcd.log_path ));
+		Q_strncpy( s_wcd.title, XASH_ENGINE_NAME " " XASH_VERSION, sizeof( s_wcd.title ));
 	}
 	else // dedicated console
 	{
-		Q_strncpy( s_wcd.title, va( "XashDS %s", XASH_VERSION ), sizeof( s_wcd.title ));
-		Q_strncpy( s_wcd.log_path, "dedicated.log", sizeof( s_wcd.log_path ));
-		s_wcd.log_active = true; // always make log
+		Q_strncpy( s_wcd.title, XASH_DEDICATED_SERVER_NAME " " XASH_VERSION, sizeof( s_wcd.title ));
 	}
 
-	AllocConsole();
+	s_wcd.attached = ( AttachConsole( ATTACH_PARENT_PROCESS ) != 0 );
+	if( s_wcd.attached )
+	{
+		GetConsoleTitle( &s_wcd.previousTitle, sizeof( s_wcd.previousTitle ));
+		s_wcd.previousCodePage = GetConsoleCP();
+		s_wcd.previousOutputCodePage = GetConsoleOutputCP();
+	}
+	else
+	{
+		if( host.type != HOST_DEDICATED && host_developer.value == DEV_NONE )
+			return; // don't initialize console in case of regular game startup, it's useless anyway
+		else
+			AllocConsole();
+	}
+
 	SetConsoleTitle( s_wcd.title );
 	SetConsoleCP( CP_UTF8 );
 	SetConsoleOutputCP( CP_UTF8 );
@@ -525,22 +537,25 @@ void Wcon_CreateConsole( void )
 		return;
 	}
 
-	SetWindowPos( s_wcd.hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOREPOSITION | SWP_SHOWWINDOW );
+	if( !s_wcd.attached )
+	{ 
+		SetWindowPos( s_wcd.hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOREPOSITION | SWP_SHOWWINDOW );
 
-	// show console if needed
-	if( host.con_showalways )
-	{
-		// make console visible
-		ShowWindow( s_wcd.hWnd, SW_SHOWDEFAULT );
-		UpdateWindow( s_wcd.hWnd );
-		SetForegroundWindow( s_wcd.hWnd );
-		SetFocus( s_wcd.hWnd );
-		s_wcd.consoleVisible = true;
-	}
-	else
-	{
-		s_wcd.consoleVisible = false;
-		ShowWindow( s_wcd.hWnd, SW_HIDE );
+		// show console if needed
+		if( con_showalways )
+		{
+			// make console visible
+			ShowWindow( s_wcd.hWnd, SW_SHOWDEFAULT );
+			UpdateWindow( s_wcd.hWnd );
+			SetForegroundWindow( s_wcd.hWnd );
+			SetFocus( s_wcd.hWnd );
+			s_wcd.consoleVisible = true;
+		}
+		else
+		{
+			s_wcd.consoleVisible = false;
+			ShowWindow( s_wcd.hWnd, SW_HIDE );
+		}
 	}
 }
 
@@ -553,7 +568,7 @@ register console commands (dedicated only)
 */
 void Wcon_InitConsoleCommands( void )
 {
-	if( host.type != HOST_DEDICATED )
+	if( host.type != HOST_DEDICATED || !s_wcd.hWnd )
 		return;
 
 	Cmd_AddCommand( "clear", Wcon_Clear_f, "clear console history" );
@@ -569,21 +584,26 @@ destroy win32 console
 void Wcon_DestroyConsole( void )
 {
 	// last text message into console or log
-	Con_Reportf( "Sys_FreeLibrary: Unloading xash.dll\n" );
+	Con_Reportf( "%s: Unloading xash.dll\n", __func__ );
 
-	Sys_CloseLog();
-
-	if( s_wcd.hWnd )
+	if( !s_wcd.attached )
 	{
-		ShowWindow( s_wcd.hWnd, SW_HIDE );
-		s_wcd.hWnd = 0;
+		if( s_wcd.hWnd )
+		{
+			ShowWindow( s_wcd.hWnd, SW_HIDE );
+			s_wcd.hWnd = 0;
+		}
+	}
+	else
+	{
+		// reverts title & code page for console window that was before starting Xash3D
+		SetConsoleCP( s_wcd.previousCodePage );
+		SetConsoleOutputCP( s_wcd.previousOutputCodePage );
+		SetConsoleTitle( &s_wcd.previousTitle );
+		Con_Printf( "Press Enter to continue...\n" );
 	}
 
 	FreeConsole();
-
-	// place it here in case Sys_Crash working properly
-	if( host.hMutex )
-		CloseHandle( host.hMutex );
 }
 
 /*
@@ -595,11 +615,11 @@ returned input text
 */
 char *Wcon_Input( void )
 {
-	int i;
-	int eventsCount;
+	DWORD i;
+	DWORD eventsCount;
 	static INPUT_RECORD events[1024];
 	
-	if( !s_wcd.inputEnabled )
+	if( !s_wcd.inputEnabled || !s_wcd.hWnd )
 		return NULL;
 
 	while( true )
@@ -635,14 +655,14 @@ char *Wcon_Input( void )
 
 /*
 ================
-Wcon_SetStatus
+Platform_SetStatus
 
 set server status string in console
 ================
 */
-void Wcon_SetStatus( const char *pStatus )
+void Platform_SetStatus( const char *pStatus )
 {
-	if( host.type != HOST_DEDICATED )
+	if( s_wcd.attached || !s_wcd.hWnd )
 		return;
 
 	Q_strncpy( s_wcd.statusLine, pStatus, sizeof( s_wcd.statusLine ) - 1 );

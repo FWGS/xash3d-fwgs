@@ -1,6 +1,6 @@
 /*
 VFileSystem009.h - C++ interface for filesystem_stdio
-Copyright (C) 2022 Alibek Omarov
+Copyright (C) 2022-2023 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,9 +21,11 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "filesystem_internal.h"
 #include "VFileSystem009.h"
+#include "common/com_strings.h"
 
 #if __cplusplus < 201103L
 #define override
+#define nullptr NULL
 #endif
 
 // GoldSrc Directories and ID
@@ -35,48 +37,62 @@ GNU General Public License for more details.
 // PLATFORM      platform
 // CONFIG        platform/config
 
-static inline qboolean IsIdGamedir( const char *id )
+// This is a macro because pointers returned by alloca
+// shouldn't leave current scope
+#define FixupPath( var, str ) \
+	const size_t var ## _size = Q_strlen(( str )) + 1; \
+	char * const var = static_cast<char *>( alloca( var ## _size )); \
+	CopyAndFixSlashes( var, ( str ), var ## _size )
+
+static inline bool IsIdGamedir( const char *id )
 {
 	return !Q_strcmp( id, "GAME" ) ||
 		!Q_strcmp( id, "GAMECONFIG" ) ||
 		!Q_strcmp( id, "GAMEDOWNLOAD" );
 }
 
-static inline const char* IdToDir( const char *id )
+static inline const char *IdToDir( char *dir, size_t size, const char *id )
 {
 	if( !Q_strcmp( id, "GAME" ))
 		return GI->gamefolder;
-	else if( !Q_strcmp( id, "GAMEDOWNLOAD" ))
-		return va( "%s/downloaded", GI->gamefolder );
-	else if( !Q_strcmp( id, "GAMECONFIG" ))
-		return fs_writedir; // full path here so it's totally our write allowed directory
-	else if( !Q_strcmp( id, "PLATFORM" ))
+
+	if( !Q_strcmp( id, "GAMEDOWNLOAD" ))
+	{
+		Q_snprintf( dir, size, "%s/" DEFAULT_DOWNLOADED_DIRECTORY , GI->gamefolder );
+		return dir;
+	}
+
+	if( !Q_strcmp( id, "GAMECONFIG" ))
+		return fs_writepath->filename; // full path here so it's totally our write allowed directory
+
+	if( !Q_strcmp( id, "PLATFORM" ))
 		return "platform"; // stub
-	else if( !Q_strcmp( id, "CONFIG" ))
+
+	if( !Q_strcmp( id, "CONFIG" ))
 		return "platform/config"; // stub
-	else // ROOT || BASE
-		return fs_rootdir; // give at least root directory
+
+	// ROOT || BASE
+	return fs_rootdir; // give at least root directory
 }
 
-static inline void CopyAndFixSlashes( char *p, const char *in )
+static inline void CopyAndFixSlashes( char *p, const char *in, size_t size )
 {
-	Q_strcpy( p, in );
+	Q_strncpy( p, in, size );
 	COM_FixSlashes( p );
 }
 
-class CXashFS : public IVFileSystem009
+class CXashFS : public IFileSystem
 {
 private:
 	class CSearchState
 	{
 	public:
 		CSearchState( CSearchState **head, search_t *search ) :
-			next( *head ), search( search ), index( 0 )
+			next( *head ),
+			search( search ),
+			index( 0 ),
+			handle( *head ? ( *head )->handle + 1 : 0 )
 		{
-			if( *head )
-				handle = (*head)->handle + 1;
-			else handle = 0;
-
 			*head = this;
 		}
 		~CSearchState()
@@ -97,17 +113,15 @@ private:
 		for( CSearchState *state = searchHead; state; state = state->next )
 		{
 			if( state->handle == handle )
-			{
 				return state;
-			}
 		}
 
 		Con_DPrintf( "Can't find search state by handle %d\n", handle );
-		return NULL;
+		return nullptr;
 	}
 
 public:
-	CXashFS() : searchHead( NULL )
+	CXashFS() : searchHead( nullptr )
 	{
 	}
 
@@ -118,17 +132,13 @@ public:
 
 	void AddSearchPath( const char *path, const char *id ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
-
+		FixupPath( p, path );
 		FS_AddGameDirectory( p, FS_CUSTOM_PATH );
 	}
 
 	void AddSearchPathNoWrite( const char *path, const char *id ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
-
+		FixupPath( p, path );
 		FS_AddGameDirectory( p, FS_NOWRITE_PATH | FS_CUSTOM_PATH );
 	}
 
@@ -140,120 +150,134 @@ public:
 
 	void RemoveFile( const char *path, const char *id ) override
 	{
-		FS_Delete( path ); // FS_Delete is aware of slashes
+		char dir[MAX_VA_STRING], fullpath[MAX_VA_STRING];
+
+		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", IdToDir( dir, sizeof( dir ), id ), path );
+		FS_Delete( fullpath ); // FS_Delete is aware of slashes
 	}
 
 	void CreateDirHierarchy( const char *path, const char *id ) override
 	{
-		FS_CreatePath( va( "%s/%s", IdToDir( id ), path )); // FS_CreatePath is aware of slashes
+		char dir[MAX_VA_STRING], fullpath[MAX_VA_STRING];
+
+		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", IdToDir( dir, sizeof( dir ), id ), path );
+		FS_CreatePath( fullpath ); // FS_CreatePath is aware of slashes
 	}
 
 	bool FileExists( const char *path ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
-
+		FixupPath( p, path );
 		return FS_FileExists( p, false );
 	}
 
 	bool IsDirectory( const char *path ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
-
+		FixupPath( p, path );
 		return FS_SysFolderExists( p );
 	}
 
 	FileHandle_t Open( const char *path, const char *mode, const char *id ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
+		file_t *fd;
 
-		file_t *fd = FS_Open( p, mode, IsIdGamedir( id ) );
+		FixupPath( p, path );
+		fd = FS_Open( p, mode, IsIdGamedir( id ));
 
 		return fd;
 	}
 
 	void Close( FileHandle_t handle ) override
 	{
-		FS_Close( (file_t *)handle );
+		FS_Close( static_cast<file_t *>( handle ));
 	}
 
 	void Seek( FileHandle_t handle, int offset, FileSystemSeek_t whence ) override
 	{
 		int whence_ = SEEK_SET;
+
 		switch( whence )
 		{
-		case FILESYSTEM_SEEK_HEAD: whence_ = SEEK_SET; break;
-		case FILESYSTEM_SEEK_CURRENT: whence_ = SEEK_CUR; break;
-		case FILESYSTEM_SEEK_TAIL: whence_ = SEEK_END; break;
+		case FILESYSTEM_SEEK_HEAD:
+			whence_ = SEEK_SET;
+			break;
+		case FILESYSTEM_SEEK_CURRENT:
+			whence_ = SEEK_CUR;
+			break;
+		case FILESYSTEM_SEEK_TAIL:
+			whence_ = SEEK_END;
+			break;
 		}
 
-		FS_Seek( (file_t *)handle, offset, whence_ );
+		FS_Seek( static_cast<file_t *>( handle ), offset, whence_ );
 	}
 
 	unsigned int Tell( FileHandle_t handle ) override
 	{
-		return FS_Tell( (file_t *)handle );
+		return FS_Tell( static_cast<file_t *>( handle ));
 	}
 
 	unsigned int Size( FileHandle_t handle ) override
 	{
-		file_t *fd = (file_t *)handle;
-		return fd->real_length;
+		return static_cast<file_t *>( handle )->real_length;
 	}
 
 	unsigned int Size( const char *path ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
+		FixupPath( p, path );
 		return FS_FileSize( p, false );
 	}
 
 	long int GetFileTime( const char *path ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
+		FixupPath( p, path );
+		return FS_FileTime( p, false );
+	}
+
+	long int GetFileModificationTime( const char *path ) override
+	{
+		// TODO: properly reverse-engineer this
+		FixupPath( p, path );
 		return FS_FileTime( p, false );
 	}
 
 	void FileTimeToString( char *p, int size, long int time ) override
 	{
-		time_t curtime = time;
+		const time_t curtime = time;
 		char *buf = ctime( &curtime );
+
 		Q_strncpy( p, buf, size );
 	}
 
 	bool IsOk( FileHandle_t handle ) override
 	{
-		return !FS_Eof( (file_t *)handle );
+		return !FS_Eof( static_cast<file_t *>( handle ));
 	}
 
 	void Flush( FileHandle_t handle ) override
 	{
-		FS_Flush( (file_t *)handle );
+		FS_Flush( static_cast<file_t *>( handle ));
 	}
 
 	bool EndOfFile( FileHandle_t handle ) override
 	{
-		return FS_Eof( (file_t *)handle );
+		return FS_Eof( static_cast<file_t *>( handle ));
 	}
 
 	int Read( void *buf, int size, FileHandle_t handle ) override
 	{
-		return FS_Read( (file_t *)handle, buf, size );
+		return FS_Read( static_cast<file_t *>( handle ), buf, size );
 	}
 
 	int Write( const void *buf, int size, FileHandle_t handle ) override
 	{
-		return FS_Write( (file_t *)handle, buf, size );
+		return FS_Write( static_cast<file_t *>( handle ), buf, size );
 	}
 
 	char *ReadLine( char *buf, int size, FileHandle_t handle ) override
 	{
-		int c = FS_Gets( (file_t *)handle, (byte*)buf, size );
+		const int c = FS_Gets( static_cast<file_t *>( handle ), buf, size );
 
-		return c >= 0 ? buf : NULL;
+		return c >= 0 ? buf : nullptr;
 	}
 
 	int FPrintf( FileHandle_t handle, char *fmt, ... ) override
@@ -262,41 +286,47 @@ public:
 		int ret;
 
 		va_start( ap, fmt );
-		ret = FS_VPrintf( (file_t *)handle, fmt, ap );
+		ret = FS_VPrintf( static_cast<file_t *>( handle ), fmt, ap );
 		va_end( ap );
 
 		return ret;
 	}
 
-	void * GetReadBuffer(FileHandle_t, int *size, bool) override
+	void *GetReadBuffer( FileHandle_t, int *size, bool ) override
 	{
 		// deprecated by Valve
 		*size = 0;
-		return NULL;
+		return nullptr;
 	}
 
-	void ReleaseReadBuffer(FileHandle_t, void *) override
+	void ReleaseReadBuffer( FileHandle_t, void * ) override
 	{
 		// deprecated by Valve
 		return;
 	}
 
-	const char *FindFirst(const char *pattern, FileFindHandle_t *handle, const char *id) override
+	const char *FindFirst( const char *pattern, FileFindHandle_t *handle, const char *id ) override
 	{
-		if( !handle || !pattern )
-			return NULL;
+		CSearchState *state;
+		search_t *search;
 
-		char *p = (char *)alloca( Q_strlen( pattern ) + 1 );
-		CopyAndFixSlashes( p, pattern );
-		search_t *search = FS_Search( p, true, IsIdGamedir( id ));
+		if( !handle || !pattern )
+			return nullptr;
+
+		FixupPath( p, pattern );
+		search = FS_Search( p, true, IsIdGamedir( id ));
 
 		if( !search )
-			return NULL;
+			return nullptr;
 
-		CSearchState *state = new CSearchState( &searchHead, search );
+		state = new CSearchState( &searchHead, search );
+		if( !state )
+		{
+			Mem_Free( search );
+			return nullptr;
+		}
 
 		*handle = state->handle;
-
 		return state->search->filenames[0];
 	}
 
@@ -304,10 +334,11 @@ public:
 	{
 		CSearchState *state = GetSearchStateByHandle( handle );
 
-		if( !state ) return NULL;
+		if( !state )
+			return nullptr;
 
 		if( state->index + 1 >= state->search->numfilenames )
-			return NULL;
+			return nullptr;
 
 		return state->search->filenames[++state->index];
 	}
@@ -327,32 +358,35 @@ public:
 
 	void FindClose( FileFindHandle_t handle ) override
 	{
-		for( CSearchState *state = searchHead, **prev = NULL;
-			  state;
-			  *prev = state, state = state->next )
+		CSearchState *prev;
+		CSearchState *i;
+
+		for( prev = nullptr, i = searchHead;
+			i != nullptr && i->handle != handle;
+			prev = i, i = i->next );
+
+		if( i == nullptr )
 		{
-			if( state->handle == handle )
-			{
-				if( prev )
-					(*prev)->next = state->next;
-				else searchHead = state->next;
-
-				delete state;
-
-				return;
-			}
+			Con_DPrintf( "%s: Can't find search state by handle %d\n", __func__, handle );
+			return;
 		}
 
-		Con_DPrintf( "FindClose: Can't find search state by handle %d\n", handle );
-		return;
+		if( prev != nullptr )
+			prev->next = i->next;
+		else
+			searchHead = i->next;
+
+		delete i;
 	}
 
-	const char * GetLocalPath( const char *name, char *buf, int size ) override
+	const char *GetLocalPath( const char *name, char *buf, int size ) override
 	{
-		if( !name ) return NULL;
+		const char *fullpath;
 
-		char *p = (char *)alloca( Q_strlen( name ) + 1 );
-		CopyAndFixSlashes( p, name );
+		if( !name )
+			return nullptr;
+
+		FixupPath( p, name );
 
 #if !XASH_WIN32
 		if( p[0] == '/' )
@@ -365,10 +399,9 @@ public:
 			return buf;
 		}
 
-
-		const char *fullpath = FS_GetDiskPath( p, false );
+		fullpath = FS_GetDiskPath( p, false );
 		if( !fullpath )
-			return NULL;
+			return nullptr;
 
 		Q_strncpy( buf, fullpath, size );
 		return buf;
@@ -377,9 +410,12 @@ public:
 	char *ParseFile( char *buf, char *token, bool *quoted ) override
 	{
 		qboolean qquoted;
+		char *p;
 
-		char *p = COM_ParseFileSafe( buf, token, PFILE_FS_TOKEN_MAX_LENGTH, 0, NULL, &qquoted );
-		if( quoted ) *quoted = qquoted;
+		p = COM_ParseFileSafe( buf, token, PFILE_FS_TOKEN_MAX_LENGTH, 0, nullptr, &qquoted );
+
+		if( quoted )
+			*quoted = qquoted;
 
 		return p;
 	}
@@ -392,30 +428,14 @@ public:
 			return false;
 		}
 
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
-		searchpath_t *sp;
+		FixupPath( p, path );
 
-		for( sp = fs_searchpaths; sp; sp = sp->next )
-		{
-			size_t splen = Q_strlen( sp->filename );
-
-			if( !Q_strnicmp( sp->filename, p, splen ))
-			{
-				Q_strcpy( out, p + splen + 1 );
-				return true;
-			}
-		}
-
-		Q_strcpy( out, p );
-		return false;
+		return FS_FullPathToRelativePath( out, p, 512 );
 	}
 
 	bool GetCurrentDirectory( char *p, int size ) override
 	{
-		Q_strncpy( p, fs_rootdir, size );
-
-		return true;
+		return FS_GetRootDirectory( p, size );
 	}
 
 	void PrintOpenedFiles() override
@@ -424,13 +444,13 @@ public:
 		return;
 	}
 
-	void SetWarningFunc(void (*)(const char *, ...)) override
+	void SetWarningFunc( void (*)( const char *, ... )) override
 	{
 		// TODO:
 		return;
 	}
 
-	void SetWarningLevel(FileWarningLevel_t) override
+	void SetWarningLevel( FileWarningLevel_t ) override
 	{
 		// TODO:
 		return;
@@ -442,23 +462,24 @@ public:
 		return 0;
 	}
 
-	void GetInterfaceVersion(char *p, int size) override
+	void GetInterfaceVersion( char *p, int size ) override
 	{
 		Q_strncpy( p, "Stdio", size );
 	}
 
 	bool AddPackFile( const char *path, const char *id ) override
 	{
-		char *p = va( "%s/%s", IdToDir( id ), path );
-		CopyAndFixSlashes( p, path );
+		char dir[MAX_VA_STRING], fullpath[MAX_VA_STRING];
 
-		return !!FS_AddPak_Fullpath( p, NULL, FS_CUSTOM_PATH );
+		IdToDir( dir, sizeof( dir ), id );
+		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", dir, path );
+		COM_FixSlashes( fullpath );
+		return FS_MountArchive_Fullpath( fullpath, FS_CUSTOM_PATH ) != NULL;
 	}
 
 	FileHandle_t OpenFromCacheForRead( const char *path , const char *mode, const char *id ) override
 	{
-		char *p = (char *)alloca( Q_strlen( path ) + 1 );
-		CopyAndFixSlashes( p, path );
+		FixupPath( p, path );
 
 		return FS_OpenReadFile( p, mode, IsIdGamedir( id ));
 	}
@@ -466,44 +487,52 @@ public:
 	// stubs
 	void Mount() override {}
 	void Unmount() override {}
-	void GetLocalCopy(const char *) override {}
-	void LogLevelLoadStarted(const char *) override {}
-	void LogLevelLoadFinished(const char *) override {}
-	void CancelWaitForResources(WaitForResourcesHandle_t) override {}
-	int HintResourceNeed(const char *, int) override { return 0; }
-	WaitForResourcesHandle_t WaitForResources(const char *) override { return 0; }
+	void GetLocalCopy( const char * ) override {}
+	void LogLevelLoadStarted( const char * ) override {}
+	void LogLevelLoadFinished( const char * ) override {}
+	void CancelWaitForResources( WaitForResourcesHandle_t ) override {}
+	int HintResourceNeed( const char *, int ) override { return 0; }
+	WaitForResourcesHandle_t WaitForResources( const char * ) override { return 0; }
 	int PauseResourcePreloading() override { return 0; }
 	int ResumeResourcePreloading() override { return 0; }
-	bool IsAppReadyForOfflinePlay(int) override { return true; }
-	bool IsFileImmediatelyAvailable(const char *) override { return true; }
-	bool GetWaitForResourcesProgress(WaitForResourcesHandle_t, float *pProgress, bool *pOverride) override
+	bool IsAppReadyForOfflinePlay( int ) override { return true; }
+	bool IsFileImmediatelyAvailable( const char * ) override { return true; }
+	bool GetWaitForResourcesProgress( WaitForResourcesHandle_t, float *pProgress, bool *pOverride ) override
 	{
-		if( pProgress ) *pProgress = 0;
-		if( pOverride ) *pOverride = true;
+		if( pProgress )
+			*pProgress = 0;
+
+		if( pOverride )
+			*pOverride = true;
+
 		return false;
 	}
 } g_VFileSystem009;
 
 extern "C" void EXPORT *CreateInterface( const char *interface, int *retval )
 {
-	if( !Q_strcmp( interface, "VFileSystem009" ))
+	if( !Q_strcmp( interface, FILESYSTEM_INTERFACE_VERSION ))
 	{
-		if( retval ) *retval = 0;
+		if( retval )
+			*retval = 0;
+
 		return &g_VFileSystem009;
 	}
 
 	if( !Q_strcmp( interface, FS_API_CREATEINTERFACE_TAG ))
 	{
-		// return a copy, to disallow overriding
-		static fs_api_t copy = { 0 };
+		static fs_api_t copy; // return a copy, to disallow overriding
 
-		if( !copy.InitStdio )
-			memcpy( &copy, &g_api, sizeof( copy ));
+		copy = g_api;
 
-		if( retval ) *retval = 0;
+		if( retval )
+			*retval = 0;
+
 		return &copy;
 	}
 
-	if( retval ) *retval = 1;
-	return NULL;
+	if( retval )
+		*retval = 1;
+
+	return nullptr;
 }

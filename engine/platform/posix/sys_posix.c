@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 #include "platform/platform.h"
 #include "menu_int.h"
 
@@ -50,11 +51,12 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 			needTrailingSlash = ( envPath[length - 1] == '/' ) ? 0 : 1;
 			if( length + baseNameLength + needTrailingSlash < size )
 			{
-				Q_strncpy( buf, envPath, length + 1 );
-				if( needTrailingSlash )
-					Q_strcpy( buf + length, "/" );
-				Q_strcpy( buf + length + needTrailingSlash, baseName );
-				buf[length + needTrailingSlash + baseNameLength] = '\0';
+				string temp;
+
+				Q_strncpy( temp, envPath, length + 1 );
+				Q_snprintf( buf, size, "%s%s%s",
+					temp, needTrailingSlash ? "/" : "", baseName );
+
 				if( access( buf, X_OK ) == 0 )
 					return true;
 			}
@@ -67,7 +69,7 @@ static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size
 	return false;
 }
 
-#if !XASH_ANDROID
+#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	char xdgOpen[128];
@@ -95,8 +97,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 
 void Posix_Daemonize( void )
 {
-	// to be accessed later
-	if( ( host.daemonized = Sys_CheckParm( "-daemonize" ) ) )
+	if( Sys_CheckParm( "-daemonize" ))
 	{
 #if XASH_POSIX && defined(_POSIX_VERSION) && !defined(XASH_MOBILE_PLATFORM)
 		pid_t daemon;
@@ -145,22 +146,32 @@ void Posix_Daemonize( void )
 
 }
 
-#if !XASH_SDL && !XASH_ANDROID
-
-void Platform_Init( void )
+static void Posix_SigtermCallback( int signal )
 {
-	Posix_Daemonize();
+	string reason;
+	Q_snprintf( reason, sizeof( reason ), "caught signal %d", signal );
+	Sys_Quit( reason );
 }
-void Platform_Shutdown( void ) {}
+
+void Posix_SetupSigtermHandling( void )
+{
+#if !XASH_PSVITA
+	struct sigaction act = { 0 };
+	act.sa_handler = Posix_SigtermCallback;
+	act.sa_flags = 0;
+	sigaction( SIGTERM, &act, NULL );
 #endif
+}
 
 #if XASH_TIMER == TIMER_POSIX
 double Platform_DoubleTime( void )
 {
 	struct timespec ts;
-
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
+#if XASH_IRIX
+	clock_gettime( CLOCK_SGI_CYCLE, &ts );
+#else
+	clock_gettime( CLOCK_MONOTONIC, &ts );
+#endif
 	return (double) ts.tv_sec + (double) ts.tv_nsec/1000000000.0;
 }
 
@@ -169,3 +180,4 @@ void Platform_Sleep( int msec )
 	usleep( msec * 1000 );
 }
 #endif // XASH_TIMER == TIMER_POSIX
+
