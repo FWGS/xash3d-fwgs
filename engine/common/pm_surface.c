@@ -48,7 +48,7 @@ SampleMiptex
 fence texture testing
 =============
 */
-int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
+static int PM_SampleMiptex( const msurface_t *surf, const vec3_t point )
 {
 	mextrasurf_t	*info = surf->info;
 	mfacebevel_t	*fb = info->bevel;
@@ -112,6 +112,9 @@ msurface_t *PM_RecursiveSurfCheck( model_t *mod, mnode_t *node, vec3_t p1, vec3_
 	int		i, side;
 	msurface_t	*surf;
 	vec3_t		mid;
+	mnode_t *children[2];
+	int numsurfaces, firstsurface;
+
 loc0:
 	if( node->contents < 0 )
 		return NULL;
@@ -119,15 +122,17 @@ loc0:
 	t1 = PlaneDiff( p1, node->plane );
 	t2 = PlaneDiff( p2, node->plane );
 
+	node_children( children, node, mod );
+
 	if( t1 >= -FRAC_EPSILON && t2 >= -FRAC_EPSILON )
 	{
-		node = node->children[0];
+		node = children[0];
 		goto loc0;
 	}
 
 	if( t1 < FRAC_EPSILON && t2 < FRAC_EPSILON )
 	{
-		node = node->children[1];
+		node = children[1];
 		goto loc0;
 	}
 
@@ -137,13 +142,15 @@ loc0:
 
 	VectorLerp( p1, frac, p2, mid );
 
-	if(( surf = PM_RecursiveSurfCheck( mod, node->children[side], p1, mid )) != NULL )
+	if(( surf = PM_RecursiveSurfCheck( mod, children[side], p1, mid )) != NULL )
 		return surf;
 
 	// walk through real faces
-	for( i = 0; i < node->numsurfaces; i++ )
+	numsurfaces = node_numsurfaces( node, mod );
+	firstsurface = node_firstsurface( node, mod );
+	for( i = 0; i < numsurfaces; i++ )
 	{
-		msurface_t	*surf = &mod->surfaces[node->firstsurface + i];
+		msurface_t	*surf = &mod->surfaces[firstsurface + i];
 		mextrasurf_t	*info = surf->info;
 		mfacebevel_t	*fb = info->bevel;
 		int		j, contents;
@@ -172,7 +179,7 @@ loc0:
 		return NULL; // through the fence
 	}
 
-	return PM_RecursiveSurfCheck( mod, node->children[side^1], mid, p2 );
+	return PM_RecursiveSurfCheck( mod, children[side^1], mid, p2 );
 }
 
 /*
@@ -216,35 +223,20 @@ msurface_t *PM_TraceSurface( physent_t *pe, vec3_t start, vec3_t end )
 
 /*
 ==================
-PM_TraceTexture
-
-find the face where the traceline hit
-assume physentity is valid
-==================
-*/
-const char *PM_TraceTexture( physent_t *pe, vec3_t start, vec3_t end )
-{
-	msurface_t	*surf = PM_TraceSurface( pe, start, end );
-
-	if( !surf || !surf->texinfo || !surf->texinfo->texture )
-		return NULL;
-
-	return surf->texinfo->texture->name;
-}
-
-/*
-==================
 PM_TestLine_r
 
 optimized trace for light gathering
 ==================
 */
-int PM_TestLine_r( model_t *mod, mnode_t *node, vec_t p1f, vec_t p2f, const vec3_t start, const vec3_t stop, linetrace_t *trace )
+static int PM_TestLine_r( model_t *mod, mnode_t *node, vec_t p1f, vec_t p2f, const vec3_t start, const vec3_t stop, linetrace_t *trace )
 {
 	float	front, back;
 	float	frac, midf;
 	int	i, r, side;
 	vec3_t	mid;
+	mnode_t *children[2];
+	int numsurfaces, firstsurface;
+
 loc0:
 	if( node->contents < 0 )
 	{
@@ -260,15 +252,17 @@ loc0:
 	front = PlaneDiff( start, node->plane );
 	back = PlaneDiff( stop, node->plane );
 
+	node_children( children, node, mod );
+
 	if( front >= -FRAC_EPSILON && back >= -FRAC_EPSILON )
 	{
-		node = node->children[0];
+		node = children[0];
 		goto loc0;
 	}
 
 	if( front < FRAC_EPSILON && back < FRAC_EPSILON )
 	{
-		node = node->children[1];
+		node = children[1];
 		goto loc0;
 	}
 
@@ -279,7 +273,7 @@ loc0:
 	VectorLerp( start, frac, stop, mid );
 	midf = p1f + ( p2f - p1f ) * frac;
 
-	r = PM_TestLine_r( mod, node->children[side], p1f, midf, start, mid, trace );
+	r = PM_TestLine_r( mod, children[side], p1f, midf, start, mid, trace );
 
 	if( r != CONTENTS_EMPTY )
 	{
@@ -290,9 +284,11 @@ loc0:
 	}
 
 	// walk through real faces
-	for( i = 0; i < node->numsurfaces; i++ )
+	numsurfaces = node_numsurfaces( node, mod );
+	firstsurface = node_firstsurface( node, mod );
+	for( i = 0; i < numsurfaces; i++ )
 	{
-		msurface_t	*surf = &mod->surfaces[node->firstsurface + i];
+		msurface_t	*surf = &mod->surfaces[firstsurface + i];
 		mextrasurf_t	*info = surf->info;
 		mfacebevel_t	*fb = info->bevel;
 		int		j, contents;
@@ -326,7 +322,7 @@ loc0:
 		return contents;
 	}
 
-	return PM_TestLine_r( mod, node->children[!side], midf, p2f, mid, stop, trace );
+	return PM_TestLine_r( mod, children[!side], midf, p2f, mid, stop, trace );
 }
 
 int PM_TestLineExt( playermove_t *pmove, physent_t *ents, int numents, const vec3_t start, const vec3_t end, int flags )

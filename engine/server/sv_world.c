@@ -40,9 +40,8 @@ HULL BOXES
 ===============================================================================
 */
 
-static hull_t	box_hull;
-static mclipnode_t	box_clipnodes[6];
-static mplane_t	box_planes[6];
+static hull_t        box_hull;
+static mplane_t      box_planes[6];
 
 /*
 ===================
@@ -52,25 +51,17 @@ Set up the planes and clipnodes so that the six floats of a bounding box
 can just be stored out and get a proper hull_t structure.
 ===================
 */
-void SV_InitBoxHull( void )
+static void SV_InitBoxHull( void )
 {
-	int	i, side;
+	int	i;
 
-	box_hull.clipnodes = box_clipnodes;
+	box_hull.clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 	box_hull.planes = box_planes;
 	box_hull.firstclipnode = 0;
 	box_hull.lastclipnode = 5;
 
 	for( i = 0; i < 6; i++ )
 	{
-		box_clipnodes[i].planenum = i;
-
-		side = i & 1;
-
-		box_clipnodes[i].children[side] = CONTENTS_EMPTY;
-		if( i != 5 ) box_clipnodes[i].children[side^1] = i + 1;
-		else box_clipnodes[i].children[side^1] = CONTENTS_SOLID;
-
 		box_planes[i].type = i>>1;
 		box_planes[i].normal[i>>1] = 1;
 		box_planes[i].signbits = 0;
@@ -84,7 +75,7 @@ StudioPlayerBlend
 
 ====================
 */
-void SV_StudioPlayerBlend( mstudioseqdesc_t *pseqdesc, int *pBlend, float *pPitch )
+static void SV_StudioPlayerBlend( mstudioseqdesc_t *pseqdesc, int *pBlend, float *pPitch )
 {
 	// calc up/down pointing
 	*pBlend = (*pPitch * 3);
@@ -115,7 +106,7 @@ SV_CheckSphereIntersection
 check clients only
 ====================
 */
-qboolean SV_CheckSphereIntersection( edict_t *ent, const vec3_t start, const vec3_t end )
+static qboolean SV_CheckSphereIntersection( edict_t *ent, const vec3_t start, const vec3_t end )
 {
 	int		i, sequence;
 	float		radiusSquared;
@@ -158,7 +149,7 @@ To keep everything totally uniform, bounding boxes are turned into small
 BSP trees instead of being compared directly.
 ===================
 */
-hull_t *SV_HullForBox( const vec3_t mins, const vec3_t maxs )
+static hull_t *SV_HullForBox( const vec3_t mins, const vec3_t maxs )
 {
 	box_planes[0].dist = maxs[0];
 	box_planes[1].dist = mins[0];
@@ -167,47 +158,12 @@ hull_t *SV_HullForBox( const vec3_t mins, const vec3_t maxs )
 	box_planes[4].dist = maxs[2];
 	box_planes[5].dist = mins[2];
 
+	if( world.version == QBSP2_VERSION )
+		box_hull.clipnodes32 = (mclipnode32_t *)box_clipnodes32;
+	else
+		box_hull.clipnodes16 = (mclipnode16_t *)box_clipnodes16;
+
 	return &box_hull;
-}
-
-/*
-==================
-SV_HullAutoSelect
-
-select the apropriate hull automatically
-==================
-*/
-hull_t *SV_HullAutoSelect( model_t *model, const vec3_t mins, const vec3_t maxs, const vec3_t size, vec3_t offset )
-{
-	float	curdiff;
-	float	lastdiff = 999;
-	int	i, hullNumber = 0;	// assume we fail
-	vec3_t	clip_size;
-	hull_t	*hull;
-
-	// NOTE: this is not matched with hardcoded values in some cases...
-	for( i = 0; i < MAX_MAP_HULLS; i++ )
-	{
-		VectorSubtract( model->hulls[i].clip_maxs, model->hulls[i].clip_mins, clip_size );
-		curdiff = floor( VectorAvg( size )) - floor( VectorAvg( clip_size ));
-		curdiff = fabs( curdiff );
-
-		if( curdiff < lastdiff )
-		{
-			hullNumber = i;
-			lastdiff = curdiff;
-		}
-	}
-
-	// TraceHull stuff
-	hull = &model->hulls[hullNumber];
-
-	// calculate an offset value to center the origin
-	// NOTE: never get offset of drawing hull
-	if( !hullNumber ) VectorCopy( hull->clip_mins, offset );
-	else VectorSubtract( hull->clip_mins, mins, offset );
-
-	return hull;
 }
 
 /*
@@ -217,7 +173,7 @@ SV_HullForBsp
 forcing to select BSP hull
 ==================
 */
-hull_t *SV_HullForBsp( edict_t *ent, const vec3_t mins, const vec3_t maxs, vec3_t offset )
+static hull_t *SV_HullForBsp( edict_t *ent, const vec3_t mins, const vec3_t maxs, vec3_t offset )
 {
 	hull_t		*hull;
 	model_t		*model;
@@ -289,7 +245,7 @@ Offset is filled in to contain the adjustment that must be added to the
 testing object's origin to get a point to use with the returned hull.
 ================
 */
-hull_t *SV_HullForEntity( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset )
+static hull_t *SV_HullForEntity( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset )
 {
 	hull_t	*hull;
 	vec3_t	hullmins, hullmaxs;
@@ -322,7 +278,7 @@ SV_HullForStudioModel
 
 ====================
 */
-hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset, int *numhitboxes )
+static hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset, int *numhitboxes )
 {
 	qboolean		useComplexHull;
 	float		scale = 0.5f;
@@ -401,6 +357,53 @@ hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t of
 /*
 ===============================================================================
 
+	ENTITY LINKING
+
+===============================================================================
+*/
+/*
+===============
+ClearLink
+
+ClearLink is used for new headnodes
+===============
+*/
+static void ClearLink( link_t *l )
+{
+	l->prev = l->next = l;
+}
+
+/*
+===============
+RemoveLink
+
+remove link from chain
+===============
+*/
+static void RemoveLink( link_t *l )
+{
+	l->next->prev = l->prev;
+	l->prev->next = l->next;
+}
+
+/*
+===============
+InsertLinkBefore
+
+kept trigger and solid entities seperate
+===============
+*/
+static void InsertLinkBefore( link_t *l, link_t *before )
+{
+	l->next = before;
+	l->prev = before->prev;
+	l->prev->next = l;
+	l->next->prev = l;
+}
+
+/*
+===============================================================================
+
 ENTITY AREA CHECKING
 
 ===============================================================================
@@ -416,7 +419,7 @@ SV_CreateAreaNode
 builds a uniformly subdivided tree for the given world size
 ===============
 */
-areanode_t *SV_CreateAreaNode( int depth, vec3_t mins, vec3_t maxs )
+static areanode_t *SV_CreateAreaNode( int depth, vec3_t mins, vec3_t maxs )
 {
 	areanode_t	*anode;
 	vec3_t		size;
@@ -500,7 +503,7 @@ void SV_UnlinkEdict( edict_t *ent )
 SV_TouchLinks
 ====================
 */
-void SV_TouchLinks( edict_t *ent, areanode_t *node )
+static void SV_TouchLinks( edict_t *ent, areanode_t *node )
 {
 	link_t	*l, *next;
 	edict_t	*touch;
@@ -587,7 +590,7 @@ SV_FindTouchedLeafs
 
 ===============
 */
-void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
+static void SV_FindTouchedLeafs( edict_t *ent, model_t *mod, mnode_t *node, int *headnode )
 {
 	int	sides;
 	mleaf_t	*leaf;
@@ -598,16 +601,19 @@ void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 	// add an efrag if the node is a leaf
 	if( node->contents < 0 )
 	{
-		if( ent->num_leafs > ( MAX_ENT_LEAFS - 1 ))
+		if( ent->num_leafs >= MAX_ENT_LEAFS( FBitSet( mod->flags, MODEL_QBSP2 )))
 		{
 			// continue counting leafs,
 			// so we know how many it's overrun
-			ent->num_leafs = (MAX_ENT_LEAFS + 1);
+			ent->num_leafs = (MAX_ENT_LEAFS( FBitSet( mod->flags, MODEL_QBSP2 )) + 1);
 		}
 		else
 		{
 			leaf = (mleaf_t *)node;
-			ent->leafnums[ent->num_leafs] = leaf->cluster;
+			if( FBitSet( mod->flags, MODEL_QBSP2 ))
+				ent->leafnums32[ent->num_leafs] = leaf->cluster;
+			else
+				ent->leafnums16[ent->num_leafs] = leaf->cluster;
 			ent->num_leafs++;
 		}
 		return;
@@ -617,11 +623,13 @@ void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 	sides = BOX_ON_PLANE_SIDE( ent->v.absmin, ent->v.absmax, node->plane );
 
 	if(( sides == 3 ) && ( *headnode == -1 ))
-		*headnode = node - sv.worldmodel->nodes;
+		*headnode = node - mod->nodes;
 
 	// recurse down the contacted sides
-	if( sides & 1 ) SV_FindTouchedLeafs( ent, node->children[0], headnode );
-	if( sides & 2 ) SV_FindTouchedLeafs( ent, node->children[1], headnode );
+	if( sides & 1 )
+		SV_FindTouchedLeafs( ent, mod, node_child( node, 0, mod ), headnode );
+	if( sides & 2 )
+		SV_FindTouchedLeafs( ent, mod, node_child( node, 1, mod ), headnode );
 }
 
 /*
@@ -629,7 +637,7 @@ void SV_FindTouchedLeafs( edict_t *ent, mnode_t *node, int *headnode )
 SV_LinkEdict
 ===============
 */
-void SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
+void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 {
 	areanode_t	*node;
 	int		headnode;
@@ -643,7 +651,7 @@ void SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 
 	if( ent->v.movetype == MOVETYPE_FOLLOW && SV_IsValidEdict( ent->v.aiment ))
 	{
-		memcpy( ent->leafnums, ent->v.aiment->leafnums, sizeof( ent->leafnums ));
+		memcpy( ent->leafnums32, ent->v.aiment->leafnums32, sizeof( ent->leafnums32 ));
 		ent->num_leafs = ent->v.aiment->num_leafs;
 		ent->headnode = ent->v.aiment->headnode;
 	}
@@ -655,11 +663,11 @@ void SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 		headnode = -1;
 
 		if( ent->v.modelindex )
-			SV_FindTouchedLeafs( ent, sv.worldmodel->nodes, &headnode );
+			SV_FindTouchedLeafs( ent, sv.worldmodel, sv.worldmodel->nodes, &headnode );
 
-		if( ent->num_leafs > MAX_ENT_LEAFS )
+		if( ent->num_leafs > MAX_ENT_LEAFS( FBitSet( sv.worldmodel->flags, MODEL_QBSP2 )))
 		{
-			memset( ent->leafnums, -1, sizeof( ent->leafnums ));
+			memset( ent->leafnums32, -1, sizeof( ent->leafnums32 ));
 			ent->num_leafs = 0;	// so we use headnode instead
 			ent->headnode = headnode;
 		}
@@ -704,7 +712,7 @@ POINT TESTING IN HULLS
 
 ===============================================================================
 */
-void SV_WaterLinks( const vec3_t origin, int *pCont, areanode_t *node )
+static void SV_WaterLinks( const vec3_t origin, int *pCont, areanode_t *node )
 {
 	link_t	*l, *next;
 	edict_t	*touch;
@@ -808,40 +816,6 @@ int GAME_EXPORT SV_PointContents( const vec3_t p )
 	if( cont <= CONTENTS_CURRENT_0 && cont >= CONTENTS_CURRENT_DOWN )
 		cont = CONTENTS_WATER;
 	return cont;
-}
-
-//===========================================================================
-
-/*
-============
-SV_TestEntityPosition
-
-returns true if the entity is in solid currently
-============
-*/
-qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker )
-{
-	qboolean	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
-	trace_t	trace;
-
-	if( FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
-	{
-		// to avoid falling through tracktrain update client mins\maxs here
-		if( FBitSet( ent->v.flags, FL_DUCKING ))
-			SV_SetMinMaxSize( ent, svgame.pmove->player_mins[1], svgame.pmove->player_maxs[1], true );
-		else SV_SetMinMaxSize( ent, svgame.pmove->player_mins[0], svgame.pmove->player_maxs[0], true );
-	}
-
-	trace = SV_Move( ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_NORMAL, ent, monsterClip );
-
-	if( SV_IsValidEdict( blocker ) && SV_IsValidEdict( trace.ent ))
-	{
-		if( trace.ent->v.movetype == MOVETYPE_PUSH || trace.ent == blocker )
-			return trace.startsolid;
-		return false;
-	}
-
-	return trace.startsolid;
 }
 
 /*
@@ -992,7 +966,7 @@ if the bsp behind it prevents out origin from getting through. so if the trace w
 continue the trace to the edges of the portal cutout instead.
 ==================
 */
-void SV_PortalCSG( edict_t *portal, const vec3_t trace_mins, const vec3_t trace_maxs, const vec3_t start, const vec3_t end, trace_t *trace )
+static void SV_PortalCSG( edict_t *portal, const vec3_t trace_mins, const vec3_t trace_maxs, const vec3_t start, const vec3_t end, trace_t *trace )
 {
 	vec4_t	planes[6];	//far, near, right, left, up, down
 	int	plane, k;
@@ -1297,7 +1271,7 @@ SV_ClipToWorldBrush
 Mins and maxs enclose the entire area swept by the move
 ====================
 */
-void SV_ClipToWorldBrush( areanode_t *node, moveclip_t *clip )
+static void SV_ClipToWorldBrush( areanode_t *node, moveclip_t *clip )
 {
 	link_t	*l, *next;
 	edict_t	*touch;
@@ -1339,17 +1313,16 @@ SV_Move
 */
 trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e, qboolean monsterclip )
 {
-	moveclip_t	clip;
-	vec3_t		trace_endpos;
-	float		trace_fraction;
+	moveclip_t clip = { 0 };
 
-	memset( &clip, 0, sizeof( moveclip_t ));
 	SV_ClipMoveToEntity( EDICT_NUM( 0 ), start, mins, maxs, end, &clip.trace );
 
 	if( clip.trace.fraction != 0.0f )
 	{
+		const float trace_fraction = clip.trace.fraction;
+		vec3_t trace_endpos;
 		VectorCopy( clip.trace.endpos, trace_endpos );
-		trace_fraction = clip.trace.fraction;
+
 		clip.trace.fraction = 1.0f;
 		clip.start = start;
 		clip.end = trace_endpos;
@@ -1387,17 +1360,12 @@ trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end,
 	return clip.trace;
 }
 
-trace_t SV_MoveNormal( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
-{
-	return SV_Move( start, mins, maxs, end, type, e, false );
-}
-
 /*
 ==================
 SV_MoveNoEnts
 ==================
 */
-trace_t SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
+trace_t GAME_EXPORT SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
 {
 	moveclip_t	clip;
 	vec3_t		trace_endpos;
@@ -1444,7 +1412,7 @@ find the face where the traceline hit
 assume pTextureEntity is valid
 ==================
 */
-msurface_t *SV_TraceSurface( edict_t *ent, const vec3_t start, const vec3_t end )
+msurface_t *GAME_EXPORT SV_TraceSurface( edict_t *ent, const vec3_t start, const vec3_t end )
 {
 	matrix4x4		matrix;
 	model_t		*bmodel;
@@ -1510,7 +1478,7 @@ trace_t SV_MoveToss( edict_t *tossent, edict_t *ignore )
 	VectorCopy( tossent->v.velocity, original_velocity );
 	VectorCopy( tossent->v.angles, original_angles );
 	VectorCopy( tossent->v.avelocity, original_avelocity );
-	gravity = tossent->v.gravity * svgame.movevars.gravity * 0.05f;
+	gravity = tossent->v.gravity * sv_gravity.value * 0.05f;
 
 	for( i = 0; i < 200; i++ )
 	{
@@ -1540,24 +1508,18 @@ trace_t SV_MoveToss( edict_t *tossent, edict_t *ignore )
 ===============================================================================
 */
 
-static vec3_t	sv_pointColor;
-
 /*
 =================
 SV_RecursiveLightPoint
 =================
 */
-static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec3_t start, const vec3_t end )
+static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec3_t start, const vec3_t end, vec3_t point_color )
 {
-	float		front, back, scale, frac;
-	int		i, map, side, size;
-	float		ds, dt, s, t;
-	int		sample_size;
-	msurface_t	*surf;
-	mtexinfo_t	*tex;
-	mextrasurf_t	*info;
-	color24		*lm;
-	vec3_t		mid;
+	float front, back, frac;
+	int i, side;
+	vec3_t mid;
+	mnode_t *children[2];
+	int numsurfaces, firstsurface;
 
 	// didn't hit anything
 	if( !node || node->contents < 0 )
@@ -1567,30 +1529,34 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 	front = PlaneDiff( start, node->plane );
 	back = PlaneDiff( end, node->plane );
 
+	node_children( children, node, model );
+
 	side = front < 0.0f;
 	if(( back < 0.0f ) == side )
-		return SV_RecursiveLightPoint( model, node->children[side], start, end );
+		return SV_RecursiveLightPoint( model, children[side], start, end, point_color );
 
 	frac = front / ( front - back );
 
 	VectorLerp( start, frac, end, mid );
 
 	// co down front side
-	if( SV_RecursiveLightPoint( model, node->children[side], start, mid ))
+	if( SV_RecursiveLightPoint( model, children[side], start, mid, point_color ))
 		return true; // hit something
 
 	if(( back < 0.0f ) == side )
-		return false;// didn't hit anything
+		return false; // didn't hit anything
 
 	// check for impact on this node
-	surf = model->surfaces + node->firstsurface;
-
-	for( i = 0; i < node->numsurfaces; i++, surf++ )
+	numsurfaces = node_numsurfaces( node, model );
+	firstsurface = node_firstsurface( node, model );
+	for( i = 0; i < numsurfaces; i++ )
 	{
-		int	smax, tmax;
-
-		tex = surf->texinfo;
-		info = surf->info;
+		const msurface_t *surf = &model->surfaces[firstsurface + i];
+		const mextrasurf_t *info = surf->info;
+		int smax, tmax, map, size;
+		int sample_size;
+		float ds, dt, s, t;
+		const color24 *lm;
 
 		if( FBitSet( surf->flags, SURF_DRAWTILED ))
 			continue;	// no lightmaps
@@ -1616,46 +1582,27 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 		ds /= sample_size;
 		dt /= sample_size;
 
-		VectorClear( sv_pointColor );
+		VectorClear( point_color );
 
 		lm = surf->samples + Q_rint( dt ) * smax + Q_rint( ds );
 		size = smax * tmax;
 
 		for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
 		{
-			scale = sv.lightstyles[surf->styles[map]].value;
+			float scale = sv.lightstyles[surf->styles[map]].value;
 
-			sv_pointColor[0] += lm->r * scale;
-			sv_pointColor[1] += lm->g * scale;
-			sv_pointColor[2] += lm->b * scale;
+			point_color[0] += lm->r * scale;
+			point_color[1] += lm->g * scale;
+			point_color[2] += lm->b * scale;
 
 			lm += size; // skip to next lightmap
 		}
+
 		return true;
 	}
 
 	// go down back side
-	return SV_RecursiveLightPoint( model, node->children[!side], mid, end );
-}
-
-void SV_RunLightStyles( void )
-{
-	int		i, ofs;
-	lightstyle_t	*ls;
-	float		scale;
-
-	scale = sv_lighting_modulate->value;
-
-	// run lightstyles animation
-	for( i = 0, ls = sv.lightstyles; i < MAX_LIGHTSTYLES; i++, ls++ )
-	{
-		ls->time += sv.frametime;
-		ofs = (ls->time * 10);
-
-		if( ls->length == 0 ) ls->value = scale; // disable this light
-		else if( ls->length == 1 ) ls->value = ( ls->map[0] / 12.0f ) * scale;
-		else ls->value = ( ls->map[ofs % ls->length] / 12.0f ) * scale;
-	}
+	return SV_RecursiveLightPoint( model, children[!side], mid, end, point_color );
 }
 
 /*
@@ -1669,10 +1616,8 @@ void SV_SetLightStyle( int style, const char* s, float f )
 {
 	int	j, k;
 
-	Q_strncpy( sv.lightstyles[style].pattern, s, sizeof( sv.lightstyles[0].pattern ));
+	j = Q_strncpy( sv.lightstyles[style].pattern, s, sizeof( sv.lightstyles[0].pattern ));
 	sv.lightstyles[style].time = f;
-
-	j = Q_strlen( s );
 	sv.lightstyles[style].length = j;
 
 	for( k = 0; k < j; k++ )
@@ -1689,22 +1634,6 @@ void SV_SetLightStyle( int style, const char* s, float f )
 
 /*
 ==================
-SV_GetLightStyle
-
-needs to get correct working SV_LightPoint
-==================
-*/
-const char *SV_GetLightStyle( int style )
-{
-	if( style < 0 ) style = 0;
-	if( style >= MAX_LIGHTSTYLES )
-		Host_Error( "SV_GetLightStyle: style: %i >= %d", style, MAX_LIGHTSTYLES );
-
-	return sv.lightstyles[style].pattern;
-}
-
-/*
-==================
 SV_LightForEntity
 
 grab the ambient lighting color for current point
@@ -1712,12 +1641,16 @@ grab the ambient lighting color for current point
 */
 int SV_LightForEntity( edict_t *pEdict )
 {
-	vec3_t	start, end;
+	vec3_t point_color = { 1.0f, 1.0f, 1.0f };
+	vec3_t start, end;
+
+	if( !SV_IsValidEdict( pEdict ))
+		return -1;
 
 	if( FBitSet( pEdict->v.effects, EF_FULLBRIGHT ) || !sv.worldmodel->lightdata )
 		return 255;
 
-	// player has more precision light level that come from client-side
+	// player has more precise light level that come from client-side
 	if( FBitSet( pEdict->v.flags, FL_CLIENT ))
 		return pEdict->v.light_level;
 
@@ -1727,9 +1660,8 @@ int SV_LightForEntity( edict_t *pEdict )
 	if( FBitSet( pEdict->v.effects, EF_INVLIGHT ))
 		end[2] = start[2] + world.size[2];
 	else end[2] = start[2] - world.size[2];
-	VectorSet( sv_pointColor, 1.0f, 1.0f, 1.0f );
 
-	SV_RecursiveLightPoint( sv.worldmodel, sv.worldmodel->nodes, start, end );
+	SV_RecursiveLightPoint( sv.worldmodel, sv.worldmodel->nodes, start, end, point_color );
 
-	return VectorAvg( sv_pointColor );
+	return VectorAvg( point_color );
 }

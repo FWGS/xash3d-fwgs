@@ -16,8 +16,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "server.h"
 
-extern convar_t	*con_gamemaps;
-
 /*
 =================
 SV_ClientPrintf
@@ -34,7 +32,7 @@ void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... )
 		return;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	MSG_BeginServerCmd( &cl->netchan.message, svc_print );
@@ -56,7 +54,7 @@ void SV_BroadcastPrintf( sv_client_t *ignore, const char *fmt, ... )
 	int		i;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	if( sv.state == ss_active )
@@ -97,7 +95,7 @@ void SV_BroadcastCommand( const char *fmt, ... )
 		return;
 
 	va_start( argptr, fmt );
-	Q_vsprintf( string, fmt, argptr );
+	Q_vsnprintf( string, sizeof( string ), fmt, argptr );
 	va_end( argptr );
 
 	MSG_BeginServerCmd( &sv.reliable_datagram, svc_stufftext );
@@ -169,17 +167,11 @@ SV_ValidateMap
 check map for typically errors
 ==================
 */
-qboolean SV_ValidateMap( const char *pMapName, qboolean check_spawn )
+static qboolean SV_ValidateMap( const char *pMapName )
 {
-	char	*spawn_entity;
 	int	flags;
 
-	// determine spawn entity classname
-	if( !check_spawn || (int)sv_maxclients->value <= 1 )
-		spawn_entity = GI->sp_entity;
-	else spawn_entity = GI->mp_entity;
-
-	flags = SV_MapIsValid( pMapName, spawn_entity, NULL );
+	flags = SV_MapIsValid( pMapName, NULL );
 
 	if( FBitSet( flags, MAP_INVALID_VERSION ))
 	{
@@ -190,12 +182,6 @@ qboolean SV_ValidateMap( const char *pMapName, qboolean check_spawn )
 	if( !FBitSet( flags, MAP_IS_EXIST ))
 	{
 		Con_Printf( S_ERROR "map %s doesn't exist\n", pMapName );
-		return false;
-	}
-
-	if( check_spawn && !FBitSet( flags, MAP_HAS_SPAWNPOINT ))
-	{
-		Con_Printf( S_ERROR "map %s doesn't have a valid spawnpoint\n", pMapName );
 		return false;
 	}
 
@@ -210,7 +196,7 @@ Goes directly to a given map without any savegame archiving.
 For development work
 ==================
 */
-void SV_Map_f( void )
+static void SV_Map_f( void )
 {
 	char	mapname[MAX_QPATH];
 
@@ -224,10 +210,10 @@ void SV_Map_f( void )
 	Q_strncpy( mapname, Cmd_Argv( 1 ), sizeof( mapname ));
 	COM_StripExtension( mapname );
 
-	if( !SV_ValidateMap( mapname, true ))
+	if( !SV_ValidateMap( mapname ))
 		return;
 
-	Cvar_DirectSet( sv_hostmap, mapname );
+	Cvar_DirectSet( &sv_hostmap, mapname );
 	COM_LoadLevel( mapname, false );
 }
 
@@ -240,7 +226,7 @@ Lists maps according to given substring.
 TODO: Make it more convenient. (Timestamp check, temporary file, ...)
 ==================
 */
-void SV_Maps_f( void )
+static void SV_Maps_f( void )
 {
 	const char *separator = "-------------------";
 	const char *argStr = Cmd_Argv( 1 ); // Substr
@@ -249,7 +235,7 @@ void SV_Maps_f( void )
 
 	if( Cmd_Argc() != 2 )
 	{
-		Msg( "Usage: maps <substring>\nmaps * for full listing\n" );
+		Msg( S_USAGE "maps <substring>\nmaps * for full listing\n" );
 		return;
 	}
 
@@ -275,7 +261,7 @@ SV_MapBackground_f
 Set background map (enable physics in menu)
 ==================
 */
-void SV_MapBackground_f( void )
+static void SV_MapBackground_f( void )
 {
 	char	mapname[MAX_QPATH];
 
@@ -296,13 +282,13 @@ void SV_MapBackground_f( void )
 	Q_strncpy( mapname, Cmd_Argv( 1 ), sizeof( mapname ));
 	COM_StripExtension( mapname );
 
-	if( !SV_ValidateMap( mapname, false ))
+	if( !SV_ValidateMap( mapname ))
 		return;
 
 	// background map is always run as singleplayer
 	Cvar_FullSet( "maxplayers", "1", FCVAR_LATCH );
-	Cvar_FullSet( "deathmatch", "0", FCVAR_LATCH );
-	Cvar_FullSet( "coop", "0", FCVAR_LATCH );
+	Cvar_FullSet( "deathmatch", "0", FCVAR_LATCH|FCVAR_SERVER );
+	Cvar_FullSet( "coop", "0", FCVAR_LATCH|FCVAR_SERVER );
 
 	COM_LoadLevel( mapname, true );
 }
@@ -315,14 +301,14 @@ Change map for next in alpha-bethical ordering
 For development work
 ==================
 */
-void SV_NextMap_f( void )
+static void SV_NextMap_f( void )
 {
 	char	nextmap[MAX_QPATH];
 	int	i, next;
 	search_t	*t;
 
-	t = FS_Search( "maps\\*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
-	if( !t ) t = FS_Search( "maps/*.bsp", true, CVAR_TO_BOOL( con_gamemaps )); // only in gamedir
+	t = FS_Search( "maps\\*.bsp", true, con_gamemaps.value ); // only in gamedir
+	if( !t ) t = FS_Search( "maps/*.bsp", true, con_gamemaps.value ); // only in gamedir
 
 	if( !t )
 	{
@@ -337,16 +323,16 @@ void SV_NextMap_f( void )
 		if( Q_stricmp( ext, "bsp" ))
 			continue;
 
-		COM_FileBase( t->filenames[i], nextmap );
-		if( Q_stricmp( sv_hostmap->string, nextmap ))
+		COM_FileBase( t->filenames[i], nextmap, sizeof( nextmap ));
+		if( Q_stricmp( sv_hostmap.string, nextmap ))
 			continue;
 
 		next = ( i + 1 ) % t->numfilenames;
-		COM_FileBase( t->filenames[next], nextmap );
-		Cvar_DirectSet( sv_hostmap, nextmap );
+		COM_FileBase( t->filenames[next], nextmap, sizeof( nextmap ));
+		Cvar_DirectSet( &sv_hostmap, nextmap );
 
 		// found current point, check for valid
-		if( SV_ValidateMap( nextmap, true ))
+		if( SV_ValidateMap( nextmap ))
 		{
 			// found and valid
 			COM_LoadLevel( nextmap, false );
@@ -366,15 +352,14 @@ SV_NewGame_f
 
 ==============
 */
-void SV_NewGame_f( void )
+static void SV_NewGame_f( void )
 {
-	if( Cmd_Argc() != 1 )
-	{
+	if( Cmd_Argc() == 1 )
+		COM_NewGame( GI->startmap );
+	else if( Cmd_Argc() == 2 )
+		COM_NewGame( Cmd_Argv( 1 ));
+	else
 		Con_Printf( S_USAGE "newgame\n" );
-		return;
-	}
-
-	COM_NewGame( GI->startmap );
 }
 
 /*
@@ -383,7 +368,7 @@ SV_HazardCourse_f
 
 ==============
 */
-void SV_HazardCourse_f( void )
+static void SV_HazardCourse_f( void )
 {
 	if( Cmd_Argc() != 1 )
 	{
@@ -394,7 +379,7 @@ void SV_HazardCourse_f( void )
 	// special case for Gunman Chronicles: playing avi-file
 	if( FS_FileExists( va( "media/%s.avi", GI->trainmap ), false ))
 	{
-		Cbuf_AddText( va( "wait; movie %s\n", GI->trainmap ));
+		Cbuf_AddTextf( "wait; movie %s\n", GI->trainmap );
 		Host_EndGame( true, DEFAULT_ENDGAME_MESSAGE );
 	}
 	else COM_NewGame( GI->trainmap );
@@ -406,7 +391,7 @@ SV_Load_f
 
 ==============
 */
-void SV_Load_f( void )
+static void SV_Load_f( void )
 {
 	char	path[MAX_QPATH];
 
@@ -426,7 +411,7 @@ SV_QuickLoad_f
 
 ==============
 */
-void SV_QuickLoad_f( void )
+static void SV_QuickLoad_f( void )
 {
 	Cbuf_AddText( "echo Quick Loading...; wait; load quick" );
 }
@@ -437,20 +422,25 @@ SV_Save_f
 
 ==============
 */
-void SV_Save_f( void )
+static void SV_Save_f( void )
 {
+	qboolean ret = false;
+
 	switch( Cmd_Argc( ))
 	{
 	case 1:
-		SV_SaveGame( "new" );
+		ret = SV_SaveGame( "new" );
 		break;
 	case 2:
-		SV_SaveGame( Cmd_Argv( 1 ));
+		ret = SV_SaveGame( Cmd_Argv( 1 ));
 		break;
 	default:
 		Con_Printf( S_USAGE "save <savename>\n" );
 		break;
 	}
+
+	if( ret && CL_Active() && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		CL_HudMessage( "GAMESAVED" ); // defined in titles.txt
 }
 
 /*
@@ -459,7 +449,7 @@ SV_QuickSave_f
 
 ==============
 */
-void SV_QuickSave_f( void )
+static void SV_QuickSave_f( void )
 {
 	Cbuf_AddText( "echo Quick Saving...; wait; save quick" );
 }
@@ -470,7 +460,7 @@ SV_DeleteSave_f
 
 ==============
 */
-void SV_DeleteSave_f( void )
+static void SV_DeleteSave_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
@@ -489,7 +479,7 @@ SV_AutoSave_f
 
 ==============
 */
-void SV_AutoSave_f( void )
+static void SV_AutoSave_f( void )
 {
 	if( Cmd_Argc() != 1 )
 	{
@@ -497,7 +487,8 @@ void SV_AutoSave_f( void )
 		return;
 	}
 
-	SV_SaveGame( "autosave" );
+	if( sv_autosave.value )
+		SV_SaveGame( "autosave" );
 }
 
 /*
@@ -507,7 +498,7 @@ SV_Restart_f
 restarts current level
 ==================
 */
-void SV_Restart_f( void )
+static void SV_Restart_f( void )
 {
 	// because restart can be multiple issued
 	if( sv.state != ss_active )
@@ -522,14 +513,14 @@ SV_Reload_f
 continue from latest savedgame
 ==================
 */
-void SV_Reload_f( void )
+static void SV_Reload_f( void )
 {
 	// because reload can be multiple issued
 	if( GameState->nextstate != STATE_RUNFRAME )
 		return;
 
 	if( !SV_LoadGame( SV_GetLatestSave( )))
-		COM_LoadLevel( sv_hostmap->string, false );
+		COM_LoadLevel( sv_hostmap.string, false );
 }
 
 /*
@@ -539,9 +530,9 @@ SV_ChangeLevel_f
 classic change level
 ==================
 */
-void SV_ChangeLevel_f( void )
+static void SV_ChangeLevel_f( void )
 {
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() < 2 ) // allow extra arguments, for compatibility
 	{
 		Con_Printf( S_USAGE "changelevel <mapname>\n" );
 		return;
@@ -557,15 +548,17 @@ SV_ChangeLevel2_f
 smooth change level
 ==================
 */
-void SV_ChangeLevel2_f( void )
+static void SV_ChangeLevel2_f( void )
 {
-	if( Cmd_Argc() != 3 )
+	if( Cmd_Argc() < 2 ) // allow extra arguments, for compatibility
 	{
-		Con_Printf( S_USAGE "changelevel2 <mapname> <landmark>\n" );
+		Con_Printf( S_USAGE "changelevel2 <mapname> [landmark]\n" );
 		return;
 	}
 
-	SV_QueueChangeLevel( Cmd_Argv( 1 ), Cmd_Argv( 2 ));
+	if( Cmd_Argc() == 2 ) // with single argument, behaves like usual changelevel
+		SV_QueueChangeLevel( Cmd_Argv( 1 ), NULL );
+	else SV_QueueChangeLevel( Cmd_Argv( 1 ), Cmd_Argv( 2 ));
 }
 
 /*
@@ -575,12 +568,12 @@ SV_Kick_f
 Kick a user off of the server
 ==================
 */
-void SV_Kick_f( void )
+static void SV_Kick_f( void )
 {
 	sv_client_t	*cl;
-	const char *param, *clientId;
+	const char *param;
 
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() < 2 )
 	{
 		Con_Printf( S_USAGE "kick <#id|name> [reason]\n" );
 		return;
@@ -598,38 +591,7 @@ void SV_Kick_f( void )
 		return;
 	}
 
-	if( NET_IsLocalAddress( cl->netchan.remote_address ))
-	{
-		Con_Printf( "The local player cannot be kicked!\n" );
-		return;
-	}
-
-	param = Cmd_Argv( 2 );
-
-	clientId = SV_GetClientIDString( cl );
-
-	if( *param )
-	{
-		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\" (message \"%s\")\n", cl->name, cl->userid, clientId, param );
-		SV_BroadcastPrintf( cl, "%s was kicked with message: \"%s\"\n", cl->name, param );
-		SV_ClientPrintf( cl, "You were kicked from the game with message: \"%s\"\n", param );
-	}
-	else
-	{
-		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\"\n", cl->name, cl->userid, clientId );
-		SV_BroadcastPrintf( cl, "%s was kicked\n", cl->name );
-		SV_ClientPrintf( cl, "You were kicked from the game\n" );
-	}
-
-	if( cl->useragent[0] )
-	{
-		if( *param )
-			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nKicked with message:\n%s\n", param );
-		else
-			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, "errormsg\nYou were kicked from the game\n" );
-	}
-
-	SV_DropClient( cl, false );
+	SV_KickPlayer( cl, "%s", Cmd_Argv( 2 ));
 }
 
 /*
@@ -637,7 +599,7 @@ void SV_Kick_f( void )
 SV_EntPatch_f
 ==================
 */
-void SV_EntPatch_f( void )
+static void SV_EntPatch_f( void )
 {
 	const char	*mapname;
 
@@ -663,10 +625,17 @@ void SV_EntPatch_f( void )
 SV_Status_f
 ================
 */
-void SV_Status_f( void )
+static void SV_Status_f( void )
 {
-	sv_client_t	*cl;
 	int		i;
+
+#if !XASH_DEDICATED
+	if( !svs.clients && CL_Active( ))
+	{
+		Cmd_ForwardToServer();
+		return;
+	}
+#endif // XASH_DEDICATED
 
 	if( !svs.clients || sv.background )
 	{
@@ -675,34 +644,70 @@ void SV_Status_f( void )
 	}
 
 	Con_Printf( "map: %s\n", sv.name );
-	Con_Printf( "num score ping    name            lastmsg address               port \n" );
-	Con_Printf( "--- ----- ------- --------------- ------- --------------------- ------\n" );
+	Con_Printf( "# score ping dev  lastmsg qport useragent\t\tname\t\taddress\n" );
 
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
-		int	j, l;
-		const char	*s;
+		const sv_client_t *cl = &svs.clients[i];
+		int j = 0;
+		const char *s;
+		char devices[8];
+		string version;
+		string os;
+		string arch;
+		int buildnum;
+		int input_devices;
 
-		if( !cl->state ) continue;
+		if( !cl->state )
+			continue;
 
-		Con_Printf( "%3i ", i );
-		Con_Printf( "%5i ", (int)cl->edict->v.frags );
+		if( cl->state == cs_connected )
+			s = "Connect ";
+		else if( cl->state == cs_spawning )
+			s = "Spawning";
+		else if( cl->state == cs_zombie )
+			s = "Zombie  ";
+		else if( FBitSet( cl->flags, FCL_FAKECLIENT ))
+			s = "Bot     ";
+		else
+			s = va( "%8i", SV_CalcPing( cl ));
 
-		if( cl->state == cs_connected ) Con_Printf( "Connect" );
-		else if( cl->state == cs_zombie ) Con_Printf( "Zombie " );
-		else if( FBitSet( cl->flags, FCL_FAKECLIENT )) Con_Printf( "Bot   " );
-		else Con_Printf( "%7i ", SV_CalcPing( cl ));
+		input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
 
-		Con_Printf( "%s", cl->name );
-		l = 24 - Q_strlen( cl->name );
-		for( j = 0; j < l; j++ ) Con_Printf( " " );
-		Con_Printf( "%g ", ( host.realtime - cl->netchan.last_received ));
-		s = NET_BaseAdrToString( cl->netchan.remote_address );
-		Con_Printf( "%s", s );
-		l = 22 - Q_strlen( s );
-		for( j = 0; j < l; j++ ) Con_Printf( " " );
-		Con_Printf( "%5i", cl->netchan.qport );
-		Con_Printf( "\n" );
+		if( FBitSet( input_devices, INPUT_DEVICE_MOUSE ))
+			devices[j++] = 'm';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_TOUCH ))
+			devices[j++] = 't';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_JOYSTICK ))
+			devices[j++] = 'j';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_VR ))
+			devices[j++] = 'v';
+
+		if( j == 0 )
+			Q_strncpy( devices, "n/a", sizeof( devices ));
+		else
+			devices[j++] = 0;
+
+		Q_strncpy( version, Info_ValueForKey( cl->useragent, "v" ), sizeof( version ));
+		Q_strncpy( os, Info_ValueForKey( cl->useragent, "o" ), sizeof( os ));
+		Q_strncpy( arch, Info_ValueForKey( cl->useragent, "a" ), sizeof( arch ));
+		buildnum = Q_atoi( Info_ValueForKey( cl->useragent, "b" ));
+
+		if( !COM_CheckStringEmpty( version ))
+			Q_strncpy( version, "n/a", sizeof( version ));
+		if( !COM_CheckStringEmpty( os ))
+			Q_strncpy( os, "n/a", sizeof( os ));
+		if( !COM_CheckStringEmpty( arch ))
+			Q_strncpy( arch, "n/a", sizeof( arch ));
+
+		Con_Printf( "%2i %5i %4s %4s %.5f %5i %s (%s-%s %i)\t%8s\t%8s\n",
+			i, (int)cl->edict->v.frags, s, devices, host.realtime - cl->netchan.last_received, cl->netchan.qport,
+			version, os, arch, buildnum,
+			cl->name, NET_BaseAdrToString( cl->netchan.remote_address ) );
+
 	}
 	Con_Printf( "\n" );
 }
@@ -712,7 +717,7 @@ void SV_Status_f( void )
 SV_ConSay_f
 ==================
 */
-void SV_ConSay_f( void )
+static void SV_ConSay_f( void )
 {
 	const char	*p;
 	char		text[MAX_SYSPATH];
@@ -726,7 +731,7 @@ void SV_ConSay_f( void )
 	}
 
 	p = Cmd_Args();
-	Q_strncpy( text, *p == '"' ? p + 1 : p, MAX_SYSPATH );
+	Q_strncpy( text, *p == '"' ? p + 1 : p, sizeof( text ));
 
 	if( *p == '"' )
 	{
@@ -743,9 +748,9 @@ void SV_ConSay_f( void )
 SV_Heartbeat_f
 ==================
 */
-void SV_Heartbeat_f( void )
+static void SV_Heartbeat_f( void )
 {
-	svs.last_heartbeat = MAX_HEARTBEAT;
+	NET_MasterClear();
 }
 
 /*
@@ -755,7 +760,7 @@ SV_ServerInfo_f
 Examine or change the serverinfo string
 ===========
 */
-void SV_ServerInfo_f( void )
+static void SV_ServerInfo_f( void )
 {
 	convar_t	*var;
 
@@ -763,7 +768,7 @@ void SV_ServerInfo_f( void )
 	{
 		Con_Printf( "Server info settings:\n" );
 		Info_Print( svs.serverinfo );
-		Con_Printf( "Total %lu symbols\n", Q_strlen( svs.serverinfo ));
+		Con_Printf( "Total %zu symbols\n", Q_strlen( svs.serverinfo ));
 		return;
 	}
 
@@ -789,7 +794,7 @@ void SV_ServerInfo_f( void )
 	}
 
 	Info_SetValueForStarKey( svs.serverinfo, Cmd_Argv( 1 ), Cmd_Argv( 2 ), MAX_SERVERINFO_STRING );
-	SV_BroadcastCommand( "fullserverinfo \"%s\"\n", SV_Serverinfo( ));
+	SV_BroadcastCommand( "fullserverinfo \"%s\"\n", svs.serverinfo );
 }
 
 /*
@@ -799,13 +804,13 @@ SV_LocalInfo_f
 Examine or change the localinfo string
 ===========
 */
-void SV_LocalInfo_f( void )
+static void SV_LocalInfo_f( void )
 {
 	if( Cmd_Argc() == 1 )
 	{
 		Con_Printf( "Local info settings:\n" );
 		Info_Print( svs.localinfo );
-		Con_Printf( "Total %lu symbols\n", Q_strlen( svs.localinfo ));
+		Con_Printf( "Total %zu symbols\n", Q_strlen( svs.localinfo ));
 		return;
 	}
 
@@ -831,7 +836,7 @@ SV_ClientInfo_f
 Examine all a users info strings
 ===========
 */
-void SV_ClientInfo_f( void )
+static void SV_ClientInfo_f( void )
 {
 	sv_client_t	*cl;
 
@@ -857,7 +862,7 @@ SV_ClientUserAgent_f
 Examine useragent strings
 ===========
 */
-void SV_ClientUserAgent_f( void )
+static void SV_ClientUserAgent_f( void )
 {
 	sv_client_t	*cl;
 
@@ -882,9 +887,9 @@ SV_KillServer_f
 Kick everyone off, possibly in preparation for a new game
 ===============
 */
-void SV_KillServer_f( void )
+static void SV_KillServer_f( void )
 {
-	Host_ShutdownServer();
+	SV_Shutdown( "Server was killed due to shutdownserver command\n" );
 }
 
 /*
@@ -894,7 +899,7 @@ SV_PlayersOnly_f
 disable plhysics but players
 ===============
 */
-void SV_PlayersOnly_f( void )
+static void SV_PlayersOnly_f( void )
 {
 	if( !Cvar_VariableInteger( "sv_cheats" )) return;
 
@@ -909,7 +914,7 @@ SV_EdictUsage_f
 
 ===============
 */
-void SV_EdictUsage_f( void )
+static void SV_EdictUsage_f( void )
 {
 	int	active;
 
@@ -931,7 +936,7 @@ SV_EntityInfo_f
 
 ===============
 */
-void SV_EntityInfo_f( void )
+static void SV_EntityInfo_f( void )
 {
 	edict_t	*ent;
 	int	i;
@@ -975,7 +980,7 @@ Rcon_Redirect_f
 Force redirect N lines of console output to client
 ================
 */
-void Rcon_Redirect_f( void )
+static void Rcon_Redirect_f( void )
 {
 	int lines = 2000;
 
@@ -990,6 +995,22 @@ void Rcon_Redirect_f( void )
 
 	host.rd.lines = lines;
 	Msg( "Redirection enabled for next %d lines\n", lines );
+}
+
+static void SV_ListMessages_f( void )
+{
+	int i;
+
+	Con_Printf( "num size name\n" );
+	for( i = 1; i < MAX_USER_MESSAGES; i++ )
+	{
+		if( !COM_CheckStringEmpty( svgame.msg[i].name ))
+			break;
+
+		Con_Printf( "%3d\t%3d\t%s\n", svgame.msg[i].number, svgame.msg[i].size, svgame.msg[i].name );
+	}
+
+	Con_Printf( "Total %i messages\n", i - 1 );
 }
 
 /*
@@ -1043,6 +1064,8 @@ void SV_InitOperatorCommands( void )
 	Cmd_AddCommand( "redirect", Rcon_Redirect_f, "force enable rcon redirection" );
 	Cmd_AddCommand( "logaddress", SV_SetLogAddress_f, "sets address and port for remote logging host" );
 	Cmd_AddCommand( "log", SV_ServerLog_f, "enables logging to file" );
+	Cmd_AddCommand( "str64stats", SV_PrintStr64Stats_f, "print engine pool string statistics" );
+	Cmd_AddCommand( "sv_list_messages", SV_ListMessages_f, "list registered user messages" );
 
 	if( host.type == HOST_NORMAL )
 	{
@@ -1069,6 +1092,7 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "localinfo" );
 	Cmd_RemoveCommand( "serverinfo" );
 	Cmd_RemoveCommand( "clientinfo" );
+	Cmd_RemoveCommand( "clientuseragent" );
 	Cmd_RemoveCommand( "playersonly" );
 	Cmd_RemoveCommand( "restart" );
 	Cmd_RemoveCommand( "entpatch" );
@@ -1077,8 +1101,10 @@ void SV_KillOperatorCommands( void )
 	Cmd_RemoveCommand( "shutdownserver" );
 	Cmd_RemoveCommand( "changelevel" );
 	Cmd_RemoveCommand( "changelevel2" );
+	Cmd_RemoveCommand( "redirect" );
 	Cmd_RemoveCommand( "logaddress" );
 	Cmd_RemoveCommand( "log" );
+	Cmd_RemoveCommand( "str64stats" );
 
 	if( host.type == HOST_NORMAL )
 	{

@@ -5,189 +5,293 @@
 from waflib import Logs
 from waflib.extras import pthread
 import os
+from copy import copy
 
 top = '.'
+
+EXECINFO_TEST = '''#include <execinfo.h>
+int main(int argc, char **argv)
+{
+	backtrace(0, 0);
+	backtrace_symbols(0, 0);
+}'''
+
+FFMPEG_CHECK_FRAGMENT='''
+#include <libswresample/swresample.h>
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+#include <libavutil/avutil.h>
+int main(int argc, char **argv)
+{
+	swresample_version();
+	avformat_version();
+	avcodec_version();
+	swscale_version();
+	avutil_version();
+	return 0;
+}
+'''
 
 def options(opt):
 	grp = opt.add_option_group('Engine options')
 
-	grp.add_option('--enable-stdin-input', action = 'store_true', dest = 'USE_SELECT', default = False,
-		help = 'enable console input from stdin (always enabled for dedicated) [default: %default]')
-
 	grp.add_option('--enable-fbdev', action = 'store_true', dest = 'FBDEV_SW', default = False,
 		help = 'build fbdev-only software-only engine')
-
-	grp.add_option('--disable-async-resolve', action = 'store_true', dest = 'NO_ASYNC_RESOLVE', default = False,
-		help = 'disable multithreaded operations(asynchronous name resolution)')
 
 	grp.add_option('--enable-custom-swap', action = 'store_true', dest = 'CUSTOM_SWAP', default = False,
 		help = 'enable custom swap allocator. For devices with no swap support')
 
-	grp.add_option('--enable-legacy-sdl', action = 'store_true', dest = 'SDL12', default = False,
-		help = 'enable using SDL1.2 instead of SDL2(not recommended) [default: %default]')
+	grp.add_option('--use-sdl1', action = 'store_true', dest = 'SDL12', default = False,
+		help = 'enable using SDL1.2 instead of SDL2 (not supported or recommended) [default: %(default)s]')
 
 	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
-		help = 'build static binary(not recommended, --single-binary required) [default: %default]')
+		help = 'build static binary(not recommended, --single-binary required) [default: %(default)s]')
 
 	grp.add_option('--enable-engine-tests', action = 'store_true', dest = 'ENGINE_TESTS', default = False,
-		help = 'embed tests into the engine, jump into them by -runtests command line switch [default: %default]')
+		help = 'embed tests into the engine, jump into them by -runtests command line switch [default: %(default)s]')
 
 	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
-		help = 'add LLVM libFuzzer [default: %default]' )
+		help = 'add LLVM libFuzzer [default: %(default)s]' )
+
+	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
+		help = 'enable ffmpeg based movie playback [default: %(default)s')
+
+	grp.add_option('--enable-ffmpeg-dlopen', action = 'store_true', dest = 'FFMPEG_DLOPEN', default = False,
+		help = 'load ffmpeg libraries in runtime [default: %(default)s]')
 
 	opt.load('sdl2')
 
-def configure(conf):
-	# check for dedicated server build
-	if conf.options.DEDICATED:
-		if conf.env.DEST_OS == 'linux':
-			conf.check_cc(lib='rt')
-		conf.define('XASH_DEDICATED', 1)
-	elif conf.env.DEST_OS == 'dos':
-		conf.options.STATIC = True
-		conf.options.NO_ASYNC_RESOLVE = True
-		if not conf.check_cc( fragment='int main(){ int i = socket();}', lib = 'wattcpwl', mandatory=False ):
-			conf.define('XASH_NO_NETWORK',1)
-	elif conf.env.DEST_OS == 'android': # Android doesn't need SDL2
-		for i in ['log']:
-			conf.check_cc(lib = i)
-	elif conf.options.FBDEV_SW:
-		# unused, XASH_LINUX without XASH_SDL gives fbdev & alsa support
-		# conf.define('XASH_FBDEV', 1)
-		conf.check_cc( lib = 'asound' )
-		conf.check_cc( lib = 'rt' )
-	elif conf.options.SDL12:
-		conf.define('XASH_SDL', 12)
-		conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL2' )
-		if conf.env.DEST_OS == 'linux':
-			conf.check_cc( lib='rt' )
-		conf.env.HAVE_SDL2 = True
-	else:
-		conf.load('sdl2')
-		if not conf.env.HAVE_SDL2:
-			conf.fatal('SDL2 not available! If you want to build dedicated server, specify --dedicated')
-		conf.define('XASH_SDL', 2)
+def find_sdl(conf):
+	err_msg = '%s not available! If you want to build dedicated server, specify --dedicated'
+	if conf.env.DEST_OS in ['nswitch', 'psvita']:
+		err_msg = '%s not available!'
 
-	if conf.env.DEST_OS == 'haiku':
+	conf.load('sdl2')
+	if conf.options.SDL3:
+		if not conf.env.HAVE_SDL3:
+			conf.fatal(err_msg % 'SDL3')
+		conf.env.XASH_SDL = 3
+	else:
+		if not conf.env.HAVE_SDL2:
+			conf.fatal(err_msg % 'SDL2')
+		conf.env.XASH_SDL = 2
+
+def configure(conf):
+	have_async_resolve = True
+
+	# Common dependencies, will be linked to both dedicated server and client
+	if conf.env.DEST_OS == 'linux':
+		conf.check_cc(lib='rt')
+		if conf.env.MAGX:
+			conf.define('XASH_CRASHHANDLER', 0)
+	elif conf.env.DEST_OS == 'haiku':
 		conf.env.LIB_HAIKU = ['network']
 		conf.env.LIBPATH_HAIKU = ['/boot/system/lib']
-
-	if conf.options.USE_SELECT == None:
-		conf.options.USE_SELECT = conf.options.DEDICATED
-
-	if conf.options.STATIC:
-		conf.env.STATIC = True
-		conf.define('XASH_NO_LIBDL',1)
-
-	if not conf.env.DEST_OS in ['win32', 'android'] and not conf.options.NO_ASYNC_RESOLVE:
-		conf.check_pthreads()
-
-	if hasattr(conf.options, 'DLLEMU'):
-		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
-
-	if conf.env.MAGX:
-		conf.define('XASH_CRASHHANDLER', 0)
-
-	conf.env.ENGINE_TESTS = conf.options.ENGINE_TESTS
+	elif conf.env.DEST_OS == 'wasi':
+		have_async_resolve = False
+		conf.env.CFLAGS += ['-mllvm', '-wasm-enable-sjlj']
+	elif conf.env.DEST_OS == 'emscripten':
+		have_async_resolve = False
+	elif conf.env.DEST_OS == 'sunos':
+		conf.check_cc(lib='socket')
+	elif conf.env.DEST_OS == 'dos':
+		conf.options.STATIC = True
+		have_async_resolve = False
 
 	if conf.options.ENGINE_FUZZ:
 		conf.env.append_unique('CFLAGS', '-fsanitize=fuzzer-no-link')
 		conf.env.append_unique('LINKFLAGS', '-fsanitize=fuzzer')
 
-	conf.define_cond('XASH_ENGINE_TESTS', conf.env.ENGINE_TESTS)
+	# Client-only dependencies
+	if conf.env.CLIENT:
+		if conf.env.DEST_OS in ['nswitch', 'psvita']:
+			extra_libs = ['-lm']
+			if conf.env.DEST_OS == 'psvita':
+				extra_libs = ['-lstdc++', '-lm', '-lSceShaccCgExt', '-lSceShaccCg_stub', '-ltaihen_stub', '-lSceKernelDmacMgr_stub']
+
+			conf.env.append_unique('CXXFLAGS', ['-Wl,--no-undefined'])
+			conf.env.append_unique('CFLAGS', ['-Wl,--no-undefined'])
+
+			conf.env.LDFLAGS += extra_libs
+			find_sdl(conf)
+			for lib in extra_libs: conf.env.LDFLAGS.remove(lib)
+
+			if conf.env.DEST_OS == 'nswitch': # remove libstdc++ linking from SDL2, we link it later
+				conf.env.LIB_SDL2.remove('stdc++')
+		elif conf.env.DEST_OS == 'linux' and conf.options.FBDEV_SW:
+			conf.check_cc(lib='asound')
+		elif conf.options.SDL12: # TODO: move to sdl2.py
+			conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL1')
+			conf.env.XASH_SDL = 1
+			have_async_resolve = False
+			conf.env.HAVE_SDL1 = True
+		else:
+			find_sdl(conf)
+
+
+	if conf.options.STATIC:
+		conf.env.STATIC = True
+		conf.define('XASH_NO_LIBDL', 1)
+
+	if not conf.env.DEST_OS in ['win32', 'android'] and have_async_resolve:
+		conf.check_pthreads(mode='c')
+
+	if hasattr(conf.options, 'DLLEMU'):
+		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
+
+	conf.check_cc(fragment=EXECINFO_TEST, msg='Checking for glibc backtrace()', mandatory=False, define_name='HAVE_EXECINFO')
+
+	conf.define('ENGINE_DLL', 1)
+	conf.define_cond('XASH_ENGINE_TESTS', conf.options.ENGINE_TESTS)
+
+	if conf.options.FFMPEG:
+		pkgconf_args = '--cflags' if conf.options.FFMPEG_DLOPEN else '--cflags --libs'
+		features = 'c' if conf.options.FFMPEG_DLOPEN else 'c cprogram'
+
+		# add ffmpeg libraries into single uselib package
+		conf.check_cfg(package='libswresample', uselib_store='SWRESAMPLE', args=pkgconf_args)
+		conf.check_cfg(package='libavformat', uselib_store='AVFORMAT', args=pkgconf_args)
+		conf.check_cfg(package='libavcodec', uselib_store='AVCODEC', args=pkgconf_args)
+		conf.check_cfg(package='libswscale', uselib_store='SWSCALE', args=pkgconf_args)
+		conf.check_cfg(package='libavutil', uselib_store='AVUTIL', args=pkgconf_args)
+
+		# validate ffmpeg libs installation
+		conf.check(features=features, fragment=FFMPEG_CHECK_FRAGMENT, use='SWRESAMPLE AVCODEC AVFORMAT AVUTIL SWSCALE', msg='Checking for ffmpeg sanity')
+
+		conf.env.FFMPEG = True
+		conf.define('HAVE_FFMPEG', True)
+		conf.define_cond('XASH_FFMPEG_DLOPEN', conf.options.FFMPEG_DLOPEN)
+
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
-	conf.define_cond('SINGLE_BINARY', conf.env.SINGLE_BINARY)
-	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', conf.options.NO_ASYNC_RESOLVE)
-	conf.define_cond('XASH_USE_SELECT', conf.options.USE_SELECT or conf.options.DEDICATED)
-	conf.define_cond('SUPPORT_BSP2_FORMAT', conf.options.SUPPORT_BSP2_FORMAT)
-	conf.define_cond('XASH_64BIT', conf.env.DEST_SIZEOF_VOID_P != 4)
-	conf.define_cond('DBGHELP', conf.env.DEST_OS == 'win32')
+	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', not have_async_resolve)
 	conf.define_cond('PSAPI_VERSION', conf.env.DEST_OS == 'win32') # will be defined as 1
+
+	for refdll in conf.refdlls:
+		refdll.register_define(conf)
 
 def build(bld):
 	# public includes for renderers and utils use
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
-	is_cxx_link = False
-	libs = [ 'engine_includes', 'public', 'dllemu' ]
+	libs = ['engine_includes', 'public', 'dllemu', 'werror', 'backtrace']
+	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
 
 	# basic build: dedicated only
-	source = bld.path.ant_glob([
-		'common/*.c',
-		'common/imagelib/*.c',
-		'common/soundlib/*.c',
-		'common/soundlib/libmpg/*.c',
-		'server/*.c'])
+	source = bld.path.ant_glob(['common/*.c', 'common/imagelib/*.c', 'common/soundlib/*.c', 'server/*.c'])
 
-	if bld.env.ENGINE_TESTS:
-		source += bld.path.ant_glob(['tests/*.c'])
+	# include platform-specific sources, this shall not fail if directory doesn't exist
+	source += bld.path.ant_glob('platform/%s/*.c' % bld.env.DEST_OS)
+
+	# Android _is_ Linux based, after all
+	if bld.env.DEST_OS == 'android':
+		source += bld.path.ant_glob('platform/linux/*.c')
+
+	# include common POSIX conformant code
+	if bld.env.DEST_OS not in ['win32', 'dos']:
+		source += bld.path.ant_glob('platform/posix/*.c')
+
+	# include sources for optional features
+	if bld.get_define('XASH_CUSTOM_SWAP'):
+		source += ['platform/misc/kmalloc.c', 'platform/misc/sbrk.c']
+
+	if bld.get_define('XASH_STATIC_LIBS'):
+		source += ['platform/misc/lib_static.c']
 
 	if bld.env.DEST_OS == 'win32':
-		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32' ]
-		source += bld.path.ant_glob(['platform/win32/*.c'])
-	elif bld.env.DEST_OS != 'dos': #posix
-		libs += [ 'M', 'RT', 'PTHREAD', 'ASOUND']
+		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32']
+	elif bld.env.DEST_OS == 'nswitch':
+		libs += ['SOLDER']
+		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
+		# we can't do this right away because std::filesystem will complain about not having pathconf(),
+		# which we have defined in sys_nswitch.c
+		bld.env.LDFLAGS += ['-v', '-Wl,--whole-archive', '-lstdc++', '-Wl,--no-whole-archive', '-lm']
+	elif bld.env.DEST_OS == 'psvita':
+		libs += ['VRTLD']
+		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting
+		# also link in all the funky dependencies that aren't in SDL2's LDFLAGS
+		bld.env.LDFLAGS += ['-Wl,--whole-archive', '-lstdc++', '-lpthread', '-Wl,--no-whole-archive',
+			'-lm', '-lSceShaccCgExt', '-lkubridge_stub', '-ltaihen_stub', '-lSceShaccCg_stub', '-lSceKernelModulemgr_stub', '-lSceSblSsMgr_stub', '-lSceVshBridge_stub', '-lSceKernelDmacMgr_stub', '-lSceLibKernel_stub',
+		]
+	else: # POSIX
+		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
 		if not bld.env.STATIC:
 			libs += ['DL']
-		source += bld.path.ant_glob(['platform/posix/*.c'])
 
-	if bld.env.DEST_OS == 'linux':
-		source += bld.path.ant_glob(['platform/linux/*.c'])
+	if bld.env.SERVER:
+		# TODO: avoid possible name collision when client is built without launcher
+		# but dedicated server is enabled. They're both called 'xash' in this case
+		bld.program(
+			source = copy(source),
+			target = 'xash',
+			use = copy(libs),
+			includes = includes,
+			defines = 'XASH_ENABLE_MAIN=1 XASH_DEDICATED=1',
+			rpath = bld.env.DEFAULT_RPATH,
+			install_path = bld.env.BINDIR,
+		)
 
-	if bld.env.DEST_OS == 'dos':
-		source += bld.path.ant_glob(['platform/dos/*.c'])
-		source += bld.path.ant_glob(['platform/stub/s_stub.c'])
+	if bld.env.CLIENT:
+		defines = []
+		if bld.env.XASH_SDL:
+			libs += ['SDL%d' % bld.env.XASH_SDL]
+			source += bld.path.ant_glob(['platform/sdl%d/*.c' % bld.env.XASH_SDL])
+			defines += ['XASH_SDL=%d' % bld.env.XASH_SDL]
 
-	if bld.env.DEST_OS == 'haiku':
-		libs.append('HAIKU')
+		if bld.get_define('HAVE_FFMPEG'):
+			libs.append('SWRESAMPLE')
+			libs.append('AVCODEC')
+			libs.append('AVFORMAT')
+			libs.append('AVUTIL')
+			libs.append('SWSCALE')
 
-	if bld.get_define('XASH_CUSTOM_SWAP'):
-		source += bld.path.ant_glob(['platform/misc/kmalloc.c', 'platform/misc/sbrk.c'])
+		# add client files
+		if not bld.env.DEDICATED:
+			source += bld.path.ant_glob('client/**/*.c')
+			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
 
-	if bld.env.STATIC_LINKING:
-		source += bld.path.ant_glob(['platform/misc/lib_static.c'])
-		is_cxx_link = True
+		# Android port is linked differently
+		if bld.env.DEST_OS == 'android':
+			f = bld.shlib
+			install_path = bld.env.LIBDIR
+			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1']
+		elif not bld.env.LAUNCHER:
+			f = bld.program
+			install_path = bld.env.BINDIR
+			defines += ['XASH_ENABLE_MAIN=1']
+		else:
+			f = bld.shlib
+			install_path = bld.env.LIBDIR
 
-	if bld.env.HAVE_SDL2:
-		libs.append('SDL2')
-		source += bld.path.ant_glob(['platform/sdl/*.c'])
+		if bld.env.DEST_OS in ['nswitch', 'psvita', 'emscripten']:
+			install_path = None
 
-	if bld.env.MAGX:
-		libs.append('MAGX')
-		source += bld.path.ant_glob(['platform/magx/*.cpp'])
-		is_cxx_link = True
+		linkflags = []
 
-	if bld.env.DEST_OS == 'android':
-		libs += ['LOG']
-		source += bld.path.ant_glob(['platform/android/*.cpp', 'platform/android/*.c', 'platform/linux/*.c'])
+		if bld.env.DEST_OS == 'emscripten':
+			linkflags = ['-sINITIAL_MEMORY=134217728', '-sALLOW_MEMORY_GROWTH=1', '-sSTACK_SIZE=16777216']
 
-	# add client files
-	if not bld.env.DEDICATED:
-		source += bld.path.ant_glob([
-			'client/*.c',
-			'client/vgui/*.c',
-			'client/avi/*.c'])
-		libs += ['opus']
+			linkflags += ['-sASYNCIFY=1']
 
-	includes = ['server', 'client', 'client/vgui' ]
+			node = bld.srcnode.find_node('rodir')
+			if not node:
+				bld.fatal('Put game data into rodir folder in source tree root')
+			linkflags += ['--preload-file', '%s@/rodir' % node.path_from(bld.bldnode)]
 
-	if bld.env.SINGLE_BINARY:
-		install_path = bld.env.BINDIR
-		program = 'cxxprogram' if is_cxx_link else 'cprogram'
-		if bld.env.STATIC:
-			program += '_static'
-		features = ['c', program]
-	else:
-		install_path = bld.env.LIBDIR
-		features = ['c', 'cxxshlib' if is_cxx_link else 'cshlib']
-
-	bld(source   = source,
-		target   = 'xash',
-		features = features,
-		includes = includes,
-		use      = libs,
-		install_path = install_path,
-		subsystem = bld.env.MSVC_SUBSYSTEM,
-		rpath = '$ORIGIN'
-	)
+		f(source = source,
+			target = 'xash',
+			includes = includes,
+			features = 'cxx c',
+			use = libs,
+			defines = defines,
+			install_path = install_path,
+			special_install_path = bld.env.BINDIR,
+			nacp = 'platform/nswitch/xash3d-fwgs.nacp',
+			icon = 'platform/nswitch/icon.jpg',
+			sce_sys = 'platform/psvita/sce_sys',
+			title_id = 'XASH10000',
+			app_name = 'xash3d-fwgs',
+			rpath = bld.env.DEFAULT_RPATH,
+			linkflags = linkflags,
+		)

@@ -29,7 +29,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	rgba_t	palette[256];
 	byte	red = 0, green = 0, blue = 0, alpha = 0;
 	int	readpixelcount, pixelcount;
-	int	reflectivity[3] = { 0, 0, 0 };
+	uint	reflectivity[3] = { 0, 0, 0 };
 	qboolean	compressed;
 	tga_t	targa_header;
 
@@ -62,17 +62,17 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 		// uncompressed colormapped image
 		if( targa_header.pixel_size != 8 )
 		{
-			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 8 bit images supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "%s: (%s) Only 8 bit images supported for type 1 and 9\n", __func__, name );
 			return false;
 		}
 		if( targa_header.colormap_length != 256 )
 		{
-			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 8 bit colormaps are supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "%s: (%s) Only 8 bit colormaps are supported for type 1 and 9\n", __func__, name );
 			return false;
 		}
 		if( targa_header.colormap_index )
 		{
-			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) colormap_index is not supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "%s: (%s) colormap_index is not supported for type 1 and 9\n", __func__, name );
 			return false;
 		}
 		if( targa_header.colormap_size == 24 )
@@ -97,7 +97,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 		}
 		else
 		{
-			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) only 24 and 32 bit colormaps are supported for type 1 and 9\n", name );
+			Con_DPrintf( S_ERROR "%s: (%s) only 24 and 32 bit colormaps are supported for type 1 and 9\n", __func__, name );
 			return false;
 		}
 	}
@@ -106,7 +106,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 		// uncompressed or RLE compressed RGB
 		if( targa_header.pixel_size != 32 && targa_header.pixel_size != 24 )
 		{
-			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 32 or 24 bit images supported for type 2 and 10\n", name );
+			Con_DPrintf( S_ERROR "%s: (%s) Only 32 or 24 bit images supported for type 2 and 10\n", __func__, name );
 			return false;
 		}
 	}
@@ -115,7 +115,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 		// uncompressed greyscale
 		if( targa_header.pixel_size != 8 && targa_header.pixel_size != 16 )
 		{
-			Con_DPrintf( S_ERROR "Image_LoadTGA: (%s) Only 8 bit images supported for type 3 and 11\n", name );
+			Con_DPrintf( S_ERROR "%s: (%s) Only 8 bit images supported for type 3 and 11\n", __func__, name );
 			return false;
 		}
 	}

@@ -1,0 +1,27 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	pass
+
+def configure(conf):
+	conf.define('_GNU_SOURCE', 1)
+	conf.define('BZ_NO_STDIO', 1)
+
+	if conf.env.DEST_OS == 'win32':
+		conf.define('BZ_LCCWIN32', 1)
+	else:
+		conf.define('BZ_UNIX', 1)
+
+def build(bld):
+	bld(features = 'subst', source = 'bzip2/bz_version.h.in', target = 'bzip2/bz_version.h', BZ_VERSION='1.1.0-fwgs', name = 'bz_version')
+
+	bz_sources = ['bzip2/blocksort.c', 'bzip2/huffman.c', 'bzip2/crctable.c', 'bzip2/randtable.c', 'bzip2/compress.c', 'bzip2/decompress.c', 'bzip2/bzlib.c']
+
+	bld.stlib(
+		source = bz_sources,
+		target = 'bzip2',
+		use = 'bz_version',
+		includes = 'bzip2/',
+		export_includes = 'bzip2/'
+	)

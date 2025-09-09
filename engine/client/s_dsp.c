@@ -1,6 +1,7 @@
 /*
 s_dsp.c - digital signal processing algorithms for audio FX
 Copyright (C) 2009 Uncle Mike
+Copyright (C) 2016-2024 Alibek Omarov
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -78,7 +79,7 @@ typedef struct dly_s
 	int	*lpdelayline;
 } dly_t;
 
-const sx_preset_t rgsxpre[] =
+static const sx_preset_t rgsxpre[] =
 {
 //          -------reverb--------  -------delay--------
 // lp  mod  size   refl   rvblp  delay  feedback  dlylp  left
@@ -115,7 +116,7 @@ const sx_preset_t rgsxpre[] =
 
 // 0x0045dca8 enginegl.exe
 // SHA256: 42383d32cd712e59ee2c1bd78b7ba48814e680e7026c4223e730111f34a60d66
-const sx_preset_t rgsxpre_hlalpha052[] =
+static const sx_preset_t rgsxpre_hlalpha052[] =
 {
 //          -------reverb--------  -------delay--------
 // lp  mod  size   refl   rvblp  delay  feedback  dlylp  left
@@ -150,51 +151,51 @@ const sx_preset_t rgsxpre_hlalpha052[] =
 { 0.0, 0.0, 0.001, 0.999, 0.0,   0.2,   0.8,      2.0,   0.05   }, // 28
 };
 
-const sx_preset_t *ptable = rgsxpre;
+static const sx_preset_t *ptable = rgsxpre;
 
 // cvars
-convar_t	*dsp_off;		// disable dsp
-convar_t	*roomwater_type;	// water room_type
-convar_t	*room_type;	// current room type
-convar_t	*hisound;		// DSP quality
+static CVAR_DEFINE_AUTO( dsp_off, "0",  FCVAR_ARCHIVE, "disable DSP processing (deprecated)" );
+static CVAR_DEFINE_AUTO( room_off, "0", FCVAR_ARCHIVE, "disable DSP processing (GoldSrc compatible cvar)" );
+static CVAR_DEFINE_AUTO( dsp_coeff_table, "0", FCVAR_ARCHIVE, "select DSP coefficient table: 0 for release or 1 for alpha 0.52" );
+static CVAR_DEFINE_AUTO( room_type, "0",  0, "current room type preset" );
+
+static CVAR_DEFINE( roomwater_type, "waterroom_type", "14", 0, "water room type" );
+static CVAR_DEFINE( hisound, "room_hires", "2", FCVAR_ARCHIVE, "dsp quality. 1 for 22k, 2 for 44k(recommended) and 3 for 96k" );
 
 // underwater/special fx modulations
-convar_t	*sxmod_mod;
-convar_t	*sxmod_lowpass;
+static CVAR_DEFINE( sxmod_mod, "room_mod", "0", 0, "stereo amptitude modulation for room" );
+static CVAR_DEFINE( sxmod_lowpass, "room_lp", "0", 0, "for water fx, lowpass for entire room" );
 
 // stereo delay(no feedback)
-convar_t	*sxste_delay;	// straight left delay
+static CVAR_DEFINE( sxste_delay, "room_left", "0", 0, "left channel delay time" );
 
 // mono reverb
-convar_t	*sxrvb_lp;	// lowpass
-convar_t	*sxrvb_feedback;	// reverb decay. Higher -- longer
-convar_t	*sxrvb_size;	// room size. Higher -- larger
+static CVAR_DEFINE( sxrvb_lp, "room_rvblp", "1", 0, "reverb: low pass filtering level" );
+static CVAR_DEFINE( sxrvb_feedback, "room_refl", "0", 0, "reverb: decay time" );
+static CVAR_DEFINE( sxrvb_size, "room_size", "0", 0, "reverb: initial reflection size" );
 
 // mono delay
-convar_t	*sxdly_lp;	// lowpass
-convar_t	*sxdly_feedback;	// cycles
-convar_t	*sxdly_delay;	// current delay in seconds
+static CVAR_DEFINE( sxdly_lp, "room_dlylp", "1", 0, "mono delay: low pass filtering level" );
+static CVAR_DEFINE( sxdly_feedback, "room_feedback", "0.2", 0, "mono delay: decay time" );
+static CVAR_DEFINE( sxdly_delay, "room_delay", "0.8", 0, "mono delay: delay time" );
 
-convar_t	*dsp_room;	// for compability
-
-convar_t	*dsp_coeff_table; // use release or 0.52 style
-int			idsp_dma_speed;
+static int			idsp_dma_speed;
 int			idsp_room;
-int			room_typeprev;
+static int			room_typeprev;
 
 // routines
-int			sxamodl, sxamodr;      // amplitude modulation values
-int			sxamodlt, sxamodrt;    // modulation targets
-int			sxmod1cur, sxmod2cur;
-int			sxmod1, sxmod2;
-int			sxhires;
+static int			sxamodl, sxamodr;      // amplitude modulation values
+static int			sxamodlt, sxamodrt;    // modulation targets
+static int			sxmod1cur, sxmod2cur;
+static int			sxmod1, sxmod2;
+static int			sxhires;
 
-portable_samplepair_t	*paintto = NULL;
+static portable_samplepair_t	*paintto = NULL;
 
-dly_t			rgsxdly[MAXDLY]; // stereo is last
-int			rgsxlp[MAXLP];
+static dly_t			rgsxdly[MAXDLY]; // stereo is last
+static int			rgsxlp[MAXLP];
 
-void SX_Profiling_f( void );
+static void SX_Profiling_f( void );
 
 /*
 ============
@@ -202,14 +203,12 @@ SX_ReloadRoomFX
 
 ============
 */
-void SX_ReloadRoomFX( void )
+static void SX_ReloadRoomFX( void )
 {
-	if( !dsp_room ) return; // not initialized
-
-	SetBits( sxste_delay->flags, FCVAR_CHANGED );
-	SetBits( sxrvb_feedback->flags, FCVAR_CHANGED );
-	SetBits( sxdly_delay->flags, FCVAR_CHANGED );
-	SetBits( room_type->flags, FCVAR_CHANGED );
+	SetBits( sxste_delay.flags, FCVAR_CHANGED );
+	SetBits( sxrvb_feedback.flags, FCVAR_CHANGED );
+	SetBits( sxdly_delay.flags, FCVAR_CHANGED );
+	SetBits( room_type.flags, FCVAR_CHANGED );
 }
 
 /*
@@ -227,35 +226,33 @@ void SX_Init( void )
 	sxamodr = sxamodl = sxamodrt = sxamodlt = 255;
 	idsp_dma_speed = SOUND_11k;
 
-	hisound = Cvar_Get( "room_hires", "2", FCVAR_ARCHIVE, "dsp quality. 1 for 22k, 2 for 44k(recommended) and 3 for 96k" );
+	Cvar_RegisterVariable( &hisound );
 	sxhires = 2;
 
 	sxmod1cur = sxmod1 = 350 * ( idsp_dma_speed / SOUND_11k );
 	sxmod2cur = sxmod2 = 450 * ( idsp_dma_speed / SOUND_11k );
 
-	dsp_off          = Cvar_Get( "dsp_off",        "0",  FCVAR_ARCHIVE, "disable DSP processing" );
-	dsp_coeff_table  = Cvar_Get( "dsp_coeff_table", "0", FCVAR_ARCHIVE, "select DSP coefficient table: 0 for release or 1 for alpha 0.52" );
+	Cvar_RegisterVariable( &dsp_off );
+	Cvar_RegisterVariable( &room_off );
+	Cvar_RegisterVariable( &dsp_coeff_table );
 
-	roomwater_type   = Cvar_Get( "waterroom_type", "14", 0, "water room type" );
-	room_type        = Cvar_Get( "room_type",      "0",  0, "current room type preset" );
+	Cvar_RegisterVariable( &roomwater_type );
+	Cvar_RegisterVariable( &room_type );
 
-	sxmod_lowpass    = Cvar_Get( "room_lp",  "0", 0, "for water fx, lowpass for entire room" );
-	sxmod_mod        = Cvar_Get( "room_mod", "0", 0, "stereo amptitude modulation for room" );
+	Cvar_RegisterVariable( &sxmod_lowpass );
+	Cvar_RegisterVariable( &sxmod_mod );
 
-	sxrvb_size       = Cvar_Get( "room_size",  "0", 0, "reverb: initial reflection size" );
-	sxrvb_feedback   = Cvar_Get( "room_refl",  "0", 0, "reverb: decay time" );
-	sxrvb_lp         = Cvar_Get( "room_rvblp", "1", 0, "reverb: low pass filtering level" );
+	Cvar_RegisterVariable( &sxrvb_size );
+	Cvar_RegisterVariable( &sxrvb_feedback );
+	Cvar_RegisterVariable( &sxrvb_lp );
 
-	sxdly_delay      = Cvar_Get( "room_delay",    "0.8", 0, "mono delay: delay time" );
-	sxdly_feedback   = Cvar_Get( "room_feedback", "0.2", 0, "mono delay: decay time" );
-	sxdly_lp         = Cvar_Get( "room_dlylp",    "1",   0, "mono delay: low pass filtering level" );
+	Cvar_RegisterVariable( &sxdly_delay );
+	Cvar_RegisterVariable( &sxdly_feedback );
+	Cvar_RegisterVariable( &sxdly_lp );
 
-	sxste_delay      = Cvar_Get( "room_left", "0", 0, "left channel delay time" );
+	Cvar_RegisterVariable( &sxste_delay );
 
 	Cmd_AddCommand( "dsp_profile", SX_Profiling_f, "dsp stress-test, first argument is room_type" );
-
-	// for compability
-	dsp_room         = room_type;
 
 	SX_ReloadRoomFX();
 }
@@ -267,7 +264,7 @@ DLY_Free
 Free memory allocated for DSP
 ===========
 */
-void DLY_Free( int idelay )
+static void DLY_Free( int idelay )
 {
 	Assert( idelay >= 0 && idelay < MAXDLY );
 
@@ -303,7 +300,7 @@ DLY_Init
 Initialize dly
 ===========
 */
-int DLY_Init( int idelay, float delay )
+static int DLY_Init( int idelay, float delay )
 {
 	dly_t	*cur;
 
@@ -315,7 +312,7 @@ int DLY_Init( int idelay, float delay )
 
 	cur = &rgsxdly[idelay];
 	cur->cdelaysamplesmax = ((int)(delay * idsp_dma_speed) << sxhires) + 1;
-	cur->lpdelayline = (int *)Z_Calloc( cur->cdelaysamplesmax * sizeof( int ));
+	cur->lpdelayline = (int *)Mem_Calloc( sndpool, cur->cdelaysamplesmax * sizeof( int ));
 	cur->xfade = 0;
 
 	// init modulation
@@ -339,7 +336,7 @@ DLY_MovePointer
 Checks overflow and moves pointer
 ============
 */
-_inline void DLY_MovePointer( dly_t *dly )
+static void DLY_MovePointer( dly_t *dly )
 {
 	if( ++dly->idelayinput >= dly->cdelaysamplesmax )
 		dly->idelayinput = 0;
@@ -355,12 +352,12 @@ DLY_CheckNewStereoDelayVal
 Update stereo processor settings if we are in new room
 =============
 */
-void DLY_CheckNewStereoDelayVal( void )
+static void DLY_CheckNewStereoDelayVal( void )
 {
 	dly_t *const	dly = &rgsxdly[STEREODLY];
-	float		delay = sxste_delay->value;
+	float		delay = sxste_delay.value;
 
-	if( !FBitSet( sxste_delay->flags, FCVAR_CHANGED ))
+	if( !FBitSet( sxste_delay.flags, FCVAR_CHANGED ))
 		return;
 
 	if( delay == 0 )
@@ -403,7 +400,7 @@ DLY_DoStereoDelay
 Do stereo processing
 =============
 */
-void DLY_DoStereoDelay( int count )
+static void DLY_DoStereoDelay( int count )
 {
 	int			delay, samplexf;
 	dly_t *const		dly = &rgsxdly[STEREODLY];
@@ -468,12 +465,12 @@ DLY_CheckNewDelayVal
 Update delay processor settings if we are in new room
 =============
 */
-void DLY_CheckNewDelayVal( void )
+static void DLY_CheckNewDelayVal( void )
 {
-	float		delay = sxdly_delay->value;
+	float		delay = sxdly_delay.value;
 	dly_t *const	dly = &rgsxdly[MONODLY];
 
-	if( FBitSet( sxdly_delay->flags, FCVAR_CHANGED ))
+	if( FBitSet( sxdly_delay.flags, FCVAR_CHANGED ))
 	{
 		if( delay == 0 )
 		{
@@ -503,8 +500,8 @@ void DLY_CheckNewDelayVal( void )
 		}
 	}
 
-	dly->lp = sxdly_lp->value;
-	dly->delayfeedback = 255 * sxdly_feedback->value;
+	dly->lp = sxdly_lp.value;
+	dly->delayfeedback = 255 * sxdly_feedback.value;
 }
 
 /*
@@ -514,7 +511,7 @@ DLY_DoDelay
 Do delay processing
 =============
 */
-void DLY_DoDelay( int count )
+static void DLY_DoDelay( int count )
 {
 	dly_t *const		dly = &rgsxdly[MONODLY];
 	portable_samplepair_t	*paint = paintto;
@@ -565,7 +562,7 @@ RVB_SetUpDly
 Set up dly for reverb
 ===========
 */
-void RVB_SetUpDly( int pos, float delay, int kmod )
+static void RVB_SetUpDly( int pos, float delay, int kmod )
 {
 	int	samples;
 
@@ -601,13 +598,13 @@ RVB_CheckNewReverbVal
 Update reverb settings if we are in new room
 ===========
 */
-void RVB_CheckNewReverbVal( void )
+static void RVB_CheckNewReverbVal( void )
 {
 	dly_t *const	dly1 = &rgsxdly[REVERBPOS];
 	dly_t *const	dly2 = &rgsxdly[REVERBPOS + 1];
-	float		delay = sxrvb_size->value;
+	float		delay = sxrvb_size.value;
 
-	if( FBitSet( sxrvb_size->flags, FCVAR_CHANGED ))
+	if( FBitSet( sxrvb_size.flags, FCVAR_CHANGED ))
 	{
 		if( delay == 0.0f )
 		{
@@ -616,13 +613,13 @@ void RVB_CheckNewReverbVal( void )
 		}
 		else
 		{
-			RVB_SetUpDly( REVERBPOS, sxrvb_size->value, 500 );
-			RVB_SetUpDly( REVERBPOS+1, sxrvb_size->value * 0.71f, 700 );
+			RVB_SetUpDly( REVERBPOS, sxrvb_size.value, 500 );
+			RVB_SetUpDly( REVERBPOS+1, sxrvb_size.value * 0.71f, 700 );
 		}
 	}
 
-	dly1->lp = dly2->lp = sxrvb_lp->value;
-	dly1->delayfeedback = dly2->delayfeedback = (int)(255 * sxrvb_feedback->value);
+	dly1->lp = dly2->lp = sxrvb_lp.value;
+	dly1->delayfeedback = dly2->delayfeedback = (int)(255 * sxrvb_feedback.value);
 }
 
 /*
@@ -632,7 +629,7 @@ RVB_DoReverbForOneDly
 Do reverberation for one dly
 ===========
 */
-int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samplepair_t *samplepair )
+static int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samplepair_t *samplepair )
 {
 	int	delay;
 	int	samplexf;
@@ -706,7 +703,7 @@ RVB_DoReverb
 Do reverberation processing
 ===========
 */
-void RVB_DoReverb( int count )
+static void RVB_DoReverb( int count )
 {
 	dly_t *const		dly1 = &rgsxdly[REVERBPOS];
 	dly_t *const		dly2 = &rgsxdly[REVERBPOS+1];
@@ -723,7 +720,7 @@ void RVB_DoReverb( int count )
 		voutm = RVB_DoReverbForOneDly( dly1, vlr, paint );
 		voutm += RVB_DoReverbForOneDly( dly2, vlr, paint );
 
-		if( dsp_coeff_table->value == 1.0f )
+		if( dsp_coeff_table.value == 1.0f )
 			voutm /= 6; // alpha
 		else voutm = (11 * voutm) >> 6;
 
@@ -739,18 +736,18 @@ RVB_DoAMod
 Do amplification modulation processing
 ===========
 */
-void RVB_DoAMod( int count )
+static void RVB_DoAMod( int count )
 {
 	portable_samplepair_t	*paint = paintto;
 
-	if( !sxmod_lowpass->value && !sxmod_mod->value )
+	if( !sxmod_lowpass.value && !sxmod_mod.value )
 		return;
 
 	for( ; count; count--, paint++ )
 	{
 		portable_samplepair_t	res = *paint;
 
-		if( sxmod_lowpass->value )
+		if( sxmod_lowpass.value )
 		{
 			res.left  = rgsxlp[0] + rgsxlp[1] + rgsxlp[2] + rgsxlp[3] + rgsxlp[4] + res.left;
 			res.right = rgsxlp[5] + rgsxlp[6] + rgsxlp[7] + rgsxlp[8] + rgsxlp[9] + res.right;
@@ -772,7 +769,7 @@ void RVB_DoAMod( int count )
 			rgsxlp[8] = rgsxlp[9];
 		}
 
-		if( sxmod_mod->value )
+		if( sxmod_mod.value )
 		{
 			if( --sxmod1cur < 0 )
 				sxmod1cur = sxmod1;
@@ -812,13 +809,9 @@ DSP_Process
 (xash dsp interface)
 ===========
 */
-void DSP_Process( int idsp, portable_samplepair_t *pbfront, int sampleCount )
+void DSP_Process( portable_samplepair_t *pbfront, int sampleCount )
 {
-	if( dsp_off->value )
-		return;
-
-	// don't process DSP while in menu
-	if( cls.key_dest == key_menu || !sampleCount )
+	if( dsp_off.value || room_off.value || !sampleCount )
 		return;
 
 	// preset is already installed by CheckNewDspPresets
@@ -839,7 +832,7 @@ DSP_ClearState
 */
 void DSP_ClearState( void )
 {
-	Cvar_SetValue( "room_type", 0.0f );
+	Cvar_DirectSet( &room_type, "0" );
 	SX_ReloadRoomFX();
 }
 
@@ -852,12 +845,12 @@ CheckNewDspPresets
 */
 void CheckNewDspPresets( void )
 {
-	if( dsp_off->value != 0.0f )
+	if( dsp_off.value || room_off.value )
 		return;
 
-	if( FBitSet( dsp_coeff_table->flags, FCVAR_CHANGED ))
+	if( FBitSet( dsp_coeff_table.flags, FCVAR_CHANGED ))
 	{
-		switch( (int)dsp_coeff_table->value )
+		switch( (int)dsp_coeff_table.value )
 		{
 		case 0: // release
 			ptable = rgsxpre;
@@ -873,20 +866,20 @@ void CheckNewDspPresets( void )
 		SX_ReloadRoomFX();
 		room_typeprev = -1;
 
-		ClearBits( dsp_coeff_table->flags, FCVAR_CHANGED );
+		ClearBits( dsp_coeff_table.flags, FCVAR_CHANGED );
 	}
 
 	if( s_listener.waterlevel > 2 )
-		idsp_room = roomwater_type->value;
-	else idsp_room = room_type->value;
+		idsp_room = roomwater_type.value;
+	else idsp_room = room_type.value;
 
 	// don't pass invalid presets
 	idsp_room = bound( 0, idsp_room, MAX_ROOM_TYPES );
 
-	if( FBitSet( hisound->flags, FCVAR_CHANGED ))
+	if( FBitSet( hisound.flags, FCVAR_CHANGED ))
 	{
-		sxhires = hisound->value;
-		ClearBits( hisound->flags, FCVAR_CHANGED );
+		sxhires = hisound.value;
+		ClearBits( hisound.flags, FCVAR_CHANGED );
 	}
 
 	if( idsp_room == room_typeprev && idsp_room == 0 )
@@ -898,15 +891,15 @@ void CheckNewDspPresets( void )
 
 		cur = ptable + idsp_room;
 
-		Cvar_SetValue( "room_lp", cur->room_lp );
-		Cvar_SetValue( "room_mod", cur->room_mod );
-		Cvar_SetValue( "room_size", cur->room_size );
-		Cvar_SetValue( "room_refl", cur->room_refl );
-		Cvar_SetValue( "room_rvblp", cur->room_rvblp );
-		Cvar_SetValue( "room_delay", cur->room_delay );
-		Cvar_SetValue( "room_feedback", cur->room_feedback );
-		Cvar_SetValue( "room_dlylp", cur->room_dlylp );
-		Cvar_SetValue( "room_left", cur->room_left );
+		Cvar_DirectSetValue( &sxmod_lowpass, cur->room_lp );
+		Cvar_DirectSetValue( &sxmod_mod, cur->room_mod );
+		Cvar_DirectSetValue( &sxrvb_size, cur->room_size );
+		Cvar_DirectSetValue( &sxrvb_feedback, cur->room_refl );
+		Cvar_DirectSetValue( &sxrvb_lp, cur->room_rvblp );
+		Cvar_DirectSetValue( &sxdly_delay, cur->room_delay );
+		Cvar_DirectSetValue( &sxdly_feedback, cur->room_feedback );
+		Cvar_DirectSetValue( &sxdly_lp, cur->room_dlylp );
+		Cvar_DirectSetValue( &sxste_delay, cur->room_left );
 	}
 
 	room_typeprev = idsp_room;
@@ -915,15 +908,15 @@ void CheckNewDspPresets( void )
 	DLY_CheckNewDelayVal( );
 	DLY_CheckNewStereoDelayVal();
 
-	ClearBits( sxrvb_size->flags, FCVAR_CHANGED );
-	ClearBits( sxdly_delay->flags, FCVAR_CHANGED );
-	ClearBits( sxste_delay->flags, FCVAR_CHANGED );
+	ClearBits( sxrvb_size.flags, FCVAR_CHANGED );
+	ClearBits( sxdly_delay.flags, FCVAR_CHANGED );
+	ClearBits( sxste_delay.flags, FCVAR_CHANGED );
 }
 
-void SX_Profiling_f( void )
+static void SX_Profiling_f( void )
 {
 	portable_samplepair_t	testbuffer[512];
-	float			oldroom = room_type->value;
+	float			oldroom = room_type.value;
 	double			start, end;
 	int			i, calls;
 
@@ -935,7 +928,7 @@ void SX_Profiling_f( void )
 
 	if( Cmd_Argc() > 1 )
 	{
-		Cvar_SetValue( "room_type", Q_atof( Cmd_Argv( 1 )));
+		Cvar_DirectSetValue( &room_type, Q_atof( Cmd_Argv( 1 )));
 		SX_ReloadRoomFX();
 		CheckNewDspPresets(); // we just need idsp_room immediately, for message below
 	}
@@ -945,7 +938,7 @@ void SX_Profiling_f( void )
 	start = Sys_DoubleTime();
 	for( calls = 10000; calls; calls-- )
 	{
-		DSP_Process( idsp_room, testbuffer, 512 );
+		DSP_Process( testbuffer, 512 );
 	}
 	end = Sys_DoubleTime();
 
@@ -953,7 +946,7 @@ void SX_Profiling_f( void )
 
 	if( Cmd_Argc() > 1 )
 	{
-		Cvar_SetValue( "room_type", oldroom );
+		Cvar_DirectSetValue( &room_type, oldroom );
 		SX_ReloadRoomFX();
 		CheckNewDspPresets();
 	}

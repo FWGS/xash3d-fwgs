@@ -16,8 +16,9 @@ GNU General Public License for more details.
 #include "library.h"
 #include <winnt.h>
 #include <psapi.h>
+#include STDINT_H
 
-#define CALCULATE_ADDRESS( base, offset ) ( ( DWORD )( base ) + ( DWORD )( offset ) )
+#define CALCULATE_ADDRESS( base, offset ) ((uint8_t *)( base ) + (uintptr_t)( offset ))
 
 FARPROC MemoryGetProcAddress( void *module, const char *name );
 void MemoryFreeLibrary( void *hInstance );

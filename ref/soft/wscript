@@ -8,28 +8,23 @@ import os
 top = '.'
 
 def options(opt):
-	# stub
 	return
 
 def configure(conf):
-	# check for dedicated server build
-	if conf.options.DEDICATED:
-		return
-
-	if conf.options.SUPPORT_BSP2_FORMAT:
-		conf.env.append_unique('DEFINES', 'SUPPORT_BSP2_FORMAT')
-
-	conf.env.append_unique('DEFINES', 'REF_DLL')
+	return
 
 def build(bld):
-	if bld.env.DEDICATED:
-		return
+	libs = [ 'engine_includes', 'werror' ]
+	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
+	if bld.env.DEST_OS == 'psvita':
+		libs += [ 'sdk_includes' ]
+	else:
+		libs += [ 'public', 'M' ]
 
-	bld.shlib(source   = bld.path.ant_glob(['*.c']),
+	bld.shlib(source   = bld.path.ant_glob('*.c'),
 		target   = 'ref_soft',
-		features = 'c',
 		includes = '.',
-		use      = 'engine_includes public M',
-		install_path = bld.env.LIBDIR,
-		subsystem = bld.env.MSVC_SUBSYSTEM
+		defines  = 'REF_DLL=1',
+		use      = libs,
+		install_path = bld.env.LIBDIR
 	)

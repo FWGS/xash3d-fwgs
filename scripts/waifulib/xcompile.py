@@ -20,15 +20,28 @@ import os
 import sys
 
 ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
-ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25]
+ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25, 27, 28]
 ANDROID_NDK_HARDFP_MAX = 11 # latest version that supports hardfp
 ANDROID_NDK_GCC_MAX = 17 # latest NDK that ships with GCC
 ANDROID_NDK_UNIFIED_SYSROOT_MIN = 15
 ANDROID_NDK_SYSROOT_FLAG_MAX = 19 # latest NDK that need --sysroot flag
-ANDROID_NDK_API_MIN = { 10: 3, 19: 16, 20: 16, 23: 16, 25: 19 } # minimal API level ndk revision supports
+ANDROID_NDK_BUGGED_LINKER_MAX = 22
+ANDROID_NDK_API_MIN = {
+	10: 3,
+	19: 16,
+	20: 16,
+	23: 16,
+	25: 19,
+	27: 19,
+	28: 21,
+} # minimal API level ndk revision supports
 
 ANDROID_STPCPY_API_MIN = 21 # stpcpy() introduced in SDK 21
 ANDROID_64BIT_API_MIN = 21 # minimal API level that supports 64-bit targets
+
+NSWITCH_ENVVARS = ['DEVKITPRO']
+
+PSVITA_ENVVARS = ['VITASDK']
 
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
@@ -46,6 +59,7 @@ class Android:
 		self.api = api
 		self.toolchain = toolchain
 		self.arch = arch
+		self.exe = '.exe' if sys.platform.startswith('win32') or sys.platform.startswith('cygwin') else ''
 
 		for i in ANDROID_NDK_ENVVARS:
 			self.ndk_home = os.getenv(i)
@@ -192,10 +206,10 @@ class Android:
 
 	def gen_toolchain_path(self):
 		if self.is_clang():
-			triplet = '%s%d-' % (self.ndk_triplet(llvm_toolchain = True), self.api)
+			base = ''
 		else:
-			triplet = self.ndk_triplet() + '-'
-		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', triplet)
+			base = self.ndk_triplet() + '-'
+		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', base)
 
 	def gen_binutils_path(self):
 		if self.ndk_rev >= 23:
@@ -211,7 +225,11 @@ class Android:
 				s = environ['CC']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
+
+		if self.is_clang():
+			return '%s --target=%s%d' % (self.gen_toolchain_path() + 'clang' + self.exe, self.ndk_triplet(), self.api)
+
+		return self.gen_toolchain_path() + 'gcc'
 
 	def cxx(self):
 		if self.is_host():
@@ -222,19 +240,33 @@ class Android:
 				s = environ['CXX']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
+
+		if self.is_clang():
+			return '%s --target=%s%d' % (self.gen_toolchain_path() + 'clang++' + self.exe, self.ndk_triplet(), self.api)
+
+		return self.gen_toolchain_path() + 'g++'
 
 	def strip(self):
 		if self.is_host():
 			environ = getattr(self.ctx, 'environ', os.environ)
-
 			if 'STRIP' in environ:
 				return environ['STRIP']
 			return 'llvm-strip'
 
 		if self.ndk_rev >= 23:
-			return os.path.join(self.gen_binutils_path(), 'llvm-strip')
-		return os.path.join(self.gen_binutils_path(), 'strip')
+			return os.path.join(self.gen_binutils_path(), 'llvm-strip' + self.exe)
+		return os.path.join(self.gen_binutils_path(), 'strip' + self.exe)
+
+	def ar(self):
+		if self.is_host():
+			environ = getattr(self.ctx, 'environ', os.environ)
+			if 'AR' in environ:
+				return environ['AR']
+			return 'llvm-ar'
+
+		if self.ndk_rev >= 23:
+			return os.path.join(self.gen_binutils_path(), 'llvm-ar' + self.exe)
+		return os.path.join(self.gen_binutils_path(), 'ar' + self.exe)
 
 	def system_stl(self):
 		# TODO: proper STL support
@@ -323,6 +355,12 @@ class Android:
 		else: linkflags += ['-no-canonical-prefixes']
 
 		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
+
+		linkflags += ["-Wl,-z,max-page-size=16384"]
+
+		if self.ndk_rev <= ANDROID_NDK_BUGGED_LINKER_MAX:
+			linkflags += ["-Wl,-z,common-page-size=16384"]
+
 		return linkflags
 
 	def ldflags(self):
@@ -332,7 +370,7 @@ class Android:
 			ldflags += ['-lgcc']
 
 		if self.is_clang() or self.is_host():
-			ldflags += ['-stdlib=libstdc++']
+			ldflags += ['-stdlib=libstdc++', '-lc++abi']
 		else: ldflags += ['-no-canonical-prefixes']
 
 		if self.is_arm():
@@ -348,59 +386,278 @@ class Android:
 				ldflags += ['-march=armv5te']
 		return ldflags
 
-def options(opt):
-	android = opt.add_option_group('Android options')
-	android.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
-		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,9')
+class NintendoSwitch:
+	ctx          = None # waf context
+	arch         = "arm64"
+	dkp_dir      = None
+	portlibs_dir = None
+	dka64_dir    = None
+	libnx_dir    = None
 
-	magx = opt.add_option_group('MotoMAGX options')
-	magx.add_option('--enable-magx', action = 'store_true', dest = 'MAGX', default = False,
-		help = 'enable targetting for MotoMAGX phones [default: %default]')
+	def __init__(self, ctx):
+		self.ctx = ctx
+
+		for i in NSWITCH_ENVVARS:
+			self.dkp_dir = os.getenv(i)
+			if self.dkp_dir != None:
+				break
+		else:
+			ctx.fatal('Set %s environment variable pointing to the DEVKITPRO home!' %
+				' or '.join(NSWITCH_ENVVARS))
+
+		self.dkp_dir = os.path.abspath(self.dkp_dir)
+
+		self.dka64_dir = os.path.join(self.dkp_dir, 'devkitA64')
+		if not os.path.exists(self.dka64_dir):
+			ctx.fatal('devkitA64 not found in `%s`. Install devkitA64!' % self.dka64_dir)
+
+		self.libnx_dir = os.path.join(self.dkp_dir, 'libnx')
+		if not os.path.exists(self.libnx_dir):
+			ctx.fatal('libnx not found in `%s`. Install libnx!' % self.libnx_dir)
+
+		self.portlibs_dir = os.path.join(self.dkp_dir, 'portlibs', 'switch')
+		if not os.path.exists(self.portlibs_dir):
+			ctx.fatal('No Switch libraries found in `%s`!' % self.portlibs_dir)
+
+	def gen_toolchain_prefix(self):
+		return 'aarch64-none-elf-'
+
+	def gen_gcc_toolchain_path(self):
+		return os.path.join(self.dka64_dir, 'bin', self.gen_toolchain_prefix())
+
+	def cc(self):
+		return self.gen_gcc_toolchain_path() + 'gcc'
+
+	def cxx(self):
+		return self.gen_gcc_toolchain_path() + 'g++'
+
+	def strip(self):
+		return self.gen_gcc_toolchain_path() + 'strip'
+
+	def pkgconfig(self):
+		# counter-intuitively, this motherfucker is in $DEVKITPRO/portlibs/switch/bin
+		return os.path.join(self.portlibs_dir, 'bin', self.gen_toolchain_prefix() + 'pkg-config')
+
+	def cflags(self, cxx = False):
+		cflags = []
+		# arch flags
+		cflags += ['-D__SWITCH__', '-march=armv8-a+crc+crypto', '-mtune=cortex-a57', '-mtp=soft', '-ftls-model=local-exec', '-fPIE']
+		# help the linker out
+		cflags += ['-ffunction-sections', '-fdata-sections']
+		# base include dirs
+		cflags += ['-isystem %s/include' % self.libnx_dir, '-I%s/include' % self.portlibs_dir]
+		# the game wants GNU extensions
+		if cxx:
+			cflags += ['-std=gnu++17', '-D_GNU_SOURCE']
+		else:
+			cflags += ['-std=gnu11', '-D_GNU_SOURCE']
+		return cflags
+
+	# they go before object list
+	def linkflags(self):
+		linkflags = ['-fPIE', '-specs=%s/switch.specs' % self.libnx_dir]
+		# libsolder only supports sysv hashes and we need to build everything with -rdynamic
+		linkflags += ['-Wl,--hash-style=sysv', '-rdynamic']
+		# avoid pulling in and exposing mesa's internals, that crashes it for some god forsaken reason
+		linkflags += ['-Wl,--exclude-libs=libglapi.a', '-Wl,--exclude-libs=libdrm_nouveau.a']
+		return linkflags
+
+	def ldflags(self):
+		# NOTE: shared libraries should be built without standard libs, so that they could import their contents from the NRO,
+		# but executables, including the SDL2 sanity check, will generally require libstdc++ and libm, which we will add manually
+		ldflags = [] # ['-lm', '-lstdc++']
+		return ldflags
+
+class PSVita:
+	ctx          = None # waf context
+	arch         ='armeabi-v7a-hard'
+	vitasdk_dir  = None
+
+	def __init__(self, ctx):
+		self.ctx = ctx
+
+		for i in PSVITA_ENVVARS:
+			self.vitasdk_dir = os.getenv(i)
+			if self.vitasdk_dir != None:
+				break
+		else:
+			ctx.fatal('Set %s environment variable pointing to the VitaSDK directory!' %
+				' or '.join(PSVITA_ENVVARS))
+
+	def gen_toolchain_prefix(self):
+		return 'arm-vita-eabi-'
+
+	def gen_gcc_toolchain_path(self):
+		return os.path.join(self.vitasdk_dir, 'bin', self.gen_toolchain_prefix())
+
+	def cc(self):
+		return self.gen_gcc_toolchain_path() + 'gcc'
+
+	def cxx(self):
+		return self.gen_gcc_toolchain_path() + 'g++'
+
+	def strip(self):
+		return self.gen_gcc_toolchain_path() + 'strip'
+
+	def ar(self):
+		return self.gen_gcc_toolchain_path() + 'ar'
+
+	def pkgconfig(self):
+		return self.gen_gcc_toolchain_path() + 'pkg-config'
+
+	def cflags(self, cxx = False):
+		cflags = []
+		# arch flags
+		cflags += ['-D__vita__', '-mtune=cortex-a9', '-mfpu=neon']
+		# necessary linker flags
+		cflags += ['-Wl,-q', '-Wl,-z,nocopyreloc']
+		# this optimization is broken in vitasdk
+		cflags += ['-fno-optimize-sibling-calls']
+		# disable some ARM bullshit
+		cflags += ['-fno-short-enums', '-Wno-attributes']
+		# base include dir
+		cflags += ['-isystem %s/arm-vita-eabi/include' % self.vitasdk_dir]
+		# SDL include dir
+		cflags += ['-I%s/arm-vita-eabi/include/SDL2' % self.vitasdk_dir]
+		return cflags
+
+	# they go before object list
+	def linkflags(self):
+		linkflags = ['-Wl,--hash-style=sysv', '-Wl,-q', '-Wl,-z,nocopyreloc', '-mtune=cortex-a9', '-mfpu=neon']
+		# enforce no-short-enums again
+		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums']
+		return linkflags
+
+	def ldflags(self):
+		ldflags = []
+		return ldflags
+
+def options(opt):
+	xc = opt.add_option_group('Cross compile options')
+	xc.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
+		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,9')
+	xc.add_option('--enable-magx', action='store_true', dest='MAGX', default=False,
+		help='enable building for Motorola MAGX [default: %(default)s]')
+	xc.add_option('--enable-msvc-wine', action='store_true', dest='MSVC_WINE', default=False,
+		help='enable building with MSVC using Wine [default: %(default)s]')
+	xc.add_option('--nswitch', action='store_true', dest='NSWITCH', default = False,
+		help='enable building for Nintendo Switch [default: %(default)s]')
+	xc.add_option('--psvita', action='store_true', dest='PSVITA', default = False,
+		help='enable building for PlayStation Vita [default: %(default)s]')
+	xc.add_option('--sailfish', action='store', dest='SAILFISH', default = None,
+		help='enable building for Sailfish/Aurora')
+	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
+		help='enable building for Emscripten')
 
 def configure(conf):
-	if conf.options.ANDROID_OPTS:
+	if 'CROSS_COMPILE' in conf.environ:
+		toolchain_path = conf.environ['CROSS_COMPILE']
+		conf.environ['CC'] = toolchain_path + 'cc'
+		conf.environ['CXX'] = toolchain_path + 'c++'
+		conf.environ['STRIP'] = toolchain_path + 'strip'
+		conf.environ['OBJDUMP'] = toolchain_path + 'objdump'
+		conf.environ['AR'] = toolchain_path + 'ar'
+	elif conf.options.ANDROID_OPTS:
 		values = conf.options.ANDROID_OPTS.split(',')
 		if len(values) != 3:
 			conf.fatal('Invalid --android paramater value!')
 
 		valid_archs = ['x86', 'x86_64', 'armeabi', 'armeabi-v7a', 'armeabi-v7a-hard', 'aarch64']
 
+		if values[0] == 'arm64-v8a':
+			values[0] = 'aarch64'
+
 		if values[0] not in valid_archs:
 			conf.fatal('Unknown arch: %s. Supported: %r' % (values[0], ', '.join(valid_archs)))
 
 		conf.android = android = Android(conf, values[0], values[1], int(values[2]))
+
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
+		conf.environ['AR'] = android.ar()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags(True)
 		conf.env.LINKFLAGS += android.linkflags()
 		conf.env.LDFLAGS += android.ldflags()
+
+		from waflib.Tools.compiler_c import c_compiler
+		from waflib.Tools.compiler_cxx import cxx_compiler
+		c_compiler['win32'] = ['clang' if android.is_clang() or android.is_host() else 'gcc']
+		cxx_compiler['win32'] = ['clang++' if android.is_clang() or android.is_host() else 'gxx']
 
 		conf.env.HAVE_M = True
 		if android.is_hardfp():
 			conf.env.LIB_M = ['m_hard']
 		else: conf.env.LIB_M = ['m']
 
-		conf.env.PREFIX = '/lib/%s' % android.apk_arch()
-
 		conf.msg('Selected Android NDK', '%s, version: %d' % (android.ndk_home, android.ndk_rev))
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
 		conf.msg('... C/C++ flags', ' '.join(android.cflags()).replace(android.ndk_home, '$NDK/'))
 		conf.msg('... link flags', ' '.join(android.linkflags()).replace(android.ndk_home, '$NDK/'))
 		conf.msg('... ld flags', ' '.join(android.ldflags()).replace(android.ndk_home, '$NDK/'))
-
-		# conf.env.ANDROID_OPTS = android
-		conf.env.DEST_OS2 = 'android'
 	elif conf.options.MAGX:
 		# useless to change toolchain path, as toolchain meant to be placed in this path
 		toolchain_path = '/opt/toolchains/motomagx/arm-eabi2/lib/'
 		conf.env.INCLUDES_MAGX = [toolchain_path + i for i in ['ezx-z6/include', 'qt-2.3.8/include']]
 		conf.env.LIBPATH_MAGX  = [toolchain_path + i for i in ['ezx-z6/lib', 'qt-2.3.8/lib']]
 		conf.env.LINKFLAGS_MAGX = ['-Wl,-rpath-link=' + i for i in conf.env.LIBPATH_MAGX]
+	elif conf.options.MSVC_WINE:
+		try:
+			toolchain_path = conf.environ['MSVC_WINE_PATH']
+		except KeyError:
+			conf.fatal('Set MSVC_WINE_PATH environment variable to the MSVC toolchain root!')
+
+		conf.environ['CC'] = conf.environ['CXX'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'cl')
+		conf.environ['LINK_CXX'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'link')
+		conf.environ['AR'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'lib')
+		conf.environ['WINRC'] = os.path.join(toolchain_path, 'bin', conf.env.MSVC_TARGETS[0], 'rc')
+		conf.env.DEST_OS = 'win32'
+		conf.env.DEST_CPU = conf.env.MSVC_TARGETS[0]
+		conf.env.COMPILER_CXX = conf.env.COMPILER_CC = 'msvc'
+	elif conf.options.NSWITCH:
+		conf.nswitch = nswitch = NintendoSwitch(conf)
+		conf.environ['CC'] = nswitch.cc()
+		conf.environ['CXX'] = nswitch.cxx()
+		conf.environ['STRIP'] = nswitch.strip()
+		conf.env.PKGCONFIG = nswitch.pkgconfig()
+		conf.env.CFLAGS += nswitch.cflags()
+		conf.env.CXXFLAGS += nswitch.cflags(True)
+		conf.env.LINKFLAGS += nswitch.linkflags()
+		conf.env.LDFLAGS += nswitch.ldflags()
+		conf.env.HAVE_M = True
+		conf.env.LIB_M = ['m']
+		conf.env.DEST_OS = 'nswitch'
+	elif conf.options.PSVITA:
+		conf.psvita = psvita = PSVita(conf)
+		conf.environ['CC'] = psvita.cc()
+		conf.environ['CXX'] = psvita.cxx()
+		conf.environ['STRIP'] = psvita.strip()
+		conf.environ['AR'] = psvita.ar()
+		conf.env.PKGCONFIG = psvita.pkgconfig()
+		conf.env.CFLAGS += psvita.cflags()
+		conf.env.CXXFLAGS += psvita.cflags(True)
+		conf.env.LINKFLAGS += psvita.linkflags()
+		conf.env.LDFLAGS += psvita.ldflags()
+		conf.env.HAVE_M = True
+		conf.env.LIB_M = ['m']
+		conf.env.VRTLD = ['vrtld']
+		conf.env.DEST_OS = 'psvita'
+	elif conf.options.EMSCRIPTEN:
+		# Emscripten compiler is just wrapper to clang
+		# But we need to setup platform modifiers, they all are contained inside c_emscripten.py for now
+		# In future, that could be upstreamed to waf itself and this wouldn't be needed
+		conf.environ['CC'] = 'emcc'
+		conf.environ['CXX'] = 'em++'
+		conf.environ['AR'] = 'emar'
+		conf.environ['STRIP'] = 'emstrip'
+		conf.environ['OBJCOPY'] = 'llvm-objcopy'
+		conf.load('c_emscripten')
 
 	conf.env.MAGX = conf.options.MAGX
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android' })
+	conf.env.MSVC_WINE = conf.options.MSVC_WINE
+	conf.env.SAILFISH = conf.options.SAILFISH
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
@@ -433,11 +690,17 @@ compiler_cxx_configure = getattr(compiler_cxx, 'configure')
 compiler_c_configure = getattr(compiler_c, 'configure')
 
 def patch_compiler_cxx_configure(conf):
-	compiler_cxx_configure(conf)
+	if not conf.env.MSVC_WINE:
+		compiler_cxx_configure(conf)
+	else:
+		conf.load('msvc', funs='no_autodetect')
 	post_compiler_cxx_configure(conf)
 
 def patch_compiler_c_configure(conf):
-	compiler_c_configure(conf)
+	if not conf.env.MSVC_WINE:
+		compiler_c_configure(conf)
+	else:
+		conf.load('msvc', funs='no_autodetect')
 	post_compiler_c_configure(conf)
 
 setattr(compiler_cxx, 'configure', patch_compiler_cxx_configure)

@@ -1,0 +1,71 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+FRAGMENT_MEMORY_H='''#include <memory.h>
+int main (void) {
+	return 0;
+}'''
+
+FRAGMENT_ALLOCA_H='''#include <alloca.h>
+int main (void) {
+	int foo=10;
+	int * array = alloca(foo);
+}'''
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if not conf.path.find_dir('vorbis-src') or not conf.path.find_dir('vorbis-src/lib'):
+		conf.fatal('Can\'t find Vorbis submodule. Run `git submodule update --init --recursive`.')
+		return
+
+	if conf.check_cc(fragment=FRAGMENT_MEMORY_H, msg = 'Checking for memory.h header', mandatory = False):
+		conf.define('USE_MEMORY_H', 1)
+
+	conf.check_cc(fragment=FRAGMENT_ALLOCA_H, msg = 'Checking for alloca in alloca.h header', mandatory = False)
+
+	if conf.env.COMPILER_CC == 'msvc':
+		conf.define('_CRT_SECURE_NO_WARNINGS', 1)
+		conf.define('_CRT_SECURE_NO_DEPRECATE', 1)
+		conf.define('_CRT_NONSTDC_NO_DEPRECATE', 1)
+
+def build(bld):
+	libvorbis_sources = [
+		'vorbis-src/lib/mdct.c',
+		'vorbis-src/lib/smallft.c',
+		'vorbis-src/lib/block.c',
+		'vorbis-src/lib/envelope.c',
+		'vorbis-src/lib/window.c',
+		'vorbis-src/lib/lsp.c',
+		'vorbis-src/lib/lpc.c',
+		'vorbis-src/lib/analysis.c',
+		'vorbis-src/lib/synthesis.c',
+		'vorbis-src/lib/psy.c',
+		'vorbis-src/lib/info.c',
+		'vorbis-src/lib/floor1.c',
+		'vorbis-src/lib/floor0.c',
+		'vorbis-src/lib/res0.c',
+		'vorbis-src/lib/mapping0.c',
+		'vorbis-src/lib/registry.c',
+		'vorbis-src/lib/codebook.c',
+		'vorbis-src/lib/sharedbook.c',
+		'vorbis-src/lib/lookup.c',
+		'vorbis-src/lib/bitrate.c'
+	]
+
+	bld.stlib(
+		source = libvorbis_sources,
+		target = 'vorbis',
+		includes = 'vorbis-src/include/',
+		use = 'ogg',
+		export_includes = 'vorbis-src/include/'
+	)
+
+	bld.stlib(
+		source = 'vorbis-src/lib/vorbisfile.c',
+		target = 'vorbisfile',
+		includes = 'vorbis-src/include/',
+		use = 'vorbis',
+		export_includes = 'vorbis-src/include/'
+	)

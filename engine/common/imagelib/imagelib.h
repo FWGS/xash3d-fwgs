@@ -45,7 +45,6 @@ typedef enum
 
 typedef struct loadformat_s
 {
-	const char *formatstring;
 	const char *ext;
 	qboolean (*loadfunc)( const char *name, const byte *buffer, fs_offset_t filesize );
 	image_hint_t hint;
@@ -53,7 +52,6 @@ typedef struct loadformat_s
 
 typedef struct saveformat_s
 {
-	const char *formatstring;
 	const char *ext;
 	qboolean (*savefunc)( const char *name, rgbdata_t *pix );
 } savepixformat_t;
@@ -91,7 +89,7 @@ typedef struct imglib_s
 	// global parms
 	rgba_t			fogParams;	// some water textures has info about underwater fog
 
-	image_hint_t		hint;		// hint for some loaders
+	int			hint;		// hint for some loaders
 	byte			*tempbuffer;	// for convert operations
 	int			cmd_flags;	// global imglib flags
 	int			force_flags;	// override cmd_flags
@@ -103,15 +101,19 @@ typedef struct imglib_s
 #define IMAGE_MAXHEIGHT	8192
 #define LUMP_MAXWIDTH	1024	// WorldCraft limits
 #define LUMP_MAXHEIGHT	1024
+#define PLDECAL_MAXWIDTH  768 // total of ~2mb uncompressed rgba data
+#define PLDECAL_MAXHEIGHT 768
+#define IMAGE_GRADIENT_DECAL (1<<10) // TYP_PALETTE lump in WAD
 
 enum
 {
-	LUMP_NORMAL = 0,		// no alpha
-	LUMP_MASKED,		// 1-bit alpha channel masked texture
-	LUMP_GRADIENT,		// gradient image (decals)
-	LUMP_EXTENDED,		// bmp images have extened palette with alpha-channel
-	LUMP_HALFLIFE,		// get predefined half-life palette
-	LUMP_QUAKE1		// get predefined quake palette
+	LUMP_NORMAL = 0, // no alpha
+	LUMP_MASKED,     // 1-bit alpha channel masked texture
+	LUMP_GRADIENT,   // gradient image (decals)
+	LUMP_EXTENDED,   // bmp images have extened palette with alpha-channel
+	LUMP_HALFLIFE,   // get predefined half-life palette
+	LUMP_QUAKE1,     // get predefined quake palette
+	LUMP_TEXGAMMA,   // apply texgamma on top of palette, for half-life mips
 };
 
 enum
@@ -140,6 +142,8 @@ void Image_CopyPalette32bit( void );
 void Image_SetPixelFormat( void );
 void Image_GetPaletteQ1( void );
 void Image_GetPaletteHL( void );
+size_t Image_ComputeSize( int type, int width, int height, int depth );
+void Image_GenerateMipmaps( const byte *source, int width, int height, byte *mip1, byte *mip2, byte *mip3 );
 
 //
 // formats load
@@ -154,6 +158,8 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesize );
 qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t filesize );
+qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesize );
 
 //
 // formats save
@@ -161,6 +167,7 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesi
 qboolean Image_SaveTGA( const char *name, rgbdata_t *pix );
 qboolean Image_SaveBMP( const char *name, rgbdata_t *pix );
 qboolean Image_SavePNG( const char *name, rgbdata_t *pix );
+qboolean Image_SaveWAD( const char *name, rgbdata_t *pix );
 
 //
 // img_quant.c
@@ -171,7 +178,6 @@ rgbdata_t *Image_Quantize( rgbdata_t *pic );
 // img_utils.c
 //
 void Image_Reset( void );
-rgbdata_t *ImagePack( void );
 byte *Image_Copy( size_t size );
 void Image_CopyParms( rgbdata_t *src );
 qboolean Image_ValidSize( const char *name );

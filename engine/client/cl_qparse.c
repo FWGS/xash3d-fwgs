@@ -22,22 +22,24 @@ GNU General Public License for more details.
 #include "hltv.h"
 #include "input.h"
 
-#define STAT_HEALTH		0
-#define STAT_FRAGS		1
-#define STAT_WEAPON		2
-#define STAT_AMMO		3
-#define STAT_ARMOR		4
-#define STAT_WEAPONFRAME	5
-#define STAT_SHELLS		6
-#define STAT_NAILS		7
-#define STAT_ROCKETS	8
-#define STAT_CELLS		9
-#define STAT_ACTIVEWEAPON	10
-#define STAT_TOTALSECRETS	11
-#define STAT_TOTALMONSTERS	12
-#define STAT_SECRETS	13		// bumped on client side by svc_foundsecret
-#define STAT_MONSTERS	14		// bumped by svc_killedmonster
-#define MAX_STATS		32
+enum {
+	STAT_HEALTH = 0,
+	STAT_FRAGS,
+	STAT_WEAPON,
+	STAT_AMMO,
+	STAT_ARMOR,
+	STAT_WEAPONFRAME,
+	STAT_SHELLS,
+	STAT_NAILS,
+	STAT_ROCKETS,
+	STAT_CELLS,
+	STAT_ACTIVEWEAPON,
+	STAT_TOTALSECRETS,
+	STAT_TOTALMONSTERS,
+	STAT_SECRETS,  // bumped on client side by svc_foundsecret
+	STAT_MONSTERS, // bumped by svc_killedmonster
+	MAX_STATS =	32,
+};
 
 static char	cmd_buf[8192];
 static char	msg_buf[8192];
@@ -211,7 +213,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	clgame.maxEntities = GI->max_edicts;
 	clgame.maxEntities = bound( 600, clgame.maxEntities, MAX_EDICTS );
 	clgame.maxModels = MAX_MODELS;
-	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), MAX_STRING );
+	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
 
 	// Re-init hud video, especially if we changed game directories
 	clgame.dllFuncs.pfnVidInit();
@@ -232,14 +234,10 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 		// loading user settings
 		CSCR_LoadDefaultCVars( "user.scr" );
 
-		if( r_decals->value > mp_decals.value )
-			Cvar_SetValue( "r_decals", mp_decals.value );
+		if( r_decals.value > mp_decals.value )
+			Cvar_DirectSet( &r_decals, mp_decals.string );
 	}
-	else Cvar_Reset( "r_decals" );
-
-	// re-init mouse
-	if( cl.background )
-		host.mouse_visible = false;
+	else Cvar_DirectSet( &r_decals, NULL );
 
 	if( cl.background )	// tell the game parts about background state
 		Cvar_FullSet( "cl_background", "1", FCVAR_READ_ONLY );
@@ -262,7 +260,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
 
 	if( !cls.changelevel && !cls.changedemo )
-		CL_InitEdicts (); // re-arrange edicts
+		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
 
 	// Quake just have a large packet of initialization data
 	for( i = 1; i < MAX_MODELS; i++ )
@@ -306,9 +304,9 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" ));
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
-	if(( cl_allow_levelshots->value && !cls.changelevel ) || cl.background )
+	if(( cl_allow_levelshots.value && !cls.changelevel ) || cl.background )
 	{
-		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name->string ), true ))
+		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name.string ), true ))
 			Cvar_Set( "cl_levelshot_name", "*black" ); // render a black screen
 		cls.scrshot_request = scrshot_plaque; // request levelshot even if exist (check filetime)
 	}
@@ -332,7 +330,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	clgame.movevars.gravity = 800.0f;	// quake doesn't write gravity in demos
 	clgame.movevars.maxvelocity = 2000.0f;
 
-	memcpy( &clgame.oldmovevars, &clgame.movevars, sizeof( movevars_t ));
+	clgame.oldmovevars = clgame.movevars;
 }
 
 /*
@@ -418,7 +416,7 @@ If an entities model or origin changes from frame to frame, it must be
 relinked.  Other attributes can change without relinking.
 ==================
 */
-void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
+static void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 {
 	int		i, newnum, pack;
 	qboolean		forcelink;
@@ -433,7 +431,7 @@ void CL_ParseQuakeEntityData( sizebuf_t *msg, int bits )
 		cls.signon = SIGNONS;
 
 		// Clear loading plaque.
-		CL_SignonReply ();
+		CL_SignonReply( PROTO_QUAKE );
 	}
 
 	// alloc next slot to store update
@@ -569,7 +567,7 @@ CL_ParseQuakeParticles
 
 ==================
 */
-void CL_ParseQuakeParticle( sizebuf_t *msg )
+static void CL_ParseQuakeParticle( sizebuf_t *msg )
 {
 	int	count, color;
 	vec3_t	org, dir;
@@ -591,7 +589,7 @@ CL_ParseQuakeStaticSound
 
 ===================
 */
-void CL_ParseQuakeStaticSound( sizebuf_t *msg )
+static void CL_ParseQuakeStaticSound( sizebuf_t *msg )
 {
 	int	sound_num;
 	float 	vol, attn;
@@ -624,17 +622,18 @@ static void CL_ParseQuakeDamage( sizebuf_t *msg )
 
 /*
 ===================
-CL_ParseQuakeStaticEntity
+CL_ParseStaticEntity
 
 ===================
 */
 static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 {
-	entity_state_t	state;
+	entity_state_t state = { 0 };
 	cl_entity_t	*ent;
 	int		i;
 
-	memset( &state, 0, sizeof( state ));
+	if( !clgame.static_entities )
+		clgame.static_entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
 
 	state.modelindex = MSG_ReadByte( msg );
 	state.frame = MSG_ReadByte( msg );
@@ -650,7 +649,7 @@ static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 	i = clgame.numStatics;
 	if( i >= MAX_STATIC_ENTITIES )
 	{
-		Con_Printf( S_ERROR "CL_ParseStaticEntity: static entities limit exceeded!\n" );
+		Con_Printf( S_ERROR "%s: static entities limit exceeded!\n", __func__ );
 		return;
 	}
 
@@ -698,17 +697,13 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	cl_entity_t	*ent;
 	int		newnum;
 
-	memset( &state, 0, sizeof( state ));
 	newnum = MSG_ReadWord( msg ); // entnum
 
 	if( newnum >= clgame.maxEntities )
-		Host_Error( "CL_AllocEdict: no free edicts\n" );
-
-	ent = CL_EDICT_NUM( newnum );
-	memset( &ent->prevstate, 0, sizeof( ent->prevstate ));
-	ent->index = newnum;
+		Host_Error( "%s: no free edicts\n", __func__ );
 
 	// parse baseline
+	memset( &state, 0, sizeof( state ));
 	state.modelindex = MSG_ReadByte( msg );
 	state.frame = MSG_ReadByte( msg );
 	state.colormap = MSG_ReadByte( msg );
@@ -719,10 +714,11 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	state.angles[1] = MSG_ReadAngle( msg );
 	state.origin[2] = MSG_ReadCoord( msg );
 	state.angles[2] = MSG_ReadAngle( msg );
-	ent->player = CL_IsPlayerIndex( newnum );
 
-	memcpy( &ent->baseline, &state, sizeof( entity_state_t ));
-	memcpy( &ent->prevstate, &state, sizeof( entity_state_t ));
+	ent = CL_EDICT_NUM( newnum );
+	ent->index = newnum;
+	ent->player = CL_IsPlayerIndex( newnum );
+	ent->prevstate = ent->baseline = state;
 }
 
 /*
@@ -784,7 +780,7 @@ static void CL_ParseQuakeSignon( sizebuf_t *msg )
 	int	i = MSG_ReadByte( msg );
 
 	if( i == 3 ) cls.signon = SIGNONS - 1;
-	Con_Reportf( "CL_Signon: %d\n", i );
+	Con_Reportf( "%s: %d\n", __func__, i );
 }
 
 /*
@@ -822,7 +818,7 @@ CL_QuakeStuffText
 
 ==================
 */
-void CL_QuakeStuffText( const char *text )
+static void CL_QuakeStuffText( const char *text )
 {
 	Q_strncat( cmd_buf, text, sizeof( cmd_buf ));
 
@@ -837,7 +833,7 @@ CL_QuakeExecStuff
 
 ==================
 */
-void CL_QuakeExecStuff( void )
+static void CL_QuakeExecStuff( void )
 {
 	char	*text = cmd_buf;
 	char	token[256];
@@ -850,7 +846,7 @@ void CL_QuakeExecStuff( void )
 	while( 1 )
 	{
 		// skip whitespace up to a /n
-		while( *text && ((byte)*text) <= ' ' && *text != '\r' && *text != '\n' )
+		while( *text && ((byte)*text ) <= ' ' && *text != '\r' && *text != '\n' )
 			text++;
 
 		if( *text == '\n' || *text == '\r' )
@@ -892,38 +888,21 @@ CL_ParseQuakeMessage
 
 ==================
 */
-void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
+void CL_ParseQuakeMessage( sizebuf_t *msg )
 {
 	int		cmd, param1, param2;
 	size_t		bufStart;
 	const char	*str;
 
-	cls.starting_count = MSG_GetNumBytesRead( msg );	// updates each frame
-	CL_Parse_Debug( true );			// begin parsing
-
 	// init excise buffer
 	MSG_Init( &msg_demo, "UserMsg", msg_buf, sizeof( msg_buf ));
-
-	if( normal_message )
-	{
-		// assume no entity/player update this packet
-		if( cls.state == ca_active )
-		{
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].valid = false;
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = false;
-		}
-		else
-		{
-			CL_ResetFrame( &cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK] );
-		}
-	}
 
 	// parse the message
 	while( 1 )
 	{
 		if( MSG_CheckOverflow( msg ))
 		{
-			Host_Error( "CL_ParseServerMessage: overflow!\n" );
+			Host_Error( "%s: overflow!\n", __func__ );
 			return;
 		}
 
@@ -972,7 +951,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			break;
 		case svc_time:
 			Cbuf_AddText( "\n" ); // new frame was started
-			CL_ParseServerTime( msg );
+			CL_ParseServerTime( msg, PROTO_QUAKE );
 			break;
 		case svc_print:
 			str = MSG_ReadString( msg );
@@ -991,9 +970,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			CL_ParseQuakeServerInfo( msg );
 			break;
 		case svc_lightstyle:
-			param1 = MSG_ReadByte( msg );
-			str = MSG_ReadString( msg );
-			CL_SetLightstyle( param1, str, cl.mtime[0] );
+			CL_ParseLightStyle( msg, PROTO_QUAKE );
 			break;
 		case svc_updatename:
 			param1 = MSG_ReadByte( msg );
@@ -1114,13 +1091,10 @@ void CL_ParseQuakeMessage( sizebuf_t *msg, qboolean normal_message )
 			}
 			break;
 		default:
-			Host_Error( "CL_ParseServerMessage: Illegible server message\n" );
+			Host_Error( "%s: Illegible server message\n", __func__ );
 			break;
 		}
 	}
-
-	cl.frames[cl.parsecountmod].graphdata.msgbytes += MSG_GetNumBytesRead( msg ) - cls.starting_count;
-	CL_Parse_Debug( false ); // done
 
 	// now process packet.
 	CL_ProcessPacket( &cl.frames[cl.parsecountmod] );

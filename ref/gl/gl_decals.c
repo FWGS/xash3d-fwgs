@@ -74,7 +74,7 @@ static void R_DecalUnlink( decal_t *pdecal )
 		else
 		{
 			tmp = pdecal->psurface->pdecals;
-			if( !tmp ) gEngfuncs.Host_Error( "R_DecalUnlink: bad decal list\n" );
+			if( !tmp ) gEngfuncs.Host_Error( "%s: bad decal list\n", __func__ );
 
 			while( tmp->pnext )
 			{
@@ -143,7 +143,7 @@ static void R_GetDecalDimensions( int texture, int *width, int *height )
 //-----------------------------------------------------------------------------
 // compute the decal basis based on surface normal
 //-----------------------------------------------------------------------------
-void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] )
+static void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] )
 {
 	vec3_t	surfaceNormal;
 
@@ -179,7 +179,7 @@ void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[
 	VectorNormalize2( surf->texinfo->vecs[1], textureSpaceBasis[1] );
 }
 
-void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
+static void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
 {
 	int	width, height;
 
@@ -199,7 +199,7 @@ void R_SetupDecalTextureSpaceBasis( decal_t *pDecal, msurface_t *surf, int textu
 }
 
 // Build the initial list of vertices from the surface verts into the global array, 'verts'.
-void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t textureSpaceBasis[3], float *verts )
+static void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t textureSpaceBasis[3], float *verts )
 {
 	float	*v;
 	int	i;
@@ -214,7 +214,7 @@ void R_SetupDecalVertsForMSurface( decal_t *pDecal, msurface_t *surf,	vec3_t tex
 }
 
 // Figure out where the decal maps onto the surface.
-void R_SetupDecalClip( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
+static void R_SetupDecalClip( decal_t *pDecal, msurface_t *surf, int texture, vec3_t textureSpaceBasis[3], float decalWorldScale[2] )
 {
 	R_SetupDecalTextureSpaceBasis( pDecal, surf, texture, textureSpaceBasis, decalWorldScale );
 
@@ -229,7 +229,7 @@ void R_SetupDecalClip( decal_t *pDecal, msurface_t *surf, int texture, vec3_t te
 // Clip polygon to decal in texture space
 // JAY: This code is lame, change it later.  It does way too much work per frame
 // It can be made to recursively call the clipping code and only copy the vertex list once
-int R_ClipInside( float *vert, int edge )
+static int R_ClipInside( float *vert, int edge )
 {
 	switch( edge )
 	{
@@ -253,7 +253,7 @@ int R_ClipInside( float *vert, int edge )
 	return 0;
 }
 
-void R_ClipIntersect( float *one, float *two, float *out, int edge )
+static void R_ClipIntersect( float *one, float *two, float *out, int edge )
 {
 	float	t;
 
@@ -354,7 +354,7 @@ static int SHClip( float *vert, int vertCount, float *out, int edge )
 	return outCount;
 }
 
-float *R_DoDecalSHClip( float *pInVerts, decal_t *pDecal, int nStartVerts, int *pVertCount )
+static float *R_DoDecalSHClip( float *pInVerts, decal_t *pDecal, int nStartVerts, int *pVertCount )
 {
 	float	*pOutVerts = g_DecalClipVerts[0];
 	int	outCount;
@@ -374,7 +374,7 @@ float *R_DoDecalSHClip( float *pInVerts, decal_t *pDecal, int nStartVerts, int *
 //-----------------------------------------------------------------------------
 // Generate clipped vertex list for decal pdecal projected onto polygon psurf
 //-----------------------------------------------------------------------------
-float *R_DecalVertsClip( decal_t *pDecal, msurface_t *surf, int texture, int *pVertCount )
+static float *R_DecalVertsClip( decal_t *pDecal, msurface_t *surf, int texture, int *pVertCount )
 {
 	float	decalWorldScale[2];
 	vec3_t	textureSpaceBasis[3];
@@ -391,30 +391,15 @@ float *R_DecalVertsClip( decal_t *pDecal, msurface_t *surf, int texture, int *pV
 // Generate lighting coordinates at each vertex for decal vertices v[] on surface psurf
 static void R_DecalVertsLight( float *v, msurface_t *surf, int vertCount )
 {
-	float		s, t;
-	mtexinfo_t	*tex;
-	mextrasurf_t	*info = surf->info;
 	float		sample_size;
 	int		j;
 
 	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	tex = surf->texinfo;
 
 	for( j = 0; j < vertCount; j++, v += VERTEXSIZE )
 	{
 		// lightmap texture coordinates
-		s = DotProduct( v, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
-		s += surf->light_s * sample_size;
-		s += sample_size * 0.5f;
-		s /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->width;
-
-		t = DotProduct( v, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
-		t += surf->light_t * sample_size;
-		t += sample_size * 0.5f;
-		t /= BLOCK_SIZE * sample_size; //fa->texinfo->texture->height;
-
-		v[5] = s;
-		v[6] = t;
+		R_LightmapCoord( v, surf, sample_size, &v[5] );
 	}
 }
 
@@ -507,10 +492,10 @@ R_DecalCreatePoly
 creates mesh for decal on first rendering
 ====================
 */
-glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
+static glpoly2_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t *surf )
 {
 	int		lnumverts;
-	glpoly_t	*poly;
+	glpoly2_t	*poly;
 	float		*v;
 	int		i;
 
@@ -522,7 +507,7 @@ glpoly_t *R_DecalCreatePoly( decalinfo_t *decalinfo, decal_t *pdecal, msurface_t
 
 	// allocate glpoly
 	// REFTODO: com_studiocache pool!
-	poly = Mem_Calloc( r_temppool, sizeof( glpoly_t ) + ( lnumverts - 4 ) * VERTEXSIZE * sizeof( float ));
+	poly = Mem_Calloc( r_temppool, sizeof( glpoly2_t ) + lnumverts * VERTEXSIZE * sizeof( float ));
 	poly->next = pdecal->polys;
 	poly->flags = surf->flags;
 	pdecal->polys = poly;
@@ -610,7 +595,7 @@ static void R_DecalCreate( decalinfo_t *decalinfo, msurface_t *surf, float x, fl
 	R_AddDecalToSurface( pdecal, surf, decalinfo );
 }
 
-void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
+static void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 {
 	// get the texture associated with this surface
 	mtexinfo_t	*tex = surf->texinfo;
@@ -685,10 +670,14 @@ static void R_DecalNodeSurfaces( model_t *model, mnode_t *node, decalinfo_t *dec
 	// iterate over all surfaces in the node
 	msurface_t	*surf;
 	int		i;
+	int firstsurface, numsurfaces;
 
-	surf = model->surfaces + node->firstsurface;
+	firstsurface = node_firstsurface( node, model );
+	numsurfaces  = node_numsurfaces( node, model );
 
-	for( i = 0; i < node->numsurfaces; i++, surf++ )
+	surf = model->surfaces + firstsurface;
+
+	for( i = 0; i < numsurfaces; i++, surf++ )
 	{
 		// never apply decals on the water or sky surfaces
 		if( surf->flags & (SURF_DRAWTURB|SURF_DRAWSKY|SURF_CONVEYOR))
@@ -710,6 +699,7 @@ static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 {
 	mplane_t	*splitplane;
 	float	dist;
+	mnode_t *children[2];
 
 	Assert( node != NULL );
 
@@ -721,6 +711,7 @@ static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 
 	splitplane = node->plane;
 	dist = DotProduct( decalinfo->m_Position, splitplane->normal ) - splitplane->dist;
+	node_children( children, node, model );
 
 	// This is arbitrarily set to 10 right now. In an ideal world we'd have the
 	// exact surface but we don't so, this tells me which planes are "sort of
@@ -732,19 +723,19 @@ static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 	// have a surface normal
 	if( dist > decalinfo->m_Size )
 	{
-		R_DecalNode( model, node->children[0], decalinfo );
+		R_DecalNode( model, children[0], decalinfo );
 	}
 	else if( dist < -decalinfo->m_Size )
 	{
-		R_DecalNode( model, node->children[1], decalinfo );
+		R_DecalNode( model, children[1], decalinfo );
 	}
 	else
 	{
 		if( dist < DECAL_DISTANCE && dist > -DECAL_DISTANCE )
 			R_DecalNodeSurfaces( model, node, decalinfo );
 
-		R_DecalNode( model, node->children[0], decalinfo );
-		R_DecalNode( model, node->children[1], decalinfo );
+		R_DecalNode( model, children[0], decalinfo );
+		R_DecalNode( model, children[1], decalinfo );
 	}
 }
 
@@ -765,15 +756,15 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 
 	if( entityIndex > 0 )
 	{
-		ent = gEngfuncs.GetEntityByIndex( entityIndex );
+		ent = CL_GetEntityByIndex( entityIndex );
 
-		if( modelIndex > 0 ) model = gEngfuncs.pfnGetModelByIndex( modelIndex );
-		else if( ent != NULL ) model = gEngfuncs.pfnGetModelByIndex( ent->curstate.modelindex );
+		if( modelIndex > 0 ) model = CL_ModelHandle( modelIndex );
+		else if( ent != NULL ) model = CL_ModelHandle( ent->curstate.modelindex );
 		else return;
 	}
 	else if( modelIndex > 0 )
-		model = gEngfuncs.pfnGetModelByIndex( modelIndex );
-	else model = WORLDMODEL;
+		model = CL_ModelHandle( modelIndex );
+	else model = CL_ModelHandle( 1 );
 
 	if( !model ) return;
 
@@ -844,7 +835,7 @@ void R_DecalShoot( int textureIndex, int entityIndex, int modelIndex, vec3_t pos
 // triangles the same way.
 float *R_DecalSetupVerts( decal_t *pDecal, msurface_t *surf, int texture, int *outCount )
 {
-	glpoly_t	*p = pDecal->polys;
+	glpoly2_t	*p = pDecal->polys;
 	int	i, count;
 	float	*v, *v2;
 
@@ -927,10 +918,10 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 		if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 			GL_Cull( GL_NONE );
 
-		if( gl_polyoffset->value )
+		if( gl_polyoffset.value )
 		{
 			pglEnable( GL_POLYGON_OFFSET_FILL );
-			pglPolygonOffset( -1.0f, -gl_polyoffset->value );
+			pglPolygonOffset( -1.0f, -gl_polyoffset.value );
 		}
 	}
 
@@ -1020,7 +1011,7 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 				pglEnable( GL_ALPHA_TEST );
 		}
 
-		if( gl_polyoffset->value )
+		if( gl_polyoffset.value )
 			pglDisable( GL_POLYGON_OFFSET_FILL );
 
 		if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
@@ -1058,10 +1049,10 @@ void DrawDecalsBatch( void )
 	if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 		GL_Cull( GL_NONE );
 
-	if( gl_polyoffset->value )
+	if( gl_polyoffset.value )
 	{
 		pglEnable( GL_POLYGON_OFFSET_FILL );
-		pglPolygonOffset( -1.0f, -gl_polyoffset->value );
+		pglPolygonOffset( -1.0f, -gl_polyoffset.value );
 	}
 
 	for( i = 0; i < tr.num_draw_decals; i++ )
@@ -1076,7 +1067,7 @@ void DrawDecalsBatch( void )
 		pglDisable( GL_ALPHA_TEST );
 	}
 
-	if( gl_polyoffset->value )
+	if( gl_polyoffset.value )
 		pglDisable( GL_POLYGON_OFFSET_FILL );
 
 	if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
@@ -1188,7 +1179,7 @@ int R_CreateDecalList( decallist_t *pList )
 			pList[total].scale = decal->scale;
 
 			R_DecalUnProject( decal, &pList[total] );
-			COM_FileBase( R_GetTexture( decal->texture )->name, pList[total].name );
+			COM_FileBase( R_GetTexture( decal->texture )->name, pList[total].name, sizeof( pList[total].name ));
 
 			// check to see if the decal should be added
 			total = DecalListAdd( pList, total );

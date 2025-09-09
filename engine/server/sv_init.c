@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "library.h"
 #include "voice.h"
+#include "pm_local.h"
 
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
@@ -25,6 +26,17 @@ int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 server_t		sv;	// local server
 server_static_t	svs;	// persistant server info
 svgame_static_t	svgame;	// persistant game info
+
+/*
+==================
+Host_SetServerState
+==================
+*/
+static void Host_SetServerState( int state )
+{
+	Cvar_FullSet( "host_serverstate", va( "%i", state ), FCVAR_READ_ONLY );
+	sv.state = state;
+}
 
 /*
 ================
@@ -55,7 +67,7 @@ SV_SendSingleResource
 hot precache on a flying
 ================
 */
-void SV_SendSingleResource( const char *name, resourcetype_t type, int index, byte flags )
+static void SV_SendSingleResource( const char *name, resourcetype_t type, int index, byte flags )
 {
 	resource_t	*pResource = &sv.resources[sv.num_resources];
 	int		nSize = 0;
@@ -261,25 +273,35 @@ int GAME_EXPORT SV_GenericIndex( const char *filename )
 	return i;
 }
 
-/*
-================
-SV_ModelHandle
-
-get model by handle
-================
-*/
-model_t *SV_ModelHandle( int modelindex )
+static resourcetype_t SV_DetermineResourceType( const char *filename )
 {
-	if( modelindex < 0 || modelindex >= MAX_MODELS )
-		return NULL;
-	return sv.models[modelindex];
+	if( !Q_strncmp( filename, DEFAULT_SOUNDPATH, sizeof( DEFAULT_SOUNDPATH ) - 1 ) && Sound_SupportedFileFormat( COM_FileExtension( filename )))
+		return t_sound;
+	else
+		return t_generic;
 }
 
-void SV_ReadResourceList( const char *filename )
+static const char *SV_GetResourceTypeName( resourcetype_t restype )
 {
-	string	token;
+	switch( restype )
+	{
+		case t_decal: return "decal";
+		case t_eventscript: return "eventscript";
+		case t_generic: return "generic";
+		case t_model: return "model";
+		case t_skin: return "skin";
+		case t_sound: return "sound";
+		case t_world: return "world";
+		default: return "unknown";
+	}
+}
+
+static void SV_ReadResourceList( const char *filename )
+{
+	string token;
 	byte *afile;
 	char *pfile;
+	resourcetype_t restype;
 
 	afile = FS_LoadFile( filename, NULL, false );
 	if( !afile ) return;
@@ -294,8 +316,23 @@ void SV_ReadResourceList( const char *filename )
 		if( !COM_IsSafeFileToDownload( token ))
 			continue;
 
-		Con_DPrintf( "  %s\n", token );
-		SV_GenericIndex( token );
+		COM_FixSlashes( token );
+		restype = SV_DetermineResourceType( token );
+		Con_DPrintf( "  %s (%s)\n", token, SV_GetResourceTypeName( restype ));
+		switch( restype )
+		{
+			// TODO do we need to handle other resource types specifically too?
+			case t_sound:
+			{
+				const char *filepath = token;
+				filepath += sizeof( DEFAULT_SOUNDPATH ) - 1; // skip "sound/" part
+				SV_SoundIndex( filepath );
+				break;
+			}
+			default:
+				SV_GenericIndex( token );
+				break;
+		}
 	}
 
 	Con_DPrintf( "----------------------------------\n" );
@@ -309,16 +346,25 @@ SV_CreateGenericResources
 loads external resource list
 ================
 */
-void SV_CreateGenericResources( void )
+static void SV_CreateGenericResources( void )
 {
 	string	filename;
+	int i;
 
 	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
-	COM_ReplaceExtension( filename, ".res" );
+	COM_ReplaceExtension( filename, ".res", sizeof( filename ));
 	COM_FixSlashes( filename );
 
 	SV_ReadResourceList( filename );
 	SV_ReadResourceList( "reslist.txt" );
+
+	for( i = 0; i < world.wadlist.count; i++ )
+	{
+		if( world.wadlist.wadusage[i] > 0 )
+		{
+			SV_GenericIndex( world.wadlist.wadnames[i] );
+		}
+	}
 }
 
 /*
@@ -328,7 +374,7 @@ SV_CreateResourceList
 add resources to common list
 ================
 */
-void SV_CreateResourceList( void )
+static void SV_CreateResourceList( void )
 {
 	qboolean	ffirstsent = false;
 	int	i, nSize;
@@ -393,7 +439,7 @@ void SV_CreateResourceList( void )
 SV_WriteVoiceCodec
 ================
 */
-void SV_WriteVoiceCodec( sizebuf_t *msg )
+static void SV_WriteVoiceCodec( sizebuf_t *msg )
 {
 	MSG_BeginServerCmd( msg, svc_voiceinit );
 	MSG_WriteString( msg, VOICE_DEFAULT_CODEC );
@@ -411,14 +457,15 @@ baseline will be transmitted
 INTERNAL RESOURCE
 ================
 */
-void SV_CreateBaseline( void )
+static void SV_CreateBaseline( void )
 {
 	entity_state_t	nullstate, *base;
 	int		playermodel;
 	int		delta_type;
 	int		entnum;
 
-	SV_WriteVoiceCodec( &sv.signon );
+	if( svs.maxclients > 1 )
+		SV_WriteVoiceCodec( &sv.signon );
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		playermodel = SV_ModelIndex( DEFAULT_PLAYER_PATH_QUAKE );
@@ -520,7 +567,7 @@ void SV_FreeOldEntities( void )
 	}
 
 	// decrement svgame.numEntities if the highest number entities died
-	for( ; EDICT_NUM( svgame.numEntities - 1 )->free; svgame.numEntities-- );
+	for( ; ( ent = EDICT_NUM( svgame.numEntities - 1 )) && ent->free; svgame.numEntities-- );
 }
 
 /*
@@ -589,6 +636,9 @@ void SV_ActivateServer( int runPhysics )
 
 		Netchan_Clear( &cl->netchan );
 		cl->delta_sequence = -1;
+
+		// bump connect timeout
+		cl->connection_started = host.realtime;
 	}
 
 	// invoke to refresh all movevars
@@ -621,17 +671,6 @@ void SV_ActivateServer( int runPhysics )
 
 	if( sv.ignored_world_decals )
 		Con_Printf( S_WARN "%i static decals was rejected due buffer overflow\n", sv.ignored_world_decals );
-
-	if( svs.maxclients > 1 )
-	{
-		const char *cycle = Cvar_VariableString( "mapchangecfgfile" );
-
-		if( COM_CheckString( cycle ))
-			Cbuf_AddText( va( "exec %s\n", cycle ));
-
-		if( public_server->value )
-			Master_Add( );
-	}
 }
 
 /*
@@ -644,6 +683,13 @@ deactivate server, free edicts, strings etc
 void SV_DeactivateServer( void )
 {
 	int	i;
+	const char	*cycle = Cvar_VariableString( "disconcfgfile" );
+
+	if( COM_CheckString( cycle ))
+		Cbuf_AddTextf( "exec %s\n", cycle );
+
+	if( COM_CheckStringEmpty( sv.name ))
+		Cbuf_AddTextf( "exec maps/%s_unload.cfg\n", sv.name );
 
 	if( !svs.initialized || sv.state == ss_dead )
 		return;
@@ -654,9 +700,10 @@ void SV_DeactivateServer( void )
 
 	SV_FreeEdicts ();
 
-	SV_ClearPhysEnts ();
+	PM_ClearPhysEnts( svgame.pmove );
 
-	SV_EmptyStringPool();
+	SV_EmptyStringPool( true );
+	Mem_EmptyPool( svgame.stringspool );
 
 	for( i = 0; i < svs.maxclients; i++ )
 	{
@@ -684,7 +731,7 @@ qboolean SV_InitGame( void )
 {
 	string dllpath;
 
-	if( svs.game_library_loaded )
+	if( svgame.hInstance )
 		return true;
 
 	// first initialize?
@@ -699,7 +746,6 @@ qboolean SV_InitGame( void )
 	}
 
 	// client frames will be allocated in SV_ClientConnect
-	svs.game_library_loaded = true;
 	return true;
 }
 
@@ -737,21 +783,22 @@ SV_SetupClients
 determine the game type and prepare clients
 ================
 */
-void SV_SetupClients( void )
+static void SV_SetupClients( void )
 {
 	qboolean	changed_maxclients = false;
 
 	// check if clients count was really changed
-	if( svs.maxclients != (int)sv_maxclients->value )
+	if( svs.maxclients != (int)sv_maxclients.value )
 		changed_maxclients = true;
 
 	if( !changed_maxclients ) return; // nothing to change
 
 	// if clients count was changed we need to run full shutdown procedure
-	if( svs.maxclients ) Host_ShutdownServer();
+	if( svs.maxclients )
+		SV_Shutdown( "Server was killed due to maxclients change\n" );
 
 	// copy the actual value from cvar
-	svs.maxclients = (int)sv_maxclients->value;
+	svs.maxclients = (int)sv_maxclients.value;
 
 	// dedicated servers are can't be single player and are usually DM
 	if( Host_IsDedicated() )
@@ -779,10 +826,10 @@ void SV_SetupClients( void )
 	// init network stuff
 	NET_Config(( svs.maxclients > 1 ), true );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
-	ClearBits( sv_maxclients->flags, FCVAR_CHANGED );
+	ClearBits( sv_maxclients.flags, FCVAR_CHANGED );
 }
 
-static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
+qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
 {
 	char	headbuf[1024], buffer[1024];
 	int	i, num_bytes, lumplen;
@@ -859,6 +906,98 @@ static qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean m
 	return 1;
 }
 
+void SV_FreeTestPacket( void )
+{
+	if( svs.testpacket_buf )
+	{
+		Mem_Free( svs.testpacket_buf );
+		svs.testpacket_buf = NULL;
+	}
+
+	if( svs.testpacket_crcs )
+	{
+		Mem_Free( svs.testpacket_crcs );
+		svs.testpacket_crcs = NULL;
+	}
+}
+
+/*
+================
+SV_GenerateTestPacket
+================
+*/
+static void SV_GenerateTestPacket( void )
+{
+	const int maxsize = FRAGMENT_MAX_SIZE;
+	uint32_t crc;
+	file_t *file;
+	byte *filepos;
+	int i;
+
+	if( !sv_allow_testpacket.value )
+	{
+		SV_FreeTestPacket();
+		return;
+	}
+
+	// testpacket already generated once, exit
+	// testpacket and lookup table takes ~300k of memory
+	// disable for low memory mode
+	if( svs.testpacket_buf || XASH_LOW_MEMORY > 0 )
+		return;
+
+	// don't need in singleplayer with full client
+	if( svs.maxclients <= 1 )
+		return;
+
+	file = FS_Open( "gfx.wad", "rb", false );
+	if( FS_FileLength( file ) < maxsize )
+	{
+		FS_Close( file );
+		return;
+	}
+
+	svs.testpacket_buf = Mem_Malloc( host.mempool, sizeof( *svs.testpacket_buf ) * maxsize );
+
+	// write packet base data
+	MSG_Init( &svs.testpacket, "BandWidthTest", svs.testpacket_buf, maxsize );
+	MSG_WriteLong( &svs.testpacket, -1 );
+	MSG_WriteString( &svs.testpacket, S2C_BANDWIDTHTEST );
+	svs.testpacket_crcpos = svs.testpacket.pData + MSG_GetNumBytesWritten( &svs.testpacket );
+	MSG_WriteDword( &svs.testpacket, 0 ); // to be changed by crc
+
+	// time to read our file
+	svs.testpacket_filepos = MSG_GetNumBytesWritten( &svs.testpacket );
+	svs.testpacket_filelen = maxsize - svs.testpacket_filepos;
+
+	filepos = svs.testpacket.pData + svs.testpacket_filepos;
+	FS_Read( file, filepos, svs.testpacket_filelen );
+	FS_Close( file );
+
+	// now generate checksums lookup table
+	svs.testpacket_crcs = Mem_Malloc( host.mempool, sizeof( *svs.testpacket_crcs ) * svs.testpacket_filelen );
+	crc = 0; // intentional omit of CRC32_Init because of the client
+
+	// TODO: shrink to minimum!
+	for( i = 0; i < svs.testpacket_filelen; i++ )
+	{
+		uint32_t crc2;
+
+		CRC32_ProcessByte( &crc, filepos[i] );
+		svs.testpacket_crcs[i] = crc;
+#if 0
+		// test
+		crc2 = 0;
+		CRC32_ProcessBuffer( &crc2, filepos, i + 1 );
+		if( svs.testpacket_crcs[i] != crc2 )
+		{
+			Con_Printf( "%d: 0x%x != 0x%x\n", i, svs.testpacket_crcs[i], crc2 );
+			svs.testpacket_crcs[i] = crc = crc2;
+		}
+#endif
+	}
+}
+
 /*
 ================
 SV_SpawnServer
@@ -869,13 +1008,19 @@ clients along with it.
 */
 qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean background )
 {
-	int	i, current_skill;
-	edict_t	*ent;
+	int		i, current_skill;
+	edict_t		*ent;
+	const char	*cycle;
 
 	SV_SetupClients();
 
 	if( !SV_InitGame( ))
 		return false;
+
+	Delta_Init(); // re-initialize delta
+
+	// unlock sv_cheats in local game
+	ClearBits( sv_cheats.flags, FCVAR_READ_ONLY );
 
 	svs.initialized = true;
 	Log_Open();
@@ -884,6 +1029,16 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	svs.timestart = Sys_DoubleTime();
 	svs.spawncount++; // any partially connected client will be restarted
+
+	for( i = 0; i < ARRAYSIZE( svs.challenge_salt ); i++ )
+		svs.challenge_salt[i] = COM_RandomLong( 0, 0x7FFFFFFE );
+
+	cycle = Cvar_VariableString( "mapchangecfgfile" );
+
+	if( COM_CheckString( cycle ))
+		Cbuf_AddTextf( "exec %s\n", cycle );
+
+	Cbuf_AddTextf( "exec maps/%s_load.cfg\n", mapname );
 
 	// let's not have any servers with no name
 	if( !COM_CheckString( hostname.string ))
@@ -919,6 +1074,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	current_skill = bound( 0, current_skill, 3 );
 	Cvar_SetValue( "skill", (float)current_skill );
 
+	// enforce hpk_max_size
+	HPAK_CheckSize( hpk_custom_file.string );
+
 	// force normal player collisions for single player
 	if( svs.maxclients == 1 )
 		Cvar_SetValue( "sv_clienttrace", 1 );
@@ -943,8 +1101,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	// force normal player collisions for single player
 	if( svs.maxclients == 1 ) Cvar_SetValue( "sv_clienttrace", 1 );
 
-	// make sure what server name doesn't contain path and extension
-	COM_FileBase( mapname, sv.name );
+	// allow loading maps from subdirectories, strip extension anyway
+	Q_strncpy( sv.name, mapname, sizeof( sv.name ));
+	COM_StripExtension( sv.name );
 
 	// precache and static commands can be issued during map initialization
 	Host_SetServerState( ss_loading );
@@ -968,7 +1127,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	for( i = WORLD_INDEX; i < sv.worldmodel->numsubmodels; i++ )
 	{
-		Q_sprintf( sv.model_precache[i+1], "*%i", i );
+		Q_snprintf( sv.model_precache[i+1], sizeof( sv.model_precache[i+1] ), "*%i", i );
 		sv.models[i+1] = Mod_ForName( sv.model_precache[i+1], false, false );
 		SetBits( sv.model_precache_flags[i+1], RES_FATALIFMISSING );
 	}
@@ -987,13 +1146,16 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	}
 
 	// heartbeats will always be sent to the id master
-	svs.last_heartbeat = MAX_HEARTBEAT; // send immediately
+	NET_MasterClear();
 
 	// get actual movevars
 	SV_UpdateMovevars( true );
 
 	// clear physics interaction links
 	SV_ClearWorld();
+
+	// pregenerate test packet
+	SV_GenerateTestPacket();
 
 	return true;
 }
@@ -1011,26 +1173,6 @@ qboolean SV_Initialized( void )
 int SV_GetMaxClients( void )
 {
 	return svs.maxclients;
-}
-
-void SV_InitGameProgs( void )
-{
-	string dllpath;
-
-	if( svgame.hInstance ) return; // already loaded
-
-	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
-
-	// just try to initialize
-	SV_LoadProgs( dllpath );
-}
-
-void SV_FreeGameProgs( void )
-{
-	if( svs.initialized ) return;	// server is active
-
-	// unload progs (free cvars and commands)
-	SV_UnloadProgs();
 }
 
 /*

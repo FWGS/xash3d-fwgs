@@ -1,0 +1,50 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if not conf.path.find_dir('libogg') or not conf.path.find_dir('libogg/src'):
+		conf.fatal('Can\'t find libogg submodule. Run `git submodule update --init --recursive`.')
+		return
+
+	conf.env.INCLUDE_INTTYPES_H = 0
+	conf.env.INCLUDE_SYS_TYPES_H = 0
+	conf.env.INCLUDE_STDINT_H = 0
+
+	if conf.check_cc(header_name='inttypes.h', mandatory = False):
+		conf.env.INCLUDE_INTTYPES_H = 1
+	elif conf.check_cc(header_name='sys/types.h', mandatory = False):
+		conf.env.INCLUDE_SYS_TYPES_H = 1
+	elif conf.check_cc(header_name='stdint.h', mandatory = False):
+		conf.env.INCLUDE_STDINT_H = 1
+
+def build(bld):
+	sources = bld.path.ant_glob([
+		'libogg/src/*.c'
+	])
+
+	bld(
+		features = 'subst',
+		name = 'libogg_config_types',
+		source = 'libogg/include/ogg/config_types.h.in',
+		target = 'libogg/include/ogg/config_types.h',
+		INCLUDE_INTTYPES_H = bld.env.INCLUDE_INTTYPES_H,
+		INCLUDE_SYS_TYPES_H = bld.env.INCLUDE_SYS_TYPES_H,
+		INCLUDE_STDINT_H = bld.env.INCLUDE_STDINT_H,
+		SIZE16 = 'int16_t',
+		USIZE16 = 'uint16_t',
+		SIZE32 = 'int32_t',
+		USIZE32 = 'uint32_t',
+		SIZE64 = 'int64_t',
+		USIZE64 = 'uint64_t'
+	)
+
+	bld.stlib(
+		source = sources,
+		target = 'ogg',
+		use = 'libogg_config_types',
+		includes = 'libogg/include/',
+		export_includes = 'libogg/include/'
+	)

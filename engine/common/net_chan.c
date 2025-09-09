@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "net_encode.h"
 #include "protocol.h"
+#if !XASH_DEDICATED
+#include <bzlib.h>
+#endif // !XASH_DEDICATED
 
 #define MAKE_FRAGID( id, count )	((( id & 0xffff ) << 16 ) | ( count & 0xffff ))
 #define FRAG_GETID( fragid )		(( fragid >> 16 ) & 0xffff )
@@ -84,10 +87,12 @@ such as during the connection stage while waiting for the client to load,
 then a packet only needs to be delivered if there is something in the
 unacknowledged reliable
 */
-convar_t	*net_showpackets;
-convar_t	*net_chokeloopback;
-convar_t	*net_showdrop;
-convar_t	*net_qport;
+CVAR_DEFINE_AUTO( net_showpackets, "0", FCVAR_PRIVILEGED, "show network packets" );
+static CVAR_DEFINE_AUTO( net_chokeloop, "0", 0, "apply bandwidth choke to loopback packets" );
+static CVAR_DEFINE_AUTO( net_showdrop, "0", 0, "show packets that are dropped" );
+static CVAR_DEFINE_AUTO( net_qport, "0", FCVAR_READ_ONLY, "current quake netport" );
+CVAR_DEFINE_AUTO( net_send_debug, "0", FCVAR_PRIVILEGED, "enable debugging output for outgoing messages" );
+CVAR_DEFINE_AUTO( net_recv_debug, "0", FCVAR_PRIVILEGED, "enable debugging output for incoming messages" );
 
 int	net_drop;
 netadr_t	net_from;
@@ -95,12 +100,58 @@ sizebuf_t	net_message;
 static poolhandle_t net_mempool;
 byte	net_message_buffer[NET_MAX_MESSAGE];
 
-const char *ns_strings[NS_COUNT] =
+static const char *const ns_strings[NS_COUNT] =
 {
 	"Client",
 	"Server",
 };
 
+#if !XASH_DEDICATED
+void bz_internal_error( int errcode );
+void bz_internal_error( int errcode )
+{
+	Con_Printf( S_ERROR "bzip2/libbzip2: internal error number %d.\n"
+			"This is a bug in bzip2/libbzip2, %s.\n"
+			"Please report it at: https://gitlab.com/bzip2/bzip2/-/issues\n"
+			"If this happened when you were using some program which uses\n"
+			"libbzip2 as a component, you should also report this bug to\n"
+			"the author(s) of that program.\n"
+			"Please make an effort to report this bug;\n"
+			"timely and accurate bug reports eventually lead to higher\n"
+			"quality software.  Thanks.\n\n",
+			errcode, BZ2_bzlibVersion( ));
+
+	if (errcode == 1007) {
+		Con_Printf(
+			"\n*** A special note about internal error number 1007 ***\n"
+			"\n"
+			"Experience suggests that a common cause of i.e. 1007\n"
+			"is unreliable memory or other hardware.  The 1007 assertion\n"
+			"just happens to cross-check the results of huge numbers of\n"
+			"memory reads/writes, and so acts (unintendedly) as a stress\n"
+			"test of your memory system.\n"
+			"\n"
+			"I suggest the following: try compressing the file again,\n"
+			"possibly monitoring progress in detail with the -vv flag.\n"
+			"\n"
+			"* If the error cannot be reproduced, and/or happens at different\n"
+			"  points in compression, you may have a flaky memory system.\n"
+			"  Try a memory-test program.  I have used Memtest86\n"
+			"  (www.memtest86.com).  At the time of writing it is free (GPLd).\n"
+			"  Memtest86 tests memory much more thorougly than your BIOSs\n"
+			"  power-on test, and may find failures that the BIOS doesn't.\n"
+			"\n"
+			"* If the error can be repeatably reproduced, this is a bug in\n"
+			"  bzip2, and I would very much like to hear about it.  Please\n"
+			"  let me know, and, ideally, save a copy of the file causing the\n"
+			"  problem -- without which I will be unable to investigate it.\n"
+			"\n"
+		);
+	}
+
+	Sys_Error( "bzip2/libbzip2: internal error number %d\n", errcode );
+}
+#endif // XASH_DEDICATED
 
 /*
 =================================
@@ -131,7 +182,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 	LittleLongSW(packet->part);
 
 	p = &ns->packets[packet->id & NETSPLIT_BACKUP_MASK];
-	// Con_Reportf( S_NOTE "NetSplit_GetLong: packet from %s, id %d, index %d length %d\n", NET_AdrToString( *from ), (int)packet->id, (int)packet->index, (int)*length );
+	// Con_Reportf( S_NOTE "%s: packet from %s, id %d, index %d length %d\n", __func__, NET_AdrToString( *from ), (int)packet->id, (int)packet->index, (int)*length );
 
 	// no packets with this id received
 	if( packet->id != p->id )
@@ -140,7 +191,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 		if( p->received < p->count )
 		{
 			UI_ShowConnectionWarning();
-			Con_Reportf( S_WARN "NetSplit_GetLong: lost packet %d\n", p->id );
+			Con_Reportf( S_WARN "%s: lost packet %d\n", __func__, p->id );
 		}
 
 		p->id = packet->id;
@@ -152,7 +203,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 	// use bool vector to detect dup packets
 	if( p->recieved_v[packet->index >> 5 ] & ( 1 << ( packet->index & 31 ) ) )
 	{
-		Con_Reportf( S_WARN "NetSplit_GetLong: dup packet from %s\n", NET_AdrToString( *from ) );
+		Con_Reportf( S_WARN "%s: dup packet from %s\n", __func__, NET_AdrToString( *from ) );
 		return false;
 	}
 
@@ -164,13 +215,13 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 	// prevent overflow
 	if( packet->part * packet->index > NET_MAX_PAYLOAD )
 	{
-		Con_Reportf( S_WARN "NetSplit_GetLong: packet out fo bounds from %s (part %d index %d)\n", NET_AdrToString( *from ), packet->part, packet->index );
+		Con_Reportf( S_WARN "%s: packet out fo bounds from %s (part %d index %d)\n", __func__, NET_AdrToString( *from ), packet->part, packet->index );
 		return false;
 	}
 
 	if( packet->length > NET_MAX_PAYLOAD )
 	{
-		Con_Reportf( S_WARN "NetSplit_GetLong: packet out fo bounds from %s (length %d)\n", NET_AdrToString( *from ), packet->length );
+		Con_Reportf( S_WARN "%s: packet out fo bounds from %s (length %d)\n", __func__, NET_AdrToString( *from ), packet->length );
 		return false;
 	}
 
@@ -187,7 +238,7 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 		ns->total_received_uncompressed += len;
 		*length = len;
 
-		// Con_Reportf( S_NOTE "NetSplit_GetLong: packet from %s, id %d received %d length %d\n", NET_AdrToString( *from ), (int)packet->id, (int)p->received, (int)packet->length );
+		// Con_Reportf( S_NOTE "%s: packet from %s, id %d received %d length %d\n", __func__, NET_AdrToString( *from ), (int)packet->id, (int)p->received, (int)packet->length );
 		memcpy( data, p->data, len );
 		return true;
 	}
@@ -199,63 +250,28 @@ qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *l
 }
 
 /*
-======================
-NetSplit_SendLong
-
-Send parts that are less or equal maxpacket
-======================
-*/
-void NetSplit_SendLong( netsrc_t sock, size_t length, void *data, netadr_t to, unsigned int maxpacket, unsigned int id)
-{
-	netsplit_packet_t packet = {0};
-	unsigned int part = maxpacket - NETSPLIT_HEADER_SIZE;
-
-	packet.signature = LittleLong(0xFFFFFFFE);
-	packet.id = LittleLong(id);
-	packet.length = LittleLong(length);
-	packet.part = LittleLong(part);
-	packet.count = ( length - 1 ) / part + 1;
-
-	//Con_Reportf( S_NOTE "NetSplit_SendLong: packet to %s, count %d, length %d\n", NET_AdrToString( to ), (int)packet.count, (int)packet.length );
-
-	while( packet.index < packet.count  )
-	{
-		unsigned int size = part;
-
-		if( size > length )
-			size = length;
-
-		length -= size;
-
-		memcpy( packet.data, (const byte*)data + packet.index * part, size );
-		//Con_Reportf( S_NOTE "NetSplit_SendLong: packet to %s, id %d, index %d\n", NET_AdrToString( to ), (int)packet.id, (int)packet.index );
-
-		NET_SendPacket( sock, size + NETSPLIT_HEADER_SIZE, &packet, to );
-		packet.index++;
-	}
-
-}
-
-/*
 ===============
 Netchan_Init
 ===============
 */
 void Netchan_Init( void )
 {
+	char buf[32];
 	int	port;
 
 	// pick a port value that should be nice and random
 	port = COM_RandomLong( 1, 65535 );
+	Q_snprintf( buf, sizeof( buf ), "%i", port );
 
-	net_showpackets = Cvar_Get ("net_showpackets", "0", 0, "show network packets" );
-	net_chokeloopback = Cvar_Get( "net_chokeloop", "0", 0, "apply bandwidth choke to loopback packets" );
-	net_showdrop = Cvar_Get( "net_showdrop", "0", 0, "show packets that are dropped" );
-	net_qport = Cvar_Get( "net_qport", va( "%i", port ), FCVAR_READ_ONLY, "current quake netport" );
+	Cvar_RegisterVariable( &net_showpackets );
+	Cvar_RegisterVariable( &net_chokeloop );
+	Cvar_RegisterVariable( &net_showdrop );
+	Cvar_RegisterVariable( &net_qport );
+	Cvar_RegisterVariable( &net_send_debug );
+	Cvar_RegisterVariable( &net_recv_debug );
+	Cvar_FullSet( net_qport.name, buf, net_qport.flags );
 
 	net_mempool = Mem_AllocPool( "Network Pool" );
-
-	MSG_InitMasks();	// initialize bit-masks
 }
 
 void Netchan_Shutdown( void )
@@ -273,8 +289,8 @@ void Netchan_ReportFlow( netchan_t *chan )
 
 	Assert( chan != NULL );
 
-	Q_strcpy( incoming, Q_pretifymem((float)chan->flow[FLOW_INCOMING].totalbytes, 3 ));
-	Q_strcpy( outgoing, Q_pretifymem((float)chan->flow[FLOW_OUTGOING].totalbytes, 3 ));
+	Q_strncpy( incoming, Q_pretifymem((float)chan->flow[FLOW_INCOMING].totalbytes, 3 ), sizeof( incoming ));
+	Q_strncpy( outgoing, Q_pretifymem((float)chan->flow[FLOW_OUTGOING].totalbytes, 3 ), sizeof( outgoing ));
 
 	Con_DPrintf( "Signon network traffic:  %s from server, %s to server\n", incoming, outgoing );
 }
@@ -300,11 +316,17 @@ Netchan_Setup
 called to open a channel to a remote system
 ==============
 */
-void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ))
+void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, void *client, int (*pfnBlockSize)(void *, fragsize_t mode ), uint flags )
 {
 	Netchan_Clear( chan );
 
 	memset( chan, 0, sizeof( *chan ));
+
+	if( pfnBlockSize == NULL )
+	{
+		Host_Error( "%s: pfnBlockSize == NULL", __func__ );
+		return;
+	}
 
 	chan->sock = sock;
 	chan->remote_address = adr;
@@ -316,6 +338,11 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 	chan->qport = qport;
 	chan->client = client;
 	chan->pfnBlockSize = pfnBlockSize;
+	chan->split = FBitSet( flags, NETCHAN_USE_LEGACY_SPLIT ) ? true : false;
+	chan->use_munge = FBitSet( flags, NETCHAN_USE_MUNGE ) ? true : false;
+	chan->use_bz2 = FBitSet( flags, NETCHAN_USE_BZIP2 ) ? true : false;
+	chan->use_lzss = FBitSet( flags, NETCHAN_USE_LZSS ) ? true : false;
+	chan->gs_netchan = FBitSet( flags, NETCHAN_GOLDSRC ) ? true : false;
 
 	MSG_Init( &chan->message, "NetData", chan->message_buf, sizeof( chan->message_buf ));
 }
@@ -349,7 +376,7 @@ Returns true if the bandwidth choke isn't active
 qboolean Netchan_CanPacket( netchan_t *chan, qboolean choke )
 {
 	// never choke loopback packets.
-	if( !choke || ( !net_chokeloopback->value && NET_IsLocalAddress( chan->remote_address ) ))
+	if( !choke || ( !net_chokeloop.value && NET_IsLocalAddress( chan->remote_address ) ))
 	{
 		chan->cleartime = host.realtime;
 		return true;
@@ -364,7 +391,7 @@ Netchan_UnlinkFragment
 
 ==============================
 */
-void Netchan_UnlinkFragment( fragbuf_t *buf, fragbuf_t **list )
+static void Netchan_UnlinkFragment( fragbuf_t *buf, fragbuf_t **list )
 {
 	fragbuf_t	*search;
 
@@ -402,7 +429,7 @@ Netchan_ClearFragbufs
 
 ==============================
 */
-void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
+static void Netchan_ClearFragbufs( fragbuf_t **ppbuf )
 {
 	fragbuf_t	*buf, *n;
 
@@ -427,7 +454,7 @@ Netchan_ClearFragments
 
 ==============================
 */
-void Netchan_ClearFragments( netchan_t *chan )
+static void Netchan_ClearFragments( netchan_t *chan )
 {
 	fragbufwaiting_t	*wait, *next;
 	int		i;
@@ -492,22 +519,21 @@ Netchan_OutOfBand
 Sends an out-of-band datagram
 ================
 */
-void Netchan_OutOfBand( int net_socket, netadr_t adr, int length, byte *data )
+void Netchan_OutOfBand( int net_socket, netadr_t adr, int len, const byte *data )
 {
-	byte	send_buf[MAX_PRINT_MSG];
-	sizebuf_t	send;
+	byte buf[MAX_PRINT_MSG + 4] = { 0xff, 0xff, 0xff, 0xff };
 
-	// write the packet header
-	MSG_Init( &send, "SequencePacket", send_buf, sizeof( send_buf ));
+	if( CL_IsPlaybackDemo( ))
+		return;
 
-	MSG_WriteLong( &send, NET_HEADER_OUTOFBANDPACKET ); // -1 sequence means out of band
-	MSG_WriteBytes( &send, data, length );
-
-	if( !CL_IsPlaybackDemo( ))
+	if( len > sizeof( buf ) - 4 )
 	{
-		// send the datagram
-		NET_SendPacket( net_socket, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
+		Host_Error( "%s: overflow!\n", __func__ );
+		return;
 	}
+
+	memcpy( &buf[4], data, len );
+	NET_SendPacket( net_socket, len + 4, buf, adr );
 }
 
 /*
@@ -517,16 +543,26 @@ Netchan_OutOfBandPrint
 Sends a text message in an out-of-band datagram
 ================
 */
-void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, const char *format, ... )
+void Netchan_OutOfBandPrint( int net_socket, netadr_t adr, const char *fmt, ... )
 {
-	char	string[MAX_PRINT_MSG];
-	va_list	argptr;
+	va_list	va;
+	byte buf[MAX_PRINT_MSG + 4] = { 0xff, 0xff, 0xff, 0xff };
+	int len;
 
-	va_start( argptr, format );
-	Q_vsnprintf( string, sizeof( string ) - 1, format, argptr );
-	va_end( argptr );
+	if( CL_IsPlaybackDemo( ))
+		return;
 
-	Netchan_OutOfBand( net_socket, adr, Q_strlen( string ), (byte *)string );
+	va_start( va, fmt );
+	len = Q_vsnprintf( &buf[4], sizeof( buf ) - 4, fmt, va );
+	va_end( va );
+
+	if( len < 0 )
+	{
+		Host_Error( "%s: snprintf overflow!\n", __func__ );
+		return;
+	}
+
+	NET_SendPacket( net_socket, len + 4, buf, adr );
 }
 
 /*
@@ -535,12 +571,12 @@ Netchan_AllocFragbuf
 
 ==============================
 */
-fragbuf_t *Netchan_AllocFragbuf( void )
+static fragbuf_t *Netchan_AllocFragbuf( int fragment_size )
 {
 	fragbuf_t	*buf;
 
-	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ));
-	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, sizeof( buf->frag_message_buf ));
+	buf = (fragbuf_t *)Mem_Calloc( net_mempool, sizeof( fragbuf_t ) + fragment_size );
+	MSG_Init( &buf->frag_message, "Frag Message", buf->frag_message_buf, fragment_size );
 
 	return buf;
 }
@@ -551,9 +587,9 @@ Netchan_AddFragbufToTail
 
 ==============================
 */
-void Netchan_AddFragbufToTail( fragbufwaiting_t *wait, fragbuf_t *buf )
+static void Netchan_AddFragbufToTail( fragbufwaiting_t *wait, fragbuf_t *buf )
 {
-	fragbuf_t	*p;
+	fragbuf_t *p;
 
 	buf->next = NULL;
 	wait->fragbufcount++;
@@ -574,7 +610,7 @@ Netchan_UpdateFlow
 
 ==============================
 */
-void Netchan_UpdateFlow( netchan_t *chan )
+static void Netchan_UpdateFlow( netchan_t *chan )
 {
 	float	faccumulatedtime = 0.0;
 	int	i, bytes = 0;
@@ -707,21 +743,39 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 	if( MSG_GetNumBytesWritten( msg ) == 0 )
 		return;
 
-	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
-	else chunksize = FRAGMENT_MAX_SIZE; // fallback
+	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
 	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 
-	if( !LZSS_IsCompressed( MSG_GetData( msg )))
+	if( chan->use_bz2 && memcmp( MSG_GetData( msg ), "BZ2", 4 ))
 	{
-		uint	uCompressedSize = 0;
-		uint	uSourceSize = MSG_GetNumBytesWritten( msg );
-		byte	*pbOut = LZSS_Compress( msg->pData, uSourceSize, &uCompressedSize );
+#if !XASH_DEDICATED
+		byte pbOut[0x10000];
+		uint uSourceSize = MSG_GetNumBytesWritten( msg );
+		uint uCompressedSize = MSG_GetNumBytesWritten( msg ) - 4;
+		if( BZ2_bzBuffToBuffCompress( pbOut, &uCompressedSize, MSG_GetData( msg ), uSourceSize, 9, 0, 30 ) == BZ_OK )
+		{
+			if( uCompressedSize < uSourceSize )
+			{
+				Con_Reportf( "Compressing split packet with BZip2 (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
+				memcpy( msg->pData, "BZ2", 4 );
+				memcpy( msg->pData + 4, pbOut, uCompressedSize );
+				MSG_SeekToBit( msg, ( uCompressedSize + 4 ) << 3, SEEK_SET );
+			}
+		}
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
+#endif
+	}
+	else if( chan->use_lzss && !LZSS_IsCompressed( MSG_GetData( msg ), MSG_GetMaxBytes( msg )))
+	{
+		uint uCompressedSize = 0;
+		uint uSourceSize = MSG_GetNumBytesWritten( msg );
+		byte *pbOut = LZSS_Compress( msg->pData, uSourceSize, &uCompressedSize );
 
 		if( pbOut && uCompressedSize > 0 && uCompressedSize < uSourceSize )
 		{
-			Con_Reportf( "Compressing split packet (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
+			Con_Reportf( "Compressing split packet with LZSS (%d -> %d bytes)\n", uSourceSize, uCompressedSize );
 			memcpy( msg->pData, pbOut, uCompressedSize );
 			MSG_SeekToBit( msg, uCompressedSize << 3, SEEK_SET );
 		}
@@ -736,7 +790,7 @@ static void Netchan_CreateFragments_( netchan_t *chan, sizebuf_t *msg )
 		bytes = Q_min( remaining, chunksize );
 		remaining -= bytes;
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( bytes );
 		buf->bufferid = bufferid++;
 
 		// Copy in data
@@ -786,7 +840,7 @@ Netchan_FindBufferById
 
 ==============================
 */
-fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean allocate )
+static fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean allocate )
 {
 	fragbuf_t	*list = *pplist;
 	fragbuf_t	*pnewbuf;
@@ -803,7 +857,7 @@ fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean allocate
 		return NULL;
 
 	// create new entry
-	pnewbuf = Netchan_AllocFragbuf();
+	pnewbuf = Netchan_AllocFragbuf( NET_MAX_FRAGMENT );
 	pnewbuf->bufferid = id;
 	Netchan_AddBufferToList( pplist, pnewbuf );
 
@@ -816,7 +870,7 @@ Netchan_CheckForCompletion
 
 ==============================
 */
-void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers )
+static void Netchan_CheckForCompletion( netchan_t *chan, int stream, int intotalbuffers )
 {
 	int	c, id;
 	int	size;
@@ -858,32 +912,51 @@ Netchan_CreateFileFragmentsFromBuffer
 */
 void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filename, byte *pbuf, int size )
 {
-	int		chunksize;
-	int		send, pos;
-	int		remaining;
-	int		bufferid = 1;
-	qboolean		firstfragment = true;
-	fragbufwaiting_t	*wait, *p;
-	fragbuf_t 	*buf;
+	int        chunksize;
+	int        send, pos;
+	int        remaining;
+	int        bufferid = 1;
+	qboolean   firstfragment = true;
+	fragbufwaiting_t *wait, *p;
+	fragbuf_t  *buf;
+	uint       originalSize = size;
+	const char *compressor = "";
 
-	if( !size ) return;
+	if( !size )
+		return;
 
-	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
-	else chunksize = FRAGMENT_MAX_SIZE; // fallback
+	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
-	if( !LZSS_IsCompressed( pbuf ))
+	if( chan->gs_netchan )
 	{
-		uint	uCompressedSize = 0;
-		byte	*pbOut = LZSS_Compress( pbuf, size, &uCompressedSize );
-
+#if !XASH_DEDICATED
+		uint uCompressedSize = size + 600;
+		byte *pbOut = Mem_Malloc( net_mempool, uCompressedSize );
+		if( BZ2_bzBuffToBuffCompress( pbOut, &uCompressedSize, pbuf, size, 9, 0, 30 ) == BZ_OK && uCompressedSize < size )
+		{
+			Con_DPrintf( "Compressing filebuffer (%s -> %s)\n", Q_memprint( size ), Q_memprint( uCompressedSize ));
+			memcpy( pbuf, pbOut, uCompressedSize );
+			size = uCompressedSize;
+			compressor = "bz2";
+		}
+		Mem_Free( pbOut );
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
+#endif
+	}
+	else
+	{
+		uint uCompressedSize = 0;
+		byte *pbOut = LZSS_Compress( pbuf, size, &uCompressedSize );
 		if( pbOut && uCompressedSize > 0 && uCompressedSize < size )
 		{
 			Con_DPrintf( "Compressing filebuffer (%s -> %s)\n", Q_memprint( size ), Q_memprint( uCompressedSize ));
 			memcpy( pbuf, pbOut, uCompressedSize );
 			size = uCompressedSize;
+			compressor = "lzss";
 		}
-		if( pbOut ) free( pbOut );
+		if( pbOut )
+			free( pbOut );
 	}
 
 	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
@@ -894,7 +967,7 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 	{
 		send = Q_min( remaining, chunksize );
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( send );
 		buf->bufferid = bufferid++;
 
 		// copy in data
@@ -904,6 +977,13 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 		{
 			// write filename
 			MSG_WriteString( &buf->frag_message, filename );
+			
+			// write compressor name and uncompressed size
+			if( chan->gs_netchan )
+			{
+				MSG_WriteString( &buf->frag_message, compressor );
+				MSG_WriteLong( &buf->frag_message, originalSize );
+			}
 
 			// send a bit less on first package
 			send -= MSG_GetNumBytesWritten( &buf->frag_message );
@@ -947,18 +1027,30 @@ Netchan_CreateFileFragments
 */
 int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 {
-	int		chunksize;
-	int		send, pos;
-	int		remaining;
-	int		bufferid = 1;
-	fs_offset_t	filesize = 0;
-	char		compressedfilename[MAX_OSPATH];
-	int		compressedFileTime;
-	int		fileTime;
-	qboolean		firstfragment = true;
-	qboolean		bCompressed = false;
-	fragbufwaiting_t	*wait, *p;
-	fragbuf_t		*buf;
+	int         chunksize;
+	int         send, pos;
+	int         remaining;
+	int         bufferid = 1;
+	fs_offset_t filesize = 0;
+	fs_offset_t originalSize = 0;
+	int         compressedFileTime;
+	int         fileTime;
+	qboolean    firstfragment = true;
+	qboolean    bCompressed = false;
+	fragbufwaiting_t *wait, *p;
+	fragbuf_t   *buf;
+	char        compressedfilename[sizeof( buf->filename ) + 5];
+	const char  *compressor = "";
+	uint        uCompressedSize = 0;
+	byte        *compressed = NULL;
+	byte        *uncompressed = NULL;
+
+	// shouldn't be critical, but just in case
+	if( Q_strlen( filename ) > sizeof( buf->filename ) - 1 )
+	{
+		Con_Printf( S_WARN "Unable to transfer %s due to path length overflow\n", filename );
+		return 0;
+	}
 
 	if(( filesize = FS_FileSize( filename, false )) <= 0 )
 	{
@@ -966,37 +1058,56 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		return 0;
 	}
 
-	if( chan->pfnBlockSize != NULL )
-		chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
-	else chunksize = FRAGMENT_MAX_SIZE; // fallback
+	originalSize = filesize;
+	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
-	Q_strncpy( compressedfilename, filename, sizeof( compressedfilename ));
-	COM_ReplaceExtension( compressedfilename, ".ztmp" );
+	Q_snprintf( compressedfilename, sizeof( compressedfilename ), "%s.ztmp", filename );
 	compressedFileTime = FS_FileTime( compressedfilename, false );
 	fileTime = FS_FileTime( filename, false );
 
 	if( compressedFileTime >= fileTime )
 	{
 		// if compressed file already created and newer than source
-		if( FS_FileSize( compressedfilename, false ) != -1 )
+		fs_offset_t compressedSize = FS_FileSize( compressedfilename, false );
+		if( compressedSize != -1 )
+		{
 			bCompressed = true;
+			filesize = compressedSize;
+		}
 	}
 	else
 	{
-		uint	uCompressedSize;
-		byte	*uncompressed;
-		byte	*compressed;
-
 		uncompressed = FS_LoadFile( filename, &filesize, false );
-		compressed = LZSS_Compress( uncompressed, filesize, &uCompressedSize );
-
-		if( compressed )
+		if( chan->gs_netchan )
 		{
-			Con_DPrintf( "compressed file %s (%s -> %s)\n", filename, Q_memprint( filesize ), Q_memprint( uCompressedSize ));
-			FS_WriteFile( compressedfilename, compressed, uCompressedSize );
-			filesize = uCompressedSize;
-			bCompressed = true;
-			free( compressed );
+#if !XASH_DEDICATED
+			compressed = Mem_Malloc( net_mempool, filesize + 600 );
+			uCompressedSize = filesize + 600;
+			if( BZ2_bzBuffToBuffCompress( compressed, &uCompressedSize, uncompressed, filesize, 9, 0, 30 ) == BZ_OK && uCompressedSize < filesize )
+			{
+				Con_DPrintf( "compressed file %s (%s -> %s)\n", filename, Q_memprint( filesize ), Q_memprint( uCompressedSize ));
+				FS_WriteFile( compressedfilename, compressed, uCompressedSize );
+				filesize = uCompressedSize;
+				bCompressed = true;
+				compressor = "bz2";
+			}
+			Mem_Free( compressed );
+#else
+			Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
+#endif
+		}
+		else
+		{
+			compressed = LZSS_Compress( uncompressed, filesize, &uCompressedSize );
+			if( compressed && uCompressedSize > 0 && uCompressedSize < filesize )
+			{
+				Con_DPrintf( "compressed file %s (%s -> %s)\n", filename, Q_memprint( filesize ), Q_memprint( uCompressedSize ));
+				FS_WriteFile( compressedfilename, compressed, uCompressedSize );
+				filesize = uCompressedSize;
+				bCompressed = true;
+				compressor = "lzss";
+				free( compressed );
+			}
 		}
 		Mem_Free( uncompressed );
 	}
@@ -1009,7 +1120,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	{
 		send = Q_min( remaining, chunksize );
 
-		buf = Netchan_AllocFragbuf();
+		buf = Netchan_AllocFragbuf( send );
 		buf->bufferid = bufferid++;
 
 		// copy in data
@@ -1019,6 +1130,13 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		{
 			// Write filename
 			MSG_WriteString( &buf->frag_message, filename );
+
+			// write compressor name and uncompressed size
+			if( chan->gs_netchan )
+			{
+				MSG_WriteString( &buf->frag_message, compressor );
+				MSG_WriteLong( &buf->frag_message, (uint)originalSize );
+			}
 
 			// Send a bit less on first package
 			send -= MSG_GetNumBytesWritten( &buf->frag_message );
@@ -1114,14 +1232,35 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		p = n;
 	}
 
-	if( LZSS_IsCompressed( MSG_GetData( msg )))
+	if( chan->use_bz2 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ))
 	{
-		uint	uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ));
+#if !XASH_DEDICATED
+		byte buf[0x10000];
+		uint uDecompressedLen = sizeof( buf );
+		int bz2_err = BZ2_bzBuffToBuffDecompress( buf, &uDecompressedLen, MSG_GetData( msg ) + 4, MSG_GetNumBytesWritten( msg ) - 4, 1, 0 );
+
+		if( bz2_err == BZ_OK )
+		{
+			size = uDecompressedLen;
+			memcpy( msg->pData, buf, size );
+		}
+		else
+		{
+			Con_Printf( S_ERROR "%s: BZ2 decompression failed (%d)\n", __func__, bz2_err );
+			return false;
+		}
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
+#endif
+	}
+	else if( chan->use_lzss && LZSS_IsCompressed( MSG_GetData( msg ), size ))
+	{
+		uint	uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ), size );
 		byte	buf[NET_MAX_MESSAGE];
 
 		if( uDecompressedLen <= sizeof( buf ))
 		{
-			size = LZSS_Decompress( MSG_GetData( msg ), buf );
+			size = LZSS_Decompress( MSG_GetData( msg ), buf, size, sizeof( buf ));
 			memcpy( msg->pData, buf, size );
 		}
 		else
@@ -1151,7 +1290,8 @@ Netchan_CopyFileFragments
 */
 qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 {
-	char	filename[MAX_OSPATH];
+	char	filename[MAX_OSPATH], compressor[32];
+	uint	uncompressedSize;
 	int	nsize, pos;
 	byte	*buffer;
 	fragbuf_t	*p, *n;
@@ -1174,6 +1314,12 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	MSG_Clear( msg );
 
 	Q_strncpy( filename, MSG_ReadString( msg ), sizeof( filename ));
+	compressor[0] = 0;
+	if( chan->gs_netchan )
+	{
+		Q_strncpy( compressor, MSG_ReadString( msg ), sizeof( compressor ));
+		uncompressedSize = MSG_ReadLong( msg );
+	}
 
 	if( !COM_CheckString( filename ))
 	{
@@ -1186,6 +1332,13 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		Con_Printf( S_ERROR "file fragment received with bad path, ignoring\n" );
 		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
 		return false;
+	}
+
+	if( filename[0] != '!' )
+	{
+		string temp_filename;
+		Q_snprintf( temp_filename, sizeof( temp_filename ), DEFAULT_DOWNLOADED_DIRECTORY "%s", filename );
+		Q_strncpy( filename, temp_filename, sizeof( filename ));
 	}
 
 	Q_strncpy( chan->incomingfilename, filename, sizeof( chan->incomingfilename ));
@@ -1237,12 +1390,35 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		p = n;
 	}
 
-	if( LZSS_IsCompressed( buffer ))
+	if( chan->gs_netchan && chan->use_bz2 && !Q_stricmp( compressor, "bz2" ))
 	{
-		uint	uncompressedSize = LZSS_GetActualSize( buffer ) + 1;
-		byte	*uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
+#if !XASH_DEDICATED
+		byte *uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
-		nsize = LZSS_Decompress( buffer, uncompressedBuffer );
+		Con_DPrintf( "Decompressing file %s (%d -> %d bytes)\n", filename, nsize, uncompressedSize );
+		if( BZ2_bzBuffToBuffDecompress( uncompressedBuffer, &uncompressedSize, buffer, nsize, 1, 0 ) != BZ_OK )
+		{
+			Con_DPrintf( S_ERROR "BZ2 decompression failed for %s\n", filename );
+			Mem_Free( buffer );
+			Mem_Free( uncompressedBuffer );
+			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
+			return false;
+		}
+		Mem_Free( buffer );
+		nsize = uncompressedSize;
+		buffer = uncompressedBuffer;
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
+#endif
+	}
+	else if( chan->use_lzss && LZSS_IsCompressed( buffer, nsize + 1 ))
+	{
+		byte *uncompressedBuffer;
+
+		uncompressedSize = LZSS_GetActualSize( buffer, nsize + 1 ) + 1;
+		uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
+
+		nsize = LZSS_Decompress( buffer, uncompressedBuffer, nsize + 1, uncompressedSize );
 		Mem_Free( buffer );
 		buffer = uncompressedBuffer;
 	}
@@ -1271,7 +1447,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	return true;
 }
 
-qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag_message, uint *fragid, int *frag_offset, int *frag_length )
+static qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag_message, uint *fragid, int *frag_offset, int *frag_length )
 {
 	int	i, buffer, offset;
 	int	count, length;
@@ -1318,7 +1494,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 
 	if( host.downloadcount == 0 )
 	{
-		scr_download->value = -1.0f;
+		scr_download.value = -1.0f;
 		host.downloadfile[0] = '\0';
 	}
 
@@ -1386,7 +1562,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 
 	}
 
-	scr_download->value = bestpercent;
+	scr_download.value = bestpercent;
 #endif // XASH_DEDICATED
 }
 
@@ -1400,7 +1576,7 @@ transmition / retransmition of the reliable messages.
 A 0 length will still generate a packet and deal with the reliable messages.
 ================
 */
-void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
+void Netchan_TransmitBits( netchan_t *chan, int length, const byte *data )
 {
 	byte	send_buf[NET_MAX_MESSAGE];
 	qboolean	send_reliable_fragment;
@@ -1416,6 +1592,9 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		Con_Printf( S_ERROR "%s:outgoing message overflow\n", NET_AdrToString( chan->remote_address ));
 		return;
 	}
+
+	if( chan->pfnBlockSize == NULL ) // not initialized
+		return;
 
 	// if the remote side dropped the last reliable message, resend it
 	send_reliable = false;
@@ -1455,12 +1634,9 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		// stall reliable payloads if sending from frag buffer
 		if( send_from_regular && ( send_from_frag[FRAG_NORMAL_STREAM] ))
 		{
-			int maxsize = MAX_RELIABLE_PAYLOAD;
+			int maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
 			send_from_regular = false;
 
-
-			if( chan->pfnBlockSize )
-				maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
 			if( maxsize == 0 )
 				maxsize = MAX_RELIABLE_PAYLOAD;
 
@@ -1543,10 +1719,9 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 					if( pbuf->iscompressed )
 					{
-						char	compressedfilename[MAX_OSPATH];
+						char	compressedfilename[sizeof( pbuf->filename ) + 5];
 
-						Q_strncpy( compressedfilename, pbuf->filename, sizeof( compressedfilename ));
-						COM_ReplaceExtension( compressedfilename, ".ztmp" );
+						Q_snprintf( compressedfilename, sizeof( compressedfilename ), "%s.ztmp", pbuf->filename );
 						file = FS_Open( compressedfilename, "rb", false );
 					}
 					else file = FS_Open( pbuf->filename, "rb", false );
@@ -1576,6 +1751,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 		}
 	}
 
+	memset( send_buf, 0, sizeof( send_buf ));
 	MSG_Init( &send, "NetSend", send_buf, sizeof( send_buf ));
 
 	// prepare the packet header
@@ -1602,9 +1778,9 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 	MSG_WriteLong( &send, w2 );
 
 	// send the qport if we are a client
-	if( chan->sock == NS_CLIENT )
+	if( chan->sock == NS_CLIENT && !chan->gs_netchan )
 	{
-		MSG_WriteWord( &send, Cvar_VariableInteger( "net_qport" ));
+		MSG_WriteWord( &send, (int)net_qport.value );
 	}
 
 	if( send_reliable && send_reliable_fragment )
@@ -1615,8 +1791,16 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 			{
 				MSG_WriteByte( &send, 1 );
 				MSG_WriteLong( &send, chan->reliable_fragid[i] );
-				MSG_WriteLong( &send, chan->frag_startpos[i] );
-				MSG_WriteLong( &send, chan->frag_length[i] );
+				if( chan->gs_netchan )
+				{
+					MSG_WriteShort( &send, chan->frag_startpos[i] >> 3 );
+					MSG_WriteShort( &send, chan->frag_length[i] >> 3 );
+				}
+				else
+				{
+					MSG_WriteLong( &send, chan->frag_startpos[i] );
+					MSG_WriteLong( &send, chan->frag_length[i] );
+				}
 			}
 			else
 			{
@@ -1634,13 +1818,11 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 	if( length )
 	{
-		int maxsize = NET_MAX_MESSAGE;
-		if( chan->pfnBlockSize )
-			maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_UNRELIABLE );
+		int maxsize = chan->pfnBlockSize( chan->client, FRAGSIZE_UNRELIABLE );
 
 		if( (( MSG_GetNumBytesWritten( &send ) + length ) >> 3) <= maxsize )
 			MSG_WriteBits( &send, data, length );
-		else Con_Printf( S_WARN "Netchan_Transmit: unreliable message overflow: %d\n", MSG_GetNumBytesWritten( &send ) );
+		else Con_Printf( S_WARN "%s: unreliable message overflow: %d\n", __func__, MSG_GetNumBytesWritten( &send ) );
 	}
 
 	// deal with packets that are too small for some networks
@@ -1670,9 +1852,11 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 	// send the datagram
 	if( !CL_IsPlaybackDemo( ))
 	{
-		int splitsize = 0;
-		if( chan->pfnBlockSize )
-			splitsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
+		int splitsize = chan->pfnBlockSize( chan->client, FRAGSIZE_SPLIT );
+
+		if( chan->use_munge )
+			COM_Munge2( send.pData + 8, MSG_GetNumBytesWritten( &send ) - 8, (byte)( chan->outgoing_sequence - 1 ));
+
 		NET_SendPacketEx( chan->sock, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), chan->remote_address, splitsize );
 	}
 
@@ -1685,7 +1869,7 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 
 	chan->cleartime += ( MSG_GetNumBytesWritten( &send ) + UDP_HEADER_SIZE ) * fRate;
 
-	if( net_showpackets->value && net_showpackets->value != 2.0f )
+	if( net_showpackets.value && net_showpackets.value != 2.0f )
 	{
 		Con_Printf( " %s --> sz=%i seq=%i ack=%i rel=%i tm=%f\n"
 			, ns_strings[chan->sock]
@@ -1695,21 +1879,6 @@ void Netchan_TransmitBits( netchan_t *chan, int length, byte *data )
 			, send_reliable ? 1 : 0
 			, (float)host.realtime );
 	}
-}
-
-/*
-===============
-Netchan_Transmit
-
-tries to send an unreliable message to a connection, and handles the
-transmition / retransmition of the reliable messages.
-
-A 0 length will still generate a packet and deal with the reliable messages.
-================
-*/
-void Netchan_Transmit( netchan_t *chan, int lengthInBytes, byte *data )
-{
-	Netchan_TransmitBits( chan, lengthInBytes << 3, data );
 }
 
 /*
@@ -1731,13 +1900,13 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	qboolean	message_contains_fragments;
 	int	i, qport, statId;
 
-	if( !CL_IsPlaybackDemo() && !NET_CompareAdr( net_from, chan->remote_address ))
-		return false;
-
 	// get sequence numbers
 	MSG_Clear( msg );
 	sequence = MSG_ReadLong( msg );
 	sequence_ack = MSG_ReadLong( msg );
+
+	if( chan->use_munge )
+		COM_UnMunge2( msg->pData + 8, ( msg->nDataBits >> 3 ) - 8, sequence & 0xFF );
 
 	// read the qport if we are a server
 	if( chan->sock == NS_SERVER )
@@ -1756,8 +1925,16 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 			{
 				frag_message[i] = true;
 				fragid[i] = MSG_ReadLong( msg );
-				frag_offset[i] = MSG_ReadLong( msg );
-				frag_length[i] = MSG_ReadLong( msg );
+				if( chan->gs_netchan )
+				{
+					frag_offset[i] = MSG_ReadShort( msg ) << 3;
+					frag_length[i] = MSG_ReadShort( msg ) << 3;
+				}
+				else
+				{
+					frag_offset[i] = MSG_ReadLong( msg );
+					frag_length[i] = MSG_ReadLong( msg );
+				}
 			}
 		}
 
@@ -1770,7 +1947,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	sequence_ack &= ~BIT( 30 );
 	sequence_ack &= ~BIT( 31 );
 
-	if( net_showpackets->value && net_showpackets->value != 3.0f )
+	if( net_showpackets.value && net_showpackets.value != 3.0f )
 	{
 		Con_Printf( " %s <-- sz=%i seq=%i ack=%i rel=%i tm=%f\n"
 			, ns_strings[chan->sock]
@@ -1784,7 +1961,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	// discard stale or duplicated packets
 	if( sequence <= (uint)chan->incoming_sequence )
 	{
-		if( net_showdrop->value )
+		if( net_showdrop.value )
 		{
 			const char *adr = NET_AdrToString( chan->remote_address );
 
@@ -1797,7 +1974,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 
 	// dropped packets don't keep the message from being used
 	net_drop = sequence - ( chan->incoming_sequence + 1 );
-	if( net_drop > 0 && net_showdrop->value )
+	if( net_drop > 0 && net_showdrop.value )
 		Con_Printf( "%s:dropped %i packets at %i\n", NET_AdrToString( chan->remote_address ), net_drop, sequence );
 
 	// if the current outgoing reliable message has been acknowledged

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	style="@style/Widget.Material3.CardView.Filled"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:layout_marginTop="8dp">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="128dp">
+
+		<ImageView
+			android:id="@+id/gameCover"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:adjustViewBounds="true"
+			android:scaleType="centerCrop"
+			tools:src="@android:mipmap/sym_def_app_icon" />
+
+		<com.google.android.material.card.MaterialCardView
+			style="@style/Widget.Material3.CardView.Filled"
+			android:layout_width="wrap_content"
+			android:layout_height="48dp"
+			android:layout_margin="8dp"
+			app:contentPadding="10dp"
+			app:layout_constrainedWidth="true"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toStartOf="@id/buttonsContainer"
+			app:layout_constraintHorizontal_bias="0"
+			app:layout_constraintStart_toStartOf="parent">
+
+			<androidx.constraintlayout.widget.ConstraintLayout
+				android:layout_width="wrap_content"
+				android:layout_height="match_parent">
+
+				<ImageView
+					android:id="@+id/gameIcon"
+					android:layout_width="wrap_content"
+					android:layout_height="match_parent"
+					android:layout_marginRight="8dp"
+					android:adjustViewBounds="true"
+					app:layout_constraintBottom_toBottomOf="parent"
+					app:layout_constraintEnd_toStartOf="@id/gameTitle"
+					app:layout_constraintStart_toStartOf="parent"
+					app:layout_constraintTop_toTopOf="parent"
+					tools:src="@android:mipmap/sym_def_app_icon" />
+
+				<com.google.android.material.textview.MaterialTextView
+					android:id="@+id/gameTitle"
+					style="@style/TextAppearance.Material3.TitleMedium"
+					android:layout_width="wrap_content"
+					android:layout_height="match_parent"
+					android:gravity="center"
+					android:singleLine="true"
+					app:layout_constrainedWidth="true"
+					app:layout_constraintBottom_toBottomOf="parent"
+					app:layout_constraintEnd_toEndOf="parent"
+					app:layout_constraintStart_toEndOf="@id/gameIcon"
+					app:layout_constraintTop_toTopOf="parent"
+					tools:text="Game Title" />
+			</androidx.constraintlayout.widget.ConstraintLayout>
+		</com.google.android.material.card.MaterialCardView>
+
+		<com.google.android.material.card.MaterialCardView
+			android:id="@+id/buttonsContainer"
+			style="@style/Widget.Material3.CardView.Filled"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginEnd="8dp"
+			android:layout_marginBottom="8dp"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent">
+
+			<androidx.constraintlayout.widget.ConstraintLayout
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content">
+
+				<com.google.android.material.button.MaterialButton
+					android:id="@+id/launchButton"
+					style="@style/Widget.Material3.Button.IconButton"
+					android:layout_width="wrap_content"
+					android:layout_height="match_parent"
+					app:icon="@drawable/ic_baseline_play_arrow_24"
+					app:layout_constraintEnd_toStartOf="@+id/settingsButton" />
+
+				<com.google.android.material.button.MaterialButton
+					android:id="@+id/settingsButton"
+					style="@style/Widget.Material3.Button.IconButton"
+					android:layout_width="wrap_content"
+					android:layout_height="match_parent"
+					app:icon="@drawable/ic_baseline_settings_24"
+					app:layout_constraintEnd_toEndOf="parent" />
+			</androidx.constraintlayout.widget.ConstraintLayout>
+		</com.google.android.material.card.MaterialCardView>
+	</androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

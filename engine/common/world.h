@@ -35,18 +35,72 @@ ENTITY AREA CHECKING
 
 #include "lightstyle.h"
 
-extern const char		*et_name[];
-
-// linked list
-void InsertLinkBefore( link_t *l, link_t *before );
-void RemoveLink( link_t *l );
-void ClearLink( link_t *l );
-
 // trace common
-void World_MoveBounds( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, vec3_t boxmins, vec3_t boxmaxs );
+static inline void World_MoveBounds( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, vec3_t boxmins, vec3_t boxmaxs )
+{
+	int	i;
+
+	for( i = 0; i < 3; i++ )
+	{
+		if( end[i] > start[i] )
+		{
+			boxmins[i] = start[i] + mins[i] - 1.0f;
+			boxmaxs[i] = end[i] + maxs[i] + 1.0f;
+		}
+		else
+		{
+			boxmins[i] = end[i] + mins[i] - 1.0f;
+			boxmaxs[i] = start[i] + maxs[i] + 1.0f;
+		}
+	}
+}
+
+static inline trace_t World_CombineTraces( trace_t *cliptrace, trace_t *trace, edict_t *touch )
+{
+	if( trace->allsolid || trace->startsolid || trace->fraction < cliptrace->fraction )
+	{
+		trace->ent = touch;
+
+		if( cliptrace->startsolid )
+		{
+			*cliptrace = *trace;
+			cliptrace->startsolid = true;
+		}
+		else *cliptrace = *trace;
+	}
+
+	return *cliptrace;
+}
+
+/*
+==================
+RankForContents
+
+Used for determine contents priority
+==================
+*/
+static inline int RankForContents( int contents )
+{
+	switch( contents )
+	{
+	case CONTENTS_EMPTY:	return 0;
+	case CONTENTS_WATER:	return 1;
+	case CONTENTS_TRANSLUCENT:	return 2;
+	case CONTENTS_CURRENT_0:	return 3;
+	case CONTENTS_CURRENT_90:	return 4;
+	case CONTENTS_CURRENT_180:	return 5;
+	case CONTENTS_CURRENT_270:	return 6;
+	case CONTENTS_CURRENT_UP:	return 7;
+	case CONTENTS_CURRENT_DOWN:	return 8;
+	case CONTENTS_SLIME:	return 9;
+	case CONTENTS_LAVA:		return 10;
+	case CONTENTS_SKY:		return 11;
+	case CONTENTS_SOLID:	return 12;
+	default:			return 13; // any user contents has more priority than default
+	}
+}
+
 void World_TransformAABB( matrix4x4 transform, const vec3_t mins, const vec3_t maxs, vec3_t outmins, vec3_t outmaxs );
-trace_t World_CombineTraces( trace_t *cliptrace, trace_t *trace, edict_t *touch );
-int RankForContents( int contents );
 
 #define check_angles( x )	( (int)x == 90 || (int)x == 180 || (int)x == 270 || (int)x == -90 || (int)x == -180 || (int)x == -270 )
 

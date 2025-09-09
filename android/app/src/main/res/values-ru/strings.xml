@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="library">Библиотека</string>
+	<string name="dedicated_server">Выделенный</string>
+	<string name="app_settings">Настройки</string>
+	<string name="game_settings">Настройки игры</string>
+	<string name="game_settings_command_line">Аргументы командной строки</string>
+	<string name="game_settings_volume_buttons">Использовать кнопки громкости</string>
+	<string name="preferences_package_name">Пакет библиотек</string>
+	<string name="preferences_separate_libraries">Библиотеки из отдельных пакетов</string>
+	<string name="preferences_client_package">Пакет клиента</string>
+	<string name="preferences_server_package">Пакет сервера</string>
+	<string name="preferences_use_icons">Использовать иконки вместо фона</string>
+	<string name="game_data_location">Расположение игровых данных</string>
+	<string name="file_access_required">Требуется доступ ко всем файлам</string>
+	<string name="file_access_message">Для правильной работы приложения требуется доступ ко всем файлам.</string>
+	<string name="select_current_directory">Выбрать текущую директорию</string>
+	<string name="external_storage_required">Требуется доступ к внешнему хранилищу</string>
+	<string name="external_storage_message">Для правильной работы приложения требуется доступ к внешнему хранилищу.</string>
+</resources>

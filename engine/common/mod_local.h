@@ -33,7 +33,7 @@ GNU General Public License for more details.
 
 #define REFPVS_RADIUS		2.0f	// radius for rendering
 #define FATPVS_RADIUS		8.0f	// FatPVS use radius smaller than the FatPHS
-#define FATPHS_RADIUS		16.0f
+#define FATPHS_RADIUS		8.0f	// see SV_AddToFatPAS in GoldSrc
 
 #define WORLD_INDEX			(1)	// world index is always 1
 
@@ -74,7 +74,7 @@ typedef struct winding_s
 	struct winding_s	*pair;
 	hullnode_t	chain;
 	int		numpoints;
-	vec3_t		p[4];		// variable sized
+	vec3_t		p[];		// variable sized
 } winding_t;
 
 typedef struct
@@ -83,6 +83,12 @@ typedef struct
 	uint		num_polys;
 } hull_model_t;
 
+typedef struct wadlist_s
+{
+	char wadnames[MAX_MAP_WADS][36]; // including .wad extension
+	int  wadusage[MAX_MAP_WADS];
+	int  count;
+} wadlist_t;
 
 typedef struct world_static_s
 {
@@ -113,15 +119,24 @@ typedef struct world_static_s
 	// tree visualization stuff
 	int		recursion_level;
 	int		max_recursion;
+
+	uint32_t version; // BSP version
+
+	// Potentially Hearable Set
+	byte   *compressed_phs;
+	size_t *phsofs;
+
+	wadlist_t wadlist;
 } world_static_t;
 
 #ifndef REF_DLL
 extern world_static_t	world;
 extern poolhandle_t     com_studiocache;
-extern model_t		*loadmodel;
-extern convar_t		*mod_studiocache;
-extern convar_t		*r_wadtextures;
-extern convar_t		*r_showhull;
+extern convar_t		mod_studiocache;
+extern convar_t		r_wadtextures;
+extern convar_t		r_showhull;
+extern const mclipnode16_t box_clipnodes16[6];
+extern const mclipnode32_t box_clipnodes32[6];
 
 //
 // model.c
@@ -145,19 +160,22 @@ void Mod_NeedCRC( const char *name, qboolean needCRC );
 void Mod_FreeUnused( void );
 
 //
+// mod_alias.c
+//
+void Mod_LoadAliasModel( model_t *mod, const void *buffer, qboolean *loaded );
+
+//
 // mod_bmodel.c
 //
 void Mod_LoadBrushModel( model_t *mod, const void *buffer, qboolean *loaded );
-qboolean Mod_TestBmodelLumps( const char *name, const byte *mod_base, qboolean silent );
-qboolean Mod_HeadnodeVisible( mnode_t *node, const byte *visbits, int *lastleaf );
-int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, qboolean merge, qboolean fullvis );
+qboolean Mod_TestBmodelLumps( file_t *f, const char *name, const byte *mod_base, qboolean silent, dlump_t *entities );
+int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, qboolean merge, qboolean fullvis, qboolean phs );
 qboolean Mod_BoxVisible( const vec3_t mins, const vec3_t maxs, const byte *visbits );
 int Mod_CheckLump( const char *filename, const int lump, int *lumpsize );
 int Mod_ReadLump( const char *filename, const int lump, void **lumpdata, int *lumpsize );
 int Mod_SaveLump( const char *filename, const int lump, void *lumpdata, int lumpsize );
-mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node );
-void Mod_AmbientLevels( const vec3_t p, byte *pvolumes );
-int Mod_SampleSizeForFace( msurface_t *surf );
+mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod );
+int Mod_SampleSizeForFace( const msurface_t *surf );
 byte *Mod_GetPVSForPoint( const vec3_t p );
 void Mod_UnloadBrushModel( model_t *mod );
 void Mod_PrintWorldStats_f( void );
@@ -165,8 +183,8 @@ void Mod_PrintWorldStats_f( void );
 //
 // mod_dbghulls.c
 //
-void Mod_InitDebugHulls( void );
-void Mod_CreatePolygonsForHull( int hullnum );
+void R_DrawWorldHull( void );
+void R_DrawModelHull( model_t *mod );
 void Mod_ReleaseHullPolygons( void );
 
 //
@@ -182,9 +200,6 @@ qboolean Mod_GetStudioBounds( const char *name, vec3_t mins, vec3_t maxs );
 void Mod_StudioGetAttachment( const edict_t *e, int iAttachment, float *org, float *ang );
 void Mod_GetBonePosition( const edict_t *e, int iBone, float *org, float *ang );
 hull_t *Mod_HullForStudio( model_t *m, float frame, int seq, vec3_t ang, vec3_t org, vec3_t size, byte *pcnt, byte *pbl, int *hitboxes, edict_t *ed );
-void R_StudioSlerpBones( int numbones, vec4_t q1[], float pos1[][3], vec4_t q2[], float pos2[][3], float s );
-void R_StudioCalcBoneQuaternion( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, float *adj, vec4_t q );
-void R_StudioCalcBonePosition( int frame, float s, mstudiobone_t *pbone, mstudioanim_t *panim, vec3_t adj, vec3_t pos );
 void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
 void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean ignore_sequences );
 int Mod_HitgroupForStudioHull( int index );
@@ -193,7 +208,7 @@ void Mod_ClearStudioCache( void );
 //
 // mod_sprite.c
 //
-void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, uint texFlags );
+void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded );
 #endif
 
 #endif//MOD_LOCAL_H

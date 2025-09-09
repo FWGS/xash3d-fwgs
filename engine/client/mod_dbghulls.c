@@ -1,6 +1,8 @@
 /*
 mod_dbghulls.c - loading & handling world and brushmodels
 Copyright (C) 2016 Uncle Mike
+Copyright (C) 2005 Kevin Shanahan
+Copyright (C) 1996-1997 Id Software, Inc.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -74,7 +76,7 @@ static void free_winding( winding_t *w )
 {
 	// simple sentinel by Carmack
 	if( *(unsigned *)w == 0xDEADC0DE )
-		Host_Error( "free_winding: freed a freed winding\n" );
+		Host_Error( "%s: freed a freed winding\n", __func__ );
 	*(unsigned *)w = 0xDEADC0DE;
 	free( w );
 }
@@ -154,7 +156,7 @@ static winding_t *winding_for_plane( const mplane_t *p )
 		vup[0] = 1;
 		break;
 	default:
-		Host_Error( "BaseWindingForPlane: no axis found\n" );
+		Host_Error( "%s: no axis found\n", __func__ );
 		return NULL;
 	}
 
@@ -468,16 +470,16 @@ out_free:
  * This is a stack of the clipnodes we have traversed
  * "sides" indicates which side we went down each time
  */
-static mclipnode_t	*node_stack[MAX_CLIPNODE_DEPTH];
+static int	node_stack[MAX_CLIPNODE_DEPTH];
 static int	side_stack[MAX_CLIPNODE_DEPTH];
 static uint	node_stack_depth;
 
-static void push_node( mclipnode_t *node, int side )
+static void push_node( int nodenum, int side )
 {
 	if( node_stack_depth == MAX_CLIPNODE_DEPTH )
 		Host_Error( "node stack overflow\n" );
 
-	node_stack[node_stack_depth] = node;
+	node_stack[node_stack_depth] = nodenum;
 	side_stack[node_stack_depth] = side;
 	node_stack_depth++;
 }
@@ -500,22 +502,27 @@ static void free_hull_polys( hullnode_t *hull_polys )
 	}
 }
 
-static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys, hull_model_t *model );
+static void hull_windings_r( hull_t *hull, int nodenum, hullnode_t *polys, hull_model_t *model );
 
-static void do_hull_recursion( hull_t *hull, mclipnode_t *node, int side, hullnode_t *polys, hull_model_t *model )
+static void do_hull_recursion( hull_t *hull, int nodenum, int side, hullnode_t *polys, hull_model_t *model )
 {
 	winding_t	*w, *next;
+	int childnum;
 
-	if( node->children[side] >= 0 )
+	if( world.version == QBSP2_VERSION )
+		childnum = hull->clipnodes32[nodenum].children[side];
+	else
+		childnum = hull->clipnodes16[nodenum].children[side];
+
+	if( childnum >= 0 )
 	{
-		mclipnode_t *child = hull->clipnodes + node->children[side];
-		push_node( node, side );
-		hull_windings_r( hull, child, polys, model );
+		push_node( nodenum, side );
+		hull_windings_r( hull, childnum, polys, model );
 		pop_node();
 	}
 	else
 	{
-		switch( node->children[side] )
+		switch( childnum )
 		{
 		case CONTENTS_EMPTY:
 		case CONTENTS_WATER:
@@ -540,19 +547,24 @@ static void do_hull_recursion( hull_t *hull, mclipnode_t *node, int side, hullno
 			}
 			break;
 		default:
-			Host_Error( "bad contents: %i\n", node->children[side] );
+			Host_Error( "bad contents: %i\n", childnum );
 			break;
 		}
 	}
 }
 
-static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys, hull_model_t *model )
+static void hull_windings_r( hull_t *hull, int nodenum, hullnode_t *polys, hull_model_t *model )
 {
-	mplane_t		*plane = hull->planes + node->planenum;
+	mplane_t *plane;
 	hullnode_t	frontlist = LIST_HEAD_INIT( frontlist );
 	hullnode_t	backlist = LIST_HEAD_INIT( backlist );
 	winding_t		*w, *next, *front, *back;
 	int	i;
+
+	if( world.version == QBSP2_VERSION )
+		plane = hull->planes + hull->clipnodes32[nodenum].planenum;
+	else
+		plane = hull->planes + hull->clipnodes16[nodenum].planenum;
 
 	list_for_each_entry_safe( w, next, polys, chain )
 	{
@@ -599,7 +611,13 @@ static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys,
 
 	for( i = 0; w && i < node_stack_depth; i++ )
 	{
-		mplane_t *p = hull->planes + node_stack[i]->planenum;
+		mplane_t *p;
+
+		if( world.version == QBSP2_VERSION )
+			p = hull->planes + hull->clipnodes32[node_stack[i]].planenum;
+		else
+			p = hull->planes + hull->clipnodes16[node_stack[i]].planenum;
+
 		w = winding_clip( w, p, false, side_stack[i], 0.00001 );
 	}
 
@@ -623,8 +641,8 @@ static void hull_windings_r( hull_t *hull, mclipnode_t *node, hullnode_t *polys,
 		Con_Printf( S_WARN "new winding was clipped away!\n" );
 	}
 
-	do_hull_recursion( hull, node, 0, &frontlist, model );
-	do_hull_recursion( hull, node, 1, &backlist, model );
+	do_hull_recursion( hull, nodenum, 0, &frontlist, model );
+	do_hull_recursion( hull, nodenum, 1, &backlist, model );
 }
 
 static void remove_paired_polys( hull_model_t *model )
@@ -653,13 +671,13 @@ static void make_hull_windings( hull_t *hull, hull_model_t *model )
 
 	if( hull->planes != NULL )
 	{
-		hull_windings_r( hull, hull->clipnodes + hull->firstclipnode, &head, model );
+		hull_windings_r( hull, hull->firstclipnode, &head, model );
 		remove_paired_polys( model );
 	}
 	Con_Reportf( "%i hull polys\n", model->num_polys );
 }
 
-void Mod_InitDebugHulls( void )
+static void Mod_InitDebugHulls( model_t *loadmodel )
 {
 	int	i;
 
@@ -675,15 +693,18 @@ void Mod_InitDebugHulls( void )
 	}
 }
 
-void Mod_CreatePolygonsForHull( int hullnum )
+static void Mod_CreatePolygonsForHull( int hullnum )
 {
 	model_t	*mod = cl.worldmodel;
 	double	start, end;
 	char	name[8];
 	int	i;
 
-	if( hullnum < 1 || hullnum > 3 )
+	if( hullnum < 0 || hullnum >= MAX_MAP_HULLS )
 		return;
+
+	if( !world.num_hull_models )
+		Mod_InitDebugHulls( mod ); // FIXME: build hulls for separate bmodels (shells, medkits etc)
 
 	Con_Printf( "generating polygons for hull %u...\n", hullnum );
 	start = Sys_DoubleTime();
@@ -699,6 +720,59 @@ void Mod_CreatePolygonsForHull( int hullnum )
 	}
 	end = Sys_DoubleTime();
 	Con_Printf( "build time %.3f secs\n", end - start );
+}
+
+static void R_DrawHull( hull_model_t *hull )
+{
+	winding_t *poly;
+
+	ref.dllFuncs.GL_Bind( XASH_TEXTURE0, R_GetBuiltinTexture( REF_WHITE_TEXTURE ));
+	ref.dllFuncs.TriRenderMode( kRenderNormal );
+	list_for_each_entry( poly, &hull->polys, chain )
+	{
+		int i;
+
+		srand((unsigned int)poly );
+		ref.dllFuncs.Color4ub( rand() & 255, rand() & 255, rand() & 255, 255 );
+
+		ref.dllFuncs.Begin( TRI_POLYGON );
+		for( i = 0; i < poly->numpoints; i++ )
+			ref.dllFuncs.Vertex3fv( poly->p[i] );
+		ref.dllFuncs.End();
+	}
+}
+
+void R_DrawWorldHull( void )
+{
+	if( r_showhull.value <= 0.0f )
+		return;
+
+	if( FBitSet( r_showhull.flags, FCVAR_CHANGED ))
+	{
+		int val = r_showhull.value;
+		if( val > 3 ) val = 0;
+		Mod_CreatePolygonsForHull( val );
+		ClearBits( r_showhull.flags, FCVAR_CHANGED );
+	}
+
+	R_DrawHull( &world.hull_models[0] );
+}
+
+void R_DrawModelHull( model_t *mod )
+{
+	int i;
+
+	if( r_showhull.value <= 0.0f )
+		return;
+
+	if( !mod || mod->name[0] != '*' )
+		return;
+
+	i = atoi( mod->name + 1 );
+	if( i < 1 || i >= world.num_hull_models )
+		return;
+
+	R_DrawHull( &world.hull_models[i] );
 }
 
 void Mod_ReleaseHullPolygons( void )

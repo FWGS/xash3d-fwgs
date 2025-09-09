@@ -28,11 +28,19 @@ Image_LoadPAL
 qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	int	rendermode = LUMP_NORMAL;
+	byte pal[768];
 
-	if( filesize != 768 )
+	if( filesize > sizeof( pal ))
 	{
-		Con_DPrintf( S_ERROR "Image_LoadPAL: (%s) have invalid size (%ld should be %d)\n", name, filesize, 768 );
+		Con_DPrintf( S_ERROR "%s: (%s) have invalid size (%li should be less or equal than %zu)\n", __func__, name, (long)filesize, sizeof( pal ));
 		return false;
+	}
+	else if( filesize < sizeof( pal ) && buffer != NULL )
+	{
+		// palette might be truncated, fill it with zeros
+		memset( pal, 0, sizeof( pal ));
+		memcpy( pal, buffer, filesize );
+		buffer = pal;
 	}
 
 	if( name[0] == '#' )
@@ -44,6 +52,8 @@ qboolean Image_LoadPAL( const char *name, const byte *buffer, fs_offset_t filesi
 			rendermode = LUMP_MASKED;
 		else if( Q_stristr( name, "gradient" ))
 			rendermode = LUMP_GRADIENT;
+		else if( Q_stristr( name, "texgamma" ))
+			rendermode = LUMP_TEXGAMMA;
 		else if( Q_stristr( name, "valve" ))
 		{
 			rendermode = LUMP_HALFLIFE;
@@ -179,7 +189,7 @@ qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesi
 			Image_GetPaletteLMP( pal, LUMP_MASKED );
 			image.flags |= IMAGE_HAS_ALPHA|IMAGE_ONEBIT_ALPHA;
 		}
-		else Image_GetPaletteLMP( fin + pixels, LUMP_NORMAL );
+		else Image_GetPaletteLMP( fin + pixels, LUMP_TEXGAMMA );
 	}
 	else
 	{
@@ -218,7 +228,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 	}
 
-	memcpy( &pin, buffer, sizeof(dspriteframe_t) );
+	memcpy( &pin, buffer, sizeof( dspriteframe_t ));
 	image.width = pin.width;
 	image.height = pin.height;
 
@@ -311,13 +321,17 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 	{
 		int	numcolors;
 
-		for( i = 0; i < pixels; i++ )
+		// HACKHACK: console background image shouldn't be transparent
+		if( !Q_stristr( name, "conback" ))
 		{
-			if( fin[i] == 255 )
+			for( i = 0; i < pixels; i++ )
 			{
-				image.flags |= IMAGE_HAS_ALPHA;
-				rendermode = LUMP_MASKED;
-				break;
+				if( fin[i] == 255 )
+				{
+					image.flags |= IMAGE_HAS_ALPHA;
+					rendermode = LUMP_MASKED;
+					break;
+				}
 			}
 		}
 		pal = fin + pixels;
@@ -356,7 +370,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 	byte	*fin, *pal;
 	int	ofs[4], rendermode;
 	int	i, pixels, numcolors;
-	int	reflectivity[3] = { 0, 0, 0 };
+	uint	reflectivity[3] = { 0, 0, 0 };
 
 	if( filesize < sizeof( mip ))
 		return false;
@@ -386,7 +400,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		if( Q_strrchr( name, '{' ))
 		{
 			// NOTE: decals with 'blue base' can be interpret as colored decals
-			if( !Image_CheckFlag( IL_LOAD_DECAL ) || ( pal[765] == 0 && pal[766] == 0 && pal[767] == 255 ))
+			if( !Image_CheckFlag( IL_LOAD_DECAL ) || ( pal && pal[765] == 0 && pal[766] == 0 && pal[767] == 255 ))
 			{
 				SetBits( image.flags, IMAGE_ONEBIT_ALPHA );
 				rendermode = LUMP_MASKED;
@@ -423,8 +437,18 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 			}
 
 			if( pal_type == PAL_QUAKE1 )
+			{
 				SetBits( image.flags, IMAGE_QUAKEPAL );
-			rendermode = LUMP_NORMAL;
+
+				// if texture was converted from quake to half-life with no palette changes
+				// then applying texgamma might make it too dark or even outright broken
+				rendermode = LUMP_NORMAL;
+			}
+			else
+			{
+				// half-life mips need texgamma applied
+				rendermode = LUMP_TEXGAMMA;
+			}
 		}
 
 		Image_GetPaletteLMP( pal, rendermode );
@@ -484,41 +508,267 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	// check for half-life water texture
-	if( hl_texture && ( mip.name[0] == '!' || !Q_strnicmp( mip.name, "water", 5 )))
+	if( pal != NULL )
 	{
-		// grab the fog color
-		image.fogParams[0] = pal[3*3+0];
-		image.fogParams[1] = pal[3*3+1];
-		image.fogParams[2] = pal[3*3+2];
-
-		// grab the fog density
-		image.fogParams[3] = pal[4*3+0];
-	}
-	else if( hl_texture && ( rendermode == LUMP_GRADIENT ))
-	{
-		// grab the decal color
-		image.fogParams[0] = pal[255*3+0];
-		image.fogParams[1] = pal[255*3+1];
-		image.fogParams[2] = pal[255*3+2];
-
-		// calc the decal reflectivity
-		image.fogParams[3] = VectorAvg( image.fogParams );
-	}
-	else if( pal != NULL )
-	{
-		// calc texture reflectivity
-		for( i = 0; i < 256; i++ )
+		if( hl_texture && ( mip.name[0] == '!' || !Q_strnicmp( mip.name, "water", 5 )))
 		{
-			reflectivity[0] += pal[i*3+0];
-			reflectivity[1] += pal[i*3+1];
-			reflectivity[2] += pal[i*3+2];
-		}
+			// grab the fog color
+			image.fogParams[0] = pal[3*3+0];
+			image.fogParams[1] = pal[3*3+1];
+			image.fogParams[2] = pal[3*3+2];
 
-		VectorDivide( reflectivity, 256, image.fogParams );
+			// grab the fog density
+			image.fogParams[3] = pal[4*3+0];
+		}
+		else if( hl_texture && ( rendermode == LUMP_GRADIENT ))
+		{
+			// grab the decal color
+			image.fogParams[0] = pal[255*3+0];
+			image.fogParams[1] = pal[255*3+1];
+			image.fogParams[2] = pal[255*3+2];
+
+			// calc the decal reflectivity
+			image.fogParams[3] = VectorAvg( image.fogParams );
+		}
+		else
+		{
+			// calc texture reflectivity
+			for( i = 0; i < 256; i++ )
+			{
+				reflectivity[0] += pal[i*3+0];
+				reflectivity[1] += pal[i*3+1];
+				reflectivity[2] += pal[i*3+2];
+			}
+
+			VectorDivide( reflectivity, 256, image.fogParams );
+		}
 	}
 
 	image.type = PF_INDEXED_32;	// 32-bit palete
 	image.depth = 1;
 
 	return Image_AddIndexedImageToPack( fin, image.width, image.height );
+}
+
+/*
+============
+Image_LoadWAD
+============
+*/
+qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesize )
+{
+	const dwadinfo_t    *header;
+	const dlumpinfo_t   *lumps;
+	const unsigned char *mipdata;
+	int i, j;
+
+	if( !buffer || filesize < sizeof( dwadinfo_t ))
+		return false;
+
+	header = (const dwadinfo_t *)buffer;
+	if( header->numlumps <= 0 || header->infotableofs <= 0 || header->infotableofs >= (int)filesize )
+		return false;
+
+	lumps = (const dlumpinfo_t *)((const unsigned char *)buffer + header->infotableofs );
+
+	for( i = 0; i < header->numlumps; ++i )
+	{
+		const unsigned char *pixels, *palette, *use_palette;
+		unsigned char grad_palette[256 * 3];
+		int mip_size;
+		mip_t mip;
+		uint32_t      width, height, offset0;
+		uint32_t      m0size, m1size, m2size, m3size;
+		qboolean      alpha_mode = false;
+		unsigned char frontR = 0, frontG = 0, frontB = 0;
+		float t;
+		byte  idx;
+
+		if( lumps[i].type != TYP_MIPTEX && lumps[i].type != TYP_PALETTE )
+			continue;
+
+		// get lump data and validate
+		mipdata = (const unsigned char *)buffer + lumps[i].filepos;
+		mip_size = lumps[i].disksize;
+		if( lumps[i].filepos < 0 || lumps[i].filepos + mip_size > (int)filesize )
+			continue;
+
+		memcpy( &mip, mipdata, sizeof( mip ));
+		width = mip.width;
+		height = mip.height;
+
+		if( width <= 0 || height <= 0 || width > 256 || height > 256 )
+			continue;
+
+		offset0 = mip.offsets[0];
+		if( offset0 == 0 || offset0 + width * height > (uint32_t)mip_size )
+			continue;
+
+		pixels = mipdata + offset0;
+		m0size = width * height;
+		m1size = m0size / 4;
+		m2size = m0size / 16;
+		m3size = m0size / 64;
+		palette = mipdata + 0x28 + m0size + m1size + m2size + m3size + 2;
+		use_palette = palette;
+
+		// handle gradient palette
+		if( lumps[i].type == TYP_PALETTE )
+		{
+			// gradient palette
+			const unsigned char *frontColorPtr = palette + 255 * 3;
+			frontR = frontColorPtr[0];
+			frontG = frontColorPtr[1];
+			frontB = frontColorPtr[2];
+			for( j = 0; j < 256; ++j )
+			{
+				t = j / 255.0f;
+				grad_palette[j * 3 + 0] = (unsigned char)( frontR * t );
+				grad_palette[j * 3 + 1] = (unsigned char)( frontG * t );
+				grad_palette[j * 3 + 2] = (unsigned char)( frontB * t );
+			}
+			use_palette = grad_palette;
+			alpha_mode = true; // gradient
+		}
+
+		// prepare image structure
+		Image_Reset();
+		image.width = width;
+		image.height = height;
+		image.type = PF_RGBA_32;
+		image.flags = IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA;
+		image.size = width * height * 4;
+		image.rgba = Mem_Malloc( host.imagepool, image.size );
+		image.palette = NULL;
+
+		// convert indexed pixels to RGBA
+		for( j = 0; j < (int)( width * height ); ++j )
+		{
+			idx = pixels[j];
+			image.rgba[j * 4 + 0] = use_palette[idx * 3 + 0];
+			image.rgba[j * 4 + 1] = use_palette[idx * 3 + 1];
+			image.rgba[j * 4 + 2] = use_palette[idx * 3 + 2];
+			if( alpha_mode )
+				image.rgba[j * 4 + 3] = idx; // soft transparency
+			else
+				image.rgba[j * 4 + 3] = ( idx == 255 ) ? 0 : 255; // classic
+		}
+		return true;
+	}
+	return false;
+}
+
+/*
+============
+Image_SaveWAD
+============
+*/
+qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
+{
+	int         m0size, m1size, m2size, m3size;
+	byte        *mip1_data = NULL, *mip2_data = NULL, *mip3_data = NULL;
+	const byte  *palette;
+	byte        grad_palette[256 * 3];
+	file_t      *f;
+	dwadinfo_t  header;
+	mip_t       miptex;
+	long        infotableofs;
+	dlumpinfo_t lump;
+	fs_offset_t pad;
+	int         i;
+	qboolean    result = false;
+	int         lump_type = ( pix->flags & IMAGE_GRADIENT_DECAL ) ? TYP_PALETTE : TYP_MIPTEX;
+	short       palette_size = 256;
+	int         infotableofs32 = 0;
+
+	if( !pix || !pix->buffer )
+		return false;
+
+	palette = pix->palette ? pix->palette : (const byte *)image.palette;
+
+	m0size = pix->width * pix->height;
+	m1size = m0size / 4;
+	m2size = m0size / 16;
+	m3size = m0size / 64;
+
+	mip1_data = (byte *)Mem_Malloc( host.imagepool, m1size );
+	mip2_data = (byte *)Mem_Malloc( host.imagepool, m2size );
+	mip3_data = (byte *)Mem_Malloc( host.imagepool, m3size );
+	if( !mip1_data || !mip2_data || !mip3_data )
+		goto cleanup;
+
+	Image_GenerateMipmaps( pix->buffer, pix->width, pix->height, mip1_data, mip2_data, mip3_data );
+
+	memset( &miptex, 0, sizeof( mip_t ));
+	Q_strncpy( miptex.name, "{LOGO", sizeof( miptex.name ));
+	miptex.width = pix->width;
+	miptex.height = pix->height;
+	miptex.offsets[0] = sizeof( mip_t );
+	miptex.offsets[1] = miptex.offsets[0] + m0size;
+	miptex.offsets[2] = miptex.offsets[1] + m1size;
+	miptex.offsets[3] = miptex.offsets[2] + m2size;
+
+	f = FS_Open( name, "wb", false );
+	if( !f )
+		goto cleanup;
+
+	memset( &header, 0, sizeof( header ));
+	header.ident = IDWAD3HEADER;
+	header.numlumps = 1;
+
+	FS_Write( f, &header, sizeof( header ));
+	FS_Write( f, &miptex, sizeof( mip_t ));
+	FS_Write( f, pix->buffer, m0size );
+	FS_Write( f, mip1_data, m1size );
+	FS_Write( f, mip2_data, m2size );
+	FS_Write( f, mip3_data, m3size );
+	FS_Write( f, &palette_size, sizeof( short ));
+
+	if( lump_type == TYP_PALETTE )
+	{
+		const byte *frontColorPtr = palette + 255 * 3;
+		for( i = 0; i < 256; ++i )
+		{
+			float t = i / 255.0f;
+			grad_palette[i * 3 + 0] = (byte)( frontColorPtr[0] * t );
+			grad_palette[i * 3 + 1] = (byte)( frontColorPtr[1] * t );
+			grad_palette[i * 3 + 2] = (byte)( frontColorPtr[2] * t );
+		}
+		FS_Write( f, grad_palette, 256 * 3 );
+	}
+	else
+	{
+		FS_Write( f, palette, 256 * 3 );
+	}
+
+	// padding up to a multiple of 4
+	pad = (( FS_Tell( f ) + 3 ) & ~3 ) - FS_Tell( f );
+	for( i = 0; i < pad; ++i )
+		FS_Write( f, (const void *)&(char){0}, 1 );
+
+	infotableofs = FS_Tell( f );
+	memset( &lump, 0, sizeof( lump ));
+	lump.filepos = sizeof( dwadinfo_t );
+	lump.disksize = (int)( miptex.offsets[3] + m3size + sizeof( short ) + 256 * 3 );
+	lump.size = lump.disksize;
+	lump.type = (char)lump_type;
+	lump.attribs = 0;
+	Q_strncpy( lump.name, "tempdecal", sizeof( lump.name ));
+	FS_Write( f, &lump, sizeof( lump ));
+
+	FS_Seek( f, offsetof( dwadinfo_t, infotableofs ), SEEK_SET );
+	infotableofs32 = (int)infotableofs;
+	FS_Write( f, &infotableofs32, sizeof( int ));
+
+	FS_Close( f );
+	result = true;
+
+cleanup:
+	if( mip1_data )
+		Mem_Free( mip1_data );
+	if( mip2_data )
+		Mem_Free( mip2_data );
+	if( mip3_data )
+		Mem_Free( mip3_data );
+	return result;
 }

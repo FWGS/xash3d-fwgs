@@ -45,3 +45,8 @@
   Tags can be any: subsystem, simple feature name or even just a filename, without extension.
   Just keep them always same, it helps keep history clean and commit messages short.
 
+## LLM-based tools usage.
+
+While we wouldn't recommend using any LLM-based (also misleadingly called AI) tools, we understand that they are here to stay.
+
+Whether you're reporting bug or contributing the code, you take complete authorship and responsibility over provided content and the same rules will apply to you as for everybody else, so validate the bug report or the patch before sending it.

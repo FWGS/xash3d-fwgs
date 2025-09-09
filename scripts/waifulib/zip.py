@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 from waflib import TaskGen, Task, Logs, Utils
-import zipfile
+import zipfile, sys
 
 class ziparchive(Task.Task):
 	color = 'YELLOW'
@@ -16,16 +16,26 @@ class ziparchive(Task.Task):
 		return 'Creating'
 
 	def run(self):
-		outfile = self.outputs[0].path_from(self.outputs[0].ctx.launch_node())
-		comp = zipfile.ZIP_STORED if self.compresslevel == 0 else zipfile.ZIP_DEFLATED
+		outfile = self.outputs[0].abspath()
+		kwargs = {}
+		kwargs['mode'] = 'w'
+		kwargs['compression'] = zipfile.ZIP_STORED if self.compresslevel == 0 else zipfile.ZIP_DEFLATED
 
-		with zipfile.ZipFile(outfile, mode='w', compression=comp) as zf:
+		if sys.hexversion >= 0x3070000:
+			kwargs['compresslevel'] = self.compresslevel
+
+		with zipfile.ZipFile(outfile, **kwargs) as zf:
 			for src in self.inputs:
 				infile  = src.path_from(src.ctx.launch_node())
 				arcfile = src.path_from(self.relative_to)
 
+				# TODO: pass excluded list from TaskGen
 				Logs.debug('%s: %s <- %s as %s', self.__class__.__name__, outfile, infile, arcfile)
-				zf.write(infile, arcfile)
+
+				if infile.endswith('.png'):
+					zf.write(infile, arcfile, zipfile.ZIP_STORED)
+				else:
+					zf.write(infile, arcfile)
 
 @TaskGen.feature('zip')
 def create_zip_archive(self):

@@ -16,22 +16,7 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "xash3d_mathlib.h"
 
-void GL_FrustumEnablePlane( gl_frustum_t *out, int side )
-{
-	Assert( side >= 0 && side < FRUSTUM_PLANES );
-
-	// make sure what plane is ready
-	if( !VectorIsNull( out->planes[side].normal ))
-		SetBits( out->clipFlags, BIT( side ));
-}
-
-void GL_FrustumDisablePlane( gl_frustum_t *out, int side )
-{
-	Assert( side >= 0 && side < FRUSTUM_PLANES );
-	ClearBits( out->clipFlags, BIT( side ));
-}
-
-void GL_FrustumSetPlane( gl_frustum_t *out, int side, const vec3_t vecNormal, float flDist )
+static void GL_FrustumSetPlane( gl_frustum_t *out, int side, const vec3_t vecNormal, float flDist )
 {
 	Assert( side >= 0 && side < FRUSTUM_PLANES );
 
@@ -39,30 +24,6 @@ void GL_FrustumSetPlane( gl_frustum_t *out, int side, const vec3_t vecNormal, fl
 	out->planes[side].signbits = SignbitsForPlane( vecNormal );
 	VectorCopy( vecNormal, out->planes[side].normal );
 	out->planes[side].dist = flDist;
-
-	SetBits( out->clipFlags, BIT( side ));
-}
-
-void GL_FrustumNormalizePlane( gl_frustum_t *out, int side )
-{
-	float	length;
-
-	Assert( side >= 0 && side < FRUSTUM_PLANES );
-
-	// normalize
-	length = VectorLength( out->planes[side].normal );
-
-	if( length )
-	{
-		float ilength = (1.0f / length);
-		out->planes[side].normal[0] *= ilength;
-		out->planes[side].normal[1] *= ilength;
-		out->planes[side].normal[2] *= ilength;
-		out->planes[side].dist *= ilength;
-	}
-
-	out->planes[side].type = PlaneTypeForNormal( out->planes[side].normal );
-	out->planes[side].signbits = SignbitsForPlane( out->planes[side].normal );
 
 	SetBits( out->clipFlags, BIT( side ));
 }
@@ -135,143 +96,13 @@ void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yT
 	GL_FrustumSetPlane( out, FRUSTUM_BOTTOM, iup, -yBottom - orgOffset );
 }
 
-void GL_FrustumInitBox( gl_frustum_t *out, const vec3_t org, float radius )
-{
-	vec3_t	normal;
-	int	i;
-
-	for( i = 0; i < FRUSTUM_PLANES; i++ )
-	{
-		// setup normal for each direction
-		VectorClear( normal );
-		normal[((i >> 1) + 1) % 3] = (i & 1) ? 1.0f : -1.0f;
-		GL_FrustumSetPlane( out, i, normal, DotProduct( org, normal ) - radius );
-	}
-}
-
-void GL_FrustumInitProjFromMatrix( gl_frustum_t *out, const matrix4x4 projection )
-{
-	int	i;
-
-	// left
-	out->planes[FRUSTUM_LEFT].normal[0] =	projection[0][3] + projection[0][0];
-	out->planes[FRUSTUM_LEFT].normal[1] =	projection[1][3] + projection[1][0];
-	out->planes[FRUSTUM_LEFT].normal[2] =	projection[2][3] + projection[2][0];
-	out->planes[FRUSTUM_LEFT].dist =	-(projection[3][3] + projection[3][0]);
-
-	// right
-	out->planes[FRUSTUM_RIGHT].normal[0] =	projection[0][3] - projection[0][0];
-	out->planes[FRUSTUM_RIGHT].normal[1] =	projection[1][3] - projection[1][0];
-	out->planes[FRUSTUM_RIGHT].normal[2] =	projection[2][3] - projection[2][0];
-	out->planes[FRUSTUM_RIGHT].dist =	-(projection[3][3] - projection[3][0]);
-
-	// bottom
-	out->planes[FRUSTUM_BOTTOM].normal[0] =	projection[0][3] + projection[0][1];
-	out->planes[FRUSTUM_BOTTOM].normal[1] =	projection[1][3] + projection[1][1];
-	out->planes[FRUSTUM_BOTTOM].normal[2] =	projection[2][3] + projection[2][1];
-	out->planes[FRUSTUM_BOTTOM].dist =	-(projection[3][3] + projection[3][1]);
-
-	// top
-	out->planes[FRUSTUM_TOP].normal[0] =	projection[0][3] - projection[0][1];
-	out->planes[FRUSTUM_TOP].normal[1] =	projection[1][3] - projection[1][1];
-	out->planes[FRUSTUM_TOP].normal[2] =	projection[2][3] - projection[2][1];
-	out->planes[FRUSTUM_TOP].dist =	-(projection[3][3] - projection[3][1]);
-
-	// near
-	out->planes[FRUSTUM_NEAR].normal[0] =	projection[0][3] + projection[0][2];
-	out->planes[FRUSTUM_NEAR].normal[1] =	projection[1][3] + projection[1][2];
-	out->planes[FRUSTUM_NEAR].normal[2] =	projection[2][3] + projection[2][2];
-	out->planes[FRUSTUM_NEAR].dist =	-(projection[3][3] + projection[3][2]);
-
-	// far
-	out->planes[FRUSTUM_FAR].normal[0] =	projection[0][3] - projection[0][2];
-	out->planes[FRUSTUM_FAR].normal[1] =	projection[1][3] - projection[1][2];
-	out->planes[FRUSTUM_FAR].normal[2] =	projection[2][3] - projection[2][2];
-	out->planes[FRUSTUM_FAR].dist =	-(projection[3][3] - projection[3][2]);
-
-	for( i = 0; i < FRUSTUM_PLANES; i++ )
-	{
-		GL_FrustumNormalizePlane( out, i );
-	}
-}
-
-void GL_FrustumComputeCorners( gl_frustum_t *out, vec3_t corners[8] )
-{
-	memset( corners, 0, sizeof( vec3_t ) * 8 );
-
-	PlanesGetIntersectionPoint( &out->planes[FRUSTUM_LEFT], &out->planes[FRUSTUM_TOP], &out->planes[FRUSTUM_FAR], corners[0] );
-	PlanesGetIntersectionPoint( &out->planes[FRUSTUM_RIGHT], &out->planes[FRUSTUM_TOP], &out->planes[FRUSTUM_FAR], corners[1] );
-	PlanesGetIntersectionPoint( &out->planes[FRUSTUM_LEFT], &out->planes[FRUSTUM_BOTTOM], &out->planes[FRUSTUM_FAR], corners[2] );
-	PlanesGetIntersectionPoint( &out->planes[FRUSTUM_RIGHT], &out->planes[FRUSTUM_BOTTOM], &out->planes[FRUSTUM_FAR], corners[3] );
-
-	if( FBitSet( out->clipFlags, BIT( FRUSTUM_NEAR )))
-	{
-		PlanesGetIntersectionPoint( &out->planes[FRUSTUM_LEFT], &out->planes[FRUSTUM_TOP], &out->planes[FRUSTUM_NEAR], corners[4] );
-		PlanesGetIntersectionPoint( &out->planes[FRUSTUM_RIGHT], &out->planes[FRUSTUM_TOP], &out->planes[FRUSTUM_NEAR], corners[5] );
-		PlanesGetIntersectionPoint( &out->planes[FRUSTUM_LEFT], &out->planes[FRUSTUM_BOTTOM], &out->planes[FRUSTUM_NEAR], corners[6] );
-		PlanesGetIntersectionPoint( &out->planes[FRUSTUM_RIGHT], &out->planes[FRUSTUM_BOTTOM], &out->planes[FRUSTUM_NEAR], corners[7] );
-	}
-	else
-	{
-		PlanesGetIntersectionPoint( &out->planes[FRUSTUM_LEFT], &out->planes[FRUSTUM_RIGHT], &out->planes[FRUSTUM_TOP], corners[4] );
-		VectorCopy( corners[4], corners[5] );
-		VectorCopy( corners[4], corners[6] );
-		VectorCopy( corners[4], corners[7] );
-	}
-}
-
-void GL_FrustumComputeBounds( gl_frustum_t *out, vec3_t mins, vec3_t maxs )
-{
-	vec3_t	corners[8];
-	int	i;
-
-	GL_FrustumComputeCorners( out, corners );
-
-	ClearBounds( mins, maxs );
-
-	for( i = 0; i < 8; i++ )
-		AddPointToBounds( corners[i], mins, maxs );
-}
-
-void GL_FrustumDrawDebug( gl_frustum_t *out )
-{
-	vec3_t	bbox[8];
-	int	i;
-
-	GL_FrustumComputeCorners( out, bbox );
-
-	// g-cont. frustum must be yellow :-)
-	pglColor4f( 1.0f, 1.0f, 0.0f, 1.0f );
-	pglDisable( GL_TEXTURE_2D );
-	pglBegin( GL_LINES );
-
-	for( i = 0; i < 2; i += 1 )
-	{
-		pglVertex3fv( bbox[i+0] );
-		pglVertex3fv( bbox[i+2] );
-		pglVertex3fv( bbox[i+4] );
-		pglVertex3fv( bbox[i+6] );
-		pglVertex3fv( bbox[i+0] );
-		pglVertex3fv( bbox[i+4] );
-		pglVertex3fv( bbox[i+2] );
-		pglVertex3fv( bbox[i+6] );
-		pglVertex3fv( bbox[i*2+0] );
-		pglVertex3fv( bbox[i*2+1] );
-		pglVertex3fv( bbox[i*2+4] );
-		pglVertex3fv( bbox[i*2+5] );
-	}
-
-	pglEnd();
-	pglEnable( GL_TEXTURE_2D );
-}
-
 // cull methods
-qboolean GL_FrustumCullBox( gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags )
+qboolean GL_FrustumCullBox( const gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags )
 {
 	int	iClipFlags;
 	int	i, bit;
 
-	if( r_nocull->value )
+	if( r_nocull.value )
 		return false;
 
 	if( userClipFlags != 0 )
@@ -327,12 +158,12 @@ qboolean GL_FrustumCullBox( gl_frustum_t *out, const vec3_t mins, const vec3_t m
 	return false;
 }
 
-qboolean GL_FrustumCullSphere( gl_frustum_t *out, const vec3_t center, float radius, int userClipFlags )
+qboolean GL_FrustumCullSphere( const gl_frustum_t *out, const vec3_t center, float radius, int userClipFlags )
 {
 	int	iClipFlags;
 	int	i, bit;
 
-	if( r_nocull->value )
+	if( r_nocull.value )
 		return false;
 
 	if( userClipFlags != 0 )

@@ -31,11 +31,17 @@ Issue #0. Inconsistency between ABI and Q_buildarch.\
 Resolution: Change Q_buildarch return value to use Debian-styled architectures list: https://www.debian.org/ports/, which includes a special naming for big/little-endian and hard/soft-float ARM.
 
 Issue #1: Build-system integration.\
-Resolution: implemented as [LibraryNaming.cmake](https://github.com/FWGS/hlsdk-xash3d/blob/master/cmake/LibraryNaming.cmake) and [library_naming.py](https://github.com/FWGS/hlsdk-xash3d/blob/master/scripts/waifulib/library_naming.py) extensions, see 
+Resolution: implemented as [LibraryNaming.cmake](https://github.com/FWGS/hlsdk-portable/blob/master/cmake/LibraryNaming.cmake) and [library_naming.py](https://github.com/FWGS/hlsdk-portable/blob/master/scripts/waifulib/library_naming.py) extensions, see 
 
 Issue #2(related to #0): Which ARM flavours we actually need to handle?\
 Resolution: Little-endian only, as there is no known big-endian ARM platforms in the wild.
 Architecture is coded this way:
 * ```armvxy```, where `x` is ARM instruction set level and `y` is hard-float ABI presence: `hf` where hard float ABI used, otherwise `l`.
 
+Issue #3: Some mods (like The Specialists, Tyrian, ...) already apply suffixes _i386, _i686 to the gamedll path:\
+Resolution: On x86 on **Win/Lin/Mac**, don't change anything. Otherwise, strip the _i?86 part and follow the usual scheme.
+
 See discussion: https://github.com/FWGS/xash3d-fwgs/issues/39
+
+Issue #4: When distributing game libraries on Android inside an APK, they couldn't be loaded.
+Resolution: Enable `useLegacyPackaging` option in build.gradle, when distributing games in APK. Always force game libraries to have `lib` prefix on Android, regardless if they are packaged in APK or not..

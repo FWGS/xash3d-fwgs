@@ -21,12 +21,6 @@ GNU General Public License for more details.
 typedef int (*pfnIgnore)( physent_t *pe );	// custom trace filter
 
 //
-// pm_debug.c
-//
-void PM_ParticleLine( const vec3_t start, const vec3_t end, int pcolor, float life, float zvel );
-void PM_DrawBBox( const vec3_t mins, const vec3_t maxs, const vec3_t origin, int pcolor, float life );
-
-//
 // pm_trace.c
 //
 void Pmove_Init( void );
@@ -38,7 +32,36 @@ int PM_TestPlayerPosition( playermove_t *pmove, vec3_t pos, pmtrace_t *ptrace, p
 int PM_HullPointContents( hull_t *hull, int num, const vec3_t p );
 int PM_TruePointContents( playermove_t *pmove, const vec3_t p );
 int PM_PointContents( playermove_t *pmove, const vec3_t p );
-void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent );
+float PM_TraceModel( playermove_t *pmove, physent_t *pe, float *start, float *end, trace_t *trace );
+pmtrace_t *PM_TraceLine( playermove_t *pmove, float *start, float *end, int flags, int usehull, int ignore_pe );
+pmtrace_t *PM_TraceLineEx( playermove_t *pmove, float *start, float *end, int flags, int usehull, pfnIgnore pmFilter );
+struct msurface_s *PM_TraceSurfacePmove( playermove_t *pmove, int ground, float *vstart, float *vend );
+const char *PM_TraceTexture( playermove_t *pmove, int ground, float *vstart, float *vend );
+int PM_PointContentsPmove( playermove_t *pmove, const float *p, int *truecontents );
+void PM_StuckTouch( playermove_t *pmove, int hitent, pmtrace_t *tr );
+
+static inline void PM_ConvertTrace( trace_t *out, pmtrace_t *in, edict_t *ent )
+{
+	out->allsolid = in->allsolid;
+	out->startsolid = in->startsolid;
+	out->inopen = in->inopen;
+	out->inwater = in->inwater;
+	out->fraction = in->fraction;
+	out->plane.dist = in->plane.dist;
+	out->hitgroup = in->hitgroup;
+	out->ent = ent;
+
+	VectorCopy( in->endpos, out->endpos );
+	VectorCopy( in->plane.normal, out->plane.normal );
+}
+
+static inline void PM_ClearPhysEnts( playermove_t *pmove )
+{
+	pmove->nummoveent = 0;
+	pmove->numphysent = 0;
+	pmove->numvisent = 0;
+	pmove->numtouch = 0;
+}
 
 static inline void PM_InitTrace( trace_t *trace, const vec3_t end )
 {
@@ -59,7 +82,6 @@ static inline void PM_InitPMTrace( pmtrace_t *trace, const vec3_t end )
 //
 // pm_surface.c
 //
-const char *PM_TraceTexture( physent_t *pe, vec3_t vstart, vec3_t vend );
 msurface_t *PM_RecursiveSurfCheck( model_t *model, mnode_t *node, vec3_t p1, vec3_t p2 );
 msurface_t *PM_TraceSurface( physent_t *pe, vec3_t start, vec3_t end );
 int PM_TestLineExt( playermove_t *pmove, physent_t *ents, int numents, const vec3_t start, const vec3_t end, int flags );

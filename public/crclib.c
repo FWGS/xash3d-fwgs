@@ -19,10 +19,8 @@ GNU General Public License for more details.
 #include <stdlib.h>
 
 #define NUM_BYTES		256
-#define CRC32_INIT_VALUE	0xFFFFFFFFUL
-#define CRC32_XOR_VALUE	0xFFFFFFFFUL
 
-static const dword crc32table[NUM_BYTES] =
+static const uint32_t crc32table[NUM_BYTES] =
 {
 0x00000000, 0x77073096, 0xee0e612c, 0x990951ba,
 0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
@@ -90,87 +88,54 @@ static const dword crc32table[NUM_BYTES] =
 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
-void GAME_EXPORT CRC32_Init( dword *pulCRC )
+void GAME_EXPORT CRC32_ProcessByte( uint32_t *pulCRC, byte ch )
 {
-	*pulCRC = CRC32_INIT_VALUE;
+	uint32_t	ulCrc = *pulCRC;
+
+	*pulCRC = crc32table[((byte)ulCrc ^ ch)] ^ (ulCrc >> 8);
 }
 
-dword GAME_EXPORT CRC32_Final( dword pulCRC )
+void GAME_EXPORT CRC32_ProcessBuffer( uint32_t *pulCRC, const void *pBuffer, int nBuffer )
 {
-	return pulCRC ^ CRC32_XOR_VALUE;
-}
-
-void GAME_EXPORT CRC32_ProcessByte( dword *pulCRC, byte ch )
-{
-	dword	ulCrc = *pulCRC;
-
-	ulCrc ^= ch;
-	ulCrc = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-	*pulCRC = ulCrc;
-}
-
-void GAME_EXPORT CRC32_ProcessBuffer( dword *pulCRC, const void *pBuffer, int nBuffer )
-{
-	dword	ulCrc = *pulCRC, tmp;
+	uint32_t	ulCrc = *pulCRC, tmp;
 	byte	*pb = (byte *)pBuffer;
-	uint	nFront;
-	int	nMain;
-JustAfew:
-	switch( nBuffer )
+
+	while( nBuffer >= sizeof( uint64_t ))
 	{
-	case 7: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 6: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 5: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 4:
-		memcpy( &tmp, pb, sizeof(dword));
-		ulCrc ^= tmp;	// warning, this only works on little-endian.
+		memcpy( &tmp, pb, sizeof( tmp ));
+		ulCrc ^= LittleLong( tmp );
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		*pulCRC = ulCrc;
-		return;
-	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 0: *pulCRC = ulCrc;
-		return;
+		memcpy( &tmp, pb + sizeof( tmp ), sizeof( tmp ));
+		ulCrc ^= LittleLong( tmp );
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		nBuffer -= sizeof( uint64_t );
+		pb += sizeof( uint64_t );
 	}
 
-	// We may need to do some alignment work up front, and at the end, so that
-	// the main loop is aligned and only has to worry about 8 byte at a time.
-	// The low-order two bits of pb and nBuffer in total control the
-	// upfront work.
-	nFront = ((uint)pb) & 3;
-	nBuffer -= nFront;
-
-	switch( nFront )
+	if( nBuffer & sizeof( uint32_t ))
 	{
-	case 3: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 2: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
-	case 1: ulCrc  = crc32table[*pb++ ^ (byte)ulCrc] ^ (ulCrc >> 8); // fallthrough
+		memcpy( &tmp, pb, sizeof( tmp ));
+		ulCrc ^= LittleLong( tmp );
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
+		nBuffer -= sizeof( uint32_t );
+		pb += sizeof( uint32_t );
 	}
 
-	nMain = nBuffer >> 3;
-	while( nMain-- )
+	while( nBuffer-- )
 	{
-		memcpy( &tmp, pb, sizeof(dword));
-		ulCrc ^= tmp;	// warning, this only works on little-endian.
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		memcpy( &tmp, pb + 4, sizeof(dword));
-		ulCrc ^= tmp; // warning, this only works on little-endian.
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
-		pb += 8;
+		ulCrc  = crc32table[((byte)ulCrc ^ *pb++)] ^ (ulCrc >> 8);
 	}
 
-	nBuffer &= 7;
-	goto JustAfew;
+	*pulCRC = ulCrc;
 }
 
 /*
@@ -182,7 +147,7 @@ For proxy protecting
 */
 byte CRC32_BlockSequence( byte *base, int length, int sequence )
 {
-	dword	CRC;
+	uint32_t	CRC;
 	char	*ptr;
 	char	buffer[64];
 
@@ -207,24 +172,6 @@ byte CRC32_BlockSequence( byte *base, int length, int sequence )
 }
 
 void MD5Transform( uint buf[4], const uint in[16] );
-
-/*
-==================
-MD5Init
-
-Start MD5 accumulation.  Set bit count to 0 and buffer to mysterious initialization constants.
-==================
-*/
-void MD5Init( MD5Context_t *ctx )
-{
-	ctx->buf[0] = 0x67452301;
-	ctx->buf[1] = 0xefcdab89;
-	ctx->buf[2] = 0x98badcfe;
-	ctx->buf[3] = 0x10325476;
-
-	ctx->bits[0] = 0;
-	ctx->bits[1] = 0;
-}
 
 /*
 ===================
@@ -429,6 +376,33 @@ void MD5Transform( uint buf[4], const uint in[16] )
 }
 
 /*
+============
+COM_Hex2Char
+============
+*/
+static char COM_Hex2Char( uint8_t hex )
+{
+	if( hex >= 0x0 && hex <= 0x9 )
+		hex += '0';
+	else if( hex >= 0xA && hex <= 0xF )
+		hex += '7';
+
+	return (char)hex;
+}
+
+/*
+============
+COM_Hex2String
+============
+*/
+static void COM_Hex2String( uint8_t hex, char *str )
+{
+	*str++ = COM_Hex2Char( hex >> 4 );
+	*str++ = COM_Hex2Char( hex & 0x0F );
+	*str = '\0';
+}
+
+/*
 =================
 MD5_Print
 
@@ -457,10 +431,14 @@ returns hash key for string
 */
 uint COM_HashKey( const char *string, uint hashSize )
 {
-	uint	i, hashKey = 0;
+	uint hashKey = 5381;
+	unsigned char i;
 
-	for( i = 0; string[i]; i++ )
-		hashKey = (hashKey + i) * 37 + Q_tolower( string[i] );
+	while(( i = *string++ ))
+	{
+		i = Q_tolower( i );
+		hashKey = ( hashKey << 5 ) + hashKey + ( i & 0xDF );
+	}
 
-	return (hashKey % hashSize);
+	return hashKey & ( hashSize - 1 );
 }

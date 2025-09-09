@@ -17,9 +17,22 @@ GNU General Public License for more details.
 #include "base_cmd.h"
 #include "cdll_int.h"
 
-// TODO: use another hash function, as COM_HashKey depends on string length
-#define HASH_SIZE 128 // 128 * 4 * 4 == 2048 bytes
+#define HASH_SIZE 64 // 64 * 4 * 4 == 1024 bytes
+
+typedef struct base_command_hashmap_s base_command_hashmap_t;
+
+struct base_command_hashmap_s
+{
+	base_command_t         *basecmd; // base command: cvar, alias or command
+	base_command_hashmap_t *next;
+	base_command_type_e     type;    // type for faster searching
+	char                    name[]; // key for searching
+};
+
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
+static poolhandle_t basecmd_pool;
+
+#define BaseCmd_HashKey( x ) COM_HashKey( name, HASH_SIZE )
 
 /*
 ============
@@ -28,13 +41,29 @@ BaseCmd_FindInBucket
 Find base command in bucket
 ============
 */
-base_command_hashmap_t *BaseCmd_FindInBucket( base_command_hashmap_t *bucket, base_command_type_e type, const char *name )
+static base_command_hashmap_t *BaseCmd_FindInBucket( base_command_hashmap_t *bucket, base_command_type_e type, const char *name )
 {
-	base_command_hashmap_t *i = bucket;
-	for( ; i && ( i->type != type || Q_stricmp( name, i->name ) ); // filter out
-		 i = i->next );
+	base_command_hashmap_t *i;
 
-	return i;
+	for( i = bucket; i != NULL; i = i->next )
+	{
+		int cmp;
+
+		if( i->type != type )
+			continue;
+
+		cmp = Q_stricmp( i->name, name );
+
+		if( cmp < 0 )
+			continue;
+
+		if( cmp > 0 )
+			break;
+
+		return i;
+	}
+
+	return NULL;
 }
 
 /*
@@ -44,9 +73,9 @@ BaseCmd_GetBucket
 Get bucket which contain basecmd by given name
 ============
 */
-base_command_hashmap_t *BaseCmd_GetBucket( const char *name )
+static base_command_hashmap_t *BaseCmd_GetBucket( const char *name )
 {
-	return hashed_cmds[ COM_HashKey( name, HASH_SIZE ) ];
+	return hashed_cmds[ BaseCmd_HashKey( name ) ];
 }
 
 /*
@@ -73,35 +102,40 @@ BaseCmd_Find
 Find every type of base command and write into arguments
 ============
 */
-void BaseCmd_FindAll(const char *name, base_command_t **cmd, base_command_t **alias, base_command_t **cvar)
+void BaseCmd_FindAll( const char *name, cmd_t **cmd, cmdalias_t **alias, convar_t **cvar )
 {
 	base_command_hashmap_t *base = BaseCmd_GetBucket( name );
 	base_command_hashmap_t *i = base;
 
-	ASSERT( cmd && alias && cvar );
-
-	*cmd = *alias = *cvar = NULL;
+	*cmd = NULL;
+	*alias = NULL;
+	*cvar = NULL;
 
 	for( ; i; i = i->next )
 	{
-		if( !Q_stricmp( i->name, name ) )
+		int cmp = Q_stricmp( i->name, name );
+
+		if( cmp < 0 )
+			continue;
+
+		if( cmp > 0 )
+			break;
+
+		switch( i->type )
 		{
-			switch( i->type )
-			{
-			case HM_CMD:
-				*cmd = i->basecmd;
-				break;
-			case HM_CMDALIAS:
-				*alias = i->basecmd;
-				break;
-			case HM_CVAR:
-				*cvar = i->basecmd;
-				break;
-			default: break;
-			}
+		case HM_CMD:
+			*cmd = (cmd_t *)i->basecmd;
+			break;
+		case HM_CMDALIAS:
+			*alias = (cmdalias_t *)i->basecmd;
+			break;
+		case HM_CVAR:
+			*cvar = (convar_t *)i->basecmd;
+			break;
+		default:
+			break;
 		}
 	}
-
 }
 
 /*
@@ -113,41 +147,24 @@ Add new typed base command to hashmap
 */
 void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const char *name )
 {
-	uint hash = COM_HashKey( name, HASH_SIZE );
-	base_command_hashmap_t *elem;
+	base_command_hashmap_t *elem, *cur, *find;
+	uint hash = BaseCmd_HashKey( name );
+	size_t len = Q_strlen( name );
 
-	elem = Z_Malloc( sizeof( base_command_hashmap_t ) );
+	elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len + 1 );
 	elem->basecmd = basecmd;
 	elem->type = type;
-	elem->name = name;
-	elem->next = hashed_cmds[hash];
-	hashed_cmds[hash] = elem;
-}
+	Q_strncpy( elem->name, name, len + 1 );
 
-/*
-============
-BaseCmd_Replace
+	// link the variable in alphanumerical order
+	for( cur = NULL, find = hashed_cmds[hash];
+		  find && Q_stricmp( find->name, elem->name ) < 0;
+		  cur = find, find = find->next );
 
-Used in case, when basecmd has been registered, but gamedll wants to register it's own
-============
-*/
-qboolean BaseCmd_Replace( base_command_type_e type, base_command_t *basecmd, const char *name )
-{
-	base_command_hashmap_t *i = BaseCmd_GetBucket( name );
+	if( cur ) cur->next = elem;
+	else hashed_cmds[hash] = elem;
 
-	for( ; i && ( i->type != type || Q_stricmp( name, i->name ) ) ; // filter out
-		 i = i->next );
-
-	if( !i )
-	{
-		Con_Reportf( S_ERROR  "BaseCmd_Replace: couldn't find %s\n", name);
-		return false;
-	}
-
-	i->basecmd = basecmd;
-	i->name = name; // may be freed after
-
-	return true;
+	elem->next = find;
 }
 
 /*
@@ -159,16 +176,30 @@ Remove base command from hashmap
 */
 void BaseCmd_Remove( base_command_type_e type, const char *name )
 {
-	uint hash = COM_HashKey( name, HASH_SIZE );
+	uint hash = BaseCmd_HashKey( name );
 	base_command_hashmap_t *i, *prev;
 
-	for( prev = NULL, i = hashed_cmds[hash]; i &&
-		 ( Q_strcmp( i->name, name ) || i->type != type); // filter out
-		 prev = i, i = i->next );
+	for( prev = NULL, i = hashed_cmds[hash]; i != NULL; prev = i, i = i->next )
+	{
+		int cmp;
+
+		if( i->type != type )
+			continue;
+
+		cmp = Q_stricmp( i->name, name );
+
+		if( cmp < 0 )
+			continue;
+
+		if( cmp > 0 )
+			i = NULL;
+
+		break;
+	}
 
 	if( !i )
 	{
-		Con_Reportf( S_ERROR  "Couldn't find %s in buckets\n", name );
+		Con_Reportf( S_ERROR "%s: Couldn't find %s in buckets\n", __func__, name );
 		return;
 	}
 
@@ -189,7 +220,13 @@ initialize base command hashmap system
 */
 void BaseCmd_Init( void )
 {
+	basecmd_pool = Mem_AllocPool( "BaseCmd" );
 	memset( hashed_cmds, 0, sizeof( hashed_cmds ) );
+}
+
+void BaseCmd_Shutdown( void )
+{
+	Mem_FreePool( &basecmd_pool );
 }
 
 /*
@@ -221,23 +258,27 @@ void BaseCmd_Stats_f( void )
 
 		if( len > maxsize )
 			maxsize = len;
+
 	}
 
-	Con_Printf( "Base command stats:\n");
-	Con_Printf( "Bucket minimal length: %d\n", minsize );
-	Con_Printf( "Bucket maximum length: %d\n", maxsize );
-	Con_Printf( "Empty buckets: %d\n", empty );
+	Con_Printf( "min length: %d, max length: %d, empty: %d\n", minsize, maxsize, empty );
 }
+
+typedef struct
+{
+	qboolean valid;
+	int lookups;
+} basecmd_test_stats_t;
 
 static void BaseCmd_CheckCvars( const char *key, const char *value, const void *unused, void *ptr )
 {
-	base_command_t *v = BaseCmd_Find( HM_CVAR, key );
-	qboolean *invalid = ptr;
+	basecmd_test_stats_t *stats = ptr;
 
-	if( !v )
+	stats->lookups++;
+	if( !BaseCmd_Find( HM_CVAR, key ))
 	{
 		Con_Printf( "Cvar %s is missing in basecmd\n", key );
-		*invalid = true;
+		stats->valid = false;
 	}
 }
 
@@ -250,38 +291,51 @@ testing order matches cbuf execute
 */
 void BaseCmd_Test_f( void )
 {
-	void *cmd;
-	cmdalias_t *a;
-	qboolean invalid = false;
+	basecmd_test_stats_t stats;
+	double start, end, dt;
+	int i;
 
-	// Cmd_LookupCmds don't allows to check alias, so just iterate
-	for( a = Cmd_AliasGetList(); a; a = a->next )
+	stats.valid = true;
+	stats.lookups = 0;
+
+	start = Sys_DoubleTime() * 1000;
+
+	for( i = 0; i < 1000; i++ )
 	{
-		base_command_t *v = BaseCmd_Find( HM_CMDALIAS, a->name );
+		cmdalias_t *a;
+		void *cmd;
 
-		if( !v )
+		// Cmd_LookupCmds don't allows to check alias, so just iterate
+		for( a = Cmd_AliasGetList(); a; a = a->next, stats.lookups++ )
 		{
-			Con_Printf( "Alias %s is missing in basecmd\n", a->name );
-			invalid = true;
+			if( !BaseCmd_Find( HM_CMDALIAS, a->name ))
+			{
+				Con_Printf( "Alias %s is missing in basecmd\n", a->name );
+				stats.valid = false;
+			}
 		}
+
+		for( cmd = Cmd_GetFirstFunctionHandle(); cmd;
+			 cmd = Cmd_GetNextFunctionHandle( cmd ), stats.lookups++ )
+		{
+			if( !BaseCmd_Find( HM_CMD, Cmd_GetName( cmd )))
+			{
+				Con_Printf( "Command %s is missing in basecmd\n", Cmd_GetName( cmd ));
+				stats.valid = false;
+			}
+		}
+
+		Cvar_LookupVars( 0, NULL, &stats.valid, (setpair_t)BaseCmd_CheckCvars );
 	}
 
-	for( cmd = Cmd_GetFirstFunctionHandle(); cmd;
-		 cmd = Cmd_GetNextFunctionHandle( cmd ) )
-	{
-		base_command_t *v = BaseCmd_Find( HM_CMD, Cmd_GetName( cmd ) );
+	end = Sys_DoubleTime() * 1000;
 
-		if( !v )
-		{
-			Con_Printf( "Command %s is missing in basecmd\n", Cmd_GetName( cmd ) );
-			invalid = true;
-		}
-	}
+	dt = end - start;
 
-	Cvar_LookupVars( 0, NULL, &invalid, (setpair_t)BaseCmd_CheckCvars );
-
-	if( !invalid )
-	{
+	if( !stats.valid )
 		Con_Printf( "BaseCmd is valid\n" );
-	}
+
+	Con_Printf( "Test took %.3f ms, %d lookups, %.3f us/lookup\n", dt, stats.lookups, dt / stats.lookups * 1000 );
+
+	BaseCmd_Stats_f();
 }

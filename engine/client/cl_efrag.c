@@ -28,49 +28,50 @@ GNU General Public License for more details.
 ===============================================================================
 */
 
+#define NUM_EFRAGS_ALLOC 64 // alloc 64 efrags (1-2kb each alloc)
+
 static efrag_t	**lastlink;
 static mnode_t	*r_pefragtopnode;
 static vec3_t	r_emins, r_emaxs;
 static cl_entity_t	*r_addent;
+static int cl_efrags_num;
+static efrag_t *cl_efrags;
+
+static efrag_t *CL_AllocEfrags( int num )
+{
+	int i;
+	efrag_t *efrags;
+
+	if( !cl.worldmodel )
+	{
+		Host_Error( "%s: called with NULL world\n", __func__ );
+		return NULL;
+	}
+
+	if( num == 0 )
+		return NULL;
+
+	// set world to be the owner, so it will get automatically cleaned up
+	efrags = Mem_Calloc( cl.worldmodel->mempool, sizeof( *efrags ) * num );
+
+	// initialize linked list
+	for( i = 0; i < num - 1; i++ )
+		efrags[i].entnext = &efrags[i + 1];
+
+	cl_efrags_num += num;
+
+	return efrags;
+}
 
 /*
-================
-R_RemoveEfrags
-
-Call when removing an object from the world or moving it to another position
-================
+==============
+CL_ClearEfrags
+==============
 */
-void R_RemoveEfrags( cl_entity_t *ent )
+void CL_ClearEfrags( void )
 {
-	efrag_t	*ef, *old, *walk, **prev;
-
-	ef = ent->efrag;
-
-	while( ef )
-	{
-		prev = &ef->leaf->efrags;
-		while( 1 )
-		{
-			walk = *prev;
-			if( !walk ) break;
-
-			if( walk == ef )
-			{
-				// remove this fragment
-				*prev = ef->leafnext;
-				break;
-			}
-			else prev = &walk->leafnext;
-		}
-
-		old = ef;
-		ef = ef->entnext;
-
-		// put it on the free list
-		old->entnext = clgame.free_efrags;
-		clgame.free_efrags = old;
-	}
-	ent->efrag = NULL;
+	cl_efrags_num = 0;
+	cl_efrags = NULL;
 }
 
 /*
@@ -96,14 +97,11 @@ static void R_SplitEntityOnNode( mnode_t *node )
 		leaf = (mleaf_t *)node;
 
 		// grab an efrag off the free list
-		ef = clgame.free_efrags;
+		ef = cl_efrags;
 		if( !ef )
-		{
-			Con_Printf( S_ERROR "too many efrags!\n" );
-			return; // no free fragments...
-		}
+			ef = CL_AllocEfrags( NUM_EFRAGS_ALLOC );
 
-		clgame.free_efrags = ef->entnext;
+		cl_efrags = ef->entnext;
 		ef->entity = r_addent;
 
 		// add the entity link
@@ -129,8 +127,10 @@ static void R_SplitEntityOnNode( mnode_t *node )
 	}
 
 	// recurse down the contacted sides
-	if( sides & 1 ) R_SplitEntityOnNode( node->children[0] );
-	if( sides & 2 ) R_SplitEntityOnNode( node->children[1] );
+	if( sides & 1 )
+		R_SplitEntityOnNode( node_child( node, 0, cl.worldmodel ));
+	if( sides & 2 )
+		R_SplitEntityOnNode( node_child( node, 1, cl.worldmodel ));
 }
 
 /*
@@ -173,35 +173,29 @@ R_StoreEfrags
 */
 void R_StoreEfrags( efrag_t **ppefrag, int framecount )
 {
-	cl_entity_t	*pent;
-	model_t		*clmodel;
-	efrag_t		*pefrag;
+	efrag_t *pefrag;
+	cl_entity_t *pent;
+	model_t *clmodel;
 
 	while(( pefrag = *ppefrag ) != NULL )
 	{
 		pent = pefrag->entity;
 		clmodel = pent->model;
 
-		switch( clmodel->type )
-		{
-		case mod_alias:
-		case mod_brush:
-		case mod_studio:
-		case mod_sprite:
-			if( pent->visframe != framecount )
-			{
-				if( CL_AddVisibleEntity( pent, ET_FRAGMENTED ))
-				{
-					// mark that we've recorded this entity for this frame
-					pent->curstate.messagenum = cl.parsecount;
-					pent->visframe = framecount;
-				}
-			}
+		// how this could happen?
+		if( unlikely( clmodel->type < mod_brush || clmodel->type > mod_studio ))
+			continue;
 
-			ppefrag = &pefrag->leafnext;
-			break;
-		default:
-			break;
+		if( pent->visframe != framecount )
+		{
+			if( CL_AddVisibleEntity( pent, ET_FRAGMENTED ))
+			{
+				// mark that we've recorded this entity for this frame
+				pent->curstate.messagenum = cl.parsecount;
+				pent->visframe = framecount;
+			}
 		}
+
+		ppefrag = &pefrag->leafnext;
 	}
 }

@@ -73,7 +73,7 @@ GNU General Public License for more details.
 #define svc_director		51	// <variable sized>
 #define svc_voiceinit		52	// <see code>
 #define svc_voicedata		53	// [byte][short][...]
-#define svc_deltapacketbones		54	// [short][byte][...]
+// reserved
 // reserved
 #define svc_resourcelocation		56	// [string]
 #define svc_querycvarvalue		57	// [string]
@@ -93,7 +93,7 @@ GNU General Public License for more details.
 #define clc_voicedata		8
 #define clc_requestcvarvalue		9
 #define clc_requestcvarvalue2		10
-#define clc_lastmsg			10	// end client messages
+#define clc_lastmsg			11	// end client messages (11 is GoldSrc message)
 
 #define MAX_VISIBLE_PACKET_BITS	11	// 2048 visible entities per frame (hl1 has 256)
 #define MAX_VISIBLE_PACKET		(1<<MAX_VISIBLE_PACKET_BITS)
@@ -127,8 +127,8 @@ GNU General Public License for more details.
 #define MAX_CUSTOM			(1<<MAX_CUSTOM_BITS)// 10 bits == 1024 generic file
 #define MAX_USER_MESSAGES		197		// another 58 messages reserved for engine routines
 #define MAX_DLIGHTS			32		// dynamic lights (rendered per one frame)
-#define MAX_ELIGHTS			64		// entity only point lights
-#define MAX_LIGHTSTYLES		64		// original quake limit
+#define MAX_ELIGHTS			128		// a1ba: increased from 64 to 128, entity only point lights
+#define MAX_LIGHTSTYLES		256		// a1ba: increased from 64 to 256, protocol limit
 #define MAX_RENDER_DECALS		4096		// max rendering decals per a level
 
 // sound proto
@@ -167,8 +167,9 @@ GNU General Public License for more details.
 #define GAME_TEAMPLAY		4
 
 // Max number of history commands to send ( 2 by default ) in case of dropped packets
-#define NUM_BACKUP_COMMAND_BITS	4
-#define MAX_BACKUP_COMMANDS		(1 << NUM_BACKUP_COMMAND_BITS)
+#define NUM_BACKUP_COMMAND_BITS 4
+#define MAX_BACKUP_COMMANDS     BIT( NUM_BACKUP_COMMAND_BITS )
+#define MAX_TOTAL_CMDS          32
 
 #define MAX_RESOURCES		(MAX_MODELS+MAX_SOUNDS+MAX_CUSTOM+MAX_EVENTS)
 #define MAX_RESOURCE_BITS		13	// 13 bits 8192 resource (4096 models + 2048 sounds + 1024 events + 1024 files)
@@ -277,8 +278,10 @@ GNU General Public License for more details.
 #define SU_ARMOR		(1<<13)
 #define SU_WEAPON		(1<<14)
 
-extern const char	*svc_strings[svc_lastmsg+1];
-extern const char	*clc_strings[clc_lastmsg+1];
+extern const char *const svc_strings[svc_lastmsg+1];
+extern const char *const svc_legacy_strings[svc_lastmsg+1];
+extern const char *const svc_quake_strings[svc_lastmsg+1];
+extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 
 // FWGS extensions
 #define NET_EXT_SPLITSIZE (1U<<0) // set splitsize by cl_dlmax
@@ -298,7 +301,101 @@ extern const char	*clc_strings[clc_lastmsg+1];
 #define SND_LEGACY_LARGE_INDEX		(1<<2)	// a send sound as short
 #define MAX_LEGACY_ENTITY_BITS		12
 #define MAX_LEGACY_WEAPON_BITS		5
-#define MAX_LEGACY_MODEL_BITS 11
-#define MAX_LEGACY_TOTAL_CMDS 28 // magic number from old engine's sv_client.c
+#define MAX_LEGACY_MODEL_BITS  11
+#define MAX_LEGACY_TOTAL_CMDS  16 // 28 - 16 = 12 real legacy max backup
+#define MAX_LEGACY_BACKUP_CMDS 12
+
+#define MAX_LEGACY_EDICTS (1 << MAX_LEGACY_ENTITY_BITS) // 4096 edicts
+#define MIN_LEGACY_EDICTS 30
+
+// legacy engine features that can be implemented through currently supported features
+#define ENGINE_LEGACY_FEATURES_MASK   \
+	( ENGINE_WRITE_LARGE_COORD    \
+	| ENGINE_LOAD_DELUXEDATA      \
+	| ENGINE_LARGE_LIGHTMAPS      \
+	| ENGINE_COMPENSATE_QUAKE_BUG \
+	| ENGINE_COMPUTE_STUDIO_LERP  )
+
+// Master Server protocol
+#define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
+
+// GoldSrc protocol definitions
+#define PROTOCOL_GOLDSRC_VERSION 48
+
+#define svc_goldsrc_version           svc_changing
+#define svc_goldsrc_stopsound         svc_resource
+#define svc_goldsrc_damage            svc_restoresound
+#define svc_goldsrc_killedmonster     27
+#define svc_goldsrc_foundsecret       28
+#define svc_goldsrc_spawnstaticsound  29
+#define svc_goldsrc_decalname         svc_bspdecal
+#define svc_goldsrc_sendextrainfo     54
+#define svc_goldsrc_timescale         55
+
+#define clc_goldsrc_hltv              clc_requestcvarvalue  // 9
+#define clc_goldsrc_requestcvarvalue  clc_requestcvarvalue2 // 10
+#define clc_goldsrc_requestcvarvalue2 11
+#define clc_goldsrc_lastmsg           11
+
+#define MAX_GOLDSRC_BACKUP_CMDS   8
+#define MAX_GOLDSRC_TOTAL_CMDS    16
+#define MAX_GOLDSRC_EXTENDED_TOTAL_CMDS 62
+#define MAX_GOLDSRC_MODEL_BITS    10
+#define MAX_GOLDSRC_RESOURCE_BITS 12
+#define MAX_GOLDSRC_ENTITY_BITS   11
+// #define MAX_GOLDSRC_EDICTS        BIT( MAX_ENTITY_BITS )
+#define MAX_GOLDSRC_EDICTS        ( BIT( MAX_ENTITY_BITS ) + ( MAX_CLIENTS * 15 ))
+#define LAST_GOLDSRC_EDICT        ( BIT( MAX_ENTITY_BITS ) - 1 )
+
+
+// from any to any (must be handled on both server and client)
+
+#define A2A_PING         "ping" // reply with A2A_ACK
+#define A2A_ACK          "ack" // no-op
+#define A2A_INFO         "info" // different format for client and server, see code
+#define A2A_NETINFO      "netinfo" // different format for client and server, see code
+#define A2A_GOLDSRC_PING "i" // reply with A2A_GOLDSRC_ACK
+#define A2A_GOLDSRC_ACK  "j" // no-op
+
+// from any to server
+#define A2S_GOLDSRC_INFO    "TSource Engine Query"
+#define A2S_GOLDSRC_RULES   'V'
+#define A2S_GOLDSRC_PLAYERS 'U'
+
+// from server to any
+#define S2A_GOLDSRC_INFO    'I'
+#define S2A_GOLDSRC_RULES   'E'
+#define S2A_GOLDSRC_PLAYERS 'D'
+
+// from master to server
+#define M2S_CHALLENGE     "s"
+#define M2S_NAT_CONNECT   "c"
+
+// from server to master
+#define S2M_INFO          "0\n"
+
+// from client to server
+#define C2S_BANDWIDTHTEST "bandwidth"
+#define C2S_GETCHALLENGE  "getchallenge"
+#define C2S_CONNECT       "connect"
+#define C2S_RCON          "rcon"
+
+// from server to client
+#define S2C_BANDWIDTHTEST              "testpacket"
+#define S2C_CHALLENGE                  "challenge"
+#define S2C_CONNECTION                 "client_connect"
+#define S2C_ERRORMSG                   "errormsg"
+#define S2C_REJECT                     "disconnect"
+#define S2C_GOLDSRC_REJECT_BADPASSWORD '8'
+#define S2C_GOLDSRC_REJECT             '9'
+#define S2C_GOLDSRC_CHALLENGE          "A00000000"
+#define S2C_GOLDSRC_CONNECTION         "B"
+
+// from any to client
+#define A2C_PRINT           "print"
+#define A2C_GOLDSRC_PRINT   'l'
+
+// from master to client
+#define M2A_SERVERSLIST "f"
 
 #endif//NET_PROTOCOL_H

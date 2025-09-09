@@ -19,13 +19,6 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "xash3d_mathlib.h"
 
-const matrix3x4 matrix3x4_identity =
-{
-{ 1, 0, 0, 0 },	// PITCH	[forward], org[0]
-{ 0, 1, 0, 0 },	// YAW	[right]  , org[1]
-{ 0, 0, 1, 0 },	// ROLL	[up]     , org[2]
-};
-
 /*
 ========================================================================
 
@@ -81,20 +74,6 @@ void Matrix3x4_ConcatTransforms( matrix3x4 out, const matrix3x4 in1, const matri
 	out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] + in1[2][2] * in2[2][1];
 	out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] + in1[2][2] * in2[2][2];
 	out[2][3] = in1[2][0] * in2[0][3] + in1[2][1] * in2[1][3] + in1[2][2] * in2[2][3] + in1[2][3];
-}
-
-void Matrix3x4_SetOrigin( matrix3x4 out, float x, float y, float z )
-{
-	out[0][3] = x;
-	out[1][3] = y;
-	out[2][3] = z;
-}
-
-void Matrix3x4_OriginFromMatrix( const matrix3x4 in, float *out )
-{
-	out[0] = in[0][3];
-	out[1] = in[1][3];
-	out[2] = in[2][3];
 }
 
 void Matrix3x4_AnglesFromMatrix( const matrix3x4 in, vec3_t out )
@@ -217,62 +196,6 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 	}
 }
 
-void Matrix3x4_TransformPositivePlane( const matrix3x4 in, const vec3_t normal, float d, vec3_t out, float *dist )
-{
-	float	scale = sqrt( in[0][0] * in[0][0] + in[0][1] * in[0][1] + in[0][2] * in[0][2] );
-	float	iscale = 1.0f / scale;
-
-	out[0] = (normal[0] * in[0][0] + normal[1] * in[0][1] + normal[2] * in[0][2]) * iscale;
-	out[1] = (normal[0] * in[1][0] + normal[1] * in[1][1] + normal[2] * in[1][2]) * iscale;
-	out[2] = (normal[0] * in[2][0] + normal[1] * in[2][1] + normal[2] * in[2][2]) * iscale;
-	*dist = d * scale + ( out[0] * in[0][3] + out[1] * in[1][3] + out[2] * in[2][3] );
-}
-
-void Matrix3x4_Invert_Simple( matrix3x4 out, const matrix3x4 in1 )
-{
-	// we only support uniform scaling, so assume the first row is enough
-	// (note the lack of sqrt here, because we're trying to undo the scaling,
-	// this means multiplying by the inverse scale twice - squaring it, which
-	// makes the sqrt a waste of time)
-	float	scale = 1.0f / (in1[0][0] * in1[0][0] + in1[0][1] * in1[0][1] + in1[0][2] * in1[0][2]);
-
-	// invert the rotation by transposing and multiplying by the squared
-	// recipricol of the input matrix scale as described above
-	out[0][0] = in1[0][0] * scale;
-	out[0][1] = in1[1][0] * scale;
-	out[0][2] = in1[2][0] * scale;
-	out[1][0] = in1[0][1] * scale;
-	out[1][1] = in1[1][1] * scale;
-	out[1][2] = in1[2][1] * scale;
-	out[2][0] = in1[0][2] * scale;
-	out[2][1] = in1[1][2] * scale;
-	out[2][2] = in1[2][2] * scale;
-
-	// invert the translate
-	out[0][3] = -(in1[0][3] * out[0][0] + in1[1][3] * out[0][1] + in1[2][3] * out[0][2]);
-	out[1][3] = -(in1[0][3] * out[1][0] + in1[1][3] * out[1][1] + in1[2][3] * out[1][2]);
-	out[2][3] = -(in1[0][3] * out[2][0] + in1[1][3] * out[2][1] + in1[2][3] * out[2][2]);
-}
-
-void Matrix3x4_Transpose( matrix3x4 out, const matrix3x4 in1 )
-{
-	// transpose only rotational component
-	out[0][0] = in1[0][0];
-	out[0][1] = in1[1][0];
-	out[0][2] = in1[2][0];
-	out[1][0] = in1[0][1];
-	out[1][1] = in1[1][1];
-	out[1][2] = in1[2][1];
-	out[2][0] = in1[0][2];
-	out[2][1] = in1[1][2];
-	out[2][2] = in1[2][2];
-
-	// copy origin
-	out[0][3] = in1[0][3];
-	out[1][3] = in1[1][3];
-	out[2][3] = in1[2][3];
-}
-
 /*
 ==================
 Matrix3x4_TransformAABB
@@ -287,21 +210,13 @@ void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const ve
 	VectorSubtract( maxs, localCenter, localExtents );
 
 	Matrix3x4_VectorTransform( world, localCenter, worldCenter );
-	worldExtents[0] = DotProductAbs( localExtents, world[0] );	// auto-transposed!
-	worldExtents[1] = DotProductAbs( localExtents, world[1] );
-	worldExtents[2] = DotProductAbs( localExtents, world[2] );
+	worldExtents[0] = DotProductFabs( localExtents, world[0] );	// auto-transposed!
+	worldExtents[1] = DotProductFabs( localExtents, world[1] );
+	worldExtents[2] = DotProductFabs( localExtents, world[2] );
 
 	VectorSubtract( worldCenter, worldExtents, absmin );
 	VectorAdd( worldCenter, worldExtents, absmax );
 }
-
-const matrix4x4 matrix4x4_identity =
-{
-{ 1, 0, 0, 0 },	// PITCH
-{ 0, 1, 0, 0 },	// YAW
-{ 0, 0, 1, 0 },	// ROLL
-{ 0, 0, 0, 1 },	// ORIGIN
-};
 
 /*
 ========================================================================
@@ -358,40 +273,6 @@ void Matrix4x4_ConcatTransforms( matrix4x4 out, const matrix4x4 in1, const matri
 	out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] + in1[2][2] * in2[2][1];
 	out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] + in1[2][2] * in2[2][2];
 	out[2][3] = in1[2][0] * in2[0][3] + in1[2][1] * in2[1][3] + in1[2][2] * in2[2][3] + in1[2][3];
-}
-
-void Matrix4x4_SetOrigin( matrix4x4 out, float x, float y, float z )
-{
-	out[0][3] = x;
-	out[1][3] = y;
-	out[2][3] = z;
-}
-
-void Matrix4x4_OriginFromMatrix( const matrix4x4 in, float *out )
-{
-	out[0] = in[0][3];
-	out[1] = in[1][3];
-	out[2] = in[2][3];
-}
-
-void Matrix4x4_FromOriginQuat( matrix4x4 out, const vec4_t quaternion, const vec3_t origin )
-{
-	out[0][0] = 1.0f - 2.0f * quaternion[1] * quaternion[1] - 2.0f * quaternion[2] * quaternion[2];
-	out[1][0] = 2.0f * quaternion[0] * quaternion[1] + 2.0f * quaternion[3] * quaternion[2];
-	out[2][0] = 2.0f * quaternion[0] * quaternion[2] - 2.0f * quaternion[3] * quaternion[1];
-	out[0][3] = origin[0];
-	out[0][1] = 2.0f * quaternion[0] * quaternion[1] - 2.0f * quaternion[3] * quaternion[2];
-	out[1][1] = 1.0f - 2.0f * quaternion[0] * quaternion[0] - 2.0f * quaternion[2] * quaternion[2];
-	out[2][1] = 2.0f * quaternion[1] * quaternion[2] + 2.0f * quaternion[3] * quaternion[0];
-	out[1][3] = origin[1];
-	out[0][2] = 2.0f * quaternion[0] * quaternion[2] + 2.0f * quaternion[3] * quaternion[1];
-	out[1][2] = 2.0f * quaternion[1] * quaternion[2] - 2.0f * quaternion[3] * quaternion[0];
-	out[2][2] = 1.0f - 2.0f * quaternion[0] * quaternion[0] - 2.0f * quaternion[1] * quaternion[1];
-	out[2][3] = origin[2];
-	out[3][0] = 0.0f;
-	out[3][1] = 0.0f;
-	out[3][2] = 0.0f;
-	out[3][3] = 1.0f;
 }
 
 void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_t origin, float scale )
@@ -525,17 +406,6 @@ void Matrix4x4_TransformPositivePlane( const matrix4x4 in, const vec3_t normal, 
 	*dist = d * scale + ( out[0] * in[0][3] + out[1] * in[1][3] + out[2] * in[2][3] );
 }
 
-void Matrix4x4_TransformStandardPlane( const matrix4x4 in, const vec3_t normal, float d, vec3_t out, float *dist )
-{
-	float scale = sqrt( in[0][0] * in[0][0] + in[0][1] * in[0][1] + in[0][2] * in[0][2] );
-	float iscale = 1.0f / scale;
-
-	out[0] = (normal[0] * in[0][0] + normal[1] * in[0][1] + normal[2] * in[0][2]) * iscale;
-	out[1] = (normal[0] * in[1][0] + normal[1] * in[1][1] + normal[2] * in[1][2]) * iscale;
-	out[2] = (normal[0] * in[2][0] + normal[1] * in[2][1] + normal[2] * in[2][2]) * iscale;
-	*dist = d * scale - ( out[0] * in[0][3] + out[1] * in[1][3] + out[2] * in[2][3] );
-}
-
 void Matrix4x4_Invert_Simple( matrix4x4 out, const matrix4x4 in1 )
 {
 	// we only support uniform scaling, so assume the first row is enough
@@ -566,26 +436,6 @@ void Matrix4x4_Invert_Simple( matrix4x4 out, const matrix4x4 in1 )
 	out[3][1] = 0.0f;
 	out[3][2] = 0.0f;
 	out[3][3] = 1.0f;
-}
-
-void Matrix4x4_Transpose( matrix4x4 out, const matrix4x4 in1 )
-{
-	out[0][0] = in1[0][0];
-	out[0][1] = in1[1][0];
-	out[0][2] = in1[2][0];
-	out[0][3] = in1[3][0];
-	out[1][0] = in1[0][1];
-	out[1][1] = in1[1][1];
-	out[1][2] = in1[2][1];
-	out[1][3] = in1[3][1];
-	out[2][0] = in1[0][2];
-	out[2][1] = in1[1][2];
-	out[2][2] = in1[2][2];
-	out[2][3] = in1[3][2];
-	out[3][0] = in1[0][3];
-	out[3][1] = in1[1][3];
-	out[3][2] = in1[2][3];
-	out[3][3] = in1[3][3];
 }
 
 qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 )

@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ "$XASH3D_BASEDIR" = "" ]; then
+	export XASH3D_BASEDIR="$PWD"
+fi
+echo "Xash3D FWGS installed as AppImage."
+echo "Base directory is $XASH3D_BASEDIR. Set XASH3D_BASEDIR environment variable to override this."
+
+export XASH3D_EXTRAS_PAK1="${APPDIR}/valve/extras.pk3"
+exec $DEBUGGER "${APPDIR}/xash3d" "$@"

@@ -1,5 +1,5 @@
 /*
-sys_win.c - platform dependent code
+sys_win.c - platform dependent code (which haven't moved to platform dir yet)
 Copyright (C) 2011 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
@@ -19,14 +19,19 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include <errno.h>
 
-#ifdef XASH_SDL
+#if _MSC_VER
+#include <intrin.h>
+#endif
+
+#if XASH_SDL == 2
 #include <SDL.h>
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h>
 #endif
 
 #if XASH_POSIX
 #include <unistd.h>
 #include <signal.h>
-#include <dlfcn.h>
 
 #if !XASH_ANDROID
 #include <pwd.h>
@@ -37,13 +42,20 @@ GNU General Public License for more details.
 #include <process.h>
 #endif
 
+#if XASH_NSWITCH
+#include <switch.h>
+#endif
+
+#if XASH_PSVITA
+#include <vitasdk.h>
+#endif
+
 #include "menu_int.h" // _UPDATE_PAGE macro
 
 #include "library.h"
 #include "whereami.h"
 
-qboolean	error_on_exit = false;	// arg for exit();
-#define DEBUG_BREAK
+int error_on_exit = 0;	// arg for exit();
 
 /*
 ================
@@ -54,23 +66,36 @@ double GAME_EXPORT Sys_DoubleTime( void )
 {
 	return Platform_DoubleTime();
 }
-#if XASH_LINUX || ( XASH_WIN32 && !XASH_64BIT )
-	#undef DEBUG_BREAK
-	qboolean Sys_DebuggerPresent( void ); // see sys_linux.c
-	#if XASH_MSVC
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				_asm{ int 3 }
-	#elif XASH_X86
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				asm volatile("int $3;")
-	#else
-		#define DEBUG_BREAK \
-			if( Sys_DebuggerPresent() ) \
-				raise( SIGINT )
-	#endif
-#endif
+
+/*
+================
+Sys_DebugBreak
+================
+*/
+void Sys_DebugBreak( void )
+{
+	qboolean was_grabbed = false;
+
+	if( !Sys_DebuggerPresent( ))
+		return;
+
+	if( host.hWnd ) // so annoying
+	{
+		was_grabbed = Platform_GetMouseGrab();
+		Platform_SetMouseGrab( false );
+	}
+
+#if _MSC_VER
+	__debugbreak();
+#else // !_MSC_VER
+	INLINE_RAISE( SIGINT );
+	INLINE_NANOSLEEP1(); // sometimes signal comes with delay, let it interrupt nanosleep
+#endif // !_MSC_VER
+
+	if( was_grabbed )
+		Platform_SetMouseGrab( true );
+}
+
 #if !XASH_DEDICATED
 /*
 ================
@@ -93,22 +118,6 @@ char *Sys_GetClipboardData( void )
 
 /*
 ================
-Sys_Sleep
-
-freeze application for some time
-================
-*/
-void Sys_Sleep( int msec )
-{
-	if( !msec )
-		return;
-
-	msec = Q_min( msec, 1000 );
-	Platform_Sleep( msec );
-}
-
-/*
-================
 Sys_GetCurrentUser
 
 returns username for current profile
@@ -116,18 +125,34 @@ returns username for current profile
 */
 const char *Sys_GetCurrentUser( void )
 {
+	// TODO: move to platform
 #if XASH_WIN32
-	static string	s_userName;
-	unsigned long size = sizeof( s_userName );
+	static wchar_t sw_userName[MAX_STRING];
+	DWORD size = ARRAYSIZE( sw_userName );
 
-	if( GetUserName( s_userName, &size ))
+	if( GetUserNameW( sw_userName, &size ) && sw_userName[0] != 0 )
+	{
+		static char s_userName[MAX_STRING * 4];
+
+		// set length to -1, so it will null terminate
+		WideCharToMultiByte( CP_UTF8, 0, sw_userName, -1, s_userName, sizeof( s_userName ), NULL, NULL );
 		return s_userName;
-#elif XASH_POSIX && !XASH_ANDROID
-	uid_t uid = geteuid();
-	struct passwd *pw = getpwuid( uid );
+	}
+#elif XASH_PSVITA
+	static string username;
+	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
+	if( COM_CheckStringEmpty( username ))
+		return username;
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
+	static string username;
+	struct passwd *pw = getpwuid( geteuid( ));
 
-	if( pw )
-		return pw->pw_name;
+	// POSIX standard says pw _might_ point to static area, so let's make a copy
+	if( pw && COM_CheckString( pw->pw_name ))
+	{
+		Q_strncpy( username, pw->pw_name, sizeof( username ));
+		return username;
+	}
 #endif
 	return "Player";
 }
@@ -160,27 +185,6 @@ void Sys_ParseCommandLine( int argc, char** argv )
 		else if( !Q_stricmp( "+load", host.argv[i] )) host.argv[i] = (char *)blank;
 		// changelevel beetwen games? wow it's great idea!
 		else if( !Q_stricmp( "+changelevel", host.argv[i] )) host.argv[i] = (char *)blank;
-	}
-}
-
-/*
-==================
-Sys_MergeCommandLine
-
-==================
-*/
-void Sys_MergeCommandLine( void )
-{
-	const char	*blank = "censored";
-	int		i;
-
-	if( !host.change_game ) return;
-
-	for( i = 0; i < host.argc; i++ )
-	{
-		// second call
-		if( Host_IsDedicated() && !Q_strnicmp( "+menu_", host.argv[i], 6 ))
-			host.argv[i] = (char *)blank;
 	}
 }
 
@@ -240,28 +244,12 @@ qboolean Sys_GetIntFromCmdLine( const char* argName, int *out )
 	return true;
 }
 
-void Sys_SendKeyEvents( void )
-{
-#if XASH_WIN32
-	MSG	msg;
-
-	while( PeekMessage( &msg, NULL, 0, 0, PM_NOREMOVE ))
-	{
-		if( !GetMessage( &msg, NULL, 0, 0 ))
-			Sys_Quit ();
-
-		TranslateMessage( &msg );
-		DispatchMessage( &msg );
-	}
-#endif
-}
-
 //=======================================================================
 //			DLL'S MANAGER SYSTEM
 //=======================================================================
 qboolean Sys_LoadLibrary( dll_info_t *dll )
 {
-	const dllfunc_t	*func;
+	size_t i;
 	string		errorstring;
 
 	// check errors
@@ -271,14 +259,10 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	if( !dll->name || !*dll->name )
 		return false; // nothing to load
 
-	Con_Reportf( "Sys_LoadLibrary: Loading %s", dll->name );
+	Con_Reportf( "%s: Loading %s", __func__, dll->name );
 
-	if( dll->fcts )
-	{
-		// lookup export table
-		for( func = dll->fcts; func && func->name != NULL; func++ )
-			*func->func = NULL;
-	}
+	if( dll->fcts ) // lookup export table
+		ClearExports( dll->fcts, dll->num_fcts );
 
 	if( !dll->link )
 		dll->link = COM_LoadLibrary( dll->name, false, true ); // environment pathes
@@ -291,9 +275,10 @@ qboolean Sys_LoadLibrary( dll_info_t *dll )
 	}
 
 	// Get the function adresses
-	for( func = dll->fcts; func && func->name != NULL; func++ )
+	for( i = 0; i < dll->num_fcts; i++ )
 	{
-		if( !( *func->func = Sys_GetProcAddress( dll, func->name )))
+		const dllfunc_t *func = &dll->fcts[i];
+		if( !( *func->func = COM_GetProcAddress( dll->link, func->name )))
 		{
 			Q_snprintf( errorstring, sizeof( errorstring ), "Sys_LoadLibrary: %s missing or invalid function (%s)\n", dll->name, func->name );
 			goto error;
@@ -306,17 +291,9 @@ error:
 	Con_Reportf( " - failed\n" );
 	Sys_FreeLibrary( dll ); // trying to free
 	if( dll->crash ) Sys_Error( "%s", errorstring );
-	else Con_Reportf( S_ERROR  "%s", errorstring );
+	else Con_Reportf( S_ERROR "%s", errorstring );
 
 	return false;
-}
-
-void* Sys_GetProcAddress( dll_info_t *dll, const char* name )
-{
-	if( !dll || !dll->link ) // invalid desc
-		return NULL;
-
-	return (void *)COM_GetProcAddress( dll->link, name );
 }
 
 qboolean Sys_FreeLibrary( dll_info_t *dll )
@@ -328,13 +305,15 @@ qboolean Sys_FreeLibrary( dll_info_t *dll )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", dll->name );
+		Con_Reportf( "%s: hold %s for debugging\n", __func__, dll->name );
 		return false;
 	}
-	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", dll->name );
+	else Con_Reportf( "%s: Unloading %s\n", __func__, dll->name );
 
 	COM_FreeLibrary( dll->link );
 	dll->link = NULL;
+
+	ClearExports( dll->fcts, dll->num_fcts );
 
 	return true;
 }
@@ -346,7 +325,7 @@ Sys_WaitForQuit
 wait for 'Esc' key will be hit
 ================
 */
-void Sys_WaitForQuit( void )
+static void Sys_WaitForQuit( void )
 {
 #if XASH_WIN32
 	MSG	msg;
@@ -360,7 +339,7 @@ void Sys_WaitForQuit( void )
 			TranslateMessage( &msg );
 			DispatchMessage( &msg );
 		}
-		else Sys_Sleep( 20 );
+		else Platform_Sleep( 20 );
 	}
 #endif
 }
@@ -377,14 +356,16 @@ void Sys_Warn( const char *format, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
-	DEBUG_BREAK;
-
 	va_start( argptr, format );
 	Q_vsnprintf( text, MAX_PRINT_MSG, format, argptr );
 	va_end( argptr );
-	Msg( "Sys_Warn: %s\n", text );
+
+	Sys_DebugBreak();
+
+	Msg( "%s: %s\n", __func__, text );
+
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
-		MSGBOX(text);
+		Platform_MessageBox( "Xash Warning", text, true );
 }
 
 /*
@@ -400,31 +381,36 @@ void Sys_Error( const char *error, ... )
 	va_list	argptr;
 	char	text[MAX_PRINT_MSG];
 
-	DEBUG_BREAK;
+	// enable cursor before debugger call
+	if( !Host_IsDedicated( ))
+		Platform_SetCursorType( dc_arrow );
 
 	if( host.status == HOST_ERR_FATAL )
 		return; // don't multiple executes
 
-	// make sure what console received last message
-	if( host.change_game ) Sys_Sleep( 200 );
+	// make sure that console received last message
+	if( host.change_game ) Platform_Sleep( 200 );
 
-	error_on_exit = true;
+	error_on_exit = 1;
 	host.status = HOST_ERR_FATAL;
 	va_start( argptr, error );
 	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
 	va_end( argptr );
 
+	Sys_DebugBreak();
+
 	SV_SysError( text );
 
 	if( !Host_IsDedicated() )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 		if( host.hWnd ) SDL_HideWindow( host.hWnd );
 #endif
 #if XASH_WIN32
 		Wcon_ShowConsole( false );
 #endif
-		MSGBOX( text );
+		Sys_Print( text );
+		Platform_MessageBox( "Xash Error", text, true );
 	}
 	else
 	{
@@ -435,22 +421,17 @@ void Sys_Error( const char *error, ... )
 		Sys_Print( text );	// print error message
 		Sys_WaitForQuit();
 	}
-	
-	Sys_Quit();
+
+	Sys_Quit( "caught an error" );
 }
 
 #if XASH_EMSCRIPTEN
-/* strange glitchy bug on emscripten
-_exit->_Exit->asm._exit->_exit
-As we do not need atexit(), just throw hidden exception
-*/
 #include <emscripten.h>
 #define exit my_exit
-void my_exit(int ret)
+void my_exit( int ret )
 {
 	emscripten_cancel_main_loop();
-	printf("exit(%d)\n", ret);
-	EM_ASM(if(showElement)showElement('reload', true);throw 'SimulateInfiniteLoop');
+	emscripten_force_exit( ret );
 }
 #endif
 
@@ -459,10 +440,14 @@ void my_exit(int ret)
 Sys_Quit
 ================
 */
-void Sys_Quit( void )
+void Sys_Quit( const char *reason )
 {
-	Host_Shutdown();
+	Host_ShutdownWithReason( reason );
+#if XASH_ANDROID
+	Host_ExitInMain();
+#else
 	exit( error_on_exit );
+#endif
 }
 
 /*
@@ -539,7 +524,7 @@ void Sys_Print( const char *pMsg )
 
 	Sys_PrintLog( pMsg );
 
-	Rcon_Print( pMsg );
+	Rcon_Print( &host.rd, pMsg );
 }
 
 /*
@@ -553,8 +538,21 @@ but since engine will be unloaded during this call
 it explicitly doesn't use internal allocation or string copy utils
 ==================
 */
-qboolean Sys_NewInstance( const char *gamedir )
+qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 {
+#if XASH_NSWITCH
+	char newargs[4096];
+	const char *exe = host.argv[0]; // arg 0 is always the full NRO path
+
+	// TODO: carry over the old args (assuming you can even pass any)
+	Q_snprintf( newargs, sizeof( newargs ), "%s -game %s", exe, gamedir );
+	// just restart the entire thing
+	printf( "envSetNextLoad exe: `%s`\n", exe );
+	printf( "envSetNextLoad argv:\n`%s`\n", newargs );
+	Host_ShutdownWithReason( finalmsg );
+	envSetNextLoad( exe, newargs );
+	exit( 0 );
+#else
 	int i = 0;
 	qboolean replacedArg = false;
 	size_t exelen;
@@ -586,14 +584,21 @@ qboolean Sys_NewInstance( const char *gamedir )
 	newargs[i++] = strdup( "-changegame" );
 	newargs[i] = NULL;
 
+#if XASH_PSVITA
+	// under normal circumstances it's always going to be the same path
+	exe = strdup( "app0:/eboot.bin" );
+	Host_ShutdownWithReason( finalmsg );
+	sceAppMgrLoadExec( exe, newargs, NULL );
+#else
 	exelen = wai_getExecutablePath( NULL, 0, NULL );
 	exe = malloc( exelen + 1 );
 	wai_getExecutablePath( exe, exelen, NULL );
 	exe[exelen] = 0;
 
-	Host_Shutdown();
+	Host_ShutdownWithReason( finalmsg );
 
 	execv( exe, newargs );
+#endif
 
 	// if execv returned, it's probably an error
 	printf( "execv failed: %s", strerror( errno ));
@@ -602,6 +607,35 @@ qboolean Sys_NewInstance( const char *gamedir )
 		free( newargs[i] );
 	free( newargs );
 	free( exe );
+#endif
 
 	return false;
+}
+
+
+/*
+==================
+Sys_GetNativeObject
+
+Get platform-specific native object
+==================
+*/
+void *Sys_GetNativeObject( const char *obj )
+{
+	void *ptr;
+
+	if( !COM_CheckString( obj ))
+		return NULL;
+
+	ptr = FS_GetNativeObject( obj );
+
+	if( ptr )
+		return ptr;
+
+	// Backend should consider that obj is case-sensitive
+#if XASH_ANDROID
+	ptr = Android_GetNativeObject( obj );
+#endif // XASH_ANDROID
+
+	return ptr;
 }

@@ -1,0 +1,17 @@
+[Desktop Entry]
+Categories=Game;Shooter;
+Comment=Half-Life compatible game engine
+Exec=__REPLACE_EXEC__
+Icon=__REPLACE_ICON__
+Keywords=first;person;shooter;multiplayer;half-life;halflife;singleplayer;
+Name=Xash3D FWGS
+Name[en]=Xash3D FWGS
+PrefersNonDefaultGPU=true
+Terminal=false
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+
+[X-Sailjail]
+Permissions=Audio;Internet;Microphone;PublicDir;
+OrganizationName=su.xash
+ApplicationName=Engine

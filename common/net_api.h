@@ -27,6 +27,7 @@
 // Set this flag for things like broadcast requests, etc. where the engine should not
 // kill the request hook after receiving the first response
 #define FNETAPI_MULTIPLE_RESPONSE		( 1<<0 )
+#define FNETAPI_LEGACY_PROTOCOL			( 1<<1 ) // xash3d-fwgs extension
 
 struct net_response_s;
 typedef void (*net_api_response_func_t) ( struct net_response_s *response );
@@ -35,6 +36,7 @@ typedef void (*net_api_response_func_t) ( struct net_response_s *response );
 #define NET_ERROR_TIMEOUT			( 1<<0 )
 #define NET_ERROR_PROTO_UNSUPPORTED		( 1<<1 )
 #define NET_ERROR_UNDEFINED			( 1<<2 )
+#define NET_ERROR_FORBIDDEN			( 1<<3 ) // xash3d-fwgs extension
 
 typedef struct net_adrlist_s
 {

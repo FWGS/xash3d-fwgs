@@ -405,12 +405,15 @@ static cldll_func_dst_t cldllFuncDst =
 
 void CL_GetSecuredClientAPI( CL_EXPORT_FUNCS F )
 {
-	cldll_func_src_t cldllFuncSrc = { 0 };
 	modfuncs_t modFuncs = { 0 };
 
 	// secured client dlls need these
-	*(cldll_func_dst_t **)&cldllFuncSrc.pfnVidInit = &cldllFuncDst;
-	*(modfuncs_t **)&cldllFuncSrc.pfnInitialize = &modFuncs;
+	cldll_func_src_t cldllFuncSrc =
+	{
+		(void *)&modFuncs,
+		NULL,
+		(void *)&cldllFuncDst
+	};
 
 	// trying to fill interface now
 	F( &cldllFuncSrc );

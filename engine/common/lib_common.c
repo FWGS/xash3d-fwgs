@@ -65,7 +65,7 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 
 		if( f ) return f;
 	}
-#elif XASH_MSVC
+#elif _MSC_VER
 	// TODO: COM_ConvertToLocalPlatform doesn't support MSVC yet
 	// also custom loader strips always MSVC mangling, so Win32
 	// platforms already use platform-neutral names
@@ -81,8 +81,8 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 const char *COM_OffsetNameForFunction( void *function )
 {
 	static string sname;
-	Q_snprintf( sname, MAX_STRING, "ofs:%lu", (size_t)((byte*)function - (byte*)svgame.dllFuncs.pfnGameInit) );
-	Con_Reportf( "COM_OffsetNameForFunction %s\n", sname );
+	Q_snprintf( sname, MAX_STRING, "ofs:%zu", ((byte*)function - (byte*)svgame.dllFuncs.pfnGameInit) );
+	Con_Reportf( "%s: %s\n", __func__, sname );
 	return sname;
 }
 
@@ -128,9 +128,9 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 
 static void COM_GenerateCommonLibraryName( const char *name, const char *ext, char *out, size_t size )
 {
-#if ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
+#if ( XASH_WIN32 || ( XASH_LINUX && !XASH_ANDROID ) || XASH_APPLE ) && XASH_X86
 	Q_snprintf( out, size, "%s.%s", name, ext );
-#elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE )
+#elif XASH_WIN32 || ( XASH_LINUX && !XASH_ANDROID ) || XASH_APPLE
 	Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
 #else
 	Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), ext );
@@ -151,11 +151,30 @@ static void COM_GenerateClientLibraryPath( const char *name, char *out, size_t s
 #else
 	string dllpath;
 
-	// we don't have any library prefixes, so we can safely append dll_path here
+#if XASH_ANDROID
+	Q_snprintf( dllpath, sizeof( dllpath ), "%s/lib%s", GI->dll_path, name );
+#else
 	Q_snprintf( dllpath, sizeof( dllpath ), "%s/%s", GI->dll_path, name );
+#endif
 
 	COM_GenerateCommonLibraryName( dllpath, OS_LIB_EXT, out, size );
 #endif
+}
+
+/*
+==============
+COM_StripIntelSuffix
+
+Some modders use _i?86 suffix in game library name
+So strip it to follow library naming for non-Intel CPUs
+==============
+*/
+static inline void COM_StripIntelSuffix( char *out )
+{
+	char *suffix = Q_strrchr( out, '_' );
+
+	if( suffix && Q_stricmpext( "_i?86", suffix ))
+		*suffix = 0;
 }
 
 /*
@@ -165,35 +184,60 @@ COM_GenerateServerLibraryPath
 Generates platform-unique and compatible name for server library
 ==============
 */
-static void COM_GenerateServerLibraryPath( char *out, size_t size )
+static void COM_GenerateServerLibraryPath( const char *alt_dllname, char *out, size_t size )
 {
 #ifdef XASH_INTERNAL_GAMELIBS // assuming library loader knows where to get libraries
 	Q_strncpy( out, "server", size );
-#elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
-
-#if XASH_WIN32
+#elif XASH_X86 && XASH_WIN32
 	Q_strncpy( out, GI->game_dll, size );
-#elif XASH_APPLE
+#elif XASH_X86 && XASH_APPLE
 	Q_strncpy( out, GI->game_dll_osx, size );
-#else // XASH_LINUX
+#elif XASH_X86 && XASH_LINUX && !XASH_ANDROID
 	Q_strncpy( out, GI->game_dll_linux, size );
-#endif
+	COM_StripExtension( out );
 
+	// GoldSrc actually strips everything after '_', causing issues for mods that have '_' in the DLL name on Linux
+	// e.g. delta_particles.so becomes delta.so. We're gonna be smarter and just drop the _i?86 if it matches...
+	// ... until somebody complains :)
+	COM_StripIntelSuffix( out );
+	COM_DefaultExtension( out, "." OS_LIB_EXT, size );
 #else
-	string dllpath;
-	const char *ext;
+	string temp, dir, dllpath, ext;
+	const char *dllname;
 
 #if XASH_WIN32
-	Q_strncpy( dllpath, GI->game_dll, sizeof( dllpath ) );
+	Q_strncpy( temp, GI->game_dll, sizeof( temp ));
 #elif XASH_APPLE
-	Q_strncpy( dllpath, GI->game_dll_osx, sizeof( dllpath ) );
-#else // XASH_APPLE
-	Q_strncpy( dllpath, GI->game_dll_linux, sizeof( dllpath ) );
+	Q_strncpy( temp, GI->game_dll_osx, sizeof( temp ));
+#else
+	Q_strncpy( temp, GI->game_dll_linux, sizeof( temp ));
 #endif
 
-	ext = COM_FileExtension( dllpath );
-	COM_StripExtension( dllpath );
+	// path to the dll directory
+	COM_ExtractFilePath( temp, dir );
 
+	if( alt_dllname )
+	{
+		dllname = alt_dllname;
+		Q_strncpy( ext, OS_LIB_EXT, sizeof( ext ));
+	}
+	else
+	{
+		// cleaned up dll name
+		Q_strncpy( ext, COM_FileExtension( temp ), sizeof( ext ));
+		COM_StripExtension( temp );
+		COM_StripIntelSuffix( temp );
+		dllname = COM_FileWithoutPath( temp );
+	}
+
+	// add `lib` prefix if required by platform
+#if XASH_ANDROID
+	Q_snprintf( dllpath, sizeof( dllpath ), "%s/lib%s", dir, dllname );
+#else
+	Q_snprintf( dllpath, sizeof( dllpath ), "%s/%s", dir, dllname );
+#endif
+
+	// and finally add platform suffix
 	COM_GenerateCommonLibraryName( dllpath, ext, out, size );
 #endif
 }
@@ -211,30 +255,34 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 	switch( eLibType )
 	{
 	case LIBRARY_GAMEUI:
-		COM_GenerateClientLibraryPath( "menu", out, size );
+		if( COM_CheckStringEmpty( host.menulib ))
+		{
+			if( host.menulib[0] == '@' )
+				COM_GenerateClientLibraryPath( host.menulib + 1, out, size );
+			else Q_strncpy( out, host.menulib, size );
+		}
+		else COM_GenerateClientLibraryPath( "menu", out, size );
 		break;
 	case LIBRARY_CLIENT:
-		if( SI.clientlib[0] )
+		if( COM_CheckStringEmpty( host.clientlib ))
 		{
-			Q_strncpy( out, SI.clientlib, size );
+			if( host.clientlib[0] == '@' )
+				COM_GenerateClientLibraryPath( host.clientlib + 1, out, size );
+			else Q_strncpy( out, host.clientlib, size );
 		}
-		else
-		{
-			COM_GenerateClientLibraryPath( "client", out, size );
-		}
+		else COM_GenerateClientLibraryPath( "client", out, size );
 		break;
 	case LIBRARY_SERVER:
-		if( SI.gamedll[0] )
+		if( COM_CheckStringEmpty( host.gamedll ))
 		{
-			Q_strncpy( out, SI.gamedll, size );
+			if( host.gamedll[0] == '@' )
+				COM_GenerateServerLibraryPath( host.gamedll + 1, out, size );
+			else Q_strncpy( out, host.gamedll, size );
 		}
-		else
-		{
-			COM_GenerateServerLibraryPath( out, size );
-		}
+		else COM_GenerateServerLibraryPath( NULL, out, size );
 		break;
 	default:
-		ASSERT( true );
+		ASSERT( 0 );
 		out[0] = 0;
 		break;
 	}
@@ -342,7 +390,7 @@ static char *COM_GetItaniumName( const char * const in_name )
 
 	if( i == MAX_NESTED_NAMESPACES )
 	{
-		Con_DPrintf( "%s: too much nested namespaces: %s\n", __FUNCTION__, in_name );
+		Con_DPrintf( "%s: too much nested namespaces: %s\n", __func__, in_name );
 		return NULL;
 	}
 
@@ -356,7 +404,7 @@ static char *COM_GetItaniumName( const char * const in_name )
 	return out_name;
 
 invalid_format:
-	Con_DPrintf( "%s: invalid format: %s\n", __FUNCTION__, in_name );
+	Con_DPrintf( "%s: invalid format: %s\n", __func__, in_name );
 	return NULL;
 }
 
@@ -393,16 +441,18 @@ char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, siz
 
 		if( at ) len = (uint)( at - prev );
 		else len = (uint)Q_strlen( prev );
+
 		Q_strncpy( symbols[i], prev, Q_min( len + 1, sizeof( symbols[i] )));
-		prev = at + 1;
 
 		if( !at )
 			break;
+
+		prev = at + 1;
 	}
 
 	if( i == MAX_NESTED_NAMESPACES )
 	{
-		Con_DPrintf( "%s: too much nested namespaces: %s\n", __FUNCTION__, from );
+		Con_DPrintf( "%s: too much nested namespaces: %s\n", __func__, from );
 		return NULL;
 	}
 

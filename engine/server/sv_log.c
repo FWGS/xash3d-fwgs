@@ -76,8 +76,8 @@ void Log_Open( void )
 	}
 
 	if( fp ) svs.log.file = fp;
-	Log_Printf( "Log file started (file \"%s\") (game \"%s\") (version \"%i/%s/%d\")\n",
-	szTestFile, Info_ValueForKey( SV_Serverinfo(), "*gamedir" ), PROTOCOL_VERSION, XASH_VERSION, Q_buildnum() );
+	Log_Printf( "Log file started (file \"%s\") (game \"%s\") (version \"%i/" XASH_VERSION "/%d\")\n",
+	szTestFile, Info_ValueForKey( svs.serverinfo, "*gamedir" ), PROTOCOL_VERSION, Q_buildnum() );
 }
 
 void Log_Close( void )
@@ -169,11 +169,21 @@ void SV_SetLogAddress_f( void )
 	int port;
 	string addr;
 
+	if( svs.log.net_log && Cmd_Argc() == 2 && !Q_strcmp( Cmd_Argv( 1 ), "off" )) 
+	{
+		svs.log.net_log = false;
+		memset( &svs.log.net_address, 0, sizeof( netadr_t ));
+
+		Con_Printf( "logaddress: disabled.\n" );
+
+		return;
+	}
+
 	if( Cmd_Argc() != 3 )
 	{
-		Con_Printf( "logaddress: usage\nlogaddress ip port\n" );
+		Con_Printf( S_USAGE "logaddress < ip port | off >\n" );
 
-		if( svs.log.active )
+		if( svs.log.active && svs.log.net_log )
 			Con_Printf( "current: %s\n", NET_AdrToString( svs.log.net_address ));
 
 		return;
@@ -214,7 +224,7 @@ void SV_ServerLog_f( void )
 {
 	if( Cmd_Argc() != 2 )
 	{
-		Con_Printf("usage: log < on|off >\n" );
+		Con_Printf( S_USAGE "log < on|off >\n" );
 
 		if( svs.log.active )
 			Con_Printf( "currently logging\n" );
@@ -225,7 +235,10 @@ void SV_ServerLog_f( void )
 	if( !Q_stricmp( Cmd_Argv( 1 ), "off" ))
 	{
 		if( svs.log.active )
+		{
 			Log_Close();
+			svs.log.active = false;
+		}
 	}
 	else if( !Q_stricmp( Cmd_Argv( 1 ), "on" ))
 	{

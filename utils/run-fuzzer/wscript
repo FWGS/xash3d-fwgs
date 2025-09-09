@@ -6,7 +6,7 @@ def options(opt):
 	pass
 
 def configure(conf):
-	if conf.options.BUILD_TYPE != 'sanitize':
+	if conf.options.BUILD_TYPE not in ['sanitize', 'asan']:
 		conf.fatal('useless without -T sanitize')
 
 	if conf.env.COMPILER_CC != 'clang':
@@ -18,14 +18,12 @@ def configure(conf):
 def add_runner_target(bld, lib, func):
 	source = bld.path.ant_glob('*.c')
 	includes = '.'
-	libs = [ 'DL' ]
 
-	bld(
+	bld.program(
 		source   = source,
 		target   = 'run-fuzzer-' + func,
-		features = 'c cprogram',
 		includes = includes,
-		use      = libs,
+		use      = 'DL werror',
 		defines  = ['FUNC="Fuzz_' + func + '"', 'LIB="' + lib + '"'],
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.CONSOLE_SUBSYSTEM
@@ -33,8 +31,10 @@ def add_runner_target(bld, lib, func):
 
 def build(bld):
 	add_runner_target(bld, 'libxash.so', 'Sound_LoadMPG')
+	add_runner_target(bld, 'libxash.so', 'Sound_ParseID3Tag')
 	add_runner_target(bld, 'libxash.so', 'Sound_LoadWAV')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadBMP')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadPNG')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadDDS')
 	add_runner_target(bld, 'libxash.so', 'Image_LoadTGA')
+	add_runner_target(bld, 'libxash.so', 'Mod_LoadModel')

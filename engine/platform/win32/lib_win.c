@@ -18,6 +18,14 @@ GNU General Public License for more details.
 #if XASH_LIB == LIB_WIN32
 #include "lib_win.h"
 
+static const wchar_t *FS_PathToWideChar( const char *path )
+{
+	static wchar_t pathBuffer[MAX_PATH];
+	MultiByteToWideChar( CP_UTF8, 0, path, -1, pathBuffer, MAX_PATH );
+	return pathBuffer;
+}
+
+
 static DWORD GetOffsetByRVA( DWORD rva, PIMAGE_NT_HEADERS nt_header )
 {
 	int i = 0;
@@ -29,7 +37,7 @@ static DWORD GetOffsetByRVA( DWORD rva, PIMAGE_NT_HEADERS nt_header )
 	for( i = 0; i < nt_header->FileHeader.NumberOfSections; i++, sect_header++)
 	{
 		if( rva >= sect_header->VirtualAddress && rva < sect_header->VirtualAddress + sect_header->Misc.VirtualSize )
-			break;	
+			break;
 	}
 	return (rva - sect_header->VirtualAddress + sect_header->PointerToRawData);
 }
@@ -101,55 +109,55 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 	f = FS_Open( hInst->shortPath, "rb", false );
 	if( !f )
 	{
-		Q_sprintf( errorstring, "couldn't load %s", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "couldn't load %s", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &dos_header, sizeof( dos_header )) != sizeof( dos_header ))
 	{
-		Q_sprintf( errorstring, "%s has corrupted EXE header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s has corrupted EXE header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( dos_header.e_magic != IMAGE_DOS_SIGNATURE )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid dll signature", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid dll signature", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Seek( f, dos_header.e_lfanew, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s error seeking for new exe header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error seeking for new exe header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &nt_signature, sizeof( nt_signature )) != sizeof( nt_signature ))
 	{
-		Q_sprintf( errorstring, "%s has corrupted NT header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s has corrupted NT header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( nt_signature != IMAGE_NT_SIGNATURE )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid NT signature", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid NT signature", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &pe_header, sizeof( pe_header )) != sizeof( pe_header ))
 	{
-		Q_sprintf( errorstring, "%s does not have a valid PE header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid PE header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( !pe_header.SizeOfOptionalHeader )
 	{
-		Q_sprintf( errorstring, "%s does not have an optional header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have an optional header", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &optional_header, sizeof( optional_header )) != sizeof( optional_header ))
 	{
-		Q_sprintf( errorstring, "%s optional header probably corrupted", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s optional header probably corrupted", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -159,7 +167,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 	{
 		if( FS_Read( f, &section_header, sizeof( section_header )) != sizeof( section_header ))
 		{
-			Q_sprintf( errorstring, "%s error during reading section header", hInst->shortPath );
+			Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading section header", hInst->shortPath );
 			goto table_error;
 		}
 
@@ -180,13 +188,13 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, exports_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid exports section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid exports section", hInst->shortPath );
 		goto table_error;
 	}
 
 	if( FS_Read( f, &export_directory, sizeof( export_directory )) != sizeof( export_directory ))
 	{
-		Q_sprintf( errorstring, "%s does not have a valid optional header", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid optional header", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -194,7 +202,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( hInst->num_ordinals > MAX_LIBRARY_EXPORTS )
 	{
-		Q_sprintf( errorstring, "%s too many exports %i", hInst->shortPath, hInst->num_ordinals );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s too many exports %i", hInst->shortPath, hInst->num_ordinals );
 		hInst->num_ordinals = 0;
 		goto table_error;
 	}
@@ -203,7 +211,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, ordinal_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid ordinals section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid ordinals section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -211,7 +219,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Read( f, hInst->ordinals, hInst->num_ordinals * sizeof( word )) != (hInst->num_ordinals * sizeof( word )))
 	{
-		Q_sprintf( errorstring, "%s error during reading ordinals table", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading ordinals table", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -219,7 +227,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, function_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s does not have a valid export address section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s does not have a valid export address section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -227,7 +235,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Read( f, hInst->funcs, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{
-		Q_sprintf( errorstring, "%s error during reading export address section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading export address section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -235,7 +243,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Seek( f, name_offset, SEEK_SET ) == -1 )
 	{
-		Q_sprintf( errorstring, "%s file does not have a valid names section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s file does not have a valid names section", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -243,7 +251,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( FS_Read( f, p_Names, hInst->num_ordinals * sizeof( dword )) != (hInst->num_ordinals * sizeof( dword )))
 	{
-		Q_sprintf( errorstring, "%s error during reading names table", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during reading names table", hInst->shortPath );
 		goto table_error;
 	}
 
@@ -264,7 +272,7 @@ qboolean LibraryLoadSymbols( dll_user_t *hInst )
 
 	if( i != hInst->num_ordinals )
 	{
-		Q_sprintf( errorstring, "%s error during loading names section", hInst->shortPath );
+		Q_snprintf( errorstring, sizeof( errorstring ), "%s error during loading names section", hInst->shortPath );
 		goto table_error;
 	}
 	FS_Close( f );
@@ -289,23 +297,25 @@ table_error:
 	if( f ) FS_Close( f );
 	if( p_Names ) Mem_Free( p_Names );
 	FreeNameFuncGlobals( hInst );
-	Con_Printf( S_ERROR "LoadLibrary: %s\n", errorstring );
+	Con_Printf( S_ERROR "%s: %s\n", __func__, errorstring );
 
 	return false;
 }
 
 static const char *GetLastErrorAsString( void )
 {
+	const DWORD fm_flags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK;
 	DWORD errorcode;
+	wchar_t wide_errormessage[256];
 	static string errormessage;
 
 	errorcode = GetLastError();
-	if ( !errorcode ) return "";
-	
-	FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK,
-					NULL, errorcode, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
-					(LPSTR)&errormessage, sizeof( errormessage ), NULL );
-	
+	if ( !errorcode )
+		return "";
+
+	FormatMessageW( fm_flags, NULL, errorcode, 0, wide_errormessage, ARRAYSIZE( wide_errormessage ), NULL );
+	Q_UTF16ToUTF8( errormessage, sizeof( errormessage ), wide_errormessage, ARRAYSIZE( wide_errormessage ));
+
 	return errormessage;
 }
 
@@ -318,35 +328,35 @@ static PIMAGE_IMPORT_DESCRIPTOR GetImportDescriptor( const char *name, byte *dat
 
 	if ( !data )
 	{
-		Con_Printf( S_ERROR "%s: couldn't load %s\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: couldn't load %s\n", __func__, name );
 		return NULL;
 	}
 
 	dosHeader = (PIMAGE_DOS_HEADER)data;
 	if ( dosHeader->e_magic != IMAGE_DOS_SIGNATURE )
 	{
-		Con_Printf( S_ERROR "%s: %s is not a valid executable file\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: %s is not a valid executable file\n", __func__, name );
 		return NULL;
 	}
 
 	peHeader = (PIMAGE_NT_HEADERS)( data + dosHeader->e_lfanew );
 	if ( peHeader->Signature != IMAGE_NT_SIGNATURE )
 	{
-		Con_Printf( S_ERROR "%s: %s is missing a PE header\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: %s is missing a PE header\n", __func__, name );
 		return NULL;
 	}
 
 	importDir = &peHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
 	if( importDir->Size <= 0 )
 	{
-		Con_Printf( S_ERROR "%s: %s has no dependencies\n", __FUNCTION__, name );
+		Con_Printf( S_ERROR "%s: %s has no dependencies\n", __func__, name );
 		return NULL;
 	}
 
 	*peheader = peHeader;
 	importDesc = (PIMAGE_IMPORT_DESCRIPTOR)CALCULATE_ADDRESS( data, GetOffsetByRVA( importDir->VirtualAddress, peHeader ) );
 
-	return importDesc;	
+	return importDesc;
 }
 
 static void ListMissingModules( dll_user_t *hInst )
@@ -354,14 +364,15 @@ static void ListMissingModules( dll_user_t *hInst )
 	PIMAGE_NT_HEADERS peHeader;
 	PIMAGE_IMPORT_DESCRIPTOR importDesc;
 	byte *data;
+	char	buf[MAX_VA_STRING];
 
-	if ( !hInst ) return;
-	
-	data = FS_LoadFile( hInst->dllName, NULL, false );
-	if ( !data ) return;
+	if( !hInst || !g_fsapi.LoadFile ) return;
+
+	data = g_fsapi.LoadFile( hInst->dllName, NULL, false );
+	if( !data ) return;
 
 	importDesc = GetImportDescriptor( hInst->dllName, data, &peHeader );
-	if ( !importDesc )
+	if( !importDesc )
 	{
 		Mem_Free( data );
 		return;
@@ -372,9 +383,12 @@ static void ListMissingModules( dll_user_t *hInst )
 		HMODULE hMod;
 		const char *importName = (const char *)CALCULATE_ADDRESS( data, GetOffsetByRVA( importDesc->Name, peHeader ) );
 
-		hMod = LoadLibraryEx( importName, NULL, LOAD_LIBRARY_AS_DATAFILE );
+		hMod = LoadLibraryExW( FS_PathToWideChar( importName ), NULL, LOAD_LIBRARY_AS_DATAFILE );
 		if ( !hMod )
-			COM_PushLibraryError( va( "%s not found!", importName ) );
+		{
+			Q_snprintf( buf, sizeof( buf ), "%s not found!", importName );
+			COM_PushLibraryError( buf );
+		}
 		else
 			FreeLibrary( hMod );
 	}
@@ -406,9 +420,9 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 	{
 		COM_FreeLibrary( hInst );
 		Mem_Free( data );
-		return FALSE;	
+		return FALSE;
 	}
-	
+
 	for( ; !IsBadReadPtr( importDesc, sizeof( IMAGE_IMPORT_DESCRIPTOR ) ) && importDesc->Name; importDesc++ )
 	{
 		const char *importName = (const char *)CALCULATE_ADDRESS( data, GetOffsetByRVA( importDesc->Name, peHeader ) );
@@ -436,19 +450,22 @@ smart dll loader - can loading dlls from pack or wad files
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {
 	dll_user_t *hInst;
+	char buf[MAX_VA_STRING];
 
 	COM_ResetLibraryError();
 
 	hInst = FS_FindLibrary( dllname, directpath );
 	if( !hInst )
 	{
-		COM_PushLibraryError( va( "Failed to find library %s", dllname ) );
+		Q_snprintf( buf, sizeof( buf ), "Failed to find library %s", dllname );
+		COM_PushLibraryError( buf );
 		return NULL;
 	}
 
 	if( hInst->encrypted )
 	{
-		COM_PushLibraryError( va( "Library %s is encrypted, cannot load", hInst->shortPath ) );
+		Q_snprintf( buf, sizeof( buf ), "Library %s is encrypted, cannot load", hInst->shortPath );
+		COM_PushLibraryError( buf );
 		COM_FreeLibrary( hInst );
 		return NULL;
 	}
@@ -461,7 +478,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	else
 #endif
 	{
-		hInst->hInstance = LoadLibrary( hInst->fullPath );
+		hInst->hInstance = LoadLibraryW( FS_PathToWideChar( hInst->fullPath ));
 	}
 
 	if( !hInst->hInstance )
@@ -480,7 +497,8 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	{
 		if( !LibraryLoadSymbols( hInst ))
 		{
-			COM_PushLibraryError( va( "Failed to load library %s", dllname ) );
+			Q_snprintf( buf, sizeof( buf ), "Failed to load library %s", dllname );
+			COM_PushLibraryError( buf );
 			COM_FreeLibrary( hInst );
 			return NULL;
 		}
@@ -513,10 +531,10 @@ void COM_FreeLibrary( void *hInstance )
 	if( host.status == HOST_CRASHED )
 	{
 		// we need to hold down all modules, while MSVC can find error
-		Con_Reportf( "Sys_FreeLibrary: hold %s for debugging\n", hInst->dllName );
+		Con_Reportf( "%s: hold %s for debugging\n", __func__, hInst->dllName );
 		return;
 	}
-	else Con_Reportf( "Sys_FreeLibrary: Unloading %s\n", hInst->dllName );
+	else Con_Reportf( "%s: Unloading %s\n", __func__, hInst->dllName );
 
 #if XASH_X86
 	if( hInst->custom_loader )

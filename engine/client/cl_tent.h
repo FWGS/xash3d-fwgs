@@ -77,11 +77,9 @@ void R_MultiGunshot( const vec3_t org, const vec3_t dir, const vec3_t noise, int
 void R_FireField( float *org, int radius, int modelIndex, int count, int flags, float life );
 void R_PlayerSprites( int client, int modelIndex, int count, int size );
 void R_Sprite_WallPuff( struct tempent_s *pTemp, float scale );
-void R_DebugParticle( const vec3_t pos, byte r, byte g, byte b );
 void R_RicochetSound( const vec3_t pos );
 struct dlight_s *CL_AllocDlight( int key );
 struct dlight_s *CL_AllocElight( int key );
-void CL_UpdateFlashlight( cl_entity_t *pEnt );
 void CL_AddEntityEffects( cl_entity_t *ent );
 void CL_AddModelEffects( cl_entity_t *ent );
 void CL_DecalShoot( int textureIndex, int entityIndex, int modelIndex, float *pos, int flags );

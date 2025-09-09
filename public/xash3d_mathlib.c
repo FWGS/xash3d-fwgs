@@ -18,15 +18,14 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "xash3d_mathlib.h"
 #include "eiface.h"
+#include "studio.h"
 
 #define NUM_HULL_ROUNDS	ARRAYSIZE( hull_table )
 #define HULL_PRECISION	4
 
-vec3_t vec3_origin = { 0, 0, 0 };
+static const word hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
 
-static word hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
-
-int boxpnt[6][4] =
+const int boxpnt[6][4] =
 {
 { 0, 4, 6, 2 }, // +X
 { 0, 1, 5, 4 }, // +Y
@@ -42,38 +41,9 @@ const float m_bytenormals[NUMVERTEXNORMALS][3] =
 #include "anorms.h"
 };
 
-/*
-=================
-anglemod
-=================
-*/
-float anglemod( float a )
+uint16_t FloatToHalf( float v )
 {
-	a = (360.0f / 65536) * ((int)(a*(65536/360.0f)) & 65535);
-	return a;
-}
-
-/*
-=================
-SimpleSpline
-
-NOTE: ripped from hl2 source
-hermite basis function for smooth interpolation
-Similar to Gain() above, but very cheap to call
-value should be between 0 & 1 inclusive
-=================
-*/
-float SimpleSpline( float value )
-{
-	float	valueSquared = value * value;
-
-	// nice little ease-in, ease-out spline-like curve
-	return (3.0f * valueSquared - 2.0f * valueSquared * value);
-}
-
-word FloatToHalf( float v )
-{
-	unsigned int	i = *((unsigned int *)&v);
+	unsigned int	i = FloatAsUint( v );
 	unsigned int	e = (i >> 23) & 0x00ff;
 	unsigned int	m = i & 0x007fffff;
 	unsigned short	h;
@@ -87,7 +57,7 @@ word FloatToHalf( float v )
 	return h;
 }
 
-float HalfToFloat( word h )
+float HalfToFloat( uint16_t h )
 {
 	unsigned int	f = (h << 16) & 0x80000000;
 	unsigned int	em = h & 0x7fff;
@@ -115,7 +85,7 @@ float HalfToFloat( word h )
 		}
 	}
 
-	return *((float *)&f);
+	return UintAsFloat( f );
 }
 
 /*
@@ -171,123 +141,10 @@ void RoundUpHullSize( vec3_t size )
 
 /*
 =================
-SignbitsForPlane
-
-fast box on planeside test
-=================
-*/
-int SignbitsForPlane( const vec3_t normal )
-{
-	int	bits, i;
-
-	for( bits = i = 0; i < 3; i++ )
-		if( normal[i] < 0.0f ) bits |= 1<<i;
-	return bits;
-}
-
-/*
-=================
-PlaneTypeForNormal
-=================
-*/
-int PlaneTypeForNormal( const vec3_t normal )
-{
-	if( normal[0] == 1.0f )
-		return PLANE_X;
-	if( normal[1] == 1.0f )
-		return PLANE_Y;
-	if( normal[2] == 1.0f )
-		return PLANE_Z;
-	return PLANE_NONAXIAL;
-}
-
-/*
-=================
-PlanesGetIntersectionPoint
-
-=================
-*/
-qboolean PlanesGetIntersectionPoint( const mplane_t *plane1, const mplane_t *plane2, const mplane_t *plane3, vec3_t out )
-{
-	vec3_t	n1, n2, n3;
-	vec3_t	n1n2, n2n3, n3n1;
-	float	denom;
-
-	VectorNormalize2( plane1->normal, n1 );
-	VectorNormalize2( plane2->normal, n2 );
-	VectorNormalize2( plane3->normal, n3 );
-
-	CrossProduct( n1, n2, n1n2 );
-	CrossProduct( n2, n3, n2n3 );
-	CrossProduct( n3, n1, n3n1 );
-
-	denom = DotProduct( n1, n2n3 );
-	VectorClear( out );
-
-	// check if the denominator is zero (which would mean that no intersection is to be found
-	if( denom == 0.0f )
-	{
-		// no intersection could be found, return <0,0,0>
-		return false;
-	}
-
-	// compute intersection point
-#if 0
-	VectorMAMAM( plane1->dist, n2n3, plane2->dist, n3n1, plane3->dist, n1n2, out );
-#else
-	VectorMA( out, plane1->dist, n2n3, out );
-	VectorMA( out, plane2->dist, n3n1, out );
-	VectorMA( out, plane3->dist, n1n2, out );
-#endif
-	VectorScale( out, ( 1.0f / denom ), out );
-
-	return true;
-}
-
-/*
-=================
-NearestPOW
-=================
-*/
-int NearestPOW( int value, qboolean roundDown )
-{
-	int	n = 1;
-
-	if( value <= 0 ) return 1;
-	while( n < value ) n <<= 1;
-
-	if( roundDown )
-	{
-		if( n > value ) n >>= 1;
-	}
-	return n;
-}
-
-// remap a value in the range [A,B] to [C,D].
-float RemapVal( float val, float A, float B, float C, float D )
-{
-	return C + (D - C) * (val - A) / (B - A);
-}
-
-float ApproachVal( float target, float value, float speed )
-{
-	float	delta = target - value;
-
-	if( delta > speed )
-		value += speed;
-	else if( delta < -speed )
-		value -= speed;
-	else value = target;
-
-	return value;
-}
-
-/*
-=================
 rsqrt
 =================
 */
-float rsqrt( float number )
+float Q_rsqrt( float number )
 {
 	int	i;
 	float	x, y;
@@ -296,74 +153,12 @@ float rsqrt( float number )
 		return 0.0f;
 
 	x = number * 0.5f;
-	i = *(int *)&number;	// evil floating point bit level hacking
+	i = FloatAsInt( number );	// evil floating point bit level hacking
 	i = 0x5f3759df - (i >> 1);	// what the fuck?
-	y = *(float *)&i;
+	y = IntAsFloat( i );
 	y = y * (1.5f - (x * y * y));	// first iteration
 
 	return y;
-}
-
-/*
-=================
-SinCos
-=================
-*/
-void SinCos( float radians, float *sine, float *cosine )
-{
-#if _MSC_VER == 1200
-	_asm
-	{
-		fld	dword ptr [radians]
-		fsincos
-
-		mov edx, dword ptr [cosine]
-		mov eax, dword ptr [sine]
-
-		fstp dword ptr [edx]
-		fstp dword ptr [eax]
-	}
-#else
-	*sine = sin(radians);
-	*cosine = cos(radians);
-#endif
-}
-
-/*
-==============
-VectorCompareEpsilon
-
-==============
-*/
-qboolean VectorCompareEpsilon( const vec3_t vec1, const vec3_t vec2, vec_t epsilon )
-{
-	vec_t	ax, ay, az;
-
-	ax = fabs( vec1[0] - vec2[0] );
-	ay = fabs( vec1[1] - vec2[1] );
-	az = fabs( vec1[2] - vec2[2] );
-
-	if(( ax <= epsilon ) && ( ay <= epsilon ) && ( az <= epsilon ))
-		return true;
-	return false;
-}
-
-float VectorNormalizeLength2( const vec3_t v, vec3_t out )
-{
-	float	length, ilength;
-
-	length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
-	length = sqrt( length );
-
-	if( length )
-	{
-		ilength = 1.0f / length;
-		out[0] = v[0] * ilength;
-		out[1] = v[1] * ilength;
-		out[2] = v[2] * ilength;
-	}
-
-	return length;
 }
 
 void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up )
@@ -379,42 +174,6 @@ void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up )
 	VectorNormalize( right );
 	CrossProduct( right, forward, up );
 	VectorNormalize( up );
-}
-
-/*
-=================
-AngleVectors
-
-=================
-*/
-void GAME_EXPORT AngleVectors( const vec3_t angles, vec3_t forward, vec3_t right, vec3_t up )
-{
-	float	sr, sp, sy, cr, cp, cy;
-
-	SinCos( DEG2RAD( angles[YAW] ), &sy, &cy );
-	SinCos( DEG2RAD( angles[PITCH] ), &sp, &cp );
-	SinCos( DEG2RAD( angles[ROLL] ), &sr, &cr );
-
-	if( forward )
-	{
-		forward[0] = cp * cy;
-		forward[1] = cp * sy;
-		forward[2] = -sp;
-	}
-
-	if( right )
-	{
-		right[0] = (-1.0f * sr * sp * cy + -1.0f * cr * -sy );
-		right[1] = (-1.0f * sr * sp * sy + -1.0f * cr * cy );
-		right[2] = (-1.0f * sr * cp);
-	}
-
-	if( up )
-	{
-		up[0] = (cr * sp * cy + -sr * -sy );
-		up[1] = (cr * sp * sy + -sr * cy );
-		up[2] = (cr * cp);
-	}
 }
 
 /*
@@ -491,79 +250,6 @@ void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, v
 //
 /*
 =================
-ClearBounds
-=================
-*/
-void ClearBounds( vec3_t mins, vec3_t maxs )
-{
-	// make bogus range
-	mins[0] = mins[1] = mins[2] =  999999.0f;
-	maxs[0] = maxs[1] = maxs[2] = -999999.0f;
-}
-
-/*
-=================
-AddPointToBounds
-=================
-*/
-void AddPointToBounds( const vec3_t v, vec3_t mins, vec3_t maxs )
-{
-	float	val;
-	int	i;
-
-	for( i = 0; i < 3; i++ )
-	{
-		val = v[i];
-		if( val < mins[i] ) mins[i] = val;
-		if( val > maxs[i] ) maxs[i] = val;
-	}
-}
-
-/*
-=================
-ExpandBounds
-=================
-*/
-void ExpandBounds( vec3_t mins, vec3_t maxs, float offset )
-{
-	mins[0] -= offset;
-	mins[1] -= offset;
-	mins[2] -= offset;
-	maxs[0] += offset;
-	maxs[1] += offset;
-	maxs[2] += offset;
-}
-
-/*
-=================
-BoundsIntersect
-=================
-*/
-qboolean BoundsIntersect( const vec3_t mins1, const vec3_t maxs1, const vec3_t mins2, const vec3_t maxs2 )
-{
-	if( mins1[0] > maxs2[0] || mins1[1] > maxs2[1] || mins1[2] > maxs2[2] )
-		return false;
-	if( maxs1[0] < mins2[0] || maxs1[1] < mins2[1] || maxs1[2] < mins2[2] )
-		return false;
-	return true;
-}
-
-/*
-=================
-BoundsAndSphereIntersect
-=================
-*/
-qboolean BoundsAndSphereIntersect( const vec3_t mins, const vec3_t maxs, const vec3_t origin, float radius )
-{
-	if( mins[0] > origin[0] + radius || mins[1] > origin[1] + radius || mins[2] > origin[2] + radius )
-		return false;
-	if( maxs[0] < origin[0] - radius || maxs[1] < origin[1] - radius || maxs[2] < origin[2] - radius )
-		return false;
-	return true;
-}
-
-/*
-=================
 SphereIntersect
 =================
 */
@@ -602,67 +288,9 @@ void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, ve
 	VectorMA( p0, sect, p1, out );
 }
 
-/*
-=================
-RadiusFromBounds
-=================
-*/
-float RadiusFromBounds( const vec3_t mins, const vec3_t maxs )
-{
-	vec3_t	corner;
-	int	i;
-
-	for( i = 0; i < 3; i++ )
-	{
-		corner[i] = fabs( mins[i] ) > fabs( maxs[i] ) ? fabs( mins[i] ) : fabs( maxs[i] );
-	}
-	return VectorLength( corner );
-}
-
 //
 // studio utils
 //
-/*
-====================
-AngleQuaternion
-
-====================
-*/
-void AngleQuaternion( const vec3_t angles, vec4_t q, qboolean studio )
-{
-	float	sr, sp, sy, cr, cp, cy;
-
-	if( studio )
-	{
-		SinCos( angles[ROLL] * 0.5f, &sy, &cy );
-		SinCos( angles[YAW] * 0.5f, &sp, &cp );
-		SinCos( angles[PITCH] * 0.5f, &sr, &cr );
-	}
-	else
-	{
-		SinCos( DEG2RAD( angles[YAW] ) * 0.5f, &sy, &cy );
-		SinCos( DEG2RAD( angles[PITCH] ) * 0.5f, &sp, &cp );
-		SinCos( DEG2RAD( angles[ROLL] ) * 0.5f, &sr, &cr );
-	}
-
-	q[0] = sr * cp * cy - cr * sp * sy; // X
-	q[1] = cr * sp * cy + sr * cp * sy; // Y
-	q[2] = cr * cp * sy - sr * sp * cy; // Z
-	q[3] = cr * cp * cy + sr * sp * sy; // W
-}
-
-/*
-====================
-QuaternionAngle
-
-====================
-*/
-void QuaternionAngle( const vec4_t q, vec3_t angles )
-{
-	matrix3x4	mat;
-	Matrix3x4_FromOriginQuat( mat, q, vec3_origin );
-	Matrix3x4_AnglesFromMatrix( mat, angles );
-}
 
 /*
 ====================
@@ -672,7 +300,7 @@ make sure quaternions are within 180 degrees of one another,
 if not, reverse q
 ====================
 */
-void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
+static void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
 {
 	// decide if one of the quaternions is backwards
 	float	a = 0.0f;
@@ -702,7 +330,7 @@ void QuaternionAlign( const vec4_t p, const vec4_t q, vec4_t qt )
 QuaternionSlerpNoAlign
 ====================
 */
-void QuaternionSlerpNoAlign( const vec4_t p, const vec4_t q, float t, vec4_t qt )
+static void QuaternionSlerpNoAlign( const vec4_t p, const vec4_t q, float t, vec4_t qt )
 {
 	float	omega, cosom, sinom, sclp, sclq;
 	int	i;
@@ -762,53 +390,6 @@ void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt )
 	QuaternionAlign( p, q, q2 );
 
 	QuaternionSlerpNoAlign( p, q2, t, qt );
-}
-
-/*
-====================
-V_CalcFov
-====================
-*/
-float V_CalcFov( float *fov_x, float width, float height )
-{
-	float	x, half_fov_y;
-
-	if( *fov_x < 1.0f || *fov_x > 179.0f )
-		*fov_x = 90.0f; // default value
-
-	x = width / tan( DEG2RAD( *fov_x ) * 0.5f );
-	half_fov_y = atan( height / x );
-
-	return RAD2DEG( half_fov_y ) * 2;
-}
-
-/*
-====================
-V_AdjustFov
-====================
-*/
-void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, qboolean lock_x )
-{
-	float x, y;
-
-	if( width * 3 == 4 * height || width * 4 == height * 5 )
-	{
-		// 4:3 or 5:4 ratio
-		return;
-	}
-
-	if( lock_x )
-	{
-		*fov_y = 2 * atan((width * 3) / (height * 4) * tan( *fov_y * M_PI_F / 360.0f * 0.5f )) * 360 / M_PI_F;
-		return;
-	}
-
-	y = V_CalcFov( fov_x, 640, 480 );
-	x = *fov_x;
-
-	*fov_x = V_CalcFov( &y, height, width );
-	if( *fov_x < x ) *fov_x = x;
-	else *fov_y = y;
 }
 
 /*
@@ -872,3 +453,83 @@ int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
 	return sides;
 }
 
+void R_StudioCalcBones( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec3_t pos, vec4_t q )
+{
+	float v1[6], v2[6];
+	int i, max;
+
+	max = q != NULL ? 6 : 3;
+
+	for( i = 0; i < max; i++ )
+	{
+		mstudioanimvalue_t *panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[i] );
+		int j = frame;
+		float fadj = 0.0f;
+
+		if( pbone->bonecontroller[i] >= 0 && adj != NULL )
+			fadj = adj[pbone->bonecontroller[i]];
+
+		if( panim->offset[i] == 0 )
+		{
+			v1[i] = v2[i] = pbone->value[i] + fadj;
+			continue;
+		}
+
+		if( panimvalue->num.total < panimvalue->num.valid )
+			j = 0;
+
+		while( panimvalue->num.total <= j )
+		{
+			j -= panimvalue->num.total;
+			panimvalue += panimvalue->num.valid + 1;
+
+			if( panimvalue->num.total < panimvalue->num.valid )
+				j = 0;
+		}
+
+		if( panimvalue->num.valid > j )
+		{
+			v1[i] = panimvalue[j + 1].value;
+
+			if( panimvalue->num.valid > j + 1 )
+				v2[i] = panimvalue[j + 2].value;
+			else if( panimvalue->num.total > j + 1 )
+				v2[i] = v1[i];
+			else
+				v2[i] = panimvalue[panimvalue->num.valid + 2].value;
+		}
+		else
+		{
+			v1[i] = panimvalue[panimvalue->num.valid].value;
+
+			if( panimvalue->num.total > j + 1 )
+				v2[i] = v1[i];
+			else
+				v2[i] = panimvalue[panimvalue->num.valid + 2].value;
+		}
+
+		v1[i] = pbone->value[i] + v1[i] * pbone->scale[i] + fadj;
+		v2[i] = pbone->value[i] + v2[i] * pbone->scale[i] + fadj;
+	}
+
+	if( !VectorCompare( v1, v2 ))
+		VectorLerp( v1, s, v2, pos );
+	else
+		VectorCopy( v1, pos );
+
+	if( q != NULL )
+	{
+		if( !VectorCompare( &v1[3], &v2[3] ))
+		{
+			vec4_t q1, q2;
+
+			AngleQuaternion( &v1[3], q1, true );
+			AngleQuaternion( &v2[3], q2, true );
+			QuaternionSlerp( q1, q2, s, q );
+		}
+		else
+		{
+			AngleQuaternion( &v1[3], q, true );
+		}
+	}
+}

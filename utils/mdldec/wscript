@@ -7,7 +7,7 @@ def options(opt):
 	grp = opt.get_option_group('Utilities options')
 
 	grp.add_option('--disable-utils-mdldec', action = 'store_true', dest = 'DISABLE_UTILS_MDLDEC', default = False,
-                help = 'disable studio model decompiler utility [default: %default]')
+                help = 'disable studio model decompiler utility [default: %(default)s]')
 
 def configure(conf):
 	conf.env.DISABLE_UTILS_MDLDEC = conf.options.DISABLE_UTILS_MDLDEC
@@ -16,11 +16,10 @@ def build(bld):
 	if bld.env.DISABLE_UTILS_MDLDEC:
 		return
 
-	bld(source   = bld.path.ant_glob('*.c'),
+	bld.program(source   = bld.path.ant_glob('*.c'),
 		target   = 'mdldec',
-		features = 'c cprogram',
 		includes = '.',
-		use      = 'engine_includes public M',
+		use      = 'engine_includes public M werror',
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.CONSOLE_SUBSYSTEM
 	)

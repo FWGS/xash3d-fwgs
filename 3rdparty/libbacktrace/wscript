@@ -1,0 +1,186 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+from waflib import TaskGen
+from waflib.Tools.c_config import DEFKEYS
+
+FRAGMENT_ATOMIC='''int i;
+int main(void) {
+	__atomic_load_n(&i, __ATOMIC_ACQUIRE);
+	__atomic_store_n(&i, 1, __ATOMIC_RELEASE);
+	return 0;
+}'''
+
+FRAGMENT_SYNC='''int i;
+int main (void) {
+	__sync_bool_compare_and_swap (&i, i, i);
+	__sync_lock_test_and_set (&i, 1);
+	__sync_lock_release (&i);
+	return 0;
+}'''
+
+FRAGMENT_GETPAGESIZE='''#include <unistd.h>
+int main(void) { return getpagesize() }'''
+
+FRAGMENT_GETEXECNAME='''#include <stdlib.h>
+int main(void) { return getexecname() != 0 }'''
+
+FRAGMENT_STRNLEN='''#include <string.h>
+int main(int argc, char **argv) { return (int)strnlen(argv[0], 10); }'''
+
+FRAGMENT_DL_ITERATE_PHDR='''#include <%s>
+int main(void) { return dl_iterate_phdr(0, 0); }'''
+
+FRAGMENT_FCNTL='''#include <fcntl.h>
+int main(void) { return fcntl(0, 0, 0); }'''
+
+FRAGMENT_GETIPINFO='''#include "unwind.h"
+struct _Unwind_Context *context;
+int ip_before_insn = 0;
+int main(void) { return _Unwind_GetIPInfo(context, &ip_before_insn); }'''
+
+FRAGMENT_LOADQUERY='''#include <sys/ldr.h>
+#include <sys/debug.h>
+int main(void) { return loadquery(0, 0, 0); }'''
+
+FRAGMENT_KERN_PROC='''#include <sys/sysctl.h>
+#if !defined(%s) || !defined(KERN_PROC_PATHNAME)
+#error
+#endif
+int main(void) { return 0; }'''
+
+FRAGMENT_LSTAT='''#include <sys/stat.h>
+struct stat st;
+int main(int argc, char **argv) { return lstat(argv[0], &st); }'''
+
+FRAGMENT_READLINK='''#include <unistd.h>
+char buf[100];
+int main(int argc, char **argv) { return readlink(argv[0], buf, sizeof(buf)); }'''
+
+def options(opt):
+	pass
+
+def configure(conf):
+	# add unsupported platforms here
+	if conf.env.DEST_OS in ['nswitch', 'psvita', 'dos']:
+		conf.env.DISABLE_LIBBACKTRACE = True
+		return
+
+	# win32 has it's own dbghelp-based backtrace, that's why we ship PDBs
+	if conf.env.COMPILER_CC == 'msvc':
+		conf.env.DISABLE_LIBBACKTRACE = True
+		return
+
+	if not conf.path.find_dir('libbacktrace') or not conf.path.find_dir('libbacktrace/config'):
+		conf.fatal('Can\'t find libbacktrace submodule. Run `git submodule update --init --recursive`.')
+		return
+
+	conf.define('BACKTRACE_ELF_SIZE', 64 if conf.env.DEST_SIZEOF_VOID_P == 8 else 32)
+	conf.define('BACKTRACE_XCOFF_SIZE', 64 if conf.env.DEST_SIZEOF_VOID_P == 8 else 32)
+	conf.define('_ALL_SOURCE', 1)
+	conf.define('_GNU_SOURCE', 1)
+	conf.define('_POSIX_PTHREAD_SEMANTICS', 1)
+	conf.define('_TANDEM_SOURCE', 1)
+	conf.define('__EXTENSIONS__', 1)
+	conf.define('_DARWIN_USE_64_BIT_INODE', 1)
+	conf.define('_LARGE_FILES', 1)
+	conf.check_large_file(compiler='c', execute=False, mandatory=False) # sets _FILE_OFFSET_BITS
+
+	conf.env.CFLAGS_EXTRAFLAGS = conf.filter_cflags(['-funwind-tables', '-g'], [])
+
+	if conf.filter_cflags(['-frandom-seed=test'], []):
+		conf.env.HAVE_FRANDOM_SEED = True
+
+	def check_header(hdr):
+		return {'header_name':hdr, 'msg':'... %s header' % hdr, 'mandatory':False, 'id':hdr, 'compiler': 'c'}
+
+	def check_frag(frag, msg, define, **kw):
+		return dict({'fragment': frag, 'msg':'... %s' % msg, 'mandatory': False, 'compiler': 'c'}, **kw)
+
+	conf.multicheck(
+		check_header('dlfcn.h'),
+		check_header('inttypes.h'),
+		check_header('link.h'),
+		check_header('sys/link.h'),
+		check_header('mach-o/dyld.h'),
+		check_header('memory.h'),
+		check_header('stdint.h'),
+		check_header('stdlib.h'),
+		check_header('strings.h'),
+		check_header('string.h'),
+		check_header('sys/ldr.h'),
+		check_header('sys/mman.h'),
+		check_header('sys/stat.h'),
+		check_header('sys/types.h'),
+		check_header('tlhelp32.h'),
+		check_header('unistd.h'),
+		check_header('windows.h'),
+
+		check_frag(FRAGMENT_ATOMIC, '__atomic extensions', 'HAVE_ATOMIC_FUNCTIONS'),
+		check_frag(FRAGMENT_SYNC, ' __sync extensions', 'HAVE_SYNC_FUNCTIONS'),
+		check_frag(FRAGMENT_GETPAGESIZE, ' getpagesize function', 'HAVE_DECL_GETPAGESIZE'),
+		check_frag(FRAGMENT_STRNLEN, ' strnlen function', 'HAVE_DECL_STRNLEN'),
+		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'link.h', ' dl_iterate_phdr function in link.h', 'HAVE_DL_ITERATE_PHDR', after_tests=['link.h']),
+		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'sys/link.h', ' dl_iterate_phdr function in sys/link.h', 'HAVE_DL_ITERATE_PHDR', after_tests=['sys/link.h']),
+		check_frag(FRAGMENT_FCNTL, 'fnctl function', 'HAVE_FCNTL'),
+		check_frag(FRAGMENT_GETEXECNAME, 'getexecname function','HAVE_GETEXECNAME'),
+		check_frag(FRAGMENT_GETIPINFO, '_Unwind_GetIPInfo function', 'HAVE_GETIPINFO'),
+		check_frag(FRAGMENT_KERN_PROC % 'KERN_PROC', 'KERN_PROC and KERN_PROC_PATHNAME defines', 'HAVE_KERN_PROC'),
+		check_frag(FRAGMENT_KERN_PROC % 'KERN_PROC_ARGS', 'KERN_PROC_ARGS and KERN_PROC_PATHNAME defines', 'HAVE_KERN_PROC_ARGS'),
+		check_frag(FRAGMENT_LOADQUERY, 'loadquery function', 'HAVE_LOADQUERY'),
+		check_frag(FRAGMENT_LSTAT, 'lstat function', 'HAVE_LSTAT'),
+		check_frag(FRAGMENT_READLINK, 'readlink function', 'HAVE_READLINK'),
+
+#		{'lib':'lzma', 'define_name':'HAVE_LIBLZMA', 'uselib_store':'lzma', 'msg':'... lzma library', 'mandatory':False},
+#		{'lib':'z', 'define_name':'HAVE_ZLIB', 'uselib_store':'z', 'msg':'... zlib library', 'mandatory':False},
+#		{'lib':'zstd', 'define_name':'HAVE_ZSTD', 'uselib_store':'zstd', 'msg':'... zstd library', 'mandatory':False},
+		msg='Checking for in parallel'
+	)
+
+	conf.env[DEFKEYS].sort()
+
+	conf.write_config_header()
+
+	conf.define('BACKTRACE_SUPPORTED', 1)
+	conf.define('BACKTRACE_USES_MALLOC', 0)
+	conf.define('BACKTRACE_SUPPORTS_THREADS', 1)
+	conf.define('BACKTRACE_SUPPORTS_DATA', conf.env.DEST_BINFMT in ['elf', 'mac-o'])
+
+	conf.write_config_header('backtrace-supported.h')
+
+@TaskGen.feature('frandomseed')
+@TaskGen.after_method('propagate_uselib_vars')
+def process_frandom_seed(ctx):
+	tasks = getattr(ctx, 'compiled_tasks', [])
+
+	for task in tasks:
+		out = task.outputs[0]
+		task.env.CFLAGS = list(task.env.CFLAGS) # need a copy
+		task.env.CFLAGS += ['-frandom-seed=%s' % out.path_from(out.ctx.bldnode)]
+
+def build(bld):
+	if bld.env.DISABLE_LIBBACKTRACE:
+		return
+
+	# we specifically only want mmap-based allocators because calling malloc is not safe from signal handlers
+	sources = ['atomic.c', 'dwarf.c', 'fileline.c', 'posix.c', 'print.c', 'sort.c', 'state.c', 'backtrace.c', 'simple.c', 'mmap.c', 'mmapio.c']
+
+	if bld.env.DEST_BINFMT == 'pe':
+		sources += ['pecoff.c']
+	elif bld.env.DEST_BINFMT == 'mac-o':
+		sources += ['macho.c']
+	elif bld.env.DEST_BINFMT == 'elf':
+		sources += ['elf.c']
+	else:
+		sources += ['unknown.c']
+
+	task = bld.stlib(
+		source = ['libbacktrace/' + i for i in sources],
+		target = 'backtrace',
+		features = 'frandomseed' if bld.env.HAVE_FRANDOM_SEED else '',
+		use = 'EXTRAFLAGS lzma z zstd',
+		includes = '. libbacktrace/',
+		export_defines = 'HAVE_LIBBACKTRACE=1',
+		export_includes = 'libbacktrace/'
+	)
+

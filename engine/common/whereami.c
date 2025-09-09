@@ -68,7 +68,13 @@ extern "C" {
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
+#if (_MSC_VER >= 1900)
 #include <stdbool.h>
+#else
+#define bool int
+#define false 0
+#define true 1
+#endif
 
 static int WAI_PREFIX(getModulePath_)(HMODULE module, char* out, int capacity, int* dirname_length)
 {
@@ -169,7 +175,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return length;
 }
 
-#elif defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || defined(WAI_USE_PROC_SELF_EXE)
+#elif defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || defined(__serenity__) || defined(__gnu_hurd__) || defined(WAI_USE_PROC_SELF_EXE)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,6 +190,10 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
 #endif
 #include <inttypes.h>
 #include <stdbool.h>
+
+#if defined(__gnu_hurd__) && !defined(PATH_MAX)
+#define PATH_MAX 4096
+#endif // defined(__gnu_hurd__) && !defined(PATH_MAX)
 
 #if !defined(WAI_PROC_SELF_EXE)
 #if defined(__sun)
@@ -243,6 +253,11 @@ int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length)
 #endif
 #endif
 
+#if !defined(WAI_STRINGIZE)
+#define WAI_STRINGIZE(s)
+#define WAI_STRINGIZE_(s) #s
+#endif
+
 #if defined(__ANDROID__) || defined(ANDROID)
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -265,20 +280,20 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
 
     for (;;)
     {
-      char buffer[PATH_MAX < 1024 ? 1024 : PATH_MAX];
-      uint64_t low, high;
+      char buffer[128 + PATH_MAX];
+      uintptr_t low, high;
       char perms[5];
       uint64_t offset;
-      uint32_t major, minor;
-      char path[PATH_MAX];
-      uint32_t inode;
+      uint32_t major, minor, inode;
+      char path[PATH_MAX + 1];
 
       if (!fgets(buffer, sizeof(buffer), maps))
         break;
 
-      if (sscanf(buffer, "%" PRIx64 "-%" PRIx64 " %s %" PRIx64 " %x:%x %u %s\n", &low, &high, perms, &offset, &major, &minor, &inode, path) == 8)
+      if (sscanf(buffer, "%" SCNxPTR "-%" SCNxPTR " %s %" SCNx64 " %x:%x %u %" WAI_STRINGIZE(PATH_MAX) "[^\n]\n", &low, &high, perms, &offset, &major, &minor, &inode, path) == 8)
       {
-        uint64_t addr = (uintptr_t)WAI_RETURN_ADDRESS();
+        void* _addr = WAI_RETURN_ADDRESS();
+        uintptr_t addr = (uintptr_t)_addr;
         if (low <= addr && addr <= high)
         {
           char* resolved;
@@ -632,12 +647,14 @@ int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length)
     else
     {
       const char* PATH = getenv("PATH");
+      const char* begin;
+      size_t argv0_length;
       if (!PATH)
         break;
 
-      size_t argv0_length = strlen(argv[0]);
+      argv0_length = strlen(argv[0]);
 
-      const char* begin = PATH;
+      begin = PATH;
       while (1)
       {
         const char* separator = strchr(begin, ':');
@@ -793,6 +810,49 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   }
 
   return length;
+}
+
+#elif defined(__sgi)
+
+/*
+ * These functions are stubbed for now to get the code compiling.
+ * In the future it may be possible to get these working in some way.
+ * Current ideas are checking the working directory for a binary with
+ * the same executed name and reading links, or worst case just searching
+ * through the entirety of the filesystem that's readable by the user.
+ *
+ * I'm not sure it's actually possible to find the absolute path via a
+ * direct method on IRIX. Its implementation of /proc is a fairly barebones
+ * SVR4 implementation. Other UNIXes (e.g. Solaris) have extensions to /proc
+ * that make finding the absolute path possible but these don't exist on IRIX.
+ */
+
+WAI_FUNCSPEC
+int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length)
+{
+  return -1;
+}
+
+WAI_FUNCSPEC
+int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
+{
+  return -1;
+}
+
+#elif defined(__SWITCH__) || defined(__vita__) || defined(__EMSCRIPTEN__)
+
+/* Not possible on this platform */
+
+WAI_FUNCSPEC
+int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length)
+{
+  return -1;
+}
+
+WAI_FUNCSPEC
+int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
+{
+  return -1;
 }
 
 #else

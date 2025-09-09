@@ -16,6 +16,10 @@
 #ifndef SPRITE_H
 #define SPRITE_H
 
+#include "build.h"
+#include STDINT_H
+#include "synctype.h"
+
 /*
 ==============================================================================
 
@@ -30,16 +34,6 @@ SPRITE MODELS
 #define SPRITE_VERSION_Q1	1				// Quake sprites
 #define SPRITE_VERSION_HL	2				// Half-Life sprites
 #define SPRITE_VERSION_32	32				// Captain Obvious mode on
-
-// must match definition in alias.h
-#ifndef SYNCTYPE_T
-#define SYNCTYPE_T
-typedef enum
-{
-	ST_SYNC = 0,
-	ST_RAND
-} synctype_t;
-#endif
 
 typedef enum
 {
@@ -74,55 +68,69 @@ typedef enum
 // generic helper
 typedef struct
 {
-	int		ident;		// LittleLong 'ISPR'
-	int		version;		// current version 2
+	int32_t		ident;		// LittleLong 'ISPR'
+	int32_t		version;		// current version 2
 } dsprite_t;
 
+STATIC_CHECK_SIZEOF( dsprite_t, 8, 8 );
+
 typedef struct
 {
-	int		ident;		// LittleLong 'ISPR'
-	int		version;		// current version 2
-	int		type;		// camera align
+	int32_t		ident;		// LittleLong 'ISPR'
+	int32_t		version;		// current version 2
+	int32_t		type;		// camera align
 	float		boundingradius;	// quick face culling
-	int		bounds[2];	// mins\maxs
-	int		numframes;	// including groups
+	int32_t		bounds[2];	// mins\maxs
+	int32_t		numframes;	// including groups
 	float		beamlength;	// ???
-	synctype_t	synctype;		// animation synctype
+	uint32_t	synctype;		// animation synctype, was synctype_t
 } dsprite_q1_t;
 
+STATIC_CHECK_SIZEOF( dsprite_q1_t, 36, 36 );
+
 typedef struct
 {
-	int		ident;		// LittleLong 'ISPR'
-	int		version;		// current version 2
-	angletype_t	type;		// camera align
-	drawtype_t	texFormat;	// rendering mode
-	int		boundingradius;	// quick face culling
-	int		bounds[2];	// mins\maxs
-	int		numframes;	// including groups
-	facetype_t	facetype;		// cullface (Xash3D ext)
-	synctype_t	synctype;		// animation synctype
+	int32_t		ident;		// LittleLong 'ISPR'
+	int32_t		version;		// current version 2
+	uint32_t	type;		// camera align, was angletype_t
+	uint32_t	texFormat;	// rendering mode, was drawtype_t
+	int32_t		boundingradius;	// quick face culling
+	int32_t		bounds[2];	// mins\maxs
+	int32_t		numframes;	// including groups
+	uint32_t	facetype;		// cullface (Xash3D ext), was facetype_t
+	uint32_t	synctype;		// animation synctype, was synctype_t
 } dsprite_hl_t;
 
-typedef struct
-{
-	int		origin[2];
-	int		width;
-	int		height;
-} dspriteframe_t;
+STATIC_CHECK_SIZEOF( dsprite_hl_t, 40, 40 );
 
 typedef struct
 {
-	int		numframes;
+	int32_t		origin[2];
+	int32_t		width;
+	int32_t		height;
+} dspriteframe_t;
+
+STATIC_CHECK_SIZEOF( dspriteframe_t, 16, 16 );
+
+typedef struct
+{
+	int32_t		numframes;
 } dspritegroup_t;
+
+STATIC_CHECK_SIZEOF( dspritegroup_t, 4, 4 );
 
 typedef struct
 {
 	float		interval;
 } dspriteinterval_t;
 
+STATIC_CHECK_SIZEOF( dspriteinterval_t, 4, 4 );
+
 typedef struct
 {
-	frametype_t	type;
+	uint32_t	type; // was frametype_t
 } dframetype_t;
+
+STATIC_CHECK_SIZEOF( dframetype_t, 4, 4 );
 
 #endif//SPRITE_H

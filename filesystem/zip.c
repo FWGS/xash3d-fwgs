@@ -1,7 +1,7 @@
 /*
 zip.c - ZIP support for filesystem
 Copyright (C) 2019 Mr0maks
-Copyright (C) 2022 Alibek Omarov
+Copyright (C) 2019-2023 Xash3D FWGS contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -27,9 +27,8 @@ GNU General Public License for more details.
 #include "filesystem_internal.h"
 #include "crtlib.h"
 #include "common/com_strings.h"
-#include "miniz.h"
 
-#define ZIP_HEADER_LF (('K'<<8)+('P')+(0x03<<16)+(0x04<<24))
+#define ZIP_HEADER_LF      (('K'<<8)+('P')+(0x03<<16)+(0x04<<24))
 #define ZIP_HEADER_SPANNED ((0x08<<24)+(0x07<<16)+('K'<<8)+'P')
 
 #define ZIP_HEADER_CDF ((0x02<<24)+(0x01<<16)+('K'<<8)+'P')
@@ -43,16 +42,16 @@ GNU General Public License for more details.
 #pragma pack( push, 1 )
 typedef struct zip_header_s
 {
-	unsigned int	signature; // little endian ZIP_HEADER
-	unsigned short	version; // version of pkzip need to unpack
-	unsigned short	flags; // flags (16 bits == 16 flags)
-	unsigned short	compression_flags; // compression flags (bits)
-	unsigned int	dos_date; // file modification time and file modification date
-	unsigned int	crc32; //crc32
-	unsigned int	compressed_size;
-	unsigned int	uncompressed_size;
-	unsigned short	filename_len;
-	unsigned short	extrafield_len;
+	uint32_t	signature; // little endian ZIP_HEADER
+	uint16_t	version; // version of pkzip need to unpack
+	uint16_t	flags; // flags (16 bits == 16 flags)
+	uint16_t	compression_flags; // compression flags (bits)
+	uint32_t	dos_date; // file modification time and file modification date
+	uint32_t	crc32; //crc32
+	uint32_t	compressed_size;
+	uint32_t	uncompressed_size;
+	uint16_t	filename_len;
+	uint16_t	extrafield_len;
 } zip_header_t;
 
 /*
@@ -62,52 +61,55 @@ typedef struct zip_header_s
 
 typedef struct zip_header_extra_s
 {
-	unsigned int	signature; // ZIP_HEADER_SPANNED
-	unsigned int	crc32;
-	unsigned int	compressed_size;
-	unsigned int	uncompressed_size;
+	uint32_t	signature; // ZIP_HEADER_SPANNED
+	uint32_t	crc32;
+	uint32_t	compressed_size;
+	uint32_t	uncompressed_size;
 } zip_header_extra_t;
 
 typedef struct zip_cdf_header_s
 {
-	unsigned int	signature;
-	unsigned short	version;
-	unsigned short	version_need;
-	unsigned short	generalPurposeBitFlag;
-	unsigned short	flags;
-	unsigned short	modification_time;
-	unsigned short	modification_date;
-	unsigned int	crc32;
-	unsigned int	compressed_size;
-	unsigned int	uncompressed_size;
-	unsigned short	filename_len;
-	unsigned short	extrafield_len;
-	unsigned short	file_commentary_len;
-	unsigned short	disk_start;
-	unsigned short	internal_attr;
-	unsigned int	external_attr;
-	unsigned int	local_header_offset;
+	uint32_t	signature;
+	uint16_t	version;
+	uint16_t	version_need;
+	uint16_t	generalPurposeBitFlag;
+	uint16_t	flags;
+	uint16_t	modification_time;
+	uint16_t	modification_date;
+	uint32_t	crc32;
+	uint32_t	compressed_size;
+	uint32_t	uncompressed_size;
+	uint16_t	filename_len;
+	uint16_t	extrafield_len;
+	uint16_t	file_commentary_len;
+	uint16_t	disk_start;
+	uint16_t	internal_attr;
+	uint32_t	external_attr;
+	uint32_t	local_header_offset;
 } zip_cdf_header_t;
 
 typedef struct zip_header_eocd_s
 {
-	unsigned short	disk_number;
-	unsigned short	start_disk_number;
-	unsigned short	number_central_directory_record;
-	unsigned short	total_central_directory_record;
-	unsigned int	size_of_central_directory;
-	unsigned int	central_directory_offset;
-	unsigned short	commentary_len;
+	uint16_t	disk_number;
+	uint16_t	start_disk_number;
+	uint16_t	number_central_directory_record;
+	uint16_t	total_central_directory_record;
+	uint32_t	size_of_central_directory;
+	uint32_t	central_directory_offset;
+	uint16_t	commentary_len;
 } zip_header_eocd_t;
 #pragma pack( pop )
 
 // ZIP errors
-#define ZIP_LOAD_OK			0
-#define ZIP_LOAD_COULDNT_OPEN		1
-#define ZIP_LOAD_BAD_HEADER		2
-#define ZIP_LOAD_BAD_FOLDERS		3
-#define ZIP_LOAD_NO_FILES		5
-#define ZIP_LOAD_CORRUPTED		6
+enum
+{
+	ZIP_LOAD_OK = 0,
+	ZIP_LOAD_COULDNT_OPEN,
+	ZIP_LOAD_BAD_HEADER,
+	ZIP_LOAD_BAD_FOLDERS,
+	ZIP_LOAD_NO_FILES,
+	ZIP_LOAD_CORRUPTED
+};
 
 typedef struct zipfile_s
 {
@@ -115,48 +117,39 @@ typedef struct zipfile_s
 	fs_offset_t	offset; // offset of local file header
 	fs_offset_t	size; //original file size
 	fs_offset_t	compressed_size; // compressed file size
-	unsigned short flags;
+	uint16_t flags;
 } zipfile_t;
 
 struct zip_s
 {
-	string		filename;
-	int		handle;
+	file_t *handle;
 	int		numfiles;
-	time_t		filetime;
-	zipfile_t	*files;
+	zipfile_t files[]; // flexible
 };
 
-#ifdef XASH_REDUCE_FD
-static void FS_EnsureOpenZip( zip_t *zip )
+// #define ENABLE_CRC_CHECK // known to be buggy because of possible libpublic crc32 bug, disabled
+
+/*
+============
+FS_CloseZIP
+============
+*/
+static void FS_CloseZIP( zip_t *zip )
 {
-	if( fs_last_zip == zip )
-		return;
-
-	if( fs_last_zip && (fs_last_zip->handle != -1) )
-	{
-		close( fs_last_zip->handle );
-		fs_last_zip->handle = -1;
-	}
-	fs_last_zip = zip;
-	if( zip && (zip->handle == -1) )
-		zip->handle = open( zip->filename, O_RDONLY|O_BINARY );
-}
-#else
-static void FS_EnsureOpenZip( zip_t *zip ) {}
-#endif
-
-void FS_CloseZIP( zip_t *zip )
-{
-	if( zip->files )
-		Mem_Free( zip->files );
-
-	FS_EnsureOpenZip( NULL );
-
-	if( zip->handle >= 0 )
-		close( zip->handle );
+	if( zip->handle != NULL )
+		FS_Close( zip->handle );
 
 	Mem_Free( zip );
+}
+
+/*
+============
+FS_Close_ZIP
+============
+*/
+static void FS_Close_ZIP( searchpath_t *search )
+{
+	FS_CloseZIP( search->zip );
 }
 
 /*
@@ -166,7 +159,7 @@ FS_SortZip
 */
 static int FS_SortZip( const void *a, const void *b )
 {
-	return Q_stricmp( ( ( zipfile_t* )a )->name, ( ( zipfile_t* )b )->name );
+	return Q_stricmp(((zipfile_t *)a )->name, ((zipfile_t *)b )->name );
 }
 
 /*
@@ -180,24 +173,17 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zip_cdf_header_t  header_cdf;
 	zip_header_eocd_t header_eocd;
 	uint32_t          signature;
-	fs_offset_t	  filepos = 0, length;
+	fs_offset_t	  filepos = 0;
 	zipfile_t	  *info = NULL;
 	char		  filename_buffer[MAX_SYSPATH];
 	zip_t         *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( *zip ));
 	fs_size_t       c;
 
-	zip->handle = open( zipfile, O_RDONLY|O_BINARY );
+	// TODO: use FS_Open to allow PK3 to be included into other archives
+	// Currently, it doesn't work with rodir due to FS_FindFile logic
+	zip->handle = FS_SysOpen( zipfile, "rb" );
 
-#if !XASH_WIN32
-	if( zip->handle < 0 )
-	{
-		const char *fzipfile = FS_FixFileCase( zipfile );
-		if( fzipfile != zipfile )
-			zip->handle = open( fzipfile, O_RDONLY|O_BINARY );
-	}
-#endif
-
-	if( zip->handle < 0 )
+	if( zip->handle == NULL )
 	{
 		Con_Reportf( S_ERROR "%s couldn't open\n", zipfile );
 
@@ -208,9 +194,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		return NULL;
 	}
 
-	length = lseek( zip->handle, 0, SEEK_END );
-
-	if( length > UINT_MAX )
+	if( zip->handle->real_length > UINT32_MAX )
 	{
 		Con_Reportf( S_ERROR "%s bigger than 4GB.\n", zipfile );
 
@@ -221,9 +205,9 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		return NULL;
 	}
 
-	lseek( zip->handle, 0, SEEK_SET );
+	FS_Seek( zip->handle, 0, SEEK_SET );
 
-	c = read( zip->handle, &signature, sizeof( signature ) );
+	c = FS_Read( zip->handle, &signature, sizeof( signature ));
 
 	if( c != sizeof( signature ) || signature == ZIP_HEADER_EOCD )
 	{
@@ -248,13 +232,12 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	}
 
 	// Find oecd
-	lseek( zip->handle, 0, SEEK_SET );
-	filepos = length;
+	filepos = zip->handle->real_length;
 
-	while ( filepos > 0 )
+	while( filepos > 0 )
 	{
-		lseek( zip->handle, filepos, SEEK_SET );
-		c = read( zip->handle, &signature, sizeof( signature ) );
+		FS_Seek( zip->handle, filepos, SEEK_SET );
+		c = FS_Read( zip->handle, &signature, sizeof( signature ));
 
 		if( c == sizeof( signature ) && signature == ZIP_HEADER_EOCD )
 			break;
@@ -273,7 +256,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		return NULL;
 	}
 
-	c = read( zip->handle, &header_eocd, sizeof( header_eocd ) );
+	c = FS_Read( zip->handle, &header_eocd, sizeof( header_eocd ));
 
 	if( c != sizeof( header_eocd ))
 	{
@@ -286,15 +269,27 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		return NULL;
 	}
 
+	if( header_eocd.total_central_directory_record == 0 ) // refuse to load empty ZIP archives
+	{
+		Con_Reportf( S_WARN "%s has no files (total records is zero). Ignored.\n", zipfile );
+
+		if( error )
+			*error = ZIP_LOAD_NO_FILES;
+
+		FS_CloseZIP( zip );
+		return NULL;
+	}
+
 	// Move to CDF start
-	lseek( zip->handle, header_eocd.central_directory_offset, SEEK_SET );
+	FS_Seek( zip->handle, header_eocd.central_directory_offset, SEEK_SET );
 
 	// Calc count of files in archive
-	info = (zipfile_t *)Mem_Calloc( fs_mempool, sizeof( *info ) * header_eocd.total_central_directory_record );
+	zip = (zip_t *)Mem_Realloc( fs_mempool, zip, sizeof( *zip ) + sizeof( *info ) * header_eocd.total_central_directory_record );
+	info = zip->files;
 
 	for( i = 0; i < header_eocd.total_central_directory_record; i++ )
 	{
-		c = read( zip->handle, &header_cdf, sizeof( header_cdf ) );
+		c = FS_Read( zip->handle, &header_cdf, sizeof( header_cdf ));
 
 		if( c != sizeof( header_cdf ) || header_cdf.signature != ZIP_HEADER_CDF )
 		{
@@ -303,15 +298,14 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 			if( error )
 				*error = ZIP_LOAD_BAD_HEADER;
 
-			Mem_Free( info );
 			FS_CloseZIP( zip );
 			return NULL;
 		}
 
-		if( header_cdf.uncompressed_size && header_cdf.filename_len && ( header_cdf.filename_len < MAX_SYSPATH ) )
+		if( header_cdf.uncompressed_size && header_cdf.filename_len && header_cdf.filename_len < sizeof( filename_buffer ))
 		{
-			memset( &filename_buffer, '\0', MAX_SYSPATH );
-			c = read( zip->handle, &filename_buffer, header_cdf.filename_len );
+			memset( &filename_buffer, '\0', sizeof( filename_buffer ));
+			c = FS_Read( zip->handle, &filename_buffer, header_cdf.filename_len );
 
 			if( c != header_cdf.filename_len )
 			{
@@ -320,26 +314,36 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 				if( error )
 					*error = ZIP_LOAD_CORRUPTED;
 
-				Mem_Free( info );
 				FS_CloseZIP( zip );
 				return NULL;
 			}
 
-			Q_strncpy( info[numpackfiles].name, filename_buffer, MAX_SYSPATH );
-
+			Q_strncpy( info[numpackfiles].name, filename_buffer, sizeof( info[numpackfiles].name ));
 			info[numpackfiles].size = header_cdf.uncompressed_size;
 			info[numpackfiles].compressed_size = header_cdf.compressed_size;
 			info[numpackfiles].offset = header_cdf.local_header_offset;
 			numpackfiles++;
 		}
 		else
-			lseek( zip->handle, header_cdf.filename_len, SEEK_CUR );
+			FS_Seek( zip->handle, header_cdf.filename_len, SEEK_CUR );
 
 		if( header_cdf.extrafield_len )
-			lseek( zip->handle, header_cdf.extrafield_len, SEEK_CUR );
+			FS_Seek( zip->handle, header_cdf.extrafield_len, SEEK_CUR );
 
 		if( header_cdf.file_commentary_len )
-			lseek( zip->handle, header_cdf.file_commentary_len, SEEK_CUR );
+			FS_Seek( zip->handle, header_cdf.file_commentary_len, SEEK_CUR );
+	}
+
+	// refuse to load empty files again
+	if( numpackfiles == 0 )
+	{
+		Con_Reportf( S_WARN "%s has no files (recalculated). Ignored.\n", zipfile );
+
+		if( error )
+			*error = ZIP_LOAD_NO_FILES;
+
+		FS_CloseZIP( zip );
+		return NULL;
 	}
 
 	// recalculate offsets
@@ -347,8 +351,8 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	{
 		zip_header_t header;
 
-		lseek( zip->handle, info[i].offset, SEEK_SET );
-		c = read( zip->handle, &header, sizeof( header ) );
+		FS_Seek( zip->handle, info[i].offset, SEEK_SET );
+		c = FS_Read( zip->handle, &header, sizeof( header ) );
 
 		if( c != sizeof( header ))
 		{
@@ -357,7 +361,6 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 			if( error )
 				*error = ZIP_LOAD_CORRUPTED;
 
-			Mem_Free( info );
 			FS_CloseZIP( zip );
 			return NULL;
 		}
@@ -366,18 +369,8 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		info[i].offset = info[i].offset + header.filename_len + header.extrafield_len + sizeof( header );
 	}
 
-	Q_strncpy( zip->filename, zipfile, sizeof( zip->filename ) );
-	zip->filetime = FS_SysFileTime( zipfile );
 	zip->numfiles = numpackfiles;
-	zip->files = info;
-
 	qsort( zip->files, zip->numfiles, sizeof( *zip->files ), FS_SortZip );
-
-#ifdef XASH_REDUCE_FD
-	// will reopen when needed
-	close(zip->handle);
-	zip->handle = -1;
-#endif
 
 	if( error )
 		*error = ZIP_LOAD_OK;
@@ -392,68 +385,99 @@ FS_OpenZipFile
 Open a packed file using its package file descriptor
 ===========
 */
-file_t *FS_OpenZipFile( zip_t *zip, int pack_ind )
+static file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
-	zipfile_t	*pfile;
-	pfile = &zip->files[pack_ind];
+	zipfile_t *pfile = &search->zip->files[pack_ind];
+	file_t *f = FS_OpenHandle( search, search->zip->handle->handle, pfile->offset, pfile->size );
 
-	// compressed files handled in Zip_LoadFile
-	if( pfile->flags != ZIP_COMPRESSION_NO_COMPRESSION )
+	if( !f )
+		return NULL;
+
+	if( pfile->flags == ZIP_COMPRESSION_DEFLATED )
 	{
-		Con_Printf( S_ERROR "%s: can't open compressed file %s\n", __FUNCTION__, pfile->name );
+		ztoolkit_t *ztk;
+
+		SetBits( f->flags, FILE_DEFLATED );
+
+		ztk = Mem_Calloc( fs_mempool, sizeof( *ztk ));
+		ztk->comp_length = pfile->compressed_size;
+		ztk->zstream.next_in = ztk->input;
+		ztk->zstream.avail_in = 0;
+
+		if( inflateInit2( &ztk->zstream, -MAX_WBITS ) != Z_OK )
+		{
+			Con_Printf( "%s: inflate init error (file: %s)\n", __func__, filename );
+			FS_Close( f );
+			Mem_Free( ztk );
+			return NULL;
+		}
+
+		ztk->zstream.next_out = f->buff;
+		ztk->zstream.avail_out = sizeof( f->buff );
+
+		f->ztk = ztk;
+	}
+	else if( pfile->flags != ZIP_COMPRESSION_NO_COMPRESSION )
+	{
+		Con_Reportf( S_ERROR "%s: %s: file compressed with unknown algorithm.\n", __func__, filename );
+		FS_Close( f );
 		return NULL;
 	}
 
-	return FS_OpenHandle( zip->filename, zip->handle, pfile->offset, pfile->size );
+	return f;
 }
 
-byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamedironly )
+/*
+===========
+FS_LoadZIPFile
+
+===========
+*/
+static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *sizeptr, void *( *pfnAlloc )( size_t ), void ( *pfnFree )( void * ))
 {
-	searchpath_t	*search;
-	int		index;
-	zipfile_t	*file = NULL;
+	zipfile_t *file;
 	byte		*compressed_buffer = NULL, *decompressed_buffer = NULL;
 	int		zlib_result = 0;
-	dword		test_crc, final_crc;
 	z_stream	decompress_stream;
 	size_t      c;
+#ifdef ENABLE_CRC_CHECK
+	dword		test_crc, final_crc;
+#endif // ENABLE_CRC_CHECK
 
 	if( sizeptr ) *sizeptr = 0;
 
-	search = FS_FindFile( path, &index, gamedironly );
+	file = &search->zip->files[pack_ind];
 
-	if( !search || search->type != SEARCHPATH_ZIP )
-		return  NULL;
-
-	file = &search->zip->files[index];
-
-	FS_EnsureOpenZip( search->zip );
-
-	if( lseek( search->zip->handle, file->offset, SEEK_SET ) == -1 )
+	if( FS_Seek( search->zip->handle, file->offset, SEEK_SET ) == -1 )
 		return NULL;
 
-	/*if( read( search->zip->handle, &header, sizeof( header ) ) < 0 )
+	/*if( FS_Read( search->zip->handle, &header, sizeof( header )) < 0 )
 		return NULL;
 
 	if( header.signature != ZIP_HEADER_LF )
 	{
-		Con_Reportf( S_ERROR "Zip_LoadFile: %s signature error\n", file->name );
+		Con_Reportf( S_ERROR "%s: %s signature error\n", __func__, file->name );
 		return NULL;
 	}*/
 
+	decompressed_buffer = (byte *)pfnAlloc( file->size + 1 );
+	if( unlikely( !decompressed_buffer ))
+	{
+		Con_Reportf( S_ERROR "%s: can't alloc %li bytes, no free memory\n", __func__, (long)file->size + 1 );
+		return NULL;
+	}
+	decompressed_buffer[file->size] = '\0';
+
 	if( file->flags == ZIP_COMPRESSION_NO_COMPRESSION )
 	{
-		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
-		decompressed_buffer[file->size] = '\0';
-
-		c = read( search->zip->handle, decompressed_buffer, file->size );
+		c = FS_Read( search->zip->handle, decompressed_buffer, file->size );
 		if( c != file->size )
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s size doesn't match\n", file->name );
+			Con_Reportf( S_ERROR "%s: %s size doesn't match\n", __func__, file->name );
 			return NULL;
 		}
 
-#if 0
+#ifdef ENABLE_CRC_CHECK
 		CRC32_Init( &test_crc );
 		CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
 
@@ -461,26 +485,24 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 
 		if( final_crc != file->crc32 )
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
-			Mem_Free( decompressed_buffer );
+			Con_Reportf( S_ERROR "%s: %s file crc32 mismatch\n", __func__, file->name );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
-#endif
+#endif // ENABLE_CRC_CHECK
+
 		if( sizeptr ) *sizeptr = file->size;
 
-		FS_EnsureOpenZip( NULL );
 		return decompressed_buffer;
 	}
 	else if( file->flags == ZIP_COMPRESSION_DEFLATED )
 	{
-		compressed_buffer = Mem_Malloc( fs_mempool, file->compressed_size + 1 );
-		decompressed_buffer = Mem_Malloc( fs_mempool, file->size + 1 );
-		decompressed_buffer[file->size] = '\0';
+		compressed_buffer = (byte *)Mem_Malloc( fs_mempool, file->compressed_size + 1 );
 
-		c = read( search->zip->handle, compressed_buffer, file->compressed_size );
+		c = FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
 		if( c != file->compressed_size )
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s compressed size doesn't match\n", file->name );
+			Con_Reportf( S_ERROR "%s: %s compressed size doesn't match\n", __func__, file->name );
 			return NULL;
 		}
 
@@ -497,7 +519,7 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 
 		if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
 		{
-			Con_Printf( S_ERROR "Zip_LoadFile: inflateInit2 failed\n" );
+			Con_Printf( S_ERROR "%s: inflateInit2 failed\n", __func__ );
 			Mem_Free( compressed_buffer );
 			Mem_Free( decompressed_buffer );
 			return NULL;
@@ -509,7 +531,7 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 		if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
 		{
 			Mem_Free( compressed_buffer ); // finaly free compressed buffer
-#if 0
+#if ENABLE_CRC_CHECK
 			CRC32_Init( &test_crc );
 			CRC32_ProcessBuffer( &test_crc, decompressed_buffer, file->size );
 
@@ -517,117 +539,85 @@ byte *FS_LoadZIPFile( const char *path, fs_offset_t *sizeptr, qboolean gamediron
 
 			if( final_crc != file->crc32 )
 			{
-				Con_Reportf( S_ERROR "Zip_LoadFile: %s file crc32 mismatch\n", file->name );
-				Mem_Free( decompressed_buffer );
+				Con_Reportf( S_ERROR "%s: %s file crc32 mismatch\n", __func__, file->name );
+				pfnFree( decompressed_buffer );
 				return NULL;
 			}
 #endif
 			if( sizeptr ) *sizeptr = file->size;
 
-			FS_EnsureOpenZip( NULL );
 			return decompressed_buffer;
 		}
 		else
 		{
-			Con_Reportf( S_ERROR "Zip_LoadFile: %s : error while file decompressing. Zlib return code %d.\n", file->name, zlib_result );
+			Con_Reportf( S_ERROR "%s: %s: error while file decompressing. Zlib return code %d.\n", __func__, file->name, zlib_result );
 			Mem_Free( compressed_buffer );
-			Mem_Free( decompressed_buffer );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 
 	}
 	else
 	{
-		Con_Reportf( S_ERROR "Zip_LoadFile: %s : file compressed with unknown algorithm.\n", file->name );
+		Con_Reportf( S_ERROR "%s: %s: file compressed with unknown algorithm.\n", __func__, file->name );
+		pfnFree( decompressed_buffer );
 		return NULL;
 	}
 
-	FS_EnsureOpenZip( NULL );
 	return NULL;
 }
 
+/*
+===========
+FS_FileTime_ZIP
 
-qboolean FS_AddZip_Fullpath( const char *zipfile, qboolean *already_loaded, int flags )
+===========
+*/
+static int FS_FileTime_ZIP( searchpath_t *search, const char *filename )
 {
-	searchpath_t	*search;
-	zip_t		*zip = NULL;
-	const char	*ext = COM_FileExtension( zipfile );
-	int		errorcode = ZIP_LOAD_COULDNT_OPEN;
-
-	for( search = fs_searchpaths; search; search = search->next )
-	{
-		if( search->type == SEARCHPATH_ZIP && !Q_stricmp( search->zip->filename, zipfile ))
-		{
-			if( already_loaded ) *already_loaded = true;
-			return true; // already loaded
-		}
-	}
-
-	if( already_loaded ) *already_loaded = false;
-
-	if( !Q_stricmp( ext, "pk3" ) )
-		zip = FS_LoadZip( zipfile, &errorcode );
-
-	if( zip )
-	{
-		string	fullpath;
-		int i;
-
-		search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ) );
-		search->zip = zip;
-		search->type = SEARCHPATH_ZIP;
-		search->next = fs_searchpaths;
-		search->flags |= flags;
-		fs_searchpaths = search;
-
-		Con_Reportf( "Adding zipfile: %s (%i files)\n", zipfile, zip->numfiles );
-
-		// time to add in search list all the wads that contains in current pakfile (if do)
-		for( i = 0; i < zip->numfiles; i++ )
-		{
-			if( !Q_stricmp( COM_FileExtension( zip->files[i].name ), "wad" ))
-			{
-				Q_snprintf( fullpath, MAX_STRING, "%s/%s", zipfile, zip->files[i].name );
-				FS_AddWad_Fullpath( fullpath, NULL, flags );
-			}
-		}
-		return true;
-	}
-	else
-	{
-		if( errorcode != ZIP_LOAD_NO_FILES )
-			Con_Reportf( S_ERROR "FS_AddZip_Fullpath: unable to load zip \"%s\"\n", zipfile );
-		return false;
-	}
+	return search->zip->handle->filetime;
 }
 
-int FS_FileTimeZIP( zip_t *zip )
+/*
+===========
+FS_PrintInfo_ZIP
+
+===========
+*/
+static void FS_PrintInfo_ZIP( searchpath_t *search, char *dst, size_t size )
 {
-	return zip->filetime;
+	if( search->zip->handle->searchpath )
+		Q_snprintf( dst, size, "%s (%i files)" S_CYAN " from %s" S_DEFAULT, search->filename, search->zip->numfiles, search->zip->handle->searchpath->filename );
+	else Q_snprintf( dst, size, "%s (%i files)", search->filename, search->zip->numfiles );
 }
 
-void FS_PrintZIPInfo( char *dst, size_t size, zip_t *zip )
-{
-	Q_snprintf( dst, size, "%s (%i files)", zip->filename, zip->numfiles );
-}
+/*
+===========
+FS_FindFile_ZIP
 
-int FS_FindFileZIP( zip_t *zip, const char *name )
+===========
+*/
+static int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
 	int	left, right, middle;
 
 	// look for the file (binary search)
 	left = 0;
-	right = zip->numfiles - 1;
+	right = search->zip->numfiles - 1;
 	while( left <= right )
 	{
 		int	diff;
 
 		middle = (left + right) / 2;
-		diff = Q_stricmp( zip->files[middle].name, name );
+		diff = Q_stricmp( search->zip->files[middle].name, path );
 
 		// Found it
 		if( !diff )
+		{
+			if( fixedname )
+				Q_strncpy( fixedname, search->zip->files[middle].name, len );
 			return middle;
+		}
 
 		// if we're too far in the list
 		if( diff > 0 )
@@ -638,15 +628,21 @@ int FS_FindFileZIP( zip_t *zip, const char *name )
 	return -1;
 }
 
-void FS_SearchZIP( stringlist_t *list, zip_t *zip, const char *pattern )
+/*
+===========
+FS_Search_ZIP
+
+===========
+*/
+static void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string temp;
 	const char *slash, *backslash, *colon, *separator;
 	int j, i;
 
-	for( i = 0; i < zip->numfiles; i++ )
+	for( i = 0; i < search->zip->numfiles; i++ )
 	{
-		Q_strncpy( temp, zip->files[i].name, sizeof( temp ));
+		Q_strncpy( temp, search->zip->files[i].name, sizeof( temp ));
 		while( temp[0] )
 		{
 			if( matchpattern( temp, pattern, true ))
@@ -676,5 +672,44 @@ void FS_SearchZIP( stringlist_t *list, zip_t *zip, const char *pattern )
 			*((char *)separator) = 0;
 		}
 	}
+}
+
+/*
+===========
+FS_AddZip_Fullpath
+
+===========
+*/
+searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
+{
+	searchpath_t *search;
+	zip_t *zip;
+	int errorcode = ZIP_LOAD_COULDNT_OPEN;
+
+	zip = FS_LoadZip( zipfile, &errorcode );
+
+	if( !zip )
+	{
+		if( errorcode != ZIP_LOAD_NO_FILES )
+			Con_Reportf( S_ERROR "%s: unable to load zip \"%s\"\n", __func__, zipfile );
+		return NULL;
+	}
+
+	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ) );
+	Q_strncpy( search->filename, zipfile, sizeof( search->filename ));
+	search->zip = zip;
+	search->type = SEARCHPATH_ZIP;
+	search->flags = flags;
+
+	search->pfnPrintInfo = FS_PrintInfo_ZIP;
+	search->pfnClose = FS_Close_ZIP;
+	search->pfnOpenFile = FS_OpenFile_ZIP;
+	search->pfnFileTime = FS_FileTime_ZIP;
+	search->pfnFindFile = FS_FindFile_ZIP;
+	search->pfnSearch = FS_Search_ZIP;
+	search->pfnLoadFile = FS_LoadZIPFile;
+
+	Con_Reportf( "Adding ZIP: %s (%i files)\n", zipfile, zip->numfiles );
+	return search;
 }
 

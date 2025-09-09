@@ -15,12 +15,13 @@ GNU General Public License for more details.
 
 #include "imagelib.h"
 
+#define palettesize 256
+#define netsize     255 // number of colours used
 
-#define netsize		256			// number of colours used
-#define prime1		499
-#define prime2		491
-#define prime3		487
-#define prime4		503
+#define prime1      499
+#define prime2      491
+#define prime3      487
+#define prime4      503
 
 #define minpicturebytes	(3*prime4)		// minimum size for input image
 
@@ -65,7 +66,7 @@ static int		bias[netsize];		// bias and freq arrays for learning
 static int		freq[netsize];
 static int		radpower[initrad];		// radpower for precomputation
 
-void initnet( byte *thepic, int len, int sample )
+static void initnet( byte *thepic, int len, int sample )
 {
 	register int	i, *p;
 
@@ -83,7 +84,7 @@ void initnet( byte *thepic, int len, int sample )
 }
 
 // Unbias network to give byte values 0..255 and record position i to prepare for sort
-void unbiasnet( void )
+static void unbiasnet( void )
 {
 	int	i, j, temp;
 
@@ -103,7 +104,7 @@ void unbiasnet( void )
 }
 
 // Insertion sort of network and building of netindex[0..255] (to do after unbias)
-void inxbuild( void )
+static void inxbuild( void )
 {
 	register int	*p, *q;
 	register int	i, j, smallpos, smallval;
@@ -162,7 +163,7 @@ void inxbuild( void )
 
 
 // Search for BGR values 0..255 (after net is unbiased) and return colour index
-int inxsearch( int r, int g, int b )
+static int inxsearch( int r, int g, int b )
 {
 	register int	i, j, dist, a, bestd;
 	register int	*p;
@@ -243,7 +244,7 @@ int inxsearch( int r, int g, int b )
 }
 
 // Search for biased BGR values
-int contest( int r, int g, int b )
+static int contest( int r, int g, int b )
 {
 	register int	*p, *f, *n;
 	register int	i, dist, a, biasdist, betafreq;
@@ -298,7 +299,7 @@ int contest( int r, int g, int b )
 }
 
 // Move neuron i towards biased (b,g,r) by factor alpha
-void altersingle( int alpha, int i, int r, int g, int b )
+static void altersingle( int alpha, int i, int r, int g, int b )
 {
 	register int	*n;
 
@@ -311,7 +312,7 @@ void altersingle( int alpha, int i, int r, int g, int b )
 }
 
 // Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in radpower[|i-j|]
-void alterneigh( int rad, int i, int r, int g, int b )
+static void alterneigh( int rad, int i, int r, int g, int b )
 {
 	register int	j, k, lo, hi, a;
 	register int	*p, *q;
@@ -354,7 +355,7 @@ void alterneigh( int rad, int i, int r, int g, int b )
 }
 
 // Main Learning Loop
-void learn( void )
+static void learn( void )
 {
 	register byte	*p;
 	register int	i, j, r, g, b;
@@ -408,7 +409,7 @@ void learn( void )
 		if( rad ) alterneigh( rad, j, r, g, b );   // alter neighbours
 
 		p += step;
-		if( p >= lim ) p -= lengthcount;
+		while( p >= lim ) p -= lengthcount;
 
 		i++;
 
@@ -446,13 +447,20 @@ rgbdata_t *Image_Quantize( rgbdata_t *pic )
 	learn();
 	unbiasnet();
 
-	pic->palette = Mem_Malloc( host.imagepool, netsize * 3 );
+	pic->palette = Mem_Malloc( host.imagepool, palettesize * 3 );
 
 	for( i = 0; i < netsize; i++ )
 	{
 		pic->palette[i*3+0] = network[i][0];	// red
 		pic->palette[i*3+1] = network[i][1];	// green
 		pic->palette[i*3+2] = network[i][2];	// blue
+	}
+
+	for( ; i < palettesize; i++ )
+	{
+		pic->palette[i*3+0] = 0;
+		pic->palette[i*3+1] = 0;
+		pic->palette[i*3+2] = 0;
 	}
 
 	inxbuild();

@@ -16,13 +16,14 @@ GNU General Public License for more details.
 
 #include "gl_local.h"
 #include "wadfile.h"
+
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
 #define TURBSCALE		( 256.0f / ( M_PI2 ))
-const char*		r_skyBoxSuffix[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
-static const int		r_skyTexOrder[6] = { 0, 2, 1, 3, 4, 5 };
 
-static const vec3_t skyclip[6] =
+static const int r_skyTexOrder[SKYBOX_MAX_SIDES] = { 0, 2, 1, 3, 4, 5 };
+
+static const vec3_t skyclip[SKYBOX_MAX_SIDES] =
 {
 {  1,  1,  0 },
 {  1, -1,  0 },
@@ -33,7 +34,7 @@ static const vec3_t skyclip[6] =
 };
 
 // 1 = s, 2 = t, 3 = 2048
-static const int st_to_vec[6][3] =
+static const int st_to_vec[SKYBOX_MAX_SIDES][3] =
 {
 {  3, -1,  2 },
 { -3,  1,  2 },
@@ -44,7 +45,7 @@ static const int st_to_vec[6][3] =
 };
 
 // s = [0]/[2], t = [1]/[2]
-static const int vec_to_st[6][3] =
+static const int vec_to_st[SKYBOX_MAX_SIDES][3] =
 {
 { -2,  3,  1 },
 {  2,  3, -1 },
@@ -55,57 +56,33 @@ static const int vec_to_st[6][3] =
 };
 
 // speed up sin calculations
-float r_turbsin[] =
+static float r_turbsin[] =
 {
-	#include "warpsin.h"
+#include "warpsin.h"
 };
 
-static qboolean CheckSkybox( const char *name, char out[6][MAX_STRING] )
+#define RIPPLES_CACHEWIDTH_BITS 7
+#define RIPPLES_CACHEWIDTH ( 1 << RIPPLES_CACHEWIDTH_BITS )
+#define RIPPLES_CACHEWIDTH_MASK (( RIPPLES_CACHEWIDTH ) - 1 )
+#define RIPPLES_TEXSIZE ( RIPPLES_CACHEWIDTH * RIPPLES_CACHEWIDTH )
+#define RIPPLES_TEXSIZE_MASK ( RIPPLES_TEXSIZE - 1 )
+
+STATIC_ASSERT( RIPPLES_TEXSIZE == 0x4000, "fix the algorithm to work with custom resolution" );
+
+static struct
 {
-	const char	*skybox_ext[3] = { "dds", "tga", "bmp" };
-	int		i, j, num_checked_sides;
-	const char	*sidename;
+	double time;
+	double oldtime;
 
-	// search for skybox images
-	for( i = 0; i < 3; i++ )
-	{
-		// check HL-style skyboxes
-		num_checked_sides = 0;
-		for( j = 0; j < 6; j++ )
-		{
-			// build side name
-			sidename = va( "%s%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( gEngfuncs.fsapi->FileExists( sidename, false ))
-			{
-				Q_strncpy( out[j], sidename, sizeof( out[j] ));
-				num_checked_sides++;
-			}
-		}
+	short *curbuf, *oldbuf;
+	short buf[2][RIPPLES_TEXSIZE];
+	qboolean update;
 
-		if( num_checked_sides == 6 )
-			return true; // image exists
+	uint32_t texture[RIPPLES_TEXSIZE];
+} g_ripple;
 
-		// check Q1-style skyboxes
-		num_checked_sides = 0;
-		for( j = 0; j < 6; j++ )
-		{
-			// build side name
-			sidename = va( "%s_%s.%s", name, r_skyBoxSuffix[j], skybox_ext[i] );
-			if( gEngfuncs.fsapi->FileExists( sidename, false ))
-			{
-				Q_strncpy( out[j], sidename, sizeof( out[j] ));
-				num_checked_sides++;
-			}
-		}
 
-		if( num_checked_sides == 6 )
-			return true; // images exists
-	}
-
-	return false;
-}
-
-void DrawSkyPolygon( int nump, vec3_t vecs )
+static void DrawSkyPolygon( int nump, vec3_t vecs )
 {
 	int	i, j, axis;
 	float	s, t, dv, *vp;
@@ -153,7 +130,7 @@ void DrawSkyPolygon( int nump, vec3_t vecs )
 ClipSkyPolygon
 ==============
 */
-void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
+static void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 {
 	const float	*norm;
 	float		*v, d, e;
@@ -165,7 +142,7 @@ void ClipSkyPolygon( int nump, vec3_t vecs, int stage )
 	int		i, j;
 
 	if( nump > MAX_CLIP_VERTS )
-		gEngfuncs.Host_Error( "ClipSkyPolygon: MAX_CLIP_VERTS\n" );
+		gEngfuncs.Host_Error( "%s: MAX_CLIP_VERTS\n", __func__ );
 loc1:
 	if( stage == 6 )
 	{
@@ -248,7 +225,7 @@ loc1:
 	ClipSkyPolygon( newc[1], newv[1][0], stage + 1 );
 }
 
-void MakeSkyVec( float s, float t, int axis )
+static void MakeSkyVec( float s, float t, int axis )
 {
 	int	j, k, farclip;
 	vec3_t	v, b;
@@ -270,14 +247,16 @@ void MakeSkyVec( float s, float t, int axis )
 	s = (s + 1.0f) * 0.5f;
 	t = (t + 1.0f) * 0.5f;
 
-	if( s < 1.0f / 512.0f )
-		s = 1.0f / 512.0f;
-	else if( s > 511.0f / 512.0f )
-		s = 511.0f / 512.0f;
-	if( t < 1.0f / 512.0f )
-		t = 1.0f / 512.0f;
-	else if( t > 511.0f / 512.0f )
-		t = 511.0f / 512.0f;
+	if( GL_Support( GL_CLAMPTOEDGE_EXT ))
+	{
+		s = bound( 0.0f, s, 1.0f );
+		t = bound( 0.0f, t, 1.0f );
+	}
+	else
+	{
+		s = bound( 1.0f / 512.0f, s, 511.0f / 512.0f );
+		t = bound( 1.0f / 512.0f, t, 511.0f / 512.0f );
+	}
 
 	t = 1.0f - t;
 
@@ -294,7 +273,7 @@ void R_ClearSkyBox( void )
 {
 	int	i;
 
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		RI.skyMins[0][i] = RI.skyMins[1][i] = 9999999.0f;
 		RI.skyMaxs[0][i] = RI.skyMaxs[1][i] = -9999999.0f;
@@ -309,13 +288,13 @@ R_AddSkyBoxSurface
 void R_AddSkyBoxSurface( msurface_t *fa )
 {
 	vec3_t	verts[MAX_CLIP_VERTS];
-	glpoly_t	*p;
+	glpoly2_t	*p;
 	float	*v;
 	int	i;
 
-	if( ENGINE_GET_PARM( PARM_SKY_SPHERE ) && fa->polys && !tr.fCustomSkybox )
+	if( FBitSet( tr.world->flags, FWORLD_SKYSPHERE ) && fa->polys && !FBitSet( tr.world->flags, FWORLD_CUSTOM_SKYBOX ))
 	{
-		glpoly_t	*p = fa->polys;
+		glpoly2_t	*p = fa->polys;
 
 		// draw the sky poly
 		pglBegin( GL_POLYGON );
@@ -348,16 +327,16 @@ void R_UnloadSkybox( void )
 	int	i;
 
 	// release old skybox
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( !tr.skyboxTextures[i] ) continue;
 		GL_FreeTexture( tr.skyboxTextures[i] );
 	}
 
-	tr.skyboxbasenum = 5800;	// set skybox base (to let some mods load hi-res skyboxes)
+	tr.skyboxbasenum = SKYBOX_BASE_NUM;	// set skybox base (to let some mods load hi-res skyboxes)
 
 	memset( tr.skyboxTextures, 0, sizeof( tr.skyboxTextures ));
-	tr.fCustomSkybox = false;
+	ClearBits( tr.world->flags, FWORLD_CUSTOM_SKYBOX );
 }
 
 /*
@@ -381,7 +360,7 @@ void R_DrawSkyBox( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( RI.skyMins[0][i] >= RI.skyMaxs[0][i] || RI.skyMins[1][i] >= RI.skyMaxs[1][i] )
 			continue;
@@ -407,67 +386,6 @@ void R_DrawSkyBox( void )
 	R_LoadIdentity();
 }
 
-/*
-===============
-R_SetupSky
-===============
-*/
-void R_SetupSky( const char *skyboxname )
-{
-	char	loadname[MAX_STRING];
-	char	sidenames[6][MAX_STRING];
-	int	i, len;
-	qboolean result;
-
-	if( !COM_CheckString( skyboxname ))
-	{
-		R_UnloadSkybox();
-		return; // clear old skybox
-	}
-
-	Q_snprintf( loadname, sizeof( loadname ), "gfx/env/%s", skyboxname );
-	COM_StripExtension( loadname );
-
-	// kill the underline suffix to find them manually later
-	len = Q_strlen( loadname );
-
-	if( loadname[len - 1] == '_' )
-		loadname[len - 1] = '\0';
-	result = CheckSkybox( loadname, sidenames );
-
-	// to prevent infinite recursion if default skybox was missed
-	if( !result && Q_stricmp( loadname, DEFAULT_SKYBOX_PATH ))
-	{
-		gEngfuncs.Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", skyboxname );
-		R_SetupSky( "desert" ); // force to default
-		return;
-	}
-
-	// release old skybox
-	R_UnloadSkybox();
-	gEngfuncs.Con_DPrintf( "SKY:  " );
-
-	for( i = 0; i < 6; i++ )
-	{
-		tr.skyboxTextures[i] = GL_LoadTexture( sidenames[i], NULL, 0, TF_CLAMP|TF_SKY );
-
-		if( !tr.skyboxTextures[i] )
-			break;
-
-		gEngfuncs.Con_DPrintf( "%s%s%s", skyboxname, r_skyBoxSuffix[i], i != 5 ? ", " : ". " );
-	}
-
-	if( i == 6 )
-	{
-		tr.fCustomSkybox = true;
-		gEngfuncs.Con_DPrintf( "done\n" );
-		return; // loaded
-	}
-
-	gEngfuncs.Con_DPrintf( "^2failed\n" );
-	R_UnloadSkybox();
-}
-
 //==============================================================================
 //
 //  RENDER CLOUDS
@@ -478,7 +396,7 @@ void R_SetupSky( const char *skyboxname )
 R_CloudVertex
 ==============
 */
-void R_CloudVertex( float s, float t, int axis, vec3_t v )
+static void R_CloudVertex( float s, float t, int axis, vec3_t v )
 {
 	int	j, k, farclip;
 	vec3_t	b;
@@ -502,12 +420,12 @@ void R_CloudVertex( float s, float t, int axis, vec3_t v )
 R_CloudTexCoord
 =============
 */
-void R_CloudTexCoord( vec3_t v, float speed, float *s, float *t )
+static void R_CloudTexCoord( const vec3_t v, float speed, float *s, float *t )
 {
 	float	length, speedscale;
 	vec3_t	dir;
 
-	speedscale = gpGlobals->time * speed;
+	speedscale = gp_cl->time * speed;
 	speedscale -= (int)speedscale & ~127;
 
 	VectorSubtract( v, RI.vieworg, dir );
@@ -525,17 +443,17 @@ void R_CloudTexCoord( vec3_t v, float speed, float *s, float *t )
 R_CloudDrawPoly
 ===============
 */
-void R_CloudDrawPoly( glpoly_t *p )
+static void R_CloudDrawPoly( const float *verts )
 {
+	const float	*v;
 	float	s, t;
-	float	*v;
 	int		i;
 
 	GL_SetRenderMode( kRenderNormal );
 	GL_Bind( XASH_TEXTURE0, tr.solidskyTexture );
 
 	pglBegin( GL_QUADS );
-	for( i = 0, v = p->verts[0]; i < 4; i++, v += VERTEXSIZE )
+	for( i = 0, v = verts; i < 4; i++, v += VERTEXSIZE )
 	{
 		R_CloudTexCoord( v, 8.0f, &s, &t );
 		pglTexCoord2f( s, t );
@@ -547,7 +465,7 @@ void R_CloudDrawPoly( glpoly_t *p )
 	GL_Bind( XASH_TEXTURE0, tr.alphaskyTexture );
 
 	pglBegin( GL_QUADS );
-	for( i = 0, v = p->verts[0]; i < 4; i++, v += VERTEXSIZE )
+	for( i = 0, v = verts; i < 4; i++, v += VERTEXSIZE )
 	{
 		R_CloudTexCoord( v, 16.0f, &s, &t );
 		pglTexCoord2f( s, t );
@@ -563,13 +481,13 @@ void R_CloudDrawPoly( glpoly_t *p )
 R_CloudRenderSide
 ==============
 */
-void R_CloudRenderSide( int axis )
+static void R_CloudRenderSide( int axis )
 {
 	vec3_t	verts[4];
+	float	final_verts[4][VERTEXSIZE];
 	float	di, qi, dj, qj;
 	vec3_t	vup, vright;
 	vec3_t	temp, temp2;
-	glpoly_t	p[1];
 	int	i, j;
 
 	R_CloudVertex( -1.0f, -1.0f, axis, verts[0] );
@@ -580,7 +498,6 @@ void R_CloudRenderSide( int axis )
 	VectorSubtract( verts[2], verts[3], vup );
 	VectorSubtract( verts[2], verts[1], vright );
 
-	p->numverts = 4;
 	di = SKYCLOUDS_QUALITY;
 	qi = 1.0f / di;
 	dj = (axis < 4) ? di * 2 : di; //subdivide vertically more than horizontally on skybox sides
@@ -599,17 +516,17 @@ void R_CloudRenderSide( int axis )
 			VectorScale( vright, qi * i, temp );
 			VectorScale( vup, qj * j, temp2 );
 			VectorAdd( temp, temp2, temp );
-			VectorAdd( verts[0], temp, p->verts[0] );
+			VectorAdd( verts[0], temp, final_verts[0] );
 
 			VectorScale( vup, qj, temp );
-			VectorAdd( p->verts[0], temp, p->verts[1] );
+			VectorAdd( final_verts[0], temp, final_verts[1] );
 
 			VectorScale( vright, qi, temp );
-			VectorAdd( p->verts[1], temp, p->verts[2] );
+			VectorAdd( final_verts[1], temp, final_verts[2] );
 
-			VectorAdd( p->verts[0], temp, p->verts[3] );
+			VectorAdd( final_verts[0], temp, final_verts[3] );
 
-			R_CloudDrawPoly( p );
+			R_CloudDrawPoly( final_verts[0] );
 		}
 	}
 }
@@ -632,7 +549,7 @@ void R_DrawClouds( void )
 	pglDepthFunc( GL_GEQUAL );
 	pglDepthMask( GL_FALSE );
 
-	for( i = 0; i < 6; i++ )
+	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( RI.skyMins[0][i] >= RI.skyMaxs[0][i] || RI.skyMins[1][i] >= RI.skyMaxs[1][i] )
 			continue;
@@ -648,128 +565,19 @@ void R_DrawClouds( void )
 
 /*
 =============
-R_InitSkyClouds
-
-A sky texture is 256*128, with the right side being a masked overlay
-==============
-*/
-void R_InitSkyClouds( mip_t *mt, texture_t *tx, qboolean custom_palette )
-{
-	rgbdata_t	r_temp, *r_sky;
-	uint	*trans, *rgba;
-	uint	transpix;
-	int	r, g, b;
-	int	i, j, p;
-	char	texname[32];
-
-	if( !glw_state.initialized )
-		return;
-
-	Q_snprintf( texname, sizeof( texname ), "%s%s.mip", ( mt->offsets[0] > 0 ) ? "#" : "", tx->name );
-
-	if( mt->offsets[0] > 0 )
-	{
-		int	size = (int)sizeof( mip_t ) + ((mt->width * mt->height * 85)>>6);
-
-		if( custom_palette ) size += sizeof( short ) + 768;
-		r_sky = gEngfuncs.FS_LoadImage( texname, (byte *)mt, size );
-	}
-	else
-	{
-		// okay, loading it from wad
-		r_sky = gEngfuncs.FS_LoadImage( texname, NULL, 0 );
-	}
-
-	// make sure what sky image is valid
-	if( !r_sky || !r_sky->palette || r_sky->type != PF_INDEXED_32 || r_sky->height == 0 )
-	{
-		gEngfuncs.Con_Reportf( S_ERROR "R_InitSky: unable to load sky texture %s\n", tx->name );
-		if( r_sky ) gEngfuncs.FS_FreeImage( r_sky );
-		return;
-	}
-
-	// make an average value for the back to avoid
-	// a fringe on the top level
-	trans = Mem_Malloc( r_temppool, r_sky->height * r_sky->height * sizeof( *trans ));
-	r = g = b = 0;
-
-	for( i = 0; i < r_sky->width >> 1; i++ )
-	{
-		for( j = 0; j < r_sky->height; j++ )
-		{
-			p = r_sky->buffer[i * r_sky->width + j + r_sky->height];
-			rgba = (uint *)r_sky->palette + p;
-			trans[(i * r_sky->height) + j] = *rgba;
-			r += ((byte *)rgba)[0];
-			g += ((byte *)rgba)[1];
-			b += ((byte *)rgba)[2];
-		}
-	}
-
-	((byte *)&transpix)[0] = r / ( r_sky->height * r_sky->height );
-	((byte *)&transpix)[1] = g / ( r_sky->height * r_sky->height );
-	((byte *)&transpix)[2] = b / ( r_sky->height * r_sky->height );
-	((byte *)&transpix)[3] = 0;
-
-	// build a temporary image
-	r_temp = *r_sky;
-	r_temp.width = r_sky->width >> 1;
-	r_temp.height = r_sky->height;
-	r_temp.type = PF_RGBA_32;
-	r_temp.flags = IMAGE_HAS_COLOR;
-	r_temp.size = r_temp.width * r_temp.height * 4;
-	r_temp.buffer = (byte *)trans;
-	r_temp.palette = NULL;
-
-	// load it in
-	tr.solidskyTexture = GL_LoadTextureInternal( REF_SOLIDSKY_TEXTURE, &r_temp, TF_NOMIPMAP );
-
-	for( i = 0; i < r_sky->width >> 1; i++ )
-	{
-		for( j = 0; j < r_sky->height; j++ )
-		{
-			p = r_sky->buffer[i * r_sky->width + j];
-
-			if( p == 0 )
-			{
-				trans[(i * r_sky->height) + j] = transpix;
-			}
-			else
-			{
-				rgba = (uint *)r_sky->palette + p;
-				trans[(i * r_sky->height) + j] = *rgba;
-			}
-		}
-	}
-
-	r_temp.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
-
-	// load it in
-	tr.alphaskyTexture = GL_LoadTextureInternal( REF_ALPHASKY_TEXTURE, &r_temp, TF_NOMIPMAP );
-
-	// clean up
-	gEngfuncs.FS_FreeImage( r_sky );
-	Mem_Free( trans );
-}
-
-/*
-=============
 EmitWaterPolys
 
 Does a water warp on the pre-fragmented glpoly_t chain
 =============
 */
-void EmitWaterPolys( msurface_t *warp, qboolean reverse )
+void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples )
 {
 	float	*v, nv, waveHeight;
 	float	s, t, os, ot;
-	glpoly_t	*p;
+	glpoly2_t	*p;
 	int	i;
-#ifndef XASH_GLES
-	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
-#else
-	const qboolean useQuads = false; // TODO: figure out why
-#endif
+
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS ) && glConfig.context == CONTEXT_TYPE_GL;
 
 	if( !warp->polys ) return;
 
@@ -797,8 +605,8 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 		{
 			if( waveHeight )
 			{
-				nv = r_turbsin[(int)(gpGlobals->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
-				nv = (r_turbsin[(int)(v[0] * 5.0f + gpGlobals->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
 				nv = nv * waveHeight + v[2];
 			}
 			else nv = v[2];
@@ -806,10 +614,18 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 			os = v[3];
 			ot = v[4];
 
-			s = os + r_turbsin[(int)((ot * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
-			s *= ( 1.0f / SUBDIVIDE_SIZE );
+			if( !ripples )
+			{
+				s = os + r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+				t = ot + r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+			}
+			else
+			{
+				s = os;
+				t = ot;
+			}
 
-			t = ot + r_turbsin[(int)((os * 0.125f + gpGlobals->time) * TURBSCALE) & 255];
+			s *= ( 1.0f / SUBDIVIDE_SIZE );
 			t *= ( 1.0f / SUBDIVIDE_SIZE );
 
 			pglTexCoord2f( s, t );
@@ -828,4 +644,195 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse )
 		pglEnd();
 
 	GL_SetupFogColorForSurfaces();
+}
+
+/*
+============================================================
+
+	HALF-LIFE SOFTWARE WATER
+
+============================================================
+*/
+void R_ResetRipples( void )
+{
+	g_ripple.curbuf = g_ripple.buf[0];
+	g_ripple.oldbuf = g_ripple.buf[1];
+	g_ripple.time = g_ripple.oldtime = gp_cl->time - 0.1;
+	memset( g_ripple.buf, 0, sizeof( g_ripple.buf ));
+}
+
+static void R_SwapBufs( void )
+{
+	short *tempbufp = g_ripple.curbuf;
+	g_ripple.curbuf = g_ripple.oldbuf;
+	g_ripple.oldbuf = tempbufp;
+}
+
+static void R_SpawnNewRipple( int x, int y, short val )
+{
+#define PIXEL( x, y ) ((( x ) & RIPPLES_CACHEWIDTH_MASK ) + ((( y ) & RIPPLES_CACHEWIDTH_MASK) << 7 ))
+	g_ripple.oldbuf[PIXEL( x, y )] += val;
+
+	val >>= 2;
+	g_ripple.oldbuf[PIXEL( x + 1, y )] += val;
+	g_ripple.oldbuf[PIXEL( x - 1, y )] += val;
+	g_ripple.oldbuf[PIXEL( x, y + 1 )] += val;
+	g_ripple.oldbuf[PIXEL( x, y - 1 )] += val;
+#undef PIXEL
+}
+
+static void R_RunRipplesAnimation( const short *oldbuf, short *pbuf )
+{
+	size_t i = 0;
+	const int w = RIPPLES_CACHEWIDTH;
+	const int m = RIPPLES_TEXSIZE_MASK;
+
+	for( i = w; i < m + w; i++, pbuf++ )
+	{
+		*pbuf = (
+			( (int)oldbuf[( i - ( w * 2 )) & m]
+			+ (int)oldbuf[( i - ( w + 1 )) & m]
+			+ (int)oldbuf[( i - ( w - 1 )) & m]
+			+ (int)oldbuf[( i ) & m]) >> 1 ) - (int)*pbuf;
+
+		*pbuf -= ( *pbuf >> 6 );
+	}
+}
+
+void R_AnimateRipples( void )
+{
+	double frametime = gp_cl->time - g_ripple.time;
+
+	g_ripple.update = r_ripple.value && frametime >= r_ripple_updatetime.value;
+
+	if( !g_ripple.update )
+		return;
+
+	g_ripple.time = gp_cl->time;
+
+	R_SwapBufs();
+
+	if( g_ripple.time - g_ripple.oldtime > r_ripple_spawntime.value )
+	{
+		int x, y, val;
+
+		g_ripple.oldtime = g_ripple.time;
+
+		x = rand() & 0x7fff;
+		y = rand() & 0x7fff;
+		val = rand() & 0x3ff;
+
+		R_SpawnNewRipple( x, y, val );
+	}
+
+	R_RunRipplesAnimation( g_ripple.oldbuf, g_ripple.curbuf );
+}
+
+static void R_GetRippleTextureSize( const texture_t *image, int *width, int *height )
+{
+	// try to preserve aspect ratio
+	if( image->width > image->height )
+	{
+		*width = RIPPLES_CACHEWIDTH;
+		*height = (float)image->height / image->width * RIPPLES_CACHEWIDTH;
+	}
+	else if( image->width < image->height )
+	{
+		*width = (float)image->width / image->height * RIPPLES_CACHEWIDTH;
+		*height = RIPPLES_CACHEWIDTH;
+	}
+	else
+	{
+		*width = *height = RIPPLES_CACHEWIDTH;
+	}
+}
+
+qboolean R_UploadRipples( texture_t *image )
+{
+	const gl_texture_t *glt;
+	const uint32_t *pixels;
+	int y;
+	int width, height, size;
+	qboolean update = g_ripple.update;
+
+	if( !r_ripple.value )
+	{
+		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
+		return false;
+	}
+
+	// discard unuseful textures
+	glt = R_GetTexture( image->gl_texturenum );
+	if( !glt || !glt->original || !glt->original->buffer )
+	{
+		GL_Bind( XASH_TEXTURE0, image->gl_texturenum );
+		return false;
+	}
+
+	if( !image->fb_texturenum )
+	{
+		rgbdata_t pic = { 0 };
+		string name;
+
+		Q_snprintf( name, sizeof( name ), "*rippletex_%s", image->name );
+		R_GetRippleTextureSize( image, &width, &height );
+
+		pic.width = width;
+		pic.height = height;
+		pic.depth = 1;
+		pic.flags = IMAGE_HAS_COLOR;
+		pic.buffer = (byte *)g_ripple.texture;
+		pic.type = PF_RGBA_32;
+		pic.size = width * height * 4;
+		pic.numMips = 1;
+		memset( pic.buffer, 0, pic.size );
+
+		image->fb_texturenum = GL_LoadTextureInternal( name, &pic, TF_NOMIPMAP | TF_ALLOW_NEAREST );
+
+		update = true;
+		image->dt_texturenum = ( tr.framecount - 1 ) & 0xFFFF;
+	}
+
+	GL_Bind( XASH_TEXTURE0, image->fb_texturenum );
+
+	// no updates this frame
+	if( !update || image->dt_texturenum == ( tr.framecount & 0xFFFF ))
+		return true;
+
+	// prevent rendering texture multiple times in frame
+	image->dt_texturenum = tr.framecount & 0xFFFF;
+
+	R_GetRippleTextureSize( image, &width, &height );
+
+	size = r_ripple.value == 1.0f ? 64 : RIPPLES_CACHEWIDTH;
+	pixels = (const uint32_t *)glt->original->buffer;
+
+	for( y = 0; y < height; y++ )
+	{
+		int ry = (float)y / height * size;
+		int x;
+
+		for( x = 0; x < width; x++ )
+		{
+			int rx = (float)x / width * size;
+			int val = g_ripple.curbuf[ry * RIPPLES_CACHEWIDTH + rx] / 16;
+
+			// transform it to texture space and get nice tiling effect
+			int rpy = ( y - val ) % height;
+			int rpx = ( x + val ) % width;
+
+			int py = (float)rpy / height * image->height;
+			int px = (float)rpx / width * image->width;
+
+			if( py < 0 ) py = image->height + py;
+			if( px < 0 ) px = image->width + px;
+
+			g_ripple.texture[y * width + x] = pixels[py * image->width + px];
+		}
+	}
+
+	pglTexImage2D( GL_TEXTURE_2D, 0, glt->format, width, height, 0,
+		GL_RGBA, GL_UNSIGNED_BYTE, g_ripple.texture );
+
+	return true;
 }

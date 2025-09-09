@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:id="@+id/nav_graph"
+	android:label="@string/library"
+	app:startDestination="@id/libraryFragment">
+	<fragment
+		android:id="@+id/libraryFragment"
+		android:name="su.xash.engine.ui.library.LibraryFragment"
+		android:label="@string/library">
+		<action
+			android:id="@+id/action_libraryFragment_to_gameSettingsFragment"
+			app:destination="@id/gameSettingsFragment" />
+		<action
+			android:id="@+id/action_libraryFragment_to_appSettingsFragment"
+			app:destination="@id/appSettingsFragment" />
+	</fragment>
+	<fragment
+		android:id="@+id/gameSettingsFragment"
+		android:name="su.xash.engine.ui.settings.GameSettingsFragment"
+		android:label="@string/game_settings" />
+	<fragment
+		android:id="@+id/appSettingsFragment"
+		android:name="su.xash.engine.ui.settings.AppSettingsFragment"
+		android:label="@string/app_settings" />
+</navigation>

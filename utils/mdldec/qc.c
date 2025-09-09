@@ -15,12 +15,16 @@ GNU General Public License for more details.
 
 #include <stdlib.h>
 #include <string.h>
+#include "xash3d_mathlib.h"
 #include "eiface.h"
 #include "studio.h"
 #include "crtlib.h"
 #include "version.h"
 #include "mdldec.h"
 #include "utils.h"
+#include "smd.h"
+#include "texture.h"
+#include "settings.h"
 #include "qc.h"
 
 static char	**activity_names;
@@ -46,8 +50,8 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !p )
 		{
-			fprintf( stderr, "ERROR: Couldn't find file " ACTIVITIES_FILE ".\n" \
-			    "Place " ACTIVITIES_FILE " beside %s or set MDLDEC_ACT_PATH environment variable.\n", appname );
+			LogPrintf( "ERROR: Couldn't find file " ACTIVITIES_FILE ".\n" \
+			    "Place " ACTIVITIES_FILE " beside %s or set MDLDEC_ACT_PATH environment variable.", appname );
 			return false;
 		}
 
@@ -61,7 +65,7 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !fp )
 		{
-			fputs( "ERROR: Can't open file " ACTIVITIES_FILE ".\n", stderr );
+			LogPutS( "ERROR: Couldn't open file " ACTIVITIES_FILE "." );
 			return false;
 		}
 	}
@@ -72,17 +76,17 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !activity_names )
 		{
-			fputs( "ERROR: Couldn't allocate memory for activities strings.\n", stderr );
+			LogPutS( "ERROR: Couldn't allocate memory for activities strings." );
 			return false;
 		}
 
-		COM_RemoveLineFeed( buf );
+		COM_RemoveLineFeed( buf, sizeof( buf ));
 
 		activity_names[activity_count - 1] = strdup( buf );
 
 		if( !activity_names[activity_count - 1] )
 		{
-			fputs( "ERROR: Couldn't allocate memory for activities strings.\n", stderr );
+			LogPutS( "ERROR: Couldn't allocate memory for activities strings." );
 			return false;
 		}
 	}
@@ -110,7 +114,7 @@ static const char *FindActivityName( int type )
 GetMotionTypeString
 ============
 */
-static void GetMotionTypeString( int type, char *str, qboolean is_composite )
+static void GetMotionTypeString( int type, char *str, size_t size, qboolean is_composite )
 {
 	const char	*p = NULL;
 
@@ -119,47 +123,69 @@ static void GetMotionTypeString( int type, char *str, qboolean is_composite )
 	if( is_composite )
 	{
 		if( type & STUDIO_X )
-			Q_strcat( str, " X" );
+			Q_strncat( str, " X", size );
 
 		if( type & STUDIO_Y )
-			Q_strcat( str, " Y" );
+			Q_strncat( str, " Y", size );
 
 		if( type & STUDIO_Z )
-			Q_strcat( str, " Z" );
+			Q_strncat( str, " Z", size );
 
 		if( type & STUDIO_XR )
-			Q_strcat( str, " XR" );
+			Q_strncat( str, " XR", size );
 
 		if( type & STUDIO_YR )
-			Q_strcat( str, " YR" );
+			Q_strncat( str, " YR", size );
 
 		if( type & STUDIO_ZR )
-			Q_strcat( str, " ZR" );
+			Q_strncat( str, " ZR", size );
 
 		if( type & STUDIO_LX )
-			Q_strcat( str, " LX" );
+			Q_strncat( str, " LX", size );
 
 		if( type & STUDIO_LY )
-			Q_strcat( str, " LY" );
+			Q_strncat( str, " LY", size );
 
 		if( type & STUDIO_LZ )
-			Q_strcat( str, " LZ" );
+			Q_strncat( str, " LZ", size );
 
-		if( type & STUDIO_LXR )
-			Q_strcat( str, " LXR" );
+		if( globalsettings & SETTINGS_LEGACYMOTION )
+		{
+			if( type & STUDIO_LXR )
+				Q_strncat( str, " AX", size );
 
-		if( type & STUDIO_LYR )
-			Q_strcat( str, " LYR" );
+			if( type & STUDIO_LYR )
+				Q_strncat( str, " AY", size );
 
-		if( type & STUDIO_LZR )
-			Q_strcat( str, " LZR" );
+			if( type & STUDIO_LZR )
+				Q_strncat( str, " AZ", size );
 
-		if( type & STUDIO_LINEAR )
-			Q_strcat( str, " LM" );
+			if( type & STUDIO_LINEAR )
+				Q_strncat( str, " AXR", size );
 
-		if( type & STUDIO_QUADRATIC_MOTION )
-			Q_strcat( str, " LQ" );
+			if( type & STUDIO_QUADRATIC_MOTION )
+				Q_strncat( str, " AYR", size );
 
+			if( type & STUDIO_RESERVED )
+				Q_strncat( str, " AZR", size );
+		}
+		else
+		{
+			if( type & STUDIO_LXR )
+				Q_strncat( str, " LXR", size );
+
+			if( type & STUDIO_LYR )
+				Q_strncat( str, " LYR", size );
+
+			if( type & STUDIO_LZR )
+				Q_strncat( str, " LZR", size );
+
+			if( type & STUDIO_LINEAR )
+				Q_strncat( str, " LM", size );
+
+			if( type & STUDIO_QUADRATIC_MOTION )
+				Q_strncat( str, " LQ", size );
+		}
 		return;
 	}
 
@@ -176,16 +202,37 @@ static void GetMotionTypeString( int type, char *str, qboolean is_composite )
 	case STUDIO_LX:   p = "LX";   break;
 	case STUDIO_LY:   p = "LY";   break;
 	case STUDIO_LZ:   p = "LZ";   break;
-	case STUDIO_LXR:  p = "LXR";  break;
-	case STUDIO_LYR:  p = "LYR";  break;
-	case STUDIO_LZR:  p = "LZR";  break;
-	case STUDIO_LINEAR: p = "LM"; break;
-	case STUDIO_QUADRATIC_MOTION: p = "LQ"; break;
 	default: break;
 	}
 
+	if( globalsettings & SETTINGS_LEGACYMOTION )
+	{
+		switch( type )
+		{
+		case STUDIO_LXR:  p = "AX";  break;
+		case STUDIO_LYR:  p = "AY";  break;
+		case STUDIO_LZR:  p = "AZ";  break;
+		case STUDIO_LINEAR: p = "AXR"; break;
+		case STUDIO_QUADRATIC_MOTION: p = "AYR"; break;
+		case STUDIO_RESERVED: p = "AZR"; break;
+		default: break;
+		}
+	}
+	else
+	{
+		switch( type )
+		{
+		case STUDIO_LXR:  p = "LXR";  break;
+		case STUDIO_LYR:  p = "LYR";  break;
+		case STUDIO_LZR:  p = "LZR";  break;
+		case STUDIO_LINEAR: p = "LM"; break;
+		case STUDIO_QUADRATIC_MOTION: p = "LQ"; break;
+		default: break;
+		}
+	}
+
 	if( p )
-		Q_strcpy( str, p );
+		Q_strncpy( str, p, size );
 }
 
 /*
@@ -197,6 +244,7 @@ static void WriteTextureRenderMode( FILE *fp )
 {
 	int		  i;
 	mstudiotexture_t *texture;
+	long		  pos = ftell( fp );
 
 	for( i = 0; i < texture_hdr->numtextures; i++ )
 	{
@@ -234,6 +282,9 @@ static void WriteTextureRenderMode( FILE *fp )
 		if( texture->flags & STUDIO_NF_TWOSIDE )
 			fprintf( fp, "$texrendermode \"%s\" \"twoside\" \n", texture->name );
 	}
+
+	if( ftell( fp ) != pos )
+		fputs( "\n", fp );
 }
 
 /*
@@ -244,42 +295,41 @@ WriteSkinFamilyInfo
 static void WriteSkinFamilyInfo( FILE *fp )
 {
 	int			 i, j, k;
-	short			*skinref, index;
+	short			*skinref, *index;
 	mstudiotexture_t	*texture;
 
 	if( texture_hdr->numskinfamilies < 2 )
 		return;
 
-	fprintf( fp, "\n// %i skin families\n", texture_hdr->numskinfamilies );
+	fprintf( fp, "// %i skin families\n", texture_hdr->numskinfamilies );
 
-	fputs( "$texturegroup skinfamilies \n{\n", fp );
+	fputs( "$texturegroup \"skinfamilies\"\n{\n", fp );
 
 	skinref = (short *)( (byte *)texture_hdr + texture_hdr->skinindex );
+	texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
 
 	for( i = 0; i < texture_hdr->numskinfamilies; ++i )
 	{
-		fputs( "{", fp );
+		fputs( "\t{\n", fp );
 
-		for( j = 0; j < texture_hdr->numskinref; ++j )
+		index = skinref + i * texture_hdr->numskinref;
+
+		for( j = 0; j < texture_hdr->numskinref; ++j, ++index )
 		{
-			index = *( skinref + i * texture_hdr->numskinref + j );
-
 			for( k = 0; k < texture_hdr->numskinfamilies; ++k )
 			{
-				if( index == *( skinref + k * texture_hdr->numskinref + j ) )
+				if( *index == *( skinref + k * texture_hdr->numskinref + j ) )
 					continue;
 
-				texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ) + index;
-
-				fprintf( fp, " \"%s\" ", texture->name );
+				fprintf( fp, "\t\t\"%s\"\n", texture[*index].name );
 				break;
 			}
 		}
 
-		fputs( "}\n", fp );
+		fputs( "\t}\n", fp );
 	}
 
-	fputs( "}\n", fp );
+	fputs( "}\n\n", fp );
 }
 
 /*
@@ -296,15 +346,15 @@ static void WriteAttachmentInfo( FILE *fp )
 	if( !model_hdr->numattachments )
 		return;
 
-	fprintf( fp, "\n// %i attachment(s)\n", model_hdr->numattachments );
+	attachment = (mstudioattachment_t *)( (byte *)model_hdr + model_hdr->attachmentindex );
+	bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
-	for( i = 0; i < model_hdr->numattachments; ++i )
-	{
-		attachment = (mstudioattachment_t *)( (byte *)model_hdr + model_hdr->attachmentindex ) + i;
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + attachment->bone;
+	fprintf( fp, "// %i attachment%s\n", model_hdr->numattachments, model_hdr->numattachments > 1 ? "s" : "" );
 
-		fprintf( fp, "$attachment %i \"%s\" %f %f %f\n", i, bone->name, attachment->org[0], attachment->org[1], attachment->org[2] );
-	}
+	for( i = 0; i < model_hdr->numattachments; ++i, ++attachment )
+		fprintf( fp, "$attachment %i \"%s\" %f %f %f\n", i, bone[attachment->bone].name, attachment->org[0], attachment->org[1], attachment->org[2] );
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -315,23 +365,18 @@ WriteBodyGroupInfo
 static void WriteBodyGroupInfo( FILE *fp )
 {
 	int			 i, j;
-	mstudiobodyparts_t	*bodypart;
+	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex );
 	mstudiomodel_t		*model;
-	char			 modelname[64];
 
-	fputs( "\n// reference mesh(es)\n", fp );
+	fprintf( fp, "// %i reference mesh%s\n", model_hdr->numbodyparts, model_hdr->numbodyparts > 1 ? "es" : "" );
 
-	for( i = 0; i < model_hdr->numbodyparts; ++i )
+	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
 	{
-		bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex ) + i;
+		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
 		if( bodypart->nummodels == 1 )
 		{
-			model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
-
-			COM_FileBase( model->name, modelname );
-
-			fprintf( fp, "$body \"%s\" \"%s\"\n\n", bodypart->name, model->name );
+			fprintf( fp, "$body \"%s\" \"%s\"\n", bodypart->name, model->name );
 			continue;
 		}
 
@@ -339,23 +384,21 @@ static void WriteBodyGroupInfo( FILE *fp )
 
 		fputs( "{\n", fp );
 
-		for( j = 0; j < bodypart->nummodels; ++j )
+		for( j = 0; j < bodypart->nummodels; ++j, ++model )
 		{
-			model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex ) + j;
-
 			if( !Q_strncmp( model->name, "blank", 5 ) )
 			{
-				fputs( "blank\n", fp );
+				fputs( "\tblank\n", fp );
 				continue;
 			}
 
-			COM_FileBase( model->name, modelname );
-
-			fprintf( fp, "studio \"%s\"\n", modelname );
+			fprintf( fp, "\tstudio \"%s\"\n", model->name );
 		}
 
-		fputs( "}\n\n" , fp );
+		fputs( "}\n", fp );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -373,19 +416,28 @@ static void WriteControllerInfo( FILE *fp )
 	if( !model_hdr->numbonecontrollers )
 		return;
 
-	fprintf( fp, "\n// %i bone controller(s)\n", model_hdr->numbonecontrollers );
+	bonecontroller = (mstudiobonecontroller_t *)( (byte *)model_hdr + model_hdr->bonecontrollerindex );
+	bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
-	for( i = 0; i < model_hdr->numbonecontrollers; ++i )
+	fprintf( fp, "// %i bone controller%s\n", model_hdr->numbonecontrollers, model_hdr->numbonecontrollers > 1 ? "s" : "" );
+
+	for( i = 0; i < model_hdr->numbonecontrollers; ++i, ++bonecontroller )
 	{
-		bonecontroller = (mstudiobonecontroller_t *)( (byte *)model_hdr + model_hdr->bonecontrollerindex ) + i;
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + bonecontroller->bone;
+		GetMotionTypeString( bonecontroller->type & ~STUDIO_RLOOP, motion_types, sizeof( motion_types ), false );
 
-		GetMotionTypeString( bonecontroller->type & ~STUDIO_RLOOP, motion_types, false );
+		fputs( "$controller ", fp );
 
-		fprintf( fp, "$controller %i \"%s\" %s %f %f\n",
-		    bonecontroller->index, bone->name, motion_types,
+		if( bonecontroller->index == 4 )
+			fputs( "Mouth", fp );
+		else
+			fprintf( fp, "%i", bonecontroller->index );
+
+		fprintf( fp, " \"%s\" %s %f %f\n",
+		    bone[bonecontroller->bone].name, motion_types,
 		    bonecontroller->start, bonecontroller->end );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -402,18 +454,41 @@ static void WriteHitBoxInfo( FILE *fp )
 	if( !model_hdr->numhitboxes )
 		return;
 
-	fprintf( fp, "\n// %i hit box(es)\n", model_hdr->numhitboxes );
+	hitbox = (mstudiobbox_t *)( (byte *)model_hdr + model_hdr->hitboxindex );
+	bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex );
 
-	for( i = 0; i < model_hdr->numhitboxes; i++ )
-	{
-		hitbox = (mstudiobbox_t *)( (byte *)model_hdr + model_hdr->hitboxindex ) + i;
-		bone = (mstudiobone_t *)( (byte *)model_hdr + model_hdr->boneindex ) + hitbox->bone;
+	fprintf( fp, "// %i hit box%s\n", model_hdr->numhitboxes, model_hdr->numhitboxes > 1 ? "es" : "" );
 
+	for( i = 0; i < model_hdr->numhitboxes; ++i, ++hitbox )
 		fprintf( fp, "$hbox %i \"%s\" %f %f %f %f %f %f\n",
-		    hitbox->group, bone->name,
+		    hitbox->group, bone[hitbox->bone].name,
 		    hitbox->bbmin[0], hitbox->bbmin[1], hitbox->bbmin[2],
 		    hitbox->bbmax[0], hitbox->bbmax[1], hitbox->bbmax[2] );
+
+	fputs( "\n", fp );
+}
+
+/*
+============
+CalcSequenceGroupSize
+============
+*/
+static int CalcSequenceGroupSize( void )
+{
+	int			i, maxsize = 0, groupsize = DEFAULT_SEQGROUPSIZE;
+
+	for( i = 1; i < model_hdr->numseqgroups; i++ )
+		maxsize = Q_max( anim_hdr[i]->length, maxsize );
+
+	if( maxsize > 0 )
+	{
+		groupsize = maxsize / 1024;
+
+		if( maxsize % 1024 )
+			groupsize++;
 	}
+
+	return groupsize;
 }
 
 /*
@@ -428,63 +503,29 @@ static void WriteSequenceInfo( FILE *fp )
 	char			 motion_types[256];
 	mstudioevent_t		*event;
 	mstudioseqdesc_t	*seqdesc;
+	const char		*seq_path;
 
 	if( model_hdr->numseqgroups > 1 )
-		fputs( "\n$sequencegroupsize 64\n", fp );
+		fprintf( fp, "$sequencegroupsize %d\n\n", CalcSequenceGroupSize( ) );
 
 	if( model_hdr->numseq > 0 )
-		fprintf( fp, "\n// %i animation sequence(s)\n", model_hdr->numseq );
+		fprintf( fp, "// %i animation sequence%s\n", model_hdr->numseq, model_hdr->numseq > 1 ? "s" : "" );
+	else return;
 
-	for( i = 0; i < model_hdr->numseq; ++i )
+	seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
+
+	seq_path = ( globalsettings & SETTINGS_SEPARATEANIMSFOLDER ) ? SEQUENCEPATH : "";
+
+	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
-		seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex ) + i;
-
-		fprintf( fp, "$sequence \"%s\" ", seqdesc->label );
+		fprintf( fp, "$sequence \"%s\" {\n", seqdesc->label );
 
 		if( seqdesc->numblends > 1 )
 		{
-			if( seqdesc->numblends > 2 )
-			{
-				fputs( "{\n", fp );
-
-				for( j = 0; j < seqdesc->numblends; j++ )
-				{
-					fputs( "          ", fp );
-
-					fprintf( fp, "\"%s_blend%i\" ", seqdesc->label, j + 1 );
-
-					fputs( "\n", fp );
-				}
-
-				fputs( "          ", fp );
-			}
-			else
-			{
-				fprintf( fp, "\"%s_blend1\" ", seqdesc->label );
-				fprintf( fp, "\"%s_blend2\" ", seqdesc->label );
-			}
-
-			GetMotionTypeString( seqdesc->blendtype[0], motion_types, false );
-
-			fprintf( fp, "blend %s %.0f %.0f",
-			    motion_types, seqdesc->blendstart[0], seqdesc->blendend[0] );
+			for( j = 0; j < seqdesc->numblends; j++ )
+				fprintf( fp, "\t\"%s%s_blend%02i\"\n", seq_path, seqdesc->label, j + 1 );
 		}
-		else
-		{
-			fprintf( fp, "\"%s\"", seqdesc->label );
-		}
-
-		if( seqdesc->motiontype )
-		{
-			GetMotionTypeString( seqdesc->motiontype, motion_types, true );
-
-			fprintf( fp, "%s", motion_types );
-		}
-
-		fprintf( fp, " fps %.0f ", seqdesc->fps );
-
-		if( seqdesc->flags == 1 )
-			fputs( "loop ", fp );
+		else fprintf( fp, "\t\"%s%s\"\n", seq_path, seqdesc->label );
 
 		if( seqdesc->activity )
 		{
@@ -492,70 +533,67 @@ static void WriteSequenceInfo( FILE *fp )
 
 			if( activity )
 			{
-				fprintf( fp, "%s %i ", activity, seqdesc->actweight );
+				fprintf( fp, "\t%s %i\n", activity, seqdesc->actweight );
 			}
 			else
 			{
-				printf( "WARNING: Sequence %s has a custom activity flag (ACT_%i %i).\n",
+				LogPrintf( "WARNING: Sequence %s has a custom activity flag (ACT_%i %i).",
 				    seqdesc->label, seqdesc->activity, seqdesc->actweight );
 
-				fprintf( fp, "ACT_%i %i ", seqdesc->activity, seqdesc->actweight );
+				fprintf( fp, "\tACT_%i %i\n", seqdesc->activity, seqdesc->actweight );
 			}
+		}
+
+		if( seqdesc->numblends > 1 )
+		{
+			GetMotionTypeString( seqdesc->blendtype[0], motion_types, sizeof( motion_types ), false );
+
+			fprintf( fp, "\tblend %s %.0f %.0f\n",
+			    motion_types, seqdesc->blendstart[0], seqdesc->blendend[0] );
+
+			if( !seqdesc->blendtype[0] )
+				LogPrintf( "WARNING: Something wrong with blending type for sequence: %s", seqdesc->label );
+		}
+
+		event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex );
+
+		for( j = 0; j < seqdesc->numevents; ++j, ++event )
+		{
+			fprintf( fp, "\t{ event %i %i", event->event, event->frame );
+
+			if( event->options[0] != '\0' )
+				fprintf( fp, " \"%s\"", event->options );
+
+			fputs( " }\n", fp );
+		}
+
+
+		fprintf( fp, "\tfps %.0f\n", seqdesc->fps );
+
+		if( seqdesc->flags == 1 )
+			fputs( "\tloop\n", fp );
+
+		if( seqdesc->motiontype )
+		{
+			GetMotionTypeString( seqdesc->motiontype, motion_types, sizeof( motion_types ), true );
+
+			fprintf( fp, "\t%s\n", motion_types );
 		}
 
 		if( seqdesc->entrynode && seqdesc->exitnode )
 		{
 			if( seqdesc->entrynode == seqdesc->exitnode )
-				fprintf( fp, "node %i ", seqdesc->entrynode );
+				fprintf( fp, "\tnode %i\n", seqdesc->entrynode );
 			else if( seqdesc->nodeflags )
-				fprintf( fp, "rtransition %i %i ", seqdesc->entrynode, seqdesc->exitnode );
+				fprintf( fp, "\trtransition %i %i\n", seqdesc->entrynode, seqdesc->exitnode );
 			else
-				fprintf( fp, "transition %i %i ", seqdesc->entrynode, seqdesc->exitnode );
+				fprintf( fp, "\ttransition %i %i\n", seqdesc->entrynode, seqdesc->exitnode );
 		}
 
-		if( seqdesc->numevents > 2 )
-		{
-			fputs( "{\n ", fp );
-
-			for( j = 0; j < seqdesc->numevents; j++ )
-			{
-				if( seqdesc->numblends <= 2 )
-					fputs( " ", fp );
-				else
-					fputs( "          ", fp );
-
-				event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex ) + j;
-
-				fprintf( fp, "{ event %i %i", event->event, event->frame );
-
-				if( event->options[0] != '\0' )
-					fprintf( fp, " \"%s\"", event->options );
-
-				fputs( " }\n ", fp );
-			}
-
-			fputs( "}", fp );
-		}
-		else
-		{
-			for( j = 0; j < seqdesc->numevents; j++ )
-			{
-				event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex ) + j;
-
-				fprintf( fp, "{ event %i %i", event->event, event->frame );
-
-				if( event->options[0] != '\0')
-					fprintf( fp, " \"%s\"", event->options );
-
-				fputs( " } ", fp );
-			}
-		}
-
-		fputs( "\n", fp );
-
-		if( seqdesc->numblends > 2 )
-			fputs( "}\n", fp );
+		fputs( "}\n", fp );
 	}
+
+	fputs( "\n", fp );
 }
 
 /*
@@ -573,7 +611,7 @@ void WriteQCScript( void )
 
 	if( len == -1 )
 	{
-		fprintf( stderr, "ERROR: Destination path is too long. Can't write %s.qc\n", modelfile );
+		LogPrintf( "ERROR: Destination path is too long. Couldn't write %s.qc.", modelfile );
 		return;
 	}
 
@@ -581,7 +619,7 @@ void WriteQCScript( void )
 
 	if( !fp )
 	{
-		fprintf( stderr, "ERROR: Can't write %s\n", filename );
+		LogPrintf( "ERROR: Couldn't write %s.", filename );
 		return;
 	}
 
@@ -601,43 +639,44 @@ void WriteQCScript( void )
 
 	fprintf( fp, "$modelname \"%s.mdl\"\n", modelfile );
 
-	fputs( "$cd \".\\\"\n", fp );
-	fputs( "$cdtexture \".\\\"\n", fp );
-	fputs( "$scale 1.0\n", fp );
+	fputs( "$cd \".\"\n", fp );
+	if( globalsettings & SETTINGS_SEPARATETEXTURESFOLDER )
+		fputs( "$cdtexture \"./" TEXTUREPATH "\"\n", fp );
+	else fputs( "$cdtexture \"./\"\n", fp );
 	fputs( "$cliptotextures\n", fp );
+	fputs( "$scale 1.0\n", fp );
 	fputs( "\n", fp );
 
-	if( !model_hdr->numtextures )
-		fputs( "$externaltextures\n", fp );
-
-	if( model_hdr->flags != 0 )
+	if( model_hdr->flags & STUDIO_HAS_BONEINFO )
 	{
-		fprintf( fp, "$flags %i\n", model_hdr->flags );
-
-		printf( "WARNING: This model uses the $flags keyword set to %i\n", model_hdr->flags );
+		if( model_hdr->flags & STUDIO_HAS_BONEWEIGHTS )
+			fputs( "$boneweights\n\n", fp );
 	}
 
-	fputs( "\n", fp );
+	WriteBodyGroupInfo( fp );
+
+	fprintf( fp, "$flags %u\n\n", model_hdr->flags &~( STUDIO_HAS_BONEINFO | STUDIO_HAS_BONEWEIGHTS ) );
+	fprintf( fp, "$eyeposition %f %f %f\n\n", model_hdr->eyeposition[0], model_hdr->eyeposition[1], model_hdr->eyeposition[2] );
+
+	if( !model_hdr->numtextures )
+		fputs( "$externaltextures\n\n", fp );
+
+	WriteSkinFamilyInfo( fp );
+	WriteTextureRenderMode( fp );
+	WriteAttachmentInfo( fp );
 
 	fprintf( fp, "$bbox %f %f %f", model_hdr->min[0], model_hdr->min[1], model_hdr->min[2] );
-	fprintf( fp, " %f %f %f\n", model_hdr->max[0], model_hdr->max[1], model_hdr->max[2] );
+	fprintf( fp, " %f %f %f\n\n", model_hdr->max[0], model_hdr->max[1], model_hdr->max[2] );
 	fprintf( fp, "$cbox %f %f %f", model_hdr->bbmin[0], model_hdr->bbmin[1], model_hdr->bbmin[2] );
-	fprintf( fp, " %f %f %f\n", model_hdr->bbmax[0], model_hdr->bbmax[1], model_hdr->bbmax[2] );
-	fprintf( fp, "$eyeposition %f %f %f\n", model_hdr->eyeposition[0], model_hdr->eyeposition[1], model_hdr->eyeposition[2] );
+	fprintf( fp, " %f %f %f\n\n", model_hdr->bbmax[0], model_hdr->bbmax[1], model_hdr->bbmax[2] );
 
-	fputs( "\n", fp );
-
-	WriteBodyGroupInfo( fp );
-	WriteTextureRenderMode( fp );
-	WriteSkinFamilyInfo( fp );
-	WriteAttachmentInfo( fp );
-	WriteControllerInfo( fp );
 	WriteHitBoxInfo( fp );
+	WriteControllerInfo( fp );
 	WriteSequenceInfo( fp );
 
-	fputs( "\n// End of QC script.\n", fp );
+	fputs( "// End of QC script.\n", fp );
 	fclose( fp );
 
-	printf( "QC Script: %s\n", filename );
+	LogPrintf( "QC Script: %s", filename );
 }
 

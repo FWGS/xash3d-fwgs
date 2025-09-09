@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Xash3D FWGS (Test)</string>
+    <string name="authority" translatable="false">su.xash.engine.test.documents</string>
+</resources>
