@@ -41,6 +41,36 @@ struct jnimethods_s
 	jmethodID openURL;
 } jni;
 
+
+void Android_InitVR( void )
+{
+	//Set VR platform flags
+	char* manufacturer = getenv("xr_manufacturer");
+	if (strcmp(manufacturer, "PLAY FOR DREAM") == 0) {
+		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
+	} else if (strcmp(manufacturer, "PICO") == 0) {
+		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_REFRESH, true);
+	} else {
+		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_REFRESH, true);
+		VR_SetPlatformFLag(VR_PLATFORM_VIEWPORT_UNCENTERED, true);
+	}
+	VR_SetPlatformFLag(VR_PLATFORM_VIEWPORT_SQUARE, true);
+	VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 4.0f / 3.0f);
+
+	//Init VR
+	ovrJava java;
+	java.ActivityObject = jni.activity;
+	(*jni.env)->GetJavaVM(jni.env, &java.Vm);
+	VR_Init(&java, "Xash-FWGS", 1);
+}
+
 void Android_Init( void )
 {
 	jni.env = (JNIEnv *)SDL_AndroidGetJNIEnv();
@@ -56,30 +86,7 @@ void Android_Init( void )
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO, "0" );
 	SDL_SetHint( SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1" );
 
-	//Set VR platform flags
-	char* manufacturer = getenv("xr_manufacturer");
-	if (strcmp(manufacturer, "PLAY FOR DREAM") == 0) {
-		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
-		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
-		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
-	} else if (strcmp(manufacturer, "PICO") == 0) {
-		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
-		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
-		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_REFRESH, true);
-	} else {
-		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
-		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
-		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_REFRESH, true);
-		VR_SetPlatformFLag(VR_PLATFORM_VIEWPORT_UNCENTERED, true);
-	}
-	VR_SetPlatformFLag(VR_PLATFORM_VIEWPORT_SQUARE, true);
-	VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 4.0f / 3.0f);
-
-	//Init VR
-	ovrJava java;
-	java.ActivityObject = jni.activity;
-	(*jni.env)->GetJavaVM(jni.env, &java.Vm);
-	VR_Init(&java, "Xash", 1);
+	Android_InitVR();
 }
 
 /*

@@ -414,6 +414,14 @@ void R_SetupFrustum( void )
 		VectorCopy( RI.vforward, RI.cull_vforward );
 		VectorCopy( RI.vright, RI.cull_vright );
 		VectorCopy( RI.vup, RI.cull_vup );
+
+		// VR stereo separation for culling
+		vec3_t offset;
+		VectorCopy( RI.vright, offset );
+		VectorScale( offset, VR_IPD / 2.0f, offset );
+		VectorScale( offset, gEngfuncs.pfnGetCvarFloat("vr_worldscale"), offset );
+		VectorScale( offset, (gEngfuncs.pfnGetCvarFloat("vr_stereo_side") - 0.5f) * 2.0f, offset );
+		VectorSubtract( RI.cullorigin, offset, RI.cullorigin );
 	}
 
 	if( RI.drawOrtho )

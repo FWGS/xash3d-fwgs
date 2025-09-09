@@ -323,7 +323,7 @@ void VR_BeginFrame( engine_t* engine, int fboIndex ) {
 }
 
 void VR_EndFrame( engine_t* engine, int fboIndex ) {
-	VR_BindFramebuffer(engine);
+	VR_BindFramebuffer(engine, fboIndex);
 
 	// Show mouse cursor
 	int vrMode = vrConfig[VR_CONFIG_MODE];
@@ -441,6 +441,12 @@ void VR_FinishFrame( engine_t* engine ) {
 	endFrameInfo.layers = layers;
 	OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
 
+	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		unsigned int len = engine->appState.Renderer.FrameBuffer[eye].TextureSwapChainLength;
+		engine->appState.Renderer.FrameBuffer[eye].TextureSwapChainIndex++;
+		engine->appState.Renderer.FrameBuffer[eye].TextureSwapChainIndex %= len;
+	}
+
 	if (VR_GetConfig(VR_CONFIG_NEED_RECENTER)) {
 		VR_SetConfig(VR_CONFIG_NEED_RECENTER, false);
 		VR_Recenter(engine);
@@ -463,9 +469,9 @@ void VR_SetConfigFloat(enum VRConfigFloat config, float value) {
 	vrConfigFloat[config] = value;
 }
 
-void VR_BindFramebuffer(engine_t *engine) {
+void VR_BindFramebuffer(engine_t *engine, int fboIndex) {
 	if (!initialized) return;
-	ovrFramebuffer_SetCurrent(&engine->appState.Renderer.FrameBuffer);
+	ovrFramebuffer_SetCurrent(&engine->appState.Renderer.FrameBuffer[fboIndex]);
 }
 
 XrPosef VR_GetView(int eye) {

@@ -280,6 +280,7 @@ static void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, 
 
 	*fov_x *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVX) / 90.0f;
 	*fov_y *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / 90.0f;
+	Cvar_LazySet("vr_superzoomed", VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / *fov_y > 5.0f ? 1 : 0);
 	Cvar_LazySet("vr_zoomed", VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / *fov_y > 1.1f ? 1 : 0);
 }
 
