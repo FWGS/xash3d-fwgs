@@ -906,6 +906,8 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &hostname );
 	Cvar_RegisterVariable( &sv_timeout );
 	Cvar_RegisterVariable( &sv_connect_timeout );
+	Cvar_RegisterVariable( &sv_connect_timeout_ban );
+	Cvar_RegisterVariable( &sv_connect_timeout_ban_time );
 	Cvar_RegisterVariable( &sv_pausable );
 	Cvar_RegisterVariable( &sv_validate_changelevel );
 	Cvar_RegisterVariable( &sv_clienttrace );
