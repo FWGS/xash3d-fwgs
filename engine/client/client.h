@@ -550,6 +550,7 @@ typedef struct
 	double		connect_time;		// for connection retransmits
 	int		max_fragment_size;		// we needs to test a real network bandwidth
 	int		connect_retry;		// how many times we send a connect packet to the server
+	qboolean		passed_bandwidth_test; // if testpacket matched CRC, stop test and send challenge
 	qboolean		spectator;		// not a real player, just spectator
 
 	local_state_t	spectator_state;		// init as client startup
