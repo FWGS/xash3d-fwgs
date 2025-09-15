@@ -11,11 +11,11 @@
 	<string name="preferences_separate_libraries">Bibliothèques de paquets séparés</string>
 	<string name="preferences_client_package">Paquet client</string>
 	<string name="preferences_server_package">Paquet serveur</string>
-	<string name="preferences_use_icons">Utiliser des icônes au lieu d'arrière-plans</string>
+	<string name="preferences_use_icons">Utiliser des icônes au lieu d\'arrière-plans</string>
 	<string name="game_data_location">Emplacement des données du jeu</string>
-	<string name="file_access_required">L'accès à tous les fichiers est requis</string>
-	<string name="file_access_message">L'accès à tous les fichiers est requis pour que l'application fonctionne correctement.</string>
+	<string name="file_access_required">L\'accès à tous les fichiers est requis</string>
+	<string name="file_access_message">L\'accès à tous les fichiers est requis pour que l\'application fonctionne correctement.</string>
 	<string name="select_current_directory">Sélectionner le répertoire actuel</string>
-	<string name="external_storage_required">L'accès au stockage externe est requis</string>
-	<string name="external_storage_message">L'accès au stockage externe est requis pour que l'application fonctionne correctement.</string>
+	<string name="external_storage_required">L\'accès au stockage externe est requis</string>
+	<string name="external_storage_message">L\'accès au stockage externe est requis pour que l\'application fonctionne correctement.</string>
 </resources>
