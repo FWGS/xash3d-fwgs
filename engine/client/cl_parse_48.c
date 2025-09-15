@@ -405,6 +405,7 @@ void CL_ParseLegacyServerMessage( sizebuf_t *msg )
 				else cls.state = ca_connecting;
 				cl.background = old_background;
 				cls.connect_time = MAX_HEARTBEAT;
+				cls.passed_bandwidth_test = false;
 				cls.connect_retry = 0;
 			}
 			break;
