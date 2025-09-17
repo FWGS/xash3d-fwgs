@@ -1,3 +1,0 @@
-*.c	text eol=lf diff=cpp
-*.h	text eol=lf diff=cpp
-wscript text eol=lf diff=python
