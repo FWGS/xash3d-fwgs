@@ -38,23 +38,23 @@ GNU General Public License for more details.
 #define SUPPORTED_SWS_VERSION_MAJOR 8
 
 #if SUPPORTED_AVU_VERSION_MAJOR != LIBAVUTIL_VERSION_MAJOR
-#error
+#error "unsupported libavutil version"
 #endif
 
 #if SUPPORTED_AVF_VERSION_MAJOR != LIBAVFORMAT_VERSION_MAJOR
-#error
+#error "unsupported libavformat version"
 #endif
 
 #if SUPPORTED_AVC_VERSION_MAJOR != LIBAVCODEC_VERSION_MAJOR
-#error
+#error "unsupported libavcodec version"
 #endif
 
 #if SUPPORTED_SWR_VERSION_MAJOR != LIBSWRESAMPLE_VERSION_MAJOR
-#error
+#error "unsupported libswresample version"
 #endif
 
 #if SUPPORTED_SWS_VERSION_MAJOR != LIBSWSCALE_VERSION_MAJOR
-#error
+#error "unsupported libswscale version"
 #endif
 
 // libavutil
