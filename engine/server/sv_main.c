@@ -113,7 +113,7 @@ static CVAR_DEFINE_AUTO( showtriggers, "0", FCVAR_LATCH|FCVAR_TEMPORARY, "debug 
 static CVAR_DEFINE_AUTO( sv_airmove, "1", FCVAR_SERVER, "obsolete, compatibility issues" );
 static CVAR_DEFINE_AUTO( sv_version, "", FCVAR_READ_ONLY, "engine version string" );
 CVAR_DEFINE_AUTO( hostname, "", FCVAR_PRINTABLEONLY, "name of current host" );
-static CVAR_DEFINE_AUTO( sv_fps, "0.0", 0, "server framerate" );
+static CVAR_DEFINE_AUTO( sv_fps, "0.0", 0, "set this cvar to decouple server framerate from client framerate" );
 
 // gore-related cvars
 static CVAR_DEFINE_AUTO( violence_hblood, "1", 0, "draw human blood" );
