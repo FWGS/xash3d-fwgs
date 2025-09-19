@@ -889,7 +889,9 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_maxrate );
 	Cvar_RegisterVariable( &sv_cheats );
 	Cvar_RegisterVariable( &sv_airmove );
+#if !XASH_DEDICATED
 	Cvar_RegisterVariable( &sv_fps );
+#endif // !XASH_DEDICATED
 	Cvar_RegisterVariable( &showtriggers );
 	Cvar_RegisterVariable( &sv_aim );
 	Cvar_RegisterVariable( &sv_allow_autoaim );
