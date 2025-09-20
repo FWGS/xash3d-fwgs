@@ -23,7 +23,7 @@ if [[ "$FLATPAK_ID" == *.Compat.i386 ]]; then
 	fi
 
 	if [[ ! -e /lib/i386-linux-gnu/libGL.so.1 ]]; then
-		die "Can't find 32-bit OpenGL runtime extension. Try running 'flatpak install org.freedesktop.Platform.GL32.default'"
+		die "Can't find 32-bit OpenGL runtime extension. Try installing running appropriate GL32 extension for your system (org.freedesktop.Platform.GL32.nvidia-VERSION for NVIDIA, otherwise org.freedesktop.Platform.GL32.default)"
 	fi
 fi
 
