@@ -14,7 +14,7 @@
 try: from fwgslib import get_flags_by_type, get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_type, get_flags_by_compiler
 from waflib.Configure import conf
-from waflib import Logs
+from waflib import Logs, Utils
 
 '''
 Flags can be overriden and new types can be added
@@ -256,6 +256,20 @@ def get_optimization_flags(conf):
 		cflags.remove('-fvisibility=hidden')
 		# this port don't have stack printing support
 		cflags.remove('-fasynchronous-unwind-tables')
+
+	if conf.env.DEST_CPU == 'riscv' and conf.env.DEST_OS == 'linux' and conf.options.BUILD_TYPE in ['release', 'fast']:
+		# try to guess better flags, as march=native is not supported in my toolchain yet
+		# shoddy work, remove later
+		s = None
+		for line in Utils.readf('/proc/cpuinfo').splitlines():
+			if line.startswith('uarch'):
+				s = line[line.find(':') + 2:]
+				break
+		march = None
+		if s == 'thead,c910':
+			march = '-march=rv64gc_xtheadvector'
+
+		conf.msg('Guessed best -march', march)
 
 	if conf.env.COMPILER_CC in ['gcc', 'clang'] and conf.options.LIMITED_DEBUGINFO:
 		# probably not a good idea to do this, but it should save space on Android builds especially
