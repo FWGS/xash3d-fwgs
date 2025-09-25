@@ -106,7 +106,7 @@ void Log_Printf( const char *fmt, ... )
 	struct tm	*today;
 	int		len;
 
-	if( !svs.log.active )
+	if( !svs.log.net_log && !svs.log.active )
 		return;
 
 	time( &ltime );
