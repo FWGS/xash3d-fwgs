@@ -436,6 +436,7 @@ static void SV_ConnectClient( netadr_t from )
 	// build protinfo answer
 	protinfo[0] = '\0';
 	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
+	Info_SetValueForKey( protinfo, "cheats", sv_cheats.value ? "1" : "0", sizeof( protinfo ));
 
 	// send the connect packet to the client
 	Netchan_OutOfBandPrint( NS_SERVER, from, S2C_CONNECTION" %s", protinfo );
