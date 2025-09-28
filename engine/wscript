@@ -90,8 +90,6 @@ def find_sdl(conf):
 		conf.env.XASH_SDL = 2
 
 def configure(conf):
-	have_async_resolve = True
-
 	# Common dependencies, will be linked to both dedicated server and client
 	if conf.env.DEST_OS == 'linux':
 		conf.check_cc(lib='rt')
@@ -101,15 +99,11 @@ def configure(conf):
 		conf.env.LIB_HAIKU = ['network']
 		conf.env.LIBPATH_HAIKU = ['/boot/system/lib']
 	elif conf.env.DEST_OS == 'wasi':
-		have_async_resolve = False
 		conf.env.CFLAGS += ['-mllvm', '-wasm-enable-sjlj']
-	elif conf.env.DEST_OS == 'emscripten':
-		have_async_resolve = False
 	elif conf.env.DEST_OS == 'sunos':
 		conf.check_cc(lib='socket')
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.STATIC = True
-		have_async_resolve = False
 
 	if conf.options.ENGINE_FUZZ:
 		conf.env.append_unique('CFLAGS', '-fsanitize=fuzzer-no-link')
@@ -136,7 +130,6 @@ def configure(conf):
 		elif conf.options.SDL12: # TODO: move to sdl2.py
 			conf.check_cfg(package='sdl', args='--cflags --libs', uselib_store='SDL1')
 			conf.env.XASH_SDL = 1
-			have_async_resolve = False
 			conf.env.HAVE_SDL1 = True
 		else:
 			find_sdl(conf)
@@ -146,7 +139,7 @@ def configure(conf):
 		conf.env.STATIC = True
 		conf.define('XASH_NO_LIBDL', 1)
 
-	if not conf.env.DEST_OS in ['win32', 'android'] and have_async_resolve:
+	if not conf.env.DEST_OS in ['win32', 'android']:
 		conf.check_pthreads(mode='c')
 
 	conf.check_cc(fragment=EXECINFO_TEST, msg='Checking for glibc backtrace()', mandatory=False, define_name='HAVE_EXECINFO')
@@ -187,7 +180,6 @@ def configure(conf):
 
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
-	conf.define_cond('XASH_NO_ASYNC_NS_RESOLVE', not have_async_resolve)
 	conf.define_cond('PSAPI_VERSION', conf.env.DEST_OS == 'win32') # will be defined as 1
 
 	for refdll in conf.refdlls:

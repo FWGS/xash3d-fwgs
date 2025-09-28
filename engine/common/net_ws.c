@@ -268,11 +268,6 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 	return ret;
 }
 
-#if !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
-#define CAN_ASYNC_NS_RESOLVE
-#endif // !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
-
-#ifdef CAN_ASYNC_NS_RESOLVE
 static void NET_ResolveThread( void );
 
 #if XASH_SDL == 2
@@ -377,8 +372,6 @@ static void NET_ResolveThread( void )
 	mutex_unlock( nsthread.mutexres );
 	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
 }
-#endif // CAN_ASYNC_NS_RESOLVE
-
 
 /*
 =============
@@ -436,7 +429,6 @@ net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sa
 	{
 		qboolean asyncfailed = true;
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 		if( net.threads_initialized && nonblocking )
 		{
 			mutex_lock( nsthread.mutexres );
@@ -478,7 +470,6 @@ net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sa
 
 			mutex_unlock( nsthread.mutexres );
 		}
-#endif // CAN_ASYNC_NS_RESOLVE
 
 		if( asyncfailed )
 			ret = NET_GetHostByName( copy, family, &temp );
@@ -2061,9 +2052,7 @@ void NET_Init( void )
 	}
 #endif
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 	NET_InitializeCriticalSections();
-#endif
 
 	net.allow_ip = !Sys_CheckParm( "-noip" );
 	net.allow_ip6 = !Sys_CheckParm( "-noip6" );
@@ -2116,9 +2105,7 @@ void NET_Shutdown( void )
 
 	NET_Config( false, false );
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 	NET_DeleteCriticalSections();
-#endif
 
 #if XASH_WIN32
 	WSACleanup();
