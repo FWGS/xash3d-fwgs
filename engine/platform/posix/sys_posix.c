@@ -22,78 +22,25 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 #include "menu_int.h"
 
-static qboolean Sys_FindExecutable( const char *baseName, char *buf, size_t size )
-{
-	char *envPath;
-	char *part;
-	size_t length;
-	size_t baseNameLength;
-	size_t needTrailingSlash;
-
-	if( !baseName || !baseName[0] )
-		return false;
-
-	envPath = getenv( "PATH" );
-	if( !COM_CheckString( envPath ) )
-		return false;
-
-	baseNameLength = Q_strlen( baseName );
-	while( *envPath )
-	{
-		part = Q_strchr( envPath, ':' );
-		if( part )
-			length = part - envPath;
-		else
-			length = Q_strlen( envPath );
-
-		if( length > 0 )
-		{
-			needTrailingSlash = ( envPath[length - 1] == '/' ) ? 0 : 1;
-			if( length + baseNameLength + needTrailingSlash < size )
-			{
-				string temp;
-
-				Q_strncpy( temp, envPath, length + 1 );
-				Q_snprintf( buf, size, "%s%s%s",
-					temp, needTrailingSlash ? "/" : "", baseName );
-
-				if( access( buf, X_OK ) == 0 )
-					return true;
-			}
-		}
-
-		envPath += length;
-		if( *envPath == ':' )
-			envPath++;
-	}
-	return false;
-}
-
 #if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
 void Platform_ShellExecute( const char *path, const char *parms )
 {
-	char xdgOpen[128];
+	const char *argv[] = { OPEN_COMMAND, path, NULL };
+	pid_t id;
 
 	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
 		path = DEFAULT_UPDATE_PAGE;
 
-	if( Sys_FindExecutable( OPEN_COMMAND, xdgOpen, sizeof( xdgOpen ) ) )
+	id = fork();
+
+	if( id == 0 )
 	{
-		const char *argv[] = { xdgOpen, path, NULL };
-		pid_t id = fork( );
-		if( id == 0 )
-		{
-			execv( xdgOpen, (char **)argv );
-			fprintf( stderr, "error opening %s %s", xdgOpen, path );
-			_exit( 1 );
-		}
-	}
-	else
-	{
-		Con_Reportf( S_WARN "Could not find "OPEN_COMMAND" utility\n" );
+		execvp( OPEN_COMMAND, (char **)argv );
+		fprintf( stderr, "error opening %s %s", OPEN_COMMAND, path );
+		exit( 1 );
 	}
 }
-#endif // XASH_ANDROID
+#endif // !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
 
 void Posix_Daemonize( void )
 {
