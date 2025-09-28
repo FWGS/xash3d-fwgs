@@ -83,7 +83,6 @@ SUBDIRS = [
 	Subproject('public'),
 	Subproject('filesystem'),
 	Subproject('stub/server'),
-	Subproject('dllemu'),
 	Subproject('3rdparty/libbacktrace'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
