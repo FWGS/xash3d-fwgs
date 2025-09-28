@@ -237,7 +237,6 @@ NET_GetHostByName
 */
 static qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
-#if defined HAVE_GETADDRINFO
 	struct addrinfo *ai = NULL, *cur;
 	struct addrinfo hints;
 	qboolean ret = false;
@@ -267,22 +266,6 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 	}
 
 	return ret;
-#else
-	struct hostent *h;
-
-#if XASH_NO_IPV6_RESOLVE
-	if( family == AF_INET6 )
-		return false;
-#endif
-
-	if(!( h = gethostbyname( hostname )))
-		return false;
-
-	((struct sockaddr_in *)addr)->sin_family = AF_INET;
-	((struct sockaddr_in *)addr)->sin_addr = *(struct in_addr *)h->h_addr_list[0];
-
-	return true;
-#endif
 }
 
 #if !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
@@ -380,11 +363,7 @@ static void NET_ResolveThread( void )
 
 	RESOLVE_DBG( "[resolve thread] starting resolve for " );
 	RESOLVE_DBG( nsthread.hostname );
-#ifdef HAVE_GETADDRINFO
 	RESOLVE_DBG( " with getaddrinfo\n" );
-#else
-	RESOLVE_DBG( " with gethostbyname\n" );
-#endif
 
 	if(( res = NET_GetHostByName( nsthread.hostname, nsthread.family, &addr )))
 		RESOLVE_DBG( "[resolve thread] success\n" );
