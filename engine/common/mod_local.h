@@ -31,7 +31,6 @@ GNU General Public License for more details.
 #define SETVISBIT( vis, b )( void )	((b) >= 0 ? (byte)((vis)[(b) >> 3] |= (1 << ((b) & 7))) : (byte)false )
 #define CLEARVISBIT( vis, b )( void )	((b) >= 0 ? (byte)((vis)[(b) >> 3] &= ~(1 << ((b) & 7))) : (byte)false )
 
-#define REFPVS_RADIUS		2.0f	// radius for rendering
 #define FATPVS_RADIUS		8.0f	// FatPVS use radius smaller than the FatPHS
 #define FATPHS_RADIUS		8.0f	// see SV_AddToFatPAS in GoldSrc
 

@@ -1156,7 +1156,7 @@ static void R_MarkLeaves( void )
 	tr.visframecount++;
 	r_oldviewcluster = r_viewcluster;
 
-	gEngfuncs.R_FatPVS( RI.pvsorigin, REFPVS_RADIUS, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), false );
+	gEngfuncs.R_FatPVS( RI.pvsorigin, r_pvs_radius->value, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), false );
 	vis = RI.visbytes;
 
 	for( i = 0; i < WORLDMODEL->numleafs; i++ )
