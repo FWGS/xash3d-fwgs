@@ -1003,6 +1003,10 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	}
 	else Cvar_DirectSet( &r_decals, NULL );
 
+	// for GoldSrc, it's handled by svc_goldsrc_sendextrainfo
+	if( proto != PROTO_GOLDSRC )
+		CL_SetCheatState( cl.maxclients > 1, cls.allow_cheats );
+
 	// set the background state
 	if( cls.demoplayback && ( cls.demonum != -1 ))
 		cl.background = true;

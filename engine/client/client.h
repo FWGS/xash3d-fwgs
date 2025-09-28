@@ -640,6 +640,10 @@ typedef struct
 	// server's build number (might be zero)
 	int build_num;
 	uint8_t steamid[8];
+
+	// whether server allows cheats or not
+	// set differently depending on protocol and extensions
+	qboolean allow_cheats;
 } client_static_t;
 
 #ifdef __cplusplus
@@ -763,6 +767,7 @@ void CL_UpdateFrameLerp( void );
 int CL_IsDevOverviewMode( void );
 void CL_SignonReply( connprotocol_t proto );
 void CL_ClearState( void );
+void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 
 //
 // cl_demo.c
