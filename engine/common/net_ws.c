@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "ipv6text.h"
 #include "net_ws_private.h"
+#include "server.h" // sv_cheats
 
 #if XASH_SDL == 2
 #include <SDL_thread.h>
@@ -1139,7 +1140,7 @@ static void NET_AdjustLag( void )
 	dt = bound( 0.0, dt, 0.1 );
 	lasttime = host.realtime;
 
-	if( host_developer.value || !net_fakelag.value )
+	if(( host_developer.value && sv_cheats.value ) || !net_fakelag.value )
 	{
 		if( net_fakelag.value != net.fakelag )
 		{
