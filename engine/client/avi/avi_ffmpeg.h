@@ -116,8 +116,9 @@ int               (*psws_scale)( struct SwsContext *c, const uint8_t *const srcS
 // libavutil
 #define pavutil_version           avutil_version
 #define pav_frame_alloc           av_frame_alloc
+#define pav_frame_free            av_frame_free
 #define pav_frame_ref             av_frame_ref
-#define pav_frame_unref           av_Frame_unref
+#define pav_frame_unref           av_frame_unref
 #define pav_strerror              av_strerror
 #define pav_free                  av_free
 #define pav_get_bytes_per_sample  av_get_bytes_per_sample
