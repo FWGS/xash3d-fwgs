@@ -73,7 +73,6 @@ GNU General Public License for more details.
 
 
 #ifndef XASH_DOS4GW
-#define HAVE_GETADDRINFO
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 
