@@ -149,9 +149,6 @@ def configure(conf):
 	if not conf.env.DEST_OS in ['win32', 'android'] and have_async_resolve:
 		conf.check_pthreads(mode='c')
 
-	if hasattr(conf.options, 'DLLEMU'):
-		conf.define_cond('XASH_DLL_LOADER', conf.options.DLLEMU)
-
 	conf.check_cc(fragment=EXECINFO_TEST, msg='Checking for glibc backtrace()', mandatory=False, define_name='HAVE_EXECINFO')
 
 	conf.define('ENGINE_DLL', 1)
@@ -200,7 +197,7 @@ def build(bld):
 	# public includes for renderers and utils use
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
-	libs = ['engine_includes', 'public', 'dllemu', 'werror', 'backtrace']
+	libs = ['engine_includes', 'public', 'werror', 'backtrace']
 	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
 
 	# basic build: dedicated only

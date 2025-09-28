@@ -337,9 +337,6 @@ typedef struct host_parm_s
 	qboolean apply_game_config;   // when true apply only to game cvars and ignore all other commands
 	qboolean apply_opengl_config; // when true apply only to opengl cvars and ignore all other commands
 	qboolean config_executed;     // a bit who indicated was config.cfg already executed e.g. from valve.rc
-#if XASH_DLL_LOADER
-	qboolean enabledll;
-#endif
 	qboolean textmode;
 
 	// some settings were changed and needs to global update
