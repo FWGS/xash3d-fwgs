@@ -19,7 +19,7 @@ CVAR_DEFINE_AUTO( gl_clear, "0", FCVAR_ARCHIVE, "clearing screen after each fram
 CVAR_DEFINE_AUTO( r_showtree, "0", FCVAR_ARCHIVE, "build the graph of visible BSP tree" );
 static CVAR_DEFINE_AUTO( r_refdll, "", FCVAR_RENDERINFO, "choose renderer implementation, if supported" );
 static CVAR_DEFINE_AUTO( r_refdll_loaded, "", FCVAR_READ_ONLY, "currently loaded renderer" );
-static CVAR_DEFINE_AUTO( r_pvs_radius, "2.0", FCVAR_ARCHIVE, "increase amount of potentially visible leaves by this radius" );
+static CVAR_DEFINE_AUTO( r_pvs_radius, "0.1", FCVAR_ARCHIVE, "increase amount of potentially visible leaves by this radius" );
 
 // there is no need to expose whole host and cl structs into the renderer
 // but we still need to update timings accurately as possible
