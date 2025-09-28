@@ -262,15 +262,6 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 #if TARGET_OS_IOS
 	Q_strncpy( out, IOS_GetDocsDir(), size );
 	return true;
-#elif XASH_ANDROID && XASH_SDL
-	path = SDL_AndroidGetExternalStoragePath();
-	if( path != NULL )
-	{
-		Q_strncpy( out, path, size );
-		return true;
-	}
-	Sys_Error( "couldn't determine Android external storage path: %s", SDL_GetError( ));
-	return false;
 #elif XASH_PSVITA
 	if( PSVita_GetBasePath( out, size ))
 		return true;
