@@ -183,10 +183,8 @@ static void Sys_PrintUsage( const char *exename )
 	O("-windowed          ", "run engine in windowed mode")
 	O("-ref <name>        ", "use selected renderer dll")
 	O("-gldebug           ", "enable OpenGL debug log")
-#if XASH_WIN32
 	O("-noavi             ", "disable AVI support")
 	O("-nointro           ", "disable intro video")
-#endif
 	O("-noenginejoy       ", "disable engine builtin joystick support")
 	O("-noenginemouse     ", "disable engine builtin mouse support")
 	O("-nosound           ", "disable sound output")
