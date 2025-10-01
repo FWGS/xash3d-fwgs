@@ -95,7 +95,7 @@ def configure(conf):
 		return {'header_name':hdr, 'msg':'... %s header' % hdr, 'mandatory':False, 'id':hdr, 'compiler': 'c'}
 
 	def check_frag(frag, msg, define, **kw):
-		return dict({'fragment': frag, 'msg':'... %s' % msg, 'mandatory': False, 'compiler': 'c'}, **kw)
+		return dict({'fragment': frag, 'msg':'... %s' % msg, 'mandatory': False, 'define_name': define, 'compiler': 'c'}, **kw)
 
 	conf.multicheck(
 		check_header('dlfcn.h'),
