@@ -1096,6 +1096,9 @@ UI_ShellExecute
 */
 static void GAME_EXPORT UI_ShellExecute( const char *path, const char *parms, int shouldExit )
 {
+	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
+		path = DEFAULT_UPDATE_PAGE;
+
 	Platform_ShellExecute( path, parms );
 
 	if( shouldExit )

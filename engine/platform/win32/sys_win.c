@@ -111,9 +111,6 @@ qboolean Platform_DebuggerPresent( void )
 
 void Platform_ShellExecute( const char *path, const char *parms )
 {
-	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
-		path = DEFAULT_UPDATE_PAGE;
-
 	ShellExecuteA( NULL, "open", path, parms, NULL, SW_SHOW );
 }
 

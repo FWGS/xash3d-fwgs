@@ -28,9 +28,6 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	const char *argv[] = { OPEN_COMMAND, path, NULL };
 	pid_t id;
 
-	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
-		path = DEFAULT_UPDATE_PAGE;
-
 	id = fork();
 
 	if( id == 0 )
