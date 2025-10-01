@@ -31,21 +31,15 @@ GNU General Public License for more details.
 
 static qboolean have_libbacktrace = false;
 
-static struct sigaction oldFilter;
-
 static void Sys_Crash( int signal, siginfo_t *si, void *context )
 {
 	char message[8192];
 	int len, logfd, i = 0;
 	qboolean detailed_message = false;
 
-	// flush buffers before writing directly to descriptors
-	fflush( stdout );
-	fflush( stderr );
-
 	// safe actions first, stack and memory may be corrupted
 	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s-%s, %s-%s)\n",
-					  Q_buildnum(), g_buildcommit, g_buildbranch, Q_buildos(), Q_buildarch() );
+		Q_buildnum(), g_buildcommit, g_buildbranch, Q_buildos(), Q_buildarch() );
 
 #if !XASH_FREEBSD && !XASH_NETBSD && !XASH_OPENBSD && !XASH_APPLE
 	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p %p\n", signal, si->si_errno, si->si_code, si->si_addr, si->si_ptr );
@@ -75,12 +69,12 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 	}
 #endif // HAVE_EXECINFO
 
-	// put MessageBox as Sys_Error
-	Msg( "%s\n", message );
 #if !XASH_DEDICATED
 	IN_SetMouseGrab( false );
 #endif
 	host.status = HOST_CRASHED;
+
+	// put MessageBox as Sys_Error
 	Platform_MessageBox( "Xash Error", message, false );
 
 	// log saved, now we can try to save configs and close log correctly, it may crash
@@ -89,6 +83,11 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 
 	Sys_Quit( "crashed" );
 }
+
+static struct sigaction old_segv_act;
+static struct sigaction old_abrt_act;
+static struct sigaction old_bus_act;
+static struct sigaction old_ill_act;
 
 void Sys_SetupCrashHandler( const char *argv0 )
 {
@@ -102,19 +101,19 @@ void Sys_SetupCrashHandler( const char *argv0 )
 	have_libbacktrace = Sys_SetupLibbacktrace( argv0 );
 #endif // HAVE_LIBBACKTRACE
 
-	sigaction( SIGSEGV, &act, &oldFilter );
-	sigaction( SIGABRT, &act, &oldFilter );
-	sigaction( SIGBUS,  &act, &oldFilter );
-	sigaction( SIGILL,  &act, &oldFilter );
+	sigaction( SIGSEGV, &act, &old_segv_act );
+	sigaction( SIGABRT, &act, &old_abrt_act );
+	sigaction( SIGBUS,  &act, &old_bus_act );
+	sigaction( SIGILL,  &act, &old_ill_act );
 
 }
 
 void Sys_RestoreCrashHandler( void )
 {
-	sigaction( SIGSEGV, &oldFilter, NULL );
-	sigaction( SIGABRT, &oldFilter, NULL );
-	sigaction( SIGBUS,  &oldFilter, NULL );
-	sigaction( SIGILL,  &oldFilter, NULL );
+	sigaction( SIGSEGV, &old_segv_act, NULL );
+	sigaction( SIGABRT, &old_abrt_act, NULL );
+	sigaction( SIGBUS,  &old_bus_act, NULL );
+	sigaction( SIGILL,  &old_ill_act, NULL );
 }
 
 #endif // XASH_FREEBSD || XASH_NETBSD || XASH_OPENBSD || XASH_ANDROID || XASH_LINUX
