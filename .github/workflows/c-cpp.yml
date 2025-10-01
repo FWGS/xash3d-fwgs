@@ -70,7 +70,7 @@ jobs:
             targetos: apple
             targetarch: amd64
     env:
-      SDL_VERSION: 2.32.8
+      SDL_VERSION: 2.32.10
       FFMPEG_VERSION: 7.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GH_CPU_OS: ${{ matrix.targetos }}
