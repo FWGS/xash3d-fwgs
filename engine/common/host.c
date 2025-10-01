@@ -1027,9 +1027,6 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 			Sys_PrintBugcompUsage( exename );
 	}
 
-	if( !Sys_CheckParm( "-noch" ))
-		Sys_SetupCrashHandler( argv[0] );
-
 	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
@@ -1101,7 +1098,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Cvar_SetValue( "sys_ticrate", fps );
 	}
 
+	Sys_InitLog();
 	Con_Init(); // early console running to catch all the messages
+
+	if( !Sys_CheckParm( "-noch" ))
+		Sys_SetupCrashHandler( argv[0] );
 
 #if XASH_ENGINE_TESTS
 	if( Sys_CheckParm( "-runtests" ))
@@ -1113,8 +1114,6 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED, basedir );
 	FS_Init( basedir );
-
-	Sys_InitLog();
 
 	// print current developer level to simplify processing users feedback
 	if( developer > 0 )
