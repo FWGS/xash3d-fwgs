@@ -131,6 +131,6 @@ build_dedicated_tarball
 
 if [ -x appimagetool.AppImage ]; then
 	build_appimage
-else
-	build_engine_tarball
 fi
+
+build_engine_tarball
