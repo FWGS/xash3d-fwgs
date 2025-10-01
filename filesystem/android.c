@@ -79,6 +79,7 @@ static const char *Android_GetPackageName( qboolean engine )
 	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( pkg, resultCStr, sizeof( pkg ));
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
+	(*jni.env)->DeleteLocalRef( jni.env, resultJNIStr );
 
 	return pkg;
 }
@@ -96,7 +97,11 @@ static void Android_ListDirectory( stringlist_t *list, const char *path, qboolea
 
 		stringlistappend( list, (char *)CStr );
 		(*jni.env)->ReleaseStringUTFChars( jni.env, JNIStr, CStr );
+		(*jni.env)->DeleteLocalRef( jni.env, JNIStr );
 	}
+
+	(*jni.env)->DeleteLocalRef( jni.env, JNIArray );
+	(*jni.env)->DeleteLocalRef( jni.env, JStr );
 }
 
 static void FS_CloseAndroidAssets( android_assets_t *assets )
