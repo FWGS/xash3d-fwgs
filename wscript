@@ -352,7 +352,7 @@ def configure(conf):
 			'-Wmisleading-indentation',
 			'-Wmismatched-dealloc',
 			'-Wstringop-overflow',
-			'-Wunintialized',
+			'-Wuninitialized',
 			'-Wno-error=format-nonliteral',
 
 			# disabled, flood
