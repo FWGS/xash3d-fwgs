@@ -671,7 +671,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
 
 // cvars that's logic is shared between renderer and engine
-// actually, they are just created on engine side for convinience
+// actually, they are just created on engine side for convenience
 // and must be retrieved by renderer side
 // sometimes it's done to standartize cvars to make it easier for users
 #define ENGINE_SHARED_CVAR_LIST( f ) \
