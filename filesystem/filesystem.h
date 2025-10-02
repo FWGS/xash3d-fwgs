@@ -143,7 +143,7 @@ typedef struct fs_dllinfo_t
 
 typedef struct fs_globals_t
 {
-	gameinfo_t	*GameInfo;	// current GameInfo
+	const gameinfo_t *GameInfo;	// current GameInfo
 	gameinfo_t	*games[MAX_MODS];	// environment games (founded at each engine start)
 	int		numgames;
 } fs_globals_t;
