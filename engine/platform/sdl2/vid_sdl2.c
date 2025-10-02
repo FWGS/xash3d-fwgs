@@ -795,7 +795,7 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 		int sdl_renderer = -2;
 		char cmd[64];
 
-		if( Sys_GetParmFromCmdLine("-sdl_renderer", cmd ) )
+		if( Sys_GetParmFromCmdLine( "-sdl_renderer", cmd ))
 			sdl_renderer = Q_atoi( cmd );
 
 		if( sdl_renderer >= -1 )
@@ -813,15 +813,12 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 	}
 	else
 	{
-		if( !glw_state.initialized )
+		while( !GL_CreateContext( ))
 		{
-			while( !GL_CreateContext( ))
-			{
-				glw_state.safe++;
-				if(glw_state.safe > SAFE_DONTCARE)
-					return false;
-				GL_SetupAttributes(); // re-choose attributes
-			}
+			glw_state.safe++;
+			if( glw_state.safe > SAFE_DONTCARE )
+				return false;
+			GL_SetupAttributes(); // re-choose attributes
 		}
 
 		if( !GL_UpdateContext( ))
