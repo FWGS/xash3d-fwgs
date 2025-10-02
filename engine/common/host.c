@@ -37,8 +37,8 @@ GNU General Public License for more details.
 #include "render_api.h"	// decallist_t
 #include "tests.h"
 
-static pfnChangeGame	pChangeGame = NULL;
-host_parm_t		host;	// host parms
+host_parm_t host;	// host parms
+static pfnChangeGame pChangeGame = NULL;
 static jmp_buf return_from_main_buf;
 
 /*
@@ -1177,14 +1177,6 @@ static void Sys_Quit_f( void )
 	Sys_Quit( "command" );
 }
 
-static void Host_MainLoop( void *userdata )
-{
-	double *poldtime = (double *)userdata;
-	double newtime = Sys_DoubleTime();
-	COM_Frame( newtime - *poldtime );
-	*poldtime = newtime;
-}
-
 /*
 =================
 Host_Main
@@ -1194,6 +1186,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 {
 	static double oldtime;
 	string demoname, exename;
+
+	if( setjmp( return_from_main_buf ))
+		return error_on_exit;
 
 	host.starttime = Sys_DoubleTime();
 
@@ -1337,9 +1332,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	// check after all configs were executed
 	HPAK_CheckIntegrity( hpk_custom_file.string );
-
-	if( setjmp( return_from_main_buf ))
-		return error_on_exit;
 
 	// main window message loop
 	while( host.status != HOST_CRASHED )
