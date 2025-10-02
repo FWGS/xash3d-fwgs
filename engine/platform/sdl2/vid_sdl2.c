@@ -1182,8 +1182,11 @@ ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 
 	SDL_VERSION( &wmInfo.version );
 
-	if( SDL_GetWindowWMInfo( host.hWnd, &wmInfo ))
+	if( !SDL_GetWindowWMInfo( host.hWnd, &wmInfo ))
+	{
+		Con_Reportf( S_ERROR "%s: SDL_GetWindowWMInfo: %s\n", __func__, SDL_GetError( ));
 		return REF_WINDOW_TYPE_NULL;
+	}
 
 	switch( wmInfo.subsystem )
 	{
