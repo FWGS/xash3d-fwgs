@@ -1892,7 +1892,7 @@ static void Con_DrawSolidConsole( int lines )
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
 	if( refState.width * 3 / 4 < refState.height && lines >= refState.height )
-		ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.height, refState.width, refState.height - refState.width * 3 / 4, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE) );
+		ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.height, refState.width, refState.height - refState.width * 3 / 4, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE ));
 	ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.width * 3 / 4, refState.width, refState.width * 3 / 4, 0, 0, 1, 1, con.background );
 
 	if( !con.curFont || !host.allow_console )
