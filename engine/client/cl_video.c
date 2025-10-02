@@ -170,6 +170,9 @@ qboolean SCR_DrawCinematic( void )
 	if( !ref.initialized )
 		return false;
 
+	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+	ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE ));
+
 	if( !AVI_Think( cin_state ))
 		return SCR_NextMovie();
 
