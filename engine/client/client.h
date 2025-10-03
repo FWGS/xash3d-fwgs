@@ -622,11 +622,11 @@ typedef struct
 
 	file_t		*demofile;
 	file_t		*demoheader;		// contain demo startup info in case we record a demo on this level
-	qboolean internetservers_wait;	// internetservers is waiting for dns request
+	qboolean internetservers_wait;    // internetservers is waiting for dns request
 	qboolean internetservers_pending; // if true, clean master server pings
-	uint32_t internetservers_key;       // compare key to validate master server reply
-	char     internetservers_query[512]; // cached query
-	uint32_t internetservers_query_len;
+	qboolean internetservers_nat;
+	string   internetservers_customfilter;
+	uint32_t internetservers_key;     // compare key to validate master server reply
 
 	// multiprotocol support
 	connprotocol_t legacymode;
