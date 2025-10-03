@@ -1995,7 +1995,7 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 {
 	static char	s[512+8];
-	int p, numcl, maxcl, password, remaining;
+	int p, numcl, maxcl, password, remaining, bots;
 	string host, map, gamedir, version;
 	connprotocol_t proto;
 	char *replace;
@@ -2011,13 +2011,14 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 	MSG_ReadShort( msg ); // app id
 	numcl = MSG_ReadByte( msg );
 	maxcl = MSG_ReadByte( msg );
-	MSG_ReadByte( msg ); // bots count
+	bots = MSG_ReadByte( msg ); // bots count
 	MSG_ReadByte( msg ); // dedicated
 	MSG_ReadByte( msg ); // operating system
 	password = MSG_ReadByte( msg );
 	Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
 
-	if( maxcl > MAX_CLIENTS || numcl > MAX_CLIENTS )
+	// sanity check
+	if( maxcl > MAX_CLIENTS || numcl > MAX_CLIENTS || bots > MAX_CLIENTS || numcl > maxcl || bots > maxcl )
 		return;
 
 	if( MSG_CheckOverflow( msg ))

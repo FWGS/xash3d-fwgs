@@ -186,6 +186,8 @@ def options(opt):
 def configure(conf):
 	conf.start_msg('Build type')
 
+	conf.options.BUILD_TYPE = conf.options.BUILD_TYPE.lower()
+
 	# legacy naming for default release build
 	# https://chaos.social/@karolherbst/111340511652012860
 	if conf.options.BUILD_TYPE == 'release':
