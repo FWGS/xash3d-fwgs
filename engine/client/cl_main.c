@@ -212,6 +212,18 @@ static void CL_CheckClientState( void )
 		Cvar_SetValue( "scr_loading", 0.0f );	// reset progress bar
 		Netchan_ReportFlow( &cls.netchan );
 
+		if( cls.legacymode == PROTO_GOLDSRC )
+		{
+			CL_ServerCommand(true, "specmode 4\n");
+			CL_ServerCommand(true, "specmode 4\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "specmode 4\n");
+			CL_ServerCommand(true, "specmode 4\n");
+		}
+
 		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart );
 	}
 }
