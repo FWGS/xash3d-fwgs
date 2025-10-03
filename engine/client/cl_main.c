@@ -98,12 +98,11 @@ CVAR_DEFINE_AUTO( rate, "25000", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, 
 
 static CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
 static CVAR_DEFINE_AUTO( cl_advertise_engine_in_name, "1", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "add [Xash3D] to the nickname when connecting to GoldSrc servers" );
+static CVAR_DEFINE_AUTO( cl_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
 
 client_t		cl;
 client_static_t	cls;
 clgame_static_t	clgame;
-
-static void CL_SendMasterServerScanRequest( void );
 
 //======================================================================
 int GAME_EXPORT CL_Active( void )
@@ -1232,7 +1231,13 @@ static void CL_CheckForResend( void )
 	qboolean bandwidthTest;
 
 	if( cls.internetservers_wait )
-		CL_SendMasterServerScanRequest();
+	{
+		cls.internetservers_wait = NET_MasterQuery(
+			cls.internetservers_key,
+			cls.internetservers_nat,
+			cls.internetservers_customfilter
+		);
+	}
 
 	// if the local server is running and we aren't then connect
 	if( cls.state == ca_disconnected && SV_Active( ))
@@ -1757,83 +1762,47 @@ static void CL_LocalServers_f( void )
 
 /*
 =================
-CL_BuildMasterServerScanRequest
-=================
-*/
-static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t *key, qboolean nat, const char *filter )
-{
-	size_t remaining;
-	char *info, temp[32];
-
-	if( unlikely( size < sizeof( MS_SCAN_REQUEST )))
-		return 0;
-
-	Q_strncpy( buf, MS_SCAN_REQUEST, size );
-
-	info = buf + sizeof( MS_SCAN_REQUEST ) - 1;
-	remaining = size - sizeof( MS_SCAN_REQUEST );
-
-	Q_strncpy( info, filter, remaining );
-
-	*key = COM_RandomLong( 0, 0x7FFFFFFF );
-
-#ifndef XASH_ALL_SERVERS
-	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
-#endif
-	// let master know about client version
-	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining );
-	Info_SetValueForKey( info, "nat", nat ? "1" : "0", remaining );
-	Info_SetValueForKey( info, "commit", g_buildcommit, remaining );
-	Info_SetValueForKey( info, "branch", g_buildbranch, remaining );
-	Info_SetValueForKey( info, "os", Q_buildos(), remaining );
-	Info_SetValueForKey( info, "arch", Q_buildarch(), remaining );
-
-	Q_snprintf( temp, sizeof( temp ), "%d", Q_buildnum() );
-	Info_SetValueForKey( info, "buildnum", temp, remaining );
-
-	Q_snprintf( temp, sizeof( temp ), "%x", *key );
-	Info_SetValueForKey( info, "key", temp, remaining );
-
-	return sizeof( MS_SCAN_REQUEST ) + Q_strlen( info );
-}
-
-/*
-=================
-CL_SendMasterServerScanRequest
-=================
-*/
-static void CL_SendMasterServerScanRequest( void )
-{
-	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT,
-		cls.internetservers_query_len, cls.internetservers_query );
-	cls.internetservers_pending = true;
-}
-
-/*
-=================
 CL_InternetServers_f
 =================
 */
 static void CL_InternetServers_f( void )
 {
-	qboolean nat = cl_nat.value != 0.0f;
-	uint32_t key;
-
 	if( Cmd_Argc( ) > 2 || ( Cmd_Argc( ) == 2 && !Info_IsValid( Cmd_Argv( 1 ))))
 	{
 		Con_Printf( S_USAGE "internetservers [filter]\n" );
 		return;
 	}
 
-	cls.internetservers_query_len = CL_BuildMasterServerScanRequest(
-		cls.internetservers_query, sizeof( cls.internetservers_query ),
-		&cls.internetservers_key, nat, Cmd_Argv( 1 ));
-
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 
 	NET_Config( true, true ); // allow remote
 
-	CL_SendMasterServerScanRequest();
+	cls.internetservers_nat = cl_nat.value != 0.0f;
+	cls.internetservers_pending = true;
+	cls.internetservers_key = COM_RandomLong( 0, 0xFFFFFFFF );
+	Q_strncpy( cls.internetservers_customfilter, Cmd_Argv( 1 ), sizeof( cls.internetservers_customfilter ));
+
+	cls.internetservers_wait = NET_MasterQuery(
+		cls.internetservers_key,
+		cls.internetservers_nat,
+		cls.internetservers_customfilter
+	);
+}
+
+static void CL_QueryServer( netadr_t adr, connprotocol_t proto )
+{
+	switch( proto )
+	{
+	case PROTO_GOLDSRC:
+		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
+		break;
+	case PROTO_LEGACY:
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
+		break;
+	case PROTO_CURRENT:
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+		break;
+	}
 }
 
 static void CL_QueryServer_f( void )
@@ -1861,18 +1830,7 @@ static void CL_QueryServer_f( void )
 	if( !CL_StringToProtocol( Cmd_Argv( 2 ), &proto ))
 		return;
 
-	switch( proto )
-	{
-	case PROTO_GOLDSRC:
-		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
-		break;
-	case PROTO_LEGACY:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
-		break;
-	case PROTO_CURRENT:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
-		break;
-	}
+	CL_QueryServer( adr, proto );
 }
 
 /*
@@ -2058,6 +2016,9 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 	MSG_ReadByte( msg ); // operating system
 	password = MSG_ReadByte( msg );
 	Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
+
+	if( maxcl > MAX_CLIENTS || numcl > MAX_CLIENTS )
+		return;
 
 	if( MSG_CheckOverflow( msg ))
 	{
@@ -2466,29 +2427,34 @@ static void CL_Reject( const char *c, const char *args, netadr_t from )
 
 static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 {
-	if( !NET_IsMasterAdr( from ))
+	connprotocol_t proto;
+
+	if( !NET_IsMasterAdr( from, &proto ))
 	{
 		Con_Printf( S_WARN "unexpected server list packet from %s\n", NET_AdrToString( from ));
 		return;
 	}
 
 	// check the extra header
-	if( MSG_ReadByte( msg ) == 0x7f )
+	if( proto == PROTO_CURRENT )
 	{
-		uint32_t key = MSG_ReadDword( msg );
-
-		if( cls.internetservers_key != key )
+		if( MSG_ReadByte( msg ) == 0x7f )
 		{
-			Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
+			uint32_t key = MSG_ReadDword( msg );
+
+			if( cls.internetservers_key != key )
+			{
+				Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
+			return;
+			}
+
+			MSG_ReadByte( msg ); // reserved byte
+		}
+		else
+		{
+			Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
 			return;
 		}
-
-		MSG_ReadByte( msg ); // reserved byte
-	}
-	else
-	{
-		Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
-		return;
 	}
 
 	// serverlist got from masterserver
@@ -2515,7 +2481,7 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 			break;
 
 		NET_Config( true, false ); // allow remote
-		Netchan_OutOfBandPrint( NS_CLIENT, servadr, A2A_INFO" %i", PROTOCOL_VERSION );
+		CL_QueryServer( servadr, proto );
 	}
 
 	if( cls.internetservers_pending )
@@ -2545,7 +2511,8 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Cmd_TokenizeString( args );
 	c = Cmd_Argv( 0 );
 
-	Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
+	if( cl_log_outofband.value )
+		Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
 
 	// server connection
 	if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ) || !Q_strcmp( c, S2C_CONNECTION ))
@@ -2611,7 +2578,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( len > 0 )
 				Netchan_OutOfBand( NS_SERVER, from, len, (byte *)buf );
 		}
-		else
+		else if( cl_log_outofband.value )
 		{
 			Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
 		}
@@ -3376,6 +3343,7 @@ static void CL_InitLocal( void )
 
 	Cvar_RegisterVariable( &cl_ticket_generator );
 	Cvar_RegisterVariable( &cl_advertise_engine_in_name );
+	Cvar_RegisterVariable( &cl_log_outofband );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );

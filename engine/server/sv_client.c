@@ -902,7 +902,7 @@ static void SV_ConnectNatClient( netadr_t from )
 {
 	netadr_t to;
 
-	if( !sv_nat.value || !NET_IsMasterAdr( from ))
+	if( !sv_nat.value || !NET_IsMasterAdr( from, NULL ))
 		return;
 
 	if( !NET_StringToAdr( Cmd_Argv( 1 ), &to ))
@@ -3175,7 +3175,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	if( NET_IsMasterAdr( from ))
+	if( NET_IsMasterAdr( from, NULL ))
 	{
 		if( !Q_strcmp( pcmd, M2S_CHALLENGE ))
 		{

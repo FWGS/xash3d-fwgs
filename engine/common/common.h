@@ -892,12 +892,12 @@ intptr_t V_GetGammaPtr( int parm );
 //
 void NET_InitMasters( void );
 void NET_SaveMasters( void );
-qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
-qboolean NET_IsMasterAdr( netadr_t adr );
+qboolean NET_IsMasterAdr( netadr_t adr, connprotocol_t *proto );
 void NET_MasterHeartbeat( void );
 void NET_MasterClear( void );
 void NET_MasterShutdown( void );
 qboolean NET_GetMaster( netadr_t from, uint *challenge, double *last_heartbeat );
+qboolean NET_MasterQuery( uint32_t key, qboolean net, const char *filter );
 
 //
 // munge.c
