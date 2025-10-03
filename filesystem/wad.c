@@ -337,9 +337,9 @@ static wfile_t *W_Open( const char *filename, int *error )
 		return NULL;
 	}
 
-	LittleLongSW(header.ident);
-	LittleLongSW(header.numlumps);
-	LittleLongSW(header.infotableofs);
+	LittleLongSW( header.ident );
+	LittleLongSW( header.numlumps );
+	LittleLongSW( header.infotableofs );
 
 	if( header.ident != IDWAD2HEADER && header.ident != IDWAD3HEADER )
 	{

@@ -1916,7 +1916,7 @@ static void Mod_LoadVertexes( dbspmodel_t *bmod )
 	{
 		if( bmod->isworld )
 			AddPointToBounds( in->point, world.mins, world.maxs );
-#ifdef XASH_BIG_ENDIAN
+#if XASH_BIG_ENDIAN
 		for( int j = 0; j < 3; j++ )
 		{
 
@@ -2903,10 +2903,10 @@ Mod_LoadBSPHeader
 
 =================
 */
-_inline dheader_t* Mod_LoadBSPHeader( const byte *mod_base )
+static inline dheader_t* Mod_LoadBSPHeader( const byte *mod_base )
 {
 	dheader_t *header = (dheader_t *)mod_base;
-#ifdef XASH_BIG_ENDIAN
+#if XASH_BIG_ENDIAN
 	LittleLongSW( header->version );
 	for( int i = 0; i < HEADER_LUMPS; i++ )
 	{

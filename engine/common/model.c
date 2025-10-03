@@ -256,6 +256,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	qboolean		loaded;
 	byte		*buf;
 	model_info_t	*p;
+	uint32_t        version;
 
 	ASSERT( mod != NULL );
 
@@ -290,7 +291,8 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	loadmodel = mod;
 
 	// call the apropriate loader
-	switch( *(uint *)buf )
+	version = LittleLong( *(uint *)buf );
+	switch( version )
 	{
 	case IDSTUDIOHEADER:
 		Mod_LoadStudioModel( mod, buf, &loaded );
@@ -303,7 +305,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		loaded = true;
 		break;
 	case Q1BSP_VERSION:
-	case LittleLong(HLBSP_VERSION):
+	case HLBSP_VERSION:
 	case QBSP2_VERSION:
 		Mod_LoadBrushModel( mod, buf, &loaded );
 		// ref.dllFuncs.Mod_LoadModel( mod_brush, mod, buf, &loaded, 0 );
