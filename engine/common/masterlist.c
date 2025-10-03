@@ -443,7 +443,7 @@ static void NET_LoadMasters( void )
 	char *pfile;
 	char token[MAX_TOKEN];
 
-	afile = FS_LoadFile( "xashcomm.lst", NULL, true );
+	afile = FS_LoadFile( "xashcomm.lst", NULL, false );
 
 	if( !afile ) // file doesn't exist yet
 	{
