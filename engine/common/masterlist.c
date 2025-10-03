@@ -96,6 +96,13 @@ static net_gai_state_t NET_GetMasterHostByName( master_t *m )
 	return res;
 }
 
+static void NET_ClearSendState( void )
+{
+	// reset sent state
+	for( master_t *master = ml.head; master; master = master->next )
+		master->sent = false;
+}
+
 /*
 ========================
 NET_SendToMasters
@@ -139,13 +146,6 @@ static qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data, 
 			NET_SendPacket( sock, len, data, master->adr );
 			break;
 		}
-	}
-
-	if( !wait )
-	{
-		// reset sent state
-		for( master = ml.head; master; master = master->next )
-			master->sent = false;
 	}
 
 	return wait;
@@ -212,6 +212,9 @@ qboolean NET_MasterQuery( uint32_t key, qboolean nat, const char *filter )
 		wait = NET_SendToMasters( NS_CLIENT, len, buf, PROTO_GOLDSRC );
 	}
 
+	if( !wait )
+		NET_ClearSendState();
+
 	return wait;
 }
 
@@ -267,6 +270,7 @@ void NET_MasterShutdown( void )
 {
 	NET_Config( true, false ); // allow remote
 	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A", PROTO_CURRENT ));
+	NET_ClearSendState();
 }
 
 
