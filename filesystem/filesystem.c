@@ -576,7 +576,7 @@ FS_WriteGameInfo
 assume GameInfo is valid
 ================
 */
-static qboolean FS_WriteGameInfo( const char *filepath, gameinfo_t *GameInfo )
+static qboolean FS_WriteGameInfo( const char *filepath, const gameinfo_t *GameInfo )
 {
 	file_t	*f = FS_Open( filepath, "w", false ); // we in binary-mode
 	int	i, write_ambients = false;
