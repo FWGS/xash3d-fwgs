@@ -372,7 +372,9 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define M2S_NAT_CONNECT   "c"
 
 // from server to master
+#define S2M_HEARTBEAT     "q\xff"
 #define S2M_INFO          "0\n"
+#define S2M_SHUTDOWN      "\x62\x0a"
 
 // from client to server
 #define C2S_BANDWIDTHTEST "bandwidth"
