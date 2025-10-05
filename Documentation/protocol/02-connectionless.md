@@ -12,27 +12,37 @@ All connectionless packets have `\xff\xff\xff\xff` (32-bit integer set to all on
 
 - [Any](#any)
   - [Any to Any](#any-to-any)
+    - [`A2A_NETINFO`](#a2a_netinfo)
+    - [`A2A_INFO`](#a2a_info)
+    - [`A2A_PING` and `A2A_GOLDSRC_PING`](#a2a_ping-and-a2a_goldsrc_ping)
+    - [`A2A_ACK` and `A2A_GOLDSRC_ACK`](#a2a_ack-and-a2a_goldsrc_ack)
   - [Any to Client](#any-to-client)
+    - [`A2C_PRINT` and `A2C_GOLDSRC_PRINT`](#a2c_print-and-a2c_goldsrc_print)
   - [Any to Server and Server to Any](#any-to-server-and-server-to-any)
+    - [`A2S_GOLDSRC_INFO`, `A2S_GOLDSRC_RULES` and `A2S_GOLDSRC_PLAYERS` and their responses](#a2s_goldsrc_info-a2s_goldsrc_rules-and-a2s_goldsrc_players-and-their-responses)
   - [Any to Master](#any-to-master)
+    - [`S2M_SCAN_REQUEST`](#s2m_scan_request)
   - [Master to Any](#master-to-any)
-- [Server to Master](#server-to-master)
-  - [`S2M_HEARTBEAT`](#s2m_heartbeat)
-  - [`S2M_SHUTDOWN`](#s2m_shutdown)
-  - [`S2M_INFO`](#s2m_info)
-- [Master to Server](#master-to-server)
-  - [`M2S_CHALLENGE`](#m2s_challenge)
-  - [`M2S_NAT_CONNECT`](#m2s_nat_connect)
-- [Client to Server](#client-to-server)
-  - [`C2S_BANDWIDTHTEST`](#c2s_bandwidthtest)
-  - [`C2S_GETCHALLENGE`](#c2s_getchallenge)
-  - [`C2S_CONNECT`](#c2s_connect)
-- [Server to Client](#server-to-client)
-  - [`S2C_BANDWIDTHTEST`](#s2c_bandwidthtest)
-  - [`S2C_CHALLENGE`](#s2c_challenge)
-  - [`S2C_CONNECTION`](#s2c_connection)
-  - [`S2C_ERRORMSG`](#s2c_errormsg)
-  - [`S2C_REJECT`](#s2c_reject)
+    - [`M2A_SERVERSLIST`](#m2a_serverslist)
+- [Master and game server](#master-and-game-server)
+  - [Server to Master](#server-to-master)
+    - [`S2M_HEARTBEAT`](#s2m_heartbeat)
+    - [`S2M_SHUTDOWN`](#s2m_shutdown)
+    - [`S2M_INFO`](#s2m_info)
+  - [Master to Server](#master-to-server)
+    - [`M2S_CHALLENGE`](#m2s_challenge)
+    - [`M2S_NAT_CONNECT`](#m2s_nat_connect)
+- [Client and game server](#client-and-game-server)
+  - [Client to Server](#client-to-server)
+    - [`C2S_BANDWIDTHTEST`](#c2s_bandwidthtest)
+    - [`C2S_GETCHALLENGE`](#c2s_getchallenge)
+    - [`C2S_CONNECT`](#c2s_connect)
+  - [Server to Client](#server-to-client)
+    - [`S2C_BANDWIDTHTEST`](#s2c_bandwidthtest)
+    - [`S2C_CHALLENGE`](#s2c_challenge)
+    - [`S2C_CONNECTION`](#s2c_connection)
+    - [`S2C_ERRORMSG`](#s2c_errormsg)
+    - [`S2C_REJECT`](#s2c_reject)
 
 <!--TOC-->
 
@@ -146,9 +156,11 @@ These match Source Engine Query messages used in GoldSrc and Source engine and i
   - If port is 0, it means the end of list, otherwise it's the last IP used for pagination (not implemented in Xash3D)
 * Response: client doesn't make response to master server but might request `A2S_INFO` from servers
 
-## Server to Master
+## Master and game server
 
-### `S2M_HEARTBEAT`
+### Server to Master
+
+#### `S2M_HEARTBEAT`
 
 Used to update game server information on the master server.
 
@@ -156,14 +168,14 @@ Used to update game server information on the master server.
   - `heartbeat challenge` is random 32-bit value, used to prevent faked/forged source IP addresses.
 * Response: `M2S_CHALLENGE`
 
-### `S2M_SHUTDOWN`
+#### `S2M_SHUTDOWN`
 
 Used to notify master server about server shutdown, but due to security reasons must be ignored by any master implementation.
 
 * Request: `\x62\x0a`
 * Response: none
 
-### `S2M_INFO`
+#### `S2M_INFO`
 
 Game server info response on `M2S_CHALLENGE`.
 
@@ -187,9 +199,9 @@ Game server info response on `M2S_CHALLENGE`.
     - `nat` set to `1` if server is behind NAT
 * Response: none
 
-## Master to Server
+### Master to Server
 
-### `M2S_CHALLENGE`
+#### `M2S_CHALLENGE`
 
 Master's respoonse on game server's heartbeat message.
 
@@ -198,16 +210,18 @@ Master's respoonse on game server's heartbeat message.
   - `heartbat challenge` cotnains 32-bit value, used in heartbeat request to prevent faked/forged source IP addresses.
 * Response: `S2M_INFO`.
 
-### `M2S_NAT_CONNECT`
+#### `M2S_NAT_CONNECT`
 
 Master server's message with client IP address and port, used in NAT punching.
 
 * Request: `c <IP:Port>`
 * Response: `S2C_INFO` to a specified client address.
 
-## Client to Server
+## Client and game server
 
-### `C2S_BANDWIDTHTEST`
+### Client to Server
+
+#### `C2S_BANDWIDTHTEST`
 
 Used to figure out network MTU. The message is optional and server might choose to not implement it or respond with challenge.
 
@@ -221,7 +235,7 @@ Used to figure out network MTU. The message is optional and server might choose 
   - `A2A_PRINT` followed by `S2C_REJECT`
   - `S2C_ERRORMSG` (as FWGS extension) followed by `A2A_PRINT` and `S2C_REJECT`.
 
-### `C2S_GETCHALLENGE`
+#### `C2S_GETCHALLENGE`
 
 Used to validate client's address to prevent faked/forged source IP addresses.
 
@@ -232,7 +246,7 @@ Used to validate client's address to prevent faked/forged source IP addresses.
 * Possible responses:
   - `S2C_CHALLENGE`
 
-### `C2S_CONNECT`
+#### `C2S_CONNECT`
 
 Used to build a connection with the server.
 
@@ -250,9 +264,9 @@ Used to build a connection with the server.
   - `S2C_ERRORMSG` (as FWGS extension) followed by `A2A_PRINT` and `S2C_REJECT`.
   - `S2C_CONNECTION`
 
-## Server to Client
+### Server to Client
 
-### `S2C_BANDWIDTHTEST`
+#### `S2C_BANDWIDTHTEST`
 
 * Request: `testpacket<crc><blob>`
   - `crc` is 32-bit CRC of `blob`
@@ -261,13 +275,13 @@ Used to build a connection with the server.
 
 Total message size doesn't exceed request max size.
 
-### `S2C_CHALLENGE`
+#### `S2C_CHALLENGE`
 
 * Request, in ASCII: `challenge <value>`
   - `value` is challenge value that client must include in it's response
 * Response: `C2S_CONNECT`
 
-### `S2C_CONNECTION`
+#### `S2C_CONNECTION`
 
 * Request, in ASCII: `client_connect <protinfo>`
   - `protinfo` is an optional Quake info string, contains following optional fields:
@@ -275,7 +289,7 @@ Total message size doesn't exceed request max size.
      - `cheats` set to 1 if server allows cheats otherwise 0
 * Response: there is no out of band from the client but client will proceed to building netchan and switch client-server interaction to it.
 
-### `S2C_ERRORMSG`
+#### `S2C_ERRORMSG`
 
 Show client error message. Doesn't mean connection reject, only used for UI.
 
@@ -283,9 +297,9 @@ Show client error message. Doesn't mean connection reject, only used for UI.
   - `message` contains error message
 * Response: none
 
-### `S2C_REJECT`
+#### `S2C_REJECT`
 
 Client has been rejected in connection.
 
 * Request, in ASCII: `disconnect`
-* You shouldn't respond to this message but you might cope, get depressed or mentally tell server to fuck off.
+* Response: client can cope, get depressed or mentally tell server to fuck off.
