@@ -165,7 +165,7 @@ static void NET_AnnounceToMaster( master_t *m )
 	m->heartbeat_challenge = COM_RandomLong( 0, INT_MAX );
 
 	MSG_Init( &msg, "Master Join", buf, sizeof( buf ));
-	MSG_WriteBytes( &msg, "q\xFF", 2 );
+	MSG_WriteBytes( &msg, S2M_HEARTBEAT, 2 );
 	MSG_WriteDword( &msg, m->heartbeat_challenge );
 
 	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &msg ), MSG_GetData( &msg ), m->adr );
@@ -269,7 +269,7 @@ Informs all masters that this server is going down
 void NET_MasterShutdown( void )
 {
 	NET_Config( true, false ); // allow remote
-	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A", PROTO_CURRENT ));
+	while( NET_SendToMasters( NS_SERVER, 2, S2M_SHUTDOWN, PROTO_CURRENT ));
 	NET_ClearSendState();
 }
 
