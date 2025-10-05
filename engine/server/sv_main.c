@@ -763,7 +763,7 @@ void SV_AddToMaster( netadr_t from, sizebuf_t *msg )
 	Info_SetValueForKey( s, "gamedir", GI->gamefolder, len ); // gamedir
 	Info_SetValueForKey( s, "map", sv.name, len ); // current map
 	Info_SetValueForKey( s, "type", (Host_IsDedicated()) ? "d" : "l", len ); // dedicated or local
-	Info_SetValueForKey( s, "password", "0", len ); // is password set
+	Info_SetValueForKey( s, "password", SV_HavePassword() ? "0" : "1", len ); // is password set
 	Info_SetValueForKey( s, "os", "w", len ); // Windows
 	Info_SetValueForKey( s, "secure", "0", len ); // server anti-cheat
 	Info_SetValueForKey( s, "lan", "0", len ); // LAN servers doesn't send info to master
