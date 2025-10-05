@@ -46,10 +46,10 @@ static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t
 	char *info, temp[32];
 
 	// TODO: pagination and region
-	Q_strncpy( buf, MS_SCAN_REQUEST, size );
+	Q_strncpy( buf, A2M_SCAN_REQUEST, size );
 
-	info = buf + sizeof( MS_SCAN_REQUEST ) - 1;
-	remaining = size - sizeof( MS_SCAN_REQUEST );
+	info = buf + sizeof( A2M_SCAN_REQUEST ) - 1;
+	remaining = size - sizeof( A2M_SCAN_REQUEST );
 
 	Q_strncpy( info, filter, remaining );
 
@@ -74,7 +74,7 @@ static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t
 		Info_SetValueForKey( info, "key", temp, remaining );
 	}
 
-	return sizeof( MS_SCAN_REQUEST ) + Q_strlen( info );
+	return sizeof( A2M_SCAN_REQUEST ) + Q_strlen( info );
 }
 
 /*
