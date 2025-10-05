@@ -8,6 +8,34 @@ Connectionless protocol defines four common message sources and destinations, th
 
 All connectionless packets have `\xff\xff\xff\xff` (32-bit integer set to all ones) in it's header. Let's go through each of possible direction in this document.
 
+<!--TOC-->
+
+- [Any](#any)
+  - [Any to Any](#any-to-any)
+  - [Any to Client](#any-to-client)
+  - [Any to Server and Server to Any](#any-to-server-and-server-to-any)
+  - [Any to Master](#any-to-master)
+  - [Master to Any](#master-to-any)
+- [Server to Master](#server-to-master)
+  - [`S2M_HEARTBEAT`](#s2m_heartbeat)
+  - [`S2M_SHUTDOWN`](#s2m_shutdown)
+  - [`S2M_INFO`](#s2m_info)
+- [Master to Server](#master-to-server)
+  - [`M2S_CHALLENGE`](#m2s_challenge)
+  - [`M2S_NAT_CONNECT`](#m2s_nat_connect)
+- [Client to Server](#client-to-server)
+  - [`C2S_BANDWIDTHTEST`](#c2s_bandwidthtest)
+  - [`C2S_GETCHALLENGE`](#c2s_getchallenge)
+  - [`C2S_CONNECT`](#c2s_connect)
+- [Server to Client](#server-to-client)
+  - [`S2C_BANDWIDTHTEST`](#s2c_bandwidthtest)
+  - [`S2C_CHALLENGE`](#s2c_challenge)
+  - [`S2C_CONNECTION`](#s2c_connection)
+  - [`S2C_ERRORMSG`](#s2c_errormsg)
+  - [`S2C_REJECT`](#s2c_reject)
+
+<!--TOC-->
+
 ## Any
 
 ### Any to Any
