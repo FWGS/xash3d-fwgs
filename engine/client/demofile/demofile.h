@@ -104,7 +104,7 @@ void DEM_WriteStringCmd( const char *cmd );
 // Read/Playback specific functions
 qboolean DEM_DemoReadMessage( byte *buffer, size_t *length );
 
-double DEM_GetHostFPS( );
+double DEM_GetHostFPS( void );
 
 // Handler public init funcs
 void DEM_GS_InitHandler( void );

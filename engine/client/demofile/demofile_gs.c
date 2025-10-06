@@ -67,7 +67,7 @@ typedef struct
 
 
 // private demo states
-struct
+static struct
 {
 	dem_header_t    header;
 	dem_entry_t     *entry;
@@ -118,7 +118,7 @@ static qboolean DEM_GS_ReadDemoCmdHeader( byte *cmd, float *dt, int *frame_numbe
 	return true;
 }
 
-static void DEM_GS_ReadClientData()
+static void DEM_GS_ReadClientData( void )
 {
 	client_data_t cdat;
 	file_t *file = cls.demofile;
@@ -132,7 +132,7 @@ static void DEM_GS_ReadClientData()
 	{
 		if( clgame.dllFuncs.pfnUpdateClientData( &cdat, cl.time ))
 		{
-			if( cls.spectator == FALSE )
+			if( !cls.spectator )
 			{
 				VectorCopy( cdat.viewangles, cl.viewangles );
 				cl.local.scr_fov = cdat.fov;
@@ -165,7 +165,7 @@ static void DEM_GS_WriteAnim( int anim, int body )
 	FS_Write( file, &body, sizeof( int ));
 }
 
-static void DEM_GS_ReadAnim()
+static void DEM_GS_ReadAnim( void )
 {
 	int    anim, body;
 	file_t *file = cls.demofile;
@@ -361,7 +361,7 @@ static void DEM_GS_DemoPlaySound( int chan, char *sample, float attn, float volu
 	S_StartSound( NULL, clgame.pmove->player_index + 1, chan, S_RegisterSound( sample ), volume, attn, pitch, flags );
 }
 
-static void DEM_GS_ReadSound()
+static void DEM_GS_ReadSound( void )
 {
 	int    channel, flags, pitch;
 	float  vol, attenuation;
@@ -504,12 +504,7 @@ static qboolean DEM_GS_ReadDemo( file_t *file )
 	return true;
 }
 
-static float CL_GetDemoPlaybackClock( void )
-{
-	return host.realtime + host.frametime;
-}
-
-static qboolean DEM_GS_ReadStringCMD()
+static void DEM_GS_ReadStringCMD( void )
 {
 	char cmd[64];
 	FS_Read( cls.demofile, cmd, 64 );
@@ -518,17 +513,15 @@ static qboolean DEM_GS_ReadStringCMD()
 	// TODO: Validate CMD
 	Cbuf_AddFilteredText( cmd );
 	Cbuf_AddFilteredText( "\n" );
-
-	return true;
 }
 
-static qboolean DEM_GS_DemoMoveToNextSection( void )
+static void DEM_GS_DemoMoveToNextSection( void )
 {
 	if( ++demo.entryIndex >= demo.directory.numentries )
 	{
 		// done
 		CL_DemoCompleted();
-		return false;
+		return;
 	}
 
 	// switch to next section, we got a dem_stop
@@ -540,11 +533,9 @@ static qboolean DEM_GS_DemoMoveToNextSection( void )
 	// time is now relative to this chunk's clock.
 	demo.starttime = CL_GetDemoPlaybackClock();
 	demo.framecount = 0;
-
-	return true;
 }
 
-static void DEM_GS_ReadEvent()
+static void DEM_GS_ReadEvent( void )
 {
 	int    flags, idx, delay;
 	event_args_t args;
@@ -560,7 +551,7 @@ static void DEM_GS_ReadEvent()
 	CL_QueueEvent( flags, idx, delay, &args );
 }
 
-static void DEM_GS_ReadClientDLLData()
+static void DEM_GS_ReadClientDLLData( void )
 {
 	static byte buffer[0x8000];
 	int len;
@@ -737,9 +728,9 @@ static qboolean DEM_GS_StartRecord( file_t *file )
 	demo.entry->flags = 0;
 	demo.entry->cd_track = -1;
 	demo.entry->cd_tracktime = 0.0;
-	cls.demowaiting = TRUE;
+	cls.demowaiting = true;
 	demo.entry->offset = FS_Tell( file );
-	cls.demorecording = TRUE;
+	cls.demorecording = true;
 
 	DEM_GS_WriteDemoCmdHeader( 5, cls.demoheader );
 	FS_Flush( cls.demoheader );
@@ -837,7 +828,7 @@ static qboolean DEM_GS_StartPlayback( file_t *file )
 	return true;
 }
 
-static void DEM_GS_ResetHandler()
+static void DEM_GS_ResetHandler( void )
 {
 	demo.framecount = 0;
 	demo.starttime = 0;

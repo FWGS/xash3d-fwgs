@@ -54,7 +54,7 @@ void DEM_RegisterHandler( demo_handler_t *handler )
 	demo_handlers = handler;
 }
 
-void DEM_ResetHandler()
+void DEM_ResetHandler( void )
 {
 	if( demo_handler && demo_handler->funcs.ResetHandler )
 	{
@@ -63,7 +63,7 @@ void DEM_ResetHandler()
 	demo_handler = NULL;
 }
 
-qboolean DEM_FindRecordHandler()
+qboolean DEM_FindRecordHandler( void )
 {
 	// First pass, user handler from cvar
 	if( !demo_handler )

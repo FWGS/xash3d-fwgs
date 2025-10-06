@@ -75,7 +75,7 @@ typedef struct
 } demodirectory_t;
 
 // private demo states
-struct
+static struct
 {
 	demoheader_t    header;
 	demoentry_t     *entry;
@@ -91,8 +91,6 @@ struct
 	demoangle_t cmds[ANGLE_BACKUP];
 	int angle_position;
 } demo;
-
-static qboolean CL_NextDemo( void );
 
 static void CL_DemoFindInterpolatedViewAngles( float t, float *frac, demoangle_t **prev, demoangle_t **next )
 {
@@ -138,18 +136,6 @@ static void CL_DemoFindInterpolatedViewAngles( float t, float *frac, demoangle_t
 	// time spans the two entries
 	*frac = ( t - ( *prev )->starttime ) / (( *next )->starttime - ( *prev )->starttime );
 	*frac = bound( 0.0f, *frac, 1.0f );
-}
-
-/*
-====================
-CL_GetDemoPlaybackClock
-
-overwrite host.realtime
-====================
-*/
-static float CL_GetDemoPlaybackClock( void )
-{
-	return host.realtime + host.frametime;
 }
 
 static void DEM_XASH_DemoInterpolateAngles( void )
@@ -998,8 +984,6 @@ static qboolean DEM_Xash_StartRecord( file_t *file )
 
 	return true;
 }
-
-
 
 /*
 =================

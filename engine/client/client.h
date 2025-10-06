@@ -774,28 +774,22 @@ void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 //
 
 void DEM_Init( void );
-
 void CL_StartupDemoHeader( void );
 void CL_DrawDemoRecording( void );
 void CL_WriteDemoUserCmd( int cmdnumber );
 void CL_WriteDemoMessage( qboolean startup, int start, sizebuf_t *msg );
 void CL_WriteDemoUserMessage( int size, byte *buffer );
 void CL_WriteDemoJumpTime( void );
-
 void CL_WriteDemoAnim( int anim, int body );
 void CL_WriteDemoClientData( client_data_t *cdata );
 void CL_WriteDemoSound( int channel, const char *sample, float vol, float attenuation, int flags, int pitch );
 void CL_WriteDemoStringCmd( const char *cmd );
 void CL_WriteDemoEvent( int flags, int idx, float delay, event_args_t *pargs );
-
 qboolean CL_DemoReadMessage( byte *buffer, size_t *length );
-
 void CL_DemoCompleted( void );
 void CL_DemoInterpolateAngles( void );
-
 void CL_CheckStartupDemos( void );
 void CL_CloseDemoHeader( void );
-
 void CL_PlayDemo_f( void );
 void CL_TimeDemo_f( void );
 void CL_StartDemos_f( void );
@@ -804,8 +798,8 @@ void CL_DeleteDemo_f( void );
 void CL_Record_f( void );
 void CL_Stop_f( void );
 void CL_ListDemo_f( void );
-
 float CL_GetDemoRecordClock( void );
+float CL_GetDemoPlaybackClock( void );
 int CL_GetDemoFrameCount( void );
 int CL_GetDemoComment( const char *demoname, char *comment );
 
