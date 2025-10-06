@@ -773,7 +773,7 @@ void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 // cl_demo.c
 //
 
-void DEM_Init( );
+void DEM_Init( void );
 
 void CL_StartupDemoHeader( void );
 void CL_DrawDemoRecording( void );

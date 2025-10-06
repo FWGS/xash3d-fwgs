@@ -37,7 +37,7 @@ static demo_handler_t *DEM_GetHandler( const char *format_name )
 	return NULL;
 }
 
-void DEM_Init()
+void DEM_Init( void )
 {
 	Cvar_RegisterVariable( &dem_format );
 

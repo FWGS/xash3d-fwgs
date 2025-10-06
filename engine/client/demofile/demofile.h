@@ -40,7 +40,7 @@ typedef void (*DEM_INTERP_VIEWANGLES)( void );
 
 typedef qboolean (*DEM_READ_DEMOMESSAGE)( byte *buffer, size_t *length );
 
-typedef void (*DEM_RESET_HANDLER)( );
+typedef void (*DEM_RESET_HANDLER)( void );
 
 typedef double (*DEM_GET_HOSTFPS)( void );
 
@@ -81,9 +81,9 @@ typedef struct demo_handler_s
 	struct demo_handler_s *next;
 } demo_handler_t;
 
-void DEM_Init( );
+void DEM_Init( void );
 void DEM_RegisterHandler( demo_handler_t *handler );
-void DEM_ResetHandler( );
+void DEM_ResetHandler( void );
 
 qboolean DEM_StartRecord( file_t *file );
 qboolean DEM_StopRecord( file_t *file );
