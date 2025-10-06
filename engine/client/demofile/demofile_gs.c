@@ -479,7 +479,7 @@ static qboolean DEM_GS_CanHandle( file_t *file )
 	if( demo_size < GS_DEMO_HEADER_SIZE )
 	{
 		Con_Printf( "Invalid demo file (the size is too small)." );
-		return;
+		return false;
 	}
 
 	FS_Seek( file, 0, SEEK_SET );
@@ -518,6 +518,8 @@ static qboolean DEM_GS_ReadStringCMD()
 	// TODO: Validate CMD
 	Cbuf_AddFilteredText( cmd );
 	Cbuf_AddFilteredText( "\n" );
+
+	return true;
 }
 
 static qboolean DEM_GS_DemoMoveToNextSection( void )
@@ -869,7 +871,7 @@ static double DEM_GS_GetHostFPS( void )
 	return demo.fps;
 }
 
-static const demo_handler_t GS_DemoHandler = {
+static demo_handler_t GS_DemoHandler = {
 	"goldsource",
 	{
 		DEM_GS_StartRecord,

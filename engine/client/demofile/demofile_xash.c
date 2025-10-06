@@ -140,6 +140,18 @@ static void CL_DemoFindInterpolatedViewAngles( float t, float *frac, demoangle_t
 	*frac = bound( 0.0f, *frac, 1.0f );
 }
 
+/*
+====================
+CL_GetDemoPlaybackClock
+
+overwrite host.realtime
+====================
+*/
+static float CL_GetDemoPlaybackClock( void )
+{
+	return host.realtime + host.frametime;
+}
+
 static void DEM_XASH_DemoInterpolateAngles( void )
 {
 	demoangle_t *prev = NULL, *next = NULL;
@@ -774,14 +786,14 @@ static qboolean DEM_Xash_StartPlayback( file_t *file )
 			cls.forcetrack = -cls.forcetrack;
 		CL_DemoStartPlayback( DEMO_QUAKE1 );
 		cls.legacymode = PROTO_QUAKE;
-		return; // quake demo is started
+		return false; // quake demo is started
 	}
 
 	// read in the demo header
 	if( !CL_ParseDemoHeader( Cmd_Argv( 0 ), cls.demoname, cls.demofile, &demo.header, &demo.directory.numentries ))
 	{
 		CL_DemoAborted();
-		return;
+		return false;
 	}
 
 	// allocate demo entries
@@ -795,7 +807,7 @@ static qboolean DEM_Xash_StartPlayback( file_t *file )
 		{
 			Con_Printf( S_ERROR "%s: demo entry %i of %s corrupted", Cmd_Argv( 0 ), i, cls.demoname );
 			CL_DemoAborted();
-			return;
+			return false;
 		}
 
 		entry->description[sizeof( entry->description ) - 1] = 0;
@@ -848,7 +860,7 @@ static qboolean DEM_Xash_ListDemo( file_t *f )
 		{
 			Con_Printf( S_ERROR "can't read demo entry\n" );
 			FS_Close( f );
-			return;
+			return false;
 		}
 
 		entry.description[sizeof( entry.description ) - 1] = 0;
@@ -987,17 +999,7 @@ static qboolean DEM_Xash_StartRecord( file_t *file )
 	return true;
 }
 
-/*
-====================
-CL_GetDemoPlaybackClock
 
-overwrite host.realtime
-====================
-*/
-static float CL_GetDemoPlaybackClock( void )
-{
-	return host.realtime + host.frametime;
-}
 
 /*
 =================
@@ -1149,7 +1151,7 @@ static qboolean DEM_Xash_StopPlayback( file_t *file )
 	return true;
 }
 
-static const demo_handler_t Xash_DemoHandler = {
+static demo_handler_t Xash_DemoHandler = {
 	"xash3d",
 	{
 		DEM_Xash_StartRecord,

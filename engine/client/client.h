@@ -785,7 +785,7 @@ void CL_WriteDemoJumpTime( void );
 void CL_WriteDemoAnim( int anim, int body );
 void CL_WriteDemoClientData( client_data_t *cdata );
 void CL_WriteDemoSound( int channel, const char *sample, float vol, float attenuation, int flags, int pitch );
-void CL_WriteDemoStringCmd( char *cmd );
+void CL_WriteDemoStringCmd( const char *cmd );
 void CL_WriteDemoEvent( int flags, int idx, float delay, event_args_t *pargs );
 
 qboolean CL_DemoReadMessage( byte *buffer, size_t *length );
