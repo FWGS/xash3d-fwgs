@@ -15,17 +15,20 @@ GNU General Public License for more details.
 
 #include "demofile.h"
 
-static demo_handler_t* demo_handlers = NULL;
-static demo_handler_t* demo_handler = NULL;
+static demo_handler_t *demo_handlers = NULL;
+static demo_handler_t *demo_handler = NULL;
 
 
-static CVAR_DEFINE_AUTO(dem_format, "xash3d", FCVAR_ARCHIVE | FCVAR_PROTECTED, "Default demo format for writting demos: [xash3d, goldsource]");
+static CVAR_DEFINE_AUTO( dem_format, "xash3d", FCVAR_ARCHIVE | FCVAR_PROTECTED, "Default demo format for writting demos: [xash3d, goldsource]" );
 
 
-static demo_handler_t* DEM_GetHandler(const char* format_name) {
-	demo_handler_t* current = demo_handlers;
-	while (current != NULL) {
-		if (strcmp(current->name, format_name) == 0) {
+static demo_handler_t *DEM_GetHandler( const char *format_name )
+{
+	demo_handler_t *current = demo_handlers;
+	while( current != NULL )
+	{
+		if( strcmp( current->name, format_name ) == 0 )
+		{
 			return current;
 		}
 		current = current->next;
@@ -35,14 +38,16 @@ static demo_handler_t* DEM_GetHandler(const char* format_name) {
 
 void DEM_Init()
 {
-	Cvar_RegisterVariable(&dem_format);
+	Cvar_RegisterVariable( &dem_format );
 
 	DEM_Xash_InitHandler();
 	DEM_GS_InitHandler();
 }
 
-void DEM_RegisterHandler(demo_handler_t* handler) {
-	if (!handler) return;
+void DEM_RegisterHandler( demo_handler_t *handler )
+{
+	if( !handler )
+		return;
 
 	handler->next = demo_handlers;
 	demo_handlers = handler;
@@ -50,7 +55,7 @@ void DEM_RegisterHandler(demo_handler_t* handler) {
 
 void DEM_ResetHandler()
 {
-	if (demo_handler && demo_handler->funcs.ResetHandler)
+	if( demo_handler && demo_handler->funcs.ResetHandler )
 	{
 		demo_handler->funcs.ResetHandler();
 	}
@@ -60,35 +65,35 @@ void DEM_ResetHandler()
 qboolean DEM_FindRecordHandler()
 {
 	// First pass, user handler from cvar
-	if (!demo_handler)
+	if( !demo_handler )
 	{
-		demo_handler = DEM_GetHandler(dem_format.string);
+		demo_handler = DEM_GetHandler( dem_format.string );
 	}
 
 	// Second pass (if invalid handler in cvar string)
-	if (!demo_handler)
+	if( !demo_handler )
 	{
-		Con_Printf("dem_format \"%s\" is not valid, resetting to \"xash3d\"\n", dem_format.string);
-		Con_Printf("Available formats: [xash3d, goldsource]\n");
-		Cvar_Set("dem_format", "xash3d");
-		demo_handler = DEM_GetHandler("xash3d");
+		Con_Printf( "dem_format \"%s\" is not valid, resetting to \"xash3d\"\n", dem_format.string );
+		Con_Printf( "Available formats: [xash3d, goldsource]\n" );
+		Cvar_Set( "dem_format", "xash3d" );
+		demo_handler = DEM_GetHandler( "xash3d" );
 	}
 
-	return (demo_handler != NULL);
+	return( demo_handler != NULL );
 }
 
-
-demo_handler_t* DEM_FindPlaybackHandler(file_t* file)
+demo_handler_t *DEM_FindPlaybackHandler( file_t *file )
 {
 	qboolean can_handle = false;
-	demo_handler_t* current = demo_handlers;
-	while (current != NULL) {
-		if (current->funcs.CanHandle)
+	demo_handler_t *current = demo_handlers;
+	while( current != NULL )
+	{
+		if( current->funcs.CanHandle )
 		{
-			can_handle = current->funcs.CanHandle(file);
+			can_handle = current->funcs.CanHandle( file );
 			// Reset position to start of demo
-			FS_Seek(file, 0, SEEK_SET);
-			if (can_handle)
+			FS_Seek( file, 0, SEEK_SET );
+			if( can_handle )
 			{
 				return current;
 			}
@@ -98,188 +103,188 @@ demo_handler_t* DEM_FindPlaybackHandler(file_t* file)
 
 	return NULL;
 }
-qboolean DEM_StartRecord(file_t* file)
+
+qboolean DEM_StartRecord( file_t *file )
 {
-	if (cls.demorecording)
+	if( cls.demorecording )
 	{
 		// Already recording
 		return false;
 	}
-	if (!DEM_FindRecordHandler())
+	if( !DEM_FindRecordHandler())
 	{
 		return false;
 	}
-	if (demo_handler && demo_handler->funcs.StartRecord)
+	if( demo_handler && demo_handler->funcs.StartRecord )
 	{
-		return demo_handler->funcs.StartRecord(file);
+		return demo_handler->funcs.StartRecord( file );
 	}
 
 	return false;
 }
 
-qboolean DEM_StopRecord(file_t* file)
+qboolean DEM_StopRecord( file_t *file )
 {
-	if (!cls.demorecording)
+	if( !cls.demorecording )
 	{
 		return false;
 	}
 
-	if (demo_handler && demo_handler->funcs.StopRecord)
+	if( demo_handler && demo_handler->funcs.StopRecord )
 	{
-		return demo_handler->funcs.StopRecord(file);
+		return demo_handler->funcs.StopRecord( file );
 	}
 
 	return false;
 }
 
-qboolean DEM_StartPlayback(file_t* file)
+qboolean DEM_StartPlayback( file_t *file )
 {
-	if (cls.demoplayback)
+	if( cls.demoplayback )
 	{
 		return false;
 	}
 
-	demo_handler = DEM_FindPlaybackHandler(file);
+	demo_handler = DEM_FindPlaybackHandler( file );
 
-	if (demo_handler && demo_handler->funcs.StartPlayback)
+	if( demo_handler && demo_handler->funcs.StartPlayback )
 	{
-		return demo_handler->funcs.StartPlayback(file);
+		return demo_handler->funcs.StartPlayback( file );
 	}
 
 	return false;
 }
 
-qboolean DEM_StopPlayback(file_t* file)
+qboolean DEM_StopPlayback( file_t *file )
 {
-	if (cls.demoplayback)
+	if( cls.demoplayback )
 	{
 		return false;
 	}
 
-	if (demo_handler && demo_handler->funcs.StopPlayback)
+	if( demo_handler && demo_handler->funcs.StopPlayback )
 	{
-		return demo_handler->funcs.StopPlayback(file);
+		return demo_handler->funcs.StopPlayback( file );
 	}
 
 	return false;
 }
 
-qboolean DEM_ListDemo(file_t* file)
+qboolean DEM_ListDemo( file_t *file )
 {
-	demo_handler = DEM_FindPlaybackHandler(file);
+	demo_handler = DEM_FindPlaybackHandler( file );
 
-	if (!demo_handler)
+	if( !demo_handler )
 	{
 		return false;
 	}
 
-	if (demo_handler && demo_handler->funcs.ListDemo)
+	if( demo_handler && demo_handler->funcs.ListDemo )
 	{
-		return demo_handler->funcs.ListDemo(file);
+		return demo_handler->funcs.ListDemo( file );
 	}
 
 	return false;
 }
 
-
-void DEM_WriteDemoUserCmd(int cmdnumber)
+void DEM_WriteDemoUserCmd( int cmdnumber )
 {
-	if (!demo_handler || !demo_handler->funcs.WriteUserCmd)
+	if( !demo_handler || !demo_handler->funcs.WriteUserCmd )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteUserCmd(cmdnumber);
+	demo_handler->funcs.WriteUserCmd( cmdnumber );
 }
 
-void DEM_WriteNetPacket(qboolean startup, int start, sizebuf_t* msg)
+void DEM_WriteNetPacket( qboolean startup, int start, sizebuf_t *msg )
 {
-	if (!DEM_FindRecordHandler())
+	if( !DEM_FindRecordHandler())
 	{
 		return;
 	}
 
-	if (!demo_handler || !demo_handler->funcs.WriteNetPacket)
+	if( !demo_handler || !demo_handler->funcs.WriteNetPacket )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteNetPacket(startup, start, msg);
+	demo_handler->funcs.WriteNetPacket( startup, start, msg );
 }
 
-void DEM_WriteDemoUserMessage(int size, byte* buffer)
+void DEM_WriteDemoUserMessage( int size, byte *buffer )
 {
-	if (!demo_handler || !demo_handler->funcs.WriteDemoMesssage)
+	if( !demo_handler || !demo_handler->funcs.WriteDemoMesssage )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteDemoMesssage(size, buffer);
+	demo_handler->funcs.WriteDemoMesssage( size, buffer );
 }
 
-void DEM_WriteAnim(int anim, int body)
+void DEM_WriteAnim( int anim, int body )
 {
-	if (!demo_handler || !demo_handler->funcs.WriteAnim)
+	if( !demo_handler || !demo_handler->funcs.WriteAnim )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteAnim(anim, body);
+	demo_handler->funcs.WriteAnim( anim, body );
 }
 
-void DEM_WriteClientData(client_data_t* cdata)
+void DEM_WriteClientData( client_data_t *cdata )
 {
-	if (!demo_handler || !demo_handler->funcs.WriteClientData)
+	if( !demo_handler || !demo_handler->funcs.WriteClientData )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteClientData(cdata);
+	demo_handler->funcs.WriteClientData( cdata );
 }
 
-void DEM_WriteEvent(int flags, int idx, float delay, event_args_t* pargs)
+void DEM_WriteEvent( int flags, int idx, float delay, event_args_t *pargs )
 {
-	if (!demo_handler || !demo_handler->funcs.WriteEvent)
+	if( !demo_handler || !demo_handler->funcs.WriteEvent )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteEvent(flags, idx, delay, pargs);
+	demo_handler->funcs.WriteEvent( flags, idx, delay, pargs );
 }
 
-void DEM_WriteSound(int channel, const char* sample, float vol, float attenuation, int flags, int pitch)
+void DEM_WriteSound( int channel, const char *sample, float vol, float attenuation, int flags, int pitch )
 {
-	if (!demo_handler || !demo_handler->funcs.WriteSound)
+	if( !demo_handler || !demo_handler->funcs.WriteSound )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteSound(channel, sample, vol, attenuation, flags, pitch);
+	demo_handler->funcs.WriteSound( channel, sample, vol, attenuation, flags, pitch );
 }
 
-void DEM_WriteStringCmd(const char* cmd)
+void DEM_WriteStringCmd( const char *cmd )
 {
-	if (!demo_handler || !demo_handler->funcs.WriteStringCMD)
+	if( !demo_handler || !demo_handler->funcs.WriteStringCMD )
 	{
 		return;
 	}
 
-	demo_handler->funcs.WriteStringCMD(cmd);
+	demo_handler->funcs.WriteStringCMD( cmd );
 }
 
-qboolean DEM_DemoReadMessage(byte* buffer, size_t* length)
+qboolean DEM_DemoReadMessage( byte *buffer, size_t *length )
 {
-	if (!demo_handler || !demo_handler->funcs.ReadDemoMessage)
+	if( !demo_handler || !demo_handler->funcs.ReadDemoMessage )
 	{
 		return false;
 	}
 
-	return demo_handler->funcs.ReadDemoMessage(buffer, length);
+	return demo_handler->funcs.ReadDemoMessage( buffer, length );
 }
 
-double DEM_GetHostFPS(void)
+double DEM_GetHostFPS( void )
 {
-	if (!demo_handler || !demo_handler->funcs.GetHostFPS)
+	if( !demo_handler || !demo_handler->funcs.GetHostFPS )
 	{
 		return 0.0;
 	}
@@ -287,10 +292,9 @@ double DEM_GetHostFPS(void)
 	return demo_handler->funcs.GetHostFPS();
 }
 
-
-void DEM_DemoInterpolateAngles(void)
+void DEM_DemoInterpolateAngles( void )
 {
-	if (!demo_handler || !demo_handler->funcs.InterpolateAngles)
+	if( !demo_handler || !demo_handler->funcs.InterpolateAngles )
 	{
 		return;
 	}

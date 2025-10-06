@@ -19,12 +19,12 @@ GNU General Public License for more details.
 #include "demofile/demofile.h"
 
 // Demo flags
-#define FDEMO_TITLE		0x01	// Show title
-#define FDEMO_PLAY		0x04	// Playing cd track
-#define FDEMO_FADE_IN_SLOW	0x08	// Fade in (slow)
-#define FDEMO_FADE_IN_FAST	0x10	// Fade in (fast)
-#define FDEMO_FADE_OUT_SLOW	0x20	// Fade out (slow)
-#define FDEMO_FADE_OUT_FAST	0x40	// Fade out (fast)
+#define FDEMO_TITLE         0x01        // Show title
+#define FDEMO_PLAY          0x04        // Playing cd track
+#define FDEMO_FADE_IN_SLOW  0x08        // Fade in (slow)
+#define FDEMO_FADE_IN_FAST  0x10        // Fade in (fast)
+#define FDEMO_FADE_OUT_SLOW 0x20        // Fade out (slow)
+#define FDEMO_FADE_OUT_FAST 0x40        // Fade out (fast)
 
 static qboolean CL_NextDemo( void );
 
@@ -103,7 +103,7 @@ double CL_GetDemoFramerate( void )
 	if( cls.timedemo )
 		return 0.0;
 
-	return bound( MIN_FPS, DEM_GetHostFPS(), MAX_FPS_HARD);
+	return bound( MIN_FPS, DEM_GetHostFPS(), MAX_FPS_HARD );
 }
 
 /*
@@ -134,12 +134,13 @@ finish recording demo
 */
 static void CL_StopRecord( void )
 {
-	int	i, curpos;
-	int	frames;
+	int i, curpos;
+	int frames;
 
-	if( !cls.demorecording ) return;
+	if( !cls.demorecording )
+		return;
 
-	DEM_StopRecord(cls.demofile);	
+	DEM_StopRecord( cls.demofile );
 
 	FS_Close( cls.demofile );
 	DEM_ResetHandler();
@@ -148,9 +149,9 @@ static void CL_StopRecord( void )
 	cls.demoname[0] = '\0';
 	cls.td_lastframe = host.framecount;
 	gameui.globals->demoname[0] = '\0';
-	
+
 	frames = cls.td_lastframe - cls.td_startframe;
-	Con_Printf( "Completed demo\nRecording time: %02d:%02d, frames %i\n", (int)(cls.demotime / 60.0f), (int)fmod(cls.demotime, 60.0f), frames );
+	Con_Printf( "Completed demo\nRecording time: %02d:%02d, frames %i\n", (int)( cls.demotime / 60.0f ), (int)fmod( cls.demotime, 60.0f ), frames );
 	cls.demotime = 0.0;
 }
 
@@ -161,22 +162,21 @@ CL_DrawDemoRecording
 */
 void CL_DrawDemoRecording( void )
 {
-	char	string[64];
-	rgba_t	color = { 255, 255, 255, 255 };
-	int	pos;
-	int	len;
+	char   string[64];
+	rgba_t color = { 255, 255, 255, 255 };
+	int    pos;
+	int    len;
 
-	if(!( host_developer.value && cls.demorecording ))
+	if( !( host_developer.value && cls.demorecording ))
 		return;
 
 	pos = FS_Tell( cls.demofile );
 	Q_snprintf( string, sizeof( string ), "^1RECORDING:^7 %s: %s time: %02d:%02d", cls.demoname,
-		Q_memprint( pos ), (int)(cls.demotime / 60.0f ), (int)fmod( cls.demotime, 60.0f ));
+		    Q_memprint( pos ), (int)( cls.demotime / 60.0f ), (int)fmod( cls.demotime, 60.0f ));
 
 	Con_DrawStringLen( string, &len, NULL );
 	Con_DrawString(( refState.width - len ) >> 1, refState.height >> 4, string, color );
 }
-
 
 /*
 =================
@@ -207,14 +207,14 @@ void CL_DemoStartPlayback( int mode )
 
 	cls.demoplayback = mode;
 	cls.state = ca_connected;
-	cl.background = (cls.demonum != -1) ? true : false;
+	cl.background = ( cls.demonum != -1 ) ? true : false;
 	cls.spectator = false;
 	cls.signon = 0;
 
 	CL_SetupNetchanForProtocol( cls.legacymode );
 
 	cls.lastoutgoingcommand = -1;
- 	cls.nextcmdtime = host.realtime;
+	cls.nextcmdtime = host.realtime;
 	cl.last_command_ack = -1;
 }
 
@@ -245,9 +245,8 @@ reads demo data and write it to client
 */
 qboolean CL_DemoReadMessage( byte *buffer, size_t *length )
 {
-	return DEM_DemoReadMessage(buffer, length);
+	return DEM_DemoReadMessage( buffer, length );
 }
-
 
 /*
 ==============
@@ -269,15 +268,16 @@ show stats
 static void CL_FinishTimeDemo( void )
 {
 	qboolean temp = host.allow_console;
-	int	frames;
-	double	time;
+	int      frames;
+	double   time;
 
 	cls.timedemo = false;
 
 	// the first frame didn't count
-	frames = (host.framecount - cls.td_startframe) - 1;
+	frames = ( host.framecount - cls.td_startframe ) - 1;
 	time = host.realtime - cls.td_starttime;
-	if( !time ) time = 1.0;
+	if( !time )
+		time = 1.0;
 
 	host.allow_console = true;
 	Con_Printf( "timedemo result: %i frames %5.3f seconds %5.3f fps\n", frames, time, frames / time );
@@ -296,9 +296,10 @@ Called when a demo file runs out, or the user starts a game
 */
 void CL_StopPlayback( void )
 {
-	if( !cls.demoplayback ) return;
+	if( !cls.demoplayback )
+		return;
 
-	DEM_StopPlayback(cls.demofile);
+	DEM_StopPlayback( cls.demofile );
 	FS_Close( cls.demofile );
 	DEM_ResetHandler();
 	cls.demoplayback = false;
@@ -307,7 +308,7 @@ void CL_StopPlayback( void )
 	cls.olddemonum = Q_max( -1, cls.demonum - 1 );
 	cls.td_lastframe = host.framecount;
 
-	cls.demoname[0] = '\0';	// clear demoname too
+	cls.demoname[0] = '\0'; // clear demoname too
 	gameui.globals->demoname[0] = '\0';
 
 	if( cls.timedemo )
@@ -323,7 +324,7 @@ void CL_StopPlayback( void )
 		// let game known about demo state
 		Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
 		cls.state = ca_disconnected;
-		memset( &cls.serveradr, 0, sizeof( cls.serveradr ) );
+		memset( &cls.serveradr, 0, sizeof( cls.serveradr ));
 		cls.set_lastdemo = false;
 		S_StopBackgroundTrack();
 		cls.connect_time = 0;
@@ -331,7 +332,7 @@ void CL_StopPlayback( void )
 		cls.signon = 0;
 
 		// and finally clear the state
-		CL_ClearState ();
+		CL_ClearState();
 	}
 }
 
@@ -344,7 +345,7 @@ Called when a demo finishes
 */
 static qboolean CL_NextDemo( void )
 {
-	char	str[MAX_QPATH];
+	char str[MAX_QPATH];
 
 	if( cls.demonum == -1 )
 		return false; // don't play demos
@@ -395,7 +396,7 @@ void CL_CheckStartupDemos( void )
 	Cvar_DirectSet( &v_dark, "1" );
 	cls.demos_pending = false;
 	cls.demonum = 0;
-	CL_NextDemo ();
+	CL_NextDemo();
 }
 
 /*
@@ -415,7 +416,6 @@ static void CL_DemoGetName( int lastnum, char *filename, size_t size )
 	Q_snprintf( filename, size, "demo%04d", lastnum );
 }
 
-
 /*
 ====================
 CL_WriteDemoHeader
@@ -423,31 +423,32 @@ CL_WriteDemoHeader
 Write demo header
 ====================
 */
-static void CL_WriteDemoHeader(const char* name)
+static void CL_WriteDemoHeader( const char *name )
 {
 	double maxfps;
-	int copysize;
-	int savepos;
-	int curpos;
+	int    copysize;
+	int    savepos;
+	int    curpos;
 
-	Con_Printf("recording to %s.\n", name);
-	cls.demofile = FS_Open(name, "wb", false);
+	Con_Printf( "recording to %s.\n", name );
+	cls.demofile = FS_Open( name, "wb", false );
 	cls.demotime = 0.0;
 
-	if (!cls.demofile)
+	if( !cls.demofile )
 	{
-		Con_Printf(S_ERROR "couldn't open %s.\n", name);
+		Con_Printf( S_ERROR "couldn't open %s.\n", name );
 		return;
 	}
 
-	DEM_StartRecord(cls.demofile);
+	DEM_StartRecord( cls.demofile );
 
 	cls.demorecording = true;
-	cls.demowaiting = true;	// don't start saving messages until a non-delta compressed message is received
+	cls.demowaiting = true; // don't start saving messages until a non-delta compressed message is received
 
-	if (clgame.hInstance) clgame.dllFuncs.pfnReset();
+	if( clgame.hInstance )
+		clgame.dllFuncs.pfnReset();
 
-	Cbuf_InsertText("fullupdate\n");
+	Cbuf_InsertText( "fullupdate\n" );
 	Cbuf_Execute();
 }
 
@@ -461,9 +462,9 @@ Begins recording a demo from the current position
 */
 void CL_Record_f( void )
 {
-	string		demoname, demopath;
-	const char	*name;
-	int		n;
+	string     demoname, demopath;
+	const char *name;
+	int n;
 
 	if( Cmd_Argc() == 1 )
 	{
@@ -481,19 +482,19 @@ void CL_Record_f( void )
 
 	if( cls.demorecording )
 	{
-		Con_Printf( "Already recording.\n");
+		Con_Printf( "Already recording.\n" );
 		return;
 	}
 
 	if( cls.demoplayback )
 	{
-		Con_Printf( "Can't record during demo playback.\n");
+		Con_Printf( "Can't record during demo playback.\n" );
 		return;
 	}
 
 	if( !cls.demoheader || cls.state != ca_active )
 	{
-		Con_Printf( "You must be in a level to record.\n");
+		Con_Printf( "You must be in a level to record.\n" );
 		return;
 	}
 
@@ -515,7 +516,8 @@ void CL_Record_f( void )
 			return;
 		}
 	}
-	else Q_strncpy( demoname, name, sizeof( demoname ));
+	else
+		Q_strncpy( demoname, name, sizeof( demoname ));
 
 	// open the demo file
 	Q_snprintf( demopath, sizeof( demopath ), "%s.dem", demoname );
@@ -539,9 +541,9 @@ playdemo <demoname>
 */
 void CL_PlayDemo_f( void )
 {
-	char	filename[MAX_QPATH];
-	char	demoname[MAX_QPATH];
-	int	i, ident;
+	char filename[MAX_QPATH];
+	char demoname[MAX_QPATH];
+	int  i, ident;
 
 	if( Cmd_Argc() < 2 )
 	{
@@ -554,7 +556,7 @@ void CL_PlayDemo_f( void )
 
 	if( cls.demorecording )
 	{
-		Con_Printf( "Can't playback during demo record.\n");
+		Con_Printf( "Can't playback during demo record.\n" );
 		return;
 	}
 
@@ -583,7 +585,7 @@ void CL_PlayDemo_f( void )
 
 	cls.forcetrack = 0;
 
-	if (!DEM_StartPlayback(cls.demofile))
+	if( !DEM_StartPlayback( cls.demofile ))
 	{
 		CL_DemoAborted();
 		return;
@@ -599,14 +601,14 @@ timedemo <demoname>
 */
 void CL_TimeDemo_f( void )
 {
-	CL_PlayDemo_f ();
+	CL_PlayDemo_f();
 
 	// cls.td_starttime will be grabbed at the second frame of the demo, so
 	// all the loading time doesn't get counted
 	cls.timedemo = true;
 	cls.td_starttime = host.realtime;
 	cls.td_startframe = host.framecount;
-	cls.td_lastframe = -1;		// get a new message this frame
+	cls.td_lastframe = -1; // get a new message this frame
 }
 
 /*
@@ -616,7 +618,7 @@ CL_StartDemos_f
 */
 void CL_StartDemos_f( void )
 {
-	int	i, c;
+	int i, c;
 
 	if( cls.key_dest != key_menu )
 	{
@@ -631,10 +633,10 @@ void CL_StartDemos_f( void )
 		c = MAX_DEMOS;
 	}
 
-	Con_Printf( "%i demo%s in loop\n", c, (c > 1) ? "s" : "" );
+	Con_Printf( "%i demo%s in loop\n", c, ( c > 1 ) ? "s" : "" );
 
 	for( i = 1; i < c + 1; i++ )
-		Q_strncpy( cls.demos[i-1], Cmd_Argv( i ), sizeof( cls.demos[0] ));
+		Q_strncpy( cls.demos[i - 1], Cmd_Argv( i ), sizeof( cls.demos[0] ));
 	cls.demos_pending = true;
 }
 
@@ -661,9 +663,8 @@ void CL_Demos_f( void )
 
 	// run demos loop in background mode
 	if( !SV_Active() && !cls.demoplayback )
-		CL_NextDemo ();
+		CL_NextDemo();
 }
-
 
 /*
 ====================
@@ -689,10 +690,10 @@ void CL_Stop_f( void )
 void CL_ListDemo_f( void )
 {
 	int32_t num_entries;
-	file_t *f;
-	char filename[MAX_QPATH];
-	char demoname[MAX_QPATH];
-	int i;
+	file_t  *f;
+	char    filename[MAX_QPATH];
+	char    demoname[MAX_QPATH];
+	int     i;
 
 	if( Cmd_Argc() < 2 )
 	{
@@ -711,56 +712,57 @@ void CL_ListDemo_f( void )
 		return;
 	}
 
-	DEM_ListDemo(f);
+	DEM_ListDemo( f );
 	FS_Close( f );
 	DEM_ResetHandler();
 }
 
-int GAME_EXPORT CL_GetDemoComment(const char* demoname, char* comment)
+int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 {
 	return 0;
 }
 
-void CL_WriteDemoUserCmd(int cmdnumber)
+void CL_WriteDemoUserCmd( int cmdnumber )
 {
-	DEM_WriteDemoUserCmd(cmdnumber);
+	DEM_WriteDemoUserCmd( cmdnumber );
 }
 
-void CL_WriteDemoMessage(qboolean startup, int start, sizebuf_t* msg)
+void CL_WriteDemoMessage( qboolean startup, int start, sizebuf_t *msg )
 {
-	DEM_WriteNetPacket(startup, start, msg);
+	DEM_WriteNetPacket( startup, start, msg );
 }
 
-void CL_WriteDemoUserMessage(int size, byte* buffer)
+void CL_WriteDemoUserMessage( int size, byte *buffer )
 {
-	DEM_WriteDemoUserMessage(size, buffer);
+	DEM_WriteDemoUserMessage( size, buffer );
 }
 
-void CL_WriteDemoAnim(int anim, int body)
+void CL_WriteDemoAnim( int anim, int body )
 {
-	DEM_WriteAnim(anim, body);
+	DEM_WriteAnim( anim, body );
 }
 
-void CL_WriteDemoClientData(client_data_t* cdata)
+void CL_WriteDemoClientData( client_data_t *cdata )
 {
-	DEM_WriteClientData(cdata);
+	DEM_WriteClientData( cdata );
 }
 
-void CL_WriteDemoSound(int channel, const char* sample, float vol, float attenuation, int flags, int pitch)
+void CL_WriteDemoSound( int channel, const char *sample, float vol, float attenuation, int flags, int pitch )
 {
-	DEM_WriteSound(channel, sample, vol, attenuation, flags, pitch);
-}
-void CL_WriteDemoStringCmd(const char* cmd)
-{
-	DEM_WriteStringCmd(cmd);
+	DEM_WriteSound( channel, sample, vol, attenuation, flags, pitch );
 }
 
-void CL_WriteDemoEvent(int flags, int idx, float delay, event_args_t* pargs)
+void CL_WriteDemoStringCmd( const char *cmd )
 {
-	DEM_WriteEvent(flags, idx, delay, pargs);
+	DEM_WriteStringCmd( cmd );
 }
 
-void CL_DemoInterpolateAngles(void)
+void CL_WriteDemoEvent( int flags, int idx, float delay, event_args_t *pargs )
+{
+	DEM_WriteEvent( flags, idx, delay, pargs );
+}
+
+void CL_DemoInterpolateAngles( void )
 {
 	DEM_DemoInterpolateAngles();
 }

@@ -16,68 +16,68 @@ GNU General Public License for more details.
 #include "demofile.h"
 
 #define GS_DEMO_SIGNATURE_SIZE 8
-#define GS_DEMO_HEADER_SIZE 544
+#define GS_DEMO_HEADER_SIZE    544
 #define GS_MIN_DIR_ENTRY_COUNT 1
 #define GS_MAX_DIR_ENTRY_COUNT 1024
 
 
-#define GS_DEMO_STARTUP	0	// this lump contains startup info needed to spawn into the server
-#define GS_DEMO_NORMAL		1	// this lump contains playback info of messages, etc., needed during playback.
+#define GS_DEMO_STARTUP 0 // this lump contains startup info needed to spawn into the server
+#define GS_DEMO_NORMAL  1 // this lump contains playback info of messages, etc., needed during playback.
 
 
-#define GS_CMD_DEMO_START 2
+#define GS_CMD_DEMO_START      2
 #define GS_CMD_CONSOLE_COMMAND 3
-#define GS_CMD_CLIENT_DATA 4
-#define GS_CMD_NEXT_SECTION 5
-#define GS_CMD_EVENT 6
-#define GS_CMD_WEAPON_ANIM 7
-#define GS_CMD_SOUND 8
-#define GS_CMD_DEMO_BUFFER 9
+#define GS_CMD_CLIENT_DATA     4
+#define GS_CMD_NEXT_SECTION    5
+#define GS_CMD_EVENT           6
+#define GS_CMD_WEAPON_ANIM     7
+#define GS_CMD_SOUND           8
+#define GS_CMD_DEMO_BUFFER     9
 
 struct demo_header_s
 {
-	char filestamp[8];
-	int demo_protocol;
-	int net_protocol;
-	char map_name[260];
-	char dll_dir[260];
+	char    filestamp[8];
+	int     demo_protocol;
+	int     net_protocol;
+	char    map_name[260];
+	char    dll_dir[260];
 	CRC32_t map_crc;
-	int directory_offset;
+	int     directory_offset;
 };
 
 typedef struct demo_header_s dem_header_t;
 
 typedef struct
 {
-	int		entrytype;	
-	char		description[64];	
-	int		flags;		
-	int cd_track;
+	int   entrytype;
+	char  description[64];
+	int   flags;
+	int   cd_track;
 	float cd_tracktime;
-	int frame_count;
-	int offset;
-	int file_length;
+	int   frame_count;
+	int   offset;
+	int   file_length;
 } dem_entry_t;
 
 typedef struct
 {
-	dem_entry_t* entries;		// track entry info
-	int32_t		numentries;	// number of tracks
+	dem_entry_t *entries;   // track entry info
+	int32_t     numentries; // number of tracks
 } dem_directory_t;
 
 
 // private demo states
 struct
 {
-	dem_header_t	header;
-	dem_entry_t* entry;
-	dem_directory_t	directory;
-	int		framecount;
-	float		starttime;
-	float		realstarttime;
-	float		timestamp;
-	float		lasttime;
-	int		entryIndex;
+	dem_header_t    header;
+	dem_entry_t     *entry;
+	dem_directory_t directory;
+	int    framecount;
+	float  starttime;
+	float  realstarttime;
+	float  timestamp;
+	float  lasttime;
+	int    entryIndex;
 	double fps;
 } demo;
 
@@ -85,244 +85,244 @@ size_t demo_size;
 
 typedef struct demo_anim_s demo_anim_t;
 
-static void DEM_GS_WriteDemoCmdHeader(byte cmd, file_t* file)
+static void DEM_GS_WriteDemoCmdHeader( byte cmd, file_t *file )
 {
-	float	dt;
-	int frame;
+	float dt;
+	int   frame;
 
-	Assert(cmd >= 1 && cmd <= dem_lastcmd);
-	if (!file) return;
+	Assert( cmd >= 1 && cmd <= dem_lastcmd );
+	if( !file )
+		return;
 
 	// command
-	FS_Write(file, &cmd, sizeof(byte));
+	FS_Write( file, &cmd, sizeof( byte ));
 
 	// time offset
-	dt = (float)(CL_GetDemoRecordClock() - demo.starttime);
-	FS_Write(file, &dt, sizeof(float));
+	dt = (float)( CL_GetDemoRecordClock() - demo.starttime );
+	FS_Write( file, &dt, sizeof( float ));
 
 	// current frame
 	frame = demo.framecount;
-	FS_Write(file, &frame, sizeof(int));
+	FS_Write( file, &frame, sizeof( int ));
 }
 
-static qboolean DEM_GS_ReadDemoCmdHeader(byte* cmd, float* dt, int *frame_number)
+static qboolean DEM_GS_ReadDemoCmdHeader( byte *cmd, float *dt, int *frame_number )
 {
-	FS_Read(cls.demofile, cmd, sizeof(byte));
+	FS_Read( cls.demofile, cmd, sizeof( byte ));
 
 	// read the timestamp
-	FS_Read(cls.demofile, dt, sizeof(float));
+	FS_Read( cls.demofile, dt, sizeof( float ));
 
 	// read frmae number
-	FS_Read(cls.demofile, frame_number, sizeof(int));
+	FS_Read( cls.demofile, frame_number, sizeof( int ));
 	return true;
 }
 
 static void DEM_GS_ReadClientData()
 {
 	client_data_t cdat;
-	file_t* file = cls.demofile;
-	float time;
-	if (!file)
+	file_t *file = cls.demofile;
+	float  time;
+	if( !file )
 		return;
 
-	FS_Read(file, &cdat, sizeof(client_data_t));
+	FS_Read( file, &cdat, sizeof( client_data_t ));
 
-	if (clgame.dllFuncs.pfnUpdateClientData)
+	if( clgame.dllFuncs.pfnUpdateClientData )
 	{
-		if (clgame.dllFuncs.pfnUpdateClientData(&cdat, cl.time))
+		if( clgame.dllFuncs.pfnUpdateClientData( &cdat, cl.time ))
 		{
-			if (cls.spectator == FALSE)
+			if( cls.spectator == FALSE )
 			{
-				VectorCopy(cdat.viewangles, cl.viewangles);
+				VectorCopy( cdat.viewangles, cl.viewangles );
 				cl.local.scr_fov = cdat.fov;
 			}
 		}
 	}
 }
 
-static void DEM_GS_WriteClientData(client_data_t* cdata)
+static void DEM_GS_WriteClientData( client_data_t *cdata )
 {
-	file_t* file = cls.demofile;
-	if (!file)
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	DEM_GS_WriteDemoCmdHeader(GS_CMD_CLIENT_DATA, file);
-	FS_Write(file, cdata->origin, sizeof(float[3]));
-	FS_Write(file, cdata->viewangles, sizeof(float[3]));
-	FS_Write(file, &cdata->iWeaponBits, sizeof(int));
-	FS_Write(file, &cdata->fov, sizeof(float));	
+	DEM_GS_WriteDemoCmdHeader( GS_CMD_CLIENT_DATA, file );
+	FS_Write( file, cdata->origin, sizeof( float[3] ));
+	FS_Write( file, cdata->viewangles, sizeof( float[3] ));
+	FS_Write( file, &cdata->iWeaponBits, sizeof( int ));
+	FS_Write( file, &cdata->fov, sizeof( float ));
 }
 
-static void DEM_GS_WriteAnim(int anim, int body)
+static void DEM_GS_WriteAnim( int anim, int body )
 {
-	file_t* file = cls.demofile;
-	if (!file)
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	DEM_GS_WriteDemoCmdHeader(GS_CMD_WEAPON_ANIM, file);
-	FS_Write(file, &anim, sizeof(int));
-	FS_Write(file, &body, sizeof(int));	
+	DEM_GS_WriteDemoCmdHeader( GS_CMD_WEAPON_ANIM, file );
+	FS_Write( file, &anim, sizeof( int ));
+	FS_Write( file, &body, sizeof( int ));
 }
 
 static void DEM_GS_ReadAnim()
 {
-	int anim, body;
-	file_t* file = cls.demofile;
-	if (!file)
+	int    anim, body;
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	FS_Read(file, &anim, sizeof(int));
-	FS_Read(file, &body, sizeof(int));
+	FS_Read( file, &anim, sizeof( int ));
+	FS_Read( file, &body, sizeof( int ));
 
-	CL_WeaponAnim(anim, body);
+	CL_WeaponAnim( anim, body );
 }
 
-
-static void DEM_GS_WriteEvent(int flags, int idx, float delay, event_args_t* pargs)
+static void DEM_GS_WriteEvent( int flags, int idx, float delay, event_args_t *pargs )
 {
-	file_t* file = cls.demofile;
-	if (!file)	
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	DEM_GS_WriteDemoCmdHeader(GS_CMD_EVENT, file);
-	FS_Write(file, &flags, sizeof(int));
-	FS_Write(file, &idx, sizeof(int));
-	FS_Write(file, &delay, sizeof(float));
-	FS_Write(file, pargs, sizeof(event_args_t));	
+	DEM_GS_WriteDemoCmdHeader( GS_CMD_EVENT, file );
+	FS_Write( file, &flags, sizeof( int ));
+	FS_Write( file, &idx, sizeof( int ));
+	FS_Write( file, &delay, sizeof( float ));
+	FS_Write( file, pargs, sizeof( event_args_t ));
 }
 
-static void DEM_GS_WriteNetPacket(qboolean startup, int start, sizebuf_t* msg)
+static void DEM_GS_WriteNetPacket( qboolean startup, int start, sizebuf_t *msg )
 {
-	file_t* file = startup ? cls.demoheader : cls.demofile;
-	int	swlen;
-	byte	c;
+	file_t *file = startup ? cls.demoheader : cls.demofile;
+	int    swlen;
+	byte   c;
 
-	if (!file)
+	if( !file )
 		return;
 
-	swlen = MSG_GetNumBytesWritten(msg) - start;
-	if (swlen <= 0)
+	swlen = MSG_GetNumBytesWritten( msg ) - start;
+	if( swlen <= 0 )
 		return;
 
-	ref_params_t* rp = V_RefParams();
-	DEM_GS_WriteDemoCmdHeader(startup ? 0 : 1, file);
+	ref_params_t *rp = V_RefParams();
+	DEM_GS_WriteDemoCmdHeader( startup ? 0 : 1, file );
 	// Write timestamp
-	float dt = (float)(CL_GetDemoRecordClock() - demo.starttime);
-	FS_Write(file, &dt, sizeof(float));
+	float dt = (float)( CL_GetDemoRecordClock() - demo.starttime );
+	FS_Write( file, &dt, sizeof( float ));
 	// Write rp
-	FS_Write(file, rp, offsetof(ref_params_t, cmd));
+	FS_Write( file, rp, offsetof( ref_params_t, cmd ));
 	int nothing = 0;
 	// Write cmd and movevars pointers as zeroed '4-byte' int
-	FS_Write(file, &nothing, sizeof(int));
-	FS_Write(file, &nothing, sizeof(int));
+	FS_Write( file, &nothing, sizeof( int ));
+	FS_Write( file, &nothing, sizeof( int ));
 
-	FS_Write(file, rp->viewport, sizeof(int[4]));
-	FS_Write(file, &rp->nextView, sizeof(int));
-	FS_Write(file, &rp->onlyClientDraw, sizeof(int));
+	FS_Write( file, rp->viewport, sizeof( int[4] ));
+	FS_Write( file, &rp->nextView, sizeof( int ));
+	FS_Write( file, &rp->onlyClientDraw, sizeof( int ));
 
-	if (!rp->movevars)
+	if( !rp->movevars )
 		rp->movevars = &clgame.movevars;
-	if (!rp->cmd)
+	if( !rp->cmd )
 		rp->cmd = &cl.cmd;
 
 	// Write actual cmd and movevars
-	FS_Write(file, rp->cmd, sizeof(usercmd_t));
-	FS_Write(file, rp->movevars, offsetof(movevars_t, features));
+	FS_Write( file, rp->cmd, sizeof( usercmd_t ));
+	FS_Write( file, rp->movevars, offsetof( movevars_t, features ));
 
 	// TODO: Idk is this right coordinates
-	FS_Write(file, &cl.local.lastorigin, sizeof(vec3_t));
+	FS_Write( file, &cl.local.lastorigin, sizeof( vec3_t ));
 
-	FS_Write(file, &cl.local.viewmodel, sizeof(int));
+	FS_Write( file, &cl.local.viewmodel, sizeof( int ));
 
 	// Write net sequences
-	FS_Write(file, &cls.netchan.incoming_sequence, sizeof(int));
-	FS_Write(file, &cls.netchan.incoming_acknowledged, sizeof(int));
-	FS_Write(file, &cls.netchan.incoming_reliable_acknowledged, sizeof(int));
-	FS_Write(file, &cls.netchan.incoming_reliable_sequence, sizeof(int));
-	FS_Write(file, &cls.netchan.outgoing_sequence, sizeof(int));
-	FS_Write(file, &cls.netchan.reliable_sequence, sizeof(int));
-	FS_Write(file, &cls.netchan.last_reliable_sequence, sizeof(int));
+	FS_Write( file, &cls.netchan.incoming_sequence, sizeof( int ));
+	FS_Write( file, &cls.netchan.incoming_acknowledged, sizeof( int ));
+	FS_Write( file, &cls.netchan.incoming_reliable_acknowledged, sizeof( int ));
+	FS_Write( file, &cls.netchan.incoming_reliable_sequence, sizeof( int ));
+	FS_Write( file, &cls.netchan.outgoing_sequence, sizeof( int ));
+	FS_Write( file, &cls.netchan.reliable_sequence, sizeof( int ));
+	FS_Write( file, &cls.netchan.last_reliable_sequence, sizeof( int ));
 
 	// Write the length out.
-	FS_Write(file, &swlen, sizeof(int));
+	FS_Write( file, &swlen, sizeof( int ));
 
 	// Output the buffer. Skip the network packet stuff.
-	FS_Write(file, MSG_GetData(msg) + start, swlen);	
+	FS_Write( file, MSG_GetData( msg ) + start, swlen );
 }
 
-static void DEM_GS_ReadNetPacket(byte* buffer, size_t* length)
+static void DEM_GS_ReadNetPacket( byte *buffer, size_t *length )
 {
-	int	incoming_sequence;
-	int	incoming_acknowledged;
-	int	incoming_reliable_acknowledged;
-	int	incoming_reliable_sequence;
-	int	outgoing_sequence;
-	int	reliable_sequence;
-	int	last_reliable_sequence;
-	float timestamp;
+	int    incoming_sequence;
+	int    incoming_acknowledged;
+	int    incoming_reliable_acknowledged;
+	int    incoming_reliable_sequence;
+	int    outgoing_sequence;
+	int    reliable_sequence;
+	int    last_reliable_sequence;
+	float  timestamp;
 
-	file_t* file = cls.demofile;
-	if (!file)
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	FS_Read(file, &timestamp, sizeof(int));
-	ref_params_t* rp = V_RefParams();
-	if(!rp->movevars)
+	FS_Read( file, &timestamp, sizeof( int ));
+	ref_params_t *rp = V_RefParams();
+	if( !rp->movevars )
 		rp->movevars = &clgame.movevars;
-	if(!rp->cmd)
+	if( !rp->cmd )
 		rp->cmd = &cl.cmd;
-	FS_Read(file, rp, offsetof(ref_params_t, cmd));
+	FS_Read( file, rp, offsetof( ref_params_t, cmd ));
 
-	if (rp->frametime)
+	if( rp->frametime )
 	{
 		demo.fps = 1.0 / rp->frametime;
 	}
 
 	// Skip usercmd and movevars pointers
-	FS_Seek(file, 8, SEEK_CUR);
-	FS_Read(file, rp->viewport, sizeof(int[4]));
-	FS_Read(file, &rp->nextView, sizeof(int));
-	FS_Read(file, &rp->onlyClientDraw, sizeof(int));
+	FS_Seek( file, 8, SEEK_CUR );
+	FS_Read( file, rp->viewport, sizeof( int[4] ));
+	FS_Read( file, &rp->nextView, sizeof( int ));
+	FS_Read( file, &rp->onlyClientDraw, sizeof( int ));
 
 
-	FS_Read(file, rp->cmd, sizeof(usercmd_t));
-	FS_Read(file, rp->movevars, offsetof(movevars_t, features));
+	FS_Read( file, rp->cmd, sizeof( usercmd_t ));
+	FS_Read( file, rp->movevars, offsetof( movevars_t, features ));
 
-	FS_Read(file, &cl.local.lastorigin, sizeof(vec3_t));
+	FS_Read( file, &cl.local.lastorigin, sizeof( vec3_t ));
 
-	FS_Read(file, &cl.local.viewmodel, sizeof(int));
+	FS_Read( file, &cl.local.viewmodel, sizeof( int ));
 
-	FS_Read(file, &cls.netchan.incoming_sequence, sizeof(int));
-	FS_Read(file, &cls.netchan.incoming_acknowledged, sizeof(int));
-	FS_Read(file, &cls.netchan.incoming_reliable_acknowledged, sizeof(int));
-	FS_Read(file, &cls.netchan.incoming_reliable_sequence, sizeof(int));
-	FS_Read(file, &cls.netchan.outgoing_sequence, sizeof(int));
-	FS_Read(file, &cls.netchan.reliable_sequence, sizeof(int));
-	FS_Read(file, &cls.netchan.last_reliable_sequence, sizeof(int));
+	FS_Read( file, &cls.netchan.incoming_sequence, sizeof( int ));
+	FS_Read( file, &cls.netchan.incoming_acknowledged, sizeof( int ));
+	FS_Read( file, &cls.netchan.incoming_reliable_acknowledged, sizeof( int ));
+	FS_Read( file, &cls.netchan.incoming_reliable_sequence, sizeof( int ));
+	FS_Read( file, &cls.netchan.outgoing_sequence, sizeof( int ));
+	FS_Read( file, &cls.netchan.reliable_sequence, sizeof( int ));
+	FS_Read( file, &cls.netchan.last_reliable_sequence, sizeof( int ));
 
-	int	msglen = 0;
+	int msglen = 0;
 
 	*length = 0; // assume we fail
-	FS_Read(cls.demofile, &msglen, sizeof(int));
+	FS_Read( cls.demofile, &msglen, sizeof( int ));
 
-	if (msglen < 0)
+	if( msglen < 0 )
 	{
-		Con_Reportf(S_ERROR "Demo message length < 0\n");
+		Con_Reportf( S_ERROR "Demo message length < 0\n" );
 		CL_DemoCompleted();
 		return;
 	}
 
-	if (msglen > MAX_INIT_MSG)
+	if( msglen > MAX_INIT_MSG )
 	{
-		Con_Reportf(S_ERROR "Demo message %i > %i\n", msglen, MAX_INIT_MSG);
+		Con_Reportf( S_ERROR "Demo message %i > %i\n", msglen, MAX_INIT_MSG );
 		CL_DemoCompleted();
 	}
 
-	if (msglen > 0)
+	if( msglen > 0 )
 	{
-		if (FS_Read(cls.demofile, buffer, msglen) != msglen)
+		if( FS_Read( cls.demofile, buffer, msglen ) != msglen )
 		{
-			Con_Reportf(S_ERROR "Error reading demo message data\n");
+			Con_Reportf( S_ERROR "Error reading demo message data\n" );
 			CL_DemoCompleted();
 		}
 	}
@@ -331,178 +331,180 @@ static void DEM_GS_ReadNetPacket(byte* buffer, size_t* length)
 	cls.netchan.total_received += msglen;
 	*length = msglen;
 
-	if (cls.state != ca_active)
+	if( cls.state != ca_active )
 		Cbuf_Execute();
 
 	return;
 }
-static void DEM_GS_WriteSound(int channel, const char* sample, float vol, float attenuation, int flags, int pitch)
+
+static void DEM_GS_WriteSound( int channel, const char *sample, float vol, float attenuation, int flags, int pitch )
 {
 	size_t len;
-	file_t* file = cls.demofile;
-	if (!file)
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	DEM_GS_WriteDemoCmdHeader(GS_CMD_SOUND, file);
+	DEM_GS_WriteDemoCmdHeader( GS_CMD_SOUND, file );
 
-	FS_Write(file, &channel, sizeof(int));
-	len = Q_strlen(sample);
-	FS_Write(file, &len, sizeof(int));
-	FS_Write(file, sample, len);
-	FS_Write(file, &vol, sizeof(float));
-	FS_Write(file, &attenuation, sizeof(float));
-	FS_Write(file, &flags, sizeof(int));
-	FS_Write(file, &pitch, sizeof(int));
+	FS_Write( file, &channel, sizeof( int ));
+	len = Q_strlen( sample );
+	FS_Write( file, &len, sizeof( int ));
+	FS_Write( file, sample, len );
+	FS_Write( file, &vol, sizeof( float ));
+	FS_Write( file, &attenuation, sizeof( float ));
+	FS_Write( file, &flags, sizeof( int ));
+	FS_Write( file, &pitch, sizeof( int ));
 }
 
-static void  DEM_GS_DemoPlaySound(int chan, char* sample, float attn, float volume, int flags, int pitch)
+static void DEM_GS_DemoPlaySound( int chan, char *sample, float attn, float volume, int flags, int pitch )
 {
-	S_StartSound(NULL, clgame.pmove->player_index + 1, chan, S_RegisterSound(sample), volume, attn, pitch, flags);
+	S_StartSound( NULL, clgame.pmove->player_index + 1, chan, S_RegisterSound( sample ), volume, attn, pitch, flags );
 }
 
 static void DEM_GS_ReadSound()
 {
-	int channel, flags, pitch;
-	float vol, attenuation;
-	char sample[256];
-	int len;
-	file_t* file = cls.demofile;
-	if (!file)
+	int    channel, flags, pitch;
+	float  vol, attenuation;
+	char   sample[256];
+	int    len;
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	FS_Read(file, &channel, sizeof(int));
-	FS_Read(file, &len, sizeof(int));
-	if (len >= 255)
+	FS_Read( file, &channel, sizeof( int ));
+	FS_Read( file, &len, sizeof( int ));
+	if( len >= 255 )
 	{
 		len = 255;
 	}
-	FS_Read(file, sample, len);
+	FS_Read( file, sample, len );
 	sample[len] = 0;
-	FS_Read(file, &attenuation, sizeof(float));
-	FS_Read(file, &vol, sizeof(float));
-	FS_Read(file, &flags, sizeof(int));
-	FS_Read(file, &pitch, sizeof(int));
+	FS_Read( file, &attenuation, sizeof( float ));
+	FS_Read( file, &vol, sizeof( float ));
+	FS_Read( file, &flags, sizeof( int ));
+	FS_Read( file, &pitch, sizeof( int ));
 
-	DEM_GS_DemoPlaySound(channel, sample, attenuation, vol, flags, pitch);
+	DEM_GS_DemoPlaySound( channel, sample, attenuation, vol, flags, pitch );
 
 }
-static void DEM_GS_WriteStringCMD(const char* cmdname)
+
+static void DEM_GS_WriteStringCMD( const char *cmdname )
 {
-	char command[64];
+	char   command[64];
 	size_t len;
-	file_t* file = cls.demofile;
-	if (!file)
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	DEM_GS_WriteDemoCmdHeader(GS_CMD_CONSOLE_COMMAND, file);
-	memset(command, 0, 64);
-	Q_strncpy(command, cmdname, 63);
+	DEM_GS_WriteDemoCmdHeader( GS_CMD_CONSOLE_COMMAND, file );
+	memset( command, 0, 64 );
+	Q_strncpy( command, cmdname, 63 );
 	command[63] = 0;
-	FS_Write(file, cmdname, 64);
+	FS_Write( file, cmdname, 64 );
 }
 
-static void DEM_GS_ReadHeader(file_t* file)
+static void DEM_GS_ReadHeader( file_t *file )
 {
-	FS_Seek(file, GS_DEMO_SIGNATURE_SIZE, SEEK_SET);
+	FS_Seek( file, GS_DEMO_SIGNATURE_SIZE, SEEK_SET );
 
-	FS_Read(file, &demo.header.demo_protocol, sizeof(int));
-	FS_Read(file, &demo.header.net_protocol, sizeof(int));
+	FS_Read( file, &demo.header.demo_protocol, sizeof( int ));
+	FS_Read( file, &demo.header.net_protocol, sizeof( int ));
 
-	FS_Read(file, &demo.header.map_name, sizeof(demo.header.map_name));
-	FS_Read(file, demo.header.dll_dir, sizeof(demo.header.dll_dir));
+	FS_Read( file, &demo.header.map_name, sizeof( demo.header.map_name ));
+	FS_Read( file, demo.header.dll_dir, sizeof( demo.header.dll_dir ));
 
-	FS_Read(file, &demo.header.map_crc, sizeof(int));
-	FS_Read(file, &demo.header.directory_offset, sizeof(int));
+	FS_Read( file, &demo.header.map_crc, sizeof( int ));
+	FS_Read( file, &demo.header.directory_offset, sizeof( int ));
 
 	demo.fps = MAX_FPS_HARD;
 }
 
-static void DEM_GS_ReadDirectory(file_t* file)
+static void DEM_GS_ReadDirectory( file_t *file )
 {
 	int i, file_mark, dir_entries_count;
 
-	if (demo.header.directory_offset < 0 ||
-			(demo_size - 4u) < demo.header.directory_offset	)
+	if( demo.header.directory_offset < 0
+	    || ( demo_size - 4u ) < demo.header.directory_offset )
 	{
-		Con_Printf("Malformed directory offset in demofile.\n");
+		Con_Printf( "Malformed directory offset in demofile.\n" );
 		return;
 	}
 
-	file_mark = FS_Tell(file);
-	FS_Seek(file, demo.header.directory_offset, SEEK_SET);
+	file_mark = FS_Tell( file );
+	FS_Seek( file, demo.header.directory_offset, SEEK_SET );
 
 	dir_entries_count;
-	FS_Read(file, &dir_entries_count, sizeof(int));
+	FS_Read( file, &dir_entries_count, sizeof( int ));
 
-	if (dir_entries_count < GS_MIN_DIR_ENTRY_COUNT
-		|| dir_entries_count > GS_MAX_DIR_ENTRY_COUNT
-		|| ((demo_size - (dir_entries_count * sizeof(dem_entry_t))) < FS_Tell(file)))
+	if( dir_entries_count < GS_MIN_DIR_ENTRY_COUNT
+	    || dir_entries_count > GS_MAX_DIR_ENTRY_COUNT
+	    || (( demo_size - ( dir_entries_count * sizeof( dem_entry_t ))) < FS_Tell( file )))
 	{
 		// Case for bogus demo (seems like client crashed or somehow doesn't writted directories entries)
 		// But in most cases we can still playback this demo.
 		dir_entries_count = 1;
 		demo.header.directory_offset = 0;
 		demo.directory.numentries = dir_entries_count;
-		demo.directory.entries = Mem_Malloc(cls.mempool, sizeof(*demo.directory.entries) * demo.directory.numentries);		
+		demo.directory.entries = Mem_Malloc( cls.mempool, sizeof( *demo.directory.entries ) * demo.directory.numentries );
 		demo.directory.entries[0].offset = file_mark;
 		return;
 	}
 
 	demo.directory.numentries = dir_entries_count;
 
-	demo.directory.entries = Mem_Malloc(cls.mempool, sizeof(*demo.directory.entries) * demo.directory.numentries);
+	demo.directory.entries = Mem_Malloc( cls.mempool, sizeof( *demo.directory.entries ) * demo.directory.numentries );
 
-	for (i = 0; i < demo.directory.numentries; i++)
+	for( i = 0; i < demo.directory.numentries; i++ )
 	{
-		dem_entry_t* entry = &demo.directory.entries[i];
-		if (FS_Read(cls.demofile, entry, sizeof(*entry)) != sizeof(*entry))
+		dem_entry_t *entry = &demo.directory.entries[i];
+		if( FS_Read( cls.demofile, entry, sizeof( *entry )) != sizeof( *entry ))
 		{
-			Con_Printf(S_ERROR "demo entry %i corrupted", i);
-			//CL_DemoAborted();
+			Con_Printf( S_ERROR "demo entry %i corrupted", i );
+			// CL_DemoAborted();
 			return;
 		}
 	}
 	demo.entryIndex = 0;
 	demo.entry = &demo.directory.entries[demo.entryIndex];
 
-	FS_Seek(cls.demofile, demo.entry->offset, SEEK_SET);
+	FS_Seek( cls.demofile, demo.entry->offset, SEEK_SET );
 }
 
-static qboolean DEM_GS_CanHandle(file_t* file)
+static qboolean DEM_GS_CanHandle( file_t *file )
 {
-	FS_Seek(file, 0, SEEK_END);
+	FS_Seek( file, 0, SEEK_END );
 
-	demo_size = FS_Tell(file);
+	demo_size = FS_Tell( file );
 
-	if (demo_size < GS_DEMO_HEADER_SIZE)
+	if( demo_size < GS_DEMO_HEADER_SIZE )
 	{
-		Con_Printf("Invalid demo file (the size is too small).");
+		Con_Printf( "Invalid demo file (the size is too small)." );
 		return;
 	}
 
-	FS_Seek(file, 0, SEEK_SET);
+	FS_Seek( file, 0, SEEK_SET );
 
 	char signature[GS_DEMO_SIGNATURE_SIZE];
-	FS_Read(file, signature, GS_DEMO_SIGNATURE_SIZE);
-	if (Q_strcmp(signature, "HLDEMO"))
+	FS_Read( file, signature, GS_DEMO_SIGNATURE_SIZE );
+	if( Q_strcmp( signature, "HLDEMO" ))
 	{
 		return false;
 	}
 	return true;
 }
 
-static qboolean DEM_GS_ReadDemo(file_t* file)
-{	
-	if (!DEM_GS_CanHandle(file))
+static qboolean DEM_GS_ReadDemo( file_t *file )
+{
+	if( !DEM_GS_CanHandle( file ))
 		return false;
 
-	DEM_GS_ReadHeader(file);
-	DEM_GS_ReadDirectory(file);
+	DEM_GS_ReadHeader( file );
+	DEM_GS_ReadDirectory( file );
 
 	return true;
 }
 
-static float CL_GetDemoPlaybackClock(void)
+static float CL_GetDemoPlaybackClock( void )
 {
 	return host.realtime + host.frametime;
 }
@@ -510,17 +512,17 @@ static float CL_GetDemoPlaybackClock(void)
 static qboolean DEM_GS_ReadStringCMD()
 {
 	char cmd[64];
-	FS_Read(cls.demofile, cmd, 64);
+	FS_Read( cls.demofile, cmd, 64 );
 	cmd[63] = 0;
 
 	// TODO: Validate CMD
-	Cbuf_AddFilteredText(cmd);
-	Cbuf_AddFilteredText("\n");
+	Cbuf_AddFilteredText( cmd );
+	Cbuf_AddFilteredText( "\n" );
 }
 
-static qboolean DEM_GS_DemoMoveToNextSection(void)
+static qboolean DEM_GS_DemoMoveToNextSection( void )
 {
-	if (++demo.entryIndex >= demo.directory.numentries)
+	if( ++demo.entryIndex >= demo.directory.numentries )
 	{
 		// done
 		CL_DemoCompleted();
@@ -531,7 +533,7 @@ static qboolean DEM_GS_DemoMoveToNextSection(void)
 	demo.entry = &demo.directory.entries[demo.entryIndex];
 
 	// ready to continue reading, reset clock.
-	FS_Seek(cls.demofile, demo.entry->offset, SEEK_SET);
+	FS_Seek( cls.demofile, demo.entry->offset, SEEK_SET );
 
 	// time is now relative to this chunk's clock.
 	demo.starttime = CL_GetDemoPlaybackClock();
@@ -539,55 +541,56 @@ static qboolean DEM_GS_DemoMoveToNextSection(void)
 
 	return true;
 }
-static void  DEM_GS_ReadEvent()
+
+static void DEM_GS_ReadEvent()
 {
-	int flags, idx, delay;
+	int    flags, idx, delay;
 	event_args_t args;
-	file_t* file = cls.demofile;
-	if (!file)
+	file_t *file = cls.demofile;
+	if( !file )
 		return;
 
-	FS_Read(file, &flags, sizeof(int));
-	FS_Read(file, &idx, sizeof(int));
-	FS_Read(file, &delay, sizeof(int));
-	FS_Read(file, &args, sizeof(event_args_t));
+	FS_Read( file, &flags, sizeof( int ));
+	FS_Read( file, &idx, sizeof( int ));
+	FS_Read( file, &delay, sizeof( int ));
+	FS_Read( file, &args, sizeof( event_args_t ));
 
-	CL_QueueEvent(flags, idx, delay, &args);
+	CL_QueueEvent( flags, idx, delay, &args );
 }
 
-static void  DEM_GS_ReadClientDLLData()
+static void DEM_GS_ReadClientDLLData()
 {
 	static byte buffer[0x8000];
 	int len;
-	file_t* file = cls.demofile;
-	if (!file)
+	file_t      *file = cls.demofile;
+	if( !file )
 		return;
-	FS_Read(file, &len, sizeof(int));
-	if (len >= 0x8000)
+	FS_Read( file, &len, sizeof( int ));
+	if( len >= 0x8000 )
 	{
 		len = 0x8000;
 	}
-	if (!clgame.dllFuncs.pfnDemo_ReadBuffer)
+	if( !clgame.dllFuncs.pfnDemo_ReadBuffer )
 	{
-		FS_Seek(file, len, SEEK_CUR);
+		FS_Seek( file, len, SEEK_CUR );
 		return;
 	}
 
-	FS_Read(file, buffer, len);
-	clgame.dllFuncs.pfnDemo_ReadBuffer(len, buffer);	
+	FS_Read( file, buffer, len );
+	clgame.dllFuncs.pfnDemo_ReadBuffer( len, buffer );
 }
 
-static qboolean DEM_GS_ReadDemoMessage(byte* buffer, size_t* length)
+static qboolean DEM_GS_ReadDemoMessage( byte *buffer, size_t *length )
 {
-	size_t		curpos = 0, lastpos = 0;
-	float		fElapsedTime = 0.0f;
-	qboolean		swallowmessages = true;
-	static int	tdlastdemoframe = 0;
-	byte* userbuf = NULL;
-	size_t		size = 0;
-	byte		cmd;
+	size_t     curpos = 0, lastpos = 0;
+	float      fElapsedTime = 0.0f;
+	qboolean   swallowmessages = true;
+	static int tdlastdemoframe = 0;
+	byte       *userbuf = NULL;
+	size_t     size = 0;
+	byte       cmd;
 
-	if ((!cl.background && (cl.paused || cls.key_dest != key_game)) || cls.key_dest == key_console)
+	if(( !cl.background && ( cl.paused || cls.key_dest != key_game )) || cls.key_dest == key_console )
 	{
 		demo.starttime += host.frametime;
 		return false; // paused
@@ -595,36 +598,39 @@ static qboolean DEM_GS_ReadDemoMessage(byte* buffer, size_t* length)
 
 	do
 	{
-		qboolean	bSkipMessage = false;
-		int frame_num;
+		qboolean bSkipMessage = false;
+		int      frame_num;
 
-		if (!cls.demofile) break;
-		curpos = FS_Tell(cls.demofile);
+		if( !cls.demofile )
+			break;
+		curpos = FS_Tell( cls.demofile );
 
-		if (!DEM_GS_ReadDemoCmdHeader(&cmd, &demo.timestamp, &frame_num))
+		if( !DEM_GS_ReadDemoCmdHeader( &cmd, &demo.timestamp, &frame_num ))
 			return false;
 
-		//Con_Printf("cmd = %d\n", cmd);
+		// Con_Printf("cmd = %d\n", cmd);
 		fElapsedTime = CL_GetDemoPlaybackClock() - demo.starttime;
-		if (!cls.timedemo) bSkipMessage = ((demo.timestamp - cl_serverframetime()) >= fElapsedTime) ? true : false;
-		if (cls.changelevel) demo.framecount = 1;
+		if( !cls.timedemo )
+			bSkipMessage = (( demo.timestamp - cl_serverframetime()) >= fElapsedTime ) ? true : false;
+		if( cls.changelevel )
+			demo.framecount = 1;
 
 		// changelevel issues
-		if (demo.entryIndex && demo.framecount <= 2 && (fElapsedTime - demo.timestamp) > host.frametime)
+		if( demo.entryIndex && demo.framecount <= 2 && ( fElapsedTime - demo.timestamp ) > host.frametime )
 			demo.starttime = CL_GetDemoPlaybackClock();
 
 		// not ready for a message yet, put it back on the file.
-		if (cmd != GS_CMD_DEMO_START && cmd != GS_CMD_NEXT_SECTION && bSkipMessage)
+		if( cmd != GS_CMD_DEMO_START && cmd != GS_CMD_NEXT_SECTION && bSkipMessage )
 		{
 			// never skip first message
-			if (demo.framecount != 0)
+			if( demo.framecount != 0 )
 			{
-				FS_Seek(cls.demofile, curpos, SEEK_SET);
+				FS_Seek( cls.demofile, curpos, SEEK_SET );
 				return false; // not time yet.
 			}
 		}
 
-		switch (cmd)
+		switch( cmd )
 		{
 		case GS_CMD_DEMO_START:
 			break;
@@ -651,28 +657,29 @@ static qboolean DEM_GS_ReadDemoMessage(byte* buffer, size_t* length)
 			break;
 		default:
 			swallowmessages = false;
-			DEM_GS_ReadNetPacket(buffer, length);
+			DEM_GS_ReadNetPacket( buffer, length );
 			break;
 		}
 
-	} while (swallowmessages);
+	}
+	while( swallowmessages );
 
 
 	// If we are playing back a timedemo, and we've already passed on a
 	//  frame update for this host_frame tag, then we'll just skip this message.
-	if (cls.timedemo && (tdlastdemoframe == host.framecount))
+	if( cls.timedemo && ( tdlastdemoframe == host.framecount ))
 	{
-		FS_Seek(cls.demofile, FS_Tell(cls.demofile) - 5, SEEK_SET);
+		FS_Seek( cls.demofile, FS_Tell( cls.demofile ) - 5, SEEK_SET );
 		return false;
 	}
 	tdlastdemoframe = host.framecount;
 
 	// if not on "LOADING" section, check a few things
-	if (demo.entryIndex)
+	if( demo.entryIndex )
 	{
 		// We are now on the second frame of a new section,
 		// if so, reset start time (unless in a timedemo)
-		if (demo.framecount == 1 && !cls.timedemo)
+		if( demo.framecount == 1 && !cls.timedemo )
 		{
 			// cheat by moving the relative start time forward.
 			demo.starttime = CL_GetDemoPlaybackClock();
@@ -684,142 +691,143 @@ static qboolean DEM_GS_ReadDemoMessage(byte* buffer, size_t* length)
 	return true;
 }
 
-static qboolean DEM_GS_StartRecord(file_t* file)
+static qboolean DEM_GS_StartRecord( file_t *file )
 {
-	double maxfps;
-	int copysize;
-	int savepos;
-	int curpos;
+	double      maxfps;
+	int         copysize;
+	int         savepos;
+	int         curpos;
 
 	static char hl_signature[] = { 'H', 'L', 'D', 'E', 'M', 'O', '\0', '\0' };
 	cls.demorecording = true;
-	cls.demowaiting = true;	
+	cls.demowaiting = true;
 
 	maxfps = fps_override.value ? MAX_FPS_HARD : MAX_FPS_SOFT;
 
-	memset(&demo.header, 0, sizeof(demo.header));
+	memset( &demo.header, 0, sizeof( demo.header ));
 
-	memcpy(demo.header.filestamp, hl_signature, sizeof(hl_signature));
+	memcpy( demo.header.filestamp, hl_signature, sizeof( hl_signature ));
 
-	demo.fps = host_maxfps.value ? bound(MIN_FPS, host_maxfps.value, maxfps) : maxfps;
+	demo.fps = host_maxfps.value ? bound( MIN_FPS, host_maxfps.value, maxfps ) : maxfps;
 
 
 	demo.header.demo_protocol = 5;
 
-	if(cls.legacymode == PROTO_CURRENT)
+	if( cls.legacymode == PROTO_CURRENT )
 		demo.header.net_protocol = 49;
 	else
 		demo.header.net_protocol = 48;
 
 	demo.header.directory_offset = 0;
 
-	Q_strncpy(demo.header.map_name, clgame.mapname, sizeof(demo.header.map_name));
-	Q_strncpy(demo.header.dll_dir, FS_Gamedir(), sizeof(demo.header.dll_dir));
-	
-	FS_Write(file, &demo.header, sizeof(demo.header));
+	Q_strncpy( demo.header.map_name, clgame.mapname, sizeof( demo.header.map_name ));
+	Q_strncpy( demo.header.dll_dir, FS_Gamedir(), sizeof( demo.header.dll_dir ));
 
-	memset(&demo.directory, 0, sizeof(demo.directory));
+	FS_Write( file, &demo.header, sizeof( demo.header ));
+
+	memset( &demo.directory, 0, sizeof( demo.directory ));
 	demo.directory.numentries = 2;
-	demo.directory.entries = Mem_Calloc(cls.mempool, sizeof(dem_entry_t) * demo.directory.numentries);
+	demo.directory.entries = Mem_Calloc( cls.mempool, sizeof( dem_entry_t ) * demo.directory.numentries );
 
-	demo.entry = &demo.directory.entries[0];	// only one here.
-	Q_strncpy(demo.entry->description, "LOADING", sizeof(demo.entry->description));
+	demo.entry = &demo.directory.entries[0]; // only one here.
+	Q_strncpy( demo.entry->description, "LOADING", sizeof( demo.entry->description ));
 	demo.entry->entrytype = GS_DEMO_STARTUP;
 	demo.entry->flags = 0;
 	demo.entry->cd_track = -1;
 	demo.entry->cd_tracktime = 0.0;
 	cls.demowaiting = TRUE;
-	demo.entry->offset = FS_Tell(file);
+	demo.entry->offset = FS_Tell( file );
 	cls.demorecording = TRUE;
 
-	DEM_GS_WriteDemoCmdHeader(5, cls.demoheader);
-	FS_Flush(cls.demoheader);
+	DEM_GS_WriteDemoCmdHeader( 5, cls.demoheader );
+	FS_Flush( cls.demoheader );
 
-	copysize = savepos = FS_Tell(cls.demoheader);
-	FS_Seek(cls.demoheader, 0, SEEK_SET);
+	copysize = savepos = FS_Tell( cls.demoheader );
+	FS_Seek( cls.demoheader, 0, SEEK_SET );
 
-	FS_FileCopy(cls.demofile, cls.demoheader, copysize);
+	FS_FileCopy( cls.demofile, cls.demoheader, copysize );
 
-	FS_Seek(cls.demoheader, savepos, SEEK_SET);
+	FS_Seek( cls.demoheader, savepos, SEEK_SET );
 
 
-	demo.starttime = CL_GetDemoRecordClock();	// setup the demo starttime
+	demo.starttime = CL_GetDemoRecordClock(); // setup the demo starttime
 	demo.realstarttime = demo.starttime;
 	demo.framecount = 0;
 	cls.td_startframe = host.framecount;
-	cls.td_lastframe = -1;			// get a new message this frame
+	cls.td_lastframe = -1; // get a new message this frame
 
 	// now move on to entry # 1, the first data chunk.
-	curpos = FS_Tell(cls.demofile);
+	curpos = FS_Tell( cls.demofile );
 	demo.entry->file_length = curpos - demo.entry->offset;
 
 	// now we are writing the first real lump.
 	demo.entry = &demo.directory.entries[1]; // first real data lump
-	Q_strncpy(demo.entry->description, "PLAYBACK", sizeof(demo.entry->description));
+	Q_strncpy( demo.entry->description, "PLAYBACK", sizeof( demo.entry->description ));
 	demo.entry->entrytype = GS_DEMO_NORMAL;
 	demo.entry->cd_track = -1;
 	demo.entry->cd_tracktime = 0.0;
 
-	demo.entry->offset = FS_Tell(cls.demofile);
-	
-	DEM_GS_WriteDemoCmdHeader(2, cls.demofile);
+	demo.entry->offset = FS_Tell( cls.demofile );
 
-	if (clgame.hInstance) clgame.dllFuncs.pfnReset();
+	DEM_GS_WriteDemoCmdHeader( 2, cls.demofile );
 
-	Cbuf_InsertText("fullupdate\n");
+	if( clgame.hInstance )
+		clgame.dllFuncs.pfnReset();
+
+	Cbuf_InsertText( "fullupdate\n" );
 	Cbuf_Execute();
 
 	return true;
 }
 
-static qboolean DEM_GS_StopRecord(file_t* file)
+static qboolean DEM_GS_StopRecord( file_t *file )
 {
-	int	i, curpos;
-	float	stoptime;
-	int	frames;
+	int   i, curpos;
+	float stoptime;
+	int   frames;
 
-	if (!cls.demorecording)
+	if( !cls.demorecording )
 	{
 		return false;
 	}
 
 	// demo playback should read this as an incoming message.
-	DEM_GS_WriteDemoCmdHeader(GS_CMD_NEXT_SECTION, file);
+	DEM_GS_WriteDemoCmdHeader( GS_CMD_NEXT_SECTION, file );
 
 	stoptime = CL_GetDemoRecordClock();
-	if (clgame.hInstance) clgame.dllFuncs.pfnReset();
+	if( clgame.hInstance )
+		clgame.dllFuncs.pfnReset();
 
-	curpos = FS_Tell(file);
+	curpos = FS_Tell( file );
 	demo.entry->file_length = curpos - demo.entry->offset;
 
 	//  Now write out the directory and free it and touch up the demo header.
-	FS_Write(file, &demo.directory.numentries, sizeof(int));
+	FS_Write( file, &demo.directory.numentries, sizeof( int ));
 
-	for (i = 0; i < demo.directory.numentries; i++)
-		FS_Write(file, &demo.directory.entries[i], sizeof(dem_entry_t));
+	for( i = 0; i < demo.directory.numentries; i++ )
+		FS_Write( file, &demo.directory.entries[i], sizeof( dem_entry_t ));
 
-	Mem_Free(demo.directory.entries);
+	Mem_Free( demo.directory.entries );
 	demo.directory.numentries = 0;
 
 	demo.header.directory_offset = curpos;
-	FS_Seek(file, 0, SEEK_SET);
-	FS_Write(file, &demo.header, sizeof(demo.header));
+	FS_Seek( file, 0, SEEK_SET );
+	FS_Write( file, &demo.header, sizeof( demo.header ));
 
 	return true;
 
 }
 
-
-static qboolean DEM_GS_StartPlayback(file_t* file)
+static qboolean DEM_GS_StartPlayback( file_t *file )
 {
-	if (!DEM_GS_ReadDemo(file))
+	if( !DEM_GS_ReadDemo( file ))
 	{
 		return false;
 	}
 
-	CL_DemoStartPlayback(DEMO_GOLDSRC);	
+	CL_DemoStartPlayback( DEMO_GOLDSRC );
 
-	if(demo.header.net_protocol == 49)
+	if( demo.header.net_protocol == 49 )
 		cls.legacymode = PROTO_CURRENT;
 	else
 		cls.legacymode = PROTO_GOLDSRC;
@@ -833,30 +841,30 @@ static void DEM_GS_ResetHandler()
 	demo.starttime = 0;
 }
 
-static qboolean DEM_GS_StopPlayback(file_t* file)
+static qboolean DEM_GS_StopPlayback( file_t *file )
 {
 	DEM_GS_ResetHandler();
 	return true;
 }
 
-static void DEM_GS_WriteDemoUserMessage(int size, byte* buffer)
+static void DEM_GS_WriteDemoUserMessage( int size, byte *buffer )
 {
-	if (!cls.demorecording || cls.demowaiting)
+	if( !cls.demorecording || cls.demowaiting )
 		return;
 
-	if (!cls.demofile || !buffer || size <= 0)
+	if( !cls.demofile || !buffer || size <= 0 )
 		return;
 
-	DEM_GS_WriteDemoCmdHeader(GS_CMD_DEMO_BUFFER, cls.demofile);
+	DEM_GS_WriteDemoCmdHeader( GS_CMD_DEMO_BUFFER, cls.demofile );
 
 	// write the length out.
-	FS_Write(cls.demofile, &size, sizeof(int));
+	FS_Write( cls.demofile, &size, sizeof( int ));
 
 	// output the buffer.
-	FS_Write(cls.demofile, buffer, size);
+	FS_Write( cls.demofile, buffer, size );
 }
 
-static double DEM_GS_GetHostFPS(void)
+static double DEM_GS_GetHostFPS( void )
 {
 	return demo.fps;
 }
@@ -864,29 +872,29 @@ static double DEM_GS_GetHostFPS(void)
 static demo_handler_t GS_DemoHandler = {
 	"goldsource",
 	{
-	DEM_GS_StartRecord,
-	DEM_GS_StopRecord,
-	DEM_GS_StartPlayback,
-	DEM_GS_StopPlayback,
-	NULL, // todo ListDemo
-	DEM_GS_CanHandle,
-	DEM_GS_ResetHandler,
-	DEM_GS_WriteAnim,
-	DEM_GS_WriteClientData,
-	DEM_GS_WriteEvent,
-	DEM_GS_WriteNetPacket,
-	DEM_GS_WriteSound,
-	DEM_GS_WriteStringCMD,
-	NULL,
-	DEM_GS_WriteDemoUserMessage,
-	DEM_GS_ReadDemoMessage,
-	DEM_GS_GetHostFPS,
-	NULL
+		DEM_GS_StartRecord,
+		DEM_GS_StopRecord,
+		DEM_GS_StartPlayback,
+		DEM_GS_StopPlayback,
+		NULL, // todo ListDemo
+		DEM_GS_CanHandle,
+		DEM_GS_ResetHandler,
+		DEM_GS_WriteAnim,
+		DEM_GS_WriteClientData,
+		DEM_GS_WriteEvent,
+		DEM_GS_WriteNetPacket,
+		DEM_GS_WriteSound,
+		DEM_GS_WriteStringCMD,
+		NULL,
+		DEM_GS_WriteDemoUserMessage,
+		DEM_GS_ReadDemoMessage,
+		DEM_GS_GetHostFPS,
+		NULL
 	},
 	NULL
 };
 
-void DEM_GS_InitHandler(void)
+void DEM_GS_InitHandler( void )
 {
-	DEM_RegisterHandler(&GS_DemoHandler);
+	DEM_RegisterHandler( &GS_DemoHandler );
 }
