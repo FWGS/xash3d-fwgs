@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "demofile.h"
+#include "crtlib.h"
 
 static demo_handler_t *demo_handlers = NULL;
 static demo_handler_t *demo_handler = NULL;
@@ -27,7 +28,7 @@ static demo_handler_t *DEM_GetHandler( const char *format_name )
 	demo_handler_t *current = demo_handlers;
 	while( current != NULL )
 	{
-		if( strcmp( current->name, format_name ) == 0 )
+		if( Q_strcmp( current->name, format_name ) == 0 )
 		{
 			return current;
 		}
