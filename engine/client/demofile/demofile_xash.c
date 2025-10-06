@@ -1149,7 +1149,7 @@ static qboolean DEM_Xash_StopPlayback( file_t *file )
 	return true;
 }
 
-static demo_handler_t Xash_DemoHandler = {
+static const demo_handler_t Xash_DemoHandler = {
 	"xash3d",
 	{
 		DEM_Xash_StartRecord,

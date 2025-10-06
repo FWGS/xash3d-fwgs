@@ -869,7 +869,7 @@ static double DEM_GS_GetHostFPS( void )
 	return demo.fps;
 }
 
-static demo_handler_t GS_DemoHandler = {
+static const demo_handler_t GS_DemoHandler = {
 	"goldsource",
 	{
 		DEM_GS_StartRecord,
