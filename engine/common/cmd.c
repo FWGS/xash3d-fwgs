@@ -1002,6 +1002,11 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 				cmd_currentCommandIsPrivileged = isPrivileged;
 				cmd->function();
 				cmd_currentCommandIsPrivileged = true;
+
+				if (cls.demorecording && cls.spectator && FBitSet(cmd->flags, CMD_CLIENTDLL))
+				{
+					CL_WriteDemoStringCmd(cmd->name);
+				}
 			}
 			else
 			{

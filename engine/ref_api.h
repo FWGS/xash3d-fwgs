@@ -101,7 +101,8 @@ typedef enum
 {
 	DEMO_INACTIVE = 0,
 	DEMO_XASH3D,
-	DEMO_QUAKE1
+	DEMO_QUAKE1,
+	DEMO_GOLDSRC
 } demo_mode;
 
 typedef enum ref_window_type_e

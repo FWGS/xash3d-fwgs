@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "input.h" // touch
 #include "platform/platform.h" // GL_UpdateSwapInterval
 
+static ref_params_t	rp;
 /*
 ===============
 V_CalcViewRect
@@ -368,9 +369,6 @@ V_RenderView
 */
 void V_RenderView( void )
 {
-	// HACKHACK: make ref params static
-	// not really critical but allows client.dll to take address of refdef and don't trigger ASan
-	static ref_params_t	rp;
 	ref_viewpass_t	rvp;
 	int		viewnum = 0;
 
@@ -556,4 +554,9 @@ void V_PostRender( void )
 	ref.dllFuncs.R_EndFrame();
 
 	V_CheckGammaEnd();
+}
+
+ref_params_t* V_RefParams(void)
+{
+	return &rp;
 }

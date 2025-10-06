@@ -350,7 +350,7 @@ CL_QueueEvent
 
 =============
 */
-static void CL_QueueEvent( int flags, int index, float delay, event_args_t *args )
+void CL_QueueEvent( int flags, int index, float delay, event_args_t *args )
 {
 	event_info_t	*ei;
 
@@ -555,4 +555,7 @@ void GAME_EXPORT CL_PlaybackEvent( int flags, const edict_t *pInvoker, word even
 	args.bparam2 = bparam2;
 
 	CL_QueueEvent( flags, eventindex, delay, &args );
+
+	if (cls.demorecording)
+		CL_WriteDemoEvent(flags, eventindex, delay, &args);
 }
