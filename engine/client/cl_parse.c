@@ -385,7 +385,7 @@ void GAME_EXPORT CL_WeaponAnim( int iAnim, int body )
 #endif
 
 	if (cls.demorecording)
-		CL_WriteDemoAnim(iAnim, body);
+		CL_WriteDemoAnim( iAnim, body );
 }
 
 /*

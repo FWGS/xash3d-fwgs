@@ -702,7 +702,7 @@ static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float vol
 		return;
 
 	if (cls.demorecording)
-		CL_WriteDemoSound(channel, sample, volume, attenuation, fFlags, pitch);
+		CL_WriteDemoSound( channel, sample, volume, attenuation, fFlags, pitch );
 
 	S_StartSound( NULL, clgame.pmove->player_index + 1, channel, S_RegisterSound( sample ), volume, attenuation, pitch, fFlags );
 }

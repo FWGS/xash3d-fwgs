@@ -557,5 +557,5 @@ void GAME_EXPORT CL_PlaybackEvent( int flags, const edict_t *pInvoker, word even
 	CL_QueueEvent( flags, eventindex, delay, &args );
 
 	if (cls.demorecording)
-		CL_WriteDemoEvent(flags, eventindex, delay, &args);
+		CL_WriteDemoEvent( flags, eventindex, delay, &args );
 }

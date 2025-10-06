@@ -1005,7 +1005,7 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 
 				if (cls.demorecording && cls.spectator && FBitSet(cmd->flags, CMD_CLIENTDLL))
 				{
-					CL_WriteDemoStringCmd(cmd->name);
+					CL_WriteDemoStringCmd( cmd->name );
 				}
 			}
 			else

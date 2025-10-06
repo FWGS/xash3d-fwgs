@@ -595,7 +595,7 @@ tell the client.dll about player origin, angles, fov, etc
 static void CL_UpdateClientData( void )
 {
 	client_data_t	cdat;
-	client_data_t oldcdat;
+	client_data_t	oldcdat;
 
 	if( cls.state != ca_active )
 		return;
@@ -608,7 +608,7 @@ static void CL_UpdateClientData( void )
 	cdat.fov = cl.local.scr_fov;
 
 	if (cls.demorecording)
-		memcpy(&oldcdat, &cdat, sizeof(oldcdat));
+		oldcdat = cdat;
 
 	if( clgame.dllFuncs.pfnUpdateClientData( &cdat, cl.time ))
 	{
@@ -617,7 +617,7 @@ static void CL_UpdateClientData( void )
 		cl.local.scr_fov = cdat.fov;
 	}
 	if (cls.demorecording)
-		CL_WriteDemoClientData(&oldcdat);
+		CL_WriteDemoClientData( &oldcdat );
 }
 
 /*
