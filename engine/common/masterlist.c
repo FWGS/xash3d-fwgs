@@ -46,10 +46,10 @@ static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t
 	char *info, temp[32];
 
 	// TODO: pagination and region
-	Q_strncpy( buf, MS_SCAN_REQUEST, size );
+	Q_strncpy( buf, A2M_SCAN_REQUEST, size );
 
-	info = buf + sizeof( MS_SCAN_REQUEST ) - 1;
-	remaining = size - sizeof( MS_SCAN_REQUEST );
+	info = buf + sizeof( A2M_SCAN_REQUEST ) - 1;
+	remaining = size - sizeof( A2M_SCAN_REQUEST );
 
 	Q_strncpy( info, filter, remaining );
 
@@ -74,7 +74,7 @@ static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t
 		Info_SetValueForKey( info, "key", temp, remaining );
 	}
 
-	return sizeof( MS_SCAN_REQUEST ) + Q_strlen( info );
+	return sizeof( A2M_SCAN_REQUEST ) + Q_strlen( info );
 }
 
 /*
@@ -165,7 +165,7 @@ static void NET_AnnounceToMaster( master_t *m )
 	m->heartbeat_challenge = COM_RandomLong( 0, INT_MAX );
 
 	MSG_Init( &msg, "Master Join", buf, sizeof( buf ));
-	MSG_WriteBytes( &msg, "q\xFF", 2 );
+	MSG_WriteBytes( &msg, S2M_HEARTBEAT, 2 );
 	MSG_WriteDword( &msg, m->heartbeat_challenge );
 
 	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &msg ), MSG_GetData( &msg ), m->adr );
@@ -269,7 +269,7 @@ Informs all masters that this server is going down
 void NET_MasterShutdown( void )
 {
 	NET_Config( true, false ); // allow remote
-	while( NET_SendToMasters( NS_SERVER, 2, "\x62\x0A", PROTO_CURRENT ));
+	while( NET_SendToMasters( NS_SERVER, 2, S2M_SHUTDOWN, PROTO_CURRENT ));
 	NET_ClearSendState();
 }
 

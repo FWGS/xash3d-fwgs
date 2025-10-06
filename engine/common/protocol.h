@@ -317,7 +317,6 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 	| ENGINE_COMPUTE_STUDIO_LERP  )
 
 // Master Server protocol
-#define MS_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
 
 // GoldSrc protocol definitions
 #define PROTOCOL_GOLDSRC_VERSION 48
@@ -372,7 +371,9 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define M2S_NAT_CONNECT   "c"
 
 // from server to master
+#define S2M_HEARTBEAT     "q\xff"
 #define S2M_INFO          "0\n"
+#define S2M_SHUTDOWN      "\x62\x0a"
 
 // from client to server
 #define C2S_BANDWIDTHTEST "bandwidth"
@@ -395,7 +396,10 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define A2C_PRINT           "print"
 #define A2C_GOLDSRC_PRINT   'l'
 
-// from master to client
+// from any to master
+#define A2M_SCAN_REQUEST "1\xFF" "0.0.0.0:0\0" // TODO: implement IP filter
+
+// from master to any
 #define M2A_SERVERSLIST "f"
 
 #endif//NET_PROTOCOL_H
