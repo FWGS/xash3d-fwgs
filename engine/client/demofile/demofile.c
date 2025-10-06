@@ -76,7 +76,7 @@ qboolean DEM_FindRecordHandler()
 	{
 		Con_Printf( "dem_format \"%s\" is not valid, resetting to \"xash3d\"\n", dem_format.string );
 		Con_Printf( "Available formats: [xash3d, goldsource]\n" );
-		Cvar_Set( "dem_format", "xash3d" );
+		Cvar_DirectSet( &dem_format, "xash3d" );
 		demo_handler = DEM_GetHandler( "xash3d" );
 	}
 
